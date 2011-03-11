@@ -23,12 +23,17 @@
 		<link>
 			<name>corejava</name>
 			<type>2</type>
-			<location>/home/matthai/workspace/olatcore/src/main/java</location>
+			<locationURI>$%257BWORKSPACE_LOC%257D/vcrpOLAT-7.1.x/olatcore/src/main/java</locationURI>
 		</link>
 		<link>
 			<name>coreresources</name>
 			<type>2</type>
-			<location>/home/matthai/workspace/olatcore/src/main/resources</location>
+			<locationURI>$%257BWORKSPACE_LOC%257D/vcrpOLAT-7.1.x/olatcore/src/main/resources</locationURI>
+		</link>
+		<link>
+			<name>webapp/WEB-INF/src/olat.local.properties</name>
+			<type>1</type>
+			<location>/Users/srosse/workspace/fxOLAT-7.1.x/olat3/olat.local.mysql.properties</location>
 		</link>
 	</linkedResources>
 </projectDescription>
