@@ -21,8 +21,9 @@
 
 package org.olat.course;
 
-import java.util.Iterator;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 import org.olat.core.id.Identity;
 import org.olat.core.id.OLATResourceable;
@@ -31,6 +32,12 @@ import org.olat.core.util.servlets.WebDAVProvider;
 import org.olat.core.util.vfs.MergeSource;
 import org.olat.core.util.vfs.NamedContainerImpl;
 import org.olat.core.util.vfs.VFSContainer;
+import org.olat.course.groupsandrights.CourseRights;
+import org.olat.group.context.BGContext;
+import org.olat.group.context.BGContextManager;
+import org.olat.group.context.BGContextManagerImpl;
+import org.olat.group.right.BGRightManager;
+import org.olat.group.right.BGRightManagerImpl;
 import org.olat.repository.RepositoryEntry;
 import org.olat.repository.RepositoryManager;
 /**
@@ -47,16 +54,34 @@ public class CoursefolderWebDAVProvider implements WebDAVProvider {
 	public VFSContainer getContainer(Identity identity) {
 		MergeSource cfRoot = new MergeSource(null, null);
 		RepositoryManager rm = RepositoryManager.getInstance();
-		List courseEntries = rm.queryByOwner(identity, CourseModule.getCourseTypeName());
+		List<RepositoryEntry> courseEntries = rm.queryByOwner(identity, CourseModule.getCourseTypeName());
 		
-		for (Iterator iter = courseEntries.iterator(); iter.hasNext();) {
-			RepositoryEntry re = (RepositoryEntry) iter.next();
+		Set<Long> smashDuplicates = new HashSet<Long>();
+		for(RepositoryEntry courseEntry:courseEntries) {
+			smashDuplicates.add(courseEntry.getKey());
+		}
+		
+		BGContextManager bgContextManager = BGContextManagerImpl.getInstance();
+		BGRightManager bgRightManager = BGRightManagerImpl.getInstance();
+		List<BGContext> contexts = bgContextManager.findBGContextsForIdentity(identity, true, true);
+		for(BGContext context:contexts) {
+			if(bgRightManager.hasBGRight(CourseRights.RIGHT_COURSEEDITOR, identity, context)) {
+				List<RepositoryEntry> entries = bgContextManager.findRepositoryEntriesForBGContext(context);
+				for(RepositoryEntry entry:entries) {
+					if(!smashDuplicates.contains(entry.getKey())) {
+						courseEntries.add(entry);
+						smashDuplicates.add(entry.getKey());
+					}
+				}
+			}
+		}
+		
+		for (RepositoryEntry re:courseEntries) {
 			OLATResourceable res = re.getOlatResource();
 			ICourse course = CourseFactory.loadCourse(res.getResourceableId());
 			VFSContainer courseFolder = course.getCourseFolderContainer();
-			//NamedContainerImpl cfContainer = new NamedContainerImpl(Formatter.makeStringFilesystemSave(course.getCourseTitle()), courseFolder);
-			NamedContainerImpl cfContainer;
-			cfContainer = new NamedContainerImpl(Formatter.makeStringFilesystemSave(course.getCourseTitle()), courseFolder);
+			String courseTitle = Formatter.makeStringFilesystemSave(course.getCourseTitle());
+			NamedContainerImpl cfContainer = new NamedContainerImpl(courseTitle, courseFolder);
 			cfRoot.addContainer(cfContainer);
 		}
 		return cfRoot;
