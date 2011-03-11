@@ -23,10 +23,12 @@ package org.olat.repository.controllers;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
 import org.olat.core.dispatcher.DispatcherAction;
+import org.olat.core.gui.ShortName;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.Component;
 import org.olat.core.gui.components.link.Link;
@@ -91,7 +93,7 @@ public class RepositorySearchController extends BasicController {
 	 * @param enableDirectLaunch
 	 */
 	public RepositorySearchController(String selectButtonLabel, UserRequest ureq, WindowControl myWControl, boolean withCancel, boolean enableDirectLaunch) {
-		super(ureq, myWControl);
+		super(ureq, myWControl, Util.createPackageTranslator(RepositoryManager.class, ureq.getLocale()));
 		init(selectButtonLabel, ureq, withCancel, enableDirectLaunch, new String[]{});
 	}
 	
@@ -110,7 +112,7 @@ public class RepositorySearchController extends BasicController {
 
 	public RepositorySearchController(String selectButtonLabel, UserRequest ureq, WindowControl myWControl, boolean withCancel, boolean enableDirectLaunch,
 			String[] limitTypes) {
-		super(ureq, myWControl);
+		super(ureq, myWControl, Util.createPackageTranslator(RepositoryManager.class, ureq.getLocale()));
 		init(selectButtonLabel, ureq, withCancel, enableDirectLaunch, limitTypes);
 	}
 	
@@ -118,7 +120,7 @@ public class RepositorySearchController extends BasicController {
 	 * @param myWControl
 	 */
 	public RepositorySearchController(UserRequest ureq, WindowControl myWControl) {
-		super(ureq, myWControl);
+		super(ureq, myWControl, Util.createPackageTranslator(RepositoryManager.class, ureq.getLocale()));
 	}
 
 	private void init(String selectButtonLabel, UserRequest ureq, boolean withCancel, boolean enableDirectLaunch, String[] limitTypes) {
@@ -137,7 +139,13 @@ public class RepositorySearchController extends BasicController {
 		TableGuiConfiguration tableConfig = new TableGuiConfiguration();
 		if (selectButtonLabel != null) tableConfig.setPreferencesOffered(true, "repositorySearchResult");
 		
-		tableCtr = new TableController(tableConfig, ureq, getWindowControl(), translator, true);
+		//tableCtr = new TableController(tableConfig, ureq, getWindowControl(), translator, true);
+		
+		String filterTitle = "Typ";
+		String noFilterOption = "-";
+		tableCtr = new TableController(tableConfig, ureq, getWindowControl(), null, null, filterTitle, noFilterOption, true, translator);
+		
+		
 		listenTo(tableCtr);
 		
 		repoTableModel = new RepositoryTableModel(translator);
@@ -197,6 +205,7 @@ public class RepositorySearchController extends BasicController {
 		List entries = rm.genericANDQueryWithRolesRestriction(searchForm.getDisplayName(), searchForm.getAuthor(),
 			searchForm.getDescription(), restrictedTypes, ureq.getUserSession().getRoles(), ureq.getIdentity().getUser().getProperty(UserConstants.INSTITUTIONALNAME, null));
 		repoTableModel.setObjects(entries);
+		tableCtr.setFilters(restrictedTypes, null);
 		tableCtr.modelChanged();
 		displaySearchResults(ureq);
 	}
@@ -218,6 +227,7 @@ public class RepositorySearchController extends BasicController {
 		
 		List entries = rm.queryReferencableResourcesLimitType(ident, roles, restrictedTypes, name, author, desc);
 		repoTableModel.setObjects(entries);
+		tableCtr.setFilters(restrictedTypes, null);
 		tableCtr.modelChanged();
 		displaySearchResults(ureq);
 	}
@@ -248,8 +258,18 @@ public class RepositorySearchController extends BasicController {
 		List entries = rm.queryReferencableResourcesLimitType(owner, roles, restrictedTypes, null, null, null);
 		
 		repoTableModel.setObjects(entries);
+		tableCtr.setFilters(restrictedTypes, null);
 		tableCtr.modelChanged();
 		displaySearchResults(null);
+	}
+	
+	/**
+	 * Search for all resources where identity is owner.
+	 * 
+	 * @param owner
+	 */
+	public void doSearchByOwner(Identity owner) {
+		doSearchByOwnerLimitTypeInternal(owner, new String[] {}, true);
 	}
 
 	/**
@@ -258,14 +278,34 @@ public class RepositorySearchController extends BasicController {
 	 * @param limitType
 	 */
 	public void doSearchByOwnerLimitType(Identity owner, String limitType) {
-		doSearchByOwnerLimitType(owner,new String[]{limitType});
+		doSearchByOwnerLimitTypeInternal(owner, new String[]{limitType}, true);
 	}
 	
 	public void doSearchByOwnerLimitType(Identity owner, String[] limitTypes) {
+		doSearchByOwnerLimitTypeInternal(owner, limitTypes, true);
+	}
+	
+	private void doSearchByOwnerLimitTypeInternal(Identity owner, String[] limitTypes, boolean updateFilters) {
 		RepositoryManager rm = RepositoryManager.getInstance();
-		List entries = rm.queryByOwner(owner, limitTypes);
+		List<RepositoryEntry> entries = rm.queryByOwner(owner, limitTypes);
+		
+		if(updateFilters) {
+			List<ShortName> restrictedTypes = new ArrayList<ShortName>();
+			Set<String> uniqueTypes = new HashSet<String>();
+			for(RepositoryEntry entry:entries) {
+				if(entry.getOlatResource() == null) continue;//no red screen for that
+				String type = entry.getOlatResource().getResourceableTypeName();
+				if(type != null && !uniqueTypes.contains(type)) {
+					String label = translate(type);
+					restrictedTypes.add(new TypeFilter(type, label, owner));
+					uniqueTypes.add(type);
+				}
+			}
+			tableCtr.setFilters(restrictedTypes, null);
+		}
+		
 		repoTableModel.setObjects(entries);
-		tableCtr.modelChanged();
+		tableCtr.modelChanged(updateFilters);
 		displaySearchResults(null);
 	}
 	
@@ -277,19 +317,11 @@ public class RepositorySearchController extends BasicController {
 	public void doSearchByOwnerLimitAccess(Identity owner, int access) {
 		RepositoryManager rm = RepositoryManager.getInstance();
 		List entries = rm.queryByOwnerLimitAccess(owner, access);
-		
+
 		repoTableModel.setObjects(entries);
+		tableCtr.setFilters(null, null);
 		tableCtr.modelChanged();
 		displaySearchResults(null);
-	}
-	
-	/**
-	 * Search for all resources where identity is owner.
-	 * 
-	 * @param owner
-	 */
-	public void doSearchByOwner(Identity owner) {
-		doSearchByOwnerLimitType(owner, new String[] {});
 	}
 	
 	/**
@@ -302,6 +334,7 @@ public class RepositorySearchController extends BasicController {
 		RepositoryManager rm = RepositoryManager.getInstance();
 		List entries = rm.queryByTypeLimitAccess(type, ureq);
 		repoTableModel.setObjects(entries);
+		tableCtr.setFilters(null, null);
 		tableCtr.modelChanged();
 		displaySearchResults(ureq);
 	}
@@ -320,6 +353,7 @@ public class RepositorySearchController extends BasicController {
 		RepositoryManager rm = RepositoryManager.getInstance();
 		List<RepositoryEntry> entries = rm.getLearningResourcesAsStudent(ureq.getIdentity());
 		repoTableModel.setObjects(entries);
+		tableCtr.setFilters(null, null);
 		tableCtr.modelChanged();
 		displaySearchResults(ureq);
 	}
@@ -328,6 +362,7 @@ public class RepositorySearchController extends BasicController {
 		RepositoryManager rm = RepositoryManager.getInstance();
 		List<RepositoryEntry> entries = rm.getLearningResourcesAsTeacher(ureq.getIdentity());
 		repoTableModel.setObjects(entries);
+		tableCtr.setFilters(null, null);
 		tableCtr.modelChanged();
 		displaySearchResults(ureq);
 	}
@@ -367,14 +402,21 @@ public class RepositorySearchController extends BasicController {
 	 */
 	public void event(UserRequest urequest, Controller source, Event event) {
 		if (source == tableCtr) { // process table actions
-			TableEvent te = (TableEvent)event;
-			selectedEntry =  (RepositoryEntry)tableCtr.getTableDataModel().getObject(te.getRowId());
-			if (te.getActionId().equals(RepositoryTableModel.TABLE_ACTION_SELECT_ENTRY)) {
-				fireEvent(urequest, new Event(RepositoryTableModel.TABLE_ACTION_SELECT_ENTRY));
-				return;
-			} else if (te.getActionId().equals(RepositoryTableModel.TABLE_ACTION_SELECT_LINK)) {
-				fireEvent(urequest, new Event(RepositoryTableModel.TABLE_ACTION_SELECT_LINK));
-				return;
+			if(event instanceof TableEvent) {
+				TableEvent te = (TableEvent)event;
+				selectedEntry =  (RepositoryEntry)tableCtr.getTableDataModel().getObject(te.getRowId());
+				if (te.getActionId().equals(RepositoryTableModel.TABLE_ACTION_SELECT_ENTRY)) {
+					fireEvent(urequest, new Event(RepositoryTableModel.TABLE_ACTION_SELECT_ENTRY));
+					return;
+				} else if (te.getActionId().equals(RepositoryTableModel.TABLE_ACTION_SELECT_LINK)) {
+					fireEvent(urequest, new Event(RepositoryTableModel.TABLE_ACTION_SELECT_LINK));
+					return;
+				}
+			} else if (TableController.EVENT_FILTER_SELECTED.equals(event)) {
+				TypeFilter typeFilter = (TypeFilter) tableCtr.getActiveFilter();
+				doSearchByOwnerLimitTypeInternal(typeFilter.getOwner(), new String[]{typeFilter.getType()}, false);
+			} else if (TableController.EVENT_NOFILTER_SELECTED.equals(event)) {
+				doSearchByOwnerLimitTypeInternal(getIdentity(), new String[]{}, false);
 			}
 		} 
 		else if (event instanceof EntryChangedEvent) { // remove deleted entry
@@ -411,5 +453,48 @@ public class RepositorySearchController extends BasicController {
 	 */
 	protected void doDispose() {
 		//
+	}
+	
+	private class TypeFilter implements ShortName {
+		
+		private final String type;
+		private final String typeName;
+		private final Identity owner;
+		
+		public TypeFilter(String type, String typeName, Identity owner) {
+			this.type = type;
+			this.typeName = typeName;
+			this.owner = owner;
+		}
+		
+		public String getType() {
+			return type;
+		}
+		
+		public Identity getOwner() {
+			return owner;
+		}
+
+		@Override
+		public String getShortName() {
+			return typeName;
+		}
+		
+		@Override
+		public int hashCode() {
+			return type.hashCode();
+		}
+		
+		@Override
+		public boolean equals(Object obj) {
+			if(this == obj) {
+				return true;
+			}
+			if(obj instanceof TypeFilter) {
+				TypeFilter typeobj = (TypeFilter)obj;
+				return type != null && type.equals(typeobj.type);
+			}
+			return false;
+		}
 	}
 }

@@ -451,10 +451,11 @@
 	div.b_table_wrapper table input { height: 1em; width: 1em;}
 	div.b_table_wrapper table td.b_table_marked { background: #c4d0dc; }	
 	/* table add-ons */
-	div.b_table_wrapper div.b_table_filter { float: right; display: inline; font-size: 95%; margin: 2px 0;}
-	div.b_table_wrapper div.b_table_filter label { font-style: italic;}
+	div.b_table_wrapper div.b_table_filter { float: left; display: inline; font-size: 95%; margin:7px 10px 2px 0;}
+	div.b_table_wrapper div.b_table_filter label { font-style: italic; margin:5px 0 2px 0; }
 	div.b_table_wrapper div.b_table_filter select { border: 1px solid #ACAAAA	; }
 	div.b_table_wrapper div.b_table_filter option { }
+	div.b_table_wrapper div.b_clearfix div.b_floatbox { margin:5px 0 0 0; }
 	div.b_table_wrapper div.b_table_count { font-size: 95%; float: left; line-height: 16px; vertical-align: bottom; margin: 3px; font-size: 95%;}
 	div.b_table_wrapper a.b_table_prefs, div.b_table_wrapper a.b_table_download {float: right; display: block; background-repeat: no-repeat; background-position: top left; width: 16px; height: 16px; margin: 3px;}
 	div.b_table_wrapper a.b_table_prefs {background-image: url(../images/brasato/table/table_manage.png);}
