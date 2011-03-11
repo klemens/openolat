@@ -174,6 +174,7 @@ public class CPCourseNode extends AbstractAccessableCourseNode {
 			// use defaults for new course building blocks
 			config.setBooleanEntry(NodeEditController.CONFIG_STARTPAGE, Boolean.FALSE.booleanValue());
 			config.setBooleanEntry(NodeEditController.CONFIG_COMPONENT_MENU, Boolean.TRUE.booleanValue());
+			config.setBooleanEntry(CPEditController.CONFIG_SHOWNAVBUTTONS, Boolean.TRUE.booleanValue());
 			config.setConfigurationVersion(2);
 		} else {
 			config.remove(NodeEditController.CONFIG_INTEGRATION);
@@ -192,6 +193,11 @@ public class CPCourseNode extends AbstractAccessableCourseNode {
 				config.set(NodeEditController.CONFIG_CONTENT_ENCODING, NodeEditController.CONFIG_CONTENT_ENCODING_AUTO);
 				config.set(NodeEditController.CONFIG_JS_ENCODING, NodeEditController.CONFIG_JS_ENCODING_AUTO);
 				config.setConfigurationVersion(3);
+			}
+			
+			if(config.getConfigurationVersion() < 4) {
+				config.setBooleanEntry(CPEditController.CONFIG_SHOWNAVBUTTONS, Boolean.TRUE.booleanValue());
+				config.setConfigurationVersion(4);
 			}
 			// else node is up-to-date - nothing to do
 		}

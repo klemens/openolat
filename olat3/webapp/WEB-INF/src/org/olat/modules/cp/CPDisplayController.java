@@ -23,12 +23,15 @@
 package org.olat.modules.cp;
 
 import org.olat.core.CoreSpringFactory;
+import org.olat.core.commons.services.search.ui.SearchController;
 import org.olat.core.commons.services.search.ui.SearchServiceUIFactory;
 import org.olat.core.commons.services.search.ui.SearchServiceUIFactory.DisplayOption;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.Component;
 import org.olat.core.gui.components.htmlsite.HtmlStaticPageComponent;
 import org.olat.core.gui.components.htmlsite.NewInlineUriEvent;
+import org.olat.core.gui.components.link.Link;
+import org.olat.core.gui.components.link.LinkFactory;
 import org.olat.core.gui.components.tree.MenuTree;
 import org.olat.core.gui.components.tree.TreeEvent;
 import org.olat.core.gui.components.tree.TreeNode;
@@ -37,6 +40,7 @@ import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.Event;
 import org.olat.core.gui.control.WindowControl;
 import org.olat.core.gui.control.controller.BasicController;
+import org.olat.core.gui.control.generic.closablewrapper.CloseableModalController;
 import org.olat.core.gui.control.generic.iframe.IFrameDisplayController;
 import org.olat.core.gui.control.generic.iframe.NewIframeUriEvent;
 import org.olat.core.gui.media.MediaResource;
@@ -75,7 +79,11 @@ public class CPDisplayController extends BasicController {
 	private String selNodeId;
 	private HtmlStaticPageComponent cpComponent;
 	private IFrameDisplayController cpContentCtr;
-	private Controller searchCtrl;
+	private SearchController searchCtrl;
+	private Link nextLink;
+	private Link previousLink;
+	
+	private CloseableModalController printPopup;
 
 	/**
 	 * @param ureq
@@ -83,8 +91,8 @@ public class CPDisplayController extends BasicController {
 	 * @param showMenu
 	 * @param activateFirstPage
 	 */
-	CPDisplayController(UserRequest ureq, WindowControl wControl, VFSContainer rootContainer, boolean showMenu, boolean activateFirstPage,
-			String initialUri, OLATResourceable ores) {
+	CPDisplayController(UserRequest ureq, WindowControl wControl, VFSContainer rootContainer, boolean showMenu, boolean showNavigation,
+			boolean activateFirstPage, String initialUri, OLATResourceable ores) {
 		super(ureq, wControl);
 		this.rootContainer = rootContainer;
 
@@ -126,6 +134,20 @@ public class CPDisplayController extends BasicController {
 			cpTree.setTreeModel(ctm);
 			cpTree.addListener(this);
 		}
+		
+		
+		if(showNavigation) {
+			nextLink = LinkFactory.createLink("next", myContent, this);
+			nextLink.setCustomEnabledLinkCSS("b_small_icon o_cp_next_icon");
+			nextLink.setCustomDisplayText("&nbsp;&nbsp;");
+			nextLink.setTooltip("next", false);
+			previousLink = LinkFactory.createLink("previous", myContent, this);
+			previousLink.setCustomEnabledLinkCSS("b_small_icon o_cp_previous_icon");
+			previousLink.setCustomDisplayText("&nbsp;&nbsp;");
+			previousLink.setTooltip("next", false);
+		  myContent.put("next", nextLink);
+		  myContent.put("previous", previousLink);
+		}
 
 		LoggingResourceable nodeInfo = null;
 		if (activateFirstPage) {
@@ -149,6 +171,7 @@ public class CPDisplayController extends BasicController {
 				selNodeId = node.getIdent();
 
 				nodeInfo = LoggingResourceable.wrapCpNode(nodeUri);
+				updateNextPreviousLink(node);
 			}
 		} else if (initialUri != null) {
 			// set page
@@ -163,6 +186,7 @@ public class CPDisplayController extends BasicController {
 				} else {
 					selNodeId = newNode.getIdent();
 				}
+				updateNextPreviousLink(newNode);
 			}
 			nodeInfo = LoggingResourceable.wrapCpNode(initialUri);
 		}
@@ -218,6 +242,14 @@ public class CPDisplayController extends BasicController {
 				// adjust the tree selection to the current choice if found
 				selectTreeNode(ureq, nue.getNewUri());
 			}
+		} else if (source == nextLink) {
+			TreeNode nextUri = (TreeNode)nextLink.getUserObject();
+			switchToPage(ureq, nextUri);
+			fireEvent(ureq, new TreeNodeEvent(nextUri));
+		} else if (source == previousLink) {
+			TreeNode previousUri = (TreeNode)previousLink.getUserObject();
+			switchToPage(ureq, previousUri);
+			fireEvent(ureq, new TreeNodeEvent(previousUri));
 		}
 	}
 	
@@ -243,6 +275,11 @@ public class CPDisplayController extends BasicController {
 	 */
 	public void selectTreeNode(UserRequest ureq, String newUri) {
 		TreeNode newNode = ctm.lookupTreeNodeByHref(newUri);
+		selectTreeNode(ureq, newNode);
+		ThreadLocalUserActivityLogger.log(CourseLoggingAction.CP_GET_FILE, getClass(), LoggingResourceable.wrapCpNode(newUri));
+	}
+	
+	public void selectTreeNode(UserRequest ureq, TreeNode newNode) {
 		if (newNode != null) { // user clicked on a link which is listed in the
 			// toc
 			if (cpTree != null) {
@@ -252,8 +289,21 @@ public class CPDisplayController extends BasicController {
 				// course), we fire an event with the chosen node)
 				fireEvent(ureq, new TreeNodeEvent(newNode));
 			}
+			updateNextPreviousLink(newNode);
 		}
-		ThreadLocalUserActivityLogger.log(CourseLoggingAction.CP_GET_FILE, getClass(), LoggingResourceable.wrapCpNode(newUri));
+	}
+	
+	private void updateNextPreviousLink(TreeNode currentNode) {
+		if(nextLink != null) {
+			TreeNode nextNode = ctm.getNextNodeWithContent(currentNode);
+			nextLink.setEnabled(nextNode != null);
+			nextLink.setUserObject(nextNode);
+		}
+		if(previousLink != null) {
+			TreeNode previousNode = ctm.getPreviousNodeWithContent(currentNode);
+			previousLink.setEnabled(previousNode != null);
+			previousLink.setUserObject(previousNode);
+		}
 	}
 
 	/**
@@ -268,6 +318,10 @@ public class CPDisplayController extends BasicController {
 		// switch to the new page
 		String nodeId = te.getNodeId();
 		TreeNode tn = ctm.getNodeById(nodeId);
+		switchToPage(ureq, tn);
+	}
+	
+	public void switchToPage(UserRequest ureq, TreeNode tn) {
 		String identifierRes = (String) tn.getUserObject();
 		
 		// security check
@@ -301,6 +355,8 @@ public class CPDisplayController extends BasicController {
 				cpTree.setDirty(false);
 			}
 		}
+		
+		updateNextPreviousLink(tn);
 		ThreadLocalUserActivityLogger.log(CourseLoggingAction.CP_GET_FILE, getClass(), LoggingResourceable.wrapCpNode(identifierRes));
 	}
 

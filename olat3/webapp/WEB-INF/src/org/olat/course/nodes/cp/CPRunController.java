@@ -180,7 +180,8 @@ public class CPRunController extends BasicController implements ControllerEventL
 		if ( (nodecmd != null) && !nodecmd.equals("") ) {
  		  activateFirstPage = false; 
 		}
-		cpDispC = CPUIFactory.getInstance().createContentOnlyCPDisplayController(ureq, getWindowControl(), new LocalFolderImpl(cpRoot), activateFirstPage, nodecmd, ores);
+		boolean navButtons = isNavButtonConfigured();
+		cpDispC = CPUIFactory.getInstance().createContentOnlyCPDisplayController(ureq, getWindowControl(), new LocalFolderImpl(cpRoot), activateFirstPage, navButtons, nodecmd, ores);
 		cpDispC.setContentEncoding(getContentEncoding());
 		cpDispC.setJSEncoding(getJSEncoding());
 		cpDispC.addControllerListener(this);
@@ -207,6 +208,11 @@ public class CPRunController extends BasicController implements ControllerEventL
 	 */
 	private boolean isExternalMenuConfigured() {
 		return (config.getBooleanEntry(NodeEditController.CONFIG_COMPONENT_MENU).booleanValue());
+	}
+	
+	private boolean isNavButtonConfigured() {
+		Boolean navButton = config.getBooleanEntry(CPEditController.CONFIG_SHOWNAVBUTTONS);
+		return navButton == null ? true : navButton.booleanValue();
 	}
 	
 	private String getContentEncoding() {

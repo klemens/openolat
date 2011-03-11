@@ -365,6 +365,20 @@
 	div.o_module_cp_wrapper div#o_local_fulltextsearch div.b_form_element_wrapper.b_form_horizontal { margin:0; }
 	div.o_module_tu_wrapper {}
 
+	div.o_module_cp_wrapper div.o_cp_navigation { float:right; display:inline;padding:3px 0 3px 3px; background: #ebebeb url(../images/brasato/resizer_bg.gif) repeat-x center; border: 1px solid #ddd; -moz-border-radius: 3px; -webkit-border-radius: 3px; border-radius: 3px; -webkit-box-shadow: 0 1px 2px lightGrey; -moz-box-shadow: 0 1px 2px lightGrey; -o-box-shadow: 0 1px 2px lightGrey; box-shadow: 0 1px 2px lightGrey;}
+	div.o_module_cp_wrapper div span a { margin: 0 2px; }
+	div.o_module_cp_wrapper div span.b_disabled { display:none; }
+	div.o_module_cp_wrapper div span a.o_cp_previous_icon { background-image: url(../images/brasato/move_left.png); text-decoration: none; }
+	div.o_module_cp_wrapper div span a.o_cp_previous_icon:hover { background-image: url(../images/brasato/move_left_over.png); }
+	div.o_module_cp_wrapper div span a.o_cp_previous_icon span {display:none; }
+	div.o_module_cp_wrapper div span a.o_cp_next_icon {	background-image: url(../images/brasato/move_right.png); }
+	div.o_module_cp_wrapper div span a.o_cp_next_icon:hover {	background-image: url(../images/brasato/move_right_over.png); }
+	div.o_module_cp_wrapper div span a.o_cp_next_icon span {display:none; }
+	div.o_module_cp_wrapper div.o_cp_navigation div, div.o_module_cp_wrapper div.o_cp_navigation form  { display:inline; }
+	div.o_module_cp_wrapper div.o_cp_navigation div.b_clearfix { display:inline; clear:none; }
+	div.o_module_cp_wrapper div.o_cp_navigation div.b_clearfix:after{display:inline;height:0;clear:none;visibility:hidden}
+	
+s
 	/* FORUM */
 	div.o_forum {}
 	div.o_forum div.o_forum_switch { border: 1px solid #8F99AD; padding: 3px; font-size: 95% }

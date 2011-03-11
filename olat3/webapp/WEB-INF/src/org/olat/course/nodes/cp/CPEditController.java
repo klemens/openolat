@@ -27,8 +27,8 @@ import java.util.Arrays;
 import java.util.Locale;
 import java.util.Map;
 
-import org.olat.basesecurity.Constants;
 import org.olat.basesecurity.BaseSecurityManager;
+import org.olat.basesecurity.Constants;
 import org.olat.core.commons.fullWebApp.LayoutMain3ColsPreviewController;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.Component;
@@ -57,7 +57,6 @@ import org.olat.course.condition.ConditionEditController;
 import org.olat.course.editor.NodeEditController;
 import org.olat.course.nodes.CPCourseNode;
 import org.olat.course.nodes.CourseNodeFactory;
-import org.olat.course.nodes.scorm.ScormEditController;
 import org.olat.course.run.userview.UserCourseEnvironment;
 import org.olat.fileresource.FileResourceManager;
 import org.olat.fileresource.types.ImsCPFileResource;
@@ -80,6 +79,7 @@ public class CPEditController extends ActivateableTabbableDefaultController impl
 	private static final String PANE_TAB_ACCESSIBILITY = "pane.tab.accessibility";
 	private static final String CONFIG_KEY_REPOSITORY_SOFTKEY = "reporef";
 	private static final String VC_CHOSENCP = "chosencp";
+	public static final String CONFIG_SHOWNAVBUTTONS = "shownavbuttons";
   
 	// NLS support:	
 	private static final String NLS_ERROR_CPREPOENTRYMISSING = "error.cprepoentrymissing";
@@ -151,10 +151,11 @@ public class CPEditController extends ActivateableTabbableDefaultController impl
 			cpConfigurationVc.contextPut(VC_CHOSENCP, translate(NLS_NO_CP_CHOSEN));
 		}
 		
-		boolean cpMenu = config.getBooleanEntry(NodeEditController.CONFIG_COMPONENT_MENU);
+		Boolean cpMenu = config.getBooleanEntry(NodeEditController.CONFIG_COMPONENT_MENU);
+		Boolean cpNavButtons = config.getBooleanEntry(CPEditController.CONFIG_SHOWNAVBUTTONS);
 		String contentEncoding = (String)config.get(NodeEditController.CONFIG_CONTENT_ENCODING);
 		String jsEncoding = (String)config.get(NodeEditController.CONFIG_JS_ENCODING);
-		cpMenuForm = new CompMenuForm(ureq, wControl, cpMenu, contentEncoding, jsEncoding);
+		cpMenuForm = new CompMenuForm(ureq, wControl, cpMenu, cpNavButtons, contentEncoding, jsEncoding);
 		listenTo(cpMenuForm);
 		
 		cpConfigurationVc.put("cpMenuForm", cpMenuForm.getInitialComponent());
@@ -244,6 +245,7 @@ public class CPEditController extends ActivateableTabbableDefaultController impl
 		} else if (source == cpMenuForm) {
 			if (event == Event.DONE_EVENT) {
 				config.setBooleanEntry(NodeEditController.CONFIG_COMPONENT_MENU, cpMenuForm.isCpMenu());
+				config.setBooleanEntry(CPEditController.CONFIG_SHOWNAVBUTTONS, cpMenuForm.isCpNavButtons());
 				config.set(NodeEditController.CONFIG_CONTENT_ENCODING, cpMenuForm.getContentEncoding());
 				config.set(NodeEditController.CONFIG_JS_ENCODING, cpMenuForm.getJSEncoding());
 				
@@ -355,21 +357,25 @@ class CompMenuForm extends FormBasicController {
 
 	// NLS support:
 	private static final String NLS_DISPLAY_CONFIG_COMPMENU = "display.config.compMenu";
+	private static final String NLS_DISPLAY_CONFIG_COMP_NEXT_PREVIOUS = "display.config.compNextPrevious";
 
 	private SelectionElement cpMenu;
+	private SelectionElement cpNavButtons;
 	private SingleSelection encodingContentEl;
 	private SingleSelection encodingJSEl;
 	
 	private boolean compMenuConfig;
+	private boolean compNavButtonsConfig;
 	private String contentEncoding;
 	private String jsEncoding;
 	
 	private String[] encodingContentKeys, encodingContentValues;
 	private String[] encodingJSKeys, encodingJSValues;
 	
-	CompMenuForm(UserRequest ureq, WindowControl wControl, Boolean compMenuConfig, String contentEncoding, String jsEncoding) {
+	CompMenuForm(UserRequest ureq, WindowControl wControl, Boolean compMenuConfig, Boolean compNavButtons, String contentEncoding, String jsEncoding) {
 		super(ureq, wControl);
 		this.compMenuConfig = compMenuConfig == null ? true:compMenuConfig.booleanValue();
+		this.compNavButtonsConfig = compNavButtons == null ? true:compNavButtons.booleanValue();
 		this.contentEncoding = contentEncoding;
 		this.jsEncoding = jsEncoding;
 		
@@ -413,6 +419,10 @@ class CompMenuForm extends FormBasicController {
 		return cpMenu.isSelected(0);
 	}
 	
+	public boolean isCpNavButtons() {
+		return cpNavButtons.isSelected(0);
+	}
+	
 	@Override
 	protected void formOK(UserRequest ureq) {
 		fireEvent (ureq, Event.DONE_EVENT);
@@ -422,6 +432,9 @@ class CompMenuForm extends FormBasicController {
 	protected void initForm(FormItemContainer formLayout, Controller listener, UserRequest ureq) {	
 		cpMenu = uifactory.addCheckboxesVertical("cpMenu", NLS_DISPLAY_CONFIG_COMPMENU, formLayout, new String[]{"xx"}, new String[]{null}, null, 1);
 		cpMenu.select("xx",compMenuConfig);
+		
+		cpNavButtons = uifactory.addCheckboxesVertical("cpNextPrevious", NLS_DISPLAY_CONFIG_COMP_NEXT_PREVIOUS, formLayout, new String[]{"xx"}, new String[]{null}, null, 1);
+		cpNavButtons.select("xx",compNavButtonsConfig);
 		
 		encodingContentEl = uifactory.addDropdownSingleselect("encoContent", "encoding.content", formLayout, encodingContentKeys, encodingContentValues, null);
 		if (Arrays.asList(encodingContentKeys).contains(contentEncoding)) {
