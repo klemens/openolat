@@ -35,13 +35,13 @@ import org.olat.group.BusinessGroup;
  * @author gnaegi
  */
 public class BusinessGroupTableModelWithType extends DefaultTableDataModel implements TableDataModel {
-	private static final int COLUMN_COUNT = 5;
+	private static final int COLUMN_COUNT = 6;
 	private Translator trans;
 
 	/**
 	 * @param owned list of business groups
 	 */
-	public BusinessGroupTableModelWithType(List owned, Translator trans) {
+	public BusinessGroupTableModelWithType(List<BGTableItem> owned, Translator trans) {
 		super(owned);
 		this.trans = trans;
 	}
@@ -57,9 +57,8 @@ public class BusinessGroupTableModelWithType extends DefaultTableDataModel imple
 	 * @see org.olat.core.gui.components.table.TableDataModel#getValueAt(int, int)
 	 */
 	public Object getValueAt(int row, int col) {
-		Object[] wrapped = (Object[]) objects.get(row);
-		;
-		BusinessGroup businessGroup = (BusinessGroup) wrapped[0];
+		BGTableItem wrapped = (BGTableItem)objects.get(row);
+		BusinessGroup businessGroup = wrapped.getBusinessGroup();
 		switch (col) {
 			case 0:
 				String name = businessGroup.getName();
@@ -73,9 +72,11 @@ public class BusinessGroupTableModelWithType extends DefaultTableDataModel imple
 			case 2:
 				return trans.translate(businessGroup.getType());
 			case 3:
-				return wrapped[1];
+				return wrapped.getAllowLeave();
 			case 4:
-				return wrapped[2];
+				return wrapped.getAllowDelete();
+			case 5:
+				return wrapped.getResources();
 			default:
 				return "ERROR";
 		}
@@ -84,7 +85,7 @@ public class BusinessGroupTableModelWithType extends DefaultTableDataModel imple
 	/**
 	 * @param owned
 	 */
-	public void setEntries(List owned) {
+	public void setEntries(List<BGTableItem> owned) {
 		this.objects = owned;
 	}
 
@@ -93,9 +94,7 @@ public class BusinessGroupTableModelWithType extends DefaultTableDataModel imple
 	 * @return the business group at the given row
 	 */
 	public BusinessGroup getBusinessGroupAt(int row) {
-		Object[] wrapped = (Object[]) objects.get(row);
-		;
-		return (BusinessGroup) wrapped[0];
+		BGTableItem wrapped = (BGTableItem)objects.get(row);
+		return wrapped.getBusinessGroup();
 	}
-
 }

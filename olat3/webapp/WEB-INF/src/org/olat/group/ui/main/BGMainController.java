@@ -22,9 +22,9 @@
 package org.olat.group.ui.main;
 
 import java.util.ArrayList;
-import java.util.Iterator;
 import java.util.List;
 
+import org.olat.NewControllerFactory;
 import org.olat.basesecurity.BaseSecurity;
 import org.olat.basesecurity.BaseSecurityManager;
 import org.olat.basesecurity.SecurityGroup;
@@ -35,7 +35,11 @@ import org.olat.core.commons.fullWebApp.LayoutMain3ColsController;
 import org.olat.core.commons.persistence.PersistenceHelper;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.Component;
+import org.olat.core.gui.components.link.Link;
 import org.olat.core.gui.components.table.BooleanColumnDescriptor;
+import org.olat.core.gui.components.table.ColumnDescriptor;
+import org.olat.core.gui.components.table.CustomCellRenderer;
+import org.olat.core.gui.components.table.CustomRenderColumnDescriptor;
 import org.olat.core.gui.components.table.DefaultColumnDescriptor;
 import org.olat.core.gui.components.table.Table;
 import org.olat.core.gui.components.table.TableController;
@@ -61,6 +65,8 @@ import org.olat.core.gui.control.generic.tool.ToolFactory;
 import org.olat.core.gui.control.state.ControllerState;
 import org.olat.core.id.Identity;
 import org.olat.core.id.change.ChangeManager;
+import org.olat.core.id.context.BusinessControl;
+import org.olat.core.id.context.BusinessControlFactory;
 import org.olat.core.logging.Tracing;
 import org.olat.core.logging.activity.ThreadLocalUserActivityLogger;
 import org.olat.core.util.Util;
@@ -73,12 +79,15 @@ import org.olat.group.BusinessGroup;
 import org.olat.group.BusinessGroupManager;
 import org.olat.group.BusinessGroupManagerImpl;
 import org.olat.group.GroupLoggingAction;
+import org.olat.group.context.BGContextManager;
+import org.olat.group.context.BGContextManagerImpl;
 import org.olat.group.delete.TabbedPaneController;
 import org.olat.group.ui.BGConfigFlags;
 import org.olat.group.ui.BGControllerFactory;
 import org.olat.group.ui.BGTranslatorFactory;
 import org.olat.group.ui.BusinessGroupFormController;
 import org.olat.group.ui.run.BusinessGroupMainRunController;
+import org.olat.repository.RepositoryEntry;
 import org.olat.util.logging.activity.LoggingResourceable;
 
 import de.bps.olat.util.notifications.SubscriptionProvider;
@@ -122,8 +131,9 @@ public class BGMainController extends MainLayoutBasicController implements Activ
 	private BusinessGroupTableModelWithType groupListModel;
 	private BusinessGroupFormController createBuddyGroupController;
 	private BusinessGroup currBusinessGroup;
-	private Identity identity;
-	private BusinessGroupManager bgm;
+	private final Identity identity;
+	private final BusinessGroupManager bgm;
+	private final BGContextManager contextManager;
 	private TabbedPaneController deleteTabPaneCtr;
 	private CloseableModalController cmc;
 	private DialogBoxController deleteDialogBox;
@@ -150,6 +160,7 @@ public class BGMainController extends MainLayoutBasicController implements Activ
 		identity = ureq.getIdentity();
 		setTranslator(BGTranslatorFactory.createBGPackageTranslator(PACKAGE, BusinessGroup.TYPE_BUDDYGROUP, ureq.getLocale()));
 		bgm = BusinessGroupManagerImpl.getInstance();
+		contextManager = BGContextManagerImpl.getInstance();
 
 		// main component layed out in panel
 		main = createVelocityContainer("index");
@@ -191,6 +202,11 @@ public class BGMainController extends MainLayoutBasicController implements Activ
 				Object userObject = clickedNode.getUserObject();
 				activateContent(ureq, userObject);
 			}
+		} else if (source instanceof Link && source.getComponentName().startsWith("repo_entry_")) {
+			Long repoEntryKey = (Long)((Link)source).getUserObject();
+			BusinessControl bc = BusinessControlFactory.getInstance().createFromString("[RepositoryEntry:" + repoEntryKey + "]");
+			WindowControl bwControl = BusinessControlFactory.getInstance().createBusinessWindowControl(bc, getWindowControl());
+			NewControllerFactory.getInstance().launch(ureq, bwControl);
 		}
 	}
 
@@ -441,7 +457,7 @@ public class BGMainController extends MainLayoutBasicController implements Activ
 	 */
 	private void doAllGroupList(UserRequest ureq, WindowControl wControl) {
 		// 1) initialize list controller and datamodel
-		initGroupListCtrAndModel(true, ureq);
+		initGroupListCtrAndModel(true, true, CMD_MENU_INDEX, ureq);
 		// 2) load data into model
 		updateGroupListModelAll();
 		// 3) set correct page
@@ -458,7 +474,7 @@ public class BGMainController extends MainLayoutBasicController implements Activ
 	 */
 	private void doBuddyGroupList(UserRequest ureq, WindowControl wControl) {
 		// 1) initialize list controller and datamodel
-		initGroupListCtrAndModel(true, ureq);
+		initGroupListCtrAndModel(true, false, CMD_MENU_BUDDY, ureq);
 		// 2) load data into model
 		updateGroupListModelBuddygroups();
 		// 3) set correct page
@@ -475,7 +491,7 @@ public class BGMainController extends MainLayoutBasicController implements Activ
 	 */
 	private void doLearningGroupList(UserRequest ureq, WindowControl wControl) {
 		// 1) initialize list controller and datamodel
-		initGroupListCtrAndModel(false, ureq);
+		initGroupListCtrAndModel(false, true, CMD_MENU_LEARN, ureq);
 		// 2) load data into model
 		updateGroupListModelLearninggroups();
 		// 3) set correct page
@@ -492,7 +508,7 @@ public class BGMainController extends MainLayoutBasicController implements Activ
 	 */
 	private void doRightGroupList(UserRequest ureq, WindowControl wControl) {
 		// 1) initialize list controller and datamodel
-		initGroupListCtrAndModel(false, ureq);
+		initGroupListCtrAndModel(false, true, CMD_MENU_RIGHT, ureq);
 		// 2) load data into model
 		updateGroupListModelRightgroups();
 		// 3) set correct page
@@ -517,16 +533,22 @@ public class BGMainController extends MainLayoutBasicController implements Activ
 	 *          showed, false: not showed
 	 * @param ureq
 	 */
-	private void initGroupListCtrAndModel(boolean withLeaveAndDelete, UserRequest ureq) {
+	private void initGroupListCtrAndModel(boolean withLeaveAndDelete, boolean withCourse, String tableId, UserRequest ureq) {
 		// 1) init listing controller
 		TableGuiConfiguration tableConfig = new TableGuiConfiguration();
+		tableConfig.setPreferencesOffered(true, tableId);
 		tableConfig.setTableEmptyMessage(translate("index.table.nogroup"));
 		removeAsListenerAndDispose(groupListCtr);
 		groupListCtr = new TableController(tableConfig, ureq, getWindowControl(), getTranslator());
 		listenTo(groupListCtr);
-		
+
 		groupListCtr.addColumnDescriptor(new DefaultColumnDescriptor("table.header.bgname", 0, TABLE_ACTION_LAUNCH, getLocale()));
-		groupListCtr.addColumnDescriptor(new DefaultColumnDescriptor("table.header.description", 1, null, getLocale()));
+		groupListCtr.addColumnDescriptor(!withCourse, new DefaultColumnDescriptor("table.header.description", 1, null, getLocale()));
+		if(withCourse) {
+			CustomCellRenderer resourcesRenderer = new BGResourcesCellRenderer(this, main, getTranslator());
+			groupListCtr.addColumnDescriptor(new CustomRenderColumnDescriptor("table.header.resources", 5, null, getLocale(), 
+				ColumnDescriptor.ALIGNMENT_LEFT, resourcesRenderer));
+		}
 		groupListCtr.addColumnDescriptor(new DefaultColumnDescriptor("table.header.type", 2, null, getLocale()));
 		if (withLeaveAndDelete) {
 			groupListCtr.addColumnDescriptor(new BooleanColumnDescriptor("table.header.leave", 3, TABLE_ACTION_LEAVE, 
@@ -535,7 +557,7 @@ public class BGMainController extends MainLayoutBasicController implements Activ
 					translate("table.header.delete"), null));
 		}
 		// 2) init list model
-		groupListModel = new BusinessGroupTableModelWithType(new ArrayList(), getTranslator());
+		groupListModel = new BusinessGroupTableModelWithType(new ArrayList<BGTableItem>(), getTranslator());
 		groupListCtr.setTableDataModel(groupListModel);
 		main.put("groupList", groupListCtr.getInitialComponent());
 	}
@@ -545,38 +567,28 @@ public class BGMainController extends MainLayoutBasicController implements Activ
 	 * data for all groups
 	 */
 	private void updateGroupListModelAll() {
-		List wrapped = new ArrayList();
+		List<BGTableItem> wrapped = new ArrayList<BGTableItem>();
 		// buddy groups
-		List groups = bgm.findBusinessGroupsOwnedBy(BusinessGroup.TYPE_BUDDYGROUP, identity, null);
-		Iterator iter = groups.iterator();
-		while (iter.hasNext()) {
-			BusinessGroup group = (BusinessGroup) iter.next();
+		List<BusinessGroup> groups = bgm.findBusinessGroupsOwnedBy(BusinessGroup.TYPE_BUDDYGROUP, identity, null);
+		for (BusinessGroup group:groups) {
 			wrapped.add(wrapGroup(group, Boolean.TRUE, Boolean.TRUE));
 		}
 		groups = bgm.findBusinessGroupsAttendedBy(BusinessGroup.TYPE_BUDDYGROUP, identity, null);
-		iter = groups.iterator();
-		while (iter.hasNext()) {
-			BusinessGroup group = (BusinessGroup) iter.next();
+		for (BusinessGroup group:groups) {
 			wrapped.add(wrapGroup(group, Boolean.TRUE, null));
 		}
 		// learning groups
 		groups = bgm.findBusinessGroupsOwnedBy(BusinessGroup.TYPE_LEARNINGROUP, identity, null);
-		iter = groups.iterator();
-		while (iter.hasNext()) {
-			BusinessGroup group = (BusinessGroup) iter.next();
+		for (BusinessGroup group:groups) {
 			wrapped.add(wrapGroup(group, null, null));
 		}
 		groups = bgm.findBusinessGroupsAttendedBy(BusinessGroup.TYPE_LEARNINGROUP, identity, null);
-		iter = groups.iterator();
-		while (iter.hasNext()) {
-			BusinessGroup group = (BusinessGroup) iter.next();
+		for (BusinessGroup group:groups) {
 			wrapped.add(wrapGroup(group, null, null));
 		}
 		// right groups
 		groups = bgm.findBusinessGroupsAttendedBy(BusinessGroup.TYPE_RIGHTGROUP, identity, null);
-		iter = groups.iterator();
-		while (iter.hasNext()) {
-			BusinessGroup group = (BusinessGroup) iter.next();
+		for (BusinessGroup group:groups) {
 			wrapped.add(wrapGroup(group, null, null));
 		}
 		groupListModel.setEntries(wrapped);
@@ -588,18 +600,14 @@ public class BGMainController extends MainLayoutBasicController implements Activ
 	 * data for buddy groups
 	 */
 	private void updateGroupListModelBuddygroups() {
-		List wrapped = new ArrayList();
+		List<BGTableItem> wrapped = new ArrayList<BGTableItem>();
 		// buddy groups
-		List groups = bgm.findBusinessGroupsOwnedBy(BusinessGroup.TYPE_BUDDYGROUP, identity, null);
-		Iterator iter = groups.iterator();
-		while (iter.hasNext()) {
-			BusinessGroup group = (BusinessGroup) iter.next();
+		List<BusinessGroup> groups = bgm.findBusinessGroupsOwnedBy(BusinessGroup.TYPE_BUDDYGROUP, identity, null);
+		for (BusinessGroup group:groups) {
 			wrapped.add(wrapGroup(group, Boolean.TRUE, Boolean.TRUE));
 		}
 		groups = bgm.findBusinessGroupsAttendedBy(BusinessGroup.TYPE_BUDDYGROUP, identity, null);
-		iter = groups.iterator();
-		while (iter.hasNext()) {
-			BusinessGroup group = (BusinessGroup) iter.next();
+		for (BusinessGroup group:groups) {
 			wrapped.add(wrapGroup(group, Boolean.TRUE, null));
 		}
 		groupListModel.setEntries(wrapped);
@@ -611,18 +619,14 @@ public class BGMainController extends MainLayoutBasicController implements Activ
 	 * data for learning groups
 	 */
 	private void updateGroupListModelLearninggroups() {
-		List wrapped = new ArrayList();
+		List<BGTableItem> wrapped = new ArrayList<BGTableItem>();
 		// learning groups
-		List groups = bgm.findBusinessGroupsOwnedBy(BusinessGroup.TYPE_LEARNINGROUP, identity, null);
-		Iterator iter = groups.iterator();
-		while (iter.hasNext()) {
-			BusinessGroup group = (BusinessGroup) iter.next();
+		List<BusinessGroup> groups = bgm.findBusinessGroupsOwnedBy(BusinessGroup.TYPE_LEARNINGROUP, identity, null);
+		for (BusinessGroup group:groups) {
 			wrapped.add(wrapGroup(group, null, null));
 		}
 		groups = bgm.findBusinessGroupsAttendedBy(BusinessGroup.TYPE_LEARNINGROUP, identity, null);
-		iter = groups.iterator();
-		while (iter.hasNext()) {
-			BusinessGroup group = (BusinessGroup) iter.next();
+		for (BusinessGroup group:groups) {
 			wrapped.add(wrapGroup(group, null, null));
 		}
 		groupListModel.setEntries(wrapped);
@@ -634,13 +638,11 @@ public class BGMainController extends MainLayoutBasicController implements Activ
 	 * data for right groups
 	 */
 	private void updateGroupListModelRightgroups() {
-		List wrapped = new ArrayList();
+		List<BGTableItem> wrapped = new ArrayList<BGTableItem>();
 		// buddy groups
 		// right groups
-		List groups = bgm.findBusinessGroupsAttendedBy(BusinessGroup.TYPE_RIGHTGROUP, identity, null);
-		Iterator iter = groups.iterator();
-		while (iter.hasNext()) {
-			BusinessGroup group = (BusinessGroup) iter.next();
+		List<BusinessGroup> groups = bgm.findBusinessGroupsAttendedBy(BusinessGroup.TYPE_RIGHTGROUP, identity, null);
+		for(BusinessGroup group:groups) {
 			wrapped.add(wrapGroup(group, null, null));
 		}
 		groupListModel.setEntries(wrapped);
@@ -656,8 +658,15 @@ public class BGMainController extends MainLayoutBasicController implements Activ
 	 * @param allowDelete true: user can delete
 	 * @return Object[]
 	 */
-	private Object[] wrapGroup(BusinessGroup group, Boolean allowLeave, Boolean allowDelete) {
-		return new Object[] { group, allowLeave, allowDelete };
+	private BGTableItem wrapGroup(BusinessGroup group, Boolean allowLeave, Boolean allowDelete) {
+		BGTableItem tableItem = new BGTableItem(group, allowLeave, allowDelete);
+		
+		if(group.getGroupContext() != null) {
+			List<RepositoryEntry> resources = contextManager.findRepositoryEntriesForBGContext(group.getGroupContext());
+			tableItem.setResources(resources);
+		}
+		
+		return tableItem;
 	}
 
 	/**
