@@ -130,6 +130,7 @@ public class BusinessGroupManagerImpl extends BasicManager implements BusinessGr
 	private static final String EXPORT_KEY_SHOW_PARTICIPANTS = "showParticipants";
 	private static final String EXPORT_KEY_SHOW_WAITING_LIST = "showWaitingList";
 	private static final String EXPORT_KEY_CALENDAR_ACCESS = "calendarAccess";
+	private static final String EXPORT_KEY_FOLDER_ACCESS = "folderAccess";
 	private static final String EXPORT_KEY_NEWS = "info";
 
 	private BaseSecurity securityManager;
@@ -752,6 +753,11 @@ public class BusinessGroupManagerImpl extends BasicManager implements BusinessGr
 		if (calendarAccess != null) {
 			newGroup.addAttribute(EXPORT_KEY_CALENDAR_ACCESS,calendarAccess);			
 		}
+		Long folderAccess = ct.lookupFolderAccess();
+		if(folderAccess != null) {
+			newGroup.addAttribute(EXPORT_KEY_FOLDER_ACCESS,folderAccess);
+		}
+		
 		String info = ct.lookupNews();
 		if(info!=null && !info.trim().equals("")) {
 			newGroup.addAttribute(EXPORT_KEY_NEWS,info.trim());			
@@ -872,6 +878,10 @@ public class BusinessGroupManagerImpl extends BasicManager implements BusinessGr
 				if(group.getAttribute(EXPORT_KEY_CALENDAR_ACCESS)!=null) {
 				  Long calendarAccess = Long.valueOf(group.getAttribute(EXPORT_KEY_CALENDAR_ACCESS));
 				  ct.saveCalendarAccess(calendarAccess);				  
+				}
+				if(group.getAttribute(EXPORT_KEY_FOLDER_ACCESS)!=null) {
+				  Long folderAccess = Long.valueOf(group.getAttribute(EXPORT_KEY_FOLDER_ACCESS));
+				  ct.saveFolderAccess(folderAccess);				  
 				}
 				if(group.getAttribute(EXPORT_KEY_NEWS)!=null) {
 				  String info = group.getAttribute(EXPORT_KEY_NEWS);
