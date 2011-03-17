@@ -68,6 +68,7 @@ import org.olat.course.config.ui.CourseSharedFolderController;
 import org.olat.course.run.RunMainController;
 import org.olat.fileresource.types.GlossaryResource;
 import org.olat.instantMessaging.InstantMessagingModule;
+import org.olat.modules.glossary.GlossaryEditSettingsController;
 import org.olat.modules.glossary.GlossaryManager;
 import org.olat.modules.glossary.GlossaryRegisterSettingsController;
 import org.olat.repository.PropPupForm;
@@ -213,6 +214,10 @@ public class RepositoryEditPropertiesController extends BasicController {
 		} else if (repositoryEntry.getOlatResource().getResourceableTypeName().equals(GlossaryResource.TYPE_NAME)){
 			GlossaryRegisterSettingsController glossRegisterSetCtr = new GlossaryRegisterSettingsController(ureq, getWindowControl(), repositoryEntry.getOlatResource());
 			tabbedPane.addTab(translate("tab.glossary.register"), glossRegisterSetCtr.getInitialComponent());
+			
+			GlossaryEditSettingsController glossEditCtr = new GlossaryEditSettingsController(ureq, getWindowControl(), repositoryEntry.getOlatResource());
+			tabbedPane.addTab(translate("tab.glossary.edit"), glossEditCtr.getInitialComponent());
+		
 		}
 
 		bgVC.put("descTB", tabbedPane);
