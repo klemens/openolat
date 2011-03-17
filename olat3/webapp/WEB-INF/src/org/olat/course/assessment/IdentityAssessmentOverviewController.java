@@ -188,11 +188,12 @@ public class IdentityAssessmentOverviewController extends BasicController {
 			TableGuiConfiguration tableConfig = new TableGuiConfiguration();
 			tableConfig.setDownloadOffered(false);
 			tableConfig.setColumnMovingOffered(false);
-			tableConfig.setSortingEnabled(false);
+			tableConfig.setSortingEnabled(true);
 			tableConfig.setDisplayTableHeader(true);
 			tableConfig.setDisplayRowCount(false);
 			tableConfig.setPageingEnabled(false);
 			tableConfig.setTableEmptyMessage(translate("nodesoverview.emptylist"));
+			tableConfig.setPreferencesOffered(true, "assessmentIdentityNodeList");
 
 			removeAsListenerAndDispose(tableFilterCtr);
 			if (allowTableFiltering) {
@@ -204,16 +205,33 @@ public class IdentityAssessmentOverviewController extends BasicController {
 			}
 			listenTo(tableFilterCtr);
 			
+			final IndentedNodeRenderer nodeRenderer = new IndentedNodeRenderer() {
+				@Override
+				public boolean isIndentationEnabled() {
+					return tableFilterCtr.getTableSortAsc() && tableFilterCtr.getTableSortCol() == 0;
+				}
+			};
+			
 			// table columns
 			tableFilterCtr.addColumnDescriptor(new CustomRenderColumnDescriptor("table.header.node", 0, null, 
-					ureq.getLocale(), ColumnDescriptor.ALIGNMENT_LEFT, new IndentedNodeRenderer()));
+					ureq.getLocale(), ColumnDescriptor.ALIGNMENT_LEFT, nodeRenderer));
 			tableFilterCtr.addColumnDescriptor(new DefaultColumnDescriptor("table.header.details",1, null, ureq.getLocale()));
 			tableFilterCtr.addColumnDescriptor(new DefaultColumnDescriptor("table.header.attempts", 2, null, ureq.getLocale(), ColumnDescriptor.ALIGNMENT_RIGHT));
-			tableFilterCtr.addColumnDescriptor(new DefaultColumnDescriptor("table.header.score", 3, null, ureq.getLocale(), ColumnDescriptor.ALIGNMENT_RIGHT));
+			tableFilterCtr.addColumnDescriptor(new CustomRenderColumnDescriptor("table.header.score", 3, null, ureq.getLocale(),
+					ColumnDescriptor.ALIGNMENT_RIGHT, new ScoreCellRenderer()));
+			tableFilterCtr.addColumnDescriptor(false, new CustomRenderColumnDescriptor("table.header.min", 6, null, ureq.getLocale(), 
+					ColumnDescriptor.ALIGNMENT_RIGHT, new ScoreCellRenderer()));
+			tableFilterCtr.addColumnDescriptor(new CustomRenderColumnDescriptor("table.header.max", 7, null, ureq.getLocale(),
+					ColumnDescriptor.ALIGNMENT_RIGHT, new ScoreCellRenderer()));
 			tableFilterCtr.addColumnDescriptor(new BooleanColumnDescriptor("table.header.passed", 4, translate("passed.true"), translate("passed.false")));
 			// node selection only available if configured
 			if (nodesSelectable) {
-				tableFilterCtr.addColumnDescriptor(new DefaultColumnDescriptor("table.action.select",5 ,CMD_SELECT_NODE, ureq.getLocale()));
+				tableFilterCtr.addColumnDescriptor(new DefaultColumnDescriptor("table.action.select",5 ,CMD_SELECT_NODE, ureq.getLocale()) {
+					@Override
+					public boolean isSortingAllowed() {
+						return false;
+					}
+				});
 			}
 			nodesTableModel = new NodeAssessmentTableDataModel(nodesTableList, getTranslator(), nodesSelectable);
 			tableFilterCtr.setTableDataModel(nodesTableModel);

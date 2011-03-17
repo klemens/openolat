@@ -34,6 +34,7 @@ import org.olat.core.gui.components.form.flexible.impl.FormLayoutContainer;
 import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.Event;
 import org.olat.core.gui.control.WindowControl;
+import org.olat.core.util.StringHelper;
 import org.olat.course.nodes.AssessableCourseNode;
 import org.olat.course.run.scoring.ScoreEvaluation;
 import org.olat.course.run.userview.UserCourseEnvironment;
@@ -126,11 +127,11 @@ public class AssessmentForm extends FormBasicController {
 	boolean isScoreDirty() {
 		if (!hasScore) return false;
 		if (scoreValue == null) return !score.getValue().equals("");
-		return Float.parseFloat(score.getValue()) != scoreValue.floatValue();
+		return parseFloat(score) != scoreValue.floatValue();
 	}
 	
-	String getScore() {
-		return score.getValue();
+	Float getScore() {
+		return parseFloat(score);
 	}
 
 	boolean isUserCommentDirty () {
@@ -161,18 +162,20 @@ public class AssessmentForm extends FormBasicController {
 	protected boolean validateFormLogic (UserRequest ureq) {
 		if (hasScore) {
 			try {
-				Float.parseFloat(score.getValue());
+				parseFloat(score);
 			} catch (NumberFormatException e) {
 				score.setErrorKey("form.error.wrongFloat", null);
 				return false;
 			}
-			if ((min != null && Float.parseFloat(score.getValue()) < min.floatValue()) 
-					|| (Float.parseFloat(score.getValue()) < AssessmentHelper.MIN_SCORE_SUPPORTED)) {
+			
+			Float fscore = parseFloat(score);
+			if ((min != null && fscore < min.floatValue()) 
+					|| fscore < AssessmentHelper.MIN_SCORE_SUPPORTED) {
 				score.setErrorKey("form.error.scoreOutOfRange", null);
 				return false;
 			}
-			if ((max != null && Float.parseFloat(score.getValue()) > max.floatValue())
-					|| Float.parseFloat(score.getValue()) > AssessmentHelper.MAX_SCORE_SUPPORTED) {
+			if ((max != null && fscore > max.floatValue())
+					|| fscore > AssessmentHelper.MAX_SCORE_SUPPORTED) {
 				score.setErrorKey("form.error.scoreOutOfRange", null);
 				return false;
 			}
@@ -180,6 +183,18 @@ public class AssessmentForm extends FormBasicController {
 		return true;
 	}
 	
+	private Float parseFloat(TextElement textEl) throws NumberFormatException {
+		String scoreStr = textEl.getValue();
+		if(!StringHelper.containsNonWhitespace(scoreStr)) {
+			return null;
+		}
+		int index = scoreStr.indexOf(',');
+		if(index >= 0) {
+			scoreStr = scoreStr.replace(',', '.');
+			return Float.parseFloat(scoreStr);
+		}
+		return Float.parseFloat(scoreStr);
+	}
 
 	@Override
 	protected void initForm(FormItemContainer formLayout, Controller listener, UserRequest ureq) {
@@ -202,10 +217,11 @@ public class AssessmentForm extends FormBasicController {
 			if (hasPassed) {
 				cut = assessableCourseNode.getCutValueConfiguration();
 			}
-
 			
-			minVal = uifactory.addStaticTextElement("minval", "form.min", ((min == null) ? translate("form.valueUndefined") : min.toString()), formLayout);
-			maxVal = uifactory.addStaticTextElement("maxval", "form.max", ((max == null) ? translate("form.valueUndefined") : max.toString()), formLayout);
+			String minStr = AssessmentHelper.getRoundedScore(min);
+			String maxStr = AssessmentHelper.getRoundedScore(max);
+			minVal = uifactory.addStaticTextElement("minval", "form.min", ((min == null) ? translate("form.valueUndefined") : minStr), formLayout);
+			maxVal = uifactory.addStaticTextElement("maxval", "form.max", ((max == null) ? translate("form.valueUndefined") : maxStr), formLayout);
 
 			// Use init variables from wrapper, already loaded from db
 			scoreValue = scoreEval.getScore();
@@ -215,7 +231,7 @@ public class AssessmentForm extends FormBasicController {
 			if (scoreValue != null) {
 				score.setValue(AssessmentHelper.getRoundedScore(scoreValue));
 			} 
-			score.setRegexMatchCheck("(\\d+)||(\\d+\\.\\d{1,3})", "form.error.wrongFloat");
+			score.setRegexMatchCheck("(\\d+)||(\\d+\\.\\d{1,3})||(\\d+\\,\\d{1,3})", "form.error.wrongFloat");
 		}
 
 		if (hasPassed) {

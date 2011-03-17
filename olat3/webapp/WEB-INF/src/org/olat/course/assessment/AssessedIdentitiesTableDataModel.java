@@ -56,10 +56,12 @@ public class AssessedIdentitiesTableDataModel extends DefaultTableDataModel {
 	private static final String COL_DETAILS = "details";
 	private static final String COL_ATTEMPTS = "attempts";
 	private static final String COL_SCORE = "score";
+	private static final String COL_MINSCORE = "minScore";
+	private static final String COL_MAXSCORE = "maxScore";
 	private static final String COL_PASSED = "passed";
 	private static final String COL_STATUS = "status";
 
-	private List colMapping;	
+	private List<String> colMapping;	
 	private List<String> userPropertyNameList;
 	private List<UserPropertyHandler> userPropertyHandlers;
 	private static final String usageIdentifyer = AssessedIdentitiesTableDataModel.class.getCanonicalName();
@@ -78,7 +80,7 @@ public class AssessedIdentitiesTableDataModel extends DefaultTableDataModel {
 		userPropertyHandlers = UserManager.getInstance().getUserPropertyHandlersFor(usageIdentifyer, isAdministrativeUser);
 		
 		colCount = 0; // default
-		colMapping = new ArrayList();
+		colMapping = new ArrayList<String>();
 		// store all configurable column positions in a lookup array
 		colMapping.add(colCount++, COL_NAME);		
 		Iterator <UserPropertyHandler> propHandlerIterator =  userPropertyHandlers.iterator();
@@ -97,7 +99,9 @@ public class AssessedIdentitiesTableDataModel extends DefaultTableDataModel {
 				colMapping.add(colCount++, COL_ATTEMPTS);				
 			}
 			if (courseNode.hasScoreConfigured()) {
-				colMapping.add(colCount++, COL_SCORE);	
+				colMapping.add(colCount++, COL_SCORE);
+				colMapping.add(colCount++, COL_MINSCORE);
+				colMapping.add(colCount++, COL_MAXSCORE);
 			}
 			if (courseNode.hasStatusConfigured()) { 
 				colMapping.add(colCount++, COL_STATUS);				
@@ -141,7 +145,7 @@ public class AssessedIdentitiesTableDataModel extends DefaultTableDataModel {
 
 		// lookup the column name first and 
 		// deliver value based on the column name
-		String colName = (String) colMapping.get(col);
+		String colName = colMapping.get(col);
 		if (colName.equals(COL_NAME)) return identity.getName();
 		else if (userPropertyNameList.contains(colName)) return identity.getUser().getProperty(colName, getLocale());		
 		else if (colName.equals(COL_DETAILS)) return wrappedIdentity.getDetailsListView();
@@ -149,8 +153,12 @@ public class AssessedIdentitiesTableDataModel extends DefaultTableDataModel {
   	else if (colName.equals(COL_SCORE)) {
 			ScoreEvaluation scoreEval = wrappedIdentity.getUserCourseEnvironment().getScoreAccounting().evalCourseNode(courseNode);
 			if (scoreEval == null) scoreEval = new ScoreEvaluation(null, null);
-			return AssessmentHelper.getRoundedScore(scoreEval.getScore());
-		}	else if (colName.equals(COL_STATUS)) {
+			return scoreEval.getScore();
+  	} else if (colName.equals(COL_MINSCORE)) {
+  		return courseNode.getMinScoreConfiguration();
+  	} else if (colName.equals(COL_MAXSCORE)) {
+  		return courseNode.getMaxScoreConfiguration();
+  	}	else if (colName.equals(COL_STATUS)) {
 			return getStatusFor(courseNode, wrappedIdentity);
 		}else if (colName.equals(COL_PASSED)) {
 			ScoreEvaluation scoreEval = wrappedIdentity.getUserCourseEnvironment().getScoreAccounting().evalCourseNode(courseNode);
@@ -195,20 +203,24 @@ public class AssessedIdentitiesTableDataModel extends DefaultTableDataModel {
 		userListCtr.addColumnDescriptor(new DefaultColumnDescriptor("table.header.name", colCount++, editCmd, getLocale()));
 		
 		for (int i = 0; i < userPropertyHandlers.size(); i++) {
-			UserPropertyHandler userPropertyHandler	= userPropertyHandlers.get(i);			
-			userListCtr.addColumnDescriptor(userPropertyHandler.getColumnDescriptor(i+1, null, getLocale()));	
+			UserPropertyHandler userPropertyHandler	= userPropertyHandlers.get(i);
+			ColumnDescriptor colDescriptor = userPropertyHandler.getColumnDescriptor(i+1, null, getLocale());
+			userListCtr.addColumnDescriptor(colDescriptor);	
 			colCount++;
 		}		
 		if ( (courseNode != null) && isNodeOrGroupFocus) {			
-			if (courseNode.hasDetails()) {				
-				userListCtr.addColumnDescriptor((courseNode.getDetailsListViewHeaderKey() == null ? false : true), 
-						new DefaultColumnDescriptor(courseNode.getDetailsListViewHeaderKey(), colCount++, null, getLocale()));
+			if (courseNode.hasDetails()) {
+				String headerKey = courseNode.getDetailsListViewHeaderKey();
+				userListCtr.addColumnDescriptor((headerKey == null ? false : true), 
+						new DefaultColumnDescriptor(headerKey == null ? "table.header.details" : headerKey, colCount++, null, getLocale()));
 			}
 			if (courseNode.hasAttemptsConfigured()) {				
 				userListCtr.addColumnDescriptor(new DefaultColumnDescriptor("table.header.attempts", colCount++, null, getLocale(), ColumnDescriptor.ALIGNMENT_LEFT));
 			}
 			if (courseNode.hasScoreConfigured()) {				
 				userListCtr.addColumnDescriptor(new DefaultColumnDescriptor("table.header.score", colCount++, null, getLocale(), ColumnDescriptor.ALIGNMENT_LEFT));
+				userListCtr.addColumnDescriptor(false, new DefaultColumnDescriptor("table.header.min", colCount++, null, getLocale(), ColumnDescriptor.ALIGNMENT_LEFT));
+				userListCtr.addColumnDescriptor(new DefaultColumnDescriptor("table.header.max", colCount++, null, getLocale(), ColumnDescriptor.ALIGNMENT_LEFT));
 			}
 			if (courseNode.hasStatusConfigured()) {				
 				userListCtr.addColumnDescriptor(new DefaultColumnDescriptor("table.header.status", colCount++, null, getLocale(), ColumnDescriptor.ALIGNMENT_LEFT));

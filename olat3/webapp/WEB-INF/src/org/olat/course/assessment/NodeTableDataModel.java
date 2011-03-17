@@ -73,6 +73,12 @@ public class NodeTableDataModel extends DefaultTableDataModel {
 					Boolean courseNodeEditable = (Boolean) nodeData.get(AssessmentHelper.KEY_SELECTABLE);
 					if (courseNodeEditable.booleanValue()) return trans.translate("select");
 					else return null;
+				case 2:
+					//min score
+					return nodeData.get(AssessmentHelper.KEY_MIN);
+				case 3:
+					//min score
+					return nodeData.get(AssessmentHelper.KEY_MAX);
 				default:
 					return "error";
 			}

@@ -41,6 +41,7 @@ import org.olat.course.assessment.AssessmentManager;
 import org.olat.course.groupsandrights.CourseGroupManager;
 import org.olat.course.nodes.AssessableCourseNode;
 import org.olat.course.nodes.CourseNode;
+import org.olat.course.nodes.STCourseNode;
 import org.olat.course.run.environment.CourseEnvironment;
 import org.olat.course.run.scoring.ScoreEvaluation;
 import org.olat.course.run.userview.UserCourseEnvironment;
@@ -269,10 +270,51 @@ public class ScoreAccountingHelper {
 			firstIteration = false;
 			rowNumber++;
 		}
+		
+		StringBuilder tableFooter = new StringBuilder();
+		tableFooter.append("\t\n").append("\t\n").append(t.translate("legend")).append("\t\n").append("\t\n");
+		Iterator iterNodes = myNodes.iterator();
+		while (iterNodes.hasNext()) {
+			AssessableCourseNode acnode = (AssessableCourseNode) iterNodes.next();
+			String minVal;
+			String maxVal;
+			String cutVal;
+			if(acnode instanceof STCourseNode || !acnode.hasScoreConfigured()) {
+				minVal = maxVal = cutVal = "-";
+			} else {
+				minVal = acnode.getMinScoreConfiguration() == null ? "-" : AssessmentHelper.getRoundedScore(acnode.getMinScoreConfiguration());
+				maxVal = acnode.getMaxScoreConfiguration() == null ? "-" : AssessmentHelper.getRoundedScore(acnode.getMaxScoreConfiguration());
+				cutVal = acnode.getCutValueConfiguration() == null ? "-" : AssessmentHelper.getRoundedScore(acnode.getCutValueConfiguration());
+			}
+			
+			tableFooter.append('"');
+			tableFooter.append(acnode.getShortTitle());
+			tableFooter.append('"');
+			tableFooter.append('\n');
+
+			tableFooter.append("\t\t");
+			tableFooter.append("minValue");
+			tableFooter.append('\t');
+			tableFooter.append(minVal);
+			tableFooter.append('\n');
+
+			tableFooter.append("\t\t");
+			tableFooter.append("maxValue");
+			tableFooter.append('\t');
+			tableFooter.append(maxVal);
+			tableFooter.append('\n');
+
+			tableFooter.append("\t\t");
+			tableFooter.append("cutValue");
+			tableFooter.append('\t');
+			tableFooter.append(cutVal);
+			tableFooter.append('\n');
+		}
 
 		table.append(tableHeader1);
 		table.append(tableHeader2);
 		table.append(tableContent);
+		table.append(tableFooter);
 		String tab = table.toString();
 
 		return tab;

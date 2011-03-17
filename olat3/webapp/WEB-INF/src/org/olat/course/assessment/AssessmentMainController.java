@@ -86,7 +86,7 @@ import org.olat.course.groupsandrights.CourseGroupManager;
 import org.olat.course.nodes.AssessableCourseNode;
 import org.olat.course.nodes.CourseNode;
 import org.olat.course.nodes.CourseNodeFactory;
-import org.olat.course.nodes.ProjectBrokerCourseNode;// TODO:cg 04.11.2010 ProjectBroker : no assessment-tool in V1.0 , remove projectbroker completely form assessment-tool gui
+import org.olat.course.nodes.ProjectBrokerCourseNode;
 import org.olat.course.nodes.STCourseNode;
 import org.olat.course.run.userview.UserCourseEnvironment;
 import org.olat.course.run.userview.UserCourseEnvironmentImpl;
@@ -122,7 +122,7 @@ public class AssessmentMainController extends MainLayoutBasicController implemen
 	private static final int MODE_NODEFOCUS		= 2;
 	private static final int MODE_BULKFOCUS		= 3;
 	private int mode;
-
+	
 	private IAssessmentCallback callback;
 	private MenuTree menuTree;
 	private Panel main;
@@ -605,10 +605,12 @@ AssessmentMainController(UserRequest ureq, WindowControl wControl, OLATResourcea
 		removeAsListenerAndDispose(groupListCtr);
 		TableGuiConfiguration tableConfig = new TableGuiConfiguration();
 		tableConfig.setTableEmptyMessage(translate("groupchoose.nogroups"));
+		tableConfig.setPreferencesOffered(true, "assessmentGroupList");
 		groupListCtr = new TableController(tableConfig, ureq, getWindowControl(), getTranslator());
 		listenTo(groupListCtr);
 		groupListCtr.addColumnDescriptor(new DefaultColumnDescriptor("table.group.name", 0, CMD_CHOOSE_GROUP, ureq.getLocale()));
 		groupListCtr.addColumnDescriptor(new DefaultColumnDescriptor("table.group.desc", 1, null, ureq.getLocale()));
+		
 		CourseGroupManager gm = course.getCourseEnvironment().getCourseGroupManager();
 		if (gm.getLearningGroupContexts().size() > 1) {
 		// show groupcontext row only if multiple contexts are found
@@ -655,6 +657,7 @@ AssessmentMainController(UserRequest ureq, WindowControl wControl, OLATResourcea
 		removeAsListenerAndDispose(userListCtr);
 		TableGuiConfiguration tableConfig = new TableGuiConfiguration();
 		tableConfig.setTableEmptyMessage(translate("userchoose.nousers"));
+		tableConfig.setPreferencesOffered(true, "assessmentGroupUsersNode");
 		
 		if (mode == MODE_GROUPFOCUS) {
 			userListCtr = new TableController(tableConfig, ureq, getWindowControl(), 
@@ -730,18 +733,31 @@ AssessmentMainController(UserRequest ureq, WindowControl wControl, OLATResourcea
 		tableConfig.setTableEmptyMessage(translate("nodesoverview.nonodes"));
 		tableConfig.setDownloadOffered(false);
 		tableConfig.setColumnMovingOffered(false);
-		tableConfig.setSortingEnabled(false);
+		tableConfig.setSortingEnabled(true);
 		tableConfig.setDisplayTableHeader(true);
 		tableConfig.setDisplayRowCount(false);
 		tableConfig.setPageingEnabled(false);
+		tableConfig.setPreferencesOffered(true, "assessmentNodeList");
+		
 		
 		nodeListCtr = new TableController(tableConfig, ureq, getWindowControl(), getTranslator());
 		listenTo(nodeListCtr);
+		
+		final IndentedNodeRenderer nodeRenderer = new IndentedNodeRenderer() {
+			@Override
+			public boolean isIndentationEnabled() {
+				return nodeListCtr.getTableSortAsc() && nodeListCtr.getTableSortCol() == 0;
+			}
+		};
+		
 		// table columns		
-		nodeListCtr.addColumnDescriptor(new CustomRenderColumnDescriptor("table.header.node", 0, 
-				null, ureq.getLocale(), ColumnDescriptor.ALIGNMENT_LEFT, new IndentedNodeRenderer()));
-		nodeListCtr.addColumnDescriptor(new DefaultColumnDescriptor("table.action.select", 1,
-				CMD_SELECT_NODE, ureq.getLocale()));
+		nodeListCtr.addColumnDescriptor(new CustomRenderColumnDescriptor("table.header.node", 0,
+				null, ureq.getLocale(), ColumnDescriptor.ALIGNMENT_LEFT, nodeRenderer));
+		nodeListCtr.addColumnDescriptor(false, new CustomRenderColumnDescriptor("table.header.min", 2, null, ureq.getLocale(),
+				ColumnDescriptor.ALIGNMENT_RIGHT, new ScoreCellRenderer()));
+		nodeListCtr.addColumnDescriptor(new CustomRenderColumnDescriptor("table.header.max", 3, null, ureq.getLocale(),
+				ColumnDescriptor.ALIGNMENT_RIGHT, new ScoreCellRenderer()));
+		nodeListCtr.addColumnDescriptor(new DefaultColumnDescriptor("table.action.select", 1, CMD_SELECT_NODE, ureq.getLocale()));
 		
 		// get list of course node data and populate table data model 
 		CourseNode rootNode = course.getRunStructure().getRootNode();		
@@ -811,6 +827,18 @@ AssessmentMainController(UserRequest ureq, WindowControl wControl, OLATResourcea
 					|| assessableCourseNode.hasCommentConfigured()) {
 					hasDisplayableValuesConfigured = true;
 				}
+				
+				if(assessableCourseNode.hasScoreConfigured()) {
+					if(!(courseNode instanceof STCourseNode)) {
+						Float min = assessableCourseNode.getMinScoreConfiguration();
+						nodeData.put(AssessmentHelper.KEY_MIN, min);
+						Float max = assessableCourseNode.getMaxScoreConfiguration();
+						nodeData.put(AssessmentHelper.KEY_MAX, max);
+					}
+
+					
+				}
+
 				if (assessableCourseNode.isEditableConfigured()) {
 					// Assessable course nodes are selectable when they are aditable
 					nodeData.put(AssessmentHelper.KEY_SELECTABLE, Boolean.TRUE);

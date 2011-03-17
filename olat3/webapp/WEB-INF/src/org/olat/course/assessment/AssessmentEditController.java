@@ -40,7 +40,6 @@ import org.olat.core.gui.control.generic.modal.DialogBoxUIFactory;
 import org.olat.core.id.Identity;
 import org.olat.core.logging.OLATRuntimeException;
 import org.olat.core.util.Formatter;
-import org.olat.core.util.StringHelper;
 import org.olat.core.util.coordinate.CoordinatorManager;
 import org.olat.core.util.coordinate.LockResult;
 import org.olat.course.ICourse;
@@ -227,14 +226,14 @@ public class AssessmentEditController extends BasicController {
 		}
 
 		if (assessmentForm.isHasScore() && assessmentForm.isScoreDirty()) {
-			newScore = new Float(assessmentForm.getScore());
+			newScore = assessmentForm.getScore();
 			// Update properties in db later... see
 			// courseNode.updateUserSocreAndPassed...
 		}
 		
 		if (assessmentForm.isHasPassed()) {
-			if (assessmentForm.getCut() != null && StringHelper.containsNonWhitespace(assessmentForm.getScore())) {
-				newPassed = Float.parseFloat(assessmentForm.getScore()) >= assessmentForm.getCut().floatValue()
+			if (assessmentForm.getCut() != null && assessmentForm.getScore() != null) {
+				newPassed = assessmentForm.getScore() >= assessmentForm.getCut().floatValue()
 				          ? Boolean.TRUE : Boolean.FALSE;
 			} else {
         //"passed" info was changed or not 
