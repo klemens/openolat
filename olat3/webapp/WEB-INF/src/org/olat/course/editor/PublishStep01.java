@@ -36,6 +36,7 @@ import org.olat.core.gui.control.generic.wizard.StepsEvent;
 import org.olat.core.gui.control.generic.wizard.StepsRunContext;
 import org.olat.core.gui.translator.PackageTranslator;
 import org.olat.core.util.Util;
+import org.olat.course.ICourse;
 import org.olat.repository.PropPupForm;
 import org.olat.repository.RepositoryEntry;
 
@@ -52,17 +53,16 @@ class PublishStep01 extends BasicStep {
 	private PrevNextFinishConfig prevNextConfig;
 	private boolean hasPublishableChanges;
 
-	public PublishStep01(UserRequest ureq, boolean hasPublishableChanges) {
+	public PublishStep01(UserRequest ureq, ICourse course, boolean hasPublishableChanges, boolean hasCatalog) {
 		super(ureq);
 		setI18nTitleAndDescr("publish.access.header", null);
 		
 		this.hasPublishableChanges = hasPublishableChanges;
-		if(hasPublishableChanges){
-			setNextStep(new PublishStep00a(ureq));
+		setNextStep(new PublishStepCatalog(ureq, course, hasPublishableChanges));
+		if(hasCatalog){
 			prevNextConfig = PrevNextFinishConfig.BACK_NEXT_FINISH;
 		}else{
-			setNextStep(Step.NOSTEP);
-			prevNextConfig = PrevNextFinishConfig.BACK_FINISH;
+			prevNextConfig = PrevNextFinishConfig.BACK_NEXT;
 		}
 	}
 
@@ -91,7 +91,7 @@ class PublishStep01 extends BasicStep {
 
 		PublishStep01AccessForm(UserRequest ureq, WindowControl control, Form rootForm, StepsRunContext runContext, boolean hasPublishableChanges2) {
 			super(ureq, control, rootForm, runContext, LAYOUT_VERTICAL, null);
-			this.hasPublishableChanges2 = hasPublishableChanges2;
+			this.hasPublishableChanges2 = true;//hasPublishableChanges2;
 			selectedAccess = (String) getFromRunContext("selectedCourseAccess");
 			initForm(ureq);
 		}

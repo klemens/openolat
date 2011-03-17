@@ -43,7 +43,9 @@ import org.olat.core.gui.control.generic.wizard.StepsEvent;
 import org.olat.core.gui.control.generic.wizard.StepsRunContext;
 import org.olat.core.id.OLATResourceable;
 import org.olat.course.ICourse;
+import org.olat.course.nodes.CourseNode;
 import org.olat.course.nodes.StatusDescriptionHelper;
+import org.olat.course.properties.CoursePropertyManager;
 import org.olat.course.tree.CourseEditorTreeModel;
 import org.olat.repository.RepositoryEntry;
 import org.olat.repository.RepositoryManager;
@@ -60,14 +62,23 @@ class PublishStep00 extends BasicStep {
 
 	private PublishProcess publishProcess;
 	private OLATResourceable ores;
+	
+	private final boolean hasCatalog;
+	private final boolean hasPublishableChanges;
 
 	public PublishStep00(UserRequest ureq, CourseEditorTreeModel cetm, ICourse course) {
 		super(ureq);
 		this.ores = course;
 		publishProcess = PublishProcess.getInstance(course, cetm, ureq.getLocale());
+		
+		CoursePropertyManager cpm = course.getCourseEnvironment().getCoursePropertyManager();
+		CourseNode rootNode = course.getRunStructure().getRootNode();
+		hasCatalog = cpm.findCourseNodeProperty(rootNode, null, null, "catalog-choice") != null;
+		hasPublishableChanges = publishProcess.hasPublishableChanges();
+		
 		setI18nTitleAndDescr("publish.header", null);
 		// proceed with direct access as next step.
-		setNextStep(new PublishStep01(ureq, publishProcess.hasPublishableChanges()));
+		setNextStep(new PublishStep01(ureq, course, hasPublishableChanges, hasCatalog));
 	}
 
 	/**
@@ -75,7 +86,7 @@ class PublishStep00 extends BasicStep {
 	 */
 	public PrevNextFinishConfig getInitialPrevNextFinishConfig() {
 		// in any case allow next or finish
-		if(publishProcess.hasPublishableChanges()){
+		if(hasPublishableChanges || !hasCatalog){
 			//this means we have possible steps 00a (error messages) and 00b (warning messages)
 			return PrevNextFinishConfig.NEXT;
 		}else{

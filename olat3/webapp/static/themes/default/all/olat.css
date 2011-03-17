@@ -264,6 +264,8 @@
 	#o_course_editor_ok { padding-left: 10px}  
 	#o_course_editor_errorbox ul, #o_course_editor_warningbox ul { padding: 0; margin: 0;}  
 	
+	.o_course_editor_publish {}
+	.o_course_editor_publish .o_course_editor_categories { padding-top: 10px; }
 	
 	span.o_passed { background: url(../images/olat/tick.png) no-repeat right 50%; padding: 0 25px 0 0; color: #009900 }
 	span.o_notpassed { background: url(../images/olat/cross.png) no-repeat right 50%; padding: 0 25px 0 0; color: #990000 }
