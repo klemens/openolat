@@ -7,6 +7,9 @@
 			#if($r.available("next"))
 				$r.render("next")
 			#end
+			#if($r.available("print"))
+				$r.render("print")
+			#end
 			#if($r.available("search_input"))
 				$r.render("search_input")
 			#end

@@ -378,6 +378,9 @@
 	div.o_module_cp_wrapper div span a.o_cp_next_icon {	background-image: url(../images/brasato/move_right.png); }
 	div.o_module_cp_wrapper div span a.o_cp_next_icon:hover {	background-image: url(../images/brasato/move_right_over.png); }
 	div.o_module_cp_wrapper div span a.o_cp_next_icon span {display:none; }
+	div.o_module_cp_wrapper div span a.o_cp_print_icon {	background-image: url(../images/brasato/print.png); }
+	div.o_module_cp_wrapper div span a.o_cp_print_icon:hover {	background: transparent url(../images/brasato/print_over.png) top left no-repeat; }
+	div.o_module_cp_wrapper div span a.o_cp_print_icon span {display:none; }
 	div.o_module_cp_wrapper div.o_cp_navigation div, div.o_module_cp_wrapper div.o_cp_navigation form  { display:inline; }
 	div.o_module_cp_wrapper div.o_cp_navigation div.b_clearfix { display:inline; clear:none; }
 	div.o_module_cp_wrapper div.o_cp_navigation div.b_clearfix:after{display:inline;height:0;clear:none;visibility:hidden}

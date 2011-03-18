@@ -22,6 +22,8 @@
 
 package org.olat.modules.cp;
 
+import java.util.List;
+
 import org.olat.core.CoreSpringFactory;
 import org.olat.core.commons.services.search.ui.SearchController;
 import org.olat.core.commons.services.search.ui.SearchServiceUIFactory;
@@ -43,6 +45,7 @@ import org.olat.core.gui.control.controller.BasicController;
 import org.olat.core.gui.control.generic.closablewrapper.CloseableModalController;
 import org.olat.core.gui.control.generic.iframe.IFrameDisplayController;
 import org.olat.core.gui.control.generic.iframe.NewIframeUriEvent;
+import org.olat.core.gui.control.winmgr.JSCommand;
 import org.olat.core.gui.media.MediaResource;
 import org.olat.core.gui.media.NotFoundMediaResource;
 import org.olat.core.id.OLATResourceable;
@@ -82,7 +85,11 @@ public class CPDisplayController extends BasicController {
 	private SearchController searchCtrl;
 	private Link nextLink;
 	private Link previousLink;
+	private Link printLink;
+	private String mapperBaseURL;
+	private CPPrintMapper printMapper;
 	
+	private CPSelectPrintPagesController printController;
 	private CloseableModalController printPopup;
 
 	/**
@@ -92,7 +99,7 @@ public class CPDisplayController extends BasicController {
 	 * @param activateFirstPage
 	 */
 	CPDisplayController(UserRequest ureq, WindowControl wControl, VFSContainer rootContainer, boolean showMenu, boolean showNavigation,
-			boolean activateFirstPage, String initialUri, OLATResourceable ores) {
+			boolean activateFirstPage, boolean showPrint, String initialUri, OLATResourceable ores) {
 		super(ureq, wControl);
 		this.rootContainer = rootContainer;
 
@@ -127,7 +134,7 @@ public class CPDisplayController extends BasicController {
 				.getPackage().getName(), "CP " + rootContainer + " has no imsmanifest", null); }
 		// initialize tree model in any case
 		ctm = new CPManifestTreeModel((VFSLeaf) mani);
-
+		
 		if (showMenu) {
 			// the menu is only initialized when needed.
 			cpTree = new MenuTree("cpDisplayTree");
@@ -135,6 +142,17 @@ public class CPDisplayController extends BasicController {
 			cpTree.addListener(this);
 		}
 		
+		if(showPrint) {
+			printLink = LinkFactory.createLink("print", myContent, this);
+			printLink.setCustomEnabledLinkCSS("b_small_icon o_cp_print_icon");
+			printLink.setCustomDisplayText("Print");
+			printLink.setTooltip("print", false);
+			
+			String themeBaseUri = wControl.getWindowBackOffice().getWindow().getGuiTheme().getBaseURI();
+			printMapper = new CPPrintMapper(ctm, rootContainer, themeBaseUri);
+			mapperBaseURL = registerMapper(printMapper);
+			printMapper.setBaseUri(mapperBaseURL);
+		}
 		
 		if(showNavigation) {
 			nextLink = LinkFactory.createLink("next", myContent, this);
@@ -207,11 +225,17 @@ public class CPDisplayController extends BasicController {
 		if(cpContentCtr != null) {
 			cpContentCtr.setContentEncoding(encoding);
 		}
+		if(printMapper != null) {
+			printMapper.setContentEncoding(encoding);
+		}
 	}
 	
 	public void setJSEncoding(String encoding) {
 		if(cpContentCtr != null) {
 			cpContentCtr.setJSEncoding(encoding);
+		}
+		if(printMapper != null) {
+			printMapper.setJSEncoding(encoding);
 		}
 	}
 
@@ -250,6 +274,8 @@ public class CPDisplayController extends BasicController {
 			TreeNode previousUri = (TreeNode)previousLink.getUserObject();
 			switchToPage(ureq, previousUri);
 			fireEvent(ureq, new TreeNodeEvent(previousUri));
+		} else if (source == printLink) {
+			selectPagesToPrint(ureq);
 		}
 	}
 	
@@ -265,7 +291,42 @@ public class CPDisplayController extends BasicController {
 					selectTreeNode(ureq, nue.getNewUri());
 				}// else ignore (e.g. misplaced olatcmd event (inner olat link found in a
 					// contentpackaging file)
+			} else if (source == printPopup) {
+				removeAsListenerAndDispose(printPopup);
+				removeAsListenerAndDispose(printController);
+				printController = null;
+				printPopup = null;
+			} else if (source == printController) {
+				if(Event.DONE_EVENT == event) {
+					List<String> nodeToPrint = printController.getSelectedNodeIdents();
+					printPages(nodeToPrint);
+				}
+				
+				printPopup.deactivate();
+				removeAsListenerAndDispose(printPopup);
+				removeAsListenerAndDispose(printController);
+				printController = null;
+				printPopup = null;
 			}
+	}
+		
+	private void printPages(final List<String> selectedNodeIds) {
+		StringBuilder sb = new StringBuilder();
+		sb.append("window.open('" + mapperBaseURL + "/print.html', '_print','height=800,left=100,top=100,width=800,toolbar=no,titlebar=0,status=0,menubar=yes,location= no,scrollbars=1');");
+		printMapper.setSelectedNodeIds(selectedNodeIds);
+		getWindowControl().getWindowBackOffice().sendCommandTo(new JSCommand(sb.toString()));
+	}
+		
+	private void selectPagesToPrint(UserRequest ureq) {
+		removeAsListenerAndDispose(printController);
+		removeAsListenerAndDispose(printPopup);
+		
+		printController = new CPSelectPrintPagesController(ureq, getWindowControl(), ctm);
+		listenTo(printController);
+		
+		printPopup = new CloseableModalController(getWindowControl(), "cancel", printController.getInitialComponent(), true, translate("print.node.list.title"));
+		listenTo(printPopup);
+		printPopup.activate();
 	}
 
 	/**
