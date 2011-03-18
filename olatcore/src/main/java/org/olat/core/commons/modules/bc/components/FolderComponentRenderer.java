@@ -131,6 +131,22 @@ public class FolderComponentRenderer implements ComponentRenderer {
 			}
 			
 			if(canWrite) {
+				if(fc.getExternContainerForCopy() != null && (fc.getExternContainerForCopy().getLocalSecurityCallback() == null ||
+						fc.getExternContainerForCopy().getLocalSecurityCallback().canCopy())) {
+					//option copy file
+					target.append("<li><a class=\"b_briefcase_newfile\" href=\"");
+					ubu.buildURI(target, new String[] { VelocityContainer.COMMAND_ID }, new String[] { "copyfile"  }, iframePostEnabled ? AJAXFlags.MODE_TOBGIFRAME : AJAXFlags.MODE_NORMAL);
+					target.append("\"");
+					if (iframePostEnabled) { // add ajax iframe target
+						StringOutput so = new StringOutput();
+						ubu.appendTarget(so);
+						target.append(so.toString());
+					}
+					target.append(">");
+					target.append(translator.translate("copyfile"));
+					target.append("</a></li>");
+				}
+				
 				// option upload	
 				target.append("<li><a class=\"b_briefcase_upload\" href=\"");
 				ubu.buildURI(target, new String[] { VelocityContainer.COMMAND_ID }, new String[] { "ul"  }, iframePostEnabled ? AJAXFlags.MODE_TOBGIFRAME : AJAXFlags.MODE_NORMAL);

@@ -159,6 +159,38 @@ public class FolderRunController extends BasicController implements Activateable
 			boolean displayWebDAVLink, boolean displaySearch, UserRequest ureq,
 			WindowControl wControl, VFSItemFilter filter,
 			CustomLinkTreeModel customLinkTreeModel) {
+		this(rootContainer, displayWebDAVLink, displaySearch, ureq, wControl, filter, customLinkTreeModel, null);
+	}
+
+	/**
+	 * Constructor for a folder controller with an optional file filter and an
+	 * optional custom link model for editor. Use this one if you don't wan't to
+	 * display all files in the file browser or if you want to use a custom link
+	 * tree model in the editor.
+	 * 
+	 * @param rootContainer
+	 *            The folder base. User can not navigate out of this container.
+	 * @param displayWebDAVLink
+	 *            true: show the webDAV link; false: hide the webDAV link
+	 * @param displaySearch
+	 *            true: display the search field; false: omit the search field.
+	 *            Note: for guest users the search is always omitted.
+	 * @param ureq
+	 *            The user request object
+	 * @param wControl
+	 *            The window control object
+	 * @param filter
+	 *            A file filter or NULL to not use a filter
+	 * @param customLinkTreeModel
+	 *            A custom link tree model used in the HTML editor or NULL to
+	 *            not use this feature.
+	 * @param externContainerForCopy
+	 *            A container to copy files from
+	 */
+	public FolderRunController(VFSContainer rootContainer,
+			boolean displayWebDAVLink, boolean displaySearch, UserRequest ureq,
+			WindowControl wControl, VFSItemFilter filter,
+			CustomLinkTreeModel customLinkTreeModel, VFSContainer externContainerForCopy) {
 
 		super(ureq, wControl);
 		
@@ -188,7 +220,7 @@ public class FolderRunController extends BasicController implements Activateable
 		}
 		
 		
-		folderComponent = new FolderComponent(ureq, "foldercomp", rootContainer, filter, customLinkTreeModel);
+		folderComponent = new FolderComponent(ureq, "foldercomp", rootContainer, filter, customLinkTreeModel, externContainerForCopy);
 		folderComponent.addListener(this);
 		folderContainer.put("foldercomp", folderComponent);
 		if (WebDAVManager.getInstance().isEnabled() && displayWebDAVLink)

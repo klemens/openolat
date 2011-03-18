@@ -94,6 +94,7 @@ public class FolderComponent extends Component {
 	private final DateFormat dateTimeFormat;
 	private VFSItemExcludePrefixFilter exclFilter;
 	private CustomLinkTreeModel customLinkTreeModel;
+	private final VFSContainer externContainerForCopy;
 
 	/**
 	 * Wraps the folder module as a component.
@@ -113,10 +114,17 @@ public class FolderComponent extends Component {
 	public FolderComponent(UserRequest ureq, String name,
 			VFSContainer rootContainer, VFSItemFilter filter,
 			CustomLinkTreeModel customLinkTreeModel) {
+		this(ureq, name, rootContainer, filter, customLinkTreeModel, null);
+	}
+	
+	public FolderComponent(UserRequest ureq, String name,
+			VFSContainer rootContainer, VFSItemFilter filter,
+			CustomLinkTreeModel customLinkTreeModel, VFSContainer externContainerForCopy) {
 		super(name);
 		this.identityEnv = ureq.getUserSession().getIdentityEnvironment();
 		this.filter = filter;
 		this.customLinkTreeModel = customLinkTreeModel;
+		this.externContainerForCopy = externContainerForCopy;
 		exclFilter = new VFSItemExcludePrefixFilter(ATTACHMENT_EXCLUDE_PREFIXES);
 		Locale locale = ureq.getLocale();
 		collator = Collator.getInstance(locale);
@@ -436,6 +444,10 @@ public class FolderComponent extends Component {
 		return this.customLinkTreeModel; 
 	}
 	
+	public VFSContainer getExternContainerForCopy() {
+		return externContainerForCopy;
+	}
+
 	/**
 	 * 
 	 * @see org.olat.core.gui.components.Component#validate(org.olat.core.gui.UserRequest, org.olat.core.gui.render.ValidationResult)

@@ -33,6 +33,7 @@ public class FolderCommandFactory {
 	public static final String COMMAND_UPLOAD = "ul";
 	public static final String COMMAND_CREATEFOLDER = "cf";
 	public static final String COMMAND_CREATEFILE = "cfile";
+	public static final String COMMAND_COPYFILE = "copyfile";
 	public static final String COMMAND_SERV = "serv";
 	public static final String COMMAND_EDIT = "edt";
 	public static final String COMMAND_EDIT_CONTENT = "editContent";
@@ -65,6 +66,7 @@ public class FolderCommandFactory {
 		FolderCommand cmd = null;
 		if (command.equals(COMMAND_CREATEFOLDER)) cmd = new CmdCreateFolder(ureq,wControl);
 		else if (command.equals(COMMAND_CREATEFILE)) cmd = new CmdCreateFile(ureq,wControl);
+		else if (command.equals(COMMAND_COPYFILE)) cmd = new CmdCopyFile(ureq,wControl);
 		else if (command.equals(COMMAND_UPLOAD)) cmd = new CmdUpload(ureq, wControl, true);
 		else if (command.equals(COMMAND_SERV)) cmd = new CmdServeResource();
 		else if (command.equals(COMMAND_SERV_THUMBNAIL)) cmd = new CmdServeThumbnailResource();

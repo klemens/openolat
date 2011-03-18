@@ -30,6 +30,7 @@ import org.olat.core.gui.control.Event;
 import org.olat.core.gui.control.WindowControl;
 import org.olat.core.gui.control.generic.dtabs.Activateable;
 import org.olat.core.util.notifications.SubscriptionContext;
+import org.olat.core.util.vfs.VFSContainer;
 import org.olat.core.util.vfs.callbacks.VFSSecurityCallback;
 import org.olat.course.CourseModule;
 import org.olat.course.nodes.BCCourseNode;
@@ -69,7 +70,12 @@ public class BCCourseNodeRunController extends DefaultController implements Acti
 		OlatNamedContainerImpl namedContainer = BCCourseNode.getNodeFolderContainer((BCCourseNode) ne.getCourseNode(), courseEnv);
 		VFSSecurityCallback scallback = new FolderNodeCallback(namedContainer.getRelPath(), ne, isOlatAdmin, isGuestOnly, nodefolderSubContext);
 		namedContainer.setLocalSecurityCallback(scallback);
-		frc = new FolderRunController(namedContainer, false, true, ureq, getWindowControl());
+		
+		VFSContainer courseContainer = null;
+		if(scallback.canWrite() && scallback.canCopy()) {
+			courseContainer = courseEnv.getCourseFolderContainer();
+		}
+		frc = new FolderRunController(namedContainer, false, true, ureq, getWindowControl(), null, null, courseContainer);
 		setInitialComponent(frc.getInitialComponent());
 	}
 
