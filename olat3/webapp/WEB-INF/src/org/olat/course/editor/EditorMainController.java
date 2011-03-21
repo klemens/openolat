@@ -22,6 +22,7 @@
 package org.olat.course.editor;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -237,6 +238,7 @@ public class EditorMainController extends MainLayoutBasicController implements G
 			enableCustomCss(ureq);
 
 			menuTree = new MenuTree("luTree");
+			menuTree.setExpandSelectedNode(false);
 						
 
 			/*
@@ -265,6 +267,7 @@ public class EditorMainController extends MainLayoutBasicController implements G
 				getWindowControl().setInfo(translate(NLS_PUBLISHED_LATEST, Formatter.getInstance(ureq.getLocale()).formatDateAndTime(d)));
 			}
 			menuTree.setTreeModel(cetm);
+			menuTree.setOpenNodeIds(Collections.singleton(cetm.getRootNode().getIdent()));
 			menuTree.addListener(this);
 
 			selTree = new SelectionTree("selection", getTranslator());

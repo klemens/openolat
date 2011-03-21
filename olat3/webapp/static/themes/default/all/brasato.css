@@ -313,7 +313,7 @@
 	div.b_tree ul.b_tree_l1 { margin: 0 0 0 0; border-top: 1px dotted #bbb; }
 	/* formatting for all items in the tree */
 	div.b_tree li { position: relative; padding: 0; margin: 0; border-top: 1px dotted #eee}
-	div.b_tree li a { color: #667; display: block;}
+	div.b_tree li a { color: #667; padding-top:2px; padding-bottom:2px; }
 	div.b_tree li a:focus,
 	div.b_tree li a:hover,
 	div.b_tree li a:active { color: #504D4E; text-decoration: underline; }	
@@ -321,14 +321,19 @@
 	div.b_tree li a.b_tree_selected,
 	div.b_tree li a.b_tree_selected_parents,
 	div.b_tree li a.b_tree_l0,
-	div.b_tree li strong { color: #504D4E; font-weight: bold; display: block;}
+	div.b_tree li strong { color: #504D4E; font-weight: bold; }
 	/* base for icons in menu tree */
 	div.b_tree li a.b_tree_icon {padding-left: 20px; position: relative; background-position: 0 50%; background-repeat: no-repeat;}	
 	/* menu icon decorators */
 	div.b_tree span.b_tree_icon_decorator {position: absolute; background-repeat: no-repeat; }
 	/* level open and close icons */
-	span.b_tree_level_close { position: absolute; top: 0.5em; left: -9px; width: 9px; height: 9px; background: url(../images/brasato/bullet_toggle_minus.png) no-repeat; }
-	span.b_tree_level_open { position: absolute; top: 0.5em; left: -9px; width: 9px; height: 9px; background: url(../images/brasato/bullet_toggle_plus.png) no-repeat; }
+	a.b_tree_level_close, a.b_tree_level_open,
+	a.b_tree_level_close:focus, a.b_tree_level_open:focus,
+	a.b_tree_level_close:hover, a.b_tree_level_open:hover,
+	a.b_tree_level_close:active, a.b_tree_level_open:active { text-decoration:none !important; }
+	a.b_tree_level_close span { padding-right:2px; background:white url(../images/brasato/bullet_toggle_minus.png) no-repeat 1px 50%; }
+	a.b_tree_level_open span { padding-right:2px; background:white url(../images/brasato/bullet_toggle_plus.png) no-repeat 1px 50%; }
+	span.b_tree_level_leaf { padding-right:2px; }
 
 	/* MENU TOOLBAR */
 	#b_main.b_menu_toolbar #b_col1_content { padding-top: 0; padding-right: 0; }

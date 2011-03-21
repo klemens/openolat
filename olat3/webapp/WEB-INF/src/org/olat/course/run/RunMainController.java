@@ -226,6 +226,7 @@ public class RunMainController extends MainLayoutBasicController implements Gene
 		// set up the components
 		all = new Panel("allofcourse");
 		luTree = new MenuTree("luTreeRun", this);
+		luTree.setExpandSelectedNode(false);
 		contentP = new Panel("building_block_content");
 
 		// get all group memberships for this course
@@ -524,6 +525,7 @@ public class RunMainController extends MainLayoutBasicController implements Gene
 		luTree.setTreeModel(treeModel);
 		String selNodeId = nclr.getSelectedNodeId();
 		luTree.setSelectedNodeId(selNodeId);
+		luTree.setOpenNodeIds(nclr.getOpenNodeIds());
 		CourseNode courseNode = nclr.getCalledCourseNode();
 		updateState(courseNode);
 
@@ -582,7 +584,18 @@ public class RunMainController extends MainLayoutBasicController implements Gene
 					return;
 				}
 				// a click to a subtree's node
-				if (nclr.isHandledBySubTreeModelListener()) return;
+				if (nclr.isHandledBySubTreeModelListener() || nclr.getSelectedNodeId() == null) {
+					if(nclr.getRunController() != null) {
+						//there is an update to the currentNodeController, apply it
+						if (currentNodeController != null && !currentNodeController.isDisposed()) {
+							currentNodeController.dispose();
+						}
+						currentNodeController = nclr.getRunController();
+						Component nodeComp = currentNodeController.getInitialComponent();
+						contentP.setContent(nodeComp);
+					}
+					return;
+				}
 
 				// set the new treemodel
 				treeModel = nclr.getTreeModel();
@@ -591,6 +604,7 @@ public class RunMainController extends MainLayoutBasicController implements Gene
 				// set the new tree selection
 				String nodeId = nclr.getSelectedNodeId();
 				luTree.setSelectedNodeId(nodeId);
+				luTree.setOpenNodeIds(nclr.getOpenNodeIds());
 				currentCourseNode = nclr.getCalledCourseNode();
 				updateState(currentCourseNode);
 

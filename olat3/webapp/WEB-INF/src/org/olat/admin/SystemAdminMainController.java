@@ -87,7 +87,8 @@ public class SystemAdminMainController extends MainLayoutBasicController {
 	public SystemAdminMainController(UserRequest ureq, WindowControl wControl) {
 		super(ureq, wControl);		
 		
-		olatMenuTree = new MenuTree("olatMenuTree");				
+		olatMenuTree = new MenuTree("olatMenuTree");
+		olatMenuTree.setExpandSelectedNode(false);
 		TreeModel tm = buildTreeModel(); 
 		olatMenuTree.setTreeModel(tm);
 		INode firstNode = tm.getRootNode().getChildAt(0);

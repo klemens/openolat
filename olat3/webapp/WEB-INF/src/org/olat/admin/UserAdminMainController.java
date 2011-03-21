@@ -106,7 +106,8 @@ public class UserAdminMainController extends MainLayoutBasicController implement
 	 */
 	public UserAdminMainController(UserRequest ureq, WindowControl wControl) {
 		super(ureq, wControl);		
-		olatMenuTree = new MenuTree("olatMenuTree");				
+		olatMenuTree = new MenuTree("olatMenuTree");		
+		olatMenuTree.setExpandSelectedNode(false);
 		TreeModel tm = buildTreeModel(ureq.getUserSession().getRoles().isOLATAdmin()); 
 		olatMenuTree.setTreeModel(tm);
 		INode firstNode = tm.getRootNode().getChildAt(0);
