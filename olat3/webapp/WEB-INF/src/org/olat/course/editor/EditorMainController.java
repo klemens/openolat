@@ -135,6 +135,7 @@ public class EditorMainController extends MainLayoutBasicController implements G
 	private static final String CMD_KEEPOPEN_ERROR = "keep.open.error";
 	private static final String CMD_KEEPCLOSED_WARNING = "keep.closed.warning";
 	private static final String CMD_KEEPOPEN_WARNING = "keep.open.warning";
+	private static final String CMD_MULTI_SP = "cmp.multi.sp";
 
 	// NLS support
 	
@@ -159,6 +160,8 @@ public class EditorMainController extends MainLayoutBasicController implements G
 	private static final String NLS_MOVECOPYNODE_ERROR_ROOTNODE = "movecopynode.error.rootnode";
 	private static final String NLS_COURSEFOLDER_NAME = "coursefolder.name";
 	private static final String NLS_COURSEFOLDER_CLOSE = "coursefolder.close";
+	private static final String NLS_ADMIN_HEADER = "command.admin.header";
+	private static final String NLS_MULTI_SPS = "command.multi.sps";
 	
 	private Boolean errorIsOpen = Boolean.TRUE;
 	private Boolean warningIsOpen = Boolean.FALSE;
@@ -194,6 +197,8 @@ public class EditorMainController extends MainLayoutBasicController implements G
 	private Link keepClosedWarningButton;
 	private Link keepOpenWarningButton;
 	private CloseableModalController cmc;
+	
+	private MultiSPController multiSPChooserCtr;
 
 	private OLATResourceable ores;
 	
@@ -298,6 +303,9 @@ public class EditorMainController extends MainLayoutBasicController implements G
 					log.error("Error while trying to add a course buildingblock of type \""+courseNodeAlias +"\" to the editor", e);
 				}
 			}
+			
+			toolC.addHeader(translate(NLS_ADMIN_HEADER));
+			toolC.addLink(CMD_MULTI_SP, translate(NLS_MULTI_SPS), CMD_MULTI_SP, "b_toolbox_copy");
 
 			toolC.addHeader(translate(NLS_COMMAND_DELETENODE_HEADER));
 			toolC.addLink(CMD_DELNODE, translate(NLS_COMMAND_DELETENODE), CMD_DELNODE, "b_toolbox_delete");
@@ -605,6 +613,17 @@ public class EditorMainController extends MainLayoutBasicController implements G
 						folderComponent);
 				clc.activate();
 				
+			} else if (event.getCommand().equals(CMD_MULTI_SP)) {
+				removeAsListenerAndDispose(multiSPChooserCtr);
+				VFSContainer rootContainer = course.getCourseEnvironment().getCourseFolderContainer();
+				CourseEditorTreeNode selectedNode = (CourseEditorTreeNode)menuTree.getSelectedNode();
+				multiSPChooserCtr = new MultiSPController(ureq, getWindowControl(), rootContainer, ores, selectedNode);
+				listenTo(multiSPChooserCtr);
+				
+				removeAsListenerAndDispose(cmc);
+				cmc = new CloseableModalController(getWindowControl(), translate("close"), multiSPChooserCtr.getInitialComponent());
+				listenTo(cmc);
+				cmc.activate();
 			}
 		} else if (source == nodeEditCntrllr) {
 			// event from the tabbed pane (any tab)
@@ -722,6 +741,17 @@ public class EditorMainController extends MainLayoutBasicController implements G
 			
 			} else {
 				tabbedNodeConfig.setVisible(true);
+			}
+		} else if (source == multiSPChooserCtr) {
+			cmc.deactivate();
+			removeAsListenerAndDispose(cmc);
+			removeAsListenerAndDispose(multiSPChooserCtr);
+
+			if(event == Event.CHANGED_EVENT) {
+				menuTree.setDirty(true);
+				euce.getCourseEditorEnv().validateCourse();
+				StatusDescription[] courseStatus = euce.getCourseEditorEnv().getCourseStatus();
+				updateCourseStatusMessages(ureq.getLocale(), courseStatus);
 			}
 		}
     } catch (RuntimeException e) {
