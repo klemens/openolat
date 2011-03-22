@@ -21,6 +21,8 @@
 package org.olat.course.nodes.members;
 
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
@@ -115,6 +117,10 @@ public class MembersCourseNodeRunController extends FormBasicController {
 		List<Identity> owners = securityManager.getIdentitiesOfSecurityGroup(courseRepositoryEntry.getOwnerGroup());
 		List<Identity> coaches = cgm.getCoachesFromLearningGroup(null);
 		List<Identity> participants = cgm.getParticipantsFromLearningGroup(null);
+		Comparator<Identity> idComparator = new IdentityComparator();
+		Collections.sort(owners, idComparator);
+		Collections.sort(coaches, idComparator);
+		Collections.sort(participants, idComparator);
 		
 		boolean canEmail =  canEmail(owners, coaches);
 		if(canEmail) {
@@ -414,6 +420,30 @@ public class MembersCourseNodeRunController extends FormBasicController {
 				return key != null && key.equals(member.key);
 			}
 			return false;
+		}
+	}
+	
+	public class IdentityComparator implements Comparator<Identity> {
+
+		@Override
+		public int compare(Identity id1, Identity id2) {
+			if(id1 == null) return -1;
+			if(id2 == null) return 1;
+			
+			String l1 = id1.getUser().getProperty(UserConstants.LASTNAME, null);
+			String l2 = id2.getUser().getProperty(UserConstants.LASTNAME, null);
+			if(l1 == null) return -1;
+			if(l2 == null) return 1;
+			
+			int result = l1.compareToIgnoreCase(l2);
+			if(result == 0) {
+				String f1 = id1.getUser().getProperty(UserConstants.FIRSTNAME, null);
+				String f2 = id2.getUser().getProperty(UserConstants.FIRSTNAME, null);
+				if(f1 == null) return -1;
+				if(f2 == null) return 1;
+				result = f1.compareToIgnoreCase(f2);
+			}
+			return result;
 		}
 	}
 }
