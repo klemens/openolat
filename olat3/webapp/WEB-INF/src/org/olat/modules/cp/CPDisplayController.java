@@ -269,9 +269,15 @@ public class CPDisplayController extends BasicController {
 		} else if (source == nextLink) {
 			TreeNode nextUri = (TreeNode)nextLink.getUserObject();
 			switchToPage(ureq, nextUri);
+			if(cpTree != null) {
+				cpTree.setSelectedNode(nextUri);
+			}
 			fireEvent(ureq, new TreeNodeEvent(nextUri));
 		} else if (source == previousLink) {
 			TreeNode previousUri = (TreeNode)previousLink.getUserObject();
+			if(cpTree != null) {
+				cpTree.setSelectedNode(previousUri);
+			}
 			switchToPage(ureq, previousUri);
 			fireEvent(ureq, new TreeNodeEvent(previousUri));
 		} else if (source == printLink) {
