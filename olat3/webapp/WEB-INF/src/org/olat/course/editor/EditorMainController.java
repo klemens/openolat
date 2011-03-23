@@ -47,6 +47,7 @@ import org.olat.core.gui.components.link.LinkFactory;
 import org.olat.core.gui.components.tabbedpane.TabbedPane;
 import org.olat.core.gui.components.tree.MenuTree;
 import org.olat.core.gui.components.tree.SelectionTree;
+import org.olat.core.gui.components.tree.TreeDropEvent;
 import org.olat.core.gui.components.tree.TreeEvent;
 import org.olat.core.gui.components.tree.TreeNode;
 import org.olat.core.gui.components.velocity.VelocityContainer;
@@ -244,6 +245,8 @@ public class EditorMainController extends MainLayoutBasicController implements G
 
 			menuTree = new MenuTree("luTree");
 			menuTree.setExpandSelectedNode(false);
+			menuTree.setDragAndDropEnabled(true);
+			menuTree.setDragAndDropGroup("courseEditorGroup");
 						
 
 			/*
@@ -346,6 +349,9 @@ public class EditorMainController extends MainLayoutBasicController implements G
 				TreeEvent te = (TreeEvent) event;
 				String nodeId = te.getNodeId();
 				updateViewForSelectedNodeId(ureq, nodeId);				
+			} else if(event.getCommand().equals(MenuTree.COMMAND_TREENODE_DROP)) {
+				TreeDropEvent te = (TreeDropEvent) event;
+				dropNodeAsChild(ureq, course, te.getDroppedNodeId(), te.getTargetNodeId(), te.isAsChild());
 			}
 		} else if (source == main) {
 			if (event.getCommand().startsWith(NLS_START_HELP_WIZARD)) {
@@ -759,6 +765,59 @@ public class EditorMainController extends MainLayoutBasicController implements G
 			this.dispose();
 			throw e;
 		}
+	}
+	
+	private void dropNodeAsChild(UserRequest ureq, ICourse course, String droppedNodeId, String targetNodeId, boolean asChild) {
+		menuTree.setDirty(true); // setDirty when moving
+		CourseNode droppedNode = cetm.getCourseNode(droppedNodeId);
+
+		int position;
+		CourseEditorTreeNode insertParent;
+		if(asChild) {
+			insertParent = cetm.getCourseEditorNodeById(targetNodeId);
+			position = insertParent.getChildCount();
+		} else {
+			CourseEditorTreeNode selectedNode = cetm.getCourseEditorNodeById(targetNodeId);
+			if(selectedNode.getParent() == null) {
+				//root node
+				insertParent = selectedNode;
+				position = 0;
+			} else {
+				insertParent = course.getEditorTreeModel().getCourseEditorNodeById(selectedNode.getParent().getIdent());
+				position = 0;
+				for(position=insertParent.getChildCount(); position-->0; ) {
+					if(insertParent.getChildAt(position).getIdent().equals(selectedNode.getIdent())) {
+						position++;
+						break;
+					}
+				}
+			}
+		}
+		
+		CourseEditorTreeNode moveFrom = course.getEditorTreeModel().getCourseEditorNodeById(droppedNode.getIdent());
+		//don't generate red screen for that. If the position is too high -> add the node at the end
+		if(position >= insertParent.getChildCount()) {
+			position = insertParent.getChildCount();
+		}
+		insertParent.insert(moveFrom, position);
+
+		moveFrom.setDirty(true);
+		//mark subtree as dirty
+		TreeVisitor tv = new TreeVisitor( new Visitor() {
+			public void visit(INode node) {
+				CourseEditorTreeNode cetn = (CourseEditorTreeNode)node;
+				cetn.setDirty(true);
+			}
+		}, moveFrom, true);
+		tv.visitAll();					
+		
+		CourseFactory.saveCourseEditorTreeModel(course.getResourceableId());
+		showInfo("movecopynode.info.condmoved");
+		ThreadLocalUserActivityLogger.log(CourseLoggingAction.COURSE_EDITOR_NODE_MOVED, getClass());
+
+		euce.getCourseEditorEnv().validateCourse();
+		StatusDescription[] courseStatus = euce.getCourseEditorEnv().getCourseStatus();
+		updateCourseStatusMessages(ureq.getLocale(), courseStatus);
 	}
 
 	/*

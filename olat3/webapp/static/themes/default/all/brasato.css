@@ -306,7 +306,7 @@
 		
 	/* MENU TREE */
 	div.b_tree { font-size: 95%; padding-left: 12px;} /* padding to make space for level open/close icons */
-	div.b_tree ul { position: relative; padding: 0; margin: 0 0 0 1em; list-style: none; white-space: nowrap;}
+	div.b_tree ul { position: inherent; padding: 0; margin: 0; list-style: none; white-space: nowrap;}
 	/* level specific formatting: skip indent of level 0  (root node) as title 	*/
 	/* also on level 1, skip indent. The levels are generated automatically on the ul and the a element */
 	div.b_tree ul.b_tree_l0 { margin: 0 0 0 0; border-bottom: 1px dotted #bbb; }
@@ -334,6 +334,64 @@
 	a.b_tree_level_close span { padding-right:2px; background:white url(../images/brasato/bullet_toggle_minus.png) no-repeat 1px 50%; }
 	a.b_tree_level_open span { padding-right:2px; background:white url(../images/brasato/bullet_toggle_plus.png) no-repeat 1px 50%; }
 	span.b_tree_level_leaf { padding-right:2px; }
+
+	/* open / close link */
+	div.b_tree li .b_tree_oc_l1{ position:absolute; top:0px; left:0.8em; z-index:9; }
+	div.b_tree li .b_tree_oc_l2 { position:absolute; top:0px; left:1.8em; z-index:9; }
+	div.b_tree li .b_tree_oc_l3 { position:absolute; top:0px; left:2.8em; z-index:9; }
+	div.b_tree li .b_tree_oc_l4 { position:absolute; top:0px; left:3.8em; z-index:9; }
+	div.b_tree li .b_tree_oc_l5 { position:absolute; top:0px; left:4.8em; z-index:9; }
+	div.b_tree li .b_tree_oc_l6 { position:absolute; top:0px; left:5.8em; z-index:9; }
+	div.b_tree li .b_tree_oc_l7 { position:absolute; top:0px; left:6.8em; z-index:9; }
+	div.b_tree li .b_tree_oc_l8 { position:absolute; top:0px; left:7.8em; z-index:9; }
+	div.b_tree li .b_tree_oc_l9 { position:absolute; top:0px; left:8.8em; z-index:9; }
+	div.b_tree li .b_tree_oc_l10 { position:absolute; top:0px; left:9.8em; z-index:9; }
+	/* show all subsequent list items with same indent */
+	div.b_tree li .b_tree_oc_l11 { position:absolute; top:0px; left:10.8em; z-index:9; }
+	
+	/* link to select the item*/
+	div.b_tree ul li a.b_tree_l1 { padding-left:2.4em; }
+	div.b_tree ul li a.b_tree_l2 { padding-left:3.4em; }
+	div.b_tree ul li a.b_tree_l3 { padding-left:4.4em; }
+	div.b_tree ul li a.b_tree_l4 { padding-left:5.4em; }
+	div.b_tree ul li a.b_tree_l5 { padding-left:6.4em; }
+	div.b_tree ul li a.b_tree_l6 { padding-left:7.4em; }
+	div.b_tree ul li a.b_tree_l7 { padding-left:8.4em; }
+	div.b_tree ul li a.b_tree_l8 { padding-left:9.4em; }
+	div.b_tree ul li a.b_tree_l9 { padding-left:10.4em; }
+	div.b_tree ul li a.b_tree_l10 { padding-left:11.4em; }
+	/* show all subsequent list items with same indent */
+	div.b_tree ul li a.b_tree_l11 { padding-left:12.4em; }
+	
+	/* link to select the item with icon*/
+	div.b_tree ul li a.b_tree_l1.b_tree_icon { padding-left:4em; background-position:2.3em 50%; }
+	div.b_tree ul li a.b_tree_l2.b_tree_icon { padding-left:5em; background-position:3.3em 50%; }
+	div.b_tree ul li a.b_tree_l3.b_tree_icon { padding-left:6em; background-position:4.3em 50%; }
+	div.b_tree ul li a.b_tree_l4.b_tree_icon { padding-left:7em; background-position:5.3em 50%; }
+	div.b_tree ul li a.b_tree_l5.b_tree_icon { padding-left:8em; background-position:6.3em 50%; }
+	div.b_tree ul li a.b_tree_l6.b_tree_icon { padding-left:9em; background-position:7.3em 50%; }
+	div.b_tree ul li a.b_tree_l7.b_tree_icon { padding-left:10em; background-position:8.3em 50%; }
+	div.b_tree ul li a.b_tree_l8.b_tree_icon { padding-left:11em; background-position:9.3em 50%; }
+	div.b_tree ul li a.b_tree_l9.b_tree_icon { padding-left:12em; background-position:10.3em 50%; }
+	div.b_tree ul li a.b_tree_l10.b_tree_icon { padding-left:13em; background-position:11.3em 50%; }
+	/* show all subsequent list items with same indent */
+	div.b_tree ul li a.b_tree_l11.b_tree_icon { padding-left:14em; background-position:12.3em 50%; }	
+	
+	/* hover effects */
+	div.b_tree ul li a.b_tree_level_close, div.b_tree ul li a.b_tree_level_open { width: 20px; }
+	div.b_tree ul li a.b_tree_level_close:hover, div.b_tree ul li a.b_tree_level_open:hover { background-color: transparent; }
+	
+	/* open / close */
+	a.b_tree_level_close, a.b_tree_level_open,
+	a.b_tree_level_close:focus, a.b_tree_level_open:focus,
+	a.b_tree_level_close:hover, a.b_tree_level_open:hover,
+	a.b_tree_level_close:active, a.b_tree_level_open:active { text-decoration:none !important; }
+	a.b_tree_level_close span { padding-right:2px; }
+	a.b_tree_level_open span { padding-right:2px; }
+	span.b_tree_level_leaf { padding-right:2px; }
+	
+	
+	
 
 	/* MENU TOOLBAR */
 	#b_main.b_menu_toolbar #b_col1_content { padding-top: 0; padding-right: 0; }
@@ -1245,5 +1303,10 @@
 	li.b_segment_selected + li.b_segment { border-left: 1px solid #aaa; }
 	div.b_segment_content { margin-top: 50px; clear:both; }
 	
-	
+	/* DRAG and DROP */
+	.b_dd_item { cursor:move; z-index: 1000; }
+	.b_dd_proxy { opacity: 0.4; -moz-opacity: 0.4; filter: alpha(opacity=40); }
+	.b_dd_item.b_dd_over { background-color: #ffff60; }
+	.b_dd_sibling { font-size:0.1em; height:3px; width:100%; }
+	.b_dd_sibling.b_dd_over { background:transparent url(../images/brasato/arrow_dd.png) top left no-repeat; }
 }

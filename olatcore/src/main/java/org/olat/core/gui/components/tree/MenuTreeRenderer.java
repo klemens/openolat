@@ -21,6 +21,12 @@
 
 package org.olat.core.gui.components.tree;
 
+import static org.olat.core.gui.components.velocity.VelocityContainer.COMMAND_ID;
+import static org.olat.core.gui.components.tree.MenuTree.NODE_IDENT;
+import static org.olat.core.gui.components.tree.MenuTree.COMMAND_TREENODE;
+import static org.olat.core.gui.components.tree.MenuTree.COMMAND_TREENODE_CLICKED;
+import static org.olat.core.gui.components.tree.MenuTree.COMMAND_TREENODE_DROP;
+
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -65,9 +71,6 @@ public class MenuTreeRenderer implements ComponentRenderer {
 			RenderResult renderResult, String[] args) {
 		MenuTree tree = (MenuTree) source;
 		
-		// unique ID used for DOM component identification
-		String compPrefix = Renderer.getComponentPrefix(tree);
-		
 		INode selNode = tree.getSelectedNode();
 		TreeNode root = tree.getTreeModel().getRootNode();
 		if (root == null) return; // tree is completely empty
@@ -86,9 +89,15 @@ public class MenuTreeRenderer implements ComponentRenderer {
 				selPath.add(0, cur);
 				cur = cur.getParent();
 			}
-			target.append("\n<div class=\"b_tree\">");
+			
+			AJAXFlags flags = renderer.getGlobalSettings().getAjaxFlags();
+			target.append("\n<div id='dd1-ct' class='b_tree");
+			if(tree.isDragAndDropEnabled()) {
+				target.append(" b_dd_ct");
+			}
+			target.append("'>\n");
 			target.append("<ul class=\"b_tree_l0\">");
-			renderLevel(target, 0, root, selPath, openNodeIds, ubu, renderer.getGlobalSettings().getAjaxFlags(), compPrefix, tree.markingTreeNode, tree);
+			renderLevel(target, 0, root, selPath, openNodeIds, ubu, flags, tree.markingTreeNode, tree);
 			target.append("</ul>");
 			target.append("\n</div>");
 		} else {			
@@ -96,7 +105,7 @@ public class MenuTreeRenderer implements ComponentRenderer {
 		}
 	}
 
-	private void renderLevel(StringOutput target, int level, TreeNode curRoot, List<INode> selPath, Collection<String> openNodeIds, URLBuilder ubu, AJAXFlags flags, String componentPrefix, TreeNode markedNode, MenuTree tree) {	
+	private void renderLevel(StringOutput target, int level, TreeNode curRoot, List<INode> selPath, Collection<String> openNodeIds, URLBuilder ubu, AJAXFlags flags, TreeNode markedNode, MenuTree tree) {	
 		//TODO make performant
 		INode curSel = null;
 		if (level < selPath.size()) {
@@ -119,16 +128,20 @@ public class MenuTreeRenderer implements ComponentRenderer {
 		if(selected) {
 			target.append(" b_tree_selected");
 		}
-		target.append("\"><div class=\"b_tree_item_wrapper");
+		String id = "dd" + curRoot.getIdent();
+		target.append("\"><div id='").append(id).append("' class=\"b_tree_item_wrapper");
+		if(tree.isDragAndDropEnabled()) {
+			target.append(" b_dd_item");
+		}
 		if(selected) {
 			target.append(" b_tree_selected");
 		}
 		target.append("\">");
 		
-		/*if (menuitemsDraggable && curSel == curRoot) {
-			//TODO:collect all ids as done in constructor and "[1,435,323].each(function(val){new Draggabl...."
-			target.append("<script type=\"text/javascript\">new Draggable('").append(curId).append("', {revert:function(el){o_indrag=true;return true;}});</script>");
-		}*/
+		if(tree.isDragAndDropEnabled()) {
+			appendDragAndDropObj(curRoot, tree, target, ubu, flags);
+		}
+		
 		// render link
 		String title = curRoot.getTitle();
 		title = StringEscapeUtils.escapeHtml(title).toString();
@@ -149,9 +162,9 @@ public class MenuTreeRenderer implements ComponentRenderer {
 			} else {
 				String cmd = renderChildren ? MenuTree.TREENODE_CLOSE : MenuTree.TREENODE_OPEN;
 				if (iframePostEnabled) {
-					ubu.buildURI(target, new String[] { MenuTree.NODE_IDENT, MenuTree.COMMAND_TREENODE }, new String[] { curRoot.getIdent(), cmd }, AJAXFlags.MODE_TOBGIFRAME);
+					ubu.buildURI(target, new String[] { COMMAND_ID, NODE_IDENT, COMMAND_TREENODE }, new String[] { COMMAND_TREENODE_CLICKED, curRoot.getIdent(), cmd }, AJAXFlags.MODE_TOBGIFRAME);
 				} else {
-					ubu.buildURI(target, new String[] { MenuTree.NODE_IDENT, cmd }, new String[] { curRoot.getIdent(), cmd });
+					ubu.buildURI(target, new String[] { COMMAND_ID, NODE_IDENT, cmd }, new String[] { COMMAND_TREENODE_CLICKED, curRoot.getIdent(), cmd });
 				}
 			}
 			
@@ -165,12 +178,9 @@ public class MenuTreeRenderer implements ComponentRenderer {
 			} else {
 				target.append("b_tree_level_open");
 			}
-			target.append(" b_tree_oc_l").append(level);
-			target.append("\"><span>&nbsp;&nbsp;</span></a>");
+			target.append(" b_tree_oc_l").append(level).append("\"><span>&nbsp;&nbsp;</span></a>");
 		} else if (level != 0 && chdCnt == 0) {
-			target.append("<span class=\"b_tree_level_leaf")
-				.append(" b_tree_oc_l").append(level)
-				.append("\">&nbsp;&nbsp;</span>");
+			target.append("<span class=\"b_tree_level_leaf b_tree_oc_l").append(level).append("\">&nbsp;&nbsp;</span>");
 		}
 		
 		// Render menu item as link, also for active elements
@@ -215,9 +225,9 @@ public class MenuTreeRenderer implements ComponentRenderer {
 			ubu.buildURI(target, new String[] { "en" }, new String[] { treePath });
 		} else {
 			if (iframePostEnabled) {
-				ubu.buildURI(target, new String[] { MenuTree.NODE_IDENT }, new String[] { curRoot.getIdent() }, AJAXFlags.MODE_TOBGIFRAME);
+				ubu.buildURI(target, new String[] { COMMAND_ID, NODE_IDENT }, new String[] { COMMAND_TREENODE_CLICKED, curRoot.getIdent() }, AJAXFlags.MODE_TOBGIFRAME);
 			} else {
-				ubu.buildURI(target, new String[] { MenuTree.NODE_IDENT }, new String[] { curRoot.getIdent() });
+				ubu.buildURI(target, new String[] { COMMAND_ID, NODE_IDENT }, new String[] { COMMAND_TREENODE_CLICKED, curRoot.getIdent() });
 			}
 		}		
 		// Add menu item title as alt hoover text
@@ -230,23 +240,7 @@ public class MenuTreeRenderer implements ComponentRenderer {
 		target.append(">");
 
 		
-		if (iconCssClass != null) {
-			String deco1 = curRoot.getIconDecorator1CssClass();
-			if (deco1 != null)
-				target.append("<span class=\"b_tree_icon_decorator ").append(deco1).append("\"></span>");
-			
-			String deco2 = curRoot.getIconDecorator2CssClass();
-			if (deco2 != null)
-				target.append("<span class=\"b_tree_icon_decorator ").append(deco2).append("\"></span>");
-			
-			String deco3 = curRoot.getIconDecorator3CssClass();
-			if (deco3 != null)
-				target.append("<span class=\"b_tree_icon_decorator ").append(deco3).append("\"></span>");
-			
-			String deco4 = curRoot.getIconDecorator4CssClass();
-			if (deco4 != null)
-				target.append("<span class=\"b_tree_icon_decorator ").append(deco4).append("\"></span>");
-		}
+		appendDecorators(curRoot, target);
 		
 		// display title and close menu item
 		if(title != null && title.equals("")) title = "&nbsp;";
@@ -259,23 +253,71 @@ public class MenuTreeRenderer implements ComponentRenderer {
 		}
 		target.append("</div>");
 		
+		//append div to drop as sibling
+		if(tree.isDragAndDropEnabled()) {
+			appendSiblingDropObj(curRoot, tree, target);
+		}
+		
 		if (renderChildren) {
-			// render children as new level
-			target.append("\n<ul class=\"");
-			// add css class to identify level
-			target.append(" b_tree_l").append(level + 1 );		
-			target.append("\">");
-			// render all the nodes from this level
-			for (int i = 0; i < chdCnt; i++) {
-				TreeNode curChd = (TreeNode) curRoot.getChildAt(i);
-				renderLevel(target, level + 1, curChd, selPath, openNodeIds, ubu, flags, componentPrefix, markedNode, tree);
-			}
-			target.append("</ul>");
+			//open / close ul
+			renderChildren(target, level, curRoot, selPath, openNodeIds, ubu, flags, markedNode, tree);
 		}
 		
 		//	 close item level
 		target.append("</li>");
+	}
+	
+	private void renderChildren(StringOutput target, int level, TreeNode curRoot, List<INode> selPath, Collection<String> openNodeIds, URLBuilder ubu, AJAXFlags flags, TreeNode markedNode, MenuTree tree) {
+		int chdCnt = curRoot.getChildCount();
+		// render children as new level
+		target.append("\n<ul class=\"");
+		// add css class to identify level
+		target.append(" b_tree_l").append(level + 1 );		
+		target.append("\">");
+		// render all the nodes from this level
+		for (int i = 0; i < chdCnt; i++) {
+			TreeNode curChd = (TreeNode) curRoot.getChildAt(i);
+			renderLevel(target, level + 1, curChd, selPath, openNodeIds, ubu, flags, markedNode, tree);
+		}
+		target.append("</ul>");
+	}
+	
+	private void appendSiblingDropObj(TreeNode node, MenuTree tree, StringOutput target) {
+		String id = node.getIdent();
+		String dndGroup = tree.getDragAndDropGroup();
+		target.append("<div id='ds").append(id).append("' class='b_dd_sibling'>")
+			.append("<script type='text/javascript'>Ext.get('ds").append(id).append("').dd = new Ext.dd.DDTarget('ds").append(id).append("','").append(dndGroup).append("');</script>")
+			.append("&nbsp;&nbsp;</div>");
+	}
+	
+	private void appendDragAndDropObj(TreeNode node, MenuTree tree, StringOutput target, URLBuilder ubu, AJAXFlags flags) {
+		String id = node.getIdent();
+		String dndGroup = tree.getDragAndDropGroup();
+		String feedBackUri = tree.getDndFeedbackUri();
+		StringOutput endUrl = new StringOutput();
+		ubu.buildURI(endUrl, new String[] { COMMAND_ID, NODE_IDENT }, new String[] { COMMAND_TREENODE_DROP, id }, flags.isIframePostEnabled() ? AJAXFlags.MODE_TOBGIFRAME : AJAXFlags.MODE_NORMAL);
+		target.append("<script type='text/javascript'>Ext.get('dd").append(id).append("').dd = new Ext.fxMenuTree.DDProxy('dd").append(id).append("','").append(dndGroup).append("','").append(endUrl).append("','").append(feedBackUri).append("');</script>");
+	}
+	
+	private void appendDecorators(TreeNode curRoot, StringOutput target) {
+		String iconCssClass = curRoot.getIconCssClass();
+		if (iconCssClass == null) return;
 		
+		String deco1 = curRoot.getIconDecorator1CssClass();
+		if (deco1 != null)
+			target.append("<span class=\"b_tree_icon_decorator ").append(deco1).append("\"></span>");
+		
+		String deco2 = curRoot.getIconDecorator2CssClass();
+		if (deco2 != null)
+			target.append("<span class=\"b_tree_icon_decorator ").append(deco2).append("\"></span>");
+		
+		String deco3 = curRoot.getIconDecorator3CssClass();
+		if (deco3 != null)
+			target.append("<span class=\"b_tree_icon_decorator ").append(deco3).append("\"></span>");
+		
+		String deco4 = curRoot.getIconDecorator4CssClass();
+		if (deco4 != null)
+			target.append("<span class=\"b_tree_icon_decorator ").append(deco4).append("\"></span>");
 	}
 	
 	private boolean isRenderChildren(INode curSel, TreeNode curRoot, boolean selected, MenuTree tree, Collection<String> openNodeIds) {
