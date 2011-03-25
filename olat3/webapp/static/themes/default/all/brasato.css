@@ -323,7 +323,7 @@
 	div.b_tree li a.b_tree_l0,
 	div.b_tree li strong { color: #504D4E; font-weight: bold; }
 	/* base for icons in menu tree */
-	div.b_tree li a.b_tree_icon {padding-left: 20px; position: relative; background-position: 0 50%; background-repeat: no-repeat;}	
+	a.b_tree_icon {padding-left: 20px; position: relative; background-position: 0 50%; background-repeat: no-repeat;}	
 	/* menu icon decorators */
 	div.b_tree span.b_tree_icon_decorator {position: absolute; background-repeat: no-repeat; }
 	/* level open and close icons */
@@ -336,23 +336,23 @@
 	span.b_tree_level_leaf { padding-right:2px; }
 
 	/* open / close link */
-	div.b_tree li .b_tree_oc_l1{ position:absolute; top:0px; left:0.8em; z-index:9; }
-	div.b_tree li .b_tree_oc_l2 { position:absolute; top:0px; left:1.8em; z-index:9; }
-	div.b_tree li .b_tree_oc_l3 { position:absolute; top:0px; left:2.8em; z-index:9; }
-	div.b_tree li .b_tree_oc_l4 { position:absolute; top:0px; left:3.8em; z-index:9; }
-	div.b_tree li .b_tree_oc_l5 { position:absolute; top:0px; left:4.8em; z-index:9; }
-	div.b_tree li .b_tree_oc_l6 { position:absolute; top:0px; left:5.8em; z-index:9; }
-	div.b_tree li .b_tree_oc_l7 { position:absolute; top:0px; left:6.8em; z-index:9; }
-	div.b_tree li .b_tree_oc_l8 { position:absolute; top:0px; left:7.8em; z-index:9; }
-	div.b_tree li .b_tree_oc_l9 { position:absolute; top:0px; left:8.8em; z-index:9; }
-	div.b_tree li .b_tree_oc_l10 { position:absolute; top:0px; left:9.8em; z-index:9; }
+	div.b_tree li .b_tree_oc_l1{ position:absolute; top:0; left:-0.9em; z-index:9; }
+	div.b_tree li .b_tree_oc_l2 { position:absolute; top:0; left:0.1em; z-index:9; }
+	div.b_tree li .b_tree_oc_l3 { position:absolute; top:0; left:1.1em; z-index:9; }
+	div.b_tree li .b_tree_oc_l4 { position:absolute; top:0; left:2.1em; z-index:9; }
+	div.b_tree li .b_tree_oc_l5 { position:absolute; top:0; left:3.1em; z-index:9; }
+	div.b_tree li .b_tree_oc_l6 { position:absolute; top:0; left:4.1em; z-index:9; }
+	div.b_tree li .b_tree_oc_l7 { position:absolute; top:0; left:5.1em; z-index:9; }
+	div.b_tree li .b_tree_oc_l8 { position:absolute; top:0; left:6.1em; z-index:9; }
+	div.b_tree li .b_tree_oc_l9 { position:absolute; top:0; left:7.1em; z-index:9; }
+	div.b_tree li .b_tree_oc_l10 { position:absolute; top:0; left:8.1em; z-index:9; }
 	/* show all subsequent list items with same indent */
-	div.b_tree li .b_tree_oc_l11 { position:absolute; top:0px; left:10.8em; z-index:9; }
+	div.b_tree li .b_tree_oc_l11 { position:absolute; top:0; left:9.1em; z-index:9; }
 	
 	/* link to select the item*/
-	div.b_tree ul li a.b_tree_l1 { padding-left:2.4em; }
-	div.b_tree ul li a.b_tree_l2 { padding-left:3.4em; }
-	div.b_tree ul li a.b_tree_l3 { padding-left:4.4em; }
+	div.b_tree ul li a.b_tree_l1 { padding-left:0em; }
+	div.b_tree ul li a.b_tree_l2 { padding-left:1.4em; }
+	div.b_tree ul li a.b_tree_l3 { padding-left:2.4em; }
 	div.b_tree ul li a.b_tree_l4 { padding-left:5.4em; }
 	div.b_tree ul li a.b_tree_l5 { padding-left:6.4em; }
 	div.b_tree ul li a.b_tree_l6 { padding-left:7.4em; }
@@ -364,18 +364,18 @@
 	div.b_tree ul li a.b_tree_l11 { padding-left:12.4em; }
 	
 	/* link to select the item with icon*/
-	div.b_tree ul li a.b_tree_l1.b_tree_icon { padding-left:4em; background-position:2.3em 50%; }
-	div.b_tree ul li a.b_tree_l2.b_tree_icon { padding-left:5em; background-position:3.3em 50%; }
-	div.b_tree ul li a.b_tree_l3.b_tree_icon { padding-left:6em; background-position:4.3em 50%; }
-	div.b_tree ul li a.b_tree_l4.b_tree_icon { padding-left:7em; background-position:5.3em 50%; }
-	div.b_tree ul li a.b_tree_l5.b_tree_icon { padding-left:8em; background-position:6.3em 50%; }
-	div.b_tree ul li a.b_tree_l6.b_tree_icon { padding-left:9em; background-position:7.3em 50%; }
-	div.b_tree ul li a.b_tree_l7.b_tree_icon { padding-left:10em; background-position:8.3em 50%; }
-	div.b_tree ul li a.b_tree_l8.b_tree_icon { padding-left:11em; background-position:9.3em 50%; }
-	div.b_tree ul li a.b_tree_l9.b_tree_icon { padding-left:12em; background-position:10.3em 50%; }
-	div.b_tree ul li a.b_tree_l10.b_tree_icon { padding-left:13em; background-position:11.3em 50%; }
+	div.b_tree ul li a.b_tree_l1.b_tree_icon { padding-left:1.8em; background-position:0em 50%; }
+	div.b_tree ul li a.b_tree_l2.b_tree_icon { padding-left:2.8em; background-position:1em 50%; }
+	div.b_tree ul li a.b_tree_l3.b_tree_icon { padding-left:3.8em; background-position:2em 50%; }
+	div.b_tree ul li a.b_tree_l4.b_tree_icon { padding-left:4.8em; background-position:3em 50%; }
+	div.b_tree ul li a.b_tree_l5.b_tree_icon { padding-left:5.8em; background-position:4em 50%; }
+	div.b_tree ul li a.b_tree_l6.b_tree_icon { padding-left:6.8em; background-position:5em 50%; }
+	div.b_tree ul li a.b_tree_l7.b_tree_icon { padding-left:7.8em; background-position:6em 50%; }
+	div.b_tree ul li a.b_tree_l8.b_tree_icon { padding-left:8.8em; background-position:7em 50%; }
+	div.b_tree ul li a.b_tree_l9.b_tree_icon { padding-left:9.8em; background-position:8em 50%; }
+	div.b_tree ul li a.b_tree_l10.b_tree_icon { padding-left:10.8em; background-position:9em 50%; }
 	/* show all subsequent list items with same indent */
-	div.b_tree ul li a.b_tree_l11.b_tree_icon { padding-left:14em; background-position:12.3em 50%; }	
+	div.b_tree ul li a.b_tree_l11.b_tree_icon { padding-left:11.8em; background-position:10em 50%; }	
 	
 	/* hover effects */
 	div.b_tree ul li a.b_tree_level_close, div.b_tree ul li a.b_tree_level_open { width: 20px; }
@@ -1309,4 +1309,8 @@
 	.b_dd_item.b_dd_over { background-color: #ffff60; }
 	.b_dd_sibling { font-size:0.1em; height:3px; width:100%; }
 	.b_dd_sibling.b_dd_over { background:transparent url(../images/brasato/arrow_dd.png) top left no-repeat; }
+	
+	/* EMAIL */
+	.b_mail_new { top:8px; left:-2px; background-image: url(../images/olat/decorator_warn.png); }
+	.b_table_wrapper span.b_mail_unread { display:block; width:16px; height:16px; background:transparent url(../images/olat/decorator_warn.png) top left no-repeat; }
 }

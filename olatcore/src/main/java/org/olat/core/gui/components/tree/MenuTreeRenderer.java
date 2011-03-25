@@ -128,8 +128,8 @@ public class MenuTreeRenderer implements ComponentRenderer {
 		if(selected) {
 			target.append(" b_tree_selected");
 		}
-		String id = "dd" + curRoot.getIdent();
-		target.append("\"><div id='").append(id).append("' class=\"b_tree_item_wrapper");
+		String ident = curRoot.getIdent();
+		target.append("\"><div id='dd").append(ident).append("' class=\"b_tree_item_wrapper");
 		if(tree.isDragAndDropEnabled()) {
 			target.append(" b_dd_item");
 		}
@@ -187,7 +187,7 @@ public class MenuTreeRenderer implements ComponentRenderer {
 		// mark active item as strong for accessablity reasons
 		
 		target.append(selected ? "<strong>" : "");
-		target.append("<a class=\"");
+		target.append("<a").append(" class=\"");
 		// add icon css class
 		String iconCssClass = curRoot.getIconCssClass();
 		if (iconCssClass != null) {
@@ -243,8 +243,9 @@ public class MenuTreeRenderer implements ComponentRenderer {
 		appendDecorators(curRoot, target);
 		
 		// display title and close menu item
+		target.append("<span class='b_dd_item' id='da").append(ident).append("'>");
 		if(title != null && title.equals("")) title = "&nbsp;";
-		target.append(title).append("</a>");
+		target.append(title).append("</span></a>");
 		// mark active item as strong for accessablity reasons
 		target.append(selected ? "</strong>" : "");
 
@@ -296,7 +297,10 @@ public class MenuTreeRenderer implements ComponentRenderer {
 		String feedBackUri = tree.getDndFeedbackUri();
 		StringOutput endUrl = new StringOutput();
 		ubu.buildURI(endUrl, new String[] { COMMAND_ID, NODE_IDENT }, new String[] { COMMAND_TREENODE_DROP, id }, flags.isIframePostEnabled() ? AJAXFlags.MODE_TOBGIFRAME : AJAXFlags.MODE_NORMAL);
-		target.append("<script type='text/javascript'>Ext.get('dd").append(id).append("').dd = new Ext.fxMenuTree.DDProxy('dd").append(id).append("','").append(dndGroup).append("','").append(endUrl).append("','").append(feedBackUri).append("');</script>");
+		target.append("<script type='text/javascript'>")
+		 .append("Ext.get('dd").append(id).append("').dd = new Ext.fxMenuTree.DDProxy('dd").append(id).append("','").append(dndGroup).append("','").append(endUrl).append("','").append(feedBackUri).append("');")
+		 .append("Ext.get('da").append(id).append("').dd = new Ext.fxMenuTree.DDProxy('da").append(id).append("','").append(dndGroup).append("','").append(endUrl).append("','").append(feedBackUri).append("');")
+		 .append("</script>");
 	}
 	
 	private void appendDecorators(TreeNode curRoot, StringOutput target) {
