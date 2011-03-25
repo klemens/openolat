@@ -243,7 +243,11 @@ public class MenuTreeRenderer implements ComponentRenderer {
 		appendDecorators(curRoot, target);
 		
 		// display title and close menu item
-		target.append("<span class='b_dd_item' id='da").append(ident).append("'>");
+		target.append("<span");
+		if(tree.isDragAndDropEnabled()) {
+			target.append(" class='b_dd_item' id='da").append(ident).append("'");
+		}
+		target.append(">");
 		if(title != null && title.equals("")) title = "&nbsp;";
 		target.append(title).append("</span></a>");
 		// mark active item as strong for accessablity reasons
