@@ -775,7 +775,7 @@ public class EditorMainController extends MainLayoutBasicController implements G
 		CourseEditorTreeNode insertParent;
 		if(asChild) {
 			insertParent = cetm.getCourseEditorNodeById(targetNodeId);
-			position = insertParent.getChildCount();
+			position = 0;
 		} else {
 			CourseEditorTreeNode selectedNode = cetm.getCourseEditorNodeById(targetNodeId);
 			if(selectedNode.getParent() == null) {
@@ -799,7 +799,14 @@ public class EditorMainController extends MainLayoutBasicController implements G
 		if(position >= insertParent.getChildCount()) {
 			position = insertParent.getChildCount();
 		}
-		insertParent.insert(moveFrom, position);
+		
+		try {
+			insertParent.insert(moveFrom, position);
+		} catch (IndexOutOfBoundsException e) {
+			logError("", e);
+			//reattach the node as security, if not, the node is lost
+			insertParent.addChild(moveFrom);
+		}
 
 		moveFrom.setDirty(true);
 		//mark subtree as dirty
