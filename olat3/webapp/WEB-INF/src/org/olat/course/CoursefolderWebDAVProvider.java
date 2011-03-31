@@ -33,7 +33,9 @@ import org.olat.core.util.vfs.MergeSource;
 import org.olat.core.util.vfs.NamedContainerImpl;
 import org.olat.core.util.vfs.VFSContainer;
 import org.olat.course.groupsandrights.CourseRights;
-import org.olat.group.context.BGContext;
+import org.olat.group.BusinessGroup;
+import org.olat.group.BusinessGroupManager;
+import org.olat.group.BusinessGroupManagerImpl;
 import org.olat.group.context.BGContextManager;
 import org.olat.group.context.BGContextManagerImpl;
 import org.olat.group.right.BGRightManager;
@@ -53,20 +55,26 @@ public class CoursefolderWebDAVProvider implements WebDAVProvider {
 
 	public VFSContainer getContainer(Identity identity) {
 		MergeSource cfRoot = new MergeSource(null, null);
+		
+		// First get all courses where user is owner in the repository
 		RepositoryManager rm = RepositoryManager.getInstance();
 		List<RepositoryEntry> courseEntries = rm.queryByOwner(identity, CourseModule.getCourseTypeName());
 		
+		// Second get all courses where user has author rights because he is in a
+		// course right group with course rights associated
+		// fxdiff: VCRP-15
 		Set<Long> smashDuplicates = new HashSet<Long>();
 		for(RepositoryEntry courseEntry:courseEntries) {
 			smashDuplicates.add(courseEntry.getKey());
-		}
+		}	
 		
 		BGContextManager bgContextManager = BGContextManagerImpl.getInstance();
 		BGRightManager bgRightManager = BGRightManagerImpl.getInstance();
-		List<BGContext> contexts = bgContextManager.findBGContextsForIdentity(identity, true, true);
-		for(BGContext context:contexts) {
-			if(bgRightManager.hasBGRight(CourseRights.RIGHT_COURSEEDITOR, identity, context)) {
-				List<RepositoryEntry> entries = bgContextManager.findRepositoryEntriesForBGContext(context);
+		BusinessGroupManager bgManager = BusinessGroupManagerImpl.getInstance();
+		List<BusinessGroup> groups = bgManager.findBusinessGroupsAttendedBy(BusinessGroup.TYPE_RIGHTGROUP, identity, null);
+		for (BusinessGroup group:groups) {
+			if(bgRightManager.hasBGRight(CourseRights.RIGHT_COURSEEDITOR, identity, group.getGroupContext())) {
+				List<RepositoryEntry> entries = bgContextManager.findRepositoryEntriesForBGContext(group.getGroupContext());
 				for(RepositoryEntry entry:entries) {
 					if(!smashDuplicates.contains(entry.getKey())) {
 						courseEntries.add(entry);
@@ -76,6 +84,7 @@ public class CoursefolderWebDAVProvider implements WebDAVProvider {
 			}
 		}
 		
+		// Add all found repo entries to merge source
 		for (RepositoryEntry re:courseEntries) {
 			OLATResourceable res = re.getOlatResource();
 			ICourse course = CourseFactory.loadCourse(res.getResourceableId());
