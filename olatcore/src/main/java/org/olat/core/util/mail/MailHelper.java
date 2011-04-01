@@ -56,6 +56,7 @@ import org.olat.core.util.StringHelper;
 import org.olat.core.util.Util;
 import org.olat.core.util.WebappHelper;
 import org.olat.core.util.i18n.I18nModule;
+import org.olat.core.util.mail.manager.MailManager;
 
 /**
  * Description:<br>
@@ -146,7 +147,8 @@ public class MailHelper {
 	 * @param result
 	 * @return
 	 */
-	public static MimeMessage createMessage(Address from, Address[] recipients, Address[] recipientsCC, Address[] recipientsBCC, String body,
+	//VCRP-16: intern mail system
+	protected static MimeMessage createMessage(Address from, Address[] recipients, Address[] recipientsCC, Address[] recipientsBCC, String body,
 			String subject, File[] attachments, MailerResult result) {
 		if (Tracing.isDebugEnabled(MailHelper.class)) {
 			doDebugMessage(from, recipients, recipientsCC, recipientsBCC, body, subject, attachments);
@@ -223,28 +225,8 @@ public class MailHelper {
 			String subject, File[] attachments, MailerResult result) {
 		//
 		MimeMessage msg = createMessage(from, recipients, recipientsCC, recipientsBCC, body, subject, attachments, result);
-		sendMessage(msg, result);
-	}
-	/**
-	 * send email with MimeMessage available
-	 * @param msg
-	 * @param result
-	 */
-	public static void sendMessage(MimeMessage msg, MailerResult result){
-		try{
-			if (mailhost==null || mailhost.length()==0 || mailhost.equalsIgnoreCase("disabled")) {
-				result.setReturnCode(MailerResult.MAILHOST_UNDEFINED);
-				Tracing.logInfo("Did not send mail, mailhost undefined", MailHelper.class);
-				return;
-			}
-			if (result.getReturnCode() == MailerResult.OK) {
-				// now send the mail
-				Transport.send(msg);
-			}
-		} catch (MessagingException e) {
-			result.setReturnCode(MailerResult.SEND_GENERAL_ERROR);
-			Tracing.logWarn("Could not send mail", e, MailHelper.class);
-		}
+		//VCRP-16: intern mail system
+		MailManager.getInstance().sendMessage(msg, result);
 	}
 	
 	/**

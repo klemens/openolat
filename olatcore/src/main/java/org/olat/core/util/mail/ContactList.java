@@ -22,10 +22,10 @@
 package org.olat.core.util.mail;
 
 import java.util.ArrayList;
-import java.util.Enumeration;
-import java.util.Hashtable;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 
 import javax.mail.internet.AddressException;
 import javax.mail.internet.InternetAddress;
@@ -55,9 +55,9 @@ public class ContactList {
 	private String name;
 	private String description;
 	//container for addresses contributed as strings
-	private Hashtable stringEmails = new Hashtable();
+	private Map<String,String> stringEmails = new HashMap<String,String>();
 	//container for addresses contributed as identites
-	private Hashtable identiEmails = new Hashtable();
+	private Map<String,Identity> identiEmails = new HashMap<String,Identity>();
 	private boolean emailPrioInstitutional = false;
 
 	/**
@@ -168,30 +168,30 @@ public class ContactList {
 	 * 
 	 * @return
 	 */
-	public ArrayList getEmailsAsStrings() {
-		ArrayList ret = new ArrayList(stringEmails.values());
+	//VCRP-16: intern mail system
+	public List<String> getEmailsAsStrings() {
+		List<String> ret = new ArrayList<String>(stringEmails.values());
 		/*
 		 * if priority is on institutional email get all the institutional emails
 		 * first, if they are present, remove the identity from the hashtable. If
 		 * they were not present, the user email is used in the next loop.
 		 */
-		Enumeration enumeration = identiEmails.elements();
+		List<Identity> copy = new ArrayList<Identity>(identiEmails.values());
 		String addEmail = null;
 		if (emailPrioInstitutional) {
-			while (enumeration.hasMoreElements()) {
-				Identity tmp = (Identity) enumeration.nextElement();
+			for (Iterator<Identity> it=copy.iterator(); it.hasNext(); ) {
+				Identity tmp = it.next();
 				addEmail = tmp.getUser().getProperty(UserConstants.INSTITUTIONALEMAIL, null);
 				if (addEmail != null) {
 					ret.add(addEmail);
-					identiEmails.remove(tmp);
+					it.remove();
 				}
 			}
 		}
 		/*
 		 * loops over the (remaining) identities, fetches the user email.
 		 */
-		while (enumeration.hasMoreElements()) {
-			Identity tmp = (Identity) enumeration.nextElement();
+		for (Identity tmp : copy){
 			ret.add(tmp.getUser().getProperty(UserConstants.EMAIL, null));
 		}
 		return ret;
@@ -215,13 +215,12 @@ public class ContactList {
 	 * 
 	 * @see java.lang.Object#toString()
 	 */
+	@Override
 	public String toString() {
 		String retVal = "";
 		String sep = "";
-		ArrayList emails = getEmailsAsStrings();
-		Iterator iter = emails.iterator();
-		while (iter.hasNext()) {
-			retVal += sep + (String) iter.next();
+		for (String email:getEmailsAsStrings()) {
+			retVal += sep + email;
 			sep = ", ";
 		}
 		return retVal;
@@ -232,10 +231,9 @@ public class ContactList {
 	 * 
 	 * @param listOfIdentity List containing Identites
 	 */
-	public void addAllIdentites(List listOfIdentity) {
-		Iterator iter = listOfIdentity.iterator();
-		while (iter.hasNext()) {
-			add((Identity) iter.next());
+	public void addAllIdentites(List<Identity> listOfIdentity) {
+		for (Identity identity:listOfIdentity) {
+			add(identity);
 		}
 	}
 
@@ -250,11 +248,11 @@ public class ContactList {
 		return InternetAddress.parse(toString());
 	}
 
-	Hashtable getStringEmails() {
+	public Map<String,String> getStringEmails() {
 		return stringEmails;
 	}
 
-	Hashtable getIdentiEmails() {
+	public Map<String,Identity> getIdentiEmails() {
 		return identiEmails;
 	}
 
