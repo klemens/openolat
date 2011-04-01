@@ -34,6 +34,8 @@ import org.olat.core.gui.control.generic.wizard.StepRunnerCallback;
 import org.olat.core.gui.control.generic.wizard.StepsMainRunController;
 import org.olat.core.gui.control.generic.wizard.StepsRunContext;
 import org.olat.core.id.Identity;
+import org.olat.core.util.mail.MailContext;
+import org.olat.core.util.mail.MailContextImpl;
 import org.olat.core.util.mail.MailTemplate;
 import org.olat.core.util.mail.MailerResult;
 import org.olat.core.util.mail.MailerWithTemplate;
@@ -84,7 +86,9 @@ class ZentralstellePortletRunController extends BasicController {
 					//fetch data from runContext and send eMail with it
 					MailerWithTemplate mailer = MailerWithTemplate.getInstance();
 					Identity replyto = (Identity)runContext.get("replyto");
-					MailerResult mr = mailer.sendMail(ureq2.getIdentity(), null, null, mailtemplate, replyto);
+					//VCRP-16: intern mail system
+					MailContext context = new MailContextImpl(getWindowControl().getBusinessControl().getAsString());
+					MailerResult mr = mailer.sendMail(context, ureq2.getIdentity(), null, null, mailtemplate, replyto);
 					logAudit("DRUCKEREI-TEMPLATE-ERSTELLT", null);
 					if(mr.getReturnCode() == MailerResult.OK){
 						return StepsMainRunController.DONE_UNCHANGED;

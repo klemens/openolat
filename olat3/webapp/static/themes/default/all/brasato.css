@@ -1313,4 +1313,7 @@
 	/* EMAIL */
 	.b_mail_new { top:8px; left:-2px; background-image: url(../images/olat/decorator_warn.png); }
 	.b_table_wrapper span.b_mail_unread { display:block; width:16px; height:16px; background:transparent url(../images/olat/decorator_warn.png) top left no-repeat; }
+	.b_table_wrapper span.b_mail_marked { display:block; width:16px; height:16px; background:transparent url(../images/brasato/flag.png) top left no-repeat; }
+	ul.b_mail_attachments { list-style: none; margin:0; padding:0; }
+	ul.b_mail_attachments li { margin:0; }
 }

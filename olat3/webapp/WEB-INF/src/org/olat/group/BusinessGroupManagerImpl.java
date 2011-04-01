@@ -64,6 +64,8 @@ import org.olat.core.util.FileUtils;
 import org.olat.core.util.coordinate.CoordinatorManager;
 import org.olat.core.util.coordinate.SyncerCallback;
 import org.olat.core.util.coordinate.SyncerExecutor;
+import org.olat.core.util.mail.MailContext;
+import org.olat.core.util.mail.MailContextImpl;
 import org.olat.core.util.mail.MailHelper;
 import org.olat.core.util.mail.MailTemplate;
 import org.olat.core.util.mail.MailerResult;
@@ -382,7 +384,9 @@ public class BusinessGroupManagerImpl extends BasicManager implements BusinessGr
 		MailerWithTemplate mailer = MailerWithTemplate.getInstance();
 		MailTemplate mailTemplate = BGMailHelper.createDeleteGroupMailTemplate(businessGroupTodelete, ureq.getIdentity());
 		if (mailTemplate != null) {
-			MailerResult mailerResult = mailer.sendMailAsSeparateMails(users, null, null, mailTemplate, null);
+			//VCRP-16: intern mail system
+			MailContext context = new MailContextImpl(wControl.getBusinessControl().getAsString());
+			MailerResult mailerResult = mailer.sendMailAsSeparateMails(context, users, null, null, mailTemplate, null);
 			MailHelper.printErrorsAndWarnings(mailerResult, wControl, ureq.getLocale());
 		}
 		
@@ -1195,7 +1199,9 @@ public class BusinessGroupManagerImpl extends BasicManager implements BusinessGr
 						MailTemplate mailTemplate = BGMailHelper.createWaitinglistTransferMailTemplate(group, ureqIdentity);
 						if (mailTemplate != null) {
 							MailerWithTemplate mailer = MailerWithTemplate.getInstance();
-							MailerResult mailerResult = mailer.sendMail(firstWaitingListIdentity, null, null, mailTemplate, null);
+							//VCRP-16: intern mail system
+							MailContext context = new MailContextImpl("[BusinessGroup:" + group.getKey() + "]");
+							MailerResult mailerResult = mailer.sendMail(context, firstWaitingListIdentity, null, null, mailTemplate, null);
 							// Does not report errors to current screen because this is the identity who triggered the transfer
 							Tracing.logWarn("Could not send WaitinglistTransferMail for identity=" + firstWaitingListIdentity.getName() , BusinessGroupManagerImpl.class);
 						}						

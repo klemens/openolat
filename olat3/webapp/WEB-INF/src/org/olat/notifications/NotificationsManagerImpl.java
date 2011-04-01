@@ -465,8 +465,8 @@ public class NotificationsManagerImpl extends NotificationsManager implements Us
 			// nothing to do
 			}
 		};
-
-		MailerResult result = MailerWithTemplate.getInstance().sendMail(to, null, null, mailTempl, null);
+		//VCRP-16: intern mail system
+		MailerResult result = MailerWithTemplate.getInstance().sendRealMail(to, mailTempl);
 		if (result.getReturnCode() > 0) {
 			log.warn("Could not send email to identity " + to.getName() + ". (returncode="+result.getReturnCode()+", to="+to+")");
 			return false;

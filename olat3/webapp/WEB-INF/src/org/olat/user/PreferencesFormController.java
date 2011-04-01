@@ -27,6 +27,7 @@ import java.util.Map;
 
 import org.olat.basesecurity.BaseSecurity;
 import org.olat.basesecurity.BaseSecurityManager;
+import org.olat.core.CoreSpringFactory;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.form.flexible.FormItem;
 import org.olat.core.gui.components.form.flexible.FormItemContainer;
@@ -45,6 +46,7 @@ import org.olat.core.util.ArrayHelper;
 import org.olat.core.util.StringHelper;
 import org.olat.core.util.i18n.I18nManager;
 import org.olat.core.util.i18n.I18nModule;
+import org.olat.core.util.mail.MailModule;
 import org.olat.core.util.notifications.NotificationsManager;
 
 /**
@@ -64,7 +66,8 @@ import org.olat.core.util.notifications.NotificationsManager;
 public class PreferencesFormController extends FormBasicController {
 	private static final String[] cssFontsizeKeys = new String[] { "80", "90", "100", "110", "120", "140" };
 	private Identity tobeChangedIdentity;
-	private SingleSelection language, fontsize, charset, notificationInterval;
+	private SingleSelection language, fontsize, charset, notificationInterval, mailSystem;
+	private static final String[] mailIntern = new String[]{"intern.only","send.copy"};
 
 	/**
 	 * Constructor for the user preferences form
@@ -103,6 +106,11 @@ public class PreferencesFormController extends FormBasicController {
 			wbo.getWindowManager().setFontSize(fontSize);
 			// set window dirty to force full page refresh
 			wbo.getWindow().setDirty(true);
+		}
+		//VCRP-16: intern mail system
+		if(mailSystem != null && mailSystem.isOneSelected()) {
+			String val = mailSystem.isSelected(1) ? "true" : "false";
+			prefs.setReceiveRealMail(val);
 		}
 
 		if (um.updateUserFromIdentity(tobeChangedIdentity)) {
@@ -179,6 +187,25 @@ public class PreferencesFormController extends FormBasicController {
 			}
 			notificationInterval = uifactory.addDropdownSingleselect("form.notification", formLayout, intervalKeys, intervalValues, null);
 			notificationInterval.select(prefs.getNotificationInterval(), true);			
+		}
+		//VCRP-16: intern mail system
+		MailModule mailModule = (MailModule)CoreSpringFactory.getBean("mailModule");
+		if(mailModule.isInternSystem()) {
+			String[] mailInternLabels = new String[] { translate("mail." + mailIntern[0]), translate("mail." + mailIntern[1]) };
+			mailSystem = uifactory.addRadiosVertical("mail-system", "mail.system", formLayout, mailIntern, mailInternLabels);
+			
+			String mailPrefs = prefs.getReceiveRealMail();
+			if(StringHelper.containsNonWhitespace(mailPrefs)) {
+				if("true".equals(mailPrefs)) {
+					mailSystem.select(mailIntern[1], true);
+				} else {
+					mailSystem.select(mailIntern[0], true);
+				}
+			} else if(mailModule.isReceiveRealMailUserDefaultSetting()) {
+				mailSystem.select(mailIntern[1], true);
+			} else {
+				mailSystem.select(mailIntern[0], true);
+			}
 		}
 
 		// Text encoding

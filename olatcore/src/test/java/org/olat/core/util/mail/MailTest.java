@@ -457,6 +457,15 @@ class TestUser implements User {
 				return false;
 			}
 
+			//VCRP-16: intern mail system
+			@Override
+			public String getReceiveRealMail() {
+				return "true";
+			}
+
+			@Override
+			public void setReceiveRealMail(String receiveRealMail) {}
+
 			public void setFontsize(String l) {}
 
 			public void setNotificationInterval(String ni) {}
