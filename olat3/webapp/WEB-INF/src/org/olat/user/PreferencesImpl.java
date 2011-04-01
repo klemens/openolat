@@ -39,6 +39,7 @@ public class PreferencesImpl implements Preferences{
 	private String fontsize;
 	private String notificationInterval;
 	boolean informSessionTimeout;
+	private String receiveRealMail;
 	private boolean presenceMessagesPublic;
 	
 	/**
@@ -121,6 +122,23 @@ public class PreferencesImpl implements Preferences{
 	 */
 	public void setInformSessionTimeout(boolean b) {
 		informSessionTimeout = b;
+	}
+	
+	/**
+	 * @see org.olat.core.id.Preferences#isReceiveRealMail()
+	 */
+	//VCRP-16: intern mail system
+	@Override
+	public String getReceiveRealMail() {
+		return receiveRealMail;
+	}
+
+	/**
+	 * @see org.olat.core.id.Preferences#setReceiveRealMail(boolean)
+	 */
+	@Override
+	public void setReceiveRealMail(String receiveRealMail) {
+		this.receiveRealMail = receiveRealMail;
 	}
 
 	/**

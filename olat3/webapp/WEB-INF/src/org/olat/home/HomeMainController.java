@@ -64,6 +64,10 @@ import org.olat.core.id.context.BusinessControlFactory;
 import org.olat.core.id.context.ContextEntry;
 import org.olat.core.logging.AssertException;
 import org.olat.core.util.UserSession;
+import org.olat.core.util.mail.MailModule;
+import org.olat.core.util.mail.MailUIFactory;
+import org.olat.core.util.mail.ui.MailContextResolver;
+import org.olat.core.util.mail.ui.MailTreeNode;
 import org.olat.core.util.resource.OresHelper;
 import org.olat.core.util.tree.TreeHelper;
 import org.olat.course.assessment.EfficiencyStatementsListController;
@@ -141,6 +145,7 @@ public class HomeMainController extends MainLayoutBasicController implements Act
 	private static final String MENU_MYSETTINGS = "mysettings";
 	private static final String MENU_ROOT = "root";
 	private static final String MENU_OTHERUSERS = "otherusers";
+	private static final String MENU_MAIL = "mail";
 	private static final String MENU_PORTFOLIO = "portfolio";
 	private static final String MENU_PORTFOLIO_ARTEFACTS = "AbstractArtefact";
 	private static final String MENU_PORTFOLIO_MY_MAPS = "portfolioMyMaps";
@@ -412,6 +417,11 @@ public class HomeMainController extends MainLayoutBasicController implements Act
 		} else if (uobject.equals(MENU_PORTFOLIO_OTHERS_MAPS)) {
 			titleStr = "";
 			return EPUIFactory.createPortfolioMapsFromOthersController(ureq, getWindowControl());
+		//VCRP-16: intern mail system
+		} else if (uobject.equals(MENU_MAIL)) {
+			titleStr = "";
+			MailContextResolver resolver = (MailContextResolver)CoreSpringFactory.getBean("mailBoxExtension");
+			return MailUIFactory.createInboxController(ureq, getWindowControl(), resolver);
 		}
 		return null;
 	}
@@ -474,6 +484,16 @@ public class HomeMainController extends MainLayoutBasicController implements Act
 //		gtn.setUserObject(MENU_WEBLOG);
 //		gtn.setAltText(translate("menu.weblog.alt"));
 //		root.addChild(gtn);
+		//VCRP-16: intern mail system
+		MailModule mailModule = (MailModule)CoreSpringFactory.getBean("mailModule");
+		if(mailModule.isInternSystem()) {
+			MailContextResolver resolver = (MailContextResolver)CoreSpringFactory.getBean("mailBoxExtension");
+			gtn = new MailTreeNode(ureq.getIdentity(), getLocale(), resolver);
+			gtn.setTitle(translate("menu.mail"));
+			gtn.setUserObject(MENU_MAIL);
+			gtn.setAltText(translate("menu.mail.alt"));
+			root.addChild(gtn);
+		}
 		
 		gtn = new GenericTreeNode();
 		gtn.setTitle(translate("menu.otherusers"));
@@ -619,6 +639,9 @@ public class HomeMainController extends MainLayoutBasicController implements Act
 			} else {
 				return TreeHelper.findNodeByUserObject(MENU_PORTFOLIO_OTHERS_MAPS, rootNode);
 			}
+		} else if ("Inbox".equals(context)) {
+			TreeNode mailNode = TreeHelper.findNodeByUserObject("mail", rootNode);
+			return (TreeNode)mailNode.getChildAt(0);
 		}
 		return null;
 	}

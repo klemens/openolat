@@ -59,6 +59,8 @@ import org.olat.core.util.Util;
 import org.olat.core.util.coordinate.CoordinatorManager;
 import org.olat.core.util.coordinate.LockResult;
 import org.olat.core.util.event.GenericEventListener;
+import org.olat.core.util.mail.MailContext;
+import org.olat.core.util.mail.MailContextImpl;
 import org.olat.core.util.mail.MailHelper;
 import org.olat.core.util.mail.MailTemplate;
 import org.olat.core.util.mail.MailerResult;
@@ -330,7 +332,9 @@ public class BusinessGroupEditController extends BasicController implements Cont
 				MailerWithTemplate mailer = MailerWithTemplate.getInstance();
 				MailTemplate mailTemplate = identitiesMoveEvent.getMailTemplate();
 				if (mailTemplate != null) {
-					MailerResult mailerResult = mailer.sendMailAsSeparateMails(identitiesMoveEvent.getMovedIdentities(), null, null, mailTemplate, null);
+					//VCRP-16: intern mail system
+					MailContext context = new MailContextImpl(currBusinessGroup, null, getWindowControl().getBusinessControl().getAsString());
+					MailerResult mailerResult = mailer.sendMailAsSeparateMails(context, identitiesMoveEvent.getMovedIdentities(), null, null, mailTemplate, null);
 					MailHelper.printErrorsAndWarnings(mailerResult, getWindowControl(), ureq.getLocale());
 				}
 				fireEvent(ureq, Event.CHANGED_EVENT );		
