@@ -1,13 +1,16 @@
 package org.olat.course.editor;
 
 import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.List;
+import java.util.UUID;
 
 import org.olat.catalog.CatalogEntry;
 import org.olat.catalog.CatalogManager;
 import org.olat.catalog.ui.CatalogAjaxAddController;
 import org.olat.catalog.ui.CatalogEntryAddController;
 import org.olat.core.gui.UserRequest;
+import org.olat.core.gui.components.Component;
 import org.olat.core.gui.components.form.flexible.FormItem;
 import org.olat.core.gui.components.form.flexible.FormItemContainer;
 import org.olat.core.gui.components.form.flexible.elements.FormLink;
@@ -16,9 +19,13 @@ import org.olat.core.gui.components.form.flexible.impl.Form;
 import org.olat.core.gui.components.form.flexible.impl.FormEvent;
 import org.olat.core.gui.components.form.flexible.impl.FormLayoutContainer;
 import org.olat.core.gui.components.link.Link;
+import org.olat.core.gui.components.tree.SelectionTree;
+import org.olat.core.gui.components.tree.TreeEvent;
+import org.olat.core.gui.components.velocity.VelocityContainer;
 import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.Event;
 import org.olat.core.gui.control.WindowControl;
+import org.olat.core.gui.control.generic.ajax.tree.TreeNodeClickedEvent;
 import org.olat.core.gui.control.generic.closablewrapper.CloseableModalController;
 import org.olat.core.gui.control.generic.wizard.BasicStep;
 import org.olat.core.gui.control.generic.wizard.PrevNextFinishConfig;
@@ -29,6 +36,7 @@ import org.olat.core.gui.control.generic.wizard.StepsEvent;
 import org.olat.core.gui.control.generic.wizard.StepsRunContext;
 import org.olat.core.id.OLATResourceable;
 import org.olat.core.util.StringHelper;
+import org.olat.core.util.Util;
 import org.olat.core.util.resource.OresHelper;
 import org.olat.course.CourseModule;
 import org.olat.course.ICourse;
@@ -56,7 +64,7 @@ class PublishStepCatalog extends BasicStep {
 	
 	public PublishStepCatalog(UserRequest ureq, ICourse course, boolean hasPublishableChanges) {
 		super(ureq);
-		
+
 		this.courseEnv = course.getCourseEnvironment();
 		this.rootNode = course.getRunStructure().getRootNode();
 		setI18nTitleAndDescr("publish.catalog.header", null);
@@ -86,7 +94,7 @@ class PublishStepCatalog extends BasicStep {
 		private SingleSelection catalogBox;
 		private CloseableModalController cmc;
 		private Controller catalogAddController;
-		private List<FormLink> deleteLinks;
+		private final List<FormLink> deleteLinks = new ArrayList<FormLink>();;
 		
 		private final RepositoryEntry repositoryEntry;
 		private final CatalogManager catalogManager;
@@ -128,22 +136,16 @@ class PublishStepCatalog extends BasicStep {
 				value = "yes";
 			}
 			catalogBox.select(value, true);
-			updateCategories();
-		}
-		
-		private void updateCategories() {
-			boolean activate = catalogBox.isOneSelected() && "yes".equals(catalogBox.getSelectedKey());
-			if(addToCatalog == null) {
-				addToCatalog = uifactory.addFormLink("publish.catalog.add", flc, Link.BUTTON_SMALL);
-			}
+			flc.contextPut("choice", value);
+			boolean activate = "yes".equals(value);
+			addToCatalog = uifactory.addFormLink("publish.catalog.add", flc, Link.BUTTON_SMALL);
 			addToCatalog.setVisible(activate);
-			
-			deleteLinks = new ArrayList<FormLink>();
 			if(activate) {
 				List<CatalogEntry> catalogEntries = catalogManager.getCatalogCategoriesFor(repositoryEntry);
 				for(CatalogEntry entry:catalogEntries) {
-					FormLink link = uifactory.addFormLink(entry.getKey().toString(), "delete", null, flc, Link.LINK);
-					link.setUserObject(new CategoryLabel(entry.getKey(), getPath(entry)));
+					CategoryLabel label = new CategoryLabel(entry, entry.getParent(), getPath(entry));
+					FormLink link = uifactory.addFormLink(label.getCategoryUUID(), "delete", null, flc, Link.LINK);
+					link.setUserObject(label);
 					deleteLinks.add(link);
 				}
 			}
@@ -160,25 +162,29 @@ class PublishStepCatalog extends BasicStep {
 			return path;
 		}
 		
-		private void deleteCategory(Long categoryKey) {
-			CatalogEntry category = catalogManager.loadCatalogEntry(categoryKey);
-			List<CatalogEntry> children = catalogManager.getChildrenOf(category);
-			for (CatalogEntry child : children) {
-				RepositoryEntry childRepoEntry = child.getRepositoryEntry();
-				if (childRepoEntry != null && childRepoEntry.equalsByPersistableKey(repositoryEntry)) {
-					// remove from catalog
-					catalogManager.deleteCatalogEntry(child);
-					break;
+		private void deleteCategory(CategoryLabel category) {
+			for(FormLink deleteLink:deleteLinks) {
+				CategoryLabel label = (CategoryLabel)deleteLink.getUserObject();
+				if(category.equals(label)) {
+					label.setDeleted(true);
+					deleteLink.setVisible(false);
+					flc.setDirty(true);
 				}
 			}
 		}
 		
 		private void doAddCatalog(UserRequest ureq) {
+			List<CategoryLabel> categories = new ArrayList<CategoryLabel>();
+			for(FormLink deleteLink:deleteLinks) {
+				CategoryLabel label = (CategoryLabel)deleteLink.getUserObject();
+				categories.add(label);
+			}
+			
 			removeAsListenerAndDispose(catalogAddController);
 			if (getWindowControl().getWindowBackOffice().getWindowManager().isAjaxEnabled()) {
-				catalogAddController = new CatalogAjaxAddController(ureq, getWindowControl(), repositoryEntry);
+				catalogAddController = new SpecialCatalogAjaxAddController(ureq, getWindowControl(), repositoryEntry, categories);
 			} else {
-				catalogAddController = new CatalogEntryAddController(ureq, getWindowControl(), repositoryEntry);
+				catalogAddController = new SpecialCatalogEntryAddController(ureq, getWindowControl(), repositoryEntry, categories);
 			}
 
 			listenTo(catalogAddController);
@@ -213,8 +219,25 @@ class PublishStepCatalog extends BasicStep {
 				catalogAddController = null;
 				cmc = null;
 			} else if (catalogAddController == source) {
-				if(event == Event.DONE_EVENT) {
-					updateCategories();
+				if(event instanceof AddToCategoryEvent) {
+					AddToCategoryEvent e = (AddToCategoryEvent)event;
+					CatalogEntry category = e.getCategory();
+					CatalogEntry parentCategory = e.getParentCategory();
+					CategoryLabel label = new CategoryLabel(category, parentCategory, getPath(parentCategory));
+					FormLink link = uifactory.addFormLink(label.getCategoryUUID(), "delete", null, flc, Link.LINK);
+					link.setUserObject(label);
+					deleteLinks.add(link);
+				} else if (event instanceof UndoCategoryEvent) {
+					UndoCategoryEvent e = (UndoCategoryEvent)event;
+					CategoryLabel undelete = e.getUndelete();
+					for(FormLink deleteLink:deleteLinks) {
+						CategoryLabel label = (CategoryLabel)deleteLink.getUserObject();
+						if(label.equals(undelete)) {
+							label.setDeleted(false);
+							deleteLink.setVisible(true);
+							break;
+						}
+					}
 				}
 				cmc.deactivate();
 				removeAsListenerAndDispose(catalogAddController);
@@ -230,15 +253,14 @@ class PublishStepCatalog extends BasicStep {
 		protected void formOK(UserRequest ureq) {
 			if(catalogBox.isOneSelected()) {
 				String val = catalogBox.getSelectedKey();
-				CoursePropertyManager cpm = courseEnv.getCoursePropertyManager();
-				Property prop = cpm.findCourseNodeProperty(rootNode, null, null, "catalog-choice");
-				if(prop == null) {
-					prop = cpm.createCourseNodePropertyInstance(rootNode, null, null, "catalog-choice", null, null, val, null);
-					cpm.saveProperty(prop);
-				} else {
-					prop.setStringValue(val);
-					cpm.updateProperty(prop);
+				addToRunContext("catalogChoice", val);
+				
+				List<CategoryLabel> categories = new ArrayList<CategoryLabel>();
+				for(FormLink deletedLink:deleteLinks) {
+					CategoryLabel cat = (CategoryLabel)deletedLink.getUserObject();
+					categories.add(cat);
 				}
+				addToRunContext("categories", categories);
 			}
 			
 			fireEvent(ureq, StepsEvent.ACTIVATE_NEXT);
@@ -247,39 +269,253 @@ class PublishStepCatalog extends BasicStep {
 		@Override
 		protected void formInnerEvent(UserRequest ureq, FormItem source, FormEvent event) {
 			if(catalogBox == source) {
-				updateCategories();
+				//updateCategories();
+				catalogBox.clearError();
 				if(catalogBox.isOneSelected() && catalogBox.isSelected(0)) {
+					addToCatalog.setVisible(true);
+					flc.contextPut("choice", "yes");
 					if(deleteLinks == null || deleteLinks.isEmpty()) {
 						doAddCatalog(ureq);
 					}
+				} else {
+					addToCatalog.setVisible(false);
+					flc.contextPut("choice", "no");
 				}
 			} else if (source == addToCatalog) {
 				doAddCatalog(ureq);
 			} else if (deleteLinks.contains(source)) {
 				CategoryLabel label = (CategoryLabel)source.getUserObject();
-				deleteCategory(label.getCategoryKey());
-				updateCategories();
+				deleteCategory(label);
+				//do by delete updateCategories();
 			} else {
 				super.formInnerEvent(ureq, source, event);
 			}
 		}
 	}
 	
-	public class CategoryLabel {
-		private final Long categoryKey;
-		private final String path;
+	public class SpecialCatalogAjaxAddController extends CatalogAjaxAddController {
 		
-		public CategoryLabel(Long categoryKey, String path) {
-			this.categoryKey = categoryKey;
-			this.path = path;
+		private CategoryLabel undoDelete;
+		private List<CategoryLabel> categories;
+		
+		public SpecialCatalogAjaxAddController(UserRequest ureq, WindowControl wControl, RepositoryEntry toBeAddedEntry,
+				List<CategoryLabel> categories) {
+			super(ureq, wControl, toBeAddedEntry);
+			this.categories = categories;
 		}
 
-		public Long getCategoryKey() {
-			return categoryKey;
+		@Override
+		protected VelocityContainer createVelocityContainer(String page) {
+			setTranslator(Util.createPackageTranslator(CatalogAjaxAddController.class, getLocale()));
+			velocity_root = Util.getPackageVelocityRoot(CatalogAjaxAddController.class);
+			return super.createVelocityContainer(page);
+		}
+		
+		@Override
+		protected void event(UserRequest ureq, Controller source, Event event) {
+			if (source == treeCtr) {
+				if (event instanceof TreeNodeClickedEvent) {
+					TreeNodeClickedEvent clickedEvent = (TreeNodeClickedEvent) event;
+					// build new entry for this catalog level
+					CatalogManager cm = CatalogManager.getInstance();
+					String nodeId = clickedEvent.getNodeId();
+					Long newParentId = Long.parseLong(nodeId);
+					CatalogEntry newParent = cm.loadCatalogEntry(newParentId);
+					// check first if this repo entry is already attached to this new parent
+					for (CategoryLabel label:categories) {
+						CatalogEntry category = label.getCategory();
+						if(category.getKey() == null) {
+							category = label.getParentCategory();
+						}
+						
+						if(category.equalsByPersistableKey(newParent)) {
+							if(label.isDeleted()) {
+								undoDelete = label;
+							} else {
+								showError("catalog.tree.add.already.exists", toBeAddedEntry.getDisplayname());
+								return;
+							}
+						}
+					}
+					// don't create entry right away, user must select submit button first
+					selectedParent = newParent;
+					// enable link, set dirty button class and trigger redrawing
+					selectLink.setEnabled(true);
+					selectLink.setCustomEnabledLinkCSS("b_button b_button_dirty");
+					selectLink.setDirty(true); 
+				}
+			}
+		}
+
+		@Override
+		protected void event(UserRequest ureq, Component source, Event event) {
+			 if (source == selectLink) {
+				if(undoDelete != null) {
+					fireEvent(ureq, new UndoCategoryEvent(undoDelete));
+				} else if (selectedParent != null) {
+					CatalogManager cm = CatalogManager.getInstance();
+					CatalogEntry newEntry = cm.createCatalogEntry();
+					newEntry.setRepositoryEntry(toBeAddedEntry);
+					newEntry.setName(toBeAddedEntry.getDisplayname());
+					newEntry.setDescription(toBeAddedEntry.getDescription());
+					newEntry.setType(CatalogEntry.TYPE_LEAF);
+					newEntry.setParent(selectedParent);
+					fireEvent(ureq, new AddToCategoryEvent(newEntry, selectedParent));								
+				}
+			} else {
+				super.event(ureq, source, event);
+			}
+		}
+	}
+	
+	public class SpecialCatalogEntryAddController extends CatalogEntryAddController {
+		
+		private final RepositoryEntry toBeAddedEntry;
+		private final List<CategoryLabel> categories;
+		
+		public SpecialCatalogEntryAddController(UserRequest ureq, WindowControl wControl, RepositoryEntry toBeAddedEntry,
+				List<CategoryLabel> categories) {
+			super(ureq, wControl, toBeAddedEntry);
+
+			this.toBeAddedEntry = toBeAddedEntry;
+			this.categories = categories;
+		}
+		
+		@Override
+		protected VelocityContainer createVelocityContainer(String page) {
+			setTranslator(Util.createPackageTranslator(CatalogAjaxAddController.class, getLocale()));
+			velocity_root = Util.getPackageVelocityRoot(CatalogAjaxAddController.class);
+			return super.createVelocityContainer(page);
+		}
+		
+		@Override
+		public void event(UserRequest ureq, Component source, Event event) {
+			if (source instanceof SelectionTree) {
+				TreeEvent te = (TreeEvent) event;
+				if (te.getCommand().equals(TreeEvent.COMMAND_TREENODE_CLICKED)) {
+					CatalogManager cm = CatalogManager.getInstance();
+					Long newParentId = Long.parseLong(te.getNodeId());
+					CatalogEntry newParent = cm.loadCatalogEntry(newParentId);
+					// check first if this repo entry is already attached to this new parent
+					for (CategoryLabel label:categories) {
+						CatalogEntry category = label.getCategory();
+						if(category.getKey() == null) {
+							category = label.getParentCategory();
+						}
+						
+						if(category.equalsByPersistableKey(newParent)) {
+							if(label.isDeleted()) {
+								fireEvent(ureq, new UndoCategoryEvent(label));
+							} else {
+								showError("catalog.tree.add.already.exists", toBeAddedEntry.getDisplayname());
+							}
+							return;
+						}
+					}
+					
+					CatalogEntry newEntry = cm.createCatalogEntry();
+					newEntry.setRepositoryEntry(toBeAddedEntry);
+					newEntry.setName(toBeAddedEntry.getDisplayname());
+					newEntry.setDescription(toBeAddedEntry.getDescription());
+					newEntry.setType(CatalogEntry.TYPE_LEAF);
+					newEntry.setParent(newParent);
+					fireEvent(ureq, new AddToCategoryEvent(newEntry, newParent));	
+
+				} else if (te.getCommand().equals(TreeEvent.COMMAND_CANCELLED)) {
+					fireEvent(ureq, Event.CANCELLED_EVENT);
+				}
+			}
+
+		}
+	}
+	
+	public class UndoCategoryEvent extends Event {
+		private final CategoryLabel undelete;
+		
+		public UndoCategoryEvent(CategoryLabel undelete) {
+			super("undelete");
+			this.undelete = undelete;
+		}
+
+		public CategoryLabel getUndelete() {
+			return undelete;
+		}
+	}
+	
+	public class AddToCategoryEvent extends Event {
+		
+		private final CatalogEntry category;
+		private final CatalogEntry parentCategory;
+		
+		public AddToCategoryEvent(CatalogEntry category, CatalogEntry parentCategory) {
+			super("add-to-catalog");
+			this.category = category;
+			this.parentCategory = parentCategory;
+		}
+
+		public CatalogEntry getCategory() {
+			return category;
+		}
+		
+		public CatalogEntry getParentCategory() {
+			return parentCategory;
+		}
+	}
+	
+	public class CategoryLabel {
+		private final CatalogEntry category;
+		private final CatalogEntry parentCategory;
+		private final String path;
+		private final String uuid;
+		
+		private boolean deleted = false;
+		
+		public CategoryLabel(CatalogEntry category, CatalogEntry parentCategory, String path) {
+			this.category = category;
+			this.parentCategory = parentCategory;
+			this.path = path;
+			uuid = UUID.randomUUID().toString().replace("-", "");
+		}
+
+		public String getCategoryUUID() {
+			return uuid;
 		}
 
 		public String getPath() {
 			return path;
+		}
+
+		public CatalogEntry getCategory() {
+			return category;
+		}
+
+		public CatalogEntry getParentCategory() {
+			return parentCategory;
+		}
+
+		public boolean isDeleted() {
+			return deleted;
+		}
+
+		public void setDeleted(boolean deleted) {
+			this.deleted = deleted;
+		}
+
+		@Override
+		public int hashCode() {
+			return uuid.hashCode();
+		}
+
+		@Override
+		public boolean equals(Object obj) {
+			if(this == obj) {
+				return true;
+			}
+			if (obj instanceof CategoryLabel) {
+				CategoryLabel label = (CategoryLabel)obj;
+				return uuid.equals(label.uuid);
+			}
+			return false;
 		}
 	}
 }

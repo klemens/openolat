@@ -12,16 +12,20 @@
 			$r.render("publish.catalog.add")
 		</div>
 	</div>
-	<div class="b_clearfix o_course_editor_categories">
-		#foreach($category in $categories)
-			<div class="b_clearfix">
-				<div class="b_c75l">
-					$category.getUserObject().getPath()
-				</div>
-				<div class="b_c25r">
-					$r.render($category.getComponent().getComponentName())
-				</div>
-			</div>
-		#end
-	</div>
+	#if($choice == 'yes')
+		<div class="b_clearfix o_course_editor_categories">
+			#foreach($category in $categories)
+				#if(!$category.getUserObject().isDeleted())
+					<div class="b_clearfix">
+						<div class="b_c75l">
+							$category.getUserObject().getPath()
+						</div>
+						<div class="b_c25r">
+							$r.render($category.getComponent().getComponentName())
+						</div>
+					</div>
+				#end
+			#end
+		</div>
+	#end
 </div>

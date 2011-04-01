@@ -29,7 +29,6 @@ import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.WindowControl;
 import org.olat.core.gui.control.generic.wizard.BasicStep;
 import org.olat.core.gui.control.generic.wizard.PrevNextFinishConfig;
-import org.olat.core.gui.control.generic.wizard.Step;
 import org.olat.core.gui.control.generic.wizard.StepFormBasicController;
 import org.olat.core.gui.control.generic.wizard.StepFormController;
 import org.olat.core.gui.control.generic.wizard.StepsEvent;
@@ -57,6 +56,7 @@ class PublishStep01 extends BasicStep {
 		super(ureq);
 		setI18nTitleAndDescr("publish.access.header", null);
 		
+		//VCRP-3: add catalog entry in publish wizard
 		this.hasPublishableChanges = hasPublishableChanges;
 		setNextStep(new PublishStepCatalog(ureq, course, hasPublishableChanges));
 		if(hasCatalog){
@@ -87,11 +87,9 @@ class PublishStep01 extends BasicStep {
 
 		private SingleSelection accessSelbox;
 		private String selectedAccess;
-		private boolean hasPublishableChanges2;
 
 		PublishStep01AccessForm(UserRequest ureq, WindowControl control, Form rootForm, StepsRunContext runContext, boolean hasPublishableChanges2) {
 			super(ureq, control, rootForm, runContext, LAYOUT_VERTICAL, null);
-			this.hasPublishableChanges2 = true;//hasPublishableChanges2;
 			selectedAccess = (String) getFromRunContext("selectedCourseAccess");
 			initForm(ureq);
 		}
@@ -108,12 +106,8 @@ class PublishStep01 extends BasicStep {
 				//only change if access was changed
 				addToRunContext("changedaccess", newAccess);
 			}
-			if(hasPublishableChanges2){
-				fireEvent(ureq, StepsEvent.ACTIVATE_NEXT);
-			}else{
-				fireEvent(ureq, StepsEvent.INFORM_FINISHED);
-			}
-		
+
+			fireEvent(ureq, StepsEvent.ACTIVATE_NEXT);
 		}
 
 		@Override

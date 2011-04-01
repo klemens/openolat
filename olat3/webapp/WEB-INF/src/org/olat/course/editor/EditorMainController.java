@@ -95,6 +95,7 @@ import org.olat.core.util.vfs.VFSMediaResource;
 import org.olat.course.CourseFactory;
 import org.olat.course.ICourse;
 import org.olat.course.config.CourseConfig;
+import org.olat.course.editor.PublishStepCatalog.CategoryLabel;
 import org.olat.course.groupsandrights.CourseGroupManager;
 import org.olat.course.nodes.CourseNode;
 import org.olat.course.nodes.CourseNodeConfiguration;
@@ -592,6 +593,14 @@ public class EditorMainController extends MainLayoutBasicController implements G
 							// about modification.
 							publishManager.changeGeneralAccess(ureq1, newAccess);
 							hasChanges = true;
+						}
+						
+						//VCRP-3: add catalog entry in publish wizard
+						if (runContext.containsKey("catalogChoice")) {
+							String choice = (String) runContext.get("catalogChoice");
+							List<CategoryLabel> categories = (List<CategoryLabel>)runContext.get("categories");
+							PublishProcess publishManager = (PublishProcess) runContext.get("publishProcess");
+							publishManager.publishToCatalog(choice, categories);
 						}
 
 						// signal correct completion and tell if changes were made or not.

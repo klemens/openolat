@@ -71,6 +71,7 @@ class PublishStep00 extends BasicStep {
 		this.ores = course;
 		publishProcess = PublishProcess.getInstance(course, cetm, ureq.getLocale());
 		
+		//VCRP-3: add catalog entry in publish wizard
 		CoursePropertyManager cpm = course.getCourseEnvironment().getCoursePropertyManager();
 		CourseNode rootNode = course.getRunStructure().getRootNode();
 		hasCatalog = cpm.findCourseNodeProperty(rootNode, null, null, "catalog-choice") != null;
@@ -86,6 +87,7 @@ class PublishStep00 extends BasicStep {
 	 */
 	public PrevNextFinishConfig getInitialPrevNextFinishConfig() {
 		// in any case allow next or finish
+		//VCRP-3: add catalog entry in publish wizard
 		if(hasPublishableChanges || !hasCatalog){
 			//this means we have possible steps 00a (error messages) and 00b (warning messages)
 			return PrevNextFinishConfig.NEXT;
