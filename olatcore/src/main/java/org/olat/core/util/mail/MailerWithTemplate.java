@@ -99,7 +99,7 @@ public class MailerWithTemplate {
 	public MailerResult sendMailUsingTemplateContext(Identity recipientTO, List<Identity> recipientsCC, List<Identity> recipientsBCC, MailTemplate template,
 			Identity sender) {
 		MailerResult result = new MailerResult();
-		//VCRP-16: intern mail system
+		//fxdiff VCRP-16: intern mail system
 		sendWithContext(template.getContext(), null, null, recipientTO, recipientsCC, recipientsBCC, template, sender, result);
 		return result;
 	}
@@ -119,7 +119,7 @@ public class MailerWithTemplate {
 
 		VelocityContext context = new VelocityContext();		
 		template.putVariablesInMailContext(context, recipientTO);
-		//VCRP-16: intern mail system
+		//fxdiff VCRP-16: intern mail system
 		MessageContent msg = createWithContext(context, recipientTO, recipientsCC, recipientsBCC, template, sender, result);
 		String subject = msg.getSubject();
 		String body = msg.getBody();
@@ -143,7 +143,7 @@ public class MailerWithTemplate {
 	 * @return MailerResult with status and list of identites that could not be
 	 *         mailed to
 	 */
-	//VCRP-16: intern mail system
+	//fxdiff VCRP-16: intern mail system
 	public MailerResult sendRealMail(Identity recipientTO, MailTemplate template) {
 		MailerResult result = new MailerResult();
 		VelocityContext context = new VelocityContext();
@@ -156,7 +156,7 @@ public class MailerWithTemplate {
 		return result;
 	}
 	
-	//VCRP-16: intern mail system
+	//fxdiff VCRP-16: intern mail system
 	public MailerResult sendMail(MailContext mCtxt, Identity recipientTO, List<Identity> recipientsCC, List<Identity> recipientsBCC, MailTemplate template,
 			Identity sender) {
 		List<Identity> recipientsTO = new ArrayList<Identity>();
@@ -189,7 +189,7 @@ public class MailerWithTemplate {
 			MailTemplate template, Identity sender) {
 		return sendMailAsSeparateMails(null, recipientsTO, recipientsCC, recipientsBCC, template, sender);
 	}
-	//VCRP-16: intern mail system
+	//fxdiff VCRP-16: intern mail system
 	public MailerResult sendMailAsSeparateMails(MailContext mCtxt, List<Identity> recipientsTO, List<Identity> recipientsCC, List<Identity> recipientsBCC,
 			MailTemplate template, Identity sender) {
 		
@@ -250,7 +250,7 @@ public class MailerWithTemplate {
 	 * @param result
 	 * @return
 	 */
-	//VCRP-16: intern mail system
+	//fxdiff VCRP-16: intern mail system
 	private MessageContent createWithContext(VelocityContext context, Identity recipientTO, List<Identity> recipientsCC, List<Identity> recipientsBCC,
 			MailTemplate template, Identity sender, MailerResult result){
 
@@ -308,7 +308,7 @@ public class MailerWithTemplate {
 	 * @param sender
 	 * @param result
 	 */
-	//VCRP-16: intern mail system
+	//fxdiff VCRP-16: intern mail system
 	private void sendWithContext(VelocityContext context, MailContext mCtxt, String metaId, Identity recipientTO, List<Identity> recipientsCC, List<Identity> recipientsBCC,
 			MailTemplate template, Identity sender, MailerResult result) {		
 		List<Identity> identityTO = new ArrayList<Identity>();
@@ -369,7 +369,7 @@ public class MailerWithTemplate {
 			
 		}
 	}
-	//VCRP-16: intern mail system
+	//fxdiff VCRP-16: intern mail system
 	private List<ContactList> createContactList(List<Identity> recipients) {
 		if(recipients == null || recipients.isEmpty()) {
 			return null;

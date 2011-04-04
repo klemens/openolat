@@ -101,7 +101,7 @@ public class Emailer {
 			}
 		}
 		this.mailfrom = myMailfrom;
-		//VCRP-16: intern mail system
+		//fxdiff VCRP-16: intern mail system
 		this.mailFromIdentity = mailFromIdentity;
 		// initialize the mail footer with infos about this OLAT installation and the user who sent the mail
 		User user = mailFromIdentity.getUser();
@@ -134,17 +134,17 @@ public class Emailer {
 	 * @throws AddressException
 	 * @throws MessagingException
 	 */
-	//VCRP-16: intern mail system
+	//fxdiff VCRP-16: intern mail system
 	public boolean sendEmail(MailContext context, List<ContactList> listOfContactLists, String subject, String body) throws AddressException, MessagingException {
 		return sendEmail(context, listOfContactLists, subject, body, null);
 	}
-	//VCRP-16: intern mail system
+	//fxdiff VCRP-16: intern mail system
 	public boolean sendEmail(MailContext context, List<ContactList> listOfContactLists, String subject, String body, List<File> attachments) throws AddressException, MessagingException {
 		body += footer;
 		MailerResult result = MailManager.getInstance().sendMessage(context, mailFromIdentity, mailfrom, null, null, null, null, listOfContactLists, null, subject, body, attachments);
 		return result.getReturnCode() == MailerResult.OK;
 	}
-	//VCRP-16: intern mail system
+	//fxdiff VCRP-16: intern mail system
 	public boolean sendEmailCC(MailContext context, String cc, String subject, String body, List<File> attachments) throws AddressException, MessagingException {
 		MailerResult result = MailManager.getInstance().sendMessage(context, mailFromIdentity, mailfrom, null, null, cc, null, null, null, subject, body, attachments);
 		return result.getReturnCode() == MailerResult.OK;
@@ -160,7 +160,7 @@ public class Emailer {
 	 * @throws MessagingException
 	 * TODO:gs handle exceptions internally and may return some error codes or so to get rid of dependecy of mail/activatoin jars in olat
 	 */
-	//VCRP-16: intern mail system
+	//fxdiff VCRP-16: intern mail system
 	public boolean sendEmail(String mailto, String subject, String body) throws AddressException, SendFailedException, MessagingException {
 		//OK context
 		body += footer;
