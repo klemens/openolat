@@ -147,7 +147,7 @@ public class MailHelper {
 	 * @param result
 	 * @return
 	 */
-	//VCRP-16: intern mail system
+	//fxdiff VCRP-16: intern mail system
 	protected static MimeMessage createMessage(Address from, Address[] recipients, Address[] recipientsCC, Address[] recipientsBCC, String body,
 			String subject, File[] attachments, MailerResult result) {
 		if (Tracing.isDebugEnabled(MailHelper.class)) {
@@ -225,7 +225,7 @@ public class MailHelper {
 			String subject, File[] attachments, MailerResult result) {
 		//
 		MimeMessage msg = createMessage(from, recipients, recipientsCC, recipientsBCC, body, subject, attachments, result);
-		//VCRP-16: intern mail system
+		//fxdiff VCRP-16: intern mail system
 		MailManager.getInstance().sendMessage(msg, result);
 	}
 	

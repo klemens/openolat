@@ -163,7 +163,7 @@ public class SendTokenToUserForm extends FormBasicController {
 				// nothing to do
 			}
 		};
-		//VCRP-16: intern mail system
+		//fxdiff VCRP-16: intern mail system
 		MailerResult result = MailerWithTemplate.getInstance().sendRealMail(user, mailTempl);
 		if(result.getReturnCode() == 0) {
 			showInfo("email.sent");

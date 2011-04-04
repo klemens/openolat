@@ -86,7 +86,7 @@ class ZentralstellePortletRunController extends BasicController {
 					//fetch data from runContext and send eMail with it
 					MailerWithTemplate mailer = MailerWithTemplate.getInstance();
 					Identity replyto = (Identity)runContext.get("replyto");
-					//VCRP-16: intern mail system
+					//fxdiff VCRP-16: intern mail system
 					MailContext context = new MailContextImpl(getWindowControl().getBusinessControl().getAsString());
 					MailerResult mr = mailer.sendMail(context, ureq2.getIdentity(), null, null, mailtemplate, replyto);
 					logAudit("DRUCKEREI-TEMPLATE-ERSTELLT", null);

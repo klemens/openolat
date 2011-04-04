@@ -210,7 +210,7 @@ public class ContactFormController extends BasicController {
 				boolean success = false;
 				try {
 					List<File> attachments = cntctForm.getAttachments();
-					//VCRP-16: intern mail system		
+					//fxdiff VCRP-16: intern mail system		
 					MailContext context = new MailContextImpl(getWindowControl().getBusinessControl().getAsString());
 					success = emailer.sendEmail(context, cntctForm.getEmailToContactLists(), cntctForm.getSubject(), cntctForm.getBody(), attachments);
 					if(cntctForm.isTcpFrom()) {

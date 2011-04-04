@@ -126,7 +126,7 @@ public class InfoMessageFrontendManagerImpl extends InfoMessageFrontendManager {
 				if(!StringHelper.containsNonWhitespace(body)) {
 					body = infoMessage.getMessage();
 				}
-				//VCRP-16: intern mail system
+				//fxdiff VCRP-16: intern mail system
 				MailContext context = new MailContextImpl(mailFormatter.getBusinessPath());
 				send = mailer.sendEmail(context, contacts, subject, body);
 			} catch (AddressException e) {

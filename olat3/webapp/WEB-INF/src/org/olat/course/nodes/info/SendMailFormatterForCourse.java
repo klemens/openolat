@@ -57,7 +57,7 @@ public class SendMailFormatterForCourse implements MailFormatter {
 	}
 	
 	@Override
-	//VCRP-16: intern mail system
+	//fxdiff VCRP-16: intern mail system
 	public String getBusinessPath() {
 		return businessPath;
 	}

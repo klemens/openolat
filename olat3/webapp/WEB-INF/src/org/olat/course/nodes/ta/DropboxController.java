@@ -277,7 +277,7 @@ public class DropboxController extends BasicController {
 							}
 						};
 							
-						//VCRP-16: intern mail system
+						//fxdiff VCRP-16: intern mail system
 						MailContext context = new MailContextImpl(getWindowControl().getBusinessControl().getAsString());
 						MailerResult result = MailerWithTemplate.getInstance().sendMail(context, ureq.getIdentity(), null, null, mailTempl, null);
 						if(result.getFailedIdentites().size() > 0) {

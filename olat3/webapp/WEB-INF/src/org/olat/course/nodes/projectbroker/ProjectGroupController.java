@@ -159,7 +159,7 @@ public class ProjectGroupController extends BasicController {
 				} else {
 					ccIdentities = null;	
 				}
-				//VCRP-16: intern mail system
+				//fxdiff VCRP-16: intern mail system
 				MailContext context = new MailContextImpl(getWindowControl().getBusinessControl().getAsString());
 				MailerResult mailerResult = mailer.sendMailAsSeparateMails(context, identitiesMoveEvent.getMovedIdentities(), ccIdentities, null, mailTemplate, null);
 				MailHelper.printErrorsAndWarnings(mailerResult, getWindowControl(), urequest.getLocale());

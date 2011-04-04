@@ -168,7 +168,7 @@ public class ContactList {
 	 * 
 	 * @return
 	 */
-	//VCRP-16: intern mail system
+	//fxdiff VCRP-16: intern mail system
 	public List<String> getEmailsAsStrings() {
 		List<String> ret = new ArrayList<String>(stringEmails.values());
 		/*

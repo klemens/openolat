@@ -286,7 +286,7 @@ public class DropboxScoringViewController extends BasicController {
 							// nothing to do
 						}
 					};
-					//VCRP-16: intern mail system
+					//fxdiff VCRP-16: intern mail system
 					MailContext context = new MailContextImpl(getWindowControl().getBusinessControl().getAsString());
 					MailerResult result = MailerWithTemplate.getInstance().sendMail(context, student, null, null, mailTempl, null);
 					

@@ -107,7 +107,7 @@ public class CourseCreationMailHelper {
 				// nothing to do
 			}
 		};
-		//VCRP-16: intern mail system
+		//fxdiff VCRP-16: intern mail system
 		return MailerWithTemplate.getInstance().sendRealMail(ureq.getIdentity(), template);
 	}
 

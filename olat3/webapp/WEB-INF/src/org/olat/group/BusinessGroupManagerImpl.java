@@ -384,7 +384,7 @@ public class BusinessGroupManagerImpl extends BasicManager implements BusinessGr
 		MailerWithTemplate mailer = MailerWithTemplate.getInstance();
 		MailTemplate mailTemplate = BGMailHelper.createDeleteGroupMailTemplate(businessGroupTodelete, ureq.getIdentity());
 		if (mailTemplate != null) {
-			//VCRP-16: intern mail system
+			//fxdiff VCRP-16: intern mail system
 			MailContext context = new MailContextImpl(wControl.getBusinessControl().getAsString());
 			MailerResult mailerResult = mailer.sendMailAsSeparateMails(context, users, null, null, mailTemplate, null);
 			MailHelper.printErrorsAndWarnings(mailerResult, wControl, ureq.getLocale());
@@ -1199,7 +1199,7 @@ public class BusinessGroupManagerImpl extends BasicManager implements BusinessGr
 						MailTemplate mailTemplate = BGMailHelper.createWaitinglistTransferMailTemplate(group, ureqIdentity);
 						if (mailTemplate != null) {
 							MailerWithTemplate mailer = MailerWithTemplate.getInstance();
-							//VCRP-16: intern mail system
+							//fxdiff VCRP-16: intern mail system
 							MailContext context = new MailContextImpl("[BusinessGroup:" + group.getKey() + "]");
 							MailerResult mailerResult = mailer.sendMail(context, firstWaitingListIdentity, null, null, mailTemplate, null);
 							// Does not report errors to current screen because this is the identity who triggered the transfer

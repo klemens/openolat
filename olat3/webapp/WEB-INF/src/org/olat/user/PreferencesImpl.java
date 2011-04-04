@@ -127,7 +127,7 @@ public class PreferencesImpl implements Preferences{
 	/**
 	 * @see org.olat.core.id.Preferences#isReceiveRealMail()
 	 */
-	//VCRP-16: intern mail system
+	//fxdiff VCRP-16: intern mail system
 	@Override
 	public String getReceiveRealMail() {
 		return receiveRealMail;

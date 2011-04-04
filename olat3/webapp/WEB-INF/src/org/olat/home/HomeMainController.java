@@ -417,7 +417,7 @@ public class HomeMainController extends MainLayoutBasicController implements Act
 		} else if (uobject.equals(MENU_PORTFOLIO_OTHERS_MAPS)) {
 			titleStr = "";
 			return EPUIFactory.createPortfolioMapsFromOthersController(ureq, getWindowControl());
-		//VCRP-16: intern mail system
+		//fxdiff VCRP-16: intern mail system
 		} else if (uobject.equals(MENU_MAIL)) {
 			titleStr = "";
 			MailContextResolver resolver = (MailContextResolver)CoreSpringFactory.getBean("mailBoxExtension");
@@ -484,7 +484,7 @@ public class HomeMainController extends MainLayoutBasicController implements Act
 //		gtn.setUserObject(MENU_WEBLOG);
 //		gtn.setAltText(translate("menu.weblog.alt"));
 //		root.addChild(gtn);
-		//VCRP-16: intern mail system
+		//fxdiff VCRP-16: intern mail system
 		MailModule mailModule = (MailModule)CoreSpringFactory.getBean("mailModule");
 		if(mailModule.isInternSystem()) {
 			MailContextResolver resolver = (MailContextResolver)CoreSpringFactory.getBean("mailBoxExtension");

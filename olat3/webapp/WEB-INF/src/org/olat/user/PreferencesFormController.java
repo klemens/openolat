@@ -107,7 +107,7 @@ public class PreferencesFormController extends FormBasicController {
 			// set window dirty to force full page refresh
 			wbo.getWindow().setDirty(true);
 		}
-		//VCRP-16: intern mail system
+		//fxdiff VCRP-16: intern mail system
 		if(mailSystem != null && mailSystem.isOneSelected()) {
 			String val = mailSystem.isSelected(1) ? "true" : "false";
 			prefs.setReceiveRealMail(val);
@@ -188,7 +188,7 @@ public class PreferencesFormController extends FormBasicController {
 			notificationInterval = uifactory.addDropdownSingleselect("form.notification", formLayout, intervalKeys, intervalValues, null);
 			notificationInterval.select(prefs.getNotificationInterval(), true);			
 		}
-		//VCRP-16: intern mail system
+		//fxdiff VCRP-16: intern mail system
 		MailModule mailModule = (MailModule)CoreSpringFactory.getBean("mailModule");
 		if(mailModule.isInternSystem()) {
 			String[] mailInternLabels = new String[] { translate("mail." + mailIntern[0]), translate("mail." + mailIntern[1]) };

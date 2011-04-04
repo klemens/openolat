@@ -465,7 +465,7 @@ public class NotificationsManagerImpl extends NotificationsManager implements Us
 			// nothing to do
 			}
 		};
-		//VCRP-16: intern mail system
+		//fxdiff VCRP-16: intern mail system
 		MailerResult result = MailerWithTemplate.getInstance().sendRealMail(to, mailTempl);
 		if (result.getReturnCode() > 0) {
 			log.warn("Could not send email to identity " + to.getName() + ". (returncode="+result.getReturnCode()+", to="+to+")");
@@ -499,6 +499,12 @@ public class NotificationsManagerImpl extends NotificationsManager implements Us
 	private Publisher findOrCreatePublisher(final SubscriptionContext scontext, final PublisherData pdata) {
 		final OLATResourceable ores = OresHelper.createOLATResourceableInstance(scontext.getResName() + "_" + scontext.getSubidentifier(),scontext.getResId());
 		//o_clusterOK by:cg
+		//fxdiff VCRP-16:prevent nested doInSync
+		Publisher pub = getPublisher(scontext.getResName(), scontext.getResId(), scontext.getSubidentifier());
+		if(pub != null) {
+			return pub;
+		}
+		
 		Publisher publisher = CoordinatorManager.getInstance().getCoordinator().getSyncer().doInSync(ores, new SyncerCallback<Publisher>(){
 			public Publisher execute() {
 				Publisher p = getPublisher(scontext.getResName(), scontext.getResId(), scontext.getSubidentifier());

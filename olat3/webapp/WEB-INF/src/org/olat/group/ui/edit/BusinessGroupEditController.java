@@ -332,7 +332,7 @@ public class BusinessGroupEditController extends BasicController implements Cont
 				MailerWithTemplate mailer = MailerWithTemplate.getInstance();
 				MailTemplate mailTemplate = identitiesMoveEvent.getMailTemplate();
 				if (mailTemplate != null) {
-					//VCRP-16: intern mail system
+					//fxdiff VCRP-16: intern mail system
 					MailContext context = new MailContextImpl(currBusinessGroup, null, getWindowControl().getBusinessControl().getAsString());
 					MailerResult mailerResult = mailer.sendMailAsSeparateMails(context, identitiesMoveEvent.getMovedIdentities(), null, null, mailTemplate, null);
 					MailHelper.printErrorsAndWarnings(mailerResult, getWindowControl(), ureq.getLocale());

@@ -311,7 +311,7 @@ public class EPShareListController extends FormBasicController {
 			String last = getIdentity().getUser().getProperty(UserConstants.LASTNAME, null);
 			String sender = first + " " + last;
 			String[] bodyArgs = new String[]{busLink, sender};
-			//VCRP-16: intern mail system
+			//fxdiff VCRP-16: intern mail system
 			MailContext context = new MailContextImpl(map.getOlatResource(), null, getWindowControl().getBusinessControl().getAsString()); 
 			success = mailer.sendEmail(context, clList, translate("map.share.invitation.mail.subject"), translate("map.share.invitation.mail.body", bodyArgs));
 		} catch (AddressException e) {

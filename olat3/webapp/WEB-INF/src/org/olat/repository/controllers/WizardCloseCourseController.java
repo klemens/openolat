@@ -192,7 +192,7 @@ public class WizardCloseCourseController extends WizardController implements Wiz
 				} else {
 					ccIdentities = null;
 				}
-				//VCRP-16: intern mail system
+				//fxdiff VCRP-16: intern mail system
 				MailContext context = new MailContextImpl(wControl.getBusinessControl().getAsString());
 				MailerResult mailerResult = MailerWithTemplate.getInstance().sendMailAsSeparateMails(context, ownerList, ccIdentities, null,
 						mailNotificationCtr.getMailTemplate(), ureq.getIdentity());

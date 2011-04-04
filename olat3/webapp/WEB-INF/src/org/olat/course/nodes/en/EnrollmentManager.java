@@ -168,7 +168,7 @@ public class EnrollmentManager  extends BasicManager {
 		// 3. Send notification mail
 		MailTemplate mailTemplate = BGMailHelper.createRemoveMyselfMailTemplate(enrolledGroup, identity);
 		MailerWithTemplate mailer = MailerWithTemplate.getInstance();
-		//VCRP-16: intern mail system
+		//fxdiff VCRP-16: intern mail system
 		MailContext context = new MailContextImpl(wControl.getBusinessControl().getAsString());
 		MailerResult mailerResult = mailer.sendMail(context, identity, null, null, mailTemplate, null);
 		MailHelper.printErrorsAndWarnings(mailerResult, wControl, trans.getLocale());
@@ -193,7 +193,7 @@ public class EnrollmentManager  extends BasicManager {
 		// 3. Send notification mail
 		MailTemplate mailTemplate = BGMailHelper.createRemoveWaitinglistMailTemplate(enrolledWaitingListGroup, identity);
 		MailerWithTemplate mailer = MailerWithTemplate.getInstance();
-		//VCRP-16: intern mail system
+		//fxdiff VCRP-16: intern mail system
 		MailContext context = new MailContextImpl(wControl.getBusinessControl().getAsString());
 		MailerResult mailerResult = mailer.sendMail(context, identity, null, null, mailTemplate, null);
 		MailHelper.printErrorsAndWarnings(mailerResult, wControl, trans.getLocale());
@@ -338,7 +338,7 @@ public class EnrollmentManager  extends BasicManager {
 		// 4. Send notification mail
 		MailTemplate mailTemplate = BGMailHelper.createAddMyselfMailTemplate(group, identity);
 		MailerWithTemplate mailer = MailerWithTemplate.getInstance();
-		//VCRP-16: intern mail system
+		//fxdiff VCRP-16: intern mail system
 		MailContext context = new MailContextImpl(wControl.getBusinessControl().getAsString());
 		MailerResult mailerResult = mailer.sendMail(context, identity, null, null, mailTemplate, null);
 		MailHelper.printErrorsAndWarnings(mailerResult, wControl, trans.getLocale());
@@ -376,7 +376,7 @@ public class EnrollmentManager  extends BasicManager {
 		// 4. Send notification mail
 		MailTemplate mailTemplate = BGMailHelper.createAddWaitinglistMailTemplate(group, identity);
 		MailerWithTemplate mailer = MailerWithTemplate.getInstance();
-		//VCRP-16: intern mail system
+		//fxdiff VCRP-16: intern mail system
 		MailContext context = new MailContextImpl(wControl.getBusinessControl().getAsString());
 		MailerResult mailerResult = mailer.sendMail(context, identity, null, null, mailTemplate, null);
 		MailHelper.printErrorsAndWarnings(mailerResult, wControl, trans.getLocale());
