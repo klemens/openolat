@@ -187,6 +187,7 @@ public class CollaborationTools implements Serializable {
 	/**
 	 * Only owners have write access to the folder.
 	 */
+	//fxdiff VCRP-8: collaboration tools folder access control
 	public static final int FOLDER_ACCESS_OWNERS = 0;
 	/**
 	 * Owners and members have write access to the folder.
@@ -200,6 +201,7 @@ public class CollaborationTools implements Serializable {
 	 */
 	private final static String KEY_NEWS = "news";
 	private final static String KEY_CALENDAR_ACCESS = "cal";
+	//fxdiff VCRP-8: collaboration tools folder access control
 	private final static String KEY_FOLDER_ACCESS = "folder";
 
 	//o_clusterOK by guido
@@ -348,6 +350,7 @@ public class CollaborationTools implements Serializable {
 		OlatRootFolderImpl rootContainer = new OlatRootFolderImpl(relPath, null);
 		OlatNamedContainerImpl namedContainer = new OlatNamedContainerImpl(trans.translate("folder"), rootContainer);
 		
+		//fxdiff VCRP-8: collaboration tools folder access control
 		boolean writeAccess;
 		boolean isOwner = BaseSecurityManager.getInstance().isIdentityInSecurityGroup(ureq.getIdentity(), businessGroup.getOwnerGroup());
 		if (!(isAdmin || isOwner)) {
@@ -723,6 +726,7 @@ public class CollaborationTools implements Serializable {
 		}
 	}
 	
+	//fxdiff VCRP-8: collaboration tools folder access control
 	public Long lookupFolderAccess() {
 		NarrowedPropertyManager npm = NarrowedPropertyManager.getInstance(ores);
 		Property property = npm.findProperty(null, null, PROP_CAT_BG_COLLABTOOLS, KEY_FOLDER_ACCESS);
@@ -733,6 +737,7 @@ public class CollaborationTools implements Serializable {
 		return property.getLongValue();
 	}
 	
+	//fxdiff VCRP-8: collaboration tools folder access control
 	public void saveFolderAccess(Long folderrAccess) {
 		NarrowedPropertyManager npm = NarrowedPropertyManager.getInstance(ores);
 		Property property = npm.findProperty(null, null, PROP_CAT_BG_COLLABTOOLS, KEY_FOLDER_ACCESS);
@@ -746,7 +751,8 @@ public class CollaborationTools implements Serializable {
 	}
 	
 	public class CollabSecCallback implements VFSSecurityCallback {
-
+		
+		//fxdiff VCRP-8: collaboration tools folder access control
 		private final boolean write;
 		private Quota folderQuota = null;
 		private SubscriptionContext subsContext;

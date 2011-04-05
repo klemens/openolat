@@ -132,6 +132,7 @@ public class BusinessGroupManagerImpl extends BasicManager implements BusinessGr
 	private static final String EXPORT_KEY_SHOW_PARTICIPANTS = "showParticipants";
 	private static final String EXPORT_KEY_SHOW_WAITING_LIST = "showWaitingList";
 	private static final String EXPORT_KEY_CALENDAR_ACCESS = "calendarAccess";
+	//fxdiff VCRP-8: collaboration tools folder access control
 	private static final String EXPORT_KEY_FOLDER_ACCESS = "folderAccess";
 	private static final String EXPORT_KEY_NEWS = "info";
 
@@ -757,6 +758,7 @@ public class BusinessGroupManagerImpl extends BasicManager implements BusinessGr
 		if (calendarAccess != null) {
 			newGroup.addAttribute(EXPORT_KEY_CALENDAR_ACCESS,calendarAccess);			
 		}
+		//fxdiff VCRP-8: collaboration tools folder access control
 		Long folderAccess = ct.lookupFolderAccess();
 		if(folderAccess != null) {
 			newGroup.addAttribute(EXPORT_KEY_FOLDER_ACCESS,folderAccess);
@@ -883,6 +885,7 @@ public class BusinessGroupManagerImpl extends BasicManager implements BusinessGr
 				  Long calendarAccess = Long.valueOf(group.getAttribute(EXPORT_KEY_CALENDAR_ACCESS));
 				  ct.saveCalendarAccess(calendarAccess);				  
 				}
+				//fxdiff VCRP-8: collaboration tools folder access control
 				if(group.getAttribute(EXPORT_KEY_FOLDER_ACCESS)!=null) {
 				  Long folderAccess = Long.valueOf(group.getAttribute(EXPORT_KEY_FOLDER_ACCESS));
 				  ct.saveFolderAccess(folderAccess);				  

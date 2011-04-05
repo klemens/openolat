@@ -87,6 +87,7 @@ public class GroupfoldersWebDAVProvider implements WebDAVProvider {
 					q = QuotaManager.getInstance().createQuota(tools.getFolderRelPath(), defQuota.getQuotaKB(), defQuota.getUlLimitKB());
 				}
 				
+				//fxdiff VCRP-8: collaboration tools folder access control
 				boolean writeAccess;
 				boolean isOwner = BaseSecurityManager.getInstance().isIdentityInSecurityGroup(identity, group.getOwnerGroup());
 				if (!isOwner) {
