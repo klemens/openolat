@@ -23,7 +23,9 @@ package org.olat.repository.controllers;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
 
@@ -82,6 +84,7 @@ public class RepositorySearchController extends BasicController {
 	private RepositoryEntry selectedEntry = null;
 	private boolean enableSearchforAllReferencalbeInSearchForm = false;
 	private Link loginLink;
+	private SearchType searchType;
 	
 	
 	/**
@@ -93,6 +96,7 @@ public class RepositorySearchController extends BasicController {
 	 * @param enableDirectLaunch
 	 */
 	public RepositorySearchController(String selectButtonLabel, UserRequest ureq, WindowControl myWControl, boolean withCancel, boolean enableDirectLaunch) {
+		//fxdiff VCRP-10: repository search with type filter
 		super(ureq, myWControl, Util.createPackageTranslator(RepositoryManager.class, ureq.getLocale()));
 		init(selectButtonLabel, ureq, withCancel, enableDirectLaunch, new String[]{});
 	}
@@ -112,6 +116,7 @@ public class RepositorySearchController extends BasicController {
 
 	public RepositorySearchController(String selectButtonLabel, UserRequest ureq, WindowControl myWControl, boolean withCancel, boolean enableDirectLaunch,
 			String[] limitTypes) {
+		//fxdiff VCRP-10: repository search with type filter
 		super(ureq, myWControl, Util.createPackageTranslator(RepositoryManager.class, ureq.getLocale()));
 		init(selectButtonLabel, ureq, withCancel, enableDirectLaunch, limitTypes);
 	}
@@ -120,6 +125,7 @@ public class RepositorySearchController extends BasicController {
 	 * @param myWControl
 	 */
 	public RepositorySearchController(UserRequest ureq, WindowControl myWControl) {
+		//fxdiff VCRP-10: repository search with type filter
 		super(ureq, myWControl, Util.createPackageTranslator(RepositoryManager.class, ureq.getLocale()));
 	}
 
@@ -139,10 +145,9 @@ public class RepositorySearchController extends BasicController {
 		TableGuiConfiguration tableConfig = new TableGuiConfiguration();
 		if (selectButtonLabel != null) tableConfig.setPreferencesOffered(true, "repositorySearchResult");
 		
-		//tableCtr = new TableController(tableConfig, ureq, getWindowControl(), translator, true);
-		
-		String filterTitle = "Typ";
-		String noFilterOption = "-";
+		//fxdiff VCRP-10: repository search with type filter
+		String filterTitle = translator.translate("search.filter.type");
+		String noFilterOption = translator.translate("search.filter.showAll");
 		tableCtr = new TableController(tableConfig, ureq, getWindowControl(), null, null, filterTitle, noFilterOption, true, translator);
 		
 		
@@ -198,14 +203,23 @@ public class RepositorySearchController extends BasicController {
 	 * using the values from the form
 	 * @param ureq
 	 */
-	private void doSearch(UserRequest ureq) {
+	private void doSearch(UserRequest ureq, String limitType, boolean updateFilters) {
+		searchType = SearchType.searchForm;
 		RepositoryManager rm = RepositoryManager.getInstance();
-		Set s = searchForm.getRestrictedTypes();
-		List restrictedTypes = (s == null) ? null : new ArrayList(s);
-		List entries = rm.genericANDQueryWithRolesRestriction(searchForm.getDisplayName(), searchForm.getAuthor(),
+		Set<String> s = searchForm.getRestrictedTypes();
+		List<String> restrictedTypes;
+		if(limitType != null) {
+			restrictedTypes = Collections.singletonList(limitType);
+		} else {
+			restrictedTypes = (s == null) ? null : new ArrayList<String>(s);
+		}
+		List<RepositoryEntry> entries = rm.genericANDQueryWithRolesRestriction(searchForm.getDisplayName(), searchForm.getAuthor(),
 			searchForm.getDescription(), restrictedTypes, ureq.getUserSession().getRoles(), ureq.getIdentity().getUser().getProperty(UserConstants.INSTITUTIONALNAME, null));
 		repoTableModel.setObjects(entries);
-		tableCtr.setFilters(restrictedTypes, null);
+		//fxdiff VCRP-10: repository search with type filter
+		if(updateFilters) {
+			updateFilters(entries, null);
+		}
 		tableCtr.modelChanged();
 		displaySearchResults(ureq);
 	}
@@ -215,19 +229,28 @@ public class RepositorySearchController extends BasicController {
 	 * owned by the uer or set to referencable and have at lease BA settings
 	 * @param ureq
 	 */
-	private void doSearchAllReferencables(UserRequest ureq) {
+	private void doSearchAllReferencables(UserRequest ureq, String limitType, boolean updateFilters) {
+		searchType = SearchType.searchForm;
 		RepositoryManager rm = RepositoryManager.getInstance();
-		Set s = searchForm.getRestrictedTypes();
-		List restrictedTypes = (s == null) ? null : new ArrayList(s);
+		Set<String> s = searchForm.getRestrictedTypes();
+		List<String> restrictedTypes;
+		if(limitType != null) {
+			restrictedTypes = Collections.singletonList(limitType);
+		} else {
+			restrictedTypes = (s == null) ? null : new ArrayList<String>(s);
+		}
 		Roles roles = ureq.getUserSession().getRoles();
 		Identity ident = ureq.getIdentity();
 		String name = searchForm.getDisplayName();
 		String author = searchForm.getAuthor();
 		String desc = searchForm.getDescription();
 		
-		List entries = rm.queryReferencableResourcesLimitType(ident, roles, restrictedTypes, name, author, desc);
+		List<RepositoryEntry> entries = rm.queryReferencableResourcesLimitType(ident, roles, restrictedTypes, name, author, desc);
 		repoTableModel.setObjects(entries);
-		tableCtr.setFilters(restrictedTypes, null);
+		//fxdiff VCRP-10: repository search with type filter
+		if(updateFilters) {
+			updateFilters(entries, null);
+		}
 		tableCtr.modelChanged();
 		displaySearchResults(ureq);
 	}
@@ -258,7 +281,8 @@ public class RepositorySearchController extends BasicController {
 		List entries = rm.queryReferencableResourcesLimitType(owner, roles, restrictedTypes, null, null, null);
 		
 		repoTableModel.setObjects(entries);
-		tableCtr.setFilters(restrictedTypes, null);
+		//fxdiff VCRP-10: repository search with type filter
+		tableCtr.setFilters(null, null);
 		tableCtr.modelChanged();
 		displaySearchResults(null);
 	}
@@ -268,6 +292,7 @@ public class RepositorySearchController extends BasicController {
 	 * 
 	 * @param owner
 	 */
+	//fxdiff VCRP-10: repository search with type filter
 	public void doSearchByOwner(Identity owner) {
 		doSearchByOwnerLimitTypeInternal(owner, new String[] {}, true);
 	}
@@ -277,6 +302,7 @@ public class RepositorySearchController extends BasicController {
 	 * @param owner
 	 * @param limitType
 	 */
+	//fxdiff VCRP-10: repository search with type filter
 	public void doSearchByOwnerLimitType(Identity owner, String limitType) {
 		doSearchByOwnerLimitTypeInternal(owner, new String[]{limitType}, true);
 	}
@@ -285,25 +311,14 @@ public class RepositorySearchController extends BasicController {
 		doSearchByOwnerLimitTypeInternal(owner, limitTypes, true);
 	}
 	
+	//fxdiff VCRP-10: repository search with type filter
 	private void doSearchByOwnerLimitTypeInternal(Identity owner, String[] limitTypes, boolean updateFilters) {
+		searchType = SearchType.byOwner;
 		RepositoryManager rm = RepositoryManager.getInstance();
 		List<RepositoryEntry> entries = rm.queryByOwner(owner, limitTypes);
-		
 		if(updateFilters) {
-			List<ShortName> restrictedTypes = new ArrayList<ShortName>();
-			Set<String> uniqueTypes = new HashSet<String>();
-			for(RepositoryEntry entry:entries) {
-				if(entry.getOlatResource() == null) continue;//no red screen for that
-				String type = entry.getOlatResource().getResourceableTypeName();
-				if(type != null && !uniqueTypes.contains(type)) {
-					String label = translate(type);
-					restrictedTypes.add(new TypeFilter(type, label, owner));
-					uniqueTypes.add(type);
-				}
-			}
-			tableCtr.setFilters(restrictedTypes, null);
+			updateFilters(entries, owner);
 		}
-		
 		repoTableModel.setObjects(entries);
 		tableCtr.modelChanged(updateFilters);
 		displaySearchResults(null);
@@ -319,6 +334,7 @@ public class RepositorySearchController extends BasicController {
 		List entries = rm.queryByOwnerLimitAccess(owner, access);
 
 		repoTableModel.setObjects(entries);
+		//fxdiff VCRP-10: repository search with type filter
 		tableCtr.setFilters(null, null);
 		tableCtr.modelChanged();
 		displaySearchResults(null);
@@ -331,9 +347,11 @@ public class RepositorySearchController extends BasicController {
 	 * @param ureq
 	 */
 	void doSearchByTypeLimitAccess(String type, UserRequest ureq) {
+		searchType = null;
 		RepositoryManager rm = RepositoryManager.getInstance();
 		List entries = rm.queryByTypeLimitAccess(type, ureq);
 		repoTableModel.setObjects(entries);
+		//fxdiff VCRP-10: repository search with type filter
 		tableCtr.setFilters(null, null);
 		tableCtr.modelChanged();
 		displaySearchResults(ureq);
@@ -350,21 +368,64 @@ public class RepositorySearchController extends BasicController {
 	}
 
 	protected void doSearchMyCoursesStudent(UserRequest ureq){
+		doSearchMyCoursesStudent(ureq, null, true);
+	}
+		
+	protected void doSearchMyCoursesStudent(UserRequest ureq, String limitType, boolean updateFilters) {
+		searchType = SearchType.myAsStudent;
 		RepositoryManager rm = RepositoryManager.getInstance();
 		List<RepositoryEntry> entries = rm.getLearningResourcesAsStudent(ureq.getIdentity());
+		//fxdiff VCRP-10: repository search with type filter
+		doSearchMyRepositoryEntries(ureq, entries, limitType, updateFilters);
+	}
+	
+	protected void doSearchMyCoursesTeacher(UserRequest ureq){
+		doSearchMyCoursesTeacher(ureq, null, true);
+	}
+	
+	protected void doSearchMyCoursesTeacher(UserRequest ureq, String limitType, boolean updateFilters) {
+		searchType = SearchType.myAsTeacher;
+		RepositoryManager rm = RepositoryManager.getInstance();
+		List<RepositoryEntry> entries = rm.getLearningResourcesAsTeacher(ureq.getIdentity());
+		//fxdiff VCRP-10: repository search with type filter
+		doSearchMyRepositoryEntries(ureq, entries, limitType, updateFilters);
+	}
+
+	//fxdiff VCRP-10: repository search with type filter
+	protected void doSearchMyRepositoryEntries(UserRequest ureq, List<RepositoryEntry> entries, String limitType, boolean updateFilters) {
+		if(limitType != null) {
+			for(Iterator<RepositoryEntry> it=entries.iterator(); it.hasNext(); ) {
+				RepositoryEntry next = it.next();
+				if(!next.getOlatResource().getResourceableTypeName().equals(limitType)) {
+					it.remove();
+				}
+			}	
+		}
 		repoTableModel.setObjects(entries);
-		tableCtr.setFilters(null, null);
+		if(updateFilters) {
+			updateFilters(entries, null);
+		}
 		tableCtr.modelChanged();
 		displaySearchResults(ureq);
 	}
 	
-	protected void doSearchMyCoursesTeacher(UserRequest ureq){
-		RepositoryManager rm = RepositoryManager.getInstance();
-		List<RepositoryEntry> entries = rm.getLearningResourcesAsTeacher(ureq.getIdentity());
-		repoTableModel.setObjects(entries);
-		tableCtr.setFilters(null, null);
-		tableCtr.modelChanged();
-		displaySearchResults(ureq);
+	protected void updateFilters(List<RepositoryEntry> entries, Identity owner) {
+		List<ShortName> restrictedTypes = new ArrayList<ShortName>();
+		Set<String> uniqueTypes = new HashSet<String>();
+		for(RepositoryEntry entry:entries) {
+			if(entry.getOlatResource() == null) continue;//no red screen for that
+			String type = entry.getOlatResource().getResourceableTypeName();
+			if(type != null && !uniqueTypes.contains(type)) {
+				String label = translate(type);
+				restrictedTypes.add(new TypeFilter(type, label, owner));
+				uniqueTypes.add(type);
+			}
+		}
+		if(restrictedTypes.size() > 1) {
+			tableCtr.setFilters(restrictedTypes, null);
+		} else {
+			tableCtr.setFilters(null, null);
+		}
 	}
 	
 	/**
@@ -402,6 +463,7 @@ public class RepositorySearchController extends BasicController {
 	 */
 	public void event(UserRequest urequest, Controller source, Event event) {
 		if (source == tableCtr) { // process table actions
+			//fxdiff VCRP-10: repository search with type filter
 			if(event instanceof TableEvent) {
 				TableEvent te = (TableEvent)event;
 				selectedEntry =  (RepositoryEntry)tableCtr.getTableDataModel().getObject(te.getRowId());
@@ -414,9 +476,33 @@ public class RepositorySearchController extends BasicController {
 				}
 			} else if (TableController.EVENT_FILTER_SELECTED.equals(event)) {
 				TypeFilter typeFilter = (TypeFilter) tableCtr.getActiveFilter();
-				doSearchByOwnerLimitTypeInternal(typeFilter.getOwner(), new String[]{typeFilter.getType()}, false);
+				if(searchType == SearchType.byOwner) {
+					doSearchByOwnerLimitTypeInternal(typeFilter.getOwner(), new String[]{typeFilter.getType()}, false);
+				} else if(searchType == SearchType.myAsStudent) {
+					doSearchMyCoursesStudent(urequest, typeFilter.getType(), false);
+				} else if(searchType == SearchType.myAsTeacher) {
+					doSearchMyCoursesTeacher(urequest, typeFilter.getType(), false);
+				} else if(searchType == SearchType.searchForm) {
+					if(enableSearchforAllReferencalbeInSearchForm) {
+						doSearchAllReferencables(urequest, typeFilter.getType(), false);
+					} else {
+						doSearch(urequest, typeFilter.getType(), false);
+					}
+				}
 			} else if (TableController.EVENT_NOFILTER_SELECTED.equals(event)) {
-				doSearchByOwnerLimitTypeInternal(getIdentity(), new String[]{}, false);
+				if(searchType == SearchType.byOwner) {
+					doSearchByOwnerLimitTypeInternal(getIdentity(), new String[]{}, false);
+				} else if(searchType == SearchType.myAsStudent) {
+					doSearchMyCoursesStudent(urequest);
+				} else if(searchType == SearchType.myAsTeacher) {
+					doSearchMyCoursesTeacher(urequest);
+				} else if(searchType == SearchType.searchForm) {
+					if(enableSearchforAllReferencalbeInSearchForm) {
+						doSearchAllReferencables(urequest, null, false);
+					} else {
+						doSearch(urequest, null, false);
+					}
+				}
 			}
 		} 
 		else if (event instanceof EntryChangedEvent) { // remove deleted entry
@@ -437,8 +523,8 @@ public class RepositorySearchController extends BasicController {
 		else if (source == searchForm) { // process search form events
 			if (event == Event.DONE_EVENT) {
 				if (searchForm.hasId())	doSearchById(searchForm.getId());
-				else if (enableSearchforAllReferencalbeInSearchForm) doSearchAllReferencables(urequest);
-				else doSearch(urequest);
+				else if (enableSearchforAllReferencalbeInSearchForm) doSearchAllReferencables(urequest, null, true);
+				else doSearch(urequest, null, true);
 				return;
 			} else if (event == Event.CANCELLED_EVENT) {
 				fireEvent(urequest, Event.CANCELLED_EVENT);
@@ -455,18 +541,19 @@ public class RepositorySearchController extends BasicController {
 		//
 	}
 	
+	//fxdiff VCRP-10: repository search with type filter
 	private class TypeFilter implements ShortName {
 		
 		private final String type;
 		private final String typeName;
 		private final Identity owner;
-		
+
 		public TypeFilter(String type, String typeName, Identity owner) {
 			this.type = type;
 			this.typeName = typeName;
 			this.owner = owner;
 		}
-		
+
 		public String getType() {
 			return type;
 		}
@@ -496,5 +583,12 @@ public class RepositorySearchController extends BasicController {
 			}
 			return false;
 		}
+	}
+	
+	public enum SearchType {
+		byOwner,
+		myAsStudent,
+		myAsTeacher,
+		searchForm,
 	}
 }
