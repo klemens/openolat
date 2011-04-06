@@ -174,6 +174,7 @@ public class CPCourseNode extends AbstractAccessableCourseNode {
 			// use defaults for new course building blocks
 			config.setBooleanEntry(NodeEditController.CONFIG_STARTPAGE, Boolean.FALSE.booleanValue());
 			config.setBooleanEntry(NodeEditController.CONFIG_COMPONENT_MENU, Boolean.TRUE.booleanValue());
+			//fxdiff VCRP-13: cp navigation
 			config.setBooleanEntry(CPEditController.CONFIG_SHOWNAVBUTTONS, Boolean.TRUE.booleanValue());
 			config.setConfigurationVersion(2);
 		} else {
@@ -195,6 +196,7 @@ public class CPCourseNode extends AbstractAccessableCourseNode {
 				config.setConfigurationVersion(3);
 			}
 			
+			//fxdiff VCRP-13: cp navigation
 			if(config.getConfigurationVersion() < 4) {
 				config.setBooleanEntry(CPEditController.CONFIG_SHOWNAVBUTTONS, Boolean.TRUE.booleanValue());
 				config.setConfigurationVersion(4);

@@ -105,10 +105,12 @@ public class CPManifestTreeModel extends GenericTreeModel {
 		return hrefToTreeNode.get(href);
 	}
 	
+	//fxdiff VCRP-13: cp navigation
 	public List<TreeNode> getFlattedTree() {
 		return new ArrayList<TreeNode>(treeNodes);
 	}
 	
+	//fxdiff VCRP-13: cp navigation
 	public TreeNode getNextNodeWithContent(TreeNode node) {
 		if(node == null) return null;
 		int index = treeNodes.indexOf(node);
@@ -139,6 +141,7 @@ public class CPManifestTreeModel extends GenericTreeModel {
 
 	private GenericTreeNode buildNode(Element item) {
 		GenericTreeNode gtn = new GenericTreeNode();
+		//fxdiff VCRP-13: cp navigation
 		treeNodes.add(gtn);
 
 		// extract title

@@ -156,6 +156,7 @@ public class CPDisplayController extends BasicController {
 			printMapper.setBaseUri(mapperBaseURL);
 		}
 		
+		//fxdiff VCRP-13: cp navigation
 		if(showNavigation) {
 			nextLink = LinkFactory.createLink("next", myContent, this);
 			nextLink.setCustomEnabledLinkCSS("b_small_icon o_cp_next_icon");
@@ -191,6 +192,7 @@ public class CPDisplayController extends BasicController {
 				selNodeId = node.getIdent();
 
 				nodeInfo = LoggingResourceable.wrapCpNode(nodeUri);
+				//fxdiff VCRP-13: cp navigation
 				updateNextPreviousLink(node);
 			}
 		} else if (initialUri != null) {
@@ -206,6 +208,7 @@ public class CPDisplayController extends BasicController {
 				} else {
 					selNodeId = newNode.getIdent();
 				}
+				//fxdiff VCRP-13: cp navigation
 				updateNextPreviousLink(newNode);
 			}
 			nodeInfo = LoggingResourceable.wrapCpNode(initialUri);
@@ -270,6 +273,7 @@ public class CPDisplayController extends BasicController {
 				// adjust the tree selection to the current choice if found
 				selectTreeNode(ureq, nue.getNewUri());
 			}
+		//fxdiff VCRP-13: cp navigation
 		} else if (source == nextLink) {
 			TreeNode nextUri = (TreeNode)nextLink.getUserObject();
 			switchToPage(ureq, nextUri);
@@ -277,6 +281,7 @@ public class CPDisplayController extends BasicController {
 				cpTree.setSelectedNode(nextUri);
 			}
 			fireEvent(ureq, new TreeNodeEvent(nextUri));
+		//fxdiff VCRP-13: cp navigation
 		} else if (source == previousLink) {
 			TreeNode previousUri = (TreeNode)previousLink.getUserObject();
 			if(cpTree != null) {
@@ -355,6 +360,7 @@ public class CPDisplayController extends BasicController {
 		ThreadLocalUserActivityLogger.log(CourseLoggingAction.CP_GET_FILE, getClass(), LoggingResourceable.wrapCpNode(newUri));
 	}
 	
+	//fxdiff VCRP-13: cp navigation
 	public void selectTreeNode(UserRequest ureq, TreeNode newNode) {
 		if (newNode != null) { // user clicked on a link which is listed in the
 			// toc
@@ -369,6 +375,7 @@ public class CPDisplayController extends BasicController {
 		}
 	}
 	
+	//fxdiff VCRP-13: cp navigation
 	private void updateNextPreviousLink(TreeNode currentNode) {
 		if(nextLink != null) {
 			TreeNode nextNode = ctm.getNextNodeWithContent(currentNode);
