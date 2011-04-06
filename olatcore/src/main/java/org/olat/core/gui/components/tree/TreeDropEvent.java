@@ -24,28 +24,33 @@ import org.olat.core.gui.control.Event;
 /**
  * 
  * Description:<br>
- * TODO: srosse Class Description for TreeDropEvent
+ * Event for the drag and drop function in menu tree
  * 
  * <P>
  * Initial Date:  23 mars 2011 <br>
  * @author srosse, stephane.rosse@frentix.com, http://www.frentix.com
  */
+//fxdiff VCRP-9: drag and drop in menu tree
 public class TreeDropEvent extends Event {
 
+	private static final long serialVersionUID = -2204436311054973710L;
+	
 	private final String droppedNodeId;
 	private final String targetNodeId;
 	private final boolean asChild;
+	private final boolean atTheEnd;
 
 	/**
 	 * 
 	 * @param command
 	 * @param nodeId
 	 */
-	public TreeDropEvent(String command, String droppedNodeId, String targetNodeId, boolean asChild) {
+	public TreeDropEvent(String command, String droppedNodeId, String targetNodeId, boolean asChild, boolean atTheEnd) {
 		super(command);
 		this.droppedNodeId = droppedNodeId;
 		this.targetNodeId = targetNodeId;
 		this.asChild = asChild;
+		this.atTheEnd = atTheEnd;
 	}
 
 	/**
@@ -62,9 +67,12 @@ public class TreeDropEvent extends Event {
 		return targetNodeId;
 	}
 	
-	
 	public boolean isAsChild() {
 		return asChild;
+	}
+
+	public boolean isAtTheEnd() {
+		return atTheEnd;
 	}
 
 	@Override

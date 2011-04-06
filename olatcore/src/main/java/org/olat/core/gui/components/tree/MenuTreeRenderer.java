@@ -50,6 +50,7 @@ import org.olat.core.util.tree.TreeHelper;
  * 
  * @author Felix Jost, Florian Gnaegi
  */
+//fxdiff VCRP-9: there is here lots of change for drag and drop / open close in menu tree
 public class MenuTreeRenderer implements ComponentRenderer {
 
 	/**
@@ -260,24 +261,30 @@ public class MenuTreeRenderer implements ComponentRenderer {
 		
 		//append div to drop as sibling
 		if(tree.isDragAndDropEnabled()) {
-			appendSiblingDropObj(curRoot, tree, target);
+			appendSiblingDropObj(curRoot, level, tree, target, false);
 		}
 		
 		if (renderChildren) {
 			//open / close ul
 			renderChildren(target, level, curRoot, selPath, openNodeIds, ubu, flags, markedNode, tree);
+			
+			//append div to drop as sibling after the children
+			if(tree.isDragAndDropEnabled()) {
+				appendSiblingDropObj(curRoot, level, tree, target, true);
+			}
 		}
 		
 		//	 close item level
 		target.append("</li>");
 	}
 	
+	//fxdiff VCRP-9: drag and drop in menu tree
 	private void renderChildren(StringOutput target, int level, TreeNode curRoot, List<INode> selPath, Collection<String> openNodeIds, URLBuilder ubu, AJAXFlags flags, TreeNode markedNode, MenuTree tree) {
 		int chdCnt = curRoot.getChildCount();
 		// render children as new level
 		target.append("\n<ul class=\"");
 		// add css class to identify level
-		target.append(" b_tree_l").append(level + 1 );		
+		target.append(" b_tree_l").append(level + 1);		
 		target.append("\">");
 		// render all the nodes from this level
 		for (int i = 0; i < chdCnt; i++) {
@@ -287,14 +294,16 @@ public class MenuTreeRenderer implements ComponentRenderer {
 		target.append("</ul>");
 	}
 	
-	private void appendSiblingDropObj(TreeNode node, MenuTree tree, StringOutput target) {
-		String id = node.getIdent();
+	//fxdiff VCRP-9: drag and drop in menu tree
+	private void appendSiblingDropObj(TreeNode node, int level, MenuTree tree, StringOutput target, boolean after) {
+		String id = (after ? "dt" : "ds") + node.getIdent();
 		String dndGroup = tree.getDragAndDropGroup();
-		target.append("<div id='ds").append(id).append("' class='b_dd_sibling'>")
-			.append("<script type='text/javascript'>Ext.get('ds").append(id).append("').dd = new Ext.dd.DDTarget('ds").append(id).append("','").append(dndGroup).append("');</script>")
+		target.append("<div id='").append(id).append("' class='b_dd_sibling b_dd_sibling_l").append(level).append("'>")
+			.append("<script type='text/javascript'>Ext.get('").append(id).append("').dd = new Ext.dd.DDTarget('").append(id).append("','").append(dndGroup).append("');</script>")
 			.append("&nbsp;&nbsp;</div>");
 	}
 	
+	//fxdiff VCRP-9: drag and drop in menu tree
 	private void appendDragAndDropObj(TreeNode node, MenuTree tree, StringOutput target, URLBuilder ubu, AJAXFlags flags) {
 		String id = node.getIdent();
 		String dndGroup = tree.getDragAndDropGroup();
@@ -307,6 +316,7 @@ public class MenuTreeRenderer implements ComponentRenderer {
 		 .append("</script>");
 	}
 	
+	//fxdiff VCRP-9: drag and drop in menu tree
 	private void appendDecorators(TreeNode curRoot, StringOutput target) {
 		String iconCssClass = curRoot.getIconCssClass();
 		if (iconCssClass == null) return;

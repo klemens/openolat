@@ -23,18 +23,18 @@ import javax.servlet.http.HttpServletRequest;
 
 import org.olat.core.dispatcher.mapper.Mapper;
 import org.olat.core.gui.media.MediaResource;
-import org.olat.core.gui.media.NotFoundMediaResource;
 import org.olat.core.gui.media.StringMediaResource;
 
 /**
  * 
  * Description:<br>
- * TODO: srosse Class Description for DnDFeedbackMapper
+ * Mapper which return feedback to the mouse over
  * 
  * <P>
  * Initial Date:  23 mars 2011 <br>
  * @author srosse, stephane.rosse@frentix.com, http://www.frentix.com
  */
+//fxdiff VCRP-9: drag and drop in menu tree
 public class DnDFeedbackMapper implements Mapper {
 	
 	private static final String ENCODING_UTF_8 = "utf-8";
@@ -47,19 +47,20 @@ public class DnDFeedbackMapper implements Mapper {
 	}
 	
 	@Override
-	public MediaResource handle(String relPath, HttpServletRequest request) {
-		
+	public MediaResource handle(String relPath, HttpServletRequest request) {	
 		String dropNodeId = request.getParameter(MenuTree.NODE_IDENT);
 		String targetNodeId = request.getParameter(MenuTree.TARGET_NODE_IDENT);
-		boolean sibling = "true".equals(request.getParameter(MenuTree.SIBLING_NODE));
+		boolean sibling = "end".equals(request.getParameter(MenuTree.SIBLING_NODE))
+		  || "yes".equals(request.getParameter(MenuTree.SIBLING_NODE));
 		
+		StringMediaResource jsonResource = new StringMediaResource();
+		jsonResource.setEncoding(ENCODING_UTF_8);
+		jsonResource.setContentType(CONTENT_TYPE_JAVASCRIPT);
 		if(menuTree.canDrop(dropNodeId, targetNodeId, sibling)) {
-			StringMediaResource jsonResource = new StringMediaResource();
-			jsonResource.setEncoding(ENCODING_UTF_8);
-			jsonResource.setContentType(CONTENT_TYPE_JAVASCRIPT);
-			jsonResource.setData("{ok:'ok'}");
-			return jsonResource;
+			jsonResource.setData("{\"dropAllowed\":true}");
+		} else {
+			jsonResource.setData("{\"dropAllowed\":false}");
 		}
-		return new NotFoundMediaResource(relPath);
+		return jsonResource;
 	}
 }

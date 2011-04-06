@@ -246,6 +246,7 @@ public class EditorMainController extends MainLayoutBasicController implements G
 
 			menuTree = new MenuTree("luTree");
 			menuTree.setExpandSelectedNode(false);
+			//fxdiff VCRP-9: drag and drop in menu tree
 			menuTree.setDragAndDropEnabled(true);
 			menuTree.setDragAndDropGroup("courseEditorGroup");
 						
@@ -350,9 +351,10 @@ public class EditorMainController extends MainLayoutBasicController implements G
 				TreeEvent te = (TreeEvent) event;
 				String nodeId = te.getNodeId();
 				updateViewForSelectedNodeId(ureq, nodeId);				
+			//fxdiff VCRP-9: drag and drop in menu tree
 			} else if(event.getCommand().equals(MenuTree.COMMAND_TREENODE_DROP)) {
 				TreeDropEvent te = (TreeDropEvent) event;
-				dropNodeAsChild(ureq, course, te.getDroppedNodeId(), te.getTargetNodeId(), te.isAsChild());
+				dropNodeAsChild(ureq, course, te.getDroppedNodeId(), te.getTargetNodeId(), te.isAsChild(), te.isAtTheEnd());
 			}
 		} else if (source == main) {
 			if (event.getCommand().startsWith(NLS_START_HELP_WIZARD)) {
@@ -595,7 +597,7 @@ public class EditorMainController extends MainLayoutBasicController implements G
 							hasChanges = true;
 						}
 						
-						//VCRP-3: add catalog entry in publish wizard
+						//fxdiff VCRP-3: add catalog entry in publish wizard
 						if (runContext.containsKey("catalogChoice")) {
 							String choice = (String) runContext.get("catalogChoice");
 							List<CategoryLabel> categories = (List<CategoryLabel>)runContext.get("categories");
@@ -776,7 +778,8 @@ public class EditorMainController extends MainLayoutBasicController implements G
 		}
 	}
 	
-	private void dropNodeAsChild(UserRequest ureq, ICourse course, String droppedNodeId, String targetNodeId, boolean asChild) {
+	//fxdiff VCRP-9: drag and drop in menu tree
+	private void dropNodeAsChild(UserRequest ureq, ICourse course, String droppedNodeId, String targetNodeId, boolean asChild, boolean atTheEnd) {
 		menuTree.setDirty(true); // setDirty when moving
 		CourseNode droppedNode = cetm.getCourseNode(droppedNodeId);
 
@@ -784,7 +787,7 @@ public class EditorMainController extends MainLayoutBasicController implements G
 		CourseEditorTreeNode insertParent;
 		if(asChild) {
 			insertParent = cetm.getCourseEditorNodeById(targetNodeId);
-			position = 0;
+			position = atTheEnd ? -1 : 0;
 		} else {
 			CourseEditorTreeNode selectedNode = cetm.getCourseEditorNodeById(targetNodeId);
 			if(selectedNode.getParent() == null) {
@@ -804,13 +807,24 @@ public class EditorMainController extends MainLayoutBasicController implements G
 		}
 		
 		CourseEditorTreeNode moveFrom = course.getEditorTreeModel().getCourseEditorNodeById(droppedNode.getIdent());
-		//don't generate red screen for that. If the position is too high -> add the node at the end
-		if(position >= insertParent.getChildCount()) {
-			position = insertParent.getChildCount();
+		//check if an ancestor is not dropped on a child
+		if (course.getEditorTreeModel().checkIfIsChild(insertParent, moveFrom)) {					
+			showError("movecopynode.error.overlap");
+			fireEvent(ureq, Event.CANCELLED_EVENT);
+			return;
 		}
 		
+		//don't generate red screen for that. If the position is too high -> add the node at the end
+		if(position >= insertParent.getChildCount()) {
+			position = -1;
+		}
+
 		try {
-			insertParent.insert(moveFrom, position);
+			if(position >= 0) {
+				insertParent.insert(moveFrom, position);
+			} else {
+				insertParent.addChild(moveFrom);
+			}
 		} catch (IndexOutOfBoundsException e) {
 			logError("", e);
 			//reattach the node as security, if not, the node is lost

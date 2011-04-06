@@ -22,12 +22,13 @@ package org.olat.core.gui.components.tree;
 /**
  * 
  * Description:<br>
- * TODO: srosse Class Description for DnDTreeModel
+ * Extension to the standard tree model
  * 
  * <P>
  * Initial Date:  23 mars 2011 <br>
  * @author srosse, stephane.rosse@frentix.com, http://www.frentix.com
  */
+//fxdiff VCRP-9: drag and drop in menu tree
 public interface DnDTreeModel extends TreeModel {
 	
 	public boolean canDrop(TreeNode droppedNode, TreeNode targetNode, boolean sibling);

@@ -56,12 +56,14 @@ public class MenuTree extends Component {
 	/**
 	 * Comment for <code>NODE_IDENT</code>
 	 */
+	//fxdiff VCRP-9: drag and drop in menu tree
 	public static final String TARGET_NODE_IDENT = "tnidle";
 	
 	
 	/**
 	 * Comment for <code>NODE_IDENT</code>
 	 */
+	//fxdiff VCRP-9: drag and drop in menu tree
 	public static final String SIBLING_NODE = "sne";
 	
 	/**
@@ -100,6 +102,7 @@ public class MenuTree extends Component {
 	private boolean expandServerOnly = true; // default is serverside menu
 	private boolean dragAndDropEnabled = false; 
 	private boolean expandSelectedNode = true;
+	//fxdiff VCRP-9: drag and drop in menu tree
 	private String dragAndDropGroup;
 	private String dndFeedbackUri;
 	
@@ -116,6 +119,7 @@ public class MenuTree extends Component {
 	 */
 	public MenuTree(String name) {
 		super(name);
+		//fxdiff VCRP-9: drag and drop in menu tree
 		dragAndDropCmp = new JSAndCSSComponent("jsComp", MenuTree.class, new String[]{"dd.js"}, null, false); 
 	}
 	
@@ -138,6 +142,7 @@ public class MenuTree extends Component {
 			selectedNodeId = selTreeNode.getIdent();
 		}
 		
+		//fxdiff VCRP-9: drag and drop in menu tree
 		String cmd = ureq.getParameter(COMMAND_ID);
 		String nodeId = ureq.getParameter(NODE_IDENT);
 		if(COMMAND_TREENODE_CLICKED.equals(cmd)) {
@@ -148,11 +153,14 @@ public class MenuTree extends Component {
 			handleClick(ureq, openClose, nodeId);
 		} else if (COMMAND_TREENODE_DROP.equals(cmd)) {
 			String targetNodeId = ureq.getParameter(TARGET_NODE_IDENT);
-			String sibling = ureq.getParameter(SIBLING_NODE);
-			handleDropped(ureq, nodeId, targetNodeId, "yes".equals(sibling));
+			String sneValue = ureq.getParameter(SIBLING_NODE);
+			boolean sibling = StringHelper.containsNonWhitespace(sneValue);
+			boolean atTheEnd = "end".equals(sneValue);
+			handleDropped(ureq, nodeId, targetNodeId, sibling, atTheEnd);
 		}
 	}
 	
+	//fxdiff VCRP-9: drag and drop in menu tree
 	boolean canDrop(String dropNodeId, String targetNodeId, boolean sibling) {
 		if(treeModel instanceof DnDTreeModel) {
 			TreeNode dropNode = treeModel.getNodeById(dropNodeId);
@@ -181,9 +189,9 @@ public class MenuTree extends Component {
 	}
 	
 	// -- recorder methods
-	
-	private void handleDropped(UserRequest ureq, String droppedNodeId, String targetNodeId, boolean sibling) {
-		TreeDropEvent te = new TreeDropEvent(COMMAND_TREENODE_DROP, droppedNodeId, targetNodeId, !sibling);
+	//fxdiff VCRP-9: drag and drop in menu tree
+	private void handleDropped(UserRequest ureq, String droppedNodeId, String targetNodeId, boolean sibling, boolean atTheEnd) {
+		TreeDropEvent te = new TreeDropEvent(COMMAND_TREENODE_DROP, droppedNodeId, targetNodeId, !sibling, atTheEnd);
 		fireEvent(ureq, te);
 		super.setDirty(true);
 	}
@@ -282,6 +290,7 @@ public class MenuTree extends Component {
 	}
 	
 	@Override
+	//fxdiff VCRP-9: drag and drop in menu tree
 	public void validate(UserRequest ureq, ValidationResult vr) {
 		if(dragAndDropEnabled) {
 			dragAndDropCmp.validate(ureq, vr);

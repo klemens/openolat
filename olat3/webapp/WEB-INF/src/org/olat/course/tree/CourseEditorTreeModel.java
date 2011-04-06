@@ -37,6 +37,7 @@ import org.olat.course.nodes.CourseNode;
  * 
  * @author Felix Jost
  */
+//fxdiff VCRP-9: drag and drop in menu tree
 public class CourseEditorTreeModel extends GenericTreeModel implements DnDTreeModel {
 	private long latestPublishTimestamp = -1;
 	private long highestNodeId; // start at Long.MAX_VALUE - 1000000; if set to
@@ -229,6 +230,8 @@ public class CourseEditorTreeModel extends GenericTreeModel implements DnDTreeMo
 
 	}
 	
+	//fxdiff VCRP-9: drag and drop in menu tree
+	@Override
 	public boolean canDrop(TreeNode droppedNode, TreeNode targetNode, boolean sibling) {
 		if(droppedNode == null || targetNode == null) return false;
 
@@ -246,6 +249,7 @@ public class CourseEditorTreeModel extends GenericTreeModel implements DnDTreeMo
 		return true;
 	}
 	
+	//fxdiff VCRP-9: drag and drop in menu tree
 	public boolean checkIfIsChild(CourseEditorTreeNode prospectChild, CourseEditorTreeNode sourceTree) {
 		if (sourceTree.getIdent().equals(prospectChild.getIdent())) {
 			return true;

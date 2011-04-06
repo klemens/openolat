@@ -14,20 +14,32 @@ Ext.extend(Ext.fxMenuTree.DDProxy, Ext.dd.DDProxy, {
     },
     
 	onDragOver: function(e, targetId) {
-		if(targetId && (targetId.indexOf('dd') == 0 || targetId.indexOf('ds') == 0 || targetId.indexOf('da') == 0)) {
-    		var target = Ext.get(targetId);
+		if(targetId && (targetId.indexOf('dd') == 0 || targetId.indexOf('ds') == 0 || targetId.indexOf('dt') == 0 || targetId.indexOf('da') == 0)) {
+			var target = Ext.get(targetId);
     		this.lastTarget = target;
-    		if(this.config.dragData.overUrl && this.config.dragData.overUrl.length > 0) {
-    			var url = this.config.dragData.overUrl + "/";
+    		if(this.config.dragData.over && this.config.dragData.over.length > 0) {
+    			var url = this.config.dragData.over + "/";
     			var dropId = this.id.substring(2,this.id.length);
     			var targetId = this.lastTarget.id.substring(2,this.lastTarget.id.length);
-    			var sibling = (this.lastTarget.id.indexOf('ds') == 0);
+    			var sibling = "";
+    			if(this.lastTarget.id.indexOf('ds') == 0) {
+    				sibling = "yes";
+    			} else if(this.lastTarget.id.indexOf('dt') == 0) {
+    				sibling = "end";
+    			}
+    			//use prototype for the Ajax call
     			var stat = new Ajax.Request(url, { 
     				method: 'get',
     				asynchronous : false,
             		parameters : { nidle:dropId, tnidle:targetId, sne:sibling },
             		onSuccess: function(transport) {
-            			target.addClass('b_dd_over');
+            			//use prototype to parse JSON response
+            			var response = transport.responseText.evalJSON();
+            			if(response.dropAllowed) {
+            				target.addClass('b_dd_over');
+            			} else {
+            				target.removeClass('b_dd_over');
+            			}
 					}
           		});
     		} else {
@@ -37,7 +49,7 @@ Ext.extend(Ext.fxMenuTree.DDProxy, Ext.dd.DDProxy, {
 	},
 		
 	onDragOut: function(e, targetId) {
-    	if(targetId && (targetId.indexOf('dd') == 0 || targetId.indexOf('ds') == 0 || targetId.indexOf('da') == 0)) {
+    	if(targetId && (targetId.indexOf('dd') == 0 || targetId.indexOf('ds') == 0 || targetId.indexOf('dt') == 0 || targetId.indexOf('da') == 0)) {
     		var target = Ext.get(targetId);
     		this.lastTarget = null;
     		target.removeClass('b_dd_over');
@@ -58,6 +70,8 @@ Ext.extend(Ext.fxMenuTree.DDProxy, Ext.dd.DDProxy, {
     		url += '%3Atnidle%3A' + targetId;
     		if(this.lastTarget.id.indexOf('ds') == 0) {
     			url += '%3Asne%3Ayes';
+    		} else if(this.lastTarget.id.indexOf('dt') == 0) {
+    			url += '%3Asne%3Aend';
     		}
     		frames['oaa0'].location.href = url + '/';
     	}
