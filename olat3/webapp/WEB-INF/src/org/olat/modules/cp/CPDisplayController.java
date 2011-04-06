@@ -85,6 +85,7 @@ public class CPDisplayController extends BasicController {
 	private SearchController searchCtrl;
 	private Link nextLink;
 	private Link previousLink;
+	//fxdiff VCRP-14: print cp
 	private Link printLink;
 	private String mapperBaseURL;
 	private CPPrintMapper printMapper;
@@ -142,6 +143,7 @@ public class CPDisplayController extends BasicController {
 			cpTree.addListener(this);
 		}
 		
+		//fxdiff VCRP-14: print cp
 		if(showPrint) {
 			printLink = LinkFactory.createLink("print", myContent, this);
 			printLink.setCustomEnabledLinkCSS("b_small_icon o_cp_print_icon");
@@ -225,6 +227,7 @@ public class CPDisplayController extends BasicController {
 		if(cpContentCtr != null) {
 			cpContentCtr.setContentEncoding(encoding);
 		}
+		//fxdiff VCRP-14: print cp
 		if(printMapper != null) {
 			printMapper.setContentEncoding(encoding);
 		}
@@ -234,6 +237,7 @@ public class CPDisplayController extends BasicController {
 		if(cpContentCtr != null) {
 			cpContentCtr.setJSEncoding(encoding);
 		}
+		//fxdiff VCRP-14: print cp
 		if(printMapper != null) {
 			printMapper.setJSEncoding(encoding);
 		}
@@ -280,6 +284,7 @@ public class CPDisplayController extends BasicController {
 			}
 			switchToPage(ureq, previousUri);
 			fireEvent(ureq, new TreeNodeEvent(previousUri));
+		//fxdiff VCRP-14: print cp
 		} else if (source == printLink) {
 			selectPagesToPrint(ureq);
 		}
@@ -297,11 +302,13 @@ public class CPDisplayController extends BasicController {
 					selectTreeNode(ureq, nue.getNewUri());
 				}// else ignore (e.g. misplaced olatcmd event (inner olat link found in a
 					// contentpackaging file)
+			//fxdiff VCRP-14: print cp
 			} else if (source == printPopup) {
 				removeAsListenerAndDispose(printPopup);
 				removeAsListenerAndDispose(printController);
 				printController = null;
 				printPopup = null;
+			//fxdiff VCRP-14: print cp
 			} else if (source == printController) {
 				if(Event.DONE_EVENT == event) {
 					List<String> nodeToPrint = printController.getSelectedNodeIdents();
@@ -315,7 +322,8 @@ public class CPDisplayController extends BasicController {
 				printPopup = null;
 			}
 	}
-		
+	
+	//fxdiff VCRP-14: print cp
 	private void printPages(final List<String> selectedNodeIds) {
 		StringBuilder sb = new StringBuilder();
 		sb.append("window.open('" + mapperBaseURL + "/print.html', '_print','height=800,left=100,top=100,width=800,toolbar=no,titlebar=0,status=0,menubar=yes,location= no,scrollbars=1');");
@@ -323,6 +331,7 @@ public class CPDisplayController extends BasicController {
 		getWindowControl().getWindowBackOffice().sendCommandTo(new JSCommand(sb.toString()));
 	}
 		
+	//fxdiff VCRP-14: print cp
 	private void selectPagesToPrint(UserRequest ureq) {
 		removeAsListenerAndDispose(printController);
 		removeAsListenerAndDispose(printPopup);

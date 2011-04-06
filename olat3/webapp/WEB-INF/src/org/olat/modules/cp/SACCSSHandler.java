@@ -44,6 +44,7 @@ import org.w3c.css.sac.SelectorList;
  * Initial Date:  18 mars 2011 <br>
  * @author srosse, stephane.rosse@frentix.com, http://www.frentix.com
  */
+//fxdiff VCRP-14: print cp
 public class SACCSSHandler implements DocumentHandler {
 
 	private boolean isInline;

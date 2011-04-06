@@ -44,12 +44,13 @@ import org.olat.core.util.nodes.INode;
 /**
  * 
  * Description:<br>
- * TODO: srosse Class Description for CPPrintPagesController
+ * Controller to select to list of nodes to print
  * 
  * <P>
  * Initial Date:  9 mars 2011 <br>
  * @author srosse, stephane.rosse@frentix.com, http://www.frentix.com
  */
+//fxdiff VCRP-14: print cp
 public class CPSelectPrintPagesController extends FormBasicController {
 	
 	private final Map<String,MultipleSelectionElement> identToSelectionMap = new HashMap<String,MultipleSelectionElement>();

@@ -39,6 +39,7 @@ import org.xml.sax.helpers.DefaultHandler;
  * Initial Date:  18 mars 2011 <br>
  * @author srosse, stephane.rosse@frentix.com, http://www.frentix.com
  */
+//fxdiff VCRP-14: print cp
 public class NekoHtmlPageHandler extends DefaultHandler {
 	private final StringBuilder header = new StringBuilder();
 	private final StringBuilder body = new StringBuilder();
