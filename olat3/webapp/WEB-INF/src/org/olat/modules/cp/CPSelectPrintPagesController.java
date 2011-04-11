@@ -34,6 +34,7 @@ import org.olat.core.gui.components.form.flexible.elements.MultipleSelectionElem
 import org.olat.core.gui.components.form.flexible.impl.FormBasicController;
 import org.olat.core.gui.components.form.flexible.impl.FormEvent;
 import org.olat.core.gui.components.form.flexible.impl.FormLayoutContainer;
+import org.olat.core.gui.components.form.flexible.impl.elements.FormSubmit;
 import org.olat.core.gui.components.link.Link;
 import org.olat.core.gui.components.tree.TreeNode;
 import org.olat.core.gui.control.Controller;
@@ -60,6 +61,7 @@ public class CPSelectPrintPagesController extends FormBasicController {
 	
 	private FormLink selectAll;
 	private FormLink deselectAll;
+	private FormSubmit submit;
 	
 	public CPSelectPrintPagesController(UserRequest ureq, WindowControl wControl, CPManifestTreeModel ctm) {
 		super(ureq, wControl, "cpprint");
@@ -87,7 +89,7 @@ public class CPSelectPrintPagesController extends FormBasicController {
 		FormLayoutContainer buttonLayout = FormLayoutContainer.createButtonLayout("print-cancel", getTranslator());
 		formLayout.add(buttonLayout);
 		buttonLayout.setRootForm(mainForm);
-		uifactory.addFormSubmitButton("print-button", "print.node", buttonLayout);
+		submit = uifactory.addFormSubmitButton("print-button", "print.node", buttonLayout);
 		uifactory.addFormCancelButton("cancel", buttonLayout, ureq, getWindowControl());
 	}
 	
@@ -99,6 +101,7 @@ public class CPSelectPrintPagesController extends FormBasicController {
 		nodeSelection.setLabel("print.node.list", null);
 		nodeSelection.setUserObject(new SelectNodeObject(node, level));
 		nodeSelection.addActionListener(this, FormEvent.ONCLICK);
+		nodeSelection.select(node.getIdent(), true); 		
 		nodeSelections.add(nodeSelection);
 		identToSelectionMap.put(node.getIdent(), nodeSelection);
 		layoutcont.add(nodeSelection.getComponent().getComponentName(), nodeSelection);
@@ -137,6 +140,14 @@ public class CPSelectPrintPagesController extends FormBasicController {
 			if(nodeSelection.isMultiselect() && nodeSelection.isSelected(0)) {
 				selectRec(nodeSelection);
 			}
+			// check for at least one selected node
+			submit.setEnabled(false);
+			for(MultipleSelectionElement selection:nodeSelections) {
+				if (selection.isSelected(0)) {
+					submit.setEnabled(true);
+					break;
+				}
+			}
 		} else if (source == selectAll) {
 			for(MultipleSelectionElement nodeSelection:nodeSelections) {
 				if(nodeSelection.isMultiselect() && !nodeSelection.isSelected(0)) {
@@ -144,7 +155,8 @@ public class CPSelectPrintPagesController extends FormBasicController {
 					String ident = treeNode.getNode().getIdent();
 					nodeSelection.select(ident, true);
 				}
-			}
+			} 
+			submit.setEnabled(true);
 		} else if (source == deselectAll) {
 			for(MultipleSelectionElement nodeSelection:nodeSelections) {
 				if(nodeSelection.isMultiselect() && nodeSelection.isSelected(0)) {
@@ -153,8 +165,9 @@ public class CPSelectPrintPagesController extends FormBasicController {
 					nodeSelection.select(ident, false);
 				}
 			}
+			submit.setEnabled(false);
 		} else {
-			super.formInnerEvent(ureq, source, event);
+				super.formInnerEvent(ureq, source, event);	
 		}
 	}
 	
