@@ -29,13 +29,20 @@ import org.olat.core.gui.control.DefaultController;
 import org.olat.core.gui.control.Event;
 import org.olat.core.gui.control.WindowControl;
 import org.olat.core.gui.control.generic.dtabs.Activateable;
+import org.olat.core.id.Identity;
 import org.olat.core.util.notifications.SubscriptionContext;
 import org.olat.core.util.vfs.VFSContainer;
 import org.olat.core.util.vfs.callbacks.VFSSecurityCallback;
+import org.olat.course.CourseFactory;
 import org.olat.course.CourseModule;
+import org.olat.course.ICourse;
+import org.olat.course.groupsandrights.CourseRights;
 import org.olat.course.nodes.BCCourseNode;
 import org.olat.course.run.environment.CourseEnvironment;
 import org.olat.course.run.userview.NodeEvaluation;
+import org.olat.repository.RepositoryEntry;
+import org.olat.repository.RepositoryManager;
+import org.olat.resource.OLATResourceManager;
 import org.olat.util.logging.activity.LoggingResourceable;
 
 /**
@@ -71,9 +78,21 @@ public class BCCourseNodeRunController extends DefaultController implements Acti
 		VFSSecurityCallback scallback = new FolderNodeCallback(namedContainer.getRelPath(), ne, isOlatAdmin, isGuestOnly, nodefolderSubContext);
 		namedContainer.setLocalSecurityCallback(scallback);
 		
+		// fxdiff VCRP-12: copy files from course folder
+		// Allow copying of files from course folder if allowed to write and user
+		// has course editor rights (course owner and users in a right group with
+		// the author right)
 		VFSContainer courseContainer = null;
 		if(scallback.canWrite() && scallback.canCopy()) {
-			courseContainer = courseEnv.getCourseFolderContainer();
+			Identity identity = ureq.getIdentity();
+			ICourse course = CourseFactory.loadCourse(courseEnv.getCourseResourceableId());
+			RepositoryManager rm = RepositoryManager.getInstance();
+			RepositoryEntry entry = rm.lookupRepositoryEntry(course, true);
+			if (isOlatAdmin || rm.isOwnerOfRepositoryEntry(identity, entry)
+					|| courseEnv.getCourseGroupManager().hasRight(identity, CourseRights.RIGHT_COURSEEDITOR)) {
+				// use course folder as copy source
+				courseContainer = courseEnv.getCourseFolderContainer();
+			}
 		}
 		frc = new FolderRunController(namedContainer, false, true, ureq, getWindowControl(), null, null, courseContainer);
 		setInitialComponent(frc.getInitialComponent());
