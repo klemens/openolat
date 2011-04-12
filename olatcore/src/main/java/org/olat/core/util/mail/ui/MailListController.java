@@ -156,14 +156,14 @@ public class MailListController extends BasicController implements Activateable 
 		tableVC.put("tableCmp", tableCtr.getInitialComponent());
 		if(outbox) {
 			if(StringHelper.containsNonWhitespace(metaId)) {
-				tableVC.contextPut("title", translate("mail.outbox"));
+				tableVC.contextPut("title", translate("mail.outbox.title"));
 				tableVC.contextPut("description", translate("mail.outbox.meta"));
 				
 			} else {
-				tableVC.contextPut("title", translate("mail.outbox"));
+				tableVC.contextPut("title", translate("mail.outbox.title"));
 			}
 		} else {
-			tableVC.contextPut("title", translate("mail.inbox"));
+			tableVC.contextPut("title", translate("mail.inbox.title"));
 		}
 		
 		mainVC.put(MAIN_CMP, tableVC);

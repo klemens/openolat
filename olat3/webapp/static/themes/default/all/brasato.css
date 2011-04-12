@@ -1322,6 +1322,8 @@
 	div.b_dd_ct div.b_dd_sibling_l11 { margin-left:10em !important; }
 	
 	/* EMAIL */
+	.b_mail_icon { background-image: url(../images/olat/contact.png) }
+	a.b_mail_icon:hover { background-image: url(../images/olat/contact_over.png) }
 	.b_mail_new { top:8px; left:-2px; background-image: url(../images/olat/decorator_warn.png); }
 	.b_table_wrapper span.b_mail_unread { display:block; width:16px; height:16px; background:transparent url(../images/olat/decorator_warn.png) top left no-repeat; }
 	.b_table_wrapper span.b_mail_marked { display:block; width:16px; height:16px; background:transparent url(../images/brasato/flag.png) top left no-repeat; }
