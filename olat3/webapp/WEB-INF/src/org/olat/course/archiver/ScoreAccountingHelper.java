@@ -276,6 +276,10 @@ public class ScoreAccountingHelper {
 		Iterator iterNodes = myNodes.iterator();
 		while (iterNodes.hasNext()) {
 			AssessableCourseNode acnode = (AssessableCourseNode) iterNodes.next();
+			if (!acnode.hasScoreConfigured()) {
+				// only show min/max/cut legend when score configured
+				continue;
+			}
 			String minVal;
 			String maxVal;
 			String cutVal;
