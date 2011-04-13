@@ -61,14 +61,16 @@ public class MailController extends FormBasicController {
 	private FormLink backLink;
 	
 	private String mapperBaseURI;
+	private final boolean back;
 	private final DBMailImpl mail;
 	private final List<DBMailAttachment> attachments;
 	private final MailManager mailManager;
 	
-	public MailController(UserRequest ureq, WindowControl wControl, DBMailImpl mail) {
+	public MailController(UserRequest ureq, WindowControl wControl, DBMailImpl mail, boolean back) {
 		super(ureq, wControl, LAYOUT_VERTICAL);
 		setTranslator(Util.createPackageTranslator(MailModule.class, ureq.getLocale()));
 		this.mail = mail;
+		this.back = back;
 		mailManager = MailManager.getInstance();
 		attachments = MailManager.getInstance().getAttachments(mail);
 		if(!attachments.isEmpty()) {
@@ -85,7 +87,7 @@ public class MailController extends FormBasicController {
 		vcLayout.setRootForm(mainForm);
 		mainLayout.add(vcLayout);
 		
-		if(!StringHelper.containsNonWhitespace(mail.getMetaId())) {
+		if(back) {
 			backLink = uifactory.addFormLink("back", vcLayout, Link.LINK_BACK);
 			vcLayout.add("back", backLink);
 		}

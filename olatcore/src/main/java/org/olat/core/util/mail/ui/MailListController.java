@@ -92,10 +92,6 @@ public class MailListController extends BasicController implements Activateable 
 	private final MailManager mailManager;
 	private final MailContextResolver contextResolver;
 	
-	public MailListController(UserRequest ureq, WindowControl wControl, String metaId, MailContextResolver resolver) { 
-		this(ureq, wControl, metaId, true, resolver);
-	}
-	
 	public MailListController(UserRequest ureq, WindowControl wControl, boolean outbox, MailContextResolver resolver) {
 		this(ureq, wControl, null, outbox, resolver);
 	}
@@ -188,17 +184,17 @@ public class MailListController extends BasicController implements Activateable 
 				mails = MailManager.getInstance().getEmailsByMetaId(metaId);
 			} else {
 				mails = MailManager.getInstance().getOutbox(getIdentity(), 0, 0);
-				
-				//strip meta emails
-				Set<String> metaIds = new HashSet<String>();
-				for(Iterator<DBMailImpl> it=mails.iterator(); it.hasNext(); ) {
-					DBMailImpl mail = it.next();
-					if(StringHelper.containsNonWhitespace(mail.getMetaId())) {
-						if(metaIds.contains(mail.getMetaId())) {
-							it.remove();
-						} else {
-							metaIds.add(mail.getMetaId());
-						}
+			}
+			
+			//strip meta emails
+			Set<String> metaIds = new HashSet<String>();
+			for(Iterator<DBMailImpl> it=mails.iterator(); it.hasNext(); ) {
+				DBMailImpl mail = it.next();
+				if(StringHelper.containsNonWhitespace(mail.getMetaId())) {
+					if(metaIds.contains(mail.getMetaId())) {
+						it.remove();
+					} else {
+						metaIds.add(mail.getMetaId());
 					}
 				}
 			}
@@ -258,7 +254,7 @@ public class MailListController extends BasicController implements Activateable 
 				int rowid = te.getRowId();
 				DBMailImpl mail = (DBMailImpl)tableCtr.getTableDataModel().getObject(rowid);
 				if(CMD_READ.equals(actionid)) {
-					if(StringHelper.containsNonWhitespace(mail.getMetaId()) && !mail.getMetaId().equals(metaId)) {
+					if(outbox && StringHelper.containsNonWhitespace(mail.getMetaId()) && !mail.getMetaId().equals(metaId)) {
 						selectMetaMail(ureq, mail.getMetaId());
 					} else {
 						selectMail(ureq, mail.getKey());
@@ -331,7 +327,7 @@ public class MailListController extends BasicController implements Activateable 
 	}
 	
 	private void selectMetaMail(UserRequest ureq, String metaID) {
-		metaMailCtr = new MailListController(ureq, getWindowControl(), metaID, contextResolver);
+		metaMailCtr = new MailListController(ureq, getWindowControl(), metaID, outbox, contextResolver);
 		listenTo(metaMailCtr);
 		mainVC.put(MAIN_CMP, metaMailCtr.getInitialComponent());
 	}
@@ -343,7 +339,8 @@ public class MailListController extends BasicController implements Activateable 
 	
 	private void selectMail(UserRequest ureq, DBMailImpl mail) {
 		removeAsListenerAndDispose(mailCtr);
-		mailCtr = new MailController(ureq, getWindowControl(), mail);
+		boolean back = !StringHelper.containsNonWhitespace(mail.getMetaId()) || !outbox;
+		mailCtr = new MailController(ureq, getWindowControl(), mail, back);
 		listenTo(mailCtr);
 		mainVC.put(MAIN_CMP, mailCtr.getInitialComponent());
 		
