@@ -20,6 +20,7 @@
 
 package org.olat.core.util.mail.ui;
 
+import java.text.DateFormat;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -28,6 +29,7 @@ import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.form.flexible.FormItem;
 import org.olat.core.gui.components.form.flexible.FormItemContainer;
 import org.olat.core.gui.components.form.flexible.elements.FormLink;
+import org.olat.core.gui.components.form.flexible.elements.StaticTextElement;
 import org.olat.core.gui.components.form.flexible.impl.FormBasicController;
 import org.olat.core.gui.components.form.flexible.impl.FormEvent;
 import org.olat.core.gui.components.form.flexible.impl.FormLayoutContainer;
@@ -92,16 +94,22 @@ public class MailController extends FormBasicController {
 		formLayout.setRootForm(mainForm);
 		vcLayout.add("mainCmp", formLayout);
 		
+		uifactory.addStaticTextElement("subject", "mail.subject", mail.getSubject(), formLayout);		
+		
 		String from = getFullName(mail.getFrom());
 		uifactory.addStaticTextElement("from", "mail.from", from, formLayout);
 		
 		String recipients = getRecipients();
 		uifactory.addStaticTextElement("recipients", "mail.recipients", recipients, formLayout);
 
-		uifactory.addStaticTextElement("subject", "mail.subject", mail.getSubject(), formLayout);
+		String date = DateFormat.getDateInstance(DateFormat.MEDIUM, getLocale()).format(mail.getCreationDate());
+		uifactory.addStaticTextElement("date", "mail.sendDate", date, formLayout);
+		
+		uifactory.addSpacerElement("spacer2", formLayout, false);
 		uifactory.addStaticTextElement("body", "mail.body", formattedBody(), formLayout);
 		
 		if(!attachments.isEmpty()) {
+			uifactory.addSpacerElement("spacer3", formLayout, false);
 			String attachmentsPage = Util.getPackageVelocityRoot(MailModule.class) + "/attachments.html";
 			FormLayoutContainer container = FormLayoutContainer.createCustomFormLayout("attachments", getTranslator(), attachmentsPage);
 			container.setLabel("mail.attachments", null);
