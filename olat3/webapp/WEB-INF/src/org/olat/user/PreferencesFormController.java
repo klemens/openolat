@@ -42,6 +42,7 @@ import org.olat.core.gui.control.WindowBackOffice;
 import org.olat.core.gui.control.WindowControl;
 import org.olat.core.id.Identity;
 import org.olat.core.id.Preferences;
+import org.olat.core.id.UserConstants;
 import org.olat.core.util.ArrayHelper;
 import org.olat.core.util.StringHelper;
 import org.olat.core.util.i18n.I18nManager;
@@ -191,7 +192,8 @@ public class PreferencesFormController extends FormBasicController {
 		//fxdiff VCRP-16: intern mail system
 		MailModule mailModule = (MailModule)CoreSpringFactory.getBean("mailModule");
 		if(mailModule.isInternSystem()) {
-			String[] mailInternLabels = new String[] { translate("mail." + mailIntern[0]), translate("mail." + mailIntern[1]) };
+			String userEmail = getIdentity().getUser().getProperty(UserConstants.EMAIL, getLocale());
+			String[] mailInternLabels = new String[] { translate("mail." + mailIntern[0], userEmail), translate("mail." + mailIntern[1], userEmail) };
 			mailSystem = uifactory.addRadiosVertical("mail-system", "mail.system", formLayout, mailIntern, mailInternLabels);
 			
 			String mailPrefs = prefs.getReceiveRealMail();
