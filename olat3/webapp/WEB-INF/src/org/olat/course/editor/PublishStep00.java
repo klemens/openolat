@@ -24,6 +24,8 @@ package org.olat.course.editor;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.olat.catalog.CatalogEntry;
+import org.olat.catalog.CatalogManager;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.form.flexible.FormItem;
 import org.olat.core.gui.components.form.flexible.FormItemContainer;
@@ -42,11 +44,14 @@ import org.olat.core.gui.control.generic.wizard.StepFormController;
 import org.olat.core.gui.control.generic.wizard.StepsEvent;
 import org.olat.core.gui.control.generic.wizard.StepsRunContext;
 import org.olat.core.id.OLATResourceable;
+import org.olat.core.util.resource.OresHelper;
+import org.olat.course.CourseModule;
 import org.olat.course.ICourse;
 import org.olat.course.nodes.CourseNode;
 import org.olat.course.nodes.StatusDescriptionHelper;
 import org.olat.course.properties.CoursePropertyManager;
 import org.olat.course.tree.CourseEditorTreeModel;
+import org.olat.properties.Property;
 import org.olat.repository.RepositoryEntry;
 import org.olat.repository.RepositoryManager;
 
@@ -74,7 +79,17 @@ class PublishStep00 extends BasicStep {
 		//VCRP-3: add catalog entry in publish wizard
 		CoursePropertyManager cpm = course.getCourseEnvironment().getCoursePropertyManager();
 		CourseNode rootNode = course.getRunStructure().getRootNode();
-		hasCatalog = cpm.findCourseNodeProperty(rootNode, null, null, "catalog-choice") != null;
+		
+		Property prop = cpm.findCourseNodeProperty(rootNode, null, null, "catalog-choice");
+		if(prop == null) {
+			hasCatalog = false;
+		} else if("no".equals(prop.getStringValue())) {
+			hasCatalog = true;
+		} else {
+			RepositoryEntry repositoryEntry = RepositoryManager.getInstance().lookupRepositoryEntry(ores, true);
+			hasCatalog = !CatalogManager.getInstance().getCatalogCategoriesFor(repositoryEntry).isEmpty();
+		}
+		
 		hasPublishableChanges = publishProcess.hasPublishableChanges();
 		
 		setI18nTitleAndDescr("publish.header", null);

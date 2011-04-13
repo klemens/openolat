@@ -1,7 +1,6 @@
 package org.olat.course.editor;
 
 import java.util.ArrayList;
-import java.util.Iterator;
 import java.util.List;
 import java.util.UUID;
 
@@ -203,12 +202,25 @@ class PublishStepCatalog extends BasicStep {
 		protected boolean validateFormLogic(UserRequest ureq) {
 			boolean allOk = true;
 			catalogBox.clearError();
-			if(catalogBox.isOneSelected() && catalogBox.isSelected(0) && 
-					(deleteLinks == null || deleteLinks.isEmpty())) {
+			if(catalogBox.isOneSelected() && catalogBox.isSelected(0) && isDeleteLinksEmpty()) {
 				catalogBox.setErrorKey("publish.catalog.error", null);
 				allOk &= false;
 			}
 			return allOk && super.validateFormLogic(ureq);
+		}
+		
+		/**
+		 * Show if there is active delete links (which is the same has having active categories)
+		 * @return
+		 */
+		private boolean isDeleteLinksEmpty() {
+			if(deleteLinks == null || deleteLinks.isEmpty()) return true;
+			
+			boolean visible = false;
+			for(FormLink deleteLink:deleteLinks) {
+				visible |= deleteLink.isVisible();
+			}
+			return !visible;
 		}
 
 		@Override
@@ -227,6 +239,7 @@ class PublishStepCatalog extends BasicStep {
 					FormLink link = uifactory.addFormLink(label.getCategoryUUID(), "delete", null, flc, Link.LINK);
 					link.setUserObject(label);
 					deleteLinks.add(link);
+					catalogBox.clearError();
 				} else if (event instanceof UndoCategoryEvent) {
 					UndoCategoryEvent e = (UndoCategoryEvent)event;
 					CategoryLabel undelete = e.getUndelete();
