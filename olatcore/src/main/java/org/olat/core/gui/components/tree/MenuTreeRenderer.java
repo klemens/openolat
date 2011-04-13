@@ -318,9 +318,6 @@ public class MenuTreeRenderer implements ComponentRenderer {
 	
 	//fxdiff VCRP-9: drag and drop in menu tree
 	private void appendDecorators(TreeNode curRoot, StringOutput target) {
-		String iconCssClass = curRoot.getIconCssClass();
-		if (iconCssClass == null) return;
-		
 		String deco1 = curRoot.getIconDecorator1CssClass();
 		if (deco1 != null)
 			target.append("<span class=\"b_tree_icon_decorator ").append(deco1).append("\"></span>");

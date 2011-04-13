@@ -67,11 +67,6 @@ public class MailTreeNode extends GenericTreeNode {
 	}
 
 	@Override
-	public String getIconCssClass() {
-		return "o_co_icon";
-	}
-
-	@Override
 	public String getIconDecorator1CssClass() {
 		if(MailManager.getInstance().hasNewMail(identity)) {
 			return "b_mail_new";

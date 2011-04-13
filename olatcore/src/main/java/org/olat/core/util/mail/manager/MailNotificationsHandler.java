@@ -90,7 +90,7 @@ public class MailNotificationsHandler extends LogDelegator implements Notificati
 		// can't be loaded when already deleted
 		if (NotificationsManager.getInstance().isPublisherValid(p) && compareDate.before(latestNews)) {
 			try {
-				List<DBMailImpl> inbox = MailManager.getInstance().getInbox(subscriber.getIdentity(), Boolean.TRUE, 0, 0);
+				List<DBMailImpl> inbox = MailManager.getInstance().getInbox(subscriber.getIdentity(), Boolean.TRUE, Boolean.FALSE, 0, 0);
 				if(!inbox.isEmpty()) {
 					Translator translator = Util.createPackageTranslator(MailModule.class, locale);
 					si = new SubscriptionInfo(new TitleItem(translator.translate("mail.notification.type"), "o_co_icon"), null);

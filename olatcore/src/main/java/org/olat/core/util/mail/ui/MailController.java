@@ -116,6 +116,7 @@ public class MailController extends FormBasicController {
 		StringBuilder sb = new StringBuilder();
 		Set<String> groups = new HashSet<String>();
 		for(DBMailRecipient recipient:mail.getRecipients()) {
+			if(recipient == null) continue;
 			String group = recipient.getGroup();
 			if(StringHelper.containsNonWhitespace(group) && !groups.contains(group)) {
 				if(sb.length() > 0) sb.append(", ");

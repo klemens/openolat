@@ -105,7 +105,7 @@ public class MailBoxExtension extends BasicManager implements MailContextResolve
 		//set as deleted all recpient
 		logInfo("Delete intern messages");
 		
-		List<DBMailImpl> inbox = mailManager.getInbox(identity, null, 0, 0);
+		List<DBMailImpl> inbox = mailManager.getInbox(identity, null, false, 0, 0);
 		for(DBMailImpl inMail:inbox) {
 			mailManager.delete(inMail, identity, true);
 		}

@@ -44,7 +44,6 @@ import javax.mail.internet.MimeBodyPart;
 import javax.mail.internet.MimeMessage;
 import javax.mail.internet.MimeMultipart;
 
-
 import org.olat.core.commons.persistence.DB;
 import org.olat.core.commons.persistence.DBQuery;
 import org.olat.core.helpers.Settings;
@@ -211,6 +210,7 @@ public class MailManager extends BasicManager {
 		
 		boolean changed = false;
 		for(DBMailRecipient recipient:mail.getRecipients()) {
+			if(recipient == null) continue;
 			if(recipient.getRecipient() != null && recipient.getRecipient().equalsByPersistableKey(identity)) {
 				if(!read.equals(recipient.getRead())) {
 					recipient.setRead(read);
@@ -225,6 +225,7 @@ public class MailManager extends BasicManager {
 	public DBMailImpl toggleRead(DBMailImpl mail, Identity identity) {
 		Boolean read = null;
 		for(DBMailRecipient recipient:mail.getRecipients()) {
+			if(recipient == null) continue;
 			if(recipient.getRecipient() != null && recipient.getRecipient().equalsByPersistableKey(identity)) {
 				if(read == null) {
 					read = recipient.getRead() == null ? Boolean.FALSE : recipient.getRead();
@@ -239,7 +240,8 @@ public class MailManager extends BasicManager {
 	public DBMailImpl toggleMarked(DBMailImpl mail, Identity identity) {
 		Boolean marked = null;
 		for(DBMailRecipient recipient:mail.getRecipients()) {
-			if(recipient.getRecipient() != null && recipient.getRecipient().equalsByPersistableKey(identity)) {
+			if(recipient == null) continue;
+			if(recipient != null && recipient.getRecipient() != null && recipient.getRecipient().equalsByPersistableKey(identity)) {
 				if(marked == null) {
 					marked = recipient.getMarked() == null ? Boolean.FALSE : recipient.getMarked();
 				}
@@ -284,6 +286,7 @@ public class MailManager extends BasicManager {
 		}
 		
 		for(DBMailRecipient recipient:mail.getRecipients()) {
+			if(recipient == null) continue;
 			if(recipient.getRecipient() != null && recipient.getRecipient().equalsByPersistableKey(identity)) {
 				recipient.setDeleted(Boolean.TRUE);
 				if(forceRemoveRecipient) {
@@ -364,11 +367,12 @@ public class MailManager extends BasicManager {
 	 * @param maxResults
 	 * @return
 	 */
-	public List<DBMailImpl> getInbox(Identity identity, Boolean unreadOnly, int firstResult, int maxResults) {
+	public List<DBMailImpl> getInbox(Identity identity, Boolean unreadOnly, Boolean fecthRecipients, int firstResult, int maxResults) {
 		StringBuilder sb = new StringBuilder();
+		String fetchOption = (fecthRecipients != null && fecthRecipients.booleanValue()) ? "fetch" : "";
 		sb.append("select mail from ").append(DBMailImpl.class.getName()).append(" mail")
-			.append(" inner join mail.recipients recipient")
-			.append(" inner join recipient.recipient recipientIdentity")
+			.append(" inner join ").append(fetchOption).append(" mail.recipients recipient")
+			.append(" inner join ").append(fetchOption).append(" recipient.recipient recipientIdentity")
 			.append(" where recipientIdentity.key=:recipientKey and recipient.deleted=false");
 		if(unreadOnly != null && unreadOnly.booleanValue()) {
 			sb.append(" and recipient.read=false");

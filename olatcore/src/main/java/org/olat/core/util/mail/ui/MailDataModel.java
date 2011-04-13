@@ -81,7 +81,7 @@ public class MailDataModel implements TableDataModel {
 			switch(cols[col]) {
 				case read: {
 					for(DBMailRecipient recipient:mail.getRecipients()) {
-						if(recipient.getRecipient() != null && recipient.getRecipient().equalsByPersistableKey(identity)) {
+						if(recipient != null && recipient.getRecipient() != null && recipient.getRecipient().equalsByPersistableKey(identity)) {
 							return recipient.getRead();
 						}
 					}
@@ -89,7 +89,7 @@ public class MailDataModel implements TableDataModel {
 				}
 				case marked: {
 					for(DBMailRecipient recipient:mail.getRecipients()) {
-						if(recipient.getRecipient() != null && recipient.getRecipient().equalsByPersistableKey(identity)) {
+						if(recipient != null && recipient.getRecipient() != null && recipient.getRecipient().equalsByPersistableKey(identity)) {
 							return recipient.getMarked();
 						}
 					}
