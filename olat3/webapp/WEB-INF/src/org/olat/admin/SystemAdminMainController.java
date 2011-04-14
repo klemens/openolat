@@ -54,6 +54,7 @@ import org.olat.core.gui.control.controller.MainLayoutBasicController;
 import org.olat.core.gui.translator.Translator;
 import org.olat.core.util.i18n.I18nModule;
 import org.olat.core.util.i18n.ui.I18nUIFactory;
+import org.olat.core.util.mail.ui.MailAdminController;
 import org.olat.core.util.nodes.INode;
 import org.olat.instantMessaging.InstantMessagingModule;
 import org.olat.search.service.SearchServiceFactory;
@@ -165,7 +166,9 @@ public class SystemAdminMainController extends MainLayoutBasicController {
 			return new VersionAdminController(ureq, getWindowControl());
 		} else if(uobject.equals("restapi")){
 			return new RestapiAdminController(ureq, getWindowControl());
-		} else if(uobject.equals("extensions")){
+		} else if(uobject.equals("mail")){
+			return new MailAdminController(ureq, getWindowControl());
+		}  else if(uobject.equals("extensions")){
 			return new ExtensionsAdminController(ureq, getWindowControl());
 		} else if (uobject instanceof ActionExtension) {
 			ActionExtension ae = (ActionExtension) uobject;
@@ -235,6 +238,12 @@ public class SystemAdminMainController extends MainLayoutBasicController {
 		gtnChild.setTitle(translator.translate("menu.restapi"));
 		gtnChild.setUserObject("restapi");
 		gtnChild.setAltText(translator.translate("menu.restapi.alt"));
+		confSub.addChild(gtnChild);
+		
+		gtnChild = new GenericTreeNode();		
+		gtnChild.setTitle(translator.translate("menu.mail"));
+		gtnChild.setUserObject("mail");
+		gtnChild.setAltText(translator.translate("menu.mail.alt"));
 		confSub.addChild(gtnChild);
 		
 		gtnChild = new GenericTreeNode();		
