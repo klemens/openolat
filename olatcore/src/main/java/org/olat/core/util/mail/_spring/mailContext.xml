@@ -34,6 +34,24 @@
 		</property>
 	</bean>
 	
+	<!-- Mail admin. panel -->
+	<bean class="org.olat.core.extensions.action.GenericActionExtension" init-method="initExtensionPoints">
+		<property name="actionController">	
+			<bean class="org.olat.core.gui.control.creator.AutoCreator" scope="prototype">
+				<property name="className" value="org.olat.core.util.mail.ui.MailAdminController"/>
+			</bean>
+		</property>
+		<property name="i18nActionKey" value="menu.mail"/>
+		<property name="i18nDescriptionKey" value="menu.mail.alt"/>
+		<property name="translationPackage" value="org.olat.core.util.mail"/>
+		<property name="extensionPoints">
+			<list>	
+				<value>org.olat.admin.SystemAdminMainController_configuration</value>		
+			</list>
+		</property>
+		<property name="order" value="267" />
+	</bean> 
+	
 	<bean id="mailManager" class="org.olat.core.util.mail.manager.MailManager">
 		<constructor-arg index="0" ref="mailModule" />
 		<property name="dbInstance" ref="database"/>
