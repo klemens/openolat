@@ -180,8 +180,8 @@ public class MailDataModel implements TableDataModel {
 	}
 	
 	public enum Columns {
-		read("mail.read"),
-		marked("mail.marked"),
+		read("mail.read.header"),
+		marked("mail.marked.header"),
 		context("mail.context"),
 		subject("mail.subject"),
 		sendDate("mail.sendDate"),
