@@ -21,6 +21,7 @@
 package org.olat.core.util.mail.ui;
 
 import java.util.ArrayList;
+import java.util.BitSet;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -43,6 +44,7 @@ import org.olat.core.gui.components.table.Table;
 import org.olat.core.gui.components.table.TableController;
 import org.olat.core.gui.components.table.TableEvent;
 import org.olat.core.gui.components.table.TableGuiConfiguration;
+import org.olat.core.gui.components.table.TableMultiSelectEvent;
 import org.olat.core.gui.components.velocity.VelocityContainer;
 import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.Event;
@@ -73,9 +75,14 @@ public class MailListController extends BasicController implements Activateable 
 	
 	private static final String CMD_READ_TOGGLE = "creadt";
 	private static final String CMD_READ = "cread";
-	private static final String CMD_DELETE = "cdel";
+	private static final String CMD_DELETE = "cdelselected";
 	private static final String CMD_MARK_TOGGLE = "cmark";
 	private static final String CMD_PROFILE = "cprofile";
+	private static final String CMD_SEND_REAL_MAIL = "cfwd";
+	private static final String CMD_MARK_READ = "creadselected";
+	private static final String CMD_MARK_UNREAD = "cunreadselected";
+	private static final String CMD_MARK_MARKED = "cmarkselected";
+	private static final String CMD_MARK_UNMARKED = "cunmarkselected";
 	private static final String MAIN_CMP = "mainCmp";
 
 	private Link backLink;
@@ -109,6 +116,7 @@ public class MailListController extends BasicController implements Activateable 
 		tableConfig.setDownloadOffered(true);
 		tableConfig.setPreferencesOffered(true, "MailBox");		
 		tableConfig.setTableEmptyMessage(translate("mail.empty.box"));
+		tableConfig.setMultiSelect(true);
 
 		mainVC = createVelocityContainer("mails");
 		tableVC = createVelocityContainer("mailsTable");
@@ -122,7 +130,7 @@ public class MailListController extends BasicController implements Activateable 
 			tableCtr.addColumnDescriptor(new CustomRenderColumnDescriptor(Columns.context.i18nKey(), Columns.context.ordinal(), null,
 					getLocale(), ColumnDescriptor.ALIGNMENT_LEFT, new MailContextCellRenderer(this, tableVC, getTranslator())));
 			tableCtr.addColumnDescriptor(new DefaultColumnDescriptor(Columns.recipients.i18nKey(), Columns.recipients.ordinal(), null, getLocale()));
-			tableCtr.addColumnDescriptor(new DefaultColumnDescriptor(Columns.subject.i18nKey(), Columns.subject.ordinal(), null, getLocale()));
+			tableCtr.addColumnDescriptor(new DefaultColumnDescriptor(Columns.subject.i18nKey(), Columns.subject.ordinal(), CMD_READ, getLocale()));
 			tableCtr.addColumnDescriptor(new DefaultColumnDescriptor(Columns.sendDate.i18nKey(), Columns.sendDate.ordinal(), null, getLocale()));
 		} else {
 			//read / marked / context / from / subject / receivedDate
@@ -136,12 +144,22 @@ public class MailListController extends BasicController implements Activateable 
 					getLocale(), ColumnDescriptor.ALIGNMENT_LEFT, new MailContextCellRenderer(this, tableVC, getTranslator())));
 			tableCtr.addColumnDescriptor(new CustomRenderColumnDescriptor(Columns.from.i18nKey(), Columns.from.ordinal(), null,
 					getLocale(), ColumnDescriptor.ALIGNMENT_LEFT, new MailFromCellRenderer(this, tableVC, getTranslator())));
-			tableCtr.addColumnDescriptor(new DefaultColumnDescriptor(Columns.subject.i18nKey(), Columns.subject.ordinal(), null, getLocale()));
+			tableCtr.addColumnDescriptor(new DefaultColumnDescriptor(Columns.subject.i18nKey(), Columns.subject.ordinal(), CMD_READ, getLocale()));
 			tableCtr.addColumnDescriptor(new DefaultColumnDescriptor(Columns.receivedDate.i18nKey(), Columns.receivedDate.ordinal(), null, getLocale()));
 		}
 
-		tableCtr.addColumnDescriptor(new StaticColumnDescriptor(CMD_READ, "select", translate("select")));
-		tableCtr.addColumnDescriptor(new StaticColumnDescriptor(CMD_DELETE, "delete", translate("delete")));
+		tableCtr.addColumnDescriptor(new StaticColumnDescriptor(CMD_READ, "mail.action.open", translate("mail.action.open")));
+
+		// only for inbox
+		if (!outbox) {
+			tableCtr.addMultiSelectAction("mail.action.read", CMD_MARK_READ);
+			tableCtr.addMultiSelectAction("mail.action.unread", CMD_MARK_UNREAD);
+			tableCtr.addMultiSelectAction("mail.action.mark", CMD_MARK_MARKED);
+			tableCtr.addMultiSelectAction("mail.action.unmark", CMD_MARK_UNMARKED);			
+		}
+		tableCtr.addMultiSelectAction("mail.action.send.real", CMD_SEND_REAL_MAIL);
+		tableCtr.addMultiSelectAction("delete", CMD_DELETE);
+		
 		reloadModel();
 		
 		int dateSort = outbox ? 3 : 5;
@@ -259,11 +277,6 @@ public class MailListController extends BasicController implements Activateable 
 					} else {
 						selectMail(ureq, mail.getKey());
 					}
-				} else if (CMD_DELETE.equals(actionid)) {
-					String title = translate("mail.confirm.delete.title");
-					String text = translate("mail.confirm.delete.text");
-					deleteConfirmationBox = activateYesNoDialog(ureq, title, text, deleteConfirmationBox);
-					deleteConfirmationBox.setUserObject(mail);
 				} else if (CMD_PROFILE.equals(actionid)) {
 					DBMailRecipient from = mail.getFrom();
 					if(from != null&& from.getRecipient() != null) {
@@ -276,6 +289,48 @@ public class MailListController extends BasicController implements Activateable 
 					mail = mailManager.toggleRead(mail, getIdentity());
 					replaceInModel(mail);
 				}
+			} else if (event.getCommand().equals(Table.COMMAND_MULTISELECT)) {
+				// Multiselect events
+				TableMultiSelectEvent tmse = (TableMultiSelectEvent) event;
+				BitSet selectedMails = tmse.getSelection();
+				if(selectedMails.isEmpty()){
+					tableVC.setDirty(true);
+					showWarning("mail.action.emtpy");
+					return;					
+				}
+				String actionid = tmse.getAction();
+				if (CMD_DELETE.equals(actionid)) {
+					String title = translate("mail.confirm.delete.title");
+					int selected = selectedMails.cardinality();
+					String text;
+					if (selected == 1) {
+						text = translate("mail.confirm.delete.single.text");
+					} else {
+						text = translate("mail.confirm.delete.multi.text", selected + "");						
+					}
+					deleteConfirmationBox = activateYesNoDialog(ureq, title, text, deleteConfirmationBox);
+					deleteConfirmationBox.setUserObject(selectedMails);
+				} else if (CMD_SEND_REAL_MAIL.equals(actionid)) {
+					for (int i=selectedMails.nextSetBit(0); i >= 0; i=selectedMails.nextSetBit(i+1)) {
+						DBMailImpl mail = (DBMailImpl) tableCtr.getTableDataModel().getObject(i);						
+						//TODO SR implement forward to users real mail address
+						
+					}				
+					reloadModel();
+				} else if (CMD_MARK_MARKED.equals(actionid) || CMD_MARK_UNMARKED.equals(actionid)) {
+					for (int i=selectedMails.nextSetBit(0); i >= 0; i=selectedMails.nextSetBit(i+1)) {
+						DBMailImpl mail = (DBMailImpl) tableCtr.getTableDataModel().getObject(i);
+						mailManager.setMarked(mail, CMD_MARK_MARKED.equals(actionid), getIdentity());
+					}				
+					reloadModel();
+				} else if (CMD_MARK_READ.equals(actionid) || CMD_MARK_UNREAD.equals(actionid)) {
+					for (int i=selectedMails.nextSetBit(0); i >= 0; i=selectedMails.nextSetBit(i+1)) {
+						DBMailImpl mail = (DBMailImpl) tableCtr.getTableDataModel().getObject(i);
+						mailManager.setRead(mail, CMD_MARK_READ.equals(actionid), getIdentity());
+					}				
+					reloadModel();
+				}
+				
 			} else if (TableController.EVENT_FILTER_SELECTED == event) {
 				MailDataModel dataModel = (MailDataModel)tableCtr.getTableDataModel();
 				MailContextShortName filter = (MailContextShortName)tableCtr.getActiveFilter();
@@ -283,18 +338,26 @@ public class MailListController extends BasicController implements Activateable 
 			} else if (TableController.EVENT_NOFILTER_SELECTED == event) {
 				MailDataModel dataModel = (MailDataModel)tableCtr.getTableDataModel();
 				dataModel.filter(null);
-			}
+			}			
+			
 		} else if (source == mailCtr) {
 			backFromMail();
+			
 		} else if (source == metaMailCtr) {
 			removeAsListenerAndDispose(metaMailCtr);
 			metaMailCtr = null;
 			mainVC.put(MAIN_CMP, tableVC);
+			
 		} else if (source == deleteConfirmationBox) {
 			if(DialogBoxUIFactory.isYesEvent(event)) {
-				DBMailImpl mail = (DBMailImpl)deleteConfirmationBox.getUserObject();
-				boolean deleteMetaMail = outbox && !StringHelper.containsNonWhitespace(metaId);
-				mailManager.delete(mail, getIdentity(), deleteMetaMail);
+				BitSet deleteMails = (BitSet)deleteConfirmationBox.getUserObject();
+				for (int i=deleteMails.nextSetBit(0); i >= 0; i=deleteMails.nextSetBit(i+1)) {
+					DBMailImpl mail = (DBMailImpl) tableCtr.getTableDataModel().getObject(i);
+					boolean deleteMetaMail = outbox && !StringHelper.containsNonWhitespace(metaId);
+					mailManager.delete(mail, getIdentity(), deleteMetaMail);
+					// Do not remove from model to prevent concurrent modification
+					// exception, instead just reload model afterwards
+				}				
 				reloadModel();
 			}
 		} else {

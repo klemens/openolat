@@ -203,7 +203,7 @@ public class MailManager extends BasicManager {
 	 * @param mail
 	 * @param read cannot be null
 	 * @param identity
-	 * @return true if the flag has been changed
+	 * @return true if the read flag has been changed
 	 */
 	public boolean setRead(DBMailImpl mail, Boolean read, Identity identity) {
 		if(mail == null || read == null || identity == null) throw new NullPointerException();
@@ -235,6 +235,32 @@ public class MailManager extends BasicManager {
 			}
 		}
 		return mail;
+	}
+
+	/**
+	 * @param mail
+	 * @param marked cannot be null
+	 * @param identity
+	 * @return true if the marked flag has been changed
+	 */
+	public boolean setMarked(DBMailImpl mail, Boolean marked, Identity identity) {
+		if(mail == null || marked == null || identity == null) throw new NullPointerException();
+
+		boolean changed = false;
+		for(DBMailRecipient recipient:mail.getRecipients()) {
+			if(recipient == null) continue;
+			if(recipient != null && recipient.getRecipient() != null && recipient.getRecipient().equalsByPersistableKey(identity)) {
+				if(marked == null) {
+					marked = Boolean.FALSE;
+				}
+				if(!marked.equals(recipient.getMarked())) {
+					recipient.setMarked(marked.booleanValue());
+					dbInstance.updateObject(recipient);
+					changed |= true;
+				}
+			}
+		}
+		return changed;
 	}
 	
 	public DBMailImpl toggleMarked(DBMailImpl mail, Identity identity) {
@@ -940,4 +966,5 @@ public class MailManager extends BasicManager {
 			logWarn("Could not send mail", e);
 		}
 	}
+
 }
