@@ -60,7 +60,8 @@ import org.olat.modules.ModuleConfiguration;
  * Description:<br>
  * Select elements from the course directory and inject these files
  * as single page in the course.
- * 
+ * VCRP-11
+ *
  * <P>
  * Initial Date:  21 mars 2011 <br>
  * @author srosse, stephane.rosse@frentix.com, http://www.frentix.com
@@ -168,8 +169,8 @@ public class MultiSPController extends FormBasicController {
 	protected void formInnerEvent(UserRequest ureq, FormItem source, FormEvent event) {
 		if(nodeSelections.contains(source)) {
 			MultipleSelectionElement nodeSelection = (MultipleSelectionElement)source;
-			if(nodeSelection.isMultiselect() && nodeSelection.isSelected(0)) {
-				selectRec(nodeSelection);
+			if(nodeSelection.isMultiselect()) {
+				selectRec(nodeSelection, nodeSelection.isSelected(0));
 			}
 		} else if (source == selectAll) {
 			for(MultipleSelectionElement nodeSelection:nodeSelections) {
@@ -221,6 +222,7 @@ public class MultiSPController extends FormBasicController {
 				ModuleConfiguration moduleConfig = newNode.getModuleConfiguration();
 				String path = getRelativePath(item);
 				moduleConfig.set(SPEditController.CONFIG_KEY_FILE, path);
+				moduleConfig.setBooleanEntry(SPEditController.CONFIG_KEY_ALLOW_RELATIVE_LINKS, true);
 			} else if (item instanceof VFSContainer) {
 				//add structure
 				newNode = createCourseNode(item, "st");
@@ -278,15 +280,19 @@ public class MultiSPController extends FormBasicController {
 		return false;
 	}
 	
-	private void selectRec(MultipleSelectionElement nodeSelection) {
+	/**
+	 * @param nodeSelection The node that should be selected recursively
+	 * @param select true: select the node and its children; false: deselect the node and its children
+	 */
+	private void selectRec(MultipleSelectionElement nodeSelection, boolean select) {
 		SelectNodeObject userObject = (SelectNodeObject)nodeSelection.getUserObject();
 		String id = userObject.getId();
-		if(nodeSelection.isMultiselect() && !nodeSelection.isSelected(0)) {
-			nodeSelection.select(id, true);
+		if(nodeSelection.isMultiselect()) {
+			nodeSelection.select(id, select);
 		}
 
 		for(MultipleSelectionElement childSelection:userObject.getChildren()) {
-			selectRec(childSelection);
+			selectRec(childSelection, select);
 		}
 	}
 
