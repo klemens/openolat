@@ -108,13 +108,17 @@ public class CollaborationToolsSettingsController extends BasicController {
 			vc_collabtools.put("calendarform", calendarForm.getInitialComponent());
 		} else {
 			lastCalendarEnabledState = false;
-			vc_collabtools.contextPut("folderToolEnabled", Boolean.FALSE);
+			vc_collabtools.contextPut("calendarToolEnabled", Boolean.FALSE);
 		}
 		
 		// update quota form: only show when enabled
 		if (collabTools.isToolEnabled(CollaborationTools.TOOL_FOLDER) && ureq.getUserSession().getRoles().isOLATAdmin()) {
 			vc_collabtools.contextPut("folderToolEnabled", Boolean.TRUE);
-			//fxdiff VCRP-8: collaboration tools folder access control
+			vc_collabtools.put("quota", quotaCtr.getInitialComponent());
+			
+		//fxdiff VCRP-8: collaboration tools folder access control
+		} else if (collabTools.isToolEnabled(CollaborationTools.TOOL_FOLDER)) {
+			vc_collabtools.contextPut("folderToolEnabled", Boolean.TRUE);
 			if(folderForm != null) {
 				removeAsListenerAndDispose(folderForm);
 			}
@@ -123,7 +127,6 @@ public class CollaborationToolsSettingsController extends BasicController {
 			folderForm = new FolderForm(ureq, getWindowControl(), access);
 			listenTo(folderForm);
 			vc_collabtools.put("folderform", folderForm.getInitialComponent());
-			vc_collabtools.put("quota", quotaCtr.getInitialComponent());
 		} else {
 			vc_collabtools.contextPut("folderToolEnabled", Boolean.FALSE);
 		}
@@ -205,8 +208,7 @@ public class CollaborationToolsSettingsController extends BasicController {
 				if(folderForm != null) {
 					removeAsListenerAndDispose(folderForm);
 				}
-
-				Long lFolderAccess = collabTools.lookupCalendarAccess();
+				Long lFolderAccess = collabTools.lookupFolderAccess();
 				int access = lFolderAccess == null ? CollaborationTools.FOLDER_ACCESS_ALL : lFolderAccess.intValue();
 				folderForm = new FolderForm(ureq, getWindowControl(), access);
 				listenTo(folderForm);
