@@ -1325,9 +1325,11 @@
 	.b_mail_icon { background-image: url(../images/olat/contact.png) }
 	a.b_mail_icon:hover { background-image: url(../images/olat/contact_over.png) }
 	div.b_mail_message div.b_form_element_wrapper:first-child div.b_form_element{ font-weight: bold;}
-	.b_mail_new { top:8px; left:-2px; background-image: url(../images/olat/decorator_warn.png); }
-	.b_table_wrapper span.b_mail_unread { display:block; width:16px; height:16px; background:transparent url(../images/olat/decorator_warn.png) top left no-repeat; }
-	.b_table_wrapper span.b_mail_marked { display:block; width:16px; height:16px; background:transparent url(../images/brasato/flag.png) top left no-repeat; }
+	.b_mail_new { width: 20px ! important; background-image: url(../images/brasato/new.png); }
+	.b_table_wrapper span.b_mail_unread { display:block; display:inline-block; width:16px; height:16px; background:transparent url(../images/olat/email.png) top left no-repeat;}
+   	.b_table_wrapper span.b_mail_read {  display:block;display:inline-block; width:16px; height:16px; background:transparent url(../images/olat/email_open.png) top left no-repeat;}
+   	.b_table_wrapper span.b_mail_marked {  display:block;display:inline-block; width:16px; height:16px; background:transparent url(../images/brasato/flag.png) top left no-repeat;}
+   	.b_table_wrapper span.b_mail_unmarked { display:block; display:inline-block; width:16px; height:16px; }
 	ul.b_mail_attachments { list-style: none; margin:0; padding:0; }
 	ul.b_mail_attachments li { margin:0; }
 }

@@ -58,7 +58,7 @@ public class BooleanCSSCellRenderer extends CustomCssCellRenderer {
 
 	@Override
 	protected String getCellValue(Object val) {
-		return "&nbsp;";
+		return "";
 	}
 
 	@Override
