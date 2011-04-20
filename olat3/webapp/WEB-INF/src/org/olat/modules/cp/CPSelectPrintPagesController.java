@@ -46,6 +46,7 @@ import org.olat.core.util.nodes.INode;
  * 
  * Description:<br>
  * Controller to select to list of nodes to print
+ * VCRP-14
  * 
  * <P>
  * Initial Date:  9 mars 2011 <br>
@@ -137,8 +138,8 @@ public class CPSelectPrintPagesController extends FormBasicController {
 	protected void formInnerEvent(UserRequest ureq, FormItem source, FormEvent event) {
 		if(nodeSelections.contains(source)) {
 			MultipleSelectionElement nodeSelection = (MultipleSelectionElement)source;
-			if(nodeSelection.isMultiselect() && nodeSelection.isSelected(0)) {
-				selectRec(nodeSelection);
+			if(nodeSelection.isMultiselect()) {
+				selectRec(nodeSelection, nodeSelection.isSelected(0));
 			}
 			// check for at least one selected node
 			submit.setEnabled(false);
@@ -171,18 +172,18 @@ public class CPSelectPrintPagesController extends FormBasicController {
 		}
 	}
 	
-	private void selectRec(MultipleSelectionElement nodeSelection) {
+	private void selectRec(MultipleSelectionElement nodeSelection, boolean select) {
 		SelectNodeObject userObject = (SelectNodeObject)nodeSelection.getUserObject();
 		TreeNode node = userObject.getNode();
-		if(nodeSelection.isMultiselect() && !nodeSelection.isSelected(0)) {
-			nodeSelection.select(node.getIdent(), true);
+		if(nodeSelection.isMultiselect()) {
+			nodeSelection.select(node.getIdent(), select);
 		}
 
 		for(int i=node.getChildCount(); i-->0; ) {
 			INode child = node.getChildAt(i);
 			String ident = child.getIdent();
 			MultipleSelectionElement childNodeSelection = identToSelectionMap.get(ident);
-			selectRec(childNodeSelection);
+			selectRec(childNodeSelection, select);
 		}
 	}
 
