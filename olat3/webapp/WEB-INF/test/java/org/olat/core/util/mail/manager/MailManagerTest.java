@@ -84,7 +84,7 @@ public class MailManagerTest extends MailerTest {
 	public void testSaveMail() {
 		List<ContactList> contacts = createContactLists("TO", ident2);
 		MailContext context = createMailContext();
-		DBMailImpl mail = mailManager.saveDBMessage(context, ident1, null, null, null, null, contacts, null, "Test save mail", "Body of test save mail", null, null);
+		DBMailImpl mail = mailManager.saveDBMessage(context, ident1, null, null, null, null, null, contacts, null, "Test save mail", "Body of test save mail", null, null);
 		
 		dbInstance.commitAndCloseSession();
 		
@@ -112,10 +112,10 @@ public class MailManagerTest extends MailerTest {
 	public void testOutbox() {
 		//create a mail
 		List<ContactList> contacts = createContactLists("TO", ident2);
-		mailManager.saveDBMessage(null, ident1, null, null, null, null, contacts, null, "Test save mail identity 1", "Body of test save mail identity 1", null, null);
+		mailManager.saveDBMessage(null, ident1, null, null, null, null, null, contacts, null, "Test save mail identity 1", "Body of test save mail identity 1", null, null);
 
 		List<ContactList> contacts2 = createContactLists("TO", ident1);
-		mailManager.saveDBMessage(null, ident2, null, null, null, null, contacts2, null, "Test save mail identity 2", "Body of test save mail identity 2", null, null);
+		mailManager.saveDBMessage(null, ident2, null, null, null, null, null, contacts2, null, "Test save mail identity 2", "Body of test save mail identity 2", null, null);
 
 		dbInstance.commitAndCloseSession();
 		
@@ -132,10 +132,10 @@ public class MailManagerTest extends MailerTest {
 	public void testInbox() {
 		//create a mail
 		List<ContactList> contacts = createContactLists("TO", ident2);
-		mailManager.saveDBMessage(null, ident1, null, null, null, null, contacts, null, "Test inbox identity 1", "Body of test inbox identity 1", null, null);
+		mailManager.saveDBMessage(null, ident1, null, null, null, null, null, contacts, null, "Test inbox identity 1", "Body of test inbox identity 1", null, null);
 
 		List<ContactList> contacts2 = createContactLists("TO", ident1);
-		mailManager.saveDBMessage(null, ident2, null, null, null, null, contacts2, null, "Test inbox identity 2", "Body of test inbox identity 2", null, null);
+		mailManager.saveDBMessage(null, ident2, null, null, null, null, null, contacts2, null, "Test inbox identity 2", "Body of test inbox identity 2", null, null);
 
 		dbInstance.commitAndCloseSession();
 
@@ -186,7 +186,7 @@ public class MailManagerTest extends MailerTest {
 		List<File> attachments = Collections.singletonList(portrait);
 
 		List<ContactList> contacts = createContactLists("TO", ident2);
-		DBMailImpl mail = mailManager.saveDBMessage(null, ident1, null, null, null, null, contacts, null, "Test save mail identity 1", "Body of test save mail identity 1", attachments, null);
+		DBMailImpl mail = mailManager.saveDBMessage(null, ident1, null, null, null, null, null, contacts, null, "Test save mail identity 1", "Body of test save mail identity 1", attachments, null);
 		assertNotNull(mail);
 		
 		dbInstance.commitAndCloseSession();
@@ -236,7 +236,7 @@ public class MailManagerTest extends MailerTest {
 		List<File> attachments = Collections.singletonList(portrait);
 
 		List<ContactList> contacts = createContactLists("TO", ident2);
-		DBMailImpl mail = mailManager.saveDBMessage(null, ident1, null, null, null, null, contacts, null, "Test save mail identity 1", "Body of test save mail identity 1", attachments, null);
+		DBMailImpl mail = mailManager.saveDBMessage(null, ident1, null, null, null, null, null, contacts, null, "Test save mail identity 1", "Body of test save mail identity 1", attachments, null);
 		assertNotNull(mail);
 		
 		dbInstance.commitAndCloseSession();
@@ -327,15 +327,15 @@ public class MailManagerTest extends MailerTest {
 		String metaId = UUID.randomUUID().toString().replace("-", "");
 		
 		List<ContactList> contact2 = createContactLists("TO", ident2);
-		DBMailImpl mail2 = mailManager.saveDBMessage(null, ident1, null, null, null, null, contact2, metaId, "Test meta mail 2", "Body of test meta mail 2", attachments, null);
+		DBMailImpl mail2 = mailManager.saveDBMessage(null, ident1, null, null, null, null, null, contact2, metaId, "Test meta mail 2", "Body of test meta mail 2", attachments, null);
 		assertNotNull(mail2);
 
 		List<ContactList> contact3 = createContactLists("TO", ident3);
-		DBMailImpl mail3 = mailManager.saveDBMessage(null, ident1, null, null, null, null, contact3, metaId, "Test meta mail 3", "Body of test meta mail 3", attachments, null);
+		DBMailImpl mail3 = mailManager.saveDBMessage(null, ident1, null, null, null, null, null, contact3, metaId, "Test meta mail 3", "Body of test meta mail 3", attachments, null);
 		assertNotNull(mail3);
 		
 		List<ContactList> contact4 = createContactLists("TO", ident4);
-		DBMailImpl mail4 = mailManager.saveDBMessage(null, ident1, null, null, null, null, contact4, metaId, "Test meta mail 3", "Body of test meta mail 3", attachments, null);
+		DBMailImpl mail4 = mailManager.saveDBMessage(null, ident1, null, null, null, null, null, contact4, metaId, "Test meta mail 3", "Body of test meta mail 3", attachments, null);
 		assertNotNull(mail4);
 		
 		dbInstance.commitAndCloseSession();

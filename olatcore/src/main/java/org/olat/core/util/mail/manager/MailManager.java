@@ -353,7 +353,9 @@ public class MailManager extends BasicManager {
 		sb.append("select mail from ").append(DBMailImpl.class.getName()).append(" mail")
 			.append(" inner join fetch mail.from fromRecipient")
 			.append(" inner join fromRecipient.recipient fromRecipientIdentity")
-			.append(" where fromRecipientIdentity.key=:fromKey and fromRecipient.deleted=false")
+			.append(" inner join mail.recipients recipient")
+			.append(" inner join recipient.recipient recipientIdentity")
+			.append(" where fromRecipientIdentity.key=:fromKey and fromRecipient.deleted=false and recipientIdentity.key!=:fromKey")
 			.append(" order by mail.creationDate desc");
 
 		DBQuery query = dbInstance.createQuery(sb.toString());
@@ -419,12 +421,12 @@ public class MailManager extends BasicManager {
 	}
 	
 	public MailerResult sendMessage(MailContext context, Identity fromId, String from, Identity toId, String to,
-			String cc, List<ContactList> ccLists, List<ContactList> bccLists, 
+			Identity cc, List<ContactList> ccLists, List<ContactList> bccLists, 
 			String metaId, String subject, String body, List<File> attachments) {
 		
 		MailerResult result = new MailerResult();
 		if(mailModule.isInternSystem()) {
-			saveDBMessage(context, fromId, from, toId, to, ccLists, bccLists, metaId, subject, body, attachments, result);
+			saveDBMessage(context, fromId, from, toId, to, cc, ccLists, bccLists, metaId, subject, body, attachments, result);
 		} else {
 			sendExternMessage(fromId, from, toId, to, cc, ccLists, bccLists, subject, body, attachments, result);
 		}
@@ -444,7 +446,7 @@ public class MailManager extends BasicManager {
 	 * @param attachments
 	 * @return
 	 */
-	public MailerResult sendExternMessage(Identity fromId, String from, Identity toId, String to, String cc, List<ContactList> ccLists, List<ContactList> bccLists,
+	public MailerResult sendExternMessage(Identity fromId, String from, Identity toId, String to, Identity cc, List<ContactList> ccLists, List<ContactList> bccLists,
 			String subject, String body, List<File> attachments, MailerResult result) {
 
 		if(result == null) {
@@ -466,7 +468,8 @@ public class MailManager extends BasicManager {
 		return mailModule.isReceiveRealMailUserDefaultSetting();
 	}
 	
-	protected DBMailImpl saveDBMessage(MailContext context, Identity fromId, String from, Identity toId, String to, List<ContactList> ccLists, List<ContactList> bccLists,
+	protected DBMailImpl saveDBMessage(MailContext context, Identity fromId, String from, Identity toId, String to, 
+			Identity cc, List<ContactList> ccLists, List<ContactList> bccLists,
 			String metaId, String subject, String body, List<File> attachments, MailerResult result) {
 		
 		try {
@@ -559,14 +562,14 @@ public class MailManager extends BasicManager {
 				if(StringHelper.containsNonWhitespace(to)) {
 					recipientTo.setEmailAddress(to);
 				}
-				recipientTo.setVisible(true);
+				recipientTo.setVisible(Boolean.TRUE);
 				recipientTo.setDeleted(Boolean.FALSE);
 				recipientTo.setMarked(Boolean.FALSE);
 				recipientTo.setRead(Boolean.FALSE);
 			} else if (StringHelper.containsNonWhitespace(to)) {
 				recipientTo = new DBMailRecipient();
 				recipientTo.setEmailAddress(to);
-				recipientTo.setVisible(true);
+				recipientTo.setVisible(Boolean.TRUE);
 				recipientTo.setDeleted(Boolean.TRUE);
 				recipientTo.setMarked(Boolean.FALSE);
 				recipientTo.setRead(Boolean.FALSE);
@@ -578,6 +581,16 @@ public class MailManager extends BasicManager {
 			} 
 			if(makeRealMail && StringHelper.containsNonWhitespace(to)) {
 				createAddress(toAddress, to, result);
+			}
+			
+			if(cc != null) {
+				DBMailRecipient recipient = new DBMailRecipient();
+				recipient.setRecipient(cc);
+				recipient.setVisible(Boolean.TRUE);
+				recipient.setDeleted(Boolean.FALSE);
+				recipient.setMarked(Boolean.FALSE);
+				recipient.setRead(Boolean.FALSE);
+				mail.getRecipients().add(recipient);
 			}
 			
 			//add cc recipients
@@ -696,7 +709,7 @@ public class MailManager extends BasicManager {
 		return makeRealMail;
 	}
 	
-	private MimeMessage createMimeMessage(Identity fromId, String mailFrom, Identity toId, String to, String cc,
+	private MimeMessage createMimeMessage(Identity fromId, String mailFrom, Identity toId, String to, Identity ccId,
 			List<ContactList> ccLists, List<ContactList> bccLists,
 			String subject, String body, List<File> attachments, MailerResult result) {
 		try {
@@ -723,11 +736,9 @@ public class MailManager extends BasicManager {
 			}
 			
 			List<Address> ccList = new ArrayList<Address>();
-			if(StringHelper.containsNonWhitespace(cc)) {
-				Address[] ccAddresses = InternetAddress.parse(cc);
-				for(Address ccAddress:ccAddresses) {
-					ccList.add(ccAddress);
-				}
+			if(ccId != null) {
+				Address ccAddress = createAddress(ccId, result, true);
+				ccList.add(ccAddress);
 			}
 
 			//add cc contact list

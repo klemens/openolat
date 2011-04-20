@@ -145,7 +145,7 @@ public class Emailer {
 		return result.getReturnCode() == MailerResult.OK;
 	}
 	//fxdiff VCRP-16: intern mail system
-	public boolean sendEmailCC(MailContext context, String cc, String subject, String body, List<File> attachments) throws AddressException, MessagingException {
+	public boolean sendEmailCC(MailContext context, Identity cc, String subject, String body, List<File> attachments) throws AddressException, MessagingException {
 		MailerResult result = MailManager.getInstance().sendMessage(context, mailFromIdentity, mailfrom, null, null, cc, null, null, null, subject, body, attachments);
 		return result.getReturnCode() == MailerResult.OK;
 	}
