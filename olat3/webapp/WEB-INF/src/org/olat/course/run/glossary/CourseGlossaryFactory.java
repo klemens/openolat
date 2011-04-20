@@ -111,7 +111,12 @@ public class CourseGlossaryFactory {
 			VFSContainer glossaryFolder = GlossaryManager.getInstance().getGlossaryRootFolder(repoEntry.getOlatResource());
 			Properties glossProps = GlossaryItemManager.getInstance().getGlossaryConfig(glossaryFolder);
 			boolean editUsersEnabled =  "true".equals(glossProps.getProperty(GlossaryItemManager.EDIT_USERS));
-			GlossarySecurityCallback secCallback = new GlossarySecurityCallbackImpl(hasGlossaryRights, owner, editUsersEnabled, lureq.getIdentity().getKey());
+			GlossarySecurityCallback secCallback;
+			if (lureq.getUserSession().getRoles().isGuestOnly()) {
+				secCallback = new GlossarySecurityCallbackImpl();				
+			} else {
+				secCallback = new GlossarySecurityCallbackImpl(hasGlossaryRights, owner, editUsersEnabled, lureq.getIdentity().getKey());				
+			}
 			return new GlossaryMainController(lwControl, lureq, glossaryFolder, repoEntry.getOlatResource(), secCallback, true);
 		}
 		return null;

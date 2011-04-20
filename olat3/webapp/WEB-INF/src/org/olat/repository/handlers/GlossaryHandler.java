@@ -147,7 +147,12 @@ public class GlossaryHandler implements RepositoryHandler {
 		RepositoryEntry re = RepositoryManager.getInstance().lookupRepositoryEntry(res, true);
 		boolean owner = BaseSecurityManager.getInstance().isIdentityInSecurityGroup(ureq.getIdentity(), re.getOwnerGroup());
 		
-		GlossarySecurityCallback secCallback = new GlossarySecurityCallbackImpl(false, owner, editableByUser, ureq.getIdentity().getKey());
+		GlossarySecurityCallback secCallback;
+		if (ureq.getUserSession().getRoles().isGuestOnly()) {
+			secCallback = new GlossarySecurityCallbackImpl();				
+		} else {
+			secCallback = new GlossarySecurityCallbackImpl(false, owner, editableByUser, ureq.getIdentity().getKey());
+		}
 		GlossaryMainController gctr = new GlossaryMainController(wControl, ureq, glossaryFolder, res, secCallback, false);
 		// use on column layout
 		LayoutMain3ColsController layoutCtr = new LayoutMain3ColsController(ureq, wControl, null, null, gctr.getInitialComponent(), null);
@@ -171,7 +176,12 @@ public class GlossaryHandler implements RepositoryHandler {
 
 		Properties glossProps = GlossaryItemManager.getInstance().getGlossaryConfig(glossaryFolder);
 		boolean editableByUser = "true".equals(glossProps.getProperty(GlossaryItemManager.EDIT_USERS));
-		GlossarySecurityCallback secCallback = new GlossarySecurityCallbackImpl(true, true, editableByUser, ureq.getIdentity().getKey());
+		GlossarySecurityCallback secCallback;
+		if (ureq.getUserSession().getRoles().isGuestOnly()) {
+			secCallback = new GlossarySecurityCallbackImpl();				
+		} else {
+			secCallback = new GlossarySecurityCallbackImpl(true, true, editableByUser, ureq.getIdentity().getKey());
+		}
 		GlossaryMainController gctr = new GlossaryMainController(wControl, ureq, glossaryFolder, res, secCallback, false);
 		// use on column layout
 		LayoutMain3ColsController layoutCtr = new LayoutMain3ColsController(ureq, wControl, null, null, gctr.getInitialComponent(), null);
