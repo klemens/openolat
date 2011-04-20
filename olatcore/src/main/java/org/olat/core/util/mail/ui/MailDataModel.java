@@ -25,7 +25,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
-import org.olat.core.gui.components.table.TableDataModel;
+import org.olat.core.gui.components.table.TableDataModelWithMarkableRows;
 import org.olat.core.gui.translator.Translator;
 import org.olat.core.id.Identity;
 import org.olat.core.util.Formatter;
@@ -42,7 +42,7 @@ import org.olat.core.util.mail.model.DBMailRecipient;
  * Initial Date:  28 mars 2011 <br>
  * @author srosse, stephane.rosse@frentix.com, http://www.frentix.com
  */
-public class MailDataModel implements TableDataModel {
+public class MailDataModel implements TableDataModelWithMarkableRows {
 	
 	private List<DBMailImpl> mails;
 	private List<DBMailImpl> filteredMails;
@@ -149,7 +149,23 @@ public class MailDataModel implements TableDataModel {
 		mails = objects;
 		filteredMails = null;
 	}
-	
+		
+	/**
+	 * @see org.olat.core.gui.components.table.TableDataModelWithMarkableRows#getRowCssClass(int)
+	 */
+	@Override
+	public String getRowCssClass(int row) {
+		DBMailImpl mail = filteredMails == null ? mails.get(row) : filteredMails.get(row);
+		for(DBMailRecipient recipient:mail.getRecipients()) {
+			if(recipient != null && recipient.getRecipient() != null && recipient.getRecipient().equalsByPersistableKey(identity)) {
+				if (!recipient.getRead()) {
+					return "b_marked";
+				}
+			}
+		}	
+		return null;
+	}
+
 	public void replace(DBMailImpl mail) {
 		int index = mails.indexOf(mail);
 		if(index >= 0 && index < mails.size()) {
