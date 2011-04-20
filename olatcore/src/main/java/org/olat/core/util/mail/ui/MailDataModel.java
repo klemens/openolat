@@ -22,15 +22,12 @@ package org.olat.core.util.mail.ui;
 
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.Date;
 import java.util.List;
 import java.util.Map;
 
 import org.olat.core.gui.components.table.TableDataModel;
 import org.olat.core.gui.translator.Translator;
 import org.olat.core.id.Identity;
-import org.olat.core.id.User;
-import org.olat.core.id.UserConstants;
 import org.olat.core.util.Formatter;
 import org.olat.core.util.StringHelper;
 import org.olat.core.util.mail.model.DBMailImpl;
@@ -108,8 +105,7 @@ public class MailDataModel implements TableDataModel {
 				case subject: return mail.getSubject();
 				case receivedDate:
 				case sendDate: {
-					Date creationDate = mail.getCreationDate();
-					return formatter.formatDateAndTime(creationDate);
+					return mail.getCreationDate();
 				}
 				case from: {
 					DBMailRecipient from = mail.getFrom();

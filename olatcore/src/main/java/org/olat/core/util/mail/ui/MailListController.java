@@ -162,7 +162,7 @@ public class MailListController extends BasicController implements Activateable 
 		
 		reloadModel();
 		
-		int dateSort = outbox ? 3 : 5;
+		int dateSort = outbox ? 4 : 6;
 		tableCtr.setSortColumn(dateSort, false);
 
 		listenTo(tableCtr);
