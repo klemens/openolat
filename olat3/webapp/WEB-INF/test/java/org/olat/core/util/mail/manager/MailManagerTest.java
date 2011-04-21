@@ -41,9 +41,9 @@ import org.olat.core.util.mail.ContactList;
 import org.olat.core.util.mail.MailContext;
 import org.olat.core.util.mail.MailContextImpl;
 import org.olat.core.util.mail.MailerTest;
+import org.olat.core.util.mail.model.DBMail;
 import org.olat.core.util.mail.model.DBMailAttachment;
 import org.olat.core.util.mail.model.DBMailAttachmentData;
-import org.olat.core.util.mail.model.DBMailImpl;
 import org.olat.core.util.mail.model.DBMailRecipient;
 import org.olat.test.JunitTestHelper;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -84,11 +84,11 @@ public class MailManagerTest extends MailerTest {
 	public void testSaveMail() {
 		List<ContactList> contacts = createContactLists("TO", ident2);
 		MailContext context = createMailContext();
-		DBMailImpl mail = mailManager.saveDBMessage(context, ident1, null, null, null, null, null, contacts, null, "Test save mail", "Body of test save mail", null, null);
+		DBMail mail = mailManager.saveDBMessage(context, ident1, null, null, null, null, null, contacts, null, "Test save mail", "Body of test save mail", null, null);
 		
 		dbInstance.commitAndCloseSession();
 		
-		DBMailImpl persistedMail = mailManager.getMessageByKey(mail.getKey());
+		DBMail persistedMail = mailManager.getMessageByKey(mail.getKey());
 		assertNotNull(persistedMail);
 		assertEquals("Test save mail", persistedMail.getSubject());
 		assertEquals("Body of test save mail", persistedMail.getBody());
@@ -119,9 +119,9 @@ public class MailManagerTest extends MailerTest {
 
 		dbInstance.commitAndCloseSession();
 		
-		List<DBMailImpl> outbox = mailManager.getOutbox(ident1, 0, -1);
+		List<DBMail> outbox = mailManager.getOutbox(ident1, 0, -1);
 		assertFalse(outbox.isEmpty());
-		for(DBMailImpl mail:outbox) {
+		for(DBMail mail:outbox) {
 			assertNotNull(mail.getFrom());
 			assertNotNull(mail.getFrom().getRecipient());
 			assertEquals(ident1.getKey(), mail.getFrom().getRecipient().getKey());
@@ -139,13 +139,13 @@ public class MailManagerTest extends MailerTest {
 
 		dbInstance.commitAndCloseSession();
 
-		List<DBMailImpl> inbox = mailManager.getInbox(ident1, null, Boolean.FALSE, 0, -1);
+		List<DBMail> inbox = mailManager.getInbox(ident1, null, Boolean.FALSE, null, 0, -1);
 		assertFalse(inbox.isEmpty());
 		
 		dbInstance.commitAndCloseSession();
 		
-		for(DBMailImpl mailShort:inbox) {
-			DBMailImpl mail = mailManager.getMessageByKey(mailShort.getKey());
+		for(DBMail mailShort:inbox) {
+			DBMail mail = mailManager.getMessageByKey(mailShort.getKey());
 			assertNotNull(mail.getFrom());
 			assertFalse(mail.getRecipients().isEmpty());
 			assertEquals(ident1.getKey(), mail.getRecipients().get(0).getRecipient().getKey());
@@ -186,7 +186,7 @@ public class MailManagerTest extends MailerTest {
 		List<File> attachments = Collections.singletonList(portrait);
 
 		List<ContactList> contacts = createContactLists("TO", ident2);
-		DBMailImpl mail = mailManager.saveDBMessage(null, ident1, null, null, null, null, null, contacts, null, "Test save mail identity 1", "Body of test save mail identity 1", attachments, null);
+		DBMail mail = mailManager.saveDBMessage(null, ident1, null, null, null, null, null, contacts, null, "Test save mail identity 1", "Body of test save mail identity 1", attachments, null);
 		assertNotNull(mail);
 		
 		dbInstance.commitAndCloseSession();
@@ -236,7 +236,7 @@ public class MailManagerTest extends MailerTest {
 		List<File> attachments = Collections.singletonList(portrait);
 
 		List<ContactList> contacts = createContactLists("TO", ident2);
-		DBMailImpl mail = mailManager.saveDBMessage(null, ident1, null, null, null, null, null, contacts, null, "Test save mail identity 1", "Body of test save mail identity 1", attachments, null);
+		DBMail mail = mailManager.saveDBMessage(null, ident1, null, null, null, null, null, contacts, null, "Test save mail identity 1", "Body of test save mail identity 1", attachments, null);
 		assertNotNull(mail);
 		
 		dbInstance.commitAndCloseSession();
@@ -249,10 +249,10 @@ public class MailManagerTest extends MailerTest {
 		dbInstance.commitAndCloseSession();
 		
 		//ident1 as from delete the mail in its outbox
-		List<DBMailImpl> outbox = mailManager.getOutbox(ident1, 0, 0);
+		List<DBMail> outbox = mailManager.getOutbox(ident1, 0, 0);
 		
-		DBMailImpl outboxMail = null;
-		for(DBMailImpl outMail:outbox) {
+		DBMail outboxMail = null;
+		for(DBMail outMail:outbox) {
 			if(outMail.equals(mail)) {
 				outboxMail = outMail;
 				break;
@@ -264,16 +264,16 @@ public class MailManagerTest extends MailerTest {
 		dbInstance.commitAndCloseSession();
 		
 		//check if the mail exists for ident2
-		DBMailImpl checkMailExist = mailManager.getMessageByKey(mail.getKey());
+		DBMail checkMailExist = mailManager.getMessageByKey(mail.getKey());
 		assertNotNull(checkMailExist);
 		List<DBMailAttachment> checkAttachmentExist = mailManager.getAttachments(checkMailExist);
 		assertNotNull(checkAttachmentExist);
 		assertEquals(1, checkAttachmentExist.size());
 		
 		//check if the mail doesn't exist for ident1 anymore
-		List<DBMailImpl> outboxDeleted = mailManager.getOutbox(ident1, 0, 0);
-		DBMailImpl checkOutboxMailDeleted = null;
-		for(DBMailImpl outMail:outboxDeleted) {
+		List<DBMail> outboxDeleted = mailManager.getOutbox(ident1, 0, 0);
+		DBMail checkOutboxMailDeleted = null;
+		for(DBMail outMail:outboxDeleted) {
 			if(outMail.equals(mail)) {
 				checkOutboxMailDeleted = outMail;
 				break;
@@ -284,9 +284,9 @@ public class MailManagerTest extends MailerTest {
 		dbInstance.commitAndCloseSession();
 		
 		//ident2 as receiver delete the mail in its inbox
-		List<DBMailImpl> inbox = mailManager.getInbox(ident2, null, Boolean.FALSE, 0, 0);
-		DBMailImpl inboxMail = null;
-		for(DBMailImpl inMail:inbox) {
+		List<DBMail> inbox = mailManager.getInbox(ident2, null, Boolean.FALSE, null, 0, 0);
+		DBMail inboxMail = null;
+		for(DBMail inMail:inbox) {
 			if(inMail.equals(mail)) {
 				inboxMail = inMail;
 				break;
@@ -298,9 +298,9 @@ public class MailManagerTest extends MailerTest {
 		dbInstance.commitAndCloseSession();
 		
 		//check ident2 inbox
-		List<DBMailImpl> inboxDeleted = mailManager.getInbox(ident2, null, Boolean.FALSE, 0, 0);
-		DBMailImpl inboxMailDeleted = null;
-		for(DBMailImpl inMail:inboxDeleted) {
+		List<DBMail> inboxDeleted = mailManager.getInbox(ident2, null, Boolean.FALSE, null, 0, 0);
+		DBMail inboxMailDeleted = null;
+		for(DBMail inMail:inboxDeleted) {
 			if(inMail.equals(mail)) {
 				inboxMailDeleted = inMail;
 				break;
@@ -309,7 +309,7 @@ public class MailManagerTest extends MailerTest {
 		assertNull(inboxMailDeleted);
 		
 		//check if the mail deleted
-		DBMailImpl checkMailDeleted = mailManager.getMessageByKey(mail.getKey());
+		DBMail checkMailDeleted = mailManager.getMessageByKey(mail.getKey());
 		assertNull(checkMailDeleted);
 		List<DBMailAttachment> checkAttachmentDeleted = mailManager.getAttachments(checkMailExist);
 		assertNotNull(checkAttachmentDeleted);
@@ -327,15 +327,15 @@ public class MailManagerTest extends MailerTest {
 		String metaId = UUID.randomUUID().toString().replace("-", "");
 		
 		List<ContactList> contact2 = createContactLists("TO", ident2);
-		DBMailImpl mail2 = mailManager.saveDBMessage(null, ident1, null, null, null, null, null, contact2, metaId, "Test meta mail 2", "Body of test meta mail 2", attachments, null);
+		DBMail mail2 = mailManager.saveDBMessage(null, ident1, null, null, null, null, null, contact2, metaId, "Test meta mail 2", "Body of test meta mail 2", attachments, null);
 		assertNotNull(mail2);
 
 		List<ContactList> contact3 = createContactLists("TO", ident3);
-		DBMailImpl mail3 = mailManager.saveDBMessage(null, ident1, null, null, null, null, null, contact3, metaId, "Test meta mail 3", "Body of test meta mail 3", attachments, null);
+		DBMail mail3 = mailManager.saveDBMessage(null, ident1, null, null, null, null, null, contact3, metaId, "Test meta mail 3", "Body of test meta mail 3", attachments, null);
 		assertNotNull(mail3);
 		
 		List<ContactList> contact4 = createContactLists("TO", ident4);
-		DBMailImpl mail4 = mailManager.saveDBMessage(null, ident1, null, null, null, null, null, contact4, metaId, "Test meta mail 3", "Body of test meta mail 3", attachments, null);
+		DBMail mail4 = mailManager.saveDBMessage(null, ident1, null, null, null, null, null, contact4, metaId, "Test meta mail 3", "Body of test meta mail 3", attachments, null);
 		assertNotNull(mail4);
 		
 		dbInstance.commitAndCloseSession();
@@ -361,10 +361,10 @@ public class MailManagerTest extends MailerTest {
 		////////////////////////////////////////////////////////////////
 		//ident1 as from delete the mail in its outbox
 		////////////////////////////////////////////////////////////////
-		List<DBMailImpl> outbox = mailManager.getOutbox(ident1, 0, 0);
+		List<DBMail> outbox = mailManager.getOutbox(ident1, 0, 0);
 		
-		DBMailImpl outboxMail = null;
-		for(DBMailImpl outMail:outbox) {
+		DBMail outboxMail = null;
+		for(DBMail outMail:outbox) {
 			if(outMail.equals(mail2)) {
 				outboxMail = outMail;
 				break;
@@ -376,9 +376,9 @@ public class MailManagerTest extends MailerTest {
 		dbInstance.commitAndCloseSession();
 
 		//check if the mail doesn't exist for ident1 anymore
-		List<DBMailImpl> outboxDeleted = mailManager.getOutbox(ident1, 0, 0);
-		DBMailImpl checkOutboxMailDeleted = null;
-		for(DBMailImpl outMail:outboxDeleted) {
+		List<DBMail> outboxDeleted = mailManager.getOutbox(ident1, 0, 0);
+		DBMail checkOutboxMailDeleted = null;
+		for(DBMail outMail:outboxDeleted) {
 			if(outMail.equals(mail2) || outMail.equals(mail3) || outMail.equals(mail4)) {
 				checkOutboxMailDeleted = outMail;
 				break;
@@ -391,11 +391,11 @@ public class MailManagerTest extends MailerTest {
 		////////////////////////////////////////////////////////////////
 		//check if the mail exists for ident2
 		////////////////////////////////////////////////////////////////
-		List<DBMailImpl> inbox2= mailManager.getInbox(ident2, null, Boolean.FALSE, 0, 0);
-		DBMailImpl checkInbox2Mail2Exist = null;
-		DBMailImpl checkInbox2Mail3Exist = null;
-		DBMailImpl checkInbox2Mail4Exist = null;
-		for(DBMailImpl inMail:inbox2) {
+		List<DBMail> inbox2= mailManager.getInbox(ident2, null, Boolean.FALSE, null, 0, 0);
+		DBMail checkInbox2Mail2Exist = null;
+		DBMail checkInbox2Mail3Exist = null;
+		DBMail checkInbox2Mail4Exist = null;
+		for(DBMail inMail:inbox2) {
 			if(inMail.equals(mail2)) {
 				checkInbox2Mail2Exist = inMail;
 			} else if(inMail.equals(mail3)) {
@@ -416,9 +416,9 @@ public class MailManagerTest extends MailerTest {
 		dbInstance.commitAndCloseSession();
 		
 		//check ident2 inbox
-		List<DBMailImpl> inbox2Deleted = mailManager.getInbox(ident2, null, Boolean.FALSE, 0, 0);
-		DBMailImpl inbox2Mail2Deleted = null;
-		for(DBMailImpl inMail:inbox2Deleted) {
+		List<DBMail> inbox2Deleted = mailManager.getInbox(ident2, null, Boolean.FALSE, null, 0, 0);
+		DBMail inbox2Mail2Deleted = null;
+		for(DBMail inMail:inbox2Deleted) {
 			if(inMail.equals(mail2)) {
 				inbox2Mail2Deleted = inMail;
 				break;
@@ -430,11 +430,11 @@ public class MailManagerTest extends MailerTest {
 		////////////////////////////////////////////////////////////////
 		//check if the mail exists for ident3
 		////////////////////////////////////////////////////////////////
-		List<DBMailImpl> inbox3= mailManager.getInbox(ident3, null, Boolean.FALSE, 0, 0);
-		DBMailImpl checkInbox3Mail2Exist = null;
-		DBMailImpl checkInbox3Mail3Exist = null;
-		DBMailImpl checkInbox3Mail4Exist = null;
-		for(DBMailImpl inMail:inbox3) {
+		List<DBMail> inbox3= mailManager.getInbox(ident3, null, Boolean.FALSE, null, 0, 0);
+		DBMail checkInbox3Mail2Exist = null;
+		DBMail checkInbox3Mail3Exist = null;
+		DBMail checkInbox3Mail4Exist = null;
+		for(DBMail inMail:inbox3) {
 			if(inMail.equals(mail2)) {
 				checkInbox3Mail2Exist = inMail;
 			} else if(inMail.equals(mail3)) {
@@ -455,9 +455,9 @@ public class MailManagerTest extends MailerTest {
 		dbInstance.commitAndCloseSession();
 		
 		//check ident2 inbox
-		List<DBMailImpl> inbox3Deleted = mailManager.getInbox(ident3, null, Boolean.FALSE, 0, 0);
-		DBMailImpl inbox3Mail3Deleted = null;
-		for(DBMailImpl inMail:inbox3Deleted) {
+		List<DBMail> inbox3Deleted = mailManager.getInbox(ident3, null, Boolean.FALSE, null, 0, 0);
+		DBMail inbox3Mail3Deleted = null;
+		for(DBMail inMail:inbox3Deleted) {
 			if(inMail.equals(mail3)) {
 				inbox3Mail3Deleted = inMail;
 				break;
@@ -468,11 +468,11 @@ public class MailManagerTest extends MailerTest {
 		////////////////////////////////////////////////////////////////
 		//check if the mail exists for ident4
 		////////////////////////////////////////////////////////////////
-		List<DBMailImpl> inbox4= mailManager.getInbox(ident4, null, Boolean.FALSE, 0, 0);
-		DBMailImpl checkInbox4Mail2Exist = null;
-		DBMailImpl checkInbox4Mail3Exist = null;
-		DBMailImpl checkInbox4Mail4Exist = null;
-		for(DBMailImpl inMail:inbox4) {
+		List<DBMail> inbox4= mailManager.getInbox(ident4, null, Boolean.FALSE, null, 0, 0);
+		DBMail checkInbox4Mail2Exist = null;
+		DBMail checkInbox4Mail3Exist = null;
+		DBMail checkInbox4Mail4Exist = null;
+		for(DBMail inMail:inbox4) {
 			if(inMail.equals(mail2)) {
 				checkInbox4Mail2Exist = inMail;
 			} else if(inMail.equals(mail3)) {
@@ -493,9 +493,9 @@ public class MailManagerTest extends MailerTest {
 		dbInstance.commitAndCloseSession();
 		
 		//check ident2 inbox
-		List<DBMailImpl> inbox4Deleted = mailManager.getInbox(ident4, null, Boolean.FALSE, 0, 0);
-		DBMailImpl inbox4Mail4Deleted = null;
-		for(DBMailImpl inMail:inbox4Deleted) {
+		List<DBMail> inbox4Deleted = mailManager.getInbox(ident4, null, Boolean.FALSE, null, 0, 0);
+		DBMail inbox4Mail4Deleted = null;
+		for(DBMail inMail:inbox4Deleted) {
 			if(inMail.equals(mail4)) {
 				inbox4Mail4Deleted = inMail;
 				break;
@@ -506,19 +506,19 @@ public class MailManagerTest extends MailerTest {
 		/////////////////////////////////////////////////////////////////////
 		//check if all the mails are really deleted
 		/////////////////////////////////////////////////////////////////////
-		DBMailImpl checkMail2Deleted = mailManager.getMessageByKey(mail2.getKey());
+		DBMail checkMail2Deleted = mailManager.getMessageByKey(mail2.getKey());
 		assertNull(checkMail2Deleted);
 		List<DBMailAttachment> checkAttachment2Deleted = mailManager.getAttachments(mail2);
 		assertNotNull(checkAttachment2Deleted);
 		assertTrue(checkAttachment2Deleted.isEmpty());
 		
-		DBMailImpl checkMail3Deleted = mailManager.getMessageByKey(mail3.getKey());
+		DBMail checkMail3Deleted = mailManager.getMessageByKey(mail3.getKey());
 		assertNull(checkMail3Deleted);
 		List<DBMailAttachment> checkAttachment3Deleted = mailManager.getAttachments(mail3);
 		assertNotNull(checkAttachment3Deleted);
 		assertTrue(checkAttachment3Deleted.isEmpty());
 		
-		DBMailImpl checkMail4Deleted = mailManager.getMessageByKey(mail4.getKey());
+		DBMail checkMail4Deleted = mailManager.getMessageByKey(mail4.getKey());
 		assertNull(checkMail4Deleted);
 		List<DBMailAttachment> checkAttachment4Deleted = mailManager.getAttachments(mail4);
 		assertNotNull(checkAttachment4Deleted);

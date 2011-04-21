@@ -28,21 +28,25 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Date;
 import java.util.List;
+import java.util.Properties;
 
 import javax.activation.DataHandler;
 import javax.activation.DataSource;
 import javax.activation.FileDataSource;
 import javax.mail.Address;
+import javax.mail.Authenticator;
 import javax.mail.BodyPart;
 import javax.mail.Message.RecipientType;
 import javax.mail.MessagingException;
 import javax.mail.Multipart;
+import javax.mail.Session;
 import javax.mail.Transport;
 import javax.mail.internet.AddressException;
 import javax.mail.internet.InternetAddress;
 import javax.mail.internet.MimeBodyPart;
 import javax.mail.internet.MimeMessage;
 import javax.mail.internet.MimeMultipart;
+import javax.mail.util.ByteArrayDataSource;
 
 import org.olat.core.commons.persistence.DB;
 import org.olat.core.commons.persistence.DBQuery;
@@ -55,9 +59,10 @@ import org.olat.core.util.StringHelper;
 import org.olat.core.util.WebappHelper;
 import org.olat.core.util.mail.ContactList;
 import org.olat.core.util.mail.MailContext;
-import org.olat.core.util.mail.MailHelper;
 import org.olat.core.util.mail.MailModule;
 import org.olat.core.util.mail.MailerResult;
+import org.olat.core.util.mail.MailerSMTPAuthenticator;
+import org.olat.core.util.mail.model.DBMail;
 import org.olat.core.util.mail.model.DBMailAttachment;
 import org.olat.core.util.mail.model.DBMailAttachmentData;
 import org.olat.core.util.mail.model.DBMailImpl;
@@ -142,7 +147,7 @@ public class MailManager extends BasicManager {
 		}
 	}
 
-	public DBMailImpl getMessageByKey(Long key) {
+	public DBMail getMessageByKey(Long key) {
 		StringBuilder sb = new StringBuilder();
 		sb.append("select mail from ").append(DBMailImpl.class.getName()).append(" mail")
 			.append(" left join fetch mail.recipients recipients")
@@ -157,7 +162,7 @@ public class MailManager extends BasicManager {
 		return mail;
 	}
 	
-	public List<DBMailAttachment> getAttachments(DBMailImpl mail) {
+	public List<DBMailAttachment> getAttachments(DBMail mail) {
 		StringBuilder sb = new StringBuilder();
 		sb.append("select attachment from ").append(DBMailAttachment.class.getName()).append(" attachment")
 			.append(" inner join attachment.mail mail")
@@ -205,7 +210,7 @@ public class MailManager extends BasicManager {
 	 * @param identity
 	 * @return true if the read flag has been changed
 	 */
-	public boolean setRead(DBMailImpl mail, Boolean read, Identity identity) {
+	public boolean setRead(DBMail mail, Boolean read, Identity identity) {
 		if(mail == null || read == null || identity == null) throw new NullPointerException();
 		
 		boolean changed = false;
@@ -222,7 +227,7 @@ public class MailManager extends BasicManager {
 		return changed;
 	}
 	
-	public DBMailImpl toggleRead(DBMailImpl mail, Identity identity) {
+	public DBMail toggleRead(DBMail mail, Identity identity) {
 		Boolean read = null;
 		for(DBMailRecipient recipient:mail.getRecipients()) {
 			if(recipient == null) continue;
@@ -243,7 +248,7 @@ public class MailManager extends BasicManager {
 	 * @param identity
 	 * @return true if the marked flag has been changed
 	 */
-	public boolean setMarked(DBMailImpl mail, Boolean marked, Identity identity) {
+	public boolean setMarked(DBMail mail, Boolean marked, Identity identity) {
 		if(mail == null || marked == null || identity == null) throw new NullPointerException();
 
 		boolean changed = false;
@@ -263,7 +268,7 @@ public class MailManager extends BasicManager {
 		return changed;
 	}
 	
-	public DBMailImpl toggleMarked(DBMailImpl mail, Identity identity) {
+	public DBMail toggleMarked(DBMail mail, Identity identity) {
 		Boolean marked = null;
 		for(DBMailRecipient recipient:mail.getRecipients()) {
 			if(recipient == null) continue;
@@ -283,10 +288,10 @@ public class MailManager extends BasicManager {
 	 * @param mail
 	 * @param identity
 	 */
-	public void delete(DBMailImpl mail, Identity identity, boolean deleteMetaMail) {
+	public void delete(DBMail mail, Identity identity, boolean deleteMetaMail) {
 		if(StringHelper.containsNonWhitespace(mail.getMetaId()) && deleteMetaMail) {
-			List<DBMailImpl> mails = getEmailsByMetaId(mail.getMetaId());
-			for(DBMailImpl childMail:mails) {
+			List<DBMail> mails = getEmailsByMetaId(mail.getMetaId());
+			for(DBMail childMail:mails) {
 				deleteMail(childMail, identity, false);
 			}
 		} else {
@@ -294,7 +299,7 @@ public class MailManager extends BasicManager {
 		}
 	}
 
-	private void deleteMail(DBMailImpl mail, Identity identity, boolean forceRemoveRecipient) {
+	private void deleteMail(DBMail mail, Identity identity, boolean forceRemoveRecipient) {
 		boolean delete = true;
 		List<DBMailRecipient> updates = new ArrayList<DBMailRecipient>();
 		if(mail.getFrom() != null && mail.getFrom().getRecipient() != null) {
@@ -348,7 +353,7 @@ public class MailManager extends BasicManager {
 	 * @param maxResults
 	 * @return
 	 */
-	public List<DBMailImpl> getOutbox(Identity from, int firstResult, int maxResults) {
+	public List<DBMail> getOutbox(Identity from, int firstResult, int maxResults) {
 		StringBuilder sb = new StringBuilder();
 		sb.append("select mail from ").append(DBMailImpl.class.getName()).append(" mail")
 			.append(" inner join fetch mail.from fromRecipient")
@@ -367,11 +372,11 @@ public class MailManager extends BasicManager {
 		}
 		query.setLong("fromKey", from.getKey());
 
-		List<DBMailImpl> mails = query.list();
+		List<DBMail> mails = query.list();
 		return mails;
 	}
 	
-	public List<DBMailImpl> getEmailsByMetaId(String metaId) {
+	public List<DBMail> getEmailsByMetaId(String metaId) {
 		if(!StringHelper.containsNonWhitespace(metaId)) return Collections.emptyList();
 		
 		StringBuilder sb = new StringBuilder();
@@ -382,22 +387,24 @@ public class MailManager extends BasicManager {
 
 		DBQuery query = dbInstance.createQuery(sb.toString());
 		query.setString("metaId", metaId);
-		List<DBMailImpl> mails = query.list();
+		List<DBMail> mails = query.list();
 		return mails;
 	}
 	
 	/**
 	 * Load all mails with the identity as recipient, only mails which are not deleted
-	 * for this user. Recipients are NOT loaded!
+	 * for this user. Recipients are NOT loaded if not explicitly wanted!
 	 * @param identity
 	 * @param unreadOnly
+	 * @param fetchRecipients
+	 * @param from
 	 * @param firstResult
 	 * @param maxResults
 	 * @return
 	 */
-	public List<DBMailImpl> getInbox(Identity identity, Boolean unreadOnly, Boolean fecthRecipients, int firstResult, int maxResults) {
+	public List<DBMail> getInbox(Identity identity, Boolean unreadOnly, Boolean fetchRecipients, Date from, int firstResult, int maxResults) {
 		StringBuilder sb = new StringBuilder();
-		String fetchOption = (fecthRecipients != null && fecthRecipients.booleanValue()) ? "fetch" : "";
+		String fetchOption = (fetchRecipients != null && fetchRecipients.booleanValue()) ? "fetch" : "";
 		sb.append("select mail from ").append(DBMailImpl.class.getName()).append(" mail")
 			.append(" inner join ").append(fetchOption).append(" mail.recipients recipient")
 			.append(" inner join ").append(fetchOption).append(" recipient.recipient recipientIdentity")
@@ -405,6 +412,10 @@ public class MailManager extends BasicManager {
 		if(unreadOnly != null && unreadOnly.booleanValue()) {
 			sb.append(" and recipient.read=false");
 		}
+		if(from != null) {
+			sb.append(" and mail.creationDate>=:from");
+		}
+		
 		sb.append(" order by mail.creationDate desc");
 
 		DBQuery query = dbInstance.createQuery(sb.toString());
@@ -415,8 +426,11 @@ public class MailManager extends BasicManager {
 			query.setFirstResult(firstResult);
 		}
 		query.setLong("recipientKey", identity.getKey());
+		if(from != null) {
+			query.setDate("from", from);
+		}
 
-		List<DBMailImpl> mails = query.list();
+		List<DBMail> mails = query.list();
 		return mails;
 	}
 	
@@ -429,6 +443,28 @@ public class MailManager extends BasicManager {
 			saveDBMessage(context, fromId, from, toId, to, cc, ccLists, bccLists, metaId, subject, body, attachments, result);
 		} else {
 			sendExternMessage(fromId, from, toId, to, cc, ccLists, bccLists, subject, body, attachments, result);
+		}
+		return result;
+	}
+	
+	
+	public MailerResult forwardToRealInbox(Identity identity, DBMail mail, MailerResult result) {
+		
+		if(result == null) {
+			result = new MailerResult();
+		}
+		
+		List<DBMailAttachment> attachments = getAttachments(mail);
+
+		try {
+			Address from = createAddress(WebappHelper.getMailConfig("mailFrom"));
+			Address to = createAddress(identity, result, true);
+			MimeMessage message = createForwardMimeMessage(from, to, mail.getSubject(), mail.getBody(), attachments, result);
+			if(message != null) {
+				sendMessage(message, result);
+			}
+		} catch (AddressException e) {
+			logError("mailFrom is not configured", e);
 		}
 		return result;
 	}
@@ -468,7 +504,7 @@ public class MailManager extends BasicManager {
 		return mailModule.isReceiveRealMailUserDefaultSetting();
 	}
 	
-	protected DBMailImpl saveDBMessage(MailContext context, Identity fromId, String from, Identity toId, String to, 
+	protected DBMail saveDBMessage(MailContext context, Identity fromId, String from, Identity toId, String to, 
 			Identity cc, List<ContactList> ccLists, List<ContactList> bccLists,
 			String metaId, String subject, String body, List<File> attachments, MailerResult result) {
 		
@@ -904,12 +940,98 @@ public class MailManager extends BasicManager {
 		sendMessage(msg, result);
 	}
 	
+	private MimeMessage createForwardMimeMessage(Address from, Address to, String subject, String body,
+			List<DBMailAttachment> attachments, MailerResult result) {
+		
+		try {
+			MimeMessage msg = createMessage();
+			msg.setFrom(from);
+			msg.setSubject(subject, "utf-8");
+
+			if(to != null) {
+				msg.addRecipient(RecipientType.TO, to);
+			}
+
+			if (attachments != null && !attachments.isEmpty()) {
+				// with attachment use multipart message
+				Multipart multipart = new MimeMultipart();
+				// 1) add body part
+				BodyPart messageBodyPart = new MimeBodyPart();
+				messageBodyPart.setText(body);
+				multipart.addBodyPart(messageBodyPart);
+				// 2) add attachments
+				for (DBMailAttachment attachment : attachments) {
+					// abort if attachment does not exist
+					if (attachment == null || attachment.getSize()  <= 0) {
+						result.setReturnCode(MailerResult.ATTACHMENT_INVALID);
+						logError("Tried to send mail wit attachment that does not exist::"
+								+ (attachment == null ? null : attachment.getName()), null);
+						return msg;
+					}
+					messageBodyPart = new MimeBodyPart();
+					
+					DBMailAttachmentData data = getAttachmentWithData(attachment.getKey());
+					DataSource source = new ByteArrayDataSource(data.getDatas(), attachment.getMimetype());
+					messageBodyPart.setDataHandler(new DataHandler(source));
+					messageBodyPart.setFileName(attachment.getName());
+					multipart.addBodyPart(messageBodyPart);
+				}
+				// Put parts in message
+				msg.setContent(multipart);
+			} else {
+				// without attachment everything is easy, just set as text
+				msg.setText(body, "utf-8");
+			}
+			msg.setSentDate(new Date());
+			msg.saveChanges();
+			return msg;
+		} catch (MessagingException e) {
+			logError("", e);
+			return null;
+		}
+	}
 	
-	private MimeMessage createMimeMessage(Address from, Address[] tos, Address[] ccs, Address[] bccs, String subject, String body,
+	public MimeMessage createMessage() {
+		String mailhost = WebappHelper.getMailConfig("mailhost");
+		String mailhostTimeout = WebappHelper.getMailConfig("mailTimeout");
+		boolean sslEnabled = Boolean.parseBoolean(WebappHelper.getMailConfig("sslEnabled"));
+		boolean sslCheckCertificate = Boolean.parseBoolean(WebappHelper.getMailConfig("sslCheckCertificate"));
+		
+		Authenticator smtpAuth;
+		if (WebappHelper.isMailHostAuthenticationEnabled()) {
+			String smtpUser = WebappHelper.getMailConfig("smtpUser");
+			String smtpPwd = WebappHelper.getMailConfig("smtpPwd");
+			smtpAuth = new MailerSMTPAuthenticator(smtpUser, smtpPwd);
+		} else {
+			smtpAuth = null;
+		}
+		
+		Properties p = new Properties();
+		p.put("mail.smtp.host", mailhost);
+		p.put("mail.smtp.timeout", mailhostTimeout);
+		p.put("mail.smtp.connectiontimeout", mailhostTimeout);
+		p.put("mail.smtp.ssl.enable", sslEnabled);
+		p.put("mail.smtp.ssl.checkserveridentity", sslCheckCertificate);
+		Session mailSession;
+		if (smtpAuth == null) {
+			mailSession = javax.mail.Session.getInstance(p);
+		} else {
+			// use smtp authentication from configuration
+			p.put("mail.smtp.auth", "true");
+			mailSession = Session.getDefaultInstance(p, smtpAuth); 
+		}
+		if (isLogDebugEnabled()) {
+			// enable mail session debugging on console
+			mailSession.setDebug(true);
+		}
+		return new MimeMessage(mailSession);
+	}
+	
+	public MimeMessage createMimeMessage(Address from, Address[] tos, Address[] ccs, Address[] bccs, String subject, String body,
 			List<File> attachments, MailerResult result) {
 		
 		try {
-			MimeMessage msg = MailHelper.createMessage();
+			MimeMessage msg = createMessage();
 			msg.setFrom(from);
 			msg.setSubject(subject, "utf-8");
 
@@ -957,6 +1079,7 @@ public class MailManager extends BasicManager {
 			msg.saveChanges();
 			return msg;
 		} catch (MessagingException e) {
+			result.setReturnCode(MailerResult.SEND_GENERAL_ERROR);
 			logError("", e);
 			return null;
 		}

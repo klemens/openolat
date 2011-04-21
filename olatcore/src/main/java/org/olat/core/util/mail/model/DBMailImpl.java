@@ -59,6 +59,7 @@ public class DBMailImpl extends PersistentObject implements DBMail {
 		this.from = from;
 	}
 	
+	@Override
 	public String getMetaId() {
 		return metaId;
 	}

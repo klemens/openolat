@@ -22,27 +22,13 @@
 package org.olat.core.util.mail;
 
 import java.io.File;
-import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.Properties;
 
-import javax.activation.DataHandler;
-import javax.activation.DataSource;
-import javax.activation.FileDataSource;
 import javax.mail.Address;
 import javax.mail.Authenticator;
-import javax.mail.BodyPart;
-import javax.mail.MessagingException;
-import javax.mail.Multipart;
-import javax.mail.Session;
-import javax.mail.Transport;
-import javax.mail.Message.RecipientType;
-import javax.mail.internet.MimeBodyPart;
-import javax.mail.internet.MimeMessage;
-import javax.mail.internet.MimeMultipart;
 
 import org.olat.core.gui.control.WindowControl;
 import org.olat.core.gui.translator.PackageTranslator;
@@ -56,7 +42,6 @@ import org.olat.core.util.StringHelper;
 import org.olat.core.util.Util;
 import org.olat.core.util.WebappHelper;
 import org.olat.core.util.i18n.I18nModule;
-import org.olat.core.util.mail.manager.MailManager;
 
 /**
  * Description:<br>
@@ -112,27 +97,8 @@ public class MailHelper {
 	 * 
 	 * @return MimeMessage
 	 */
-	public static MimeMessage createMessage() {
-		Properties p = new Properties();
-		p.put("mail.smtp.host", mailhost);
-		p.put("mail.smtp.timeout", mailhostTimeout);
-		p.put("mail.smtp.connectiontimeout", mailhostTimeout);
-		p.put("mail.smtp.ssl.enable", sslEnabled);
-		p.put("mail.smtp.ssl.checkserveridentity", sslCheckCertificate);
-		Session mailSession;
-		if (smtpAuth == null) {
-			mailSession = javax.mail.Session.getInstance(p);
-		} else {
-			// use smtp authentication from configuration
-			p.put("mail.smtp.auth", "true");
-			mailSession = Session.getDefaultInstance(p, smtpAuth); 
-		}
-		if (Tracing.isDebugEnabled(MailHelper.class)) {
-			// enable mail session debugging on console
-			mailSession.setDebug(true);
-		}
-		return new MimeMessage(mailSession);
-	}
+//fxdiff VCRP-16: intern mail system
+	//public static MimeMessage createMessage()
 
 	/**
 	 * create MimeMessage from given fields, this may be used for creation of
@@ -148,63 +114,7 @@ public class MailHelper {
 	 * @return
 	 */
 	//fxdiff VCRP-16: intern mail system
-	protected static MimeMessage createMessage(Address from, Address[] recipients, Address[] recipientsCC, Address[] recipientsBCC, String body,
-			String subject, File[] attachments, MailerResult result) {
-		if (Tracing.isDebugEnabled(MailHelper.class)) {
-			doDebugMessage(from, recipients, recipientsCC, recipientsBCC, body, subject, attachments);
-		}
-
-		MimeMessage msg = MailHelper.createMessage();
-		try {
-			// TO, CC and BCC
-			msg.setFrom(from);
-			msg.setRecipients(RecipientType.TO, recipients);
-			if (recipientsCC != null) {
-				msg.setRecipients(RecipientType.CC, recipientsCC);
-			}
-			if (recipientsBCC != null) {
-				msg.setRecipients(RecipientType.BCC, recipientsBCC);
-			}
-			// message data
-			msg.setSubject(subject, "utf-8");
-
-			if (attachments != null && attachments.length > 0) {
-				// with attachment use multipart message
-				Multipart multipart = new MimeMultipart();
-				// 1) add body part
-				BodyPart messageBodyPart = new MimeBodyPart();
-				messageBodyPart.setText(body);
-				multipart.addBodyPart(messageBodyPart);
-				// 2) add attachments
-				for (File attachmentFile : attachments) {
-					// abort if attachment does not exist
-					if (attachmentFile == null || !attachmentFile.exists()) {
-						result.setReturnCode(MailerResult.ATTACHMENT_INVALID);
-						Tracing.logError("Tried to send mail wit attachment that does not exist::"
-								+ (attachmentFile == null ? null : attachmentFile.getAbsolutePath()), MailHelper.class);
-						return msg;
-					}
-					messageBodyPart = new MimeBodyPart();
-					DataSource source = new FileDataSource(attachmentFile);
-					messageBodyPart.setDataHandler(new DataHandler(source));
-					messageBodyPart.setFileName(attachmentFile.getName());
-					multipart.addBodyPart(messageBodyPart);
-				}
-				// Put parts in message
-				msg.setContent(multipart);
-			} else {
-				// without attachment everything is easy, just set as text
-				msg.setText(body, "utf-8");
-			}
-			msg.setSentDate(new Date());
-			msg.saveChanges();
-		} catch (MessagingException e) {
-			result.setReturnCode(MailerResult.SEND_GENERAL_ERROR);
-			Tracing.logWarn("Could not create MimeMessage", e, MailHelper.class);
-		}
-		//
-		return msg;
-	}
+	//protected static MimeMessage createMessage(Address from, Address[] recipients, Address[] recipientsCC, Address[] recipientsBCC, String body,
 	
 	/**
 	 * Send an email message to the given TO, CC and BCC address. The result will
@@ -221,13 +131,9 @@ public class MailHelper {
 	 * @param attachments File array used as attachments. Can be NULL
 	 * @param result MailerResult object that stores the result code
 	 */
-	public static void sendMessage(Address from, Address[] recipients, Address[] recipientsCC, Address[] recipientsBCC, String body,
-			String subject, File[] attachments, MailerResult result) {
-		//
-		MimeMessage msg = createMessage(from, recipients, recipientsCC, recipientsBCC, body, subject, attachments, result);
-		//fxdiff VCRP-16: intern mail system
-		MailManager.getInstance().sendMessage(msg, result);
-	}
+	//fxdiff VCRP-16: intern mail system
+	//private static void sendMessage(Address from, Address[] recipients, Address[] recipientsCC, Address[] recipientsBCC, String body,
+	//		String subject, File[] attachments, MailerResult result)
 	
 	/**
 	 * @return the maximum size allowed for attachements in MB (default 5MB)

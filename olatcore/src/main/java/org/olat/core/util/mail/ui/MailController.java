@@ -43,8 +43,8 @@ import org.olat.core.util.StringHelper;
 import org.olat.core.util.Util;
 import org.olat.core.util.mail.MailModule;
 import org.olat.core.util.mail.manager.MailManager;
+import org.olat.core.util.mail.model.DBMail;
 import org.olat.core.util.mail.model.DBMailAttachment;
-import org.olat.core.util.mail.model.DBMailImpl;
 import org.olat.core.util.mail.model.DBMailRecipient;
 
 /**
@@ -61,11 +61,11 @@ public class MailController extends FormBasicController {
 	
 	private String mapperBaseURI;
 	private final boolean back;
-	private final DBMailImpl mail;
+	private final DBMail mail;
 	private final List<DBMailAttachment> attachments;
 	private final MailManager mailManager;
 	
-	public MailController(UserRequest ureq, WindowControl wControl, DBMailImpl mail, boolean back) {
+	public MailController(UserRequest ureq, WindowControl wControl, DBMail mail, boolean back) {
 		super(ureq, wControl, LAYOUT_VERTICAL);
 		setTranslator(Util.createPackageTranslator(MailModule.class, ureq.getLocale()));
 		this.mail = mail;

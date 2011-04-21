@@ -39,6 +39,7 @@ import org.olat.core.logging.Tracing;
 import org.olat.core.manager.BasicManager;
 import org.olat.core.util.StringHelper;
 import org.olat.core.util.mail.manager.MailManager;
+import org.olat.core.util.mail.model.DBMail;
 import org.olat.core.util.mail.model.DBMailImpl;
 import org.olat.core.util.mail.ui.MailContextResolver;
 import org.olat.group.BusinessGroup;
@@ -105,13 +106,13 @@ public class MailBoxExtension extends BasicManager implements MailContextResolve
 		//set as deleted all recpient
 		logInfo("Delete intern messages");
 		
-		List<DBMailImpl> inbox = mailManager.getInbox(identity, null, false, 0, 0);
-		for(DBMailImpl inMail:inbox) {
+		List<DBMail> inbox = mailManager.getInbox(identity, null, false, null, 0, 0);
+		for(DBMail inMail:inbox) {
 			mailManager.delete(inMail, identity, true);
 		}
 		
-		List<DBMailImpl> outbox = mailManager.getOutbox(identity, 0, 0);
-		for(DBMailImpl outMail:outbox) {
+		List<DBMail> outbox = mailManager.getOutbox(identity, 0, 0);
+		for(DBMail outMail:outbox) {
 			mailManager.delete(outMail, identity, true);
 		}
 		

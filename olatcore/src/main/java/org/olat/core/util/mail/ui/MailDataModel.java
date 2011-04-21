@@ -30,7 +30,7 @@ import org.olat.core.gui.translator.Translator;
 import org.olat.core.id.Identity;
 import org.olat.core.util.Formatter;
 import org.olat.core.util.StringHelper;
-import org.olat.core.util.mail.model.DBMailImpl;
+import org.olat.core.util.mail.model.DBMail;
 import org.olat.core.util.mail.model.DBMailRecipient;
 
 /**
@@ -44,14 +44,14 @@ import org.olat.core.util.mail.model.DBMailRecipient;
  */
 public class MailDataModel implements TableDataModelWithMarkableRows {
 	
-	private List<DBMailImpl> mails;
-	private List<DBMailImpl> filteredMails;
+	private List<DBMail> mails;
+	private List<DBMail> filteredMails;
 	private final Identity identity;
 	private final Formatter formatter;
 	private final Translator translator;
 	private final Map<String,String> bpToContexts;
 	
-	public MailDataModel(List<DBMailImpl> mails, Map<String,String> bpToContexts, Identity identity,
+	public MailDataModel(List<DBMail> mails, Map<String,String> bpToContexts, Identity identity,
 			Translator translator, Formatter formatter) {
 		this.mails = mails;
 		this.bpToContexts = bpToContexts;
@@ -72,7 +72,7 @@ public class MailDataModel implements TableDataModelWithMarkableRows {
 
 	@Override
 	public Object getValueAt(int row, int col) {
-		DBMailImpl mail = filteredMails == null ? mails.get(row) : filteredMails.get(row);
+		DBMail mail = filteredMails == null ? mails.get(row) : filteredMails.get(row);
 		Columns[] cols = Columns.values();
 		if(col < cols.length) {
 			switch(cols[col]) {
@@ -140,7 +140,7 @@ public class MailDataModel implements TableDataModelWithMarkableRows {
 	}
 
 	@Override
-	public Object getObject(int row) {
+	public DBMail getObject(int row) {
 		return filteredMails == null ? mails.get(row) : filteredMails.get(row);
 	}
 
@@ -155,7 +155,7 @@ public class MailDataModel implements TableDataModelWithMarkableRows {
 	 */
 	@Override
 	public String getRowCssClass(int row) {
-		DBMailImpl mail = filteredMails == null ? mails.get(row) : filteredMails.get(row);
+		DBMail mail = filteredMails == null ? mails.get(row) : filteredMails.get(row);
 		for(DBMailRecipient recipient:mail.getRecipients()) {
 			if(recipient != null && recipient.getRecipient() != null && recipient.getRecipient().equalsByPersistableKey(identity)) {
 				if (!recipient.getRead()) {
@@ -166,7 +166,7 @@ public class MailDataModel implements TableDataModelWithMarkableRows {
 		return null;
 	}
 
-	public void replace(DBMailImpl mail) {
+	public void replace(DBMail mail) {
 		int index = mails.indexOf(mail);
 		if(index >= 0 && index < mails.size()) {
 			mails.set(index, mail);
@@ -177,8 +177,8 @@ public class MailDataModel implements TableDataModelWithMarkableRows {
 		if(filter == null || !StringHelper.containsNonWhitespace(filter.getBusinessPath())) {
 			filteredMails = null;
 		} else {
-			filteredMails = new ArrayList<DBMailImpl>();
-			for(DBMailImpl mail:mails) {
+			filteredMails = new ArrayList<DBMail>();
+			for(DBMail mail:mails) {
 				if(filter.getBusinessPath().equals(mail.getContext().getBusinessPath())) {
 					filteredMails.add(mail);
 				}
@@ -188,7 +188,7 @@ public class MailDataModel implements TableDataModelWithMarkableRows {
 
 	@Override
 	public Object createCopyWithEmptyList() {
-		return new MailDataModel(Collections.<DBMailImpl>emptyList(), bpToContexts, identity, translator, formatter);
+		return new MailDataModel(Collections.<DBMail>emptyList(), bpToContexts, identity, translator, formatter);
 	}
 	
 	public enum Columns {
@@ -228,8 +228,5 @@ public class MailDataModel implements TableDataModelWithMarkableRows {
 		public String getBusinessPath() {
 			return businessPath;
 		}
-		
-		
-		
 	}
 }

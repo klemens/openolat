@@ -55,8 +55,11 @@ import org.olat.core.gui.control.generic.modal.DialogBoxController;
 import org.olat.core.gui.control.generic.modal.DialogBoxUIFactory;
 import org.olat.core.util.Formatter;
 import org.olat.core.util.StringHelper;
+import org.olat.core.util.mail.MailHelper;
 import org.olat.core.util.mail.MailModule;
+import org.olat.core.util.mail.MailerResult;
 import org.olat.core.util.mail.manager.MailManager;
+import org.olat.core.util.mail.model.DBMail;
 import org.olat.core.util.mail.model.DBMailImpl;
 import org.olat.core.util.mail.model.DBMailRecipient;
 import org.olat.core.util.mail.ui.MailDataModel.Columns;
@@ -189,14 +192,14 @@ public class MailListController extends BasicController implements Activateable 
 		putInitialPanel(mainVC);
 	}
 	
-	private void replaceInModel(DBMailImpl mail) {
+	private void replaceInModel(DBMail mail) {
 		MailDataModel dataModel = (MailDataModel)tableCtr.getTableDataModel();
 		dataModel.replace(mail);
 		tableCtr.modelChanged();
 	}
 	
 	private void reloadModel() {
-		List<DBMailImpl> mails;
+		List<DBMail> mails;
 		if(outbox) {
 			if(StringHelper.containsNonWhitespace(metaId)) {
 				mails = MailManager.getInstance().getEmailsByMetaId(metaId);
@@ -206,8 +209,8 @@ public class MailListController extends BasicController implements Activateable 
 			
 			//strip meta emails
 			Set<String> metaIds = new HashSet<String>();
-			for(Iterator<DBMailImpl> it=mails.iterator(); it.hasNext(); ) {
-				DBMailImpl mail = it.next();
+			for(Iterator<DBMail> it=mails.iterator(); it.hasNext(); ) {
+				DBMail mail = it.next();
 				if(StringHelper.containsNonWhitespace(mail.getMetaId())) {
 					if(metaIds.contains(mail.getMetaId())) {
 						it.remove();
@@ -217,12 +220,12 @@ public class MailListController extends BasicController implements Activateable 
 				}
 			}
 		} else {
-			mails = MailManager.getInstance().getInbox(getIdentity(), null, Boolean.TRUE, 0, 0);
+			mails = MailManager.getInstance().getInbox(getIdentity(), null, Boolean.TRUE, null, 0, 0);
 		}
 		
 		//extract contexts
 		Map<String, String> bpToContexts = new HashMap<String, String>();
-		for(DBMailImpl mail:mails) {
+		for(DBMail mail:mails) {
 			String businessPath = mail.getContext().getBusinessPath();
 			if(StringHelper.containsNonWhitespace(businessPath) && !bpToContexts.containsKey(businessPath)) {
 				String contextName = contextResolver.getName(businessPath, getLocale());
@@ -270,7 +273,7 @@ public class MailListController extends BasicController implements Activateable 
 				TableEvent te = (TableEvent) event;
 				String actionid = te.getActionId();
 				int rowid = te.getRowId();
-				DBMailImpl mail = (DBMailImpl)tableCtr.getTableDataModel().getObject(rowid);
+				DBMail mail = (DBMail)tableCtr.getTableDataModel().getObject(rowid);
 				if(CMD_READ.equals(actionid)) {
 					if(outbox && StringHelper.containsNonWhitespace(mail.getMetaId()) && !mail.getMetaId().equals(metaId)) {
 						selectMetaMail(ureq, mail.getMetaId());
@@ -312,9 +315,11 @@ public class MailListController extends BasicController implements Activateable 
 					deleteConfirmationBox.setUserObject(selectedMails);
 				} else if (CMD_SEND_REAL_MAIL.equals(actionid)) {
 					for (int i=selectedMails.nextSetBit(0); i >= 0; i=selectedMails.nextSetBit(i+1)) {
-						DBMailImpl mail = (DBMailImpl) tableCtr.getTableDataModel().getObject(i);						
-						//TODO SR implement forward to users real mail address
-						
+						DBMail mail = (DBMail) tableCtr.getTableDataModel().getObject(i);						
+						MailerResult result = forwardToMyRealMail(mail);
+						if(result.getReturnCode() != MailerResult.OK) {
+							MailHelper.printErrorsAndWarnings(result, getWindowControl(), getLocale());
+						}
 					}				
 					reloadModel();
 				} else if (CMD_MARK_MARKED.equals(actionid) || CMD_MARK_UNMARKED.equals(actionid)) {
@@ -389,6 +394,10 @@ public class MailListController extends BasicController implements Activateable 
 		mainVC.put(MAIN_CMP, tableVC);
 	}
 	
+	private MailerResult forwardToMyRealMail(DBMail mail) {
+		return mailManager.forwardToRealInbox(getIdentity(), mail, null);
+	}
+	
 	private void selectMetaMail(UserRequest ureq, String metaID) {
 		metaMailCtr = new MailListController(ureq, getWindowControl(), metaID, outbox, contextResolver);
 		listenTo(metaMailCtr);
@@ -396,11 +405,11 @@ public class MailListController extends BasicController implements Activateable 
 	}
 	
 	private void selectMail(UserRequest ureq, Long mailKey) {
-		DBMailImpl mail = mailManager.getMessageByKey(mailKey);
+		DBMail mail = mailManager.getMessageByKey(mailKey);
 		selectMail(ureq, mail);
 	}
 	
-	private void selectMail(UserRequest ureq, DBMailImpl mail) {
+	private void selectMail(UserRequest ureq, DBMail mail) {
 		removeAsListenerAndDispose(mailCtr);
 		boolean back = !StringHelper.containsNonWhitespace(mail.getMetaId()) || !outbox;
 		mailCtr = new MailController(ureq, getWindowControl(), mail, back);

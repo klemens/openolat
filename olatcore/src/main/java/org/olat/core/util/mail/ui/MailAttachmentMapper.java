@@ -33,9 +33,8 @@ import org.olat.core.gui.media.NotFoundMediaResource;
 import org.olat.core.util.StringHelper;
 import org.olat.core.util.WebappHelper;
 import org.olat.core.util.mail.manager.MailManager;
-import org.olat.core.util.mail.model.DBMailAttachment;
+import org.olat.core.util.mail.model.DBMail;
 import org.olat.core.util.mail.model.DBMailAttachmentData;
-import org.olat.core.util.mail.model.DBMailImpl;
 
 /**
  * 
@@ -50,10 +49,10 @@ public class MailAttachmentMapper implements Mapper {
 	
 	public static final String ATTACHMENT_CONTEXT =  "/attachments/";
 	
-	private final DBMailImpl mail;
+	private final DBMail mail;
 	private final MailManager mailManager;
 	
-	public MailAttachmentMapper(DBMailImpl mail, MailManager mailManager) {
+	public MailAttachmentMapper(DBMail mail, MailManager mailManager) {
 		this.mail = mail;
 		this.mailManager = mailManager;
 	}

@@ -29,6 +29,7 @@ import org.olat.core.logging.LogDelegator;
 import org.olat.core.util.StringHelper;
 import org.olat.core.util.Util;
 import org.olat.core.util.mail.MailModule;
+import org.olat.core.util.mail.model.DBMail;
 import org.olat.core.util.mail.model.DBMailImpl;
 import org.olat.core.util.notifications.NotificationHelper;
 import org.olat.core.util.notifications.NotificationsHandler;
@@ -90,11 +91,11 @@ public class MailNotificationsHandler extends LogDelegator implements Notificati
 		// can't be loaded when already deleted
 		if (NotificationsManager.getInstance().isPublisherValid(p) && compareDate.before(latestNews)) {
 			try {
-				List<DBMailImpl> inbox = MailManager.getInstance().getInbox(subscriber.getIdentity(), Boolean.TRUE, Boolean.FALSE, 0, 0);
+				List<DBMail> inbox = MailManager.getInstance().getInbox(subscriber.getIdentity(), Boolean.TRUE, Boolean.FALSE, compareDate, 0, 0);
 				if(!inbox.isEmpty()) {
 					Translator translator = Util.createPackageTranslator(MailModule.class, locale);
 					si = new SubscriptionInfo(new TitleItem(translator.translate("mail.notification.type"), "o_co_icon"), null);
-					for (DBMailImpl mail : inbox) {
+					for (DBMail mail : inbox) {
 						String subject = mail.getSubject();
 						String businessPath = "[Inbox:" + mail.getKey() + "]";
 						String urlToSend = NotificationHelper.getURLFromBusinessPathString(p, businessPath);
