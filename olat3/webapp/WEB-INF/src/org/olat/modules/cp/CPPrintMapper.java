@@ -138,7 +138,7 @@ public class CPPrintMapper implements Mapper {
 		}
 		injectJavascriptAndCss(sb);
 		
-		sb.append("</head><body>");
+		sb.append("</head><body onload='window.focus();window.print()'>");
 		for(NekoHtmlPageHandler page:parsedPages) {
 			if(page.isEmpty()) {
 				String title = page.getTitle();
@@ -174,9 +174,11 @@ public class CPPrintMapper implements Mapper {
 		sb.append("\"></script>");
 		output.append(sb.toString());
 		
+		/*
 		output.append("<script>")
-			.append("Ext.onReady(function() { window.focus(); window.print() });")
+			.append("window.onLoad(function() { window.focus(); window.print() });")
 			.append("</script>");
+*/
 		
 		output.append("<link href=\"").append(themeBaseUri).append("all/content.css\" rel=\"stylesheet\" type=\"text/css\" />\n");
 	}

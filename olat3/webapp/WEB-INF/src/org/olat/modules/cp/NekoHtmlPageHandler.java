@@ -147,7 +147,7 @@ public class NekoHtmlPageHandler extends DefaultHandler {
 	}
 	
 	private final String normalizeUri(String uri) {
-		if(uri.indexOf("://") > 0) {
+		if(uri.indexOf("://") > 0 || uri.startsWith("/")) {
 			return uri;//absolute link, nothing to do
 		}
 		
