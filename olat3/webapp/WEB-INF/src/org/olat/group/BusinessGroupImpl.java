@@ -52,6 +52,8 @@ public class BusinessGroupImpl extends PersistentObject implements BusinessGroup
 	private BGContext groupContext;
 	private Boolean waitingListEnabled;
 	private Boolean autoCloseRanksEnabled;
+	//fxdiff VCRP-1,2: access control of resources
+	private Boolean visibleToNonMembers;
 	private Date lastModified;
 
 	private static final int TYPE_MAXLENGTH = 15;
@@ -277,6 +279,15 @@ public class BusinessGroupImpl extends PersistentObject implements BusinessGroup
 		this.waitingListEnabled = waitingListEnabled;
 	}
 	
+	//fxdiff VCRP-1,2: access control of resources
+	public Boolean getVisibleToNonMembers() {
+		return visibleToNonMembers;
+	}
+
+	public void setVisibleToNonMembers(Boolean visibleToNonMembers) {
+		this.visibleToNonMembers = visibleToNonMembers;
+	}
+
 	/**
 	 * Compares the keys.
 	 * @see java.lang.Object#equals(java.lang.Object)

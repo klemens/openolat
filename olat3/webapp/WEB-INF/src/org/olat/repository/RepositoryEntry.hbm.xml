@@ -40,6 +40,20 @@
                      outer-join="true"   
                      unique="true" 
                      cascade="none"/>
+                     
+		<many-to-one name="participantGroup"
+                     column="fk_participantgroup"
+                     class="org.olat.basesecurity.SecurityGroupImpl" 
+                     outer-join="true"   
+                     unique="true" 
+                     cascade="none"/>
+                     
+		<many-to-one name="tutorGroup"
+                     column="fk_tutorgroup"
+                     class="org.olat.basesecurity.SecurityGroupImpl" 
+                     outer-join="true"   
+                     unique="true" 
+                     cascade="none"/>
 
 		<property name="description" type="string">
 			<column name="description" length="16777210" unique="false" not-null="false" />

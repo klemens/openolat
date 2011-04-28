@@ -22,6 +22,7 @@
 package org.olat.group.ui.run;
 
 import java.util.List;
+
 import org.olat.ControllerFactory;
 import org.olat.admin.securitygroup.gui.GroupController;
 import org.olat.basesecurity.BaseSecurity;
@@ -30,6 +31,7 @@ import org.olat.basesecurity.Constants;
 import org.olat.basesecurity.SecurityGroup;
 import org.olat.collaboration.CollaborationTools;
 import org.olat.collaboration.CollaborationToolsFactory;
+import org.olat.core.CoreSpringFactory;
 import org.olat.core.commons.fullWebApp.LayoutMain3ColsController;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.Windows;
@@ -61,6 +63,7 @@ import org.olat.core.id.context.ContextEntry;
 import org.olat.core.logging.AssertException;
 import org.olat.core.logging.activity.OlatResourceableType;
 import org.olat.core.logging.activity.ThreadLocalUserActivityLogger;
+import org.olat.core.util.StringHelper;
 import org.olat.core.util.UserSession;
 import org.olat.core.util.Util;
 import org.olat.core.util.coordinate.CoordinatorManager;
@@ -89,6 +92,12 @@ import org.olat.modules.wiki.WikiManager;
 import org.olat.repository.RepositoryEntry;
 import org.olat.repository.RepositoryTableModel;
 import org.olat.resource.OLATResource;
+import org.olat.resource.OLATResourceManager;
+import org.olat.resource.accesscontrol.ACUIFactory;
+import org.olat.resource.accesscontrol.AccessResult;
+import org.olat.resource.accesscontrol.manager.ACFrontendManager;
+import org.olat.resource.accesscontrol.model.OfferAccess;
+import org.olat.resource.accesscontrol.ui.AccessEvent;
 import org.olat.util.logging.activity.LoggingResourceable;
 
 /**
@@ -146,6 +155,9 @@ public class BusinessGroupMainRunController extends MainLayoutBasicController im
 	public static final String ACTIVITY_MENUSELECT_WIKI = "MENU_SHOW_WIKI";
 	/* activity identitfyer: user selected show portoflio in menu */
 	public static final String ACTIVITY_MENUSELECT_PORTFOLIO = "MENU_SHOW_PORTFOLIO";
+	/* activity identitfyer: user selected show access control in menu */
+	//fxdiff VCRP-1,2: access control of resources
+	public static final String ACTIVITY_MENUSELECT_AC = "MENU_SHOW_AC";
 
 	private Panel mainPanel;
 	private VelocityContainer main, vc_sendToChooserForm, resourcesVC;
@@ -162,6 +174,8 @@ public class BusinessGroupMainRunController extends MainLayoutBasicController im
 	private Controller chatCtr;
 	
 	private BusinessGroupEditController bgEditCntrllr;
+	//fxdiff VCRP-1,2: access control of resources
+	private Controller bgACHistoryCtrl;
 	private TableController resourcesCtr;
 
 	private BusinessGroupSendToChooserForm sendToChooserForm;
@@ -177,6 +191,7 @@ public class BusinessGroupMainRunController extends MainLayoutBasicController im
 	private BusinessGroupPropertyManager bgpm;
 	private UserSession userSession;
 	private String adminNodeId; // reference to admin menu item
+	private String acNodeId;//fxdiff VCRP-1,2: access control of resources
 
 	// not null indicates tool is enabled
 	private GenericTreeNode nodeFolder;
@@ -186,6 +201,8 @@ public class BusinessGroupMainRunController extends MainLayoutBasicController im
 	private GenericTreeNode nodePortfolio;
 	private boolean groupRunDisabled;
 	private OLATResourceable assessmentEventOres;
+	//fxdiff VCRP-1,2: access control of resources
+	private Controller accessController;
 
 	/**
 	 * Do not use this constructor! Use the BGControllerFactory instead!
@@ -259,6 +276,24 @@ public class BusinessGroupMainRunController extends MainLayoutBasicController im
 		if(AssessmentEvent.isAssessmentStarted(ureq.getUserSession())){
 			groupRunDisabled = true;
 			this.showError("grouprun.disabled");				
+		}
+		
+		//check managed
+		//fxdiff VCRP-1,2: access control of resources
+		ACFrontendManager acFrontendManager = (ACFrontendManager)CoreSpringFactory.getBean("acFrontendManager");
+		AccessResult acResult = acFrontendManager.isAccessible(currBusinessGroup, getIdentity(), false);
+		if(acResult.isAccessible()) {
+			//ok
+		}  else if (currBusinessGroup != null && acResult.getAvailableMethods().size() > 0) {
+			accessController = ACUIFactory.createAccessController(ureq, getWindowControl(), acResult.getAvailableMethods());
+			listenTo(accessController);
+			mainPanel.setContent(accessController.getInitialComponent());
+			bgTree.setTreeModel(new GenericTreeModel());
+			return;
+		} else {
+			mainPanel.setContent(new Panel("empty"));
+			bgTree.setTreeModel(new GenericTreeModel());
+			return;
 		}
 
 		//REVIEW:PB:2009-05-31: consolidate ContextEntry <-> initialViewIdentifier Concept -> go for ContextEntry at the end.
@@ -461,8 +496,22 @@ public class BusinessGroupMainRunController extends MainLayoutBasicController im
 				bgTree.setSelectedNodeId(bgTree.getTreeModel().getRootNode().getIdent());
 				mainPanel.setContent(main);
 			}
-		}  
-
+		//fxdiff VCRP-1,2: access control of resources
+		} else if (source == accessController) {
+			if(event.equals(AccessEvent.ACCESS_OK_EVENT)) {
+				mainPanel.setContent(main);
+				bgTree.setTreeModel(buildTreeModel());
+				removeAsListenerAndDispose(accessController);
+				accessController = null;
+			} else if(event.equals(AccessEvent.ACCESS_FAILED_EVENT)) {
+				String msg = ((AccessEvent)event).getMessage();
+				if(StringHelper.containsNonWhitespace(msg)) {
+					getWindowControl().setError(msg);
+				} else {
+					showError("error.accesscontrol");
+				}
+			}
+		}
 	}
 
 	/**
@@ -683,6 +732,9 @@ public class BusinessGroupMainRunController extends MainLayoutBasicController im
 			collabToolCtr = collabTools.createPortfolioController(ureq, bwControl, businessGroup);
 			listenTo(collabToolCtr);
 			mainPanel.setContent(collabToolCtr.getInitialComponent());
+		//fxdiff VCRP-1,2: access control of resources
+		}  else if (ACTIVITY_MENUSELECT_AC.equals(cmd)) {
+			doAccessControlHistory(ureq);
 		} 
 	}
 
@@ -691,6 +743,15 @@ public class BusinessGroupMainRunController extends MainLayoutBasicController im
 		bgEditCntrllr = BGControllerFactory.getInstance().createEditControllerFor(ureq, getWindowControl(), businessGroup);
 		listenTo(bgEditCntrllr);
 		mainPanel.setContent(bgEditCntrllr.getInitialComponent());
+	}
+	
+	//fxdiff VCRP-1,2: access control of resources
+	private void doAccessControlHistory(UserRequest ureq) {
+		removeAsListenerAndDispose(bgACHistoryCtrl);
+		OLATResource resource = OLATResourceManager.getInstance().findResourceable(businessGroup);
+		bgACHistoryCtrl = ACUIFactory.createOrdersAdminController(ureq, getWindowControl(), resource);
+		listenTo(bgACHistoryCtrl);
+		mainPanel.setContent(bgACHistoryCtrl.getInitialComponent());
 	}
 
 	private void doContactForm(UserRequest ureq) {
@@ -968,6 +1029,15 @@ public class BusinessGroupMainRunController extends MainLayoutBasicController im
 			gtnChild.setIconCssClass("o_admin_icon");
 			root.addChild(gtnChild);
 			adminNodeId = gtnChild.getIdent();
+			//fxdiff VCRP-1,2: access control of resources
+			gtnChild = new GenericTreeNode();
+			gtnChild.setTitle(translate("menutree.ac"));
+			gtnChild.setUserObject(ACTIVITY_MENUSELECT_AC);
+			gtnChild.setIdent(ACTIVITY_MENUSELECT_AC);
+			gtnChild.setAltText(translate("menutree.ac.alt"));
+			gtnChild.setIconCssClass("b_order_icon");
+			root.addChild(gtnChild);
+			acNodeId = gtnChild.getIdent();
 		}
 
 		return gtm;

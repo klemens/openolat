@@ -1333,4 +1333,8 @@
    	.b_table_wrapper .b_marked { font-weight: bold; }
 	ul.b_mail_attachments { list-style: none; margin:0; padding:0; }
 	ul.b_mail_attachments li { margin:0; }
+	
+	/* ACCESS CONTROL */
+	.b_group_accesscontrolled { background-image: url(../images/olat/ac_small.png); }
+	.b_order_icon { background-image: url(../images/olat/ac_small.png); }
 }

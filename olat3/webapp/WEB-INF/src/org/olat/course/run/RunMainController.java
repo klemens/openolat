@@ -26,10 +26,12 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+
 import org.olat.basesecurity.BaseSecurity;
 import org.olat.basesecurity.BaseSecurityManager;
 import org.olat.bookmark.AddAndEditBookmarkController;
 import org.olat.bookmark.BookmarkManager;
+import org.olat.core.CoreSpringFactory;
 import org.olat.core.commons.fullWebApp.LayoutMain3ColsController;
 import org.olat.core.commons.fullWebApp.popup.BaseFullWebappPopupLayoutFactory;
 import org.olat.core.commons.persistence.PersistenceHelper;
@@ -71,6 +73,7 @@ import org.olat.core.logging.OLATSecurityException;
 import org.olat.core.logging.Tracing;
 import org.olat.core.logging.activity.CourseLoggingAction;
 import org.olat.core.logging.activity.ThreadLocalUserActivityLogger;
+import org.olat.core.util.StringHelper;
 import org.olat.core.util.coordinate.CoordinatorManager;
 import org.olat.core.util.coordinate.SyncerExecutor;
 import org.olat.core.util.event.GenericEventListener;
@@ -123,6 +126,12 @@ import org.olat.repository.controllers.EntryChangedEvent;
 import org.olat.repository.controllers.RepositoryDetailsController;
 import org.olat.repository.controllers.RepositoryMainController;
 import org.olat.repository.site.RepositorySite;
+import org.olat.resource.accesscontrol.ACUIFactory;
+import org.olat.resource.accesscontrol.AccessResult;
+import org.olat.resource.accesscontrol.manager.ACFrontendManager;
+import org.olat.resource.accesscontrol.model.OfferAccess;
+import org.olat.resource.accesscontrol.ui.AccessEvent;
+import org.olat.resource.accesscontrol.ui.SecurityGroupsRepositoryMainController;
 import org.olat.util.logging.activity.LoggingResourceable;
 
 /**
@@ -147,7 +156,7 @@ public class RunMainController extends MainLayoutBasicController implements Gene
 	private final OLATResourceable courseRunOres; //course run ores for course run channel 
 
 	private ICourse course;//o_clusterOK: this controller listen to course change events
-	private RepositoryEntry courseRepositoryEntry;
+	private final RepositoryEntry courseRepositoryEntry;
 	private MenuTree luTree;
 	private Panel contentP;
 	private Panel all;
@@ -190,6 +199,9 @@ public class RunMainController extends MainLayoutBasicController implements Gene
 	private Link currentUserCountLink;
 	private int currentUserCount;
 	
+	//fxdiff VCRP-1,2: access control of resources
+	private Controller accessController;
+	
 	/**
 	 * Constructor for the run main controller
 	 * 
@@ -205,7 +217,7 @@ public class RunMainController extends MainLayoutBasicController implements Gene
 	 */
 	public RunMainController(final UserRequest ureq, final WindowControl wControl, final ICourse course, final String initialViewIdentifier,
 			final boolean offerBookmark, final boolean showCourseConfigLink) {
-		super(ureq, wControl);		
+		super(ureq, wControl);
 				
 		this.course = course;
 		addLoggingResourceable(LoggingResourceable.wrap(course));
@@ -226,7 +238,7 @@ public class RunMainController extends MainLayoutBasicController implements Gene
 		// set up the components
 		all = new Panel("allofcourse");
 		luTree = new MenuTree("luTreeRun", this);
-		luTree.setExpandSelectedNode(false);
+		//luTree.setExpandSelectedNode(false);
 		contentP = new Panel("building_block_content");
 
 		// get all group memberships for this course
@@ -309,8 +321,22 @@ public class RunMainController extends MainLayoutBasicController implements Gene
 				}
 			}
 		}
-
-		updateTreeAndContent(ureq, currentCourseNode, subsubId);
+		
+		//check managed
+		//fxdiff VCRP-1,2: access control of resources
+		ACFrontendManager acFrontendManager = (ACFrontendManager)CoreSpringFactory.getBean("acFrontendManager");
+		AccessResult acResult = acFrontendManager.isAccessible(courseRepositoryEntry, getIdentity(), false);
+		if(acResult.isAccessible()) {
+			updateTreeAndContent(ureq, currentCourseNode, subsubId);
+		} else if (courseRepositoryEntry != null && acResult.getAvailableMethods().size() > 0) {
+			accessController = ACUIFactory.createAccessController(ureq, getWindowControl(), acResult.getAvailableMethods());
+			listenTo(accessController);
+			contentP.setContent(accessController.getInitialComponent());
+			luTree.setTreeModel(new GenericTreeModel());
+		} else {
+			wControl.setWarning(translate("course.closed"));
+			luTree.setTreeModel(new GenericTreeModel());
+		}
 		
 		//set the launch date after the evaluation
 		setLaunchDates(identity);
@@ -737,6 +763,20 @@ public class RunMainController extends MainLayoutBasicController implements Gene
 			// must work with SP and CP nodes, IFrameDisplayController listens to this event and expects "ICourse" resources.
 			String oresName = ICourse.class.getSimpleName();
 			ureq.getUserSession().getSingleUserEventCenter().fireEventToListenersOf(new MultiUserEvent(event.getCommand()), OresHelper.createOLATResourceableInstance(oresName, courseID));
+		//fxdiff VCRP-1,2: access control of resources
+		} else if (source == accessController) {
+			if(event.equals(AccessEvent.ACCESS_OK_EVENT)) {
+				updateTreeAndContent(ureq, null, null);
+				removeAsListenerAndDispose(accessController);
+				accessController = null;
+			} else if(event.equals(AccessEvent.ACCESS_FAILED_EVENT)) {
+				String msg = ((AccessEvent)event).getMessage();
+				if(StringHelper.containsNonWhitespace(msg)) {
+					getWindowControl().setError(msg);
+				} else {
+					showError("error.accesscontrol");
+				}
+			}
 		}
 	}
 
@@ -796,7 +836,15 @@ public class RunMainController extends MainLayoutBasicController implements Gene
 				listenTo(currentToolCtr);
 				all.setContent(currentToolCtr.getInitialComponent());
 			} else throw new OLATSecurityException("clicked groupmanagement, but no according right");
-
+		//fxdiff VCRP-1,2: access control of resources
+		} else if (cmd.equals("simplegroupmngt")) {
+			if (hasCourseRight(CourseRights.RIGHT_GROUPMANAGEMENT) || isCourseAdmin) {
+				boolean mayModifyMembers = true;
+				currentToolCtr = new SecurityGroupsRepositoryMainController(ureq, getWindowControl(), course, courseRepositoryEntry, mayModifyMembers);
+				listenTo(currentToolCtr);
+				all.setContent(currentToolCtr.getInitialComponent());
+			} else throw new OLATSecurityException("clicked groupmanagement, but no according right");
+			
 		} else if (cmd.equals("rightmngt")) {
 			if (isCourseAdmin) {
 				currentToolCtr = new CourseGroupManagementMainController(ureq, getWindowControl(), course, BusinessGroup.TYPE_RIGHTGROUP);
@@ -930,7 +978,7 @@ public class RunMainController extends MainLayoutBasicController implements Gene
 			PopupBrowserWindow pbw = getWindowControl().getWindowBackOffice().getWindowManager().createNewPopupBrowserWindowFor(ureq, layoutCtrlr);
 			pbw.open(ureq);
 			//
-		} 
+		}
 	}
 
 	private void launchAssessmentTool(UserRequest ureq, String viewIdentifier) {
@@ -1097,6 +1145,8 @@ public class RunMainController extends MainLayoutBasicController implements Gene
 			}
 			if (hasCourseRight(CourseRights.RIGHT_GROUPMANAGEMENT) || isCourseAdmin) {
 				myTool.addLink("groupmngt", translate("command.opengroupmngt"));
+				//fxdiff VCRP-1,2: access control of resources
+				myTool.addLink("simplegroupmngt", translate("command.opensimplegroupmngt"));
 			}
 			if (isCourseAdmin) {
 				myTool.addLink("rightmngt", translate("command.openrightmngt"));

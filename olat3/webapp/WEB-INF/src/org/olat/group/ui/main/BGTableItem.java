@@ -35,15 +35,32 @@ import org.olat.repository.RepositoryEntry;
  * @author srosse, stephane.rosse@frentix.com, http://www.frentix.com
  */
 public class BGTableItem {
+	private boolean accessControl;
+	private final boolean member;
 	private final Boolean allowLeave;
 	private final Boolean allowDelete;
 	private final BusinessGroup businessGroup;
 	private List<RepositoryEntry> resources;
 	
-	public BGTableItem(BusinessGroup businessGroup, Boolean allowLeave, Boolean allowDelete) {
+	public BGTableItem(BusinessGroup businessGroup, boolean member, Boolean allowLeave, Boolean allowDelete, boolean accessControl) {
+		this.accessControl = accessControl;
 		this.businessGroup = businessGroup;
+		this.member = member;
 		this.allowLeave = allowLeave;
 		this.allowDelete = allowDelete;
+	}
+
+	//fxdiff VCRP-1,2: access control of resources
+	public boolean isMember() {
+		return member;
+	}
+	//fxdiff VCRP-1,2: access control of resources
+	public boolean isAccessControl() {
+		return accessControl;
+	}
+
+	public void setAccessControl(boolean accessControl) {
+		this.accessControl = accessControl;
 	}
 
 	public Boolean getAllowLeave() {

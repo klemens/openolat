@@ -76,6 +76,8 @@ import org.olat.notifications.NotificationUIFactory;
 import org.olat.portfolio.EPUIFactory;
 import org.olat.portfolio.PortfolioModule;
 import org.olat.portfolio.manager.EPFrontendManager;
+import org.olat.resource.accesscontrol.ACUIFactory;
+import org.olat.resource.accesscontrol.AccessControlModule;
 import org.olat.user.HomePageConfigManager;
 import org.olat.user.HomePageConfigManagerImpl;
 import org.olat.user.PersonalFolderManager;
@@ -146,6 +148,7 @@ public class HomeMainController extends MainLayoutBasicController implements Act
 	private static final String MENU_ROOT = "root";
 	private static final String MENU_OTHERUSERS = "otherusers";
 	private static final String MENU_MAIL = "mail";
+	private static final String MENU_ORDER = "order";//fxdiff VCRP-1,2: access control of resources
 	private static final String MENU_PORTFOLIO = "portfolio";
 	private static final String MENU_PORTFOLIO_ARTEFACTS = "AbstractArtefact";
 	private static final String MENU_PORTFOLIO_MY_MAPS = "portfolioMyMaps";
@@ -405,7 +408,11 @@ public class HomeMainController extends MainLayoutBasicController implements Act
 		} else if (uobject.equals(MENU_OTHERUSERS)) {
 			titleStr = translate("menu.otherusers");
 			return new UserSearchController(ureq, getWindowControl(), false);
-		} else if (uobject.equals(MENU_PORTFOLIO_ARTEFACTS)) {
+		//fxdiff VCRP-1,2: access control of resources
+		} else if (uobject.equals(MENU_ORDER)) {
+			titleStr = "";
+			return ACUIFactory.createOrdersController(ureq, getWindowControl());
+		}  else if (uobject.equals(MENU_PORTFOLIO_ARTEFACTS)) {
 			titleStr = "";
 			return EPUIFactory.createPortfolioPoolController(ureq, getWindowControl());
 		} else if (uobject.equals(MENU_PORTFOLIO_MY_MAPS)) {
@@ -492,6 +499,15 @@ public class HomeMainController extends MainLayoutBasicController implements Act
 			gtn.setTitle(translate("menu.mail"));
 			gtn.setUserObject(MENU_MAIL);
 			gtn.setAltText(translate("menu.mail.alt"));
+			root.addChild(gtn);
+		}
+		//fxdiff VCRP-1,2: access control of resources
+		AccessControlModule acModule = (AccessControlModule)CoreSpringFactory.getBean("acModule");
+		if(acModule.isHomeOverviewEnabled() && acModule.isEnabled()) {
+			gtn = new GenericTreeNode();
+			gtn.setTitle(translate("menu.orders"));
+			gtn.setUserObject(MENU_ORDER);
+			gtn.setAltText(translate("menu.orders.alt"));
 			root.addChild(gtn);
 		}
 		

@@ -178,6 +178,8 @@ public class CORunController extends BasicController {
 		CourseGroupManager cgm = this.userCourseEnv.getCourseEnvironment().getCourseGroupManager();
 		List<Identity> coaches = cgm.getCoachesFromLearningGroup(null);
 		Set<Identity> coachesWithoutDuplicates = new HashSet<Identity>(coaches);
+		//fxdiff VCRP-1,2: access control of resources
+		coachesWithoutDuplicates.addAll(cgm.getCoaches());
 		coaches = new ArrayList<Identity>(coachesWithoutDuplicates);
 		ContactList cl = new ContactList(translate("form.message.chckbx.coaches"));
 		cl.addAllIdentites(coaches);
@@ -189,7 +191,8 @@ public class CORunController extends BasicController {
 		List<Identity> participiants = cgm.getParticipantsFromLearningGroup(null);
 		//FIXME:pb:c docu getParticipantsFromLearningGroup: really duplicates?
 		Set<Identity> participantsWithoutDuplicates = new HashSet<Identity>(participiants);
-		
+		//fxdiff VCRP-1,2: access control of resources
+		participantsWithoutDuplicates.addAll(cgm.getParticipants());
 		participiants = new ArrayList<Identity>(participantsWithoutDuplicates);
 		ContactList cl = new ContactList(translate("form.message.chckbx.partips"));
 		cl.addAllIdentites(participiants);

@@ -62,6 +62,9 @@ public class RepositoryEntry extends PersistentObject implements ModifiedInfo, O
 	private String softkey; // mandatory
 	private OLATResource olatResource; // mandatory
 	private SecurityGroup ownerGroup; // mandatory
+	//fxdiff VCRP-1,2: access control of resources
+	private SecurityGroup tutorGroup;
+	private SecurityGroup participantGroup;
 	private String resourcename; // mandatory
 	private String displayname; // mandatory
 	private String description; // mandatory
@@ -215,6 +218,38 @@ public class RepositoryEntry extends PersistentObject implements ModifiedInfo, O
 		this.ownerGroup = ownerGroup;
 	}
 	
+	/**
+	 * @return The group for tutors
+	 */
+	//fxdiff VCRP-1,2: access control of resources
+	public SecurityGroup getTutorGroup() {
+		return tutorGroup;
+	}
+
+	/**
+	 * Set the group for tutors
+	 * @param tutorGroup
+	 */
+	public void setTutorGroup(SecurityGroup tutorGroup) {
+		this.tutorGroup = tutorGroup;
+	}
+
+	/**
+	 * @return The group of participants
+	 */
+	//fxdiff VCRP-1,2: access control of resources
+	public SecurityGroup getParticipantGroup() {
+		return participantGroup;
+	}
+
+	/**
+	 * Set the group of participants
+	 * @param participantGroup
+	 */
+	public void setParticipantGroup(SecurityGroup participantGroup) {
+		this.participantGroup = participantGroup;
+	}
+
 	/**
 	 * @return Wether this repo entry can be copied.
 	 */

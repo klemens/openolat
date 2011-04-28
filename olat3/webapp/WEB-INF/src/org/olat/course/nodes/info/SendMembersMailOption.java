@@ -78,13 +78,17 @@ public class SendMembersMailOption implements SendMailOption {
 			List<Identity> coaches = cgm.getCoachesFromLearningGroup(bg.getName());
 			identities.addAll(coaches);
 		}
-
+		//fxdiff VCRP-1,2: access control of resources
 		RepositoryEntry repositoryEntry = rm.lookupRepositoryEntry(course, true);
-		SecurityGroup sg = repositoryEntry.getOwnerGroup();
 		BaseSecurity securityManager = BaseSecurityManager.getInstance();
-		List<Object[]> owners = securityManager.getIdentitiesAndDateOfSecurityGroup(sg);
-		for(Object[] owner:owners) {
-			identities.add((Identity)owner[0]);
+		if(repositoryEntry.getParticipantGroup() != null) {
+			identities.addAll(securityManager.getIdentitiesOfSecurityGroup(repositoryEntry.getParticipantGroup()));
+		}
+		if(repositoryEntry.getTutorGroup() != null) {
+			identities.addAll(securityManager.getIdentitiesOfSecurityGroup(repositoryEntry.getTutorGroup()));
+		}
+		if(repositoryEntry.getOwnerGroup() != null) {
+			identities.addAll(securityManager.getIdentitiesOfSecurityGroup(repositoryEntry.getOwnerGroup()));
 		}
 		return identities;
 	}

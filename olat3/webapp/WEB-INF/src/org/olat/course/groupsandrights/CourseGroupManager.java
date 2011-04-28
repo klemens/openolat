@@ -356,6 +356,9 @@ public interface CourseGroupManager {
 	 * @return a list with all coaches of this course
 	 */
 	public List getCoachesFromLearningGroup(String groupName);
+	
+	//fxdiff VCRP-1,2: access control of resources
+	public List<Identity> getCoaches();
 
 	/**
 	 * List with identities being coaches in the areas of this course. If
@@ -374,6 +377,9 @@ public interface CourseGroupManager {
 	 * @return a list with all participants of this course
 	 */
 	public List getParticipantsFromLearningGroup(String groupName);
+	
+	//fxdiff VCRP-1,2: access control of resources
+	public List<Identity> getParticipants();
 
 	/**
 	 * List with identities being participants in the areas of this course. If

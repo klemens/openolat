@@ -154,6 +154,14 @@ public class JmsTestSer {
 			public Boolean getWaitingListEnabled() {
 				return null;
 			}
+			//fxdiff VCRP-1,2: access control of resources
+			public Boolean getVisibleToNonMembers() {
+				return null;
+			}
+
+			public void setVisibleToNonMembers(Boolean visibleToNonMembers) {
+				//
+			}
 
 			public void setAutoCloseRanksEnabled(Boolean autoCloseRanksEnabled) {
 				//

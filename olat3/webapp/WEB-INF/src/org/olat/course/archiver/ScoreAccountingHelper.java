@@ -33,8 +33,11 @@ import org.olat.core.gui.translator.PackageTranslator;
 import org.olat.core.gui.translator.Translator;
 import org.olat.core.id.Identity;
 import org.olat.core.id.IdentityEnvironment;
+import org.olat.core.id.OLATResourceable;
 import org.olat.core.util.StringHelper;
 import org.olat.core.util.Util;
+import org.olat.core.util.resource.OresHelper;
+import org.olat.course.CourseModule;
 import org.olat.course.ICourse;
 import org.olat.course.assessment.AssessmentHelper;
 import org.olat.course.assessment.AssessmentManager;
@@ -47,6 +50,8 @@ import org.olat.course.run.scoring.ScoreEvaluation;
 import org.olat.course.run.userview.UserCourseEnvironment;
 import org.olat.course.run.userview.UserCourseEnvironmentImpl;
 import org.olat.group.BusinessGroup;
+import org.olat.repository.RepositoryEntry;
+import org.olat.repository.RepositoryManager;
 import org.olat.user.UserManager;
 import org.olat.user.propertyhandlers.UserPropertyHandler;
 
@@ -331,8 +336,9 @@ public class ScoreAccountingHelper {
 	 * @param courseEnv
 	 * @return The list of identities from this course
 	 */
-	public static List loadUsers(CourseEnvironment courseEnv) {
-		List identites = new ArrayList();
+	//fxdiff VCRP-1,2: access control of resources
+	public static List<Identity> loadUsers(CourseEnvironment courseEnv) {
+		List<Identity> identites = new ArrayList<Identity>();
 		CourseGroupManager gm = courseEnv.getCourseGroupManager();
 		BaseSecurity securityManager = BaseSecurityManager.getInstance();
 		List groups = gm.getAllLearningGroupsFromAllContexts();
@@ -341,9 +347,21 @@ public class ScoreAccountingHelper {
 		while (iter.hasNext()) {
 			BusinessGroup group = (BusinessGroup) iter.next();
 			SecurityGroup participants = group.getPartipiciantGroup();
-			List ids = securityManager.getIdentitiesOfSecurityGroup(participants);
+			List<Identity> ids = securityManager.getIdentitiesOfSecurityGroup(participants);
 			identites.addAll(ids);
 		}
+		
+		OLATResourceable ores = OresHelper.createOLATResourceableInstance(CourseModule.class, courseEnv.getCourseResourceableId());
+		RepositoryEntry re = RepositoryManager.getInstance().lookupRepositoryEntry(ores, false);
+		if(re != null && re.getParticipantGroup() != null) {
+			List<Identity> ids = securityManager.getIdentitiesOfSecurityGroup(re.getParticipantGroup());
+			for(Identity id:ids) {
+				if(!identites.contains(id)) {
+					identites.add(id);
+				}
+			}
+		}
+		
 		return identites;
 	}
 	

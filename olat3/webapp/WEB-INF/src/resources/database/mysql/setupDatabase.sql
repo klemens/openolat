@@ -42,6 +42,7 @@ create table if not exists o_gp_business (
    maxparticipants integer,
    waitinglist_enabled bit,
    autocloseranks_enabled bit,
+   visible_to_nonmembers bit default 0,
    groupcontext_fk bigint,
    fk_ownergroup bigint unique,
    fk_partipiciantgroup bigint unique,
@@ -291,6 +292,8 @@ create table if not exists o_repositoryentry (
    resourcename varchar(100) not null,
    fk_olatresource bigint unique,
    fk_ownergroup bigint unique,
+   fk_tutorgroup bigint,
+	 fk_participantgroup bigint,
    description longtext,
    initialauthor varchar(128) not null,
    accesscode integer not null default 0,
@@ -800,6 +803,89 @@ create table o_mail_attachment (
 	primary key (attachment_id)
 );
 
+-- access control
+create table  if not exists o_ac_offer (
+	offer_id bigint NOT NULL,
+  creationdate datetime,
+	lastmodified datetime,
+	is_valid bit default 1,
+	validfrom datetime,
+	validto datetime,
+  version mediumint unsigned not null,
+  resourceid bigint,
+  resourcetypename varchar(255),
+  resourcedisplayname varchar(255),
+  token varchar(255),
+  fk_resource_id bigint,
+	primary key (offer_id)
+);
+
+create table if not exists o_ac_method (
+	method_id bigint NOT NULL,
+	access_method varchar(32),
+  version mediumint unsigned not null,
+  creationdate datetime,
+	lastmodified datetime,
+	is_valid bit default 1,
+	validfrom datetime,
+	validto datetime,
+	primary key (method_id)
+);
+
+create table if not exists o_ac_offer_access (
+	offer_method_id bigint NOT NULL,
+  version mediumint unsigned not null,
+  creationdate datetime,
+	is_valid bit default 1,
+	validfrom datetime,
+	validto datetime,
+  fk_offer_id bigint,
+  fk_method_id bigint,
+	primary key (offer_method_id)
+);
+
+-- access cart
+create table if not exists o_ac_order (
+	order_id bigint NOT NULL,
+  version mediumint unsigned not null,
+  creationdate datetime,
+	lastmodified datetime,
+	is_valid bit default 1,
+  fk_delivery_id bigint,
+	primary key (order_id)
+);
+
+create table if not exists o_ac_order_part (
+	order_part_id bigint NOT NULL,
+  version mediumint unsigned not null,
+  pos mediumint unsigned,
+  creationdate datetime,
+  fk_order_id bigint,
+	primary key (order_part_id)
+);
+
+create table if not exists o_ac_order_line (
+	order_item_id bigint NOT NULL,
+  version mediumint unsigned not null,
+  pos mediumint unsigned,
+  creationdate datetime,
+  fk_order_part_id bigint,
+  fk_offer_id bigint,
+	primary key (order_item_id)
+);
+
+create table if not exists o_ac_transaction (
+	transaction_id bigint NOT NULL,
+  version mediumint unsigned not null,
+  creationdate datetime,
+  fk_order_part_id bigint,
+  fk_order_id bigint,
+  fk_method_id bigint,
+	primary key (transaction_id)
+);
+
+
+
 
 create index  ocl_asset_idx on oc_lock (asset);
 alter table oc_lock add index FK9E30F4B66115906D (identity_fk), add constraint FK9E30F4B66115906D foreign key (identity_fk) references o_bs_identity (id);
@@ -858,8 +944,13 @@ alter table o_mail type = InnoDB;
 alter table o_mail_to_recipient type = InnoDB;
 alter table o_mail_recipient type = InnoDB;
 alter table o_mail_attachment type = InnoDB;
-
-
+alter table o_ac_offer type = InnoDB;
+alter table o_ac_method type = InnoDB;
+alter table o_ac_offer_access type = InnoDB;
+alter table o_ac_order type = InnoDB;
+alter table o_ac_order_part type = InnoDB;
+alter table o_ac_order_line type = InnoDB;
+alter table o_ac_transaction type = InnoDB;
 
 create index  resid_idx on o_property (resourcetypeid);
 create index  category_idx on o_property (category);
@@ -991,6 +1082,17 @@ alter table o_mail_recipient add constraint FKF86663165A4FA5DG foreign key (fk_r
 alter table o_mail add constraint FKF86663165A4FA5DC foreign key (fk_from_id) references o_mail_recipient (recipient_id);
 alter table o_mail_to_recipient add constraint FKF86663165A4FA5DD foreign key (fk_recipient_id) references o_mail_recipient (recipient_id);
 alter table o_mail_attachment add constraint FKF86663165A4FA5DF foreign key (fk_att_mail_id) references o_mail (mail_id);
+
+create index ac_offer_to_resource_idx on o_ac_offer (fk_resource_id);
+alter table o_ac_offer_access add constraint off_to_meth_meth_ctx foreign key (fk_method_id) references o_ac_method (method_id);
+alter table o_ac_offer_access add constraint off_to_meth_off_ctx foreign key (fk_offer_id) references o_ac_offer (offer_id);
+create index ac_order_to_delivery_idx on o_ac_order (fk_delivery_id);
+alter table o_ac_order_part add constraint ord_part_ord_ctx foreign key (fk_order_id) references o_ac_order (order_id);
+alter table o_ac_order_line add constraint ord_item_ord_part_ctx foreign key (fk_order_part_id) references o_ac_order_part (order_part_id);
+alter table o_ac_order_line add constraint ord_item_offer_ctx foreign key (fk_offer_id) references o_ac_offer (offer_id);
+alter table o_ac_transaction add constraint trans_ord_ctx foreign key (fk_order_id) references o_ac_order (order_id);
+alter table o_ac_transaction add constraint trans_ord_part_ctx foreign key (fk_order_part_id) references o_ac_order_part (order_part_id);
+alter table o_ac_transaction add constraint trans_method_ctx foreign key (fk_method_id) references o_ac_method (method_id);
 
 alter table o_tag add constraint FK6491FCA5A4FA5DC foreign key (fk_author_id) references o_bs_identity (id);
 

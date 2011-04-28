@@ -22,6 +22,7 @@
 package org.olat.group;
 
 import java.io.File;
+import java.util.Collection;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -34,6 +35,7 @@ import org.olat.core.gui.translator.Translator;
 import org.olat.core.id.Identity;
 import org.olat.group.context.BGContext;
 import org.olat.group.ui.BGConfigFlags;
+import org.olat.resource.OLATResource;
 
 /**
  * Description: <br>
@@ -106,6 +108,19 @@ public interface BusinessGroupManager {
 	 * @return list of BuddyGroups, may be an empty list.
 	 */
 	public List findBusinessGroupsAttendedBy(String type, Identity identity, BGContext bgContext);
+	
+	/**
+	 * Find the list of groups which are visible to non-members.
+	 * 
+	 * @param type Restrict find to this group type or null if not restricted to a
+	 *          specific type
+	 * @param identity
+	 * @param bgContext Context or null if no context restriction should be
+	 *          applied
+	 * @return list of groups, may be an empty list.
+	 */
+	 //fxdiff VCRP-1,2: access control of resources
+	public List<BusinessGroup> findOpenBusinessGroups(String type, Identity identity, BGContext bgContext);
 
 	/**
 	 * @param currBusinessGroup
@@ -181,6 +196,15 @@ public interface BusinessGroupManager {
 	 * @return THe loaded group
 	 */
 	public BusinessGroup loadBusinessGroup(Long groupKey, boolean strict);
+	
+	/**
+	 * @param resource The OLAT resource
+	 * @param strict true: will throw exception if load failed false: will return
+	 *          null if not found
+	 * @return The loaded group
+	 */
+	 //fxdiff VCRP-1,2: access control of resources
+	public BusinessGroup loadBusinessGroup(OLATResource resource, boolean strict);
 
 	/**
 	 * Create and persist a new business group based on a source group.
@@ -357,6 +381,9 @@ public interface BusinessGroupManager {
 	 */
 	public List findBusinessGroupsWithWaitingListAttendedBy(String groupType, Identity identity, BGContext bgContext);
 
+	//fxdiff VCRP-1,2: access control of resources
+	public List<BusinessGroup> findBusinessGroups(Collection<String> types, Identity identityP, Long id, String name, String description, String owner, Boolean visibleToNonMembers);
+	
 	/**
 	 * Get postion of an idenity on a certain waiting-list 
 	 * @param identity
@@ -404,6 +431,10 @@ public interface BusinessGroupManager {
    */
 	public void removeOwnersAndFireEvent(Identity ureqIdentity, List<Identity> addIdentities, BusinessGroup currBusinessGroup, BGConfigFlags flags);
 
+	//fxdiff VCRP-1,2: access control of resources
+	public void removeAndFireEvent(Identity ureqIdentity, List<Identity> addIdentities, SecurityGroup secGroup);
+
+	
   /**
    * Remove a list of identity as participant from a business-group.
    * @param ureqIdentity       This identity triggered the method (typically identity of user-request).
@@ -435,6 +466,9 @@ public interface BusinessGroupManager {
    */
 	public void removeFromWaitingListAndFireEvent(Identity ureqIdentity, List<Identity> identities, BusinessGroup currBusinessGroup, BGConfigFlags flags);
 
+	//fxdiff VCRP-1,2: access control of resources
+	public BusinessGroupAddResponse addToSecurityGroupAndFireEvent(Identity ureqIdentity, List<Identity> addIdentities, SecurityGroup secGroup);
+	
 	public void exportGroup(BusinessGroup businessGroup, File file);
 
 	public void archiveGroups(BGContext context, File exportFile);

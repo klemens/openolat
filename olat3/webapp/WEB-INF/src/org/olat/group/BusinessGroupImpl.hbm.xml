@@ -57,6 +57,8 @@
 			<column name="autocloseranks_enabled" unique="false" not-null="false"/>	
 		</property>
 		
+		<property name="visibleToNonMembers" column="visible_to_nonmembers" unique="false" not-null="false" type="boolean"/>
+		
 		<many-to-one 
  		   	name="groupContext" 
     		class="org.olat.group.context.BGContextImpl"

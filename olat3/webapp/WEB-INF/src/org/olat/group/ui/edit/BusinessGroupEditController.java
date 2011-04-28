@@ -86,6 +86,9 @@ import org.olat.group.ui.BGMailHelper;
 import org.olat.group.ui.BGTranslatorFactory;
 import org.olat.group.ui.BusinessGroupFormController;
 import org.olat.instantMessaging.InstantMessagingModule;
+import org.olat.resource.OLATResource;
+import org.olat.resource.OLATResourceManager;
+import org.olat.resource.accesscontrol.ui.AccessConfigurationController;
 import org.olat.util.logging.activity.LoggingResourceable;
 
 /**
@@ -128,6 +131,9 @@ public class BusinessGroupEditController extends BasicController implements Cont
 	private VelocityContainer vc_tab_bgCTools;
 	private VelocityContainer vc_tab_bgAreas;
 	private VelocityContainer vc_tab_bgRights;
+	//fxdiff VCRP-1,2: access control of resources
+	private int tabAccessIndex;
+	private BusinessGroupEditAccessController tabAccessCtrl;
 	private BGConfigFlags flags;
 	private DisplayMemberSwitchForm dmsForm;
 
@@ -193,6 +199,8 @@ public class BusinessGroupEditController extends BasicController implements Cont
 			/*
 			 * add Tabbed Panes for configuration
 			 */
+			//fxdiff VCRP-1,2: access control of resources
+			int tabIndex = 0;
 			tabbedPane = new TabbedPane("bgTabbs", ureq.getLocale());
 			tabbedPane.addListener(this);
 			vc_tab_bgDetails = createTabDetails(ureq, currBusinessGroup);// modifies vc_tab_bgDetails
@@ -200,17 +208,30 @@ public class BusinessGroupEditController extends BasicController implements Cont
 			if (flags.isEnabled(BGConfigFlags.GROUP_COLLABTOOLS)) {
 				vc_tab_bgCTools = createTabCollabTools(ureq, flags);
 				tabbedPane.addTab(translate("group.edit.tab.collabtools"), vc_tab_bgCTools);
+				tabIndex++;
 			}
 			if (flags.isEnabled(BGConfigFlags.AREAS)) {
 				vc_tab_bgAreas = createTabAreas();
 				tabbedPane.addTab(translate("group.edit.tab.areas"), vc_tab_bgAreas);
+				tabIndex++;
 			}
 			if (flags.isEnabled(BGConfigFlags.RIGHTS)) {
 				vc_tab_bgRights = createTabRights();
 				tabbedPane.addTab(translate("group.edit.tab.rights"), vc_tab_bgRights);
+				tabIndex++;
 			}
 			vc_tab_grpmanagement = createTabGroupManagement(ureq);
 			tabbedPane.addTab(translate("group.edit.tab.members"), vc_tab_grpmanagement);
+			//fxdiff VCRP-1,2: access control of resources
+			tabIndex++;
+			
+			if(BusinessGroup.TYPE_BUDDYGROUP.equals(currBusinessGroup.getType())) {
+				tabAccessCtrl = new BusinessGroupEditAccessController(ureq, getWindowControl(), currBusinessGroup);
+		  	listenTo(tabAccessCtrl);
+		  	tabbedPane.addTab(translate("group.edit.tab.accesscontrol"), tabAccessCtrl.getInitialComponent());
+		  	tabIndex++;
+		  	tabAccessIndex = tabIndex;
+			}
 
 			vc_edit = createVelocityContainer("edit");
 			vc_edit.put("tabbedpane", tabbedPane);
@@ -339,7 +360,8 @@ public class BusinessGroupEditController extends BasicController implements Cont
 				}
 				fireEvent(ureq, Event.CHANGED_EVENT );		
 			} 
-		} else if (source == this.modifyBusinessGroupController) {
+		//fxdiff VCRP-1,2: access control of resources
+		} else if (source == this.modifyBusinessGroupController || source == tabAccessCtrl) {
 			if (event == Event.DONE_EVENT) {
 				// update business group with the specified values
 				// values are taken from the modifyBusinessGroupForm
@@ -359,6 +381,11 @@ public class BusinessGroupEditController extends BasicController implements Cont
 				}
 				// do logging
 				ThreadLocalUserActivityLogger.log(GroupLoggingAction.GROUP_CONFIGURATION_CHANGED, getClass());
+				//fxdiff VCRP-1,2: access control of resources
+				if(source == tabAccessCtrl) {
+					tabbedPane.setSelectedPane(tabAccessIndex);
+				}
+				
 			} else if (event == Event.CANCELLED_EVENT) {
 				// reinit details form
 				// TODO:fj:b introduce reset() for a form
@@ -400,6 +427,11 @@ public class BusinessGroupEditController extends BasicController implements Cont
 		}
 		currBusinessGroup.setAutoCloseRanksEnabled(autoCloseRanksEnabled);
 		currBusinessGroup.setLastUsage(new Date(System.currentTimeMillis()));
+		//fxdiff VCRP-1,2: access control of resources
+		if(tabAccessCtrl != null) {
+			currBusinessGroup.setVisibleToNonMembers(tabAccessCtrl.isVisibleToNonMembers());
+		}
+		
 		LifeCycleManager.createInstanceFor(currBusinessGroup).deleteTimestampFor(GroupDeletionManager.SEND_DELETE_EMAIL_ACTION);
 		// switch on/off waiting-list in member tab
 		vc_tab_grpmanagement.contextPut("hasWaitingGrp", waitingListEnabled);
@@ -679,5 +711,8 @@ public class BusinessGroupEditController extends BasicController implements Cont
 			tabbedPane.addTab(translate("group.edit.tab.rights"), vc_tab_bgRights);
 		}
 		tabbedPane.addTab(translate("group.edit.tab.members"), createTabGroupManagement(ureq));
+		if(tabAccessCtrl != null) {
+			tabbedPane.addTab(translate("group.edit.tab.accesscontrol"), tabAccessCtrl.getInitialComponent());
+		}
 	}
 }

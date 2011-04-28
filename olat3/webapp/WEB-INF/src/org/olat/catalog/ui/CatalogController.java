@@ -23,6 +23,7 @@ package org.olat.catalog.ui;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 import java.util.Stack;
 
 import org.olat.ControllerFactory;
@@ -36,6 +37,7 @@ import org.olat.bookmark.AddAndEditBookmarkController;
 import org.olat.bookmark.BookmarkManager;
 import org.olat.catalog.CatalogEntry;
 import org.olat.catalog.CatalogManager;
+import org.olat.core.CoreSpringFactory;
 import org.olat.core.commons.persistence.DBFactory;
 import org.olat.core.dispatcher.DispatcherAction;
 import org.olat.core.gui.UserRequest;
@@ -80,6 +82,7 @@ import org.olat.repository.controllers.RepositorySearchController;
 import org.olat.repository.handlers.RepositoryHandler;
 import org.olat.repository.handlers.RepositoryHandlerFactory;
 import org.olat.resource.OLATResource;
+import org.olat.resource.accesscontrol.manager.ACFrontendManager;
 
 /**
  * <pre>
@@ -189,6 +192,7 @@ public class CatalogController extends BasicController implements Activateable {
 	private VelocityContainer myContent;
 
 	private CatalogManager cm;
+	private ACFrontendManager acFrontendManager;
 	private CatalogEntry currentCatalogEntry;
 	private CatalogEntry newLinkNotPersistedYet;
 	private int currentCatalogEntryLevel = -1;
@@ -240,6 +244,8 @@ public class CatalogController extends BasicController implements Activateable {
 		super(ureq, wControl, Util.createPackageTranslator(RepositoryManager.class, ureq.getLocale()));
 		
 		cm = CatalogManager.getInstance();
+		//fxdiff VCRP-1,2: access control of resources
+		acFrontendManager = (ACFrontendManager)CoreSpringFactory.getBean("acFrontendManager");
 
 		List<CatalogEntry> rootNodes = cm.getRootCatalogEntries();
 		CatalogEntry rootce;
@@ -944,9 +950,26 @@ public class CatalogController extends BasicController implements Activateable {
 		myContent.contextPut("currentCatalogEntry", currentCatalogEntry);
 		childCe = cm.getChildrenOf(ce);
 		myContent.contextPut("children", childCe);
+		//fxdiff VCRP-1,2: access control of resources
+		List<Long> resourceKeys = new ArrayList<Long>();
+		for ( Object leaf : childCe ) {
+			CatalogEntry entry = (CatalogEntry)leaf;
+			if(entry.getRepositoryEntry() != null && entry.getRepositoryEntry().getOlatResource() != null) {
+				resourceKeys.add(entry.getRepositoryEntry().getOlatResource().getKey());
+			}
+		}
+		Set<Long> resourcesWithOffer = acFrontendManager.filterResourcesWithAC(resourceKeys);
+		System.out.println(resourcesWithOffer.size());
 		for ( Object leaf : childCe ) {
 			CatalogEntry entry = (CatalogEntry)leaf;
 			if(entry.getType() == CatalogEntry.TYPE_NODE) continue;
+			//fxdiff VCRP-1,2: access control of resources
+			if(entry.getRepositoryEntry() != null && entry.getRepositoryEntry().getOlatResource() != null
+					&& resourcesWithOffer.contains(entry.getRepositoryEntry().getOlatResource().getKey())) {
+				String acName = "ac_" + childCe.indexOf(leaf);
+				myContent.contextPut(acName, Boolean.TRUE);
+			}
+			
 			String name = "image" + childCe.indexOf(leaf);
 			ImageComponent ic = RepositoryEntryImageController.getImageComponentForRepositoryEntry(name, entry.getRepositoryEntry());
 			if(ic == null) {

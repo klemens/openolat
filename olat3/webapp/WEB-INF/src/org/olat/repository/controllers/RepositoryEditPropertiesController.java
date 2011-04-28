@@ -74,6 +74,7 @@ import org.olat.modules.glossary.GlossaryRegisterSettingsController;
 import org.olat.repository.PropPupForm;
 import org.olat.repository.RepositoryEntry;
 import org.olat.repository.RepositoryManager;
+import org.olat.resource.accesscontrol.ui.AccessConfigurationController;
 import org.olat.resource.references.ReferenceImpl;
 import org.olat.resource.references.ReferenceManager;
 import org.olat.util.logging.activity.LoggingResourceable;
@@ -102,6 +103,8 @@ public class RepositoryEditPropertiesController extends BasicController {
 	private CourseEfficencyStatementController ceffC;
 	private CourseCalendarConfigController calCfgCtr;
 	private CourseConfigGlossaryController cglosCtr;
+	//fxdiff VCRP-1,2: access control of resources
+	private AccessConfigurationController acCtr;
 	private TabbedPane tabbedPane;
 	private RepositoryEntry repositoryEntry;
 	
@@ -209,7 +212,11 @@ public class RepositoryEditPropertiesController extends BasicController {
 
 			  cglosCtr = new CourseConfigGlossaryController(ureq, getWindowControl(), changedCourseConfig, course.getResourceableId());
 			  this.listenTo(cglosCtr);
-			  tabbedPane.addTab(translate("tab.glossary"), cglosCtr.getInitialComponent());			  
+			  tabbedPane.addTab(translate("tab.glossary"), cglosCtr.getInitialComponent());		
+			  //fxdiff VCRP-1,2: access control of resources
+			  acCtr = new AccessConfigurationController(ureq, getWindowControl(), repositoryEntry.getOlatResource(), repositoryEntry.getDisplayname());
+			  listenTo(acCtr);
+			  tabbedPane.addTab(translate("tab.accesscontrol"), acCtr.getInitialComponent());
 			}     
 		} else if (repositoryEntry.getOlatResource().getResourceableTypeName().equals(GlossaryResource.TYPE_NAME)){
 			GlossaryRegisterSettingsController glossRegisterSetCtr = new GlossaryRegisterSettingsController(ureq, getWindowControl(), repositoryEntry.getOlatResource());

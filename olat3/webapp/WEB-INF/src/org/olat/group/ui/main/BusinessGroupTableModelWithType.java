@@ -21,6 +21,7 @@
 
 package org.olat.group.ui.main;
 
+import java.util.Collections;
 import java.util.List;
 
 import org.apache.commons.lang.StringEscapeUtils;
@@ -35,22 +36,24 @@ import org.olat.group.BusinessGroup;
  * @author gnaegi
  */
 public class BusinessGroupTableModelWithType extends DefaultTableDataModel implements TableDataModel {
-	private static final int COLUMN_COUNT = 6;
+	private final int columnCount;
 	private Translator trans;
 
 	/**
 	 * @param owned list of business groups
 	 */
-	public BusinessGroupTableModelWithType(List<BGTableItem> owned, Translator trans) {
+	public BusinessGroupTableModelWithType(List<BGTableItem> owned, Translator trans, int columnCount) {
 		super(owned);
 		this.trans = trans;
+		//fxdiff VCRP-1,2: access control of resources
+		this.columnCount = columnCount;
 	}
 
 	/**
 	 * @see org.olat.core.gui.components.table.TableDataModel#getColumnCount()
 	 */
 	public int getColumnCount() {
-		return COLUMN_COUNT;
+		return columnCount;
 	}
 
 	/**
@@ -77,9 +80,21 @@ public class BusinessGroupTableModelWithType extends DefaultTableDataModel imple
 				return wrapped.getAllowDelete();
 			case 5:
 				return wrapped.getResources();
+			//fxdiff VCRP-1,2: access control of resources
+			case 6:
+				return new Boolean(wrapped.isAccessControl());
+			case 7:
+				if(wrapped.isMember()) return trans.translate("select");
+				return trans.translate("table.access");
 			default:
 				return "ERROR";
 		}
+	}
+	
+	@Override
+	//fxdiff VCRP-1,2: access control of resources
+	public Object createCopyWithEmptyList() {
+		return new BusinessGroupTableModelWithType(Collections.<BGTableItem>emptyList(), trans, columnCount);
 	}
 
 	/**

@@ -47,6 +47,8 @@ import org.olat.group.context.BGContextManager;
 import org.olat.group.context.BGContextManagerImpl;
 import org.olat.group.right.BGRightManager;
 import org.olat.group.right.BGRightManagerImpl;
+import org.olat.repository.RepositoryEntry;
+import org.olat.repository.RepositoryManager;
 import org.olat.resource.OLATResource;
 import org.olat.resource.OLATResourceManager;
 
@@ -776,6 +778,28 @@ public class PersistingCourseGroupManager extends BasicManager implements Course
 			retVal.addAll(secManager.getIdentitiesOfSecurityGroup(elm.getPartipiciantGroup()));
 		}
 		return retVal;
+	}
+	
+	@Override
+	//fxdiff VCRP-1,2: access control of resources
+	public List<Identity> getCoaches() {
+		BaseSecurity secManager = BaseSecurityManager.getInstance();
+		RepositoryEntry re = RepositoryManager.getInstance().lookupRepositoryEntry(courseResource, false);
+		if(re != null && re.getTutorGroup() != null) {
+			return secManager.getIdentitiesOfSecurityGroup(re.getTutorGroup());
+		}
+		return Collections.emptyList();
+	}
+
+	@Override
+	//fxdiff VCRP-1,2: access control of resources
+	public List<Identity> getParticipants() {
+		BaseSecurity secManager = BaseSecurityManager.getInstance();
+		RepositoryEntry re = RepositoryManager.getInstance().lookupRepositoryEntry(courseResource, false);
+		if(re != null && re.getParticipantGroup() != null) {
+			return secManager.getIdentitiesOfSecurityGroup(re.getParticipantGroup());
+		}
+		return Collections.emptyList();
 	}
 
 	/**

@@ -1,5 +1,5 @@
 /**
-* OLAT - Online Learning and Training<br>
+BaseSecurity* OLAT - Online Learning and Training<br>
 * http://www.olat.org
 * <p>
 * Licensed under the Apache License, Version 2.0 (the "License"); <br>
@@ -26,6 +26,7 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Date;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -37,10 +38,12 @@ import java.util.Set;
 import org.hibernate.StaleObjectStateException;
 import org.jfree.util.Log;
 import org.olat.admin.user.delete.service.UserDeletionManager;
-import org.olat.basesecurity.Constants;
 import org.olat.basesecurity.BaseSecurity;
 import org.olat.basesecurity.BaseSecurityManager;
+import org.olat.basesecurity.Constants;
+import org.olat.basesecurity.IdentityImpl;
 import org.olat.basesecurity.SecurityGroup;
+import org.olat.basesecurity.SecurityGroupMembershipImpl;
 import org.olat.collaboration.CollaborationTools;
 import org.olat.collaboration.CollaborationToolsFactory;
 import org.olat.commons.lifecycle.LifeCycleManager;
@@ -61,6 +64,7 @@ import org.olat.core.logging.activity.ActionType;
 import org.olat.core.logging.activity.ThreadLocalUserActivityLogger;
 import org.olat.core.manager.BasicManager;
 import org.olat.core.util.FileUtils;
+import org.olat.core.util.StringHelper;
 import org.olat.core.util.coordinate.CoordinatorManager;
 import org.olat.core.util.coordinate.SyncerCallback;
 import org.olat.core.util.coordinate.SyncerExecutor;
@@ -92,8 +96,11 @@ import org.olat.instantMessaging.syncservice.SyncSingleUserTask;
 import org.olat.notifications.NotificationsManagerImpl;
 import org.olat.repository.RepoJumpInHandlerFactory;
 import org.olat.repository.RepositoryEntry;
+import org.olat.repository.RepositoryManager;
+import org.olat.resource.OLATResource;
 import org.olat.testutils.codepoints.server.Codepoint;
 import org.olat.user.UserDataDeletable;
+import org.olat.user.UserImpl;
 import org.olat.util.logging.activity.LoggingResourceable;
 
 import com.anthonyeden.lib.config.Configuration;
@@ -139,6 +146,8 @@ public class BusinessGroupManagerImpl extends BasicManager implements BusinessGr
 	private BaseSecurity securityManager;
 	private List<DeletableGroupData> deleteListeners;
 	
+	private String dbVendor;
+	
 	/**
 	 * @return singleton instance
 	 */
@@ -155,8 +164,17 @@ public class BusinessGroupManagerImpl extends BasicManager implements BusinessGr
 		deleteListeners = new ArrayList<DeletableGroupData>();
 		INSTANCE = this;
 	}
+	
+	/**
+	 * [used by Spring]
+	 * @param dbVendor
+	 */
+	 //fxdiff VCRP-1,2: access control of resources
+  public void setDbVendor(String dbVendor) {
+		this.dbVendor = dbVendor;
+	}
 
-  /** 
+	/** 
    * @see org.olat.group.BusinessGroupManager#createAndPersistBusinessGroup(java.lang.String, org.olat.core.id.Identity, java.lang.String, java.lang.String, java.lang.Integer, java.lang.Integer, java.lang.Boolean, java.lang.Boolean, org.olat.group.context.BGContext)
    */
 	public BusinessGroup createAndPersistBusinessGroup(String type, Identity identity, String name, String description,
@@ -230,6 +248,43 @@ public class BusinessGroupManagerImpl extends BasicManager implements BusinessGr
 		List res = dbq.list();
 		return res;
 	}
+	
+	/**
+	 * Find the list of groups associated with the supplied identity, where
+	 * the identity can buy an access.
+	 * 
+	 * @param type Restrict find to this group type or null if not restricted to a
+	 *          specific type
+	 * @param identity
+	 * @param bgContext Context or null if no context restriction should be
+	 *          applied
+	 * @return list of BuddyGroups, may be an empty list.
+	 */
+	 //fxdiff VCRP-1,2: access control of resources
+	public List<BusinessGroup> findOpenBusinessGroups(String type, Identity identity, BGContext bgContext) {
+		StringBuilder sb = new StringBuilder();
+		sb.append("select bgi from ").append(BusinessGroupImpl.class.getName()).append(" as bgi ")
+			.append(" where bgi.visibleToNonMembers=true");
+
+		if (bgContext != null) {
+			sb.append(" and bgi.groupContext=:context");
+		}
+		if (type != null) {
+			sb.append(" and bgi.type = :type");
+		}
+
+		DB db = DBFactory.getInstance();
+		DBQuery dbq = db.createQuery(sb.toString());
+		if(bgContext != null) {
+			dbq.setEntity("context", bgContext);
+		}
+		if (type != null) {
+			dbq.setString("type", type);
+		}
+
+		List<BusinessGroup> res = dbq.list();
+		return res;
+	}
 
 	/**
 	 * 
@@ -259,6 +314,124 @@ public class BusinessGroupManagerImpl extends BasicManager implements BusinessGr
 
 		List res = dbq.list();
 		return res;
+	}
+	
+	/**
+	 * @see org.olat.group.BusinessGroupManager#findBusinessGroupsAttendedBy(java.lang.String,
+	 *      org.olat.core.id.Identity, org.olat.group.context.BGContext)
+	 */
+	 //fxdiff VCRP-1,2: access control of resources
+	public List<BusinessGroup> findBusinessGroups(Collection<String> types, Identity identityP, Long id, String name, String description, String owner, Boolean visibleToNonMembers) {
+		StringBuilder sb = new StringBuilder();
+		sb.append("select distinct(bgi) from ").append(BusinessGroupImpl.class.getName()).append(" as bgi");
+
+		boolean where = false;
+		//fuzzy search owner (like author in repository search)
+		if(StringHelper.containsNonWhitespace(owner)) {
+			//implicit joins
+			sb.append(", ").append(SecurityGroupMembershipImpl.class.getName()).append(" as sgmi ")
+				.append(", ").append(IdentityImpl.class.getName()).append(" identity")
+				.append(", ").append(UserImpl.class.getName()).append(" user ");
+
+			where = true;
+			sb.append(" where bgi.ownerGroup = sgmi.securityGroup")
+				.append(" and sgmi.identity = identity ")
+				.append(" and identity.user = user and ");
+			
+			//query the name in login, firstName and lastName
+			sb.append("(");
+			searchLikeUserProperty(sb, "firstName", "owner").append(" or ");
+			searchLikeUserProperty(sb, "lastName", "owner").append(" or ");
+			searchLikeAttribute(sb, "identity", "name", "owner").append(")");
+		}
+
+		if(id != null) {
+			where = where(sb, where);
+			sb.append(" bgi.key=:id");
+		}
+		if(StringHelper.containsNonWhitespace(name)) {
+			where = where(sb, where);
+			searchLikeAttribute(sb, "bgi", "name", "name");
+		}
+		if(StringHelper.containsNonWhitespace(description)) {
+			where = where(sb, where);
+			searchLikeAttribute(sb, "bgi", "description", "description");
+		}
+		if (types != null && !types.isEmpty()) {
+			where = where(sb, where);
+			sb.append("bgi.type in (:types)");
+		}
+		if(visibleToNonMembers != null) {
+			where = where(sb, where);
+			sb.append(" bgi.visibleToNonMembers=").append(visibleToNonMembers.booleanValue());
+		}
+
+		DB db = DBFactory.getInstance();
+		DBQuery query = db.createQuery(sb.toString());
+		if(id != null) {
+			query.setLong("id", id);
+		}
+		if(StringHelper.containsNonWhitespace(name)) {
+			query.setParameter("name", makeFuzzyQueryString(name));
+		}
+		if(StringHelper.containsNonWhitespace(description)) {
+			query.setParameter("description", makeFuzzyQueryString(description));
+		}
+		if(StringHelper.containsNonWhitespace(owner)) {
+			query.setParameter("owner", makeFuzzyQueryString(owner));
+		}
+		if (types != null && !types.isEmpty()) {
+			query.setParameterList("types", types);
+		}
+
+		List<BusinessGroup> res = query.list();
+		return res;
+	}
+	
+	private StringBuilder searchLikeUserProperty(StringBuilder sb, String key, String var) {
+		if(dbVendor.equals("mysql")) {
+			sb.append(" user.properties['").append(key).append("'] like :").append(var);
+		} else {
+			sb.append(" lower(user.properties['").append(key).append("']) like :").append(var);
+			if(dbVendor.equals("hsqldb") || dbVendor.equals("oracle")) {
+	 	 		sb.append(" escape '\\'");
+	 	 	}
+		}
+		return sb;
+	}
+	
+	private StringBuilder searchLikeAttribute(StringBuilder sb, String objName, String attribute, String var) {
+		if(dbVendor.equals("mysql")) {
+			sb.append(" ").append(objName).append(".").append(attribute).append(" like :").append(var);
+		} else {
+			sb.append(" lower(").append(objName).append(".").append(attribute).append(") like :").append(var);
+			if(dbVendor.equals("hsqldb") || dbVendor.equals("oracle")) {
+	 	 		sb.append(" escape '\\'");
+	 	 	}
+		}
+		return sb;
+	}
+	
+	private boolean where(StringBuilder sb, boolean where) {
+		if(where) {
+			sb.append(" and ");
+		} else {
+			sb.append(" where ");
+		}
+		return true;
+	}
+	
+	private String makeFuzzyQueryString(String string) {
+		// By default only fuzzyfy at the end. Usually it makes no sense to do a
+		// fuzzy search with % at the beginning, but it makes the query very very
+		// slow since it can not use any index and must perform a fulltext search.
+		// User can always use * to make it a really fuzzy search query
+		string = string.replace('*', '%');
+		string = string + "%";
+		// with 'LIKE' the character '_' is a wildcard which matches exactly one character.
+		// To test for literal instances of '_', we have to escape it.
+		string = string.replace("_", "\\_");
+		return string.toLowerCase();
 	}
 	
 	/**
@@ -461,6 +634,17 @@ public class BusinessGroupManagerImpl extends BasicManager implements BusinessGr
 		if (strict) return (BusinessGroup) DBFactory.getInstance().loadObject(BusinessGroupImpl.class, groupKey);
 		return (BusinessGroup) DBFactory.getInstance().findObject(BusinessGroupImpl.class, groupKey);
 	}
+	
+	/**
+	 * @see org.olat.group.BusinessGroupManager#loadBusinessGroup(java.lang.Long,
+	 *      boolean)
+	 */
+	@Override
+	//fxdiff VCRP-1,2: access control of resources
+	public BusinessGroup loadBusinessGroup(OLATResource resource, boolean strict) {
+		return loadBusinessGroup(resource.getResourceableId(), strict);
+	}
+	
 
 	/**
 	 * @see org.olat.group.BusinessGroupManager#copyBusinessGroup(org.olat.group.BusinessGroup,
@@ -567,6 +751,18 @@ public class BusinessGroupManagerImpl extends BasicManager implements BusinessGr
 			boolean doOnlyPostAddingStuff) {
 		CoordinatorManager.getInstance().getCoordinator().getSyncer().assertAlreadyDoInSyncFor(group);
 		if (!doOnlyPostAddingStuff) {
+			//fxdiff VCRP-1,2: access control of resources
+			BGContext context = group.getGroupContext();
+			if(context != null) {
+				List<OLATResource> resources = BGContextManagerImpl.getInstance().findOLATResourcesForBGContext(context);
+				for(OLATResource resource:resources) {
+					RepositoryEntry re = RepositoryManager.getInstance().lookupRepositoryEntry(resource, false);
+					SecurityGroup participantGroup = re.getParticipantGroup();
+					if(re != null && participantGroup != null && !securityManager.isIdentityInSecurityGroup(identity, participantGroup)) {
+						securityManager.addIdentityToSecurityGroup(identity, participantGroup);
+					}
+				}
+			}
 			securityManager.addIdentityToSecurityGroup(identity, group.getPartipiciantGroup());
 		}
 		// add user to buddies rosters
@@ -588,6 +784,18 @@ public class BusinessGroupManagerImpl extends BasicManager implements BusinessGr
 	public void addOwnerAndFireEvent(Identity ureqIdentity, Identity identity, BusinessGroup group, BGConfigFlags flags, 
 			boolean doOnlyPostAddingStuff) {
 		if (!doOnlyPostAddingStuff) {
+			//fxdiff VCRP-1,2: access control of resources
+			BGContext context = group.getGroupContext();
+			if(context != null) {
+				List<OLATResource> resources = BGContextManagerImpl.getInstance().findOLATResourcesForBGContext(context);
+				for(OLATResource resource:resources) {
+					RepositoryEntry re = RepositoryManager.getInstance().lookupRepositoryEntry(resource, false);
+					SecurityGroup tutorGroup = re.getTutorGroup();
+					if(re != null && tutorGroup != null && !securityManager.isIdentityInSecurityGroup(identity, tutorGroup)) {
+						securityManager.addIdentityToSecurityGroup(identity, tutorGroup);
+					}
+				}
+			}
 			securityManager.addIdentityToSecurityGroup(identity, group.getOwnerGroup());
 		}
 		// add user to buddies rosters
@@ -597,6 +805,31 @@ public class BusinessGroupManagerImpl extends BasicManager implements BusinessGr
 		// do logging
 		ThreadLocalUserActivityLogger.log(GroupLoggingAction.GROUP_OWNER_ADDED, getClass(), LoggingResourceable.wrap(identity));
 		// send notification mail in your controller!
+	}
+	
+	//fxdiff VCRP-1,2: access control of resources
+	public void addAndFireEvent(Identity ureqIdentity, Identity identity, SecurityGroup secGroup, boolean doOnlyPostAddingStuff) {
+		if (!doOnlyPostAddingStuff) {
+			securityManager.addIdentityToSecurityGroup(identity, secGroup);
+		}
+		// add user to buddies rosters
+		// notify currently active users of this business group
+		//TODO BusinessGroupModifiedEvent.fireModifiedGroupEvents(BusinessGroupModifiedEvent.IDENTITY_ADDED_EVENT, group, identity);
+		// do logging
+		ThreadLocalUserActivityLogger.log(GroupLoggingAction.GROUP_OWNER_ADDED, getClass(), LoggingResourceable.wrap(identity));
+		// send notification mail in your controller!
+	}
+	
+	//fxdiff VCRP-1,2: access control of resources
+	public void removeAndFireEvent(Identity ureqIdentity, Identity identity, SecurityGroup secGroup, boolean doOnlyPostRemovingStuff) {
+		if(!doOnlyPostRemovingStuff) {
+			securityManager.removeIdentityFromSecurityGroup(identity, secGroup);
+		}
+		// remove user from buddies rosters
+		//TODO removeFromRoster(identity, group, flags);
+		
+		//remove subsciptions if user gets removed
+		//TODO removeSubscriptions(identity, group);
 	}
 
 	/**
@@ -609,6 +842,8 @@ public class BusinessGroupManagerImpl extends BasicManager implements BusinessGr
 	public void removeOwnerAndFireEvent(Identity ureqIdentity, Identity identity, BusinessGroup group, BGConfigFlags flags,
 			boolean doOnlyPostRemovingStuff) {
 		if (!doOnlyPostRemovingStuff) {
+			//TODO remove from tutor group
+
 			securityManager.removeIdentityFromSecurityGroup(identity, group.getOwnerGroup());
 		}
 		// remove user from buddies rosters
@@ -640,6 +875,10 @@ public class BusinessGroupManagerImpl extends BasicManager implements BusinessGr
 			final boolean doOnlyPostRemovingStuff) {
 		CoordinatorManager.getInstance().getCoordinator().getSyncer().assertAlreadyDoInSyncFor(group);
 		if (!doOnlyPostRemovingStuff) {
+		//TODO remove from participant group
+			
+			
+			
 			securityManager.removeIdentityFromSecurityGroup(identity, group.getPartipiciantGroup());
 		}
 		// remove user from buddies rosters
@@ -964,6 +1203,29 @@ public class BusinessGroupManagerImpl extends BasicManager implements BusinessGr
 		}
 		return pos;
 	}
+	
+	@Override
+	//fxdiff VCRP-1,2: access control of resources
+	public BusinessGroupAddResponse addToSecurityGroupAndFireEvent(Identity ureqIdentity, List<Identity> addIdentities, SecurityGroup secGroup) {
+		BusinessGroupAddResponse response = new BusinessGroupAddResponse();
+		for (Identity identity : addIdentities) {
+			if (securityManager.isIdentityPermittedOnResourceable(identity, Constants.PERMISSION_HASROLE, Constants.ORESOURCE_GUESTONLY)) {
+				response.getIdentitiesWithoutPermission().add(identity);
+			}
+			// Check if identity is already in group. make a db query in case
+			// someone in another workflow already added this user to this group. if
+			// found, add user to model
+			else if (securityManager.isIdentityInSecurityGroup(identity, secGroup)) {
+				response.getIdentitiesAlreadyInGroup().add(identity);
+			} else {
+	      // identity has permission and is not already in group => add it
+				addAndFireEvent(ureqIdentity, identity, secGroup, false);
+				response.getAddedIdentities().add(identity);
+				logAudit("added identity '" + identity.getName() + "' to securitygroup with key " + secGroup.getKey());
+			}
+		}
+		return response;
+	}
 
 	/**
 	 * 
@@ -1048,6 +1310,16 @@ public class BusinessGroupManagerImpl extends BasicManager implements BusinessGr
 				}});
 		return response;
 	}
+	
+	@Override
+	//fxdiff VCRP-1,2: access control of resources
+	public void removeAndFireEvent(Identity ureqIdentity, List<Identity> identities, SecurityGroup secGroup) {
+		for (Identity identity : identities) {
+		  removeAndFireEvent(ureqIdentity, identity, secGroup, false);
+		  logAudit("removed identiy '" + identity.getName() + "' from securitygroup with key " + secGroup.getKey());
+		}
+	}
+
 
 	/**
 	 * 

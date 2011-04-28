@@ -1,0 +1,16 @@
+<table>
+	<tbody>
+		#foreach($confController in $confControllers)
+			<tr>
+				<td><span>$confController.name</span></td>
+				<td><span>$confController.infos</span></td>
+				<td>$r.render("from_$confController.link.key")</td>
+				<td>$r.render("to_$confController.link.key")</td>
+				<td>$r.render("del_$confController.link.key")</td>
+			</tr>
+		#end
+	</tbody>
+</table>
+
+
+

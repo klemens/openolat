@@ -56,3 +56,107 @@ create table o_mail_attachment (
 	primary key (attachment_id)
 );
 alter table o_mail_attachment add constraint FKF86663165A4FA5DF foreign key (fk_att_mail_id) references o_mail (mail_id);
+
+
+-- access control
+alter table o_repositoryentry add column fk_tutorgroup int8;
+alter table o_repositoryentry add column fk_participantgroup int8;
+
+alter table o_gp_business add column visible_to_nonmembers boolean default false;
+
+create table o_ac_offer (
+	offer_id int8 NOT NULL,
+  creationdate timestamp,
+	lastmodified timestamp,
+	is_valid boolean default true,
+	validfrom timestamp,
+	validto timestamp,
+  version int4 not null,
+  resourceid int8,
+  resourcetypename varchar(255),
+  resourcedisplayname varchar(255),
+  token varchar(255),
+  fk_resource_id int8,
+	primary key (offer_id)
+);
+create index ac_offer_to_resource_idx on o_ac_offer (fk_resource_id);
+
+create table o_ac_method (
+	method_id int8 NOT NULL,
+	access_method varchar(32),
+  version int4 not null,
+  creationdate timestamp,
+	lastmodified timestamp,
+	is_valid boolean default true,
+	validfrom timestamp,
+	validto timestamp,
+	primary key (method_id)
+);
+
+create table o_ac_offer_access (
+	offer_method_id int8 NOT NULL,
+  version int4 not null,
+  creationdate timestamp,
+	is_valid boolean default true,
+	validfrom timestamp,
+	validto timestamp,
+  fk_offer_id int8,
+  fk_method_id int8,
+	primary key (offer_method_id)
+);
+alter table o_ac_offer_access add constraint off_to_meth_meth_ctx foreign key (fk_method_id) references o_ac_method (method_id);
+alter table o_ac_offer_access add constraint off_to_meth_off_ctx foreign key (fk_offer_id) references o_ac_offer (offer_id);
+
+
+-- access cart
+create table o_ac_order (
+	order_id int8 NOT NULL,
+  version int4 not null,
+  creationdate timestamp,
+	lastmodified timestamp,
+	is_valid boolean default true,
+  fk_delivery_id int8,
+	primary key (order_id)
+);
+create index ac_order_to_delivery_idx on o_ac_order (fk_delivery_id);
+
+create table o_ac_order_part (
+	order_part_id int8 NOT NULL,
+  version int4 not null,
+  pos int4,
+  creationdate timestamp,
+  fk_order_id int8,
+	primary key (order_part_id)
+);
+alter table o_ac_order_part add constraint ord_part_ord_ctx foreign key (fk_order_id) references o_ac_order (order_id);
+
+
+create table o_ac_order_line (
+	order_item_id int8 NOT NULL,
+  version int4 not null,
+  pos int4,
+  creationdate timestamp,
+  fk_order_part_id int8,
+  fk_offer_id int8,
+	primary key (order_item_id)
+);
+alter table o_ac_order_line add constraint ord_item_ord_part_ctx foreign key (fk_order_part_id) references o_ac_order_part (order_part_id);
+alter table o_ac_order_line add constraint ord_item_offer_ctx foreign key (fk_offer_id) references o_ac_offer (offer_id);
+  
+create table o_ac_transaction (
+	transaction_id int8 NOT NULL,
+  version int4 not null,
+  creationdate timestamp,
+  fk_order_part_id int8,
+  fk_order_id int8,
+  fk_method_id int8,
+	primary key (transaction_id)
+);
+alter table o_ac_transaction add constraint trans_ord_ctx foreign key (fk_order_id) references o_ac_order (order_id);
+alter table o_ac_transaction add constraint trans_ord_part_ctx foreign key (fk_order_part_id) references o_ac_order_part (order_part_id);
+alter table o_ac_transaction add constraint trans_method_ctx foreign key (fk_method_id) references o_ac_method (method_id);
+
+
+
+
+

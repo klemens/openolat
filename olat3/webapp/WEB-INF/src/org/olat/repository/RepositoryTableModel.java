@@ -22,9 +22,15 @@
 package org.olat.repository;
 
 import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
 import java.util.Locale;
+import java.util.Set;
 
+import org.olat.core.CoreSpringFactory;
 import org.olat.core.gui.components.table.ColumnDescriptor;
+import org.olat.core.gui.components.table.CustomCellRenderer;
+import org.olat.core.gui.components.table.CustomRenderColumnDescriptor;
 import org.olat.core.gui.components.table.DefaultColumnDescriptor;
 import org.olat.core.gui.components.table.DefaultTableDataModel;
 import org.olat.core.gui.components.table.StaticColumnDescriptor;
@@ -32,6 +38,7 @@ import org.olat.core.gui.components.table.TableController;
 import org.olat.core.gui.components.table.TableDataModel;
 import org.olat.core.gui.translator.PackageTranslator;
 import org.olat.core.gui.translator.Translator;
+import org.olat.resource.accesscontrol.manager.ACFrontendManager;
 
 /**
  * Initial Date:  Mar 31, 2004
@@ -52,9 +59,12 @@ public class RepositoryTableModel extends DefaultTableDataModel implements Table
 	 * Identifies a table launch event (if clicked on an item in the name column).
 	 */
 	public static final String TABLE_ACTION_SELECT_ENTRY = "rtbSelectEntry";
-	
-	private static final int COLUMN_COUNT = 6;
+	//fxdiff VCRP-1,2: access control of resources
+	private static final int COLUMN_COUNT = 7;
 	Translator translator; // package-local to avoid synthetic accessor method.
+	private final ACFrontendManager acFrontendManager;
+	
+	private Set<Long> repoEntriesWithOffer;
 		
 	/**
 	 * Default constructor.
@@ -63,6 +73,7 @@ public class RepositoryTableModel extends DefaultTableDataModel implements Table
 	public RepositoryTableModel(Translator translator) {
 		super(new ArrayList<RepositoryEntry>());
 		this.translator = translator;
+		acFrontendManager = (ACFrontendManager)CoreSpringFactory.getBean("acFrontendManager");
 	}
 
 	/**
@@ -71,15 +82,17 @@ public class RepositoryTableModel extends DefaultTableDataModel implements Table
 	 * @param enableDirectLaunch
 	 */
 	public void addColumnDescriptors(TableController tableCtr, String selectButtonLabel, boolean enableDirectLaunch) {
-		
-		
-		tableCtr.addColumnDescriptor(new RepositoryEntryTypeColumnDescriptor("table.header.typeimg", 0, null, 
+		//fxdiff VCRP-1,2: access control of resources
+		CustomCellRenderer acRenderer = new RepositoryEntryACColumnDescriptor();
+		tableCtr.addColumnDescriptor(new CustomRenderColumnDescriptor("table.header.ac", 0, null, 
+				translator.getLocale(), ColumnDescriptor.ALIGNMENT_LEFT, acRenderer));
+		tableCtr.addColumnDescriptor(new RepositoryEntryTypeColumnDescriptor("table.header.typeimg", 1, null, 
 				translator.getLocale(), ColumnDescriptor.ALIGNMENT_LEFT));
-		tableCtr.addColumnDescriptor(new DefaultColumnDescriptor("table.header.displayname", 1, enableDirectLaunch ? TABLE_ACTION_SELECT_ENTRY : null, translator.getLocale()));
-		tableCtr.addColumnDescriptor(new DefaultColumnDescriptor("table.header.author", 2, null, translator.getLocale()));
-		tableCtr.addColumnDescriptor(new DefaultColumnDescriptor("table.header.access", 3, null, translator.getLocale()));
-		tableCtr.addColumnDescriptor(false, new DefaultColumnDescriptor("table.header.date", 4, null, translator.getLocale()));
-		tableCtr.addColumnDescriptor(false, new DefaultColumnDescriptor("table.header.lastusage", 5, null, translator.getLocale()));
+		tableCtr.addColumnDescriptor(new DefaultColumnDescriptor("table.header.displayname", 2, enableDirectLaunch ? TABLE_ACTION_SELECT_ENTRY : null, translator.getLocale()));
+		tableCtr.addColumnDescriptor(new DefaultColumnDescriptor("table.header.author", 3, null, translator.getLocale()));
+		tableCtr.addColumnDescriptor(new DefaultColumnDescriptor("table.header.access", 4, null, translator.getLocale()));
+		tableCtr.addColumnDescriptor(false, new DefaultColumnDescriptor("table.header.date", 5, null, translator.getLocale()));
+		tableCtr.addColumnDescriptor(false, new DefaultColumnDescriptor("table.header.lastusage", 6, null, translator.getLocale()));
 		if (selectButtonLabel != null) {
 			StaticColumnDescriptor desc = new StaticColumnDescriptor(TABLE_ACTION_SELECT_LINK, selectButtonLabel, selectButtonLabel);
 			desc.setTranslateHeaderKey(false);			
@@ -95,18 +108,18 @@ public class RepositoryTableModel extends DefaultTableDataModel implements Table
 		return COLUMN_COUNT;
 	}
 
-
-
 	/**
 	 * @see org.olat.core.gui.components.table.TableDataModel#getValueAt(int, int)
 	 */
 	public Object getValueAt(int row, int col) {
 		RepositoryEntry re = (RepositoryEntry)getObject(row);
 		switch (col) {
-			case 0: return re; 
-			case 1: return getDisplayName(re, translator.getLocale());
-			case 2: return re.getInitialAuthor();
-			case 3: {
+			//fxdiff VCRP-1,2: access control of resources
+			case 0: return new Boolean(repoEntriesWithOffer != null && repoEntriesWithOffer.contains(re.getKey()));
+			case 1: return re; 
+			case 2: return getDisplayName(re, translator.getLocale());
+			case 3: return re.getInitialAuthor();
+			case 4: {
 				switch (re.getAccess()) {
 					case RepositoryEntry.ACC_OWNERS: return translator.translate("table.header.access.owner");
 					case RepositoryEntry.ACC_OWNERS_AUTHORS: return translator.translate("table.header.access.author");
@@ -114,12 +127,25 @@ public class RepositoryTableModel extends DefaultTableDataModel implements Table
 					case RepositoryEntry.ACC_USERS_GUESTS: return translator.translate("table.header.access.guest");
 				}
 			}
-			case 4: return re.getCreationDate();
-			case 5: return re.getLastUsage();
+			case 5: return re.getCreationDate();
+			case 6: return re.getLastUsage();
 			default: return "ERROR";
 		}
 	}
 	
+	
+	@Override
+	//fxdiff VCRP-1,2: access control of resources
+	public void setObjects(List objects) {
+		super.setObjects(objects);
+		
+		repoEntriesWithOffer = new HashSet<Long>();
+		List<RepositoryEntry> withOffer = acFrontendManager.filterRepositoryEntriesWithAC(objects);
+		for(RepositoryEntry entry:withOffer) {
+			repoEntriesWithOffer.add(entry.getKey());
+		}
+	}
+
 	/**
 	 * Get displayname of a repository entry. If repository entry a course 
 	 * and is this course closed then add a prefix to the title.
