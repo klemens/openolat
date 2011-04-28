@@ -20,19 +20,19 @@
 
 package org.olat.group.ui.edit;
 
+import org.olat.core.CoreSpringFactory;
 import org.olat.core.gui.UserRequest;
-import org.olat.core.gui.components.Component;
 import org.olat.core.gui.components.form.flexible.FormItemContainer;
 import org.olat.core.gui.components.form.flexible.elements.MultipleSelectionElement;
 import org.olat.core.gui.components.form.flexible.impl.FormBasicController;
 import org.olat.core.gui.components.form.flexible.impl.FormLayoutContainer;
-import org.olat.core.gui.components.form.flexible.impl.elements.FormSubmit;
 import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.Event;
 import org.olat.core.gui.control.WindowControl;
 import org.olat.group.BusinessGroup;
 import org.olat.resource.OLATResource;
 import org.olat.resource.OLATResourceManager;
+import org.olat.resource.accesscontrol.AccessControlModule;
 import org.olat.resource.accesscontrol.ui.AccessConfigurationController;
 
 /**
@@ -47,9 +47,8 @@ import org.olat.resource.accesscontrol.ui.AccessConfigurationController;
 //fxdiff VCRP-1,2: access control of resources
 public class BusinessGroupEditAccessController extends FormBasicController {
 	
-	private FormSubmit saveButton;
 	private MultipleSelectionElement openBg;
-	private final AccessConfigurationController configController;
+	private AccessConfigurationController configController;
 	
 	private final BusinessGroup businessGroup;
 	
@@ -57,16 +56,22 @@ public class BusinessGroupEditAccessController extends FormBasicController {
 		super(ureq, wControl, LAYOUT_VERTICAL);
 		
 		this.businessGroup = businessGroup;
-		OLATResource resource = OLATResourceManager.getInstance().findResourceable(businessGroup);
-		configController = new AccessConfigurationController(ureq, wControl, resource, businessGroup.getName(), mainForm);
-		listenTo(configController);
+		
+		AccessControlModule acModule = (AccessControlModule)CoreSpringFactory.getBean("acModule");
+		if(acModule.isEnabled()) {
+			OLATResource resource = OLATResourceManager.getInstance().findResourceable(businessGroup);
+			configController = new AccessConfigurationController(ureq, wControl, resource, businessGroup.getName(), mainForm);
+			listenTo(configController);
+		}
 		
 		initForm(ureq);
 	}
 
 	@Override
 	protected void initForm(FormItemContainer formLayout, Controller listener, UserRequest ureq) {
-		formLayout.add(configController.getInitialFormItem());
+		if(configController != null) {
+			formLayout.add(configController.getInitialFormItem());
+		}
 		
 		String[] keys = new String[]{"xx"};
 		String[] values = new String[]{translate("chkBox.open")};
@@ -80,7 +85,7 @@ public class BusinessGroupEditAccessController extends FormBasicController {
 		buttonGroupLayout.setRootForm(mainForm);
 		formLayout.add(buttonGroupLayout);
 		
-		saveButton = uifactory.addFormSubmitButton("save", formLayout);
+		uifactory.addFormSubmitButton("save", formLayout);
 	}
 	
 	@Override
@@ -94,7 +99,9 @@ public class BusinessGroupEditAccessController extends FormBasicController {
 
 	@Override
 	protected void formOK(UserRequest ureq) {
-		configController.formOK(ureq);
+		if(configController != null) {
+			configController.formOK(ureq);
+		}
 		fireEvent(ureq, Event.DONE_EVENT);
 	}
 }

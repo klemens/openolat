@@ -165,6 +165,14 @@ public interface CourseGroupManager {
 	 * @return boolean
 	 */
 	public boolean isIdentityCourseAdministrator(Identity identity);
+	
+	/**
+	 * Checks if user is course participant
+	 * 
+	 * @param identity
+	 * @return boolean
+	 */
+	public boolean isIdentityCourseParticipant(Identity identity);
 
 	/**
 	 * Checks if user is participant in any right group of this course

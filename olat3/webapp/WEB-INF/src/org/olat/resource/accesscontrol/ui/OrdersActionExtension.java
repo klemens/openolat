@@ -28,6 +28,7 @@ import org.olat.course.ICourse;
 import org.olat.resource.OLATResource;
 import org.olat.resource.OLATResourceManager;
 import org.olat.resource.accesscontrol.ACUIFactory;
+import org.olat.resource.accesscontrol.AccessControlModule;
 
 /**
  * 
@@ -39,6 +40,13 @@ import org.olat.resource.accesscontrol.ACUIFactory;
  * @author srosse, stephane.rosse@frentix.com, http://www.frentix.com
  */
 public class OrdersActionExtension extends GenericActionExtension {
+	
+	private final AccessControlModule acModule;
+	
+	public OrdersActionExtension(AccessControlModule acModule) {
+		this.acModule = acModule;
+	}
+	
 
 	@Override
 	public Controller createController(UserRequest ureq, WindowControl wControl, Object arg) {
@@ -48,5 +56,10 @@ public class OrdersActionExtension extends GenericActionExtension {
 			return ACUIFactory.createOrdersAdminController(ureq, wControl, resource);
 		}
 		return super.createController(ureq, wControl, arg);
+	}
+
+	@Override
+	public boolean isEnabled() {
+		return acModule.isEnabled();
 	}
 }

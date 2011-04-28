@@ -141,6 +141,11 @@ final class PreviewCourseGroupManager extends BasicManager implements CourseGrou
 		return isCoach;
 	}
 
+	@Override
+	public boolean isIdentityCourseParticipant(Identity identity) {
+		return false;
+	}
+
 	/**
 	 * @see org.olat.course.groupsandrights.CourseGroupManager#isIdentityCourseAdministrator(org.olat.core.id.Identity)
 	 */

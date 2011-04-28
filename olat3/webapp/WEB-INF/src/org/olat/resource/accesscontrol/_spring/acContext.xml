@@ -43,6 +43,7 @@
 	
 	<!-- Extension for SCORM Results export -->	
 	<bean class="org.olat.resource.accesscontrol.ui.OrdersActionExtension" init-method="initExtensionPoints">
+		<constructor-arg index="0" ref="acModule" />
 		<property name="actionController">	
 			<bean class="org.olat.core.gui.control.creator.AutoCreator" scope="prototype">
 				<property name="className" value="org.olat.resource.accesscontrol.ui.OrdersAdminController"/>

@@ -492,6 +492,35 @@ public class PersistingCourseGroupManager extends BasicManager implements Course
 			if (isCoach) // don't check any further
 			return true;
 		}
+		
+		RepositoryEntry re = RepositoryManager.getInstance().lookupRepositoryEntry(courseResource, false);
+		if(re != null && re.getTutorGroup() != null) {
+			boolean isCoach = secManager.isIdentityInSecurityGroup(identity, re.getTutorGroup());
+			if (isCoach) // don't check any further
+				return true;
+		}
+		return false;
+	}
+	
+	/**
+	 * @see org.olat.course.groupsandrights.CourseGroupManager#isIdentityCourseCoach(org.olat.core.id.Identity)
+	 */
+	public boolean isIdentityCourseParticipant(Identity identity) {
+		BaseSecurity secManager = BaseSecurityManager.getInstance();
+		Iterator<BGContext> iterator = learningGroupContexts.iterator();
+		for( ; iterator.hasNext(); ) {
+			BGContext bgContext = iterator.next();
+			boolean isParticipant = secManager.isIdentityPermittedOnResourceable(identity, Constants.PERMISSION_PARTI, bgContext);
+			if (isParticipant) // don't check any further
+				return true;
+		}
+		
+		RepositoryEntry re = RepositoryManager.getInstance().lookupRepositoryEntry(courseResource, false);
+		if(re != null && re.getParticipantGroup() != null) {
+			boolean isParticipant = secManager.isIdentityInSecurityGroup(identity, re.getParticipantGroup());
+			if (isParticipant) // don't check any further
+				return true;
+		}
 		return false;
 	}
 
