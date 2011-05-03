@@ -69,7 +69,7 @@ public class AssessmentHelper {
 	public static final float MAX_SCORE_SUPPORTED = 10000f;
 	/** Lowest score value supported by OLAT * */
 	public static final float MIN_SCORE_SUPPORTED = -10000f;
-	
+	//fxdiff VCRP-4: assessment overview with max score
 	private final static DecimalFormat scoreFormat = new DecimalFormat("#0.###", new DecimalFormatSymbols(Locale.ENGLISH));
 
 	/**
@@ -230,6 +230,7 @@ public class AssessmentHelper {
 	 * @param score The score to be rounded
 	 * @return The rounded score for GUI presentation
 	 */
+	//fxdiff VCRP-4: assessment overview with max score
 	public static String getRoundedScore(Float score) {
 		if (score == null) return null;
 
@@ -252,6 +253,7 @@ public class AssessmentHelper {
 	public static final String KEY_ATTEMPTS = "attempts";
 	public static final String KEY_DETAILS = "details";
 	public static final String KEY_SELECTABLE = "selectable";
+	//fxdiff VCRP-4: assessment overview with max score
 	public static final String KEY_MIN = "minScore";
 	public static final String KEY_MAX = "maxScore";
 	
@@ -327,11 +329,12 @@ public class AssessmentHelper {
 					hasDisplayableValuesConfigured = true;
 					Float score = scoreEvaluation.getScore();
 					if (score != null) {
+						//fxdiff VCRP-4: assessment overview with max score
 						nodeData.put(KEY_SCORE, AssessmentHelper.getRoundedScore(score));
 						nodeData.put(KEY_SCORE_F, score);
 						hasDisplayableUserValues = true;
 					}
-					
+					//fxdiff VCRP-4: assessment overview with max score
 					if(!(assessableCourseNode instanceof STCourseNode)) {
 						Float maxScore = assessableCourseNode.getMaxScoreConfiguration();
 						nodeData.put(KEY_MAX, maxScore);

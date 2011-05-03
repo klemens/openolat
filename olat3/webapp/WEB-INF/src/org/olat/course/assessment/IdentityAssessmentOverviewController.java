@@ -188,11 +188,13 @@ public class IdentityAssessmentOverviewController extends BasicController {
 			TableGuiConfiguration tableConfig = new TableGuiConfiguration();
 			tableConfig.setDownloadOffered(false);
 			tableConfig.setColumnMovingOffered(false);
+			//fxdiff VCRP-4: assessment overview with max score
 			tableConfig.setSortingEnabled(true);
 			tableConfig.setDisplayTableHeader(true);
 			tableConfig.setDisplayRowCount(false);
 			tableConfig.setPageingEnabled(false);
 			tableConfig.setTableEmptyMessage(translate("nodesoverview.emptylist"));
+		//fxdiff VCRP-4: assessment overview with max score
 			tableConfig.setPreferencesOffered(true, "assessmentIdentityNodeList");
 
 			removeAsListenerAndDispose(tableFilterCtr);
@@ -205,6 +207,7 @@ public class IdentityAssessmentOverviewController extends BasicController {
 			}
 			listenTo(tableFilterCtr);
 			
+			//fxdiff VCRP-4: assessment overview with max score
 			final IndentedNodeRenderer nodeRenderer = new IndentedNodeRenderer() {
 				@Override
 				public boolean isIndentationEnabled() {
@@ -214,11 +217,18 @@ public class IdentityAssessmentOverviewController extends BasicController {
 			
 			// table columns
 			tableFilterCtr.addColumnDescriptor(new CustomRenderColumnDescriptor("table.header.node", 0, null, 
-					ureq.getLocale(), ColumnDescriptor.ALIGNMENT_LEFT, nodeRenderer));
+					ureq.getLocale(), ColumnDescriptor.ALIGNMENT_LEFT, nodeRenderer){
+					@Override
+					//fxdiff VCRP-4: assessment overview with max score
+					public int compareTo(int rowa, int rowb) {
+						return rowa - rowb;
+					}
+			});
 			tableFilterCtr.addColumnDescriptor(new DefaultColumnDescriptor("table.header.details",1, null, ureq.getLocale()));
 			tableFilterCtr.addColumnDescriptor(new DefaultColumnDescriptor("table.header.attempts", 2, null, ureq.getLocale(), ColumnDescriptor.ALIGNMENT_RIGHT));
 			tableFilterCtr.addColumnDescriptor(new CustomRenderColumnDescriptor("table.header.score", 3, null, ureq.getLocale(),
 					ColumnDescriptor.ALIGNMENT_RIGHT, new ScoreCellRenderer()));
+		//fxdiff VCRP-4: assessment overview with max score
 			tableFilterCtr.addColumnDescriptor(false, new CustomRenderColumnDescriptor("table.header.min", 6, null, ureq.getLocale(), 
 					ColumnDescriptor.ALIGNMENT_RIGHT, new ScoreCellRenderer()));
 			tableFilterCtr.addColumnDescriptor(new CustomRenderColumnDescriptor("table.header.max", 7, null, ureq.getLocale(),
@@ -228,6 +238,7 @@ public class IdentityAssessmentOverviewController extends BasicController {
 			if (nodesSelectable) {
 				tableFilterCtr.addColumnDescriptor(new DefaultColumnDescriptor("table.action.select",5 ,CMD_SELECT_NODE, ureq.getLocale()) {
 					@Override
+				//fxdiff VCRP-4: assessment overview with max score
 					public boolean isSortingAllowed() {
 						return false;
 					}

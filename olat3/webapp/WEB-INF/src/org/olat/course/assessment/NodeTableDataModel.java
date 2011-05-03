@@ -73,6 +73,7 @@ public class NodeTableDataModel extends DefaultTableDataModel {
 					Boolean courseNodeEditable = (Boolean) nodeData.get(AssessmentHelper.KEY_SELECTABLE);
 					if (courseNodeEditable.booleanValue()) return trans.translate("select");
 					else return null;
+				//fxdiff VCRP-4: assessment overview with max score
 				case 2:
 					//min score
 					return nodeData.get(AssessmentHelper.KEY_MIN);

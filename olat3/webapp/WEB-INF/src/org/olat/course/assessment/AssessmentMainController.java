@@ -617,6 +617,7 @@ AssessmentMainController(UserRequest ureq, WindowControl wControl, OLATResourcea
 		removeAsListenerAndDispose(groupListCtr);
 		TableGuiConfiguration tableConfig = new TableGuiConfiguration();
 		tableConfig.setTableEmptyMessage(translate("groupchoose.nogroups"));
+		//fxdiff VCRP-4: assessment overview with max score
 		tableConfig.setPreferencesOffered(true, "assessmentGroupList");
 		groupListCtr = new TableController(tableConfig, ureq, getWindowControl(), getTranslator());
 		listenTo(groupListCtr);
@@ -669,6 +670,7 @@ AssessmentMainController(UserRequest ureq, WindowControl wControl, OLATResourcea
 		removeAsListenerAndDispose(userListCtr);
 		TableGuiConfiguration tableConfig = new TableGuiConfiguration();
 		tableConfig.setTableEmptyMessage(translate("userchoose.nousers"));
+		//fxdiff VCRP-4: assessment overview with max score
 		tableConfig.setPreferencesOffered(true, "assessmentGroupUsersNode");
 		
 		if (mode == MODE_GROUPFOCUS) {
@@ -745,16 +747,19 @@ AssessmentMainController(UserRequest ureq, WindowControl wControl, OLATResourcea
 		tableConfig.setTableEmptyMessage(translate("nodesoverview.nonodes"));
 		tableConfig.setDownloadOffered(false);
 		tableConfig.setColumnMovingOffered(false);
+		//fxdiff VCRP-4: assessment overview with max score
 		tableConfig.setSortingEnabled(true);
 		tableConfig.setDisplayTableHeader(true);
 		tableConfig.setDisplayRowCount(false);
 		tableConfig.setPageingEnabled(false);
+		//fxdiff VCRP-4: assessment overview with max score
 		tableConfig.setPreferencesOffered(true, "assessmentNodeList");
 		
 		
 		nodeListCtr = new TableController(tableConfig, ureq, getWindowControl(), getTranslator());
 		listenTo(nodeListCtr);
 		
+		//fxdiff VCRP-4: assessment overview with max score
 		final IndentedNodeRenderer nodeRenderer = new IndentedNodeRenderer() {
 			@Override
 			public boolean isIndentationEnabled() {
@@ -764,7 +769,15 @@ AssessmentMainController(UserRequest ureq, WindowControl wControl, OLATResourcea
 		
 		// table columns		
 		nodeListCtr.addColumnDescriptor(new CustomRenderColumnDescriptor("table.header.node", 0,
-				null, ureq.getLocale(), ColumnDescriptor.ALIGNMENT_LEFT, nodeRenderer));
+				null, ureq.getLocale(), ColumnDescriptor.ALIGNMENT_LEFT, nodeRenderer){
+					@Override
+					//fxdiff VCRP-4: assessment overview with max score
+					public int compareTo(int rowa, int rowb) {
+						//the order is already ok
+						return rowa - rowb;
+					}
+		});
+		//fxdiff VCRP-4: assessment overview with max score
 		nodeListCtr.addColumnDescriptor(false, new CustomRenderColumnDescriptor("table.header.min", 2, null, ureq.getLocale(),
 				ColumnDescriptor.ALIGNMENT_RIGHT, new ScoreCellRenderer()));
 		nodeListCtr.addColumnDescriptor(new CustomRenderColumnDescriptor("table.header.max", 3, null, ureq.getLocale(),
@@ -840,6 +853,7 @@ AssessmentMainController(UserRequest ureq, WindowControl wControl, OLATResourcea
 					hasDisplayableValuesConfigured = true;
 				}
 				
+				//fxdiff VCRP-4: assessment overview with max score
 				if(assessableCourseNode.hasScoreConfigured()) {
 					if(!(courseNode instanceof STCourseNode)) {
 						Float min = assessableCourseNode.getMinScoreConfiguration();
@@ -847,8 +861,6 @@ AssessmentMainController(UserRequest ureq, WindowControl wControl, OLATResourcea
 						Float max = assessableCourseNode.getMaxScoreConfiguration();
 						nodeData.put(AssessmentHelper.KEY_MAX, max);
 					}
-
-					
 				}
 
 				if (assessableCourseNode.isEditableConfigured()) {

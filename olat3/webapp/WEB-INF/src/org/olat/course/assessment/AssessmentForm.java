@@ -161,6 +161,7 @@ public class AssessmentForm extends FormBasicController {
 	@Override
 	protected boolean validateFormLogic (UserRequest ureq) {
 		if (hasScore) {
+		//fxdiff VCRP-4: assessment overview with max score
 			try {
 				parseFloat(score);
 			} catch (NumberFormatException e) {
@@ -183,6 +184,7 @@ public class AssessmentForm extends FormBasicController {
 		return true;
 	}
 	
+	//fxdiff VCRP-4: assessment overview with max score
 	private Float parseFloat(TextElement textEl) throws NumberFormatException {
 		String scoreStr = textEl.getValue();
 		if(!StringHelper.containsNonWhitespace(scoreStr)) {
@@ -218,6 +220,7 @@ public class AssessmentForm extends FormBasicController {
 				cut = assessableCourseNode.getCutValueConfiguration();
 			}
 			
+			//fxdiff VCRP-4: assessment overview with max score
 			String minStr = AssessmentHelper.getRoundedScore(min);
 			String maxStr = AssessmentHelper.getRoundedScore(max);
 			minVal = uifactory.addStaticTextElement("minval", "form.min", ((min == null) ? translate("form.valueUndefined") : minStr), formLayout);
@@ -231,6 +234,7 @@ public class AssessmentForm extends FormBasicController {
 			if (scoreValue != null) {
 				score.setValue(AssessmentHelper.getRoundedScore(scoreValue));
 			} 
+			//fxdiff VCRP-4: assessment overview with max score
 			score.setRegexMatchCheck("(\\d+)||(\\d+\\.\\d{1,3})||(\\d+\\,\\d{1,3})", "form.error.wrongFloat");
 		}
 
@@ -239,7 +243,7 @@ public class AssessmentForm extends FormBasicController {
 				// Display cut value if defined
 				cutVal = uifactory.addStaticTextElement(
 						"cutval","form.cut" ,
-						((cut == null) ? translate("form.valueUndefined") : cut.toString()),
+						((cut == null) ? translate("form.valueUndefined") : AssessmentHelper.getRoundedScore(cut)),
 						formLayout
 				);
 			}

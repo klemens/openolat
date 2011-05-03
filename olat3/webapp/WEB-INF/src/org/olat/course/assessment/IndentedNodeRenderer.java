@@ -43,6 +43,7 @@ import org.olat.course.nodes.CourseNodeFactory;
 public class IndentedNodeRenderer implements CustomCellRenderer {
 
 	private static final String INDENT = "&nbsp;&nbsp;";
+	//fxdiff VCRP-4: assessment overview with max score
 	private boolean indentationEnabled = true;
 
 	/**
@@ -71,6 +72,7 @@ public class IndentedNodeRenderer implements CustomCellRenderer {
 		String title = (String)  nodeData.get(AssessmentHelper.KEY_TITLE_SHORT);
 		String altText = (String)  nodeData.get(AssessmentHelper.KEY_TITLE_LONG);
 		
+		//fxdiff VCRP-4: assessment overview with max score
 		if(isIndentationEnabled()) {
 			Integer indentation = (Integer) nodeData.get(AssessmentHelper.KEY_INDENT);
 			appendIndent(sb,indentation);

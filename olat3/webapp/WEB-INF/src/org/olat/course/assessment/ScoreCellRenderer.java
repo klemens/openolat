@@ -36,6 +36,7 @@ import org.olat.core.util.StringHelper;
  * Initial Date:  14 mars 2011 <br>
  * @author srosse, stephane.rosse@frentix.com, http://www.frentix.com
  */
+//fxdiff VCRP-4: assessment overview with max score
 public class ScoreCellRenderer implements CustomCellRenderer {
 
 	@Override

@@ -275,7 +275,7 @@ public class ScoreAccountingHelper {
 			firstIteration = false;
 			rowNumber++;
 		}
-		
+		//fxdiff VCRP-4: assessment overview with max score
 		StringBuilder tableFooter = new StringBuilder();
 		tableFooter.append("\t\n").append("\t\n").append(t.translate("legend")).append("\t\n").append("\t\n");
 		Iterator iterNodes = myNodes.iterator();

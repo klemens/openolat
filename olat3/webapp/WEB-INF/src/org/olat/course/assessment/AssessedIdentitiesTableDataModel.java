@@ -56,6 +56,7 @@ public class AssessedIdentitiesTableDataModel extends DefaultTableDataModel {
 	private static final String COL_DETAILS = "details";
 	private static final String COL_ATTEMPTS = "attempts";
 	private static final String COL_SCORE = "score";
+	//fxdiff VCRP-4: assessment overview with max score
 	private static final String COL_MINSCORE = "minScore";
 	private static final String COL_MAXSCORE = "maxScore";
 	private static final String COL_PASSED = "passed";
@@ -100,6 +101,7 @@ public class AssessedIdentitiesTableDataModel extends DefaultTableDataModel {
 			}
 			if (courseNode.hasScoreConfigured()) {
 				colMapping.add(colCount++, COL_SCORE);
+				//fxdiff VCRP-4: assessment overview with max score
 				colMapping.add(colCount++, COL_MINSCORE);
 				colMapping.add(colCount++, COL_MAXSCORE);
 			}
@@ -153,11 +155,12 @@ public class AssessedIdentitiesTableDataModel extends DefaultTableDataModel {
   	else if (colName.equals(COL_SCORE)) {
 			ScoreEvaluation scoreEval = wrappedIdentity.getUserCourseEnvironment().getScoreAccounting().evalCourseNode(courseNode);
 			if (scoreEval == null) scoreEval = new ScoreEvaluation(null, null);
-			return scoreEval.getScore();
+		//fxdiff VCRP-4: assessment overview with max score
+			return AssessmentHelper.getRoundedScore(scoreEval.getScore());
   	} else if (colName.equals(COL_MINSCORE)) {
-  		return courseNode.getMinScoreConfiguration();
+  		return AssessmentHelper.getRoundedScore(courseNode.getMinScoreConfiguration());
   	} else if (colName.equals(COL_MAXSCORE)) {
-  		return courseNode.getMaxScoreConfiguration();
+  		return AssessmentHelper.getRoundedScore(courseNode.getMaxScoreConfiguration());
   	}	else if (colName.equals(COL_STATUS)) {
 			return getStatusFor(courseNode, wrappedIdentity);
 		}else if (colName.equals(COL_PASSED)) {
@@ -210,6 +213,7 @@ public class AssessedIdentitiesTableDataModel extends DefaultTableDataModel {
 		}		
 		if ( (courseNode != null) && isNodeOrGroupFocus) {			
 			if (courseNode.hasDetails()) {
+			//fxdiff VCRP-4: assessment overview with max score
 				String headerKey = courseNode.getDetailsListViewHeaderKey();
 				userListCtr.addColumnDescriptor((headerKey == null ? false : true), 
 						new DefaultColumnDescriptor(headerKey == null ? "table.header.details" : headerKey, colCount++, null, getLocale()));
@@ -219,6 +223,7 @@ public class AssessedIdentitiesTableDataModel extends DefaultTableDataModel {
 			}
 			if (courseNode.hasScoreConfigured()) {				
 				userListCtr.addColumnDescriptor(new DefaultColumnDescriptor("table.header.score", colCount++, null, getLocale(), ColumnDescriptor.ALIGNMENT_LEFT));
+			//fxdiff VCRP-4: assessment overview with max score
 				userListCtr.addColumnDescriptor(false, new DefaultColumnDescriptor("table.header.min", colCount++, null, getLocale(), ColumnDescriptor.ALIGNMENT_LEFT));
 				userListCtr.addColumnDescriptor(new DefaultColumnDescriptor("table.header.max", colCount++, null, getLocale(), ColumnDescriptor.ALIGNMENT_LEFT));
 			}

@@ -73,6 +73,7 @@ public class NodeAssessmentTableDataModel extends DefaultTableDataModel {
 				case 2:
 					return nodeData.get(AssessmentHelper.KEY_ATTEMPTS);
 				case 3:
+					//fxdiff VCRP-4: assessment overview with max score
 					return nodeData.get(AssessmentHelper.KEY_SCORE_F);
 				case 4:
 					return nodeData.get(AssessmentHelper.KEY_PASSED);
