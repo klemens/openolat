@@ -42,6 +42,11 @@ public class FreeAccessMethod extends AbstractAccessMethod {
 	}
 
 	@Override
+	public String getMethodCssClass() {
+		return FreeAccessHandler.METHOD_CSS_CLASS;
+	}
+
+	@Override
 	public boolean isNeedUserInteraction() {
 		return false;
 	}
@@ -62,4 +67,5 @@ public class FreeAccessMethod extends AbstractAccessMethod {
 		}
 		return false;
 	}
+
 }

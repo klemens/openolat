@@ -44,6 +44,7 @@ import org.olat.resource.accesscontrol.ui.TokenAccessController;
 public class FreeAccessHandler implements AccessMethodHandler {
 	
 	public static final String METHOD_TYPE = "free.method";
+	public static final String METHOD_CSS_CLASS = "b_access_method_free";
 
 	@Override
 	public String getType() {

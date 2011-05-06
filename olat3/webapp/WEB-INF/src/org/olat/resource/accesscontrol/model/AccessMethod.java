@@ -43,4 +43,6 @@ public interface AccessMethod {
 	
 	public boolean isNeedUserInteraction();
 
+	public String getMethodCssClass();
+	
 }

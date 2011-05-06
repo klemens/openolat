@@ -79,7 +79,7 @@ public class OrdersController extends BasicController  {
 		tableCtr.addColumnDescriptor(new DefaultColumnDescriptor("order.creationDate", Col.creationDate.ordinal(), null, getLocale()));
 		tableCtr.addColumnDescriptor(new DefaultColumnDescriptor("order.summary", Col.summary.ordinal(), null, getLocale()));
 		tableCtr.addColumnDescriptor(new DefaultColumnDescriptor("order.part.payment", Col.methods.ordinal(), null, getLocale()));
-		tableCtr.addColumnDescriptor(new StaticColumnDescriptor(CMD_SELECT, "table.order.details", getTranslator().translate("select")));
+		tableCtr.addColumnDescriptor(new StaticColumnDescriptor(CMD_SELECT, "table.order.details", getTranslator().translate("order.details")));
 		
 		listenTo(tableCtr);
 		

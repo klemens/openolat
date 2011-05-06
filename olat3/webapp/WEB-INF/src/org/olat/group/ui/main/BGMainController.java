@@ -43,6 +43,7 @@ import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.Component;
 import org.olat.core.gui.components.link.Link;
 import org.olat.core.gui.components.link.LinkFactory;
+import org.olat.core.gui.components.panel.Panel;
 import org.olat.core.gui.components.segmentedview.SegmentViewComponent;
 import org.olat.core.gui.components.segmentedview.SegmentViewEvent;
 import org.olat.core.gui.components.segmentedview.SegmentViewFactory;
@@ -662,7 +663,11 @@ public class BGMainController extends MainLayoutBasicController implements Activ
 		// 1) init listing controller
 		TableGuiConfiguration tableConfig = new TableGuiConfiguration();
 		tableConfig.setPreferencesOffered(true, tableId);
-		tableConfig.setTableEmptyMessage(translate("index.table.nogroup"));
+		if (CMD_MENU_OPEN.equals(tableId)) {
+			tableConfig.setTableEmptyMessage(translate("open.nogroup"));			
+		} else {
+			tableConfig.setTableEmptyMessage(translate("index.table.nogroup"));			
+		}
 		removeAsListenerAndDispose(groupListCtr);
 		groupListCtr = new TableController(tableConfig, ureq, getWindowControl(), getTranslator(), false);
 		listenTo(groupListCtr);
