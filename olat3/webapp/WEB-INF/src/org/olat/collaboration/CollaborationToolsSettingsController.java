@@ -112,12 +112,12 @@ public class CollaborationToolsSettingsController extends BasicController {
 		}
 		
 		// update quota form: only show when enabled
-		if (collabTools.isToolEnabled(CollaborationTools.TOOL_FOLDER) && ureq.getUserSession().getRoles().isOLATAdmin()) {
+		if (collabTools.isToolEnabled(CollaborationTools.TOOL_FOLDER)) {
 			vc_collabtools.contextPut("folderToolEnabled", Boolean.TRUE);
-			vc_collabtools.put("quota", quotaCtr.getInitialComponent());
-			
-		//fxdiff VCRP-8: collaboration tools folder access control
-		} else if (collabTools.isToolEnabled(CollaborationTools.TOOL_FOLDER)) {
+			//fxdiff VCRP-8: collaboration tools folder access control
+			if(ureq.getUserSession().getRoles().isOLATAdmin()) {
+				vc_collabtools.put("quota", quotaCtr.getInitialComponent());
+			}
 			vc_collabtools.contextPut("folderToolEnabled", Boolean.TRUE);
 			if(folderForm != null) {
 				removeAsListenerAndDispose(folderForm);
