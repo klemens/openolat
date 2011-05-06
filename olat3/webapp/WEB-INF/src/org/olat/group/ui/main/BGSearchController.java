@@ -140,13 +140,15 @@ public class BGSearchController extends FormBasicController{
 			allOk &= false;
 		}
 		
-		id.clearError();
-		if (id != null && !id.isEmpty()) {
-			try {
-				new Long(id.getValue());
-			} catch (NumberFormatException e) {
-				id.setErrorKey("", null);
-				allOk &= false;
+		if(id != null) {
+			id.clearError();
+			if (id != null && !id.isEmpty()) {
+				try {
+					new Long(id.getValue());
+				} catch (NumberFormatException e) {
+					id.setErrorKey("", null);
+					allOk &= false;
+				}
 			}
 		}
 		return allOk && super.validateFormLogic(ureq);

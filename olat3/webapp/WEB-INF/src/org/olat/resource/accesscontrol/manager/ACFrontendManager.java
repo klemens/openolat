@@ -169,13 +169,7 @@ public class ACFrontendManager extends BasicManager {
 		if(!accessModule.isEnabled()) {
 			return new AccessResult(true);
 		}
-		
-		OLATResource resource = OLATResourceManager.getInstance().findResourceable(group);
-		List<Offer> offers = accessManager.findOfferByResource(resource, true, new Date());
-		if(offers.isEmpty()) {
-			return new AccessResult(true);
-		}
-		
+
 		boolean tutor = securityManager.isIdentityInSecurityGroup(forId, group.getOwnerGroup());
 		if(tutor) {
 			return new AccessResult(true);
@@ -187,6 +181,13 @@ public class ACFrontendManager extends BasicManager {
 				return new AccessResult(true);
 			}
 		}
+		
+		OLATResource resource = OLATResourceManager.getInstance().findResourceable(group);
+		List<Offer> offers = accessManager.findOfferByResource(resource, true, new Date());
+		if(offers.isEmpty()) {
+			return new AccessResult(false);
+		}
+		
 		return isAccessible(forId, offers, allowNonInteractiveAccess);
 	}
 	

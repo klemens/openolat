@@ -20,6 +20,7 @@
  */
 package org.olat.group;
 
+import org.olat.core.CoreSpringFactory;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.WindowControl;
@@ -27,6 +28,9 @@ import org.olat.core.id.OLATResourceable;
 import org.olat.core.id.context.ContextEntry;
 import org.olat.core.id.context.ContextEntryControllerCreator;
 import org.olat.group.ui.BGControllerFactory;
+import org.olat.resource.accesscontrol.AccessControlModule;
+import org.olat.resource.accesscontrol.AccessResult;
+import org.olat.resource.accesscontrol.manager.ACFrontendManager;
 
 /**
  * <h3>Description:</h3>
@@ -57,6 +61,16 @@ public class BusinessGroupContextEntryControllerCreator implements ContextEntryC
 		if (isOlatAdmin || bman.isIdentityInBusinessGroup(ureq.getIdentity(), bgroup)) {
 			// only olatadmins or admins of this group can administer this group
 			ctrl = BGControllerFactory.getInstance().createRunControllerFor(ureq, wControl, bgroup, isOlatAdmin, null);
+		//fxdiff VCRP-1,2: access control of resources
+		} else {
+			AccessControlModule acModule = (AccessControlModule)CoreSpringFactory.getBean("acModule");
+			if(acModule.isEnabled()) {
+				ACFrontendManager acFrontendManager = (ACFrontendManager)CoreSpringFactory.getBean("acFrontendManager");
+				AccessResult result = acFrontendManager.isAccessible(bgroup, ureq.getIdentity(), false);
+				if(result.isAccessible() || (result.getAvailableMethods() != null && result.getAvailableMethods().size() > 0)) {
+					ctrl = BGControllerFactory.getInstance().createRunControllerFor(ureq, wControl, bgroup, isOlatAdmin, null);
+				}
+			}
 		}
 		return ctrl;
 	}
