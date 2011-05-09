@@ -1,18 +1,18 @@
 <projectDescription>
   <name>OLAT-HEAD-webapp</name>
-  <comment>Welcome to OLAT (Online Learning And Training), the web-based open source Learning 
-  Management System (LMS) based on Java and completely free of charge.
-  The development of OLAT started in 1999 at the University of Zurich, Switzerland, 
-  where it is the strategic learning management system and deployed on the main OLAT 
-  server. For further information see our main project website.
-  This site contains information chiefly of interest to developers e.g., source code
-  documentation, unit testing information and static code analysis output.  In 
-  addition you will also find technical project information (e.g., links to
-  issue management, version control and project statistics etc.)</comment>
+  <comment>Welcome to the OLAT (Online Learning And Training) Developer Project Site.  This site
+  contains materials chiefly of concern to developers (e.g., unit testing and SCA output etc.)
+  and is rebuilt periodically on a regular basis.  The site structure is divided between
+  project information (e.g., infrastructure, mailiing lists, repositories etc.) and reports
+  (e.g., unit testing, SCAs etc.)
+
+  The development of OLAT itself started in 1999 at the University of Zurich, Switzerland,
+  where it is the strategic learning management system.  For further information see our main project website.</comment>
   <projects>
     <project>olat-maven-plugin</project>
+    <project>olat3_i18n</project>
     <project>olatcore</project>
-    <project>olatpatches</project>
+    <project>olatcore_i18n</project>
   </projects>
   <buildSpec>
     <buildCommand>

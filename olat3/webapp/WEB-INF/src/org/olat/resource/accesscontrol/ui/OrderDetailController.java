@@ -176,7 +176,9 @@ public class OrderDetailController extends FormBasicController {
 					if(wrapper.isFirst() && wrapper.getTransaction() != null) {
 						String type = wrapper.getTransaction().getMethod().getType();
 						AccessMethodHandler handler = acModule.getAccessMethodHandler(type);
-						return handler.getMethodName(getLocale());
+						// FIXME: check if we can move CSS rendering to an implementation of CustomCssCellRenderer. 
+						// return handler.getMethodName(getLocale());
+						return "<span class='b_with_small_icon_left " + wrapper.getTransaction().getMethod().getMethodCssClass() +"_icon'>" + handler.getMethodName(getLocale()) + "</span>";
 					}
 					return "";
 				}

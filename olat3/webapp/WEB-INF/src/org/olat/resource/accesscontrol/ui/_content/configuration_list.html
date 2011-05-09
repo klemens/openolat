@@ -1,9 +1,20 @@
-<table>
+#if ($confControllers.size() > 0)
+<table class="b_access_method">
+	<thead>
+			<tr>
+				<th>$r.translate("accesscontrol.table.method")</th>
+				<th></th>
+				<th>$r.translate("accesscontrol.table.from")</th>
+				<th>$r.translate("accesscontrol.table.to")</th>
+				<th></th>
+			</tr>	
+	</thead>
 	<tbody>
 		#foreach($confController in $confControllers)
-			<tr>
-				<td><span>$confController.name</span></td>
-				<td><span>$confController.infos</span></td>
+			#set($css = $confController.getLink().getMethod().getMethodCssClass())
+			<tr class="$css">
+				<td><span class="b_with_small_icon_left ${css}_icon">$confController.name</span></td>
+				<td><span class="b_access_infos">$confController.infos</span></td>
 				<td>$r.render("from_$confController.link.key")</td>
 				<td>$r.render("to_$confController.link.key")</td>
 				<td>$r.render("del_$confController.link.key")</td>
@@ -11,6 +22,6 @@
 		#end
 	</tbody>
 </table>
-
+#end
 
 

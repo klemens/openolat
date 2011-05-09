@@ -124,6 +124,10 @@ public class AccessConfigurationController extends FormBasicController {
 		confControllerContainer.contextPut("confControllers", confControllers);
 		
 		if(!embbed) {
+			setFormTitle("accesscontrol.title");
+			setFormDescription("accesscontrol.desc");
+			setFormContextHelp(AccessConfigurationController.class.getPackage().getName(), "accesscontrol.html", "chelp.accesscontrol.hover");
+			
 			final FormLayoutContainer buttonGroupLayout = FormLayoutContainer.createButtonLayout("buttonLayout", getTranslator());
 			buttonGroupLayout.setRootForm(mainForm);
 			formLayout.add(buttonGroupLayout);
@@ -220,6 +224,7 @@ public class AccessConfigurationController extends FormBasicController {
 			Link add = LinkFactory.createLink("create." + handler.getType(), mapCreateVC, this);
 			add.setCustomDisplayText(handler.getMethodName(getLocale()));
 			add.setUserObject(method);
+			add.setCustomEnabledLinkCSS("b_with_small_icon_left " + method.getMethodCssClass() + "_icon");
 			addMethods.add(add);
 			mapCreateVC.put(add.getComponentName(), add);
 		}

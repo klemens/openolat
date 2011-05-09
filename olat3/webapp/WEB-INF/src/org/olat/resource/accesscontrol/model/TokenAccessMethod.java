@@ -37,6 +37,11 @@ public class TokenAccessMethod extends AbstractAccessMethod {
 	@Override
 	public String getType() {
 		return TokenAccessHandler.METHOD_TYPE;
+	}	
+	
+	@Override
+	public String getMethodCssClass() {
+		return TokenAccessHandler.METHOD_CSS_CLASS;
 	}
 	
 	@Override

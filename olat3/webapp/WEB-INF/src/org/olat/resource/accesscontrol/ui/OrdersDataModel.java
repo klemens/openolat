@@ -87,7 +87,13 @@ public class OrdersDataModel implements TableDataModel {
 					}
 					AccessMethodHandler handler = acModule.getAccessMethodHandler(type);
 					String methodName = handler.getMethodName(locale);
+//					sb.append(methodName);
+// FIXME: check if we can move CSS rendering to an implementation of CustomCssCellRenderer or something
+					sb.append("<span class='b_with_small_icon_left ");
+					sb.append(transaction.getMethod().getMethodCssClass()).append("_icon'>");
 					sb.append(methodName);
+					sb.append("</span>");
+
 				}
 				return sb.toString();
 			}

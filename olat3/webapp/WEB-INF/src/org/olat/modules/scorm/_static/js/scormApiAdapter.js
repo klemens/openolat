@@ -119,7 +119,7 @@ function loadHTMLDoc(url,apiCall, param1, param2) {
 			if (req.status == 200) {
 				rteResponseText = req.responseText;
 				scormRTEresponse = rteResponseText.substring(rteResponseText.indexOf("<p>")+3,rteResponseText.indexOf("</p>")); 
-				dump(scormRTEresponse);
+				if (debug) dump(scormRTEresponse);
 			} else { if (debug) dump("There was a problem retrieving the XMLHttpRequest data:\n"+ req.statusText+"\n"); }
 		}
 	};
@@ -165,6 +165,7 @@ function increment(){
 * Code uses different ways for moz and ie.
 *******************************************************************/
 function passApiCall(apiCall, param1, param2){
+console.log("SCORM method call: " + apiCall + "(" + param1 + ", " + param2 + ")");
 	if(window.ActiveXObject || (navigator.userAgent.indexOf("Safari") != -1)){
 		loadHTMLDoc(olatCommandUri,apiCall,param1,param2);
 		return scormRTEresponse;

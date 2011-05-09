@@ -29,6 +29,7 @@ import org.olat.core.gui.components.form.flexible.impl.FormLayoutContainer;
 import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.Event;
 import org.olat.core.gui.control.WindowControl;
+import org.olat.core.util.Util;
 import org.olat.group.BusinessGroup;
 import org.olat.resource.OLATResource;
 import org.olat.resource.OLATResourceManager;
@@ -54,6 +55,7 @@ public class BusinessGroupEditAccessController extends FormBasicController {
 	
 	public BusinessGroupEditAccessController(UserRequest ureq, WindowControl wControl, BusinessGroup businessGroup) {
 		super(ureq, wControl, LAYOUT_VERTICAL);
+		setTranslator(Util.createPackageTranslator(AccessConfigurationController.class, getLocale(), getTranslator()));
 		
 		this.businessGroup = businessGroup;
 		
@@ -71,7 +73,12 @@ public class BusinessGroupEditAccessController extends FormBasicController {
 	protected void initForm(FormItemContainer formLayout, Controller listener, UserRequest ureq) {
 		if(configController != null) {
 			formLayout.add(configController.getInitialFormItem());
+			uifactory.addSpacerElement("spacer1", formLayout, false);
 		}
+
+		setFormTitle("accesscontrol.title");
+		setFormDescription("accesscontrol.desc");
+		setFormContextHelp(AccessConfigurationController.class.getPackage().getName(), "accesscontrol.html", "chelp.ac.hover");
 		
 		String[] keys = new String[]{"xx"};
 		String[] values = new String[]{translate("chkBox.open")};
