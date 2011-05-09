@@ -165,7 +165,6 @@ function increment(){
 * Code uses different ways for moz and ie.
 *******************************************************************/
 function passApiCall(apiCall, param1, param2){
-console.log("SCORM method call: " + apiCall + "(" + param1 + ", " + param2 + ")");
 	if(window.ActiveXObject || (navigator.userAgent.indexOf("Safari") != -1)){
 		loadHTMLDoc(olatCommandUri,apiCall,param1,param2);
 		return scormRTEresponse;
