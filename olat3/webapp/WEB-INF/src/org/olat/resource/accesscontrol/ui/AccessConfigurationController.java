@@ -81,15 +81,17 @@ public class AccessConfigurationController extends FormBasicController {
 	private final List<AccessInfo> confControllers = new ArrayList<AccessInfo>();
 	
 	private final boolean embbed;
+	private final boolean emptyConfigGrantsFullAccess;
 	
 	public AccessConfigurationController(UserRequest ureq, WindowControl wControl, OLATResource resource, String displayName) {
-		super(ureq, wControl);
+		super(ureq, wControl, "access_configuration");
 		
 		this.resource = resource;
 		this.displayName = displayName;
 		acModule = (AccessControlModule)CoreSpringFactory.getBean("acModule");
 		acFrontendManager = (ACFrontendManager)CoreSpringFactory.getBean("acFrontendManager");
 		embbed = false;
+		emptyConfigGrantsFullAccess = true; 
 		
 		initForm(ureq);
 	}
@@ -102,6 +104,7 @@ public class AccessConfigurationController extends FormBasicController {
 		acModule = (AccessControlModule)CoreSpringFactory.getBean("acModule");
 		acFrontendManager = (ACFrontendManager)CoreSpringFactory.getBean("acFrontendManager");
 		embbed = true;
+		emptyConfigGrantsFullAccess = false;
 		
 		initForm(ureq);
 	}
@@ -134,6 +137,8 @@ public class AccessConfigurationController extends FormBasicController {
 			
 			uifactory.addFormSubmitButton("save", formLayout);
 		}
+		
+		confControllerContainer.contextPut("emptyConfigGrantsFullAccess", Boolean.valueOf(emptyConfigGrantsFullAccess));		
 	}
 	
 	@Override

@@ -22,6 +22,16 @@
 		#end
 	</tbody>
 </table>
+#else
+	#if ($emptyConfigGrantsFullAccess) 
+		<div class="b_warning">
+			$r.translate("accesscontrol.no.methods.full.access")		
+		</div>
+	#else 	
+		<div class="b_important">
+			$r.translate("accesscontrol.no.methods.no.access")
+		</div>
+	#end
 #end
 
 
