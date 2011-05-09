@@ -42,7 +42,6 @@ create table if not exists o_gp_business (
    maxparticipants integer,
    waitinglist_enabled bit,
    autocloseranks_enabled bit,
-   visible_to_nonmembers bit default 0,
    groupcontext_fk bigint,
    fk_ownergroup bigint unique,
    fk_partipiciantgroup bigint unique,

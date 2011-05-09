@@ -86,6 +86,9 @@ public class BusinessGroupTableModelWithType extends DefaultTableDataModel imple
 			case 7:
 				if(wrapped.isMember()) return trans.translate("select");
 				return trans.translate("table.access");
+			case 8:
+				return wrapped.getAccessTypes();
+				
 			default:
 				return "ERROR";
 		}

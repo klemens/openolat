@@ -22,8 +22,8 @@
 package org.olat.catalog.ui;
 
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
-import java.util.Set;
 import java.util.Stack;
 
 import org.olat.ControllerFactory;
@@ -83,6 +83,8 @@ import org.olat.repository.handlers.RepositoryHandler;
 import org.olat.repository.handlers.RepositoryHandlerFactory;
 import org.olat.resource.OLATResource;
 import org.olat.resource.accesscontrol.manager.ACFrontendManager;
+import org.olat.resource.accesscontrol.model.AccessMethod;
+import org.olat.resource.accesscontrol.model.OLATResourceAccess;
 
 /**
  * <pre>
@@ -958,16 +960,25 @@ public class CatalogController extends BasicController implements Activateable {
 				resourceKeys.add(entry.getRepositoryEntry().getOlatResource().getKey());
 			}
 		}
-		Set<Long> resourcesWithOffer = acFrontendManager.filterResourcesWithAC(resourceKeys);
-		System.out.println(resourcesWithOffer.size());
+		List<OLATResourceAccess> resourcesWithOffer = acFrontendManager.getAccessMethodForResources(resourceKeys, true, new Date());
 		for ( Object leaf : childCe ) {
 			CatalogEntry entry = (CatalogEntry)leaf;
 			if(entry.getType() == CatalogEntry.TYPE_NODE) continue;
 			//fxdiff VCRP-1,2: access control of resources
-			if(entry.getRepositoryEntry() != null && entry.getRepositoryEntry().getOlatResource() != null
-					&& resourcesWithOffer.contains(entry.getRepositoryEntry().getOlatResource().getKey())) {
-				String acName = "ac_" + childCe.indexOf(leaf);
-				myContent.contextPut(acName, Boolean.TRUE);
+			if(entry.getRepositoryEntry() != null && entry.getRepositoryEntry().getOlatResource() != null) {
+				List<String> types = new ArrayList<String>();
+				OLATResource resource = entry.getRepositoryEntry().getOlatResource();
+				for(OLATResourceAccess resourceAccess:resourcesWithOffer) {
+					if(resource.getKey().equals(resourceAccess.getResource().getKey())) {
+						for(AccessMethod method:resourceAccess.getMethods()) {
+							types.add(method.getMethodCssClass() + "_icon");
+						}
+					}
+				}
+				if(!types.isEmpty()) {
+					String acName = "ac_" + childCe.indexOf(leaf);
+					myContent.contextPut(acName, types);
+				}
 			}
 			
 			String name = "image" + childCe.indexOf(leaf);

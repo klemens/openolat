@@ -40,7 +40,6 @@ create table o_gp_business (
    maxparticipants int4,
    waitinglist_enabled bool,
    autocloseranks_enabled bool,
-   visible_to_nonmembers bool default false;
    groupcontext_fk int8,
    fk_ownergroup int8 unique,
    fk_partipiciantgroup int8 unique,

@@ -108,19 +108,6 @@ public interface BusinessGroupManager {
 	 * @return list of BuddyGroups, may be an empty list.
 	 */
 	public List findBusinessGroupsAttendedBy(String type, Identity identity, BGContext bgContext);
-	
-	/**
-	 * Find the list of groups which are visible to non-members.
-	 * 
-	 * @param type Restrict find to this group type or null if not restricted to a
-	 *          specific type
-	 * @param identity
-	 * @param bgContext Context or null if no context restriction should be
-	 *          applied
-	 * @return list of groups, may be an empty list.
-	 */
-	 //fxdiff VCRP-1,2: access control of resources
-	public List<BusinessGroup> findOpenBusinessGroups(String type, Identity identity, BGContext bgContext);
 
 	/**
 	 * @param currBusinessGroup
@@ -382,7 +369,9 @@ public interface BusinessGroupManager {
 	public List findBusinessGroupsWithWaitingListAttendedBy(String groupType, Identity identity, BGContext bgContext);
 
 	//fxdiff VCRP-1,2: access control of resources
-	public List<BusinessGroup> findBusinessGroups(Collection<String> types, Identity identityP, Long id, String name, String description, String owner, Boolean visibleToNonMembers);
+	public List<BusinessGroup> findBusinessGroups(Collection<String> types, Identity identityP, Long id, String name, String description, String owner);
+	
+	public List<BusinessGroup> findBusinessGroups(Collection<Long> keys);
 	
 	/**
 	 * Get postion of an idenity on a certain waiting-list 

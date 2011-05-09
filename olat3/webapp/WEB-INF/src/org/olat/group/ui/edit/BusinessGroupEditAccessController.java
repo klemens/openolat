@@ -23,7 +23,6 @@ package org.olat.group.ui.edit;
 import org.olat.core.CoreSpringFactory;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.form.flexible.FormItemContainer;
-import org.olat.core.gui.components.form.flexible.elements.MultipleSelectionElement;
 import org.olat.core.gui.components.form.flexible.impl.FormBasicController;
 import org.olat.core.gui.components.form.flexible.impl.FormLayoutContainer;
 import org.olat.core.gui.control.Controller;
@@ -48,16 +47,11 @@ import org.olat.resource.accesscontrol.ui.AccessConfigurationController;
 //fxdiff VCRP-1,2: access control of resources
 public class BusinessGroupEditAccessController extends FormBasicController {
 	
-	private MultipleSelectionElement openBg;
 	private AccessConfigurationController configController;
-	
-	private final BusinessGroup businessGroup;
 	
 	public BusinessGroupEditAccessController(UserRequest ureq, WindowControl wControl, BusinessGroup businessGroup) {
 		super(ureq, wControl, LAYOUT_VERTICAL);
 		setTranslator(Util.createPackageTranslator(AccessConfigurationController.class, getLocale(), getTranslator()));
-		
-		this.businessGroup = businessGroup;
 		
 		AccessControlModule acModule = (AccessControlModule)CoreSpringFactory.getBean("acModule");
 		if(acModule.isEnabled()) {
@@ -79,14 +73,6 @@ public class BusinessGroupEditAccessController extends FormBasicController {
 		setFormTitle("accesscontrol.title");
 		setFormDescription("accesscontrol.desc");
 		setFormContextHelp(AccessConfigurationController.class.getPackage().getName(), "accesscontrol.html", "chelp.ac.hover");
-		
-		String[] keys = new String[]{"xx"};
-		String[] values = new String[]{translate("chkBox.open")};
-		openBg = uifactory.addCheckboxesHorizontal("fieldset.legend.open", formLayout, keys, values, null);
-		openBg.setLabel(null, null);
-		if(businessGroup.getVisibleToNonMembers() != null && businessGroup.getVisibleToNonMembers().booleanValue()) {
-			openBg.select("xx", true);
-		}
 
 		final FormLayoutContainer buttonGroupLayout = FormLayoutContainer.createButtonLayout("buttonLayout", getTranslator());
 		buttonGroupLayout.setRootForm(mainForm);
@@ -98,10 +84,6 @@ public class BusinessGroupEditAccessController extends FormBasicController {
 	@Override
 	protected void doDispose() {
 		//
-	}
-	
-	public boolean isVisibleToNonMembers() {
-		return (openBg.isMultiselect() && openBg.isSelected(0));
 	}
 
 	@Override

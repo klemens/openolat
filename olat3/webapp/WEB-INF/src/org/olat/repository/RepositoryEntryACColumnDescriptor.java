@@ -20,6 +20,7 @@
  */
 package org.olat.repository;
 
+import java.util.Collection;
 import java.util.Locale;
 
 import org.olat.core.gui.components.table.CustomCellRenderer;
@@ -40,10 +41,15 @@ public class RepositoryEntryACColumnDescriptor implements CustomCellRenderer {
 
 	@Override
 	public void render(StringOutput sb, Renderer renderer, Object val, Locale locale, int alignment, String action) {
-		if(val instanceof Boolean) {
+		if(val instanceof Collection) {
+			Collection<String> accessTypes = (Collection<String>)val;
+			for(String accessType:accessTypes) {
+				sb.append("<span class='b_small_icon ").append(accessType).append("_icon'>").append("</span>");
+			}
+		} else if(val instanceof Boolean) {
 			boolean acessControlled = ((Boolean)val).booleanValue();
 			if(acessControlled) {
-				sb.append("<span class='b_with_small_icon_left b_group_accesscontrolled'>").append("&#160;&#160;").append("</span>");
+				sb.append("<span class='b_small_icon b_group_accesscontrolled'>").append("</span>");
 			}
 		}
 	}

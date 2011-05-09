@@ -40,6 +40,8 @@ import org.olat.resource.accesscontrol.AccessResult;
 import org.olat.resource.accesscontrol.method.AccessMethodHandler;
 import org.olat.resource.accesscontrol.model.AccessMethod;
 import org.olat.resource.accesscontrol.model.AccessTransaction;
+import org.olat.resource.accesscontrol.model.BusinessGroupAccess;
+import org.olat.resource.accesscontrol.model.OLATResourceAccess;
 import org.olat.resource.accesscontrol.model.Offer;
 import org.olat.resource.accesscontrol.model.OfferAccess;
 import org.olat.resource.accesscontrol.model.Order;
@@ -214,23 +216,15 @@ public class ACFrontendManager extends BasicManager {
 		accessManager.deleteOffer(offer);
 	}
 	
-	public List<RepositoryEntry> filterRepositoryEntriesWithAC(List<RepositoryEntry> repoEntries) {
+	public List<OLATResourceAccess> filterRepositoryEntriesWithAC(List<RepositoryEntry> repoEntries) {
 		List<Long> resourceKeys = new ArrayList<Long>();
 		for(RepositoryEntry entry:repoEntries) {
 			OLATResource ores = entry.getOlatResource();
 			resourceKeys.add(ores.getKey());
 		}
 		
-		Set<Long> resourceWithOffers = accessManager.filterResourceWithOffer(resourceKeys);
-		
-		List<RepositoryEntry> entriesWithOffers = new ArrayList<RepositoryEntry>();
-		for(RepositoryEntry entry:repoEntries) {
-			OLATResource ores = entry.getOlatResource();
-			if(resourceWithOffers.contains(ores.getKey())) {
-				entriesWithOffers.add(entry);
-			}
-		}
-		return entriesWithOffers;
+		List<OLATResourceAccess> resourceWithOffers = methodManager.getAccessMethodForResources(resourceKeys, true, new Date());
+		return resourceWithOffers;
 	}
 	
 	public Set<Long> filterResourcesWithAC(Collection<Long> resourceKeys) {
@@ -240,6 +234,18 @@ public class ACFrontendManager extends BasicManager {
 	
 	public List<Offer> findOfferByResource(OLATResource resource, boolean valid, Date atDate) {
 		return accessManager.findOfferByResource(resource, valid, atDate);
+	}
+	
+	public List<BusinessGroupAccess> getOfferAccessForBusinessGroup(boolean valid, Date atDate) {
+		return methodManager.getAccessMethodForBusinessGroup(valid, atDate);
+	}
+	
+	public List<OLATResourceAccess> getAccessMethodForResources(Collection<Long> resourceKeys, boolean valid, Date atDate) {
+		return methodManager.getAccessMethodForResources(resourceKeys, valid, atDate);
+	}
+	
+	public List<OfferAccess> getOfferAccessByResource(Collection<Long> resourceKeys, boolean valid, Date atDate) {
+		return methodManager.getOfferAccessByResource(resourceKeys, valid, atDate);
 	}
 	
 	public void save(Offer offer) {

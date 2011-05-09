@@ -134,8 +134,9 @@ public class AccessConfigurationController extends FormBasicController {
 			final FormLayoutContainer buttonGroupLayout = FormLayoutContainer.createButtonLayout("buttonLayout", getTranslator());
 			buttonGroupLayout.setRootForm(mainForm);
 			formLayout.add(buttonGroupLayout);
+			formLayout.add("buttonLayout", buttonGroupLayout);
 			
-			uifactory.addFormSubmitButton("save", formLayout);
+			uifactory.addFormSubmitButton("save", buttonGroupLayout);
 		}
 		
 		confControllerContainer.contextPut("emptyConfigGrantsFullAccess", Boolean.valueOf(emptyConfigGrantsFullAccess));		

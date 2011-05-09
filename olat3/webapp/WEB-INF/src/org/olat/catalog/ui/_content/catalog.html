@@ -42,7 +42,7 @@
 			#foreach($child in $children)
 				#if ($child.getType()==$node)
 					<li><a href="$r.commandURIbg("child$ri")" onclick="return o2cl()"  onkeypress="return o2cl()" $r.bgTarget()>
-						<span class="b_with_small_icon_left o_catalog_sub_icon">$child.getName()</span>
+						<span class="b_with_small_icon_left o_catalog_sub_icon">$child.getName()</span> 
 					</a></li>
 				#end
 				#set ($ri = $ri +1)
@@ -93,7 +93,9 @@
 								</script>
 								
 								#if($r.get("ac_$ri"))
-									<span class="b_with_small_icon_left b_order_icon">&nbsp;</span>
+									#foreach($ac_type in $r.get("ac_$ri"))
+										<span class='b_small_icon $ac_type'></span>
+									#end
 								#end
 								<a href="$r.commandURIbg("leaf$ri")" onclick="return o2cl()"  onkeypress="return o2cl()" $r.bgTarget() class="b_with_small_icon_left ${iconRenderer.getIconCssClass($child.getRepositoryEntry())}">
 								<span id="leaf$ri">$child.getRepositoryEntry().getDisplayname()								

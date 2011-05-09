@@ -427,10 +427,6 @@ public class BusinessGroupEditController extends BasicController implements Cont
 		}
 		currBusinessGroup.setAutoCloseRanksEnabled(autoCloseRanksEnabled);
 		currBusinessGroup.setLastUsage(new Date(System.currentTimeMillis()));
-		//fxdiff VCRP-1,2: access control of resources
-		if(tabAccessCtrl != null) {
-			currBusinessGroup.setVisibleToNonMembers(tabAccessCtrl.isVisibleToNonMembers());
-		}
 		
 		LifeCycleManager.createInstanceFor(currBusinessGroup).deleteTimestampFor(GroupDeletionManager.SEND_DELETE_EMAIL_ACTION);
 		// switch on/off waiting-list in member tab

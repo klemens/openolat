@@ -22,10 +22,11 @@
 package org.olat.repository;
 
 import java.util.ArrayList;
-import java.util.HashSet;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
-import java.util.Set;
+import java.util.Map;
 
 import org.olat.core.CoreSpringFactory;
 import org.olat.core.gui.components.table.ColumnDescriptor;
@@ -39,6 +40,8 @@ import org.olat.core.gui.components.table.TableDataModel;
 import org.olat.core.gui.translator.PackageTranslator;
 import org.olat.core.gui.translator.Translator;
 import org.olat.resource.accesscontrol.manager.ACFrontendManager;
+import org.olat.resource.accesscontrol.model.AccessMethod;
+import org.olat.resource.accesscontrol.model.OLATResourceAccess;
 
 /**
  * Initial Date:  Mar 31, 2004
@@ -64,7 +67,7 @@ public class RepositoryTableModel extends DefaultTableDataModel implements Table
 	Translator translator; // package-local to avoid synthetic accessor method.
 	private final ACFrontendManager acFrontendManager;
 	
-	private Set<Long> repoEntriesWithOffer;
+	private Map<Long,OLATResourceAccess> repoEntriesWithOffer;
 		
 	/**
 	 * Default constructor.
@@ -115,7 +118,15 @@ public class RepositoryTableModel extends DefaultTableDataModel implements Table
 		RepositoryEntry re = (RepositoryEntry)getObject(row);
 		switch (col) {
 			//fxdiff VCRP-1,2: access control of resources
-			case 0: return new Boolean(repoEntriesWithOffer != null && repoEntriesWithOffer.contains(re.getKey()));
+			case 0: {
+				OLATResourceAccess access = repoEntriesWithOffer.get(re.getOlatResource().getKey());
+				if(access == null) return Collections.emptyList();
+				List<String> types = new ArrayList<String>(3);
+				for(AccessMethod method:access.getMethods()) {
+					types.add(method.getMethodCssClass());
+				}
+				return types;
+			}
 			case 1: return re; 
 			case 2: return getDisplayName(re, translator.getLocale());
 			case 3: return re.getInitialAuthor();
@@ -139,10 +150,10 @@ public class RepositoryTableModel extends DefaultTableDataModel implements Table
 	public void setObjects(List objects) {
 		super.setObjects(objects);
 		
-		repoEntriesWithOffer = new HashSet<Long>();
-		List<RepositoryEntry> withOffer = acFrontendManager.filterRepositoryEntriesWithAC(objects);
-		for(RepositoryEntry entry:withOffer) {
-			repoEntriesWithOffer.add(entry.getKey());
+		repoEntriesWithOffer = new HashMap<Long,OLATResourceAccess>();
+		List<OLATResourceAccess> withOffers = acFrontendManager.filterRepositoryEntriesWithAC(objects);
+		for(OLATResourceAccess withOffer:withOffers) {
+			repoEntriesWithOffer.put(withOffer.getResource().getKey(), withOffer);
 		}
 	}
 

@@ -65,8 +65,6 @@ alter table o_mail_attachment add constraint FKF86663165A4FA5DF foreign key (fk_
 alter table o_repositoryentry add column fk_tutorgroup bigint;
 alter table o_repositoryentry add column fk_participantgroup bigint;
 
-alter table o_gp_business add column visible_to_nonmembers bit default 0;
-
 create table  if not exists o_ac_offer (
 	offer_id bigint NOT NULL,
   creationdate datetime,

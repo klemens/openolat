@@ -160,17 +160,6 @@ public interface BusinessGroup extends Persistable, CreateInfo, ModifiedInfo, OL
 	 * @param waitinglistEnabled  true: enable waiting list.
 	 */	
 	public void setWaitingListEnabled(Boolean waitingListEnabled);
-
-	//fxdiff VCRP-1,2: access control of resources
-	/**
-	 * @return true: if the group is visible to non-members
-	 */
-	public Boolean getVisibleToNonMembers();
-
-	/**
-	 * @param visibleToNonMembers true: the group is visible to non-members
-	 */
-	public void setVisibleToNonMembers(Boolean visibleToNonMembers);
 	
 	/**
 	 * @param waitingGroup  New waiting group.

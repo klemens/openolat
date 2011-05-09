@@ -20,10 +20,14 @@
 
 package org.olat.resource.accesscontrol.manager;
 
+import java.util.Collection;
+import java.util.Date;
 import java.util.List;
 
 import org.olat.core.id.Identity;
 import org.olat.resource.accesscontrol.model.AccessMethod;
+import org.olat.resource.accesscontrol.model.BusinessGroupAccess;
+import org.olat.resource.accesscontrol.model.OLATResourceAccess;
 import org.olat.resource.accesscontrol.model.Offer;
 import org.olat.resource.accesscontrol.model.OfferAccess;
 
@@ -66,7 +70,13 @@ public interface ACMethodManager {
 	 * @param valid
 	 * @return List of link offer to access method
 	 */
-	public List<OfferAccess> getOfferAccess(List<Offer> offers, boolean valid);
+	public List<OfferAccess> getOfferAccess(Collection<Offer> offers, boolean valid);
+	
+	public List<OfferAccess> getOfferAccessByResource(Collection<Long> resourceKeys, boolean valid, Date atDate);
+	
+	public List<BusinessGroupAccess> getAccessMethodForBusinessGroup(boolean valid, Date atDate);
+	
+	public List<OLATResourceAccess> getAccessMethodForResources(Collection<Long> resourceKeys, boolean valid, Date atDate);
 	
 	/**
 	 * Create a link between offer and access method. The link is not persisted

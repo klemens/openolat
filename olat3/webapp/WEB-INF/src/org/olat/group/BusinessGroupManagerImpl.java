@@ -27,6 +27,7 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.Date;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -249,38 +250,16 @@ public class BusinessGroupManagerImpl extends BasicManager implements BusinessGr
 		return res;
 	}
 	
-	/**
-	 * Find the list of groups associated with the supplied identity, where
-	 * the identity can buy an access.
-	 * 
-	 * @param type Restrict find to this group type or null if not restricted to a
-	 *          specific type
-	 * @param identity
-	 * @param bgContext Context or null if no context restriction should be
-	 *          applied
-	 * @return list of BuddyGroups, may be an empty list.
-	 */
-	 //fxdiff VCRP-1,2: access control of resources
-	public List<BusinessGroup> findOpenBusinessGroups(String type, Identity identity, BGContext bgContext) {
+	public List<BusinessGroup> findBusinessGroups(Collection<Long> keys) {
+		if(keys == null || keys.isEmpty()) return Collections.emptyList();
+		
 		StringBuilder sb = new StringBuilder();
 		sb.append("select bgi from ").append(BusinessGroupImpl.class.getName()).append(" as bgi ")
-			.append(" where bgi.visibleToNonMembers=true");
-
-		if (bgContext != null) {
-			sb.append(" and bgi.groupContext=:context");
-		}
-		if (type != null) {
-			sb.append(" and bgi.type = :type");
-		}
+			.append(" where bgi.key in (:keys)");
 
 		DB db = DBFactory.getInstance();
 		DBQuery dbq = db.createQuery(sb.toString());
-		if(bgContext != null) {
-			dbq.setEntity("context", bgContext);
-		}
-		if (type != null) {
-			dbq.setString("type", type);
-		}
+		dbq.setParameterList("keys", keys);
 
 		List<BusinessGroup> res = dbq.list();
 		return res;
@@ -321,7 +300,7 @@ public class BusinessGroupManagerImpl extends BasicManager implements BusinessGr
 	 *      org.olat.core.id.Identity, org.olat.group.context.BGContext)
 	 */
 	 //fxdiff VCRP-1,2: access control of resources
-	public List<BusinessGroup> findBusinessGroups(Collection<String> types, Identity identityP, Long id, String name, String description, String owner, Boolean visibleToNonMembers) {
+	public List<BusinessGroup> findBusinessGroups(Collection<String> types, Identity identityP, Long id, String name, String description, String owner) {
 		StringBuilder sb = new StringBuilder();
 		sb.append("select distinct(bgi) from ").append(BusinessGroupImpl.class.getName()).append(" as bgi");
 
@@ -360,10 +339,6 @@ public class BusinessGroupManagerImpl extends BasicManager implements BusinessGr
 		if (types != null && !types.isEmpty()) {
 			where = where(sb, where);
 			sb.append("bgi.type in (:types)");
-		}
-		if(visibleToNonMembers != null) {
-			where = where(sb, where);
-			sb.append(" bgi.visibleToNonMembers=").append(visibleToNonMembers.booleanValue());
 		}
 
 		DB db = DBFactory.getInstance();

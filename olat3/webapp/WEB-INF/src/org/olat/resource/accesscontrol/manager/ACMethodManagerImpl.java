@@ -20,17 +20,29 @@
 
 package org.olat.resource.accesscontrol.manager;
 
+import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
+import java.util.Date;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import org.olat.core.commons.persistence.DB;
 import org.olat.core.commons.persistence.DBQuery;
 import org.olat.core.id.Identity;
 import org.olat.core.manager.BasicManager;
+import org.olat.group.BusinessGroup;
+import org.olat.group.BusinessGroupImpl;
+import org.olat.group.BusinessGroupManagerImpl;
+import org.olat.resource.OLATResource;
+import org.olat.resource.OLATResourceImpl;
 import org.olat.resource.accesscontrol.AccessControlModule;
 import org.olat.resource.accesscontrol.model.AbstractAccessMethod;
 import org.olat.resource.accesscontrol.model.AccessMethod;
+import org.olat.resource.accesscontrol.model.BusinessGroupAccess;
 import org.olat.resource.accesscontrol.model.FreeAccessMethod;
+import org.olat.resource.accesscontrol.model.OLATResourceAccess;
 import org.olat.resource.accesscontrol.model.Offer;
 import org.olat.resource.accesscontrol.model.OfferAccess;
 import org.olat.resource.accesscontrol.model.OfferAccessImpl;
@@ -118,7 +130,7 @@ public class ACMethodManagerImpl extends BasicManager implements ACMethodManager
 	}
 	
 	@Override
-	public List<OfferAccess> getOfferAccess(List<Offer> offers, boolean valid) {
+	public List<OfferAccess> getOfferAccess(Collection<Offer> offers, boolean valid) {
 		if(offers == null || offers.isEmpty()) return Collections.emptyList();
 
 		StringBuilder sb = new StringBuilder();
@@ -134,6 +146,117 @@ public class ACMethodManagerImpl extends BasicManager implements ACMethodManager
 		return methods;
 	}
 	
+	@Override
+	public List<OfferAccess> getOfferAccessByResource(Collection<Long> resourceKeys, boolean valid, Date atDate) {
+		if(resourceKeys == null || resourceKeys.isEmpty()) return Collections.emptyList();
+
+		StringBuilder sb = new StringBuilder();
+		sb.append("select access from ").append(OfferAccessImpl.class.getName()).append(" access")
+			.append(" inner join access.offer offer")
+			.append(" inner join offer.resource resource")
+			.append(" where resource.key in (:resourceKeys)")
+			.append(" and access.valid=").append(valid)
+			.append(" and offer.valid=").append(valid);
+		if(atDate != null) {
+			sb.append(" and (offer.validFrom is null or offer.validFrom<=:atDate)")
+				.append(" and (offer.validTo is null or offer.validTo>=:atDate)");
+		}
+
+		DBQuery query = dbInstance.createQuery(sb.toString());
+		query.setParameterList("resourceKeys", resourceKeys);
+		if(atDate != null) {
+			query.setTimestamp("atDate", atDate);
+		}
+		
+		List<OfferAccess> methods = query.list();
+		return methods;
+	}
+	
+	@Override
+	public List<BusinessGroupAccess> getAccessMethodForBusinessGroup(boolean valid, Date atDate) {
+
+		StringBuilder sb = new StringBuilder();
+		sb.append("select access.method, group.key from ").append(OfferAccessImpl.class.getName()).append(" access, ")
+			.append(BusinessGroupImpl.class.getName()).append(" group, ")
+			.append(OLATResourceImpl.class.getName()).append(" gResource")
+			.append(" inner join access.offer offer")
+			.append(" inner join offer.resource oResource")
+			.append(" where access.valid=").append(valid)
+			.append(" and offer.valid=").append(valid)
+			.append(" and group.key=gResource.resId and gResource.resName='BusinessGroup' and oResource.key=gResource.key");
+		if(atDate != null) {
+			sb.append(" and (offer.validFrom is null or offer.validFrom<=:atDate)")
+				.append(" and (offer.validTo is null or offer.validTo>=:atDate)");
+		}
+
+		DBQuery query = dbInstance.createQuery(sb.toString());
+		if(atDate != null) {
+			query.setTimestamp("atDate", atDate);
+		}
+		
+		List<Object[]> rawResults = query.list();
+		Map<Long,List<AccessMethod>> rawResultsMap = new HashMap<Long,List<AccessMethod>>();
+		for(Object[] rawResult:rawResults) {
+			AccessMethod method = (AccessMethod)rawResult[0];
+			Long groupKey = (Long)rawResult[1];
+			if(!rawResultsMap.containsKey(groupKey)) {
+				rawResultsMap.put(groupKey, new ArrayList<AccessMethod>(3));
+			}
+			rawResultsMap.get(groupKey).add(method);	
+		}
+		
+		List<BusinessGroup> groups = BusinessGroupManagerImpl.getInstance().findBusinessGroups(rawResultsMap.keySet());
+		List<BusinessGroupAccess> groupAccess = new ArrayList<BusinessGroupAccess>();
+		for(BusinessGroup group:groups) {
+			List<AccessMethod> methods = rawResultsMap.get(group.getKey());
+			if(methods != null && !methods.isEmpty()) {
+				groupAccess.add(new BusinessGroupAccess(group, methods));
+			}
+		}
+		return groupAccess;
+	}
+	
+	@Override
+	public List<OLATResourceAccess> getAccessMethodForResources(Collection<Long> resourceKeys, boolean valid, Date atDate) {
+		if(resourceKeys == null || resourceKeys.isEmpty()) return Collections.emptyList();
+		
+		StringBuilder sb = new StringBuilder();
+		sb.append("select access.method, resource from ").append(OfferAccessImpl.class.getName()).append(" access, ")
+			.append(OLATResourceImpl.class.getName()).append(" resource")
+			.append(" inner join access.offer offer")
+			.append(" inner join offer.resource oResource")
+			.append(" where access.valid=").append(valid)
+			.append(" and offer.valid=").append(valid)
+			.append(" and resource.key in (:resourceKeys) and oResource.key=resource.key");
+		if(atDate != null) {
+			sb.append(" and (offer.validFrom is null or offer.validFrom<=:atDate)")
+				.append(" and (offer.validTo is null or offer.validTo>=:atDate)");
+		}
+
+		DBQuery query = dbInstance.createQuery(sb.toString());
+		if(atDate != null) {
+			query.setTimestamp("atDate", atDate);
+		}
+		query.setParameterList("resourceKeys", resourceKeys);
+		
+		List<Object[]> rawResults = query.list();
+		Map<Long,OLATResourceAccess> rawResultsMap = new HashMap<Long,OLATResourceAccess>();
+		for(Object[] rawResult:rawResults) {
+			AccessMethod method = (AccessMethod)rawResult[0];
+			OLATResource resource = (OLATResource)rawResult[1];
+			if(rawResultsMap.containsKey(resource.getKey())) {
+				rawResultsMap.get(resource.getKey()).getMethods().add(method);
+			} else {
+				List<AccessMethod> methods = new ArrayList<AccessMethod>();
+				methods.add(method);
+				rawResultsMap.put(resource.getKey(), new OLATResourceAccess(resource, methods));
+			}
+		}
+		
+		List<OLATResourceAccess> groupAccess = new ArrayList<OLATResourceAccess>(rawResultsMap.values());
+		return groupAccess;
+	}
+
 	@Override
 	public OfferAccess createOfferAccess(Offer offer, AccessMethod method) {
 		OfferAccessImpl access = new OfferAccessImpl();

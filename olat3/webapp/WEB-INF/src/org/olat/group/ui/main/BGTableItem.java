@@ -41,13 +41,16 @@ public class BGTableItem {
 	private final Boolean allowDelete;
 	private final BusinessGroup businessGroup;
 	private List<RepositoryEntry> resources;
+	private List<String> accessTypes;
 	
-	public BGTableItem(BusinessGroup businessGroup, boolean member, Boolean allowLeave, Boolean allowDelete, boolean accessControl) {
+	public BGTableItem(BusinessGroup businessGroup, boolean member, Boolean allowLeave, Boolean allowDelete,
+			boolean accessControl, List<String> accessTypes) {
 		this.accessControl = accessControl;
 		this.businessGroup = businessGroup;
 		this.member = member;
 		this.allowLeave = allowLeave;
 		this.allowDelete = allowDelete;
+		this.accessTypes = accessTypes;
 	}
 
 	//fxdiff VCRP-1,2: access control of resources
@@ -57,6 +60,10 @@ public class BGTableItem {
 	//fxdiff VCRP-1,2: access control of resources
 	public boolean isAccessControl() {
 		return accessControl;
+	}
+
+	public List<String> getAccessTypes() {
+		return accessTypes;
 	}
 
 	public void setAccessControl(boolean accessControl) {

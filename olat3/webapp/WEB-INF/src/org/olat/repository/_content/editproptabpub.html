@@ -3,3 +3,8 @@
 	$r.contextHelpWithWrapper("org.olat.repository","rep-meta-olatauthorEd.html", "help.hover.rep.detail")
 	$r.render("proppupform")
 </fieldset>
+
+#if($r.available("accesscontrol"))
+	$r.render("accesscontrol")
+#end
+
