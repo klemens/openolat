@@ -273,6 +273,7 @@ public class BGContextManagerImpl extends BasicManager implements BGContextManag
 	}
 
 	@Override
+	//fxdiff VCRP-2: access control
 	public List<BusinessGroup> getBusinessGroupAsOwnerOfBGContext(Identity owner, BGContext bgContext) {
 		DB db = DBFactory.getInstance();
 		StringBuilder sb = new StringBuilder();
@@ -322,6 +323,8 @@ public class BGContextManagerImpl extends BasicManager implements BGContextManag
 		return query.list();
 	}
 	
+	@Override
+	//fxdiff VCRP-2: access control
 	public List<BusinessGroup> getBusinessGroupAsParticipantOfBGContext(Identity participant, BGContext bgContext) {
 		DB db = DBFactory.getInstance();
 		StringBuilder sb = new StringBuilder();

@@ -121,6 +121,7 @@ public interface BGContextManager {
 	 */
 	public abstract List getBGOwnersOfBGContext(BGContext bgContext);
 	
+	//fxdiff VCRP-2: access control
 	public List<BusinessGroup> getBusinessGroupAsOwnerOfBGContext(Identity owner, BGContext bgContext);
 
 
@@ -142,6 +143,7 @@ public interface BGContextManager {
 	 */
 	public abstract List getBGParticipantsOfBGContext(BGContext bgContext);
 	
+	//fxdiff VCRP-2: access control
 	public List<BusinessGroup> getBusinessGroupAsParticipantOfBGContext(Identity participant, BGContext bgContext);
 
 	/**

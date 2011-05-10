@@ -817,6 +817,7 @@ public class BusinessGroupManagerImpl extends BasicManager implements BusinessGr
 	public void removeOwnerAndFireEvent(Identity ureqIdentity, Identity identity, BusinessGroup group, BGConfigFlags flags,
 			boolean doOnlyPostRemovingStuff) {
 		if (!doOnlyPostRemovingStuff) {
+			//fxdiff VCRP-2: access control
 			BGContext context = group.getGroupContext();
 			BGContextManager contextManager = BGContextManagerImpl.getInstance();
 			List<BusinessGroup> businessGroups = contextManager.getBusinessGroupAsOwnerOfBGContext(identity, context) ;
@@ -860,6 +861,7 @@ public class BusinessGroupManagerImpl extends BasicManager implements BusinessGr
 			final boolean doOnlyPostRemovingStuff) {
 		CoordinatorManager.getInstance().getCoordinator().getSyncer().assertAlreadyDoInSyncFor(group);
 		if (!doOnlyPostRemovingStuff) {
+			//fxdiff VCRP-2: access control
 			BGContext context = group.getGroupContext();
 			BGContextManager contextManager = BGContextManagerImpl.getInstance();
 			List<BusinessGroup> businessGroups = contextManager.getBusinessGroupAsParticipantOfBGContext(identity, context) ;
