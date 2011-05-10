@@ -817,7 +817,17 @@ public class BusinessGroupManagerImpl extends BasicManager implements BusinessGr
 	public void removeOwnerAndFireEvent(Identity ureqIdentity, Identity identity, BusinessGroup group, BGConfigFlags flags,
 			boolean doOnlyPostRemovingStuff) {
 		if (!doOnlyPostRemovingStuff) {
-			//TODO remove from tutor group
+			BGContext context = group.getGroupContext();
+			BGContextManager contextManager = BGContextManagerImpl.getInstance();
+			List<BusinessGroup> businessGroups = contextManager.getBusinessGroupAsOwnerOfBGContext(identity, context) ;
+			if(context.isDefaultContext() && businessGroups.size() == 1) {
+				List<RepositoryEntry> entries = contextManager.findRepositoryEntriesForBGContext(context);
+				for(RepositoryEntry entry:entries) {
+					if(entry.getTutorGroup() != null && securityManager.isIdentityInSecurityGroup(identity, entry.getTutorGroup())) {
+						securityManager.removeIdentityFromSecurityGroup(identity, entry.getTutorGroup());
+					}
+				}
+			}
 
 			securityManager.removeIdentityFromSecurityGroup(identity, group.getOwnerGroup());
 		}
@@ -850,10 +860,17 @@ public class BusinessGroupManagerImpl extends BasicManager implements BusinessGr
 			final boolean doOnlyPostRemovingStuff) {
 		CoordinatorManager.getInstance().getCoordinator().getSyncer().assertAlreadyDoInSyncFor(group);
 		if (!doOnlyPostRemovingStuff) {
-		//TODO remove from participant group
-			
-			
-			
+			BGContext context = group.getGroupContext();
+			BGContextManager contextManager = BGContextManagerImpl.getInstance();
+			List<BusinessGroup> businessGroups = contextManager.getBusinessGroupAsParticipantOfBGContext(identity, context) ;
+			if(context.isDefaultContext() && businessGroups.size() == 1) {
+				List<RepositoryEntry> entries = contextManager.findRepositoryEntriesForBGContext(context);
+				for(RepositoryEntry entry:entries) {
+					if(entry.getParticipantGroup() != null && securityManager.isIdentityInSecurityGroup(identity, entry.getParticipantGroup())) {
+						securityManager.removeIdentityFromSecurityGroup(identity, entry.getParticipantGroup());
+					}
+				}
+			}
 			securityManager.removeIdentityFromSecurityGroup(identity, group.getPartipiciantGroup());
 		}
 		// remove user from buddies rosters

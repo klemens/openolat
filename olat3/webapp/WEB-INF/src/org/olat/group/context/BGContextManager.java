@@ -120,6 +120,9 @@ public interface BGContextManager {
 	 * @return A list of identities
 	 */
 	public abstract List getBGOwnersOfBGContext(BGContext bgContext);
+	
+	public List<BusinessGroup> getBusinessGroupAsOwnerOfBGContext(Identity owner, BGContext bgContext);
+
 
 	/**
 	 * Count the number of identities that are owner of any group in the given
@@ -138,6 +141,8 @@ public interface BGContextManager {
 	 * @return A list of identities
 	 */
 	public abstract List getBGParticipantsOfBGContext(BGContext bgContext);
+	
+	public List<BusinessGroup> getBusinessGroupAsParticipantOfBGContext(Identity participant, BGContext bgContext);
 
 	/**
 	 * Count the number of identities that are participants of any group in the

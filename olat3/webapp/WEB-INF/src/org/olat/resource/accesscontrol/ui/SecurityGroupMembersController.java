@@ -22,6 +22,7 @@ package org.olat.resource.accesscontrol.ui;
 
 import org.olat.admin.securitygroup.gui.GroupController;
 import org.olat.admin.securitygroup.gui.IdentitiesAddEvent;
+import org.olat.admin.securitygroup.gui.IdentitiesRemoveEvent;
 import org.olat.basesecurity.SecurityGroup;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.Component;
@@ -68,6 +69,8 @@ public class SecurityGroupMembersController extends BasicController {
 	@Override
 	protected void event(UserRequest ureq, Controller source, Event event) {
 		if(event instanceof IdentitiesAddEvent) {
+			fireEvent(ureq, event);
+		} else if(event instanceof IdentitiesRemoveEvent) {
 			fireEvent(ureq, event);
 		} else {
 			super.event(ureq, source, event);

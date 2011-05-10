@@ -210,6 +210,24 @@ public class CoursesWebService {
 
 			securityManager.addIdentityToSecurityGroup(identity, newGroup);
 			addedEntry.setOwnerGroup(newGroup);
+			
+			//fxdiff VCRP-1,2: access control of resources
+			// security group for tutors / coaches
+			SecurityGroup tutorGroup = securityManager.createAndPersistSecurityGroup();
+			// member of this group may modify member's membership
+			securityManager.createAndPersistPolicy(tutorGroup, Constants.PERMISSION_ACCESS, addedEntry.getOlatResource());
+			// members of this group are always tutors also
+			securityManager.createAndPersistPolicy(tutorGroup, Constants.PERMISSION_HASROLE, Constants.ORESOURCE_TUTOR);
+			addedEntry.setTutorGroup(tutorGroup);
+			
+			// security group for participants
+			SecurityGroup participantGroup = securityManager.createAndPersistSecurityGroup();
+			// member of this group may modify member's membership
+			securityManager.createAndPersistPolicy(participantGroup, Constants.PERMISSION_ACCESS, addedEntry.getOlatResource());
+			// members of this group are always participants also
+			securityManager.createAndPersistPolicy(participantGroup, Constants.PERMISSION_HASROLE, Constants.ORESOURCE_PARTICIPANT);
+			addedEntry.setParticipantGroup(participantGroup);
+			
 			// Do set access for owner at the end, because unfinished course should be
 			// invisible
 			addedEntry.setAccess(RepositoryEntry.ACC_OWNERS);

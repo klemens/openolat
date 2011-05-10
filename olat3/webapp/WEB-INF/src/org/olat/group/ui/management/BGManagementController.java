@@ -27,6 +27,7 @@ import java.util.List;
 import java.util.Locale;
 
 import org.olat.admin.securitygroup.gui.GroupController;
+import org.olat.admin.securitygroup.gui.IdentitiesRemoveEvent;
 import org.olat.admin.securitygroup.gui.UserControllerFactory;
 import org.olat.admin.user.UserTableDataModel;
 import org.olat.basesecurity.BaseSecurity;

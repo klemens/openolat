@@ -20,7 +20,13 @@
 
 package org.olat.resource.accesscontrol.ui;
 
+import java.util.Collections;
+import java.util.List;
+
 import org.olat.admin.securitygroup.gui.IdentitiesAddEvent;
+import org.olat.admin.securitygroup.gui.IdentitiesRemoveEvent;
+import org.olat.basesecurity.BaseSecurity;
+import org.olat.basesecurity.BaseSecurityManager;
 import org.olat.basesecurity.SecurityGroup;
 import org.olat.core.commons.fullWebApp.LayoutMain3ColsController;
 import org.olat.core.gui.UserRequest;
@@ -36,8 +42,12 @@ import org.olat.core.gui.control.WindowControl;
 import org.olat.core.gui.control.controller.MainLayoutBasicController;
 import org.olat.core.gui.control.generic.tool.ToolController;
 import org.olat.core.gui.control.generic.tool.ToolFactory;
+import org.olat.core.id.Identity;
 import org.olat.core.logging.activity.ActionType;
+import org.olat.course.CourseFactory;
 import org.olat.course.ICourse;
+import org.olat.course.groupsandrights.CourseGroupManager;
+import org.olat.group.BusinessGroup;
 import org.olat.group.BusinessGroupAddResponse;
 import org.olat.group.BusinessGroupManager;
 import org.olat.group.BusinessGroupManagerImpl;
@@ -71,6 +81,7 @@ public class SecurityGroupsRepositoryMainController extends MainLayoutBasicContr
 	
 	private final RepositoryEntry repoEntry;
 	private final BusinessGroupManager bgm;
+	private final BaseSecurity securityManager;
 	
 	private final boolean mayModifyMembers;
 	
@@ -89,6 +100,7 @@ public class SecurityGroupsRepositoryMainController extends MainLayoutBasicContr
 		this.repoEntry = repoEntry;
 		this.mayModifyMembers = mayModifyMembers;
 		bgm = BusinessGroupManagerImpl.getInstance();
+		securityManager = BaseSecurityManager.getInstance();
 		
 		getUserActivityLogger().setStickyActionType(ActionType.admin);
 		
@@ -210,7 +222,7 @@ public class SecurityGroupsRepositoryMainController extends MainLayoutBasicContr
 			if (event.getCommand().equals(CMD_CLOSE)) {
 				fireEvent(ureq, Event.DONE_EVENT);
 			}
-		} if(event instanceof IdentitiesAddEvent) {
+		} else if(event instanceof IdentitiesAddEvent) {
 			IdentitiesAddEvent identitiesAddedEvent = (IdentitiesAddEvent) event;
 			SecurityGroup secGroup = null;
 			if (source == ownersController) {
@@ -225,7 +237,52 @@ public class SecurityGroupsRepositoryMainController extends MainLayoutBasicContr
 			identitiesAddedEvent.setIdentitiesWithoutPermission(response.getIdentitiesWithoutPermission());
 			identitiesAddedEvent.setIdentitiesAlreadyInGroup(response.getIdentitiesAlreadyInGroup());			
 			fireEvent(ureq, Event.CHANGED_EVENT );
+		} else if(event instanceof IdentitiesRemoveEvent) {
+			IdentitiesRemoveEvent identitiesRemoveEvent = (IdentitiesRemoveEvent)event;
+			List<Identity> identitiesToRemove = identitiesRemoveEvent.getRemovedIdentities();
+			if (source == ownersController) {
+				SecurityGroup ownerGroup = repoEntry.getOwnerGroup();
+				bgm.removeAndFireEvent(ureq.getIdentity(), identitiesToRemove, ownerGroup);
+			} else if (source == tutorsController) {
+				SecurityGroup tutorGroup = repoEntry.getTutorGroup();
+				bgm.removeAndFireEvent(ureq.getIdentity(), identitiesToRemove, tutorGroup);
+				removeTutors(identitiesToRemove);
+			} else if (source == participantsController) {
+				SecurityGroup participantGroup = repoEntry.getParticipantGroup();	
+				bgm.removeAndFireEvent(ureq.getIdentity(), identitiesToRemove, participantGroup);	
+				removeParticipants(identitiesToRemove);
+			}
 		}
 		super.event(ureq, source, event);
+	}
+	
+	private void removeTutors(List<Identity> identitiesToRemove) {
+		for(BusinessGroup group:getCourseGroups()) {
+			for(Identity identityToRemove : identitiesToRemove) {
+				if(securityManager.isIdentityInSecurityGroup(identityToRemove, group.getOwnerGroup())) {
+					securityManager.removeIdentityFromSecurityGroup(identityToRemove, group.getOwnerGroup());
+				}
+			}
+		}
+	}
+	
+	private void removeParticipants(List<Identity> identitiesToRemove) {
+		for(BusinessGroup group:getCourseGroups()) {
+			for(Identity identityToRemove : identitiesToRemove) {
+				if(securityManager.isIdentityInSecurityGroup(identityToRemove, group.getPartipiciantGroup())) {
+					securityManager.removeIdentityFromSecurityGroup(identityToRemove, group.getPartipiciantGroup());
+				}
+			}
+		}
+	}
+	
+	private List<BusinessGroup> getCourseGroups() {
+		if("CourseModule".equals(repoEntry.getOlatResource().getResourceableTypeName())) {
+			ICourse course = CourseFactory.loadCourse(repoEntry.getOlatResource());
+			CourseGroupManager gm = course.getCourseEnvironment().getCourseGroupManager();
+			List<BusinessGroup> groups = gm.getAllLearningGroupsFromAllContexts();
+			return groups;
+		}
+		return Collections.emptyList();
 	}
 }

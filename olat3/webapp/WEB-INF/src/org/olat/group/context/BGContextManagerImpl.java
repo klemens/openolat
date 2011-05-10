@@ -272,6 +272,20 @@ public class BGContextManagerImpl extends BasicManager implements BGContextManag
 		return query.list();
 	}
 
+	@Override
+	public List<BusinessGroup> getBusinessGroupAsOwnerOfBGContext(Identity owner, BGContext bgContext) {
+		DB db = DBFactory.getInstance();
+		StringBuilder sb = new StringBuilder();
+		sb.append("select bg from org.olat.group.BusinessGroupImpl bg")
+			.append(" ,org.olat.basesecurity.SecurityGroupMembershipImpl sgm")
+			.append(" where bg.groupContext=:context and bg.ownerGroup=sgm.securityGroup and sgm.identity=:id");
+
+		DBQuery query = db.createQuery(sb.toString());
+		query.setEntity("context", bgContext);
+		query.setEntity("id", owner);
+		return query.list();
+	}
+
 	/**
 	 * @see org.olat.group.context.BGContextManager#countBGOwnersOfBGContext(org.olat.group.context.BGContext)
 	 */
@@ -305,6 +319,19 @@ public class BGContextManagerImpl extends BasicManager implements BGContextManag
 				+ " where bg.groupContext = :context" + " and bg.partipiciantGroup = sgm.securityGroup" + " and sgm.identity = id";
 		DBQuery query = db.createQuery(q);
 		query.setEntity("context", bgContext);
+		return query.list();
+	}
+	
+	public List<BusinessGroup> getBusinessGroupAsParticipantOfBGContext(Identity participant, BGContext bgContext) {
+		DB db = DBFactory.getInstance();
+		StringBuilder sb = new StringBuilder();
+		sb.append("select bg from org.olat.group.BusinessGroupImpl bg")
+			.append(" ,org.olat.basesecurity.SecurityGroupMembershipImpl sgm")
+			.append(" where bg.groupContext=:context and bg.partipiciantGroup=sgm.securityGroup and sgm.identity=:id");
+
+		DBQuery query = db.createQuery(sb.toString());
+		query.setEntity("context", bgContext);
+		query.setEntity("id", participant);
 		return query.list();
 	}
 

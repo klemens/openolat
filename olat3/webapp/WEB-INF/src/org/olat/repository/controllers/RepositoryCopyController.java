@@ -195,6 +195,24 @@ public class RepositoryCopyController extends BasicController {
 		
 		securityManager.addIdentityToSecurityGroup(ureq.getIdentity(), newGroup);
 		preparedEntry.setOwnerGroup(newGroup);
+		
+		//fxdiff VCRP-1,2: access control of resources
+		// security group for tutors / coaches
+		SecurityGroup tutorGroup = securityManager.createAndPersistSecurityGroup();
+		// member of this group may modify member's membership
+		securityManager.createAndPersistPolicy(tutorGroup, Constants.PERMISSION_ACCESS, preparedEntry.getOlatResource());
+		// members of this group are always tutors also
+		securityManager.createAndPersistPolicy(tutorGroup, Constants.PERMISSION_HASROLE, Constants.ORESOURCE_TUTOR);
+		preparedEntry.setTutorGroup(tutorGroup);
+		
+		// security group for participants
+		SecurityGroup participantGroup = securityManager.createAndPersistSecurityGroup();
+		// member of this group may modify member's membership
+		securityManager.createAndPersistPolicy(participantGroup, Constants.PERMISSION_ACCESS, preparedEntry.getOlatResource());
+		// members of this group are always participants also
+		securityManager.createAndPersistPolicy(participantGroup, Constants.PERMISSION_HASROLE, Constants.ORESOURCE_PARTICIPANT);
+		preparedEntry.setParticipantGroup(participantGroup);
+		
 
 		RepositoryManager.getInstance().saveRepositoryEntry(preparedEntry);
 		// copy image if available

@@ -39,21 +39,24 @@ public class RepositoryMainAccessControllerWrapper extends MainLayoutBasicContro
 		
 		contentP = new Panel("wrapperPanel");
 		this.resController = resController;
-
-		RepositoryEntry re = RepositoryManager.getInstance().lookupRepositoryEntry(res, false);
 		
-		ACFrontendManager acFrontendManager = (ACFrontendManager)CoreSpringFactory.getBean("acFrontendManager");
-		AccessResult acResult = acFrontendManager.isAccessible(re, getIdentity(), false);
-		if(acResult.isAccessible()) {
+		if(ureq.getUserSession().getRoles().isOLATAdmin()) {
 			contentP.setContent(resController.getInitialComponent());
-		} else if (re != null && acResult.getAvailableMethods().size() > 0) {
-			accessController = ACUIFactory.createAccessController(ureq, getWindowControl(), acResult.getAvailableMethods());
-			listenTo(accessController);
-			mainVC = createVelocityContainer("access_wrapper");
-			mainVC.put("accessPanel", accessController.getInitialComponent());
-			contentP.setContent(mainVC);
 		} else {
-			wControl.setWarning(translate("course.closed"));
+			RepositoryEntry re = RepositoryManager.getInstance().lookupRepositoryEntry(res, false);
+			ACFrontendManager acFrontendManager = (ACFrontendManager)CoreSpringFactory.getBean("acFrontendManager");
+			AccessResult acResult = acFrontendManager.isAccessible(re, getIdentity(), false);
+			if(acResult.isAccessible()) {
+				contentP.setContent(resController.getInitialComponent());
+			} else if (re != null && acResult.getAvailableMethods().size() > 0) {
+				accessController = ACUIFactory.createAccessController(ureq, getWindowControl(), acResult.getAvailableMethods());
+				listenTo(accessController);
+				mainVC = createVelocityContainer("access_wrapper");
+				mainVC.put("accessPanel", accessController.getInitialComponent());
+				contentP.setContent(mainVC);
+			} else {
+				wControl.setWarning(translate("course.closed"));
+			}
 		}
 		putInitialPanel(contentP);
 	}
