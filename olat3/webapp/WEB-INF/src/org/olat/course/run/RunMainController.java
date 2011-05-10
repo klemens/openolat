@@ -199,9 +199,6 @@ public class RunMainController extends MainLayoutBasicController implements Gene
 	private Link currentUserCountLink;
 	private int currentUserCount;
 	
-	//fxdiff VCRP-1,2: access control of resources
-	private Controller accessController;
-	
 	/**
 	 * Constructor for the run main controller
 	 * 
@@ -321,22 +318,8 @@ public class RunMainController extends MainLayoutBasicController implements Gene
 				}
 			}
 		}
-		
-		//check managed
-		//fxdiff VCRP-1,2: access control of resources
-		ACFrontendManager acFrontendManager = (ACFrontendManager)CoreSpringFactory.getBean("acFrontendManager");
-		AccessResult acResult = acFrontendManager.isAccessible(courseRepositoryEntry, getIdentity(), false);
-		if(acResult.isAccessible()) {
-			updateTreeAndContent(ureq, currentCourseNode, subsubId);
-		} else if (courseRepositoryEntry != null && acResult.getAvailableMethods().size() > 0) {
-			accessController = ACUIFactory.createAccessController(ureq, getWindowControl(), acResult.getAvailableMethods());
-			listenTo(accessController);
-			contentP.setContent(accessController.getInitialComponent());
-			luTree.setTreeModel(new GenericTreeModel());
-		} else {
-			wControl.setWarning(translate("course.closed"));
-			luTree.setTreeModel(new GenericTreeModel());
-		}
+
+		updateTreeAndContent(ureq, currentCourseNode, subsubId);
 		
 		//set the launch date after the evaluation
 		setLaunchDates(identity);
@@ -763,20 +746,6 @@ public class RunMainController extends MainLayoutBasicController implements Gene
 			// must work with SP and CP nodes, IFrameDisplayController listens to this event and expects "ICourse" resources.
 			String oresName = ICourse.class.getSimpleName();
 			ureq.getUserSession().getSingleUserEventCenter().fireEventToListenersOf(new MultiUserEvent(event.getCommand()), OresHelper.createOLATResourceableInstance(oresName, courseID));
-		//fxdiff VCRP-1,2: access control of resources
-		} else if (source == accessController) {
-			if(event.equals(AccessEvent.ACCESS_OK_EVENT)) {
-				updateTreeAndContent(ureq, null, null);
-				removeAsListenerAndDispose(accessController);
-				accessController = null;
-			} else if(event.equals(AccessEvent.ACCESS_FAILED_EVENT)) {
-				String msg = ((AccessEvent)event).getMessage();
-				if(StringHelper.containsNonWhitespace(msg)) {
-					getWindowControl().setError(msg);
-				} else {
-					showError("error.accesscontrol");
-				}
-			}
 		}
 	}
 

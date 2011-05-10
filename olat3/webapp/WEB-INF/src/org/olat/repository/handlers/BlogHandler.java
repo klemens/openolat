@@ -50,6 +50,7 @@ import org.olat.repository.controllers.AddFileResourceController;
 import org.olat.repository.controllers.IAddController;
 import org.olat.repository.controllers.RepositoryAddCallback;
 import org.olat.repository.controllers.WizardCloseResourceController;
+import org.olat.resource.accesscontrol.ui.RepositoryMainAccessControllerWrapper;
 import org.olat.resource.references.ReferenceManager;
 
 /**
@@ -172,7 +173,9 @@ public class BlogHandler implements RepositoryHandler {
 		Controller blogCtr = BlogUIFactory.getInstance(ureq.getLocale()).createMainController(res, ureq, wControl, callback);
 		LayoutMain3ColsController layoutCtr = new LayoutMain3ColsController(ureq, wControl, null, null, blogCtr.getInitialComponent(), null);
 		layoutCtr.addDisposableChildController(blogCtr);
-		return layoutCtr;
+		//fxdiff VCRP-1: access control of learn resources
+		RepositoryMainAccessControllerWrapper wrapper = new RepositoryMainAccessControllerWrapper(ureq, wControl, res, layoutCtr);
+		return wrapper;
 	}
 
 	/**

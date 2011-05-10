@@ -71,6 +71,7 @@ import org.olat.repository.controllers.AddFileResourceController;
 import org.olat.repository.controllers.IAddController;
 import org.olat.repository.controllers.RepositoryAddCallback;
 import org.olat.repository.controllers.WizardCloseResourceController;
+import org.olat.resource.accesscontrol.ui.RepositoryMainAccessControllerWrapper;
 import org.olat.resource.references.ReferenceManager;
 
 
@@ -178,7 +179,10 @@ public class WikiHandler implements RepositoryHandler {
 		// use on column layout
 		LayoutMain3ColsController layoutCtr = new LayoutMain3ColsController(ureq, wControl, null, null, controller.getInitialComponent(), null);
 		layoutCtr.addDisposableChildController(controller); // dispose content on layout dispose
-		return layoutCtr;
+		
+		//fxdiff VCRP-1: access control of learn resources
+		RepositoryMainAccessControllerWrapper wrapper = new RepositoryMainAccessControllerWrapper(ureq, wControl, res, layoutCtr);	
+		return wrapper;
 	}
 
 	/**
