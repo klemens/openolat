@@ -145,6 +145,8 @@ public class AssessmentMainController extends MainLayoutBasicController implemen
 	Map<Long, UserCourseEnvironment> localUserCourseEnvironmentCache; // package visibility for avoiding synthetic accessor method
 	// List of groups to which the user has access rights in this course
 	private List<BusinessGroup> coachedGroups;
+	//Is tutor from the security group of repository entry
+	private boolean repoTutor = false;
 
 	// some state variables
 	private AssessableCourseNode currentCourseNode;
@@ -236,7 +238,10 @@ AssessmentMainController(UserRequest ureq, WindowControl wControl, OLATResourcea
 			nodeChoose = createVelocityContainer("nodechoose");
 
 			// Initialize all groups that the user is allowed to coach
-			coachedGroups = getAllowedGroupsFromGroupmanagement(ureq.getIdentity()); 
+			coachedGroups = getAllowedGroupsFromGroupmanagement(ureq.getIdentity());
+			
+			RepositoryEntry re = RepositoryManager.getInstance().lookupRepositoryEntry(ores, true);
+			repoTutor = BaseSecurityManager.getInstance().isIdentityInSecurityGroup(getIdentity(), re.getTutorGroup());
 
 			// preload the assessment cache to speed up everything as background thread
 			// the thread will terminate when finished
@@ -331,7 +336,11 @@ AssessmentMainController(UserRequest ureq, WindowControl wControl, OLATResourcea
 		} else if (source == backLinkGC){
 			setContent(nodeListCtr.getInitialComponent());
 		} else if (source == backLinkUC){
-			setContent(groupChoose);
+			if(repoTutor && coachedGroups.isEmpty()) {
+				setContent(nodeListCtr.getInitialComponent());
+			} else {
+				setContent(groupChoose);
+			}
 		} else if (source == showAllCourseNodesButton) {
 			enableFilteringCourseNodes(false);
 		}  else if (source == filterCourseNodesButton) {
@@ -438,7 +447,12 @@ AssessmentMainController(UserRequest ureq, WindowControl wControl, OLATResourcea
 					CourseNode node = course.getRunStructure().getNode((String) nodeData.get(AssessmentHelper.KEY_IDENTIFYER));
 					this.currentCourseNode = (AssessableCourseNode) node;
 					// cast should be save, only assessable nodes are selectable
-					doGroupChoose(ureq);
+					if(repoTutor && coachedGroups.isEmpty()) {
+						identitiesList = getAllIdentitisFromGroupmanagement();
+						doUserChooseWithData(ureq, this.identitiesList, null, currentCourseNode);
+					} else {
+						doGroupChoose(ureq);
+					}
 				}
 			} else if (event.equals(TableController.EVENT_FILTER_SELECTED)) {
 				this.currentCourseNode = (AssessableCourseNode) nodeListCtr.getActiveFilter();
@@ -577,12 +591,15 @@ AssessmentMainController(UserRequest ureq, WindowControl wControl, OLATResourcea
 				}
 			}
 		}
+		
 		//fxdiff VCRP-1,2: access control of resources
-		RepositoryEntry re = RepositoryManager.getInstance().lookupRepositoryEntry(ores, false);
-		if(re.getParticipantGroup() != null) {
-			for (Identity identity : secMgr.getIdentitiesOfSecurityGroup(re.getParticipantGroup())) {
-				if (!PersistenceHelper.listContainsObjectByKey(allUsersList, identity)) {
-					allUsersList.add(identity);
+		if(repoTutor && coachedGroups.isEmpty()) {
+			RepositoryEntry re = RepositoryManager.getInstance().lookupRepositoryEntry(ores, false);
+			if(re.getParticipantGroup() != null) {
+				for (Identity identity : secMgr.getIdentitiesOfSecurityGroup(re.getParticipantGroup())) {
+					if (!PersistenceHelper.listContainsObjectByKey(allUsersList, identity)) {
+						allUsersList.add(identity);
+					}
 				}
 			}
 		}
