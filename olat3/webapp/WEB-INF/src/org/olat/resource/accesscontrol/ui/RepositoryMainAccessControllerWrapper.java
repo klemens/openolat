@@ -55,6 +55,8 @@ public class RepositoryMainAccessControllerWrapper extends MainLayoutBasicContro
 				mainVC.put("accessPanel", accessController.getInitialComponent());
 				contentP.setContent(mainVC);
 			} else {
+				mainVC = createVelocityContainer("access_refused");
+				contentP.setContent(mainVC);
 				wControl.setWarning(translate("course.closed"));
 			}
 		}

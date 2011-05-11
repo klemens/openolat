@@ -58,6 +58,7 @@ import org.olat.resource.accesscontrol.model.Order;
 public class ACFrontendManager extends BasicManager {
 	
 	private BaseSecurity securityManager;
+	private RepositoryManager repositoryManager;
 	private AccessControlModule accessModule;
 	private ACOfferManager accessManager;
 	private ACMethodManager methodManager;
@@ -74,6 +75,14 @@ public class ACFrontendManager extends BasicManager {
 	 */
 	public void setAccessModule(AccessControlModule accessModule) {
 		this.accessModule = accessModule;
+	}
+	
+	/**
+	 * [used by Spring]
+	 * @param repositoryManager
+	 */
+	public void setRepositoryManager(RepositoryManager repositoryManager) {
+		this.repositoryManager = repositoryManager;
 	}
 
 	/**
@@ -131,28 +140,19 @@ public class ACFrontendManager extends BasicManager {
 			return new AccessResult(true);
 		}
 		
+		boolean member = repositoryManager.isMember(forId, entry);
+		if(member) {
+			return new AccessResult(true);
+		}
+		
 		List<Offer> offers = accessManager.findOfferByResource(entry.getOlatResource(), true, new Date());
 		if(offers.isEmpty()) {
-			return new AccessResult(true);
-		}
-		
-		boolean owner = securityManager.isIdentityInSecurityGroup(forId, entry.getOwnerGroup());
-		if(owner) {
-			return new AccessResult(true);
-		}
-		
-		if(entry.getTutorGroup() != null) {
-			boolean tutor = securityManager.isIdentityInSecurityGroup(forId, entry.getTutorGroup());
-			if(tutor) {
+			if(methodManager.isValidMethodAvailable(entry.getOlatResource())) {
+				//not open for the moment: no valid offer at this date but some methods are defined
+				return new AccessResult(false);
+			} else {
 				return new AccessResult(true);
-			}
-		}
-		
-		if(entry.getParticipantGroup() != null) {
-			boolean participant = securityManager.isIdentityInSecurityGroup(forId, entry.getParticipantGroup());
-			if(participant) {
-				return new AccessResult(true);
-			}
+			}	
 		}
 		return isAccessible(forId, offers, allowNonInteractiveAccess);
 	}
@@ -303,7 +303,7 @@ public class ACFrontendManager extends BasicManager {
 		
 		String resourceType = resource.getResourceableTypeName();
 		if("CourseModule".equals(resourceType)) {
-			RepositoryEntry entry = RepositoryManager.getInstance().lookupRepositoryEntry(resource, false);
+			RepositoryEntry entry = repositoryManager.lookupRepositoryEntry(resource, false);
 			if(entry != null) {
 				if(!securityManager.isIdentityInSecurityGroup(identity, entry.getParticipantGroup())) {
 					securityManager.addIdentityToSecurityGroup(identity, entry.getParticipantGroup());
@@ -325,7 +325,7 @@ public class ACFrontendManager extends BasicManager {
 	public String resolveDisplayName(OLATResource resource) {
 		String resourceType = resource.getResourceableTypeName();
 		if("CourseModule".equals(resourceType)) {
-			RepositoryEntry entry = RepositoryManager.getInstance().lookupRepositoryEntry(resource, false);
+			RepositoryEntry entry = repositoryManager.lookupRepositoryEntry(resource, false);
 			if(entry != null) {
 				return entry.getDisplayname();
 			}

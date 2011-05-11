@@ -25,6 +25,7 @@ import java.util.Date;
 import java.util.List;
 
 import org.olat.core.id.Identity;
+import org.olat.resource.OLATResource;
 import org.olat.resource.accesscontrol.model.AccessMethod;
 import org.olat.resource.accesscontrol.model.BusinessGroupAccess;
 import org.olat.resource.accesscontrol.model.OLATResourceAccess;
@@ -41,6 +42,8 @@ import org.olat.resource.accesscontrol.model.OfferAccess;
  * @author srosse, stephane.rosse@frentix.com, http://www.frentix.com
  */
 public interface ACMethodManager {
+	
+	
 	
 	/**
 	 * Get the list of access methods which a user /author can use
@@ -73,6 +76,14 @@ public interface ACMethodManager {
 	public List<OfferAccess> getOfferAccess(Collection<Offer> offers, boolean valid);
 	
 	public List<OfferAccess> getOfferAccessByResource(Collection<Long> resourceKeys, boolean valid, Date atDate);
+	
+	
+	/**
+	 * Return true if the resource has a method valid, but not constraint by the date
+	 * @param resource
+	 * @return
+	 */
+	public boolean isValidMethodAvailable(OLATResource resource);
 	
 	public List<BusinessGroupAccess> getAccessMethodForBusinessGroup(boolean valid, Date atDate);
 	

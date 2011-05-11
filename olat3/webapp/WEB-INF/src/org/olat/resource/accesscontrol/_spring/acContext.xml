@@ -71,6 +71,7 @@
 		<property name="methodManager" ref="acMethodManager"/>
 		<property name="orderManager" ref="acOrderManager"/>
 		<property name="transactionManager" ref="acTransactionManager"/>
+		<property name="repositoryManager" ref="repositoryManager"/>
 	</bean>
 	
 	<bean id="acMethodManager" class="org.olat.resource.accesscontrol.manager.ACMethodManagerImpl"

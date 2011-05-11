@@ -835,17 +835,25 @@ public class RepositoryManager extends BasicManager {
 		return setIdentity;
 	}
 	
+	//fxdiff VCRP-1,2: access control
 	public boolean isMember(Identity identity, RepositoryEntry entry) {
-		if(securityManager.isIdentityInSecurityGroup(identity, entry.getOwnerGroup())) {
-			return true;
-		}
-		if(securityManager.isIdentityInSecurityGroup(identity, entry.getTutorGroup())) {
-			return true;
-		}
-		if(securityManager.isIdentityInSecurityGroup(identity, entry.getParticipantGroup())) {
-			return true;
-		}
-		return false;
+		StringBuilder sb = new StringBuilder();
+		sb.append("select count(v) from ").append(RepositoryEntry.class.getName()).append(" as v ")
+			.append(" where v=:repositoryEntry and ")
+			.append(" (")
+			.append("   v.ownerGroup in (select ownerSgmsi.securityGroup from ").append(SecurityGroupMembershipImpl.class.getName()).append(" ownerSgmsi where ownerSgmsi.identity=:identity)")
+			.append("   or")
+			.append("   v.tutorGroup in (select tutorSgmsi.securityGroup from ").append(SecurityGroupMembershipImpl.class.getName()).append(" tutorSgmsi where tutorSgmsi.identity=:identity)")
+			.append("   or")
+			.append("   v.participantGroup in (select partiSgmsi.securityGroup from ").append(SecurityGroupMembershipImpl.class.getName()).append(" partiSgmsi where partiSgmsi.identity=:identity)")
+			.append(" )");
+
+		DBQuery query = DBFactory.getInstance().createQuery(sb.toString());
+		query.setEntity("identity", identity);
+		query.setEntity("repositoryEntry", entry);
+		
+		Number counter = (Number)query.uniqueResult();
+		return counter.intValue() > 0;
 	}
 	
 	/**

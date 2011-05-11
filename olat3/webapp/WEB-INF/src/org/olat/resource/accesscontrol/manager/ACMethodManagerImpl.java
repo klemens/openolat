@@ -88,6 +88,24 @@ public class ACMethodManagerImpl extends BasicManager implements ACMethodManager
 			activateFreeMethod();
 		}
 	}
+	
+
+	@Override
+	public boolean isValidMethodAvailable(OLATResource resource) {
+		StringBuilder sb = new StringBuilder();
+		sb.append("select count(access.method) from ").append(OfferAccessImpl.class.getName()).append(" access ")
+			.append(" inner join access.offer offer")
+			.append(" inner join offer.resource oResource")
+			.append(" where access.valid=true")
+			.append(" and offer.valid=true")
+			.append(" and oResource.key=:resourceKey");
+
+		DBQuery query = dbInstance.createQuery(sb.toString());
+		query.setLong("resourceKey", resource.getKey());
+
+		Number methods = (Number)query.uniqueResult();
+		return methods.intValue() > 0;
+	}
 
 	@Override
 	public List<AccessMethod> getAvailableMethods(Identity identity) {
