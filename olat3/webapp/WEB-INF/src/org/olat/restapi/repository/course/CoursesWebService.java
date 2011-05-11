@@ -20,6 +20,7 @@
  */
 package org.olat.restapi.repository.course;
 
+import static org.olat.restapi.security.RestSecurityHelper.getIdentity;
 import static org.olat.restapi.security.RestSecurityHelper.getRoles;
 import static org.olat.restapi.security.RestSecurityHelper.getUserRequest;
 import static org.olat.restapi.security.RestSecurityHelper.isAuthor;
@@ -110,10 +111,12 @@ public class CoursesWebService {
 	@Produces({MediaType.APPLICATION_XML, MediaType.APPLICATION_JSON})
 	public Response getCourseList(@Context HttpServletRequest request) {
 		Roles roles = getRoles(request);
+		Identity identity = getIdentity(request);
 		
 		List<String> courseType = new ArrayList<String>();
 		courseType.add(CourseModule.getCourseTypeName());
-		List<RepositoryEntry> repoEntries = RepositoryManager.getInstance().genericANDQueryWithRolesRestriction("*", "*", "*", courseType, roles, "");
+		//fxdiff VCRP-1,2: access control of resources
+		List<RepositoryEntry> repoEntries = RepositoryManager.getInstance().genericANDQueryWithRolesRestriction("*", "*", "*", courseType, identity, roles, "");
 
 		List<CourseVO> voList = new ArrayList<CourseVO>();
 		for (RepositoryEntry repoEntry : repoEntries) {

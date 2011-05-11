@@ -121,13 +121,15 @@ class PublishStep01 extends BasicStep {
 					"" + RepositoryEntry.ACC_OWNERS,
 					"" + RepositoryEntry.ACC_OWNERS_AUTHORS,
 					"" + RepositoryEntry.ACC_USERS,
-					"" + RepositoryEntry.ACC_USERS_GUESTS
+					"" + RepositoryEntry.ACC_USERS_GUESTS,
+					RepositoryEntry.MEMBERS_ONLY//fxdiff VCRP-1,2: access control of resources
 				};
 			String[] values = new String[] {
 				pt.translate("cif.access.owners"),
 				pt.translate("cif.access.owners_authors"),
 				pt.translate("cif.access.users"),
 				pt.translate("cif.access.users_guests"),
+				pt.translate("cif.access.membersonly"),//fxdiff VCRP-1,2: access control of resources
 			};
 			//use the addDropDownSingleselect method with null as label i18n - key, because there is no label to set. OLAT-3682
 			accessSelbox = uifactory.addDropdownSingleselect("accessBox",null, fic, keys, values, null);

@@ -59,6 +59,9 @@ public class RepositoryEntry extends PersistentObject implements ModifiedInfo, O
 	 */
 	public static final int ACC_USERS_GUESTS = 4; // no limits
 	
+	//fxdiff VCRP-1,2: access control of resources
+	public static final String MEMBERS_ONLY =  "membersonly";
+	
 	private String softkey; // mandatory
 	private OLATResource olatResource; // mandatory
 	private SecurityGroup ownerGroup; // mandatory
@@ -74,6 +77,7 @@ public class RepositoryEntry extends PersistentObject implements ModifiedInfo, O
 	private boolean canReference;
 	private boolean canLaunch;
 	private boolean canDownload;
+	private boolean membersOnly;//fxdiff VCRP-1,2: access control of resources
 	private int statusCode;
 	private List<MetaDataElement> metaDataElements;
 	private long launchCounter;
@@ -284,6 +288,14 @@ public class RepositoryEntry extends PersistentObject implements ModifiedInfo, O
 	public int getAccess() {
 		return access;
 	}
+	
+	/**
+	 * Is the repository entry exclusive
+	 * @return
+	 */
+	public boolean isMembersOnly() {
+		return membersOnly;
+	}
 
 	/**
 	 * @param b
@@ -319,6 +331,14 @@ public class RepositoryEntry extends PersistentObject implements ModifiedInfo, O
 	 */
 	public void setAccess(int i) {
 		access = i;
+	}
+	
+	/**
+	 * Set if the repository entry is exclusive 
+	 * @param membersOnly
+	 */
+	public void setMembersOnly(boolean membersOnly) {
+		this.membersOnly = membersOnly;
 	}
 
 	/**

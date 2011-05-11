@@ -131,6 +131,10 @@ public class RepositoryTableModel extends DefaultTableDataModel implements Table
 			case 2: return getDisplayName(re, translator.getLocale());
 			case 3: return re.getInitialAuthor();
 			case 4: {
+				//fxdiff VCRP-1,2: access control of resources
+				if(re.isMembersOnly()) {
+					return translator.translate("table.header.access.membersonly"); 
+				}
 				switch (re.getAccess()) {
 					case RepositoryEntry.ACC_OWNERS: return translator.translate("table.header.access.owner");
 					case RepositoryEntry.ACC_OWNERS_AUTHORS: return translator.translate("table.header.access.author");

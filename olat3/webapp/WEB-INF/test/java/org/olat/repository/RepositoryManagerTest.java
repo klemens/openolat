@@ -366,14 +366,16 @@ public class RepositoryManagerTest extends OlatTestCase {
 						if (i % 20 == 0 ) {
 							int ACCESS_VALUE = 4;
 							System.out.println("RepositoryManagerTest: call setAccess i=" + i);
-							RepositoryManager.getInstance().setAccess(repositoryEntryT1, ACCESS_VALUE);
+							//fxdiff VCRP-1,2: access control of resources
+							RepositoryManager.getInstance().setAccess(repositoryEntryT1, ACCESS_VALUE, false);
 							DBFactory.getInstance().closeSession();
 							RepositoryEntry repositoryEntryT1Reloaded = RepositoryManager.getInstance().lookupRepositoryEntry(keyRepo);
 							assertEquals("Wrong access value",ACCESS_VALUE,repositoryEntryT1Reloaded.getAccess());
 						} else if (i % 10 == 0 ) {
 							int ACCESS_VALUE = 1;
 							System.out.println("RepositoryManagerTest: call setAccess i=" + i);
-							RepositoryManager.getInstance().setAccess(repositoryEntryT1, ACCESS_VALUE);
+							//fxdiff VCRP-1,2: access control of resources
+							RepositoryManager.getInstance().setAccess(repositoryEntryT1, ACCESS_VALUE, false);
 							DBFactory.getInstance().closeSession();
 							RepositoryEntry repositoryEntryT1Reloaded = RepositoryManager.getInstance().lookupRepositoryEntry(keyRepo);
 							assertEquals("Wrong access value",ACCESS_VALUE,repositoryEntryT1Reloaded.getAccess());

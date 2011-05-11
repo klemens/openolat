@@ -213,8 +213,9 @@ public class RepositorySearchController extends BasicController {
 		} else {
 			restrictedTypes = (s == null) ? null : new ArrayList<String>(s);
 		}
+		//fxdiff VCRP-1,2: access control of resources
 		List<RepositoryEntry> entries = rm.genericANDQueryWithRolesRestriction(searchForm.getDisplayName(), searchForm.getAuthor(),
-			searchForm.getDescription(), restrictedTypes, ureq.getUserSession().getRoles(), ureq.getIdentity().getUser().getProperty(UserConstants.INSTITUTIONALNAME, null));
+			searchForm.getDescription(), restrictedTypes, ureq.getIdentity(), ureq.getUserSession().getRoles(), ureq.getIdentity().getUser().getProperty(UserConstants.INSTITUTIONALNAME, null));
 		repoTableModel.setObjects(entries);
 		//fxdiff VCRP-10: repository search with type filter
 		if(updateFilters) {
@@ -331,7 +332,8 @@ public class RepositorySearchController extends BasicController {
 	 */
 	public void doSearchByOwnerLimitAccess(Identity owner, int access) {
 		RepositoryManager rm = RepositoryManager.getInstance();
-		List entries = rm.queryByOwnerLimitAccess(owner, access);
+		//fxdiff VCRP-1,2: access control of resources
+		List entries = rm.queryByOwnerLimitAccess(owner, access, Boolean.TRUE);
 
 		repoTableModel.setObjects(entries);
 		//fxdiff VCRP-10: repository search with type filter

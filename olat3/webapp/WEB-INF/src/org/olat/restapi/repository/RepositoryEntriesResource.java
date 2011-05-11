@@ -113,8 +113,11 @@ public class RepositoryEntriesResource {
 		try {
 			// list of courses open for everybody
 			Roles roles = getRoles(httpRequest);
+			Identity identity = getIdentity(httpRequest);
+			
 			List<String> types = new ArrayList<String>();
-			List<RepositoryEntry> coursRepos = RepositoryManager.getInstance().genericANDQueryWithRolesRestriction("*", "*", "*", types, roles, null);
+			//fxdiff VCRP-1,2: access control of resources
+			List<RepositoryEntry> coursRepos = RepositoryManager.getInstance().genericANDQueryWithRolesRestriction("*", "*", "*", types, identity, roles, null);
 			
 			StringBuilder sb = new StringBuilder();
 			sb.append("Course List\n");
@@ -150,8 +153,9 @@ public class RepositoryEntriesResource {
 		try {
 			// list of courses open for everybody
 			Roles roles = getRoles(httpRequest);
+			Identity identity = getIdentity(httpRequest);
 			List<String> types = new ArrayList<String>();
-			List<RepositoryEntry> coursRepos = RepositoryManager.getInstance().genericANDQueryWithRolesRestriction("*", "*", "*", types, roles, null);
+			List<RepositoryEntry> coursRepos = RepositoryManager.getInstance().genericANDQueryWithRolesRestriction("*", "*", "*", types, identity, roles, null);
 			
 			int i=0;
 			RepositoryEntryVO[] entryVOs = new RepositoryEntryVO[coursRepos.size()];
@@ -212,7 +216,7 @@ public class RepositoryEntriesResource {
 			} else {
 				List<String> types = new ArrayList<String>(1);
 				if(restrictedType) types.add(type);
-				List<RepositoryEntry> lstRepos = rm.genericANDQueryWithRolesRestriction(name, author, "*", restrictedType ? types : null, roles, null);
+				List<RepositoryEntry> lstRepos = rm.genericANDQueryWithRolesRestriction(name, author, "*", restrictedType ? types : null, identity, roles, null);
 				if(!lstRepos.isEmpty()) reposFound.addAll(lstRepos);
 			}
 			

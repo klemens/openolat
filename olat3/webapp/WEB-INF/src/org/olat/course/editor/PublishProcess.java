@@ -637,8 +637,9 @@ public class PublishProcess {
 		return publishTreeModel;
 	}
 
-	public void changeGeneralAccess(UserRequest ureq, int access){
-		RepositoryManager.getInstance().setAccess(repositoryEntry, access);
+	//fxdiff VCRP-1,2: access control of resources
+	public void changeGeneralAccess(UserRequest ureq, int access, boolean membersOnly){
+		RepositoryManager.getInstance().setAccess(repositoryEntry, access, membersOnly);
 		MultiUserEvent modifiedEvent = new EntryChangedEvent(repositoryEntry, EntryChangedEvent.MODIFIED_AT_PUBLISH);
 		CoordinatorManager.getInstance().getCoordinator().getEventBus().fireEventToListenersOf(modifiedEvent, repositoryEntry);
 	}

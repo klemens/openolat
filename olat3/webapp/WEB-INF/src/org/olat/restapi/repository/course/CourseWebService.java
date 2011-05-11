@@ -173,7 +173,8 @@ public class CourseWebService {
 			 //only owners can the see course
 			 //RepositoryEntry.ACC_OWNERS_AUTHORS //only owners and authors can the see course
 			 //RepositoryEntry.ACC_USERS_GUESTS // users and guests can see the course
-			 publishProcess.changeGeneralAccess(null, newAccess);
+			 //fxdiff VCRP-1,2: access control of resources
+			 publishProcess.changeGeneralAccess(null, newAccess, false);
 			 
 			 if (publishTreeModel.hasPublishableChanges()) {
 				 List<String>nodeToPublish = new ArrayList<String>();

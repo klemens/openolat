@@ -729,9 +729,8 @@ public class BusinessGroupManagerImpl extends BasicManager implements BusinessGr
 			//fxdiff VCRP-1,2: access control of resources
 			BGContext context = group.getGroupContext();
 			if(context != null) {
-				List<OLATResource> resources = BGContextManagerImpl.getInstance().findOLATResourcesForBGContext(context);
-				for(OLATResource resource:resources) {
-					RepositoryEntry re = RepositoryManager.getInstance().lookupRepositoryEntry(resource, false);
+				List<RepositoryEntry> res = BGContextManagerImpl.getInstance().findRepositoryEntriesForBGContext(context);
+				for(RepositoryEntry re:res) {
 					SecurityGroup participantGroup = re.getParticipantGroup();
 					if(re != null && participantGroup != null && !securityManager.isIdentityInSecurityGroup(identity, participantGroup)) {
 						securityManager.addIdentityToSecurityGroup(identity, participantGroup);
@@ -762,9 +761,8 @@ public class BusinessGroupManagerImpl extends BasicManager implements BusinessGr
 			//fxdiff VCRP-1,2: access control of resources
 			BGContext context = group.getGroupContext();
 			if(context != null) {
-				List<OLATResource> resources = BGContextManagerImpl.getInstance().findOLATResourcesForBGContext(context);
-				for(OLATResource resource:resources) {
-					RepositoryEntry re = RepositoryManager.getInstance().lookupRepositoryEntry(resource, false);
+				List<RepositoryEntry> res = BGContextManagerImpl.getInstance().findRepositoryEntriesForBGContext(context);
+				for(RepositoryEntry re:res) {
 					SecurityGroup tutorGroup = re.getTutorGroup();
 					if(re != null && tutorGroup != null && !securityManager.isIdentityInSecurityGroup(identity, tutorGroup)) {
 						securityManager.addIdentityToSecurityGroup(identity, tutorGroup);

@@ -279,7 +279,8 @@ public class RepositoryEditPropertiesController extends BasicController {
 			if(repositoryEntryChanged) {
 				if (DialogBoxUIFactory.isYesEvent(event)) {
 					RepositoryManager.getInstance().setProperties(repositoryEntry, propPupForm.canCopy(), propPupForm.canReference(), propPupForm.canLaunch(), propPupForm.canDownload() );		
-					RepositoryManager.getInstance().setAccess(repositoryEntry, propPupForm.getAccess());
+					//fxdiff VCRP-1,2: access control of resources
+					RepositoryManager.getInstance().setAccess(repositoryEntry, propPupForm.getAccess(), propPupForm.isMembersOnly());
 					repositoryEntry = RepositoryManager.getInstance().lookupRepositoryEntry(repositoryEntry.getKey());
 					repositoryEntryChanged = false;
 					
@@ -411,13 +412,15 @@ public class RepositoryEditPropertiesController extends BasicController {
 			} else if (event == Event.DONE_EVENT) {
 				repositoryEntryChanged = true;				
 				// inform user about inconsistent configuration: doesn't make sense to set a repositoryEntry canReference=true if it is only accessible to owners
-				if (!repositoryEntry.getCanReference() && propPupForm.canReference() && propPupForm.getAccess() < RepositoryEntry.ACC_OWNERS_AUTHORS) {					
+				//fxdiff VCRP-1,2: access control of resources
+				if (!repositoryEntry.getCanReference() && propPupForm.canReference() && (propPupForm.getAccess() < RepositoryEntry.ACC_OWNERS_AUTHORS && !propPupForm.isMembersOnly())) {					
 					this.showError("warn.config.reference.no.access");
 				}	
 				//if not a course, update the repositoryEntry NOW!
 				if(!repositoryEntry.getOlatResource().getResourceableTypeName().equals(CourseModule.getCourseTypeName())) {
 					RepositoryManager.getInstance().setProperties(repositoryEntry, propPupForm.canCopy(), propPupForm.canReference(), propPupForm.canLaunch(), propPupForm.canDownload() );		
-					RepositoryManager.getInstance().setAccess(repositoryEntry, propPupForm.getAccess());		
+					//fxdiff VCRP-1,2: access control of resources
+					RepositoryManager.getInstance().setAccess(repositoryEntry, propPupForm.getAccess(), propPupForm.isMembersOnly());		
 					// inform anybody interrested about this change
 					MultiUserEvent modifiedEvent = new EntryChangedEvent(repositoryEntry, EntryChangedEvent.MODIFIED);
 					CoordinatorManager.getInstance().getCoordinator().getEventBus().fireEventToListenersOf(modifiedEvent, repositoryEntry);			

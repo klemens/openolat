@@ -67,6 +67,10 @@
 			<column name="accesscode" unique="false" not-null="true" index="access_idx"/>
 		</property>
 		
+		<property name="membersOnly" type="boolean">
+			<column name="membersonly" unique="false" not-null="true" />
+		</property>
+		
 		<property name="canLaunch">
 			<column name="canlaunch" unique="false" not-null="true"/>
 		</property>
