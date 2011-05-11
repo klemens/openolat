@@ -91,7 +91,7 @@ public class ACMethodManagerImpl extends BasicManager implements ACMethodManager
 	
 
 	@Override
-	public boolean isValidMethodAvailable(OLATResource resource) {
+	public boolean isValidMethodAvailable(OLATResource resource, Date atDate) {
 		StringBuilder sb = new StringBuilder();
 		sb.append("select count(access.method) from ").append(OfferAccessImpl.class.getName()).append(" access ")
 			.append(" inner join access.offer offer")
@@ -99,9 +99,16 @@ public class ACMethodManagerImpl extends BasicManager implements ACMethodManager
 			.append(" where access.valid=true")
 			.append(" and offer.valid=true")
 			.append(" and oResource.key=:resourceKey");
+		if(atDate != null) {
+			sb.append(" and (offer.validFrom is null or offer.validFrom<=:atDate)")
+				.append(" and (offer.validTo is null or offer.validTo>=:atDate)");
+		}
 
 		DBQuery query = dbInstance.createQuery(sb.toString());
 		query.setLong("resourceKey", resource.getKey());
+		if(atDate != null) {
+			query.setTimestamp("atDate", atDate);
+		}
 
 		Number methods = (Number)query.uniqueResult();
 		return methods.intValue() > 0;

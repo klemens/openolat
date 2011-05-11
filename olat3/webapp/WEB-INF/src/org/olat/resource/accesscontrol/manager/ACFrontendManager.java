@@ -147,7 +147,7 @@ public class ACFrontendManager extends BasicManager {
 		
 		List<Offer> offers = accessManager.findOfferByResource(entry.getOlatResource(), true, new Date());
 		if(offers.isEmpty()) {
-			if(methodManager.isValidMethodAvailable(entry.getOlatResource())) {
+			if(methodManager.isValidMethodAvailable(entry.getOlatResource(), null)) {
 				//not open for the moment: no valid offer at this date but some methods are defined
 				return new AccessResult(false);
 			} else {
@@ -155,6 +155,16 @@ public class ACFrontendManager extends BasicManager {
 			}	
 		}
 		return isAccessible(forId, offers, allowNonInteractiveAccess);
+	}
+	
+	/**
+	 * 
+	 * @param resource
+	 * @param atDate 
+	 * @return
+	 */
+	public boolean isResourceAccessControled(OLATResource resource, Date atDate) {
+		return methodManager.isValidMethodAvailable(resource, atDate);
 	}
 	
 	/**

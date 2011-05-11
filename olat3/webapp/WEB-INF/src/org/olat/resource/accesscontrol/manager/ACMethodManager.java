@@ -79,11 +79,12 @@ public interface ACMethodManager {
 	
 	
 	/**
-	 * Return true if the resource has a method valid, but not constraint by the date
-	 * @param resource
+	 * Return true if the resource has a method valid
+	 * @param resource The resource
+	 * @param atDate The date for the access (optional)
 	 * @return
 	 */
-	public boolean isValidMethodAvailable(OLATResource resource);
+	public boolean isValidMethodAvailable(OLATResource resource, Date atDate);
 	
 	public List<BusinessGroupAccess> getAccessMethodForBusinessGroup(boolean valid, Date atDate);
 	
