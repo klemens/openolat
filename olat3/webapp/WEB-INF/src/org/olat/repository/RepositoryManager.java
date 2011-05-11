@@ -359,8 +359,13 @@ public class RepositoryManager extends BasicManager {
 			else return false;
 		}
 		// else allow if access granted for users
-		return re.getAccess() >= RepositoryEntry.ACC_USERS;
+		if(re.getAccess() >= RepositoryEntry.ACC_USERS) {
+			return true;
+		} else if (re.getAccess() == RepositoryEntry.ACC_OWNERS && re.isMembersOnly()) {
+			return isMember(identity, re);
+		}
 		
+		return false;
 	}
 
 	/**
@@ -830,6 +835,19 @@ public class RepositoryManager extends BasicManager {
 		return setIdentity;
 	}
 	
+	public boolean isMember(Identity identity, RepositoryEntry entry) {
+		if(securityManager.isIdentityInSecurityGroup(identity, entry.getOwnerGroup())) {
+			return true;
+		}
+		if(securityManager.isIdentityInSecurityGroup(identity, entry.getTutorGroup())) {
+			return true;
+		}
+		if(securityManager.isIdentityInSecurityGroup(identity, entry.getParticipantGroup())) {
+			return true;
+		}
+		return false;
+	}
+	
 	/**
 	 * Query repository
 	 * 
@@ -1009,17 +1027,17 @@ public class RepositoryManager extends BasicManager {
 	 */
 	 //fxdiff VCRP-1,2: access control of resources
 	public List<RepositoryEntry> getLearningResourcesAsStudent(Identity identity) {
-		List<BusinessGroup> groupList = BusinessGroupManagerImpl.getInstance().findBusinessGroupsAttendedBy(BusinessGroup.TYPE_LEARNINGROUP, identity, null);
-		List<BGContext> bgContexts = new ArrayList<BGContext>();
-		for (BusinessGroup group : groupList) {
-			BGContext bgContext = group.getGroupContext();
-			if (bgContext == null || PersistenceHelper.listContainsObjectByKey(bgContexts, bgContext)) {
-				continue;
-			}
-			bgContexts.add(bgContext);
-		}
-			
-		List<RepositoryEntry> repoEntries = BGContextManagerImpl.getInstance().findRepositoryEntriesForBGContext(bgContexts, RepositoryEntry.ACC_USERS, false, false, true, identity);
+		StringBuilder sb = new StringBuilder(400);
+		sb.append("select distinct v from ").append(RepositoryEntry.class.getName()).append(" v ")
+			.append(" inner join fetch v.olatResource as res where ")
+			.append(" (v.access>=").append(RepositoryEntry.ACC_USERS).append(" or (v.access=").append(RepositoryEntry.ACC_OWNERS).append(" and v.membersOnly=true))")
+			.append(" and ")
+			.append(" v.participantGroup in (select participantSgmsi.securityGroup from ").append(SecurityGroupMembershipImpl.class.getName()).append(" participantSgmsi where participantSgmsi.identity=:identity)");
+
+		DBQuery dbquery = DBFactory.getInstance().createQuery(sb.toString());
+		dbquery.setEntity("identity", identity);
+		dbquery.setCacheable(true);
+		List<RepositoryEntry> repoEntries = dbquery.list();	
 		return repoEntries;
 	}
 	
@@ -1033,19 +1051,22 @@ public class RepositoryManager extends BasicManager {
 	 */
 	 //fxdiff VCRP-1,2: access control of resources
 	public List<RepositoryEntry> getLearningResourcesAsTeacher(Identity identity) {
-		List<RepositoryEntry> allRepoEntries = new ArrayList<RepositoryEntry>();
-		// 1: search for all learning groups where user is coach
-		List<BusinessGroup> groupList = BusinessGroupManagerImpl.getInstance().findBusinessGroupsOwnedBy(BusinessGroup.TYPE_LEARNINGROUP, identity, null);
+		StringBuilder sb = new StringBuilder(400);
+		sb.append("select distinct v from ").append(RepositoryEntry.class.getName()).append(" v ")
+			.append(" inner join fetch v.olatResource as res where ")
+			.append(" (v.access>=").append(RepositoryEntry.ACC_USERS).append(" or (v.access=").append(RepositoryEntry.ACC_OWNERS).append(" and v.membersOnly=true))")
+			.append(" and ")
+			.append(" v.tutorGroup in (select tutorSgmsi.securityGroup from ").append(SecurityGroupMembershipImpl.class.getName()).append(" tutorSgmsi where tutorSgmsi.identity=:identity)");
+
+		DBQuery dbquery = DBFactory.getInstance().createQuery(sb.toString());
+		dbquery.setEntity("identity", identity);
+		dbquery.setCacheable(true);
+		List<RepositoryEntry> repoEntries = dbquery.list();
+		List<RepositoryEntry> allRepoEntries = new ArrayList<RepositoryEntry>(repoEntries);
 		
-		List<BGContext> bgContexts = new ArrayList<BGContext>();
-		for (BusinessGroup bGroup : groupList) {
-			BGContext bgContext = bGroup.getGroupContext();
-			if (bgContext != null && !PersistenceHelper.listContainsObjectByKey(bgContexts, bgContext)) {
-				bgContexts.add(bgContext);
-			}
-		}
 		
 		// 2: search for all learning groups where user is coach
+		List<BGContext> bgContexts = new ArrayList<BGContext>();
 		List<BusinessGroup> rightGrougList = BusinessGroupManagerImpl.getInstance().findBusinessGroupsAttendedBy(BusinessGroup.TYPE_RIGHTGROUP, identity, null);
 		for (BusinessGroup group : rightGrougList) {
 			BGContext bgContext = group.getGroupContext();
@@ -1054,17 +1075,8 @@ public class RepositoryManager extends BasicManager {
 			}
 		}
 		
-		List<RepositoryEntry> repoEntriesGroup = BGContextManagerImpl.getInstance().findRepositoryEntriesForBGContext(bgContexts, RepositoryEntry.ACC_USERS, false, true, false, identity);
-		allRepoEntries.addAll(repoEntriesGroup);
-
-		// 3) search for all published learning resources that user owns
-		List<RepositoryEntry> repoEntries = queryByOwnerLimitAccess(identity, RepositoryEntry.ACC_USERS, Boolean.TRUE);
-		for (RepositoryEntry repositoryEntry : repoEntries) {
-			if (!PersistenceHelper.listContainsObjectByKey(allRepoEntries, repositoryEntry)) {
-				allRepoEntries.add(repositoryEntry);
-			}				
-		}
-		
+		List<RepositoryEntry> repoEntriesRightGroup = BGContextManagerImpl.getInstance().findRepositoryEntriesForBGContext(bgContexts, RepositoryEntry.ACC_USERS, false, false, false, identity);
+		allRepoEntries.addAll(repoEntriesRightGroup);
 		return allRepoEntries;
 	}
 }

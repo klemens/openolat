@@ -121,7 +121,7 @@ public class SharedFolderWebDAVProvider extends LogDelegator implements WebDAVPr
 						Long repoKey = Long.parseLong(folder);
 						RepositoryEntry entry = repoManager.lookupRepositoryEntry(repoKey);
 						if (entry != null) {
-							if (entry.getAccess() >= RepositoryEntry.ACC_USERS) {
+							if (entry.getAccess() >= RepositoryEntry.ACC_USERS || (entry.getAccess() == RepositoryEntry.ACC_OWNERS && entry.isMembersOnly())) {
 								// add folder (which is a repo entry) to root container if not
 								// present
 								addReadonlyFolder(rootContainer, entry, sfm, addedEntries);

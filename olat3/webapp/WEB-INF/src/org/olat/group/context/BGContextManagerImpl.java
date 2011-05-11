@@ -524,6 +524,7 @@ public class BGContextManagerImpl extends BasicManager implements BGContextManag
 	@Override
 	//fxdiff VCRP-1,2: access control of resources
 	public List<RepositoryEntry> findRepositoryEntriesForBGContext(Collection<BGContext> bgContexts) {
+		if(bgContexts == null || bgContexts.isEmpty()) return Collections.emptyList();
 		DB db = DBFactory.getInstance();
 		StringBuilder sb = new StringBuilder();
 		sb.append("select v from ").append(RepositoryEntry.class.getName()).append(" as v ")
@@ -541,6 +542,7 @@ public class BGContextManagerImpl extends BasicManager implements BGContextManag
 	//fxdiff VCRP-1,2: access control of resources
 	public List<RepositoryEntry> findRepositoryEntriesForBGContext(Collection<BGContext> bgContexts, int access, boolean asOwner, boolean asCoach,
 			boolean asParticipant, Identity identity) {
+		if(bgContexts == null || bgContexts.isEmpty()) return Collections.emptyList();
 		
 		DB db = DBFactory.getInstance();
 		StringBuilder sb = new StringBuilder();
@@ -570,7 +572,7 @@ public class BGContextManagerImpl extends BasicManager implements BGContextManag
 		}
 		sb.append(access);
 		boolean setIdentity = false;
-		if(identity != null) {
+		if(identity != null && (asOwner || asCoach || asParticipant)) {
 			setIdentity = true;
 			//sub select are very quick
 			sb.append(" or (")
