@@ -21,12 +21,13 @@
 package org.olat.course.nodes.info;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Set;
 
 import org.olat.basesecurity.BaseSecurity;
 import org.olat.basesecurity.BaseSecurityManager;
-import org.olat.basesecurity.SecurityGroup;
 import org.olat.commons.info.ui.SendMailOption;
 import org.olat.core.gui.translator.Translator;
 import org.olat.core.id.Identity;
@@ -69,7 +70,7 @@ public class SendMembersMailOption implements SendMailOption {
 
 	@Override
 	public List<Identity> getSelectedIdentities() {
-		List<Identity> identities = new ArrayList<Identity>();
+		Set<Identity> identities = new HashSet<Identity>();
 		CourseGroupManager cgm = course.getCourseEnvironment().getCourseGroupManager();
 		List<BusinessGroup> learningGroups = cgm.getAllLearningGroupsFromAllContexts();
 		for(BusinessGroup bg:learningGroups) {
@@ -90,6 +91,6 @@ public class SendMembersMailOption implements SendMailOption {
 		if(repositoryEntry.getOwnerGroup() != null) {
 			identities.addAll(securityManager.getIdentitiesOfSecurityGroup(repositoryEntry.getOwnerGroup()));
 		}
-		return identities;
+		return new ArrayList<Identity>(identities);
 	}
 }
