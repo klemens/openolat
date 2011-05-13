@@ -167,7 +167,8 @@ public class RepositoryEditPropertiesController extends BasicController {
 	  int access = propPupForm.getAccess();
 	  if(access == RepositoryEntry.ACC_USERS || access == RepositoryEntry.ACC_USERS_GUESTS) {
 	  	editproptabpubVC.put("accesscontrol", acCtr.getInitialComponent());
-	  }
+	  	editproptabpubVC.contextPut("isGuestAccess", Boolean.valueOf(access == RepositoryEntry.ACC_USERS_GUESTS));
+	  }	  
 		
 		tabbedPane.addListener(this);
 		try {
@@ -431,6 +432,7 @@ public class RepositoryEditPropertiesController extends BasicController {
 				int access = propPupForm.getAccess();
 				if(access == RepositoryEntry.ACC_USERS || access == RepositoryEntry.ACC_USERS_GUESTS) {
 			  	editproptabpubVC.put("accesscontrol", acCtr.getInitialComponent());
+			  	editproptabpubVC.contextPut("isGuestAccess", Boolean.valueOf(access == RepositoryEntry.ACC_USERS_GUESTS));
 				} else {
 			  	editproptabpubVC.remove(acCtr.getInitialComponent());
 				}
