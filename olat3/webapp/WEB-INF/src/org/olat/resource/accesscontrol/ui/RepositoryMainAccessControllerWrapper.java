@@ -45,20 +45,25 @@ public class RepositoryMainAccessControllerWrapper extends MainLayoutBasicContro
 			contentP.setContent(resController.getInitialComponent());
 		} else {
 			RepositoryEntry re = RepositoryManager.getInstance().lookupRepositoryEntry(res, false);
-			ACFrontendManager acFrontendManager = (ACFrontendManager)CoreSpringFactory.getBean("acFrontendManager");
-			AccessResult acResult = acFrontendManager.isAccessible(re, getIdentity(), false);
-			if(acResult.isAccessible()) {
+			// guest are allowed to see resource with BARG 
+			if(re.getAccess() == RepositoryEntry.ACC_USERS_GUESTS && ureq.getUserSession().getRoles().isGuestOnly()) {
 				contentP.setContent(resController.getInitialComponent());
-			} else if (re != null && acResult.getAvailableMethods().size() > 0) {
-				accessController = ACUIFactory.createAccessController(ureq, getWindowControl(), acResult.getAvailableMethods());
-				listenTo(accessController);
-				mainVC = createVelocityContainer("access_wrapper");
-				mainVC.put("accessPanel", accessController.getInitialComponent());
-				contentP.setContent(mainVC);
 			} else {
-				mainVC = createVelocityContainer("access_refused");
-				contentP.setContent(mainVC);
-				wControl.setWarning(translate("course.closed"));
+				ACFrontendManager acFrontendManager = (ACFrontendManager)CoreSpringFactory.getBean("acFrontendManager");
+				AccessResult acResult = acFrontendManager.isAccessible(re, getIdentity(), false);
+				if(acResult.isAccessible()) {
+					contentP.setContent(resController.getInitialComponent());
+				} else if (re != null && acResult.getAvailableMethods().size() > 0) {
+					accessController = ACUIFactory.createAccessController(ureq, getWindowControl(), acResult.getAvailableMethods());
+					listenTo(accessController);
+					mainVC = createVelocityContainer("access_wrapper");
+					mainVC.put("accessPanel", accessController.getInitialComponent());
+					contentP.setContent(mainVC);
+				} else {
+					mainVC = createVelocityContainer("access_refused");
+					contentP.setContent(mainVC);
+					wControl.setWarning(translate("course.closed"));
+				}
 			}
 		}
 		putInitialPanel(contentP);
