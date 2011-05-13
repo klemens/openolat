@@ -119,15 +119,15 @@ public class RepositoryTableModel extends DefaultTableDataModel implements Table
 		switch (col) {
 			//fxdiff VCRP-1,2: access control of resources
 			case 0: {
+				if (re.isMembersOnly()) {
+					// members only always show lock icon
+					List<String> types = new ArrayList<String>(1);
+					types.add("b_access_membersonly");
+					return types;
+				}
 				OLATResourceAccess access = repoEntriesWithOffer.get(re.getOlatResource().getKey());
 				if(access == null) {
-					if (re.isMembersOnly()) {
-						List<String> types = new ArrayList<String>(1);
-						types.add("b_access_membersonly");
-						return types;
-					} else {
-						return Collections.emptyList();						
-					}
+					return Collections.emptyList();						
 				}
 				List<String> types = new ArrayList<String>(3);
 				for(AccessMethod method:access.getMethods()) {

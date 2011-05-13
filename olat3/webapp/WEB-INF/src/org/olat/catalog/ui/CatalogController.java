@@ -967,11 +967,17 @@ public class CatalogController extends BasicController implements Activateable {
 			//fxdiff VCRP-1,2: access control of resources
 			if(entry.getRepositoryEntry() != null && entry.getRepositoryEntry().getOlatResource() != null) {
 				List<String> types = new ArrayList<String>();
-				OLATResource resource = entry.getRepositoryEntry().getOlatResource();
-				for(OLATResourceAccess resourceAccess:resourcesWithOffer) {
-					if(resource.getKey().equals(resourceAccess.getResource().getKey())) {
-						for(AccessMethod method:resourceAccess.getMethods()) {
-							types.add(method.getMethodCssClass() + "_icon");
+				if (entry.getRepositoryEntry().isMembersOnly()) {
+					// members only always show lock icon
+					types.add("b_access_membersonly_icon");
+				} else {
+					// collect access control method icons
+					OLATResource resource = entry.getRepositoryEntry().getOlatResource();
+					for(OLATResourceAccess resourceAccess:resourcesWithOffer) {
+						if(resource.getKey().equals(resourceAccess.getResource().getKey())) {
+							for(AccessMethod method:resourceAccess.getMethods()) {
+								types.add(method.getMethodCssClass() + "_icon");
+							}
 						}
 					}
 				}
