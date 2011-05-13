@@ -161,6 +161,14 @@ public class RepositoryEditPropertiesController extends BasicController {
 		propPupForm = new PropPupForm(ureq, wControl, entry);
 		listenTo(propPupForm);
 		editproptabpubVC.put("proppupform", propPupForm.getInitialComponent());
+		
+		//fxdiff VCRP-1,2: access control of resources
+	  acCtr = new AccessConfigurationController(ureq, getWindowControl(), repositoryEntry.getOlatResource(), repositoryEntry.getDisplayname());
+	  int access = propPupForm.getAccess();
+	  if(access == RepositoryEntry.ACC_USERS || access == RepositoryEntry.ACC_USERS_GUESTS) {
+	  	editproptabpubVC.put("accesscontrol", acCtr.getInitialComponent());
+	  }
+		
 		tabbedPane.addListener(this);
 		try {
 		if (repositoryEntry.getOlatResource().getResourceableTypeName().equals(CourseModule.getCourseTypeName())) {
@@ -213,13 +221,6 @@ public class RepositoryEditPropertiesController extends BasicController {
 			  cglosCtr = new CourseConfigGlossaryController(ureq, getWindowControl(), changedCourseConfig, course.getResourceableId());
 			  this.listenTo(cglosCtr);
 			  tabbedPane.addTab(translate("tab.glossary"), cglosCtr.getInitialComponent());		
-			  //fxdiff VCRP-1,2: access control of resources
-			  acCtr = new AccessConfigurationController(ureq, getWindowControl(), repositoryEntry.getOlatResource(), repositoryEntry.getDisplayname());
-				
-			  int access = propPupForm.getAccess();
-			  if(access == RepositoryEntry.ACC_USERS || access == RepositoryEntry.ACC_USERS_GUESTS) {
-			  	editproptabpubVC.put("accesscontrol", acCtr.getInitialComponent());
-			  }
 			}     
 		} else if (repositoryEntry.getOlatResource().getResourceableTypeName().equals(GlossaryResource.TYPE_NAME)){
 			GlossaryRegisterSettingsController glossRegisterSetCtr = new GlossaryRegisterSettingsController(ureq, getWindowControl(), repositoryEntry.getOlatResource());

@@ -61,6 +61,10 @@ alter table o_mail_attachment add constraint FKF86663165A4FA5DF foreign key (fk_
 -- access control
 alter table o_repositoryentry add column fk_tutorgroup int8;
 alter table o_repositoryentry add column fk_participantgroup int8;
+alter table o_repositoryentry add column membersonly boolean default false;
+create index repo_members_only_idx on o_repositoryentry (membersonly);
+alter table o_repositoryentry add constraint repo_tutor_sec_group_ctx foreign key (fk_tutorgroup) references o_bs_secgroup (id);
+alter table o_repositoryentry add constraint repo_parti_sec_group_ctx foreign key (fk_participantgroup) references o_bs_secgroup (id);
 
 create table o_ac_offer (
 	offer_id int8 NOT NULL,

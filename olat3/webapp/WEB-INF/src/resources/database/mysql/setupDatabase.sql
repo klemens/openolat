@@ -296,6 +296,7 @@ create table if not exists o_repositoryentry (
    description longtext,
    initialauthor varchar(128) not null,
    accesscode integer not null default 0,
+   membersonly bit default 0,
    statuscode integer,
    canlaunch bit not null,
    candownload bit not null,
@@ -1019,6 +1020,8 @@ create index  displayname_idx on o_repositoryentry (displayname);
 create index  softkey_idx on o_repositoryentry (softkey);
 alter table o_repositoryentry add index FK2F9C439888C31018 (fk_olatresource), add constraint FK2F9C439888C31018 foreign key (fk_olatresource) references o_olatresource (resource_id);
 alter table o_repositoryentry add index FK2F9C4398A1FAC766 (fk_ownergroup), add constraint FK2F9C4398A1FAC766 foreign key (fk_ownergroup) references o_bs_secgroup (id);
+alter table o_repositoryentry add constraint repo_tutor_sec_group_ctx foreign key (fk_tutorgroup) references o_bs_secgroup (id);
+alter table o_repositoryentry add constraint repo_parti_sec_group_ctx foreign key (fk_participantgroup) references o_bs_secgroup (id);
 alter table o_bookmark add index FK68C4E30663219E27 (owner_id), add constraint FK68C4E30663219E27 foreign key (owner_id) references o_bs_identity (id);
 alter table o_bs_membership add index FK7B6288B45259603C (identity_id), add constraint FK7B6288B45259603C foreign key (identity_id) references o_bs_identity (id);
 alter table o_bs_membership add index FK7B6288B4B85B522C (secgroup_id), add constraint FK7B6288B4B85B522C foreign key (secgroup_id) references o_bs_secgroup (id);

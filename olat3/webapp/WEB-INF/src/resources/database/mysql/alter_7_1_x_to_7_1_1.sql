@@ -69,7 +69,7 @@ create index repo_members_only_idx on o_repositoryentry (membersonly);
 alter table o_repositoryentry add constraint repo_tutor_sec_group_ctx foreign key (fk_tutorgroup) references o_bs_secgroup (id);
 alter table o_repositoryentry add constraint repo_parti_sec_group_ctx foreign key (fk_participantgroup) references o_bs_secgroup (id);
 
-create index olatres_resname_idx on o_olatresource (resname);
+create index name_idx on o_olatresource (resname);
 
 create table  if not exists o_ac_offer (
 	offer_id bigint NOT NULL,
