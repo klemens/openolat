@@ -210,21 +210,24 @@ public class SecurityGroupsRepositoryMainController extends MainLayoutBasicContr
 		if(CMD_OWNERS.equals(cmd)) {
 			if(ownersController == null) {
 				String title = translate("members.owners");
-				ownersController = new SecurityGroupMembersController(ureq, getWindowControl(), repoEntry.getOwnerGroup(), title, mayModifyMembers, true);
+				String info = translate("members.owners.info");
+				ownersController = new SecurityGroupMembersController(ureq, getWindowControl(), repoEntry.getOwnerGroup(), title, info, mayModifyMembers, true);
 				listenTo(ownersController);
 			}
 			mainPanel.setContent(ownersController.getInitialComponent());
 		} else if(CMD_TUTORS.equals(cmd)) {
 			if(tutorsController == null) {
 				String title = translate("members.tutors");
-				tutorsController = new SecurityGroupMembersController(ureq, getWindowControl(), repoEntry.getTutorGroup(), title, mayModifyMembers, false);
+				String info = translate("members.tutors.info");
+				tutorsController = new SecurityGroupMembersController(ureq, getWindowControl(), repoEntry.getTutorGroup(), title, info, mayModifyMembers, false);
 				listenTo(tutorsController);
 			}
 			mainPanel.setContent(tutorsController.getInitialComponent());
 		} else  if(CMD_PARTICIPANTS.equals(cmd)) {
 			if(participantsController == null) {
 				String title = translate("members.participants");
-				participantsController = new SecurityGroupMembersController(ureq, getWindowControl(), repoEntry.getParticipantGroup(), title, mayModifyMembers, false);
+				String info = translate("members.participants.info");
+				participantsController = new SecurityGroupMembersController(ureq, getWindowControl(), repoEntry.getParticipantGroup(), title, info, mayModifyMembers, false);
 				listenTo(participantsController);
 			}
 			mainPanel.setContent(participantsController.getInitialComponent());

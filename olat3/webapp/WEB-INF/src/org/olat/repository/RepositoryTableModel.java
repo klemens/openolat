@@ -120,7 +120,15 @@ public class RepositoryTableModel extends DefaultTableDataModel implements Table
 			//fxdiff VCRP-1,2: access control of resources
 			case 0: {
 				OLATResourceAccess access = repoEntriesWithOffer.get(re.getOlatResource().getKey());
-				if(access == null) return Collections.emptyList();
+				if(access == null) {
+					if (re.isMembersOnly()) {
+						List<String> types = new ArrayList<String>(1);
+						types.add("b_access_membersonly");
+						return types;
+					} else {
+						return Collections.emptyList();						
+					}
+				}
 				List<String> types = new ArrayList<String>(3);
 				for(AccessMethod method:access.getMethods()) {
 					types.add(method.getMethodCssClass());

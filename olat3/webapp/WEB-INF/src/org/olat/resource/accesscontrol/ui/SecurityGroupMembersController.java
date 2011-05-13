@@ -47,7 +47,7 @@ public class SecurityGroupMembersController extends BasicController {
 	private final VelocityContainer mainVC;
 	
 	public SecurityGroupMembersController(UserRequest ureq, WindowControl wControl, SecurityGroup secGroup, 
-			String title, boolean mayModifierMembers, boolean keepAtLeastOne) {
+			String title, String info, boolean mayModifierMembers, boolean keepAtLeastOne) {
 		super(ureq, wControl);
 
 		mainVC = createVelocityContainer("members");
@@ -57,7 +57,10 @@ public class SecurityGroupMembersController extends BasicController {
 		
 		mainVC.put("memberList", groupController.getInitialComponent());
 		if(StringHelper.containsNonWhitespace(title)) {
-			mainVC.contextPut("title", title);
+			mainVC.contextPut("title", title);			
+		}
+		if(StringHelper.containsNonWhitespace(info)) {
+			mainVC.contextPut("info", info);			
 		}
 		putInitialPanel(mainVC);
 	}

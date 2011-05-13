@@ -1335,12 +1335,14 @@
 	ul.b_mail_attachments li { margin:0; }
 	
 	/* ACCESS CONTROL */
+	/* fxdiff VCRP-1,2: access control of resources */
 	.b_group_accesscontrolled { background-image: url(../images/brasato/ac/umbrella.png); }	
 	.b_order_icon { background-image: url(../images/brasato/ac/shopping-basket.png); }
 	div.b_access_create ul { padding: 0; margin-left: 0;}
 	div.b_access_create li { padding: 0; list-style: none;}
 	table.b_access_method td { padding: 0.2em 1em 0.2em 0; }	
 	div.b_access_method_list div.b_access_method legend { background-repeat: no-repeat; padding-left: 20px; }
+	.b_access_membersonly_icon {background-image: url(../images/olat/lock.png);}
 	/* free method */
 	.b_access_method_free_icon { background-image: url(../images/brasato/ac/open-share.png); }
 	.b_group_accesscontrolled.b_access_method_free, b_order_icon.b_access_method_free { background-image: url(../images/brasato/ac/open-share.png); }

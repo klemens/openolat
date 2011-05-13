@@ -336,7 +336,7 @@ AssessmentMainController(UserRequest ureq, WindowControl wControl, OLATResourcea
 		} else if (source == backLinkGC){
 			setContent(nodeListCtr.getInitialComponent());
 		} else if (source == backLinkUC){
-			if(repoTutor && coachedGroups.isEmpty()) {
+			if((repoTutor && coachedGroups.isEmpty()) || (callback.mayAssessAllUsers() || callback.mayViewAllUsersAssessments())) {
 				setContent(nodeListCtr.getInitialComponent());
 			} else {
 				setContent(groupChoose);
@@ -447,7 +447,7 @@ AssessmentMainController(UserRequest ureq, WindowControl wControl, OLATResourcea
 					CourseNode node = course.getRunStructure().getNode((String) nodeData.get(AssessmentHelper.KEY_IDENTIFYER));
 					this.currentCourseNode = (AssessableCourseNode) node;
 					// cast should be save, only assessable nodes are selectable
-					if(repoTutor && coachedGroups.isEmpty()) {
+					if((repoTutor && coachedGroups.isEmpty()) || (callback.mayAssessAllUsers() || callback.mayViewAllUsersAssessments())) {
 						identitiesList = getAllIdentitisFromGroupmanagement();
 						doUserChooseWithData(ureq, this.identitiesList, null, currentCourseNode);
 					} else {
@@ -593,7 +593,7 @@ AssessmentMainController(UserRequest ureq, WindowControl wControl, OLATResourcea
 		}
 		
 		//fxdiff VCRP-1,2: access control of resources
-		if(repoTutor && coachedGroups.isEmpty()) {
+		if((repoTutor && coachedGroups.isEmpty()) || (callback.mayAssessAllUsers() || callback.mayViewAllUsersAssessments())) {
 			RepositoryEntry re = RepositoryManager.getInstance().lookupRepositoryEntry(ores, false);
 			if(re.getParticipantGroup() != null) {
 				for (Identity identity : secMgr.getIdentitiesOfSecurityGroup(re.getParticipantGroup())) {

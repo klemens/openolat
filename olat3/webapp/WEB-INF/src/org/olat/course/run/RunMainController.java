@@ -1113,9 +1113,10 @@ public class RunMainController extends MainLayoutBasicController implements Gene
 				myTool.addLink(COMMAND_EDIT, translate("command.openeditor"));
 			}
 			if (hasCourseRight(CourseRights.RIGHT_GROUPMANAGEMENT) || isCourseAdmin) {
-				myTool.addLink("groupmngt", translate("command.opengroupmngt"));
 				//fxdiff VCRP-1,2: access control of resources
 				myTool.addLink("simplegroupmngt", translate("command.opensimplegroupmngt"));
+				//
+				myTool.addLink("groupmngt", translate("command.opengroupmngt"));
 			}
 			if (isCourseAdmin) {
 				myTool.addLink("rightmngt", translate("command.openrightmngt"));
