@@ -24,6 +24,7 @@ package org.olat.repository;
 import java.io.File;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.Date;
 import java.util.List;
 
@@ -53,6 +54,9 @@ import org.olat.core.logging.activity.OlatResourceableType;
 import org.olat.core.logging.activity.ThreadLocalUserActivityLogger;
 import org.olat.core.manager.BasicManager;
 import org.olat.core.util.StringHelper;
+import org.olat.course.CourseFactory;
+import org.olat.course.ICourse;
+import org.olat.course.groupsandrights.CourseGroupManager;
 import org.olat.group.BusinessGroup;
 import org.olat.group.BusinessGroupManagerImpl;
 import org.olat.group.GroupLoggingAction;
@@ -177,6 +181,21 @@ public class RepositoryManager extends BasicManager {
 			BaseSecurityManager.getInstance().deleteSecurityGroup(ownerGroup);
 			OLATResourceManager.getInstance().deleteOLATResourceable(ownerGroup);
 		}
+		SecurityGroup participantGroup = entry.getParticipantGroup();
+		if (participantGroup != null) {
+			// delete secGroup
+			logDebug("deleteRepositoryEntry deleteSecurityGroup participantGroup=" + participantGroup);
+			BaseSecurityManager.getInstance().deleteSecurityGroup(participantGroup);
+			OLATResourceManager.getInstance().deleteOLATResourceable(participantGroup);
+		}
+		SecurityGroup tutorGroup = entry.getTutorGroup();
+		if (tutorGroup != null) {
+			// delete secGroup
+			logDebug("deleteRepositoryEntry deleteSecurityGroup tutorGroup=" + tutorGroup);
+			BaseSecurityManager.getInstance().deleteSecurityGroup(tutorGroup);
+			OLATResourceManager.getInstance().deleteOLATResourceable(tutorGroup);
+		}
+		
 		//TODO:pb:b this should be called in a  RepoEntryImageManager.delete
 		//instead of a controller.
 		RepositoryEntryImageController.deleteImage(entry);
@@ -216,6 +235,7 @@ public class RepositoryManager extends BasicManager {
 		entry = (RepositoryEntry) DBFactory.getInstance().loadObject(entry,true);
 		Tracing.logDebug("deleteRepositoryEntry after reload entry=" + entry, this.getClass());
 		deleteRepositoryEntryAndBasesecurity(entry);
+		
 		// inform handler to do any cleanup work... handler must delete the
 		// referenced resourceable aswell.
 		handler.cleanupOnDelete(entry.getOlatResource());
@@ -958,7 +978,6 @@ public class RepositoryManager extends BasicManager {
 	public void addOwners(Identity ureqIdentity, IdentitiesAddEvent iae, RepositoryEntry re) {
 		List<Identity> addIdentities = iae.getAddIdentities();
 		List<Identity> reallyAddedId = new ArrayList<Identity>();
-		SecurityGroup group = re.getOwnerGroup();
 		for (Identity identity : addIdentities) {
 			if (!securityManager.isIdentityInSecurityGroup(identity, re.getOwnerGroup())) {
 				securityManager.addIdentityToSecurityGroup(identity, re.getOwnerGroup());
@@ -971,8 +990,8 @@ public class RepositoryManager extends BasicManager {
 				} finally {
 					ThreadLocalUserActivityLogger.setStickyActionType(actionType);
 				}
-				Tracing.logAudit("Idenitity(.key):" + ureqIdentity.getKey() + " added identity '" + identity.getName()
-						+ "' to securitygroup with key " + re.getOwnerGroup().getKey(), this.getClass());
+				logAudit("Idenitity(.key):" + ureqIdentity.getKey() + " added identity '" + identity.getName()
+						+ "' to securitygroup with key " + re.getOwnerGroup().getKey());
 			}//else silently ignore already owner identities
 		}
 		iae.setIdentitiesAddedEvent(reallyAddedId);
@@ -988,7 +1007,6 @@ public class RepositoryManager extends BasicManager {
 	public void removeOwners(Identity ureqIdentity, List<Identity> removeIdentities, RepositoryEntry re){
     for (Identity identity : removeIdentities) {
     	securityManager.removeIdentityFromSecurityGroup(identity, re.getOwnerGroup());
-			String details = "Remove Owner from RepoEntry:"+re.getKey()+" USER:" + identity.getName();
 
 			ActionType actionType = ThreadLocalUserActivityLogger.getStickyActionType();
 			ThreadLocalUserActivityLogger.setStickyActionType(ActionType.admin);
@@ -998,9 +1016,144 @@ public class RepositoryManager extends BasicManager {
 			} finally {
 				ThreadLocalUserActivityLogger.setStickyActionType(actionType);
 			}
-			Tracing.logAudit("Idenitity(.key):" + ureqIdentity.getKey() + " removed identity '" + identity.getName()
-					+ "' from securitygroup with key " + re.getOwnerGroup().getKey(), this.getClass());
+			logAudit("Idenitity(.key):" + ureqIdentity.getKey() + " removed identity '" + identity.getName()
+					+ "' from securitygroup with key " + re.getOwnerGroup().getKey());
     }
+	}
+	
+	/**
+	 * add provided list of identities as tutor to the repo entry. silently ignore
+	 * if some identities were already tutor before.
+	 * @param ureqIdentity
+	 * @param addIdentities
+	 * @param re
+	 * @param userActivityLogger
+	 */
+	public void addTutors(Identity ureqIdentity, IdentitiesAddEvent iae, RepositoryEntry re) {
+		List<Identity> addIdentities = iae.getAddIdentities();
+		List<Identity> reallyAddedId = new ArrayList<Identity>();
+		for (Identity identity : addIdentities) {
+			if (!securityManager.isIdentityInSecurityGroup(identity, re.getTutorGroup())) {
+				securityManager.addIdentityToSecurityGroup(identity, re.getTutorGroup());
+				reallyAddedId.add(identity);
+				ActionType actionType = ThreadLocalUserActivityLogger.getStickyActionType();
+				ThreadLocalUserActivityLogger.setStickyActionType(ActionType.admin);
+				try{
+					ThreadLocalUserActivityLogger.log(GroupLoggingAction.GROUP_OWNER_ADDED, getClass(),
+							LoggingResourceable.wrap(re, OlatResourceableType.genRepoEntry), LoggingResourceable.wrap(identity));
+				} finally {
+					ThreadLocalUserActivityLogger.setStickyActionType(actionType);
+				}
+				logAudit("Idenitity(.key):" + ureqIdentity.getKey() + " added identity '" + identity.getName()
+						+ "' to securitygroup with key " + re.getTutorGroup().getKey());
+			}//else silently ignore already owner identities
+		}
+		iae.setIdentitiesAddedEvent(reallyAddedId);
+	}
+	
+	/**
+	 * remove list of identities as tutor of given repository entry.
+	 * @param ureqIdentity
+	 * @param removeIdentities
+	 * @param re
+	 * @param logger
+	 */
+	public void removeTutors(Identity ureqIdentity, List<Identity> removeIdentities, RepositoryEntry re){
+		List<BusinessGroup> groups = getCourseGroups(re);
+		for (Identity identity : removeIdentities) {
+    	securityManager.removeIdentityFromSecurityGroup(identity, re.getTutorGroup());
+    	for(BusinessGroup group:groups) {
+    		if(securityManager.isIdentityInSecurityGroup(identity, group.getOwnerGroup())) {
+					securityManager.removeIdentityFromSecurityGroup(identity, group.getOwnerGroup());
+				}
+    	}
+    	
+			ActionType actionType = ThreadLocalUserActivityLogger.getStickyActionType();
+			ThreadLocalUserActivityLogger.setStickyActionType(ActionType.admin);
+			try{
+				ThreadLocalUserActivityLogger.log(GroupLoggingAction.GROUP_OWNER_REMOVED, getClass(),
+						LoggingResourceable.wrap(re, OlatResourceableType.genRepoEntry), LoggingResourceable.wrap(identity));
+			} finally {
+				ThreadLocalUserActivityLogger.setStickyActionType(actionType);
+			}
+			logAudit("Idenitity(.key):" + ureqIdentity.getKey() + " removed identity '" + identity.getName()
+					+ "' from securitygroup with key " + re.getTutorGroup().getKey());
+    }
+	}
+	
+	/**
+	 * add provided list of identities as participant to the repo entry. silently ignore
+	 * if some identities were already participant before.
+	 * @param ureqIdentity
+	 * @param addIdentities
+	 * @param re
+	 * @param userActivityLogger
+	 */
+	public void addParticipants(Identity ureqIdentity, IdentitiesAddEvent iae, RepositoryEntry re) {
+		List<Identity> addIdentities = iae.getAddIdentities();
+		List<Identity> reallyAddedId = new ArrayList<Identity>();
+		for (Identity identity : addIdentities) {
+			if (!securityManager.isIdentityInSecurityGroup(identity, re.getParticipantGroup())) {
+				securityManager.addIdentityToSecurityGroup(identity, re.getParticipantGroup());
+				reallyAddedId.add(identity);
+				ActionType actionType = ThreadLocalUserActivityLogger.getStickyActionType();
+				ThreadLocalUserActivityLogger.setStickyActionType(ActionType.admin);
+				try{
+					ThreadLocalUserActivityLogger.log(GroupLoggingAction.GROUP_OWNER_ADDED, getClass(),
+							LoggingResourceable.wrap(re, OlatResourceableType.genRepoEntry), LoggingResourceable.wrap(identity));
+				} finally {
+					ThreadLocalUserActivityLogger.setStickyActionType(actionType);
+				}
+				logAudit("Idenitity(.key):" + ureqIdentity.getKey() + " added identity '" + identity.getName()
+						+ "' to securitygroup with key " + re.getParticipantGroup().getKey());
+			}//else silently ignore already owner identities
+		}
+		iae.setIdentitiesAddedEvent(reallyAddedId);
+	}
+	
+	/**
+	 * remove list of identities as participant of given repository entry.
+	 * @param ureqIdentity
+	 * @param removeIdentities
+	 * @param re
+	 * @param logger
+	 */
+	public void removeParticipants(Identity ureqIdentity, List<Identity> removeIdentities, RepositoryEntry re){
+    List<BusinessGroup> groups = getCourseGroups(re);
+		for (Identity identity : removeIdentities) {
+    	securityManager.removeIdentityFromSecurityGroup(identity, re.getParticipantGroup());
+    	for(BusinessGroup group:groups) {
+    		if(securityManager.isIdentityInSecurityGroup(identity, group.getPartipiciantGroup())) {
+					securityManager.removeIdentityFromSecurityGroup(identity, group.getPartipiciantGroup());
+				}
+    	}
+
+			ActionType actionType = ThreadLocalUserActivityLogger.getStickyActionType();
+			ThreadLocalUserActivityLogger.setStickyActionType(ActionType.admin);
+			try{
+				ThreadLocalUserActivityLogger.log(GroupLoggingAction.GROUP_OWNER_REMOVED, getClass(),
+						LoggingResourceable.wrap(re, OlatResourceableType.genRepoEntry), LoggingResourceable.wrap(identity));
+			} finally {
+				ThreadLocalUserActivityLogger.setStickyActionType(actionType);
+			}
+			logAudit("Idenitity(.key):" + ureqIdentity.getKey() + " removed identity '" + identity.getName()
+					+ "' from securitygroup with key " + re.getParticipantGroup().getKey());
+    }
+	}
+	
+	/**
+	 * Load the business group associated to the repository entry
+	 * @param repoEntry
+	 * @return
+	 */
+	private List<BusinessGroup> getCourseGroups(RepositoryEntry repoEntry) {
+		if("CourseModule".equals(repoEntry.getOlatResource().getResourceableTypeName())) {
+			ICourse course = CourseFactory.loadCourse(repoEntry.getOlatResource());
+			CourseGroupManager gm = course.getCourseEnvironment().getCourseGroupManager();
+			List<BusinessGroup> groups = gm.getAllLearningGroupsFromAllContexts();
+			return groups;
+		}
+		return Collections.emptyList();
 	}
 
 	/**

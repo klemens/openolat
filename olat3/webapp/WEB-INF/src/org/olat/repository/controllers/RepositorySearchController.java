@@ -513,8 +513,9 @@ public class RepositorySearchController extends BasicController {
 				List<RepositoryEntry> newEntries = new ArrayList<RepositoryEntry>();
 				for (int i = 0; i < repoTableModel.getRowCount(); i++) {
 					RepositoryEntry foo = (RepositoryEntry)repoTableModel.getObject(i);
-					if (!foo.getKey().equals(ecv.getChangedEntryKey()))
+					if (!foo.getKey().equals(ecv.getChangedEntryKey())) {
 						newEntries.add(foo);
+					}
 				}
 				repoTableModel.setObjects(newEntries);
 				tableCtr.modelChanged();

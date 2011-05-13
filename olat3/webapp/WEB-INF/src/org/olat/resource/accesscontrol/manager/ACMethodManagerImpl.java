@@ -30,8 +30,13 @@ import java.util.Map;
 
 import org.olat.core.commons.persistence.DB;
 import org.olat.core.commons.persistence.DBQuery;
+import org.olat.core.gui.control.Event;
 import org.olat.core.id.Identity;
 import org.olat.core.manager.BasicManager;
+import org.olat.core.util.coordinate.CoordinatorManager;
+import org.olat.core.util.event.FrameworkStartedEvent;
+import org.olat.core.util.event.FrameworkStartupEventChannel;
+import org.olat.core.util.event.GenericEventListener;
 import org.olat.group.BusinessGroup;
 import org.olat.group.BusinessGroupImpl;
 import org.olat.group.BusinessGroupManagerImpl;
@@ -59,13 +64,14 @@ import org.olat.resource.accesscontrol.model.TokenAccessMethod;
  * Initial Date:  18 avr. 2011 <br>
  * @author srosse, stephane.rosse@frentix.com, http://www.frentix.com
  */
-public class ACMethodManagerImpl extends BasicManager implements ACMethodManager {
+public class ACMethodManagerImpl extends BasicManager implements ACMethodManager, GenericEventListener {
 
 	private DB dbInstance;
 	private final AccessControlModule acModule;
 	
-	public ACMethodManagerImpl(AccessControlModule acModule) {
+	public ACMethodManagerImpl(CoordinatorManager coordinatorManager, AccessControlModule acModule) {
 		this.acModule = acModule;
+		coordinatorManager.getCoordinator().getEventBus().registerFor(this, null, FrameworkStartupEventChannel.getStartupEventChannel());
 	}
 
 	/**
@@ -76,19 +82,17 @@ public class ACMethodManagerImpl extends BasicManager implements ACMethodManager
 		this.dbInstance = dbInstance;
 	}
 	
-	/**
-	 * [used by Spring]
-	 */
-	public void init() {
-		//used by Spring
-		if(acModule.isTokenEnabled()) {
-			activateTokenMethod();
-		}
-		if(acModule.isFreeEnabled()) {
-			activateFreeMethod();
+	@Override
+	public void event(Event event) {
+		if (event instanceof FrameworkStartedEvent && ((FrameworkStartedEvent) event).isEventOnThisNode()) {
+			if(acModule.isTokenEnabled()) {
+				activateTokenMethod();
+			}
+			if(acModule.isFreeEnabled()) {
+				activateFreeMethod();
+			}
 		}
 	}
-	
 
 	@Override
 	public boolean isValidMethodAvailable(OLATResource resource, Date atDate) {

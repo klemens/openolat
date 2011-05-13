@@ -458,6 +458,8 @@ public class BusinessGroupManagerImpl extends BasicManager implements BusinessGr
 			// 1.b)delete display member property
 			BusinessGroupPropertyManager bgpm = new BusinessGroupPropertyManager(businessGroupTodelete);
 			bgpm.deleteDisplayMembers();
+			// 1.c)delete user in security groups
+			removeFromRepositoryEntrySecurityGroup(businessGroupTodelete);
 			// 2) Delete the group areas
 			if (BusinessGroup.TYPE_LEARNINGROUP.equals(type)) {
 				BGAreaManagerImpl.getInstance().deleteBGtoAreaRelations(businessGroupTodelete);
@@ -499,7 +501,38 @@ public class BusinessGroupManagerImpl extends BasicManager implements BusinessGr
 			}
 		}
 	}
-
+	
+	private void removeFromRepositoryEntrySecurityGroup(BusinessGroup group) {
+		BGContext context = group.getGroupContext();
+		BGContextManager contextManager = BGContextManagerImpl.getInstance();
+		List<Identity> coaches = group.getOwnerGroup() == null ? Collections.<Identity>emptyList() :
+			securityManager.getIdentitiesOfSecurityGroup(group.getOwnerGroup());
+		List<Identity> participants = group.getPartipiciantGroup() == null ? Collections.<Identity>emptyList() :
+			securityManager.getIdentitiesOfSecurityGroup(group.getPartipiciantGroup());
+		List<RepositoryEntry> entries = contextManager.findRepositoryEntriesForBGContext(context);
+		
+		for(Identity coach:coaches) {
+			List<BusinessGroup> businessGroups = contextManager.getBusinessGroupAsOwnerOfBGContext(coach, context) ;
+			if(context.isDefaultContext() && businessGroups.size() == 1) {
+				for(RepositoryEntry entry:entries) {
+					if(entry.getTutorGroup() != null && securityManager.isIdentityInSecurityGroup(coach, entry.getTutorGroup())) {
+						securityManager.removeIdentityFromSecurityGroup(coach, entry.getTutorGroup());
+					}
+				}
+			}
+		}
+		
+		for(Identity participant:participants) {
+			List<BusinessGroup> businessGroups = contextManager.getBusinessGroupAsParticipantOfBGContext(participant, context) ;
+			if(context.isDefaultContext() && businessGroups.size() == 1) {
+				for(RepositoryEntry entry:entries) {
+					if(entry.getParticipantGroup() != null && securityManager.isIdentityInSecurityGroup(participant, entry.getParticipantGroup())) {
+						securityManager.removeIdentityFromSecurityGroup(participant, entry.getParticipantGroup());
+					}
+				}
+			}
+		}
+	}
 	/**
 	 * @see org.olat.group.BusinessGroupManager#deleteBusinessGroupWithMail(org.olat.group.BusinessGroup,
 	 *      org.olat.core.gui.control.WindowControl, org.olat.core.gui.UserRequest,
