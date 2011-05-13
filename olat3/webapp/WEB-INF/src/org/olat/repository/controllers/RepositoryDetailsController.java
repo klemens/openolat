@@ -864,10 +864,18 @@ public class RepositoryDetailsController extends BasicController implements Gene
 				return;
 			}  else if (cmd.equals(ACTION_GROUPS_TUTOR)) { // edit tutor group
 				if (!isOwner) throw new OLATSecurityException("Trying to access groupmanagement, but not allowed: user = " + ureq.getIdentity());
+				if(repositoryEntry.getTutorGroup() == null){
+					RepositoryManager.getInstance().createTutorSecurityGroup(repositoryEntry);
+					RepositoryManager.getInstance().updateRepositoryEntry(repositoryEntry);
+				}
 				groupTutorEditController = doManageSecurityGroup(ureq, repositoryEntry.getTutorGroup(), "groups_tutor");
 				return;
 			} else if (cmd.equals(ACTION_GROUPS_PARTICIPANT)) { // edit tutor group
 				if (!isOwner) throw new OLATSecurityException("Trying to access groupmanagement, but not allowed: user = " + ureq.getIdentity());
+				if(repositoryEntry.getParticipantGroup() == null){
+					RepositoryManager.getInstance().createParticipantSecurityGroup(repositoryEntry);
+					RepositoryManager.getInstance().updateRepositoryEntry(repositoryEntry);
+				}
 				groupParticipantEditController = doManageSecurityGroup(ureq, repositoryEntry.getParticipantGroup(), "groups_participant");
 				return;
 			} else if (cmd.equals(ACTION_CLOSE_RESSOURCE)) {

@@ -3,6 +3,7 @@ package org.olat.resource.accesscontrol.ui;
 import org.olat.core.CoreSpringFactory;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.Component;
+import org.olat.core.gui.components.htmlheader.jscss.CustomCSS;
 import org.olat.core.gui.components.panel.Panel;
 import org.olat.core.gui.components.velocity.VelocityContainer;
 import org.olat.core.gui.control.Controller;
@@ -67,6 +68,18 @@ public class RepositoryMainAccessControllerWrapper extends MainLayoutBasicContro
 		contentP.setContent(resController.getInitialComponent());
 	}
 	
+	@Override
+	public CustomCSS getCustomCSS() {
+		return resController == null ? null : resController.getCustomCSS();
+	}
+
+	@Override
+	public void setCustomCSS(CustomCSS newCustomCSS) {
+		if(resController != null) {
+			resController.setCustomCSS(newCustomCSS);
+		}
+	}
+
 	@Override
 	protected void doDispose() {
 		//

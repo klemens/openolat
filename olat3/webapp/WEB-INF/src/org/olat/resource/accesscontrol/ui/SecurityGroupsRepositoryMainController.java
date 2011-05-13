@@ -52,6 +52,7 @@ import org.olat.group.BusinessGroupAddResponse;
 import org.olat.group.BusinessGroupManager;
 import org.olat.group.BusinessGroupManagerImpl;
 import org.olat.repository.RepositoryEntry;
+import org.olat.repository.RepositoryManager;
 import org.olat.util.logging.activity.LoggingResourceable;
 
 /**
@@ -80,6 +81,7 @@ public class SecurityGroupsRepositoryMainController extends MainLayoutBasicContr
 	private SecurityGroupMembersController participantsController;
 	
 	private final RepositoryEntry repoEntry;
+	private final RepositoryManager rm;
 	private final BusinessGroupManager bgm;
 	private final BaseSecurity securityManager;
 	
@@ -105,6 +107,12 @@ public class SecurityGroupsRepositoryMainController extends MainLayoutBasicContr
 		getUserActivityLogger().setStickyActionType(ActionType.admin);
 		
 		addLoggingResourceable(LoggingResourceable.wrap(course));
+		
+		//lazy build security groups
+		rm = RepositoryManager.getInstance();
+		if(repoEntry.getParticipantGroup() == null || repoEntry.getTutorGroup() == null){
+			lazyUpdateRepositoryEntry();
+		}
 		
 		// Navigation menu
 		menuTree = new MenuTree("menuTree");
@@ -133,6 +141,16 @@ public class SecurityGroupsRepositoryMainController extends MainLayoutBasicContr
 		}
 
 		putInitialPanel(columnLayoutCtr.getInitialComponent());
+	}
+	
+	private void lazyUpdateRepositoryEntry() {
+		if(repoEntry.getTutorGroup() == null){
+			rm.createTutorSecurityGroup(repoEntry);
+		}
+		if(repoEntry.getParticipantGroup() == null) {
+			rm.createParticipantSecurityGroup(repoEntry);
+		}
+		rm.updateRepositoryEntry(repoEntry);
 	}
 
 	private GenericTreeModel buildTreeModel() {

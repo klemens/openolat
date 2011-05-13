@@ -166,6 +166,30 @@ public class RepositoryManager extends BasicManager {
 		RepositoryEntryImageController.deleteImage(re);
 	}
 	
+	public void createTutorSecurityGroup(RepositoryEntry re) {
+		if(re.getTutorGroup() != null) return;
+		
+		SecurityGroup tutorGroup = securityManager.createAndPersistSecurityGroup();
+		// member of this group may modify member's membership
+		securityManager.createAndPersistPolicy(tutorGroup, Constants.PERMISSION_ACCESS, re.getOlatResource());
+		securityManager.createAndPersistPolicy(tutorGroup, Constants.PERMISSION_COACH, re.getOlatResource());
+		// members of this group are always tutors also
+		securityManager.createAndPersistPolicy(tutorGroup, Constants.PERMISSION_HASROLE, Constants.ORESOURCE_TUTOR);
+		re.setTutorGroup(tutorGroup);
+	}
+	
+	public void createParticipantSecurityGroup(RepositoryEntry re) {
+		if(re.getParticipantGroup() != null) return;
+		
+		SecurityGroup participantGroup = securityManager.createAndPersistSecurityGroup();
+		// member of this group may modify member's membership
+		securityManager.createAndPersistPolicy(participantGroup, Constants.PERMISSION_ACCESS, re.getOlatResource());
+		securityManager.createAndPersistPolicy(participantGroup, Constants.PERMISSION_PARTI, re.getOlatResource());
+		// members of this group are always participants also
+		securityManager.createAndPersistPolicy(participantGroup, Constants.PERMISSION_HASROLE, Constants.ORESOURCE_PARTICIPANT);
+		re.setParticipantGroup(participantGroup);
+	}
+	
 	/**
 	 * 
 	 * @param addedEntry

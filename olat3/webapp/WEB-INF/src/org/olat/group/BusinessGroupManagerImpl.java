@@ -764,9 +764,12 @@ public class BusinessGroupManagerImpl extends BasicManager implements BusinessGr
 			if(context != null) {
 				List<RepositoryEntry> res = BGContextManagerImpl.getInstance().findRepositoryEntriesForBGContext(context);
 				for(RepositoryEntry re:res) {
-					SecurityGroup participantGroup = re.getParticipantGroup();
-					if(re != null && participantGroup != null && !securityManager.isIdentityInSecurityGroup(identity, participantGroup)) {
-						securityManager.addIdentityToSecurityGroup(identity, participantGroup);
+					if(re.getParticipantGroup() == null) {
+						RepositoryManager.getInstance().createParticipantSecurityGroup(re);
+						RepositoryManager.getInstance().updateRepositoryEntry(re);
+					}
+					if(re.getParticipantGroup() != null && !securityManager.isIdentityInSecurityGroup(identity, re.getParticipantGroup())) {
+						securityManager.addIdentityToSecurityGroup(identity, re.getParticipantGroup());
 					}
 				}
 			}
@@ -796,9 +799,12 @@ public class BusinessGroupManagerImpl extends BasicManager implements BusinessGr
 			if(context != null) {
 				List<RepositoryEntry> res = BGContextManagerImpl.getInstance().findRepositoryEntriesForBGContext(context);
 				for(RepositoryEntry re:res) {
-					SecurityGroup tutorGroup = re.getTutorGroup();
-					if(re != null && tutorGroup != null && !securityManager.isIdentityInSecurityGroup(identity, tutorGroup)) {
-						securityManager.addIdentityToSecurityGroup(identity, tutorGroup);
+					if(re.getTutorGroup() == null) {
+						RepositoryManager.getInstance().createTutorSecurityGroup(re);
+						RepositoryManager.getInstance().updateRepositoryEntry(re);
+					}
+					if(re.getTutorGroup() != null && !securityManager.isIdentityInSecurityGroup(identity, re.getTutorGroup())) {
+						securityManager.addIdentityToSecurityGroup(identity, re.getTutorGroup());
 					}
 				}
 			}
