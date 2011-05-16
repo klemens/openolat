@@ -23,7 +23,6 @@ package org.olat.repository;
 
 import java.io.File;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.Collections;
 import java.util.Date;
 import java.util.List;
@@ -533,10 +532,12 @@ public class RepositoryManager extends BasicManager {
 	 * @param roles
 	 * @return Results
 	 */
-	public List queryByTypeLimitAccess(String restrictedType, UserRequest ureq) {
+	//fxdiff VCRP-1: access control
+	public List<RepositoryEntry> queryByTypeLimitAccess(String restrictedType, UserRequest ureq) {
 		Roles roles = ureq.getUserSession().getRoles();
-		String institution = "";
-		institution = ureq.getIdentity().getUser().getProperty("institutionalName", null);
+		String institution = ureq.getIdentity().getUser().getProperty("institutionalName", null);
+		
+		List<RepositoryEntry> results = new ArrayList<RepositoryEntry>();
 		if(!roles.isOLATAdmin() && institution != null && institution.length() > 0 && roles.isInstitutionalResourceManager()) {
 			StringBuilder query = new StringBuilder(400);
 			query.append("select distinct v from org.olat.repository.RepositoryEntry v inner join fetch v.olatResource as res"
@@ -555,22 +556,27 @@ public class RepositoryManager extends BasicManager {
 			dbquery.setCacheable(true);
 			
 			long start = System.currentTimeMillis();
-			List result = dbquery.list();
+			List<RepositoryEntry> institutionalResults = dbquery.list();
 			long timeQuery1 = System.currentTimeMillis() - start;
-			Tracing.logInfo("Repo-Perf: queryByTypeLimitAccess#3 takes " + timeQuery1, this.getClass());
-			start = System.currentTimeMillis();
-			result.addAll(queryByTypeLimitAccess(ureq.getIdentity(), restrictedType, roles));
-			long timeQuery2 = System.currentTimeMillis() - start;
-			Tracing.logInfo("Repo-Perf: queryByTypeLimitAccess#3 takes " + timeQuery2, this.getClass());
-			return result;
-			
-		} else {
-			long start = System.currentTimeMillis();
-			List result = queryByTypeLimitAccess(ureq.getIdentity(), restrictedType, roles);
-			long timeQuery3 = System.currentTimeMillis() - start;
-			Tracing.logInfo("Repo-Perf: queryByTypeLimitAccess#3 takes " + timeQuery3, this.getClass());
-			return result;
+			logInfo("Repo-Perf: queryByTypeLimitAccess#3 takes " + timeQuery1);
+			results.addAll(institutionalResults);
 		}
+		
+		long start = System.currentTimeMillis();
+		List<RepositoryEntry> genericResults = queryByTypeLimitAccess(ureq.getIdentity(), restrictedType, roles);
+		long timeQuery3 = System.currentTimeMillis() - start;
+		logInfo("Repo-Perf: queryByTypeLimitAccess#3 takes " + timeQuery3);
+		
+		if(results.isEmpty()) {
+			results.addAll(genericResults);
+		} else {
+			for(RepositoryEntry genericResult:genericResults) {
+				if(!PersistenceHelper.listContainsObjectByKey(results, genericResult)) {
+					results.add(genericResult);
+				}
+			}
+		}
+		return results;
 	}
 
 	/**
@@ -915,7 +921,9 @@ public class RepositoryManager extends BasicManager {
 	 * @param institution null -> no restriction
 	 * @return Results as List containing RepositoryEntries
 	 */
+	//fxdiff VCRP-1: access control
 	public List<RepositoryEntry> genericANDQueryWithRolesRestriction(String displayName, String author, String desc, List resourceTypes, Identity identity, Roles roles, String institution) {
+		List<RepositoryEntry> results = new ArrayList<RepositoryEntry>();
 		if (!roles.isOLATAdmin() && institution != null && institution.length() > 0 && roles.isInstitutionalResourceManager()) {
 			StringBuilder query = new StringBuilder(400);
 			if(author == null || author.length() == 0) author = "*";
@@ -983,12 +991,20 @@ public class RepositoryManager extends BasicManager {
 			if (var_resourcetypes) {
 				dbQuery.setParameterList("resourcetypes", resourceTypes, Hibernate.STRING);
 			}
-			List result = dbQuery.list();
-			result.addAll(runGenericANDQueryWithRolesRestriction(displayName, author, desc, resourceTypes, identity, roles));
-			return result;
-		} else {
-			return runGenericANDQueryWithRolesRestriction(displayName, author, desc, resourceTypes, identity, roles);
+			results.addAll(dbQuery.list());
 		}
+		
+		List<RepositoryEntry> genericResults = runGenericANDQueryWithRolesRestriction(displayName, author, desc, resourceTypes, identity, roles);
+		if(results.isEmpty()) {
+			results.addAll(genericResults);
+		} else {
+			for(RepositoryEntry genericResult:genericResults) {
+				if(!PersistenceHelper.listContainsObjectByKey(results, genericResult)) {
+					results.add(genericResult);
+				}
+			}
+		}
+		return results;
 	}
 	
 	/**
