@@ -61,8 +61,8 @@ public class OrdersAdminController extends BasicController  {
 		
 		mainVC = createVelocityContainer("orders");
 		mainVC.put("orderList", tableCtr.getInitialComponent());
-		mainVC.contextPut("title", translate("orders.my"));
-		mainVC.contextPut("description", translate("orders.my.desc"));
+		mainVC.contextPut("title", translate("orders.admin.my"));
+		mainVC.contextPut("description", translate("orders.admin.my.desc"));
 
 		mainPanel = putInitialPanel(mainVC);
 	}

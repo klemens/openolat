@@ -410,7 +410,12 @@ public class RepositoryDetailsController extends BasicController implements Gene
 				canBookmark = false;
 			detailsToolC.setEnabled(TOOL_BOOKMARK, canBookmark);
 		}
+		//fxdiff VCRP-1 : moved some things around here to split large toolbox into smaller pieces
+		if (isNewController)
+			detailsToolC.addLink(ACTION_CLOSE, translate("details.close"), null, "b_toolbox_close");
+
 		if (isAuthor || isOwner) {
+			detailsToolC.addHeader(translate("edit"));
 			boolean canCopy = repositoryEntry.getCanCopy();
 			if (isOwner) {
 				if (isNewController) {
@@ -418,6 +423,8 @@ public class RepositoryDetailsController extends BasicController implements Gene
 					detailsToolC.addLink(ACTION_EDITDESC, translate("details.chdesc"), TOOL_CHDESC, null);
 					detailsToolC.addLink(ACTION_EDITPROP, translate("details.chprop"), TOOL_CHPROP, null);
 					detailsToolC.addLink(ACTION_ADD_CATALOG, translate("details.catadd"), TOOL_CATALOG, null);
+					
+					detailsToolC.addHeader(translate("table.action"));
 					if ((OresHelper.isOfType(repositoryEntry.getOlatResource(), CourseModule.class)) && (!RepositoryManager.getInstance().createRepositoryEntryStatus(repositoryEntry.getStatusCode()).isClosed())) {
 						detailsToolC.addLink(ACTION_CLOSE_RESSOURCE, translate("details.close.ressoure"), TOOL_CLOSE_RESSOURCE, null);
 					}
@@ -430,11 +437,13 @@ public class RepositoryDetailsController extends BasicController implements Gene
 			if (isOwner) {
 				if (isNewController) {
 					detailsToolC.addLink(ACTION_DELETE, translate("details.delete"));
+					detailsToolC.addHeader(translate("details.members"));
 					detailsToolC.addLink(ACTION_GROUPS, translate("details.groups"));
 					detailsToolC.addLink(ACTION_GROUPS_TUTOR, translate("details.groups.tutor"));
 					detailsToolC.addLink(ACTION_GROUPS_PARTICIPANT, translate("details.groups.participant"));
 					detailsToolC.addLink(ACTION_ORDERS, translate("details.orders"));
 				}
+				
 				// enable
 				detailsToolC.setEnabled(TOOL_EDIT, handler.supportsEdit(repositoryEntry));
 				detailsToolC.setEnabled(TOOL_CHDESC, true);
@@ -443,8 +452,6 @@ public class RepositoryDetailsController extends BasicController implements Gene
 			}
 			detailsToolC.setEnabled(TOOL_COPY, canCopy);
 		}
-		if (isNewController)
-			detailsToolC.addLink(ACTION_CLOSE, translate("details.close"), null, "b_toolbox_close");
 	}
 
 	/**
