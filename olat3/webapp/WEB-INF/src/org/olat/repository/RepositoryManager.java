@@ -1257,7 +1257,11 @@ public class RepositoryManager extends BasicManager {
 			.append(" inner join fetch v.olatResource as res where ")
 			.append(" (v.access>=").append(RepositoryEntry.ACC_USERS).append(" or (v.access=").append(RepositoryEntry.ACC_OWNERS).append(" and v.membersOnly=true))")
 			.append(" and ")
-			.append(" v.tutorGroup in (select tutorSgmsi.securityGroup from ").append(SecurityGroupMembershipImpl.class.getName()).append(" tutorSgmsi where tutorSgmsi.identity=:identity)");
+			.append(" (")
+			.append("  v.tutorGroup in (select tutorSgmsi.securityGroup from ").append(SecurityGroupMembershipImpl.class.getName()).append(" tutorSgmsi where tutorSgmsi.identity=:identity)")
+			.append("  or")
+			.append("  v.ownerGroup in (select ownerSgmsi.securityGroup from ").append(SecurityGroupMembershipImpl.class.getName()).append(" ownerSgmsi where ownerSgmsi.identity=:identity)")
+			.append(" )");
 
 		DBQuery dbquery = DBFactory.getInstance().createQuery(sb.toString());
 		dbquery.setEntity("identity", identity);
