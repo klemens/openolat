@@ -15,8 +15,8 @@
 			<tr class="$css">
 				<td><span class="b_with_small_icon_left ${css}_icon">$confController.name</span></td>
 				<td><span class="b_access_infos">$confController.infos</span></td>
-				<td>$r.render("from_$confController.link.key")</td>
-				<td>$r.render("to_$confController.link.key")</td>
+				<td><div class="b_form_element">$r.render("from_$confController.link.key")</div></td>
+				<td><div class="b_form_element">$r.render("to_$confController.link.key")</div></td>
 				<td>$r.render("del_$confController.link.key")</td>
 			</tr>
 		#end
