@@ -44,6 +44,7 @@ import org.olat.core.gui.control.generic.tool.ToolController;
 import org.olat.core.gui.control.generic.tool.ToolFactory;
 import org.olat.core.id.Identity;
 import org.olat.core.logging.activity.ActionType;
+import org.olat.core.util.nodes.INode;
 import org.olat.course.CourseFactory;
 import org.olat.course.ICourse;
 import org.olat.course.groupsandrights.CourseGroupManager;
@@ -117,8 +118,11 @@ public class SecurityGroupsRepositoryMainController extends MainLayoutBasicContr
 		// Navigation menu
 		menuTree = new MenuTree("menuTree");
 		menuTree.setTreeModel(buildTreeModel());
-		menuTree.setSelectedNodeId(menuTree.getTreeModel().getRootNode().getIdent());
 		menuTree.addListener(this);
+		INode firstChild = menuTree.getTreeModel().getRootNode().getChildAt(0);
+		if (firstChild != null) {
+			menuTree.setSelectedNodeId(firstChild.getIdent());			
+		}
 		
 		//add tools (close)
 		toolC = ToolFactory.createToolController(getWindowControl());
@@ -199,37 +203,44 @@ public class SecurityGroupsRepositoryMainController extends MainLayoutBasicContr
 	public void event(UserRequest ureq, Component source, Event event) {
 		if (source == menuTree) {
 			if (event.getCommand().equals(MenuTree.COMMAND_TREENODE_CLICKED)) {
-				TreeNode selTreeNode = menuTree.getSelectedNode();
+				TreeNode selTreeNode = menuTree.getSelectedNode();				
 				Object cmd = selTreeNode.getUserObject();
 				selectSecurityGroup(ureq, cmd);
+				// visually select delegate
+				if (selTreeNode.getDelegate() != null) {
+					menuTree.setSelectedNodeId(selTreeNode.getDelegate().getIdent());
+				}
 			}
 		}
 	}
 	
 	private void selectSecurityGroup(UserRequest ureq, Object cmd) {
 		if(CMD_OWNERS.equals(cmd)) {
-			if(ownersController == null) {
-				String title = translate("members.owners");
-				String info = translate("members.owners.info");
-				ownersController = new SecurityGroupMembersController(ureq, getWindowControl(), repoEntry.getOwnerGroup(), title, info, mayModifyMembers, true);
-				listenTo(ownersController);
+			if(ownersController != null) {
+				removeAsListenerAndDispose(ownersController);
 			}
+			String title = translate("members.owners");
+			String info = translate("members.owners.info");
+			ownersController = new SecurityGroupMembersController(ureq, getWindowControl(), repoEntry.getOwnerGroup(), title, info, mayModifyMembers, true);
+			listenTo(ownersController);
 			mainPanel.setContent(ownersController.getInitialComponent());
 		} else if(CMD_TUTORS.equals(cmd)) {
-			if(tutorsController == null) {
-				String title = translate("members.tutors");
-				String info = translate("members.tutors.info");
-				tutorsController = new SecurityGroupMembersController(ureq, getWindowControl(), repoEntry.getTutorGroup(), title, info, mayModifyMembers, false);
-				listenTo(tutorsController);
+			if(tutorsController != null) {
+				removeAsListenerAndDispose(tutorsController);
 			}
+			String title = translate("members.tutors");
+			String info = translate("members.tutors.info");
+			tutorsController = new SecurityGroupMembersController(ureq, getWindowControl(), repoEntry.getTutorGroup(), title, info, mayModifyMembers, false);
+			listenTo(tutorsController);
 			mainPanel.setContent(tutorsController.getInitialComponent());
 		} else  if(CMD_PARTICIPANTS.equals(cmd)) {
-			if(participantsController == null) {
-				String title = translate("members.participants");
-				String info = translate("members.participants.info");
-				participantsController = new SecurityGroupMembersController(ureq, getWindowControl(), repoEntry.getParticipantGroup(), title, info, mayModifyMembers, false);
-				listenTo(participantsController);
+			if(participantsController != null) {
+				removeAsListenerAndDispose(participantsController);
 			}
+			String title = translate("members.participants");
+			String info = translate("members.participants.info");
+			participantsController = new SecurityGroupMembersController(ureq, getWindowControl(), repoEntry.getParticipantGroup(), title, info, mayModifyMembers, false);
+			listenTo(participantsController);
 			mainPanel.setContent(participantsController.getInitialComponent());
 		}
 	}
