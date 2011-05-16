@@ -88,6 +88,7 @@ import org.olat.repository.handlers.RepositoryHandler;
 import org.olat.repository.handlers.RepositoryHandlerFactory;
 import org.olat.resource.OLATResource;
 import org.olat.resource.OLATResourceManager;
+import org.olat.resource.accesscontrol.ui.OrdersAdminController;
 import org.olat.resource.references.ReferenceManager;
 
 /**
@@ -111,6 +112,7 @@ public class RepositoryDetailsController extends BasicController implements Gene
 	private static final String ACTION_GROUPS = "grp";
 	private static final String ACTION_GROUPS_TUTOR = "grptutor";
 	private static final String ACTION_GROUPS_PARTICIPANT = "grpparti";
+	private static final String ACTION_ORDERS = "orders";
 	private static final String ACTION_EDITDESC = "chdesc";
 	private static final String ACTION_EDITPROP = "chprop";
 
@@ -132,6 +134,7 @@ public class RepositoryDetailsController extends BasicController implements Gene
 	
 	private GroupController groupController;
 	private GroupController groupTutorEditController, groupParticipantEditController, groupEditController;
+	private OrdersAdminController ordersController;
 	private AddAndEditBookmarkController bookmarkController;
 	private ToolController detailsToolC = null;
 	private RepositoryCopyController copyController;
@@ -430,6 +433,7 @@ public class RepositoryDetailsController extends BasicController implements Gene
 					detailsToolC.addLink(ACTION_GROUPS, translate("details.groups"));
 					detailsToolC.addLink(ACTION_GROUPS_TUTOR, translate("details.groups.tutor"));
 					detailsToolC.addLink(ACTION_GROUPS_PARTICIPANT, translate("details.groups.participant"));
+					detailsToolC.addLink(ACTION_ORDERS, translate("details.orders"));
 				}
 				// enable
 				detailsToolC.setEnabled(TOOL_EDIT, handler.supportsEdit(repositoryEntry));
@@ -818,6 +822,8 @@ public class RepositoryDetailsController extends BasicController implements Gene
 				}
 			}
 			updateView(ureq);
+		} else if (source == ordersController) {
+			//
 		} else if (source == detailsToolC) {
 			if (cmd.equals(ACTION_DOWNLOAD)) { // download
 				doDownload(ureq);
@@ -877,6 +883,9 @@ public class RepositoryDetailsController extends BasicController implements Gene
 					RepositoryManager.getInstance().updateRepositoryEntry(repositoryEntry);
 				}
 				groupParticipantEditController = doManageSecurityGroup(ureq, repositoryEntry.getParticipantGroup(), "groups_participant");
+				return;
+			} else if (cmd.equals(ACTION_ORDERS)) {
+				doOrders(ureq);
 				return;
 			} else if (cmd.equals(ACTION_CLOSE_RESSOURCE)) {
 				doCloseResource(ureq);
@@ -997,6 +1006,19 @@ public class RepositoryDetailsController extends BasicController implements Gene
 			closeableModalController.deactivate();
 			updateCategoriesTableC(ureq);
 		}
+	}
+	
+	private void doOrders(UserRequest ureq) {
+		removeAsListenerAndDispose(ordersController);
+
+		ordersController = new OrdersAdminController(ureq, getWindowControl(), repositoryEntry.getOlatResource());
+		listenTo(ordersController);
+
+		removeAsListenerAndDispose(cmc);
+		CloseableModalController cmc = new CloseableModalController(getWindowControl(), translate("close"), ordersController.getInitialComponent());
+		listenTo(cmc);
+		
+		cmc.activate();
 	}
 	
 	private GroupController doManageSecurityGroup(UserRequest ureq, SecurityGroup secGroup, String template) {
