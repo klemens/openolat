@@ -866,7 +866,7 @@ public class RepositoryDetailsController extends BasicController implements Gene
 				return;
 			} else if (cmd.equals(ACTION_GROUPS)) { // edit authors group
 				if (!isOwner) throw new OLATSecurityException("Trying to access groupmanagement, but not allowed: user = " + ureq.getIdentity());
-				groupEditController = doManageSecurityGroup(ureq, repositoryEntry.getOwnerGroup(), "groups");
+				groupEditController = doManageSecurityGroup(ureq, true, repositoryEntry.getOwnerGroup(), "groups");
 				return;
 			}  else if (cmd.equals(ACTION_GROUPS_TUTOR)) { // edit tutor group
 				if (!isOwner) throw new OLATSecurityException("Trying to access groupmanagement, but not allowed: user = " + ureq.getIdentity());
@@ -874,7 +874,7 @@ public class RepositoryDetailsController extends BasicController implements Gene
 					RepositoryManager.getInstance().createTutorSecurityGroup(repositoryEntry);
 					RepositoryManager.getInstance().updateRepositoryEntry(repositoryEntry);
 				}
-				groupTutorEditController = doManageSecurityGroup(ureq, repositoryEntry.getTutorGroup(), "groups_tutor");
+				groupTutorEditController = doManageSecurityGroup(ureq, false, repositoryEntry.getTutorGroup(), "groups_tutor");
 				return;
 			} else if (cmd.equals(ACTION_GROUPS_PARTICIPANT)) { // edit tutor group
 				if (!isOwner) throw new OLATSecurityException("Trying to access groupmanagement, but not allowed: user = " + ureq.getIdentity());
@@ -882,7 +882,7 @@ public class RepositoryDetailsController extends BasicController implements Gene
 					RepositoryManager.getInstance().createParticipantSecurityGroup(repositoryEntry);
 					RepositoryManager.getInstance().updateRepositoryEntry(repositoryEntry);
 				}
-				groupParticipantEditController = doManageSecurityGroup(ureq, repositoryEntry.getParticipantGroup(), "groups_participant");
+				groupParticipantEditController = doManageSecurityGroup(ureq, false, repositoryEntry.getParticipantGroup(), "groups_participant");
 				return;
 			} else if (cmd.equals(ACTION_ORDERS)) {
 				doOrders(ureq);
@@ -1021,7 +1021,7 @@ public class RepositoryDetailsController extends BasicController implements Gene
 		cmc.activate();
 	}
 	
-	private GroupController doManageSecurityGroup(UserRequest ureq, SecurityGroup secGroup, String template) {
+	private GroupController doManageSecurityGroup(UserRequest ureq, boolean keepAtLeastOne, SecurityGroup secGroup, String template) {
 		removeAsListenerAndDispose(groupEditController);
 		removeAsListenerAndDispose(groupTutorEditController);
 		removeAsListenerAndDispose(groupParticipantEditController);
@@ -1029,7 +1029,7 @@ public class RepositoryDetailsController extends BasicController implements Gene
 		groupTutorEditController = null;
 		groupParticipantEditController = null;
 
-		GroupController controller = new GroupController(ureq, getWindowControl(), true, true, false, secGroup);
+		GroupController controller = new GroupController(ureq, getWindowControl(), true, keepAtLeastOne, false, secGroup);
 		listenTo(controller);
 		
 		VelocityContainer groupContainer = createVelocityContainer(template);  
