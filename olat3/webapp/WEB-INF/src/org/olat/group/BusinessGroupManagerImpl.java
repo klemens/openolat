@@ -856,17 +856,18 @@ public class BusinessGroupManagerImpl extends BasicManager implements BusinessGr
 		if (!doOnlyPostRemovingStuff) {
 			//fxdiff VCRP-2: access control
 			BGContext context = group.getGroupContext();
-			BGContextManager contextManager = BGContextManagerImpl.getInstance();
-			List<BusinessGroup> businessGroups = contextManager.getBusinessGroupAsOwnerOfBGContext(identity, context) ;
-			if(context.isDefaultContext() && businessGroups.size() == 1) {
-				List<RepositoryEntry> entries = contextManager.findRepositoryEntriesForBGContext(context);
-				for(RepositoryEntry entry:entries) {
-					if(entry.getTutorGroup() != null && securityManager.isIdentityInSecurityGroup(identity, entry.getTutorGroup())) {
-						securityManager.removeIdentityFromSecurityGroup(identity, entry.getTutorGroup());
+			if(context != null) {
+				BGContextManager contextManager = BGContextManagerImpl.getInstance();
+				List<BusinessGroup> businessGroups = contextManager.getBusinessGroupAsOwnerOfBGContext(identity, context) ;
+				if(context.isDefaultContext() && businessGroups.size() == 1) {
+					List<RepositoryEntry> entries = contextManager.findRepositoryEntriesForBGContext(context);
+					for(RepositoryEntry entry:entries) {
+						if(entry.getTutorGroup() != null && securityManager.isIdentityInSecurityGroup(identity, entry.getTutorGroup())) {
+							securityManager.removeIdentityFromSecurityGroup(identity, entry.getTutorGroup());
+						}
 					}
 				}
 			}
-
 			securityManager.removeIdentityFromSecurityGroup(identity, group.getOwnerGroup());
 		}
 		// remove user from buddies rosters
@@ -900,13 +901,15 @@ public class BusinessGroupManagerImpl extends BasicManager implements BusinessGr
 		if (!doOnlyPostRemovingStuff) {
 			//fxdiff VCRP-2: access control
 			BGContext context = group.getGroupContext();
-			BGContextManager contextManager = BGContextManagerImpl.getInstance();
-			List<BusinessGroup> businessGroups = contextManager.getBusinessGroupAsParticipantOfBGContext(identity, context) ;
-			if(context.isDefaultContext() && businessGroups.size() == 1) {
-				List<RepositoryEntry> entries = contextManager.findRepositoryEntriesForBGContext(context);
-				for(RepositoryEntry entry:entries) {
-					if(entry.getParticipantGroup() != null && securityManager.isIdentityInSecurityGroup(identity, entry.getParticipantGroup())) {
-						securityManager.removeIdentityFromSecurityGroup(identity, entry.getParticipantGroup());
+			if(context != null) {
+				BGContextManager contextManager = BGContextManagerImpl.getInstance();
+				List<BusinessGroup> businessGroups = contextManager.getBusinessGroupAsParticipantOfBGContext(identity, context) ;
+				if(context.isDefaultContext() && businessGroups.size() == 1) {
+					List<RepositoryEntry> entries = contextManager.findRepositoryEntriesForBGContext(context);
+					for(RepositoryEntry entry:entries) {
+						if(entry.getParticipantGroup() != null && securityManager.isIdentityInSecurityGroup(identity, entry.getParticipantGroup())) {
+							securityManager.removeIdentityFromSecurityGroup(identity, entry.getParticipantGroup());
+						}
 					}
 				}
 			}
