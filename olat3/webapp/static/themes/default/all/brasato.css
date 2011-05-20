@@ -1341,9 +1341,11 @@
 	div.b_order_details { margin-top: 2em;}
 	div.b_order_details label { font-weight: bold;}
 	
+	
 	div.b_access_create ul { padding: 0; margin-left: 0;}
 	div.b_access_create li { padding: 0; list-style: none;}
-	table.b_access_method td { padding: 0.2em 1em 0.2em 0; }	
+	table.b_access_method td { padding: 0.2em 1em 0.2em 0; }
+	table.b_access_method td div.b_form_element { margin-left:0; }	
 	div.b_access_method_list div.b_access_method legend { background-repeat: no-repeat; padding-left: 20px; }
 	.b_access_membersonly_icon {background-image: url(../images/olat/lock.png);}
 	/* free method */
