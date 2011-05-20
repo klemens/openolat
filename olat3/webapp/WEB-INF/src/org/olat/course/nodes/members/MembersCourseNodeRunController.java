@@ -150,8 +150,6 @@ public class MembersCourseNodeRunController extends FormBasicController {
 			layoutCont.contextPut("hasCoaches", new Boolean(!coachesLinks.isEmpty()));
 			layoutCont.contextPut("hasParticipants", new Boolean(!participantsLinks.isEmpty()));
 		}
-		
-		throw new RuntimeException("");
 	}
 	
 	private boolean canEmail(List<Identity> owners, List<Identity> coaches) {
