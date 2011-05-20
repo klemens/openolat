@@ -44,6 +44,7 @@ import org.olat.core.util.mail.model.DBMailRecipient;
  */
 public class MailDataModel implements TableDataModelWithMarkableRows {
 	
+	private boolean outbox;
 	private List<DBMail> mails;
 	private List<DBMail> filteredMails;
 	private final Identity identity;
@@ -52,12 +53,13 @@ public class MailDataModel implements TableDataModelWithMarkableRows {
 	private final Map<String,String> bpToContexts;
 	
 	public MailDataModel(List<DBMail> mails, Map<String,String> bpToContexts, Identity identity,
-			Translator translator, Formatter formatter) {
+			Translator translator, Formatter formatter, boolean outbox) {
 		this.mails = mails;
 		this.bpToContexts = bpToContexts;
 		this.identity = identity;
 		this.formatter = formatter;
 		this.translator = translator;
+		this.outbox = outbox;
 	}
 
 	@Override
@@ -155,6 +157,8 @@ public class MailDataModel implements TableDataModelWithMarkableRows {
 	 */
 	@Override
 	public String getRowCssClass(int row) {
+		if(outbox) return null;
+		
 		DBMail mail = filteredMails == null ? mails.get(row) : filteredMails.get(row);
 		for(DBMailRecipient recipient:mail.getRecipients()) {
 			if(recipient != null && recipient.getRecipient() != null && recipient.getRecipient().equalsByPersistableKey(identity)) {
@@ -188,7 +192,7 @@ public class MailDataModel implements TableDataModelWithMarkableRows {
 
 	@Override
 	public Object createCopyWithEmptyList() {
-		return new MailDataModel(Collections.<DBMail>emptyList(), bpToContexts, identity, translator, formatter);
+		return new MailDataModel(Collections.<DBMail>emptyList(), bpToContexts, identity, translator, formatter, outbox);
 	}
 	
 	public enum Columns {

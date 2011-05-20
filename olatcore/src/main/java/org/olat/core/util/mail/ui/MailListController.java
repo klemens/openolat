@@ -246,7 +246,7 @@ public class MailListController extends BasicController implements Activateable 
 		}
 		
 		Formatter formatter = Formatter.getInstance(getLocale());
-		MailDataModel dataModel = new MailDataModel(mails, bpToContexts, getIdentity(), getTranslator(), formatter);
+		MailDataModel dataModel = new MailDataModel(mails, bpToContexts, getIdentity(), getTranslator(), formatter, outbox);
 		tableCtr.setTableDataModel(dataModel);
 	}
 
