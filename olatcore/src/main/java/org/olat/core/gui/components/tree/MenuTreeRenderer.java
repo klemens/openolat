@@ -260,7 +260,7 @@ public class MenuTreeRenderer implements ComponentRenderer {
 		target.append("</div>");
 		
 		//append div to drop as sibling
-		if(tree.isDragAndDropEnabled()) {
+		if(!renderChildren && tree.isDragAndDropEnabled()) {
 			appendSiblingDropObj(curRoot, level, tree, target, false);
 		}
 		
