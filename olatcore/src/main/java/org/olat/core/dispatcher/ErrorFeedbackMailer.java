@@ -26,20 +26,16 @@ import java.util.Iterator;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import javax.mail.MessagingException;
-import javax.mail.SendFailedException;
-import javax.mail.internet.AddressException;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
 import org.olat.core.CoreSpringFactory;
 import org.olat.core.id.Identity;
 import org.olat.core.id.IdentityManager;
-import org.olat.core.logging.AssertException;
 import org.olat.core.logging.LogFileParser;
 import org.olat.core.logging.Tracing;
 import org.olat.core.util.WebappHelper;
-import org.olat.core.util.mail.Emailer;
+import org.olat.core.util.mail.manager.MailManager;
 
 /**
  * Description:<br>
@@ -75,38 +71,23 @@ public class ErrorFeedbackMailer implements Dispatcher {
 			Identity ident = im.findIdentityByName(username);
 			//if null, user may crashed befor getting a valid session, try with guest user instead
 			if (ident == null) ident = im.findIdentityByName("guest");
-			Emailer emailer = new Emailer(ident, false);
 			String errorNum = parseErrorNumber(errorNr);
-			Collection logFileEntries = LogFileParser.getErrorToday(errorNum, false);
+			Collection<String> logFileEntries = LogFileParser.getErrorToday(errorNum, false);
 			StringBuilder out = new StringBuilder();
 			if (logFileEntries != null) {
-				for (Iterator iter = logFileEntries.iterator(); iter.hasNext();) {
-					out.append((String) iter.next());
+				for (Iterator<String> iter = logFileEntries.iterator(); iter.hasNext();) {
+					out.append(iter.next());
 				}
 			}
-			emailer.sendEmail(WebappHelper.getMailConfig("mailSupport"), "Feedback from Error Nr.: " + errorNr, request.getParameter("textarea")
-					+ "\n------------------------------------------\n\n --- from user: "+username+" ---" + out.toString());
-		} catch (AddressException e) {
+			String to = WebappHelper.getMailConfig("mailSupport");
+			String subject = "Feedback from Error Nr.: " + errorNr;
+			String body = request.getParameter("textarea") + "\n------------------------------------------\n\n --- from user: "+username+" ---" + out.toString();
+			MailManager.getInstance().sendExternMessage(ident, null, null, to, null, null, null, subject, body, null, null);
+		} catch (Exception e) {
 			// error in recipient email address(es)
 			handleException(request, e);
 			return;
-		} catch (SendFailedException e) {
-			// error in sending message
-			// CAUSE: sender email address invalid
-			handleException(request, e);
-			return;
-		} catch (MessagingException e) {
-			// error in message-subject || .-body
-			handleException(request, e);
-			return;
-		} catch (AssertException e) {
-			handleException(request, e);
-			return;
-		} catch (NullPointerException e) {
-			handleException(request, e);
-			return;
 		}
-
 	}
 
 	private String parseErrorNumber(String errorNr) {
