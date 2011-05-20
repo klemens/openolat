@@ -58,6 +58,7 @@ import org.olat.core.util.mail.ContactMessage;
 import org.olat.course.CourseFactory;
 import org.olat.course.ICourse;
 import org.olat.course.groupsandrights.CourseGroupManager;
+import org.olat.course.nodes.CourseNode;
 import org.olat.course.run.userview.UserCourseEnvironment;
 import org.olat.modules.co.ContactFormController;
 import org.olat.repository.RepositoryEntry;
@@ -77,6 +78,7 @@ public class MembersCourseNodeRunController extends FormBasicController {
 
 	private final RepositoryManager rm ;
 	private final BaseSecurity securityManager;
+	private final CourseNode courseNode;
 	private final UserCourseEnvironment userCourseEnv;
 	private final DisplayPortraitManager portraitManager;
 	private final String avatarBaseURL;
@@ -94,7 +96,7 @@ public class MembersCourseNodeRunController extends FormBasicController {
 	private ContactFormController emailController;
 	private CloseableModalController cmc;
 	
-	public MembersCourseNodeRunController(UserRequest ureq, WindowControl wControl, UserCourseEnvironment userCourseEnv) {
+	public MembersCourseNodeRunController(UserRequest ureq, WindowControl wControl, CourseNode courseNode, UserCourseEnvironment userCourseEnv) {
 		super(ureq, wControl, "members");
 		
 		avatarBaseURL = registerCacheableMapper("avatars-members", new AvatarMapper());
@@ -102,6 +104,7 @@ public class MembersCourseNodeRunController extends FormBasicController {
 		rm = RepositoryManager.getInstance();
 		securityManager = BaseSecurityManager.getInstance();
 		this.userCourseEnv = userCourseEnv;
+		this.courseNode = courseNode;
 		portraitManager = DisplayPortraitManager.getInstance();
 
 		initForm(ureq);
@@ -244,25 +247,25 @@ public class MembersCourseNodeRunController extends FormBasicController {
 		} else if (emailLinks.contains(source)) {
 			FormLink emailLink = (FormLink)source;
 			Member member = (Member)emailLink.getUserObject();
-			ContactList memberList = new ContactList(translate("members.to"));
+			ContactList memberList = new ContactList(translate("members.to", new String[]{courseNode.getShortTitle()}));
 			memberList.add(member.getIdentity());
 			sendEmailToMember(memberList, ureq);
 		} else if (source == coachesEmailLink) {
-			ContactList coachList = new ContactList(translate("members.to"));
+			ContactList coachList = new ContactList(translate("members.to", new String[]{courseNode.getShortTitle()}));
 			for(FormLink coachLink:coachesLinks) {
 				Member member = (Member)coachLink.getUserObject();
 				coachList.add(member.getIdentity());
 			}
 			sendEmailToMember(coachList, ureq);
 		} else if (source == ownersEmailLink) {
-			ContactList ownerList = new ContactList(translate("members.to"));
+			ContactList ownerList = new ContactList(translate("members.to", new String[]{courseNode.getShortTitle()}));
 			for(FormLink ownerLink:ownerLinks) {
 				Member member = (Member)ownerLink.getUserObject();
 				ownerList.add(member.getIdentity());
 			}
 			sendEmailToMember(ownerList, ureq);
 		} else if (source == participantsEmailLink) {
-			ContactList participantList = new ContactList(translate("members.to"));
+			ContactList participantList = new ContactList(translate("members.to", new String[]{courseNode.getShortTitle()}));
 			for(FormLink participantLink:participantsLinks) {
 				Member member = (Member)participantLink.getUserObject();
 				participantList.add(member.getIdentity());
@@ -279,9 +282,6 @@ public class MembersCourseNodeRunController extends FormBasicController {
 			emailController = null;
 			cmc = null;
 		} else if (source == emailController) {
-			if(event == Event.DONE_EVENT) {
-				sendEmail();
-			}
 			cmc.deactivate();
 			removeAsListenerAndDispose(emailController);
 			removeAsListenerAndDispose(cmc);
@@ -289,10 +289,6 @@ public class MembersCourseNodeRunController extends FormBasicController {
 			cmc = null;
 		}
 		super.event(ureq, source, event);
-	}
-	
-	protected void sendEmail() {
-		//
 	}
 
 	protected void sendEmailToMember(ContactList contactList, UserRequest ureq) {

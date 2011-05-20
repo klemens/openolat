@@ -22,8 +22,10 @@ package org.olat.core.util.mail.ui;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import org.olat.core.gui.components.table.TableDataModelWithMarkableRows;
 import org.olat.core.gui.translator.Translator;
@@ -128,10 +130,15 @@ public class MailDataModel implements TableDataModelWithMarkableRows {
 					}
 					
 					StringBuilder sb = new StringBuilder();
+					Set<String> groupSet = new HashSet<String>();
 					for(DBMailRecipient recipient:mail.getRecipients()) {
 						if(recipient.getGroup() != null) {
-							if(sb.length() > 0) sb.append(", ");
-							sb.append(recipient.getGroup());
+							String group = recipient.getGroup();
+							if(!groupSet.contains(group)) {
+								if(sb.length() > 0) sb.append(", ");
+								sb.append(group);
+								groupSet.add(group);
+							}
 						}
 					}
 					return sb.toString();

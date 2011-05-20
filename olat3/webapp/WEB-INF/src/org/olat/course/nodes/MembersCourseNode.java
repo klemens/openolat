@@ -93,7 +93,7 @@ public class MembersCourseNode extends AbstractAccessableCourseNode {
 	public NodeRunConstructionResult createNodeRunConstructionResult(UserRequest ureq, WindowControl wControl,
 			UserCourseEnvironment userCourseEnv, NodeEvaluation ne, String nodecmd) {
 		
-		MembersCourseNodeRunController infoCtrl = new MembersCourseNodeRunController(ureq, wControl, userCourseEnv);
+		MembersCourseNodeRunController infoCtrl = new MembersCourseNodeRunController(ureq, wControl, this, userCourseEnv);
 		Controller titledCtrl = TitledWrapperHelper.getWrapper(ureq, wControl, infoCtrl, this, "o_cmembers_icon");
 		return new NodeRunConstructionResult(titledCtrl);
 	}
