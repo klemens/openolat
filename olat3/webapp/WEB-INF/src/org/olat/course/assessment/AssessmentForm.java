@@ -163,7 +163,10 @@ public class AssessmentForm extends FormBasicController {
 		if (hasScore) {
 		//fxdiff VCRP-4: assessment overview with max score
 			try {
-				parseFloat(score);
+				if(parseFloat(score) == null) {
+					score.setErrorKey("form.error.wrongFloat", null);
+					return false;
+				}
 			} catch (NumberFormatException e) {
 				score.setErrorKey("form.error.wrongFloat", null);
 				return false;
