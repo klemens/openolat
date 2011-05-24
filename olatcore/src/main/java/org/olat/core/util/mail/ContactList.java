@@ -116,11 +116,21 @@ public class ContactList {
 	 */
 	public void add(Identity identity) {
 		String email = identity.getUser().getProperty(UserConstants.EMAIL, null);
+		//fxdiff VCRP-5
+		if (email == null) {
+			Tracing.createLoggerFor(this.getClass()).error("No email available for identity::" + identity.getName() + " - can not add to contact list");
+			return;
+		}
 		identiEmails.put(keyFrom(email), identity);
 	}
 	
 	public void remove(Identity identity) {
 		String email = identity.getUser().getProperty(UserConstants.EMAIL, null);
+		//fxdiff VCRP-5
+		if (email == null) {
+			Tracing.createLoggerFor(this.getClass()).error("No email available for identity::" + identity.getName() + " - can not remove from contact list");
+			return;
+		}
 		identiEmails.remove(keyFrom(email));
 	}
 

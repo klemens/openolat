@@ -247,25 +247,25 @@ public class MembersCourseNodeRunController extends FormBasicController {
 		} else if (emailLinks.contains(source)) {
 			FormLink emailLink = (FormLink)source;
 			Member member = (Member)emailLink.getUserObject();
-			ContactList memberList = new ContactList(translate("members.to", new String[]{courseNode.getShortTitle()}));
+			ContactList memberList = new ContactList(translate("members.to", new String[]{member.getFullName(), this.userCourseEnv.getCourseEnvironment().getCourseTitle()}));
 			memberList.add(member.getIdentity());
 			sendEmailToMember(memberList, ureq);
 		} else if (source == coachesEmailLink) {
-			ContactList coachList = new ContactList(translate("members.to", new String[]{courseNode.getShortTitle()}));
+			ContactList coachList = new ContactList(translate("coaches.to", new String[]{this.userCourseEnv.getCourseEnvironment().getCourseTitle()}));
 			for(FormLink coachLink:coachesLinks) {
 				Member member = (Member)coachLink.getUserObject();
 				coachList.add(member.getIdentity());
 			}
 			sendEmailToMember(coachList, ureq);
 		} else if (source == ownersEmailLink) {
-			ContactList ownerList = new ContactList(translate("members.to", new String[]{courseNode.getShortTitle()}));
+			ContactList ownerList = new ContactList(translate("owners.to", new String[]{this.userCourseEnv.getCourseEnvironment().getCourseTitle()}));
 			for(FormLink ownerLink:ownerLinks) {
 				Member member = (Member)ownerLink.getUserObject();
 				ownerList.add(member.getIdentity());
 			}
 			sendEmailToMember(ownerList, ureq);
 		} else if (source == participantsEmailLink) {
-			ContactList participantList = new ContactList(translate("members.to", new String[]{courseNode.getShortTitle()}));
+			ContactList participantList = new ContactList(translate("participants.to", new String[]{this.userCourseEnv.getCourseEnvironment().getCourseTitle()}));
 			for(FormLink participantLink:participantsLinks) {
 				Member member = (Member)participantLink.getUserObject();
 				participantList.add(member.getIdentity());
@@ -292,20 +292,22 @@ public class MembersCourseNodeRunController extends FormBasicController {
 	}
 
 	protected void sendEmailToMember(ContactList contactList, UserRequest ureq) {
-		removeAsListenerAndDispose(emailController);
-
-		ContactMessage cmsg = new ContactMessage(ureq.getIdentity());
-		cmsg.addEmailTo(contactList);
-		
-		emailController = new ContactFormController(ureq, getWindowControl(), false, true, false, false, cmsg);
-		listenTo(emailController);
-		
-		removeAsListenerAndDispose(cmc);
-		String title = translate("members.email.title");
-		cmc = new CloseableModalController(getWindowControl(), translate("close"), emailController.getInitialComponent(), true, title);
-		listenTo(cmc);
-		
-		cmc.activate();
+		if (contactList.getEmailsAsStrings().size() > 0) {
+			removeAsListenerAndDispose(emailController);
+			
+			ContactMessage cmsg = new ContactMessage(ureq.getIdentity());
+			cmsg.addEmailTo(contactList);
+			
+			emailController = new ContactFormController(ureq, getWindowControl(), false, true, false, false, cmsg);
+			listenTo(emailController);
+			
+			removeAsListenerAndDispose(cmc);
+			String title = translate("members.email.title");
+			cmc = new CloseableModalController(getWindowControl(), translate("close"), emailController.getInitialComponent(), true, title);
+			listenTo(cmc);
+			
+			cmc.activate();			
+		}
 	}
 	
 	protected void openHomePage(Identity member, UserRequest ureq) {
