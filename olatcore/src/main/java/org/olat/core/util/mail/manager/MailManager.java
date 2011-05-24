@@ -813,8 +813,8 @@ public class MailManager extends BasicManager {
 			}
 			
 			Address[] tos = toList.toArray(new Address[toList.size()]);
-			Address[] ccs = toList.toArray(new Address[ccList.size()]);
-			Address[] bccs = toList.toArray(new Address[bccList.size()]);
+			Address[] ccs = ccList.toArray(new Address[ccList.size()]);
+			Address[] bccs = bccList.toArray(new Address[bccList.size()]);
 			return createMimeMessage(from, tos, ccs, bccs, subject, body, attachments, result);
 		} catch (MessagingException e) {
 			logError("", e);
