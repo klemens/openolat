@@ -197,7 +197,12 @@ public class ACFrontendManager extends BasicManager {
 		OLATResource resource = OLATResourceManager.getInstance().findResourceable(group);
 		List<Offer> offers = accessManager.findOfferByResource(resource, true, new Date());
 		if(offers.isEmpty()) {
-			return new AccessResult(false);
+			if(methodManager.isValidMethodAvailable(resource, null)) {
+				//not open for the moment: no valid offer at this date but some methods are defined
+				return new AccessResult(false);
+			} else {
+				return new AccessResult(true);
+			}	
 		}
 		
 		return isAccessible(forId, offers, allowNonInteractiveAccess);
