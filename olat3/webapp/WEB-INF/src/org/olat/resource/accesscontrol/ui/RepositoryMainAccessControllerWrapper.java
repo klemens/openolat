@@ -87,7 +87,9 @@ public class RepositoryMainAccessControllerWrapper extends MainLayoutBasicContro
 
 	@Override
 	protected void doDispose() {
-		//
+		if(resController != null && !resController.isDisposed()) {
+			resController.dispose();
+		}
 	}
 
 	@Override
