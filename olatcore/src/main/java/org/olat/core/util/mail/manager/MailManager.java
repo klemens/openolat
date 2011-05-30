@@ -720,6 +720,9 @@ public class MailManager extends BasicManager {
 	private boolean makeRealMail(Identity toId, List<ContactList> ccLists, List<ContactList> bccLists) {
 		//need real mail to???
 		boolean makeRealMail = false;
+		// can occur on self-registration
+		if (toId == null && ccLists == null && bccLists == null) return true;
+		
 		if(toId != null) {
 			makeRealMail |= wantRealMailToo(toId);
 		}
