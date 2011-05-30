@@ -319,6 +319,8 @@ public class MailListController extends BasicController implements Activateable 
 						MailerResult result = forwardToMyRealMail(mail);
 						if(result.getReturnCode() != MailerResult.OK) {
 							MailHelper.printErrorsAndWarnings(result, getWindowControl(), getLocale());
+						} else {
+							this.showInfo("mail.action.send.real.success", mail.getSubject());
 						}
 					}				
 					reloadModel();
