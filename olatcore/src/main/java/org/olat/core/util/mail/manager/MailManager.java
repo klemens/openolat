@@ -627,6 +627,7 @@ public class MailManager extends BasicManager {
 				recipient.setMarked(Boolean.FALSE);
 				recipient.setRead(Boolean.FALSE);
 				mail.getRecipients().add(recipient);
+				createAddress(ccAddress, recipient, false, result, true);
 			}
 			
 			//add cc recipients
@@ -698,6 +699,21 @@ public class MailManager extends BasicManager {
 						}
 					}
 				}
+
+				for(String email:contactList.getStringEmails().values()) {
+					DBMailRecipient recipient = new DBMailRecipient();
+					recipient.setEmailAddress(email);
+					recipient.setGroup(contactList.getName());
+					recipient.setVisible(visible);
+					recipient.setDeleted(Boolean.FALSE);
+					recipient.setMarked(Boolean.FALSE);
+					recipient.setRead(Boolean.FALSE);
+					mail.getRecipients().add(recipient);
+					
+					if(makeRealMail) {
+						createAddress(ccAddress, recipient, false, result, false);
+					}
+				}
 				
 				for(Identity identityEmail:contactList.getIdentiEmails().values()) {
 					DBMailRecipient recipient = new DBMailRecipient();
@@ -733,6 +749,10 @@ public class MailManager extends BasicManager {
 				for(Identity identityEmail:contactList.getIdentiEmails().values()) {
 					makeRealMail |= wantRealMailToo(identityEmail);
 				}
+				
+				if(!contactList.getStringEmails().isEmpty()) {
+					makeRealMail |= true;
+				}
 			}
 		}
 		
@@ -741,6 +761,10 @@ public class MailManager extends BasicManager {
 			for(ContactList contactList:ccLists) {
 				for(Identity identityEmail:contactList.getIdentiEmails().values()) {
 					makeRealMail |= wantRealMailToo(identityEmail);
+				}
+				
+				if(!contactList.getStringEmails().isEmpty()) {
+					makeRealMail |= true;
 				}
 			}
 		}
@@ -849,7 +873,23 @@ public class MailManager extends BasicManager {
 	
 	private boolean createAddress(List<Address> addressList, DBMailRecipient recipient, boolean force, MailerResult result, boolean error) {
 		String emailAddress = recipient.getEmailAddress();
-		if(recipient.getRecipient() != null) {
+		if(recipient.getRecipient() == null) {
+			try {
+				Address address = createAddress(emailAddress);
+				if(address != null) {
+					addressList.add(address);
+					return true;
+				} else {
+					if(error) {
+						result.setReturnCode(MailerResult.RECIPIENT_ADDRESS_ERROR);
+					}
+				}
+			} catch (AddressException e) {
+				if(error) {
+					result.setReturnCode(MailerResult.RECIPIENT_ADDRESS_ERROR);
+				}
+			}
+		} else {
 			if(force || wantRealMailToo(recipient.getRecipient())) {
 				if(!StringHelper.containsNonWhitespace(emailAddress)) {
 					emailAddress = recipient.getRecipient().getUser().getProperty(UserConstants.EMAIL, null);
