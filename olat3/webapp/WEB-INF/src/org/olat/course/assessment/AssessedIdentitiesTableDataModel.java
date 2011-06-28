@@ -35,6 +35,7 @@ import org.olat.core.gui.translator.Translator;
 import org.olat.core.id.Identity;
 import org.olat.core.util.Util;
 import org.olat.course.nodes.AssessableCourseNode;
+import org.olat.course.nodes.STCourseNode;
 import org.olat.course.nodes.ta.StatusForm;
 import org.olat.course.nodes.ta.StatusManager;
 import org.olat.course.properties.CoursePropertyManager;
@@ -158,9 +159,17 @@ public class AssessedIdentitiesTableDataModel extends DefaultTableDataModel {
 		//fxdiff VCRP-4: assessment overview with max score
 			return AssessmentHelper.getRoundedScore(scoreEval.getScore());
   	} else if (colName.equals(COL_MINSCORE)) {
-  		return AssessmentHelper.getRoundedScore(courseNode.getMinScoreConfiguration());
+  	//fxdiff VCRP-4: assessment overview with max score
+			if(!(courseNode instanceof STCourseNode)) {
+  			return AssessmentHelper.getRoundedScore(courseNode.getMinScoreConfiguration());
+  		}
+  		return "";
   	} else if (colName.equals(COL_MAXSCORE)) {
-  		return AssessmentHelper.getRoundedScore(courseNode.getMaxScoreConfiguration());
+    	//fxdiff VCRP-4: assessment overview with max score
+			if(!(courseNode instanceof STCourseNode)) {
+  			return AssessmentHelper.getRoundedScore(courseNode.getMaxScoreConfiguration());
+  		}
+  		return "";
   	}	else if (colName.equals(COL_STATUS)) {
 			return getStatusFor(courseNode, wrappedIdentity);
 		}else if (colName.equals(COL_PASSED)) {
