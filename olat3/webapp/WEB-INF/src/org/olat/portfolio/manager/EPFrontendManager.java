@@ -56,6 +56,7 @@ import org.olat.course.nodes.CourseNode;
 import org.olat.course.run.userview.UserCourseEnvironment;
 import org.olat.course.run.userview.UserCourseEnvironmentImpl;
 import org.olat.group.BusinessGroup;
+import org.olat.modules.webFeed.portfolio.LiveBlogArtefactHandler;
 import org.olat.portfolio.PortfolioModule;
 import org.olat.portfolio.model.EPFilterSettings;
 import org.olat.portfolio.model.artefacts.AbstractArtefact;
@@ -153,7 +154,7 @@ public class EPFrontendManager extends BasicManager {
 
 	/**
 	 * delete an artefact and also its vfs-artefactContainer
-	 * 
+	 * all used tags will also be deleted.
 	 * @param artefact
 	 */
 	public void deleteArtefact(AbstractArtefact artefact) {
@@ -164,6 +165,19 @@ public class EPFrontendManager extends BasicManager {
 		// load again as session might be closed between
 		artefact = artefactManager.loadArtefactByKey(artefact.getKey());
 		artefactManager.deleteArtefact(artefact);
+	}
+	
+	/**
+	 * delete all artefacts from this users including used tags for them
+	 * @param ident
+	 */
+	public void deleteUsersArtefacts(Identity ident){
+		List<AbstractArtefact> userArtefacts = artefactManager.getArtefactPoolForUser(ident);
+		if (userArtefacts != null){
+			for (AbstractArtefact abstractArtefact : userArtefacts) {
+				deleteArtefact(abstractArtefact);
+			}
+		}
 	}
 	
 	public boolean isArtefactClosed(AbstractArtefact artefact) {
@@ -269,10 +283,11 @@ public class EPFrontendManager extends BasicManager {
 	}
 
 	/**
-	 * load all artefacts with given businesspath from given identity
-	 * this mostly is just to lookup for existance of already collected artefacts from same source
+	 * load all artefacts with given businesspath.
+	 * setting an Identity to restrict to is optional.
+	 * this mostly is just to lookup for existence of already collected artefacts from same source
 	 * @param businessPath
-	 * @param author
+	 * @param author (optional)
 	 * @return
 	 */
 	public List<AbstractArtefact> loadArtefactsByBusinessPath(String businessPath, Identity author){
@@ -696,6 +711,34 @@ public class EPFrontendManager extends BasicManager {
 	public List<AbstractArtefact> getArtefacts(PortfolioStructure structure) {
 		return structureManager.getArtefacts(structure);
 	}
+	
+	/**
+	 * get statistics about how much of the required (min, equal) collect-restrictions have been fulfilled.
+	 * 
+	 * @param structure
+	 * @return array with "done" at 0 and "to be done" at 1, or "null" if no restrictions apply
+	 */
+	public String[] getRestrictionStatistics(PortfolioStructure structure) {
+		Integer[] stats = structureManager.getRestrictionStatistics(structure);
+		if(stats == null) {
+			return null;
+		} else {
+			return new String[]{stats[0].toString(), stats[1].toString()};
+		}
+	}
+	
+	/**
+	 * same as getRestrictionStatistics(PortfolioStructure structure) but recursively for a map.
+	 * get statistics about how much of the required (min, equal) collect-restrictions have been fulfilled.
+	 * 
+	 * @param structure
+	 * @return array with "done" at 0 and "to be done" at 1, or "null" if no restrictions apply
+	 */
+	public String[] getRestrictionStatisticsOfMap(final PortfolioStructureMap structure) {
+		Integer[] stats = structureManager.getRestrictionStatisticsOfMap(structure, 0, 0);
+		
+		return new String[]{stats[0].toString(), stats[1].toString()};
+	}
 
 	/**
 	 * Check the collect restriction against the structure element
@@ -998,15 +1041,16 @@ public class EPFrontendManager extends BasicManager {
 		
 		List<Identity> owners = securityManager.getIdentitiesOfSecurityGroup(submittedMap.getOwnerGroup());
 		for(Identity owner:owners) {
-			IdentityEnvironment ienv = new IdentityEnvironment(); 
-			ienv.setIdentity(owner);
-			UserCourseEnvironment uce = new UserCourseEnvironmentImpl(ienv, course.getCourseEnvironment());
-			if(logActivity) {
-				am.incrementNodeAttempts(courseNode, owner, uce);
-			} else {
-				am.incrementNodeAttemptsInBackground(courseNode, owner, uce);
+			if (courseNode != null) { // courseNode might have been deleted meanwhile
+				IdentityEnvironment ienv = new IdentityEnvironment(); 
+				ienv.setIdentity(owner);
+				UserCourseEnvironment uce = new UserCourseEnvironmentImpl(ienv, course.getCourseEnvironment());
+				if(logActivity) {
+					am.incrementNodeAttempts(courseNode, owner, uce);
+				} else {
+					am.incrementNodeAttemptsInBackground(courseNode, owner, uce);
+				}
 			}
-			
 			assessmentNotificationsHandler.markPublisherNews(owner, course.getResourceableId());
 			logAudit("Map " + map + " from " + owner.getName() + " has been submitted.");
 		}
@@ -1055,6 +1099,32 @@ public class EPFrontendManager extends BasicManager {
 	 */
 	public PortfolioStructureMap importPortfolioMapTemplate(PortfolioStructure root, Identity identity) {
 		return structureManager.importPortfolioMapTemplate(root, identity);
+	}
+	
+	
+	/**
+	 * check if given identity has access to this feed.
+	 * reverse lookup feed -> artefact -> shared map
+	 * @param feed
+	 * @param identity
+	 * @return
+	 */
+	public boolean checkFeedAccess(OLATResourceable feed, Identity identity){
+		String feedBP = LiveBlogArtefactHandler.LIVEBLOG + feed.getResourceableId() + "]";
+		List<AbstractArtefact> artefact = loadArtefactsByBusinessPath(feedBP, null);
+		if (artefact != null && artefact.size() == 1) {
+			List<PortfolioStructure> linkedMaps = getReferencedMapsForArtefact(artefact.get(0));
+			for (PortfolioStructure map : linkedMaps) {
+				if (isMapVisible(identity, map)){
+					return true;
+				}
+			}
+			// see OLAT-6282: allow the owner of the artefact to view the feed, even if its not any longer in any map.
+			if (linkedMaps.size() == 0 && artefact.get(0).getAuthor().equalsByPersistableKey(identity)){
+				return true;
+			}
+		}
+		return false;
 	}
 
 	// not yet available
