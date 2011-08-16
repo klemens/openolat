@@ -198,10 +198,12 @@ public class ProjectDetailsDisplayController extends BasicController {
 			} else {
 				deleteGroup = false;
 			}
-			// send email before delete project with group
-			ProjectBrokerManagerFactory.getProjectBrokerEmailer().sendProjectDeletedEmailToParticipants(ureq.getIdentity(), project, this.getTranslator());
+			// OLAT-6416 Send delete notification email to the following user groups:
+			// a) Topic authors
 			ProjectBrokerManagerFactory.getProjectBrokerEmailer().sendProjectDeletedEmailToManager(ureq.getIdentity(), project, this.getTranslator());
-			//now send email to PB-accountmanager
+			// b) Accepted participants
+			ProjectBrokerManagerFactory.getProjectBrokerEmailer().sendProjectDeletedEmailToParticipants(ureq.getIdentity(), project, this.getTranslator());
+			// c) Overall admin of BB
 			ProjectBrokerManagerFactory.getProjectBrokerEmailer().sendProjectDeletedEmailToAccountManagers(ureq.getIdentity(), project, courseEnv, courseNode, getTranslator());
 			
 			ProjectBrokerManagerFactory.getProjectBrokerManager().deleteProject(project, deleteGroup, courseEnv, courseNode);

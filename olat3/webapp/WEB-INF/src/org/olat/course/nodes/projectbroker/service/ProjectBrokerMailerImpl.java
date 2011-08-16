@@ -138,10 +138,14 @@ public class ProjectBrokerMailerImpl implements ProjectBrokerMailer {
 			groupKey = accountManagerGroupProperty.getLongValue();
 		} 
 		if (groupKey != null) {
-			BusinessGroup		accountManagerGroup = BusinessGroupManagerImpl.getInstance().loadBusinessGroup(groupKey, false);
-			return sendEmailProjectChanged(accountManagerGroup.getPartipiciantGroup(), changer, project, 
-	        pT.translate(KEY_PROJECT_DELETED_EMAIL_TO_PARTICIPANT_SUBJECT), 
-	        pT.translate(KEY_PROJECT_DELETED_EMAIL_TO_PARTICIPANT_BODY), pT.getLocale());
+			BusinessGroup accountManagerGroup = BusinessGroupManagerImpl.getInstance().loadBusinessGroup(groupKey, false);
+			if (groupKey != null) {
+				// Group could have been deleted in GUI accidentally
+				// Send mail only to the owners as the participants are already covered by the sendProjectDeletedEmailToManager() method (OLAT-6416)
+				return sendEmailProjectChanged(accountManagerGroup.getOwnerGroup(), changer, project, 
+		        pT.translate(KEY_PROJECT_DELETED_EMAIL_TO_PARTICIPANT_SUBJECT), 
+		        pT.translate(KEY_PROJECT_DELETED_EMAIL_TO_PARTICIPANT_BODY), pT.getLocale());
+			}
     }
 	  
 		return null;
