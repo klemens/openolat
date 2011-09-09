@@ -132,7 +132,7 @@ public class MailDataModel implements TableDataModelWithMarkableRows {
 					StringBuilder sb = new StringBuilder();
 					Set<String> groupSet = new HashSet<String>();
 					for(DBMailRecipient recipient:mail.getRecipients()) {
-						if(recipient.getGroup() != null) {
+						if(recipient != null && recipient.getGroup() != null) {
 							String group = recipient.getGroup();
 							if(!groupSet.contains(group)) {
 								if(sb.length() > 0) sb.append(", ");

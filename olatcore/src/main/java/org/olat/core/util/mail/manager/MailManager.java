@@ -50,6 +50,7 @@ import javax.mail.util.ByteArrayDataSource;
 
 import org.olat.core.commons.persistence.DB;
 import org.olat.core.commons.persistence.DBQuery;
+import org.olat.core.commons.persistence.PersistentObject;
 import org.olat.core.helpers.Settings;
 import org.olat.core.id.Identity;
 import org.olat.core.id.OLATResourceable;
@@ -358,7 +359,7 @@ public class MailManager extends BasicManager {
 		sb.append("select mail from ").append(DBMailImpl.class.getName()).append(" mail")
 			.append(" inner join fetch mail.from fromRecipient")
 			.append(" inner join fromRecipient.recipient fromRecipientIdentity")
-			.append(" inner join mail.recipients recipient")
+			.append(" inner join fetch mail.recipients recipient")
 			.append(" inner join recipient.recipient recipientIdentity")
 			.append(" where fromRecipientIdentity.key=:fromKey and fromRecipient.deleted=false and recipientIdentity.key!=:fromKey")
 			.append(" order by mail.creationDate desc");
@@ -594,7 +595,11 @@ public class MailManager extends BasicManager {
 			DBMailRecipient recipientTo = null;
 			if(toId != null) {
 				recipientTo = new DBMailRecipient();
-				recipientTo.setRecipient(toId);
+				if(toId instanceof PersistentObject) {
+					recipientTo.setRecipient(toId);
+				} else {
+					to = toId.getUser().getProperty(UserConstants.EMAIL, null);
+				}
 				if(StringHelper.containsNonWhitespace(to)) {
 					recipientTo.setEmailAddress(to);
 				}
@@ -621,7 +626,11 @@ public class MailManager extends BasicManager {
 			
 			if(cc != null) {
 				DBMailRecipient recipient = new DBMailRecipient();
-				recipient.setRecipient(cc);
+				if(cc instanceof PersistentObject) {
+					recipient.setRecipient(cc);
+				} else {
+					recipient.setEmailAddress(cc.getUser().getProperty(UserConstants.EMAIL, null));
+				}
 				recipient.setVisible(Boolean.TRUE);
 				recipient.setDeleted(Boolean.FALSE);
 				recipient.setMarked(Boolean.FALSE);
@@ -717,7 +726,11 @@ public class MailManager extends BasicManager {
 				
 				for(Identity identityEmail:contactList.getIdentiEmails().values()) {
 					DBMailRecipient recipient = new DBMailRecipient();
-					recipient.setRecipient(identityEmail);
+					if(identityEmail instanceof PersistentObject) {
+						recipient.setRecipient(identityEmail);
+					} else {
+						recipient.setEmailAddress(identityEmail.getUser().getProperty(UserConstants.EMAIL, null));
+					}
 					recipient.setGroup(contactList.getName());
 					recipient.setVisible(visible);
 					recipient.setDeleted(Boolean.FALSE);
