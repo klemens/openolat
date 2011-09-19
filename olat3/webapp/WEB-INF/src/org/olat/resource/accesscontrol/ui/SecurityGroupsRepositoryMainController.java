@@ -81,7 +81,7 @@ public class SecurityGroupsRepositoryMainController extends MainLayoutBasicContr
 	private SecurityGroupMembersController tutorsController;
 	private SecurityGroupMembersController participantsController;
 	
-	private final RepositoryEntry repoEntry;
+	private RepositoryEntry repoEntry;
 	private final RepositoryManager rm;
 	private final BusinessGroupManager bgm;
 	private final BaseSecurity securityManager;
@@ -148,6 +148,8 @@ public class SecurityGroupsRepositoryMainController extends MainLayoutBasicContr
 	}
 	
 	private void lazyUpdateRepositoryEntry() {
+		repoEntry = rm.lookupRepositoryEntry(repoEntry.getKey());
+		
 		if(repoEntry.getTutorGroup() == null){
 			rm.createTutorSecurityGroup(repoEntry);
 		}
