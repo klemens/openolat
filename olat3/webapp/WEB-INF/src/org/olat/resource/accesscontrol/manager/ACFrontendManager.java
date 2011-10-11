@@ -320,6 +320,10 @@ public class ACFrontendManager extends BasicManager {
 		if("CourseModule".equals(resourceType)) {
 			RepositoryEntry entry = repositoryManager.lookupRepositoryEntry(resource, false);
 			if(entry != null) {
+				if(entry.getParticipantGroup() == null) {
+					repositoryManager.createParticipantSecurityGroup(entry);
+					repositoryManager.updateRepositoryEntry(entry);
+				}
 				if(!securityManager.isIdentityInSecurityGroup(identity, entry.getParticipantGroup())) {
 					securityManager.addIdentityToSecurityGroup(identity, entry.getParticipantGroup());
 				}

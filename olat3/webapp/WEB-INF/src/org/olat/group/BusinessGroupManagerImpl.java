@@ -1,5 +1,5 @@
 /**
-BaseSecurity* OLAT - Online Learning and Training<br>
+* OLAT - Online Learning and Training<br>
 * http://www.olat.org
 * <p>
 * Licensed under the Apache License, Version 2.0 (the "License"); <br>
@@ -37,7 +37,6 @@ import java.util.Map;
 import java.util.Set;
 
 import org.hibernate.StaleObjectStateException;
-import org.jfree.util.Log;
 import org.olat.admin.user.delete.service.UserDeletionManager;
 import org.olat.basesecurity.BaseSecurity;
 import org.olat.basesecurity.BaseSecurityManager;
@@ -448,7 +447,9 @@ public class BusinessGroupManagerImpl extends BasicManager implements BusinessGr
 			businessGroupTodelete = loadBusinessGroup(businessGroupTodelete);
 			// 0) Loop over all deletableGroupData
 			for (DeletableGroupData deleteListener : deleteListeners) {
-				Log.debug("deleteBusinessGroup: call deleteListener=" + deleteListener);
+				if(isLogDebugEnabled()) {
+					logDebug("deleteBusinessGroup: call deleteListener=" + deleteListener);
+				}
 				deleteListener.deleteGroupDataFor(businessGroupTodelete);
 			} 
 			ProjectBrokerManagerFactory.getProjectBrokerManager().deleteGroupDataFor(businessGroupTodelete);
@@ -504,6 +505,8 @@ public class BusinessGroupManagerImpl extends BasicManager implements BusinessGr
 	
 	private void removeFromRepositoryEntrySecurityGroup(BusinessGroup group) {
 		BGContext context = group.getGroupContext();
+		if(context == null) return;//nothing to do
+		
 		BGContextManager contextManager = BGContextManagerImpl.getInstance();
 		List<Identity> coaches = group.getOwnerGroup() == null ? Collections.<Identity>emptyList() :
 			securityManager.getIdentitiesOfSecurityGroup(group.getOwnerGroup());
