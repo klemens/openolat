@@ -27,6 +27,7 @@ import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.net.URI;
 import java.util.List;
 
@@ -51,6 +52,7 @@ import org.olat.basesecurity.BaseSecurityManager;
 import org.olat.catalog.CatalogEntry;
 import org.olat.catalog.CatalogManager;
 import org.olat.catalog.restapi.CatalogEntryVO;
+import org.olat.catalog.restapi.CatalogEntryVOes;
 import org.olat.core.commons.persistence.DBFactory;
 import org.olat.core.id.Identity;
 import org.olat.core.id.OLATResourceable;
@@ -76,6 +78,8 @@ public class CatalogTest extends OlatJerseyTestCase {
 	
 	private Identity admin, id1;
 	private CatalogEntry root1, entry1, entry2, subEntry11, subEntry12;
+	//fxdiff FXOLAT-122: course management
+	private CatalogEntry entryToMove1, entryToMove2, subEntry13move;
 	
 	@Before
 	@Override
@@ -120,6 +124,24 @@ public class CatalogTest extends OlatJerseyTestCase {
 		entry2.setDescription("Entry-description-2");
 		catalogManager.addCatalogEntry(root1, entry2);
 		
+		entryToMove1 = catalogManager.createCatalogEntry();
+		entryToMove1.setType(CatalogEntry.TYPE_NODE);
+		entryToMove1.setName("Entry-1-to-move");
+		entryToMove1.setDescription("Entry-description-1-to-move");
+		catalogManager.addCatalogEntry(root1, entryToMove1);
+		
+		entryToMove2 = catalogManager.createCatalogEntry();
+		entryToMove2.setType(CatalogEntry.TYPE_NODE);
+		entryToMove2.setName("Entry-2-to-move");
+		entryToMove2.setDescription("Entry-description-2-to-move");
+		catalogManager.addCatalogEntry(root1, entryToMove2);
+		
+		subEntry13move = catalogManager.createCatalogEntry();
+		subEntry13move.setType(CatalogEntry.TYPE_NODE);
+		subEntry13move.setName("Sub-entry-13-move target");
+		subEntry13move.setDescription("Sub-entry-description-13-move target");
+		catalogManager.addCatalogEntry(root1, subEntry13move);
+		
 		DBFactory.getInstance().intermediateCommit();
 	}
 	
@@ -142,6 +164,23 @@ public class CatalogTest extends OlatJerseyTestCase {
 		List<CatalogEntryVO> vos = parseEntryArray(body);
 		assertNotNull(vos);
 		assertEquals(1, vos.size());//Root-1
+	}
+	
+	@Test
+	public void testGetRootsWithPaging() throws IOException {
+		HttpClient c = loginWithCookie("administrator", "olat");
+		
+		URI uri = UriBuilder.fromUri(getContextURI()).path("catalog").build();
+		GetMethod method = createGet(uri, MediaType.APPLICATION_JSON + ";pagingspec=1.0", true);
+		int code = c.executeMethod(method);
+		assertEquals(200, code);
+		InputStream body = method.getResponseBodyAsStream();
+		CatalogEntryVOes vos = parse(body, CatalogEntryVOes.class);
+		method.releaseConnection();
+		assertNotNull(vos);
+		assertNotNull(vos.getCatalogEntries());
+		assertEquals(1, vos.getCatalogEntries().length);//Root-1
+		assertEquals(1, vos.getTotalCount());
 	}
 	
 	@Test
@@ -173,6 +212,25 @@ public class CatalogTest extends OlatJerseyTestCase {
 		List<CatalogEntryVO> vos = parseEntryArray(body);
 		assertNotNull(vos);
 		assertTrue(vos.size() >= 2);
+	}
+	
+	@Test
+	public void testGetChildrenWithPaging() throws IOException {
+		HttpClient c = loginWithCookie("administrator", "olat");
+		
+		URI uri = UriBuilder.fromUri(getContextURI()).path("catalog").path(root1.getKey().toString()).path("children")
+				.queryParam("start", "0").queryParam("limit", "2").build();
+		
+		GetMethod method = createGet(uri, MediaType.APPLICATION_JSON + ";pagingspec=1.0", true);
+		int code = c.executeMethod(method);
+		assertEquals(200, code);
+		InputStream body = method.getResponseBodyAsStream();
+		CatalogEntryVOes vos = parse(body, CatalogEntryVOes.class);
+		method.releaseConnection();
+		assertNotNull(vos);
+		assertNotNull(vos.getCatalogEntries());
+		assertTrue(vos.getCatalogEntries().length <= 2);
+		assertTrue(vos.getTotalCount() >= 2);
 	}
 	
 	@Test
@@ -351,6 +409,38 @@ public class CatalogTest extends OlatJerseyTestCase {
 	}
 	
 	@Test
+	public void testUpdateAndMoveCatalogEntryJson() throws IOException {
+		HttpClient c = loginWithCookie("administrator", "olat");
+		
+		CatalogEntryVO entry = new CatalogEntryVO();
+		entry.setName("Entry-2-moved-down");
+		entry.setDescription("Entry-description-2-moved-down");
+		entry.setType(CatalogEntry.TYPE_NODE);
+		String entity = stringuified(entry);
+		
+		URI uri = UriBuilder.fromUri(getContextURI()).path("catalog").path(entryToMove2.getKey().toString()).queryParam("newParentKey", subEntry13move.getKey().toString()).build();
+
+		PostMethod method = createPost(uri, MediaType.APPLICATION_JSON, true);
+		method.addRequestHeader("Content-Type", MediaType.APPLICATION_JSON);
+    RequestEntity requestEntity = new StringRequestEntity(entity, MediaType.APPLICATION_JSON, "UTF-8");
+		method.setRequestEntity(requestEntity);
+
+		int code = c.executeMethod(method);
+		assertEquals(200, code);
+		String body = method.getResponseBodyAsString();
+		method.releaseConnection();
+		CatalogEntryVO vo = parse(body, CatalogEntryVO.class);
+		assertNotNull(vo);
+		
+		CatalogManager catalogManager = CatalogManager.getInstance();
+		CatalogEntry updatedEntry = catalogManager.loadCatalogEntry(entryToMove2);
+		assertEquals("Entry-2-moved-down", updatedEntry.getName());
+		assertEquals("Entry-description-2-moved-down", updatedEntry.getDescription());
+		assertNotNull(updatedEntry.getParent());
+		assertTrue(updatedEntry.getParent().equalsByPersistableKey(subEntry13move));
+	}
+	
+	@Test
 	public void testUpdateCatalogEntryQuery() throws IOException {
 		HttpClient c = loginWithCookie("administrator", "olat");
 		
@@ -398,6 +488,31 @@ public class CatalogTest extends OlatJerseyTestCase {
 		CatalogEntry updatedEntry = catalogManager.loadCatalogEntry(entry2);
 		assertEquals("Entry-2-c", updatedEntry.getName());
 		assertEquals("Entry-description-2-c", updatedEntry.getDescription());
+	}
+	
+	@Test
+	public void testMoveCatalogEntryForm() throws IOException {
+		HttpClient c = loginWithCookie("administrator", "olat");
+		
+		URI uri = UriBuilder.fromUri(getContextURI()).path("catalog").path(entryToMove1.getKey().toString()).build();
+		PostMethod method = createPost(uri, MediaType.APPLICATION_JSON, true);
+		method.addParameters(new NameValuePair[] {
+				new NameValuePair("newParentKey", subEntry13move.getKey().toString())
+		});
+
+		int code = c.executeMethod(method);
+		assertEquals(200, code);
+		String body = method.getResponseBodyAsString();
+		method.releaseConnection();
+		CatalogEntryVO vo = parse(body, CatalogEntryVO.class);
+		assertNotNull(vo);
+		
+		CatalogManager catalogManager = CatalogManager.getInstance();
+		CatalogEntry updatedEntry = catalogManager.loadCatalogEntry(entryToMove1);
+		assertEquals("Entry-1-to-move", updatedEntry.getName());
+		assertEquals("Entry-description-1-to-move", updatedEntry.getDescription());
+		assertNotNull(updatedEntry.getParent());
+		assertTrue(updatedEntry.getParent().equalsByPersistableKey(subEntry13move));
 	}
 	
 	@Test

@@ -33,6 +33,7 @@ import java.util.Locale;
 import javax.servlet.http.HttpServletRequest;
 import javax.ws.rs.Consumes;
 import javax.ws.rs.DELETE;
+import javax.ws.rs.DefaultValue;
 import javax.ws.rs.FormParam;
 import javax.ws.rs.GET;
 import javax.ws.rs.POST;
@@ -45,9 +46,10 @@ import javax.ws.rs.WebApplicationException;
 import javax.ws.rs.core.Context;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.PathSegment;
+import javax.ws.rs.core.Request;
 import javax.ws.rs.core.Response;
-import javax.ws.rs.core.UriInfo;
 import javax.ws.rs.core.Response.Status;
+import javax.ws.rs.core.UriInfo;
 
 import org.olat.basesecurity.BaseSecurity;
 import org.olat.basesecurity.BaseSecurityManager;
@@ -60,6 +62,7 @@ import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.translator.Translator;
 import org.olat.core.id.Identity;
 import org.olat.core.id.OLATResourceable;
+import org.olat.core.util.StringHelper;
 import org.olat.core.util.Util;
 import org.olat.core.util.coordinate.CoordinatorManager;
 import org.olat.core.util.coordinate.LockResult;
@@ -68,6 +71,7 @@ import org.olat.core.util.resource.OresHelper;
 import org.olat.dispatcher.LocaleNegotiator;
 import org.olat.repository.RepositoryEntry;
 import org.olat.repository.RepositoryManager;
+import org.olat.restapi.support.MediaTypeVariants;
 import org.olat.restapi.support.vo.ErrorVO;
 import org.olat.user.restapi.UserVO;
 import org.olat.user.restapi.UserVOFactory;
@@ -117,15 +121,17 @@ public class CatalogWebService {
 	 */
 	@GET
 	@Produces({MediaType.APPLICATION_XML, MediaType.APPLICATION_JSON})
-	public Response getRoots() {
+	public Response getRoots(@Context HttpServletRequest httpRequest, @Context Request request) {
 		List<CatalogEntry> rootEntries = catalogManager.getRootCatalogEntries();
-		
-		int count = 0;
-		CatalogEntryVO[] entryVOes = new CatalogEntryVO[rootEntries.size()];
-		for(CatalogEntry entry :rootEntries) {
-			entryVOes[count++] = get(entry);
+		CatalogEntryVO[] entryVOes = toArray(rootEntries);
+		if(MediaTypeVariants.isPaged(httpRequest, request)) {
+			CatalogEntryVOes voes = new CatalogEntryVOes();
+			voes.setCatalogEntries(entryVOes);
+			voes.setTotalCount(1);
+			return Response.ok(voes).build();
+		} else {
+			return Response.ok(entryVOes).build();
 		}
-		return Response.ok(entryVOes).build();
 	}
 	
 	/**
@@ -137,14 +143,17 @@ public class CatalogWebService {
    * @response.representation.401.doc The path could not be resolved to a valid catalog entry
    * @param path The path
    * @param uriInfo The URI informations
+   * @param httpRequest The HTTP request
+   * @param request The REST request
 	 * @return The response
 	 */
 	@GET
 	@Path("{path:.*}")
 	@Produces({MediaType.APPLICATION_XML, MediaType.APPLICATION_JSON})
-	public Response getCatalogEntry(@PathParam("path") List<PathSegment> path, @Context UriInfo uriInfo) {
+	public Response getCatalogEntry(@PathParam("path") List<PathSegment> path, @Context UriInfo uriInfo,
+			@Context HttpServletRequest httpRequest, @Context Request request) {
 		if(path.isEmpty()) {
-			return getRoots();
+			return getRoots(httpRequest, request);
 		}
 		
 		Long ceKey = getCatalogEntryKeyFromPath(path);
@@ -169,14 +178,19 @@ public class CatalogWebService {
    * @response.representation.200.example {@link org.olat.catalog.restapi.Examples#SAMPLE_CATALOGENTRYVOes}
    * @response.representation.404.doc The path could not be resolved to a valid catalog entry
    * @param path The path
+   * @param start
+   * @param limit
+   * @param httpRequest The HTTP request
+   * @param request The REST request
 	 * @return The response
 	 */
 	@GET
 	@Path("{path:.*}/children")
 	@Produces({MediaType.APPLICATION_XML, MediaType.APPLICATION_JSON})
-	public Response getChildren(@PathParam("path") List<PathSegment> path) {
+	public Response getChildren(@PathParam("path") List<PathSegment> path, @QueryParam("start") @DefaultValue("0") Integer start,
+			@QueryParam("limit") @DefaultValue("25") Integer limit, @Context HttpServletRequest httpRequest, @Context Request request) {
 		if(path.isEmpty()) {
-			return getRoots();
+			return getRoots(httpRequest, request);
 		}
 
 		Long ceKey = getCatalogEntryKeyFromPath(path);
@@ -189,13 +203,28 @@ public class CatalogWebService {
 			return Response.serverError().status(Status.NOT_FOUND).build();
 		}
 		
-		List<CatalogEntry> entries = catalogManager.getChildrenOf(ce);
+		if(MediaTypeVariants.isPaged(httpRequest, request)) {
+			int totalCount = catalogManager.countChildrenOf(ce, -1);
+			List<CatalogEntry> entries = catalogManager.getChildrenOf(ce, start, limit, CatalogEntry.OrderBy.name, true);
+			CatalogEntryVO[] entryVOes = toArray(entries);
+			CatalogEntryVOes voes = new CatalogEntryVOes();
+			voes.setTotalCount(totalCount);
+			voes.setCatalogEntries(entryVOes);
+			return Response.ok(voes).build();
+		} else {
+			List<CatalogEntry> entries = catalogManager.getChildrenOf(ce);
+			CatalogEntryVO[] entryVOes = toArray(entries);
+			return Response.ok(entryVOes).build();
+		}
+	}
+	
+	private CatalogEntryVO[] toArray(List<CatalogEntry> entries) {
 		int count = 0;
 		CatalogEntryVO[] entryVOes = new CatalogEntryVO[entries.size()];
 		for(CatalogEntry entry:entries) {
 			entryVOes[count++] = get(entry);
 		}
-		return Response.ok(entryVOes).build();
+		return entryVOes;
 	}
 	
 	/**
@@ -323,6 +352,7 @@ public class CatalogWebService {
    * @param path The path
    * @param name The name
    * @param description The description
+   * @param newParentKey The parent key to move the entry (optional)
    * @param httpRquest The HTTP request
    * @param uriInfo The URI informations
 	 * @return The response
@@ -333,12 +363,13 @@ public class CatalogWebService {
 	@Produces({MediaType.APPLICATION_XML, MediaType.APPLICATION_JSON})
 	public Response updatePostCatalogEntry(@PathParam("path") List<PathSegment> path,
 			@FormParam("name") String name, @FormParam("description") String description,
+			@FormParam("newParentKey") Long newParentKey,//fxdiff FXOLAT-122: course management
 			@Context HttpServletRequest httpRequest, @Context UriInfo uriInfo) {
 		
 		CatalogEntryVO entryVo = new CatalogEntryVO();
 		entryVo.setName(name);
 		entryVo.setDescription(description);
-		return updateCatalogEntry(path, entryVo, httpRequest, uriInfo);
+		return updateCatalogEntry(path, entryVo, newParentKey, httpRequest, uriInfo);
 	}
 	
 	/**
@@ -353,6 +384,7 @@ public class CatalogWebService {
    * @param id The id of the catalog entry
    * @param name The name
    * @param description The description
+   * @param newParentKey The parent key to move the entry (optional)
    * @param httpRquest The HTTP request
    * @param uriInfo The URI informations
 	 * @return The response
@@ -362,12 +394,13 @@ public class CatalogWebService {
 	@Produces({MediaType.APPLICATION_XML, MediaType.APPLICATION_JSON})
 	public Response updateCatalogEntry(@PathParam("path") List<PathSegment> path,
 			@QueryParam("name") String name, @QueryParam("description") String description,
+			@QueryParam("newParentKey") Long newParentKey,//fxdiff FXOLAT-122: course management
 			@Context HttpServletRequest httpRequest, @Context UriInfo uriInfo) {
 		
 		CatalogEntryVO entryVo = new CatalogEntryVO();
 		entryVo.setName(name);
 		entryVo.setDescription(description);
-		return updateCatalogEntry(path, entryVo, httpRequest, uriInfo);
+		return updateCatalogEntry(path, entryVo, newParentKey, httpRequest, uriInfo);
 	}
 	
 	/**
@@ -380,6 +413,7 @@ public class CatalogWebService {
    * @response.representation.404.doc The path could not be resolved to a valid catalog entry
    * @param path The path
    * @param entryVo The catalog entry
+   * @param newParentKey The parent key to move the entry (optional)
    * @param httpRquest The HTTP request
    * @param uriInfo The URI informations
 	 * @return The response
@@ -389,7 +423,7 @@ public class CatalogWebService {
 	@Consumes({MediaType.APPLICATION_XML, MediaType.APPLICATION_JSON})
 	@Produces({MediaType.APPLICATION_XML, MediaType.APPLICATION_JSON})
 	public Response updateCatalogEntry(@PathParam("path") List<PathSegment> path,
-			CatalogEntryVO entryVo, @Context HttpServletRequest httpRequest, @Context UriInfo uriInfo) {
+			CatalogEntryVO entryVo, @QueryParam("newParentKey") Long newParentKey, @Context HttpServletRequest httpRequest, @Context UriInfo uriInfo) {
 		
 		if(!isAuthor(httpRequest)) {
 			return Response.serverError().status(Status.UNAUTHORIZED).build();
@@ -407,6 +441,17 @@ public class CatalogWebService {
 				return Response.serverError().status(Status.UNAUTHORIZED).build();
 			}
 		}
+		//fxdiff FXOLAT-122: course management
+		CatalogEntry newParent = null;
+		if(newParentKey != null) {
+			newParent = catalogManager.loadCatalogEntry(newParentKey);
+			if(newParent.getType() == CatalogEntry.TYPE_NODE) {
+				//check if can admin category
+				if(!canAdminSubTree(newParent, httpRequest)) {
+					return Response.serverError().status(Status.UNAUTHORIZED).build();
+				}
+			}
+		}
 		
 		Identity id = getUserRequest(httpRequest).getIdentity();
 		LockResult lock = CoordinatorManager.getInstance().getCoordinator().getLocker().acquireLock(catalogRes, id, LOCK_TOKEN);
@@ -420,10 +465,21 @@ public class CatalogWebService {
 				return Response.serverError().status(Status.NOT_FOUND).build();
 			}
 			
-			ce.setName(entryVo.getName());
-			ce.setDescription(entryVo.getDescription());
-			ce.setType(guessType(entryVo));
+			//only update if needed
+			//fxdiff FXOLAT-122: course management
+			if(StringHelper.containsNonWhitespace(entryVo.getName())) {
+				ce.setName(entryVo.getName());
+			}
+			if(StringHelper.containsNonWhitespace(entryVo.getDescription())) {
+				ce.setDescription(entryVo.getDescription());
+			}
+			if(entryVo.getType() != null) {
+				ce.setType(guessType(entryVo));
+			}
 			catalogManager.updateCatalogEntry(ce);
+			if(newParent != null) {
+				catalogManager.moveCatalogEntry(ce, newParent);
+			}
 		} catch (Exception e) {
 			throw new WebApplicationException(e);
 		} finally {

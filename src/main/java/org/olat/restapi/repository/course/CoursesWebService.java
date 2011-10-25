@@ -25,9 +25,11 @@ import static org.olat.restapi.security.RestSecurityHelper.getUserRequest;
 import static org.olat.restapi.security.RestSecurityHelper.isAuthor;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 import javax.servlet.http.HttpServletRequest;
+import javax.ws.rs.DefaultValue;
 import javax.ws.rs.GET;
 import javax.ws.rs.PUT;
 import javax.ws.rs.Path;
@@ -36,6 +38,7 @@ import javax.ws.rs.QueryParam;
 import javax.ws.rs.WebApplicationException;
 import javax.ws.rs.core.Context;
 import javax.ws.rs.core.MediaType;
+import javax.ws.rs.core.Request;
 import javax.ws.rs.core.Response;
 import javax.ws.rs.core.Response.Status;
 
@@ -63,9 +66,11 @@ import org.olat.repository.RepositoryEntry;
 import org.olat.repository.RepositoryManager;
 import org.olat.resource.OLATResource;
 import org.olat.resource.OLATResourceManager;
+import org.olat.restapi.support.MediaTypeVariants;
 import org.olat.restapi.support.ObjectFactory;
 import org.olat.restapi.support.vo.CourseConfigVO;
 import org.olat.restapi.support.vo.CourseVO;
+import org.olat.restapi.support.vo.CourseVOes;
 
 /**
  * 
@@ -100,34 +105,58 @@ public class CoursesWebService {
 	/**
 	 * Get all courses viewable by the authenticated user
 	 * @response.representation.200.qname {http://www.example.com}courseVO
-   * @response.representation.200.mediaType application/xml, application/json
-   * @response.representation.200.doc List of visible courses
-   * @response.representation.200.example {@link org.olat.restapi.support.vo.Examples#SAMPLE_COURSEVOes}
-   * @param request The HTTP request
+	 * @response.representation.200.mediaType application/xml, application/json, application/json;pagingspec=1.0
+	 * @response.representation.200.doc List of visible courses
+	 * @response.representation.200.example {@link org.olat.restapi.support.vo.Examples#SAMPLE_COURSEVOes}
+	 * @param start
+	 * @param limit
+	 * @param httpRequest The HTTP request
+	 * @param request The REST request
 	 * @return
 	 */
 	@GET
 	@Produces({MediaType.APPLICATION_XML, MediaType.APPLICATION_JSON})
-	public Response getCourseList(@Context HttpServletRequest request) {
-		Roles roles = getRoles(request);
+	public Response getCourseList(@QueryParam("start") @DefaultValue("0") Integer start,
+			@QueryParam("limit") @DefaultValue("25") Integer limit, @Context HttpServletRequest httpRequest,
+			@Context Request request) {
+		RepositoryManager rm = RepositoryManager.getInstance();
 		
-		List<String> courseType = new ArrayList<String>();
-		courseType.add(CourseModule.getCourseTypeName());
-		List<RepositoryEntry> repoEntries = RepositoryManager.getInstance().genericANDQueryWithRolesRestriction("*", "*", "*", courseType, roles, "");
-
+		Roles roles = getRoles(httpRequest);
+		List<String> courseType = Collections.singletonList(CourseModule.getCourseTypeName());
+		if(MediaTypeVariants.isPaged(httpRequest, request)) {
+			int totalCount = rm.countGenericANDQueryWithRolesRestriction(null, null, null, courseType, roles, null, true);
+			List<RepositoryEntry> repoEntries = rm.genericANDQueryWithRolesRestriction(null, null, null, courseType, roles, null, start, limit, true);
+			CourseVO[] vos = toCourseVo(repoEntries);
+			CourseVOes voes = new CourseVOes();
+			voes.setCourses(vos);
+			voes.setTotalCount(totalCount);
+			return Response.ok(voes).build();
+		} else {
+			List<RepositoryEntry> repoEntries = rm.genericANDQueryWithRolesRestriction(null, null, null, courseType, roles, null, 0, -1, false);
+			CourseVO[] vos = toCourseVo(repoEntries);
+			return Response.ok(vos).build();
+		}
+	}
+	
+	private CourseVO[] toCourseVo(List<RepositoryEntry> repoEntries) {
 		List<CourseVO> voList = new ArrayList<CourseVO>();
+		
+		int count=0;
 		for (RepositoryEntry repoEntry : repoEntries) {
 			try {
 				ICourse course = CourseFactory.loadCourse(repoEntry.getOlatResource().getResourceableId());
-				voList.add(ObjectFactory.get(course));
+				voList.add(ObjectFactory.get(repoEntry, course));
+				if(count % 33 == 0) {
+					DBFactory.getInstance().commitAndCloseSession();
+				}
 			} catch (Exception e) {
-				log.error("Cannot load the course with this repository entry: " + repoEntry);
+				log.error("Cannot load the course with this repository entry: " + repoEntry, e);
 			}
 		}
 		
 		CourseVO[] vos = new CourseVO[voList.size()];
 		voList.toArray(vos);
-		return Response.ok(vos).build();
+		return vos;
 	}
 
 	/**

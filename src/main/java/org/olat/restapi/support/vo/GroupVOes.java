@@ -21,30 +21,40 @@
 
 package org.olat.restapi.support.vo;
 
-import java.util.ArrayList;
-import java.util.List;
-
 import javax.xml.bind.annotation.XmlAccessType;
 import javax.xml.bind.annotation.XmlAccessorType;
+import javax.xml.bind.annotation.XmlAttribute;
 import javax.xml.bind.annotation.XmlElement;
+import javax.xml.bind.annotation.XmlElementWrapper;
 import javax.xml.bind.annotation.XmlRootElement;
 
 @XmlAccessorType(XmlAccessType.FIELD)
-@XmlRootElement(name = "groupVOes")
+@XmlRootElement(name = "groups")
 public class GroupVOes {
 
-	@XmlElement(name="groupVO")
-	private List<GroupVO> groups = new ArrayList<GroupVO>();
+	@XmlElementWrapper(name="groups")
+	@XmlElement(name="group")
+	private GroupVO[] groups;
+	@XmlAttribute(name="totalCount")
+	private int totalCount;
 	
 	public GroupVOes() {
 		//make JAXB happy
 	}
 
-	public List<GroupVO> getGroups() {
+	public GroupVO[] getGroups() {
 		return groups;
 	}
 
-	public void setGroups(List<GroupVO> groups) {
+	public void setGroups(GroupVO[] groups) {
 		this.groups = groups;
+	}
+
+	public int getTotalCount() {
+		return totalCount;
+	}
+
+	public void setTotalCount(int totalCount) {
+		this.totalCount = totalCount;
 	}
 }

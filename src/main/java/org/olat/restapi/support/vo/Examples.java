@@ -21,11 +21,13 @@
 
 package org.olat.restapi.support.vo;
 
+
 public class Examples {
  
 	public static final GroupVO SAMPLE_GROUPVO = new GroupVO();
 	public static final GroupVOes SAMPLE_GROUPVOes = new GroupVOes();
 	public static final GroupInfoVO SAMPLE_GROUPINFOVO = new GroupInfoVO();
+	public static final GroupInfoVOes SAMPLE_GROUPINFOVOes = new GroupInfoVOes();
 	
 	public static final ErrorVO SAMPLE_ERRORVO = new ErrorVO();
 	public static final ErrorVOes SAMPLE_ERRORVOes = new ErrorVOes();
@@ -56,11 +58,17 @@ public class Examples {
   	SAMPLE_GROUPVO.setDescription("My group description");
   	SAMPLE_GROUPVO.setMinParticipants(0);
   	SAMPLE_GROUPVO.setMaxParticipants(0);
-  	SAMPLE_GROUPVOes.getGroups().add(SAMPLE_GROUPVO);
+  	SAMPLE_GROUPVOes.setGroups(new GroupVO[]{SAMPLE_GROUPVO});
   	
+  	SAMPLE_GROUPINFOVO.setKey(123467l);
+  	SAMPLE_GROUPINFOVO.setName("My group");
+  	SAMPLE_GROUPINFOVO.setDescription("My group description");
+  	SAMPLE_GROUPINFOVO.setMinParticipants(0);
+  	SAMPLE_GROUPINFOVO.setMaxParticipants(0);
   	SAMPLE_GROUPINFOVO.setNews("<p>Hello world</p>");
   	SAMPLE_GROUPINFOVO.setForumKey(374589l);
-  	
+  	SAMPLE_GROUPINFOVOes.setGroups(new GroupInfoVO[]{SAMPLE_GROUPINFOVO});
+
   	SAMPLE_ERRORVO.setCode("org.olat.restapi:error");
   	SAMPLE_ERRORVO.setTranslation("Hello world, there is an error");
   	SAMPLE_ERRORVOes.getErrors().add(SAMPLE_ERRORVO);
@@ -71,7 +79,8 @@ public class Examples {
   	SAMPLE_REPOENTRYVO.setResourcename("fdhasl");
   	SAMPLE_REPOENTRYVO.setResourceableId(4368567l);
   	SAMPLE_REPOENTRYVO.setResourceableTypeName("CourseModule");
-  	SAMPLE_REPOENTRYVOes.getEntries().add(SAMPLE_REPOENTRYVO);
+  	SAMPLE_REPOENTRYVOes.setRepositoryEntries(new RepositoryEntryVO[]{SAMPLE_REPOENTRYVO});
+  	SAMPLE_REPOENTRYVOes.setTotalCount(1);
   	
   	SAMPLE_AUTHVO.setKey(38759l);
   	SAMPLE_AUTHVO.setAuthUsername("john");
@@ -90,7 +99,8 @@ public class Examples {
   	
   	SAMPLE_COURSEVO.setKey(777l);
   	SAMPLE_COURSEVO.setTitle("Demo course");
-  	SAMPLE_COURSEVOes.getCourses().add(SAMPLE_COURSEVO);
+  	SAMPLE_COURSEVOes.setTotalCount(0);
+  	SAMPLE_COURSEVOes.setCourses(new CourseVO[]{SAMPLE_COURSEVO});
   	
   	SAMPLE_COURSENODEVO.setId("id");
   	SAMPLE_COURSENODEVOes.getNodes().add(SAMPLE_COURSENODEVO);
