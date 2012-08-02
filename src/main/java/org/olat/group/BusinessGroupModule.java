@@ -23,7 +23,8 @@ import org.olat.NewControllerFactory;
 import org.olat.core.configuration.AbstractOLATModule;
 import org.olat.core.configuration.PersistedProperties;
 import org.olat.core.id.context.SiteContextEntryControllerCreator;
-import org.olat.group.site.GroupsManagementSite;
+import org.olat.core.util.StringHelper;
+import org.olat.core.util.resource.OresHelper;
 import org.olat.group.site.GroupsSite;
 
 /**
@@ -36,6 +37,11 @@ import org.olat.group.site.GroupsSite;
  * @author gnaegi
  */
 public class BusinessGroupModule extends AbstractOLATModule {
+
+	public static String ORES_TYPE_GROUP = OresHelper.calculateTypeName(BusinessGroup.class);
+
+	private boolean userAllowedCreate;
+	private boolean authorAllowedCreate;
 	
 	/**
 	 * [used by spring]
@@ -54,9 +60,16 @@ public class BusinessGroupModule extends AbstractOLATModule {
 				new BusinessGroupContextEntryControllerCreator());
 		NewControllerFactory.getInstance().addContextEntryControllerCreator(GroupsSite.class.getSimpleName(),
 				new SiteContextEntryControllerCreator(GroupsSite.class));
-		NewControllerFactory.getInstance().addContextEntryControllerCreator(GroupsManagementSite.class.getSimpleName(),
-				new SiteContextEntryControllerCreator(GroupsManagementSite.class));
 		
+		//set properties
+		String userAllowed = getStringPropertyValue("user.allowed.create", true);
+		if(StringHelper.containsNonWhitespace(userAllowed)) {
+			userAllowedCreate = "true".equals(userAllowed);
+		}
+		String authorAllowed = getStringPropertyValue("author.allowed.create", true);
+		if(StringHelper.containsNonWhitespace(authorAllowed)) {
+			authorAllowedCreate = "true".equals(authorAllowed);
+		}
 	}
 
 	/**
@@ -64,20 +77,33 @@ public class BusinessGroupModule extends AbstractOLATModule {
 	 */
 	@Override
 	protected void initDefaultProperties() {
-	// nothing to init
+		userAllowedCreate = getBooleanConfigParameter("user.allowed.create", true);
+		authorAllowedCreate = getBooleanConfigParameter("author.allowed.create", true);
 	}
 
-	/**
-	 * @see org.olat.core.configuration.AbstractOLATModule#initFromChangedProperties()
-	 */
 	@Override
 	protected void initFromChangedProperties() {
-	// nothing to init
+		init();
 	}
-
+	
 	@Override
 	public void setPersistedProperties(PersistedProperties persistedProperties) {
 		this.moduleConfigProperties = persistedProperties;
 	}
 
+	public boolean isUserAllowedCreate() {
+		return userAllowedCreate;
+	}
+
+	public void setUserAllowedCreate(boolean userAllowedCreate) {
+		setStringProperty("user.allowed.create", Boolean.toString(userAllowedCreate), true);
+	}
+
+	public boolean isAuthorAllowedCreate() {
+		return authorAllowedCreate;
+	}
+
+	public void setAuthorAllowedCreate(boolean authorAllowedCreate) {
+		setStringProperty("author.allowed.create", Boolean.toString(authorAllowedCreate), true);
+	}
 }

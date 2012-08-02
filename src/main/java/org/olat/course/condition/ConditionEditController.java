@@ -43,7 +43,6 @@ import org.olat.core.util.Util;
 import org.olat.course.editor.EditorMainController;
 import org.olat.course.groupsandrights.CourseGroupManager;
 import org.olat.course.run.userview.UserCourseEnvironment;
-import org.olat.group.ui.context.BGContextEvent;
 /**
  * Initial Date:  Apr 7, 2004
  * @author gnaegi
@@ -122,16 +121,11 @@ public class ConditionEditController extends BasicController {
 				//successfully changed condition - get condition - dispose and init cond
 				validatedCondition = conditionEasyCtrllr.getCondition(); 
 				condition = cloneCondition(validatedCondition);
+				System.out.println("Condition: " + condition.getConditionExpression());
 				// Inform all listeners about the changed condition
 				// this event goes to the NodeEditController and from there to the 
 				// CourseEditorController which then saves the condition
 				fireEvent(ureq, Event.CHANGED_EVENT);
-			}else if(event instanceof BGContextEvent){
-				//fired by condition easy ctrllr in the case a group/area was created
-				//within default context. As more then one condition edit controller
-				//may be on the screen -> see Forum node => those most be informed about
-				//the changed condition, e.g. toggle the create link to choose link.
-				fireEvent(ureq, event);
 			}
 		} else if (source == conditionExpertForm) {
 			if (event == Event.CANCELLED_EVENT) {
