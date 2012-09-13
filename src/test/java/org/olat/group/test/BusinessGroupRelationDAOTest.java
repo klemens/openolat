@@ -232,16 +232,16 @@ public class BusinessGroupRelationDAOTest extends OlatTestCase {
 		dbInstance.commitAndCloseSession();
 		
 		//check
-		boolean test1 = businessGroupRelationDao.isIdentityInBusinessGroup(id, null, resource1); 
+		boolean test1 = businessGroupRelationDao.isIdentityInBusinessGroup(id, null, true, true, resource1); 
 		Assert.assertTrue(test1);
 		//name doesn't exist 
-		boolean test2 = businessGroupRelationDao.isIdentityInBusinessGroup(id, 1l, resource1); 
+		boolean test2 = businessGroupRelationDao.isIdentityInBusinessGroup(id, 1l, true, true, resource1); 
 		Assert.assertFalse(test2);
 		//wrong resource
-		boolean test4 = businessGroupRelationDao.isIdentityInBusinessGroup(id, null, resource3); 
+		boolean test4 = businessGroupRelationDao.isIdentityInBusinessGroup(id, null, true, true, resource3); 
 		Assert.assertFalse(test4);
 		//check null
-		boolean test5 = businessGroupRelationDao.isIdentityInBusinessGroup(id, null, resource1); 
+		boolean test5 = businessGroupRelationDao.isIdentityInBusinessGroup(id, null, true, true, resource1); 
 		Assert.assertTrue(test5);
 	}
 	
@@ -260,15 +260,15 @@ public class BusinessGroupRelationDAOTest extends OlatTestCase {
 		dbInstance.commitAndCloseSession();
 		
 		//check
-		boolean test1 = businessGroupRelationDao.isIdentityInBusinessGroup(id, group1.getKey(), resource1); 
+		boolean test1 = businessGroupRelationDao.isIdentityInBusinessGroup(id, group1.getKey(), true, true, resource1); 
 		Assert.assertTrue(test1);
 		//key doesn't exist 
-		boolean test2 = businessGroupRelationDao.isIdentityInBusinessGroup(id, 1l, resource1); 
+		boolean test2 = businessGroupRelationDao.isIdentityInBusinessGroup(id, 1l, true, true, resource1); 
 		Assert.assertFalse(test2);
-		boolean test3 = businessGroupRelationDao.isIdentityInBusinessGroup(id, group1.getKey(), resource3); 
+		boolean test3 = businessGroupRelationDao.isIdentityInBusinessGroup(id, group1.getKey(),true, true,  resource3); 
 		Assert.assertFalse(test3);
 		//check null
-		boolean test5 = businessGroupRelationDao.isIdentityInBusinessGroup(id, null, resource1); 
+		boolean test5 = businessGroupRelationDao.isIdentityInBusinessGroup(id, null, true, true, resource1); 
 		Assert.assertTrue(test5);
 	}
 	
@@ -287,10 +287,10 @@ public class BusinessGroupRelationDAOTest extends OlatTestCase {
 		dbInstance.commitAndCloseSession();
 		
 		//check
-		boolean test1 = businessGroupRelationDao.isIdentityInBusinessGroup(id, null, resource1); 
+		boolean test1 = businessGroupRelationDao.isIdentityInBusinessGroup(id, null, true, true, resource1); 
 		Assert.assertTrue(test1);
 		//wrong resource
-		boolean test4 = businessGroupRelationDao.isIdentityInBusinessGroup(id, null, resource3); 
+		boolean test4 = businessGroupRelationDao.isIdentityInBusinessGroup(id, null, true, true, resource3); 
 		Assert.assertFalse(test4);
 	}
 
@@ -521,4 +521,28 @@ public class BusinessGroupRelationDAOTest extends OlatTestCase {
 		}
 		Assert.assertEquals(3, count);
 	}
+	
+	@Test
+	public void countResourcesOfBusinessGroups() {
+		//create 3 entries and 1 group
+		RepositoryEntry re1 = JunitTestHelper.createAndPersistRepositoryEntry();
+		RepositoryEntry re2 = JunitTestHelper.createAndPersistRepositoryEntry();
+		RepositoryEntry re3 = JunitTestHelper.createAndPersistRepositoryEntry();
+		BusinessGroup group = businessGroupDao.createAndPersist(null, "rel-repo", "rel-repo-desc", 0, 10, true, false, false, false, false);
+		dbInstance.commitAndCloseSession();
+		
+		businessGroupRelationDao.addRelationToResource(group, re1.getOlatResource());
+		businessGroupRelationDao.addRelationToResource(group, re2.getOlatResource());
+		businessGroupRelationDao.addRelationToResource(group, re3.getOlatResource());
+		dbInstance.commitAndCloseSession();
+		
+		//check with empty list of groups
+		int numOfResources1 = businessGroupRelationDao.countResources(Collections.<BusinessGroup>emptyList()); 
+		Assert.assertEquals(0, numOfResources1);
+		
+		//check with the group
+		int numOfResources2 = businessGroupRelationDao.countResources(Collections.singletonList(group)); 
+		Assert.assertEquals(3, numOfResources2);
+	}
+	
 }

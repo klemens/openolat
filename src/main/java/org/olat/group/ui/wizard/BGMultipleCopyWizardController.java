@@ -70,7 +70,13 @@ public class BGMultipleCopyWizardController extends WizardController {
 		businessGroupService = CoreSpringFactory.getImpl(BusinessGroupService.class);
 		this.originalGroup = originalGroup;
 		// init wizard step 1
-		copyForm = new BGCopyWizardCopyForm(ureq, wControl);
+		
+		boolean enableCourse = true;
+		boolean enableAreas = true;
+		boolean enableRights = true;
+		
+		
+		copyForm = new BGCopyWizardCopyForm(ureq, wControl, enableCourse, enableAreas, enableRights);
 		copyForm.addControllerListener(this);
 		// init wizard title and set step 1
 		setWizardTitle(translate("bgcopywizard.multiple.title"));
@@ -131,8 +137,8 @@ public class BGMultipleCopyWizardController extends WizardController {
 		// reload original group to prevent context proxy problems
 		originalGroup = businessGroupService.loadBusinessGroup(originalGroup);
 
-		BusinessGroup newGroup = businessGroupService.copyBusinessGroup(originalGroup, newGroupName, originalGroup.getDescription(),
-				null, max, null, null /* areas map */,
+		BusinessGroup newGroup = businessGroupService.copyBusinessGroup(getIdentity(), originalGroup, newGroupName, originalGroup.getDescription(),
+				null, max, 
 				copyForm.isCopyAreas(), copyForm.isCopyTools(), copyForm.isCopyRights(), copyForm.isCopyOwners(),
 				copyForm.isCopyParticipants(), copyForm.isCopyMembersVisibility(), copyForm.isCopyWaitingList(),
 				true /*copy relations*/);

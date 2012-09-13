@@ -42,7 +42,7 @@ import org.olat.core.gui.components.table.StaticColumnDescriptor;
 import org.olat.core.gui.components.table.TableController;
 import org.olat.core.gui.translator.PackageTranslator;
 import org.olat.core.gui.translator.Translator;
-import org.olat.resource.accesscontrol.manager.ACFrontendManager;
+import org.olat.resource.accesscontrol.ACService;
 import org.olat.resource.accesscontrol.model.OLATResourceAccess;
 
 /**
@@ -64,10 +64,14 @@ public class RepositoryTableModel extends DefaultTableDataModel<RepositoryEntry>
 	 * Identifies a table launch event (if clicked on an item in the name column).
 	 */
 	public static final String TABLE_ACTION_SELECT_ENTRY = "rtbSelectEntry";
+	/**
+	 * Identifies a multi selection
+	 */
+	public static final String TABLE_ACTION_SELECT_ENTRIES = "rtbSelectEntrIES";
 	//fxdiff VCRP-1,2: access control of resources
 	private static final int COLUMN_COUNT = 7;
 	Translator translator; // package-local to avoid synthetic accessor method.
-	private final ACFrontendManager acFrontendManager;
+	private final ACService acService;
 	
 	private Map<Long,OLATResourceAccess> repoEntriesWithOffer;
 		
@@ -79,7 +83,7 @@ public class RepositoryTableModel extends DefaultTableDataModel<RepositoryEntry>
 		super(new ArrayList<RepositoryEntry>());
 		this.translator = translator;
 		repoEntriesWithOffer = new HashMap<Long,OLATResourceAccess>();
-		acFrontendManager = (ACFrontendManager)CoreSpringFactory.getBean("acFrontendManager");
+		acService = CoreSpringFactory.getImpl(ACService.class);
 	}
 
 	/**
@@ -166,7 +170,7 @@ public class RepositoryTableModel extends DefaultTableDataModel<RepositoryEntry>
 		super.setObjects(objects);
 		
 		repoEntriesWithOffer = new HashMap<Long,OLATResourceAccess>();
-		List<OLATResourceAccess> withOffers = acFrontendManager.filterRepositoryEntriesWithAC(objects);
+		List<OLATResourceAccess> withOffers = acService.filterRepositoryEntriesWithAC(objects);
 		for(OLATResourceAccess withOffer:withOffers) {
 			repoEntriesWithOffer.put(withOffer.getResource().getKey(), withOffer);
 		}
@@ -175,10 +179,23 @@ public class RepositoryTableModel extends DefaultTableDataModel<RepositoryEntry>
 	public void addObject(RepositoryEntry object) {
 		getObjects().add(object);
 		List<RepositoryEntry> repoList = Collections.singletonList(object);
-		List<OLATResourceAccess> withOffers = acFrontendManager.filterRepositoryEntriesWithAC(repoList);
+		List<OLATResourceAccess> withOffers = acService.filterRepositoryEntriesWithAC(repoList);
 		for(OLATResourceAccess withOffer:withOffers) {
 			repoEntriesWithOffer.put(withOffer.getResource().getKey(), withOffer);
 		}
+	}
+	
+	public void addObjects(List<RepositoryEntry> objects) {
+		getObjects().addAll(objects);
+		List<OLATResourceAccess> withOffers = acService.filterRepositoryEntriesWithAC(objects);
+		for(OLATResourceAccess withOffer:withOffers) {
+			repoEntriesWithOffer.put(withOffer.getResource().getKey(), withOffer);
+		}
+	}
+	
+	public void removeObject(RepositoryEntry object) {
+		getObjects().remove(object);
+		repoEntriesWithOffer.remove(object.getOlatResource().getKey());
 	}
 
 	/**

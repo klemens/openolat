@@ -27,9 +27,9 @@ package org.olat.group.ui.main;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 
 import org.apache.commons.lang.StringEscapeUtils;
+import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.table.DefaultTableDataModel;
 import org.olat.core.gui.translator.Translator;
 import org.olat.core.util.Formatter;
@@ -43,9 +43,7 @@ import org.olat.group.BusinessGroupMembership;
  */
 public class BusinessGroupTableModelWithType extends DefaultTableDataModel<BGTableItem> {
 	private final int columnCount;
-	private Translator trans;
-	
-	private Map<Long, BusinessGroupMembership> memberships;
+	private final Translator trans;
 
 	/**
 	 * @param owned list of business groups
@@ -103,27 +101,38 @@ public class BusinessGroupTableModelWithType extends DefaultTableDataModel<BGTab
 				return wrapped.getBusinessGroupLastUsage();
 			case role:
 				return wrapped.getMembership();
-			case firstTime:
-				if(memberships != null) {
-					BusinessGroupMembership membership = memberships.get(wrapped.getBusinessGroupKey());
-					return membership == null ? null : membership.getCreationDate();
-				}
-				return null;
-			case lastTime:
-				if(memberships != null) {
-					BusinessGroupMembership membership = memberships.get(wrapped.getBusinessGroupKey());
-					return membership == null ? null : membership.getLastModified();
-				}
-				return null;
+			case firstTime: {
+				BusinessGroupMembership membership = wrapped.getMembership();
+				return membership == null ? null : membership.getCreationDate();
+			}
+			case lastTime: {
+				BusinessGroupMembership membership = wrapped.getMembership();
+				return membership == null ? null : membership.getLastModified();
+			}
 			case key:
 				return wrapped.getBusinessGroupKey().toString();
 			case freePlaces: {
 				Integer maxParticipants = wrapped.getMaxParticipants();
 				if(maxParticipants != null && maxParticipants.intValue() > 0) {
-					int free = maxParticipants - wrapped.getNumOfParticipants();
-					return Integer.toString(free);
+					long free = maxParticipants - wrapped.getNumOfParticipants();
+					return Long.toString(free);
 				}
 				return "&infin;";
+			}
+			case participantsCount: {
+				long count = wrapped.getNumOfParticipants();
+				return count < 0 ? "0" : Long.toString(count);
+			}
+			case tutorsCount: {
+				long count = wrapped.getNumOfOwners();
+				return count < 0 ? "0" : Long.toString(count);
+			}
+			case waitingListCount: {
+				if(wrapped.isWaitingListEnabled()) {
+					long count = wrapped.getNumWaiting();
+					return count < 0 ? "0" : Long.toString(count);
+				}
+				return "-";
 			}
 			case wrapper:
 				return wrapped;
@@ -137,13 +146,32 @@ public class BusinessGroupTableModelWithType extends DefaultTableDataModel<BGTab
 	public Object createCopyWithEmptyList() {
 		return new BusinessGroupTableModelWithType(trans, columnCount);
 	}
+	
+	public boolean filterEditableGroupKeys(UserRequest ureq, List<Long> groupKeys) {
+		if(ureq.getUserSession().getRoles().isOLATAdmin() || ureq.getUserSession().getRoles().isGroupManager()) {
+			return false;
+		}
+		
+		int countBefore = groupKeys.size();
+		
+		for(BGTableItem item:getObjects()) {
+			Long groupKey = item.getBusinessGroupKey();
+			if(groupKeys.contains(groupKey)) {
+				BusinessGroupMembership membership = item.getMembership();
+				if(membership == null || !membership.isOwner()) {
+					groupKeys.remove(groupKey);
+				}
+			}
+		}
+		
+		return groupKeys.size() != countBefore;
+	}
 
 	/**
 	 * @param owned
 	 */
-	public void setEntries(List<BGTableItem> owned, Map<Long, BusinessGroupMembership> memberships) {
+	public void setEntries(List<BGTableItem> owned) {
 		setObjects(owned);
-		this.memberships = memberships;
 	}
 	
 	public void removeBusinessGroup(BusinessGroup bg) {
@@ -165,7 +193,7 @@ public class BusinessGroupTableModelWithType extends DefaultTableDataModel<BGTab
 		resources("table.header.resources"),
 		accessControl(""),
 		accessControlLaunch("table.header.ac"),
-		accessTypes("table.header.ac"),
+		accessTypes("table.header.ac.method"),
 		mark("table.header.mark"),
 		lastUsage("table.header.lastUsage"),
 		role("table.header.role"),
@@ -173,6 +201,9 @@ public class BusinessGroupTableModelWithType extends DefaultTableDataModel<BGTab
 		lastTime("table.header.lastTime"),
 		key("table.header.key"),
 		freePlaces("table.header.freePlaces"),
+		participantsCount("table.header.participantsCount"),
+		tutorsCount("table.header.tutorsCount"),
+		waitingListCount("table.header.waitingListCount"),
 		wrapper(""),
 		card("table.header.businesscard");
 		

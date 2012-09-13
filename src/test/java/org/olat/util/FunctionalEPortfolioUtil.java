@@ -31,7 +31,6 @@ import org.apache.velocity.exception.ParseErrorException;
 import org.apache.velocity.exception.ResourceNotFoundException;
 import org.olat.util.FunctionalHomeSiteUtil.EPortfolioAction;
 import org.olat.util.FunctionalUtil.OlatSite;
-import org.openqa.selenium.Keys;
 
 import com.thoughtworks.selenium.Selenium;
 

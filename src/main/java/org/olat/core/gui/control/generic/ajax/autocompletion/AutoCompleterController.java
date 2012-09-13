@@ -28,8 +28,6 @@ package org.olat.core.gui.control.generic.ajax.autocompletion;
 import java.util.ArrayList;
 import java.util.List;
 
-import javax.servlet.http.HttpServletRequest;
-
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -42,12 +40,7 @@ import org.olat.core.gui.control.Event;
 import org.olat.core.gui.control.WindowControl;
 import org.olat.core.gui.control.controller.BasicController;
 import org.olat.core.gui.control.winmgr.JSCommand;
-import org.olat.core.gui.media.MediaResource;
-import org.olat.core.gui.media.StringMediaResource;
 import org.olat.core.gui.render.velocity.VelocityRenderDecorator;
-import org.olat.core.gui.util.CSSHelper;
-import org.olat.core.logging.AssertException;
-import org.olat.core.logging.LogDelegator;
 
 /**
  * 
@@ -67,13 +60,7 @@ import org.olat.core.logging.LogDelegator;
  * @author Felix Jost, FLorian Gnägi
  */
 public class AutoCompleterController extends BasicController {
-	private static final String CONTENT_TYPE_APPLICATION_X_JSON = "application/x-json";
-	private static final String CONTENT_TYPE_TEXT_JAVASCRIPT = "text/javascript";
-	private static final String RESPONSE_ENCODING = "utf-8";
 	private static final String COMMAND_SELECT = "select";
-	private static final String PARAM_CALLBACK = "callback";
-	private static final String PARAM_QUERY = "query";
-	private static final String PARAM_KEY = "key";
 	private static final String JSNAME_INPUTFIELD = "b_autocomplete_input";
 	private static final String JSNAME_DATASTORE = "autocompleterDatastore";
 	private static final String JSNAME_COMBOBOX = "autocompleterCombobox";
@@ -130,57 +117,13 @@ public class AutoCompleterController extends BasicController {
 		datastoreName = "o_s" + JSNAME_DATASTORE + myContent.getDispatchID();
 		comboboxName = "o_s" + JSNAME_COMBOBOX + myContent.getDispatchID();
 
-		
 		// Create a mapper for the server responses for a given input
-		mapper = new Mapper() {
-			@Override
-			@SuppressWarnings({ "synthetic-access" })			
-			public MediaResource handle(String relPath, HttpServletRequest request) {
-				// Prepare resulting media resource
-				StringBuffer response = new StringBuffer();
-				StringMediaResource smr = new StringMediaResource();
-				smr.setEncoding(RESPONSE_ENCODING);
-				// Prepare result for ExtJS ScriptTagProxy call-back
-				boolean scriptTag = false;
-				String cb = request.getParameter(PARAM_CALLBACK);
-				if (cb != null) {
-				    scriptTag = true;
-				    smr.setContentType(CONTENT_TYPE_TEXT_JAVASCRIPT);
-				} else {
-					smr.setContentType(CONTENT_TYPE_APPLICATION_X_JSON);
-				}
-				if (scriptTag) {
-				    response.append(cb + "(");
-				}
-				// Read query and generate JSON result
-				String lastN = request.getParameter(PARAM_QUERY);
-				AutoCompleterListReceiver receiver = new AutoCompleterListReceiver(noResults, showDisplayKey);
-				gprovider.getResult(lastN, receiver);
-				JSONObject json = new JSONObject();
-				try {
-					JSONArray result = receiver.getResult(); 
-					json.put("rows", result);
-					json.put("results", result.length());
-					response.append(json.toString());
-				} catch (JSONException e) {
-					// Ups, just log error and proceed with empty string
-					logError("Could not put rows and results to JSONArray", e);
-					response.append("");
-				}
-				// Close call-back call
-				if (scriptTag) {
-				    response.append(");");
-				}
-				// Add result to media resource and deliver
-				smr.setData(response.toString());
-				return smr;
-			}
-		};
+		mapper = new AutoCompleterMapper(noResults, showDisplayKey, gprovider);
+			
 		// Add mapper URL to JS data store in velocity
 		String fetchUri = registerMapper(mapper);
 		final String fulluri = fetchUri; // + "/" + fileName;
 		myContent.contextPut("mapuri", fulluri+"/autocomplete.json");
-		//
 		putInitialPanel(myContent);
 	}
 
@@ -194,7 +137,7 @@ public class AutoCompleterController extends BasicController {
 		if (source == myContent) {
 			if (event.getCommand().equals(COMMAND_SELECT)) {
 				List<String> selectedEntries = new ArrayList<String>(); // init empty result list
-				String key = ureq.getParameter(PARAM_KEY);
+				String key = ureq.getParameter(AutoCompleterMapper.PARAM_KEY);
 				if (key == null) {
 					// Fallback to submitted input field: the input field does not contain
 					// the key but the search value itself
@@ -217,7 +160,7 @@ public class AutoCompleterController extends BasicController {
 					if (result.length() > 0) {
 						try {
 							JSONObject object = result.getJSONObject(0);
-							key = object.getString(PARAM_KEY);
+							key = object.getString(AutoCompleterMapper.PARAM_KEY);
 						} catch (JSONException e) {
 							logError("Error while getting json object from list receiver", e);						
 							key = "";
@@ -274,95 +217,4 @@ public class AutoCompleterController extends BasicController {
 		
 		// Mapper autodisposed by basic controller
 	}
-	
-}
-
-/**
- * 
- * Description:<br>
- * The AutoCompleterListReceiver implementes a list receiver that generates JSON
- * output. The class is only used in the AutoCompleterController
- * 
- * <P>
- * Initial Date: 25.11.2010 <br>
- * 
- * @author gnaegi
- */
-class AutoCompleterListReceiver extends LogDelegator implements ListReceiver {
-	private static final String VALUE = "value";
-	private static final String CSS_CLASS = "cssClass";
-	private static final String CSS_CLASS_EMPTY = "";
-	private static final String CSS_CLASS_WITH_ICON = "b_with_small_icon_left ";
-	private static final String DISPLAY_KEY = "displayKey";
-	private static final String DISPLAY_KEY_NO_RESULTS = "-";
-	
-	private final JSONArray list = new JSONArray();
-	private final String noresults;
-	private final boolean showDisplayKey;
-
-	/**
-	 * Constructor
-	 * 
-	 * @param noResults Text to use when no results are found
-	 * @param showDisplayKey true: add displayKey in result; false: don't add
-	 *          displayKey in results (e.g. to protect privacy)
-	 */
-	AutoCompleterListReceiver(String noresults, boolean showDisplayKey) {
-		this.noresults = noresults;
-		this.showDisplayKey = showDisplayKey;
-	}
-	
-	@Override
-	public void addEntry(String key, String displayText) {
-		addEntry(key, key, displayText, null);
-	}
-
-	/**
-	 * @return the result as a JSONArray object
-	 */
-	public JSONArray getResult() {
-		if (list.length() == 0) {
-			addEntry(AutoCompleterController.AUTOCOMPLETER_NO_RESULT, DISPLAY_KEY_NO_RESULTS, noresults, CSSHelper.CSS_CLASS_ERROR);
-		}
-		return list;
-	}
-
-	@Override	
-	public void addEntry(String key, String displayKey, String displayText, String iconCssClass) {
-		if (key == null) {
-			throw new AssertException("Can not add entry with displayText::" + displayText + " with a NULL key!");
-		}
-		if (isLogDebugEnabled()) {
-			logDebug("Add entry with key::" + key+ ", displayKey::" + displayKey + ", displayText::" + displayText + ", iconCssClass::" + iconCssClass);
-		}
-		try {
-			JSONObject object = new JSONObject();
-			// add key
-			object.put("key", key);
-			// add displayable key, use key as fallback 
-			if (showDisplayKey) {				
-				if (displayKey == null) {
-					object.put(DISPLAY_KEY, key);
-				} else {
-					object.put(DISPLAY_KEY, displayKey);
-				}
-			}
-			// add value to be displayed
-			object.put(VALUE, displayText);
-			// add optional css class
-			if (iconCssClass == null) {
-				object.put(CSS_CLASS, CSS_CLASS_EMPTY);								
-			} else {
-				object.put(CSS_CLASS, CSS_CLASS_WITH_ICON + iconCssClass);				
-			}
-			// JSCON object finished
-			list.put(object);
-
-		} catch (JSONException e) {
-			// do nothing, only log error to logfile
-			logError("Could not add entry with key::" + key+ ", displayKey::" + displayKey + ", displayText::" + displayText + ", iconCssClass::" + iconCssClass, e);
-		}
-
-	}
-
 }

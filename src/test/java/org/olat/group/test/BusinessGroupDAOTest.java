@@ -22,9 +22,12 @@ package org.olat.group.test;
 import static org.junit.Assert.assertNotNull;
 
 import java.util.ArrayList;
+import java.util.Calendar;
 import java.util.Collections;
 import java.util.Date;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 
 import junit.framework.Assert;
@@ -39,17 +42,17 @@ import org.olat.core.id.Identity;
 import org.olat.core.logging.OLog;
 import org.olat.core.logging.Tracing;
 import org.olat.group.BusinessGroup;
-import org.olat.group.BusinessGroupMembership;
 import org.olat.group.BusinessGroupOrder;
 import org.olat.group.BusinessGroupShort;
 import org.olat.group.BusinessGroupView;
 import org.olat.group.manager.BusinessGroupDAO;
 import org.olat.group.manager.BusinessGroupPropertyDAO;
 import org.olat.group.manager.BusinessGroupRelationDAO;
+import org.olat.group.model.BusinessGroupMembershipViewImpl;
 import org.olat.group.model.SearchBusinessGroupParams;
 import org.olat.properties.Property;
 import org.olat.repository.RepositoryEntry;
-import org.olat.resource.accesscontrol.manager.ACFrontendManager;
+import org.olat.resource.accesscontrol.ACService;
 import org.olat.resource.accesscontrol.model.Offer;
 import org.olat.test.JunitTestHelper;
 import org.olat.test.OlatTestCase;
@@ -74,7 +77,7 @@ public class BusinessGroupDAOTest extends OlatTestCase {
 	@Autowired
 	private BusinessGroupPropertyDAO businessGroupPropertyManager;
 	@Autowired
-	private ACFrontendManager acFrontendManager;
+	private ACService acService;
 	@Autowired
 	private MarkManager markManager;
 	
@@ -336,7 +339,6 @@ public class BusinessGroupDAOTest extends OlatTestCase {
 		Assert.assertNotNull(byWaitingGroup);
 		Assert.assertEquals(group2, byWaitingGroup);
 		Assert.assertNotSame(group1, byWaitingGroup);
-		
 	}
 	
 	@Test
@@ -374,6 +376,32 @@ public class BusinessGroupDAOTest extends OlatTestCase {
 		List<BusinessGroup> groupOfId3 = businessGroupDao.findBusinessGroupsWithWaitingListAttendedBy(id3,  null);
 		Assert.assertNotNull(groupOfId3);
 		Assert.assertTrue(groupOfId3.isEmpty());
+	}
+	
+	@Test
+	public void findBusinessGroupWithAuthorConnection() {
+		Identity author = JunitTestHelper.createAndPersistIdentityAsUser("bdao-5-" + UUID.randomUUID().toString());
+		RepositoryEntry re = JunitTestHelper.createAndPersistRepositoryEntry();
+		securityManager.addIdentityToSecurityGroup(author, re.getOwnerGroup());
+		BusinessGroup group1 = businessGroupDao.createAndPersist(null, "gdlo", "gdlo-desc", 0, 5, true, false, false, false, false);
+		BusinessGroup group2 = businessGroupDao.createAndPersist(author, "gdmo", "gdmo-desc", 0, 5, true, false, false, false, false);
+		BusinessGroup group3 = businessGroupDao.createAndPersist(author, "gdmo", "gdmo-desc", 0, 5, true, false, false, false, false);
+		businessGroupRelationDao.addRelationToResource(group1, re.getOlatResource());
+		businessGroupRelationDao.addRelationToResource(group3, re.getOlatResource());
+		dbInstance.commitAndCloseSession();
+		
+		//check 
+		List<BusinessGroupView> groups = businessGroupDao.findBusinessGroupWithAuthorConnection(author);
+		Assert.assertNotNull(groups);
+		Assert.assertEquals(2, groups.size());
+		
+		Set<Long> retrievedGroupkey = new HashSet<Long>();
+		for(BusinessGroupView view:groups) {
+			retrievedGroupkey.add(view.getKey());
+		}
+		Assert.assertTrue(retrievedGroupkey.contains(group1.getKey()));
+		Assert.assertTrue(retrievedGroupkey.contains(group3.getKey()));
+		Assert.assertFalse(retrievedGroupkey.contains(group2.getKey()));
 	}
 	
 	@Test
@@ -891,9 +919,9 @@ public class BusinessGroupDAOTest extends OlatTestCase {
 		//create a group with an access control
 		BusinessGroup group = businessGroupDao.createAndPersist(null, "access-grp-1", "access-grp-1-desc", 0, 5, true, false, true, false, false);
 		//create and save an offer
-		Offer offer = acFrontendManager.createOffer(group.getResource(), "TestBGWorkflow");
+		Offer offer = acService.createOffer(group.getResource(), "TestBGWorkflow");
 		assertNotNull(offer);
-		acFrontendManager.save(offer);
+		acService.save(offer);
 			
 		dbInstance.commitAndCloseSession();
 			
@@ -906,7 +934,7 @@ public class BusinessGroupDAOTest extends OlatTestCase {
 		Assert.assertTrue(accessGroups.contains(group));
 		
 		for(BusinessGroup accessGroup:accessGroups) {
-			List<Offer> offers = acFrontendManager.findOfferByResource(accessGroup.getResource(), true, new Date());
+			List<Offer> offers = acService.findOfferByResource(accessGroup.getResource(), true, new Date());
 			Assert.assertNotNull(offers);
 			Assert.assertFalse(offers.isEmpty());
 		}
@@ -918,11 +946,49 @@ public class BusinessGroupDAOTest extends OlatTestCase {
 		Assert.assertTrue(contains(accessGroupViews, group));
 		
 		for(BusinessGroupView accessGroup:accessGroupViews) {
-			List<Offer> offers = acFrontendManager.findOfferByResource(accessGroup.getResource(), true, new Date());
+			List<Offer> offers = acService.findOfferByResource(accessGroup.getResource(), true, new Date());
 			Assert.assertNotNull(offers);
 			Assert.assertFalse(offers.isEmpty());
 		}
 	}
+	
+	@Test
+	public void findPublicGroupsLimitedDate() {
+		//create a group with an access control limited by a valid date
+		BusinessGroup groupVisible = businessGroupDao.createAndPersist(null, "access-grp-2", "access-grp-2-desc", 0, 5, true, false, true, false, false);
+		//create and save an offer
+		Offer offer = acService.createOffer(groupVisible.getResource(), "TestBGWorkflow");
+
+		Calendar cal = Calendar.getInstance();
+		cal.add(Calendar.HOUR_OF_DAY, -1);
+		offer.setValidFrom(cal.getTime());
+		cal.add(Calendar.HOUR_OF_DAY, 2);
+		offer.setValidTo(cal.getTime());
+		assertNotNull(offer);
+		acService.save(offer);
+
+		//create a group with an access control limited by dates in the past
+		BusinessGroup oldGroup = businessGroupDao.createAndPersist(null, "access-grp-3", "access-grp-3-desc", 0, 5, true, false, true, false, false);
+		//create and save an offer
+		Offer oldOffer = acService.createOffer(oldGroup.getResource(), "TestBGWorkflow");
+		cal.add(Calendar.HOUR_OF_DAY, -5);
+		oldOffer.setValidFrom(cal.getTime());
+		cal.add(Calendar.HOUR_OF_DAY, -5);
+		oldOffer.setValidTo(cal.getTime());
+		assertNotNull(oldOffer);
+		acService.save(oldOffer);
+
+		dbInstance.commitAndCloseSession();
+			
+		//retrieve the offer
+		SearchBusinessGroupParams paramsAll = new SearchBusinessGroupParams();
+		paramsAll.setPublicGroups(Boolean.TRUE);
+		List<BusinessGroup> accessGroups = businessGroupDao.findBusinessGroups(paramsAll, null, 0, 0);
+		Assert.assertNotNull(accessGroups);
+		Assert.assertTrue(accessGroups.size() >= 1);
+		Assert.assertTrue(accessGroups.contains(groupVisible));
+		Assert.assertFalse(accessGroups.contains(oldGroup));
+	}	
 	
 	@Test
 	public void findBusinessGroupsWithResources() {
@@ -1213,16 +1279,15 @@ public class BusinessGroupDAOTest extends OlatTestCase {
 		//check owner + attendee
 		int countMembershipA = businessGroupDao.countMembershipInfoInBusinessGroups(id, groupKeys);
 		Assert.assertEquals(3, countMembershipA);
-		List<BusinessGroupMembership> memberships = businessGroupDao.getMembershipInfoInBusinessGroups(id, groupKeys);
+		List<BusinessGroupMembershipViewImpl> memberships = businessGroupDao.getMembershipInfoInBusinessGroups(groupKeys, id);
 		Assert.assertNotNull(memberships);
 		Assert.assertEquals(3, memberships.size());
 		
 		int found = 0;
-		for(BusinessGroupMembership membership:memberships) {
+		for(BusinessGroupMembershipViewImpl membership:memberships) {
 			Assert.assertNotNull(membership.getIdentityKey());
 			Assert.assertNotNull(membership.getCreationDate());
 			Assert.assertNotNull(membership.getLastModified());
-			Assert.assertNotNull(membership.getMembership());
 			if(membership.getOwnerGroupKey() != null && group1.getKey().equals(membership.getOwnerGroupKey())) {
 				found++;
 			}
@@ -1234,6 +1299,40 @@ public class BusinessGroupDAOTest extends OlatTestCase {
 			}
 		}
 		Assert.assertEquals(3, found);
+	}
+	
+	@Test
+	public void getMembershipInfoInBusinessGroupsWithoutIdentityParam() {
+		Identity id1 = JunitTestHelper.createAndPersistIdentityAsUser("is-in-grp-" + UUID.randomUUID().toString());
+		Identity id2 = JunitTestHelper.createAndPersistIdentityAsUser("is-in-grp-" + UUID.randomUUID().toString());
+		Identity id3 = JunitTestHelper.createAndPersistIdentityAsUser("is-in-grp-" + UUID.randomUUID().toString());
+		
+		BusinessGroup group1 = businessGroupDao.createAndPersist(id1, "is-in-grp-1", "is-in-grp-1-desc", 0, 5, true, false, true, false, false);
+		BusinessGroup group2 = businessGroupDao.createAndPersist(id2, "is-in-grp-2", "is-in-grp-2-desc", 0, 5, true, false, true, false, false);
+		BusinessGroup group3 = businessGroupDao.createAndPersist(null, "is-in-grp-3", "is-in-grp-3-desc", 0, 5, true, false, true, false, false);
+		dbInstance.commitAndCloseSession();
+
+		securityManager.addIdentityToSecurityGroup(id1, group1.getPartipiciantGroup());
+		securityManager.addIdentityToSecurityGroup(id1, group3.getWaitingGroup());
+		securityManager.addIdentityToSecurityGroup(id2, group3.getOwnerGroup());
+		securityManager.addIdentityToSecurityGroup(id3, group2.getWaitingGroup());
+		securityManager.addIdentityToSecurityGroup(id3, group3.getPartipiciantGroup());
+		dbInstance.commitAndCloseSession();
+		
+		List<Long> groupKeys = new ArrayList<Long>();
+		groupKeys.add(group1.getKey());
+		groupKeys.add(group2.getKey());
+		groupKeys.add(group3.getKey());
+
+		//check owner + attendee + waiting
+		List<BusinessGroupMembershipViewImpl> memberships = businessGroupDao.getMembershipInfoInBusinessGroups(groupKeys);
+		Assert.assertNotNull(memberships);
+		Assert.assertEquals(7, memberships.size());
+		for(BusinessGroupMembershipViewImpl membership:memberships) {
+			Assert.assertNotNull(membership.getIdentityKey());
+			Assert.assertNotNull(membership.getCreationDate());
+			Assert.assertNotNull(membership.getLastModified());
+		}
 	}
 	
 	private boolean contains(List<BusinessGroupView> views, BusinessGroup group) {

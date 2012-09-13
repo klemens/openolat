@@ -19,7 +19,6 @@
  */
 package org.olat.login;
 
-import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
 import java.io.IOException;
@@ -33,12 +32,9 @@ import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.UriBuilder;
 
 import org.apache.http.HttpResponse;
-import org.apache.http.client.methods.HttpDelete;
 import org.apache.http.client.methods.HttpPut;
 import org.jboss.arquillian.container.test.api.Deployment;
 import org.jboss.arquillian.container.test.api.RunAsClient;
-import org.jboss.arquillian.core.impl.context.ApplicationContextImpl;
-import org.jboss.arquillian.core.spi.context.ApplicationContext;
 import org.jboss.arquillian.drone.api.annotation.Drone;
 import org.jboss.arquillian.junit.Arquillian;
 import org.jboss.arquillian.test.api.ArquillianResource;
@@ -47,13 +43,10 @@ import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.olat.basesecurity.BaseSecurityManager;
-import org.olat.core.id.Identity;
 import org.olat.restapi.RestConnection;
 import org.olat.test.ArquillianDeployments;
 import org.olat.user.restapi.UserVO;
 import org.olat.util.FunctionalUtil;
-import org.springframework.beans.factory.annotation.Autowired;
 
 import com.thoughtworks.selenium.DefaultSelenium;
 

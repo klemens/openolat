@@ -25,11 +25,11 @@
 
 package org.olat.group.ui.edit;
 
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
 import org.olat.core.CoreSpringFactory;
-import org.olat.core.commons.persistence.PersistenceHelper;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.Component;
 import org.olat.core.gui.components.link.Link;
@@ -55,6 +55,7 @@ import org.olat.group.BusinessGroupService;
 import org.olat.repository.RepositoryEntry;
 import org.olat.repository.RepositoryTableModel;
 import org.olat.repository.controllers.ReferencableEntriesSearchController;
+import org.olat.resource.OLATResource;
 
 /**
  * Description:<BR>
@@ -74,7 +75,6 @@ public class BusinessGroupEditResourceController extends BasicController impleme
 
 	private TableController resourcesCtr;
 	private RepositoryTableModel repoTableModel;
-	private List<RepositoryEntry> repoTableModelEntries;
 	private ReferencableEntriesSearchController repoSearchCtr;
 	private CloseableModalController cmc;
 	private DialogBoxController confirmRemoveResource;
@@ -102,7 +102,7 @@ public class BusinessGroupEditResourceController extends BasicController impleme
 		listenTo(resourcesCtr);
 
 		repoTableModel = new RepositoryTableModel(resourceTrans);
-		repoTableModelEntries = businessGroupService.findRepositoryEntries(Collections.singletonList(group), 0, -1);
+		List<RepositoryEntry> repoTableModelEntries = businessGroupService.findRepositoryEntries(Collections.singletonList(group), 0, -1);
 		repoTableModel.setObjects(repoTableModelEntries);
 		repoTableModel.addColumnDescriptors(resourcesCtr, translate("resources.remove"), false);
 		resourcesCtr.setTableDataModel(repoTableModel);
@@ -123,9 +123,10 @@ public class BusinessGroupEditResourceController extends BasicController impleme
 			removeAsListenerAndDispose(repoSearchCtr);
 			removeAsListenerAndDispose(cmc);
 			
-			repoSearchCtr = new ReferencableEntriesSearchController(getWindowControl(), ureq, CourseModule.getCourseTypeName(), translate("resources.add"));
+			repoSearchCtr = new ReferencableEntriesSearchController(getWindowControl(), ureq, new String[]{ CourseModule.getCourseTypeName() },
+					translate("resources.add"), true, true, true, true);
 			listenTo(repoSearchCtr);
-			cmc = new CloseableModalController(getWindowControl(), translate("close"), this.repoSearchCtr.getInitialComponent(), true, translate("resources.add.title"));
+			cmc = new CloseableModalController(getWindowControl(), translate("close"), repoSearchCtr.getInitialComponent(), true, translate("resources.add.title"));
 			listenTo(cmc);
 			cmc.activate();
 		}
@@ -143,13 +144,18 @@ public class BusinessGroupEditResourceController extends BasicController impleme
 				RepositoryEntry re = repoSearchCtr.getSelectedEntry();
 				removeAsListenerAndDispose(repoSearchCtr);
 				cmc.deactivate();
-				if (re != null && !repoTableModelEntries.contains(re)) {
-					// check if already in model
-					boolean alreadyAssociated = PersistenceHelper.listContainsObjectByKey(this.repoTableModelEntries, re);
-					if (!alreadyAssociated) {
-						doAddRepositoryEntry(re);
-						fireEvent(ureq, Event.CHANGED_EVENT);
-					}
+				if (re != null) {
+					doAddRepositoryEntry(Collections.singletonList(re));
+					fireEvent(ureq, Event.CHANGED_EVENT);
+				}
+			} else if(event == ReferencableEntriesSearchController.EVENT_REPOSITORY_ENTRIES_SELECTED) {
+				// repository search controller done
+				List<RepositoryEntry> res = repoSearchCtr.getSelectedEntries();
+				removeAsListenerAndDispose(repoSearchCtr);
+				cmc.deactivate();
+				if (res != null && !res.isEmpty()) {
+					doAddRepositoryEntry(res);
+					fireEvent(ureq, Event.CHANGED_EVENT);
 				}
 			}
 		} else if (source == resourcesCtr) {
@@ -175,13 +181,22 @@ public class BusinessGroupEditResourceController extends BasicController impleme
 	
 	private void doRemoveResource(RepositoryEntry entry) {
 		businessGroupService.removeResourceFrom(group, entry.getOlatResource());
-		repoTableModelEntries.remove(entry);
+		repoTableModel.getObjects().remove(entry);
 		resourcesCtr.modelChanged();
 	}
 
-	private void doAddRepositoryEntry(RepositoryEntry entry) {
-		businessGroupService.addResourceTo(group, entry.getOlatResource());
-		repoTableModelEntries.add(entry);
+	private void doAddRepositoryEntry(List<RepositoryEntry> entries) {
+		List<OLATResource> resources = new ArrayList<OLATResource>();
+		List<RepositoryEntry> repoEntries = new ArrayList<RepositoryEntry>();
+		for(RepositoryEntry entry:entries) {
+			if(!repoTableModel.getObjects().contains(entry)) {
+				resources.add(entry.getOlatResource());
+				repoEntries.add(entry);
+			}
+			
+		}
+		businessGroupService.addResourcesTo(Collections.singletonList(group), resources);
+		repoTableModel.addObjects(repoEntries);
 		resourcesCtr.modelChanged();
 	}
 	

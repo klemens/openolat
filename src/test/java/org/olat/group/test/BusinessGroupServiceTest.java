@@ -19,12 +19,12 @@
  */
 package org.olat.group.test;
 
-import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
 
@@ -80,9 +80,6 @@ public class BusinessGroupServiceTest extends OlatTestCase {
 	private static Identity id4 = null;
 	// For WaitingGroup tests
 	private static Identity wg1 = null;
-	private static Identity wg2 = null;
-	private static Identity wg3 = null;
-	private static Identity wg4 = null;
 
 	// Group one
 	private static BusinessGroup one = null;
@@ -161,20 +158,7 @@ public class BusinessGroupServiceTest extends OlatTestCase {
 			// Identities
 			String suffix = UUID.randomUUID().toString();
 			User UserWg1 = userManager.createAndPersistUser("FirstName_" + suffix, "LastName_" + suffix, suffix + "_junittest@olat.unizh.ch");
-			wg1 = securityManager.createAndPersistIdentity(suffix, UserWg1,
-					BaseSecurityModule.getDefaultAuthProviderIdentifier(), suffix, Encoder.encrypt("wg1"));
-			suffix = UUID.randomUUID().toString();
-			User UserWg2 = userManager.createAndPersistUser("FirstName_" + suffix, "LastName_" + suffix, suffix + "_junittest@olat.unizh.ch");
-			wg2 = securityManager.createAndPersistIdentity(suffix, UserWg2,
-					BaseSecurityModule.getDefaultAuthProviderIdentifier(), suffix, Encoder.encrypt("wg2"));
-			suffix = UUID.randomUUID().toString();
-			User UserWg3 = userManager.createAndPersistUser("FirstName_" + suffix, "LastName_" + suffix, suffix + "_junittest@olat.unizh.ch");
-			wg3 = securityManager.createAndPersistIdentity(suffix, UserWg3,
-					BaseSecurityModule.getDefaultAuthProviderIdentifier(), suffix, Encoder.encrypt("wg3"));
-			suffix = UUID.randomUUID().toString();
-			User UserWg4 = userManager.createAndPersistUser("FirstName_" + suffix, "LastName_" + suffix, suffix + "_junittest@olat.unizh.ch");
-			wg4 = securityManager.createAndPersistIdentity(suffix, UserWg4,
-					BaseSecurityModule.getDefaultAuthProviderIdentifier(), suffix, Encoder.encrypt("wg4"));
+			wg1 = securityManager.createAndPersistIdentity(suffix, UserWg1, BaseSecurityModule.getDefaultAuthProviderIdentifier(), suffix, Encoder.encrypt("wg1"));
 
 			dbInstance.commitAndCloseSession();
 
@@ -211,13 +195,130 @@ public class BusinessGroupServiceTest extends OlatTestCase {
 		dbInstance.commit();
 		Assert.assertNotNull(group);
 	}
-	
-	
+
 	@Test
-	public void loadBusinessGroups() {
+	public void testLoadBusinessGroups() {
 		SearchBusinessGroupParams params = new SearchBusinessGroupParams(null, false, false);
 		List<BusinessGroup> groups = businessGroupService.findBusinessGroups(params, null, 0, 5);
 		Assert.assertNotNull(groups);
+	}
+	
+	@Test
+	public void testCreateUpdateBusinessGroup_v1() {
+		//create a group
+		Identity id = JunitTestHelper.createAndPersistIdentityAsUser("grp-up-1-" + UUID.randomUUID().toString());
+		OLATResource resource =  JunitTestHelper.createRandomResource();
+		BusinessGroup group = businessGroupService.createBusinessGroup(id, "up-1", "up-1-desc", -1, -1, false, false, resource);
+		Assert.assertNotNull(group);
+		dbInstance.commitAndCloseSession();
+		
+		//check update
+		BusinessGroup updateGroup = businessGroupService.updateBusinessGroup(id, group, "up-1-b", "up-1-desc-b", new Integer(2), new Integer(3));
+		Assert.assertNotNull(updateGroup);
+		dbInstance.commitAndCloseSession();
+		
+		//reload to check update
+		BusinessGroup reloadedGroup = businessGroupService.loadBusinessGroup(group.getKey());
+		Assert.assertNotNull(reloadedGroup);
+		Assert.assertEquals("up-1-b", reloadedGroup.getName());
+		Assert.assertEquals("up-1-desc-b", reloadedGroup.getDescription());
+		Assert.assertEquals(new Integer(2), reloadedGroup.getMinParticipants());
+		Assert.assertEquals(new Integer(3), reloadedGroup.getMaxParticipants());
+	}
+	
+	@Test
+	public void testCreateUpdateBusinessGroup_v2() {
+		//create a group
+		Identity id = JunitTestHelper.createAndPersistIdentityAsUser("grp-up-2-" + UUID.randomUUID().toString());
+		OLATResource resource =  JunitTestHelper.createRandomResource();
+		BusinessGroup group = businessGroupService.createBusinessGroup(id, "up-2", "up-2-desc", -1, -1, false, false, resource);
+		Assert.assertNotNull(group);
+		dbInstance.commitAndCloseSession();
+		
+		//check update
+		BusinessGroup updateGroup = businessGroupService.updateBusinessGroup(id, group, "up-2-b", "up-2-desc-b", new Integer(2), new Integer(3), Boolean.TRUE, Boolean.TRUE);
+		Assert.assertNotNull(updateGroup);
+		dbInstance.commitAndCloseSession();
+		
+		//reload to check update
+		BusinessGroup reloadedGroup = businessGroupService.loadBusinessGroup(group.getKey());
+		Assert.assertNotNull(reloadedGroup);
+		Assert.assertEquals("up-2-b", reloadedGroup.getName());
+		Assert.assertEquals("up-2-desc-b", reloadedGroup.getDescription());
+		Assert.assertEquals(new Integer(2), reloadedGroup.getMinParticipants());
+		Assert.assertEquals(new Integer(3), reloadedGroup.getMaxParticipants());
+		Assert.assertEquals(Boolean.TRUE, reloadedGroup.getWaitingListEnabled());
+		Assert.assertEquals(Boolean.TRUE, reloadedGroup.getAutoCloseRanksEnabled());
+	}
+	
+	@Test
+	public void testUpdateBusinessGroupAndAutoRank_v1() {
+		//create a group with 1 participant and 2 users in waiting list
+		Identity id0 = JunitTestHelper.createAndPersistIdentityAsUser("grp-auto-0-" + UUID.randomUUID().toString());
+		Identity id1 = JunitTestHelper.createAndPersistIdentityAsUser("grp-auto-1-" + UUID.randomUUID().toString());
+		Identity id2 = JunitTestHelper.createAndPersistIdentityAsUser("grp-auto-2-" + UUID.randomUUID().toString());
+		Identity id3 = JunitTestHelper.createAndPersistIdentityAsUser("grp-auto-3-" + UUID.randomUUID().toString());
+		Identity id4 = JunitTestHelper.createAndPersistIdentityAsUser("grp-auto-4-" + UUID.randomUUID().toString());
+		
+		OLATResource resource =  JunitTestHelper.createRandomResource();
+		BusinessGroup group = businessGroupService.createBusinessGroup(id0, "auto-1", "auto-1-desc", new Integer(0), new Integer(1), true, true, resource);
+		Assert.assertNotNull(group);
+
+		securityManager.addIdentityToSecurityGroup(id1, group.getPartipiciantGroup());
+		securityManager.addIdentityToSecurityGroup(id2, group.getWaitingGroup());
+		securityManager.addIdentityToSecurityGroup(id3, group.getWaitingGroup());
+		securityManager.addIdentityToSecurityGroup(id4, group.getWaitingGroup());
+		dbInstance.commitAndCloseSession();
+
+		//update max participants
+		BusinessGroup updateGroup = businessGroupService.updateBusinessGroup(id0, group, "auto-1", "auto-1-desc", new Integer(0), new Integer(3));
+		Assert.assertNotNull(updateGroup);
+		dbInstance.commitAndCloseSession();
+		
+		//check the auto rank 
+		List<Identity> participants = securityManager.getIdentitiesOfSecurityGroup(group.getPartipiciantGroup());
+		Assert.assertNotNull(participants);
+		Assert.assertEquals(3, participants.size());
+		Assert.assertTrue(participants.contains(id1));
+		
+		List<Identity> waitingList = securityManager.getIdentitiesOfSecurityGroup(group.getWaitingGroup());
+		Assert.assertNotNull(waitingList);
+		Assert.assertEquals(1, waitingList.size());
+	}
+	
+	@Test
+	public void testUpdateBusinessGroupAndAutoRank_v2() {
+		//create a group with 1 participant and 2 users in waiting list
+		Identity id0 = JunitTestHelper.createAndPersistIdentityAsUser("grp-auto-0-" + UUID.randomUUID().toString());
+		Identity id1 = JunitTestHelper.createAndPersistIdentityAsUser("grp-auto-1-" + UUID.randomUUID().toString());
+		Identity id2 = JunitTestHelper.createAndPersistIdentityAsUser("grp-auto-2-" + UUID.randomUUID().toString());
+		Identity id3 = JunitTestHelper.createAndPersistIdentityAsUser("grp-auto-3-" + UUID.randomUUID().toString());
+		Identity id4 = JunitTestHelper.createAndPersistIdentityAsUser("grp-auto-4-" + UUID.randomUUID().toString());
+		
+		OLATResource resource =  JunitTestHelper.createRandomResource();
+		BusinessGroup group = businessGroupService.createBusinessGroup(id0, "auto-1", "auto-1-desc", new Integer(0), new Integer(1), false, false, resource);
+		Assert.assertNotNull(group);
+
+		securityManager.addIdentityToSecurityGroup(id1, group.getPartipiciantGroup());
+		securityManager.addIdentityToSecurityGroup(id2, group.getWaitingGroup());
+		securityManager.addIdentityToSecurityGroup(id3, group.getWaitingGroup());
+		securityManager.addIdentityToSecurityGroup(id4, group.getWaitingGroup());
+		dbInstance.commitAndCloseSession();
+
+		//update max participants
+		BusinessGroup updateGroup = businessGroupService.updateBusinessGroup(id0, group, "auto-1", "auto-1-desc", new Integer(0), new Integer(3), Boolean.TRUE, Boolean.TRUE);
+		Assert.assertNotNull(updateGroup);
+		dbInstance.commitAndCloseSession();
+		
+		//check the auto rank 
+		List<Identity> participants = securityManager.getIdentitiesOfSecurityGroup(group.getPartipiciantGroup());
+		Assert.assertNotNull(participants);
+		Assert.assertEquals(3, participants.size());
+		Assert.assertTrue(participants.contains(id1));
+		
+		List<Identity> waitingList = securityManager.getIdentitiesOfSecurityGroup(group.getWaitingGroup());
+		Assert.assertNotNull(waitingList);
+		Assert.assertEquals(1, waitingList.size());
 	}
 	
 	@Test
@@ -350,12 +451,219 @@ public class BusinessGroupServiceTest extends OlatTestCase {
 		assertTrue("It's the correct BuddyGroup", groupAttendeeId4.contains(two));
 	}
 
+	@Test
+	public void testMoveIdentityFromWaitingListToParticipant()
+	throws Exception {
+		//add 2 identities in waiting group and 1 in as participant
+		Identity admin = JunitTestHelper.createAndPersistIdentityAsUser("move-w1-0-" + UUID.randomUUID().toString());
+		Identity id1 = JunitTestHelper.createAndPersistIdentityAsUser("move-w1-1-" + UUID.randomUUID().toString());
+		Identity id2 = JunitTestHelper.createAndPersistIdentityAsUser("move-w1-2-" + UUID.randomUUID().toString());
+		Identity id3 = JunitTestHelper.createAndPersistIdentityAsUser("move-w1-3-" + UUID.randomUUID().toString());
+		BusinessGroup group = businessGroupService.createBusinessGroup(null, "move-bg-1", "move-desc", 0, 10, true, false, null);
+		businessGroupService.addToWaitingList(admin, Collections.singletonList(id1), group);
+		businessGroupService.addToWaitingList(admin, Collections.singletonList(id2), group);
+		businessGroupService.addParticipants(admin, Collections.singletonList(id3), group);
+		
+		dbInstance.commitAndCloseSession();
+		
+		//move id1 from waiting-list to participant
+		List<Identity> identities = Collections.singletonList(id1);
+		businessGroupService.moveIdentityFromWaitingListToParticipant(identities, admin, group);
+		//check position of 'id2'
+		int pos = businessGroupService.getPositionInWaitingListFor(id2, group);
+		Assert.assertEquals("pos must be 1, bit is=" + pos, 1, pos);
+		//check if 'id3' is in participant-list
+		boolean negatifCheck = businessGroupService.isIdentityInBusinessGroup(id3, group);
+		assertTrue("Identity is not in participant-list", negatifCheck);
+	}
+	
+	/**
+	 * Add 3 identities to the waiting list and check the position.
+	 */
+	@Test
+	public void testAddToWaitingListAndFireEventAndCheckPosition() throws Exception {
+		//add 2 identities in waiting group and 1 in as participant
+		Identity id1 = JunitTestHelper.createAndPersistIdentityAsUser("move-w2-1-" + UUID.randomUUID().toString());
+		Identity id2 = JunitTestHelper.createAndPersistIdentityAsUser("move-w2-2-" + UUID.randomUUID().toString());
+		Identity id3 = JunitTestHelper.createAndPersistIdentityAsUser("move-w2-3-" + UUID.randomUUID().toString());
+		BusinessGroup group = businessGroupService.createBusinessGroup(null, "move-bg-1", "move-desc", 0, 10, true, false, null);
+		//add id1
+		businessGroupService.addToWaitingList(id1, Collections.singletonList(id1), group);
+		dbInstance.commitAndCloseSession();
+		//add id2
+		businessGroupService.addToWaitingList(id2, Collections.singletonList(id2), group);
+		dbInstance.commitAndCloseSession();
+		//add id3
+		businessGroupService.addToWaitingList(id3, Collections.singletonList(id3), group);
+		dbInstance.commitAndCloseSession();
+		
+
+		// Check position of 'id1'
+		int pos1 = businessGroupService.getPositionInWaitingListFor(id1, group);
+		Assert.assertEquals("pos must be 1, bit is=" + pos1, 1, pos1);
+		// Check position of 'id2'
+		int pos2 = businessGroupService.getPositionInWaitingListFor(id2, group);
+		Assert.assertEquals("pos must be 2, bit is=" + pos2, 2, pos2);
+		// Check position of 'id3'
+		int pos3 = businessGroupService.getPositionInWaitingListFor(id3, group);
+		Assert.assertEquals("pos must be 3, bit is=" + pos3, 3, pos3);
+	}
+	
+	/**
+	 * Remove identity 2 (wg3) from the waiting list and check the position of
+	 * identity 1 and 3.
+	 */
+	@Test
+	public void testRemoveFromWaitingListAndFireEvent() throws Exception {
+		//add 3 identities in waiting group
+		Identity id1 = JunitTestHelper.createAndPersistIdentityAsUser("move-w3-1-" + UUID.randomUUID().toString());
+		Identity id2 = JunitTestHelper.createAndPersistIdentityAsUser("move-w3-2-" + UUID.randomUUID().toString());
+		Identity id3 = JunitTestHelper.createAndPersistIdentityAsUser("move-w3-3-" + UUID.randomUUID().toString());
+		BusinessGroup group = businessGroupService.createBusinessGroup(null, "move-bg-3", "move-desc", 0, 10, true, false, null);
+		businessGroupService.addToWaitingList(id1, Collections.singletonList(id1), group);
+		businessGroupService.addToWaitingList(id2, Collections.singletonList(id2), group);
+		businessGroupService.addToWaitingList(id3, Collections.singletonList(id3), group);
+		dbInstance.commitAndCloseSession();
+		
+		//remove id2
+		businessGroupService.removeFromWaitingList(wg1, Collections.singletonList(id2), group);
+		dbInstance.commitAndCloseSession();
+		
+		//check position of 'id1'
+		int pos1 = businessGroupService.getPositionInWaitingListFor(id1, group);
+		Assert.assertEquals("pos must be 1, bit is=" + pos1, 1, pos1);
+		//check position of 'id3'
+		int pos3 = businessGroupService.getPositionInWaitingListFor(id3, group);
+		Assert.assertEquals("pos must be 2, bit is=" + pos3, 2, pos3);
+		//check position of id2
+		int pos2 = businessGroupService.getPositionInWaitingListFor(id2, group);
+		Assert.assertEquals("pos must be -1, not in list bit is=" + pos2, -1, pos2);
+	}
+	
+	@Test
+	public void testRemoveMembers() {
+		Identity admin = JunitTestHelper.createAndPersistIdentityAsUser("rm-w3-0-" + UUID.randomUUID().toString());
+		Identity id1 = JunitTestHelper.createAndPersistIdentityAsUser("rm-w3-1-" + UUID.randomUUID().toString());
+		Identity id2 = JunitTestHelper.createAndPersistIdentityAsUser("rm-w3-2-" + UUID.randomUUID().toString());
+		Identity id3 = JunitTestHelper.createAndPersistIdentityAsUser("rm-w3-3-" + UUID.randomUUID().toString());
+		Identity id4 = JunitTestHelper.createAndPersistIdentityAsUser("rm-w3-4-" + UUID.randomUUID().toString());
+		OLATResource resource = JunitTestHelper.createRandomResource();
+		BusinessGroup group1 = businessGroupService.createBusinessGroup(id1, "move-bg-3", "move-desc", 0, 10, true, false, resource);
+		BusinessGroup group2 = businessGroupService.createBusinessGroup(id2, "move-bg-3", "move-desc", 0, 10, true, false, resource);
+		BusinessGroup group3 = businessGroupService.createBusinessGroup(id3, "move-bg-3", "move-desc", 0, 10, true, false, resource);
+
+		securityManager.addIdentityToSecurityGroup(id2, group1.getWaitingGroup());
+		securityManager.addIdentityToSecurityGroup(id3, group1.getPartipiciantGroup());
+		securityManager.addIdentityToSecurityGroup(id3, group2.getWaitingGroup());
+		securityManager.addIdentityToSecurityGroup(id2, group2.getPartipiciantGroup());
+		securityManager.addIdentityToSecurityGroup(id1, group3.getOwnerGroup());
+		securityManager.addIdentityToSecurityGroup(id2, group3.getPartipiciantGroup());
+		securityManager.addIdentityToSecurityGroup(id4, group3.getWaitingGroup());
+		dbInstance.commitAndCloseSession();
+		//this groups and relations have been created
+		//group1: id1, id2, id3
+		//group2: id2, id3
+		//group3: id1, id2, id3, id4
+		
+		
+		//-> remove id1, id3 from the resource
+		List<Identity> identitiesToRemove = new ArrayList<Identity>();
+		identitiesToRemove.add(id1);
+		identitiesToRemove.add(id3);
+		businessGroupService.removeMembers(admin, identitiesToRemove, resource);
+		dbInstance.commitAndCloseSession();
+
+		//check in group1 stay only id2 in waiting list
+		List<Identity> ownerGroup1 = securityManager.getIdentitiesOfSecurityGroup(group1.getOwnerGroup());
+		Assert.assertNotNull(ownerGroup1);
+		Assert.assertTrue(ownerGroup1.isEmpty());
+		List<Identity> participantGroup1 = securityManager.getIdentitiesOfSecurityGroup(group1.getPartipiciantGroup());
+		Assert.assertNotNull(participantGroup1);
+		Assert.assertTrue(participantGroup1.isEmpty());
+		List<Identity> waitingGroup1 = securityManager.getIdentitiesOfSecurityGroup(group1.getWaitingGroup());
+		Assert.assertNotNull(waitingGroup1);
+		Assert.assertEquals(1, waitingGroup1.size());
+		Assert.assertEquals(id2, waitingGroup1.get(0));
+		
+		//check in group2 id2 as owner and participant
+		List<Identity> ownerGroup2 = securityManager.getIdentitiesOfSecurityGroup(group2.getOwnerGroup());
+		Assert.assertNotNull(ownerGroup2);
+		Assert.assertEquals(1, ownerGroup2.size());
+		Assert.assertEquals(id2, ownerGroup2.get(0));
+		List<Identity> participantGroup2 = securityManager.getIdentitiesOfSecurityGroup(group2.getPartipiciantGroup());
+		Assert.assertNotNull(participantGroup2);
+		Assert.assertEquals(1, participantGroup2.size());
+		Assert.assertEquals(id2, participantGroup2.get(0));
+		List<Identity> waitingGroup2 = securityManager.getIdentitiesOfSecurityGroup(group2.getWaitingGroup());
+		Assert.assertNotNull(waitingGroup2);
+		Assert.assertTrue(waitingGroup2.isEmpty());
+		
+		//check in group3 id2 as owner and participant
+		List<Identity> ownerGroup3 = securityManager.getIdentitiesOfSecurityGroup(group3.getOwnerGroup());
+		Assert.assertNotNull(ownerGroup3);
+		Assert.assertTrue(ownerGroup3.isEmpty());
+		List<Identity> participantGroup3 = securityManager.getIdentitiesOfSecurityGroup(group3.getPartipiciantGroup());
+		Assert.assertNotNull(participantGroup3);
+		Assert.assertEquals(1, participantGroup3.size());
+		Assert.assertEquals(id2, participantGroup3.get(0));
+		List<Identity> waitingGroup3 = securityManager.getIdentitiesOfSecurityGroup(group3.getWaitingGroup());
+		Assert.assertNotNull(waitingGroup3);
+		Assert.assertEquals(1, waitingGroup3.size());
+		Assert.assertEquals(id4, waitingGroup3.get(0));
+	}
+	
+	@Test
+	public void testMoveRegisteredIdentityFromWaitingToParticipant() throws Exception {
+		//add 1 identity as participant
+		Identity id1 = JunitTestHelper.createAndPersistIdentityAsUser("move-w4-1-" + UUID.randomUUID().toString());
+		BusinessGroup group = businessGroupService.createBusinessGroup(null, "move-bg-4", "move-desc", 0, 10, true, false, null);
+		businessGroupService.addParticipants(id1, Collections.singletonList(id1), group);
+		dbInstance.commitAndCloseSession();
+
+		//add a user to waiting-list which is already in participant-list 
+		businessGroupService.addToWaitingList(id1, Collections.singletonList(id1), group);
+		dbInstance.commitAndCloseSession();
+		//try to move this user => user will be removed from waiting-list
+		businessGroupService.moveIdentityFromWaitingListToParticipant(Collections.singletonList(id1), id1, group);
+		dbInstance.commitAndCloseSession();
+
+		//check position of 'id1'
+		int pos = businessGroupService.getPositionInWaitingListFor(id1, group);
+		Assert.assertEquals("pos must be -1, bit is=" + pos, -1, pos);
+		//check if 'id1' is still in participant-list
+		boolean member = businessGroupService.isIdentityInBusinessGroup(id1, group);
+		Assert.assertTrue("Identity is not in participant-list", member);
+	}
+	
+	@Test
+	public void testAutoTransferFromWaitingListToParticipants() {
+		//add 1 identity as participant, 1 in waiting list
+		Identity id1 = JunitTestHelper.createAndPersistIdentityAsUser("move-w5-1-" + UUID.randomUUID().toString());
+		Identity id2 = JunitTestHelper.createAndPersistIdentityAsUser("move-w5-2-" + UUID.randomUUID().toString());
+		BusinessGroup group = businessGroupService.createBusinessGroup(null, "move-bg-5", "move-desc", 0, 1, true, true, null);
+		businessGroupService.addParticipants(id1, Collections.singletonList(id1), group);
+		businessGroupService.addToWaitingList(id2, Collections.singletonList(id2), group);
+		dbInstance.commitAndCloseSession();
+
+		//add a user to waiting-list which is already in participant-list 
+		businessGroupService.removeParticipants(id1, Collections.singletonList(id1), group);
+		dbInstance.commitAndCloseSession();
+
+		//check position of 'id2'
+		int pos = businessGroupService.getPositionInWaitingListFor(id2, group);
+		Assert.assertEquals("pos must be -1, bit is=" + pos, -1, pos);
+		//check if 'id1' is still in participant-list
+		boolean member = businessGroupService.isIdentityInBusinessGroup(id2, group);
+		Assert.assertTrue("Identity is in participant-list", member);
+	}
+
 	/**
 	 * checks if tools can be enabled disabled or checked against being enabled.
 	 * TOols are configured with the help of the generic properties storage.
 	 * 
 	 * @throws Exception
 	 */
+	@Test
 	public void testEnableDisableAndCheckForTool() throws Exception {
 		List<BusinessGroup>  sqlRes = businessGroupService.findBusinessGroupsOwnedBy(id2, null);
 		BusinessGroup found = (BusinessGroup) sqlRes.get(0);
@@ -409,113 +717,6 @@ public class BusinessGroupServiceTest extends OlatTestCase {
 		businessGroupService.deleteBusinessGroup(found);
 		sqlRes = businessGroupService.findBusinessGroupsOwnedBy(id2, null);
 		assertTrue("0 BuddyGroup owned by id2", sqlRes.size() == 0);
-	}
-
-	///////////////////////
-	// Test for WaitingList
-	///////////////////////
-	/**
-	 * Add 3 idenities to the waiting list and check the position. before test
-	 * Waitinglist=[]<br>
-	 * after test Waitinglist=[wg2,wg3,wg4]
-	 */
-	@Test
-	public void testAddToWaitingListAndFireEvent() throws Exception {
-		System.out.println("testAddToWaitingListAndFireEvent: start...");
-		// Add wg2
-		List<Identity> identities = new ArrayList<Identity>();
-		identities.add(wg2);
-		businessGroupService.addToWaitingList(wg2, identities, bgWithWaitingList);
-		// Add wg3
-		identities = new ArrayList<Identity>();
-		identities.add(wg3);
-		businessGroupService.addToWaitingList(wg3, identities, bgWithWaitingList);
-		// Add wg4
-		identities = new ArrayList<Identity>();
-		identities.add(wg4);
-		businessGroupService.addToWaitingList(wg4, identities, bgWithWaitingList);
-		System.out.println("testAddToWaitingListAndFireEvent: 3 user added to waiting list");
-
-		// Check position of 'wg2'
-		int pos = businessGroupService.getPositionInWaitingListFor(wg2, bgWithWaitingList);
-		System.out.println("testAddToWaitingListAndFireEvent: wg2 pos=" + pos);
-		assertTrue("pos must be 1, bit is=" + pos, pos == 1);
-		// Check position of 'wg3'
-		pos = businessGroupService.getPositionInWaitingListFor(wg3, bgWithWaitingList);
-		System.out.println("testAddToWaitingListAndFireEvent wg3: pos=" + pos);
-		assertTrue("pos must be 2, bit is=" + pos, pos == 2);
-		// Check position of 'wg4'
-		pos = businessGroupService.getPositionInWaitingListFor(wg4, bgWithWaitingList);
-		System.out.println("testAddToWaitingListAndFireEvent wg4: pos=" + pos);
-		assertTrue("pos must be 3, bit is=" + pos, pos == 3);
-	}
-
-	/**
-	 * Remove identity 2 (wg3) from the waiting list and check the position of
-	 * identity 2. before test Waitinglist=[wg2,wg3,wg4]<br>
-	 * after test Waitinglist=[wg2,wg4]
-	 */
-	@Test
-	public void testRemoveFromWaitingListAndFireEvent() throws Exception {
-		System.out.println("testRemoveFromWaitingListAndFireEvent: start...");
-		// Remove wg3
-		List<Identity> identities = new ArrayList<Identity>();
-		identities.add(wg3);
-		businessGroupService.removeFromWaitingList(wg1, identities, bgWithWaitingList);
-		// Check position of 'wg2'
-		int pos = businessGroupService.getPositionInWaitingListFor(wg2, bgWithWaitingList);
-		System.out.println("testRemoveFromWaitingListAndFireEvent: wg2 pos=" + pos);
-		assertTrue("pos must be 1, bit is=" + pos, pos == 1);
-		// Check position of 'wg4'
-		pos = businessGroupService.getPositionInWaitingListFor(wg4, bgWithWaitingList);
-		System.out.println("testRemoveFromWaitingListAndFireEvent wg4: pos=" + pos);
-		assertTrue("pos must be 2, bit is=" + pos, pos == 2);
-
-	}
-
-	/**
-	 * Move identity 4 (wg4) from the waiting list to participant list. before
-	 * test Waitinglist=[wg2,wg4]<br>
-	 * after test Waitinglist=[wg2]<br>
-	 * participant-list=[wg4]
-	 */
-	@Test
-	public void testMoveIdenityFromWaitingListToParticipant() throws Exception {
-		System.out.println("testMoveIdenityFromWaitingListToParticipant: start...");
-		// Check that 'wg4' is not in participant list
-		assertFalse("Identity is allready in participant-list, remove it(dbsetup?)", businessGroupService
-				.isIdentityInBusinessGroup(wg4, bgWithWaitingList));
-
-		// Move wg4 from waiting-list to participant
-		List<Identity> identities = new ArrayList<Identity>();
-		identities.add(wg4);
-		businessGroupService.moveIdentityFromWaitingListToParticipant(identities, wg1, bgWithWaitingList);
-		// Check position of 'wg2'
-		int pos = businessGroupService.getPositionInWaitingListFor(wg2, bgWithWaitingList);
-		System.out.println("testMoveIdenityFromWaitingListToParticipant: wg2 pos=" + pos);
-		assertTrue("pos must be 1, bit is=" + pos, pos == 1);
-		// Check if 'wg4' is in participant-list
-		assertTrue("Identity is not in participant-list", businessGroupService.isIdentityInBusinessGroup(wg4, bgWithWaitingList));
-	}
-	
-	@Test
-	public void testMoveRegisteredIdentityFromWaitingToParticipant() throws Exception {
-		System.out.println("testMoveRegisteredIdentityFromWaitingToParticipant: start...");
-		// Add a user to waiting-list which is already in participant-list and try
-		// and try to move this user => user will be removed from waiting-list
-		// Add again wg2
-		List<Identity> identities = new ArrayList<Identity>();
-		identities.add(wg1);
-		businessGroupService.addToWaitingList(wg4, identities, bgWithWaitingList);
-		identities = new ArrayList<Identity>();
-		identities.add(wg4);
-		businessGroupService.moveIdentityFromWaitingListToParticipant(identities, wg1, bgWithWaitingList);
-		// Check position of 'wg4'
-		int pos = businessGroupService.getPositionInWaitingListFor(wg4, bgWithWaitingList);
-		System.out.println("testMoveIdenityFromWaitingListToParticipant: wg4 pos=" + pos);
-		assertTrue("pos must be 0, bit is=" + pos, pos == 0);
-		// Check if 'wg4' is still in participant-list
-		assertTrue("Identity is not in participant-list", businessGroupService.isIdentityInBusinessGroup(wg4, bgWithWaitingList));
 	}
 	
 	@Test

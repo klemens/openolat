@@ -22,12 +22,8 @@ package org.olat.portal;
 import java.io.IOException;
 import java.net.URISyntaxException;
 import java.net.URL;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.UUID;
 
 import org.jboss.arquillian.container.test.api.Deployment;
@@ -43,10 +39,10 @@ import org.junit.runner.RunWith;
 import org.olat.test.ArquillianDeployments;
 import org.olat.user.restapi.UserVO;
 import org.olat.util.FunctionalHomeSiteUtil;
+import org.olat.util.FunctionalHomeSiteUtil.SettingsTab;
 import org.olat.util.FunctionalLocatorPairsFactory;
 import org.olat.util.FunctionalUtil;
 import org.olat.util.FunctionalVOUtil;
-import org.olat.util.FunctionalHomeSiteUtil.SettingsTab;
 
 import com.thoughtworks.selenium.DefaultSelenium;
 

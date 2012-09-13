@@ -84,6 +84,7 @@ import org.junit.runners.Suite;
 	org.olat.resource.OLATResourceManagerTest.class,//ok
 	org.olat.basesecurity.SecurityManagerTest.class,//ok
 	org.olat.basesecurity.BaseSecurityTest.class,//ok
+	org.olat.basesecurity.BaseSecurityManagerTest.class,//ok
 	org.olat.repository.RepositoryManagerTest.class,//ok
 	org.olat.repository.RepositoryManagerConcurrentTest.class,//ok
 	org.olat.repository.RepositoryManagerQueryTest.class,//ok
@@ -93,11 +94,13 @@ import org.junit.runners.Suite;
 	org.olat.course.assessment.AssessmentManagerTest.class,//ok
 	org.olat.course.config.CourseConfigManagerImplTest.class,//ok
 	org.olat.course.groupsandrights.CourseGroupManagementTest.class,//ok
+	org.olat.course.editor.PublishProcessTest.class,//ok
 	org.olat.modules.fo.ForumManagerTest.class,//fail
 	org.olat.modules.wiki.WikiUnitTest.class,//ok
 	org.olat.modules.wiki.versioning.diff.CookbookDiffTest.class,//ok
 	org.olat.properties.PropertyTest.class,//ok
 	org.olat.search.service.document.file.FileDocumentFactoryTest.class,
+	org.olat.search.service.document.file.PDFDocumentTest.class,
 	org.olat.catalog.CatalogManagerTest.class,//ok
 	org.olat.bookmark.BookmarkManagerTest.class,//ok
 	org.olat.notifications.NotificationsManagerTest.class,//fail
@@ -113,7 +116,8 @@ import org.junit.runners.Suite;
 //	org.olat.test.OlatJerseyTestCase.class, // NO TEST METHODS 
 	org.olat.test.SpringInitDestroyVerficationTest.class,
 	org.olat.course.statistic.TestLoggingVersionManagerImpl.class,
-	org.olat.core.commons.service.usercomments.UserCommentsAndRatingsTest.class,
+	org.olat.core.commons.service.usercomments.UserCommentsTest.class,
+	org.olat.core.commons.service.usercomments.UserRatingsTest.class,
 	org.olat.course.auditing.UserNodeAuditManagerTest.class,
 	org.olat.shibboleth.util.ShibbolethAttributeTest.class,
 	org.olat.portfolio.PortfolioModuleTest.class,
@@ -121,6 +125,7 @@ import org.junit.runners.Suite;
 	org.olat.portfolio.EPFrontendManagerTest.class,
 	org.olat.portfolio.EPStructureManagerTest.class,
 	org.olat.portfolio.EPStructureToArtefactTest.class,
+	org.olat.portfolio.EPImportTest.class,
 	org.olat.commons.info.InfoManagerTest.class,
 	org.olat.core.commons.service.tagging.SimpleTagProposalManagerTest.class,
 	org.olat.commons.coordinate.singlevm.SingleVMLockerTest.class,
@@ -147,6 +152,7 @@ import org.junit.runners.Suite;
 	org.olat.restapi.UserAuthenticationMgmtTest.class,
 	org.olat.restapi.UserMgmtTest.class,
 	org.olat.restapi.ContactsTest.class,
+	org.olat.restapi.SystemTest.class,
 	de.bps.olat.portal.institution.InstitutionPortletTest.class,
 	org.olat.group.manager.BusinessGroupImportExportXStreamTest.class,
 	org.olat.group.test.BusinessGroupImportExportTest.class,
@@ -155,6 +161,7 @@ import org.junit.runners.Suite;
 	org.olat.resource.accesscontrol.ACOfferManagerTest.class,
 	org.olat.resource.accesscontrol.ACOrderManagerTest.class,
 	org.olat.resource.accesscontrol.ACTransactionManagerTest.class,
+	org.olat.resource.accesscontrol.ACReservationDAOTest.class,
 	org.olat.core.util.vfs.VersionManagerTest.class,
 	/**
 	 * Pure JUnit test without need of framework

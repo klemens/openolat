@@ -20,7 +20,7 @@
 
 package org.olat.resource.accesscontrol.model;
 
-import org.olat.resource.accesscontrol.method.TokenAccessHandler;
+import org.olat.resource.accesscontrol.provider.token.TokenAccessHandler;
 
 
 /**
@@ -33,7 +33,9 @@ import org.olat.resource.accesscontrol.method.TokenAccessHandler;
  * @author srosse, stephane.rosse@frentix.com, http://www.frentix.com
  */
 public class TokenAccessMethod extends AbstractAccessMethod {
-	
+
+	private static final long serialVersionUID = -8066110993424490600L;
+
 	@Override
 	public String getType() {
 		return TokenAccessHandler.METHOD_TYPE;
@@ -47,6 +49,11 @@ public class TokenAccessMethod extends AbstractAccessMethod {
 	@Override
 	public boolean isNeedUserInteraction() {
 		return true;
+	}
+	
+	@Override
+	public boolean isPaymentMethod() {
+		return false;
 	}
 
 	@Override

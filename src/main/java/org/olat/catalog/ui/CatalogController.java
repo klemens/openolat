@@ -60,7 +60,6 @@ import org.olat.core.gui.control.Event;
 import org.olat.core.gui.control.WindowControl;
 import org.olat.core.gui.control.controller.BasicController;
 import org.olat.core.gui.control.generic.closablewrapper.CloseableModalController;
-import org.olat.core.gui.control.generic.dtabs.Activateable;
 import org.olat.core.gui.control.generic.dtabs.Activateable2;
 import org.olat.core.gui.control.generic.dtabs.DTab;
 import org.olat.core.gui.control.generic.dtabs.DTabs;
@@ -95,7 +94,7 @@ import org.olat.repository.controllers.RepositorySearchController;
 import org.olat.repository.handlers.RepositoryHandler;
 import org.olat.repository.handlers.RepositoryHandlerFactory;
 import org.olat.resource.OLATResource;
-import org.olat.resource.accesscontrol.manager.ACFrontendManager;
+import org.olat.resource.accesscontrol.ACService;
 import org.olat.resource.accesscontrol.model.OLATResourceAccess;
 import org.olat.resource.accesscontrol.model.PriceMethodBundle;
 import org.olat.resource.accesscontrol.ui.PriceFormat;
@@ -147,7 +146,7 @@ import org.olat.resource.accesscontrol.ui.PriceFormat;
  * Date: 2005/10/14 12:35:40 <br>
  * @author Felix Jost
  */
-public class CatalogController extends BasicController implements Activateable, Activateable2 {
+public class CatalogController extends BasicController implements Activateable2 {
 
 	// catalog actions
 	
@@ -198,7 +197,7 @@ public class CatalogController extends BasicController implements Activateable, 
 	private VelocityContainer myContent;
 
 	private final CatalogManager cm;
-	private final ACFrontendManager acFrontendManager;
+	private final ACService acService;
 	private final RepositoryManager repositoryManager;
 	private CatalogEntry currentCatalogEntry;
 	private CatalogEntry newLinkNotPersistedYet;
@@ -246,13 +245,13 @@ public class CatalogController extends BasicController implements Activateable, 
 	 * @param wControl
 	 * @param rootce
 	 */
-	public CatalogController(UserRequest ureq, WindowControl wControl, String jumpToNode) {
+	public CatalogController(UserRequest ureq, WindowControl wControl) {
 		// fallback translator to repository package to reduce redundant translations
 		super(ureq, wControl, Util.createPackageTranslator(RepositoryManager.class, ureq.getLocale()));
 		
 		cm = CatalogManager.getInstance();
 		//fxdiff VCRP-1,2: access control of resources
-		acFrontendManager = CoreSpringFactory.getImpl(ACFrontendManager.class);
+		acService = CoreSpringFactory.getImpl(ACService.class);
 		repositoryManager = CoreSpringFactory.getImpl(RepositoryManager.class);
 
 		List<CatalogEntry> rootNodes = cm.getRootCatalogEntries();
@@ -281,13 +280,8 @@ public class CatalogController extends BasicController implements Activateable, 
 		historyStack.add(rootce);
 		updateContent(ureq, rootce, 0);
 		
-		// jump to a specific node in the catalog structure, build corresponding
-		// historystack and update tool access
-		if (jumpToNode != null) {
-			activate(ureq, jumpToNode);
-		}
 		loginLink = LinkFactory.createLink("cat.login", myContent, this);
-		
+	
 		putInitialPanel(myContent);
 	}
 
@@ -473,7 +467,7 @@ public class CatalogController extends BasicController implements Activateable, 
 			 */
 			else if (event.getCommand().equals(ACTION_ADD_CTLGLINK)) {
 				removeAsListenerAndDispose(rsc);
-				rsc = new RepositorySearchController(translate(NLS_CHOOSE), ureq, getWindowControl(), true, false);
+				rsc = new RepositorySearchController(translate(NLS_CHOOSE), ureq, getWindowControl(), true, false, false);
 				listenTo(rsc);
 				// OLAT-Admin has search form
 				if (isOLATAdmin) {
@@ -1008,7 +1002,7 @@ public class CatalogController extends BasicController implements Activateable, 
 			}
 		}
 		
-		List<OLATResourceAccess> resourcesWithOffer = acFrontendManager.getAccessMethodForResources(resourceKeys, null, true, new Date());
+		List<OLATResourceAccess> resourcesWithOffer = acService.getAccessMethodForResources(resourceKeys, null, true, new Date());
 		for ( CatalogEntry entry : childCe ) {
 			if(entry.getType() == CatalogEntry.TYPE_NODE) continue;
 			//fxdiff VCRP-1,2: access control of resources
@@ -1233,7 +1227,7 @@ public class CatalogController extends BasicController implements Activateable, 
 
 	/**
 	 * @see org.olat.core.gui.control.generic.dtabs.Activateable#activate(org.olat.core.gui.UserRequest, java.lang.String)
-	 */
+	 *//*
 	public void activate(UserRequest ureq, String viewIdentifier){
 		 // transforms the parameter jumpToNode into a long value and calls jumpToNode(UserRequest, long)
 		try{
@@ -1242,7 +1236,7 @@ public class CatalogController extends BasicController implements Activateable, 
 		} catch(Exception e){
 			logWarn("Could not activate catalog entry with ID::" + viewIdentifier, null);
 		}
-	}
+	}*/
 	
 	/**
 	 * Internal helper: Get's the requested catalog node and set it as active

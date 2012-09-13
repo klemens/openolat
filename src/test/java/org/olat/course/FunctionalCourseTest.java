@@ -40,7 +40,6 @@ import org.olat.util.FunctionalRepositorySiteUtil.CourseWizardAccess;
 import org.olat.util.FunctionalRepositorySiteUtil.CourseWizardElement;
 import org.olat.util.FunctionalUtil;
 import org.olat.util.FunctionalUtil.OlatSite;
-import org.olat.util.FunctionalVOUtil;
 
 import com.thoughtworks.selenium.DefaultSelenium;
 

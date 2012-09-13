@@ -26,7 +26,7 @@ import org.olat.core.gui.render.Renderer;
 import org.olat.core.gui.render.StringOutput;
 import org.olat.core.gui.translator.Translator;
 import org.olat.core.util.Util;
-import org.olat.group.model.BGMembership;
+import org.olat.group.BusinessGroupMembership;
 
 /**
  * 
@@ -42,22 +42,27 @@ public class BGRoleCellRenderer implements CustomCellRenderer {
 
 	@Override
 	public void render(StringOutput sb, Renderer renderer, Object val, Locale locale, int alignment, String action) {
-		if(val instanceof BGMembership) {
-			BGMembership membership = (BGMembership)val;
-			switch(membership) {
-				case owner: {
-					sb.append(translator.translate("owned.groups"));
-					break;
-				}
-				case participant: {
-					sb.append(translator.translate("search.attendee"));
-					break;
-				}
-				case waiting: {
-					sb.append(translator.translate("search.waiting"));
-					break;
-				}
+		if (val instanceof BusinessGroupMembership) {
+			BusinessGroupMembership membership = (BusinessGroupMembership)val;
+			
+			boolean and = false;
+			if(membership.isOwner()) {
+				and = and(sb, and);
+				sb.append(translator.translate("owned.groups"));
+			}
+			if(membership.isParticipant()) {
+				and = and(sb, and);
+				sb.append(translator.translate("search.attendee"));
+			}
+			if(membership.isWaiting()) {
+				and = and(sb, and);
+				sb.append(translator.translate("search.waiting"));
 			}
 		}
+	}
+	
+	private final boolean and(StringOutput sb, boolean and) {
+		if(and) sb.append(", ");
+		return true;
 	}
 }

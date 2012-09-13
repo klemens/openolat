@@ -48,7 +48,13 @@ import org.olat.group.BusinessGroupModule;
 import org.olat.group.BusinessGroupService;
 import org.olat.group.model.DisplayMembers;
 
-
+/**
+ * 
+ * The main controller for the group business card.
+ * 
+ * 
+ * @author srosse, stephane.rosse@frentix.com, http://www.frentix.com
+ */
 public class GroupInfoMainController extends MainLayoutBasicController implements Activateable2 {
 	
 	public final static String COMMAND_MENU_GROUPINFO = "COMMAND_MENU_GROUPINFO";
@@ -60,6 +66,7 @@ public class GroupInfoMainController extends MainLayoutBasicController implement
 	
 	/** The business group we're dealing with */
 	private BusinessGroup businessGroup;
+	private DisplayMembers members;
 	
 	/** The navigation tree */
 	private MenuTree menuTree;
@@ -77,6 +84,7 @@ public class GroupInfoMainController extends MainLayoutBasicController implement
 		this.businessGroup = businessGroup;
 		module = CoreSpringFactory.getImpl(BusinessGroupModule.class);
 		businessGroupService = CoreSpringFactory.getImpl(BusinessGroupService.class);
+		members = businessGroupService.getDisplayMembers(businessGroup);
 
 		menuTree = new MenuTree("menuTree");
 		menuTree.setRootVisible(false);
@@ -168,7 +176,7 @@ public class GroupInfoMainController extends MainLayoutBasicController implement
 		if(groupMembersDisplayController == null) {
 			OLATResourceable ores = OresHelper.createOLATResourceableInstance("Members", 0l);
 			WindowControl bwControl = BusinessControlFactory.getInstance().createBusinessWindowControl(ores, null, getWindowControl());
-			groupMembersDisplayController = new GroupMembersDisplayController(ureq, bwControl, businessGroup);
+			groupMembersDisplayController = new GroupMembersDisplayController(ureq, bwControl, businessGroup, members);
 			listenTo(groupMembersDisplayController);
 		}
 		
@@ -205,8 +213,7 @@ public class GroupInfoMainController extends MainLayoutBasicController implement
 		rootNode.addChild(childNode);
 		rootNode.setDelegate(childNode);
 		
-		DisplayMembers members = businessGroupService.getDisplayMembers(businessGroup);
-		if(members.isShowOwners() || members.isShowParticipants()) {
+		if(members.isOwnersPublic() || members.isParticipantsPublic() || members.isWaitingListPublic()) {
 			childNode = new GenericTreeNode();
 			childNode.setTitle(translate("main.menu.members"));
 			childNode.setUserObject(COMMAND_MENU_GROUPMEMBERS);
@@ -229,7 +236,7 @@ public class GroupInfoMainController extends MainLayoutBasicController implement
 			return true;
 		}
 		if(BusinessGroupModule.CONTACT_BUSINESS_CARD_GROUP_CONFIG.equals(contactConfig)) {
-			CollaborationTools tools = CollaborationToolsFactory.getInstance().getCollaborationToolsIfExists(businessGroup);
+			CollaborationTools tools = CollaborationToolsFactory.getInstance().getOrCreateCollaborationTools(businessGroup);
 			return tools == null ? false : tools.isToolEnabled(CollaborationTools.TOOL_CONTACT);
 		}
 		return false;

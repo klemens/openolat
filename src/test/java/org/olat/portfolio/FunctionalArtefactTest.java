@@ -41,7 +41,6 @@ import org.olat.restapi.support.vo.RepositoryEntryVO;
 import org.olat.test.ArquillianDeployments;
 import org.olat.user.restapi.UserVO;
 import org.olat.util.FunctionalCourseUtil;
-import org.olat.util.FunctionalCourseUtil.AccessOption;
 import org.olat.util.FunctionalEPortfolioUtil;
 import org.olat.util.FunctionalHomeSiteUtil;
 import org.olat.util.FunctionalRepositorySiteUtil;

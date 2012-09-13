@@ -43,7 +43,6 @@ import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.Event;
 import org.olat.core.gui.control.WindowControl;
 import org.olat.core.gui.control.controller.MainLayoutBasicController;
-import org.olat.core.gui.control.generic.dtabs.Activateable;
 import org.olat.core.gui.control.generic.dtabs.Activateable2;
 import org.olat.core.id.OLATResourceable;
 import org.olat.core.id.context.ContextEntry;
@@ -394,11 +393,15 @@ public abstract class GenericMainController extends MainLayoutBasicController {
 	
 
 	// fxdiff BAKS-7 Resume function
-	protected void activate(UserRequest ureq, String viewIdentifier) {
+	private void activate(UserRequest ureq, String viewIdentifier) {
 		ActionExtension ae;
 		if (viewIdentifier != null && viewIdentifier.startsWith(GMCMT)) {
 			Long extensionID = Long.parseLong(viewIdentifier.substring(viewIdentifier.indexOf(':') + 1));
 			Extension ee = ExtManager.getInstance().getExtensionByID(extensionID);
+			if(ee == null){
+				logWarn("ExtManager did not find an Extension for extensionID '"+extensionID+"'. Activate canceled..." , null);
+				return;
+			}
 			ae = (ActionExtension) ee.getExtensionFor(className, ureq);
 		} else {
 			int vwindex = viewIdentifier.lastIndexOf(":"); 
@@ -421,9 +424,6 @@ public abstract class GenericMainController extends MainLayoutBasicController {
 		try {
 			if (olatMenuTree.getTreeModel() instanceof GenericTreeModel) {
 				activateTreeNodeByActionExtension(ureq, ae);
-				if (contentCtr instanceof Activateable) {
-					((Activateable) contentCtr).activate(ureq, viewIdentifier);
-				}
 			} else {
 				// just for precaution (treenode selection won't work, but correct
 				// content is displayed)

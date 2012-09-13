@@ -88,7 +88,8 @@ public class BusinessGroupRelationDAO {
 		}
 	}
 
-	public boolean isIdentityInBusinessGroup(Identity identity, Long groupKey, OLATResource resource) {
+	public boolean isIdentityInBusinessGroup(Identity identity, Long groupKey, boolean ownedById, boolean attendeeById,
+			OLATResource resource) {
 		StringBuilder sb = new StringBuilder();
 		sb.append("select count(bgi) from ").append(BusinessGroupImpl.class.getName()).append(" bgi");
 		boolean and = false;
@@ -97,17 +98,24 @@ public class BusinessGroupRelationDAO {
 			sb.append(" bgi.key=:groupKey");
 		}
 		and(sb, and);
-		sb.append(" (")
-		  .append("   bgi.partipiciantGroup in (")
-		  .append("     select participantMemberShip.securityGroup from ").append(SecurityGroupMembershipImpl.class.getName()).append(" participantMemberShip ")
-		  .append("       where participantMemberShip.identity.key=:identityKey")
-		  .append("   )")
-		  .append("   or")
-		  .append("   bgi.ownerGroup in (")
-		  .append("     select ownerMemberShip.securityGroup from ").append(SecurityGroupMembershipImpl.class.getName()).append(" ownerMemberShip ")
-		  .append("       where ownerMemberShip.identity.key=:identityKey")
-		  .append("   )")
-		  .append(" )")
+		sb.append(" (");
+		if(ownedById) {
+			sb.append("   bgi.ownerGroup in (")
+			  .append("     select ownerMemberShip.securityGroup from ").append(SecurityGroupMembershipImpl.class.getName()).append(" ownerMemberShip ")
+			  .append("       where ownerMemberShip.identity.key=:identityKey")
+			  .append("   )");
+		}
+		if(attendeeById) {
+			if(ownedById) {
+				sb.append(" or");
+			}
+			sb.append("   bgi.partipiciantGroup in (")
+			  .append("     select participantMemberShip.securityGroup from ").append(SecurityGroupMembershipImpl.class.getName()).append(" participantMemberShip ")
+			  .append("       where participantMemberShip.identity.key=:identityKey")
+			  .append("   )");
+		}
+		  
+		sb.append(" )")
 			.append(" and bgi in (")
 			.append("   select relation.group from ").append(BGResourceRelation.class.getName()).append(" relation where relation.resource.key=:resourceKey")
 			.append(" )");
@@ -183,6 +191,21 @@ public class BusinessGroupRelationDAO {
 				.getSingleResult();
 		return count.intValue();
 	}
+	
+	public int countResources(List<BusinessGroup> groups) {
+		if(groups == null || groups.isEmpty()) return 0;
+		StringBuilder sb = new StringBuilder();
+		sb.append("select count(bgcr) from ").append(BGResourceRelation.class.getName()).append(" bgcr where bgcr.group.key in (:groupKeys)");
+		List<Long> groupKeys = new ArrayList<Long>();
+		for(BusinessGroup group: groups) {
+			groupKeys.add(group.getKey());
+		}
+		Number count = dbInstance.getCurrentEntityManager().createQuery(sb.toString(), Number.class)
+				.setParameter("groupKeys", groupKeys)
+				.setHint("org.hibernate.cacheable", Boolean.TRUE)
+				.getSingleResult();
+		return count.intValue();
+	}
 
 	public List<OLATResource> findResources(Collection<BusinessGroup> groups, int firstResult, int maxResults) {
 		if(groups == null || groups.isEmpty()) {
@@ -250,6 +273,24 @@ public class BusinessGroupRelationDAO {
 			query.setMaxResults(maxResults);
 		}
 		
+		query.setParameter("groupKeys", groupKeys);
+		return query.getResultList();
+	}
+	
+	public List<BGResourceRelation> findRelations(Collection<Long> groupKeys, int firstResult, int maxResults) {
+		if(groupKeys == null || groupKeys.isEmpty()) {
+			return Collections.emptyList();
+		}
+
+		StringBuilder sb = new StringBuilder();
+		sb.append("select rel from ").append(BGResourceRelation.class.getName()).append(" as rel ")
+			.append(" where rel.group.key in (:groupKeys)");
+
+		TypedQuery<BGResourceRelation> query = dbInstance.getCurrentEntityManager().createQuery(sb.toString(), BGResourceRelation.class);
+		query.setFirstResult(firstResult);
+		if(maxResults > 0) {
+			query.setMaxResults(maxResults);
+		}
 		query.setParameter("groupKeys", groupKeys);
 		return query.getResultList();
 	}

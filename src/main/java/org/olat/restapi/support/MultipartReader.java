@@ -84,7 +84,6 @@ public class MultipartReader {
 					} catch (Exception e) {
 						log.error("", e);
 					}
-					System.out.println("************* " + file.length());
 				}
 			}
 		} catch (Exception e) {

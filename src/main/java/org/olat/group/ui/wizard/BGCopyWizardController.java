@@ -72,7 +72,7 @@ public class BGCopyWizardController extends WizardController {
 		bgs = CoreSpringFactory.getImpl(BusinessGroupService.class);
 		this.originalGroup = originalGroup;
 		// init wizard step 1
-		copyForm = new BGCopyWizardCopyForm(ureq, wControl);
+		copyForm = new BGCopyWizardCopyForm(ureq, wControl, true, true, true);
 		listenTo(copyForm);
 		// init wizard title and set step 1
 		setWizardTitle(trans.translate("bgcopywizard.title"));
@@ -123,8 +123,8 @@ public class BGCopyWizardController extends WizardController {
 		Integer bgMax = groupController.getGroupMax();
 		Integer bgMin = groupController.getGroupMin();
 
-		BusinessGroup newGroup = bgs.copyBusinessGroup(originalGroup, bgName, bgDesc,
-				bgMin, bgMax, null, null,
+		BusinessGroup newGroup = bgs.copyBusinessGroup(getIdentity(), originalGroup, bgName, bgDesc,
+				bgMin, bgMax,
 				copyForm.isCopyAreas(), copyForm.isCopyTools(), copyForm.isCopyRights(), copyForm.isCopyOwners(),
 				copyForm.isCopyParticipants(), copyForm.isCopyMembersVisibility(), copyForm.isCopyWaitingList(),
 				true /*copy resources */ );

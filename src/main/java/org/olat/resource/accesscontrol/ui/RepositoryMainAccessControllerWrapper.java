@@ -31,7 +31,6 @@ import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.Event;
 import org.olat.core.gui.control.WindowControl;
 import org.olat.core.gui.control.controller.MainLayoutBasicController;
-import org.olat.core.gui.control.generic.dtabs.Activateable;
 import org.olat.core.gui.control.generic.dtabs.Activateable2;
 import org.olat.core.gui.control.generic.layout.MainLayoutController;
 import org.olat.core.id.OLATResourceable;
@@ -40,9 +39,9 @@ import org.olat.core.id.context.StateEntry;
 import org.olat.core.util.StringHelper;
 import org.olat.repository.RepositoryEntry;
 import org.olat.repository.RepositoryManager;
+import org.olat.resource.accesscontrol.ACService;
 import org.olat.resource.accesscontrol.ACUIFactory;
 import org.olat.resource.accesscontrol.AccessResult;
-import org.olat.resource.accesscontrol.manager.ACFrontendManager;
 
 /**
  * 
@@ -53,7 +52,7 @@ import org.olat.resource.accesscontrol.manager.ACFrontendManager;
  * Initial Date:  9 mai 2011 <br>
  * @author srosse, stephane.rosse@frentix.com, http://www.frentix.com
  */
-public class RepositoryMainAccessControllerWrapper extends MainLayoutBasicController implements Activateable, Activateable2 {
+public class RepositoryMainAccessControllerWrapper extends MainLayoutBasicController implements Activateable2 {
 
 	private final Panel contentP;
 	private VelocityContainer mainVC;
@@ -74,8 +73,8 @@ public class RepositoryMainAccessControllerWrapper extends MainLayoutBasicContro
 			if(re.getAccess() == RepositoryEntry.ACC_USERS_GUESTS && ureq.getUserSession().getRoles().isGuestOnly()) {
 				contentP.setContent(resController.getInitialComponent());
 			} else {
-				ACFrontendManager acFrontendManager = (ACFrontendManager)CoreSpringFactory.getBean("acFrontendManager");
-				AccessResult acResult = acFrontendManager.isAccessible(re, getIdentity(), false);
+				ACService acService = CoreSpringFactory.getImpl(ACService.class);
+				AccessResult acResult = acService.isAccessible(re, getIdentity(), false);
 				if(acResult.isAccessible()) {
 					contentP.setContent(resController.getInitialComponent());
 				} else if (re != null && acResult.getAvailableMethods().size() > 0) {
@@ -107,13 +106,6 @@ public class RepositoryMainAccessControllerWrapper extends MainLayoutBasicContro
 	public void setCustomCSS(CustomCSS newCustomCSS) {
 		if(resController != null) {
 			resController.setCustomCSS(newCustomCSS);
-		}
-	}
-	
-	@Override
-	public void activate(UserRequest ureq, String viewIdentifier) {
-		if(resController instanceof Activateable) {
-			((Activateable)resController).activate(ureq, viewIdentifier);
 		}
 	}
 

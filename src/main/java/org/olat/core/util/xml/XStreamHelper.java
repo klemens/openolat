@@ -40,7 +40,6 @@ import org.olat.core.util.FileUtils;
 import org.olat.core.util.vfs.VFSLeaf;
 
 import com.thoughtworks.xstream.XStream;
-import com.thoughtworks.xstream.mapper.MapperWrapper;
 
 /**
  * Description:<br>
@@ -225,7 +224,19 @@ public class XStreamHelper {
 	 * writing to a configured XML mapping
 	 */
 	public static XStream createXStreamInstance() {
-		return new EnhancedXStream();
+		EnhancedXStream xstream = new EnhancedXStream(false);
+		return xstream;
+	}
+	
+	/**
+	 * Factory to create a fresh XStream instance. Use this when
+	 * writing, it has more aliases to convert hibernate collections
+	 * to java collections.
+	 * @return
+	 */
+	public static XStream createXStreamInstanceForDBObjects() {
+		EnhancedXStream xstream = new EnhancedXStream(true);
+		return xstream;
 	}
 
 	/**
@@ -379,12 +390,4 @@ public class XStreamHelper {
 			FileUtils.closeSafely(os);
 		}
 	}
-	
-	private static class EnhancedXStream extends XStream {
-		@Override
-		protected MapperWrapper wrapMapper(MapperWrapper next) {
-			return new EnhancedMapper(next);
-		}
-	}
-
 }

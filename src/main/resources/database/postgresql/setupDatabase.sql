@@ -525,7 +525,7 @@ create table o_info_message (
 
 create table o_co_db_entry (
    id int8 not null,
-   version int8 not null,
+   version int4 not null,
    lastmodified timestamp,
    creationdate timestamp,
    courseid int8,
@@ -795,6 +795,47 @@ create table o_ac_transaction (
   fk_order_id int8,
   fk_method_id int8,
 	primary key (transaction_id)
+);
+
+create table o_ac_reservation (
+   reservation_id int8 NOT NULL,
+   creationdate timestamp,
+   lastmodified timestamp,
+   version int4 not null,
+   fk_identity int8 not null,
+   fk_resource int8 not null,
+   primary key (reservation_id)
+);
+
+create table o_ac_paypal_transaction (
+   transaction_id int8 not null,
+   version int4 not null,
+   creationdate timestamp,
+   ref_no varchar(255),
+   order_id int8 not null,
+   order_part_id int8 not null,
+   method_id int8 not null,
+   success_uuid varchar(32) not null,
+   cancel_uuid varchar(32) not null,
+   amount_amount DECIMAL,
+   amount_currency_code VARCHAR(3),
+   pay_response_date timestamp,
+   pay_key varchar(255),
+   ack varchar(255),
+   build varchar(255),
+   coorelation_id varchar(255),
+   payment_exec_status varchar(255),
+   ipn_transaction_id varchar(255),
+   ipn_transaction_status varchar(255),
+   ipn_sender_transaction_id varchar(255),
+   ipn_sender_transaction_status varchar(255),
+   ipn_sender_email varchar(255),
+   ipn_verify_sign varchar(255),
+   ipn_pending_reason varchar(255),
+   trx_status VARCHAR(32) not null default 'NEW',
+   trx_amount DECIMAL,
+   trx_currency_code VARCHAR(3),
+   primary key (transaction_id)
 );
 
 
@@ -1111,6 +1152,12 @@ create or replace view o_gp_business_v  as (
       gp.autocloseranks_enabled as autocloseranks_enabled,
       (select count(part.id) from o_bs_membership as part where part.secgroup_id = gp.fk_partipiciantgroup) as num_of_participants,
       (select count(own.id) from o_bs_membership as own where own.secgroup_id = gp.fk_ownergroup) as num_of_owners,
+      (case when gp.waitinglist_enabled = true
+         then 
+           (select count(waiting.id) from o_bs_membership as waiting where waiting.secgroup_id = gp.fk_partipiciantgroup)
+         else
+           0
+      end) as num_waiting,
       (select count(offer.offer_id) from o_ac_offer as offer 
          where offer.fk_resource_id = gp.fk_resource
          and offer.is_valid=true
@@ -1198,38 +1245,22 @@ create or replace view o_re_strict_tutor_v as (
    where re.membersonly=true and re.accesscode=1
 );
 
-create or replace view o_gp_business_v  as (
+create or replace view o_re_membership_v as (
    select
-      gp.group_id as group_id,
-      gp.groupname as groupname,
-      gp.lastmodified as lastmodified,
-      gp.creationdate as creationdate,
-      gp.lastusage as lastusage,
-      gp.descr as descr,
-      gp.minparticipants as minparticipants,
-      gp.maxparticipants as maxparticipants,
-      gp.waitinglist_enabled as waitinglist_enabled,
-      gp.autocloseranks_enabled as autocloseranks_enabled,
-      (select count(part.id) from o_bs_membership as part where part.secgroup_id = gp.fk_partipiciantgroup) as num_of_participants,
-      (select count(own.id) from o_bs_membership as own where own.secgroup_id = gp.fk_ownergroup) as num_of_owners,
-      (select count(offer.offer_id) from o_ac_offer as offer 
-         where offer.fk_resource_id = gp.fk_resource
-         and offer.is_valid=true
-         and (offer.validfrom is null or offer.validfrom >= current_timestamp)
-         and (offer.validto is null or offer.validto <= current_timestamp)
-      ) as num_of_valid_offers,
-      (select count(offer.offer_id) from o_ac_offer as offer 
-         where offer.fk_resource_id = gp.fk_resource
-         and offer.is_valid=true
-      ) as num_of_offers,
-      (select count(relation.fk_resource) from o_gp_business_to_resource as relation 
-         where relation.fk_group = gp.group_id
-      ) as num_of_relations,
-      gp.fk_resource as fk_resource,
-      gp.fk_ownergroup as fk_ownergroup,
-      gp.fk_partipiciantgroup as fk_partipiciantgroup,
-      gp.fk_waitinggroup as fk_waitinggroup
-   from o_gp_business as gp
+      membership.id as membership_id,
+      membership.identity_id as identity_id,
+      membership.lastmodified as lastmodified,
+      membership.creationdate as creationdate,
+      re_owner_member.repositoryentry_id as owner_re_id,
+      re_owner_member.fk_olatresource as owner_ores_id,
+      re_tutor_member.repositoryentry_id as tutor_re_id,
+      re_tutor_member.fk_olatresource as tutor_ores_id,
+      re_part_member.repositoryentry_id as participant_re_id,
+      re_part_member.fk_olatresource as participant_ores_id
+   from o_bs_membership as membership
+   left join o_repositoryentry as re_part_member on (membership.secgroup_id = re_part_member.fk_participantgroup)
+   left join o_repositoryentry as re_tutor_member on (membership.secgroup_id = re_tutor_member.fk_tutorgroup)
+   left join o_repositoryentry as re_owner_member on (membership.secgroup_id = re_owner_member.fk_ownergroup)
 );
 
 create or replace view o_re_member_v as (
@@ -1422,6 +1453,12 @@ alter table o_info_message add constraint FKF85553465A4FA5DC foreign key (fk_aut
 create index imsg_modifier_idx on o_info_message (fk_modifier_id);
 alter table o_info_message add constraint FKF85553465A4FA5EF foreign key (fk_modifier_id) references o_bs_identity (id);
 
+create index o_co_db_course_idx on o_co_db_entry (courseid);
+create index o_co_db_cat_idx on o_co_db_entry (category);
+create index o_co_db_name_idx on o_co_db_entry (name);
+alter table o_co_db_entry add constraint FKB60B1BA5F7E870XY foreign key (identity) references o_bs_identity;
+
+
 alter table o_ep_artefact add constraint FKF26C8375236F28X foreign key (fk_artefact_auth_id) references o_bs_identity (id);
 alter table o_ep_struct_el add constraint FKF26C8375236F26X foreign key (fk_olatresource) references o_olatresource (resource_id);
 alter table o_ep_struct_el add constraint FKF26C8375236F29X foreign key (fk_ownergroup) references o_bs_secgroup (id);
@@ -1456,6 +1493,9 @@ alter table o_ac_order_line add constraint ord_item_offer_ctx foreign key (fk_of
 alter table o_ac_transaction add constraint trans_ord_ctx foreign key (fk_order_id) references o_ac_order (order_id);
 alter table o_ac_transaction add constraint trans_ord_part_ctx foreign key (fk_order_part_id) references o_ac_order_part (order_part_id);
 alter table o_ac_transaction add constraint trans_method_ctx foreign key (fk_method_id) references o_ac_method (method_id);
+create index paypal_pay_key_idx on o_ac_paypal_transaction (pay_key);
+create index paypal_pay_trx_id_idx on o_ac_paypal_transaction (ipn_transaction_id);
+create index paypal_pay_s_trx_id_idx on o_ac_paypal_transaction (ipn_sender_transaction_id);
 
 alter table o_as_eff_statement add constraint eff_statement_id_cstr foreign key (fk_identity) references o_bs_identity (id);
 create index eff_statement_repo_key_idx on o_as_eff_statement (course_repo_key);

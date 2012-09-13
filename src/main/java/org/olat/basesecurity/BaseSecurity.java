@@ -157,6 +157,13 @@ public interface BaseSecurity {
 	public Identity findIdentityByName(String identityName);
 	
 	/**
+	 * Find an identity by its user
+	 * @param user
+	 * @return The identity or null if not found
+	 */
+	public Identity findIdentityByUser(User user);
+	
+	/**
 	 * Find identities by names. This is an exact match.
 	 * <p>
 	 * Be aware that this method does <b>not</b> check the identities status!
@@ -176,7 +183,7 @@ public interface BaseSecurity {
 	 * @param identityNames
 	 * @return The identities
 	 */
-	public List<IdentityShort> findShortIdentitiesByKey(Collection<Long> identityName);
+	public List<IdentityShort> findShortIdentitiesByKey(Collection<Long> identityKeys);
 
 	/**
 	 * find an identity by the key instead of the username. Prefer this method as
@@ -186,6 +193,14 @@ public interface BaseSecurity {
 	 * @return the identity or an exception if not found
 	 */
 	public Identity loadIdentityByKey(Long identityKey);
+	
+	/**
+	 * Load a list of identities by their keys.
+	 * 
+	 * @param identityKeys
+	 * @return A list of identities
+	 */
+	public List<Identity> loadIdentityByKeys(Collection<Long> identityKeys);
 	
 	public IdentityShort loadIdentityShortByKey(Long identityKey);
 	
@@ -305,7 +320,15 @@ public interface BaseSecurity {
 	 * @param identity
 	 * @param secGroup
 	 */
-	public void removeIdentityFromSecurityGroup(Identity identity, SecurityGroup secGroup);
+	public boolean removeIdentityFromSecurityGroup(Identity identity, SecurityGroup secGroup);
+
+	/**
+	 * Remove an Identity
+	 * @param identity
+	 * @param secGroups
+	 * @return
+	 */
+	public boolean removeIdentityFromSecurityGroups(List<Identity> identities, List<SecurityGroup> secGroups);
 
 	// --- Policy management
 	// again no pure RAM creation, since all attributes are mandatory and given by
@@ -397,10 +420,9 @@ public interface BaseSecurity {
 	 * @param permission
 	 * @param olatResourceable
 	 */
-	public void deletePolicy(SecurityGroup secGroup, String permission, OLATResourceable olatResourceable);
-
-	// public void deletePolicy(Policy policy); //just deletes the policy, but not
-	// the resource
+	public void deletePolicy(SecurityGroup secGroup, String permission, OLATResource olatResourceable);
+	
+	public boolean deletePolicies(Collection<SecurityGroup> secGroups, Collection<OLATResource> resources);
 
 	// some queries mainly for the group/groupcontext management
 	/**
@@ -408,6 +430,13 @@ public interface BaseSecurity {
 	 * @return a list of Policy objects
 	 */
 	public List<Policy> getPoliciesOfSecurityGroup(SecurityGroup secGroup);
+	
+	/**
+	 * 
+	 * @param secGroups
+	 * @return
+	 */
+	public List<Policy> getPoliciesOfSecurityGroup(List<SecurityGroup> secGroups, OLATResource... resources);
 
 /**
  * Return the policies
@@ -415,7 +444,7 @@ public interface BaseSecurity {
  * @param securityGroup The securityGroup (optional)
  * @return
  */
-	public List<Policy> getPoliciesOfResource(OLATResourceable resource, SecurityGroup securityGroup);
+	public List<Policy> getPoliciesOfResource(OLATResource resource, SecurityGroup securityGroup);
 	
 	/**
 	 * Update the policy valid dates
@@ -424,24 +453,6 @@ public interface BaseSecurity {
 	 * @param to
 	 */
 	public void updatePolicy(Policy policy, Date from, Date to);
-	
-	/**
-	 * use for testing ONLY.
-	 * 
-	 * @param permission
-	 * @param olatResourceable
-	 * @return a list of SecurityGroup objects
-	 */
-	public List<SecurityGroup> getGroupsWithPermissionOnOlatResourceable(String permission, OLATResourceable olatResourceable);
-
-	/**
-	 * use for testing ONLY.
-	 * 
-	 * @param permission
-	 * @param olatResourceable
-	 * @return a list of Identity objects
-	 */
-	public List<Identity> getIdentitiesWithPermissionOnOlatResourceable(String permission, OLATResourceable olatResourceable);
 
 	/**
 	 * for debugging and info by the olat admins:
@@ -450,7 +461,7 @@ public interface BaseSecurity {
 	 * @return scalar query return list of object[] with SecurityGroupImpl,
 	 *         PolicyImpl, OLATResourceImpl
 	 */
-	public List<Identity> getPoliciesOfIdentity(Identity identity);
+	public List<Policy> getPoliciesOfIdentity(Identity identity);
 
 	/**
 	 * @param authusername
@@ -485,6 +496,13 @@ public interface BaseSecurity {
 	 */
 	public List<Identity> getVisibleIdentitiesByPowerSearch(String login, Map<String, String> userProperties, boolean userPropertiesAsIntersectionSearch, SecurityGroup[] groups, PermissionOnResourceable[] permissionOnResources, String[] authProviders, Date createdAfter,
 			Date createdBefore);
+	
+	/**
+	 * Like the following method but compact
+	 * @param params
+	 * @return
+	 */
+	public List<Identity> getIdentitiesByPowerSearch(SearchIdentityParams params);
 	
 	/**
 	 * Get a list of identities that match the following conditions. All

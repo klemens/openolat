@@ -31,7 +31,6 @@ import org.olat.core.gui.control.WindowControl;
 import org.olat.core.util.Util;
 import org.olat.group.BusinessGroup;
 import org.olat.resource.OLATResource;
-import org.olat.resource.OLATResourceManager;
 import org.olat.resource.accesscontrol.AccessControlModule;
 import org.olat.resource.accesscontrol.ui.AccessConfigurationController;
 
@@ -53,10 +52,11 @@ public class BusinessGroupEditAccessController extends FormBasicController {
 		super(ureq, wControl, LAYOUT_VERTICAL);
 		setTranslator(Util.createPackageTranslator(AccessConfigurationController.class, getLocale(), getTranslator()));
 		
-		AccessControlModule acModule = (AccessControlModule)CoreSpringFactory.getBean("acModule");
+		AccessControlModule acModule = CoreSpringFactory.getImpl(AccessControlModule.class);
 		if(acModule.isEnabled()) {
-			OLATResource resource = OLATResourceManager.getInstance().findResourceable(businessGroup);
-			configController = new AccessConfigurationController(ureq, wControl, resource, businessGroup.getName(), mainForm);
+			OLATResource resource = businessGroup.getResource();
+			boolean waitingList = businessGroup.getWaitingListEnabled();
+			configController = new AccessConfigurationController(ureq, wControl, resource, businessGroup.getName(), !waitingList, mainForm);
 			listenTo(configController);
 		}
 		
@@ -71,7 +71,7 @@ public class BusinessGroupEditAccessController extends FormBasicController {
 		}
 
 		setFormTitle("accesscontrol.title");
-		setFormDescription("accesscontrol.desc");
+		setFormDescription("accesscontrol_group.desc");
 		setFormContextHelp(AccessConfigurationController.class.getPackage().getName(), "accesscontrol_group.html", "chelp.accesscontrol_group.hover");
 
 		final FormLayoutContainer buttonGroupLayout = FormLayoutContainer.createButtonLayout("buttonLayout", getTranslator());
@@ -79,6 +79,15 @@ public class BusinessGroupEditAccessController extends FormBasicController {
 		formLayout.add(buttonGroupLayout);
 		
 		uifactory.addFormSubmitButton("save", formLayout);
+	}
+	
+	public void updateBusinessGroup(BusinessGroup businessGroup) {
+		boolean waitingList = businessGroup.getWaitingListEnabled();
+		configController.setAllowPaymentMethod(!waitingList);
+	}
+	
+	public boolean isPaymentMethodInUse() {
+		return configController.isPaymentMethodInUse();
 	}
 	
 	@Override
@@ -92,5 +101,13 @@ public class BusinessGroupEditAccessController extends FormBasicController {
 			configController.formOK(ureq);
 		}
 		fireEvent(ureq, Event.DONE_EVENT);
+	}
+
+	@Override
+	protected void event(UserRequest ureq, Controller source, Event event) {
+		if(source == configController) {
+			fireEvent(ureq, event);
+		}
+		super.event(ureq, source, event);
 	}
 }

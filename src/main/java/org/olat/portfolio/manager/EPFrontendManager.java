@@ -28,7 +28,6 @@ import java.util.Map;
 import java.util.Set;
 
 import org.olat.basesecurity.BaseSecurity;
-import org.olat.basesecurity.BaseSecurityManager;
 import org.olat.basesecurity.Constants;
 import org.olat.basesecurity.IdentityShort;
 import org.olat.basesecurity.Policy;
@@ -1071,7 +1070,7 @@ public class EPFrontendManager extends BasicManager {
 		return isMapShared(resource);
 	}
 		
-	public boolean isMapShared(OLATResourceable resource) {
+	public boolean isMapShared(OLATResource resource) {
 		List<Policy> policies = securityManager.getPoliciesOfResource(resource, null);
 		for(Policy policy:policies) {
 			if(policy.getPermission().contains(Constants.PERMISSION_READ)) {

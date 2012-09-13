@@ -933,6 +933,47 @@ create table if not exists o_ac_transaction (
 	primary key (transaction_id)
 );
 
+create table  if not exists o_ac_reservation (
+   reservation_id bigint NOT NULL,
+   creationdate datetime,
+   lastmodified datetime,
+   version mediumint unsigned not null,
+   fk_identity bigint not null,
+   fk_resource bigint not null,
+   primary key (reservation_id)
+);
+
+create table if not exists o_ac_paypal_transaction (
+   transaction_id int8 not null,
+   version int8 not null,
+   creationdate timestamp,
+   ref_no varchar(255),
+   order_id int8 not null,
+   order_part_id int8 not null,
+   method_id int8 not null,
+   success_uuid varchar(32) not null,
+	 cancel_uuid varchar(32) not null,
+	 amount_amount DECIMAL(12,4),
+	 amount_currency_code VARCHAR(3),
+   pay_response_date timestamp,
+   pay_key varchar(255),
+	 ack varchar(255),
+	 build varchar(255),
+	 coorelation_id varchar(255),
+	 payment_exec_status varchar(255),
+	 ipn_transaction_id varchar(255),
+	 ipn_transaction_status varchar(255),
+	 ipn_sender_transaction_id varchar(255),
+	 ipn_sender_transaction_status varchar(255),
+	 ipn_sender_email varchar(255),
+	 ipn_verify_sign varchar(255),
+	 ipn_pending_reason varchar(255),
+	 trx_status VARCHAR(32) not null default 'NEW',
+	 trx_amount DECIMAL(12,4),
+	 trx_currency_code VARCHAR(3),
+   primary key (transaction_id)
+);
+
 -- assessment tables
 -- efficiency statments
 create table if not exists o_as_eff_statement (
@@ -1114,11 +1155,17 @@ create or replace view o_gp_business_v  as (
       gp.autocloseranks_enabled as autocloseranks_enabled,
       (select count(part.id) from o_bs_membership as part where part.secgroup_id = gp.fk_partipiciantgroup) as num_of_participants,
       (select count(own.id) from o_bs_membership as own where own.secgroup_id = gp.fk_ownergroup) as num_of_owners,
+      (case when gp.waitinglist_enabled = 1
+         then 
+           (select count(waiting.id) from o_bs_membership as waiting where waiting.secgroup_id = gp.fk_partipiciantgroup)
+         else
+           0
+      end) as num_waiting,
       (select count(offer.offer_id) from o_ac_offer as offer 
          where offer.fk_resource_id = gp.fk_resource
          and offer.is_valid=1
-         and (offer.validfrom is null or offer.validfrom >= curtime())
-         and (offer.validto is null or offer.validto <= curtime())
+         and (offer.validfrom is null or offer.validfrom <= current_timestamp())
+         and (offer.validto is null or offer.validto >= current_timestamp())
       ) as num_of_valid_offers,
       (select count(offer.offer_id) from o_ac_offer as offer 
          where offer.fk_resource_id = gp.fk_resource
@@ -1201,6 +1248,24 @@ create or replace view o_re_strict_tutor_v as (
    where re.membersonly=1 and re.accesscode=1
 );
 
+create or replace view o_re_membership_v as (
+   select
+      membership.id as membership_id,
+      membership.identity_id as identity_id,
+      membership.lastmodified as lastmodified,
+      membership.creationdate as creationdate,
+      re_owner_member.repositoryentry_id as owner_re_id,
+      re_owner_member.fk_olatresource as owner_ores_id,
+      re_tutor_member.repositoryentry_id as tutor_re_id,
+      re_tutor_member.fk_olatresource as tutor_ores_id,
+      re_part_member.repositoryentry_id as participant_re_id,
+      re_part_member.fk_olatresource as participant_ores_id
+   from o_bs_membership as membership
+   left join o_repositoryentry as re_part_member on (membership.secgroup_id = re_part_member.fk_participantgroup)
+   left join o_repositoryentry as re_tutor_member on (membership.secgroup_id = re_tutor_member.fk_tutorgroup)
+   left join o_repositoryentry as re_owner_member on (membership.secgroup_id = re_owner_member.fk_ownergroup)
+);
+
 create index  ocl_asset_idx on oc_lock (asset);
 alter table oc_lock add index FK9E30F4B66115906D (identity_fk), add constraint FK9E30F4B66115906D foreign key (identity_fk) references o_bs_identity (id);
 
@@ -1266,6 +1331,8 @@ alter table o_ac_order ENGINE = InnoDB;
 alter table o_ac_order_part ENGINE = InnoDB;
 alter table o_ac_order_line ENGINE = InnoDB;
 alter table o_ac_transaction ENGINE = InnoDB;
+alter table o_ac_reservation ENGINE = InnoDB;
+alter table o_ac_paypal_transaction ENGINE = InnoDB;
 alter table o_as_eff_statement ENGINE = InnoDB;
 alter table o_as_user_course_infos ENGINE = InnoDB;
 
@@ -1424,6 +1491,9 @@ alter table o_ac_order_line add constraint ord_item_offer_ctx foreign key (fk_of
 alter table o_ac_transaction add constraint trans_ord_ctx foreign key (fk_order_id) references o_ac_order (order_id);
 alter table o_ac_transaction add constraint trans_ord_part_ctx foreign key (fk_order_part_id) references o_ac_order_part (order_part_id);
 alter table o_ac_transaction add constraint trans_method_ctx foreign key (fk_method_id) references o_ac_method (method_id);
+create index paypal_pay_key_idx on o_ac_paypal_transaction (pay_key);
+create index paypal_pay_trx_id_idx on o_ac_paypal_transaction (ipn_transaction_id);
+create index paypal_pay_s_trx_id_idx on o_ac_paypal_transaction (ipn_sender_transaction_id);
 
 
 alter table o_tag add constraint FK6491FCA5A4FA5DC foreign key (fk_author_id) references o_bs_identity (id);

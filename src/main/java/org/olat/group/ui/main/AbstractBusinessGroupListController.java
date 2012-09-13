@@ -62,6 +62,7 @@ import org.olat.core.id.Roles;
 import org.olat.core.id.context.ContextEntry;
 import org.olat.core.id.context.StateEntry;
 import org.olat.core.logging.activity.ThreadLocalUserActivityLogger;
+import org.olat.core.util.Util;
 import org.olat.core.util.mail.MailNotificationEditController;
 import org.olat.core.util.mail.MailTemplate;
 import org.olat.core.util.resource.OresHelper;
@@ -72,10 +73,12 @@ import org.olat.group.BusinessGroupService;
 import org.olat.group.BusinessGroupShort;
 import org.olat.group.BusinessGroupView;
 import org.olat.group.GroupLoggingAction;
-import org.olat.group.model.BGMembership;
+import org.olat.group.area.BGAreaManager;
 import org.olat.group.model.BGRepositoryEntryRelation;
+import org.olat.group.model.BusinessGroupSelectionEvent;
 import org.olat.group.model.MembershipModification;
 import org.olat.group.model.SearchBusinessGroupParams;
+import org.olat.group.right.BGRightManager;
 import org.olat.group.ui.NewBGController;
 import org.olat.group.ui.wizard.BGConfigBusinessGroup;
 import org.olat.group.ui.wizard.BGConfigToolsStep;
@@ -86,7 +89,8 @@ import org.olat.group.ui.wizard.BGMergeStep;
 import org.olat.group.ui.wizard.BGUserMailTemplate;
 import org.olat.group.ui.wizard.BGUserManagementController;
 import org.olat.repository.RepositoryEntryShort;
-import org.olat.resource.accesscontrol.manager.ACFrontendManager;
+import org.olat.resource.OLATResource;
+import org.olat.resource.accesscontrol.ACService;
 import org.olat.resource.accesscontrol.model.OLATResourceAccess;
 import org.olat.resource.accesscontrol.model.PriceMethodBundle;
 import org.olat.util.logging.activity.LoggingResourceable;
@@ -95,7 +99,7 @@ import org.olat.util.logging.activity.LoggingResourceable;
  * 
  * @author srosse, stephane.rosse@frentix.com, http://www.frentix.com
  */
-abstract class AbstractBusinessGroupListController extends BasicController implements Activateable2 {
+public abstract class AbstractBusinessGroupListController extends BasicController implements Activateable2 {
 	protected static final String TABLE_ACTION_LEAVE = "bgTblLeave";
 	protected static final String TABLE_ACTION_LAUNCH = "bgTblLaunch";
 	protected static final String TABLE_ACTION_ACCESS = "bgTblAccess";
@@ -105,6 +109,7 @@ abstract class AbstractBusinessGroupListController extends BasicController imple
 	protected static final String TABLE_ACTION_CONFIG = "bgTblConfig";
 	protected static final String TABLE_ACTION_EMAIL = "bgTblEmail";
 	protected static final String TABLE_ACTION_DELETE = "bgTblDelete";
+	protected static final String TABLE_ACTION_SELECT = "bgTblSelect";
 	
 	protected final VelocityContainer mainVC;
 
@@ -121,22 +126,26 @@ abstract class AbstractBusinessGroupListController extends BasicController imple
 	private MailNotificationEditController userManagementSendMailController;
 	private BusinessGroupDeleteDialogBoxController deleteDialogBox;
 	private StepsMainRunController businessGroupWizard;
-	private CloseableModalController cmc;
+	protected CloseableModalController cmc;
 	
 	private final boolean admin;
 	protected final MarkManager markManager;
 	protected final BaseSecurity securityManager;
 	protected final BusinessGroupModule groupModule;
-	protected final ACFrontendManager acFrontendManager;
+	protected final ACService acService;
+	protected final BGAreaManager areaManager;
+	protected final BGRightManager rightManager;
 	protected final BusinessGroupService businessGroupService;
 	protected final CollaborationToolsFactory collaborationTools;
 	
 	public AbstractBusinessGroupListController(UserRequest ureq, WindowControl wControl, String page) {
-		super(ureq, wControl);
+		super(ureq, wControl, Util.createPackageTranslator(AbstractBusinessGroupListController.class, ureq.getLocale()));
 		
 		admin = ureq.getUserSession().getRoles().isOLATAdmin() || ureq.getUserSession().getRoles().isGroupManager();
 		businessGroupService = CoreSpringFactory.getImpl(BusinessGroupService.class);
-		acFrontendManager = CoreSpringFactory.getImpl(ACFrontendManager.class);
+		areaManager = CoreSpringFactory.getImpl(BGAreaManager.class);
+		rightManager = CoreSpringFactory.getImpl(BGRightManager.class);
+		acService = CoreSpringFactory.getImpl(ACService.class);
 		groupModule = CoreSpringFactory.getImpl(BusinessGroupModule.class);
 		securityManager = CoreSpringFactory.getImpl(BaseSecurity.class);
 		markManager = CoreSpringFactory.getImpl(MarkManager.class);
@@ -213,7 +222,7 @@ abstract class AbstractBusinessGroupListController extends BasicController imple
 				toogleMark((BGTableItem)uobj);
 			}
 		} else if (source == createButton) {
-			doCreate(ureq, getWindowControl());
+			doCreate(ureq, getWindowControl(), null);
 		}
 	}
 	
@@ -254,7 +263,9 @@ abstract class AbstractBusinessGroupListController extends BasicController imple
 					leaveDialogBox = activateYesNoDialog(ureq, null, translate("dialog.modal.bg.leave.text", businessGroup.getName()), leaveDialogBox);
 					leaveDialogBox.setUserObject(businessGroup);
 				} else if (actionid.equals(TABLE_ACTION_ACCESS)) {
-					doLaunch(ureq, businessGroup);
+					doAccess(ureq, businessGroup);
+				} else if (actionid.equals(TABLE_ACTION_SELECT)) {
+					doSelect(ureq, businessGroup);
 				}
 			} else if (event instanceof TableMultiSelectEvent) {
 				TableMultiSelectEvent te = (TableMultiSelectEvent)event;
@@ -271,6 +282,8 @@ abstract class AbstractBusinessGroupListController extends BasicController imple
 					doUserManagement(ureq, selectedItems);
 				} else if(TABLE_ACTION_MERGE.equals(te.getAction())) {
 					doMerge(ureq, selectedItems);
+				} else if(TABLE_ACTION_SELECT.equals(te.getAction())) {
+					doSelect(ureq, selectedItems);
 				}
 			}
 		} else if (source == deleteDialogBox) {
@@ -340,7 +353,7 @@ abstract class AbstractBusinessGroupListController extends BasicController imple
 	/**
 	 * Aggressive clean up all popup controllers
 	 */
-	private void cleanUpPopups() {
+	protected void cleanUpPopups() {
 		removeAsListenerAndDispose(cmc);
 		removeAsListenerAndDispose(deleteDialogBox);
 		removeAsListenerAndDispose(groupCreateController);
@@ -351,6 +364,16 @@ abstract class AbstractBusinessGroupListController extends BasicController imple
 		deleteDialogBox = null;
 		groupCreateController = null;
 		businessGroupWizard = null;
+	}
+	
+	/**
+	 * Launch a business group with its business path
+	 * @param ureq
+	 * @param group
+	 */
+	protected void doAccess(UserRequest ureq, BusinessGroup group) {
+		String businessPath = "[BusinessGroup:" + group.getKey() + "]";
+		NewControllerFactory.getInstance().launch(businessPath, ureq, getWindowControl());
 	}
 	
 	/**
@@ -395,9 +418,9 @@ abstract class AbstractBusinessGroupListController extends BasicController imple
 	 * @param ureq
 	 * @param wControl
 	 */
-	protected void doCreate(UserRequest ureq, WindowControl wControl) {				
+	protected void doCreate(UserRequest ureq, WindowControl wControl, OLATResource resource) {				
 		removeAsListenerAndDispose(groupCreateController);
-		groupCreateController = new NewBGController(ureq, wControl, null, false, null);
+		groupCreateController = new NewBGController(ureq, wControl, resource, false, null);
 		listenTo(groupCreateController);
 		
 		cmc = new CloseableModalController(getWindowControl(), translate("close"), groupCreateController.getInitialComponent(), true, translate("create.form.title"));
@@ -414,9 +437,13 @@ abstract class AbstractBusinessGroupListController extends BasicController imple
 		removeAsListenerAndDispose(businessGroupWizard);
 		if(items == null || items.isEmpty()) return;
 		
-		List<BusinessGroup> groups = toBusinessGroups(items);
+		List<BusinessGroup> groups = toBusinessGroups(ureq, items, false);
+		
+		boolean enableCoursesCopy = businessGroupService.hasResources(groups);
+		boolean enableAreasCopy = areaManager.countBGAreasOfBusinessGroups(groups) > 0;
+		boolean enableRightsCopy = rightManager.hasBGRight(groups);
 
-		Step start = new BGCopyPreparationStep(ureq, groups);
+		Step start = new BGCopyPreparationStep(ureq, groups, enableCoursesCopy, enableAreasCopy, enableRightsCopy);
 		StepRunnerCallback finish = new StepRunnerCallback() {
 			@Override
 			public Step execute(UserRequest ureq, WindowControl wControl, StepsRunContext runContext) {
@@ -433,8 +460,8 @@ abstract class AbstractBusinessGroupListController extends BasicController imple
 					boolean copyRelations = convertToBoolean(runContext, "resources");
 
 					for(BGCopyBusinessGroup copy:copies) {
-						businessGroupService.copyBusinessGroup(copy.getOriginal(), copy.getName(), copy.getDescription(),
-								copy.getMinParticipants(), copy.getMaxParticipants(), null, null,
+						businessGroupService.copyBusinessGroup(getIdentity(), copy.getOriginal(), copy.getName(), copy.getDescription(),
+								copy.getMinParticipants(), copy.getMaxParticipants(),
 								copyAreas, copyCollabToolConfig, copyRights, copyOwners, copyParticipants,
 								copyMemberVisibility, copyWaitingList, copyRelations);
 					
@@ -469,9 +496,19 @@ abstract class AbstractBusinessGroupListController extends BasicController imple
 		removeAsListenerAndDispose(businessGroupWizard);
 		if(selectedItems == null || selectedItems.isEmpty()) return;
 		
-		final List<BusinessGroup> groups = toBusinessGroups(selectedItems);
+		final List<BusinessGroup> groups = toBusinessGroups(ureq, selectedItems, true);
+		if(groups.isEmpty()) {
+			showWarning("msg.alleastone.editable.group");
+			return;
+		} else if(CollaborationTools.TOOLS == null) {
+			//init the available tools
+			CollaborationToolsFactory.getInstance().getOrCreateCollaborationTools(groups.get(0));
+		}
+		
+		boolean isAuthor = ureq.getUserSession().getRoles().isAuthor()
+				|| ureq.getUserSession().getRoles().isInstitutionalResourceManager();
 
-		Step start = new BGConfigToolsStep(ureq);
+		Step start = new BGConfigToolsStep(ureq, isAuthor);
 		StepRunnerCallback finish = new StepRunnerCallback() {
 			@Override
 			public Step execute(UserRequest ureq, WindowControl wControl, StepsRunContext runContext) {
@@ -515,7 +552,7 @@ abstract class AbstractBusinessGroupListController extends BasicController imple
 		removeAsListenerAndDispose(businessGroupWizard);
 		if(selectedItems == null || selectedItems.isEmpty()) return;
 		
-		List<BusinessGroup> groups = toBusinessGroups(selectedItems);
+		List<BusinessGroup> groups = toBusinessGroups(ureq, selectedItems, false);
 
 		Step start = new BGEmailSelectReceiversStep(ureq, groups);
 		StepRunnerCallback finish = new StepRunnerCallback() {
@@ -541,7 +578,11 @@ abstract class AbstractBusinessGroupListController extends BasicController imple
 		removeAsListenerAndDispose(userManagementController);
 		if(selectedItems == null || selectedItems.isEmpty()) return;
 		
-		List<BusinessGroup> groups = toBusinessGroups(selectedItems);
+		List<BusinessGroup> groups = toBusinessGroups(ureq, selectedItems, true);
+		if(groups.isEmpty()) {
+			showWarning("msg.alleastone.editable.group");
+			return;
+		}
 		
 		userManagementController = new BGUserManagementController(ureq, getWindowControl(), groups);
 		listenTo(userManagementController);
@@ -569,6 +610,16 @@ abstract class AbstractBusinessGroupListController extends BasicController imple
 		//TODO send mails
 	}
 	
+	private void doSelect(UserRequest ureq, List<BGTableItem> items) {
+		List<BusinessGroup> selection = toBusinessGroups(ureq, items, false);
+		fireEvent(ureq, new BusinessGroupSelectionEvent(selection));
+	}
+	
+	private void doSelect(UserRequest ureq, BusinessGroup group) {
+		List<BusinessGroup> selection = Collections.singletonList(group);
+		fireEvent(ureq, new BusinessGroupSelectionEvent(selection));
+	}
+	
 	/**
 	 * 
 	 * @param ureq
@@ -578,7 +629,11 @@ abstract class AbstractBusinessGroupListController extends BasicController imple
 		removeAsListenerAndDispose(businessGroupWizard);
 		if(selectedItems == null || selectedItems.isEmpty()) return;
 
-		final List<BusinessGroup> groups = toBusinessGroups(selectedItems);
+		final List<BusinessGroup> groups = toBusinessGroups(ureq, selectedItems, true);
+		if(groups.isEmpty()) {
+			showWarning("msg.alleastone.editable.group");
+			return;
+		}
 
 		Step start = new BGMergeStep(ureq, groups);
 		StepRunnerCallback finish = new StepRunnerCallback() {
@@ -604,7 +659,12 @@ abstract class AbstractBusinessGroupListController extends BasicController imple
 	 */
 	private void confirmDelete(UserRequest ureq, List<BGTableItem> selectedItems) {
 		StringBuilder names = new StringBuilder();
-		List<BusinessGroup> groups = toBusinessGroups(selectedItems);
+		List<BusinessGroup> groups = toBusinessGroups(ureq, selectedItems, true);
+		if(groups.isEmpty()) {
+			showWarning("msg.alleastone.editable.group");
+			return;
+		}
+
 		for(BusinessGroup group:groups) {
 			if(names.length() > 0) names.append(", ");
 			names.append(group.getName());
@@ -618,10 +678,13 @@ abstract class AbstractBusinessGroupListController extends BasicController imple
 		listenTo(cmc);
 	}
 	
-	private List<BusinessGroup> toBusinessGroups(List<BGTableItem> items) {
+	private List<BusinessGroup> toBusinessGroups(UserRequest ureq, List<BGTableItem> items, boolean editableOnly) {
 		List<Long> groupKeys = new ArrayList<Long>();
 		for(BGTableItem item:items) {
 			groupKeys.add(item.getBusinessGroupKey());
+		}
+		if(editableOnly) {
+			groupListModel.filterEditableGroupKeys(ureq, groupKeys);
 		}
 		List<BusinessGroup> groups = businessGroupService.loadBusinessGroups(groupKeys);
 		return groups;
@@ -658,16 +721,25 @@ abstract class AbstractBusinessGroupListController extends BasicController imple
 		updateTableModel(lastSearchParams, false);
 	}
 	
-	protected List<BusinessGroupView> updateTableModel(SearchBusinessGroupParams params, boolean alreadyMarked) {
+	protected OLATResource getResource() {
+		return null;
+	}
+	
+	protected List<BusinessGroupView> searchBusinessGroupViews(SearchBusinessGroupParams params) {
 		List<BusinessGroupView> groups;
 		if(params == null) {
 			groups = new ArrayList<BusinessGroupView>();
 		} else {
-			groups = businessGroupService.findBusinessGroupViews(params, null, 0, -1);
+			groups = businessGroupService.findBusinessGroupViews(params, getResource(), 0, -1);
 		}
+		return groups;
+	}
+	
+	protected List<BusinessGroupView> updateTableModel(SearchBusinessGroupParams params, boolean alreadyMarked) {
+		List<BusinessGroupView> groups = searchBusinessGroupViews(params);
 		lastSearchParams = params;
 		if(groups.isEmpty()) {
-			groupListModel.setEntries(Collections.<BGTableItem>emptyList(), Collections.<Long,BusinessGroupMembership>emptyMap());
+			groupListModel.setEntries(Collections.<BGTableItem>emptyList());
 			groupListCtr.modelChanged();
 			return groups;
 		}
@@ -683,18 +755,10 @@ abstract class AbstractBusinessGroupListController extends BasicController imple
 		}
 
 		//retrieve all user's membership if there are more than 50 groups
-		List<BusinessGroupMembership> groupsAsOwner = businessGroupService.getBusinessGroupMembership(getIdentity(), groupKeysWithMembers);
+		List<BusinessGroupMembership> groupsAsOwner = businessGroupService.getBusinessGroupMembership(groupKeysWithMembers, getIdentity());
 		Map<Long, BusinessGroupMembership> memberships = new HashMap<Long, BusinessGroupMembership>();
 		for(BusinessGroupMembership membership: groupsAsOwner) {
-			if(membership.getOwnerGroupKey() != null) {
-				memberships.put(membership.getOwnerGroupKey(), membership);
-			}
-			if(membership.getParticipantGroupKey() != null) {
-				memberships.put(membership.getParticipantGroupKey(), membership);
-			}
-			if(membership.getWaitingGroupKey() != null) {
-				memberships.put(membership.getWaitingGroupKey(), membership);
-			}
+			memberships.put(membership.getGroupKey(), membership);
 		}
 		
 		//find resources / courses
@@ -715,9 +779,9 @@ abstract class AbstractBusinessGroupListController extends BasicController imple
 		}
 		List<OLATResourceAccess> resourcesWithAC;
 		if(groupWithOfferKeys.size() > 50) {
-			resourcesWithAC	= acFrontendManager.getAccessMethodForResources(null, "BusinessGroup", true, new Date());
+			resourcesWithAC	= acService.getAccessMethodForResources(null, "BusinessGroup", true, new Date());
 		} else {
-			resourcesWithAC	= acFrontendManager.getAccessMethodForResources(groupWithOfferKeys, "BusinessGroup", true, new Date());
+			resourcesWithAC	= acService.getAccessMethodForResources(groupWithOfferKeys, "BusinessGroup", true, new Date());
 		}
 		
 		Set<Long> markedResources = new HashSet<Long>(groups.size() * 2 + 1);
@@ -742,14 +806,13 @@ abstract class AbstractBusinessGroupListController extends BasicController imple
 			BusinessGroupMembership membership =  memberships.get(group.getKey());
 			Boolean allowLeave =  membership != null;
 			Boolean allowDelete = admin ? Boolean.TRUE : null;
-			BGMembership member = membership == null ? null : membership.getMembership();
 			boolean marked = markedResources.contains(group.getResource().getResourceableId());
-			BGTableItem tableItem = new BGTableItem(group, marked, member, allowLeave, allowDelete, accessMethods);
+			BGTableItem tableItem = new BGTableItem(group, marked, membership, allowLeave, allowDelete, accessMethods);
 			tableItem.setUnfilteredRelations(resources);
 			items.add(tableItem);
 		}
 		
-		groupListModel.setEntries(items, memberships);
+		groupListModel.setEntries(items);
 		groupListCtr.modelChanged();
 		return groups;
 	}

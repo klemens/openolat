@@ -44,16 +44,17 @@ import org.olat.core.logging.Tracing;
 import org.olat.core.util.StringHelper;
 import org.olat.group.BusinessGroup;
 import org.olat.group.BusinessGroupImpl;
-import org.olat.group.BusinessGroupMembership;
 import org.olat.group.BusinessGroupOrder;
 import org.olat.group.BusinessGroupShort;
 import org.olat.group.BusinessGroupView;
 import org.olat.group.model.BGRepositoryEntryRelation;
 import org.olat.group.model.BGResourceRelation;
-import org.olat.group.model.BusinessGroupMembershipImpl;
+import org.olat.group.model.BusinessGroupMembershipViewImpl;
 import org.olat.group.model.BusinessGroupShortImpl;
+import org.olat.group.model.BusinessGroupViewImpl;
 import org.olat.group.model.SearchBusinessGroupParams;
 import org.olat.properties.Property;
+import org.olat.repository.model.RepositoryEntryMembership;
 import org.olat.resource.OLATResource;
 import org.olat.resource.OLATResourceManager;
 import org.olat.resource.accesscontrol.model.OfferImpl;
@@ -221,7 +222,7 @@ public class BusinessGroupDAO {
 	
 	public int countMembershipInfoInBusinessGroups(Identity identity, List<Long> groupKeys) {
 		StringBuilder sb = new StringBuilder(); 
-		sb.append("select count(membership) from ").append(BusinessGroupMembershipImpl.class.getName()).append(" as membership ")
+		sb.append("select count(membership) from ").append(BusinessGroupMembershipViewImpl.class.getName()).append(" as membership ")
 		  .append(" where membership.identityKey=:identId ");
 		if(groupKeys != null && !groupKeys.isEmpty()) {
 		  sb.append(" and (membership.ownerGroupKey in (:groupKeys) or membership.participantGroupKey in (:groupKeys) or membership.waitingGroupKey in (:groupKeys))");
@@ -236,22 +237,42 @@ public class BusinessGroupDAO {
 		Number res = query.getSingleResult();
 		return res.intValue();
 	}
+
+	public List<BusinessGroupMembershipViewImpl> getMembershipInfoInBusinessGroups(Collection<BusinessGroup> groups, List<Identity> identities) {
+		List<Long> groupKeys = new ArrayList<Long>();
+		for(BusinessGroup group:groups) {
+			groupKeys.add(group.getKey());
+		}
+		Identity[] identityArr = identities.toArray(new Identity[identities.size()]);
+		return getMembershipInfoInBusinessGroups(groupKeys, identityArr);
+	}
 	
-	public List<BusinessGroupMembership> getMembershipInfoInBusinessGroups(Identity identity, Collection<Long> groupKeys) {
+	public List<BusinessGroupMembershipViewImpl> getMembershipInfoInBusinessGroups(Collection<Long> groupKeys, Identity... identity) {	
 		StringBuilder sb = new StringBuilder(); 
-		sb.append("select membership from ").append(BusinessGroupMembershipImpl.class.getName()).append(" as membership ")
-		  .append(" where membership.identityKey=:identId ");
+		sb.append("select membership from ").append(BusinessGroupMembershipViewImpl.class.getName()).append(" as membership ");
+		boolean and = false;
+		if(identity != null && identity.length > 0) {
+			and = and(sb, and);
+		  sb.append("membership.identityKey in (:identIds) ");
+		}
 		if(groupKeys != null && !groupKeys.isEmpty()) {
-		  sb.append(" and (membership.ownerGroupKey in (:groupKeys) or membership.participantGroupKey in (:groupKeys) or membership.waitingGroupKey in (:groupKeys))");
+			and = and(sb, and);
+		  sb.append("(membership.ownerGroupKey in (:groupKeys) or membership.participantGroupKey in (:groupKeys) or membership.waitingGroupKey in (:groupKeys))");
 		}
 		
-		TypedQuery<BusinessGroupMembership> query = dbInstance.getCurrentEntityManager().createQuery(sb.toString(), BusinessGroupMembership.class)
-				.setParameter("identId", identity.getKey());
+		TypedQuery<BusinessGroupMembershipViewImpl> query = dbInstance.getCurrentEntityManager().createQuery(sb.toString(), BusinessGroupMembershipViewImpl.class);
+		if(identity != null && identity.length > 0) {
+			List<Long> ids = new ArrayList<Long>(identity.length);
+			for(Identity id:identity) {
+				ids.add(id.getKey());
+			}
+			query.setParameter("identIds", ids);
+		}	
 		if(groupKeys != null && !groupKeys.isEmpty()) {
 			query.setParameter("groupKeys", groupKeys);
 		}
 		
-		List<BusinessGroupMembership> res = query.getResultList();
+		List<BusinessGroupMembershipViewImpl> res = query.getResultList();
 		return res;
 	}
 
@@ -606,6 +627,24 @@ public class BusinessGroupDAO {
 		}
 		return dbq;
 	}
+	
+	public List<BusinessGroupView> findBusinessGroupWithAuthorConnection(Identity author) {
+		StringBuilder sb = new StringBuilder();
+		sb.append("select bgi from ").append(BusinessGroupViewImpl.class.getName()).append(" as bgi ")
+		  .append("where bgi.key in (")
+		  .append("  select rel.group.key from ").append(BGResourceRelation.class.getName()).append(" as rel ")
+		  .append("  where rel.resource.key in (")
+		  .append("    select membership.ownerResourceKey from ").append(RepositoryEntryMembership.class.getName()).append(" as membership")
+		  .append("    where membership.identityKey=:authorKey and membership.ownerRepoKey is not null")
+		  .append("  )")
+		  .append(")");
+
+		List<BusinessGroupView> groups = dbInstance.getCurrentEntityManager()
+				.createQuery(sb.toString(), BusinessGroupView.class)
+				.setParameter("authorKey", author.getKey())
+				.getResultList();
+		return groups;
+	}
 
 	public int countBusinessGroupViews(SearchBusinessGroupParams params, OLATResource resource) {
 		TypedQuery<Number> query = createFindViewDBQuery(params, resource, Number.class)
@@ -633,7 +672,7 @@ public class BusinessGroupDAO {
 		} else {
 			query.append("select count(bgi.key) from ");
 		}
-		query.append(BusinessGroupView.class.getName()).append(" as bgi ");
+		query.append(BusinessGroupViewImpl.class.getName()).append(" as bgi ");
 
 		if(StringHelper.containsNonWhitespace(params.getOwnerName())) {
 			//implicit joins
@@ -925,7 +964,7 @@ public class BusinessGroupDAO {
 		return string.toLowerCase();
 	}
 	
-	private boolean where(StringBuilder sb, boolean where) {
+	private final boolean where(StringBuilder sb, boolean where) {
 		if(where) {
 			sb.append(" and ");
 		} else {
@@ -934,8 +973,15 @@ public class BusinessGroupDAO {
 		return true;
 	}
 	
-	private boolean or(StringBuilder sb, boolean or) {
+	private final boolean and(StringBuilder sb, boolean and) {
+		if(and) sb.append(" and ");
+		else sb.append(" where ");
+		return true;
+	}
+	
+	private final boolean or(StringBuilder sb, boolean or) {
 		if(or) sb.append(" or ");
+		else sb.append(" ");
 		return true;
 	}
 }

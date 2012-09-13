@@ -21,10 +21,8 @@ package org.olat.util;
 
 import java.io.IOException;
 import java.util.Calendar;
-import java.util.Date;
 import java.util.Properties;
 
-import org.apache.commons.httpclient.HttpClient;
 import org.olat.core.logging.OLog;
 import org.olat.core.logging.Tracing;
 import org.olat.util.FunctionalAdministrationSiteUtil.AdministrationSiteAction;
@@ -32,7 +30,6 @@ import org.olat.util.FunctionalGroupsSiteUtil.GroupsSiteAction;
 import org.olat.util.FunctionalHomeSiteUtil.HomeSiteAction;
 import org.olat.util.FunctionalRepositorySiteUtil.RepositorySiteAction;
 import org.olat.util.FunctionalUserManagementSiteUtil.UserManagementSiteAction;
-import org.springframework.beans.factory.annotation.Autowired;
 
 import com.thoughtworks.selenium.Selenium;
 

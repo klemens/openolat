@@ -47,9 +47,9 @@ import org.olat.core.gui.control.generic.closablewrapper.CloseableCalloutWindowC
 import org.olat.core.gui.control.generic.closablewrapper.CloseableModalController;
 import org.olat.core.util.StringHelper;
 import org.olat.resource.OLATResource;
+import org.olat.resource.accesscontrol.ACService;
 import org.olat.resource.accesscontrol.ACUIFactory;
 import org.olat.resource.accesscontrol.AccessControlModule;
-import org.olat.resource.accesscontrol.manager.ACFrontendManager;
 import org.olat.resource.accesscontrol.method.AccessMethodHandler;
 import org.olat.resource.accesscontrol.model.AccessMethod;
 import org.olat.resource.accesscontrol.model.Offer;
@@ -71,7 +71,7 @@ public class AccessConfigurationController extends FormBasicController {
 	private final String displayName;
 	private final OLATResource resource;
 	private final AccessControlModule acModule;
-	private final ACFrontendManager acFrontendManager;
+	private final ACService acService;
 	
 	private FormLink createLink;
 	private FormLayoutContainer confControllerContainer;
@@ -83,27 +83,32 @@ public class AccessConfigurationController extends FormBasicController {
 	
 	private final boolean embbed;
 	private final boolean emptyConfigGrantsFullAccess;
+	private boolean allowPaymentMethod;
 	
-	public AccessConfigurationController(UserRequest ureq, WindowControl wControl, OLATResource resource, String displayName) {
+	public AccessConfigurationController(UserRequest ureq, WindowControl wControl, OLATResource resource,
+			String displayName, boolean allowPaymentMethod) {
 		super(ureq, wControl, "access_configuration");
 		
 		this.resource = resource;
 		this.displayName = displayName;
+		this.allowPaymentMethod = allowPaymentMethod;
 		acModule = (AccessControlModule)CoreSpringFactory.getBean("acModule");
-		acFrontendManager = (ACFrontendManager)CoreSpringFactory.getBean("acFrontendManager");
+		acService = CoreSpringFactory.getImpl(ACService.class);
 		embbed = false;
 		emptyConfigGrantsFullAccess = true; 
 		
 		initForm(ureq);
 	}
 		
-	public AccessConfigurationController(UserRequest ureq, WindowControl wControl, OLATResource resource, String displayName, Form form) {
+	public AccessConfigurationController(UserRequest ureq, WindowControl wControl, OLATResource resource,
+			String displayName, boolean allowPaymentMethod, Form form) {
 		super(ureq, wControl, FormBasicController.LAYOUT_CUSTOM, "access_configuration", form);
 		
 		this.resource = resource;
 		this.displayName = displayName;
-		acModule = (AccessControlModule)CoreSpringFactory.getBean("acModule");
-		acFrontendManager = (ACFrontendManager)CoreSpringFactory.getBean("acFrontendManager");
+		this.allowPaymentMethod = allowPaymentMethod;
+		acModule = CoreSpringFactory.getImpl(AccessControlModule.class);
+		acService = CoreSpringFactory.getImpl(ACService.class);
 		embbed = true;
 		emptyConfigGrantsFullAccess = false;
 		
@@ -143,6 +148,18 @@ public class AccessConfigurationController extends FormBasicController {
 		confControllerContainer.contextPut("emptyConfigGrantsFullAccess", Boolean.valueOf(emptyConfigGrantsFullAccess));		
 	}
 	
+	public void setAllowPaymentMethod(boolean allowPayment) {
+		this.allowPaymentMethod = allowPayment;
+	}
+	
+	public boolean isPaymentMethodInUse() {
+		boolean paymentMethodInUse = false;
+		for(AccessInfo info:confControllers) {
+			paymentMethodInUse |= info.isPaymentMethod();
+		}
+		return paymentMethodInUse;
+	}
+	
 	@Override
 	protected void doDispose() {
 		//
@@ -163,8 +180,9 @@ public class AccessConfigurationController extends FormBasicController {
 		if(newMethodCtrl == source) {
 			if(event.equals(Event.DONE_EVENT)) {
 				OfferAccess newLink = newMethodCtrl.commitChanges();
-				newLink = acFrontendManager.saveOfferAccess(newLink);
+				newLink = acService.saveOfferAccess(newLink);
 				addConfiguration(newLink);
+				fireEvent(ureq, Event.CHANGED_EVENT);
 			}
 			cmc.deactivate();
 			removeAsListenerAndDispose(newMethodCtrl);
@@ -190,7 +208,7 @@ public class AccessConfigurationController extends FormBasicController {
 			popupCallout(ureq);
 		} else if (source.getName().startsWith("del_")) {
 			AccessInfo infos = (AccessInfo)source.getUserObject();
-			acFrontendManager.deleteOffer(infos.getLink().getOffer());
+			acService.deleteOffer(infos.getLink().getOffer());
 			confControllers.remove(infos);
 		}
 		super.formInnerEvent(ureq, source, event);
@@ -218,16 +236,20 @@ public class AccessConfigurationController extends FormBasicController {
 			
 			links.add(info.getLink());
 		}
-		acFrontendManager.saveOfferAccess(links);
+		acService.saveOfferAccess(links);
 	}
 	
 	protected void popupCallout(UserRequest ureq) {
 		addMethods.clear();
 		
 		VelocityContainer mapCreateVC = createVelocityContainer("createAccessCallout");
-		List<AccessMethod> methods = acFrontendManager.getAvailableMethods(getIdentity(), ureq.getUserSession().getRoles());
+		List<AccessMethod> methods = acService.getAvailableMethods(getIdentity(), ureq.getUserSession().getRoles());
 		for(AccessMethod method:methods) {
 			AccessMethodHandler handler = acModule.getAccessMethodHandler(method.getType());
+			if(handler.isPaymentMethod() && !allowPaymentMethod) {
+				continue;
+			}
+			
 			Link add = LinkFactory.createLink("create." + handler.getType(), mapCreateVC, this);
 			add.setCustomDisplayText(handler.getMethodName(getLocale()));
 			add.setUserObject(method);
@@ -246,9 +268,9 @@ public class AccessConfigurationController extends FormBasicController {
 	}
 	
 	protected void loadConfigurations() {
-		List<Offer> offers = acFrontendManager.findOfferByResource(resource, true, null);
+		List<Offer> offers = acService.findOfferByResource(resource, true, null);
 		for(Offer offer:offers) {
-			List<OfferAccess> offerAccess = acFrontendManager.getOfferAccess(offer, true);
+			List<OfferAccess> offerAccess = acService.getOfferAccess(offer, true);
 			for(OfferAccess access:offerAccess) {
 				addConfiguration(access);
 			}
@@ -257,7 +279,7 @@ public class AccessConfigurationController extends FormBasicController {
 	
 	protected void addConfiguration(OfferAccess link) {
 		AccessMethodHandler handler = acModule.getAccessMethodHandler(link.getMethod().getType());
-		AccessInfo infos = new AccessInfo(handler.getMethodName(getLocale()), null, link);
+		AccessInfo infos = new AccessInfo(handler.getMethodName(getLocale()), handler.isPaymentMethod(), null, link);
 		confControllers.add(infos);
 
 		DateChooser dateFrom = uifactory.addDateChooser("from_" + link.getKey(), "from", "", confControllerContainer);
@@ -279,8 +301,8 @@ public class AccessConfigurationController extends FormBasicController {
 	protected void addMethod(UserRequest ureq, AccessMethod method) {
 		createCalloutCtrl.deactivate();
 		
-		Offer offer = acFrontendManager.createOffer(resource, displayName);
-		OfferAccess link = acFrontendManager.createOfferAccess(offer, method);
+		Offer offer = acService.createOffer(resource, displayName);
+		OfferAccess link = acService.createOfferAccess(offer, method);
 		
 		removeAsListenerAndDispose(newMethodCtrl);
 		newMethodCtrl = ACUIFactory.createAccessConfigurationController(ureq, getWindowControl(), link);
@@ -294,7 +316,7 @@ public class AccessConfigurationController extends FormBasicController {
 			cmc.activate();
 			listenTo(cmc);
 		} else {
-			OfferAccess newLink = acFrontendManager.saveOfferAccess(link);
+			OfferAccess newLink = acService.saveOfferAccess(link);
 			addConfiguration(newLink);
 		}
 	}
@@ -303,9 +325,11 @@ public class AccessConfigurationController extends FormBasicController {
 		private String name;
 		private String infos;
 		private OfferAccess link;
+		private final boolean paymentMethod;
 		
-		public AccessInfo(String name, String infos, OfferAccess link) {
+		public AccessInfo(String name, boolean paymentMethod, String infos, OfferAccess link) {
 			this.name = name;
+			this.paymentMethod = paymentMethod;
 			this.infos = infos;
 			this.link = link;
 		}
@@ -318,6 +342,10 @@ public class AccessConfigurationController extends FormBasicController {
 			this.name = name;
 		}
 		
+		public boolean isPaymentMethod() {
+			return paymentMethod;
+		}
+
 		public String getInfos() {
 			if(infos == null && link.getOffer() != null) {
 				OfferImpl casted = (OfferImpl)link.getOffer();

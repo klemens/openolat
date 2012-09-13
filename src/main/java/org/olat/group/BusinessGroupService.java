@@ -23,7 +23,6 @@ import java.io.File;
 import java.util.Collection;
 import java.util.List;
 import java.util.Locale;
-import java.util.Map;
 
 import org.olat.basesecurity.SecurityGroup;
 import org.olat.core.id.Identity;
@@ -32,7 +31,9 @@ import org.olat.group.area.BGArea;
 import org.olat.group.model.AddToGroupsEvent;
 import org.olat.group.model.BGRepositoryEntryRelation;
 import org.olat.group.model.BusinessGroupEnvironment;
+import org.olat.group.model.BusinessGroupMembershipChange;
 import org.olat.group.model.DisplayMembers;
+import org.olat.group.model.EnrollState;
 import org.olat.group.model.MembershipModification;
 import org.olat.group.model.SearchBusinessGroupParams;
 import org.olat.repository.RepositoryEntry;
@@ -81,7 +82,8 @@ public interface BusinessGroupService {
 	 * @param maxParticipants
 	 * @return
 	 */
-	public BusinessGroup updateBusinessGroup(BusinessGroup group, String name, String desc, Integer minParticipants, Integer maxParticipants);
+	public BusinessGroup updateBusinessGroup(Identity ureqIdentity, BusinessGroup group, String name, String description,
+			Integer minParticipants, Integer maxParticipants);
 	
 	/**
 	 * Update the business group with the supplied arguments and do it in sync
@@ -94,8 +96,8 @@ public interface BusinessGroupService {
 	 * @param autoCloseRanks
 	 * @return
 	 */
-	public BusinessGroup updateBusinessGroup(final BusinessGroup group, final String name, final String description,
-			final Integer minParticipants, final Integer maxParticipants, final Boolean waitingList, final Boolean autoCloseRanks);
+	public BusinessGroup updateBusinessGroup(Identity ureqIdentity, BusinessGroup group, String name, String description,
+			Integer minParticipants, Integer maxParticipants, Boolean waitingList, Boolean autoCloseRanks);
 	
 	public DisplayMembers getDisplayMembers(BusinessGroup group);
 	
@@ -181,8 +183,8 @@ public interface BusinessGroupService {
 	 * @param copyWaitingList
 	 * @return The copied business group
 	 */
-	public BusinessGroup copyBusinessGroup(BusinessGroup sourceBusinessGroup, String targetName, String targetDescription, Integer targetMin,
-			Integer targetMax, OLATResource targetResource, Map<BGArea,BGArea> areaLookupMap, boolean copyAreas, boolean copyCollabToolConfig, boolean copyRights,
+	public BusinessGroup copyBusinessGroup(Identity identity, BusinessGroup sourceBusinessGroup, String targetName, String targetDescription,
+			Integer targetMin, Integer targetMax, boolean copyAreas, boolean copyCollabToolConfig, boolean copyRights,
 			boolean copyOwners, boolean copyParticipants, boolean copyMemberVisibility, boolean copyWaitingList, boolean copyRelations);
 
 	/**
@@ -200,6 +202,14 @@ public interface BusinessGroupService {
 	 * @param groups
 	 */
 	public void updateMembership(Identity identity, MembershipModification modifications, List<BusinessGroup> groups);
+	
+	/**
+	 * Very fine tuned membership changes on several groups
+	 * 
+	 * @param ureqIdentity
+	 * @param changes
+	 */
+	public void updateMemberships(Identity ureqIdentity, List<BusinessGroupMembershipChange> changes);
 	
 	//search methods
 	/**
@@ -240,15 +250,31 @@ public interface BusinessGroupService {
 	
 	
 	public int countBusinessGroupViews(SearchBusinessGroupParams params, OLATResource resource);
-	
+	/**
+	 * Find business groups (the view)
+	 * @param params
+	 * @param resource
+	 * @param firstResult
+	 * @param maxResults
+	 * @param ordering
+	 * @return
+	 */
 	public List<BusinessGroupView> findBusinessGroupViews(SearchBusinessGroupParams params, OLATResource resource, int firstResult, int maxResults, BusinessGroupOrder... ordering);
 	
+	/**
+	 * Find all groups within resources where the identity is author.
+	 * @param author
+	 * @return
+	 */
+	public List<BusinessGroupView> findBusinessGroupViewsWithAuthorConnection(Identity author);
 	
 	public List<Long> toGroupKeys(String groupNames, OLATResource resource);
 
 	//retrieve repository entries
 
 	public boolean hasResources(BusinessGroup group);
+	
+	public boolean hasResources(List<BusinessGroup> groups);
 	
 	public void addResourceTo(BusinessGroup group, OLATResource resource);
 	
@@ -302,6 +328,17 @@ public interface BusinessGroupService {
 	 * @param flags
 	 */
 	public void removeOwners(Identity ureqIdentity, Collection<Identity> identitiesToRemove, BusinessGroup group);
+	
+	/**
+	 * Enroll an identity to the group following the rules set by reservation, max participants,
+	 * waiting list, auto close ranks...
+	 * 
+	 * 
+	 * @param group
+	 * @param identity
+	 * @return
+	 */
+	public EnrollState enroll(final BusinessGroup group,  final Identity identity);
 
 	/**
 	 * Adds a user to a group as participant and does all the magic that needs to
@@ -347,6 +384,16 @@ public interface BusinessGroupService {
 	 * @param flags
 	 */
 	public void removeParticipants(Identity ureqIdentity, List<Identity> identities, BusinessGroup group);
+	
+	/**
+	 * Remove the members (tutors and participants) from all business groups connected
+	 * to the resource.
+	 * 
+	 * @param ureqIdentity
+	 * @param identities
+	 * @param group
+	 */
+	public void removeMembers(Identity ureqIdentity, List<Identity> identities, OLATResource resource);
 
 	/**
 	 * Adds a user to a waiting-list of a group and does all the magic that needs to
@@ -431,28 +478,16 @@ public interface BusinessGroupService {
 	 * @param businessGroups
 	 * @return The list of group keys where the identity is either participant or owner
 	 */
-	public List<BusinessGroupMembership> getBusinessGroupMembership(Identity identity, Collection<Long> businessGroups);
-
-	/**
-	 * Checks if an identity is in a business group with a specific name (exact match), either as owner or
-	 * as participant
-	 * @param identity
-	 * @param groupName
-	 * @param ownedById
-	 * @param attendedById
-	 * @param resource
-	 * @return
-	 */
-	public boolean isIdentityInBusinessGroup(Identity identity, boolean ownedById, boolean attendedById, OLATResource resource);
+	public List<BusinessGroupMembership> getBusinessGroupMembership(Collection<Long> businessGroups, Identity... identity);
 
 	/**
 	 * Checks if an identity is in a business group with a specific key, either as owner or
 	 * as participant
 	 * @param identity
-	 * @param groupKey
+	 * @param groupKey The group key (optional)
 	 * @param ownedById
 	 * @param attendedById
-	 * @param resource
+	 * @param resource The resource context (mandatory)
 	 * @return
 	 */
 	public boolean isIdentityInBusinessGroup(Identity identity, Long groupKey, boolean ownedById, boolean attendedById, OLATResource resource);

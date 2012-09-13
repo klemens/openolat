@@ -1,3 +1,22 @@
+/**
+ * <a href="http://www.openolat.org">
+ * OpenOLAT - Online Learning and Training</a><br>
+ * <p>
+ * Licensed under the Apache License, Version 2.0 (the "License"); <br>
+ * you may not use this file except in compliance with the License.<br>
+ * You may obtain a copy of the License at the
+ * <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache homepage</a>
+ * <p>
+ * Unless required by applicable law or agreed to in writing,<br>
+ * software distributed under the License is distributed on an "AS IS" BASIS, <br>
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. <br>
+ * See the License for the specific language governing permissions and <br>
+ * limitations under the License.
+ * <p>
+ * Initial code contributed and copyrighted by<br>
+ * frentix GmbH, http://www.frentix.com
+ * <p>
+ */
 package org.olat.group.ui.main;
 
 import java.util.List;
@@ -91,11 +110,6 @@ public class OverviewBusinessGroupListController extends BasicController impleme
 			}
 		}
 	}
-	
-	@Override
-	protected void event(UserRequest ureq, Controller source, Event event) {
-		super.event(ureq, source, event);
-	}
 
 	@Override
 	public void activate(UserRequest ureq, List<ContextEntry> entries, StateEntry state) {
@@ -125,6 +139,7 @@ public class OverviewBusinessGroupListController extends BasicController impleme
 			ThreadLocalUserActivityLogger.addLoggingResourceInfo(LoggingResourceable.wrapBusinessPath(ores));
 			WindowControl bwControl = BusinessControlFactory.getInstance().createBusinessWindowControl(ores, null, getWindowControl());
 			favoritGroupsCtrl = new FavoritBusinessGroupListController(ureq, bwControl);
+			listenTo(favoritGroupsCtrl);
 		}
 		favoritGroupsCtrl.updateMarkedGroups();
 		mainVC.put("groupList", favoritGroupsCtrl.getInitialComponent());
@@ -138,6 +153,7 @@ public class OverviewBusinessGroupListController extends BasicController impleme
 			ThreadLocalUserActivityLogger.addLoggingResourceInfo(LoggingResourceable.wrapBusinessPath(ores));
 			WindowControl bwControl = BusinessControlFactory.getInstance().createBusinessWindowControl(ores, null, getWindowControl());
 			allGroupsCtrl = new BusinessGroupListController(ureq, bwControl);
+			listenTo(allGroupsCtrl);
 		}
 		allGroupsCtrl.updateAllGroups();
 		mainVC.put("groupList", allGroupsCtrl.getInitialComponent());
@@ -151,6 +167,7 @@ public class OverviewBusinessGroupListController extends BasicController impleme
 			ThreadLocalUserActivityLogger.addLoggingResourceInfo(LoggingResourceable.wrapBusinessPath(ores));
 			WindowControl bwControl = BusinessControlFactory.getInstance().createBusinessWindowControl(ores, null, getWindowControl());
 			ownedGroupsCtrl = new OwnedBusinessGroupListController(ureq, bwControl);
+			listenTo(ownedGroupsCtrl);
 		}
 		ownedGroupsCtrl.updateOwnedGroups();
 		mainVC.put("groupList", ownedGroupsCtrl.getInitialComponent());
@@ -164,6 +181,7 @@ public class OverviewBusinessGroupListController extends BasicController impleme
 			ThreadLocalUserActivityLogger.addLoggingResourceInfo(LoggingResourceable.wrapBusinessPath(ores));
 			WindowControl bwControl = BusinessControlFactory.getInstance().createBusinessWindowControl(ores, null, getWindowControl());
 			searchGroupsCtrl = new SearchBusinessGroupListController(ureq, bwControl);
+			listenTo(searchGroupsCtrl);
 		}
 		searchGroupsCtrl.updateSearch(ureq);
 		mainVC.put("groupList", searchGroupsCtrl.getInitialComponent());

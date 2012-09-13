@@ -78,6 +78,7 @@ import org.olat.core.util.resource.OLATResourceableJustBeforeDeletedEvent;
 import org.olat.core.util.resource.OresHelper;
 import org.olat.course.nodes.iq.AssessmentEvent;
 import org.olat.group.BusinessGroup;
+import org.olat.group.BusinessGroupMembership;
 import org.olat.group.BusinessGroupService;
 import org.olat.group.GroupLoggingAction;
 import org.olat.group.model.DisplayMembers;
@@ -92,11 +93,10 @@ import org.olat.portfolio.PortfolioModule;
 import org.olat.repository.RepositoryEntry;
 import org.olat.repository.RepositoryTableModel;
 import org.olat.resource.OLATResource;
-import org.olat.resource.OLATResourceManager;
+import org.olat.resource.accesscontrol.ACService;
 import org.olat.resource.accesscontrol.ACUIFactory;
 import org.olat.resource.accesscontrol.AccessControlModule;
 import org.olat.resource.accesscontrol.AccessResult;
-import org.olat.resource.accesscontrol.manager.ACFrontendManager;
 import org.olat.resource.accesscontrol.ui.AccessEvent;
 import org.olat.util.logging.activity.LoggingResourceable;
 
@@ -233,6 +233,19 @@ public class BusinessGroupMainRunController extends MainLayoutBasicController im
 			putInitialPanel(columnLayoutCtr.getInitialComponent());
 			return;
 		}
+		
+
+		List<BusinessGroupMembership> memberships = businessGroupService.getBusinessGroupMembership(Collections.singletonList(bGroup.getKey()), getIdentity());
+		if(isOnWaitinglist(memberships)) {
+			VelocityContainer vc = createVelocityContainer("waiting");
+			vc.contextPut("name", bGroup.getName());
+			columnLayoutCtr = new LayoutMain3ColsController(ureq, getWindowControl(), null, null, vc, "grouprun");
+			listenTo(columnLayoutCtr); // cleanup on dispose
+			putInitialPanel(columnLayoutCtr.getInitialComponent());
+			return;
+		}
+		
+		
 
 		addLoggingResourceable(LoggingResourceable.wrap(businessGroup));
 		ThreadLocalUserActivityLogger.log(GroupLoggingAction.GROUP_OPEN, getClass());
@@ -289,8 +302,8 @@ public class BusinessGroupMainRunController extends MainLayoutBasicController im
 		
 		//check managed
 		//fxdiff VCRP-1,2: access control of resources
-		ACFrontendManager acFrontendManager = (ACFrontendManager)CoreSpringFactory.getBean("acFrontendManager");
-		AccessResult acResult = acFrontendManager.isAccessible(businessGroup, getIdentity(), false);
+		ACService acService = CoreSpringFactory.getImpl(ACService.class);
+		AccessResult acResult = acService.isAccessible(businessGroup, getIdentity(), false);
 		if(acResult.isAccessible()) {
 			needActivation = false;
 		}  else if (businessGroup != null && acResult.getAvailableMethods().size() > 0) {
@@ -306,6 +319,18 @@ public class BusinessGroupMainRunController extends MainLayoutBasicController im
 			needActivation = true;
 			return;
 		}
+	}
+	
+	private boolean isOnWaitinglist(List<BusinessGroupMembership> memberships) {
+		boolean waiting = false;
+		for(BusinessGroupMembership membership:memberships) {
+			if(membership.isOwner() || membership.isParticipant()) {
+				return false;
+			} else if (membership.isWaiting()) {
+				waiting = true;
+			}
+		}
+		return waiting;
 	}
 
 	private void exposeGroupDetailsToVC(BusinessGroup currBusinessGroup) {
@@ -660,7 +685,7 @@ public class BusinessGroupMainRunController extends MainLayoutBasicController im
 	//fxdiff VCRP-1,2: access control of resources
 	private void doAccessControlHistory(UserRequest ureq) {
 		removeAsListenerAndDispose(bgACHistoryCtrl);
-		OLATResource resource = OLATResourceManager.getInstance().findResourceable(businessGroup);
+		OLATResource resource = businessGroup.getResource();
 		bgACHistoryCtrl = ACUIFactory.createOrdersAdminController(ureq, getWindowControl(), resource);
 		listenTo(bgACHistoryCtrl);
 		mainPanel.setContent(bgACHistoryCtrl.getInitialComponent());
@@ -852,7 +877,7 @@ public class BusinessGroupMainRunController extends MainLayoutBasicController im
 				// reset business group property manager
 				// update reference to update business group object
 				businessGroup = businessGroupService.loadBusinessGroup(this.businessGroup);
-				main.contextPut("BuddyGroup", this.businessGroup);
+				main.contextPut("BuddyGroup", businessGroup);
 				TreeModel trMdl = buildTreeModel();
 				bgTree.setTreeModel(trMdl);
 				if (bgEditCntrllr == null) {
@@ -1009,7 +1034,7 @@ public class BusinessGroupMainRunController extends MainLayoutBasicController im
 		
 		if (InstantMessagingModule.isEnabled() && 
 				collabTools.isToolEnabled(CollaborationTools.TOOL_CHAT) && 
-				InstantMessagingModule.isSyncLearningGroups() // whether LearningGroups can have chat or not)
+				InstantMessagingModule.isSyncGroups() // whether LearningGroups can have chat or not)
 				) {
 			gtnChild = new GenericTreeNode();
 			gtnChild.setTitle(translate("menutree.chat"));

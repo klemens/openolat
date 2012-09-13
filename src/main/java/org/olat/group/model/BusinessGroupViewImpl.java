@@ -50,55 +50,64 @@ public class BusinessGroupViewImpl extends PersistentObject implements BusinessG
 	private Boolean autoCloseRanksEnabled;
 	private Date lastModified;
 
-	private int numOfOwners;
-	private int numOfParticipants;
-	private int numOfRelations;
-	private int numOfOffers;
-	private int numOfValidOffers;
+	private long numOfOwners;
+	private long numOfParticipants;
+	private long numWaiting;
+	private long numOfRelations;
+	private long numOfOffers;
+	private long numOfValidOffers;
 
 	@Override
-	public int getNumOfRelations() {
+	public long getNumOfRelations() {
 		return numOfRelations;
 	}
 
-	public void setNumOfRelations(int numOfRelations) {
+	public void setNumOfRelations(long numOfRelations) {
 		this.numOfRelations = numOfRelations;
 	}
 
 	@Override
-	public int getNumOfOwners() {
+	public long getNumOfOwners() {
 		return numOfOwners;
 	}
 
-	public void setNumOfOwners(int numOfOwners) {
+	public void setNumOfOwners(long numOfOwners) {
 		this.numOfOwners = numOfOwners;
 	}
 
 	@Override
-	public int getNumOfParticipants() {
+	public long getNumOfParticipants() {
 		return numOfParticipants;
 	}
 
-	public void setNumOfParticipants(int numOfParticipants) {
+	public void setNumOfParticipants(long numOfParticipants) {
 		this.numOfParticipants = numOfParticipants;
 	}
 
+	@Override
+	public long getNumWaiting() {
+		return numWaiting;
+	}
+
+	public void setNumWaiting(long numWaiting) {
+		this.numWaiting = numWaiting;
+	}
 
 	@Override
-	public int getNumOfOffers() {
+	public long getNumOfOffers() {
 		return numOfOffers;
 	}
 	
-	public void setNumOfOffers(int numOfOffers) {
+	public void setNumOfOffers(long numOfOffers) {
 		this.numOfOffers = numOfOffers;
 	}
 
 	@Override
-	public int getNumOfValidOffers() {
+	public long getNumOfValidOffers() {
 		return numOfValidOffers;
 	}
 
-	public void setNumOfValidOffers(int numOfValidOffers) {
+	public void setNumOfValidOffers(long numOfValidOffers) {
 		this.numOfValidOffers = numOfValidOffers;
 	}
 

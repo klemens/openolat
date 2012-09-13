@@ -29,7 +29,6 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URL;
 import java.util.ArrayList;
-import java.util.Calendar;
 import java.util.List;
 import java.util.UUID;
 
@@ -37,9 +36,6 @@ import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.UriBuilder;
 
 import org.apache.commons.httpclient.HttpClient;
-import org.apache.commons.httpclient.HttpException;
-import org.apache.commons.httpclient.HttpStatus;
-import org.apache.commons.httpclient.methods.GetMethod;
 import org.apache.http.HttpResponse;
 import org.apache.http.client.methods.HttpPost;
 import org.apache.http.client.methods.HttpPut;
@@ -48,8 +44,6 @@ import org.apache.http.entity.mime.MultipartEntity;
 import org.apache.http.entity.mime.content.FileBody;
 import org.apache.http.entity.mime.content.StringBody;
 import org.junit.Assert;
-import org.olat.core.logging.OLog;
-import org.olat.core.logging.Tracing;
 import org.olat.restapi.RestConnection;
 import org.olat.restapi.support.vo.CourseVO;
 import org.olat.restapi.support.vo.RepositoryEntryVO;
@@ -57,8 +51,6 @@ import org.olat.user.restapi.UserVO;
 
 public class FunctionalVOUtil {
 
-	private final static OLog log = Tracing.createLoggerFor(FunctionalVOUtil.class);
-	
 	public final static String WAIT_LIMIT = "15000";
 	
 	public final static String ALL_ELEMENTS_COURSE_DISPLAYNAME = "All Elements Course";

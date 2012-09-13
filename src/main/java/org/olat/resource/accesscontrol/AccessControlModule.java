@@ -33,10 +33,10 @@ import org.olat.core.gui.control.Event;
 import org.olat.core.util.StringHelper;
 import org.olat.core.util.event.FrameworkStartedEvent;
 import org.olat.core.util.event.FrameworkStartupEventChannel;
-import org.olat.resource.accesscontrol.manager.ACFrontendManager;
 import org.olat.resource.accesscontrol.method.AccessMethodHandler;
 import org.olat.resource.accesscontrol.model.FreeAccessMethod;
 import org.olat.resource.accesscontrol.model.TokenAccessMethod;
+import org.olat.resource.accesscontrol.provider.paypal.model.PaypalAccessMethod;
 
 /**
  * 
@@ -55,12 +55,14 @@ public class AccessControlModule extends AbstractOLATModule implements ConfigOnO
 	private static final String VAT_RATE = "vat.rate";
 	private static final String VAT_NR = "vat.number";
 	
-	public static final String TOKEN_ENABLED = "method.token.enabled";
-	public static final String FREE_ENABLED = "method.free.enabled";
+	private static final String TOKEN_ENABLED = "method.token.enabled";
+	private static final String FREE_ENABLED = "method.free.enabled";
+	private static final String PAYPAL_ENABLED = "method.paypal.enabled";
 
 	private boolean enabled;
 	private boolean freeEnabled;
 	private boolean tokenEnabled;
+	private boolean paypalEnabled;
 	private boolean homeOverviewEnabled;
 	
 	private boolean vatEnabled;
@@ -69,14 +71,14 @@ public class AccessControlModule extends AbstractOLATModule implements ConfigOnO
 	
 	private final List<AccessMethodHandler> methodHandlers = new ArrayList<AccessMethodHandler>();
 	
-	private ACFrontendManager acFrontendManager;
+	private ACService acService;
 
 	/**
 	 * [Used by Spring]
 	 * @param methodManager
 	 */
-	public void setAcFrontendManager(ACFrontendManager acFrontendManager) {
-		this.acFrontendManager = acFrontendManager;
+	public void setAcService(ACService acService) {
+		this.acService = acService;
 	}
 
 	public AccessControlModule(){
@@ -111,6 +113,11 @@ public class AccessControlModule extends AbstractOLATModule implements ConfigOnO
 		String tokenEnabledObj = getStringPropertyValue(TOKEN_ENABLED, true);
 		if(StringHelper.containsNonWhitespace(tokenEnabledObj)) {
 			tokenEnabled = "true".equals(tokenEnabledObj);
+		}
+
+		String paypalEnabledObj = getStringPropertyValue(PAYPAL_ENABLED, true);
+		if(StringHelper.containsNonWhitespace(paypalEnabledObj)) {
+			paypalEnabled = "true".equals(paypalEnabledObj);
 		}
 		
 		String freeEnabledObj = getStringPropertyValue(FREE_ENABLED, true);
@@ -156,6 +163,7 @@ public class AccessControlModule extends AbstractOLATModule implements ConfigOnO
 		enabled = getBooleanConfigParameter(AC_ENABLED, true);
 		freeEnabled = getBooleanConfigParameter(FREE_ENABLED, true);
 		tokenEnabled = getBooleanConfigParameter(TOKEN_ENABLED, true);
+		paypalEnabled = getBooleanConfigParameter(PAYPAL_ENABLED, false);
 		homeOverviewEnabled = getBooleanConfigParameter(AC_HOME_ENABLED, true);
 		vatEnabled = getBooleanConfigParameter(VAT_ENABLED, true);
 		String vatRateStr = getStringConfigParameter(VAT_RATE, "", true);
@@ -194,8 +202,8 @@ public class AccessControlModule extends AbstractOLATModule implements ConfigOnO
 		if(this.tokenEnabled != tokenEnabled) {
 			setStringProperty(TOKEN_ENABLED, Boolean.toString(tokenEnabled), true);
 		}
-		if(acFrontendManager != null) {
-			acFrontendManager.enableMethod(TokenAccessMethod.class, tokenEnabled);
+		if(acService != null) {
+			acService.enableMethod(TokenAccessMethod.class, tokenEnabled);
 		}
 	}
 
@@ -207,11 +215,24 @@ public class AccessControlModule extends AbstractOLATModule implements ConfigOnO
 		if(this.freeEnabled != freeEnabled) {
 			setStringProperty(FREE_ENABLED, Boolean.toString(freeEnabled), true);
 		}
-		if(acFrontendManager != null) {
-			acFrontendManager.enableMethod(FreeAccessMethod.class, freeEnabled);
+		if(acService != null) {
+			acService.enableMethod(FreeAccessMethod.class, freeEnabled);
 		}
 	}
 	
+	public boolean isPaypalEnabled() {
+		return paypalEnabled;
+	}
+
+	public void setPaypalEnabled(boolean paypalEnabled) {
+		if(this.paypalEnabled != paypalEnabled) {
+			setStringProperty(PAYPAL_ENABLED, Boolean.toString(paypalEnabled), true);
+		}
+		if(acService != null) {
+			acService.enableMethod(PaypalAccessMethod.class, paypalEnabled);
+		}
+	}
+
 	public boolean isHomeOverviewEnabled() {
 		return homeOverviewEnabled;
 	}
