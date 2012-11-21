@@ -99,12 +99,12 @@ import org.junit.runners.Suite;
 	org.olat.modules.fo.ForumManagerTest.class,//fail
 	org.olat.modules.wiki.WikiUnitTest.class,//ok
 	org.olat.modules.wiki.versioning.diff.CookbookDiffTest.class,//ok
+	org.olat.modules.coach.CoachingManagerTest.class,//ok
 	org.olat.properties.PropertyTest.class,//ok
 	org.olat.search.service.document.file.FileDocumentFactoryTest.class,
 	org.olat.search.service.document.file.PDFDocumentTest.class,
 	org.olat.search.service.document.file.OfficeDocumentTest.class,
 	org.olat.catalog.CatalogManagerTest.class,//ok
-	org.olat.bookmark.BookmarkManagerTest.class,//ok
 	org.olat.notifications.NotificationsManagerTest.class,//fail
 	org.olat.registration.RegistrationManagerTest.class,//ok
 	org.olat.commons.coordinate.singlevm.SingleVMLockerTest.class,//ok
@@ -129,6 +129,7 @@ import org.junit.runners.Suite;
 	org.olat.portfolio.EPStructureManagerTest.class,
 	org.olat.portfolio.EPStructureToArtefactTest.class,
 	org.olat.portfolio.EPImportTest.class,
+	org.olat.modules.openmeetings.OpenMeetingsTest.class,
 	org.olat.commons.info.InfoManagerTest.class,
 	org.olat.core.commons.service.tagging.SimpleTagProposalManagerTest.class,
 	org.olat.commons.coordinate.singlevm.SingleVMLockerTest.class,

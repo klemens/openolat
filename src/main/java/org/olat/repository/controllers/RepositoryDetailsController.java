@@ -33,20 +33,16 @@ import java.util.Locale;
 import org.olat.ControllerFactory;
 import org.olat.NewControllerFactory;
 import org.olat.admin.securitygroup.gui.GroupController;
-import org.olat.admin.securitygroup.gui.IdentitiesAddEvent;
-import org.olat.admin.securitygroup.gui.IdentitiesRemoveEvent;
 import org.olat.basesecurity.BaseSecurity;
 import org.olat.basesecurity.BaseSecurityManager;
 import org.olat.basesecurity.Constants;
 import org.olat.basesecurity.IdentityShort;
-import org.olat.basesecurity.SecurityGroup;
-import org.olat.bookmark.AddAndEditBookmarkController;
-import org.olat.bookmark.BookmarkManager;
 import org.olat.catalog.ui.CatalogAjaxAddController;
 import org.olat.catalog.ui.CatalogEntryAddController;
 import org.olat.catalog.ui.RepoEntryCategoriesTableController;
 import org.olat.core.CoreSpringFactory;
 import org.olat.core.commons.persistence.DBFactory;
+import org.olat.core.commons.services.mark.MarkManager;
 import org.olat.core.dispatcher.DispatcherAction;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.Windows;
@@ -70,7 +66,6 @@ import org.olat.core.gui.control.generic.tool.ToolFactory;
 import org.olat.core.gui.media.MediaResource;
 import org.olat.core.gui.translator.PackageTranslator;
 import org.olat.core.helpers.Settings;
-import org.olat.core.id.Identity;
 import org.olat.core.id.OLATResourceable;
 import org.olat.core.id.context.BusinessControlFactory;
 import org.olat.core.id.context.ContextEntry;
@@ -127,9 +122,8 @@ public class RepositoryDetailsController extends BasicController implements Gene
 	private static final String ACTION_ADD_CATALOG = "add.cat";
 	private static final String ACTION_DELETE = "del";
 	private static final String ACTION_CLOSE_RESSOURCE = "close.ressource";
-	private static final String ACTION_GROUPS = "grp";
-	private static final String ACTION_GROUPS_TUTOR = "grptutor";
-	private static final String ACTION_GROUPS_PARTICIPANT = "grpparti";
+	private static final String ACTION_MEMBERS = "members";
+	
 	private static final String ACTION_ORDERS = "orders";
 	private static final String ACTION_EDITDESC = "chdesc";
 	private static final String ACTION_EDITPROP = "chprop";
@@ -152,10 +146,9 @@ public class RepositoryDetailsController extends BasicController implements Gene
 	private Link loginLink;
 	
 	private GroupController groupController;
-	private GroupController groupTutorEditController, groupParticipantEditController, groupEditController;
+	private RepositoryMembersController membersEditController;
 	private OrdersAdminController ordersController;
-	private AddAndEditBookmarkController bookmarkController;
-	private ToolController detailsToolC = null;
+	private ToolController detailsToolC;
 	private RepositoryCopyController copyController;
 	private RepositoryEditPropertiesController repositoryEditPropertiesController;
 	private RepositoryEditDescriptionController repositoryEditDescriptionController;
@@ -189,6 +182,7 @@ public class RepositoryDetailsController extends BasicController implements Gene
 	
 	private final BaseSecurity securityManager;
 	private final UserManager userManager;
+	private final MarkManager markManager;
 
 	/**
 	 * Controller displaying details of a given repository entry.
@@ -203,6 +197,7 @@ public class RepositoryDetailsController extends BasicController implements Gene
 		setBasePackage(RepositoryManager.class);
 		securityManager = CoreSpringFactory.getImpl(BaseSecurity.class);
 		userManager = CoreSpringFactory.getImpl(UserManager.class);
+		markManager = CoreSpringFactory.getImpl(MarkManager.class);
 		if (log.isDebug()){
 			log.debug("Constructing ReposityMainController using velocity root " + velocity_root);
 		}
@@ -407,7 +402,7 @@ public class RepositoryDetailsController extends BasicController implements Gene
 		main.put(infopanelVC.getComponentName(), infopanelVC);
 
 		removeAsListenerAndDispose(groupController);
-		groupController = new GroupController(ureq, getWindowControl(), false, true, false, false, true, repositoryEntry.getOwnerGroup());
+		groupController = new GroupController(ureq, getWindowControl(), false, true, false, false, true, false, repositoryEntry.getOwnerGroup());
 		listenTo(groupController);
 		
 		main.put("ownertable", groupController.getInitialComponent());
@@ -461,7 +456,10 @@ public class RepositoryDetailsController extends BasicController implements Gene
 				//mark as download link
 				detailsToolC.addLink(ACTION_DOWNLOAD, translate("details.download"), TOOL_DOWNLOAD, null, true);
 				detailsToolC.addLink(ACTION_DOWNLOAD_BACKWARD_COMPAT, translate("details.download.compatible"), TOOL_DOWNLOAD_BACKWARD_COMPAT, null, true);
-				detailsToolC.addLink(ACTION_BOOKMARK, translate("details.bookmark"), TOOL_BOOKMARK, null);
+				//bookmark
+				boolean marked = markManager.isMarked(repositoryEntry, getIdentity(), null);
+				String css = marked ? "b_mark_set" : "b_mark_not_set";
+				detailsToolC.addLink(ACTION_BOOKMARK, translate("details.bookmark"), TOOL_BOOKMARK, css);
 			}
 			boolean canDownload = repositoryEntry.getCanDownload() && handler.supportsDownload(repositoryEntry);
 			// disable download for courses if not author or owner
@@ -474,10 +472,7 @@ public class RepositoryDetailsController extends BasicController implements Gene
 			detailsToolC.setEnabled(TOOL_DOWNLOAD, canDownload && !corrupted);
 			detailsToolC.setEnabled(TOOL_DOWNLOAD_BACKWARD_COMPAT, canDownload && !corrupted
 					&& "CourseModule".equals(repositoryEntry.getOlatResource().getResourceableTypeName()));
-			boolean canBookmark = true;
-			if (BookmarkManager.getInstance().isResourceableBookmarked(ureq.getIdentity(), repositoryEntry) || !repositoryEntry.getCanLaunch())
-				canBookmark = false;
-			detailsToolC.setEnabled(TOOL_BOOKMARK, canBookmark && !corrupted);
+			detailsToolC.setEnabled(TOOL_BOOKMARK, !corrupted);
 		}
 		//fxdiff VCRP-1 : moved some things around here to split large toolbox into smaller pieces
 		if (isNewController)
@@ -520,9 +515,7 @@ public class RepositoryDetailsController extends BasicController implements Gene
 				if (isNewController) {
 					detailsToolC.addLink(ACTION_DELETE, translate("details.delete"));
 					detailsToolC.addHeader(translate("details.members"));
-					detailsToolC.addLink(ACTION_GROUPS, translate("details.groups"));
-					detailsToolC.addLink(ACTION_GROUPS_TUTOR, translate("details.groups.tutor"));
-					detailsToolC.addLink(ACTION_GROUPS_PARTICIPANT, translate("details.groups.participant"));
+					detailsToolC.addLink(ACTION_MEMBERS, translate("details.members"));
 					detailsToolC.addLink(ACTION_ORDERS, translate("details.orders"));
 				}
 				// enable
@@ -722,16 +715,6 @@ public class RepositoryDetailsController extends BasicController implements Gene
 	  }
 	  return;
 	}
-	
-	private void doAddBookmark(Controller contentController) {
-		removeAsListenerAndDispose(closeableModalController);		
-		closeableModalController = new CloseableModalController(getWindowControl(), translate("close"),
-				contentController.getInitialComponent());
-		listenTo(closeableModalController);
-		
-		closeableModalController.activate();
-		return;
-	}
 
 	/**
 	 * Also used by RepositoryMainController
@@ -879,35 +862,7 @@ public class RepositoryDetailsController extends BasicController implements Gene
 			repositoryEntry = RepositoryManager.getInstance().lookupRepositoryEntry(repositoryEntry.getKey());
 		}
 		String cmd = event.getCommand();
-		if (source == groupEditController || source == groupTutorEditController || source == groupParticipantEditController) {
-			if(event instanceof IdentitiesAddEvent ) { //FIXME:chg: Move into seperate RepositoryOwnerGroupController like BusinessGroupEditController ?
-				IdentitiesAddEvent identitiesAddedEvent = (IdentitiesAddEvent) event;
-				RepositoryManager rm = RepositoryManager.getInstance();
-				//add to group and also adds identities really added to the event.
-				//this is then later used by the GroupController to determine if the 
-				//model should be updated or not.
-				
-				if (source == groupEditController) {
-					rm.addOwners(ureq.getIdentity(),identitiesAddedEvent,repositoryEntry);
-				} else if (source == groupTutorEditController) {
-					rm.addTutors(ureq.getIdentity(), identitiesAddedEvent, repositoryEntry);
-				} else if (source == groupParticipantEditController) {
-					rm.addParticipants(ureq.getIdentity(), identitiesAddedEvent, repositoryEntry);
-				}
-			} else if (event instanceof IdentitiesRemoveEvent) {
-				IdentitiesRemoveEvent identitiesRemoveEvent = (IdentitiesRemoveEvent) event;
-				RepositoryManager rm = RepositoryManager.getInstance();
-				List<Identity> identitiesToRemove = identitiesRemoveEvent.getRemovedIdentities();
-				if (source == groupEditController) {
-					rm.removeOwners(ureq.getIdentity(),identitiesToRemove,repositoryEntry);
-				} else if (source == groupTutorEditController) {
-					rm.removeTutors(ureq.getIdentity(), identitiesToRemove, repositoryEntry);
-				} else if (source == groupParticipantEditController) {
-					rm.removeParticipants(ureq.getIdentity(), identitiesToRemove, repositoryEntry);
-				}
-			}
-			updateView(ureq);
-		} else if (source == ordersController) {
+		if (source == ordersController) {
 			//
 		} else if (source == detailsToolC) {
 			if (cmd.equals(ACTION_DOWNLOAD)) { // download
@@ -940,34 +895,30 @@ public class RepositoryDetailsController extends BasicController implements Gene
 				doCloseDetailView(ureq);
 				return;
 			} else if (cmd.equals(ACTION_BOOKMARK)) {
-				removeAsListenerAndDispose(bookmarkController);
-				bookmarkController = new AddAndEditBookmarkController(ureq, getWindowControl(), repositoryEntry.getDisplayname(), "",
-						repositoryEntry, repositoryEntry.getOlatResource().getResourceableTypeName());
-				listenTo(bookmarkController);
-				
-				doAddBookmark(bookmarkController);
-				return;
+				boolean marked = markManager.isMarked(repositoryEntry, getIdentity(), null);
+				if(marked) {
+					markManager.deleteMark(repositoryEntry, null);
+				} else {
+					String businessPath = "[RepositoryEntry:" + repositoryEntry.getKey() + "]";
+					markManager.setMark(repositoryEntry, getIdentity(), null, businessPath);
+				}
+				String css = marked ? "b_mark_not_set" : "b_mark_set";
+				detailsToolC.setCssClass(TOOL_BOOKMARK, css);
 			} else if (cmd.equals(ACTION_COPY)) { // copy
 				if (!isAuthor) throw new OLATSecurityException("Trying to copy, but user is not author: user = " + ureq.getIdentity());
 				doCopy(ureq);
 				return;
-			} else if (cmd.equals(ACTION_GROUPS)) { // edit authors group
+			} else if (cmd.equals(ACTION_MEMBERS)) { // membership
 				if (!isOwner) throw new OLATSecurityException("Trying to access groupmanagement, but not allowed: user = " + ureq.getIdentity());
-				groupEditController = doManageSecurityGroup(ureq, true, repositoryEntry.getOwnerGroup(), "groups");
-				return;
-			}  else if (cmd.equals(ACTION_GROUPS_TUTOR)) { // edit tutor group
-				if (!isOwner) throw new OLATSecurityException("Trying to access groupmanagement, but not allowed: user = " + ureq.getIdentity());
-				if(repositoryEntry.getTutorGroup() == null){
-					repositoryEntry = RepositoryManager.getInstance().createTutorSecurityGroup(repositoryEntry, true);
-				}
-				groupTutorEditController = doManageSecurityGroup(ureq, false, repositoryEntry.getTutorGroup(), "groups_tutor");
-				return;
-			} else if (cmd.equals(ACTION_GROUPS_PARTICIPANT)) { // edit tutor group
-				if (!isOwner) throw new OLATSecurityException("Trying to access groupmanagement, but not allowed: user = " + ureq.getIdentity());
-				if(repositoryEntry.getParticipantGroup() == null){
-					repositoryEntry = RepositoryManager.getInstance().createParticipantSecurityGroup(repositoryEntry, true);
-				}
-				groupParticipantEditController = doManageSecurityGroup(ureq, false, repositoryEntry.getParticipantGroup(), "groups_participant");
+				removeAsListenerAndDispose(cmc);
+				removeAsListenerAndDispose(membersEditController);
+				
+				membersEditController = new RepositoryMembersController(ureq, getWindowControl(), repositoryEntry);
+				listenTo(membersEditController);
+				CloseableModalController cmc = new CloseableModalController(getWindowControl(), translate("close"),
+						membersEditController.getInitialComponent(), true, translate("details.members"));
+				listenTo(cmc);
+				cmc.activate();
 				return;
 			} else if (cmd.equals(ACTION_ORDERS)) {
 				doOrders(ureq);
@@ -991,13 +942,6 @@ public class RepositoryDetailsController extends BasicController implements Gene
 				detailsToolC = null; // force recreation of tool controller
 				updateView(ureq);
 				fireEvent(ureq, Event.CHANGED_EVENT);
-			}
-		} else if (source == bookmarkController) {
-			closeableModalController.deactivate();
-			if (event.equals(Event.DONE_EVENT)) { // bookmark added... remove tool
-				if (detailsToolC != null) {
-					detailsToolC.setEnabled(TOOL_BOOKMARK, false);
-				}
 			}
 		} else if (source == copyController) {				
 			RepositoryHandlerFactory.getInstance().getRepositoryHandler(repositoryEntry).releaseLock(lockResult);		
@@ -1095,28 +1039,6 @@ public class RepositoryDetailsController extends BasicController implements Gene
 		listenTo(cmc);
 		
 		cmc.activate();
-	}
-	
-	private GroupController doManageSecurityGroup(UserRequest ureq, boolean keepAtLeastOne, SecurityGroup secGroup, String template) {
-		removeAsListenerAndDispose(groupEditController);
-		removeAsListenerAndDispose(groupTutorEditController);
-		removeAsListenerAndDispose(groupParticipantEditController);
-		groupEditController = null;
-		groupTutorEditController = null;
-		groupParticipantEditController = null;
-
-		GroupController controller = new GroupController(ureq, getWindowControl(), true, keepAtLeastOne, true, false, true, secGroup);
-		listenTo(controller);
-		
-		VelocityContainer groupContainer = createVelocityContainer(template);  
-		groupContainer.put("groupcomp", controller.getInitialComponent());
-		
-		removeAsListenerAndDispose(cmc);
-		CloseableModalController cmc = new CloseableModalController(getWindowControl(), translate("close"), groupContainer);
-		listenTo(cmc);
-		
-		cmc.activate();
-		return controller;
 	}
 
 	/**
