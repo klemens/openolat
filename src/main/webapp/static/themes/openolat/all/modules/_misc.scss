@@ -30,6 +30,33 @@ div.o_bcard_footer {text-align: right; clear: both; font-size: 95%; color:rgb(31
 	min-height: 60em;
 }
 
+/* Resume reservations */
+div.o_reservation {
+	position:relative;
+	padding-bottom: 15px;
+	
+	span.o_reservation_name {
+		 padding-left: 20px;
+	}
+	span.o_reservation_accepted {
+		background: transparent url(../openolat/images/tick.png) top left no-repeat;
+	}
+	span.o_reservation_refused {
+		background: transparent url(../openolat/images/cross.png) top left no-repeat;
+	}
+	
+	div.o_reservation_details {
+		 padding: 5px 0 0 20px;
+	}
+	
+	ul {
+		list-style:none;
+		li {
+			background-repeat: no-repeat;
+		}
+	}
+}
+
 /* INFO MESSAGES */
 div.o_infomsgs { 
 		padding-top:5px; 
@@ -111,7 +138,9 @@ div.b_datecomp {
 		div.b_month {background: #BE5B5D; height: 40%; top: 0; font-size: 80%; font-weight: normal; color: white; }
 		div.b_day {background: #fff; height: 60%; bottom: 0; font-size: 120%; font-weight: bold; color: #000; border-top: 1px solid #000; border-bottom: 1px solid #aaaaaa; }
 }
-	
+
+/* Download link */
+.b_content_download {background: url('../openolat/images/drive-download.png') no-repeat top left; padding-left: 20px; margin: 3px; display:block; min-height: 16px;}
 
 /* Dummy user portrait (avatar) display */
 img.o_portrait_dummy                {background-image: url(../openolat/images/dummy.png); width: 100px; height: 100px;}
