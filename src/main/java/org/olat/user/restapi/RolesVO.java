@@ -21,6 +21,12 @@ package org.olat.user.restapi;
 
 import org.olat.core.id.Roles;
 
+/**
+ * 
+ * Initial date: 07.11.2012<br>
+ * @author srosse, stephane.rosse@frentix.com, http://www.frentix.com
+ *
+ */
 public class RolesVO {
 	
 	private boolean olatAdmin = false;
