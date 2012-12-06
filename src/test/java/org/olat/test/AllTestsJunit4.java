@@ -62,7 +62,7 @@ import org.junit.runners.Suite;
 	org.olat.core.util.FormatterTest.class,
 	org.olat.core.util.mail.manager.MailManagerTest.class,
 	org.olat.core.id.context.BusinessControlFactoryTest.class,
-
+	org.olat.core.gui.render.VelocityTemplateTest.class,
 	org.olat.note.NoteTest.class,//ok
 	org.olat.user.UserPropertiesPerformanceTest.class,//ok
 	org.olat.user.EmailCheckPerformanceTest.class,//fail
@@ -130,6 +130,8 @@ import org.junit.runners.Suite;
 	org.olat.portfolio.EPStructureManagerTest.class,
 	org.olat.portfolio.EPStructureToArtefactTest.class,
 	org.olat.portfolio.EPImportTest.class,
+	org.olat.modules.openmeetings.OpenMeetingsTest.class,
+	org.olat.modules.openmeetings.manager.OpenMeetingsDAOTest.class,
 	org.olat.commons.info.InfoManagerTest.class,
 	org.olat.core.commons.service.tagging.SimpleTagProposalManagerTest.class,
 	org.olat.commons.coordinate.singlevm.SingleVMLockerTest.class,

@@ -99,7 +99,7 @@ public class OLATAuthenticationController extends AuthenticationController imple
 
 		loginComp = createVelocityContainer("olat_log", "olatlogin");
 		
-		if(UserModule.isPwdchangeallowed(ureq.getIdentity())) {
+		if(UserModule.isPwdchangeallowed(null)) {
 			pwLink = LinkFactory.createLink("_olat_login_change_pwd", "menu.pw", loginComp, this);
 			pwLink.setCustomEnabledLinkCSS("o_login_pwd b_with_small_icon_left");
 		}
