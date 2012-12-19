@@ -91,8 +91,9 @@ import org.junit.runners.Suite;
 	org.olat.repository.RepositoryManagerTest.class,//ok
 	org.olat.repository.RepositoryManagerConcurrentTest.class,//ok
 	org.olat.repository.RepositoryManagerQueryTest.class,//ok
-	org.olat.instantMessaging.IMUnitTest.class,//ok
-	org.olat.instantMessaging.IMPrefsUnitTest.class,//ok
+	org.olat.instantMessaging.InstantMessageDAOTest.class,//ok
+	org.olat.instantMessaging.InstantMessagePreferencesDAOTest.class,//ok
+	org.olat.instantMessaging.InstantMessageServiceTest.class,//ok
 	org.olat.course.nodes.en.EnrollmentManagerTest.class,//ok
 	org.olat.course.assessment.AssessmentManagerTest.class,//ok
 	org.olat.course.config.CourseConfigManagerImplTest.class,//ok
@@ -190,7 +191,6 @@ import org.junit.runners.Suite;
 	 * tree is not available
 	 */
 	org.olat.core.commons.scheduler.SchedulerTest.class,
-	org.olat.instantMessaging.IMUnitTestWithoutOLAT.class,
 	org.olat.course.TestDeployableRepositoryExport.class,
 	org.olat.upgrade.UpgradeDefinitionTest.class
 })

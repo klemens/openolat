@@ -20,7 +20,10 @@
 package org.olat.instantMessaging;
 
 import org.olat.core.gui.UserRequest;
+import org.olat.core.id.OLATResourceable;
 import org.olat.core.util.event.MultiUserEvent;
+import org.olat.instantMessaging.model.Buddy;
+import org.olat.instantMessaging.ui.RosterEntry;
 
 /**
  * 
@@ -36,20 +39,44 @@ public class OpenInstantMessageEvent extends MultiUserEvent {
 
 	private static final long serialVersionUID = -7767366726634855700L;
 	
-	private final String jabberId;
 	private final UserRequest ureq;
+	private Buddy buddy;
+	private OLATResourceable ores;
+	private String roomName;
 
-	public OpenInstantMessageEvent(String jabberId, UserRequest ureq) {
+	public OpenInstantMessageEvent(UserRequest ureq) {
 		super("openim");
-		this.jabberId = jabberId;
 		this.ureq = ureq;
 	}
-
-	public String getJabberId() {
-		return jabberId;
+	
+	public OpenInstantMessageEvent(UserRequest ureq, Buddy buddy) {
+		this(ureq);
+		this.buddy = buddy;
+	}
+	
+	public OpenInstantMessageEvent(UserRequest ureq, RosterEntry entry) {
+		this(ureq, new Buddy(entry.getIdentityKey(), entry.getFullName(), entry.getNickName()));
+	}
+	
+	public OpenInstantMessageEvent(UserRequest ureq, OLATResourceable ores, String roomName) {
+		this(ureq);
+		this.ores = ores;
+		this.roomName = roomName;
 	}
 
-	public UserRequest getUreq() {
+	public Buddy getBuddy() {
+		return buddy;
+	}
+
+	public UserRequest getUserRequest() {
 		return ureq;
+	}
+
+	public OLATResourceable getOres() {
+		return ores;
+	}
+	
+	public String getRoomName() {
+		return roomName;
 	}
 }
