@@ -31,12 +31,11 @@ import java.util.Locale;
 import java.util.Map;
 
 import org.olat.NewControllerFactory;
-import org.olat.bookmark.AddAndEditBookmarkController;
-import org.olat.bookmark.BookmarkManager;
 import org.olat.core.CoreSpringFactory;
 import org.olat.core.commons.fullWebApp.LayoutMain3ColsController;
 import org.olat.core.commons.fullWebApp.popup.BaseFullWebappPopupLayoutFactory;
 import org.olat.core.commons.persistence.PersistenceHelper;
+import org.olat.core.commons.services.mark.MarkManager;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.Component;
 import org.olat.core.gui.components.htmlsite.OlatCmdEvent;
@@ -163,7 +162,6 @@ public class RunMainController extends MainLayoutBasicController implements Gene
 	private Controller currentToolCtr;
 	private ToolController toolC;
 	private Controller currentNodeController; // the currently open node config
-	private AddAndEditBookmarkController bookmarkController;
 
 	private boolean isInEditor = false;
 
@@ -192,6 +190,7 @@ public class RunMainController extends MainLayoutBasicController implements Gene
 	private Link currentUserCountLink;
 	private int currentUserCount;
 	
+	private final MarkManager markManager;
 	private final BusinessGroupService businessGroupService;
 	
 	/**
@@ -213,6 +212,7 @@ public class RunMainController extends MainLayoutBasicController implements Gene
 		super(ureq, wControl);
 		
 		businessGroupService = CoreSpringFactory.getImpl(BusinessGroupService.class);
+		markManager = CoreSpringFactory.getImpl(MarkManager.class);
 
 		this.course = course;
 		addLoggingResourceable(LoggingResourceable.wrap(course));
@@ -629,13 +629,6 @@ public class RunMainController extends MainLayoutBasicController implements Gene
 			String cmd = event.getCommand();
 			doHandleToolEvents(ureq, cmd);
 
-		} else if (source == bookmarkController) {
-			if (event.equals(Event.DONE_EVENT)) {
-				toolC.setEnabled(TOOL_BOOKMARK, false);
-			} else if (event.equals(Event.CANCELLED_EVENT)) {
-				toolC.setEnabled(TOOL_BOOKMARK, true);
-			}
-			updateTreeAndContent(ureq, currentCourseNode, null);
 		} else if (source == glossaryToolCtr) {
 			//fire info to IFrameDisplayController
 			Long courseID = course.getResourceableId();
@@ -790,11 +783,15 @@ public class RunMainController extends MainLayoutBasicController implements Gene
 			String businessPath = "[RepositorySite:0][RepositoryEntry:" + courseRepositoryEntry.getKey() + "]";
 			NewControllerFactory.getInstance().launch(businessPath, ureq, getWindowControl());
 		} else if (cmd.equals(ACTION_BOOKMARK)) { // add bookmark
-			RepositoryEntry re = RepositoryManager.getInstance().lookupRepositoryEntry(course, true);
-			bookmarkController = new AddAndEditBookmarkController(ureq, getWindowControl(), re.getDisplayname(), "", re, re.getOlatResource()
-					.getResourceableTypeName());
-			listenTo(bookmarkController);
-			contentP.pushContent(bookmarkController.getInitialComponent());
+			boolean marked = markManager.isMarked(courseRepositoryEntry, getIdentity(), null);
+			if(marked) {
+				markManager.deleteMark(course, null);
+			} else {
+				String businessPath = "[RepositoryEntry:" + courseRepositoryEntry.getKey() + "]";
+				markManager.setMark(courseRepositoryEntry, getIdentity(), null, businessPath);
+			}
+			String css = marked ? "b_mark_not_set" : "b_mark_set";
+			toolC.setCssClass(TOOL_BOOKMARK, css);
 		} else if (cmd.equals(ACTION_CALENDAR)) { // popup calendar
 			ControllerCreator ctrlCreator = new ControllerCreator() {
 				public Controller createController(UserRequest lureq, WindowControl lwControl) {
@@ -1073,10 +1070,9 @@ public class RunMainController extends MainLayoutBasicController implements Gene
 			myTool.addPopUpLink("personalnote", translate("command.personalnote"), null, null, "750", "550", false);
 		}
 		if (offerBookmark && !isGuest) {
-			myTool.addLink(ACTION_BOOKMARK, translate("command.bookmark"), TOOL_BOOKMARK, null);
-			BookmarkManager bm = BookmarkManager.getInstance();
-			if (bm.isResourceableBookmarked(identity, courseRepositoryEntry)) myTool.setEnabled(TOOL_BOOKMARK, false);
-
+			boolean marked = markManager.isMarked(courseRepositoryEntry, getIdentity(), null);
+			String css = marked ? "b_mark_set" : "b_mark_not_set";
+			myTool.addLink(ACTION_BOOKMARK, translate("command.bookmark"), TOOL_BOOKMARK, css);
 		}
 		if (cc.isEfficencyStatementEnabled() && course.hasAssessableNodes() && !isGuest) {
 			// link to efficiency statements should

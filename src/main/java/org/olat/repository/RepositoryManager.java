@@ -44,7 +44,6 @@ import org.olat.basesecurity.Constants;
 import org.olat.basesecurity.PolicyImpl;
 import org.olat.basesecurity.SecurityGroup;
 import org.olat.basesecurity.SecurityGroupMembershipImpl;
-import org.olat.bookmark.BookmarkManager;
 import org.olat.catalog.CatalogManager;
 import org.olat.commons.lifecycle.LifeCycleManager;
 import org.olat.core.CoreSpringFactory;
@@ -53,6 +52,7 @@ import org.olat.core.commons.persistence.DB;
 import org.olat.core.commons.persistence.DBFactory;
 import org.olat.core.commons.persistence.DBQuery;
 import org.olat.core.commons.persistence.PersistenceHelper;
+import org.olat.core.commons.services.mark.impl.MarkImpl;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.control.WindowControl;
 import org.olat.core.id.Identity;
@@ -390,7 +390,7 @@ public class RepositoryManager extends BasicManager {
 		userCourseInformationsManager.deleteUserCourseInformations(entry);
 		
 		// delete all bookmarks referencing deleted entry
-		BookmarkManager.getInstance().deleteAllBookmarksFor(entry);
+		//TODO bookmark BookmarkManager.getInstance().deleteAllBookmarksFor(entry);
 		// delete all catalog entries referencing deleted entry
 		CatalogManager.getInstance().resourceableDeleted(entry);
 
@@ -1551,6 +1551,14 @@ public class RepositoryManager extends BasicManager {
 		if(params.getRepositoryEntryKeys() != null && !params.getRepositoryEntryKeys().isEmpty()) {
 			query.append(" and v.key in (:entryKeys)");
 		}
+		
+		if(params.getMarked() != null) {
+			setIdentity = true;
+			query.append(" and v.key ").append(params.getMarked().booleanValue() ? "" : "not").append(" in (")
+           .append("   select mark.resId from ").append(MarkImpl.class.getName()).append(" mark ")
+           .append("     where mark.resName='RepositoryEntry' and mark.creator.key=:identityKey")
+			     .append(" )");
+		}
 
 		if(!count && orderBy) {
 			query.append(" order by v.displayname, v.key ASC");
@@ -2026,6 +2034,22 @@ public class RepositoryManager extends BasicManager {
 			}
 			query.setParameter("identityKeys", ids);
 		}
+
+		List<RepositoryEntryMembership> entries = query.getResultList();
+		return entries;
+	}
+	
+	public List<RepositoryEntryMembership> getOwnersMembership(List<RepositoryEntry> res) {
+		if(res== null || res.isEmpty()) return Collections.emptyList();
+		
+		StringBuilder sb = new StringBuilder(400);
+		sb.append("select distinct membership from ").append(RepositoryEntryMembership.class.getName()).append(" membership ")
+		  .append(" where ownerRepoKey in (:repoKey)");
+
+		List<Long> repoKeys = PersistenceHelper.toKeys(res);
+		TypedQuery<RepositoryEntryMembership> query = dbInstance.getCurrentEntityManager()
+				.createQuery(sb.toString(), RepositoryEntryMembership.class)
+				.setParameter("repoKey", repoKeys);
 
 		List<RepositoryEntryMembership> entries = query.getResultList();
 		return entries;
