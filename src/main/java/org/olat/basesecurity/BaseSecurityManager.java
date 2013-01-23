@@ -303,6 +303,21 @@ public class BaseSecurityManager extends BasicManager implements BaseSecurity {
 		return query.getResultList();
 	}
 	
+	@Override
+	public List<String> getIdentityPermissionOnresourceable(Identity identity, OLATResourceable olatResourceable) {
+		Long oresid = olatResourceable.getResourceableId();
+		if (oresid == null) {
+			oresid = new Long(0);
+		}
+		List<String> permissions = dbInstance.getCurrentEntityManager()
+				.createNamedQuery("getIdentityPermissionsOnResourceableCheckType", String.class)
+			.setParameter("identitykey", identity.getKey())
+			.setParameter("resid", oresid)
+			.setParameter("resname", olatResourceable.getResourceableTypeName())
+			.getResultList();
+		return permissions;
+	}
+	
 	public boolean isIdentityPermittedOnResourceable(Identity identity, String permission, OLATResourceable olatResourceable) {
 		return isIdentityPermittedOnResourceable(identity, permission, olatResourceable, true);
 	}
@@ -1192,13 +1207,28 @@ public class BaseSecurityManager extends BasicManager implements BaseSecurity {
 		sb.append("select identity from ").append(IdentityShort.class.getName()).append(" as identity ")
 			.append(" where identity.key=:identityKey");
 		
-		DBQuery query = DBFactory.getInstance().createQuery(sb.toString());
-		query.setLong("identityKey", identityKey);
-		List<IdentityShort> idents = query.list();
+		List<IdentityShort> idents = DBFactory.getInstance().getCurrentEntityManager()
+				.createQuery(sb.toString(), IdentityShort.class)
+				.setParameter("identityKey", identityKey)
+				.getResultList();
 		if(idents.isEmpty()) {
 			return null;
 		}
 		return idents.get(0);
+	}
+	
+	@Override
+	public List<IdentityShort> loadIdentityShortByKeys(Collection<Long> identityKeys) {
+		if (identityKeys == null || identityKeys.isEmpty()) {
+			return Collections.emptyList();
+		}
+		StringBuilder sb = new StringBuilder();
+		sb.append("select ident from ").append(IdentityShort.class.getName()).append(" as ident where ident.key in (:keys)");
+		
+		return DBFactory.getInstance().getCurrentEntityManager()
+				.createQuery(sb.toString(), IdentityShort.class)
+				.setParameter("keys", identityKeys)
+				.getResultList();
 	}
 
 	/**

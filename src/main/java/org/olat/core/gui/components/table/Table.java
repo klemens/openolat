@@ -960,7 +960,7 @@ public class Table extends Component implements Comparator {
 							continue;
 						}
 					} else {
-						StringOutput sb = new StringOutput();
+						StringOutput sb = new StringOutput(100);
 						customCellRenderer.render(sb, null, value, ((CustomRenderColumnDescriptor) cd).getLocale(), cd.getAlignment(), null);
 						value = sb.toString();
 					}

@@ -28,6 +28,7 @@ package org.olat.repository.controllers;
 import java.util.List;
 
 import org.olat.catalog.CatalogEntry;
+import org.olat.catalog.CatalogModule;
 import org.olat.catalog.ui.CatalogController;
 import org.olat.core.CoreSpringFactory;
 import org.olat.core.commons.fullWebApp.LayoutMain3ColsController;
@@ -70,8 +71,6 @@ import org.olat.fileresource.types.PodcastFileResource;
 import org.olat.fileresource.types.ScormCPFileResource;
 import org.olat.fileresource.types.SharedFolderFileResource;
 import org.olat.fileresource.types.WikiResource;
-import org.olat.group.BusinessGroupService;
-import org.olat.group.model.SearchBusinessGroupParams;
 import org.olat.ims.qti.fileresource.SurveyFileResource;
 import org.olat.ims.qti.fileresource.TestFileResource;
 import org.olat.portfolio.EPTemplateMapResource;
@@ -100,7 +99,7 @@ import de.bps.olat.repository.controllers.WizardAddOwnersController;
  * @date Initial Date: Oct 21, 2004 <br>
  * @author Felix Jost
  */
-public class RepositoryMainController extends MainLayoutBasicController implements Activateable2 {
+public class RepositoryMainController extends MainLayoutBasicController implements Activateable2{
 
 	private static final OLog log = Tracing.createLoggerFor(RepositoryMainController.class);
 	private static final String VELOCITY_ROOT = Util.getPackageVelocityRoot(RepositoryManager.class);
@@ -133,7 +132,9 @@ public class RepositoryMainController extends MainLayoutBasicController implemen
 	private RepositoryDetailsController detailsController;
 	private DialogBoxController launchEditorDialog;
 	private boolean isAuthor;
-	private CatalogController catalogCntrllr;
+	private CatalogController catalogCtrl;
+	
+	
 	// REVIEW:pb:concept for jumping between activateables, instead of hardcoding
 	// each dependency
 	// REVIEW:pb:like jumpfromcourse, backtocatalog, etc.
@@ -146,7 +147,7 @@ public class RepositoryMainController extends MainLayoutBasicController implemen
 	private RepositoryAddChooseStepsController chooseStepsController;
 	private Controller creationWizardController;
 	private final PortfolioModule portfolioModule;
-	private final BusinessGroupService businessGroupService;
+	private final CatalogModule catalogModule;
 
 	/**
 	 * The check for author rights is executed on construction time and then
@@ -161,8 +162,8 @@ public class RepositoryMainController extends MainLayoutBasicController implemen
 		if (log.isDebug()) {
 			log.debug("Constructing ReposityMainController for user::" + ureq.getIdentity());
 		}
-		businessGroupService = CoreSpringFactory.getImpl(BusinessGroupService.class);
 		portfolioModule = (PortfolioModule) CoreSpringFactory.getBean("portfolioModule");
+		catalogModule = CoreSpringFactory.getImpl(CatalogModule.class);
 
 		// use i18n from RepositoryManager level
 		setTranslator(Util.createPackageTranslator(RepositoryManager.class, ureq.getLocale()));
@@ -171,11 +172,10 @@ public class RepositoryMainController extends MainLayoutBasicController implemen
 		// use veloctiy pages from RepositoryManager level
 		main = new VelocityContainer("vc_index", RepositoryManager.class, "index", getTranslator(), this);
 
-		isAuthor = ureq.getUserSession().getRoles().isAuthor();
 		// if the user has the role InstitutionalResourceManager (and has the same
-		// university like the author)
-		// then set isAuthor to true
-		isAuthor = isAuthor | (ureq.getUserSession().getRoles().isInstitutionalResourceManager());
+		// university like the author) then set isAuthor to true
+		isAuthor = ureq.getUserSession().getRoles().isAuthor()
+				|| (ureq.getUserSession().getRoles().isInstitutionalResourceManager());
 		main.contextPut("isAuthor", Boolean.valueOf(isAuthor));
 
 		mainPanel = new Panel("repopanel");
@@ -198,22 +198,23 @@ public class RepositoryMainController extends MainLayoutBasicController implemen
 		TreeNode rootNode = menuTree.getTreeModel().getRootNode();
 		menuTree.setSelectedNode(rootNode);
 		menuTree.addListener(this);
+		menuTree.setRootVisible(false);
 
 		Component toolComp = (mainToolC == null ? null : mainToolC.getInitialComponent());
 		columnsLayoutCtr = new LayoutMain3ColsController(ureq, getWindowControl(), menuTree, toolComp, mainPanel, "repomain");
 		columnsLayoutCtr.addCssClassToMain("o_repository");
 		listenTo(columnsLayoutCtr);
-		
+
 		if (isAuthor || ureq.getUserSession().getRoles().isOLATAdmin()) {
 			activateContent(ureq, "search.my", null, null);
 			TreeNode activatedNode = TreeHelper.findNodeByUserObject("search.my", rootNode);
 			menuTree.setSelectedNode(activatedNode);
 		} else {
-			activateContent(ureq, "search.catalog", null, null);
-			TreeNode activatedNode = TreeHelper.findNodeByUserObject("search.catalog", rootNode);
+			activateContent(ureq, "catalog", null, null);
+			TreeNode activatedNode = TreeHelper.findNodeByUserObject("catalog", rootNode);
 			menuTree.setSelectedNode(activatedNode);
 		}
-		
+
 		putInitialPanel(columnsLayoutCtr.getInitialComponent());
 	}
 
@@ -269,10 +270,12 @@ public class RepositoryMainController extends MainLayoutBasicController implemen
 		rootNode.setCssClass("o_sel_repo_home");
 		gtm.setRootNode(rootNode);
 
-		// TODO:catalog not yet finished :
-		GenericTreeNode node = new GenericTreeNode(translate("search.catalog"), "search.catalog");
-		node.setCssClass("o_sel_repo_catalog");
-		rootNode.addChild(node);
+		GenericTreeNode node;
+		if(catalogModule.isCatalogRepoEnabled()) {
+			node= new GenericTreeNode(translate("search.catalog"), "search.catalog");
+			node.setCssClass("o_sel_repo_catalog");
+			rootNode.addChild(node);
+		}
 
 		// check if repository portlet is configured in olat_portals.xml
 		boolean repoPortletOn = PortletFactory.containsPortlet("RepositoryPortletStudent");
@@ -347,7 +350,9 @@ public class RepositoryMainController extends MainLayoutBasicController implemen
 	 */
 	@Override
 	public void event(UserRequest ureq, Component source, Event event) {
-		long start = System.currentTimeMillis(); // TODO: add check if debug logging 
+		long start = 0;
+		if(isLogDebugEnabled()) start = System.currentTimeMillis(); // TODO: add check if debug logging 
+		
 		if (source == menuTree) {
 			if (event.getCommand().equals(MenuTree.COMMAND_TREENODE_CLICKED)) {
 				Component toolComp = (mainToolC == null ? null : mainToolC.getInitialComponent());
@@ -361,8 +366,11 @@ public class RepositoryMainController extends MainLayoutBasicController implemen
 				activateContent(ureq, userObject, null, null);
 			}
 		}
-		long duration = System.currentTimeMillis() - start;
-		log.info("Repo-Perf: event duration=" + duration);
+		
+		if(start != 0) {
+			long duration = System.currentTimeMillis() - start;
+			log.info("Repo-Perf: event duration=" + duration);
+		}
 	}
 
 	/**
@@ -375,6 +383,7 @@ public class RepositoryMainController extends MainLayoutBasicController implemen
 	 */
 	private void activateContent(UserRequest ureq, Object userObject, List<ContextEntry> entries, StateEntry state) {
 		log.info("activateContent userObject=" + userObject);
+
 		if (userObject.equals("search.home")) { // the
 			// home
 			main.setPage(VELOCITY_ROOT + "/index.html");
@@ -388,7 +397,7 @@ public class RepositoryMainController extends MainLayoutBasicController implemen
 		} else if (userObject.equals("search.catalog")) {
 			// enter catalog browsing
 			activateCatalogController(ureq, entries, state);
-			mainPanel.setContent(catalogCntrllr.getInitialComponent());
+			mainPanel.setContent(catalogCtrl.getInitialComponent());
 		} else if (userObject.equals("search.my")) { // search
 			// own resources
 			main.setPage(VELOCITY_ROOT + "/index2.html");
@@ -483,22 +492,25 @@ public class RepositoryMainController extends MainLayoutBasicController implemen
 		searchWindowControl = addToHistory(ureq, ores, null);
 	}
 
+
 	private void activateCatalogController(UserRequest ureq, List<ContextEntry> entries, StateEntry state) {
+		if(!catalogModule.isCatalogRepoEnabled()) return;
+		
 		// create new catalog controller with given node if none exists
 		// create also new catalog controller when the user clicked twice on the
 		// catalog link in the menu
-		if (catalogCntrllr == null || lastUserObject.equals("search.catalog")) {
-			removeAsListenerAndDispose(catalogCntrllr);
+		if (catalogCtrl == null || lastUserObject.equals("search.catalog")) {
+			removeAsListenerAndDispose(catalogCtrl);
 			//fxdiff BAKS-7 Resume function
 			OLATResourceable ores = OresHelper.createOLATResourceableInstance("search.catalog", 0l);
 			WindowControl bwControl = BusinessControlFactory.getInstance().createBusinessWindowControl(ores, null, getWindowControl());
-			catalogCntrllr = new CatalogController(ureq, bwControl);
-			listenTo(catalogCntrllr);
+			catalogCtrl = new CatalogController(ureq, bwControl);
+			listenTo(catalogCtrl);
 		}
-		catalogCntrllr.activate(ureq, entries, state);
+		catalogCtrl.activate(ureq, entries, state);
 
 		// set correct tool controller
-		ToolController ccToolCtr = catalogCntrllr.createCatalogToolController();
+		ToolController ccToolCtr = catalogCtrl.createCatalogToolController();
 		Component toolComp = (ccToolCtr == null ? null : ccToolCtr.getInitialComponent());
 		columnsLayoutCtr.setCol2(toolComp);
 	}
@@ -536,8 +548,9 @@ public class RepositoryMainController extends MainLayoutBasicController implemen
 			if (event.equals(Event.CHANGED_EVENT)) {
 				getWindowControl().pop();
 				removeAsListenerAndDispose(creationWizardController);
-				detailsController.setEntry(chooseStepsController.getCourseRepositoryEntry(), urequest, false);
-				detailsController.doLaunch(urequest);
+				RepositoryEntry re = chooseStepsController.getCourseRepositoryEntry();
+				detailsController.setEntry(re, urequest, false);
+				detailsController.doLaunch(urequest, re);
 			} else if (event.equals(Event.CANCELLED_EVENT)) {
 				// delete entry when the wizard was cancelled
 				detailsController.deleteRepositoryEntry(urequest, getWindowControl(), (RepositoryEntry) chooseStepsController.getCourseRepositoryEntry());
@@ -599,17 +612,19 @@ public class RepositoryMainController extends MainLayoutBasicController implemen
 			if (event.getCommand().equals(RepositoryTableModel.TABLE_ACTION_SELECT_ENTRY)) {
 				// entry has been selected to be launched in the
 				// searchController
-				ToolController toolC = detailsController.setEntry(selectedEntry, urequest, false);
+
 				if (selectedEntry.getCanLaunch()) {
-					if(!detailsController.doLaunch(urequest)) {
+					if(!detailsController.doLaunch(urequest, selectedEntry)) {
 						//cannot launch -> open details
+						ToolController toolC = detailsController.setEntry(selectedEntry, urequest, false);
 						Component toolComp = (toolC == null ? null : toolC.getInitialComponent());
 						columnsLayoutCtr.setCol2(toolComp);
 						mainPanel.setContent(detailsController.getInitialComponent());
 					}
 				} else if (selectedEntry.getCanDownload()) {
-					detailsController.doDownload(urequest, false);
+					detailsController.doDownload(urequest, selectedEntry, false);
 				} else { // offer details view
+					ToolController toolC = detailsController.setEntry(selectedEntry, urequest, false);
 					Component toolComp = (toolC == null ? null : toolC.getInitialComponent());
 					columnsLayoutCtr.setCol2(toolComp);
 					mainPanel.setContent(detailsController.getInitialComponent());
@@ -625,25 +640,19 @@ public class RepositoryMainController extends MainLayoutBasicController implemen
 			}
 		} else if (source == detailsController) { // back from details
 			//fxdiff FXOLAT-128: back/resume function
-			if (event.equals(Event.DONE_EVENT) || event.equals(RepositoryDetailsController.LAUNCHED_EVENT)) {
+			if (event.equals(Event.DONE_EVENT)) {
 				if (backtocatalog) {
 					backtocatalog = false;
-					ToolController toolC = catalogCntrllr.createCatalogToolController();
+					ToolController toolC = catalogCtrl.createCatalogToolController();
 					Component toolComp = (toolC == null ? null : toolC.getInitialComponent());
 					columnsLayoutCtr.setCol2(toolComp);
-					mainPanel.setContent(catalogCntrllr.getInitialComponent());
-					//fxdiff BAKS-7 Resume function
-					if(!event.equals(RepositoryDetailsController.LAUNCHED_EVENT)) {
-						catalogCntrllr.updateHistory(urequest);
-					}
+					mainPanel.setContent(catalogCtrl.getInitialComponent());
+					catalogCtrl.updateHistory(urequest);
 				} else {
 					Component toolComp = (mainToolC == null ? null : mainToolC.getInitialComponent());
 					columnsLayoutCtr.setCol2(toolComp);
 					mainPanel.setContent(main);
-					//fxdiff BAKS-7 Resume function
-					if(!event.equals(RepositoryDetailsController.LAUNCHED_EVENT)) {
-						addToHistory(urequest, searchWindowControl);
-					}
+					addToHistory(urequest, searchWindowControl);
 				}
 			} else if (event instanceof EntryChangedEvent) {
 				Component toolComp = (mainToolC == null ? null : mainToolC.getInitialComponent());
@@ -675,9 +684,9 @@ public class RepositoryMainController extends MainLayoutBasicController implemen
 		 * from the catalog controller its sending change events if the tools
 		 * available have changed, e.g. no longer localTreeAdmin
 		 */
-		else if (source == catalogCntrllr) {
+		else if (source == catalogCtrl) {
 			if (event == Event.CHANGED_EVENT) {
-				ToolController toolC = catalogCntrllr.createCatalogToolController();
+				ToolController toolC = catalogCtrl.createCatalogToolController();
 				Component toolComp = (toolC == null ? null : toolC.getInitialComponent());
 				columnsLayoutCtr.setCol2(toolComp);
 			} else if (event instanceof EntryChangedEvent) {
@@ -851,11 +860,13 @@ public class RepositoryMainController extends MainLayoutBasicController implemen
 		String type = entry.getOLATResourceable().getResourceableTypeName();
 		//activate the catalog
 		if(CatalogEntry.class.getSimpleName().equals(type)) {
-			TreeNode rootNode = menuTree.getTreeModel().getRootNode();
-			TreeNode activatedNode = TreeHelper.findNodeByUserObject("search.catalog", rootNode);
-			if (activatedNode != null) {
-				menuTree.setSelectedNodeId(activatedNode.getIdent());
-				activateContent(ureq, "search.catalog", entries, entry.getTransientState());
+			if(catalogModule.isCatalogRepoEnabled()) {
+				TreeNode rootNode = menuTree.getTreeModel().getRootNode();
+				TreeNode activatedNode = TreeHelper.findNodeByUserObject("search.catalog", rootNode);
+				if (activatedNode != null) {
+					menuTree.setSelectedNodeId(activatedNode.getIdent());
+					activateContent(ureq, "search.catalog", entries, entry.getTransientState());
+				}
 			}
 		} else if (RepositoryEntry.class.getSimpleName().equals(type)) {
 			Long key = entry.getOLATResourceable().getResourceableId();
@@ -879,8 +890,9 @@ public class RepositoryMainController extends MainLayoutBasicController implemen
 					if(RepositoryEntry.class.getSimpleName().equals(subType)) {
 						searchController.activate(ureq, subEntries, nextEntry.getTransientState());
 						detailsController.activate(ureq, subEntries.subList(1, subEntries.size()), nextEntry.getTransientState());
-					} else if(CatalogEntry.class.getSimpleName().equals(subType)) {
-						catalogCntrllr.activate(ureq, subEntries, entry.getTransientState());
+					} else if(CatalogEntry.class.getSimpleName().equals(subType)
+							&& catalogModule.isCatalogRepoEnabled()) {
+						catalogCtrl.activate(ureq, subEntries, entry.getTransientState());
 					}
 				}
 			}
