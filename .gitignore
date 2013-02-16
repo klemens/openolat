@@ -1,0 +1,42 @@
+# just a copy of .hgignore (removed regexp stuff)
+
+# java deployment assets
+*.class
+*.jar
+
+# mvn build trees
+target/*
+cargo/*
+bin/*
+
+# deprecated scripting files
+*.pl
+*.php
+
+# editor backup files
+*~
+*.bak
+*.swp
+
+# sundry useless files
+*.out
+
+# hg merge reject files
+*.rej
+
+# hg originals arising from reverts
+*.orig
+
+# CVS leftovers
+CVS/*
+.cvsignore
+
+# Mac idiosyncrasies
+.DS_Store
+
+#ignore olat/.classpath file at this gets created by maven
+.classpath
+.project
+.settings/*
+src/main/resources/maven.build.properties
+src/main/java/maven.build.properties
