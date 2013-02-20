@@ -72,6 +72,7 @@ import org.olat.user.ChangePasswordController;
 import org.olat.user.PersonalSettingsController;
 import org.olat.user.UserManager;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * <h3>Description:</h3>
@@ -301,6 +302,21 @@ public class BaseSecurityManager extends BasicManager implements BaseSecurity {
 			query.setParameter("secGroupKey", secGroup.getKey());
 		}
 		return query.getResultList();
+	}
+	
+	@Override
+	public List<String> getIdentityPermissionOnresourceable(Identity identity, OLATResourceable olatResourceable) {
+		Long oresid = olatResourceable.getResourceableId();
+		if (oresid == null) {
+			oresid = new Long(0);
+		}
+		List<String> permissions = dbInstance.getCurrentEntityManager()
+				.createNamedQuery("getIdentityPermissionsOnResourceableCheckType", String.class)
+			.setParameter("identitykey", identity.getKey())
+			.setParameter("resid", oresid)
+			.setParameter("resname", olatResourceable.getResourceableTypeName())
+			.getResultList();
+		return permissions;
 	}
 	
 	public boolean isIdentityPermittedOnResourceable(Identity identity, String permission, OLATResourceable olatResourceable) {
@@ -895,7 +911,7 @@ public class BaseSecurityManager extends BasicManager implements BaseSecurity {
 	private void notifyNewIdentityCreated(Identity newIdentity) {
 		//Save the identity on the DB. So can the listeners of the event retrieve it
 		//in cluster mode
-		DBFactory.getInstance().intermediateCommit();
+		DBFactory.getInstance().commit();
 		CoordinatorManager.getInstance().getCoordinator().getEventBus().fireEventToListenersOf(new NewIdentityCreatedEvent(newIdentity), IDENTITY_EVENT_CHANNEL);
 	}
 
@@ -1192,13 +1208,28 @@ public class BaseSecurityManager extends BasicManager implements BaseSecurity {
 		sb.append("select identity from ").append(IdentityShort.class.getName()).append(" as identity ")
 			.append(" where identity.key=:identityKey");
 		
-		DBQuery query = DBFactory.getInstance().createQuery(sb.toString());
-		query.setLong("identityKey", identityKey);
-		List<IdentityShort> idents = query.list();
+		List<IdentityShort> idents = DBFactory.getInstance().getCurrentEntityManager()
+				.createQuery(sb.toString(), IdentityShort.class)
+				.setParameter("identityKey", identityKey)
+				.getResultList();
 		if(idents.isEmpty()) {
 			return null;
 		}
 		return idents.get(0);
+	}
+	
+	@Override
+	public List<IdentityShort> loadIdentityShortByKeys(Collection<Long> identityKeys) {
+		if (identityKeys == null || identityKeys.isEmpty()) {
+			return Collections.emptyList();
+		}
+		StringBuilder sb = new StringBuilder();
+		sb.append("select ident from ").append(IdentityShort.class.getName()).append(" as ident where ident.key in (:keys)");
+		
+		return DBFactory.getInstance().getCurrentEntityManager()
+				.createQuery(sb.toString(), IdentityShort.class)
+				.setParameter("keys", identityKeys)
+				.getResultList();
 	}
 
 	/**
@@ -1726,19 +1757,28 @@ public class BaseSecurityManager extends BasicManager implements BaseSecurity {
 	 * @see org.olat.basesecurity.Manager#saveIdentityStatus(org.olat.core.id.Identity)
 	 */
 	@Override
+	@Transactional
 	public Identity saveIdentityStatus(Identity identity, Integer status) {
 		Identity reloadedIdentity = loadForUpdate(identity.getKey()); 
 		reloadedIdentity.setStatus(status);
-		return dbInstance.getCurrentEntityManager().merge(reloadedIdentity);
+		reloadedIdentity = dbInstance.getCurrentEntityManager().merge(reloadedIdentity);
+		return reloadedIdentity;
 	}
 	
 	@Override
+	@Transactional
 	public Identity setIdentityLastLogin(Identity identity) {
 		Identity reloadedIdentity = loadForUpdate(identity.getKey()); 
 		reloadedIdentity.setLastLogin(new Date());
-		return dbInstance.getCurrentEntityManager().merge(reloadedIdentity);
+		reloadedIdentity = dbInstance.getCurrentEntityManager().merge(reloadedIdentity);
+		return reloadedIdentity;
 	}
 	
+	/**
+	 * Don't forget to commit/roolback the transaction as soon as possible
+	 * @param identityKey
+	 * @return
+	 */
 	private IdentityImpl loadForUpdate(Long identityKey) {
 		StringBuilder sb = new StringBuilder();
 		sb.append("select id from ").append(IdentityImpl.class.getName()).append(" as id")

@@ -27,7 +27,6 @@ package org.olat.course.editor;
 import java.util.ArrayList;
 import java.util.List;
 
-import org.olat.catalog.CatalogEntry;
 import org.olat.catalog.CatalogManager;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.form.flexible.FormItem;
@@ -47,8 +46,6 @@ import org.olat.core.gui.control.generic.wizard.StepFormController;
 import org.olat.core.gui.control.generic.wizard.StepsEvent;
 import org.olat.core.gui.control.generic.wizard.StepsRunContext;
 import org.olat.core.id.OLATResourceable;
-import org.olat.core.util.resource.OresHelper;
-import org.olat.course.CourseModule;
 import org.olat.course.ICourse;
 import org.olat.course.nodes.CourseNode;
 import org.olat.course.nodes.StatusDescriptionHelper;
@@ -206,7 +203,6 @@ class PublishStep00 extends BasicStep {
 				String errors = "<UL>";
 				int errCnt = 0;
 				String warnings = "<UL>";
-				int warCnt = 0;
 				for (int i = 0; i < sds.length; i++) {
 					StatusDescription description = sds[i];
 					String nodeId = sds[i].getDescriptionForUnit();
@@ -222,7 +218,6 @@ class PublishStep00 extends BasicStep {
 						errCnt++;
 					} else if (description.isWarning()) {
 						warnings += "<LI>" + isFor + description.getShortDescription(ureq.getLocale()) + "</LI>";
-						warCnt++;
 					}
 				}
 				warnings += "</UL>";
@@ -274,14 +269,12 @@ class PublishStep00 extends BasicStep {
 			fireEvent(ureq, StepsEvent.ACTIVATE_NEXT);
 		}
 		@Override
-		@SuppressWarnings("unused")
 		protected void formNOK(UserRequest ureq) {
 			addToRunContext("validPublish",Boolean.FALSE);
 		}
 		
 
 		@Override
-		@SuppressWarnings("unused")
 		protected void initForm(FormItemContainer formLayout, Controller listener, UserRequest ureq) {
 			if (publishManager2.hasPublishableChanges()) {
 				//
@@ -291,6 +284,7 @@ class PublishStep00 extends BasicStep {
 				errorElement.setVisible(false);
 				//publish treemodel is tree model and INodeFilter at the same time
 				multiSelectTree = uifactory.addTreeMultiselect("seltree", null, fic, publishManager2.getPublishTreeModel(), publishManager2.getPublishTreeModel());
+				multiSelectTree.selectAll();
 				selectAllLink = uifactory.addFormLink("checkall", fic);
 				selectAllLink.setElementCssClass("o_sel_course_publish_selectall_cbb");
 				selectAllLink.addActionListener(this, FormEvent.ONCLICK);
@@ -305,12 +299,10 @@ class PublishStep00 extends BasicStep {
 		}
 		
 		@Override
-		@SuppressWarnings("unused")
 		protected void formInnerEvent(UserRequest ureq, FormItem source, FormEvent event) {
 			if (source == selectAllLink) {
 				multiSelectTree.selectAll();
-			}
-			if (source == uncheckallLink) {
+			} else if (source == uncheckallLink) {
 				multiSelectTree.uncheckAll();
 			}
 		}
