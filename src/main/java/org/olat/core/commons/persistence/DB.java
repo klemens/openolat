@@ -35,29 +35,6 @@ import org.hibernate.type.Type;
 import org.olat.core.id.Persistable;
 
 public interface DB {
-
-	/** temp debug only **/
-	public void forceSetDebugLogLevel(boolean enabled);
-	
-	/**
-	 * Add an ITransactionListener to this DB instance.
-	 * <p>
-	 * The ITransactionListener will be informed about commit and rollbacks.
-	 * <p>
-	 * Adding the same listener twice has no effect.
-	 * <p>
-	 * @param listener the listener to be added
-	 */
-	public void addTransactionListener(ITransactionListener listener);
-
-	/**
-	 * Removes an ITransactionListener from this DB instance.
-	 * <p>
-	 * If the ITransactionListener is currently not registered, this call
-	 * has no effect.
-	 * @param listener
-	 */
-	public void removeTransactionListener(ITransactionListener listener);
 	
 	/**
 	 * Close the database session.
@@ -67,7 +44,7 @@ public interface DB {
 	/**
 	 * Close the database session, clean threadlocal but only if necessary
 	 */
-	public void cleanUpSession();
+	//public void cleanUpSession();
 
 	/**
 	 * Create a DBQuery
@@ -185,6 +162,17 @@ public interface DB {
 	 */
 	public Persistable loadObject(Persistable persistable, boolean forceReloadFromDB);
 
+
+	/**
+	 * Begin a new transaction (don't forget to commit the last one)
+	 */
+	public void begin();
+	
+	/**
+	 * Call this to commit current changes.
+	 */
+	public void commit();
+	
 	/**
 	 * Checks if the transaction needs to be committed and does so if this is the case,
 	 * plus closes the connection in any case guaranteed.
@@ -192,11 +180,6 @@ public interface DB {
 	 * Use this rather than commit() directly wherever possible!
 	 */
 	public void commitAndCloseSession();
-	
-	/**
-	 * Call this to commit current changes.
-	 */
-	public void commit();
   
 	/**
 	 * Calls rollback and closes the connection guaranteed.
@@ -254,5 +237,4 @@ public interface DB {
 	 * @return
 	 */
 	public EntityManager getCurrentEntityManager();
-
 }

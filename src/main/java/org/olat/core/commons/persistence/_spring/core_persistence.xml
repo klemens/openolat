@@ -55,7 +55,7 @@
 		<mapping-file>org/olat/modules/openmeetings/model/OpenMeetingsReference.hbm.xml</mapping-file>
 		<mapping-file>org/olat/properties/Property.hbm.xml</mapping-file>
 		<mapping-file>org/olat/catalog/CatalogEntryImpl.hbm.xml</mapping-file>
-		<mapping-file>org/olat/bookmark/BookmarkImpl.hbm.xml</mapping-file>
+		<mapping-file>org/olat/upgrade/model/BookmarkImpl.hbm.xml</mapping-file>
 		<mapping-file>org/olat/notifications/PublisherImpl.hbm.xml</mapping-file>
 		<mapping-file>org/olat/notifications/SubscriberImpl.hbm.xml</mapping-file>
 		<mapping-file>org/olat/registration/TemporaryKeyImpl.hbm.xml</mapping-file>
@@ -67,13 +67,34 @@
 		<mapping-file>org/olat/course/statistic/weekly/WeeklyStat.hbm.xml</mapping-file>
 		<mapping-file>org/olat/course/statistic/homeorg/HomeOrgStat.hbm.xml</mapping-file>
 		<mapping-file>org/olat/course/statistic/orgtype/OrgTypeStat.hbm.xml</mapping-file>
+		<mapping-file>org/olat/portfolio/model/artefacts/AbstractArtefact.hbm.xml</mapping-file>
+		<mapping-file>org/olat/modules/fo/portfolio/ForumArtefact.hbm.xml</mapping-file>
+		<mapping-file>org/olat/modules/wiki/portfolio/WikiArtefact.hbm.xml</mapping-file>
+		<mapping-file>org/olat/modules/webFeed/portfolio/BlogArtefact.hbm.xml</mapping-file>
+		<mapping-file>org/olat/modules/webFeed/portfolio/LiveBlogArtefact.hbm.xml</mapping-file>
+		<mapping-file>org/olat/course/assessment/portfolio/EfficiencyStatementArtefact.hbm.xml</mapping-file>
+		<mapping-file>org/olat/portfolio/model/structel/StructureElement.hbm.xml</mapping-file>
+		<mapping-file>org/olat/portfolio/model/notification/Notifications.hbm.xml</mapping-file>
+		<mapping-file>org/olat/portfolio/model/restriction/CollectRestriction.hbm.xml</mapping-file>
 		<mapping-file>org/olat/core/dispatcher/mapper/model/PersistedMapper.hbm.xml</mapping-file>
 		<mapping-file>org/olat/core/commons/services/commentAndRating/impl/UserCommentImpl.hbm.xml</mapping-file>
 		<mapping-file>org/olat/core/commons/services/commentAndRating/impl/UserRatingImpl.hbm.xml</mapping-file>
 		<mapping-file>org/olat/core/commons/services/mark/impl/MarkImpl.hbm.xml</mapping-file>
 		<mapping-file>org/olat/core/commons/services/tagging/model/TagImpl.hbm.xml</mapping-file>
+		<mapping-file>org/olat/core/util/mail/model/DBMail.hbm.xml</mapping-file>
+		<mapping-file>org/olat/core/util/mail/model/DBMailAttachment.hbm.xml</mapping-file>
+		<mapping-file>org/olat/core/util/mail/model/DBMailRecipient.hbm.xml</mapping-file>
 		<mapping-file>org/olat/core/logging/activity/LoggingObject.hbm.xml</mapping-file>
 		<mapping-file>org/olat/course/db/impl/CourseDBEntryImpl.hbm.xml</mapping-file>
+		<mapping-file>org/olat/modules/coach/model/EfficiencyStatementStatEntry.hbm.xml</mapping-file>
+		
+		<class>org.olat.group.model.BusinessGroupParticipantViewImpl</class>
+		<class>org.olat.group.model.BusinessGroupOwnerViewImpl</class>
+		<class>org.olat.instantMessaging.model.InstantMessageImpl</class>
+		<class>org.olat.instantMessaging.model.ImPreferencesImpl</class>
+		<class>org.olat.instantMessaging.model.RosterEntryImpl</class>
+		<class>org.olat.instantMessaging.model.RosterEntryView</class>
+		<class>org.olat.instantMessaging.model.InstantMessageNotificationImpl</class>
 		<properties>
 			<property name="hibernate.generate_statistics" value="true"/>
 			<property name="hibernate.archive.autodetection" value=""/>

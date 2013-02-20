@@ -137,7 +137,7 @@ public class UserMgmtTest extends OlatJerseyTestCase {
 	@Autowired
 	private BusinessGroupService businessGroupService;
 	@Autowired
-	private BaseSecurityManager securityManager;
+	private BaseSecurity securityManager;
 	
 	@Before
 	@Override
@@ -293,13 +293,14 @@ public class UserMgmtTest extends OlatJerseyTestCase {
 		assertEquals(200, response.getStatusLine().getStatusCode());
 		InputStream body = response.getEntity().getContent();
 		List<UserVO> vos = parseUserArray(body);
-		
-		List<Identity> identities = BaseSecurityManager.getInstance().getIdentitiesByPowerSearch(null, null, true, null, null, null, null, null, null, null, Identity.STATUS_VISIBLE_LIMIT);
-
 		assertNotNull(vos);
 		assertFalse(vos.isEmpty());
-		assertEquals(vos.size(), identities.size());
+		int voSize = vos.size();
+		vos = null;
 		
+		List<Identity> identities = BaseSecurityManager.getInstance().getIdentitiesByPowerSearch(null, null, true, null, null, null, null, null, null, null, Identity.STATUS_VISIBLE_LIMIT);
+		assertEquals(voSize, identities.size());
+
 		conn.shutdown();
 	}
 	
@@ -929,7 +930,7 @@ public class UserMgmtTest extends OlatJerseyTestCase {
 	
 	@Test
 	public void testPortrait() throws IOException, URISyntaxException {
-		URL portraitUrl = CoursesElementsTest.class.getResource("portrait.jpg");
+		URL portraitUrl = UserMgmtTest.class.getResource("portrait.jpg");
 		assertNotNull(portraitUrl);
 		File portrait = new File(portraitUrl.toURI());
 		RestConnection conn = new RestConnection();
@@ -946,7 +947,7 @@ public class UserMgmtTest extends OlatJerseyTestCase {
 		
 		//check if big and small portraits exist
 		DisplayPortraitManager dps = DisplayPortraitManager.getInstance();
-		File bigPortrait = dps.getBigPortrait(id1);
+		File bigPortrait = dps.getBigPortrait(id1.getName());
 		assertNotNull(bigPortrait);
 		assertTrue(bigPortrait.exists());
 		assertTrue(bigPortrait.exists());
@@ -965,7 +966,7 @@ public class UserMgmtTest extends OlatJerseyTestCase {
 		
 		assertEquals(-1, b);//up to end of file
 		assertTrue(count > 1000);//enough bytes
-		bigPortrait = dps.getBigPortrait(id1);
+		bigPortrait = dps.getBigPortrait(id1.getName());
 		assertNotNull(bigPortrait);
 		assertEquals(count, bigPortrait.length());
 
@@ -981,7 +982,7 @@ public class UserMgmtTest extends OlatJerseyTestCase {
 		assertNotNull(datas);
 		assertTrue(datas.length > 0);
 		
-		File smallPortrait = dps.getSmallPortrait(id1);
+		File smallPortrait = dps.getSmallPortrait(id1.getName());
 		assertNotNull(smallPortrait);
 		assertEquals(datas.length, smallPortrait.length());
 		

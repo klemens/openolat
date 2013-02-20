@@ -307,6 +307,34 @@ public abstract class GenericMainController extends MainLayoutBasicController im
 
 		return gtm;
 	}
+	
+	
+
+	@Override
+	public void popController(Controller controller) {
+		popController(controller.getInitialComponent());
+	}
+	
+	private void popController(Component source) {
+		int index = stack.indexOf(source);
+		if(index < (stack.size() - 1)) {
+			Controller popedCtrl = null;
+			for(int i=stack.size(); i-->(index+1); ) {
+				Link link = stack.remove(i);
+				popedCtrl = (Controller)link.getUserObject();
+				popedCtrl.dispose();
+			}
+
+			Link currentLink = stack.get(index);
+			Controller currentCtrl  = (Controller)currentLink.getUserObject();
+			if(currentCtrl == this) {
+				content.setContent(contentCtr.getInitialComponent());
+			} else {
+				content.setContent(currentCtrl.getInitialComponent());
+			}
+			stackVC.setDirty(true);
+		}
+	}
 
 	@Override
 	public void popUpToRootController(UserRequest ureq) {
@@ -348,24 +376,7 @@ public abstract class GenericMainController extends MainLayoutBasicController im
 			}
 		}
 		if(stack.contains(source)) {
-			int index = stack.indexOf(source);
-			if(index < (stack.size() - 1)) {
-				Controller popedCtrl = null;
-				for(int i=stack.size(); i-->(index+1); ) {
-					Link link = stack.remove(i);
-					popedCtrl = (Controller)link.getUserObject();
-					popedCtrl.dispose();
-				}
-
-				Link currentLink = stack.get(index);
-				Controller currentCtrl  = (Controller)currentLink.getUserObject();
-				if(currentCtrl == this) {
-					content.setContent(contentCtr.getInitialComponent());
-				} else {
-					content.setContent(currentCtrl.getInitialComponent());
-				}
-				stackVC.setDirty(true);
-			}
+			popController(source);
 		} else if (source == olatMenuTree) {
 			if (event.getCommand().equals(MenuTree.COMMAND_TREENODE_CLICKED)) {
 				// process menu commands
@@ -528,6 +539,7 @@ public abstract class GenericMainController extends MainLayoutBasicController im
 		if (entries == null || entries.isEmpty()) return;
 
 		ContextEntry entry = entries.get(0);
+		TreeNode selectedNode = getMenuTree().getSelectedNode();
 		String node = entry.getOLATResourceable().getResourceableTypeName();
 		if (node != null && node.startsWith(GMCMT)) {
 			activate(ureq, node + ":" + entries.get(0).getOLATResourceable().getResourceableId());
@@ -535,13 +547,17 @@ public abstract class GenericMainController extends MainLayoutBasicController im
 				entries = entries.subList(1, entries.size());
 			}
 			if (contentCtr instanceof Activateable2) {
-				((Activateable2) contentCtr).activate(ureq, entries, entry.getTransientState());
+				((Activateable2)contentCtr).activate(ureq, entries, entry.getTransientState());
 			}
 		} else {
 			// maybe the node is a GAE-NavigationKey ?
 			GenericActionExtension gAE = ExtManager.getInstance().getActionExtensioByNavigationKey(className, node);
 			if (gAE != null) {
-				activateTreeNodeByActionExtension(ureq, gAE);
+				//if the controller is already selected, only activate it, don't reinstanciate it
+				if(selectedNode != null && selectedNode.getUserObject() != gAE) {
+					activateTreeNodeByActionExtension(ureq, gAE);
+				}
+
 				if (entries.size() >= 1) {
 					entries = entries.subList(1, entries.size());
 				}
