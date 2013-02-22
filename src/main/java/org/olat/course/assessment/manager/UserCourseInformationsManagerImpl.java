@@ -27,11 +27,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import javax.persistence.FlushModeType;
 import javax.persistence.TypedQuery;
 
-import org.hibernate.FlushMode;
 import org.olat.core.commons.persistence.DB;
-import org.olat.core.commons.persistence.DBQuery;
 import org.olat.core.commons.persistence.PersistenceHelper;
 import org.olat.core.id.Identity;
 import org.olat.core.manager.BasicManager;
@@ -77,15 +76,43 @@ public class UserCourseInformationsManagerImpl extends BasicManager implements U
 				.append(" inner join infos.resource as resource")
 			  .append(" where infos.identity.key=:identityKey and resource.resId=:resId and resource.resName='CourseModule'");
 
-			DBQuery query = dbInstance.createQuery(sb.toString());
-			query.setLong("identityKey", identity.getKey());
-			query.setLong("resId", courseResourceId);
-			@SuppressWarnings("unchecked")
-			List<UserCourseInfosImpl> infoList = query.list();
+			List<UserCourseInfosImpl> infoList = dbInstance.getCurrentEntityManager()
+					.createQuery(sb.toString(), UserCourseInfosImpl.class)
+					.setParameter("identityKey", identity.getKey())
+					.setParameter("resId", courseResourceId)
+					.getResultList();
+
 			if(infoList.isEmpty()) {
 				return null;
 			}
 			return infoList.get(0);
+		} catch (Exception e) {
+			logError("Cannot retrieve course informations for: " + identity + " from " + identity, e);
+			return null;
+		}
+	}
+	
+	@Override
+	public List<UserCourseInformations> getUserCourseInformations(Identity identity, List<OLATResource> resources) {
+		if(resources == null || resources.isEmpty()) {
+			return Collections.emptyList();
+		}
+
+		try {
+			StringBuilder sb = new StringBuilder();
+			sb.append("select infos from ").append(UserCourseInfosImpl.class.getName()).append(" as infos ")
+				.append(" inner join fetch infos.resource as resource")
+				.append(" inner join fetch infos.identity as identity")
+			  .append(" where identity.key=:identityKey and resource.key in (:resKeys)");
+
+			List<Long> resourceKeys = PersistenceHelper.toKeys(resources);
+			TypedQuery<UserCourseInformations> query = dbInstance.getCurrentEntityManager()
+					.createQuery(sb.toString(), UserCourseInformations.class)
+					.setParameter("identityKey", identity.getKey())
+					.setParameter("resKeys", resourceKeys);
+
+			List<UserCourseInformations> infoList = query.getResultList();
+			return infoList;
 		} catch (Exception e) {
 			logError("Cannot retrieve course informations for: " + identity + " from " + identity, e);
 			return null;
@@ -131,12 +158,12 @@ public class UserCourseInformationsManagerImpl extends BasicManager implements U
 			  .append(" inner join infos.resource as resource")
 			  .append(" where infos.identity.key=:identityKey and resource.resId=:resId and resource.resName='CourseModule'");
 
-			DBQuery query = dbInstance.createQuery(sb.toString());
+			List<Date> infoList = dbInstance.getCurrentEntityManager()
+					.createQuery(sb.toString(), Date.class)
+					.setParameter("identityKey", identityKey)
+					.setParameter("resId", courseResourceId)
+					.getResultList();
 
-			query.setLong("identityKey", identityKey);
-			query.setLong("resId", courseResourceId);
-			@SuppressWarnings("unchecked")
-			List<Date> infoList = query.list();
 			if(infoList.isEmpty()) {
 				return null;
 			}
@@ -201,9 +228,12 @@ public class UserCourseInformationsManagerImpl extends BasicManager implements U
 			sb.append("delete from ").append(UserCourseInfosImpl.class.getName()).append(" as infos ")
 			  .append(" where resource.key=:resourceKey");
 
-			DBQuery query = dbInstance.createQuery(sb.toString());
-			query.setLong("resourceKey", entry.getOlatResource().getKey());
-			return query.executeUpdate(FlushMode.AUTO);
+			int count = dbInstance.getCurrentEntityManager()
+					.createQuery(sb.toString())
+					.setParameter("resourceKey", entry.getOlatResource().getKey())
+					.setFlushMode(FlushModeType.AUTO)
+					.executeUpdate();
+			return count;
 		} catch (Exception e) {
 			logError("Cannot Delete course informations for: " + entry, e);
 			return -1;
