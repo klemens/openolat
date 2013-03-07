@@ -5,12 +5,8 @@
   http://www.springframework.org/schema/beans 
   http://www.springframework.org/schema/beans/spring-beans-3.0.xsd">
 
-		
-	<bean id="collectingAdditionalDBMappings" class="org.olat.core.commons.persistence.AdditionalMappingsListFactoryBean"/>
-	
 	<!-- Persistence unit manager -->
-	<bean id="pum" class="org.olat.core.commons.persistence.OLATPersistenceUnitManager" depends-on="databaseUpgrader">
-		<property name="additionalDBMappings" ref="collectingAdditionalDBMappings" />
+	<bean id="pum" class="org.springframework.orm.jpa.persistenceunit.DefaultPersistenceUnitManager" depends-on="databaseUpgrader">
   		<property name="persistenceXmlLocations">
     		<list>
      			<value>classpath:/org/olat/core/commons/persistence/_spring/core_persistence.xml</value>
@@ -30,10 +26,14 @@
     <bean id="AuditInterceptor" class="org.olat.core.commons.persistence.AuditInterceptor" />
     
     <bean id="txManager" class="org.springframework.orm.jpa.JpaTransactionManager">
+		<property name="jpaDialect" ref="jpaDialect" />
 		<property name="entityManagerFactory" ref="emf"/>
 	</bean>
+	
+	<bean id="jpaDialect" class="org.springframework.orm.jpa.vendor.HibernateJpaDialect" />
 
 	<bean id="database" class="org.olat.core.commons.persistence.DBImpl" destroy-method="destroy">
+		<property name="txManager" ref="txManager"/>
 		<property name="entityManagerFactory" ref="emf"/>
 		<property name="dbVendor" value="${db.vendor}" />
 	</bean>
@@ -130,8 +130,11 @@
 	            <prop key="hibernate.query.substitutions">true 1, false 0, yes 'Y', no 'N'</prop>         
 	            <!-- for development phase only: -->
 	            <!-- end for development phase only -->
-	
+				<!-- -->
 				<prop key="hibernate.transaction.factory_class">org.hibernate.transaction.JDBCTransactionFactory</prop>
+				<!--  
+				<prop key="hibernate.transaction.factory_class">org.hibernate.transaction.CMTTransactionFactory</prop>
+				-->
 				<prop key="hibernate.jdbc.batch_size">0</prop>
 				<prop key="hibernate.jdbc.use_streams_for_binary">true</prop>
 				<prop key="hibernate.use_outer_join">true</prop>
@@ -147,23 +150,37 @@
 				<prop key="javax.persistence.lock.timeout">30000</prop>
 	        </props>
 		</constructor-arg> 
-		<property name="addMoreProperties" ref="hibernateCacheProps_${hibernate.cache}" />      
+		<property name="addMoreProperties" ref="hibernateCacheProps_${hibernate.cache}_${cluster.mode}" />      
 	</bean>
 	
-	<bean id="hibernateCacheProps_enabled" class="org.olat.core.commons.persistence.DBVendorHibernatePropertiesSimplification">
+		<bean id="hibernateCacheProps_enabled_SingleVM" class="org.olat.core.commons.persistence.DBVendorHibernatePropertiesSimplification">
 		<constructor-arg>
-	        <props>
-	            <prop key="hibernate.cache.provider_class">${hibernate.caching.singlevm.class}</prop>
-				<prop key="hibernate.cache.use_query_cache">${hibernate.caching.use.query.cache}</prop>
-				<prop key="hibernate.cache.use_second_level_cache">${hibernate.use.second.level.cache}</prop>
-				<prop key="hibernate.cache.region.factory_class">${hibernate.caching.cluster.class}</prop>
+			<props>
+				<prop key="hibernate.cache.use_query_cache">true</prop>
+				<prop key="hibernate.cache.use_second_level_cache">true</prop>
+				<prop key="hibernate.cache.region.factory_class">org.olat.core.commons.persistence.JpaInfinispanRegionFactory</prop>
+				<prop key="hibernate.cache.infinispan.cfg">infinispan-config.xml</prop>
 				<prop key="hibernate.cache.region.jbc2.query.localonly">true</prop>
-				<prop key="hibernate.cache.region_prefix">olat</prop>
-	        </props>
+				<prop key="hibernate.cache.region_prefix">openolat</prop>
+			</props>
 		</constructor-arg>        
 	</bean>
 	
-	<bean id="hibernateCacheProps_disabled" class="org.olat.core.commons.persistence.DBVendorHibernatePropertiesSimplification">
+	<bean id="hibernateCacheProps_enabled_Cluster" class="org.olat.core.commons.persistence.DBVendorHibernatePropertiesSimplification">
+		<constructor-arg>
+			<props>
+				<prop key="hibernate.cache.use_query_cache">true</prop>
+				<prop key="hibernate.cache.use_second_level_cache">true</prop>
+				<prop key="hibernate.cache.region.factory_class">org.hibernate.cache.infinispan.JndiInfinispanRegionFactory</prop>
+				<prop key="hibernate.transaction.manager_lookup_class">org.hibernate.transaction.JBossTransactionManagerLookup</prop>
+				<prop key="hibernate.cache.infinispan.use_synchronization">false</prop>
+				<prop key="hibernate.cache.infinispan.cachemanager">java:jboss/infinispan/hibernate</prop>
+			</props>
+		</constructor-arg>        
+	</bean>
+	
+	<alias name="hibernateCacheProps_disabled_SingleVM" alias="hibernateCacheProps_disabled_Cluster"/>
+	<bean id="hibernateCacheProps_disabled_SingleVM" class="org.olat.core.commons.persistence.DBVendorHibernatePropertiesSimplification">
 		<constructor-arg>
 	        <props>
 				<prop key="hibernate.cache.use_query_cache">false</prop>

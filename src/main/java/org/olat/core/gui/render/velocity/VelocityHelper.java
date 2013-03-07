@@ -27,6 +27,7 @@
 package org.olat.core.gui.render.velocity;
 
 import java.io.StringWriter;
+import java.io.Writer;
 import java.util.HashSet;
 import java.util.Properties;
 
@@ -115,9 +116,7 @@ public class VelocityHelper extends LogDelegator {
 	 * @param theme the theme e.g. "accessibility" or "printing". may be null if the default theme ("") should be taken
 	 * @return String the rendered template
 	 */ 
-	private String merge(String template, Context c, String theme) {
-		StringWriter wOut = new StringWriter(10000);
-		
+	private void merge(String template, Context c, Writer wOut, String theme) {
 		try {
 			Template vtemplate = null;
 			if (isLogDebugEnabled()) logDebug("Merging template::" + template + " for theme::" + theme, null);
@@ -141,7 +140,7 @@ public class VelocityHelper extends LogDelegator {
 				
 				if (!notFound) {
 					// never tried before -> try to load it
-					if (!ve.templateExists(themedTemplatePath)) {
+					if (!ve.resourceExists(themedTemplatePath)) {
 						// remember not found (since velocity doesn't) then try fallback.
 						// this will happen once for each theme when a resource does not exist in its themed variant but only in the default theme.
 						if (!Settings.isDebuging()) {
@@ -170,7 +169,6 @@ public class VelocityHelper extends LogDelegator {
 		} catch (Exception e) {
 			throw new OLATRuntimeException(VelocityHelper.class, "exception occured while merging template: " + e.getMessage(), e);
 		}
-		return wOut.toString();
 	}
 	
 	
@@ -180,9 +178,9 @@ public class VelocityHelper extends LogDelegator {
 	 * @param c
 	 * @return String
 	 */
-	public String mergeContent(String path, Context c, String theme) {
+	public void mergeContent(String path, Context c, Writer writer, String theme) {
 		if (path == null) throw new AssertException("velocity path was null");
-		return merge(path, c, theme);
+		merge(path, c, writer, theme);
 	}
 
 	/**

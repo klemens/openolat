@@ -25,11 +25,13 @@
 */ 
 package org.olat.core.gui.control.winmgr;
 
-import java.util.HashMap;
+import java.io.IOException;
+import java.io.Writer;
+import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import java.util.concurrent.CopyOnWriteArrayList;
 
+import org.apache.commons.io.IOUtils;
 import org.olat.core.gui.GlobalSettings;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.WindowManager;
@@ -46,6 +48,7 @@ import org.olat.core.gui.control.guistack.GuiStack;
 import org.olat.core.gui.control.guistack.GuiStackNiceImpl;
 import org.olat.core.gui.control.guistack.GuiStackSimpleImpl;
 import org.olat.core.gui.control.pushpoll.WindowCommand;
+import org.olat.core.gui.control.util.ZIndexWrapper;
 import org.olat.core.gui.dev.controller.DevelopmentController;
 import org.olat.core.gui.media.MediaResource;
 import org.olat.core.gui.render.intercept.InterceptHandler;
@@ -53,6 +56,8 @@ import org.olat.core.gui.render.intercept.InterceptHandlerInstance;
 import org.olat.core.gui.render.intercept.debug.GuiDebugDispatcherController;
 import org.olat.core.helpers.Settings;
 import org.olat.core.logging.AssertException;
+import org.olat.core.logging.OLog;
+import org.olat.core.logging.Tracing;
 import org.olat.core.util.event.GenericEventListener;
 import org.olat.core.util.i18n.I18nManager;
 import org.olat.core.util.i18n.ui.I18nUIFactory;
@@ -67,6 +72,8 @@ import org.olat.core.util.i18n.ui.InlineTranslationInterceptHandlerController;
  * @author Felix Jost, http://www.goodsolutions.ch
  */
 public class WindowBackOfficeImpl implements WindowBackOffice {
+	
+	private static final OLog log = Tracing.createLoggerFor(WindowBackOfficeImpl.class);
 
 	private final WindowManagerImpl winmgrImpl;
 	private Window window;
@@ -82,7 +89,7 @@ public class WindowBackOfficeImpl implements WindowBackOffice {
 		
 	private String iframeName;
 	
-	private Map<String, Object> data = new HashMap<String, Object>(); // request-transient render-related data
+	private List<ZIndexWrapper> guiMessages = new ArrayList<ZIndexWrapper>(); // request-transient render-related data
 	
 	private transient List<GenericEventListener> cycleListeners = new CopyOnWriteArrayList<GenericEventListener>();
 	
@@ -163,6 +170,16 @@ public class WindowBackOfficeImpl implements WindowBackOffice {
 	 */
 	public void sendCommandTo(Command wco) {
 		ajaxC.sendCommandTo(new WindowCommand(this,wco));
+	}
+	
+	public void pushCommands(Writer w, boolean wrapHTML) {
+		try {
+			ajaxC.pushResource(w, wrapHTML);
+		} catch (IOException e) {
+			log.error("Error pushing commans to the AJAX canal.", e);
+		} finally {
+			IOUtils.closeQuietly(w);
+		}
 	}
 
 	/**
@@ -320,7 +337,7 @@ public class WindowBackOfficeImpl implements WindowBackOffice {
 		}
 		if (cycleEvent == Window.AFTER_VALIDATING) {
 			// clear the added data for this cycle
-			data.clear();
+			guiMessages.clear();
 		}
 		
 	}
@@ -335,11 +352,8 @@ public class WindowBackOfficeImpl implements WindowBackOffice {
 		cycleListeners.remove(gel);
 	}
 
-	public Object getData(String key) {
-		return data.get(key);
-	}
-
-	public void putData(String key, Object value) {
-		data.put(key, value);
+	@Override
+	public List<ZIndexWrapper> getGuiMessages() {
+		return guiMessages;
 	}
 }

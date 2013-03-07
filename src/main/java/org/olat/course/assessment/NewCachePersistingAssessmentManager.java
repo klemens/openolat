@@ -48,7 +48,7 @@ import org.olat.core.logging.activity.StringResourceableType;
 import org.olat.core.logging.activity.ThreadLocalUserActivityLogger;
 import org.olat.core.manager.BasicManager;
 import org.olat.core.util.StringHelper;
-import org.olat.core.util.cache.n.CacheWrapper;
+import org.olat.core.util.cache.CacheWrapper;
 import org.olat.core.util.coordinate.CoordinatorManager;
 import org.olat.core.util.coordinate.SyncerCallback;
 import org.olat.core.util.coordinate.SyncerExecutor;
@@ -111,20 +111,18 @@ public class NewCachePersistingAssessmentManager extends BasicManager implements
 	 * the key under which a hashmap is stored in a cachewrapper. we only use one key so that either all values of a user are there or none are there.
 	 * (otherwise we cannot know whether a null value means expiration of cache or no-such-property-yet-for-user)
 	 */
-	private static final String FULLUSERSET = "FULLUSERSET";
+	//private static final String FULLUSERSET = "FULLUSERSET";
 	private static final String LAST_MODIFIED = "LAST_MODIFIED";
 	
 	
 	// Float and Integer are immutable objects, we can reuse them.
 	private static final Float FLOAT_ZERO = new Float(0);
 	private static final Integer INTEGER_ZERO = new Integer(0);
-	
-	// one cache entry point to generate subcaches for all assessmentmanager instances
-	private static CacheWrapper assessmentMainCache = CoordinatorManager.getInstance().getCoordinator().getCacher().getOrCreateCache(NewCachePersistingAssessmentManager.class, null);
 
 	// the cache per assessment manager instance (=per course)
-	private CacheWrapper courseCache;
+	private CacheWrapper<NewCacheKey,HashMap<String, Serializable>> courseCache;
 	private OLATResourceable ores;
+
 	
 	// we cannot store the ref to cpm here, since at the time where the assessmentManager is initialized, the given course is not fully initialized yet.
 	//does not work: final CoursePropertyManager cpm; 
@@ -147,7 +145,9 @@ public class NewCachePersistingAssessmentManager extends BasicManager implements
 	 */
 	private NewCachePersistingAssessmentManager(ICourse course) {
 		this.ores = course;
-		courseCache = assessmentMainCache.getOrCreateChildCacheWrapper(course);
+		//String cacheName = "Course@" + course.getResourceableId();
+		courseCache = CoordinatorManager.getInstance().getCoordinator().getCacher()
+				.getCache(AssessmentManager.class.getSimpleName(), "newpersisting");
 	}
 	/**
 	 * @param identity the identity for which to properties are to be loaded. 
@@ -236,55 +236,46 @@ public class NewCachePersistingAssessmentManager extends BasicManager implements
 	 * @return a Map containing nodeident+"_"+ e.g. PASSED as key, Boolean (for PASSED), Float (for SCORE), or Integer (for ATTEMPTS) as values
 	 */
 	private Map<String, Serializable> getOrLoadScorePassedAttemptsMap(Identity identity, List<Property> properties, boolean prepareForNewData) {
-		CacheWrapper cw = getCacheWrapperFor(identity);
-		synchronized(cw) {  // o_clusterOK by:fj : we sync on the cache to protect access within the monitor "one user in a course".
-			// a user is only active on one node at the same time.
-			Map<String, Serializable> m = (Map<String, Serializable>) cw.get(FULLUSERSET);
-			if (m == null) {
-				// cache entry (=all data of the given identity in this course) has expired or has never been stored yet into the cache.
-				// or has been invalidated (in cluster mode when puts occurred from an other node for the same cache)
-				m = new HashMap<String, Serializable>();
-				// load data
-				List<Property> loadedProperties = properties == null ? loadPropertiesFor(Collections.singletonList(identity)) : properties;
-				for (Property property:loadedProperties) {
-					addPropertyToCache(m, property);
-				}
-				
-				//If property not found, prefill with default value.
-				if(!m.containsKey(ATTEMPTS)) {
-					m.put(ATTEMPTS, INTEGER_ZERO);
-				}
-				if(!m.containsKey(SCORE)) {
-					m.put(SCORE, FLOAT_ZERO);
-				}
-				if(!m.containsKey(LAST_MODIFIED)) {
-					m.put(LAST_MODIFIED, null);
-				}
-				
-				// we use a putSilent here (no invalidation notifications to other cluster nodes), since
-				// we did not generate new data, but simply asked to reload it. 
-				if (prepareForNewData) {
-					cw.update(FULLUSERSET, (Serializable) m);
-				} else {
-					cw.put(FULLUSERSET, (Serializable) m);
-				}
-			} else {
-				// still in cache. 
-				if (prepareForNewData) { // but we need to notify that data has changed: we reput the data into the cache - a little hacky yes
-					cw.update(FULLUSERSET, (Serializable) m);
-				}
+
+		// a user is only active on one node at the same time.
+		NewCacheKey cacheKey = new NewCacheKey(ores.getResourceableId(), identity.getKey());
+		HashMap<String, Serializable> m = courseCache.get(cacheKey);
+		if (m == null) {
+			// cache entry (=all data of the given identity in this course) has expired or has never been stored yet into the cache.
+			// or has been invalidated (in cluster mode when puts occurred from an other node for the same cache)
+			m = new HashMap<String, Serializable>();
+			// load data
+			List<Property> loadedProperties = properties == null ? loadPropertiesFor(Collections.singletonList(identity)) : properties;
+			for (Property property:loadedProperties) {
+				addPropertyToCache(m, property);
 			}
-			return m;
+			
+			//If property not found, prefill with default value.
+			if(!m.containsKey(ATTEMPTS)) {
+				m.put(ATTEMPTS, INTEGER_ZERO);
+			}
+			if(!m.containsKey(SCORE)) {
+				m.put(SCORE, FLOAT_ZERO);
+			}
+			if(!m.containsKey(LAST_MODIFIED)) {
+				m.put(LAST_MODIFIED, null);
+			}
+			
+			// we use a putSilent here (no invalidation notifications to other cluster nodes), since
+			// we did not generate new data, but simply asked to reload it. 
+			if (prepareForNewData) {
+				courseCache.update(cacheKey, m);
+			} else {
+				courseCache.put(cacheKey, m);
+			}
+		} else {
+			// still in cache. 
+			if (prepareForNewData) { // but we need to notify that data has changed: we reput the data into the cache - a little hacky yes
+				courseCache.update(cacheKey, m);
+			}
 		}
+		return m;
 	}
-	
-	private CacheWrapper getCacheWrapperFor(Identity identity) {
-		// the ores is only for within the cache
-		OLATResourceable ores = OresHelper.createOLATResourceableInstanceWithoutCheck("Identity", identity.getKey());
-		CacheWrapper cw = courseCache.getOrCreateChildCacheWrapper(ores);
-		return cw;
-	}
-	
 	
 	// package local for perf. reasons, threadsafe.
 	/**

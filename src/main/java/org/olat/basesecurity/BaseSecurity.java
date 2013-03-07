@@ -62,6 +62,14 @@ public interface BaseSecurity {
 	public boolean isIdentityPermittedOnResourceable(Identity identity, String permission, OLATResourceable olatResourceable);
 
 	/**
+	 * Return the list of "allowed to..."
+	 * @param identity
+	 * @param olatResourceable
+	 * @return
+	 */
+	public List<String> getIdentityPermissionOnresourceable(Identity identity, OLATResourceable olatResourceable);
+	
+	/**
 	 * Get the identity's roles
 	 * 
 	 * @param identity
@@ -202,6 +210,9 @@ public interface BaseSecurity {
 	 */
 	public Identity loadIdentityByKey(Long identityKey);
 	
+
+	public IdentityShort loadIdentityShortByKey(Long identityKey);
+	
 	/**
 	 * Load a list of identities by their keys.
 	 * 
@@ -210,7 +221,12 @@ public interface BaseSecurity {
 	 */
 	public List<Identity> loadIdentityByKeys(Collection<Long> identityKeys);
 	
-	public IdentityShort loadIdentityShortByKey(Long identityKey);
+	/**
+	 * Load a list of identities (short) by their keys
+	 * @param identityKeys
+	 * @return
+	 */
+	public List<IdentityShort> loadIdentityShortByKeys(Collection<Long> identityKeys);
 	
 	/**
 	 * find an identity by the key or return null if no identity found
