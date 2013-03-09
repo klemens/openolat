@@ -34,6 +34,9 @@ CVS/*
 # Mac idiosyncrasies
 .DS_Store
 
+# ignore only on root
+/olat.local.properties
+
 #ignore olat/.classpath file at this gets created by maven
 .classpath
 .project
