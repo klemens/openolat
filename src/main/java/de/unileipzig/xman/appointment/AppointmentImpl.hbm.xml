@@ -1,0 +1,34 @@
+<?xml version="1.0"?>
+<!--
+/**
+ * 
+ * Mapping of AppointmentImpl class to database tables
+ */
+-->
+<!DOCTYPE hibernate-mapping PUBLIC 
+        "-//Hibernate/Hibernate Mapping DTD//EN"
+        "http://hibernate.sourceforge.net/hibernate-mapping-3.0.dtd">
+
+<hibernate-mapping default-lazy="false">
+  <class name="de.unileipzig.xman.appointment.AppointmentImpl" table="o_xman_appointment">  
+  
+		<cache usage="read-write" />
+
+    <id name="key" column="appointment_id" type="long" unsaved-value="null">
+      <generator class="hilo"/>
+    </id>
+    
+    <timestamp name="lastModified" column="lastmodified" />   
+  	<property  name="creationDate" column="creationdate" type="timestamp" />   
+  	
+    <many-to-one name="exam" class="de.unileipzig.xman.exam.ExamImpl" outer-join="auto" cascade="none">  
+		<column name="exam_id" not-null="false"/>    	
+	</many-to-one>
+    
+	<property name="date" column="date" unique="false" type="timestamp" not-null="false"/>
+	<property name="duration" column="duration" unique="false" type="integer" not-null="false"/>
+	<property name="place" column="place" unique="false" type="string" not-null="false"/>
+	<property name="occupied" column="occupied" unique="false" type="boolean" not-null="false"/>
+
+  </class>  
+</hibernate-mapping>

@@ -1,0 +1,27 @@
+<?xml version="1.0"?>
+<!--
+/**
+ * 
+ * Mapping of ExamImpl class to database tables
+ */
+-->
+<!DOCTYPE hibernate-mapping PUBLIC 
+        "-//Hibernate/Hibernate Mapping DTD//EN"
+        "http://hibernate.sourceforge.net/hibernate-mapping-3.0.dtd">
+
+<hibernate-mapping default-lazy="false">
+  <class name="de.unileipzig.xman.studyPath.StudyPathImpl" table="o_xman_studyPath">  
+  
+		<cache usage="read-write" />
+
+    <id name="key" column="studyPath_id" type="long" unsaved-value="null">
+      <generator class="hilo"/>
+    </id>
+    
+    <timestamp name="lastModified" column="lastmodified" />   
+  	<property  name="creationDate" column="creationdate" type="timestamp" />   
+    
+    <property name="i18nKey" column="i18nKey" unique="true" type="string" not-null="true" length="16777210"/>
+    	
+  </class>  
+</hibernate-mapping>

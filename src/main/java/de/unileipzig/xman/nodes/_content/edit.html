@@ -1,0 +1,17 @@
+<div class="o_help_wrapper">
+  <fieldset>
+	<legend>$r.translate("edit_html.header")</legend>
+	#if ($showPreviewButton)
+		<div align="right">$r.render("examEditController.command.preview")</div>
+		<b>$r.translate("edit_html.chosenexam"):</b>&nbsp;&nbsp; $chosen_entry
+		<p>
+	 	$r.render("examEditController.command.change")
+	#else
+		<b>$r.translate("edit_html.chosenexam"):</b>&nbsp;&nbsp; $chosen_entry
+		<p>
+	    $r.render("examEditController.command.choose")
+	#end
+	</p>	
+   </fieldset>
+$r.helpWithWrapper("ced-exam.html","help.hover.exam-filename")
+</div>

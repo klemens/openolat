@@ -1,0 +1,85 @@
+<div style="padding-left:30px; padding-right:30px; padding-top: 20px;">
+	<fieldset class="o_whiteBg"><legend><b>$r.translate("examLaunch_html.common")</b></legend>
+	<table>
+		<colgroup>
+			<col align="left"> 
+			<col>
+			<col>
+		</colgroup>
+		<tbody>
+			<tr>
+				<td>$r.translate("examLaunch_html.type"):</td>
+				<td>&nbsp;</td>
+				<td>$examType</td>
+			</tr>
+			<tr>
+				<td>$r.translate("examLaunch_html.module"):</td>
+				<td>&nbsp;</td>
+				<td>$r.render("moduleLink")</td>
+			</tr>
+			<tr>
+				<td>$r.translate("examLaunch_html.regStartDate"):</td>
+				<td>&nbsp;</td>
+				<td>$regStartDate</td>
+			</tr>
+			<tr>
+				<td>$r.translate("examLaunch_html.regEndDate"):</td>
+				<td>&nbsp;</td>
+				<td>$regEndDate</td>
+			</tr>
+			<tr>
+				<td>$r.translate("examLaunch_html.signOffDate"):</td>
+				<td>&nbsp;</td>
+				<td>$signOffDate</td>
+			</tr>
+			<tr>
+				<td>$r.translate("examLaunch_html.earmarkedEnabled"):</td>
+				<td>&nbsp;</td>
+				<td>$earmarkedEnabled</td>
+			</tr>
+			<tr>
+				<td>$r.translate("examLaunch_html.dozent"):</td>
+				<td>&nbsp;</td>
+				<td>$author</td>
+			</tr>
+		</tbody>
+	</table>
+	</fieldset>
+	<br>
+	<fieldset class="o_whiteBg"><legend><b>$r.translate("examLaunch_html.comments")</b></legend>
+		$comments
+	</fieldset>
+	<br>
+	<fieldset class="o_whiteBg"><legend><b>$r.translate("examLaunch_html.appointments")</b></legend>
+			#if ($showMyAppointment)
+				<br>
+				<fieldset class="o_whiteBg"><legend><b>$r.translate("examLaunch_html.myAppointment")</b></legend>
+					#if ($earmarkedAppInfo)
+						$r.translate("examLaunch_html.myApp.earmarkedAppInfo")
+					#end
+					$r.render("myAppTable")
+				</fieldset>
+			#end
+			#if ($showAppTable)
+				$r.render("appTable")
+			#end
+	</fieldset>
+	#if ($showProtocolTable)
+		<br>
+		<fieldset class="o_whiteBg"><legend><b>$r.translate("examLaunch_html.participantLists")</b></legend>
+			<fieldset class="o_whiteBg"><legend>$r.translate("examLaunch_html.participantLists.registered")</legend>
+				
+				<fieldset class="o_whiteBg"><legend></legend>
+				
+				$r.translate("examLaunch_html.addStudentManually") $r.render("addStudent")
+				
+				</fieldset>
+				$r.render("regProtoTable")
+			</fieldset>
+			<br>
+			<fieldset class="o_whiteBg"><legend>$r.translate("examLaunch_html.participantLists.earmarked")</legend>
+				$r.render("earProtoTable")
+			</fieldset>
+		</fieldset>
+	#end
+</div>

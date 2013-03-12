@@ -1,0 +1,34 @@
+<?xml version="1.0"?>
+<!--
+/**
+ * 
+ * Mapping of ModuleImpl class to database tables
+ */
+-->
+<!DOCTYPE hibernate-mapping PUBLIC 
+        "-//Hibernate/Hibernate Mapping DTD//EN"
+        "http://hibernate.sourceforge.net/hibernate-mapping-3.0.dtd">
+
+<hibernate-mapping default-lazy="false">
+  <class name="de.unileipzig.xman.module.ModuleImpl" table="o_xman_module">  
+  
+		<cache usage="read-write" />
+
+    <id name="key" column="module_id" type="long" unsaved-value="null">
+      <generator class="hilo"/>
+    </id>
+    
+    <timestamp name="lastModified" column="lastmodified" />   
+  	<property  name="creationDate" column="creationdate" type="timestamp" />   
+    
+	<property name="name" column="name" unique="false" type="string" not-null="true"/>
+	
+	<property name="moduleNumber" column="number" unique="false" type="string" not-null="false" length="16777210"/>
+	
+	<property name="description" column="description" unique="false" type="string" not-null="false" length="16777210"/>
+	
+	<many-to-one name="personInCharge" class="org.olat.basesecurity.IdentityImpl" 
+		column="identity_id" outer-join="true" cascade="none" not-null="false"/> 
+
+  </class>  
+</hibernate-mapping>

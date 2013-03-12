@@ -1,0 +1,41 @@
+<?xml version="1.0"?>
+<!--
+/**
+ * 
+ * Mapping of ExamImpl class to database tables
+ */
+-->
+<!DOCTYPE hibernate-mapping PUBLIC 
+        "-//Hibernate/Hibernate Mapping DTD//EN"
+        "http://hibernate.sourceforge.net/hibernate-mapping-3.0.dtd">
+
+<hibernate-mapping default-lazy="false">
+  <class name="de.unileipzig.xman.exam.ExamImpl" table="o_xman_exam">  
+  
+		<cache usage="read-write" />
+
+    <id name="key" column="exam_id" type="long" unsaved-value="null">
+      <generator class="hilo"/>
+    </id>
+    
+    <timestamp name="lastModified" column="lastmodified" />   
+  	<property  name="creationDate" column="creationdate" type="timestamp" />   
+    
+    <property name="name" column="name" unique="false" type="string" not-null="false" />
+    
+    <many-to-one name="module" class="de.unileipzig.xman.module.ModuleImpl" outer-join="auto" cascade="none">  
+		<column name="module_id" not-null="false"/>    	
+	</many-to-one>
+	
+	<many-to-one name="identity" class="org.olat.basesecurity.IdentityImpl" 
+		column="identity_id" outer-join="true" cascade="none" not-null="false"/> 
+	
+    <property name="regStartDate" column="regStartDate" unique="false" type="timestamp" not-null="false"/>
+    <property name="regEndDate" column="regEndDate" unique="false" type="timestamp" not-null="false"/>
+    <property name="signOffDate" column="signOffDate" unique="false" type="timestamp" not-null="false"/>
+    <property name="earmarkedEnabled" column="earmarkedEnabled" type="boolean" unique="false" not-null="false"/>
+    <property name="isOral" column="isOral" type="boolean" unique="false" not-null="false"/>
+    <property name="comments" column="comments" unique="false" type="string" not-null="false" length="16777210"/>
+    	
+  </class>  
+</hibernate-mapping>

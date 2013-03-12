@@ -1,0 +1,12 @@
+#if ($showBackButton)
+$r.render("backLink")
+<p>
+#end
+<h4>$r.translate("userAdminUserList_html.title")</h4>
+$r.render("userlist")
+
+#if(!$emptyList && $showEmailButton)
+<p align="center">
+	$r.render("ExamAdminUserSearchController.command.mail")
+</p>
+#end

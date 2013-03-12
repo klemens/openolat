@@ -1,0 +1,31 @@
+<?xml version="1.0"?>
+<!--
+/**
+ * 
+ * Mapping of IllnessReportImpl class to database tables
+ */
+-->
+<!DOCTYPE hibernate-mapping PUBLIC 
+        "-//Hibernate/Hibernate Mapping DTD//EN"
+        "http://hibernate.sourceforge.net/hibernate-mapping-3.0.dtd">
+
+<hibernate-mapping default-lazy="false">
+  <class name="de.unileipzig.xman.illness.IllnessReportImpl" table="o_xman_illnessReport">  
+  
+		<cache usage="read-write" />
+
+    <id name="key" column="illnessReport_id" type="long" unsaved-value="null">
+      <generator class="hilo"/>
+    </id>
+    
+   	<timestamp name="lastModified" column="lastmodified" />   
+  	<property  name="creationDate" column="creationdate" type="timestamp" />   
+   
+   <list name="illnessReports" cascade="all">
+            <key column="parent_id"/>
+            <index column="idx"/>
+            <one-to-many class="de.unileipzig.xman.illness.IllnessReportEntry"/>
+    </list>
+    
+  </class>  
+</hibernate-mapping>
