@@ -271,6 +271,7 @@ public class RepositoryMainController extends MainLayoutBasicController implemen
 				}
 				mainToolC.addLink(ACTION_ADD_OWNERS, translate("tools.add.owners"));
 			}
+			}
 		} else {
 			mainToolC = null;
 		}
