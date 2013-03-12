@@ -51,6 +51,9 @@ import org.olat.repository.RepositoryManager;
 import org.olat.repository.controllers.EntryChangedEvent;
 import org.olat.user.UserDataDeletable;
 
+import org.hibernate.Hibernate;
+import org.hibernate.type.Type;
+
 /**
  * Description: <br>
  * The CatalogManager is responsible for the persistence of CatalogEntries.
@@ -131,6 +134,23 @@ public class CatalogManager extends BasicManager implements UserDataDeletable, I
 		dbQuery.setCacheable(true);
 		List<CatalogEntry> entries = dbQuery.list();
 		return entries;
+	}
+
+	/**
+	 * ADDON: XMAN finds all catalogEntries which are not a repositoryentry it
+	 * would be possible to create one method ( merge getChildrenOf and
+	 * getChildrenOfExceptRepoEntries) for example: getChildrenOf(CatalogEntry
+	 * ce, boolean withRepoEntries)
+	 *
+	 * @param ce - the catalogEntry for which the children should be found
+	 * @return - a list of all child-entries
+	 */
+	public List getChildrenOfExceptRepoEntries(CatalogEntry ce) {
+		List res = DBFactory.getInstance().find(
+					"select cei from org.olat.catalog.CatalogEntryImpl as cei" +
+					" where cei.parent = ? and cei.repositoryEntry = null order by cei.name",
+					new Object[] { ce.getKey() }, new Type[] { Hibernate.LONG });
+		return res;
 	}
 
 	/**

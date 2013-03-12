@@ -100,6 +100,9 @@ import org.olat.resource.OLATResourceManager;
 import org.olat.resource.accesscontrol.ui.OrdersAdminController;
 import org.olat.resource.references.ReferenceManager;
 
+import de.unileipzig.xman.exam.ExamDBManager;
+import de.unileipzig.xman.exam.ExamXMLManager;
+
 /**
  * Description: <br>
  * 
@@ -135,6 +138,8 @@ public class RepositoryDetailsController extends BasicController implements Gene
 	private static final String TOOL_LAUNCH = "l";
 	private static final String TOOL_CLOSE_RESSOURCE = "cr";
 	
+	private static final String ACTION_ARCHIVE = "archive";
+
 	private VelocityContainer main;
 	private Link downloadButton;
 	private Link backLink;

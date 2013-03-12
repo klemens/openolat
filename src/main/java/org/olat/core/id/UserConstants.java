@@ -79,6 +79,7 @@ public class UserConstants {
 	/** STUDYSUBJECT user field identifier. */
 	public static final String STUDYSUBJECT = "studySubject";
 
+	public static final String STUDYPATH = "studyPath";
 	
 	/**
 	 * Preferences keys

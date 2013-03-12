@@ -87,6 +87,10 @@ import org.olat.repository.handlers.RepositoryHandlerFactory;
 
 import de.bps.olat.repository.controllers.WizardAddOwnersController;
 
+import de.unileipzig.xman.exam.Exam;
+import de.unileipzig.xman.module.ModuleManager;
+import org.olat.core.helpers.Settings;
+
 /**
  * Description: <br>
  * 
@@ -121,6 +125,9 @@ public class RepositoryMainController extends MainLayoutBasicController implemen
 	static final String ACTION_NEW_PORTFOLIO = "portfolio";
 	private static final String ACTION_DELETE_RESOURCE = "deleteresource";
 	private static final String ACTION_ADD_OWNERS = "addowners";
+
+	static final String ACTION_NEW_EXAM = "exam";
+	private boolean isXmanOnly;
 
 	private Panel mainPanel;
 	private VelocityContainer main;
@@ -160,6 +167,8 @@ public class RepositoryMainController extends MainLayoutBasicController implemen
 	 */
 	public RepositoryMainController(UserRequest ureq, WindowControl wControl) {
 		super(ureq, wControl);
+
+		this.isXmanOnly = new Boolean(Settings.getServerconfig("xman"));
 
 		if (log.isDebug()) {
 			log.debug("Constructing ReposityMainController for user::" + ureq.getIdentity());
@@ -223,6 +232,8 @@ public class RepositoryMainController extends MainLayoutBasicController implemen
 			listenTo(mainToolC);
 			//CP, SCORM, Wiki, Podcast, Blog, Test, Questionnaire, Glossary, other formats 
 
+			if (!isXmanOnly) {
+
 			mainToolC.addHeader(translate("tools.add.header"));
 			mainToolC.addLink(RepositoryAddController.ACTION_ADD_COURSE, translate("tools.add.course"), RepositoryAddController.ACTION_ADD_COURSE, "o_toolbox_course");
 			mainToolC.addLink(RepositoryAddController.ACTION_ADD_CP, translate("tools.add.cp"), RepositoryAddController.ACTION_ADD_CP, "o_toolbox_content");
@@ -235,7 +246,11 @@ public class RepositoryMainController extends MainLayoutBasicController implemen
 			mainToolC.addLink(RepositoryAddController.ACTION_ADD_GLOSSARY, translate("tools.add.glossary"), RepositoryAddController.ACTION_ADD_GLOSSARY, "o_toolbox_glossary");
 			mainToolC.addLink(RepositoryAddController.ACTION_ADD_DOC, translate("tools.add.webdoc"), RepositoryAddController.ACTION_ADD_DOC, "b_toolbox_doc");
 
+			}
+
 			mainToolC.addHeader(translate("tools.new.header"));
+			mainToolC.addLink(ACTION_NEW_EXAM, translate("tools.new.exam"), ACTION_NEW_EXAM, "o_toolbox_questionnaire");
+			if (!isXmanOnly) {
 			mainToolC.addLink(ACTION_NEW_CREATECOURSE, translate("tools.new.createcourse"), ACTION_NEW_CREATECOURSE, "o_toolbox_course");
 			mainToolC.addLink(ACTION_NEW_CREATECP, translate("tools.new.createcp"), ACTION_NEW_CREATECP, "o_toolbox_content");
 			mainToolC.addLink(ACTION_NEW_WIKI, translate("tools.new.wiki"), ACTION_NEW_WIKI, "o_toolbox_wiki");
@@ -252,7 +267,7 @@ public class RepositoryMainController extends MainLayoutBasicController implemen
 			if (bIsAdmin || isAuthor) {
 				mainToolC.addHeader(translate("tools.administration.header"));
 				if (bIsAdmin) {
-					mainToolC.addLink(ACTION_DELETE_RESOURCE, translate("tools.delete.resource"));
+					mainToolC.addLink(ACTION_DELETE_RESOURCE, !isXmanOnly ? translate("tools.delete.resource") : translate("tools.delete.resource.xman"));
 				}
 				mainToolC.addLink(ACTION_ADD_OWNERS, translate("tools.add.owners"));
 			}
@@ -263,7 +278,10 @@ public class RepositoryMainController extends MainLayoutBasicController implemen
 
 	private TreeModel buildTreeModel(boolean bIsAuthor) {
 		GenericTreeModel gtm = new GenericTreeModel();
-		GenericTreeNode rootNode = new GenericTreeNode(translate("search.home"), "search.home");
+		GenericTreeNode rootNode = new GenericTreeNode(
+				!isXmanOnly ? translate("search.home") : translate("search.home.xman"),
+				!isXmanOnly ? "search.home" : "search.home.xman");
+
 		gtm.setRootNode(rootNode);
 
 		// TODO:catalog not yet finished :
@@ -286,6 +304,8 @@ public class RepositoryMainController extends MainLayoutBasicController implemen
 				rootNode.addChild(new GenericTreeNode(translate("search.mycourses.teacher"), "search.mycourses.teacher"));
 			}
 		}
+		rootNode.addChild(new GenericTreeNode(translate("search.exam"), "search.exam"));
+		if (!isXmanOnly) {
 		rootNode.addChild(new GenericTreeNode(translate("search.course"), "search.course"));
 		if (bIsAuthor) {
 			//cp, scorm, wiki, podcast, portfolie, test, questionn, resource folder, glossary
@@ -302,6 +322,7 @@ public class RepositoryMainController extends MainLayoutBasicController implemen
 			rootNode.addChild(new GenericTreeNode(translate("search.sharedfolder"), "search.sharedfolder"));
 			rootNode.addChild(new GenericTreeNode(translate("search.glossary"), "search.glossary"));
 		}
+		} // isXmanOnly
 
 		return gtm;
 	}
@@ -439,6 +460,11 @@ public class RepositoryMainController extends MainLayoutBasicController implemen
 			main.setPage(VELOCITY_ROOT + "/index2.html");
 			mainPanel.setContent(main);
 			searchController.doSearchMyCoursesTeacher(ureq);
+			searchController.enableBackToSearchFormLink(false);
+		} else if (userObject.equals("search.exam")) { // search exams
+			main.setPage(VELOCITY_ROOT + "/index2.html");
+			mainPanel.setContent(main);
+			searchController.doSearchByTypeLimitAccess(Exam.ORES_TYPE_NAME, ureq);
 			searchController.enableBackToSearchFormLink(false);
 		}
 		// encode sub view identifyer into state, attach separated by ":"
@@ -802,6 +828,19 @@ public class RepositoryMainController extends MainLayoutBasicController implemen
 			removeAsListenerAndDispose(cmc);
 			cmc = new CloseableModalController(getWindowControl(), translate("close"), wc.getInitialComponent());
 			listenTo(cmc);
+			cmc.activate();
+			return;
+		} else if (event.getCommand().equals(ACTION_NEW_EXAM)) {
+			// XMAN: möglichweise muss hier noch:
+			// removeAsListenerAndDispose(addController);
+			if (ModuleManager.getInstance().findAllModules().size() == 0) {
+				this.getWindowControl().setWarning(translate("tools.new.exam.error.noCategories"));
+				return;
+			}
+			addController = new RepositoryAddController(urequest, getWindowControl(), RepositoryAddController.ACTION_NEW_EXAM);
+			addController.addControllerListener(this);
+			cmc = new CloseableModalController(getWindowControl(), translate("close"), addController.getInitialComponent());
+			// XMAN: möglichweise muss hier noch: listenTo(cmc);
 			cmc.activate();
 			return;
 		}

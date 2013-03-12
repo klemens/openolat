@@ -65,6 +65,8 @@ import org.olat.resource.OLATResource;
 import org.olat.resource.OLATResourceManager;
 import org.olat.util.logging.activity.LoggingResourceable;
 
+import de.unileipzig.xman.exam.ExamHandler;
+
 /**
 *  Description:<br>
 *
@@ -100,6 +102,8 @@ public class RepositoryAddController extends BasicController {
 	static final String ACTION_NEW_PORTFOLIO = ACTION_ADD_PREFIX + "nportfolio";
 	static final String ACTION_CANCEL = "cancel";
 	static final String ACTION_FORWARD = "forward";
+
+	static final String ACTION_NEW_EXAM = ACTION_ADD_PREFIX + "nexam";
 
 	private VelocityContainer repositoryadd;
 

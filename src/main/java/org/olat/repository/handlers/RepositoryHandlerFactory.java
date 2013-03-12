@@ -33,6 +33,8 @@ import org.olat.core.id.OLATResourceable;
 import org.olat.core.logging.AssertException;
 import org.olat.repository.RepositoryEntry;
 
+import de.unileipzig.xman.exam.ExamHandler;
+
 /**
  * Initial Date:  Apr 6, 2004
  *
@@ -67,6 +69,7 @@ public class RepositoryHandlerFactory {
 		registerHandler(new BlogHandler());
 		registerHandler(new GlossaryHandler());
 		registerHandler(new PortfolioHandler());
+		registerHandler(new ExamHandler());
 	}
 
 	public static void registerHandler(RepositoryHandler handler) {

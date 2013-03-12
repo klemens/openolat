@@ -51,6 +51,7 @@ import org.olat.core.gui.control.generic.dtabs.Activateable2;
 import org.olat.core.gui.translator.PackageTranslator;
 import org.olat.core.gui.translator.Translator;
 import org.olat.core.id.Identity;
+import org.olat.core.id.OLATResourceable;
 import org.olat.core.id.Roles;
 import org.olat.core.id.UserConstants;
 import org.olat.core.id.context.ContextEntry;
@@ -60,6 +61,11 @@ import org.olat.repository.RepositoryEntry;
 import org.olat.repository.RepositoryManager;
 import org.olat.repository.RepositoryTableModel;
 import org.olat.repository.SearchForm;
+
+import de.unileipzig.xman.exam.Exam;
+import de.unileipzig.xman.exam.ExamDBManager;
+import de.unileipzig.xman.module.Module;
+import de.unileipzig.xman.module.ModuleManager;
 
 /**
 *  Description:
@@ -236,8 +242,29 @@ public class RepositorySearchController extends BasicController implements Activ
 		}
 		//fxdiff VCRP-1,2: access control of resources
 		List<RepositoryEntry> entries = rm.genericANDQueryWithRolesRestriction(searchForm.getDisplayName(), searchForm.getAuthor(),
-			searchForm.getDescription(), restrictedTypes, ureq.getIdentity(), ureq.getUserSession().getRoles(), ureq.getIdentity().getUser().getProperty(UserConstants.INSTITUTIONALNAME, null));
-		repoTableModel.setObjects(entries);
+			// XMAN: could be wrong
+			searchForm.getDescription(), restrictedTypes, ureq.getIdentity(), ureq.getUserSession().getRoles(), null);
+
+		// we need to remove the repoentries which don't belong to the choosen
+		// module from the list
+		// it's quiet dirty, but otherwise you should have to modify the search
+		List<RepositoryEntry> tempList = new ArrayList<RepositoryEntry>(entries);
+		if (!searchForm.getModule().equals("-")) {
+			for (RepositoryEntry re : entries) {
+				OLATResourceable ores = re.getOlatResource();
+				Exam exam = ExamDBManager.getInstance().findExamByID(ores.getResourceableId());
+
+				if (exam == null) {
+					tempList.remove(re);
+				} else {
+					if (!exam.getModule().getName().equals(searchForm.getModule())) {
+						tempList.remove(re);
+					}
+				}
+			}
+		}
+
+		repoTableModel.setObjects(tempList);
 		//fxdiff VCRP-10: repository search with type filter
 		if(updateFilters) {
 			updateFilters(entries, null);
@@ -268,6 +295,30 @@ public class RepositorySearchController extends BasicController implements Activ
 		String desc = searchForm.getDescription();
 		
 		List<RepositoryEntry> entries = rm.queryReferencableResourcesLimitType(ident, roles, restrictedTypes, name, author, desc);
+
+		// we need to remove the repoentries which don't belong to the chosen
+		// module from the list
+		// it's quiet dirty, but otherwise you should have to modify the search
+		List<RepositoryEntry> tempList = new ArrayList<RepositoryEntry>(entries);
+		// user chose not the default module
+		if (!searchForm.getModule().equals("-")) {
+
+			// check all found repo if the have belong to the module
+			for (RepositoryEntry re : entries) {
+
+				OLATResourceable ores = re.getOlatResource();
+				Exam exam = ExamDBManager.getInstance().findExamByID(
+						ores.getResourceableId());
+
+				if (!exam.getModule().getName().equals(searchForm.getModule())) {
+
+					tempList.remove(re);
+				}
+			}
+		}
+
+		repoTableModel.setObjects(tempList);
+		// XMAN: probably remove following repoTableModel.setObjects(entries);
 		repoTableModel.setObjects(entries);
 		//fxdiff VCRP-10: repository search with type filter
 		if(updateFilters) {
