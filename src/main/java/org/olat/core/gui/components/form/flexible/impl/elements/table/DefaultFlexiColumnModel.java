@@ -33,19 +33,73 @@ package org.olat.core.gui.components.form.flexible.impl.elements.table;
  */
 public class DefaultFlexiColumnModel implements FlexiColumnModel {
 
-	
 	private String headerKey;
+	private String columnKey;
+	private int columnIndex;
+
+	private boolean sortable;
+	private String sortedKey;
+
+	
 	private int alignment;
 	private FlexiCellRenderer cellRenderer;
 
-	public DefaultFlexiColumnModel(String headerKey) {
-		this.headerKey = headerKey;
-		this.alignment = FlexiColumnModel.ALIGNMENT_LEFT;
-		this.cellRenderer = new TextFlexiCellRenderer();
+	public DefaultFlexiColumnModel(String headerKey, int columnIndex) {
+		this(headerKey, columnIndex, false, null);
 	}
 	
+	public DefaultFlexiColumnModel(String headerKey, int columnIndex, boolean sortable, String sortKey) {
+		this(headerKey, columnIndex, sortable, sortKey, FlexiColumnModel.ALIGNMENT_LEFT,  new TextFlexiCellRenderer());
+	}
+	
+	public DefaultFlexiColumnModel(String headerKey, int columnIndex, boolean sortable, String sortKey, int alignment, FlexiCellRenderer cellRenderer) {
+		this.sortable = sortable;
+		this.sortedKey = sortKey;
+		this.headerKey = headerKey;
+		this.columnIndex = columnIndex;
+		this.columnKey = headerKey.replace(".", "").toLowerCase();
+		this.alignment = alignment;
+		this.cellRenderer = cellRenderer;
+	}
+
+	@Override
+	public String getAction() {
+		return null;
+	}
+
+	@Override
 	public String getHeaderKey() {
 		return headerKey;
+	}
+
+	@Override
+	public String getColumnKey() {
+		return columnKey;
+	}
+
+	@Override
+	public int getColumnIndex() {
+		return columnIndex;
+	}
+
+	@Override
+	public boolean isSortable() {
+		return sortable;
+	}
+
+	@Override
+	public void setSortable(boolean enable) {
+		sortable = enable;
+	}
+
+	@Override
+	public String getSortKey() {
+		return sortedKey;
+	}
+
+	@Override
+	public void setSortKey(String sortedKey) {
+		this.sortedKey = sortedKey;
 	}
 
 	public int getAlignment() {

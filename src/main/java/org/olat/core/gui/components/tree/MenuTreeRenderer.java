@@ -96,14 +96,13 @@ public class MenuTreeRenderer implements ComponentRenderer {
 		
 		AJAXFlags flags = renderer.getGlobalSettings().getAjaxFlags();
 		target.append("\n<div id='dd1-ct' class='b_tree");
-		if(tree.isDragAndDropEnabled()) {
+		if(tree.isDragEnabled() || tree.isDropEnabled()) {
 			target.append(" b_dd_ct");
 		}
 		if(!tree.isRootVisible()) {
 			target.append(" b_tree_root_hidden");
 		}
-		target.append("'>\n");
-		target.append("<ul class=\"b_tree_l0\">");
+		target.append("'><ul class=\"b_tree_l0\">");
 		if(tree.isRootVisible()) {
 			renderLevel(target, 0, root, selPath, openNodeIds, ubu, flags, tree.markingTreeNode, tree);
 		} else {
@@ -114,14 +113,12 @@ public class MenuTreeRenderer implements ComponentRenderer {
 				renderLevel(target, 0, curChd, selPath, openNodeIds, ubu, flags, tree.markingTreeNode, tree);
 			}
 		}
-
-		target.append("</ul>");
-		target.append("\n</div>");
+		target.append("</ul>").append("</div>");
 	}
 
-	private void renderLevel(StringOutput target, int level, TreeNode curRoot, List<INode> selPath, Collection<String> openNodeIds,
-			URLBuilder ubu, AJAXFlags flags, TreeNode markedNode, MenuTree tree) {	
-		//TODO make performant
+	private void renderLevel(StringOutput target, int level, TreeNode curRoot, List<INode> selPath,
+			Collection<String> openNodeIds, URLBuilder ubu, AJAXFlags flags, TreeNode markedNode, MenuTree tree) {	
+
 		INode curSel = null;
 		if (level < selPath.size()) {
 			curSel = selPath.get(level);
@@ -148,7 +145,7 @@ public class MenuTreeRenderer implements ComponentRenderer {
 		}
 		String ident = curRoot.getIdent();
 		target.append("\"><div id='dd").append(ident).append("' class=\"b_tree_item_wrapper");
-		if(tree.isDragAndDropEnabled()) {
+		if(tree.isDragEnabled() || tree.isDropEnabled()) {
 			target.append(" b_dd_item");
 		}
 		if(selected) {
@@ -156,7 +153,7 @@ public class MenuTreeRenderer implements ComponentRenderer {
 		}
 		target.append("\">");
 		
-		if(tree.isDragAndDropEnabled()) {
+		if(tree.isDragEnabled() || tree.isDropEnabled()) {
 			appendDragAndDropObj(curRoot, tree, target, ubu, flags);
 		}
 		
@@ -233,7 +230,8 @@ public class MenuTreeRenderer implements ComponentRenderer {
 		target.append(" b_tree_l").append(level);		
 		
 		// fix needed for firefox bug when fast clicking: the onclick="try{return o2cl()}catch(e){return false}"  -> when the document is reloaded, all function js gets unloaded, but the old link can still be clicked.			
-		target.append("\" onclick=\"try {if(o2cl()){Effect.ScrollTo('b_top'); return true;} else {return false;}} catch(e){return false}\" href=\"");					
+		//target.append("\" onclick=\"try {if(o2cl()){$('html, body').animate({scrollTop: $('#b_top').offset().top}, 500); return true;} else {return false;}} catch(e){return false}\" href=\"");					
+		target.append("\" onclick=\"try {if(o2cl()){ return true;} else {return false;}} catch(e){return false}\" href=\"");					
 		
 		// Build menu item URI
 		if (GUIInterna.isLoadPerformanceMode()) {
@@ -267,8 +265,11 @@ public class MenuTreeRenderer implements ComponentRenderer {
 		
 		// display title and close menu item
 		target.append("<span");
-		if(tree.isDragAndDropEnabled()) {
-			target.append(" class='b_dd_item' id='da").append(ident).append("'");
+		if(tree.isDragEnabled() || tree.isDropEnabled()) {
+			if(tree.isDragEnabled()) {
+				target.append(" class='b_dd_item'");
+			}
+			target.append(" id='da").append(ident).append("'");
 		}
 		target.append(">");
 		if(title != null && title.equals("")) title = "&nbsp;";
@@ -282,8 +283,8 @@ public class MenuTreeRenderer implements ComponentRenderer {
 		target.append("</div>");
 		
 		//append div to drop as sibling
-		if(!renderChildren && tree.isDragAndDropEnabled()) {
-			appendSiblingDropObj(curRoot, level, tree, target, false);
+		if(!renderChildren && (tree.isDragEnabled() || tree.isDropSiblingEnabled())) {
+			appendSiblingDropObj(curRoot, level, tree, target, ubu, flags, false);
 		}
 		
 		if (renderChildren) {
@@ -291,8 +292,8 @@ public class MenuTreeRenderer implements ComponentRenderer {
 			renderChildren(target, level, curRoot, selPath, openNodeIds, ubu, flags, markedNode, tree);
 			
 			//append div to drop as sibling after the children
-			if(tree.isDragAndDropEnabled()) {
-				appendSiblingDropObj(curRoot, level, tree, target, true);
+			if(tree.isDragEnabled() || tree.isDropSiblingEnabled()) {
+				appendSiblingDropObj(curRoot, level, tree, target, ubu, flags, true);
 			}
 		}
 		
@@ -317,25 +318,43 @@ public class MenuTreeRenderer implements ComponentRenderer {
 	}
 	
 	//fxdiff VCRP-9: drag and drop in menu tree
-	private void appendSiblingDropObj(TreeNode node, int level, MenuTree tree, StringOutput target, boolean after) {
-		String id = (after ? "dt" : "ds") + node.getIdent();
-		String dndGroup = tree.getDragAndDropGroup();
-		target.append("<div id='").append(id).append("' class='b_dd_sibling b_dd_sibling_l").append(level).append("'>")
-			.append("<script type='text/javascript'>Ext.get('").append(id).append("').dd = new Ext.dd.DDTarget('").append(id).append("','").append(dndGroup).append("');</script>")
-			.append("&nbsp;&nbsp;</div>");
+	private void appendSiblingDropObj(TreeNode node, int level, MenuTree tree, StringOutput target, URLBuilder ubu, AJAXFlags flags, boolean after) {
+		if(tree.isDropEnabled()) {
+			String id = (after ? "dt" : "ds") + node.getIdent();
+			target.append("<div id='").append(id).append("' class='b_dd_sibling b_dd_sibling_l").append(level).append("'>")
+				.append("<script type='text/javascript'>jQuery('#").append(id).append("')");
+			appendDroppable(node, tree, target, ubu, flags);
+			target.append("</script>&nbsp;&nbsp;</div>");
+		}
 	}
 	
 	//fxdiff VCRP-9: drag and drop in menu tree
 	private void appendDragAndDropObj(TreeNode node, MenuTree tree, StringOutput target, URLBuilder ubu, AJAXFlags flags) {
 		String id = node.getIdent();
-		String dndGroup = tree.getDragAndDropGroup();
+		target.append("<script type='text/javascript'>");
+		
+		if(tree.isDragEnabled()) {
+			target.append("jQuery('#dd").append(id).append("')");
+			appendDraggable(target);
+			target.append("jQuery('#da").append(id).append("')");
+			appendDraggable(target);
+		}
+		if(tree.isDropEnabled()) {
+			target.append("jQuery('#dd").append(id).append("')");
+			appendDroppable(node, tree, target, ubu, flags);
+		}
+		target.append("</script>");
+	}
+	
+	private void appendDroppable(TreeNode node, MenuTree tree, StringOutput sb, URLBuilder ubu, AJAXFlags flags) {
 		String feedBackUri = tree.getDndFeedbackUri();
-		StringOutput endUrl = new StringOutput();
-		ubu.buildURI(endUrl, new String[] { COMMAND_ID, NODE_IDENT }, new String[] { COMMAND_TREENODE_DROP, id }, flags.isIframePostEnabled() ? AJAXFlags.MODE_TOBGIFRAME : AJAXFlags.MODE_NORMAL);
-		target.append("<script type='text/javascript'>")
-		 .append("Ext.get('dd").append(id).append("').dd = new Ext.fxMenuTree.DDProxy('dd").append(id).append("','").append(dndGroup).append("','").append(endUrl).append("','").append(feedBackUri).append("');")
-		 .append("Ext.get('da").append(id).append("').dd = new Ext.fxMenuTree.DDProxy('da").append(id).append("','").append(dndGroup).append("','").append(endUrl).append("','").append(feedBackUri).append("');")
-		 .append("</script>");
+		StringOutput endUrl = new StringOutput(64);
+		ubu.buildURI(endUrl, new String[] { COMMAND_ID, NODE_IDENT }, new String[] { COMMAND_TREENODE_DROP, node.getIdent() }, flags.isIframePostEnabled() ? AJAXFlags.MODE_TOBGIFRAME : AJAXFlags.MODE_NORMAL);
+		sb.append(".droppable({ fbUrl: '").append(feedBackUri).append("', endUrl: '").append(endUrl).append("', hoverClass:'b_dd_over', accept: treeAcceptDrop, drop:onTreeDrop});");
+	}
+	
+	private void appendDraggable(StringOutput sb) {
+		sb.append(".draggable({start:onTreeStartDrag, stop: onTreeStopDrag, revert:'invalid' });");
 	}
 	
 	//fxdiff VCRP-9: drag and drop in menu tree
@@ -380,21 +399,11 @@ public class MenuTreeRenderer implements ComponentRenderer {
 		return (curSel == curRoot);
 	}
 
-	/**
-	 * @see org.olat.core.gui.render.ui.ComponentRenderer#renderHeaderIncludes(org.olat.core.gui.render.Renderer,
-	 *      org.olat.core.gui.render.StringOutput, org.olat.core.gui.components.Component,
-	 *      org.olat.core.gui.render.URLBuilder, org.olat.core.gui.translator.Translator)
-	 */
 	public void renderHeaderIncludes(Renderer renderer, StringOutput sb, Component source, URLBuilder ubu, Translator translator, RenderingState rstate) {
-		// nothing to include
+		//
 	}
 
-	/**
-	 * @see org.olat.core.gui.render.ui.ComponentRenderer#renderBodyOnLoadJSFunctionCall(org.olat.core.gui.render.Renderer,
-	 *      org.olat.core.gui.render.StringOutput, org.olat.core.gui.components.Component)
-	 */
 	public void renderBodyOnLoadJSFunctionCall(Renderer renderer, StringOutput sb, Component source, RenderingState rstate) {
-	//
+		//
 	}
-
 }

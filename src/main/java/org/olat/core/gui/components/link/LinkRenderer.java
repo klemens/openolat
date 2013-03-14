@@ -42,7 +42,6 @@ import org.olat.core.gui.render.RenderingState;
 import org.olat.core.gui.render.StringOutput;
 import org.olat.core.gui.render.URLBuilder;
 import org.olat.core.gui.translator.Translator;
-import org.olat.core.logging.AssertException;
 import org.olat.core.util.StringHelper;
 
 /**
@@ -69,9 +68,6 @@ public class LinkRenderer implements ComponentRenderer {
 		boolean flexiformlink = (presentation - Link.FLEXIBLEFORMLNK) >= 0;
 		if (flexiformlink) {
 			presentation = presentation - Link.FLEXIBLEFORMLNK;
-			if (link.tooltipContent != null) {
-				throw new AssertException("Form link does not support long transaction, tooltip yet!");
-			}
 		}
 		boolean nontranslated = (presentation - Link.NONTRANSLATED) >= 0;
 		if (nontranslated) {
@@ -122,7 +118,7 @@ public class LinkRenderer implements ComponentRenderer {
 		String elementId = link.getElementId();
 		
 		// String buffer to gather all Javascript stuff with this link
-		// there is a var elementId = Ext.get('elementId');
+		// there is a var elementId = jQuery('#elementId');
 		// allowing to reference the link as an Ext.Element 
 		// Optimize initial length based on heuristic measurements of extJsSb
 		StringBuilder extJsSb = new StringBuilder(240); 
@@ -132,10 +128,7 @@ public class LinkRenderer implements ComponentRenderer {
 		extJsSb.append("(function(){");
 		extJsSb.append("var ");
 		extJsSb.append(elementId);
-		extJsSb.append(" = Ext.get('");
-		extJsSb.append(elementId);
-		extJsSb.append("');");
-		//
+		extJsSb.append(" = jQuery('#").append(elementId).append("');");
 
 		boolean hasExtJsSb = false;
 
@@ -193,13 +186,10 @@ public class LinkRenderer implements ComponentRenderer {
 				//tooltips based on the extjs library, see webapp/static/js/ext*
 				if (link.hasTooltip) {
 					if (nontranslated) {
-						sb.append(" ext:qtip=\"").append(title).append("\"");
+						sb.append(" title=\"").append(title).append("\"");
 					} else {
-						sb.append(" ext:qtip=\"").append(StringEscapeUtils.escapeHtml(translator.translate(title))).append("\"");
+						sb.append(" title=\"").append(StringEscapeUtils.escapeHtml(translator.translate(title))).append("\"");
 					}
-				}
-				if (link.hasStickyTooltip) {
-					//sb.append(" ext:hide=\"user\"");
 				}
 			}
 			
@@ -230,22 +220,24 @@ public class LinkRenderer implements ComponentRenderer {
 				}
 			} else {
 				// use translator
-				sb.append(translator.translate(i18n));
+				if(translator == null) {
+					sb.append("Ohoho");
+				} else {
+					sb.append(translator.translate(i18n));
+				}
 			}
 			sb.append("</span></a>");
 			if (link.markIt) {
 				sb.append("</span>");
 			}
-			//Event.observe() is part of prototype.js
+			//on click() is part of prototype.js
 			if(link.registerForMousePositionEvent) {
-				extJsSb.append(" Event.observe(\""+elementId+"\", \"click\", function(event) {");
-				extJsSb.append(" var link = $('" + elementId + "');");
-				// Uncomment next line for live JS debugging
-				//extJsSb.append(" B_AjaxLogger.logDebug(link.getAttribute(\"href\"), 'o_c"+link.getDispatchID()+" - " + elementId + "'); ");
-				extJsSb.append(" if (link.getAttribute(\"href\").indexOf(\"/x\") == -1) link.setAttribute(\"href\", link.href+\"x\"+Event.pointerX(event)+\"y\"+Event.pointerY(event)+\"\");");
-				extJsSb.append("});");
+				extJsSb.append("jQuery('#"+elementId+"').click(function(event) {")
+				       .append(" jQuery('#" + elementId + "').each(function(index, el) {;")
+				       .append("  var href = jQuery(el).attr('href');")
+				       .append(" 	if(href.indexOf('x') == -1) jQuery(el).attr('href',href+'x'+event.pageX+'y'+event.pageY+'');")
+				       .append(" });});");
 				hasExtJsSb = true;
-				
 			}
 			/**
 			 * TODO:gs:b may be usefull as well
@@ -253,21 +245,8 @@ public class LinkRenderer implements ComponentRenderer {
 			 * Event.observe("id", "click", functionName.bindAsEventListener(this));
 			 */
 			if(link.javascriptHandlerFunction != null) {
-				extJsSb.append("  Event.observe(\""+elementId+"\", \""+link.mouseEvent+"\", "+link.javascriptHandlerFunction+");");
+				extJsSb.append("  jQuery('#"+elementId+"').on('"+link.mouseEvent+"', "+link.javascriptHandlerFunction+");");
 				hasExtJsSb = true;
-			}
-			
-			if (link.tooltipContent != null) {
-				extJsSb.append("Ext.QuickTips.tips({");
-				extJsSb.append("target: '").append(elementId).append("',");
-				//FIXME:FG:Check component containing single quotes or line breaks
-				StringOutput clearedContentSb = new StringOutput(100);
-				renderer.render(link.tooltipContent, clearedContentSb, null);
-				String clearedContent = clearedContentSb.toString().replaceAll("\n", "");
-				extJsSb.append("text: '").append(clearedContent).append("',");
-				extJsSb.append("autoHide: ").append(String.valueOf(!link.hasStickyTooltip));
-				extJsSb.append("});");
-				hasExtJsSb=true;
 			}
 		} else {
 			String text;
@@ -289,7 +268,7 @@ public class LinkRenderer implements ComponentRenderer {
 				description = msq.replaceAll("&#39;");
 				Matcher mdq = doubleQutoe.matcher(description);
 				description = mdq.replaceAll("\\\\\"");
-				sb.append(" ext:qtip=\"").append(description).append("\" ");
+				sb.append(" title=\"").append(description).append("\" ");
 			}
 			sb.append(cssSb).append(">").append(text).append("</span>");
 		}
@@ -302,8 +281,8 @@ public class LinkRenderer implements ComponentRenderer {
 			StringBuilder sbj = new StringBuilder();
 			// examples:
 			// o_lnk400.on({'click',removeBusyAfterDownload,document,{formId:"ofo_100"}};);
-			sbj.append("if (").append(elementId).append(") ").append(elementId).append(".on(\"click");
-			sbj.append("\",removeBusyAfterDownload,document,{delay: 1200}); ");
+			sbj.append("if (").append(elementId).append(") ").append(elementId)
+				.append(".click({delay: 1200},removeBusyAfterDownload);");
 			extJsSb.append(sbj.toString());
 		}
 		

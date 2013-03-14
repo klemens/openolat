@@ -87,8 +87,9 @@ public class ImportMemberOverviewIdentitiesController extends StepFormBasicContr
 		
 		//add the table
 		FlexiTableColumnModel tableColumnModel = FlexiTableDataModelFactory.createFlexiTableColumnModel();
+		int colIndex = 0;
 		if(isAdministrativeUser) {
-			tableColumnModel.addFlexiColumnModel(new DefaultFlexiColumnModel("table.user.login"));
+			tableColumnModel.addFlexiColumnModel(new DefaultFlexiColumnModel("table.user.login", colIndex++));
 		}
 		List<UserPropertyHandler> userPropertyHandlers = userManager.getUserPropertyHandlersFor(usageIdentifyer, isAdministrativeUser);
 		List<UserPropertyHandler> resultingPropertyHandlers = new ArrayList<UserPropertyHandler>();
@@ -98,14 +99,14 @@ public class ImportMemberOverviewIdentitiesController extends StepFormBasicContr
 			boolean visible = UserManager.getInstance().isMandatoryUserProperty(usageIdentifyer , userPropertyHandler);
 			if(visible) {
 				resultingPropertyHandlers.add(userPropertyHandler);
-				tableColumnModel.addFlexiColumnModel(new DefaultFlexiColumnModel(userPropertyHandler.i18nColumnDescriptorLabelKey()));
+				tableColumnModel.addFlexiColumnModel(new DefaultFlexiColumnModel(userPropertyHandler.i18nColumnDescriptorLabelKey(), colIndex++));
 			}
 		}
 		
 		Translator myTrans = userManager.getPropertyHandlerTranslator(getTranslator());
 		ImportMemberOverviewDataModel userTableModel = new ImportMemberOverviewDataModel(oks, resultingPropertyHandlers,
 				isAdministrativeUser, getLocale(), tableColumnModel);
-		uifactory.addTableElement("users", userTableModel, myTrans, formLayout);
+		uifactory.addTableElement(ureq, "users", userTableModel, myTrans, formLayout);
 	}
 	
 	private List<Identity> loadModel(List<String> keys) {
