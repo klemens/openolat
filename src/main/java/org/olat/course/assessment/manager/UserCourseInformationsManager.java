@@ -26,6 +26,7 @@ import java.util.Map;
 import org.olat.core.id.Identity;
 import org.olat.course.assessment.UserCourseInformations;
 import org.olat.repository.RepositoryEntry;
+import org.olat.resource.OLATResource;
 
 /**
  * 
@@ -34,6 +35,9 @@ import org.olat.repository.RepositoryEntry;
 public interface UserCourseInformationsManager {
 	
 	public UserCourseInformations getUserCourseInformations(Long courseResourceId, Identity identity);
+
+	public List<UserCourseInformations> getUserCourseInformations(Identity identity, List<OLATResource> resources);
+	
 	
 	public UserCourseInformations updateUserCourseInformations(Long courseResId, Identity identity);
 	
