@@ -27,6 +27,7 @@
 package org.olat.core.util;
 
 import java.io.Serializable;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
@@ -74,15 +75,16 @@ public class UserSession implements HttpSessionBindingListener, GenericEventList
 
 	// the environment (identity, locale, ..) of the identity
 	private IdentityEnvironment identityEnvironment;
-	private SessionInfo sessionInfo;
-	private Map<String,Object> store;
+	private transient SessionInfo sessionInfo;
+	private transient Map<String,Object> store;
 	/**
 	 * things to put into that should not be clear when signing on (e.g. remember url for a direct jump)
 	 */
-	private Map<String,Object> nonClearedStore = new HashMap<String,Object>();
+	private transient Map<String,Object> nonClearedStore = new HashMap<String,Object>();
 	private boolean authenticated = false;
-	private Preferences guiPreferences;
-	private EventBus singleUserSystemBus;
+	private transient Preferences guiPreferences;
+	private transient EventBus singleUserSystemBus;
+	private List<String> chats;
 	private Stack<HistoryPoint> history = new Stack<HistoryPoint>();
 
 	public UserSession() {
@@ -95,6 +97,14 @@ public class UserSession implements HttpSessionBindingListener, GenericEventList
 		singleUserSystemBus = CoordinatorManager.getInstance().getCoordinator().createSingleUserInstance();
 		authenticated = false;
 		sessionInfo = null;
+	}
+	
+	private Object readResolve() {
+		store = new HashMap<String,Object>(4);
+		nonClearedStore = new HashMap<String,Object>();
+		singleUserSystemBus = CoordinatorManager.getInstance().getCoordinator().createSingleUserInstance();
+		sessionInfo = null;
+		return this;
 	}
 
 	/**
@@ -125,9 +135,15 @@ public class UserSession implements HttpSessionBindingListener, GenericEventList
 	 * @return entry
 	 */
 	public Object getEntry(String key) {
-		if (key == null) return null;
-		if (store.get(key) != null) return store.get(key);
-		if (nonClearedStore.get(key) != null) return nonClearedStore.get(key);
+		if (key == null) {
+			return null;
+		}
+		if (store.get(key) != null) {
+			return store.get(key);
+		}
+		if (nonClearedStore.get(key) != null) {
+			return nonClearedStore.get(key);
+		}
 		else return null;
 	}
 
@@ -158,6 +174,17 @@ public class UserSession implements HttpSessionBindingListener, GenericEventList
 	 */
 	public Object removeEntryFromNonClearedStore(String key) {
 		return nonClearedStore.remove(key);
+	}
+	
+	public List<String> getChats() {
+		if(chats == null) {
+			synchronized(this) {
+				if(chats == null) {
+					chats = new ArrayList<String>(5);
+				}
+			}
+		}
+		return chats;
 	}
 
 	/**
@@ -353,7 +380,7 @@ public class UserSession implements HttpSessionBindingListener, GenericEventList
 		// called by tomcat's timer thread -> we need to close!! since the next unbound will be called from the same tomcat-thread
 		finally {
 			//o_clusterNOK: put into managed transaction wrapper
-			DBFactory.getInstance(false).commitAndCloseSession();
+			DBFactory.getInstance().commitAndCloseSession();
 		}
 	}
 
