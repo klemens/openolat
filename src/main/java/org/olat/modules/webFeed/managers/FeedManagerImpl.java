@@ -45,7 +45,7 @@ import org.olat.core.util.Formatter;
 import org.olat.core.util.ImageHelper;
 import org.olat.core.util.StringHelper;
 import org.olat.core.util.ZipUtil;
-import org.olat.core.util.cache.n.CacheWrapper;
+import org.olat.core.util.cache.CacheWrapper;
 import org.olat.core.util.coordinate.Coordinator;
 import org.olat.core.util.coordinate.CoordinatorManager;
 import org.olat.core.util.coordinate.LockResult;
@@ -192,7 +192,7 @@ public class FeedManagerImpl extends FeedManager {
 				@SuppressWarnings("synthetic-access")
 				public void execute() {
 					if (feedCache == null) {
-						feedCache = coordinator.getCacher().getOrCreateCache(FeedManagerImpl.class, "feed");
+						feedCache = coordinator.getCacher().getCache(FeedManager.class.getSimpleName(), "feed");
 					}
 				}
 			});

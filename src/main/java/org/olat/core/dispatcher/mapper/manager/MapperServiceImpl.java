@@ -36,7 +36,7 @@ import org.olat.core.util.Encoder;
 import org.olat.core.util.StringHelper;
 import org.olat.core.util.UserSession;
 import org.olat.core.util.WebappHelper;
-import org.olat.core.util.cache.n.CacheWrapper;
+import org.olat.core.util.cache.CacheWrapper;
 import org.olat.core.util.coordinate.Coordinator;
 import org.olat.core.util.coordinate.CoordinatorManager;
 import org.olat.core.util.coordinate.SyncerExecutor;
@@ -55,12 +55,12 @@ public class MapperServiceImpl implements MapperService {
 	private Map<Mapper,MapperKey> mapperToMapperKey = new ConcurrentHashMap<Mapper, MapperKey>();
 	private Map<String,List<MapperKey>> sessionIdToMapperKeys = new ConcurrentHashMap<String,List<MapperKey>>();
 
-	private CacheWrapper mapperCache;
+	private CacheWrapper<String, Serializable> mapperCache;
 	
 	@Autowired
 	private MapperDAO mapperDao;
 	
-	private CacheWrapper getMapperCache() {
+	private CacheWrapper<String, Serializable> getMapperCache() {
 		if (mapperCache == null) {
 			OLATResourceable ores = OresHelper.createOLATResourceableType(Mapper.class);
 			CoordinatorManager.getInstance().getCoordinator().getSyncer().doInSync(ores, new SyncerExecutor() {
@@ -68,7 +68,7 @@ public class MapperServiceImpl implements MapperService {
 				public void execute() {
 					if (mapperCache == null) {
 						Coordinator coordinator = CoordinatorManager.getInstance().getCoordinator();
-						mapperCache = coordinator.getCacher().getOrCreateCache(MapperService.class, "mapper");
+						mapperCache = coordinator.getCacher().getCache(MapperService.class.getSimpleName(), "mapper");
 					}
 				}
 			});
@@ -153,7 +153,9 @@ public class MapperServiceImpl implements MapperService {
 			mapper = (Mapper)getMapperCache().get(id);
 			if(mapper == null) {
 				mapper = mapperDao.retrieveMapperById(id);
-				getMapperCache().put(id, (Serializable)mapper);
+				if(mapper != null) {
+					getMapperCache().put(id, (Serializable)mapper);
+				}
 			}
 		}
 		return mapper;

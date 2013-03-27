@@ -41,7 +41,6 @@ import org.olat.core.util.coordinate.LockEntry;
 import org.olat.core.util.coordinate.LockResult;
 import org.olat.core.util.coordinate.LockResultImpl;
 import org.olat.core.util.coordinate.Locker;
-import org.olat.core.util.coordinate.PersistentLockManager;
 import org.olat.core.util.coordinate.Syncer;
 import org.olat.core.util.coordinate.SyncerCallback;
 import org.olat.core.util.event.EventBus;
@@ -61,8 +60,7 @@ import org.olat.resource.lock.pessimistic.PessimisticLockManager;
 // Must be abstract because Spring configuration of method 'getPersistentLockManager' :
 // to avoid circular reference method lookup is used for dependecy injection of persistent lock manager
 public abstract class ClusterLocker implements Locker, GenericEventListener {
-	protected OLog log = Tracing.createLoggerFor(this.getClass());
-	PersistentLockManager plm = null;
+	private static final OLog log = Tracing.createLoggerFor(ClusterLocker.class);
 
 	private Syncer syncer;
 	private EventBus eventBus;
@@ -130,22 +128,23 @@ public abstract class ClusterLocker implements Locker, GenericEventListener {
 		if (!se.isSignOn() && se.isEventOnThisNode()) {
 			// it is a "logout" event - we are only interested in logout events
 			// and it is from our VM => only release all locks from within one VM
-			String identName = se.getIdentityName();
+			Long identKey = se.getIdentityKey();
 			// release all locks held by the identity that has just logged out.
 			// (assuming one user has only one session (logged in with one browser only): otherwise (as in singlevm, too)
 			// since the lock is reentrant, a lock could be freed while a session still is in a locked workflow (2x lock and then once freed)
 			try {
-				clusterLockManager.releaseAllLocksFor(identName);
+				clusterLockManager.releaseAllLocksFor(identKey);
+				DBFactory.getInstance().commit();
 			} catch (DBRuntimeException dbEx) {
-				log.warn("releaseAllLocksFor failed, close session and try it again for identName=" + identName);
+				log.warn("releaseAllLocksFor failed, close session and try it again for identName=" + identKey);
 				//TODO: 2010-04-23 Transactions [eglis]: OLAT-4318: this rollback has possibly unwanted
 				//      side effects, as it rolls back any changes with this transaction during this
 				//      event handling. Nicer would be to be done in the outmost-possible place, e.g. dofire()
 				DBFactory.getInstance().rollbackAndCloseSession();
 				// try again with new db-session
-				log.info("try again to release all locks for identName=" + identName);
-				clusterLockManager.releaseAllLocksFor(identName);
-				log.info("Done, released all locks for identName=" + identName);
+				log.info("try again to release all locks for identName=" + identKey);
+				clusterLockManager.releaseAllLocksFor(identKey);
+				log.info("Done, released all locks for identName=" + identKey);
 			}
 		}
 	}

@@ -34,5 +34,7 @@ public interface StackedController extends Controller {
 	public void popUpToRootController(UserRequest ureq);
 	
 	public void pushController(String displayName, Controller controller);
+	
+	public void popController(Controller controller);
 
 }

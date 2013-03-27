@@ -28,6 +28,7 @@
 */
 package org.olat.core.id.context;
 
+import java.io.Serializable;
 import java.io.UnsupportedEncodingException;
 import java.net.URLDecoder;
 import java.text.DateFormat;
@@ -49,6 +50,7 @@ import org.olat.core.logging.AssertException;
 import org.olat.core.logging.OLog;
 import org.olat.core.logging.Tracing;
 import org.olat.core.util.StringHelper;
+import org.olat.core.util.WebappHelper;
 import org.olat.core.util.resource.OresHelper;
 import org.olat.core.util.servlets.URLEncoder;
 
@@ -480,6 +482,23 @@ public class BusinessControlFactory {
 		}
 	}
 	
+	public String getRelativeURLFromBusinessPathString(String bPathString){
+		if(!StringHelper.containsNonWhitespace(bPathString)) {
+			return null;
+		}
+		
+		try {
+			BusinessControlFactory bCF = BusinessControlFactory.getInstance(); 
+			List<ContextEntry> ceList = bCF.createCEListFromString(bPathString);
+			String busPath = getBusinessPathAsURIFromCEList(ceList); 
+			
+			return WebappHelper.getServletContextPath() +"/url/"+busPath;
+		} catch(Exception e) {
+			log.error("Error with business path: " + bPathString, e);
+			return null;
+		}
+	}
+	
 	public String formatFromURI(String restPart) {
 		try {
 			restPart = URLDecoder.decode(restPart, "UTF8");
@@ -505,7 +524,9 @@ public class BusinessControlFactory {
 	}
 }	
 
-class MyContextEntry implements ContextEntry {
+class MyContextEntry implements ContextEntry, Serializable {
+
+	private static final long serialVersionUID = 949522581806327579L;
 	private final OLATResourceable olatResourceable;
 
 	//fxdiff BAKS-7 Resume function
