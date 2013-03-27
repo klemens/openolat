@@ -6,6 +6,7 @@ import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.form.Form;
 import org.olat.core.gui.components.form.flexible.FormItemContainer;
 import org.olat.core.gui.components.form.flexible.impl.FormBasicController;
+import org.olat.core.gui.components.form.flexible.impl.FormLayoutContainer;
 import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.WindowControl;
 import org.olat.core.gui.components.form.flexible.elements.Cancel;
@@ -40,15 +41,20 @@ public class ChooseExamAttrForm extends FormBasicController {
 	public ChooseExamAttrForm(UserRequest ureq, WindowControl wControl,
 			String name, Translator translator) {
 		super(ureq, wControl);
+		
+		initForm(ureq);
+	}
 
+	@Override
+	protected void initForm(FormItemContainer formLayout, Controller listener,
+			UserRequest ureq) {
 		// type of exam (written / oral)
-		String[] values = new String[] { translator.translate("written"),
-				translator.translate("oral") };
+		String[] values = new String[] { translate("written"), translate("oral") };
 		String[] keys = new String[] { Exam.EXAM_TYPE_WRITTEN,
 				Exam.EXAM_TYPE_ORAL };
 
 		examTypeSwitchElem = uifactory.addRadiosVertical("examType",
-				"ChooseExamAttrForm.radioButton", null, keys, values);
+				"ChooseExamAttrForm.radioButton", formLayout, keys, values);
 		examTypeSwitchElem.select(Exam.EXAM_TYPE_WRITTEN, true);
 
 		// module, exam belongs to
@@ -61,20 +67,14 @@ public class ChooseExamAttrForm extends FormBasicController {
 		}
 
 		module = uifactory.addDropdownSingleselect("module",
-				"ChooseExamAttrForm.module", null, keys, values, null);
+				"ChooseExamAttrForm.module", formLayout, keys, values, null);
 		module.setMandatory(true);
 
 		// submit / cancel keys
-		submit = uifactory.addFormSubmitButton("save", "submitKey", null);
-		cancel = uifactory.addFormCancelButton("cancel", null, ureq,
-				getWindowControl());
-	}
-
-	@Override
-	protected void initForm(FormItemContainer formLayout, Controller listener,
-			UserRequest ureq) {
-		// TODO Auto-generated method stub
-
+		FormLayoutContainer buttonGroupLayout = FormLayoutContainer.createButtonLayout("buttonGroupLayout", getTranslator());
+		formLayout.add(buttonGroupLayout);
+		submit = uifactory.addFormSubmitButton("save", "submitKey", buttonGroupLayout);
+		cancel = uifactory.addFormCancelButton("cancel", buttonGroupLayout, ureq, getWindowControl());
 	}
 
 	/**

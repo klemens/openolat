@@ -273,6 +273,12 @@ public class RepositoryAddController extends BasicController {
 			translatedTypeName = translate("tools.add.cp");
 			typeIntro = translate("new.cp.intro");
 		}		
+		else if (actionAddCommand.equals(ACTION_NEW_EXAM)) {
+			typeToAdd = new ExamHandler();
+			addController = typeToAdd.createAddController(addCallback, ExamHandler.PROCESS_CREATENEW, ureq, getWindowControl());
+			translatedTypeName = translate("new.exam");
+			typeIntro = translate("new.exam.intro");
+		}
 		else throw new AssertException("Unsuported Repository Type.");
 
 		// AddControllers may not need a GUI-based workflow.
