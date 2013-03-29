@@ -12,6 +12,12 @@
 	<!-- 
 		Define all available user properties and its handlers 
 	-->
+	<bean name="studyPath" class="org.olat.user.propertyhandlers.Generic127CharTextPropertyHandler">
+		<property name="name" value="studyPath" />
+		<property name="group" value="person" />
+		<property name="deletable" value="false" />
+	</bean>
+		
 	<bean name="userPropertyFirstName" class="org.olat.user.propertyhandlers.Generic127CharTextPropertyHandler">
 		<property name="name" value="firstName" />
 		<property name="group" value="account" />
