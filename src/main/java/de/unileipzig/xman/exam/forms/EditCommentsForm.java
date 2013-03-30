@@ -8,8 +8,12 @@ import org.olat.core.gui.components.form.flexible.elements.Cancel;
 import org.olat.core.gui.components.form.flexible.elements.Submit;
 import org.olat.core.gui.components.form.flexible.elements.TextElement;
 import org.olat.core.gui.components.form.flexible.impl.FormBasicController;
+import org.olat.core.gui.components.form.flexible.impl.FormLayoutContainer;
 import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.WindowControl;
+import org.olat.core.util.Util;
+
+import de.unileipzig.xman.exam.Exam;
 
 /**
  * 
@@ -24,6 +28,7 @@ public class EditCommentsForm extends FormBasicController {
 	TextElement commentsWikiArea;
 	private Submit submit;
 	private Cancel cancel;
+	String comments;
 
 	/**
 	 * creates the edit comments form
@@ -38,22 +43,25 @@ public class EditCommentsForm extends FormBasicController {
 	public EditCommentsForm(UserRequest ureq, WindowControl wControl,
 			String name, Translator translator, String comments) {
 		super(ureq, wControl);
-
-		commentsWikiArea = uifactory.addTextAreaElement("comments",
-				"EditCommentsForm.commentsWikiArea", 1024, 7, 70, true,
-				comments, null);
-
-		// submit / cancel keys
-		submit = uifactory.addFormSubmitButton("save", "saveButton", null);
-		cancel = uifactory.addFormCancelButton("cancel", null, ureq,
-				getWindowControl());
+		
+		setTranslator(Util.createPackageTranslator(Exam.class, ureq.getLocale()));
+		
+		this.comments = comments;
+		
+		initForm(ureq);
 	}
 
 	@Override
 	protected void initForm(FormItemContainer formLayout, Controller listener,
 			UserRequest ureq) {
-		// TODO Auto-generated method stub
+		commentsWikiArea = uifactory.addTextAreaElement("comments",
+				"EditCommentsForm.commentsWikiArea", 1024, 7, 70, true,
+				comments, formLayout);
 
+		FormLayoutContainer buttonGroupLayout = FormLayoutContainer.createButtonLayout("buttonGroupLayout", getTranslator());
+		formLayout.add(buttonGroupLayout);
+		submit = uifactory.addFormSubmitButton("save", "saveButton", buttonGroupLayout);
+		cancel = uifactory.addFormCancelButton("cancel", buttonGroupLayout, ureq, getWindowControl());
 	}
 
 	/**

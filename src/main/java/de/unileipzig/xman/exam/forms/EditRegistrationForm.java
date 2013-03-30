@@ -10,9 +10,13 @@ import org.olat.core.gui.components.form.flexible.elements.Cancel;
 import org.olat.core.gui.components.form.flexible.elements.DateChooser;
 import org.olat.core.gui.components.form.flexible.elements.Submit;
 import org.olat.core.gui.components.form.flexible.impl.FormBasicController;
+import org.olat.core.gui.components.form.flexible.impl.FormLayoutContainer;
 import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.WindowControl;
 import org.olat.core.gui.translator.Translator;
+import org.olat.core.util.Util;
+
+import de.unileipzig.xman.exam.Exam;
 
 /**
  * 
@@ -25,6 +29,9 @@ public class EditRegistrationForm extends FormBasicController {
 	private DateChooser signOff;
 	private Submit submit;
 	private Cancel cancel;
+	Date regStartDate;
+	Date regEndDate;
+	Date signOffDate;
 
 	/**
 	 * creates the editRegistrationForm
@@ -44,10 +51,22 @@ public class EditRegistrationForm extends FormBasicController {
 			String name, Translator translator, Date regStartDate,
 			Date regEndDate, Date signOffDate) {
 		super(ureq, wControl);
+		
+		setTranslator(Util.createPackageTranslator(Exam.class, ureq.getLocale()));
+		
+		this.regStartDate = regStartDate;
+		this.regEndDate = regEndDate;
+		this.signOffDate = signOffDate;
+		
+		initForm(ureq);
+	}
 
+	@Override
+	protected void initForm(FormItemContainer formLayout, Controller listener,
+			UserRequest ureq) {
 		regStart = uifactory.addDateChooser("regStart",
 				"EditRegistrationForm.regStartDate", SimpleDateFormat
-						.getInstance().format(new Date()), null);
+						.getInstance().format(new Date()), formLayout);
 		regStart.setCustomDateFormat("dd.MM.yyyy HH:mm");
 		regStart.setMandatory(true);
 		regStart.setDisplaySize(20);
@@ -62,7 +81,7 @@ public class EditRegistrationForm extends FormBasicController {
 
 		regEnd = uifactory.addDateChooser("regEnd",
 				"EditRegistrationForm.regEndDate", SimpleDateFormat
-						.getInstance().format(new Date()), null);
+						.getInstance().format(new Date()), formLayout);
 		regEnd.setCustomDateFormat("dd.MM.yyyy HH:mm");
 		regEnd.setMandatory(true);
 		regEnd.setDisplaySize(20);
@@ -76,7 +95,7 @@ public class EditRegistrationForm extends FormBasicController {
 
 		signOff = uifactory.addDateChooser("signOff",
 				"EditRegistrationForm.signOffDate", SimpleDateFormat
-						.getInstance().format(new Date()), null);
+						.getInstance().format(new Date()), formLayout);
 		signOff.setCustomDateFormat("dd.MM.yyyy HH:mm");
 		signOff.setMandatory(true);
 		signOff.setExampleKey("EditRegistrationForm.signOffDate.example", null);
@@ -90,17 +109,10 @@ public class EditRegistrationForm extends FormBasicController {
 				"\\d{2}\\.\\d{2}\\.\\d{4}\\ \\d{2}\\:\\d{2}",
 				"EditRegistrationForm.isEmpty");
 
-		// submit / cancel keys
-		submit = uifactory.addFormSubmitButton("save", "saveButton", null);
-		cancel = uifactory.addFormCancelButton("cancel", null, ureq,
-				getWindowControl());
-	}
-
-	@Override
-	protected void initForm(FormItemContainer formLayout, Controller listener,
-			UserRequest ureq) {
-		// TODO Auto-generated method stub
-
+		FormLayoutContainer buttonGroupLayout = FormLayoutContainer.createButtonLayout("buttonGroupLayout", getTranslator());
+		formLayout.add(buttonGroupLayout);
+		submit = uifactory.addFormSubmitButton("save", "saveButton", buttonGroupLayout);
+		cancel = uifactory.addFormCancelButton("cancel", buttonGroupLayout, ureq, getWindowControl());
 	}
 
 	/**
