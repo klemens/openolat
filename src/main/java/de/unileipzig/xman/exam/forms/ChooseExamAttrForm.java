@@ -13,6 +13,7 @@ import org.olat.core.gui.components.form.flexible.elements.Cancel;
 import org.olat.core.gui.components.form.flexible.elements.SingleSelection;
 import org.olat.core.gui.components.form.flexible.elements.Submit;
 import org.olat.core.gui.translator.Translator;
+import org.olat.core.util.Util;
 
 import de.unileipzig.xman.exam.Exam;
 import de.unileipzig.xman.module.Module;
@@ -28,7 +29,6 @@ public class ChooseExamAttrForm extends FormBasicController {
 	private SingleSelection examTypeSwitchElem;
 	private SingleSelection module;
 	private Submit submit;
-	private Cancel cancel;
 
 	/**
 	 * default constructor
@@ -41,6 +41,8 @@ public class ChooseExamAttrForm extends FormBasicController {
 	public ChooseExamAttrForm(UserRequest ureq, WindowControl wControl,
 			String name, Translator translator) {
 		super(ureq, wControl);
+		
+		setTranslator(Util.createPackageTranslator(Exam.class, ureq.getLocale()));
 		
 		initForm(ureq);
 	}
@@ -74,7 +76,6 @@ public class ChooseExamAttrForm extends FormBasicController {
 		FormLayoutContainer buttonGroupLayout = FormLayoutContainer.createButtonLayout("buttonGroupLayout", getTranslator());
 		formLayout.add(buttonGroupLayout);
 		submit = uifactory.addFormSubmitButton("save", "submitKey", buttonGroupLayout);
-		cancel = uifactory.addFormCancelButton("cancel", buttonGroupLayout, ureq, getWindowControl());
 	}
 
 	/**

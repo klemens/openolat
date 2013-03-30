@@ -8,9 +8,13 @@ import org.olat.core.gui.components.form.flexible.elements.FormToggle;
 import org.olat.core.gui.components.form.flexible.elements.MultipleSelectionElement;
 import org.olat.core.gui.components.form.flexible.elements.Submit;
 import org.olat.core.gui.components.form.flexible.impl.FormBasicController;
+import org.olat.core.gui.components.form.flexible.impl.FormLayoutContainer;
 import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.WindowControl;
 import org.olat.core.gui.translator.Translator;
+import org.olat.core.util.Util;
+
+import de.unileipzig.xman.exam.Exam;
 
 /**
  * 
@@ -21,6 +25,7 @@ public class EditEarmarkedForm extends FormBasicController {
 	private FormToggle box;
 	private Submit submit;
 	private Cancel cancel;
+	boolean earmarked;
 
 	/**
 	 * creates the editEarmarkedForm
@@ -35,8 +40,18 @@ public class EditEarmarkedForm extends FormBasicController {
 	public EditEarmarkedForm(UserRequest ureq, WindowControl wControl,
 			String name, Translator translator, boolean earmarked) {
 		super(ureq, wControl);
+		
+		setTranslator(Util.createPackageTranslator(Exam.class, ureq.getLocale()));
 
-		box = uifactory.addToggleButton("EditEarmarkedForm.box", null, null,
+		this.earmarked = earmarked;
+		
+		initForm(ureq);
+	}
+
+	@Override
+	protected void initForm(FormItemContainer formLayout, Controller listener,
+			UserRequest ureq) {
+		box = uifactory.addToggleButton("EditEarmarkedForm.box", null, formLayout,
 				null, null);
 		if (earmarked) {
 			box.toggleOn();
@@ -44,18 +59,10 @@ public class EditEarmarkedForm extends FormBasicController {
 			box.toggleOff();
 		}
 
-		// submit / cancel keys
-		submit = uifactory.addFormSubmitButton("save", "saveButton", null);
-		cancel = uifactory.addFormCancelButton("cancel", null, ureq,
-				getWindowControl());
-
-	}
-
-	@Override
-	protected void initForm(FormItemContainer formLayout, Controller listener,
-			UserRequest ureq) {
-		// TODO Auto-generated method stub
-
+		FormLayoutContainer buttonGroupLayout = FormLayoutContainer.createButtonLayout("buttonGroupLayout", getTranslator());
+		formLayout.add(buttonGroupLayout);
+		submit = uifactory.addFormSubmitButton("save", "saveButton", buttonGroupLayout);
+		cancel = uifactory.addFormCancelButton("cancel", buttonGroupLayout, ureq, getWindowControl());
 	}
 
 	/**

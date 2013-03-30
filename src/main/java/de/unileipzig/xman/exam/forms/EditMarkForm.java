@@ -4,12 +4,16 @@ import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.form.Form;
 import org.olat.core.gui.components.form.flexible.FormItemContainer;
 import org.olat.core.gui.components.form.flexible.impl.FormBasicController;
+import org.olat.core.gui.components.form.flexible.impl.FormLayoutContainer;
 import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.WindowControl;
 import org.olat.core.gui.translator.Translator;
 import org.olat.core.gui.components.form.flexible.elements.Cancel;
 import org.olat.core.gui.components.form.flexible.elements.Submit;
 import org.olat.core.gui.components.form.flexible.elements.TextElement;
+import org.olat.core.util.Util;
+
+import de.unileipzig.xman.exam.Exam;
 
 /**
  * 
@@ -32,7 +36,15 @@ public class EditMarkForm extends FormBasicController {
 	public EditMarkForm(UserRequest ureq, WindowControl wControl, String name,
 			Translator translator) {
 		super(ureq, wControl);
+		
+		setTranslator(Util.createPackageTranslator(Exam.class, ureq.getLocale()));
+		
+		initForm(ureq);
+	}
 
+	@Override
+	protected void initForm(FormItemContainer formLayout, Controller listener,
+			UserRequest ureq) {
 		/*
 		 * points = new TextElement("EditMarkForm.points", 4);
 		 * points.setMandatory(true); points.setExample("EditMarkForm.example");
@@ -40,22 +52,15 @@ public class EditMarkForm extends FormBasicController {
 		 */
 
 		grade = uifactory.addTextElement("mark", "EditMarkForm.grade", 50, "",
-				null);
+				formLayout);
 		grade.setMandatory(true);
 		grade.setExampleKey("EditMarkForm.example", null);
 		grade.showExample(true);
 
-		// submit / cancel keys
-		submit = uifactory.addFormSubmitButton("save", "saveButton", null);
-		cancel = uifactory.addFormCancelButton("cancel", null, ureq,
-				getWindowControl());
-	}
-
-	@Override
-	protected void initForm(FormItemContainer formLayout, Controller listener,
-			UserRequest ureq) {
-		// TODO Auto-generated method stub
-
+		FormLayoutContainer buttonGroupLayout = FormLayoutContainer.createButtonLayout("buttonGroupLayout", getTranslator());
+		formLayout.add(buttonGroupLayout);
+		submit = uifactory.addFormSubmitButton("save", "saveButton", buttonGroupLayout);
+		cancel = uifactory.addFormCancelButton("cancel", buttonGroupLayout, ureq, getWindowControl());
 	}
 
 	/**
