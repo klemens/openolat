@@ -290,12 +290,21 @@ public class ExamEditorController extends DefaultController implements
 	 *      org.olat.core.gui.control.Event)
 	 */
 	public void event(UserRequest ureq, Component source, Event event) {
-
 		if (source == menuTree) {
-
 			// nothing to do here
+		} else if (source == addAppLink) {
+			VelocityContainer vcEditApp = new VelocityContainer(
+					"createAppPage", VELOCITY_ROOT + "/createApp.html",
+					translator, this);
+			createAppForm = new CreateAndEditAppointmentForm(ureq, this
+					.getWindowControl(), "createAppForm", translator, exam
+					.getIsOral(), null);
+			createAppForm.addControllerListener(this);
+			vcEditApp.put("createAppForm", createAppForm.getInitialComponent());
+			cmc = new CloseableModalController(this.getWindowControl(),
+					translator.translate("close"), vcEditApp);
+			cmc.activate();
 		}
-
 	}
 
 	/**
@@ -304,7 +313,6 @@ public class ExamEditorController extends DefaultController implements
 	 *      org.olat.core.gui.control.Event)
 	 */
 	public void event(UserRequest ureq, Controller source, Event event) {
-
 		if (source == toolCtr) {
 			// close editor
 			if (event.getCommand().equals(CMD_TOOLS_CLOSE_EDITOR)) {
@@ -481,19 +489,6 @@ public class ExamEditorController extends DefaultController implements
 				exam.setEarmarkedEnabled(editEarmarkedForm.getEarmarked());
 				ExamDBManager.getInstance().updateExam(exam);
 			}
-		} else if (source == addAppLink) {
-
-			VelocityContainer vcEditApp = new VelocityContainer(
-					"createAppPage", VELOCITY_ROOT + "/createApp.html",
-					translator, this);
-			createAppForm = new CreateAndEditAppointmentForm(ureq, this
-					.getWindowControl(), "createAppForm", translator, exam
-					.getIsOral(), null);
-			createAppForm.addControllerListener(this);
-			vcEditApp.put("createAppForm", createAppForm.getInitialComponent());
-			cmc = new CloseableModalController(this.getWindowControl(),
-					translator.translate("close"), vcEditApp);
-			cmc.activate();
 		} else if (source == createAppForm) {
 
 			if (event == Form.EVNT_VALIDATION_OK) {
