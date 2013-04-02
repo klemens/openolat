@@ -14,10 +14,14 @@ import org.olat.core.gui.control.WindowControl;
 import org.olat.core.gui.components.form.flexible.elements.Cancel;
 import org.olat.core.gui.components.form.flexible.elements.Submit;
 import org.olat.core.gui.components.form.flexible.elements.TextElement;
+import org.olat.core.gui.translator.PackageTranslator;
 import org.olat.core.gui.translator.Translator;
 import org.olat.core.id.Identity;
 import org.olat.core.id.IdentityManager;
+import org.olat.core.util.Util;
 
+import de.unileipzig.xman.admin.ExamAdminSite;
+import de.unileipzig.xman.admin.ExamAdminSiteDef;
 import de.unileipzig.xman.module.Module;
 import de.unileipzig.xman.module.ModuleManager;
 
@@ -39,9 +43,13 @@ public class CreateAndEditModuleForm extends FormBasicController {
 			String formName, Module module) {
 		super(ureq, wControl);
 		this.module = module;
+	//	this.setTranslator(Util.createPackageTranslator("de.unileipzig.xman.admin", ureq.getLocale()));
+		this.setTranslator(new PackageTranslator("de.unileipzig.xman.admin", ureq.getLocale()));
 		initForm(ureq);
 	}
 
+	
+	
 	@Override
 	protected void initForm(FormItemContainer formLayout, Controller listener,
 			UserRequest ureq) {

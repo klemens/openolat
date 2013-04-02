@@ -6,6 +6,7 @@ import org.olat.core.gui.components.form.flexible.FormItemContainer;
 import org.olat.core.gui.components.form.flexible.impl.FormBasicController;
 import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.WindowControl;
+import org.olat.core.gui.translator.PackageTranslator;
 import org.olat.core.gui.translator.Translator;
 import org.olat.core.gui.components.form.flexible.elements.Cancel;
 import org.olat.core.gui.components.form.flexible.elements.Submit;
@@ -42,7 +43,7 @@ public class ESFCommentCreateAndEditForm extends FormBasicController {
 			CommentEntry entry) {
 		super(ureq, wControl);
 		this.entry=entry;
-
+		this.setTranslator(new PackageTranslator("de.unileipzig.xman.esf", ureq.getLocale()));
 		initForm(ureq);
 	}
 

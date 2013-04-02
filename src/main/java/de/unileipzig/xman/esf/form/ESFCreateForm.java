@@ -15,6 +15,7 @@ import org.olat.core.gui.components.form.flexible.elements.SingleSelection;
 import org.olat.core.gui.components.form.flexible.impl.FormBasicController;
 import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.WindowControl;
+import org.olat.core.gui.translator.PackageTranslator;
 import org.olat.core.gui.translator.Translator;
 import org.olat.core.id.Identity;
 import org.olat.core.id.UserConstants;
@@ -51,6 +52,7 @@ public class ESFCreateForm extends FormBasicController {
 		this.loc = I18nManager.getInstance().getLocaleOrDefault(null);
 		this.translator = translator;
 		this.identity = identity;
+		this.setTranslator(new PackageTranslator("de.unileipzig.xman.esf", ureq.getLocale()));
 		initForm(ureq);
 
 	}

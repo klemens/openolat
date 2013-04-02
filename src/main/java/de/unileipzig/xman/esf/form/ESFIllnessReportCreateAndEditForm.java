@@ -12,6 +12,7 @@ import org.olat.core.gui.components.form.flexible.impl.FormBasicController;
 import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.WindowControl;
 import org.olat.core.gui.components.form.flexible.elements.DateChooser;
+import org.olat.core.gui.translator.PackageTranslator;
 import org.olat.core.gui.translator.Translator;
 
 import de.unileipzig.xman.illness.IllnessReportEntry;
@@ -44,7 +45,7 @@ public class ESFIllnessReportCreateAndEditForm extends FormBasicController {
 			IllnessReportEntry entry) {
 		super(ureq, wControl);
 		this.entry=entry;
-		
+		this.setTranslator(new PackageTranslator("de.unileipzig.xman.esf", ureq.getLocale()));
 		initForm(ureq);
 	}
 

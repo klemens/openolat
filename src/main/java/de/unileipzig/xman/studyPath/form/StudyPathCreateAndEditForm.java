@@ -9,6 +9,7 @@ import org.olat.core.gui.control.WindowControl;
 import org.olat.core.gui.components.form.flexible.elements.Cancel;
 import org.olat.core.gui.components.form.flexible.elements.Submit;
 import org.olat.core.gui.components.form.flexible.elements.TextElement;
+import org.olat.core.gui.translator.PackageTranslator;
 import org.olat.core.gui.translator.Translator;
 
 import de.unileipzig.xman.studyPath.StudyPath;
@@ -26,6 +27,8 @@ public class StudyPathCreateAndEditForm extends FormBasicController {
 		super(ureq, wControl);
 		this.studyPath = studyPath;
 		this.translator = translator;
+		this.setTranslator(new PackageTranslator("de.unileipzig.xman.studyPath", ureq.getLocale()));
+		System.out.println("::::Robert änderung" + this);
 		initForm(ureq);
 
 	}
