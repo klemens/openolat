@@ -9,6 +9,7 @@ import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.Windows;
 import org.olat.core.gui.components.Component;
 import org.olat.core.gui.components.panel.Panel;
+import org.olat.core.gui.components.tabbedpane.TabbedPane;
 import org.olat.core.gui.components.table.Table;
 import org.olat.core.gui.components.table.TableController;
 import org.olat.core.gui.components.table.TableEvent;
@@ -103,6 +104,9 @@ public class ESFLaunchController extends BasicController {
 	private ESFCreateController esfController;
 	private CloseableModalController cmc;
 
+	// Separate panels for VelocityContainer and ToolController
+	private TabbedPane tabbedPane;
+	
 	/**
 	 * 
 	 * @param ureq
@@ -117,7 +121,13 @@ public class ESFLaunchController extends BasicController {
 				+ "/esf-launch.html", translator, this);
 
 		this.init(ureq, wControl);
-		this.putInitialPanel(mainVC);
+
+		tabbedPane = new TabbedPane("pane", ureq.getLocale());
+		tabbedPane.addListener(this);
+		tabbedPane.addTab("Elektronische Studentenakte", mainVC);
+		tabbedPane.addTab("Verwaltung", toolCtr.getInitialComponent());
+		
+		this.putInitialPanel(tabbedPane);
 	}
 
 	/**
