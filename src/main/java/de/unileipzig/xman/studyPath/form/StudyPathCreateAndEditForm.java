@@ -28,7 +28,6 @@ public class StudyPathCreateAndEditForm extends FormBasicController {
 		this.studyPath = studyPath;
 		this.translator = translator;
 		this.setTranslator(new PackageTranslator("de.unileipzig.xman.studyPath", ureq.getLocale()));
-		System.out.println("::::Robert änderung" + this);
 		initForm(ureq);
 
 	}

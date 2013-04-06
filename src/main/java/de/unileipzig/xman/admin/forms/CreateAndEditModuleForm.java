@@ -43,7 +43,6 @@ public class CreateAndEditModuleForm extends FormBasicController {
 			String formName, Module module) {
 		super(ureq, wControl);
 		this.module = module;
-	//	this.setTranslator(Util.createPackageTranslator("de.unileipzig.xman.admin", ureq.getLocale()));
 		this.setTranslator(new PackageTranslator("de.unileipzig.xman.admin", ureq.getLocale()));
 		initForm(ureq);
 	}
