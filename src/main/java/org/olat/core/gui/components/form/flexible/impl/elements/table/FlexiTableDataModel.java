@@ -26,17 +26,18 @@
 
 package org.olat.core.gui.components.form.flexible.impl.elements.table;
 
+
 /**
  * Interface for table data model including column models.
  * @author Christian Guretzki
  */
 public interface FlexiTableDataModel {
 
-
 	/**
 	 * @return Number of table rows.
 	 */
 	public int getRowCount();
+	
 
 	/**
 	 * Return Object for certain table cell.

@@ -69,8 +69,13 @@ public class ImportMemberOverviewIdentitiesController extends StepFormBasicContr
 
 		oks = null;
 		if(containsRunContextKey("logins")) {
+			DataType type = (DataType)runContext.get("dataType");
+			if(type == null) {
+				type = DataType.username;
+			}
+			
 			String logins = (String)runContext.get("logins");
-			oks = loadModel(logins);
+			oks = loadModel(logins, type);
 		} else if(containsRunContextKey("keys")) {
 			@SuppressWarnings("unchecked")
 			List<String> keys = (List<String>)runContext.get("keys");
@@ -87,8 +92,9 @@ public class ImportMemberOverviewIdentitiesController extends StepFormBasicContr
 		
 		//add the table
 		FlexiTableColumnModel tableColumnModel = FlexiTableDataModelFactory.createFlexiTableColumnModel();
+		int colIndex = 0;
 		if(isAdministrativeUser) {
-			tableColumnModel.addFlexiColumnModel(new DefaultFlexiColumnModel("table.user.login"));
+			tableColumnModel.addFlexiColumnModel(new DefaultFlexiColumnModel("table.user.login", colIndex++));
 		}
 		List<UserPropertyHandler> userPropertyHandlers = userManager.getUserPropertyHandlersFor(usageIdentifyer, isAdministrativeUser);
 		List<UserPropertyHandler> resultingPropertyHandlers = new ArrayList<UserPropertyHandler>();
@@ -98,14 +104,14 @@ public class ImportMemberOverviewIdentitiesController extends StepFormBasicContr
 			boolean visible = UserManager.getInstance().isMandatoryUserProperty(usageIdentifyer , userPropertyHandler);
 			if(visible) {
 				resultingPropertyHandlers.add(userPropertyHandler);
-				tableColumnModel.addFlexiColumnModel(new DefaultFlexiColumnModel(userPropertyHandler.i18nColumnDescriptorLabelKey()));
+				tableColumnModel.addFlexiColumnModel(new DefaultFlexiColumnModel(userPropertyHandler.i18nColumnDescriptorLabelKey(), colIndex++));
 			}
 		}
 		
 		Translator myTrans = userManager.getPropertyHandlerTranslator(getTranslator());
 		ImportMemberOverviewDataModel userTableModel = new ImportMemberOverviewDataModel(oks, resultingPropertyHandlers,
 				isAdministrativeUser, getLocale(), tableColumnModel);
-		uifactory.addTableElement("users", userTableModel, myTrans, formLayout);
+		uifactory.addTableElement(ureq, "users", userTableModel, myTrans, formLayout);
 	}
 	
 	private List<Identity> loadModel(List<String> keys) {
@@ -141,7 +147,7 @@ public class ImportMemberOverviewIdentitiesController extends StepFormBasicContr
 		return oks;
 	}
 	
-	private List<Identity> loadModel(String inp) {
+	private List<Identity> loadModel(String inp, DataType type) {
 		List<Identity> existIdents = Collections.emptyList();//securityManager.getIdentitiesOfSecurityGroup(securityGroup);
 
 		List<Identity> oks = new ArrayList<Identity>();
@@ -155,7 +161,21 @@ public class ImportMemberOverviewIdentitiesController extends StepFormBasicContr
 		for (int i = 0; i < lines.length; i++) {
 			String username = lines[i].trim();
 			if (!username.equals("")) { // skip empty lines
-				Identity ident = securityManager.findIdentityByName(username);
+				Identity ident;
+				switch(type) {
+					case email: {
+						ident = userManager.findIdentityByEmail(username);
+						break;
+					}
+					case institutionalUserIdentifier: {
+						ident = securityManager.findIdentityByNumber(username);
+						break;
+					}
+					default: {
+						ident = securityManager.findIdentityByName(username);
+					}
+				}
+
 				if (ident == null) { // not found, add to not-found-list
 					notfounds.add(username);
 				} else if (securityManager.isIdentityInSecurityGroup(ident, anonymousSecGroup)) {
@@ -193,5 +213,11 @@ public class ImportMemberOverviewIdentitiesController extends StepFormBasicContr
 	@Override
 	protected void doDispose() {
 		//
+	}
+	
+	public enum DataType {
+		username,
+		email,
+		institutionalUserIdentifier
 	}
 }

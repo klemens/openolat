@@ -33,6 +33,7 @@ import org.olat.core.gui.components.form.flexible.impl.elements.table.DefaultFle
 import org.olat.core.gui.components.form.flexible.impl.elements.table.FlexiTableColumnModel;
 import org.olat.core.gui.components.form.flexible.impl.elements.table.FlexiTableDataModel;
 import org.olat.core.gui.components.form.flexible.impl.elements.table.FlexiTableDataModelFactory;
+import org.olat.core.gui.components.form.flexible.impl.elements.table.FlexiTableDataModelImpl;
 import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.WindowControl;
 import org.olat.core.gui.control.generic.wizard.BasicStep;
@@ -135,20 +136,18 @@ public class DeletStep01 extends BasicStep {
 
 			FlexiTableColumnModel tableColumnModel = FlexiTableDataModelFactory.createFlexiTableColumnModel();
 			int colPos = 0;
-			tableColumnModel.addFlexiColumnModel(new DefaultFlexiColumnModel("username"));
+			tableColumnModel.addFlexiColumnModel(new DefaultFlexiColumnModel("username", colPos++));
 			for (String property : reqProberty) {
 				List<UserPropertyHandler> properHandlerList = UserManager.getInstance().getAllUserPropertyHandlers();
 				for (UserPropertyHandler userProperty : properHandlerList) {
 					if (userProperty.getName().equals(property)) {
-						tableColumnModel.addFlexiColumnModel(new DefaultFlexiColumnModel(userProperty.i18nColumnDescriptorLabelKey()));
-						colPos++;
+						tableColumnModel.addFlexiColumnModel(new DefaultFlexiColumnModel(userProperty.i18nColumnDescriptorLabelKey(), colPos++));
 					}
 				}
 			}
 
-			tableDataModel = FlexiTableDataModelFactory.createFlexiTableDataModel(new IdentityFlexiTableModel(mergedDataChanges, colPos + 1),
-					tableColumnModel);
-			uifactory.addTableElement("newUsers", tableDataModel, formLayout);
+			tableDataModel = new FlexiTableDataModelImpl(new IdentityFlexiTableModel(mergedDataChanges, colPos + 1), tableColumnModel);
+			uifactory.addTableElement(ureq, "newUsers", tableDataModel, formLayout);
 		}
 
 	}

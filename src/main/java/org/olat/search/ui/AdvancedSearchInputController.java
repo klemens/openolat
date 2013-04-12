@@ -28,7 +28,6 @@ import java.util.Properties;
 import java.util.Set;
 
 import org.olat.core.CoreSpringFactory;
-import org.olat.core.commons.services.search.AbstractOlatDocument;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.form.flexible.FormItem;
 import org.olat.core.gui.components.form.flexible.FormItemContainer;
@@ -47,6 +46,7 @@ import org.olat.core.logging.OLog;
 import org.olat.core.logging.Tracing;
 import org.olat.core.util.ArrayHelper;
 import org.olat.core.util.StringHelper;
+import org.olat.search.model.AbstractOlatDocument;
 import org.olat.search.service.SearchMetadataFieldsProvider;
 import org.olat.search.service.document.ContextHelpDocument;
 import org.olat.search.service.document.file.ExcelDocument;
@@ -117,8 +117,8 @@ public class AdvancedSearchInputController extends FormBasicController {
 		authorQuery = uifactory.addTextElement("search_author", "form.search.label.author", 255, "", formLayout); 
 		titleQuery = uifactory.addTextElement("search_title", "form.search.label.title", 255, "", formLayout);
 		descriptionQuery = uifactory.addTextElement("search_description", "form.search.label.description", 255, "", formLayout);
-		createdDate = uifactory.addDateChooser("search_creation", "form.search.label.created.date", "", formLayout);
-		modifiedDate = uifactory.addDateChooser("search_modification", "form.search.label.modified.date", "", formLayout);
+		createdDate = uifactory.addDateChooser("search_creation", "form.search.label.created.date", null, formLayout);
+		modifiedDate = uifactory.addDateChooser("search_modification", "form.search.label.modified.date", null, formLayout);
 
 		//document types
 		initDocumentTypesKeysAndValues();

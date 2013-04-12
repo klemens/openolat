@@ -25,16 +25,27 @@
 */
 package org.olat.core.gui.components.form.flexible.impl.elements.table;
 
+import java.util.ArrayList;
+import java.util.List;
+
+import org.olat.core.gui.UserRequest;
+import org.olat.core.gui.components.Component;
+import org.olat.core.gui.components.ComponentCollection;
 import org.olat.core.gui.components.ComponentRenderer;
+import org.olat.core.gui.components.form.flexible.FormItem;
 import org.olat.core.gui.components.form.flexible.impl.FormBaseComponentImpl;
+import org.olat.core.gui.render.ValidationResult;
 import org.olat.core.gui.translator.Translator;
 
 /**
  * @author Christian Guretzki
  */
-class FlexiTableComponent extends FormBaseComponentImpl {
+public class FlexiTableComponent extends FormBaseComponentImpl implements ComponentCollection {
 
-	private ComponentRenderer RENDERER = new FlexiTableRenderer();
+	private ComponentRenderer DATATABLES_RENDERER = new FlexiDataTablesRenderer();
+	private ComponentRenderer CLASSIC_RENDERER = new FlexiTableClassicRenderer();
+	
+	
 	private FlexiTableElementImpl element;
 	
 
@@ -48,8 +59,37 @@ class FlexiTableComponent extends FormBaseComponentImpl {
 		this.element = element;
 	}
 	
-	FlexiTableElementImpl getFlexiTableElement(){
+	FlexiTableElementImpl getFlexiTableElement() {
 		return element;
+	}
+	
+	
+
+	@Override
+	public void validate(UserRequest ureq, ValidationResult vr) {
+		super.validate(ureq, vr);
+		if(element.getRendererType() == FlexiTableRendererType.dataTables) {
+			//inject javascript
+			vr.getJsAndCSSAdder().addRequiredStaticJsFile("js/jquery/datatables/jquery.dataTables.min.js");
+		}
+	}
+
+	@Override
+	public Component getComponent(String name) {
+		FormItem item = element.getFormComponent(name);
+		if(item != null) {
+			return item.getComponent();
+		}
+		return null;
+	}
+
+	@Override
+	public Iterable<Component> getComponents() {
+		List<Component> cmp = new ArrayList<Component>();
+		for(FormItem item:element.getFormItems()) {
+			cmp.add(item.getComponent());
+		}
+		return cmp;
 	}
 
 	/**
@@ -57,7 +97,10 @@ class FlexiTableComponent extends FormBaseComponentImpl {
 	 */
 	@Override
 	public ComponentRenderer getHTMLRendererSingleton() {
-		return RENDERER;
+		switch(element.getRendererType()) {
+			case classic: return CLASSIC_RENDERER;
+			case dataTables: return DATATABLES_RENDERER;
+			default: return CLASSIC_RENDERER;
+		}
 	}
-
 }

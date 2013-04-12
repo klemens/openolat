@@ -37,14 +37,18 @@ import org.apache.lucene.analysis.Analyzer;
 import org.apache.lucene.analysis.standard.StandardAnalyzer;
 import org.apache.lucene.document.Document;
 import org.apache.lucene.index.IndexWriter;
+import org.apache.lucene.index.IndexWriterConfig;
+import org.apache.lucene.index.IndexWriterConfig.OpenMode;
+import org.apache.lucene.index.LogDocMergePolicy;
+import org.apache.lucene.index.LogMergePolicy;
 import org.apache.lucene.store.Directory;
 import org.apache.lucene.store.FSDirectory;
-import org.apache.lucene.util.Version;
 import org.olat.core.commons.persistence.DBFactory;
-import org.olat.core.commons.services.search.OlatDocument;
-import org.olat.core.commons.services.search.SearchModule;
 import org.olat.core.logging.OLog;
 import org.olat.core.logging.Tracing;
+import org.olat.search.SearchModule;
+import org.olat.search.SearchService;
+import org.olat.search.model.OlatDocument;
 import org.olat.search.service.SearchResourceContext;
 
 /**
@@ -53,9 +57,7 @@ import org.olat.search.service.SearchResourceContext;
  */
 public class OlatFullIndexer {
 	
-	private OLog log = Tracing.createLoggerFor(OlatFullIndexer.class);
-	
-	/* TODO:chg: define merge-factor in olat-config.*/
+	private static final OLog log = Tracing.createLoggerFor(OlatFullIndexer.class);
 	private static final int INDEX_MERGE_FACTOR = 1000;
 
 	private static final int MAX_SIZE_QUEUE = 500;
@@ -67,7 +69,8 @@ public class OlatFullIndexer {
 	 * Reference to indexer for done callback.
 	 */
 	private Index index;
-	private IndexWriter indexWriter = null;
+	private IndexWriter indexWriter;
+	
 	
 	/** Flag to stop indexing. */
 	private boolean stopIndexing;
@@ -108,12 +111,12 @@ public class OlatFullIndexer {
 	public OlatFullIndexer(Index index, SearchModule searchModuleConfig, MainIndexer mainIndexer) {
     this.index = index;
     this.mainIndexer = mainIndexer;
-    tempIndexPath        = searchModuleConfig.getFullTempIndexPath();
-    indexInterval        = searchModuleConfig.getIndexInterval();
-    numberIndexWriter    = searchModuleConfig.getNumberIndexWriter();
+    tempIndexPath = searchModuleConfig.getFullTempIndexPath();
+    indexInterval = searchModuleConfig.getIndexInterval();
+    numberIndexWriter = searchModuleConfig.getNumberIndexWriter();
     documentsPerInterval = searchModuleConfig.getDocumentsPerInterval();
-    ramBufferSizeMB      = searchModuleConfig.getRAMBufferSizeMB();
-    useCompoundFile      = searchModuleConfig.getUseCompoundFile();
+    ramBufferSizeMB = searchModuleConfig.getRAMBufferSizeMB();
+    useCompoundFile = searchModuleConfig.getUseCompoundFile();
     fullIndexerStatus = new FullIndexerStatus(numberIndexWriter);    
     stopIndexing = true;
     documentQueue = new Vector<Document>();
@@ -140,6 +143,25 @@ public class OlatFullIndexer {
 		stopIndexing = true;
 		if (log.isDebug()) log.debug("stop current indexing when");
 	}
+	
+	
+	public LogMergePolicy newLogMergePolicy() {
+		LogMergePolicy logmp = new LogDocMergePolicy();
+		logmp.setUseCompoundFile(useCompoundFile);
+		logmp.setCalibrateSizeByDeletes(true);
+		logmp.setMergeFactor(INDEX_MERGE_FACTOR);
+		return logmp;
+	}
+
+	
+	public IndexWriterConfig newIndexWriterConfig() {
+		Analyzer analyzer = new StandardAnalyzer(SearchService.OO_LUCENE_VERSION);
+		IndexWriterConfig indexWriterConfig = new IndexWriterConfig(SearchService.OO_LUCENE_VERSION, analyzer);
+		indexWriterConfig.setMergePolicy(newLogMergePolicy());
+		indexWriterConfig.setRAMBufferSizeMB(ramBufferSizeMB);// for better performance set to 48MB (see lucene docu 'how to make indexing faster")
+		indexWriterConfig.setOpenMode(OpenMode.CREATE_OR_APPEND);
+		return indexWriterConfig;
+	}
 
 	/**
 	 * Create index-writer object. In multi-threaded mode ctreates an array of index-workers.
@@ -152,14 +174,10 @@ public class OlatFullIndexer {
 		try {
 			File tempIndexDir = new File(tempIndexPath);
 			Directory indexPath = FSDirectory.open(new File(tempIndexDir, "main"));
-			Analyzer analyzer = new StandardAnalyzer(Version.LUCENE_CURRENT);
-			indexWriter = new IndexWriter(indexPath, analyzer, true, IndexWriter.MaxFieldLength.UNLIMITED);
+			
+			indexWriter = new IndexWriter(indexPath, newIndexWriterConfig());// analyzer, true, IndexWriter.MAX_TERM_LENGTH.UNLIMITED);
 			indexWriter.deleteAll();
-			indexWriter.setMergeFactor(INDEX_MERGE_FACTOR); //for better performance
-			indexWriter.setRAMBufferSizeMB(ramBufferSizeMB);// for better performance set to 48MB (see lucene docu 'how to make indexing faster")
-			log.info("IndexWriter config RAMBufferSizeMB=" + indexWriter.getRAMBufferSizeMB());
-			indexWriter.setUseCompoundFile(useCompoundFile); // for better performance (see lucene docu 'how to make indexing faster")
-			log.info("IndexWriter config UseCompoundFile=" + indexWriter.getUseCompoundFile());
+			
 			// Create IndexWriterWorker
 			log.info("Running with " + numberIndexWriter + " IndexerWriterWorker");
 			indexWriterWorkers = new IndexWriterWorker[numberIndexWriter];
@@ -203,11 +221,10 @@ public class OlatFullIndexer {
 			DBFactory.getInstance().commitAndCloseSession();
 			if(partIndexDirs.length > 0) {
 				log.info("Start merging part Indexes");
-				indexWriter.addIndexesNoOptimize(partIndexDirs);
+				indexWriter.addIndexes(partIndexDirs);
 				log.info("Added all part Indexes");
 			}
 			fullIndexerStatus.setIndexSize(indexWriter.maxDoc());
-			indexWriter.optimize();
 			indexWriter.close();
 			indexWriter = null;
 			indexWriterWorkers = null;
@@ -284,6 +301,9 @@ public class OlatFullIndexer {
 			// no logging available (shut down)=> do nothing
 		}
 	}
+	
+
+
 	
 	/**
 	 * Callback to addDocument to indexWriter.

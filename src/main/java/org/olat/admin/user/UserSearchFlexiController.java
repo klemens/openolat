@@ -34,7 +34,7 @@ import org.olat.core.gui.Windows;
 import org.olat.core.gui.components.Component;
 import org.olat.core.gui.components.form.flexible.FormItem;
 import org.olat.core.gui.components.form.flexible.FormItemContainer;
-import org.olat.core.gui.components.form.flexible.elements.FlexiTableElment;
+import org.olat.core.gui.components.form.flexible.elements.FlexiTableElement;
 import org.olat.core.gui.components.form.flexible.elements.FormLink;
 import org.olat.core.gui.components.form.flexible.elements.MultipleSelectionElement;
 import org.olat.core.gui.components.form.flexible.impl.Form;
@@ -98,7 +98,7 @@ public class UserSearchFlexiController extends FormBasicController {
 
 	private FormLink backLink, selectAll, deselectAll;
 	private Panel searchPanel;
-	private FlexiTableElment tableEl;
+	private FlexiTableElement tableEl;
 	private VelocityContainer tableVC;
 	private UserSearchForm searchform;
 	private UserSearchFlexiTableModel userTableModel;
@@ -157,9 +157,10 @@ public class UserSearchFlexiController extends FormBasicController {
 
 			//add the table
 			FlexiTableColumnModel tableColumnModel = FlexiTableDataModelFactory.createFlexiTableColumnModel();
-			tableColumnModel.addFlexiColumnModel(new DefaultFlexiColumnModel("table.user.select"));
+			int colPos = 0;
+			tableColumnModel.addFlexiColumnModel(new DefaultFlexiColumnModel("table.user.select", colPos++));
 			if(isAdministrativeUser) {
-				tableColumnModel.addFlexiColumnModel(new DefaultFlexiColumnModel("table.user.login"));
+				tableColumnModel.addFlexiColumnModel(new DefaultFlexiColumnModel("table.user.login", colPos++));
 			}
 			List<UserPropertyHandler> userPropertyHandlers = userManager.getUserPropertyHandlersFor(usageIdentifyer, isAdministrativeUser);
 			List<UserPropertyHandler> resultingPropertyHandlers = new ArrayList<UserPropertyHandler>();
@@ -169,14 +170,14 @@ public class UserSearchFlexiController extends FormBasicController {
 				boolean visible = UserManager.getInstance().isMandatoryUserProperty(usageIdentifyer , userPropertyHandler);
 				if(visible) {
 					resultingPropertyHandlers.add(userPropertyHandler);
-					tableColumnModel.addFlexiColumnModel(new DefaultFlexiColumnModel(userPropertyHandler.i18nColumnDescriptorLabelKey()));
+					tableColumnModel.addFlexiColumnModel(new DefaultFlexiColumnModel(userPropertyHandler.i18nColumnDescriptorLabelKey(), colPos++));
 				}
 			}
-			tableColumnModel.addFlexiColumnModel(new DefaultFlexiColumnModel("select"));
+			tableColumnModel.addFlexiColumnModel(new DefaultFlexiColumnModel("select", colPos++));
 			
 			Translator myTrans = userManager.getPropertyHandlerTranslator(getTranslator());
 			userTableModel = new UserSearchFlexiTableModel(Collections.<UserResultWrapper>emptyList(), resultingPropertyHandlers, isAdministrativeUser, getLocale(), tableColumnModel);
-			tableEl = uifactory.addTableElement("users", userTableModel, myTrans, formLayout);
+			tableEl = uifactory.addTableElement(ureq, "users", userTableModel, myTrans, formLayout);
 
 			selectAll = uifactory.addFormLink("selectall", formLayout);
 			deselectAll = uifactory.addFormLink("deselectall", formLayout);

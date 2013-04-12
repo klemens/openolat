@@ -283,7 +283,7 @@ public class QTIEditorMainController extends MainLayoutBasicController implement
 		main = createVelocityContainer("index");
 		JSAndCSSComponent jsAndCss;
 		// Add html header js
-		jsAndCss = new JSAndCSSComponent("qitjsandcss", this.getClass(), new String[] { "qti.js" }, null, true);
+		jsAndCss = new JSAndCSSComponent("qitjsandcss", new String[] { "js/openolat/qti.js" }, null);
 		main.put("qitjsandcss", jsAndCss);
 		
 		//
@@ -632,7 +632,6 @@ public class QTIEditorMainController extends MainLayoutBasicController implement
 					previewController.addControllerListener(this);
 					cmcPrieview = new CloseableModalController(getWindowControl(), translate("editor.preview.close"),
 							previewController.getInitialComponent());
-					cmcPrieview.insertHeaderCss();
 					cmcPrieview.activate();
 					listenTo(cmcPrieview);
 					

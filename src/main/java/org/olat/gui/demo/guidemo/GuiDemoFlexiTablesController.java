@@ -38,18 +38,22 @@ import org.olat.core.gui.components.form.flexible.impl.FormBasicController;
 import org.olat.core.gui.components.form.flexible.impl.FormEvent;
 import org.olat.core.gui.components.form.flexible.impl.elements.FormLinkImpl;
 import org.olat.core.gui.components.form.flexible.impl.elements.MultipleSelectionElementImpl;
-import org.olat.core.gui.components.form.flexible.impl.elements.table.CustomFlexiCellRenderer;
 import org.olat.core.gui.components.form.flexible.impl.elements.table.DefaultFlexiColumnModel;
+import org.olat.core.gui.components.form.flexible.impl.elements.table.FlexiCellRenderer;
 import org.olat.core.gui.components.form.flexible.impl.elements.table.FlexiColumnModel;
 import org.olat.core.gui.components.form.flexible.impl.elements.table.FlexiTableColumnModel;
 import org.olat.core.gui.components.form.flexible.impl.elements.table.FlexiTableDataModel;
 import org.olat.core.gui.components.form.flexible.impl.elements.table.FlexiTableDataModelFactory;
+import org.olat.core.gui.components.form.flexible.impl.elements.table.FlexiTableDataModelImpl;
+import org.olat.core.gui.components.form.flexible.impl.elements.table.FlexiTableComponent;
+
 import org.olat.core.gui.components.table.BaseTableDataModelWithoutFilter;
 import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.Event;
 import org.olat.core.gui.control.WindowControl;
 import org.olat.core.gui.render.Renderer;
 import org.olat.core.gui.render.StringOutput;
+import org.olat.core.gui.render.URLBuilder;
 import org.olat.core.gui.translator.Translator;
 
 /**
@@ -69,21 +73,21 @@ public class GuiDemoFlexiTablesController extends FormBasicController {
 	@Override
 	protected void initForm(FormItemContainer formLayout, Controller listener, UserRequest ureq) {
 		FlexiTableColumnModel tableColumnModel = FlexiTableDataModelFactory.createFlexiTableColumnModel();
-		tableColumnModel.addFlexiColumnModel(new DefaultFlexiColumnModel("guidemo.table.header1"));
-		tableColumnModel.addFlexiColumnModel(new DefaultFlexiColumnModel("guidemo.table.header2"));
-		tableColumnModel.addFlexiColumnModel(new DefaultFlexiColumnModel("guidemo.table.header3"));
-		tableColumnModel.addFlexiColumnModel(new DefaultFlexiColumnModel("guidemo.table.header4"));
-		tableColumnModel.addFlexiColumnModel(new DefaultFlexiColumnModel("guidemo.table.header5"));
+		tableColumnModel.addFlexiColumnModel(new DefaultFlexiColumnModel("guidemo.table.header1", 0));
+		tableColumnModel.addFlexiColumnModel(new DefaultFlexiColumnModel("guidemo.table.header2", 1));
+		tableColumnModel.addFlexiColumnModel(new DefaultFlexiColumnModel("guidemo.table.header3", 2));
+		tableColumnModel.addFlexiColumnModel(new DefaultFlexiColumnModel("guidemo.table.header4", 3));
+		tableColumnModel.addFlexiColumnModel(new DefaultFlexiColumnModel("guidemo.table.header5", 4));
 		// column 6 : Image depending on True/False value / center alignment
-		FlexiColumnModel exampleCustomColumnModel = new DefaultFlexiColumnModel("guidemo.table.header6");
+		FlexiColumnModel exampleCustomColumnModel = new DefaultFlexiColumnModel("guidemo.table.header6", 5);
 		exampleCustomColumnModel.setCellRenderer(new ExampleCustomFlexiCellRenderer() );
 		exampleCustomColumnModel.setAlignment(FlexiColumnModel.ALIGNMENT_CENTER);
 		tableColumnModel.addFlexiColumnModel(exampleCustomColumnModel);
     // column 7 : Link
-		tableColumnModel.addFlexiColumnModel(new DefaultFlexiColumnModel("guidemo.table.header7"));
+		tableColumnModel.addFlexiColumnModel(new DefaultFlexiColumnModel("guidemo.table.header7", 6));
 
-		tableDataModel = FlexiTableDataModelFactory.createFlexiTableDataModel(new SampleFlexiTableModel(this, formLayout), tableColumnModel);
-		uifactory.addTableElement("gui-demo", tableDataModel, formLayout);
+		tableDataModel = new FlexiTableDataModelImpl(new SampleFlexiTableModel(this, formLayout), tableColumnModel);
+		uifactory.addTableElement(ureq, "gui-demo", tableDataModel, formLayout);
 		uifactory.addFormSubmitButton("ok", formLayout);
 	}
 	
@@ -230,8 +234,10 @@ public class GuiDemoFlexiTablesController extends FormBasicController {
 	 * boolean value.
 	 * @author guretzki
 	 */
-	private class ExampleCustomFlexiCellRenderer extends CustomFlexiCellRenderer {
-		public void render(StringOutput target, Object cellValue, Translator translator) {
+	private class ExampleCustomFlexiCellRenderer implements FlexiCellRenderer {
+		@Override
+		public void render(StringOutput target, Object cellValue, int row, FlexiTableComponent source,
+				URLBuilder ubu, Translator translator) {
 			if (cellValue instanceof Boolean) {
 				if ( ((Boolean)cellValue).booleanValue() ) {
 					target.append("<img src=\"");
