@@ -81,9 +81,6 @@ public class IFrameDeliveryMapper implements Mapper, Serializable {
 	private String themeBaseUri;
 	private String customHeaderContent;
 	
-	private String staticFilesPath;
-	private String textMarkerPath;
-	
 	private transient boolean checkForInlineEvent;
 	private transient long suppressEndlessReload;
 	
@@ -93,8 +90,7 @@ public class IFrameDeliveryMapper implements Mapper, Serializable {
 	
 	public IFrameDeliveryMapper(VFSItem rootDir, boolean rawContent, boolean enableTextmarking, boolean adjusteightAutomatically,
 			String g_encoding, String jsEncoding, String contentEncoding,
-			String frameId, String customCssURL, String themeBaseUri, String customHeaderContent,
-			String staticFilesPath, String textMarkerPath) {
+			String frameId, String customCssURL, String themeBaseUri, String customHeaderContent) {
 		
 		this.rootDir = rootDir;
 		
@@ -110,9 +106,6 @@ public class IFrameDeliveryMapper implements Mapper, Serializable {
 		this.customCssURL = customCssURL;
 		this.themeBaseUri = themeBaseUri;
 		this.customHeaderContent = customHeaderContent;
-		
-		this.staticFilesPath = staticFilesPath;
-		this.textMarkerPath = textMarkerPath;
 	}
 
 	public void setCheckForInlineEvent(boolean checkForInlineEvent) {
@@ -299,39 +292,25 @@ public class IFrameDeliveryMapper implements Mapper, Serializable {
 				log.debug("Textmarking is enabled, including tooltips js files into iframe source...");
 			}
 			sb.append("\n<script type=\"text/javascript\" src=\"");
-			StaticMediaDispatcher.renderStaticURI(sb, "js/prototype/prototype.js");
-			sb.append("\"></script>");
-			sb.append("\n<script type=\"text/javascript\" src=\"");
-			StaticMediaDispatcher.renderStaticURI(sb, "js/ext/adapter/prototype/ext-prototype-adapter.js");
-			sb.append("\"></script>");
-			sb.append("\n<link rel=\"stylesheet\" type=\"text/css\" href=\"");
-			StaticMediaDispatcher.renderStaticURI(sb, "js/ext/resources/css/ext-all.css");
-			sb.append("\"");
-			if (docType != null && docType.indexOf("XHTML") > 0) sb.append("/"); // close tag only when xhtml to validate
-			// Loading ExtJS minimalisic, only what's needed for the quick tips
-			sb.append(">\n<script type=\"text/javascript\" src=\"");
-			StaticMediaDispatcher.renderStaticURI(sb, "js/ext/pkgs/ext-core.js");
-			sb.append("\"></script>");
-			sb.append("\n<script type=\"text/javascript\" src=\"");
-			StaticMediaDispatcher.renderStaticURI(sb, "js/ext/pkgs/ext-foundation.js");
-			sb.append("\"></script>");
-			sb.append("\n<script type=\"text/javascript\" src=\"");
-			StaticMediaDispatcher.renderStaticURI(sb, "js/ext/pkgs/cmp-foundation.js");
-			sb.append("\"></script>");
-			sb.append("\n<script type=\"text/javascript\" src=\"");
-			StaticMediaDispatcher.renderStaticURI(sb, "js/ext/pkgs/ext-dd.js");
-			sb.append("\"></script>");
-			sb.append("\n<script type=\"text/javascript\" src=\"");
-			StaticMediaDispatcher.renderStaticURI(sb, "js/ext/pkgs/pkg-tips.js");
+			StaticMediaDispatcher.renderStaticURI(sb, "js/jquery/jquery-1.9.1.min.js");
+			sb.append("\"></script>\n<script type=\"text/javascript\" src=\"");
+			StaticMediaDispatcher.renderStaticURI(sb, "js/jquery/jquery-migrate-1.1.1.min.js");
+			sb.append("\"></script>\n<script type=\"text/javascript\" src=\"");
+			StaticMediaDispatcher.renderStaticURI(sb, "js/jshashtable-2.1_src.js");
+			sb.append("\"></script>\n<script type=\"text/javascript\" src=\"");
+			StaticMediaDispatcher.renderStaticURI(sb, "js/jquery/ui/jquery-ui-1.10.2.custom.min.js");
 			sb.append("\"></script>");
 			// Load glossary code now			
 			sb.append("\n<script type=\"text/javascript\" id=\"textmarkerLib\" src=\"");
-			sb.append(textMarkerPath) ;
-			sb.append("/js/glossaryhighlighter.js");
+		  StaticMediaDispatcher.renderStaticURI(sb, "js/openolat/glossaryhighlighter.js");
 			sb.append("\"></script>");
-			
-			sb.append("\n<link rel=\"stylesheet\" type=\"text/css\" id=\"textmarkercss\" href=\"")
-			  .append(textMarkerPath).append("/css/textmarker.css\"");
+			sb.append("\n<link rel=\"stylesheet\" type=\"text/css\" id=\"textmarkercss\" href=\"");
+		  StaticMediaDispatcher.renderStaticURI(sb, "js/openolat/glossaryhighlighter.css");
+		  sb.append("\"");
+			if (docType != null && docType.indexOf("XHTML") > 0) sb.append("/"); // close tag only when xhtml to validate
+			sb.append(">\n<link rel=\"stylesheet\" type=\"text/css\" id=\"jqueryiocss\" href=\"");
+		  StaticMediaDispatcher.renderStaticURI(sb, "js/jquery/ui/jquery-ui-1.10.2.custom.min.css");
+		  sb.append("\" ");
 			if (docType != null && docType.indexOf("XHTML") > 0) sb.append("/"); // close tag only when xhtml to validate
 			sb.append(">\n");
 		}
@@ -342,7 +321,9 @@ public class IFrameDeliveryMapper implements Mapper, Serializable {
 		sb.append("b_iframeid=\"").append(frameId).append("\";");
 		sb.append("b_isInlineUri=").append(Boolean.valueOf(addCheckForInlineEvents).toString()).append(";");
 		sb.append("\n/* ]]> */\n</script>");
-		sb.append("<script type=\"text/javascript\" src=\"").append(staticFilesPath).append("/js/iframe.js\"></script>\n");
+		sb.append("<script type=\"text/javascript\" src=\"");
+		StaticMediaDispatcher.renderStaticURI(sb, "js/openolat/iframe.js");
+		sb.append("\"></script>\n");
 
 		// Resize frame to fit height of html page. 
 		// Do this only when there is some content available. This can be false when
@@ -356,7 +337,6 @@ public class IFrameDeliveryMapper implements Mapper, Serializable {
 				sb.append("b_addOnclickEvent(b_sizeIframe);");		
 			}
 			// register the tooltips enabling on document load event
-			sb.append("b_addOnloadEvent(b_enableTooltips);");
 			sb.append("b_addOnloadEvent(b_hideExtMessageBox);");
 			if (addCheckForInlineEvents) {
 				// Refresh dirty menu tree by triggering client side request to component which fires events

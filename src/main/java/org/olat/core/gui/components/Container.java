@@ -36,7 +36,7 @@ import org.olat.core.gui.translator.Translator;
  * 
  * @author Felix Jost
  */
-public abstract class Container extends Component {
+public abstract class Container extends Component implements ComponentCollection {
 	private Map<String, Component> components = new HashMap<String, Component>(5);
 
 	/**
@@ -61,17 +61,6 @@ public abstract class Container extends Component {
 	 */
 	public Container(String id, String name, Translator translator) {
 		super(id, name, translator);
-	}
-
-	/**
-	 * puts a component into this container
-	 * @deprecated Please use put(String name, Component component) instead!
-	 * @param component
-	 */
-	//FIXME fj: replace with new style
-	public void put(Component component) {
-		String coName = component.getComponentName();
-		put(coName, component);
 	}
 
 	 /* puts the component into this container.
@@ -116,8 +105,17 @@ public abstract class Container extends Component {
 	 * Use only rarely!!
 	 * @return
 	 */
-	public Map<String, Component> getComponents() {
-		return components;
+	@Override
+	public Iterable<Component> getComponents() {
+		return components.values();
+	}
+	
+	public void clear() {
+		components.clear();
+	}
+	
+	public boolean contains(Component cmp) {
+		return components.containsValue(cmp);
 	}
 
 	/**
@@ -125,21 +123,5 @@ public abstract class Container extends Component {
 	 */
 	public String getExtendedDebugInfo() {
 		return "";
-
-/*		StringBuilder sb = new StringBuilder("children:");
-		for (Iterator it_chd = components.keySet().iterator(); it_chd.hasNext();) {
-			String chdkey = (String) it_chd.next();
-			Component chdcomp = getComponent(chdkey);
-			String origCompName = chdcomp.getComponentName();
-			if (chdkey.equals(origCompName)) {
-				sb.append(chdkey);
-			} else { // name of components differs from the key with which it was put
-							 // in the container
-				sb.append(chdkey).append(" (").append(origCompName).append(")");
-			}
-			sb.append(", ");
-		}
-		return sb.toString();*/
 	}
-
 }
