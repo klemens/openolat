@@ -72,7 +72,6 @@ public abstract class FeedRepositoryIndexer extends DefaultIndexer {
 		} catch (NullPointerException e) {
 			logError("Error indexing feed:" + repoEntryName, e);
 		}
-
 	}
 
 	/**

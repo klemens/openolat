@@ -41,12 +41,11 @@ import org.olat.admin.securitygroup.gui.IdentitiesRemoveEvent;
 import org.olat.basesecurity.BaseSecurity;
 import org.olat.basesecurity.BaseSecurityManager;
 import org.olat.basesecurity.SecurityGroup;
-import org.olat.bookmark.AddAndEditBookmarkController;
-import org.olat.bookmark.BookmarkManager;
 import org.olat.catalog.CatalogEntry;
 import org.olat.catalog.CatalogManager;
 import org.olat.core.CoreSpringFactory;
 import org.olat.core.commons.persistence.DBFactory;
+import org.olat.core.commons.services.mark.MarkManager;
 import org.olat.core.dispatcher.DispatcherAction;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.Component;
@@ -186,7 +185,6 @@ public class CatalogController extends BasicController implements Activateable2 
 	private static final String NLS_TOOLS_ADD_CATALOG_CATEGORY = "tools.add.catalog.category";
 	private static final String NLS_TOOLS_ADD_CATALOG_LINK = "tools.add.catalog.link";
 	private static final String NLS_TOOLS_PASTESTRUCTURE = "tools.pastestructure";
-	private static final String NLS_TOOLS_ADD_BOOKMARK = "tools.add.catalog.bookmark";
 	private static final String NLS_TOOLS_MOVE_CATALOG_ENTRY = "tools.move.catalog.entry";
 	
 	// private stuff
@@ -223,17 +221,14 @@ public class CatalogController extends BasicController implements Activateable2 
 	private boolean isGuest;
 	private Link loginLink;
 	private CloseableModalController cmc;
-	private AddAndEditBookmarkController bookmarkController;
-	private boolean canBookmark=true;
 	private Controller catEntryMoveController;
 	private RepositoryEditDescriptionController repositoryEditDescriptionController;
 
 	// locking stuff for cataloge edit operations
 	private LockResult catModificationLock;
 	public static final String LOCK_TOKEN = "catalogeditlock";
-
-	// key also needed by BookmarksPortletRunController to identify type of bookmark
-	private static final String TOOL_BOOKMARK = "tool_bookmark";
+	
+	private final MarkManager markManager;
 	
 	/**
 	 * Init with catalog root
@@ -247,8 +242,8 @@ public class CatalogController extends BasicController implements Activateable2 
 		super(ureq, wControl, Util.createPackageTranslator(RepositoryManager.class, ureq.getLocale()));
 		
 		cm = CatalogManager.getInstance();
-		//fxdiff VCRP-1,2: access control of resources
 		acService = CoreSpringFactory.getImpl(ACService.class);
+		markManager = CoreSpringFactory.getImpl(MarkManager.class);
 		repositoryManager = CoreSpringFactory.getImpl(RepositoryManager.class);
 
 		List<CatalogEntry> rootNodes = cm.getRootCatalogEntries();
@@ -587,22 +582,10 @@ public class CatalogController extends BasicController implements Activateable2 
 				listenTo(cmc);
 				
 				cmc.activate();					
-			}
-			
-			/*
-			 * add bookmark
-			 */
-			
-			else if (event.getCommand().equals(ACTION_ADD_BOOKMARK)){
-				removeAsListenerAndDispose(bookmarkController);
-				CatalogManager cm = CatalogManager.getInstance();
+			} else if (ACTION_ADD_BOOKMARK.equals(event.getCommand())) {
+				String businessPath = "[CatalogEntry:" + currentCatalogEntry.getKey() + "]";
 				OLATResourceable ores = cm.createOLATResouceableFor(currentCatalogEntry);
-				bookmarkController = new AddAndEditBookmarkController(ureq, getWindowControl(), currentCatalogEntry.getName(), "", ores, CatalogManager.CATALOGENTRY);						
-				listenTo(bookmarkController);
-				removeAsListenerAndDispose(cmc);
-				cmc = new CloseableModalController(getWindowControl(), "close", bookmarkController.getInitialComponent());
-				listenTo(cmc);
-				cmc.activate();
+				markManager.setMark(ores, getIdentity(), null, businessPath);
 			}
 			/*
 			 * move catalogentry
@@ -749,22 +732,7 @@ public class CatalogController extends BasicController implements Activateable2 
         	BaseSecurityManager.getInstance().removeIdentityFromSecurityGroup(identity, currentCatalogEntry.getOwnerGroup());
         }		
 			}
-		}
-		
-		else if(source == bookmarkController ){
-			// remove modal dialog
-			cmc.deactivate();
-			if(event.equals(Event.DONE_EVENT)){
-				// Add bookmark workflow did successfully save the bookmark, nothing to
-				// do here
-				// User did set a bookmark - bookmarking no longer enabled and disable
-				// it in toolbox
-				canBookmark = false;
-				catalogToolC.setEnabled(TOOL_BOOKMARK, canBookmark);
-			}
-		}
-
-		else if(source == catEntryMoveController){
+		} else if(source == catEntryMoveController){
 			cmc.deactivate();
 			if(event.equals(Event.DONE_EVENT)){
 				//linkMarkedToBeEdited is the catalog entry - "leaf" - which is moved
@@ -867,10 +835,6 @@ public class CatalogController extends BasicController implements Activateable2 
 			 * edit tools
 			 */
 			catalogToolC.addHeader(getTranslator().translate("tools.edit.header"));			
-			
-			catalogToolC.addLink(ACTION_ADD_BOOKMARK, translate(NLS_TOOLS_ADD_BOOKMARK), TOOL_BOOKMARK, null, "o_sel_catalog_add_bookmark", false);			// new bookmark link
-			catalogToolC.setEnabled(TOOL_BOOKMARK, canBookmark);
-			
 			if (canAdministrateCategory || canAddLinks) {
 				if (canAdministrateCategory) {
 					catalogToolC.addLink(ACTION_EDIT_CTLGCATEGORY, translate(NLS_TOOLS_EDIT_CATALOG_CATEGORY), null, null, "o_sel_catalog_edit_category", false);
@@ -1000,8 +964,7 @@ public class CatalogController extends BasicController implements Activateable2 
 			}
 		}
 		
-		List<OLATResourceAccess> resourcesWithOffer = resourceKeys.isEmpty() ? Collections.<OLATResourceAccess>emptyList()
-				: acService.getAccessMethodForResources(resourceKeys, null, true, new Date());
+		List<OLATResourceAccess> resourcesWithOffer = acService.getAccessMethodForResources(resourceKeys, null, true, new Date());
 		for ( CatalogEntry entry : childCe ) {
 			if(entry.getType() == CatalogEntry.TYPE_NODE) continue;
 			//fxdiff VCRP-1,2: access control of resources
@@ -1141,17 +1104,7 @@ public class CatalogController extends BasicController implements Activateable2 
 	 */
 	private void updateToolAccessRights(UserRequest ureq, CatalogEntry ce, int pos) {
 		// 1) check if user has already a bookmark for this level
-		final CatalogEntry tmp=ce;
-		OLATResourceable catEntryOres = CatalogManager.getInstance().createOLATResouceableFor(ce);
-		if (tmp != null && BookmarkManager.getInstance().isResourceableBookmarked(ureq.getIdentity(), catEntryOres)){
-			canBookmark = false;
-			if(catalogToolC != null){
-				catalogToolC.setEnabled(TOOL_BOOKMARK, canBookmark);
-				fireEvent(ureq, Event.CHANGED_EVENT);
-			}
-		} else{
-			canBookmark=true;
-		}
+
 		// 2) check if insert structure must be removed or showed 
 		if (isOLATAdmin && currentCatalogEntryLevel == 0) {
 			fireEvent(ureq, Event.CHANGED_EVENT);

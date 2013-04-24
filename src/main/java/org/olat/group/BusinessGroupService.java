@@ -200,7 +200,8 @@ public interface BusinessGroupService {
 			List<BusinessGroup> groupsToMerge, MailPackage mailing);
 	
 	/**
-	 * Update the members of a list of business groups
+	 * Update the members of a list of business groups. The process is additive, a current
+	 * participant which is marked as "add owner", will be participant and owner.
 	 * @param membersMod
 	 * @param groups
 	 */
@@ -459,9 +460,7 @@ public interface BusinessGroupService {
 	public BusinessGroupAddResponse moveIdentityFromWaitingListToParticipant(Identity ureqIdentity, List<Identity> identities,
 			BusinessGroup currBusinessGroup, MailPackage mailing);
 
-	
-	public BusinessGroupAddResponse addToSecurityGroupAndFireEvent(Identity ureqIdentity, List<Identity> addIdentities, SecurityGroup secGroup);
-	
+
 	public void removeAndFireEvent(Identity ureqIdentity, List<Identity> addIdentities, SecurityGroup secGroup);
 	
 	/**

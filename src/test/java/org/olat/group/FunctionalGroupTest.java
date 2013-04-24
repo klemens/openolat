@@ -190,7 +190,6 @@ public class FunctionalGroupTest {
 		}
 		
 		/* logout */
-		functionalUtil.idle(tutor0);
 		functionalUtil.logout(tutor0);
 	}
 
@@ -233,6 +232,10 @@ public class FunctionalGroupTest {
 		/*
 		 * verify
 		 */
+		/* WORKAROUND: reset site */
+		//TODO:JK: remove in openolat 8.0
+		Assert.assertTrue(functionalGroupsSiteUtil.openMyGroup(tutor0, groups[0].getName()));
+		
 		/* check group with tutor0  */
 		Assert.assertTrue(functionalGroupsSiteUtil.openGroupsTabActionByMenuTree(tutor0, GroupsTabAction.GROUPS));
 		
@@ -254,7 +257,6 @@ public class FunctionalGroupTest {
 		
 		
 		/* logout tutor */
-		functionalUtil.idle(tutor0);
 		functionalUtil.logout(tutor0);
 	}
 
@@ -311,7 +313,6 @@ public class FunctionalGroupTest {
 				CONFIGURE_ACCESS_CONTROL_DESCRIPTION, CONFIGURE_ACCESS_CONTROL_ACCESS_CODE));
 		
 		/* logout tutor */
-		functionalUtil.idle(tutor0);
 		functionalUtil.logout(tutor0);
 		
 		/*
@@ -348,7 +349,6 @@ public class FunctionalGroupTest {
 		}
 		
 		/* logout student */
-		functionalUtil.idle(student0);
 		functionalUtil.logout(student0);
 	}
 	
@@ -408,7 +408,7 @@ public class FunctionalGroupTest {
 		Assert.assertTrue(functionalGroupsSiteUtil.openMyGroup(tutor0, groups[0].getName()));
 
 		/* add participant */
-		Assert.assertTrue(functionalGroupsSiteUtil.addUser(tutor0, students[0].getLogin()));
+		Assert.assertTrue(functionalGroupsSiteUtil.addUser(tutor0, students[0].getLogin(), false, true, false));
 
 		/* logout tutor */
 		functionalUtil.idle(tutor0);
@@ -425,5 +425,19 @@ public class FunctionalGroupTest {
 		/* logout student */
 		functionalUtil.idle(student0);
 		functionalUtil.logout(student0);
+	}
+	
+	@Ignore
+	@Test
+	@RunAsClient
+	public void checkInvitation(){
+		//TODO:JK: implement me
+	}
+	
+	@Ignore
+	@Test
+	@RunAsClient
+	public void checkVisitingCard(){
+		//TODO:JK: implement me
 	}
 }
