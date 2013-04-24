@@ -332,12 +332,13 @@ public abstract class FormBasicController extends BasicController {
 				 * evaluate normal inner form events
 				 */
 				FormItem fiSrc = fe.getFormItemSource();
-				// check for InlineElments
+				// check for InlineElments remove as the tag library has been replaced
+				/*
 				if(fiSrc instanceof InlineElement){
 					if(!((InlineElement) fiSrc).isInlineEditingElement()){ //OO-137
 						this.flc.setDirty(true);
 					}
-				}
+				}*/
 				//
 				formInnerEvent(ureq, fiSrc, fe);
 				// no need to set container dirty, up to controller code if something is dirty

@@ -33,19 +33,91 @@ package org.olat.core.gui.components.form.flexible.impl.elements.table;
  */
 public class DefaultFlexiColumnModel implements FlexiColumnModel {
 
-	
 	private String headerKey;
+	private String columnKey;
+	private int columnIndex;
+	private String action;
+
+	private boolean sortable;
+	private String sortedKey;
+
+	private boolean defaultVisible;
 	private int alignment;
 	private FlexiCellRenderer cellRenderer;
 
-	public DefaultFlexiColumnModel(String headerKey) {
-		this.headerKey = headerKey;
-		this.alignment = FlexiColumnModel.ALIGNMENT_LEFT;
-		this.cellRenderer = new TextFlexiCellRenderer();
+	public DefaultFlexiColumnModel(String headerKey, int columnIndex) {
+		this(headerKey, columnIndex, false, null);
 	}
 	
+	public DefaultFlexiColumnModel(String headerKey, int columnIndex, String action) {
+		this(headerKey, columnIndex, false, null);
+		this.action = action;
+	}
+	
+	public DefaultFlexiColumnModel(String headerKey, int columnIndex, boolean sortable, String sortKey) {
+		this(true, headerKey, columnIndex, sortable, sortKey, FlexiColumnModel.ALIGNMENT_LEFT,  new TextFlexiCellRenderer());
+	}
+	public DefaultFlexiColumnModel(boolean defVisible, String headerKey, int columnIndex, boolean sortable, String sortKey) {
+		this(defVisible, headerKey, columnIndex, sortable, sortKey, FlexiColumnModel.ALIGNMENT_LEFT,  new TextFlexiCellRenderer());
+	}
+	
+	public DefaultFlexiColumnModel(boolean defVisible, String headerKey, int columnIndex, boolean sortable, String sortKey, int alignment, FlexiCellRenderer cellRenderer) {
+		this.defaultVisible = defVisible;
+		this.sortable = sortable;
+		this.sortedKey = sortKey;
+		this.headerKey = headerKey;
+		this.columnIndex = columnIndex;
+		this.columnKey = headerKey.replace(".", "").toLowerCase();
+		this.alignment = alignment;
+		this.cellRenderer = cellRenderer;
+	}
+
+	@Override
+	public String getAction() {
+		return action;
+	}
+	
+	public void setAction(String action) {
+		this.action = action;
+	}
+
+	@Override
 	public String getHeaderKey() {
 		return headerKey;
+	}
+
+	@Override
+	public String getColumnKey() {
+		return columnKey;
+	}
+
+	@Override
+	public int getColumnIndex() {
+		return columnIndex;
+	}
+
+	@Override
+	public boolean isSortable() {
+		return sortable;
+	}
+
+	public boolean isDefaultVisible() {
+		return defaultVisible;
+	}
+
+	@Override
+	public void setSortable(boolean enable) {
+		sortable = enable;
+	}
+
+	@Override
+	public String getSortKey() {
+		return sortedKey;
+	}
+
+	@Override
+	public void setSortKey(String sortedKey) {
+		this.sortedKey = sortedKey;
 	}
 
 	public int getAlignment() {
