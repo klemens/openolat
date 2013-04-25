@@ -11,9 +11,6 @@ import org.olat.core.id.ModifiedInfo;
 import de.unileipzig.xman.comment.Comment;
 import de.unileipzig.xman.comment.CommentEntry;
 import de.unileipzig.xman.comment.CommentManager;
-import de.unileipzig.xman.illness.IllnessReport;
-import de.unileipzig.xman.illness.IllnessReportEntry;
-import de.unileipzig.xman.illness.IllnessReportManager;
 import de.unileipzig.xman.protocol.Protocol;
 
 public class ElectronicStudentFileImpl extends PersistentObject implements ElectronicStudentFile {
@@ -23,7 +20,6 @@ public class ElectronicStudentFileImpl extends PersistentObject implements Elect
 	private Identity validator;
 	private List<Protocol> protocolList;
 	private Comment comments;
-	private IllnessReport illnessReports;
 	private Date lastModified;
 	
 	ElectronicStudentFileImpl(){}
@@ -35,9 +31,6 @@ public class ElectronicStudentFileImpl extends PersistentObject implements Elect
 		
 		this.comments = CommentManager.getInstance().createComment();
 		CommentManager.getInstance().persistComment(this.comments);
-		
-		this.illnessReports = IllnessReportManager.getInstance().createIllnessReport();
-		IllnessReportManager.getInstance().persistIllnessReport(this.illnessReports);
 		
 		this.identity = identity;
 		this.protocolList = new ArrayList<Protocol>();
@@ -111,32 +104,6 @@ public class ElectronicStudentFileImpl extends PersistentObject implements Elect
 		this.comments = comment;
 	}
 
-	// ######################## Illness ##################################
-	
-	public void addIllnessReportEntry(IllnessReportEntry illnesReportEntry) {
-		
-		this.illnessReports.addIllnessReportEntry(illnesReportEntry);
-	}
-	
-	public void removeIllnessReportEntry(Long illnessReportEntryKey) {
-		
-		this.illnessReports.removeIllnessReportEntry(illnessReportEntryKey);
-	}
-
-	public List<IllnessReportEntry> getIllnessReportsEntries() {
-
-		return this.illnessReports.getIllnessReports();
-	}
-	
-	public IllnessReport getIllnessReports() {
-		
-		return this.illnessReports;
-	}
-	
-	public void setIllnessReports(IllnessReport illnessReport) {
-		
-		this.illnessReports = illnessReport;
-	}
 
 	// ########################## OLAT Resourceable ########################
 	

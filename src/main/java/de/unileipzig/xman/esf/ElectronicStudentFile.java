@@ -13,14 +13,12 @@ import org.olat.core.util.resource.OresHelper;
 import de.unileipzig.xman.comment.Comment;
 import de.unileipzig.xman.comment.CommentEntry;
 import de.unileipzig.xman.exam.Exam;
-import de.unileipzig.xman.illness.IllnessReport;
-import de.unileipzig.xman.illness.IllnessReportEntry;
 import de.unileipzig.xman.protocol.Protocol;
 
 /**
  * This class represents an electronic version of the students file in the exam office.
  * Every Exam including the grade, the student took place in, is listed here.
- * It is possible to add a comment and illnessreports here.
+ * It is possible to add a comment here.
  * 
  * @author gerb
  */
@@ -51,11 +49,6 @@ public interface ElectronicStudentFile extends CreateInfo, ModifiedInfo, Persist
 	 * @return the CommentEntries witch are set for this student
 	 */
 	public List<CommentEntry> getCommentEntries();
-	
-	/**
-	 * @return the all IllnessReportsEntries of this particular student
-	 */
-	public List<IllnessReportEntry> getIllnessReportsEntries();
 	
 	/**
 	 * @return the identity of the user who validated the esf
@@ -106,10 +99,6 @@ public interface ElectronicStudentFile extends CreateInfo, ModifiedInfo, Persist
 	 */
 	public void addCommentEntry(CommentEntry commentEntry);
 	
-	/**
-	 * @param adds a IllnessReportEntry to the list of those
-	 */
-	public void addIllnessReportEntry(IllnessReportEntry illnessReportEntry);
 	
 	/**
 	 * @param proto - the protocol which should be added to this esf
@@ -124,11 +113,6 @@ public interface ElectronicStudentFile extends CreateInfo, ModifiedInfo, Persist
 	 */
 	public void removeCommentEntry(Long commentEntryKey);
 	
-	/**
-	 * @param the key of the IllnessReportEntry to delete
-	 * @return the deleted IllnessReportEntry
-	 */
-	public void removeIllnessReportEntry(Long illnessReportEntryKey);
 	
 	/**************************************************************/
 }
