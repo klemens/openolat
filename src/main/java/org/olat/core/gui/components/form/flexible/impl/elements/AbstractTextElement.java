@@ -85,9 +85,8 @@ public abstract class AbstractTextElement extends FormItemImpl implements TextEl
 	private boolean originalInitialised=false;
 	
 	
-	@SuppressWarnings("unchecked")
 	@Override
-	public void validate(List validationResults) {
+	public void validate(List<ValidationStatus> validationResults) {
 		if(checkForNotEmpty && !notEmpty()){
 			validationResults.add(new ValidationStatusImpl(ValidationStatus.ERROR));
 			return;
@@ -196,6 +195,11 @@ public abstract class AbstractTextElement extends FormItemImpl implements TextEl
 	 */
 	public void setDisplaySize(int displaySize){
 		this.displaySize = displaySize;
+	}
+	
+	@Override
+	public int getMaxLength() {
+		return maxlength;
 	}
 
 	/**

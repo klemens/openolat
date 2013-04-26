@@ -200,6 +200,23 @@ public class PropertyManager extends BasicManager implements UserDataDeletable {
 	 * @return a list of Property objects
 	 */
 	public List<Property> listProperties(Identity identity, BusinessGroup grp, String resourceTypeName, Long resourceTypeId, String category, String name) {
+		return listProperties(identity, grp, resourceTypeName, resourceTypeId, category, name, null);
+	}
+
+	/**
+	 * Only to use if no OLATResourceable Object is available.
+	 * @param identity
+	 * @param grp
+	 * @param resourceTypeName
+	 * @param resourceTypeId
+	 * @param category
+	 * @param name
+	 * @param longValue
+	 * @return a list of Property objects
+	 */
+	public List<Property> listProperties(final Identity identity, final BusinessGroup grp, final String resourceTypeName, final Long resourceTypeId, final String category,
+		final String name, final Long longValue) {
+		
 		StringBuilder sb = new StringBuilder();
 		sb.append("select v from ").append(Property.class.getName()).append(" as v ");
 		if (identity != null) {
@@ -218,6 +235,10 @@ public class PropertyManager extends BasicManager implements UserDataDeletable {
 		if (grp != null) {
 			and = and(sb, and);
 			sb.append("grp.key=:groupKey");
+		}
+		if (longValue != null) {
+			and = and(sb, and);
+			sb.append("v.longValue=:longVal");
 		}
 		if (resourceTypeName != null) {
 			and = and(sb, and);
@@ -242,6 +263,9 @@ public class PropertyManager extends BasicManager implements UserDataDeletable {
 		}
 		if (grp != null) {
 			queryProps.setParameter("groupKey", grp.getKey());
+		}
+		if (longValue != null) {
+			queryProps.setParameter("longVal", longValue);
 		}
 		if (resourceTypeName != null) {
 			queryProps.setParameter("resName", resourceTypeName);

@@ -1,162 +1,59 @@
-#if ($r.available("collapsibleContent"))
-	<div id="${panelName}-east" class="x-layout-inactive-content x-hidden" style="padding:5px;">
-		$r.render("collapsibleContent")
+<div id="${panelName}">
+	#if ($r.available("collapsibleContent"))
+		<div id="${panelName}-east" class="pane ui-layout-east">
+			$r.render("collapsibleContent")
+		</div>
+	#end
+	<div id="${panelName}-center" class="pane ui-layout-center">
+		$r.render("panelContent")
 	</div>
-#end
-<div id="${panelName}-center" class="x-layout-inactive-content x-hidden" style="padding:5px;">
-	$r.render("panelContent")
 </div>
 <script type="text/javascript">
-/* <![CDATA[ */
-	Ext.onReady(function(){
-		var winPosition = null;
-		var winHeight = 0;
-		var winWidth = 0;
-		//check if already exists
-		if( Ext.getCmp('${panelName}') != null ) {
-			${panelName}win = Ext.getCmp('${panelName}');
-			winPosition = ${panelName}win.getPosition();
-			winHeight = ${panelName}win.getHeight();
-			winWidth = ${panelName}win.getWidth();
-			${panelName}win.purgeListeners();
-			${panelName}win.close();
-		} else {
-			winWidth = ${width};
-		  winHeight = ${height};
-		}
-		if(Ext.getCmp('${panelName}') == null) {
-			
-			#if($r.available("collapsibleContent"))
-				//Panel for the content
-				var content = new Ext.Panel({
-					contentEl:'${panelName}-center',
-					region: 'center',
-					split: true,
-					width: 150,
-					minSize: 100,
-					maxSize: 250,
-					collapsible: false,
-					autoScroll:$scroll,
-				});
-		
-		    // Panel for the east
-		    var east = new Ext.Panel({
-					contentEl:'${panelName}-east',
-					title: '${collabsibleContentPanelTitel}',
-					region: 'east',
-					split: true,
-					width: 150,
-					minSize: 100,
-					maxSize: 250,
-					collapsible: true,
-					autoScroll:$scroll
-		   	});
-				
-		    var ${panelName} = new Ext.Window({
-					id: '${panelName}',
-					title: '$title',
-					border:false,
-					bodyBorder:false,
-					closable:true,
-					collapsible:true,
-					constrain: ${constrain},
-					resizable: ${resizable},
-					width: winWidth,
-					height: winHeight,
-					minWidth:100,
-					minHeight:100,
-					layout: 'border',
-					items: [content, east]
-				});
-
-			#else
-				// Panel for the content
-				var content = new Ext.Panel({
-					contentEl:'${panelName}-center',
-					width: 150,
-					minSize: 100,
-					maxSize: 250,
-					autoScroll:$scroll,
-				});
-	  
-				//the window
-				var ${panelName} = new Ext.Window({
-					id: '${panelName}',
-					title: '$title',
-					border:false,
-					bodyBorder:false,
-					closable:true,
-					collapsible:true,
-					constrain: ${constrain},
-					resizable: ${resizable},
-					width: winWidth,
-					height: winHeight,
-					minWidth:100,
-					minHeight:100,
-					plain:true,
-					layout: 'fit',
-					items: [content]
-				});
-			#end
-			
-			${panelName}.on('minimize', function(win){
-			    win.toggleCollapse();
-			});
-	    	
-			${panelName}.on('close', function(win){
-				win.purgeListeners();
-				win.close();
-				win.destroy();
-				if (!o_info.linkbusy) {
-					window.suppressOlatOnUnloadOnce = true;
-					o_beforeserver();
-					$r.javaScriptBgCommand("close")
-				}		
-			});
-						
-			if(winPosition != null) {
-				${panelName}.setPosition(winPosition[0],winPosition[1]);
-			} else {
-				${panelName}.setPosition(${offsetX},${offsetY});
+/* <![CDATA[ */ 
+	jQuery(function(){
+		jQuery('#${panelName}').dialog({
+			title: '$title',
+			width: ${width},
+			height: ${height},
+			position: [$offsetX, $offsetY],
+			dialogClass: 'o_modal-ui',
+			stack: true,
+			close: function() {
+				o_beforeserver();
+				jQuery(this).dialog('destroy').remove();
+				$r.javaScriptBgCommand("close")
+			},
+			resize: function(event, ui) {
+				#if ($ajaxFlags.isIframePostEnabled())
+					if (!o_info.linkbusy) {
+						window.suppressOlatOnUnloadOnce = true;
+						o_beforeserver();
+						$r.javaScriptBgCommand("geometry") + '?p='+ encodeURIComponent(ui.position.left + ',' + ui.position.top + ':' + ui.size.width + ',' + ui.size.height);
+					}
+				#end
+				try {
+					tweak_${panelName}();
+				} catch (Exception) {/**/}
+			},
+			dragStop: function(event, ui) {
+				#if ($ajaxFlags.isIframePostEnabled())
+					if (!o_info.linkbusy) {
+						window.suppressOlatOnUnloadOnce = true;
+						o_beforeserver();
+						$r.javaScriptBgCommand("geometry") + '?p='+ encodeURIComponent(ui.position.left + ',' + ui.position.top);
+					}
+				#end	
+				try {
+					tweak_${panelName}(win);
+				} catch (Exception) { /**/ }
 			}
-			${panelName}.show(this);
-			
-			## Add resize and move listeners after window positioning is finished, otherwhise the callbacks are 
-			## triggered right away which is not necessary (start width/height/posiiton must not be reported back 
-			## to server, only user initiated changes)
-			${panelName}.on('resize', function(win, width, height){
-				#if ($ajaxFlags.isIframePostEnabled())
-				if (!o_info.linkbusy) {
-					window.suppressOlatOnUnloadOnce = true;
-					o_beforeserver();
-					$r.javaScriptBgCommand("geometry") + '?p='+ encodeURIComponent(win.getPosition()+':'+win.getSize().width+','+win.getSize().height);
-				}
-				#end
-				
-				try {
-					tweak_${panelName}(win);
-				} catch (Exception) {
-					//
-				}
-			});
-				
-			${panelName}.on('move', function(win, x, y){
-				#if ($ajaxFlags.isIframePostEnabled())
-				if (!o_info.linkbusy) {
-					window.suppressOlatOnUnloadOnce = true;
-					o_beforeserver();
-					$r.javaScriptBgCommand("geometry") + '?p='+ encodeURIComponent(win.getPosition()+':'+win.getSize().width+','+win.getSize().height);
-				}
-				#end
-				
-				try {
-					tweak_${panelName}(win);
-				} catch (Exception) {
-					//
-				}
-			});
-		}
-	//delay is needed for IE to solve timing problem
-	},{delay:1000});
+		})#if($r.available("collapsibleContent")).layout({
+			center: { size: '66%' },
+			east: { size: '33%' }
+		})#end;
+		
+		//override the default z-index of jQuery UI dialog
+		jQuery('#${panelName}').dialog("widget").css('z-index', 10000);
+	});
 /* ]]> */
 </script>

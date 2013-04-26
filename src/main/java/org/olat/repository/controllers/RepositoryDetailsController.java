@@ -37,7 +37,6 @@ import org.olat.basesecurity.BaseSecurity;
 import org.olat.basesecurity.BaseSecurityManager;
 import org.olat.basesecurity.Constants;
 import org.olat.basesecurity.IdentityShort;
-import org.olat.catalog.ui.CatalogAjaxAddController;
 import org.olat.catalog.ui.CatalogEntryAddController;
 import org.olat.catalog.ui.RepoEntryCategoriesTableController;
 import org.olat.core.CoreSpringFactory;
@@ -801,13 +800,16 @@ public class RepositoryDetailsController extends BasicController implements Gene
 	 */
 	void doEdit(UserRequest ureq) {
 		if (!isOwner) throw new OLATSecurityException("Trying to launch editor, but not allowed: user = " + ureq.getIdentity());
-		RepositoryHandler typeToEdit = RepositoryHandlerFactory.getInstance().getRepositoryHandler(repositoryEntry);
-		if (!typeToEdit.supportsEdit(repositoryEntry)){
+		doEdit(ureq, repositoryEntry);
+	}
+		
+	public static void doEdit(UserRequest ureq, RepositoryEntry re) {
+		RepositoryHandler typeToEdit = RepositoryHandlerFactory.getInstance().getRepositoryHandler(re);
+		if (!typeToEdit.supportsEdit(re)){
 			throw new AssertException("Trying to edit repository entry which has no assoiciated editor: "+ typeToEdit);
 		}
-				
 
-		OLATResourceable ores = repositoryEntry.getOlatResource();
+		OLATResourceable ores = re.getOlatResource();
 		
 		//was brasato:: DTabs dts = getWindowControl().getDTabs();
 		DTabs dts = Windows.getWindows(ureq).getWindow(ureq).getDTabs();
@@ -815,7 +817,7 @@ public class RepositoryDetailsController extends BasicController implements Gene
 		if (dt == null) {
 			// does not yet exist -> create and add
 			//fxdiff BAKS-7 Resume function
-			dt = dts.createDTab(ores, repositoryEntry, repositoryEntry.getDisplayname());
+			dt = dts.createDTab(ores, re, re.getDisplayname());
 			if (dt == null){
 				//null means DTabs are full -> warning is shown
 				return;
@@ -840,19 +842,10 @@ public class RepositoryDetailsController extends BasicController implements Gene
 	 */
 	private void doAddCatalog(UserRequest ureq) {
 		removeAsListenerAndDispose(catalogAdddController);
-		boolean ajax = getWindowControl().getWindowBackOffice().getWindowManager().isAjaxEnabled();
-		if (ajax) {
-			// fancy ajax tree
-			catalogAdddController = new CatalogAjaxAddController(ureq, getWindowControl(), repositoryEntry);
-		} else {
-			// old-school selection tree
-			catalogAdddController = new CatalogEntryAddController(ureq, getWindowControl(), repositoryEntry);
-		}
-
-		
-		
-		listenTo(catalogAdddController);
 		removeAsListenerAndDispose(closeableModalController);
+		
+		catalogAdddController = new CatalogEntryAddController(ureq, getWindowControl(), repositoryEntry);
+		listenTo(catalogAdddController);
 		closeableModalController = new CloseableModalController(getWindowControl(), "close", catalogAdddController.getInitialComponent());
 		listenTo(closeableModalController);
 		closeableModalController.activate();
