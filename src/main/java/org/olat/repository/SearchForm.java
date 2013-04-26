@@ -100,7 +100,6 @@ public class SearchForm extends FormBasicController{
 	private boolean isAdmin;
 	
 	private SingleSelection modules;
-	boolean isXmanOnly;
 
 	/**
 	 * Generic search form.
@@ -144,7 +143,6 @@ public class SearchForm extends FormBasicController{
 		 * teilweise angepasst
 		 */
 
-		if (!isXmanOnly) {
 			if ((!displayName.isEmpty() || !author.isEmpty() || !description.isEmpty() || !(id != null && id.isEmpty())) && !modules.getSelectedKey().equals("-")) {
 				types.select(Exam.ORES_TYPE_NAME, true);
 				return true;
@@ -164,14 +162,6 @@ public class SearchForm extends FormBasicController{
 					return false;
 				}
 			}
-
-			return true;
-		} else {
-			if (displayName.isEmpty() && author.isEmpty() && description.isEmpty() && modules.getSelectedKey().equals("-")) {
-				modules.setErrorKey("SearchForm.no.module.choosen", null);
-				return false;
-			}
-		}
 		return true;
 	}
 
@@ -269,16 +259,11 @@ public class SearchForm extends FormBasicController{
 		id = uifactory.addTextElement("cif_id", "cif.id", 12, "", formLayout);
 		id.setVisible(isAdmin);
 		id.setRegexMatchCheck("\\d*", "search.id.format");
-		
-		
-		
-		isXmanOnly = new Boolean(Settings.getServerconfig("xman"));
 
 		// XMAN: following 40 lines are most probably nonsense!
 		String[] keys = null;
 		String[] values = null;
 
-		if (!isXmanOnly) {
 			keys = new String[] { Exam.ORES_TYPE_NAME,
 					CourseModule.getCourseTypeName(),
 					ImsCPFileResource.TYPE_NAME,
@@ -315,20 +300,10 @@ public class SearchForm extends FormBasicController{
 					translate(WikiResource.TYPE_NAME),
 					translate(GlossaryResource.TYPE_NAME),
 					translate(FileResource.GENERIC_TYPE_NAME) };
-		} else {
-			values = new String[] { translate(Exam.ORES_TYPE_NAME) };
-			keys = new String[] { Exam.ORES_TYPE_NAME };
-		}
 		types = uifactory.addCheckboxesVertical("cif_types", "cif.type", formLayout, getResources().toArray(new String[0]), getTranslatedResources(getResources()), null, 1);
-	
-		// there is no need to show the button "exams" cause these are the only
-		// resources in the repository
-		// select "exam" as default
-		// >> NEU <<
-		if (isXmanOnly) {
-			types.select(Exam.ORES_TYPE_NAME, true);
-			types.setVisible(false);
-		}
+		
+	//	types.select(Exam.ORES_TYPE_NAME, true);
+	//    types.setVisible(true);
 
 		List<Module> moduleList = ModuleManager.getInstance().findAllModules();
 		int size = moduleList.size();
