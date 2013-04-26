@@ -48,7 +48,6 @@ import org.olat.user.propertyhandlers.UserPropertyHandler;
 
 import com.thoughtworks.xstream.XStream;
 
-import de.unileipzig.xman.studyPath.StudyPathManager;
 
 /**
  * Provides a controller which lets the user edit their user profile and choose
@@ -221,12 +220,6 @@ public class ProfileFormController extends FormBasicController {
 				}
 			}
 			
-			// studyPath is a SelectionElement and should not be editable
-			if (formItem instanceof SelectionElement) {
-				if(userPropertyHandler.getName().equals("studyPath"))
-					formItem.setEnabled(false);
-			}
-
 			// special case for email field
 			if (userPropertyHandler.getName().equals("email")) {
 				RegistrationManager rm = RegistrationManager.getInstance();
