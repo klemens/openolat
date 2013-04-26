@@ -102,7 +102,7 @@ public class ESFCreateForm extends FormBasicController {
 		this.studyPath.setMandatory(true);
 
 		// select the studyPath of the User
-		userStudyPath = identity.getUser().getProperty(UserConstants.STUDYPATH,
+		userStudyPath = identity.getUser().getProperty(UserConstants.STUDYSUBJECT,
 				loc);
 		if (!(userStudyPath == null)) {
 			if (!userStudyPath.isEmpty()) {

@@ -59,7 +59,7 @@ public class ESFTableModel extends DefaultTableDataModel {
 			
 			case 2: return entry.getIdentity().getUser().getProperty(UserConstants.INSTITUTIONALUSERIDENTIFIER, locale);
 			
-			case 3: return Util.createPackageTranslator(StudyPath.class, locale).translate(entry.getIdentity().getUser().getProperty(UserConstants.STUDYPATH, locale));
+			case 3: return Util.createPackageTranslator(StudyPath.class, locale).translate(entry.getIdentity().getUser().getProperty(UserConstants.STUDYSUBJECT, locale));
 			
 			case 4: return entry.getIdentity().getName();
 			

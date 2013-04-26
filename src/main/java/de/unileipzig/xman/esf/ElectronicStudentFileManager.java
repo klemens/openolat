@@ -165,7 +165,7 @@ public class ElectronicStudentFileManager {
 		List<ElectronicStudentFile> esfList = this.retrieveNonValidatedESF();
 		for ( ElectronicStudentFile esf : esfList ) {
 			
-			if ( !esf.getIdentity().getUser().getProperty(UserConstants.STUDYPATH, null).equals(StudyPathManager.DEFAULT_STUDY_PATH)) {
+			if ( !esf.getIdentity().getUser().getProperty(UserConstants.STUDYSUBJECT, null).equals(StudyPathManager.DEFAULT_STUDY_PATH)) {
 				
 				count++;
 			}

@@ -162,7 +162,7 @@ public class ESFEditController extends MainLayoutBasicController {
 		Translator translator = Util.createPackageTranslator(StudyPath.class,
 				ureq.getLocale());
 		this.mainVC.contextPut("studyPath", translator.translate(user
-				.getProperty(UserConstants.STUDYPATH, null)));
+				.getProperty(UserConstants.STUDYSUBJECT, null)));
 
 		this.createTableModels(ureq, wControl);
 

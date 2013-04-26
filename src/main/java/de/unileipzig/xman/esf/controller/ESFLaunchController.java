@@ -209,7 +209,7 @@ public class ESFLaunchController extends BasicController {
 				UserConstants.INSTITUTIONALEMAIL, null));
 		this.mainVC.contextPut("studyPath", Util.createPackageTranslator(
 				StudyPath.class, ureq.getLocale()).translate(
-				user.getProperty(UserConstants.STUDYPATH, null)));
+				user.getProperty(UserConstants.STUDYSUBJECT, null)));
 
 		Tracing
 				.createLoggerFor(this.getClass())
@@ -218,7 +218,7 @@ public class ESFLaunchController extends BasicController {
 								ureq.getLocale())
 								.translate(
 										user.getProperty(
-												UserConstants.STUDYPATH, null)));
+												UserConstants.STUDYSUBJECT, null)));
 
 		this.createTableModels(ureq, wControl);
 	}

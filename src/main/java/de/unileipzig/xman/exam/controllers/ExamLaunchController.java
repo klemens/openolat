@@ -999,7 +999,7 @@ public class ExamLaunchController extends MainLayoutBasicController implements
 																		.getIdentity()
 																		.getUser()
 																		.getProperty(
-																				UserConstants.STUDYPATH,
+																				UserConstants.STUDYSUBJECT,
 																				null) }),
 										proto.getIdentity());
 
@@ -1767,7 +1767,7 @@ public class ExamLaunchController extends MainLayoutBasicController implements
 																.getIdentity()
 																.getUser()
 																.getProperty(
-																		UserConstants.STUDYPATH,
+																		UserConstants.STUDYSUBJECT,
 																		null) }),
 
 								proto.getIdentity());

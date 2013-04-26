@@ -83,7 +83,7 @@ public class ProtocolTableModel extends DefaultTableDataModel {
 			case 2: return proto.getIdentity().getUser().getProperty(UserConstants.LASTNAME, null) 
 							+ ", " + proto.getIdentity().getUser().getProperty(UserConstants.FIRSTNAME, null);
 			
-			case 3: return Util.createPackageTranslator(StudyPath.class, locale).translate(proto.getIdentity().getUser().getProperty(UserConstants.STUDYPATH, locale));
+			case 3: return Util.createPackageTranslator(StudyPath.class, locale).translate(proto.getIdentity().getUser().getProperty(UserConstants.STUDYSUBJECT, locale));
 			
 			case 4: return DateFormat.getDateTimeInstance(
 						DateFormat.SHORT, DateFormat.SHORT, locale).format(proto.getAppointment().getDate())

@@ -189,7 +189,7 @@ public class ESFCreateController extends BasicController {
 				esfCreateForm.getInstitutionalIdentifier());
 		updateUser.setProperty(UserConstants.INSTITUTIONALEMAIL, esfCreateForm
 				.getInstitutionalEmail());
-		updateUser.setProperty(UserConstants.STUDYPATH, esfCreateForm
+		updateUser.setProperty(UserConstants.STUDYSUBJECT, esfCreateForm
 				.getStudyPath());
 		UserManager.getInstance().updateUser(updateUser);
 	}
