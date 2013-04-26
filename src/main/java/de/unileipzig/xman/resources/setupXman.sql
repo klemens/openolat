@@ -121,7 +121,6 @@ CREATE TABLE `o_xman_studyPath` (
   `studyPath_id` bigint(20) NOT NULL DEFAULT '0',
   `lastmodified` datetime NOT NULL DEFAULT '0000-00-00 00:00:00',
   `creationdate` datetime DEFAULT NULL,
-  `i18nKey` text,
-  `deLabel` varchar(255) DEFAULT NULL,
+  `name` text,
   PRIMARY KEY (`studyPath_id`)
 );
