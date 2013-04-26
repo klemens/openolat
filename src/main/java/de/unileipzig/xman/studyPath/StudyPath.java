@@ -12,5 +12,5 @@ public interface StudyPath extends ModifiedInfo, CreateInfo, Persistable, OLATRe
 	public static String ORES_TYPE_NAME = OresHelper.calculateTypeName(StudyPath.class);
 	
 	public String getName();
-	public void setName(String i18nKey);
+	public void setName(String name);
 }

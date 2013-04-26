@@ -130,7 +130,7 @@ public class StudyPathManager {
 	}
 	
 	/**
-	 * @param name - a string representing the i18nKey of the studyPath
+	 * @param name - a string representing the name of the studyPath
 	 * @return the studyPath with the given name or null, if no studyPaths were found
 	 */
 	public StudyPath findStudyPathByName(String name) {
@@ -157,7 +157,7 @@ public class StudyPathManager {
 	 * @return An array of all Studypaths
 	 */
 	public String[] getAllStudyPathsAsString() {
-		List<String> res = (List<String>) DBFactory.getInstance().find("select i18nKey from de.unileipzig.xman.studyPath.StudyPathImpl");
+		List<String> res = (List<String>) DBFactory.getInstance().find("select name from de.unileipzig.xman.studyPath.StudyPathImpl");
 		
 		String[] keys = new String[res.size()];
 		for (int i = 0; i < res.size(); i++) keys[i] = res.get(i);
