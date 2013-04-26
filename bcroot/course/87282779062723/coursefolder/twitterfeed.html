@@ -1,0 +1,39 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+ "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml">
+<head><meta name="generator" content="olat-tinymce-3" />
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+<title></title></head><body><div id="fxtwitter">
+<h3><a href="http://twitter.com/#!/openolat">OpenOLAT Twitter feed</a></h3>
+<br />
+<p><img style="float: left; margin: 5px 15px;" alt="twitter" src="twitter_newbird_blue.png" height="125" width="125" />Read the most recent tweets about OpenOLAT. Listen in on what the world has to say about OpenOLAT, and join the conversation.</p>
+<script src="http://widgets.twimg.com/j/2/widget.js"></script>
+<script>// <![CDATA[
+            new TWTR.Widget({
+              version : 2,
+              type : 'search',
+              search : 'openolat',
+              // search:'frentix',
+              interval : 5000,
+              title : '',
+              subject : '',
+              width : 650,
+              height : 450,
+              theme : {
+                shell : {
+                  background : '#fff',
+                  color : '#025e8c'
+                },
+                tweets : {
+                  color : '#444444',
+                  links : '#025e8c'
+                }
+              },
+              features : {
+                scrollbar : true,
+                loop : false,
+                live : true,
+                behavior : 'default'
+              }
+            }).render().start();
+// ]]></script>
+</div></body></html>

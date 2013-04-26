@@ -1,0 +1,19 @@
+<org.olat.core.id.context.HistoryPointImpl>
+  <uuid>25</uuid>
+  <businessPath>[HomeSite:917504][mysettings:0]</businessPath>
+  <entries>
+    <org.olat.core.id.context.MyContextEntry>
+      <olatResourceable class="org.olat.core.util.resource.OresHelper$1">
+        <val_-type>HomeSite</val_-type>
+        <val_-key>917504</val_-key>
+      </olatResourceable>
+      <state class="org.olat.core.id.context.StateSite"/>
+    </org.olat.core.id.context.MyContextEntry>
+    <org.olat.core.id.context.MyContextEntry>
+      <olatResourceable class="org.olat.core.util.resource.OresHelper$1">
+        <val_-type>mysettings</val_-type>
+        <val_-key>0</val_-key>
+      </olatResourceable>
+    </org.olat.core.id.context.MyContextEntry>
+  </entries>
+</org.olat.core.id.context.HistoryPointImpl>

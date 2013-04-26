@@ -1,0 +1,22 @@
+diff --git a/src/main/java/org/olat/user/propertyhandlers/UserPropertiesConfigImpl.java b/src/main/java/org/olat/user/propertyhandlers/UserPropertiesConfigImpl.java
+index f8c61be..137a97c 100644
+--- a/src/main/java/org/olat/user/propertyhandlers/UserPropertiesConfigImpl.java
++++ b/src/main/java/org/olat/user/propertyhandlers/UserPropertiesConfigImpl.java
+@@ -47,7 +47,7 @@ public class UserPropertiesConfigImpl extends LogDelegator implements UserProper
+ 	
+ 	private static final String USER_PROPERTY_LOG_CONFIGURATION = "userPropertyLogConfiguration";
+ 	public static final String PACKAGE = UserPropertiesConfigImpl.class.getPackage().getName(); 
+-
++	
+ 	
+ 	private Map<String, UserPropertyHandler> userPropertyNameLookupMap;
+ 	private Map<String, List<UserPropertyHandler>> userPropertyUsageContextsLookupMap = new HashMap<String, List<UserPropertyHandler>>();
+@@ -98,7 +98,7 @@ public class UserPropertiesConfigImpl extends LogDelegator implements UserProper
+ 		UserPropertyHandler handler =  userPropertyNameLookupMap.get(handlerName);
+ 		if (isLogDebugEnabled() && handler == null) {
+ 			logDebug("UserPropertyHander for handlerName::" + handlerName + " not found, check your configuration.", null);
+-		}
++		}		
+ 		return handler;
+ 	}
+ 

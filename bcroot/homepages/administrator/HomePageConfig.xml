@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<org.olat.user.HomePageConfig>
+  <version>4</version>
+  <configuration class="hashtable">
+    <entry>
+      <string>USERNAME</string>
+      <string>administrator</string>
+    </entry>
+    <entry>
+      <string>RESOURCEABLEID</string>
+      <long>87332915135243</long>
+    </entry>
+  </configuration>
+</org.olat.user.HomePageConfig>

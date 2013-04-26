@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<map>
+  <entry>
+    <string>OLAT_7.1.0</string>
+    <org.olat.upgrade.UpgradeHistoryData>
+      <upgradeData>
+        <entry>
+          <string>Database update</string>
+          <boolean>true</boolean>
+        </entry>
+      </upgradeData>
+      <installationComplete>true</installationComplete>
+    </org.olat.upgrade.UpgradeHistoryData>
+  </entry>
+  <entry>
+    <string>OLAT_7.1.1</string>
+    <org.olat.upgrade.UpgradeHistoryData>
+      <upgradeData>
+        <entry>
+          <string>Database update</string>
+          <boolean>true</boolean>
+        </entry>
+      </upgradeData>
+      <installationComplete>true</installationComplete>
+    </org.olat.upgrade.UpgradeHistoryData>
+  </entry>
+  <entry>
+    <string>OLAT_7.0.1</string>
+    <org.olat.upgrade.UpgradeHistoryData>
+      <upgradeData>
+        <entry>
+          <string>Database update</string>
+          <boolean>true</boolean>
+        </entry>
+      </upgradeData>
+      <installationComplete>true</installationComplete>
+    </org.olat.upgrade.UpgradeHistoryData>
+  </entry>
+  <entry>
+    <string>OLAT_8.1.0</string>
+    <org.olat.upgrade.UpgradeHistoryData>
+      <upgradeData>
+        <entry>
+          <string>Database update</string>
+          <boolean>true</boolean>
+        </entry>
+      </upgradeData>
+      <installationComplete>true</installationComplete>
+    </org.olat.upgrade.UpgradeHistoryData>
+  </entry>
+</map>
