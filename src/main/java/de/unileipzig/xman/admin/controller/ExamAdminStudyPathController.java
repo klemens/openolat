@@ -118,6 +118,7 @@ public class ExamAdminStudyPathController extends BasicController {
 	@Override
 	protected void event(UserRequest ureq, Component source, Event event) {
 		// Empty due to the forms bringing their own controllers now.
+		System.err.println(source);
 	}
 
 	@Override
@@ -133,13 +134,10 @@ public class ExamAdminStudyPathController extends BasicController {
 
 					StudyPath sp = StudyPathManager.getInstance()
 							.createStudyPath();
-					sp.setI18nKey("studyPath.name."
-							+ studyPathCreateForm.getName());
+					sp.setName(studyPathCreateForm.getName());
 
 					try {
-
-						StudyPathManager.getInstance().createLocalFiles(sp,
-								studyPathCreateForm.getName(), null);
+						StudyPathManager.getInstance().saveStudyPath(sp);
 					} catch (DuplicateObjectException e) {
 
 						this
@@ -150,13 +148,6 @@ public class ExamAdminStudyPathController extends BasicController {
 														"ExamAdminStudyPathController.duplicateObject",
 														new String[] { studyPathCreateForm
 																.getName() }));
-					} catch (FileNotFoundException e) {
-
-						this
-								.getWindowControl()
-								.setError(
-										translator
-												.translate("ExamAdminStudyPathController.missingLocaleFile"));
 					}
 
 					this.createTableModel(ureq, this.getWindowControl());
@@ -179,39 +170,11 @@ public class ExamAdminStudyPathController extends BasicController {
 				this.getWindowControl().pop();
 
 				if (this.checkTakenNames(ureq, studyPathEditForm)) {
+					StudyPath oldPath = StudyPathManager.getInstance().findStudyPathByName(studyPath.getName());
+					String newName = studyPathEditForm.getName();
+					String oldName = studyPath.getName();
 
-					try {
-
-						StudyPath oldPath = StudyPathManager.getInstance()
-								.findStudyPathByI18nKey(studyPath.getI18nKey());
-						String newName = studyPathEditForm.getName();
-						String oldName = translator.translate(studyPath
-								.getI18nKey());
-
-						// refresh the local files
-						StudyPathManager.getInstance().createLocalFiles(null,
-								newName, oldPath.getI18nKey());
-
-						this.createTableModel(ureq, this.getWindowControl());
-					} catch (DuplicateObjectException e) {
-
-						this
-								.getWindowControl()
-								.setInfo(
-										translator
-												.translate(translator
-														.translate(
-																"ExamAdminStudyPathController.duplicateObject",
-																new String[] { studyPathEditForm
-																		.getName() })));
-					} catch (FileNotFoundException e) {
-
-						this
-								.getWindowControl()
-								.setError(
-										translator
-												.translate("ExamAdminStudyPathController.missingLocaleFile"));
-					}
+					this.createTableModel(ureq, this.getWindowControl());
 				} else
 					this
 							.getWindowControl()
@@ -281,13 +244,10 @@ public class ExamAdminStudyPathController extends BasicController {
 	 * @param form
 	 * @return
 	 */
-	private boolean checkTakenNames(UserRequest ureq,
-			StudyPathCreateAndEditForm form) {
+	private boolean checkTakenNames(UserRequest ureq, StudyPathCreateAndEditForm form) {
 
-		String[] takenNames = StudyPathManager.getInstance().translateKeyArray(
-				ureq.getLocale());
+		String[] takenNames = StudyPathManager.getInstance().getAllStudyPathsAsString();
 		for (int i = 0; i < takenNames.length; i++) {
-
 			if (takenNames[i].equals(form.getName())) {
 				return false;
 			}

@@ -10,12 +10,7 @@ import org.olat.core.util.resource.OresHelper;
 public interface StudyPath extends ModifiedInfo, CreateInfo, Persistable, OLATResourceable {
 
 	public static String ORES_TYPE_NAME = OresHelper.calculateTypeName(StudyPath.class);
-
-	/*  -------------- getter  ----------------- */
 	
-	public String getI18nKey();
-	
-	/*  -------------- setter  ----------------- */
-	
-	public void setI18nKey(String i18nKey);
+	public String getName();
+	public void setName(String i18nKey);
 }

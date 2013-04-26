@@ -97,8 +97,8 @@ public class ESFCreateForm extends FormBasicController {
 
 		this.studyPath = uifactory.addDropdownSingleselect("studyPath",
 				"ESFCreateForm.studyPath", formLayout, StudyPathManager
-						.getInstance().createKeysArray(), StudyPathManager
-						.getInstance().translateKeyArray(loc), null);
+						.getInstance().getAllStudyPathsAsString(), StudyPathManager
+						.getInstance().getAllStudyPathsAsString(), null);
 		this.studyPath.setMandatory(true);
 
 		// select the studyPath of the User
