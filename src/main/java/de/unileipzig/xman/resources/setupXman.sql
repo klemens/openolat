@@ -46,6 +46,7 @@ CREATE TABLE `o_xman_esf` (
   `validated` tinyint(1) DEFAULT NULL,
   `identity_id` bigint(20) DEFAULT NULL,
   `validator_id` bigint(20) DEFAULT NULL,
+  `illnessReport_id` bigint(20) DEFAULT NULL,
   `comment_id` bigint(20) DEFAULT NULL,
   PRIMARY KEY (`esf_id`)
 );
@@ -66,6 +67,26 @@ CREATE TABLE `o_xman_exam` (
   PRIMARY KEY (`exam_id`)
 );
 
+-- Die beiden folgenden Tabellen können perspektivisch rausgeworfen werden,
+-- wenn der Code entsprechend abgespeckt ist, da nicht genutzt und über
+-- Notizfunktion abbildbar.
+CREATE TABLE `o_xman_illnessReport` (
+  `illnessReport_id` bigint(20) NOT NULL DEFAULT '0',
+  `lastmodified` datetime NOT NULL DEFAULT '0000-00-00 00:00:00',
+  `creationdate` datetime DEFAULT NULL,
+  PRIMARY KEY (`illnessReport_id`)
+);
+
+CREATE TABLE `o_xman_illnessReportEntry` (
+  `idx` bigint(20) DEFAULT NULL,
+  `parent_id` bigint(20) DEFAULT NULL,
+  `illnessReportEntry_id` bigint(20) NOT NULL DEFAULT '0',
+  `lastmodified` datetime NOT NULL DEFAULT '0000-00-00 00:00:00',
+  `creationdate` datetime DEFAULT NULL,
+  `toDate` datetime DEFAULT NULL,
+  `fromDate` datetime DEFAULT NULL,
+  PRIMARY KEY (`illnessReportEntry_id`)
+);
 
 -- Auch das ist obsolet, wenn der Code entsprechend abgespeckt ist, weil nicht
 -- sinnvoll genutzt.
