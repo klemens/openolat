@@ -249,7 +249,7 @@ public class RepositoryMainController extends MainLayoutBasicController implemen
 			}
 
 			mainToolC.addHeader(translate("tools.new.header"));
-			mainToolC.addLink(ACTION_NEW_EXAM, translate("tools.new.exam"), ACTION_NEW_EXAM, "o_toolbox_questionnaire");
+			mainToolC.addLink(ACTION_NEW_EXAM, translate("tools.new.exam"), ACTION_NEW_EXAM, "o_toolbox_exam");
 			if (!isXmanOnly) {
 			mainToolC.addLink(ACTION_NEW_CREATECOURSE, translate("tools.new.createcourse"), ACTION_NEW_CREATECOURSE, "o_toolbox_course");
 			mainToolC.addLink(ACTION_NEW_CREATECP, translate("tools.new.createcp"), ACTION_NEW_CREATECP, "o_toolbox_content");
