@@ -57,10 +57,6 @@ import de.unileipzig.xman.esf.table.ESFTableModel;
 import de.unileipzig.xman.exam.Exam;
 import de.unileipzig.xman.exam.ExamDBManager;
 import de.unileipzig.xman.exam.controllers.ExamLaunchController;
-import de.unileipzig.xman.illness.IllnessReport;
-import de.unileipzig.xman.illness.IllnessReportEntry;
-import de.unileipzig.xman.illness.IllnessReportManager;
-import de.unileipzig.xman.illness.table.IllnessReportEntryTableModel;
 import de.unileipzig.xman.protocol.Protocol;
 import de.unileipzig.xman.protocol.ProtocolManager;
 import de.unileipzig.xman.protocol.tables.ProtocolTableModel;
@@ -93,9 +89,6 @@ public class ESFLaunchController extends BasicController {
 	// TabelModel and TableController
 	private TableController protoTableCtr;
 	private ProtocolTableModel protoTableMdl;
-
-	private TableController illnessTableCtr;
-	private IllnessReportEntryTableModel illnessTableMdl;
 
 	private TableController commentTableCtr;
 	private CommentEntryTableModel commentTableMdl;
@@ -222,33 +215,8 @@ public class ESFLaunchController extends BasicController {
 
 		this.createProtocolTableModel(ureq, wControl);
 		this.createCommentTableModel(ureq, wControl);
-		this.createIllnessReportTableModel(ureq, wControl);
 	}
 
-	/**
-	 * creates the illness report table model
-	 * 
-	 * @param ureq
-	 * @param wControl
-	 */
-	private void createIllnessReportTableModel(UserRequest ureq,
-			WindowControl wControl) {
-
-		TableGuiConfiguration illnessTableConfig = new TableGuiConfiguration();
-		illnessTableConfig.setTableEmptyMessage(this.translator
-				.translate("ESFEditController.illness.emptyTableMessage"));
-		illnessTableCtr = new TableController(illnessTableConfig, ureq,
-				wControl, translator);
-		// if esf is null, give an empty list to the model
-		illnessTableMdl = new IllnessReportEntryTableModel(translator
-				.getLocale(), (esf != null ? esf.getIllnessReportsEntries()
-				: new ArrayList<IllnessReportEntry>()));
-		illnessTableMdl.setTable(illnessTableCtr);
-		illnessTableCtr.setTableDataModel(illnessTableMdl);
-		illnessTableCtr.setSortColumn(0, true);
-
-		this.mainVC.put("illnessTable", illnessTableCtr.getInitialComponent());
-	}
 
 	/**
 	 * creates the comment table model

@@ -83,8 +83,6 @@
 				<value>de/unileipzig/xman/comment/CommentImpl.hbm.xml</value>
 				<value>de/unileipzig/xman/esf/ElectronicStudentFileImpl.hbm.xml</value>
 				<value>de/unileipzig/xman/exam/ExamImpl.hbm.xml</value>
-				<value>de/unileipzig/xman/illness/IllnessReportEntry.hbm.xml</value>
-				<value>de/unileipzig/xman/illness/IllnessReportImpl.hbm.xml</value>
 				<value>de/unileipzig/xman/module/ModuleImpl.hbm.xml</value>
 				<value>de/unileipzig/xman/protocol/ProtocolImpl.hbm.xml</value>
 				<value>de/unileipzig/xman/studyPath/StudyPath.hbm.xml</value>
