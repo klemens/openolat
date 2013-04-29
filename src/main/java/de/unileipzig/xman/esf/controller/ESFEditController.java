@@ -181,7 +181,9 @@ public class ESFEditController extends MainLayoutBasicController {
 		commentTableMdl.setTable(commentTableCtr);
 		commentTableCtr.setTableDataModel(commentTableMdl);
 		commentTableCtr.setSortColumn(0, true);
-
+		
+		commentTableCtr.addControllerListener(this);
+		
 		this.mainVC.put("commentTable", commentTableCtr.getInitialComponent());
 	}
 
@@ -210,6 +212,8 @@ public class ESFEditController extends MainLayoutBasicController {
 		protocolTableCtr.setTableDataModel(protocolTableMdl);
 		protocolTableCtr.setSortColumn(0, true);
 
+		protocolTableCtr.addControllerListener(this);
+		
 		this.mainVC
 				.put("protocolTable", protocolTableCtr.getInitialComponent());
 	}
@@ -300,7 +304,7 @@ public class ESFEditController extends MainLayoutBasicController {
 
 			// somebody wants to add a comment
 			if (event.getCommand().equals(ADD_COMMENT)) {
-
+				
 				addCommentForm = new ESFCommentCreateAndEditForm(ureq,
 						getWindowControl(), "ESFCommentCreateForm",
 						this.translator, null);
@@ -361,7 +365,7 @@ public class ESFEditController extends MainLayoutBasicController {
 								!ureq.getUserSession().getRoles().isGuestOnly());
 						dt.setController(esfLaunchCtr);
 						dts.addDTab(dt);
-					}
+					} 
 					dts.activate(ureq, dt, null);
 				}
 			}
