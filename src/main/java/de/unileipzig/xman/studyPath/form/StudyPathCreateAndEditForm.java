@@ -56,10 +56,10 @@ public class StudyPathCreateAndEditForm extends FormBasicController {
 				100, null, formLayout);
 		name.setMandatory(true);
 		if (studyPath != null)
-			name.setValue(translator.translate(studyPath.getI18nKey()));
+			name.setValue(studyPath.getName());
 
 		// submit / cancel keys
-		submit = uifactory.addFormSubmitButton("save", "blubb", formLayout);
+		submit = uifactory.addFormSubmitButton("save", "save", formLayout);
 		// cancel = uifactory.addFormCancelButton("cancel", null, ureq,
 		// getWindowControl());
 	}

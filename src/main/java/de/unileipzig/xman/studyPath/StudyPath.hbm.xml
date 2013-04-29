@@ -21,7 +21,7 @@
     <timestamp name="lastModified" column="lastmodified" />   
   	<property  name="creationDate" column="creationdate" type="timestamp" />   
     
-    <property name="i18nKey" column="i18nKey" unique="true" type="string" not-null="true" length="16777210"/>
+    <property name="name" column="name" unique="true" type="string" not-null="true" length="16777210"/>
     	
   </class>  
 </hibernate-mapping>

@@ -207,18 +207,7 @@ public class ESFLaunchController extends BasicController {
 				UserConstants.INSTITUTIONALUSERIDENTIFIER, null));
 		this.mainVC.contextPut("email", user.getProperty(
 				UserConstants.INSTITUTIONALEMAIL, null));
-		this.mainVC.contextPut("studyPath", Util.createPackageTranslator(
-				StudyPath.class, ureq.getLocale()).translate(
-				user.getProperty(UserConstants.STUDYPATH, null)));
-
-		Tracing
-				.createLoggerFor(this.getClass())
-				.info(
-						Util.createPackageTranslator(StudyPath.class,
-								ureq.getLocale())
-								.translate(
-										user.getProperty(
-												UserConstants.STUDYPATH, null)));
+		this.mainVC.contextPut("studyPath", user.getProperty(UserConstants.STUDYSUBJECT, null));
 
 		this.createTableModels(ureq, wControl);
 	}

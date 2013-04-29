@@ -41,12 +41,7 @@ public class StudyPathTableModel extends DefaultTableDataModel {
 		StudyPath sp = this.getEntryAt(row);
 		
 		switch(col) {
-		
-			case 0: {
-				String test = translator.translate(sp.getI18nKey()); 
-				return test;
-			} 
-				
+			case 0: return sp.getName(); 
 			
 			case 1: return sp.getCreationDate();
 			

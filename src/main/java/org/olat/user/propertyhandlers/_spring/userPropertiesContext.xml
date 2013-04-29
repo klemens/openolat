@@ -41,7 +41,6 @@
 				<ref bean="userPropertyInstitutionalEmail" />
 				<ref bean="userPropertyOrgUnit" />
 				<ref bean="userPropertyStudySubject" />
-				<ref bean="studyPath" />
 				<!-- example
 				<ref bean="userPropertyAttrEduPersonAffiliation" />
 				<ref bean="userPropertyAttrSwissEduPersonStudyLevel" />
@@ -86,7 +85,6 @@
 								<ref bean="userPropertyInstitutionalEmail" />
 								<ref bean="userPropertyOrgUnit" />
 								<ref bean="userPropertyStudySubject" />
-								<ref bean="studyPath" />
 							</list>
 						</property>
 						<property name="mandatoryProperties">
@@ -105,7 +103,6 @@
 								<ref bean="userPropertyInstitutionalEmail" />
 								<ref bean="userPropertyOrgUnit" />
 								<ref bean="userPropertyStudySubject" />
-								<ref bean="studyPath" />
 							</set>
 						</property>
 						<property name="adminViewOnlyProperties">
@@ -153,7 +150,6 @@
 								<ref bean="userPropertyInstitutionalEmail" />
 								<ref bean="userPropertyOrgUnit" />
 								<ref bean="userPropertyStudySubject" />
-								<ref bean="studyPath" />
 							</list>
 						</property>
 					</bean>
@@ -171,7 +167,6 @@
 								<ref bean="userPropertyInstitutionalName" />
 								<ref bean="userPropertyInstitutionalUserIdentifier" />
 								<ref bean="userPropertyInstitutionalEmail" />
-								<ref bean="studyPath" />
 							</list>
 						</property>
 						<property name="adminViewOnlyProperties">
@@ -182,7 +177,6 @@
 								<!-- (UZH Note) may contain matrikel number, an information
 								which should not be revealed by a search. -->
 								<ref bean="userPropertyInstitutionalEmail" />
-								<ref bean="studyPath" />
 							</set>						
 						</property>
 					</bean>
@@ -204,7 +198,6 @@
 								<ref bean="userPropertyInstitutionalEmail" />
 								<ref bean="userPropertyOrgUnit" />
 								<ref bean="userPropertyStudySubject" />
-								<ref bean="studyPath" />
 							</list>
 						</property>
 					</bean>
@@ -225,7 +218,6 @@
 								<ref bean="userPropertyInstitutionalEmail" />
 								<ref bean="userPropertyOrgUnit" />
 								<ref bean="userPropertyStudySubject" />
-								<ref bean="studyPath" />
 							</list>
 						</property>
 						<property name="mandatoryProperties">
@@ -294,7 +286,6 @@
 								<ref bean="userPropertyInstitutionalEmail" />
 								<ref bean="userPropertyOrgUnit" />
 								<ref bean="userPropertyStudySubject" />
-								<ref bean="studyPath" />
 							</list>
 						</property>
 						<property name="mandatoryProperties">
@@ -359,7 +350,6 @@
 								<ref bean="userPropertyInstitutionalEmail" />
 								<ref bean="userPropertyOrgUnit" />
 								<ref bean="userPropertyStudySubject" />
-								<ref bean="studyPath" />
 							</list>
 						</property>
 						<property name="mandatoryProperties">
@@ -406,7 +396,6 @@
 								<ref bean="userPropertyInstitutionalEmail" />
 								<ref bean="userPropertyOrgUnit" />
 								<ref bean="userPropertyStudySubject" />
-								<ref bean="studyPath" />
 							</list>
 						</property>
 						<property name="mandatoryProperties">
@@ -456,7 +445,6 @@
 								<ref bean="userPropertyInstitutionalEmail" />
 								<ref bean="userPropertyOrgUnit" />
 								<ref bean="userPropertyStudySubject" />
-								<ref bean="studyPath" />
 							</list>
 						</property>
 					</bean>
@@ -475,7 +463,6 @@
 								<ref bean="userPropertyInstitutionalEmail" />
 								<ref bean="userPropertyOrgUnit" />
 								<ref bean="userPropertyStudySubject" />
-								<ref bean="studyPath" />
 							</list>
 						</property>
 					</bean>
@@ -493,7 +480,6 @@
 								<ref bean="userPropertyInstitutionalEmail" />
 								<ref bean="userPropertyOrgUnit" />
 								<ref bean="userPropertyStudySubject" />
-								<ref bean="studyPath" />
 							</list>
 						</property>
 					</bean>
@@ -509,8 +495,7 @@
 								<ref bean="userPropertyEmail" />	
 								<ref bean="userPropertyInstitutionalName" />
 								<ref bean="userPropertyInstitutionalUserIdentifier" />	
-								<ref bean="userPropertyInstitutionalEmail" />
-								<ref bean="studyPath" />						
+								<ref bean="userPropertyInstitutionalEmail" />						
 							</list>
 						</property>
 					</bean>
@@ -528,7 +513,6 @@
 								<ref bean="userPropertyInstitutionalEmail" />
 								<ref bean="userPropertyOrgUnit" />
 								<ref bean="userPropertyStudySubject" />
-								<ref bean="studyPath" />
 							</list>
 						</property>
 					</bean>
@@ -560,7 +544,6 @@
 								<ref bean="userPropertyInstitutionalEmail" />
 								<ref bean="userPropertyOrgUnit" />
 								<ref bean="userPropertyStudySubject" />
-								<ref bean="studyPath" />
 							</list>
 						</property>						
 					</bean>
@@ -590,8 +573,7 @@
 								<ref bean="userPropertyEmail" />
 								<ref bean="userPropertyInstitutionalName" />
 								<ref bean="userPropertyInstitutionalUserIdentifier" />
-								<ref bean="userPropertyInstitutionalEmail" />
-								<ref bean="studyPath" />								
+								<ref bean="userPropertyInstitutionalEmail" />								
 							</list>
 						</property>
 						<property name="mandatoryProperties">
@@ -629,8 +611,7 @@
 								<ref bean="userPropertyInstitutionalUserIdentifier" />
 								<ref bean="userPropertyInstitutionalEmail" />
 								<ref bean="userPropertyOrgUnit" />
-								<ref bean="userPropertyStudySubject" />
-								<ref bean="studyPath" />												
+								<ref bean="userPropertyStudySubject" />												
 							</list>
 						</property>						
 						<property name="mandatoryProperties">
@@ -695,7 +676,6 @@
 								<ref bean="userPropertyInstitutionalEmail" />
 								<ref bean="userPropertyOrgUnit" />
 								<ref bean="userPropertyStudySubject" />
-								<ref bean="studyPath" />
 							</list>
 						</property>
 						<property name="mandatoryProperties">
@@ -714,7 +694,6 @@
 								<ref bean="userPropertyInstitutionalEmail" />
 								<ref bean="userPropertyOrgUnit" />
 								<ref bean="userPropertyStudySubject" />
-								<ref bean="studyPath" />
 							</set>
 						</property>
 						<property name="adminViewOnlyProperties">
@@ -767,7 +746,6 @@
 								<ref bean="userPropertyFirstName" />
 								<ref bean="userPropertyLastName" />	
 								<ref bean="userPropertyInstitutionalName" />
-								<ref bean="studyPath" />
 							</list>
 						</property>						
 					</bean>
