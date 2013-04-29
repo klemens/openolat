@@ -168,7 +168,7 @@ public class RepositoryMainController extends MainLayoutBasicController implemen
 	public RepositoryMainController(UserRequest ureq, WindowControl wControl) {
 		super(ureq, wControl);
 
-		this.isXmanOnly = new Boolean(Settings.getServerconfig("xman"));
+		
 
 		if (log.isDebug()) {
 			log.debug("Constructing ReposityMainController for user::" + ureq.getIdentity());
@@ -232,7 +232,7 @@ public class RepositoryMainController extends MainLayoutBasicController implemen
 			listenTo(mainToolC);
 			//CP, SCORM, Wiki, Podcast, Blog, Test, Questionnaire, Glossary, other formats 
 
-			if (!isXmanOnly) {
+			
 
 			mainToolC.addHeader(translate("tools.add.header"));
 			mainToolC.addLink(RepositoryAddController.ACTION_ADD_COURSE, translate("tools.add.course"), RepositoryAddController.ACTION_ADD_COURSE, "o_toolbox_course");
@@ -246,11 +246,11 @@ public class RepositoryMainController extends MainLayoutBasicController implemen
 			mainToolC.addLink(RepositoryAddController.ACTION_ADD_GLOSSARY, translate("tools.add.glossary"), RepositoryAddController.ACTION_ADD_GLOSSARY, "o_toolbox_glossary");
 			mainToolC.addLink(RepositoryAddController.ACTION_ADD_DOC, translate("tools.add.webdoc"), RepositoryAddController.ACTION_ADD_DOC, "b_toolbox_doc");
 
-			}
+			
 
 			mainToolC.addHeader(translate("tools.new.header"));
 			mainToolC.addLink(ACTION_NEW_EXAM, translate("tools.new.exam"), ACTION_NEW_EXAM, "o_toolbox_questionnaire");
-			if (!isXmanOnly) {
+			
 			mainToolC.addLink(ACTION_NEW_CREATECOURSE, translate("tools.new.createcourse"), ACTION_NEW_CREATECOURSE, "o_toolbox_course");
 			mainToolC.addLink(ACTION_NEW_CREATECP, translate("tools.new.createcp"), ACTION_NEW_CREATECP, "o_toolbox_content");
 			mainToolC.addLink(ACTION_NEW_WIKI, translate("tools.new.wiki"), ACTION_NEW_WIKI, "o_toolbox_wiki");
@@ -267,15 +267,15 @@ public class RepositoryMainController extends MainLayoutBasicController implemen
 			if (bIsAdmin || isAuthor) {
 				mainToolC.addHeader(translate("tools.administration.header"));
 				if (bIsAdmin) {
-					mainToolC.addLink(ACTION_DELETE_RESOURCE, !isXmanOnly ? translate("tools.delete.resource") : translate("tools.delete.resource.xman"));
+					mainToolC.addLink(ACTION_DELETE_RESOURCE, translate("tools.delete.resource"));
 				}
 				mainToolC.addLink(ACTION_ADD_OWNERS, translate("tools.add.owners"));
 			}
 			}
-		} else {
-			mainToolC = null;
+		 else {
+			mainToolC = null;}
 		}
-	}
+	
 
 	private TreeModel buildTreeModel(boolean bIsAuthor) {
 		GenericTreeModel gtm = new GenericTreeModel();
@@ -306,7 +306,7 @@ public class RepositoryMainController extends MainLayoutBasicController implemen
 			}
 		}
 		rootNode.addChild(new GenericTreeNode(translate("search.exam"), "search.exam"));
-		if (!isXmanOnly) {
+		
 		rootNode.addChild(new GenericTreeNode(translate("search.course"), "search.course"));
 		if (bIsAuthor) {
 			//cp, scorm, wiki, podcast, portfolie, test, questionn, resource folder, glossary
@@ -323,7 +323,7 @@ public class RepositoryMainController extends MainLayoutBasicController implemen
 			rootNode.addChild(new GenericTreeNode(translate("search.sharedfolder"), "search.sharedfolder"));
 			rootNode.addChild(new GenericTreeNode(translate("search.glossary"), "search.glossary"));
 		}
-		} // isXmanOnly
+		
 
 		return gtm;
 	}

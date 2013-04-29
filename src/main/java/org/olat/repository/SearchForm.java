@@ -143,24 +143,17 @@ public class SearchForm extends FormBasicController{
 		 * teilweise angepasst
 		 */
 
-			if ((!displayName.isEmpty() || !author.isEmpty() || !description.isEmpty() || !(id != null && id.isEmpty())) && !modules.getSelectedKey().equals("-")) {
-				types.select(Exam.ORES_TYPE_NAME, true);
-				return true;
-			}
+		if (displayName.isEmpty() && author.isEmpty() && description.isEmpty() && (id != null && id.isEmpty()))	{
 
-			if (displayName.isEmpty() && author.isEmpty() && description.isEmpty() && (id != null && id.isEmpty())) {
-				// XMAN: could be wrong, compare patch commit!
-				displayName.setErrorKey("cif.error.allempty", null);
-				return false;
-			}
+				
 
-			if (id != null && !id.isEmpty()) {
-				try {
-					Integer.parseInt(id.getValue());
-				} catch (Exception ex) {
-					id.setErrorKey("cif.error.idnotint", null);
+					showWarning("cif.error.allempty", null);
+
+					
+
 					return false;
-				}
+				
+		
 			}
 		return true;
 	}
