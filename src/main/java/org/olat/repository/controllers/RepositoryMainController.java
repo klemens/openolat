@@ -127,7 +127,7 @@ public class RepositoryMainController extends MainLayoutBasicController implemen
 	private static final String ACTION_ADD_OWNERS = "addowners";
 
 	static final String ACTION_NEW_EXAM = "exam";
-	
+
 	private Panel mainPanel;
 	private VelocityContainer main;
 	private LayoutMain3ColsController columnsLayoutCtr;
@@ -243,7 +243,7 @@ public class RepositoryMainController extends MainLayoutBasicController implemen
 
 			mainToolC.addHeader(translate("tools.new.header"));
 			mainToolC.addLink(ACTION_NEW_EXAM, translate("tools.new.exam"), ACTION_NEW_EXAM, "o_toolbox_questionnaire");
-			
+
 			mainToolC.addLink(ACTION_NEW_CREATECOURSE, translate("tools.new.createcourse"), ACTION_NEW_CREATECOURSE, "o_toolbox_course");
 			mainToolC.addLink(ACTION_NEW_CREATECP, translate("tools.new.createcp"), ACTION_NEW_CREATECP, "o_toolbox_content");
 			mainToolC.addLink(ACTION_NEW_WIKI, translate("tools.new.wiki"), ACTION_NEW_WIKI, "o_toolbox_wiki");
@@ -264,16 +264,14 @@ public class RepositoryMainController extends MainLayoutBasicController implemen
 				}
 				mainToolC.addLink(ACTION_ADD_OWNERS, translate("tools.add.owners"));
 			}
-			}
-		 else {
-			mainToolC = null;}
+		} else {
+			mainToolC = null;
 		}
-	
+	}
 
 	private TreeModel buildTreeModel(boolean bIsAuthor) {
 		GenericTreeModel gtm = new GenericTreeModel();
 		GenericTreeNode rootNode = new GenericTreeNode(translate("search.home"), "search.home");
-
 		gtm.setRootNode(rootNode);
 
 		// TODO:catalog not yet finished :
@@ -297,7 +295,7 @@ public class RepositoryMainController extends MainLayoutBasicController implemen
 			}
 		}
 		rootNode.addChild(new GenericTreeNode(translate("search.exam"), "search.exam"));
-		
+
 		rootNode.addChild(new GenericTreeNode(translate("search.course"), "search.course"));
 		if (bIsAuthor) {
 			//cp, scorm, wiki, podcast, portfolie, test, questionn, resource folder, glossary
@@ -314,7 +312,6 @@ public class RepositoryMainController extends MainLayoutBasicController implemen
 			rootNode.addChild(new GenericTreeNode(translate("search.sharedfolder"), "search.sharedfolder"));
 			rootNode.addChild(new GenericTreeNode(translate("search.glossary"), "search.glossary"));
 		}
-		
 
 		return gtm;
 	}

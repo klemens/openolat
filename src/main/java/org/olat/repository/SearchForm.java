@@ -138,11 +138,9 @@ public class SearchForm extends FormBasicController{
 	
 	@Override
 	protected boolean validateFormLogic(@SuppressWarnings("unused") UserRequest ureq) {
-		
-
 		if (displayName.isEmpty() && author.isEmpty() && description.isEmpty() && (id != null && id.isEmpty()))	{
-            showWarning("cif.error.allempty", null);
-            return false;
+			showWarning("cif.error.allempty", null);
+			return false;
 		}
 		return true;
 	}
@@ -241,12 +239,13 @@ public class SearchForm extends FormBasicController{
 		id = uifactory.addTextElement("cif_id", "cif.id", 12, "", formLayout);
 		id.setVisible(isAdmin);
 		id.setRegexMatchCheck("\\d*", "search.id.format");
-
-	
+		
 		
 		typesSelection = uifactory.addCheckboxesVertical("search.limit.type", formLayout, new String[]{"xx"}, new String[]{""}, new String[]{null}, 1);
 		typesSelection.addActionListener(listener, FormEvent.ONCLICK);
+		
 		types = uifactory.addCheckboxesVertical("cif_types", "cif.type", formLayout, getResources().toArray(new String[0]), getTranslatedResources(getResources()), null, 1);
+	
 		FormLayoutContainer buttonLayout = FormLayoutContainer.createButtonLayout("button_layout", getTranslator());
 		formLayout.add(buttonLayout);
 		
