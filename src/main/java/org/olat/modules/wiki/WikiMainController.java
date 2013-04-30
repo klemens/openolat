@@ -174,8 +174,6 @@ public class WikiMainController extends BasicController implements CloneableCont
 		this.ores = ores;
 		this.securityCallback = securityCallback;
 		this.subsContext = securityCallback.getSubscriptionContext();
-		
-		if (securityCallback == null) throw new AssertException("WikiSecurityCallback is null! You must provide an security callback!", null);
 		this.ident = ureq.getIdentity();
 		WikiPage page = null;
 		Wiki wiki = getWiki();
@@ -256,9 +254,6 @@ public class WikiMainController extends BasicController implements CloneableCont
 		 * wiki component
 		 **************************************************************************/
 		articleContent = createVelocityContainer("article");
-		wikiArticleComp = new WikiMarkupComponent("wikiArticle", ores, 300);
-		wikiArticleComp.addListener(this);
-		wikiArticleComp.setImageMapperUri(ureq, wikiContainer);
 		articleContent.put("wikiArticle", wikiArticleComp);
 		tabs.addTab(translate("tab.article"), articleContent);
 
@@ -847,7 +842,7 @@ public class WikiMainController extends BasicController implements CloneableCont
 						if (page.getPageName().equals(WikiPage.WIKI_MENU_PAGE)) wikiMenuComp.setWikiContent(page.getContent());
 						WikiManager.getInstance().saveWikiPage(ores, page, true, wiki);
 						// inform subscription context about changes
-						NotificationsManager.getInstance().markPublisherNews(subsContext, ureq.getIdentity());
+						NotificationsManager.getInstance().markPublisherNews(subsContext, ureq.getIdentity(), true);
 
 						updatePageContext(ureq, page);
 			}
@@ -937,6 +932,10 @@ public class WikiMainController extends BasicController implements CloneableCont
 	}
 
 	protected void doDispose() {
+		if(wikiMenuComp != null) wikiMenuComp.dispose();
+		if(wikiArticleComp != null) wikiArticleComp.dispose();
+		if(wikiVersionDisplayComp != null) wikiVersionDisplayComp.dispose();
+		
 		ThreadLocalUserActivityLogger.log(LearningResourceLoggingAction.LEARNING_RESOURCE_CLOSE, getClass());
 		doReleaseEditLock();
 	}

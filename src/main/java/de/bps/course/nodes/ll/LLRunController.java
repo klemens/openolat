@@ -76,7 +76,7 @@ public class LLRunController extends BasicController {
 			customMapper = customMediaChooserFactory.getMapperInstance(courseContainer, null, null);
 		}
 		String mapperID = courseEnv.getCourseResourceableId() + "/" + llCourseNode.getIdent();
-		String mapperBaseUrl = registerCacheableMapper(mapperID, new LLMapper(linkList, customMapper, courseContainer));
+		String mapperBaseUrl = registerCacheableMapper(ureq, mapperID, new LLMapper(linkList, customMapper, courseContainer));
 		
 		runVC.contextPut("mapperBaseUrl", mapperBaseUrl);
 		
@@ -94,7 +94,7 @@ public class LLRunController extends BasicController {
 		// nothing to do here
 	}
 	
-	public class LLMapper implements Mapper {
+	public static class LLMapper implements Mapper {
 		private final List<LLModel> linkList;
 		private final Mapper customMediaMapper;
 		private final VFSContainer courseContainer;

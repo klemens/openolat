@@ -41,14 +41,18 @@ import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.Event;
 import org.olat.core.gui.control.WindowControl;
 import org.olat.core.gui.control.controller.BasicController;
+import org.olat.core.gui.media.RedirectMediaResource;
 import org.olat.core.id.Identity;
-import org.olat.core.util.UserSession;
 import org.olat.core.id.User;
 import org.olat.core.id.context.HistoryManager;
 import org.olat.core.id.context.HistoryModule;
 import org.olat.core.util.StringHelper;
+import org.olat.core.util.UserSession;
+import org.olat.core.util.WebappHelper;
+import org.olat.core.util.i18n.I18nManager;
 import org.olat.core.util.prefs.Preferences;
 import org.olat.core.util.prefs.PreferencesFactory;
+import org.olat.core.util.session.UserSessionManager;
 import org.olat.properties.PropertyManager;
 
 
@@ -157,9 +161,12 @@ class SpecialPrefsForm extends FormBasicController {
 	/** The keys for yes/no back. */
 	private String[] yesNoKeys;
 	private String[] yesNoValues;
+
+	private final UserSessionManager sessionManager;
 	
 	public SpecialPrefsForm(final UserRequest ureq, final WindowControl wControl, final Identity changeableIdentity) {
 		super(ureq, wControl);
+		sessionManager = CoreSpringFactory.getImpl(UserSessionManager.class);
 		tobeChangedIdentity = changeableIdentity;
 		
 		// OLAT-6429 load GUI prefs from user session for myself, load it from factory for other users (as user manager)
@@ -199,7 +206,7 @@ class SpecialPrefsForm extends FormBasicController {
 	protected void formOK(UserRequest ureq) {
 		// OLAT-6429 don't change another users GUI prefs when he is logged in 
 		if (!ureq.getIdentity().equalsByPersistableKey(tobeChangedIdentity)) {
-			if (UserSession.isSignedOnIdentity(tobeChangedIdentity.getName())) {
+			if (sessionManager.isSignedOnIdentity(tobeChangedIdentity.getName())) {
 				showError("error.user.logged.in", tobeChangedIdentity.getName());
 				prefsElement.reset();
 				return;
@@ -238,18 +245,22 @@ class SpecialPrefsForm extends FormBasicController {
 		setFormContextHelp(this.getClass().getPackage().getName(), "home-prefs-special.html", "help.hover.home.prefs.special");
 		
 		prefsElement = uifactory.addCheckboxesVertical("prefs", "title.prefs.accessibility", formLayout, keys, values, null, 1);
+		prefsElement.setElementCssClass("o_sel_home_settings_accessibility");
 		//fxdiff BAKS-7 Resume function
 		HistoryModule historyModule = (HistoryModule)CoreSpringFactory.getBean("historyModule");
 		if(historyModule.isResumeEnabled()) {
 			resumeElement = uifactory.addRadiosVertical("resume", "resume.label", formLayout, resumeKeys, resumeValues);
+			resumeElement.setElementCssClass("o_sel_home_settings_resume");
 		}
 		if(historyModule.isBackEnabled()) {
 			backElement = uifactory.addRadiosVertical("back-enabling", "back.label", formLayout, yesNoKeys, yesNoValues);
+			backElement.setElementCssClass("o_sel_home_settings_back_enabling");
 		}
 		update();
 		
 		final FormLayoutContainer buttonLayout = FormLayoutContainer.createButtonLayout("button_layout", getTranslator());
 		formLayout.add(buttonLayout);
+		buttonLayout.setElementCssClass("o_sel_home_settings_gui_buttons");
 		uifactory.addFormSubmitButton("submit", buttonLayout);
 		uifactory.addFormCancelButton("cancel", buttonLayout, ureq, getWindowControl());
 	}
@@ -307,9 +318,12 @@ class UserPrefsResetForm extends FormBasicController {
 	private Identity tobeChangedIdentity;
 	private MultipleSelectionElement resetElements;
 	private String[] keys, values;
+
+	private final UserSessionManager sessionManager;
 	
 	public UserPrefsResetForm(UserRequest ureq, WindowControl wControl, Identity changeableIdentity) {
 		super(ureq, wControl);
+		sessionManager = CoreSpringFactory.getImpl(UserSessionManager.class);
 		tobeChangedIdentity = changeableIdentity;
 		initForm(ureq);
 	}
@@ -323,9 +337,11 @@ class UserPrefsResetForm extends FormBasicController {
 		values = new String[] {translate("reset.elements.guiprefs"), translate("reset.elements.sysprefs"), translate("reset.elements.resume")};
 		
 		resetElements = uifactory.addCheckboxesVertical("prefs", "reset.elements", formLayout, keys, values, null, 1);
+		resetElements.setElementCssClass("o_sel_home_settings_reset_sysprefs");
 		
 		final FormLayoutContainer buttonLayout = FormLayoutContainer.createButtonLayout("button_layout", getTranslator());
 		formLayout.add(buttonLayout);
+		buttonLayout.setElementCssClass("o_sel_home_settings_reset_sysprefs_buttons");
 		uifactory.addFormSubmitButton("reset.submit", buttonLayout);
 	}
 
@@ -333,11 +349,13 @@ class UserPrefsResetForm extends FormBasicController {
 	protected void formOK(UserRequest ureq) {
 		if (resetElements.isAtLeastSelected(1)) {
 			// Log out user first if logged in
-			Set<UserSession> sessions = UserSession.getAuthenticatedUserSessions();
+			boolean logout = false;
+			Set<UserSession> sessions = sessionManager.getAuthenticatedUserSessions();
 			for (UserSession session : sessions) {
 				Identity ident = session.getIdentity();
 				if (ident != null && tobeChangedIdentity.equalsByPersistableKey(ident)) {
-					session.signOffAndClear();
+					sessionManager.signOffAndClear(session);
+					logout = true;
 					break;
 				}
 			}
@@ -365,6 +383,13 @@ class UserPrefsResetForm extends FormBasicController {
 			}
 			// reset form buttons
 			resetElements.uncheckAll();
+			
+			if(logout) {
+				//if logout, need a redirect to the login page
+				String lang = I18nManager.getInstance().getLocaleKey(ureq.getLocale());
+				ureq.getDispatchResult().setResultingMediaResource(
+						new RedirectMediaResource(WebappHelper.getServletContextPath() + "/dmz/?lang=" + lang + "&logout=true"));
+			}
 		}
 	}
 	

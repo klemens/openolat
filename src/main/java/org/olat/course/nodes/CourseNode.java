@@ -31,15 +31,18 @@ import java.util.Locale;
 
 import org.olat.core.gui.ShortName;
 import org.olat.core.gui.UserRequest;
+import org.olat.core.gui.components.stack.StackedController;
 import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.WindowControl;
 import org.olat.core.gui.control.generic.tabbable.TabbableController;
 import org.olat.core.util.nodes.INode;
 import org.olat.course.ICourse;
 import org.olat.course.condition.Condition;
+import org.olat.course.condition.interpreter.ConditionExpression;
 import org.olat.course.condition.interpreter.ConditionInterpreter;
 import org.olat.course.editor.CourseEditorEnv;
 import org.olat.course.editor.StatusDescription;
+import org.olat.course.export.CourseEnvironmentMapper;
 import org.olat.course.run.navigation.NodeRunConstructionResult;
 import org.olat.course.run.userview.NodeEvaluation;
 import org.olat.course.run.userview.TreeEvaluation;
@@ -54,7 +57,9 @@ import org.olat.repository.RepositoryEntry;
  */
 public interface CourseNode extends INode, ShortName {
 	
+	public static final String DISPLAY_OPTS_SHORT_TITLE_DESCRIPTION_CONTENT = "shorttitle+desc+content";
 	public static final String DISPLAY_OPTS_TITLE_DESCRIPTION_CONTENT = "title+desc+content";
+	public static final String DISPLAY_OPTS_SHORT_TITLE_CONTENT = "shorttitle+content";
 	public static final String DISPLAY_OPTS_TITLE_CONTENT = "title+content";
 	public static final String DISPLAY_OPTS_CONTENT = "content";
 
@@ -215,7 +220,7 @@ public interface CourseNode extends INode, ShortName {
 	 *          check methods for conditions
 	 * @return A tabbable node edit controller
 	 */
-	public TabbableController createEditController(UserRequest ureq, WindowControl wControl, ICourse course, UserCourseEnvironment euce);
+	public TabbableController createEditController(UserRequest ureq, WindowControl wControl, StackedController stackPanel, ICourse course, UserCourseEnvironment euce);
 
 	/**
 	 * @param ureq
@@ -327,6 +332,16 @@ public interface CourseNode extends INode, ShortName {
 	 *         have finished.
 	 */
 	public Controller importNode(File importDirectory, ICourse course, boolean unattendedImport, UserRequest ureq, WindowControl wControl);
+	
+	/**
+	 * Remap the node to the context of the course after import.
+	 */
+	public void postImport(CourseEnvironmentMapper envMapper);
+	
+	/**
+	 * 
+	 */
+	public void postExport(CourseEnvironmentMapper envMapper, boolean backwardsCompatible);
 
 	/**
 	 * Create an instance for the copy process. The copy must have a different
@@ -336,6 +351,14 @@ public interface CourseNode extends INode, ShortName {
 	 * @return
 	 */
 	public CourseNode createInstanceForCopy();
+	
+	/**
+	 * Try to copy the configuration of this course node to
+	 * the one passed as parameter. Warning, the 2 nodes can
+	 * be from different types.
+	 * @param courseNode
+	 */
+	public void copyConfigurationTo(CourseNode courseNode);
 	
 	/**
 	 * Create an instance for the copy process. The copy must have a different
@@ -351,7 +374,7 @@ public interface CourseNode extends INode, ShortName {
 	 * @return empty list, or list with active condition expressions of the course
 	 *         node
 	 */
-	public abstract List getConditionExpressions();
+	public List<ConditionExpression> getConditionExpressions();
 
 	/**
 	 * explain what the given status description means in the publish environment

@@ -30,10 +30,9 @@ import java.io.IOException;
 import java.util.Enumeration;
 import java.util.Properties;
 
-import org.hibernate.cfg.Configuration;
+import org.junit.After;
 import org.junit.Before;
-import org.olat.core.CoreSpringFactory;
-import org.olat.core.commons.persistence.OLATLocalSessionFactoryBean;
+import org.olat.core.commons.persistence.DBFactory;
 import org.olat.core.helpers.Settings;
 import org.olat.core.util.event.FrameworkStartupEventChannel;
 import org.springframework.core.io.ClassPathResource;
@@ -55,6 +54,7 @@ import org.springframework.test.context.junit4.AbstractJUnit4SpringContextTests;
 	"classpath:/org/olat/core/util/_spring/utilCorecontext.xml",
 	"classpath:/org/olat/core/util/i18n/devtools/_spring/devtoolsCorecontext.xml",
 	"classpath:/org/olat/core/util/event/_spring/frameworkStartedEventCorecontext.xml",
+	"classpath:/org/olat/core/id/context/_spring/historyCorecontext.xml",
 
 	"classpath:/org/olat/core/commons/persistence/_spring/databaseCorecontext.xml",
 	"classpath:/org/olat/core/commons/taskExecutor/_spring/taskExecutorCorecontext.xml",
@@ -66,7 +66,6 @@ import org.springframework.test.context.junit4.AbstractJUnit4SpringContextTests;
 	"classpath:/org/olat/core/logging/_spring/loggingCorecontext.xml",
 	"classpath:/org/olat/core/logging/activity/_spring/activityCorecontext.xml",
 	"classpath:/org/olat/core/_spring/mainCorecontext.xml",
-	"classpath:/org/olat/core/dispatcher/jumpin/_spring/jumpinCorecontext.xml",
 
 	"classpath:/serviceconfig/org/olat/core/gui/components/form/flexible/impl/elements/richText/_spring/richTextCorecontext.xml",
 	"classpath:/serviceconfig/org/olat/core/commons/scheduler/_spring/schedulerCorecontext.xml",
@@ -91,7 +90,8 @@ import org.springframework.test.context.junit4.AbstractJUnit4SpringContextTests;
 public abstract class OlatTestCase extends AbstractJUnit4SpringContextTests {
 	
 	private static boolean postgresqlConfigured = false;
-	private static boolean started = false;;
+	private static boolean oracleConfigured = false;
+	private static boolean started = false;
 	
 	/**
 	 * If you like to disable a test method for some time just add the
@@ -113,27 +113,9 @@ public abstract class OlatTestCase extends AbstractJUnit4SpringContextTests {
 		
 		FrameworkStartupEventChannel.fireEvent();
 		
-		OLATLocalSessionFactoryBean bean = (OLATLocalSessionFactoryBean)CoreSpringFactory.getBean(OLATLocalSessionFactoryBean.class);
-		Configuration configuration = bean.getConfiguration();
-		
-		Properties properties = configuration.getProperties();
-		
-		String[] propsOfInterest =new String[]{
-				"hibernate.connection.driver_class",
-				"hibernate.connection.provider_class",
-				"hibernate.connection.url",
-				"hibernate.connection.username",
-				};
-		
-		String connectionURL = (String)properties.get("hibernate.connection.url");
-		postgresqlConfigured = connectionURL != null && connectionURL.toLowerCase().indexOf("postgres") > 0; 
-		
-		
-		
-		System.out.println("+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++");
-		for (int i = 0; i < propsOfInterest.length; i++) {
-			System.out.println("++" + propsOfInterest[i] + " -> "+properties.getProperty(propsOfInterest[i]));
-		}
+		String dbVendor = DBFactory.getInstance().getDbVendor();
+		postgresqlConfigured = dbVendor != null && dbVendor.startsWith("postgres");
+		oracleConfigured = dbVendor != null && dbVendor.startsWith("oracle");
 		
 		System.out.println("+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++");
 		printOlatLocalProperties();
@@ -142,6 +124,21 @@ public abstract class OlatTestCase extends AbstractJUnit4SpringContextTests {
 		System.out.println("+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++");
 
 		started = true;
+	}
+	
+	@After
+	public void closeConnectionAfter() {
+		try {
+			DBFactory.getInstance().commitAndCloseSession();
+		} catch (Exception e) {
+			e.printStackTrace();
+
+			try {
+				DBFactory.getInstance().rollbackAndCloseSession();
+			} catch (Exception e1) {
+				e1.printStackTrace();
+			}
+		}
 	}
 	
 	@SuppressWarnings("unchecked")
@@ -164,10 +161,16 @@ public abstract class OlatTestCase extends AbstractJUnit4SpringContextTests {
 	}
 
 	/**
-	 * 
-	 * @return
+	 * @return True if the test run on PostreSQL
 	 */
 	protected boolean isPostgresqlConfigured() {
 		return postgresqlConfigured;
+	}
+
+	/**
+	 * @return True if the test run on Oracle
+	 */
+	protected boolean isOracleConfigured() {
+		return oracleConfigured;
 	}
 }

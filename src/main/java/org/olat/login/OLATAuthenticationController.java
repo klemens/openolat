@@ -50,8 +50,11 @@ import org.olat.core.id.context.StateEntry;
 import org.olat.core.logging.OLATSecurityException;
 import org.olat.core.logging.Tracing;
 import org.olat.core.util.Encoder;
+import org.olat.core.util.StringHelper;
+import org.olat.core.util.UserSession;
 import org.olat.core.util.Util;
 import org.olat.core.util.WebappHelper;
+import org.olat.core.util.i18n.I18nManager;
 import org.olat.core.util.mail.MailHelper;
 import org.olat.login.auth.AuthenticationController;
 import org.olat.login.auth.OLATAuthentcationForm;
@@ -96,7 +99,7 @@ public class OLATAuthenticationController extends AuthenticationController imple
 
 		loginComp = createVelocityContainer("olat_log", "olatlogin");
 		
-		if(UserModule.isPwdchangeallowed(ureq.getIdentity())) {
+		if(UserModule.isPwdchangeallowed(null)) {
 			pwLink = LinkFactory.createLink("_olat_login_change_pwd", "menu.pw", loginComp, this);
 			pwLink.setCustomEnabledLinkCSS("o_login_pwd b_with_small_icon_left");
 		}
@@ -110,6 +113,7 @@ public class OLATAuthenticationController extends AuthenticationController imple
 		if (LoginModule.isGuestLoginLinksEnabled()) {
 			anoLink = LinkFactory.createLink("_olat_login_guest", "menu.guest", loginComp, this);
 			anoLink.setCustomEnabledLinkCSS("o_login_guests b_with_small_icon_left");
+			anoLink.setEnabled(!AuthHelper.isLoginBlocked());
 		}
 		
 		
@@ -204,9 +208,19 @@ public class OLATAuthenticationController extends AuthenticationController imple
 					showError("login.error", WebappHelper.getMailConfig("mailReplyTo"));
 					return;
 				}
+			} else {
+				try {
+					String language = authenticatedIdentity.getUser().getPreferences().getLanguage();
+					UserSession usess = ureq.getUserSession();
+					if(StringHelper.containsNonWhitespace(language)) {
+						usess.setLocale(I18nManager.getInstance().getLocaleOrDefault(language));
+					}
+				} catch (Exception e) {
+					logError("Cannot set the user language", e);
+				}
 			}
 			
-			LoginModule.clearFailedLoginAttempts(login);	
+			LoginModule.clearFailedLoginAttempts(login);
 			
 			// Check if disclaimer has been accepted
 			if (RegistrationManager.getInstance().needsToConfirmDisclaimer(authenticatedIdentity)) {
@@ -286,8 +300,10 @@ public class OLATAuthenticationController extends AuthenticationController imple
 				ident = findIdentInChangingEmailWorkflow(login);
 			}
 		}
-		
-		if (ident == null) return null;
+
+		if (ident == null) {
+			return null;
+		}
 		
 		// find OLAT authentication provider
 		Authentication auth = BaseSecurityManager.getInstance().findAuthentication(

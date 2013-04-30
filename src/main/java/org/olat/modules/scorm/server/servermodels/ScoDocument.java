@@ -27,6 +27,7 @@ import java.io.IOException;
 import java.util.HashMap;
 import java.util.Hashtable;
 import java.util.Iterator;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Vector;
@@ -34,6 +35,8 @@ import java.util.Vector;
 import org.jdom.Document;
 import org.jdom.Element;
 import org.olat.core.logging.OLATRuntimeException;
+import org.olat.core.logging.OLog;
+import org.olat.core.logging.Tracing;
 import org.olat.modules.scorm.ISettingsHandler;
 
 import uk.ac.reload.jdom.XMLDocument;
@@ -47,6 +50,8 @@ import uk.ac.reload.jdom.XMLDocument;
  * @author Paul Sharples
  */
 public class ScoDocument extends XMLDocument {
+	private OLog log = Tracing.createLoggerFor(ScoDocument.class);
+	
 	// var used to flag if the sco was "failed"
 	private boolean isFailed = false;
 
@@ -120,8 +125,10 @@ public class ScoDocument extends XMLDocument {
 		// Make sure its there
 		if (pathToNavFile.exists()) {
 			try {
-				super.loadDocument(pathToNavFile);
-
+				synchronized(ScoDocument.class) {
+					super.loadDocument(pathToNavFile);
+				}
+				
 				Element root = getDocument().getRootElement();
 
 				// set these now, so they are easy to get to when we need them later.
@@ -146,10 +153,27 @@ public class ScoDocument extends XMLDocument {
 					isFailed = false;
 				}
 			} catch (Exception ex) {
+				log.info("Error loading: " + pathToNavFile + " :: " + this);
 				throw new OLATRuntimeException(this.getClass(), "error: could not load sco model for " + scoID, ex);
 			}
 		} else {
 			throw new OLATRuntimeException(this.getClass(), "error: could not find sco model for " + scoID, null);
+		}
+	}
+	
+	
+
+	@Override
+	public void saveAsDocument(File file) throws IOException {
+		synchronized(ScoDocument.class) {
+			super.saveAsDocument(file);
+		}
+	}
+
+	@Override
+	public void saveDocument() throws IOException {
+		synchronized(ScoDocument.class) {
+			super.saveDocument();
 		}
 	}
 
@@ -404,7 +428,7 @@ public class ScoDocument extends XMLDocument {
 	 */
 	public String[][] doFinalPreUpdate(String[][] scoElementsPreUpdate, boolean loadFlag) {
 		// Keying the elements into a map will make this easier
-		Map<String,String> keyedElements = new HashMap<String,String>();
+		Map<String,String> keyedElements = new LinkedHashMap<String,String>();
 		for (int i = 0; i < scoElementsPreUpdate.length; i++) {
 			keyedElements.put(scoElementsPreUpdate[i][0], scoElementsPreUpdate[i][1]);
 		}

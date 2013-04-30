@@ -40,6 +40,7 @@ import java.util.StringTokenizer;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
+import org.olat.core.CoreSpringFactory;
 import org.olat.core.gui.Windows;
 import org.olat.core.gui.util.bandwidth.SlowBandWidthSimulator;
 import org.olat.core.helpers.Settings;
@@ -47,7 +48,7 @@ import org.olat.core.logging.OLog;
 import org.olat.core.logging.Tracing;
 import org.olat.core.util.FileUtils;
 import org.olat.core.util.StringHelper;
-import org.olat.core.util.UserSession;
+import org.olat.core.util.session.UserSessionManager;
 
 /**
  * @author Felix Jost
@@ -144,7 +145,7 @@ public class ServletUtil {
 				}
 				
 				if (Settings.isDebuging()) {
-					SlowBandWidthSimulator sbs = Windows.getWindows(UserSession.getUserSession(httpReq)).getSlowBandWidthSimulator();
+					SlowBandWidthSimulator sbs = Windows.getWindows(CoreSpringFactory.getImpl(UserSessionManager.class).getUserSession(httpReq)).getSlowBandWidthSimulator();
 					out = sbs.wrapOutputStream(httpResp.getOutputStream());
 				} else {
 					out = httpResp.getOutputStream();
@@ -160,7 +161,7 @@ public class ServletUtil {
               // Set the content-length as String to be able to use a long
           	httpResp.setHeader("content-length", "" + length);
           }
-
+          httpResp.setStatus(HttpServletResponse.SC_PARTIAL_CONTENT);
           try {
           	httpResp.setBufferSize(2048);
           } catch (IllegalStateException e) {
@@ -355,8 +356,6 @@ public class ServletUtil {
 			}
 
 			s.skip(seekPos);
-			
-			int readSize = 0;
 
 			final int bufferSize = 1024 * 10;
 			long left = fileSize;
@@ -368,7 +367,6 @@ public class ServletUtil {
 
 				byte[] buf = new byte[howMuch];
 				int numRead = s.read(buf);
-				readSize += numRead;
 
 				out.write(buf, 0, numRead);
 				httpResp.flushBuffer();
@@ -381,7 +379,7 @@ public class ServletUtil {
 			}
 		}
 		catch (Exception e) {
-			e.printStackTrace();
+			log.error("", e);
 			if (e.getClass().getName().contains("Eof")) {
 				//ignore
 			} else {
@@ -449,7 +447,7 @@ public class ServletUtil {
 			
 			OutputStream os;
 			if (Settings.isDebuging()) {
-				SlowBandWidthSimulator sbs = Windows.getWindows(UserSession.getUserSession(httpReq)).getSlowBandWidthSimulator();
+				SlowBandWidthSimulator sbs = Windows.getWindows(CoreSpringFactory.getImpl(UserSessionManager.class).getUserSession(httpReq)).getSlowBandWidthSimulator();
 				os = sbs.wrapOutputStream(response.getOutputStream());	
 			} else {
 				os = response.getOutputStream();

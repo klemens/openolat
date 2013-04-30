@@ -19,7 +19,6 @@
  */
 package org.olat.admin.user.bulkChange;
 
-import java.io.IOException;
 import java.io.StringWriter;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -34,11 +33,11 @@ import org.apache.velocity.exception.MethodInvocationException;
 import org.apache.velocity.exception.ParseErrorException;
 import org.apache.velocity.exception.ResourceNotFoundException;
 import org.apache.velocity.runtime.RuntimeConstants;
-import org.olat.admin.user.groups.GroupAddManager;
 import org.olat.basesecurity.BaseSecurity;
 import org.olat.basesecurity.BaseSecurityManager;
 import org.olat.basesecurity.Constants;
 import org.olat.basesecurity.SecurityGroup;
+import org.olat.core.CoreSpringFactory;
 import org.olat.core.commons.persistence.DB;
 import org.olat.core.commons.persistence.DBFactory;
 import org.olat.core.gui.components.form.ValidationError;
@@ -51,6 +50,9 @@ import org.olat.core.logging.Tracing;
 import org.olat.core.manager.BasicManager;
 import org.olat.core.util.StringHelper;
 import org.olat.core.util.Util;
+import org.olat.core.util.mail.MailPackage;
+import org.olat.group.BusinessGroupService;
+import org.olat.group.model.BusinessGroupMembershipChange;
 import org.olat.login.auth.OLATAuthManager;
 import org.olat.user.UserManager;
 import org.olat.user.propertyhandlers.UserPropertyHandler;
@@ -104,7 +106,6 @@ public class UserBulkChangeManager extends BasicManager {
 		String[] securityGroups = { Constants.GROUP_USERMANAGERS, Constants.GROUP_GROUPMANAGERS, Constants.GROUP_AUTHORS, Constants.GROUP_ADMIN };
 		UserManager um = UserManager.getInstance();
 		BaseSecurity secMgr = BaseSecurityManager.getInstance();
-		GroupAddManager groupAddMgr = GroupAddManager.getInstance();
 
 		// loop over users to be edited:
 		for (Identity identity : selIdentities) {
@@ -186,16 +187,11 @@ public class UserBulkChangeManager extends BasicManager {
 				}
 			}
 			
-			// FXOLAT-101: add identity to new groups:
-			if (ownGroups.size() != 0 || partGroups.size() != 0){
-				groupAddMgr.addIdentityToGroups(ownGroups, partGroups, mailGroups, identity, addingIdentity);
-			}			
-			
+
 			// set status
 			if (roleChangeMap.containsKey("Status")) {
 				Integer status = Integer.parseInt(roleChangeMap.get("Status"));
-				secMgr.saveIdentityStatus(identity, status);
-				identity = (Identity) db.loadObject(identity);
+				identity = secMgr.saveIdentityStatus(identity, status);
 			}
 
 			// persist changes:
@@ -213,6 +209,31 @@ public class UserBulkChangeManager extends BasicManager {
 			db.intermediateCommit();
 		} // for identities
 
+		// FXOLAT-101: add identity to new groups:
+		if (ownGroups.size() != 0 || partGroups.size() != 0) {
+			List<BusinessGroupMembershipChange> changes = new ArrayList<BusinessGroupMembershipChange>();
+			for(Identity selIdentity:selIdentities) {
+				if(ownGroups != null && !ownGroups.isEmpty()) {
+					for(Long tutorGroupKey:ownGroups) {
+						BusinessGroupMembershipChange change = new BusinessGroupMembershipChange(selIdentity, tutorGroupKey);
+						change.setTutor(Boolean.TRUE);
+						changes.add(change);
+					}
+				}
+				if(partGroups != null && !partGroups.isEmpty()) {
+					for(Long partGroupKey:partGroups) {
+						BusinessGroupMembershipChange change = new BusinessGroupMembershipChange(selIdentity, partGroupKey);
+						change.setParticipant(Boolean.TRUE);
+						changes.add(change);
+					}
+				}
+			}
+
+			BusinessGroupService bgs = CoreSpringFactory.getImpl(BusinessGroupService.class);
+			MailPackage mailing = new MailPackage();
+			bgs.updateMemberships(addingIdentity, changes, mailing);
+			DBFactory.getInstance().commit();
+		}
 	}
 
 	public String evaluateValueWithUserContext(String valToEval, Context vcContext) {
@@ -232,7 +253,7 @@ public class UserBulkChangeManager extends BasicManager {
 			log.error("evaluating of values in BulkChange Field not possible!");
 			e.printStackTrace();
 			return "ERROR";
-		} catch (IOException e) {
+		} catch (Exception e) {
 			log.error("evaluating of values in BulkChange Field not possible!");
 			e.printStackTrace();
 			return "ERROR";

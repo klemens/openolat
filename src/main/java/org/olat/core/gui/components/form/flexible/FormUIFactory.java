@@ -47,7 +47,6 @@ import org.olat.core.gui.components.form.flexible.elements.TextElement;
 import org.olat.core.gui.components.form.flexible.impl.FormBasicController;
 import org.olat.core.gui.components.form.flexible.impl.FormEvent;
 import org.olat.core.gui.components.form.flexible.impl.FormItemImpl;
-import org.olat.core.gui.components.form.flexible.impl.FormLayoutContainer;
 import org.olat.core.gui.components.form.flexible.impl.components.SimpleExampleText;
 import org.olat.core.gui.components.form.flexible.impl.components.SimpleFormErrorText;
 import org.olat.core.gui.components.form.flexible.impl.components.SimpleLabelText;
@@ -928,6 +927,12 @@ public class FormUIFactory {
 		return fte;
 	}
 	
+	public FlexiTableElment addTableElement(String name, FlexiTableDataModel tableModel, Translator translator,  FormItemContainer formLayout) {
+		FlexiTableElementImpl fte = new FlexiTableElementImpl(name, translator, tableModel);
+		formLayout.add(fte);
+		return fte;
+	}
+	
 	/**
 	 * creates a form link with the given name which acts also as command, i18n
 	 * and component name. 
@@ -1090,7 +1095,7 @@ public class FormUIFactory {
 	 * @param wControl
 	 * @return
 	 */
-	public FormCancel addFormCancelButton(String name, FormLayoutContainer formLayoutContainer, UserRequest ureq, WindowControl wControl) {
+	public FormCancel addFormCancelButton(String name, FormItemContainer formLayoutContainer, UserRequest ureq, WindowControl wControl) {
 		FormCancel cancel = new FormCancel(name, formLayoutContainer, ureq, wControl);
 		formLayoutContainer.add(cancel);
 		return cancel;

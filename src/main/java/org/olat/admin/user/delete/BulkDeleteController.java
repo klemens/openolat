@@ -133,6 +133,13 @@ public class BulkDeleteController extends BasicController {
 	 * list of not deleted users, reason for deletion
 	 */
 	public void sendMail(UserRequest ureq) {
+		
+		String recipient = WebappHelper.getMailConfig("mailDeleteUser");
+		
+		if (recipient.equals("disabled")) {
+			return;
+		}
+		
 		StringBuffer loginsFound = new StringBuffer();
 		for(String login : lstLoginsFound) loginsFound.append(login + "\n");
 		StringBuffer loginsNotfound = new StringBuffer();
@@ -150,8 +157,8 @@ public class BulkDeleteController extends BasicController {
 		String subject = translate("mail.subject");
 		String body = getTranslator().translate("mail.body", bodyArgs);
 		
-		ContactList cl = new ContactList(WebappHelper.getMailConfig("mailDeleteUser"));
-		cl.add(WebappHelper.getMailConfig("mailDeleteUser"));
+		ContactList cl = new ContactList(recipient);
+		cl.add(recipient);
 		cl.add(ureq.getIdentity());
 		List<ContactList> lstAddrTO = new ArrayList<ContactList>();
 		lstAddrTO.add(cl);
@@ -159,7 +166,7 @@ public class BulkDeleteController extends BasicController {
 		Emailer mailer = new Emailer(ureq.getLocale());
 		try {
 			//fxdiff VCRP-16: intern mail system
-			mailer.sendEmail(null, lstAddrTO, subject, body);
+			mailer.sendEmail(null, lstAddrTO, subject, body, null);
 		} catch (AddressException e) {
 			Tracing.createLoggerFor(BulkDeleteController.class).error("Notificatoin mail for bulk deletion could not be sent");
 		} catch (MessagingException e) {

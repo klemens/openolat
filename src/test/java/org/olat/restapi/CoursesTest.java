@@ -31,18 +31,26 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 
+import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.net.URL;
 import java.util.List;
+import java.util.UUID;
 
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.UriBuilder;
 
 import org.apache.http.HttpResponse;
 import org.apache.http.client.methods.HttpGet;
+import org.apache.http.client.methods.HttpPost;
 import org.apache.http.client.methods.HttpPut;
+import org.apache.http.entity.mime.HttpMultipartMode;
+import org.apache.http.entity.mime.MultipartEntity;
+import org.apache.http.entity.mime.content.FileBody;
+import org.apache.http.entity.mime.content.StringBody;
 import org.codehaus.jackson.map.ObjectMapper;
 import org.codehaus.jackson.type.TypeReference;
 import org.junit.After;
@@ -138,8 +146,7 @@ public class CoursesTest extends OlatJerseyTestCase {
 		HttpGet method = conn.createGet(uri, MediaType.APPLICATION_JSON + ";pagingspec=1.0", true);
 		HttpResponse response = conn.execute(method);
 		assertEquals(200, response.getStatusLine().getStatusCode());
-		InputStream body = response.getEntity().getContent();
-		CourseVOes courses = parse(body, CourseVOes.class);
+		CourseVOes courses = conn.parse(response, CourseVOes.class);
 		assertNotNull(courses);
 		assertNotNull(courses.getCourses());
 		assertEquals(1, courses.getCourses().length);
@@ -155,8 +162,7 @@ public class CoursesTest extends OlatJerseyTestCase {
 		
 		HttpResponse response = conn.execute(method);
 		assertEquals(200, response.getStatusLine().getStatusCode());
-		InputStream body = response.getEntity().getContent();
-		CourseVO course = parse(body, CourseVO.class);
+		CourseVO course = conn.parse(response, CourseVO.class);
 		assertNotNull(course);
 		assertEquals("course3", course.getTitle());
 		//check repository entry
@@ -164,6 +170,43 @@ public class CoursesTest extends OlatJerseyTestCase {
 		assertNotNull(re);
 		assertNotNull(re.getOlatResource());
 		assertNotNull(re.getOwnerGroup());
+	}
+	
+	@Test
+	public void testImportCourse() throws IOException, URISyntaxException {
+		URL cpUrl = CoursesTest.class.getResource("Course_with_blog.zip");
+		assertNotNull(cpUrl);
+		File cp = new File(cpUrl.toURI());
+
+		assertTrue(conn.login("administrator", "openolat"));
+		
+		URI request = UriBuilder.fromUri(getContextURI()).path("repo/courses").build();
+		HttpPost method = conn.createPost(request, MediaType.APPLICATION_JSON, true);
+		MultipartEntity entity = new MultipartEntity(HttpMultipartMode.BROWSER_COMPATIBLE);
+		entity.addPart("file", new FileBody(cp));
+		entity.addPart("filename", new StringBody("Very_small_course.zip"));
+		entity.addPart("resourcename", new StringBody("Very small course"));
+		entity.addPart("displayname", new StringBody("Very small course"));
+		entity.addPart("access", new StringBody("3"));
+		String softKey = UUID.randomUUID().toString().replace("-", "").substring(0, 30);
+		entity.addPart("softkey", new StringBody(softKey));
+		method.setEntity(entity);
+		
+		HttpResponse response = conn.execute(method);
+		assertTrue(response.getStatusLine().getStatusCode() == 200 || response.getStatusLine().getStatusCode() == 201);
+		
+		CourseVO vo = conn.parse(response, CourseVO.class);
+		assertNotNull(vo);
+		assertNotNull(vo.getRepoEntryKey());
+		assertNotNull(vo.getKey());
+		
+		Long repoKey = vo.getRepoEntryKey();
+		RepositoryEntry re = RepositoryManager.getInstance().lookupRepositoryEntry(repoKey);
+		assertNotNull(re);
+		assertNotNull(re.getOwnerGroup());
+		assertNotNull(re.getOlatResource());
+		assertEquals("Very small course", re.getDisplayname());
+		assertEquals(softKey, re.getSoftkey());
 	}
 	
 	@Test

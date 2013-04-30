@@ -32,9 +32,8 @@ public class EvalContext {
 	private boolean hasBeenTrue = false;
 	
 	
-	
 	/**
-	 * Returns the hasBeenTrue.
+	 * Returns the hasBeenFalse.
 	 * @return boolean
 	 */
 	public boolean isHasBeenTrue() {
@@ -42,8 +41,8 @@ public class EvalContext {
 	}
 
 	/**
-	 * Sets the hasBeenTrue.
-	 * @param hasBeenTrue The hasBeenTrue to set
+	 * Sets the hasBeenFalse.
+	 * @param hasBeenTrue The hasBeenFalse to set
 	 */
 	public void setHasBeenTrue(boolean hasBeenTrue) {
 		this.hasBeenTrue= hasBeenTrue;

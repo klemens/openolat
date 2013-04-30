@@ -33,9 +33,11 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Hashtable;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 import java.util.Set;
@@ -50,6 +52,8 @@ import org.olat.modules.scorm.server.beans.LMSDataHandler;
 import org.olat.modules.scorm.server.beans.LMSResultsBean;
 import org.olat.modules.scorm.server.sequence.ItemSequence;
 
+import ch.ethz.pfplms.scorm.api.ApiAdapter;
+
 /**
  * OLATApiAdapter implements the ApiAdapter Interface from the pfplms code which was initially
  * designed for applet use. For the 'Backend' it uses portions of the code developed for the reload
@@ -59,7 +63,7 @@ import org.olat.modules.scorm.server.sequence.ItemSequence;
  * @author guido
  */
 public	class OLATApiAdapter extends LogDelegator implements ch.ethz.pfplms.scorm.api.ApiAdapterInterface {
-	private	ch.ethz.pfplms.scorm.api.ApiAdapter core; 
+	private final	ApiAdapter core; 
 	//private ScormTrackingManager scormTracking;
 	
 	private Hashtable<String,String> olatScoCmi = new Hashtable<String,String>();
@@ -77,19 +81,27 @@ public	class OLATApiAdapter extends LogDelegator implements ch.ethz.pfplms.scorm
 	private LMSDataHandler odatahandler;
 	private ScormManager scormManager;
 	private SettingsHandlerImpl scormSettingsHandler;
-	private final ScormAPICallback apiCallback;
+	private final List<ScormAPICallback> apiCallbacks = new ArrayList<ScormAPICallback>(2);
 	// 
 	private Properties scoresProp; // keys: sahsId; values = raw score of an sco
+	private Properties lessonStatusProp;
 	
 	private final String SCORE_IDENT = "cmi.core.score.raw";
+	private final String LESSON_STATUS_IDENT = "cmi.core.lesson_status";
 	private File scorePropsFile;
+	private File lessonStatusPropsFile;
 	
 	/**
 	 * creates a new API adapter
 	 */
-	OLATApiAdapter (ScormAPICallback apiCallback) {
-		this.apiCallback = apiCallback;
-		core = new ch.ethz.pfplms.scorm.api.ApiAdapter ();
+	OLATApiAdapter () {
+		core = new ApiAdapter();
+	}
+	
+	public void addAPIListener(ScormAPICallback apiCallback) {
+		if(apiCallback != null) {
+			apiCallbacks.add(apiCallback);
+		}
 	}
 
 	/**
@@ -101,7 +113,8 @@ public	class OLATApiAdapter extends LogDelegator implements ch.ethz.pfplms.scorm
 	 * @param studentName - the students name
 	 * @param isVerbose prints out what is going on inside the scorm RTE
 	 */
-	public	final void init (File cpRoot, String repoId, String courseId, String storagePath, String studentId, String studentName, String lesson_mode, String credit_mode, int controllerHashCode) {
+	public	final void init (File cpRoot, String repoId, String courseId, String storagePath, String studentId, String studentName, String lesson_mode, String credit_mode, int controllerHashCode)
+	throws IOException {
 		this.olatStudentId   = studentId;
 		this.olatStudentName = studentName;
 		say ("cmi.core.student_id=" +olatStudentId);
@@ -110,7 +123,7 @@ public	class OLATApiAdapter extends LogDelegator implements ch.ethz.pfplms.scorm
 		
 		// get a path for the scores per sco
 		String savePath = scormSettingsHandler.getFilePath();
-		scorePropsFile = new File(savePath + "/_olat_score.properties");
+		scorePropsFile = new File(savePath, "_olat_score.properties");
 		scoresProp = new Properties();
 		if (scorePropsFile.exists()) {
 			InputStream is = null;
@@ -118,15 +131,41 @@ public	class OLATApiAdapter extends LogDelegator implements ch.ethz.pfplms.scorm
 				is = new BufferedInputStream(new FileInputStream(scorePropsFile));
 				scoresProp.load(is);
 			} catch (IOException e) {
-				throw new OLATRuntimeException(this.getClass(), "could not load existing scorm-score-properties file: "+scorePropsFile.getAbsolutePath(),e);
+				throw e;
 			}
 			finally {
 				if (is != null) FileUtils.closeSafely(is);
 			}
 		}
-			 
+		
+		lessonStatusPropsFile = new File(savePath, "_olat_lesson_status.properties");
+		lessonStatusProp = new Properties();
+		if (lessonStatusPropsFile.exists()) {
+			InputStream is = null;
+			try {
+				is = new BufferedInputStream(new FileInputStream(lessonStatusPropsFile));
+				lessonStatusProp.load(is);
+			} catch (IOException e) {
+				throw e;
+			}
+			finally {
+				if (is != null) FileUtils.closeSafely(is);
+			}
+		}
 		
 		scormManager = new ScormManager(cpRoot.getAbsolutePath(), true, true, true, scormSettingsHandler);
+	}
+	
+	public String getCreditMode() {
+		return scormSettingsHandler.getCreditMode();
+	}
+	
+	public String getLessonMode() {
+		return scormSettingsHandler.getLessonMode();
+	}
+	
+	public int getNumOfSCOs() {
+		return scormManager.getNumOfSCOs();
 	}
 
 	private final void say (String s) {
@@ -272,38 +311,65 @@ public	class OLATApiAdapter extends LogDelegator implements ch.ethz.pfplms.scorm
 		}
 		if (isACommit) {
 			String rawScore = cmiData.get(SCORE_IDENT);
-			if (rawScore != null && !rawScore.equals("")) {
+			String lessonStatus = cmiData.get(LESSON_STATUS_IDENT);
+			if (StringHelper.containsNonWhitespace(rawScore) || StringHelper.containsNonWhitespace(lessonStatus)) {
 				// we have a score set in this sco.
 				// persist
 				
 				// to prevent problems with bad xmlhttprequest timings
 				synchronized(this) { //o_clusterOK by:fj: instance is spawned by the ScormAPIandDisplayController
-					scoresProp.put(olatScoId, rawScore);
-					OutputStream os = null;
-					try {
-						os = new BufferedOutputStream(new FileOutputStream(scorePropsFile));
-						scoresProp.store(os, null);
-					} catch (IOException e) {
-						throw new OLATRuntimeException(this.getClass(), "could not save scorm-properties-file: "+scorePropsFile.getAbsolutePath(), e);
+					if(StringHelper.containsNonWhitespace(rawScore)) {
+						scoresProp.put(olatScoId, rawScore);
+						OutputStream os = null;
+						try {
+							os = new BufferedOutputStream(new FileOutputStream(scorePropsFile));
+							scoresProp.store(os, null);
+						} catch (IOException e) {
+							throw new OLATRuntimeException(this.getClass(), "could not save scorm-properties-file: "+scorePropsFile.getAbsolutePath(), e);
+						}
+						finally {
+							FileUtils.closeSafely(os);
+						}
 					}
-					finally {
-						FileUtils.closeSafely(os);
+
+					if(StringHelper.containsNonWhitespace(lessonStatus)) {
+						lessonStatusProp.put(olatScoId, lessonStatus);
+						OutputStream os = null;
+						try {
+							os = new BufferedOutputStream(new FileOutputStream(lessonStatusPropsFile));
+							lessonStatusProp.store(os, null);
+						} catch (IOException e) {
+							throw new OLATRuntimeException(this.getClass(), "could not save scorm-properties-file: "+scorePropsFile.getAbsolutePath(), e);
+						}
+						finally {
+							FileUtils.closeSafely(os);
+						}
 					}
 					// notify
-					if (apiCallback != null) {
-						apiCallback.lmsCommit(olatScoId, scoresProp);
+					if (!apiCallbacks.isEmpty()) {
+						for(ScormAPICallback apiCallback:apiCallbacks) {
+							apiCallback.lmsCommit(olatScoId, scoresProp, lessonStatusProp);
+						}
 					}
 				}
 			}
 		// <OLATCE-289>
 		}else{
 				//if "isACommit" is false, this is a lmsFinish and the apiCallback shall save the points an passed information
-				if (apiCallback != null) {
+				if (!apiCallbacks.isEmpty()) {
 					String rawScore = cmiData.get(SCORE_IDENT);
 					if (rawScore != null && !rawScore.equals("")) {
 						scoresProp.put(olatScoId, rawScore);
 					}
-					apiCallback.lmsFinish(olatScoId, scoresProp);
+
+					String lessonStatus = cmiData.get(LESSON_STATUS_IDENT);
+					if (StringHelper.containsNonWhitespace(lessonStatus)) {
+						lessonStatusProp.put(olatScoId, lessonStatus);
+					}
+					
+					for(ScormAPICallback apiCallback:apiCallbacks) {
+						apiCallback.lmsFinish(olatScoId, scoresProp, lessonStatusProp);
+					}
 				}
 			// </OLATCE-289>
 		}

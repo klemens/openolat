@@ -29,6 +29,8 @@
 package org.olat.test;
 
 import java.util.List;
+import java.util.Random;
+import java.util.UUID;
 
 import org.olat.basesecurity.BaseSecurity;
 import org.olat.basesecurity.BaseSecurityManager;
@@ -36,14 +38,20 @@ import org.olat.basesecurity.BaseSecurityModule;
 import org.olat.basesecurity.Constants;
 import org.olat.basesecurity.SecurityGroup;
 import org.olat.core.id.Identity;
+import org.olat.core.id.OLATResourceable;
+import org.olat.core.id.Roles;
 import org.olat.core.id.User;
+import org.olat.core.util.CodeHelper;
 import org.olat.core.util.Encoder;
+import org.olat.core.util.resource.OresHelper;
 import org.olat.course.CourseFactory;
 import org.olat.course.DeployableCourseExport;
 import org.olat.properties.Property;
 import org.olat.properties.PropertyManager;
 import org.olat.repository.RepositoryEntry;
 import org.olat.repository.RepositoryManager;
+import org.olat.resource.OLATResource;
+import org.olat.resource.OLATResourceManager;
 import org.olat.user.UserManager;
 import org.springframework.context.support.ClassPathXmlApplicationContext;
 
@@ -60,11 +68,29 @@ import org.springframework.context.support.ClassPathXmlApplicationContext;
  */
 public class JunitTestHelper {
 
+	private static final Random randomResId = new Random();
 	static String maildomain = System.getProperty("junit.maildomain");
 	static {
 		if (maildomain == null) {
 			maildomain = "mytrashmail.com";
 		}
+	}
+	
+	public static Roles getAdminRoles() {
+		return new Roles(true, true, true, true, false, false, false);
+	}
+	
+	public static Roles getUserRoles() {
+		return new Roles(false, false, false, false, false, false, false);
+	}
+	
+	public static final OLATResource createRandomResource() {
+		String resName = UUID.randomUUID().toString().replace("-", "");
+		long resId = randomResId.nextInt(Integer.MAX_VALUE - 10) + 1;
+		OLATResourceable ores = OresHelper.createOLATResourceableInstance(resName, new Long(resId));
+		OLATResource resource = OLATResourceManager.getInstance().createOLATResourceInstance(ores);
+		OLATResourceManager.getInstance().saveOLATResource(resource);
+		return resource;
 	}
 
 	/**
@@ -121,17 +147,37 @@ public class JunitTestHelper {
 		return identity;
 	}
 	
-	/**
-	 * Remove identity from <code>Constants.GROUP_OLATUSERS</code> group.
-	 * @param identity
-	 */
-	/*public static void deleteIdentityFromUsersGroup(Identity identity) {
-		Manager securityManager = ManagerFactory.getManager();
-		SecurityGroup group = securityManager.findSecurityGroupByName(Constants.GROUP_OLATUSERS);
-		if (group != null) {
-			securityManager.removeIdentityFromSecurityGroup(identity, group);
+	public static final RepositoryEntry createAndPersistRepositoryEntry() {
+		return createAndPersistRepositoryEntry(false); 
+	}
+	
+	public static final RepositoryEntry createAndPersistRepositoryEntry(boolean membersOnly) {
+		OLATResourceManager resourceManager = OLATResourceManager.getInstance();
+		String resourceName = UUID.randomUUID().toString().replace("-", "").substring(0, 30);
+		OLATResourceable ores = OresHelper.createOLATResourceableInstance(resourceName, CodeHelper.getForeverUniqueID());
+		OLATResource r =  resourceManager.createOLATResourceInstance(ores);
+		resourceManager.saveOLATResource(r);
+		return createAndPersistRepositoryEntry(r, membersOnly);
+	}
+	
+	public static final RepositoryEntry createAndPersistRepositoryEntry(OLATResource r, boolean membersOnly) {
+		RepositoryManager repositoryManager = RepositoryManager.getInstance();
+		RepositoryEntry re = repositoryManager.createRepositoryEntryInstance("Florian Gnägi");
+		re.setOlatResource(r);
+		if(membersOnly) {
+			re.setAccess(RepositoryEntry.ACC_OWNERS);
+			re.setMembersOnly(true);
+		} else {
+			re.setAccess(RepositoryEntry.ACC_USERS);
 		}
-	}*/
+		re.setResourcename("Lernen mit OLAT");
+		re.setDisplayname(r.getResourceableTypeName());
+		repositoryManager.createOwnerSecurityGroup(re);
+		repositoryManager.createTutorSecurityGroup(re, false);
+		repositoryManager.createParticipantSecurityGroup(re, false);
+		repositoryManager.saveRepositoryEntry(re);
+		return re;
+	}
 	
 	/**
 	 * Deploys/imports the "Demo Course".

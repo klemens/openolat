@@ -58,6 +58,7 @@ import org.olat.course.nodes.projectbroker.service.ProjectBrokerManager;
 import org.olat.course.nodes.projectbroker.service.ProjectBrokerManagerFactory;
 import org.olat.course.nodes.projectbroker.service.ProjectBrokerModuleConfiguration;
 import org.olat.course.run.environment.CourseEnvironment;
+import org.olat.resource.OLATResource;
 
 /**
  * 
@@ -81,7 +82,6 @@ public class InlineEditDetailsFormController extends FormBasicController {
 	private String[] stateValues;
 
 	private IntegerElement maxMembers;
-	private TextElement projectRemarks;
 	private FileElement attachmentFileName;
 
 	private TextElement projectLeaders;
@@ -256,7 +256,8 @@ public class InlineEditDetailsFormController extends FormBasicController {
 			// title has been changed => change project-group name too
 			String newProjectGroupName = translate("project.member.groupname", projectTitle.getValue());
 			String newProjectGroupDescription = translate("project.member.groupdescription", projectTitle.getValue());
-			ProjectBrokerManagerFactory.getProjectGroupManager().changeProjectGroupName(project.getProjectGroup(), newProjectGroupName, newProjectGroupDescription);
+			OLATResource courseResource = courseEnv.getCourseGroupManager().getCourseResource();
+			ProjectBrokerManagerFactory.getProjectGroupManager().changeProjectGroupName(getIdentity(), project.getProjectGroup(), newProjectGroupName, newProjectGroupDescription, courseResource);
 			ProjectBrokerManagerFactory.getProjectGroupManager().sendGroupChangeEvent(project, courseEnv.getCourseResourceableId(), ureq.getIdentity());
 			projectChanged = true;
 		}

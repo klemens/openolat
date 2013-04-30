@@ -25,15 +25,13 @@
 
 package org.olat.course.assessment;
 
+import java.util.ArrayList;
 import java.util.List;
 
 import org.apache.commons.lang.StringEscapeUtils;
 import org.olat.core.gui.components.table.DefaultTableDataModel;
-import org.olat.core.gui.components.table.TableDataModel;
-import org.olat.core.gui.translator.Translator;
 import org.olat.core.util.Formatter;
 import org.olat.core.util.filter.FilterFactory;
-import org.olat.course.groupsandrights.ui.DefaultContextTranslationHelper;
 import org.olat.group.BusinessGroup;
 
 /**
@@ -45,18 +43,16 @@ import org.olat.group.BusinessGroup;
  *
  * @author gnaegi
  */
-public class GroupAndContextTableModel extends DefaultTableDataModel implements TableDataModel {
-    private static final int COLUMN_COUNT = 4;    
-    private Translator trans;
+public class GroupAndContextTableModel extends DefaultTableDataModel<BusinessGroup> {
+    private static final int COLUMN_COUNT = 3;    
 
     /**
      * Constructor for the group and context table model
      * @param groups
      * @param trans translator for the business group context
      */
-    public GroupAndContextTableModel(List groups, Translator trans) {
+    public GroupAndContextTableModel(List<BusinessGroup> groups) {
     		super(groups);
-    		this.trans = trans;
     }
 
     /**
@@ -70,30 +66,24 @@ public class GroupAndContextTableModel extends DefaultTableDataModel implements 
      * @see org.olat.core.gui.components.table.TableDataModel#getValueAt(int, int)
      */
     public Object getValueAt(int row, int col) {
-        BusinessGroup businessGroup = (BusinessGroup) objects.get(row);
+        BusinessGroup businessGroup = objects.get(row);
         switch (col) {
             case 0 :
-                return StringEscapeUtils.escapeHtml(businessGroup.getName()).toString();
+            		String groupName = businessGroup.getName();
+            		if(groupName == null) return "???";
+                return StringEscapeUtils.escapeHtml(businessGroup.getName());
             case 1 :
             	String tmp = businessGroup.getDescription();
             	tmp = FilterFactory.getHtmlTagsFilter().filter(tmp);
-                tmp = Formatter.truncate(tmp, 256);
-                return tmp;
-            case 2 : 
-            	String name = DefaultContextTranslationHelper.translateIfDefaultContextName(businessGroup.getGroupContext(), trans);
-      				name = StringEscapeUtils.escapeHtml(name).toString();
-      				return name;
+              tmp = Formatter.truncate(tmp, 256);
+              return tmp;
             default :
                 return "ERROR";
         }
     }
 
-    /**
-     * @param row
-     * @return the business group at the given row
-     */
-    public BusinessGroup getBusinessGroupAt(int row) {
-        return (BusinessGroup) objects.get(row);
-    }
-
+		@Override
+		public Object createCopyWithEmptyList() {
+			return new GroupAndContextTableModel(new ArrayList<BusinessGroup>());
+		}
 }

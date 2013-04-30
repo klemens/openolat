@@ -35,9 +35,7 @@ import java.util.Map;
 
 import org.olat.ControllerFactory;
 import org.olat.NewControllerFactory;
-import org.olat.commons.calendar.ui.CalendarController;
 import org.olat.core.gui.UserRequest;
-import org.olat.core.gui.Windows;
 import org.olat.core.gui.components.Component;
 import org.olat.core.gui.components.link.Link;
 import org.olat.core.gui.components.link.LinkFactory;
@@ -52,15 +50,12 @@ import org.olat.core.gui.components.velocity.VelocityContainer;
 import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.Event;
 import org.olat.core.gui.control.WindowControl;
-import org.olat.core.gui.control.generic.dtabs.DTab;
-import org.olat.core.gui.control.generic.dtabs.DTabs;
 import org.olat.core.gui.control.generic.portal.AbstractPortletRunController;
 import org.olat.core.gui.control.generic.portal.PortletDefaultTableDataModel;
 import org.olat.core.gui.control.generic.portal.PortletEntry;
 import org.olat.core.gui.control.generic.portal.PortletToolSortingControllerImpl;
 import org.olat.core.gui.control.generic.portal.SortingCriteria;
 import org.olat.core.gui.translator.Translator;
-import org.olat.core.id.OLATResourceable;
 import org.olat.core.id.context.BusinessControl;
 import org.olat.core.id.context.BusinessControlFactory;
 import org.olat.core.util.event.GenericEventListener;
@@ -71,9 +66,6 @@ import org.olat.core.util.notifications.NotificationsManager;
 import org.olat.core.util.notifications.Publisher;
 import org.olat.core.util.notifications.Subscriber;
 import org.olat.core.util.notifications.SubscriptionInfo;
-import org.olat.core.util.resource.OresHelper;
-import org.olat.course.CourseModule;
-import org.olat.group.BusinessGroupManagerImpl;
 
 /**
  * Description:<br>
@@ -82,7 +74,7 @@ import org.olat.group.BusinessGroupManagerImpl;
  * Initial Date:  11.07.2005 <br>
  * @author gnaegi
  */
-public class NotificationsPortletRunController extends AbstractPortletRunController implements GenericEventListener {
+public class NotificationsPortletRunController extends AbstractPortletRunController<Subscriber> implements GenericEventListener {
 	
 	private static final String CMD_LAUNCH = "cmd.launch";
 
@@ -145,8 +137,8 @@ public class NotificationsPortletRunController extends AbstractPortletRunControl
 		man.registerAsListener(this, ureq.getIdentity());
 	}
 	
-	private List<PortletEntry> getAllPortletEntries() {
-		notificationsList = man.getValidSubscribers(identity);
+	private List<PortletEntry<Subscriber>> getAllPortletEntries() {
+		notificationsList = man.getValidSubscribers(getIdentity());
 		// calc subscriptioninfo for all subscriptions and, if only those with news are to be shown, remove the other ones
 		for (Iterator<Subscriber> it_subs = notificationsList.iterator(); it_subs.hasNext();) {
 			Subscriber subscriber = it_subs.next();
@@ -155,7 +147,7 @@ public class NotificationsPortletRunController extends AbstractPortletRunControl
 			if(notifHandler == null) {
 				it_subs.remove();
 			} else {
-				SubscriptionInfo subsInfo = notifHandler.createSubscriptionInfo(subscriber, locale, compareDate);
+				SubscriptionInfo subsInfo = notifHandler.createSubscriptionInfo(subscriber, getLocale(), compareDate);
 				if (!subsInfo.hasNews()) {
 					it_subs.remove();
 				}
@@ -164,8 +156,8 @@ public class NotificationsPortletRunController extends AbstractPortletRunControl
 		return convertNotificationToPortletEntryList(notificationsList);
 	}
 	
-	private List<PortletEntry> convertNotificationToPortletEntryList(List<Subscriber> items) {
-		List<PortletEntry> convertedList = new ArrayList<PortletEntry>();
+	private List<PortletEntry<Subscriber>> convertNotificationToPortletEntryList(List<Subscriber> items) {
+		List<PortletEntry<Subscriber>> convertedList = new ArrayList<PortletEntry<Subscriber>>();
 		Iterator<Subscriber> listIterator = items.iterator();
 		while(listIterator.hasNext()) {
 			convertedList.add(new SubscriberPortletEntry(listIterator.next()));
@@ -191,11 +183,11 @@ public class NotificationsPortletRunController extends AbstractPortletRunControl
 				}
 			}
 			notificationsList = getSortedList(notificationsList, sortingCriteria );		
-			List<PortletEntry> entries = convertNotificationToPortletEntryList(notificationsList);
-			notificationListModel = new NotificationsPortletTableDataModel(entries, locale, subscriptionMap);
+			List<PortletEntry<Subscriber>> entries = convertNotificationToPortletEntryList(notificationsList);
+			notificationListModel = new NotificationsPortletTableDataModel(entries, getLocale(), subscriptionMap);
 			tableCtr.setTableDataModel(notificationListModel);
   	} else {
-			reloadModel(this.getPersistentManuallySortedItems());
+			reloadModel(getPersistentManuallySortedItems());
 		}  	
   }
 	
@@ -203,9 +195,9 @@ public class NotificationsPortletRunController extends AbstractPortletRunControl
    * 
    * @see org.olat.core.gui.control.generic.portal.AbstractPortletRunController#reloadModel(org.olat.core.gui.UserRequest, java.util.List)
    */
-	protected void reloadModel(List<PortletEntry> sortedItems) {
-		Map subscriptionMap = NotificationHelper.getSubscriptionMap(getIdentity(), getLocale(), true, compareDate);
-		notificationListModel = new NotificationsPortletTableDataModel(sortedItems, locale, subscriptionMap);
+	protected void reloadModel(List<PortletEntry<Subscriber>> sortedItems) {
+		Map<Subscriber, SubscriptionInfo> subscriptionMap = NotificationHelper.getSubscriptionMap(getIdentity(), getLocale(), true, compareDate);
+		notificationListModel = new NotificationsPortletTableDataModel(sortedItems, getLocale(), subscriptionMap);
 		tableCtr.setTableDataModel(notificationListModel);
 	}
 
@@ -239,61 +231,7 @@ public class NotificationsPortletRunController extends AbstractPortletRunControl
 					int rowid = te.getRowId();
 					Subscriber sub = notificationListModel.getSubscriberAt(rowid);
 					if (actionid.equals(CMD_LAUNCH)) {
-						Publisher pub = sub.getPublisher();
-						if (!man.isPublisherValid(pub)) {
-							getWindowControl().setError(getTranslator().translate("error.publisherdeleted"));
-						} else {						
-							String resName = pub.getResName();
-							Long resId = pub.getResId();
-							String subidentifier = pub.getSubidentifier();
-							if (subidentifier.equals(CalendarController.ACTION_CALENDAR_COURSE)) {
-								resName = CourseModule.ORES_TYPE_COURSE;
-							}
-							if (subidentifier.equals(CalendarController.ACTION_CALENDAR_GROUP)) {
-								resName = BusinessGroupManagerImpl.getInstance().loadBusinessGroup(pub.getResId(), true).getResourceableTypeName();
-							}
-							OLATResourceable ores = OresHelper.createOLATResourceableInstance(resName, resId);
-							String title = NotificationsManager.getInstance().getNotificationsHandler(pub).createTitleInfo(sub, getLocale());
-							DTabs dts = (DTabs)Windows.getWindows(ureq).getWindow(ureq).getAttribute("DTabs");
-							//was brasato:: DTabs dts = getWindowControl().getDTabs();
-							DTab dt = dts.getDTab(ores);
-							if (dt == null) {
-								// does not yet exist -> create and add
-								dt = dts.createDTab(ores, title);
-								if (dt == null) return;
-								Controller launchController = ControllerFactory.createLaunchController(ores, subidentifier, ureq, dt.getWindowControl(),
-										false);
-								
-							//try with the new factory controller too
-								boolean newFactory = false;
-								if(launchController == null) {
-									try  {
-										String resourceUrl = "[" + resName + ":0][notifications]";
-										BusinessControl bc = BusinessControlFactory.getInstance().createFromString(resourceUrl);
-									  WindowControl bwControl = BusinessControlFactory.getInstance().createBusinessWindowControl(bc, dt.getWindowControl());
-									  NewControllerFactory.getInstance().launch(ureq, bwControl);
-										newFactory = true;
-									} catch (Exception ex) {
-										//fail silently
-									}
-								}
-								
-								if(newFactory) {
-									//hourra
-								}
-								else if (launchController == null) { 
-									// not possible to launch anymore
-									getWindowControl().setWarning(getTranslator().translate("warn.nolaunch"));
-								} else {
-									dt.setController(launchController);
-									dts.addDTab(dt);
-									// null: do not reactivate to a certain view here, this happened in ControllerFactory.createLaunchController
-									dts.activate(ureq, dt, null);
-								}
-							} else {
-								dts.activate(ureq, dt, subidentifier);
-							}
-						}
+						NotificationUIFactory.launchSubscriptionResource(ureq, getWindowControl(), sub);
 					}
 				}
 			}
@@ -309,7 +247,7 @@ public class NotificationsPortletRunController extends AbstractPortletRunControl
 	}
 
 	public void event(Event event) {
-		// check if our tablemodel -is- affected (see NotificationsManagerImpl where the event is fired),
+		// check if our tablemodel -is- affected (see NotificationsManager where the event is fired),
 		// (if we are subscriber of the publisher which data has changed)
 		if (event instanceof PersistsEvent) {
 			PersistsEvent pe = (PersistsEvent) event;
@@ -326,15 +264,15 @@ public class NotificationsPortletRunController extends AbstractPortletRunControl
 	 * @param wControl
 	 * @return a PortletToolSortingControllerImpl instance.
 	 */
-	protected PortletToolSortingControllerImpl createSortingTool(UserRequest ureq, WindowControl wControl) {
+	protected PortletToolSortingControllerImpl<Subscriber> createSortingTool(UserRequest ureq, WindowControl wControl) {
 		if(portletToolsController==null) {			
 						
 			Map<Subscriber,SubscriptionInfo> subscriptionMap = NotificationHelper.getSubscriptionMap(ureq.getIdentity(), ureq.getLocale(), true, compareDate);
-			List<PortletEntry> entries = getAllPortletEntries();
-			PortletDefaultTableDataModel tableDataModel = new NotificationsManualSortingTableDataModel(entries, ureq.getLocale(), subscriptionMap);
-			List sortedItems = getPersistentManuallySortedItems(); 
+			List<PortletEntry<Subscriber>> entries = getAllPortletEntries();
+			PortletDefaultTableDataModel<Subscriber> tableDataModel = new NotificationsManualSortingTableDataModel(entries, ureq.getLocale(), subscriptionMap);
+			List<PortletEntry<Subscriber>> sortedItems = getPersistentManuallySortedItems(); 
 			
-			portletToolsController = new PortletToolSortingControllerImpl(ureq, wControl, getTranslator(), sortingCriteria, tableDataModel, sortedItems);
+			portletToolsController = new PortletToolSortingControllerImpl<Subscriber>(ureq, wControl, getTranslator(), sortingCriteria, tableDataModel, sortedItems);
 			portletToolsController.setConfigManualSorting(true);
 			portletToolsController.setConfigAutoSorting(true);
 			portletToolsController.addControllerListener(this);
@@ -342,16 +280,14 @@ public class NotificationsPortletRunController extends AbstractPortletRunControl
 		return portletToolsController;
 	}
 	
-	private List getPersistentManuallySortedItems() {
-		List<PortletEntry> entries = getAllPortletEntries();
-		return this.getPersistentManuallySortedItems(entries);
+	private List<PortletEntry<Subscriber>> getPersistentManuallySortedItems() {
+		List<PortletEntry<Subscriber>> entries = getAllPortletEntries();
+		return getPersistentManuallySortedItems(entries);
 	}
 
-	 protected Comparator getComparator(final SortingCriteria sortingCriteria) {
-			return new Comparator(){			
-				public int compare(final Object o1, final Object o2) {
-					Subscriber subscriber1= (Subscriber)o1;
-					Subscriber subscriber2 = (Subscriber)o2;		
+	 protected Comparator<Subscriber> getComparator(final SortingCriteria sortingCriteria) {
+			return new Comparator<Subscriber>(){			
+				public int compare(final Subscriber subscriber1, final Subscriber subscriber2) {	
 					int comparisonResult = 0;
 				  if(sortingCriteria.getSortingTerm()==SortingCriteria.ALPHABETICAL_SORTING) {			  	
 				  	comparisonResult = collator.compare(subscriber1.getPublisher().getResName(), subscriber1.getPublisher().getResName());			  		  	
@@ -378,19 +314,19 @@ public class NotificationsPortletRunController extends AbstractPortletRunControl
 	  * Initial Date:  10.12.2007 <br>
 	  * @author Lavinia Dumitrescu
 	  */
-	 private class NotificationsPortletTableDataModel extends PortletDefaultTableDataModel  {
+	 private class NotificationsPortletTableDataModel extends PortletDefaultTableDataModel<Subscriber>  {
 		 private Locale locale;
-		 private final Map subToSubInfo;
+		 private final Map<Subscriber,SubscriptionInfo> subToSubInfo;
 		 
-		 public NotificationsPortletTableDataModel(List<PortletEntry> objects, Locale locale, Map subToSubInfo) {
+		 public NotificationsPortletTableDataModel(List<PortletEntry<Subscriber>> objects, Locale locale, Map<Subscriber,SubscriptionInfo> subToSubInfo) {
 			 super(objects, 2);
 			 this.locale = locale;
 			 this.subToSubInfo = subToSubInfo;
 		 }
 		 
 		 public Object getValueAt(int row, int col) {
-			 PortletEntry entry = getObject(row);
-				Subscriber subscriber = (Subscriber)entry.getValue();
+			 PortletEntry<Subscriber> entry = getObject(row);
+				Subscriber subscriber = entry.getValue();
 				Publisher pub = subscriber.getPublisher();
 				switch (col) {
 					case 0:
@@ -429,14 +365,14 @@ public class NotificationsPortletRunController extends AbstractPortletRunControl
 	  * Initial Date:  04.12.2007 <br>
 	  * @author Lavinia Dumitrescu
 	  */
-	 private class NotificationsManualSortingTableDataModel extends PortletDefaultTableDataModel  {		
+	 private class NotificationsManualSortingTableDataModel extends PortletDefaultTableDataModel<Subscriber>  {		
 			private Locale locale;
 			private final Map<Subscriber,SubscriptionInfo> subToSubInfo;
 			/**
 			 * @param objects
 			 * @param locale
 			 */
-			public NotificationsManualSortingTableDataModel(List<PortletEntry> objects, Locale locale, Map<Subscriber,SubscriptionInfo> subToSubInfo) {
+			public NotificationsManualSortingTableDataModel(List<PortletEntry<Subscriber>> objects, Locale locale, Map<Subscriber,SubscriptionInfo> subToSubInfo) {
 				super(objects, 3);
 				this.locale = locale;
 				this.subToSubInfo = subToSubInfo;
@@ -446,8 +382,8 @@ public class NotificationsPortletRunController extends AbstractPortletRunControl
 			 * @see org.olat.core.gui.components.table.TableDataModel#getValueAt(int, int)
 			 */
 			public final Object getValueAt(int row, int col) {
-				PortletEntry entry = getObject(row);
-				Subscriber subscriber = (Subscriber) entry.getValue();
+				PortletEntry<Subscriber> entry = getObject(row);
+				Subscriber subscriber = entry.getValue();
 				Publisher pub = subscriber.getPublisher();
 				switch (col) {
 					case 0: {				

@@ -26,7 +26,6 @@
 package org.olat.course.nodes.scorm;
 
 import java.io.File;
-import java.util.Iterator;
 import java.util.Properties;
 
 import org.olat.core.gui.UserRequest;
@@ -35,12 +34,12 @@ import org.olat.core.gui.components.Window;
 import org.olat.core.gui.components.panel.Panel;
 import org.olat.core.gui.components.tree.TreeEvent;
 import org.olat.core.gui.components.velocity.VelocityContainer;
+import org.olat.core.gui.control.ConfigurationChangedListener;
 import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.ControllerEventListener;
 import org.olat.core.gui.control.Event;
 import org.olat.core.gui.control.WindowControl;
 import org.olat.core.gui.control.controller.BasicController;
-import org.olat.core.id.Identity;
 import org.olat.core.logging.AssertException;
 import org.olat.core.util.CodeHelper;
 import org.olat.core.util.event.GenericEventListener;
@@ -51,6 +50,8 @@ import org.olat.course.nodes.ScormCourseNode;
 import org.olat.course.run.scoring.ScoreEvaluation;
 import org.olat.course.run.userview.UserCourseEnvironment;
 import org.olat.fileresource.FileResourceManager;
+import org.olat.instantMessaging.CloseInstantMessagingEvent;
+import org.olat.instantMessaging.InstantMessaging;
 import org.olat.modules.ModuleConfiguration;
 import org.olat.modules.scorm.ScormAPICallback;
 import org.olat.modules.scorm.ScormAPIandDisplayController;
@@ -67,7 +68,7 @@ import org.olat.util.logging.activity.LoggingResourceable;
  * 
  * @author Felix Jost
  */
-public class ScormRunController extends BasicController implements ScormAPICallback, GenericEventListener {
+public class ScormRunController extends BasicController implements ScormAPICallback, GenericEventListener, ConfigurationChangedListener {
 
 	private ModuleConfiguration config;
 	private File cpRoot;
@@ -84,9 +85,8 @@ public class ScormRunController extends BasicController implements ScormAPICallb
 	private UserCourseEnvironment userCourseEnv;
 	private ChooseScormRunModeForm chooseScormRunMode;
 	private boolean isPreview;
-
-	private Identity identity;
 	private boolean isAssessable;
+	private String assessableType;
 
 	/**
 	 * Use this constructor to launch a CP via Repository reference key set in
@@ -109,18 +109,20 @@ public class ScormRunController extends BasicController implements ScormAPICallb
 		this.userCourseEnv = userCourseEnv;
 		this.config = config;
 		this.scormNode = scormNode;
-		this.identity = ureq.getIdentity();
 
 		addLoggingResourceable(LoggingResourceable.wrap(scormNode));
 		init(ureq);
 	}
 
 	private void init(UserRequest ureq) {
-
 		startPage = createVelocityContainer("run");
 		// show browse mode option only if not assessable, hide it if in
 		// "real test mode"
 		isAssessable = config.getBooleanSafe(ScormEditController.CONFIG_ISASSESSABLE, true);
+		if(isAssessable) {
+			assessableType = config.getStringValue(ScormEditController.CONFIG_ASSESSABLE_TYPE,
+					ScormEditController.CONFIG_ASSESSABLE_TYPE_SCORE);
+		}
 
 		// <OLATCE-289>
 		// attemptsDependOnScore means that attempts are only incremented when a
@@ -141,13 +143,9 @@ public class ScormRunController extends BasicController implements ScormAPICallb
 		putInitialPanel(main);
 
 		boolean doSkip = config.getBooleanSafe(ScormEditController.CONFIG_SKIPLAUNCHPAGE, true);
-		if (isAssessable && doSkip && !maxAttemptsReached()) {
+		if (doSkip && !maxAttemptsReached()) {
 			doLaunch(ureq, true);
-			//CoordinatorManager.getInstance().getCoordinator().getEventBus().registerFor(this, ureq.getIdentity(), OresHelper.createOLATResourceableType(getClass().getName()));
 			getWindowControl().getWindowBackOffice().addCycleListener(this);
-			
-//			Component scormContent = scormDispC.getInitialComponent();
-//			fireEvent(ureq, new FullWidthReplaceRequestEvent(true, scormContent));
 		}
 	}
 
@@ -225,7 +223,9 @@ public class ScormRunController extends BasicController implements ScormAPICallb
 		if (isAssessable) {
 			ScoreEvaluation scoreEval = scormNode.getUserScoreEvaluation(userCourseEnv);
 			Float score = scoreEval.getScore();
-			startPage.contextPut("score", score != null ? AssessmentHelper.getRoundedScore(score) : "0");
+			if(ScormEditController.CONFIG_ASSESSABLE_TYPE_SCORE.equals(assessableType)) {
+				startPage.contextPut("score", score != null ? AssessmentHelper.getRoundedScore(score) : "0");
+			}
 			startPage.contextPut("hasPassedValue", (scoreEval.getPassed() == null ? Boolean.FALSE : Boolean.TRUE));
 			startPage.contextPut("passed", scoreEval.getPassed());
 			startPage.contextPut("comment", scormNode.getUserUserComment(userCourseEnv));
@@ -236,6 +236,9 @@ public class ScormRunController extends BasicController implements ScormAPICallb
 	}
 
 	private void doLaunch(UserRequest ureq, boolean doActivate) {
+		ureq.getUserSession().getSingleUserEventCenter()
+			.fireEventToListenersOf(new CloseInstantMessagingEvent(), InstantMessaging.TOWER_EVENT_ORES);
+
 		if (cpRoot == null) {
 			// it is the first time we start the contentpackaging from this
 			// instance
@@ -263,33 +266,48 @@ public class ScormRunController extends BasicController implements ScormAPICallb
 		if (isPreview) {
 			courseId = new Long(CodeHelper.getRAMUniqueID()).toString();
 			scormDispC = ScormMainManager.getInstance().createScormAPIandDisplayController(ureq, getWindowControl(), showMenu, null,
-					cpRoot, null, courseId, ScormConstants.SCORM_MODE_BROWSE, ScormConstants.SCORM_MODE_NOCREDIT, true, doActivate,
-					fullWindow);
+					cpRoot, null, courseId, ScormConstants.SCORM_MODE_BROWSE, ScormConstants.SCORM_MODE_NOCREDIT, true, null, doActivate,
+					fullWindow, false);
 		} else {
+			boolean attemptsIncremented = false;
+			//increment user attempts only once!
+			if(!config.getBooleanSafe(ScormEditController.CONFIG_ADVANCESCORE, true)
+					|| !config.getBooleanSafe(ScormEditController.CONFIG_ATTEMPTSDEPENDONSCORE, false)) {
+				scormNode.incrementUserAttempts(userCourseEnv);
+				attemptsIncremented = true;
+			}
+			
 			courseId = userCourseEnv.getCourseEnvironment().getCourseResourceableId().toString();
+
 			if (isAssessable) {
 				scormDispC = ScormMainManager.getInstance().createScormAPIandDisplayController(ureq, getWindowControl(), showMenu, this,
 						cpRoot, null, courseId + "-" + scormNode.getIdent(), ScormConstants.SCORM_MODE_NORMAL,
-						ScormConstants.SCORM_MODE_CREDIT, false, doActivate, fullWindow);
+						ScormConstants.SCORM_MODE_CREDIT, false, assessableType, doActivate, fullWindow, attemptsIncremented);
 				// <OLATCE-289>
 				// scormNode.incrementUserAttempts(userCourseEnv);
 				// </OLATCE-289>
 			} else if (chooseScormRunMode.getSelectedElement().equals(ScormConstants.SCORM_MODE_NORMAL)) {
 				scormDispC = ScormMainManager.getInstance().createScormAPIandDisplayController(ureq, getWindowControl(), showMenu, null,
 						cpRoot, null, courseId + "-" + scormNode.getIdent(), ScormConstants.SCORM_MODE_NORMAL,
-						ScormConstants.SCORM_MODE_CREDIT, false, doActivate, fullWindow);
+						ScormConstants.SCORM_MODE_CREDIT, false, assessableType, doActivate, fullWindow, attemptsIncremented);
 			} else {
 				scormDispC = ScormMainManager.getInstance().createScormAPIandDisplayController(ureq, getWindowControl(), showMenu, null,
-						cpRoot, null, courseId, ScormConstants.SCORM_MODE_BROWSE, ScormConstants.SCORM_MODE_NOCREDIT, false, doActivate,
-						fullWindow);
+						cpRoot, null, courseId, ScormConstants.SCORM_MODE_BROWSE, ScormConstants.SCORM_MODE_NOCREDIT, false, assessableType, doActivate,
+						fullWindow, attemptsIncremented);
 			}
+			
 		}
 		// configure some display options
 		boolean showNavButtons = config.getBooleanSafe(ScormEditController.CONFIG_SHOWNAVBUTTONS, true);
 		scormDispC.showNavButtons(showNavButtons);
+		boolean rawContent = config.getBooleanSafe(ScormEditController.CONFIG_RAW_CONTENT, true);
+		scormDispC.setRawContent(rawContent);
 		String height = (String) config.get(ScormEditController.CONFIG_HEIGHT);
 		if (!height.equals(ScormEditController.CONFIG_HEIGHT_AUTO)) {
 			scormDispC.setHeightPX(Integer.parseInt(height));
+		} else if(config.getBooleanSafe(ScormEditController.CONFIG_RAW_CONTENT, true)) {
+			//height auto but raw content set -> set default
+			scormDispC.setHeightPX(680);
 		}
 		String contentEncoding = (String) config.get(NodeEditController.CONFIG_CONTENT_ENCODING);
 		if (!contentEncoding.equals(NodeEditController.CONFIG_CONTENT_ENCODING_AUTO)) {
@@ -299,7 +317,7 @@ public class ScormRunController extends BasicController implements ScormAPICallb
 		if (!jsEncoding.equals(NodeEditController.CONFIG_JS_ENCODING_AUTO)) {
 			scormDispC.setJSEncoding(jsEncoding);
 		}
-		scormDispC.addControllerListener(this);
+		listenTo(scormDispC);
 		// the scormDispC activates itself
 	}
 
@@ -309,30 +327,8 @@ public class ScormRunController extends BasicController implements ScormAPICallb
 	 * @see org.olat.modules.scorm.ScormAPICallback#lmsCommit(java.lang.String,
 	 * java.util.Properties)
 	 */
-	public void lmsCommit(String olatSahsId, Properties scoScores) {
-		// only write score info when node is configured to do so
-		if (isAssessable) {
-			// do a sum-of-scores over all sco scores
-			float score = 0f;
-			for (Iterator it_score = scoScores.values().iterator(); it_score.hasNext();) {
-				String aScore = (String) it_score.next();
-				float ascore = Float.parseFloat(aScore);
-				score += ascore;
-			}
-			float cutval = scormNode.getCutValueConfiguration().floatValue();
-			boolean passed = (score >= cutval);
-			ScoreEvaluation sceval = new ScoreEvaluation(new Float(score), Boolean.valueOf(passed));
-			boolean incrementAttempts = false;
-			scormNode.updateUserScoreEvaluation(sceval, userCourseEnv, identity, incrementAttempts);
-			userCourseEnv.getScoreAccounting().scoreInfoChanged(scormNode, sceval);
-
-			if (isLogDebugEnabled()) {
-				String msg = "for scorm node:" + scormNode.getIdent() + " (" + scormNode.getShortTitle() + ") a lmsCommit for scoId "
-						+ olatSahsId + " occured, total sum = " + score + ", cutvalue =" + cutval + ", passed: " + passed
-						+ ", all scores now = " + scoScores.toString();
-				logDebug(msg, null);
-			}
-		}
+	public void lmsCommit(String olatSahsId, Properties scoreProp, Properties lessonStatusProp) {
+		//
 	}
 
 	// <BPS-620>
@@ -340,60 +336,7 @@ public class ScormRunController extends BasicController implements ScormAPICallb
 	 * @see org.olat.modules.scorm.ScormAPICallback#lmsFinish(java.lang.String,
 	 *      java.util.Properties)
 	 */
-	public void lmsFinish(String olatSahsId, Properties scoProperties) {
-		if (isAssessable) {
-			// do a sum-of-scores over all sco scores
-			// <OLATEE-27>
-			float score = -1f;
-			// </OLATEE-27>
-			for (Iterator<Object> it_score = scoProperties.values().iterator(); it_score.hasNext();) {
-				// <OLATEE-27>
-				if (score == -1f) {
-					score = 0f;
-				}
-				// </OLATEE-27>
-				String aScore = (String) it_score.next();
-				float ascore = Float.parseFloat(aScore);
-				score += ascore;
-			}
-
-			float cutval = scormNode.getCutValueConfiguration().floatValue();
-			ScoreEvaluation sceval;
-			boolean passed = (score >= cutval);
-			// if advanceScore option is set update the score only if it is
-			// higher
-			// <OLATEE-27>
-			if (config.getBooleanSafe(ScormEditController.CONFIG_ADVANCESCORE, true)) {
-				if (score > (scormNode.getUserScoreEvaluation(userCourseEnv).getScore() != null ? scormNode.getUserScoreEvaluation(
-						userCourseEnv).getScore() : -1)) {
-					// </OLATEE-27>
-					sceval = new ScoreEvaluation(new Float(score), Boolean.valueOf(passed));
-					scormNode.updateUserScoreEvaluation(sceval, userCourseEnv, identity, true);
-					userCourseEnv.getScoreAccounting().scoreInfoChanged(scormNode, sceval);
-				} else if (!config.getBooleanSafe(ScormEditController.CONFIG_ATTEMPTSDEPENDONSCORE, false)) {
-					sceval = scormNode.getUserScoreEvaluation(userCourseEnv);
-					scormNode.updateUserScoreEvaluation(sceval, userCourseEnv, identity, true);
-					userCourseEnv.getScoreAccounting().scoreInfoChanged(scormNode, sceval);
-				}
-			} else {
-				// <OLATEE-27>
-				if (score == -1f) {
-					score = 0f;
-				}
-				// </OLATEE-27>
-				sceval = new ScoreEvaluation(new Float(score), Boolean.valueOf(passed));
-				scormNode.updateUserScoreEvaluation(sceval, userCourseEnv, identity, true);
-				userCourseEnv.getScoreAccounting().scoreInfoChanged(scormNode, sceval);
-			}
-
-			if (isLogDebugEnabled()) {
-				String msg = "for scorm node:" + scormNode.getIdent() + " (" + scormNode.getShortTitle() + ") a lmsCommit for scoId "
-						+ olatSahsId + " occured, total sum = " + score + ", cutvalue =" + cutval + ", passed: " + passed
-						+ ", all scores now = " + scoProperties.toString();
-				logDebug(msg, null);
-			}
-		}
-
+	public void lmsFinish(String olatSahsId, Properties scoreProp, Properties lessonStatusProp) {
 		if (config.getBooleanSafe(ScormEditController.CONFIG_CLOSE_ON_FINISH, false)) {
 			doStartPage();
 			scormDispC.close();
@@ -408,6 +351,11 @@ public class ScormRunController extends BasicController implements ScormAPICallb
 	 */
 	public boolean isExternalMenuConfigured() {
 		return (config.getBooleanEntry(NodeEditController.CONFIG_COMPONENT_MENU).booleanValue());
+	}
+
+	@Override
+	public void configurationChanged() {
+		scormDispC.configurationChanged();
 	}
 
 	/**
@@ -436,7 +384,12 @@ public class ScormRunController extends BasicController implements ScormAPICallb
 
 	@Override
 	public void event(Event event) {
-		if (event == Window.END_OF_DISPATCH_CYCLE) {
+		if (event == Window.END_OF_DISPATCH_CYCLE || event == Window.BEFORE_RENDER_ONLY) {
+			// do initial modal dialog activation 
+			// a) just after the dispatching of the event which is before
+			// rendering after a normal click
+			// b) just before a render-only operation which happens when using a
+			// jump-in URL followed by a redirect without dispatching
 			scormDispC.activate();
 			getWindowControl().getWindowBackOffice().removeCycleListener(this);
 		}

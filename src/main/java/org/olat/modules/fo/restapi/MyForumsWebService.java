@@ -63,16 +63,15 @@ import org.olat.course.ICourse;
 import org.olat.course.nodes.FOCourseNode;
 import org.olat.course.run.userview.CourseTreeVisitor;
 import org.olat.group.BusinessGroup;
-import org.olat.group.BusinessGroupManager;
-import org.olat.group.BusinessGroupManagerImpl;
-import org.olat.group.SearchBusinessGroupParams;
+import org.olat.group.BusinessGroupService;
+import org.olat.group.model.SearchBusinessGroupParams;
 import org.olat.properties.Property;
 import org.olat.properties.PropertyManager;
 import org.olat.repository.RepositoryEntry;
 import org.olat.repository.RepositoryManager;
 import org.olat.repository.SearchRepositoryEntryParameters;
+import org.olat.resource.accesscontrol.ACService;
 import org.olat.resource.accesscontrol.AccessResult;
-import org.olat.resource.accesscontrol.manager.ACFrontendManager;
 import org.olat.restapi.group.LearningGroupWebService;
 
 /**
@@ -187,7 +186,7 @@ public class MyForumsWebService {
 		final List<ForumVO> forumVOs = new ArrayList<ForumVO>();
 		
 		RepositoryManager rm = RepositoryManager.getInstance();
-		ACFrontendManager acManager = (ACFrontendManager)CoreSpringFactory.getBean("acFrontendManager");
+		ACService acManager = CoreSpringFactory.getImpl(ACService.class);
 		SearchRepositoryEntryParameters repoParams = new SearchRepositoryEntryParameters(retrievedUser, roles, "CourseModule");
 		repoParams.setOnlyExplicitMember(true);
 		List<RepositoryEntry> entries = rm.genericANDQueryWithRolesRestriction(repoParams, 0, -1, true);
@@ -214,11 +213,10 @@ public class MyForumsWebService {
 		}
 		
 		//start found forums in groups
-		BusinessGroupManager bgm = BusinessGroupManagerImpl.getInstance();
-		SearchBusinessGroupParams params = new SearchBusinessGroupParams();
-		params.addTypes(BusinessGroup.TYPE_BUDDYGROUP, BusinessGroup.TYPE_LEARNINGROUP);
+		BusinessGroupService bgs = CoreSpringFactory.getImpl(BusinessGroupService.class);
+		SearchBusinessGroupParams params = new SearchBusinessGroupParams(retrievedUser, true, true);
 		params.addTools(CollaborationTools.TOOL_FORUM);
-		List<BusinessGroup> groups = bgm.findBusinessGroups(params, retrievedUser, true, true, null, 0, -1);
+		List<BusinessGroup> groups = bgs.findBusinessGroups(params, null, 0, -1);
 		//list forum keys
 		List<Long> groupIds = new ArrayList<Long>();
 		Map<Long,BusinessGroup> groupsMap = new HashMap<Long,BusinessGroup>();

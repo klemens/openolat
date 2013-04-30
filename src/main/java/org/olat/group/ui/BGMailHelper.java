@@ -34,11 +34,12 @@
 
 package org.olat.group.ui;
 
-import java.util.Iterator;
+import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
 
 import org.apache.velocity.VelocityContext;
+import org.olat.core.CoreSpringFactory;
 import org.olat.core.gui.translator.Translator;
 import org.olat.core.id.Identity;
 import org.olat.core.id.User;
@@ -49,16 +50,15 @@ import org.olat.core.util.filter.FilterFactory;
 import org.olat.core.util.i18n.I18nManager;
 import org.olat.core.util.mail.MailTemplate;
 import org.olat.group.BusinessGroup;
-import org.olat.group.BusinessGroupManager;
-import org.olat.group.context.BGContextManager;
-import org.olat.group.context.BGContextManagerImpl;
-import org.olat.repository.RepoJumpInHandlerFactory;
-import org.olat.repository.RepositoryEntry;
+import org.olat.group.BusinessGroupService;
+import org.olat.group.BusinessGroupShort;
+import org.olat.repository.RepositoryEntryShort;
+
 
 public class BGMailHelper {
 
 	/**
-	 * The mail templated when adding users to a group. The method chooses
+	 * The mail template when adding users to a group. The method chooses
 	 * automatically the right translator for the given group type to customize
 	 * the template text
 	 * 
@@ -66,14 +66,14 @@ public class BGMailHelper {
 	 * @param actor
 	 * @return the generated MailTemplate
 	 */
-	public static MailTemplate createAddParticipantMailTemplate(BusinessGroup group, Identity actor) {
+	public static MailTemplate createAddParticipantMailTemplate(BusinessGroupShort group, Identity actor) {
 		String subjectKey = "notification.mail.added.subject";
 		String bodyKey = "notification.mail.added.body";
 		return createMailTemplate(group, actor, subjectKey, bodyKey);
 	}
 
 	/**
-	 * The mail templated when removing users from a group. The method chooses
+	 * The mail template when removing users from a group. The method chooses
 	 * automatically the right translator for the given group type to customize
 	 * the template text
 	 * 
@@ -81,14 +81,14 @@ public class BGMailHelper {
 	 * @param actor
 	 * @return the generated MailTemplate
 	 */
-	public static MailTemplate createRemoveParticipantMailTemplate(BusinessGroup group, Identity actor) {
+	public static MailTemplate createRemoveParticipantMailTemplate(BusinessGroupShort group, Identity actor) {
 		String subjectKey = "notification.mail.removed.subject";
 		String bodyKey = "notification.mail.removed.body";
 		return createMailTemplate(group, actor, subjectKey, bodyKey);
 	}
 
 	/**
-	 * The mail templated when deleting a whole group. The method chooses
+	 * The mail template when deleting a whole group. The method chooses
 	 * automatically the right translator for the given group type to customize
 	 * the template text
 	 * 
@@ -96,14 +96,14 @@ public class BGMailHelper {
 	 * @param actor
 	 * @return the generated MailTemplate
 	 */
-	public static MailTemplate createDeleteGroupMailTemplate(BusinessGroup group, Identity actor) {
+	public static MailTemplate createDeleteGroupMailTemplate(BusinessGroupShort group, Identity actor) {
 		String subjectKey = "notification.mail.deleted.subject";
 		String bodyKey = "notification.mail.deleted.body";
 		return createMailTemplate(group, actor, subjectKey, bodyKey);
 	}
 
 	/**
-	 * The mail templated when a user added himself to a group. The method chooses
+	 * The mail template when a user added himself to a group. The method chooses
 	 * automatically the right translator for the given group type to customize
 	 * the template text
 	 * 
@@ -111,14 +111,14 @@ public class BGMailHelper {
 	 * @param actor
 	 * @return the generated MailTemplate
 	 */
-	public static MailTemplate createAddMyselfMailTemplate(BusinessGroup group, Identity actor) {
+	public static MailTemplate createAddMyselfMailTemplate(BusinessGroupShort group, Identity actor) {
 		String subjectKey = "notification.mail.added.self.subject";
 		String bodyKey = "notification.mail.added.self.body";
 		return createMailTemplate(group, actor, subjectKey, bodyKey);
 	}
 
 	/**
-	 * The mail templated when a user removed himself from a group. The method
+	 * The mail template when a user removed himself from a group. The method
 	 * chooses automatically the right translator for the given group type to
 	 * customize the template text
 	 * 
@@ -126,14 +126,14 @@ public class BGMailHelper {
 	 * @param actor
 	 * @return the generated MailTemplate
 	 */
-	public static MailTemplate createRemoveMyselfMailTemplate(BusinessGroup group, Identity actor) {
+	public static MailTemplate createRemoveMyselfMailTemplate(BusinessGroupShort group, Identity actor) {
 		String subjectKey = "notification.mail.removed.self.subject";
 		String bodyKey = "notification.mail.removed.self.body";
 		return createMailTemplate(group, actor, subjectKey, bodyKey);
 	}
 
 	/**
-	 * The mail templated when adding users to a waitinglist. The method chooses
+	 * The mail template when adding users to a waitinglist. The method chooses
 	 * automatically the right translator for the given group type to customize
 	 * the template text
 	 * 
@@ -141,14 +141,14 @@ public class BGMailHelper {
 	 * @param actor
 	 * @return the generated MailTemplate
 	 */
-	public static MailTemplate createAddWaitinglistMailTemplate(BusinessGroup group, Identity actor) {
+	public static MailTemplate createAddWaitinglistMailTemplate(BusinessGroupShort group, Identity actor) {
 		String subjectKey = "notification.mail.waitingList.added.subject";
 		String bodyKey = "notification.mail.waitingList.added.body";
 		return createMailTemplate(group, actor, subjectKey, bodyKey);
 	}
 
 	/**
-	 * The mail templated when removing users from a waiting list. The method
+	 * The mail template when removing users from a waiting list. The method
 	 * chooses automatically the right translator for the given group type to
 	 * customize the template text
 	 * 
@@ -156,14 +156,14 @@ public class BGMailHelper {
 	 * @param actor
 	 * @return the generated MailTemplate
 	 */
-	public static MailTemplate createRemoveWaitinglistMailTemplate(BusinessGroup group, Identity actor) {
+	public static MailTemplate createRemoveWaitinglistMailTemplate(BusinessGroupShort group, Identity actor) {
 		String subjectKey = "notification.mail.waitingList.removed.subject";
 		String bodyKey = "notification.mail.waitingList.removed.body";
 		return createMailTemplate(group, actor, subjectKey, bodyKey);
 	}
 
 	/**
-	 * The mail templated when automatically transferring users from the
+	 * The mail template when automatically transferring users from the
 	 * waitinglist to the participants list adding users to a waitinglist. The
 	 * method chooses automatically the right translator for the given group type
 	 * to customize the template text
@@ -172,7 +172,7 @@ public class BGMailHelper {
 	 * @param actor
 	 * @return the generated MailTemplate
 	 */
-	public static MailTemplate createWaitinglistTransferMailTemplate(BusinessGroup group, Identity actor) {
+	public static MailTemplate createWaitinglistTransferMailTemplate(BusinessGroupShort group, Identity actor) {
 		String subjectKey = "notification.mail.waitingList.transfer.subject";
 		String bodyKey = "notification.mail.waitingList.transfer.body";
 		return createMailTemplate(group, actor, subjectKey, bodyKey);
@@ -187,13 +187,25 @@ public class BGMailHelper {
 	 * @param bodyKey
 	 * @return
 	 */
-	private static MailTemplate createMailTemplate(BusinessGroup group, Identity actor, String subjectKey, String bodyKey) {
+	private static MailTemplate createMailTemplate(BusinessGroupShort group, Identity actor, String subjectKey, String bodyKey) {
+		// get some data about the actor and fetch the translated subject / body via i18n module
+		String[] bodyArgs = new String[] { actor.getUser().getProperty(UserConstants.FIRSTNAME, null), actor.getUser().getProperty(UserConstants.LASTNAME, null), actor.getUser().getProperty(UserConstants.EMAIL, null),
+					actor.getName() };
+		Locale locale = I18nManager.getInstance().getLocaleOrDefault(actor.getUser().getPreferences().getLanguage());
+		Translator trans = Util.createPackageTranslator(BGMailHelper.class, locale);
+		String subject = trans.translate(subjectKey);
+		String body = trans.translate(bodyKey, bodyArgs);
+		
 		// build learning resources as list of url as string
+		
+		final String courselist;
+		final String groupname;
+		final String groupdescription; 
 		StringBuilder learningResources = new StringBuilder();
-		if (group.getGroupContext() != null) {
-			BGContextManager contextManager = BGContextManagerImpl.getInstance();
-			List<RepositoryEntry> repoEntries = contextManager.findRepositoryEntriesForBGContext(group.getGroupContext());
-			for (RepositoryEntry entry: repoEntries) {
+		if(group != null) {
+			BusinessGroupService businessGroupService = CoreSpringFactory.getImpl(BusinessGroupService.class);
+			List<RepositoryEntryShort> repoEntries = businessGroupService.findShortRepositoryEntries(Collections.singletonList(group), 0, -1);
+			for (RepositoryEntryShort entry: repoEntries) {
 				String title = entry.getDisplayname();
 				String url = BusinessControlFactory.getInstance().getURLFromBusinessPathString("[RepositoryEntry:" + entry.getKey() + "]");
 				learningResources.append(title);
@@ -201,25 +213,22 @@ public class BGMailHelper {
 				learningResources.append(url);
 				learningResources.append(")\n");
 			}
+	
+			courselist = learningResources.toString();
+			// get group name and description
+			groupname = group.getName();
+			groupdescription = (group instanceof BusinessGroup ?
+					FilterFactory.getHtmlTagAndDescapingFilter().filter(((BusinessGroup)group).getDescription()) : ""); 
+
+			subject = subject.replaceAll("\\$groupname", groupname == null ? "" : groupname);
+			body = body.replaceAll("\\$groupname", groupname == null ? "" : groupname);
+			body = body.replaceAll("\\$groupdescription", groupdescription == null ? "" : groupdescription);
+			body = body.replaceAll("\\$courselist", courselist == null ? "" : courselist);
+		} else {
+			courselist = "";
+			groupname = "";
+			groupdescription = "";
 		}
-		final String courselist = learningResources.toString();
-		// get group name and description
-		final String groupname = group.getName();
-		final String groupdescription = FilterFactory.getHtmlTagAndDescapingFilter().filter(group.getDescription());
-		// get some data about the actor and fetch the translated subject / body via
-		// i18n module
-		String[] bodyArgs = new String[] { actor.getUser().getProperty(UserConstants.FIRSTNAME, null), actor.getUser().getProperty(UserConstants.LASTNAME, null), actor.getUser().getProperty(UserConstants.EMAIL, null),
-				actor.getName() };
-		Locale locale = I18nManager.getInstance().getLocaleOrDefault(actor.getUser().getPreferences().getLanguage());
-		Translator trans = BGTranslatorFactory.createBGPackageTranslator(Util.getPackageName(BusinessGroupManager.class), group.getType(),
-				locale);
-		String subject = trans.translate(subjectKey);
-		String body = trans.translate(bodyKey, bodyArgs);
-		
-		subject = subject.replaceAll("\\$groupname", groupname == null ? "" : groupname);
-		body = body.replaceAll("\\$groupname", groupname == null ? "" : groupname);
-		body = body.replaceAll("\\$groupdescription", groupdescription == null ? "" : groupdescription);
-		body = body.replaceAll("\\$courselist", courselist == null ? "" : courselist);
 		
 		// create a mail template which all these data
 		MailTemplate mailTempl = new MailTemplate(subject, body, null) {

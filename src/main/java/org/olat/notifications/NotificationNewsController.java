@@ -23,10 +23,10 @@ import java.text.DateFormat;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Date;
 import java.util.List;
 import java.util.Map;
-import java.util.StringTokenizer;
 
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.Component;
@@ -37,7 +37,6 @@ import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.Event;
 import org.olat.core.gui.control.WindowControl;
 import org.olat.core.gui.control.controller.BasicController;
-import org.olat.core.gui.control.generic.dtabs.Activateable;
 import org.olat.core.gui.control.generic.dtabs.Activateable2;
 import org.olat.core.id.Identity;
 import org.olat.core.id.context.ContextEntry;
@@ -61,7 +60,8 @@ import org.olat.core.util.notifications.SubscriptionItem;
  * 
  * @author gnaegi
  */
-class NotificationNewsController extends BasicController implements Activateable, Activateable2 {
+class NotificationNewsController extends BasicController implements
+		Activateable2 {
 	private VelocityContainer newsVC;
 	private Date compareDate;
 	private String newsType;
@@ -69,22 +69,26 @@ class NotificationNewsController extends BasicController implements Activateable
 	private DateChooserController dateChooserCtr;
 	private Link emailLink;
 	private Map<Subscriber, SubscriptionInfo> subsInfoMap;
-	
+
 	/**
 	 * Constructor
 	 * 
-	 * @param subscriberIdentity The identity which news are displayed
+	 * @param subscriberIdentity
+	 *          The identity which news are displayed
 	 * @param ureq
 	 * @param wControl
-	 * @param newsSinceDate The lower date boundary to collect the news or NULL to
-	 *          use the user defined notification interval
+	 * @param newsSinceDate
+	 *          The lower date boundary to collect the news or NULL to use the
+	 *          user defined notification interval
 	 */
-	NotificationNewsController(Identity subscriberIdentity, UserRequest ureq, WindowControl wControl, Date newsSinceDate) {
+	NotificationNewsController(Identity subscriberIdentity, UserRequest ureq,
+			WindowControl wControl, Date newsSinceDate) {
 		super(ureq, wControl);
 		this.subscriberIdentity = subscriberIdentity;
 		if (newsSinceDate == null) {
 			NotificationsManager man = NotificationsManager.getInstance();
-			compareDate = man.getCompareDateFromInterval(man.getUserIntervalOrDefault(ureq.getIdentity()));
+			compareDate = man.getCompareDateFromInterval(man
+					.getUserIntervalOrDefault(ureq.getIdentity()));
 		} else {
 			compareDate = newsSinceDate;
 		}
@@ -93,7 +97,8 @@ class NotificationNewsController extends BasicController implements Activateable
 		// Fetch data from DB and update datamodel and reuse subscribers
 		List<Subscriber> subs = updateNewsDataModel();
 		// Add date and type chooser
-		dateChooserCtr = new DateChooserController(ureq, getWindowControl(), new Date());
+		dateChooserCtr = new DateChooserController(ureq, getWindowControl(),
+				new Date());
 		dateChooserCtr.setSubscribers(subs);
 		listenTo(dateChooserCtr);
 		newsVC.put("dateChosserCtr", dateChooserCtr.getInitialComponent());
@@ -106,18 +111,23 @@ class NotificationNewsController extends BasicController implements Activateable
 	/**
 	 * Update the new data model and refresh the GUI
 	 */
-	List<Subscriber> updateNewsDataModel() {
+	protected List<Subscriber> updateNewsDataModel() {
+		if(compareDate == null) {
+			return Collections.emptyList();//compare date is mandatory
+		}
 		List<String> notiTypes = new ArrayList<String>();
-		if(StringHelper.containsNonWhitespace(newsType)) {
+		if (StringHelper.containsNonWhitespace(newsType)) {
 			notiTypes.add(newsType);
 		}
 
 		NotificationsManager man = NotificationsManager.getInstance();
 		List<Subscriber> subs = man.getSubscribers(subscriberIdentity, notiTypes);
-		
+
 		newsVC.contextPut("subs", subs);
-		subsInfoMap = NotificationHelper.getSubscriptionMap(getLocale(), true, compareDate, subs);
-		NotificationSubscriptionAndNewsFormatter subsFormatter = new NotificationSubscriptionAndNewsFormatter(getTranslator(), subsInfoMap);
+		subsInfoMap = NotificationHelper.getSubscriptionMap(getLocale(), true,
+				compareDate, subs);
+		NotificationSubscriptionAndNewsFormatter subsFormatter = new NotificationSubscriptionAndNewsFormatter(
+				getTranslator(), subsInfoMap);
 		newsVC.contextPut("subsFormatter", subsFormatter);
 		return subs;
 	}
@@ -150,68 +160,42 @@ class NotificationNewsController extends BasicController implements Activateable
 			List<Subscriber> subsList = new ArrayList<Subscriber>();
 			for (Subscriber subscriber : subsInfoMap.keySet()) {
 				subsList.add(subscriber);
-				SubscriptionItem item = man.createSubscriptionItem(subscriber, getLocale(), SubscriptionInfo.MIME_PLAIN, SubscriptionInfo.MIME_PLAIN, compareDate);
-				if(item != null) {
+				SubscriptionItem item = man.createSubscriptionItem(subscriber,
+						getLocale(), SubscriptionInfo.MIME_PLAIN,
+						SubscriptionInfo.MIME_PLAIN, compareDate);
+				if (item != null) {
 					infoList.add(item);
 				}
 			}
-			if (man.sendMailToUserAndUpdateSubscriber(subscriberIdentity, infoList, getTranslator(), subsList)) {
+			if (man.sendMailToUserAndUpdateSubscriber(subscriberIdentity, infoList,
+					getTranslator(), subsList)) {
 				showInfo("email.ok");
 			} else {
-				showError("email.nok");				
+				showError("email.nok");
 			}
 		}
 	}
 
-	/**
-	 * Can set type and date of the controller: identifier in the ofrm of [type=Type:0][date=yyyyMMdd:0]
-	 * @see org.olat.core.gui.control.generic.dtabs.Activateable#activate(org.olat.core.gui.UserRequest, java.lang.String)
-	 */
 	@Override
-	public void activate(UserRequest ureq, String viewIdentifier) {
-		if(viewIdentifier == null) return;
-		
-		boolean changed = false;
-		for(StringTokenizer tokenizer = new StringTokenizer(viewIdentifier, "[]"); tokenizer.hasMoreTokens(); ) {
-			String token = tokenizer.nextToken();
-			if(token.startsWith("type=")) {
-				newsType = extractValue("type=", token);
-				dateChooserCtr.setType(newsType);
-				changed = true;
-			} else if(token.startsWith("date=")) {
-				try {
-					String date = extractValue("date=", token);
-					DateFormat format = new SimpleDateFormat("yyyyMMdd");
-					compareDate = format.parse(date);
-					dateChooserCtr.setDate(compareDate);
-					changed = true;
-				} catch (ParseException e) {
-					logWarn("Error parsing the date after activate: " + token, e);
-				}
-			}
-		}
-		
-		if(changed) {
-			updateNewsDataModel();
-		}
-	}
-	
-	@Override
-	public void activate(UserRequest ureq, List<ContextEntry> entries, StateEntry state) {
-		if(entries == null || entries.isEmpty()) return;
+	public void activate(UserRequest ureq, List<ContextEntry> entries,
+			StateEntry state) {
+		if (entries == null || entries.isEmpty())
+			return;
 
 		boolean changed = false;
-		String path = entries.get(0).getOLATResourceable().getResourceableTypeName();
-		if(path.startsWith("type=")) {
+		String path = entries.get(0).getOLATResourceable()
+				.getResourceableTypeName();
+		if (path.startsWith("type=")) {
 			newsType = extractValue("type=", path);
 			dateChooserCtr.setType(newsType);
 			changed = true;
-			//consume the entry
+			// consume the entry
 			entries = entries.subList(1, entries.size());
 		}
-		if(!entries.isEmpty()) {
-			String dateEntry = entries.get(0).getOLATResourceable().getResourceableTypeName();
-			if(dateEntry.startsWith("date=")) {
+		if (!entries.isEmpty()) {
+			String dateEntry = entries.get(0).getOLATResourceable()
+					.getResourceableTypeName();
+			if (dateEntry.startsWith("date=")) {
 				try {
 					String date = extractValue("date=", dateEntry);
 					DateFormat format = new SimpleDateFormat("yyyyMMdd");
@@ -223,14 +207,14 @@ class NotificationNewsController extends BasicController implements Activateable
 				}
 			}
 		}
-		
-		if(changed) {
+
+		if (changed) {
 			updateNewsDataModel();
 		}
 	}
 
 	private String extractValue(String str, String identifier) {
-		if(identifier.startsWith(str)) {
+		if (identifier.startsWith(str)) {
 			int sepIndex = identifier.indexOf(':');
 			int lastIndex = (sepIndex > 0 ? sepIndex : identifier.length());
 			String value = identifier.substring(str.length(), lastIndex);
@@ -244,6 +228,6 @@ class NotificationNewsController extends BasicController implements Activateable
 	 */
 	@Override
 	protected void doDispose() {
-	// child controllers disposed by basic controller
+		// child controllers disposed by basic controller
 	}
 }

@@ -182,6 +182,73 @@
 					</bean>
 				</entry>
 				
+				<entry key="org.olat.course.member.MemberSearchForm">
+					<bean class="org.olat.user.propertyhandlers.UserPropertyUsageContext">
+						<property name="propertyHandlers">
+							<list>
+								<ref bean="userPropertyFirstName" />
+								<ref bean="userPropertyLastName" />
+								<ref bean="userPropertyEmail" />
+								<ref bean="userPropertyInstitutionalName" />
+								<ref bean="userPropertyInstitutionalUserIdentifier" />
+								<ref bean="userPropertyInstitutionalEmail" />
+							</list>
+						</property>
+						<property name="adminViewOnlyProperties">
+							<set>
+								<ref bean="userPropertyEmail" />
+								<ref bean="userPropertyInstitutionalName" />
+								<ref bean="userPropertyInstitutionalUserIdentifier" />
+								<ref bean="userPropertyInstitutionalEmail" />
+							</set>						
+						</property>
+					</bean>
+				</entry>
+				
+				<entry key="org.olat.course.member.MemberListController">
+					<bean class="org.olat.user.propertyhandlers.UserPropertyUsageContext">
+						<property name="propertyHandlers">
+							<list>
+								<ref bean="userPropertyFirstName" />
+								<ref bean="userPropertyLastName" />
+								<ref bean="userPropertyEmail" />
+								<ref bean="userPropertyInstitutionalName" />
+								<ref bean="userPropertyInstitutionalUserIdentifier" />
+								<ref bean="userPropertyInstitutionalEmail" />
+							</list>
+						</property>
+						<property name="adminViewOnlyProperties">
+							<set>
+								<ref bean="userPropertyEmail" />
+								<ref bean="userPropertyInstitutionalName" />
+								<ref bean="userPropertyInstitutionalUserIdentifier" />
+								<ref bean="userPropertyInstitutionalEmail" />
+							</set>						
+						</property>
+						<property name="mandatoryProperties">
+							<set>
+								<ref bean="userPropertyFirstName" />
+								<ref bean="userPropertyLastName" />
+								<ref bean="userPropertyEmail" />
+							</set>
+						</property>
+					</bean>
+				</entry>
+				
+				<entry key="org.olat.group.ui.main.MemberInfoController">
+					<!-- First name and last name are already shown -->
+					<bean class="org.olat.user.propertyhandlers.UserPropertyUsageContext">
+						<property name="propertyHandlers">
+							<list>
+								<ref bean="userPropertyEmail" />
+								<ref bean="userPropertyInstitutionalName" />
+								<ref bean="userPropertyInstitutionalUserIdentifier" />
+								<ref bean="userPropertyInstitutionalEmail" />
+							</list>
+						</property>
+					</bean>
+				</entry>
+				
 				<entry key="org.olat.admin.user.UsermanagerUserSearchForm">
 					<bean class="org.olat.user.propertyhandlers.UserPropertyUsageContext">
 						<property name="propertyHandlers">
@@ -407,7 +474,28 @@
 						</property>
 						<property name="adminViewOnlyProperties">
 							<set>
+								<ref bean="userPropertyBirthDay" />
+								<ref bean="userPropertyGender" />
+								<ref bean="userPropertyTelPrivate" />
+								<ref bean="userPropertyTelMobile" />
+								<ref bean="userPropertyTelOffice" />
+								<ref bean="userPropertySkype" />
+								<ref bean="userPropertyMSN" />
+                                <ref bean="userPropertyXing" />
+                                <ref bean="userPropertyICQ" />
+								<ref bean="userPropertyHomepage" />
+								<ref bean="userPropertyStreet" />
+								<ref bean="userPropertyExtendedAddress" />
+								<ref bean="userPropertyPoBox" />
+								<ref bean="userPropertyZipCode" />
+								<ref bean="userPropertyRegion" />
+								<ref bean="userPropertyCity" />
+								<ref bean="userPropertyCountry" />
+								<ref bean="userPropertyInstitutionalName" />
 								<ref bean="userPropertyInstitutionalUserIdentifier" />
+								<ref bean="userPropertyInstitutionalEmail" />
+								<ref bean="userPropertyOrgUnit" />
+								<ref bean="userPropertyStudySubject" />
 							</set>
 						</property>
 					</bean>
@@ -711,6 +799,7 @@
 				<!-- fxdiff: FXOLAT-227 user properties used for group-mail-function -->
 				<entry key="org.olat.group.ui.run.BusinessGroupSendToChooserForm">
 					<bean class="org.olat.user.propertyhandlers.UserPropertyUsageContext">
+						<property name="description" value=" " />
 						<property name="propertyHandlers">
 							<list>
 								<ref bean="userPropertyLastName" />														

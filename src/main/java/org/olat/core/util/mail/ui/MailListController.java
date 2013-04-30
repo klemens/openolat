@@ -50,7 +50,6 @@ import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.Event;
 import org.olat.core.gui.control.WindowControl;
 import org.olat.core.gui.control.controller.BasicController;
-import org.olat.core.gui.control.generic.dtabs.Activateable;
 import org.olat.core.gui.control.generic.dtabs.Activateable2;
 import org.olat.core.gui.control.generic.modal.DialogBoxController;
 import org.olat.core.gui.control.generic.modal.DialogBoxUIFactory;
@@ -67,6 +66,7 @@ import org.olat.core.util.mail.model.DBMail;
 import org.olat.core.util.mail.model.DBMailImpl;
 import org.olat.core.util.mail.model.DBMailRecipient;
 import org.olat.core.util.mail.ui.MailDataModel.Columns;
+import org.olat.core.util.mail.ui.MailDataModel.ContextPair;
 import org.olat.core.util.resource.OresHelper;
 
 
@@ -79,7 +79,7 @@ import org.olat.core.util.resource.OresHelper;
  * Initial Date:  24 mars 2011 <br>
  * @author srosse, stephane.rosse@frentix.com, http://www.frentix.com
  */
-public class MailListController extends BasicController implements Activateable, Activateable2 {
+public class MailListController extends BasicController implements Activateable2 {
 	
 	private static final String CMD_READ_TOGGLE = "creadt";
 	private static final String CMD_READ = "cread";
@@ -136,7 +136,19 @@ public class MailListController extends BasicController implements Activateable,
 		if(outbox) {
 			//context / recipients / subject / sendDate
 			tableCtr.addColumnDescriptor(new CustomRenderColumnDescriptor(Columns.context.i18nKey(), Columns.context.ordinal(), null,
-					getLocale(), ColumnDescriptor.ALIGNMENT_LEFT, new MailContextCellRenderer(this, tableVC, getTranslator())));
+					getLocale(), ColumnDescriptor.ALIGNMENT_LEFT, new MailContextCellRenderer(this, tableVC, getTranslator())) {
+					@Override
+					public int compareTo(int rowa, int rowb) {
+						Object a = table.getTableDataModel().getValueAt(rowa,dataColumn);
+						Object b = table.getTableDataModel().getValueAt(rowb,dataColumn);
+						if(a instanceof ContextPair && b instanceof ContextPair) {
+							ContextPair p1 = (ContextPair)a;
+							ContextPair p2 = (ContextPair)b;
+							return super.compareString(p1.getName(), p2.getName());
+						}
+						return super.compareTo(rowa, rowb);
+					}
+			});
 			tableCtr.addColumnDescriptor(new DefaultColumnDescriptor(Columns.recipients.i18nKey(), Columns.recipients.ordinal(), null, getLocale()));
 			tableCtr.addColumnDescriptor(new DefaultColumnDescriptor(Columns.subject.i18nKey(), Columns.subject.ordinal(), CMD_READ, getLocale()));
 			tableCtr.addColumnDescriptor(new DefaultColumnDescriptor(Columns.sendDate.i18nKey(), Columns.sendDate.ordinal(), null, getLocale()));
@@ -149,7 +161,19 @@ public class MailListController extends BasicController implements Activateable,
 			tableCtr.addColumnDescriptor(new CustomRenderColumnDescriptor(Columns.marked.i18nKey(), Columns.marked.ordinal(), CMD_MARK_TOGGLE, 
 					getLocale(), ColumnDescriptor.ALIGNMENT_CENTER, markRenderer));
 			tableCtr.addColumnDescriptor(new CustomRenderColumnDescriptor(Columns.context.i18nKey(), Columns.context.ordinal(), null,
-					getLocale(), ColumnDescriptor.ALIGNMENT_LEFT, new MailContextCellRenderer(this, tableVC, getTranslator())));
+					getLocale(), ColumnDescriptor.ALIGNMENT_LEFT, new MailContextCellRenderer(this, tableVC, getTranslator())){
+						@Override
+						public int compareTo(int rowa, int rowb) {
+							Object a = table.getTableDataModel().getValueAt(rowa,dataColumn);
+							Object b = table.getTableDataModel().getValueAt(rowb,dataColumn);
+							if(a instanceof ContextPair && b instanceof ContextPair) {
+								ContextPair p1 = (ContextPair)a;
+								ContextPair p2 = (ContextPair)b;
+								return super.compareString(p1.getName(), p2.getName());
+							}
+							return super.compareTo(rowa, rowb);
+						}
+			});
 			tableCtr.addColumnDescriptor(new CustomRenderColumnDescriptor(Columns.from.i18nKey(), Columns.from.ordinal(), null,
 					getLocale(), ColumnDescriptor.ALIGNMENT_LEFT, new MailFromCellRenderer(this, tableVC, getTranslator())));
 			tableCtr.addColumnDescriptor(new DefaultColumnDescriptor(Columns.subject.i18nKey(), Columns.subject.ordinal(), CMD_READ, getLocale()));
@@ -209,7 +233,7 @@ public class MailListController extends BasicController implements Activateable,
 			if(StringHelper.containsNonWhitespace(metaId)) {
 				mails = MailManager.getInstance().getEmailsByMetaId(metaId);
 			} else {
-				mails = MailManager.getInstance().getOutbox(getIdentity(), 0, 0);
+				mails = MailManager.getInstance().getOutbox(getIdentity(), 0, -1);
 			}
 			
 			//strip meta emails
@@ -225,7 +249,7 @@ public class MailListController extends BasicController implements Activateable,
 				}
 			}
 		} else {
-			mails = MailManager.getInstance().getInbox(getIdentity(), null, Boolean.TRUE, null, 0, 0);
+			mails = MailManager.getInstance().getInbox(getIdentity(), null, Boolean.TRUE, null, 0, -1);
 		}
 		
 		//extract contexts
@@ -242,12 +266,18 @@ public class MailListController extends BasicController implements Activateable,
 		
 		if(!bpToContexts.isEmpty()) {
 			List<ShortName> filters = new ArrayList<ShortName>();
+			Map<String, MailContextShortName> uniqueNames = new HashMap<String,MailContextShortName>();
 			ShortName allContextFilter = new MailContextShortName("-");
 			filters.add(allContextFilter);
 			for(Map.Entry<String, String> entry:bpToContexts.entrySet()) {
 				String businessPath = entry.getKey();
 				String contextName = entry.getValue();
-				filters.add(new MailContextShortName(contextName, businessPath));
+				if(!uniqueNames.containsKey(contextName)) {
+					MailContextShortName cxt = new MailContextShortName(contextName, new HashSet<String>());
+					filters.add(cxt);
+					uniqueNames.put(contextName, cxt);
+				}
+				uniqueNames.get(contextName).getBusinessPaths().add(businessPath);
 			}
 			tableCtr.setFilters(filters, allContextFilter);
 		}
@@ -349,9 +379,11 @@ public class MailListController extends BasicController implements Activateable,
 				MailDataModel dataModel = (MailDataModel)tableCtr.getTableDataModel();
 				MailContextShortName filter = (MailContextShortName)tableCtr.getActiveFilter();
 				dataModel.filter(filter);
+				tableCtr.setTableDataModel(dataModel);
 			} else if (TableController.EVENT_NOFILTER_SELECTED == event) {
 				MailDataModel dataModel = (MailDataModel)tableCtr.getTableDataModel();
 				dataModel.filter(null);
+				tableCtr.setTableDataModel(dataModel);
 			}			
 			
 		} else if (source == mailCtr) {
@@ -366,7 +398,9 @@ public class MailListController extends BasicController implements Activateable,
 			if(DialogBoxUIFactory.isYesEvent(event)) {
 				BitSet deleteMails = (BitSet)deleteConfirmationBox.getUserObject();
 				for (int i=deleteMails.nextSetBit(0); i >= 0; i=deleteMails.nextSetBit(i+1)) {
-					DBMailImpl mail = (DBMailImpl) tableCtr.getTableDataModel().getObject(i);
+					DBMail mail = (DBMail)tableCtr.getTableDataModel().getObject(i);
+					//reload the message
+					mail = mailManager.getMessageByKey(mail.getKey());
 					boolean deleteMetaMail = outbox && !StringHelper.containsNonWhitespace(metaId);
 					mailManager.delete(mail, getIdentity(), deleteMetaMail);
 					// Do not remove from model to prevent concurrent modification
@@ -383,22 +417,7 @@ public class MailListController extends BasicController implements Activateable,
 	protected void doDispose() {
 		//
 	}
-	
-	@Override
-	public void activate(UserRequest ureq, String viewIdentifier) {
-		if(!StringHelper.containsNonWhitespace(viewIdentifier) || "0".equals(viewIdentifier)) return;
-		
-		try {
-			Long mailKey = Long.parseLong(viewIdentifier);
-			selectMail(ureq, mailKey);
-		} catch(NumberFormatException e) {
-			//not a key
-			logWarn("Cannot activate with this identifier: " + viewIdentifier, e);
-		}
-	}
-	
-	
-	
+
 	@Override
 	public void activate(UserRequest ureq, List<ContextEntry> entries, StateEntry state) {
 		if(entries == null || entries.isEmpty()) return;

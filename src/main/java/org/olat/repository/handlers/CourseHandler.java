@@ -29,7 +29,6 @@ import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
 
-import org.olat.core.commons.modules.bc.FolderConfig;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.WindowControl;
@@ -142,8 +141,8 @@ public class CourseHandler implements RepositoryHandler {
 	/**
 	 * @see org.olat.repository.handlers.RepositoryHandler#getLaunchController(org.olat.core.id.OLATResourceable java.lang.String, org.olat.core.gui.UserRequest, org.olat.core.gui.control.WindowControl)
 	 */
-	public MainLayoutController createLaunchController(OLATResourceable res, String initialViewIdentifier, UserRequest ureq, WindowControl wControl) {
-		MainLayoutController courseCtrl = CourseFactory.createLaunchController(ureq, wControl, res, initialViewIdentifier);
+	public MainLayoutController createLaunchController(OLATResourceable res, UserRequest ureq, WindowControl wControl) {
+		MainLayoutController courseCtrl = CourseFactory.createLaunchController(ureq, wControl, res);
 		//fxdiff VCRP-1: access control of learn resources
 		RepositoryMainAccessControllerWrapper wrapper = new RepositoryMainAccessControllerWrapper(ureq, wControl, res, courseCtrl);
 		return wrapper;
@@ -152,12 +151,13 @@ public class CourseHandler implements RepositoryHandler {
 	/**
 	 * @see org.olat.repository.handlers.RepositoryHandler#getAsMediaResource(org.olat.core.id.OLATResourceable
 	 */
-	public MediaResource getAsMediaResource(OLATResourceable res) {
+	@Override
+	public MediaResource getAsMediaResource(OLATResourceable res, boolean backwardsCompatible) {
 		RepositoryEntry re = RepositoryManager.getInstance().lookupRepositoryEntry(res, true);
 		String exportFileName = re.getDisplayname() + ".zip";
 		exportFileName = StringHelper.transformDisplayNameToFileSystemName(exportFileName);
-		File fExportZIP = new File(System.getProperty("java.io.tmpdir")+File.separator+exportFileName);
-		CourseFactory.exportCourseToZIP(res, fExportZIP);
+		File fExportZIP = new File(WebappHelper.getTmpDir() + File.separator + exportFileName);
+		CourseFactory.exportCourseToZIP(res, fExportZIP, backwardsCompatible);
 		return new CleanupAfterDeliveryFileMediaResource(fExportZIP);
 	}
 
@@ -166,7 +166,7 @@ public class CourseHandler implements RepositoryHandler {
 	 */
 	public Controller createEditorController(OLATResourceable res, UserRequest ureq, WindowControl wControl) {
 		//throw new AssertException("a course is not directly editable!!! (reason: lock is never released), res-id:"+res.getResourceableId());
-		return CourseFactory.createEditorController(ureq, wControl, res);
+		return CourseFactory.createEditorController(ureq, wControl, null, res);
 	}
 
 	/**
@@ -203,7 +203,7 @@ public class CourseHandler implements RepositoryHandler {
 			}
 		};
 		Step start  = new CcStep00(ureq, courseConfig, repoEntry);
-		StepsMainRunController ccSMRC = new StepsMainRunController(ureq, wControl, start, finishCallback, null, cceTranslator.translate("coursecreation.title"));
+		StepsMainRunController ccSMRC = new StepsMainRunController(ureq, wControl, start, finishCallback, null, cceTranslator.translate("coursecreation.title"), "o_sel_course_create_wizard");
 		return ccSMRC;
 	}
 
@@ -266,13 +266,13 @@ public class CourseHandler implements RepositoryHandler {
 	public String archive(Identity archiveOnBehalfOf, String archivFilePath, RepositoryEntry entry) {
 		ICourse course = CourseFactory.loadCourse(entry.getOlatResource() );
 		// Archive course runtime data (like delete course, archive e.g. logfiles, node-data)
-		File tmpExportDir = new File(FolderConfig.getCanonicalTmpDir() + "/" + CodeHelper.getRAMUniqueID());
+		File tmpExportDir = new File(WebappHelper.getTmpDir(), CodeHelper.getUniqueID());
 		tmpExportDir.mkdirs();
 		CourseFactory.archiveCourse(archiveOnBehalfOf, course, WebappHelper.getDefaultCharset(), I18nModule.getDefaultLocale(), tmpExportDir , true);
 		// Archive course run structure (like course export)
 		String courseExportFileName = "course_export.zip";
 		File courseExportZIP = new File(tmpExportDir, courseExportFileName);
-		CourseFactory.exportCourseToZIP(entry.getOlatResource(), courseExportZIP);
+		CourseFactory.exportCourseToZIP(entry.getOlatResource(), courseExportZIP, false);
 		// Zip runtime data and course run structure data into one zip-file
 		String completeArchiveFileName = "del_course_" + entry.getOlatResource().getResourceableId() + ".zip";
 		String completeArchivePath = archivFilePath + File.separator + completeArchiveFileName;

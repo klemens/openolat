@@ -42,6 +42,7 @@ import org.olat.modules.vitero.ViteroModule;
 import org.olat.modules.vitero.ViteroTimezoneIDs;
 import org.olat.modules.vitero.manager.ViteroManager;
 import org.olat.modules.vitero.manager.VmsNotAvailableException;
+import org.olat.modules.vitero.model.CheckUserInfo;
 
 /**
  * 
@@ -57,7 +58,7 @@ public class ViteroConfigurationController extends FormBasicController {
 	private final ViteroModule viteroModule;
 	private final ViteroManager viteroManager;
 	
-	private FormLink checkLink;
+	private FormLink checkLink, checkUserLink;
 	private TextElement urlEl;
 	private TextElement loginEl;
 	private TextElement passwordEl;
@@ -127,6 +128,7 @@ public class ViteroConfigurationController extends FormBasicController {
 			moduleFlc.add(buttonLayout);
 			uifactory.addFormSubmitButton("save", buttonLayout);
 			checkLink = uifactory.addFormLink("check", buttonLayout, Link.BUTTON);
+			checkUserLink = uifactory.addFormLink("check.users", buttonLayout, Link.BUTTON);
 		}
 	}
 	
@@ -241,13 +243,35 @@ public class ViteroConfigurationController extends FormBasicController {
 			viteroModule.setEnabled(enabled);
 		} else if(source == checkLink) {
 			if(validateURL()) {
-				checkConnection(ureq);
+				checkConnection();
+			}
+		} else if(source == checkUserLink) {
+			if(validateURL()) {
+				checkUsers();
 			}
 		}
 		super.formInnerEvent(ureq, source, event);
 	}
 	
-	protected boolean checkConnection(UserRequest ureq) {
+	private void checkUsers() {
+		try {
+			CheckUserInfo infos = viteroManager.checkUsers();
+			if(infos.getAuthenticationCreated() == 0 && infos.getAuthenticationDeleted() == 0) {
+				showInfo("check.users.ok");
+			} else {
+				String[] args = new String[] {
+						Integer.toString(infos.getAuthenticationCreated()),
+						Integer.toString(infos.getAuthenticationDeleted()),
+						Integer.toString(infos.getAuthenticationCreated() + infos.getAuthenticationDeleted())
+				};
+				getWindowControl().setInfo(translate("check.users.nok", args));
+			}
+		}catch (VmsNotAvailableException e) {
+			showError(VmsNotAvailableException.I18N_KEY);
+		}
+	}
+	
+	protected boolean checkConnection() {
 		String url = urlEl.getValue();
 		String login = loginEl.getValue();
 		String password = passwordEl.getValue();

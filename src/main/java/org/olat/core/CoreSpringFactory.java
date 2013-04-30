@@ -29,15 +29,14 @@ package org.olat.core;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
+import java.util.WeakHashMap;
 
 import javax.servlet.ServletContext;
 
 import org.olat.core.logging.AssertException;
 import org.olat.core.logging.OLATRuntimeException;
-import org.olat.core.logging.OLog;
-import org.olat.core.logging.Tracing;
 import org.springframework.beans.BeansException;
 import org.springframework.beans.factory.BeanFactory;
 import org.springframework.beans.factory.BeanFactoryAware;
@@ -45,6 +44,7 @@ import org.springframework.beans.factory.support.DefaultListableBeanFactory;
 import org.springframework.context.ApplicationContext;
 import org.springframework.core.io.Resource;
 import org.springframework.web.context.ServletContextAware;
+import org.springframework.web.context.support.StandardServletEnvironment;
 import org.springframework.web.context.support.WebApplicationContextUtils;
 import org.springframework.web.context.support.XmlWebApplicationContext;
 
@@ -62,9 +62,8 @@ import org.springframework.web.context.support.XmlWebApplicationContext;
 public class CoreSpringFactory implements ServletContextAware, BeanFactoryAware {
 	// Access servletContext only for spring beans admin-functions
 	public static ServletContext servletContext;
-	private static List<String> beanNamesCalledFromSource = new ArrayList<String>();
-	private static OLog log = Tracing.createLoggerFor(CoreSpringFactory.class);
 	private static DefaultListableBeanFactory beanFactory;
+	private static Map<Class<?>, String> idToBeans = new WeakHashMap<Class<?>, String>();
 	
 	/**
 	 * [used by spring only]
@@ -104,8 +103,10 @@ public class CoreSpringFactory implements ServletContextAware, BeanFactoryAware 
 	 */
 	public static Object getBean(String beanName) {
 		ApplicationContext context = WebApplicationContextUtils.getWebApplicationContext(CoreSpringFactory.servletContext);
+		StandardServletEnvironment env = (StandardServletEnvironment)context.getEnvironment();
+		Object o1 = env.getSystemProperties();
+		Object o2 = env.getSystemEnvironment();
 		Object o = context.getBean(beanName);
-		beanNamesCalledFromSource.add(beanName);
 		return o;
 	}
 	
@@ -117,9 +118,19 @@ public class CoreSpringFactory implements ServletContextAware, BeanFactoryAware 
 	 */
 	public static <T> T getImpl(Class<T> interfaceClass) {
 		ApplicationContext context = WebApplicationContextUtils.getWebApplicationContext(CoreSpringFactory.servletContext);
+		if(idToBeans.containsKey(interfaceClass)) {
+			String id = idToBeans.get(interfaceClass);
+			T bean = (T)context.getBean(id);
+			if(bean != null) {
+				return bean;
+			}
+		}
+		
 		Map<String, T> m = context.getBeansOfType(interfaceClass);
 		if (m.size() == 1)  {
-			return m.values().iterator().next();
+			Entry<String,T> e =m.entrySet().iterator().next();
+			idToBeans.put(interfaceClass, e.getKey());
+			return e.getValue();
 		}
 		throw new OLATRuntimeException("found " + m.size() + " bean for: "+ interfaceClass +". Calling this method should only find one bean!", null);
 	}
@@ -141,7 +152,6 @@ public class CoreSpringFactory implements ServletContextAware, BeanFactoryAware 
 		}
 		//fallback for beans named like the fully qualified path (legacy)
 		Object o = context.getBean(interfaceName.getName());
-		beanNamesCalledFromSource.add(interfaceName.getName());
 		return o;
 	}
 	
@@ -200,6 +210,8 @@ public class CoreSpringFactory implements ServletContextAware, BeanFactoryAware 
 	
 	public static Map<String, Object> getBeansOfType(BeanType extensionType) {
 		XmlWebApplicationContext context = (XmlWebApplicationContext) WebApplicationContextUtils.getWebApplicationContext(CoreSpringFactory.servletContext);
+		
+		
 		Map beans = context.getBeansOfType(extensionType.getExtensionTypeClass());
 		Map<String, Object> clone = new HashMap<String, Object>(beans);
 		return clone;
@@ -208,6 +220,7 @@ public class CoreSpringFactory implements ServletContextAware, BeanFactoryAware 
 	@Override
 	public void setBeanFactory(BeanFactory beanFactory) throws BeansException {
 		this.beanFactory = (DefaultListableBeanFactory) beanFactory;
+
 		
 	}
 

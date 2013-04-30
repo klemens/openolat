@@ -28,6 +28,8 @@ import org.olat.core.commons.chiefcontrollers.BaseChiefController;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.Windows;
 import org.olat.core.gui.components.Component;
+import org.olat.core.gui.components.link.Link;
+import org.olat.core.gui.components.link.LinkFactory;
 import org.olat.core.gui.components.panel.Panel;
 import org.olat.core.gui.components.velocity.VelocityContainer;
 import org.olat.core.gui.control.ChiefController;
@@ -35,7 +37,6 @@ import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.Event;
 import org.olat.core.gui.control.WindowControl;
 import org.olat.core.gui.control.controller.MainLayoutBasicController;
-import org.olat.core.gui.control.generic.dtabs.Activateable;
 import org.olat.core.gui.control.generic.dtabs.Activateable2;
 import org.olat.core.gui.control.generic.layout.MainLayout3ColumnsController;
 import org.olat.core.id.context.ContextEntry;
@@ -69,7 +70,7 @@ import org.olat.core.id.context.StateEntry;
  * 
  * @author Florian Gnaegi, frentix GmbH, http://www.frentix.com
  */
-public class LayoutMain3ColsController extends MainLayoutBasicController implements MainLayout3ColumnsController, Activateable, Activateable2 {
+public class LayoutMain3ColsController extends MainLayoutBasicController implements MainLayout3ColumnsController, Activateable2 {
 	private VelocityContainer layoutMainVC;
 	// current columns components
 	private Component[] columns = new Component[3];
@@ -78,11 +79,27 @@ public class LayoutMain3ColsController extends MainLayoutBasicController impleme
 	private LayoutMain3ColsConfig localLayoutConfig;
 	private String layoutConfigKey = null;
 	private Panel panel1, panel2, panel3;
-	private Activateable activateableDelegate;	//fxdiff BAKS-7 Resume function
 	private Activateable2 activateableDelegate2;	//fxdiff BAKS-7 Resume function
 	private boolean fullScreen = false;
 	private BaseChiefController thebaseChief;
 
+	
+	
+	/**
+	 * 
+	 * @param ureq
+	 * @param wControl
+	 * @param colCtrl3
+	 */
+	public LayoutMain3ColsController(UserRequest ureq, WindowControl wControl, Controller colCtrl3) {
+		this(ureq,wControl, null, null, colCtrl3.getInitialComponent(), null, null);
+		listenTo(colCtrl3);
+		if(colCtrl3 instanceof Activateable2) {
+			activateableDelegate2 = (Activateable2)colCtrl3;
+		}
+	}
+	
+	
 	/**
 	 * Constructor for creating a 3 col based menu on the main area. This
 	 * constructor uses the default column width configuration
@@ -115,10 +132,14 @@ public class LayoutMain3ColsController extends MainLayoutBasicController impleme
 	public LayoutMain3ColsController(UserRequest ureq, WindowControl wControl, Component col1, Component col2, Component col3,
 			String layoutConfigKey, LayoutMain3ColsConfig defaultConfiguration) {
 		super(ureq, wControl);
-		this.layoutMainVC = createVelocityContainer("main_3cols");
+		layoutMainVC = createVelocityContainer("main_3cols");
 		this.layoutConfigKey = layoutConfigKey;
 
 		localLayoutConfig = getGuiPrefs(ureq, defaultConfiguration);
+		
+		Link back = LinkFactory.createLink("back", layoutMainVC, this);
+		back.setCustomDisplayText("My course");
+		layoutMainVC.put("back", back);
 
 		// Push colums to velocity
 		panel1 = new Panel("panel1");
@@ -134,6 +155,10 @@ public class LayoutMain3ColsController extends MainLayoutBasicController impleme
 		setCol3(col3);
 
 		putInitialPanel(layoutMainVC);
+	}
+	
+	public boolean isFullScreen() {
+		return fullScreen;
 	}
 	
 	public void setAsFullscreen(UserRequest ureq) {
@@ -160,7 +185,7 @@ public class LayoutMain3ColsController extends MainLayoutBasicController impleme
 		if (fullScreen) {
 			if(thebaseChief != null) {
 				thebaseChief.removeBodyCssClass("b_full_screen");
-			} else {
+			} else if (ureq != null){
 				ChiefController cc = (ChiefController) Windows.getWindows(ureq).getAttribute("AUTHCHIEFCONTROLLER");
 				if (cc instanceof BaseChiefController) {
 					thebaseChief = (BaseChiefController) cc;
@@ -187,19 +212,8 @@ public class LayoutMain3ColsController extends MainLayoutBasicController impleme
 	}
 	
 	//fxdiff BAKS-7 Resume function
-	public void addActivateableDelegate(Activateable delegate) {
-		this.activateableDelegate = delegate;
-	}
-	//fxdiff BAKS-7 Resume function
 	public void addActivateableDelegate(Activateable2 delegate) {
 		this.activateableDelegate2 = delegate;
-	}
-	//fxdiff BAKS-7 Resume function
-	@Override
-	public void activate(UserRequest ureq, String viewIdentifier) {
-		if(activateableDelegate != null) {
-			activateableDelegate.activate(ureq, viewIdentifier);
-		}
 	}
 	//fxdiff BAKS-7 Resume function
 	@Override

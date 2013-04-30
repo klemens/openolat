@@ -31,6 +31,7 @@ import java.util.Locale;
 
 import org.olat.basesecurity.BaseSecurityManager;
 import org.olat.core.gui.UserRequest;
+import org.olat.core.gui.components.stack.StackedController;
 import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.WindowControl;
 import org.olat.core.gui.control.generic.tabbable.TabbableController;
@@ -78,7 +79,7 @@ public class ScormCourseNode extends AbstractAccessableCourseNode implements Ass
 	 * @see org.olat.course.nodes.CourseNode#createEditController(org.olat.core.gui.UserRequest,
 	 *      org.olat.core.gui.control.WindowControl, org.olat.course.ICourse)
 	 */
-	public TabbableController createEditController(UserRequest ureq, WindowControl wControl, ICourse course, UserCourseEnvironment euce) {
+	public TabbableController createEditController(UserRequest ureq, WindowControl wControl, StackedController stackPanel, ICourse course, UserCourseEnvironment euce) {
 		updateModuleConfigDefaults(false);
 		ScormEditController childTabCntrllr = new ScormEditController(this, ureq, wControl, course, euce);
 		CourseNode chosenNode = course.getEditorTreeModel().getCourseNode(euce.getCourseEditorEnv().getCurrentCourseNodeId());
@@ -182,7 +183,7 @@ public class ScormCourseNode extends AbstractAccessableCourseNode implements Ass
 			config.setBooleanEntry(NodeEditController.CONFIG_STARTPAGE, Boolean.TRUE.booleanValue());
 			config.setBooleanEntry(NodeEditController.CONFIG_COMPONENT_MENU, Boolean.TRUE.booleanValue());
 			config.setBooleanEntry(ScormEditController.CONFIG_SHOWNAVBUTTONS, Boolean.TRUE.booleanValue());
-			config.set(ScormEditController.CONFIG_HEIGHT, ScormEditController.CONFIG_HEIGHT_AUTO);
+			config.set(ScormEditController.CONFIG_HEIGHT, "680");
 			config.set(NodeEditController.CONFIG_CONTENT_ENCODING, NodeEditController.CONFIG_CONTENT_ENCODING_AUTO);	
 			config.set(NodeEditController.CONFIG_JS_ENCODING, NodeEditController.CONFIG_JS_ENCODING_AUTO);	
 			//fxdiff FXOLAT-116: SCORM improvements
@@ -192,6 +193,7 @@ public class ScormCourseNode extends AbstractAccessableCourseNode implements Ass
 			config.setBooleanEntry(ScormEditController.CONFIG_ATTEMPTSDEPENDONSCORE, false);
 			config.setIntValue(ScormEditController.CONFIG_MAXATTEMPTS, 0);
 			config.setConfigurationVersion(CURRENT_CONFIG_VERSION);
+			config.setBooleanEntry(ScormEditController.CONFIG_RAW_CONTENT, true);
 		} else {
 			int version = config.getConfigurationVersion();
 			if (version < CURRENT_CONFIG_VERSION) {
@@ -325,7 +327,13 @@ public class ScormCourseNode extends AbstractAccessableCourseNode implements Ass
 	 * @see org.olat.course.nodes.AssessableCourseNode#hasScoreConfigured()
 	 */
 	public boolean hasScoreConfigured() {
-		return getModuleConfiguration().getBooleanSafe(ScormEditController.CONFIG_ISASSESSABLE, true);
+		boolean assessable = getModuleConfiguration().getBooleanSafe(ScormEditController.CONFIG_ISASSESSABLE, true);
+		if(assessable) {
+			String type = getModuleConfiguration().getStringValue(ScormEditController.CONFIG_ASSESSABLE_TYPE,
+					ScormEditController.CONFIG_ASSESSABLE_TYPE_SCORE);
+			return ScormEditController.CONFIG_ASSESSABLE_TYPE_SCORE.equals(type);
+		}
+		return false;
 	}
 
 	/**
@@ -453,7 +461,7 @@ public class ScormCourseNode extends AbstractAccessableCourseNode implements Ass
 	 *      org.olat.core.gui.control.WindowControl,
 	 *      org.olat.course.run.userview.UserCourseEnvironment)
 	 */
-	public Controller getDetailsEditController(UserRequest ureq, WindowControl wControl, UserCourseEnvironment userCourseEnvironment) {
+	public Controller getDetailsEditController(UserRequest ureq, WindowControl wControl, StackedController stackPanel, UserCourseEnvironment userCourseEnvironment) {
 		return new ScormResultDetailsController(ureq, wControl, this, userCourseEnvironment);
 	}
 

@@ -136,7 +136,8 @@ public class PodcastHandler implements RepositoryHandler {
 	/**
 	 * @see org.olat.repository.handlers.RepositoryHandler#getAsMediaResource(org.olat.core.id.OLATResourceable)
 	 */
-	public MediaResource getAsMediaResource(OLATResourceable res) {
+	@Override
+	public MediaResource getAsMediaResource(OLATResourceable res, boolean backwardsCompatible) {
 		FeedManager manager = FeedManager.getInstance();
 		return manager.getFeedArchiveMediaResource(res);
 	}
@@ -153,7 +154,7 @@ public class PodcastHandler implements RepositoryHandler {
 	public Controller createEditorController(OLATResourceable res, UserRequest ureq, WindowControl control) {
 		// Return the launch controller. Owners and admins will be able to edit the
 		// podcast 'inline'.
-		return createLaunchController(res, null, ureq, control);
+		return createLaunchController(res, ureq, control);
 	}
 
 	/**
@@ -161,7 +162,7 @@ public class PodcastHandler implements RepositoryHandler {
 	 *      java.lang.String, org.olat.core.gui.UserRequest,
 	 *      org.olat.core.gui.control.WindowControl)
 	 */
-	public MainLayoutController createLaunchController(OLATResourceable res, String initialViewIdentifier, UserRequest ureq,
+	public MainLayoutController createLaunchController(OLATResourceable res, UserRequest ureq,
 			WindowControl wControl) {
 		RepositoryEntry repoEntry = RepositoryManager.getInstance().lookupRepositoryEntry(res, false);
 		boolean isAdmin = ureq.getUserSession().getRoles().isOLATAdmin();

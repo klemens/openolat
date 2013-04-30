@@ -72,8 +72,7 @@ public class DisposedCourseRestartController extends BasicController {
 	 */
 	@Override
 	protected void doDispose() {
-	// TODO Auto-generated method stub
-
+		//
 	}
 
 	/**
@@ -82,7 +81,6 @@ public class DisposedCourseRestartController extends BasicController {
 	 *      org.olat.core.gui.control.Event)
 	 */
 	@Override
-	@SuppressWarnings("unused")
 	protected void event(UserRequest ureq, Component source, Event event) {
 		if (source == restartLink) {
 			DTabs dts = (DTabs) getWindowControl().getWindowBackOffice().getWindow().getAttribute("DTabs");
@@ -96,7 +94,7 @@ public class DisposedCourseRestartController extends BasicController {
 			}
 			DTab dt = dts.getDTab(ores);
 			// remove and dispose "old course run"
-			dts.removeDTab(dt);//disposes also dt and controllers
+			dts.removeDTab(ureq, dt);//disposes also dt and controllers
 			/*
 			 * create new tab with "refreshed course run" and activate the course
 			 */
@@ -104,9 +102,9 @@ public class DisposedCourseRestartController extends BasicController {
 			dt = dts.createDTab(ores, courseRepositoryEntry, courseRepositoryEntry.getDisplayname());
 			if (dt == null) return; // full tabs -> warning already set by
 															// dts.create...
-			Controller launchController = ControllerFactory.createLaunchController(ores, null, ureq, dt.getWindowControl(), true);
+			Controller launchController = ControllerFactory.createLaunchController(ores, ureq, dt.getWindowControl(), true);
 			dt.setController(launchController);
-			dts.addDTab(dt);
+			dts.addDTab(ureq, dt);
 			dts.activate(ureq, dt, null);
 			/*
 			 * last but not least dispose myself - to clean up.

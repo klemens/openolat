@@ -31,6 +31,7 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Date;
 import java.util.List;
 
@@ -67,7 +68,6 @@ import org.olat.core.util.mail.MailerWithTemplate;
 import org.olat.core.util.notifications.ContextualSubscriptionController;
 import org.olat.core.util.notifications.NotificationsManager;
 import org.olat.core.util.notifications.SubscriptionContext;
-import org.olat.core.util.resource.OresHelper;
 import org.olat.core.util.vfs.Quota;
 import org.olat.core.util.vfs.QuotaManager;
 import org.olat.core.util.vfs.VFSContainer;
@@ -283,7 +283,7 @@ public class DropboxController extends BasicController {
 							
 						//fxdiff VCRP-16: intern mail system
 						MailContext context = new MailContextImpl(getWindowControl().getBusinessControl().getAsString());
-						MailerResult result = MailerWithTemplate.getInstance().sendMail(context, ureq.getIdentity(), null, null, mailTempl, null);
+						MailerResult result = MailerWithTemplate.getInstance().sendMailAsSeparateMails(context, Collections.singletonList(ureq.getIdentity()), null, mailTempl, null);
 						if(result.getFailedIdentites().size() > 0) {
 							List<Identity> disabledIdentities = new ArrayList<Identity>();
 							disabledIdentities = result.getFailedIdentites();
@@ -315,7 +315,7 @@ public class DropboxController extends BasicController {
 					subsContext = DropboxFileUploadNotificationHandler.getSubscriptionContext(userCourseEnv, node);
 					// inform subscription manager about new element
 					if (subsContext != null) {
-						NotificationsManager.getInstance().markPublisherNews(subsContext, ureq.getIdentity());
+						NotificationsManager.getInstance().markPublisherNews(subsContext, ureq.getIdentity(), true);
 					}													
 					// configuration is already translated, don't use showInfo(i18nKey)! 
 					//FIXME:FG:6.2: fix problem in info message, not here

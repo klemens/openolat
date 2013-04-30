@@ -26,17 +26,14 @@
 package org.olat.course.run.preview;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.HashSet;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
 
-
-import org.olat.core.commons.fullWebApp.LayoutMain3ColsPreviewController;
+import org.olat.core.CoreSpringFactory;
+import org.olat.core.commons.fullWebApp.LayoutMain3ColsController;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.Component;
-
 import org.olat.core.gui.components.velocity.VelocityContainer;
 import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.Event;
@@ -51,10 +48,15 @@ import org.olat.course.ICourse;
 import org.olat.course.Structure;
 import org.olat.course.assessment.AssessmentManager;
 import org.olat.course.auditing.UserNodeAuditManager;
+import org.olat.course.config.CourseConfig;
 import org.olat.course.groupsandrights.CourseGroupManager;
 import org.olat.course.properties.CoursePropertyManager;
 import org.olat.course.run.environment.CourseEnvironment;
+import org.olat.group.BusinessGroup;
+import org.olat.group.BusinessGroupService;
 import org.olat.group.area.BGArea;
+import org.olat.group.area.BGAreaManager;
+import org.olat.resource.OLATResource;
 
 /**
  * Description: <br>
@@ -77,8 +79,11 @@ public class PreviewConfigController extends MainLayoutBasicController {
 	private boolean isCoach = false;
 	private boolean isCourseAdmin = false;
 	private String role = PreviewSettingsForm.ROLE_STUDENT;
-	private LayoutMain3ColsPreviewController previewLayoutCtr;
-	OLATResourceable ores;
+	private LayoutMain3ColsController previewLayoutCtr;
+	private final OLATResourceable ores;
+	
+	private final BGAreaManager areaManager;
+	private final BusinessGroupService businessGroupService;
 
 	/**
 	 * Constructor for the run main controller
@@ -91,6 +96,9 @@ public class PreviewConfigController extends MainLayoutBasicController {
 	public PreviewConfigController(UserRequest ureq, WindowControl wControl, ICourse course) { 
 		super(ureq, wControl);
 		this.ores = course;
+		businessGroupService = CoreSpringFactory.getImpl(BusinessGroupService.class);
+		areaManager = CoreSpringFactory.getImpl(BGAreaManager.class);
+		
 		psf = new PreviewSettingsForm(ureq, wControl, course);
 		listenTo(psf);
 		
@@ -98,14 +106,10 @@ public class PreviewConfigController extends MainLayoutBasicController {
 		
 		configVc.put("previewsettingsform", psf.getInitialComponent());
 		// Use layout wrapper for proper display. Use col3 as main column
-		previewLayoutCtr = new LayoutMain3ColsPreviewController(ureq, wControl, null, null, configVc, null);
+		previewLayoutCtr = new LayoutMain3ColsController(ureq, wControl, null, null, configVc, null);
+		previewLayoutCtr.addCssClassToMain("b_preview");
 		listenTo(previewLayoutCtr); // for later auto disposal
-		
-	}
-
-	public void activate() {
-		//init preview view
-		previewLayoutCtr.activate();
+		putInitialPanel(previewLayoutCtr.getInitialComponent());
 	}
 
 	/**
@@ -142,33 +146,16 @@ public class PreviewConfigController extends MainLayoutBasicController {
 	}
 
 	private void generateEnvironment() {
-		String sGroups = psf.getGroup();
-		List groups;
-		// only do a split if we really have something to split, otherwise we'll get
-		// an empty object
-		if (sGroups.length() == 0) groups = new ArrayList();
-		else groups = Arrays.asList(psf.getGroup().split(","));
-
-		String sAreas = psf.getArea();
-		List tmpAreas;
-		// only do a split if we really have something to split, otherwise we'll get
-		// an empty object
-		if (sAreas.length() == 0) tmpAreas = new ArrayList();
-		else tmpAreas = Arrays.asList(psf.getArea().split(","));
-
+		List<BGArea> tmpAreas = areaManager.loadAreas(psf.getAreaKeys());
+		List<BusinessGroup> groups = businessGroupService.loadBusinessGroups(psf.getGroupKeys());
 		// get learning areas for groups
-		Set areas = new HashSet();
+		Set<BGArea> areas = new HashSet<BGArea>();
 		areas.addAll(tmpAreas);
-		ICourse course = CourseFactory.loadCourse(ores);
-		for (Iterator iter = groups.iterator(); iter.hasNext();) {
-			String groupName = (String) iter.next();
-			List newAreas = course.getCourseEnvironment().getCourseGroupManager().getLearningAreasOfGroupFromAllContexts(groupName);
-			for (Iterator iterator = newAreas.iterator(); iterator.hasNext();) {
-				BGArea newArea = (BGArea) iterator.next();
-				areas.add(newArea.getName());
-			}
-		}
+		List<BGArea> areaByGroups = areaManager.findBGAreasOfBusinessGroups(groups);
+		areas.addAll(areaByGroups);
+		
 		role = psf.getRole();
+		ICourse course = CourseFactory.loadCourse(ores);
 		// default is student
 		isGlobalAuthor = false;
 		isGuestOnly = false;
@@ -186,16 +173,18 @@ public class PreviewConfigController extends MainLayoutBasicController {
 		} else if (role.equals(PreviewSettingsForm.ROLE_GLOBALAUTHOR)) {
 			isGlobalAuthor = true;
 		}
-
-		final CourseGroupManager cgm = new PreviewCourseGroupManager(groups, new ArrayList(areas), isCoach, isCourseAdmin);
+		
+		final OLATResource courseResource = course.getCourseEnvironment().getCourseGroupManager().getCourseResource();
+		final CourseGroupManager cgm = new PreviewCourseGroupManager(courseResource, new ArrayList<BusinessGroup>(groups), new ArrayList<BGArea>(areas), isCoach, isCourseAdmin);
 		final UserNodeAuditManager auditman = new PreviewAuditManager();
 		final AssessmentManager am = new PreviewAssessmentManager();
 		final CoursePropertyManager cpm = new PreviewCoursePropertyManager();
 		final Structure runStructure = course.getEditorTreeModel().createStructureForPreview();
 		final String title = course.getCourseTitle();
+		final CourseConfig courseConfig = course.getCourseEnvironment().getCourseConfig();
 
 		simCourseEnv = new PreviewCourseEnvironment(title, runStructure, psf.getDate(), course.getCourseFolderContainer(), course
-				.getCourseBaseContainer(),course.getResourceableId(), cpm, cgm, auditman, am);
+				.getCourseBaseContainer(),course.getResourceableId(), cpm, cgm, auditman, am, courseConfig);
 		simIdentEnv = new IdentityEnvironment();
 		simIdentEnv.setRoles(new Roles(false, false, false, isGlobalAuthor, isGuestOnly, false, false));
 		final Identity ident = new PreviewIdentity();

@@ -33,6 +33,7 @@ import java.util.Locale;
 import org.apache.velocity.VelocityContext;
 import org.olat.basesecurity.BaseSecurityManager;
 import org.olat.basesecurity.SecurityGroup;
+import org.olat.core.CoreSpringFactory;
 import org.olat.core.gui.translator.Translator;
 import org.olat.core.id.Identity;
 import org.olat.core.id.UserConstants;
@@ -44,12 +45,12 @@ import org.olat.core.util.mail.MailContextImpl;
 import org.olat.core.util.mail.MailTemplate;
 import org.olat.core.util.mail.MailerResult;
 import org.olat.core.util.mail.MailerWithTemplate;
-import org.olat.course.nodes.projectbroker.datamodel.Project;
 import org.olat.course.nodes.CourseNode;
 import org.olat.course.nodes.ProjectBrokerCourseNode;
+import org.olat.course.nodes.projectbroker.datamodel.Project;
 import org.olat.course.run.environment.CourseEnvironment;
 import org.olat.group.BusinessGroup;
-import org.olat.group.BusinessGroupManagerImpl;
+import org.olat.group.BusinessGroupService;
 import org.olat.properties.Property;
 
 
@@ -144,7 +145,7 @@ public class ProjectBrokerMailerImpl implements ProjectBrokerMailer {
 			groupKey = accountManagerGroupProperty.getLongValue();
 		} 
 		if (groupKey != null) {
-			BusinessGroup		accountManagerGroup = BusinessGroupManagerImpl.getInstance().loadBusinessGroup(groupKey, false);
+			BusinessGroup		accountManagerGroup = CoreSpringFactory.getImpl(BusinessGroupService.class).loadBusinessGroup(groupKey);
 			return sendEmailProjectChanged(accountManagerGroup.getPartipiciantGroup(), changer, project, 
 	        pT.translate(KEY_PROJECT_DELETED_EMAIL_TO_PARTICIPANT_SUBJECT), 
 	        pT.translate(KEY_PROJECT_DELETED_EMAIL_TO_PARTICIPANT_BODY), pT.getLocale());
@@ -184,7 +185,7 @@ public class ProjectBrokerMailerImpl implements ProjectBrokerMailer {
 		enrolledIdentityList.add(enrolledIdentity);
 		//fxdiff VCRP-16: intern mail system
 		MailContext context = new MailContextImpl(project.getProjectBroker(), null, null);
-		MailerResult mailerResult = MailerWithTemplate.getInstance().sendMailAsSeparateMails(context, enrolledIdentityList, null, null, enrolledMailTemplate, null);
+		MailerResult mailerResult = MailerWithTemplate.getInstance().sendMailAsSeparateMails(context, enrolledIdentityList, null, enrolledMailTemplate, null);
 		log.audit("ProjectBroker: sendEmail to identity.name=" + enrolledIdentity.getName() + " , mailerResult.returnCode=" + mailerResult.getReturnCode());
 		return mailerResult;
 	}
@@ -200,7 +201,7 @@ public class ProjectBrokerMailerImpl implements ProjectBrokerMailer {
 		}
 		//fxdiff VCRP-16: intern mail system
 		MailContext context = new MailContextImpl(project.getProjectBroker(), null, null);
-		MailerResult mailerResult = MailerWithTemplate.getInstance().sendMailAsSeparateMails(context, projectManagerList, null, null, enrolledMailTemplate, null);
+		MailerResult mailerResult = MailerWithTemplate.getInstance().sendMailAsSeparateMails(context, projectManagerList, null, enrolledMailTemplate, null);
 		log.audit("ProjectBroker: sendEmailToGroup: identities=" + identityNames.toString() + " , mailerResult.returnCode=" + mailerResult.getReturnCode());
 		return mailerResult;
 	}
@@ -216,7 +217,7 @@ public class ProjectBrokerMailerImpl implements ProjectBrokerMailer {
 		}
 		//fxdiff VCRP-16: intern mail system
 		MailContext context = new MailContextImpl(project.getProjectBroker(), null, null);
-		MailerResult mailerResult = MailerWithTemplate.getInstance().sendMailAsSeparateMails(context, projectManagerList, null, null, enrolledMailTemplate, null);
+		MailerResult mailerResult = MailerWithTemplate.getInstance().sendMailAsSeparateMails(context, projectManagerList, null, enrolledMailTemplate, null);
 		log.audit("ProjectBroker: sendEmailToGroup: identities=" + identityNames.toString() + " , mailerResult.returnCode=" + mailerResult.getReturnCode());
 		return mailerResult;
 	}

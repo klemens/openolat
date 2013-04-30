@@ -33,6 +33,7 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
 import org.olat.basesecurity.AuthHelper;
+import org.olat.core.CoreSpringFactory;
 import org.olat.core.dispatcher.Dispatcher;
 import org.olat.core.dispatcher.DispatcherAction;
 import org.olat.core.gui.UserRequest;
@@ -44,9 +45,11 @@ import org.olat.core.gui.control.generic.dtabs.DTabs;
 import org.olat.core.gui.exception.MsgFactory;
 import org.olat.core.id.context.BusinessControlFactory;
 import org.olat.core.id.context.ContextEntry;
+import org.olat.core.logging.OLog;
 import org.olat.core.logging.Tracing;
 import org.olat.core.util.UserSession;
 import org.olat.core.util.i18n.I18nManager;
+import org.olat.core.util.session.UserSessionManager;
 
 /**
  * Initial Date: 28.11.2003
@@ -54,6 +57,8 @@ import org.olat.core.util.i18n.I18nManager;
  * @author Mike Stock
  */
 public class DMZDispatcher implements Dispatcher {
+	private static final OLog log = Tracing.createLoggerFor(DMZDispatcher.class);
+	
 	//fxdiff FXOLAT-113: business path in DMZ
 	public static final String DMZDISPATCHER_BUSINESSPATH =  "DMZDispatcher:businessPath";
 	
@@ -89,7 +94,7 @@ public class DMZDispatcher implements Dispatcher {
 						try{
 							long bypasscreationtime = Long.parseLong(cookie.getValue());
 							if (System.currentTimeMillis()-bypasscreationtime<5*60*1000) {
-								Tracing.logInfo("Allowing request with valid bypass cookie, sessionId="+request.getRequestedSessionId(), DMZDispatcher.class);
+								log.info("Allowing request with valid bypass cookie, sessionId="+request.getRequestedSessionId());
 								validBypass = true;
 							}
 						} catch(NumberFormatException e) {
@@ -102,7 +107,7 @@ public class DMZDispatcher implements Dispatcher {
 			}
 			if (!validBypass) {
 				final String rejectUrl = request.getRequestURI();
-				Tracing.logInfo("Rejecting request to DMZDispatcher (AuthHelper.isRejectDMZRequests() is true) to "+rejectUrl+", sessionId="+request.getRequestedSessionId(), DMZDispatcher.class);
+				log.info("Rejecting request to DMZDispatcher (AuthHelper.isRejectDMZRequests() is true) to "+rejectUrl+", sessionId="+request.getRequestedSessionId());
 				if (sessionCookie!=null) {
 					String newSessionId = sessionCookie.getValue().substring(0, sessionCookie.getValue().length()-2);
 					response.setHeader("Set-Cookie", "JSESSIONID="+newSessionId+"; Path="+request.getContextPath()+(request.isSecure()?"":"; Secure"));
@@ -177,8 +182,8 @@ public class DMZDispatcher implements Dispatcher {
 			// or authors copy-pasted links to the content.
 			// showing redscreens for non valid URL is wrong instead
 			// a 404 message must be shown -> e.g. robots correct their links.
-			if (Tracing.isDebugEnabled(DMZDispatcher.class)) {
-				Tracing.logDebug("Bad Request " + request.getPathInfo(), this.getClass());
+			if (log.isDebug()) {
+				log.debug("Bad Request " + request.getPathInfo());
 			}
 			DispatcherAction.sendBadRequest(request.getPathInfo(), response);
 			return;
@@ -265,7 +270,7 @@ public class DMZDispatcher implements Dispatcher {
 					// the log-in link in the -same- browser window ->
 					// -> there is no window -> create a new one
 					window = null;
-					usess.signOffAndClear();
+					CoreSpringFactory.getImpl(UserSessionManager.class).signOffAndClear(usess);
 					usess.setLocale(LocaleNegotiator.getPreferedLocale(ureq));
 					I18nManager.updateLocaleInfoToThread(usess);//update locale infos
 					
@@ -277,7 +282,7 @@ public class DMZDispatcher implements Dispatcher {
 					} else {
 						// e.g. /dmz/ -> start screen, clear previous session data
 						window = null; 
-						usess.signOffAndClear();
+						CoreSpringFactory.getImpl(UserSessionManager.class).signOffAndClear(usess);
 						usess.setLocale(LocaleNegotiator.getPreferedLocale(ureq));
 						I18nManager.updateLocaleInfoToThread(usess);//update locale infos
 						// request new windows since it is a new usersession, the old one was purged
@@ -298,7 +303,7 @@ public class DMZDispatcher implements Dispatcher {
 					if (businessPath != null) {
 						List<ContextEntry> ces = BusinessControlFactory.getInstance().createCEListFromString(businessPath);
 						DTabs dts = (DTabs) window.getAttribute("DTabs");
-						dts.activate(ureq, null, null, ces);
+						dts.activate(ureq, null, ces);
 					}
 				}
 				window.dispatchRequest(ureq);
@@ -311,20 +316,10 @@ public class DMZDispatcher implements Dispatcher {
 				// do not dispatch (render only), since this is a new Window created as
 				// a result of another window's click.
 			} catch (Throwable t) {
-				Tracing.logError("An exception occured while handling the exception...",t, DMZDispatcher.class);
-				//XX:GUIInterna.setLoadPerformanceMode(null);
-			}
-			//XX:GUIInterna.setLoadPerformanceMode(null);
-		} finally {
-//		REVIEW:12-2007:CodeCleanup			
-//			if (postDispatcher != null) {
-//				postDispatcher.execute(request, response, uriPrefix);
-//			}
-		}
-			
-			
-			
+				log.error("An exception occured while handling the exception...",t);
 
+			}
+		}
 	}
 
 	/**

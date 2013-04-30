@@ -23,8 +23,6 @@ import java.io.File;
 import java.util.List;
 
 import org.olat.core.commons.modules.bc.vfs.OlatRootFolderImpl;
-import org.olat.core.commons.services.commentAndRating.CommentAndRatingService;
-import org.olat.core.commons.services.commentAndRating.CommentAndRatingServiceFactory;
 import org.olat.core.gui.components.form.flexible.elements.FileElement;
 import org.olat.core.gui.media.MediaResource;
 import org.olat.core.id.Identity;
@@ -50,7 +48,7 @@ import org.olat.modules.webFeed.models.Item;
  * 
  * @author gwassmann
  */
-public abstract class FeedManager extends BasicManager implements CommentAndRatingServiceFactory {
+public abstract class FeedManager extends BasicManager {
 
 	protected static FeedManager INSTANCE;
 
@@ -112,7 +110,7 @@ public abstract class FeedManager extends BasicManager implements CommentAndRati
 	 * @param item
 	 * @param feed
 	 */
-	public abstract void addItem(Item item, FileElement file, Feed feed);
+	public abstract Feed addItem(Item item, FileElement file, Feed feed);
 
 	/**
 	 * Removes the given <code>Item</code> from the <code>Feed</code>. Its content
@@ -121,13 +119,13 @@ public abstract class FeedManager extends BasicManager implements CommentAndRati
 	 * @param item
 	 * @param feed
 	 */
-	public abstract void remove(Item item, Feed feed);
+	public abstract Feed remove(Item item, Feed feed);
 
 	/**
 	 * @param modifiedItem
 	 * @param feed
 	 */
-	public abstract void updateItem(Item modifiedItem, FileElement file, Feed feed);
+	public abstract Feed updateItem(Item modifiedItem, FileElement file, Feed feed);
 
 	/**
 	 * Update the feed source mode
@@ -154,6 +152,16 @@ public abstract class FeedManager extends BasicManager implements CommentAndRati
 	 */
 	public abstract List<Item> loadItems(final Feed feed);
 
+	/**
+	 * Get the item from the feed with the given GUID or NULL if no such item
+	 * exists. Make sure you did load the feed before executing this!
+	 * 
+	 * @param feed
+	 * @param GUID
+	 * @return the Item or NULL
+	 */
+	public abstract Item getItem(Feed feed, String GUID);
+	
 	/**
 	 * Returns the feed with the provided id or null if not found.
 	 * 
@@ -350,7 +358,5 @@ public abstract class FeedManager extends BasicManager implements CommentAndRati
 	public abstract Feed readFeedFile(VFSContainer root);
 
 	public abstract Item loadItem(VFSItem itemContainer);
-	
-	public abstract CommentAndRatingService getCommentAndRatingService();
 
 }

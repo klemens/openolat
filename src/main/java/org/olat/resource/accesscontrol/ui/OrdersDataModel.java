@@ -21,16 +21,15 @@
 package org.olat.resource.accesscontrol.ui;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
 
-import org.olat.core.CoreSpringFactory;
 import org.olat.core.gui.components.table.TableDataModel;
 import org.olat.core.id.User;
 import org.olat.core.id.UserConstants;
 import org.olat.core.util.StringHelper;
-import org.olat.resource.accesscontrol.AccessControlModule;
 import org.olat.resource.accesscontrol.model.AccessTransaction;
 import org.olat.resource.accesscontrol.model.Order;
 import org.olat.resource.accesscontrol.model.OrderLine;
@@ -46,16 +45,14 @@ import org.olat.resource.accesscontrol.model.PSPTransaction;
  * Initial Date:  20 avr. 2011 <br>
  * @author srosse, stephane.rosse@frentix.com, http://www.frentix.com
  */
-public class OrdersDataModel implements TableDataModel {
+public class OrdersDataModel implements TableDataModel<OrderTableItem> {
 	
 	private final Locale locale;
 	private List<OrderTableItem> orders;
-	private final AccessControlModule acModule;
 	
 	public OrdersDataModel(List<OrderTableItem> orders, Locale locale) {
 		this.orders = orders;
 		this.locale = locale;
-		acModule = (AccessControlModule)CoreSpringFactory.getBean("acModule");
 	}
 
 	@Override
@@ -85,9 +82,17 @@ public class OrdersDataModel implements TableDataModel {
 				return order.getTransactions();
 			}
 			case total: {
-				String total = PriceFormat.fullFormat(order.getOrder().getTotal());
-				if(StringHelper.containsNonWhitespace(total)) {
-					return total;
+				boolean paymentMethod = false;
+				Collection<AccessTransaction> transactions = order.getTransactions();
+				for(AccessTransaction transaction:transactions) {
+					paymentMethod |= transaction.getMethod().isPaymentMethod();
+				}
+				
+				if(paymentMethod) {
+					String total = PriceFormat.fullFormat(order.getOrder().getTotal());
+					if(StringHelper.containsNonWhitespace(total)) {
+						return total;
+					}
 				}
 				return "-";
 			}
@@ -124,7 +129,7 @@ public class OrdersDataModel implements TableDataModel {
 	}
 
 	@Override
-	public void setObjects(List objects) {
+	public void setObjects(List<OrderTableItem> objects) {
 		this.orders = objects;
 	}
 

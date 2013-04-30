@@ -27,21 +27,30 @@ package org.olat.repository;
 
 import java.io.File;
 import java.util.ArrayList;
+import java.util.Calendar;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.Date;
 import java.util.List;
 
-import org.hibernate.Hibernate;
+import javax.persistence.LockModeType;
+import javax.persistence.TypedQuery;
+
+import org.hibernate.type.StandardBasicTypes;
 import org.olat.admin.securitygroup.gui.IdentitiesAddEvent;
 import org.olat.basesecurity.BaseSecurity;
 import org.olat.basesecurity.BaseSecurityManager;
 import org.olat.basesecurity.Constants;
+import org.olat.basesecurity.IdentityImpl;
 import org.olat.basesecurity.PolicyImpl;
 import org.olat.basesecurity.SecurityGroup;
 import org.olat.basesecurity.SecurityGroupMembershipImpl;
 import org.olat.bookmark.BookmarkManager;
 import org.olat.catalog.CatalogManager;
+import org.olat.commons.lifecycle.LifeCycleManager;
+import org.olat.core.CoreSpringFactory;
 import org.olat.core.commons.modules.bc.FolderConfig;
+import org.olat.core.commons.persistence.DB;
 import org.olat.core.commons.persistence.DBFactory;
 import org.olat.core.commons.persistence.DBQuery;
 import org.olat.core.commons.persistence.PersistenceHelper;
@@ -51,6 +60,7 @@ import org.olat.core.id.Identity;
 import org.olat.core.id.OLATResourceable;
 import org.olat.core.id.Roles;
 import org.olat.core.logging.AssertException;
+import org.olat.core.logging.OLog;
 import org.olat.core.logging.Tracing;
 import org.olat.core.logging.activity.ActionType;
 import org.olat.core.logging.activity.OlatResourceableType;
@@ -60,35 +70,33 @@ import org.olat.core.util.FileUtils;
 import org.olat.core.util.ImageHelper;
 import org.olat.core.util.StringHelper;
 import org.olat.core.util.image.Size;
+import org.olat.core.util.mail.MailPackage;
+import org.olat.core.util.mail.MailerWithTemplate;
 import org.olat.core.util.vfs.LocalFolderImpl;
 import org.olat.core.util.vfs.VFSContainer;
 import org.olat.core.util.vfs.VFSItem;
 import org.olat.core.util.vfs.VFSLeaf;
 import org.olat.core.util.vfs.VFSManager;
-import org.olat.course.CourseFactory;
-import org.olat.course.ICourse;
 import org.olat.course.assessment.manager.UserCourseInformationsManager;
-import org.olat.course.groupsandrights.CourseGroupManager;
-import org.olat.group.BusinessGroup;
-import org.olat.group.BusinessGroupManagerImpl;
+import org.olat.group.BusinessGroupImpl;
 import org.olat.group.GroupLoggingAction;
-import org.olat.group.context.BGContext;
 import org.olat.group.context.BGContext2Resource;
-import org.olat.group.context.BGContextImpl;
-import org.olat.group.context.BGContextManagerImpl;
-import org.olat.repository.async.BackgroundTaskQueueManager;
-import org.olat.repository.async.IncrementDownloadCounterBackgroundTask;
-import org.olat.repository.async.IncrementLaunchCounterBackgroundTask;
-import org.olat.repository.async.SetAccessBackgroundTask;
-import org.olat.repository.async.SetDescriptionNameBackgroundTask;
-import org.olat.repository.async.SetLastUsageBackgroundTask;
-import org.olat.repository.async.SetPropertiesBackgroundTask;
+import org.olat.group.model.BGResourceRelation;
+import org.olat.repository.delete.service.RepositoryDeletionManager;
 import org.olat.repository.handlers.RepositoryHandler;
 import org.olat.repository.handlers.RepositoryHandlerFactory;
+import org.olat.repository.model.RepositoryEntryMembership;
+import org.olat.repository.model.RepositoryEntryPermissionChangeEvent;
+import org.olat.repository.model.RepositoryEntryShortImpl;
+import org.olat.repository.model.RepositoryEntryStrictMember;
 import org.olat.resource.OLATResource;
 import org.olat.resource.OLATResourceImpl;
 import org.olat.resource.OLATResourceManager;
+import org.olat.resource.accesscontrol.manager.ACReservationDAO;
+import org.olat.resource.accesscontrol.model.ResourceReservation;
 import org.olat.util.logging.activity.LoggingResourceable;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Initial Date:  Mar 31, 2004
@@ -100,23 +108,50 @@ import org.olat.util.logging.activity.LoggingResourceable;
  */
 public class RepositoryManager extends BasicManager {
 	
+	private static final OLog log = Tracing.createLoggerFor(RepositoryManager.class);
+	
 	private final int PICTUREWIDTH = 570;
 
-	private static RepositoryManager INSTANCE;
+	@Autowired
 	private BaseSecurity securityManager;
+	@Autowired
 	private ImageHelper imageHelper;
-	private static BackgroundTaskQueueManager taskQueueManager;
+	@Autowired
 	private UserCourseInformationsManager userCourseInformationsManager;
+	@Autowired
+	private DB dbInstance;
+	@Autowired
+	private RepositoryModule repositoryModule;
+	@Autowired
+	private ACReservationDAO reservationDao;
+	@Autowired
+	private MailerWithTemplate mailer;
 
+	
 	/**
-	 * [used by spring]
+	 * [used by Spring]
+	 * @param repositoryModule
 	 */
-	private RepositoryManager(BaseSecurity securityManager, BackgroundTaskQueueManager taskQueueManager) {
-		this.securityManager = securityManager;
-		RepositoryManager.taskQueueManager = taskQueueManager;
-		INSTANCE = this;
+	public void setRepositoryModule(RepositoryModule repositoryModule) {
+		this.repositoryModule = repositoryModule;
 	}
 	
+	/**
+	 * [used by Spring]
+	 * @param reservationDao
+	 */
+	public void setReservationDao(ACReservationDAO reservationDao) {
+		this.reservationDao = reservationDao;
+	}
+
+	/**
+	 * [used by Spring]
+	 * @param securityManager
+	 */
+	public void setSecurityManager(BaseSecurity securityManager) {
+		this.securityManager = securityManager;
+	}
+
 	/**
 	 * [used by Spring]
 	 * @param userCourseInformationsManager
@@ -132,11 +167,21 @@ public class RepositoryManager extends BasicManager {
 	public void setImageHelper(ImageHelper imageHelper) {
 		this.imageHelper = imageHelper;
 	}
+	
+	/**
+	 * [used by Spring]
+	 * @param dbInstance
+	 */
+	public void setDbInstance(DB dbInstance) {
+		this.dbInstance = dbInstance;
+	}
 
 	/**
 	 * @return Singleton.
 	 */
-	public static RepositoryManager getInstance() { return INSTANCE; }
+	public static RepositoryManager getInstance() { 
+		return CoreSpringFactory.getImpl(RepositoryManager.class);
+	}
 
 	/**
 	 * @param initialAuthor
@@ -181,15 +226,6 @@ public class RepositoryManager extends BasicManager {
 	}
 	
 	/**
-	 * Update repo entry.
-	 * @param re
-	 */
-	public void updateRepositoryEntry(RepositoryEntry re) {
-		re.setLastModified(new Date());
-		DBFactory.getInstance().updateObject(re);
-	}
-	
-	/**
 	 * Delete repo entry.
 	 * @param re
 	 */
@@ -201,8 +237,16 @@ public class RepositoryManager extends BasicManager {
 		deleteImage(re);
 	}
 	
-	public void createTutorSecurityGroup(RepositoryEntry re) {
-		if(re.getTutorGroup() != null) return;
+	/**
+	 * 
+	 * @param re
+	 * @param update If true, update the repository immediately
+	 * @return
+	 */
+	public RepositoryEntry createTutorSecurityGroup(RepositoryEntry re, boolean update) {
+		if(re.getTutorGroup() != null) {
+			return re;
+		}
 		
 		SecurityGroup tutorGroup = securityManager.createAndPersistSecurityGroup();
 		// member of this group may modify member's membership
@@ -211,10 +255,21 @@ public class RepositoryManager extends BasicManager {
 		// members of this group are always tutors also
 		securityManager.createAndPersistPolicy(tutorGroup, Constants.PERMISSION_HASROLE, Constants.ORESOURCE_TUTOR);
 		re.setTutorGroup(tutorGroup);
+		if(update) {
+			re = DBFactory.getInstance().getCurrentEntityManager().merge(re);
+		}
+		return re;
 	}
 	
-	public void createParticipantSecurityGroup(RepositoryEntry re) {
-		if(re.getParticipantGroup() != null) return;
+	/**
+	 * 
+	 * @param re
+	 * @param update If true, update the repository immediately
+	 */
+	public RepositoryEntry createParticipantSecurityGroup(RepositoryEntry re, boolean update) {
+		if(re.getParticipantGroup() != null) {
+			return re;
+		}
 		
 		SecurityGroup participantGroup = securityManager.createAndPersistSecurityGroup();
 		// member of this group may modify member's membership
@@ -223,41 +278,22 @@ public class RepositoryManager extends BasicManager {
 		// members of this group are always participants also
 		securityManager.createAndPersistPolicy(participantGroup, Constants.PERMISSION_HASROLE, Constants.ORESOURCE_PARTICIPANT);
 		re.setParticipantGroup(participantGroup);
+		if(update) {
+			re = DBFactory.getInstance().getCurrentEntityManager().merge(re);
+		}
+		return re;
 	}
 	
-	/**
-	 * 
-	 * @param addedEntry
-	 */
-	public void deleteRepositoryEntryAndBasesecurity(RepositoryEntry entry) {
-		entry = (RepositoryEntry) DBFactory.getInstance().loadObject(entry,true);
-		DBFactory.getInstance().deleteObject(entry);
-		OLATResourceManager.getInstance().deleteOLATResourceable(entry);
-		SecurityGroup ownerGroup = entry.getOwnerGroup();
-		if (ownerGroup != null) {
-			// delete secGroup
-			Tracing.logDebug("deleteRepositoryEntry deleteSecurityGroup ownerGroup=" + ownerGroup, this.getClass());
-			BaseSecurityManager.getInstance().deleteSecurityGroup(ownerGroup);
-			OLATResourceManager.getInstance().deleteOLATResourceable(ownerGroup);
-		}
-		SecurityGroup participantGroup = entry.getParticipantGroup();
-		if (participantGroup != null) {
-			// delete secGroup
-			logDebug("deleteRepositoryEntry deleteSecurityGroup participantGroup=" + participantGroup);
-			BaseSecurityManager.getInstance().deleteSecurityGroup(participantGroup);
-			OLATResourceManager.getInstance().deleteOLATResourceable(participantGroup);
-		}
-		SecurityGroup tutorGroup = entry.getTutorGroup();
-		if (tutorGroup != null) {
-			// delete secGroup
-			logDebug("deleteRepositoryEntry deleteSecurityGroup tutorGroup=" + tutorGroup);
-			BaseSecurityManager.getInstance().deleteSecurityGroup(tutorGroup);
-			OLATResourceManager.getInstance().deleteOLATResourceable(tutorGroup);
-		}
+	public void createOwnerSecurityGroup(RepositoryEntry re) {
+		if(re.getOwnerGroup() != null) return;
 		
-		//TODO:pb:b this should be called in a  RepoEntryImageManager.delete
-		//instead of a controller.
-		deleteImage(entry);
+		SecurityGroup ownerGroup = securityManager.createAndPersistSecurityGroup();
+		// member of this group may modify member's membership
+		securityManager.createAndPersistPolicy(ownerGroup, Constants.PERMISSION_ACCESS, ownerGroup);
+		// members of this group are always authors also
+		securityManager.createAndPersistPolicy(ownerGroup, Constants.PERMISSION_HASROLE, Constants.ORESOURCE_AUTHOR);
+		securityManager.addIdentityToSecurityGroup(securityManager.findIdentityByName("administrator"), ownerGroup);
+		re.setOwnerGroup(ownerGroup);
 	}
 	
 	/**
@@ -339,8 +375,11 @@ public class RepositoryManager extends BasicManager {
 		logDebug("deleteRepositoryEntry after load entry=" + entry);
 		logDebug("deleteRepositoryEntry after load entry.getOwnerGroup()=" + entry.getOwnerGroup());
 		RepositoryHandler handler = RepositoryHandlerFactory.getInstance().getRepositoryHandler(entry);
-		OLATResource ores = entry.getOlatResource();
-		if (!handler.readyToDelete(ores, ureq, wControl)) {
+		OLATResource resource = entry.getOlatResource();
+		//delete old context
+		deleteBGcontext(resource);
+		
+		if (!handler.readyToDelete(resource, ureq, wControl)) {
 			return false;
 		}
 
@@ -353,26 +392,67 @@ public class RepositoryManager extends BasicManager {
 		BookmarkManager.getInstance().deleteAllBookmarksFor(entry);
 		// delete all catalog entries referencing deleted entry
 		CatalogManager.getInstance().resourceableDeleted(entry);
-		// delete the entry
-		entry = (RepositoryEntry) DBFactory.getInstance().loadObject(entry,true);
+
 		logDebug("deleteRepositoryEntry after reload entry=" + entry);
 		deleteRepositoryEntryAndBasesecurity(entry);
+		//delete all policies
+		securityManager.deletePolicies(resource);
 		
 		// inform handler to do any cleanup work... handler must delete the
-		// referenced resourceable aswell.
-		handler.cleanupOnDelete(entry.getOlatResource());
+		// referenced resourceable a swell.
+		handler.cleanupOnDelete(resource);
+
 		logDebug("deleteRepositoryEntry Done");
 		return true;
 	}
 	
 	/**
-	 * Lookup repo entry by key.
-	 * @param the repository entry key (not the olatresourceable key)
-	 * @return Repo entry represented by key or null if no such entry or key is null.
+	 * 
+	 * @param addedEntry
 	 */
-	public RepositoryEntry lookupRepositoryEntry(Long key) {
-		if (key == null) return null;
-		return (RepositoryEntry)DBFactory.getInstance().findObject(RepositoryEntry.class, key);
+	public void deleteRepositoryEntryAndBasesecurity(RepositoryEntry entry) {
+		RepositoryEntry reloadedEntry = (RepositoryEntry)DBFactory.getInstance().loadObject(entry, true);
+		dbInstance.getCurrentEntityManager().remove(reloadedEntry);
+		SecurityGroup ownerGroup = reloadedEntry.getOwnerGroup();
+		if (ownerGroup != null) {
+			// delete secGroup
+			logDebug("deleteRepositoryEntry deleteSecurityGroup ownerGroup=" + ownerGroup);
+			securityManager.deleteSecurityGroup(ownerGroup);
+			OLATResourceManager.getInstance().deleteOLATResourceable(ownerGroup);
+		}
+		SecurityGroup participantGroup = reloadedEntry.getParticipantGroup();
+		if (participantGroup != null) {
+			// delete secGroup
+			logDebug("deleteRepositoryEntry deleteSecurityGroup participantGroup=" + participantGroup);
+			securityManager.deleteSecurityGroup(participantGroup);
+			OLATResourceManager.getInstance().deleteOLATResourceable(participantGroup);
+		}
+		SecurityGroup tutorGroup = reloadedEntry.getTutorGroup();
+		if (tutorGroup != null) {
+			// delete secGroup
+			logDebug("deleteRepositoryEntry deleteSecurityGroup tutorGroup=" + tutorGroup);
+			securityManager.deleteSecurityGroup(tutorGroup);
+			OLATResourceManager.getInstance().deleteOLATResourceable(tutorGroup);
+		}
+		
+		//TODO:pb:b this should be called in a  RepoEntryImageManager.delete
+		//instead of a controller.
+		deleteImage(entry);
+	}
+	
+	private void deleteBGcontext(OLATResource resource) {
+		StringBuilder sb = new StringBuilder();
+		sb.append("delete from ").append(BGContext2Resource.class.getName())
+		  .append(" as ctxt where ctxt.resource.key=:resourceKey");
+
+		int rowContextDeleted = dbInstance.getCurrentEntityManager()
+			.createQuery(sb.toString())
+			.setParameter("resourceKey", resource.getKey())
+			.executeUpdate();
+
+		if(log.isDebug()) {
+			log.debug("Context deleted: " + rowContextDeleted);
+		}
 	}
 	
 	/**
@@ -380,6 +460,18 @@ public class RepositoryManager extends BasicManager {
 	 * @param the repository entry key (not the olatresourceable key)
 	 * @return Repo entry represented by key or null if no such entry or key is null.
 	 */
+	@Transactional(readOnly=true)
+	public RepositoryEntry lookupRepositoryEntry(Long key) {
+		if (key == null) return null;
+		return lookupRepositoryEntry(key, false) ;
+	}
+	
+	/**
+	 * Lookup repo entry by key.
+	 * @param the repository entry key (not the olatresourceable key)
+	 * @return Repo entry represented by key or null if no such entry or key is null.
+	 */
+	@Transactional(readOnly=true)
 	public RepositoryEntry lookupRepositoryEntry(Long key, boolean strict) {
 		if (key == null) return null;
 		if(strict) {
@@ -388,18 +480,24 @@ public class RepositoryManager extends BasicManager {
 		StringBuilder query = new StringBuilder();
 		query.append("select v from ").append(RepositoryEntry.class.getName()).append(" as v ")
 				 .append(" inner join fetch v.olatResource as ores")
+			   .append(" left join fetch v.ownerGroup as ownerGroup")
+			   .append(" left join fetch v.participantGroup as participantGroup")
+			   .append(" left join fetch v.tutorGroup as tutorGroup")
 		     .append(" where v.key = :repoKey");
 		
-		DBQuery dbQuery = DBFactory.getInstance().createQuery(query.toString());
-		dbQuery.setLong("repoKey", key);
-		List<RepositoryEntry> entries = dbQuery.list();
+		List<RepositoryEntry> entries = dbInstance.getCurrentEntityManager()
+				.createQuery(query.toString(), RepositoryEntry.class)
+				.setParameter("repoKey", key)
+				.setHint("org.hibernate.cacheable", Boolean.TRUE)
+				.getResultList();
 		if(entries.isEmpty()) {
 			return null;
 		}
 		return entries.get(0);
 	}
-	
-	public List<RepositoryEntry> lookupRepositoryEntries(List<Long> keys) {
+
+	@Transactional(readOnly=true)
+	public List<RepositoryEntry> lookupRepositoryEntries(Collection<Long> keys) {
 		if (keys == null || keys.isEmpty()) {
 			return Collections.emptyList();
 		}
@@ -407,6 +505,9 @@ public class RepositoryManager extends BasicManager {
 		StringBuilder query = new StringBuilder();
 		query.append("select v from ").append(RepositoryEntry.class.getName()).append(" as v ")
 				 .append(" inner join fetch v.olatResource as ores")
+			   .append(" left join fetch v.ownerGroup as ownerGroup")
+			   .append(" left join fetch v.participantGroup as participantGroup")
+			   .append(" left join fetch v.tutorGroup as tutorGroup")
 		     .append(" where v.key in (:repoKey)");
 		
 		DBQuery dbQuery = DBFactory.getInstance().createQuery(query.toString());
@@ -423,21 +524,27 @@ public class RepositoryManager extends BasicManager {
 	 * @return the RepositorEntry or null if strict=false
 	 * @throws AssertException if the softkey could not be found (strict=true)
 	 */
+	@Transactional(readOnly=true)
 	public RepositoryEntry lookupRepositoryEntry(OLATResourceable resourceable, boolean strict) {
-		OLATResource ores = OLATResourceManager.getInstance().findResourceable(resourceable);
+		OLATResource ores = (resourceable instanceof OLATResource) ? (OLATResource)resourceable
+				: OLATResourceManager.getInstance().findResourceable(resourceable);
 		if (ores == null) {
 			if (!strict) return null;
 			throw new AssertException("Unable to fetch OLATResource for resourceable: " + resourceable.getResourceableTypeName() + ", " + resourceable.getResourceableId());
 		}
-		
-		String query = "select v from org.olat.repository.RepositoryEntry v"+
-			" inner join fetch v.olatResource as ores"+
-			" where ores.key = :oreskey";
-		DBQuery dbQuery = DBFactory.getInstance().createQuery(query);
-		dbQuery.setLong("oreskey", ores.getKey().longValue());
-		dbQuery.setCacheable(true);
-		
-		List result = dbQuery.list();
+
+		StringBuilder sb = new StringBuilder();
+		sb.append("select v from ").append(RepositoryEntry.class.getName()).append(" v ")
+		  .append(" inner join fetch v.olatResource as ores")
+			.append(" left join fetch v.ownerGroup as ownerGroup")
+			.append(" left join fetch v.participantGroup as participantGroup")
+			.append(" left join fetch v.tutorGroup as tutorGroup")
+		  .append(" where ores.key = :oreskey");
+
+		List<RepositoryEntry> result = dbInstance.getCurrentEntityManager()
+				.createQuery(sb.toString(), RepositoryEntry.class)
+				.setParameter("oreskey", ores.getKey())
+				.getResultList();
 		int size = result.size();
 		if (strict) {
 			if (size != 1)
@@ -450,7 +557,38 @@ public class RepositoryManager extends BasicManager {
 				return null;
 			}
 		}
-		return (RepositoryEntry)result.get(0);
+		return result.get(0);
+	}
+	
+	public Long lookupRepositoryEntryKey(OLATResourceable resourceable, boolean strict) {
+		OLATResource ores = (resourceable instanceof OLATResource) ? (OLATResource)resourceable
+				: OLATResourceManager.getInstance().findResourceable(resourceable);
+		if (ores == null) {
+			if (!strict) return null;
+			throw new AssertException("Unable to fetch OLATResource for resourceable: " + resourceable.getResourceableTypeName() + ", " + resourceable.getResourceableId());
+		}
+
+		StringBuilder sb = new StringBuilder();
+		sb.append("select v.key from ").append(RepositoryEntry.class.getName()).append(" v ")
+		  .append(" where v.olatResource.key=:oreskey");
+
+		List<Long> result = dbInstance.getCurrentEntityManager()
+				.createQuery(sb.toString(), Long.class)
+				.setParameter("oreskey", ores.getKey())
+				.setHint("org.hibernate.cacheable", Boolean.TRUE)
+				.getResultList();
+		int size = result.size();
+		if (strict) {
+			if (size != 1)
+				throw new AssertException("Repository resourceable lookup returned zero or more than one result: " + size);
+		} else { // not strict -> return null if zero entries found
+			if (size > 1)
+				throw new AssertException("Repository resourceable lookup returned more than one result: " + size);
+			if (size == 0) {
+				return null;
+			}
+		}
+		return result.get(0);
 	}
 
 	/**
@@ -461,11 +599,15 @@ public class RepositoryManager extends BasicManager {
 	 * @throws AssertException if the softkey could not be found (strict=true)
 	 */
 	public RepositoryEntry lookupRepositoryEntryBySoftkey(String softkey, boolean strict) {
-		String query = "select v from org.olat.repository.RepositoryEntry v" +
-			" inner join fetch v.olatResource as ores"+
-			" where v.softkey = :softkey";
+		StringBuilder sb = new StringBuilder();
+		sb.append("select v from ").append(RepositoryEntry.class.getName()).append(" v")
+		  .append(" inner join fetch v.olatResource as ores ")
+			.append(" left join fetch v.ownerGroup as ownerGroup")
+			.append(" left join fetch v.participantGroup as participantGroup")
+			.append(" left join fetch v.tutorGroup as tutorGroup")
+		  .append(" where v.softkey=:softkey");
 		
-		DBQuery dbQuery = DBFactory.getInstance().createQuery(query);
+		DBQuery dbQuery = DBFactory.getInstance().createQuery(sb.toString());
 		dbQuery.setString("softkey", softkey);
 		dbQuery.setCacheable(true);
 		List result = dbQuery.list();
@@ -492,19 +634,52 @@ public class RepositoryManager extends BasicManager {
 	 * @return the repositoryentry displayname or null if not found
 	 */
 	public String lookupDisplayNameByOLATResourceableId(Long resId) {
-		String query = "select v from org.olat.repository.RepositoryEntry v"+
-			" inner join fetch v.olatResource as ores"+
-			" where ores.resId = :resid";
-		DBQuery dbQuery = DBFactory.getInstance().createQuery(query);
-		dbQuery.setLong("resid", resId.longValue());
-		dbQuery.setCacheable(true);
+		StringBuilder sb = new StringBuilder();
+		sb.append("select v.displayname from ").append(RepositoryEntry.class.getName()).append(" v ")
+		  .append(" inner join v.olatResource as ores")
+		  .append(" where ores.resId=:resid");
 		
-		List<RepositoryEntry> result = dbQuery.list();
-		int size = result.size();
-		if (size > 1) throw new AssertException("Repository lookup returned zero or more than one result: " + size);
-		else if (size == 0) return null;
-		RepositoryEntry entry = result.get(0);
-		return entry.getDisplayname();
+		List<String> displaynames = dbInstance.getCurrentEntityManager()
+				.createQuery(sb.toString(), String.class)
+				.setParameter("resid", resId.longValue())
+				.getResultList();
+
+		if (displaynames.size() > 1) throw new AssertException("Repository lookup returned zero or more than one result: " + displaynames.size());
+		else if (displaynames.isEmpty()) return null;
+		return displaynames.get(0);
+	}
+	
+	/**
+	 * Load a list of repository entry without all the security groups ...
+	 * @param resources
+	 * @return
+	 */
+	public List<RepositoryEntryShort> loadRepositoryEntryShorts(List<OLATResource> resources) {
+		StringBuilder sb = new StringBuilder();
+		sb.append("select v from ").append(RepositoryEntryShortImpl.class.getName()).append(" v ")
+		  .append(" inner join fetch v.olatResource as ores")
+		  .append(" where ores.key in (:resKeys)");
+		
+		List<Long> resourceKeys = PersistenceHelper.toKeys(resources);
+		List<RepositoryEntryShort> shorties = dbInstance.getCurrentEntityManager()
+				.createQuery(sb.toString(), RepositoryEntryShort.class)
+				.setParameter("resKeys", resourceKeys)
+				.getResultList();
+		return shorties;
+	}
+	
+	/**
+	 * Load a list of repository entry without all the security groups ...
+	 * @param resources
+	 * @return
+	 */
+	public List<RepositoryEntryShortImpl> loadRepositoryEntryShortsByResource(Collection<Long> resIds, String resourceType) {
+		List<RepositoryEntryShortImpl> shorties = dbInstance.getCurrentEntityManager()
+				.createNamedQuery("loadRepositoryEntryShortsByResourceableIds", RepositoryEntryShortImpl.class)
+				.setParameter("resIds", resIds)
+				.setParameter("resName", resourceType)
+				.getResultList();
+		return shorties;
 	}
 	
 	/**
@@ -551,48 +726,124 @@ public class RepositoryManager extends BasicManager {
 		return false;
 	}
 
+	private RepositoryEntry loadForUpdate(RepositoryEntry re) {
+		//first remove it from caches
+		DBFactory.getInstance().getCurrentEntityManager().detach(re);
+
+		StringBuilder query = new StringBuilder();
+		query.append("select v from ").append(RepositoryEntry.class.getName()).append(" as v ")
+				 /*.append(" inner join fetch v.olatResource as ores")
+			   .append(" inner join fetch v.ownerGroup as ownerGroup")
+			   .append(" inner join fetch v.participantGroup as participantGroup")
+			   .append(" inner join fetch v.tutorGroup as tutorGroup")*/
+		     .append(" where v.key=:repoKey");
+		
+		RepositoryEntry entry = DBFactory.getInstance().getCurrentEntityManager().createQuery(query.toString(), RepositoryEntry.class)
+				.setParameter("repoKey", re.getKey())
+				.setLockMode(LockModeType.PESSIMISTIC_WRITE)
+				.getSingleResult();
+		return entry;
+	}
+	
+	private void updateLifeCycle(RepositoryEntry reloadedRe) {
+		LifeCycleManager lcManager = LifeCycleManager.createInstanceFor(reloadedRe);
+		if (lcManager.lookupLifeCycleEntry(RepositoryDeletionManager.SEND_DELETE_EMAIL_ACTION) != null) {
+			log.audit("Repository-Deletion: Remove from delete-list repositoryEntry=" + reloadedRe);
+			lcManager.deleteTimestampFor(RepositoryDeletionManager.SEND_DELETE_EMAIL_ACTION);
+		}
+	}
+
 	/**
 	 * Increment the launch counter.
 	 * @param re
 	 */
-	public void incrementLaunchCounter(RepositoryEntry re) {
-		taskQueueManager.addTask(new IncrementLaunchCounterBackgroundTask(re));
+	@Transactional
+	public RepositoryEntry incrementLaunchCounter(RepositoryEntry re) {
+		RepositoryEntry reloadedRe = loadForUpdate(re);
+		if(reloadedRe == null) return null;//deleted
+
+		reloadedRe.setLaunchCounter(reloadedRe.getLaunchCounter() + 1);
+		reloadedRe.setLastUsage(new Date());
+		updateLifeCycle(reloadedRe);
+		
+		RepositoryEntry updatedRe = DBFactory.getInstance().getCurrentEntityManager().merge(reloadedRe);
+		DBFactory.getInstance().commitAndCloseSession();
+		return updatedRe;
 	}
-	
+
 	/**
 	 * Increment the download counter.
 	 * @param re
 	 */
-	public void incrementDownloadCounter(final RepositoryEntry re) {
-		taskQueueManager.addTask(new IncrementDownloadCounterBackgroundTask(re));
+	@Transactional
+	public RepositoryEntry incrementDownloadCounter( final RepositoryEntry re) {
+		RepositoryEntry reloadedRe = loadForUpdate(re);
+		if(reloadedRe == null) return null;//deleted
+
+		reloadedRe.incrementDownloadCounter();
+		reloadedRe.setLastUsage(new Date());
+		updateLifeCycle(reloadedRe);
+		RepositoryEntry updatedRe = DBFactory.getInstance().getCurrentEntityManager().merge(reloadedRe);
+		DBFactory.getInstance().commitAndCloseSession();
+		return updatedRe;
 	}
 
 	/**
 	 * Set last-usage date to to now for certain repository-entry.
 	 * @param 
 	 */
-	public static void setLastUsageNowFor(final RepositoryEntry re) {
-		if (re != null) {
-			taskQueueManager.addTask(new SetLastUsageBackgroundTask(re));
+	@Transactional
+	public RepositoryEntry setLastUsageNowFor(final RepositoryEntry re) {
+		if (re == null) return null;
+		RepositoryEntry reloadedRe = loadForUpdate(re);
+		reloadedRe.setLastUsage(new Date());
+		RepositoryEntry updatedRe = DBFactory.getInstance().getCurrentEntityManager().merge(reloadedRe);
+		DBFactory.getInstance().commitAndCloseSession();
+		return updatedRe;
+	}
+
+	@Transactional
+	public RepositoryEntry setAccess(final RepositoryEntry re, int access, boolean membersOnly ) {
+		RepositoryEntry reloadedRe = loadForUpdate(re);
+		reloadedRe.setAccess(access);
+		reloadedRe.setMembersOnly(membersOnly);//fxdiff VCRP-1,2: access control of resources
+		
+		RepositoryEntry updatedRe = DBFactory.getInstance().getCurrentEntityManager().merge(reloadedRe);
+		DBFactory.getInstance().commitAndCloseSession();
+		return updatedRe;
+	}
+
+	/**
+	 * 
+	 * @param re
+	 * @param displayName If null, nothing happen
+	 * @param description If null, nothing happen
+	 * @return
+	 */
+	@Transactional
+	public RepositoryEntry setDescriptionAndName(final RepositoryEntry re, String displayName, String description ) {
+		RepositoryEntry reloadedRe = loadForUpdate(re);
+		if(StringHelper.containsNonWhitespace(displayName)) {
+			reloadedRe.setDisplayname(displayName);
 		}
+		if(StringHelper.containsNonWhitespace(description)) {
+			reloadedRe.setDescription(description);
+		}
+		RepositoryEntry updatedRe = DBFactory.getInstance().getCurrentEntityManager().merge(reloadedRe);
+		DBFactory.getInstance().commitAndCloseSession();
+		return updatedRe;
 	}
 
-	public void setAccess(final RepositoryEntry re, int access, boolean membersOnly ) {
-		SetAccessBackgroundTask task = new SetAccessBackgroundTask(re, access, membersOnly);
-		taskQueueManager.addTask(task);
-		task.waitForDone();
-	}
-
-	public void setDescriptionAndName(final RepositoryEntry re, String displayName, String description ) {
-		SetDescriptionNameBackgroundTask task = new SetDescriptionNameBackgroundTask(re, displayName, description);
-		taskQueueManager.addTask(task);
-		task.waitForDone();
-	}
-
-	public void setProperties(final RepositoryEntry re, boolean canCopy, boolean canReference, boolean canLaunch, boolean canDownload ) {
-		SetPropertiesBackgroundTask task = new SetPropertiesBackgroundTask(re, canCopy, canReference, canLaunch, canDownload);
-		taskQueueManager.addTask(task);
-		task.waitForDone();
+	@Transactional
+	public RepositoryEntry setProperties(final RepositoryEntry re, boolean canCopy, boolean canReference, boolean canLaunch, boolean canDownload ) {
+		RepositoryEntry reloadedRe = loadForUpdate(re);
+		reloadedRe.setCanCopy(canCopy);
+		reloadedRe.setCanReference(canReference);
+		reloadedRe.setCanLaunch(canLaunch);
+		reloadedRe.setCanDownload(canDownload);
+		RepositoryEntry updatedRe = DBFactory.getInstance().getCurrentEntityManager().merge(reloadedRe);
+		DBFactory.getInstance().commitAndCloseSession();
+		return updatedRe;
 	}
 	
 	
@@ -606,19 +857,20 @@ public class RepositoryManager extends BasicManager {
 		StringBuilder query = new StringBuilder(1000);
 		query.append("select distinct(v) from ").append(RepositoryEntry.class.getName()).append(" as v ")
 		     .append(" inner join v.olatResource as reResource ")
+				 .append(" left join fetch v.ownerGroup as ownerGroup")
+				 .append(" left join fetch v.participantGroup as participantGroup")
+				 .append(" left join fetch v.tutorGroup as tutorGroup")
 		     .append(" where v.access > 0 ")
 		     .append(" and ((")
-		     .append("  v.ownerGroup in (select ownerSgmsi.securityGroup from ").append(SecurityGroupMembershipImpl.class.getName()).append(" ownerSgmsi where ownerSgmsi.identity.key=:editorKey)")
+		     .append("  ownerGroup in (select ownerSgmsi.securityGroup from ").append(SecurityGroupMembershipImpl.class.getName()).append(" ownerSgmsi where ownerSgmsi.identity.key=:editorKey)")
 		     .append(" ) or (")
-		     .append("  reResource in (select context2res.resource from ").append(BGContext2Resource.class.getName()).append(" as context2res, ")
-		     .append("    ").append(BGContextImpl.class.getName()).append("  as context,")
+		     .append("  reResource in (select groupRelation.resource from ").append(BGResourceRelation.class.getName()).append(" as groupRelation, ")
 		     .append("    ").append(SecurityGroupMembershipImpl.class.getName()).append(" as sgmsi,")
 				 .append("    ").append(PolicyImpl.class.getName()).append(" as poi,")
 				 .append("    ").append(OLATResourceImpl.class.getName()).append(" as ori")
 				 .append("     where sgmsi.identity.key = :editorKey and sgmsi.securityGroup = poi.securityGroup")
 				 .append("     and poi.permission = 'bgr.editor' and poi.olatResource = ori")
-				 .append("     and (ori.resId = context.key) and ori.resName = 'org.olat.group.context.BGContextImpl'")
-				 .append("     and context2res.groupContext=context")
+				 .append("     and groupRelation.resource=ori")
 		     .append("  )")
 		     .append(" ))");
 		
@@ -626,17 +878,17 @@ public class RepositoryManager extends BasicManager {
 			query.append(" and reResource.resName in (:resnames)");
 		}
 		
-		DBQuery dbquery = DBFactory.getInstance().createQuery(query.toString());
-		dbquery.setLong("editorKey", editor.getKey());
+		TypedQuery<RepositoryEntry> dbquery = DBFactory.getInstance().getCurrentEntityManager()
+				.createQuery(query.toString(), RepositoryEntry.class)
+				.setParameter("editorKey", editor.getKey());
 		if(resourceTypes != null && resourceTypes.length > 0) {
 			List<String> resNames = new ArrayList<String>();
 			for(String resourceType:resourceTypes) {
 				resNames.add(resourceType);
 			}
-			dbquery.setParameterList("resnames", resNames);
+			dbquery.setParameter("resnames", resNames);
 		}
-		dbquery.setCacheable(true);
-		List<RepositoryEntry> entries = dbquery.list();
+		List<RepositoryEntry> entries = dbquery.getResultList();
 		return entries;
 	}
 	
@@ -659,24 +911,6 @@ public class RepositoryManager extends BasicManager {
 		return ((Long)dbquery.list().get(0)).intValue();
 	}
 
-	
-	/**
-	 * Query by type without any other limitations
-	 * @param restrictedType
-	 * @param roles
-	 * @return Results
-	 */
-	public List queryByType(String restrictedType) {
-		String query = "select v from" +
-			" org.olat.repository.RepositoryEntry v" +
-			" inner join fetch v.olatResource as res"+
-		  " where res.resName= :restrictedType";
-		DBQuery dbquery = DBFactory.getInstance().createQuery(query);
-		dbquery.setString("restrictedType", restrictedType);
-		dbquery.setCacheable(true);
-		return dbquery.list();
-	}
-
 	/**
 	 * Query by type, limit by ownership or role accessability.
 	 * @param identity Identity (optional)
@@ -693,6 +927,9 @@ public class RepositoryManager extends BasicManager {
 		StringBuilder sb = new StringBuilder(400);
 		sb.append("select distinct v from ").append(RepositoryEntry.class.getName()).append(" v ");
 		sb.append(" inner join fetch v.olatResource as res")
+			.append(" left join fetch v.ownerGroup as ownerGroup")
+			.append(" left join fetch v.participantGroup as participantGroup")
+			.append(" left join fetch v.tutorGroup as tutorGroup")
 			.append(" where res.resName=:restrictedType and ");
 		
 		boolean setIdentity = false;
@@ -702,30 +939,31 @@ public class RepositoryManager extends BasicManager {
 			setIdentity = appendAccessSubSelects(sb, identity, roles);
 		}
 
-		DBQuery dbquery = DBFactory.getInstance().createQuery(sb.toString());
-		dbquery.setString("restrictedType", restrictedType);
+		TypedQuery<RepositoryEntry> query = dbInstance.getCurrentEntityManager()
+				.createQuery(sb.toString(), RepositoryEntry.class)
+				.setParameter("restrictedType", restrictedType);
 		if(setIdentity) {
-			dbquery.setEntity("identity", identity);
+			query.setParameter("identityKey", identity.getKey());
 		}
-		dbquery.setCacheable(true);
-		return dbquery.list();
+		return query.getResultList();
 	}
 	
 	/**
-	 * Query by type, limit by ownership or role accessability.
+	 * Query by type, limit by ownership or role accessability and institution.
 	 * @param restrictedType
 	 * @param roles
 	 * @return Results
 	 */
 	//fxdiff VCRP-1: access control
-	public List<RepositoryEntry> queryByTypeLimitAccess(String restrictedType, UserRequest ureq) {
-		Roles roles = ureq.getUserSession().getRoles();
-		String institution = ureq.getIdentity().getUser().getProperty("institutionalName", null);
-		
+	public List<RepositoryEntry> queryByTypeLimitAccess(Identity identity, Roles roles, String restrictedType) {
+		String institution = identity.getUser().getProperty("institutionalName", null);
+
+		//TODO hibernate
 		List<RepositoryEntry> results = new ArrayList<RepositoryEntry>();
 		if(!roles.isOLATAdmin() && institution != null && institution.length() > 0 && roles.isInstitutionalResourceManager()) {
 			StringBuilder query = new StringBuilder(400);
-			query.append("select distinct v from org.olat.repository.RepositoryEntry v inner join fetch v.olatResource as res"
+			query.append("select distinct v from org.olat.repository.RepositoryEntry v"
+			    + " inner join fetch v.olatResource as res"
 					+ ", org.olat.basesecurity.SecurityGroupMembershipImpl as sgmsi"
 					+ ", org.olat.basesecurity.IdentityImpl identity"
 					+ ", org.olat.user.UserImpl user "
@@ -748,7 +986,7 @@ public class RepositoryManager extends BasicManager {
 		}
 		
 		long start = System.currentTimeMillis();
-		List<RepositoryEntry> genericResults = queryByTypeLimitAccess(ureq.getIdentity(), restrictedType, roles);
+		List<RepositoryEntry> genericResults = queryByTypeLimitAccess(identity, restrictedType, roles);
 		long timeQuery3 = System.currentTimeMillis() - start;
 		logInfo("Repo-Perf: queryByTypeLimitAccess#3 takes " + timeQuery3);
 		
@@ -771,33 +1009,31 @@ public class RepositoryManager extends BasicManager {
 	 * @param limitType
 	 * @return Results
 	 */
-	public List<RepositoryEntry> queryByOwner(Identity identity, String limitType) {
-		return queryByOwner( identity, new String[]{limitType});
-	}
-
-	public List<RepositoryEntry> queryByOwner(Identity identity, String[] limitTypes) {
+	public List<RepositoryEntry> queryByOwner(Identity identity, String... limitTypes) {
 		if (identity == null) throw new AssertException("identity can not be null!");
-		StringBuffer query = new StringBuffer(400);
-		query.append("select v from" + " org.olat.repository.RepositoryEntry v inner join fetch v.olatResource as res,"
-				+ " org.olat.basesecurity.SecurityGroupMembershipImpl as sgmsi" + " where " + " v.ownerGroup = sgmsi.securityGroup and"
-				+ " sgmsi.identity = :identity");
+		StringBuffer sb = new StringBuffer(400);
+		sb.append("select v from ").append(RepositoryEntry.class.getName()).append(" v ")
+		  .append(" inner join fetch v.olatResource as res ")
+		  .append(" inner join fetch v.ownerGroup as ownerGroup")
+		  .append(" left join fetch v.participantGroup as participantGroup")
+		  .append(" left join fetch v.tutorGroup as tutorGroup")
+			.append(", org.olat.basesecurity.SecurityGroupMembershipImpl as sgmsi")
+			.append(" where v.ownerGroup=sgmsi.securityGroup and sgmsi.identity.key=:identityKey and v.access>0");
 		if (limitTypes != null && limitTypes.length > 0) {
-			for (int i = 0; i < limitTypes.length; i++) {
-				String limitType = limitTypes[i];
-				if (i == 0) {
-					query.append(" and ( res.resName= '" + limitType + "'");
-				} else {
-					query.append(" or res.resName= '" + limitType + "'");
-				}
-
-			}
-			query.append(" )");
+			sb.append(" and res.resName in (:types)");
 		}
-		DBQuery dbquery = DBFactory.getInstance().createQuery(query.toString());
-		dbquery.setEntity("identity", identity);
-		@SuppressWarnings("unchecked")
-		List<RepositoryEntry> entries = dbquery.list();
-		return entries;
+		
+		TypedQuery<RepositoryEntry> query = dbInstance.getCurrentEntityManager()
+				.createQuery(sb.toString(), RepositoryEntry.class)
+				.setParameter("identityKey", identity.getKey());
+		if(limitTypes != null && limitTypes.length > 0) {
+			List<String> types = new ArrayList<String>();
+			for(String type:limitTypes) {
+				types.add(type);
+			}
+			query.setParameter("types", types);
+		}
+		return query.getResultList();
 	}
 
 	/**
@@ -806,13 +1042,12 @@ public class RepositoryManager extends BasicManager {
 	 * @param roles
 	 * @return Results
 	 */
-	public List queryByInitialAuthor(String initialAuthor) {
+	public List<RepositoryEntry> queryByInitialAuthor(String initialAuthor) {
 		String query = "select v from" +
 			" org.olat.repository.RepositoryEntry v" +
 		  " where v.initialAuthor= :initialAuthor";
 		DBQuery dbquery = DBFactory.getInstance().createQuery(query);
 		dbquery.setString("initialAuthor", initialAuthor);
-		dbquery.setCacheable(true);
 		return dbquery.list();
 	}
 
@@ -829,13 +1064,13 @@ public class RepositoryManager extends BasicManager {
 	 * @param desc Limit search to description. Can be NULL
 	 * @return List of repository entries
 	 */	
-	public List queryReferencableResourcesLimitType(Identity identity, Roles roles, List resourceTypes, String displayName, String author, String desc) {
+	public List<RepositoryEntry> queryReferencableResourcesLimitType(Identity identity, Roles roles, List resourceTypes, String displayName, String author, String desc) {
 		if (identity == null) {
 			throw new AssertException("identity can not be null!");
 		}
 		if (!roles.isAuthor()) {
 			// if user has no author right he can not reference to any resource at all
-			return new ArrayList();
+			return new ArrayList<RepositoryEntry>();
 		}
 
 		// cleanup some data: use null values if emtpy
@@ -847,9 +1082,12 @@ public class RepositoryManager extends BasicManager {
 		// Build the query
 		// 1) Joining tables 
 		StringBuilder query = new StringBuilder(400);
-		query.append("select distinct v from");
-		query.append(" org.olat.repository.RepositoryEntry v inner join fetch v.olatResource as res" );
-		query.append(", org.olat.basesecurity.SecurityGroupMembershipImpl as sgmsi");
+		query.append("select distinct v from ").append(RepositoryEntry.class.getName()).append(" v ")
+		     .append(" inner join fetch v.olatResource as res" )
+		     .append(" left join fetch v.ownerGroup as ownerGroup")
+		     .append(" left join fetch v.participantGroup as participantGroup")
+	       .append(" left join fetch v.tutorGroup as tutorGroup")
+		     .append(", org.olat.basesecurity.SecurityGroupMembershipImpl as sgmsi");
 		if (author != null) {
 			query.append(", org.olat.basesecurity.SecurityGroupMembershipImpl as sgmsi2");
 			query.append(", org.olat.basesecurity.IdentityImpl identity");
@@ -860,7 +1098,7 @@ public class RepositoryManager extends BasicManager {
 		// the join of v.ownerGropu and sgmsi.securityGroup mus be outside the sgmsi.identity = :identity
 		// otherwhise the join is not present in the second part of the or clause and the cross product will
 		// be to large (does not work when more than 100 repo entries present!)
-		query.append(" v.ownerGroup = sgmsi.securityGroup"); 
+		query.append(" ownerGroup = sgmsi.securityGroup"); 
 		// restrict on ownership or referencability flag
 		query.append(" and ( sgmsi.identity = :identity "); 
 		query.append(" or ");
@@ -905,7 +1143,7 @@ public class RepositoryManager extends BasicManager {
 			dbquery.setString("desc", desc);
 		}
 		if (resourceTypes != null) {
-			dbquery.setParameterList("resourcetypes", resourceTypes, Hibernate.STRING);
+			dbquery.setParameterList("resourcetypes", resourceTypes, StandardBasicTypes.STRING);
 		}
 		return dbquery.list();		
 		
@@ -920,32 +1158,35 @@ public class RepositoryManager extends BasicManager {
 	 * @return Results
 	 */
 	public List<RepositoryEntry> queryByOwnerLimitAccess(Identity identity, int limitAccess, Boolean membersOnly) {
-		String query = "select v from" +
-			" org.olat.repository.RepositoryEntry v inner join fetch v.olatResource as res," + 
-			" org.olat.basesecurity.SecurityGroupMembershipImpl as sgmsi" +
-			" where" +
-			" v.ownerGroup = sgmsi.securityGroup "+
-		  " and sgmsi.identity = :identity and (v.access>=:limitAccess";
+		StringBuilder sb = new StringBuilder();
+		sb.append("select v from ").append(RepositoryEntry.class.getName()).append(" v ")
+		  .append(" inner join fetch v.olatResource as res ")
+			.append(" inner join fetch v.ownerGroup as ownerGroup")
+			.append(" left join fetch v.participantGroup as participantGroup")
+			.append(" left join fetch v.tutorGroup as tutorGroup")
+		  .append(" , org.olat.basesecurity.SecurityGroupMembershipImpl as sgmsi")
+			.append(" where ownerGroup = sgmsi.securityGroup ")
+		  .append(" and sgmsi.identity.key=:identityKey and (v.access>=:limitAccess");
 		
 		if(limitAccess != RepositoryEntry.ACC_OWNERS && membersOnly != null && membersOnly.booleanValue()) {
-			query += " or (v.access=1 and v.membersOnly=true)";
+			sb.append(" or (v.access=1 and v.membersOnly=true)");
 		}
-		query += ")";
+		sb.append(")");
 		
-		DBQuery dbquery = DBFactory.getInstance().createQuery(query);
-		dbquery.setEntity("identity", identity);
-		dbquery.setInteger("limitAccess", limitAccess);
-		return dbquery.list();		
+		List<RepositoryEntry> entries = dbInstance.getCurrentEntityManager()
+				.createQuery(sb.toString(), RepositoryEntry.class)
+				.setParameter("identityKey", identity.getKey())
+				.setParameter("limitAccess", limitAccess)
+				.getResultList();
+		return entries;		
 	}
 	
 	/**
-	 * check ownership of identiy for a resource
+	 * check ownership of identity for a resource
 	 * @return true if the identity is member of the security group of the repository entry
 	 */
-	public boolean isOwnerOfRepositoryEntry(Identity identity, RepositoryEntry entry){
-		//TODO:gs:a transform into direct hibernate query
-		SecurityGroup ownerGroup = lookupRepositoryEntry(entry.getOlatResource(), true).getOwnerGroup();
-		return BaseSecurityManager.getInstance().isIdentityInSecurityGroup(identity, ownerGroup);
+	public boolean isOwnerOfRepositoryEntry(Identity identity, RepositoryEntry entry) {
+		return BaseSecurityManager.getInstance().isIdentityInSecurityGroup(identity, entry.getOwnerGroup());
 	}
 	
 	/**
@@ -969,6 +1210,7 @@ public class RepositoryManager extends BasicManager {
 		boolean var_desc = (desc != null && desc.length() != 0);
 		boolean var_resourcetypes = (resourceTypes != null && resourceTypes.size() > 0);
 
+		//TODO hibernate
 		// Use two different select prologues... 
 		if (var_author) { // extended query for user search
 			query.append("select distinct v from" +
@@ -1036,10 +1278,10 @@ public class RepositoryManager extends BasicManager {
 			dbQuery.setString("desc", desc);
 		}
 		if (var_resourcetypes) {
-			dbQuery.setParameterList("resourcetypes", resourceTypes, Hibernate.STRING);
+			dbQuery.setParameterList("resourcetypes", resourceTypes, StandardBasicTypes.STRING);
 		}
 		if(setIdentity) {
-			dbQuery.setEntity("identity", identity);
+			dbQuery.setParameter("identityKey", identity.getKey());
 		}
 		
 		
@@ -1051,21 +1293,25 @@ public class RepositoryManager extends BasicManager {
 	//fxdiff VCRP-1,2: access control of resources
 	private boolean appendAccessSubSelects(StringBuilder sb, Identity identity, Roles roles) {
 		sb.append("(v.access >= ");
-		if (roles.isAuthor()) sb.append(RepositoryEntry.ACC_OWNERS_AUTHORS);
-		else if (roles.isGuestOnly()) sb.append(RepositoryEntry.ACC_USERS_GUESTS);
-		else sb.append(RepositoryEntry.ACC_USERS);
+		if (roles.isAuthor()) {
+			sb.append(RepositoryEntry.ACC_OWNERS_AUTHORS);
+		} else if (roles.isGuestOnly()) {
+			sb.append(RepositoryEntry.ACC_USERS_GUESTS);
+		} else {
+			sb.append(RepositoryEntry.ACC_USERS);
+		}
 		
+		//+ membership
 		boolean setIdentity = false;
-		if(identity != null) {
+		if(!roles.isGuestOnly() && identity != null) {
 			setIdentity = true;
 			//sub select are very quick
 			sb.append(" or (")
-				.append("  v.access=1 and v.membersOnly=true and (")
-				.append("    v.ownerGroup in (select ownerSgmsi.securityGroup from ").append(SecurityGroupMembershipImpl.class.getName()).append(" ownerSgmsi where ownerSgmsi.identity=:identity)")
-				.append("    or")
-				.append("    v.tutorGroup in (select tutorSgmsi.securityGroup from ").append(SecurityGroupMembershipImpl.class.getName()).append(" tutorSgmsi where tutorSgmsi.identity=:identity)")
-				.append("    or")
-				.append("    v.participantGroup in (select partiSgmsi.securityGroup from ").append(SecurityGroupMembershipImpl.class.getName()).append(" partiSgmsi where partiSgmsi.identity=:identity)")
+				.append("   v.access=").append(RepositoryEntry.ACC_OWNERS).append(" and v.membersOnly=true")
+				.append("   and v.key in (")
+		    .append("     select vmember.key from ").append(RepositoryEntryStrictMember.class.getName()).append(" vmember")
+			  .append("     where (vmember.repoParticipantKey=:identityKey or vmember.repoTutorKey=:identityKey or vmember.repoOwnerKey=:identityKey")
+			  .append("         or vmember.groupParticipantKey=:identityKey or vmember.groupOwnerKey=:identityKey)")
 				.append(" ))");
 		}
 		sb.append(")");
@@ -1074,41 +1320,49 @@ public class RepositoryManager extends BasicManager {
 
 	private boolean appendMemberAccessSubSelects(StringBuilder sb, Identity identity) {
 		sb.append("(")
-		  .append(" (v.access>=").append(RepositoryEntry.ACC_USERS).append(" or (v.access=").append(RepositoryEntry.ACC_OWNERS).append(" and v.membersOnly=true))")
-		  .append(" and ")
-		  .append(" ( ")
-		  .append("  v.participantGroup in (select participantSgmsi.securityGroup from ").append(SecurityGroupMembershipImpl.class.getName()).append(" participantSgmsi where participantSgmsi.identity=:identity)")
-		  .append("  or")
-		  .append("  v.tutorGroup in (select tutorSgmsi.securityGroup from ").append(SecurityGroupMembershipImpl.class.getName()).append(" tutorSgmsi where tutorSgmsi.identity=:identity)")
-		  .append(" )")
-		  .append(")")
-		  //learning resource as owner
+		  .append(" v.access>=").append(RepositoryEntry.ACC_USERS)
 		  .append(" or (")
-		  .append("  v.ownerGroup in (select ownerSgmsi.securityGroup from ").append(SecurityGroupMembershipImpl.class.getName()).append(" ownerSgmsi where ownerSgmsi.identity=:identity)")
-		  .append(" )");
+		  .append("   v.access=").append(RepositoryEntry.ACC_OWNERS).append(" and v.membersOnly=true")
+		  .append("   and v.key in (")
+		  .append("     select vmember.key from ").append(RepositoryEntryStrictMember.class.getName()).append(" vmember")
+			.append("     where (vmember.repoParticipantKey=:identityKey or vmember.repoTutorKey=:identityKey or vmember.repoOwnerKey=:identityKey")
+			.append("       or vmember.groupParticipantKey=:identityKey or vmember.groupOwnerKey=:identityKey)")
+		  .append(" )))");
 		return true;
 	}
-	
 	
 	//fxdiff VCRP-1,2: access control
 	public boolean isMember(Identity identity, RepositoryEntry entry) {
 		StringBuilder sb = new StringBuilder();
-		sb.append("select count(v) from ").append(RepositoryEntry.class.getName()).append(" as v ")
-			.append(" where v=:repositoryEntry and ")
-			.append(" (")
-			.append("   v.ownerGroup in (select ownerSgmsi.securityGroup from ").append(SecurityGroupMembershipImpl.class.getName()).append(" ownerSgmsi where ownerSgmsi.identity=:identity)")
-			.append("   or")
-			.append("   v.tutorGroup in (select tutorSgmsi.securityGroup from ").append(SecurityGroupMembershipImpl.class.getName()).append(" tutorSgmsi where tutorSgmsi.identity=:identity)")
-			.append("   or")
-			.append("   v.participantGroup in (select partiSgmsi.securityGroup from ").append(SecurityGroupMembershipImpl.class.getName()).append(" partiSgmsi where partiSgmsi.identity=:identity)")
+		sb.append("select re.key, ident.key ")
+		  .append("from ").append(RepositoryEntry.class.getName()).append(" as re, ")
+		  .append(IdentityImpl.class.getName()).append(" as ident ")
+		  .append("where ident.key=:identityKey and re.key=:repositoryEntryKey ")
+		  .append(" and (exists (from ").append(SecurityGroupMembershipImpl.class.getName()).append(" as vmember ")
+			.append("     where ident=vmember.identity and vmember.securityGroup=re.participantGroup")
+			.append("  ) or exists (from ").append(SecurityGroupMembershipImpl.class.getName()).append(" as vmember ")
+			.append("     where ident=vmember.identity and vmember.securityGroup=re.tutorGroup")
+			.append("  ) or exists (from ").append(SecurityGroupMembershipImpl.class.getName()).append(" as vmember ")
+			.append("     where ident=vmember.identity and vmember.securityGroup=re.ownerGroup")
+			.append("  ) or exists (from ").append(SecurityGroupMembershipImpl.class.getName()).append(" as vmember, ")
+			.append("      ").append(BGResourceRelation.class.getName()).append(" as bresource, ")
+			.append("      ").append(BusinessGroupImpl.class.getName()).append(" as bgroup")
+			.append("      where bgroup.partipiciantGroup=vmember.securityGroup and re.olatResource=bresource.resource ")
+			.append("        and bgroup=bresource.group and ident=vmember.identity")
+			.append("  ) or exists (from ").append(SecurityGroupMembershipImpl.class.getName()).append(" as vmember, ")
+			.append("      ").append(BGResourceRelation.class.getName()).append(" as bresource, ")
+			.append("      ").append(BusinessGroupImpl.class.getName()).append(" as bgroup")
+			.append("      where bgroup.ownerGroup=vmember.securityGroup and re.olatResource=bresource.resource ")
+			.append("        and bgroup=bresource.group and ident=vmember.identity")
+			.append("  )")
 			.append(" )");
 
-		DBQuery query = DBFactory.getInstance().createQuery(sb.toString());
-		query.setEntity("identity", identity);
-		query.setEntity("repositoryEntry", entry);
-		
-		Number counter = (Number)query.uniqueResult();
-		return counter.intValue() > 0;
+		List<Object[]> counter = dbInstance.getCurrentEntityManager().createQuery(sb.toString(), Object[].class)
+				.setParameter("identityKey", identity.getKey())
+				.setParameter("repositoryEntryKey", entry.getKey())
+				.setHint("org.hibernate.cacheable", Boolean.TRUE)
+				.getResultList();
+		return !counter.isEmpty();
 	}
 	
 	/**
@@ -1194,7 +1448,7 @@ public class RepositoryManager extends BasicManager {
 				dbQuery.setString("desc", desc);
 			}
 			if (var_resourcetypes) {
-				dbQuery.setParameterList("resourcetypes", resourceTypes, Hibernate.STRING);
+				dbQuery.setParameterList("resourcetypes", resourceTypes, StandardBasicTypes.STRING);
 			}
 			results.addAll(dbQuery.list());
 		}
@@ -1248,9 +1502,15 @@ public class RepositoryManager extends BasicManager {
 		if(count) {
 			query.append("select count(v.key) from ").append(RepositoryEntry.class.getName()).append(" v ");
 			query.append(" inner join v.olatResource as res");
+			query.append(" left join v.ownerGroup as ownerGroup");
+			query.append(" left join v.participantGroup as participantGroup");
+			query.append(" left join v.tutorGroup as tutorGroup");
 		} else {
 			query.append("select distinct v from ").append(RepositoryEntry.class.getName()).append(" v ");
 			query.append(" inner join fetch v.olatResource as res");
+			query.append(" left join fetch v.ownerGroup as ownerGroup");
+			query.append(" left join fetch v.participantGroup as participantGroup");
+			query.append(" left join fetch v.tutorGroup as tutorGroup");
 		}
 		
 		boolean setIdentity = false;
@@ -1260,12 +1520,16 @@ public class RepositoryManager extends BasicManager {
 			query.append(" where v.access!=0 ");
 		} else if(institut) {
 			query.append(" where ((v.access >=");
-			if (roles.isAuthor()) query.append(RepositoryEntry.ACC_OWNERS_AUTHORS);
-			else if (roles.isGuestOnly()) query.append(RepositoryEntry.ACC_USERS_GUESTS);
-			else query.append(RepositoryEntry.ACC_USERS);
+			if (roles.isAuthor()) {
+				query.append(RepositoryEntry.ACC_OWNERS_AUTHORS);
+			} else if (roles.isGuestOnly()) {
+				query.append(RepositoryEntry.ACC_USERS_GUESTS);
+			} else{
+				query.append(RepositoryEntry.ACC_USERS);
+			}
 			query.append(") or (");
 			
-			query.append("v.access=1 and v.ownerGroup in (select ms.securityGroup from ").append(SecurityGroupMembershipImpl.class.getName()).append(" ms, ")
+			query.append("v.access=1 and ownerGroup in (select ms.securityGroup from ").append(SecurityGroupMembershipImpl.class.getName()).append(" ms, ")
 			     .append(" org.olat.basesecurity.IdentityImpl msid,")
 			     .append(" org.olat.user.UserImpl msuser ")
 			     .append(" where ms.identity = msid and msid.user = msuser and ")
@@ -1281,7 +1545,7 @@ public class RepositoryManager extends BasicManager {
 		
 		if (var_author) { // fuzzy author search
 			author = '%' + author.replace('*', '%') + '%';
-			query.append(" and v.ownerGroup in (select msauth.securityGroup from ").append(SecurityGroupMembershipImpl.class.getName()).append(" msauth, ")
+			query.append(" and ownerGroup in (select msauth.securityGroup from ").append(SecurityGroupMembershipImpl.class.getName()).append(" msauth, ")
 		         .append(" org.olat.basesecurity.IdentityImpl msauthid,")
 		         .append(" org.olat.user.UserImpl msauthuser ")
 		         .append(" where msauth.identity = msauthid and msauthid.user = msauthuser and ")
@@ -1297,6 +1561,9 @@ public class RepositoryManager extends BasicManager {
 		}
 		if (var_resourcetypes) {
 			query.append(" and res.resName in (:resourcetypes)");
+		}
+		if(params.getRepositoryEntryKeys() != null && !params.getRepositoryEntryKeys().isEmpty()) {
+			query.append(" and v.key in (:entryKeys)");
 		}
 
 		if(!count && orderBy) {
@@ -1317,11 +1584,14 @@ public class RepositoryManager extends BasicManager {
 			dbQuery.setString("desc", desc);
 		}
 		if (var_resourcetypes) {
-			dbQuery.setParameterList("resourcetypes", resourceTypes, Hibernate.STRING);
+			dbQuery.setParameterList("resourcetypes", resourceTypes, StandardBasicTypes.STRING);
+		}
+		if(params.getRepositoryEntryKeys() != null && !params.getRepositoryEntryKeys().isEmpty()) {
+			dbQuery.setParameterList("entryKeys", params.getRepositoryEntryKeys());
 		}
 
 		if(setIdentity) {
-			dbQuery.setEntity("identity", identity);
+			dbQuery.setParameter("identityKey", identity.getKey());
 		}
 		return dbQuery;
 	}
@@ -1380,6 +1650,22 @@ public class RepositoryManager extends BasicManager {
     }
 	}
 	
+	public void acceptPendingParticipation(Identity ureqIdentity, Identity identityToAdd, OLATResource resource, ResourceReservation reservation) {
+		RepositoryEntry re = lookupRepositoryEntry(resource, false);
+		if(re != null) {
+			if("repo_participant".equals(reservation.getType())) {
+				IdentitiesAddEvent iae = new IdentitiesAddEvent(identityToAdd);
+				//roles is not needed as I add myself as participant
+				addParticipants(ureqIdentity, null, iae, re, null);
+			} else if("repo_tutors".equals(reservation.getType())) {
+				IdentitiesAddEvent iae = new IdentitiesAddEvent(identityToAdd);
+				//roles is not needed as I add myself as tutor
+				addTutors(ureqIdentity, null, iae, re, null);
+			}
+			reservationDao.deleteReservation(reservation);
+		}
+	}
+	
 	/**
 	 * add provided list of identities as tutor to the repo entry. silently ignore
 	 * if some identities were already tutor before.
@@ -1388,26 +1674,63 @@ public class RepositoryManager extends BasicManager {
 	 * @param re
 	 * @param userActivityLogger
 	 */
-	public void addTutors(Identity ureqIdentity, IdentitiesAddEvent iae, RepositoryEntry re) {
+	public void addTutors(Identity ureqIdentity, Roles ureqRoles, IdentitiesAddEvent iae, RepositoryEntry re, MailPackage mailing) {
 		List<Identity> addIdentities = iae.getAddIdentities();
 		List<Identity> reallyAddedId = new ArrayList<Identity>();
-		for (Identity identity : addIdentities) {
-			if (!securityManager.isIdentityInSecurityGroup(identity, re.getTutorGroup())) {
-				securityManager.addIdentityToSecurityGroup(identity, re.getTutorGroup());
-				reallyAddedId.add(identity);
-				ActionType actionType = ThreadLocalUserActivityLogger.getStickyActionType();
-				ThreadLocalUserActivityLogger.setStickyActionType(ActionType.admin);
-				try{
-					ThreadLocalUserActivityLogger.log(GroupLoggingAction.GROUP_OWNER_ADDED, getClass(),
-							LoggingResourceable.wrap(re, OlatResourceableType.genRepoEntry), LoggingResourceable.wrap(identity));
-				} finally {
-					ThreadLocalUserActivityLogger.setStickyActionType(actionType);
+		for (Identity identityToAdd : addIdentities) {
+			if (!securityManager.isIdentityInSecurityGroup(identityToAdd, re.getTutorGroup())) {
+				
+				boolean mustAccept = true;
+				if(ureqIdentity != null && ureqIdentity.equals(identityToAdd)) {
+					mustAccept = false;//adding itself, we hope that he knows what he makes
+				} else if(ureqRoles == null || ureqIdentity == null) {
+					mustAccept = false;//administrative task
+				} else {
+					mustAccept = repositoryModule.isAcceptMembership(ureqRoles);
 				}
-				logAudit("Idenitity(.key):" + ureqIdentity.getKey() + " added identity '" + identity.getName()
-						+ "' to securitygroup with key " + re.getTutorGroup().getKey());
+				
+				if(mustAccept) {
+					ResourceReservation olderReservation = reservationDao.loadReservation(identityToAdd, re.getOlatResource());
+					if(olderReservation == null) {
+						Calendar cal = Calendar.getInstance();
+						cal.add(Calendar.MONTH, 6);
+						Date expiration = cal.getTime();
+						ResourceReservation reservation =
+								reservationDao.createReservation(identityToAdd, "repo_tutors", expiration, re.getOlatResource());
+						if(reservation != null) {
+							RepositoryMailing.sendEmail(ureqIdentity, identityToAdd, re, RepositoryMailing.Type.addTutor, mailing, mailer);
+						}
+					}
+				} else {
+					addInternalTutors(ureqIdentity, identityToAdd, re, reallyAddedId);
+					RepositoryMailing.sendEmail(ureqIdentity, identityToAdd, re, RepositoryMailing.Type.addTutor, mailing, mailer);
+				}
+
 			}//else silently ignore already owner identities
 		}
 		iae.setIdentitiesAddedEvent(reallyAddedId);
+	}
+	
+	/**
+	 * Internal method to add tutors, it makes no check.
+	 * @param ureqIdentity
+	 * @param identity
+	 * @param re
+	 * @param reallyAddedId
+	 */
+	private void addInternalTutors(Identity ureqIdentity, Identity identity, RepositoryEntry re, List<Identity> reallyAddedId) {
+		securityManager.addIdentityToSecurityGroup(identity, re.getTutorGroup());
+		reallyAddedId.add(identity);
+		ActionType actionType = ThreadLocalUserActivityLogger.getStickyActionType();
+		ThreadLocalUserActivityLogger.setStickyActionType(ActionType.admin);
+		try{
+			ThreadLocalUserActivityLogger.log(GroupLoggingAction.GROUP_OWNER_ADDED, getClass(),
+					LoggingResourceable.wrap(re, OlatResourceableType.genRepoEntry), LoggingResourceable.wrap(identity));
+		} finally {
+			ThreadLocalUserActivityLogger.setStickyActionType(actionType);
+		}
+		logAudit("Idenitity(.key):" + ureqIdentity.getKey() + " added identity '" + identity.getName()
+				+ "' to securitygroup with key " + re.getTutorGroup().getKey());
 	}
 	
 	/**
@@ -1418,14 +1741,8 @@ public class RepositoryManager extends BasicManager {
 	 * @param logger
 	 */
 	public void removeTutors(Identity ureqIdentity, List<Identity> removeIdentities, RepositoryEntry re){
-		List<BusinessGroup> groups = getCourseGroups(re);
 		for (Identity identity : removeIdentities) {
     	securityManager.removeIdentityFromSecurityGroup(identity, re.getTutorGroup());
-    	for(BusinessGroup group:groups) {
-    		if(securityManager.isIdentityInSecurityGroup(identity, group.getOwnerGroup())) {
-					securityManager.removeIdentityFromSecurityGroup(identity, group.getOwnerGroup());
-				}
-    	}
     	
 			ActionType actionType = ThreadLocalUserActivityLogger.getStickyActionType();
 			ThreadLocalUserActivityLogger.setStickyActionType(ActionType.admin);
@@ -1448,26 +1765,62 @@ public class RepositoryManager extends BasicManager {
 	 * @param re
 	 * @param userActivityLogger
 	 */
-	public void addParticipants(Identity ureqIdentity, IdentitiesAddEvent iae, RepositoryEntry re) {
+	public void addParticipants(Identity ureqIdentity, Roles ureqRoles, IdentitiesAddEvent iae, RepositoryEntry re, MailPackage mailing) {
 		List<Identity> addIdentities = iae.getAddIdentities();
 		List<Identity> reallyAddedId = new ArrayList<Identity>();
-		for (Identity identity : addIdentities) {
-			if (!securityManager.isIdentityInSecurityGroup(identity, re.getParticipantGroup())) {
-				securityManager.addIdentityToSecurityGroup(identity, re.getParticipantGroup());
-				reallyAddedId.add(identity);
-				ActionType actionType = ThreadLocalUserActivityLogger.getStickyActionType();
-				ThreadLocalUserActivityLogger.setStickyActionType(ActionType.admin);
-				try{
-					ThreadLocalUserActivityLogger.log(GroupLoggingAction.GROUP_OWNER_ADDED, getClass(),
-							LoggingResourceable.wrap(re, OlatResourceableType.genRepoEntry), LoggingResourceable.wrap(identity));
-				} finally {
-					ThreadLocalUserActivityLogger.setStickyActionType(actionType);
+		for (Identity identityToAdd : addIdentities) {
+			if (!securityManager.isIdentityInSecurityGroup(identityToAdd, re.getParticipantGroup())) {
+				
+				boolean mustAccept = true;
+				if(ureqIdentity != null && ureqIdentity.equals(identityToAdd)) {
+					mustAccept = false;//adding itself, we hope that he knows what he makes
+				} else if(ureqRoles == null || ureqIdentity == null) {
+					mustAccept = false;//administrative task
+				} else {
+					mustAccept = repositoryModule.isAcceptMembership(ureqRoles);
 				}
-				logAudit("Idenitity(.key):" + ureqIdentity.getKey() + " added identity '" + identity.getName()
-						+ "' to securitygroup with key " + re.getParticipantGroup().getKey());
-			}//else silently ignore already owner identities
+				
+				if(mustAccept) {
+					ResourceReservation olderReservation = reservationDao.loadReservation(identityToAdd, re.getOlatResource());
+					if(olderReservation == null) {
+						Calendar cal = Calendar.getInstance();
+						cal.add(Calendar.MONTH, 6);
+						Date expiration = cal.getTime();
+						ResourceReservation reservation =
+								reservationDao.createReservation(identityToAdd, "repo_participant", expiration, re.getOlatResource());
+						if(reservation != null) {
+							RepositoryMailing.sendEmail(ureqIdentity, identityToAdd, re, RepositoryMailing.Type.addParticipant, mailing, mailer);
+						}
+					}
+				} else {
+					addInternalParticipant(ureqIdentity, identityToAdd, re);
+					reallyAddedId.add(identityToAdd);
+					RepositoryMailing.sendEmail(ureqIdentity, identityToAdd, re, RepositoryMailing.Type.addParticipant, mailing, mailer);
+				}
+			}
 		}
 		iae.setIdentitiesAddedEvent(reallyAddedId);
+	}
+	
+	/**
+	 * This is for internal usage only. The method dosn't make any check.
+	 * @param ureqIdentity
+	 * @param identity
+	 * @param re
+	 */
+	private void addInternalParticipant(Identity ureqIdentity, Identity identity, RepositoryEntry re) {
+		securityManager.addIdentityToSecurityGroup(identity, re.getParticipantGroup());
+		
+		ActionType actionType = ThreadLocalUserActivityLogger.getStickyActionType();
+		ThreadLocalUserActivityLogger.setStickyActionType(ActionType.admin);
+		try{
+			ThreadLocalUserActivityLogger.log(GroupLoggingAction.GROUP_OWNER_ADDED, getClass(),
+					LoggingResourceable.wrap(re, OlatResourceableType.genRepoEntry), LoggingResourceable.wrap(identity));
+		} finally {
+			ThreadLocalUserActivityLogger.setStickyActionType(actionType);
+		}
+		logAudit("Identity(.key):" + ureqIdentity.getKey() + " added identity '" + identity.getName()
+				+ "' to securitygroup with key " + re.getParticipantGroup().getKey());
 	}
 	
 	/**
@@ -1477,14 +1830,12 @@ public class RepositoryManager extends BasicManager {
 	 * @param re
 	 * @param logger
 	 */
-	public void removeParticipants(Identity ureqIdentity, List<Identity> removeIdentities, RepositoryEntry re){
-    List<BusinessGroup> groups = getCourseGroups(re);
+	public void removeParticipants(Identity ureqIdentity, List<Identity> removeIdentities, RepositoryEntry re, MailPackage mailing, boolean sendMail) {
 		for (Identity identity : removeIdentities) {
     	securityManager.removeIdentityFromSecurityGroup(identity, re.getParticipantGroup());
-    	for(BusinessGroup group:groups) {
-    		if(securityManager.isIdentityInSecurityGroup(identity, group.getPartipiciantGroup())) {
-					securityManager.removeIdentityFromSecurityGroup(identity, group.getPartipiciantGroup());
-				}
+
+    	if(sendMail) {
+    		RepositoryMailing.sendEmail(ureqIdentity, identity, re, RepositoryMailing.Type.removeParticipant, mailing, mailer);
     	}
 
 			ActionType actionType = ThreadLocalUserActivityLogger.getStickyActionType();
@@ -1497,22 +1848,53 @@ public class RepositoryManager extends BasicManager {
 			}
 			logAudit("Idenitity(.key):" + ureqIdentity.getKey() + " removed identity '" + identity.getName()
 					+ "' from securitygroup with key " + re.getParticipantGroup().getKey());
+			
+			
     }
 	}
 	
 	/**
-	 * Load the business group associated to the repository entry
-	 * @param repoEntry
-	 * @return
+	 * Remove the identities as members of the repository and from
+	 * all connected business groups.
+	 * 
+	 * @param members
+	 * @param re
 	 */
-	private List<BusinessGroup> getCourseGroups(RepositoryEntry repoEntry) {
-		if("CourseModule".equals(repoEntry.getOlatResource().getResourceableTypeName())) {
-			ICourse course = CourseFactory.loadCourse(repoEntry.getOlatResource());
-			CourseGroupManager gm = course.getCourseEnvironment().getCourseGroupManager();
-			List<BusinessGroup> groups = gm.getAllLearningGroupsFromAllContexts();
-			return groups;
+	public boolean removeMembers(Identity ureqIdentity, List<Identity> members, RepositoryEntry re, MailPackage mailing) {
+		List<SecurityGroup> secGroups = new ArrayList<SecurityGroup>();
+		if(re.getOwnerGroup() != null) {
+			secGroups.add(re.getOwnerGroup());
 		}
-		return Collections.emptyList();
+		if(re.getTutorGroup() != null) {
+			secGroups.add(re.getTutorGroup());
+		}
+		if(re.getParticipantGroup() != null) {
+			secGroups.add(re.getParticipantGroup());
+		}
+		//log the action
+		ActionType actionType = ThreadLocalUserActivityLogger.getStickyActionType();
+		ThreadLocalUserActivityLogger.setStickyActionType(ActionType.admin);
+		for(Identity identity:members) {
+			try{
+				ThreadLocalUserActivityLogger.log(GroupLoggingAction.GROUP_MEMBER_REMOVED, getClass(),
+						LoggingResourceable.wrap(re, OlatResourceableType.genRepoEntry), LoggingResourceable.wrap(identity));
+			} finally {
+				ThreadLocalUserActivityLogger.setStickyActionType(actionType);
+			}
+		}
+		
+		List<ResourceReservation> reservations = reservationDao.loadReservations(Collections.singletonList(re.getOlatResource()));
+		for(ResourceReservation reservation:reservations) {
+			if(members.contains(reservation.getIdentity())) {
+				reservationDao.deleteReservation(reservation);
+			}
+		}
+
+		boolean allOk = securityManager.removeIdentityFromSecurityGroups(members, secGroups);
+		for(Identity identity:members) {
+			RepositoryMailing.sendEmail(ureqIdentity, identity, re, RepositoryMailing.Type.removeParticipant, mailing, mailer);
+		}
+		return allOk;
 	}
 
 	/**
@@ -1540,55 +1922,51 @@ public class RepositoryManager extends BasicManager {
 	}
 	
 	/**
-	 * Gets all learning resources where the user is in a learning group.
-	 * @param identity
-	 * @return list of RepositoryEntries
-	 */
-	 //fxdiff VCRP-1,2: access control of resources
-	public List<RepositoryEntry> getLearningResources(Identity identity) {
-		StringBuilder sb = new StringBuilder(400);
-		sb.append("select distinct v from ").append(RepositoryEntry.class.getName()).append(" v ")
-			.append(" inner join fetch v.olatResource as res where ")
-			//learning resource as participant/tutor
-			.append("(")
-			.append(" (v.access>=").append(RepositoryEntry.ACC_USERS).append(" or (v.access=").append(RepositoryEntry.ACC_OWNERS).append(" and v.membersOnly=true))")
-			.append(" and ")
-			.append(" ( ")
-			.append("  v.participantGroup in (select participantSgmsi.securityGroup from ").append(SecurityGroupMembershipImpl.class.getName()).append(" participantSgmsi where participantSgmsi.identity=:identity)")
-			.append("  or")
-			.append("  v.tutorGroup in (select tutorSgmsi.securityGroup from ").append(SecurityGroupMembershipImpl.class.getName()).append(" tutorSgmsi where tutorSgmsi.identity=:identity)")
-			.append(" )")
-			.append(")")
-			//learning resource as owner
-			.append(" or (")
-			.append("  v.ownerGroup in (select ownerSgmsi.securityGroup from ").append(SecurityGroupMembershipImpl.class.getName()).append(" ownerSgmsi where ownerSgmsi.identity=:identity)")
-			.append(" )");
-
-		DBQuery dbquery = DBFactory.getInstance().createQuery(sb.toString());
-		dbquery.setEntity("identity", identity);
-		dbquery.setCacheable(true);
-		List<RepositoryEntry> repoEntries = dbquery.list();	
-		return repoEntries;
-	}
-	
-	/**
 	 * Gets all learning resources where the user is in a learning group as participant.
 	 * @param identity
 	 * @return list of RepositoryEntries
 	 */
 	 //fxdiff VCRP-1,2: access control of resources
-	public List<RepositoryEntry> getLearningResourcesAsStudent(Identity identity) {
-		StringBuilder sb = new StringBuilder(400);
-		sb.append("select distinct v from ").append(RepositoryEntry.class.getName()).append(" v ")
-			.append(" inner join fetch v.olatResource as res where ")
-			.append(" (v.access>=").append(RepositoryEntry.ACC_USERS).append(" or (v.access=").append(RepositoryEntry.ACC_OWNERS).append(" and v.membersOnly=true))")
-			.append(" and ")
-			.append(" v.participantGroup in (select participantSgmsi.securityGroup from ").append(SecurityGroupMembershipImpl.class.getName()).append(" participantSgmsi where participantSgmsi.identity=:identity)");
+	public List<RepositoryEntry> getLearningResourcesAsStudent(Identity identity, int firstResult, int maxResults, RepositoryEntryOrder... orderby) {
+		StringBuilder sb = new StringBuilder(1200);
+		sb.append("select v from ").append(RepositoryEntry.class.getName()).append(" as v ")
+		  .append(" inner join fetch v.olatResource as res ")
+		  .append(" left join fetch v.ownerGroup as ownerGroup ")
+		  .append(" inner join fetch v.participantGroup as participantGroup ")
+		  .append(" left join fetch v.tutorGroup as tutorGroup ")
+		  .append("where (v.access>=3 or (v.access=").append(RepositoryEntry.ACC_OWNERS).append(" and v.membersOnly=true))")
+		  .append(" and (")
+		  .append(" exists (from ").append(SecurityGroupMembershipImpl.class.getName()).append(" as vmember ")
+		  .append("     where vmember.identity.key=:identityKey and vmember.securityGroup=participantGroup)")
+		  .append(" or exists (from ").append(SecurityGroupMembershipImpl.class.getName()).append(" as vmember, ")
+		  .append("   ").append(BGResourceRelation.class.getName()).append(" as bresource, ")
+		  .append("   ").append(BusinessGroupImpl.class.getName()).append(" as bgroup")
+		  .append("   where bgroup.partipiciantGroup=vmember.securityGroup and res=bresource.resource and bgroup=bresource.group and vmember.identity=:identityKey")
+		  .append("  )")
+		  .append(" )");
 
-		DBQuery dbquery = DBFactory.getInstance().createQuery(sb.toString());
-		dbquery.setEntity("identity", identity);
-		dbquery.setCacheable(true);
-		List<RepositoryEntry> repoEntries = dbquery.list();	
+		/* query based on permission
+		StringBuilder sb3 = new StringBuilder(400);
+		sb3.append("select v from ").append(RepositoryEntry.class.getName()).append(" v ")
+			.append(" inner join fetch v.olatResource as res")
+			.append(" left join fetch v.ownerGroup as ownerGroup")
+			.append(" inner join fetch v.participantGroup as participantGroup")
+			.append(" left join fetch v.tutorGroup as tutorGroup")
+			.append(" where exists (from ").append(PolicyImpl.class.getName()).append(" as poi,")
+			.append("   ").append(SecurityGroupMembershipImpl.class.getName()).append(" as sgmsi")
+			.append("   where sgmsi.identity.key=:identityKey and sgmsi.securityGroup=poi.securityGroup")
+			.append("   and poi.permission='access' and poi.olatResource=res")
+			.append(" ))");
+		*/
+		
+		TypedQuery<RepositoryEntry> query = dbInstance.getCurrentEntityManager()
+				.createQuery(sb.toString(), RepositoryEntry.class)
+				.setParameter("identityKey", identity.getKey())
+				.setFirstResult(firstResult);
+		if(maxResults > 0) {
+			query.setMaxResults(maxResults);
+		}
+		List<RepositoryEntry> repoEntries = query.getResultList();
 		return repoEntries;
 	}
 	
@@ -1600,38 +1978,194 @@ public class RepositoryManager extends BasicManager {
 	 * @param identity
 	 * @return list of RepositoryEntries
 	 */
-	 //fxdiff VCRP-1,2: access control of resources
-	public List<RepositoryEntry> getLearningResourcesAsTeacher(Identity identity) {
-		StringBuilder sb = new StringBuilder(400);
+	public boolean hasLearningResourcesAsTeacher(Identity identity) {
+		/*
+		StringBuilder sb = new StringBuilder(1200);
+		sb.append("select count(v.key) from ").append(RepositoryEntry.class.getName()).append(" v ")
+			.append(" inner join v.olatResource as res ")
+			.append(" left join v.ownerGroup as ownerGroup")
+			.append(" left join v.tutorGroup as tutorGroup");
+		whereClauseLearningResourcesAsTeacher(sb);	
+		Number count = dbInstance.getCurrentEntityManager()
+				.createQuery(sb.toString(), Number.class)
+				.setParameter("identityKey", identity.getKey())
+				.getSingleResult();
+		*/
+		List<RepositoryEntry> repos = getLearningResourcesAsTeacher(identity, 0, 1);
+		return !repos.isEmpty();
+	}
+	
+	public List<RepositoryEntry> getLearningResourcesAsTeacher(Identity identity, int firstResult, int maxResults, RepositoryEntryOrder... orderby) {
+		StringBuilder sb = new StringBuilder(1200);
 		sb.append("select distinct v from ").append(RepositoryEntry.class.getName()).append(" v ")
-			.append(" inner join fetch v.olatResource as res where ")
-			.append(" (v.access>=").append(RepositoryEntry.ACC_USERS).append(" or (v.access=").append(RepositoryEntry.ACC_OWNERS).append(" and v.membersOnly=true))")
-			.append(" and ")
-			.append(" (")
-			.append("  v.tutorGroup in (select tutorSgmsi.securityGroup from ").append(SecurityGroupMembershipImpl.class.getName()).append(" tutorSgmsi where tutorSgmsi.identity=:identity)")
-			.append("  or")
-			.append("  v.ownerGroup in (select ownerSgmsi.securityGroup from ").append(SecurityGroupMembershipImpl.class.getName()).append(" ownerSgmsi where ownerSgmsi.identity=:identity)")
-			.append(" )");
+			.append(" inner join fetch v.olatResource as res ")
+			.append(" left join fetch v.ownerGroup as ownerGroup")
+			.append(" left join fetch v.participantGroup as participantGroup")
+			.append(" left join fetch v.tutorGroup as tutorGroup");
+		whereClauseLearningResourcesAsTeacher(sb);
+		appendOrderBy(sb, "v", orderby);
+		
+		TypedQuery<RepositoryEntry> query = dbInstance.getCurrentEntityManager()
+				.createQuery(sb.toString(), RepositoryEntry.class)
+				.setParameter("identityKey", identity.getKey())
+				.setFirstResult(firstResult);
+		if(maxResults > 0) {
+			query.setMaxResults(maxResults);
+		}
+		List<RepositoryEntry> entries = query.getResultList();
+		return entries;
+	}
+	
+	/**
+	 * Write the where clause for countLearningResourcesAsTeacher and getLearningResourcesAsTeacher
+	 * @param sb
+	 */
+	private final void whereClauseLearningResourcesAsTeacher(StringBuilder sb) {
+		/*
+		StringBuilder s2 = new StringBuilder();
+		s2.append(" where v.key in (select distinct(vmember.key) from ").append(RepositoryEntryStrictTutor.class.getName()).append(" vmember")
+			.append("   where (vmember.repoOwnerKey=:identityKey or vmember.repoTutorKey=:identityKey or vmember.groupOwnerKey=:identityKey)")   
+			.append(" )")
+			.append(" or ")
+		  .append(" res in (select groupRelation.resource from ").append(BGResourceRelation.class.getName()).append(" as groupRelation, ")
+		  .append("   ").append(SecurityGroupMembershipImpl.class.getName()).append(" as sgmsi,")
+		  .append("   ").append(PolicyImpl.class.getName()).append(" as poi,")
+			.append("   ").append(OLATResourceImpl.class.getName()).append(" as ori")
+			.append("   where sgmsi.identity.key=:identityKey and sgmsi.securityGroup = poi.securityGroup")
+			.append("   and poi.permission = 'bgr.editor' and poi.olatResource = ori")
+			.append("   and groupRelation.resource=ori")
+		  .append(" )");
+		*/
+		
+	  sb.append(" where (v.access>=3 or (v.access=").append(RepositoryEntry.ACC_OWNERS).append(" and v.membersOnly=true))")
+	  	.append(" and (exists (from ").append(PolicyImpl.class.getName()).append(" as poi,")
+			.append("   ").append(SecurityGroupMembershipImpl.class.getName()).append(" as sgmsi")
+			.append("   where sgmsi.identity.key=:identityKey and sgmsi.securityGroup=poi.securityGroup")
+			.append("   and poi.permission='bgr.editor' and poi.olatResource=res")
+	    .append(" ) or exists (from ").append(SecurityGroupMembershipImpl.class.getName()).append(" as vmember ")
+	    .append("     where vmember.identity.key=:identityKey and (vmember.securityGroup=tutorGroup or vmember.securityGroup=ownerGroup)")
+	    .append(" ) or exists (from ").append(SecurityGroupMembershipImpl.class.getName()).append(" as vmember, ")
+	    .append("   ").append(BGResourceRelation.class.getName()).append(" as bresource, ")
+	    .append("   ").append(BusinessGroupImpl.class.getName()).append(" as bgroup")
+	    .append("   where bgroup.ownerGroup=vmember.securityGroup and res=bresource.resource and bgroup=bresource.group and vmember.identity=:identityKey")
+	    .append(" ))");
+	}
+	
+	/**
+	 * Need a repository entry or identites to return a list.
+	 * @param re
+	 * @param identity
+	 * @return
+	 */
+	public List<RepositoryEntryMembership> getRepositoryEntryMembership(RepositoryEntry re, Identity... identity) {
+		if(re == null && (identity == null || identity.length == 0)) return Collections.emptyList();
+		
+		StringBuilder sb = new StringBuilder(400);
+		sb.append("select distinct membership from ").append(RepositoryEntryMembership.class.getName()).append(" membership ");
+		boolean and = false;
+		if(re != null) {
+			and = and(sb, and);
+			sb.append("(ownerRepoKey=:repoKey or tutorRepoKey=:repoKey or participantRepoKey=:repoKey)");
+		}
+		if(identity != null && identity.length > 0) {
+			and = and(sb, and);
+			sb.append("membership.identityKey=:identityKeys");
+		}
 
-		DBQuery dbquery = DBFactory.getInstance().createQuery(sb.toString());
-		dbquery.setEntity("identity", identity);
-		dbquery.setCacheable(true);
-		List<RepositoryEntry> repoEntries = dbquery.list();
-		List<RepositoryEntry> allRepoEntries = new ArrayList<RepositoryEntry>(repoEntries);
-		
-		
-		// 2: search for all learning groups where user is coach
-		List<BGContext> bgContexts = new ArrayList<BGContext>();
-		List<BusinessGroup> rightGrougList = BusinessGroupManagerImpl.getInstance().findBusinessGroupsAttendedBy(BusinessGroup.TYPE_RIGHTGROUP, identity, null);
-		for (BusinessGroup group : rightGrougList) {
-			BGContext bgContext = group.getGroupContext();
-			if (bgContext != null && !PersistenceHelper.listContainsObjectByKey(bgContexts, bgContext)) {
-				bgContexts.add(bgContext);
+		TypedQuery<RepositoryEntryMembership> query = dbInstance.getCurrentEntityManager()
+				.createQuery(sb.toString(), RepositoryEntryMembership.class);
+		if(re != null) {
+			query.setParameter("repoKey", re.getKey());
+		}
+		if(identity != null && identity.length > 0) {
+			List<Long> ids = new ArrayList<Long>(identity.length);
+			for(Identity id:identity) {
+				ids.add(id.getKey());
+			}
+			query.setParameter("identityKeys", ids);
+		}
+
+		List<RepositoryEntryMembership> entries = query.getResultList();
+		return entries;
+	}
+	
+	public void updateRepositoryEntryMembership(Identity ureqIdentity, Roles ureqRoles, RepositoryEntry re,
+			List<RepositoryEntryPermissionChangeEvent> changes, MailPackage mailing) {
+		for(RepositoryEntryPermissionChangeEvent e:changes) {
+			if(e.getRepoOwner() != null) {
+				if(e.getRepoOwner().booleanValue()) {
+					addOwners(ureqIdentity, new IdentitiesAddEvent(e.getMember()), re);
+				} else {
+					removeOwners(ureqIdentity, Collections.singletonList(e.getMember()), re);
+				}
+			}
+			
+			if(e.getRepoTutor() != null) {
+				if(e.getRepoTutor().booleanValue()) {
+					addTutors(ureqIdentity, ureqRoles, new IdentitiesAddEvent(e.getMember()), re, mailing);
+				} else {
+					removeTutors(ureqIdentity, Collections.singletonList(e.getMember()), re);
+				}
+			}
+			
+			if(e.getRepoParticipant() != null) {
+				if(e.getRepoParticipant().booleanValue()) {
+					addParticipants(ureqIdentity, ureqRoles, new IdentitiesAddEvent(e.getMember()), re, mailing);
+				} else {
+					removeParticipants(ureqIdentity, Collections.singletonList(e.getMember()), re, mailing, true);
+				}
 			}
 		}
-		
-		List<RepositoryEntry> repoEntriesRightGroup = BGContextManagerImpl.getInstance().findRepositoryEntriesForBGContext(bgContexts, RepositoryEntry.ACC_USERS, false, false, false, identity);
-		allRepoEntries.addAll(repoEntriesRightGroup);
-		return allRepoEntries;
+	}
+	
+	private final boolean and(StringBuilder sb, boolean and) {
+		if(and) sb.append(" and ");
+		else sb.append(" where ");
+		return true;
+	}
+	
+	private void appendOrderBy(StringBuilder sb, String var, RepositoryEntryOrder... orderby) {
+		if(orderby != null && orderby.length > 0) {
+			sb.append(" order by ");
+			for(RepositoryEntryOrder o:orderby) {
+				switch(o) {
+					case nameAsc: sb.append(var).append(".key asc").append(","); break;
+					case nameDesc: sb.append(var).append(".key desc").append(","); break;
+				}
+			}
+			sb.append(var).append(".key asc");
+		}
+	}
+	
+	public boolean isIdentityInTutorSecurityGroup(Identity identity, OLATResource resource) {
+		StringBuilder sb = new StringBuilder(400);
+		sb.append("select count(v) from ").append(RepositoryEntry.class.getName()).append(" v ")
+			.append(" inner join v.tutorGroup as tutorGroup")
+			.append(" where v.olatResource.key=:resourceKey")
+			.append(" and tutorGroup in (select sgmsi.securityGroup from ").append(SecurityGroupMembershipImpl.class.getName()).append(" sgmsi where sgmsi.identity.key=:identityKey)");
+
+		Number count = dbInstance.getCurrentEntityManager()
+				.createQuery(sb.toString(), Number.class)
+				.setParameter("identityKey", identity.getKey())
+				.setParameter("resourceKey", resource.getKey())
+				.setHint("org.hibernate.cacheable", Boolean.TRUE)
+				.getSingleResult();
+		return count.intValue() > 0;
+	}
+	
+	public boolean isIdentityInParticipantSecurityGroup(Identity identity, OLATResource resource) {
+		StringBuilder sb = new StringBuilder(400);
+		sb.append("select count(v) from ").append(RepositoryEntry.class.getName()).append(" v ")
+			.append(" inner join v.participantGroup as participantGroup")
+			.append(" where v.olatResource.key=:resourceKey")
+			.append(" and participantGroup in (select sgmsi.securityGroup from ").append(SecurityGroupMembershipImpl.class.getName()).append(" sgmsi where sgmsi.identity.key=:identityKey)");
+
+		Number count = dbInstance.getCurrentEntityManager()
+				.createQuery(sb.toString(), Number.class)
+				.setParameter("identityKey", identity.getKey())
+				.setParameter("resourceKey", resource.getKey())
+				.setHint("org.hibernate.cacheable", Boolean.TRUE)
+				.getSingleResult();
+		return count.intValue() > 0;
 	}
 }

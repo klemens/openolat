@@ -31,6 +31,7 @@ import org.olat.basesecurity.BaseSecurity;
 import org.olat.basesecurity.BaseSecurityManager;
 import org.olat.basesecurity.Constants;
 import org.olat.basesecurity.SecurityGroup;
+import org.olat.core.commons.persistence.DBFactory;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.Component;
 import org.olat.core.gui.components.link.Link;
@@ -122,6 +123,7 @@ public class ImportReferencesController extends BasicController {
 	private Link reattachButton;
 	private Link noopButton;
 	private Link continueButton;
+	private Link importYesModeButton;
 	private RepositorySearchController searchController;
 	private RepositoryEntryImportExport importExport;
 	private DetailsReadOnlyForm repoDetailsForm;
@@ -138,6 +140,7 @@ public class ImportReferencesController extends BasicController {
 		importButton = LinkFactory.createButton("import.import.action", main, this);
 		reattachButton = LinkFactory.createButton("import.reattach.action", main, this);
 		noopButton = LinkFactory.createButton("import.noop.action", main, this);
+		importYesModeButton = LinkFactory.createButton("import.yesmode.action", main, this);
 		
 		main.contextPut("nodename", node.getShortTitle());
 		main.contextPut("type", translator.translate("node." + node.getType()));
@@ -148,6 +151,19 @@ public class ImportReferencesController extends BasicController {
 		mainPanel.setContent(main);
 
 		putInitialPanel(mainPanel);
+	}
+	
+	public void importWithoutAsking (UserRequest ureq) {
+		//isolate the transaction
+		try {
+			DBFactory.getInstance().commitAndCloseSession();
+		} catch (Exception e) {
+			logError("", e);
+		}
+		
+		event (ureq, importButton, Event.DONE_EVENT);
+		fireEvent(ureq, Event.DONE_EVENT);
+		DBFactory.getInstance().commitAndCloseSession();
 	}
 
 	/**
@@ -185,7 +201,7 @@ public class ImportReferencesController extends BasicController {
 			}
 			removeAsListenerAndDispose(searchController);
 			searchController = new RepositorySearchController(translator.translate("command.linkresource"), ureq, getWindowControl(), true,
-					false, type);
+					false, false, type);
 			listenTo(searchController);
 			searchController.doSearchByOwnerLimitType(ureq.getIdentity(), type);
 			// brasato:: check in gui
@@ -224,7 +240,6 @@ public class ImportReferencesController extends BasicController {
 				default:
 					throw new AssertException("Declared import type is not supported.");
 			}
-			Translator repoTranslator = new PackageTranslator(Util.getPackageName(RepositoryManager.class), ureq.getLocale());
 			removeAsListenerAndDispose(repoDetailsForm);
 			repoDetailsForm = new DetailsReadOnlyForm(ureq, getWindowControl(), importedRepositoryEntry, typeName, false);
 			listenTo(repoDetailsForm);
@@ -262,6 +277,8 @@ public class ImportReferencesController extends BasicController {
 			fireEvent(ureq, Event.DONE_EVENT);
 		} else if (source == continueButton){
 			fireEvent(ureq, Event.DONE_EVENT);
+		} else if (source == importYesModeButton) {
+			fireEvent(ureq, new Event("importYesMode"));
 		}
 	}
 
@@ -277,6 +294,8 @@ public class ImportReferencesController extends BasicController {
 	 */
 	public static RepositoryEntry doImport(RepositoryEntryImportExport importExport, CourseNode node, int importMode, boolean keepSoftkey,
 			Identity owner) {
+		DBFactory.getInstance().commitAndCloseSession();
+		
 		File fExportedFile = importExport.importGetExportedFile();
 		FileResource fileResource = null;
 		try {
@@ -289,6 +308,8 @@ public class ImportReferencesController extends BasicController {
 				return null;
 			}
 		}
+		
+		DBFactory.getInstance().commitAndCloseSession();
 
 		// create repository entry
 		RepositoryManager rm = RepositoryManager.getInstance();

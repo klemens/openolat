@@ -32,6 +32,7 @@ import java.util.Locale;
 
 import org.olat.basesecurity.BaseSecurityManager;
 import org.olat.core.gui.UserRequest;
+import org.olat.core.gui.components.stack.StackedController;
 import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.WindowControl;
 import org.olat.core.gui.control.generic.messages.MessageUIFactory;
@@ -53,6 +54,7 @@ import org.olat.course.condition.interpreter.ConditionInterpreter;
 import org.olat.course.editor.CourseEditorEnv;
 import org.olat.course.editor.NodeEditController;
 import org.olat.course.editor.StatusDescription;
+import org.olat.course.export.CourseEnvironmentMapper;
 import org.olat.course.nodes.wiki.WikiEditController;
 import org.olat.course.nodes.wiki.WikiRunController;
 import org.olat.course.repository.ImportReferencesController;
@@ -92,12 +94,24 @@ public class WikiCourseNode extends AbstractAccessableCourseNode {
 			config.setConfigurationVersion(1);
 		}
 	}
+	
+	@Override
+	public void postImport(CourseEnvironmentMapper envMapper) {
+		super.postImport(envMapper);
+		postImportCondition(preConditionEdit, envMapper);
+	}
+
+	@Override
+	public void postExport(CourseEnvironmentMapper envMapper, boolean backwardsCompatible) {
+		super.postExport(envMapper, backwardsCompatible);
+		postExportCondition(preConditionEdit, envMapper, backwardsCompatible);
+	}
 
 	/**
 	 * @see org.olat.course.nodes.CourseNode#createEditController(org.olat.core.gui.UserRequest,
 	 *      org.olat.core.gui.control.WindowControl, org.olat.course.ICourse)
 	 */
-	public TabbableController createEditController(UserRequest ureq, WindowControl wControl, ICourse course,UserCourseEnvironment euce) {
+	public TabbableController createEditController(UserRequest ureq, WindowControl wControl, StackedController stackPanel, ICourse course,UserCourseEnvironment euce) {
 		WikiEditController childTabCntrllr = new WikiEditController(getModuleConfiguration(), ureq, wControl, this, course,euce);
 		CourseNode chosenNode = course.getEditorTreeModel().getCourseNode(euce.getCourseEditorEnv().getCurrentCourseNodeId());
 		return new NodeEditController(ureq, wControl, course.getEditorTreeModel(), course, chosenNode, course.getCourseEnvironment()

@@ -64,7 +64,8 @@ public class MailNotificationEditController extends BasicController {
 	 * @param mailTemplate
 	 * @param useCancel
 	 */
-	public MailNotificationEditController(WindowControl wControl, UserRequest ureq, MailTemplate mailTemplate, boolean useCancel) {
+	public MailNotificationEditController(WindowControl wControl, UserRequest ureq, MailTemplate mailTemplate,
+			boolean useCancel, boolean mandatory) {
 		super(ureq, wControl);
 		this.mailTemplate = mailTemplate;
 		orgMailSubject = mailTemplate.getSubjectTemplate();
@@ -72,7 +73,7 @@ public class MailNotificationEditController extends BasicController {
 		cpFrom = mailTemplate.getCpfrom();
 		
 		mainVC = createVelocityContainer("mailnotification");
-		mailForm = new MailTemplateForm(ureq, wControl, mailTemplate, useCancel);
+		mailForm = new MailTemplateForm(ureq, wControl, mailTemplate, useCancel, mandatory);
 		listenTo(mailForm);
 		
 		mainVC.put("mailForm", mailForm.getInitialComponent());
@@ -97,6 +98,10 @@ public class MailNotificationEditController extends BasicController {
 			}
 		}
 	}
+	
+	public boolean isSendMail() {
+		return mailForm.sendMailSwitchEnabled();
+	}
 
 	/**
 	 * @return The mail template containing the configured mail or null if user
@@ -108,6 +113,14 @@ public class MailNotificationEditController extends BasicController {
 		} else {
 			return null;
 		}
+	}
+	
+	/**
+	 * Return the current template, always
+	 * @return
+	 */
+	public MailTemplate getTemplate() {
+		return mailTemplate;
 	}
 	
 	/**

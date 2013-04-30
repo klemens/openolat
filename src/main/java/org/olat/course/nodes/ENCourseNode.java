@@ -29,6 +29,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import org.olat.core.gui.UserRequest;
+import org.olat.core.gui.components.stack.StackedController;
 import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.WindowControl;
 import org.olat.core.gui.control.generic.messages.MessageUIFactory;
@@ -42,6 +43,7 @@ import org.olat.course.condition.ConditionEditController;
 import org.olat.course.editor.CourseEditorEnv;
 import org.olat.course.editor.NodeEditController;
 import org.olat.course.editor.StatusDescription;
+import org.olat.course.export.CourseEnvironmentMapper;
 import org.olat.course.nodes.en.ENEditController;
 import org.olat.course.nodes.en.ENRunController;
 import org.olat.course.properties.CoursePropertyManager;
@@ -89,9 +91,15 @@ public class ENCourseNode extends AbstractAccessableCourseNode {
 
 	/** CONFIG_GROUPNAME configuration parameter key. */
 	public static final String CONFIG_GROUPNAME = "groupname";
+	/** CONFIG_GROUPNAME configuration parameter key. */
+	public static final String CONFIG_GROUP_IDS = "groupkeys";
 	
 	/** CONFIG_AREANAME configuration parameter key. */
 	public static final String CONFIG_AREANAME = "areaname";
+	/** CONFIG_AREANAME configuration parameter key. */
+	public static final String CONFIG_AREA_IDS = "areakeys";
+	
+	
 	
 	/** CONF_CANCEL_ENROLL_ENABLED configuration parameter key. */
 	public static final String CONF_CANCEL_ENROLL_ENABLED = "cancel_enroll_enabled";
@@ -110,7 +118,8 @@ public class ENCourseNode extends AbstractAccessableCourseNode {
 	 * @see org.olat.course.nodes.CourseNode#createEditController(org.olat.core.gui.UserRequest,
 	 *      org.olat.core.gui.control.WindowControl, org.olat.course.ICourse)
 	 */
-	public TabbableController createEditController(UserRequest ureq, WindowControl wControl, ICourse course, UserCourseEnvironment euce) {
+	@Override
+	public TabbableController createEditController(UserRequest ureq, WindowControl wControl, StackedController stackPanel, ICourse course, UserCourseEnvironment euce) {
 		migrateConfig();
 		ENEditController childTabCntrllr = new ENEditController(getModuleConfiguration(), ureq, wControl, this, course, euce);
 		CourseNode chosenNode = course.getEditorTreeModel().getCourseNode(euce.getCourseEditorEnv().getCurrentCourseNodeId());
@@ -252,6 +261,58 @@ public class ENCourseNode extends AbstractAccessableCourseNode {
 		config.set(CONF_CANCEL_ENROLL_ENABLED, Boolean.TRUE);
     config.setConfigurationVersion(CURRENT_CONFIG_VERSION);
 	}
+	
+	@Override
+	public void postImport(CourseEnvironmentMapper envMapper) {
+		super.postImport(envMapper);
+		
+		ModuleConfiguration mc = getModuleConfiguration();
+		String groupNames = (String)mc.get(ENCourseNode.CONFIG_GROUPNAME);
+		@SuppressWarnings("unchecked")
+		List<Long> groupKeys = (List<Long>) mc.get(ENCourseNode.CONFIG_GROUP_IDS);
+		if(groupKeys == null) {
+			groupKeys = envMapper.toGroupKeyFromOriginalNames(groupNames);
+		} else {
+			groupKeys = envMapper.toGroupKeyFromOriginalKeys(groupKeys);
+		}
+		mc.set(ENCourseNode.CONFIG_GROUP_IDS, groupKeys);
+	
+		String areaNames = (String)mc.get(ENCourseNode.CONFIG_AREANAME);
+		@SuppressWarnings("unchecked")
+		List<Long> areaKeys = (List<Long>) mc.get(ENCourseNode.CONFIG_AREA_IDS);
+		if(areaKeys == null) {
+			areaKeys = envMapper.toGroupKeyFromOriginalNames(areaNames);
+		} else {
+			areaKeys = envMapper.toAreaKeyFromOriginalKeys(groupKeys);
+		}
+		mc.set(ENCourseNode.CONFIG_AREA_IDS, areaKeys);
+	}
+
+	@Override
+	public void postExport(CourseEnvironmentMapper envMapper, boolean backwardsCompatible) {
+		super.postExport(envMapper, backwardsCompatible);
+
+		ModuleConfiguration mc = getModuleConfiguration();
+		@SuppressWarnings("unchecked")
+		List<Long> groupKeys = (List<Long>) mc.get(ENCourseNode.CONFIG_GROUP_IDS);
+		if(groupKeys != null) {
+			String groupNames = envMapper.toGroupNames(groupKeys);
+			mc.set(ENCourseNode.CONFIG_GROUPNAME, groupNames);
+		}
+
+		@SuppressWarnings("unchecked")
+		List<Long> areaKeys = (List<Long>) mc.get(ENCourseNode.CONFIG_AREA_IDS);
+		if(areaKeys != null ) {
+			String areaNames = envMapper.toAreaNames(areaKeys);
+			mc.set(ENCourseNode.CONFIG_AREANAME, areaNames);
+		}
+		
+		if(backwardsCompatible) {
+			mc.remove(ENCourseNode.CONFIG_GROUP_IDS);
+			mc.remove(ENCourseNode.CONFIG_AREA_IDS);
+		}
+	}
+	
 	/**
 	 * Migrate (add new config parameter/values) config parameter for a existing course node.
 	 */

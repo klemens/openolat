@@ -36,7 +36,6 @@ import org.olat.core.gui.control.generic.layout.MainLayoutController;
 import org.olat.core.id.Identity;
 import org.olat.core.id.OLATResourceable;
 import org.olat.core.logging.AssertException;
-import org.olat.core.logging.activity.StringResourceableType;
 import org.olat.core.logging.activity.ThreadLocalUserActivityLogger;
 import org.olat.core.util.coordinate.LockResult;
 import org.olat.fileresource.FileResourceManager;
@@ -61,7 +60,7 @@ public class SCORMCPHandler extends FileHandler implements RepositoryHandler {
 	private static final boolean DOWNLOADEABLE = true;
 	private static final boolean EDITABLE = false;
 	private static final boolean WIZARD_SUPPORT = false;
-	private static final List supportedTypes;
+	private static final List<String> supportedTypes;
 	
 	/**
 	 * 
@@ -71,14 +70,14 @@ public class SCORMCPHandler extends FileHandler implements RepositoryHandler {
 	}
 
 	static { // initialize supported types
-		supportedTypes = new ArrayList(1);
+		supportedTypes = new ArrayList<String>(1);
 		supportedTypes.add(ScormCPFileResource.TYPE_NAME);
 	}
 	
 	/**
 	 * @see org.olat.repository.handlers.RepositoryHandler#getSupportedTypes()
 	 */
-	public List getSupportedTypes() {
+	public List<String> getSupportedTypes() {
 		return supportedTypes;
 	}
 
@@ -109,15 +108,15 @@ public class SCORMCPHandler extends FileHandler implements RepositoryHandler {
 	/**
 	 * @see org.olat.repository.handlers.RepositoryHandler#getLaunchController(org.olat.core.id.OLATResourceable java.lang.String, org.olat.core.gui.UserRequest, org.olat.core.gui.control.WindowControl)
 	 */
-	public MainLayoutController createLaunchController(OLATResourceable res, String initialViewIdentifier, UserRequest ureq, WindowControl wControl) {
+	public MainLayoutController createLaunchController(OLATResourceable res, UserRequest ureq, WindowControl wControl) {
 		File cpRoot = FileResourceManager.getInstance().unzipFileResource(res);
-		//Controller realController = new ScormAPIandDisplayController(ureq, wControl, true, null, cpRoot, res.getResourceableId().toString(), null, "browse", "no-credit");
 		RepositoryEntry re = RepositoryManager.getInstance().lookupRepositoryEntry(res, false);
 		if (re!=null) {
 			ThreadLocalUserActivityLogger.addLoggingResourceInfo(LoggingResourceable.wrapScormRepositoryEntry(re));
 		}
 		//fxdiff FXOLAT-116: SCORM improvements
-		MainLayoutController realController = ScormMainManager.getInstance().createScormAPIandDisplayController(ureq, wControl, true, null, cpRoot, res.getResourceableId().toString(), null, "browse", "no-credit", false, false, false);
+		MainLayoutController realController = ScormMainManager.getInstance().createScormAPIandDisplayController(ureq, wControl, true, null, cpRoot,
+				res.getResourceableId().toString(), null, "browse", "no-credit", false, null, false, false, false);
 		//fxdiff VCRP-1: access control of learn resources
 		RepositoryMainAccessControllerWrapper wrapper = new RepositoryMainAccessControllerWrapper(ureq, wControl, res, realController);
 		return wrapper; 

@@ -25,6 +25,8 @@
 
 package org.olat.course.nodes.wiki;
 
+import java.util.List;
+
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.Windows;
 import org.olat.core.gui.components.Component;
@@ -43,6 +45,8 @@ import org.olat.core.gui.control.generic.dtabs.DTabs;
 import org.olat.core.gui.control.generic.tabbable.ActivateableTabbableDefaultController;
 import org.olat.core.id.Identity;
 import org.olat.core.id.OLATResourceable;
+import org.olat.core.id.context.BusinessControlFactory;
+import org.olat.core.id.context.ContextEntry;
 import org.olat.core.logging.AssertException;
 import org.olat.core.util.notifications.SubscriptionContext;
 import org.olat.course.ICourse;
@@ -120,10 +124,11 @@ public class WikiEditController extends ActivateableTabbableDefaultController im
 		
 		main = new Panel("wikimain");
 		
-		content = this.createVelocityContainer("edit");
-		/*previewButton = LinkFactory.createButtonSmall("command.preview", content, this);*/
+		content = createVelocityContainer("edit");
 		chooseButton = LinkFactory.createButtonSmall("command.create", content, this);
+		chooseButton.setElementCssClass("o_sel_wiki_choose_repofile");
 		changeButton = LinkFactory.createButtonSmall("command.change", content, this);
+		changeButton.setElementCssClass("o_sel_wiki_choose_repofile");
 				
 		editAccessVc = this.createVelocityContainer("edit_access");
 		CourseGroupManager groupMgr = course.getCourseEnvironment().getCourseGroupManager();
@@ -224,15 +229,16 @@ public class WikiEditController extends ActivateableTabbableDefaultController im
 					return;
 				}
 				//user activity logger is set by course factory
-				Controller editorController = typeToEdit.createLaunchController(ores, null, ureq, dt.getWindowControl());
+				Controller editorController = typeToEdit.createLaunchController(ores, ureq, dt.getWindowControl());
 				if(editorController == null){
 					//editor could not be created -> warning is shown
 					return;
 				}
 				dt.setController(editorController);
-				dts.addDTab(dt);
+				dts.addDTab(ureq, dt);
 			}
-			dts.activate(ureq, dt, RepositoryDetailsController.ACTIVATE_EDITOR);
+			List<ContextEntry> entries = BusinessControlFactory.getInstance().createCEListFromResourceType(RepositoryDetailsController.ACTIVATE_EDITOR);
+			dts.activate(ureq, dt, entries);
 		}
 
 	}

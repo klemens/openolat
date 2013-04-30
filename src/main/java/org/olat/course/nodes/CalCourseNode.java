@@ -24,6 +24,7 @@ import java.util.List;
 import java.util.Locale;
 
 import org.olat.core.gui.UserRequest;
+import org.olat.core.gui.components.stack.StackedController;
 import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.WindowControl;
 import org.olat.core.gui.control.generic.tabbable.TabbableController;
@@ -34,6 +35,7 @@ import org.olat.course.condition.interpreter.ConditionInterpreter;
 import org.olat.course.editor.CourseEditorEnv;
 import org.olat.course.editor.NodeEditController;
 import org.olat.course.editor.StatusDescription;
+import org.olat.course.export.CourseEnvironmentMapper;
 import org.olat.course.nodes.cal.CalEditController;
 import org.olat.course.nodes.cal.CalRunController;
 import org.olat.course.nodes.cal.CourseCalendarPeekViewController;
@@ -83,12 +85,25 @@ public class CalCourseNode extends AbstractAccessableCourseNode {
 			}
 		}
 	}
+	
+	@Override
+	public void postImport(CourseEnvironmentMapper envMapper) {
+		super.postImport(envMapper);
+		postImportCondition(preConditionEdit, envMapper);
+	}
+
+	@Override
+	public void postExport(CourseEnvironmentMapper envMapper, boolean backwardsCompatible) {
+		super.postExport(envMapper, backwardsCompatible);
+		postExportCondition(preConditionEdit, envMapper, backwardsCompatible);
+	}
 
 	/**
 	 * @see org.olat.course.nodes.CourseNode#createEditController(org.olat.core.gui.UserRequest,
 	 *      org.olat.core.gui.control.WindowControl, org.olat.course.ICourse)
 	 */
-	public TabbableController createEditController(UserRequest ureq, WindowControl wControl, ICourse course, UserCourseEnvironment euce) {
+	@Override
+	public TabbableController createEditController(UserRequest ureq, WindowControl wControl, StackedController stackPanel, ICourse course, UserCourseEnvironment euce) {
 		updateModuleConfigDefaults(false);
 		CalEditController childTabCntrllr = new CalEditController(getModuleConfiguration(), ureq, wControl, this, course, euce);
 		CourseNode chosenNode = course.getEditorTreeModel().getCourseNode(euce.getCourseEditorEnv().getCurrentCourseNodeId());
@@ -152,14 +167,6 @@ public class CalCourseNode extends AbstractAccessableCourseNode {
 	 */
 	public boolean needsReferenceToARepositoryEntry() {
 		return false;
-	}
-
-	/**
-	 * @see org.olat.course.nodes.GenericCourseNode#exportNode(java.io.File,
-	 *      org.olat.course.ICourse)
-	 */
-	public void exportNode(File exportDirectory, ICourse course) {
-	//
 	}
 
 	/**

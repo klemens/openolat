@@ -31,6 +31,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import org.olat.core.id.Identity;
 import org.olat.core.logging.AssertException;
 import org.olat.course.nodes.iq.IQEditController;
 import org.olat.ims.qti.container.AssessmentContext;
@@ -38,6 +39,7 @@ import org.olat.ims.qti.container.SectionContext;
 import org.olat.ims.qti.navigator.MenuItemNavigator;
 import org.olat.ims.qti.navigator.MenuSectionNavigator;
 import org.olat.ims.qti.navigator.Navigator;
+import org.olat.ims.qti.navigator.NavigatorDelegate;
 import org.olat.ims.qti.navigator.SequentialItemNavigator;
 import org.olat.ims.qti.navigator.SequentialSectionNavigator;
 import org.olat.modules.ModuleConfiguration;
@@ -54,7 +56,12 @@ public class AssessmentInstance implements Serializable {
 	private long assessID; // the key given to this instance by the constructor; identifying the assessment within the olat context; needed after deserialisation to find the correct qti tree
 	private long repositoryEntryKey; // the key to a repository entry
 	private Navigator navigator; // optimise: make transient
+	
+	private long callingResId;
+	private String callingResDetail;
 	private List sourceBankRefs;
+	private String remoteAddr;
+	private Identity assessedIdentity;
 	
 	private AssessmentContext assessmentContext;
 	
@@ -132,7 +139,12 @@ public class AssessmentInstance implements Serializable {
 	 * @param persistor the Persistor, may be null
 	 * @param modConfig
 	 */
-	public AssessmentInstance(long repositoryEntryKey, long assessID, Resolver resolver, Persister persistor, ModuleConfiguration modConfig) {
+	public AssessmentInstance(Identity identity, String remoteAddr, long repositoryEntryKey, long assessID, long callingResId, String callingResDetail,
+			Resolver resolver, Persister persistor, ModuleConfiguration modConfig, NavigatorDelegate delegate) {
+		this.assessedIdentity = identity;
+		this.remoteAddr = remoteAddr;
+		this.callingResId = callingResId;
+		this.callingResDetail = callingResDetail;
 		this.repositoryEntryKey = repositoryEntryKey;
 		this.assessID = assessID;
 		this.resolver = resolver;
@@ -200,7 +212,39 @@ public class AssessmentInstance implements Serializable {
 		
 		assessmentContext = new AssessmentContext();
 		assessmentContext.setUp(this);
-		createNavigator();
+		createNavigator(delegate);
+	}
+
+	public Identity getAssessedIdentity() {
+		return assessedIdentity;
+	}
+	
+	public void setAssessedIdentity(Identity assessedIdentity) {
+		this.assessedIdentity = assessedIdentity;
+	}
+
+	public String getRemoteAddr() {
+		return remoteAddr;
+	}
+
+	public void setRemoteAddr(String remoteAddr) {
+		this.remoteAddr = remoteAddr;
+	}
+
+	public long getCallingResId() {
+		return callingResId;
+	}
+	
+	public void setCallingResId(long callingResId) {
+		this.callingResId = callingResId;
+	}
+	
+	public String getCallingResDetail() {
+		return callingResDetail;
+	}
+	
+	public void setCallingResDetail(String callingResDetail) {
+		this.callingResDetail = callingResDetail;
 	}
 
 	public int getType() { return type; }
@@ -231,21 +275,21 @@ public class AssessmentInstance implements Serializable {
 	public boolean isSelfAssess() { return type == TYPE_SELF;	}
 	public boolean isSurvey() { return type == TYPE_SURVEY;	}
 	
-	private void createNavigator() {
+	private void createNavigator(NavigatorDelegate delegate) {
 		if (menu) {
 			if (sequence == SEQUENCE_SECTION) {
-				navigator = new MenuSectionNavigator(this);
+				navigator = new MenuSectionNavigator(this, delegate);
 			} 
 			else {
-				navigator = new MenuItemNavigator(this);
+				navigator = new MenuItemNavigator(this, delegate);
 			}
 		}
 		else { // not menu
 			if (sequence == SEQUENCE_SECTION) {
-				navigator = new SequentialSectionNavigator(this);
+				navigator = new SequentialSectionNavigator(this, delegate);
 			} 
 			else {
-				navigator = new SequentialItemNavigator(this);
+				navigator = new SequentialItemNavigator(this, delegate);
 			}
 		}
 	}
@@ -469,6 +513,12 @@ public class AssessmentInstance implements Serializable {
 	 */
 	public void setPreview(boolean b) {
 		preview = b;
+	}
+	
+	public void setDelegate(NavigatorDelegate delegate) {
+		if(navigator != null) {
+			navigator.setDelegate(delegate);
+		}
 	}
 	
 	/*

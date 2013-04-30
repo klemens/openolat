@@ -20,22 +20,29 @@
 package org.olat.admin.user.groups;
 
 import java.util.ArrayList;
-import java.util.HashMap;
+import java.util.Collections;
 import java.util.List;
-import java.util.Map;
-import java.util.Map.Entry;
 
+import org.olat.core.CoreSpringFactory;
+import org.olat.core.commons.persistence.PersistenceHelper;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.form.flexible.FormItem;
 import org.olat.core.gui.components.form.flexible.FormItemContainer;
+import org.olat.core.gui.components.form.flexible.elements.FlexiTableElment;
 import org.olat.core.gui.components.form.flexible.elements.FormLink;
 import org.olat.core.gui.components.form.flexible.elements.MultipleSelectionElement;
 import org.olat.core.gui.components.form.flexible.elements.TextElement;
 import org.olat.core.gui.components.form.flexible.impl.Form;
-import org.olat.core.gui.components.form.flexible.impl.FormBasicController;
 import org.olat.core.gui.components.form.flexible.impl.FormEvent;
 import org.olat.core.gui.components.form.flexible.impl.FormLayoutContainer;
+import org.olat.core.gui.components.form.flexible.impl.elements.FormSubmit;
+import org.olat.core.gui.components.form.flexible.impl.elements.MultipleSelectionElementImpl;
+import org.olat.core.gui.components.form.flexible.impl.elements.table.DefaultFlexiColumnModel;
+import org.olat.core.gui.components.form.flexible.impl.elements.table.FlexiTableColumnModel;
+import org.olat.core.gui.components.form.flexible.impl.elements.table.FlexiTableDataModel;
+import org.olat.core.gui.components.form.flexible.impl.elements.table.FlexiTableDataModelFactory;
 import org.olat.core.gui.components.link.Link;
+import org.olat.core.gui.components.table.DefaultTableDataModel;
 import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.WindowControl;
 import org.olat.core.gui.control.generic.wizard.StepFormBasicController;
@@ -44,7 +51,11 @@ import org.olat.core.gui.control.generic.wizard.StepsRunContext;
 import org.olat.core.gui.translator.Translator;
 import org.olat.core.util.StringHelper;
 import org.olat.core.util.Util;
-import org.olat.group.BusinessGroupManagerImpl;
+import org.olat.group.BusinessGroup;
+import org.olat.group.BusinessGroupService;
+import org.olat.group.model.AddToGroupsEvent;
+import org.olat.group.model.BGRepositoryEntryRelation;
+import org.olat.group.model.SearchBusinessGroupParams;
 import org.olat.group.ui.BusinessGroupTableModel;
 
 /**
@@ -59,27 +70,31 @@ import org.olat.group.ui.BusinessGroupTableModel;
 public class GroupSearchController extends StepFormBasicController {
 
 	private TextElement search;
-	private FormLink searchButton;
-	private FormLayoutContainer resTable;
-	private ArrayList<MultipleSelectionElement> parts;
-	private ArrayList<MultipleSelectionElement> mails;
-	private ArrayList<MultipleSelectionElement> owners;
+	private FormSubmit searchButton;
+	private FormLink saveLink, searchLink;
 	private FormItem errorComp;
+	private FormLayoutContainer tableCont;
+	private GroupTableDataModel tableDataModel;
+	
 	private String lastSearchValue;
+	
+	private final BusinessGroupService businessGroupService;
 
 	// constructor to be used like a normal FormBasicController
 	public GroupSearchController(UserRequest ureq, WindowControl wControl) {
-		super(ureq, wControl, FormBasicController.LAYOUT_VERTICAL);
+		super(ureq, wControl, LAYOUT_VERTICAL);
+		businessGroupService = CoreSpringFactory.getImpl(BusinessGroupService.class);
 		Translator pT = Util.createPackageTranslator(BusinessGroupTableModel.class, ureq.getLocale(), getTranslator());
-		this.flc.setTranslator(pT);
+		flc.setTranslator(pT);
 		initForm(ureq);
 	}	
 	
 	// constructor for use in steps-wizzard
 	public GroupSearchController(UserRequest ureq, WindowControl wControl, Form form, StepsRunContext stepsRunContext, int layoutVertical, String pageName) {
-		super(ureq, wControl, form, stepsRunContext, layoutVertical, pageName);
+		super(ureq, wControl, form, stepsRunContext, LAYOUT_VERTICAL, "resulttable");
+		businessGroupService = CoreSpringFactory.getImpl(BusinessGroupService.class);
 		Translator pT = Util.createPackageTranslator(BusinessGroupTableModel.class, ureq.getLocale(), getTranslator());
-		this.flc.setTranslator(pT);
+		flc.setTranslator(pT);
 		initForm(ureq);
 	}
 
@@ -90,29 +105,69 @@ public class GroupSearchController extends StepFormBasicController {
 	@Override
 	protected void initForm(FormItemContainer formLayout, Controller listener, UserRequest ureq) {
 		setFormDescription("group.search.description");
-		
+
 		search = uifactory.addTextElement("search.field", "search.field", 100, "", formLayout);
-		searchButton = uifactory.addFormLink("search", formLayout, Link.BUTTON_SMALL);
 		
-		resTable = FormLayoutContainer.createCustomFormLayout("resultsTable", getTranslator(), this.velocity_root	+ "/resulttable.html");
-		formLayout.add(resTable);
-		resTable.contextPut("bGM", BusinessGroupManagerImpl.getInstance());
+		if (isUsedInStepWizzard()) {
+			searchLink = uifactory.addFormLink("search", formLayout, Link.BUTTON);
+		} else {
+			searchButton = uifactory.addFormSubmitButton("search", formLayout);
+			uifactory.addSpacerElement("space", formLayout, false);
+		}
 		
-		if (!isUsedInStepWizzard()) uifactory.addSpacerElement("space", formLayout, false);
 		errorComp = uifactory.createSimpleErrorText("error", "");
 		formLayout.add(errorComp);
-		if (!isUsedInStepWizzard()) uifactory.addFormSubmitButton("save", formLayout);
-	}
 
+		tableCont = FormLayoutContainer.createCustomFormLayout("", getTranslator(), velocity_root + "/resulttable.html");
+		tableCont.setRootForm(mainForm);
+		formLayout.add(tableCont);
+
+		//group rights
+		FlexiTableColumnModel tableColumnModel = FlexiTableDataModelFactory.createFlexiTableColumnModel();
+		tableColumnModel.addFlexiColumnModel(new DefaultFlexiColumnModel(Cols.groupName.i18n()));
+		tableColumnModel.addFlexiColumnModel(new DefaultFlexiColumnModel(Cols.description.i18n()));
+		tableColumnModel.addFlexiColumnModel(new DefaultFlexiColumnModel(Cols.courses.i18n()));
+		tableColumnModel.addFlexiColumnModel(new DefaultFlexiColumnModel(Cols.tutor.i18n()));
+		tableColumnModel.addFlexiColumnModel(new DefaultFlexiColumnModel(Cols.participant.i18n()));
+		
+		tableDataModel = new GroupTableDataModel(Collections.<GroupWrapper>emptyList(), tableColumnModel);
+		FlexiTableElment table = uifactory.addTableElement("groupList", tableDataModel, tableCont);
+		tableCont.add("groupList", table);
+		
+		if (!isUsedInStepWizzard()) {
+			saveLink = uifactory.addFormLink("save", formLayout, Link.BUTTON);
+		}
+	}
 	
+	/**
+	 * @see org.olat.core.gui.components.form.flexible.impl.FormBasicController#formOK(org.olat.core.gui.UserRequest)
+	 */
+	@Override
+	protected void formOK(UserRequest ureq) {
+		if(isUsedInStepWizzard()) {
+			doSave(ureq);//in wizard form OK == next
+		} else {
+			doSearchGroups(ureq);
+		}
+	}
 	
 	@Override
 	protected void formInnerEvent(UserRequest ureq, FormItem source, FormEvent event) {
-		if (source == searchButton || source == search) {
-			String searchValue = search.getValue();
-			doSearchGroups(searchValue, ureq);
-			lastSearchValue = searchValue;
+		if (source == searchButton || source == searchLink || source == search) {
+			doSearchGroups(ureq);
+		} else if(source == saveLink) {
+			if(validateFormLogic(ureq)) {
+				doSave(ureq);
+			}
+		} else {
+			super.formInnerEvent(ureq, source, event);
 		}
+	}
+	
+	private void doSearchGroups(UserRequest ureq) {
+		String searchValue = search.getValue();
+		doSearchGroups(searchValue, ureq);
+		lastSearchValue = searchValue;
 	}
 
 	/**
@@ -123,74 +178,82 @@ public class GroupSearchController extends StepFormBasicController {
 	 * @param ureq
 	 */
 	private void doSearchGroups(String searchValue, UserRequest ureq) {	
-		if (StringHelper.containsNonWhitespace(searchValue)){
-			GroupSearchResultProvider searchProvider = new GroupSearchResultProvider(ureq.getIdentity(), getLocale(), null);
-			Map<String, String> resMap = new HashMap<String, String>();
-			searchProvider.getAutoCompleteContent(searchValue, resMap);
-			updateResultTable(resMap);
+		if (StringHelper.containsNonWhitespace(searchValue)) {
+			SearchBusinessGroupParams param1s = new SearchBusinessGroupParams();
+			param1s.setNameOrDesc(searchValue);
+			List<BusinessGroup> group1s = businessGroupService.findBusinessGroups(param1s, null, 0, -1);
+
+			SearchBusinessGroupParams param2s = new SearchBusinessGroupParams();
+			param2s.setCourseTitle(searchValue);
+			List<BusinessGroup> group2s = businessGroupService.findBusinessGroups(param2s, null, 0, -1);
+
+			List<Long> groupKeysWithRelations = PersistenceHelper.toKeys(group1s);
+			groupKeysWithRelations.addAll(PersistenceHelper.toKeys(group2s));
+			List<BGRepositoryEntryRelation> resources = businessGroupService.findRelationToRepositoryEntries(groupKeysWithRelations, 0, -1);
+
+			List<GroupWrapper> groups = new ArrayList<GroupWrapper>();
+			for(BusinessGroup group:group1s) {
+				
+				StringBuilder sb = new StringBuilder();
+				for(BGRepositoryEntryRelation resource:resources) {
+					if(resource.getGroupKey().equals(group.getKey())) {
+						if(sb.length() > 0) sb.append(", ");
+						sb.append(resource.getRepositoryEntryDisplayName());
+					}
+				}
+
+				GroupWrapper wrapper = new GroupWrapper(group, sb.toString());
+				wrapper.setTutor(createSelection("tutor_" + group.getKey()));
+				wrapper.setParticipant(createSelection("participant_" + group.getKey()));
+				groups.add(wrapper);
+			}
+
+			tableDataModel.setObjects(groups);
 			errorComp.clearError();
 		}
 	} 
 	
-	private void updateResultTable(Map<String, String> resMap){		
-		owners = new ArrayList<MultipleSelectionElement>();
-		parts = new ArrayList<MultipleSelectionElement>();
-		mails = new ArrayList<MultipleSelectionElement>();
-		
-		for (Entry<String, String> entry : resMap.entrySet()) {			
-			// prepare checkboxes
-			String dummyLabel = "&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;";
-			MultipleSelectionElement owner = uifactory.addCheckboxesHorizontal("owner"+entry.getValue(), "", resTable, new String[]{entry.getValue()}, new String[]{dummyLabel}, new String[]{""});
-			MultipleSelectionElement part = uifactory.addCheckboxesHorizontal("part"+entry.getValue(), "", resTable, new String[]{entry.getValue()}, new String[]{dummyLabel}, new String[]{""});
-			MultipleSelectionElement mail = uifactory.addCheckboxesHorizontal("mail"+entry.getValue(), "", resTable, new String[]{entry.getValue()}, new String[]{dummyLabel}, new String[]{""});
-			owners.add(owner);
-			parts.add(part);
-			mails.add(mail);			
-		}		
-		resTable.contextPut("resMap", resMap);
+	private MultipleSelectionElement createSelection(String name) {
+		MultipleSelectionElement selection = new MultipleSelectionElementImpl(name, MultipleSelectionElementImpl.createVerticalLayout("checkbox",1));
+		selection.setKeysAndValues(new String[]{"on"}, new String[]{""}, null);
+		tableCont.add(name, selection);
+		return selection;
 	}
 
 	@Override
 	protected boolean validateFormLogic(UserRequest ureq) {
 		String searchValue = search.getValue();
-		if ((lastSearchValue == null && searchValue != null) || (lastSearchValue != null && !lastSearchValue.equals(searchValue))) {
+
+		if (isUsedInStepWizzard()) {
+			return true;
+		}
+		if ((lastSearchValue == null && StringHelper.containsNonWhitespace(searchValue))
+				|| (lastSearchValue != null && !lastSearchValue.equals(searchValue))) {
 			// User pressed enter in input field to search for groups, no group
 			// selected yet. Just search for groups that matches for this input
 			doSearchGroups(searchValue, ureq);
 			lastSearchValue = searchValue;
 			return false;
 		}
-		if (isUsedInStepWizzard()) return true;
 		errorComp.clearError();
 		boolean result = false;
-		List<String> ownerGroups = getCheckedKeys(owners);
-		List<String> partGroups = getCheckedKeys(parts);
-		result = (ownerGroups.size() !=0 || partGroups.size() != 0);
+		List<Long> ownerGroups = getCheckedTutorKeys();
+		List<Long> partGroups = getCheckedParticipantKeys();
+		result = (ownerGroups.size() > 0 || partGroups.size() > 0);
 		if (!result) {
 			errorComp.setErrorKey("error.choose.one", null);
 		}
 		return result;
 	}
-	
-	/**
-	 * @see org.olat.core.gui.components.form.flexible.impl.FormBasicController#formOK(org.olat.core.gui.UserRequest)
-	 */
-	@Override
-	protected void formOK(UserRequest ureq) {
-		List<String> ownerGroups = getCheckedKeys(owners);
-		List<Long> ownLong = convertStringToLongList(ownerGroups);
-		
-		List<String> partGroups = getCheckedKeys(parts);
-		List<Long> partLong = convertStringToLongList(partGroups);
-		
-		List<String> mailGroups = getCheckedKeys(mails);
-		List<Long> mailLong = convertStringToLongList(mailGroups);
+
+	private void doSave(UserRequest ureq) {
+		List<Long> ownerGroups = getCheckedTutorKeys();
+		List<Long> partGroups = getCheckedParticipantKeys();
 		
 		if (isUsedInStepWizzard()){
 			// might be used in wizzard during user import or user bulk change. allow next/finish according to previous steps.
-			addToRunContext("ownerGroups", ownLong);
-			addToRunContext("partGroups", partLong);
-			addToRunContext("mailGroups", mailLong);
+			addToRunContext("ownerGroups", ownerGroups);
+			addToRunContext("partGroups", partGroups);
 			boolean groupsChoosen = (ownerGroups.size() !=0 || partGroups.size() != 0);
 			boolean validImport = getFromRunContext("validImport") != null && ((Boolean) getFromRunContext("validImport"));
 			boolean validBulkChange = getFromRunContext("validChange") != null && ((Boolean) getFromRunContext("validChange"));
@@ -201,43 +264,141 @@ public class GroupSearchController extends StepFormBasicController {
 			addToRunContext("validChange",isValid );
 			fireEvent(ureq, StepsEvent.ACTIVATE_NEXT);
 		} else {
-			fireEvent(ureq, new AddToGroupsEvent(ownLong, partLong, mailLong));
-		}		
+			fireEvent(ureq, new AddToGroupsEvent(ownerGroups, partGroups));
+		}	
 	}
 
-	
-	private List<String> getCheckedKeys(List<MultipleSelectionElement> items){
-		List<String> selected = new ArrayList<String>();
-		if (items == null) return selected;
-		for (MultipleSelectionElement formItem : items) {
-			if (formItem.isSelected(0)) {
-				selected.add(formItem.getKey(0));
-			}		
+	private List<Long> getCheckedTutorKeys() {
+		List<Long> selected = new ArrayList<Long>();
+		for(GroupWrapper wrapper:tableDataModel.getObjects()) {
+			if(wrapper.getTutor().isSelected(0)) {
+				selected.add(wrapper.getGroupKey());
+			}
 		}
 		return selected;		
 	}
 	
-	private List<Long> convertStringToLongList(List<String> groups) {
-		List<Long> ownLong = new ArrayList<Long>();
-		if (groups == null || groups.isEmpty()) return ownLong;
-		for (String group : groups) {
-			Long key = null;
-			try {
-				key = Long.parseLong(group);
-			} catch (Exception e) {
-				// do nothing special
+	private List<Long> getCheckedParticipantKeys() {
+		List<Long> selected = new ArrayList<Long>();
+		for(GroupWrapper wrapper:tableDataModel.getObjects()) {
+			if(wrapper.getParticipant().isSelected(0)) {
+				selected.add(wrapper.getGroupKey());
 			}
-			if (key != null) ownLong.add(key);				
 		}
-		return ownLong;
+		return selected;		
 	}
 
-	/**
-	 * @see org.olat.core.gui.control.DefaultController#doDispose()
-	 */
 	@Override
 	protected void doDispose() {
 		// nothing
 	}
+	
+	private static class GroupWrapper {
+		private final Long groupKey;
+		private final String groupName;
+		private final String description;
+		private final String courses;
+		
+		private MultipleSelectionElement tutor;
+		private MultipleSelectionElement participant;
+		
+		public GroupWrapper(BusinessGroup group, String courses) {
+			groupKey = group.getKey();
+			groupName = group.getName();
+			description = group.getDescription();
+			this.courses = courses;
+		}
 
+		public Long getGroupKey() {
+			return groupKey;
+		}
+		
+		public String getGroupName() {
+			return groupName;
+		}
+		
+		public String getDescription() {
+			return description;
+		}
+		
+		public String getCourses() {
+			return courses;
+		}
+
+		public MultipleSelectionElement getTutor() {
+			return tutor;
+		}
+		
+		public void setTutor(MultipleSelectionElement tutor) {
+			this.tutor = tutor;
+		}
+		
+		public MultipleSelectionElement getParticipant() {
+			return participant;
+		}
+		
+		public void setParticipant(MultipleSelectionElement participant) {
+			this.participant = participant;
+		}
+	}
+	
+	private static class GroupTableDataModel extends DefaultTableDataModel<GroupWrapper> implements FlexiTableDataModel {
+		private FlexiTableColumnModel columnModel;
+		
+		public GroupTableDataModel(List<GroupWrapper> options, FlexiTableColumnModel columnModel) {
+			super(options);
+			this.columnModel = columnModel;
+		}
+
+		@Override
+		public FlexiTableColumnModel getTableColumnModel() {
+			return columnModel;
+		}
+
+		@Override
+		public void setTableColumnModel(FlexiTableColumnModel tableColumnModel) {
+			columnModel = tableColumnModel;
+		}
+
+		@Override
+		public int getColumnCount() {
+			return columnModel.getColumnCount();
+		}
+
+		@Override
+		public Object getValueAt(int row, int col) {
+			GroupWrapper option = getObject(row);
+			switch(Cols.values()[col]) {
+				case groupName: return option.getGroupName();
+				case description: return option.getDescription();
+				case courses: return option.getCourses();
+				case tutor: return option.getTutor();
+				case participant: return option.getParticipant();
+				default: return option;
+			}
+		}
+
+		@Override
+		public GroupTableDataModel createCopyWithEmptyList() {
+			return new GroupTableDataModel(new ArrayList<GroupWrapper>(), columnModel);
+		}
+	}
+	
+	public static enum Cols {
+		groupName("table.group.name"),
+		description("description"),
+		courses("table.header.resources"),
+		tutor("table.group.add.tutor"),
+		participant("table.group.add.participant");
+		
+		private final String i18n;
+		
+		private Cols(String i18n) {
+			this.i18n = i18n;
+		}
+		
+		public String i18n() {
+			return i18n;
+		}
+	}
 }

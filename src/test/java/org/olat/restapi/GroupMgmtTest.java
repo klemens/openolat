@@ -48,6 +48,7 @@ import org.apache.http.client.methods.HttpDelete;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.methods.HttpPost;
 import org.apache.http.client.methods.HttpPut;
+import org.apache.http.util.EntityUtils;
 import org.codehaus.jackson.map.ObjectMapper;
 import org.codehaus.jackson.type.TypeReference;
 import org.junit.After;
@@ -66,12 +67,8 @@ import org.olat.core.logging.OLog;
 import org.olat.core.logging.Tracing;
 import org.olat.core.util.resource.OresHelper;
 import org.olat.group.BusinessGroup;
-import org.olat.group.BusinessGroupManager;
-import org.olat.group.BusinessGroupManagerImpl;
-import org.olat.group.context.BGContext;
-import org.olat.group.context.BGContextManager;
-import org.olat.group.context.BGContextManagerImpl;
-import org.olat.group.properties.BusinessGroupPropertyManager;
+import org.olat.group.BusinessGroupService;
+import org.olat.group.model.DisplayMembers;
 import org.olat.modules.fo.Forum;
 import org.olat.modules.fo.ForumManager;
 import org.olat.modules.fo.Message;
@@ -82,11 +79,13 @@ import org.olat.repository.RepositoryEntry;
 import org.olat.repository.RepositoryManager;
 import org.olat.resource.OLATResource;
 import org.olat.resource.OLATResourceManager;
+import org.olat.restapi.support.vo.GroupConfigurationVO;
 import org.olat.restapi.support.vo.GroupInfoVO;
 import org.olat.restapi.support.vo.GroupVO;
 import org.olat.test.JunitTestHelper;
 import org.olat.test.OlatJerseyTestCase;
 import org.olat.user.restapi.UserVO;
+import org.springframework.beans.factory.annotation.Autowired;
 
 /**
  * 
@@ -107,6 +106,9 @@ public class GroupMgmtTest extends OlatJerseyTestCase {
 	private OLATResource course;
 	private Message m1, m2, m3, m4, m5;
 	private RestConnection conn;
+	
+	@Autowired
+	private BusinessGroupService businessGroupService;
 	
 	/**
 	 * Set up a course with learn group and group area
@@ -157,22 +159,17 @@ public class GroupMgmtTest extends OlatJerseyTestCase {
 		DBFactory.getInstance().intermediateCommit();
 		
 		//create learn group
-
-    BGContextManager cm = BGContextManagerImpl.getInstance();
-    BusinessGroupManager bgm = BusinessGroupManagerImpl.getInstance();
     BaseSecurity secm = BaseSecurityManager.getInstance();
 		
     // 1) context one: learning groups
-    BGContext c1 = cm.createAndAddBGContextToResource("c1name-learn", course, BusinessGroup.TYPE_LEARNINGROUP, owner1, true);
+		RepositoryEntry c1 =  JunitTestHelper.createAndPersistRepositoryEntry();
     // create groups without waiting list
-    g1 = bgm.createAndPersistBusinessGroup(BusinessGroup.TYPE_LEARNINGROUP, null, "rest-g1", null, new Integer(0), new Integer(10), false, false, c1);
-    g2 = bgm.createAndPersistBusinessGroup(BusinessGroup.TYPE_LEARNINGROUP, null, "rest-g2", null, new Integer(0), new Integer(10), false, false, c1);
+    g1 = businessGroupService.createBusinessGroup(null, "rest-g1", null, 0, 10, false, false, c1);
+    g2 = businessGroupService.createBusinessGroup(null, "rest-g2", null, 0, 10, false, false, c1);
     
     //permission to see owners and participants
-    BusinessGroupPropertyManager bgpm1 = new BusinessGroupPropertyManager(g1);
-    bgpm1.updateDisplayMembers(false, false, false);
-    BusinessGroupPropertyManager bgpm2 = new BusinessGroupPropertyManager(g2);
-    bgpm2.updateDisplayMembers(true, true, false);
+    businessGroupService.updateDisplayMembers(g1, new DisplayMembers(false, false, false));
+    businessGroupService.updateDisplayMembers(g2, new DisplayMembers(true, true, false));
     
     // members g1
     secm.addIdentityToSecurityGroup(owner1, g1.getOwnerGroup());
@@ -186,10 +183,10 @@ public class GroupMgmtTest extends OlatJerseyTestCase {
     
     
     // 2) context two: right groups
-    BGContext c2 = cm.createAndAddBGContextToResource("c2name-area", course, BusinessGroup.TYPE_RIGHTGROUP, owner2, true);
+		RepositoryEntry c2 =  JunitTestHelper.createAndPersistRepositoryEntry();
     // groups
-    g3 = bgm.createAndPersistBusinessGroup(BusinessGroup.TYPE_RIGHTGROUP, null, "rest-g3", null, null, null, null/* enableWaitinglist */, null/* enableAutoCloseRanks */, c2);
-    g4 = bgm.createAndPersistBusinessGroup(BusinessGroup.TYPE_RIGHTGROUP, null, "rest-g4", null, null, null, null/* enableWaitinglist */, null/* enableAutoCloseRanks */, c2);
+    g3 = businessGroupService.createBusinessGroup(null, "rest-g3", null, -1, -1, false, false, c2);
+    g4 = businessGroupService.createBusinessGroup(null, "rest-g4", null, -1, -1, false, false, c2);
     // members
     secm.addIdentityToSecurityGroup(owner1, g3.getPartipiciantGroup());
     secm.addIdentityToSecurityGroup(owner2, g4.getPartipiciantGroup());
@@ -323,9 +320,7 @@ public class GroupMgmtTest extends OlatJerseyTestCase {
 		HttpGet method = conn.createGet(request, MediaType.APPLICATION_JSON, true);
 		HttpResponse response = conn.execute(method);
 		assertEquals(200, response.getStatusLine().getStatusCode());
-		InputStream body = response.getEntity().getContent();
-		
-		GroupVO vo = parse(body, GroupVO.class);
+		GroupVO vo = conn.parse(response, GroupVO.class);
 		assertNotNull(vo);
 		assertEquals(vo.getKey(), g1.getKey());
 	}
@@ -338,9 +333,7 @@ public class GroupMgmtTest extends OlatJerseyTestCase {
 		HttpGet method = conn.createGet(request, MediaType.APPLICATION_JSON, true);
 		HttpResponse response = conn.execute(method);
 		assertEquals(200, response.getStatusLine().getStatusCode());
-		InputStream body = response.getEntity().getContent();
-		
-		GroupInfoVO vo = parse(body, GroupInfoVO.class);
+		GroupInfoVO vo = conn.parse(response, GroupInfoVO.class);
 		assertNotNull(vo);
 		assertEquals(Boolean.TRUE, vo.getHasWiki());
 		assertEquals("<p>Hello world</p>", vo.getNews());
@@ -356,9 +349,7 @@ public class GroupMgmtTest extends OlatJerseyTestCase {
 		HttpGet method = conn.createGet(request, MediaType.APPLICATION_JSON, true);
 		HttpResponse response = conn.execute(method);
 		assertEquals(200, response.getStatusLine().getStatusCode());
-		InputStream body = response.getEntity().getContent();
-		
-		GroupInfoVO vo = parse(body, GroupInfoVO.class);
+		GroupInfoVO vo = conn.parse(response, GroupInfoVO.class);
 		assertNotNull(vo);
 		assertEquals(Boolean.FALSE, vo.getHasWiki());
 		assertNull(vo.getNews());
@@ -418,13 +409,94 @@ public class GroupMgmtTest extends OlatJerseyTestCase {
 		
 		HttpResponse response = conn.execute(method);
 		assertTrue(response.getStatusLine().getStatusCode() == 200 || response.getStatusLine().getStatusCode() == 201);
+		EntityUtils.consume(response.getEntity());
 		
-    BusinessGroupManager bgm = BusinessGroupManagerImpl.getInstance();
-    BusinessGroup bg = bgm.loadBusinessGroup(g1.getKey(), false);
+    BusinessGroup bg = businessGroupService.loadBusinessGroup(g1.getKey());
     assertNotNull(bg);
     assertEquals(bg.getKey(), vo.getKey());
     assertEquals(bg.getName(), "rest-g1-mod");
     assertEquals(bg.getDescription(), "rest-g1 description");
+	}
+	
+	@Test
+	public void testCreateCourseGroup() throws IOException, URISyntaxException {
+		assertTrue(conn.login("administrator", "openolat"));
+		
+		GroupVO vo = new GroupVO();
+		vo.setName("rest-g5-new");
+		vo.setDescription("rest-g5 description");
+		vo.setType("BuddyGroup");
+		
+		URI request = UriBuilder.fromUri(getContextURI()).path("groups").build();
+		HttpPut method = conn.createPut(request, MediaType.APPLICATION_JSON, true);
+		conn.addJsonEntity(method, vo);
+
+		HttpResponse response = conn.execute(method);
+		assertTrue(response.getStatusLine().getStatusCode() == 200 || response.getStatusLine().getStatusCode() == 201);
+		
+		GroupVO newGroupVo = conn.parse(response, GroupVO.class); 
+    assertNotNull(newGroupVo);
+
+    BusinessGroup bg = businessGroupService.loadBusinessGroup(newGroupVo.getKey());
+    assertNotNull(bg);
+    assertEquals(bg.getKey(), newGroupVo.getKey());
+    assertEquals(bg.getName(), "rest-g5-new");
+    assertEquals(bg.getDescription(), "rest-g5 description");
+	}
+	
+	@Test
+	public void testCreateCourseGroupWithConfiguration() throws IOException, URISyntaxException {
+		assertTrue(conn.login("administrator", "openolat"));
+		
+		//create the group
+		GroupVO vo = new GroupVO();
+		vo.setName("rest-g6-new");
+		vo.setDescription("rest-g6 description");
+		vo.setType("BuddyGroup");
+		URI request = UriBuilder.fromUri(getContextURI()).path("groups").build();
+		HttpPut method = conn.createPut(request, MediaType.APPLICATION_JSON, true);
+		conn.addJsonEntity(method, vo);
+
+		HttpResponse response = conn.execute(method);
+		assertTrue(response.getStatusLine().getStatusCode() == 200 || response.getStatusLine().getStatusCode() == 201);
+		GroupVO newGroupVo = conn.parse(response, GroupVO.class); 
+		assertNotNull(newGroupVo);
+		
+		//update the configuration
+		GroupConfigurationVO configVo = new GroupConfigurationVO();
+		configVo.setTools(new String[]{ "hasFolder", "hasNews" });
+		configVo.setOwnersVisible(Boolean.TRUE);
+		configVo.setParticipantsVisible(Boolean.FALSE);
+		URI configRequest = UriBuilder.fromUri(getContextURI()).path("groups").path(newGroupVo.getKey().toString()).path("configuration").build();
+		HttpPost configMethod = conn.createPost(configRequest, MediaType.APPLICATION_JSON, true);
+		conn.addJsonEntity(configMethod, configVo);
+		HttpResponse configResponse = conn.execute(configMethod);
+		assertTrue(configResponse.getStatusLine().getStatusCode() == 200 || configResponse.getStatusLine().getStatusCode() == 201);
+		EntityUtils.consume(configResponse.getEntity());
+
+		//check group
+
+		BusinessGroup bg = businessGroupService.loadBusinessGroup(newGroupVo.getKey());
+		assertNotNull(bg);
+		assertEquals(bg.getKey(), newGroupVo.getKey());
+		assertEquals(bg.getName(), "rest-g6-new");
+		assertEquals(bg.getDescription(), "rest-g6 description");
+		//check collaboration tools configuration
+		CollaborationTools tools = CollaborationToolsFactory.getInstance().getCollaborationToolsIfExists(bg);
+		assertNotNull(tools);
+		assertTrue(tools.isToolEnabled(CollaborationTools.TOOL_FOLDER));
+		assertTrue(tools.isToolEnabled(CollaborationTools.TOOL_NEWS));
+		assertFalse(tools.isToolEnabled(CollaborationTools.TOOL_CALENDAR));
+		assertFalse(tools.isToolEnabled(CollaborationTools.TOOL_CHAT));
+		assertFalse(tools.isToolEnabled(CollaborationTools.TOOL_CONTACT));
+		assertFalse(tools.isToolEnabled(CollaborationTools.TOOL_FORUM));
+		assertFalse(tools.isToolEnabled(CollaborationTools.TOOL_PORTFOLIO));
+		assertFalse(tools.isToolEnabled(CollaborationTools.TOOL_WIKI));
+		//check display members
+		DisplayMembers displayMembers = businessGroupService.getDisplayMembers(bg);
+		assertTrue(displayMembers.isShowOwners());
+		assertFalse(displayMembers.isShowParticipants());
+		assertFalse(displayMembers.isShowWaitingList());
 	}
 	
 	@Test
@@ -436,8 +508,7 @@ public class GroupMgmtTest extends OlatJerseyTestCase {
 		HttpResponse response = conn.execute(method);
 		assertEquals(200, response.getStatusLine().getStatusCode());
 		
-    BusinessGroupManager bgm = BusinessGroupManagerImpl.getInstance();
-    BusinessGroup bg = bgm.loadBusinessGroup(g1.getKey(), false);
+    BusinessGroup bg = businessGroupService.loadBusinessGroup(g1.getKey());
     assertNull(bg);
 	}
 	

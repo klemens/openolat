@@ -47,10 +47,10 @@ import org.olat.core.logging.OLog;
 import org.olat.core.logging.Tracing;
 import org.olat.core.util.Util;
 import org.olat.course.nodes.CourseNode;
-import org.olat.course.nodes.portfolio.PortfolioCourseNodeConfiguration;
 import org.olat.course.nodes.portfolio.PortfolioCourseNodeEditController;
 import org.olat.portfolio.EPTemplateMapResource;
 import org.olat.portfolio.manager.EPFrontendManager;
+import org.olat.portfolio.manager.EPXStreamHandler;
 import org.olat.portfolio.model.structel.EPStructuredMapTemplate;
 import org.olat.portfolio.model.structel.PortfolioStructure;
 import org.olat.portfolio.model.structel.PortfolioStructureMap;
@@ -60,7 +60,6 @@ import org.olat.repository.RepositoryEntryImportExport;
 import org.olat.repository.RepositoryManager;
 import org.olat.repository.RepositoryTableModel;
 import org.olat.repository.controllers.RepositorySearchController;
-import org.olat.repository.handlers.PortfolioHandler;
 import org.olat.repository.handlers.RepositoryHandler;
 import org.olat.repository.handlers.RepositoryHandlerFactory;
 import org.olat.resource.OLATResource;
@@ -87,6 +86,7 @@ public class ImportPortfolioReferencesController extends BasicController {
 	private Link noopButton;
 	private Link cancelButton;
 	private Link continueButton;
+	private Link importYesModeButton;
 	private RepositorySearchController searchController;
 	private RepositoryEntryImportExport importExport;
 	private DetailsReadOnlyForm repoDetailsForm;
@@ -103,7 +103,7 @@ public class ImportPortfolioReferencesController extends BasicController {
 		reattachButton = LinkFactory.createButton("import.reattach.action", main, this);
 		noopButton = LinkFactory.createButton("import.noop.action", main, this);
 		cancelButton = LinkFactory.createButton("cancel", main, this);
-		
+		importYesModeButton = LinkFactory.createButton("import.yesmode.action", main, this);
 		main.contextPut("nodename", node.getShortTitle());
 		main.contextPut("type", translate("node." + node.getType()));
 		main.contextPut("displayname", importExport.getDisplayName());
@@ -115,6 +115,11 @@ public class ImportPortfolioReferencesController extends BasicController {
 		putInitialPanel(mainPanel);
 	}
 
+	public void importWithoutAsking (UserRequest ureq) {
+		event (ureq, importButton, Event.DONE_EVENT);
+		fireEvent(ureq, Event.DONE_EVENT);
+	}
+	
 	/**
 	 * @see org.olat.core.gui.control.DefaultController#event(org.olat.core.gui.UserRequest,
 	 *      org.olat.core.gui.components.Component,
@@ -124,7 +129,7 @@ public class ImportPortfolioReferencesController extends BasicController {
 		if (source == reattachButton) {
 			String type = EPTemplateMapResource.TYPE_NAME;
 			searchController = new RepositorySearchController(translate("command.linkresource"), ureq, getWindowControl(), true,
-					false, type);
+					false, false, type);
 			searchController.addControllerListener(this);
 			searchController.doSearchByOwnerLimitType(ureq.getIdentity(), type);
 			mainPanel.setContent(searchController.getInitialComponent());
@@ -151,6 +156,8 @@ public class ImportPortfolioReferencesController extends BasicController {
 			fireEvent(ureq, Event.CANCELLED_EVENT);
 		} else if (source == continueButton){
 			fireEvent(ureq, Event.DONE_EVENT);
+		} else if (source == importYesModeButton) {
+			fireEvent(ureq, new Event("importYesMode"));
 		}
 	}
 
@@ -167,7 +174,7 @@ public class ImportPortfolioReferencesController extends BasicController {
 	public static RepositoryEntry doImport(RepositoryEntryImportExport importExport, CourseNode node, boolean keepSoftkey,
 			Identity owner) {
 		File fExportedFile = importExport.importGetExportedFile();
-		PortfolioStructure structure = PortfolioHandler.getAsObject(fExportedFile);
+		PortfolioStructure structure = EPXStreamHandler.getAsObject(fExportedFile, false);
 		if(structure == null) {
 			log.warn("Error adding portfolio map resource during repository reference import: " + importExport.getDisplayName());
 			return null;

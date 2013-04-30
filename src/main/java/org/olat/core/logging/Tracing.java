@@ -28,20 +28,22 @@ package org.olat.core.logging;
 
 import java.util.Collections;
 import java.util.Comparator;
-import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 import javax.servlet.http.HttpServletRequest;
 
 import org.apache.log4j.Level;
 import org.apache.log4j.LogManager;
 import org.apache.log4j.Logger;
+import org.olat.core.CoreSpringFactory;
 import org.olat.core.helpers.Settings;
 import org.olat.core.id.Identity;
 import org.olat.core.util.UserSession;
 import org.olat.core.util.WebappHelper;
+import org.olat.core.util.session.UserSessionManager;
 
 /**
  * This is the central place where all log information should pass.
@@ -105,7 +107,7 @@ public class Tracing {
 	private static long __performanceRefNum__ = 0;
 	
 	// VM local cache to have one logger object per class
-	private static final Map<Class, OLog> loggerLookupMap = new HashMap<Class, OLog>();
+	private static final Map<Class, OLog> loggerLookupMap = new ConcurrentHashMap<Class, OLog>();
 
 	/**
 	 * per-thread singleton holding the actual HttpServletRequest which is the
@@ -356,7 +358,7 @@ public class Tracing {
 		String userAgent = null;
 		String referer = null;
 		if (ureq != null) {
-			usess = UserSession.getUserSessionIfAlreadySet(ureq);
+			usess = CoreSpringFactory.getImpl(UserSessionManager.class).getUserSessionIfAlreadySet(ureq);
 			if (usess != null) {
 				identity = usess.getIdentity();
 				remoteIp = ureq.getRemoteAddr();
@@ -415,7 +417,7 @@ public class Tracing {
 		String userAgent = null;
 		String referer = null;
 		if (ureq != null) {
-			usess = UserSession.getUserSession(ureq);
+			usess = CoreSpringFactory.getImpl(UserSessionManager.class).getUserSession(ureq);
 			identity = usess.getIdentity();
 			remoteIp = ureq.getRemoteAddr();
 			userAgent = ureq.getHeader("User-Agent");

@@ -19,6 +19,7 @@
  */
 package org.olat.admin.user.bulkChange;
 
+import java.util.ArrayList;
 import java.util.List;
 
 import org.apache.commons.lang.StringEscapeUtils;
@@ -26,8 +27,6 @@ import org.olat.core.gui.components.table.DefaultTableDataModel;
 import org.olat.core.gui.translator.Translator;
 import org.olat.core.util.filter.FilterFactory;
 import org.olat.group.BusinessGroup;
-import org.olat.group.BusinessGroupManager;
-import org.olat.group.BusinessGroupManagerImpl;
 
 /**
  * 
@@ -38,21 +37,19 @@ import org.olat.group.BusinessGroupManagerImpl;
  * Initial Date:  09.05.2011 <br>
  * @author Roman Haag, frentix GmbH, roman.haag@frentix.com
  */
-public class GroupAddOverviewModel extends DefaultTableDataModel {
+public class GroupAddOverviewModel extends DefaultTableDataModel<BusinessGroup> {
 
 	private Translator translator;
 	private List<Long> mailGroupIDs;
 	private List<Long> ownGroupIDs;
 	private List<Long> partGroupIDs;
-	private BusinessGroupManager bGM;
 
-	public GroupAddOverviewModel(List<Long> allGroupIDs, List<Long> ownGroupIDs, List<Long> partGroupIDs, List<Long> mailGroups, Translator trans) {
+	public GroupAddOverviewModel(List<BusinessGroup> allGroupIDs, List<Long> ownGroupIDs, List<Long> partGroupIDs, List<Long> mailGroups, Translator trans) {
 		super(allGroupIDs);
 		this.translator = trans;
 		this.ownGroupIDs = ownGroupIDs;
 		this.partGroupIDs = partGroupIDs;
 		this.mailGroupIDs = mailGroups;
-		bGM = BusinessGroupManagerImpl.getInstance();
 	}
 
 	@Override
@@ -62,22 +59,19 @@ public class GroupAddOverviewModel extends DefaultTableDataModel {
 
 	@Override
 	public Object getValueAt(int row, int col) {
-		Long key = (Long) getObject(row);			
-		BusinessGroup group = bGM.loadBusinessGroup(key, false); 
+		BusinessGroup group = getObject(row);		
 		if (group == null) return "error";
+		Long key  =  group.getKey(); 
 		
 		switch (col) {
 			case 0: // name
 				String name = group.getName();
-				name = StringEscapeUtils.escapeHtml(name).toString();
-				return name; 
+				if(name == null) return "";
+				return StringEscapeUtils.escapeHtml(name);
 			case 1: // description
 				String desc = group.getDescription();
-				desc = FilterFactory.getHtmlTagAndDescapingFilter().filter(desc);
-				return desc;		
-			case 2: // type
-				return translator.translate(group.getType());	
-			case 3: // users role
+				return FilterFactory.getHtmlTagAndDescapingFilter().filter(desc);		
+			case 2: // users role
 				if(partGroupIDs.contains(key) && ownGroupIDs.contains(key)) {
 					return translator.translate("attende.and.owner");
 				}
@@ -87,7 +81,7 @@ public class GroupAddOverviewModel extends DefaultTableDataModel {
 				else if(ownGroupIDs.contains(key)) {
 					return translator.translate("owner");
 				}
-			case 4: // send email
+			case 3: // send email
 				if (mailGroupIDs.contains(key)){
 					return translator.translate("yes");
 				} else {
@@ -96,5 +90,10 @@ public class GroupAddOverviewModel extends DefaultTableDataModel {
 			default: 
 				return "error";
 		}
+	}
+
+	@Override
+	public GroupAddOverviewModel createCopyWithEmptyList() {
+		return new GroupAddOverviewModel(new ArrayList<BusinessGroup>(), ownGroupIDs, partGroupIDs, mailGroupIDs, translator);
 	}
 }

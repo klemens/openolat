@@ -28,7 +28,6 @@ package org.olat.course;
 import java.io.File;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
@@ -43,6 +42,7 @@ import org.olat.basesecurity.Constants;
 import org.olat.basesecurity.SecurityGroup;
 import org.olat.commons.calendar.CalendarManager;
 import org.olat.commons.calendar.CalendarManagerFactory;
+import org.olat.commons.calendar.notification.CalendarNotificationManager;
 import org.olat.commons.calendar.ui.components.KalendarRenderWrapper;
 import org.olat.core.CoreSpringFactory;
 import org.olat.core.commons.fullWebApp.LayoutMain3ColsController;
@@ -51,6 +51,7 @@ import org.olat.core.commons.modules.bc.vfs.OlatRootFolderImpl;
 import org.olat.core.commons.persistence.DBFactory;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.htmlheader.jscss.CustomCSS;
+import org.olat.core.gui.components.stack.StackedController;
 import org.olat.core.gui.components.tree.TreeNode;
 import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.WindowControl;
@@ -73,6 +74,7 @@ import org.olat.core.util.ObjectCloner;
 import org.olat.core.util.StringHelper;
 import org.olat.core.util.UserSession;
 import org.olat.core.util.Util;
+import org.olat.core.util.WebappHelper;
 import org.olat.core.util.ZipUtil;
 import org.olat.core.util.cache.n.CacheWrapper;
 import org.olat.core.util.coordinate.CoordinatorManager;
@@ -107,7 +109,6 @@ import org.olat.course.nodes.STCourseNode;
 import org.olat.course.nodes.TACourseNode;
 import org.olat.course.properties.CoursePropertyManager;
 import org.olat.course.properties.PersistingCoursePropertyManager;
-import org.olat.course.repository.ImportCourseController;
 import org.olat.course.repository.ImportGlossaryReferencesController;
 import org.olat.course.repository.ImportSharedfolderReferencesController;
 import org.olat.course.run.RunMainController;
@@ -129,9 +130,6 @@ import org.olat.resource.references.ReferenceManager;
 import org.olat.testutils.codepoints.server.Codepoint;
 import org.olat.util.logging.activity.LoggingResourceable;
 
-import de.bps.olat.util.notifications.SubscriptionProvider;
-import de.bps.olat.util.notifications.SubscriptionProviderImpl;
-
 
 /**
  * Description: <BR>
@@ -145,11 +143,11 @@ import de.bps.olat.util.notifications.SubscriptionProviderImpl;
 public class CourseFactory extends BasicManager {
 		
 	private static CacheWrapper loadedCourses;
-	private static ConcurrentHashMap <Long, ModifyCourseEvent> modifyCourseEvents = new ConcurrentHashMap <Long, ModifyCourseEvent>();
+	private static ConcurrentHashMap<Long, ModifyCourseEvent> modifyCourseEvents = new ConcurrentHashMap<Long, ModifyCourseEvent>();
 
 	public static final String COURSE_EDITOR_LOCK = "courseEditLock";
   //this is the lock that must be aquired at course editing, copy course, export course, configure course.
-	private static Map<Long,PersistingCourseImpl> courseEditSessionMap = new HashMap<Long,PersistingCourseImpl>();
+	private static Map<Long,PersistingCourseImpl> courseEditSessionMap = new ConcurrentHashMap<Long,PersistingCourseImpl>();
 	private static OLog log = Tracing.createLoggerFor(CourseFactory.class);
 	private static RepositoryManager repositoryManager;
 	private static OLATResourceManager olatResourceManager;
@@ -182,15 +180,14 @@ public class CourseFactory extends BasicManager {
 	 *          activated (subscription subtype)
 	 * @return run controller for the given course resourceable
 	 */
-	public static MainLayoutController createLaunchController(UserRequest ureq, WindowControl wControl, final OLATResourceable olatResource,
-			String initialViewIdentifier) {
+	public static MainLayoutController createLaunchController(UserRequest ureq, WindowControl wControl, final OLATResourceable olatResource) {
 		ICourse course = loadCourse(olatResource);
 		boolean isDebug = Tracing.isDebugEnabled(CourseFactory.class);
 		long startT = 0;
 		if(isDebug){
 			startT = System.currentTimeMillis();
 		}
-		MainLayoutController launchC = new RunMainController(ureq, wControl, course, initialViewIdentifier, true, true);
+		MainLayoutController launchC = new RunMainController(ureq, wControl, course, true, true);
 		if(isDebug){
 			Tracing.logDebug("Runview for [["+course.getCourseTitle()+"]] took [ms]"+(System.currentTimeMillis() - startT), CourseFactory.class);
 		}
@@ -207,9 +204,9 @@ public class CourseFactory extends BasicManager {
 	 * @return editor controller for the given course resourceable; if the editor
 	 *         is already locked, it returns a controller with a lock message
 	 */
-	public static Controller createEditorController(UserRequest ureq, WindowControl wControl, OLATResourceable olatResource) {
+	public static Controller createEditorController(UserRequest ureq, WindowControl wControl, StackedController stack, OLATResourceable olatResource) {
 		ICourse course = loadCourse(olatResource);
-		EditorMainController emc = new EditorMainController(ureq, wControl, course);
+		EditorMainController emc = new EditorMainController(ureq, wControl, course, stack);
 		if (!emc.getLockEntry().isSuccess()) {
 			// get i18n from the course runmaincontroller to say that this editor is
 			// already locked by another person
@@ -217,8 +214,6 @@ public class CourseFactory extends BasicManager {
 			Translator translator = Util.createPackageTranslator(RunMainController.class, ureq.getLocale());
 			wControl.setWarning(translator.translate("error.editoralreadylocked", new String[] { emc.getLockEntry().getOwner().getName() }));
 			return null;
-			//return new MonologController(ureq.getLocale(), translator.translate("error.editoralreadylocked", new String[] { emc.getLockEntry()
-			//		.getOwner().getName() }), null, true);
 		}
 		//set the logger if editor is started
 		//since 5.2 groups / areas can be created from the editor -> should be logged.
@@ -423,16 +418,14 @@ public class CourseFactory extends BasicManager {
 	private static void clearCalenderSubscriptions(OLATResourceable res) {
 		//set Publisher state to 1 (= ressource is deleted) for all calendars of the course
 		CalendarManager calMan = CalendarManagerFactory.getInstance().getCalendarManager();
+		CalendarNotificationManager notificationManager = CoreSpringFactory.getImpl(CalendarNotificationManager.class);
 		NotificationsManager nfm = NotificationsManager.getInstance();
 		CourseGroupManager courseGroupManager = PersistingCourseGroupManager.getInstance(res);
-		List<BusinessGroup> learningGroups = courseGroupManager.getAllLearningGroupsFromAllContexts();
-		List<BusinessGroup> rightGroups = courseGroupManager.getAllRightGroupsFromAllContexts();
-		learningGroups.addAll(rightGroups);
+		List<BusinessGroup> learningGroups = courseGroupManager.getAllBusinessGroups();
 		//all learning and right group calendars
 		for (BusinessGroup bg : learningGroups) {
 			KalendarRenderWrapper calRenderWrapper = calMan.getGroupCalendar(bg);
-			SubscriptionProvider subProvider = new SubscriptionProviderImpl(calRenderWrapper);
-			SubscriptionContext subsContext = subProvider.getSubscriptionContext();
+			SubscriptionContext subsContext = notificationManager.getSubscriptionContext(calRenderWrapper);
 			Publisher pub = nfm.getPublisher(subsContext);
 			if (pub != null) {
 				pub.setState(1); //int 0 is OK -> all other is not OK
@@ -447,8 +440,7 @@ public class CourseFactory extends BasicManager {
 			 */
 			KalendarRenderWrapper courseCalendar = calMan.getCalendarForDeletion(res);
 			if(courseCalendar != null) {
-				SubscriptionProvider subProvider = new SubscriptionProviderImpl(courseCalendar, res);
-				SubscriptionContext subContext = subProvider.getSubscriptionContext();
+				SubscriptionContext subContext = notificationManager.getSubscriptionContext(courseCalendar, res);
 				OLATResourceable oresToDelete = OresHelper.createOLATResourceableInstance(subContext.getResName(), subContext.getResId());
 				nfm.deletePublishersOf(oresToDelete);
 			}
@@ -512,9 +504,6 @@ public class CourseFactory extends BasicManager {
 					DBFactory.getInstance(false).intermediateCommit();
 				}
 			}
-			CourseGroupManager sourceCgm = sourceCourse.getCourseEnvironment().getCourseGroupManager();
-			CourseGroupManager targetCgm = targetCourse.getCourseEnvironment().getCourseGroupManager();
-			targetCgm.createCourseGroupmanagementAsCopy(sourceCgm, sourceCourse.getCourseTitle());
 		}
 		return targetRes;			
 	}
@@ -526,14 +515,15 @@ public class CourseFactory extends BasicManager {
 	 * @param fTargetZIP
 	 * @return true if successfully exported, false otherwise.
 	 */
-	public static void exportCourseToZIP(OLATResourceable sourceRes, File fTargetZIP) {
+	public static void exportCourseToZIP(OLATResourceable sourceRes, File fTargetZIP, boolean backwardsCompatible) {
 		PersistingCourseImpl sourceCourse = (PersistingCourseImpl) loadCourse(sourceRes);
 
 		// add files to ZIP
-		File fExportDir = new File(System.getProperty("java.io.tmpdir")+File.separator+CodeHelper.getRAMUniqueID());
+		File fExportDir = new File(WebappHelper.getTmpDir(), CodeHelper.getUniqueID());
 		fExportDir.mkdirs();
 		synchronized (sourceCourse) { //o_clusterNOK - cannot be solved with doInSync since could take too long (leads to error: "Lock wait timeout exceeded")
-			sourceCourse.exportToFilesystem(fExportDir);
+			OLATResource courseResource = sourceCourse.getCourseEnvironment().getCourseGroupManager().getCourseResource();
+			sourceCourse.exportToFilesystem(courseResource, fExportDir, backwardsCompatible);
 			Codepoint.codepoint(CourseFactory.class, "longExportCourseToZIP");
 			Set<String> fileSet = new HashSet<String>();
 			String[] files = fExportDir.list();
@@ -587,6 +577,10 @@ public class CourseFactory extends BasicManager {
 	 * @param exportedCourseZIPFile
 	 */
 	public static RepositoryEntry deployCourseFromZIP(File exportedCourseZIPFile, int access) {
+		return deployCourseFromZIP(exportedCourseZIPFile, "administrator", null, access);
+	}
+	
+	public static RepositoryEntry deployCourseFromZIP(File exportedCourseZIPFile, String initialAuthor, String softKey, int access) {
 		// create the course instance
 		OLATResource newCourseResource = olatResourceManager.createOLATResourceInstance(CourseModule.class);
 		ICourse course = CourseFactory.importCourseFromZip(newCourseResource, exportedCourseZIPFile);
@@ -595,12 +589,14 @@ public class CourseFactory extends BasicManager {
 			Tracing.logError("Error deploying course from ZIP: " + exportedCourseZIPFile.getAbsolutePath(), CourseFactory.class);
 			return null;
 		}
-		File courseExportData = ImportCourseController.getExportDataDir(course);
+		File courseExportData = course.getCourseExportDataDir().getBasefile();
 		// get the export data directory
 		// create the repository entry
 		RepositoryEntry re = repositoryManager.createRepositoryEntryInstance("administrator");
 		RepositoryEntryImportExport importExport = new RepositoryEntryImportExport(courseExportData);
-		String softKey = importExport.getSoftkey();
+		if(!StringHelper.containsNonWhitespace(softKey)) {
+			softKey = importExport.getSoftkey();
+		}
 		RepositoryEntry existingEntry = repositoryManager.lookupRepositoryEntryBySoftkey(softKey, false);
 		if (existingEntry != null) {
 			Tracing.logInfo("RepositoryEntry with softkey " + softKey + " already exists. Course will not be deployed.", CourseFactory.class);
@@ -622,14 +618,6 @@ public class CourseFactory extends BasicManager {
 		
 		// set access configuration
 		re.setAccess(access);
-		
-		course = openCourseEditSession(course.getResourceableId());
-		// create group management
-		CourseGroupManager cgm = course.getCourseEnvironment().getCourseGroupManager();
-		cgm.createCourseGroupmanagement(course.getResourceableId().toString());
-		// import groups
-		cgm.importCourseLearningGroups(courseExportData);
-		cgm.importCourseRightGroups(courseExportData);
 
 		// create security group
 		SecurityGroup ownerGroup = securityManager.createAndPersistSecurityGroup();
@@ -663,6 +651,13 @@ public class CourseFactory extends BasicManager {
 		// members of this group are always participants also
 		securityManager.createAndPersistPolicy(participantGroup, Constants.PERMISSION_HASROLE, Constants.ORESOURCE_PARTICIPANT);
 		re.setParticipantGroup(participantGroup);
+		
+		//import groups
+		course = openCourseEditSession(course.getResourceableId());
+		// create group management
+		CourseGroupManager cgm = course.getCourseEnvironment().getCourseGroupManager();
+		// import groups
+		cgm.importCourseBusinessGroups(courseExportData);
 		
 		// deploy any referenced repository entries of the editor structure. This will also
 		// include any references in the run structure, since any node in the runstructure is also
@@ -817,7 +812,7 @@ public class CourseFactory extends BasicManager {
 			ContextEntry ce = BusinessControlFactory.getInstance().createContextEntry(entry);
 			WindowControl bwControl = BusinessControlFactory.getInstance().createBusinessWindowControl(ce, wControl);	
 			
-			RunMainController launchC = new RunMainController(ureq, bwControl, course, null, false, false);
+			RunMainController launchC = new RunMainController(ureq, bwControl, course, false, false);
 			return launchC;			
 		}		
 	}
@@ -832,11 +827,12 @@ public class CourseFactory extends BasicManager {
 	 * @param identity
 	 */
 	public static void archiveCourse(OLATResourceable res, String charset, Locale locale, Identity identity) {
+		RepositoryEntry courseRe = RepositoryManager.getInstance().lookupRepositoryEntry(res, false);
 		PersistingCourseImpl course = (PersistingCourseImpl) loadCourse(res);
 		File exportDirectory = CourseFactory.getOrCreateDataExportDirectory(identity, course.getCourseTitle());
 		boolean isOLATAdmin = BaseSecurityManager.getInstance().isIdentityPermittedOnResourceable(identity, Constants.PERMISSION_HASROLE, Constants.ORESOURCE_ADMIN);
-		boolean isOresOwner = RepositoryManager.getInstance().isOwnerOfRepositoryEntry(identity, RepositoryManager.getInstance().lookupRepositoryEntry(res, false));
-		boolean isOresInstitutionalManager = RepositoryManager.getInstance().isInstitutionalRessourceManagerFor(RepositoryManager.getInstance().lookupRepositoryEntry(res, false), identity);
+		boolean isOresOwner = RepositoryManager.getInstance().isOwnerOfRepositoryEntry(identity, courseRe);
+		boolean isOresInstitutionalManager = RepositoryManager.getInstance().isInstitutionalRessourceManagerFor(courseRe, identity);
 		archiveCourse(identity, course, charset, locale, exportDirectory, isOLATAdmin, isOresOwner, isOresInstitutionalManager);
 	}
 		
@@ -1036,10 +1032,9 @@ public class CourseFactory extends BasicManager {
 		//close courseEditSession if not already closed
 		closeCourseEditSession(resourceableId, false);
 	}
-
-	public static Controller createDisposedCourseRestartController(UserRequest ureq, WindowControl wControl, long resId) {
-		RepositoryEntry courseRepositoryEntry = RepositoryManager.getInstance().lookupRepositoryEntry(resId);
-		return new DisposedCourseRestartController(ureq, wControl, courseRepositoryEntry);
+	
+	public static Controller createDisposedCourseRestartController(UserRequest ureq, WindowControl wControl, RepositoryEntry re) {
+		return new DisposedCourseRestartController(ureq, wControl, re);
 	}
 
 	/**
@@ -1121,7 +1116,6 @@ public class CourseFactory extends BasicManager {
 			course.setReadAndWrite(true);
 			courseEditSessionMap.put(resourceableId, course);
 			log.debug("getCourseEditSession - put course in courseEditSessionMap: " + resourceableId);
-			//System.out.println("put course in courseEditSessionMap: " + resourceableId);
 		}	
 		return course;
 	}
@@ -1156,7 +1150,6 @@ public class CourseFactory extends BasicManager {
 		  course.setReadAndWrite(false);
 		  courseEditSessionMap.remove(resourceableId);
 		  log.debug("removeCourseEditSession for course: " + resourceableId);
-		  //System.out.println("removeCourseEditSession for course: " + resourceableId);
 		}
 	}
 	

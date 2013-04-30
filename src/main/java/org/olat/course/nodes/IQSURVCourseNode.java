@@ -31,6 +31,7 @@ import java.util.Locale;
 
 import org.olat.basesecurity.BaseSecurityManager;
 import org.olat.core.gui.UserRequest;
+import org.olat.core.gui.components.stack.StackedController;
 import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.WindowControl;
 import org.olat.core.gui.control.generic.tabbable.TabbableController;
@@ -84,8 +85,9 @@ public class IQSURVCourseNode extends AbstractAccessableCourseNode {
 	 * @see org.olat.course.nodes.CourseNode#createEditController(org.olat.core.gui.UserRequest,
 	 *      org.olat.core.gui.control.WindowControl, org.olat.course.ICourse)
 	 */
-	public TabbableController createEditController(UserRequest ureq, WindowControl wControl, ICourse course, UserCourseEnvironment euce) {
-		TabbableController childTabCntrllr = IQUIFactory.createIQSurveyEditController(ureq, wControl, course, this, course.getCourseEnvironment().getCourseGroupManager(), euce);
+	@Override
+	public TabbableController createEditController(UserRequest ureq, WindowControl wControl, StackedController stackPanel, ICourse course, UserCourseEnvironment euce) {
+		TabbableController childTabCntrllr = IQUIFactory.createIQSurveyEditController(ureq, wControl, stackPanel, course, this, course.getCourseEnvironment().getCourseGroupManager(), euce);
 		CourseNode chosenNode = course.getEditorTreeModel().getCourseNode(euce.getCourseEditorEnv().getCurrentCourseNodeId());
 		return new NodeEditController(ureq, wControl, course.getEditorTreeModel(), course, chosenNode, course.getCourseEnvironment()
 				.getCourseGroupManager(), euce, childTabCntrllr);
@@ -192,8 +194,10 @@ public class IQSURVCourseNode extends AbstractAccessableCourseNode {
 		pm.deleteNodeProperties(this, null);
 		// 2) Delete all qtiresults for this node
 		String repositorySoftKey = (String) getModuleConfiguration().get(IQEditController.CONFIG_KEY_REPOSITORY_SOFTKEY);
-		Long repKey = RepositoryManager.getInstance().lookupRepositoryEntryBySoftkey(repositorySoftKey, true).getKey();
-		QTIResultManager.getInstance().deleteAllResults(course.getResourceableId(), this.getIdent(), repKey);
+		RepositoryEntry re = RepositoryManager.getInstance().lookupRepositoryEntryBySoftkey(repositorySoftKey, false);
+		if(re != null) {
+			QTIResultManager.getInstance().deleteAllResults(course.getResourceableId(), getIdent(), re.getKey());
+		}
 	}
 
 	/**

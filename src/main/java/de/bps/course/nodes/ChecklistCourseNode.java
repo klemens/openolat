@@ -24,6 +24,7 @@ import java.util.List;
 import java.util.Locale;
 
 import org.olat.core.gui.UserRequest;
+import org.olat.core.gui.components.stack.StackedController;
 import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.WindowControl;
 import org.olat.core.gui.control.generic.tabbable.TabbableController;
@@ -32,6 +33,7 @@ import org.olat.core.util.FileUtils;
 import org.olat.core.util.Util;
 import org.olat.core.util.ValidationStatus;
 import org.olat.core.util.WebappHelper;
+import org.olat.core.util.xml.XStreamHelper;
 import org.olat.course.CourseFactory;
 import org.olat.course.ICourse;
 import org.olat.course.condition.Condition;
@@ -164,7 +166,7 @@ public class ChecklistCourseNode extends AbstractAccessableCourseNode {
 	}
 
 	@Override
-	public TabbableController createEditController(UserRequest ureq, WindowControl wControl, ICourse course, UserCourseEnvironment euce) {
+	public TabbableController createEditController(UserRequest ureq, WindowControl wControl, StackedController stackPanel, ICourse course, UserCourseEnvironment euce) {
 		CourseNode chosenNode = course.getEditorTreeModel().getCourseNode(euce.getCourseEditorEnv().getCurrentCourseNodeId());
 		ChecklistEditController editController = new ChecklistEditController(ureq, wControl, this, course, euce);
 		getModuleConfiguration().set(CONF_COURSE_ID, course.getResourceableId());
@@ -265,7 +267,7 @@ public class ChecklistCourseNode extends AbstractAccessableCourseNode {
 	
 	@Override
 	public void exportNode(File exportDirectory, ICourse course) {
-		XStream xstream = new XStream();
+		XStream xstream = XStreamHelper.createXStreamInstance();
 		ChecklistManager cm = ChecklistManager.getInstance();
 		Checklist checklist = loadOrCreateChecklist(course.getCourseEnvironment().getCoursePropertyManager());
 		Checklist copy = cm.copyChecklistInRAM(checklist);
@@ -284,7 +286,7 @@ public class ChecklistCourseNode extends AbstractAccessableCourseNode {
 			return null;
 		}
 		
-		XStream xstream = new XStream();
+		XStream xstream = XStreamHelper.createXStreamInstance();
 		Checklist checklist = (Checklist) xstream.fromXML(importContent);
 		if(checklist != null) {
 			checklist = ChecklistManager.getInstance().copyChecklist(checklist);

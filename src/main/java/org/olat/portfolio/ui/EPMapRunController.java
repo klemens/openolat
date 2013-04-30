@@ -37,12 +37,10 @@ import org.olat.core.gui.control.WindowControl;
 import org.olat.core.gui.control.controller.BasicController;
 import org.olat.core.gui.control.generic.closablewrapper.CloseableCalloutWindowController;
 import org.olat.core.gui.control.generic.closablewrapper.CloseableModalWindowWrapperController;
-import org.olat.core.gui.control.generic.dtabs.Activateable;
 import org.olat.core.gui.control.generic.dtabs.Activateable2;
 import org.olat.core.id.Identity;
 import org.olat.core.id.context.ContextEntry;
 import org.olat.core.id.context.StateEntry;
-import org.olat.core.util.StringHelper;
 import org.olat.portfolio.EPTemplateMapResource;
 import org.olat.portfolio.PortfolioModule;
 import org.olat.portfolio.manager.EPFrontendManager;
@@ -66,7 +64,7 @@ import org.olat.repository.controllers.ReferencableEntriesSearchController;
  * Initial Date:  11.06.2010 <br>
  * @author Roman Haag, roman.haag@frentix.com, http://www.frentix.com
  */
-public class EPMapRunController extends BasicController implements Activateable, Activateable2 {
+public class EPMapRunController extends BasicController implements Activateable2 {
 
 	private VelocityContainer vC;
 	private Link createMapLink;
@@ -115,6 +113,7 @@ public class EPMapRunController extends BasicController implements Activateable,
 		vC = createVelocityContainer("mymapsmain");
 		if(create) {
 			createMapLink = LinkFactory.createButton("create.map", vC, this);	
+			createMapLink.setElementCssClass("o_sel_create_map");
 		}
 		
 		String documentType = null;
@@ -173,18 +172,11 @@ public class EPMapRunController extends BasicController implements Activateable,
 	}
 
 	@Override
-	public void activate(UserRequest ureq, String viewIdentifier) {
-		if(!StringHelper.containsNonWhitespace(viewIdentifier)) return;
-		multiMapCtrl.activate(ureq, viewIdentifier);
-	}
-
-	@Override
 	public void activate(UserRequest ureq, List<ContextEntry> entries, StateEntry state) {
 		if(entries == null || entries.isEmpty()) return;
 		multiMapCtrl.activate(ureq, entries, state);
 	}
 
-	@SuppressWarnings("unused")
 	@Override
 	protected void event(UserRequest ureq, Component source, Event event) {
 		if (source == createMapLink){
@@ -192,7 +184,9 @@ public class EPMapRunController extends BasicController implements Activateable,
 			if(option.equals(EPMapRunViewOption.MY_DEFAULTS_MAPS)) {
 				VelocityContainer mapCreateVC = createVelocityContainer("createMapCallout");
 				createMapCalloutLink = LinkFactory.createLink("create.map.default", mapCreateVC, this);	
+				createMapCalloutLink.setElementCssClass("o_sel_create_default_map");
 				createMapFromTemplateLink = LinkFactory.createLink("create.map.fromTemplate", mapCreateVC, this);
+				createMapFromTemplateLink.setElementCssClass("o_sel_create_template_map");
 				String title = translate("create.map");
 				
 				removeAsListenerAndDispose(mapCreateCalloutCtrl);
@@ -286,7 +280,7 @@ public class EPMapRunController extends BasicController implements Activateable,
 		String commandLabel = translate("create.map.selectTemplate");
 		removeAsListenerAndDispose(searchTemplateCtrl);
 		searchTemplateCtrl = new ReferencableEntriesSearchController(getWindowControl(), ureq,
-				new String[]{EPTemplateMapResource.TYPE_NAME}, commandLabel, false, false, false);			
+				new String[]{EPTemplateMapResource.TYPE_NAME}, commandLabel, false, false, false, false);			
 		listenTo(searchTemplateCtrl);
 		createMapBox = new CloseableModalWindowWrapperController(ureq, getWindowControl(), title, searchTemplateCtrl.getInitialComponent(), "addMapFromTemplateBox");
 		listenTo(createMapBox);

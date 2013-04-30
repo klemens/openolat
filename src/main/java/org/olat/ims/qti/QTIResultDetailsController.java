@@ -156,19 +156,23 @@ public class QTIResultDetailsController extends BasicController {
 			if (tEvent.getActionId().equals("sel")) {
 				QTIResultSet resultSet = tableModel.getObject(tEvent.getRowId());
 				
-				Document doc = FilePersister.retreiveResultsReporting(assessedIdentity, type, resultSet.getAssessmentID());
-				if (doc == null) {
-					showInfo("error.resreporting.na");
-					return;
-				}
-				StringBuilder resultsHTML = LocalizedXSLTransformer.getInstance(ureq.getLocale()).renderResults(doc);
-				details.contextPut("reshtml", resultsHTML);
-				
-				removeAsListenerAndDispose(cmc);
-				cmc = new CloseableModalController(getWindowControl(), getTranslator().translate("close"), details);
-				listenTo(cmc);
-				
-				cmc.activate();
+				try {
+					Document doc = FilePersister.retreiveResultsReporting(assessedIdentity, type, resultSet.getAssessmentID());
+					if (doc == null) {
+						showInfo("error.resreporting.na");
+						return;
+					}
+					StringBuilder resultsHTML = LocalizedXSLTransformer.getInstance(ureq.getLocale()).renderResults(doc);
+					details.contextPut("reshtml", resultsHTML);
+					
+					removeAsListenerAndDispose(cmc);
+					cmc = new CloseableModalController(getWindowControl(), getTranslator().translate("close"), details);
+					listenTo(cmc);
+					cmc.activate();
+				} catch (Exception e) {
+					logError("", e);
+					showError("error.resreporting.na");
+				}	
 			} else if(tEvent.getActionId().equals("ret")) {
 				updateTableModel();
 				if(tableModel.isTestRunning()) {
@@ -219,12 +223,12 @@ public class QTIResultDetailsController extends BasicController {
 		AssessableCourseNode testNode = (AssessableCourseNode)course.getRunStructure().getNode(nodeIdent);
 		ModuleConfiguration modConfig = testNode.getModuleConfiguration();
 
-		String resourcePathInfo = courseResourceableId + File.separator + nodeIdent; 
-		AssessmentInstance ai = AssessmentFactory.createAssessmentInstance(assessedIdentity, modConfig, false ,resourcePathInfo);
+		String resourcePathInfo = courseResourceableId + File.separator + nodeIdent;
+		AssessmentInstance ai = AssessmentFactory.createAssessmentInstance(assessedIdentity, "", modConfig, false, courseResourceableId, nodeIdent, resourcePathInfo, null);
 		//close the test
 		ai.close();
 		//persist the results
-		iqm.persistResults(ai, courseResourceableId.longValue(), nodeIdent, assessedIdentity, "");
+		iqm.persistResults(ai);
 
 		//reporting
 		Document docResReporting = iqm.getResultsReporting(ai, assessedIdentity, I18nModule.getDefaultLocale());

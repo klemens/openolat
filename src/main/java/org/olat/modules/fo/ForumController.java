@@ -36,6 +36,7 @@ import java.util.Set;
 
 import org.apache.commons.lang.StringEscapeUtils;
 import org.olat.ControllerFactory;
+import org.olat.basesecurity.BaseSecurityModule;
 import org.olat.core.CoreSpringFactory;
 import org.olat.core.commons.modules.bc.FolderConfig;
 import org.olat.core.commons.modules.bc.vfs.OlatRootFolderImpl;
@@ -190,6 +191,7 @@ public class ForumController extends BasicController implements GenericEventList
 	private Controller searchController;
 	
 	private final OLATResourceable forumOres;
+	private final BaseSecurityModule securityModule;
 
 
 	/**
@@ -202,6 +204,7 @@ public class ForumController extends BasicController implements GenericEventList
 		super(ureq, wControl);
 		this.forum = forum;
 		this.focallback = focallback;
+		securityModule = CoreSpringFactory.getImpl(BaseSecurityModule.class);
 		addLoggingResourceable(LoggingResourceable.wrap(forum));
 		
 		forumOres = OresHelper.createOLATResourceableInstance(Forum.class,forum.getKey());
@@ -220,9 +223,15 @@ public class ForumController extends BasicController implements GenericEventList
 		vcListTitles = createVelocityContainer("list_titles");
 		
 		msgCreateButton = LinkFactory.createButtonSmall("msg.create", vcListTitles, this);
+		msgCreateButton.setElementCssClass("o_sel_forum_thread_new");
 		archiveForumButton = LinkFactory.createButtonSmall("archive.forum", vcListTitles, this);
-		filterForUserButton = LinkFactory.createButtonSmall("filter", vcListTitles, this);
-
+		archiveForumButton.setElementCssClass("o_sel_forum_archive");
+		
+		if(securityModule.isUserAllowedAutoComplete(ureq.getUserSession().getRoles())) {
+			filterForUserButton = LinkFactory.createButtonSmall("filter", vcListTitles, this);
+			filterForUserButton.setElementCssClass("o_sel_forum_filter");
+		}
+		
 		if(!this.isGuestOnly(ureq)) {
 		  SearchServiceUIFactory searchServiceUIFactory = (SearchServiceUIFactory)CoreSpringFactory.getBean(SearchServiceUIFactory.class);
 		  searchController = searchServiceUIFactory.createInputController(ureq, wControl, DisplayOption.STANDARD, null);
@@ -580,7 +589,7 @@ public class ForumController extends BasicController implements GenericEventList
 			fm.updateMessage(currentMsg, changeLastModifiedDate, null);
 			// if notification is enabled -> notify the publisher about news
 			if (subsContext != null) {
-				NotificationsManager.getInstance().markPublisherNews(subsContext, ureq.getIdentity());
+				NotificationsManager.getInstance().markPublisherNews(subsContext, ureq.getIdentity(), true);
 			}
 
 			// do logging
@@ -602,7 +611,7 @@ public class ForumController extends BasicController implements GenericEventList
 		DBFactory.getInstance().intermediateCommit();
 		// if notification is enabled -> notify the publisher about news
 		if (subsContext != null) {
-			NotificationsManager.getInstance().markPublisherNews(subsContext, ureq.getIdentity());
+			NotificationsManager.getInstance().markPublisherNews(subsContext, ureq.getIdentity(), true);
 		}
 		currentMsg = m;
 		markRead(m, ureq.getIdentity());
@@ -622,7 +631,7 @@ public class ForumController extends BasicController implements GenericEventList
 		fm.addTopMessage(ureq.getIdentity(), forum, m);
 		// if notification is enabled -> notify the publisher about news
 		if (subsContext != null) {
-			NotificationsManager.getInstance().markPublisherNews(subsContext, ureq.getIdentity());
+			NotificationsManager.getInstance().markPublisherNews(subsContext, ureq.getIdentity(), true);
 		}
 		currentMsg = m;
 		markRead(m, ureq.getIdentity());
@@ -685,15 +694,17 @@ public class ForumController extends BasicController implements GenericEventList
 	////////////////////////////////////////
 	
 	private void showFilterForUserView(UserRequest ureq) {
-		searchMode = true;
-		backLinkSearchListTitles = LinkFactory.createCustomLink("backLinkLT", "back", "listalltitles", Link.LINK_BACK, vcFilterView, this);
-		
-		removeAsListenerAndDispose(filterForUserCtr);
-		filterForUserCtr = new FilterForUserController(ureq, getWindowControl(), forum);
-		listenTo(filterForUserCtr);
-		
-		vcFilterView.put("filterForUser", filterForUserCtr.getInitialComponent());
-		forumPanel.setContent(vcFilterView);
+		if(securityModule.isUserAllowedAutoComplete(ureq.getUserSession().getRoles())) {
+			searchMode = true;
+			backLinkSearchListTitles = LinkFactory.createCustomLink("backLinkLT", "back", "listalltitles", Link.LINK_BACK, vcFilterView, this);
+			
+			removeAsListenerAndDispose(filterForUserCtr);
+			filterForUserCtr = new FilterForUserController(ureq, getWindowControl(), forum);
+			listenTo(filterForUserCtr);
+			
+			vcFilterView.put("filterForUser", filterForUserCtr.getInitialComponent());
+			forumPanel.setContent(vcFilterView);
+		}
 	}
 
 	private void showThreadOverviewView() {
@@ -826,7 +837,7 @@ public class ForumController extends BasicController implements GenericEventList
 			//prepare the table data
 			msgs = fm.getMessagesByForum(forum);
 			threadList = prepareListTitles(msgs);
-			DefaultTableDataModel tdm = new DefaultTableDataModel(threadList) {
+			DefaultTableDataModel<Message> tdm = new DefaultTableDataModel<Message>(threadList) {
 				
 					@Override
 					public Object getValueAt(int row, int col) {
@@ -1170,15 +1181,17 @@ public class ForumController extends BasicController implements GenericEventList
 		MarkResourceStat stat = stats.get(subPath);
 		MarkingService markingService = (MarkingService)CoreSpringFactory.getBean(MarkingService.class);
 		
-		String businessPath = currentMark == null ?
-				getWindowControl().getBusinessControl().getAsString() + "[Message:" + m.getKey() + "]"
-				: currentMark.getBusinessPath();
-		Controller markCtrl = markingService.getMarkController(ureq, getWindowControl(), currentMark, stat, forumOres, subPath, businessPath);
-		vcThreadView.put("mark_"+msgCount, markCtrl.getInitialComponent());
+		if(!ureq.getUserSession().getRoles().isGuestOnly()) {
+			String businessPath = currentMark == null ?
+					getWindowControl().getBusinessControl().getAsString() + "[Message:" + m.getKey() + "]"
+					: currentMark.getBusinessPath();
+			Controller markCtrl = markingService.getMarkController(ureq, getWindowControl(), currentMark, stat, forumOres, subPath, businessPath);
+			vcThreadView.put("mark_"+msgCount, markCtrl.getInitialComponent());
+		}
 		
-		businessPath = BusinessControlFactory.getInstance().getAsString(getWindowControl().getBusinessControl()) + "[Message:" + m.getKey() + "]";
 		if (uIsMsgC) {
 			OLATResourceable messageOres = OresHelper.createOLATResourceableInstance("Forum", m.getKey());
+			String businessPath = BusinessControlFactory.getInstance().getAsString(getWindowControl().getBusinessControl()) + "[Message:" + m.getKey() + "]";
 			Controller ePFCollCtrl = EPUIFactory.createArtefactCollectWizzardController(ureq, getWindowControl(), messageOres,
 					businessPath);
 			if (ePFCollCtrl != null) {

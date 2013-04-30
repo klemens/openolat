@@ -30,7 +30,6 @@ import static org.olat.restapi.security.RestSecurityHelper.getRoles;
 import static org.olat.restapi.security.RestSecurityHelper.isAuthor;
 
 import java.io.File;
-import java.io.InputStream;
 import java.net.URI;
 import java.util.ArrayList;
 import java.util.List;
@@ -38,7 +37,6 @@ import java.util.List;
 import javax.servlet.http.HttpServletRequest;
 import javax.ws.rs.Consumes;
 import javax.ws.rs.DefaultValue;
-import javax.ws.rs.FormParam;
 import javax.ws.rs.GET;
 import javax.ws.rs.PUT;
 import javax.ws.rs.Path;
@@ -58,13 +56,11 @@ import org.olat.basesecurity.BaseSecurityManager;
 import org.olat.basesecurity.Constants;
 import org.olat.basesecurity.SecurityGroup;
 import org.olat.core.id.Identity;
+import org.olat.core.id.OLATResourceable;
 import org.olat.core.id.Roles;
 import org.olat.core.logging.OLog;
 import org.olat.core.logging.Tracing;
-import org.olat.core.util.CodeHelper;
-import org.olat.core.util.FileUtils;
 import org.olat.core.util.StringHelper;
-import org.olat.core.util.WebappHelper;
 import org.olat.fileresource.FileResourceManager;
 import org.olat.fileresource.types.FileResource;
 import org.olat.repository.RepositoryEntry;
@@ -74,6 +70,7 @@ import org.olat.resource.OLATResource;
 import org.olat.resource.OLATResourceManager;
 import org.olat.restapi.security.RestSecurityHelper;
 import org.olat.restapi.support.MediaTypeVariants;
+import org.olat.restapi.support.MultipartReader;
 import org.olat.restapi.support.ObjectFactory;
 import org.olat.restapi.support.vo.RepositoryEntryVO;
 import org.olat.restapi.support.vo.RepositoryEntryVOes;
@@ -279,24 +276,24 @@ public class RepositoryEntriesResource {
 	@PUT
 	@Produces({MediaType.APPLICATION_XML, MediaType.APPLICATION_JSON})
 	@Consumes({MediaType.MULTIPART_FORM_DATA})
-	public Response putResource(@FormParam("filename") String filename, @FormParam("file") InputStream file,
-			@FormParam("resourcename") String resourcename, @FormParam("displayname") String displayname,
-			@FormParam("softkey") String softkey, @Context HttpServletRequest request) {
+	public Response putResource(@Context HttpServletRequest request) {
 		if(!isAuthor(request)) {
 			return Response.serverError().status(Status.UNAUTHORIZED).build();
 		}
 		
-		File tmpFile = null;
-		long length = 0;
+		MultipartReader partsReader = null;
 		try {
 			Identity identity = RestSecurityHelper.getUserRequest(request).getIdentity();
-			tmpFile = getTmpFile(filename);
-			FileUtils.save(file, tmpFile);
-			FileUtils.closeSafely(file);
-			length = tmpFile.length();
-			
+			partsReader = new MultipartReader(request);
+			File tmpFile = partsReader.getFile();
+			long length = tmpFile.length();
 			if(length > 0) {
-				RepositoryEntry re = importFileResource(identity, tmpFile, resourcename, displayname, softkey);
+				Long accessRaw = partsReader.getLongValue("access");
+				int access = accessRaw != null ? accessRaw.intValue() : RepositoryEntry.ACC_OWNERS;
+				String softkey = partsReader.getValue("softkey");
+				String resourcename = partsReader.getValue("resourcename");
+				String displayname = partsReader.getValue("displayname");	
+				RepositoryEntry re = importFileResource(identity, tmpFile, resourcename, displayname, softkey, access);
 				RepositoryEntryVO vo = ObjectFactory.get(re);
 				return Response.ok(vo).build();
 			}
@@ -304,89 +301,91 @@ public class RepositoryEntriesResource {
 		} catch (Exception e) {
 			log.error("Error while importing a file",e);
 		} finally {
-			if(tmpFile != null && tmpFile.exists()) {
-				tmpFile.delete();
-			}
+			MultipartReader.closeQuietly(partsReader);
 		}
 		return Response.serverError().status(Status.INTERNAL_SERVER_ERROR).build();
 	}
 	
 	private RepositoryEntry importFileResource(Identity identity, File fResource, String resourcename, String displayname,
-			String softkey) {
+			String softkey, int access) {
 		try {
 			FileResourceManager frm = FileResourceManager.getInstance();
 			FileResource newResource = frm.addFileResource(fResource, fResource.getName());
-
-			RepositoryEntry addedEntry = RepositoryManager.getInstance().createRepositoryEntryInstance(identity.getName());
-			addedEntry.setCanDownload(false);
-			addedEntry.setCanLaunch(true);
-			if(StringHelper.containsNonWhitespace(resourcename)) {
-				addedEntry.setResourcename(resourcename);
-			}
-			if(StringHelper.containsNonWhitespace(displayname)) {
-				addedEntry.setDisplayname(displayname);
-			}
-			if(StringHelper.containsNonWhitespace(softkey)) {
-				addedEntry.setSoftkey(softkey);
-			}
-			// Do set access for owner at the end, because unfinished course should be
-			// invisible
-			// addedEntry.setAccess(RepositoryEntry.ACC_OWNERS);
-			addedEntry.setAccess(0);// Access for nobody
-
-			// Set the resource on the repository entry and save the entry.
-			RepositoryManager rm = RepositoryManager.getInstance();
-			OLATResource ores = OLATResourceManager.getInstance().findOrPersistResourceable(newResource);
-			addedEntry.setOlatResource(ores);
-
-			BaseSecurity securityManager = BaseSecurityManager.getInstance();
-			// create security group
-			SecurityGroup newGroup = securityManager.createAndPersistSecurityGroup();
-			// member of this group may modify member's membership
-			securityManager.createAndPersistPolicy(newGroup, Constants.PERMISSION_ACCESS, newGroup);
-			// members of this group are always authors also
-			securityManager.createAndPersistPolicy(newGroup, Constants.PERMISSION_HASROLE, Constants.ORESOURCE_AUTHOR);
-
-			securityManager.addIdentityToSecurityGroup(identity, newGroup);
-			addedEntry.setOwnerGroup(newGroup);
-			
-			//fxdiff VCRP-1,2: access control of resources
-			// security group for tutors / coaches
-			SecurityGroup tutorGroup = securityManager.createAndPersistSecurityGroup();
-			// member of this group may modify member's membership
-			securityManager.createAndPersistPolicy(tutorGroup, Constants.PERMISSION_ACCESS, addedEntry.getOlatResource());
-			// members of this group are always tutors also
-			securityManager.createAndPersistPolicy(tutorGroup, Constants.PERMISSION_HASROLE, Constants.ORESOURCE_TUTOR);
-			addedEntry.setTutorGroup(tutorGroup);
-			
-			// security group for participants
-			SecurityGroup participantGroup = securityManager.createAndPersistSecurityGroup();
-			// member of this group may modify member's membership
-			securityManager.createAndPersistPolicy(participantGroup, Constants.PERMISSION_ACCESS, addedEntry.getOlatResource());
-			// members of this group are always participants also
-			securityManager.createAndPersistPolicy(participantGroup, Constants.PERMISSION_HASROLE, Constants.ORESOURCE_PARTICIPANT);
-			addedEntry.setParticipantGroup(participantGroup);
-			
-			// Do set access for owner at the end, because unfinished course should be
-			// invisible
-			addedEntry.setAccess(RepositoryEntry.ACC_OWNERS);
-			rm.saveRepositoryEntry(addedEntry);
-			return addedEntry;
-		} catch (Exception e) {
+			return importResource(identity, newResource, resourcename, displayname, softkey, access);
+		} catch(Exception e) {
 			log.error("Fail to import a resource", e);
 			throw new WebApplicationException(e);
 		}
 	}
-	
-	private File getTmpFile(String suffix) {
-		suffix = (suffix == null ? "" : suffix);
-		File tmpFile = new File(WebappHelper.getUserDataRoot()	+ "/tmp/", CodeHelper.getGlobalForeverUniqueID() + "_" + suffix);
-		FileUtils.createEmptyFile(tmpFile);
-		return tmpFile;
+		
+	public static RepositoryEntry importResource(Identity identity, OLATResourceable newResource, String resourcename, String displayname,
+			String softkey, int access) {
+
+		RepositoryEntry addedEntry = RepositoryManager.getInstance().createRepositoryEntryInstance(identity.getName());
+		addedEntry.setCanDownload(false);
+		addedEntry.setCanLaunch(true);
+		if(StringHelper.containsNonWhitespace(resourcename)) {
+			addedEntry.setResourcename(resourcename);
+		}
+		if(StringHelper.containsNonWhitespace(displayname)) {
+			addedEntry.setDisplayname(displayname);
+		}
+		if(StringHelper.containsNonWhitespace(softkey)) {
+			addedEntry.setSoftkey(softkey);
+		}
+		// Do set access for owner at the end, because unfinished course should be
+		// invisible
+		// addedEntry.setAccess(RepositoryEntry.ACC_OWNERS);
+		addedEntry.setAccess(0);// Access for nobody
+
+		// Set the resource on the repository entry and save the entry.
+		RepositoryManager rm = RepositoryManager.getInstance();
+		OLATResource ores = OLATResourceManager.getInstance().findOrPersistResourceable(newResource);
+		addedEntry.setOlatResource(ores);
+
+		BaseSecurity securityManager = BaseSecurityManager.getInstance();
+		// create security group
+		SecurityGroup newGroup = securityManager.createAndPersistSecurityGroup();
+		// member of this group may modify member's membership
+		securityManager.createAndPersistPolicy(newGroup, Constants.PERMISSION_ACCESS, newGroup);
+		// members of this group are always authors also
+		securityManager.createAndPersistPolicy(newGroup, Constants.PERMISSION_HASROLE, Constants.ORESOURCE_AUTHOR);
+
+		securityManager.addIdentityToSecurityGroup(identity, newGroup);
+		addedEntry.setOwnerGroup(newGroup);
+		
+		//fxdiff VCRP-1,2: access control of resources
+		// security group for tutors / coaches
+		SecurityGroup tutorGroup = securityManager.createAndPersistSecurityGroup();
+		// member of this group may modify member's membership
+		securityManager.createAndPersistPolicy(tutorGroup, Constants.PERMISSION_ACCESS, addedEntry.getOlatResource());
+		// members of this group are always tutors also
+		securityManager.createAndPersistPolicy(tutorGroup, Constants.PERMISSION_HASROLE, Constants.ORESOURCE_TUTOR);
+		addedEntry.setTutorGroup(tutorGroup);
+		
+		// security group for participants
+		SecurityGroup participantGroup = securityManager.createAndPersistSecurityGroup();
+		// member of this group may modify member's membership
+		securityManager.createAndPersistPolicy(participantGroup, Constants.PERMISSION_ACCESS, addedEntry.getOlatResource());
+		// members of this group are always participants also
+		securityManager.createAndPersistPolicy(participantGroup, Constants.PERMISSION_HASROLE, Constants.ORESOURCE_PARTICIPANT);
+		addedEntry.setParticipantGroup(participantGroup);
+		
+		// Do set access for owner at the end, because unfinished course should be
+		// invisible
+		if(access < RepositoryEntry.ACC_OWNERS || access > RepositoryEntry.ACC_USERS_GUESTS) {
+			addedEntry.setAccess(RepositoryEntry.ACC_OWNERS);
+		} else {
+			addedEntry.setAccess(access);
+		}
+		rm.saveRepositoryEntry(addedEntry);
+		return addedEntry;
 	}
 	
 	@Path("{repoEntryKey}")
 	public RepositoryEntryResource getRepositoryEntryResource() {
-		return new RepositoryEntryResource();
+		RepositoryManager rm = RepositoryManager.getInstance();
+		BaseSecurity securityManager = BaseSecurityManager.getInstance();
+		return new RepositoryEntryResource(rm, securityManager);
 	}
 }

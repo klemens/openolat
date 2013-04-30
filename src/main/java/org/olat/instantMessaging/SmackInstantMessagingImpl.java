@@ -27,6 +27,7 @@
 package org.olat.instantMessaging;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -39,6 +40,8 @@ import org.olat.basesecurity.BaseSecurity;
 import org.olat.basesecurity.BaseSecurityManager;
 import org.olat.basesecurity.IdentityShort;
 import org.olat.basesecurity.SecurityGroup;
+import org.olat.collaboration.CollaborationTools;
+import org.olat.collaboration.CollaborationToolsFactory;
 import org.olat.core.commons.persistence.DBFactory;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.control.Controller;
@@ -51,10 +54,8 @@ import org.olat.core.id.Roles;
 import org.olat.core.id.UserConstants;
 import org.olat.core.logging.LogDelegator;
 import org.olat.group.BusinessGroup;
-import org.olat.group.BusinessGroupManagerImpl;
-import org.olat.group.SearchBusinessGroupParams;
-import org.olat.group.context.BGContextManager;
-import org.olat.group.context.BGContextManagerImpl;
+import org.olat.group.BusinessGroupService;
+import org.olat.group.model.SearchBusinessGroupParams;
 import org.olat.instantMessaging.groupchat.GroupChatManagerController;
 import org.olat.instantMessaging.rosterandchat.InstantMessagingMainController;
 import org.olat.instantMessaging.syncservice.InstantMessagingGroupSynchronisation;
@@ -88,6 +89,8 @@ public class SmackInstantMessagingImpl extends LogDelegator implements InstantMe
 	private AutoCreator actionControllerCreator;
 	private volatile int sessionCount;
 	
+	private BusinessGroupService businessGroupService;
+	
 	/**
 	 * [spring]
 	 */
@@ -113,6 +116,14 @@ public class SmackInstantMessagingImpl extends LogDelegator implements InstantMe
 		this.actionControllerCreator = (AutoCreator) actionControllerCreator;
 	}
 	
+	/**
+	 * [used by Spring]
+	 * @param businessGroupService
+	 */
+	public void setBusinessGroupService(BusinessGroupService businessGroupService) {
+		this.businessGroupService = businessGroupService;
+	}
+
 	/**
 	 * @see org.olat.instantMessaging.InstantMessaging#getGroupChatManagerController()
 	 */
@@ -142,13 +153,44 @@ public class SmackInstantMessagingImpl extends LogDelegator implements InstantMe
 		boolean hasAccount = accountService.hasAccount(imUsername);
 		if (!hasAccount) clientManager.getInstantMessagingCredentialsForUser(addedUsername);
 		// we do not check whether a group already exists, we create it each time
-		List<String> list = new ArrayList<String>();
-		list.add(groupOwnerUsername);
-		buddyGroupService.createSharedGroup(groupId, groupname, list);
 		
+		buddyGroupService.createSharedGroup(groupId, groupname);
 		logDebug("Adding user to roster group::" + groupId + " username: " + addedUsername);
 		
-		return buddyGroupService.addUserToSharedGroup(groupId, addedUsername);
+		List<String> list = new ArrayList<String>();
+		list.add(groupOwnerUsername);
+		list.add(imUsername);
+		return buddyGroupService.addUserToSharedGroup(groupId, list);
+	}
+	
+	@Override
+	public boolean syncFriendsRoster(String groupId, String groupname, Collection<String> addedUsers, Collection<String> removedUsers) {
+		List<String> addedIMUserList = new ArrayList<String>();
+		if(addedUsers != null) {
+			for(String addedUser:addedUsers) {
+				String imUsername = nameHelper.getIMUsernameByOlatUsername(addedUser);
+				addedIMUserList.add(imUsername);
+				boolean hasAccount = accountService.hasAccount(imUsername);
+				if (!hasAccount) {
+					clientManager.getInstantMessagingCredentialsForUser(imUsername);
+				}
+			}
+		}
+		
+		List<String> removedIMUserList = new ArrayList<String>();
+		if(removedUsers != null) {
+			for(String removedUser:removedUsers) {
+				removedIMUserList.add(nameHelper.getIMUsernameByOlatUsername(removedUser));
+			}
+		}
+		
+		boolean allOk = true;
+		if(!addedIMUserList.isEmpty()) {
+			allOk = buddyGroupService.createSharedGroup(groupId, groupname);
+			allOk = buddyGroupService.addUserToSharedGroup(groupId, addedIMUserList);
+		}
+		allOk = buddyGroupService.removeUsersFromSharedGroup(groupId, removedIMUserList);
+		return allOk;
 	}
 
 	/**
@@ -281,7 +323,7 @@ public class SmackInstantMessagingImpl extends LogDelegator implements InstantMe
 	}
 	
 	//fxdiff: FXOLAT-219 decrease the load for synching groups
-	private boolean synchonizeBuddyRoster(BusinessGroup group, Set<Long> checkedIdentities) {
+	private boolean synchonizeRoster(BusinessGroup group, Set<Long> checkedIdentities) {
 		BaseSecurity securityManager = BaseSecurityManager.getInstance();
 		List<SecurityGroup> secGroups = new ArrayList<SecurityGroup>();
 		secGroups.add(group.getOwnerGroup());
@@ -309,8 +351,10 @@ public class SmackInstantMessagingImpl extends LogDelegator implements InstantMe
 		}
 		String groupId = InstantMessagingModule.getAdapter().createChatRoomString(group);
 		if (users.size() > 0 ) { // only sync groups with users
-			if (!buddyGroupService.createSharedGroup(groupId, group.getName(), usernames)){
+			if (!buddyGroupService.createSharedGroup(groupId, group.getName())){
 				logError("could not create shared group: "+groupId, null);
+			} else {
+				buddyGroupService.addUserToSharedGroup(groupId, usernames);
 			}
 			logDebug("synchronizing group::" + group.toString());
 		} else {
@@ -321,35 +365,42 @@ public class SmackInstantMessagingImpl extends LogDelegator implements InstantMe
 		return true;
 	}
 	
+	private boolean isChatEnabled(BusinessGroup group) {
+		CollaborationTools tools = CollaborationToolsFactory.getInstance().getOrCreateCollaborationTools(group);
+		if(tools == null) {
+			return false;
+		}
+		return tools.isToolEnabled(CollaborationTools.TOOL_CHAT);
+	}
+	
 	/**
 	 * 
 	 * @see org.olat.instantMessaging.InstantMessaging#synchronizeLearningGroupsWithIMServer()
 	 */
 
 	//fxdiff: FXOLAT-219 decrease the load for synching groups
-	public boolean synchronizeLearningGroupsWithIMServer() {
+	public boolean synchronizeBusinessGroupsWithIMServer() {
 		if (!(adminConnecion != null && adminConnecion.getConnection() != null && adminConnecion.getConnection().isConnected())) {
 			return false;
 		}
 		logInfo("Starting synchronisation of LearningGroups with IM server");
 		long start = System.currentTimeMillis();
-		boolean syncLearn = InstantMessagingModule.getAdapter().getConfig().isSyncLearningGroups();
+		IMConfigSync syncGroups = InstantMessagingModule.getAdapter().getConfig().getSyncGroupsConfig();
 
 		int counter = 0;
 		int GROUP_BATCH_SIZE = 50;
 		List<BusinessGroup> groups;
 		Set<Long> checkedIdentities = new HashSet<Long>();
 		SearchBusinessGroupParams params = new SearchBusinessGroupParams();
-		params.addTypes(BusinessGroup.TYPE_LEARNINGROUP);
 		do {
-			groups = BusinessGroupManagerImpl.getInstance().findBusinessGroups(params, null, false, false, null, counter, GROUP_BATCH_SIZE);
+			groups = businessGroupService.findBusinessGroups(params, null, counter, GROUP_BATCH_SIZE);
 			for (BusinessGroup group:groups) {
-				if (!syncLearn) {
+				if (syncGroups == IMConfigSync.never || (syncGroups == IMConfigSync.perConfig && !isChatEnabled(group))) {
 					String groupID = InstantMessagingModule.getAdapter().createChatRoomString(group);
 					if (deleteRosterGroup(groupID)) {
 						logInfo("deleted unwanted group: "+group.getResourceableTypeName()+" "+groupID, null);
 					}
-				} else if (!synchonizeBuddyRoster(group, checkedIdentities)) {
+				} else if (!synchonizeRoster(group, checkedIdentities)) {
 					logError("couldn't sync group: "+group.getResourceableTypeName(), null);
 				}
 				if (counter++ % 6 == 0) {
@@ -366,35 +417,6 @@ public class SmackInstantMessagingImpl extends LogDelegator implements InstantMe
 
 		logInfo("Ended synchronisation of LearningGroups with IM server: Synched "+counter+" groups in " + (System.currentTimeMillis() - start) + " (ms)");
 		return true;
-	}
-
-	/**
-	 * Synchronize the groups with the IM system
-	 * To synchronize buddygroups, use the null-context.
-	 * Be aware that this action might take some time!
-	 * @param groupContext
-	 * @return true if successfull, false if IM server is not running
-	 */
-	public boolean synchronizeAllBuddyGroupsWithIMServer() {
-		if (adminConnecion != null && adminConnecion.getConnection() != null && adminConnecion.getConnection().isConnected()) {
-			logInfo("Started synchronisation of BuddyGroups with IM server.");
-			BGContextManager cm = BGContextManagerImpl.getInstance();
-			//null as argument pulls all buddygroups
-			List<BusinessGroup> groups = cm.getGroupsOfBGContext(null);
-			int counter = 0;
-			//fxdiff: FXOLAT-219 decrease the load for synching groups
-			Set<Long> checkedIdentites = new HashSet<Long>();
-			for (BusinessGroup group: groups) {
-				if(synchonizeBuddyRoster(group, checkedIdentites)) {
-					counter++;
-				}
-				//make an intermediate commit already
-			}
-			logInfo("Ended synchronisation of BuddyGroups with IM server: Synched "+counter+" groups");
-			return true;
-		} else {
-			return false;
-		}
 	}
 
 	/**

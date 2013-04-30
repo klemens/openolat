@@ -38,6 +38,7 @@ import org.olat.core.commons.modules.bc.FolderConfig;
 import org.olat.core.commons.modules.bc.vfs.OlatNamedContainerImpl;
 import org.olat.core.commons.modules.bc.vfs.OlatRootFolderImpl;
 import org.olat.core.gui.UserRequest;
+import org.olat.core.gui.components.stack.StackedController;
 import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.WindowControl;
 import org.olat.core.gui.control.generic.messages.MessageUIFactory;
@@ -53,6 +54,7 @@ import org.olat.core.util.ExportUtil;
 import org.olat.core.util.FileUtils;
 import org.olat.core.util.StringHelper;
 import org.olat.core.util.Util;
+import org.olat.core.util.WebappHelper;
 import org.olat.core.util.ZipUtil;
 import org.olat.course.ICourse;
 import org.olat.course.archiver.ScoreAccountingHelper;
@@ -64,6 +66,7 @@ import org.olat.course.condition.interpreter.ConditionInterpreter;
 import org.olat.course.editor.CourseEditorEnv;
 import org.olat.course.editor.NodeEditController;
 import org.olat.course.editor.StatusDescription;
+import org.olat.course.export.CourseEnvironmentMapper;
 import org.olat.course.groupsandrights.CourseGroupManager;
 import org.olat.course.nodes.ms.MSEditFormController;
 import org.olat.course.nodes.ta.DropboxController;
@@ -174,7 +177,7 @@ public class TACourseNode extends GenericCourseNode implements AssessableCourseN
 	 *      org.olat.core.gui.control.WindowControl, org.olat.course.ICourse)
 	 */
 	@Override
-	public TabbableController createEditController(UserRequest ureq, WindowControl wControl, ICourse course, UserCourseEnvironment euce) {
+	public TabbableController createEditController(UserRequest ureq, WindowControl wControl, StackedController stackPanel, ICourse course, UserCourseEnvironment euce) {
 		updateModuleConfigDefaults(false);
 		TACourseNodeEditController childTabCntrllr = new TACourseNodeEditController(ureq, wControl, course, this, course.getCourseEnvironment().getCourseGroupManager(), euce);
 		CourseNode chosenNode = course.getEditorTreeModel().getCourseNode(euce.getCourseEditorEnv().getCurrentCourseNodeId());
@@ -662,7 +665,7 @@ public class TACourseNode extends GenericCourseNode implements AssessableCourseN
 	 *      org.olat.core.gui.control.WindowControl,
 	 *      org.olat.course.run.userview.UserCourseEnvironment)
 	 */
-	public Controller getDetailsEditController(UserRequest ureq, WindowControl wControl, UserCourseEnvironment userCourseEnvironment) {
+	public Controller getDetailsEditController(UserRequest ureq, WindowControl wControl, StackedController stackPanel, UserCourseEnvironment userCourseEnvironment) {
 		// prepare file component
 		return new DropboxScoringViewController(ureq, wControl, this, userCourseEnvironment);
 	}
@@ -706,11 +709,17 @@ public class TACourseNode extends GenericCourseNode implements AssessableCourseN
 	 */
 	@Override
 	public void exportNode(File fExportDirectory, ICourse course) {
-		// export only this taskfolder's tasks
-		File fTaskFolder = new File(FolderConfig.getCanonicalRoot() + TACourseNode.getTaskFolderPathRelToFolderRoot(course, this));
-		File fNodeExportDir = new File(fExportDirectory, this.getIdent());
+		// export the tasks
+		File fTaskFolder = new File(FolderConfig.getCanonicalRoot(), TACourseNode.getTaskFolderPathRelToFolderRoot(course, this));
+		File fNodeExportDir = new File(fExportDirectory, getIdent());
 		fNodeExportDir.mkdirs();
 		FileUtils.copyDirContentsToDir(fTaskFolder, fNodeExportDir, false, "export task course node");
+		
+		//export thes solutions
+		File fSolutionDir = new File(FolderConfig.getCanonicalRoot(), TACourseNode.getFoldernodesPathRelToFolderBase(course.getCourseEnvironment()) + "/" + getIdent());
+		File fSolExportDir = new File(new File(fExportDirectory, "solutions"), getIdent());
+		fSolExportDir.mkdirs();
+		FileUtils.copyDirContentsToDir(fSolutionDir, fSolExportDir, false, "export task course node solutions");
 	}
 
 	/**
@@ -720,9 +729,15 @@ public class TACourseNode extends GenericCourseNode implements AssessableCourseN
 	 */
 	@Override
 	public Controller importNode(File importDirectory, ICourse course, boolean unattendedImport, UserRequest ureq, WindowControl wControl) {
-		File fNodeImportDir = new File(importDirectory, this.getIdent());
+		//import tasks
+		File fNodeImportDir = new File(importDirectory, getIdent());
 		File fTaskfolderDir = new File(FolderConfig.getCanonicalRoot() + TACourseNode.getTaskFolderPathRelToFolderRoot(course, this));
 		FileUtils.copyDirContentsToDir(fNodeImportDir, fTaskfolderDir, false, "import task course node");
+	
+		File fSolutionDir = new File(FolderConfig.getCanonicalRoot(), TACourseNode.getFoldernodesPathRelToFolderBase(course.getCourseEnvironment()) + "/" + getIdent());
+		fSolutionDir.mkdirs();
+		File fSolImportDir = new File(new File(importDirectory, "solutions"), getIdent());
+		FileUtils.copyDirContentsToDir(fSolImportDir, fSolutionDir, false, "import task course node solutions");
 		return null;
 	}
 
@@ -748,8 +763,8 @@ public class TACourseNode extends GenericCourseNode implements AssessableCourseN
 
 		if (dropboxDir.exists() || solutionDir.exists() || returnboxDir.exists() || hasTask.booleanValue()){
 			// Create Temp Dir for zipping
-			String tmpDirPath = FolderConfig.getCanonicalTmpDir() + course.getCourseEnvironment().getCourseBaseContainer().getRelPath();
-			File tmpDir = new File( tmpDirPath );
+			String tmpDirPath = WebappHelper.getTmpDir() + course.getCourseEnvironment().getCourseBaseContainer().getRelPath();
+			File tmpDir = new File(tmpDirPath);
 			
 			if (!tmpDir.exists()) {
 			  tmpDir.mkdirs();
@@ -852,13 +867,11 @@ public class TACourseNode extends GenericCourseNode implements AssessableCourseN
 				  fDropBoxArchiveDir.mkdir();
 			  }
 			  File archiveDir = new File(fDropBoxArchiveDir, zipName);
-	
-			
 			  // zip
 			  dataFound &= ZipUtil.zip(fileList, tmpDir, archiveDir, true);
 			  // Delete all temp files
-			  FileUtils.deleteDirsAndFiles( tmpDir, true, true);
 			}
+		  FileUtils.deleteDirsAndFiles( tmpDir, true, true);
 		}	
   	return dataFound;
 	}
@@ -1051,6 +1064,24 @@ public class TACourseNode extends GenericCourseNode implements AssessableCourseN
 			}
 		}
 	}
+	
+	@Override
+	public void postImport(CourseEnvironmentMapper envMapper) {
+		super.postImport(envMapper);
+		postImportCondition(conditionTask, envMapper);
+		postImportCondition(conditionDrop, envMapper);
+		postImportCondition(conditionReturnbox, envMapper);
+		postImportCondition(conditionScoring, envMapper);
+		postImportCondition(conditionSolution, envMapper);
+	}
 
-		
+	@Override
+	public void postExport(CourseEnvironmentMapper envMapper, boolean backwardsCompatible) {
+		super.postExport(envMapper, backwardsCompatible);
+		postExportCondition(conditionTask, envMapper, backwardsCompatible);
+		postExportCondition(conditionDrop, envMapper, backwardsCompatible);
+		postExportCondition(conditionReturnbox, envMapper, backwardsCompatible);
+		postExportCondition(conditionScoring, envMapper, backwardsCompatible);
+		postExportCondition(conditionSolution, envMapper, backwardsCompatible);
+	}
 }

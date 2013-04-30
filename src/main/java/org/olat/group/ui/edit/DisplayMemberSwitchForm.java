@@ -34,6 +34,7 @@ import org.olat.core.gui.components.form.flexible.impl.FormEvent;
 import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.Event;
 import org.olat.core.gui.control.WindowControl;
+import org.olat.group.model.DisplayMembers;
 
 
 
@@ -50,6 +51,8 @@ import org.olat.core.gui.control.WindowControl;
 public class DisplayMemberSwitchForm extends FormBasicController {
 
 	private SelectionElement showOwners, showPartips, showWaitingList;
+	private SelectionElement openOwners, openPartips, openWaitingList;
+	private SelectionElement downloadList;
 	private boolean hasOwners, hasPartips, hasWaitingList;
 
 	/**
@@ -66,73 +69,37 @@ public class DisplayMemberSwitchForm extends FormBasicController {
 		
 		initForm(ureq);
 	}
-
-	/**
-	 * wheter the Show Owners checkbox is checked or not
-	 * 
-	 * @return boolean
-	 */
-	public boolean getShowOwners() {
-		if (showOwners == null) return false;
-		return showOwners.isSelected(0);
+	
+	public DisplayMembers getDisplayMembers() {
+		DisplayMembers displayMembers = new DisplayMembers();
+		displayMembers.setShowOwners(showOwners.isSelected(0));
+		displayMembers.setShowParticipants(showPartips.isSelected(0));
+		displayMembers.setShowWaitingList(showWaitingList.isVisible() && showWaitingList.isEnabled() && showWaitingList.isSelected(0));
+		displayMembers.setOwnersPublic(openOwners.isSelected(0));
+		displayMembers.setParticipantsPublic(openPartips.isSelected(0));
+		displayMembers.setWaitingListPublic(openWaitingList.isVisible() && openWaitingList.isEnabled() && openWaitingList.isSelected(0));
+		displayMembers.setDownloadLists(downloadList.isSelected(0));
+		return displayMembers;
 	}
-
-	/**
-	 * wheter the Show Partipicants checkbox is checked or not
-	 * 
-	 * @return boolean
-	 */
-	public boolean getShowPartipiciants() {
-		if (showPartips == null) return false;
-		return showPartips.isSelected(0);
+	
+	public void setDisplayMembers(DisplayMembers displayMembers) {
+		showOwners.select("show_owners", displayMembers.isShowOwners());
+		showPartips.select("show_participants", displayMembers.isShowParticipants());
+		showWaitingList.select("show_waiting_list", displayMembers.isShowWaitingList());
+		openOwners.select("open_owners", displayMembers.isOwnersPublic());
+		openPartips.select("open_participants", displayMembers.isParticipantsPublic());
+		openWaitingList.select("open_waiting_list", displayMembers.isWaitingListPublic());
+		downloadList.select("download_list", displayMembers.isDownloadLists());
 	}
-
-	/**
-	 * whether the Show WaitingList checkbox is checked or not
-	 * 
-	 * @return boolean
-	 */
-	public boolean getShowWaitingList() {
-		if (showWaitingList == null) return false;
-		return showWaitingList.isSelected(0);
-	}
-
-	/**
-	 * wheter the Show Owners checkbox is checked or not
-	 * 
-	 * @param show
-	 */
-	public void setShowOwnersChecked(boolean show) {
-		showOwners.select("xx", show);
-	}
-
-	/**
-	 * wheter the Show Partipicants checkbox is checked or not
-	 * 
-	 * @param show
-	 */
-	public void setShowPartipsChecked(boolean show) {
-		showPartips.select("xx", show);
-	}
-
-	/**
-	 * wheter the Show WaitingList checkbox is checked or not
-	 * 
-	 * @param show
-	 */
-	public void setShowWaitingListChecked(boolean show) {
-		showWaitingList.select("xx", show);
-	}
-
-	/**
-	 * @see org.olat.core.gui.components.Form#validate(org.olat.core.gui.UserRequest)
-	 */
-	public boolean validate() {
-		return true;
-	}
-
+	
 	public void setWaitingListReadOnly(boolean b) {
 		showWaitingList.setEnabled(b);
+		openWaitingList.setEnabled(b);
+	}
+	
+	public void setWaitingListVisible(boolean b) {
+		showWaitingList.setVisible(b);
+		openWaitingList.setVisible(b);
 	}
 
 	@Override
@@ -148,16 +115,29 @@ public class DisplayMemberSwitchForm extends FormBasicController {
 	
 	@Override
 	protected void initForm(FormItemContainer formLayout, Controller listener, UserRequest ureq) {
-		showOwners = uifactory.addCheckboxesVertical("ShowOwners", "chkBox.show.owners", formLayout, new String[]{"xx"}, new String[]{""}, null, 1);
+		showOwners = uifactory.addCheckboxesVertical("ShowOwners", "chkBox.show.owners", formLayout, new String[]{"show_owners"}, new String[]{""}, null, 1);
 		showOwners.setVisible(hasOwners);
-		showPartips = uifactory.addCheckboxesVertical("ShowPartips", "chkBox.show.partips", formLayout, new String[]{"xx"}, new String[]{""}, null, 1);
+		showPartips = uifactory.addCheckboxesVertical("ShowPartips", "chkBox.show.partips", formLayout, new String[]{"show_participants"}, new String[]{""}, null, 1);
 		showPartips.setVisible(hasPartips);
-		showWaitingList = uifactory.addCheckboxesVertical("ShowWaitingList", "chkBox.show.waitingList", formLayout, new String[]{"xx"}, new String[]{""}, null, 1);
+		showWaitingList = uifactory.addCheckboxesVertical("ShowWaitingList", "chkBox.show.waitingList", formLayout, new String[]{"show_waiting_list"}, new String[]{""}, null, 1);
 		showWaitingList.setVisible(hasWaitingList);
-		
+
+		openOwners = uifactory.addCheckboxesVertical("OpenOwners", "chkBox.open.owners", formLayout, new String[]{"open_owners"}, new String[]{""}, null, 1);
+		openOwners.setVisible(hasOwners);
+		openPartips = uifactory.addCheckboxesVertical("OpenPartips", "chkBox.open.partips", formLayout, new String[]{"open_participants"}, new String[]{""}, null, 1);
+		openPartips.setVisible(hasPartips);
+		openWaitingList = uifactory.addCheckboxesVertical("OpenWaitingList", "chkBox.open.waitingList", formLayout, new String[]{"open_waiting_list"}, new String[]{""}, null, 1);
+		openWaitingList.setVisible(hasWaitingList);
+
+		downloadList = uifactory.addCheckboxesVertical("DownloadList", "chkBox.open.downloadList", formLayout, new String[]{"download_list"}, new String[]{""}, null, 1);
+
 		showOwners.addActionListener(this, FormEvent.ONCLICK);
 		showPartips.addActionListener(this, FormEvent.ONCLICK);
 		showWaitingList.addActionListener(this, FormEvent.ONCLICK);
+		openOwners.addActionListener(this, FormEvent.ONCLICK);
+		openPartips.addActionListener(this, FormEvent.ONCLICK);
+		openWaitingList.addActionListener(this, FormEvent.ONCLICK);
+		downloadList.addActionListener(this, FormEvent.ONCLICK);
 	}
 
 	@Override

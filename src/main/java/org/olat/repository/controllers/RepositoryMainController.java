@@ -46,7 +46,6 @@ import org.olat.core.gui.control.Event;
 import org.olat.core.gui.control.WindowControl;
 import org.olat.core.gui.control.controller.MainLayoutBasicController;
 import org.olat.core.gui.control.generic.closablewrapper.CloseableModalController;
-import org.olat.core.gui.control.generic.dtabs.Activateable;
 import org.olat.core.gui.control.generic.dtabs.Activateable2;
 import org.olat.core.gui.control.generic.modal.DialogBoxController;
 import org.olat.core.gui.control.generic.modal.DialogBoxUIFactory;
@@ -58,7 +57,6 @@ import org.olat.core.id.OLATResourceable;
 import org.olat.core.id.context.BusinessControlFactory;
 import org.olat.core.id.context.ContextEntry;
 import org.olat.core.id.context.StateEntry;
-import org.olat.core.logging.AssertException;
 import org.olat.core.logging.OLog;
 import org.olat.core.logging.Tracing;
 import org.olat.core.util.Util;
@@ -72,8 +70,7 @@ import org.olat.fileresource.types.PodcastFileResource;
 import org.olat.fileresource.types.ScormCPFileResource;
 import org.olat.fileresource.types.SharedFolderFileResource;
 import org.olat.fileresource.types.WikiResource;
-import org.olat.group.BusinessGroup;
-import org.olat.group.BusinessGroupManagerImpl;
+import org.olat.group.BusinessGroupService;
 import org.olat.ims.qti.fileresource.SurveyFileResource;
 import org.olat.ims.qti.fileresource.TestFileResource;
 import org.olat.portfolio.EPTemplateMapResource;
@@ -106,13 +103,11 @@ import org.olat.core.helpers.Settings;
  * @date Initial Date: Oct 21, 2004 <br>
  * @author Felix Jost
  */
-public class RepositoryMainController extends MainLayoutBasicController implements Activateable, Activateable2 {
+public class RepositoryMainController extends MainLayoutBasicController implements Activateable2 {
 
-	OLog log = Tracing.createLoggerFor(this.getClass());
+	private static final OLog log = Tracing.createLoggerFor(RepositoryMainController.class);
 	private static final String VELOCITY_ROOT = Util.getPackageVelocityRoot(RepositoryManager.class);
 
-	public static final String JUMPFROMEXTERN = "jumpfromextern";
-	public static final String JUMPFROMCOURSE = "jumpfromcourse";
 	static final String ACTION_NEW_CREATECOURSE = "cco";
 	static final String ACTION_NEW_CREATETEST = "cte";
 	static final String ACTION_NEW_CREATESURVEY = "csu";
@@ -155,7 +150,8 @@ public class RepositoryMainController extends MainLayoutBasicController implemen
 	private WizardController wc;
 	private RepositoryAddChooseStepsController chooseStepsController;
 	private Controller creationWizardController;
-	private PortfolioModule portfolioModule;
+	private final PortfolioModule portfolioModule;
+	private final BusinessGroupService businessGroupService;
 
 	/**
 	 * The check for author rights is executed on construction time and then
@@ -170,6 +166,7 @@ public class RepositoryMainController extends MainLayoutBasicController implemen
 		if (log.isDebug()) {
 			log.debug("Constructing ReposityMainController for user::" + ureq.getIdentity());
 		}
+		businessGroupService = CoreSpringFactory.getImpl(BusinessGroupService.class);
 		portfolioModule = (PortfolioModule) CoreSpringFactory.getBean("portfolioModule");
 
 		// use i18n from RepositoryManager level
@@ -189,7 +186,7 @@ public class RepositoryMainController extends MainLayoutBasicController implemen
 		mainPanel = new Panel("repopanel");
 		mainPanel.setContent(main);
 
-		searchController = new RepositorySearchController(translate("details.header"), ureq, getWindowControl(), false, true);
+		searchController = new RepositorySearchController(translate("details.header"), ureq, getWindowControl(), false, true, false);
 		listenTo(searchController);
 		main.put("searchcomp", searchController.getInitialComponent());
 
@@ -203,19 +200,23 @@ public class RepositoryMainController extends MainLayoutBasicController implemen
 
 		menuTree = new MenuTree("repoTree");
 		menuTree.setTreeModel(buildTreeModel(isAuthor));
-		menuTree.setSelectedNodeId(menuTree.getTreeModel().getRootNode().getIdent());
+		TreeNode rootNode = menuTree.getTreeModel().getRootNode();
+		menuTree.setSelectedNode(rootNode);
 		menuTree.addListener(this);
 
 		Component toolComp = (mainToolC == null ? null : mainToolC.getInitialComponent());
 		columnsLayoutCtr = new LayoutMain3ColsController(ureq, getWindowControl(), menuTree, toolComp, mainPanel, "repomain");
 		columnsLayoutCtr.addCssClassToMain("o_repository");
-		
 		listenTo(columnsLayoutCtr);
 		
 		if (isAuthor || ureq.getUserSession().getRoles().isOLATAdmin()) {
-			activate(ureq, "search.my");
+			activateContent(ureq, "search.my", null, null);
+			TreeNode activatedNode = TreeHelper.findNodeByUserObject("search.my", rootNode);
+			menuTree.setSelectedNode(activatedNode);
 		} else {
-			activate(ureq, "search.catalog");
+			activateContent(ureq, "search.catalog", null, null);
+			TreeNode activatedNode = TreeHelper.findNodeByUserObject("search.catalog", rootNode);
+			menuTree.setSelectedNode(activatedNode);
 		}
 		
 		putInitialPanel(columnsLayoutCtr.getInitialComponent());
@@ -230,33 +231,33 @@ public class RepositoryMainController extends MainLayoutBasicController implemen
 			//CP, SCORM, Wiki, Podcast, Blog, Test, Questionnaire, Glossary, other formats 
 
 			mainToolC.addHeader(translate("tools.add.header"));
-			mainToolC.addLink(RepositoryAddController.ACTION_ADD_COURSE, translate("tools.add.course"), RepositoryAddController.ACTION_ADD_COURSE, "o_toolbox_course");
-			mainToolC.addLink(RepositoryAddController.ACTION_ADD_CP, translate("tools.add.cp"), RepositoryAddController.ACTION_ADD_CP, "o_toolbox_content");
-			mainToolC.addLink(RepositoryAddController.ACTION_ADD_SCORM, translate("tools.add.scorm"), RepositoryAddController.ACTION_ADD_SCORM, "o_toolbox_scorm");
-			mainToolC.addLink(RepositoryAddController.ACTION_ADD_WIKI, translate("tools.add.wiki"), RepositoryAddController.ACTION_ADD_WIKI, "o_toolbox_wiki");
-			mainToolC.addLink(RepositoryAddController.ACTION_ADD_PODCAST, translate("tools.add.podcast"), RepositoryAddController.ACTION_ADD_PODCAST, "o_toolbox_podcast");
-			mainToolC.addLink(RepositoryAddController.ACTION_ADD_BLOG, translate("tools.add.blog"), RepositoryAddController.ACTION_ADD_BLOG, "o_toolbox_blog");
-			mainToolC.addLink(RepositoryAddController.ACTION_ADD_TEST, translate("tools.add.test"), RepositoryAddController.ACTION_ADD_TEST, "o_toolbox_test");
-			mainToolC.addLink(RepositoryAddController.ACTION_ADD_SURVEY, translate("tools.add.survey"), RepositoryAddController.ACTION_ADD_SURVEY, "o_toolbox_questionnaire");
-			mainToolC.addLink(RepositoryAddController.ACTION_ADD_GLOSSARY, translate("tools.add.glossary"), RepositoryAddController.ACTION_ADD_GLOSSARY, "o_toolbox_glossary");
-			mainToolC.addLink(RepositoryAddController.ACTION_ADD_DOC, translate("tools.add.webdoc"), RepositoryAddController.ACTION_ADD_DOC, "b_toolbox_doc");
+			mainToolC.addLink(RepositoryAddController.ACTION_ADD_COURSE, translate("tools.add.course"), RepositoryAddController.ACTION_ADD_COURSE, "o_toolbox_course o_sel_repo_import_course");
+			mainToolC.addLink(RepositoryAddController.ACTION_ADD_CP, translate("tools.add.cp"), RepositoryAddController.ACTION_ADD_CP, "o_toolbox_content o_sel_repo_import_cp");
+			mainToolC.addLink(RepositoryAddController.ACTION_ADD_SCORM, translate("tools.add.scorm"), RepositoryAddController.ACTION_ADD_SCORM, "o_toolbox_scorm o_sel_repo_import_scorm");
+			mainToolC.addLink(RepositoryAddController.ACTION_ADD_WIKI, translate("tools.add.wiki"), RepositoryAddController.ACTION_ADD_WIKI, "o_toolbox_wiki o_sel_repo_import_wiki");
+			mainToolC.addLink(RepositoryAddController.ACTION_ADD_PODCAST, translate("tools.add.podcast"), RepositoryAddController.ACTION_ADD_PODCAST, "o_toolbox_podcast o_sel_repo_import_podcast");
+			mainToolC.addLink(RepositoryAddController.ACTION_ADD_BLOG, translate("tools.add.blog"), RepositoryAddController.ACTION_ADD_BLOG, "o_toolbox_blog o_sel_repo_import_blog");
+			mainToolC.addLink(RepositoryAddController.ACTION_ADD_TEST, translate("tools.add.test"), RepositoryAddController.ACTION_ADD_TEST, "o_toolbox_test o_sel_repo_import_test");
+			mainToolC.addLink(RepositoryAddController.ACTION_ADD_SURVEY, translate("tools.add.survey"), RepositoryAddController.ACTION_ADD_SURVEY, "o_toolbox_questionnaire o_sel_repo_import_questionnaire");
+			mainToolC.addLink(RepositoryAddController.ACTION_ADD_GLOSSARY, translate("tools.add.glossary"), RepositoryAddController.ACTION_ADD_GLOSSARY, "o_toolbox_glossary o_sel_repo_import_glossary");
+			mainToolC.addLink(RepositoryAddController.ACTION_ADD_DOC, translate("tools.add.webdoc"), RepositoryAddController.ACTION_ADD_DOC, "b_toolbox_doc o_sel_repo_import_doc");
 
 			mainToolC.addHeader(translate("tools.new.header"));
 			mainToolC.addLink(ACTION_NEW_EXAM, translate("tools.new.exam"), ACTION_NEW_EXAM, "o_toolbox_exam");
 
-			mainToolC.addLink(ACTION_NEW_CREATECOURSE, translate("tools.new.createcourse"), ACTION_NEW_CREATECOURSE, "o_toolbox_course");
-			mainToolC.addLink(ACTION_NEW_CREATECP, translate("tools.new.createcp"), ACTION_NEW_CREATECP, "o_toolbox_content");
-			mainToolC.addLink(ACTION_NEW_WIKI, translate("tools.new.wiki"), ACTION_NEW_WIKI, "o_toolbox_wiki");
-			mainToolC.addLink(ACTION_NEW_PODCAST, translate("tools.new.podcast"), ACTION_NEW_PODCAST, "o_toolbox_podcast");
-			mainToolC.addLink(ACTION_NEW_BLOG, translate("tools.new.blog"), ACTION_NEW_BLOG, "o_toolbox_blog");
+			mainToolC.addLink(ACTION_NEW_CREATECOURSE, translate("tools.new.createcourse"), ACTION_NEW_CREATECOURSE, "o_toolbox_course o_sel_repo_new_course");
+			mainToolC.addLink(ACTION_NEW_CREATECP, translate("tools.new.createcp"), ACTION_NEW_CREATECP, "o_toolbox_content o_sel_repo_new_cp");
+			mainToolC.addLink(ACTION_NEW_WIKI, translate("tools.new.wiki"), ACTION_NEW_WIKI, "o_toolbox_wiki o_sel_repo_new_wiki");
+			mainToolC.addLink(ACTION_NEW_PODCAST, translate("tools.new.podcast"), ACTION_NEW_PODCAST, "o_toolbox_podcast o_sel_repo_new_podcast");
+			mainToolC.addLink(ACTION_NEW_BLOG, translate("tools.new.blog"), ACTION_NEW_BLOG, "o_toolbox_blog o_sel_repo_new_blog");
 			if (portfolioModule.isEnabled()){
-				mainToolC.addLink(ACTION_NEW_PORTFOLIO, translate("tools.new.portfolio"), ACTION_NEW_PORTFOLIO, "o_toolbox_portfolio");
+				mainToolC.addLink(ACTION_NEW_PORTFOLIO, translate("tools.new.portfolio"), ACTION_NEW_PORTFOLIO, "o_toolbox_portfolio o_sel_repo_new_portfolio");
 			}
-			mainToolC.addLink(ACTION_NEW_CREATETEST, translate("tools.new.createtest"), ACTION_NEW_CREATETEST, "o_toolbox_test");
-			mainToolC.addLink(ACTION_NEW_CREATESURVEY, translate("tools.new.createsurvey"), ACTION_NEW_CREATESURVEY, "o_toolbox_questionnaire");
+			mainToolC.addLink(ACTION_NEW_CREATETEST, translate("tools.new.createtest"), ACTION_NEW_CREATETEST, "o_toolbox_test o_sel_repo_new_test");
+			mainToolC.addLink(ACTION_NEW_CREATESURVEY, translate("tools.new.createsurvey"), ACTION_NEW_CREATESURVEY, "o_toolbox_questionnaire o_sel_repo_new_questionnaire");
 			mainToolC.addLink(ACTION_NEW_CREATESHAREDFOLDER, translate("tools.new.createsharedfolder"), ACTION_NEW_CREATESHAREDFOLDER,
-					"o_toolbox_sharedfolder");
-			mainToolC.addLink(ACTION_NEW_GLOSSARY, translate("tools.new.glossary"), ACTION_NEW_GLOSSARY, "o_toolbox_glossary");
+					"o_toolbox_sharedfolder o_sel_repo_new_sharedfolder");
+			mainToolC.addLink(ACTION_NEW_GLOSSARY, translate("tools.new.glossary"), ACTION_NEW_GLOSSARY, "o_toolbox_glossary o_sel_repo_new_glossary");
 			if (bIsAdmin || isAuthor) {
 				mainToolC.addHeader(translate("tools.administration.header"));
 				if (bIsAdmin) {
@@ -272,45 +273,77 @@ public class RepositoryMainController extends MainLayoutBasicController implemen
 	private TreeModel buildTreeModel(boolean bIsAuthor) {
 		GenericTreeModel gtm = new GenericTreeModel();
 		GenericTreeNode rootNode = new GenericTreeNode(translate("search.home"), "search.home");
+		rootNode.setCssClass("o_sel_repo_home");
 		gtm.setRootNode(rootNode);
 
 		// TODO:catalog not yet finished :
-		rootNode.addChild(new GenericTreeNode(translate("search.catalog"), "search.catalog"));
+		GenericTreeNode node = new GenericTreeNode(translate("search.catalog"), "search.catalog");
+		node.setCssClass("o_sel_repo_catalog");
+		rootNode.addChild(node);
 
 		// check if repository portlet is configured in olat_portals.xml
 		boolean repoPortletOn = PortletFactory.containsPortlet("RepositoryPortletStudent");
 		// add default searches
-		rootNode.addChild(new GenericTreeNode(translate("search.generic"), "search.generic"));
+		node = new GenericTreeNode(translate("search.generic"), "search.generic");
+		node.setCssClass("o_sel_repo_search_generic");
+		rootNode.addChild(node);
 		if (bIsAuthor) {
 			GenericTreeNode myEntriesTn = new GenericTreeNode(translate("search.my"), "search.my");
+			myEntriesTn.setCssClass("o_sel_repo_my");
 			myEntriesNodeId = myEntriesTn.getIdent();
 			rootNode.addChild(myEntriesTn);
 		}
 		// add repository search also used by portlets
 		if (repoPortletOn) {
-			rootNode.addChild(new GenericTreeNode(translate("search.mycourses.student"), "search.mycourses.student"));
+			node = new GenericTreeNode(translate("search.mycourses.student"), "search.mycourses.student");
+			node.setCssClass("o_sel_repo_my_student");
+			rootNode.addChild(node);
 			// for authors or users with group rights also show the teacher portlet
-			if (bIsAuthor || BusinessGroupManagerImpl.getInstance().findBusinessGroupsAttendedBy(BusinessGroup.TYPE_RIGHTGROUP, getIdentity(), null).size() > 0) {
-				rootNode.addChild(new GenericTreeNode(translate("search.mycourses.teacher"), "search.mycourses.teacher"));
+			if(bIsAuthor || RepositoryManager.getInstance().hasLearningResourcesAsTeacher(getIdentity())) {
+				node = new GenericTreeNode(translate("search.mycourses.teacher"), "search.mycourses.teacher");
+				node.setCssClass("o_sel_repo_my_teacher");
+				rootNode.addChild(node);
 			}
 		}
 		rootNode.addChild(new GenericTreeNode(translate("search.exam"), "search.exam"));
 
-		rootNode.addChild(new GenericTreeNode(translate("search.course"), "search.course"));
+		node = new GenericTreeNode(translate("search.course"), "search.course");
+		node.setCssClass("o_sel_repo_course");
+		rootNode.addChild(node);
 		if (bIsAuthor) {
 			//cp, scorm, wiki, podcast, portfolie, test, questionn, resource folder, glossary
-			rootNode.addChild(new GenericTreeNode(translate("search.cp"), "search.cp"));
-			rootNode.addChild(new GenericTreeNode(translate("search.scorm"), "search.scorm"));
-			rootNode.addChild(new GenericTreeNode(translate("search.wiki"), "search.wiki"));
-			rootNode.addChild(new GenericTreeNode(translate("search.podcast"), "search.podcast" ));
-			rootNode.addChild(new GenericTreeNode(translate("search.blog"), "search.blog" ));
+			node = new GenericTreeNode(translate("search.cp"), "search.cp");
+			node.setCssClass("o_sel_repo_cp");
+			rootNode.addChild(node);
+			node = new GenericTreeNode(translate("search.scorm"), "search.scorm");
+			node.setCssClass("o_sel_repo_scorm");
+			rootNode.addChild(node);
+			node = new GenericTreeNode(translate("search.wiki"), "search.wiki");
+			node.setCssClass("o_sel_repo_wiki");
+			rootNode.addChild(node);
+			node = new GenericTreeNode(translate("search.podcast"), "search.podcast" );
+			node.setCssClass("o_sel_repo_podcast");
+			rootNode.addChild(node);
+			node = new GenericTreeNode(translate("search.blog"), "search.blog" );
+			node.setCssClass("o_sel_repo_blog");
+			rootNode.addChild(node);
 			if (portfolioModule.isEnabled()){
-				rootNode.addChild(new GenericTreeNode(translate("search.portfolio"), "search.portfolio"));
+				node = new GenericTreeNode(translate("search.portfolio"), "search.portfolio");
+				node.setCssClass("o_sel_repo_portfolio");
+				rootNode.addChild(node);
 			}
-			rootNode.addChild(new GenericTreeNode(translate("search.test"), "search.test"));
-			rootNode.addChild(new GenericTreeNode(translate("search.survey"), "search.survey"));
-			rootNode.addChild(new GenericTreeNode(translate("search.sharedfolder"), "search.sharedfolder"));
-			rootNode.addChild(new GenericTreeNode(translate("search.glossary"), "search.glossary"));
+			node = new GenericTreeNode(translate("search.test"), "search.test");
+			node.setCssClass("o_sel_repo_test");
+			rootNode.addChild(node);
+			node = new GenericTreeNode(translate("search.survey"), "search.survey");
+			node.setCssClass("o_sel_repo_survey");
+			rootNode.addChild(node);
+			node = new GenericTreeNode(translate("search.sharedfolder"), "search.sharedfolder");
+			node.setCssClass("o_sel_repo_sharefolder");
+			rootNode.addChild(node);
+			node = new GenericTreeNode(translate("search.glossary"), "search.glossary");
+			node.setCssClass("o_sel_repo_glossary");
+			rootNode.addChild(node);
 		}
 
 		return gtm;
@@ -334,7 +367,7 @@ public class RepositoryMainController extends MainLayoutBasicController implemen
 				Object userObject = clickedNode.getUserObject();
 				long duration1 = System.currentTimeMillis() - start;
 				log.info("Repo-Perf: duration1=" + duration1);
-				activateContent(ureq, userObject, null);
+				activateContent(ureq, userObject, null, null);
 			}
 		}
 		long duration = System.currentTimeMillis() - start;
@@ -349,7 +382,7 @@ public class RepositoryMainController extends MainLayoutBasicController implemen
 	 * @param uObj
 	 * @param subViewIdentifyer optional view identifyer for a sub controller
 	 */
-	private void activateContent(UserRequest ureq, Object userObject, String subViewIdentifyer) {
+	private void activateContent(UserRequest ureq, Object userObject, List<ContextEntry> entries, StateEntry state) {
 		log.info("activateContent userObject=" + userObject);
 		if (userObject.equals("search.home")) { // the
 			// home
@@ -363,7 +396,7 @@ public class RepositoryMainController extends MainLayoutBasicController implemen
 			searchController.enableBackToSearchFormLink(true);
 		} else if (userObject.equals("search.catalog")) {
 			// enter catalog browsing
-			activateCatalogController(ureq, subViewIdentifyer);
+			activateCatalogController(ureq, entries, state);
 			mainPanel.setContent(catalogCntrllr.getInitialComponent());
 		} else if (userObject.equals("search.my")) { // search
 			// own resources
@@ -464,7 +497,7 @@ public class RepositoryMainController extends MainLayoutBasicController implemen
 		searchWindowControl = addToHistory(ureq, ores, null);
 	}
 
-	private void activateCatalogController(UserRequest ureq, String nodeId) {
+	private void activateCatalogController(UserRequest ureq, List<ContextEntry> entries, StateEntry state) {
 		// create new catalog controller with given node if none exists
 		// create also new catalog controller when the user clicked twice on the
 		// catalog link in the menu
@@ -473,14 +506,11 @@ public class RepositoryMainController extends MainLayoutBasicController implemen
 			//fxdiff BAKS-7 Resume function
 			OLATResourceable ores = OresHelper.createOLATResourceableInstance("search.catalog", 0l);
 			WindowControl bwControl = BusinessControlFactory.getInstance().createBusinessWindowControl(ores, null, getWindowControl());
-			catalogCntrllr = new CatalogController(ureq, bwControl, nodeId);
+			catalogCntrllr = new CatalogController(ureq, bwControl);
 			listenTo(catalogCntrllr);
-		} else {
-			// just activate the existing catalog
-			if (nodeId != null) {
-				catalogCntrllr.activate(ureq, nodeId);
-			}
 		}
+		catalogCntrllr.activate(ureq, entries, state);
+
 		// set correct tool controller
 		ToolController ccToolCtr = catalogCntrllr.createCatalogToolController();
 		Component toolComp = (ccToolCtr == null ? null : ccToolCtr.getInitialComponent());
@@ -592,7 +622,7 @@ public class RepositoryMainController extends MainLayoutBasicController implemen
 						mainPanel.setContent(detailsController.getInitialComponent());
 					}
 				} else if (selectedEntry.getCanDownload()) {
-					detailsController.doDownload(urequest);
+					detailsController.doDownload(urequest, false);
 				} else { // offer details view
 					Component toolComp = (toolC == null ? null : toolC.getInitialComponent());
 					columnsLayoutCtr.setCol2(toolComp);
@@ -841,11 +871,10 @@ public class RepositoryMainController extends MainLayoutBasicController implemen
 	}
 	
 	@Override
-	//fxdiff BAKS-7 Resume function
 	public void activate(UserRequest ureq, List<ContextEntry> entries, StateEntry state) {
 		if(entries == null || entries.isEmpty()) return;
 		
-		ContextEntry entry = entries.remove(0);
+		ContextEntry entry = entries.get(0);
 		String type = entry.getOLATResourceable().getResourceableTypeName();
 		//activate the catalog
 		if(CatalogEntry.class.getSimpleName().equals(type)) {
@@ -853,85 +882,34 @@ public class RepositoryMainController extends MainLayoutBasicController implemen
 			TreeNode activatedNode = TreeHelper.findNodeByUserObject("search.catalog", rootNode);
 			if (activatedNode != null) {
 				menuTree.setSelectedNodeId(activatedNode.getIdent());
-				String catId = entry.getOLATResourceable().getResourceableId().toString();
-				activateContent(ureq, "search.catalog", catId);
+				activateContent(ureq, "search.catalog", entries, entry.getTransientState());
+			}
+		} else if (RepositoryEntry.class.getSimpleName().equals(type)) {
+			Long key = entry.getOLATResourceable().getResourceableId();
+			RepositoryEntry selectedEntry = RepositoryManager.getInstance().lookupRepositoryEntry(key);
+			if (selectedEntry != null) {
+				ToolController toolC = detailsController.setEntry(selectedEntry, ureq, true);
+				Component toolComp = (toolC == null ? null : toolC.getInitialComponent());
+				columnsLayoutCtr.setCol2(toolComp);
+				mainPanel.setContent(detailsController.getInitialComponent());
 			}
 		} else {
 			TreeNode rootNode = menuTree.getTreeModel().getRootNode();
 			TreeNode activatedNode = TreeHelper.findNodeByUserObject(type, rootNode);
 			if (activatedNode != null) {
 				menuTree.setSelectedNodeId(activatedNode.getIdent());
-				long resId = entry.getOLATResourceable().getResourceableId();
-				activateContent(ureq, type, resId != 0 ? Long.toString(resId) : null);
-				if(!entries.isEmpty()) {
-					ContextEntry nextEntry = entries.get(0);
+				List<ContextEntry> subEntries = entries.subList(1, entries.size());
+				activateContent(ureq, type, subEntries, entry.getTransientState());
+				if(!subEntries.isEmpty()) {
+					ContextEntry nextEntry = subEntries.get(0);
 					String subType = nextEntry.getOLATResourceable().getResourceableTypeName();
 					if(RepositoryEntry.class.getSimpleName().equals(subType)) {
-						searchController.activate(ureq, entries, entry.getTransientState());
-						List<ContextEntry> subEntries = entries.subList(1, entries.size());
-						detailsController.activate(ureq, subEntries, nextEntry.getTransientState());
+						searchController.activate(ureq, subEntries, nextEntry.getTransientState());
+						detailsController.activate(ureq, subEntries.subList(1, subEntries.size()), nextEntry.getTransientState());
 					} else if(CatalogEntry.class.getSimpleName().equals(subType)) {
-						catalogCntrllr.activate(ureq, entries, entry.getTransientState());
+						catalogCntrllr.activate(ureq, subEntries, entry.getTransientState());
 					}
 				}
-			}
-		}
-	}
-
-	/**
-	 * @see org.olat.core.gui.control.generic.dtabs.Activateable#activate(org.olat.core.gui.UserRequest,
-	 *      java.lang.String)
-	 */
-	public void activate(UserRequest ureq, String viewIdentifier) {
-		// REVIEW:pb: activate is now also used for course details activation
-		// REVIEW:pb:concept for jumping between activateables, instead of
-		// hardcoding each dependency
-		// REVIEW:pb:like jumpfromcourse, backtocatalog, etc.
-		if (viewIdentifier.startsWith(JUMPFROMEXTERN)) {
-			viewIdentifier = viewIdentifier.replaceFirst(JUMPFROMEXTERN, "").trim();
-			boolean jumpfromcourse = false;
-
-			if (viewIdentifier.startsWith(JUMPFROMCOURSE)) {
-				viewIdentifier = viewIdentifier.replaceFirst(JUMPFROMCOURSE, "").trim();
-				jumpfromcourse = true;
-			}
-
-			Long key = new Long(0);
-			try {
-				key = Long.valueOf(viewIdentifier);
-			} catch (NumberFormatException e) {
-				throw new AssertException(e.getMessage());
-			}
-			RepositoryEntry selectedEntry = RepositoryManager.getInstance().lookupRepositoryEntry(key);
-			if (selectedEntry != null) {
-				ToolController toolC = detailsController.setEntry(selectedEntry, ureq, jumpfromcourse);
-				Component toolComp = (toolC == null ? null : toolC.getInitialComponent());
-				columnsLayoutCtr.setCol2(toolComp);
-				mainPanel.setContent(detailsController.getInitialComponent());
-			}
-		} else if (viewIdentifier.startsWith(CatalogEntry.class.getSimpleName())) {
-			String catId = viewIdentifier.substring(viewIdentifier.indexOf(':') + 1);
-			TreeNode rootNode = menuTree.getTreeModel().getRootNode();
-			TreeNode activatedNode = TreeHelper.findNodeByUserObject("search.catalog", rootNode);
-			if (activatedNode != null) {
-				menuTree.setSelectedNodeId(activatedNode.getIdent());
-				activateContent(ureq, "search.catalog", catId);
-			}
-		} else {
-			// find the menu node that has the user object that represents the
-			// viewIdentifyer
-			// sub view identifyers are separated with ":" characters
-			String[] parsedViewIdentifyers = viewIdentifier.split(":");
-
-			TreeNode rootNode = this.menuTree.getTreeModel().getRootNode();
-			TreeNode activatedNode = TreeHelper.findNodeByUserObject(parsedViewIdentifyers[0], rootNode);
-			if (activatedNode != null) {
-				this.menuTree.setSelectedNodeId(activatedNode.getIdent());
-				activateContent(ureq, parsedViewIdentifyers[0], (parsedViewIdentifyers.length > 1 ? parsedViewIdentifyers[1] : null));
-			} else {
-				// not found, activate the root node
-				this.menuTree.setSelectedNodeId(rootNode.getIdent());
-				activateContent(ureq, parsedViewIdentifyers[0], null);
 			}
 		}
 	}

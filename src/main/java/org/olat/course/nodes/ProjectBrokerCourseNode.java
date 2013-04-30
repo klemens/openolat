@@ -35,6 +35,7 @@ import java.util.Set;
 
 import org.olat.core.commons.modules.bc.FolderConfig;
 import org.olat.core.gui.UserRequest;
+import org.olat.core.gui.components.stack.StackedController;
 import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.WindowControl;
 import org.olat.core.gui.control.generic.messages.MessageUIFactory;
@@ -51,6 +52,7 @@ import org.olat.core.logging.Tracing;
 import org.olat.core.util.ExportUtil;
 import org.olat.core.util.FileUtils;
 import org.olat.core.util.Util;
+import org.olat.core.util.WebappHelper;
 import org.olat.core.util.ZipUtil;
 import org.olat.course.ICourse;
 import org.olat.course.assessment.AssessmentManager;
@@ -61,6 +63,7 @@ import org.olat.course.condition.interpreter.ConditionInterpreter;
 import org.olat.course.editor.CourseEditorEnv;
 import org.olat.course.editor.NodeEditController;
 import org.olat.course.editor.StatusDescription;
+import org.olat.course.export.CourseEnvironmentMapper;
 import org.olat.course.groupsandrights.CourseGroupManager;
 import org.olat.course.nodes.ms.MSEditFormController;
 import org.olat.course.nodes.projectbroker.ProjectBrokerControllerFactory;
@@ -152,7 +155,7 @@ public class ProjectBrokerCourseNode extends GenericCourseNode implements Assess
 	 *      org.olat.core.gui.control.WindowControl, org.olat.course.ICourse)
 	 */
 	@Override
-	public TabbableController createEditController(UserRequest ureq, WindowControl wControl, ICourse course, UserCourseEnvironment euce) {
+	public TabbableController createEditController(UserRequest ureq, WindowControl wControl, StackedController stackPanel, ICourse course, UserCourseEnvironment euce) {
 		updateModuleConfigDefaults(false);
 		ProjectBrokerCourseEditorController childTabCntrllr = ProjectBrokerControllerFactory.createCourseEditController(ureq, wControl, course, euce, this );
 		CourseNode chosenNode = course.getEditorTreeModel().getCourseNode(euce.getCourseEditorEnv().getCurrentCourseNodeId());
@@ -640,7 +643,7 @@ public class ProjectBrokerCourseNode extends GenericCourseNode implements Assess
 	 *      org.olat.core.gui.control.WindowControl,
 	 *      org.olat.course.run.userview.UserCourseEnvironment)
 	 */
-	public Controller getDetailsEditController(UserRequest ureq, WindowControl wControl, UserCourseEnvironment userCourseEnvironment) {
+	public Controller getDetailsEditController(UserRequest ureq, WindowControl wControl, StackedController stackPanel, UserCourseEnvironment userCourseEnvironment) {
 		// prepare file component
 		throw new AssertException("ProjectBroker does not support AssessmentTool");
 	}
@@ -670,17 +673,6 @@ public class ProjectBrokerCourseNode extends GenericCourseNode implements Assess
 		Boolean hasDropbox = (Boolean) getModuleConfiguration().get(CONF_DROPBOX_ENABLED);
 		if (hasDropbox == null) hasDropbox = Boolean.FALSE;
 		return  hasDropbox.booleanValue();
-	}
-
-	/**
-	 * @see org.olat.course.nodes.CourseNode#exportNode(java.io.File,
-	 *      org.olat.course.ICourse)
-	 */
-	@Override
-	public void exportNode(File fExportDirectory, ICourse course) {
-		// nothing to export 
-		//		File fNodeExportDir = new File(fExportDirectory, this.getIdent());
-		//		fNodeExportDir.mkdirs();
 	}
 
 	/**
@@ -716,7 +708,7 @@ public class ProjectBrokerCourseNode extends GenericCourseNode implements Assess
 
 		if (dropboxDir.exists() || returnboxDir.exists() ){
 			// Create Temp Dir for zipping
-			String tmpDirPath = FolderConfig.getCanonicalTmpDir() + course.getCourseEnvironment().getCourseBaseContainer().getRelPath();
+			String tmpDirPath = WebappHelper.getTmpDir() + course.getCourseEnvironment().getCourseBaseContainer().getRelPath();
 			File tmpDir = new File( tmpDirPath );
 			if (!tmpDir.exists()) {
 			  tmpDir.mkdirs();
@@ -740,7 +732,7 @@ public class ProjectBrokerCourseNode extends GenericCourseNode implements Assess
 			ExportUtil.writeContentToFile(tableExportFileName, projectBrokerTableExport, tmpDir, charset);
 
 			// prepare zipping the node directory and the course results overview table
-			Set fileList = new HashSet();
+			Set<String> fileList = new HashSet<String>();
 			// move xls file to tmp dir
 // TODO:ch 28.01.2010 : ProjectBroker does not support assessment-tool in V1.0
 //			fileList.add(fileName);
@@ -808,8 +800,8 @@ public class ProjectBrokerCourseNode extends GenericCourseNode implements Assess
 			  // zip
 			  dataFound &= ZipUtil.zip(fileList, tmpDir, archiveDir, true);
 			  // Delete all temp files
-			  FileUtils.deleteDirsAndFiles( tmpDir, true, true);
 			}
+		  FileUtils.deleteDirsAndFiles( tmpDir, true, true);
 		}	
   	return dataFound;
 	}
@@ -873,6 +865,24 @@ public class ProjectBrokerCourseNode extends GenericCourseNode implements Assess
 				config.setConfigurationVersion(CURRENT_CONFIG_VERSION);
 			}
 		}
+	}
+	
+	@Override
+	public void postImport(CourseEnvironmentMapper envMapper) {
+		super.postImport(envMapper);
+		postImportCondition(conditionDrop, envMapper);
+		postImportCondition(conditionScoring, envMapper);
+		postImportCondition(conditionReturnbox, envMapper);
+		postImportCondition(conditionProjectBroker, envMapper);
+	}
+
+	@Override
+	public void postExport(CourseEnvironmentMapper envMapper, boolean backwardsCompatible) {
+		super.postExport(envMapper, backwardsCompatible);
+		postExportCondition(conditionDrop, envMapper, backwardsCompatible);
+		postExportCondition(conditionScoring, envMapper, backwardsCompatible);
+		postExportCondition(conditionReturnbox, envMapper, backwardsCompatible);
+		postExportCondition(conditionProjectBroker, envMapper, backwardsCompatible);
 	}
 
 	/**

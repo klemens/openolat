@@ -52,6 +52,7 @@ import org.olat.core.util.UserSession;
 import org.olat.core.util.WebappHelper;
 import org.olat.core.util.i18n.I18nManager;
 import org.olat.core.util.i18n.I18nModule;
+import org.olat.core.util.session.UserSessionManager;
 import org.olat.login.LoginModule;
 import org.olat.restapi.security.RestSecurityBean;
 import org.olat.restapi.security.RestSecurityHelper;
@@ -133,7 +134,7 @@ public class RESTDispatcher implements Dispatcher {
 		//
 		// create the olat ureq and get an associated main window to spawn the "tab"
 		//
-		UserSession usess = UserSession.getUserSession(request);
+		UserSession usess = CoreSpringFactory.getImpl(UserSessionManager.class).getUserSession(request);
 		UserRequest ureq = null;
 		try {
 			//upon creation URL is checked for 
@@ -190,7 +191,11 @@ public class RESTDispatcher implements Dispatcher {
 				} else if (Windows.getWindows(usess).getAttribute("AUTHCHIEFCONTROLLER") == null) {
 					// Session is already available, but no main window (Head-less REST
 					// session). Only create the base chief controller and the window
-					AuthHelper.createAuthHome(ureq);
+					Window currentWindow = AuthHelper.createAuthHome(ureq).getWindow();
+					//the user is authenticated successfully with a security token, we can set the authenticated path
+					currentWindow.setUriPrefix(WebappHelper.getServletContextPath() + DispatcherAction.PATH_AUTHENTICATED);
+					Windows ws = Windows.getWindows(ureq);
+					ws.registerWindow(currentWindow);
 					// no need to call setIdentityAsActive as this was already done by RestApiLoginFilter...
 				}
 			}
@@ -293,11 +298,11 @@ public class RESTDispatcher implements Dispatcher {
 	private String getRedirectToURL(UserSession usess) {
 		ChiefController cc = (ChiefController) Windows.getWindows(usess).getAttribute("AUTHCHIEFCONTROLLER");
 		Window w = cc.getWindow();
-		
-		URLBuilder ubu = new URLBuilder("", w.getInstanceId(), String.valueOf(w.getTimestamp()), null);
+
+		URLBuilder ubu = new URLBuilder(WebappHelper.getServletContextPath() + DispatcherAction.PATH_AUTHENTICATED, w.getInstanceId(), String.valueOf(w.getTimestamp()), null);
 		StringOutput sout = new StringOutput(30);
 		ubu.buildURI(sout, null, null);
 		
-		return WebappHelper.getServletContextPath() + DispatcherAction.PATH_AUTHENTICATED + sout.toString();
+		return sout.toString();
 	}
 }

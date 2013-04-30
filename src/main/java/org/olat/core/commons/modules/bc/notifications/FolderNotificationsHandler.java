@@ -31,6 +31,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
 
+import org.olat.core.CoreSpringFactory;
 import org.olat.core.commons.modules.bc.FileInfo;
 import org.olat.core.commons.modules.bc.FolderManager;
 import org.olat.core.commons.modules.bc.meta.MetaInfo;
@@ -50,7 +51,7 @@ import org.olat.core.util.notifications.SubscriptionInfo;
 import org.olat.core.util.notifications.items.SubscriptionListItem;
 import org.olat.core.util.notifications.items.TitleItem;
 import org.olat.group.BusinessGroup;
-import org.olat.group.BusinessGroupManagerImpl;
+import org.olat.group.BusinessGroupService;
 import org.olat.notifications.NotificationsUpgradeHelper;
 import org.olat.repository.RepositoryManager;
 
@@ -81,7 +82,7 @@ public class FolderNotificationsHandler implements NotificationsHandler {
 		Publisher p = subscriber.getPublisher();
 		Date latestNews = p.getLatestNewsDate();
 
-		String businessPath = p.getBusinessPath() + "[path=";
+		String genericBusinessPath = p.getBusinessPath() + "[path=";
 		
 		SubscriptionInfo si;
 		// there could be news for me, investigate deeper
@@ -109,10 +110,12 @@ public class FolderNotificationsHandler implements NotificationsHandler {
 
 					String desc = translator.translate("notifications.entry", new String[] { title, NotificationHelper.getFormatedName(ident) });
 					String urlToSend = null;
+					String businessPath = null;
 					if(p.getBusinessPath() != null) {
-						urlToSend = BusinessControlFactory.getInstance().getURLFromBusinessPathString(businessPath + fi.getRelPath() + "]");
+						businessPath = genericBusinessPath + fi.getRelPath() + "]";
+						urlToSend = BusinessControlFactory.getInstance().getURLFromBusinessPathString(businessPath);
 					}
-					subListItem = new SubscriptionListItem(desc, urlToSend, modDate, iconCssClass);
+					subListItem = new SubscriptionListItem(desc, urlToSend, businessPath, modDate, iconCssClass);
 					si.addSubscriptionListItem(subListItem);
 				}
 			} else {
@@ -129,7 +132,7 @@ public class FolderNotificationsHandler implements NotificationsHandler {
 	private void checkPublisher(Publisher p) {
 		try {
 			if("BusinessGroup".equals(p.getResName())) {
-				BusinessGroup bg = BusinessGroupManagerImpl.getInstance().loadBusinessGroup(p.getResId(), false);
+				BusinessGroup bg = CoreSpringFactory.getImpl(BusinessGroupService.class).loadBusinessGroup(p.getResId());
 				if(bg == null) {
 					log.info("deactivating publisher with key; " + p.getKey(), null);
 					NotificationsManager.getInstance().deactivate(p);
@@ -150,7 +153,7 @@ public class FolderNotificationsHandler implements NotificationsHandler {
 		try {
 			String resName = p.getResName();
 			if("BusinessGroup".equals(resName)) {
-				BusinessGroup bg = BusinessGroupManagerImpl.getInstance().loadBusinessGroup(p.getResId(), false);
+				BusinessGroup bg = CoreSpringFactory.getImpl(BusinessGroupService.class).loadBusinessGroup(p.getResId());
 				title = translator.translate("notifications.header.group", new String[]{bg.getName()});
 			} else if("CourseModule".equals(resName)) {
 				String displayName = RepositoryManager.getInstance().lookupDisplayNameByOLATResourceableId(p.getResId());

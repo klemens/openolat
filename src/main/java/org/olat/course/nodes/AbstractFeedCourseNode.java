@@ -27,7 +27,6 @@ import org.olat.basesecurity.BaseSecurityManager;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.WindowControl;
-import org.olat.core.gui.control.generic.tabbable.TabbableController;
 import org.olat.core.id.Identity;
 import org.olat.core.id.OLATResourceable;
 import org.olat.core.util.Formatter;
@@ -40,6 +39,7 @@ import org.olat.course.condition.interpreter.ConditionInterpreter;
 import org.olat.course.editor.CourseEditorEnv;
 import org.olat.course.editor.NodeEditController;
 import org.olat.course.editor.StatusDescription;
+import org.olat.course.export.CourseEnvironmentMapper;
 import org.olat.course.repository.ImportReferencesController;
 import org.olat.course.run.navigation.NodeRunConstructionResult;
 import org.olat.course.run.userview.NodeEvaluation;
@@ -92,15 +92,22 @@ public abstract class AbstractFeedCourseNode extends GenericCourseNode {
 			preConditionPoster.setExpertMode(false);
 		}
 	}
-
-	/**
-	 * @see org.olat.course.nodes.AbstractAccessableCourseNode#createEditController(org.olat.core.gui.UserRequest,
-	 *      org.olat.core.gui.control.WindowControl, org.olat.course.ICourse,
-	 *      org.olat.course.run.userview.UserCourseEnvironment)
-	 */
+	
 	@Override
-	public abstract TabbableController createEditController(UserRequest ureq, WindowControl wControl, ICourse course,
-			UserCourseEnvironment euce);
+	public void postImport(CourseEnvironmentMapper envMapper) {
+		super.postImport(envMapper);
+		postImportCondition(preConditionReader, envMapper);
+		postImportCondition(preConditionPoster, envMapper);
+		postImportCondition(preConditionModerator, envMapper);
+	}
+
+	@Override
+	public void postExport(CourseEnvironmentMapper envMapper, boolean backwardsCompatible) {
+		super.postExport(envMapper, backwardsCompatible);
+		postExportCondition(preConditionReader, envMapper, backwardsCompatible);
+		postExportCondition(preConditionPoster, envMapper, backwardsCompatible);
+		postExportCondition(preConditionModerator, envMapper, backwardsCompatible);
+	}
 
 	/**
 	 * @see org.olat.course.nodes.AbstractAccessableCourseNode#createNodeRunConstructionResult(org.olat.core.gui.UserRequest,

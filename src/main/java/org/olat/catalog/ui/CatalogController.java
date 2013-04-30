@@ -30,10 +30,11 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.Date;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Stack;
 
-import org.olat.ControllerFactory;
+import org.olat.NewControllerFactory;
 import org.olat.admin.securitygroup.gui.GroupController;
 import org.olat.admin.securitygroup.gui.IdentitiesAddEvent;
 import org.olat.admin.securitygroup.gui.IdentitiesRemoveEvent;
@@ -48,7 +49,6 @@ import org.olat.core.CoreSpringFactory;
 import org.olat.core.commons.persistence.DBFactory;
 import org.olat.core.dispatcher.DispatcherAction;
 import org.olat.core.gui.UserRequest;
-import org.olat.core.gui.Windows;
 import org.olat.core.gui.components.Component;
 import org.olat.core.gui.components.image.ImageComponent;
 import org.olat.core.gui.components.link.Link;
@@ -59,10 +59,7 @@ import org.olat.core.gui.control.Event;
 import org.olat.core.gui.control.WindowControl;
 import org.olat.core.gui.control.controller.BasicController;
 import org.olat.core.gui.control.generic.closablewrapper.CloseableModalController;
-import org.olat.core.gui.control.generic.dtabs.Activateable;
 import org.olat.core.gui.control.generic.dtabs.Activateable2;
-import org.olat.core.gui.control.generic.dtabs.DTab;
-import org.olat.core.gui.control.generic.dtabs.DTabs;
 import org.olat.core.gui.control.generic.modal.DialogBoxController;
 import org.olat.core.gui.control.generic.modal.DialogBoxUIFactory;
 import org.olat.core.gui.control.generic.tool.ToolController;
@@ -87,13 +84,14 @@ import org.olat.repository.RepositoryEntry;
 import org.olat.repository.RepositoryEntryIconRenderer;
 import org.olat.repository.RepositoryManager;
 import org.olat.repository.RepositoryTableModel;
+import org.olat.repository.SearchRepositoryEntryParameters;
 import org.olat.repository.controllers.EntryChangedEvent;
 import org.olat.repository.controllers.RepositoryEditDescriptionController;
 import org.olat.repository.controllers.RepositorySearchController;
 import org.olat.repository.handlers.RepositoryHandler;
 import org.olat.repository.handlers.RepositoryHandlerFactory;
 import org.olat.resource.OLATResource;
-import org.olat.resource.accesscontrol.manager.ACFrontendManager;
+import org.olat.resource.accesscontrol.ACService;
 import org.olat.resource.accesscontrol.model.OLATResourceAccess;
 import org.olat.resource.accesscontrol.model.PriceMethodBundle;
 import org.olat.resource.accesscontrol.ui.PriceFormat;
@@ -145,17 +143,7 @@ import org.olat.resource.accesscontrol.ui.PriceFormat;
  * Date: 2005/10/14 12:35:40 <br>
  * @author Felix Jost
  */
-public class CatalogController extends BasicController implements Activateable, Activateable2 {
-	
-	// velocity form flags
-	
-	private static final String ENABLE_GROUPMNGMNT = "enableGroupMngmnt";
-	private static final String ENABLE_EDIT_CATEGORY = "enableEditCategory";
-	private static final String ENABLE_REPOSITORYSELECTION = "enableRepositorySelection";
-	private static final String ENABLE_ADD_SUBCATEGORY = "enableAddSubcategory";
-	private static final String ENABLE_EDIT_LINK = "enableLinkEdit";
-	private static final String ENABLE_EDIT_CATALOG_LINK = "enableEditCatalogLink";
-	private static final String ENABLE_REQUESTFORM = "enableRequestForm";
+public class CatalogController extends BasicController implements Activateable2 {
 
 	// catalog actions
 	
@@ -206,7 +194,7 @@ public class CatalogController extends BasicController implements Activateable, 
 	private VelocityContainer myContent;
 
 	private final CatalogManager cm;
-	private final ACFrontendManager acFrontendManager;
+	private final ACService acService;
 	private final RepositoryManager repositoryManager;
 	private CatalogEntry currentCatalogEntry;
 	private CatalogEntry newLinkNotPersistedYet;
@@ -254,13 +242,13 @@ public class CatalogController extends BasicController implements Activateable, 
 	 * @param wControl
 	 * @param rootce
 	 */
-	public CatalogController(UserRequest ureq, WindowControl wControl, String jumpToNode) {
+	public CatalogController(UserRequest ureq, WindowControl wControl) {
 		// fallback translator to repository package to reduce redundant translations
 		super(ureq, wControl, Util.createPackageTranslator(RepositoryManager.class, ureq.getLocale()));
 		
 		cm = CatalogManager.getInstance();
 		//fxdiff VCRP-1,2: access control of resources
-		acFrontendManager = CoreSpringFactory.getImpl(ACFrontendManager.class);
+		acService = CoreSpringFactory.getImpl(ACService.class);
 		repositoryManager = CoreSpringFactory.getImpl(RepositoryManager.class);
 
 		List<CatalogEntry> rootNodes = cm.getRootCatalogEntries();
@@ -277,18 +265,6 @@ public class CatalogController extends BasicController implements Activateable, 
 		updateToolAccessRights(ureq, rootce, 0);
 
 		myContent = createVelocityContainer("catalog");
-		
-		if (isOLATAdmin) {
-			myContent.contextPut("RepoAccessVal", new Integer(RepositoryEntry.ACC_OWNERS));
-		}	else if (isAuthor) {
-			myContent.contextPut("RepoAccessVal", new Integer(RepositoryEntry.ACC_OWNERS_AUTHORS));
-		}	else if (isGuest) {
-			myContent.contextPut("RepoAccessVal", new Integer(RepositoryEntry.ACC_USERS_GUESTS));
-		} else {
-			// a daily user
-			myContent.contextPut("RepoAccessVal", new Integer(RepositoryEntry.ACC_USERS));
-		}
-
 		myContent.contextPut(CATENTRY_LEAF, new Integer(CatalogEntry.TYPE_LEAF));
 		myContent.contextPut(CATENTRY_NODE, new Integer(CatalogEntry.TYPE_NODE));
 		// access rights for use in the Velocity Container
@@ -301,13 +277,8 @@ public class CatalogController extends BasicController implements Activateable, 
 		historyStack.add(rootce);
 		updateContent(ureq, rootce, 0);
 		
-		// jump to a specific node in the catalog structure, build corresponding
-		// historystack and update tool access
-		if (jumpToNode != null) {
-			activate(ureq, jumpToNode);
-		}
 		loginLink = LinkFactory.createLink("cat.login", myContent, this);
-		
+	
 		putInitialPanel(myContent);
 	}
 
@@ -352,31 +323,18 @@ public class CatalogController extends BasicController implements Activateable, 
 						+ ", title " + cur.getName());
 				// launch entry if launchable, otherwise offer it as download / launch
 				// it as non-html in browser
-				String displayName = cur.getName();
-				RepositoryHandler handler = RepositoryHandlerFactory.getInstance().getRepositoryHandler(repoEntry);
-				OLATResource ores = repoEntry.getOlatResource();
-				if (ores == null) throw new AssertException("repoEntry had no olatresource, repoKey = " + repoEntry.getKey());
 				if (repoEntry.getCanLaunch()) {
-					// we can create a controller and launch
-					// it in OLAT, e.g. if it is a
-					// content-packacking or a course
-
-					//was brasato:: DTabs dts = getWindowControl().getDTabs();
-					DTabs dts = (DTabs)Windows.getWindows(ureq).getWindow(ureq).getAttribute("DTabs");
-					DTab dt = dts.getDTab(ores);
-					if (dt == null) {
-						// does not yet exist -> create and add
-						dt = dts.createDTab(ores, repoEntry, displayName);
-						if (dt == null) return;
-						Controller launchController = ControllerFactory.createLaunchController(ores, null, ureq, dt.getWindowControl(), true);
-						dt.setController(launchController);
-						dts.addDTab(dt);
-					}
-					dts.activate(ureq, dt, null); // null: start with main entry point of controller
+					String businessPath = "[RepositoryEntry:" + repoEntry.getKey() + "]";
+					NewControllerFactory.getInstance().launch(businessPath, ureq, getWindowControl());
 				} else if (repoEntry.getCanDownload()) {
+					OLATResource ores = repoEntry.getOlatResource();
+					if (ores == null) {
+						throw new AssertException("repoEntry had no olatresource, repoKey = " + repoEntry.getKey());
+					}
 					// else not launchable in olat, but downloadable -> send the document
 					// directly to browser but "downloadable" (pdf, word, excel)
-					MediaResource mr = handler.getAsMediaResource(ores);
+					RepositoryHandler handler = RepositoryHandlerFactory.getInstance().getRepositoryHandler(repoEntry);
+					MediaResource mr = handler.getAsMediaResource(ores, false);
 					RepositoryManager.getInstance().incrementDownloadCounter(repoEntry);
 					ureq.getDispatchResult().setResultingMediaResource(mr);
 					return;
@@ -480,6 +438,7 @@ public class CatalogController extends BasicController implements Activateable, 
 				}
 				removeAsListenerAndDispose(addEntryForm);
 				addEntryForm = new EntryForm(ureq, getWindowControl(), false);
+				addEntryForm.setElementCssClass("o_sel_catalog_add_category_popup");
 				listenTo(addEntryForm);
 				
 				// open form in dialog
@@ -493,7 +452,7 @@ public class CatalogController extends BasicController implements Activateable, 
 			 */
 			else if (event.getCommand().equals(ACTION_ADD_CTLGLINK)) {
 				removeAsListenerAndDispose(rsc);
-				rsc = new RepositorySearchController(translate(NLS_CHOOSE), ureq, getWindowControl(), true, false);
+				rsc = new RepositorySearchController(translate(NLS_CHOOSE), ureq, getWindowControl(), true, false, false);
 				listenTo(rsc);
 				// OLAT-Admin has search form
 				if (isOLATAdmin) {
@@ -502,7 +461,7 @@ public class CatalogController extends BasicController implements Activateable, 
 				// an Author gets the list of his repository
 				else {
 					// admin is responsible for not inserting wrong visibility entries!!
-					rsc.doSearchByOwnerLimitAccess(ureq.getIdentity(), RepositoryEntry.ACC_USERS);
+					rsc.doSearchByOwnerLimitAccess(ureq.getIdentity());
 				}
 				// open form in dialog
 				removeAsListenerAndDispose(cmc);
@@ -521,6 +480,7 @@ public class CatalogController extends BasicController implements Activateable, 
 				}
 				removeAsListenerAndDispose(editEntryForm);
 				editEntryForm = new EntryForm(ureq, getWindowControl(), false);
+				editEntryForm.setElementCssClass("o_sel_catalog_edit_category_popup");
 				listenTo(editEntryForm);
 				
 				editEntryForm.setFormFields(currentCatalogEntry);// fill the
@@ -548,7 +508,7 @@ public class CatalogController extends BasicController implements Activateable, 
 				boolean keepAtLeastOne = currentCatalogEntryLevel == 0;
 				
 				removeAsListenerAndDispose(groupController);
-				groupController = new GroupController(ureq, getWindowControl(), true, keepAtLeastOne, false, secGroup);
+				groupController = new GroupController(ureq, getWindowControl(), true, keepAtLeastOne, false, false, false, false, secGroup);
 				listenTo(groupController);
 				
 				// open form in dialog
@@ -582,8 +542,8 @@ public class CatalogController extends BasicController implements Activateable, 
 				 */
 				BaseSecurity mngr = BaseSecurityManager.getInstance();
 				ContactList caretaker = new ContactList(translate(NLS_CONTACT_TO_GROUPNAME_CARETAKER));
-				final List emptyList = new ArrayList();
-				List tmpIdent = new ArrayList();
+				final List<Identity> emptyList = new ArrayList<Identity>();
+				List<Identity> tmpIdent = new ArrayList<Identity>();
 				for (int i = historyStack.size() - 1; i >= 0 && tmpIdent.isEmpty(); i--) {
 					// start at the selected category, the root category is asserted to
 					// have the OLATAdministrator
@@ -619,6 +579,7 @@ public class CatalogController extends BasicController implements Activateable, 
 			else if (event.getCommand().equals(ACTION_ADD_STRUCTURE)) {
 				removeAsListenerAndDispose(addStructureForm);
 				addStructureForm = new EntryForm(ureq, getWindowControl(), false);
+				addStructureForm.setElementCssClass("o_sel_catalog_add_root_category_popup");
 				listenTo(addStructureForm);
 				
 				removeAsListenerAndDispose(cmc);
@@ -907,20 +868,26 @@ public class CatalogController extends BasicController implements Activateable, 
 			 */
 			catalogToolC.addHeader(getTranslator().translate("tools.edit.header"));			
 			
-			catalogToolC.addLink(ACTION_ADD_BOOKMARK, translate(NLS_TOOLS_ADD_BOOKMARK),TOOL_BOOKMARK,null);			// new bookmark link
+			catalogToolC.addLink(ACTION_ADD_BOOKMARK, translate(NLS_TOOLS_ADD_BOOKMARK), TOOL_BOOKMARK, null, "o_sel_catalog_add_bookmark", false);			// new bookmark link
 			catalogToolC.setEnabled(TOOL_BOOKMARK, canBookmark);
 			
 			if (canAdministrateCategory || canAddLinks) {
-				if (canAdministrateCategory) catalogToolC.addLink(ACTION_EDIT_CTLGCATEGORY, translate(NLS_TOOLS_EDIT_CATALOG_CATEGORY));
-				if (canAdministrateCategory) catalogToolC.addLink(ACTION_EDIT_CTLGCATOWNER,
-						translate(NLS_TOOLS_EDIT_CATALOG_CATEGORY_OWNERGROUP));
-				if (canAddLinks) catalogToolC.addLink(ACTION_NEW_CTGREQUEST, translate(NLS_TOOLS_NEW_CATALOG_CATEGORYREQUEST));
-
-				if (canAdministrateCategory && currentCatalogEntryLevel > 0)
-				// delete root? very dangerous, disabled!
-				catalogToolC.addLink(ACTION_DELETE_CTLGCATEGORY, translate(NLS_TOOLS_DELETE_CATALOG_ENTRY));
-				if (canAdministrateCategory && currentCatalogEntryLevel > 0)
-					catalogToolC.addLink(ACTION_MOVE_ENTRY, translate(NLS_TOOLS_MOVE_CATALOG_ENTRY));
+				if (canAdministrateCategory) {
+					catalogToolC.addLink(ACTION_EDIT_CTLGCATEGORY, translate(NLS_TOOLS_EDIT_CATALOG_CATEGORY), null, null, "o_sel_catalog_edit_category", false);
+				}
+				if (canAdministrateCategory) {
+					catalogToolC.addLink(ACTION_EDIT_CTLGCATOWNER, translate(NLS_TOOLS_EDIT_CATALOG_CATEGORY_OWNERGROUP), null, null, "o_sel_catalog_category_owner", false);
+				}
+				if (canAddLinks) {
+					catalogToolC.addLink(ACTION_NEW_CTGREQUEST, translate(NLS_TOOLS_NEW_CATALOG_CATEGORYREQUEST), null, null, "o_sel_catalog_contact_owner", false);
+				}
+				if (canAdministrateCategory && currentCatalogEntryLevel > 0) {
+					// delete root? very dangerous, disabled!
+					catalogToolC.addLink(ACTION_DELETE_CTLGCATEGORY, translate(NLS_TOOLS_DELETE_CATALOG_ENTRY), null, null, "o_sel_catalog_delete_category", false);
+				}
+				if (canAdministrateCategory && currentCatalogEntryLevel > 0) {
+					catalogToolC.addLink(ACTION_MOVE_ENTRY, translate(NLS_TOOLS_MOVE_CATALOG_ENTRY), null, null, "o_sel_catalog_move_category", false);
+				}
 			}
 
 			/*
@@ -928,10 +895,15 @@ public class CatalogController extends BasicController implements Activateable, 
 			 */
 			if(isOLATAdmin || isLocalTreeAdmin || isAuthor){
 					if (canAddSubCategories || canAddLinks) catalogToolC.addHeader(translate(NLS_TOOLS_ADD_HEADER));
-					if (canAddSubCategories) catalogToolC.addLink(ACTION_ADD_CTLGCATEGORY, translate(NLS_TOOLS_ADD_CATALOG_CATEGORY));
-					if (canAddLinks) catalogToolC.addLink(ACTION_ADD_CTLGLINK, translate(NLS_TOOLS_ADD_CATALOG_LINK));
-					if (currentCatalogEntryLevel == 0 && isOLATAdmin && cm.getChildrenOf(currentCatalogEntry).isEmpty())
-						catalogToolC.addLink(ACTION_ADD_STRUCTURE, translate(NLS_TOOLS_PASTESTRUCTURE));
+					if (canAddSubCategories) {
+						catalogToolC.addLink(ACTION_ADD_CTLGCATEGORY, translate(NLS_TOOLS_ADD_CATALOG_CATEGORY), null, null, "o_sel_catalog_add_category", false);
+					}
+					if (canAddLinks) {
+						catalogToolC.addLink(ACTION_ADD_CTLGLINK, translate(NLS_TOOLS_ADD_CATALOG_LINK), null, null, "o_sel_catalog_add_link_to_resource", false);
+					}
+					if (currentCatalogEntryLevel == 0 && isOLATAdmin && cm.getChildrenOf(currentCatalogEntry).isEmpty()) {
+						catalogToolC.addLink(ACTION_ADD_STRUCTURE, translate(NLS_TOOLS_PASTESTRUCTURE), null, null, "o_sel_catalog_add_root_category", false);
+					}
 			}	
 		}
 		return catalogToolC;
@@ -1002,19 +974,35 @@ public class CatalogController extends BasicController implements Activateable, 
 				return myCollator.compare(c1Title, c2Title);
 			}
 		});
-		
+	
 		myContent.contextPut("children", childCe);
 		//fxdiff VCRP-1,2: access control of resources
 		List<Long> resourceKeys = new ArrayList<Long>();
-		for ( Object leaf : childCe ) {
-			CatalogEntry entry = (CatalogEntry)leaf;
+		List<Long> repositoryEntryKeys = new ArrayList<Long>();
+		for ( CatalogEntry entry : childCe ) {
 			if(entry.getRepositoryEntry() != null && entry.getRepositoryEntry().getOlatResource() != null) {
 				resourceKeys.add(entry.getRepositoryEntry().getOlatResource().getKey());
+				repositoryEntryKeys.add(entry.getRepositoryEntry().getKey());
 			}
 		}
-		List<OLATResourceAccess> resourcesWithOffer = acFrontendManager.getAccessMethodForResources(resourceKeys, true, new Date());
-		for ( Object leaf : childCe ) {
-			CatalogEntry entry = (CatalogEntry)leaf;
+		
+		if(!repositoryEntryKeys.isEmpty()) {
+			SearchRepositoryEntryParameters params = new SearchRepositoryEntryParameters();
+			params.setIdentity(getIdentity());
+			params.setRoles(ureq.getUserSession().getRoles());
+			params.setRepositoryEntryKeys(repositoryEntryKeys);
+			List<RepositoryEntry> allowedEntries = repositoryManager.genericANDQueryWithRolesRestriction(params, 0, -1, false);
+			for (Iterator<CatalogEntry> itEntry = childCe.iterator(); itEntry.hasNext(); ) {
+				CatalogEntry entry = itEntry.next();
+				if(entry.getRepositoryEntry() != null && !allowedEntries.contains(entry.getRepositoryEntry())) {
+					itEntry.remove();
+				}
+			}
+		}
+		
+		List<OLATResourceAccess> resourcesWithOffer = resourceKeys.isEmpty() ? Collections.<OLATResourceAccess>emptyList()
+				: acService.getAccessMethodForResources(resourceKeys, null, true, new Date());
+		for ( CatalogEntry entry : childCe ) {
 			if(entry.getType() == CatalogEntry.TYPE_NODE) continue;
 			//fxdiff VCRP-1,2: access control of resources
 			if(entry.getRepositoryEntry() != null && entry.getRepositoryEntry().getOlatResource() != null) {
@@ -1037,7 +1025,7 @@ public class CatalogController extends BasicController implements Activateable, 
 				}
 				
 				//fxdiff VCRP-1,2: access control of resources
-				String acName = "ac_" + childCe.indexOf(leaf);
+				String acName = "ac_" + childCe.indexOf(entry);
 				if(!types.isEmpty()) {
 					myContent.contextPut(acName, types);
 				} else {
@@ -1046,15 +1034,15 @@ public class CatalogController extends BasicController implements Activateable, 
 			}
 			
 			VFSLeaf image = repositoryManager.getImage(entry.getRepositoryEntry());
-			String name = "image" + childCe.indexOf(leaf);
+			String name = "image" + childCe.indexOf(entry);
 			if(image == null) {
 				myContent.remove(myContent.getComponent(name));
-				continue;
+			} else {
+				ImageComponent ic = new ImageComponent(name);
+				ic.setMediaResource(new VFSMediaResource(image));
+				ic.setMaxWithAndHeightToFitWithin(200, 100);
+				myContent.put(name, ic);
 			}
-			ImageComponent ic = new ImageComponent(name);
-			ic.setMediaResource(new VFSMediaResource(image));
-			ic.setMaxWithAndHeightToFitWithin(200, 100);
-			myContent.put(name, ic);
 		}
 		myContent.contextPut(CATCMD_HISTORY, historyStack);
 
@@ -1067,7 +1055,7 @@ public class CatalogController extends BasicController implements Activateable, 
 		// can also remove links. users who can remove all links do not need to be
 		// checked
 		if (canAddLinks && !canRemoveAllLinks) {
-			List ownedLinks = cm.filterOwnedLeafs(identity, childCe);
+			List<CatalogEntry> ownedLinks = cm.filterOwnedLeafs(identity, childCe);
 			if (ownedLinks.size() > 0) {
 				myContent.contextPut("hasOwnedLinks", Boolean.TRUE);
 				myContent.contextPut("ownedLinks", ownedLinks);
@@ -1095,10 +1083,10 @@ public class CatalogController extends BasicController implements Activateable, 
 		CatalogEntry oldRoot = (CatalogEntry) cm.getRootCatalogEntries().get(0);
 		SecurityGroup rootOwners = oldRoot.getOwnerGroup();
 		BaseSecurity secMgr = BaseSecurityManager.getInstance();
-		List olatAdminIdents = secMgr.getIdentitiesOfSecurityGroup(rootOwners);
+		List<Identity> olatAdminIdents = secMgr.getIdentitiesOfSecurityGroup(rootOwners);
 		SecurityGroup catalogAdmins = secMgr.createAndPersistSecurityGroup();
 		for (int i = 0; i < olatAdminIdents.size(); i++) {
-			secMgr.addIdentityToSecurityGroup((Identity) olatAdminIdents.get(i), catalogAdmins);
+			secMgr.addIdentityToSecurityGroup(olatAdminIdents.get(i), catalogAdmins);
 		} 
 		cm.deleteCatalogEntry(oldRoot);
 
@@ -1207,7 +1195,9 @@ public class CatalogController extends BasicController implements Activateable, 
 
 		ContextEntry catCe = entries.remove(0);
 		Long catId = catCe.getOLATResourceable().getResourceableId();
+		if(catId == null || catId.longValue() == 0l) return;//nothing to do
 		CatalogEntry ce = CatalogManager.getInstance().loadCatalogEntry(catId);
+		if(ce == null) return;//catalog entry not found, do nothing
 		switch(ce.getType()) {
 			case CatalogEntry.TYPE_NODE: {
 				reloadHistoryStack(ureq, catId);
@@ -1238,7 +1228,7 @@ public class CatalogController extends BasicController implements Activateable, 
 
 	/**
 	 * @see org.olat.core.gui.control.generic.dtabs.Activateable#activate(org.olat.core.gui.UserRequest, java.lang.String)
-	 */
+	 *//*
 	public void activate(UserRequest ureq, String viewIdentifier){
 		 // transforms the parameter jumpToNode into a long value and calls jumpToNode(UserRequest, long)
 		try{
@@ -1247,7 +1237,7 @@ public class CatalogController extends BasicController implements Activateable, 
 		} catch(Exception e){
 			logWarn("Could not activate catalog entry with ID::" + viewIdentifier, null);
 		}
-	}
+	}*/
 	
 	/**
 	 * Internal helper: Get's the requested catalog node and set it as active
@@ -1289,7 +1279,7 @@ public class CatalogController extends BasicController implements Activateable, 
 		jumpToNode(ureq, jumpToNode);
 	}
 	
-	public class PriceMethod {
+	public static class PriceMethod {
 		private String price;
 		private String type;
 		

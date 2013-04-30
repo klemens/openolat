@@ -43,6 +43,8 @@ import org.olat.course.nodes.TACourseNode;
 import org.olat.course.nodes.ta.DropboxController;
 import org.olat.course.nodes.ta.ReturnboxController;
 import org.olat.ims.qti.editor.QTIEditorPackage;
+import org.olat.resource.OLATResource;
+import org.olat.resource.OLATResourceManager;
 import org.olat.user.UserDataDeletable;
 
 
@@ -114,7 +116,7 @@ public class UserFileDeletionManager extends BasicManager implements UserDataDel
 
 	private void deleteAllTempQtiEditorFilesOf(Identity identity) {
 		// Temp QTI-editor File path e.g. /usr/local/olatfs/olat/olatdata/tmp/qtieditor/schuessler
-		File userTempQtiEditorDir = new File(QTIEditorPackage.getTmpBaseDir(),identity.getName());
+		File userTempQtiEditorDir = new File(QTIEditorPackage.getQTIEditorBaseDir(),identity.getName());
 		if (userTempQtiEditorDir.exists()) {
 			FileUtils.deleteDirsAndFiles(userTempQtiEditorDir, true, true); 
 			logAudit("User-Deletion: identity=" + identity.getName() +" : QTI editor temp files deleted under dir=" + userTempQtiEditorDir.getAbsolutePath());
@@ -164,24 +166,38 @@ public class UserFileDeletionManager extends BasicManager implements UserDataDel
 						if (isLogDebugEnabled())  logDebug("process dir=" + nodeDirs[nodeIndex].getAbsolutePath());
 						String currentNodeId =  nodeDirs[nodeIndex].getName();
 						if (isLogDebugEnabled()) logDebug("currentNodeId=" + currentNodeId);
-						ICourse currentCourse = CourseFactory.loadCourse(Long.parseLong(currentCourseId));
-						if (isTaskNode(currentCourse, currentNodeId)) {
-							if (isLogDebugEnabled()) logDebug("found TACourseNode path=" + nodeDirs[nodeIndex].getAbsolutePath());
-							deleteUserDirectory(identity, nodeDirs[nodeIndex]);
-						} else if (isProjectBrokerNode(currentCourse, currentNodeId)) {
-							if (isLogDebugEnabled()) logDebug("found ProjectBrokerCourseNode path=" + nodeDirs[nodeIndex].getAbsolutePath());
-							// addional loop over project-id
-							File[] projectDirs = nodeDirs[nodeIndex].listFiles();
-							for (int projectIndex = 0; projectIndex < projectDirs.length; projectIndex++) {
-								deleteUserDirectory(identity, projectDirs[projectIndex]);
+						ICourse currentCourse = null;
+						try {
+							Long resId = Long.parseLong(currentCourseId);
+							//check if the course exists
+							OLATResource resource = OLATResourceManager.getInstance().findResourceable(resId, "CourseModule");
+							if(resource != null) {
+								currentCourse = CourseFactory.loadCourse(resId);
+							} else {
+								logWarn("course with resid=" + currentCourseId + " has a folder but no resource/repository entry", null);
 							}
-						} else {
-							logWarn("found dropbox or returnbox and node-type is NO Task- or ProjectBroker-Type courseId=" + currentCourseId + " nodeId=" + currentNodeId, null);
+						} catch (Exception e) {
+							logError("could not load course with resid="+currentCourseId,e);
+						}
+						if (currentCourse != null) {
+							if (isTaskNode(currentCourse, currentNodeId)) {
+								if (isLogDebugEnabled()) logDebug("found TACourseNode path=" + nodeDirs[nodeIndex].getAbsolutePath());
+								deleteUserDirectory(identity, nodeDirs[nodeIndex]);
+							} else if (isProjectBrokerNode(currentCourse, currentNodeId)) {
+								if (isLogDebugEnabled()) logDebug("found ProjectBrokerCourseNode path=" + nodeDirs[nodeIndex].getAbsolutePath());
+								// addional loop over project-id
+								File[] projectDirs = nodeDirs[nodeIndex].listFiles();
+								for (int projectIndex = 0; projectIndex < projectDirs.length; projectIndex++) {
+									deleteUserDirectory(identity, projectDirs[projectIndex]);
+								}
+							} else {
+								logWarn("found dropbox or returnbox and node-type is NO Task- or ProjectBroker-Type courseId=" + currentCourseId + " nodeId=" + currentNodeId, null);
+							}
 						}
 					}
 				}
 			}
-		} 
+		}
 	}
 
 	private boolean isProjectBrokerNode(ICourse currentCourse, String currentNodeId) {
@@ -205,7 +221,8 @@ public class UserFileDeletionManager extends BasicManager implements UserDataDel
 	}
 
 	private static FilenameFilter dropboxReturnboxFilter = new FilenameFilter() {
-		public boolean accept(@SuppressWarnings("unused") File dir, String name) {
+		@Override
+		public boolean accept(File dir, String name) {
 			// don't add overlayLocales as selectable availableLanguages
 			// (LocaleStrings_de__VENDOR.properties)
 			if (   name.equals(ReturnboxController.RETURNBOX_DIR_NAME) 
@@ -236,7 +253,8 @@ class UserFileFilter implements FilenameFilter  {
 		this.username = username;
 	}
 
-	public boolean accept(@SuppressWarnings("unused") File dir, String name) {
+	@Override
+	public boolean accept(File dir, String name) {
 		// don't add overlayLocales as selectable availableLanguages
 		// (LocaleStrings_de__VENDOR.properties)
 		if (   name.equals(username) ) { 

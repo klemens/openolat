@@ -672,6 +672,14 @@ public class TableController extends BasicController {
 		}
 		return results;
 	}
+	
+	public List getObjects(final BitSet objectMarkers) {
+		List results = new ArrayList();
+		for(int i=objectMarkers.nextSetBit(0); i >= 0; i=objectMarkers.nextSetBit(i+1)) {
+			results.add(getTableDataModel().getObject(i));
+		}
+		return results;
+	}
 
 	/**
 	 * Sets the selectedRowId to a specific row id. Make sure that this is valid,
@@ -734,11 +742,20 @@ public class TableController extends BasicController {
 	/**
 	 * Add a multiselect action.
 	 * 
-	 * @param actionKeyi18n
+	 * @param actionKeyi18n The i18n key to translate
 	 * @param actionIdentifier
 	 */
 	public void addMultiSelectAction(final String actionKeyi18n, final String actionIdentifier) {
-		table.addMultiSelectAction(actionKeyi18n, actionIdentifier);
+		table.addMultiSelectAction(null, actionKeyi18n, actionIdentifier);
+	}
+	
+	/**
+	 * Add a multiselect action with an already translated label
+	 * @param label The label
+	 * @param actionIdentifier
+	 */
+	public void addLabeledMultiSelectAction(final String label, final String actionIdentifier) {
+		table.addMultiSelectAction(label, null, actionIdentifier);
 	}
 	
 	public int getTableSortCol() {

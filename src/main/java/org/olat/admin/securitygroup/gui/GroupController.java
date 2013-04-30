@@ -32,15 +32,18 @@ import org.olat.admin.securitygroup.gui.multi.UsersToGroupWizardController;
 import org.olat.admin.user.UserSearchController;
 import org.olat.basesecurity.BaseSecurity;
 import org.olat.basesecurity.BaseSecurityManager;
+import org.olat.basesecurity.BaseSecurityModule;
 import org.olat.basesecurity.SecurityGroup;
 import org.olat.basesecurity.events.MultiIdentityChosenEvent;
 import org.olat.basesecurity.events.SingleIdentityChosenEvent;
+import org.olat.core.CoreSpringFactory;
 import org.olat.core.commons.fullWebApp.popup.BaseFullWebappPopupLayoutFactory;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.Component;
 import org.olat.core.gui.components.link.Link;
 import org.olat.core.gui.components.link.LinkFactory;
 import org.olat.core.gui.components.panel.Panel;
+import org.olat.core.gui.components.table.ColumnDescriptor;
 import org.olat.core.gui.components.table.DefaultColumnDescriptor;
 import org.olat.core.gui.components.table.StaticColumnDescriptor;
 import org.olat.core.gui.components.table.Table;
@@ -126,20 +129,7 @@ public class GroupController extends BasicController {
 	private CloseableModalController cmc;
 	protected static final String usageIdentifyer = IdentitiesOfGroupTableDataModel.class.getCanonicalName();
 	protected boolean isAdministrativeUser;
-
-	
-	/**
-	 * @param ureq
-	 * @param wControl
-	 * @param mayModifyMembers
-	 * @param keepAtLeastOne
-	 * @param enableTablePreferences
-	 * @param aSecurityGroup
-	 */
-	public GroupController(UserRequest ureq, WindowControl wControl, boolean mayModifyMembers, boolean keepAtLeastOne, boolean enableTablePreferences, SecurityGroup aSecurityGroup) {
-		super(ureq, wControl);
-		init(ureq, mayModifyMembers, keepAtLeastOne, enableTablePreferences, false, aSecurityGroup);
-	}
+	protected boolean mandatoryEmail;
 
 	/**
 	 * @param ureq
@@ -152,20 +142,22 @@ public class GroupController extends BasicController {
 	 */	 
 	public GroupController(UserRequest ureq, WindowControl wControl, 
 			boolean mayModifyMembers, boolean keepAtLeastOne, boolean enableTablePreferences, boolean enableUserSelection,
-			SecurityGroup aSecurityGroup) {
+			boolean allowDownload, boolean mandatoryEmail, SecurityGroup aSecurityGroup) {
 		super(ureq, wControl);
-		init(ureq, mayModifyMembers, keepAtLeastOne, enableTablePreferences, enableUserSelection, aSecurityGroup);
+		init(ureq, mayModifyMembers, keepAtLeastOne, enableTablePreferences, enableUserSelection, allowDownload, mandatoryEmail, aSecurityGroup);
 	}
 
 	protected void init(UserRequest ureq,
 			boolean mayModifyMembers, boolean keepAtLeastOne, boolean enableTablePreferences, boolean enableUserSelection,
-			SecurityGroup aSecurityGroup) {
+			boolean allowDownload, boolean mandatoryEmail, SecurityGroup aSecurityGroup) {
 		this.securityGroup = aSecurityGroup;
 		this.mayModifyMembers = mayModifyMembers;
 		this.keepAtLeastOne = keepAtLeastOne;
+		this.mandatoryEmail = mandatoryEmail;
 		this.securityManager = BaseSecurityManager.getInstance();
 		Roles roles = ureq.getUserSession().getRoles();
-		isAdministrativeUser = (roles.isAuthor() || roles.isGroupManager() || roles.isUserManager() || roles.isOLATAdmin());		
+		BaseSecurityModule securityModule = CoreSpringFactory.getImpl(BaseSecurityModule.class);
+		isAdministrativeUser = securityModule.isUserAllowedAdminProps(roles);
 
 		// default group controller has no mail functionality
 		this.addUserMailDefaultTempl = null;
@@ -174,13 +166,16 @@ public class GroupController extends BasicController {
 		groupmemberview = createVelocityContainer("index");
 
 		addUsersButton = LinkFactory.createButtonSmall("overview.addusers", groupmemberview, this);
+		addUsersButton.setElementCssClass("o_sel_group_import_users");
 		addUserButton = LinkFactory.createButtonSmall("overview.adduser", groupmemberview, this);
+		addUserButton.setElementCssClass("o_sel_group_add_user");
 
 		if (mayModifyMembers) {
 			groupmemberview.contextPut("mayadduser", Boolean.TRUE);
 		}
 
 		TableGuiConfiguration tableConfig = new TableGuiConfiguration();
+		tableConfig.setDownloadOffered(allowDownload);
 		if (enableTablePreferences) {
 			// save table preferences for each group seperatly
 			if (mayModifyMembers) {
@@ -198,9 +193,9 @@ public class GroupController extends BasicController {
 		initGroupTable(tableCtr, ureq, enableTablePreferences, enableUserSelection);
 
 		// set data model
-		List combo = securityManager.getIdentitiesAndDateOfSecurityGroup(this.securityGroup);			
+		List<Object[]> combo = securityManager.getIdentitiesAndDateOfSecurityGroup(this.securityGroup);			
 		List<UserPropertyHandler> userPropertyHandlers = UserManager.getInstance().getUserPropertyHandlersFor(usageIdentifyer, isAdministrativeUser);
-		identitiesTableModel = new IdentitiesOfGroupTableDataModel(combo, ureq.getLocale(), userPropertyHandlers);
+		identitiesTableModel = new IdentitiesOfGroupTableDataModel(combo, ureq.getLocale(), userPropertyHandlers, isAdministrativeUser);
 		tableCtr.setTableDataModel(identitiesTableModel);
 		groupmemberview.put("subjecttable", tableCtr.getInitialComponent());
 
@@ -235,7 +230,7 @@ public class GroupController extends BasicController {
 			if (!mayModifyMembers) throw new AssertException("not allowed to add a member!");
 			
 			removeAsListenerAndDispose(usc);
-			usc = new UserSearchController(ureq, getWindowControl(), true, true, false);			
+			usc = new UserSearchController(ureq, getWindowControl(), true, true);			
 			listenTo(usc);
 			
 			Component usersearchview = usc.getInitialComponent();
@@ -248,7 +243,7 @@ public class GroupController extends BasicController {
 			if (!mayModifyMembers) throw new AssertException("not allowed to add members!");
 			
 			removeAsListenerAndDispose(userToGroupWizardCtr);
-			userToGroupWizardCtr = new UsersToGroupWizardController(ureq, getWindowControl(), this.securityGroup, addUserMailDefaultTempl);			
+			userToGroupWizardCtr = new UsersToGroupWizardController(ureq, getWindowControl(), securityGroup, addUserMailDefaultTempl, mandatoryEmail);			
 			listenTo(userToGroupWizardCtr);
 			
 			removeAsListenerAndDispose(cmc);
@@ -316,7 +311,7 @@ public class GroupController extends BasicController {
 							doBuildConfirmDeleteDialog(ureq);
 						} else {
 							removeAsListenerAndDispose(removeUserMailCtr);
-							removeUserMailCtr = new MailNotificationEditController(getWindowControl(), ureq, removeUserMailDefaultTempl, true);							
+							removeUserMailCtr = new MailNotificationEditController(getWindowControl(), ureq, removeUserMailDefaultTempl, true, false);							
 							listenTo(removeUserMailCtr);
 							
 							removeAsListenerAndDispose(cmc);
@@ -371,22 +366,20 @@ public class GroupController extends BasicController {
 					}
 				} else if (toAdd.size() > 1) {
 					//check if already in group
-					boolean someAlreadyInGroup = false;
 					List<Identity> alreadyInGroup = new ArrayList<Identity>();
 					for (int i = 0; i < toAdd.size(); i++) {
 						if (securityManager.isIdentityInSecurityGroup(toAdd.get(i), securityGroup)) {
 							tableCtr.setMultiSelectSelectedAt(i, false);
 							alreadyInGroup.add(toAdd.get(i));
-							someAlreadyInGroup = true;
 						}
 					}
-					if (someAlreadyInGroup) {
-						String names = "";
+					if (!alreadyInGroup.isEmpty()) {
+						StringBuilder names = new StringBuilder();
 						for(Identity ident: alreadyInGroup) {
-							names +=" "+ident.getName();
+							names.append(" ").append(ident.getName());
 							toAdd.remove(ident);
 						}
-						getWindowControl().setInfo(translate("msg.subjectsalreadyingroup", names));
+						getWindowControl().setInfo(translate("msg.subjectsalreadyingroup", names.toString()));
 					}
 					if (toAdd.isEmpty()) {
 						return;
@@ -400,7 +393,7 @@ public class GroupController extends BasicController {
 					doAddIdentitiesToGroup(ureq, toAdd, null);
 				} else {
 					removeAsListenerAndDispose(addUserMailCtr);
-					addUserMailCtr = new MailNotificationEditController(getWindowControl(), ureq, addUserMailDefaultTempl, true);					
+					addUserMailCtr = new MailNotificationEditController(getWindowControl(), ureq, addUserMailDefaultTempl, true, mandatoryEmail);					
 					listenTo(addUserMailCtr);
 					
 					removeAsListenerAndDispose(cmc);
@@ -498,7 +491,7 @@ public class GroupController extends BasicController {
 			}
 			//fxdiff VCRP-16: intern mail system
 			MailContext context = new MailContextImpl(getWindowControl().getBusinessControl().getAsString());
-			MailerResult mailerResult = mailer.sendMailAsSeparateMails(context, toBeRemoved, ccIdentities, null, mailTemplate, sender);
+			MailerResult mailerResult = mailer.sendMailAsSeparateMails(context, toBeRemoved, ccIdentities, mailTemplate, sender);
 			MailHelper.printErrorsAndWarnings(mailerResult, getWindowControl(), ureq.getLocale());
 		}
 	}
@@ -546,7 +539,7 @@ public class GroupController extends BasicController {
 			}
 			//fxdiff VCRP-16: intern mail system
 			MailContext context = new MailContextImpl(getWindowControl().getBusinessControl().getAsString());
-			MailerResult mailerResult = mailer.sendMailAsSeparateMails(context, identitiesAddedEvent.getAddedIdentities(), ccIdentities, null, mailTemplate, sender);
+			MailerResult mailerResult = mailer.sendMailAsSeparateMails(context, identitiesAddedEvent.getAddedIdentities(), ccIdentities, mailTemplate, sender);
 			MailHelper.appendErrorsAndWarnings(mailerResult, errorMessage, infoMessage, ureq.getLocale());
 		}
 		// report any errors on screen
@@ -566,18 +559,25 @@ public class GroupController extends BasicController {
 	 */
 	protected void initGroupTable(TableController tableCtr, UserRequest ureq, boolean enableTablePreferences, boolean enableUserSelection) {			
 		List<UserPropertyHandler> userPropertyHandlers = UserManager.getInstance().getUserPropertyHandlersFor(usageIdentifyer, isAdministrativeUser);
-		// first the login name
-		DefaultColumnDescriptor cd0 = new DefaultColumnDescriptor("table.user.login", 0, COMMAND_VCARD, ureq.getLocale());
-		cd0
-				.setIsPopUpWindowAction(true,
-						"height=700, width=900, location=no, menubar=no, resizable=yes, status=no, scrollbars=yes, toolbar=no");
-		tableCtr.addColumnDescriptor(cd0);
+		if (isAdministrativeUser) {
+			// first the login name, but only if administrative user
+			DefaultColumnDescriptor cd0 = new DefaultColumnDescriptor("table.user.login", 0, COMMAND_VCARD, ureq.getLocale());
+			cd0.setIsPopUpWindowAction(true, "height=700, width=900, location=no, menubar=no, resizable=yes, status=no, scrollbars=yes, toolbar=no");
+			tableCtr.addColumnDescriptor(cd0);
+		}
 		int visibleColId = 0;
 		// followed by the users fields
 		for (int i = 0; i < userPropertyHandlers.size(); i++) {
 			UserPropertyHandler userPropertyHandler	= userPropertyHandlers.get(i);
 			boolean visible = UserManager.getInstance().isMandatoryUserProperty(usageIdentifyer , userPropertyHandler);
-			tableCtr.addColumnDescriptor(visible, userPropertyHandler.getColumnDescriptor(i+1, null, ureq.getLocale()));
+			ColumnDescriptor cd = userPropertyHandler.getColumnDescriptor(i + (isAdministrativeUser ? 1 : 0), COMMAND_VCARD, ureq.getLocale());
+			// make all user attributes clickable to open visiting card
+			if (cd instanceof DefaultColumnDescriptor) {
+				DefaultColumnDescriptor dcd = (DefaultColumnDescriptor) cd;
+				dcd.setIsPopUpWindowAction(true, "height=700, width=900, location=no, menubar=no, resizable=yes, status=no, scrollbars=yes, toolbar=no");
+				
+			}
+			tableCtr.addColumnDescriptor(visible, cd);
 			if (visible) {
 				visibleColId++;
 			}
@@ -585,7 +585,7 @@ public class GroupController extends BasicController {
 		
 		// in the end
 		if (enableTablePreferences) {
-			tableCtr.addColumnDescriptor(true, new DefaultColumnDescriptor("table.subject.addeddate", userPropertyHandlers.size() + 1, null, ureq.getLocale()));
+			tableCtr.addColumnDescriptor(true, new DefaultColumnDescriptor("table.subject.addeddate", userPropertyHandlers.size() + (isAdministrativeUser ? 1 : 0), COMMAND_VCARD, ureq.getLocale()));
 			tableCtr.setSortColumn(++visibleColId,true);	
 		}
 		if (enableUserSelection) {
@@ -602,9 +602,9 @@ public class GroupController extends BasicController {
 
 	public void reloadData() {
 		// refresh view		
-		List combo = securityManager.getIdentitiesAndDateOfSecurityGroup(this.securityGroup); 
+		List<Object[]> combo = securityManager.getIdentitiesAndDateOfSecurityGroup(this.securityGroup); 
 		List<UserPropertyHandler> userPropertyHandlers = UserManager.getInstance().getUserPropertyHandlersFor(usageIdentifyer, isAdministrativeUser);
-		identitiesTableModel = new IdentitiesOfGroupTableDataModel(combo, myTrans.getLocale(), userPropertyHandlers);
+		identitiesTableModel = new IdentitiesOfGroupTableDataModel(combo, myTrans.getLocale(), userPropertyHandlers, isAdministrativeUser);
 		tableCtr.setTableDataModel(identitiesTableModel);
 	}
 }

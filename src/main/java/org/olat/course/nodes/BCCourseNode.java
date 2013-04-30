@@ -34,6 +34,7 @@ import org.olat.core.commons.modules.bc.FolderConfig;
 import org.olat.core.commons.modules.bc.vfs.OlatNamedContainerImpl;
 import org.olat.core.commons.modules.bc.vfs.OlatRootFolderImpl;
 import org.olat.core.gui.UserRequest;
+import org.olat.core.gui.components.stack.StackedController;
 import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.WindowControl;
 import org.olat.core.gui.control.generic.tabbable.TabbableController;
@@ -53,6 +54,7 @@ import org.olat.course.condition.interpreter.ConditionInterpreter;
 import org.olat.course.editor.CourseEditorEnv;
 import org.olat.course.editor.NodeEditController;
 import org.olat.course.editor.StatusDescription;
+import org.olat.course.export.CourseEnvironmentMapper;
 import org.olat.course.nodes.bc.BCCourseNodeEditController;
 import org.olat.course.nodes.bc.BCCourseNodeRunController;
 import org.olat.course.nodes.bc.BCPeekviewController;
@@ -94,7 +96,8 @@ public class BCCourseNode extends GenericCourseNode {
 	 * @see org.olat.course.nodes.CourseNode#createEditController(org.olat.core.gui.UserRequest,
 	 *      org.olat.core.gui.control.WindowControl, org.olat.course.ICourse)
 	 */
-	public TabbableController createEditController(UserRequest ureq, WindowControl wControl, ICourse course, UserCourseEnvironment euce) {
+	@Override
+	public TabbableController createEditController(UserRequest ureq, WindowControl wControl, StackedController stackPanel, ICourse course, UserCourseEnvironment euce) {
 		BCCourseNodeEditController childTabCntrllr = new BCCourseNodeEditController(this, course, ureq, wControl, euce);
 		CourseNode chosenNode = course.getEditorTreeModel().getCourseNode(euce.getCourseEditorEnv().getCurrentCourseNodeId());
 		return new NodeEditController(ureq, wControl, course.getEditorTreeModel(), course, chosenNode, course.getCourseEnvironment()
@@ -111,7 +114,7 @@ public class BCCourseNode extends GenericCourseNode {
 			UserCourseEnvironment userCourseEnv, NodeEvaluation ne, String nodecmd) {
 		BCCourseNodeRunController bcCtrl = new BCCourseNodeRunController(ne, userCourseEnv.getCourseEnvironment(), ureq, wControl);
 		if (StringHelper.containsNonWhitespace(nodecmd)) {
-			bcCtrl.activate(ureq, nodecmd);			
+			bcCtrl.activatePath(ureq, nodecmd);			
 		}
 		Controller titledCtrl = TitledWrapperHelper.getWrapper(ureq, wControl, bcCtrl, this, "o_bc_icon");
 		return new NodeRunConstructionResult(titledCtrl);
@@ -344,17 +347,31 @@ public class BCCourseNode extends GenericCourseNode {
 		File fFolderRoot = new File(FolderConfig.getCanonicalRoot() + getFoldernodePathRelToFolderBase(course.getCourseEnvironment(), this));
 		if (fFolderRoot.exists()) FileUtils.deleteDirsAndFiles(fFolderRoot, true, true);
 	}
+	
+	@Override
+	public void postImport(CourseEnvironmentMapper envMapper) {
+		super.postImport(envMapper);
+		postImportCondition(preConditionUploaders, envMapper);
+		postImportCondition(preConditionDownloaders, envMapper);
+	}
+
+	@Override
+	public void postExport(CourseEnvironmentMapper envMapper, boolean backwardsCompatible) {
+		super.postExport(envMapper, backwardsCompatible);
+		postExportCondition(preConditionUploaders, envMapper, backwardsCompatible);
+		postExportCondition(preConditionDownloaders, envMapper, backwardsCompatible);
+	}
 
 	/**
 	 * @see org.olat.course.nodes.GenericCourseNode#getConditionExpressions()
 	 */
-	public List getConditionExpressions() {
-		ArrayList retVal;
-		List parentsConditions = super.getConditionExpressions();
+	public List<ConditionExpression> getConditionExpressions() {
+		List<ConditionExpression> retVal;
+		List<ConditionExpression> parentsConditions = super.getConditionExpressions();
 		if (parentsConditions.size() > 0) {
-			retVal = new ArrayList(parentsConditions);
+			retVal = new ArrayList<ConditionExpression>(parentsConditions);
 		}else {
-			retVal = new ArrayList();
+			retVal = new ArrayList<ConditionExpression>();
 		}
 		//
 		String coS = getPreConditionDownloaders().getConditionExpression();

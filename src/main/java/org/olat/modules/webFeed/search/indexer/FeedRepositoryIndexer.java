@@ -22,9 +22,6 @@ package org.olat.modules.webFeed.search.indexer;
 import java.io.IOException;
 
 import org.olat.core.commons.services.search.OlatDocument;
-import org.olat.core.util.filter.Filter;
-import org.olat.core.util.filter.FilterFactory;
-import org.olat.modules.webFeed.dispatching.Path;
 import org.olat.modules.webFeed.managers.FeedManager;
 import org.olat.modules.webFeed.models.Feed;
 import org.olat.modules.webFeed.models.Item;
@@ -61,23 +58,14 @@ public abstract class FeedRepositoryIndexer extends DefaultIndexer {
 			}
 			Feed feed = FeedManager.getInstance().getFeed(repositoryEntry.getOlatResource());
 
-			// Set the document type, e.g. type.repository.entry.FileResource.BLOG
-			searchResourceContext.setDocumentType(getDocumentType());
-			searchResourceContext.setParentContextType(getDocumentType());
-			searchResourceContext.setParentContextName(repoEntryName);
-
-			// Make sure images are displayed properly
-			// TODO:GW It's only working for public resources, because base url is
-			// personal. -> fix
-			String mapperBaseURL = Path.getFeedBaseUri(feed, null, null, null);
-			Filter mediaUrlFilter = FilterFactory.getBaseURLToMediaRelativeURLFilter(mapperBaseURL);
-
 			// Only index items. Feed itself is indexed by RepositoryEntryIndexer.
 			if (isLogDebugEnabled()) {
 				logDebug("PublishedItems size=" + feed.getPublishedItems().size());
 			}
 			for (Item item : feed.getPublishedItems()) {
-				OlatDocument itemDoc = new FeedItemDocument(item, searchResourceContext, mediaUrlFilter);
+				SearchResourceContext feedContext = new SearchResourceContext(searchResourceContext);
+				feedContext.setDocumentType(getDocumentType());
+				OlatDocument itemDoc = new FeedItemDocument(item, feedContext);
 				indexer.addDocument(itemDoc.getLuceneDocument());
 			}
 		} catch (NullPointerException e) {

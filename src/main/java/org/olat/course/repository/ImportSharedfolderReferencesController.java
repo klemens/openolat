@@ -123,7 +123,6 @@ public class ImportSharedfolderReferencesController extends BasicController {
 				getWindowControl().setError("Import failed.");
 				return;
 			}
-			Translator repoTranslator = new PackageTranslator(Util.getPackageName(RepositoryManager.class), ureq.getLocale());
 			removeAsListenerAndDispose(repoDetailsForm);
 			repoDetailsForm = new DetailsReadOnlyForm(ureq, getWindowControl(), importedRepositoryEntry, SharedFolderFileResource.TYPE_NAME, false);
 			listenTo(repoDetailsForm);
@@ -248,7 +247,12 @@ public class ImportSharedfolderReferencesController extends BasicController {
 			} 
 		}
 	}
-
+	
+	protected void importWithoutAsking (UserRequest ureq) {
+        event (ureq, importButton, Event.DONE_EVENT);
+        fireEvent(ureq, Event.DONE_EVENT);
+	}
+	
 	protected void doDispose() {
 		// Controllers autodisposed by BasicController
 	}

@@ -26,6 +26,8 @@
 package org.olat.course.nodes;
 
 import java.io.File;
+import java.text.DateFormat;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.Iterator;
@@ -34,9 +36,11 @@ import java.util.Locale;
 
 import org.olat.core.commons.modules.bc.vfs.OlatRootFolderImpl;
 import org.olat.core.gui.UserRequest;
+import org.olat.core.gui.components.stack.StackedController;
 import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.WindowControl;
 import org.olat.core.gui.control.generic.tabbable.TabbableController;
+import org.olat.core.util.Formatter;
 import org.olat.core.util.Util;
 import org.olat.core.util.notifications.NotificationsManager;
 import org.olat.core.util.notifications.SubscriptionContext;
@@ -53,6 +57,7 @@ import org.olat.course.condition.interpreter.ConditionInterpreter;
 import org.olat.course.editor.CourseEditorEnv;
 import org.olat.course.editor.NodeEditController;
 import org.olat.course.editor.StatusDescription;
+import org.olat.course.export.CourseEnvironmentMapper;
 import org.olat.course.nodes.dialog.DialogConfigForm;
 import org.olat.course.nodes.dialog.DialogCourseNodeEditController;
 import org.olat.course.nodes.dialog.DialogCourseNodeRunController;
@@ -92,7 +97,8 @@ public class DialogCourseNode extends AbstractAccessableCourseNode {
 	 *      org.olat.core.gui.control.WindowControl, org.olat.course.ICourse,
 	 *      org.olat.course.run.userview.UserCourseEnvironment)
 	 */
-	public TabbableController createEditController(UserRequest ureq, WindowControl wControl, ICourse course, UserCourseEnvironment euce) {
+	@Override
+	public TabbableController createEditController(UserRequest ureq, WindowControl wControl, StackedController stackPanel, ICourse course, UserCourseEnvironment euce) {
 		updateModuleConfigDefaults(false);
 		DialogCourseNodeEditController childTabCntrllr = new DialogCourseNodeEditController(ureq, wControl, this,
 				course, euce);
@@ -171,6 +177,22 @@ public class DialogCourseNode extends AbstractAccessableCourseNode {
 			config.set(DialogConfigForm.DIALOG_CONFIG_INTEGRATION, DialogConfigForm.CONFIG_INTEGRATION_VALUE_INLINE);
 		}
 	}
+	
+	@Override
+	public void postImport(CourseEnvironmentMapper envMapper) {
+		super.postImport(envMapper);
+		postImportCondition(preConditionModerator, envMapper);
+		postImportCondition(preConditionPoster, envMapper);
+		postImportCondition(preConditionReader, envMapper);
+	}
+
+	@Override
+	public void postExport(CourseEnvironmentMapper envMapper, boolean backwardsCompatible) {
+		super.postExport(envMapper, backwardsCompatible);
+		postExportCondition(preConditionModerator, envMapper, backwardsCompatible);
+		postExportCondition(preConditionPoster, envMapper, backwardsCompatible);
+		postExportCondition(preConditionReader, envMapper, backwardsCompatible);
+	}
 
 	public String informOnDelete(Locale locale, ICourse course) {
 		return null;
@@ -214,11 +236,11 @@ public class DialogCourseNode extends AbstractAccessableCourseNode {
 		boolean dataFound = false;
 		DialogElementsPropertyManager depm = DialogElementsPropertyManager.getInstance();
 		DialogPropertyElements elements = depm.findDialogElements(course.getCourseEnvironment().getCoursePropertyManager(), this);
-		List list = new ArrayList();
+		List<DialogElement> list = new ArrayList<DialogElement>();
 		if (elements != null) list = elements.getDialogPropertyElements();
 
-		for (Iterator iter = list.iterator(); iter.hasNext();) {
-			DialogElement element = (DialogElement) iter.next();
+		for (Iterator<DialogElement> iter = list.iterator(); iter.hasNext();) {
+			DialogElement element = iter.next();
 			doArchiveElement(element, exportDirectory);
 			//at least one element found
 			dataFound = true;
@@ -238,8 +260,8 @@ public class DialogCourseNode extends AbstractAccessableCourseNode {
 		VFSContainer exportContainer = new LocalFolderImpl(exportDirectory);
 		
 		// append export timestamp to avoid overwriting previous export 
-		java.text.SimpleDateFormat formatter = new java.text.SimpleDateFormat("yyyy-MM-dd'T'HH_mm_ss_SSS");
-		String exportDirName = getShortTitle()+"_"+element.getForumKey()+"_"+formatter.format(new Date(System.currentTimeMillis()));
+		DateFormat formatter = new SimpleDateFormat("yyyy-MM-dd'T'HH_mm_ss_SSS");
+		String exportDirName = Formatter.makeStringFilesystemSave(getShortTitle())+"_"+element.getForumKey()+"_"+formatter.format(new Date(System.currentTimeMillis()));
 		VFSContainer diaNodeElemExportContainer = exportContainer.createChildContainer(exportDirName);
 		// don't check quota
 		diaNodeElemExportContainer.setLocalSecurityCallback(new FullAccessCallback());
@@ -248,14 +270,6 @@ public class DialogCourseNode extends AbstractAccessableCourseNode {
 		ForumArchiveManager fam = ForumArchiveManager.getInstance();
 		ForumFormatter ff = new ForumRTFFormatter(diaNodeElemExportContainer, false);
 		fam.applyFormatter(ff, element.getForumKey().longValue(), null);
-	}
-
-	/**
-	 * @see org.olat.course.nodes.CourseNode#exportNode(java.io.File,
-	 *      org.olat.course.ICourse)
-	 */
-	public void exportNode(File exportDirectory, ICourse course) {
-	// nothing to do in default implementation
 	}
 
 	/**

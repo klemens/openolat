@@ -26,7 +26,7 @@
 package org.olat.home;
 
 import java.util.ArrayList;
-import java.util.Calendar;
+import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 
@@ -40,13 +40,13 @@ import org.olat.commons.calendar.ui.CalendarController;
 import org.olat.commons.calendar.ui.WeeklyCalendarController;
 import org.olat.commons.calendar.ui.components.KalendarRenderWrapper;
 import org.olat.commons.calendar.ui.events.KalendarModifiedEvent;
+import org.olat.core.CoreSpringFactory;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.Component;
 import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.Event;
 import org.olat.core.gui.control.WindowControl;
 import org.olat.core.gui.control.controller.BasicController;
-import org.olat.core.gui.control.generic.dtabs.Activateable;
 import org.olat.core.gui.control.generic.dtabs.Activateable2;
 import org.olat.core.id.OLATResourceable;
 import org.olat.core.id.context.ContextEntry;
@@ -66,13 +66,12 @@ import org.olat.course.groupsandrights.CourseRights;
 import org.olat.course.run.calendar.CourseCalendarSubscription;
 import org.olat.course.run.calendar.CourseLinkProviderController;
 import org.olat.group.BusinessGroup;
-import org.olat.group.BusinessGroupManager;
-import org.olat.group.BusinessGroupManagerImpl;
-import org.olat.group.SearchBusinessGroupParams;
+import org.olat.group.BusinessGroupService;
+import org.olat.group.model.SearchBusinessGroupParams;
 import org.olat.repository.RepositoryEntry;
 import org.olat.repository.RepositoryManager;
 
-public class HomeCalendarController extends BasicController implements Activateable, Activateable2, GenericEventListener {
+public class HomeCalendarController extends BasicController implements Activateable2, GenericEventListener {
 
 	private static final OLog log = Tracing.createLoggerFor(HomeCalendarController.class);
 	
@@ -92,22 +91,6 @@ public class HomeCalendarController extends BasicController implements Activatea
 		listenTo(calendarController);
 		
 		putInitialPanel(calendarController.getInitialComponent());
-	}
-
-	public void activate(UserRequest ureq, String viewIdentifier) {
-		String[] splitted = viewIdentifier.split("\\.");
-		if (splitted.length != 3) {
-			// do nothing for user, just ignore it maybe this is a javascript
-			// problem of the browser. However, log the problem
-			log.warn("Can't parse date from user request: " + viewIdentifier);
-			return;
-		}
-		String year = splitted[0];
-		String month = splitted[1];
-		String day = splitted[2];
-		Calendar cal = Calendar.getInstance();
-		cal.set(Integer.parseInt(year), Integer.parseInt(month) - 1, Integer.parseInt(day));
-		calendarController.setFocus(cal.getTime());
 	}
 
 	@Override
@@ -133,18 +116,21 @@ public class HomeCalendarController extends BasicController implements Activatea
 		calendars.add(calendarWrapper);
 		
 		// get group calendars
-		BusinessGroupManager bgManager = BusinessGroupManagerImpl.getInstance();
+		BusinessGroupService bgs = CoreSpringFactory.getImpl(BusinessGroupService.class);
 
-		SearchBusinessGroupParams groupParams = new SearchBusinessGroupParams();
-		groupParams.addTypes(BusinessGroup.TYPE_BUDDYGROUP, BusinessGroup.TYPE_LEARNINGROUP, BusinessGroup.TYPE_RIGHTGROUP);
+		SearchBusinessGroupParams groupParams = new SearchBusinessGroupParams(ureq.getIdentity(), true, false);
 		groupParams.addTools(CollaborationTools.TOOL_CALENDAR);
-		List<BusinessGroup> ownerGroups = bgManager.findBusinessGroups(groupParams, ureq.getIdentity(), true, false, null, 0, -1);
+		List<BusinessGroup> ownerGroups = bgs.findBusinessGroups(groupParams, null, 0, -1);
 		addCalendars(ureq, ownerGroups, true, calendars);
-		List<BusinessGroup> attendedGroups = bgManager.findBusinessGroups(groupParams, ureq.getIdentity(), false, true, null, 0, -1);
+		
+		SearchBusinessGroupParams groupParams2 = new SearchBusinessGroupParams(ureq.getIdentity(), false, true);
+		groupParams2.addTools(CollaborationTools.TOOL_CALENDAR);
+		List<BusinessGroup> attendedGroups = bgs.findBusinessGroups(groupParams2, null, 0, -1);
 		for (Iterator<BusinessGroup> ownerGroupsIterator = ownerGroups.iterator(); ownerGroupsIterator.hasNext();) {
 			BusinessGroup ownerGroup = ownerGroupsIterator.next();
-			if (attendedGroups.contains(ownerGroup))
+			if (attendedGroups.contains(ownerGroup)) {
 				attendedGroups.remove(ownerGroup);
+			}
 		}
 		addCalendars(ureq, attendedGroups, false, calendars);
 		
@@ -187,7 +173,7 @@ public class HomeCalendarController extends BasicController implements Activatea
 					courseCalendarWrapper.getKalendarConfig().setCss(courseKalendarConfig.getCss());
 					courseCalendarWrapper.getKalendarConfig().setVis(courseKalendarConfig.isVis());
 				}
-				courseCalendarWrapper.setLinkProvider(new CourseLinkProviderController(course, ureq, wControl));
+				courseCalendarWrapper.setLinkProvider(new CourseLinkProviderController(course, Collections.singletonList(course), ureq, wControl));
 				calendars.add(courseCalendarWrapper);
 			} catch (CorruptedCourseException e) {
 				log.error("Corrupted course: " + courseResourceableID, null);

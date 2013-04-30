@@ -48,6 +48,7 @@ import org.olat.core.gui.components.Component;
 import org.olat.core.gui.components.link.Link;
 import org.olat.core.gui.components.link.LinkFactory;
 import org.olat.core.gui.components.panel.Panel;
+import org.olat.core.gui.components.stack.StackedController;
 import org.olat.core.gui.components.table.ColumnDescriptor;
 import org.olat.core.gui.components.table.CustomRenderColumnDescriptor;
 import org.olat.core.gui.components.table.DefaultColumnDescriptor;
@@ -65,11 +66,10 @@ import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.Event;
 import org.olat.core.gui.control.WindowControl;
 import org.olat.core.gui.control.controller.MainLayoutBasicController;
-import org.olat.core.gui.control.generic.dtabs.Activateable;
+import org.olat.core.gui.control.generic.dtabs.Activateable2;
 import org.olat.core.gui.control.generic.messages.MessageUIFactory;
 import org.olat.core.gui.control.generic.tool.ToolController;
 import org.olat.core.gui.control.generic.tool.ToolFactory;
-import org.olat.core.gui.translator.PackageTranslator;
 import org.olat.core.gui.translator.Translator;
 import org.olat.core.id.Identity;
 import org.olat.core.id.IdentityEnvironment;
@@ -77,6 +77,7 @@ import org.olat.core.id.OLATResourceable;
 import org.olat.core.id.Roles;
 import org.olat.core.id.context.BusinessControl;
 import org.olat.core.id.context.ContextEntry;
+import org.olat.core.id.context.StateEntry;
 import org.olat.core.logging.OLATSecurityException;
 import org.olat.core.logging.OLog;
 import org.olat.core.logging.Tracing;
@@ -110,7 +111,6 @@ import org.olat.course.nodes.STCourseNode;
 import org.olat.course.run.userview.UserCourseEnvironment;
 import org.olat.course.run.userview.UserCourseEnvironmentImpl;
 import org.olat.group.BusinessGroup;
-import org.olat.group.ui.context.BGContextTableModel;
 import org.olat.repository.RepositoryEntry;
 import org.olat.repository.RepositoryManager;
 import org.olat.user.UserManager;
@@ -129,8 +129,8 @@ import de.bps.webservices.clients.onyxreporter.OnyxReporterException;
  * It provides a menu that allows three different access paths to the same data: user centric, group
  * centric or course node centric.
  */
-public class AssessmentMainController extends MainLayoutBasicController implements Activateable, GenericEventListener {
-	OLog log = Tracing.createLoggerFor(AssessmentMainController.class);
+public class AssessmentMainController extends MainLayoutBasicController implements Activateable2, GenericEventListener {
+	private static final OLog log = Tracing.createLoggerFor(AssessmentMainController.class);
 
 	private static final String CMD_INDEX 			= "cmd.index";
 	private static final String CMD_USERFOCUS 	= "cmd.userfocus";
@@ -206,6 +206,7 @@ public class AssessmentMainController extends MainLayoutBasicController implemen
 	private Link filterCourseNodesButton;
 
 	private BulkAssessmentMainController bamc;
+	private final StackedController stackPanel;
 
 	private OLATResourceable ores;
 
@@ -224,13 +225,13 @@ public class AssessmentMainController extends MainLayoutBasicController implemen
 	 * @param course
 	 * @param assessmentCallback
 	 */
-AssessmentMainController(UserRequest ureq, WindowControl wControl, OLATResourceable ores, IAssessmentCallback assessmentCallback) {
+AssessmentMainController(UserRequest ureq, WindowControl wControl, StackedController stackPanel, OLATResourceable ores, IAssessmentCallback assessmentCallback) {
 		super(ureq, wControl);
 		
 		Translator translator = Util.createPackageTranslator(org.olat.course.assessment.AssessmentMainController.class, getTranslator().getLocale(), getTranslator());
 		setTranslator(translator);
-
 		getUserActivityLogger().setStickyActionType(ActionType.admin);
+		this.stackPanel = stackPanel;
 		this.ores = ores;
 		this.callback = assessmentCallback;
 		this.localUserCourseEnvironmentCache = new HashMap<Long, UserCourseEnvironment>();
@@ -344,7 +345,7 @@ AssessmentMainController(UserRequest ureq, WindowControl wControl, OLATResourcea
 
 			// select user
 			assessedIdentityWrapper = AssessmentHelper.wrapIdentity(focusOnIdentity, localUserCourseEnvironmentCache, initialLaunchDates, course, null);
-			identityAssessmentController = new IdentityAssessmentEditController(getWindowControl(),ureq, focusOnIdentity, course, true);
+			identityAssessmentController = new IdentityAssessmentEditController(getWindowControl(), ureq, stackPanel, focusOnIdentity, course, true);
 			listenTo(identityAssessmentController);
 			setContent(identityAssessmentController.getInitialComponent());
 		}
@@ -550,7 +551,7 @@ AssessmentMainController(UserRequest ureq, WindowControl wControl, OLATResourcea
 				if (actionid.equals(CMD_CHOOSE_GROUP)) {
 					int rowid = te.getRowId();
 					GroupAndContextTableModel groupListModel = (GroupAndContextTableModel) groupListCtr.getTableDataModel();
-					this.currentGroup = groupListModel.getBusinessGroupAt(rowid);
+					this.currentGroup = groupListModel.getObject(rowid);
 					this.identitiesList = getGroupIdentitiesFromGroupmanagement(this.currentGroup);
 					// Init the user list with this identitites list
 					doUserChooseWithData(ureq, this.identitiesList, this.currentGroup, this.currentCourseNode);
@@ -580,12 +581,12 @@ AssessmentMainController(UserRequest ureq, WindowControl wControl, OLATResourcea
 					if (this.currentCourseNode == null) {
 						Identity assessedIdentity = assessedIdentityWrapper.getIdentity();
 						removeAsListenerAndDispose(identityAssessmentController);
-						identityAssessmentController = new IdentityAssessmentEditController(getWindowControl(),ureq, assessedIdentity, course, true);
+						identityAssessmentController = new IdentityAssessmentEditController(getWindowControl(), ureq, stackPanel, assessedIdentity, course, true);
 						listenTo(identityAssessmentController);
 						setContent(identityAssessmentController.getInitialComponent());
 					} else {
 						removeAsListenerAndDispose(assessmentEditController);
-						assessmentEditController = new AssessmentEditController(ureq, getWindowControl(),course, currentCourseNode, assessedIdentityWrapper);
+						assessmentEditController = new AssessmentEditController(ureq, getWindowControl(), stackPanel, course, currentCourseNode, assessedIdentityWrapper);
 						listenTo(assessmentEditController);
 						main.setContent(assessmentEditController.getInitialComponent());
 					}
@@ -684,26 +685,6 @@ AssessmentMainController(UserRequest ureq, WindowControl wControl, OLATResourcea
 			columLayoutCtr.setCol2(toolC.getInitialComponent());
 		}
 	}
-	
-
-	/**
-	 * Notify subscribers when test are passed or attemps count change
-	 * EXPERIMENTAL!!!!!
-	 */
-	/*private void doNotifyAssessmentEvent(AssessmentChangedEvent ace) {
-		String assessmentChangeType = ace.getCommand();
-		// notify only comment has been changed
-		if (assessmentChangeType == AssessmentChangedEvent.TYPE_PASSED_CHANGED
-			|| assessmentChangeType == AssessmentChangedEvent.TYPE_ATTEMPTS_CHANGED)
-		{
-			// if notification is enabled -> notify the publisher about news
-			if (subsContext != null)
-			{
-				NotificationsManagerImpl.getInstance().markPublisherNews(subsContext, ace.getIdentity());
-			}
-		}
-	}*/
-
 
 	/**
 	 * Updates the local user course environment cache if the given event is for an identity
@@ -815,9 +796,9 @@ AssessmentMainController(UserRequest ureq, WindowControl wControl, OLATResourcea
 		ICourse course = CourseFactory.loadCourse(ores);
 		CourseGroupManager gm = course.getCourseEnvironment().getCourseGroupManager();
 		if (callback.mayAssessAllUsers() || callback.mayViewAllUsersAssessments()) {
-			return gm.getAllLearningGroupsFromAllContexts();
+			return gm.getAllBusinessGroups();
 		} else if (callback.mayAssessCoachedUsers()) {
-			return  gm.getOwnedLearningGroupsFromAllContexts(identity);
+			return  gm.getOwnedBusinessGroups(identity);
 		} else {
 			throw new OLATSecurityException("No rights to assess or even view any groups");
 		}
@@ -829,7 +810,6 @@ AssessmentMainController(UserRequest ureq, WindowControl wControl, OLATResourcea
 	 * @param ureq The user request
 	 */
 	private void doGroupChoose(UserRequest ureq) {
-		ICourse course = CourseFactory.loadCourse(ores);
 		removeAsListenerAndDispose(groupListCtr);
 		TableGuiConfiguration tableConfig = new TableGuiConfiguration();
 		tableConfig.setTableEmptyMessage(translate("groupchoose.nogroups"));
@@ -837,22 +817,15 @@ AssessmentMainController(UserRequest ureq, WindowControl wControl, OLATResourcea
 		listenTo(groupListCtr);
 		groupListCtr.addColumnDescriptor(new DefaultColumnDescriptor("table.group.name", 0, CMD_CHOOSE_GROUP, ureq.getLocale()));
 		groupListCtr.addColumnDescriptor(new DefaultColumnDescriptor("table.group.desc", 1, null, ureq.getLocale()));
-		CourseGroupManager gm = course.getCourseEnvironment().getCourseGroupManager();
-		if (gm.getLearningGroupContexts().size() > 1) {
-		// show groupcontext row only if multiple contexts are found
-			groupListCtr.addColumnDescriptor(new DefaultColumnDescriptor("table.group.context", 2, null, ureq.getLocale()));
-		}
 
-		Translator defaultContextTranslator = new PackageTranslator(Util.getPackageName(BGContextTableModel.class), ureq.getLocale());
 		// loop over all groups to filter depending on condition
 		List<BusinessGroup> currentGroups = new ArrayList<BusinessGroup>();
-		for (Iterator iter = this.coachedGroups.iterator(); iter.hasNext();) {
-			BusinessGroup group = (BusinessGroup) iter.next();
+		for (BusinessGroup group: coachedGroups) {
 			if ( !isFiltering || isVisibleAndAccessable(this.currentCourseNode, group) ) {
 				currentGroups.add(group);
 			}
 		}
-		GroupAndContextTableModel groupTableDataModel = new GroupAndContextTableModel(currentGroups, defaultContextTranslator);
+		GroupAndContextTableModel groupTableDataModel = new GroupAndContextTableModel(currentGroups);
 		groupListCtr.setTableDataModel(groupTableDataModel);
 		groupChoose.put("grouplisttable", groupListCtr.getInitialComponent());
 
@@ -1377,7 +1350,11 @@ AssessmentMainController(UserRequest ureq, WindowControl wControl, OLATResourcea
 	 * @param ureq
 	 * @param viewIdentifier if 'node-choose' does activate node-choose view
 	 */
-	public void activate(UserRequest ureq, String viewIdentifier) {
+	@Override
+	public void activate(UserRequest ureq, List<ContextEntry> entries, StateEntry state) {
+		if(entries == null || entries.isEmpty()) return;
+		
+		String viewIdentifier = entries.get(0).getOLATResourceable().getResourceableTypeName();
 		if (viewIdentifier != null && viewIdentifier.equals("node-choose")) {
       // jump to state node-choose
 			doNodeChoose(ureq);

@@ -22,7 +22,6 @@ package org.olat.portfolio;
 import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Locale;
 
 import org.olat.admin.user.delete.service.UserDeletionManager;
 import org.olat.collaboration.CollaborationTools;
@@ -37,11 +36,13 @@ import org.olat.core.id.Identity;
 import org.olat.core.util.StringHelper;
 import org.olat.core.util.event.FrameworkStartedEvent;
 import org.olat.core.util.event.FrameworkStartupEventChannel;
+import org.olat.core.util.vfs.LocalFolderImpl;
+import org.olat.core.util.vfs.VFSConstants;
 import org.olat.core.util.vfs.VFSContainer;
+import org.olat.core.util.vfs.VFSItem;
 import org.olat.group.BusinessGroup;
-import org.olat.group.BusinessGroupManagerImpl;
+import org.olat.group.BusinessGroupService;
 import org.olat.group.DeletableGroupData;
-import org.olat.group.DeletableReference;
 import org.olat.portfolio.manager.EPFrontendManager;
 import org.olat.portfolio.model.artefacts.AbstractArtefact;
 import org.olat.portfolio.model.structel.ElementType;
@@ -71,8 +72,8 @@ public class PortfolioModule extends AbstractOLATModule implements ConfigOnOff, 
 	private boolean isReflexionStepEnabled;
 	private boolean isCopyrightStepEnabled;
 	
-	public PortfolioModule(){
-		BusinessGroupManagerImpl.getInstance().registerDeletableGroupDataListener(this);
+	public PortfolioModule(BusinessGroupService businessGroupService){
+		businessGroupService.registerDeletableGroupDataListener(this);
 		FrameworkStartupEventChannel.registerForStartupEvent(this);
 	}
 	
@@ -107,7 +108,28 @@ public class PortfolioModule extends AbstractOLATModule implements ConfigOnOff, 
 		this.isReflexionStepEnabled = getBooleanPropertyValue("wizard.step.reflexion");
 		this.isCopyrightStepEnabled = getBooleanPropertyValue("wizard.step.copyright");
 		
+		cleanPortfolioTmpDir();
 		logInfo("ePortfolio is enabled: " + Boolean.toString(enabled));
+	}
+	
+	/**
+	 * removes the portfolio temp directory if it exists
+	 * FXOLAT-386
+	 * 
+	 */
+	private void cleanPortfolioTmpDir(){
+		logInfo("beginning to delete ePortfolio temp directory...");
+		VFSContainer artRoot = new OlatRootFolderImpl(File.separator + "tmp", null);
+		VFSItem tmpI = artRoot.resolve("portfolio");
+		if (tmpI instanceof VFSContainer) {
+			VFSContainer tmpContainer = (VFSContainer) tmpI;
+			if(tmpContainer.canDelete() == VFSConstants.YES){
+				tmpContainer.delete();
+				logInfo("deleted ePortfolio temp directory : "+tmpContainer.getName()+"    "+((tmpContainer instanceof LocalFolderImpl)?((LocalFolderImpl)tmpContainer).getBasefile().getAbsolutePath():""));
+			}
+		}else{
+			logInfo("no ePortfolio temp dir found...");
+		}
 	}
 	
 	private void enableExtensions(boolean enabled){
@@ -315,12 +337,6 @@ public class PortfolioModule extends AbstractOLATModule implements ConfigOnOff, 
 			ePFMgr.deletePortfolioStructure(portfolioStructure);
 		}
 		
-	}
-
-	// used for group deletion
-	@Override
-	public DeletableReference checkIfReferenced(BusinessGroup group, Locale locale) {
-		return DeletableReference.createNoDeletableReference(); // dont show special reference info, just delete a linked map
 	}
 
 	// used for group deletion

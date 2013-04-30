@@ -33,8 +33,9 @@ import org.apache.commons.lang.StringUtils;
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
+import org.olat.core.CoreSpringFactory;
 import org.olat.core.dispatcher.mapper.Mapper;
-import org.olat.core.dispatcher.mapper.MapperRegistry;
+import org.olat.core.dispatcher.mapper.MapperService;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.form.flexible.impl.FormBaseComponentImpl;
 import org.olat.core.gui.control.JSAndCSSAdder;
@@ -45,6 +46,7 @@ import org.olat.core.gui.translator.Translator;
 import org.olat.core.logging.OLATRuntimeException;
 import org.olat.core.logging.OLog;
 import org.olat.core.logging.Tracing;
+import org.olat.core.util.StringHelper;
 
 /**
  * Description:<br>
@@ -68,6 +70,7 @@ public abstract class TextBoxListComponent extends FormBaseComponentImpl {
 
 	// if changed, do so also in multiselect.js!
 	public static final String MORE_RESULTS_INDICATOR = ".....";
+	public static final String INPUT_SUFFIX = "textboxlistinput";
 
 	private String inputHint;
 
@@ -147,14 +150,21 @@ public abstract class TextBoxListComponent extends FormBaseComponentImpl {
 	 */
 	@Override
 	protected void doDispatchRequest(UserRequest ureq) {
-
 		String inputId = "textboxlistinput" + getFormDispatchId();
 		String cmd = ureq.getParameter(inputId);
 		if(cmd == null){
 			return;
 		}
+		setCmd(ureq, cmd);
+	}
+	
+	public void setCmd(UserRequest ureq, String cmd) {
+		if(!StringHelper.containsNonWhitespace(cmd)) {
+			return;
+		}
+		
 		String[] splitted = cmd.split(",");
-		ArrayList<String> cleanedItemValues = new ArrayList<String>();
+		List<String> cleanedItemValues = new ArrayList<String>();
 		for (String item : splitted) {
 			if (!StringUtils.isBlank(item))
 				cleanedItemValues.add(item.trim());
@@ -176,7 +186,7 @@ public abstract class TextBoxListComponent extends FormBaseComponentImpl {
 
 		if (logger.isDebug())
 			logger.debug("doDispatchRequest --> firing textBoxListEvent with current items: " + cleanedItemValues);
-		fireEvent(ureq, new TextBoxListEvent(cleanedItemValues));
+		fireEvent(ureq, new TextBoxListEvent(cleanedItemValues));	
 	}
 
 	/**
@@ -309,8 +319,7 @@ public abstract class TextBoxListComponent extends FormBaseComponentImpl {
 			}
 		};
 
-		MapperRegistry mr = MapperRegistry.getInstanceFor(ureq.getUserSession());
-		String fetchUri = mr.register(mapper);
+		String fetchUri = CoreSpringFactory.getImpl(MapperService.class).register(ureq.getUserSession(), mapper);
 		this.mapperUri = fetchUri + "/";
 	}
 

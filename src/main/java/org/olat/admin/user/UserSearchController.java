@@ -22,24 +22,18 @@ package org.olat.admin.user;
 
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 
 import org.olat.basesecurity.BaseSecurityManager;
+import org.olat.basesecurity.BaseSecurityModule;
 import org.olat.basesecurity.events.MultiIdentityChosenEvent;
 import org.olat.basesecurity.events.SingleIdentityChosenEvent;
+import org.olat.core.CoreSpringFactory;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.Windows;
 import org.olat.core.gui.components.Component;
 import org.olat.core.gui.components.form.flexible.FormItem;
-import org.olat.core.gui.components.form.flexible.FormItemContainer;
-import org.olat.core.gui.components.form.flexible.elements.FormLink;
-import org.olat.core.gui.components.form.flexible.elements.TextElement;
-import org.olat.core.gui.components.form.flexible.impl.FormBasicController;
-import org.olat.core.gui.components.form.flexible.impl.FormEvent;
-import org.olat.core.gui.components.form.flexible.impl.FormLayoutContainer;
 import org.olat.core.gui.components.link.Link;
 import org.olat.core.gui.components.link.LinkFactory;
 import org.olat.core.gui.components.panel.Panel;
@@ -57,18 +51,13 @@ import org.olat.core.gui.control.controller.BasicController;
 import org.olat.core.gui.control.generic.ajax.autocompletion.AutoCompleterController;
 import org.olat.core.gui.control.generic.ajax.autocompletion.EntriesChosenEvent;
 import org.olat.core.gui.control.generic.ajax.autocompletion.ListProvider;
-import org.olat.core.gui.control.generic.ajax.autocompletion.ListReceiver;
 import org.olat.core.gui.translator.PackageTranslator;
 import org.olat.core.gui.translator.Translator;
-import org.olat.core.gui.util.CSSHelper;
 import org.olat.core.id.Identity;
 import org.olat.core.id.Roles;
-import org.olat.core.id.User;
-import org.olat.core.id.UserConstants;
 import org.olat.core.util.StringHelper;
 import org.olat.core.util.Util;
 import org.olat.user.UserManager;
-import org.olat.user.propertyhandlers.EmailProperty;
 import org.olat.user.propertyhandlers.UserPropertyHandler;
 
 /**
@@ -118,11 +107,14 @@ public class UserSearchController extends BasicController {
 	private UserTableDataModel tdm;
 	private List<Identity> foundIdentities = new ArrayList<Identity>();
 	private boolean useMultiSelect = false;
+	private Object userObject;
 	
 	private AutoCompleterController autocompleterC;
 	private String actionKeyChoose;
 	private boolean isAdministrativeUser;
 	private Link backLink;
+	
+	private final BaseSecurityModule securityModule;
 
 	public static final String ACTION_KEY_CHOOSE = "action.choose";
 	public static final String ACTION_KEY_CHOOSE_FINISH = "action.choose.finish";
@@ -135,7 +127,7 @@ public class UserSearchController extends BasicController {
 	 * @param wControl
 	 */
 	public UserSearchController(UserRequest ureq, WindowControl wControl) {
-		this(ureq, wControl, false, false, false);
+		this(ureq, wControl, false, false);
 	}
 	
 	
@@ -145,7 +137,7 @@ public class UserSearchController extends BasicController {
 	 * @param cancelbutton
 	 */
 	public UserSearchController(UserRequest ureq, WindowControl wControl, boolean cancelbutton) {
-		this(ureq, wControl, cancelbutton, false, false);
+		this(ureq, wControl, cancelbutton, false);
 	}
 
 	/**
@@ -156,8 +148,8 @@ public class UserSearchController extends BasicController {
 	 * @param statusEnabled
 	 * @param actionKeyChooseFinish
 	 */
-	public UserSearchController(UserRequest ureq, WindowControl windowControl, boolean cancelbutton, boolean userMultiSelect, boolean statusEnabled, String actionKeyChooseFinish) {
-		this(ureq, windowControl, cancelbutton, userMultiSelect, statusEnabled);
+	public UserSearchController(UserRequest ureq, WindowControl windowControl, boolean cancelbutton, boolean userMultiSelect, String actionKeyChooseFinish) {
+		this(ureq, windowControl, cancelbutton, userMultiSelect);
 		this.actionKeyChoose = actionKeyChooseFinish;
 	}
 
@@ -168,10 +160,11 @@ public class UserSearchController extends BasicController {
 	 * @param userMultiSelect
 	 * @param statusEnabled
 	 */
-	public UserSearchController(UserRequest ureq, WindowControl wControl, boolean cancelbutton, boolean userMultiSelect, boolean statusEnabled) {
+	public UserSearchController(UserRequest ureq, WindowControl wControl, boolean cancelbutton, boolean userMultiSelect) {
 		super(ureq, wControl);
 		this.useMultiSelect = userMultiSelect;
 		this.actionKeyChoose = ACTION_KEY_CHOOSE;
+		securityModule = CoreSpringFactory.getImpl(BaseSecurityModule.class);
 	  // Needs PACKAGE and VELOCITY_ROOT because DeletableUserSearchController extends UserSearchController and re-use translations
 		Translator pT = UserManager.getInstance().getPropertyHandlerTranslator( new PackageTranslator(PACKAGE, ureq.getLocale()) );	
 		myContent = new VelocityContainer("olatusersearch", VELOCITY_ROOT + "/usersearch.html", pT, this);
@@ -186,52 +179,21 @@ public class UserSearchController extends BasicController {
 		} else if (ureq.getUserSession().getRoles()==null) {
 			logError("UserSearchController<init>: roles is null!", null);
 		}
-		boolean isAdmin = ureq.getUserSession().getRoles().isOLATAdmin(); 
 		
+		Roles roles = ureq.getUserSession().getRoles();
+		boolean isAdmin = securityModule.isUserAllowedAdminProps(roles);
 		searchform = new UserSearchForm(ureq, wControl, isAdmin, cancelbutton);
 		listenTo(searchform);
-		
 		searchPanel.setContent(searchform.getInitialComponent());
 	
 		myContent.contextPut("noList","false");			
 		myContent.contextPut("showButton","false");
 		
+		boolean autoCompleteAllowed = securityModule.isUserAllowedAutoComplete(roles);
 		boolean ajax = Windows.getWindows(ureq).getWindowManager().isAjaxEnabled();
-		final Locale loc = ureq.getLocale();
-		if (ajax) {
+		if (ajax && autoCompleteAllowed) {
 			// insert a autocompleter search
-			ListProvider provider = new ListProvider() {
-				/**
-				 * @see org.olat.core.gui.control.generic.ajax.autocompletion.ListProvider#getResult(java.lang.String,
-				 *      org.olat.core.gui.control.generic.ajax.autocompletion.ListReceiver)
-				 */
-				public void getResult(String searchValue, ListReceiver receiver) {
-					Map<String, String> userProperties = new HashMap<String, String>();
-					// We can only search in mandatory User-Properties due to problems
-					// with hibernate query with join and not existing rows
-					userProperties.put(UserConstants.FIRSTNAME, searchValue);
-					userProperties.put(UserConstants.LASTNAME, searchValue);
-					userProperties.put(UserConstants.EMAIL, searchValue);
-					// Search in all fileds -> non intersection search
-					List<Identity> res = searchUsers(searchValue,	userProperties, false);
-					int maxEntries = 15;
-					boolean hasMore = false;
-					for (Iterator<Identity> it_res = res.iterator(); (hasMore=it_res.hasNext()) && maxEntries > 0;) {
-						maxEntries--;
-						Identity ident = it_res.next();
-						User u = ident.getUser();
-						String key = ident.getKey().toString();
-						String displayKey = ident.getName();
-						String first = u.getProperty(UserConstants.FIRSTNAME, loc);
-						String last = u.getProperty(UserConstants.LASTNAME, loc);
-						String displayText = last + " " + first;
-						receiver.addEntry(key, displayKey, displayText, CSSHelper.CSS_CLASS_USER);
-					}					
-					if(hasMore){
-						receiver.addEntry(".....",".....");
-					}
-				}
-			};
+			ListProvider provider = new UserSearchListProvider();
 			autocompleterC = new AutoCompleterController(ureq, getWindowControl(), provider, null, isAdmin, 60, 3, null);
 			listenTo(autocompleterC);
 			myContent.put("autocompletionsearch", autocompleterC.getInitialComponent());
@@ -243,11 +205,17 @@ public class UserSearchController extends BasicController {
 		tableCtr = new TableController(tableConfig, ureq, getWindowControl(), myContent.getTranslator());
 		listenTo(tableCtr);
 		
-		Roles roles = ureq.getUserSession().getRoles();
 		isAdministrativeUser = (roles.isAuthor() || roles.isGroupManager() || roles.isUserManager() || roles.isOLATAdmin());
-		
-		
+
 		putInitialPanel(myContent);
+	}
+
+	public Object getUserObject() {
+		return userObject;
+	}
+
+	public void setUserObject(Object userObject) {
+		this.userObject = userObject;
 	}
 
 	public void event(UserRequest ureq, Component source, Event event) {
@@ -282,7 +250,7 @@ public class UserSearchController extends BasicController {
 			}
 		} else if (source == autocompleterC) {
 			EntriesChosenEvent ece = (EntriesChosenEvent)event;
-			List res = ece.getEntries();
+			List<String> res = ece.getEntries();
 			// if we get the event, we have a result or an incorrect selection see OLAT-5114 -> check for empty
 			String mySel = res.isEmpty() ? null : (String) res.get(0);
 			if (( mySel == null) || mySel.trim().equals("")) {
@@ -325,6 +293,11 @@ public class UserSearchController extends BasicController {
 				listenTo(tableCtr);
 				
 				List<Identity> users = searchUsers(login,	userPropertiesSearch, true);
+				int maxResults = securityModule.getUserSearchMaxResultsValue();
+				if(maxResults > 0 && users.size() > maxResults) {
+					users = users.subList(0, maxResults);
+					showWarning("error.search.maxResults", Integer.toString(maxResults));
+				}
 				if (!users.isEmpty()) {
 					tdm = new UserTableDataModel(users, ureq.getLocale(), isAdministrativeUser);
 					// add the data column descriptors
@@ -366,173 +339,10 @@ public class UserSearchController extends BasicController {
 	 * @return
 	 */
 	protected List<Identity> searchUsers(String login, Map<String, String> userPropertiesSearch, boolean userPropertiesAsIntersectionSearch) {
-	  return BaseSecurityManager.getInstance().getVisibleIdentitiesByPowerSearch(
-			(login.equals("") ? null : login),
+		int maxResults = securityModule.getUserSearchMaxResultsValue() > 0 ? securityModule.getUserSearchMaxResultsValue() + 1 : -1;
+		login = (login.equals("") ? null : login);
+		return BaseSecurityManager.getInstance().getVisibleIdentitiesByPowerSearch(login ,
 			userPropertiesSearch, userPropertiesAsIntersectionSearch,	// in normal search fields are intersected
-			null, null, null, null, null);
+			null, null, null, null, null, 0, maxResults);
 	}
-}
-
-
-/**
- * <pre>
- *
- * Initial Date:  Jul 29, 2003
- *
- * @author gnaegi
- * 
- * Comment:  
- * The user search form
- * </pre>
- */
-class UserSearchForm extends FormBasicController {
-	
-	private final boolean isAdmin, cancelButton;
-	private FormLink searchButton;
-	
-	protected TextElement login;
-	protected List<UserPropertyHandler> userPropertyHandlers;
-	protected Map <String,FormItem>propFormItems;
-	
-	/**
-	 * @param name
-	 * @param cancelbutton
-	 * @param isAdmin if true, no field must be filled in at all, otherwise
-	 *          validation takes place
-	 */
-	public UserSearchForm(UserRequest ureq, WindowControl wControl, boolean isAdmin, boolean cancelButton) {
-		super(ureq, wControl);
-		
-		this.isAdmin = isAdmin;
-		this.cancelButton = cancelButton;
-	
-		initForm(ureq);
-	}
-	
-	@Override
-	@SuppressWarnings("unused")
-	public boolean validateFormLogic (UserRequest ureq) {
-		// override for admins
-		if (isAdmin) return true;
-		
-		boolean filled = !login.isEmpty();
-		StringBuffer  full = new StringBuffer(login.getValue().trim());  
-		FormItem lastFormElement = login;
-		
-		// DO NOT validate each user field => see OLAT-3324
-		// this are custom fields in a Search Form
-		// the same validation logic can not be applied
-		// i.e. email must be searchable and not about getting an error like
-		// "this e-mail exists already"
-		for (UserPropertyHandler userPropertyHandler : userPropertyHandlers) {
-			FormItem ui = propFormItems.get(userPropertyHandler.getName());
-			String uiValue = userPropertyHandler.getStringValue(ui);
-			// add value for later non-empty search check
-			if (StringHelper.containsNonWhitespace(uiValue)) {
-				full.append(uiValue.trim());
-				filled = true;
-			}else{
-				//its an empty field
-				filled = filled || false;
-			}
-
-			lastFormElement = ui;
-		}
-
-		// Don't allow searches with * or %  or @ chars only (wild cards). We don't want
-		// users to get a complete list of all OLAT users this easily.
-		String fullString = full.toString();
-		boolean onlyStar= fullString.matches("^[\\*\\s@\\%]*$");
-
-		if (!filled || onlyStar) {
-			// set the error message
-			lastFormElement.setErrorKey("error.search.form.notempty", null);
-			return false;
-		}
-		if ( fullString.contains("**") ) {
-			lastFormElement.setErrorKey("error.search.form.no.wildcard.dublicates", null);
-			return false;
-		}		
-		int MIN_LENGTH = 4;
-		if ( fullString.length() < MIN_LENGTH ) {
-			lastFormElement.setErrorKey("error.search.form.to.short", null);
-			return false;
-		}
-		
-		return true;
-	}
-
-	@Override
-	@SuppressWarnings("unused")
-	protected void initForm(FormItemContainer formLayout, Controller listener, UserRequest ureq) {
-		login = uifactory.addTextElement("login", "search.form.login", 128, "", formLayout);
-
-		UserManager um = UserManager.getInstance();
-		Translator tr = Util.createPackageTranslator(
-				UserPropertyHandler.class,
-				getLocale(), 
-				getTranslator()
-		);
-		
-		userPropertyHandlers = um.getUserPropertyHandlersFor(
-				getClass().getCanonicalName(), isAdmin
-		);
-		
-		propFormItems = new HashMap<String,FormItem>();
-		for (UserPropertyHandler userPropertyHandler : userPropertyHandlers) {
-			if (userPropertyHandler == null) continue;
-			
-			FormItem fi = userPropertyHandler.addFormItem(
-					getLocale(), null, getClass().getCanonicalName(), false, formLayout
-			);
-			fi.setTranslator(tr);
-			
-			// DO NOT validate email field => see OLAT-3324, OO-155, OO-222
-			if (userPropertyHandler instanceof EmailProperty && fi instanceof TextElement) {
-				TextElement textElement = (TextElement)fi;
-				textElement.setItemValidatorProvider(null);
-			}
-
-			propFormItems.put(userPropertyHandler.getName(), fi);
-		}
-		
-		FormLayoutContainer buttonGroupLayout = FormLayoutContainer.createButtonLayout("buttonGroupLayout", getTranslator());
-		formLayout.add(buttonGroupLayout);
-
-		// Don't use submit button, form should not be marked as dirty since this is
-		// not a configuration form but only a search form (OLAT-5626)
-		searchButton = uifactory.addFormLink("submit.search", buttonGroupLayout, Link.BUTTON);
-		searchButton.addActionListener(this, FormEvent.ONCLICK);
-		if (cancelButton) {
-			uifactory.addFormCancelButton("cancel", buttonGroupLayout, ureq, getWindowControl());
-		}
-	}
-
-	/**
-	 * @see org.olat.core.gui.components.form.flexible.impl.FormBasicController#formInnerEvent(org.olat.core.gui.UserRequest,
-	 *      org.olat.core.gui.components.form.flexible.FormItem,
-	 *      org.olat.core.gui.components.form.flexible.impl.FormEvent)
-	 */
-	@Override
-	protected void formInnerEvent(UserRequest ureq, FormItem source, @SuppressWarnings("unused") FormEvent event) {
-		if (source == searchButton) {
-			source.getRootForm().submit(ureq);			
-		}
-	}
-	
-	@Override
-	protected void formOK(UserRequest ureq) {
-		fireEvent (ureq, Event.DONE_EVENT);
-	}
-	
-	@Override
-	protected void formCancelled(UserRequest ureq) {
-		fireEvent (ureq, Event.CANCELLED_EVENT);
-	}
-	
-	@Override
-	protected void doDispose() {
-		//
-	}
-
 }

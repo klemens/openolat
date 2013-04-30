@@ -21,7 +21,7 @@
 package org.olat.course.nodes.portfolio;
 
 import org.olat.core.CoreSpringFactory;
-import org.olat.core.commons.fullWebApp.LayoutMain3ColsBackController;
+import org.olat.core.commons.fullWebApp.LayoutMain3ColsController;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.form.flexible.FormItem;
 import org.olat.core.gui.components.form.flexible.FormItemContainer;
@@ -31,6 +31,7 @@ import org.olat.core.gui.components.form.flexible.impl.FormBasicController;
 import org.olat.core.gui.components.form.flexible.impl.FormEvent;
 import org.olat.core.gui.components.form.flexible.impl.FormLayoutContainer;
 import org.olat.core.gui.components.link.Link;
+import org.olat.core.gui.components.stack.StackedController;
 import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.Event;
 import org.olat.core.gui.control.WindowControl;
@@ -80,14 +81,16 @@ public class PortfolioConfigForm extends FormBasicController {
 	private StaticTextElement mapNameElement;
 	
 	private Controller previewCtr;
-	private LayoutMain3ColsBackController columnLayoutCtr;
+	private Controller columnLayoutCtr;
 	private boolean isDirty;
 	private final PortfolioCourseNode courseNode;
+	private final StackedController stackPanel;
 	
-	public PortfolioConfigForm(UserRequest ureq, WindowControl wControl, ICourse course, PortfolioCourseNode courseNode) {
+	public PortfolioConfigForm(UserRequest ureq, WindowControl wControl, StackedController stackPanel, ICourse course, PortfolioCourseNode courseNode) {
 		super(ureq, wControl);
 		this.courseNode = courseNode;
 		this.config = courseNode.getModuleConfiguration();
+		this.stackPanel = stackPanel;
 
 		ePFMgr = (EPFrontendManager) CoreSpringFactory.getBean("epFrontendManager");
 		eSTMgr = (EPStructureManager) CoreSpringFactory.getBean("epStructureManager");
@@ -118,6 +121,7 @@ public class PortfolioConfigForm extends FormBasicController {
 		previewMapLink.setCustomEnabledLinkCSS("b_preview");
 		((Link)previewMapLink.getComponent()).setCustomDisplayText(name);
 		previewMapLink.setVisible(map != null);
+		previewMapLink.setElementCssClass("o_sel_preview_map");
 		
 		if(formLayout instanceof FormLayoutContainer) {
 			FormLayoutContainer layoutContainer = (FormLayoutContainer)formLayout;
@@ -126,8 +130,11 @@ public class PortfolioConfigForm extends FormBasicController {
 			buttonGroupLayout.setRootForm(mainForm);
 			layoutContainer.add(buttonGroupLayout);
 			chooseMapLink = uifactory.addFormLink("select_or_import.map", buttonGroupLayout, Link.BUTTON);
+			chooseMapLink.setElementCssClass("o_sel_map_choose_repofile");
 			changeMapLink = uifactory.addFormLink("select.map", buttonGroupLayout, Link.BUTTON);
+			changeMapLink.setElementCssClass("o_sel_map_change_repofile");
 			editMapLink = uifactory.addFormLink("edit.map", buttonGroupLayout, Link.BUTTON);
+			editMapLink.setElementCssClass("o_sel_edit_map");
 			
 			chooseMapLink.setVisible(map == null);
 			chooseMapLink.setEnabled(!inUse);
@@ -167,7 +174,7 @@ public class PortfolioConfigForm extends FormBasicController {
 		if (source == changeMapLink || source == chooseMapLink) {
 			removeAsListenerAndDispose(searchController);
 			searchController = new ReferencableEntriesSearchController(getWindowControl(), ureq, new String[]{EPTemplateMapResource.TYPE_NAME}, translate("select.map2"),
-					false, true, false);			
+					false, true, false, false);			
 			listenTo(searchController);
 			removeAsListenerAndDispose(cmc);
 			cmc = new CloseableModalController(getWindowControl(), translate("close"), searchController.getInitialComponent(), true, translate("select.map"));
@@ -188,9 +195,9 @@ public class PortfolioConfigForm extends FormBasicController {
 			}
 			previewCtr = EPUIFactory.createPortfolioStructureMapPreviewController(ureq, getWindowControl(), map, secCallback);
 			listenTo(previewCtr);
-			LayoutMain3ColsBackController ctr = new LayoutMain3ColsBackController(ureq, getWindowControl(), null, null, previewCtr.getInitialComponent(), "portfolio" + map.getKey());
-			ctr.activate();
+			LayoutMain3ColsController ctr = new LayoutMain3ColsController(ureq, getWindowControl(), null, null, previewCtr.getInitialComponent(), "portfolio" + map.getKey());
 			columnLayoutCtr = ctr;
+			stackPanel.pushController(translate("preview.map"), columnLayoutCtr);
 			listenTo(columnLayoutCtr);
 		}
 	}

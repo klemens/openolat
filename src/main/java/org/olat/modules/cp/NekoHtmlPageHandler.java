@@ -146,8 +146,8 @@ public class NekoHtmlPageHandler extends DefaultHandler {
 	}
 	
 	private final String normalizeUri(String uri) {
-		if(uri.indexOf("://") > 0 || uri.startsWith("/")) {
-			return uri;//absolute link, nothing to do
+		if(uri.indexOf("://") > 0 || uri.startsWith("/") || uri.startsWith("data:")) {
+			return uri;//absolute link or image data uri, nothing to do
 		}
 		
 		String contextPath = WebappHelper.getServletContextPath();
@@ -166,9 +166,13 @@ public class NekoHtmlPageHandler extends DefaultHandler {
 			
 			String tmpUri = uri;
 			VFSContainer tmpDir = startDir;
-			while(tmpUri.startsWith("../")) {
+			while(tmpUri.startsWith("../") && tmpDir != null) {
 				tmpDir = tmpDir.getParentContainer();
 				tmpUri = tmpUri.substring(3);
+			}
+			if (tmpDir == null) {
+				// no local file uri, return unchanged
+				return uri;
 			}
 			
 			String diffPath = getRelativeResultingPath(tmpDir);

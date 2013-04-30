@@ -37,15 +37,32 @@ body {
 	@include bodybg;	
 }
 #b_page_margins {
-	min-width:740px;
-	max-width:1324px;
+	min-width: $page_width_min;
+	max-width: $page_width_max;
 	margin:0 auto;
 	width:100%;
 	height:100%;
 }
 #b_page_wrapper {
 //	@include o-border-radius(6px);
-	border-bottom: 1px solid lightGrey;
+}
+
+#b_main_toolbar {
+	clear: both;
+	height: $tool_bar_height;
+	line-height: $tool_bar_height;
+	vertical-align: middle;
+	margin: 0; 
+	padding: 1px 0 0 0;
+	border-bottom: 1px solid $tool_bar_border;
+	background-color: $tool_bar_bg;
+	@include o-box-shadow(0,0,14px,$main_shadow_color);
+	
+	ul li a {
+		span {
+			line-height: $tool_bar_height;		
+		}
+	}
 }
 
 $mainMinHeight: 550px;
@@ -53,8 +70,9 @@ $mainMinHeight: 550px;
 	background:#fff;
 	min-height: $mainMinHeight; /* min height, should prevent "flashing" of OO sky-banner on slow connections */
 	clear:both;
-	@include o-box-shadow(0,0,14px,#D3D3D3);
+	@include o-box-shadow(0,2px,14px,$main_shadow_color);
 }
+
 #b_page{
 
 	// the "to-top"-link
@@ -160,20 +178,48 @@ div.b_iframe_wrapper iframe { width:100%; position:relative; top: 0; left:0; bor
 		right:0px;
 		top:0px;
 		padding:4px 15px 0px 0px;
+		line-height: $top_nav_line_height;
+		min-height: $top_nav_line_height;
 		ul {margin:0;}
-		#o_topnav_search input {
-			line-height: 1.3em;
-			margin: 0;
-			width: 10em;
+
+		/* fix horizontal alignment by explicitly setting line-height everywhere */		
+	    li, div, span {
+			line-height: $top_nav_line_height;
+	    }
+	    /* fix horizontal alignment by removing top and bottom padding on icons */
+	    .b_with_small_icon_right {
+	  		padding: 0 20px 0 0;
+	  	}
+	  	.b_with_small_icon_left {
+			padding: 0 0 0 20px;
+	  	}
+	  	.b_small_icon {
+	  		height: $top_nav_line_height;
+	  	}
+	    #o_topnav_langchooser {
+	    	select {
+	    		font-size: 90%;
+	    	}
+	    }
+		#o_topnav_search {
+			input {
+	    		font-size: 90%;
+				margin: 0;
+				width: 10em;
+			}
+			a.o_fulltext_search_button {
+		  		height: $top_nav_line_height;
+				background-position: 50% 50%;
+			}  
 		}
 		#o_topnav_printview a {
-			background: url(../openolat/images/printer.png) no-repeat top right;
-			padding: 2px 20px 2px 0;
+			background: url(../openolat/images/printer.png) no-repeat right 50%;
+			padding: 0 20px 0 0;
 			margin: 0;
 		}
 		#o_topnav_logout a {
-			background: url('../openolat/images/control/control-power.png') no-repeat top right;
-			padding: 2px 20px 2px 0;
+			background: url('../openolat/images/control/control-power.png') no-repeat right 50%;
+			padding: 0 20px 0  0;
 			margin: 0;
 			font-weight: bold;
 		}
@@ -200,27 +246,93 @@ but had to include here, don't want to change all layout.scss **/
 
 #b_footer {
 	color: #9D9D9D;
-	padding:8px 20px;
-	margin-top:12px;
+	padding:0;
+	margin:0;
+	position: relative;
+	min-height: 60px;
+
 	.b_floatbox {
-		padding-top:8px;
-		border-top:1px solid #ddd;
+	
 	}
 	
-	a { color: $basegray_light; }
+	a { 
+		color: $basegray_light; 
+	}
 	
 	#b_footer_user { 
-		float: left; line-height: 16px;
-	 	a.b_ajax {background: url(../openolat/images/ajax.png) no-repeat; width: 20px; height: 16px; display: block; float: left; }
+		position: absolute;
+		top: 1em;
+		left: 1em;
+		line-height: 16px;
+	 	#b_counter {
+	 	}
+	 	#b_username { 
+	 		margin-right: 1.5em;	 		 	
+	 	}
 	}
-	#b_footer_version { float: right; display: block; }
+	#b_footer_version { 
+		position: absolute;
+		top: 1em;
+		right: 1em;
+	}
 	#b_footer_powered { 
-		text-align: center; width: auto; background: none;  
-		a { display: inline; } 
+		padding-top: 1em;
+		text-align: center; 
+		width: auto; 
+		background: none;  
+		a { 
+			display: inline; 
+		} 
+		/* make powerd-by buttons a bit less colorful to not distract user from learning */
+		img {	
+			@include o-opacity(60);
+			&:hover { @include o-opacity(100); }
+		}
+		
 	}
+	/*  social links (FB, twitter, google) from SocialModule.java */
+	#b_share { 
+		position: absolute;
+		top: 2.5em;
+		left: 1em;
+		width:250px; 
+		a, span { 
+			margin: 0 3px 0 0; 
+			background-repeat: no-repeat; 
+			width: 16px; 
+			height: 16px; 
+			float: left; 
+			display: inline; 
+			@include o-opacity(60);
+		}
+		a:hover { 
+			@include o-opacity(100); 
+		}
+		#b_facebook {background-image: url(../openolat/images/social/facebook_16.png);}
+		#b_twitter {background-image: url(../openolat/images/social/twitter_16.png);}
+		#b_google {background-image: url(../openolat/images/social/google_16.png);}
+		#b_delicious {background-image: url(../openolat/images/social/delicious_16.png);}
+		#b_digg {background-image: url(../openolat/images/social/digg_16.png);}
+		#b_mail {background-image: url(../openolat/images/social/email_16.png);}
+		#b_link {background-image: url(../openolat/images/social/link_16.png);}
+	}
+	
+	.fx_footer #b_footer_version {
+		> a { display:block; min-height: 45px; background: transparent url('../../images/frentix/frentix_logo_grey.png') no-repeat left bottom ; }
+		> a:hover { background-image: url('../../images/frentix/frentix_logo.png'); }
+	}	
+	
+	/* remove left/right padding when screen is larger than max width of page */
+	@media (min-width : 1324px) {
+	    #b_share { left: 0; }
+	    #b_footer_user {left: 0; }
+	    #b_footer_version { right: 0; }
+  	}
 }
-
-
+/* part of b_share, but rendered in ext window outside the b_share div */
+#callout_share_link input {
+	width: 480px;
+}
 
 
 /* --------------- MENU TOOLBAR & BREADCRUMBS ------------ **/
@@ -235,17 +347,76 @@ div.b_menu_toolbar {
 	
 /* breadcrumbs */
 div.b_breadcumb {}
+
 div.b_breadcumb_path { 
-	padding: 0; margin: 0; float:left; display: inline;
+	padding: 0; 
+	margin: 0; 
+	float:left; display: inline;
 	ul { 
-		padding: 0; margin: 0; list-style: none; float:left;  display: inline; 
-		li { padding: 0 7px 0 14px; margin: 0; list-style: none; float:left;  display: inline; background: url(../openolat/images/breadcrumb-separator.png) no-repeat left center; }
-		li.b_first { background: url(../openolat/images/home.png) no-repeat top left; padding-left: 25px; }
-		li a { color: #464444; }
-		li span.b_disabled { color: #000; padding: 0 10px 0 0; margin: 0; }
+		padding: 0; 
+		margin: 0; 
+		list-style: none; 
+		float:left;  display: inline; 
+		li { 
+			padding: 0 7px 0 14px; 
+			margin: 0;
+			list-style: none; 
+			float:left;	display: inline; 
+			background: url(../openolat/images/breadcrumb-separator.png) no-repeat left 50%; 
+		}
+		li.b_first { 
+			background: url(../openolat/images/home.png) no-repeat 5px 50%; 
+			padding-left: 25px; 
+		}
+		li a { 
+			color: #464444;
+		}
+		li span.b_disabled { 
+			color: #000; 
+			padding: 0 10px 0 0; 
+			margin: 0; 
+		}
 	}
 }
-div.b_breadcumb_content { clear: both;  margin-top: 0.5em; padding-top: 0.5em; border-top: 1px solid #ACAAAA;}
+
+/* normal breadcrumb styles */
+div.b_breadcumb div.b_breadcumb_path {}
+
+/* toolbar breadcrumb specific styles */
+#b_main_toolbar div.b_breadcumb_path { 
+	ul { 
+		a {
+			color: $tool_bar_color;
+			font-weight: bold;
+			&:hover {
+				color: $tool_bar_hover;
+				text-decoration: none;
+			}
+		}
+		
+		li.b_breadcumb_back {
+			background: transparent;
+			padding: 0 7px 0 7px; 
+			margin: 0 2px 0 0;
+			border-right: 1px solid $tool_bar_border;
+			a {
+				font-type: Arial; /* for special arrow key */
+				color: $tool_bar_color;
+				font-weight: normal;
+				&:hover {
+					color: $tool_bar_hover;
+				}
+			}
+		}
+	}
+}
+
+div.b_breadcumb_content { 
+	clear: both;  
+	margin-top: 0.5em; 
+	padding-top: 0.5em; 
+	border-top: 1px solid #ACAAAA;
+}
 
 /* --------------- TOOLBAR ------------ */
 
@@ -347,7 +518,6 @@ div.o_catalog {
 		display: none; //hide title
 	 }
 	div.o_catalog_nav {
-		font-size: 95%;
 		padding: 1px 0 2px 22px;
 		border-bottom: 1px solid #EEE;
 		background: url(../openolat/images/folder_open.png) 2px 50% no-repeat;
@@ -366,7 +536,7 @@ div.o_catalog {
 		a { display: block; }	    
 	}      
 	
-	div.o_catalog_desc { margin: 0.5em 0 0.5em 0; padding-left: 20px; font-size: 95%; font-style: italic;}
+	div.o_catalog_desc { margin: 0.5em 0 0.5em 0; padding-left: 20px; font-style: italic;}
 	
 }/* end div.o_catalog */
 

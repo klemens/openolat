@@ -29,7 +29,6 @@ import java.io.File;
 import java.io.Serializable;
 
 import org.olat.admin.quota.QuotaConstants;
-import org.olat.core.commons.modules.bc.vfs.OlatNamedContainerImpl;
 import org.olat.core.commons.modules.bc.vfs.OlatRootFolderImpl;
 import org.olat.core.commons.persistence.DBFactory;
 import org.olat.core.id.OLATResourceable;
@@ -38,27 +37,23 @@ import org.olat.core.logging.OLATRuntimeException;
 import org.olat.core.logging.OLog;
 import org.olat.core.logging.Tracing;
 import org.olat.core.util.FileUtils;
-import org.olat.core.util.StringHelper;
 import org.olat.core.util.nodes.INode;
 import org.olat.core.util.resource.OresHelper;
 import org.olat.core.util.tree.TreeVisitor;
 import org.olat.core.util.tree.Visitor;
-import org.olat.core.util.vfs.MergeSource;
-import org.olat.core.util.vfs.NamedContainerImpl;
 import org.olat.core.util.vfs.Quota;
 import org.olat.core.util.vfs.QuotaManager;
 import org.olat.core.util.vfs.VFSContainer;
 import org.olat.core.util.vfs.VFSItem;
 import org.olat.core.util.vfs.VFSLeaf;
 import org.olat.core.util.vfs.callbacks.FullAccessWithQuotaCallback;
-import org.olat.core.util.vfs.callbacks.ReadOnlyCallback;
 import org.olat.core.util.xml.XStreamHelper;
 import org.olat.course.assessment.AssessmentHelper;
 import org.olat.course.config.CourseConfig;
 import org.olat.course.config.CourseConfigManager;
 import org.olat.course.config.CourseConfigManagerImpl;
+import org.olat.course.export.CourseEnvironmentMapper;
 import org.olat.course.groupsandrights.PersistingCourseGroupManager;
-import org.olat.course.nodes.BCCourseNode;
 import org.olat.course.nodes.CourseNode;
 import org.olat.course.run.environment.CourseEnvironment;
 import org.olat.course.run.environment.CourseEnvironmentImpl;
@@ -69,6 +64,7 @@ import org.olat.modules.sharedfolder.SharedFolderManager;
 import org.olat.repository.RepositoryEntry;
 import org.olat.repository.RepositoryEntryImportExport;
 import org.olat.repository.RepositoryManager;
+import org.olat.resource.OLATResource;
 
 import com.thoughtworks.xstream.XStream;
 
@@ -151,65 +147,25 @@ public class PersistingCourseImpl implements ICourse, OLATResourceable, Serializ
 	public OlatRootFolderImpl getCourseBaseContainer() {
 		return courseRootContainer;
 	}
+	
+	@Override
+	public OlatRootFolderImpl getCourseExportDataDir() {
+		OlatRootFolderImpl vfsExportDir = (OlatRootFolderImpl)getCourseBaseContainer().resolve(ICourse.EXPORTED_DATA_FOLDERNAME);
+		if (vfsExportDir == null) {
+			vfsExportDir = (OlatRootFolderImpl)getCourseBaseContainer().createChildContainer(ICourse.EXPORTED_DATA_FOLDERNAME);
+		}
+		return vfsExportDir;
+	}
 
 	/**
 	 * @see org.olat.course.ICourse#getCourseFolderPath()
 	 */
 	public VFSContainer getCourseFolderContainer() {
 		// add local course folder's children as read/write source and any sharedfolder as subfolder
-		MergeSource courseFolderContainer = new MergeSource(null, getCourseTitle());
-		courseFolderContainer.addContainersChildren(getIsolatedCourseFolder(), true);
-		
-		// grab any shared folder that is configured
-		OlatRootFolderImpl sharedFolder = null;
-		String sfSoftkey = getCourseConfig().getSharedFolderSoftkey();
-		if (StringHelper.containsNonWhitespace(sfSoftkey) && !CourseConfig.VALUE_EMPTY_SHAREDFOLDER_SOFTKEY.equals(sfSoftkey)) {
-			RepositoryManager rm = RepositoryManager.getInstance();
-			RepositoryEntry re = rm.lookupRepositoryEntryBySoftkey(sfSoftkey, false);
-			if (re != null) {
-				sharedFolder = SharedFolderManager.getInstance().getSharedFolder(re.getOlatResource());
-				if (sharedFolder != null){
-					sharedFolder.setLocalSecurityCallback(new ReadOnlyCallback());
-					//add local course folder's children as read/write source and any sharedfolder as subfolder
-					courseFolderContainer.addContainer(new NamedContainerImpl("_sharedfolder", sharedFolder));
-				}
-			}
-		}
-		
-		// add all course building blocks of type BC to a virtual folder
-		MergeSource BCNodesContainer = new MergeSource(null, "_courseelementdata");
-		addFolderBuildingBlocks(BCNodesContainer, getRunStructure().getRootNode());
-		if (BCNodesContainer.getItems().size() > 0) {
-			courseFolderContainer.addContainer(BCNodesContainer);
-		}
-		
+		MergedCourseContainer courseFolderContainer = new MergedCourseContainer(resourceableId, getCourseTitle());
+		courseFolderContainer.init();
 		return courseFolderContainer;
 	}
-
-	/**
-	 * internal method to recursively add all course building blocks of type
-	 * BC to a given VFS container. This should only be used for an author view,
-	 * it does not test for security.
-	 * @param BCNodesContainer
-	 * @param courseNode
-	 */
-	private void addFolderBuildingBlocks(MergeSource BCNodesContainer, CourseNode courseNode) {
-		for (int i = 0; i < courseNode.getChildCount(); i++) {
-			CourseNode child = (CourseNode) courseNode.getChildAt(i);
-			if (child instanceof BCCourseNode) {
-				BCCourseNode bcNode = (BCCourseNode) child;
-				// add folder not to merge source. Use name and node id to have unique name
-				String path = BCCourseNode.getFoldernodePathRelToFolderBase(getCourseEnvironment(), bcNode);
-				OlatRootFolderImpl rootFolder = new OlatRootFolderImpl(path, null);
-				String folderName = bcNode.getShortTitle() + " (" + bcNode.getIdent() + ")";
-				OlatNamedContainerImpl BCFolder = new OlatNamedContainerImpl(folderName, rootFolder);
-				BCNodesContainer.addContainer(BCFolder);				
-			}
-			// recursion for all childrenØ
-			addFolderBuildingBlocks(BCNodesContainer, child);
-		}
-	}
-
 	
 	/**
 	 * @see org.olat.course.ICourse#getCourseEnvironment()
@@ -289,23 +245,46 @@ public class PersistingCourseImpl implements ICourse, OLATResourceable, Serializ
 	 * See OLAT-5368: Course Export can take longer than say 2min.
 	 * <p>
 	 */
-	public void exportToFilesystem(File exportDirectory) {
+	public void exportToFilesystem(OLATResource originalCourseResource, File exportDirectory, boolean backwardsCompatible) {
 		long s = System.currentTimeMillis();
 		log.info("exportToFilesystem: exporting course "+this+" to "+exportDirectory+"...");
 		File fCourseBase = getCourseBaseContainer().getBasefile();
+		//make the folder structure
+		File fExportedDataDir = new File(exportDirectory, EXPORTED_DATA_FOLDERNAME);
+		fExportedDataDir.mkdirs();
 
+		//export course config
 		FileUtils.copyFileToDir(new File(fCourseBase, CourseConfigManager.COURSECONFIG_XML), exportDirectory, "course export courseconfig");
-		// export editor structure
-		FileUtils.copyFileToDir(new File(fCourseBase, EDITORTREEMODEL_XML), exportDirectory, "course export exitortreemodel");
-		// export run structure
-		FileUtils.copyFileToDir(new File(fCourseBase, RUNSTRUCTURE_XML), exportDirectory, "course export runstructure");
+		
+		//export business groups
+		CourseEnvironmentMapper envMapper = PersistingCourseGroupManager.getInstance(this).getBusinessGroupEnvironment();
+		if(backwardsCompatible) {
+			//prevents duplicate names
+			envMapper.avoidDuplicateNames();
+		}
+		PersistingCourseGroupManager.getInstance(this).exportCourseBusinessGroups(fExportedDataDir, envMapper, backwardsCompatible);
+		if(backwardsCompatible) {
+			XStream xstream = CourseXStreamAliases.getReadCourseXStream();
+
+			Structure exportedStructure = (Structure)XStreamHelper.readObject(xstream, new File(fCourseBase, RUNSTRUCTURE_XML));
+			visit(new NodePostExportVisitor(envMapper, backwardsCompatible), exportedStructure.getRootNode());
+			XStreamHelper.writeObject(xstream, new File(exportDirectory, RUNSTRUCTURE_XML), exportedStructure);
+			
+			CourseEditorTreeModel exportedEditorModel = (CourseEditorTreeModel)XStreamHelper.readObject(xstream, new File(fCourseBase, EDITORTREEMODEL_XML));
+			visit(new NodePostExportVisitor(envMapper, backwardsCompatible), exportedEditorModel.getRootNode());
+			XStreamHelper.writeObject(xstream, new File(exportDirectory, EDITORTREEMODEL_XML), exportedEditorModel);
+		} else {
+			// export editor structure
+			FileUtils.copyFileToDir(new File(fCourseBase, EDITORTREEMODEL_XML), exportDirectory, "course export exitortreemodel");
+			// export run structure
+			FileUtils.copyFileToDir(new File(fCourseBase, RUNSTRUCTURE_XML), exportDirectory, "course export runstructure");
+		}
+		
 		// fxdiff: export layout-folder
 		FileUtils.copyDirToDir(new OlatRootFolderImpl(courseRootContainer.getRelPath() + File.separator + "layout", null).getBasefile(), exportDirectory, "course export layout folder");
 		// export course folder
 		FileUtils.copyDirToDir(getIsolatedCourseFolder().getBasefile(), exportDirectory, "course export folder");
 		// export any node data
-		File fExportedDataDir = new File(exportDirectory, EXPORTED_DATA_FOLDERNAME);
-		fExportedDataDir.mkdirs();
 		log.info("exportToFilesystem: exporting course "+this+": exporting all nodes...");
 		Visitor visitor = new NodeExportVisitor(fExportedDataDir, this);
 		TreeVisitor tv = new TreeVisitor(visitor, getEditorTreeModel().getRootNode(), true);
@@ -363,10 +342,7 @@ public class PersistingCourseImpl implements ICourse, OLATResourceable, Serializ
 		log.info("exportToFilesystem: exporting course "+this+": configuration and repo data...");
 		// export configuration file
 		FileUtils.copyFileToDir(new File(fCourseBase, CourseConfigManager.COURSECONFIG_XML), exportDirectory, "course export configuration and repo info");
-		// export learning groups
-		PersistingCourseGroupManager.getInstance(this).exportCourseLeaningGroups(fExportedDataDir);
-		// export right groups
-		PersistingCourseGroupManager.getInstance(this).exportCourseRightGroups(fExportedDataDir);
+		
 		// export repo metadata
 		RepositoryManager rm = RepositoryManager.getInstance();
 		RepositoryEntry myRE = rm.lookupRepositoryEntry(this, true);
@@ -382,6 +358,25 @@ public class PersistingCourseImpl implements ICourse, OLATResourceable, Serializ
 
 		log.info("exportToFilesystem: exporting course "+this+" to "+exportDirectory+" done.");
 		log.info("finished export course '"+getCourseTitle()+"' in t="+Long.toString(System.currentTimeMillis()-s));
+	}
+	
+	@Override
+	public void postImport(CourseEnvironmentMapper envMapper) {
+		Structure importedStructure = getRunStructure();
+		visit(new NodePostImportVisitor(envMapper), importedStructure.getRootNode());
+		saveRunStructure();
+		
+		CourseEditorTreeModel importedEditorModel = getEditorTreeModel();
+		visit(new NodePostImportVisitor(envMapper), importedEditorModel.getRootNode());
+		saveEditorTreeModel();
+	}
+	
+	private void visit(Visitor visitor, INode node) {
+		visitor.visit(node);
+		for(int i=node.getChildCount(); i-->0; ) {
+			INode subNode = node.getChildAt(i);
+			visit(visitor, subNode);
+		}
 	}
 
 	/**
@@ -430,8 +425,13 @@ public class PersistingCourseImpl implements ICourse, OLATResourceable, Serializ
 		if (vfsItem == null || !(vfsItem instanceof VFSLeaf)) {
 			throw new CorruptedCourseException("Cannot resolve file: " + fileName + " course=" + toString());
 		}
-		XStream xstream = CourseXStreamAliases.getReadCourseXStream();
-		return XStreamHelper.readObject(xstream, ((VFSLeaf)vfsItem).getInputStream());
+		try {
+			XStream xstream = CourseXStreamAliases.getReadCourseXStream();
+			return XStreamHelper.readObject(xstream, ((VFSLeaf)vfsItem).getInputStream());
+		} catch (Exception e) {
+			log.error("Cannot read course tree file: " + fileName);
+			throw new CorruptedCourseException("Cannot resolve file: " + fileName + " course=" + toString(), e);
+		}
 	}
 
 	/**
@@ -508,6 +508,44 @@ public class PersistingCourseImpl implements ICourse, OLATResourceable, Serializ
 		return "Course:[" + getResourceableId() + "," + courseTitle + "], " + super.toString();
 	}
 
+}
+
+class NodePostExportVisitor implements Visitor {
+	private final CourseEnvironmentMapper envMapper;
+	private final boolean backwardsCompatible;
+	
+	public NodePostExportVisitor(CourseEnvironmentMapper envMapper, boolean backwardsCompatible) {
+		this.envMapper = envMapper;
+		this.backwardsCompatible = backwardsCompatible;
+	}
+	
+	@Override
+	public void visit(INode node) {
+		if(node instanceof CourseEditorTreeNode) {
+			node = ((CourseEditorTreeNode)node).getCourseNode();
+		}
+		if(node instanceof CourseNode) {
+			((CourseNode)node).postExport(envMapper, backwardsCompatible);
+		}
+	}
+}
+
+class NodePostImportVisitor implements Visitor {
+	private final CourseEnvironmentMapper envMapper;
+	
+	public NodePostImportVisitor(CourseEnvironmentMapper envMapper) {
+		this.envMapper = envMapper;
+	}
+	
+	@Override
+	public void visit(INode node) {
+		if(node instanceof CourseEditorTreeNode) {
+			node = ((CourseEditorTreeNode)node).getCourseNode();
+		}
+		if(node instanceof CourseNode) {
+			((CourseNode)node).postImport(envMapper);
+		}
+	}
 }
 
 class NodeExportVisitor implements Visitor {

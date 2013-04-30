@@ -66,46 +66,26 @@ public interface DTabs {
 	 * @param dTab
 	 * @param viewIdentifier if null, no activation takes places
 	 */
-	public void activate(UserRequest ureq, DTab dTab, String viewIdentifier);
+	public void activate(UserRequest ureq, DTab dTab, List<ContextEntry> ce);
 
 	/**
-	 * @param ureq
-	 * @param dTab
-	 * @param viewIdentifier if null, no activation takes places
-	 */
-	//fxdiff BAKS-7 Resume function
-	public void activate(UserRequest ureq, DTab dTab, String viewIdentifier, List<ContextEntry> ce);
-
-	/**
-	 * FIXME:fj:b change string arg to class
 	 * @param ureq
 	 * @param className the name of the class implementing the siteinstance we would like to activate
 	 * @param viewIdentifier the subcommand (see docu of each controller implementing Activatable
 	 */
-	public void activateStatic(UserRequest ureq, String className, String viewIdentifier);
-
-	/**
-	 * FIXME:fj:b change string arg to class
-	 * @param ureq
-	 * @param className the name of the class implementing the siteinstance we would like to activate
-	 * @param viewIdentifier the subcommand (see docu of each controller implementing Activatable
-	 */
-	//fxdiff BAKS-7 Resume function
-	public void activateStatic(UserRequest ureq, String className, String viewIdentifier, List<ContextEntry> entries);
-	
-	
+	public void activateStatic(UserRequest ureq, String className, List<ContextEntry> entries);
 	
 	/**
 	 * adds the tab. (upon Event.DONE of the contained controller && if controller is DTabAware -> controller.dispose called by dtabs)
 	 * @param dt
 	 */
-	public void addDTab(DTab dt);
+	public boolean addDTab(UserRequest ureq, DTab dt);
 
 	/**
 	 * Remove a tab from tabs-list.
 	 * @param dt Remove this tab
 	 */
-	public void removeDTab(DTab dt);
+	public void removeDTab(UserRequest ureq, DTab dt);
 		
 	
 }

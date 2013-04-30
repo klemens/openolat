@@ -86,7 +86,7 @@ public interface RepositoryHandler {
 	 * @param wControl
 	 * @return Controller able to launch resourceable.
 	 */
-	public MainLayoutController createLaunchController(OLATResourceable res, String initialViewIdentifier, UserRequest ureq, WindowControl wControl);
+	public MainLayoutController createLaunchController(OLATResourceable res, UserRequest ureq, WindowControl wControl);
 	
 	/**
 	 * Called if a user wants to edit a Resourceable that this handler can provide an editor for. 
@@ -122,7 +122,7 @@ public interface RepositoryHandler {
 	 * @param res
 	 * @return MediaResource delivering resourceable.
 	 */
-	public MediaResource getAsMediaResource(OLATResourceable res);
+	public MediaResource getAsMediaResource(OLATResourceable res, boolean backwardsCompatible);
 	
 	/**
 	 * Called if the repository entry referencing the given Resourceable will be deleted

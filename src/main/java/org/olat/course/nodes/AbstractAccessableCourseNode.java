@@ -30,11 +30,10 @@ import java.util.List;
 
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.control.WindowControl;
-import org.olat.core.gui.control.generic.tabbable.TabbableController;
-import org.olat.course.ICourse;
 import org.olat.course.condition.Condition;
 import org.olat.course.condition.interpreter.ConditionExpression;
 import org.olat.course.condition.interpreter.ConditionInterpreter;
+import org.olat.course.export.CourseEnvironmentMapper;
 import org.olat.course.run.navigation.NodeRunConstructionResult;
 import org.olat.course.run.userview.NodeEvaluation;
 import org.olat.course.run.userview.UserCourseEnvironment;
@@ -59,12 +58,6 @@ public abstract class AbstractAccessableCourseNode extends GenericCourseNode {
 	protected AbstractAccessableCourseNode(String type) {
 		super(type);
 	}
-
-	/**
-	 * @see org.olat.course.nodes.CourseNode#createEditController(UserRequest, WindowControl, ICourse, UserCourseEnvironment)
-	 */
-	abstract public TabbableController createEditController(UserRequest ureq, WindowControl wControl, ICourse course,
-			UserCourseEnvironment euce);
 
 	/**
 	 * @see org.olat.course.nodes.CourseNode#createNodeRunConstructionResult(UserRequest, WindowControl, UserCourseEnvironment, NodeEvaluation, String)
@@ -97,6 +90,18 @@ public abstract class AbstractAccessableCourseNode extends GenericCourseNode {
 		precondition_accessor.setConditionId("accessability");
 		this.preConditionAccess = precondition_accessor;
 	}
+	
+	@Override
+	public void postImport(CourseEnvironmentMapper envMapper) {
+		super.postImport(envMapper);
+		postImportCondition(preConditionAccess, envMapper);
+	}
+	
+	@Override
+	public void postExport(CourseEnvironmentMapper envMapper, boolean backwardsCompatible) {
+		super.postExport(envMapper, backwardsCompatible);
+		postExportCondition(preConditionAccess, envMapper, backwardsCompatible);
+	}
 
 	/**
 	 * @see org.olat.course.nodes.GenericCourseNode#calcAccessAndVisibility(org.olat.course.condition.interpreter.ConditionInterpreter,
@@ -118,6 +123,17 @@ public abstract class AbstractAccessableCourseNode extends GenericCourseNode {
 		CourseNode copyInstance = super.createInstanceForCopy();
 		setPreConditionAccess(null);
 		return copyInstance;
+	}
+
+	@Override
+	public void copyConfigurationTo(CourseNode courseNode) {
+		super.copyConfigurationTo(courseNode);
+		if(courseNode instanceof AbstractAccessableCourseNode) {
+			AbstractAccessableCourseNode accessableNode = (AbstractAccessableCourseNode)courseNode;
+			if(preConditionAccess != null) {
+				accessableNode.setPreConditionAccess(preConditionAccess.clone());
+			}
+		}
 	}
 
 	/**

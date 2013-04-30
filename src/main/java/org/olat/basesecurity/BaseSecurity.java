@@ -68,6 +68,12 @@ public interface BaseSecurity {
 	 * @return The roles of the identity
 	 */
 	public Roles getRoles(Identity identity);
+	
+	/**
+	 * Update the roles
+	 * @param identity
+	 */
+	public void updateRoles(Identity identity, Roles roles);
 
 	/**
 	 * @param identity
@@ -88,6 +94,13 @@ public interface BaseSecurity {
 	 * @return true if the identity is in the group
 	 */
 	public boolean isIdentityInSecurityGroup(Identity identity, SecurityGroup secGroup);
+	
+	/**
+	 * Change the last modificaiton date of the membership
+	 * @param identity
+	 * @param secGroups
+	 */
+	public void touchMembership(Identity identity, List<SecurityGroup> secGroups);
 
 	/**
 	 * search
@@ -149,6 +162,15 @@ public interface BaseSecurity {
 	 */
 	public Identity findIdentityByName(String identityName);
 	
+	public List<Identity> findIdentitiesByName(Collection<String> identityName);
+	
+	/**
+	 * Find an identity by its user
+	 * @param user
+	 * @return The identity or null if not found
+	 */
+	public Identity findIdentityByUser(User user);
+	
 	/**
 	 * Find identities by names. This is an exact match.
 	 * <p>
@@ -169,7 +191,7 @@ public interface BaseSecurity {
 	 * @param identityNames
 	 * @return The identities
 	 */
-	public List<IdentityShort> findShortIdentitiesByKey(Collection<Long> identityName);
+	public List<IdentityShort> findShortIdentitiesByKey(Collection<Long> identityKeys);
 
 	/**
 	 * find an identity by the key instead of the username. Prefer this method as
@@ -179,6 +201,14 @@ public interface BaseSecurity {
 	 * @return the identity or an exception if not found
 	 */
 	public Identity loadIdentityByKey(Long identityKey);
+	
+	/**
+	 * Load a list of identities by their keys.
+	 * 
+	 * @param identityKeys
+	 * @return A list of identities
+	 */
+	public List<Identity> loadIdentityByKeys(Collection<Long> identityKeys);
 	
 	public IdentityShort loadIdentityShortByKey(Long identityKey);
 	
@@ -298,7 +328,15 @@ public interface BaseSecurity {
 	 * @param identity
 	 * @param secGroup
 	 */
-	public void removeIdentityFromSecurityGroup(Identity identity, SecurityGroup secGroup);
+	public boolean removeIdentityFromSecurityGroup(Identity identity, SecurityGroup secGroup);
+
+	/**
+	 * Remove an Identity
+	 * @param identity
+	 * @param secGroups
+	 * @return
+	 */
+	public boolean removeIdentityFromSecurityGroups(List<Identity> identities, List<SecurityGroup> secGroups);
 
 	// --- Policy management
 	// again no pure RAM creation, since all attributes are mandatory and given by
@@ -390,10 +428,14 @@ public interface BaseSecurity {
 	 * @param permission
 	 * @param olatResourceable
 	 */
-	public void deletePolicy(SecurityGroup secGroup, String permission, OLATResourceable olatResourceable);
-
-	// public void deletePolicy(Policy policy); //just deletes the policy, but not
-	// the resource
+	public void deletePolicy(SecurityGroup secGroup, String permission, OLATResource olatResourceable);
+	
+	/**
+	 * Delete all policies of a resource
+	 */
+	public void deletePolicies(OLATResource olatResourceable);
+	
+	public boolean deletePolicies(Collection<SecurityGroup> secGroups, Collection<OLATResource> resources);
 
 	// some queries mainly for the group/groupcontext management
 	/**
@@ -401,6 +443,13 @@ public interface BaseSecurity {
 	 * @return a list of Policy objects
 	 */
 	public List<Policy> getPoliciesOfSecurityGroup(SecurityGroup secGroup);
+	
+	/**
+	 * 
+	 * @param secGroups
+	 * @return
+	 */
+	public List<Policy> getPoliciesOfSecurityGroup(List<SecurityGroup> secGroups, OLATResource... resources);
 
 /**
  * Return the policies
@@ -408,7 +457,7 @@ public interface BaseSecurity {
  * @param securityGroup The securityGroup (optional)
  * @return
  */
-	public List<Policy> getPoliciesOfResource(OLATResourceable resource, SecurityGroup securityGroup);
+	public List<Policy> getPoliciesOfResource(OLATResource resource, SecurityGroup securityGroup);
 	
 	/**
 	 * Update the policy valid dates
@@ -417,24 +466,6 @@ public interface BaseSecurity {
 	 * @param to
 	 */
 	public void updatePolicy(Policy policy, Date from, Date to);
-	
-	/**
-	 * use for testing ONLY.
-	 * 
-	 * @param permission
-	 * @param olatResourceable
-	 * @return a list of SecurityGroup objects
-	 */
-	public List<SecurityGroup> getGroupsWithPermissionOnOlatResourceable(String permission, OLATResourceable olatResourceable);
-
-	/**
-	 * use for testing ONLY.
-	 * 
-	 * @param permission
-	 * @param olatResourceable
-	 * @return a list of Identity objects
-	 */
-	public List<Identity> getIdentitiesWithPermissionOnOlatResourceable(String permission, OLATResourceable olatResourceable);
 
 	/**
 	 * for debugging and info by the olat admins:
@@ -443,7 +474,7 @@ public interface BaseSecurity {
 	 * @return scalar query return list of object[] with SecurityGroupImpl,
 	 *         PolicyImpl, OLATResourceImpl
 	 */
-	public List<Identity> getPoliciesOfIdentity(Identity identity);
+	public List<Policy> getPoliciesOfIdentity(Identity identity);
 
 	/**
 	 * @param authusername
@@ -478,6 +509,16 @@ public interface BaseSecurity {
 	 */
 	public List<Identity> getVisibleIdentitiesByPowerSearch(String login, Map<String, String> userProperties, boolean userPropertiesAsIntersectionSearch, SecurityGroup[] groups, PermissionOnResourceable[] permissionOnResources, String[] authProviders, Date createdAfter,
 			Date createdBefore);
+	
+	/**
+	 * Like the following method but compact
+	 * @param params
+	 * @return
+	 */
+	public List<Identity> getIdentitiesByPowerSearch(SearchIdentityParams params, int firstResult, int maxResults);
+	
+	public List<Identity> getVisibleIdentitiesByPowerSearch(String login, Map<String, String> userProperties, boolean userPropertiesAsIntersectionSearch, SecurityGroup[] groups, PermissionOnResourceable[] permissionOnResources, String[] authProviders, Date createdAfter,
+			Date createdBefore, int firstResult, int maxResults);
 	
 	/**
 	 * Get a list of identities that match the following conditions. All
@@ -532,7 +573,14 @@ public interface BaseSecurity {
 	/** Save an identity
 	 * @param identity  Save this identity
 	 */
-	public void saveIdentityStatus(Identity identity, Integer status);
+	public Identity saveIdentityStatus(Identity identity, Integer status);
+	
+	/**
+	 * Set the date of the last login
+	 * @param identity
+	 * @return
+	 */
+	public Identity setIdentityLastLogin(Identity identity);
 	
 	/**
 	 * Check if identity is visible. Deleted or login-denied users are not visible.

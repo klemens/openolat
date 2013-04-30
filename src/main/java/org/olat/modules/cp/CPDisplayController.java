@@ -25,6 +25,7 @@
 
 package org.olat.modules.cp;
 
+import java.io.IOException;
 import java.util.List;
 
 import org.olat.core.CoreSpringFactory;
@@ -119,6 +120,7 @@ public class CPDisplayController extends BasicController implements Activateable
 		  SearchServiceUIFactory searchServiceUIFactory = (SearchServiceUIFactory)CoreSpringFactory.getBean(SearchServiceUIFactory.class);
 		  searchCtrl = searchServiceUIFactory.createInputController(ureq, wControl, DisplayOption.BUTTON, null);
 		  myContent.put("search_input", searchCtrl.getInitialComponent());
+		  listenTo(searchCtrl);
 		}
 		
 		//TODO:gs:a
@@ -138,10 +140,17 @@ public class CPDisplayController extends BasicController implements Activateable
 		// even if we do not show the menu, we need to build parse the manifest and
 		// find the first node to display at startup
 		VFSItem mani = rootContainer.resolve("imsmanifest.xml");
-		if (mani == null || !(mani instanceof VFSLeaf)) { throw new OLATRuntimeException("error.manifest.missing", null, this.getClass()
-				.getPackage().getName(), "CP " + rootContainer + " has no imsmanifest", null); }
+		if (mani == null || !(mani instanceof VFSLeaf)) {
+			showError("error.manifest.missing");
+			return;
+		}
 		// initialize tree model in any case
-		ctm = new CPManifestTreeModel((VFSLeaf) mani);
+		try {
+			ctm = new CPManifestTreeModel((VFSLeaf) mani);
+		} catch (IOException e) {
+			showError("error.manifest.corrupted");
+			return;
+		}
 
 		if (showMenu) {
 			// the menu is only initialized when needed.
@@ -159,7 +168,7 @@ public class CPDisplayController extends BasicController implements Activateable
 			
 			String themeBaseUri = wControl.getWindowBackOffice().getWindow().getGuiTheme().getBaseURI();
 			printMapper = new CPPrintMapper(ctm, rootContainer, themeBaseUri);
-			mapperBaseURL = registerMapper(printMapper);
+			mapperBaseURL = registerMapper(ureq, printMapper);
 			printMapper.setBaseUri(mapperBaseURL);
 		}
 		

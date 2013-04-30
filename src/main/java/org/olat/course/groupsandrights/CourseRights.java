@@ -29,11 +29,9 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 
-import org.olat.core.gui.translator.PackageTranslator;
 import org.olat.core.gui.translator.Translator;
 import org.olat.core.util.Util;
 import org.olat.group.right.BGRightManager;
-import org.olat.group.right.BGRights;
 
 /**
  * Description:<BR/>
@@ -43,7 +41,7 @@ import org.olat.group.right.BGRights;
  *
  * @author gnaegi 
  */
-public class CourseRights implements BGRights {
+public class CourseRights {
     
     // since right are stored as permissions, lenght is limited to 12 chars!!
     
@@ -59,19 +57,24 @@ public class CourseRights implements BGRights {
     public static final String RIGHT_GLOSSARY = BGRightManager.BG_RIGHT_PREFIX + "glossary";
     /** course right for statistics tool */
     public static final String RIGHT_STATISTICS = BGRightManager.BG_RIGHT_PREFIX + "statistics";
+    //fxdiff: right for course db
+    /** course right for custom dbs */
+    public static final String RIGHT_DB = BGRightManager.BG_RIGHT_PREFIX + "dbs";
     
-    private static List rights;
+    private static List<String> rights;
     private Translator trans;
 
     static {
         // initialize list of valid course rights
-        rights = new ArrayList();
+        rights = new ArrayList<String>();
         rights.add(RIGHT_GROUPMANAGEMENT);
         rights.add(RIGHT_COURSEEDITOR);
         rights.add(RIGHT_ARCHIVING);
         rights.add(RIGHT_ASSESSMENT);
         rights.add(RIGHT_GLOSSARY);
         rights.add(RIGHT_STATISTICS);
+        //fxdiff: right for course db
+        rights.add(RIGHT_DB);
     }
     
    
@@ -80,7 +83,7 @@ public class CourseRights implements BGRights {
      * @param locale
      */
     public CourseRights(Locale locale) {
-        this.trans = new PackageTranslator(Util.getPackageName(CourseRights.class),locale);
+        this.trans = Util.createPackageTranslator(CourseRights.class,locale);
     }
     
     /**
@@ -115,11 +118,16 @@ public class CourseRights implements BGRights {
                 trans.translate(RIGHT_STATISTICS)
         };
     }
+    
+    public static List<String> getAvailableRights() {
+    	List<String> available = new ArrayList<String>(rights);
+    	return available;
+    }
 
     /**
      * @see org.olat.group.right.BGRights#getRights()
      */
-    public List getRights() {
+    public List<String> getRights() {
         return rights;
    }
 

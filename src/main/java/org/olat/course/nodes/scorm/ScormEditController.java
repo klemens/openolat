@@ -31,7 +31,6 @@ import java.util.Arrays;
 import java.util.Locale;
 import java.util.Map;
 
-import org.olat.core.commons.fullWebApp.LayoutMain3ColsPreviewController;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.Component;
 import org.olat.core.gui.components.form.flexible.FormItemContainer;
@@ -55,6 +54,7 @@ import org.olat.core.gui.control.generic.closablewrapper.CloseableModalControlle
 import org.olat.core.gui.control.generic.tabbable.ActivateableTabbableDefaultController;
 import org.olat.core.logging.AssertException;
 import org.olat.core.logging.activity.ThreadLocalUserActivityLogger;
+import org.olat.core.util.StringHelper;
 import org.olat.course.ICourse;
 import org.olat.course.assessment.AssessmentHelper;
 import org.olat.course.condition.Condition;
@@ -90,7 +90,11 @@ public class ScormEditController extends ActivateableTabbableDefaultController i
 	public static final String CONFIG_SKIPLAUNCHPAGE = "skiplaunchpage";
 	public static final String CONFIG_SHOWNAVBUTTONS = "shownavbuttons";
 	public static final String CONFIG_ISASSESSABLE = "isassessable";
+	public static final String CONFIG_ASSESSABLE_TYPE = "assessabletype";
+	public static final String CONFIG_ASSESSABLE_TYPE_SCORE = "score";
+	public static final String CONFIG_ASSESSABLE_TYPE_PASSED = "passed";
 	public static final String CONFIG_CUTVALUE = "cutvalue";
+	public static final String CONFIG_RAW_CONTENT = "rawcontent";
 	public static final String CONFIG_HEIGHT = "height";	
 	public final static String CONFIG_HEIGHT_AUTO = "auto";
 	//fxdiff FXOLAT-116: SCORM improvements
@@ -122,8 +126,6 @@ public class ScormEditController extends ActivateableTabbableDefaultController i
 	
 	private ConditionEditController accessibilityCondContr;
 	private ScormCourseNode scormNode;
-
-	private LayoutMain3ColsPreviewController previewLayoutCtr;
 
 	private TabbedPane myTabbedPane;
 
@@ -183,11 +185,16 @@ public class ScormEditController extends ActivateableTabbableDefaultController i
 		
 		// <OLATCE-289>
 		boolean assessable = config.getBooleanSafe(CONFIG_ISASSESSABLE, true);
+		String assessableType = null;
+		if(assessable) {
+			assessableType = config.getStringValue(CONFIG_ASSESSABLE_TYPE, CONFIG_ASSESSABLE_TYPE_SCORE);
+		}
 		boolean attemptsDependOnScore = config.getBooleanSafe(CONFIG_ATTEMPTSDEPENDONSCORE, true);
 		int maxAttempts = config.getIntegerSafe(CONFIG_MAXATTEMPTS, 0);
 		boolean advanceScore = config.getBooleanSafe(CONFIG_ADVANCESCORE, true);
 		// </OLATCE-289>
 		int cutvalue = config.getIntegerSafe(CONFIG_CUTVALUE, 0);
+		boolean rawContent = config.getBooleanSafe(CONFIG_RAW_CONTENT, true);
 		String height = (String) config.get(CONFIG_HEIGHT);
 		String encContent = (String) config.get(NodeEditController.CONFIG_CONTENT_ENCODING);
 		String encJS = (String) config.get(NodeEditController.CONFIG_JS_ENCODING);
@@ -196,7 +203,9 @@ public class ScormEditController extends ActivateableTabbableDefaultController i
 		boolean closeOnFinish = config.getBooleanSafe(CONFIG_CLOSE_ON_FINISH, false);
 		
 		//= conf.get(CONFIG_CUTVALUE);
-		scorevarform = new VarForm(ureq, wControl, showMenu, skipLaunchPage, showNavButtons, height, encContent, encJS, assessable, cutvalue, fullWindow, closeOnFinish, maxAttempts, advanceScore, attemptsDependOnScore);
+		scorevarform = new VarForm(ureq, wControl, showMenu, skipLaunchPage, showNavButtons,
+				rawContent, height, encContent, encJS, assessableType, cutvalue, fullWindow,
+				closeOnFinish, maxAttempts, advanceScore, attemptsDependOnScore);
 		listenTo(scorevarform);
 		cpConfigurationVc.put("scorevarform", scorevarform.getInitialComponent());
 
@@ -237,10 +246,9 @@ public class ScormEditController extends ActivateableTabbableDefaultController i
 				boolean showMenu = config.getBooleanSafe(CONFIG_SHOWMENU, true);
 				boolean fullWindow = config.getBooleanSafe(CONFIG_FULLWINDOW, true);
 				
-				if (previewLayoutCtr != null) previewLayoutCtr.dispose();
 				ThreadLocalUserActivityLogger.addLoggingResourceInfo(LoggingResourceable.wrapScormRepositoryEntry(re));
 				ScormAPIandDisplayController previewController = ScormMainManager.getInstance().createScormAPIandDisplayController(ureq, getWindowControl(), showMenu, null, cpRoot, null, course.getResourceableId().toString(),
-						ScormConstants.SCORM_MODE_BROWSE, ScormConstants.SCORM_MODE_NOCREDIT, true, true, fullWindow);				
+						ScormConstants.SCORM_MODE_BROWSE, ScormConstants.SCORM_MODE_NOCREDIT, true, null, true, fullWindow, false);				
 				// configure some display options
 				boolean showNavButtons = config.getBooleanSafe(ScormEditController.CONFIG_SHOWNAVBUTTONS, true);
 				previewController.showNavButtons(showNavButtons);
@@ -298,6 +306,7 @@ public class ScormEditController extends ActivateableTabbableDefaultController i
 				config.setBooleanEntry(CONFIG_SKIPLAUNCHPAGE, scorevarform.isSkipLaunchPage());
 				config.setBooleanEntry(CONFIG_SHOWNAVBUTTONS, scorevarform.isShowNavButtons());
 				config.setBooleanEntry(CONFIG_ISASSESSABLE, scorevarform.isAssessable());
+				config.setStringValue(CONFIG_ASSESSABLE_TYPE, scorevarform.getAssessableType());
 				config.setIntValue(CONFIG_CUTVALUE, scorevarform.getCutValue());
 				//fxdiff FXOLAT-116: SCORM improvements
 				config.setBooleanEntry(CONFIG_FULLWINDOW, scorevarform.isFullWindow());
@@ -307,6 +316,7 @@ public class ScormEditController extends ActivateableTabbableDefaultController i
 				config.setBooleanEntry(CONFIG_ADVANCESCORE, scorevarform.isAdvanceScore());
 				config.setBooleanEntry(CONFIG_ATTEMPTSDEPENDONSCORE, scorevarform.getAttemptsDependOnScore());
 				// </OLATCE-289>
+				config.setBooleanEntry(CONFIG_RAW_CONTENT, scorevarform.isRawContent());
 				config.set(CONFIG_HEIGHT, scorevarform.getHeightValue());
 				config.set(NodeEditController.CONFIG_CONTENT_ENCODING, scorevarform.getEncodingContentValue());
 				config.set(NodeEditController.CONFIG_JS_ENCODING, scorevarform.getEncodingJSValue());
@@ -377,10 +387,6 @@ public class ScormEditController extends ActivateableTabbableDefaultController i
 	 */
 	protected void doDispose() {
     //child controllers registered with listenTo() get disposed in BasicController
-		if (previewLayoutCtr != null) {
-			previewLayoutCtr.dispose();
-			previewLayoutCtr = null;
-		}
 	}
 
 	public String[] getPaneKeys() {
@@ -399,13 +405,15 @@ class VarForm extends FormBasicController {
 	private SelectionElement closeOnFinishEl;//fxdiff FXOLAT-116: SCORM improvements
 	private SelectionElement isAssessableEl;
 	private SelectionElement skipLaunchPageEl; //fxdiff FXOLAT-322 : skip start-page / auto-launch
+	private SelectionElement rawContentEl;
 	private IntegerElement cutValueEl;
 	private SingleSelection heightEl;
 	private SingleSelection encodingContentEl;
 	private SingleSelection encodingJSEl;
 	
 	
-	private boolean showMenu, showNavButtons, isAssessable,skipLaunchPage;
+	private boolean showMenu, showNavButtons, isAssessable, skipLaunchPage, rawContent;
+	private String assessableType;
 	private String height;
 	private String encodingContent;
 	private String encodingJS;
@@ -415,6 +423,8 @@ class VarForm extends FormBasicController {
 	private String[] keys, values;
 	private String[] encodingContentKeys, encodingContentValues;
 	private String[] encodingJSKeys, encodingJSValues;
+	
+	private String[] assessableKeys, assessableValues;
 
 	// <OLATCE-289>
 	private SingleSelection attemptsEl;
@@ -430,8 +440,9 @@ class VarForm extends FormBasicController {
 	 * 
 	 * @param name  Name of the form
 	 */
-	public VarForm(UserRequest ureq, WindowControl wControl, boolean showMenu, boolean skipLaunchPage, boolean showNavButtons, String height,
-			String encodingContent, String encodingJS, boolean isAssessable, int cutValue, boolean fullWindow, boolean closeOnFinish,
+	public VarForm(UserRequest ureq, WindowControl wControl, boolean showMenu, boolean skipLaunchPage, boolean showNavButtons, 
+			boolean rawContent, String height, String encodingContent, String encodingJS, 
+			String assessableType, int cutValue, boolean fullWindow, boolean closeOnFinish,
 			// <OLATCE-289>
 			int maxattempts, boolean advanceScore, boolean attemptsDependOnScore
 			// </OLATCE-289>
@@ -440,11 +451,12 @@ class VarForm extends FormBasicController {
 		this.showMenu = showMenu;
 		this.skipLaunchPage = skipLaunchPage;
 		this.showNavButtons = showNavButtons;
-		this.isAssessable = isAssessable;
+		this.assessableType = assessableType;
 		this.cutValue = cutValue;
 		//fxdiff FXOLAT-116: SCORM improvements
 		this.fullWindow = fullWindow;
 		this.closeOnFinish = closeOnFinish;
+		this.rawContent = rawContent;
 		this.height = height;
 		this.encodingContent = encodingContent;
 		this.encodingJS = encodingJS;
@@ -504,6 +516,11 @@ class VarForm extends FormBasicController {
 			count++;
 		}
 		
+		assessableKeys = new String[]{ "off", ScormEditController.CONFIG_ASSESSABLE_TYPE_SCORE,
+				ScormEditController.CONFIG_ASSESSABLE_TYPE_PASSED };
+		assessableValues = new String[]{
+				translate("assessable.type.none"), translate("assessable.type.score"), translate("assessable.type.passed")
+		};
 		initForm (ureq);
 	}
 	
@@ -536,7 +553,22 @@ class VarForm extends FormBasicController {
 	}
 
 	public boolean isAssessable() {
-		return isAssessableEl.isSelected(0);
+		return !isAssessableEl.isSelected(0);
+	}
+	
+	public String getAssessableType() {
+		if(isAssessableEl.isSelected(0)) {
+			return null;
+		} else if(isAssessableEl.isSelected(1)) {
+			return ScormEditController.CONFIG_ASSESSABLE_TYPE_SCORE;
+		} else if(isAssessableEl.isSelected(2)) {
+			return ScormEditController.CONFIG_ASSESSABLE_TYPE_PASSED;
+		}
+		return null;
+	}
+	
+	public boolean isRawContent() {
+		return rawContentEl.isSelected(0);
 	}
 	
 	public String getHeightValue() {
@@ -554,6 +586,21 @@ class VarForm extends FormBasicController {
 	@Override
 	protected void formOK(UserRequest ureq) {
 		fireEvent (ureq, Event.DONE_EVENT);
+	}
+
+	@Override
+	protected boolean validateFormLogic(UserRequest ureq) {
+		boolean allOk = true;
+
+		heightEl.clearError();
+		if(isRawContent()) {
+			String height = getHeightValue();
+			if(!StringHelper.containsNonWhitespace(height) || ScormEditController.CONFIG_HEIGHT_AUTO.equals(height)) {
+				allOk &= false;
+				heightEl.setErrorKey("rawcontent.height.error", null);
+			}	
+		}
+		return allOk && super.validateFormLogic(ureq);
 	}
 
 	@Override
@@ -575,6 +622,9 @@ class VarForm extends FormBasicController {
 		
 		closeOnFinishEl = uifactory.addCheckboxesVertical("closeonfinish", "closeonfinish.label", formLayout, new String[]{"closeonfinish"}, new String[]{null}, null, 1);
 		closeOnFinishEl.select("closeonfinish", closeOnFinish);
+
+		rawContentEl = uifactory.addCheckboxesVertical("rawcontent", "rawcontent.label", formLayout, new String[]{"rawcontent"}, new String[]{null}, null, 1);
+		rawContentEl.select("rawcontent", rawContent);
 		
 		heightEl = uifactory.addDropdownSingleselect("height", "height.label", formLayout, keys, values, null);
 		if (Arrays.asList(keys).contains(height)) {
@@ -597,8 +647,15 @@ class VarForm extends FormBasicController {
 			encodingJSEl.select(NodeEditController.CONFIG_JS_ENCODING_AUTO, true);
 		}
 		
-		isAssessableEl = uifactory.addCheckboxesVertical("isassessable", "assessable.label", formLayout, new String[]{"ison"}, new String[]{null}, null, 1);
-		isAssessableEl.select("ison", isAssessable);
+
+		isAssessableEl = uifactory.addRadiosVertical("isassessable", "assessable.label", formLayout, assessableKeys, assessableValues);
+		if(ScormEditController.CONFIG_ASSESSABLE_TYPE_SCORE.equals(assessableType)) {
+			isAssessableEl.select(assessableKeys[1], true);
+		} else if(ScormEditController.CONFIG_ASSESSABLE_TYPE_PASSED.equals(assessableType)) {
+			isAssessableEl.select(assessableKeys[2], true);
+		} else {
+			isAssessableEl.select(assessableKeys[0], true);
+		}
 		
 		cutValueEl = uifactory.addIntegerElement("cutvalue", "cutvalue.label", 0, formLayout);
 		cutValueEl.setIntValue(cutValue);
@@ -609,15 +666,22 @@ class VarForm extends FormBasicController {
 		advanceScoreEl = uifactory.addCheckboxesVertical("advanceScore", "advance.score.label", formLayout, new String[]{"ison"}, new String[]{null}, null, 1);
 		advanceScoreEl.select("ison", advanceScore);
 		advanceScoreEl.addActionListener(this, FormEvent.ONCHANGE);
-		
-		RulesFactory.createShowRule(isAssessableEl, "ison", advanceScoreEl, formLayout);
-		RulesFactory.createHideRule(isAssessableEl, null, advanceScoreEl, formLayout);
-		
+
+		//assessable type score/passed -> show "Prevent subsequent attempts from decreasing score"
+		RulesFactory.createHideRule(isAssessableEl, assessableKeys[0], advanceScoreEl, formLayout);
+		RulesFactory.createShowRule(isAssessableEl, assessableKeys[1], advanceScoreEl, formLayout);
+		RulesFactory.createShowRule(isAssessableEl, assessableKeys[2], advanceScoreEl, formLayout);
+
+		//assessable type score or none -> show "Score needed to pass"
+		RulesFactory.createShowRule(isAssessableEl, assessableKeys[0], cutValueEl, formLayout);
+		RulesFactory.createShowRule(isAssessableEl, assessableKeys[1], cutValueEl, formLayout);
+		RulesFactory.createHideRule(isAssessableEl, assessableKeys[2], cutValueEl, formLayout);
+
 		scoreAttemptsEl = uifactory.addCheckboxesVertical("scoreAttempts", "attempts.depends.label", formLayout, new String[]{"ison"}, new String[]{null}, null, 1);
 		scoreAttemptsEl.select("ison", scoreAttempts);
 		scoreAttemptsEl.addActionListener(this, FormEvent.ONCHANGE);
 		
-		RulesFactory.createShowRule(advanceScoreEl, "ison",scoreAttemptsEl, formLayout);
+		RulesFactory.createShowRule(advanceScoreEl, "ison", scoreAttemptsEl, formLayout);
 		RulesFactory.createHideRule(advanceScoreEl, null, scoreAttemptsEl, formLayout);
 		
 		// <BPS-252> BPS-252_1

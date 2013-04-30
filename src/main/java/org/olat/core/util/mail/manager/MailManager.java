@@ -24,6 +24,7 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.UnsupportedEncodingException;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -48,9 +49,11 @@ import javax.mail.internet.MimeBodyPart;
 import javax.mail.internet.MimeMessage;
 import javax.mail.internet.MimeMultipart;
 import javax.mail.util.ByteArrayDataSource;
+import javax.persistence.TemporalType;
+import javax.persistence.TypedQuery;
 
+import org.apache.commons.io.IOUtils;
 import org.olat.core.commons.persistence.DB;
-import org.olat.core.commons.persistence.DBQuery;
 import org.olat.core.commons.persistence.PersistentObject;
 import org.olat.core.helpers.Settings;
 import org.olat.core.id.Identity;
@@ -164,13 +167,12 @@ public class MailManager extends BasicManager {
 			.append(" left join fetch mail.recipients recipients")
 			.append(" where mail.key=:mailKey");
 
-		DBQuery query = dbInstance.createQuery(sb.toString());
-		query.setLong("mailKey", key);
-		
-		List<DBMailImpl> mails = query.list();
+		List<DBMail> mails = dbInstance.getCurrentEntityManager()
+				.createQuery(sb.toString(), DBMail.class)
+				.setParameter("mailKey", key)
+				.getResultList();
 		if(mails.isEmpty()) return null;
-		DBMailImpl mail = mails.get(0);
-		return mail;
+		return mails.get(0);
 	}
 	
 	public List<DBMailAttachment> getAttachments(DBMail mail) {
@@ -179,11 +181,10 @@ public class MailManager extends BasicManager {
 			.append(" inner join attachment.mail mail")
 			.append(" where mail.key=:mailKey");
 
-		DBQuery query = dbInstance.createQuery(sb.toString());
-		query.setLong("mailKey", mail.getKey());
-		
-		List<DBMailAttachment> attachments = query.list();
-		return attachments;
+		return dbInstance.getCurrentEntityManager()
+				.createQuery(sb.toString(), DBMailAttachment.class)
+				.setParameter("mailKey", mail.getKey())
+				.getResultList();
 	}
 	
 	public DBMailAttachmentData getAttachmentWithData(Long key) {
@@ -191,10 +192,10 @@ public class MailManager extends BasicManager {
 		sb.append("select attachment from ").append(DBMailAttachmentData.class.getName()).append(" attachment")
 			.append(" where attachment.key=:attachmentKey");
 
-		DBQuery query = dbInstance.createQuery(sb.toString());
-		query.setLong("attachmentKey", key);
-		
-		List<DBMailAttachmentData> mails = query.list();
+		List<DBMailAttachmentData> mails = dbInstance.getCurrentEntityManager()
+				.createQuery(sb.toString(), DBMailAttachmentData.class)
+				.setParameter("attachmentKey", key)
+				.getResultList();
 		if(mails.isEmpty()) return null;
 		return mails.get(0);
 	}
@@ -206,12 +207,10 @@ public class MailManager extends BasicManager {
 			.append(" inner join recipient.recipient recipientIdentity")
 			.append(" where recipientIdentity.key=:recipientKey and recipient.read=false and recipient.deleted=false");
 
-		DBQuery query = dbInstance.createQuery(sb.toString());
-		query.setLong("recipientKey", identity.getKey());
-
-		List<Number> mails = query.list();
-		if(mails.isEmpty()) return false;
-		return mails.get(0).intValue() > 0;
+		Number count = dbInstance.getCurrentEntityManager().createQuery(sb.toString(), Number.class)
+				.setParameter("recipientKey", identity.getKey())
+				.getSingleResult();
+		return count.intValue() > 0;
 	}
 	
 	/**
@@ -374,16 +373,15 @@ public class MailManager extends BasicManager {
 			.append(" where fromRecipientIdentity.key=:fromKey and fromRecipient.deleted=false and recipientIdentity.key!=:fromKey")
 			.append(" order by mail.creationDate desc");
 
-		DBQuery query = dbInstance.createQuery(sb.toString());
+		TypedQuery<DBMail> query = dbInstance.getCurrentEntityManager().createQuery(sb.toString(), DBMail.class)
+				.setParameter("fromKey", from.getKey());
 		if(maxResults > 0) {
 			query.setMaxResults(maxResults);
 		}
-		if(firstResult >= 0) {
+		if(firstResult > 0) {
 			query.setFirstResult(firstResult);
 		}
-		query.setLong("fromKey", from.getKey());
-
-		List<DBMail> mails = query.list();
+		List<DBMail> mails = query.getResultList();
 		return mails;
 	}
 	
@@ -396,10 +394,9 @@ public class MailManager extends BasicManager {
 			.append(" inner join fromRecipient.recipient fromRecipientIdentity")
 			.append(" where mail.metaId=:metaId");
 
-		DBQuery query = dbInstance.createQuery(sb.toString());
-		query.setString("metaId", metaId);
-		List<DBMail> mails = query.list();
-		return mails;
+		return dbInstance.getCurrentEntityManager().createQuery(sb.toString(), DBMail.class)
+				.setParameter("metaId", metaId)
+				.getResultList();
 	}
 	
 	/**
@@ -426,22 +423,21 @@ public class MailManager extends BasicManager {
 		if(from != null) {
 			sb.append(" and mail.creationDate>=:from");
 		}
-		
 		sb.append(" order by mail.creationDate desc");
 
-		DBQuery query = dbInstance.createQuery(sb.toString());
+		TypedQuery<DBMail> query = dbInstance.getCurrentEntityManager().createQuery(sb.toString(), DBMail.class)
+				.setParameter("recipientKey", identity.getKey());
 		if(maxResults > 0) {
 			query.setMaxResults(maxResults);
 		}
-		if(firstResult >= 0) {
+		if(firstResult > 0) {
 			query.setFirstResult(firstResult);
 		}
-		query.setLong("recipientKey", identity.getKey());
 		if(from != null) {
-			query.setDate("from", from);
+			query.setParameter("from", from, TemporalType.TIMESTAMP);
 		}
 
-		List<DBMail> mails = query.list();
+		List<DBMail> mails = query.getResultList();
 		return mails;
 	}
 	
@@ -525,7 +521,7 @@ public class MailManager extends BasicManager {
 				result = new MailerResult();
 			}
 			
-			boolean makeRealMail = makeRealMail(toId, ccLists, bccLists);
+			boolean makeRealMail = makeRealMail(toId, cc, ccLists, bccLists);
 			Address fromAddress = null;
 			List<Address> toAddress = new ArrayList<Address>();
 			List<Address> ccAddress = new ArrayList<Address>();
@@ -666,9 +662,10 @@ public class MailManager extends BasicManager {
 					data.setMimetype(WebappHelper.getMimeType(attachment.getName()));
 					data.setMail(mail);
 					
+					InputStream fis = null;
 					try {
 						byte[] datas = new byte[(int)attachment.length()];
-						FileInputStream fis = new FileInputStream(attachment);
+						fis = new FileInputStream(attachment);
 						fis.read(datas);
 						data.setDatas(datas);
 						dbInstance.saveObject(data);
@@ -676,6 +673,8 @@ public class MailManager extends BasicManager {
 						logError("File attachment not found: " + attachment, e);
 					} catch (IOException e) {
 						logError("Error with file attachment: " + attachment, e);
+					} finally {
+						IOUtils.closeQuietly(fis);
 					}
 				}
 			}
@@ -692,11 +691,7 @@ public class MailManager extends BasicManager {
 			}
 
 			SubscriptionContext subContext = getSubscriptionContext();
-			Publisher publisher = NotificationsManager.getInstance().getPublisher(subContext);
-			if(publisher != null && publisher.getKey() != null) {
-				publisher.setLatestNewsDate(new Date());
-				notificationsManager.updatePublisher(publisher);
-			}
+			notificationsManager.markPublisherNews(subContext, null, false);
 			return mail;
 		} catch (AddressException e) {
 			logError("Cannot send e-mail: ", e);
@@ -757,14 +752,18 @@ public class MailManager extends BasicManager {
 		}
 	}
 	
-	private boolean makeRealMail(Identity toId, List<ContactList> ccLists, List<ContactList> bccLists) {
+	private boolean makeRealMail(Identity toId, Identity cc, List<ContactList> ccLists, List<ContactList> bccLists) {
 		//need real mail to???
 		boolean makeRealMail = false;
 		// can occur on self-registration
-		if (toId == null && ccLists == null && bccLists == null) return true;
+		if (toId == null && cc == null && ccLists == null && bccLists == null) return true;
 		
 		if(toId != null) {
 			makeRealMail |= wantRealMailToo(toId);
+		}
+		
+		if(cc != null) {
+			makeRealMail |= wantRealMailToo(cc);
 		}
 		
 		//add bcc recipients
@@ -1121,7 +1120,10 @@ public class MailManager extends BasicManager {
 	}
 	
 	// converts an address "bla bli <bla@bli.ch>" => "bla@bli.ch"
-	private InternetAddress getRawEmailFromAddress(Address address) throws AddressException{
+	private InternetAddress getRawEmailFromAddress(Address address) throws AddressException {
+		if(address == null) {
+			throw new AddressException("Address cannot be null");
+		}
 		InternetAddress fromAddress = new InternetAddress(address.toString());
 		String fromPlainAddress = fromAddress.getAddress();
 		return new InternetAddress(fromPlainAddress);
@@ -1185,6 +1187,10 @@ public class MailManager extends BasicManager {
 			msg.setSentDate(new Date());
 			msg.saveChanges();
 			return msg;
+		} catch (AddressException e) {
+			result.setReturnCode(MailerResult.SENDER_ADDRESS_ERROR);
+			logError("", e);
+			return null;
 		} catch (MessagingException e) {
 			result.setReturnCode(MailerResult.SEND_GENERAL_ERROR);
 			logError("", e);
@@ -1202,6 +1208,14 @@ public class MailManager extends BasicManager {
 				//we want not send really e-mails
 			} else if (mailModule.isMailHostEnabled() && result.getReturnCode() == MailerResult.OK) {
 				// now send the mail
+				if(Settings.isDebuging()) {
+					try {
+						logInfo("E-mail send: " + msg.getSubject());
+						logInfo("Content    : " + msg.getContent());
+					} catch (IOException e) {
+						logError("", e);
+					}
+				}
 				Transport.send(msg);
 			} else {
 				result.setReturnCode(MailerResult.MAILHOST_UNDEFINED);

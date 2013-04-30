@@ -19,12 +19,15 @@
  */
 package org.olat.core.util.mail;
 
+import java.util.Collection;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 
 import org.olat.NewControllerFactory;
 import org.olat.admin.user.delete.service.UserDeletionManager;
+import org.olat.core.CoreSpringFactory;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.WindowControl;
@@ -41,7 +44,7 @@ import org.olat.core.util.mail.manager.MailManager;
 import org.olat.core.util.mail.model.DBMail;
 import org.olat.core.util.mail.ui.MailContextResolver;
 import org.olat.group.BusinessGroup;
-import org.olat.group.BusinessGroupManagerImpl;
+import org.olat.group.BusinessGroupService;
 import org.olat.home.HomeSite;
 import org.olat.repository.RepositoryEntry;
 import org.olat.repository.RepositoryManager;
@@ -102,15 +105,15 @@ public class MailBoxExtension extends BasicManager implements MailContextResolve
 	
 	@Override
 	public void deleteUserData(Identity identity, String newDeletedUserName) {
-		//set as deleted all recpient
+		//set as deleted all recipients
 		logInfo("Delete intern messages");
 		
-		List<DBMail> inbox = mailManager.getInbox(identity, null, false, null, 0, 0);
+		Collection<DBMail> inbox = new HashSet<DBMail>(mailManager.getInbox(identity, null, Boolean.FALSE, null, 0, 0));
 		for(DBMail inMail:inbox) {
 			mailManager.delete(inMail, identity, true);
 		}
-		
-		List<DBMail> outbox = mailManager.getOutbox(identity, 0, 0);
+
+		Collection<DBMail> outbox = new HashSet<DBMail>(mailManager.getOutbox(identity, 0, 0));
 		for(DBMail outMail:outbox) {
 			mailManager.delete(outMail, identity, true);
 		}
@@ -130,7 +133,7 @@ public class MailBoxExtension extends BasicManager implements MailContextResolve
 				String resourceTypeName = entry.getOLATResourceable().getResourceableTypeName();
 				Long resourceId = entry.getOLATResourceable().getResourceableId();
 				if("BusinessGroup".equals(resourceTypeName)) {
-					BusinessGroup group = BusinessGroupManagerImpl.getInstance().loadBusinessGroup(resourceId, false);
+					BusinessGroup group = CoreSpringFactory.getImpl(BusinessGroupService.class).loadBusinessGroup(resourceId);
 					if(group == null) {
 						return null;
 					}

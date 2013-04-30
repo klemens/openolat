@@ -32,18 +32,22 @@ import org.olat.core.extensions.action.ActionExtension;
 import org.olat.core.extensions.action.GenericActionExtension;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.Component;
+import org.olat.core.gui.components.link.Link;
+import org.olat.core.gui.components.link.LinkFactory;
 import org.olat.core.gui.components.panel.Panel;
+import org.olat.core.gui.components.stack.StackedController;
+import org.olat.core.gui.components.stack.StackedControllerAware;
 import org.olat.core.gui.components.tree.GenericTreeModel;
 import org.olat.core.gui.components.tree.GenericTreeNode;
 import org.olat.core.gui.components.tree.MenuTree;
 import org.olat.core.gui.components.tree.TreeEvent;
 import org.olat.core.gui.components.tree.TreeModel;
 import org.olat.core.gui.components.tree.TreeNode;
+import org.olat.core.gui.components.velocity.VelocityContainer;
 import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.Event;
 import org.olat.core.gui.control.WindowControl;
 import org.olat.core.gui.control.controller.MainLayoutBasicController;
-import org.olat.core.gui.control.generic.dtabs.Activateable;
 import org.olat.core.gui.control.generic.dtabs.Activateable2;
 import org.olat.core.id.OLATResourceable;
 import org.olat.core.id.context.ContextEntry;
@@ -52,6 +56,7 @@ import org.olat.core.logging.AssertException;
 import org.olat.core.logging.activity.ThreadLocalUserActivityLogger;
 import org.olat.core.util.CodeHelper;
 import org.olat.core.util.StringHelper;
+import org.olat.core.util.Util;
 import org.olat.core.util.resource.OresHelper;
 import org.olat.util.logging.activity.LoggingResourceable;
 
@@ -68,18 +73,22 @@ import org.olat.util.logging.activity.LoggingResourceable;
  * @author patrickb, www.uzh.ch, slightly changed to allow specialised forms of
  *         GenericActionExtension
  */
-public abstract class GenericMainController extends MainLayoutBasicController {
+public abstract class GenericMainController extends MainLayoutBasicController implements StackedController {
 
 	private static final String GMCMT = "GMCMenuTree";
 
+
+	private Link backLink;
 	private MenuTree olatMenuTree;
 	private Panel content;
+	private VelocityContainer stackVC;
 	private LayoutMain3ColsController columnLayoutCtr;
 	private Controller contentCtr;
-	private Controller toolCtr;
-	private List<GenericTreeNode> nodesToAppend;
-	private List<GenericTreeNode> nodesToPrepend;
-	private String className;
+	private final List<GenericTreeNode> nodesToAppend;
+	private final List<GenericTreeNode> nodesToPrepend;
+	private final String className;
+	private final List<Link> stack = new ArrayList<Link>(3);
+	
 
 	public GenericMainController(UserRequest ureq, WindowControl wControl) {
 		super(ureq, wControl);
@@ -110,11 +119,29 @@ public abstract class GenericMainController extends MainLayoutBasicController {
 		listenTo(contentCtr); // auto dispose later
 		Component resComp = contentCtr.getInitialComponent();
 		content.setContent(resComp);
-		Component toolContent = toolCtr != null ? toolCtr.getInitialComponent() : null;
 
-		columnLayoutCtr = new LayoutMain3ColsController(ureq, getWindowControl(), olatMenuTree, toolContent, content, className);
+		columnLayoutCtr = new LayoutMain3ColsController(ureq, getWindowControl(), olatMenuTree, null, content, className);
 		listenTo(columnLayoutCtr); // auto dispose later
-		putInitialPanel(columnLayoutCtr.getInitialComponent());
+		
+		//create the stack
+		String stackPage = Util.getPackageVelocityRoot(StackedController.class) + "/stack.html";
+		stackVC = new VelocityContainer(null, "vc_stack", stackPage, getTranslator(), this);
+		stackVC.put("content", columnLayoutCtr.getInitialComponent());
+		//back link
+		backLink = LinkFactory.createCustomLink("back", "back", null, Link.NONTRANSLATED + Link.LINK_CUSTOM_CSS, stackVC, this);
+		backLink.setCustomEnabledLinkCSS("b_breadcumb_back");
+		backLink.setCustomDisplayText("\u25C4"); // unicode back arrow (black left pointer symbol)
+		backLink.setTitle(translate("back"));
+		backLink.setAccessKey("b"); // allow navigation using keyboard
+		stackVC.put("back", backLink);
+		//add the root
+		Link link = LinkFactory.createLink("gcrumb_root", stackVC, this);
+		link.setCustomDisplayText(firstNode.getTitle());
+		link.setUserObject(this);
+		stack.add(link);
+		stackVC.contextPut("breadCrumbs", stack);
+		
+		putInitialPanel(stackVC);
 	}
 
 	/**
@@ -131,24 +158,6 @@ public abstract class GenericMainController extends MainLayoutBasicController {
 	
 	protected void addCssClassToMain(String cssClass) {
 		columnLayoutCtr.addCssClassToMain(cssClass);
-	}
-	
-	/**
-	 * set the column2 or the rightmost column (in left-to-right) for the tool
-	 * controller. Previous toolcontroller is disposed.
-	 * 
-	 * @param toolController
-	 */
-	protected void setToolController(Controller toolController) {
-		if (toolCtr != null) {
-			// there is already a tool controller, dispose it
-			toolCtr.dispose();
-		}
-		toolCtr = toolController;
-		if (columnLayoutCtr != null) {
-			columnLayoutCtr.setCol2(toolCtr.getInitialComponent());
-		}// else method called from within constructor before columnLayoutCtr is
-			// initialized, see init(..) which sets the toolcontroller content
 	}
 
 	/**
@@ -221,6 +230,10 @@ public abstract class GenericMainController extends MainLayoutBasicController {
 				if(anExt.isEnabled()){
 					GenericActionExtension gAe = (GenericActionExtension) ae;
 					gtnChild = gAe.createMenuNode(ureq);
+					
+					if(StringHelper.containsNonWhitespace(gAe.getNavigationKey())) {
+						gtnChild.setCssClass("o_sel_" + gAe.getNavigationKey());
+					}
 
 					if (gAe.getNodeIdentifierIfParent() != null) {
 						// it's a parent-node, set identifier
@@ -263,9 +276,22 @@ public abstract class GenericMainController extends MainLayoutBasicController {
 			GenericTreeNode parentNode = (GenericTreeNode) gtm.getNodeById(childNodeEntry.getValue());
 			if (parentNode != null) {
 				parentNode.addChild(childNode);
-				if (parentNode.getDelegate() == null) {
-					parentNode.setDelegate(childNode);
-					parentNode.setUserObject(childNode.getUserObject());
+				if (parentNode.getDelegate() == null  ) {
+					boolean addDelegate = true;
+					
+					//add delegate only if hte parent hasn't not a controller defined
+					Object uo = parentNode.getUserObject();
+					if(uo instanceof GenericActionExtension) {
+						GenericActionExtension gae = (GenericActionExtension)uo;
+						if(StringHelper.containsNonWhitespace(gae.getClassNameOfCorrespondingController())) {
+							addDelegate = false;
+						}
+					}
+					
+					if(addDelegate) {
+						parentNode.setDelegate(childNode);
+						parentNode.setUserObject(childNode.getUserObject());
+					}
 				}
 			} else {
 				logWarn("Could not add navigation-menu (" + childNode.getTitle() + ") to parent:: " + childNodeEntry.getValue(), null);
@@ -283,8 +309,64 @@ public abstract class GenericMainController extends MainLayoutBasicController {
 	}
 
 	@Override
+	public void popUpToRootController(UserRequest ureq) {
+		if(stack.size() > 1) {
+			Controller popedCtrl = null;
+			for(int i=stack.size(); i-->1; ) {
+				Link link = stack.remove(i);
+				popedCtrl = (Controller)link.getUserObject();
+				popedCtrl.dispose();
+			}
+			
+			//set the root controller
+			Link rootLink = stack.get(0);
+			Controller rootController  = (Controller)rootLink.getUserObject();
+			if(rootController == this) {
+				content.setContent(contentCtr.getInitialComponent());
+			} else {
+				content.setContent(rootController.getInitialComponent());
+			}
+		}
+	}
+
+	@Override
+	public void pushController(String displayName, Controller controller) {
+		Link link = LinkFactory.createLink("gcrumb_" + stack.size(), stackVC, this);
+		link.setCustomDisplayText(displayName);
+		link.setUserObject(controller);
+		stack.add(link);
+		content.setContent(controller.getInitialComponent());
+	}
+
+	@Override
 	protected void event(UserRequest ureq, Component source, Event event) {
-		if (source == olatMenuTree) {
+		if (source.equals(backLink)) {
+			if (stack.size() > 1) {
+				// back means to one level down, change source to the stack item one below current
+				source = stack.get(stack.size()-2);
+				// now continue as if user manually pressed a stack item in the list
+			}
+		}
+		if(stack.contains(source)) {
+			int index = stack.indexOf(source);
+			if(index < (stack.size() - 1)) {
+				Controller popedCtrl = null;
+				for(int i=stack.size(); i-->(index+1); ) {
+					Link link = stack.remove(i);
+					popedCtrl = (Controller)link.getUserObject();
+					popedCtrl.dispose();
+				}
+
+				Link currentLink = stack.get(index);
+				Controller currentCtrl  = (Controller)currentLink.getUserObject();
+				if(currentCtrl == this) {
+					content.setContent(contentCtr.getInitialComponent());
+				} else {
+					content.setContent(currentCtrl.getInitialComponent());
+				}
+				stackVC.setDirty(true);
+			}
+		} else if (source == olatMenuTree) {
 			if (event.getCommand().equals(MenuTree.COMMAND_TREENODE_CLICKED)) {
 				// process menu commands
 				TreeNode selTreeNode = olatMenuTree.getSelectedNode();
@@ -358,7 +440,11 @@ public abstract class GenericMainController extends MainLayoutBasicController {
 			}
 		}
 
-		return ae.createController(ureq, bwControl, null);
+		Controller ctrl = ae.createController(ureq, bwControl, null);
+		if(ctrl instanceof StackedControllerAware) {
+			((StackedControllerAware)ctrl).setStackedController(this);
+		}
+		return ctrl;
 	}
 
 	private Controller getContentCtr(Object uobject, UserRequest ureq) {
@@ -390,11 +476,15 @@ public abstract class GenericMainController extends MainLayoutBasicController {
 	
 
 	// fxdiff BAKS-7 Resume function
-	protected void activate(UserRequest ureq, String viewIdentifier) {
+	private void activate(UserRequest ureq, String viewIdentifier) {
 		ActionExtension ae;
 		if (viewIdentifier != null && viewIdentifier.startsWith(GMCMT)) {
 			Long extensionID = Long.parseLong(viewIdentifier.substring(viewIdentifier.indexOf(':') + 1));
 			Extension ee = ExtManager.getInstance().getExtensionByID(extensionID);
+			if(ee == null){
+				logWarn("ExtManager did not find an Extension for extensionID '"+extensionID+"'. Activate canceled..." , null);
+				return;
+			}
 			ae = (ActionExtension) ee.getExtensionFor(className, ureq);
 		} else {
 			int vwindex = viewIdentifier.lastIndexOf(":"); 
@@ -417,9 +507,6 @@ public abstract class GenericMainController extends MainLayoutBasicController {
 		try {
 			if (olatMenuTree.getTreeModel() instanceof GenericTreeModel) {
 				activateTreeNodeByActionExtension(ureq, ae);
-				if (contentCtr instanceof Activateable) {
-					((Activateable) contentCtr).activate(ureq, viewIdentifier);
-				}
 			} else {
 				// just for precaution (treenode selection won't work, but correct
 				// content is displayed)

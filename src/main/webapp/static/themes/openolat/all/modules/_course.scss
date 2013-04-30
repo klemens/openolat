@@ -22,8 +22,11 @@ div.b_selectiontree {
 	#b_col3 { background-image: url(../openolat/images/edit_bg.png); background-position: top left; background-repeat:repeat;}
 	div.b_tabbedpane_wrapper div.b_tabbedpane_content { background:#fff;}	
 }
+/* --- BREADCRUMBS ---- */
 
-
+#b_main_toolbar.o_course_breadcumbs div.b_breadcumb_path ul li.b_first {
+	background-image: url(../openolat/images/le_resources/book-open-text-image.png);
+}
 /* --- MODULES: SINGLEPAGE ---- */
 a.b_preview { background-image: url(../openolat/images/docs/document_preview.png); background-repeat: no-repeat; background-position: left; padding: 2px 0 2px 20px;}
 fieldset a.b_preview, div.b_tabbedpane_wrapper a.b_preview { position: absolute;}
@@ -45,6 +48,13 @@ div.o_courseeditor_legend {
 	margin-top: 3em;
 	strong { font-weight: bold; }
 	div { top: 0; left: 0; padding-left: 12px; background-repeat: no-repeat; background-position: 0 50%; }
+}
+
+/* Members management */
+div.o_buttons_box_right {
+	position:absolute;
+	top:0;
+	right:0;
 }
 	
 /* COURSE */
@@ -89,7 +99,6 @@ div.o_sp_peekview {
 	margin: 1em 0 1em 0;
 	ul { list-style: none; }
 	li { margin-top: 0.5em;}
-	a { position: relative; left: -20px; }
 }
 
 div.o_peekview_author { padding: 3px 0 5px 0; font-style: italic; color: #aaaaaa; font-size: 90%;}

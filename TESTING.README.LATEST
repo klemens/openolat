@@ -3,17 +3,11 @@ junit and integration tests in OpenOLAT 8
 
 * Preconditions
 -----------------------------------------
-- Make sure the following ports are not in use (Selenium, Tomcat 1, Tomcat 2, JMS, MBeanServer(s) )
-	4444 / 8181 / 8105 / 8109 / 8282 / 8205 / 8209 / 61616 / 3000 / 3001 / 3002
+- Make sure the following ports are not in use (Selenium, Tomcat )
+	14444 / 8080 / 8009 / 8089 
 
 - Make sure you have a MySQL database version 5.1 or 5.5 with the InnoDB as default engine 
   The server must be at localhost. To change the config see databaseCorecontext.xml
-
-- Edit src/test/profile/selenium/config/defaultcontext.xml and add the browserID line (Firefox 3.x only supported):
-    E.g. Firefox on linux box
-     <entry key="browserId" value="*firefox /usr/lib64/firefox/firefox"/>
-    E.g. Firefox verison on a mac
-     <entry key="browserId" value="*firefox /Applications/Firefox3.5.app/Contents/MacOS/firefox-bin"/>
 
 - Clone a clean project or remove any olat.local.properties you might have on the classpath. This is important!
 	
@@ -26,9 +20,6 @@ junit and integration tests in OpenOLAT 8
 
 * Setup (necessary only once)
 -----------------------------------------
-- Install tomcats
-	mvn verify -Pinstall-tomcats
-
 - Setup database users and tables in the pom.xml. The default settings are:
     <test.env.db.name>olattest</test.env.db.name>
     <test.env.db.user>olat</test.env.db.user>
@@ -56,9 +47,20 @@ junit and integration tests in OpenOLAT 8
 -----------------------------------------
 - junit integration tests that load the framework to execute (execution time ca. 10-15m)
   - MySQL
-	  mvn clean test -Dwith-mysql
+	  mvn clean test -Dwith-mysql -Ptomcat
   - PostgreSQL
-	  mvn clean test -Dwith-postgresql
+	  mvn clean test -Dwith-postgresql -Ptomcat
+  - Oracle
+    The support of Oracle is still EXPERIMENTAL
+    - you need a clean database as the maven process doesn't create a new one (every time)
+    - You need more cursors (if you don't know what it is, don't run this tests :-): 
+      ALTER SYSTEM SET open_cursors = 400 SCOPE=BOTH;
+    - configure the olat.local.properties in src/test/profile/oracle
+    - you need to install the JDBC driver locally (one time) as there isn't any maven repo for them (licensing issue)
+      mvn install:install-file -Dfile=ojdbc6.jar -DgroupId=com.oracle -DartifactId=ojdbc6 -Dversion=11.0 -Dpackaging=jar -DcreateChecksum=true
+	then you can run the test suite
+	  mvn clean test -Dwith-oracle -Ptomcat
+	  
 
 - The junit testresults can be found at target/surefire-reports/*
   Double click the xml files in Eclipse to display the results in the standards jUnit console
@@ -66,40 +68,18 @@ junit and integration tests in OpenOLAT 8
 
 * Execute selenium functional integration tests
 -----------------------------------------
-- Selenium functional tests on GUI layer that load OpenOLAT in a two node cluster (execution time ca. 5-6h!)
-	mvn clean verify -Pseleniumtests
+- First build the application without tests (arquillian need the library before mvn give them)
+    mvn -DskipTests=true -Parquillian,tomcat clean package
+    
+- Run the tests
+	mvn -Parquillian surefire:test
 
-- The selenium test results can be found at target/failsafe-reports/SeleniumTesting72x/*
-
-- When Seleniums don't work, try to debug like this:
-	mvn verify -Pseleniumtests,debug | tee /tmp/mvn72x.log | grep execution
-
-- It is recommended to use a Jenkins setup to administrate the test results. The Selenium results have the same format as the junit test protocols
-
+You can add "clean-mysql-dbsetup" to the profils to drop / restore the database
 
 * Execute a single selenium functional integration test in Eclipse
 -----------------------------------------
-- Start Eclipse, refresh project and wait until Eclipse is finished with refreshing and compiling
+- First build the application without tests as before
+    mvn -DskipTests=true -Parquillian clean package
+ 
+- Run single test as JUnit Test in Eclipse
 
-- In a shell run the following command to start the test cluster:
-	mvn verify -Pseleniumtests,debug | tee /tmp/mvn72x.log | grep execution
-	
-- Wait until the servers have started (in the log /tmp/mvn72.log an information appears that the server can be stopped with Crl-C)
-
-- In Eclipse right-click a selenium testcase form src/test/java/org/olat/test/functional/* and select "run in jUnit"
-
-
-* Execute a single selenium functional integration test on the command line
------------------------------------------
-- Configure the tests to be run in the file src/test/profile/selenium/config/testng.xml
-
-- Run the tests
-	mvn clean verify -Pseleniumtests
-
-
-* Fixing Selenium testcases
------------------------------------------
-- Fix broken code or broken testcases in src/test/profile/selenium/ui-map/*
-
-- When changing the pagesets, update UI-map afterwards using the following command
-	mvn clean package -Pseleniumtests

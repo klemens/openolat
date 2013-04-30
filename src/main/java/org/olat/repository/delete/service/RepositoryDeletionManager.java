@@ -28,6 +28,7 @@ package org.olat.repository.delete.service;
 import java.io.File;
 import java.util.ArrayList;
 import java.util.Calendar;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
@@ -116,8 +117,8 @@ public class RepositoryDeletionManager extends BasicManager implements UserDataD
 	 */
 	public void deleteUserData(Identity identity, String newDeletedUserName) {
 		// Remove as owner
-		List repoEntries = RepositoryManager.getInstance().queryByOwner(identity, new String[] {}/*no type limit*/);
-		for (Iterator iter = repoEntries.iterator(); iter.hasNext();) {
+		List<RepositoryEntry> repoEntries = RepositoryManager.getInstance().queryByOwner(identity, new String[] {}/*no type limit*/);
+		for (Iterator<RepositoryEntry> iter = repoEntries.iterator(); iter.hasNext();) {
 			RepositoryEntry repositoryEntry = (RepositoryEntry) iter.next();
 			
 			BaseSecurityManager.getInstance().removeIdentityFromSecurityGroup(identity, repositoryEntry.getOwnerGroup());
@@ -129,7 +130,7 @@ public class RepositoryDeletionManager extends BasicManager implements UserDataD
 		}
 		// Remove as initial author
 		repoEntries = RepositoryManager.getInstance().queryByInitialAuthor(identity.getName());
-		for (Iterator iter = repoEntries.iterator(); iter.hasNext();) {
+		for (Iterator<RepositoryEntry> iter = repoEntries.iterator(); iter.hasNext();) {
 			RepositoryEntry repositoryEntry = (RepositoryEntry) iter.next();
 			repositoryEntry.setInitialAuthor(deletionModule.getAdminUserIdentity().getName());
 			logInfo("Delete user-data, add Administrator-identity as initial-author of repositoryEntry=" + repositoryEntry.getDisplayname());
@@ -246,7 +247,7 @@ public class RepositoryDeletionManager extends BasicManager implements UserDataD
 		} else {
 			ccIdentities = null;	
 		}
-		MailerResult mailerResult = mailer.sendMailUsingTemplateContext(identity, ccIdentities, null, template, sender);
+		MailerResult mailerResult = mailer.sendMailAsSeparateMails(null, Collections.singletonList(identity), ccIdentities, template, sender);
 		if (mailerResult.getReturnCode() == MailerResult.OK) {
 			// Email sended ok => set deleteEmailDate
 			for (Iterator repoIterator = ((List)identityRepositoryList.get(identity)).iterator(); repoIterator.hasNext();) {
@@ -261,9 +262,9 @@ public class RepositoryDeletionManager extends BasicManager implements UserDataD
 	}
 
 	private void markSendEmailEvent(RepositoryEntry repositoryEntry) {
-		repositoryEntry = (RepositoryEntry)DBFactory.getInstance().loadObject(repositoryEntry);
+		//repositoryEntry = (RepositoryEntry)DBFactory.getInstance().loadObject(repositoryEntry);
 		LifeCycleManager.createInstanceFor(repositoryEntry).markTimestampFor(SEND_DELETE_EMAIL_ACTION);
-		DBFactory.getInstance().updateObject(repositoryEntry);
+		//DBFactory.getInstance().updateObject(repositoryEntry);
 	}
 
 

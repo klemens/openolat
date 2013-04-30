@@ -25,12 +25,16 @@
 
 package org.olat.admin.user.imp;
 
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Set;
 
-import org.olat.admin.user.groups.GroupAddManager;
 import org.olat.basesecurity.AuthHelper;
-import org.olat.basesecurity.BaseSecurityManager;
+import org.olat.basesecurity.BaseSecurity;
+import org.olat.core.CoreSpringFactory;
 import org.olat.core.commons.persistence.DBFactory;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.Component;
@@ -48,6 +52,9 @@ import org.olat.core.gui.control.generic.wizard.StepsRunContext;
 import org.olat.core.id.Identity;
 import org.olat.core.id.User;
 import org.olat.core.util.StringHelper;
+import org.olat.core.util.mail.MailPackage;
+import org.olat.group.BusinessGroupService;
+import org.olat.group.model.BusinessGroupMembershipChange;
 import org.olat.user.UserManager;
 import org.olat.user.propertyhandlers.UserPropertyHandler;
 
@@ -63,12 +70,14 @@ public class UserImportController extends BasicController {
 
 	private List<UserPropertyHandler> userPropertyHandlers;
 	private static final String usageIdentifyer = UserImportController.class.getCanonicalName();
-	private List<List<String>> newIdents;
 	private boolean canCreateOLATPassword;
 	private VelocityContainer mainVC;
 	private Link startLink;
 	
-	StepsMainRunController importStepsController;
+	private StepsMainRunController importStepsController;
+	
+	private final BaseSecurity securityManager;
+	private final BusinessGroupService businessGroupService;
 
 	/**
 	 * @param ureq
@@ -78,6 +87,8 @@ public class UserImportController extends BasicController {
 	 */
 	public UserImportController(UserRequest ureq, WindowControl wControl, boolean canCreateOLATPassword) {
 		super(ureq, wControl);
+		securityManager = CoreSpringFactory.getImpl(BaseSecurity.class);
+		businessGroupService = CoreSpringFactory.getImpl(BusinessGroupService.class);
 		this.canCreateOLATPassword = canCreateOLATPassword;
 		mainVC = createVelocityContainer("importindex");
 		startLink = LinkFactory.createButton("import.start", mainVC, this);
@@ -93,7 +104,7 @@ public class UserImportController extends BasicController {
 			if (event == Event.CANCELLED_EVENT) {
 				getWindowControl().pop();
 				removeAsListenerAndDispose(importStepsController);
-			} else if (event == Event.CHANGED_EVENT) {
+			} else if (event == Event.CHANGED_EVENT || event == Event.DONE_EVENT) {
 				getWindowControl().pop();
 				removeAsListenerAndDispose(importStepsController);
 				showInfo("import.success");
@@ -159,20 +170,25 @@ public class UserImportController extends BasicController {
 				boolean hasChanges = false;
 				try {
 					if (runContext.containsKey("validImport") && ((Boolean) runContext.get("validImport")).booleanValue()) {
-						// create new users and persist 
-						newIdents = (List<List<String>>) runContext.get("newIdents");
+						// create new users and persist
+						@SuppressWarnings("unchecked")
+						List<List<String>> newIdents = (List<List<String>>) runContext.get("newIdents");
 						for (Iterator<List<String>> it_news = newIdents.iterator(); it_news.hasNext();) {
 							List<String> singleUser = it_news.next();
 							doCreateAndPersistIdentity(singleUser);
 						}
-						// fxdiff: 101 add to groups
-						Identity addingIdentity = ureq1.getIdentity();
+
+						@SuppressWarnings("unchecked")
 						List<Long> ownGroups = (List<Long>) runContext.get("ownerGroups");
+						@SuppressWarnings("unchecked")
 						List<Long> partGroups = (List<Long>) runContext.get("partGroups");
-						List<Long> mailGroups = (List<Long>) runContext.get("mailGroups");
-						if (ownGroups.size() != 0 || partGroups.size() != 0){
+
+						if (ownGroups.size() > 0 || partGroups.size() > 0){
+							@SuppressWarnings("unchecked")
 							List<Object> allIdents = (List<Object>) runContext.get("idents");
-							processGroupAdditionForAllIdents(allIdents, ownGroups, partGroups, mailGroups, addingIdentity);
+							Boolean sendMailObj = (Boolean)runContext.get("sendMail");
+							boolean sendmail = sendMailObj == null ? true : sendMailObj.booleanValue();
+							processGroupAdditionForAllIdents(allIdents, ownGroups, partGroups, sendmail);
 						}
 						hasChanges = true;
 					}
@@ -185,34 +201,53 @@ public class UserImportController extends BasicController {
 
 		};
 
-		importStepsController = new StepsMainRunController(ureq, getWindowControl(), start, finish, null, translate("title"));
+		importStepsController = new StepsMainRunController(ureq, getWindowControl(), start, finish, null,
+				translate("title"), "o_sel_user_import_wizard");
 		listenTo(importStepsController);
 			getWindowControl().pushAsModalDialog(importStepsController.getInitialComponent());
 		}
 	}
-
-	//fxdiff: 101 add idents to groups
-	void processGroupAdditionForAllIdents(List<Object> allIdents, List<Long> ownGroups, List<Long> partGroups, List<Long> mailGroups, Identity addingIdentity) {
-		GroupAddManager groupAddMgr = GroupAddManager.getInstance();
-
-		int counter = 0;
+	
+	private Collection<Identity> getIdentities(List<Object> allIdents) {
+		Set<Identity> identities = new HashSet<Identity>(allIdents.size());
+		List<String> usernames = new ArrayList<String>();
 		for (Object o : allIdents) {
-			Identity ident;
 			if (o instanceof Identity) {
-				// existing user
-				ident = (Identity) o;
-			} else {
+				identities.add((Identity)o);	
+			} else if(o instanceof List) {
+				@SuppressWarnings("unchecked")
 				List<String> userArray = (List<String>) o;
-				String identName = userArray.get(1);
-				ident = BaseSecurityManager.getInstance().findIdentityByName(identName);
+				usernames.addAll(userArray);
 			}
-			if(ident != null){
-				groupAddMgr.addIdentityToGroups(ownGroups, partGroups, mailGroups, ident, addingIdentity);
-				counter ++;
-				if (counter % 5 == 0) {
-					DBFactory.getInstance().intermediateCommit();
+		}
+
+		List<Identity> nextIds = securityManager.findIdentitiesByName(usernames);
+		identities.addAll(nextIds);
+		return identities;
+	}
+
+	private void processGroupAdditionForAllIdents(List<Object> allIdents, List<Long> tutorGroups, List<Long> partGroups, boolean sendmail) {
+		Collection<Identity> identities = getIdentities(allIdents);
+		List<BusinessGroupMembershipChange> changes = new ArrayList<BusinessGroupMembershipChange>();
+		for(Identity identity:identities) {
+			if(tutorGroups != null && !tutorGroups.isEmpty()) {
+				for(Long tutorGroupKey:tutorGroups) {
+					BusinessGroupMembershipChange change = new BusinessGroupMembershipChange(identity, tutorGroupKey);
+					change.setTutor(Boolean.TRUE);
+					changes.add(change);
 				}
-			}			
-		}		
+			}
+			if(partGroups != null && !partGroups.isEmpty()) {
+				for(Long partGroupKey:partGroups) {
+					BusinessGroupMembershipChange change = new BusinessGroupMembershipChange(identity, partGroupKey);
+					change.setParticipant(Boolean.TRUE);
+					changes.add(change);
+				}
+			}
+		}
+		
+		MailPackage mailing = new MailPackage(sendmail);
+		businessGroupService.updateMemberships(getIdentity(), changes, mailing);
+		DBFactory.getInstance().commit();
 	}
 }

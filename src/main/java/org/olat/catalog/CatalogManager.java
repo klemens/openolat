@@ -211,13 +211,11 @@ public class CatalogManager extends BasicManager implements UserDataDeletable, I
 	 * @param catalogEntries List of catalog entries to be filtered
 	 * @return List of catalog entries
 	 */
-	public List filterOwnedLeafs(Identity identity, List catalogEntries) {
-		List ownedEntries = new ArrayList();
+	public List<CatalogEntry> filterOwnedLeafs(Identity identity, List<CatalogEntry> catalogEntries) {
+		List<CatalogEntry> ownedEntries = new ArrayList<CatalogEntry>();
 		BaseSecurity securityManager = BaseSecurityManager.getInstance();
 
-		Iterator iter = catalogEntries.iterator();
-		while (iter.hasNext()) {
-			CatalogEntry cate = (CatalogEntry) iter.next();
+		for(CatalogEntry cate:catalogEntries) {
 			if (cate.getType() == CatalogEntry.TYPE_LEAF) {
 				RepositoryEntry repe = cate.getRepositoryEntry();
 				SecurityGroup secGroup = repe.getOwnerGroup();
@@ -413,7 +411,7 @@ public class CatalogManager extends BasicManager implements UserDataDeletable, I
 	/**
 	 * Find catalog entries for certain identity
 	 * 
-	 * @param name
+	 * @param binderName
 	 * @return List of catalog entries
 	 */
 	public List getCatalogEntriesOwnedBy(Identity identity) {
@@ -606,13 +604,10 @@ public class CatalogManager extends BasicManager implements UserDataDeletable, I
 
 	/**
 	 * 
-	 * @param repositoryEntry
+	 * @param re
 	 */
-	public void updateReferencedRepositoryEntry(RepositoryEntry repositoryEntry) {
-		RepositoryEntry reloaded = RepositoryManager.getInstance().lookupRepositoryEntry(repositoryEntry.getKey());
-		reloaded.setDisplayname(repositoryEntry.getDisplayname());
-		reloaded.setDescription(repositoryEntry.getDescription());
-		RepositoryManager.getInstance().updateRepositoryEntry(reloaded);
+	public void updateReferencedRepositoryEntry(RepositoryEntry re) {
+		RepositoryEntry reloaded = RepositoryManager.getInstance().setDescriptionAndName(re, re.getDisplayname(), re.getDescription());
 		// inform anybody interested about this change
     MultiUserEvent modifiedEvent = new EntryChangedEvent(reloaded, EntryChangedEvent.MODIFIED_DESCRIPTION);
     CoordinatorManager.getInstance().getCoordinator().getEventBus().fireEventToListenersOf(modifiedEvent, reloaded);

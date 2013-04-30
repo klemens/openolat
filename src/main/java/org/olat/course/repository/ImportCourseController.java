@@ -35,7 +35,6 @@ import org.olat.basesecurity.BaseSecurity;
 import org.olat.basesecurity.BaseSecurityManager;
 import org.olat.basesecurity.Constants;
 import org.olat.commons.file.filechooser.FileChooserController;
-import org.olat.core.commons.modules.bc.vfs.OlatRootFolderImpl;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.Component;
 import org.olat.core.gui.components.panel.Panel;
@@ -46,7 +45,6 @@ import org.olat.core.gui.control.controller.BasicController;
 import org.olat.core.util.FileUtils;
 import org.olat.core.util.Formatter;
 import org.olat.core.util.vfs.LocalFileImpl;
-import org.olat.core.util.vfs.LocalImpl;
 import org.olat.core.util.vfs.QuotaManager;
 import org.olat.core.util.vfs.VFSLeaf;
 import org.olat.core.util.vfs.filters.VFSItemFileTypeFilter;
@@ -56,6 +54,7 @@ import org.olat.course.ICourse;
 import org.olat.course.Structure;
 import org.olat.course.config.CourseConfig;
 import org.olat.course.config.CourseConfigManagerImpl;
+import org.olat.course.export.CourseEnvironmentMapper;
 import org.olat.course.groupsandrights.CourseGroupManager;
 import org.olat.course.tree.CourseEditorTreeNode;
 import org.olat.modules.glossary.GlossaryManager;
@@ -83,11 +82,13 @@ public class ImportCourseController extends BasicController implements IAddContr
 	private Controller activeImportController;
 	private ImportSharedfolderReferencesController sharedFolderImportController;
 	private ImportGlossaryReferencesController glossaryImportController;
-	private List nodeList = new ArrayList();
+	private List<CourseEditorTreeNode> nodeList = new ArrayList<CourseEditorTreeNode>();
 	private int nodeListPos = 0;
 	private Panel myPanel;
 	private static final VFSItemFileTypeFilter zipTypeFilter = new VFSItemFileTypeFilter(new String[] { "zip" });
 
+	private boolean importYesMode = false;
+	
 	/**
 	 * Import a course from a previous export.
 	 * 
@@ -124,10 +125,11 @@ public class ImportCourseController extends BasicController implements IAddContr
 	public boolean transactionFinishBeforeCreate() {
 		// create group management
 		CourseGroupManager cgm = course.getCourseEnvironment().getCourseGroupManager();
-		cgm.createCourseGroupmanagement(course.getResourceableId().toString());
 		// import groups
-		cgm.importCourseLearningGroups(getExportDataDir(course));
-		cgm.importCourseRightGroups(getExportDataDir(course));
+		CourseEnvironmentMapper envMapper = cgm.importCourseBusinessGroups(course.getCourseExportDataDir().getBasefile());
+		//upgrade to the current version of the course
+		ICourse course = CourseFactory.loadCourse(cgm.getCourseResource());
+		course.postImport(envMapper);
 		return true;
 	}
 
@@ -156,6 +158,11 @@ public class ImportCourseController extends BasicController implements IAddContr
 		
 		CourseFactory.saveCourse(course.getResourceableId());
 		CourseFactory.closeCourseEditSession(course.getResourceableId(),true);
+	}
+	
+	@Override
+	public void repositoryEntryCopied(RepositoryEntry sourceEntry, RepositoryEntry newEntry) {
+		//
 	}
 
 	/**
@@ -189,12 +196,6 @@ public class ImportCourseController extends BasicController implements IAddContr
 	 */
 	public void event(UserRequest ureq, Component source, Event event) {
 		//nothing to do
-/*		if (source == finishedMessage) {
-			getWindowControl().pop();
-			// save the editor tree model, to persist any changes made during import.
-			course.saveEditorTreeModel();
-			callback.finished(ureq);
-		}*/
 	}
 
 	/**
@@ -245,6 +246,7 @@ public class ImportCourseController extends BasicController implements IAddContr
 				logError("Directory "+exportDir.getAbsolutePath()+" not found", new FileNotFoundException());
 			}
 			// collect all nodes
+			nodeList.clear();
 			collectNodesAsList((CourseEditorTreeNode)course.getEditorTreeModel().getRootNode(), nodeList);
 			nodeListPos = 0;
 			boolean finished = processNodeList(ureq);
@@ -290,6 +292,9 @@ public class ImportCourseController extends BasicController implements IAddContr
 				callback.canceled(ureq);
 				showError("add.failed");
 				return;
+			} else if (event.getCommand().equals("importYesMode")) {
+				importYesMode = true;
+				event (ureq, cfc, Event.DONE_EVENT);
 			}
 		} else if (source == sharedFolderImportController) {
 			if (event == Event.DONE_EVENT) {
@@ -315,7 +320,7 @@ public class ImportCourseController extends BasicController implements IAddContr
 		} else if (source == glossaryImportController) {
 				if (event == Event.DONE_EVENT) {
 					//getWindowControl().pushAsModalDialog(translator.translate("import.suc.title"), finishedMessage);
-					// save the editor tree model, to persist any changes made during import.					
+					// save the editor tree model, to persist any changes made during import.
 					CourseFactory.saveCourseEditorTreeModel(course.getResourceableId());
 					callback.finished(ureq);
 				} else if (event == Event.CANCELLED_EVENT) {
@@ -334,32 +339,40 @@ public class ImportCourseController extends BasicController implements IAddContr
 	private void processSharedFolder(UserRequest ureq) {
 		// if shared folder controller exists we did already import this one.
 		if (sharedFolderImportController == null) {
-			RepositoryEntryImportExport sfImportExport = SharedFolderManager.getInstance().getRepositoryImportExport(getExportDataDir(course));
+			RepositoryEntryImportExport sfImportExport = SharedFolderManager.getInstance().getRepositoryImportExport(course.getCourseExportDataDir().getBasefile());
 			
 			removeAsListenerAndDispose(sharedFolderImportController);
 			sharedFolderImportController = new ImportSharedfolderReferencesController(sfImportExport, course, ureq, getWindowControl());
 			listenTo(sharedFolderImportController);
 			
-			myPanel.setContent(sharedFolderImportController.getInitialComponent());
+			if (importYesMode) {
+				sharedFolderImportController.importWithoutAsking(ureq);
+			} else {
+				myPanel.setContent(sharedFolderImportController.getInitialComponent());
+			}
 		}
 	}
 
 	private void processGlossary(UserRequest ureq) {
 		// if glossary controller exists we did already import this one.
 		if (glossaryImportController == null) {
-			RepositoryEntryImportExport sfImportExport = GlossaryManager.getInstance().getRepositoryImportExport(getExportDataDir(course));
+			RepositoryEntryImportExport sfImportExport = GlossaryManager.getInstance().getRepositoryImportExport(course.getCourseExportDataDir().getBasefile());
 			
 			removeAsListenerAndDispose(glossaryImportController);
 			glossaryImportController = new ImportGlossaryReferencesController(sfImportExport, course, ureq, getWindowControl());
 			listenTo(glossaryImportController);
 			
-			myPanel.setContent(glossaryImportController.getInitialComponent());
+			if (importYesMode) {
+				glossaryImportController.importWithoutAsking(ureq);
+			} else {
+				myPanel.setContent(glossaryImportController.getInitialComponent());
+			}
 		}
 	}
 	
 	private void cleanupExportDataDir() {
 		if (course == null) return;
-		File fExportedDataDir = getExportDataDir(course);
+		File fExportedDataDir = course.getCourseExportDataDir().getBasefile();
 		if (fExportedDataDir.exists())
 			FileUtils.deleteDirsAndFiles(fExportedDataDir, true, true);
 	}
@@ -370,7 +383,7 @@ public class ImportCourseController extends BasicController implements IAddContr
 	 * @param rootNode
 	 * @param nl
 	 */
-	public static void collectNodesAsList(CourseEditorTreeNode rootNode, List nl) {
+	private void collectNodesAsList(CourseEditorTreeNode rootNode, List<CourseEditorTreeNode> nl) {
 		nl.add(rootNode);
 		for (int i = 0; i < rootNode.getChildCount(); i++) {
 			collectNodesAsList((CourseEditorTreeNode)rootNode.getChildAt(i), nl);
@@ -390,33 +403,42 @@ public class ImportCourseController extends BasicController implements IAddContr
 	 */
 	private boolean processNodeList(UserRequest ureq) {
 		while (nodeListPos < nodeList.size()) {
-			CourseEditorTreeNode nextNode = (CourseEditorTreeNode)nodeList.get(nodeListPos);
+			CourseEditorTreeNode nextNode = nodeList.get(nodeListPos);
 			nodeListPos++;
-			Controller ctrl = nextNode.getCourseNode().importNode(getExportDataDir(course), course, false, ureq, getWindowControl());
+			Controller ctrl = nextNode.getCourseNode().importNode(course.getCourseExportDataDir().getBasefile(), course, false, ureq, getWindowControl());
 			if (ctrl != null) {
 				// this node needs a controller to do its import job.
 				removeAsListenerAndDispose(activeImportController);
 				activeImportController = ctrl;
 				listenTo(activeImportController);
 				
+				while (importYesMode) {
+					if (ctrl instanceof ImportReferencesController) {
+						((ImportReferencesController) ctrl).importWithoutAsking (ureq);
+						break;
+					}
+					if (ctrl instanceof ImportPortfolioReferencesController) {
+						((ImportPortfolioReferencesController) ctrl).importWithoutAsking (ureq);
+						break;
+					}
+					break;
+				}
+				
+				if (nodeListPos == nodeList.size() ) {
+					return true;
+				}
+				
 				myPanel.setContent(activeImportController.getInitialComponent());
 				return false;
+				
+			} else {
+				
+				if (nodeListPos == nodeList.size() ) {
+					return true;
+				}
 			}
 		}
 		return true;
-	}
-	
-	/**
-	 * The folder where nodes export their data to.
-	 * 
-	 * @param theCourse
-	 * @return File
-	 */
-	public static File getExportDataDir(ICourse theCourse) {
-		LocalImpl vfsExportDir = (LocalImpl)theCourse.getCourseBaseContainer().resolve(ICourse.EXPORTED_DATA_FOLDERNAME);
-		if (vfsExportDir == null)
-			vfsExportDir = (OlatRootFolderImpl)theCourse.getCourseBaseContainer().createChildContainer(ICourse.EXPORTED_DATA_FOLDERNAME);
-		return vfsExportDir.getBasefile();
 	}
 	
 	protected void doDispose() {

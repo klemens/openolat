@@ -27,6 +27,7 @@ import javax.xml.bind.annotation.XmlRootElement;
 import org.olat.core.id.Identity;
 import org.olat.core.id.UserConstants;
 import org.olat.modules.fo.Message;
+import org.olat.modules.fo.Status;
 import org.olat.restapi.support.vo.FileVO;
 
 /**
@@ -42,6 +43,7 @@ import org.olat.restapi.support.vo.FileVO;
 public class MessageVO {
 	
 	private Long key;
+	private Long threadKey;
 	private Long forumKey;
 	private Long parentKey;
 	private Long authorKey;
@@ -50,6 +52,7 @@ public class MessageVO {
 	private Long modifierKey;
 	private String modifier;
 	private String modifierName;
+	private Boolean sticky;
 	
 	private String title;
 	private String body;
@@ -62,6 +65,9 @@ public class MessageVO {
 	
 	public MessageVO(Message message) {
 		key = message.getKey();
+		if(message.getThreadtop() != null) {
+			threadKey = message.getThreadtop().getKey();
+		}
 		Identity auth = message.getCreator();
 		authorKey = auth.getKey();
 		authorName = auth.getName();
@@ -81,6 +87,9 @@ public class MessageVO {
 		forumKey = message.getForum().getKey();
 		title = message.getTitle();
 		body = message.getBody();
+		
+		Status messageStatus = Status.getStatus(message.getStatusCode());
+		sticky = new Boolean(messageStatus.isSticky());
 	}
 
 	public Long getKey() {
@@ -89,6 +98,14 @@ public class MessageVO {
 	
 	public void setKey(Long key) {
 		this.key = key;
+	}
+
+	public Long getThreadKey() {
+		return threadKey;
+	}
+
+	public void setThreadKey(Long threadKey) {
+		this.threadKey = threadKey;
 	}
 
 	public Long getForumKey() {
@@ -153,6 +170,14 @@ public class MessageVO {
 
 	public void setModifierName(String modifierName) {
 		this.modifierName = modifierName;
+	}
+
+	public Boolean getSticky() {
+		return sticky;
+	}
+
+	public void setSticky(Boolean sticky) {
+		this.sticky = sticky;
 	}
 
 	public String getTitle() {

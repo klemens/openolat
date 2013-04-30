@@ -29,8 +29,9 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 
+import org.olat.core.CoreSpringFactory;
 import org.olat.core.dispatcher.mapper.Mapper;
-import org.olat.core.dispatcher.mapper.MapperRegistry;
+import org.olat.core.dispatcher.mapper.MapperService;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.Component;
 import org.olat.core.gui.components.panel.Panel;
@@ -63,16 +64,13 @@ import org.olat.core.util.Util;
 public abstract class BasicController extends DefaultController {
 
 	protected String velocity_root;
-	private Locale locale;
 	private final Identity identity;
 	private Translator translator;
 	private Translator fallbackTranslator;
 	private OLog logger;
 
-	private MapperRegistry mreg;
-	private List<Mapper> mappers = null;
-
-	private List<Controller> childControllers = null;
+	private List<Mapper> mappers;
+	private List<Controller> childControllers;
 
 	/**
 	 * easy to use controller template. Extending the BasicController allows to
@@ -84,12 +82,11 @@ public abstract class BasicController extends DefaultController {
 	 */
 	protected BasicController(UserRequest ureq, WindowControl wControl) {
 		super(wControl);
-		this.locale = ureq.getLocale();
+		setLocale(ureq.getLocale());
 		this.identity = ureq.getIdentity();
-		this.translator = Util.createPackageTranslator(this.getClass(), locale);
+		this.translator = Util.createPackageTranslator(this.getClass(), getLocale());
 		this.fallbackTranslator = null;
 		this.velocity_root = Util.getPackageVelocityRoot(this.getClass());
-		this.mreg = MapperRegistry.getInstanceFor(ureq.getUserSession());
 		this.logger = Tracing.createLoggerFor(this.getClass());
 	}
 	
@@ -108,17 +105,16 @@ public abstract class BasicController extends DefaultController {
 	protected BasicController(UserRequest ureq, WindowControl wControl,
 			Translator fallBackTranslator) {
 		super(wControl);
-		this.locale = ureq.getLocale();
+		setLocale(ureq.getLocale());
 		this.identity = ureq.getIdentity();
 		if (fallBackTranslator == null) {
 			throw new AssertException(
 					"please provide a fall translator if using this constructor!!");
 		}
 		this.fallbackTranslator = fallBackTranslator;
-		this.translator = Util.createPackageTranslator(this.getClass(), locale,
+		this.translator = Util.createPackageTranslator(this.getClass(), getLocale(),
 				fallBackTranslator);
 		this.velocity_root = Util.getPackageVelocityRoot(this.getClass());
-		this.mreg = MapperRegistry.getInstanceFor(ureq.getUserSession());
 		this.logger = Tracing.createLoggerFor(this.getClass());
 	}
 
@@ -126,9 +122,7 @@ public abstract class BasicController extends DefaultController {
 	protected void doPreDispose() {
 		// deregister all mappers if needed
 		if (mappers != null) {
-			for (Mapper m : mappers) {
-				mreg.deregister(m);
-			}
+			CoreSpringFactory.getImpl(MapperService.class).cleanUp(mappers);
 		}
 
 		// dispose child controller if needed
@@ -200,8 +194,8 @@ public abstract class BasicController extends DefaultController {
 	 * @return The mapper base URL
 	 */
 
-	protected String registerMapper(Mapper m) {
-		return registerCacheableMapper(null, m);
+	protected String registerMapper(UserRequest ureq, Mapper m) {
+		return registerCacheableMapper(ureq, null, m);
 	}
 
 	/**
@@ -216,33 +210,20 @@ public abstract class BasicController extends DefaultController {
 	 *            the mapper that delivers the resources
 	 * @return The mapper base URL
 	 */
-	protected String registerCacheableMapper(String cacheableMapperID, Mapper m) {
-		if (mappers == null)
+	protected String registerCacheableMapper(UserRequest ureq, String cacheableMapperID, Mapper m) {
+		if (mappers == null) {
 			mappers = new ArrayList<Mapper>(2);
+		}
 		String mapperBaseURL; 
 		if (cacheableMapperID == null) {
 			// use non cacheable as fallback
-			mapperBaseURL =  mreg.register(m);			
+			mapperBaseURL =  CoreSpringFactory.getImpl(MapperService.class).register(ureq.getUserSession(), m);			
 		} else {
-			mapperBaseURL =  mreg.registerCacheable(cacheableMapperID, m);			
+			mapperBaseURL =  CoreSpringFactory.getImpl(MapperService.class).register(ureq.getUserSession(), cacheableMapperID, m);			
 		}
 		// registration was successful, add to our mapper list
 		mappers.add(m);
 		return mapperBaseURL;
-	}
-
-	/**
-	 * Note: must not be called from doDispose(), all registered mappers are
-	 * disposed automatically
-	 * 
-	 * @param m
-	 */
-	protected void deregisterMapper(Mapper m) {
-		boolean success = mappers != null && mappers.remove(m);
-		if (!success)
-			throw new AssertException(
-					"removing a mapper which was not registered");
-		mreg.deregister(m);
 	}
 
 	/**
@@ -408,13 +389,6 @@ public abstract class BasicController extends DefaultController {
 	 */
 	protected Identity getIdentity() {
 		return identity;
-	}
-
-	/**
-	 * @return Returns the locale.
-	 */
-	protected Locale getLocale() {
-		return locale;
 	}
 
 	/**
@@ -610,7 +584,7 @@ public abstract class BasicController extends DefaultController {
 	 *          translator; false: the new locale is not applied to the translator
 	 */
 	protected void setLocale(Locale locale, boolean setLocaleOnTranslator) {
-		this.locale = locale;
+		setLocale(locale);
 		if (setLocaleOnTranslator) {
 			getTranslator().setLocale(locale);
 		}

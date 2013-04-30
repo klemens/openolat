@@ -66,7 +66,7 @@ public class WebDocumentHandler extends FileHandler implements RepositoryHandler
 	private static final boolean DOWNLOADEABLE = true;
 	private static final boolean EDITABLE = false;
 	private static final boolean WIZARD_SUPPORT = false;
-	private static final List supportedTypes;
+	private static final List<String> supportedTypes;
 	
 	
 	/**
@@ -75,7 +75,7 @@ public class WebDocumentHandler extends FileHandler implements RepositoryHandler
 	public WebDocumentHandler() { super(); }
 
 	static { // initialize supported types
-		supportedTypes = new ArrayList(5);
+		supportedTypes = new ArrayList<String>(5);
 		supportedTypes.add(FileResource.GENERIC_TYPE_NAME);
 		supportedTypes.add(DocFileResource.TYPE_NAME);
 		supportedTypes.add(XlsFileResource.TYPE_NAME);
@@ -90,7 +90,7 @@ public class WebDocumentHandler extends FileHandler implements RepositoryHandler
 	/**
 	 * @see org.olat.repository.handlers.RepositoryHandler#getSupportedTypes()
 	 */
-	public List getSupportedTypes() {
+	public List<String> getSupportedTypes() {
 		return supportedTypes;
 	}
 	
@@ -121,7 +121,7 @@ public class WebDocumentHandler extends FileHandler implements RepositoryHandler
 	/**
 	 * @see org.olat.repository.handlers.RepositoryHandler#getLaunchController(org.olat.core.id.OLATResourceable java.lang.String, org.olat.core.gui.UserRequest, org.olat.core.gui.control.WindowControl)
 	 */
-	public MainLayoutController createLaunchController(OLATResourceable res, String initialViewIdentifier, UserRequest ureq, WindowControl wControl) {
+	public MainLayoutController createLaunchController(OLATResourceable res,  UserRequest ureq, WindowControl wControl) {
 		/* For the time beeing, disable launching web ressources...
 		FileResourceManager frm = FileResourceManager.getInstance();
 		ureq.getDispatchResult().setResultingMediaResource(frm.getAsInlineMediaResource(res));

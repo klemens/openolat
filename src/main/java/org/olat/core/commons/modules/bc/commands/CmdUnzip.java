@@ -83,8 +83,13 @@ public class CmdUnzip extends BasicController implements FolderCommand {
 		for (String sItem:selection.getFiles()) {
 			VFSItem vfsItem = currentContainer.resolve(sItem);
 			if (vfsItem instanceof VFSLeaf) {
-				boolean isAdmin = ureq.getUserSession().getRoles().isOLATAdmin();
-				lockedFiles.addAll(checkLockedFiles((VFSLeaf)vfsItem, currentContainer, ureq.getIdentity(), isAdmin));
+				try {
+					boolean isAdmin = ureq.getUserSession().getRoles().isOLATAdmin();
+					lockedFiles.addAll(checkLockedFiles((VFSLeaf)vfsItem, currentContainer, ureq.getIdentity(), isAdmin));
+				} catch (Exception e) {
+					String name = vfsItem == null ? "NULL" : vfsItem.getName();
+					getWindowControl().setError(translator.translate("FileUnzipFailed", new String[]{name}));
+				}
 			}
 		}
 		
@@ -95,23 +100,30 @@ public class CmdUnzip extends BasicController implements FolderCommand {
 			return null;
 		}
 		
-		boolean fileNotExist = false;
-		for (String sItem:selection.getFiles()) {
-			VFSItem vfsItem = currentContainer.resolve(sItem);
-			if (vfsItem != null && (vfsItem instanceof VFSLeaf)) {
-				if (!doUnzip((VFSLeaf)vfsItem, currentContainer, ureq, wContr)) {
-					status = FolderCommandStatus.STATUS_FAILED;
+		VFSItem currentVfsItem = null;
+		try {
+			boolean fileNotExist = false;
+			for (String sItem:selection.getFiles()) {
+				currentVfsItem = currentContainer.resolve(sItem);
+				if (currentVfsItem != null && (currentVfsItem instanceof VFSLeaf)) {
+					if (!doUnzip((VFSLeaf)currentVfsItem, currentContainer, ureq, wContr)) {
+						status = FolderCommandStatus.STATUS_FAILED;
+						break;
+					}
+				} else {
+					fileNotExist = true;
 					break;
 				}
-			} else {
-				fileNotExist = true;
-				break;
 			}
-		}
-		
-		if (fileNotExist) {
-			status = FolderCommandStatus.STATUS_FAILED;
-			getWindowControl().setError(translator.translate("FileDoesNotExist"));
+			
+			if (fileNotExist) {
+				status = FolderCommandStatus.STATUS_FAILED;
+				getWindowControl().setError(translator.translate("FileDoesNotExist"));
+			}
+		} catch (IllegalArgumentException e) {
+			logError("Corrupted ZIP", e);
+			String name = currentVfsItem == null ? "NULL" : currentVfsItem.getName();
+			getWindowControl().setError(translator.translate("FileUnzipFailed", new String[]{name}));
 		}
 		
 		return null;
@@ -134,7 +146,7 @@ public class CmdUnzip extends BasicController implements FolderCommand {
 		if(zipContainer == null) {
 			return Collections.emptyList();
 		} else if (zipContainer instanceof VFSContainer) {
-			return ZipUtil.checkLockedFileBeforeUnzip(vfsItem, (VFSContainer)zipContainer, identity, isAdmin);
+			return ZipUtil.checkLockedFileBeforeUnzipNonStrict(vfsItem, (VFSContainer)zipContainer, identity, isAdmin);
 		} else {
 			//replace a file with a folder ???
 			return Collections.emptyList();
@@ -170,7 +182,7 @@ public class CmdUnzip extends BasicController implements FolderCommand {
 			}
 		}
 		
-		if (!ZipUtil.unzip(vfsItem, zipContainer, ureq.getIdentity(), versioning)) {
+		if (!ZipUtil.unzipNonStrict(vfsItem, zipContainer, ureq.getIdentity(), versioning)) {
 			// operation failed - rollback
 			zipContainer.delete();
 			wControl.setError(translator.translate("failed"));

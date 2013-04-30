@@ -38,8 +38,9 @@ import javax.servlet.http.HttpServletResponse;
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
+import org.olat.core.CoreSpringFactory;
 import org.olat.core.commons.persistence.DBFactory;
-import org.olat.core.dispatcher.mapper.MapperRegistry;
+import org.olat.core.dispatcher.mapper.MapperService;
 import org.olat.core.gui.GUIInterna;
 import org.olat.core.gui.GlobalSettings;
 import org.olat.core.gui.UserRequest;
@@ -106,6 +107,12 @@ public class Window extends Container {
 	 */
 	public static final Event END_OF_DISPATCH_CYCLE = new Event("eodc");
 
+	/**
+	 * fired before render-only call is rendered (e.g. after reload, redirect).
+	 * In this case normally no dispatch is fired. No dispatch will be done
+	 */
+	public static final Event BEFORE_RENDER_ONLY = new Event("before_render_only");	
+	
 	/**
 	 * fired before inline (text/html computed response) takes place
 	 */
@@ -456,7 +463,7 @@ public class Window extends Container {
 								MediaResourceMapper extMRM = new MediaResourceMapper();
 								extMRM.setMediaResource(mmr);
 								//FIXME:fj:b deregister old mapper, or reuse current one
-								String res = MapperRegistry.getInstanceFor(ureq.getUserSession()).register(extMRM)+"/";
+								String res = CoreSpringFactory.getImpl(MapperService.class).register(ureq.getUserSession(), extMRM) + "/";
 								// e.g. res = /olat/m/10001/
 								Command rmrcom = CommandFactory.createParentRedirectForExternalResource(res);
 								wbackofficeImpl.sendCommandTo(rmrcom);
@@ -521,6 +528,7 @@ public class Window extends Container {
 			if (renderOnly || timestampID == null) {
 				inline = true;
 				validate = true;
+				wbackofficeImpl.fireCycleEvent(BEFORE_RENDER_ONLY);
 			} else if (validatingCausedRerendering && timestampID.equals("-1")) {
 				// the first request after the 302 redirect cause by a component validation 
 				// -> just rerender, but clear the flag for further async media requests

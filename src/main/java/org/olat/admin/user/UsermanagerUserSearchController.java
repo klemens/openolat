@@ -491,7 +491,8 @@ public class UsermanagerUserSearchController extends BasicController implements 
 					};
 
 					removeAsListenerAndDispose(userBulkChangeStepsController);
-					userBulkChangeStepsController = new StepsMainRunController(ureq, getWindowControl(), start, finish, null, translate("bulkChange.title"));
+					userBulkChangeStepsController = new StepsMainRunController(ureq, getWindowControl(), start, finish, null,
+							translate("bulkChange.title"), "o_sel_user_bulk_change_wizard");
 					listenTo(userBulkChangeStepsController);
 					
 					getWindowControl().pushAsModalDialog(userBulkChangeStepsController.getInitialComponent());
@@ -618,13 +619,16 @@ class UsermanagerUserSearchForm extends FormBasicController {
 	
 	Map <String,FormItem>items;
 	/**
-	 * @param name
+	 * @param binderName
 	 * @param cancelbutton
 	 */
 	public UsermanagerUserSearchForm(UserRequest ureq, WindowControl wControl) {
 		super(ureq, wControl);
-		
+
 		UserManager um = UserManager.getInstance();
+		Translator decoratedTranslator = um.getPropertyHandlerTranslator(this.getTranslator());
+		setTranslator(decoratedTranslator);
+		
 		userPropertyHandlers = um.getUserPropertyHandlersFor(formIdentifyer, true);
 		
 		items = new HashMap<String,FormItem>(); 

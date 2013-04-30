@@ -25,6 +25,9 @@
 
 package org.olat.course.repository;
 
+import java.io.File;
+import java.util.UUID;
+
 import org.olat.basesecurity.BaseSecurity;
 import org.olat.basesecurity.BaseSecurityManager;
 import org.olat.basesecurity.Constants;
@@ -35,10 +38,14 @@ import org.olat.core.gui.control.Event;
 import org.olat.core.gui.control.WindowControl;
 import org.olat.core.gui.control.controller.BasicController;
 import org.olat.core.util.Formatter;
+import org.olat.core.util.WebappHelper;
 import org.olat.course.CourseFactory;
 import org.olat.course.CourseModule;
 import org.olat.course.ICourse;
+import org.olat.course.config.CourseConfig;
+import org.olat.course.export.CourseEnvironmentMapper;
 import org.olat.course.groupsandrights.CourseGroupManager;
+import org.olat.course.groupsandrights.PersistingCourseGroupManager;
 import org.olat.course.nodes.CourseNode;
 import org.olat.course.tree.CourseEditorTreeNode;
 import org.olat.repository.RepositoryEntry;
@@ -95,12 +102,7 @@ public class CreateNewCourseController extends BasicController implements IAddCo
 	 */
 	public boolean transactionFinishBeforeCreate() {
 		// Create course and persist course resourceable.
-		course = CourseFactory.createEmptyCourse(
-				newCourseResource, "New Course", "New Course", "");
-		// initialize course groupmanagement
-		CourseGroupManager cgm = course.getCourseEnvironment().getCourseGroupManager();
-		cgm.createCourseGroupmanagement(course.getResourceableId().toString());
-
+		course = CourseFactory.createEmptyCourse(newCourseResource, "New Course", "New Course", "");
 		return true;
 	}
 
@@ -143,6 +145,11 @@ public class CreateNewCourseController extends BasicController implements IAddCo
 		course.getRunStructure().getRootNode().setShortTitle(Formatter.truncateOnly(displayName, 25)); //do not use truncate!
 		course.getRunStructure().getRootNode().setLongTitle(displayName);
 		
+		//enable efficiency statement per default
+		CourseConfig courseConfig = course.getCourseEnvironment().getCourseConfig();
+		courseConfig.setEfficencyStatementIsEnabled(true);
+		CourseFactory.setCourseConfig(course.getResourceableId(), courseConfig);
+		
 		CourseNode rootNode = ((CourseEditorTreeNode)course.getEditorTreeModel().getRootNode()).getCourseNode();
 		rootNode.setShortTitle(Formatter.truncateOnly(displayName, 25)); //do not use truncate!
 		rootNode.setLongTitle(displayName);
@@ -150,7 +157,26 @@ public class CreateNewCourseController extends BasicController implements IAddCo
 		CourseFactory.saveCourse(course.getResourceableId());
 		CourseFactory.closeCourseEditSession(course.getResourceableId(), true);
 	}
-	
+
+	@Override
+	public void repositoryEntryCopied(RepositoryEntry sourceEntry, RepositoryEntry newEntry) {
+		ICourse sourceCourse = CourseFactory.loadCourse(sourceEntry.getOlatResource().getResourceableId());
+		CourseGroupManager sourceCgm = sourceCourse.getCourseEnvironment().getCourseGroupManager();
+		CourseEnvironmentMapper env = PersistingCourseGroupManager.getInstance(sourceCourse).getBusinessGroupEnvironment();
+		
+		File fExportDir = new File(WebappHelper.getTmpDir(), UUID.randomUUID().toString());
+		fExportDir.mkdirs();
+		sourceCgm.exportCourseBusinessGroups(fExportDir, env, false);
+
+		course = CourseFactory.loadCourse(newEntry.getOlatResource().getResourceableId());
+		CourseGroupManager cgm = course.getCourseEnvironment().getCourseGroupManager();
+		// import groups
+		CourseEnvironmentMapper envMapper = cgm.importCourseBusinessGroups(fExportDir);
+		//upgrade to the current version of the course
+		course = CourseFactory.loadCourse(cgm.getCourseResource());
+		course.postImport(envMapper);
+	}
+
 	/**
 	 * @see org.olat.core.gui.control.DefaultController#doDispose(boolean)
 	 */

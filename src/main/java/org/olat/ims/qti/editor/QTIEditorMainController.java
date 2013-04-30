@@ -85,7 +85,6 @@ import org.olat.fileresource.types.FileResource;
 import org.olat.ims.qti.QTIChangeLogMessage;
 import org.olat.ims.qti.QTIResult;
 import org.olat.ims.qti.QTIResultManager;
-import org.olat.ims.qti.editor.QTIEditHelper;
 import org.olat.ims.qti.editor.beecom.objects.ChoiceQuestion;
 import org.olat.ims.qti.editor.beecom.objects.Item;
 import org.olat.ims.qti.editor.beecom.objects.QTIDocument;
@@ -357,7 +356,7 @@ public class QTIEditorMainController extends MainLayoutBasicController implement
 		
 		if (restrictedEdit) {
 			restrictedEditWarningVC = createVelocityContainer("restrictedEditDialog");
-			proceedRestricedEditDialog = new DialogController(ureq.getLocale(), translate("yes"), translate("no"),translate("qti.restricted.edit.warning")+"<br/><br/>"+createReferenceesMsg(ureq), null, true, null);
+			proceedRestricedEditDialog = new DialogController(getWindowControl(), ureq.getLocale(), translate("yes"), translate("no"),translate("qti.restricted.edit.warning")+"<br/><br/>"+createReferenceesMsg(ureq), null, true, null);
 			listenTo(proceedRestricedEditDialog);
 			restrictedEditWarningVC.put("dialog", proceedRestricedEditDialog.getInitialComponent());
 			// we would like to us a modal dialog here, but this does not work! we

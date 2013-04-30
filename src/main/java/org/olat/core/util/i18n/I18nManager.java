@@ -50,6 +50,7 @@ import java.util.Map;
 import java.util.Properties;
 import java.util.Set;
 import java.util.TreeSet;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
 import java.util.jar.JarOutputStream;
@@ -59,6 +60,7 @@ import java.util.regex.Pattern;
 
 import javax.servlet.http.HttpServletRequest;
 
+import org.olat.core.CoreSpringFactory;
 import org.olat.core.helpers.Settings;
 import org.olat.core.logging.AssertException;
 import org.olat.core.logging.OLATRuntimeException;
@@ -74,6 +76,7 @@ import org.olat.core.util.SortedProperties;
 import org.olat.core.util.StringHelper;
 import org.olat.core.util.UserSession;
 import org.olat.core.util.WebappHelper;
+import org.olat.core.util.session.UserSessionManager;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.core.io.Resource;
 
@@ -126,9 +129,9 @@ public class I18nManager extends BasicManager {
 
 	// keys: bundlename ":" locale.toString() (e.g. "org.olat.admin:de_DE");
 	// values: PropertyFile
-	private Map<String, Properties> cachedBundles = new HashMap<String, Properties>();
-	private Map<String, String> cachedJSTranslatorData = new HashMap<String, String>();
-	private Map<String, Set<String>> referencingBundlesIndex = new HashMap<String, Set<String>>();
+	private Map<String, Properties> cachedBundles = new ConcurrentHashMap<String, Properties>();
+	private Map<String, String> cachedJSTranslatorData = new ConcurrentHashMap<String, String>();
+	private Map<String, Set<String>> referencingBundlesIndex = new ConcurrentHashMap<String, Set<String>>();
 	private boolean cachingEnabled = true;
 
 	private static FilenameFilter i18nFileFilter = new FilenameFilter() {
@@ -1273,7 +1276,7 @@ public class I18nManager extends BasicManager {
 	 * @param hreq The http servlet request
 	 */
 	public static void attachI18nInfoToThread(HttpServletRequest hreq) {
-		UserSession usess = UserSession.getUserSession(hreq);
+		UserSession usess = CoreSpringFactory.getImpl(UserSessionManager.class).getUserSession(hreq);
 		if (threadLocalLocale == null) {
 			I18nManager.getInstance().logError("can't attach i18n info to thread: threadLocalLocale is null", null);
 		} else {
@@ -1541,9 +1544,9 @@ public class I18nManager extends BasicManager {
 	 */
 	public void setCachingEnabled(boolean useCache) {
 		if (useCache) {
-			cachedBundles = new HashMap<String, Properties>();
-			cachedJSTranslatorData = new HashMap<String, String>();
-			referencingBundlesIndex = new HashMap<String, Set<String>>();
+			cachedBundles = new ConcurrentHashMap<String, Properties>();
+			cachedJSTranslatorData = new ConcurrentHashMap<String, String>();
+			referencingBundlesIndex = new ConcurrentHashMap<String, Set<String>>();
 		} else {
 			cachedBundles = new AlwaysEmptyMap<String, Properties>();
 			cachedJSTranslatorData = new AlwaysEmptyMap<String, String>();
@@ -1986,7 +1989,7 @@ public class I18nManager extends BasicManager {
 	 */
 	public File createLanguageJarFile(Set<String> languageKeys, String fileName) {
 		// Create file olatdata temporary directory
-		File file = new File(WebappHelper.getUserDataRoot() + "/tmp/" + fileName);
+		File file = new File(WebappHelper.getTmpDir() + "/" + fileName);
 		file.getParentFile().mkdirs();
 
 		FileOutputStream stream = null;

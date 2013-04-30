@@ -117,6 +117,10 @@ public class FormLinkImpl extends FormItemImpl implements FormLink {
 			if(customDisabledLinkCSS != null){
 				this.component.setCustomDisabledLinkCSS(customDisabledLinkCSS);
 			}
+			if ((presentation - Link.FLEXIBLEFORMLNK - Link.NONTRANSLATED) >= 0) {
+				// don't translate non-tranlated links
+				this.component.setCustomDisplayText(i18n);					
+			}
 		} else {
 			this.component = FormLinkFactory.createFormLink(name, this.getRootForm());
 			// set link text
@@ -158,6 +162,11 @@ public class FormLinkImpl extends FormItemImpl implements FormLink {
 		return component;
 	}
 
+	@Override
+	public void setElementCssClass(String elementCssClass) {
+		component.setElementCssClass(elementCssClass);
+		super.setElementCssClass(elementCssClass);
+	}
 
 	/**
 	 * @see org.olat.core.gui.components.form.flexible.elements.FormLink#setCustomEnabledLinkCSS(java.lang.String)

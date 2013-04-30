@@ -31,13 +31,10 @@ import static org.junit.Assert.assertTrue;
 import java.util.Iterator;
 import java.util.Map;
 
-import javax.annotation.PostConstruct;
-
 import org.junit.Test;
 import org.olat.core.configuration.Destroyable;
 import org.olat.core.configuration.Initializable;
 import org.springframework.beans.factory.NoSuchBeanDefinitionException;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.config.ConfigurableListableBeanFactory;
 import org.springframework.beans.factory.support.GenericBeanDefinition;
 import org.springframework.web.context.support.XmlWebApplicationContext;
@@ -59,7 +56,7 @@ public class SpringInitDestroyVerficationTest extends OlatTestCase {
 		ConfigurableListableBeanFactory beanFactory = context.getBeanFactory();
 		
 		Map<String, Initializable> beans = applicationContext.getBeansOfType(Initializable.class);
-		for (Iterator iterator = beans.keySet().iterator(); iterator.hasNext();) {
+		for (Iterator<String> iterator = beans.keySet().iterator(); iterator.hasNext();) {
 			String beanName = (String) iterator.next();
 			try {
 				GenericBeanDefinition beanDef = (GenericBeanDefinition)beanFactory.getBeanDefinition(beanName);
@@ -84,7 +81,7 @@ public class SpringInitDestroyVerficationTest extends OlatTestCase {
 			
 			
 			Map<String, Destroyable> beans = applicationContext.getBeansOfType(Destroyable.class);
-			for (Iterator iterator = beans.keySet().iterator(); iterator.hasNext();) {
+			for (Iterator<String> iterator = beans.keySet().iterator(); iterator.hasNext();) {
 				String beanName = (String) iterator.next();
 				try {
 					GenericBeanDefinition beanDef = (GenericBeanDefinition)beanFactory.getBeanDefinition(beanName);

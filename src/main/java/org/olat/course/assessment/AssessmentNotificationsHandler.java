@@ -176,7 +176,7 @@ public class AssessmentNotificationsHandler implements NotificationsHandler {
 	}
 
 	/**
-	 * Signal the <code>NotificationsManagerImpl</code> about assessment news
+	 * Signal the <code>NotificationsManager</code> about assessment news
 	 * available for a course.<br>
 	 * <br>
 	 * <b>PRE CONDITIONS</b>
@@ -194,7 +194,7 @@ public class AssessmentNotificationsHandler implements NotificationsHandler {
 	}
 
 	/**
-	 * Signal the <code>NotificationsManagerImpl</code> about assessment news
+	 * Signal the <code>NotificationsManager</code> about assessment news
 	 * available on a course.<br>
 	 * <br>
 	 * <b>PRE CONDITIONS</b>
@@ -208,7 +208,7 @@ public class AssessmentNotificationsHandler implements NotificationsHandler {
 	private void markPublisherNews(Identity ident, ICourse course) {
 		SubscriptionContext subsContext = getAssessmentSubscriptionContext(course);
 		if (subsContext != null) {
-			NotificationsManager.getInstance().markPublisherNews(subsContext, ident);
+			NotificationsManager.getInstance().markPublisherNews(subsContext, ident, true);
 		}
 	}
 
@@ -330,7 +330,7 @@ public class AssessmentNotificationsHandler implements NotificationsHandler {
 					final List<Identity> coachedUsers = new ArrayList<Identity>();
 					if (!hasFullAccess) {
 						// initialize list of users, only when user has not full access
-						List<BusinessGroup> coachedGroups = cgm.getOwnedLearningGroupsFromAllContexts(identity);
+						List<BusinessGroup> coachedGroups = cgm.getOwnedBusinessGroups(identity);
 						BaseSecurity securityManager = BaseSecurityManager.getInstance();
 						for (Iterator<BusinessGroup> iter = coachedGroups.iterator(); iter.hasNext();) {
 							BusinessGroup group = iter.next();
@@ -380,12 +380,13 @@ public class AssessmentNotificationsHandler implements NotificationsHandler {
 								}
 
 								String urlToSend = null;
+								String businessPath = null;
 								if(p.getBusinessPath() != null) {
-									String businessPath = p.getBusinessPath() + "[assessmentTool:0][Identity:" + assessedIdentity.getKey() + "][CourseNode:" + test.getIdent() + "]";
+									businessPath = p.getBusinessPath() + "[assessmentTool:0][Identity:" + assessedIdentity.getKey() + "][CourseNode:" + test.getIdent() + "]";
 									urlToSend = BusinessControlFactory.getInstance().getURLFromBusinessPathString(businessPath);
 								}
 								
-								SubscriptionListItem subListItem = new SubscriptionListItem(desc, urlToSend, modDate, CSS_CLASS_USER_ICON);
+								SubscriptionListItem subListItem = new SubscriptionListItem(desc, urlToSend, businessPath, modDate, CSS_CLASS_USER_ICON);
 								if(si == null) {
 									String title = translator.translate("notifications.header", new String[]{course.getCourseTitle()});
 									String css = CourseNodeFactory.getInstance().getCourseNodeConfigurationEvenForDisabledBB(test.getType()).getIconCSSClass();

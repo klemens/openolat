@@ -41,7 +41,7 @@ import org.olat.core.id.Persistable;
 public abstract class PersistentObject implements CreateInfo, Persistable {
 
 	private Long key = null;
-	private int version;
+	private int version = 0;
 	protected Date creationDate;
 	
 	/**
@@ -78,7 +78,7 @@ public abstract class PersistentObject implements CreateInfo, Persistable {
 	 * for hibernate only
 	 * @param key
 	 */
-	private void setKey(Long key) {
+	protected void setKey(Long key) {
 		this.key = key;
 	}
 	

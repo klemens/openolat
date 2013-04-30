@@ -8,7 +8,6 @@
   http://www.springframework.org/schema/context 
   http://www.springframework.org/schema/context/spring-context-3.0.xsd">
 
-<context:annotation-config />
 <context:component-scan base-package="org.olat.instantMessaging" />
 	
 	<bean id="instantMessagingModule" class="org.olat.instantMessaging.InstantMessagingModule" 
@@ -20,6 +19,7 @@
 		<!-- creating instance depending on config in olat.properties -->
 		<property name="sessionCountService" ref="org.olat.im.IMSessionCount${cluster.mode}"/>
 		<property name="buddyGroupService" ref="org.olat.im.IMBuddyGroupService" />
+		<property name="businessGroupService" ref="businessGroupService" />
 		
 		<!-- creating instance depending on config in olat.properties -->
 		<property name="sessionItemsService" ref="org.olat.im.IMSessionItemsService${cluster.mode}" />
@@ -90,7 +90,6 @@
 		<property name="servername" value="${instantMessaging.server.name}" />
 		<property name="nodeId" value="${node.id}" />		
 		<property name="multipleInstances" value="${instantMessaging.multipleInstances}"/>
-		<property name="generateTestUsers" value="${instantMessaging.generateTestUsers}" />
 		<property name="adminName" value="${instantMessaging.admin.username}" />		
 		<property name="adminPassword" value="${instantMessaging.admin.password}" />
 		<property name="replaceStringForEmailAt" value="${instantMessaging.replaceStringForEmailAt}" />
@@ -103,11 +102,9 @@
 		<property name="idlePolltime" value="5000" />
 		<!-- polling intervall while chatting -->
 		<property name="chatPolltime" value="2000" />
-		<!-- synchonisation of olat group as buddy group on IM server. Runs only once -->
-		<property name="syncPersonalGroups" value="${instantMessaging.sync.personal.groups}" />
-		<!-- synchonisation of olat learning group as buddy group on IM server. Runs only once -->
-		<property name="syncLearningGroups" value="${instantMessaging.sync.learning.groups}" />
-		
+		<!-- synchonisation of groups on IM server. -->
+		<property name="syncGroups" value="${instantMessaging.sync.groups}" />
+		<property name="packetReplyTimeout" value="${instantMessaging.packetReplyTimeout}" />
 	</bean>
 	
 	<bean id="org.olat.im.NameHelper" class="org.olat.instantMessaging.IMNameHelper">

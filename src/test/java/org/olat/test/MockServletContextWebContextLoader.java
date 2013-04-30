@@ -26,8 +26,11 @@ package org.olat.test;
 
 import org.springframework.beans.factory.support.BeanDefinitionReader;
 import org.springframework.beans.factory.xml.XmlBeanDefinitionReader;
+import org.springframework.context.ApplicationContext;
 import org.springframework.context.support.GenericApplicationContext;
+import org.springframework.mock.env.MockPropertySource;
 import org.springframework.mock.web.MockServletContext;
+import org.springframework.test.context.MergedContextConfiguration;
 import org.springframework.test.context.support.AbstractContextLoader;
 import org.springframework.util.StringUtils;
 import org.springframework.web.context.WebApplicationContext;
@@ -57,9 +60,10 @@ public class MockServletContextWebContextLoader extends AbstractContextLoader {
 
 			XmlWebApplicationContext appContext = new XmlWebApplicationContext(); 
 			MockServletContext servletContext = new MockServletContext(); 
-
-			servletContext.setAttribute(WebApplicationContext.ROOT_WEB_APPLICATION_CONTEXT_ATTRIBUTE, appContext);  
-
+			servletContext.setAttribute(WebApplicationContext.ROOT_WEB_APPLICATION_CONTEXT_ATTRIBUTE, appContext); 
+			MockPropertySource propertySource = new MockPropertySource();
+			propertySource.setProperty("jms.provider", "activemq");
+			appContext.getEnvironment().getPropertySources().addFirst(propertySource);
 			appContext.setServletContext(servletContext);  
 			appContext.setConfigLocations(locations);
 			appContext.refresh();  
@@ -70,8 +74,12 @@ public class MockServletContextWebContextLoader extends AbstractContextLoader {
 		}
 
 		@Override
+		public ApplicationContext loadContext(MergedContextConfiguration config) throws Exception {
+			return loadContext(config.getLocations());
+		}
+
+		@Override
 		protected String getResourceSuffix() {
-			// TODO Auto-generated method stub
 			return "";
 		}
 

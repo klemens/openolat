@@ -1,4 +1,4 @@
-<ehcache>
+<ehcache updateCheck="false">
 
 	<!-- OLAT uses ehcache as following:
 		- hibernate second level cache
@@ -68,7 +68,21 @@
         overflowToDisk="false"
         />
 
+	<cache name="org.olat.core.util.cache.n.impl.svm.SingleVMCacher@org.olat.core.dispatcher.mapper.MapperService_mapper__0"
+        maxElementsInMemory="10000"
+        eternal="false"
+        timeToIdleSeconds="300"
+        timeToLiveSeconds="300"
+        overflowToDisk="false"
+        />
 
+	<cache name="org.olat.core.util.cache.n.impl.svm.SingleVMCacher@org.olat.modules.openmeetings.manager.OpenMeetingsManager_session__0"
+        maxElementsInMemory="10000"
+        eternal="false"
+        timeToIdleSeconds="900"
+        timeToLiveSeconds="900"
+        overflowToDisk="false"
+        />
 
 	<!-- 
 		specific OLAT caches

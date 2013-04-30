@@ -127,9 +127,8 @@ span.b_toggle_slide_legend {font-size: 90%; }
 }
 
 
-
-.b_link_to_home {
-	> span {padding: 2px 8px 0px 25px; background: transparent url('../openolat/images/card-address.png') no-repeat 4px center;}
+.b_link_left_icon {
+	> span {padding: 2px 8px 0px 25px; background-color: transparent; background-repeat: no-repeat; background-position: 4px center;}
 	@include btt-outer;	
 	/* focused buttons */
 	&:focus,&:hover {
@@ -144,62 +143,36 @@ span.b_toggle_slide_legend {font-size: 90%; }
 		@include o-box-shadow-inset(0, 1px, 2px, rgba(0,0,0,0.3));
 		border-color:$basecolor;
 	}
+}
+
+
+.b_link_to_home {
+	> span {background-image: url('../openolat/images/card-address.png');}
 }
 
 .b_link_course {
-	> span {padding: 2px 8px 0px 25px; background: transparent url('../openolat/images/book-open-next.png') no-repeat 4px center;}
-	@include btt-outer;	
-	/* focused buttons */
-	&:focus,&:hover {
-		text-decoration: none;
-		border:1px solid #C6C6C6;
-		@include o-box-shadow(0, 1px, 1px, rgba(0,0,0,0.1));
-	}
-	&:focus {
-		border-color:$basecolor;
-	}
-	&:active {
-		@include o-box-shadow-inset(0, 1px, 2px, rgba(0,0,0,0.3));
-		border-color:$basecolor;
-	}
+	> span {background-image: url('../openolat/images/book-open-next.png');}
 }
 
 .b_link_group {
-	> span {padding: 2px 8px 0px 25px; background: transparent url('../openolat/images/document-page-next.png') no-repeat 4px center;}
-	@include btt-outer;	
-	/* focused buttons */
-	&:focus,&:hover {
-		text-decoration: none;
-		border:1px solid #C6C6C6;
-		@include o-box-shadow(0, 1px, 1px, rgba(0,0,0,0.1));
-	}
-	&:focus {
-		border-color:$basecolor;
-	}
-	&:active {
-		@include o-box-shadow-inset(0, 1px, 2px, rgba(0,0,0,0.3));
-		border-color:$basecolor;
-	}
+	> span {background-image: url('../openolat/images/document-page-next.png');}
 }
 
 .b_link_mail {
-	> span {padding: 2px 8px 0px 25px; background: transparent url('../openolat/images/mail.png') no-repeat 4px center;}
-	@include btt-outer;	
-	/* focused buttons */
-	&:focus,&:hover {
-		text-decoration: none;
-		border:1px solid #C6C6C6;
-		@include o-box-shadow(0, 1px, 1px, rgba(0,0,0,0.1));
-	}
-	&:focus {
-		border-color:$basecolor;
-	}
-	&:active {
-		@include o-box-shadow-inset(0, 1px, 2px, rgba(0,0,0,0.3));
-		border-color:$basecolor;
-	}
+	> span {background-image: url('../openolat/images/mail.png');}
 }
 
+.b_link_assessment {
+	> span {background-image: url('../openolat/images/le_resources/thumb-up.png');}
+}
+
+.b_link_ok {
+	> span {background-image: url('../openolat/images/tick.png');}
+}
+
+.b_link_nok {
+	> span {background-image: url('../openolat/images/cross.png');}
+}
 
 
 /** ----------------- FORMS + LOGIN  ----------------- **/
@@ -212,6 +185,12 @@ div.o_login {
 		}
 		fieldset legend {
 			display: none;
+		}
+				
+		/* fix pwd length isues on IE by explicitly define width */
+		input {
+			width: 15em;
+			padding: 2px 3px 2px 3px;
 		}
 	}
 }
@@ -250,7 +229,7 @@ fieldset {
 
 div.b_form { 
 	div.b_form_desc { padding-bottom: 1em; font-style: italic;}
-	div.b_form_general_error { padding: 10px 10px 10px 50px; margin-bottom: 20px; text-align: left; background: url(../openolat/images/icon_error_32.png) no-repeat 10px 10px; min-height: 32px; border: 1px solid #990000; color: #990000; font-style: italic;}
+	div.b_form_general_error { padding: 10px 10px 10px 50px; margin-bottom: 20px; text-align: left; background: url(../openolat/images/icon_error_32.png) no-repeat 10px 10px; min-height: 32px; border: 1px solid $nokcolor; color: $nokcolor; font-style: italic;}
 	div.b_form_spacer { margin: 10px 0; }
 	
 	hr {
@@ -258,6 +237,8 @@ div.b_form {
 		&.b_form_spacer.b_form_horizontal { display: inline-block; width: 2em;}
 		&.b_form_spacer.b_form_spacer_noline { margin: 10px 0; border-bottom: 0; padding: 0;}
 	}
+	
+	
 	
 	/* form element wrapper: label and element */
 	div.b_form_element_wrapper { 
@@ -285,9 +266,9 @@ div.b_form {
 	 	
 	 	/** errors  **/
 	 	&.b_form_error {
-	 		input,select {border: 1px solid #990000; background: #ebcccc;}
+	 		input,select {border: 1px solid $nokcolor; background: #ebcccc;}
 	 	}
-	 	div.b_form_error_msg { clear: both; color: #990000; font-style: italic; display: block;}	
+	 	div.b_form_error_msg { clear: both; color: $nokcolor; font-style: italic; display: block;}	
 	 	
 	 	div.b_form_element_wrapper {
 			margin: 0;
@@ -312,6 +293,16 @@ div.b_form {
 	}
 
 }// end div.b_form
+
+div.b_labels_minified div.b_form div.b_form_element_wrapper {
+		div.b_form_element_label {
+			width: 10%;
+		}
+		
+		div.b_form_element {
+			margin-left: 12%;
+		}
+	}
 
 // LOL :)  shift form to left if no labels (see linklist edit for example)
 div.form_shift_left { left: -25%; }
@@ -374,14 +365,40 @@ table.b_choice {
 div.b_fileinput { 
 	position: relative;
 	div.b_fileinput_fakechooser { 
-		position: absolute; top: 0px; left: 0px; z-index: 1; display: inline; white-space: nowrap;
-		a { margin-left: 5px; } 
+		position: relative; 
+		top: 0px; 
+		left: 0px; 
+		z-index: 1; 
+		display: inline; 
+		white-space: nowrap;
+		a { 
+			margin-left: 5px; 
+		} 
 	}
-	span.b_fileinput_maxsize { padding: 1px 0 1px 1em; font-style: italic; min-height: 16px; vertical-align: middle;} /* same as mall icon left */
-	input.b_fileinput_realchooser { position: relative; top: 0; left: 0; z-index: 2; @include o-opacity(0);}
-	div.b_button_group { text-align: left; padding-left: 0; margin-left: 0;}
+	span.b_fileinput_maxsize { 
+		 /* same as mall icon left */
+		padding: 1px 0 1px 1em; 
+		font-style: italic; 
+		min-height: 16px; 
+		vertical-align: middle;
+	}
+	input.b_fileinput_realchooser { 
+		position: absolute; 
+		top: 0; 
+		left: 0;
+		height: 1.8em; 
+		z-index: 2; 
+		@include o-opacity(0); /* this is the magic: visually don't show the input element, but nevertheless catch click events */
+	}
+	div.b_button_group { 	
+		text-align: left; 
+		padding-left: 0; 
+		margin-left: 0;
+	}
 }
-.b_fileinput_icon { background-image: url(../openolat/images/drive.png); }
+.b_fileinput_icon { 
+	background-image: url(../openolat/images/drive.png); 
+}
 
 
 /* PROGRESSBAR */
@@ -407,5 +424,14 @@ div.b_mark {
 }
 	
 	
+/* Fix for firefox strange spacing in button and other input elements (http://stackoverflow.com/questions/5517744/remove-extra-button-spacing-padding-in-firefox) */
+button::-moz-focus-inner,
+input[type="reset"]::-moz-focus-inner, 
+input[type="button"]::-moz-focus-inner, 
+input[type="submit"]::-moz-focus-inner, 
+input[type="file"] > input[type="button"]::-moz-focus-inner {
+    padding: 0;
+    border: 0
+}
 	
 	

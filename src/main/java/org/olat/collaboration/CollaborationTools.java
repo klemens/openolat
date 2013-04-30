@@ -30,8 +30,8 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.Serializable;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Hashtable;
-import java.util.Iterator;
 import java.util.List;
 
 import org.olat.admin.quota.QuotaConstants;
@@ -39,7 +39,6 @@ import org.olat.basesecurity.BaseSecurityManager;
 import org.olat.basesecurity.Constants;
 import org.olat.commons.calendar.CalendarManager;
 import org.olat.commons.calendar.CalendarManagerFactory;
-import org.olat.commons.calendar.model.KalendarConfig;
 import org.olat.commons.calendar.ui.CalendarController;
 import org.olat.commons.calendar.ui.WeeklyCalendarController;
 import org.olat.commons.calendar.ui.components.KalendarRenderWrapper;
@@ -79,8 +78,7 @@ import org.olat.course.CourseModule;
 import org.olat.course.ICourse;
 import org.olat.course.run.calendar.CourseLinkProviderController;
 import org.olat.group.BusinessGroup;
-import org.olat.group.context.BGContextManagerImpl;
-import org.olat.group.ui.BGConfigFlags;
+import org.olat.group.BusinessGroupService;
 import org.olat.instantMessaging.InstantMessagingModule;
 import org.olat.instantMessaging.groupchat.GroupChatManagerController;
 import org.olat.modules.co.ContactFormController;
@@ -91,6 +89,12 @@ import org.olat.modules.fo.ForumUIFactory;
 import org.olat.modules.fo.archiver.ForumArchiveManager;
 import org.olat.modules.fo.archiver.formatters.ForumFormatter;
 import org.olat.modules.fo.archiver.formatters.ForumRTFFormatter;
+import org.olat.modules.openmeetings.OpenMeetingsModule;
+import org.olat.modules.openmeetings.manager.OpenMeetingsException;
+import org.olat.modules.openmeetings.manager.OpenMeetingsManager;
+import org.olat.modules.openmeetings.model.OpenMeetingsRoom;
+import org.olat.modules.openmeetings.model.RoomType;
+import org.olat.modules.openmeetings.ui.OpenMeetingsRunController;
 import org.olat.modules.wiki.WikiManager;
 import org.olat.modules.wiki.WikiSecurityCallback;
 import org.olat.modules.wiki.WikiSecurityCallbackImpl;
@@ -131,12 +135,14 @@ import org.olat.testutils.codepoints.server.Codepoint;
  * @author guido
  */
 public class CollaborationTools implements Serializable {
-	
+
+	private static final long serialVersionUID = -155629068939748789L;
 	boolean dirty = false;
 	private final static String TRUE = "true";
 	private final static String FALSE = "false";
 	public final static String KEY_FORUM = "forumKey";
 	public final static String KEY_PORTFOLIO = "portfolioMapKey";
+	public final static String KEY_OPENMEETINGS = "openMeetingsKey";
 
 	/**
 	 * <code>PROP_CAT_BG_COLLABTOOLS</code> identifies properties concerning
@@ -178,6 +184,11 @@ public class CollaborationTools implements Serializable {
 	public final static String TOOL_PORTFOLIO = "hasPortfolio";
 	
 	/**
+	 * constant used to identify the open meetings for a group
+	 */
+	public final static String TOOL_OPENMEETINGS = "hasOpenMeetings";
+	
+	/**
 	 * public for group test only, do not use otherwise convenience, helps
 	 * iterating possible tools, i.e. in jUnit testCase, also for building up a
 	 * tools choice
@@ -212,10 +223,10 @@ public class CollaborationTools implements Serializable {
 	public final static String KEY_FOLDER_ACCESS = "folder";
 
 	//o_clusterOK by guido
-	Hashtable<String, Boolean> cacheToolStates;
-	final OLATResourceable ores;
+	private Hashtable<String, Boolean> cacheToolStates;
+	private final BusinessGroup ores;
 	
-	OLog log = Tracing.createLoggerFor(this.getClass());
+	private static OLog log = Tracing.createLoggerFor(CollaborationTools.class);
 	private transient CoordinatorManager coordinatorManager;
 
 	/**
@@ -223,7 +234,7 @@ public class CollaborationTools implements Serializable {
 	 * 
 	 * @param ores
 	 */
-	CollaborationTools(CoordinatorManager coordinatorManager, OLATResourceable ores) {
+	CollaborationTools(CoordinatorManager coordinatorManager, BusinessGroup ores) {
 		this.coordinatorManager = coordinatorManager;
 		this.ores = ores;
 		cacheToolStates = new Hashtable<String, Boolean>();
@@ -241,6 +252,11 @@ public class CollaborationTools implements Serializable {
 		if (portfolioModule.isEnabled()) {
 			toolArr.add(TOOL_PORTFOLIO);
 		}	
+		OpenMeetingsModule openMeetingsModule = CoreSpringFactory.getImpl(OpenMeetingsModule.class);
+		if(openMeetingsModule.isEnabled()) {
+			toolArr.add(TOOL_OPENMEETINGS);
+		}
+		
 		TOOLS = ArrayHelper.toArray(toolArr);
 	}
 
@@ -316,7 +332,7 @@ public class CollaborationTools implements Serializable {
 		//final List<Forum> forumHolder = new ArrayList<Forum>();
 		
 		Codepoint.codepoint(CollaborationTools.class, "pre_sync_enter");
-		
+	//TODO gsync
 		Forum forum = coordinatorManager.getCoordinator().getSyncer().doInSync(ores, new SyncerCallback<Forum>(){
 			public Forum execute() {
 				
@@ -416,47 +432,25 @@ public class CollaborationTools implements Serializable {
 	 * @return Configured WeeklyCalendarController
 	 */
 	public CalendarController createCalendarController(UserRequest ureq, WindowControl wControl, BusinessGroup businessGroup, boolean isAdmin) {
-		// do not use a global translator since in the fututre a collaborationtools
-		// may be shared among users
+		CollaborationManager collaborationManager = CoreSpringFactory.getImpl(CollaborationManager.class);
+		KalendarRenderWrapper calRenderWrapper = collaborationManager.getCalendar(businessGroup, ureq, isAdmin);
+	
+		// add linking
+		List<OLATResource> resources = CoreSpringFactory.getImpl(BusinessGroupService.class).findResources(Collections.singleton(businessGroup), 0, -1);
+		
+		List<ICourse> courses = new ArrayList<ICourse>(resources.size());
+		for (OLATResource resource:resources) {
+			if (resource.getResourceableTypeName().equals(CourseModule.getCourseTypeName())) {
+				ICourse course = CourseFactory.loadCourse(resource);
+				courses.add(course);
+			}
+		}
+		if(!courses.isEmpty()) {
+			CourseLinkProviderController clp = new CourseLinkProviderController(null, courses, ureq, wControl);
+			calRenderWrapper.setLinkProvider(clp);
+		}
+
 		List<KalendarRenderWrapper> calendars = new ArrayList<KalendarRenderWrapper>();
-		// get the calendar
-		CalendarManager calManager = CalendarManagerFactory.getInstance().getCalendarManager();
-		KalendarRenderWrapper calRenderWrapper = calManager.getGroupCalendar(businessGroup);
-		boolean isOwner = BaseSecurityManager.getInstance().isIdentityInSecurityGroup(ureq.getIdentity(), businessGroup.getOwnerGroup());
-		if (!(isAdmin || isOwner)) {
-			// check if participants have read/write access
-			int iCalAccess = CollaborationTools.CALENDAR_ACCESS_OWNERS;
-			Long lCalAccess = CollaborationToolsFactory.getInstance().getOrCreateCollaborationTools(businessGroup).lookupCalendarAccess();
-			if (lCalAccess != null) iCalAccess = lCalAccess.intValue();
-			if (iCalAccess == CollaborationTools.CALENDAR_ACCESS_ALL) {
-				calRenderWrapper.setAccess(KalendarRenderWrapper.ACCESS_READ_WRITE);
-			} else {
-				calRenderWrapper.setAccess(KalendarRenderWrapper.ACCESS_READ_ONLY);
-			}
-		} else {
-			calRenderWrapper.setAccess(KalendarRenderWrapper.ACCESS_READ_WRITE);
-		}
-		KalendarConfig config = calManager.findKalendarConfigForIdentity(calRenderWrapper.getKalendar(), ureq);
-		if (config != null) {
-			calRenderWrapper.getKalendarConfig().setCss(config.getCss());
-			calRenderWrapper.getKalendarConfig().setVis(config.isVis());
-		}
-		calRenderWrapper.getKalendarConfig().setResId(businessGroup.getKey());
-		if (businessGroup.getType().equals(BusinessGroup.TYPE_LEARNINGROUP)) {
-			// add linking
-			List<OLATResource> resources = BGContextManagerImpl.getInstance().findOLATResourcesForBGContext(businessGroup.getGroupContext());
-			for (Iterator<OLATResource> iter = resources.iterator(); iter.hasNext();) {
-				OLATResource resource = iter.next();
-				if (resource.getResourceableTypeName().equals(CourseModule.getCourseTypeName())) {
-					ICourse course = CourseFactory.loadCourse(resource);
-					CourseLinkProviderController clp = new CourseLinkProviderController(course, ureq, wControl);
-					calRenderWrapper.setLinkProvider(clp);
-					// for the time being only internal learning groups are supported, therefore we only get
-					// the first course reference.
-					break;
-				}
-			}
-		}
 		calendars.add(calRenderWrapper);
 		
 		WeeklyCalendarController calendarController = new WeeklyCalendarController(
@@ -537,7 +531,7 @@ public class CollaborationTools implements Serializable {
 	public Controller createPortfolioController(final UserRequest ureq, WindowControl wControl, final BusinessGroup group) {
 		final EPFrontendManager ePFMgr = (EPFrontendManager)CoreSpringFactory.getBean("epFrontendManager");
 		final NarrowedPropertyManager npm = NarrowedPropertyManager.getInstance(ores);
-		
+	//TODO gsync
 		PortfolioStructureMap map = coordinatorManager.getCoordinator().getSyncer().doInSync(ores, new SyncerCallback<PortfolioStructureMap>(){
 			public PortfolioStructureMap execute() {
 				PortfolioStructureMap aMap;
@@ -574,6 +568,11 @@ public class CollaborationTools implements Serializable {
 
 		EPSecurityCallback secCallback = new EPSecurityCallbackImpl(true, true);
 		return EPUIFactory.createMapViewController(ureq, wControl, map, secCallback);
+	}
+	
+	public Controller createOpenMeetingsController(final UserRequest ureq, WindowControl wControl, final BusinessGroup group, boolean admin) {
+		OpenMeetingsRunController runController = new OpenMeetingsRunController(ureq, wControl, group, null, null, null, admin, admin);
+		return runController;
 	}
 
 	/**
@@ -651,12 +650,46 @@ public class CollaborationTools implements Serializable {
 		 * news content
 		 */
 		npm.deleteProperties(null, null, PROP_CAT_BG_COLLABTOOLS, null);
+		
+		/*
+		 * Delete OpenMeetings room
+		 */
+		OpenMeetingsModule omModule = CoreSpringFactory.getImpl(OpenMeetingsModule.class);
+		if(omModule.isEnabled()) {
+			OpenMeetingsManager omManager = CoreSpringFactory.getImpl(OpenMeetingsManager.class);
+			try {
+				omManager.deleteAll(ores, null, null);
+			} catch (OpenMeetingsException e) {
+				log.error("A room could not be deleted for group: " + ores, e);
+			}
+		}
 
 		/*
 		 * and last but not least the cache is reseted
 		 */
 		cacheToolStates.clear();
 		this.dirty = true;
+	}
+	
+	
+	private void openOpenMeetingsRoom() {
+		OpenMeetingsModule omModule = CoreSpringFactory.getImpl(OpenMeetingsModule.class);
+		if(!omModule.isEnabled()) return;
+		
+		OpenMeetingsManager omm = CoreSpringFactory.getImpl(OpenMeetingsManager.class);
+		Long roomId = omm.getRoomId(ores, null, null);
+		if(roomId == null) {
+			//create the room
+			OpenMeetingsRoom room = new OpenMeetingsRoom();
+			room.setComment(ores.getDescription());
+			room.setModerated(true);
+			room.setName(ores.getName());
+			room.setRecordingAllowed(true);
+			room.setResourceName(ores.getName());
+			room.setSize(25);
+			room.setType(RoomType.conference.type());
+			omm.addRoom(ores, null, null, room);
+		}
 	}
 
 	/**
@@ -672,11 +705,11 @@ public class CollaborationTools implements Serializable {
 		if (cv != null && cv.booleanValue() == toolValue) {
 			return; // nice, cache saved a needless update
 		}
-		
+
 		// handle Boolean Values via String Field in Property DB Table
 		final String toolValueStr = toolValue ? TRUE : FALSE;
 		final PropertyManager pm = PropertyManager.getInstance();
-		//
+		//TODO gsync
 		coordinatorManager.getCoordinator().getSyncer().doInSync(ores, new SyncerExecutor() {
 			public void execute() {				
 				//was: synchronized (CollaborationTools.class) {
@@ -688,6 +721,12 @@ public class CollaborationTools implements Serializable {
 					// if existing -> update to desired value
 					property.setStringValue(toolValueStr);
 				}
+				
+				//create a room if needed
+				if(toolValue && TOOL_OPENMEETINGS.equals(selectedTool)) {
+					openOpenMeetingsRoom();
+				}
+				
 				// property becomes persistent
 				pm.saveProperty(property);
 			}});
@@ -716,8 +755,8 @@ public class CollaborationTools implements Serializable {
 	 * @param ureq
 	 * @return a collaboration tools settings controller
 	 */
-	public CollaborationToolsSettingsController createCollaborationToolsSettingsController(UserRequest ureq, WindowControl wControl, BGConfigFlags flags) {
-		return new CollaborationToolsSettingsController(ureq, wControl, ores, flags);
+	public CollaborationToolsSettingsController createCollaborationToolsSettingsController(UserRequest ureq, WindowControl wControl) {
+		return new CollaborationToolsSettingsController(ureq, wControl, ores);
 	}
 
 	/**

@@ -37,7 +37,7 @@ import java.util.Set;
 import java.util.StringTokenizer;
 
 import org.dom4j.Document;
-import org.hibernate.Hibernate;
+import org.hibernate.type.StandardBasicTypes;
 import org.hibernate.type.Type;
 import org.olat.admin.user.delete.service.UserDeletionManager;
 import org.olat.basesecurity.BaseSecurityManager;
@@ -78,6 +78,7 @@ import org.olat.ims.qti.container.ItemContext;
 import org.olat.ims.qti.container.ItemInput;
 import org.olat.ims.qti.container.ItemsInput;
 import org.olat.ims.qti.container.SectionContext;
+import org.olat.ims.qti.navigator.NavigatorDelegate;
 import org.olat.ims.qti.process.AssessmentInstance;
 import org.olat.ims.qti.process.FilePersister;
 import org.olat.ims.qti.process.Resolver;
@@ -121,7 +122,7 @@ public class IQManager extends BasicManager implements UserDataDeletable {
 	 *  
 	 */
 	public Controller createIQDisplayController(ModuleConfiguration moduleConfiguration, IQSecurityCallback secCallback, UserRequest ureq,
-			WindowControl wControl, long callingResId, String callingResDetail) {
+			WindowControl wControl, long callingResId, String callingResDetail, NavigatorDelegate delegate) {
 		
 		//two cases:
 		// -- VERY RARE CASE -- 1) qti is open in an editor session right now on the screen (or session on the way to timeout)
@@ -136,7 +137,7 @@ public class IQManager extends BasicManager implements UserDataDeletable {
 					translator.translate("status.currently.locked", new String[] {lockResult.getOwner().getName()}));
 		}else{
 			ThreadLocalUserActivityLogger.addLoggingResourceInfo(LoggingResourceable.wrap(re, OlatResourceableType.iq));
-			return new IQDisplayController(moduleConfiguration, secCallback, ureq, wControl, callingResId, callingResDetail);
+			return new IQDisplayController(moduleConfiguration, secCallback, ureq, wControl, callingResId, callingResDetail, delegate);
 		}
 	}
 
@@ -317,20 +318,19 @@ public class IQManager extends BasicManager implements UserDataDeletable {
 	 * @param ureq
 	 */
 
-	public void persistResults(AssessmentInstance ai, long resId, String resDetail, Identity assessedIdentity, String remoteAddr) {
+	public void persistResults(AssessmentInstance ai) {
 		AssessmentContext ac = ai.getAssessmentContext();
 		
 		QTIResultSet qtiResultSet = new QTIResultSet();
 		qtiResultSet.setLastModified(new Date(System.currentTimeMillis()));
-		qtiResultSet.setOlatResource(resId);
-		qtiResultSet.setOlatResourceDetail(resDetail);
+		qtiResultSet.setOlatResource(ai.getCallingResId());
+		qtiResultSet.setOlatResourceDetail(ai.getCallingResDetail());
 		qtiResultSet.setRepositoryRef(ai.getRepositoryEntryKey());
-		qtiResultSet.setIdentity(assessedIdentity);
+		qtiResultSet.setIdentity(ai.getAssessedIdentity());
 		qtiResultSet.setQtiType(ai.getType());
 		qtiResultSet.setAssessmentID(ai.getAssessID());
 		
 		qtiResultSet.setDuration(new Long(ai.getAssessmentContext().getDuration()));
-		// TODO qtiResultSet.setLastModified();
 		
 		if (ai.isSurvey()){
 			qtiResultSet.setScore(0);
@@ -359,7 +359,7 @@ public class IQManager extends BasicManager implements UserDataDeletable {
 				else qtiResult.setScore(ic.getScore());
 				qtiResult.setTstamp(new Date(ic.getLatestAnswerTime()));
 				qtiResult.setLastModified(new Date(System.currentTimeMillis()));
-				qtiResult.setIp(remoteAddr);
+				qtiResult.setIp(ai.getRemoteAddr());
 				
 				// Get user answers for this item
 				StringBuilder sb = new StringBuilder();
@@ -405,7 +405,7 @@ public class IQManager extends BasicManager implements UserDataDeletable {
 	public List findQtiResults(long assessmentID) {
 		DB persister = DBFactory.getInstance();
 		return persister.find("from q in class org.olat.ims.qti.QTIResult where q.assessmentID = ?",
-				new Long(assessmentID), Hibernate.LONG);
+				new Long(assessmentID), StandardBasicTypes.LONG);
 	}
 
 	/**
@@ -418,7 +418,7 @@ public class IQManager extends BasicManager implements UserDataDeletable {
 		DB persister = DBFactory.getInstance();
 		return persister.find("from q in class org.olat.ims.qti.QTIResult where "
 				+ "q.assessmentID = ? and q.versionid = ?", new Object[]{new Long(assessmentID), new Long(versionID)},
-				new Type[]{Hibernate.LONG, Hibernate.LONG});
+				new Type[]{StandardBasicTypes.LONG, StandardBasicTypes.LONG});
 	}
 	
 	/**
@@ -432,7 +432,7 @@ public class IQManager extends BasicManager implements UserDataDeletable {
 		DB persister = DBFactory.getInstance();
 		return persister.find("from q in class org.olat.ims.qti.QTIResult where "
 				+ "q.assessmentID = ? and q.versionid = ? and q.itemident = ?", new Object[]{new Long(assessmentID),
-				new Long(versionID), itemIdent}, new Type[]{Hibernate.LONG, Hibernate.LONG, Hibernate.STRING});
+				new Long(versionID), itemIdent}, new Type[]{StandardBasicTypes.LONG, StandardBasicTypes.LONG, StandardBasicTypes.STRING});
 	}
 	
 	/**
@@ -542,7 +542,7 @@ public class IQManager extends BasicManager implements UserDataDeletable {
 		DB persister = DBFactory.getInstance();
 		List resultSetList =  persister.find("from q in class org.olat.ims.qti.QTIResultSet where "
 				+ "q.identity = ? and q.olatResource = ? and q.olatResourceDetail = ? order by q.creationDate desc", new Object[]{identity.getKey(), new Long(olatResource), new String(olatResourceDetail)},
-				new Type[]{Hibernate.LONG, Hibernate.LONG, Hibernate.STRING});
+				new Type[]{StandardBasicTypes.LONG, StandardBasicTypes.LONG, StandardBasicTypes.STRING});
 		Iterator resultSetIterator = resultSetList.iterator();
 		while(resultSetIterator.hasNext()) {
 			returnQTIResultSet = (QTIResultSet)resultSetIterator.next();

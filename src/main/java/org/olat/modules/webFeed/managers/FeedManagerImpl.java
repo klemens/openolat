@@ -29,6 +29,7 @@ import java.util.Date;
 import java.util.List;
 
 import org.olat.admin.quota.QuotaConstants;
+import org.olat.core.CoreSpringFactory;
 import org.olat.core.commons.modules.bc.vfs.OlatRootFolderImpl;
 import org.olat.core.commons.persistence.PersistenceHelper;
 import org.olat.core.commons.services.commentAndRating.CommentAndRatingService;
@@ -94,7 +95,7 @@ import com.thoughtworks.xstream.XStream;
  * 
  * @author Gregor Wassmann
  */
-public abstract class FeedManagerImpl extends FeedManager {
+public class FeedManagerImpl extends FeedManager {
 	private static final int PICTUREWIDTH = 570; // same as in repository metadata image upload
 	
 	private RepositoryManager repositoryManager;
@@ -206,7 +207,7 @@ public abstract class FeedManagerImpl extends FeedManager {
 	public void delete(OLATResourceable feed) {
 		fileResourceManager.deleteFileResource(feed);
 		// Delete comments and ratings
-		CommentAndRatingService commentAndRatingService = getCommentAndRatingService();
+		CommentAndRatingService commentAndRatingService = CoreSpringFactory.getImpl(CommentAndRatingService.class);
 		if (commentAndRatingService != null) {				
 			commentAndRatingService.init(null, feed, null, true, false);
 			commentAndRatingService.deleteAllIgnoringSubPath();
@@ -255,6 +256,19 @@ public abstract class FeedManagerImpl extends FeedManager {
 		return myFeed;
 	}
 
+	/**
+	 * @see org.olat.modules.webFeed.managers.FeedManager#getItem(org.olat.modules.webFeed.models.Feed, java.lang.String)
+	 */
+	public Item getItem(Feed feed, String GUID) {
+		for (Item item : feed.getItems()) {
+			if (item.getGuid().equals(GUID)) {
+				return item;
+			}
+		}
+		return null;
+	}
+
+	
 	/**
 	 * Puts the feed to the feedCache in a synchronized manner.
 	 * 
@@ -564,12 +578,12 @@ public abstract class FeedManagerImpl extends FeedManager {
 	 *      org.olat.modules.webFeed.models.Feed)
 	 */
 	@Override
-	public void remove(final Item item,  final Feed feed) {		
+	public Feed remove(final Item item,  final Feed feed) {		
 		// synchronize all feed item CUD operations on this feed to prevend
 		// overwriting of changes
 		// o_clusterOK by:fg
-		coordinator.getSyncer().doInSync(feed, new SyncerCallback<Object>() {
-			public VFSLeaf execute() {
+		return coordinator.getSyncer().doInSync(feed, new SyncerCallback<Feed>() {
+			public Feed execute() {
 				// reload feed to prevent stale feed overwriting
 				@SuppressWarnings("synthetic-access")
 				Feed reloadedFeed = getFeed(feed, false);
@@ -593,13 +607,13 @@ public abstract class FeedManagerImpl extends FeedManager {
 				update(reloadedFeed, false);
 				
 				// Delete comments and ratings
-				CommentAndRatingService commentAndRatingService = getCommentAndRatingService();
+				CommentAndRatingService commentAndRatingService = CoreSpringFactory.getImpl(CommentAndRatingService.class);
 				if (commentAndRatingService != null) {				
 					commentAndRatingService.init(null, feed, item.getGuid(), true, false);
 					commentAndRatingService.deleteAll();
 				}
 				// 
-				return null;
+				return reloadedFeed;
 			}
 		});
 	}
@@ -610,14 +624,14 @@ public abstract class FeedManagerImpl extends FeedManager {
 	 *      org.olat.modules.webFeed.models.Feed)
 	 */
 	@Override
-	public void addItem(final Item item, final FileElement file, final Feed feed) {
+	public Feed addItem(final Item item, final FileElement file, final Feed feed) {
 		if (feed.isInternal()) {
 			// synchronize all feed item CUD operations on this feed to prevent
 			// overwriting of changes
 			// o_clusterOK by:fg
-			coordinator.getSyncer().doInSync(feed, new SyncerCallback<Object>() {
+			return coordinator.getSyncer().doInSync(feed, new SyncerCallback<Feed>() {
 				@SuppressWarnings("synthetic-access")
-				public VFSLeaf execute() {
+				public Feed execute() {
 					// reload feed to prevent stale feed overwriting
 					Feed reloadedFeed = getFeed(feed, false);
 					// Set the current date as published date.
@@ -637,10 +651,11 @@ public abstract class FeedManagerImpl extends FeedManager {
 
 					// Save the feed (needed because of itemIds list)
 					update(reloadedFeed, false);
-					return null;
+					return reloadedFeed;
 				}
 			});
 		}
+		return null;
 	}
 
 	/**
@@ -905,14 +920,14 @@ public abstract class FeedManagerImpl extends FeedManager {
 	 *      org.olat.modules.webFeed.models.Feed)
 	 */
 	@Override
-	public void updateItem(final Item item, final FileElement file, final Feed feed) {
+	public Feed updateItem(final Item item, final FileElement file, final Feed feed) {
 		if (feed.isInternal()) {
 			// synchronize all feed item CUD operations on this feed to prevent
 			// overwriting of changes
 			// o_clusterOK by:fg
-			coordinator.getSyncer().doInSync(feed, new SyncerCallback<Object>() {
+			return coordinator.getSyncer().doInSync(feed, new SyncerCallback<Feed>() {
 				@SuppressWarnings("synthetic-access")
-				public VFSLeaf execute() {
+				public Feed execute() {
 					// reload feed to prevent stale feed overwriting
 					Feed reloadedFeed = getFeed(feed, false);
 					if (reloadedFeed.getItemIds().contains(item.getGuid())) {
@@ -924,10 +939,11 @@ public abstract class FeedManagerImpl extends FeedManager {
 					} else {
 						// do nothing, item was deleted by someone in the meantime
 					}
-					return null;
+					return reloadedFeed;
 				}
 			});			
 		}
+		return null;
 	}
 
 	/**

@@ -107,7 +107,7 @@ public class JavaScriptTracingController extends BasicController {
 				String jsFile = request.getParameter("jsFile");
 				// currently only debug level is supported but in the future...
 				String level = request.getParameter("level");
-				if (level.equals("debug")) {
+				if (level != null && level.equals("debug") && logMsg != null) {
 					// log to standard OLAT logging system
 					logDebug(logMsg, jsFile);
 				}
@@ -123,7 +123,7 @@ public class JavaScriptTracingController extends BasicController {
 				return mediaResource;
 			}
 		};
-		String mapperUri = registerMapper(mapper);
+		String mapperUri = registerMapper(ureq, mapper);
 
 		// push some variables to the header that are needed to initialize the
 		// JS Tracing

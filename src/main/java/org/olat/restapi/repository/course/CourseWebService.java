@@ -75,8 +75,8 @@ import org.olat.repository.handlers.RepositoryHandler;
 import org.olat.repository.handlers.RepositoryHandlerFactory;
 import org.olat.resource.OLATResource;
 import org.olat.resource.OLATResourceManager;
+import org.olat.resource.accesscontrol.ACService;
 import org.olat.resource.accesscontrol.AccessResult;
-import org.olat.resource.accesscontrol.manager.ACFrontendManager;
 import org.olat.restapi.security.RestSecurityHelper;
 import org.olat.restapi.support.ErrorWindowControl;
 import org.olat.restapi.support.ObjectFactory;
@@ -127,7 +127,10 @@ public class CourseWebService {
 	@Path("groups")
 	public CourseGroupWebService getCourseGroupWebService(@PathParam("courseId") Long courseId) {
 		OLATResource ores = getCourseOLATResource(courseId);
-		return new CourseGroupWebService(ores);
+		if(ores != null) {
+			return new CourseGroupWebService(ores);
+		}
+		return null;
 	}
 
 	/**
@@ -245,7 +248,7 @@ public class CourseWebService {
 		try {
 			lockResult = typeToDownload.acquireLock(ores, identity);
 			if (lockResult == null || (lockResult != null && lockResult.isSuccess() && !isAlreadyLocked)) {
-				MediaResource mr = typeToDownload.getAsMediaResource(ores);
+				MediaResource mr = typeToDownload.getAsMediaResource(ores, false);
 				if (mr != null) {
 					RepositoryManager.getInstance().incrementDownloadCounter(re);
 					return Response.ok(mr.getInputStream()).cacheControl(cc).build(); // success
@@ -655,7 +658,7 @@ public class CourseWebService {
 
 		Identity identity = getIdentity(request);
 		RepositoryEntry entry = RepositoryManager.getInstance().lookupRepositoryEntry(course, true);
-		ACFrontendManager acManager = CoreSpringFactory.getImpl(ACFrontendManager.class);
+		ACService acManager = CoreSpringFactory.getImpl(ACService.class);
 		AccessResult result = acManager.isAccessible(entry, identity, false);
 		if(result.isAccessible()) {
 			return true;

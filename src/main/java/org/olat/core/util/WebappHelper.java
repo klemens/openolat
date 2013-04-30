@@ -230,11 +230,23 @@ public class WebappHelper implements Initializable, Destroyable, ServletContextA
 	}
 
 	public void setFullPathToSrc(String fullPathToSrc) {
-		WebappHelper.fullPathToSrc = fullPathToSrc;
+		File path = new File(fullPathToSrc);
+		if (path.exists()) {
+			WebappHelper.fullPathToSrc = fullPathToSrc;			
+		} else {
+			log.debug("Invalid fullPathToSrc configuration, reset to empty path");
+			WebappHelper.fullPathToSrc = "";
+		}
  	}
 
 	public void setFullPathToWebappSrc(String fullPathToWebappSrc) {
-		WebappHelper.fullPathToWebappSrc = fullPathToWebappSrc;
+		File path = new File(fullPathToWebappSrc);
+		if (path.exists()) {
+			WebappHelper.fullPathToWebappSrc = fullPathToWebappSrc;
+		} else {
+			log.debug("Invalid fullPathToWebappSrc configuration, reset to empty path");
+			WebappHelper.fullPathToWebappSrc = "";
+		}
  	}
 	
 	/**
@@ -258,14 +270,18 @@ public class WebappHelper implements Initializable, Destroyable, ServletContextA
 	public static String getUserDataRoot() {
 		return userDataRoot;
 	}
+	
+	public static String getTmpDir() {
+		return System.getProperty("java.io.tmpdir");
+	}
 
 	/**
 	 * [spring]
 	 * @param userDataRoot
 	 */
 	public void setUserDataRoot(String userDataRoot) {
-		if (! StringHelper.containsNonWhitespace(userDataRoot)) {
-			userDataRoot = System.getProperty("java.io.tmpdir")+"/olatdata";
+		if (!StringHelper.containsNonWhitespace(userDataRoot)) {
+			userDataRoot = System.getProperty("java.io.tmpdir") + "/olatdata";
 			log.info("using java.io.tmpdir as userdata. this is the default if userdata.dir is not set");
 		}
 		File fUserData = new File(userDataRoot);
@@ -274,7 +290,6 @@ public class WebappHelper implements Initializable, Destroyable, ServletContextA
 		}
 		//fxdiff: reset tmp-dir from within application to circumvent startup-params. 
 		//do not write to system default (/var/tmp) as this leads to permission problems with multiple instances on one host!
-		System.setProperty("java.io.tmpdir", userDataRoot+"/tmp");
 		log.info("Setting userdata root to: "+userDataRoot);
 		WebappHelper.userDataRoot = userDataRoot;
 	}

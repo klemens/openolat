@@ -26,10 +26,9 @@
 
 package org.olat.core.gui.components.htmlsite;
 
-import javax.servlet.http.HttpServletRequest;
-
+import org.olat.core.CoreSpringFactory;
 import org.olat.core.dispatcher.mapper.Mapper;
-import org.olat.core.dispatcher.mapper.MapperRegistry;
+import org.olat.core.dispatcher.mapper.MapperService;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.Component;
 import org.olat.core.gui.components.ComponentRenderer;
@@ -147,8 +146,7 @@ public class HtmlStaticPageComponent extends Component implements AsyncMediaResp
 					checkRegular = false;
 				} else {
 					// it is a html page with olatraw parameter => redirect to mapper
-					MapperRegistry mapperRegistry = MapperRegistry.getInstanceFor(ureq.getUserSession());
-					Mapper mapper = createMapper(rootContainer);
+					Mapper mapper = new HtmlStaticMapper(rootContainer);
 					// NOTE: do not deregister this mapper, since it could be used a lot later (since it is opened in a new browser window)
 					String amapPath;
 					
@@ -156,12 +154,12 @@ public class HtmlStaticPageComponent extends Component implements AsyncMediaResp
 					String mapperID = VFSManager.getRealPath(rootContainer);
 					if (mapperID == null) {
 						// Can't cache mapper, no cacheable context available
-						amapPath  = mapperRegistry.register(mapper);
+						amapPath  = CoreSpringFactory.getImpl(MapperService.class).register(ureq.getUserSession(), mapper);
 					} else {
 						// Add classname to the file path to remove conflicts with other
 						// usages of the same file path
 						mapperID = this.getClass().getSimpleName() + ":" + mapperID;
-						amapPath  = mapperRegistry.registerCacheable(mapperID, mapper);				
+						amapPath  = CoreSpringFactory.getImpl(MapperService.class).register(ureq.getUserSession(), mapperID, mapper);				
 					}
 
 
@@ -191,28 +189,6 @@ public class HtmlStaticPageComponent extends Component implements AsyncMediaResp
 		// -> do a normal inline rendering (reload)
 		return mr;
 	}
-
-	private Mapper createMapper(final VFSContainer mapperRootContainer) {
-		
-		Mapper map = new Mapper() {
-			public MediaResource handle(String relPath, HttpServletRequest request) {
-				Tracing.logDebug("CPComponent Mapper relPath=" + relPath,HtmlStaticPageComponent.class);
-				VFSItem currentItem = mapperRootContainer.resolve(relPath);
-				if (currentItem == null || (currentItem instanceof VFSContainer)) {
-					return new NotFoundMediaResource(relPath);
-				}
-				VFSMediaResource vmr = new VFSMediaResource((VFSLeaf)currentItem);
-				String encoding = SimpleHtmlParser.extractHTMLCharset(((VFSLeaf)currentItem));
-				Tracing.logDebug("CPComponent Mapper set encoding=" + encoding,HtmlStaticPageComponent.class);
-				vmr.setEncoding(encoding);// 
-				return vmr;
-			}
-			
-		};
-		return map;
-	}
-
-
 
 	/**
 	 * Sets the start html page, may be null

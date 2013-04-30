@@ -29,6 +29,7 @@ import java.util.Date;
 import java.util.List;
 import java.util.Locale;
 
+import org.olat.core.CoreSpringFactory;
 import org.olat.core.gui.translator.Translator;
 import org.olat.core.id.Identity;
 import org.olat.core.id.context.BusinessControlFactory;
@@ -45,7 +46,7 @@ import org.olat.core.util.notifications.SubscriptionInfo;
 import org.olat.core.util.notifications.items.SubscriptionListItem;
 import org.olat.core.util.notifications.items.TitleItem;
 import org.olat.group.BusinessGroup;
-import org.olat.group.BusinessGroupManagerImpl;
+import org.olat.group.BusinessGroupService;
 import org.olat.notifications.NotificationsUpgradeHelper;
 import org.olat.repository.RepositoryManager;
 
@@ -103,11 +104,13 @@ public class ForumNotificationsHandler extends LogDelegator implements Notificat
 					final String descKey = "notifications.entry" + (mInfo.getCreationDate().equals(mInfo.getLastModified()) ? "" : ".modified");
 					final String desc = translator.translate(descKey, new String[] { title, name });
 					String urlToSend = null;
+					String businessPath = null;
 					if(p.getBusinessPath() != null) {
-						urlToSend = BusinessControlFactory.getInstance().getURLFromBusinessPathString(businessControlString + mInfo.getKey().toString() + "]");
+						businessPath = businessControlString + mInfo.getKey().toString() + "]";
+						urlToSend = BusinessControlFactory.getInstance().getURLFromBusinessPathString(businessPath);
 					}
 					
-					SubscriptionListItem subListItem = new SubscriptionListItem(desc, urlToSend, modDate, ForumHelper.CSS_ICON_CLASS_MESSAGE);
+					SubscriptionListItem subListItem = new SubscriptionListItem(desc, urlToSend, businessPath, modDate, ForumHelper.CSS_ICON_CLASS_MESSAGE);
 					si.addSubscriptionListItem(subListItem);
 				}
 			} else {
@@ -124,7 +127,7 @@ public class ForumNotificationsHandler extends LogDelegator implements Notificat
 	private void checkPublisher(Publisher p) {
 		try {
 			if("BusinessGroup".equals(p.getResName())) {
-				BusinessGroup bg = BusinessGroupManagerImpl.getInstance().loadBusinessGroup(p.getResId(), false);
+				BusinessGroup bg = CoreSpringFactory.getImpl(BusinessGroupService.class).loadBusinessGroup(p.getResId());
 				if(bg == null) {
 					logInfo("deactivating publisher with key; " + p.getKey(), null);
 					NotificationsManager.getInstance().deactivate(p);
@@ -153,7 +156,7 @@ public class ForumNotificationsHandler extends LogDelegator implements Notificat
 		String title;
 		try {
 			if("BusinessGroup".equals(type)) {
-				BusinessGroup bg = BusinessGroupManagerImpl.getInstance().loadBusinessGroup(resId, false);
+				BusinessGroup bg = CoreSpringFactory.getImpl(BusinessGroupService.class).loadBusinessGroup(resId);
 				title = translator.translate("notifications.header.group", new String[]{bg.getName()});
 			} else if ("CourseModule".equals(type)) {
 				String displayName = RepositoryManager.getInstance().lookupDisplayNameByOLATResourceableId(resId);

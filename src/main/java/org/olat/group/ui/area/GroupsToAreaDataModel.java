@@ -25,6 +25,7 @@
 
 package org.olat.group.ui.area;
 
+import java.util.ArrayList;
 import java.util.List;
 
 import org.olat.core.gui.components.table.DefaultTableDataModel;
@@ -36,8 +37,8 @@ import org.olat.group.BusinessGroup;
  * 
  * @author gnaegi
  */
-public class GroupsToAreaDataModel extends DefaultTableDataModel {
-	List inAreaGroups;
+public class GroupsToAreaDataModel extends DefaultTableDataModel<BusinessGroup> {
+	private final List<BusinessGroup> inAreaGroups;
 
 	/**
 	 * Constructor for the GroupsToAreaDataModel
@@ -46,7 +47,7 @@ public class GroupsToAreaDataModel extends DefaultTableDataModel {
 	 * @param inAreaGroups All groups that are associated to the group area. The
 	 *          checked rows.
 	 */
-	public GroupsToAreaDataModel(List allGroups, List inAreaGroups) {
+	public GroupsToAreaDataModel(List<BusinessGroup> allGroups, List<BusinessGroup> inAreaGroups) {
 		super(allGroups);
 		this.inAreaGroups = inAreaGroups;
 	}
@@ -63,19 +64,16 @@ public class GroupsToAreaDataModel extends DefaultTableDataModel {
 	 */
 	public Object getValueAt(int row, int col) {
 		if (col == 0) {
-			return inAreaGroups.contains(getGroup(row)) ? Boolean.TRUE : Boolean.FALSE;
+			return inAreaGroups.contains(getObject(row)) ? Boolean.TRUE : Boolean.FALSE;
 		} else if (col == 1) {
-			return getGroup(row).getName();
+			return getObject(row).getName();
 		} else {
 			return "ERROR";
 		}
 	}
 
-	/**
-	 * @param row
-	 * @return the group at the given position
-	 */
-	public BusinessGroup getGroup(int row) {
-		return (BusinessGroup) super.getObject(row);
+	@Override
+	public GroupsToAreaDataModel createCopyWithEmptyList() {
+		return new GroupsToAreaDataModel(new ArrayList<BusinessGroup>(), inAreaGroups);
 	}
 }

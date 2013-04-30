@@ -71,9 +71,9 @@ public class MailController extends FormBasicController {
 		this.mail = mail;
 		this.back = back;
 		mailManager = MailManager.getInstance();
-		attachments = MailManager.getInstance().getAttachments(mail);
+		attachments = mailManager.getAttachments(mail);
 		if(!attachments.isEmpty()) {
-			mapperBaseURI = registerMapper(new MailAttachmentMapper(mail, mailManager));
+			mapperBaseURI = registerMapper(ureq, new MailAttachmentMapper(mailManager));
 		}
 		initForm(ureq);
 	}

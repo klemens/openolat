@@ -32,7 +32,6 @@ import org.olat.core.gui.control.Event;
 import org.olat.core.gui.control.WindowControl;
 import org.olat.core.gui.control.controller.MainLayoutBasicController;
 import org.olat.core.gui.control.generic.layout.MainLayout3ColumnsController;
-import org.olat.core.gui.control.winmgr.JSCommand;
 
 /**
  * <h3>Description:</h3> This layouter controller provides a fullscreen view
@@ -117,6 +116,10 @@ public class LayoutMain3ColsBackController extends MainLayoutBasicController imp
 		else
 			getWindowControl().pushToMainArea(backVC);
 	}
+	
+	public boolean isFullScreen() {
+		return fullScreen;
+	}
 
 	// fxdiff FXOLAT-116: SCORM improvements
 	public void setAsFullscreen(UserRequest ureq) {
@@ -135,7 +138,7 @@ public class LayoutMain3ColsBackController extends MainLayoutBasicController imp
 	public void deactivate() {
 		getWindowControl().pop();
 		// fxdiff FXOLAT-116: SCORM improvements
-		if (fullScreen) {
+		if (fullScreen && thebaseChief != null) {
 			thebaseChief.removeBodyCssClass("b_full_screen");
 		}
 	}

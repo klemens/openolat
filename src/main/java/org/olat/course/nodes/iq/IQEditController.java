@@ -36,12 +36,13 @@ import org.olat.basesecurity.BaseSecurityManager;
 import org.olat.basesecurity.Constants;
 import org.olat.commons.file.filechooser.FileChooseCreateEditController;
 import org.olat.commons.file.filechooser.LinkChooseCreateEditController;
-import org.olat.core.commons.fullWebApp.LayoutMain3ColsPreviewController;
+import org.olat.core.commons.fullWebApp.LayoutMain3ColsController;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.Component;
 import org.olat.core.gui.components.link.Link;
 import org.olat.core.gui.components.link.LinkFactory;
 import org.olat.core.gui.components.panel.Panel;
+import org.olat.core.gui.components.stack.StackedController;
 import org.olat.core.gui.components.tabbedpane.TabbedPane;
 import org.olat.core.gui.components.velocity.VelocityContainer;
 import org.olat.core.gui.control.Controller;
@@ -187,9 +188,10 @@ public class IQEditController extends ActivateableTabbableDefaultController impl
 	private Link changeTestButton;
 	private IQEditReplaceWizard replaceWizard;
 	private List<Identity> learners;
-	private LayoutMain3ColsPreviewController previewLayoutCtr;
+	private Controller previewLayoutCtr;
 	private CloseableModalController cmc;
 	private Link editTestButton;
+	private final StackedController stackPanel;
 
 	/**
 	 * Constructor for the IMS QTI edit controller for a test course node
@@ -201,9 +203,9 @@ public class IQEditController extends ActivateableTabbableDefaultController impl
 	 * @param groupMgr
 	 * @param euce
 	 */
-	IQEditController(UserRequest ureq, WindowControl wControl, ICourse course, IQTESTCourseNode courseNode, CourseGroupManager groupMgr, UserCourseEnvironment euce) {
+	IQEditController(UserRequest ureq, WindowControl wControl, StackedController stackPanel, ICourse course, IQTESTCourseNode courseNode, CourseGroupManager groupMgr, UserCourseEnvironment euce) {
 		super(ureq, wControl);
-		
+		this.stackPanel = stackPanel;
 		this.moduleConfiguration = courseNode.getModuleConfiguration();
 		//o_clusterOk by guido: save to hold reference to course inside editor
 		this.course = course;
@@ -235,9 +237,9 @@ public class IQEditController extends ActivateableTabbableDefaultController impl
 	 * @param groupMgr
 	 * @param euce
 	 */
-	 IQEditController(UserRequest ureq, WindowControl wControl, ICourse course, IQSELFCourseNode courseNode, CourseGroupManager groupMgr, UserCourseEnvironment euce) {
+	 IQEditController(UserRequest ureq, WindowControl wControl, StackedController stackPanel, ICourse course, IQSELFCourseNode courseNode, CourseGroupManager groupMgr, UserCourseEnvironment euce) {
 		super(ureq, wControl);
-		
+		this.stackPanel = stackPanel;
 		this.moduleConfiguration = courseNode.getModuleConfiguration();
 		this.course = course;
 		this.courseNode = courseNode;
@@ -266,9 +268,9 @@ public class IQEditController extends ActivateableTabbableDefaultController impl
 	 * @param groupMgr
 	 * @param euce
 	 */
-	 IQEditController(UserRequest ureq, WindowControl wControl, ICourse course, IQSURVCourseNode courseNode, CourseGroupManager groupMgr, UserCourseEnvironment euce) {
+	 IQEditController(UserRequest ureq, WindowControl wControl, StackedController stackPanel, ICourse course, IQSURVCourseNode courseNode, CourseGroupManager groupMgr, UserCourseEnvironment euce) {
 		super(ureq, wControl);
-		
+		this.stackPanel = stackPanel;
 		this.moduleConfiguration = courseNode.getModuleConfiguration();
 		this.course = course;
 		this.courseNode = courseNode;
@@ -296,7 +298,9 @@ public class IQEditController extends ActivateableTabbableDefaultController impl
 		
 		myContent = this.createVelocityContainer("edit");		
 		chooseTestButton = LinkFactory.createButtonSmall("command.chooseRepFile", myContent, this);
+		chooseTestButton.setElementCssClass("o_sel_test_choose_repofile");
 		changeTestButton = LinkFactory.createButtonSmall("command.changeRepFile", myContent, this);
+		changeTestButton.setElementCssClass("o_sel_test_change_repofile");
 		modConfigForm = new IQEditForm(ureq, wControl, moduleConfiguration);
 		listenTo(modConfigForm);
 		myContent.put("iqeditform",modConfigForm.getInitialComponent());
@@ -381,12 +385,10 @@ public class IQEditController extends ActivateableTabbableDefaultController impl
 			}
 		} else if (source == previewLink){
 			// handle preview
-			if (previewLayoutCtr != null) previewLayoutCtr.dispose();
 			Controller previewController = IQManager.getInstance().createIQDisplayController(moduleConfiguration, new IQPreviewSecurityCallback(), ureq, getWindowControl(), course
-					.getResourceableId().longValue(), courseNode.getIdent());
-			previewLayoutCtr = new LayoutMain3ColsPreviewController(ureq, getWindowControl(), null, null, previewController.getInitialComponent(), null);
-			previewLayoutCtr.addDisposableChildController(previewController);
-			previewLayoutCtr.activate();
+					.getResourceableId().longValue(), courseNode.getIdent(), null);
+			previewLayoutCtr = new LayoutMain3ColsController(ureq, getWindowControl(), previewController);
+			stackPanel.pushController(translate("preview"), previewLayoutCtr);
 			
 		} else if (source == chooseTestButton){// initiate search controller
 			if (type.equals(AssessmentInstance.QMD_ENTRY_TYPE_SURVEY)) {
@@ -413,7 +415,6 @@ public class IQEditController extends ActivateableTabbableDefaultController impl
 				} else {//survey
 					types = new String[]{SurveyFileResource.TYPE_NAME};
 				}
-				RepositoryEntry re = courseNode.getReferencedRepositoryEntry();
 				//look if there are PASSED entries in changelog
 				//if yes create archive of results and all users can be notified about the changed test configuration
 				String repositorySoftKey = (String) courseNode.getModuleConfiguration().get(IQEditController.CONFIG_KEY_REPOSITORY_SOFTKEY);
@@ -642,8 +643,7 @@ public class IQEditController extends ActivateableTabbableDefaultController impl
 		VFSContainer vfsUnzippedRoot = new LocalFolderImpl(unzippedRoot);
 		VFSItem vfsQTI = vfsUnzippedRoot.resolve("qti.xml");
 		if (vfsQTI==null){
-			throw new AssertException("qti file did not exist even it should be guaranteed by repositor check-in "
-					+ ((LocalFileImpl)vfsQTI).getBasefile().getAbsolutePath());
+			throw new AssertException("qti file did not exist even it should be guaranteed by repositor check-in ");
 		}
 		//ensures that InputStream is closed in every case.
 		Document doc = QTIHelper.getDocument((LocalFileImpl)vfsQTI);

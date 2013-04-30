@@ -31,9 +31,13 @@ import org.olat.course.ICourse;
 import org.olat.course.Structure;
 import org.olat.course.assessment.AssessmentManager;
 import org.olat.course.auditing.UserNodeAuditManager;
+import org.olat.course.config.CourseConfig;
 import org.olat.course.groupsandrights.CourseGroupManager;
 import org.olat.course.properties.CoursePropertyManager;
 import org.olat.course.run.environment.CourseEnvironment;
+import org.olat.group.BusinessGroup;
+import org.olat.group.area.BGArea;
+import org.olat.resource.OLATResource;
 
 /**
  * Provides a PreviewCourseEnvironment without using the PreviewConfigController and the PreviewSettingsForm.
@@ -46,16 +50,18 @@ import org.olat.course.run.environment.CourseEnvironment;
 public class PreviewConfigHelper {
 
 	public static CourseEnvironment getPreviewCourseEnvironment(boolean isCoach, boolean isCourseAdmin, ICourse course) {
-		//generateEnvironment();				
-		final CourseGroupManager cgm = new PreviewCourseGroupManager(new ArrayList(), new ArrayList(), isCoach, isCourseAdmin);
+		//generateEnvironment();
+		final OLATResource courseResource = course.getCourseEnvironment().getCourseGroupManager().getCourseResource();
+		final CourseGroupManager cgm = new PreviewCourseGroupManager(courseResource, new ArrayList<BusinessGroup>(), new ArrayList<BGArea>(), isCoach, isCourseAdmin);
 		final UserNodeAuditManager auditman = new PreviewAuditManager();
 		final AssessmentManager am = new PreviewAssessmentManager();
 		final CoursePropertyManager cpm = new PreviewCoursePropertyManager();
 		final Structure runStructure = course.getEditorTreeModel().createStructureForPreview();
 		final String title = course.getCourseTitle();
+		final CourseConfig courseConfig = course.getCourseEnvironment().getCourseConfig();
 
 		CourseEnvironment previewCourseEnvironment = new PreviewCourseEnvironment(title, runStructure, new Date(), course.getCourseFolderContainer(), 
-				course.getCourseBaseContainer(),course.getResourceableId(), cpm, cgm, auditman, am);			
+				course.getCourseBaseContainer(),course.getResourceableId(), cpm, cgm, auditman, am, courseConfig);			
 		
 		return previewCourseEnvironment;
 	}

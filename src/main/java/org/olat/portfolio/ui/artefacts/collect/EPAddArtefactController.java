@@ -44,6 +44,7 @@ import org.olat.portfolio.manager.EPFrontendManager;
 import org.olat.portfolio.model.artefacts.AbstractArtefact;
 import org.olat.portfolio.model.artefacts.EPTextArtefact;
 import org.olat.portfolio.model.artefacts.FileArtefact;
+import org.olat.portfolio.model.structel.PortfolioStructure;
 
 /**
  * Description:<br>
@@ -70,6 +71,8 @@ public class EPAddArtefactController extends BasicController {
 	private VFSContainer vfsTemp;
 	private VelocityContainer addLinkVC;
 	private CloseableCalloutWindowController calloutCtr;
+	
+	private PortfolioStructure preSelectedStruct;
 
 	public EPAddArtefactController(UserRequest ureq, WindowControl wControl) {
 		super(ureq, wControl);
@@ -77,6 +80,7 @@ public class EPAddArtefactController extends BasicController {
 		portfolioModule = (PortfolioModule) CoreSpringFactory.getBean("portfolioModule");
 		addLinkVC = createVelocityContainer("addLink");
 		addBtn = LinkFactory.createButton("add.artefact", addLinkVC, this);
+		addBtn.setElementCssClass("o_sel_add_artfeact");
 		putInitialPanel(addLinkVC);
 	}
 
@@ -85,15 +89,18 @@ public class EPAddArtefactController extends BasicController {
 		EPArtefactHandler<?> textHandler = portfolioModule.getArtefactHandler(EPTextArtefact.TEXT_ARTEFACT_TYPE);
 		if (textHandler != null && textHandler.isEnabled()) {
 			textBtn = LinkFactory.createLink("add.text.artefact", addPage, this);
+			textBtn.setElementCssClass("o_sel_add_text_artfeact");
 		}
 		EPArtefactHandler<?> fileHandler = portfolioModule.getArtefactHandler(FileArtefact.FILE_ARTEFACT_TYPE);
 		if (fileHandler != null && fileHandler.isEnabled()) {
 			uploadBtn = LinkFactory.createLink("add.artefact.upload", addPage, this);
+			uploadBtn.setElementCssClass("o_sel_add_upload_artfeact");
 		}
 		EPArtefactHandler<?> liveblogHandler = portfolioModule.getArtefactHandler(LiveBlogArtefact.TYPE);
 		if (liveblogHandler != null && liveblogHandler.isEnabled()) {
 			liveBlogBtn = LinkFactory.createLink("add.artefact.liveblog", addPage, this);
 			liveBlogBtn.setCustomDisplayText(translate("add.artefact.blog"));
+			liveBlogBtn.setElementCssClass("o_sel_add_liveblog_artfeact");
 		}
 		
 		importBtn = LinkFactory.createLink("add.artefact.import", addPage, this); // not yet available, for v2 when import/export exists
@@ -109,6 +116,14 @@ public class EPAddArtefactController extends BasicController {
 		calloutCtr.activate();
 	}
 	
+	public PortfolioStructure getPreSelectedStruct() {
+		return preSelectedStruct;
+	}
+
+	public void setPreSelectedStruct(PortfolioStructure preSelectedStruct) {
+		this.preSelectedStruct = preSelectedStruct;
+	}
+
 	private void closeAddLinkPopup(){
 		if (calloutCtr != null) {
 			calloutCtr.deactivate();
@@ -186,10 +201,10 @@ public class EPAddArtefactController extends BasicController {
 		artefact1.setSignature(-20);
 
 		vfsTemp = ePFMgr.getArtefactsTempContainer(getIdentity());
-		Step start = new EPCreateTextArtefactStep00(ureq, artefact1, vfsTemp);
+		Step start = new EPCreateTextArtefactStep00(ureq, artefact1, preSelectedStruct, vfsTemp);
 		StepRunnerCallback finish = new EPArtefactWizzardStepCallback(vfsTemp);
 		collectStepsCtrl = new StepsMainRunController(ureq, getWindowControl(), start, finish, null,
-				translate("create.text.artefact.wizzard.title"));
+				translate("create.text.artefact.wizzard.title"), "o_sel_artefact_add_wizard o_sel_artefact_add_text_wizard");
 		listenTo(collectStepsCtrl);
 		getWindowControl().pushAsModalDialog(collectStepsCtrl.getInitialComponent());
 	}
@@ -209,10 +224,10 @@ public class EPAddArtefactController extends BasicController {
 		artefact1.setSignature(-30);
 
 		vfsTemp = ePFMgr.getArtefactsTempContainer(getIdentity());
-		Step start = new EPCreateFileArtefactStep00(ureq, artefact1, vfsTemp);
+		Step start = new EPCreateFileArtefactStep00(ureq, artefact1, preSelectedStruct, vfsTemp);
 		StepRunnerCallback finish = new EPArtefactWizzardStepCallback(vfsTemp);
 		collectStepsCtrl = new StepsMainRunController(ureq, getWindowControl(), start, finish, null,
-				translate("create.file.artefact.wizzard.title"));
+				translate("create.file.artefact.wizzard.title"), "o_sel_artefact_add_wizard o_sel_artefact_add_file_wizard");
 		listenTo(collectStepsCtrl);
 		getWindowControl().pushAsModalDialog(collectStepsCtrl.getInitialComponent());
 	}
@@ -224,10 +239,10 @@ public class EPAddArtefactController extends BasicController {
 		artefact1.setCollectionDate(new Date());
 		artefact1.setSignature(60); // preset as signed by 60%
 
-		Step start = new EPCreateLiveBlogArtefactStep00(ureq, artefact1);
+		Step start = new EPCreateLiveBlogArtefactStep00(ureq, preSelectedStruct, artefact1);
 		StepRunnerCallback finish = new EPArtefactWizzardStepCallback(); // no vfsTemp!, blog doesn't need a directory
 		collectStepsCtrl = new StepsMainRunController(ureq, getWindowControl(), start, finish, null,
-				translate("create.blog.artefact.wizzard.title"));
+				translate("create.blog.artefact.wizzard.title"), "o_sel_artefact_add_wizard o_sel_artefact_add_blog_wizard");
 		listenTo(collectStepsCtrl);
 		getWindowControl().pushAsModalDialog(collectStepsCtrl.getInitialComponent());
 	}

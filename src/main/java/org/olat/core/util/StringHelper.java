@@ -209,7 +209,7 @@ public class StringHelper {
 	 * @param m The (hash) map with the key and values
 	 * @return The string array containing all keys for this map
 	 */
-	public static String[] getMapKeysAsStringArray(Map m) {
+	public static String[] getMapKeysAsStringArray(Map<String,?> m) {
 		return (String[]) m.keySet().toArray(new String[m.size()]);
 	}
 
@@ -219,7 +219,7 @@ public class StringHelper {
 	 * @param m The (hash) map with the key and values
 	 * @return The string array containing all values for this map
 	 */
-	public static String[] getMapValuesAsStringArray(Map m) {
+	public static String[] getMapValuesAsStringArray(Map<?,String> m) {
 		return (String[]) m.values().toArray(new String[m.size()]);
 	}
 
@@ -293,12 +293,12 @@ public class StringHelper {
 	 * @return "email1, email2, email3," or null if emailRecipientIdentites was
 	 *         null
 	 */
-	public static String formatIdentitesAsEmailToString(final List emailRecipients, String delimiter) {
+	public static String formatIdentitesAsEmailToString(final List<String> emailRecipients, String delimiter) {
 		int elCnt = emailRecipients.size();
 		//2..n recipients
 		StringBuilder tmpDET = new StringBuilder();
 		for (int i = 0; i < elCnt; i++) {
-			tmpDET.append((String) emailRecipients.get(i));
+			tmpDET.append(emailRecipients.get(i));
 			if (i < elCnt - 1) {
 				tmpDET.append(delimiter);
 			}
@@ -328,6 +328,44 @@ public class StringHelper {
 		s = s.replace('/', '_');
 		s = s.replace(' ', '_');
 		return s;
+	}
+	
+	public static boolean isLong(String string) {
+		if(string == null || string.length() == 0) {
+			return false;
+		}
+		char[] charArr = string.toCharArray();
+		for(int i=charArr.length; i-->0; ) {
+			char ch = charArr[i];
+			if(ch < 47 || ch > 58) {
+				return false;
+			}
+		}
+		return true;
+	}
+	
+	public static String replaceAllCaseInsensitive(String expression, String name, String replacement) {
+		if(!StringHelper.containsNonWhitespace(expression)) {
+			return expression;
+		}
+		
+		String lcExpresion = expression.toLowerCase();
+		String lcName = name.toLowerCase();
+
+		int index = 0;
+		while((index = lcExpresion.indexOf(lcName, index)) > 0) {
+			int startIndex = index;
+			int stopIndex = index + lcName.length();
+			
+			String newExpression = expression.substring(0, startIndex);
+			newExpression += replacement;
+			newExpression += expression.substring(stopIndex);
+			
+			expression = newExpression;
+			lcExpresion = expression.toLowerCase();
+			index = startIndex + replacement.length();	
+		}
+		return expression;
 	}
 
 	/**

@@ -29,6 +29,7 @@ import java.util.Locale;
 
 import org.olat.admin.SystemAdminMainController;
 import org.olat.admin.UserAdminMainController;
+import org.olat.core.CoreSpringFactory;
 import org.olat.core.commons.chiefcontrollers.BaseChiefController;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.control.WindowControl;
@@ -45,18 +46,15 @@ import org.olat.course.assessment.AssessmentManager;
 import org.olat.course.nodes.ta.DropboxController;
 import org.olat.course.nodes.ta.ReturnboxController;
 import org.olat.group.BusinessGroup;
-import org.olat.group.BusinessGroupManager;
-import org.olat.group.BusinessGroupManagerImpl;
+import org.olat.group.BusinessGroupService;
 import org.olat.group.ui.BGControllerFactory;
-import org.olat.group.ui.context.BGContextManagementController;
-import org.olat.group.ui.main.BGMainController;
-import org.olat.home.InviteeHomeMainController;
+import org.olat.gui.demo.GUIDemoMainController;
 import org.olat.home.HomeMainController;
+import org.olat.home.InviteeHomeMainController;
 import org.olat.repository.RepositoryEntry;
 import org.olat.repository.RepositoryManager;
 import org.olat.repository.RepositoyUIFactory;
 import org.olat.repository.controllers.RepositoryMainController;
-import org.olat.test.GUIDemoMainController;
 
 
 /**
@@ -78,7 +76,7 @@ public class ControllerFactory {
 	 *          call will just return null.
 	 * @return the created controller
 	 */
-	public static MainLayoutController createLaunchController(OLATResourceable olatResourceable, String initialViewIdentifier, UserRequest ureq,
+	public static MainLayoutController createLaunchController(OLATResourceable olatResourceable, UserRequest ureq,
 			WindowControl wControl, boolean exceptIfNoneFound) {
 		Roles roles = ureq.getUserSession().getRoles();
 		if (olatResourceable == null) {
@@ -86,20 +84,19 @@ public class ControllerFactory {
 			// normal home
 			if (ureq.getUserSession().getRoles().isGuestOnly()) return new HomeMainController(ureq, wControl);
 
-		} else if (OresHelper.isOfType(olatResourceable, BGMainController.class)) {
-			if (roles.isGuestOnly()) throw new OLATSecurityException("Tried to launch a BuddyGroupMainController, but is in guest group " + roles);
-			return BGControllerFactory.getInstance().createBuddyGroupMainController(ureq, wControl, initialViewIdentifier);
+		} else if (OresHelper.isOfType(olatResourceable, "BGMainController")) {
+			if (roles.isGuestOnly()) throw new OLATSecurityException("Tried to launch a GroupMainController, but is in guest group " + roles);
+			return BGControllerFactory.getInstance().createGroupMainController(ureq, wControl);
 
 		} else if (OresHelper.isOfType(olatResourceable, BusinessGroup.class)) {
 			if (roles.isGuestOnly()) throw new OLATSecurityException("Tried to launch a BusinessGroup, but is in guest group " + roles);
-			BusinessGroupManager bgm = BusinessGroupManagerImpl.getInstance();
-			BusinessGroup bg = bgm.loadBusinessGroup(olatResourceable.getResourceableId(), exceptIfNoneFound);
-			boolean isOlatAdmin = ureq.getUserSession().getRoles().isOLATAdmin();
+			BusinessGroupService bgs = CoreSpringFactory.getImpl(BusinessGroupService.class);
+			BusinessGroup bg = bgs.loadBusinessGroup(olatResourceable.getResourceableId());
 			// check if allowed to start (must be member or admin)
-			if (isOlatAdmin || bgm.isIdentityInBusinessGroup(ureq.getIdentity(), bg)) {	
+			if (ureq.getUserSession().getRoles().isOLATAdmin() || ureq.getUserSession().getRoles().isGroupManager()
+					|| bgs.isIdentityInBusinessGroup(ureq.getIdentity(), bg)) {	
 				// only olatadmins or admins of this group can administer this group
-				return BGControllerFactory.getInstance().createRunControllerFor(ureq, wControl, bg, isOlatAdmin,
-						initialViewIdentifier);
+				return BGControllerFactory.getInstance().createRunControllerFor(ureq, wControl, bg);
 			}
 			// else skip
 
@@ -108,7 +105,7 @@ public class ControllerFactory {
 			// entry key
 			RepositoryManager rm = RepositoryManager.getInstance();
 			RepositoryEntry re = rm.lookupRepositoryEntry(olatResourceable.getResourceableId());
-			MainLayoutController ctrl = RepositoyUIFactory.createLaunchController(re, initialViewIdentifier, ureq, wControl);
+			MainLayoutController ctrl = RepositoyUIFactory.createLaunchController(re, ureq, wControl);
 			if (ctrl != null) return ctrl;
 
 		} else if (OresHelper.isOfType(olatResourceable, CourseModule.class)) {
@@ -120,7 +117,7 @@ public class ControllerFactory {
 			// can only be called by a repoentry
 			RepositoryManager rm = RepositoryManager.getInstance();
 			RepositoryEntry re = rm.lookupRepositoryEntry(olatResourceable, false);
-			MainLayoutController ctrl = RepositoyUIFactory.createLaunchController(re, initialViewIdentifier, ureq, wControl);
+			MainLayoutController ctrl = RepositoyUIFactory.createLaunchController(re, ureq, wControl);
 			if (ctrl != null) return ctrl;
 		} else if (OresHelper.isOfType(olatResourceable, AssessmentManager.class)) {
 			// gets called by subscription launcher
@@ -134,9 +131,11 @@ public class ControllerFactory {
 			// publisher data provides not existing assessmentManager resource
 			OLATResourceable fakedCourseResource = OresHelper.createOLATResourceableInstance(CourseModule.class, olatResourceable.getResourceableId());
 			RepositoryEntry re = rm.lookupRepositoryEntry(fakedCourseResource, false);
-			MainLayoutController ctrl = RepositoyUIFactory.createLaunchController(re, "assessmentTool", ureq, wControl);
-			
-			if (ctrl != null) return ctrl;
+			MainLayoutController ctrl = RepositoyUIFactory.createLaunchController(re, ureq, wControl);
+			if (ctrl != null) {
+				//TODO "assessmentTool"
+				return ctrl;
+			}
 		} else if (OresHelper.isOfType(olatResourceable, DropboxController.class)) {
 			// JumpIn-handling for task-dropbox notification 
 			RepositoryManager rm = RepositoryManager.getInstance();
@@ -145,14 +144,17 @@ public class ControllerFactory {
 			if (re == null) {
 				return null;// found no repositoryEntry => return null
 			}
-			MainLayoutController ctrl = RepositoyUIFactory.createLaunchController(re, "assessmentTool:nodeChoose", ureq, wControl);	
-			if (ctrl != null) return ctrl;
+			MainLayoutController ctrl = RepositoyUIFactory.createLaunchController(re, ureq, wControl);	
+			if (ctrl != null) {
+				//TODO "assessmentTool:nodeChoose"
+				return ctrl;
+			}
 		} else if (OresHelper.isOfType(olatResourceable, ReturnboxController.class)) {
 			// JumpIn-handling for task-returnbox notification 
 			RepositoryManager rm = RepositoryManager.getInstance();
 			OLATResourceable fakedCourseResource = OresHelper.createOLATResourceableInstance(CourseModule.class, olatResourceable.getResourceableId());
 			RepositoryEntry re = rm.lookupRepositoryEntry(fakedCourseResource, false);
-			MainLayoutController ctrl = RepositoyUIFactory.createLaunchController(re, initialViewIdentifier, ureq, wControl);	
+			MainLayoutController ctrl = RepositoyUIFactory.createLaunchController(re, ureq, wControl);	
 			if (ctrl != null) return ctrl;
 		}
 
@@ -169,10 +171,6 @@ public class ControllerFactory {
 		} else if (OresHelper.isOfType(olatResourceable, UserAdminMainController.class)) {
 			if (!roles.isUserManager()) throw new OLATSecurityException("Tried to launch a UserAdminMainController, but is not in admin group " + roles);
 			return new UserAdminMainController(ureq, wControl);
-		} else if (OresHelper.isOfType(olatResourceable, BGContextManagementController.class)) {
-			if (!roles.isGroupManager()) throw new OLATSecurityException("Tried to launch a BGContextManagementController, but is not in group groupmanager "
-					+ roles);
-			return new BGContextManagementController(ureq, wControl);
 		} else if (OresHelper.isOfType(olatResourceable, InviteeHomeMainController.class)) {
 			if (!roles.isInvitee()) throw new OLATSecurityException("Tried to launch a InviteeMainController, but is not an invitee " + roles);
 			return new InviteeHomeMainController(ureq, wControl);
@@ -195,8 +193,8 @@ public class ControllerFactory {
 			MainLayoutController ctrl;
 			if(re == null){
 				ctrl = null;
-			}else{
-				ctrl = RepositoyUIFactory.createLaunchController(re, initialViewIdentifier, ureq, wControl);
+			} else {
+				ctrl = RepositoyUIFactory.createLaunchController(re, ureq, wControl);
 			}
 			if (ctrl != null) return ctrl;
 		}

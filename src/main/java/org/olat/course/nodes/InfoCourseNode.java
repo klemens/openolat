@@ -25,6 +25,7 @@ import java.util.List;
 import org.olat.commons.info.manager.InfoMessageFrontendManager;
 import org.olat.commons.info.model.InfoMessage;
 import org.olat.core.gui.UserRequest;
+import org.olat.core.gui.components.stack.StackedController;
 import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.WindowControl;
 import org.olat.core.gui.control.generic.tabbable.TabbableController;
@@ -38,6 +39,7 @@ import org.olat.course.condition.interpreter.ConditionInterpreter;
 import org.olat.course.editor.CourseEditorEnv;
 import org.olat.course.editor.NodeEditController;
 import org.olat.course.editor.StatusDescription;
+import org.olat.course.export.CourseEnvironmentMapper;
 import org.olat.course.nodes.info.InfoCourseNodeConfiguration;
 import org.olat.course.nodes.info.InfoCourseNodeEditController;
 import org.olat.course.nodes.info.InfoPeekViewController;
@@ -82,6 +84,20 @@ public class InfoCourseNode extends AbstractAccessableCourseNode {
 	}
 	
 	@Override
+	public void postImport(CourseEnvironmentMapper envMapper) {
+		super.postImport(envMapper);
+		postImportCondition(preConditionEdit, envMapper);
+		postImportCondition(preConditionAdmin, envMapper);
+	}
+
+	@Override
+	public void postExport(CourseEnvironmentMapper envMapper, boolean backwardsCompatible) {
+		super.postExport(envMapper, backwardsCompatible);
+		postExportCondition(preConditionEdit, envMapper, backwardsCompatible);
+		postExportCondition(preConditionAdmin, envMapper, backwardsCompatible);
+	}
+	
+	@Override
 	public boolean needsReferenceToARepositoryEntry() {
 		return false;
 	}
@@ -107,7 +123,7 @@ public class InfoCourseNode extends AbstractAccessableCourseNode {
 
 
 	@Override
-	public TabbableController createEditController(UserRequest ureq, WindowControl wControl, ICourse course, UserCourseEnvironment euce) {
+	public TabbableController createEditController(UserRequest ureq, WindowControl wControl, StackedController stackPanel, ICourse course, UserCourseEnvironment euce) {
 		InfoCourseNodeEditController childTabCntrllr = new InfoCourseNodeEditController(ureq, wControl, getModuleConfiguration(), this, course, euce);
 		CourseNode chosenNode = course.getEditorTreeModel().getCourseNode(euce.getCourseEditorEnv().getCurrentCourseNodeId());
 		return new NodeEditController(ureq, wControl, course.getEditorTreeModel(), course, chosenNode, course.getCourseEnvironment()
@@ -207,7 +223,8 @@ public class InfoCourseNode extends AbstractAccessableCourseNode {
 	 */
 	public void cleanupOnDelete(ICourse course) {
 		// delete infoMessages and subscriptions (OLAT-6171)
-		List<InfoMessage>  messages = InfoMessageFrontendManager.getInstance().loadInfoMessageByResource(course,null, null, null, null, 0, 0);
+		String resSubpath = getIdent();
+		List<InfoMessage>  messages = InfoMessageFrontendManager.getInstance().loadInfoMessageByResource(course, resSubpath, null, null, null, 0, 0);
 		InfoMessageFrontendManager infoMessageManager = InfoMessageFrontendManager.getInstance();
 		for (InfoMessage im : messages) {
 			infoMessageManager.deleteInfoMessage(im);

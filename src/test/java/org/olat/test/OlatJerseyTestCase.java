@@ -28,7 +28,6 @@ package org.olat.test;
 
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.StringWriter;
 import java.net.URI;
 import java.util.List;
 
@@ -36,18 +35,14 @@ import javax.servlet.Servlet;
 import javax.servlet.http.HttpServlet;
 import javax.ws.rs.core.UriBuilder;
 
-import org.apache.http.Header;
-import org.apache.http.HttpResponse;
 import org.codehaus.jackson.JsonFactory;
 import org.codehaus.jackson.map.ObjectMapper;
 import org.codehaus.jackson.type.TypeReference;
-import org.junit.After;
 import org.junit.Before;
 import org.olat.core.logging.OLog;
 import org.olat.core.logging.Tracing;
 import org.olat.restapi.RestModule;
 import org.olat.restapi.security.RestApiLoginFilter;
-import org.olat.restapi.security.RestSecurityHelper;
 import org.olat.restapi.support.OlatRestApplication;
 import org.olat.restapi.support.vo.ErrorVO;
 import org.olat.restapi.support.vo.FileVO;
@@ -56,7 +51,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 
 import com.sun.grizzly.http.embed.GrizzlyWebServer;
 import com.sun.grizzly.http.servlet.ServletAdapter;
-import com.sun.jersey.test.framework.spi.container.TestContainer;
 
 /**
  * 
@@ -100,6 +94,7 @@ public abstract class OlatJerseyTestCase extends OlatTestCase {
 	private void instantiateGrizzlyWebServer() {
 		if(webServer == null) {
 			webServer = new GrizzlyWebServer(PORT);
+			webServer.useAsynchronousWrite(false);
 			ServletAdapter sa = new ServletAdapter();
 			Servlet servletInstance = null;
 			try {
@@ -111,7 +106,7 @@ public abstract class OlatJerseyTestCase extends OlatTestCase {
 			sa.addFilter(new RestApiLoginFilter(), "jerseyfilter", null);
 			sa.addInitParameter("javax.ws.rs.Application", OlatRestApplication.class.getName());
 			sa.setContextPath("/" + CONTEXT_PATH);
-			webServer.addGrizzlyAdapter(sa, null);
+			webServer.addGrizzlyAdapter(sa, new String[]{""});
 		}
 	}
 	
@@ -137,28 +132,6 @@ public abstract class OlatJerseyTestCase extends OlatTestCase {
 			log.error("Cannot start the Grizzly Web Container");
 		}
   }
-
-	protected <T> T parse(String body, Class<T> cl) {
-		try {
-			ObjectMapper mapper = new ObjectMapper(jsonFactory);
-			T obj = mapper.readValue(body, cl);
-			return obj;
-		} catch (Exception e) {
-			e.printStackTrace();
-			return null;
-		}
-	}
-	
-	protected <T> T parse(InputStream body, Class<T> cl) {
-		try {
-			ObjectMapper mapper = new ObjectMapper(jsonFactory);
-			T obj = mapper.readValue(body, cl);
-			return obj;
-		} catch (Exception e) {
-			e.printStackTrace();
-			return null;
-		}
-	}
 	
 	protected List<ErrorVO> parseErrorArray(InputStream body) {
 		try {

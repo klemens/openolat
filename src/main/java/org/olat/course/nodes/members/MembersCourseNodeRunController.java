@@ -51,7 +51,6 @@ import org.olat.core.id.User;
 import org.olat.core.id.UserConstants;
 import org.olat.core.id.context.BusinessControl;
 import org.olat.core.id.context.BusinessControlFactory;
-import org.olat.core.util.StringHelper;
 import org.olat.core.util.mail.ContactList;
 import org.olat.core.util.mail.ContactMessage;
 import org.olat.course.CourseFactory;
@@ -98,7 +97,7 @@ public class MembersCourseNodeRunController extends FormBasicController {
 	public MembersCourseNodeRunController(UserRequest ureq, WindowControl wControl, CourseNode courseNode, UserCourseEnvironment userCourseEnv) {
 		super(ureq, wControl, "members");
 		
-		avatarBaseURL = registerCacheableMapper("avatars-members", new AvatarMapper());
+		avatarBaseURL = registerCacheableMapper(ureq, "avatars-members", new AvatarMapper());
 		
 		rm = RepositoryManager.getInstance();
 		securityManager = BaseSecurityManager.getInstance();
@@ -116,10 +115,9 @@ public class MembersCourseNodeRunController extends FormBasicController {
 		ICourse course = CourseFactory.loadCourse(courseResId);
 		RepositoryEntry courseRepositoryEntry = rm.lookupRepositoryEntry(course, true);
 		List<Identity> owners = securityManager.getIdentitiesOfSecurityGroup(courseRepositoryEntry.getOwnerGroup());
-		List<Identity> coaches = cgm.getCoachesFromLearningGroup(null);
-		//fxdiff VCRP-1,2: access control of resources
+		List<Identity> coaches = new ArrayList<Identity>(cgm.getCoachesFromBusinessGroups());
 		coaches.addAll(cgm.getCoaches());
-		List<Identity> participants = cgm.getParticipantsFromLearningGroup(null);
+		List<Identity> participants = new ArrayList<Identity>(cgm.getParticipantsFromBusinessGroups());
 		participants.addAll(cgm.getParticipants());
 		Comparator<Identity> idComparator = new IdentityComparator();
 		Collections.sort(owners, idComparator);

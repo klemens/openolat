@@ -31,6 +31,7 @@ import java.util.List;
 import java.util.Locale;
 
 import org.olat.basesecurity.BaseSecurityManager;
+import org.olat.core.CoreSpringFactory;
 import org.olat.core.gui.translator.Translator;
 import org.olat.core.id.Identity;
 import org.olat.core.id.OLATResourceable;
@@ -55,7 +56,7 @@ import org.olat.course.nodes.wiki.WikiEditController;
 import org.olat.course.run.environment.CourseEnvironment;
 import org.olat.fileresource.types.WikiResource;
 import org.olat.group.BusinessGroup;
-import org.olat.group.BusinessGroupManagerImpl;
+import org.olat.group.BusinessGroupService;
 import org.olat.modules.ModuleConfiguration;
 import org.olat.notifications.NotificationsUpgradeHelper;
 import org.olat.repository.RepositoryEntry;
@@ -141,17 +142,18 @@ public class WikiPageChangeOrCreateNotificationHandler extends LogDelegator impl
 								}
 
 								//build Businesscontrol-Path						
-								String bControlString = businessControlString + element.getPageName() + "]";						
+								String businessPath = null;						
 								String urlToSend = null;
 								if(p.getBusinessPath() != null) {
-									urlToSend = BusinessControlFactory.getInstance().getURLFromBusinessPathString(bControlString);
+									businessPath = businessControlString + element.getPageName() + "]";		
+									urlToSend = BusinessControlFactory.getInstance().getURLFromBusinessPathString(businessPath);
 								}
 								
 								// string[] gets filled into translation key by adding {0...n} to
 								// the string
 								Identity ident = BaseSecurityManager.getInstance().loadIdentityByKey(Long.valueOf(element.getModifyAuthor()));
 								String desc = translator.translate("notifications.entry", new String[] { element.getPageName(), NotificationHelper.getFormatedName(ident)});							
-								subListItem = new SubscriptionListItem(desc, urlToSend, modDate, CSS_CLASS_WIKI_PAGE_CHANGED_ICON);
+								subListItem = new SubscriptionListItem(desc, urlToSend, businessPath,  modDate, CSS_CLASS_WIKI_PAGE_CHANGED_ICON);
 								si.addSubscriptionListItem(subListItem);
 							} else {
 								//there are no more new pages so we stop here
@@ -173,7 +175,7 @@ public class WikiPageChangeOrCreateNotificationHandler extends LogDelegator impl
 	private void checkPublisher(Publisher p) {
 		try {
 			if("BusinessGroup".equals(p.getResName())) {
-				BusinessGroup bg = BusinessGroupManagerImpl.getInstance().loadBusinessGroup(p.getResId(), false);
+				BusinessGroup bg = CoreSpringFactory.getImpl(BusinessGroupService.class).loadBusinessGroup(p.getResId());
 				if(bg == null) {
 					logInfo("deactivating publisher with key; " + p.getKey(), null);
 					NotificationsManager.getInstance().deactivate(p);
@@ -199,7 +201,7 @@ public class WikiPageChangeOrCreateNotificationHandler extends LogDelegator impl
 		String type = p.getResName();
 		String title;
 		if("BusinessGroup".equals(type)) {
-			BusinessGroup bg = BusinessGroupManagerImpl.getInstance().loadBusinessGroup(resId, false);
+			BusinessGroup bg = CoreSpringFactory.getImpl(BusinessGroupService.class).loadBusinessGroup(resId);
 			title = translator.translate("notifications.header.group", new String[]{bg.getName()});
 		} else if (CourseModule.getCourseTypeName().equals(type)) {
 			String displayName = RepositoryManager.getInstance().lookupDisplayNameByOLATResourceableId(resId);

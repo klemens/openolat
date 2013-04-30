@@ -48,6 +48,7 @@ import org.olat.core.id.context.ContextEntryControllerCreator;
 import org.olat.core.id.context.TabContext;
 import org.olat.core.logging.AssertException;
 import org.olat.core.logging.LogDelegator;
+import org.olat.core.util.UserSession;
 import org.olat.core.util.resource.OresHelper;
 import org.olat.repository.RepositoryEntry;
 import org.olat.repository.RepositoryManager;
@@ -124,6 +125,18 @@ public class NewControllerFactory extends LogDelegator {
 		}
 		return false;
 	}
+	
+	/**
+	 * Launch a controller in a tab or a site with the business path
+	 * @param businessPath
+	 * @param ureq
+	 * @param origControl
+	 */
+	public boolean launch(String businessPath, UserRequest ureq, WindowControl origControl) {
+		BusinessControl bc = BusinessControlFactory.getInstance().createFromString(businessPath);
+	  WindowControl bwControl = BusinessControlFactory.getInstance().createBusinessWindowControl(bc, origControl);
+	  return launch(ureq, bwControl);
+	}
 
 	/**
 	 * Launch a controller in a tab or site in the given window from a user
@@ -132,7 +145,7 @@ public class NewControllerFactory extends LogDelegator {
 	 * @param ureq
 	 * @param wControl
 	 */
-	public void launch(UserRequest ureq, WindowControl wControl) {
+	public boolean launch(UserRequest ureq, WindowControl wControl) {
 		BusinessControl bc = wControl.getBusinessControl();
 		ContextEntry mainCe = bc.popLauncherContextEntry();
 		OLATResourceable ores = mainCe.getOLATResourceable();
@@ -151,7 +164,8 @@ public class NewControllerFactory extends LogDelegator {
 		}
 
 		// was brasato:: DTabs dts = wControl.getDTabs();
-		Window window = Windows.getWindows(ureq.getUserSession()).getWindow(ureq);
+		UserSession usess = ureq.getUserSession();
+		Window window = Windows.getWindows(usess).getWindow(ureq);
 
 		if (window == null) {
 			logDebug("Found no window for jumpin => take WindowBackOffice", null);
@@ -161,7 +175,7 @@ public class NewControllerFactory extends LogDelegator {
 		DTab dt = dts.getDTab(ores);
 		if (dt != null) {
 			// tab already open => close it
-			dts.removeDTab(dt);// disposes also dt and controllers
+			dts.removeDTab(ureq, dt);// disposes also dt and controllers
 		}
 
 		String firstType = mainCe.getOLATResourceable().getResourceableTypeName();
@@ -169,11 +183,11 @@ public class NewControllerFactory extends LogDelegator {
 		ContextEntryControllerCreator typeHandler = contextEntryControllerCreators.get(firstType);
 		if (typeHandler == null) {
 			logWarn("Cannot found an handler for context entry: " + mainCe, null);
-			return;//simply return and don't throw a red screen
+			return false;//simply return and don't throw a red screen
 		}
 		if (!typeHandler.validateContextEntryAndShowError(mainCe, ureq, wControl)){
 			//simply return and don't throw a red screen
-			return;
+			return false;
 		}
 
 		//fxdiff BAKS-7 Resume function
@@ -184,19 +198,9 @@ public class NewControllerFactory extends LogDelegator {
 			// use special activation key to trigger the activate method
 			//fxdiff BAKS-7 Resume function
 			List<ContextEntry> entries = new ArrayList<ContextEntry>();
-			String viewIdentifyer = null;
 			if (bc.hasContextEntry()) {
 				ContextEntry subContext = bc.popLauncherContextEntry();
 				if (subContext != null) {
-					OLATResourceable subResource = subContext.getOLATResourceable();
-					if (subResource != null) {
-						viewIdentifyer = subResource.getResourceableTypeName();
-						if (subResource.getResourceableId() != null) {
-							// add resource instance id if available. The ':' is a common
-							// separator in the activatable interface
-							viewIdentifyer = viewIdentifyer + ":" + subResource.getResourceableId();
-						}
-					}
 					entries.add(subContext);
 					while(bc.hasContextEntry()) {
 						entries.add(bc.popLauncherContextEntry());
@@ -205,17 +209,13 @@ public class NewControllerFactory extends LogDelegator {
 			} else if (!ceConsumed) {
 				//the olatresourceable is not in a dynamic tab but in a fix one
 				if(ores != null) {
-					viewIdentifyer = ores.getResourceableTypeName();
-					if (ores.getResourceableId() != null) {
-						// add resource instance id if available. The ':' is a common
-						// separator in the activatable interface
-						viewIdentifyer = viewIdentifyer + ":" + ores.getResourceableId();
-					}
+					entries.add(BusinessControlFactory.getInstance().createContextEntry(ores));
 				}
 			}
 
 			TabContext context = typeHandler.getTabContext(ureq, ores, mainCe, entries);
-			dts.activateStatic(ureq, siteClassName, viewIdentifyer, context.getContext());
+			dts.activateStatic(ureq, siteClassName, context.getContext());
+			return true;
 		} else {
 			List<ContextEntry> entries = new ArrayList<ContextEntry>();
 			while(bc.hasContextEntry()) {
@@ -229,8 +229,10 @@ public class NewControllerFactory extends LogDelegator {
 			dt = dts.createDTab(context.getTabResource(), re, context.getName());
 			if (dt == null) {
 				// user error message is generated in BaseFullWebappController, nothing to do here
+				return false;
 			} else {
 				WindowControl bwControl = BusinessControlFactory.getInstance().createBusinessWindowControl(bc, dt.getWindowControl());
+				usess.addToHistory(ureq, bc);
 				Controller launchC = typeHandler.createController(mainCe, ureq, bwControl);
 				if (launchC == null) {
 					throw new AssertException("ControllerFactory could not create a controller to be launched. Please validate businesspath " 
@@ -238,8 +240,12 @@ public class NewControllerFactory extends LogDelegator {
 				}
 
 				dt.setController(launchC);
-				dts.addDTab(dt);
-				dts.activate(ureq, dt, null, context.getContext()); // null: do not activate to a certain view
+				if(dts.addDTab(ureq, dt)) {
+					dts.activate(ureq, dt, context.getContext()); // null: do not activate to a certain view
+					return true;
+				} else {
+					return false;
+				}
 			}
 		}
 	}

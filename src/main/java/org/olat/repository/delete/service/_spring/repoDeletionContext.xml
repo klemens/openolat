@@ -26,7 +26,7 @@
 			<value>
 				archiveRootPath=${archive.dir}
 				deleteEmailResponseToUserName=administrator
-				adminUserName=administrator
+				adminUserName=${deletionModule.adminUserName}
 	                </value>
 		</property>
 	</bean>
@@ -35,10 +35,6 @@
 		class="org.olat.repository.delete.service.RepositoryDeletionManager">
 		<constructor-arg index="0" ref="userDeletionManager" />
 		<constructor-arg index="1" ref="deletionModule" />
-	</bean>
-
-	<bean id="groupDeletionManager" class="org.olat.group.delete.service.GroupDeletionManager">
-		<constructor-arg index="0" ref="deletionModule" />
 	</bean>
 
 	<bean id="userDeletionManager" class="org.olat.admin.user.delete.service.UserDeletionManager">

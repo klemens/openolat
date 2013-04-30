@@ -41,10 +41,11 @@ import org.olat.catalog.CatalogEntry;
 import org.olat.catalog.CatalogManager;
 import org.olat.collaboration.CollaborationTools;
 import org.olat.collaboration.CollaborationToolsFactory;
+import org.olat.core.CoreSpringFactory;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.translator.Translator;
 import org.olat.core.id.UserConstants;
-import org.olat.core.logging.AssertException;
+import org.olat.core.logging.OLog;
 import org.olat.core.logging.Tracing;
 import org.olat.core.util.Util;
 import org.olat.core.util.vfs.VFSLeaf;
@@ -64,11 +65,7 @@ import org.olat.course.nodes.co.COEditController;
 import org.olat.course.nodes.sp.SPEditController;
 import org.olat.course.tree.CourseEditorTreeModel;
 import org.olat.group.BusinessGroup;
-import org.olat.group.BusinessGroupManager;
-import org.olat.group.BusinessGroupManagerImpl;
-import org.olat.group.context.BGContext;
-import org.olat.group.context.BGContextManager;
-import org.olat.group.context.BGContextManagerImpl;
+import org.olat.group.BusinessGroupService;
 import org.olat.repository.RepositoryEntry;
 import org.olat.repository.RepositoryManager;
 
@@ -89,6 +86,8 @@ import de.tuchemnitz.wizard.workflows.coursecreation.model.CourseCreationConfigu
  * @author Sebastian Fritzsche (seb.fritzsche@googlemail.com)
  */
 public class CourseCreationHelper {
+	
+	private static final OLog log = Tracing.createLoggerFor(CourseCreationHelper.class);
 
 	private CourseCreationConfiguration courseConfig;
 	private final Translator translator;
@@ -117,7 +116,7 @@ public class CourseCreationHelper {
 	/**
 	 * @return the created course
 	 */
-	public final Object getUserObject() {
+	public final RepositoryEntry getUserObject() {
 		return addedEntry;
 	}
 
@@ -189,32 +188,19 @@ public class CourseCreationHelper {
 			// 2. setup enrollment
 			// --------------------------
 			final String groupBaseName = createGroupBaseName();
-			final BGContextManager bcm = BGContextManagerImpl.getInstance();
-			final BusinessGroupManager bgm = BusinessGroupManagerImpl.getInstance();
+			final BusinessGroupService bgs = CoreSpringFactory.getImpl(BusinessGroupService.class);
 
 			// get default context for learning groups
-			BGContext defaultContext = null;
-			for (Object entry : bcm.findBGContextsForResource(addedEntry.getOlatResource(), true, false)) {
-				if (entry instanceof BGContext) {
-					if (((BGContext) entry).getGroupType().equals(BusinessGroup.TYPE_LEARNINGROUP)) {
-						defaultContext = (BGContext) entry;
-						break;
-					}
-				} else {
-					throw (new AssertException("Found a context that is no BGContext object"));
-				}
-			}
-			if (defaultContext == null) { throw (new AssertException("No default learning group context found")); }
-
+			
 			// create n learning groups with m allowed members
 			String comma = "";
 			String tmpGroupList = "";
 			String groupNamesList = "";
 			for (int i = 0; i < courseConfig.getGroupCount(); i++) {
 				// create group
-				BusinessGroup learningGroup = bgm.createAndPersistBusinessGroup(BusinessGroup.TYPE_LEARNINGROUP, null, groupBaseName + " "
+				BusinessGroup learningGroup = bgs.createBusinessGroup( null, groupBaseName + " "
 						+ (i + 1), null, 0, courseConfig.getSubscriberCount(), courseConfig.getEnableWaitlist(), courseConfig.getEnableFollowup(),
-						defaultContext);
+						addedEntry);
 				// enable the contact collaboration tool
 				CollaborationTools ct = CollaborationToolsFactory.getInstance().getOrCreateCollaborationTools(learningGroup);
 				ct.setToolEnabled(CollaborationTools.TOOL_CONTACT, true);
@@ -287,16 +273,18 @@ public class CourseCreationHelper {
 		// 3.1. setup rights
 		// --------------------------
 		if (courseConfig.getPublish()) {
+			
+			int access = RepositoryEntry.ACC_OWNERS;
 			if (courseConfig.getAclType().equals(CourseCreationConfiguration.ACL_GUEST)) {
 				// set "BARG" as rule
-				addedEntry.setAccess(RepositoryEntry.ACC_USERS_GUESTS);
+				access = RepositoryEntry.ACC_USERS_GUESTS;
 			} else if (courseConfig.getAclType().equals(CourseCreationConfiguration.ACL_OLAT)) {
 				// set "BAR" as rule
-				addedEntry.setAccess(RepositoryEntry.ACC_USERS);
+				access = RepositoryEntry.ACC_USERS;
 			} else if (courseConfig.getAclType().equals(CourseCreationConfiguration.ACL_UNI)) {
 				// set "BAR" rule + expert rule on university
 				// hasAttribute("institution","[Hochschule]")
-				addedEntry.setAccess(RepositoryEntry.ACC_USERS);
+				access = RepositoryEntry.ACC_USERS;
 				final CourseNode cnRoot = course.getEditorTreeModel().getCourseEditorNodeById(course.getEditorTreeModel().getRootNode().getIdent())
 				.getCourseNode();
 				String shibInstitution = ureq.getIdentity().getUser().getProperty(UserConstants.INSTITUTIONALNAME, ureq.getLocale());
@@ -309,9 +297,9 @@ public class CourseCreationHelper {
 							+ "\")"));
 				}
 			} else {
-				Tracing.createLoggerFor(this.getClass()).error("No valid ACL Rule: " + courseConfig.getAclType());
+				log.error("No valid ACL Rule: " + courseConfig.getAclType());
 			}
-			RepositoryManager.getInstance().updateRepositoryEntry(addedEntry);
+			addedEntry = RepositoryManager.getInstance().setAccess(addedEntry, access, false);
 		}
 
 		CourseFactory.openCourseEditSession(course.getResourceableId());
@@ -342,7 +330,7 @@ public class CourseCreationHelper {
 		boolean isValid = sds.length == 0;
 		if (!isValid) {
 			// no error and no warnings -> return immediate
-			Tracing.createLoggerFor(this.getClass()).error("Course Publishing failed", new AssertionError());
+			log.error("Course Publishing failed", new AssertionError());
 		}
 		pp.applyPublishSet(ureq.getIdentity(), ureq.getLocale());
 		CourseFactory.closeCourseEditSession(course.getResourceableId(), true);

@@ -25,8 +25,10 @@
 
 package org.olat.group.ui.run;
 
+import java.util.Collections;
 import java.util.List;
-import org.olat.ControllerFactory;
+
+import org.olat.NewControllerFactory;
 import org.olat.admin.securitygroup.gui.GroupController;
 import org.olat.basesecurity.BaseSecurity;
 import org.olat.basesecurity.BaseSecurityManager;
@@ -37,7 +39,6 @@ import org.olat.collaboration.CollaborationToolsFactory;
 import org.olat.core.CoreSpringFactory;
 import org.olat.core.commons.fullWebApp.LayoutMain3ColsController;
 import org.olat.core.gui.UserRequest;
-import org.olat.core.gui.Windows;
 import org.olat.core.gui.components.Component;
 import org.olat.core.gui.components.panel.Panel;
 import org.olat.core.gui.components.table.Table;
@@ -55,13 +56,10 @@ import org.olat.core.gui.control.Event;
 import org.olat.core.gui.control.WindowControl;
 import org.olat.core.gui.control.controller.MainLayoutBasicController;
 import org.olat.core.gui.control.generic.dtabs.Activateable2;
-import org.olat.core.gui.control.generic.dtabs.DTab;
-import org.olat.core.gui.control.generic.dtabs.DTabs;
 import org.olat.core.gui.control.generic.messages.MessageUIFactory;
-import org.olat.core.gui.translator.PackageTranslator;
+import org.olat.core.gui.translator.Translator;
 import org.olat.core.id.Identity;
 import org.olat.core.id.OLATResourceable;
-import org.olat.core.id.context.BusinessControl;
 import org.olat.core.id.context.BusinessControlFactory;
 import org.olat.core.id.context.ContextEntry;
 import org.olat.core.id.context.StateEntry;
@@ -69,9 +67,9 @@ import org.olat.core.logging.AssertException;
 import org.olat.core.logging.activity.OlatResourceableType;
 import org.olat.core.logging.activity.ThreadLocalUserActivityLogger;
 import org.olat.core.util.StringHelper;
-import org.olat.core.util.UserSession;
 import org.olat.core.util.Util;
 import org.olat.core.util.coordinate.CoordinatorManager;
+import org.olat.core.util.event.EventBus;
 import org.olat.core.util.event.GenericEventListener;
 import org.olat.core.util.mail.ContactList;
 import org.olat.core.util.mail.ContactMessage;
@@ -80,31 +78,29 @@ import org.olat.core.util.resource.OLATResourceableJustBeforeDeletedEvent;
 import org.olat.core.util.resource.OresHelper;
 import org.olat.course.nodes.iq.AssessmentEvent;
 import org.olat.group.BusinessGroup;
-import org.olat.group.BusinessGroupManagerImpl;
+import org.olat.group.BusinessGroupMembership;
+import org.olat.group.BusinessGroupService;
 import org.olat.group.GroupLoggingAction;
-import org.olat.group.context.BGContextManager;
-import org.olat.group.context.BGContextManagerImpl;
-import org.olat.group.properties.BusinessGroupPropertyManager;
-import org.olat.group.ui.BGConfigFlags;
+import org.olat.group.model.DisplayMembers;
 import org.olat.group.ui.BGControllerFactory;
-import org.olat.group.ui.BGTranslatorFactory;
 import org.olat.group.ui.edit.BusinessGroupEditController;
 import org.olat.group.ui.edit.BusinessGroupModifiedEvent;
 import org.olat.instantMessaging.InstantMessagingModule;
 import org.olat.instantMessaging.groupchat.InstantMessagingGroupChatController;
 import org.olat.modules.co.ContactFormController;
+import org.olat.modules.openmeetings.OpenMeetingsModule;
 import org.olat.modules.wiki.WikiManager;
 import org.olat.portfolio.PortfolioModule;
 import org.olat.repository.RepositoryEntry;
 import org.olat.repository.RepositoryTableModel;
 import org.olat.resource.OLATResource;
-import org.olat.resource.OLATResourceManager;
+import org.olat.resource.accesscontrol.ACService;
 import org.olat.resource.accesscontrol.ACUIFactory;
 import org.olat.resource.accesscontrol.AccessControlModule;
 import org.olat.resource.accesscontrol.AccessResult;
-import org.olat.resource.accesscontrol.manager.ACFrontendManager;
 import org.olat.resource.accesscontrol.ui.AccessEvent;
 import org.olat.util.logging.activity.LoggingResourceable;
+
 
 /**
  * Description: <BR>
@@ -129,6 +125,8 @@ public class BusinessGroupMainRunController extends MainLayoutBasicController im
 
 	private static final String INITVIEW_TOOLPORTFOLIO = "toolportfolio";
 	public static final OLATResourceable ORES_TOOLPORTFOLIO = OresHelper.createOLATResourceableType(INITVIEW_TOOLPORTFOLIO);
+	private static final String INITVIEW_TOOLOPENMEETINGS = "toolportfolio";
+	public static final OLATResourceable ORES_TOOLOPENMEETINGS = OresHelper.createOLATResourceableType(INITVIEW_TOOLOPENMEETINGS);
 	
 	public static final String INITVIEW_TOOLCAL = "action.calendar.group";
 	public static final OLATResourceable ORES_TOOLCAL = OresHelper.createOLATResourceableType(INITVIEW_TOOLCAL);
@@ -138,8 +136,6 @@ public class BusinessGroupMainRunController extends MainLayoutBasicController im
 	public static final OLATResourceable ORES_TOOLCONTACT = OresHelper.createOLATResourceableType("toolcontact");
 	public static final OLATResourceable ORES_TOOLMEMBERS = OresHelper.createOLATResourceableType("toolmembers");
 	public static final OLATResourceable ORES_TOOLRESOURCES = OresHelper.createOLATResourceableType("toolresources");
-
-	private static final String PACKAGE = Util.getPackageName(BusinessGroupMainRunController.class);
 
 	// activity identifyers are used as menu user objects and for the user
 	// activity events
@@ -167,13 +163,15 @@ public class BusinessGroupMainRunController extends MainLayoutBasicController im
 	public static final String ACTIVITY_MENUSELECT_WIKI = "MENU_SHOW_WIKI";
 	/* activity identitfyer: user selected show portoflio in menu */
 	public static final String ACTIVITY_MENUSELECT_PORTFOLIO = "MENU_SHOW_PORTFOLIO";
+	/* activity identifyer: user selected show OPENMEETINGS in menu */
+	public static final String ACTIVITY_MENUSELECT_OPENMEETINGS = "MENU_SHOW_OPENMEETINGS";
 	/* activity identitfyer: user selected show access control in menu */
 	//fxdiff VCRP-1,2: access control of resources
 	public static final String ACTIVITY_MENUSELECT_AC = "MENU_SHOW_AC";
 
 	private Panel mainPanel;
 	private VelocityContainer main, vc_sendToChooserForm, resourcesVC;
-	private PackageTranslator resourceTrans;
+	private Translator resourceTrans;
 
 	private BusinessGroup businessGroup;
 
@@ -196,24 +194,15 @@ public class BusinessGroupMainRunController extends MainLayoutBasicController im
 
 	private boolean isAdmin;
 
-	private BGConfigFlags flags;
-
-	private BusinessGroupPropertyManager bgpm;
-	private UserSession userSession;
+	private final BaseSecurity securityManager;
+	private final BusinessGroupService businessGroupService;
+	private EventBus singleUserEventBus;
 	private String adminNodeId; // reference to admin menu item
 
 	// not null indicates tool is enabled
-	private GenericTreeNode nodeFolder;
-	private GenericTreeNode nodeForum;
-	private GenericTreeNode nodeWiki;
-	private GenericTreeNode nodeCal;
-	private GenericTreeNode nodePortfolio;
+	private GenericTreeNode nodeFolder, nodeForum, nodeWiki, nodeCal, nodePortfolio, nodeOpenMeetings;
 	//fxdiff BAKS-7 Resume function
-	private GenericTreeNode nodeContact;
-	private GenericTreeNode nodeGroupOwners;
-	private GenericTreeNode nodeResources;
-	private GenericTreeNode nodeInformation;
-	private GenericTreeNode nodeAdmin;
+	private GenericTreeNode nodeContact, nodeGroupOwners, nodeResources, nodeInformation, nodeAdmin;
 	private boolean groupRunDisabled;
 	private OLATResourceable assessmentEventOres;
 	//fxdiff VCRP-1,2: access control of resources
@@ -230,16 +219,19 @@ public class BusinessGroupMainRunController extends MainLayoutBasicController im
 	 * @param flags
 	 * @param initialViewIdentifier supported are null, "toolforum", "toolfolder"
 	 */
-	public BusinessGroupMainRunController(UserRequest ureq, WindowControl control, BusinessGroup bGroup, BGConfigFlags flags,
-			String initialViewIdentifier) {
+	public BusinessGroupMainRunController(UserRequest ureq, WindowControl control, BusinessGroup bGroup) {
 		super(ureq, control);
-		this.flags = flags;
+		
+		assessmentEventOres = OresHelper.createOLATResourceableType(AssessmentEvent.class);
+
 		/*
 		 * lastUsage, update lastUsage if group is run if you can acquire the lock
 		 * on the group for a very short time. If this is not possible, then the
 		 * lastUsage is already up to date within one-day-precision.
 		 */
-		businessGroup = BusinessGroupManagerImpl.getInstance().setLastUsageFor(bGroup);
+		securityManager = CoreSpringFactory.getImpl(BaseSecurity.class);
+		businessGroupService = CoreSpringFactory.getImpl(BusinessGroupService.class);
+		businessGroup = businessGroupService.setLastUsageFor(getIdentity(), bGroup);
 		if(businessGroup == null) {
 			VelocityContainer vc = createVelocityContainer("deleted");
 			vc.contextPut("name", bGroup.getName());
@@ -249,21 +241,24 @@ public class BusinessGroupMainRunController extends MainLayoutBasicController im
 			return;
 		}
 
+		List<BusinessGroupMembership> memberships = businessGroupService.getBusinessGroupMembership(Collections.singletonList(bGroup.getKey()), getIdentity());
+		if(isOnWaitinglist(memberships)) {
+			putInitialPanel(getOnWaitingListMessage(ureq, bGroup));
+			return;
+		}
+
 		addLoggingResourceable(LoggingResourceable.wrap(businessGroup));
 		ThreadLocalUserActivityLogger.log(GroupLoggingAction.GROUP_OPEN, getClass());
-		bgpm = new BusinessGroupPropertyManager(businessGroup);
-	
-		this.userSession = ureq.getUserSession();
-		this.assessmentEventOres = OresHelper.createOLATResourceableType(AssessmentEvent.class);
 
-		boolean isOwner = BaseSecurityManager.getInstance().isIdentityPermittedOnResourceable(getIdentity(), Constants.PERMISSION_ACCESS, businessGroup);
-		this.isAdmin = isOwner || flags.isEnabled(BGConfigFlags.IS_GM_ADMIN);
+		isAdmin = ureq.getUserSession().getRoles().isOLATAdmin()
+				|| ureq.getUserSession().getRoles().isGroupManager()
+				|| securityManager.isIdentityPermittedOnResourceable(getIdentity(), Constants.PERMISSION_ACCESS, businessGroup);
 
 		// Initialize translator:
 		// package translator with default group fallback translators and type
 		// translator
-		setTranslator(BGTranslatorFactory.createBGPackageTranslator(PACKAGE, businessGroup.getType(), ureq.getLocale()));
-		this.resourceTrans = new PackageTranslator(Util.getPackageName(RepositoryTableModel.class), ureq.getLocale(), getTranslator());
+		setTranslator(Util.createPackageTranslator(BGControllerFactory.class, getLocale(), getTranslator()));
+		resourceTrans = Util.createPackageTranslator(RepositoryTableModel.class, getLocale(), getTranslator());
 
 		// main component layed out in panel
 		main = createVelocityContainer("bgrun");
@@ -282,8 +277,9 @@ public class BusinessGroupMainRunController extends MainLayoutBasicController im
 		
 		//
 		putInitialPanel(columnLayoutCtr.getInitialComponent());
-		// register for AssessmentEvents triggered by this user			
-		userSession.getSingleUserEventCenter().registerFor(this, userSession.getIdentity(), assessmentEventOres);
+		// register for AssessmentEvents triggered by this user
+		singleUserEventBus = ureq.getUserSession().getSingleUserEventCenter();
+		singleUserEventBus.registerFor(this, ureq.getIdentity(), assessmentEventOres);
 		
 		//disposed message controller
 		//must be created beforehand
@@ -302,142 +298,54 @@ public class BusinessGroupMainRunController extends MainLayoutBasicController im
 			this.showError("grouprun.disabled");				
 		}
 		
-		//check managed
-		//fxdiff VCRP-1,2: access control of resources
-		ACFrontendManager acFrontendManager = (ACFrontendManager)CoreSpringFactory.getBean("acFrontendManager");
-		AccessResult acResult = acFrontendManager.isAccessible(businessGroup, getIdentity(), false);
-		if(acResult.isAccessible()) {
-			needActivation = false;
-		}  else if (businessGroup != null && acResult.getAvailableMethods().size() > 0) {
-			accessController = ACUIFactory.createAccessController(ureq, getWindowControl(), acResult.getAvailableMethods());
-			listenTo(accessController);
-			mainPanel.setContent(accessController.getInitialComponent());
-			bgTree.setTreeModel(new GenericTreeModel());
-			needActivation = true;
-			return;
+		Object wildcard = ureq.getUserSession().getEntry("wild_card_" + businessGroup.getKey());
+		if(wildcard == null) {
+			//check managed
+			//fxdiff VCRP-1,2: access control of resources
+			ACService acService = CoreSpringFactory.getImpl(ACService.class);
+			AccessResult acResult = acService.isAccessible(businessGroup, getIdentity(), false);
+			if(acResult.isAccessible()) {
+				needActivation = false;
+			}  else if (businessGroup != null && acResult.getAvailableMethods().size() > 0) {
+				accessController = ACUIFactory.createAccessController(ureq, getWindowControl(), acResult.getAvailableMethods());
+				listenTo(accessController);
+				mainPanel.setContent(accessController.getInitialComponent());
+				bgTree.setTreeModel(new GenericTreeModel());
+				needActivation = true;
+			} else {
+				mainPanel.setContent(new Panel("empty"));
+				bgTree.setTreeModel(new GenericTreeModel());
+				needActivation = true;
+			}
 		} else {
-			mainPanel.setContent(new Panel("empty"));
-			bgTree.setTreeModel(new GenericTreeModel());
-			needActivation = true;
-			return;
+			ureq.getUserSession().removeEntryFromNonClearedStore("wild_card_" + businessGroup.getKey());
+			needActivation = false;
 		}
-
-		//REVIEW:PB:2009-05-31: consolidate ContextEntry <-> initialViewIdentifier Concept -> go for ContextEntry at the end.
-		// first step -> if initialViewIdentifier != null -> map initialViewIdentifier to ore with OresHelper
-		// how to remove initialViewIdentifier and replace by ContextEntry Path?
-		
-		
-		// jump to either the forum or the folder if the business-launch-path says so.
-		BusinessControl bc = getWindowControl().getBusinessControl();
-		ContextEntry ce = bc.popLauncherContextEntry();
-		if (ce != null) { // a context path is left for me
-			OLATResourceable ores = ce.getOLATResourceable();
-			if (OresHelper.equals(ores, ORES_TOOLFORUM)) {
-				// start the forum
-				if (nodeForum != null) {
-					handleTreeActions(ureq, ACTIVITY_MENUSELECT_FORUM);
-					bgTree.setSelectedNode(nodeForum);
-				} else { // not enabled
-					String text = translate("warn.forumnotavailable");
-					Controller mc = MessageUIFactory.createInfoMessage(ureq, getWindowControl(), null, text);
-					listenTo(mc); // cleanup on dispose
-					mainPanel.setContent(mc.getInitialComponent());
-				}
-			} else if (OresHelper.equals(ores, ORES_TOOLFOLDER)) {
-				if (nodeFolder != null) {
-					handleTreeActions(ureq, ACTIVITY_MENUSELECT_FOLDER);
-					bgTree.setSelectedNode(nodeFolder);
-				} else { // not enabled
-					String text = translate("warn.foldernotavailable");				
-					Controller mc = MessageUIFactory.createInfoMessage(ureq, getWindowControl(), null, text);
-					listenTo(mc); // cleanup on dispose
-					mainPanel.setContent(mc.getInitialComponent());
-				}
-			} else if (OresHelper.equals(ores, ORES_TOOLWIKI)) {
-				if (nodeWiki != null) {
-					handleTreeActions(ureq, ACTIVITY_MENUSELECT_WIKI);
-					bgTree.setSelectedNode(nodeWiki);
-				} else { // not enabled
-					String text = translate("warn.wikinotavailable");
-					Controller mc = MessageUIFactory.createInfoMessage(ureq, getWindowControl(), null, text);
-					listenTo(mc); // cleanup on dispose
-					mainPanel.setContent(mc.getInitialComponent());
-				}
-			} else if (OresHelper.equals(ores, ORES_TOOLCAL)) {
-				if (nodeCal != null) {
-					handleTreeActions(ureq, ACTIVITY_MENUSELECT_CALENDAR);
-					bgTree.setSelectedNode(nodeCal);
-				} else { // not enabled
-					String text = translate("warn.calnotavailable");
-					Controller mc = MessageUIFactory.createInfoMessage(ureq, getWindowControl(), null, text);
-					listenTo(mc); // cleanup on dispose
-					mainPanel.setContent(mc.getInitialComponent());
-				}
-			} else if (OresHelper.equals(ores, ORES_TOOLPORTFOLIO)) {
-				if (nodePortfolio != null) {
-					handleTreeActions(ureq, ACTIVITY_MENUSELECT_PORTFOLIO);
-					bgTree.setSelectedNode(nodePortfolio);
-				} else { // not enabled
-					String text = translate("warn.portfolionotavailable");
-					Controller mc = MessageUIFactory.createInfoMessage(ureq, getWindowControl(), null, text);
-					listenTo(mc); // cleanup on dispose
-					mainPanel.setContent(mc.getInitialComponent());
-				}
+	}
+	
+	private Component getOnWaitingListMessage(UserRequest ureq, BusinessGroup group) {
+		VelocityContainer vc = createVelocityContainer("waiting");
+		vc.contextPut("name", group.getName());
+		columnLayoutCtr = new LayoutMain3ColsController(ureq, getWindowControl(), null, null, vc, "grouprun");
+		listenTo(columnLayoutCtr); // cleanup on dispose
+		return columnLayoutCtr.getInitialComponent();
+	}
+	
+	private boolean isOnWaitinglist(List<BusinessGroupMembership> memberships) {
+		boolean waiting = false;
+		for(BusinessGroupMembership membership:memberships) {
+			if(membership.isOwner() || membership.isParticipant()) {
+				return false;
+			} else if (membership.isWaiting()) {
+				waiting = true;
 			}
 		}
-		
-		// jump to node if initialViewIdent says so.
-		if (initialViewIdentifier != null) {
-			if (initialViewIdentifier.equals(INITVIEW_TOOLFORUM)) {
-				if (nodeForum != null) {
-					handleTreeActions(ureq, ACTIVITY_MENUSELECT_FORUM);
-					bgTree.setSelectedNode(nodeForum);
-				} else { // not enabled
-					String text = translate("warn.forumnotavailable");
-					Controller mc = MessageUIFactory.createInfoMessage(ureq, getWindowControl(), null, text);
-					listenTo(mc); // cleanup on dispose
-					mainPanel.setContent(mc.getInitialComponent());
-				}
-			} else if (initialViewIdentifier.equals(INITVIEW_TOOLFOLDER)) {
-				if (nodeFolder != null) {
-					handleTreeActions(ureq, ACTIVITY_MENUSELECT_FOLDER);
-					bgTree.setSelectedNode(nodeFolder);
-				} else { // not enabled
-					String text = translate("warn.foldernotavailable");
-					Controller mc = MessageUIFactory.createInfoMessage(ureq, getWindowControl(), null, text);
-					listenTo(mc); // cleanup on dispose
-					mainPanel.setContent(mc.getInitialComponent());
-				}
-			} 
-			else if (initialViewIdentifier.equals(INITVIEW_TOOLWIKI)) {
-				if (nodeWiki != null) {
-					handleTreeActions(ureq, ACTIVITY_MENUSELECT_WIKI);
-					bgTree.setSelectedNode(nodeWiki);
-				} else { // not enabled
-					String text = translate("warn.wikinotavailable");
-					Controller mc = MessageUIFactory.createInfoMessage(ureq, getWindowControl(), null, text);
-					listenTo(mc); // cleanup on dispose
-					mainPanel.setContent(mc.getInitialComponent());
-				}
-			}
-			else if (initialViewIdentifier.equals(INITVIEW_TOOLCAL)) {
-				if (nodeCal != null) {
-					handleTreeActions(ureq, ACTIVITY_MENUSELECT_CALENDAR);
-					bgTree.setSelectedNode(nodeCal);
-				} else { // not enabled
-					String text = translate("warn.calnotavailable");
-					Controller mc = MessageUIFactory.createInfoMessage(ureq, getWindowControl(), null, text);
-					listenTo(mc); // cleanup on dispose
-					mainPanel.setContent(mc.getInitialComponent());
-				}
-			}
-			else throw new AssertException("unknown initialViewIdentifier:'" + initialViewIdentifier + "'");
-		}
+		return waiting;
 	}
 
 	private void exposeGroupDetailsToVC(BusinessGroup currBusinessGroup) {
 		main.contextPut("BuddyGroup", currBusinessGroup);
-		main.contextPut("hasOwners", new Boolean(flags.isEnabled(BGConfigFlags.GROUP_OWNERS)));
+		main.contextPut("hasOwners", Boolean.TRUE);
 	}
 
 	/**
@@ -485,28 +393,16 @@ public class BusinessGroupMainRunController extends MainLayoutBasicController im
 				String actionid = te.getActionId();
 				int rowid = te.getRowId();
 				RepositoryTableModel repoTableModel = (RepositoryTableModel) resourcesCtr.getTableDataModel();
-				RepositoryEntry currentRepoEntry = (RepositoryEntry)repoTableModel.getObject(rowid);
-				if (actionid.equals(RepositoryTableModel.TABLE_ACTION_SELECT_LINK)) {
+				if (RepositoryTableModel.TABLE_ACTION_SELECT_ENTRY.equals(actionid)
+						|| RepositoryTableModel.TABLE_ACTION_SELECT_LINK.equals(actionid)) {
+
+					RepositoryEntry currentRepoEntry = (RepositoryEntry)repoTableModel.getObject(rowid);
 					OLATResource ores = currentRepoEntry.getOlatResource();
 					if (ores == null) throw new AssertException("repoEntry had no olatresource, repoKey = " + currentRepoEntry.getKey());
-					
 					addLoggingResourceable(LoggingResourceable.wrap(ores, OlatResourceableType.genRepoEntry));
-					String title = currentRepoEntry.getDisplayname();
-					
-					DTabs dts = (DTabs)Windows.getWindows(ureq).getWindow(ureq).getAttribute("DTabs");
-					//was brasato:: DTabs dts = getWindowControl().getDTabs();
-					DTab dt = dts.getDTab(ores);
-					if (dt == null) {
-						// does not yet exist -> create and add
-						//fxdiff BAKS-7 Resume function
-						dt = dts.createDTab(ores, currentRepoEntry, title);
-						if (dt == null) return;
-						Controller ctrl = ControllerFactory.createLaunchController(ores, null, ureq, dt.getWindowControl(), true);
-						dt.setController(ctrl);
-						dts.addDTab(dt);
-					}
-					dts.activate(ureq, dt, null); // null: do not activate to a certain
-																				// view
+
+					String businessPath = "[RepositoryEntry:" + currentRepoEntry.getKey() + "]";
+					NewControllerFactory.getInstance().launch(businessPath, ureq, getWindowControl());
 				}
 			}
 		} else if (source == sendToChooserForm) {
@@ -531,11 +427,19 @@ public class BusinessGroupMainRunController extends MainLayoutBasicController im
 		//fxdiff VCRP-1,2: access control of resources
 		} else if (source == accessController) {
 			if(event.equals(AccessEvent.ACCESS_OK_EVENT)) {
-				mainPanel.setContent(main);
-				bgTree.setTreeModel(buildTreeModel());
 				removeAsListenerAndDispose(accessController);
 				accessController = null;
-				needActivation = false;
+				
+				//check if on waiting list
+				List<BusinessGroupMembership> memberships = businessGroupService.getBusinessGroupMembership(Collections.singletonList(businessGroup.getKey()), getIdentity());
+				if(isOnWaitinglist(memberships)) {
+					Component cmp = getOnWaitingListMessage(ureq, businessGroup);
+					mainPanel.setContent(cmp);
+				} else {
+					mainPanel.setContent(main);
+					bgTree.setTreeModel(buildTreeModel());
+					needActivation = false;
+				}
 			} else if(event.equals(AccessEvent.ACCESS_FAILED_EVENT)) {
 				String msg = ((AccessEvent)event).getMessage();
 				if(StringHelper.containsNonWhitespace(msg)) {
@@ -562,36 +466,36 @@ public class BusinessGroupMainRunController extends MainLayoutBasicController im
 		ContactList ownerCntctLst;// = new ContactList(translate("sendtochooser.form.chckbx.owners"));
 		ContactList partipCntctLst;// = new ContactList(translate("sendtochooser.form.chckbx.partip"));
 		ContactList waitingListContactList;// = new ContactList(translate("sendtochooser.form.chckbx.waitingList"));
-		if (flags.isEnabled(BGConfigFlags.GROUP_OWNERS)) {
-			if (sendToChooserForm.ownerChecked().equals(BusinessGroupSendToChooserForm.NLS_RADIO_ALL)) {
-				ownerCntctLst = new ContactList(translate("sendtochooser.form.radio.owners.all"));
+
+		if (sendToChooserForm.ownerChecked().equals(BusinessGroupSendToChooserForm.NLS_RADIO_ALL)) {
+			ownerCntctLst = new ContactList(translate("sendtochooser.form.radio.owners.all"));
+			SecurityGroup owners = businessGroup.getOwnerGroup();
+			List<Identity> ownerList = scrtMngr.getIdentitiesOfSecurityGroup(owners);
+			ownerCntctLst.addAllIdentites(ownerList);
+			cmsg.addEmailTo(ownerCntctLst);
+		} else {
+			if (sendToChooserForm.ownerChecked().equals(BusinessGroupSendToChooserForm.NLS_RADIO_CHOOSE)) {
+				ownerCntctLst = new ContactList(translate("sendtochooser.form.radio.owners.choose"));
 				SecurityGroup owners = businessGroup.getOwnerGroup();
 				List<Identity> ownerList = scrtMngr.getIdentitiesOfSecurityGroup(owners);
-				ownerCntctLst.addAllIdentites(ownerList);
-				cmsg.addEmailTo(ownerCntctLst);
-			} else {
-				if (sendToChooserForm.ownerChecked().equals(BusinessGroupSendToChooserForm.NLS_RADIO_CHOOSE)) {
-					ownerCntctLst = new ContactList(translate("sendtochooser.form.radio.owners.choose"));
-					SecurityGroup owners = businessGroup.getOwnerGroup();
-					List<Identity> ownerList = scrtMngr.getIdentitiesOfSecurityGroup(owners);
-					List<Identity> changeableOwnerList = scrtMngr.getIdentitiesOfSecurityGroup(owners);
-					for (Identity identity : ownerList) {
-						boolean keyIsSelected = false;
-						for (Long key : sendToChooserForm.getSelectedOwnerKeys()) {
-							if (key.equals(identity.getKey())) {
-								keyIsSelected = true;
-								break;
-							}
-						}
-						if (!keyIsSelected) {
-							changeableOwnerList.remove(changeableOwnerList.indexOf(identity));
+				List<Identity> changeableOwnerList = scrtMngr.getIdentitiesOfSecurityGroup(owners);
+				for (Identity identity : ownerList) {
+					boolean keyIsSelected = false;
+					for (Long key : sendToChooserForm.getSelectedOwnerKeys()) {
+						if (key.equals(identity.getKey())) {
+							keyIsSelected = true;
+							break;
 						}
 					}
-					ownerCntctLst.addAllIdentites(changeableOwnerList);
-					cmsg.addEmailTo(ownerCntctLst);
+					if (!keyIsSelected) {
+						changeableOwnerList.remove(changeableOwnerList.indexOf(identity));
+					}
 				}
+				ownerCntctLst.addAllIdentites(changeableOwnerList);
+				cmsg.addEmailTo(ownerCntctLst);
 			}
 		}
+
 		if (sendToChooserForm != null) {
 			if  (sendToChooserForm.participantChecked().equals(BusinessGroupSendToChooserForm.NLS_RADIO_ALL)) {
 				partipCntctLst  = new ContactList(translate("sendtochooser.form.radio.partip.all"));
@@ -780,7 +684,18 @@ public class BusinessGroupMainRunController extends MainLayoutBasicController im
 			collabToolCtr = collabTools.createPortfolioController(ureq, bwControl, businessGroup);
 			listenTo(collabToolCtr);
 			mainPanel.setContent(collabToolCtr.getInitialComponent());
-		//fxdiff VCRP-1,2: access control of resources
+		} else if (ACTIVITY_MENUSELECT_OPENMEETINGS.equals(cmd)) {
+			addLoggingResourceable(LoggingResourceable.wrap(ORES_TOOLOPENMEETINGS, OlatResourceableType.portfolio));
+			WindowControl bwControl = getWindowControl();
+			// calculate the new businesscontext for the wiki clicked
+			ContextEntry ce = BusinessControlFactory.getInstance().createContextEntry(ORES_TOOLOPENMEETINGS);
+			bwControl = BusinessControlFactory.getInstance().createBusinessWindowControl(ce, bwControl);
+			ThreadLocalUserActivityLogger.addLoggingResourceInfo(LoggingResourceable.wrapPortfolioOres(ce.getOLATResourceable()));
+
+			collabToolCtr = collabTools.createOpenMeetingsController(ureq, bwControl, businessGroup, isAdmin);
+			listenTo(collabToolCtr);
+			mainPanel.setContent(collabToolCtr.getInitialComponent());
+			//fxdiff VCRP-1,2: access control of resources
 		}  else if (ACTIVITY_MENUSELECT_AC.equals(cmd)) {
 			doAccessControlHistory(ureq);
 		} 
@@ -791,7 +706,7 @@ public class BusinessGroupMainRunController extends MainLayoutBasicController im
 		//fxdiff BAKS-7 Resume function
 		ThreadLocalUserActivityLogger.addLoggingResourceInfo(LoggingResourceable.wrapBusinessPath(ORES_TOOLADMIN));
 		WindowControl bwControl = BusinessControlFactory.getInstance().createBusinessWindowControl(ORES_TOOLADMIN, null, getWindowControl());
-		collabToolCtr = bgEditCntrllr = BGControllerFactory.getInstance().createEditControllerFor(ureq, bwControl, businessGroup);
+		collabToolCtr = bgEditCntrllr = new BusinessGroupEditController(ureq, bwControl, businessGroup);
 		listenTo(bgEditCntrllr);
 		mainPanel.setContent(bgEditCntrllr.getInitialComponent());
 	}
@@ -799,7 +714,7 @@ public class BusinessGroupMainRunController extends MainLayoutBasicController im
 	//fxdiff VCRP-1,2: access control of resources
 	private void doAccessControlHistory(UserRequest ureq) {
 		removeAsListenerAndDispose(bgACHistoryCtrl);
-		OLATResource resource = OLATResourceManager.getInstance().findResourceable(businessGroup);
+		OLATResource resource = businessGroup.getResource();
 		bgACHistoryCtrl = ACUIFactory.createOrdersAdminController(ureq, getWindowControl(), resource);
 		listenTo(bgACHistoryCtrl);
 		mainPanel.setContent(bgACHistoryCtrl.getInitialComponent());
@@ -819,9 +734,11 @@ public class BusinessGroupMainRunController extends MainLayoutBasicController im
 	private void doShowMembers(UserRequest ureq) {
 		VelocityContainer membersVc = createVelocityContainer("ownersandmembers");
 		// 1. show owners if configured with Owners
-		if (flags.isEnabled(BGConfigFlags.GROUP_OWNERS) && bgpm.showOwners()) {
+		DisplayMembers displayMembers = businessGroupService.getDisplayMembers(businessGroup);
+		boolean downloadAllowed = displayMembers.isDownloadLists();
+		if (displayMembers.isShowOwners()) {
 			removeAsListenerAndDispose(gownersC);
-			gownersC = new GroupController(ureq, getWindowControl(), false, true, false, businessGroup.getOwnerGroup());
+			gownersC = new GroupController(ureq, getWindowControl(), false, true, false, false, downloadAllowed, false, businessGroup.getOwnerGroup());
 			listenTo(gownersC);
 			membersVc.put("owners", gownersC.getInitialComponent());
 			membersVc.contextPut("showOwnerGroups", Boolean.TRUE);
@@ -829,9 +746,9 @@ public class BusinessGroupMainRunController extends MainLayoutBasicController im
 			membersVc.contextPut("showOwnerGroups", Boolean.FALSE);
 		}
 		// 2. show participants if configured with Participants
-		if (bgpm.showPartips()) {
+		if (displayMembers.isShowParticipants()) {
 			removeAsListenerAndDispose(gparticipantsC);
-			gparticipantsC = new GroupController(ureq, getWindowControl(), false, true, false, businessGroup.getPartipiciantGroup());
+			gparticipantsC = new GroupController(ureq, getWindowControl(), false, true, false, false, downloadAllowed, false, businessGroup.getPartipiciantGroup());
 			listenTo(gparticipantsC);
 			
 			membersVc.put("participants", gparticipantsC.getInitialComponent());
@@ -841,9 +758,9 @@ public class BusinessGroupMainRunController extends MainLayoutBasicController im
 		}
 		// 3. show waiting-list if configured 
 		membersVc.contextPut("hasWaitingList", new Boolean(businessGroup.getWaitingListEnabled()) );
-		if (bgpm.showWaitingList()) {
+		if (displayMembers.isShowWaitingList()) {
 			removeAsListenerAndDispose(waitingListController);
-			waitingListController = new GroupController(ureq, getWindowControl(), false, true, false, businessGroup.getWaitingGroup());
+			waitingListController = new GroupController(ureq, getWindowControl(), false, true, false, false, downloadAllowed, false, businessGroup.getWaitingGroup());
 			listenTo(waitingListController);
 			membersVc.put("waitingList", waitingListController.getInitialComponent());
 			membersVc.contextPut("showWaitingList", Boolean.TRUE);
@@ -860,24 +777,21 @@ public class BusinessGroupMainRunController extends MainLayoutBasicController im
 	 * @see org.olat.core.gui.control.DefaultController#doDispose(boolean)
 	 */
 	protected void doDispose() {
-		
 		ThreadLocalUserActivityLogger.log(GroupLoggingAction.GROUP_CLOSED, getClass());
 		
-		if (chatCtr != null) {
-			
+		if (chatCtr instanceof InstantMessagingGroupChatController) {
 			InstantMessagingGroupChatController chat = (InstantMessagingGroupChatController) chatCtr;
-		
 			if (chat.isChatWindowOpen()) {
 				chat.close();
 				getWindowControl().getWindowBackOffice().sendCommandTo(chat.getCloseCommand());
 			}
-		
 			removeAsListenerAndDispose(chatCtr);
 		}
 		
-		CoordinatorManager.getInstance().getCoordinator().getEventBus().deregisterFor(this, this.businessGroup);
-		
-		userSession.getSingleUserEventCenter().deregisterFor(this, assessmentEventOres);
+		CoordinatorManager.getInstance().getCoordinator().getEventBus().deregisterFor(this, businessGroup);
+		if(singleUserEventBus != null) {
+			singleUserEventBus.deregisterFor(this, assessmentEventOres);
+		}
 	}
 
 	@Override
@@ -949,6 +863,16 @@ public class BusinessGroupMainRunController extends MainLayoutBasicController im
 					listenTo(mc); // cleanup on dispose
 					mainPanel.setContent(mc.getInitialComponent());
 				}
+		} else if (OresHelper.equals(ores, ORES_TOOLOPENMEETINGS)) {
+			if (nodeOpenMeetings != null) {
+				handleTreeActions(ureq, ACTIVITY_MENUSELECT_OPENMEETINGS);
+				bgTree.setSelectedNode(nodeOpenMeetings);
+			} else { // not enabled
+				String text = translate("warn.portfolionotavailable");
+				Controller mc = MessageUIFactory.createInfoMessage(ureq, getWindowControl(), null, text);
+				listenTo(mc); // cleanup on dispose
+				mainPanel.setContent(mc.getInitialComponent());
+			}
 		//fxdiff BAKS-7 Resume function
 		} else if (OresHelper.equals(ores, ORES_TOOLADMIN)) {
 			if (this.nodeAdmin != null) {
@@ -992,10 +916,9 @@ public class BusinessGroupMainRunController extends MainLayoutBasicController im
 			BusinessGroupModifiedEvent bgmfe = (BusinessGroupModifiedEvent) event;
 			if (event.getCommand().equals(BusinessGroupModifiedEvent.CONFIGURATION_MODIFIED_EVENT)) {
 				// reset business group property manager
-				this.bgpm = new BusinessGroupPropertyManager(this.businessGroup);
 				// update reference to update business group object
-				this.businessGroup = BusinessGroupManagerImpl.getInstance().loadBusinessGroup(this.businessGroup);
-				main.contextPut("BuddyGroup", this.businessGroup);
+				businessGroup = businessGroupService.loadBusinessGroup(this.businessGroup);
+				main.contextPut("BuddyGroup", businessGroup);
 				TreeModel trMdl = buildTreeModel();
 				bgTree.setTreeModel(trMdl);
 				if (bgEditCntrllr == null) {
@@ -1023,8 +946,7 @@ public class BusinessGroupMainRunController extends MainLayoutBasicController im
 	private void doShowResources(UserRequest ureq) {
 		// always refresh data model, maybe it has changed
 		RepositoryTableModel repoTableModel = new RepositoryTableModel(resourceTrans);
-		BGContextManager contextManager = BGContextManagerImpl.getInstance();
-		List<RepositoryEntry> repoTableModelEntries = contextManager.findRepositoryEntriesForBGContext(businessGroup.getGroupContext());
+		List<RepositoryEntry> repoTableModelEntries = businessGroupService.findRepositoryEntries(Collections.singletonList(businessGroup), 0, -1);
 		repoTableModel.setObjects(repoTableModelEntries);
 		// init table controller only once
 		if (resourcesCtr == null) {
@@ -1035,7 +957,7 @@ public class BusinessGroupMainRunController extends MainLayoutBasicController im
 			listenTo(resourcesCtr);
 			
 			resourcesVC = createVelocityContainer("resources");
-			repoTableModel.addColumnDescriptors(resourcesCtr, translate("resources.launch"), false);
+			repoTableModel.addColumnDescriptors(resourcesCtr, null, true);
 			resourcesVC.put("resources", resourcesCtr.getInitialComponent());
 		}
 		// add table model to table
@@ -1092,8 +1014,9 @@ public class BusinessGroupMainRunController extends MainLayoutBasicController im
 			root.addChild(gtnChild);
 			nodeCal = gtnChild;
 		}
-
-		if (flags.isEnabled(BGConfigFlags.SHOW_RESOURCES)) {
+		
+		boolean hasResources = businessGroupService.hasResources(businessGroup);
+		if(hasResources) {
 			gtnChild = new GenericTreeNode();
 			gtnChild.setTitle(translate("menutree.resources"));
 			gtnChild.setUserObject(ACTIVITY_MENUSELECT_SHOW_RESOURCES);
@@ -1104,7 +1027,8 @@ public class BusinessGroupMainRunController extends MainLayoutBasicController im
 			nodeResources = gtnChild;
 		}
 
-		if ((flags.isEnabled(BGConfigFlags.GROUP_OWNERS) && bgpm.showOwners()) || bgpm.showPartips()) {
+		DisplayMembers displayMembers = businessGroupService.getDisplayMembers(businessGroup);
+		if (displayMembers.isShowOwners() || displayMembers.isShowParticipants()) {
 			// either owners or participants, or both are visible
 			// otherwise the node is not visible
 			gtnChild = new GenericTreeNode();
@@ -1151,11 +1075,8 @@ public class BusinessGroupMainRunController extends MainLayoutBasicController im
 		
 		if (InstantMessagingModule.isEnabled() && 
 				collabTools.isToolEnabled(CollaborationTools.TOOL_CHAT) && 
-				(
-						!businessGroup.getType().equals(BusinessGroup.TYPE_LEARNINGROUP) ||
-						InstantMessagingModule.isSyncLearningGroups() // whether LearningGroups can have chat or not
-				)
-			) {
+				InstantMessagingModule.isSyncGroups() // whether LearningGroups can have chat or not)
+				) {
 			gtnChild = new GenericTreeNode();
 			gtnChild.setTitle(translate("menutree.chat"));
 			gtnChild.setUserObject(ACTIVITY_MENUSELECT_CHAT);
@@ -1184,6 +1105,17 @@ public class BusinessGroupMainRunController extends MainLayoutBasicController im
 			root.addChild(gtnChild);
 			nodePortfolio = gtnChild;
 		}
+		
+		OpenMeetingsModule openMeetingsModule = CoreSpringFactory.getImpl(OpenMeetingsModule.class);		
+		if (openMeetingsModule.isEnabled() && collabTools.isToolEnabled(CollaborationTools.TOOL_OPENMEETINGS)) {
+			gtnChild = new GenericTreeNode();
+			gtnChild.setTitle(translate("menutree.openmeetings"));
+			gtnChild.setUserObject(ACTIVITY_MENUSELECT_OPENMEETINGS);
+			gtnChild.setAltText(translate("menutree.openmeetings.alt"));
+			gtnChild.setIconCssClass("o_openmeetings_icon");
+			root.addChild(gtnChild);
+			nodePortfolio = gtnChild;
+		}
 
 		if (isAdmin) {
 			gtnChild = new GenericTreeNode();
@@ -1198,18 +1130,16 @@ public class BusinessGroupMainRunController extends MainLayoutBasicController im
 			nodeAdmin = gtnChild;
 
 			//fxdiff VCRP-1,2: access control of resources
-			if(BusinessGroup.TYPE_BUDDYGROUP.equals(businessGroup.getType())) {
-				AccessControlModule acModule = (AccessControlModule)CoreSpringFactory.getBean("acModule");
-				if(acModule.isEnabled()) {
-					gtnChild = new GenericTreeNode();
-					gtnChild.setTitle(translate("menutree.ac"));
-					gtnChild.setUserObject(ACTIVITY_MENUSELECT_AC);
-					gtnChild.setIdent(ACTIVITY_MENUSELECT_AC);
-					gtnChild.setAltText(translate("menutree.ac.alt"));
-					gtnChild.setIconCssClass("b_order_icon");
-					root.addChild(gtnChild);
-					//acNodeId = gtnChild.getIdent();
-				}
+			AccessControlModule acModule = (AccessControlModule)CoreSpringFactory.getBean("acModule");
+			if(acModule.isEnabled()) {
+				gtnChild = new GenericTreeNode();
+				gtnChild.setTitle(translate("menutree.ac"));
+				gtnChild.setUserObject(ACTIVITY_MENUSELECT_AC);
+				gtnChild.setIdent(ACTIVITY_MENUSELECT_AC);
+				gtnChild.setAltText(translate("menutree.ac.alt"));
+				gtnChild.setIconCssClass("b_order_icon");
+				root.addChild(gtnChild);
+				//acNodeId = gtnChild.getIdent();
 			}
 		}
 

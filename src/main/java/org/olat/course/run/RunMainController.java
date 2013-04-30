@@ -26,13 +26,11 @@
 package org.olat.course.run;
 
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 
-import org.olat.basesecurity.BaseSecurity;
-import org.olat.basesecurity.BaseSecurityManager;
+import org.olat.NewControllerFactory;
 import org.olat.bookmark.AddAndEditBookmarkController;
 import org.olat.bookmark.BookmarkManager;
 import org.olat.core.CoreSpringFactory;
@@ -40,26 +38,27 @@ import org.olat.core.commons.fullWebApp.LayoutMain3ColsController;
 import org.olat.core.commons.fullWebApp.popup.BaseFullWebappPopupLayoutFactory;
 import org.olat.core.commons.persistence.PersistenceHelper;
 import org.olat.core.gui.UserRequest;
-import org.olat.core.gui.Windows;
 import org.olat.core.gui.components.Component;
 import org.olat.core.gui.components.htmlsite.OlatCmdEvent;
 import org.olat.core.gui.components.link.Link;
 import org.olat.core.gui.components.link.LinkFactory;
 import org.olat.core.gui.components.panel.Panel;
+import org.olat.core.gui.components.stack.PopEvent;
+import org.olat.core.gui.components.stack.StackedController;
+import org.olat.core.gui.components.stack.StackedControllerImpl;
 import org.olat.core.gui.components.tree.GenericTreeModel;
 import org.olat.core.gui.components.tree.MenuTree;
 import org.olat.core.gui.components.tree.TreeEvent;
 import org.olat.core.gui.components.tree.TreeModel;
 import org.olat.core.gui.components.tree.TreeNode;
 import org.olat.core.gui.components.velocity.VelocityContainer;
+import org.olat.core.gui.control.ConfigurationChangedListener;
 import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.Event;
 import org.olat.core.gui.control.WindowControl;
 import org.olat.core.gui.control.controller.MainLayoutBasicController;
 import org.olat.core.gui.control.creator.ControllerCreator;
-import org.olat.core.gui.control.generic.dtabs.Activateable;
 import org.olat.core.gui.control.generic.dtabs.Activateable2;
-import org.olat.core.gui.control.generic.dtabs.DTabs;
 import org.olat.core.gui.control.generic.messages.MessageController;
 import org.olat.core.gui.control.generic.messages.MessageUIFactory;
 import org.olat.core.gui.control.generic.popup.PopupBrowserWindow;
@@ -70,13 +69,11 @@ import org.olat.core.gui.control.generic.tool.ToolFactory;
 import org.olat.core.gui.translator.PackageTranslator;
 import org.olat.core.id.Identity;
 import org.olat.core.id.OLATResourceable;
-import org.olat.core.id.context.BusinessControl;
 import org.olat.core.id.context.BusinessControlFactory;
 import org.olat.core.id.context.ContextEntry;
 import org.olat.core.id.context.StateEntry;
 import org.olat.core.logging.AssertException;
 import org.olat.core.logging.OLATSecurityException;
-import org.olat.core.logging.Tracing;
 import org.olat.core.logging.activity.CourseLoggingAction;
 import org.olat.core.logging.activity.ThreadLocalUserActivityLogger;
 import org.olat.core.util.coordinate.CoordinatorManager;
@@ -101,10 +98,12 @@ import org.olat.course.assessment.UserEfficiencyStatement;
 import org.olat.course.assessment.manager.UserCourseInformationsManager;
 import org.olat.course.config.CourseConfig;
 import org.olat.course.config.CourseConfigEvent;
+import org.olat.course.db.CourseDBManager;
+import org.olat.course.db.CustomDBMainController;
 import org.olat.course.editor.PublishEvent;
 import org.olat.course.groupsandrights.CourseGroupManager;
 import org.olat.course.groupsandrights.CourseRights;
-import org.olat.course.groupsandrights.ui.CourseGroupManagementMainController;
+import org.olat.course.member.MembersManagementMainController;
 import org.olat.course.nodes.CourseNode;
 import org.olat.course.run.calendar.CourseCalendarController;
 import org.olat.course.run.glossary.CourseGlossaryFactory;
@@ -115,9 +114,7 @@ import org.olat.course.run.userview.UserCourseEnvironment;
 import org.olat.course.run.userview.UserCourseEnvironmentImpl;
 import org.olat.course.statistic.StatisticMainController;
 import org.olat.group.BusinessGroup;
-import org.olat.group.BusinessGroupManager;
-import org.olat.group.BusinessGroupManagerImpl;
-import org.olat.group.ui.BGControllerFactory;
+import org.olat.group.BusinessGroupService;
 import org.olat.group.ui.edit.BusinessGroupModifiedEvent;
 import org.olat.instantMessaging.InstantMessagingModule;
 import org.olat.instantMessaging.groupchat.GroupChatManagerController;
@@ -127,10 +124,6 @@ import org.olat.repository.RepositoryEntry;
 import org.olat.repository.RepositoryEntryStatus;
 import org.olat.repository.RepositoryManager;
 import org.olat.repository.controllers.EntryChangedEvent;
-import org.olat.repository.controllers.RepositoryDetailsController;
-import org.olat.repository.controllers.RepositoryMainController;
-import org.olat.repository.site.RepositorySite;
-import org.olat.resource.accesscontrol.ui.SecurityGroupsRepositoryMainController;
 import org.olat.util.logging.activity.LoggingResourceable;
 
 /**
@@ -138,7 +131,7 @@ import org.olat.util.logging.activity.LoggingResourceable;
  * 
  * @author Felix Jost
  */
-public class RunMainController extends MainLayoutBasicController implements GenericEventListener, Activateable, Activateable2 {
+public class RunMainController extends MainLayoutBasicController implements GenericEventListener, Activateable2 {
 	private static final String COMMAND_EDIT = "gotoeditor";
 	private static final String TOOLBOX_LINK_COURSECONFIG = "courseconfig";
 
@@ -158,7 +151,7 @@ public class RunMainController extends MainLayoutBasicController implements Gene
 	private RepositoryEntry courseRepositoryEntry;
 	private MenuTree luTree;
 	private Panel contentP;
-	private Panel all;
+	private StackedController all;
 
 	private NavigationHandler navHandler;
 	private UserCourseEnvironment uce;
@@ -172,13 +165,12 @@ public class RunMainController extends MainLayoutBasicController implements Gene
 
 	private boolean isInEditor = false;
 
-	private Map courseRightsCache = new HashMap();
+	private Map<String, Boolean> courseRightsCache = new HashMap<String, Boolean>();
 	private boolean isCourseAdmin = false;
 	private boolean isCourseCoach = false;
-	private List ownedGroups;
-	private List participatedGroups;
-	private List waitingListGroups;
-	private List rightGroups;
+	private List<BusinessGroup> ownedGroups;
+	private List<BusinessGroup> participatedGroups;
+	private List<BusinessGroup> waitingListGroups;
 
 	private CourseNode currentCourseNode;
 	private TreeModel treeModel;
@@ -198,6 +190,8 @@ public class RunMainController extends MainLayoutBasicController implements Gene
 	private Link currentUserCountLink;
 	private int currentUserCount;
 	
+	private final BusinessGroupService businessGroupService;
+	
 	/**
 	 * Constructor for the run main controller
 	 * 
@@ -211,27 +205,12 @@ public class RunMainController extends MainLayoutBasicController implements Gene
 	 * @param offerBookmark - whether to offer bookmarks or not
 	 * @param showCourseConfigLink  Flag to enable/disable link to detail-page in tool menu. 
 	 */
-	public RunMainController(final UserRequest ureq, final WindowControl wControl, final ICourse course, final String initialViewIdentifier,
+	public RunMainController(final UserRequest ureq, final WindowControl wControl, final ICourse course,
 			final boolean offerBookmark, final boolean showCourseConfigLink) {
-		this(ureq, wControl, course, initialViewIdentifier, offerBookmark, showCourseConfigLink, false);
-	}
-
-	/**
-	 * fxdiff: change these two constructors to allow setting of launchFromSite
-	 * for CourseSite
-	 * 
-	 * @param ureq
-	 * @param wControl
-	 * @param course
-	 * @param initialViewIdentifier
-	 * @param offerBookmark
-	 * @param showCourseConfigLink
-	 * @param launchFromSite allows to set disposed controller after init!
-	 */
-	public RunMainController(final UserRequest ureq, final WindowControl wControl, final ICourse course, final String initialViewIdentifier,
-			final boolean offerBookmark, final boolean showCourseConfigLink, final boolean launchFromSite) {
 
 		super(ureq, wControl);
+		
+		businessGroupService = CoreSpringFactory.getImpl(BusinessGroupService.class);
 
 		this.course = course;
 		addLoggingResourceable(LoggingResourceable.wrap(course));
@@ -247,10 +226,10 @@ public class RunMainController extends MainLayoutBasicController implements Gene
 		
 		// log shows who entered which course, this can then be further used to jump
 		// to the courselog
-		Tracing.logAudit("Entering course: [[["+courseTitle+"]]]", course.getResourceableId().toString(), RunMainController.class);
+		logAudit("Entering course: [[["+courseTitle+"]]]", course.getResourceableId().toString());
 		
 		// set up the components
-		all = new Panel("allofcourse");
+		all = new StackedControllerImpl(getWindowControl(), getTranslator(), "o_course_breadcumbs");
 		luTree = new MenuTree(null, "luTreeRun", this);
 		luTree.setExpandSelectedNode(false);
 		contentP = new Panel("building_block_content");
@@ -273,70 +252,7 @@ public class RunMainController extends MainLayoutBasicController implements Gene
 		uce.getScoreAccounting().evaluateAll();
 		navHandler = new NavigationHandler(uce, false);
 
-		// jump to either the forum or the folder if the business-launch-path says
-		// so.
-		boolean showAssessmentTool = false;
-		
-		BusinessControl bc = getWindowControl().getBusinessControl();
-		ContextEntry ce = bc.popLauncherContextEntry();
-		if (ce != null) {
-			logDebug("businesscontrol (for further jumps) would be:" + bc, null);
-			OLATResourceable ores = ce.getOLATResourceable();
-			logDebug("OLATResourceable=" + ores, null);
-			if (OresHelper.isOfType(ores, CourseNode.class)) {
-				// TODO, don't use CourseNode.class, but a lookup using the ClassToId
-				// class
-				// jump to the coursenode with id
-				Long nodeId = ores.getResourceableId();
-				String nodeIdS = nodeId.toString();
-				currentCourseNode = course.getRunStructure().getNode(nodeIdS);
-				if (currentCourseNode == null) {
-					// (e.g. a coursenode that no longer is accessible or existing)
-					// -> fallback to root node (automatically done later), and drop wrong
-					// remaining contexts
-					logDebug("currentCourseNode=null => dropLauncherEntries for nodeIdS=" + nodeIdS, null);
-					bc.dropLauncherEntries();
-				}
-			} else if ("assessmentTool".equals(ores.getResourceableTypeName())) {
-				showAssessmentTool = true;
-			}
-		}
-		/*
-		 * ContextEntry curCe = bc.getCurrentEntryAndAdvance(); if (curCe != null) { //
-		 * e.g something like FOCourseNode:3243 or AssementTool:0 or AssmentTool:1
-		 * (0,1 must be dokumented) OLATResourceable ores =
-		 * curCe.getOLATResourceable(); if (OresHelper.isOfType(ores,
-		 * CourseNode.class)) { // TODO, don't use CourseNode.class, but a lookup
-		 * using the ClassToId class // jump to the coursenode with id Long nodeId =
-		 * ores.getResourceableId(); String nodeIdS = nodeId.toString();
-		 * currentCourseNode = course.getRunStructure().getNode(nodeIdS); } else {
-		 * //TODO assessment tool } }
-		 */
-		
-		
-		String subsubId = null;
-		String assessmentViewIdentifier = null;
-		// activate assessent tool or node as the first screen
-		if (initialViewIdentifier != null) {
-			if (initialViewIdentifier.equals("assessmentTool")) {
-				showAssessmentTool = true;
-				// assessmentViewIdentifier must be null
-			} else if (initialViewIdentifier.equals("assessmentTool:nodeChoose")) {
-				showAssessmentTool = true;
-				assessmentViewIdentifier = "node-choose";
-			} else {
-				// check for subsubIdent
-				if (initialViewIdentifier.indexOf(":") != -1) {
-					String[] viewIdentifier = initialViewIdentifier.split(":");
-					currentCourseNode = course.getRunStructure().getNode(viewIdentifier[0]);
-					subsubId = viewIdentifier[1];
-				} else {
-					currentCourseNode = course.getRunStructure().getNode(initialViewIdentifier);
-				}
-			}
-		}
-
-		updateTreeAndContent(ureq, currentCourseNode, subsubId);
+		updateTreeAndContent(ureq, currentCourseNode, null);
 		
 		//set the launch date after the evaluation
 		setLaunchDates(identity);
@@ -388,44 +304,31 @@ public class RunMainController extends MainLayoutBasicController implements Gene
 			} else {
 				glossaryMarkerCtr.setTextMarkingEnabled(state.booleanValue());
 			}
-			columnLayoutCtr = new LayoutMain3ColsController(ureq, getWindowControl(), luTree, toolComp, glossaryMarkerCtr.getInitialComponent(), "course" + this.course.getResourceableId());				
+			columnLayoutCtr = new LayoutMain3ColsController(ureq, getWindowControl(), luTree, toolComp, glossaryMarkerCtr.getInitialComponent(), "course" + course.getResourceableId());				
 		} else {
-			columnLayoutCtr = new LayoutMain3ColsController(ureq, getWindowControl(), luTree, toolComp, contentP, "courseRun" + this.course.getResourceableId());							
+			columnLayoutCtr = new LayoutMain3ColsController(ureq, getWindowControl(), luTree, toolComp, contentP, "courseRun" + course.getResourceableId());							
 		}
 		listenTo(columnLayoutCtr);
 
 		// activate the custom course css if any
 		setCustomCSS(CourseFactory.getCustomCourseCss(ureq.getUserSession(), uce.getCourseEnvironment()));
 
-		// decide what is show fist - a tool since activaded this way or the regular
-		// course view
-		if (showAssessmentTool) {
-			launchAssessmentTool(ureq, assessmentViewIdentifier);
-			coursemain = createVelocityContainer("index");
-			coursemain.put("coursemain", all);
-		} else {
-			all.setContent(columnLayoutCtr.getInitialComponent());
-			coursemain = createVelocityContainer("index");
-			// see function gotonode in functions.js to see why we need the
-			// repositoryentry-key here:
-			// it is to correctly apply external links using course-internal links via
-			// javascript
-			coursemain.contextPut("courserepokey", courseRepositoryEntry.getKey());
-			coursemain.put("coursemain", all);
-		}
-		
+		all.pushController(courseTitle, columnLayoutCtr);
+		listenTo(all);
+		coursemain = createVelocityContainer("index");
+		// see function gotonode in functions.js to see why we need the repositoryentry-key here:
+		// it is to correctly apply external links using course-internal links via javascript
+		coursemain.contextPut("courserepokey", courseRepositoryEntry.getKey());
+		coursemain.put("coursemain", all.getInitialComponent());
+
 		putInitialPanel(coursemain);
 
-		if (!launchFromSite) {
-			// disposed message controller
-			// must be created beforehand
-			Panel empty = new Panel("empty");// empty panel set as "menu" and "tool"
-			Controller courseCloser = CourseFactory.createDisposedCourseRestartController(ureq, wControl,
-					courseRepositoryEntry.getResourceableId());
-			Controller disposedRestartController = new LayoutMain3ColsController(ureq, wControl, empty, empty,
-					courseCloser.getInitialComponent(), "disposed course" + this.course.getResourceableId());
-			setDisposedMsgController(disposedRestartController);
-		}
+		// disposed message controller must be created beforehand
+		Panel empty = new Panel("empty");// empty panel set as "menu" and "tool"
+		Controller courseCloser = CourseFactory.createDisposedCourseRestartController(ureq, wControl, courseRepositoryEntry);
+		Controller disposedRestartController = new LayoutMain3ColsController(ureq, wControl, empty, empty,
+				courseCloser.getInitialComponent(), "disposed course" + course.getResourceableId());
+		setDisposedMsgController(disposedRestartController);
 
 		// add as listener to course so we are being notified about course events:
 		// - publish changes
@@ -486,22 +389,25 @@ public class RunMainController extends MainLayoutBasicController implements Gene
 	}
 
 	private void initUserRolesAndRights(final Identity identity) {
-		CourseGroupManager cgm = this.course.getCourseEnvironment().getCourseGroupManager();
+		CourseGroupManager cgm = course.getCourseEnvironment().getCourseGroupManager();
 		// 1) course admins: users who are in repository entry owner group
 		// if user has the role InstitutionalResourceManager and has the same institution like author
 		// then set isCourseAdmin true
-		isCourseAdmin = cgm.isIdentityCourseAdministrator(identity) | RepositoryManager.getInstance().isInstitutionalRessourceManagerFor(courseRepositoryEntry, identity);
+		isCourseAdmin = cgm.isIdentityCourseAdministrator(identity)
+				|| RepositoryManager.getInstance().isInstitutionalRessourceManagerFor(courseRepositoryEntry, identity);
 		// 2) course coaches: users who are in the owner group of any group of this
 		// course
 		isCourseCoach = cgm.isIdentityCourseCoach(identity);
 		// 3) all other rights are defined in the groupmanagement using the learning
 		// group rights
+		
 		courseRightsCache.put(CourseRights.RIGHT_GROUPMANAGEMENT, new Boolean(cgm.hasRight(identity, CourseRights.RIGHT_GROUPMANAGEMENT)));
 		courseRightsCache.put(CourseRights.RIGHT_COURSEEDITOR, new Boolean(cgm.hasRight(identity, CourseRights.RIGHT_COURSEEDITOR)));
 		courseRightsCache.put(CourseRights.RIGHT_ARCHIVING, new Boolean(cgm.hasRight(identity, CourseRights.RIGHT_ARCHIVING)));
 		courseRightsCache.put(CourseRights.RIGHT_ASSESSMENT, new Boolean(cgm.hasRight(identity, CourseRights.RIGHT_ASSESSMENT)));
 		courseRightsCache.put(CourseRights.RIGHT_GLOSSARY, new Boolean(cgm.hasRight(identity, CourseRights.RIGHT_GLOSSARY)));
 		courseRightsCache.put(CourseRights.RIGHT_STATISTICS, new Boolean(cgm.hasRight(identity, CourseRights.RIGHT_STATISTICS)));
+		courseRightsCache.put(CourseRights.RIGHT_DB, new Boolean(cgm.hasRight(identity, CourseRights.RIGHT_DB)));
 	}
 
 	/**
@@ -550,18 +456,17 @@ public class RunMainController extends MainLayoutBasicController implements Gene
 
 		// get new run controller.
 		currentNodeController = nclr.getRunController();
+		addToHistory(ureq, currentNodeController);
+		
 		//fxdiff BAKS-7 Resume function
-		if(currentNodeController instanceof Activateable2) {
-			((Activateable2)currentNodeController).activate(ureq, entries, state);
-		} else if (currentNodeController instanceof TitledWrapperController) {
+		if (currentNodeController instanceof TitledWrapperController) {
 			Controller contentcontroller = ((TitledWrapperController)currentNodeController).getContentController();
+			addToHistory(ureq, contentcontroller);
 			if(contentcontroller instanceof Activateable2) {
 				((Activateable2)contentcontroller).activate(ureq, entries, state);
-			} else {
-				addToHistory(ureq, currentNodeController);
 			}
-		} else {
-			addToHistory(ureq, currentNodeController);
+		} else if(currentNodeController instanceof Activateable2) {
+			((Activateable2)currentNodeController).activate(ureq, entries, state);
 		}
 		contentP.setContent(currentNodeController.getInitialComponent());
 		// enableCustomCourseCSS(ureq);
@@ -664,7 +569,39 @@ public class RunMainController extends MainLayoutBasicController implements Gene
 			}
 		}
 	}
-		
+	
+	private void eventDone(UserRequest ureq) {
+		if (isInEditor) {
+			isInEditor = false; // for clarity
+			removeAsListenerAndDispose(currentToolCtr);
+			currentToolCtr = null;
+			if (needsRebuildAfterPublish) {
+				needsRebuildAfterPublish = false;
+				
+			  // rebuild up the running structure for this user, after publish;
+				uce = new UserCourseEnvironmentImpl(ureq.getUserSession().getIdentityEnvironment(), CourseFactory.loadCourse(course.getResourceableId()).getCourseEnvironment());
+				// build score now
+				uce.getScoreAccounting().evaluateAll();
+				navHandler = new NavigationHandler(uce, false);
+				
+				// rebuild and jump to root node
+				updateTreeAndContent(ureq, null, null);
+				// and also tools (maybe new assessable nodes -> show efficiency
+				// statment)
+				removeAsListenerAndDispose(toolC);
+				toolC = initToolController(ureq.getIdentity(), ureq);
+				listenTo(toolC);
+				
+				Component toolComp = (toolC == null ? null : toolC.getInitialComponent());
+				columnLayoutCtr.setCol2(toolComp);
+			}
+		} else {
+			// release current node controllers resources and do cleanup if it was not the editor!
+			removeAsListenerAndDispose(currentToolCtr);
+			currentToolCtr = null;
+		}
+	}
+	
 	/**
 	 * @see org.olat.core.gui.control.DefaultController#event(org.olat.core.gui.UserRequest,
 	 *      org.olat.core.gui.control.Controller, org.olat.core.gui.control.Event)
@@ -674,39 +611,16 @@ public class RunMainController extends MainLayoutBasicController implements Gene
 		// event from the current tool (editor, groupmanagement, archiver)		
 		if (source == currentToolCtr) {
 			if (event == Event.DONE_EVENT) {
-				// for all other tools just pop
-				all.setContent(columnLayoutCtr.getInitialComponent());
 				// special check for editor
-				if (isInEditor) {
-					isInEditor = false; // for clarity
-					removeAsListenerAndDispose(currentToolCtr);
-					currentToolCtr = null;
-					if (needsRebuildAfterPublish) {
-						needsRebuildAfterPublish = false;
-						
-					  // rebuild up the running structure for this user, after publish;
-						uce = new UserCourseEnvironmentImpl(ureq.getUserSession().getIdentityEnvironment(), CourseFactory.loadCourse(course.getResourceableId()).getCourseEnvironment());
-						// build score now
-						uce.getScoreAccounting().evaluateAll();
-						navHandler = new NavigationHandler(uce, false);
-						
-						// rebuild and jump to root node
-						updateTreeAndContent(ureq, null, null);
-						// and also tools (maybe new assessable nodes -> show efficiency
-						// statment)
-						removeAsListenerAndDispose(toolC);
-						toolC = initToolController(ureq.getIdentity(), ureq);
-						listenTo(toolC);
-						
-						Component toolComp = (toolC == null ? null : toolC.getInitialComponent());
-						columnLayoutCtr.setCol2(toolComp);
-					}
-				} else {
-					// release current node controllers resources and do cleanup if it was not the editor!
-					removeAsListenerAndDispose(currentToolCtr);
-					currentToolCtr = null;
-				}
+				eventDone(ureq);
 			}
+		} else if (source == all) {
+			if(event instanceof PopEvent) {
+				PopEvent pop = (PopEvent)event;
+				if(pop.getController() == currentToolCtr) {
+					eventDone(ureq);
+				}	
+			}	
 		} else if (source == currentNodeController) {
 			if (event instanceof OlatCmdEvent) {
 				OlatCmdEvent oe = (OlatCmdEvent) event;
@@ -768,18 +682,16 @@ public class RunMainController extends MainLayoutBasicController implements Gene
 			// launch the group in a new top nav tab
 			String groupIdent = cmd.substring(CMD_START_GROUP_PREFIX.length());
 			Long groupKey = new Long(Long.parseLong(groupIdent));
-			BusinessGroupManager groupManager = BusinessGroupManagerImpl.getInstance();
-			BusinessGroup group = groupManager.loadBusinessGroup(groupKey, false);
+			BusinessGroup group = businessGroupService.loadBusinessGroup(groupKey);
 			// check if the group still exists and the user is really in this group
 			// (security, changed group)
-			if (group != null && groupManager.isIdentityInBusinessGroup(ureq.getIdentity(), group)) {
-				BaseSecurity securityManager = BaseSecurityManager.getInstance();
-				boolean isCoach = securityManager.isIdentityInSecurityGroup(ureq.getIdentity(), group.getOwnerGroup());
-				// create group without admin flag enabled eventhough the user might be
+			if (group != null && businessGroupService.isIdentityInBusinessGroup(ureq.getIdentity(), group)) {
+				// create group without admin flag enabled even though the user might be
 				// coach. the flag is not needed here
 				// since the groups knows itself if the user is coach and the user sees
 				// only his own groups.
-				BGControllerFactory.getInstance().createRunControllerAsTopNavTab(group, ureq, getWindowControl(), /*ual, */false, null);
+				String bsuinessPath = "[BusinessGroup:" + group.getKey() + "]";
+				NewControllerFactory.getInstance().launch(bsuinessPath, ureq, getWindowControl());
 			} else {
 				// display error and do logging
 				getWindowControl().setError(translate("error.invalid.group"));
@@ -796,52 +708,35 @@ public class RunMainController extends MainLayoutBasicController implements Gene
 			}
 		} else if (cmd.equals(COMMAND_EDIT)) {
 			if (hasCourseRight(CourseRights.RIGHT_COURSEEDITOR) || isCourseAdmin) {
-				Controller ec = CourseFactory.createEditorController(ureq, getWindowControl(), course);
-				//user activity logger which was initialised with course run
-				//
+				Controller ec = CourseFactory.createEditorController(ureq, getWindowControl(), all, course);
+				//user activity logger which was initialized with course run
 				if(ec != null){
 					//we are in editing mode
 					currentToolCtr = ec;
 					listenTo(currentToolCtr);
-					//currentToolCtr.addControllerListener(this); //deprecated, replaced by listenTo from BasicController
 					isInEditor = true;
-					all.setContent(currentToolCtr.getInitialComponent());
-				}else{
-					//editor could not be created
-					//message already pushed as Error Box 
+					all.pushController(translate("command.openeditor"), currentToolCtr);
 				}
-				
 			} else throw new OLATSecurityException("wanted to activate editor, but no according right");
 
-		} else if (cmd.equals("groupmngt")) {
-			if (hasCourseRight(CourseRights.RIGHT_GROUPMANAGEMENT) || isCourseAdmin) {
-				currentToolCtr = new CourseGroupManagementMainController(ureq, getWindowControl(), course, BusinessGroup.TYPE_LEARNINGROUP);
-				listenTo(currentToolCtr);
-				all.setContent(currentToolCtr.getInitialComponent());
-			} else throw new OLATSecurityException("clicked groupmanagement, but no according right");
-		//fxdiff VCRP-1,2: access control of resources
-		} else if (cmd.equals("simplegroupmngt")) {
-			if (hasCourseRight(CourseRights.RIGHT_GROUPMANAGEMENT) || isCourseAdmin) {
-				boolean mayModifyMembers = true;
-				currentToolCtr = new SecurityGroupsRepositoryMainController(ureq, getWindowControl(), course, courseRepositoryEntry, mayModifyMembers);
-				listenTo(currentToolCtr);
-				all.setContent(currentToolCtr.getInitialComponent());
-			} else throw new OLATSecurityException("clicked groupmanagement, but no according right");
+		} else if (cmd.equals("unifiedusermngt")) {
+			launchMembersManagement(ureq);
 			
-		} else if (cmd.equals("rightmngt")) {
-			if (isCourseAdmin) {
-				currentToolCtr = new CourseGroupManagementMainController(ureq, getWindowControl(), course, BusinessGroup.TYPE_RIGHTGROUP);
-				listenTo(currentToolCtr);
-				all.setContent(currentToolCtr.getInitialComponent());
-			} else throw new OLATSecurityException("clicked rightmanagement, but no according right");
-
 		} else if (cmd.equals("statistic")) {
 			if (hasCourseRight(CourseRights.RIGHT_STATISTICS) || isCourseAdmin) {
 				currentToolCtr = new StatisticMainController(ureq, getWindowControl(), course);
 				listenTo(currentToolCtr);
-				all.setContent(currentToolCtr.getInitialComponent());
+				all.pushController(translate("command.openstatistic"), currentToolCtr);
 			} else throw new OLATSecurityException("clicked statistic, but no according right");
-		} else if (cmd.equals("archiver")) {
+		//fxdiff: open a panel to manage the course dbs
+		} else if (cmd.equals("customDb")) {
+			if (hasCourseRight(CourseRights.RIGHT_DB) || isCourseAdmin) {
+				currentToolCtr = new CustomDBMainController(ureq, getWindowControl(), course);
+				listenTo(currentToolCtr);
+				all.pushController(translate("command.opendb"), currentToolCtr);
+			} else throw new OLATSecurityException("clicked dbs, but no according right");
+
+		}else if (cmd.equals("archiver")) {
 			if (hasCourseRight(CourseRights.RIGHT_ARCHIVING) || isCourseAdmin) {
 				currentToolCtr = new ArchiverMainController(ureq, getWindowControl(), course, new IArchiverCallback() {
 					public boolean mayArchiveQtiResults() {
@@ -882,12 +777,11 @@ public class RunMainController extends MainLayoutBasicController implements Gene
 
 				});
 				listenTo(currentToolCtr);
-				all.setContent(currentToolCtr.getInitialComponent());
+				all.pushController(translate("command.openarchiver"), currentToolCtr);
 			} else throw new OLATSecurityException("clicked archiver, but no according right");
 
 		} else if (cmd.equals("assessment")) {
 			launchAssessmentTool(ureq, null);
-
 		} else if (cmd.equals("efficiencystatement")) {
 			// will not be disposed on course run dispose, popus up as new
 			// browserwindow
@@ -922,16 +816,8 @@ public class RunMainController extends MainLayoutBasicController implements Gene
 			openInNewBrowserWindow(ureq, popupLayoutCtr);
 			//
 		} else if (cmd.equals(TOOLBOX_LINK_COURSECONFIG)) {
-			//FIXME:pb:a better workflows to link a course detail page from course run
-			//was brasato getWindowControl().getDTabs().activateStatic(ureq, RepositorySite.class.getName(),RepositoryMainController.JUMPFROMEXTERN + RepositoryMainController.JUMPFROMCOURSE + courseRepositoryEntry.getKey().toString());
-			DTabs dts = (DTabs)Windows.getWindows(ureq).getWindow(ureq).getAttribute("DTabs");
-			if(dts != null){
-				dts.activateStatic(ureq, RepositorySite.class.getName(),RepositoryMainController.JUMPFROMEXTERN + RepositoryMainController.JUMPFROMCOURSE + courseRepositoryEntry.getKey().toString());
-			}else{
-				//help course in popup window can not display detail page
-				getWindowControl().setInfo("detail can not be displayed here");
-			}
-			return;
+			String businessPath = "[RepositorySite:0][RepositoryEntry:" + courseRepositoryEntry.getKey() + "]";
+			NewControllerFactory.getInstance().launch(businessPath, ureq, getWindowControl());
 		} else if (cmd.equals(ACTION_BOOKMARK)) { // add bookmark
 			RepositoryEntry re = RepositoryManager.getInstance().lookupRepositoryEntry(course, true);
 			bookmarkController = new AddAndEditBookmarkController(ureq, getWindowControl(), re.getDisplayname(), "", re, re.getOlatResource()
@@ -959,30 +845,46 @@ public class RunMainController extends MainLayoutBasicController implements Gene
 			//
 		} 
 	}
+	
+	private MembersManagementMainController launchMembersManagement(UserRequest ureq) {
+		if (hasCourseRight(CourseRights.RIGHT_GROUPMANAGEMENT) || isCourseAdmin) {
+			if(!(currentToolCtr instanceof MembersManagementMainController)) {
+				OLATResourceable ores = OresHelper.createOLATResourceableInstance("MembersMgmt", 0l);
+				ThreadLocalUserActivityLogger.addLoggingResourceInfo(LoggingResourceable.wrapBusinessPath(ores));
+				WindowControl bwControl = BusinessControlFactory.getInstance().createBusinessWindowControl(ores, null, getWindowControl());
+				currentToolCtr = new MembersManagementMainController(ureq, addToHistory(ureq, bwControl), courseRepositoryEntry);
+				listenTo(currentToolCtr);
+				
+				all.popUpToRootController(ureq);
+				all.pushController(translate("command.opensimplegroupmngt"), currentToolCtr);
+			}
+			return (MembersManagementMainController)currentToolCtr;
+		} else throw new OLATSecurityException("clicked groupmanagement, but no according right");
+	}
 
-	private Activateable launchAssessmentTool(UserRequest ureq, String viewIdentifier) {
+	private Activateable2 launchAssessmentTool(UserRequest ureq, List<ContextEntry> entries) {
 		OLATResourceable ores = OresHelper.createOLATResourceableType("assessmentTool");
 		ThreadLocalUserActivityLogger.addLoggingResourceInfo(LoggingResourceable.wrapBusinessPath(ores));
 		WindowControl swControl = addToHistory(ureq, ores, null);
 		
 		// 1) course admins and users with tool right: full access
 		if (hasCourseRight(CourseRights.RIGHT_ASSESSMENT) || isCourseAdmin) {
-			Activateable assessmentToolCtr = 
-				AssessmentUIFactory.createAssessmentMainController(ureq, swControl, course, new FullAccessAssessmentCallback(isCourseAdmin));
-			assessmentToolCtr.activate(ureq, viewIdentifier);
-			currentToolCtr = assessmentToolCtr;
+			Activateable2 assessmentToolCtr = 
+				AssessmentUIFactory.createAssessmentMainController(ureq, swControl, all, course, new FullAccessAssessmentCallback(isCourseAdmin));
+			assessmentToolCtr.activate(ureq, null, null);
+			currentToolCtr = (Controller)assessmentToolCtr;
 			listenTo(currentToolCtr);
-			all.setContent(currentToolCtr.getInitialComponent());
+			all.pushController(translate("command.openassessment"), currentToolCtr);
 			return assessmentToolCtr;
 		}
 		// 2) users with coach right: limited access to coached groups
 		else if (isCourseCoach) {
-			Activateable assessmentToolCtr = AssessmentUIFactory.createAssessmentMainController(ureq, swControl, course,
+			Activateable2 assessmentToolCtr = AssessmentUIFactory.createAssessmentMainController(ureq, swControl, all, course,
 					new CoachingGroupAccessAssessmentCallback());
-			assessmentToolCtr.activate(ureq, viewIdentifier);
-			currentToolCtr = assessmentToolCtr;
+			assessmentToolCtr.activate(ureq, null, null);
+			currentToolCtr = (Controller)assessmentToolCtr;
 			listenTo(currentToolCtr);
-			all.setContent(currentToolCtr.getInitialComponent());
+			all.pushController(translate("command.openassessment"), currentToolCtr);
 			return assessmentToolCtr;
 		} else throw new OLATSecurityException("clicked assessment tool in course::" + course.getResourceableId()
 				+ ", but no right to launch it. Username::" + ureq.getIdentity().getName());
@@ -1024,14 +926,14 @@ public class RunMainController extends MainLayoutBasicController implements Gene
 				// course to present him/her a nice view when
 				// he/she closes the editor to return to the run main (this controller)
 			} else {
-				dispose();
+				doDisposeAfterEvent();
 			}
 		} else if (event instanceof OLATResourceableJustBeforeDeletedEvent) {
 			OLATResourceableJustBeforeDeletedEvent ojde = (OLATResourceableJustBeforeDeletedEvent) event;
 			// make sure it is our course (actually not needed till now, since we
 			// registered only to one event, but good style.
 			if (ojde.targetEquals(course, true)) {
-				dispose();
+				doDisposeAfterEvent();
 			}
 		} else if (event instanceof AssessmentChangedEvent) {
 			AssessmentChangedEvent ace = (AssessmentChangedEvent) event;
@@ -1078,7 +980,8 @@ public class RunMainController extends MainLayoutBasicController implements Gene
 				// check if this affects a right group where the user does participate.
 				// if so, we need
 				// to rebuild the toolboxes
-				if (PersistenceHelper.listContainsObjectByKey(rightGroups, bgme.getModifiedGroupKey())) {
+				if (PersistenceHelper.listContainsObjectByKey(participatedGroups, bgme.getModifiedGroupKey()) ||
+						PersistenceHelper.listContainsObjectByKey(ownedGroups, bgme.getModifiedGroupKey())) {
 					// 1) reinitialize all group memberships
 					initGroupMemberships(identity);
 					// 2) reinitialize the users roles and rights
@@ -1093,15 +996,22 @@ public class RunMainController extends MainLayoutBasicController implements Gene
 			}
 
 		} else if (event instanceof CourseConfigEvent) {				
-			dispose();
-			
+			doDisposeAfterEvent();
 		} else if (event instanceof EntryChangedEvent && ((EntryChangedEvent)event).getChange()!=EntryChangedEvent.MODIFIED_AT_PUBLISH) {
 			//courseRepositoryEntry changed (e.g. fired at course access rule change)
 			EntryChangedEvent repoEvent = (EntryChangedEvent) event;			
 			if (courseRepositoryEntry.getKey().equals(repoEvent.getChangedEntryKey()) && repoEvent.getChange() == EntryChangedEvent.MODIFIED) {				
-				dispose();				
+				doDisposeAfterEvent();
 			}
 		}
+	}
+	
+	private void doDisposeAfterEvent() {
+		if(currentNodeController instanceof ConfigurationChangedListener) {
+			//give to opportunity to close popups ...
+			((ConfigurationChangedListener)currentNodeController).configurationChanged();
+		}
+		dispose();	
 	}
 		
 
@@ -1122,19 +1032,15 @@ public class RunMainController extends MainLayoutBasicController implements Gene
 		// 1) administrative tools
 		if (isCourseAdmin || isCourseCoach || hasCourseRight(CourseRights.RIGHT_COURSEEDITOR)
 				|| hasCourseRight(CourseRights.RIGHT_GROUPMANAGEMENT) || hasCourseRight(CourseRights.RIGHT_ARCHIVING)
+				|| hasCourseRight(CourseRights.RIGHT_STATISTICS) || hasCourseRight(CourseRights.RIGHT_DB)
 				|| hasCourseRight(CourseRights.RIGHT_ASSESSMENT)) {
 			myTool.addHeader(translate("header.tools"));
 			if (hasCourseRight(CourseRights.RIGHT_COURSEEDITOR) || isCourseAdmin) {
-				myTool.addLink(COMMAND_EDIT, translate("command.openeditor"));
+				myTool.addLink(COMMAND_EDIT, translate("command.openeditor"), null, null, "o_sel_course_open_editor", false);
 			}
 			if (hasCourseRight(CourseRights.RIGHT_GROUPMANAGEMENT) || isCourseAdmin) {
 				//fxdiff VCRP-1,2: access control of resources
-				myTool.addLink("simplegroupmngt", translate("command.opensimplegroupmngt"));
-				//
-				myTool.addLink("groupmngt", translate("command.opengroupmngt"));
-			}
-			if (isCourseAdmin) {
-				myTool.addLink("rightmngt", translate("command.openrightmngt"));
+				myTool.addLink("unifiedusermngt", translate("command.opensimplegroupmngt"), null, null, "o_sel_course_open_membersmgmt", false);
 			}
 			if (hasCourseRight(CourseRights.RIGHT_ARCHIVING) || isCourseAdmin) {
 				myTool.addLink("archiver", translate("command.openarchiver"));
@@ -1148,21 +1054,16 @@ public class RunMainController extends MainLayoutBasicController implements Gene
 			if (hasCourseRight(CourseRights.RIGHT_STATISTICS) || isCourseAdmin) {
 				myTool.addLink("statistic", translate("command.openstatistic"));
 			}
-
-			//
-			/*
-			 * if (isCourseAdmin) { myTool.addLink(TOOLBOX_LINK_COURSECONFIG,
-			 * translate("command.courseconfig")); }
-			 */
-			//
+			//fxdiff: enable the course db menu item
+			if (CourseDBManager.getInstance().isEnabled() && (hasCourseRight(CourseRights.RIGHT_DB) || isCourseAdmin)) {
+				myTool.addLink("customDb", translate("command.opendb"));
+			}
 		}
 
 		// 2) add coached groups
 		if (ownedGroups.size() > 0) {
 			myTool.addHeader(translate("header.tools.ownerGroups"));
-			Iterator iter = ownedGroups.iterator();
-			while (iter.hasNext()) {
-				BusinessGroup group = (BusinessGroup) iter.next();
+			for (BusinessGroup group:ownedGroups) {
 				myTool.addLink(CMD_START_GROUP_PREFIX + group.getKey().toString(), group.getName());
 			}
 		}
@@ -1170,19 +1071,7 @@ public class RunMainController extends MainLayoutBasicController implements Gene
 		// 3) add participating groups
 		if (participatedGroups.size() > 0) {
 			myTool.addHeader(translate("header.tools.participatedGroups"));
-			Iterator iter = participatedGroups.iterator();
-			while (iter.hasNext()) {
-				BusinessGroup group = (BusinessGroup) iter.next();
-				myTool.addLink(CMD_START_GROUP_PREFIX + group.getKey().toString(), group.getName());
-			}
-		}
-
-		// 4) add right groups
-		if (rightGroups.size() > 0) {
-			myTool.addHeader(translate("header.tools.rightGroups"));
-			Iterator iter = rightGroups.iterator();
-			while (iter.hasNext()) {
-				BusinessGroup group = (BusinessGroup) iter.next();
+			for (BusinessGroup group: participatedGroups) {
 				myTool.addLink(CMD_START_GROUP_PREFIX + group.getKey().toString(), group.getName());
 			}
 		}
@@ -1190,11 +1079,8 @@ public class RunMainController extends MainLayoutBasicController implements Gene
 		// 5) add waiting-list groups
 		if (waitingListGroups.size() > 0) {
 			myTool.addHeader(translate("header.tools.waitingListGroups"));
-			Iterator iter = waitingListGroups.iterator();
-			while (iter.hasNext()) {
-				BusinessGroup group = (BusinessGroup) iter.next();
-				BusinessGroupManager businessGroupManager = BusinessGroupManagerImpl.getInstance();
-				int pos = businessGroupManager.getPositionInWaitingListFor(identity, group);
+			for (BusinessGroup group:waitingListGroups) {
+				int pos = businessGroupService.getPositionInWaitingListFor(identity, group);
 				myTool.addLink(CMD_START_GROUP_PREFIX + group.getKey().toString(), group.getName() + "(" + pos + ")", group
 						.getKey().toString(), null);
 				myTool.setEnabled(group.getKey().toString(), false);
@@ -1309,10 +1195,9 @@ public class RunMainController extends MainLayoutBasicController implements Gene
 	 */
 	private void initGroupMemberships(Identity identity) {
 		CourseGroupManager cgm = course.getCourseEnvironment().getCourseGroupManager();
-		ownedGroups = cgm.getOwnedLearningGroupsFromAllContexts(identity);
-		participatedGroups = cgm.getParticipatingLearningGroupsFromAllContexts(identity);
-		waitingListGroups = cgm.getWaitingListGroupsFromAllContexts(identity);
-		rightGroups = cgm.getParticipatingRightGroupsFromAllContexts(identity);
+		ownedGroups = cgm.getOwnedBusinessGroups(identity);
+		participatedGroups = cgm.getParticipatingBusinessGroups(identity);
+		waitingListGroups = cgm.getWaitingListGroups(identity);
 	}
 
 	/**
@@ -1356,77 +1241,6 @@ public class RunMainController extends MainLayoutBasicController implements Gene
 		logAudit("Leaving course: [[["+courseTitle+"]]]", course.getResourceableId().toString());
 	}
 
-	/**
-	 * @see org.olat.core.gui.control.generic.dtabs.Activateable#activate(org.olat.core.gui.UserRequest,
-	 *      java.lang.String)
-	 */
-	public void activate(UserRequest ureq, String viewIdentifier) {
-		if(isDisposed()) {
-			return;
-		}
-		// transform ACTIVATE_RUN to activate course root node
-		if (viewIdentifier.equals(RepositoryDetailsController.ACTIVATE_RUN)) {
-			// activating the run, means so far activating the root node
-			// viewIdentifier = course.getRunStructure().getRootNode().getIdent();
-			return;
-		}
-		//
-
-		if (viewIdentifier.equals(RepositoryDetailsController.ACTIVATE_EDITOR)) {
-			// activate editor
-			if (!isInEditor) {
-				if (currentToolCtr == null) {
-					// not already in the editor and also no other course tool running
-					isInEditor = true;
-					doHandleToolEvents(ureq, COMMAND_EDIT);
-				} else if (currentToolCtr != null) {
-					// not activateable as another tool is running, i.e. assessment tool
-					getWindowControl().setWarning(translate("warn.cannotactivatesinceintool"));
-				}
-			}// else it is already active
-		} else if (isInEditor || currentToolCtr != null) {
-			// do not activate anything if a course tool or the editor is active!
-			getWindowControl().setWarning(translate("warn.cannotactivatesinceintool"));
-		} else {
-			if (currentNodeController != null) {
-				currentNodeController.dispose();
-			}
-			//fxdiff BAKS-7 Resume function
-			if (viewIdentifier.startsWith("CourseNode:")) {
-				viewIdentifier = viewIdentifier.substring("CourseNode:".length());
-			} 
-
-			CourseNode cn = null;
-			cn = (viewIdentifier == null ? null : course.getRunStructure().getNode(viewIdentifier));
-			String subsubId = null;
-
-			// check for subsubIdent (jump into the third level)
-			if (viewIdentifier != null) {
-				if (viewIdentifier.indexOf(":") != -1) {
-					String[] vis = viewIdentifier.split(":");
-					cn = course.getRunStructure().getNode(vis[0]);
-					subsubId = vis[1];
-				}
-			}
-			// FIXME:fj:b is this needed in some cases?: currentCourseNode = cn;
-			getWindowControl().makeFlat();
-			
-			//add loggin information for case course gets started via jumpin link/search
-			addLoggingResourceable(LoggingResourceable.wrap(course));
-			if (cn!=null) {
-				addLoggingResourceable(LoggingResourceable.wrap(cn));
-			}
-			updateTreeAndContent(ureq, cn, subsubId);
-		}
-		
-		// reset gloss toolC to get newly tabs
-		removeAsListenerAndDispose(glossaryToolCtr);
-		boolean hasGlossaryRights = hasCourseRight(CourseRights.RIGHT_GLOSSARY) || isCourseAdmin;
-		glossaryToolCtr = new CourseGlossaryToolLinkController(getWindowControl(), ureq, course, getTranslator(), hasGlossaryRights, 
-				uce.getCourseEnvironment(), glossaryMarkerCtr);
-		listenTo(glossaryToolCtr);
-	}
-
 	@Override
 	//fxdiff BAKS-7 Resume function
 	public void activate(UserRequest ureq, List<ContextEntry> entries, StateEntry state) {
@@ -1455,14 +1269,25 @@ public class RunMainController extends MainLayoutBasicController implements Gene
 			//check the security before, the link is perhaps in the wrong hands
 			if(hasCourseRight(CourseRights.RIGHT_ASSESSMENT) || isCourseAdmin || isCourseCoach) {
 				try {
-					Activateable assessmentCtrl = launchAssessmentTool(ureq, null);
-					if(assessmentCtrl instanceof Activateable2) {
-						List<ContextEntry> subEntries = entries.subList(1, entries.size());
-						((Activateable2)assessmentCtrl).activate(ureq, subEntries, firstEntry.getTransientState());
+					Activateable2 assessmentCtrl = launchAssessmentTool(ureq, null);
+					
+					List<ContextEntry> subEntries;
+					if(entries.size() > 1 && entries.get(1).getOLATResourceable().getResourceableTypeName().equals(type)) {
+						subEntries = entries.subList(2, entries.size());
+					} else {
+						subEntries = entries.subList(1, entries.size());
 					}
+					assessmentCtrl.activate(ureq, subEntries, firstEntry.getTransientState());
 				} catch (OLATSecurityException e) {
 					//the wrong link to the wrong person
 				}
+			}
+		} else if("MembersMgmt".equals(type)) {
+			try {
+				List<ContextEntry> subEntries = entries.subList(1, entries.size());
+				launchMembersManagement(ureq).activate(ureq, subEntries, firstEntry.getTransientState());
+			} catch (OLATSecurityException e) {
+				//the wrong link to the wrong person
 			}
 		}
 	}

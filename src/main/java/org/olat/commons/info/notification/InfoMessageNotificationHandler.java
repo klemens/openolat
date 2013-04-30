@@ -31,7 +31,6 @@ import org.olat.core.id.OLATResourceable;
 import org.olat.core.id.context.BusinessControlFactory;
 import org.olat.core.logging.LogDelegator;
 import org.olat.core.util.Util;
-import org.olat.core.util.notifications.NotificationHelper;
 import org.olat.core.util.notifications.NotificationsHandler;
 import org.olat.core.util.notifications.NotificationsManager;
 import org.olat.core.util.notifications.Publisher;
@@ -90,7 +89,7 @@ public class InfoMessageNotificationHandler extends LogDelegator implements Noti
 					String infoBusinessPath = info.getBusinessPath() + "[InfoMessage:" + info.getKey() + "]";
 					String urlToSend = BusinessControlFactory.getInstance().getURLFromBusinessPathString(infoBusinessPath);
 					Date dateInfo = info.getModificationDate() == null ? info.getCreationDate() : info.getModificationDate();
-					SubscriptionListItem subListItem = new SubscriptionListItem(desc, tooltip, urlToSend, dateInfo, CSS_CLASS_ICON);
+					SubscriptionListItem subListItem = new SubscriptionListItem(desc, tooltip, urlToSend, infoBusinessPath, dateInfo, CSS_CLASS_ICON);
 					si.addSubscriptionListItem(subListItem);
 				}
 			} catch (Exception e) {
@@ -106,7 +105,8 @@ public class InfoMessageNotificationHandler extends LogDelegator implements Noti
 	@Override
 	public String createTitleInfo(Subscriber subscriber, Locale locale) {
 		Translator translator = Util.createPackageTranslator(this.getClass(), locale);
-		return translator.translate("notification.title");
+		String displayName = RepositoryManager.getInstance().lookupDisplayNameByOLATResourceableId(subscriber.getPublisher().getResId());
+		return translator.translate("notification.title", new String[]{displayName});
 	}
 	
 	@Override

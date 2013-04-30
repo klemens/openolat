@@ -55,11 +55,13 @@ import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.Event;
 import org.olat.core.gui.control.WindowControl;
 import org.olat.core.gui.control.controller.MainLayoutBasicController;
+import org.olat.core.gui.control.generic.dtabs.Activateable2;
 import org.olat.core.id.Identity;
 import org.olat.core.id.OLATResourceable;
 import org.olat.core.id.UserConstants;
 import org.olat.core.id.context.BusinessControl;
 import org.olat.core.id.context.ContextEntry;
+import org.olat.core.id.context.StateEntry;
 import org.olat.core.util.mail.ContactList;
 import org.olat.core.util.mail.ContactMessage;
 import org.olat.core.util.resource.OresHelper;
@@ -81,7 +83,7 @@ import org.olat.portfolio.PortfolioModule;
  *         form.
  * 
  */
-public class UserInfoMainController extends MainLayoutBasicController {
+public class UserInfoMainController extends MainLayoutBasicController implements Activateable2 {
 
 	private static final String CMD_HOMEPAGE = "homepage";
 	private static final String CMD_CALENDAR = "calendar";
@@ -105,6 +107,9 @@ public class UserInfoMainController extends MainLayoutBasicController {
 	private Identity chosenIdentity;
 	private String firstLastName;
 	private Controller portfolioController;
+	
+	private GenericTreeNode folderNode;
+	private GenericTreeNode contactNode;
 
 	/**
 	 * @param ureq
@@ -168,12 +173,21 @@ public class UserInfoMainController extends MainLayoutBasicController {
 		// no events from intro
 	}
 
-	/**
-	 * @see org.olat.core.gui.control.DefaultController#event(org.olat.core.gui.UserRequest,
-	 *      org.olat.core.gui.control.Controller, org.olat.core.gui.control.Event)
-	 */
-	public void event(UserRequest ureq, Controller source, Event event) {
-	//
+	@Override
+	public void activate(UserRequest ureq, List<ContextEntry> entries, StateEntry state) {
+		if(entries == null || entries.isEmpty()) return;
+		
+		String type = entries.get(0).getOLATResourceable().getResourceableTypeName();
+		if("userfolder".equals(type)) {
+			String cmd = (String)folderNode.getUserObject();
+			main.setContent(createComponent(ureq, cmd, chosenIdentity));
+			menuTree.setSelectedNode(folderNode);
+			folderRunController.activate(ureq, entries.subList(1, entries.size()), null);
+		} else if ("Contact".equals(type) && contactNode != null) {
+			String cmd = (String)contactNode.getUserObject();
+			main.setContent(createComponent(ureq, cmd, chosenIdentity));
+			menuTree.setSelectedNode(contactNode);
+		}
 	}
 
 	/**
@@ -211,18 +225,18 @@ public class UserInfoMainController extends MainLayoutBasicController {
 			gtn.setAltText(translate("menu.calendar.alt"));
 			root.addChild(gtn);
 	
-			gtn = new GenericTreeNode();
-			gtn.setTitle(translate("menu.folder"));
-			gtn.setUserObject(CMD_FOLDER);
-			gtn.setAltText(translate("menu.folder.alt"));
-			root.addChild(gtn);
+			folderNode = new GenericTreeNode();
+			folderNode.setTitle(translate("menu.folder"));
+			folderNode.setUserObject(CMD_FOLDER);
+			folderNode.setAltText(translate("menu.folder.alt"));
+			root.addChild(folderNode);
 		}	
 		if ( !isDeleted) {
-			gtn = new GenericTreeNode();
-			gtn.setTitle(translate("menu.contact"));
-			gtn.setUserObject(CMD_CONTACT);
-			gtn.setAltText(translate("menu.contact.alt"));
-			root.addChild(gtn);
+			contactNode = new GenericTreeNode();
+			contactNode.setTitle(translate("menu.contact"));
+			contactNode.setUserObject(CMD_CONTACT);
+			contactNode.setAltText(translate("menu.contact.alt"));
+			root.addChild(contactNode);
 		}
 		if ( !isDeleted && ! isInvitee) {
 			PortfolioModule portfolioModule = (PortfolioModule) CoreSpringFactory.getBean("portfolioModule");
@@ -262,7 +276,7 @@ public class UserInfoMainController extends MainLayoutBasicController {
 				calendarWrapper.setAccess(KalendarRenderWrapper.ACCESS_READ_WRITE);
 			else
 				calendarWrapper.setAccess(KalendarRenderWrapper.ACCESS_READ_ONLY);
-			List calendars = new ArrayList();
+			List<KalendarRenderWrapper> calendars = new ArrayList<KalendarRenderWrapper>();
 			calendars.add(calendarWrapper);
 			removeAsListenerAndDispose(calendarController);
 			calendarController = new WeeklyCalendarController(ureq, getWindowControl(), calendars,
@@ -282,6 +296,7 @@ public class UserInfoMainController extends MainLayoutBasicController {
 			
 			removeAsListenerAndDispose(folderRunController);
 			folderRunController = new FolderRunController(namedFolder, false, true, false, ureq, getWindowControl());
+			folderRunController.setResourceURL("[Identity:" + identity.getKey() + "][userfolder:0]");
 			listenTo(folderRunController);
 			myContent.put("userinfo", folderRunController.getInitialComponent());
 

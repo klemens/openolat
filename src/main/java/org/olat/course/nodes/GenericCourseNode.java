@@ -31,6 +31,7 @@ import java.util.List;
 import java.util.Locale;
 
 import org.olat.core.gui.UserRequest;
+import org.olat.core.gui.components.stack.StackedController;
 import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.WindowControl;
 import org.olat.core.gui.control.generic.messages.MessageUIFactory;
@@ -49,10 +50,13 @@ import org.olat.course.condition.interpreter.ConditionInterpreter;
 import org.olat.course.editor.CourseEditorEnv;
 import org.olat.course.editor.NodeConfigFormController;
 import org.olat.course.editor.StatusDescription;
+import org.olat.course.export.CourseEnvironmentMapper;
 import org.olat.course.run.navigation.NodeRunConstructionResult;
 import org.olat.course.run.userview.NodeEvaluation;
 import org.olat.course.run.userview.TreeEvaluation;
 import org.olat.course.run.userview.UserCourseEnvironment;
+import org.olat.group.model.BGAreaReference;
+import org.olat.group.model.BusinessGroupReference;
 import org.olat.modules.ModuleConfiguration;
 
 /**
@@ -66,6 +70,7 @@ public abstract class GenericCourseNode extends GenericNode implements CourseNod
 	private String noAccessExplanation;
 	private Condition preConditionVisibility;
 	private Condition preConditionAccess;
+	private List<Condition> additionalConditions;
 	protected transient StatusDescription[] oneClickStatusCache = null;
 
 	/**
@@ -89,7 +94,7 @@ public abstract class GenericCourseNode extends GenericNode implements CourseNod
 	 *      ATTENTION:
 	 *      all course nodes must call updateModuleConfigDefaults(false) here
 	 */
-	public abstract TabbableController createEditController(UserRequest ureq, WindowControl wControl, ICourse course,
+	public abstract TabbableController createEditController(UserRequest ureq, WindowControl wControl, StackedController stackPanel, ICourse course,
 			UserCourseEnvironment euce);
 
 	/**
@@ -129,7 +134,7 @@ public abstract class GenericCourseNode extends GenericNode implements CourseNod
 	 * @see org.olat.course.run.userview.UserCourseEnvironment,
 	 * @see org.olat.course.run.userview.NodeEvaluation)
 	 */
-	@SuppressWarnings("unused")//no userCourseEnv or NodeEvaluation needed here
+	//no userCourseEnv or NodeEvaluation needed here
 	public Controller createPreviewController(UserRequest ureq, WindowControl wControl, UserCourseEnvironment userCourseEnv, NodeEvaluation ne) {
 		Translator translator = Util.createPackageTranslator(GenericCourseNode.class, ureq.getLocale());
 		String text = translator.translate("preview.notavailable");
@@ -326,6 +331,18 @@ public abstract class GenericCourseNode extends GenericNode implements CourseNod
 		preConditionAccess.setConditionId("accessability");
 		return preConditionAccess;
 	}
+	
+	/**
+	 * Only a placeholder to accept courses from others OLAT vendors
+	 * @return
+	 */
+	public List<Condition> getAdditionalConditions() {
+		return additionalConditions;
+	}
+
+	public void setAdditionalConditions(List<Condition> additionalConditions) {
+		this.additionalConditions = additionalConditions;
+	}
 
 	/**
 	 * Generic interface implementation. May be overriden by specific node's
@@ -357,7 +374,7 @@ public abstract class GenericCourseNode extends GenericNode implements CourseNod
 	 * @see org.olat.course.nodes.CourseNode#archiveNodeData(java.util.Locale,
 	 *      org.olat.course.ICourse, java.io.File)
 	 */
-	@SuppressWarnings("unused")//implemented by specialized node
+	//implemented by specialized node
 	public boolean archiveNodeData(Locale locale, ICourse course, File exportDirectory, String charset) {
 	// nothing to do in default implementation
 		return true;
@@ -367,20 +384,148 @@ public abstract class GenericCourseNode extends GenericNode implements CourseNod
 	 * @see org.olat.course.nodes.CourseNode#exportNode(java.io.File,
 	 *      org.olat.course.ICourse)
 	 */
-	@SuppressWarnings("unused")//implemented by specialized node
+	//implemented by specialized node
 	public void exportNode(File exportDirectory, ICourse course) {
 	// nothing to do in default implementation
 	}
 
 	/**
+	 * Implemented by specialized node
 	 * @see org.olat.course.nodes.CourseNode#importNode(java.io.File,
 	 *      org.olat.course.ICourse, org.olat.core.gui.UserRequest,
 	 *      org.olat.core.gui.control.WindowControl)
 	 */
-	@SuppressWarnings("unused")//implemented by specialized node
 	public Controller importNode(File importDirectory, ICourse course, boolean unattendedImport, UserRequest ureq, WindowControl wControl) {
 		// nothing to do in default implementation
 		return null;
+	}
+
+	@Override
+	public void postImport(CourseEnvironmentMapper envMapper) {
+		postImportCondition(preConditionAccess, envMapper);
+		postImportCondition(preConditionVisibility, envMapper);
+	}
+	
+	protected void postImportCondition(Condition condition, CourseEnvironmentMapper envMapper) {
+		if(condition == null) return;
+		
+		if(condition.isExpertMode()) {
+			String expression = condition.getConditionExpression();
+			if(StringHelper.containsNonWhitespace(expression)) {
+				String processExpression = convertExpressionNameToKey(expression, envMapper);
+				processExpression = convertExpressionKeyToKey(processExpression, envMapper);
+				if(!expression.equals(processExpression)) {
+					condition.setConditionExpression(processExpression);
+				}
+			}
+		} else if(StringHelper.containsNonWhitespace(condition.getConditionFromEasyModeConfiguration())) {
+			List<Long> groupKeys = condition.getEasyModeGroupAccessIdList();
+			if(groupKeys == null || groupKeys.isEmpty()) {
+				//this is an old course -> get group keys from original names
+				groupKeys = envMapper.toGroupKeyFromOriginalNames(condition.getEasyModeGroupAccess());
+			} else {
+				//map the original exported group key to the newly created one
+				groupKeys = envMapper.toGroupKeyFromOriginalKeys(groupKeys);
+			}
+			condition.setEasyModeGroupAccessIdList(groupKeys);//update keys
+			condition.setEasyModeGroupAccess(envMapper.toGroupNames(groupKeys));//update names with the current values
+			
+			List<Long> areaKeys = condition.getEasyModeGroupAreaAccessIdList();
+			if(areaKeys == null || areaKeys.isEmpty()) {
+				areaKeys = envMapper.toAreaKeyFromOriginalNames(condition.getEasyModeGroupAreaAccess());
+			} else {
+				areaKeys = envMapper.toAreaKeyFromOriginalKeys(areaKeys);
+			}
+			condition.setEasyModeGroupAreaAccessIdList(areaKeys);
+			condition.setEasyModeGroupAreaAccess(envMapper.toAreaNames(areaKeys));
+			
+			String condString = condition.getConditionFromEasyModeConfiguration();
+			condition.setConditionExpression(condString);
+		}
+	}
+
+	@Override
+	public void postExport(CourseEnvironmentMapper envMapper, boolean backwardsCompatible) {
+		postExportCondition(preConditionAccess, envMapper, backwardsCompatible);
+		postExportCondition(preConditionVisibility, envMapper, backwardsCompatible);
+	}
+	
+	protected void postExportCondition(Condition condition, CourseEnvironmentMapper envMapper, boolean backwardsCompatible) {
+		if(condition == null) return;
+		
+		boolean easy = StringHelper.containsNonWhitespace(condition.getConditionFromEasyModeConfiguration());
+		if(easy) {
+			//already processed?
+			if(condition.getEasyModeGroupAccessIdList() != null 
+					|| condition.getEasyModeGroupAreaAccessIdList() != null) {
+			
+				String groupNames = envMapper.toGroupNames(condition.getEasyModeGroupAccessIdList());
+				condition.setEasyModeGroupAccess(groupNames);
+				String areaNames = envMapper.toAreaNames(condition.getEasyModeGroupAreaAccessIdList());
+				condition.setEasyModeGroupAreaAccess(areaNames);
+				String condString = condition.getConditionFromEasyModeConfiguration();
+				if(backwardsCompatible) {
+					condString = convertExpressionKeyToName(condString, envMapper);
+				}
+				condition.setConditionExpression(condString);
+			}
+		} else if(condition.isExpertMode() && backwardsCompatible) {
+			String expression = condition.getConditionExpression();
+			if(StringHelper.containsNonWhitespace(expression)) {
+				String processExpression = convertExpressionKeyToName(expression, envMapper);
+				if(!expression.equals(processExpression)) {
+					condition.setConditionExpression(processExpression);
+				}
+			}
+		}
+		
+		if(backwardsCompatible) {
+			condition.setEasyModeGroupAreaAccessIds(null);
+			condition.setEasyModeGroupAccessIds(null);
+			//condition.setConditionUpgraded(null);
+		}
+	}
+	
+	protected String convertExpressionKeyToName(String expression, CourseEnvironmentMapper envMapper) {
+		for(BusinessGroupReference group:envMapper.getGroups()) {
+			String strToMatch = "\"" + group.getKey() + "\"";
+			String replacement = "\"" + group.getName() + "\"";
+			expression = StringHelper.replaceAllCaseInsensitive(expression, strToMatch, replacement);
+		}
+		for(BGAreaReference area:envMapper.getAreas()) {
+			String strToMatch = "\"" + area.getKey() + "\"";
+			String replacement = "\"" + area.getName() + "\"";
+			expression = StringHelper.replaceAllCaseInsensitive(expression, strToMatch, replacement);
+		}
+		return expression;
+	}
+	
+	protected String convertExpressionNameToKey(String expression, CourseEnvironmentMapper envMapper) {
+		for(BusinessGroupReference group:envMapper.getGroups()) {
+			String strToMatch = "\"" + group.getOriginalName() + "\"";
+			String replacement = "\"" + group.getKey() + "\"";
+			expression = StringHelper.replaceAllCaseInsensitive(expression, strToMatch, replacement);
+		}
+		for(BGAreaReference area:envMapper.getAreas()) {
+			String strToMatch = "\"" + area.getOriginalName() + "\"";
+			String replacement = "\"" + area.getKey() + "\"";
+			expression = StringHelper.replaceAllCaseInsensitive(expression, strToMatch, replacement);
+		}
+		return expression;
+	}
+	
+	protected String convertExpressionKeyToKey(String expression, CourseEnvironmentMapper envMapper) {
+		for(BusinessGroupReference group:envMapper.getGroups()) {
+			String strToMatch = "\"" + group.getOriginalKey() + "\"";
+			String replacement = "\"" + group.getKey() + "\"";
+			expression = StringHelper.replaceAllCaseInsensitive(expression, strToMatch, replacement);
+		}
+		for(BGAreaReference area:envMapper.getAreas()) {
+			String strToMatch = "\"" + area.getOriginalKey() + "\"";
+			String replacement = "\"" + area.getKey() + "\"";
+			expression = StringHelper.replaceAllCaseInsensitive(expression, strToMatch, replacement);
+		}
+		return expression;
 	}
 
 	/**
@@ -409,6 +554,22 @@ public abstract class GenericCourseNode extends GenericNode implements CourseNod
 			copyInstance.setShortTitle(newTitle);
 		}
 		return copyInstance;
+	}
+
+	@Override
+	public void copyConfigurationTo(CourseNode courseNode) {
+		if(courseNode instanceof GenericCourseNode) {
+			GenericCourseNode newNode = (GenericCourseNode)courseNode;
+			newNode.setDisplayOption(getDisplayOption());
+			newNode.setLearningObjectives(getLearningObjectives());
+			newNode.setLongTitle(getLongTitle());
+			newNode.setNoAccessExplanation(getNoAccessExplanation());
+			newNode.setShortTitle(getShortTitle());
+			
+			if(preConditionVisibility != null) {
+				newNode.setPreConditionVisibility(preConditionVisibility.clone());
+			}
+		}
 	}
 
 	/**
@@ -447,7 +608,7 @@ public abstract class GenericCourseNode extends GenericNode implements CourseNod
 	 * @param translatorStr
 	 * @return
 	 */
-	@SuppressWarnings("static-access")//for StatusDescription.WARNING
+	//for StatusDescription.WARNING
 	protected List<StatusDescription> isConfigValidWithTranslator(CourseEditorEnv cev, String translatorStr, List<ConditionExpression> condExprs) {
 		List<StatusDescription> condExprsStatusDescs = new ArrayList<StatusDescription>();
 		// check valid configuration without course environment
@@ -515,7 +676,7 @@ public abstract class GenericCourseNode extends GenericNode implements CourseNod
 	 * after that, then the updated config will be persisted to disk. Otherwise
 	 * everything what is done here has to be done once at every course start.
 	 */
-	@SuppressWarnings("unused")//implemented by specialized node
+	//implemented by specialized node
 	public void updateModuleConfigDefaults(boolean isNewNode) {
 		/**
 		 *  Do NO updating here, since this method can be overwritten by all classes

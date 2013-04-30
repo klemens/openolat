@@ -33,6 +33,7 @@ import org.olat.core.commons.fullWebApp.LayoutMain3ColsController;
 import org.olat.core.commons.fullWebApp.popup.BaseFullWebappPopupLayoutFactory;
 import org.olat.core.commons.modules.singlepage.SinglePageController;
 import org.olat.core.gui.UserRequest;
+import org.olat.core.gui.components.stack.StackedController;
 import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.WindowControl;
 import org.olat.core.gui.control.creator.ControllerCreator;
@@ -58,6 +59,7 @@ import org.olat.course.condition.interpreter.ConditionInterpreter;
 import org.olat.course.editor.CourseEditorEnv;
 import org.olat.course.editor.NodeEditController;
 import org.olat.course.editor.StatusDescription;
+import org.olat.course.export.CourseEnvironmentMapper;
 import org.olat.course.groupsandrights.CourseGroupManager;
 import org.olat.course.groupsandrights.CourseRights;
 import org.olat.course.nodes.sp.SPEditController;
@@ -113,7 +115,8 @@ public class STCourseNode extends AbstractAccessableCourseNode implements Assess
 	 * @see org.olat.course.nodes.CourseNode#createEditController(org.olat.core.gui.UserRequest,
 	 *      org.olat.core.gui.control.WindowControl, org.olat.course.ICourse)
 	 */
-	public TabbableController createEditController(UserRequest ureq, WindowControl wControl, ICourse course, UserCourseEnvironment euce) {
+	@Override
+	public TabbableController createEditController(UserRequest ureq, WindowControl wControl, StackedController stackPanel, ICourse course, UserCourseEnvironment euce) {
 		updateModuleConfigDefaults(false);
 		// only the precondition "access" can be configured till now
 		STCourseNodeEditController childTabCntrllr = new STCourseNodeEditController(ureq, wControl, this, course.getCourseFolderContainer(), course
@@ -517,7 +520,8 @@ public class STCourseNode extends AbstractAccessableCourseNode implements Assess
 	 *      org.olat.core.gui.control.WindowControl,
 	 *      org.olat.course.run.userview.UserCourseEnvironment)
 	 */
-	public Controller getDetailsEditController(UserRequest ureq, WindowControl wControl, UserCourseEnvironment userCourseEnvironment) {
+	@Override
+	public Controller getDetailsEditController(UserRequest ureq, WindowControl wControl, StackedController stackPanel, UserCourseEnvironment userCourseEnvironment) {
 		throw new OLATRuntimeException(STCourseNode.class, "Details controler not available in ST nodes", null);
 	}
 
@@ -586,17 +590,80 @@ public class STCourseNode extends AbstractAccessableCourseNode implements Assess
 			}
 		}
 	}
+	
+	@Override
+	public void postImport(CourseEnvironmentMapper envMapper) {
+		super.postImport(envMapper);
+		
+		ScoreCalculator calculator = getScoreCalculator();
+		boolean changed = false;
+		if(StringHelper.containsNonWhitespace(calculator.getScoreExpression())) {
+			String score = calculator.getScoreExpression();
+			String processedExpression = convertExpressionNameToKey(score, envMapper);
+			processedExpression = convertExpressionKeyToKey(score, envMapper);
+			if(!processedExpression.equals(score)) {
+				calculator.setScoreExpression(processedExpression);
+				changed = true;
+			}	
+		}
+		
+		if(StringHelper.containsNonWhitespace(calculator.getPassedExpression())) {
+			String passed = calculator.getPassedExpression();
+			String processedExpression = convertExpressionNameToKey(passed, envMapper);
+			processedExpression = convertExpressionKeyToKey(passed, envMapper);
+			if(!processedExpression.equals(passed)) {
+				calculator.setScoreExpression(processedExpression);
+				changed = true;
+			}	
+		}
+		
+		if(changed) {
+			setScoreCalculator(calculator);
+		}
+	}
+
+	@Override
+	public void postExport(CourseEnvironmentMapper envMapper, boolean backwardsCompatible) {
+		super.postExport(envMapper, backwardsCompatible);
+		
+		//if backwards compatible, convert expression to use names
+		if(backwardsCompatible) {
+			ScoreCalculator calculator = getScoreCalculator();
+			boolean changed = false;
+			if(StringHelper.containsNonWhitespace(calculator.getScoreExpression())) {
+				String score = calculator.getScoreExpression();
+				String processedExpression = convertExpressionKeyToName(score, envMapper);
+				if(!processedExpression.equals(score)) {
+					calculator.setScoreExpression(processedExpression);
+					changed = true;
+				}	
+			}
+			
+			if(StringHelper.containsNonWhitespace(calculator.getPassedExpression())) {
+				String passed = calculator.getPassedExpression();
+				String processedExpression = convertExpressionKeyToName(passed, envMapper);
+				if(!processedExpression.equals(passed)) {
+					calculator.setScoreExpression(processedExpression);
+					changed = true;
+				}	
+			}
+			
+			if(changed) {
+				setScoreCalculator(calculator);
+			}
+		}
+	}
 
 	/**
 	 * @see org.olat.course.nodes.AbstractAccessableCourseNode#getConditionExpressions()
 	 */
-	public List getConditionExpressions() {
-		ArrayList retVal;
-		List parentsConditions = super.getConditionExpressions();
+	public List<ConditionExpression> getConditionExpressions() {
+		List<ConditionExpression> retVal;
+		List<ConditionExpression> parentsConditions = super.getConditionExpressions();
 		if (parentsConditions.size() > 0) {
-			retVal = new ArrayList(parentsConditions);
+			retVal = new ArrayList<ConditionExpression>(parentsConditions);
 		} else {
-			retVal = new ArrayList();
+			retVal = new ArrayList<ConditionExpression>();
 		}
 		// init passedExpression and scoreExpression
 		getScoreCalculator();

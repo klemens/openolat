@@ -23,86 +23,89 @@
 * under the Apache 2.0 license as the original file.  
 * <p>
 */ 
-
 package org.olat.course.nodes.en;
 
-// um click emulieren:
-/*
- * 1) generiere Persistentes Object 2) -> DB...evict() entferne Instanz aus
- * HibernateSession 3) aktionen testen, z.b. update failed, falls object nicht
- * in session
- */
-// DB.getInstance().evict();
-// DB.getInstance().loadObject(); püft ob schon in hibernate session.
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.UUID;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 
-import org.apache.log4j.Logger;
-import org.junit.After;
+import junit.framework.Assert;
+
 import org.junit.Before;
 import org.junit.Test;
+import org.olat.basesecurity.BaseSecurity;
 import org.olat.basesecurity.BaseSecurityManager;
-import org.olat.basesecurity.BaseSecurityModule;
+import org.olat.core.commons.persistence.DB;
 import org.olat.core.commons.persistence.DBFactory;
 import org.olat.core.gui.components.Component;
 import org.olat.core.gui.control.WindowBackOffice;
 import org.olat.core.gui.control.WindowControl;
 import org.olat.core.gui.control.generic.dtabs.DTabs;
 import org.olat.core.gui.control.info.WindowControlInfo;
-import org.olat.core.gui.translator.PackageTranslator;
 import org.olat.core.gui.translator.Translator;
 import org.olat.core.id.Identity;
 import org.olat.core.id.IdentityEnvironment;
 import org.olat.core.id.OLATResourceable;
-import org.olat.core.id.User;
+import org.olat.core.id.Roles;
 import org.olat.core.id.context.BusinessControl;
 import org.olat.core.id.context.ContextEntry;
-import org.olat.core.util.Encoder;
+import org.olat.core.logging.OLog;
+import org.olat.core.logging.Tracing;
 import org.olat.core.util.Util;
 import org.olat.core.util.resource.OresHelper;
 import org.olat.course.CourseFactory;
+import org.olat.course.groupsandrights.CourseGroupManager;
 import org.olat.course.nodes.ENCourseNode;
 import org.olat.course.properties.CoursePropertyManager;
 import org.olat.course.run.environment.CourseEnvironment;
 import org.olat.course.run.userview.UserCourseEnvironment;
 import org.olat.course.run.userview.UserCourseEnvironmentImpl;
 import org.olat.group.BusinessGroup;
-import org.olat.group.BusinessGroupManager;
-import org.olat.group.BusinessGroupManagerImpl;
-import org.olat.group.context.BGContext;
-import org.olat.group.context.BGContextManager;
-import org.olat.group.context.BGContextManagerImpl;
+import org.olat.group.BusinessGroupService;
+import org.olat.repository.RepositoryEntry;
 import org.olat.test.JunitTestHelper;
 import org.olat.test.OlatTestCase;
-import org.olat.user.UserManager;
+import org.springframework.beans.factory.annotation.Autowired;
 
 /**
- * Description: <BR/>TODO: Class Description for BusinessGroupManagerImplTest
+ * Description: <BR/>
+ * Test the enrollment
  * <P/> Initial Date: Jul 28, 2004
  * 
  * @author patrick
+ * @author srosse, stephane.rosse@frentix.com, http://www.frentix.com
  */
-
 public class EnrollmentManagerTest extends OlatTestCase implements WindowControl {
 	//
-	private static Logger log = Logger.getLogger(EnrollmentManagerTest.class.getName());
+	private static OLog log = Tracing.createLoggerFor(EnrollmentManagerTest.class);
 	/*
 	 * ::Test Setup::
 	 */
-	private static Identity id1 = null;
+	private static Identity id1;
 	// For WaitingGroup tests
-	private static Identity wg1 = null;
-	private static Identity wg2 = null;
-	private static Identity wg3 = null;
+	private static Identity wg1, wg2,wg3;
+	private static Roles wg1Roles, wg2Roles, wg3Roles;
+	
 	
 		// For WaitingGroup tests
 	private static Translator testTranslator = null;
 	private static BusinessGroup bgWithWaitingList = null;
-
+	
+	@Autowired
+	private BusinessGroupService businessGroupService;
+	@Autowired
+	private EnrollmentManager enrollmentManager;
+	@Autowired
+	private BaseSecurity securityManager;
+	@Autowired
+	private DB dbInstance;
 	
 	/**
 	 * @see junit.framework.TestCase#setUp()
@@ -111,28 +114,28 @@ public class EnrollmentManagerTest extends OlatTestCase implements WindowControl
 			// Identities
 			id1 =  JunitTestHelper.createAndPersistIdentityAsUser("id1");
 			DBFactory.getInstance().closeSession();				
-			BusinessGroupManager bgManager = BusinessGroupManagerImpl.getInstance();
 			// create business-group with waiting-list
 			String bgWithWaitingListName = "Group with WaitingList";
 			String bgWithWaitingListDesc = "some short description for Group with WaitingList";
 			Boolean enableWaitinglist = new Boolean(true);
 			Boolean enableAutoCloseRanks = new Boolean(true);
-			BGContextManager bgcm = BGContextManagerImpl.getInstance();
-			BGContext groupContext = bgcm.createAndPersistBGContext("c1name", "c1desc", BusinessGroup.TYPE_LEARNINGROUP, null, true);
-			System.out.println("testAddToWaitingListAndFireEvent: groupContext=" + groupContext);
-			bgWithWaitingList = bgManager.createAndPersistBusinessGroup(BusinessGroup.TYPE_LEARNINGROUP, id1, bgWithWaitingListName,
-					bgWithWaitingListDesc, null, null, enableWaitinglist, enableAutoCloseRanks, groupContext);
+			RepositoryEntry resource =  JunitTestHelper.createAndPersistRepositoryEntry();
+			log.info("testAddToWaitingListAndFireEvent: resource=" + resource);
+			bgWithWaitingList = businessGroupService.createBusinessGroup(id1, bgWithWaitingListName,
+					bgWithWaitingListDesc, -1, -1, enableWaitinglist, enableAutoCloseRanks, resource);
 			bgWithWaitingList.setMaxParticipants(new Integer(2));
-			System.out.println("TEST bgWithWaitingList=" + bgWithWaitingList);
-			System.out.println("TEST bgWithWaitingList.getMaxParticipants()=" + bgWithWaitingList.getMaxParticipants() );
-			System.out.println("TEST bgWithWaitingList.getWaitingListEnabled()=" + bgWithWaitingList.getWaitingListEnabled() );
+			log.info("TEST bgWithWaitingList=" + bgWithWaitingList);
+			log.info("TEST bgWithWaitingList.getMaxParticipants()=" + bgWithWaitingList.getMaxParticipants() );
+			log.info("TEST bgWithWaitingList.getWaitingListEnabled()=" + bgWithWaitingList.getWaitingListEnabled() );
 			// create mock objects
-			String PACKAGE = Util.getPackageName(EnrollmentManagerTest.class);
-			testTranslator = new PackageTranslator(PACKAGE, new Locale("de"));
+			testTranslator = Util.createPackageTranslator(EnrollmentManagerTest.class, new Locale("de"));
 			// Identities
 			wg1 = JunitTestHelper.createAndPersistIdentityAsUser("wg1");
+			wg1Roles = securityManager.getRoles(wg1);
 			wg2 = JunitTestHelper.createAndPersistIdentityAsUser("wg2");
+			wg2Roles = securityManager.getRoles(wg2);
 			wg3 = JunitTestHelper.createAndPersistIdentityAsUser("wg3");
+			wg3Roles = securityManager.getRoles(wg3);
 			DBFactory.getInstance().closeSession();	
 			
 	}
@@ -145,8 +148,7 @@ public class EnrollmentManagerTest extends OlatTestCase implements WindowControl
 	 * Cancel enrollment. Check size after each step.
 	 */
 	@Test public void testEnroll() throws Exception {
-		System.out.println("testEnroll: start...");
-		EnrollmentManager enrollmentManager = EnrollmentManager.getInstance();
+		log.info("testEnroll: start...");
 		ENCourseNode enNode = new ENCourseNode();
 		OLATResourceable ores = OresHelper.createOLATResourceableTypeWithoutCheck("TestCourse");
 		CourseEnvironment cenv = CourseFactory.createEmptyCourse(ores, "Test", "Test", "learningObjectives").getCourseEnvironment();
@@ -155,14 +157,14 @@ public class EnrollmentManagerTest extends OlatTestCase implements WindowControl
 		ienv.setIdentity(wg1);
 		UserCourseEnvironment userCourseEnv = new UserCourseEnvironmentImpl(ienv, cenv);
 		CoursePropertyManager coursePropertyManager = userCourseEnv.getCourseEnvironment().getCoursePropertyManager();
-		System.out.println("enrollmentManager=" + enrollmentManager);
-		System.out.println("bgWithWaitingList=" + bgWithWaitingList);
+		log.info("enrollmentManager=" + enrollmentManager);
+		log.info("bgWithWaitingList=" + bgWithWaitingList);
 		assertTrue("bgWithWaitingList is null",bgWithWaitingList != null);
-		System.out.println("userCourseEnv=" + userCourseEnv);
-		System.out.println("userCourseEnv.getCourseEnvironment()=" + userCourseEnv.getCourseEnvironment());
-		enrollmentManager.doEnroll(wg1,bgWithWaitingList, enNode, coursePropertyManager,this /*WindowControl mock*/,testTranslator,
-				new ArrayList()/*enrollableGroupNames*/, new ArrayList()/*enrollableAreaNames*/, userCourseEnv.getCourseEnvironment().getCourseGroupManager());	
-		assertTrue("Enrollment failed, user='wg1'", BusinessGroupManagerImpl.getInstance().isIdentityInBusinessGroup(wg1,bgWithWaitingList));	
+		log.info("userCourseEnv=" + userCourseEnv);
+		log.info("userCourseEnv.getCourseEnvironment()=" + userCourseEnv.getCourseEnvironment());
+		enrollmentManager.doEnroll(wg1, wg1Roles, bgWithWaitingList, enNode, coursePropertyManager,this /*WindowControl mock*/,testTranslator,
+				new ArrayList<Long>()/*enrollableGroupNames*/, new ArrayList<Long>()/*enrollableAreaNames*/, userCourseEnv.getCourseEnvironment().getCourseGroupManager());	
+		assertTrue("Enrollment failed, user='wg1'", businessGroupService.isIdentityInBusinessGroup(wg1,bgWithWaitingList));	
 		int participantsCounter = BaseSecurityManager.getInstance().countIdentitiesOfSecurityGroup(bgWithWaitingList.getPartipiciantGroup());
 		assertTrue("Wrong number of participants," + participantsCounter , participantsCounter == 1);
 		// 2. enroll wg2 user
@@ -170,10 +172,10 @@ public class EnrollmentManagerTest extends OlatTestCase implements WindowControl
 		ienv.setIdentity(wg2);
 		userCourseEnv = new UserCourseEnvironmentImpl(ienv, cenv);
 		coursePropertyManager = userCourseEnv.getCourseEnvironment().getCoursePropertyManager();
-		enrollmentManager.doEnroll(wg2,bgWithWaitingList, enNode, coursePropertyManager,this /*WindowControl mock*/,testTranslator,
-				new ArrayList()/*enrollableGroupNames*/, new ArrayList()/*enrollableAreaNames*/, userCourseEnv.getCourseEnvironment().getCourseGroupManager());	
-		assertTrue("Enrollment failed, user='wg2'", BusinessGroupManagerImpl.getInstance().isIdentityInBusinessGroup(wg2,bgWithWaitingList));	
-		assertTrue("Enrollment failed, user='wg1'", BusinessGroupManagerImpl.getInstance().isIdentityInBusinessGroup(wg1,bgWithWaitingList));	
+		enrollmentManager.doEnroll(wg2, wg2Roles, bgWithWaitingList, enNode, coursePropertyManager,this /*WindowControl mock*/,testTranslator,
+				new ArrayList<Long>()/*enrollableGroupNames*/, new ArrayList<Long>()/*enrollableAreaNames*/, userCourseEnv.getCourseEnvironment().getCourseGroupManager());	
+		assertTrue("Enrollment failed, user='wg2'", businessGroupService.isIdentityInBusinessGroup(wg2,bgWithWaitingList));	
+		assertTrue("Enrollment failed, user='wg1'", businessGroupService.isIdentityInBusinessGroup(wg1,bgWithWaitingList));	
 		participantsCounter = BaseSecurityManager.getInstance().countIdentitiesOfSecurityGroup(bgWithWaitingList.getPartipiciantGroup());
 		assertTrue("Wrong number of participants," + participantsCounter , participantsCounter == 2);
 		// 3. enroll wg3 user => list is full => waiting-list
@@ -181,13 +183,13 @@ public class EnrollmentManagerTest extends OlatTestCase implements WindowControl
 		ienv.setIdentity(wg3);
 		userCourseEnv = new UserCourseEnvironmentImpl(ienv, cenv);
 		coursePropertyManager = userCourseEnv.getCourseEnvironment().getCoursePropertyManager();
-		enrollmentManager.doEnroll(wg3,bgWithWaitingList, enNode, coursePropertyManager,this /*WindowControl mock*/,testTranslator,
-				new ArrayList()/*enrollableGroupNames*/, new ArrayList()/*enrollableAreaNames*/, userCourseEnv.getCourseEnvironment().getCourseGroupManager());		
-		assertFalse("Wrong enrollment, user='wg3' is in PartipiciantGroup, must be on waiting-list", BusinessGroupManagerImpl.getInstance().isIdentityInBusinessGroup(wg3,bgWithWaitingList));	
+		enrollmentManager.doEnroll(wg3, wg3Roles, bgWithWaitingList, enNode, coursePropertyManager,this /*WindowControl mock*/,testTranslator,
+				new ArrayList<Long>()/*enrollableGroupNames*/, new ArrayList<Long>()/*enrollableAreaNames*/, userCourseEnv.getCourseEnvironment().getCourseGroupManager());		
+		assertFalse("Wrong enrollment, user='wg3' is in PartipiciantGroup, must be on waiting-list", businessGroupService.isIdentityInBusinessGroup(wg3,bgWithWaitingList));	
 		assertFalse("Wrong enrollment, user='wg3' is in PartipiciantGroup, must be on waiting-list", BaseSecurityManager.getInstance().isIdentityInSecurityGroup(wg3, bgWithWaitingList.getPartipiciantGroup()));
 		assertTrue("Wrong enrollment, user='wg3' must be on waiting-list", BaseSecurityManager.getInstance().isIdentityInSecurityGroup(wg3, bgWithWaitingList.getWaitingGroup()));
-		assertTrue("Enrollment failed, user='wg2'", BusinessGroupManagerImpl.getInstance().isIdentityInBusinessGroup(wg2,bgWithWaitingList));	
-		assertTrue("Enrollment failed, user='wg1'", BusinessGroupManagerImpl.getInstance().isIdentityInBusinessGroup(wg1,bgWithWaitingList));	
+		assertTrue("Enrollment failed, user='wg2'", businessGroupService.isIdentityInBusinessGroup(wg2,bgWithWaitingList));	
+		assertTrue("Enrollment failed, user='wg1'", businessGroupService.isIdentityInBusinessGroup(wg1,bgWithWaitingList));	
 		participantsCounter = BaseSecurityManager.getInstance().countIdentitiesOfSecurityGroup(bgWithWaitingList.getPartipiciantGroup());
 		assertTrue("Wrong number of participants," + participantsCounter , participantsCounter == 2);
 		int waitingListCounter = BaseSecurityManager.getInstance().countIdentitiesOfSecurityGroup(bgWithWaitingList.getWaitingGroup());
@@ -198,9 +200,9 @@ public class EnrollmentManagerTest extends OlatTestCase implements WindowControl
 		userCourseEnv = new UserCourseEnvironmentImpl(ienv, cenv);
 		coursePropertyManager = userCourseEnv.getCourseEnvironment().getCoursePropertyManager();
 		enrollmentManager.doCancelEnrollment(wg2,bgWithWaitingList, enNode, coursePropertyManager,this /*WindowControl mock*/,testTranslator);		
-		assertFalse("Cancel enrollment failed, user='wg2' is still participants.", BusinessGroupManagerImpl.getInstance().isIdentityInBusinessGroup(wg2,bgWithWaitingList));	
-		assertTrue("Enrollment failed, user='wg3'", BusinessGroupManagerImpl.getInstance().isIdentityInBusinessGroup(wg3,bgWithWaitingList));	
-		assertTrue("Enrollment failed, user='wg1'", BusinessGroupManagerImpl.getInstance().isIdentityInBusinessGroup(wg1,bgWithWaitingList));	
+		assertFalse("Cancel enrollment failed, user='wg2' is still participants.", businessGroupService.isIdentityInBusinessGroup(wg2,bgWithWaitingList));	
+		assertTrue("Enrollment failed, user='wg3'", businessGroupService.isIdentityInBusinessGroup(wg3,bgWithWaitingList));	
+		assertTrue("Enrollment failed, user='wg1'", businessGroupService.isIdentityInBusinessGroup(wg1,bgWithWaitingList));	
 		participantsCounter = BaseSecurityManager.getInstance().countIdentitiesOfSecurityGroup(bgWithWaitingList.getPartipiciantGroup());
 		assertTrue("Wrong number of participants, must be 2, is " + participantsCounter , participantsCounter == 2);
 		waitingListCounter = BaseSecurityManager.getInstance().countIdentitiesOfSecurityGroup(bgWithWaitingList.getWaitingGroup());
@@ -211,9 +213,9 @@ public class EnrollmentManagerTest extends OlatTestCase implements WindowControl
 		userCourseEnv = new UserCourseEnvironmentImpl(ienv, cenv);
 		coursePropertyManager = userCourseEnv.getCourseEnvironment().getCoursePropertyManager();
 		enrollmentManager.doCancelEnrollment(wg1,bgWithWaitingList, enNode, coursePropertyManager,this /*WindowControl mock*/,testTranslator);		
-		assertFalse("Cancel enrollment failed, user='wg2' is still participants.", BusinessGroupManagerImpl.getInstance().isIdentityInBusinessGroup(wg2,bgWithWaitingList));	
-		assertFalse("Cancel enrollment failed, user='wg1' is still participants.", BusinessGroupManagerImpl.getInstance().isIdentityInBusinessGroup(wg1,bgWithWaitingList));	
-		assertTrue("Enrollment failed, user='wg3'", BusinessGroupManagerImpl.getInstance().isIdentityInBusinessGroup(wg3,bgWithWaitingList));	
+		assertFalse("Cancel enrollment failed, user='wg2' is still participants.", businessGroupService.isIdentityInBusinessGroup(wg2,bgWithWaitingList));	
+		assertFalse("Cancel enrollment failed, user='wg1' is still participants.", businessGroupService.isIdentityInBusinessGroup(wg1,bgWithWaitingList));	
+		assertTrue("Enrollment failed, user='wg3'", businessGroupService.isIdentityInBusinessGroup(wg3,bgWithWaitingList));	
 		participantsCounter = BaseSecurityManager.getInstance().countIdentitiesOfSecurityGroup(bgWithWaitingList.getPartipiciantGroup());
 		assertTrue("Wrong number of participants, must be 1, is " + participantsCounter , participantsCounter == 1);
 		waitingListCounter = BaseSecurityManager.getInstance().countIdentitiesOfSecurityGroup(bgWithWaitingList.getWaitingGroup());
@@ -224,26 +226,88 @@ public class EnrollmentManagerTest extends OlatTestCase implements WindowControl
 		userCourseEnv = new UserCourseEnvironmentImpl(ienv, cenv);
 		coursePropertyManager = userCourseEnv.getCourseEnvironment().getCoursePropertyManager();
 		enrollmentManager.doCancelEnrollment(wg3,bgWithWaitingList, enNode, coursePropertyManager,this /*WindowControl mock*/,testTranslator);		
-		assertFalse("Cancel enrollment failed, user='wg3' is still participants.", BusinessGroupManagerImpl.getInstance().isIdentityInBusinessGroup(wg3,bgWithWaitingList));	
-		assertFalse("Cancel enrollment failed, user='wg2' is still participants.", BusinessGroupManagerImpl.getInstance().isIdentityInBusinessGroup(wg2,bgWithWaitingList));	
-		assertFalse("Cancel enrollment failed, user='wg1' is still participants.", BusinessGroupManagerImpl.getInstance().isIdentityInBusinessGroup(wg1,bgWithWaitingList));	
+		assertFalse("Cancel enrollment failed, user='wg3' is still participants.", businessGroupService.isIdentityInBusinessGroup(wg3,bgWithWaitingList));	
+		assertFalse("Cancel enrollment failed, user='wg2' is still participants.", businessGroupService.isIdentityInBusinessGroup(wg2,bgWithWaitingList));	
+		assertFalse("Cancel enrollment failed, user='wg1' is still participants.", businessGroupService.isIdentityInBusinessGroup(wg1,bgWithWaitingList));	
 		participantsCounter = BaseSecurityManager.getInstance().countIdentitiesOfSecurityGroup(bgWithWaitingList.getPartipiciantGroup());
 		assertTrue("Wrong number of participants, must be 0, is " + participantsCounter , participantsCounter == 0);
 		waitingListCounter = BaseSecurityManager.getInstance().countIdentitiesOfSecurityGroup(bgWithWaitingList.getWaitingGroup());
 		assertTrue("Wrong number of waiting-list, must be 0, is " + waitingListCounter , waitingListCounter == 0);
 
-		System.out.println("testEnroll: done...");
+		log.info("testEnroll: done...");
 	}
 	
+	@Test
+	public void testConcurrentEnrollmentWithWaitingList() {
+		List<Identity> ids = new ArrayList<Identity>(30);	
+		for(int i=0; i<30; i++) {
+			Identity id = JunitTestHelper.createAndPersistIdentityAsUser("enroll-a-" + i + "-" + UUID.randomUUID().toString());
+			ids.add(id);
+		}
+		
+		ENCourseNode enNode = new ENCourseNode();
+		OLATResourceable ores = OresHelper.createOLATResourceableTypeWithoutCheck("TestEnrollmentCourse");
+		CourseEnvironment cenv = CourseFactory.createEmptyCourse(ores, "Test-Enroll", "Test", "Test enrollment with concurrent users").getCourseEnvironment();
+		BusinessGroup group = businessGroupService.createBusinessGroup(id1, "Enrollment", "Enroll", new Integer(1), new Integer(10), true, false, null);
+		Assert.assertNotNull(group);
+		dbInstance.commitAndCloseSession();
 
-	/**
-	 * @see junit.framework.TestCase#tearDown()
-	 */
-	@After public void tearDown() throws Exception {
+		final CountDownLatch doneSignal = new CountDownLatch(ids.size());
+		for(Identity id:ids) {
+			EnrollThread thread = new EnrollThread(id, group, enNode, cenv, doneSignal);
+			thread.start();
+		}
+		
 		try {
-			DBFactory.getInstance().closeSession();
-		} catch (Exception e) {
-			log.error("tearDown failed: ", e);
+			boolean interrupt = doneSignal.await(360, TimeUnit.SECONDS);
+			assertTrue("Test takes too long (more than 10s)", interrupt);
+		} catch (InterruptedException e) {
+			fail("" + e.getMessage());
+		}
+
+		List<Identity> enrolledIds = securityManager.getIdentitiesOfSecurityGroup(group.getPartipiciantGroup());
+		Assert.assertNotNull(enrolledIds);
+		Assert.assertEquals(10, enrolledIds.size());
+		
+		List<Identity> waitingIds = securityManager.getIdentitiesOfSecurityGroup(group.getWaitingGroup());
+		Assert.assertNotNull(waitingIds);
+		Assert.assertEquals(ids.size() - 10, waitingIds.size());
+	}
+	
+	
+
+	private class EnrollThread extends Thread {
+		private final ENCourseNode enNode;
+		private final Identity identity;
+		private final CourseEnvironment cenv;
+		private final BusinessGroup group;
+		private final CountDownLatch doneSignal;
+		
+		public EnrollThread(Identity identity, BusinessGroup group, ENCourseNode enNode, CourseEnvironment cenv, CountDownLatch doneSignal) {
+			this.enNode = enNode;
+			this.group = group;
+			this.identity = identity;
+			this.cenv = cenv;
+			this.doneSignal = doneSignal;
+		}
+
+		@Override
+		public void run() {
+			try {
+				IdentityEnvironment ienv = new IdentityEnvironment();
+				ienv.setIdentity(identity);
+				UserCourseEnvironment userCourseEnv = new UserCourseEnvironmentImpl(ienv, cenv);
+				CoursePropertyManager coursePropertyManager = userCourseEnv.getCourseEnvironment().getCoursePropertyManager();
+				CourseGroupManager courseGroupManager = userCourseEnv.getCourseEnvironment().getCourseGroupManager();
+				
+				enrollmentManager.doEnroll(identity, JunitTestHelper.getUserRoles(), group, enNode, coursePropertyManager, EnrollmentManagerTest.this /*WindowControl mock*/, testTranslator,
+						new ArrayList<Long>()/*enrollableGroupNames*/, new ArrayList<Long>()/*enrollableAreaNames*/, courseGroupManager);
+				DBFactory.getInstance().commitAndCloseSession();
+			} catch (Exception e) {
+				log.error("", e);
+			}	finally {
+				doneSignal.countDown();
+			}
 		}
 	}
 
@@ -305,10 +369,6 @@ public class EnrollmentManagerTest extends OlatTestCase implements WindowControl
 	}
 
 	public WindowBackOffice getWindowBackOffice() {
-		// TODO Auto-generated method stub
 		return null;
 	};
-
-
 }
-
