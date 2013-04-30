@@ -127,8 +127,7 @@ public class RepositoryMainController extends MainLayoutBasicController implemen
 	private static final String ACTION_ADD_OWNERS = "addowners";
 
 	static final String ACTION_NEW_EXAM = "exam";
-	private boolean isXmanOnly;
-
+	
 	private Panel mainPanel;
 	private VelocityContainer main;
 	private LayoutMain3ColsController columnsLayoutCtr;
@@ -167,8 +166,6 @@ public class RepositoryMainController extends MainLayoutBasicController implemen
 	 */
 	public RepositoryMainController(UserRequest ureq, WindowControl wControl) {
 		super(ureq, wControl);
-
-		
 
 		if (log.isDebug()) {
 			log.debug("Constructing ReposityMainController for user::" + ureq.getIdentity());
@@ -232,8 +229,6 @@ public class RepositoryMainController extends MainLayoutBasicController implemen
 			listenTo(mainToolC);
 			//CP, SCORM, Wiki, Podcast, Blog, Test, Questionnaire, Glossary, other formats 
 
-			
-
 			mainToolC.addHeader(translate("tools.add.header"));
 			mainToolC.addLink(RepositoryAddController.ACTION_ADD_COURSE, translate("tools.add.course"), RepositoryAddController.ACTION_ADD_COURSE, "o_toolbox_course");
 			mainToolC.addLink(RepositoryAddController.ACTION_ADD_CP, translate("tools.add.cp"), RepositoryAddController.ACTION_ADD_CP, "o_toolbox_content");
@@ -245,8 +240,6 @@ public class RepositoryMainController extends MainLayoutBasicController implemen
 			mainToolC.addLink(RepositoryAddController.ACTION_ADD_SURVEY, translate("tools.add.survey"), RepositoryAddController.ACTION_ADD_SURVEY, "o_toolbox_questionnaire");
 			mainToolC.addLink(RepositoryAddController.ACTION_ADD_GLOSSARY, translate("tools.add.glossary"), RepositoryAddController.ACTION_ADD_GLOSSARY, "o_toolbox_glossary");
 			mainToolC.addLink(RepositoryAddController.ACTION_ADD_DOC, translate("tools.add.webdoc"), RepositoryAddController.ACTION_ADD_DOC, "b_toolbox_doc");
-
-			
 
 			mainToolC.addHeader(translate("tools.new.header"));
 			mainToolC.addLink(ACTION_NEW_EXAM, translate("tools.new.exam"), ACTION_NEW_EXAM, "o_toolbox_questionnaire");
@@ -279,9 +272,7 @@ public class RepositoryMainController extends MainLayoutBasicController implemen
 
 	private TreeModel buildTreeModel(boolean bIsAuthor) {
 		GenericTreeModel gtm = new GenericTreeModel();
-		GenericTreeNode rootNode = new GenericTreeNode(
-				!isXmanOnly ? translate("search.home") : translate("search.home.xman"),
-				!isXmanOnly ? "search.home" : "search.home.xman");
+		GenericTreeNode rootNode = new GenericTreeNode(translate("search.home"), "search.home");
 
 		gtm.setRootNode(rootNode);
 
