@@ -170,12 +170,12 @@ public class ExamListController extends DefaultController {
 			WindowControl bwControl = BusinessControlFactory.getInstance().createBusinessWindowControl(ce, dt.getWindowControl());
 
 	// --------------------------------------------- alt: getLaunchController()
-			Controller ctrl = typeToLaunch.createLaunchController(ores, null, ureq, bwControl);
+			Controller ctrl = typeToLaunch.createLaunchController(ores, ureq, bwControl);
 			// if resource is an image, PDF or eq. (e.g. served by resulting media request), no controller is returned.
 			// FIXME:fj:test this
 			if (ctrl == null) return;
 			dt.setController(ctrl);
-			dts.addDTab(dt);
+			dts.addDTab(ureq, dt);
 		}
 		dts.activate(ureq, dt, RepositoryDetailsController.ACTIVATE_RUN);	
 

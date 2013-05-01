@@ -7,7 +7,6 @@ import java.util.List;
 import java.util.Locale;
 
 import org.olat.core.commons.fullWebApp.LayoutMain3ColsController;
-import org.olat.core.dispatcher.jumpin.JumpInManager;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.Component;
 import org.olat.core.gui.components.form.Form;

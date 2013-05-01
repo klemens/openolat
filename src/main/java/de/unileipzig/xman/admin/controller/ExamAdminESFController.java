@@ -50,7 +50,6 @@ import org.olat.core.logging.Tracing;
 import org.olat.modules.co.ContactFormController;
 import org.olat.modules.wiki.WikiManager;
 import org.olat.modules.wiki.WikiPage;
-import org.olat.repository.RepoJumpInHandlerFactory;
 import org.olat.repository.RepositoryManager;
 import org.olat.resource.OLATResourceManager;
 import org.olat.user.HomePageConfigManager;
@@ -383,7 +382,7 @@ public class ExamAdminESFController extends BasicController {
 						ESFEditController esfEditCtr = new ESFEditController(
 								ureq, dt.getWindowControl(), esf);
 						dt.setController(esfEditCtr);
-						dts.addDTab(dt);
+						dts.addDTab(ureq, dt);
 					}
 					dts.activate(ureq, dt, null);
 				} else
@@ -436,7 +435,7 @@ public class ExamAdminESFController extends BasicController {
 						ESFEditController esfLaunchCtr = new ESFEditController(
 								ureq, dt.getWindowControl(), esf);
 						dt.setController(esfLaunchCtr);
-						dts.addDTab(dt);
+						dts.addDTab(ureq, dt);
 					}
 					dts.activate(ureq, dt, null);
 				}

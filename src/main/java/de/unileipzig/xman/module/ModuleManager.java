@@ -5,6 +5,7 @@ import java.util.List;
 import java.util.Vector;
 
 import org.hibernate.Hibernate;
+import org.hibernate.type.StandardBasicTypes;
 import org.hibernate.type.Type;
 import org.olat.core.commons.persistence.DBFactory;
 import org.olat.core.logging.AssertException;
@@ -101,7 +102,7 @@ public class ModuleManager {
 	public Module findModuleByName(String name){
 		
 		String query = "from de.unileipzig.xman.module.ModuleImpl as module where module.name = ?";
-		List modules = DBFactory.getInstance().find(query, new Object[]{name}, new Type[]{Hibernate.STRING});
+		List modules = DBFactory.getInstance().find(query, new Object[]{name}, new Type[]{StandardBasicTypes.STRING});
 		int size = modules.size();
 		if (size == 0) return null;
 		if (size != 1) throw new AssertException("non unique key with: " + name);

@@ -364,7 +364,7 @@ public class ESFEditController extends MainLayoutBasicController {
 								ureq, dt.getWindowControl(), exam, isOwner,
 								!ureq.getUserSession().getRoles().isGuestOnly());
 						dt.setController(esfLaunchCtr);
-						dts.addDTab(dt);
+						dts.addDTab(ureq, dt);
 					} 
 					dts.activate(ureq, dt, null);
 				}

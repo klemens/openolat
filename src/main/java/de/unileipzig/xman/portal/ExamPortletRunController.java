@@ -105,7 +105,7 @@ public class ExamPortletRunController extends DefaultController {
 		
 		if (source == showAllLink) {
 			// activate group tab in top navigation
-			((DTabs)Windows.getWindows(ureq).getWindow(ureq).getAttribute("DTabs")).activateStatic(ureq, HomeSite.class.getName(), "exams");
+			((DTabs)Windows.getWindows(ureq).getWindow(ureq).getAttribute("DTabs")).activateStatic(ureq, HomeSite.class.getName(), null);
 		}
 	}
 

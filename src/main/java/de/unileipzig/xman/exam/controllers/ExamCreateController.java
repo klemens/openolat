@@ -160,4 +160,11 @@ public class ExamCreateController extends DefaultController implements
 		return true;
 	}
 
+	@Override
+	public void repositoryEntryCopied(RepositoryEntry sourceEntry,
+			RepositoryEntry newEntry) {
+		// TODO Auto-generated method stub
+		
+	}
+
 }
