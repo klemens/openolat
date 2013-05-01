@@ -3,6 +3,7 @@ package de.unileipzig.xman.admin.forms;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import org.olat.basesecurity.BaseSecurityManager;
 import org.olat.core.CoreSpringFactory;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.form.Form;
@@ -17,7 +18,6 @@ import org.olat.core.gui.components.form.flexible.elements.TextElement;
 import org.olat.core.gui.translator.PackageTranslator;
 import org.olat.core.gui.translator.Translator;
 import org.olat.core.id.Identity;
-import org.olat.core.id.IdentityManager;
 import org.olat.core.util.Util;
 
 import de.unileipzig.xman.admin.ExamAdminSite;
@@ -96,9 +96,8 @@ public class CreateAndEditModuleForm extends FormBasicController {
 						.isEmpty("CreateAndEditModuleForm.personInCharge.isEmpty");
 		// && !number.isEmpty("CreateAndEditModuleForm.number.isEmpty");
 
-		IdentityManager im = (IdentityManager) CoreSpringFactory
-				.getBean("core.id.IdentityManager");
-		identity = im.findIdentityByName(personInCharge.getValue());
+		
+		identity = BaseSecurityManager.getInstance().findIdentityByName(personInCharge.getValue());
 
 		if (!number.getValue().equals("")) {
 

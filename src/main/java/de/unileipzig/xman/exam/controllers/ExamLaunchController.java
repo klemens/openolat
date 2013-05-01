@@ -14,7 +14,6 @@ import org.apache.velocity.VelocityContext;
 import org.olat.admin.user.UserSearchController;
 import org.olat.basesecurity.events.SingleIdentityChosenEvent;
 import org.olat.core.commons.fullWebApp.LayoutMain3ColsController;
-import org.olat.core.dispatcher.jumpin.JumpInManager;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.Windows;
 import org.olat.core.gui.components.Component;
@@ -48,7 +47,6 @@ import org.olat.core.util.Formatter;
 import org.olat.core.util.Util;
 import org.olat.core.util.mail.MailTemplate;
 import org.olat.core.util.mail.MailTemplateForm;
-import org.olat.repository.RepoJumpInHandlerFactory;
 import org.olat.repository.RepositoryEntry;
 import org.olat.repository.RepositoryManager;
 import org.olat.resource.OLATResourceManager;
@@ -1838,7 +1836,7 @@ public class ExamLaunchController extends MainLayoutBasicController implements
 			ESFEditController esfLaunchCtr = new ESFEditController(ureq, dt
 					.getWindowControl(), esf);
 			dt.setController(esfLaunchCtr);
-			dts.addDTab(dt);
+			dts.addDTab(ureq, dt);
 		}
 		dts.activate(ureq, dt, null);
 	}
@@ -1867,7 +1865,7 @@ public class ExamLaunchController extends MainLayoutBasicController implements
 				UserInfoMainController uimc = new UserInfoMainController(ureq,
 						dt.getWindowControl(), identity);
 				dt.setController(uimc);
-				dts.addDTab(dt);
+				dts.addDTab(ureq, dt);
 			}
 			dts.activate(ureq, dt, null);
 		}
