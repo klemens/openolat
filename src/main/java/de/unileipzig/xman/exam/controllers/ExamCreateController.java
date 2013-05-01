@@ -160,4 +160,9 @@ public class ExamCreateController extends DefaultController implements
 		return true;
 	}
 
+	@Override
+	public void repositoryEntryCopied(RepositoryEntry sourceEntry, RepositoryEntry newEntry) {
+		// TODO called after copy was made
+	}
+
 }

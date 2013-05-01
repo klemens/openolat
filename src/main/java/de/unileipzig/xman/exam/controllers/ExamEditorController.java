@@ -39,7 +39,6 @@ import org.olat.core.util.Util;
 import org.olat.core.util.event.GenericEventListener;
 import org.olat.core.util.coordinate.CoordinatorManager;
 import org.olat.core.util.coordinate.LockResult;
-import org.olat.repository.RepoJumpInHandlerFactory;
 import org.olat.repository.RepositoryEntry;
 import org.olat.repository.RepositoryManager;
 
@@ -360,96 +359,34 @@ public class ExamEditorController extends DefaultController implements
 				// events)
 				else if (tmse.getAction().equals("appTable.del")) {
 
-					List<Appointment> appList = (ArrayList<Appointment>) appTableMdl
-							.getObjects(tmse.getSelection());
+					List<Appointment> appList = (List<Appointment>) appTableMdl.getObjects(tmse.getSelection());
 					for (Appointment tempApp : appList) {
 						List<Protocol> protoList = ProtocolManager
 								.getInstance().findAllProtocolsByAppointment(
 										tempApp);
 						for (Protocol p : protoList) {
 							tempApp = p.getAppointment();
-							CalendarManager.getInstance()
-									.deleteKalendarEventForExam(exam,
-											p.getIdentity());
-							Locale userLocale = new Locale(p.getIdentity()
-									.getUser().getPreferences().getLanguage());
-							Translator tmpTranslator = new PackageTranslator(
-									PACKAGE, userLocale);
+							CalendarManager.getInstance().deleteKalendarEventForExam(exam,p.getIdentity());
+							Locale userLocale = new Locale(p.getIdentity().getUser().getPreferences().getLanguage());
+							Translator tmpTranslator = new PackageTranslator(PACKAGE, userLocale);
+							BusinessControlFactory bcf = BusinessControlFactory.getInstance();
+							
 							// Email DeleteAppointment
-							MailManager
-									.getInstance()
-									.sendEmail(
-											tmpTranslator
-													.translate(
-															"ExamEditorController.DeleteAppointment.Subject",
-															new String[] { ExamDBManager
-																	.getInstance()
-																	.getExamName(
-																			exam) }),
-
-											tmpTranslator
-													.translate(
-															"ExamEditorController.DeleteAppointment.Body",
-															new String[] {
-																	ExamDBManager
-																			.getInstance()
-																			.getExamName(
-																					exam),
-																	p
-																			.getIdentity()
-																			.getUser()
-																			.getProperty(
-																					UserConstants.LASTNAME,
-																					ureq
-																							.getLocale())
-																			+ ", "
-																			+ p
-																					.getIdentity()
-																					.getUser()
-																					.getProperty(
-																							UserConstants.FIRSTNAME,
-																							ureq
-																									.getLocale()),
-																	DateFormat
-																			.getDateTimeInstance(
-																					DateFormat.SHORT,
-																					DateFormat.SHORT,
-																					tmpTranslator
-																							.getLocale())
-																			.format(
-																					tempApp
-																							.getDate()),
-																	tempApp
-																			.getPlace(),
-																	new Integer(
-																			tempApp
-																					.getDuration())
-																			.toString(),
-																	p
-																			.getExam()
-																			.getIsOral() ? tmpTranslator
-																			.translate("oral")
-																			: tmpTranslator
-																					.translate("written"),
-																	// TODO:
-																	// Dirty as
-																	// hell
-																	JumpInManager
-																			.getInstance()
-																			.getJumpInUri(
-																					BusinessControlFactory
-																							.getInstance()
-																							.createFromContextEntries(
-																									Arrays
-																											.asList(new ContextEntry[] { BusinessControlFactory
-																													.getInstance()
-																													.createContextEntry(
-																															ExamDBManager
-																																	.getInstance()
-																																	.findRepositoryEntryOfExam(
-																																			exam)) }))) }),
-
-											p.getIdentity());
+							MailManager.getInstance().sendEmail(
+								tmpTranslator.translate("ExamEditorController.DeleteAppointment.Subject", new String[] { ExamDBManager.getInstance().getExamName(exam) }),
+								tmpTranslator.translate("ExamEditorController.DeleteAppointment.Body",
+									new String[] {
+										ExamDBManager.getInstance().getExamName(exam),
+										p.getIdentity().getUser().getProperty(UserConstants.LASTNAME, ureq.getLocale()) + ", " + p.getIdentity().getUser().getProperty(UserConstants.FIRSTNAME, ureq.getLocale()),
+										DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT, tmpTranslator.getLocale()).format(tempApp.getDate()),
+										tempApp.getPlace(),
+										new Integer(tempApp.getDuration()).toString(),
+										p.getExam().getIsOral() ? tmpTranslator.translate("oral") : tmpTranslator.translate("written"),
+										bcf.getAsURIString(bcf.createCEListFromString(ExamDBManager.getInstance().findRepositoryEntryOfExam(exam)), true)
+									}),
+								p.getIdentity()
+							);
+							
 							ProtocolManager.getInstance().deleteProtocol(p);
 						}
 						AppointmentManager.getInstance().deleteAppointment(
@@ -531,86 +468,25 @@ public class ExamEditorController extends DefaultController implements
 				List<Protocol> protoList = ProtocolManager.getInstance()
 						.findAllProtocolsByAppointment(app);
 				for (Protocol p : protoList) {
-					Locale userLocale = new Locale(p.getIdentity().getUser()
-							.getPreferences().getLanguage());
-					Translator tmpTranslator = new PackageTranslator(PACKAGE,
-							userLocale);
+					Locale userLocale = new Locale(p.getIdentity().getUser().getPreferences().getLanguage());
+					Translator tmpTranslator = new PackageTranslator(PACKAGE, userLocale);
+					BusinessControlFactory bcf = BusinessControlFactory.getInstance();
+
 					// Email UpdateAppointment
-					MailManager
-							.getInstance()
-							.sendEmail(
-									tmpTranslator
-											.translate(
-													"ExamEditorController.UpdateAppointment.Subject",
-													new String[] { ExamDBManager
-															.getInstance()
-															.getExamName(exam) }),
-
-									tmpTranslator
-											.translate(
-													"ExamEditorController.UpdateAppointment.Body",
-													new String[] {
-															ExamDBManager
-																	.getInstance()
-																	.getExamName(
-																			exam),
-															p
-																	.getIdentity()
-																	.getUser()
-																	.getProperty(
-																			UserConstants.LASTNAME,
-																			ureq
-																					.getLocale())
-																	+ ", "
-																	+ p
-																			.getIdentity()
-																			.getUser()
-																			.getProperty(
-																					UserConstants.FIRSTNAME,
-																					ureq
-																							.getLocale()),
-															DateFormat
-																	.getDateTimeInstance(
-																			DateFormat.SHORT,
-																			DateFormat.SHORT,
-																			tmpTranslator
-																					.getLocale())
-																	.format(
-																			p
-																					.getAppointment()
-																					.getDate()),
-															p.getAppointment()
-																	.getPlace(),
-															new Integer(
-																	p
-																			.getAppointment()
-																			.getDuration())
-																	.toString(),
-															p
-																	.getExam()
-																	.getIsOral() ? tmpTranslator
-																	.translate("oral")
-																	: tmpTranslator
-																			.translate("written"),
-															// TODO:
-															// Dirty as
-															// hell
-															JumpInManager
-																	.getInstance()
-																	.getJumpInUri(
-																			BusinessControlFactory
-																					.getInstance()
-																					.createFromContextEntries(
-																							Arrays
-																									.asList(new ContextEntry[] { BusinessControlFactory
-																											.getInstance()
-																											.createContextEntry(
-																													ExamDBManager
-																															.getInstance()
-																															.findRepositoryEntryOfExam(
-																																	exam)) }))) }),
-
-									p.getIdentity());
+					MailManager.getInstance().sendEmail(
+						tmpTranslator.translate("ExamEditorController.UpdateAppointment.Subject", new String[] { ExamDBManager.getInstance().getExamName(exam) }),
+						tmpTranslator.translate("ExamEditorController.UpdateAppointment.Body",
+							new String[] {
+								ExamDBManager.getInstance().getExamName(exam),
+								p.getIdentity().getUser().getProperty(UserConstants.LASTNAME, ureq.getLocale()) + ", " + p.getIdentity().getUser().getProperty(UserConstants.FIRSTNAME, ureq.getLocale()),
+								DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT, tmpTranslator.getLocale()).format(p.getAppointment().getDate()),
+								p.getAppointment().getPlace(),
+								new Integer(p.getAppointment().getDuration()).toString(),
+								p.getExam().getIsOral() ? tmpTranslator.translate("oral") : tmpTranslator.translate("written"),
+								bcf.getAsURIString(bcf.createCEListFromString(ExamDBManager.getInstance().findRepositoryEntryOfExam(exam)), true)
+							}),
+						p.getIdentity()
+					);
 				}
 			}
 		}

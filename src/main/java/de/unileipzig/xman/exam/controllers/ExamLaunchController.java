@@ -459,74 +459,25 @@ public class ExamLaunchController extends MainLayoutBasicController implements
 				for (Protocol p : protoList) {
 					p.setGrade(editMarkForm.getGrade());
 					ProtocolManager.getInstance().updateProtocol(p);
-					Locale userLocale = new Locale(p.getIdentity().getUser()
-							.getPreferences().getLanguage());
-					Translator tmpTranslator = Util.createPackageTranslator(
-							Exam.class, userLocale);
+					Locale userLocale = new Locale(p.getIdentity().getUser().getPreferences().getLanguage());
+					Translator tmpTranslator = Util.createPackageTranslator(Exam.class, userLocale);
+					BusinessControlFactory bcf = BusinessControlFactory.getInstance();
+					
 					// Email GetMark
-					MailManager
-							.getInstance()
-							.sendEmail(
-									tmpTranslator
-											.translate(
-													"ExamLaunchController.GetMark.Subject",
-													new String[] { ExamDBManager
-															.getInstance()
-															.getExamName(exam) }),
-
-									tmpTranslator
-											.translate(
-													"ExamLaunchController.GetMark.Body",
-													new String[] {
-															ExamDBManager
-																	.getInstance()
-																	.getExamName(
-																			exam),
-															this
-																	.getRealName(p
-																			.getIdentity()),
-															DateFormat
-																	.getDateTimeInstance(
-																			DateFormat.SHORT,
-																			DateFormat.SHORT,
-																			tmpTranslator
-																					.getLocale())
-																	.format(
-																			p
-																					.getAppointment()
-																					.getDate()),
-															p.getAppointment()
-																	.getPlace(),
-															new Integer(
-																	p
-																			.getAppointment()
-																			.getDuration())
-																	.toString(),
-															p
-																	.getExam()
-																	.getIsOral() ? tmpTranslator
-																	.translate("oral")
-																	: tmpTranslator
-																			.translate("written"),
-															// TODO:
-															// Dirty as
-															// hell
-															JumpInManager
-																	.getInstance()
-																	.getJumpInUri(
-																			BusinessControlFactory
-																					.getInstance()
-																					.createFromContextEntries(
-																							Arrays
-																									.asList(new ContextEntry[] { BusinessControlFactory
-																											.getInstance()
-																											.createContextEntry(
-																													ExamDBManager
-																															.getInstance()
-																															.findRepositoryEntryOfExam(
-																																	exam)) }))) }),
-
-									p.getIdentity());
+					MailManager.getInstance().sendEmail(
+						tmpTranslator.translate("ExamLaunchController.GetMark.Subject", new String[] { ExamDBManager.getInstance().getExamName(exam) }),
+						tmpTranslator.translate("ExamLaunchController.GetMark.Body",
+							new String[] {
+								ExamDBManager.getInstance().getExamName(exam),
+								this.getRealName(p.getIdentity()),
+								DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT, tmpTranslator.getLocale()).format(p.getAppointment().getDate()),
+								p.getAppointment().getPlace(),
+								new Integer(p.getAppointment().getDuration()).toString(),
+								p.getExam().getIsOral() ? tmpTranslator.translate("oral") : tmpTranslator.translate("written"),
+								bcf.getAsURIString(bcf.createCEListFromString(ExamDBManager.getInstance().findRepositoryEntryOfExam(exam)), true)
+							}),
+						p.getIdentity()
+					);
 				}
 				cmc.deactivate();
 				this.setProtocolTable(ureq);
@@ -649,75 +600,28 @@ public class ExamLaunchController extends MainLayoutBasicController implements
 			// sign off from exam
 			if (event.getCommand().equals(Table.COMMANDLINK_ROWACTION_CLICKED)) {
 
-				protocol = ProtocolManager
-						.getInstance()
-						.findProtocolByIdentityAndExam(ureq.getIdentity(), exam);
+				protocol = ProtocolManager.getInstance().findProtocolByIdentityAndExam(ureq.getIdentity(), exam);
 
-				CalendarManager.getInstance().deleteKalendarEventForExam(exam,
-						ureq.getIdentity());
+				CalendarManager.getInstance().deleteKalendarEventForExam(exam, ureq.getIdentity());
+				
+				BusinessControlFactory bcf = BusinessControlFactory.getInstance();
+
 				// Email Remove
-				MailManager
-						.getInstance()
-						.sendEmail(
-								translator.translate(
-										"ExamLaunchController.Remove.Subject",
-										new String[] { ExamDBManager
-												.getInstance()
-												.getExamName(exam) }),
-
-								translator
-										.translate(
-												"ExamLaunchController.Remove.Body",
-												new String[] {
-														ExamDBManager
-																.getInstance()
-																.getExamName(
-																		exam),
-														this
-																.getRealName(protocol
-																		.getIdentity()),
-														DateFormat
-																.getDateTimeInstance(
-																		DateFormat.SHORT,
-																		DateFormat.SHORT,
-																		translator
-																				.getLocale())
-																.format(
-																		protocol
-																				.getAppointment()
-																				.getDate()),
-														protocol
-																.getAppointment()
-																.getPlace(),
-														new Integer(
-																protocol
-																		.getAppointment()
-																		.getDuration())
-																.toString(),
-														protocol.getExam()
-																.getIsOral() ? translator
-																.translate("oral")
-																: translator
-																		.translate("written"),
-														// TODO:
-														// Dirty as
-														// hell
-														JumpInManager
-																.getInstance()
-																.getJumpInUri(
-																		BusinessControlFactory
-																				.getInstance()
-																				.createFromContextEntries(
-																						Arrays
-																								.asList(new ContextEntry[] { BusinessControlFactory
-																										.getInstance()
-																										.createContextEntry(
-																												ExamDBManager
-																														.getInstance()
-																														.findRepositoryEntryOfExam(
-																																exam)) }))) }),
-
-								protocol.getIdentity());
+				MailManager.getInstance().sendEmail(
+					translator.translate("ExamLaunchController.Remove.Subject",new String[] { ExamDBManager.getInstance().getExamName(exam) }),
+					translator.translate("ExamLaunchController.Remove.Body",
+						new String[] {
+							ExamDBManager.getInstance().getExamName(exam),
+							this.getRealName(protocol.getIdentity()),
+							DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT, translator.getLocale()).format(protocol.getAppointment().getDate()),
+							protocol.getAppointment().getPlace(),
+							new Integer(protocol.getAppointment().getDuration()).toString(),
+							protocol.getExam().getIsOral() ? translator.translate("oral") : translator.translate("written"),
+							bcf.getAsURIString(bcf.createCEListFromString(ExamDBManager.getInstance().findRepositoryEntryOfExam(exam)), true)
+						}),
+					protocol.getIdentity()
+				);
+				
 				if (exam.getIsOral()) {
 					Appointment tempApp = protocol.getAppointment();
 					tempApp.setOccupied(false);
@@ -770,79 +674,28 @@ public class ExamLaunchController extends MainLayoutBasicController implements
 				TableMultiSelectEvent tmse = (TableMultiSelectEvent) event;
 				if (tmse.getAction().equals("protoTable.remove")) {
 
-					protoList = (ArrayList<Protocol>) earProtoTableMdl
-							.getObjects(tmse.getSelection());
+					protoList = (List<Protocol>) earProtoTableMdl.getObjects(tmse.getSelection());
 					for (Protocol p : protoList) {
-						Locale userLocale = new Locale(p.getIdentity()
-								.getUser().getPreferences().getLanguage());
-						Translator tmpTranslator = Util
-								.createPackageTranslator(Exam.class, userLocale);
+						Locale userLocale = new Locale(p.getIdentity().getUser().getPreferences().getLanguage());
+						Translator tmpTranslator = Util.createPackageTranslator(Exam.class, userLocale);
+						BusinessControlFactory bcf = BusinessControlFactory.getInstance();
+						
 						// Email Remove
-						MailManager
-								.getInstance()
-								.sendEmail(
-										tmpTranslator
-												.translate(
-														"ExamLaunchController.Remove.Subject",
-														new String[] { ExamDBManager
-																.getInstance()
-																.getExamName(
-																		exam) }),
-
-										tmpTranslator
-												.translate(
-														"ExamLaunchController.Remove.Body",
-														new String[] {
-																ExamDBManager
-																		.getInstance()
-																		.getExamName(
-																				exam),
-																this
-																		.getRealName(p
-																				.getIdentity()),
-																DateFormat
-																		.getDateTimeInstance(
-																				DateFormat.SHORT,
-																				DateFormat.SHORT,
-																				tmpTranslator
-																						.getLocale())
-																		.format(
-																				p
-																						.getAppointment()
-																						.getDate()),
-																p
-																		.getAppointment()
-																		.getPlace(),
-																new Integer(
-																		p
-																				.getAppointment()
-																				.getDuration())
-																		.toString(),
-																p
-																		.getExam()
-																		.getIsOral() ? tmpTranslator
-																		.translate("oral")
-																		: tmpTranslator
-																				.translate("written"),
-																// TODO:
-																// Dirty as
-																// hell
-																JumpInManager
-																		.getInstance()
-																		.getJumpInUri(
-																				BusinessControlFactory
-																						.getInstance()
-																						.createFromContextEntries(
-																								Arrays
-																										.asList(new ContextEntry[] { BusinessControlFactory
-																												.getInstance()
-																												.createContextEntry(
-																														ExamDBManager
-																																.getInstance()
-																																.findRepositoryEntryOfExam(
-																																		exam)) }))) }),
-
-										p.getIdentity());
+						MailManager.getInstance().sendEmail(
+							tmpTranslator.translate("ExamLaunchController.Remove.Subject", new String[] { ExamDBManager.getInstance().getExamName(exam) }),
+							tmpTranslator.translate("ExamLaunchController.Remove.Body",
+								new String[] {
+									ExamDBManager.getInstance().getExamName(exam),
+									this.getRealName(p.getIdentity()),
+									DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT, tmpTranslator.getLocale()).format(p.getAppointment().getDate()),
+									p.getAppointment().getPlace(),
+									new Integer(p.getAppointment().getDuration()).toString(),
+									p.getExam().getIsOral() ? tmpTranslator.translate("oral") : tmpTranslator.translate("written"),
+									bcf.getAsURIString(bcf.createCEListFromString(ExamDBManager.getInstance().findRepositoryEntryOfExam(exam)), true)
+								}),
+							p.getIdentity()
+						);
+						
 						// update appointment
 						if (exam.getIsOral()) {
 							Appointment tempApp = p.getAppointment();
@@ -890,116 +743,35 @@ public class ExamLaunchController extends MainLayoutBasicController implements
 					for (Protocol proto : protoList) {
 						proto.setEarmarked(false);
 						ProtocolManager.getInstance().updateProtocol(proto);
-						Locale userLocale = new Locale(proto.getIdentity()
-								.getUser().getPreferences().getLanguage());
+						Locale userLocale = new Locale(proto.getIdentity().getUser().getPreferences().getLanguage());
+						Translator tmpTranslator = Util.createPackageTranslator(Exam.class, userLocale);
+						BusinessControlFactory bcf = BusinessControlFactory.getInstance();
 
 						// TODO testen ob das hier hinhaut mit der erzeugten
 						// email... earmarked -> registered
 						Appointment tempApp = proto.getAppointment();
 
-						Translator tmpTranslator = Util
-								.createPackageTranslator(Exam.class, userLocale);
 						// Email Register
-						MailManager
-								.getInstance()
-								.sendEmail(
-										tmpTranslator
-												.translate(
-														"ExamLaunchController.Register.Subject",
-														new String[] { ExamDBManager
-																.getInstance()
-																.getExamName(
-																		exam) }),
-										tmpTranslator
-												.translate(
-														"ExamLaunchController.Register.Body",
-														new String[] {
-																ExamDBManager
-																		.getInstance()
-																		.getExamName(
-																				exam),
-																this
-																		.getRealName(proto
-																				.getIdentity()),
-																DateFormat
-																		.getDateTimeInstance(
-																				DateFormat.SHORT,
-																				DateFormat.SHORT,
-																				translator
-																						.getLocale())
-																		.format(
-																				proto
-																						.getAppointment()
-																						.getDate()),
-																proto
-																		.getAppointment()
-																		.getPlace(),
-																new Integer(
-																		proto
-																				.getAppointment()
-																				.getDuration())
-																		.toString(),
-																proto
-																		.getExam()
-																		.getIsOral() ? translator
-																		.translate("oral")
-																		: translator
-																				.translate("written"),
-																// TODO:
-																// Dirty as
-																// hell
-																JumpInManager
-																		.getInstance()
-																		.getJumpInUri(
-																				BusinessControlFactory
-																						.getInstance()
-																						.createFromContextEntries(
-																								Arrays
-																										.asList(new ContextEntry[] { BusinessControlFactory
-																												.getInstance()
-																												.createContextEntry(
-																														ExamDBManager
-																																.getInstance()
-																																.findRepositoryEntryOfExam(
-																																		exam)) }))),
-																translator
-																		.translate(proto
-																				.getEarmarked() ? "ExamLaunchController.status.earmarked"
-																				: "ExamLaunchController.status.registered"),
-																this
-																		.getSemester(tempApp),
-																exam
-																		.getIdentity()
-																		.getUser()
-																		.getProperty(
-																				UserConstants.LASTNAME,
-																				null)
-																		+ ", "
-																		+ exam
-																				.getIdentity()
-																				.getUser()
-																				.getProperty(
-																						UserConstants.FIRSTNAME,
-																						null),
-																proto
-																		.getIdentity()
-																		.getUser()
-																		.getProperty(
-																				UserConstants.INSTITUTIONALEMAIL,
-																				null),
-																proto
-																		.getIdentity()
-																		.getUser()
-																		.getProperty(
-																				UserConstants.EMAIL,
-																				null),
-																proto
-																		.getIdentity()
-																		.getUser()
-																		.getProperty(
-																				UserConstants.STUDYSUBJECT,
-																				null) }),
-										proto.getIdentity());
+						MailManager.getInstance().sendEmail(
+							tmpTranslator.translate("ExamLaunchController.Register.Subject", new String[] { ExamDBManager.getInstance().getExamName(exam) }),
+							tmpTranslator.translate("ExamLaunchController.Register.Body",
+								new String[] {
+									ExamDBManager.getInstance().getExamName(exam),
+									this.getRealName(proto.getIdentity()),
+									DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT, translator.getLocale()).format(proto.getAppointment().getDate()),
+									proto.getAppointment().getPlace(),
+									new Integer(proto.getAppointment().getDuration()).toString(),
+									proto.getExam().getIsOral() ? translator.translate("oral") : translator.translate("written"),
+									bcf.getAsURIString(bcf.createCEListFromString(ExamDBManager.getInstance().findRepositoryEntryOfExam(exam)), true),
+									translator.translate(proto.getEarmarked() ? "ExamLaunchController.status.earmarked" : "ExamLaunchController.status.registered"),
+									this.getSemester(tempApp),
+									this.getRealName(exam.getIdentity()),
+									proto.getIdentity().getUser().getProperty(UserConstants.INSTITUTIONALEMAIL, null),
+									proto.getIdentity().getUser().getProperty(UserConstants.EMAIL, null),
+									proto.getIdentity().getUser().getProperty(UserConstants.STUDYSUBJECT, null)
+								}),
+							proto.getIdentity()
+						);
 
 						// add a comment to the esf
 
@@ -1161,79 +933,31 @@ public class ExamLaunchController extends MainLayoutBasicController implements
 				TableMultiSelectEvent tmse = (TableMultiSelectEvent) event;
 				if (tmse.getAction().equals("protoTable.remove")) {
 
-					protoList = (ArrayList<Protocol>) regProtoTableMdl
-							.getObjects(tmse.getSelection());
+					protoList = (List<Protocol>) regProtoTableMdl.getObjects(tmse.getSelection());
+
+					BusinessControlFactory bcf = BusinessControlFactory.getInstance();
+					ExamDBManager edb = ExamDBManager.getInstance();
 					for (Protocol p : protoList) {
-						Locale userLocale = new Locale(p.getIdentity()
-								.getUser().getPreferences().getLanguage());
-						Translator tmpTranslator = Util
-								.createPackageTranslator(Exam.class, userLocale);
+						Locale userLocale = new Locale(p.getIdentity().getUser().getPreferences().getLanguage());
+						Translator tmpTranslator = Util.createPackageTranslator(Exam.class, userLocale);
+
 						// Email Remove
-						MailManager
-								.getInstance()
-								.sendEmail(
-										tmpTranslator
-												.translate(
-														"ExamLaunchController.Remove.Subject",
-														new String[] { ExamDBManager
-																.getInstance()
-																.getExamName(
-																		exam) }),
+						MailManager.getInstance().sendEmail(
+							tmpTranslator.translate("ExamLaunchController.Remove.Subject", new String[] { ExamDBManager.getInstance().getExamName(exam) }),
+							tmpTranslator.translate("ExamLaunchController.Remove.Body",
+								new String[] {
+									// exam name, user name, exam date, exam location, exam duration, oral/written, link
+									edb.getExamName(exam),
+									this.getRealName(p.getIdentity()),
+									DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT, userLocale).format(p.getAppointment().getDate()),
+									p.getAppointment().getPlace(),
+									new Integer(p.getAppointment().getDuration()).toString(),
+									p.getExam().getIsOral() ? tmpTranslator.translate("oral") : tmpTranslator.translate("written"),
+									bcf.getAsURIString(bcf.createCEListFromString(edb.findRepositoryEntryOfExam(exam)), true)
+								}),
+							p.getIdentity()
+						);
 
-										tmpTranslator
-												.translate(
-														"ExamLaunchController.Remove.Body",
-														new String[] {
-																ExamDBManager
-																		.getInstance()
-																		.getExamName(
-																				exam),
-																this
-																		.getRealName(p
-																				.getIdentity()),
-																DateFormat
-																		.getDateTimeInstance(
-																				DateFormat.SHORT,
-																				DateFormat.SHORT,
-																				tmpTranslator
-																						.getLocale())
-																		.format(
-																				p
-																						.getAppointment()
-																						.getDate()),
-																p
-																		.getAppointment()
-																		.getPlace(),
-																new Integer(
-																		p
-																				.getAppointment()
-																				.getDuration())
-																		.toString(),
-																p
-																		.getExam()
-																		.getIsOral() ? tmpTranslator
-																		.translate("oral")
-																		: tmpTranslator
-																				.translate("written"),
-																// TODO:
-																// Dirty as
-																// hell
-																JumpInManager
-																		.getInstance()
-																		.getJumpInUri(
-																				BusinessControlFactory
-																						.getInstance()
-																						.createFromContextEntries(
-																								Arrays
-																										.asList(new ContextEntry[] { BusinessControlFactory
-																												.getInstance()
-																												.createContextEntry(
-																														ExamDBManager
-																																.getInstance()
-																																.findRepositoryEntryOfExam(
-																																		exam)) }))) }),
-
-										p.getIdentity());
 						// update appointment
 						if (exam.getIsOral()) {
 							Appointment tempApp = p.getAppointment();
@@ -1275,82 +999,29 @@ public class ExamLaunchController extends MainLayoutBasicController implements
 
 				if (tmse.getAction().equals("protoTable.earmark")) {
 
-					protoList = (ArrayList<Protocol>) regProtoTableMdl
-							.getObjects(tmse.getSelection());
+					protoList = (List<Protocol>) regProtoTableMdl.getObjects(tmse.getSelection());
 					for (Protocol p : protoList) {
 						p.setEarmarked(true);
 						ProtocolManager.getInstance().updateProtocol(p);
-						Locale userLocale = new Locale(p.getIdentity()
-								.getUser().getPreferences().getLanguage());
-						Translator tmpTranslator = Util
-								.createPackageTranslator(Exam.class, userLocale);
+						Locale userLocale = new Locale(p.getIdentity().getUser().getPreferences().getLanguage());
+						Translator tmpTranslator = Util.createPackageTranslator(Exam.class, userLocale);
+						BusinessControlFactory bcf = BusinessControlFactory.getInstance();
 
 						// Email MoveToEarmarked
-						MailManager
-								.getInstance()
-								.sendEmail(
-										tmpTranslator
-												.translate(
-														"ExamLaunchController.MoveToEarmarked.Subject",
-														new String[] { ExamDBManager
-																.getInstance()
-																.getExamName(
-																		exam) }),
-
-										tmpTranslator
-												.translate(
-														"ExamLaunchController.MoveToEarmarked.Body",
-														new String[] {
-																ExamDBManager
-																		.getInstance()
-																		.getExamName(
-																				exam),
-																this
-																		.getRealName(p
-																				.getIdentity()),
-																DateFormat
-																		.getDateTimeInstance(
-																				DateFormat.SHORT,
-																				DateFormat.SHORT,
-																				tmpTranslator
-																						.getLocale())
-																		.format(
-																				p
-																						.getAppointment()
-																						.getDate()),
-																p
-																		.getAppointment()
-																		.getPlace(),
-																new Integer(
-																		p
-																				.getAppointment()
-																				.getDuration())
-																		.toString(),
-																p
-																		.getExam()
-																		.getIsOral() ? tmpTranslator
-																		.translate("oral")
-																		: tmpTranslator
-																				.translate("written"),
-																// TODO:
-																// Dirty as
-																// hell
-																JumpInManager
-																		.getInstance()
-																		.getJumpInUri(
-																				BusinessControlFactory
-																						.getInstance()
-																						.createFromContextEntries(
-																								Arrays
-																										.asList(new ContextEntry[] { BusinessControlFactory
-																												.getInstance()
-																												.createContextEntry(
-																														ExamDBManager
-																																.getInstance()
-																																.findRepositoryEntryOfExam(
-																																		exam)) }))) }),
-
-										p.getIdentity());
+						MailManager.getInstance().sendEmail(
+							tmpTranslator.translate("ExamLaunchController.MoveToEarmarked.Subject", new String[] { ExamDBManager.getInstance().getExamName(exam) }),
+							tmpTranslator.translate("ExamLaunchController.MoveToEarmarked.Body",
+								new String[] {
+									ExamDBManager.getInstance().getExamName(exam),
+									this.getRealName(p.getIdentity()),
+									DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT, userLocale).format(p.getAppointment().getDate()),
+									p.getAppointment().getPlace(),
+									new Integer(p.getAppointment().getDuration()).toString(),
+									p.getExam().getIsOral() ? tmpTranslator.translate("oral") : tmpTranslator.translate("written"),
+									bcf.getAsURIString(bcf.createCEListFromString(ExamDBManager.getInstance().findRepositoryEntryOfExam(exam)), true)
+								}),
+							p.getIdentity()
+						);
 
 						// add a comment to the esf
 
@@ -1666,109 +1337,33 @@ public class ExamLaunchController extends MainLayoutBasicController implements
 
 				CalendarManager.getInstance().createKalendarEventForExam(exam,
 						id, res);
+				
+				BusinessControlFactory bcf = BusinessControlFactory.getInstance();
 				// Email Register
 				// // Email Bodies and Subjects, vars: {0} exam name {1} last
 				// name, first name {2} app.date {3} app.place {4} app.duration
 				// {5} exam.type {6} exam.url {7} proto.earmarked {8} semester
 				// {9} author {10} studserv email {11} email {12} studyPath
-				MailManager
-						.getInstance()
-						.sendEmail(
-								translator
-										.translate(
-												"ExamLaunchController.Register.Subject",
-												new String[] { ExamDBManager
-														.getInstance()
-														.getExamName(exam) }),
-
-								translator
-										.translate(
-												"ExamLaunchController.Register.Body",
-												new String[] {
-														ExamDBManager
-																.getInstance()
-																.getExamName(
-																		exam),
-														this.getRealName(proto
-																.getIdentity()),
-														DateFormat
-																.getDateTimeInstance(
-																		DateFormat.SHORT,
-																		DateFormat.SHORT,
-																		translator
-																				.getLocale())
-																.format(
-																		proto
-																				.getAppointment()
-																				.getDate()),
-														proto.getAppointment()
-																.getPlace(),
-														new Integer(
-																proto
-																		.getAppointment()
-																		.getDuration())
-																.toString(),
-														proto.getExam()
-																.getIsOral() ? translator
-																.translate("oral")
-																: translator
-																		.translate("written"),
-														// TODO:
-														// Dirty as
-														// hell
-														JumpInManager
-																.getInstance()
-																.getJumpInUri(
-																		BusinessControlFactory
-																				.getInstance()
-																				.createFromContextEntries(
-																						Arrays
-																								.asList(new ContextEntry[] { BusinessControlFactory
-																										.getInstance()
-																										.createContextEntry(
-																												ExamDBManager
-																														.getInstance()
-																														.findRepositoryEntryOfExam(
-																																exam)) }))),
-														translator
-																.translate(proto
-																		.getEarmarked() ? "ExamLaunchController.status.earmarked"
-																		: "ExamLaunchController.status.registered"),
-														this
-																.getSemester(tempApp),
-														exam
-																.getIdentity()
-																.getUser()
-																.getProperty(
-																		UserConstants.LASTNAME,
-																		null)
-																+ ", "
-																+ exam
-																		.getIdentity()
-																		.getUser()
-																		.getProperty(
-																				UserConstants.FIRSTNAME,
-																				null),
-														proto
-																.getIdentity()
-																.getUser()
-																.getProperty(
-																		UserConstants.INSTITUTIONALEMAIL,
-																		null),
-														proto
-																.getIdentity()
-																.getUser()
-																.getProperty(
-																		UserConstants.EMAIL,
-																		null),
-														proto
-																.getIdentity()
-																.getUser()
-																.getProperty(
-																		UserConstants.STUDYSUBJECT,
-																		null) }),
-
-								proto.getIdentity());
+				MailManager.getInstance().sendEmail(
+					translator.translate("ExamLaunchController.Register.Subject", new String[] { ExamDBManager.getInstance().getExamName(exam) }),
+					translator.translate("ExamLaunchController.Register.Body",
+						new String[] {
+							ExamDBManager.getInstance().getExamName(exam),
+							this.getRealName(proto.getIdentity()),
+							DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT, translator.getLocale()).format(proto.getAppointment().getDate()),
+							proto.getAppointment().getPlace(),
+							new Integer(proto.getAppointment().getDuration()).toString(),
+							proto.getExam().getIsOral() ? translator.translate("oral") : translator.translate("written"),
+							bcf.getAsURIString(bcf.createCEListFromString(ExamDBManager.getInstance().findRepositoryEntryOfExam(exam)), true),
+							translator.translate(proto.getEarmarked() ? "ExamLaunchController.status.earmarked" : "ExamLaunchController.status.registered"),
+							this.getSemester(tempApp),
+							this.getRealName(exam.getIdentity()),
+							proto.getIdentity().getUser().getProperty(UserConstants.INSTITUTIONALEMAIL, null),
+							proto.getIdentity().getUser().getProperty(UserConstants.EMAIL, null),
+							proto.getIdentity().getUser().getProperty(UserConstants.STUDYSUBJECT, null)
+						}),
+					proto.getIdentity()
+				);
 			} else {
 				Tracing.logError("app == null: " + (tempApp == null)
 						+ "  tempApp.isOccupied:" + tempApp.getOccupied(),

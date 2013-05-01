@@ -96,7 +96,6 @@ public class CreateAndEditModuleForm extends FormBasicController {
 						.isEmpty("CreateAndEditModuleForm.personInCharge.isEmpty");
 		// && !number.isEmpty("CreateAndEditModuleForm.number.isEmpty");
 
-		
 		identity = BaseSecurityManager.getInstance().findIdentityByName(personInCharge.getValue());
 
 		if (!number.getValue().equals("")) {

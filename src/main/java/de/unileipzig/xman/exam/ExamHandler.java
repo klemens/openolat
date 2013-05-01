@@ -156,7 +156,7 @@ public class ExamHandler implements RepositoryHandler {
 	 * @see org.olat.repository.handlers.RepositoryHandler#getAsMediaResource(org.olat.core.id.OLATResourceable)
 	 */
 	@Override
-	public MediaResource getAsMediaResource(OLATResourceable res) {
+	public MediaResource getAsMediaResource(OLATResourceable res, boolean backwardsCompatible) {
 		throw new AssertException("getAsMediaResource not implemented for Exam");
 	}
 
@@ -222,7 +222,7 @@ public class ExamHandler implements RepositoryHandler {
 	public void releaseLock(LockResult lockResult) {}
 
 	@Override
-	public MainLayoutController createLaunchController(OLATResourceable res, String initialViewIdentifier, UserRequest ureq, WindowControl wControl) {
+	public MainLayoutController createLaunchController(OLATResourceable res, UserRequest ureq, WindowControl wControl) {
 
 		// check roles
 		boolean isOLATAdmin = ureq.getUserSession().getRoles().isOLATAdmin();

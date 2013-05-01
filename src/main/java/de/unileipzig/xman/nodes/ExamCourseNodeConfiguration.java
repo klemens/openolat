@@ -1,6 +1,8 @@
 package de.unileipzig.xman.nodes;
 
 import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
 
@@ -116,5 +118,10 @@ public class ExamCourseNodeConfiguration implements CourseNodeConfiguration{
 	public int getOrder() {
 		// TODO Auto-generated method stub
 		return 0;
+	}
+
+	@Override
+	public List<String> getAlternativeCourseNodes() {
+		return Collections.emptyList();
 	}
 }

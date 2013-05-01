@@ -52,6 +52,7 @@ import org.olat.repository.controllers.EntryChangedEvent;
 import org.olat.user.UserDataDeletable;
 
 import org.hibernate.Hibernate;
+import org.hibernate.type.StandardBasicTypes;
 import org.hibernate.type.Type;
 
 /**
@@ -149,7 +150,7 @@ public class CatalogManager extends BasicManager implements UserDataDeletable, I
 		List res = DBFactory.getInstance().find(
 					"select cei from org.olat.catalog.CatalogEntryImpl as cei" +
 					" where cei.parent = ? and cei.repositoryEntry = null order by cei.name",
-					new Object[] { ce.getKey() }, new Type[] { Hibernate.LONG });
+					new Object[] { ce.getKey() }, new Type[] { StandardBasicTypes.LONG });
 		return res;
 	}
 

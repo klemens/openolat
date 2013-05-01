@@ -45,7 +45,7 @@ public class ExamCourseNodeRunController extends DefaultController {
 
 		RepositoryEntry re = ExamCourseNodeEditController.getExamRepoReference(config, true);
 		
-		examLaunchCtr = exha.createLaunchController(re.getOlatResource(), null, ureq, wControl);
+		examLaunchCtr = exha.createLaunchController(re.getOlatResource(), ureq, wControl);
 		
 		
 		main.setContent(examLaunchCtr.getInitialComponent());

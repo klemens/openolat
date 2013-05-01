@@ -57,17 +57,16 @@ public class MailManager {
 	 * for the translator use this: {1} exam name {2} first name {3} app.date {4} app.place {5} app.duration {6} exam.typ  
 	 * @param body the body of the email
 	 * @param subject the subject of the email
-	 * @param identityList the list of identities
+	 * @param identity recipient
 	 * @return true if the mail was successfully delivered to the recipients
 	 */
 	public boolean sendEmail(String subject, String body, Identity identity) {
 		
 		MailerResult result = null;
 		if ( identity != null) {
-			result = MailerWithTemplate.getInstance().sendMail(null,identity, null, null,
-					this.createEmail(body, subject, new HashMap<String,String>()), null);
-		}		
-		// unused at the moment
+			result = MailerWithTemplate.getInstance().sendRealMail(identity,this.createEmail(body, subject, new HashMap<String,String>()));
+		} else return false;
+
 		if ( result.getReturnCode() == MailerResult.OK ) {
 			return true;
 		} 
