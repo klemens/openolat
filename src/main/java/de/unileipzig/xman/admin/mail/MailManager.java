@@ -64,7 +64,8 @@ public class MailManager {
 		
 		MailerResult result = null;
 		if ( identity != null) {
-			result = MailerWithTemplate.getInstance().sendRealMail(identity ,null);
+			result = MailerWithTemplate.getInstance().sendMail(null,identity, null, null,
+					this.createEmail(body, subject, new HashMap<String,String>()), null);
 		}		
 		// unused at the moment
 		if ( result.getReturnCode() == MailerResult.OK ) {
