@@ -12,7 +12,7 @@ import org.olat.core.util.Util;
 import de.unileipzig.xman.esf.ElectronicStudentFile;
 import de.unileipzig.xman.studyPath.StudyPath;
 
-public class ESFTableModel extends DefaultTableDataModel {
+public class ESFTableModel extends DefaultTableDataModel<ElectronicStudentFile> {
 
 	
 	private Locale locale;
@@ -50,34 +50,28 @@ public class ESFTableModel extends DefaultTableDataModel {
 		ElectronicStudentFile entry = this.getEntryAt(row);
 		
 		switch(col) {
-			case 0: return entry.getIdentity().getUser().getProperty(UserConstants.LASTNAME, locale) + ", " + 
+			case 0: return entry.getIdentity().getName();
+
+			case 1: return entry.getIdentity().getUser().getProperty(UserConstants.LASTNAME, locale) + ", " + 
 										 entry.getIdentity().getUser().getProperty(UserConstants.FIRSTNAME, locale);
-			
-			case 1: return entry.getIdentity().getUser().getProperty(UserConstants.INSTITUTIONALEMAIL, locale);
-			
+
 			case 2: return entry.getIdentity().getUser().getProperty(UserConstants.INSTITUTIONALUSERIDENTIFIER, locale);
-			
+
 			case 3: return entry.getIdentity().getUser().getProperty(UserConstants.STUDYSUBJECT, locale);
-			
-			case 4: return entry.getIdentity().getName();
-			
+
 			case 5: return entry.getLastModified();
-			
+
 			default: return "";
 		}
 	}
 
 	public void setTable(TableController tableCtr) {
 		
-		tableCtr.addColumnDescriptor(new DefaultColumnDescriptor("ESFTableModel.name", 0, null, locale));
-		tableCtr.addColumnDescriptor(new DefaultColumnDescriptor("ESFTableModel.email", 1, null, locale));
-		tableCtr.addColumnDescriptor(new DefaultColumnDescriptor("ESFTableModel.institutionaluseridentifier", 2, this.showNonValidatedESF ? null : COMMAND_OPEN, locale));
+		tableCtr.addColumnDescriptor(new DefaultColumnDescriptor("ESFTableModel.username", 0, null, locale));
+		tableCtr.addColumnDescriptor(new DefaultColumnDescriptor("ESFTableModel.name", 1, null, locale));
+		tableCtr.addColumnDescriptor(new DefaultColumnDescriptor("ESFTableModel.institutionaluseridentifier", 2, COMMAND_OPEN, locale));
 		tableCtr.addColumnDescriptor(new DefaultColumnDescriptor("ESFTableModel.studyPath", 3, null, locale));
-		tableCtr.addColumnDescriptor(new DefaultColumnDescriptor("ESFTableModel.username", 4, null, locale));
-		if ( this.showNonValidatedESF ) {
-			
-			tableCtr.addColumnDescriptor(new DefaultColumnDescriptor("ESFTableModel.lastModified", 5, null, locale));
-		}
+		tableCtr.addColumnDescriptor(new DefaultColumnDescriptor("ESFTableModel.lastModified", 4, null, locale));
 	}
 	
 	public ElectronicStudentFile getEntryAt(int row) {

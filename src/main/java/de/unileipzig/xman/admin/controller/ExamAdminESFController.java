@@ -87,8 +87,6 @@ public class ExamAdminESFController extends BasicController {
 	private static final String VELOCITY_ROOT = Util
 			.getPackageVelocityRoot(ExamAdminSite.class);
 
-	private boolean provideLaunchButton;
-
 	private Translator translator;
 	private VelocityContainer mainVC;
 	private ToolController toolCtr;
@@ -96,15 +94,11 @@ public class ExamAdminESFController extends BasicController {
 	private TableController esfTableCtr;
 	private ESFTableModel esfTableMdl;
 
-	private ESFCreateController createESFController;
-
-	private UserSearchController userSearchCreateESFCtr;
-	private UserSearchController userSearchEditESFCtr;
+	private UserSearchController userSearchESFCtr;
+	private CloseableModalController searchESFModalCtr;
 
 	private ContactFormController contactFormController;
 
-	private CloseableModalController createESFModalCtr;
-	private CloseableModalController editESFModalCtr;
 	private CloseableModalController sendMailCtr;
 
 	private DialogBoxController deleteDialog;
@@ -117,29 +111,24 @@ public class ExamAdminESFController extends BasicController {
 	 * @param provideLaunchButton
 	 *            - true, for showing all esf which are NOT validated yet
 	 */
-	protected ExamAdminESFController(UserRequest ureq, WindowControl wControl,
-			boolean provideLaunchButton) {
+	protected ExamAdminESFController(UserRequest ureq, WindowControl wControl) {
 		super(ureq, wControl);
 
-		this.translator = Util.createPackageTranslator(ExamAdminSite.class,
-				ureq.getLocale());
-		this.mainVC = new VelocityContainer("examCategories", VELOCITY_ROOT
-				+ "/esf.html", translator, this);
-		this.provideLaunchButton = provideLaunchButton;
+		this.translator = Util.createPackageTranslator(ExamAdminSite.class, ureq.getLocale());
+		this.mainVC = new VelocityContainer("examCategories", VELOCITY_ROOT + "/esf.html", translator, this);
 
 		toolCtr = ToolFactory.createToolController(wControl);
 		toolCtr.addControllerListener(this);
-		toolCtr.addHeader(translator
-				.translate("ExamAdminESFController.tool.header"));
-		toolCtr.addLink("action.add", translator
-				.translate("ExamAdminESFController.tool.add"));
-		toolCtr.addLink("action.search", translator
-				.translate("ExamAdminESFController.tool.search"));
+		toolCtr.addHeader(translator.translate("ExamAdminESFController.tool.header"));
+		toolCtr.addLink("action.search", translator.translate("ExamAdminESFController.tool.search"));
 
-		// which esf should be displayed
-		buildView(ureq, wControl, provideLaunchButton);
-
+		init(ureq, wControl);
+		
 		this.putInitialPanel(mainVC);
+	}
+	
+	private void init(UserRequest ureq, WindowControl wControl) {
+		buildView(ureq, wControl);
 	}
 
 	/**
@@ -149,55 +138,27 @@ public class ExamAdminESFController extends BasicController {
 	 *            - the UserRequest
 	 * @param wControl
 	 *            - the WindowControl
-	 * @param showValidatedOrNonValidated
-	 *            - if true, the tablemodel will not provide the clickable
-	 *            (launching) institutionalidentifier
 	 */
-	private void buildView(UserRequest ureq, WindowControl wControl,
-			boolean showNonValidated) {
-
-		List<ElectronicStudentFile> esfList = ElectronicStudentFileManager
-				.getInstance().retrieveESFByValidation(showNonValidated);
+	private void buildView(UserRequest ureq, WindowControl wControl) {
+		List<ElectronicStudentFile> esfList = ElectronicStudentFileManager.getInstance().retrieveAllElectronicStudentFiles();
 
 		TableGuiConfiguration esfTableConfig = new TableGuiConfiguration();
 		esfTableConfig.setMultiSelect(true);
 		esfTableConfig.setColumnMovingOffered(true);
 		esfTableConfig.setDownloadOffered(true);
 		esfTableConfig.setPageingEnabled(true);
-		esfTableConfig
-				.setTableEmptyMessage(this.translator
-						.translate(showNonValidated ? "ExamAdminESFController.nonValidated.emptyTableMessage"
-								: "ExamAdminESFController.validated.emptyTableMessage"));
+		esfTableConfig.setTableEmptyMessage(translator.translate("ExamAdminESFController.emptyTableMessage"));
 		esfTableConfig.setShowAllLinkEnabled(true);
 		esfTableConfig.setPreferencesOffered(true, "pref");
-		esfTableCtr = new TableController(esfTableConfig, ureq, wControl,
-				translator);
+		esfTableCtr = new TableController(esfTableConfig, ureq, wControl, translator);
 		esfTableCtr.setMultiSelect(true);
-		// validated esf don't need to be validateable
-		if (showNonValidated)
-			esfTableCtr.addMultiSelectAction("ExamAdminESFController.validate",
-					ESFTableModel.COMMAND_VALIDATE);
-		else
-			esfTableCtr.addMultiSelectAction(
-					"ExamAdminESFController.invalidate",
-					ESFTableModel.COMMAND_INVALIDATE);
-		esfTableCtr.addMultiSelectAction("ExamAdminESFController.delete",
-				ESFTableModel.COMMAND_DELETE);
-		esfTableCtr.addMultiSelectAction("ExamAdminESFController.sendMail",
-				ESFTableModel.COMMAND_SENDMAIL);
-		esfTableMdl = new ESFTableModel(translator.getLocale(), esfList,
-				showNonValidated);
+		esfTableCtr.addMultiSelectAction("ExamAdminESFController.delete", ESFTableModel.COMMAND_DELETE);
+		esfTableCtr.addMultiSelectAction("ExamAdminESFController.sendMail", ESFTableModel.COMMAND_SENDMAIL);
+		esfTableMdl = new ESFTableModel(translator.getLocale(), esfList);
 		esfTableMdl.setTable(esfTableCtr);
 		esfTableCtr.setTableDataModel(esfTableMdl);
-		if (showNonValidated) {
-			// 6 because multiselection counts as 1 (5 is the numbor of the
-			// column of the last modified field)
-			esfTableCtr.setSortColumn(5 + 1, true);
-		} else {
-			esfTableCtr.setSortColumn(2, true);
-		}
-		// neu, Controller muss logischerweise zum Listener geaddet werden damit
-		// das Event abgefangen werden kann
+		// 0+1 because multiselection counts as 1 (0 is username)
+		esfTableCtr.setSortColumn(0 + 1, true);
 		esfTableCtr.addControllerListener(this);
 
 		mainVC.put("esfTable", esfTableCtr.getInitialComponent());
@@ -208,13 +169,11 @@ public class ExamAdminESFController extends BasicController {
 	 */
 	protected void doDispose() {
 
-		this.createESFController = null;
 		this.esfTableCtr = null;
 		this.esfTableMdl = null;
 		this.mainVC = null;
 		this.toolCtr = null;
 		this.translator = null;
-		this.userSearchCreateESFCtr = null;
 	}
 
 	/**
@@ -236,69 +195,26 @@ public class ExamAdminESFController extends BasicController {
 		// the toolController
 		if (ctr == toolCtr) {
 
-			// Add new student file
-			if (event.getCommand().equals("action.add")) {
-
-				// create new user search dialog
-				this.userSearchCreateESFCtr = new UserSearchController(ureq,
-						this.getWindowControl(), true);
-				this.userSearchCreateESFCtr.addControllerListener(this);
-
-				// make it a modal dialog
-				createESFModalCtr = new CloseableModalController(
-						getWindowControl(), translator.translate("close"),
-						userSearchCreateESFCtr.getInitialComponent());
-				this.listenTo(createESFModalCtr);
-				createESFModalCtr.activate();
-
-				// this method is not deprecated but not really readable
-				// getWindowControl().pushAsModalDialog(ComponentUtil.createTitledComponent("ESFCreateForm.name",
-				// null, translator, usc.getInitialComponent()));
-			}
-
 			// search for esf of a student
 			if (event.getCommand().equals("action.search")) {
 
 				// create new user search dialog
-				this.userSearchEditESFCtr = new UserSearchController(ureq, this
+				this.userSearchESFCtr = new UserSearchController(ureq, this
 						.getWindowControl(), true);
-				this.userSearchEditESFCtr.addControllerListener(this);
+				this.userSearchESFCtr.addControllerListener(this);
 
 				// make it a modal dialog
-				editESFModalCtr = new CloseableModalController(
+				searchESFModalCtr = new CloseableModalController(
 						getWindowControl(), translator.translate("close"),
-						userSearchEditESFCtr.getInitialComponent());
-				this.listenTo(editESFModalCtr);
-				editESFModalCtr.activate();
-
-				// this method is not deprecated but not really readable
-				// getWindowControl().pushAsModalDialog(ComponentUtil.createTitledComponent("ESFCreateForm.name",
-				// null, translator, uscEditESFCtr.getInitialComponent()));
+						userSearchESFCtr.getInitialComponent());
+				this.listenTo(searchESFModalCtr);
+				searchESFModalCtr.activate();
 			}
 		}
 
 		/******************************* xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx ***************************************/
 
-		// the ESFCreateController
-		if (ctr == createESFController) {
-
-			if (event == Event.CANCELLED_EVENT) {
-
-				this.getWindowControl().pop();
-			}
-
-			if (event == Event.DONE_EVENT
-					|| event.getCommand().equals(
-							ESFCreateController.VALIDATE_EVENT)) {
-
-				this.getWindowControl().pop();
-				this.getWindowControl().pop();
-				this.buildView(ureq, this.getWindowControl(),
-						this.provideLaunchButton);
-			}
-		}
-
-		if (ctr == editESFModalCtr) {
+		if (ctr == searchESFModalCtr) {
 
 			if (event == Event.DONE_EVENT) {
 
@@ -306,51 +222,10 @@ public class ExamAdminESFController extends BasicController {
 			}
 		}
 
-		/******************************* the user search controller for creating esf ***************************************/
-
-		// the usersearchcontroller
-		if (ctr == userSearchCreateESFCtr) {
-
-			// one identity was choosen
-			if (event instanceof SingleIdentityChosenEvent) {
-
-				SingleIdentityChosenEvent uce = (SingleIdentityChosenEvent) event;
-				Identity identity = uce.getChosenIdentity();
-
-				// to prefill the input form, the identity is given to the
-				// constructor
-				this.createESFController = new ESFCreateController(
-						ureq,
-						this.getWindowControl(),
-						this.translator,
-						identity,
-						translator
-								.translate("ExamAdminESFController.findIdentitySearchForm"),
-						ESFLaunchController.VALIDATE_ESF);
-				this.createESFController.addControllerListener(this);
-
-				// not deprecated but not really readable
-				// getWindowControl().pushAsModalDialog(ComponentUtil.createTitledComponent("ESFCreateForm.name",
-				// null, translator, esfController.getInitialComponent()));#
-
-				createESFModalCtr = new CloseableModalController(
-						getWindowControl(), translator.translate("close"),
-						createESFController.getInitialComponent());
-				this.listenTo(createESFModalCtr);
-				createESFModalCtr.activate();
-			}
-
-			if (event == Event.CANCELLED_EVENT) {
-
-				this.getWindowControl().pop();
-			}
-
-		}
-
-		/******************************* the user search controller for editing/searching esf ***************************************/
+		/******************************* the user search controller for searching esf ***************************************/
 
 		// the exam office has choosen one somebody to search
-		if (ctr == userSearchEditESFCtr) {
+		if (ctr == userSearchESFCtr) {
 
 			// one identity was choosen
 			if (event instanceof SingleIdentityChosenEvent) {
@@ -386,11 +261,7 @@ public class ExamAdminESFController extends BasicController {
 					}
 					dts.activate(ureq, dt, null);
 				} else
-					this
-							.getWindowControl()
-							.setInfo(
-									translator
-											.translate("ExamAdminESFController.noESFFoundForIdentity"));
+					getWindowControl().setInfo(translator.translate("ExamAdminESFController.noESFFoundForIdentity"));
 			}
 
 			if (event == Event.CANCELLED_EVENT) {
@@ -443,151 +314,19 @@ public class ExamAdminESFController extends BasicController {
 
 			// multiple identities were choosen
 			if (event.getCommand().equals(Table.COMMAND_MULTISELECT)) {
-
 				TableMultiSelectEvent tmse = (TableMultiSelectEvent) event;
 
-				// somebody wants to validate the choosen identities
-				if (tmse.getAction().equals(ESFTableModel.COMMAND_VALIDATE)) {
-
-					// get all esf for the choosen identities
-					List<ElectronicStudentFile> esfList = this.esfTableMdl
-							.getObjects(tmse.getSelection());
-
-					if (esfList.size() == 0) {
-
-						this
-								.getWindowControl()
-								.setWarning(
-										translator
-												.translate("ExamAdminESFController.nobodySelected"));
-					} else {
-						// set validated to true for all selected identities,
-						// and update them in the db
-						for (ElectronicStudentFile esf : esfList) {
-
-							esf.setValidated(true);
-
-							// add comment with information about the validator
-
-							// the comment
-							String[] comment = { ureq.getIdentity().getName(),
-									new Date().toString() };
-							String entry = translator
-									.translate(
-											"ExamAdminESFController.validate.setComment",
-											comment);
-
-							CommentEntry commentEntry = CommentManager
-									.getInstance().createCommentEntry();
-							commentEntry.setAuthor(ureq.getIdentity());
-							commentEntry.setComment(entry);
-
-							// add the commentEntry
-							esf.addCommentEntry(commentEntry);
-
-							esf.setValidator(ureq.getIdentity());
-							ElectronicStudentFileManager.getInstance()
-									.updateElectronicStundentFile(esf);
-
-							// send Email to students
-							MailManager
-									.getInstance()
-									.sendEmail(
-											this.translator
-													.translate("ExamAdminESFController.informStudents.subject"),
-											this.translator
-													.translate(
-															"ExamAdminESFController.informStudents.body",
-															new String[] { esf
-																	.getIdentity()
-																	.getUser()
-																	.getProperty(
-																			UserConstants.FIRSTNAME,
-																			null) }),
-
-											esf.getIdentity());
-						}
-					}
-					this.buildView(ureq, this.getWindowControl(),
-							this.provideLaunchButton);
-				}
-
-				// somebody wants to invalidate the choosen identities
-				if (tmse.getAction().equals(ESFTableModel.COMMAND_INVALIDATE)) {
-
-					// get all esf for the choosen identities
-					List<ElectronicStudentFile> esfList = this.esfTableMdl
-							.getObjects(tmse.getSelection());
-
-					if (esfList.size() == 0) {
-
-						this
-								.getWindowControl()
-								.setWarning(
-										translator
-												.translate("ExamAdminESFController.nobodySelected"));
-					} else {
-						// set validated to true for all selected identities,
-						// and update them in the db
-						for (ElectronicStudentFile esf : esfList) {
-
-							// refresh esf
-							ElectronicStudentFile refreshedESF = ElectronicStudentFileManager
-									.getInstance().retrieveESFByIdentity(
-											esf.getIdentity());
-
-							refreshedESF.setValidated(false);
-
-							// add comment with information about the validator
-
-							// the comment
-							String[] comment = { ureq.getIdentity().getName(),
-									new Date().toString() };
-							String entry = translator
-									.translate(
-											"ExamAdminESFController.invalidate.setComment",
-											comment);
-
-							CommentEntry commentEntry = CommentManager
-									.getInstance().createCommentEntry();
-							commentEntry.setAuthor(ureq.getIdentity());
-							commentEntry.setComment(entry);
-
-							// add the commentEntry
-							refreshedESF.addCommentEntry(commentEntry);
-
-							ElectronicStudentFileManager.getInstance()
-									.updateElectronicStundentFile(refreshedESF);
-						}
-					}
-					this.buildView(ureq, this.getWindowControl(),
-							this.provideLaunchButton);
-				}
-
 				if (tmse.getAction().equals(ESFTableModel.COMMAND_DELETE)) {
-
 					// get all selected esf's and save them in a field cause we
 					// need later (deleteDialog)
-					esfList = this.esfTableMdl.getObjects(tmse.getSelection());
+					esfList = esfTableMdl.getObjects(tmse.getSelection());
 
 					if (esfList.size() == 0) {
-
-						this
-								.getWindowControl()
-								.setWarning(
-										translator
-												.translate("ExamAdminESFController.nobodySelected"));
+						getWindowControl().setWarning(translator.translate("ExamAdminESFController.nobodySelected"));
 					} else {
-
-						deleteDialog = DialogBoxUIFactory
-								.createOkCancelDialog(
-										ureq,
-										this.getWindowControl(),
-										translator
-												.translate("ExamAdminESFController.deleteESF.title"),
-										translator
-												.translate("ExamAdminESFController.deleteESF.text"));
-
+						deleteDialog = DialogBoxUIFactory.createOkCancelDialog(ureq, this.getWindowControl(),
+										translator.translate("ExamAdminESFController.deleteESF.title"),
+										translator.translate("ExamAdminESFController.deleteESF.text"));
 						deleteDialog.addControllerListener(this);
 						deleteDialog.activate();
 					}
@@ -596,9 +335,7 @@ public class ExamAdminESFController extends BasicController {
 
 				// someone wants to send students an email
 				if (tmse.getAction().equals(ESFTableModel.COMMAND_SENDMAIL)) {
-
-					this.sendMailsToSelectedStudents(this.esfTableMdl
-							.getObjects(tmse.getSelection()), ureq);
+					this.sendMailsToSelectedStudents(esfTableMdl.getObjects(tmse.getSelection()), ureq);
 				}
 			}
 		}
@@ -616,8 +353,7 @@ public class ExamAdminESFController extends BasicController {
 					ElectronicStudentFileManager.getInstance()
 							.removeElectronicStudentFile(tempESF);
 				}
-				this.buildView(ureq, this.getWindowControl(),
-						this.provideLaunchButton);
+				init(ureq, this.getWindowControl());
 			}
 		}
 
