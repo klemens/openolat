@@ -170,7 +170,7 @@ public class ExamAdminStudyPathController extends BasicController {
 				this.getWindowControl().pop();
 
 				if (this.checkTakenNames(ureq, studyPathEditForm)) {
-					StudyPath oldPath = StudyPathManager.getInstance().findStudyPathByName(studyPath.getName());
+					StudyPath oldPath = StudyPathManager.getInstance().findStudyPath(studyPath.getName());
 					String newName = studyPathEditForm.getName();
 					String oldName = studyPath.getName();
 

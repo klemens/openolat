@@ -31,7 +31,7 @@ public class StudyPathManager {
 	}
 	
 	private void init() {
-		StudyPath defaultStudyPath = this.findStudyPathByName(StudyPathManager.DEFAULT_STUDY_PATH);
+		StudyPath defaultStudyPath = this.findStudyPath(StudyPathManager.DEFAULT_STUDY_PATH);
 		if (defaultStudyPath == null) {
 			
 			defaultStudyPath = this.createStudyPath();
@@ -95,7 +95,7 @@ public class StudyPathManager {
 	 * @throws DuplicateObjectException if a studyPath with the same key was found
 	 */
 	public void saveStudyPath(StudyPath newStudyPath) throws DuplicateObjectException {
-		if ( this.findStudyPathByName(newStudyPath.getName()) == null) {
+		if ( this.findStudyPath(newStudyPath.getName()) == null) {
 			DBFactory.getInstance().saveObject(newStudyPath);
 			log.info("New studyPath with id " + newStudyPath.getKey() + " was created.");
 		}
@@ -116,24 +116,10 @@ public class StudyPathManager {
 	}
 	
 	/**
-	 * @param id - a Long object representing the id of the studyPath
-	 * @return the studyPath with the given id or null, if no studyPaths were found
-	 */
-	public StudyPath findStudyPathById(Long id) {
-		String query = "from de.unileipzig.xman.studyPath.StudyPathImpl as spi where spi.key = " + id;
-		List<StudyPath> studyPathList = DBFactory.getInstance().find(query);
-		if ( studyPathList.size() > 0 ) return (StudyPath)studyPathList.get(0);
-		else {
-			log.info("No studyPath with id :" + id + " could be found!");
-			return null;
-		}
-	}
-	
-	/**
 	 * @param name - a string representing the name of the studyPath
 	 * @return the studyPath with the given name or null, if no studyPaths were found
 	 */
-	public StudyPath findStudyPathByName(String name) {
+	public StudyPath findStudyPath(String name) {
 		String query = "from de.unileipzig.xman.studyPath.StudyPathImpl as spi where spi.name = '" + name + "'";
 		List<StudyPath> studyPathList = DBFactory.getInstance().find(query);
 		if ( studyPathList.size() == 1 ) return (StudyPath) studyPathList.get(0);
