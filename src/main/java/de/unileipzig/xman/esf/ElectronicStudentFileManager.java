@@ -123,46 +123,11 @@ public class ElectronicStudentFileManager {
 		String query = "from de.unileipzig.xman.esf.ElectronicStudentFileImpl";
 		return DBFactory.getInstance().createQuery(query).list();
 	}
-
-	/**
-	 * 
-	 * @return
-	 */
-	public List<ElectronicStudentFile> retrieveNonValidatedESF() {
 		
-		String query = "from de.unileipzig.xman.esf.ElectronicStudentFileImpl as esf where esf.validated = :validated";
-		DBQuery dbquery = DBFactory.getInstance().createQuery(query);
-		dbquery.setBoolean("validated", false);
-		return dbquery.list();
-	}
-	
-	/**
-	 * 
-	 * @return
-	 */
-	public List<ElectronicStudentFile> retrieveESFByValidation(boolean showValidatedOrNonValidated) {
-		
-		String query = "from de.unileipzig.xman.esf.ElectronicStudentFileImpl as esf where esf.validated = :validated";
-		DBQuery dbquery = DBFactory.getInstance().createQuery(query);
-		dbquery.setBoolean("validated", !showValidatedOrNonValidated);
-		return dbquery.list();
-	}
-	
-	/**
-	 * @param identity - the identity that should be tested
-	 * @return true if the ESF for the identity has already been validated 
-	 */
-	public boolean isESFValidatedForStudent(Identity identity) {
-		
-		ElectronicStudentFile esf = this.retrieveESFByIdentity(identity);
-		if ( esf == null ) return false;
-		return esf.getValidated();
-	}
-	
 	public int getNumberOfEsfWithNonDefaultStudyPath() {
 		
 		int count = 0;
-		List<ElectronicStudentFile> esfList = this.retrieveNonValidatedESF();
+		List<ElectronicStudentFile> esfList = this.retrieveAllElectronicStudentFiles();
 		for ( ElectronicStudentFile esf : esfList ) {
 			
 			if ( !esf.getIdentity().getUser().getProperty(UserConstants.STUDYSUBJECT, null).equals(StudyPathManager.DEFAULT_STUDY_PATH)) {

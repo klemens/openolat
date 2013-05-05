@@ -1312,7 +1312,7 @@ public class ExamLaunchController extends MainLayoutBasicController implements
 		ElectronicStudentFile esf = ElectronicStudentFileManager.getInstance()
 				.retrieveESFByIdentity(id);
 
-		if (esf != null && esf.getValidated()) {
+		if (esf != null) {
 
 			// check if app is available
 			if ((tempApp != null) && (!tempApp.getOccupied())) {

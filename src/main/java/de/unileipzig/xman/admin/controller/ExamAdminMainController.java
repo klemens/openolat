@@ -115,18 +115,8 @@ public class ExamAdminMainController extends MainLayoutBasicController implement
 			layout3ColsCtr.setCol2(modulesCtr.getToolController().getInitialComponent());
 			return modulesCtr.getInitialComponent();
 		}
-		else if ( uobject.equals("validatedEsf") ) {
-			
-			// only validated esf will be shown
-			ExamAdminESFController esfCtr = new ExamAdminESFController(ureq, getWindowControl(), false);
-			esfCtr.addControllerListener(this);
-			layout3ColsCtr.setCol2(esfCtr.getToolController().getInitialComponent());
-			return esfCtr.getInitialComponent();
-		}
-		else if ( uobject.equals("nonvalidatedEsf") ) {
-			
-			// only non validated esf will be shown
-			ExamAdminESFController esfCtr = new ExamAdminESFController(ureq, getWindowControl(), true);
+		else if ( uobject.equals("esf") ) {
+			ExamAdminESFController esfCtr = new ExamAdminESFController(ureq, getWindowControl());
 			esfCtr.addControllerListener(this);
 			layout3ColsCtr.setCol2(esfCtr.getToolController().getInitialComponent());
 			return esfCtr.getInitialComponent();
@@ -172,16 +162,10 @@ public class ExamAdminMainController extends MainLayoutBasicController implement
 		admin.addChild(modules);
 		
 		vESF = new GenericTreeNode();
-		vESF.setTitle(translator.translate("ExamAdminMainController.menu.esf.validated"));
-		vESF.setUserObject("validatedEsf");
-		vESF.setAltText(translator.translate("ExamAdminMainController.menu.esf.validated.alt"));
+		vESF.setTitle(translator.translate("ExamAdminMainController.menu.esf"));
+		vESF.setUserObject("esf");
+		vESF.setAltText(translator.translate("ExamAdminMainController.menu.esf.alt"));
 		admin.addChild(vESF);
-
-		nVESF = new GenericTreeNode();
-		nVESF.setTitle(translator.translate("ExamAdminMainController.menu.esf.nonvalidated"));
-		nVESF.setUserObject("nonvalidatedEsf");
-		nVESF.setAltText(translator.translate("ExamAdminMainController.menu.esf.nonvalidated.alt"));
-		admin.addChild(nVESF);
 		
 		return gtm;
 	}

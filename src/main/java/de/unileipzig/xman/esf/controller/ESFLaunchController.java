@@ -8,6 +8,8 @@ import org.olat.core.commons.fullWebApp.LayoutMain3ColsController;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.Windows;
 import org.olat.core.gui.components.Component;
+import org.olat.core.gui.components.link.Link;
+import org.olat.core.gui.components.link.LinkFactory;
 import org.olat.core.gui.components.panel.Panel;
 import org.olat.core.gui.components.tabbedpane.TabbedPane;
 import org.olat.core.gui.components.table.Table;
@@ -74,11 +76,10 @@ import de.unileipzig.xman.studyPath.StudyPath;
  */
 public class ESFLaunchController extends BasicController {
 
-	private static final String VELOCITY_ROOT = Util
-			.getPackageVelocityRoot(ElectronicStudentFile.class);
+	private static final String VELOCITY_ROOT = Util.getPackageVelocityRoot(ElectronicStudentFile.class);
 
-	public static final String VALIDATE_ESF = "action.validateESF";
 	public static final String CHANGE_ESF = "action.changeESF";
+	public static final String CREATE_ESF = "action.createESF";
 
 	private ElectronicStudentFile esf;
 
@@ -97,8 +98,12 @@ public class ESFLaunchController extends BasicController {
 	private ESFCreateController esfController;
 	private CloseableModalController cmc;
 
-	// Separate panels for VelocityContainer and ToolController
-	private TabbedPane tabbedPane;
+	// Links for create an edit esf
+	private Link linkCreateEsf;
+	private Link linkChangeEsf;
+	
+	// user
+	private User user;
 	
 	/**
 	 * 
@@ -108,19 +113,13 @@ public class ESFLaunchController extends BasicController {
 	public ESFLaunchController(UserRequest ureq, WindowControl wControl) {
 		super(ureq, wControl);
 
-		this.translator = Util.createPackageTranslator(
-				ElectronicStudentFile.class, ureq.getLocale());
-		this.mainVC = new VelocityContainer("esfView", VELOCITY_ROOT
-				+ "/esf-launch.html", translator, this);
+		this.translator = Util.createPackageTranslator(ElectronicStudentFile.class, ureq.getLocale());
 
-		this.init(ureq, wControl);
-
-		tabbedPane = new TabbedPane("pane", ureq.getLocale());
-		tabbedPane.addListener(this);
-		tabbedPane.addTab("Elektronische Studentenakte", mainVC);
-		tabbedPane.addTab("Verwaltung", toolCtr.getInitialComponent());
+		mainVC = new VelocityContainer("esfView", VELOCITY_ROOT + "/esf-launch.html", translator, this);
 		
-		this.putInitialPanel(tabbedPane);
+		this.init(ureq, wControl);
+		
+		this.putInitialPanel(mainVC);
 	}
 
 	/**
@@ -133,16 +132,11 @@ public class ESFLaunchController extends BasicController {
 	 *            - The WindowControl
 	 */
 	private void init(UserRequest ureq, WindowControl wControl) {
-
 		// to get the esf for the user
-		esf = ElectronicStudentFileManager.getInstance().retrieveESFByIdentity(
-				ureq.getIdentity());
-
-		toolCtr = ToolFactory.createToolController(wControl);
-		toolCtr.addControllerListener(this);
-
+		esf = ElectronicStudentFileManager.getInstance().retrieveESFByIdentity(ureq.getIdentity());
+		
 		// to build the for the different roles
-		this.buildView(ureq, wControl);
+		buildView(ureq, wControl);
 	}
 
 	/**
@@ -153,34 +147,20 @@ public class ESFLaunchController extends BasicController {
 	 * @param wControl
 	 */
 	private void buildView(UserRequest ureq, WindowControl wControl) {
-
-		boolean isValidated = ElectronicStudentFileManager.getInstance()
-				.isESFValidatedForStudent(ureq.getIdentity());
-
-		// there is no esf for this student
 		if (esf == null) {
+			// there is no esf for this student
+			linkCreateEsf = LinkFactory.createButton("ESFLaunchController.tool.create", mainVC, this);
 
-			toolCtr.addHeader(translator
-					.translate("ESFLaunchController.tool.ESF"));
-			toolCtr.addLink(VALIDATE_ESF, translator
-					.translate("ESFLaunchController.tool.propose"));
-			this.mainVC.contextPut("error", translator
-					.translate("ESFLaunchController.noESF"));
+			mainVC.contextPut("esf_available", false);
+			mainVC.contextPut("error", translator.translate("ESFLaunchController.noESF"));
 		} else {
+			linkChangeEsf = LinkFactory.createButton("ESFLaunchController.tool.change", mainVC, this);
 
-			// the esf is not validated yet
-			toolCtr.addHeader(translator
-					.translate("ESFLaunchController.tool.ESF"));
-			toolCtr.addLink(CHANGE_ESF, translator
-					.translate("ESFLaunchController.tool.change"));
-			this.mainVC.contextPut("error", translator
-					.translate("ESFLaunchController.noValidatedESF"));
+			mainVC.contextPut("esf_available", true);
 
 			// only build tables if an esf exists
 			buildTables(ureq, wControl);
 		}
-		// do some if else in html
-		this.mainVC.contextPut("validated", isValidated);
 	}
 
 	/**
@@ -188,18 +168,14 @@ public class ESFLaunchController extends BasicController {
 	 * @param ureq
 	 */
 	private void buildTables(UserRequest ureq, WindowControl wControl) {
-
-		User user = ureq.getIdentity().getUser();
+		// load by id so we get a fresh version from db
+		user = UserManager.getInstance().loadUserByKey(ureq.getIdentity().getUser().getKey());
 
 		// add personal information in the esf-launch.html
-		this.mainVC.contextPut("lastName", user.getProperty(
-				UserConstants.LASTNAME, null));
-		this.mainVC.contextPut("firstName", user.getProperty(
-				UserConstants.FIRSTNAME, null));
-		this.mainVC.contextPut("institutionalIdentifier", user.getProperty(
-				UserConstants.INSTITUTIONALUSERIDENTIFIER, null));
-		this.mainVC.contextPut("email", user.getProperty(
-				UserConstants.INSTITUTIONALEMAIL, null));
+		this.mainVC.contextPut("lastName", user.getProperty(UserConstants.LASTNAME, null));
+		this.mainVC.contextPut("firstName", user.getProperty(UserConstants.FIRSTNAME, null));
+		this.mainVC.contextPut("institutionalIdentifier", user.getProperty(UserConstants.INSTITUTIONALUSERIDENTIFIER, null));
+		this.mainVC.contextPut("email", user.getProperty(UserConstants.INSTITUTIONALEMAIL, null));
 		this.mainVC.contextPut("studyPath", user.getProperty(UserConstants.STUDYSUBJECT, null));
 
 		this.createTableModels(ureq, wControl);
@@ -238,7 +214,7 @@ public class ESFLaunchController extends BasicController {
 						: new ArrayList<CommentEntry>()));
 		commentTableMdl.setTable(commentTableCtr);
 		commentTableCtr.setTableDataModel(commentTableMdl);
-		commentTableCtr.setSortColumn(0, true);
+		commentTableCtr.setSortColumn(0, false);
 
 		this.mainVC.put("commentTable", commentTableCtr.getInitialComponent());
 	}
@@ -289,39 +265,29 @@ public class ESFLaunchController extends BasicController {
 	 *      org.olat.core.gui.control.Event)
 	 */
 	protected void event(UserRequest ureq, Component source, Event event) {
+		if(source == linkChangeEsf) {
+			esfController = new ESFCreateController(ureq, getWindowControl(), translator, user, translator.translate("ESFCreateForm.title"), CHANGE_ESF);
+			esfController.addControllerListener(this);
 
+			cmc = new CloseableModalController(getWindowControl(), translate("close"), esfController.getInitialComponent());
+			listenTo(cmc);
+			cmc.activate();
+		} else if(source == linkCreateEsf) {
+			esfController = new ESFCreateController(ureq, getWindowControl(), translator, user, translator.translate("ESFCreateForm.title"), CREATE_ESF);
+			esfController.addControllerListener(this);
+
+			cmc = new CloseableModalController(getWindowControl(), translate("close"), esfController.getInitialComponent());
+			listenTo(cmc);
+			cmc.activate();
+		}
 	}
 
 	public void event(UserRequest ureq, Controller ctr, Event event) {
-
-		// ToolControllerLink was pressed
-		if (ctr == this.toolCtr) {
-
-			// student wants to validate his esf
-			if (event.getCommand().equals(VALIDATE_ESF)
-					|| event.getCommand().equals(CHANGE_ESF)) {
-
-				String action = event.getCommand();
-
-				this.esfController = new ESFCreateController(ureq, this
-						.getWindowControl(), this.translator, ureq
-						.getIdentity(), translator
-						.translate("ESFCreateForm.title"), action);
-				this.esfController.addControllerListener(this);
-
-				cmc = new CloseableModalController(getWindowControl(),
-						translate("close"), esfController.getInitialComponent());
-				listenTo(cmc);
-				cmc.activate();
-			}
-		}
-
 		// student pushed "save" or "cancel" on the modal dialog
 		if (ctr == this.esfController) {
 
 			// cancelButton was pressed
 			if (event == Event.CANCELLED_EVENT) {
-
 				this.getWindowControl().pop();
 			}
 
@@ -329,7 +295,6 @@ public class ESFLaunchController extends BasicController {
 			if (event.getCommand().equals(ESFCreateController.CHANGE_EVENT)
 					|| event.getCommand().equals(
 							ESFCreateController.VALIDATE_EVENT)) {
-
 				// a new ESF was created by the ESFCreateController
 
 				this.getWindowControl().pop();

@@ -46,7 +46,7 @@ public class ESFCreateController extends BasicController {
 	private ESFCreateForm esfCreateForm;
 	private Translator translator;
 	private String action;
-	private Identity identity;
+	private User user;
 
 	private VelocityContainer vcMain;
 
@@ -58,7 +58,7 @@ public class ESFCreateController extends BasicController {
 	 * @param title
 	 */
 	public ESFCreateController(UserRequest ureq, WindowControl wControl,
-			Translator translator, Identity identity, String title,
+			Translator translator, User user, String title,
 			String action) {
 		super(ureq, wControl);
 
@@ -66,11 +66,11 @@ public class ESFCreateController extends BasicController {
 				+ "/esf-create.html", translator, this);
 		vcMain.contextPut("title", title);
 
-		this.identity = identity;
+		this.user = user;
 		this.action = action;
 		this.translator = translator;
 		this.esfCreateForm = new ESFCreateForm(ureq, wControl, "esfCreateForm",
-				translator, identity);
+				translator, user);
 		this.esfCreateForm.addControllerListener(this);
 
 		vcMain.put("esfCreateForm", esfCreateForm.getInitialComponent());
@@ -101,9 +101,6 @@ public class ESFCreateController extends BasicController {
 				fireEvent(ureq, Event.CANCELLED_EVENT);
 
 			if (event == Form.EVNT_VALIDATION_OK) {
-
-				User user = this.identity != null ? identity.getUser() : ureq
-						.getIdentity().getUser();
 				ElectronicStudentFile esf;
 
 				// if someone wants to change his esf, it should be set to
@@ -115,7 +112,6 @@ public class ESFCreateController extends BasicController {
 					// set esf to not validated
 					esf = ElectronicStudentFileManager.getInstance()
 							.retrieveESFByIdentity(ureq.getIdentity());
-					esf.setValidated(false);
 
 					// create a comment for change of esf
 					// the comment
@@ -138,22 +134,12 @@ public class ESFCreateController extends BasicController {
 					return;
 				}
 				// someone wants to validate/create his esf
-				if (action.equals(ESFLaunchController.VALIDATE_ESF)) {
+				if (action.equals(ESFLaunchController.CREATE_ESF)) {
 
 					this.updateUserInformation(user);
 
 					esf = ElectronicStudentFileManager.getInstance()
-							.createElectronicStudentFileForStudent(
-									identity != null ? identity : ureq
-											.getIdentity());
-					// exam admin creates a esf for a student, should be
-					// validated from the beginning
-
-					if (ureq.getUserSession().getRoles()
-							.isInstitutionalResourceManager()) {
-
-						esf.setValidated(true);
-					}
+							.createElectronicStudentFileForStudent(ureq.getIdentity());
 
 					// try to persist the esf
 					try {
