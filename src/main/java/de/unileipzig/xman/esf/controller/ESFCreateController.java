@@ -46,7 +46,7 @@ public class ESFCreateController extends BasicController {
 	private ESFCreateForm esfCreateForm;
 	private Translator translator;
 	private String action;
-	private Identity identity;
+	private User user;
 
 	private VelocityContainer vcMain;
 
@@ -58,7 +58,7 @@ public class ESFCreateController extends BasicController {
 	 * @param title
 	 */
 	public ESFCreateController(UserRequest ureq, WindowControl wControl,
-			Translator translator, Identity identity, String title,
+			Translator translator, User user, String title,
 			String action) {
 		super(ureq, wControl);
 
@@ -66,11 +66,11 @@ public class ESFCreateController extends BasicController {
 				+ "/esf-create.html", translator, this);
 		vcMain.contextPut("title", title);
 
-		this.identity = identity;
+		this.user = user;
 		this.action = action;
 		this.translator = translator;
 		this.esfCreateForm = new ESFCreateForm(ureq, wControl, "esfCreateForm",
-				translator, identity);
+				translator, user);
 		this.esfCreateForm.addControllerListener(this);
 
 		vcMain.put("esfCreateForm", esfCreateForm.getInitialComponent());
@@ -101,9 +101,6 @@ public class ESFCreateController extends BasicController {
 				fireEvent(ureq, Event.CANCELLED_EVENT);
 
 			if (event == Form.EVNT_VALIDATION_OK) {
-
-				User user = this.identity != null ? identity.getUser() : ureq
-						.getIdentity().getUser();
 				ElectronicStudentFile esf;
 
 				// if someone wants to change his esf, it should be set to

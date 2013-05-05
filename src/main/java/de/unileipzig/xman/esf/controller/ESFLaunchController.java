@@ -74,11 +74,10 @@ import de.unileipzig.xman.studyPath.StudyPath;
  */
 public class ESFLaunchController extends BasicController {
 
-	private static final String VELOCITY_ROOT = Util
-			.getPackageVelocityRoot(ElectronicStudentFile.class);
+	private static final String VELOCITY_ROOT = Util.getPackageVelocityRoot(ElectronicStudentFile.class);
 
-	public static final String VALIDATE_ESF = "action.validateESF";
 	public static final String CHANGE_ESF = "action.changeESF";
+	public static final String CREATE_ESF = "action.createESF";
 
 	private ElectronicStudentFile esf;
 
@@ -99,6 +98,9 @@ public class ESFLaunchController extends BasicController {
 
 	// Separate panels for VelocityContainer and ToolController
 	private TabbedPane tabbedPane;
+	
+	// user
+	private User user;
 	
 	/**
 	 * 
