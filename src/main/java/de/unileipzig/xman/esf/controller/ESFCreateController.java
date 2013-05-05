@@ -115,7 +115,6 @@ public class ESFCreateController extends BasicController {
 					// set esf to not validated
 					esf = ElectronicStudentFileManager.getInstance()
 							.retrieveESFByIdentity(ureq.getIdentity());
-					esf.setValidated(false);
 
 					// create a comment for change of esf
 					// the comment
@@ -138,22 +137,12 @@ public class ESFCreateController extends BasicController {
 					return;
 				}
 				// someone wants to validate/create his esf
-				if (action.equals(ESFLaunchController.VALIDATE_ESF)) {
+				if (action.equals(ESFLaunchController.CREATE_ESF)) {
 
 					this.updateUserInformation(user);
 
 					esf = ElectronicStudentFileManager.getInstance()
-							.createElectronicStudentFileForStudent(
-									identity != null ? identity : ureq
-											.getIdentity());
-					// exam admin creates a esf for a student, should be
-					// validated from the beginning
-
-					if (ureq.getUserSession().getRoles()
-							.isInstitutionalResourceManager()) {
-
-						esf.setValidated(true);
-					}
+							.createElectronicStudentFileForStudent(ureq.getIdentity());
 
 					// try to persist the esf
 					try {

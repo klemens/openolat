@@ -153,11 +153,6 @@ public class ESFLaunchController extends BasicController {
 	 * @param wControl
 	 */
 	private void buildView(UserRequest ureq, WindowControl wControl) {
-
-		boolean isValidated = ElectronicStudentFileManager.getInstance()
-				.isESFValidatedForStudent(ureq.getIdentity());
-
-		// there is no esf for this student
 		if (esf == null) {
 
 			toolCtr.addHeader(translator

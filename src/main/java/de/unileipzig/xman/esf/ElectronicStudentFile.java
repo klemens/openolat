@@ -31,11 +31,6 @@ public interface ElectronicStudentFile extends CreateInfo, ModifiedInfo, Persist
 	/* ------------------getter --------------------- */
 	
 	/**
-	 * @return true if the esf has already been validated by the examoffice
-	 */
-	public boolean getValidated();
-	
-	/**
 	 * @return the identity witch belongs to this esf
 	 */
 	public Identity getIdentity();
@@ -51,11 +46,6 @@ public interface ElectronicStudentFile extends CreateInfo, ModifiedInfo, Persist
 	public List<CommentEntry> getCommentEntries();
 	
 	/**
-	 * @return the identity of the user who validated the esf
-	 */
-	public Identity getValidator();
-	
-	/**
 	 * @return the comments of this esf
 	 */
 	public Comment getComments();
@@ -68,11 +58,6 @@ public interface ElectronicStudentFile extends CreateInfo, ModifiedInfo, Persist
 	/* ------------------setter --------------------- */
 	
 	/**
-	 * @param sets the validated flag
-	 */
-	public void setValidated(boolean validated);
-	
-	/**
 	 * @return the identity witch belongs to this esf
 	 */
 	public void setIdentity(Identity identity);
@@ -81,11 +66,6 @@ public interface ElectronicStudentFile extends CreateInfo, ModifiedInfo, Persist
 	 * @return the list of protocol of the student
 	 */
 	public void setProtocolList(List<Protocol> protocolList);
-	
-	/**
-	 * @param identity - the identity of the person who validates the esf
-	 */
-	public void setValidator(Identity identity);
 	
 	/**
 	 * @param the date to set

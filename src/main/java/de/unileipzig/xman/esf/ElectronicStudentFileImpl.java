@@ -15,9 +15,7 @@ import de.unileipzig.xman.protocol.Protocol;
 
 public class ElectronicStudentFileImpl extends PersistentObject implements ElectronicStudentFile {
 
-	private boolean validated;
 	private Identity identity;
-	private Identity validator;
 	private List<Protocol> protocolList;
 	private Comment comments;
 	private Date lastModified;
@@ -35,19 +33,7 @@ public class ElectronicStudentFileImpl extends PersistentObject implements Elect
 		this.identity = identity;
 		this.protocolList = new ArrayList<Protocol>();
 	}
-	
-// ############################# Validation ####################################
-	
-	public boolean getValidated() {
 		
-		return this.validated;
-	}
-
-	public void setValidated(boolean validated) {
-		
-		this.validated = validated;
-	}
-	
 	// ############################# Identity ####################################
 	
 	public Identity getIdentity() {
@@ -116,16 +102,6 @@ public class ElectronicStudentFileImpl extends PersistentObject implements Elect
 	public String getResourceableTypeName() {
 		
 		return ORES_TYPE_NAME;
-	}
-
-	public Identity getValidator() {
-
-		return this.validator;
-	}
-
-	public void setValidator(Identity identity) {
-		
-		this.validator = identity;
 	}
 
 	public Date getLastModified() {

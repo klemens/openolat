@@ -43,9 +43,7 @@ CREATE TABLE `o_xman_esf` (
   `esf_id` bigint(20) NOT NULL DEFAULT '0',
   `lastmodified` datetime NOT NULL DEFAULT '0000-00-00 00:00:00',
   `creationdate` datetime DEFAULT NULL,
-  `validated` tinyint(1) DEFAULT NULL,
   `identity_id` bigint(20) DEFAULT NULL,
-  `validator_id` bigint(20) DEFAULT NULL,
   `comment_id` bigint(20) DEFAULT NULL,
   PRIMARY KEY (`esf_id`)
 );

@@ -20,9 +20,7 @@
     
    	<timestamp name="lastModified" column="lastmodified" />   
   	<property  name="creationDate" column="creationdate" type="timestamp" />   
-    
-    <property  name="validated" column="validated" type="boolean" />
-    
+        
     <list name="protocolList" cascade="none">
             <key column="parent_id"/>
             <index column="idx"/>
@@ -34,9 +32,6 @@
     
      <many-to-one name="comments" class="de.unileipzig.xman.comment.CommentImpl" 
 		column="comment_id" outer-join="true" cascade="all" not-null="false"/> 
-    		
-	 <many-to-one name="validator" class="org.olat.basesecurity.IdentityImpl" 
-		column="validator_id" outer-join="true" cascade="none" not-null="false"/>		
 		
   </class>  
 </hibernate-mapping>

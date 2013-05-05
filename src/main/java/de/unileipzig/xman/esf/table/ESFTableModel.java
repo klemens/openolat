@@ -18,7 +18,6 @@ public class ESFTableModel extends DefaultTableDataModel {
 	private Locale locale;
 	private List<ElectronicStudentFile> entries;
 	private int COLUMN_COUNT;
-	private boolean showNonValidatedESF;
 	public static final String COMMAND_VALIDATE = "do.validate.esf";
 	public static final String COMMAND_INVALIDATE = "do.invalidate.esf";
 	public static final String COMMAND_OPEN = "do.open.esf";
@@ -31,10 +30,9 @@ public class ESFTableModel extends DefaultTableDataModel {
 	 * @param entries
 	 * @param showNonValidatedESF
 	 */
-	public ESFTableModel(Locale locale, List<ElectronicStudentFile> entries, boolean showNonValidatedESF) {
+	public ESFTableModel(Locale locale, List<ElectronicStudentFile> entries) {
 		super(entries);
 		
-		this.showNonValidatedESF = showNonValidatedESF;
 		this.locale = locale;
 		this.entries = entries;
 		this.COLUMN_COUNT = 4;
