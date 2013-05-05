@@ -145,6 +145,7 @@ public class ExamHandler implements RepositoryHandler {
 		newExam.setEarmarkedEnabled(oldExam.getEarmarkedEnabled());
 		newExam.setIsOral(oldExam.getIsOral());
 		newExam.setName(oldExam.getName());
+		newExam.setIdentity(ureq.getIdentity()); // set authorship to the copying user
 		
 		ExamDBManager.getInstance().saveExam(newExam);
 		
