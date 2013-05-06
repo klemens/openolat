@@ -656,8 +656,12 @@ public class ExamLaunchController extends MainLayoutBasicController implements
 
 				TableEvent te = (TableEvent) event;
 				String actionid = te.getActionId();
+				
+
+				
 				// somebody wants to open an esf
-				if (actionid.equals(ProtocolTableModel.ESF_OPEN)) {
+				if (actionid.equals(ProtocolTableModel.ESF_OPEN))
+				{
 					this.launchEsfInNewTab(te, ureq, false);
 				}
 

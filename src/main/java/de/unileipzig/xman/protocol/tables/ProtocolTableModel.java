@@ -25,6 +25,8 @@ public class ProtocolTableModel extends DefaultTableDataModel {
 	private Locale locale;
 	private boolean showScores;
 	private boolean showExamName;
+	private boolean isInstitutionalResourceManager;
+	private boolean isOLATAdmin;
 	private UserRequest ureq;
 
 	public static final String COMMAND_VCARD = "show.vcard";
@@ -46,6 +48,8 @@ public class ProtocolTableModel extends DefaultTableDataModel {
 		this.locale = locale;
 		this.showScores = showScores;
 		this.showExamName = showExamName;
+		this.isInstitutionalResourceManager = ureq.getUserSession().getRoles().isInstitutionalResourceManager();
+		this.isOLATAdmin = ureq.getUserSession().getRoles().isOLATAdmin();
 		this.entries = protocols; 
 		this.ureq = ureq;
 		this.COLUMN_COUNT = showScores ? 7 : 6;
@@ -121,7 +125,7 @@ public class ProtocolTableModel extends DefaultTableDataModel {
 	public void setTable(TableController tableCtr) {
 		
 		tableCtr.addColumnDescriptor(new DefaultColumnDescriptor("ProtocolTableModel.header.login", 0, COMMAND_VCARD, locale));
-		if(ureq.getUserSession().getRoles().isInstitutionalResourceManager())
+		if(isInstitutionalResourceManager || isOLATAdmin)
 		{
 	    	tableCtr.addColumnDescriptor(new DefaultColumnDescriptor("ProtocolTableModel.header.matrikel", 1, ESF_OPEN, locale));
 		}
