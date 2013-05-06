@@ -9,6 +9,7 @@ import java.util.Locale;
 import org.olat.core.gui.components.table.DefaultColumnDescriptor;
 import org.olat.core.gui.components.table.DefaultTableDataModel;
 import org.olat.core.gui.components.table.TableController;
+import org.olat.core.gui.UserRequest;
 import org.olat.core.id.UserConstants;
 import org.olat.core.util.Formatter;
 import org.olat.core.util.Util;
@@ -24,6 +25,7 @@ public class ProtocolTableModel extends DefaultTableDataModel {
 	private Locale locale;
 	private boolean showScores;
 	private boolean showExamName;
+	private UserRequest ureq;
 
 	public static final String COMMAND_VCARD = "show.vcard";
 	public static final String EXAM_LAUNCH = "launch.exam";
@@ -36,15 +38,16 @@ public class ProtocolTableModel extends DefaultTableDataModel {
 	 * @param protocols - the list of protocols to display
 	 * @param showScores - show the column grades
 	 * @param showExamName - the the column examName
+	 * @param ureq - the UserRequest to identify the users Roles
 	 */
-	public ProtocolTableModel(Locale locale, List<Protocol> protocols, boolean showScores, boolean showExamName) {
+	public ProtocolTableModel(Locale locale, List<Protocol> protocols, boolean showScores, boolean showExamName, UserRequest ureq) {
 		super(protocols);
 		
 		this.locale = locale;
-
 		this.showScores = showScores;
 		this.showExamName = showExamName;
 		this.entries = protocols; 
+		this.ureq = ureq;
 		this.COLUMN_COUNT = showScores ? 7 : 6;
 		if ( showExamName ) this.COLUMN_COUNT++;
 	}
@@ -118,7 +121,14 @@ public class ProtocolTableModel extends DefaultTableDataModel {
 	public void setTable(TableController tableCtr) {
 		
 		tableCtr.addColumnDescriptor(new DefaultColumnDescriptor("ProtocolTableModel.header.login", 0, COMMAND_VCARD, locale));
-		tableCtr.addColumnDescriptor(new DefaultColumnDescriptor("ProtocolTableModel.header.matrikel", 1, ESF_OPEN, locale));
+		if(ureq.getUserSession().getRoles().isInstitutionalResourceManager())
+		{
+	    	tableCtr.addColumnDescriptor(new DefaultColumnDescriptor("ProtocolTableModel.header.matrikel", 1, ESF_OPEN, locale));
+		}
+		else
+		{
+			tableCtr.addColumnDescriptor(new DefaultColumnDescriptor("ProtocolTableModel.header.matrikel", 1, null, locale));
+		}
 		tableCtr.addColumnDescriptor(new DefaultColumnDescriptor("ProtocolTableModel.header.name", 2, null, locale));
 		tableCtr.addColumnDescriptor(new DefaultColumnDescriptor("ProtocolTableModel.header.studyPath", 3, null, locale));
 		tableCtr.addColumnDescriptor(new DefaultColumnDescriptor("ProtocolTableModel.header.appointment", 4, null, locale));

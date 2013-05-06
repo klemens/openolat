@@ -204,10 +204,11 @@ public class ESFEditController extends MainLayoutBasicController {
 		// protocolTableCtr.setMultiSelect(true);
 		// protocolTableCtr.addMultiSelectAction("ESFEditController.addProtocol",
 		// ADD_PROTOCOL);
+	
 		// if esf is null, give an empty list to the model
 		protocolTableMdl = new ProtocolTableModel(translator.getLocale(),
 				(esf != null ? esf.getProtocolList()
-						: new ArrayList<Protocol>()), true, true);
+						: new ArrayList<Protocol>()), true, true, ureq);
 		protocolTableMdl.setTable(protocolTableCtr);
 		protocolTableCtr.setTableDataModel(protocolTableMdl);
 		protocolTableCtr.setSortColumn(0, true);

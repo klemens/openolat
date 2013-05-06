@@ -324,7 +324,7 @@ public class ExamLaunchController extends MainLayoutBasicController implements
 			List<Protocol> protoList = ProtocolManager.getInstance()
 					.findAllProtocolsByExam(exam, false);
 			regProtoTableMdl = new ProtocolTableModel(ureq.getLocale(),
-					protoList, true, false);
+					protoList, true, false, ureq);
 			regProtoTableMdl.setTable(regProtoTableCtr);
 			regProtoTableCtr.setTableDataModel(regProtoTableMdl);
 			regProtoTableCtr.setSortColumn(0, true);
@@ -360,7 +360,7 @@ public class ExamLaunchController extends MainLayoutBasicController implements
 			protoList = ProtocolManager.getInstance().findAllProtocolsByExam(
 					exam, true);
 			earProtoTableMdl = new ProtocolTableModel(ureq.getLocale(),
-					protoList, false, false);
+					protoList, false, false, ureq);
 			earProtoTableMdl.setTable(earProtoTableCtr);
 			earProtoTableCtr.setTableDataModel(earProtoTableMdl);
 			earProtoTableCtr.setSortColumn(0, true);
@@ -656,10 +656,8 @@ public class ExamLaunchController extends MainLayoutBasicController implements
 
 				TableEvent te = (TableEvent) event;
 				String actionid = te.getActionId();
-
 				// somebody wants to open an esf
 				if (actionid.equals(ProtocolTableModel.ESF_OPEN)) {
-
 					this.launchEsfInNewTab(te, ureq, false);
 				}
 
@@ -908,7 +906,6 @@ public class ExamLaunchController extends MainLayoutBasicController implements
 
 				TableEvent te = (TableEvent) event;
 				String actionid = te.getActionId();
-
 				if (actionid.equals(ProtocolTableModel.COMMAND_VCARD)) {
 
 					this.openVCard(te, ureq, true);
@@ -916,7 +913,6 @@ public class ExamLaunchController extends MainLayoutBasicController implements
 
 				// somebody wants to open an esf
 				if (actionid.equals(ProtocolTableModel.ESF_OPEN)) {
-
 					Protocol protocol = this.regProtoTableMdl.getEntryAt(te
 							.getRowId());
 					ElectronicStudentFile esf = ElectronicStudentFileManager
