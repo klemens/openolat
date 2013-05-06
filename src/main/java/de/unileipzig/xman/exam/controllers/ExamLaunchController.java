@@ -238,7 +238,7 @@ public class ExamLaunchController extends MainLayoutBasicController implements
 				myAppTableMdl.setTable(myAppTableCtr);
 				myAppTableCtr.setTableDataModel(myAppTableMdl);
 
-				// NEU
+				// NEW
 				myAppTableCtr.addControllerListener(this);
 
 				vcMain.put("myAppTable", myAppTableCtr.getInitialComponent());
@@ -269,7 +269,7 @@ public class ExamLaunchController extends MainLayoutBasicController implements
 		appTableCtr.setTableDataModel(appTableMdl);
 		appTableCtr.setSortColumn(0, true);
 
-		// NEU
+		// NEW
 		appTableCtr.addControllerListener(this);
 
 		vcMain.put("appTable", appTableCtr.getInitialComponent());
@@ -330,7 +330,7 @@ public class ExamLaunchController extends MainLayoutBasicController implements
 			regProtoTableCtr.setTableDataModel(regProtoTableMdl);
 			regProtoTableCtr.setSortColumn(0, true);
 
-			// NEU
+			// NEW
 			regProtoTableCtr.addControllerListener(this);
 
 			vcMain.put("regProtoTable", regProtoTableCtr.getInitialComponent());
@@ -367,7 +367,7 @@ public class ExamLaunchController extends MainLayoutBasicController implements
 			earProtoTableCtr.setTableDataModel(earProtoTableMdl);
 			earProtoTableCtr.setSortColumn(0, true);
 
-			// NEU
+			// NEW
 			earProtoTableCtr.addControllerListener(this);
 
 			vcMain.put("earProtoTable", earProtoTableCtr.getInitialComponent());
