@@ -134,6 +134,8 @@ public class ESFLaunchController extends BasicController {
 	private void init(UserRequest ureq, WindowControl wControl) {
 		// to get the esf for the user
 		esf = ElectronicStudentFileManager.getInstance().retrieveESFByIdentity(ureq.getIdentity());
+		// load by id so we get a fresh version from db
+		user = UserManager.getInstance().loadUserByKey(ureq.getIdentity().getUser().getKey());
 		
 		// to build the for the different roles
 		buildView(ureq, wControl);
@@ -168,9 +170,6 @@ public class ESFLaunchController extends BasicController {
 	 * @param ureq
 	 */
 	private void buildTables(UserRequest ureq, WindowControl wControl) {
-		// load by id so we get a fresh version from db
-		user = UserManager.getInstance().loadUserByKey(ureq.getIdentity().getUser().getKey());
-
 		// add personal information in the esf-launch.html
 		this.mainVC.contextPut("lastName", user.getProperty(UserConstants.LASTNAME, null));
 		this.mainVC.contextPut("firstName", user.getProperty(UserConstants.FIRSTNAME, null));
