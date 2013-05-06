@@ -24,6 +24,7 @@ public class ProtocolTableModel extends DefaultTableDataModel {
 	private Locale locale;
 	private boolean showScores;
 	private boolean showExamName;
+	private boolean showEsfLink;
 
 	public static final String COMMAND_VCARD = "show.vcard";
 	public static final String EXAM_LAUNCH = "launch.exam";
@@ -36,14 +37,15 @@ public class ProtocolTableModel extends DefaultTableDataModel {
 	 * @param protocols - the list of protocols to display
 	 * @param showScores - show the column grades
 	 * @param showExamName - the the column examName
+	 * @param ureq - the UserRequest to identify the users Roles
 	 */
-	public ProtocolTableModel(Locale locale, List<Protocol> protocols, boolean showScores, boolean showExamName) {
+	public ProtocolTableModel(Locale locale, List<Protocol> protocols, boolean showScores, boolean showExamName, boolean showEsfLink) {
 		super(protocols);
 		
 		this.locale = locale;
-
 		this.showScores = showScores;
 		this.showExamName = showExamName;
+		this.showEsfLink = showEsfLink;
 		this.entries = protocols; 
 		this.COLUMN_COUNT = showScores ? 7 : 6;
 		if ( showExamName ) this.COLUMN_COUNT++;
@@ -118,7 +120,7 @@ public class ProtocolTableModel extends DefaultTableDataModel {
 	public void setTable(TableController tableCtr) {
 		
 		tableCtr.addColumnDescriptor(new DefaultColumnDescriptor("ProtocolTableModel.header.login", 0, COMMAND_VCARD, locale));
-		tableCtr.addColumnDescriptor(new DefaultColumnDescriptor("ProtocolTableModel.header.matrikel", 1, ESF_OPEN, locale));
+		tableCtr.addColumnDescriptor(new DefaultColumnDescriptor("ProtocolTableModel.header.matrikel", 1, showEsfLink ? ESF_OPEN : null, locale));
 		tableCtr.addColumnDescriptor(new DefaultColumnDescriptor("ProtocolTableModel.header.name", 2, null, locale));
 		tableCtr.addColumnDescriptor(new DefaultColumnDescriptor("ProtocolTableModel.header.studyPath", 3, null, locale));
 		tableCtr.addColumnDescriptor(new DefaultColumnDescriptor("ProtocolTableModel.header.appointment", 4, null, locale));

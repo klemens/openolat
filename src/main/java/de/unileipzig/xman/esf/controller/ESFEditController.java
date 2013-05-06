@@ -207,7 +207,8 @@ public class ESFEditController extends MainLayoutBasicController {
 		// if esf is null, give an empty list to the model
 		protocolTableMdl = new ProtocolTableModel(translator.getLocale(),
 				(esf != null ? esf.getProtocolList()
-						: new ArrayList<Protocol>()), true, true);
+						: new ArrayList<Protocol>()), true, true,
+						(ureq.getUserSession().getRoles().isInstitutionalResourceManager() || ureq.getUserSession().getRoles().isOLATAdmin()));
 		protocolTableMdl.setTable(protocolTableCtr);
 		protocolTableCtr.setTableDataModel(protocolTableMdl);
 		protocolTableCtr.setSortColumn(0, true);

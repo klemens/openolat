@@ -236,7 +236,8 @@ public class ESFLaunchController extends BasicController {
 		// if esf is null, give an empty list to the model
 		protoTableMdl = new ProtocolTableModel(translator.getLocale(),
 				(esf != null ? esf.getProtocolList()
-						: new ArrayList<Protocol>()), true, true);
+						: new ArrayList<Protocol>()), true, true,
+						(ureq.getUserSession().getRoles().isInstitutionalResourceManager() || ureq.getUserSession().getRoles().isOLATAdmin()));
 		protoTableMdl.setTable(protoTableCtr);
 		protoTableCtr.setTableDataModel(protoTableMdl);
 		protoTableCtr.setSortColumn(0, true);
