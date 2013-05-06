@@ -100,10 +100,6 @@ public class ESFLaunchController extends BasicController {
 	// Separate panels for VelocityContainer and ToolController
 	private TabbedPane tabbedPane;
 	
-	// allows only Admin or InstitutionalResourceManager to open a students ESF
-	private boolean hasRights;
-	
-	
 	
 	/**
 	 * 
@@ -126,9 +122,6 @@ public class ESFLaunchController extends BasicController {
 		tabbedPane.addTab("Verwaltung", toolCtr.getInitialComponent());
 		
 		this.putInitialPanel(tabbedPane);
-		
-		// checks if user is Admin or InstitutionalResourceManager
-		this.hasRights = (ureq.getUserSession().getRoles().isInstitutionalResourceManager() || ureq.getUserSession().getRoles().isOLATAdmin());
 	}
 
 	/**
@@ -268,7 +261,8 @@ public class ESFLaunchController extends BasicController {
 		// if esf is null, give an empty list to the model
 		protoTableMdl = new ProtocolTableModel(translator.getLocale(),
 				(esf != null ? esf.getProtocolList()
-						: new ArrayList<Protocol>()), true, true, hasRights);
+						: new ArrayList<Protocol>()), true, true, 
+						(ureq.getUserSession().getRoles().isInstitutionalResourceManager() || ureq.getUserSession().getRoles().isOLATAdmin()));
 		protoTableMdl.setTable(protoTableCtr);
 		protoTableCtr.setTableDataModel(protoTableMdl);
 		protoTableCtr.setSortColumn(0, true);
