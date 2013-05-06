@@ -110,6 +110,9 @@ public class ExamLaunchController extends MainLayoutBasicController implements
 	private CloseableModalController editCommentCtr;
 	private CloseableModalController sendMailCtr;
 	private MailForm mailForm;
+	
+	// allows only Admin or InstitutionalResourceManager to open a students ESF
+	private boolean hasRights;
 
 	/**
 	 * creates the controller for the exam launcher
@@ -132,6 +135,9 @@ public class ExamLaunchController extends MainLayoutBasicController implements
 		this.exam = exam;
 		this.isResourceOwner = isResourceOwner;
 		this.isOLATUser = isOLATUser;
+		
+		// checks if user is Admin or InstitutionalResourceManager
+		this.hasRights = (ureq.getUserSession().getRoles().isInstitutionalResourceManager() || ureq.getUserSession().getRoles().isOLATAdmin());
 
 		String tmpExamName = ExamDBManager.getInstance().getExamName(this.exam);
 		if (!tmpExamName.equals(this.exam.getName())) {
@@ -324,7 +330,7 @@ public class ExamLaunchController extends MainLayoutBasicController implements
 			List<Protocol> protoList = ProtocolManager.getInstance()
 					.findAllProtocolsByExam(exam, false);
 			regProtoTableMdl = new ProtocolTableModel(ureq.getLocale(),
-					protoList, true, false, ureq);
+					protoList, true, false, hasRights);
 			regProtoTableMdl.setTable(regProtoTableCtr);
 			regProtoTableCtr.setTableDataModel(regProtoTableMdl);
 			regProtoTableCtr.setSortColumn(0, true);
@@ -360,7 +366,7 @@ public class ExamLaunchController extends MainLayoutBasicController implements
 			protoList = ProtocolManager.getInstance().findAllProtocolsByExam(
 					exam, true);
 			earProtoTableMdl = new ProtocolTableModel(ureq.getLocale(),
-					protoList, false, false, ureq);
+					protoList, false, false, hasRights);
 			earProtoTableMdl.setTable(earProtoTableCtr);
 			earProtoTableCtr.setTableDataModel(earProtoTableMdl);
 			earProtoTableCtr.setSortColumn(0, true);

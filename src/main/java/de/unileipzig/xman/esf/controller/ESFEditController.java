@@ -85,6 +85,9 @@ public class ESFEditController extends MainLayoutBasicController {
 	// forms
 	private ESFCommentCreateAndEditForm addCommentForm;
 	private ESFCommentCreateAndEditForm editCommentForm;
+	
+	// allows only Admin or InstitutionalResourceManager to open a students ESF
+	private boolean hasRights;
 
 	public ESFEditController(UserRequest ureq, WindowControl wControl,
 			ElectronicStudentFile esf) {
@@ -106,6 +109,9 @@ public class ESFEditController extends MainLayoutBasicController {
 
 		init(ureq, wControl);
 		this.putInitialPanel(columnLayoutCtr.getInitialComponent());
+		
+		// checks if user is Admin or InstitutionalResourceManager
+		this.hasRights = (ureq.getUserSession().getRoles().isInstitutionalResourceManager() || ureq.getUserSession().getRoles().isOLATAdmin());
 	}
 
 	private void init(UserRequest ureq, WindowControl wControl) {
@@ -208,7 +214,7 @@ public class ESFEditController extends MainLayoutBasicController {
 		// if esf is null, give an empty list to the model
 		protocolTableMdl = new ProtocolTableModel(translator.getLocale(),
 				(esf != null ? esf.getProtocolList()
-						: new ArrayList<Protocol>()), true, true, ureq);
+						: new ArrayList<Protocol>()), true, true, hasRights);
 		protocolTableMdl.setTable(protocolTableCtr);
 		protocolTableCtr.setTableDataModel(protocolTableMdl);
 		protocolTableCtr.setSortColumn(0, true);

@@ -9,7 +9,6 @@ import java.util.Locale;
 import org.olat.core.gui.components.table.DefaultColumnDescriptor;
 import org.olat.core.gui.components.table.DefaultTableDataModel;
 import org.olat.core.gui.components.table.TableController;
-import org.olat.core.gui.UserRequest;
 import org.olat.core.id.UserConstants;
 import org.olat.core.util.Formatter;
 import org.olat.core.util.Util;
@@ -25,9 +24,7 @@ public class ProtocolTableModel extends DefaultTableDataModel {
 	private Locale locale;
 	private boolean showScores;
 	private boolean showExamName;
-	private boolean isInstitutionalResourceManager;
-	private boolean isOLATAdmin;
-	private UserRequest ureq;
+	private boolean hasRights;
 
 	public static final String COMMAND_VCARD = "show.vcard";
 	public static final String EXAM_LAUNCH = "launch.exam";
@@ -42,16 +39,14 @@ public class ProtocolTableModel extends DefaultTableDataModel {
 	 * @param showExamName - the the column examName
 	 * @param ureq - the UserRequest to identify the users Roles
 	 */
-	public ProtocolTableModel(Locale locale, List<Protocol> protocols, boolean showScores, boolean showExamName, UserRequest ureq) {
+	public ProtocolTableModel(Locale locale, List<Protocol> protocols, boolean showScores, boolean showExamName, boolean hasRights) {
 		super(protocols);
 		
 		this.locale = locale;
 		this.showScores = showScores;
 		this.showExamName = showExamName;
-		this.isInstitutionalResourceManager = ureq.getUserSession().getRoles().isInstitutionalResourceManager();
-		this.isOLATAdmin = ureq.getUserSession().getRoles().isOLATAdmin();
+		this.hasRights = hasRights;
 		this.entries = protocols; 
-		this.ureq = ureq;
 		this.COLUMN_COUNT = showScores ? 7 : 6;
 		if ( showExamName ) this.COLUMN_COUNT++;
 	}
@@ -125,7 +120,7 @@ public class ProtocolTableModel extends DefaultTableDataModel {
 	public void setTable(TableController tableCtr) {
 		
 		tableCtr.addColumnDescriptor(new DefaultColumnDescriptor("ProtocolTableModel.header.login", 0, COMMAND_VCARD, locale));
-		if(isInstitutionalResourceManager || isOLATAdmin)
+		if(hasRights)
 		{
 	    	tableCtr.addColumnDescriptor(new DefaultColumnDescriptor("ProtocolTableModel.header.matrikel", 1, ESF_OPEN, locale));
 		}
