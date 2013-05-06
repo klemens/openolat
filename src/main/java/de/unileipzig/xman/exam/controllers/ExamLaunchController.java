@@ -238,7 +238,7 @@ public class ExamLaunchController extends MainLayoutBasicController implements
 				myAppTableMdl.setTable(myAppTableCtr);
 				myAppTableCtr.setTableDataModel(myAppTableMdl);
 
-				// NEW
+				// NEU
 				myAppTableCtr.addControllerListener(this);
 
 				vcMain.put("myAppTable", myAppTableCtr.getInitialComponent());
@@ -269,7 +269,7 @@ public class ExamLaunchController extends MainLayoutBasicController implements
 		appTableCtr.setTableDataModel(appTableMdl);
 		appTableCtr.setSortColumn(0, true);
 
-		// NEW
+		// NEU
 		appTableCtr.addControllerListener(this);
 
 		vcMain.put("appTable", appTableCtr.getInitialComponent());
@@ -324,13 +324,13 @@ public class ExamLaunchController extends MainLayoutBasicController implements
 			List<Protocol> protoList = ProtocolManager.getInstance()
 					.findAllProtocolsByExam(exam, false);
 			regProtoTableMdl = new ProtocolTableModel(ureq.getLocale(),
-					protoList, true, false, 
+					protoList, true, false,
 					(ureq.getUserSession().getRoles().isInstitutionalResourceManager() || ureq.getUserSession().getRoles().isOLATAdmin()));
 			regProtoTableMdl.setTable(regProtoTableCtr);
 			regProtoTableCtr.setTableDataModel(regProtoTableMdl);
 			regProtoTableCtr.setSortColumn(0, true);
 
-			// NEW
+			// NEU
 			regProtoTableCtr.addControllerListener(this);
 
 			vcMain.put("regProtoTable", regProtoTableCtr.getInitialComponent());
@@ -361,13 +361,13 @@ public class ExamLaunchController extends MainLayoutBasicController implements
 			protoList = ProtocolManager.getInstance().findAllProtocolsByExam(
 					exam, true);
 			earProtoTableMdl = new ProtocolTableModel(ureq.getLocale(),
-					protoList, false, false, 
+					protoList, false, false,
 					(ureq.getUserSession().getRoles().isInstitutionalResourceManager() || ureq.getUserSession().getRoles().isOLATAdmin()));
 			earProtoTableMdl.setTable(earProtoTableCtr);
 			earProtoTableCtr.setTableDataModel(earProtoTableMdl);
 			earProtoTableCtr.setSortColumn(0, true);
 
-			// NEW
+			// NEU
 			earProtoTableCtr.addControllerListener(this);
 
 			vcMain.put("earProtoTable", earProtoTableCtr.getInitialComponent());
@@ -658,12 +658,9 @@ public class ExamLaunchController extends MainLayoutBasicController implements
 
 				TableEvent te = (TableEvent) event;
 				String actionid = te.getActionId();
-				
 
-				
 				// somebody wants to open an esf
-				if (actionid.equals(ProtocolTableModel.ESF_OPEN))
-				{
+				if (actionid.equals(ProtocolTableModel.ESF_OPEN)) {
 					this.launchEsfInNewTab(te, ureq, false);
 				}
 
@@ -912,6 +909,7 @@ public class ExamLaunchController extends MainLayoutBasicController implements
 
 				TableEvent te = (TableEvent) event;
 				String actionid = te.getActionId();
+
 				if (actionid.equals(ProtocolTableModel.COMMAND_VCARD)) {
 
 					this.openVCard(te, ureq, true);
@@ -919,6 +917,7 @@ public class ExamLaunchController extends MainLayoutBasicController implements
 
 				// somebody wants to open an esf
 				if (actionid.equals(ProtocolTableModel.ESF_OPEN)) {
+
 					Protocol protocol = this.regProtoTableMdl.getEntryAt(te
 							.getRowId());
 					ElectronicStudentFile esf = ElectronicStudentFileManager

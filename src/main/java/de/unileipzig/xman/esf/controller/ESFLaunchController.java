@@ -100,7 +100,6 @@ public class ESFLaunchController extends BasicController {
 	// Separate panels for VelocityContainer and ToolController
 	private TabbedPane tabbedPane;
 	
-	
 	/**
 	 * 
 	 * @param ureq
@@ -261,7 +260,7 @@ public class ESFLaunchController extends BasicController {
 		// if esf is null, give an empty list to the model
 		protoTableMdl = new ProtocolTableModel(translator.getLocale(),
 				(esf != null ? esf.getProtocolList()
-						: new ArrayList<Protocol>()), true, true, 
+						: new ArrayList<Protocol>()), true, true,
 						(ureq.getUserSession().getRoles().isInstitutionalResourceManager() || ureq.getUserSession().getRoles().isOLATAdmin()));
 		protoTableMdl.setTable(protoTableCtr);
 		protoTableCtr.setTableDataModel(protoTableMdl);
