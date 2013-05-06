@@ -106,7 +106,6 @@ public class ESFEditController extends MainLayoutBasicController {
 
 		init(ureq, wControl);
 		this.putInitialPanel(columnLayoutCtr.getInitialComponent());
-		
 	}
 
 	private void init(UserRequest ureq, WindowControl wControl) {
