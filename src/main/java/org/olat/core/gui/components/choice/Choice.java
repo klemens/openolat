@@ -35,8 +35,6 @@ import org.olat.core.gui.components.ComponentRenderer;
 import org.olat.core.gui.components.table.Table;
 import org.olat.core.gui.components.table.TableDataModel;
 import org.olat.core.gui.control.Event;
-import org.olat.core.gui.control.JSAndCSSAdder;
-import org.olat.core.gui.render.ValidationResult;
 import org.olat.core.gui.translator.Translator;
 import org.olat.core.util.Util;
 
@@ -67,7 +65,7 @@ public class Choice extends Component {
 	private List<Integer> selectedRows = new ArrayList<Integer>();
 	private List<Integer> removedRows = new ArrayList<Integer>();
 	private List<Integer> addedRows = new ArrayList<Integer>();
-	private TableDataModel tableDataModel;
+	private TableDataModel<?> tableDataModel;
 
 	/**
 	 * @param name of the component
@@ -188,7 +186,7 @@ public class Choice extends Component {
 	/**
 	 * @return TableDataModel
 	 */
-	public TableDataModel getTableDataModel() {
+	public TableDataModel<?> getTableDataModel() {
 		return tableDataModel;
 	}
 
@@ -200,7 +198,7 @@ public class Choice extends Component {
 	 * 
 	 * @param model
 	 */
-	public void setTableDataModel(TableDataModel model) {
+	public void setTableDataModel(TableDataModel<?> model) {
 		tableDataModel = model;
 	}
 
@@ -222,15 +220,4 @@ public class Choice extends Component {
 	public ComponentRenderer getHTMLRendererSingleton() {
 		return RENDERER;
 	}
-	
-	/**
-	 * @see org.olat.core.gui.components.Component#validate(org.olat.core.gui.UserRequest, org.olat.core.gui.render.ValidationResult)
-	 */
-	public void validate(UserRequest ureq, ValidationResult vr) {
-		super.validate(ureq, vr);
-		// include needed css and js libs
-		JSAndCSSAdder jsa = vr.getJsAndCSSAdder();
-		jsa.addRequiredJsFile(Choice.class, "js/choice.js");
-	}
-
 }

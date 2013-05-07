@@ -46,16 +46,6 @@ import org.olat.core.util.WebappHelper;
  */
 public class Renderer {
 
-	/**
-	 * <code>showDebugInfo</code>
-	 */
-	//public static boolean showDebugInfo = false;
-	/**
-	 * true: use mini style, false: use traditional style
-	 */
-	//public static boolean debugMiniStyle = true;
-	
-
 	private URLBuilder urlBuilder;
 	private Translator translator;
 	private Container renderContainer;
@@ -238,7 +228,7 @@ public class Renderer {
 				Container ccpar = cc.getParent();
 				while (ccpar != null) { // omit content pane
 					// find out name under which cc was registered in its parent - that is the relevant name, not the name of the component itself
-					Map<String,Component> namedChildren = ccpar.getComponents();
+					Map<String,Component> namedChildren = ccpar.getComponentMap();
 					for (Iterator<String> it_chd = namedChildren.keySet().iterator(); it_chd.hasNext();) {
 						String chdName = it_chd.next();
 						Component chd = ccpar.getComponent(chdName);
@@ -251,6 +241,7 @@ public class Renderer {
 					cc = ccpar;
 					ccpar = cc.getParent();
 				}			
+				System.out.println(pathsb.toString());
 				cubu.setComponentPath(pathsb.toString());
 			}
 			

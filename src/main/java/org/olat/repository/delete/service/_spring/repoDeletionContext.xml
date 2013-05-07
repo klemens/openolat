@@ -3,11 +3,10 @@
 	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
 	xsi:schemaLocation="
   http://www.springframework.org/schema/beans 
-  http://www.springframework.org/schema/beans/spring-beans-3.0.xsd">
+  http://www.springframework.org/schema/beans/spring-beans.xsd">
 
 
-	<bean id="deletionModule" class="org.olat.repository.delete.service.DeletionModule"
-		 depends-on="userManager">
+	<bean id="deletionModule" class="org.olat.repository.delete.service.DeletionModule">
 		<property name="baseSecurityManager" ref="baseSecurityManager" />
 		<property name="persistedProperties">
 			<bean class="org.olat.core.configuration.PersistedProperties"
@@ -27,19 +26,19 @@
 				archiveRootPath=${archive.dir}
 				deleteEmailResponseToUserName=administrator
 				adminUserName=${deletionModule.adminUserName}
-	                </value>
+	    </value>
 		</property>
 	</bean>
 
 	<bean id="repositoryDeletionManager"
 		class="org.olat.repository.delete.service.RepositoryDeletionManager">
-		<constructor-arg index="0" ref="userDeletionManager" />
-		<constructor-arg index="1" ref="deletionModule" />
+		<constructor-arg index="0" ref="deletionModule" />
 	</bean>
 
 	<bean id="userDeletionManager" class="org.olat.admin.user.delete.service.UserDeletionManager">
 		<constructor-arg index="0" ref="deletionModule" />
 		<constructor-arg index="1" ref="coordinatorManager" />
+		<property name="baseSecurityManager" ref="baseSecurityManager" />
 		<property name="keepUserLoginAfterDeletion" value="${keepUserLoginAfterDeletion}" />
 		<property name="keepUserEmailAfterDeletion" value="${keepUserEmailAfterDeletion}" />
 	</bean>

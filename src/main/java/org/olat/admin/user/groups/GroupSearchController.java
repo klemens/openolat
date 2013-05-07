@@ -28,7 +28,7 @@ import org.olat.core.commons.persistence.PersistenceHelper;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.form.flexible.FormItem;
 import org.olat.core.gui.components.form.flexible.FormItemContainer;
-import org.olat.core.gui.components.form.flexible.elements.FlexiTableElment;
+import org.olat.core.gui.components.form.flexible.elements.FlexiTableElement;
 import org.olat.core.gui.components.form.flexible.elements.FormLink;
 import org.olat.core.gui.components.form.flexible.elements.MultipleSelectionElement;
 import org.olat.core.gui.components.form.flexible.elements.TextElement;
@@ -124,14 +124,14 @@ public class GroupSearchController extends StepFormBasicController {
 
 		//group rights
 		FlexiTableColumnModel tableColumnModel = FlexiTableDataModelFactory.createFlexiTableColumnModel();
-		tableColumnModel.addFlexiColumnModel(new DefaultFlexiColumnModel(Cols.groupName.i18n()));
-		tableColumnModel.addFlexiColumnModel(new DefaultFlexiColumnModel(Cols.description.i18n()));
-		tableColumnModel.addFlexiColumnModel(new DefaultFlexiColumnModel(Cols.courses.i18n()));
-		tableColumnModel.addFlexiColumnModel(new DefaultFlexiColumnModel(Cols.tutor.i18n()));
-		tableColumnModel.addFlexiColumnModel(new DefaultFlexiColumnModel(Cols.participant.i18n()));
+		tableColumnModel.addFlexiColumnModel(new DefaultFlexiColumnModel(Cols.groupName.i18n(), Cols.groupName.ordinal()));
+		tableColumnModel.addFlexiColumnModel(new DefaultFlexiColumnModel(Cols.description.i18n(), Cols.description.ordinal()));
+		tableColumnModel.addFlexiColumnModel(new DefaultFlexiColumnModel(Cols.courses.i18n(), Cols.courses.ordinal()));
+		tableColumnModel.addFlexiColumnModel(new DefaultFlexiColumnModel(Cols.tutor.i18n(), Cols.tutor.ordinal()));
+		tableColumnModel.addFlexiColumnModel(new DefaultFlexiColumnModel(Cols.participant.i18n(), Cols.participant.ordinal()));
 		
 		tableDataModel = new GroupTableDataModel(Collections.<GroupWrapper>emptyList(), tableColumnModel);
-		FlexiTableElment table = uifactory.addTableElement("groupList", tableDataModel, tableCont);
+		FlexiTableElement table = uifactory.addTableElement(ureq, getWindowControl(), "groupList", tableDataModel, tableCont);
 		tableCont.add("groupList", table);
 		
 		if (!isUsedInStepWizzard()) {

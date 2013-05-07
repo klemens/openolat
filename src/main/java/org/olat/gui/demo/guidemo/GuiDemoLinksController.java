@@ -60,7 +60,7 @@ public class GuiDemoLinksController extends BasicController {
 	
 	private Link link;
 	private Link linkExtern;	
-	private Link linkBack;
+	private Link linkBack, linkPos, linkTooltip;
 	private Link linkMail;
 	private Link iconButton;
 	private Link buttonLongTrans;
@@ -101,16 +101,18 @@ public class GuiDemoLinksController extends BasicController {
 		
 		buttonCloseIcon = LinkFactory.createIconClose("This is the hovertext!", mainVC, this);
 		
-		// let the scripts (.js files) and css files be included when this controller's main component is rendered
-		JSAndCSSComponent jscss = new JSAndCSSComponent("jsAndCssForDemo", this.getClass(), null, "style.css", false);
-		mainVC.put("jsAndCssForDemo", jscss); // we include it in the render tree, so that the custom js and css are included
-		
 		link = LinkFactory.createLink("link", mainVC, this);
 		linkBack = LinkFactory.createLinkBack(mainVC, this);
 		linkExtern = LinkFactory.createCustomLink("link.ext", "link.ext", "link.ext", Link.LINK, mainVC, this);	
 		linkExtern.setCustomEnabledLinkCSS("b_link_extern");
 		linkMail = LinkFactory.createCustomLink("link.mail", "link.mail", "link.mail", Link.LINK, mainVC, this);	
 		linkMail.setCustomEnabledLinkCSS("b_link_mailto");
+		
+		linkPos = LinkFactory.createCustomLink("link.pos", "link.pos", "link.pos", Link.LINK, mainVC, this);
+		linkPos.registerForMousePositionEvent(true);
+		
+		linkTooltip = LinkFactory.createCustomLink("link.tooltip", "link.tooltip", "link.tooltip", Link.LINK, mainVC, this);
+		linkTooltip.setTooltip("link.tooltip.text");
 		
 		// add some text components
 		TextFactory.createTextComponentFromString("text.simple", "Hello World, this text is hardcoded", null, true, mainVC);
@@ -155,6 +157,10 @@ public class GuiDemoLinksController extends BasicController {
 			showInfo("info.button.link", ureq.getIdentity().getName());			
 		} else if (source == linkBack){
 			showInfo("info.button.link.back", ureq.getIdentity().getName());			
+		} else if(source == linkPos) {
+			int offsetX = linkPos.getOffsetX();
+			int offsetY = linkPos.getOffsetY();
+			showInfo("link.pos.info", "X:" + offsetX + "px - Y:" + offsetY + "px");
 		} else if (source == iconButton){
 			showInfo("info.button.icon", ureq.getIdentity().getName());			
 		} else if (source == buttonLongTrans){
