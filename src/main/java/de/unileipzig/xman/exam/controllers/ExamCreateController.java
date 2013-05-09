@@ -22,7 +22,6 @@ import de.unileipzig.xman.catalog.controller.ExamCatalogController;
 import de.unileipzig.xman.exam.Exam;
 import de.unileipzig.xman.exam.ExamDBManager;
 import de.unileipzig.xman.exam.forms.ChooseExamAttrForm;
-import de.unileipzig.xman.module.ModuleManager;
 
 /**
  * 
@@ -103,8 +102,6 @@ public class ExamCreateController extends DefaultController implements
 					newExam.setIsOral(true);
 				else
 					newExam.setIsOral(false);
-				newExam.setModule(ModuleManager.getInstance().findModuleByName(
-						chooseExamAttrForm.getModule()));
 				newExam.setComments("");
 				newExam.setIdentity(ureq.getIdentity());
 

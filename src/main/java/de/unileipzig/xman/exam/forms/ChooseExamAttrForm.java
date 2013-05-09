@@ -16,8 +16,6 @@ import org.olat.core.gui.translator.Translator;
 import org.olat.core.util.Util;
 
 import de.unileipzig.xman.exam.Exam;
-import de.unileipzig.xman.module.Module;
-import de.unileipzig.xman.module.ModuleManager;
 
 /**
  * form to create a new exam
@@ -27,7 +25,6 @@ import de.unileipzig.xman.module.ModuleManager;
 public class ChooseExamAttrForm extends FormBasicController {
 
 	private SingleSelection examTypeSwitchElem;
-	private SingleSelection module;
 	private Submit submit;
 
 	/**
@@ -59,19 +56,6 @@ public class ChooseExamAttrForm extends FormBasicController {
 				"ChooseExamAttrForm.radioButton", formLayout, keys, values);
 		examTypeSwitchElem.select(Exam.EXAM_TYPE_WRITTEN, true);
 
-		// module, exam belongs to
-		List<Module> moduleList = ModuleManager.getInstance().findAllModules();
-		values = new String[moduleList.size()];
-		keys = new String[moduleList.size()];
-		for (int i = 0; i < moduleList.size(); i++) {
-			values[i] = moduleList.get(i).getName();
-			keys[i] = new Integer(i).toString();
-		}
-
-		module = uifactory.addDropdownSingleselect("module",
-				"ChooseExamAttrForm.module", formLayout, keys, values, null);
-		module.setMandatory(true);
-
 		// submit / cancel keys
 		FormLayoutContainer buttonGroupLayout = FormLayoutContainer.createButtonLayout("buttonGroupLayout", getTranslator());
 		formLayout.add(buttonGroupLayout);
@@ -92,14 +76,6 @@ public class ChooseExamAttrForm extends FormBasicController {
 	public String getType() {
 
 		return examTypeSwitchElem.getKey(examTypeSwitchElem.getSelected());
-	}
-
-	/**
-	 * @return the selected value (the name of the chosen module)
-	 */
-	public String getModule() {
-
-		return module.getValue(module.getSelected());
 	}
 
 	@Override
