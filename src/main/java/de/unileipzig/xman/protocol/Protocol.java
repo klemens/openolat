@@ -9,7 +9,6 @@ import org.olat.core.util.resource.OresHelper;
 
 import de.unileipzig.xman.appointment.Appointment;
 import de.unileipzig.xman.exam.Exam;
-import de.unileipzig.xman.module.Module;
 
 public interface Protocol extends OLATResourceable, CreateInfo, Persistable, ModifiedInfo {
 
@@ -32,11 +31,6 @@ public interface Protocol extends OLATResourceable, CreateInfo, Persistable, Mod
 	 * @param sets the identity
 	 */
 	public void setIdentity(Identity identity);
-	
-	/**
-	 * @param cat, sets the module
-	 */
-	public void setModule(Module module);
 	
 	/**
 	 * @param earmarked, true if the student only could be added as earmarked
@@ -69,11 +63,6 @@ public interface Protocol extends OLATResourceable, CreateInfo, Persistable, Mod
 	 * @return the identity
 	 */
 	public Identity getIdentity();
-	
-	/**
-	 * @return the module
-	 */
-	public Module getModule();
 	
 	/**
 	 * @return true if the student is added as earmarked

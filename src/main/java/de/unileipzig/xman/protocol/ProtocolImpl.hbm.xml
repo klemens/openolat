@@ -33,10 +33,6 @@
 		<column name="identity_id" not-null="false"/>    	
 	</many-to-one>
 	
-	<many-to-one name="module" class="de.unileipzig.xman.module.ModuleImpl" outer-join="auto" cascade="none">  
-		<column name="module_id" not-null="false"/>    	
-	</many-to-one>
-	
 	<property name="earmarked" column="earmarked" unique="false" type="boolean" not-null="false"/>
 	<property name="comments" column="comments" unique="false" type="string" not-null="false" length="16777210"/>
 	<property name="grade" column="grade" unique="false" type="string" not-null="false" length="16777210"/>

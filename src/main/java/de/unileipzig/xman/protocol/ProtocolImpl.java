@@ -8,13 +8,11 @@ import org.olat.core.id.ModifiedInfo;
 
 import de.unileipzig.xman.appointment.Appointment;
 import de.unileipzig.xman.exam.Exam;
-import de.unileipzig.xman.module.Module;
 
 public class ProtocolImpl extends PersistentObject implements Protocol {
 
 	private Exam exam;
 	private Appointment app;
-	private Module module;
 	private Identity identity;
 	private boolean earmarked;
 	private String comments;
@@ -42,14 +40,6 @@ public class ProtocolImpl extends PersistentObject implements Protocol {
 	public Appointment getAppointment() {
 	
 		return this.app;
-	}
-
-	/* 
-	 * @see de.xman.protocol.Protocol#getModule()
-	 */
-	public Module getModule() {
-		
-		return this.module;
 	}
 
 	/* 
@@ -100,14 +90,6 @@ public class ProtocolImpl extends PersistentObject implements Protocol {
 	public void setAppointment(Appointment app) {
 		
 		this.app = app;
-	}
-
-	/* 
-	 * @see de.xman.protocol.Protocol#setModule(de.xman.module.Module)
-	 */
-	public void setModule(Module module) {
-		
-		this.module = module;
 	}
 
 	/* 
