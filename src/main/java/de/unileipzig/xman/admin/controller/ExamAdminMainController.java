@@ -140,7 +140,7 @@ public class ExamAdminMainController extends MainLayoutBasicController implement
 	 */
 	private TreeModel buildTreeModel(UserRequest ureq){
 		
-		GenericTreeNode modules, admin, nVESF, vESF, studyPath;
+		GenericTreeNode modules, admin, ESF, studyPath;
 				
 		GenericTreeModel gtm = new GenericTreeModel();
 		admin = new GenericTreeNode();		
@@ -161,11 +161,11 @@ public class ExamAdminMainController extends MainLayoutBasicController implement
 		modules.setAltText(translator.translate("ExamAdminMainController.menu.modules.alt"));
 		admin.addChild(modules);
 		
-		vESF = new GenericTreeNode();
-		vESF.setTitle(translator.translate("ExamAdminMainController.menu.esf"));
-		vESF.setUserObject("esf");
-		vESF.setAltText(translator.translate("ExamAdminMainController.menu.esf.alt"));
-		admin.addChild(vESF);
+		ESF = new GenericTreeNode();
+		ESF.setTitle(translator.translate("ExamAdminMainController.menu.esf"));
+		ESF.setUserObject("esf");
+		ESF.setAltText(translator.translate("ExamAdminMainController.menu.esf.alt"));
+		admin.addChild(ESF);
 		
 		return gtm;
 	}
