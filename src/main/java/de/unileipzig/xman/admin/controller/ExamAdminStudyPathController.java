@@ -28,7 +28,6 @@ import org.olat.core.util.Util;
 
 import de.unileipzig.xman.admin.ExamAdminSite;
 import de.unileipzig.xman.esf.DuplicateObjectException;
-import de.unileipzig.xman.module.table.ModuleTableModel;
 import de.unileipzig.xman.studyPath.StudyPath;
 import de.unileipzig.xman.studyPath.StudyPathManager;
 import de.unileipzig.xman.studyPath.form.StudyPathCreateAndEditForm;
