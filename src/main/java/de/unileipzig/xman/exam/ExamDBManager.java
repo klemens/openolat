@@ -10,7 +10,6 @@ import org.olat.resource.OLATResource;
 import org.olat.resource.OLATResourceManager;
 
 import de.unileipzig.xman.exam.Exam;
-import de.unileipzig.xman.module.Module;
 
 public class ExamDBManager {
 	
@@ -131,16 +130,5 @@ public class ExamDBManager {
 		List<RepositoryEntry> list = DBFactory.getInstance().find(query);
 		if ( list.size() == 1 ) return list.get(0);
 		return null;
-	}
-	
-	/**
-	 * @param cat - the module for which the exams should be searched
-	 * @return the list of Exams which belong to the given module, if no exam was found null ist returned
-	 */
-	public List<Exam> findExamByModule(Module cat) {
-	
-		String query = "from de.unileipzig.xman.exam.ExamImpl as exam where exam.module = " + cat.getKey();
-		List<Exam> examList = DBFactory.getInstance().find(query);
-		return examList;
 	}
 }

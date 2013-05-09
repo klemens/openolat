@@ -11,7 +11,6 @@ import org.olat.core.util.resource.OresHelper;
 import org.olat.repository.RepositoryEntry;
 import org.olat.resource.references.ReferenceImpl;
 
-import de.unileipzig.xman.module.Module;
 
 /**
  * This is the interface of the exam.
@@ -71,11 +70,6 @@ public interface Exam extends ModifiedInfo, CreateInfo, Persistable, OLATResourc
 	public boolean getIsOral();
 	
 	/**
-	 * @return the module of the exam
-	 */
-	public Module getModule();
-	
-	/**
 	 * @return the calculated semester of the exam
 	 */
 	public Identity getIdentity();
@@ -118,11 +112,6 @@ public interface Exam extends ModifiedInfo, CreateInfo, Persistable, OLATResourc
 	 * @param comments
 	 */
 	public void setComments(String comments);
-	
-	/**
-	 * @param module - sets the module of the exam
-	 */
-	public void setModule(Module module);
 	
 	/**
 	 * @param identity - the identity of the person which is responsible for this exam

@@ -23,10 +23,6 @@
     
     <property name="name" column="name" unique="false" type="string" not-null="false" />
     
-    <many-to-one name="module" class="de.unileipzig.xman.module.ModuleImpl" outer-join="auto" cascade="none">  
-		<column name="module_id" not-null="false"/>    	
-	</many-to-one>
-	
 	<many-to-one name="identity" class="org.olat.basesecurity.IdentityImpl" 
 		column="identity_id" outer-join="true" cascade="none" not-null="false"/> 
 	

@@ -60,7 +60,6 @@ CREATE TABLE `o_xman_exam` (
   `lastmodified` datetime NOT NULL DEFAULT '0000-00-00 00:00:00',
   `creationdate` datetime DEFAULT NULL,
   `comments` text,
-  `module_id` bigint(20) DEFAULT NULL,
   PRIMARY KEY (`exam_id`)
 );
 

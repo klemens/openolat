@@ -14,7 +14,6 @@ import org.olat.resource.references.ReferenceImpl;
 
 import de.unileipzig.xman.appointment.Appointment;
 import de.unileipzig.xman.appointment.AppointmentManager;
-import de.unileipzig.xman.module.Module;
 import de.unileipzig.xman.protocol.Protocol;
 import de.unileipzig.xman.protocol.ProtocolManager;
 
@@ -28,7 +27,6 @@ import de.unileipzig.xman.protocol.ProtocolManager;
 public class ExamImpl extends PersistentObject implements Exam {
 	
 	private String name;
-	private Module module;
 	private Date regStartDate;
 	private Date regEndDate;
 	private Date signOffDate;
@@ -174,15 +172,6 @@ public class ExamImpl extends PersistentObject implements Exam {
 		return isOral;
 	}
 	
-	/*
-	 * (non-Javadoc)
-	 * @see de.xman.exam.Exam#getModule()
-	 */
-	public Module getModule() {
-		
-		return this.module;
-	}
-	
 	public Identity getIdentity() {
 		
 		return this.identity;
@@ -250,15 +239,6 @@ public class ExamImpl extends PersistentObject implements Exam {
 	public void setIdentity(Identity identity) {
 		
 		this.identity = identity;
-	}
-	
-	/*
-	 * (non-Javadoc)
-	 * @see de.xman.exam.Exam#setModule(de.xman.module.Module)
-	 */
-	public void setModule(Module module) {
-		
-		this.module = module;
 	}
 	
 	public Date getLastModified() {
