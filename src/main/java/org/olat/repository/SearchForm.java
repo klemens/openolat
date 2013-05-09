@@ -70,8 +70,6 @@ import org.olat.ims.qti.fileresource.TestFileResource;
 import org.olat.portfolio.EPTemplateMapResource;
 
 import de.unileipzig.xman.exam.Exam;
-import de.unileipzig.xman.module.Module;
-import de.unileipzig.xman.module.ModuleManager;
 
 /**
  * Initial Date:  08.07.2003
@@ -99,8 +97,6 @@ public class SearchForm extends FormBasicController{
 	private boolean withCancel;
 	private boolean isAdmin;
 	
-	private SingleSelection modules;
-
 	/**
 	 * Generic search form.
 	 * @param name Internal form name.
@@ -311,10 +307,6 @@ public class SearchForm extends FormBasicController{
 		resources.add(MovieFileResource.TYPE_NAME);
 		resources.add(FileResource.GENERIC_TYPE_NAME);
 		return resources;
-	}
-
-	public String getModule() {
-		return modules.getSelectedKey();
 	}
 
 }
