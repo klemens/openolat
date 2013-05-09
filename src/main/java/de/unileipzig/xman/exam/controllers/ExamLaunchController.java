@@ -146,12 +146,6 @@ public class ExamLaunchController extends MainLayoutBasicController implements
 		vcMain.contextPut("examType", translator.translate(this.exam
 				.getIsOral() ? "oral" : "written"));
 
-		vcMain.contextPut("author", exam.getIdentity().getUser().getProperty(
-				UserConstants.LASTNAME, null)
-				+ ", "
-				+ exam.getIdentity().getUser().getProperty(
-						UserConstants.FIRSTNAME, null));
-
 		vcMain.contextPut("regStartDate",
 				exam.getRegStartDate() == null ? "n/a" : DateFormat
 						.getDateTimeInstance(DateFormat.SHORT,
