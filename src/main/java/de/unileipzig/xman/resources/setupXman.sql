@@ -72,7 +72,6 @@ CREATE TABLE `o_xman_protocol` (
   `appointment_id` bigint(20) DEFAULT NULL,
   `exam_id` bigint(20) DEFAULT NULL,
   `identity_id` bigint(20) DEFAULT NULL,
-  `module_id` bigint(20) DEFAULT NULL,
   `earmarked` tinyint(1) DEFAULT NULL,
   `comments` text,
   `grade` text,
