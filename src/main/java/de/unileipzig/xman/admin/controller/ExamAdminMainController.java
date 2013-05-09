@@ -107,14 +107,6 @@ public class ExamAdminMainController extends MainLayoutBasicController implement
 			layout3ColsCtr.setCol2(null);
 			return vcPage;
 		}
-		
-		else if ( uobject.equals("modules") ) {
-			
-			ExamAdminModulesController modulesCtr = new ExamAdminModulesController(ureq, getWindowControl());
-			modulesCtr.addControllerListener(this);
-			layout3ColsCtr.setCol2(modulesCtr.getToolController().getInitialComponent());
-			return modulesCtr.getInitialComponent();
-		}
 		else if ( uobject.equals("esf") ) {
 			ExamAdminESFController esfCtr = new ExamAdminESFController(ureq, getWindowControl());
 			esfCtr.addControllerListener(this);
@@ -140,7 +132,7 @@ public class ExamAdminMainController extends MainLayoutBasicController implement
 	 */
 	private TreeModel buildTreeModel(UserRequest ureq){
 		
-		GenericTreeNode modules, admin, ESF, studyPath;
+		GenericTreeNode admin, ESF, studyPath;
 				
 		GenericTreeModel gtm = new GenericTreeModel();
 		admin = new GenericTreeNode();		
@@ -154,12 +146,6 @@ public class ExamAdminMainController extends MainLayoutBasicController implement
 		studyPath.setUserObject("studyPath");
 		studyPath.setAltText(translator.translate("ExamAdminMainController.menu.esf.studyPath.alt"));
 		admin.addChild(studyPath);
-		
-		modules = new GenericTreeNode();		
-		modules.setTitle(translator.translate("ExamAdminMainController.menu.modules"));
-		modules.setUserObject("modules");
-		modules.setAltText(translator.translate("ExamAdminMainController.menu.modules.alt"));
-		admin.addChild(modules);
 		
 		ESF = new GenericTreeNode();
 		ESF.setTitle(translator.translate("ExamAdminMainController.menu.esf"));

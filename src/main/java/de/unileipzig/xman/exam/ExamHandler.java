@@ -140,7 +140,6 @@ public class ExamHandler implements RepositoryHandler {
 		Exam oldExam = ExamDBManager.getInstance().findExamByID(res.getResourceableId());
 		Exam newExam = new ExamImpl();
 		
-		newExam.setModule(oldExam.getModule());
 		newExam.setComments(oldExam.getComments());
 		newExam.setEarmarkedEnabled(oldExam.getEarmarkedEnabled());
 		newExam.setIsOral(oldExam.getIsOral());

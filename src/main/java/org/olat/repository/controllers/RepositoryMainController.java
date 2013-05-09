@@ -85,8 +85,6 @@ import org.olat.repository.handlers.RepositoryHandlerFactory;
 import de.bps.olat.repository.controllers.WizardAddOwnersController;
 
 import de.unileipzig.xman.exam.Exam;
-import de.unileipzig.xman.module.ModuleManager;
-import org.olat.core.helpers.Settings;
 
 /**
  * Description: <br>
@@ -852,10 +850,6 @@ public class RepositoryMainController extends MainLayoutBasicController implemen
 		} else if (event.getCommand().equals(ACTION_NEW_EXAM)) {
 			// XMAN: möglichweise muss hier noch:
 			// removeAsListenerAndDispose(addController);
-			if (ModuleManager.getInstance().findAllModules().size() == 0) {
-				this.getWindowControl().setWarning(translate("tools.new.exam.error.noCategories"));
-				return;
-			}
 			addController = new RepositoryAddController(urequest, getWindowControl(), RepositoryAddController.ACTION_NEW_EXAM);
 			addController.addControllerListener(this);
 			cmc = new CloseableModalController(getWindowControl(), translate("close"), addController.getInitialComponent());

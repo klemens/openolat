@@ -86,7 +86,6 @@ public class ExamLaunchController extends MainLayoutBasicController implements
 
 	private VelocityContainer vcMain;
 	private Translator translator;
-	private Link moduleLink;
 	private Exam exam;
 	private ESFCommentCreateAndEditForm commentForm;
 	private TableController appTableCtr, myAppTableCtr, earProtoTableCtr,
@@ -146,9 +145,6 @@ public class ExamLaunchController extends MainLayoutBasicController implements
 
 		vcMain.contextPut("examType", translator.translate(this.exam
 				.getIsOral() ? "oral" : "written"));
-
-		moduleLink = LinkFactory.createCustomLink("moduleLink", "command", exam
-				.getModule().getName(), Link.NONTRANSLATED, vcMain, this);
 
 		vcMain.contextPut("author", exam.getIdentity().getUser().getProperty(
 				UserConstants.LASTNAME, null)
@@ -416,25 +412,6 @@ public class ExamLaunchController extends MainLayoutBasicController implements
 	 *      org.olat.core.gui.control.Event)
 	 */
 	public void event(UserRequest ureq, Component source, Event event) {
-
-		if (source == moduleLink) {
-
-			VelocityContainer vcModule = new VelocityContainer("examLaunch",
-					VELOCITY_ROOT + "/moduleDetails.html", translator, this);
-			// TODO: siehe oben
-			vcModule.contextPut("moduleDescription", Formatter.truncate(exam
-					.getModule().getDescription(), 4096));
-			vcModule.contextPut("modulePersonInCharge", exam.getModule()
-					.getPersonInCharge().getUser().getProperty(
-							UserConstants.LASTNAME, null)
-					+ ", "
-					+ exam.getModule().getPersonInCharge().getUser()
-							.getProperty(UserConstants.FIRSTNAME, null));
-			CloseableModalController cmc = new CloseableModalController(this
-					.getWindowControl(), translator.translate("close"),
-					vcModule, true, exam.getModule().getName());
-			cmc.activate();
-		}
 
 		// register student manually
 		if (source == addStudent) {
@@ -1328,7 +1305,6 @@ public class ExamLaunchController extends MainLayoutBasicController implements
 					AppointmentManager.getInstance().updateAppointment(tempApp);
 				}
 				proto.setAppointment(tempApp);
-				proto.setModule(exam.getModule());
 				ProtocolManager.getInstance().saveProtocol(proto);
 
 				// add the protocol to the students esf
