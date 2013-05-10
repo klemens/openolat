@@ -60,6 +60,8 @@ import java.util.regex.Pattern;
 
 import javax.servlet.http.HttpServletRequest;
 
+import org.json.JSONException;
+import org.json.JSONObject;
 import org.olat.core.CoreSpringFactory;
 import org.olat.core.helpers.Settings;
 import org.olat.core.logging.AssertException;
@@ -1123,6 +1125,32 @@ public class I18nManager extends BasicManager {
 		}
 		return jsTranslatorData;
 	}
+	
+	public JSONObject getJSONTranslatorData(Locale locale, String bundleName) {
+		JSONObject array = new JSONObject();
+		Locale referenceLocale = I18nModule.getFallbackLocale();
+		Properties properties = getPropertiesWithoutResolvingRecursively(referenceLocale, bundleName);
+		Set<Object> keys = properties.keySet();
+		for (Object keyObject : keys) {
+			String key = (String) keyObject;
+			String value = getLocalizedString(bundleName, key, null, locale, I18nModule.isOverlayEnabled(), true);
+			if (value == null) {
+				// use bundlename:key as value in case the key can't be
+				// translated
+				value = buildI18nItemIdentifyer(bundleName, key);
+			}
+			// remove line breaks and escape double quotes
+			value = StringHelper.stripLineBreaks(value);
+			value = Formatter.escapeDoubleQuotes(value).toString();
+
+			try {
+				array.put(key, value);
+			} catch (JSONException e) {
+				logError("", e);
+			}
+		}
+		return array;
+	}
 
 	/**
 	 * Get the last modified date of this bundle and locale
@@ -1654,6 +1682,10 @@ public class I18nManager extends BasicManager {
 	 * @return
 	 */
 	public String getLocaleKey(Locale locale) {
+		if(locale == null) {
+			System.out.println();
+		}
+		
 		String langKey = locale.getLanguage();
 		String country = locale.getCountry();
 		// Only add country when available - in case of an overlay country is

@@ -30,12 +30,11 @@ import org.olat.core.commons.fullWebApp.LayoutMain3ColsController;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.Component;
 import org.olat.core.gui.components.panel.Panel;
+import org.olat.core.gui.components.tree.TreeEvent;
 import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.Event;
 import org.olat.core.gui.control.WindowControl;
 import org.olat.core.gui.control.controller.MainLayoutBasicController;
-import org.olat.core.gui.control.generic.ajax.tree.TreeNodeClickedEvent;
-import org.olat.core.gui.control.generic.ajax.tree.TreeNodeModifiedEvent;
 import org.olat.core.gui.control.generic.layout.MainLayout3ColumnsController;
 import org.olat.core.id.OLATResourceable;
 import org.olat.core.util.coordinate.CoordinatorManager;
@@ -156,24 +155,16 @@ public class CPEditMainController extends MainLayoutBasicController {
 	// nothing
 	}
 
+	@Override
 	protected void event(UserRequest ureq, Controller source, Event event) {
 		if (source == treeCtr) {
-			// event from TreeController
-			if (event instanceof TreeNodeClickedEvent) {
-				TreeNodeClickedEvent clickedEvent = (TreeNodeClickedEvent) event;
-				String nodeId = clickedEvent.getNodeId();
+			if (event instanceof TreeEvent) {
+				TreeEvent te = (TreeEvent)event;
+				String nodeId = te.getNodeId();
 				contentCtr.displayPage(ureq, nodeId);
-
-			} else if (event instanceof TreeNodeModifiedEvent) {
-				TreeNodeModifiedEvent nodeEvent = (TreeNodeModifiedEvent) event;
-				String nodeId = nodeEvent.getNodeId();
-				String newItemTitle = nodeEvent.getModifiedValue();
-				treeCtr.updateNode(nodeId, newItemTitle);
-
 			} else if (event.getCommand().equals("New Page")) {
 				String newIdentifier = treeCtr.addNewHTMLPage();
 				contentCtr.displayPage(ureq, newIdentifier);
-
 			} else if (event instanceof NewCPPageEvent) {
 				contentCtr.displayPage(ureq, ((NewCPPageEvent) event).getCPPage().getIdentifier());
 			}

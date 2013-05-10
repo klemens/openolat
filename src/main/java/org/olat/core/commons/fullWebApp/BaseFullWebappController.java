@@ -174,6 +174,11 @@ public class BaseFullWebappController extends BasicController implements Generic
 				currentGuiStack.pushModalDialog(newModalDialog);
 			}
 
+			@Override
+			public void pushAsCallout(Component comp, String targetId) {
+				currentGuiStack.pushCallout(comp, targetId);
+			}
+
 			/**
 			 * @see org.olat.core.gui.control.WindowControl#pop()
 			 */
@@ -445,10 +450,10 @@ public class BaseFullWebappController extends BasicController implements Generic
 	private void addCustomThemeJS() {
 		Theme currentTheme = getWindowControl().getWindowBackOffice().getWindow().getGuiTheme();
 		if (currentTheme.hasCustomJS()) {
-			String fullPath = currentTheme.getFullPathToCustomJS();
-			CustomJSComponent customJS = new CustomJSComponent("customThemejs", new String[] { fullPath });
+			String relPath = currentTheme.getRelPathToCustomJS();
+			CustomJSComponent customJS = new CustomJSComponent("customThemejs", new String[] { relPath });
 			if (isLogDebugEnabled())
-				logDebug("injecting custom javascript from current OLAT-Theme", fullPath);
+				logDebug("injecting custom javascript from current OLAT-Theme", relPath);
 			mainVc.put(customJS.getComponentName(), customJS);
 		}
 	}
@@ -884,12 +889,10 @@ public class BaseFullWebappController extends BasicController implements Generic
 			Link calink = LinkFactory.createCustomLink("ca" + dtabCreateCounter, "ca" + dtabCreateCounter, "", Link.NONTRANSLATED, navVc, this);
 			calink.setCustomEnabledLinkCSS("b_nav_tab_close");
 			calink.setTitle(translate("close"));
-			calink.setTooltip(translate("close"), false);
 			calink.setUserObject(dt);
 			Link cplink = LinkFactory.createCustomLink("cp" + dtabCreateCounter, "cp" + dtabCreateCounter, "", Link.NONTRANSLATED, navVc, this);
 			cplink.setCustomEnabledLinkCSS("b_nav_tab_close");
 			cplink.setTitle(translate("close"));
-			cplink.setTooltip(translate("close"), false);
 			cplink.setUserObject(dt);
 
 			Controller dtabCtr = dt.getController();
