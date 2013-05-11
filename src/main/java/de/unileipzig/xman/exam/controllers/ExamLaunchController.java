@@ -64,6 +64,7 @@ import de.unileipzig.xman.comment.CommentEntry;
 import de.unileipzig.xman.comment.CommentManager;
 import de.unileipzig.xman.esf.ElectronicStudentFile;
 import de.unileipzig.xman.esf.ElectronicStudentFileManager;
+import de.unileipzig.xman.esf.controller.ESFCreateController;
 import de.unileipzig.xman.esf.controller.ESFEditController;
 import de.unileipzig.xman.esf.form.ESFCommentCreateAndEditForm;
 import de.unileipzig.xman.esf.table.ESFTableModel;
@@ -109,6 +110,7 @@ public class ExamLaunchController extends MainLayoutBasicController implements
 	private CloseableModalController editCommentCtr;
 	private CloseableModalController sendMailCtr;
 	private MailForm mailForm;
+	private ExamDetailsController examDetailsControler;
 
 	/**
 	 * creates the controller for the exam launcher
@@ -131,7 +133,8 @@ public class ExamLaunchController extends MainLayoutBasicController implements
 		this.exam = exam;
 		this.isResourceOwner = isResourceOwner;
 		this.isOLATUser = isOLATUser;
-
+		this.examDetailsControler = new ExamDetailsController(ureq, wControl);
+		
 		String tmpExamName = ExamDBManager.getInstance().getExamName(this.exam);
 		if (!tmpExamName.equals(this.exam.getName())) {
 			this.exam.setName(tmpExamName);
@@ -1292,7 +1295,12 @@ public class ExamLaunchController extends MainLayoutBasicController implements
 				proto.setIdentity(id);
 				proto.setEarmarked(isEarmarked);
 				proto.setExam(exam);
-
+				
+				//TODO Ask for "Anrechnung der Prüfung" and "Erst- oder Zweitprüfung"
+				cmc = new CloseableModalController(getWindowControl(), translate("close"), examDetailsControler.getInitialComponent());
+				listenTo(cmc);
+				cmc.activate();
+				
 				// set appointment to occupied if its an oral exam
 				if (exam.getIsOral()) {
 					tempApp.setOccupied(true);
