@@ -99,9 +99,11 @@ public class ExamLaunchController extends MainLayoutBasicController implements
 	private EditMarkForm editMarkForm;
 	private CloseableModalController cmc;
 	private UserSearchController usc;
+	private ExamEditorController eec;
 	private List<Protocol> protoList = null;
 	private Identity id;
 	private Link addStudent;
+	private Link editExam;
 
 	private LayoutMain3ColsController columnLayoutCtr;
 	private CommentEntry commentEntry;
@@ -131,6 +133,7 @@ public class ExamLaunchController extends MainLayoutBasicController implements
 		this.exam = exam;
 		this.isResourceOwner = isResourceOwner;
 		this.isOLATUser = isOLATUser;
+
 
 		String tmpExamName = ExamDBManager.getInstance().getExamName(this.exam);
 		if (!tmpExamName.equals(this.exam.getName())) {
@@ -170,7 +173,8 @@ public class ExamLaunchController extends MainLayoutBasicController implements
 		// Formatter.formatwikimarkup() war um Formatter.truncate() drumrum
 		vcMain.contextPut("comments", comments.equals("") ? translator
 				.translate("ExamLaunchController.comments.isEmpty") : Formatter
-				.truncate(comments, 2048));
+				.truncate(comments, 2048));	
+
 
 		columnLayoutCtr = new LayoutMain3ColsController(ureq,
 				getWindowControl(), null, null, vcMain, "examLaunch");
@@ -178,6 +182,17 @@ public class ExamLaunchController extends MainLayoutBasicController implements
 		// add background image to home site
 		columnLayoutCtr.addCssClassToMain("o_home");
 
+		if(isResourceOwner)
+		{
+		    this.editExam = LinkFactory.createButtonSmall("ExamLaunchController.link.editExam", vcMain, this);
+		    vcMain.put("editExam", editExam);
+		    vcMain.contextPut("is_resourceOwner", true); 
+		}
+		else
+		{
+			vcMain.contextPut("is_resourceOwner", false);
+		}
+		
 		this.setAppointmentTable(ureq);
 
 		this.setProtocolTable(ureq);
@@ -276,7 +291,7 @@ public class ExamLaunchController extends MainLayoutBasicController implements
 		vcMain.contextPut("showProtocolTable", false);
 		if (isResourceOwner) {
 			vcMain.contextPut("showProtocolTable", true);
-
+			
 			this.addStudent = LinkFactory.createButtonSmall(
 					"ExamLaunchController.link.addStudent", vcMain, this);
 			vcMain.put("addStudent", addStudent);
@@ -415,6 +430,12 @@ public class ExamLaunchController extends MainLayoutBasicController implements
 			cmc = new CloseableModalController(this.getWindowControl(),
 					translator.translate("close"), usc.getInitialComponent());
 			cmc.activate();
+		}
+	
+		if (source == editExam) {
+			
+			eec = new ExamEditorController(ureq, this.getWindowControl(), res);
+			eec.addControllerListener(this);			
 		}
 
 	}
@@ -698,8 +719,7 @@ public class ExamLaunchController extends MainLayoutBasicController implements
 										"ExamLaunchController.removedFromEarmarkedStudentManually",
 										args);
 
-						this
-								.createCommentForStudent(ureq,
+						this.createCommentForStudent(ureq,
 										ElectronicStudentFileManager
 												.getInstance()
 												.retrieveESFByIdentity(

@@ -72,4 +72,7 @@
 			</fieldset>
 		</fieldset>
 	#end
+#if ($is_resourceOwner) 
+  <p>$r.render("ExamLaunchController.link.editExam")</p> 
+#end
 </div>
