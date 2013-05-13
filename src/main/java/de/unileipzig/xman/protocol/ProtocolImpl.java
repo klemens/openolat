@@ -18,6 +18,8 @@ public class ProtocolImpl extends PersistentObject implements Protocol {
 	private String comments;
 	private String grade;
 	private Date lastModified;
+	private String clawback;
+	private String examType;
 	
 	/**
 	 * constructor
@@ -145,6 +147,27 @@ public class ProtocolImpl extends PersistentObject implements Protocol {
 	public String getResourceableTypeName() {
 	
 		return Protocol.ORES_TYPE_NAME;
+	}
+
+	@Override
+	public void setClawback(String clawback) {
+		this.clawback = clawback;		
+	}
+
+	@Override
+	public void setExamType(String examType) {
+		this.examType = examType;
+	}
+
+	@Override
+	public String getClawback() {
+		return clawback;
+	}
+
+	@Override
+	public String getExamType() {
+		// TODO Auto-generated method stub
+		return examType;
 	}
 	
 }

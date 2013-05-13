@@ -1317,7 +1317,8 @@ public class ExamLaunchController extends MainLayoutBasicController implements
 				proto.setIdentity(id);
 				proto.setEarmarked(isEarmarked);
 				proto.setExam(exam);
-				
+				proto.setClawback(examDetailsControler.getClawback());
+				proto.setExamType(examDetailsControler.getChooseExamType());
 				
 				
 				// set appointment to occupied if its an oral exam

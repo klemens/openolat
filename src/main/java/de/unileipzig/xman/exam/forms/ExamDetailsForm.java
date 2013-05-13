@@ -23,6 +23,12 @@ import org.olat.core.util.Util;
 import de.unileipzig.xman.appointment.Appointment;
 import de.unileipzig.xman.exam.Exam;
 
+/**
+ * Form for the details, asked when writing into Exam
+ * 
+ * @author robert seidler
+ *
+ */
 public class ExamDetailsForm extends FormBasicController {
 
 	private Cancel cancel;

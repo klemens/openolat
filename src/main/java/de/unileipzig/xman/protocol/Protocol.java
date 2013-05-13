@@ -47,6 +47,16 @@ public interface Protocol extends OLATResourceable, CreateInfo, Persistable, Mod
 	 */
 	public void setGrade(String grade);
 	
+	/**
+	 * @param clawback, sets the clawback
+	 */
+	public void setClawback(String clawback);
+	
+	/**
+	 * @param examType, sets the Typ of the Exam. first or second
+	 */
+	public void setExamType(String examType);
+	
 	/*---------------- getter ------------------*/
 	
 	/**
@@ -78,4 +88,14 @@ public interface Protocol extends OLATResourceable, CreateInfo, Persistable, Mod
 	 * @return the grade for this student
 	 */
 	public String getGrade();
+	
+	/**
+	 * @return the clawback for this Exam
+	 */
+	public String getClawback();
+	
+	/**
+	 * @return the Typ of the Exam
+	 */
+	public String getExamType();
 }
