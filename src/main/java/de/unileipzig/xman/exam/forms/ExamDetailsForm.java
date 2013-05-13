@@ -37,8 +37,8 @@ public class ExamDetailsForm extends FormBasicController {
 	private WindowControl wControl;
 	private TextElement chooseClawback;
 	
-	public static String FIRST_KEY = "first";
-	public static String SECOND_KEY = "second";
+	public static String FIRST_KEY = "ExamDetailsController.first";
+	public static String SECOND_KEY = "ExamDetailsController.second";
 	
 	
 	

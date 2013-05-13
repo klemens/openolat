@@ -1318,8 +1318,7 @@ public class ExamLaunchController extends MainLayoutBasicController implements
 				proto.setEarmarked(isEarmarked);
 				proto.setExam(exam);
 				proto.setComments(examDetailsControler.getClawback() + "; " 
-						+ (examDetailsControler.getChooseExamType() == Exam.ORIGINAL_EXAM ? translator.translate("first") : translator.translate("second")) 
-						+ ";\n" + (proto.getComments() == null ? "" : proto.getComments()));
+						+ (examDetailsControler.getChooseExamType() == Exam.ORIGINAL_EXAM ? translator.translate("ExamDetailsController.first") : translator.translate("ExamDetailsController.second")));
 				
 				// set appointment to occupied if its an oral exam
 				if (exam.getIsOral()) {
