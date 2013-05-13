@@ -92,7 +92,7 @@ public class ExamDetailsController extends MainLayoutBasicController implements 
 	private ExamDetailsForm examDetailsForm;
 	private Translator translator;
 	private String clawback;
-	private String examType;
+	private int examType;
 	private TableEvent te;
 	
 	
@@ -124,7 +124,7 @@ public class ExamDetailsController extends MainLayoutBasicController implements 
 		return clawback;	
 	}
 	
-	public String getChooseExamType(){
+	public int getChooseExamType(){
 		return examType;
 	}
 	

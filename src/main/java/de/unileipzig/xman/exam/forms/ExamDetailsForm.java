@@ -85,8 +85,9 @@ public class ExamDetailsForm extends FormBasicController {
 		return chooseClawback.getValue();
 	}
 	
-	public String getExamTypeSwitchElem(){
-		return examTypeSwitchElem.getSelectedKey();
+	public int getExamTypeSwitchElem(){
+		if(examTypeSwitchElem.getSelectedKey() == ExamDetailsForm.FIRST_KEY) return Exam.ORIGINAL_EXAM;
+		else return Exam.REAPEAT_EXAM;
 	}
 	
 	

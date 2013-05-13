@@ -26,6 +26,9 @@ public interface Exam extends ModifiedInfo, CreateInfo, Persistable, OLATResourc
 	public static String EXAM_TYPE_WRITTEN = "written";
 	public static String EXAM_TYPE_ORAL = "oral";
 	
+	public static int ORIGINAL_EXAM = 192;
+	public static int REAPEAT_EXAM = 193;
+	
 	public RepositoryEntry getCourseRepoEntry();
 	
 	public ReferenceImpl getCourseReference();

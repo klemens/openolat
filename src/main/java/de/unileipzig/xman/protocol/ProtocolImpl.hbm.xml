@@ -36,6 +36,6 @@
 	<property name="earmarked" column="earmarked" unique="false" type="boolean" not-null="false"/>
 	<property name="comments" column="comments" unique="false" type="string" not-null="false" length="16777210"/>
 	<property name="grade" column="grade" unique="false" type="string" not-null="false" length="16777210"/>
-  	
+  	  	
   </class>  
 </hibernate-mapping>
