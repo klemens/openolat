@@ -64,6 +64,7 @@ import de.unileipzig.xman.comment.CommentEntry;
 import de.unileipzig.xman.comment.CommentManager;
 import de.unileipzig.xman.esf.ElectronicStudentFile;
 import de.unileipzig.xman.esf.ElectronicStudentFileManager;
+import de.unileipzig.xman.esf.controller.ESFCreateController;
 import de.unileipzig.xman.esf.controller.ESFEditController;
 import de.unileipzig.xman.esf.form.ESFCommentCreateAndEditForm;
 import de.unileipzig.xman.esf.table.ESFTableModel;
@@ -98,6 +99,7 @@ public class ExamLaunchController extends MainLayoutBasicController implements
 	private OLATResourceable res;
 	private EditMarkForm editMarkForm;
 	private CloseableModalController cmc;
+	private CloseableModalController detailsController;
 	private UserSearchController usc;
 	private List<Protocol> protoList = null;
 	private Identity id;
@@ -109,6 +111,7 @@ public class ExamLaunchController extends MainLayoutBasicController implements
 	private CloseableModalController editCommentCtr;
 	private CloseableModalController sendMailCtr;
 	private MailForm mailForm;
+	private ExamDetailsController examDetailsControler;
 
 	/**
 	 * creates the controller for the exam launcher
@@ -131,7 +134,7 @@ public class ExamLaunchController extends MainLayoutBasicController implements
 		this.exam = exam;
 		this.isResourceOwner = isResourceOwner;
 		this.isOLATUser = isOLATUser;
-
+		
 		String tmpExamName = ExamDBManager.getInstance().getExamName(this.exam);
 		if (!tmpExamName.equals(this.exam.getName())) {
 			this.exam.setName(tmpExamName);
@@ -529,19 +532,39 @@ public class ExamLaunchController extends MainLayoutBasicController implements
 				this.getWindowControl().pop();
 			}
 		}
+		
+		//
 		if (source == appTableCtr) {
 
 			if (event.getCommand().equals(Table.COMMANDLINK_ROWACTION_CLICKED)) {
-
+				
 				TableEvent te = (TableEvent) event;
-				String actionid = te.getActionId();
+				
+								
+				if (te.getActionId().equals(AppointmentTableModel.SELECT_SUBSCRIBE)){
+				
+					//Ask for exam type and accountFor
+					examDetailsControler = new ExamDetailsController(ureq, this.getWindowControl());
+					detailsController = new CloseableModalController(getWindowControl(), translate("close"), examDetailsControler.getInitialComponent());
+					listenTo(examDetailsControler);
+					examDetailsControler.setAppointment(appTableMdl.getEntryAt(te.getRowId()));
+					detailsController.activate();
+				}				
+			}
+		}
+		
+		if (source == examDetailsControler) {
 
+				Appointment ap = examDetailsControler.getAppointment();
+				
 				// subscribe to exam
-				if (actionid.equals(AppointmentTableModel.SELECT_SUBSCRIBE)) {
+				if (event == Event.DONE_EVENT) {
+					
+					detailsController.deactivate();
+					detailsController.dispose();
 
 					// register student to the choosen appointment
-					this.registerStudent(appTableMdl.getEntryAt(te.getRowId()),
-							ureq.getIdentity(), exam.getEarmarkedEnabled());
+					this.registerStudent(ap, ureq.getIdentity(), exam.getEarmarkedEnabled());
 					this.setAppointmentTable(ureq);
 
 					// add a comment to the esf
@@ -565,7 +588,7 @@ public class ExamLaunchController extends MainLayoutBasicController implements
 					this.setProtocolTable(ureq);
 					this.setAppointmentTable(ureq);
 				}
-			}
+			
 		}
 
 		if (source == myAppTableCtr) {
@@ -1292,7 +1315,18 @@ public class ExamLaunchController extends MainLayoutBasicController implements
 				proto.setIdentity(id);
 				proto.setEarmarked(isEarmarked);
 				proto.setExam(exam);
-
+				
+				if(examDetailsControler != null) {
+					String examType = examDetailsControler.getChooseExamType() == Exam.ORIGINAL_EXAM
+	                                    ? translator.translate("ExamDetailsController.first")
+	                                    : translator.translate("ExamDetailsController.second");
+					String accountFor = examDetailsControler.getAccountFor();
+	                if(accountFor == "")
+	                    proto.setComments(examType);
+	                else
+	                    proto.setComments(examType + ": " + accountFor);
+				}
+				
 				// set appointment to occupied if its an oral exam
 				if (exam.getIsOral()) {
 					tempApp.setOccupied(true);
