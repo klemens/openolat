@@ -47,7 +47,7 @@ public class UserPropertiesConfigImpl extends LogDelegator implements UserProper
 	
 	private static final String USER_PROPERTY_LOG_CONFIGURATION = "userPropertyLogConfiguration";
 	public static final String PACKAGE = UserPropertiesConfigImpl.class.getPackage().getName(); 
-	
+
 	
 	private Map<String, UserPropertyHandler> userPropertyNameLookupMap;
 	private Map<String, List<UserPropertyHandler>> userPropertyUsageContextsLookupMap = new HashMap<String, List<UserPropertyHandler>>();
@@ -98,7 +98,7 @@ public class UserPropertiesConfigImpl extends LogDelegator implements UserProper
 		UserPropertyHandler handler =  userPropertyNameLookupMap.get(handlerName);
 		if (isLogDebugEnabled() && handler == null) {
 			logDebug("UserPropertyHander for handlerName::" + handlerName + " not found, check your configuration.", null);
-		}		
+		}
 		return handler;
 	}
 

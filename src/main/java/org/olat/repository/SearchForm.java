@@ -37,7 +37,6 @@ import org.olat.core.gui.components.form.flexible.FormItemContainer;
 import org.olat.core.gui.components.form.flexible.elements.FormLink;
 import org.olat.core.gui.components.form.flexible.elements.MultipleSelectionElement;
 import org.olat.core.gui.components.form.flexible.elements.SelectionElement;
-import org.olat.core.gui.components.form.flexible.elements.SingleSelection;
 import org.olat.core.gui.components.form.flexible.elements.TextElement;
 import org.olat.core.gui.components.form.flexible.impl.FormBasicController;
 import org.olat.core.gui.components.form.flexible.impl.FormEvent;
@@ -46,7 +45,6 @@ import org.olat.core.gui.components.link.Link;
 import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.Event;
 import org.olat.core.gui.control.WindowControl;
-import org.olat.core.helpers.Settings;
 import org.olat.core.logging.AssertException;
 import org.olat.course.CourseModule;
 import org.olat.fileresource.types.AnimationFileResource;
@@ -68,8 +66,6 @@ import org.olat.fileresource.types.XlsFileResource;
 import org.olat.ims.qti.fileresource.SurveyFileResource;
 import org.olat.ims.qti.fileresource.TestFileResource;
 import org.olat.portfolio.EPTemplateMapResource;
-
-import de.unileipzig.xman.exam.Exam;
 
 /**
  * Initial Date:  08.07.2003
@@ -205,7 +201,13 @@ public class SearchForm extends FormBasicController{
 	}
 	
 	private void update () {
-	// XMAN: removed
+		if (limitTypes != null && limitTypes.length > 0) {
+			typesSelection.setVisible(false);
+			types.setVisible(false);
+		} else {
+			types.setVisible(typesSelection.isSelected(0));
+			types.uncheckAll();
+		}
 	}
 	
 	@Override
