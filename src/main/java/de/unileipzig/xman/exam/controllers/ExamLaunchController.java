@@ -134,7 +134,6 @@ public class ExamLaunchController extends MainLayoutBasicController implements
 		this.exam = exam;
 		this.isResourceOwner = isResourceOwner;
 		this.isOLATUser = isOLATUser;
-		this.examDetailsControler = new ExamDetailsController(ureq, wControl);
 		
 		String tmpExamName = ExamDBManager.getInstance().getExamName(this.exam);
 		if (!tmpExamName.equals(this.exam.getName())) {
@@ -534,30 +533,33 @@ public class ExamLaunchController extends MainLayoutBasicController implements
 			}
 		}
 		
+		//
 		if (source == appTableCtr) {
 
 			if (event.getCommand().equals(Table.COMMANDLINK_ROWACTION_CLICKED)) {
 				
 				TableEvent te = (TableEvent) event;
+				
 								
 				if (te.getActionId().equals(AppointmentTableModel.SELECT_SUBSCRIBE)){
 				
-					//TODO Ask for "Anrechnung der Prüfung" and "Erst- oder Zweitprüfung"
+					//Ask for "Anrechnung der Prüfung" and "Erst- oder Zweitprüfung"
+					
 					if(detailsController == null || detailsController.isDisposed()){
+						examDetailsControler = new ExamDetailsController(ureq, this.getWindowControl());
 						detailsController = new CloseableModalController(getWindowControl(), translate("close"), examDetailsControler.getInitialComponent());
 						listenTo(detailsController);
 						listenTo(examDetailsControler);
-						examDetailsControler.setTe(te);
+						examDetailsControler.setAppointment(appTableMdl.getEntryAt(te.getRowId()));
 					}
-				}
-				
-				detailsController.activate();
+					detailsController.activate();
+				}				
 			}
 		}
 		
 		if (source == examDetailsControler) {
 
-				TableEvent te = examDetailsControler.getTe();
+				Appointment ap = examDetailsControler.getAppointment();
 				
 				// subscribe to exam
 				if (event == Event.DONE_EVENT) {
@@ -565,8 +567,7 @@ public class ExamLaunchController extends MainLayoutBasicController implements
 					detailsController.deactivate();
 
 					// register student to the choosen appointment
-					this.registerStudent(appTableMdl.getEntryAt(te.getRowId()),
-							ureq.getIdentity(), exam.getEarmarkedEnabled());
+					this.registerStudent(ap, ureq.getIdentity(), exam.getEarmarkedEnabled());
 					this.setAppointmentTable(ureq);
 
 					// add a comment to the esf

@@ -1,26 +1,16 @@
 package de.unileipzig.xman.exam.forms;
 
-import java.text.SimpleDateFormat;
-import java.util.Date;
-
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.form.Form;
 import org.olat.core.gui.components.form.flexible.FormItemContainer;
-import org.olat.core.gui.components.form.flexible.elements.DateChooser;
 import org.olat.core.gui.components.form.flexible.impl.FormBasicController;
-import org.olat.core.gui.components.form.flexible.impl.FormLayoutContainer;
 import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.WindowControl;
 import org.olat.core.gui.components.form.flexible.elements.Cancel;
 import org.olat.core.gui.components.form.flexible.elements.SingleSelection;
 import org.olat.core.gui.components.form.flexible.elements.Submit;
 import org.olat.core.gui.components.form.flexible.elements.TextElement;
-import org.olat.core.gui.components.form.flexible.elements.IntegerElement;
-import org.olat.core.gui.translator.Translator;
-import org.olat.core.id.UserConstants;
 import org.olat.core.util.Util;
-
-import de.unileipzig.xman.appointment.Appointment;
 import de.unileipzig.xman.exam.Exam;
 
 /**
@@ -31,7 +21,6 @@ import de.unileipzig.xman.exam.Exam;
  */
 public class ExamDetailsForm extends FormBasicController {
 
-	private Cancel cancel;
 	private Submit submit;
 	private SingleSelection examTypeSwitchElem;
 	private WindowControl wControl;
