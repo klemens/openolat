@@ -49,6 +49,7 @@ import org.olat.core.util.mail.MailTemplate;
 import org.olat.core.util.mail.MailTemplateForm;
 import org.olat.repository.RepositoryEntry;
 import org.olat.repository.RepositoryManager;
+import org.olat.repository.handlers.RepositoryHandlerFactory;
 import org.olat.resource.OLATResourceManager;
 import org.olat.user.HomePageConfigManager;
 import org.olat.user.HomePageConfigManagerImpl;
@@ -104,6 +105,7 @@ public class ExamLaunchController extends MainLayoutBasicController implements
 	private List<Protocol> protoList = null;
 	private Identity id;
 	private Link addStudent;
+	private Link editExam;
 
 	private LayoutMain3ColsController columnLayoutCtr;
 	private CommentEntry commentEntry;
@@ -173,7 +175,8 @@ public class ExamLaunchController extends MainLayoutBasicController implements
 		// Formatter.formatwikimarkup() war um Formatter.truncate() drumrum
 		vcMain.contextPut("comments", comments.equals("") ? translator
 				.translate("ExamLaunchController.comments.isEmpty") : Formatter
-				.truncate(comments, 2048));
+				.truncate(comments, 2048));	
+
 
 		columnLayoutCtr = new LayoutMain3ColsController(ureq,
 				getWindowControl(), null, null, vcMain, "examLaunch");
@@ -181,6 +184,14 @@ public class ExamLaunchController extends MainLayoutBasicController implements
 		// add background image to home site
 		columnLayoutCtr.addCssClassToMain("o_home");
 
+		if(isResourceOwner) {
+		    editExam = LinkFactory.createButtonSmall("ExamLaunchController.link.editExam", vcMain, this);
+		    vcMain.put("editExam", editExam);
+		    vcMain.contextPut("isResourceOwner", true);
+		} else {
+			vcMain.contextPut("isResourceOwner", false);
+		}
+		
 		this.setAppointmentTable(ureq);
 
 		this.setProtocolTable(ureq);
@@ -279,7 +290,7 @@ public class ExamLaunchController extends MainLayoutBasicController implements
 		vcMain.contextPut("showProtocolTable", false);
 		if (isResourceOwner) {
 			vcMain.contextPut("showProtocolTable", true);
-
+			
 			this.addStudent = LinkFactory.createButtonSmall(
 					"ExamLaunchController.link.addStudent", vcMain, this);
 			vcMain.put("addStudent", addStudent);
@@ -418,6 +429,26 @@ public class ExamLaunchController extends MainLayoutBasicController implements
 			cmc = new CloseableModalController(this.getWindowControl(),
 					translator.translate("close"), usc.getInitialComponent());
 			cmc.activate();
+		}
+	
+		if (source == editExam) {
+			OLATResourceable ores = OLATResourceManager.getInstance().findResourceable(exam.getResourceableId(), Exam.ORES_TYPE_NAME);
+			DTabs dts = (DTabs) Windows.getWindows(ureq).getWindow(ureq).getAttribute("DTabs");
+
+			// Deleting the current tab and creating a new one with the same resource is a dirty hack
+			// TODO implement using a StackedController
+			DTab dt = dts.getDTab(ores);
+			if(dt == null) return;
+			dts.removeDTab(ureq, dt);
+
+			DTab dtNew = dts.createDTab(ores, exam.getName());
+
+			ExamEditorController eec = (ExamEditorController) RepositoryHandlerFactory.getInstance().getRepositoryHandler(Exam.ORES_TYPE_NAME)
+																		.createEditorController(ores, ureq, this.getWindowControl());
+			dtNew.setController(eec);
+
+			dts.addDTab(ureq, dtNew);
+			dts.activate(ureq, dtNew, null);
 		}
 
 	}
@@ -721,8 +752,7 @@ public class ExamLaunchController extends MainLayoutBasicController implements
 										"ExamLaunchController.removedFromEarmarkedStudentManually",
 										args);
 
-						this
-								.createCommentForStudent(ureq,
+						this.createCommentForStudent(ureq,
 										ElectronicStudentFileManager
 												.getInstance()
 												.retrieveESFByIdentity(

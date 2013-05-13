@@ -8,6 +8,7 @@ import java.util.Locale;
 
 import org.olat.core.commons.fullWebApp.LayoutMain3ColsController;
 import org.olat.core.gui.UserRequest;
+import org.olat.core.gui.Windows;
 import org.olat.core.gui.components.Component;
 import org.olat.core.gui.components.form.Form;
 import org.olat.core.gui.components.link.Link;
@@ -27,6 +28,8 @@ import org.olat.core.gui.control.DefaultController;
 import org.olat.core.gui.control.Event;
 import org.olat.core.gui.control.WindowControl;
 import org.olat.core.gui.control.generic.closablewrapper.CloseableModalController;
+import org.olat.core.gui.control.generic.dtabs.DTab;
+import org.olat.core.gui.control.generic.dtabs.DTabs;
 import org.olat.core.gui.control.generic.tool.ToolController;
 import org.olat.core.gui.control.generic.tool.ToolFactory;
 import org.olat.core.gui.translator.PackageTranslator;
@@ -41,6 +44,8 @@ import org.olat.core.util.coordinate.CoordinatorManager;
 import org.olat.core.util.coordinate.LockResult;
 import org.olat.repository.RepositoryEntry;
 import org.olat.repository.RepositoryManager;
+import org.olat.repository.handlers.RepositoryHandlerFactory;
+import org.olat.resource.OLATResourceManager;
 
 import de.unileipzig.xman.admin.mail.MailManager;
 import de.unileipzig.xman.appointment.Appointment;
@@ -50,6 +55,7 @@ import de.unileipzig.xman.calendar.CalendarManager;
 import de.unileipzig.xman.catalog.controller.ExamCatalogController;
 import de.unileipzig.xman.exam.Exam;
 import de.unileipzig.xman.exam.ExamDBManager;
+import de.unileipzig.xman.exam.ExamHandler;
 import de.unileipzig.xman.exam.forms.CreateAndEditAppointmentForm;
 import de.unileipzig.xman.exam.forms.EditCommentsForm;
 import de.unileipzig.xman.exam.forms.EditEarmarkedForm;
@@ -68,7 +74,7 @@ public class ExamEditorController extends DefaultController implements
 	private static final String VELOCITY_ROOT = Util
 			.getPackageVelocityRoot(Exam.class);
 
-	private static final String CMD_TOOLS_PREVIEW = "toolCtr.preview";
+	private static final String CMD_TOOLS_OPEN_EXAM = "toolCtr.openExam";
 	private static final String CMD_TOOLS_CLOSE_EDITOR = "toolCtr.close";
 	private static final String EXAM_EDITOR_LOCK = "examEditor.lock";
 
@@ -131,8 +137,8 @@ public class ExamEditorController extends DefaultController implements
 			toolCtr.addControllerListener(this);
 			toolCtr.addHeader(translator
 					.translate("ExamEditorController.toolCtr.header"));
-			toolCtr.addLink(CMD_TOOLS_PREVIEW, translator
-					.translate("ExamEditorController.toolCtr.preview"));
+			toolCtr.addLink(CMD_TOOLS_OPEN_EXAM, translator
+					.translate("ExamEditorController.toolCtr.openExam"));
 			toolCtr.addLink(CMD_TOOLS_CLOSE_EDITOR, translator
 					.translate("ExamEditorController.toolCtr.close"), null,
 					"o_tb_close");
@@ -321,14 +327,24 @@ public class ExamEditorController extends DefaultController implements
 				this.fireEvent(ureq, Event.DONE_EVENT);
 			}
 			// show preview
-			if (event.getCommand().equals(CMD_TOOLS_PREVIEW)) {
+			if (event.getCommand().equals(CMD_TOOLS_OPEN_EXAM)) {
+				OLATResourceable ores = OLATResourceManager.getInstance().findResourceable(exam.getResourceableId(), Exam.ORES_TYPE_NAME);
+				DTabs dts = (DTabs) Windows.getWindows(ureq).getWindow(ureq).getAttribute("DTabs");
 
-				ExamLaunchController examLaunchCtr = new ExamLaunchController(
-						ureq, this.getWindowControl(), exam, false, false);
-				cmc = new CloseableModalController(this.getWindowControl(),
-						translator.translate("close"), examLaunchCtr
-								.getInitialComponent());
-				cmc.activate();
+				// Deleting the current tab and creating a new one with the same resource is a dirty hack
+				// TODO implement using a StackedController
+				DTab dt = dts.getDTab(ores);
+				if(dt == null) return;
+				dts.removeDTab(ureq, dt);
+
+				DTab dtNew = dts.createDTab(ores, exam.getName());
+
+				ExamLaunchController examLaunchCtr = (ExamLaunchController) RepositoryHandlerFactory.getInstance().getRepositoryHandler(Exam.ORES_TYPE_NAME)
+																			.createLaunchController(ores, ureq, this.getWindowControl());
+				dtNew.setController(examLaunchCtr);
+
+				dts.addDTab(ureq, dtNew);
+				dts.activate(ureq, dtNew, null);
 			}
 		} else if (source == appTableCtr) {
 			if (event.getCommand().equals(Table.COMMAND_MULTISELECT)) {
