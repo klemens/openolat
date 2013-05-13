@@ -87,13 +87,14 @@ import de.unileipzig.xman.protocol.tables.ProtocolTableModel;
  */
 public class ExamDetailsController extends MainLayoutBasicController implements MainLayoutController {
 
-	
-	private ExamDetailsForm detailsForm;
-	private TabbedPane tabbedPane;
+
 	private VelocityContainer vcAttr;
 	private ExamDetailsForm examDetailsForm;
-	private RepositoryAddCallback addCallback;
 	private Translator translator;
+	private String clawback;
+	private String examType;
+	private TableEvent te;
+	
 	
 	/**
 	 * Create the Controller for the Details Form
@@ -106,8 +107,6 @@ public class ExamDetailsController extends MainLayoutBasicController implements 
 		translator = Util.createPackageTranslator(Exam.class, ureq.getLocale());
 
 		setTranslator(translator);
-		
-		tabbedPane = new TabbedPane("examCreatePane", ureq.getLocale());
 
 		vcAttr = new VelocityContainer("vcAttr", Util.getPackageVelocityRoot(Exam.class)
 				+ "/chooseAttr.html", translator, this);
@@ -120,6 +119,33 @@ public class ExamDetailsController extends MainLayoutBasicController implements 
 		this.putInitialPanel(vcAttr);
 		
 	}
+	
+	public String getClawback(){
+		return clawback;	
+	}
+	
+	public String getChooseExamType(){
+		return examType;
+	}
+	
+
+	@Override
+	protected void event(UserRequest ureq, Controller source, Event event) {
+		// TODO Auto-generated method stub
+		if(source == examDetailsForm){			
+			if(event == Form.EVNT_VALIDATION_OK){
+				clawback = examDetailsForm.getChooseClawback();
+				examType = examDetailsForm.getExamTypeSwitchElem();
+				fireEvent(ureq, Event.DONE_EVENT);
+			}
+		}
+	}
+
+	@Override
+	protected void doDispose() {
+		// TODO Auto-generated method stub
+		
+	}
 
 	@Override
 	protected void event(UserRequest ureq, Component source, Event event) {
@@ -127,10 +153,12 @@ public class ExamDetailsController extends MainLayoutBasicController implements 
 		
 	}
 
-	@Override
-	protected void doDispose() {
-		// TODO Auto-generated method stub
-		
+	public TableEvent getTe() {
+		return te;
+	}
+
+	public void setTe(TableEvent te) {
+		this.te = te;
 	}
 	
 	

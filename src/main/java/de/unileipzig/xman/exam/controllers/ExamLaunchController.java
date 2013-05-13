@@ -99,6 +99,7 @@ public class ExamLaunchController extends MainLayoutBasicController implements
 	private OLATResourceable res;
 	private EditMarkForm editMarkForm;
 	private CloseableModalController cmc;
+	private CloseableModalController detailsController;
 	private UserSearchController usc;
 	private List<Protocol> protoList = null;
 	private Identity id;
@@ -532,15 +533,36 @@ public class ExamLaunchController extends MainLayoutBasicController implements
 				this.getWindowControl().pop();
 			}
 		}
+		
 		if (source == appTableCtr) {
 
 			if (event.getCommand().equals(Table.COMMANDLINK_ROWACTION_CLICKED)) {
-
+				
 				TableEvent te = (TableEvent) event;
-				String actionid = te.getActionId();
+								
+				if (te.getActionId().equals(AppointmentTableModel.SELECT_SUBSCRIBE)){
+				
+					//TODO Ask for "Anrechnung der Prüfung" and "Erst- oder Zweitprüfung"
+					if(detailsController == null || detailsController.isDisposed()){
+						detailsController = new CloseableModalController(getWindowControl(), translate("close"), examDetailsControler.getInitialComponent());
+						listenTo(detailsController);
+						listenTo(examDetailsControler);
+						examDetailsControler.setTe(te);
+					}
+				}
+				
+				detailsController.activate();
+			}
+		}
+		
+		if (source == examDetailsControler) {
 
+				TableEvent te = examDetailsControler.getTe();
+				
 				// subscribe to exam
-				if (actionid.equals(AppointmentTableModel.SELECT_SUBSCRIBE)) {
+				if (event == Event.DONE_EVENT) {
+					
+					detailsController.deactivate();
 
 					// register student to the choosen appointment
 					this.registerStudent(appTableMdl.getEntryAt(te.getRowId()),
@@ -568,7 +590,7 @@ public class ExamLaunchController extends MainLayoutBasicController implements
 					this.setProtocolTable(ureq);
 					this.setAppointmentTable(ureq);
 				}
-			}
+			
 		}
 
 		if (source == myAppTableCtr) {
@@ -1296,10 +1318,7 @@ public class ExamLaunchController extends MainLayoutBasicController implements
 				proto.setEarmarked(isEarmarked);
 				proto.setExam(exam);
 				
-				//TODO Ask for "Anrechnung der Prüfung" and "Erst- oder Zweitprüfung"
-				cmc = new CloseableModalController(getWindowControl(), translate("close"), examDetailsControler.getInitialComponent());
-				listenTo(cmc);
-				cmc.activate();
+				
 				
 				// set appointment to occupied if its an oral exam
 				if (exam.getIsOral()) {

@@ -66,14 +66,21 @@ public class ExamDetailsForm extends FormBasicController {
 
 	@Override
 	protected void formOK(UserRequest ureq) {
-		// TODO Auto-generated method stub
-		
+		fireEvent(ureq, Form.EVNT_VALIDATION_OK);		
 	}
 
 	@Override
 	protected void doDispose() {
 		// TODO Auto-generated method stub
 		
+	}
+	
+	public String getChooseClawback(){
+		return chooseClawback.getValue();
+	}
+	
+	public String getExamTypeSwitchElem(){
+		return examTypeSwitchElem.getSelectedKey();
 	}
 	
 	
