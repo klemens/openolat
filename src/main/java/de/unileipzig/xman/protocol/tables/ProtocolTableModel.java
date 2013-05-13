@@ -13,7 +13,6 @@ import org.olat.core.id.UserConstants;
 import org.olat.core.util.Formatter;
 import org.olat.core.util.Util;
 
-import de.unileipzig.xman.exam.Exam;
 import de.unileipzig.xman.protocol.Protocol;
 import de.unileipzig.xman.studyPath.StudyPath;
 import de.unileipzig.xman.studyPath.StudyPathManager;
@@ -99,7 +98,7 @@ public class ProtocolTableModel extends DefaultTableDataModel {
 			case 6: return proto.getComments();
 			
 			case 7: return proto.getExam().getName();
-						
+			
 			default: return "";
 			
 		}

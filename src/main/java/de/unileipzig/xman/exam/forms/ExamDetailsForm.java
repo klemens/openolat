@@ -6,7 +6,6 @@ import org.olat.core.gui.components.form.flexible.FormItemContainer;
 import org.olat.core.gui.components.form.flexible.impl.FormBasicController;
 import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.WindowControl;
-import org.olat.core.gui.components.form.flexible.elements.Cancel;
 import org.olat.core.gui.components.form.flexible.elements.SingleSelection;
 import org.olat.core.gui.components.form.flexible.elements.Submit;
 import org.olat.core.gui.components.form.flexible.elements.TextElement;
@@ -21,22 +20,17 @@ import de.unileipzig.xman.exam.Exam;
  */
 public class ExamDetailsForm extends FormBasicController {
 
-	private Submit submit;
 	private SingleSelection examTypeSwitchElem;
-	private WindowControl wControl;
-	private TextElement chooseClawback;
+	private TextElement chooseAccountFor;
 	
 	public static String FIRST_KEY = "ExamDetailsController.first";
 	public static String SECOND_KEY = "ExamDetailsController.second";
-	
 	
 	
 	public ExamDetailsForm(UserRequest ureq, WindowControl wControl) {
 		super(ureq, wControl);
 		
 		setTranslator(Util.createPackageTranslator(Exam.class, ureq.getLocale()));
-		
-		this.wControl = wControl;
 		
 		initForm(ureq);
 	}
@@ -46,17 +40,14 @@ public class ExamDetailsForm extends FormBasicController {
 			UserRequest ureq) {
 		
 		String[] values = new String[] { translate(FIRST_KEY), translate(SECOND_KEY) };
-		String[] keys = new String[] { ExamDetailsForm.FIRST_KEY,
-				ExamDetailsForm.SECOND_KEY };
+		String[] keys = new String[] { ExamDetailsForm.FIRST_KEY, ExamDetailsForm.SECOND_KEY };
 
-		examTypeSwitchElem = uifactory.addRadiosVertical("examDetails",
-				"ExamDetailsForm.radioButton", formLayout, keys, values);
+		examTypeSwitchElem = uifactory.addRadiosVertical("examDetails", "ExamDetailsForm.radioButton", formLayout, keys, values);
 		examTypeSwitchElem.select(ExamDetailsForm.FIRST_KEY, true);
 						
-		chooseClawback = uifactory.addTextElement("clawback", "ExamDetailsForm.clawback", 50, "", formLayout);
-		chooseClawback.setMandatory(true);
+		chooseAccountFor = uifactory.addTextElement("accountFor", "ExamDetailsForm.accountFor", 50, "", formLayout);
 		
-		submit = uifactory.addFormSubmitButton("save", "submitKey", formLayout);
+		uifactory.addFormSubmitButton("save", "ExamDetailsForm.submit", formLayout);
 	}
 
 	@Override
@@ -70,8 +61,8 @@ public class ExamDetailsForm extends FormBasicController {
 		
 	}
 	
-	public String getChooseClawback(){
-		return chooseClawback.getValue();
+	public String getAccountFor(){
+		return chooseAccountFor.getValue();
 	}
 	
 	public int getExamTypeSwitchElem(){

@@ -29,7 +29,7 @@ public class ExamDetailsController extends MainLayoutBasicController implements 
 	private VelocityContainer vcAttr;
 	private ExamDetailsForm examDetailsForm;
 	private Translator translator;
-	private String clawback;
+	private String accountFor;
 	private int examType;
 	private Appointment ap;
 	
@@ -58,8 +58,8 @@ public class ExamDetailsController extends MainLayoutBasicController implements 
 		
 	}
 	
-	public String getClawback(){
-		return clawback;	
+	public String getAccountFor(){
+		return accountFor;	
 	}
 	
 	public int getChooseExamType(){
@@ -72,7 +72,7 @@ public class ExamDetailsController extends MainLayoutBasicController implements 
 		// TODO Auto-generated method stub
 		if(source == examDetailsForm){			
 			if(event == Form.EVNT_VALIDATION_OK){
-				clawback = examDetailsForm.getChooseClawback();
+				accountFor = examDetailsForm.getAccountFor();
 				examType = examDetailsForm.getExamTypeSwitchElem();
 				fireEvent(ureq, Event.DONE_EVENT);
 			}

@@ -78,5 +78,4 @@ public interface Protocol extends OLATResourceable, CreateInfo, Persistable, Mod
 	 * @return the grade for this student
 	 */
 	public String getGrade();
-	
 }

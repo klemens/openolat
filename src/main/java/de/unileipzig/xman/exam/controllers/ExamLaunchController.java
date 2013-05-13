@@ -543,15 +543,11 @@ public class ExamLaunchController extends MainLayoutBasicController implements
 								
 				if (te.getActionId().equals(AppointmentTableModel.SELECT_SUBSCRIBE)){
 				
-					//Ask for "Anrechnung der Prüfung" and "Erst- oder Zweitprüfung"
-					
-					if(detailsController == null || detailsController.isDisposed()){
-						examDetailsControler = new ExamDetailsController(ureq, this.getWindowControl());
-						detailsController = new CloseableModalController(getWindowControl(), translate("close"), examDetailsControler.getInitialComponent());
-						listenTo(detailsController);
-						listenTo(examDetailsControler);
-						examDetailsControler.setAppointment(appTableMdl.getEntryAt(te.getRowId()));
-					}
+					//Ask for exam type and accountFor
+					examDetailsControler = new ExamDetailsController(ureq, this.getWindowControl());
+					detailsController = new CloseableModalController(getWindowControl(), translate("close"), examDetailsControler.getInitialComponent());
+					listenTo(examDetailsControler);
+					examDetailsControler.setAppointment(appTableMdl.getEntryAt(te.getRowId()));
 					detailsController.activate();
 				}				
 			}
@@ -565,6 +561,7 @@ public class ExamLaunchController extends MainLayoutBasicController implements
 				if (event == Event.DONE_EVENT) {
 					
 					detailsController.deactivate();
+					detailsController.dispose();
 
 					// register student to the choosen appointment
 					this.registerStudent(ap, ureq.getIdentity(), exam.getEarmarkedEnabled());
@@ -1318,8 +1315,17 @@ public class ExamLaunchController extends MainLayoutBasicController implements
 				proto.setIdentity(id);
 				proto.setEarmarked(isEarmarked);
 				proto.setExam(exam);
-				proto.setComments(examDetailsControler.getClawback() + "; " 
-						+ (examDetailsControler.getChooseExamType() == Exam.ORIGINAL_EXAM ? translator.translate("ExamDetailsController.first") : translator.translate("ExamDetailsController.second")));
+				
+				if(examDetailsControler != null) {
+					String examType = examDetailsControler.getChooseExamType() == Exam.ORIGINAL_EXAM
+	                                    ? translator.translate("ExamDetailsController.first")
+	                                    : translator.translate("ExamDetailsController.second");
+					String accountFor = examDetailsControler.getAccountFor();
+	                if(accountFor == "")
+	                    proto.setComments(examType);
+	                else
+	                    proto.setComments(examType + ": " + accountFor);
+				}
 				
 				// set appointment to occupied if its an oral exam
 				if (exam.getIsOral()) {
