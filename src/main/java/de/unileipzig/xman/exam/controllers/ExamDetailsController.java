@@ -20,6 +20,7 @@ import org.olat.core.gui.components.Component;
 import org.olat.core.gui.components.form.Form;
 import org.olat.core.gui.components.link.Link;
 import org.olat.core.gui.components.link.LinkFactory;
+import org.olat.core.gui.components.tabbedpane.TabbedPane;
 import org.olat.core.gui.components.table.Table;
 import org.olat.core.gui.components.table.TableController;
 import org.olat.core.gui.components.table.TableEvent;
@@ -49,6 +50,7 @@ import org.olat.core.util.mail.MailTemplate;
 import org.olat.core.util.mail.MailTemplateForm;
 import org.olat.repository.RepositoryEntry;
 import org.olat.repository.RepositoryManager;
+import org.olat.repository.controllers.RepositoryAddCallback;
 import org.olat.resource.OLATResourceManager;
 import org.olat.user.HomePageConfigManager;
 import org.olat.user.HomePageConfigManagerImpl;
@@ -70,6 +72,7 @@ import de.unileipzig.xman.esf.form.ESFCommentCreateAndEditForm;
 import de.unileipzig.xman.esf.table.ESFTableModel;
 import de.unileipzig.xman.exam.Exam;
 import de.unileipzig.xman.exam.ExamDBManager;
+import de.unileipzig.xman.exam.forms.ChooseExamAttrForm;
 import de.unileipzig.xman.exam.forms.EditMarkForm;
 import de.unileipzig.xman.exam.forms.ExamDetailsForm;
 import de.unileipzig.xman.protocol.Protocol;
@@ -85,9 +88,12 @@ import de.unileipzig.xman.protocol.tables.ProtocolTableModel;
 public class ExamDetailsController extends MainLayoutBasicController implements MainLayoutController {
 
 	
-	private VelocityContainer vcCont;
 	private ExamDetailsForm detailsForm;
-	
+	private TabbedPane tabbedPane;
+	private VelocityContainer vcAttr;
+	private ExamDetailsForm examDetailsForm;
+	private RepositoryAddCallback addCallback;
+	private Translator translator;
 	
 	/**
 	 * Create the Controller for the Details Form
@@ -97,7 +103,21 @@ public class ExamDetailsController extends MainLayoutBasicController implements 
 	public ExamDetailsController(UserRequest ureq, WindowControl wControl) {
 		super(ureq, wControl);
 		
+		translator = Util.createPackageTranslator(Exam.class, ureq.getLocale());
+
+		setTranslator(translator);
 		
+		tabbedPane = new TabbedPane("examCreatePane", ureq.getLocale());
+
+		vcAttr = new VelocityContainer("vcAttr", Util.getPackageVelocityRoot(Exam.class)
+				+ "/chooseAttr.html", translator, this);
+
+		examDetailsForm = new ExamDetailsForm(ureq, wControl);
+		examDetailsForm.addControllerListener(this);
+
+		vcAttr.put("chooseExamAttrForm", examDetailsForm.getInitialComponent());
+
+		this.putInitialPanel(vcAttr);
 		
 	}
 
