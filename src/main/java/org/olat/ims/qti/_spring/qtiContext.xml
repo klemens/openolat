@@ -1,10 +1,14 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <beans xmlns="http://www.springframework.org/schema/beans"
 	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xmlns:context="http://www.springframework.org/schema/context" 
 	xsi:schemaLocation="
   http://www.springframework.org/schema/beans 
-  http://www.springframework.org/schema/beans/spring-beans-3.0.xsd">
+  http://www.springframework.org/schema/beans/spring-beans.xsd
+  http://www.springframework.org/schema/context 
+  http://www.springframework.org/schema/context/spring-context.xsd">
 
+	<context:component-scan base-package="org.olat.ims.qti.qpool" />
 
 <bean id="qtiModule" class="org.olat.ims.qti.QTIModule" depends-on="database" >
 	<property name="qtiRepositoryHandlers">
@@ -49,8 +53,6 @@
          </property>
 </bean>
 		
-<bean id="qtiResultManager" class="org.olat.ims.qti.QTIResultManager">
-	<constructor-arg ref="userDeletionManager" />
-</bean>
+	<bean id="qtiResultManager" class="org.olat.ims.qti.QTIResultManager"/>
 
 </beans>
