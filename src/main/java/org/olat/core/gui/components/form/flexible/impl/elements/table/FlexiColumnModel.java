@@ -36,15 +36,31 @@ public interface FlexiColumnModel {
 	public static int ALIGNMENT_LEFT = 1;
 	public static int ALIGNMENT_RIGHT = 2;
 	public static int ALIGNMENT_CENTER = 3;
+	
+	public boolean isSortable();
+	
+	public void setSortable(boolean enable);
+	
+	public boolean isDefaultVisible();
+	
+	public String getSortKey();
+
+	public void setSortKey(String sortedKey);
 
 	public String getHeaderKey();
+	
+	public String getColumnKey();
+	
+	public int getColumnIndex();
+	
+	public String getAction();
 
 	public int getAlignment();
 
 	public void setAlignment(int alignment);
 
-	public void setCellRenderer(FlexiCellRenderer cellRenderer);
-
 	public FlexiCellRenderer getCellRenderer();
+
+	public void setCellRenderer(FlexiCellRenderer cellRenderer);
 
 }

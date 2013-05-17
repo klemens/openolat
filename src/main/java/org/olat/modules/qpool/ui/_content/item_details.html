@@ -1,0 +1,19 @@
+<div class="o_sel_qpool_edit_content">
+	#if($r.available("edit"))
+		$r.render("edit")
+	#end
+	$r.render("previous")
+	$r.render("next")
+</div>
+$r.render("type_specifics")
+<hr/>
+$r.render("metadatas")
+<div class="b_clearfix o_qpool_button_bar_box">
+	<div class="o_qpool_button_bar">
+		$r.render("export.item")
+		$r.render("share.item")
+		$r.render("copy")
+		$r.render("delete.item")
+	</div>
+</div>
+$r.render("comments")

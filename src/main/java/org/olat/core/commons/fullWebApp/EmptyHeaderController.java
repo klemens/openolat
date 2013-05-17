@@ -21,6 +21,7 @@ package org.olat.core.commons.fullWebApp;
 
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.Component;
+import org.olat.core.gui.components.panel.Panel;
 import org.olat.core.gui.control.Event;
 import org.olat.core.gui.control.WindowControl;
 import org.olat.core.gui.control.controller.BasicController;
@@ -48,18 +49,16 @@ public class EmptyHeaderController extends BasicController {
 	public EmptyHeaderController(UserRequest ureq, WindowControl wControl){
 		super(ureq, wControl);
 		// use an empty panel as content
-		putInitialPanel(null);
+		putInitialPanel(new Panel("empty"));
 	}
 
 	@Override
 	protected void doDispose() {
-		// TODO Auto-generated method stub
-
+		//
 	}
 
 	@Override
 	public void event(UserRequest ureq, Component source, Event event) {
-		// TODO Auto-generated method stub
-
+		//
 	}
 }

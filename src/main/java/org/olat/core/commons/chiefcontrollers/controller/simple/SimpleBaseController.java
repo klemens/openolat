@@ -78,7 +78,7 @@ public class SimpleBaseController extends BasicController implements Contentable
 		
 		guiMessage = new GUIMessage();
 		guimsgVc.contextPut("guiMessage", guiMessage);
-		guimsgPanel = new OncePanel("guimsgPanel");
+		guimsgPanel = new OncePanel("simpleGuimsgPanel");
 
 		mainVc.put("guimessage", guimsgPanel);	
 		
@@ -104,6 +104,11 @@ public class SimpleBaseController extends BasicController implements Contentable
 			 */
 			public void pushAsModalDialog(Component newModalDialog) {
 				currentGuiStack.pushModalDialog(newModalDialog);
+			}
+
+			@Override
+			public void pushAsCallout(Component comp, String targetId) {
+				currentGuiStack.pushCallout(comp, targetId);
 			}
 
 			/**

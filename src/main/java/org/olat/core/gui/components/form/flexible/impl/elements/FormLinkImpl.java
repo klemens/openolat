@@ -36,6 +36,7 @@ import org.olat.core.gui.components.link.FormLinkFactory;
 import org.olat.core.gui.components.link.Link;
 import org.olat.core.gui.control.Event;
 import org.olat.core.util.StringHelper;
+import org.olat.core.util.ValidationStatus;
 
 /**
  * Description:<br>
@@ -136,6 +137,7 @@ public class FormLinkImpl extends FormItemImpl implements FormLink {
 		}
 		//if enabled or not must be set now in case it was set during construction time
 		this.component.setEnabled(isEnabled());
+		this.component.setTranslator(getTranslator());
 	}
 	
 	@Override
@@ -149,7 +151,7 @@ public class FormLinkImpl extends FormItemImpl implements FormLink {
 	}
 
 	@Override
-	public void validate(List validationResults) {
+	public void validate(List<ValidationStatus> validationResults) {
 		// typically a link does not validate its data
 	}
 	
@@ -157,9 +159,15 @@ public class FormLinkImpl extends FormItemImpl implements FormLink {
 	public void reset() {
 		// a link can not be resetted
 	}
-	
+
+	@Override
 	protected Component getFormItemComponent() {
 		return component;
+	}
+
+	@Override
+	public String getCmd() {
+		return cmd;
 	}
 
 	@Override
@@ -195,15 +203,13 @@ public class FormLinkImpl extends FormItemImpl implements FormLink {
 	 */
 	public void setI18nKey(String i18n) {
 		this.i18n = i18n;
-		if (this.component != null) {
-			if ((presentation - Link.FLEXIBLEFORMLNK - Link.NONTRANSLATED) >= 0) {
+		if (component != null) {
+			if ((presentation - Link.NONTRANSLATED) >= 0) {
 				// don't translate non-tranlated links
-				this.component.setCustomDisplayText(i18n);					
-			} else {
+				component.setCustomDisplayText(i18n);					
+			} else if (StringHelper.containsNonWhitespace(i18n)) {
 				// translate other links
-				if (StringHelper.containsNonWhitespace(i18n)) {
-					this.component.setCustomDisplayText(getTranslator().translate(i18n));
-				}
+				component.setCustomDisplayText(getTranslator().translate(i18n));
 			}
 		}
 	}
