@@ -2,6 +2,8 @@ package de.unileipzig.xman.esf.controller;
 
 import java.util.Date;
 
+import net.fortuna.ical4j.model.Property;
+
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.Component;
 import org.olat.core.gui.components.form.Form;
@@ -106,18 +108,33 @@ public class ESFCreateController extends BasicController {
 				// if someone wants to change his esf, it should be set to
 				// invalidated
 				if (action.equals(ESFLaunchController.CHANGE_ESF)) {
-
+					
+					String name = this.getIdentity().getName();
+					
+					String oldFirstName = this.getIdentity().getUser().getProperty(UserConstants.FIRSTNAME, ureq.getLocale());
+					String oldLastName = this.getIdentity().getUser().getProperty(UserConstants.LASTNAME, ureq.getLocale());
+					
 					this.updateUserInformation(user);
 
+					String newFirstName = user.getProperty(UserConstants.FIRSTNAME, ureq.getLocale());
+					String newLastName = user.getProperty(UserConstants.LASTNAME, ureq.getLocale());
+
+					String[] firstNames = {oldFirstName, newFirstName};
+					String[] lastNames = {oldLastName, newLastName};
+					
 					// set esf to not validated
 					esf = ElectronicStudentFileManager.getInstance()
 							.retrieveESFByIdentity(ureq.getIdentity());
-
+		
+					
+					
 					// create a comment for change of esf
 					// the comment
 					String[] comment = { new Date().toString() };
 					String entry = translator.translate(
-							"ESFCreateController.changed", comment);
+							"ESFCreateController.changed", comment) 
+							+ (oldFirstName.equals(newFirstName) ? "" : ("\n" + translator.translate("ESFCreateController.newFirstName", firstNames)))
+							+ (oldLastName.equals(newLastName) ? "" : ("\n" + translator.translate("ESFCreateController.newLastName", lastNames)));
 
 					CommentEntry commentEntry = CommentManager.getInstance()
 							.createCommentEntry();
