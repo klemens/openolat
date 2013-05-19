@@ -35,6 +35,7 @@ public class ExamImpl extends PersistentObject implements Exam {
 	private boolean earmarkedEnabled;
 	private String comments;
 	private Identity identity;
+	private boolean closed;
 	
 	public ExamImpl() {
 		
@@ -92,7 +93,6 @@ public class ExamImpl extends PersistentObject implements Exam {
 		
 		
 	}
-	
 
 	/*------------------------- getter -------------------------*/	
 	
@@ -177,6 +177,15 @@ public class ExamImpl extends PersistentObject implements Exam {
 		return this.identity;
 	}
 	
+	/*
+	 * (non-Javadoc)
+	 * @see de.xman.exam.Exam#getclosed()
+	 */
+	public boolean getClosed() {
+		
+		return closed;
+	}
+	
 	/*------------------------- setter -------------------------*/
 	
 	
@@ -249,5 +258,13 @@ public class ExamImpl extends PersistentObject implements Exam {
 	public void setLastModified(Date lastModified) {
 		
 		this.lastModified = lastModified;
+	}
+
+	/**
+	 * @see de.xman.exam.Exam#setClosed(boolean)
+	 */
+	public void setclosed(boolean status) {
+		
+		this.closed = status;
 	}
 }

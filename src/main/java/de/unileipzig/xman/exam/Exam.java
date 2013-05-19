@@ -77,6 +77,10 @@ public interface Exam extends ModifiedInfo, CreateInfo, Persistable, OLATResourc
 	 */
 	public Identity getIdentity();
 	
+	/**
+	 * @return a Boolean representing the Status of the exam
+	 */
+	public boolean getClosed();
 	
 	/*------------------------- setter -------------------------*/
 	
@@ -120,4 +124,9 @@ public interface Exam extends ModifiedInfo, CreateInfo, Persistable, OLATResourc
 	 * @param identity - the identity of the person which is responsible for this exam
 	 */
 	public void setIdentity(Identity identity);
+	
+	/**
+	 * @param status
+	 */
+	public void setclosed(boolean status);
 }
