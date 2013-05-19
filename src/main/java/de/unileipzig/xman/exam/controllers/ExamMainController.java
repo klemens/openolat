@@ -110,8 +110,8 @@ public class ExamMainController extends MainLayoutBasicController {
 		toolController = ToolFactory.createToolController(getWindowControl());
 		listenTo(toolController);
 		
-		toolController.addHeader("Prüfung");
-		toolController.addLink(TOOL_EDIT_EXAM, "bearbeiten");
+		toolController.addHeader(translate("ExamMainController.tool.header"));
+		toolController.addLink(TOOL_EDIT_EXAM, translate("ExamMainController.tool.editExam"));
 	}
 	
 	private void pushEditor(UserRequest ureq) throws AlreadyLockedException {
