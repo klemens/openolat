@@ -236,17 +236,12 @@ public class ExamHandler implements RepositoryHandler {
 		
 		MainLayoutController launchController;
 		Exam exam = ExamDBManager.getInstance().findExamByID(res.getResourceableId());
-		try {
 		if(canEdit) {
 			launchController = new ExamMainController(ureq, wControl, exam, ExamMainController.View.LECTURER);
 		} else if(isStudent) {
 			launchController = new ExamMainController(ureq, wControl, exam, ExamMainController.View.STUDENT);
 		} else {
 			launchController = new ExamMainController(ureq, wControl, exam, ExamMainController.View.OTHER);
-		}
-		} catch(AlreadyLockedException e) {
-			// can only occur when creating an editor controller
-			return null;
 		}
 		
 		return launchController;

@@ -51,17 +51,34 @@ public class ExamMainController extends MainLayoutBasicController {
 	 * @param view The view that should be presented to the user
 	 * @throws AlreadyLockedException 
 	 */
-	public ExamMainController(UserRequest ureq, WindowControl wControl, Exam exam, View view) throws AlreadyLockedException {
-		this(ureq, wControl, exam, view, false);
+	public ExamMainController(UserRequest ureq, WindowControl wControl, Exam exam, View view) {
+		super(ureq, wControl);
+		
+		setTranslator(Util.createPackageTranslator(Exam.class, getLocale()));
+		this.exam = exam;
+		this.view = view;
+		
+		init(ureq);
 	}
 	
 	public ExamMainController(UserRequest ureq, WindowControl wControl, Exam exam, View view, boolean launchEditor) throws AlreadyLockedException {
 		super(ureq, wControl);
 		
 		setTranslator(Util.createPackageTranslator(Exam.class, getLocale()));
-		
 		this.exam = exam;
 		this.view = view;
+		
+		init(ureq);
+		
+		if(launchEditor) {
+			pushEditor(ureq); // can throw AlreadyLockedException
+		}
+	}
+	
+	/**
+	 * Init method so we can throw an exception from only one constructor
+	 */
+	private void init(UserRequest ureq) {
 		this.cstack = new StackedControllerImpl(getWindowControl(), getTranslator(), "examStack");
 		listenTo(cstack);
 		
@@ -70,20 +87,17 @@ public class ExamMainController extends MainLayoutBasicController {
 		putInitialPanel(cstack.getInitialComponent());
 		
 		// TODO Split LaunchController into StudentController and LecturerController
+		String name = exam.getName() + " (" + (exam.getIsOral() ? translate("oral") : translate("written")) + ")";
 		if(view == View.STUDENT) {
-			cstack.pushController(exam.getName(), new ExamLaunchController(ureq, wControl, exam, false, true));
+			cstack.pushController(name, new ExamLaunchController(ureq, getWindowControl(), exam, false, true));
 		} else if(view == View.LECTURER) {
-			Controller examController = new ExamLaunchController(ureq, wControl, exam, true, false);
+			Controller examController = new ExamLaunchController(ureq, getWindowControl(), exam, true, false);
 			buildToolController();
-			cstack.pushController(exam.getName(), new LayoutMain3ColsController(ureq, getWindowControl(), null,
+			cstack.pushController(name, new LayoutMain3ColsController(ureq, getWindowControl(), null,
 														toolController.getInitialComponent(), examController.getInitialComponent(), "examMain"));
 		} else if(view == View.OTHER) {
 			getWindowControl().setError("Don't have access!!");
 			return;
-		}
-		
-		if(launchEditor) {
-			pushEditor(ureq);
 		}
 	}
 	
