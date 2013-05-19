@@ -35,6 +35,7 @@ import org.olat.core.gui.control.generic.tool.ToolFactory;
 import org.olat.core.gui.translator.PackageTranslator;
 import org.olat.core.gui.translator.Translator;
 import org.olat.core.id.OLATResourceable;
+import org.olat.core.id.User;
 import org.olat.core.id.UserConstants;
 import org.olat.core.id.context.BusinessControlFactory;
 import org.olat.core.id.context.ContextEntry;
@@ -56,6 +57,7 @@ import de.unileipzig.xman.catalog.controller.ExamCatalogController;
 import de.unileipzig.xman.exam.Exam;
 import de.unileipzig.xman.exam.ExamDBManager;
 import de.unileipzig.xman.exam.ExamHandler;
+import de.unileipzig.xman.exam.AlreadyLockedException;
 import de.unileipzig.xman.exam.forms.CreateAndEditAppointmentForm;
 import de.unileipzig.xman.exam.forms.EditCommentsForm;
 import de.unileipzig.xman.exam.forms.EditEarmarkedForm;
@@ -108,9 +110,10 @@ public class ExamEditorController extends DefaultController implements
 	 *            the window control
 	 * @param res
 	 *            the olat resourceable for the exam
+	 * @throws AlreadyLockedException When the editor is already locked by another user, contains name as message
 	 */
 	public ExamEditorController(UserRequest ureq, WindowControl wControl,
-			OLATResourceable res) {
+			OLATResourceable res) throws AlreadyLockedException {
 		super(wControl);
 
 		this.exam = ExamDBManager.getInstance().findExamByID(
@@ -122,9 +125,7 @@ public class ExamEditorController extends DefaultController implements
 
 		// try to acquire edit lock for this course.
 		// --------------------------------getInstance hinzugefügt
-		lockResult = CoordinatorManager.getInstance().getCoordinator()
-				.getLocker().acquireLock(res, ureq.getIdentity(),
-						EXAM_EDITOR_LOCK);
+		lockResult = CoordinatorManager.getInstance().getCoordinator().getLocker().acquireLock(res, ureq.getIdentity(), EXAM_EDITOR_LOCK);
 
 		if (lockResult.isSuccess()) {
 
@@ -159,10 +160,9 @@ public class ExamEditorController extends DefaultController implements
 			CoordinatorManager.getInstance().getCoordinator().getEventBus()
 					.registerFor(this, ureq.getIdentity(), res);
 		} else {
-
-			this.getWindowControl().setInfo(
-					translator.translate("ExamEditorController.alreadyLocked",
-							new String[] { lockResult.getOwner().getName() }));
+			// Throw exception with user that currently holds the lock
+			User user = lockResult.getOwner().getUser();
+			throw new AlreadyLockedException(user.getProperty(UserConstants.FIRSTNAME, null) + " " + user.getProperty(UserConstants.LASTNAME, null));
 		}
 	}
 
@@ -284,8 +284,9 @@ public class ExamEditorController extends DefaultController implements
 	 * @see org.olat.core.gui.control.DefaultController#doDispose(boolean)
 	 */
 	protected void doDispose() {
-
-		// nothing to do
+		if(lockResult != null) {
+			CoordinatorManager.getInstance().getCoordinator().getLocker().releaseLock(lockResult);
+		}
 	}
 
 	/**

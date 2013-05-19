@@ -236,12 +236,17 @@ public class ExamHandler implements RepositoryHandler {
 		
 		MainLayoutController launchController;
 		Exam exam = ExamDBManager.getInstance().findExamByID(res.getResourceableId());
+		try {
 		if(canEdit) {
 			launchController = new ExamMainController(ureq, wControl, exam, ExamMainController.View.LECTURER);
 		} else if(isStudent) {
 			launchController = new ExamMainController(ureq, wControl, exam, ExamMainController.View.STUDENT);
 		} else {
 			launchController = new ExamMainController(ureq, wControl, exam, ExamMainController.View.OTHER);
+		}
+		} catch(AlreadyLockedException e) {
+			// can only occur when creating an editor controller
+			return null;
 		}
 		
 		return launchController;
@@ -250,7 +255,15 @@ public class ExamHandler implements RepositoryHandler {
 	@Override
 	public Controller createEditorController(OLATResourceable res, UserRequest ureq, WindowControl wControl) {
 		Exam exam = ExamDBManager.getInstance().findExamByID(res.getResourceableId());
-		return new ExamMainController(ureq, wControl, exam, ExamMainController.View.LECTURER, true);
+		Controller editor;
+		try {
+			editor = new ExamMainController(ureq, wControl, exam, ExamMainController.View.LECTURER, true);
+		} catch(AlreadyLockedException e) {
+			Translator translator = Util.createPackageTranslator(Exam.class, ureq.getLocale());
+			wControl.setInfo(translator.translate("ExamEditorController.alreadyLocked", new String[] { e.getName() }));
+			return null;
+		}
+		return editor;
 	}
 
 	@Override

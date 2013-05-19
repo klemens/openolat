@@ -3,6 +3,7 @@ package de.unileipzig.xman.exam.controllers;
 import org.olat.core.commons.fullWebApp.LayoutMain3ColsController;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.Component;
+import org.olat.core.gui.components.stack.PopEvent;
 import org.olat.core.gui.components.stack.StackedController;
 import org.olat.core.gui.components.stack.StackedControllerImpl;
 import org.olat.core.gui.components.velocity.VelocityContainer;
@@ -19,6 +20,7 @@ import org.olat.repository.RepositoryManager;
 import org.olat.repository.handlers.RepositoryHandlerFactory;
 import org.olat.resource.OLATResourceManager;
 
+import de.unileipzig.xman.exam.AlreadyLockedException;
 import de.unileipzig.xman.exam.Exam;
 
 public class ExamMainController extends MainLayoutBasicController {
@@ -33,8 +35,9 @@ public class ExamMainController extends MainLayoutBasicController {
 	
 	private Exam exam;
 	private View view;
-	private StackedController cstack;
+	private StackedControllerImpl cstack;
 	private ToolController toolController;
+	private boolean inEditor;
 
 	/**
 	 * The Controller that manages the display and the edit of an exam
@@ -46,12 +49,13 @@ public class ExamMainController extends MainLayoutBasicController {
 	 * @param wControl
 	 * @param exam The exam to edit or display
 	 * @param view The view that should be presented to the user
+	 * @throws AlreadyLockedException 
 	 */
-	public ExamMainController(UserRequest ureq, WindowControl wControl, Exam exam, View view) {
+	public ExamMainController(UserRequest ureq, WindowControl wControl, Exam exam, View view) throws AlreadyLockedException {
 		this(ureq, wControl, exam, view, false);
 	}
 	
-	public ExamMainController(UserRequest ureq, WindowControl wControl, Exam exam, View view, boolean launchEditor) {
+	public ExamMainController(UserRequest ureq, WindowControl wControl, Exam exam, View view, boolean launchEditor) throws AlreadyLockedException {
 		super(ureq, wControl);
 		
 		setTranslator(Util.createPackageTranslator(Exam.class, getLocale()));
@@ -59,6 +63,7 @@ public class ExamMainController extends MainLayoutBasicController {
 		this.exam = exam;
 		this.view = view;
 		this.cstack = new StackedControllerImpl(getWindowControl(), getTranslator(), "examStack");
+		listenTo(cstack);
 		
 		VelocityContainer mainVC = new VelocityContainer("examMain", Util.getPackageVelocityRoot(Exam.class) + "/examMain.html", getTranslator(), this);
 		mainVC.put("stackedController", cstack.getInitialComponent());
@@ -95,9 +100,10 @@ public class ExamMainController extends MainLayoutBasicController {
 		toolController.addLink(TOOL_EDIT_EXAM, "bearbeiten");
 	}
 	
-	private void pushEditor(UserRequest ureq) {
+	private void pushEditor(UserRequest ureq) throws AlreadyLockedException {
 		OLATResourceable res = OLATResourceManager.getInstance().findResourceable(exam.getResourceableId(), exam.getResourceableTypeName());
 		cstack.pushController("Prüfungseditor", new ExamEditorController(ureq, getWindowControl(), res));
+		inEditor = true;
 	}
 	
 	@Override
@@ -110,12 +116,26 @@ public class ExamMainController extends MainLayoutBasicController {
 	protected void event(UserRequest ureq, Controller source, Event event) {
 		if(source == toolController) {
 			if(event.getCommand().equals(TOOL_EDIT_EXAM)) {
-				pushEditor(ureq);
+				try {
+					pushEditor(ureq);
+				} catch(AlreadyLockedException e) {
+					getWindowControl().setInfo(translate("ExamEditorController.alreadyLocked", new String[] { e.getName() }));
+				}
+			}
+		} else if(source == cstack) {
+			if(event instanceof PopEvent) {
+				PopEvent popEvent = (PopEvent) event;
+				if(popEvent.getController() instanceof ExamEditorController) {
+					inEditor = false;
+				}
 			}
 		}
 	}
 
 	@Override
 	protected void doDispose() {
+		if(inEditor)
+			cstack.popController(); // disposes the editor controller and thus releases the lock
+		removeAsListenerAndDispose(cstack);
 	}
 }
