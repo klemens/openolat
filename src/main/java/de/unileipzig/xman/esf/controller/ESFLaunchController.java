@@ -45,6 +45,7 @@ import org.olat.core.util.Util;
 import org.olat.core.util.event.GenericEventListener;
 import org.olat.repository.RepositoryEntry;
 import org.olat.repository.RepositoryManager;
+import org.olat.repository.handlers.RepositoryHandlerFactory;
 import org.olat.resource.OLATResourceManager;
 import org.olat.user.UserManager;
 
@@ -59,6 +60,7 @@ import de.unileipzig.xman.esf.table.ESFTableModel;
 import de.unileipzig.xman.exam.Exam;
 import de.unileipzig.xman.exam.ExamDBManager;
 import de.unileipzig.xman.exam.controllers.ExamLaunchController;
+import de.unileipzig.xman.exam.controllers.ExamMainController;
 import de.unileipzig.xman.protocol.Protocol;
 import de.unileipzig.xman.protocol.ProtocolManager;
 import de.unileipzig.xman.protocol.tables.ProtocolTableModel;
@@ -320,12 +322,6 @@ public class ESFLaunchController extends BasicController {
 							.findResourceable(exam.getResourceableId(),
 									Exam.ORES_TYPE_NAME);
 
-					RepositoryEntry entry = RepositoryManager.getInstance()
-							.lookupRepositoryEntry(ores, true);
-					boolean isOwner = RepositoryManager
-							.getInstance()
-							.isOwnerOfRepositoryEntry(ureq.getIdentity(), entry);
-
 					// add the esf in a dtab
 					DTabs dts = (DTabs) Windows.getWindows(ureq)
 							.getWindow(ureq).getAttribute("DTabs");
@@ -333,12 +329,11 @@ public class ESFLaunchController extends BasicController {
 					if (dt == null) {
 						// does not yet exist -> create and add
 						dt = dts.createDTab(ores, exam.getName());
-						if (dt == null)
-							return;
-						ExamLaunchController esfLaunchCtr = new ExamLaunchController(
-								ureq, dt.getWindowControl(), exam, isOwner,
-								!ureq.getUserSession().getRoles().isGuestOnly());
-						dt.setController(esfLaunchCtr);
+						if(dt == null) return;
+						
+						ExamMainController examMain = new ExamMainController(ureq, getWindowControl(), exam, ExamMainController.View.STUDENT);
+						dt.setController(examMain);
+						
 						dts.addDTab(ureq, dt);
 					}
 					dts.activate(ureq, dt, null);

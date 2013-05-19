@@ -43,6 +43,7 @@ import de.unileipzig.xman.esf.form.ESFCommentCreateAndEditForm;
 import de.unileipzig.xman.esf.table.ESFTableModel;
 import de.unileipzig.xman.exam.Exam;
 import de.unileipzig.xman.exam.controllers.ExamLaunchController;
+import de.unileipzig.xman.exam.controllers.ExamMainController;
 import de.unileipzig.xman.protocol.Protocol;
 import de.unileipzig.xman.protocol.tables.ProtocolTableModel;
 import de.unileipzig.xman.studyPath.StudyPath;
@@ -346,12 +347,6 @@ public class ESFEditController extends MainLayoutBasicController {
 							.findResourceable(exam.getResourceableId(),
 									Exam.ORES_TYPE_NAME);
 
-					RepositoryEntry entry = RepositoryManager.getInstance()
-							.lookupRepositoryEntry(ores, true);
-					boolean isOwner = RepositoryManager
-							.getInstance()
-							.isOwnerOfRepositoryEntry(ureq.getIdentity(), entry);
-
 					// add the esf in a dtab
 					DTabs dts = (DTabs) Windows.getWindows(ureq)
 							.getWindow(ureq).getAttribute("DTabs");
@@ -359,12 +354,11 @@ public class ESFEditController extends MainLayoutBasicController {
 					if (dt == null) {
 						// does not yet exist -> create and add
 						dt = dts.createDTab(ores, exam.getName());
-						if (dt == null)
-							return;
-						ExamLaunchController esfLaunchCtr = new ExamLaunchController(
-								ureq, dt.getWindowControl(), exam, isOwner,
-								!ureq.getUserSession().getRoles().isGuestOnly());
-						dt.setController(esfLaunchCtr);
+						if(dt == null) return;
+						
+						ExamMainController examMain = new ExamMainController(ureq, getWindowControl(), exam, ExamMainController.View.LECTURER);
+						dt.setController(examMain);
+						
 						dts.addDTab(ureq, dt);
 					} 
 					dts.activate(ureq, dt, null);
