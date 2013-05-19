@@ -1,6 +1,7 @@
 package de.unileipzig.xman.exam.forms;
 
 import java.text.SimpleDateFormat;
+import java.util.Calendar;
 import java.util.Date;
 
 import org.olat.core.gui.UserRequest;
@@ -64,9 +65,15 @@ public class EditRegistrationForm extends FormBasicController {
 	@Override
 	protected void initForm(FormItemContainer formLayout, Controller listener,
 			UserRequest ureq) {
+		SimpleDateFormat formater = new SimpleDateFormat("dd.MM.yyyy HH:mm");
+		Calendar future = Calendar.getInstance(ureq.getLocale());
+		future.setTime(new Date()); future.add(Calendar.MONTH, 1);
+		
+		String now = formater.format(new Date());
+		String inAMonth = formater.format(future.getTime());
+		
 		regStart = uifactory.addDateChooser("regStart",
-				"EditRegistrationForm.regStartDate", SimpleDateFormat
-						.getInstance().format(new Date()), formLayout);
+				"EditRegistrationForm.regStartDate", now, formLayout);
 		regStart.setCustomDateFormat("dd.MM.yyyy HH:mm");
 		regStart.setMandatory(true);
 		regStart.setDisplaySize(20);
@@ -80,8 +87,7 @@ public class EditRegistrationForm extends FormBasicController {
 				"EditRegistrationForm.isEmpty");
 
 		regEnd = uifactory.addDateChooser("regEnd",
-				"EditRegistrationForm.regEndDate", SimpleDateFormat
-						.getInstance().format(new Date()), formLayout);
+				"EditRegistrationForm.regEndDate", inAMonth, formLayout);
 		regEnd.setCustomDateFormat("dd.MM.yyyy HH:mm");
 		regEnd.setMandatory(true);
 		regEnd.setDisplaySize(20);
@@ -94,8 +100,7 @@ public class EditRegistrationForm extends FormBasicController {
 				"EditRegistrationForm.isEmpty");
 
 		signOff = uifactory.addDateChooser("signOff",
-				"EditRegistrationForm.signOffDate", SimpleDateFormat
-						.getInstance().format(new Date()), formLayout);
+				"EditRegistrationForm.signOffDate", inAMonth, formLayout);
 		signOff.setCustomDateFormat("dd.MM.yyyy HH:mm");
 		signOff.setMandatory(true);
 		signOff.setExampleKey("EditRegistrationForm.signOffDate.example", null);
