@@ -120,7 +120,7 @@ public class ExamMainController extends MainLayoutBasicController {
 	
 	private void pushEditor(UserRequest ureq) throws AlreadyLockedException {
 		OLATResourceable res = OLATResourceManager.getInstance().findResourceable(exam.getResourceableId(), exam.getResourceableTypeName());
-		cstack.pushController("Prüfungseditor", new ExamEditorController(ureq, getWindowControl(), res));
+		cstack.pushController(translate("examEditor_html.header"), new ExamEditorController(ureq, getWindowControl(), res));
 		inEditor = true;
 	}
 	
