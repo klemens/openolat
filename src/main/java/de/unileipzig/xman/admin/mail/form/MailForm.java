@@ -10,17 +10,20 @@ import org.olat.core.gui.components.form.flexible.elements.Cancel;
 import org.olat.core.gui.components.form.flexible.elements.Submit;
 import org.olat.core.gui.components.form.flexible.elements.TextElement;
 import org.olat.core.gui.translator.Translator;
+import org.olat.core.util.Util;
+
+import de.unileipzig.xman.exam.Exam;
 
 public class MailForm extends FormBasicController {
 
 	private TextElement subjectElem;
 	private TextElement bodyElem;
-	private Submit submit;
-	private Cancel cancel;
 
 	public MailForm(UserRequest ureq, WindowControl wControl, String name,
 			Translator translator) {
 		super(ureq, wControl);
+		
+		setTranslator(Util.createPackageTranslator(Exam.class, ureq.getLocale()));
 
 		initForm(ureq);
 
@@ -30,19 +33,16 @@ public class MailForm extends FormBasicController {
 	protected void initForm(FormItemContainer formLayout, Controller listener,
 			UserRequest ureq) {
 		subjectElem = uifactory.addTextElement("subjectElem",
-				"MailForm.subject", 128, "", null);
+				"MailForm.subject", 128, "", formLayout);
 		subjectElem.setDisplaySize(60);
 		subjectElem.setMandatory(true);
 
 		bodyElem = uifactory.addTextAreaElement("bodyelem", "MailForm.body",
-				1024, 15, 60, true, "", null);
+				1024, 15, 60, true, "", formLayout);
 		bodyElem.setMandatory(true);
 
 		// submit / cancel keys
-		submit = uifactory.addFormSubmitButton("save", "submitKey", null);
-		cancel = uifactory.addFormCancelButton("cancel", null, ureq,
-				getWindowControl());
-
+		uifactory.addFormSubmitButton("save", "MailForm.send", formLayout);
 	}
 
 	@Override
