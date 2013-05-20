@@ -18,6 +18,7 @@ import org.olat.resource.OLATResourceManager;
 
 import de.unileipzig.xman.exam.AlreadyLockedException;
 import de.unileipzig.xman.exam.Exam;
+import de.unileipzig.xman.exam.ExamDBManager;
 
 public class ExamMainController extends MainLayoutBasicController {
 	
@@ -81,6 +82,13 @@ public class ExamMainController extends MainLayoutBasicController {
 		VelocityContainer mainVC = new VelocityContainer("examMain", Util.getPackageVelocityRoot(Exam.class) + "/examMain.html", getTranslator(), this);
 		mainVC.put("stackedController", cstack.getInitialComponent());
 		putInitialPanel(cstack.getInitialComponent());
+		
+		//Copy the repo name to the exam if necessary (not set after creation)
+		String newExamName = ExamDBManager.getInstance().getExamName(exam);
+		if (!newExamName.equals(exam.getName())) {
+			exam.setName(newExamName);
+			ExamDBManager.getInstance().updateExam(exam);
+		}
 		
 		// TODO Split LaunchController into StudentController and LecturerController
 		String name = exam.getName() + " (" + (exam.getIsOral() ? translate("oral") : translate("written")) + ")";

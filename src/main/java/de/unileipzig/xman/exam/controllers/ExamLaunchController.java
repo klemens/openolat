@@ -135,12 +135,6 @@ public class ExamLaunchController extends MainLayoutBasicController implements
 		this.exam = exam;
 		this.isResourceOwner = isResourceOwner;
 		this.isOLATUser = isOLATUser;
-		
-		String tmpExamName = ExamDBManager.getInstance().getExamName(this.exam);
-		if (!tmpExamName.equals(this.exam.getName())) {
-			this.exam.setName(tmpExamName);
-			ExamDBManager.getInstance().updateExam(this.exam);
-		}
 
 		translator = Util.createPackageTranslator(Exam.class, ureq.getLocale());
 		setTranslator(translator);
