@@ -106,8 +106,18 @@ public class ESFCreateController extends BasicController {
 				// if someone wants to change his esf, it should be set to
 				// invalidated
 				if (action.equals(ESFLaunchController.CHANGE_ESF)) {
-
+					
+					String name = this.getIdentity().getName();
+					
+					String oldFirstName = this.getIdentity().getUser().getProperty(UserConstants.FIRSTNAME, ureq.getLocale());
+					String oldLastName = this.getIdentity().getUser().getProperty(UserConstants.LASTNAME, ureq.getLocale());
+					String oldStudyPath = this.getIdentity().getUser().getProperty(UserConstants.STUDYSUBJECT, ureq.getLocale());
+					
 					this.updateUserInformation(user);
+
+					String newFirstName = esfCreateForm.getFirstName();
+					String newLastName = esfCreateForm.getLastName();
+					String newStudyPath = esfCreateForm.getStudyPath();
 
 					// set esf to not validated
 					esf = ElectronicStudentFileManager.getInstance()
@@ -115,7 +125,7 @@ public class ESFCreateController extends BasicController {
 
 					// create a comment for change of esf
 					// the comment
-					String[] comment = { new Date().toString() };
+					String[] comment = { new Date().toString(), oldLastName, oldFirstName, oldStudyPath, newLastName, newFirstName, newStudyPath };
 					String entry = translator.translate(
 							"ESFCreateController.changed", comment);
 
@@ -146,6 +156,22 @@ public class ESFCreateController extends BasicController {
 
 						ElectronicStudentFileManager.getInstance()
 								.persistElectronicStudentFile(esf);
+						
+						String firstName = esfCreateForm.getFirstName();
+						String lastName = esfCreateForm.getLastName();
+						String studyPath = esfCreateForm.getStudyPath();
+						
+						String[] comment = { new Date().toString(), firstName, lastName, studyPath };
+						String entry = translator.translate(
+								"ESFCreateController.created", comment);
+
+						CommentEntry commentEntry = CommentManager.getInstance()
+								.createCommentEntry();
+						commentEntry.setAuthor(ureq.getIdentity());
+						commentEntry.setComment(entry);
+						
+						esf.addCommentEntry(commentEntry);
+						
 					} catch (DuplicateObjectException e) {
 
 						this
