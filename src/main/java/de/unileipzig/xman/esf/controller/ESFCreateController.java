@@ -156,6 +156,22 @@ public class ESFCreateController extends BasicController {
 
 						ElectronicStudentFileManager.getInstance()
 								.persistElectronicStudentFile(esf);
+						
+						String firstName = esfCreateForm.getFirstName();
+						String lastName = esfCreateForm.getLastName();
+						String studyPath = esfCreateForm.getStudyPath();
+						
+						String[] comment = { new Date().toString(), firstName, lastName, studyPath };
+						String entry = translator.translate(
+								"ESFCreateController.created", comment);
+
+						CommentEntry commentEntry = CommentManager.getInstance()
+								.createCommentEntry();
+						commentEntry.setAuthor(ureq.getIdentity());
+						commentEntry.setComment(entry);
+						
+						esf.addCommentEntry(commentEntry);
+						
 					} catch (DuplicateObjectException e) {
 
 						this
