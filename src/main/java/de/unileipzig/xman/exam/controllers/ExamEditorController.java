@@ -27,6 +27,7 @@ import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.DefaultController;
 import org.olat.core.gui.control.Event;
 import org.olat.core.gui.control.WindowControl;
+import org.olat.core.gui.control.controller.BasicController;
 import org.olat.core.gui.control.generic.closablewrapper.CloseableModalController;
 import org.olat.core.gui.control.generic.dtabs.DTab;
 import org.olat.core.gui.control.generic.dtabs.DTabs;
@@ -35,6 +36,7 @@ import org.olat.core.gui.control.generic.tool.ToolFactory;
 import org.olat.core.gui.translator.PackageTranslator;
 import org.olat.core.gui.translator.Translator;
 import org.olat.core.id.OLATResourceable;
+import org.olat.core.id.User;
 import org.olat.core.id.UserConstants;
 import org.olat.core.id.context.BusinessControlFactory;
 import org.olat.core.id.context.ContextEntry;
@@ -56,6 +58,7 @@ import de.unileipzig.xman.catalog.controller.ExamCatalogController;
 import de.unileipzig.xman.exam.Exam;
 import de.unileipzig.xman.exam.ExamDBManager;
 import de.unileipzig.xman.exam.ExamHandler;
+import de.unileipzig.xman.exam.AlreadyLockedException;
 import de.unileipzig.xman.exam.forms.CreateAndEditAppointmentForm;
 import de.unileipzig.xman.exam.forms.EditCommentsForm;
 import de.unileipzig.xman.exam.forms.EditEarmarkedForm;
@@ -67,23 +70,16 @@ import de.unileipzig.xman.protocol.ProtocolManager;
  * 
  * @author
  */
-public class ExamEditorController extends DefaultController implements
-		GenericEventListener {
+public class ExamEditorController extends BasicController {
 
-	private static final String PACKAGE = Util.getPackageName(Exam.class);
 	private static final String VELOCITY_ROOT = Util
 			.getPackageVelocityRoot(Exam.class);
 
-	private static final String CMD_TOOLS_OPEN_EXAM = "toolCtr.openExam";
-	private static final String CMD_TOOLS_CLOSE_EDITOR = "toolCtr.close";
 	private static final String EXAM_EDITOR_LOCK = "examEditor.lock";
 
 	private Panel mainPanel;
 	private VelocityContainer vcMain, vcApp;
-	private Translator translator;
 	private LayoutMain3ColsController layoutCtr;
-	private ToolController toolCtr;
-	private MenuTree menuTree;
 
 	private LockResult lockResult;
 	private Exam exam;
@@ -108,61 +104,39 @@ public class ExamEditorController extends DefaultController implements
 	 *            the window control
 	 * @param res
 	 *            the olat resourceable for the exam
+	 * @throws AlreadyLockedException When the editor is already locked by another user, contains name as message
 	 */
 	public ExamEditorController(UserRequest ureq, WindowControl wControl,
-			OLATResourceable res) {
-		super(wControl);
+			OLATResourceable res) throws AlreadyLockedException {
+		super(ureq, wControl);
 
 		this.exam = ExamDBManager.getInstance().findExamByID(
 				res.getResourceableId());
 		repoEntry = RepositoryManager.getInstance().lookupRepositoryEntry(res,
 				true);
 
-		translator = new PackageTranslator(PACKAGE, ureq.getLocale());
+		setTranslator(Util.createPackageTranslator(Exam.class, ureq.getLocale()));
 
 		// try to acquire edit lock for this course.
-		// --------------------------------getInstance hinzugefügt
-		lockResult = CoordinatorManager.getInstance().getCoordinator()
-				.getLocker().acquireLock(res, ureq.getIdentity(),
-						EXAM_EDITOR_LOCK);
+		lockResult = CoordinatorManager.getInstance().getCoordinator().getLocker().acquireLock(res, ureq.getIdentity(), EXAM_EDITOR_LOCK);
 
 		if (lockResult.isSuccess()) {
 
 			vcMain = new VelocityContainer("examEditor", VELOCITY_ROOT
-					+ "/examEditor.html", translator, this);
+					+ "/examEditor.html", getTranslator(), this);
 
 			this.createTabbedPane(ureq);
-
-			toolCtr = ToolFactory.createToolController(wControl);
-			toolCtr.addControllerListener(this);
-			toolCtr.addHeader(translator
-					.translate("ExamEditorController.toolCtr.header"));
-			toolCtr.addLink(CMD_TOOLS_OPEN_EXAM, translator
-					.translate("ExamEditorController.toolCtr.openExam"));
-			toolCtr.addLink(CMD_TOOLS_CLOSE_EDITOR, translator
-					.translate("ExamEditorController.toolCtr.close"), null,
-					"o_tb_close");
-
-			menuTree = new MenuTree("examEditorMenu");
-			menuTree.setTreeModel(this.buildTreeModel(repoEntry
-					.getDisplayname()));
 
 			mainPanel = new Panel("examEditorPanel");
 			mainPanel.setContent(vcMain);
 
-			layoutCtr = new LayoutMain3ColsController(ureq, wControl, menuTree,
-					toolCtr.getInitialComponent(), mainPanel,
-					"examEditorCtrLayoutKey");
+			layoutCtr = new LayoutMain3ColsController(ureq, wControl, null, null, mainPanel, "examEditorCtrLayoutKey");
 
-			this.setInitialComponent(layoutCtr.getInitialComponent());
-			// --------------------------------getInstance hinzugefügt
-			CoordinatorManager.getInstance().getCoordinator().getEventBus()
-					.registerFor(this, ureq.getIdentity(), res);
+			putInitialPanel(layoutCtr.getInitialComponent());
 		} else {
-
-			this.getWindowControl().setInfo(
-					translator.translate("ExamEditorController.alreadyLocked",
-							new String[] { lockResult.getOwner().getName() }));
+			// Throw exception with user that currently holds the lock
+			User user = lockResult.getOwner().getUser();
+			throw new AlreadyLockedException(user.getProperty(UserConstants.FIRSTNAME, null) + " " + user.getProperty(UserConstants.LASTNAME, null));
 		}
 	}
 
@@ -179,23 +153,21 @@ public class ExamEditorController extends DefaultController implements
 		vcMain.put("tabbedPane", tabbedPane);
 
 		editCommentsForm = new EditCommentsForm(ureq, this.getWindowControl(),
-				"editCommentsForm", translator, exam.getComments());
+				"editCommentsForm", getTranslator(), exam.getComments());
 		editCommentsForm.addControllerListener(this);
-		tabbedPane.addTab(translator
-				.translate("ExamEditorController.tabbedPane.comments"),
+		tabbedPane.addTab(translate("ExamEditorController.tabbedPane.comments"),
 				editCommentsForm.getInitialComponent());
 
 		editRegForm = new EditRegistrationForm(ureq, this.getWindowControl(),
-				"editRegistrationForm", translator, exam.getRegStartDate(),
+				"editRegistrationForm", getTranslator(), exam.getRegStartDate(),
 				exam.getRegEndDate(), exam.getSignOffDate());
 		editRegForm.addControllerListener(this);
-		tabbedPane.addTab(translator
-				.translate("ExamEditorController.tabbedPane.registration"),
+		tabbedPane.addTab(translate("ExamEditorController.tabbedPane.registration"),
 				editRegForm.getInitialComponent());
 
 		if (exam.getRegEndDate() != null) {
 			vcApp = new VelocityContainer("appPage", VELOCITY_ROOT
-					+ "/tabApp.html", translator, this);
+					+ "/tabApp.html", getTranslator(), this);
 			addAppLink = LinkFactory.createButtonSmall(
 					"ExamEditorController.link.addAppointment", vcApp, this);
 			boolean enableAppLink = true;
@@ -210,10 +182,9 @@ public class ExamEditorController extends DefaultController implements
 			tgc.setMultiSelect(true);
 			tgc.setColumnMovingOffered(true);
 			tgc.setDownloadOffered(true);
-			tgc.setTableEmptyMessage(translator
-					.translate("ExamEditorController.appointmentTable.empty"));
+			tgc.setTableEmptyMessage(translate("ExamEditorController.appointmentTable.empty"));
 			appTableCtr = new TableController(tgc, ureq, this
-					.getWindowControl(), translator);
+					.getWindowControl(), getTranslator());
 			appTableCtr.setMultiSelect(true);
 			appTableCtr.addMultiSelectAction(
 					"ExamEditorController.appointmentTable.edit",
@@ -234,58 +205,30 @@ public class ExamEditorController extends DefaultController implements
 			appTableCtr.addControllerListener(this);
 
 			vcApp.put("appointmentTable", appTableCtr.getInitialComponent());
-			tabbedPane.addTab(translator
-					.translate("ExamEditorController.tabbedPane.appointments"),
+			tabbedPane.addTab(translate("ExamEditorController.tabbedPane.appointments"),
 					vcApp);
 		}
 
 		editEarmarkedForm = new EditEarmarkedForm(ureq,
-				this.getWindowControl(), "editEarmarkedForm", translator, exam
+				this.getWindowControl(), "editEarmarkedForm", getTranslator(), exam
 						.getEarmarkedEnabled());
 		editEarmarkedForm.addControllerListener(this);
-		tabbedPane.addTab(translator
-				.translate("ExamEditorController.tabbedPane.earmarked"),
+		tabbedPane.addTab(translate("ExamEditorController.tabbedPane.earmarked"),
 				editEarmarkedForm.getInitialComponent());
 
 		ExamCatalogController ecc = new ExamCatalogController(ureq, this
 				.getWindowControl(), exam);
-		tabbedPane.addTab(
-				translator.translate("ExamCatalogController.catalog"), ecc
+		tabbedPane.addTab(translate("ExamCatalogController.catalog"), ecc
 						.getInitialComponent());
-	}
-
-	/**
-	 * builds the treemodel
-	 * 
-	 * @param examName
-	 * @return the generic tree model
-	 */
-	private GenericTreeModel buildTreeModel(String examName) {
-
-		GenericTreeModel tm = new GenericTreeModel();
-		GenericTreeNode gtn = new GenericTreeNode();
-		gtn.setTitle(examName);
-		gtn.setUserObject("menuRoot");
-		gtn.setAltText(examName);
-		gtn.setAccessible(false);
-		tm.setRootNode(gtn);
-
-		GenericTreeNode gtn1 = new GenericTreeNode();
-		gtn1.setTitle(translator.translate(exam.getIsOral() ? "oral"
-				: "written"));
-		gtn1.setUserObject("menuKind");
-		gtn1.setAccessible(false);
-		gtn.addChild(gtn1);
-
-		return tm;
 	}
 
 	/**
 	 * @see org.olat.core.gui.control.DefaultController#doDispose(boolean)
 	 */
 	protected void doDispose() {
-
-		// nothing to do
+		if(lockResult != null) {
+			CoordinatorManager.getInstance().getCoordinator().getLocker().releaseLock(lockResult);
+		}
 	}
 
 	/**
@@ -294,19 +237,17 @@ public class ExamEditorController extends DefaultController implements
 	 *      org.olat.core.gui.control.Event)
 	 */
 	public void event(UserRequest ureq, Component source, Event event) {
-		if (source == menuTree) {
-			// nothing to do here
-		} else if (source == addAppLink) {
+		if (source == addAppLink) {
 			VelocityContainer vcEditApp = new VelocityContainer(
 					"createAppPage", VELOCITY_ROOT + "/createApp.html",
-					translator, this);
+					getTranslator(), this);
 			createAppForm = new CreateAndEditAppointmentForm(ureq, this
-					.getWindowControl(), "createAppForm", translator, exam
+					.getWindowControl(), "createAppForm", getTranslator(), exam
 					.getIsOral(), null);
 			createAppForm.addControllerListener(this);
 			vcEditApp.put("createAppForm", createAppForm.getInitialComponent());
 			cmc = new CloseableModalController(this.getWindowControl(),
-					translator.translate("close"), vcEditApp);
+					translate("close"), vcEditApp);
 			cmc.activate();
 		}
 	}
@@ -317,36 +258,7 @@ public class ExamEditorController extends DefaultController implements
 	 *      org.olat.core.gui.control.Event)
 	 */
 	public void event(UserRequest ureq, Controller source, Event event) {
-		if (source == toolCtr) {
-			// close editor
-			if (event.getCommand().equals(CMD_TOOLS_CLOSE_EDITOR)) {
-				// --------------------------------getInstance hinzugefügt
-				if (lockResult.isSuccess())
-					CoordinatorManager.getInstance().getCoordinator()
-							.getLocker().releaseLock(lockResult);
-				this.fireEvent(ureq, Event.DONE_EVENT);
-			}
-			// show preview
-			if (event.getCommand().equals(CMD_TOOLS_OPEN_EXAM)) {
-				OLATResourceable ores = OLATResourceManager.getInstance().findResourceable(exam.getResourceableId(), Exam.ORES_TYPE_NAME);
-				DTabs dts = (DTabs) Windows.getWindows(ureq).getWindow(ureq).getAttribute("DTabs");
-
-				// Deleting the current tab and creating a new one with the same resource is a dirty hack
-				// TODO implement using a StackedController
-				DTab dt = dts.getDTab(ores);
-				if(dt == null) return;
-				dts.removeDTab(ureq, dt);
-
-				DTab dtNew = dts.createDTab(ores, exam.getName());
-
-				ExamLaunchController examLaunchCtr = (ExamLaunchController) RepositoryHandlerFactory.getInstance().getRepositoryHandler(Exam.ORES_TYPE_NAME)
-																			.createLaunchController(ores, ureq, this.getWindowControl());
-				dtNew.setController(examLaunchCtr);
-
-				dts.addDTab(ureq, dtNew);
-				dts.activate(ureq, dtNew, null);
-			}
-		} else if (source == appTableCtr) {
+		if (source == appTableCtr) {
 			if (event.getCommand().equals(Table.COMMAND_MULTISELECT)) {
 				TableMultiSelectEvent tmse = (TableMultiSelectEvent) event;
 				if (tmse.getAction().equals("appTable.edit")) {
@@ -356,19 +268,16 @@ public class ExamEditorController extends DefaultController implements
 						app = appList.get(0);
 						editAppForm = new CreateAndEditAppointmentForm(ureq,
 								this.getWindowControl(), "editAppForm",
-								translator, exam.getIsOral(), app);
+								getTranslator(), exam.getIsOral(), app);
 						editAppForm.addControllerListener(this);
 						cmc = new CloseableModalController(this
-								.getWindowControl(), translator
-								.translate("close"), editAppForm
+								.getWindowControl(), translate("close"), editAppForm
 								.getInitialComponent());
 						cmc.activate();
 					} else {
 						this
 								.getWindowControl()
-								.setInfo(
-										translator
-												.translate("ExamEditorController.appointmentTable.noSingleChoose"));
+								.setInfo(translate("ExamEditorController.appointmentTable.noSingleChoose"));
 					}
 				}
 				// delete appointments (and belonging protocols and calendar
@@ -384,7 +293,7 @@ public class ExamEditorController extends DefaultController implements
 							tempApp = p.getAppointment();
 							CalendarManager.getInstance().deleteKalendarEventForExam(exam,p.getIdentity());
 							Locale userLocale = new Locale(p.getIdentity().getUser().getPreferences().getLanguage());
-							Translator tmpTranslator = new PackageTranslator(PACKAGE, userLocale);
+							Translator tmpTranslator = Util.createPackageTranslator(Exam.class, userLocale);
 							BusinessControlFactory bcf = BusinessControlFactory.getInstance();
 							
 							// Email DeleteAppointment
@@ -485,7 +394,7 @@ public class ExamEditorController extends DefaultController implements
 						.findAllProtocolsByAppointment(app);
 				for (Protocol p : protoList) {
 					Locale userLocale = new Locale(p.getIdentity().getUser().getPreferences().getLanguage());
-					Translator tmpTranslator = new PackageTranslator(PACKAGE, userLocale);
+					Translator tmpTranslator = Util.createPackageTranslator(Exam.class, userLocale);
 					BusinessControlFactory bcf = BusinessControlFactory.getInstance();
 
 					// Email UpdateAppointment
@@ -506,10 +415,5 @@ public class ExamEditorController extends DefaultController implements
 				}
 			}
 		}
-	}
-
-	public void event(Event event) {
-
-		// nothing to catch
 	}
 }

@@ -43,6 +43,7 @@ import de.unileipzig.xman.calendar.CalendarManager;
 import de.unileipzig.xman.exam.controllers.ExamCreateController;
 import de.unileipzig.xman.exam.controllers.ExamEditorController;
 import de.unileipzig.xman.exam.controllers.ExamLaunchController;
+import de.unileipzig.xman.exam.controllers.ExamMainController;
 import de.unileipzig.xman.protocol.Protocol;
 import de.unileipzig.xman.protocol.ProtocolManager;
 
@@ -223,44 +224,41 @@ public class ExamHandler implements RepositoryHandler {
 
 	@Override
 	public MainLayoutController createLaunchController(OLATResourceable res, UserRequest ureq, WindowControl wControl) {
-
-		// check roles
-		boolean isOLATAdmin = ureq.getUserSession().getRoles().isOLATAdmin();
-		boolean isOLATUser = !ureq.getUserSession().getRoles().isGuestOnly();
-		boolean isInstitutionalResourceManager = ureq.getUserSession().getRoles().isInstitutionalResourceManager();
-		boolean isResourceOwner = false;
-		if ( isOLATAdmin || isInstitutionalResourceManager  ) isResourceOwner = true;
-		else {
-			RepositoryManager repoMgr = RepositoryManager.getInstance();
-			isResourceOwner = repoMgr.isOwnerOfRepositoryEntry(ureq.getIdentity(), repoMgr.lookupRepositoryEntry(res, true));
-		}
-		Exam exam = ExamDBManager.getInstance().findExamByID(res.getResourceableId());
-		ExamLaunchController examLaunchCtr = new ExamLaunchController(ureq, wControl, exam, isResourceOwner, isOLATUser);
+		// increment launch counter
 		RepositoryManager.getInstance().incrementLaunchCounter(RepositoryManager.getInstance().lookupRepositoryEntry(res, false));
-		return examLaunchCtr;
-		/**
-		final boolean isResourceOwner = ureq.getUserSession().getRoles().isInstitutionalResourceManager();		// später eventuell ändern falls die Rolle nicht passt
-		final boolean isOLATUser = !ureq.getUserSession().getRoles().isGuestOnly();								// hier auch nochmal schaun ;D
-
-		final ExamLaunchController elc = new ExamLaunchController(ureq, wControl, null, isResourceOwner, isOLATUser);
-		final LayoutMain3ColsController layoutCtr = new LayoutMain3ColsController(ureq, wControl, null, null, elc.getInitialComponent(), null);
-		layoutCtr.addDisposableChildController(elc);
-		return layoutCtr;
-		**/
+		
+		boolean isStudent = !ureq.getUserSession().getRoles().isGuestOnly();
+		boolean canEdit = ureq.getUserSession().getRoles().isOLATAdmin() || ureq.getUserSession().getRoles().isInstitutionalResourceManager();
+		
+		if(RepositoryManager.getInstance().isOwnerOfRepositoryEntry(ureq.getIdentity(), RepositoryManager.getInstance().lookupRepositoryEntry(res, true))) {
+			canEdit = true;
+		}
+		
+		MainLayoutController launchController;
+		Exam exam = ExamDBManager.getInstance().findExamByID(res.getResourceableId());
+		if(canEdit) {
+			launchController = new ExamMainController(ureq, wControl, exam, ExamMainController.View.LECTURER);
+		} else if(isStudent) {
+			launchController = new ExamMainController(ureq, wControl, exam, ExamMainController.View.STUDENT);
+		} else {
+			launchController = new ExamMainController(ureq, wControl, exam, ExamMainController.View.OTHER);
+		}
+		
+		return launchController;
 	}
 
 	@Override
 	public Controller createEditorController(OLATResourceable res, UserRequest ureq, WindowControl wControl) {
-
-		
-		ExamEditorController examEditorCtr = new ExamEditorController(ureq, wControl, res);
-		return examEditorCtr;
-		/**
-		final ExamEditorController elc = new ExamEditorController(ureq, wControl, res);
-		final LayoutMain3ColsController layoutCtr = new LayoutMain3ColsController(ureq, wControl, null, null, elc.getInitialComponent(), null);
-		layoutCtr.addDisposableChildController(elc);
-		return layoutCtr;
-		**/
+		Exam exam = ExamDBManager.getInstance().findExamByID(res.getResourceableId());
+		Controller editor;
+		try {
+			editor = new ExamMainController(ureq, wControl, exam, ExamMainController.View.LECTURER, true);
+		} catch(AlreadyLockedException e) {
+			Translator translator = Util.createPackageTranslator(Exam.class, ureq.getLocale());
+			wControl.setInfo(translator.translate("ExamEditorController.alreadyLocked", new String[] { e.getName() }));
+			return null;
+		}
+		return editor;
 	}
 
 	@Override

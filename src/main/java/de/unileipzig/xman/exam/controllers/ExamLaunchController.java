@@ -105,7 +105,6 @@ public class ExamLaunchController extends MainLayoutBasicController implements
 	private List<Protocol> protoList = null;
 	private Identity id;
 	private Link addStudent;
-	private Link editExam;
 
 	private LayoutMain3ColsController columnLayoutCtr;
 	private CommentEntry commentEntry;
@@ -179,20 +178,9 @@ public class ExamLaunchController extends MainLayoutBasicController implements
 				.truncate(comments, 2048));	
 
 
-		columnLayoutCtr = new LayoutMain3ColsController(ureq,
-				getWindowControl(), null, null, vcMain, "examLaunch");
-		listenTo(columnLayoutCtr);// cleanup on dispose
-		// add background image to home site
-		columnLayoutCtr.addCssClassToMain("o_home");
+		columnLayoutCtr = new LayoutMain3ColsController(ureq, getWindowControl(), null, null, vcMain, "examLaunch");
+		listenTo(columnLayoutCtr); // cleanup on dispose
 
-		if(isResourceOwner) {
-		    editExam = LinkFactory.createButtonSmall("ExamLaunchController.link.editExam", vcMain, this);
-		    vcMain.put("editExam", editExam);
-		    vcMain.contextPut("isResourceOwner", true);
-		} else {
-			vcMain.contextPut("isResourceOwner", false);
-		}
-		
 		this.setAppointmentTable(ureq);
 
 		this.setProtocolTable(ureq);
@@ -411,8 +399,7 @@ public class ExamLaunchController extends MainLayoutBasicController implements
 	 * @see org.olat.core.gui.control.DefaultController#doDispose(boolean)
 	 */
 	protected void doDispose() {
-
-		// nothing to do
+		removeAsListenerAndDispose(columnLayoutCtr);
 	}
 
 	/**
@@ -432,26 +419,6 @@ public class ExamLaunchController extends MainLayoutBasicController implements
 			cmc.activate();
 		}
 	
-		if (source == editExam) {
-			OLATResourceable ores = OLATResourceManager.getInstance().findResourceable(exam.getResourceableId(), Exam.ORES_TYPE_NAME);
-			DTabs dts = (DTabs) Windows.getWindows(ureq).getWindow(ureq).getAttribute("DTabs");
-
-			// Deleting the current tab and creating a new one with the same resource is a dirty hack
-			// TODO implement using a StackedController
-			DTab dt = dts.getDTab(ores);
-			if(dt == null) return;
-			dts.removeDTab(ureq, dt);
-
-			DTab dtNew = dts.createDTab(ores, exam.getName());
-
-			ExamEditorController eec = (ExamEditorController) RepositoryHandlerFactory.getInstance().getRepositoryHandler(Exam.ORES_TYPE_NAME)
-																		.createEditorController(ores, ureq, this.getWindowControl());
-			dtNew.setController(eec);
-
-			dts.addDTab(ureq, dtNew);
-			dts.activate(ureq, dtNew, null);
-		}
-
 	}
 
 	/**
