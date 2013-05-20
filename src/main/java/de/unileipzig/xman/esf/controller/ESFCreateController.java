@@ -2,8 +2,6 @@ package de.unileipzig.xman.esf.controller;
 
 import java.util.Date;
 
-import net.fortuna.ical4j.model.Property;
-
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.Component;
 import org.olat.core.gui.components.form.Form;
@@ -113,28 +111,23 @@ public class ESFCreateController extends BasicController {
 					
 					String oldFirstName = this.getIdentity().getUser().getProperty(UserConstants.FIRSTNAME, ureq.getLocale());
 					String oldLastName = this.getIdentity().getUser().getProperty(UserConstants.LASTNAME, ureq.getLocale());
+					String oldStudyPath = this.getIdentity().getUser().getProperty(UserConstants.STUDYSUBJECT, ureq.getLocale());
 					
 					this.updateUserInformation(user);
 
-					String newFirstName = user.getProperty(UserConstants.FIRSTNAME, ureq.getLocale());
-					String newLastName = user.getProperty(UserConstants.LASTNAME, ureq.getLocale());
+					String newFirstName = esfCreateForm.getFirstName();
+					String newLastName = esfCreateForm.getLastName();
+					String newStudyPath = esfCreateForm.getStudyPath();
 
-					String[] firstNames = {oldFirstName, newFirstName};
-					String[] lastNames = {oldLastName, newLastName};
-					
 					// set esf to not validated
 					esf = ElectronicStudentFileManager.getInstance()
 							.retrieveESFByIdentity(ureq.getIdentity());
-		
-					
-					
+
 					// create a comment for change of esf
 					// the comment
-					String[] comment = { new Date().toString() };
+					String[] comment = { new Date().toString(), oldLastName, oldFirstName, oldStudyPath, newLastName, newFirstName, newStudyPath };
 					String entry = translator.translate(
-							"ESFCreateController.changed", comment) 
-							+ (oldFirstName.equals(newFirstName) ? "" : ("\n" + translator.translate("ESFCreateController.newFirstName", firstNames)))
-							+ (oldLastName.equals(newLastName) ? "" : ("\n" + translator.translate("ESFCreateController.newLastName", lastNames)));
+							"ESFCreateController.changed", comment);
 
 					CommentEntry commentEntry = CommentManager.getInstance()
 							.createCommentEntry();
