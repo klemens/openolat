@@ -4,7 +4,6 @@ import org.olat.core.commons.fullWebApp.LayoutMain3ColsController;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.Component;
 import org.olat.core.gui.components.stack.PopEvent;
-import org.olat.core.gui.components.stack.StackedController;
 import org.olat.core.gui.components.stack.StackedControllerImpl;
 import org.olat.core.gui.components.velocity.VelocityContainer;
 import org.olat.core.gui.control.Controller;
@@ -15,9 +14,6 @@ import org.olat.core.gui.control.generic.tool.ToolController;
 import org.olat.core.gui.control.generic.tool.ToolFactory;
 import org.olat.core.id.OLATResourceable;
 import org.olat.core.util.Util;
-import org.olat.repository.RepositoryEntry;
-import org.olat.repository.RepositoryManager;
-import org.olat.repository.handlers.RepositoryHandlerFactory;
 import org.olat.resource.OLATResourceManager;
 
 import de.unileipzig.xman.exam.AlreadyLockedException;
@@ -79,7 +75,7 @@ public class ExamMainController extends MainLayoutBasicController {
 	 * Init method so we can throw an exception from only one constructor
 	 */
 	private void init(UserRequest ureq) {
-		this.cstack = new StackedControllerImpl(getWindowControl(), getTranslator(), "examStack");
+		this.cstack = new StackedControllerImpl(getWindowControl(), getTranslator(), "o_exam_breadcumbs");
 		listenTo(cstack);
 		
 		VelocityContainer mainVC = new VelocityContainer("examMain", Util.getPackageVelocityRoot(Exam.class) + "/examMain.html", getTranslator(), this);
