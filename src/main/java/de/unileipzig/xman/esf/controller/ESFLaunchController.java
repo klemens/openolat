@@ -241,7 +241,7 @@ public class ESFLaunchController extends BasicController {
 						(ureq.getUserSession().getRoles().isInstitutionalResourceManager() || ureq.getUserSession().getRoles().isOLATAdmin()));
 		protoTableMdl.setTable(protoTableCtr);
 		protoTableCtr.setTableDataModel(protoTableMdl);
-		protoTableCtr.setSortColumn(0, true);
+		protoTableCtr.setSortColumn(4, false);
 
 		// NEU
 		protoTableCtr.addControllerListener(this);
