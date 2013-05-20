@@ -143,15 +143,5 @@ public class ProtocolTableModel extends DefaultTableDataModel<Protocol> {
 		}
 		return results;
 	}
-	
-	/**
-	 * @param rowid
-	 * @return The Protocol at the given position in the table
-	 */
-	public Protocol getProtocolAt(int rowid) {
-		
-		Object[] co = (Object[])getObject(rowid);
-		Protocol proto = (Protocol) co[0];
-		return proto;
-	}
+
 }
