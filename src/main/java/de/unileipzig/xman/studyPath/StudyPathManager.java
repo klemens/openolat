@@ -1,5 +1,6 @@
 package de.unileipzig.xman.studyPath;
-
+import com.hp.hpl.jena.ontology.*;
+import java.util.ArrayList;
 import java.util.List;
 
 import org.olat.core.commons.persistence.DBFactory;
@@ -50,33 +51,49 @@ public class StudyPathManager {
 	}
 	
 	private void TEMPcreateAllStudyPaths() {
-		String[] keys = {
-				"Diplom-Informatik",
-				"Informatik-Bachelor (alt)",
-				"Informatik-Bachelor (neu)",
-				"Informatik-Master (alt)",
-				"Informatik-Master (neu)",
-				"Informatik-Lehramt (alt)",
-				"Bachelorstudiengang Lehramt Informatik",
-				"Magister mit Hauptfach Informatik",
-				"Magister mit Nebenfach Informatik",
-				"Wirtschaftsmathematik",
-				"Mathematik-Diplom",
-				"Mathematik-Lehramt (alt)",
-				"Bachelorstudiengang Lehramt Mathematik",
-				"Magister mit Hauptfach Mathematik",
-				"Magister mit Nebenfach Mathematik",
-				"Wirtschaftsinformatik-Diplom",
-				"Wirtschaftsinformatik-Bachelor",
-				"Wirtschaftspädagogik",
-				"Nebenfach Informatik",
-			};
-		
-		for (String name : keys ) {
-			StudyPath studyPath = this.createStudyPath();
-			studyPath.setName(name);
-			DBFactory.getInstance().saveObject(studyPath);
-		}
+		   ArrayList<String> Liste= new ArrayList<String>();
+		     String queryString = " .... " ;
+		     Query query = QueryFactory.create(queryString) ;
+		     QueryExecution qexec = QueryExecutionFactory.create(query, model) ;
+		     try {
+		       ResultSet results = qexec.execSelect() ;
+		       for ( ; results.hasNext() ; )
+		       {
+		          QuerySolution soln = results.nextSolution() ;
+		          RDFNode studypath = soln.get("varName") ;       // Get a result variable by name.
+		   String  name = Studypath.toString()
+		   Liste.add(Name);
+		       }
+		     } finally { qexec.close() ; }
+		   /* String[] keys = {
+		    "Diplom-Informatik",
+		    "Informatik-Bachelor (alt)",
+		    "Informatik-Bachelor (neu)",
+		    "Informatik-Master (alt)",
+		    "Informatik-Master (neu)",
+		    "Informatik-Lehramt (alt)",
+		    "Bachelorstudiengang Lehramt Informatik",
+		    "Magister mit Hauptfach Informatik",
+		    "Magister mit Nebenfach Informatik",
+		    "Wirtschaftsmathematik",
+		    "Mathematik-Diplom",
+		    "Mathematik-Lehramt (alt)",
+		    "Bachelorstudiengang Lehramt Mathematik",
+		    "Magister mit Hauptfach Mathematik",
+		    "Magister mit Nebenfach Mathematik",
+		    "Wirtschaftsinformatik-Diplom",
+		    "Wirtschaftsinformatik-Bachelor",
+		    "Wirtschaftspädagogik",
+		    "Nebenfach Informatik",
+		   };
+		  **/
+		  
+		  for (Liste.hasNext() ) {
+		   StudyPath studyPath = this.createStudyPath();
+		   studyPath.setName(name);
+		   DBFactory.getInstance().saveObject(studyPath);
+		  }
+		 }
 	}
 	
 
