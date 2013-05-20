@@ -17,7 +17,7 @@ import de.unileipzig.xman.protocol.Protocol;
 import de.unileipzig.xman.studyPath.StudyPath;
 import de.unileipzig.xman.studyPath.StudyPathManager;
 
-public class ProtocolTableModel extends DefaultTableDataModel {
+public class ProtocolTableModel extends DefaultTableDataModel<Protocol> {
 	
 	private List<Protocol> entries;
 	private int COLUMN_COUNT;
@@ -47,7 +47,7 @@ public class ProtocolTableModel extends DefaultTableDataModel {
 		this.showExamName = showExamName;
 		this.showEsfLink = showEsfLink;
 		this.entries = protocols; 
-		this.COLUMN_COUNT = showScores ? 7 : 6;
+		this.COLUMN_COUNT = showScores ? 8 : 7;
 		if ( showExamName ) this.COLUMN_COUNT++;
 	}
 	
@@ -74,7 +74,7 @@ public class ProtocolTableModel extends DefaultTableDataModel {
 	/**
 	 * @see org.olat.core.gui.components.table.TableDataModel#getValueAt(int, int)
 	 */
-	public String getValueAt(int row, int col) {
+	public Object getValueAt(int row, int col) {
 		
 		Protocol proto = this.getEntryAt(row);
 		switch(col) {
@@ -87,17 +87,16 @@ public class ProtocolTableModel extends DefaultTableDataModel {
 			
 			case 3: return proto.getIdentity().getUser().getProperty(UserConstants.STUDYSUBJECT, locale);
 			
-			case 4: return DateFormat.getDateTimeInstance(
-						DateFormat.SHORT, DateFormat.SHORT, locale).format(proto.getAppointment().getDate())
-					+ ", "
-					+ proto.getAppointment().getPlace();
+			case 4: return proto.getAppointment().getDate();
 			
-			case 5: return proto.getGrade();
+			case 5: return proto.getAppointment().getPlace();
+			
+			case 6: return proto.getGrade();
 			
 			//s. CommentEntryTableModel
-			case 6: return proto.getComments();
+			case 7: return proto.getComments();
 			
-			case 7: return proto.getExam().getName();
+			case 8: return proto.getExam().getName();
 			
 			default: return "";
 			
@@ -123,10 +122,11 @@ public class ProtocolTableModel extends DefaultTableDataModel {
 		tableCtr.addColumnDescriptor(new DefaultColumnDescriptor("ProtocolTableModel.header.matrikel", 1, showEsfLink ? ESF_OPEN : null, locale));
 		tableCtr.addColumnDescriptor(new DefaultColumnDescriptor("ProtocolTableModel.header.name", 2, null, locale));
 		tableCtr.addColumnDescriptor(new DefaultColumnDescriptor("ProtocolTableModel.header.studyPath", 3, null, locale));
-		tableCtr.addColumnDescriptor(new DefaultColumnDescriptor("ProtocolTableModel.header.appointment", 4, null, locale));
-		if ( this.showScores ) tableCtr.addColumnDescriptor(new DefaultColumnDescriptor("ProtocolTableModel.header.mark", 5, null, locale));
-		tableCtr.addColumnDescriptor(new DefaultColumnDescriptor("ProtocolTableModel.header.comment", 6, null, locale));
-		if ( this.showExamName ) tableCtr.addColumnDescriptor(new DefaultColumnDescriptor("ProtocolTableModel.header.examName", 7, EXAM_LAUNCH, locale));
+		tableCtr.addColumnDescriptor(new DefaultColumnDescriptor("ProtocolTableModel.header.date", 4, null, locale));
+		tableCtr.addColumnDescriptor(new DefaultColumnDescriptor("ProtocolTableModel.header.loc", 5, null, locale));
+		if ( this.showScores ) tableCtr.addColumnDescriptor(new DefaultColumnDescriptor("ProtocolTableModel.header.mark", 6, null, locale));
+		tableCtr.addColumnDescriptor(new DefaultColumnDescriptor("ProtocolTableModel.header.comment", 7, null, locale));
+		if ( this.showExamName ) tableCtr.addColumnDescriptor(new DefaultColumnDescriptor("ProtocolTableModel.header.examName", 8, EXAM_LAUNCH, locale));
 	}
 	
 	/**
