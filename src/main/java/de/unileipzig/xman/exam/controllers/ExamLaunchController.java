@@ -144,6 +144,7 @@ public class ExamLaunchController extends MainLayoutBasicController implements
 		}
 
 		translator = Util.createPackageTranslator(Exam.class, ureq.getLocale());
+		setTranslator(translator);
 
 		vcMain = new VelocityContainer("examLaunch", VELOCITY_ROOT
 				+ "/examLaunch.html", translator, this);
@@ -595,29 +596,21 @@ public class ExamLaunchController extends MainLayoutBasicController implements
 					detailsController.dispose();
 
 					// register student to the choosen appointment
-					this.registerStudent(ap, ureq.getIdentity(), exam.getEarmarkedEnabled());
-					this.setAppointmentTable(ureq);
-
-					// add a comment to the esf
-
-					// build the output which should come in the esf
-					String examName = this.exam.getName();
-					String[] args = { "'" + examName + "'" };
-
-					// set identity and text of the comment
-					String commentText = this.translator.translate(
-							"ExamLaunchController.studentRegisteredHimself",
-							args);
-
-					this.createCommentForStudent(ureq,
-							ElectronicStudentFileManager.getInstance()
-									.retrieveESFByIdentity(ureq.getIdentity()),
-							commentText);
-
-					// for renew the screen, if your are admin the table would
-					// not get updated
-					this.setProtocolTable(ureq);
-					this.setAppointmentTable(ureq);
+					if(registerStudent(ap, ureq.getIdentity(), exam.getEarmarkedEnabled())) {
+						// build the output which should come in the esf
+						String examName = this.exam.getName();
+						String[] args = { "'" + examName + "'" };
+	
+						// set identity and text of the comment
+						String commentText = translate("ExamLaunchController.studentRegisteredHimself", args);
+	
+						createCommentForStudent(ureq, ElectronicStudentFileManager.getInstance().retrieveESFByIdentity(ureq.getIdentity()), commentText);
+	
+						// for renew the screen, if your are admin the table would
+						// not get updated
+						setProtocolTable(ureq);
+						setAppointmentTable(ureq);
+					}
 				}
 			
 		}
@@ -1238,38 +1231,29 @@ public class ExamLaunchController extends MainLayoutBasicController implements
 				TableEvent te = (TableEvent) event;
 				String actionid = te.getActionId();
 				cmc.deactivate();
+				
 				// subscribe student to exam manually
 				if (actionid.equals(AppointmentTableModel.SELECT_SUBSCRIBE)) {
-
-					ElectronicStudentFile esf = ElectronicStudentFileManager
-							.getInstance().retrieveESFByIdentity(id);
+					ElectronicStudentFile esf = ElectronicStudentFileManager.getInstance().retrieveESFByIdentity(id);
 
 					if (esf != null) {
-
 						// register student in the choosen appointment
 						Appointment tempApp = chooseAppMdl.getEntryAt(te
 								.getRowId());
-						this.registerStudent(tempApp, id, false);
-
-						// build the output which should come in the esf
-						String firstName = ureq.getIdentity().getUser()
-								.getProperty(UserConstants.FIRSTNAME,
-										ureq.getLocale());
-						String lastName = ureq.getIdentity().getUser()
-								.getProperty(UserConstants.LASTNAME,
-										ureq.getLocale());
-						String examName = this.exam.getName();
-						String[] args = {
-								("'" + lastName + ", " + firstName + "'"),
-								"'" + examName + "'" };
-
-						// set identity and text of the comment
-						String commentText = this.translator
-								.translate(
-										"ExamLaunchController.registeredStudentManually",
-										args);
-
-						this.createCommentForStudent(ureq, esf, commentText);
+						if(registerStudent(tempApp, id, false)) {
+							// build the output which should come in the esf
+							String firstName = ureq.getIdentity().getUser().getProperty(UserConstants.FIRSTNAME, ureq.getLocale());
+							String lastName = ureq.getIdentity().getUser().getProperty(UserConstants.LASTNAME, ureq.getLocale());
+							String examName = this.exam.getName();
+	
+							// set identity and text of the comment
+							String commentText = translate("ExamLaunchController.registeredStudentManually", new String[] {
+								"'" + lastName + ", " + firstName + "'",
+								"'" + examName + "'"
+							});
+	
+							createCommentForStudent(ureq, esf, commentText);
+						}
 					} else {
 
 						this
@@ -1324,18 +1308,16 @@ public class ExamLaunchController extends MainLayoutBasicController implements
 	}
 
 	/**
-	 * 
+	 * Register student for given appointment; can show error on screen
 	 * @param app
 	 * @param id
+	 * @param isEarmarked
+	 * @return true if registered successfully
 	 */
-	private void registerStudent(Appointment app, Identity id,
-			boolean isEarmarked) {
+	private boolean registerStudent(Appointment app, Identity id, boolean isEarmarked) {
 
-		Appointment tempApp = AppointmentManager.getInstance()
-				.findAppointmentByID(app.getKey());
-
-		ElectronicStudentFile esf = ElectronicStudentFileManager.getInstance()
-				.retrieveESFByIdentity(id);
+		Appointment tempApp = AppointmentManager.getInstance().findAppointmentByID(app.getKey());
+		ElectronicStudentFile esf = ElectronicStudentFileManager.getInstance().retrieveESFByIdentity(id);
 
 		if (esf != null) {
 
@@ -1367,11 +1349,9 @@ public class ExamLaunchController extends MainLayoutBasicController implements
 
 				// add the protocol to the students esf
 				esf.addProtocol(proto);
-				ElectronicStudentFileManager.getInstance()
-						.updateElectronicStundentFile(esf);
+				ElectronicStudentFileManager.getInstance().updateElectronicStundentFile(esf);
 
-				CalendarManager.getInstance().createKalendarEventForExam(exam,
-						id, res);
+				CalendarManager.getInstance().createKalendarEventForExam(exam, id, res);
 				
 				BusinessControlFactory bcf = BusinessControlFactory.getInstance();
 				// Email Register
@@ -1399,25 +1379,19 @@ public class ExamLaunchController extends MainLayoutBasicController implements
 						}),
 					proto.getIdentity()
 				);
+				
+				return true;
 			} else {
 				Tracing.logError("app == null: " + (tempApp == null)
 						+ "  tempApp.isOccupied:" + tempApp.getOccupied(),
 						ExamLaunchController.class);
-				this
-						.getWindowControl()
-						.setInfo(
-								translator
-										.translate("ExamLaunchController.info.appNotAvailable"));
+				getWindowControl().setInfo(translate("ExamLaunchController.info.appNotAvailable"));
+				return false;
 			}
 		} else {
-
-			this
-					.getWindowControl()
-					.setInfo(
-							translator
-									.translate("ExamLaunchController.register.couldNotRegisterNoESF"));
+			getWindowControl().setInfo(translate("ExamLaunchController.register.couldNotRegisterNoESF"));
+			return false;
 		}
-
 	}
 
 	/**
