@@ -107,11 +107,9 @@ public class ESFCreateController extends BasicController {
 				// invalidated
 				if (action.equals(ESFLaunchController.CHANGE_ESF)) {
 					
-					String name = this.getIdentity().getName();
-					
-					String oldFirstName = this.getIdentity().getUser().getProperty(UserConstants.FIRSTNAME, ureq.getLocale());
-					String oldLastName = this.getIdentity().getUser().getProperty(UserConstants.LASTNAME, ureq.getLocale());
-					String oldStudyPath = this.getIdentity().getUser().getProperty(UserConstants.STUDYSUBJECT, ureq.getLocale());
+					String oldFirstName = user.getProperty(UserConstants.FIRSTNAME, ureq.getLocale());
+					String oldLastName = user.getProperty(UserConstants.LASTNAME, ureq.getLocale());
+					String oldStudyPath = user.getProperty(UserConstants.STUDYSUBJECT, ureq.getLocale());
 					
 					this.updateUserInformation(user);
 
@@ -119,7 +117,6 @@ public class ESFCreateController extends BasicController {
 					String newLastName = esfCreateForm.getLastName();
 					String newStudyPath = esfCreateForm.getStudyPath();
 
-					// set esf to not validated
 					esf = ElectronicStudentFileManager.getInstance()
 							.retrieveESFByIdentity(ureq.getIdentity());
 
