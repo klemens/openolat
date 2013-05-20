@@ -311,8 +311,7 @@ public class ExamLaunchController extends MainLayoutBasicController implements
 			List<Protocol> protoList = ProtocolManager.getInstance()
 					.findAllProtocolsByExam(exam, false);
 			regProtoTableMdl = new ProtocolTableModel(ureq.getLocale(),
-					protoList, true, false,
-					(ureq.getUserSession().getRoles().isInstitutionalResourceManager() || ureq.getUserSession().getRoles().isOLATAdmin()));
+					protoList, true, false, (ureq.getUserSession().getRoles().isInstitutionalResourceManager() || ureq.getUserSession().getRoles().isOLATAdmin()), true);
 			regProtoTableMdl.setTable(regProtoTableCtr);
 			regProtoTableCtr.setTableDataModel(regProtoTableMdl);
 			regProtoTableCtr.setSortColumn(0, true);
@@ -348,8 +347,7 @@ public class ExamLaunchController extends MainLayoutBasicController implements
 			protoList = ProtocolManager.getInstance().findAllProtocolsByExam(
 					exam, true);
 			earProtoTableMdl = new ProtocolTableModel(ureq.getLocale(),
-					protoList, false, false,
-					(ureq.getUserSession().getRoles().isInstitutionalResourceManager() || ureq.getUserSession().getRoles().isOLATAdmin()));
+					protoList, false, false, (ureq.getUserSession().getRoles().isInstitutionalResourceManager() || ureq.getUserSession().getRoles().isOLATAdmin()), true);
 			earProtoTableMdl.setTable(earProtoTableCtr);
 			earProtoTableCtr.setTableDataModel(earProtoTableMdl);
 			earProtoTableCtr.setSortColumn(0, true);

@@ -25,6 +25,7 @@ public class ProtocolTableModel extends DefaultTableDataModel<Protocol> {
 	private boolean showScores;
 	private boolean showExamName;
 	private boolean showEsfLink;
+	private boolean showVCardLink;
 
 	public static final String COMMAND_VCARD = "show.vcard";
 	public static final String EXAM_LAUNCH = "launch.exam";
@@ -37,15 +38,17 @@ public class ProtocolTableModel extends DefaultTableDataModel<Protocol> {
 	 * @param protocols - the list of protocols to display
 	 * @param showScores - show the column grades
 	 * @param showExamName - the the column examName
-	 * @param ureq - the UserRequest to identify the users Roles
+	 * @param showEsfLink - make institutional number open esf
+	 * @param showVCardLink - make username open vcard
 	 */
-	public ProtocolTableModel(Locale locale, List<Protocol> protocols, boolean showScores, boolean showExamName, boolean showEsfLink) {
+	public ProtocolTableModel(Locale locale, List<Protocol> protocols, boolean showScores, boolean showExamName, boolean showEsfLink, boolean showVCardLink) {
 		super(protocols);
 		
 		this.locale = locale;
 		this.showScores = showScores;
 		this.showExamName = showExamName;
 		this.showEsfLink = showEsfLink;
+		this.showVCardLink = showVCardLink;
 		this.entries = protocols; 
 		this.COLUMN_COUNT = showScores ? 8 : 7;
 		if ( showExamName ) this.COLUMN_COUNT++;
@@ -118,7 +121,7 @@ public class ProtocolTableModel extends DefaultTableDataModel<Protocol> {
 	 */
 	public void setTable(TableController tableCtr) {
 		
-		tableCtr.addColumnDescriptor(new DefaultColumnDescriptor("ProtocolTableModel.header.login", 0, COMMAND_VCARD, locale));
+		tableCtr.addColumnDescriptor(new DefaultColumnDescriptor("ProtocolTableModel.header.login", 0, showVCardLink ? COMMAND_VCARD : null, locale));
 		tableCtr.addColumnDescriptor(new DefaultColumnDescriptor("ProtocolTableModel.header.matrikel", 1, showEsfLink ? ESF_OPEN : null, locale));
 		tableCtr.addColumnDescriptor(new DefaultColumnDescriptor("ProtocolTableModel.header.name", 2, null, locale));
 		tableCtr.addColumnDescriptor(new DefaultColumnDescriptor("ProtocolTableModel.header.studyPath", 3, null, locale));
