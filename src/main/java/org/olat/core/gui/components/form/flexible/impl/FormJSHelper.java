@@ -87,6 +87,37 @@ public class FormJSHelper {
 		content += ("')");
 		return content;
 	}
+	
+	public static String getXHRFnCallFor(Form form, String id, int actionIndex, NameValuePair... pairs) {
+		StringBuilder sb = new StringBuilder(128);
+		sb.append("o_ffXHREvent('")
+		  .append(form.getFormName()).append("','")
+		  .append(form.getDispatchFieldId()).append("','")
+		  .append(id).append("','")
+		  .append(form.getEventFieldId()).append("','")
+		  .append(FormEvent.ON_DOTDOTDOT[actionIndex])
+		  .append("'");
+		if(pairs != null && pairs.length > 0) {
+			for(NameValuePair pair:pairs) {
+				sb.append(",'")
+			    .append(pair.getName()).append("','")
+			    .append(pair.getValue()).append("'");
+			}
+		}
+
+		sb.append(")");
+		return sb.toString();
+	}
+	
+	public static String generateXHRFnCallVariables(Form form, String id, int actionIndex) {
+		StringBuilder sb = new StringBuilder(128);
+		sb.append("var formNam = '").append(form.getFormName()).append("';\n")
+		  .append("var dispIdField = '").append(form.getDispatchFieldId()).append("';\n")
+		  .append("var dispId = '").append(id).append("';\n")
+		  .append("var eventIdField = '").append(form.getEventFieldId()).append("';\n")
+		  .append("var eventInt = ").append(FormEvent.ON_DOTDOTDOT[actionIndex]).append(";\n");
+		return sb.toString();
+	}
 
 	public static void appendReadOnly(String text, StringOutput sb) {
 		sb.append(READONLYA);
@@ -142,7 +173,7 @@ public class FormJSHelper {
 		// Execute code within an anonymous function (closure) to not leak
 		// variables to global scope (OLAT-5755)
 		sb.append("(function() {");
-		sb.append("var ").append(id).append(" = Ext.get('").append(id).append("'); ");
+		sb.append("var ").append(id).append(" = jQuery('#").append(id).append("'); ");
 		return sb.toString();
 	}
 	
@@ -158,20 +189,14 @@ public class FormJSHelper {
 	}
 	
 	public static String getExtJSVarDeclaration(String id){
-		return "var "+id+" = Ext.get('"+id+"'); ";
+		return "var "+id+" = jQuery('#"+id+"'); ";
 	}
 	
 	public static String getSetFlexiFormDirty(Form form, String id){
-		String result;
-		String prefix = id + ".on('";
-		// examples:
-		// o_fi400.on({'click',setFormDirty,this,{formId:"ofo_100"}});
-		// o_fi400.on({'change',setFormDirty,this,{formId:"ofo_100"}});
-		String postfix = "',setFlexiFormDirtyByListener,document,{formId:\"" + form.getDispatchFieldId() + "\"});";
-		result = prefix + "change" + postfix;
-		result += prefix + "keypress" + postfix;
-
-		return result;
+		StringBuilder result = new StringBuilder();
+		result.append("jQuery('#").append(id).append("').on('change keypress',{formId:\"")
+			.append(form.getDispatchFieldId()).append("\"},setFlexiFormDirtyByListener);");
+		return result.toString();
 	}
 	
 	public static String getSetFlexiFormDirtyForCheckbox(Form form, String id){
@@ -214,12 +239,12 @@ public class FormJSHelper {
 		sb.append(id+".focus(1);");//defer focus,based on EXT
 		sb.append("var o_ff_inline_yesFn = function(e){");
 		sb.append(FormJSHelper.getJSFnCallFor(rootForm, id, FormEvent.ONCLICK)).append(";};");
-		sb.append("Ext.get('"+id+"').on('blur',o_ff_inline_yesFn);");		
+		sb.append("jQuery('#"+id+"').on('blur',o_ff_inline_yesFn);");		
 
 		/*
 		 * noFn replaces the old value in the input field, and then "submits" to the inlineElement via yesFn
 		 */
-		sb.append("var o_ff_inline_noFn = function(e){Ext.get('").append(id).append("').dom.value = '").append(oldHtmlValue).append("';o_ff_inline_yesFn(e);};");
+		sb.append("var o_ff_inline_noFn = function(e){jQuery('#").append(id).append("').dom.value = '").append(oldHtmlValue).append("';o_ff_inline_yesFn(e);};");
 		sb.append("\n");
 		sb.append("var nav = new Ext.KeyNav("+id+", {");
 	    sb.append("\"esc\" : function(e){");
@@ -241,12 +266,12 @@ public class FormJSHelper {
 	public static String submitOnKeypressEnter(String formName) {
 		StringBuilder sb = new StringBuilder();
 		sb.append(getJSStart())
-		  .append("var myExtForm = Ext.get(document.forms['").append(formName).append("']);")
+		  .append("var myExtForm = jQuery('#").append(formName).append("');")
 		  .append("if(myExtForm) {")
 		  .append(" myExtForm.on('keypress', function(event) {if (13 == event.keyCode) {if (this.onsubmit()) {this.submit();}}}, myExtForm.dom);")
 		  .append("} else {")
-		  .append(" Ext.each(document.forms['").append(formName).append("'], function(formEl) {")
-		  .append("  Ext.get(formEl).on('keypress', function(event) {")
+		  .append(" jQuery('#").append(formName).append("').each(function(formEl) {")
+		  .append("  jQuery(formEl).on('keypress', function(event) {")
 		  .append("   if (13 == event.keyCode) {")
 		  .append("    if (this.onsubmit && this.onsubmit()) { this.submit(); }")
 		  .append("   }")

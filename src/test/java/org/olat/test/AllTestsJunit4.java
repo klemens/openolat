@@ -77,6 +77,7 @@ import org.junit.runners.Suite;
 	org.olat.commons.coordinate.cluster.jms.JMSTest.class,//ok
 	org.olat.commons.coordinate.cluster.lock.LockTest.class,//ok
 	org.olat.commons.coordinate.CoordinatorTest.class,//ok
+	org.olat.core.commons.service.webdav.WebDAVTestCase.class,//ok
 	org.olat.admin.user.delete.service.UserDeletionManagerTest.class,//ok
 	org.olat.group.test.BGRightManagerTest.class,//ok
 	org.olat.group.test.BGAreaManagerTest.class,//ok
@@ -90,6 +91,7 @@ import org.junit.runners.Suite;
 	org.olat.basesecurity.SecurityManagerTest.class,//ok
 	org.olat.basesecurity.BaseSecurityTest.class,//ok
 	org.olat.basesecurity.BaseSecurityManagerTest.class,//ok
+	org.olat.user.UserManagerTest.class,//ok
 	org.olat.repository.RepositoryManagerTest.class,//ok
 	org.olat.repository.RepositoryManagerConcurrentTest.class,//ok
 	org.olat.repository.RepositoryManagerQueryTest.class,//ok
@@ -106,7 +108,7 @@ import org.junit.runners.Suite;
 	org.olat.modules.wiki.WikiUnitTest.class,//ok
 	org.olat.modules.wiki.versioning.diff.CookbookDiffTest.class,//ok
 	org.olat.modules.wiki.gui.components.wikiToHtml.FilterUtilTest.class,
-	org.olat.modules.coach.CoachingManagerTest.class,//ok
+	//org.olat.modules.coach.CoachingManagerTest.class,//ok
 	org.olat.properties.PropertyTest.class,//ok
 	org.olat.search.service.document.file.FileDocumentFactoryTest.class,
 	org.olat.search.service.document.file.PDFDocumentTest.class,
@@ -118,7 +120,21 @@ import org.junit.runners.Suite;
 	org.olat.course.nodes.projectbroker.ProjectBrokerManagerTest.class,
 	org.olat.core.commons.persistence.DBTest.class,
 	org.olat.modules.ims.cp.CPManagerTest.class,
+	org.olat.modules.ims.qti.fileresource.FileResourceValidatorTest.class,
+	org.olat.ims.qti.qpool.QTIImportProcessorTest.class,
+	org.olat.ims.qti.qpool.QTIExportProcessorTest.class,
+	org.olat.ims.lti.LTIManagerTest.class,
 	org.olat.modules.webFeed.FeedManagerImplTest.class,
+	org.olat.modules.qpool.manager.MetadataConverterHelperTest.class,
+	org.olat.modules.qpool.manager.QuestionDAOTest.class,
+	org.olat.modules.qpool.manager.FileStorageTest.class,
+	org.olat.modules.qpool.manager.CollectionDAOTest.class,
+	org.olat.modules.qpool.manager.QLicenseDAOTest.class,
+	org.olat.modules.qpool.manager.QItemTypeDAOTest.class,
+	org.olat.modules.qpool.manager.QEducationalContextDAOTest.class,
+	org.olat.modules.qpool.manager.PoolDAOTest.class,
+	org.olat.modules.qpool.manager.TaxonomyLevelDAOTest.class,
+	org.olat.modules.qpool.manager.QuestionPoolServiceTest.class,
 	org.olat.ldap.LDAPLoginTest.class,
 	org.olat.core.commons.service.mark.MarksTest.class,
 //	org.olat.test.OlatJerseyTestCase.class, // NO TEST METHODS 

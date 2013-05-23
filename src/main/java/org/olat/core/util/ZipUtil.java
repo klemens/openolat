@@ -30,6 +30,7 @@ import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -45,6 +46,7 @@ import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 import java.util.zip.ZipOutputStream;
 
+import org.apache.commons.io.IOUtils;
 import org.olat.core.commons.modules.bc.meta.MetaInfo;
 import org.olat.core.commons.modules.bc.meta.MetaInfoHelper;
 import org.olat.core.commons.modules.bc.meta.tagged.MetaTagged;
@@ -124,6 +126,33 @@ public class ZipUtil {
 		
 		return unzip(zipLeaf, targetDir, null, false);
 	}
+	
+	/**
+	 * Unzip a file in the target dir with the restricted version
+	 * @param zipFile
+	 * @param targetDir
+	 * @return
+	 */
+	public static boolean unzipStrict(File zipFile, VFSContainer targetDir) {
+		if (targetDir instanceof LocalFolderImpl) {
+			String outdir = ((LocalFolderImpl) targetDir).getBasefile().getAbsolutePath();
+			InputStream in = null;
+			try {
+				long s = System.currentTimeMillis();
+				in = new FileInputStream(zipFile);
+				xxunzip (in, outdir);
+				log.info("unzip file="+zipFile.getName()+" to="+outdir +" t="+Long.toString(System.currentTimeMillis()-s));
+				return true;
+			} catch (IOException e) {
+				log.error("I/O failure while unzipping "+zipFile.getName()+" to "+outdir);
+				return false;
+			} finally {
+				IOUtils.closeQuietly(in);
+			}
+		}
+		return false;
+	}
+	
 	
 	/**
 	 * Unzip a file to a directory using the versioning system of VFS
@@ -480,7 +509,7 @@ public class ZipUtil {
 	 * @param subDirPath
 	 * @return Returns the last container of this subpath.
 	 */
-	private static VFSContainer getAllSubdirs(VFSContainer base, String subDirPath, Identity identity, boolean create) {
+	public static VFSContainer getAllSubdirs(VFSContainer base, String subDirPath, Identity identity, boolean create) {
 		StringTokenizer st;
 		if (subDirPath.indexOf("/") != -1) { 
 			st = new StringTokenizer(subDirPath, "/", false);
@@ -595,7 +624,7 @@ public class ZipUtil {
 		return success;
 	}
 	
-	private static boolean addToZip(VFSItem vfsItem, String currentPath, ZipOutputStream out) {
+	public static boolean addToZip(VFSItem vfsItem, String currentPath, ZipOutputStream out) {
 
 		boolean success = true;
 		InputStream in = null;

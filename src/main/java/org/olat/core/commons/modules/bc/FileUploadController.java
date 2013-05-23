@@ -68,6 +68,7 @@ import org.olat.core.logging.activity.ThreadLocalUserActivityLogger;
 import org.olat.core.util.FileUtils;
 import org.olat.core.util.Formatter;
 import org.olat.core.util.ImageHelper;
+import org.olat.core.util.StringHelper;
 import org.olat.core.util.WebappHelper;
 import org.olat.core.util.vfs.LocalImpl;
 import org.olat.core.util.vfs.VFSConstants;
@@ -800,29 +801,25 @@ public class FileUploadController extends FormBasicController {
 
 	@Override
 	protected boolean validateFormLogic(UserRequest ureq) {
-		
 		String fileName = fileEl.getUploadFileName();
-		
-		if (fileName == null) {
+		if (!StringHelper.containsNonWhitespace(fileName)) {
 			fileEl.setErrorKey("NoFileChosen", null);
 			return false;
 		}
-		
+
 		boolean isFilenameValid = FileUtils.validateFilename(fileName);		
 		if(!isFilenameValid) {
 			fileEl.setErrorKey("cfile.name.notvalid", null);
 			return false;
 		}
-		
-		if (remainingQuotKB != -1) {
-			if (fileEl.getUploadFile().length() / 1024 > remainingQuotKB) {
-				fileEl.clearError();
-				String supportAddr = WebappHelper.getMailConfig("mailQuota");
-				getWindowControl().setError(translate("ULLimitExceeded", new String[] { Formatter.roundToString((uploadLimitKB+0f) / 1000, 1), supportAddr }));
-				return false;
-			}				
+		if (remainingQuotKB != -1 
+			&& fileEl.getUploadFile().length() / 1024 > remainingQuotKB) {
+			
+			fileEl.clearError();
+			String supportAddr = WebappHelper.getMailConfig("mailQuota");
+			getWindowControl().setError(translate("ULLimitExceeded", new String[] { Formatter.roundToString((uploadLimitKB+0f) / 1000, 1), supportAddr }));
+			return false;
 		}
-		
 		return true;
 	}
 }

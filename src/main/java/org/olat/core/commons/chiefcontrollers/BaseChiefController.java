@@ -150,12 +150,6 @@ public class BaseChiefController extends DefaultChiefController implements Conte
 		wbo = winman.createWindowBackOffice("basechiefwindow", this, settings);
 		Window w = wbo.getWindow();
 
-		// part that builds the css and javascript lib includes (<script
-		// src="..."> and <rel link
-		// e.g.
-		// <script type="text/javascript"
-		// src="/demo/g/2/js/jscalendar/calendar.js"></script>
-
 		mainvc.put("jsCssRawHtmlHeader", w.getJsCssRawHtmlHeader());
 
 		// control part for ajax-communication. returns an empty panel if ajax
@@ -203,6 +197,11 @@ public class BaseChiefController extends DefaultChiefController implements Conte
 			 */
 			public void pushAsModalDialog(Component newModalDialog) {
 				currentGuiStack.pushModalDialog(newModalDialog);
+			}
+
+			@Override
+			public void pushAsCallout(Component comp, String targetId) {
+				currentGuiStack.pushCallout(comp, targetId);
 			}
 
 			/**
@@ -286,12 +285,6 @@ public class BaseChiefController extends DefaultChiefController implements Conte
 		// the js logger provides only a header element, nevertheless we need to
 		// put it into the main velocity container.
 		mainvc.put("jsLoggerC", jsLoggerC.getInitialComponent());
-
-		// put the globals path like "/olat/classpath/61x/" into the main win,
-		// used for some dynamic injected js libs like jsMath
-		String resourcePath = getWindowControl().getWindowBackOffice().getWindowManager().getMapPathFor(this.getClass());
-		mainvc.contextPut("classPathStaticBaseURI", resourcePath.substring(0, resourcePath.indexOf("org.olat")));
-
 		// put the global js translator mapper path into the main window
 		mainvc.contextPut("jsTranslationMapperPath", jsTranslationMapperPath);
 
@@ -389,7 +382,7 @@ public class BaseChiefController extends DefaultChiefController implements Conte
 		bodyCssClasses.add(cssClass);
 
 		// only relevant in AJAX mode
-		JSCommand jsc = new JSCommand("try { $('b_body').addClassName('" + cssClass + "'); } catch(e){if(o_info.debug) console.log(e) }");
+		JSCommand jsc = new JSCommand("try { jQuery('#b_body').addClass('" + cssClass + "'); } catch(e){if(o_info.debug) console.log(e) }");
 		getWindowControl().getWindowBackOffice().sendCommandTo(jsc);
 
 	}
@@ -405,7 +398,7 @@ public class BaseChiefController extends DefaultChiefController implements Conte
 		bodyCssClasses.remove(cssClass);
 		
 		//only relevant in AJAX mode
-		JSCommand jsc = new JSCommand("try { $('b_body').removeClassName('" + cssClass + "'); } catch(e){if(o_info.debug) console.log(e) }");
+		JSCommand jsc = new JSCommand("try { jQuery('#b_body').removeClass('" + cssClass + "'); } catch(e){if(o_info.debug) console.log(e) }");
 		getWindowControl().getWindowBackOffice().sendCommandTo(jsc);
 	}
 
