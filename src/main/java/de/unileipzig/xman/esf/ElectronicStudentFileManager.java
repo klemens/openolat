@@ -3,6 +3,7 @@ package de.unileipzig.xman.esf;
 import java.util.Date;
 import java.util.List;
 
+import org.olat.admin.user.delete.service.UserDeletionManager;
 import org.olat.core.commons.persistence.DBFactory;
 import org.olat.core.commons.persistence.DBQuery;
 import org.olat.core.id.Identity;
@@ -11,6 +12,7 @@ import org.olat.core.logging.OLog;
 import org.olat.core.logging.Tracing;
 import org.olat.resource.OLATResource;
 import org.olat.resource.OLATResourceManager;
+import org.olat.user.UserDataDeletable;
 
 import de.unileipzig.xman.studyPath.StudyPathManager;
 
@@ -18,16 +20,19 @@ import de.unileipzig.xman.studyPath.StudyPathManager;
  * 
  * @author gerb
  */
-public class ElectronicStudentFileManager {
+public class ElectronicStudentFileManager implements UserDataDeletable {
 
 	private static ElectronicStudentFileManager INSTANCE = null;
 	private OLog log = Tracing.createLoggerFor(ElectronicStudentFileManager.class);
 	
-	private ElectronicStudentFileManager() {
-		// singleton
+	/**
+	 * [spring]
+	 * @param userDeletionManager
+	 */
+	private ElectronicStudentFileManager(UserDeletionManager userDeletionManager) {
+		userDeletionManager.registerDeletableUserData(this);
+		INSTANCE = this;
 	}
-	
-	static { INSTANCE = new ElectronicStudentFileManager(); }
 	
 	/**
 	 * @return Singleton.
@@ -152,5 +157,15 @@ public class ElectronicStudentFileManager {
     	}
     	return true;
     }
-	
+
+    /**
+     * This method is called when a user is deleted and then deletes its esf
+     */
+	@Override
+	public void deleteUserData(Identity identity, String newDeletedUserName) {
+		ElectronicStudentFile esf = retrieveESFByIdentity(identity);
+		if(esf != null) {
+			removeElectronicStudentFile(esf);
+		}
+	}
 }

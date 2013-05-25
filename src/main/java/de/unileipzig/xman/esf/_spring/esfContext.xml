@@ -4,7 +4,9 @@
 	xmlns:context="http://www.springframework.org/schema/context" 
 	xsi:schemaLocation="
   http://www.springframework.org/schema/beans 
-  http://www.springframework.org/schema/beans/spring-beans-3.0.xsd">
+  http://www.springframework.org/schema/beans/spring-beans-3.0.xsd 
+  http://www.springframework.org/schema/context 
+  http://www.springframework.org/schema/context/spring-context-3.0.xsd">
   
 <!-- this extension will show up in the menu tree of the home screen after login -->
 <bean class="org.olat.core.extensions.action.GenericActionExtension" init-method="initExtensionPoints">
@@ -26,6 +28,11 @@
 			<value>org.olat.home.HomeMainController</value>		
 		</list>
 	</property>
+</bean>
+
+<!-- Init the Manager via Spring so that it can register to user delete events -->
+<bean class="de.unileipzig.xman.esf.ElectronicStudentFileManager">
+	<constructor-arg ref="userDeletionManager" />
 </bean>
 
 </beans>
