@@ -16,13 +16,15 @@ import de.unileipzig.xman.exam.Exam;
 
 public class MailForm extends FormBasicController {
 
+	private String[] recipientsList;
 	private TextElement subjectElem;
 	private TextElement bodyElem;
 
 	public MailForm(UserRequest ureq, WindowControl wControl, String name,
-			Translator translator) {
+			Translator translator, String[] recipients) {
 		super(ureq, wControl);
 		
+		this.recipientsList = recipients;
 		setTranslator(Util.createPackageTranslator(Exam.class, ureq.getLocale()));
 
 		initForm(ureq);
@@ -32,11 +34,16 @@ public class MailForm extends FormBasicController {
 	@Override
 	protected void initForm(FormItemContainer formLayout, Controller listener,
 			UserRequest ureq) {
+		String recipients = recipientsList[0];
+		
+		for(int i = 1; i < recipientsList.length; i++) recipients = recipients + ", " + recipientsList[i];
+				
+		uifactory.addStaticTextElement("recipientsElem", "MailForm.recipient", recipients, formLayout);
 		subjectElem = uifactory.addTextElement("subjectElem",
 				"MailForm.subject", 128, "", formLayout);
 		subjectElem.setDisplaySize(60);
 		subjectElem.setMandatory(true);
-
+		
 		bodyElem = uifactory.addTextAreaElement("bodyelem", "MailForm.body",
 				1024, 15, 60, true, "", formLayout);
 		bodyElem.setMandatory(true);
