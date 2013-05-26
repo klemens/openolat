@@ -854,11 +854,16 @@ public class ExamLaunchController extends MainLayoutBasicController implements
 							.getSelection());
 
 					if (protoList.size() >= 1) {
-
+						String[] recipients = new String[protoList.size()];
+						
+						for(int i = 0; i < protoList.size(); i++){
+							recipients[i] = protoList.get(i).getIdentity().getName();
+						}
+						
 						mailForm = new MailForm(ureq, getWindowControl(),
-								"mailForm", this.translator);
+								"mailForm", this.translator, recipients);
 						mailForm.addControllerListener(this);
-
+						
 						sendMailCtr = new CloseableModalController(
 								getWindowControl(), translate("close"),
 								mailForm.getInitialComponent());
@@ -1121,9 +1126,13 @@ public class ExamLaunchController extends MainLayoutBasicController implements
 							.getSelection());
 
 					if (protoList.size() >= 1) {
-
+						String[] recipients = new String[protoList.size()];
+						
+						for(int i = 0; i < protoList.size(); i++){
+							recipients[i] = protoList.get(i).getIdentity().getName();
+						}
 						mailForm = new MailForm(ureq, getWindowControl(),
-								"mailForm", this.translator);
+								"mailForm", this.translator, recipients);
 						mailForm.addControllerListener(this);
 
 						sendMailCtr = new CloseableModalController(
