@@ -56,6 +56,7 @@ CREATE TABLE `o_xman_exam` (
   `signOffDate` datetime DEFAULT NULL,
   `earmarkedEnabled` tinyint(1) DEFAULT NULL,
   `isOral` tinyint(1) DEFAULT NULL,
+  `isMultiSubscription` tinyint(1) DEFAULT NULL,
   `lastmodified` datetime NOT NULL DEFAULT '0000-00-00 00:00:00',
   `creationdate` datetime DEFAULT NULL,
   `comments` text,

@@ -30,6 +30,7 @@
     <property name="regEndDate" column="regEndDate" unique="false" type="timestamp" not-null="false"/>
     <property name="signOffDate" column="signOffDate" unique="false" type="timestamp" not-null="false"/>
     <property name="earmarkedEnabled" column="earmarkedEnabled" type="boolean" unique="false" not-null="false"/>
+    <property name="isMultiSubscription" column="isMultiSubscription" type="boolean" unique="false" not-null="false"/>
     <property name="isOral" column="isOral" type="boolean" unique="false" not-null="false"/>
     <property name="comments" column="comments" unique="false" type="string" not-null="false" length="16777210"/>
     	
