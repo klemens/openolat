@@ -7,7 +7,6 @@ import java.util.Date;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.form.Form;
 import org.olat.core.gui.components.form.flexible.FormItemContainer;
-import org.olat.core.gui.components.form.flexible.elements.Cancel;
 import org.olat.core.gui.components.form.flexible.elements.DateChooser;
 import org.olat.core.gui.components.form.flexible.elements.Submit;
 import org.olat.core.gui.components.form.flexible.impl.FormBasicController;
@@ -29,7 +28,6 @@ public class EditRegistrationForm extends FormBasicController {
 	private DateChooser regEnd;
 	private DateChooser signOff;
 	private Submit submit;
-	private Cancel cancel;
 	Date regStartDate;
 	Date regEndDate;
 	Date signOffDate;
@@ -175,11 +173,6 @@ public class EditRegistrationForm extends FormBasicController {
 	protected void formOK(UserRequest ureq) {
 		fireEvent(ureq, Form.EVNT_VALIDATION_OK);
 
-	}
-
-	@Override
-	protected void formCancelled(UserRequest ureq) {
-		fireEvent(ureq, Form.EVNT_FORM_CANCELLED);
 	}
 
 	@Override

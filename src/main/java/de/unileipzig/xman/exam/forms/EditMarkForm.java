@@ -23,7 +23,6 @@ public class EditMarkForm extends FormBasicController {
 
 	private TextElement grade;
 	private Submit submit;
-	private Cancel cancel;
 
 	/**
 	 * creates the edit mark form
@@ -83,11 +82,6 @@ public class EditMarkForm extends FormBasicController {
 	protected void formOK(UserRequest ureq) {
 		fireEvent(ureq, Form.EVNT_VALIDATION_OK);
 
-	}
-
-	@Override
-	protected void formCancelled(UserRequest ureq) {
-		fireEvent(ureq, Form.EVNT_FORM_CANCELLED);
 	}
 
 	@Override
