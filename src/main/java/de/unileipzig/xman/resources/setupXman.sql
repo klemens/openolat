@@ -29,7 +29,6 @@ CREATE TABLE `o_xman_comment` (
 );
 
 CREATE TABLE `o_xman_commentEntry` (
-  `idx` bigint(20) DEFAULT NULL,
   `parent_id` bigint(20) DEFAULT NULL,
   `commentEntry_id` bigint(20) NOT NULL DEFAULT '0',
   `lastmodified` datetime NOT NULL DEFAULT '0000-00-00 00:00:00',
@@ -65,7 +64,6 @@ CREATE TABLE `o_xman_exam` (
 
 CREATE TABLE `o_xman_protocol` (
   `protocol_id` bigint(20) NOT NULL DEFAULT '0',
-  `idx` bigint(20) DEFAULT NULL,
   `parent_id` bigint(20) DEFAULT NULL,
   `lastmodified` datetime NOT NULL DEFAULT '0000-00-00 00:00:00',
   `creationdate` datetime DEFAULT NULL,
