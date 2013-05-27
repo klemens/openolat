@@ -1,16 +1,28 @@
 package de.unileipzig.xman.protocol;
 
+import java.text.DateFormat;
+import java.util.Calendar;
 import java.util.Date;
 import java.util.List;
 import java.util.Vector;
 
 import org.olat.core.commons.persistence.DBFactory;
 import org.olat.core.commons.persistence.DBQuery;
+import org.olat.core.gui.translator.Translator;
 import org.olat.core.id.Identity;
+import org.olat.core.id.UserConstants;
+import org.olat.core.id.context.BusinessControlFactory;
 import org.olat.core.logging.Tracing;
 
+import de.unileipzig.xman.admin.mail.MailManager;
 import de.unileipzig.xman.appointment.Appointment;
+import de.unileipzig.xman.appointment.AppointmentManager;
+import de.unileipzig.xman.calendar.CalendarManager;
+import de.unileipzig.xman.esf.ElectronicStudentFile;
+import de.unileipzig.xman.esf.ElectronicStudentFileManager;
 import de.unileipzig.xman.exam.Exam;
+import de.unileipzig.xman.exam.ExamDBManager;
+import de.unileipzig.xman.exam.controllers.ExamLaunchController;
 
 public class ProtocolManager {
 	
@@ -62,6 +74,28 @@ public class ProtocolManager {
 	public void updateProtocol(Protocol proto) {
 
 		DBFactory.getInstance().updateObject(proto);
+	}
+	
+	/**
+	 * 
+	 * @param identity
+	 * @param app
+	 * @return true if there is a protocol with the given identity/appointment combination, false else.
+	 */
+	public boolean isIdentitySubscribedToAppointment(Identity identity, Appointment appointment) {
+		String query = "from de.unileipzig.xman.protocol.ProtocolImpl as proto where proto.appointment = " + appointment.getKey() + " and proto.identity = " + identity.getKey();
+		return !findAllProtocolsByQuery(query).isEmpty();
+	}
+	
+	/**
+	 * 
+	 * @param identity
+	 * @param app
+	 * @return true if there is a protocol with the given identity/exam combination, false else.
+	 */
+	public boolean isIdentitySubscribedToExam(Identity identity, Exam exam) {
+		String query = "from de.unileipzig.xman.protocol.ProtocolImpl as proto where proto.exam = " + exam.getKey() + " and proto.identity = " + identity.getKey();
+		return !findAllProtocolsByQuery(query).isEmpty();
 	}
 	
 	/**
@@ -139,6 +173,16 @@ public class ProtocolManager {
 	}
 	
 	/**
+	 * 
+	 * @param app
+	 * @return
+	 */
+	public List<Protocol> findAllProtocolsByIdentityAndExam(Identity identity, Exam exam) {
+		String query = "from de.unileipzig.xman.protocol.ProtocolImpl as proto where proto.exam = " + exam.getKey() + " and proto.identity = " + identity.getKey();
+		return findAllProtocolsByQuery(query);
+	}
+	
+	/**
 	 * finds the protocol by a given exam and an identity
 	 * @param identity - the identity of the user
 	 * @param exam the id of the exam
@@ -147,6 +191,14 @@ public class ProtocolManager {
 	public Protocol findProtocolByIdentityAndExam(Identity identity, Exam exam) {
 		
 		String query = "from de.unileipzig.xman.protocol.ProtocolImpl as proto where proto.identity = " + identity.getKey() + " and proto.exam = " + exam.getKey();
+		List protoList = DBFactory.getInstance().find(query);
+		if ( protoList.size() != 0 ) return (Protocol)protoList.get(0);
+		else return null;
+	}
+	
+	
+	public Protocol findProtocolByIdentityAndAppointment(Identity identity, Appointment app) {
+		String query = "from de.unileipzig.xman.protocol.ProtocolImpl as proto where proto.identity = " + identity.getKey() + " and proto.appointment = " + app.getKey();
 		List protoList = DBFactory.getInstance().find(query);
 		if ( protoList.size() != 0 ) return (Protocol)protoList.get(0);
 		else return null;
@@ -176,6 +228,81 @@ public class ProtocolManager {
 		if ( searchList.size() == 1 ) {
 			((Protocol) searchList.get(0)).setEarmarked(earmarked);
 			ProtocolManager.getInstance().updateProtocol(((Protocol) searchList.get(0)));
+		}
+	}
+	
+	/**
+	 * Register student for given appointment; can show error on screen
+	 * @param app
+	 * @param id
+	 * @param isEarmarked
+	 * @return true if registered successfully
+	 */
+	public boolean registerStudent(Appointment appointment, ElectronicStudentFile esf, Translator translator, boolean isEarmarked, String initialComment) {
+
+		Appointment tempApp = AppointmentManager.getInstance().findAppointmentByID(appointment.getKey());
+
+		// check if app is available
+		if (!tempApp.getOccupied()) {
+			Protocol proto = ProtocolManager.getInstance().createProtocol();
+			proto.setIdentity(esf.getIdentity());
+			proto.setEarmarked(isEarmarked);
+			proto.setExam(appointment.getExam());
+			proto.setComments(initialComment);
+			
+			// TODO might not be necessary
+			if (appointment.getExam().getIsOral()) {
+				tempApp.setOccupied(true);
+				AppointmentManager.getInstance().updateAppointment(tempApp);
+			}
+			
+			proto.setAppointment(tempApp);
+			ProtocolManager.getInstance().saveProtocol(proto);
+
+			// add the protocol to the students esf
+			esf.addProtocol(proto);
+			ElectronicStudentFileManager.getInstance().updateElectronicStundentFile(esf);
+
+			//TODO CalendarManager.getInstance().createKalendarEventForExam(exam, id, res);
+			
+			// calculate semester
+			String semester;
+			Calendar cal = Calendar.getInstance();
+			cal.setTime(appointment.getDate());
+			if (cal.get(Calendar.MONTH) >= 3 && cal.get(Calendar.MONTH) <= 8)
+				semester = "SS " + cal.get(Calendar.YEAR);
+			else
+				semester = "WS " + cal.get(Calendar.YEAR) + "/" + (cal.get(Calendar.YEAR) + 1);
+			
+			BusinessControlFactory bcf = BusinessControlFactory.getInstance();
+			// Email Register
+			// // Email Bodies and Subjects, vars: {0} exam name {1} last
+			// name, first name {2} app.date {3} app.place {4} app.duration
+			// {5} exam.type {6} exam.url {7} proto.earmarked {8} semester
+			// {9} studserv email {11} email {11} studyPath
+			MailManager.getInstance().sendEmail(
+				translator.translate("ExamLaunchController.Register.Subject", new String[] { ExamDBManager.getInstance().getExamName(proto.getExam()) }),
+				translator.translate("ExamLaunchController.Register.Body",
+					new String[] {
+						ExamDBManager.getInstance().getExamName(proto.getExam()),
+						proto.getIdentity().getUser().getProperty(UserConstants.LASTNAME, null) + ", " + proto.getIdentity().getUser().getProperty(UserConstants.FIRSTNAME, null),
+						DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT, translator.getLocale()).format(proto.getAppointment().getDate()),
+						proto.getAppointment().getPlace(),
+						new Integer(proto.getAppointment().getDuration()).toString(),
+						proto.getExam().getIsOral() ? translator.translate("oral") : translator.translate("written"),
+						bcf.getAsURIString(bcf.createCEListFromString(ExamDBManager.getInstance().findRepositoryEntryOfExam(proto.getExam())), true),
+						translator.translate(proto.getEarmarked() ? "ExamLaunchController.status.earmarked" : "ExamLaunchController.status.registered"),
+						semester,
+						proto.getIdentity().getUser().getProperty(UserConstants.INSTITUTIONALEMAIL, null),
+						proto.getIdentity().getUser().getProperty(UserConstants.EMAIL, null),
+						proto.getIdentity().getUser().getProperty(UserConstants.STUDYSUBJECT, null)
+					}),
+				proto.getIdentity()
+			);
+			
+			return true;
+		} else {
+			return false;
 		}
 	}
 

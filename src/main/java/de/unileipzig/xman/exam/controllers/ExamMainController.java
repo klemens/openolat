@@ -93,7 +93,9 @@ public class ExamMainController extends MainLayoutBasicController {
 		// TODO Split LaunchController into StudentController and LecturerController
 		String name = exam.getName() + " (" + (exam.getIsOral() ? translate("oral") : translate("written")) + ")";
 		if(view == View.STUDENT) {
-			cstack.pushController(name, new ExamLaunchController(ureq, getWindowControl(), exam, false, true));
+			Controller examController = new ExamStudentController(ureq, getWindowControl(), exam);
+			cstack.pushController(name, new LayoutMain3ColsController(ureq, getWindowControl(), null, null, examController.getInitialComponent(), "examMain"));
+			//cstack.pushController(name, new ExamLaunchController(ureq, getWindowControl(), exam, false, true));
 		} else if(view == View.LECTURER) {
 			Controller examController = new ExamLaunchController(ureq, getWindowControl(), exam, true, false);
 			buildToolController();
