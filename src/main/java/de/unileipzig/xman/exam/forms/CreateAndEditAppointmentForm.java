@@ -112,7 +112,6 @@ public class CreateAndEditAppointmentForm extends FormBasicController {
 		FormLayoutContainer buttonGroupLayout = FormLayoutContainer.createButtonLayout("buttonGroupLayout", getTranslator());
 		formLayout.add(buttonGroupLayout);
 		submit = uifactory.addFormSubmitButton("save", "submitKey", buttonGroupLayout);
-		cancel = uifactory.addFormCancelButton("cancel", buttonGroupLayout, ureq, getWindowControl());
 	}
 
 	/**
