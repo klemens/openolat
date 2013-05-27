@@ -128,5 +128,5 @@ public interface Exam extends ModifiedInfo, CreateInfo, Persistable, OLATResourc
 	/**
 	 * @param status
 	 */
-	public void setclosed(boolean status);
+	public void setClosed(boolean status);
 }

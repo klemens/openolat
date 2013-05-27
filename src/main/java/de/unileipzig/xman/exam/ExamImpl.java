@@ -9,6 +9,7 @@ import org.olat.core.commons.persistence.PersistentObject;
 import org.olat.core.id.Identity;
 import org.olat.core.id.ModifiedInfo;
 import org.olat.repository.RepositoryEntry;
+import org.olat.repository.RepositoryEntryStatus;
 import org.olat.repository.RepositoryManager;
 import org.olat.resource.references.ReferenceImpl;
 
@@ -35,7 +36,6 @@ public class ExamImpl extends PersistentObject implements Exam {
 	private boolean earmarkedEnabled;
 	private String comments;
 	private Identity identity;
-	private boolean closed;
 	
 	public ExamImpl() {
 		
@@ -183,7 +183,10 @@ public class ExamImpl extends PersistentObject implements Exam {
 	 */
 	public boolean getClosed() {
 		
-		return closed;
+		if (getCourseRepoEntry().getStatusCode() == RepositoryEntryStatus.REPOSITORY_STATUS_CLOSED)
+			return true;
+		else
+			return false;
 	}
 	
 	/*------------------------- setter -------------------------*/
@@ -263,8 +266,8 @@ public class ExamImpl extends PersistentObject implements Exam {
 	/**
 	 * @see de.xman.exam.Exam#setClosed(boolean)
 	 */
-	public void setclosed(boolean status) {
+	public void setClosed(boolean status) {
 		
-		this.closed = status;
+		getCourseRepoEntry().setStatusCode(RepositoryEntryStatus.REPOSITORY_STATUS_CLOSED);
 	}
 }
