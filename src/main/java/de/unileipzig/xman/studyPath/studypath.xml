@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<courses>
+    <course uri="http://od.fmi.uni-leipzig.de/studium/Inf.Bachelor">Informatik-Bachelor</course>
+    <course uri="http://od.fmi.uni-leipzig.de/studium/Inf.Master">Informatik-Master</course>		
+    <course uri="http://od.fmi.uni-leipzig.de/studium/LA.BInf">Bachelorstudiengang Lehramt Informatik</course>
+    <course uri="http://od.fmi.uni-leipzig.de/studium/Math.WiMa">Wirtschaftsmathematik</course>
+    <course uri="http://od.fmi.uni-leipzig.de/studium/Math.Diplom">Mathematik-Diplom</course>
+    <course uri="http://od.fmi.uni-leipzig.de/studium/LA.BMath-G">Lehramt Mathematik (Schwerpunkt: Grundwissen Mathematik)</course>
+    <course uri="http://od.fmi.uni-leipzig.de/studium/LA.BMath-H">Lehramt Bachelor Höhere Mathematik Gymnasien</course>
+    <course uri="http://od.fmi.uni-leipzig.de/studium/WiFa.WInf-M">Wirtschaftsinformatik-Master</course>
+    <course uri="http://od.fmi.uni-leipzig.de/studium/WiFa.WInf-B">Wirtschaftsinformatik-Bachelor</course>
+</courses>

@@ -1,7 +1,7 @@
 package de.unileipzig.xman.studyPath;
-import com.hp.hpl.jena.ontology.*;
 import java.util.ArrayList;
 import java.util.List;
+import java.io.*;
 
 import org.olat.core.commons.persistence.DBFactory;
 import org.olat.core.logging.OLog;
@@ -21,8 +21,9 @@ public class StudyPathManager {
 	
 	/**
 	 * @return Singleton.
+	 * @throws IOException 
 	 */
-	public static StudyPathManager getInstance() {
+	public static StudyPathManager getInstance() throws IOException {
 		if ( INSTANCE == null ) {
 			INSTANCE = new StudyPathManager();
 			INSTANCE.init();
@@ -31,7 +32,7 @@ public class StudyPathManager {
 		return INSTANCE;
 	}
 	
-	private void init() {
+	private void init() throws IOException {
 		StudyPath defaultStudyPath = this.findStudyPath(StudyPathManager.DEFAULT_STUDY_PATH);
 		if (defaultStudyPath == null) {
 			
@@ -44,59 +45,36 @@ public class StudyPathManager {
 			catch (DuplicateObjectException doe) {
 				log.info("There is already a studyPath with the name " + defaultStudyPath.getName() + " in the database");
 			}
-			
-			// TODO: remove this
-			this.TEMPcreateAllStudyPaths();
+			this.createAllStudyPaths();
 		}		
 	}
 	
-	private void TEMPcreateAllStudyPaths() {
-		   ArrayList<String> Liste= new ArrayList<String>();
-		     String queryString = " .... " ;
-		     Query query = QueryFactory.create(queryString) ;
-		     QueryExecution qexec = QueryExecutionFactory.create(query, model) ;
-		     try {
-		       ResultSet results = qexec.execSelect() ;
-		       for ( ; results.hasNext() ; )
-		       {
-		          QuerySolution soln = results.nextSolution() ;
-		          RDFNode studypath = soln.get("varName") ;       // Get a result variable by name.
-		   String  name = Studypath.toString()
-		   Liste.add(Name);
-		       }
-		     } finally { qexec.close() ; }
-		   /* String[] keys = {
-		    "Diplom-Informatik",
-		    "Informatik-Bachelor (alt)",
-		    "Informatik-Bachelor (neu)",
-		    "Informatik-Master (alt)",
-		    "Informatik-Master (neu)",
-		    "Informatik-Lehramt (alt)",
-		    "Bachelorstudiengang Lehramt Informatik",
-		    "Magister mit Hauptfach Informatik",
-		    "Magister mit Nebenfach Informatik",
-		    "Wirtschaftsmathematik",
-		    "Mathematik-Diplom",
-		    "Mathematik-Lehramt (alt)",
-		    "Bachelorstudiengang Lehramt Mathematik",
-		    "Magister mit Hauptfach Mathematik",
-		    "Magister mit Nebenfach Mathematik",
-		    "Wirtschaftsinformatik-Diplom",
-		    "Wirtschaftsinformatik-Bachelor",
-		    "Wirtschaftspädagogik",
-		    "Nebenfach Informatik",
-		   };
-		  **/
-		  
-		  for (Liste.hasNext() ) {
-		   StudyPath studyPath = this.createStudyPath();
-		   studyPath.setName(name);
-		   DBFactory.getInstance().saveObject(studyPath);
-		  }
-		 }
-	}
-	
-
+	private void createAllStudyPaths() throws IOException {
+	    FileReader fr = new FileReader("studypath.xml");
+	    BufferedReader br = new BufferedReader(fr);
+	    String tmp = br.readLine();
+	    ArrayList<String> Liste= new ArrayList<String>();
+	    while(tmp.equals("<courses>") == false)
+	    {
+	    	tmp = br.readLine();
+	    }
+	    while(tmp.equals("</courses>") == false)
+	    {
+	   	 tmp = tmp.substring(tmp.indexOf('>')+1,tmp.length());
+		 tmp.substring(tmp.indexOf('>')+1,tmp.indexOf('<'));
+		 Liste.add(tmp);
+	    	tmp = br.readLine();
+	    }
+		   
+		      int i = 0;
+			  while(i < Liste.size()) {
+				   StudyPath studyPath = this.createStudyPath();
+				   studyPath.setName(Liste.get(i));
+				   DBFactory.getInstance().saveObject(studyPath);
+				   i++;
+				  }
+		       
+		     } 
 	/**
 	 * Creates a new studyPath and returns it.
 	 * @return the new created studyPath
