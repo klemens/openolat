@@ -76,6 +76,7 @@ public class ExamEditorController extends BasicController {
 			.getPackageVelocityRoot(Exam.class);
 
 	private static final String EXAM_EDITOR_LOCK = "examEditor.lock";
+	private static final String CMD_TOOLS_CLOSE_EXAM_YES_NO = "toolCtr.closeExamYesNo";
 
 	private Panel mainPanel;
 	private VelocityContainer vcMain, vcApp;

@@ -168,15 +168,7 @@ public class ExamHandler implements RepositoryHandler {
 	@Override
 	public boolean readyToDelete(OLATResourceable res, UserRequest ureq, WindowControl wControl) {
 		
-		ReferenceManager refM = ReferenceManager.getInstance();
-		String referencesSummary = refM.getReferencesToSummary(res, ureq.getLocale());
-		if (referencesSummary != null) {
-			Translator translator = new PackageTranslator(PACKAGE, ureq.getLocale());
-			wControl.setError(translator.translate("details.delete.error.references",
-					new String[] { referencesSummary }));
-			return false;
-		}
-		return true;
+		return false;
 	}
 
 	/**
