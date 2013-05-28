@@ -72,7 +72,7 @@ public class ExamStudentController extends BasicController {
 		baseVC.contextPut("comments", comments.isEmpty() ? translate("examBase_html.comments.isEmpty") : comments);
 		
 		mainVC = new VelocityContainer("examStudentView", VELOCITY_ROOT + "/examStudentView.html", getTranslator(), this);
-		baseVC.put("subscriptionForm", mainVC);
+		baseVC.put("anyForm", mainVC);
 		
 		if(esf != null) {
 			mainVC.contextPut("showSubscriptionTable", true);
