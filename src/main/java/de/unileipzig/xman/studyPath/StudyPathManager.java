@@ -1,8 +1,9 @@
 package de.unileipzig.xman.studyPath;
-import java.util.ArrayList;
 import java.util.List;
 import java.io.*;
 
+import org.jdom.*; 
+import org.jdom.input.SAXBuilder;
 import org.olat.core.commons.persistence.DBFactory;
 import org.olat.core.logging.OLog;
 import org.olat.core.logging.Tracing;
@@ -49,32 +50,33 @@ public class StudyPathManager {
 		}		
 	}
 	
-	private void createAllStudyPaths() throws IOException {
-	    FileReader fr = new FileReader("studypath.xml");
-	    BufferedReader br = new BufferedReader(fr);
-	    String tmp = br.readLine();
-	    ArrayList<String> Liste= new ArrayList<String>();
-	    while(tmp.equals("<courses>") == false)
-	    {
-	    	tmp = br.readLine();
-	    }
-	    while(tmp.equals("</courses>") == false)
-	    {
-	   	 tmp = tmp.substring(tmp.indexOf('>')+1,tmp.length());
-		 tmp.substring(tmp.indexOf('>')+1,tmp.indexOf('<'));
-		 Liste.add(tmp);
-	    	tmp = br.readLine();
-	    }
-		   
-		      int i = 0;
-			  while(i < Liste.size()) {
-				   StudyPath studyPath = this.createStudyPath();
-				   studyPath.setName(Liste.get(i));
-				   DBFactory.getInstance().saveObject(studyPath);
-				   i++;
-				  }
+	private void createAllStudyPaths()  {
+
+        Document doc = null;
+        File f = new File("studypath.xml");
+        SAXBuilder builder = new SAXBuilder();
+        try {
+			doc = builder.build(f);
+	        Element element = doc.getRootElement(); 
+	        List allStudypaths = (List) element.getChildren(); 
+		    int i = 0;
+				  while(i < allStudypaths.size()) {
+					   StudyPath studyPath = this.createStudyPath();
+					   studyPath.setName(allStudypaths.get(i).toString());
+					   DBFactory.getInstance().saveObject(studyPath);
+					   i++;
+			}
+		} 
+        catch (JDOMException e) {
+
+			e.printStackTrace();
+		} catch (IOException e) {
+
+			e.printStackTrace();
+		} 
+
 		       
-		     } 
+	} 
 	/**
 	 * Creates a new studyPath and returns it.
 	 * @return the new created studyPath
@@ -144,5 +146,9 @@ public class StudyPathManager {
 		for (int i = 0; i < res.size(); i++) keys[i] = res.get(i);
 		
 		return keys;
+	}
+	public void updateDatabase()
+	{
+		
 	}
 }
