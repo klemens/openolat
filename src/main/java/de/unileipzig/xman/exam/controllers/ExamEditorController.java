@@ -523,8 +523,13 @@ public class ExamEditorController extends BasicController implements
 		} else if (source == dialogBoxOne){
 			ButtonClickedEvent bEvent = (ButtonClickedEvent) event;
 			if(bEvent.getPosition() == 0){
-				repoEntry.setStatusCode(RepositoryEntryStatus.REPOSITORY_STATUS_CLOSED);
-				System.out.println("TEST:       "+repoEntry.getStatusCode()+"     "+bEvent.getPosition());
+				ExamDBManager.getInstance().close(exam);
+				//Close Tab
+				OLATResourceable ores = OLATResourceManager.getInstance().findResourceable(exam.getResourceableId(), Exam.ORES_TYPE_NAME);
+				DTabs dts = (DTabs) Windows.getWindows(ureq).getWindow(ureq).getAttribute("DTabs");
+				DTab dt = dts.getDTab(ores);
+				if(dt == null) return;
+				dts.removeDTab(ureq, dt);
 			}
 		}
 	}

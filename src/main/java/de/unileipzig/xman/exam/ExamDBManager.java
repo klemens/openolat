@@ -6,6 +6,7 @@ import java.util.List;
 import org.olat.core.commons.persistence.DBFactory;
 import org.olat.core.logging.Tracing;
 import org.olat.repository.RepositoryEntry;
+import org.olat.repository.RepositoryEntryStatus;
 import org.olat.resource.OLATResource;
 import org.olat.resource.OLATResourceManager;
 
@@ -131,4 +132,23 @@ public class ExamDBManager {
 		if ( list.size() == 1 ) return list.get(0);
 		return null;
 	}
+	
+	/**
+	 * @param exam
+	 * @return true if exam is closed 
+	 */
+	public boolean isClosed(Exam exam){
+		return findRepositoryEntryOfExam(exam).getStatusCode() == RepositoryEntryStatus.REPOSITORY_STATUS_CLOSED;
+	}
+	
+	/**
+	 * @param exam
+	 * @return true if exam is closed 
+	 */
+	public void close(Exam exam){
+		findRepositoryEntryOfExam(exam).setStatusCode(2/*RepositoryEntryStatus.REPOSITORY_STATUS_CLOSED*/);
+		System.out.println(findRepositoryEntryOfExam(exam));
+	}
+	
+	
 }
