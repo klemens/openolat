@@ -27,12 +27,9 @@ import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.DefaultController;
 import org.olat.core.gui.control.Event;
 import org.olat.core.gui.control.WindowControl;
-import org.olat.core.gui.control.controller.BasicController;
 import org.olat.core.gui.control.generic.closablewrapper.CloseableModalController;
 import org.olat.core.gui.control.generic.dtabs.DTab;
 import org.olat.core.gui.control.generic.dtabs.DTabs;
-import org.olat.core.gui.control.generic.modal.ButtonClickedEvent;
-import org.olat.core.gui.control.generic.modal.DialogBoxController;
 import org.olat.core.gui.control.generic.tool.ToolController;
 import org.olat.core.gui.control.generic.tool.ToolFactory;
 import org.olat.core.gui.translator.PackageTranslator;
@@ -46,7 +43,6 @@ import org.olat.core.util.event.GenericEventListener;
 import org.olat.core.util.coordinate.CoordinatorManager;
 import org.olat.core.util.coordinate.LockResult;
 import org.olat.repository.RepositoryEntry;
-import org.olat.repository.RepositoryEntryStatus;
 import org.olat.repository.RepositoryManager;
 import org.olat.repository.handlers.RepositoryHandlerFactory;
 import org.olat.resource.OLATResourceManager;
@@ -63,7 +59,6 @@ import de.unileipzig.xman.exam.ExamHandler;
 import de.unileipzig.xman.exam.forms.CreateAndEditAppointmentForm;
 import de.unileipzig.xman.exam.forms.EditCommentsForm;
 import de.unileipzig.xman.exam.forms.EditEarmarkedForm;
-import de.unileipzig.xman.exam.forms.EditMarkForm;
 import de.unileipzig.xman.exam.forms.EditRegistrationForm;
 import de.unileipzig.xman.protocol.Protocol;
 import de.unileipzig.xman.protocol.ProtocolManager;
@@ -72,7 +67,7 @@ import de.unileipzig.xman.protocol.ProtocolManager;
  * 
  * @author
  */
-public class ExamEditorController extends BasicController implements
+public class ExamEditorController extends DefaultController implements
 		GenericEventListener {
 
 	private static final String PACKAGE = Util.getPackageName(Exam.class);
@@ -80,7 +75,6 @@ public class ExamEditorController extends BasicController implements
 			.getPackageVelocityRoot(Exam.class);
 
 	private static final String CMD_TOOLS_OPEN_EXAM = "toolCtr.openExam";
-	private static final String CMD_TOOLS_CLOSE_EXAM = "toolCtr.closeExam";
 	private static final String CMD_TOOLS_CLOSE_EDITOR = "toolCtr.close";
 	private static final String EXAM_EDITOR_LOCK = "examEditor.lock";
 
@@ -104,7 +98,6 @@ public class ExamEditorController extends BasicController implements
 	private Link addAppLink;
 	private CloseableModalController cmc;
 	private RepositoryEntry repoEntry;
-	private DialogBoxController dialogBoxOne;
 
 	/**
 	 * creates the controller for the exam editor
@@ -118,9 +111,8 @@ public class ExamEditorController extends BasicController implements
 	 */
 	public ExamEditorController(UserRequest ureq, WindowControl wControl,
 			OLATResourceable res) {
-		super(ureq, wControl);
-		
-		dialogBoxOne = null;
+		super(wControl);
+
 		this.exam = ExamDBManager.getInstance().findExamByID(
 				res.getResourceableId());
 		repoEntry = RepositoryManager.getInstance().lookupRepositoryEntry(res,
@@ -147,8 +139,6 @@ public class ExamEditorController extends BasicController implements
 					.translate("ExamEditorController.toolCtr.header"));
 			toolCtr.addLink(CMD_TOOLS_OPEN_EXAM, translator
 					.translate("ExamEditorController.toolCtr.openExam"));
-			toolCtr.addLink(CMD_TOOLS_CLOSE_EXAM, translator
-					.translate("ExamEditorController.toolCtr.closeExam"));
 			toolCtr.addLink(CMD_TOOLS_CLOSE_EDITOR, translator
 					.translate("ExamEditorController.toolCtr.close"), null,
 					"o_tb_close");
@@ -164,7 +154,7 @@ public class ExamEditorController extends BasicController implements
 					toolCtr.getInitialComponent(), mainPanel,
 					"examEditorCtrLayoutKey");
 
-			this.putInitialPanel(layoutCtr.getInitialComponent());
+			this.setInitialComponent(layoutCtr.getInitialComponent());
 			// --------------------------------getInstance hinzugefügt
 			CoordinatorManager.getInstance().getCoordinator().getEventBus()
 					.registerFor(this, ureq.getIdentity(), res);
@@ -356,11 +346,6 @@ public class ExamEditorController extends BasicController implements
 				dts.addDTab(ureq, dtNew);
 				dts.activate(ureq, dtNew, null);
 			}
-			// close exam
-			if (event.getCommand().equals(CMD_TOOLS_CLOSE_EXAM)) {
-				dialogBoxOne = activateYesNoDialog(ureq, "Prüfung abschließen", "Sind sie sicher, dass sie diese Prüfung abschließen wollen?\n" +
-						"Dies kann nicht rückgängig gemacht werden und es können keine Änderungen mehr an dieser Prüfung vorgenommen werden.", dialogBoxOne);
-			}
 		} else if (source == appTableCtr) {
 			if (event.getCommand().equals(Table.COMMAND_MULTISELECT)) {
 				TableMultiSelectEvent tmse = (TableMultiSelectEvent) event;
@@ -519,17 +504,6 @@ public class ExamEditorController extends BasicController implements
 						p.getIdentity()
 					);
 				}
-			}
-		} else if (source == dialogBoxOne){
-			ButtonClickedEvent bEvent = (ButtonClickedEvent) event;
-			if(bEvent.getPosition() == 0){
-				ExamDBManager.getInstance().close(exam);
-				//Close Tab
-				OLATResourceable ores = OLATResourceManager.getInstance().findResourceable(exam.getResourceableId(), Exam.ORES_TYPE_NAME);
-				DTabs dts = (DTabs) Windows.getWindows(ureq).getWindow(ureq).getAttribute("DTabs");
-				DTab dt = dts.getDTab(ores);
-				if(dt == null) return;
-				dts.removeDTab(ureq, dt);
 			}
 		}
 	}

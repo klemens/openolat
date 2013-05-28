@@ -146,9 +146,6 @@ public class ExamDBManager {
 	 * @return true if exam is closed 
 	 */
 	public void close(Exam exam){
-		findRepositoryEntryOfExam(exam).setStatusCode(2/*RepositoryEntryStatus.REPOSITORY_STATUS_CLOSED*/);
-		System.out.println(findRepositoryEntryOfExam(exam));
+		findRepositoryEntryOfExam(exam).setStatusCode(RepositoryEntryStatus.REPOSITORY_STATUS_CLOSED);
 	}
-	
-	
 }

@@ -77,6 +77,7 @@ public interface Exam extends ModifiedInfo, CreateInfo, Persistable, OLATResourc
 	 */
 	public Identity getIdentity();
 	
+	
 	/*------------------------- setter -------------------------*/
 	
 	

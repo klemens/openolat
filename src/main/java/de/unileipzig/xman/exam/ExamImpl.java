@@ -9,7 +9,6 @@ import org.olat.core.commons.persistence.PersistentObject;
 import org.olat.core.id.Identity;
 import org.olat.core.id.ModifiedInfo;
 import org.olat.repository.RepositoryEntry;
-import org.olat.repository.RepositoryEntryStatus;
 import org.olat.repository.RepositoryManager;
 import org.olat.resource.references.ReferenceImpl;
 
@@ -93,6 +92,7 @@ public class ExamImpl extends PersistentObject implements Exam {
 		
 		
 	}
+	
 
 	/*------------------------- getter -------------------------*/	
 	

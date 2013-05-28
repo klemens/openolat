@@ -160,7 +160,7 @@ public class ExamHandler implements RepositoryHandler {
 		throw new AssertException("getAsMediaResource not implemented for Exam");
 	}
 
-	/** outdated / unused
+	/**
 	 * (non-Javadoc)
 	 * @see org.olat.repository.handlers.RepositoryHandler#readyToDelete(org.olat.core.id.OLATResourceable, org.olat.core.gui.UserRequest, org.olat.core.gui.control.WindowControl)
 	 */
@@ -287,7 +287,7 @@ public class ExamHandler implements RepositoryHandler {
 	}
 
 	
-	/** outdated / unused
+	/** veraltet / unused
 	 * 
 	 * (non-Javadoc)
 	 * @see org.olat.repository.handlers.RepositoryHandler#getDetailsComponent(org.olat.core.id.OLATResourceable, org.olat.core.gui.UserRequest)
