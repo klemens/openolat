@@ -33,6 +33,8 @@ import org.olat.core.util.Util;
 import org.olat.repository.RepositoryEntry;
 import org.olat.repository.RepositoryManager;
 import org.olat.resource.OLATResourceManager;
+import org.olat.user.HomePageConfigManagerImpl;
+import org.olat.user.UserInfoMainController;
 
 import de.unileipzig.xman.comment.CommentEntry;
 import de.unileipzig.xman.comment.CommentManager;
@@ -207,7 +209,7 @@ public class ESFEditController extends MainLayoutBasicController {
 		// if esf is null, give an empty list to the model
 		protocolTableMdl = new ProtocolTableModel(translator.getLocale(),
 				(esf != null ? esf.getProtocolList()
-						: new ArrayList<Protocol>()), true, true, true, true);
+						: new ArrayList<Protocol>()), true, true, false, true);
 		protocolTableMdl.setTable(protocolTableCtr);
 		protocolTableCtr.setTableDataModel(protocolTableMdl);
 		protocolTableCtr.setSortColumn(0, true);
@@ -336,29 +338,21 @@ public class ESFEditController extends MainLayoutBasicController {
 				TableEvent te = (TableEvent) event;
 				String actionID = te.getActionId();
 
-				// somebody wants to open an esf
-				if (actionID.equals(ProtocolTableModel.EXAM_LAUNCH)) {
+				// somebody wants to open a vcard
+				if (actionID.equals(ProtocolTableModel.COMMAND_VCARD)) {
+					
+					OLATResourceable ores = HomePageConfigManagerImpl.getInstance().loadConfigFor(esf.getIdentity().getName());
 
-					Exam exam = protocolTableMdl.getEntryAt(te.getRowId())
-							.getExam();
-					OLATResourceable ores = OLATResourceManager.getInstance()
-							.findResourceable(exam.getResourceableId(),
-									Exam.ORES_TYPE_NAME);
-
-					// add the esf in a dtab
-					DTabs dts = (DTabs) Windows.getWindows(ureq)
-							.getWindow(ureq).getAttribute("DTabs");
+					DTabs dts = (DTabs) Windows.getWindows(ureq).getWindow(ureq).getAttribute("DTabs");
 					DTab dt = dts.getDTab(ores);
 					if (dt == null) {
-						// does not yet exist -> create and add
-						dt = dts.createDTab(ores, exam.getName());
-						if(dt == null) return;
-						
-						ExamMainController examMain = new ExamMainController(ureq, getWindowControl(), exam, ExamMainController.View.LECTURER);
-						dt.setController(examMain);
-						
+						// does not yet exist
+						dt = dts.createDTab(ores, esf.getIdentity().getName());
+						if (dt == null) return;
+						UserInfoMainController uimc = new UserInfoMainController(ureq, dt.getWindowControl(), esf.getIdentity());
+						dt.setController(uimc);
 						dts.addDTab(ureq, dt);
-					} 
+					}
 					dts.activate(ureq, dt, null);
 				}
 			}
