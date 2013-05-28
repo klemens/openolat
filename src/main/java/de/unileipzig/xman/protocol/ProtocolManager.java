@@ -77,6 +77,15 @@ public class ProtocolManager {
 	}
 	
 	/**
+	 * finds an Protocol by the given id
+	 * @param id the id of the Protocol
+	 * @return the specified Protocol or null if there is no Protocol with this id
+	 */
+	public Protocol findProtocolByID(Long id) {
+		return DBFactory.getInstance().loadObject(ProtocolImpl.class, id);
+	}
+	
+	/**
 	 * 
 	 * @param identity
 	 * @param app
@@ -250,7 +259,6 @@ public class ProtocolManager {
 			proto.setExam(appointment.getExam());
 			proto.setComments(initialComment);
 			
-			// TODO might not be necessary
 			if (appointment.getExam().getIsOral()) {
 				tempApp.setOccupied(true);
 				AppointmentManager.getInstance().updateAppointment(tempApp);
