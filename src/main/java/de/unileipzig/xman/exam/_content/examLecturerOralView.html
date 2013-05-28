@@ -1,6 +1,6 @@
 #if ($showAppointmentTable)
 	<fieldset><legend>$r.translate("examLecturerOralView_html.appointmentTable")</legend>
-	<p><span style="float:right;">$r.render("ExamLecturerWrittenController.refreshTable")</span></p>
+	<p style="overflow:hidden;"><span style="float:right;">$r.render("ExamLecturerWrittenController.refreshTable")</span></p>
 	$r.render("appointmentTable")
 	</fieldset>
 #else
