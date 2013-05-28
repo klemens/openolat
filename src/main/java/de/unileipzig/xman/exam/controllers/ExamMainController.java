@@ -100,7 +100,8 @@ public class ExamMainController extends MainLayoutBasicController {
 			if(exam.getIsOral()) {
 				examController = new ExamLecturerOralController(ureq, getWindowControl(), cstack, exam);
 			} else {
-				examController = new ExamLaunchController(ureq, getWindowControl(), exam, true, false);
+				//examController = new ExamLaunchController(ureq, getWindowControl(), exam, true, false);
+				examController = new ExamLecturerWrittenController(ureq, getWindowControl(), cstack, exam);
 			}
 			buildToolController();
 			cstack.pushController(name, new LayoutMain3ColsController(ureq, getWindowControl(), null,
@@ -152,7 +153,6 @@ public class ExamMainController extends MainLayoutBasicController {
 				if(popEvent.getController() instanceof ExamEditorController) {
 					inEditor = false;
 				}
-				
 			}
 		}
 	}
