@@ -354,6 +354,26 @@ public class ESFEditController extends MainLayoutBasicController {
 						dts.addDTab(ureq, dt);
 					}
 					dts.activate(ureq, dt, null);
+				} else if(actionID.equals(ProtocolTableModel.EXAM_LAUNCH)) {
+					// open exam
+					Exam exam = protocolTableMdl.getEntryAt(te.getRowId()).getExam();
+					OLATResourceable ores = OLATResourceManager.getInstance().findResourceable(exam.getResourceableId(), Exam.ORES_TYPE_NAME);
+
+					// add the esf in a dtab
+					DTabs dts = (DTabs) Windows.getWindows(ureq).getWindow(ureq).getAttribute("DTabs");
+					DTab dt = dts.getDTab(ores);
+					if (dt == null) {
+						// does not yet exist -> create and add
+						dt = dts.createDTab(ores, exam.getName());
+						if(dt == null) return;
+						
+						ExamMainController examMain = new ExamMainController(ureq, getWindowControl(), exam, ExamMainController.View.LECTURER);
+						dt.setController(examMain);
+						
+						dts.addDTab(ureq, dt);
+					}
+					dts.activate(ureq, dt, null);
+
 				}
 			}
 		}
