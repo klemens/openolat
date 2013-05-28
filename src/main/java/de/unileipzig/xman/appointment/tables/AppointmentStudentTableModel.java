@@ -1,5 +1,6 @@
 package de.unileipzig.xman.appointment.tables;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 
@@ -10,6 +11,7 @@ import org.olat.core.gui.translator.Translator;
 import org.olat.core.util.Util;
 
 import de.unileipzig.xman.appointment.Appointment;
+import de.unileipzig.xman.appointment.AppointmentManager;
 import de.unileipzig.xman.esf.ElectronicStudentFile;
 import de.unileipzig.xman.exam.Exam;
 import de.unileipzig.xman.protocol.Protocol;
@@ -23,20 +25,28 @@ public class AppointmentStudentTableModel extends DefaultTableDataModel<Appointm
 	private int columnCount;
 	
 	private Exam exam;
+	private ElectronicStudentFile esf;
 	Translator translator;
 	List<Protocol> userProtocols;
 	
 	private boolean subscribedToExam;
 
-	public AppointmentStudentTableModel(List<Appointment> objects, ElectronicStudentFile esf, Exam exam, Locale locale) {
-		super(objects);
+	public AppointmentStudentTableModel(Exam exam, ElectronicStudentFile esf, Locale locale) {
+		super(new ArrayList<Appointment>());
 		
 		setLocale(locale);
 		this.translator = Util.createPackageTranslator(Exam.class, getLocale());
 		this.exam = exam;
+		this.esf = esf;
 		
+		update();
+	}
+	
+	public void update() {
 		userProtocols = ProtocolManager.getInstance().findAllProtocolsByIdentityAndExam(esf.getIdentity(), exam);
 		subscribedToExam = ProtocolManager.getInstance().isIdentitySubscribedToExam(esf.getIdentity(), exam);
+		
+		setObjects(AppointmentManager.getInstance().findAllAppointmentsByExamId(exam.getKey()));
 	}
 
 	@Override

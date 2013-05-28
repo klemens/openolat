@@ -87,8 +87,7 @@ public class ExamStudentController extends BasicController {
 	private void buildAppointmentTable(UserRequest ureq, WindowControl wControl) {
 		removeAsListenerAndDispose(subscriptionTable);
 		
-		List<Appointment> protocols = AppointmentManager.getInstance().findAllAppointmentsByExamId(exam.getKey());
-		subscriptionTableModel = new AppointmentStudentTableModel(protocols, esf, exam, ureq.getLocale());
+		subscriptionTableModel = new AppointmentStudentTableModel(exam, esf, ureq.getLocale());
 		
 		TableGuiConfiguration tableGuiConfiguration = new TableGuiConfiguration();
 		tableGuiConfiguration.setColumnMovingOffered(false);
@@ -148,7 +147,6 @@ public class ExamStudentController extends BasicController {
 					protocol.getIdentity()
 				);
 				
-				// TODO might not be necessary
 				if (exam.getIsOral()) {
 					Appointment tempApp = protocol.getAppointment();
 					tempApp.setOccupied(false);
@@ -168,7 +166,8 @@ public class ExamStudentController extends BasicController {
 				ElectronicStudentFileManager.getInstance().updateElectronicStundentFile(esf);
 				
 				// update view
-				buildAppointmentTable(ureq, getWindowControl());
+				subscriptionTableModel.update();
+				subscriptionTable.modelChanged();
 			}
 		} else if(source == examDetailsControler) {
 			Appointment appointment = examDetailsControler.getAppointment();
@@ -201,9 +200,9 @@ public class ExamStudentController extends BasicController {
 				}
 				
 				// update view
-				buildAppointmentTable(ureq, getWindowControl());
+				subscriptionTableModel.update();
+				subscriptionTable.modelChanged();
 			}
-
 		}
 	}
 
