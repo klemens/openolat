@@ -11,7 +11,6 @@ import org.olat.core.gui.components.form.flexible.impl.FormBasicController;
 import org.olat.core.gui.components.form.flexible.impl.FormLayoutContainer;
 import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.WindowControl;
-import org.olat.core.gui.components.form.flexible.elements.Cancel;
 import org.olat.core.gui.components.form.flexible.elements.Submit;
 import org.olat.core.gui.components.form.flexible.elements.TextElement;
 import org.olat.core.gui.components.form.flexible.elements.IntegerElement;
@@ -33,7 +32,6 @@ public class CreateAndEditAppointmentForm extends FormBasicController {
 	private boolean isOral;
 	private Appointment app;
 	private Submit submit;
-	private Cancel cancel;
 
 	/**
 	 * creates the createAndEditAppointmentForm
@@ -112,7 +110,6 @@ public class CreateAndEditAppointmentForm extends FormBasicController {
 		FormLayoutContainer buttonGroupLayout = FormLayoutContainer.createButtonLayout("buttonGroupLayout", getTranslator());
 		formLayout.add(buttonGroupLayout);
 		submit = uifactory.addFormSubmitButton("save", "submitKey", buttonGroupLayout);
-		cancel = uifactory.addFormCancelButton("cancel", buttonGroupLayout, ureq, getWindowControl());
 	}
 
 	/**
@@ -184,11 +181,6 @@ public class CreateAndEditAppointmentForm extends FormBasicController {
 	protected void formOK(UserRequest ureq) {
 		fireEvent(ureq, Form.EVNT_VALIDATION_OK);
 
-	}
-
-	@Override
-	protected void formCancelled(UserRequest ureq) {
-		fireEvent(ureq, Form.EVNT_FORM_CANCELLED);
 	}
 
 	@Override
