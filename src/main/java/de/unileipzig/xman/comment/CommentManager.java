@@ -10,6 +10,9 @@ import org.olat.core.logging.AssertException;
 import org.olat.core.logging.OLog;
 import org.olat.core.logging.Tracing;
 
+import de.unileipzig.xman.esf.ElectronicStudentFile;
+import de.unileipzig.xman.esf.ElectronicStudentFileManager;
+
 public class CommentManager {
 
 	private static CommentManager INSTANCE = null;
@@ -53,6 +56,20 @@ public class CommentManager {
 		commentEntry.setAuthor(identity);
 		
 		return commentEntry;
+	}
+	
+	/**
+	 * Convenience method for creating a comment
+	 * @param esf Valid esf
+	 * @param text Has to be size() >= 1
+	 */
+	public void createCommentInEsa(ElectronicStudentFile esf, String text, Identity author) {
+		// create comment
+		CommentEntry commentEntry = createCommentEntry(text, author);
+
+		// add comment and update the esf
+		esf.addCommentEntry(commentEntry);
+		ElectronicStudentFileManager.getInstance().updateElectronicStundentFile(esf);
 	}
 	
 	/**

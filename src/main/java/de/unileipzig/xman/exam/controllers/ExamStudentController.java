@@ -190,11 +190,7 @@ public class ExamStudentController extends BasicController {
 				if(ProtocolManager.getInstance().registerStudent(appointment, esf, getTranslator(), exam.getEarmarkedEnabled(), comment)) {
 					// create comment
 					String commentText = translate("ExamStudentController.studentRegisteredHimself", new String[] { "'" + exam.getName() + "'" });
-					CommentEntry commentEntry = CommentManager.getInstance().createCommentEntry(commentText, ureq.getIdentity());
-
-					// add comment and update the esf
-					esf.addCommentEntry(commentEntry);
-					ElectronicStudentFileManager.getInstance().updateElectronicStundentFile(esf);
+					CommentManager.getInstance().createCommentInEsa(esf, commentText, ureq.getIdentity());
 				} else {
 					getWindowControl().setInfo(translate("ExamStudentController.info.appNotAvailable"));
 				}
