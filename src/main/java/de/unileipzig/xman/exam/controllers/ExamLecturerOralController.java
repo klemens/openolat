@@ -96,12 +96,12 @@ public class ExamLecturerOralController extends BasicController {
 		
 		listenTo(stack); // listen for pop events
 		
+		baseVC = new VelocityContainer("examBase", VELOCITY_ROOT + "/examBase.html", getTranslator(), this);
 		init(ureq, wControl);
+		putInitialPanel(baseVC);
 	}
 	
 	private void init(UserRequest ureq, WindowControl wControl) {
-		baseVC = new VelocityContainer("examLaunch", VELOCITY_ROOT + "/examBase.html", getTranslator(), this);
-		
 		baseVC.contextPut("examType", translate("oral"));
 		baseVC.contextPut("regStartDate", exam.getRegStartDate() == null ? "n/a" : Formatter.getInstance(ureq.getLocale()).formatDateAndTime(exam.getRegStartDate()));
 		baseVC.contextPut("regEndDate", exam.getRegEndDate() == null ? "n/a" : Formatter.getInstance(ureq.getLocale()).formatDateAndTime(exam.getRegEndDate()));
@@ -115,8 +115,6 @@ public class ExamLecturerOralController extends BasicController {
 		baseVC.put("anyForm", mainVC);
 		
 		buildAppointmentTable(ureq, wControl);
-		
-		putInitialPanel(baseVC);
 	}
 	
 	private void buildAppointmentTable(UserRequest ureq, WindowControl wControl) {
@@ -129,7 +127,7 @@ public class ExamLecturerOralController extends BasicController {
 		tableGuiConfiguration.setDownloadOffered(true);
 		tableGuiConfiguration.setTableEmptyMessage(translate("ExamEditorController.appointmentTable.empty"));
 		tableGuiConfiguration.setMultiSelect(true);
-		tableGuiConfiguration.setPreferencesOffered(true, "ExamEditorController.appointmentTable");
+		tableGuiConfiguration.setPreferencesOffered(true, "ExamLecturerOralController.appointmentTable");
 		appointmentTable = new TableController(tableGuiConfiguration, ureq, wControl, getTranslator());
 		
 		appointmentTableModel.createColumns(appointmentTable);
@@ -244,7 +242,7 @@ public class ExamLecturerOralController extends BasicController {
 					cmc.activate();
 				
 				/**
-				 * create form so send emails to students
+				 * create form to send emails to students
 				 */
 				} else if(tableEvent.getAction().equals(AppointmentLecturerOralTableModel.ACTION_MULTI_MAIL)) {
 					editMailFormAppointmentHolder = filterAppointmentsByType(appointmentTableModel.getObjects(tableEvent.getSelection()), true);
@@ -344,7 +342,7 @@ public class ExamLecturerOralController extends BasicController {
 										new Integer(proto.getAppointment().getDuration()).toString(),
 										userTranslator.translate("oral"),
 										bcf.getAsURIString(bcf.createCEListFromString(ExamDBManager.getInstance().findRepositoryEntryOfExam(exam)), true),
-										userTranslator.translate(proto.getEarmarked() ? "ExamLaunchController.status.earmarked" : "ExamLaunchController.status.registered"),
+										userTranslator.translate(proto.getEarmarked() ? "ExamLecturerOralController.status.earmarked" : "ExamLecturerOralController.status.registered"),
 										semester,
 										proto.getIdentity().getUser().getProperty(UserConstants.INSTITUTIONALEMAIL, null),
 										proto.getIdentity().getUser().getProperty(UserConstants.EMAIL, null),
@@ -445,10 +443,11 @@ public class ExamLecturerOralController extends BasicController {
 						appointmentTableModel.update();
 						appointmentTable.modelChanged();
 					}
-					userSearchControllerAppointmentHolder = null;
 				} else {
 					showError("ExamLecturerOralController.error.studentHasNoESF");
 				}
+				
+				userSearchControllerAppointmentHolder = null;
 			}
 		
 		/**
@@ -460,8 +459,7 @@ public class ExamLecturerOralController extends BasicController {
 				
 				for (Appointment app : editMarkFormAppointmentHolder) {
 					if(appointmentTableModel.existsProtocol(app)) {
-						Protocol proto = appointmentTableModel.getProtocol(app);
-						
+						Protocol proto = ProtocolManager.getInstance().findProtocolByID(appointmentTableModel.getProtocol(app).getKey());
 						proto.setGrade(editMarkForm.getGrade());
 						ProtocolManager.getInstance().updateProtocol(proto);
 						
@@ -502,8 +500,7 @@ public class ExamLecturerOralController extends BasicController {
 				
 				for (Appointment app : editCommentFormAppointmentHolder) {
 					if(appointmentTableModel.existsProtocol(app)) {
-						Protocol proto = appointmentTableModel.getProtocol(app);
-						
+						Protocol proto = ProtocolManager.getInstance().findProtocolByID(appointmentTableModel.getProtocol(app).getKey());
 						proto.setComments(editCommentForm.getComment());
 						ProtocolManager.getInstance().updateProtocol(proto);
 					}
