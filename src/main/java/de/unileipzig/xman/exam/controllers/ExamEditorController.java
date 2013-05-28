@@ -27,9 +27,12 @@ import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.DefaultController;
 import org.olat.core.gui.control.Event;
 import org.olat.core.gui.control.WindowControl;
+import org.olat.core.gui.control.controller.BasicController;
 import org.olat.core.gui.control.generic.closablewrapper.CloseableModalController;
 import org.olat.core.gui.control.generic.dtabs.DTab;
 import org.olat.core.gui.control.generic.dtabs.DTabs;
+import org.olat.core.gui.control.generic.modal.ButtonClickedEvent;
+import org.olat.core.gui.control.generic.modal.DialogBoxController;
 import org.olat.core.gui.control.generic.tool.ToolController;
 import org.olat.core.gui.control.generic.tool.ToolFactory;
 import org.olat.core.gui.translator.PackageTranslator;
@@ -60,6 +63,7 @@ import de.unileipzig.xman.exam.ExamHandler;
 import de.unileipzig.xman.exam.forms.CreateAndEditAppointmentForm;
 import de.unileipzig.xman.exam.forms.EditCommentsForm;
 import de.unileipzig.xman.exam.forms.EditEarmarkedForm;
+import de.unileipzig.xman.exam.forms.EditMarkForm;
 import de.unileipzig.xman.exam.forms.EditRegistrationForm;
 import de.unileipzig.xman.protocol.Protocol;
 import de.unileipzig.xman.protocol.ProtocolManager;
@@ -68,7 +72,7 @@ import de.unileipzig.xman.protocol.ProtocolManager;
  * 
  * @author
  */
-public class ExamEditorController extends DefaultController implements
+public class ExamEditorController extends BasicController implements
 		GenericEventListener {
 
 	private static final String PACKAGE = Util.getPackageName(Exam.class);
@@ -100,6 +104,7 @@ public class ExamEditorController extends DefaultController implements
 	private Link addAppLink;
 	private CloseableModalController cmc;
 	private RepositoryEntry repoEntry;
+	private DialogBoxController dialogBoxOne;
 
 	/**
 	 * creates the controller for the exam editor
@@ -113,8 +118,9 @@ public class ExamEditorController extends DefaultController implements
 	 */
 	public ExamEditorController(UserRequest ureq, WindowControl wControl,
 			OLATResourceable res) {
-		super(wControl);
-
+		super(ureq, wControl);
+		
+		dialogBoxOne = null;
 		this.exam = ExamDBManager.getInstance().findExamByID(
 				res.getResourceableId());
 		repoEntry = RepositoryManager.getInstance().lookupRepositoryEntry(res,
@@ -158,7 +164,7 @@ public class ExamEditorController extends DefaultController implements
 					toolCtr.getInitialComponent(), mainPanel,
 					"examEditorCtrLayoutKey");
 
-			this.setInitialComponent(layoutCtr.getInitialComponent());
+			this.putInitialPanel(layoutCtr.getInitialComponent());
 			// --------------------------------getInstance hinzugefügt
 			CoordinatorManager.getInstance().getCoordinator().getEventBus()
 					.registerFor(this, ureq.getIdentity(), res);
@@ -351,11 +357,9 @@ public class ExamEditorController extends DefaultController implements
 				dts.activate(ureq, dtNew, null);
 			}
 			// close exam
-			// experimental
 			if (event.getCommand().equals(CMD_TOOLS_CLOSE_EXAM)) {
-				//WizardCloseExamController examCloser = new WizardCloseExamController(ureq, this.getWindowControl());
-				repoEntry.setStatusCode(RepositoryEntryStatus.REPOSITORY_STATUS_CLOSED);
-				System.out.println("TEST:       "+repoEntry.getStatusCode());
+				dialogBoxOne = activateYesNoDialog(ureq, "Prüfung abschließen", "Sind sie sicher, dass sie diese Prüfung abschließen wollen?\n" +
+						"Dies kann nicht rückgängig gemacht werden und es können keine Änderungen mehr an dieser Prüfung vorgenommen werden.", dialogBoxOne);
 			}
 		} else if (source == appTableCtr) {
 			if (event.getCommand().equals(Table.COMMAND_MULTISELECT)) {
@@ -515,6 +519,12 @@ public class ExamEditorController extends DefaultController implements
 						p.getIdentity()
 					);
 				}
+			}
+		} else if (source == dialogBoxOne){
+			ButtonClickedEvent bEvent = (ButtonClickedEvent) event;
+			if(bEvent.getPosition() == 0){
+				repoEntry.setStatusCode(RepositoryEntryStatus.REPOSITORY_STATUS_CLOSED);
+				System.out.println("TEST:       "+repoEntry.getStatusCode()+"     "+bEvent.getPosition());
 			}
 		}
 	}
