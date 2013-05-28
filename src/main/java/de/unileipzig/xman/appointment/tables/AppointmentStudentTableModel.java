@@ -62,10 +62,14 @@ public class AppointmentStudentTableModel extends DefaultTableDataModel<Appointm
 			case 0: return app.getDate();
 			case 1: return app.getPlace();
 			case 2: return new Integer(app.getDuration()) + " min";
-			case 3:	if(exam.getIsOral() && !exam.getIsMultiSubscription()) {
-						return subscribedToExam ? "" : translator.translate("AppointmentStudentTableModel.subscribe");
+			case 3:	if(!app.getOccupied()) {
+						if(exam.getIsOral() && !exam.getIsMultiSubscription()) {
+							return subscribedToExam ? "" : translator.translate("AppointmentStudentTableModel.subscribe");
+						} else {
+							return isSubscribedToAppointment(app) ? "" : translator.translate("AppointmentStudentTableModel.subscribe");
+						}
 					} else {
-						return isSubscribedToAppointment(app) ? "" : translator.translate("AppointmentStudentTableModel.subscribe");
+						return "";
 					}
 			case 4: return isSubscribedToAppointment(app) ? translator.translate("AppointmentStudentTableModel.unsubscribe") : "";
 			case 5:	if(isSubscribedToAppointment(app)) {
@@ -74,7 +78,10 @@ public class AppointmentStudentTableModel extends DefaultTableDataModel<Appointm
 						else
 							return translator.translate("AppointmentStudentTableModel.status.subscribed");
 					} else {
-						return translator.translate("AppointmentStudentTableModel.status.unsubscribed");
+						if(app.getOccupied())
+							return translator.translate("AppointmentStudentTableModel.status.unavailable");
+						else
+							return translator.translate("AppointmentStudentTableModel.status.unsubscribed");
 					}
 		}
 		
