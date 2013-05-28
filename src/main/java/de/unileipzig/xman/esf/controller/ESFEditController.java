@@ -422,7 +422,7 @@ public class ESFEditController extends MainLayoutBasicController {
 						editCommentForm = new ESFCommentCreateAndEditForm(ureq,
 								getWindowControl(),
 								"ESFCommentCreateAndEditForm", this.translator,
-								this.commentEntry);
+								this.commentEntry.getComment());
 						editCommentForm.addControllerListener(this);
 
 						editCommentCtr = new CloseableModalController(
