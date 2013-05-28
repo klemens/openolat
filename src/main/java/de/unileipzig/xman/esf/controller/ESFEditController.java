@@ -42,7 +42,6 @@ import de.unileipzig.xman.esf.ElectronicStudentFileManager;
 import de.unileipzig.xman.esf.form.ESFCommentCreateAndEditForm;
 import de.unileipzig.xman.esf.table.ESFTableModel;
 import de.unileipzig.xman.exam.Exam;
-import de.unileipzig.xman.exam.controllers.ExamLaunchController;
 import de.unileipzig.xman.exam.controllers.ExamMainController;
 import de.unileipzig.xman.protocol.Protocol;
 import de.unileipzig.xman.protocol.tables.ProtocolTableModel;

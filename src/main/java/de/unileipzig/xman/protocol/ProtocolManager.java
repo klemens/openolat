@@ -22,7 +22,6 @@ import de.unileipzig.xman.esf.ElectronicStudentFile;
 import de.unileipzig.xman.esf.ElectronicStudentFileManager;
 import de.unileipzig.xman.exam.Exam;
 import de.unileipzig.xman.exam.ExamDBManager;
-import de.unileipzig.xman.exam.controllers.ExamLaunchController;
 
 public class ProtocolManager {
 	

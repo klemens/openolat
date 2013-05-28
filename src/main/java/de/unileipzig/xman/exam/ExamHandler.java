@@ -42,7 +42,6 @@ import de.unileipzig.xman.appointment.AppointmentManager;
 import de.unileipzig.xman.calendar.CalendarManager;
 import de.unileipzig.xman.exam.controllers.ExamCreateController;
 import de.unileipzig.xman.exam.controllers.ExamEditorController;
-import de.unileipzig.xman.exam.controllers.ExamLaunchController;
 import de.unileipzig.xman.exam.controllers.ExamMainController;
 import de.unileipzig.xman.protocol.Protocol;
 import de.unileipzig.xman.protocol.ProtocolManager;

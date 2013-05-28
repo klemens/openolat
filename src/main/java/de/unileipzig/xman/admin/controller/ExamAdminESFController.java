@@ -68,7 +68,6 @@ import de.unileipzig.xman.esf.controller.ESFLaunchController;
 import de.unileipzig.xman.esf.table.ESFTableModel;
 import de.unileipzig.xman.exam.Exam;
 import de.unileipzig.xman.exam.ExamDBManager;
-import de.unileipzig.xman.exam.controllers.ExamLaunchController;
 import de.unileipzig.xman.protocol.Protocol;
 import de.unileipzig.xman.protocol.tables.ProtocolTableModel;
 
