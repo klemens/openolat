@@ -126,9 +126,9 @@ public class ExamAdminStudyPathController extends BasicController {
 		if (source == studyPathCreateForm) {
 
 			if (event == Form.EVNT_VALIDATION_OK) {
-
+				
 				this.getWindowControl().pop();
-
+				
 				if (this.checkTakenNames(ureq, studyPathCreateForm)) {
 
 					StudyPath sp = StudyPathManager.getInstance()
@@ -165,7 +165,7 @@ public class ExamAdminStudyPathController extends BasicController {
 		if (source == studyPathEditForm) {
 
 			if (event == Form.EVNT_VALIDATION_OK) {
-
+				StudyPathManager.getInstance().updateStudyPaths();
 				this.getWindowControl().pop();
 
 				if (this.checkTakenNames(ureq, studyPathEditForm)) {
@@ -190,8 +190,8 @@ public class ExamAdminStudyPathController extends BasicController {
 
 			// somebody wants to add a new study path
 			if (event.getCommand().equals(ACTION_ADD)) {
-
-				studyPathCreateForm = new StudyPathCreateAndEditForm(ureq,
+				StudyPathManager.getInstance().updateStudyPaths();
+		/*		studyPathCreateForm = new StudyPathCreateAndEditForm(ureq,
 						getWindowControl(), "studyPathForm", translator, null);
 				studyPathCreateForm.addControllerListener(this);
 
@@ -200,7 +200,7 @@ public class ExamAdminStudyPathController extends BasicController {
 						translator.translate("close"), studyPathCreateForm
 								.getInitialComponent());
 				dialogCtr.activate();
-			}
+		*/	}
 		}
 
 		if (source == studyPathTableCtr) {

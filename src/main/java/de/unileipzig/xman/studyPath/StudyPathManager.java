@@ -4,6 +4,7 @@ import java.io.*;
 
 import org.jdom.*; 
 import org.jdom.input.SAXBuilder;
+import org.jdom.output.XMLOutputter;
 import org.olat.core.commons.persistence.DBFactory;
 import org.olat.core.logging.OLog;
 import org.olat.core.logging.Tracing;
@@ -15,6 +16,7 @@ public class StudyPathManager {
 	private static StudyPathManager INSTANCE = null;
 	private OLog log = Tracing.createLoggerFor(this.getClass());
 	public static final String DEFAULT_STUDY_PATH = "Keiner";
+	private static final String OTHER_STUDY_PATH = "sonstiges";
 
 	private StudyPathManager() {
 		// singleton
@@ -24,48 +26,74 @@ public class StudyPathManager {
 	 * @return Singleton.
 	 * @throws IOException 
 	 */
-	public static StudyPathManager getInstance() throws IOException {
+	public static StudyPathManager getInstance(){
 		if ( INSTANCE == null ) {
 			INSTANCE = new StudyPathManager();
-			INSTANCE.init();
+			try {
+				INSTANCE.init();
+			} catch (IOException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
 		}
 		
 		return INSTANCE;
 	}
 	
 	private void init() throws IOException {
-		StudyPath defaultStudyPath = this.findStudyPath(StudyPathManager.DEFAULT_STUDY_PATH);
-		if (defaultStudyPath == null) {
-			
-			defaultStudyPath = this.createStudyPath();
-			defaultStudyPath.setName(StudyPathManager.DEFAULT_STUDY_PATH);
-			try {
-				saveStudyPath(defaultStudyPath);
-			}
-			// can never happen
-			catch (DuplicateObjectException doe) {
-				log.info("There is already a studyPath with the name " + defaultStudyPath.getName() + " in the database");
-			}
-			this.createAllStudyPaths();
-		}		
+		
+		this.createAllStudyPaths();
+				
 	}
 	
 	private void createAllStudyPaths()  {
-
-        Document doc = null;
+		List<StudyPath> oldStudyPaths = this.findAllStudyPaths();
+		
+		for(int i = 0; i < oldStudyPaths.size(); i++){
+			DBFactory.getInstance().deleteObject(oldStudyPaths.get(i));
+		}
+		
+		StudyPath defaultStudyPath = this.createStudyPath();
+		defaultStudyPath.setName(DEFAULT_STUDY_PATH);
+		StudyPath otherStudyPath = this.createStudyPath();
+		otherStudyPath.setName(OTHER_STUDY_PATH);
+		
+		try {
+			saveStudyPath(defaultStudyPath);
+			saveStudyPath(otherStudyPath);
+		} catch (DuplicateObjectException e1) {
+			// TODO Auto-generated catch block
+			e1.printStackTrace();
+		}
+		
+		Document doc = null;
         File f = new File("studypath.xml");
         SAXBuilder builder = new SAXBuilder();
         try {
 			doc = builder.build(f);
 	        Element element = doc.getRootElement(); 
-	        List allStudypaths = (List) element.getChildren(); 
+	        
+	        
+	        
+	        while(element.getChildText("course") != null){
+	        	StudyPath studyPath = this.createStudyPath();
+	        	studyPath.setName(element.getChildText("course"));
+	        	element.removeChild("course");
+	        	try {
+					saveStudyPath(studyPath);
+				} catch (DuplicateObjectException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}
+	        }
+	        /*
 		    int i = 0;
 				  while(i < allStudypaths.size()) {
 					   StudyPath studyPath = this.createStudyPath();
-					   studyPath.setName(allStudypaths.get(i).toString());
+					   studyPath.setName(outp.outputString(()allStudypaths.get(i)));
 					   DBFactory.getInstance().saveObject(studyPath);
 					   i++;
-			}
+			}*/
 		} 
         catch (JDOMException e) {
 
@@ -74,8 +102,9 @@ public class StudyPathManager {
 
 			e.printStackTrace();
 		} 
-
-		       
+        
+       
+				       
 	} 
 	/**
 	 * Creates a new studyPath and returns it.
@@ -150,5 +179,10 @@ public class StudyPathManager {
 	public void updateDatabase()
 	{
 		
+	}
+	
+	public void updateStudyPaths(){
+				
+		this.createAllStudyPaths();
 	}
 }
