@@ -83,6 +83,7 @@ public class ExamEditorController extends BasicController implements
 	private static final String CMD_TOOLS_CLOSE_EXAM = "toolCtr.closeExam";
 	private static final String CMD_TOOLS_CLOSE_EDITOR = "toolCtr.close";
 	private static final String EXAM_EDITOR_LOCK = "examEditor.lock";
+	private static final String CMD_TOOLS_CLOSE_EXAM_YES_NO = "toolCtr.closeExamYesNo";
 
 	private Panel mainPanel;
 	private VelocityContainer vcMain, vcApp;
@@ -358,8 +359,7 @@ public class ExamEditorController extends BasicController implements
 			}
 			// close exam
 			if (event.getCommand().equals(CMD_TOOLS_CLOSE_EXAM)) {
-				dialogBoxOne = activateYesNoDialog(ureq, "Prüfung abschließen", "Sind sie sicher, dass sie diese Prüfung abschließen wollen?\n" +
-						"Dies kann nicht rückgängig gemacht werden und es können keine Änderungen mehr an dieser Prüfung vorgenommen werden.", dialogBoxOne);
+				dialogBoxOne = activateYesNoDialog(ureq, translator.translate("ExamEditorController.toolCtr.closeExam"), translator.translate("ExamEditorController.toolCtr.closeExamYesNo"), dialogBoxOne);
 			}
 		} else if (source == appTableCtr) {
 			if (event.getCommand().equals(Table.COMMAND_MULTISELECT)) {
