@@ -43,6 +43,7 @@ import org.olat.core.util.event.GenericEventListener;
 import org.olat.core.util.coordinate.CoordinatorManager;
 import org.olat.core.util.coordinate.LockResult;
 import org.olat.repository.RepositoryEntry;
+import org.olat.repository.RepositoryEntryStatus;
 import org.olat.repository.RepositoryManager;
 import org.olat.repository.handlers.RepositoryHandlerFactory;
 import org.olat.resource.OLATResourceManager;
@@ -75,6 +76,7 @@ public class ExamEditorController extends DefaultController implements
 			.getPackageVelocityRoot(Exam.class);
 
 	private static final String CMD_TOOLS_OPEN_EXAM = "toolCtr.openExam";
+	private static final String CMD_TOOLS_CLOSE_EXAM = "toolCtr.closeExam";
 	private static final String CMD_TOOLS_CLOSE_EDITOR = "toolCtr.close";
 	private static final String EXAM_EDITOR_LOCK = "examEditor.lock";
 
@@ -139,6 +141,8 @@ public class ExamEditorController extends DefaultController implements
 					.translate("ExamEditorController.toolCtr.header"));
 			toolCtr.addLink(CMD_TOOLS_OPEN_EXAM, translator
 					.translate("ExamEditorController.toolCtr.openExam"));
+			toolCtr.addLink(CMD_TOOLS_CLOSE_EXAM, translator
+					.translate("ExamEditorController.toolCtr.closeExam"));
 			toolCtr.addLink(CMD_TOOLS_CLOSE_EDITOR, translator
 					.translate("ExamEditorController.toolCtr.close"), null,
 					"o_tb_close");
@@ -345,6 +349,13 @@ public class ExamEditorController extends DefaultController implements
 
 				dts.addDTab(ureq, dtNew);
 				dts.activate(ureq, dtNew, null);
+			}
+			// close exam
+			// experimental
+			if (event.getCommand().equals(CMD_TOOLS_CLOSE_EXAM)) {
+				//WizardCloseExamController examCloser = new WizardCloseExamController(ureq, this.getWindowControl());
+				repoEntry.setStatusCode(RepositoryEntryStatus.REPOSITORY_STATUS_CLOSED);
+				System.out.println("TEST:       "+repoEntry.getStatusCode());
 			}
 		} else if (source == appTableCtr) {
 			if (event.getCommand().equals(Table.COMMAND_MULTISELECT)) {

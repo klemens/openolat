@@ -177,18 +177,6 @@ public class ExamImpl extends PersistentObject implements Exam {
 		return this.identity;
 	}
 	
-	/*
-	 * (non-Javadoc)
-	 * @see de.xman.exam.Exam#getclosed()
-	 */
-	public boolean getClosed() {
-		
-		if (getCourseRepoEntry().getStatusCode() == RepositoryEntryStatus.REPOSITORY_STATUS_CLOSED)
-			return true;
-		else
-			return false;
-	}
-	
 	/*------------------------- setter -------------------------*/
 	
 	
@@ -261,13 +249,5 @@ public class ExamImpl extends PersistentObject implements Exam {
 	public void setLastModified(Date lastModified) {
 		
 		this.lastModified = lastModified;
-	}
-
-	/**
-	 * @see de.xman.exam.Exam#setClosed(boolean)
-	 */
-	public void setClosed(boolean status) {
-		
-		getCourseRepoEntry().setStatusCode(RepositoryEntryStatus.REPOSITORY_STATUS_CLOSED);
 	}
 }
