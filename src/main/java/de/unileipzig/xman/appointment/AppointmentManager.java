@@ -99,17 +99,13 @@ public class AppointmentManager {
 	 * @return the specified appointment or null if there is no appointment with this id
 	 */
 	public Appointment findAppointmentByID(Long id) {
-		
-		String query = "from de.unileipzig.xman.appointment.AppointmentImpl as b where b.key = " + id;
-		List appList = DBFactory.getInstance().find(query);
-		if ( appList.size() > 0 ) return (Appointment)appList.get(0);
-		else return null;
+		return DBFactory.getInstance().loadObject(AppointmentImpl.class, id);
 	}
 	
 	/**
 	 * finds all appointments to the specified exam
 	 * @param examId the id of the exam
-	 * @return all appointments which belong to the exam(Id), or null of there were no appointments
+	 * @return all appointments which belong to the exam(Id), or empty list of there were no appointments
 	 */
 	public List<Appointment> findAllAppointmentsByExamId(Long examId) {
 		

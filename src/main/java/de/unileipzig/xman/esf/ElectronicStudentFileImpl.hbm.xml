@@ -21,11 +21,10 @@
    	<timestamp name="lastModified" column="lastmodified" />   
   	<property  name="creationDate" column="creationdate" type="timestamp" />   
         
-    <list name="protocolList" cascade="none">
+    <bag name="protocolList" cascade="none">
             <key column="parent_id"/>
-            <index column="idx"/>
             <one-to-many class="de.unileipzig.xman.protocol.ProtocolImpl"/>
-    </list>
+    </bag>
     
      <many-to-one name="identity" class="org.olat.basesecurity.IdentityImpl" 
 		column="identity_id" outer-join="true" cascade="none" not-null="false"/> 

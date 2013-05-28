@@ -33,6 +33,7 @@ public class ExamImpl extends PersistentObject implements Exam {
 	private Date lastModified;
 	private boolean isOral;
 	private boolean earmarkedEnabled;
+	private boolean isMultiSubscription;
 	private String comments;
 	private Identity identity;
 	
@@ -249,5 +250,15 @@ public class ExamImpl extends PersistentObject implements Exam {
 	public void setLastModified(Date lastModified) {
 		
 		this.lastModified = lastModified;
+	}
+
+	@Override
+	public boolean getIsMultiSubscription() {
+		return isMultiSubscription;
+	}
+
+	@Override
+	public void setIsMultiSubscription(boolean isMultiSubscription) {
+		this.isMultiSubscription = isMultiSubscription;
 	}
 }

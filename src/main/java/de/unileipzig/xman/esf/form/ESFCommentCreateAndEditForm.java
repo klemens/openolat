@@ -31,7 +31,7 @@ public class ESFCommentCreateAndEditForm extends FormBasicController {
 	private TextElement comment;
 	private Submit submit;
 	private Cancel cancel;
-	private CommentEntry entry;
+	private String defaultText;
 
 	/**
 	 * 
@@ -40,10 +40,10 @@ public class ESFCommentCreateAndEditForm extends FormBasicController {
 	 */
 	public ESFCommentCreateAndEditForm(UserRequest ureq,
 			WindowControl wControl, String name, Translator translator,
-			CommentEntry entry) {
+			String defaultText) {
 		super(ureq, wControl);
-		this.entry=entry;
 		this.setTranslator(new PackageTranslator("de.unileipzig.xman.esf", ureq.getLocale()));
+		this.defaultText = defaultText;
 		initForm(ureq);
 	}
 
@@ -53,14 +53,11 @@ public class ESFCommentCreateAndEditForm extends FormBasicController {
 		comment = uifactory.addTextAreaElement("comment",
 				"ESFCommentCreateForm.comment", 1024, 6, 4, true, "", formLayout);
 		comment.setMandatory(true);
-		if (entry != null)
-			comment.setValue(entry.getComment());
+		if (!defaultText.isEmpty())
+			comment.setValue(defaultText);
 
 		// submit / cancel keys
 		submit = uifactory.addFormSubmitButton("save", "save", formLayout);
-		// cancel = uifactory.addFormCancelButton("cancel", null, ureq,
-		// getWindowControl());
-
 	}
 
 	/**
@@ -69,7 +66,7 @@ public class ESFCommentCreateAndEditForm extends FormBasicController {
 	 */
 	public boolean validateFormLogic(UserRequest ureq) {
 
-		return !comment.isEmpty("ESFCommentCreateForm.isEmpty");
+		return true;
 	}
 
 	public String getComment() {
@@ -81,11 +78,6 @@ public class ESFCommentCreateAndEditForm extends FormBasicController {
 	protected void formOK(UserRequest ureq) {
 		fireEvent(ureq, Form.EVNT_VALIDATION_OK);
 
-	}
-
-	@Override
-	protected void formCancelled(UserRequest ureq) {
-		fireEvent(ureq, Form.EVNT_FORM_CANCELLED);
 	}
 	
 	@Override

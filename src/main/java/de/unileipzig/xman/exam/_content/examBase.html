@@ -1,0 +1,36 @@
+<fieldset>
+	<legend><b>$r.translate("examBase_html.common")</b></legend>
+	<table>
+		<tbody>
+			<tr>
+				<td>$r.translate("examBase_html.type"):</td>
+				<td>$examType</td>
+			</tr>
+			<tr>
+				<td>$r.translate("examBase_html.regStartDate"):</td>
+				<td>$regStartDate</td>
+			</tr>
+			<tr>
+				<td>$r.translate("examBase_html.regEndDate"):</td>
+				<td>$regEndDate</td>
+			</tr>
+			<tr>
+				<td>$r.translate("examBase_html.signOffDate"):</td>
+				<td>$signOffDate</td>
+			</tr>
+			<tr>
+				<td>$r.translate("examBase_html.earmarkedEnabled"):</td>
+				<td>$earmarkedEnabled</td>
+			</tr>
+			<tr>
+				<td>$r.translate("examBase_html.multiSubscriptionEnabled"):</td>
+				<td>$multiSubscriptionEnabled</td>
+			</tr>
+		</tbody>
+	</table>
+</fieldset>
+<fieldset>
+<legend><b>$r.translate("examBase_html.comments")</b></legend>
+	$comments
+</fieldset>
+$r.render("anyForm")

@@ -42,7 +42,6 @@ import de.unileipzig.xman.appointment.AppointmentManager;
 import de.unileipzig.xman.calendar.CalendarManager;
 import de.unileipzig.xman.exam.controllers.ExamCreateController;
 import de.unileipzig.xman.exam.controllers.ExamEditorController;
-import de.unileipzig.xman.exam.controllers.ExamLaunchController;
 import de.unileipzig.xman.exam.controllers.ExamMainController;
 import de.unileipzig.xman.protocol.Protocol;
 import de.unileipzig.xman.protocol.ProtocolManager;
@@ -144,6 +143,7 @@ public class ExamHandler implements RepositoryHandler {
 		newExam.setComments(oldExam.getComments());
 		newExam.setEarmarkedEnabled(oldExam.getEarmarkedEnabled());
 		newExam.setIsOral(oldExam.getIsOral());
+		newExam.setIsMultiSubscription(oldExam.getIsMultiSubscription());
 		newExam.setName(oldExam.getName());
 		newExam.setIdentity(ureq.getIdentity()); // set authorship to the copying user
 		

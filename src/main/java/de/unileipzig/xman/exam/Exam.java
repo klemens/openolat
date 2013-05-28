@@ -73,6 +73,11 @@ public interface Exam extends ModifiedInfo, CreateInfo, Persistable, OLATResourc
 	public boolean getIsOral();
 	
 	/**
+	 * @return true, if this is a multiple subscription exam
+	 */
+	public boolean getIsMultiSubscription();
+	
+	/**
 	 * @return the calculated semester of the exam
 	 */
 	public Identity getIdentity();
@@ -85,6 +90,11 @@ public interface Exam extends ModifiedInfo, CreateInfo, Persistable, OLATResourc
 	 * @param oral
 	 */
 	public void setIsOral(boolean oral);
+	
+	/**
+	 * @param isMultiSubscription - if exam allows multiple subscriptions from the same user (only for oral exams)
+	 */
+	public void setIsMultiSubscription(boolean isMultiSubscription);
 	
 	/**
 	 * @param String - sets the given String as name of the exam

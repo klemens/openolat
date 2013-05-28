@@ -32,7 +32,8 @@ import org.olat.repository.controllers.ReferencableEntriesSearchController;
 
 import de.unileipzig.xman.exam.Exam;
 import de.unileipzig.xman.exam.ExamDBManager;
-import de.unileipzig.xman.exam.controllers.ExamLaunchController;
+import de.unileipzig.xman.exam.ExamHandler;
+import de.unileipzig.xman.exam.controllers.ExamMainController;
 
 /**
  * is called in a course-editor, if adding an Exam as CourseNode
@@ -156,8 +157,7 @@ public class ExamCourseNodeEditController extends ActivateableTabbableDefaultCon
 				getWindowControl().setError(translator.translate("examEditController.error.repoentrymissing"));
 			} else {
 				
-				Exam exam = ExamDBManager.getInstance().findExamByID(re.getOlatResource().getResourceableId());
-				examLaunchCtr = new ExamLaunchController(ureq, this.getWindowControl(), exam, false, true);
+				examLaunchCtr = new ExamHandler().createLaunchController(re.getOlatResource(), ureq, getWindowControl());
 				
 				cmcExamCtr = new CloseableModalController(getWindowControl(), translator.translate("examEditController.command.close"), examLaunchCtr.getInitialComponent());
 				cmcExamCtr.addControllerListener(this);
