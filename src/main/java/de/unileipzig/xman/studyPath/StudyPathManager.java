@@ -3,9 +3,6 @@ import java.util.List;
 import java.util.Vector;
 import java.io.*;
 
-import org.jdom.*; 
-import org.jdom.input.SAXBuilder;
-import org.jdom.output.XMLOutputter;
 import org.olat.core.commons.persistence.DBFactory;
 import org.olat.core.logging.OLog;
 import org.olat.core.logging.Tracing;
@@ -62,9 +59,6 @@ public class StudyPathManager {
 				e1.printStackTrace();
 			}
 		}
-        
-       
-				       
 	} 
 	/**
 	 * Creates a new studyPath and returns it.
@@ -136,8 +130,4 @@ public class StudyPathManager {
 		
 		return keys;
 	}
-	public void updateDatabase()
-	{
-		
-	}		
 }

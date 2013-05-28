@@ -1,17 +1,13 @@
 package de.unileipzig.xman.admin.controller;
 
 import java.io.File;
-import java.io.FileNotFoundException;
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Vector;
 
 import org.jdom.Document;
 import org.jdom.Element;
 import org.jdom.JDOMException;
 import org.jdom.input.SAXBuilder;
-import org.olat.catalog.CatalogEntry;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.Component;
 import org.olat.core.gui.components.form.Form;
@@ -19,7 +15,6 @@ import org.olat.core.gui.components.table.Table;
 import org.olat.core.gui.components.table.TableController;
 import org.olat.core.gui.components.table.TableEvent;
 import org.olat.core.gui.components.table.TableGuiConfiguration;
-import org.olat.core.gui.components.table.TableMultiSelectEvent;
 import org.olat.core.gui.components.velocity.VelocityContainer;
 import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.Event;
@@ -28,9 +23,6 @@ import org.olat.core.gui.control.controller.BasicController;
 import org.olat.core.gui.control.generic.closablewrapper.CloseableModalController;
 import org.olat.core.gui.control.generic.tool.ToolController;
 import org.olat.core.gui.control.generic.tool.ToolFactory;
-import org.olat.core.gui.translator.Translator;
-import org.olat.core.logging.StartupException;
-import org.olat.core.logging.Tracing;
 import org.olat.core.util.Util;
 
 import de.unileipzig.xman.admin.ExamAdminSite;
@@ -128,7 +120,6 @@ public class ExamAdminStudyPathController extends BasicController {
 		// Empty due to the forms bringing their own controllers now.
 		System.err.println(source);
 	}
-
 	
 	@Override
 	protected void event(UserRequest ureq, Controller source, Event event) {
@@ -166,8 +157,6 @@ public class ExamAdminStudyPathController extends BasicController {
 				else this.showError("ExamAdminStudyPathCotroller.NoFile");
 			}
 		}
-		
-		
 		
 		if (source == studyPathCreateForm) {
 
