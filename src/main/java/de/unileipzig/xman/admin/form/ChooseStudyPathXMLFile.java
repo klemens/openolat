@@ -45,7 +45,6 @@ public class ChooseStudyPathXMLFile extends FormBasicController{
 	}
 	
 	public File getFile(){
-		
 		return fileElement.getUploadFile();
 	}
 	

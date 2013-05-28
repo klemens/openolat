@@ -1,5 +1,6 @@
 package de.unileipzig.xman.studyPath;
 import java.util.List;
+import java.util.Vector;
 import java.io.*;
 
 import org.jdom.*; 
@@ -34,7 +35,7 @@ public class StudyPathManager {
 		return INSTANCE;
 	}
 			
-	public void createAllStudyPaths(File xmlFile)  {
+	public void createAllStudyPaths(Vector<StudyPath> studyPaths)  {
 		List<StudyPath> oldStudyPaths = this.findAllStudyPaths();
 		
 		for(int i = 0; i < oldStudyPaths.size(); i++){
@@ -54,42 +55,13 @@ public class StudyPathManager {
 			e1.printStackTrace();
 		}
 		
-		Document doc = null;
-        File f = xmlFile;
-        SAXBuilder builder = new SAXBuilder();
-        try {
-			doc = builder.build(f);
-	        Element element = doc.getRootElement(); 
-	        
-	        
-	        
-	        while(element.getChildText("course") != null){
-	        	StudyPath studyPath = this.createStudyPath();
-	        	studyPath.setName(element.getChildText("course"));
-	        	element.removeChild("course");
-	        	try {
-					saveStudyPath(studyPath);
-				} catch (DuplicateObjectException e) {
-					// TODO Auto-generated catch block
-					e.printStackTrace();
-				}
-	        }
-	        /*
-		    int i = 0;
-				  while(i < allStudypaths.size()) {
-					   StudyPath studyPath = this.createStudyPath();
-					   studyPath.setName(outp.outputString(()allStudypaths.get(i)));
-					   DBFactory.getInstance().saveObject(studyPath);
-					   i++;
-			}*/
-		} 
-        catch (JDOMException e) {
-
-			e.printStackTrace();
-		} catch (IOException e) {
-
-			e.printStackTrace();
-		} 
+		for(int i = 0; i < studyPaths.size(); i++){
+			try{
+				saveStudyPath(studyPaths.get(i));
+			} catch(DuplicateObjectException e1){
+				e1.printStackTrace();
+			}
+		}
         
        
 				       

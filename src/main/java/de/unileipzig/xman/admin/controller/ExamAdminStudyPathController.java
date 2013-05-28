@@ -1,9 +1,16 @@
 package de.unileipzig.xman.admin.controller;
 
+import java.io.File;
 import java.io.FileNotFoundException;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Vector;
 
+import org.jdom.Document;
+import org.jdom.Element;
+import org.jdom.JDOMException;
+import org.jdom.input.SAXBuilder;
 import org.olat.catalog.CatalogEntry;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.Component;
@@ -128,9 +135,34 @@ public class ExamAdminStudyPathController extends BasicController {
 		if(source == chooseFileForm){
 			
 			if(event == Form.EVNT_VALIDATION_OK){
-				dialogCtr.deactivate();
-				StudyPathManager.getInstance().createAllStudyPaths(chooseFileForm.getFile());
-				System.out.println("/nRobert/n");
+				if(chooseFileForm.getFile() != null){ 
+					Vector<StudyPath> studys = new Vector<StudyPath>();
+					Document doc = null;
+			        File f = chooseFileForm.getFile();
+			        SAXBuilder builder = new SAXBuilder();
+			        try {
+						doc = builder.build(f);
+				        Element element = doc.getRootElement(); 
+				        
+				        while(element.getChildText("course") != null){
+				        	StudyPath studyPath = StudyPathManager.getInstance().createStudyPath();
+				        	studyPath.setName(element.getChildText("course"));
+				        	element.removeChild("course");
+				        	studys.add(studyPath);
+				        }
+				        
+					} 
+			        catch (JDOMException e) {
+
+						this.showError("ExamAdminStudyPathCotroller.JDOOMException");
+					} catch (IOException e) {
+
+						this.showError("ExamAdminStudyPathCotroller.IOException");
+					} 
+					StudyPathManager.getInstance().createAllStudyPaths(studys);
+					dialogCtr.deactivate();
+				}
+				else this.showError("ExamAdminStudyPathCotroller.NoFile");
 			}
 		}
 		
