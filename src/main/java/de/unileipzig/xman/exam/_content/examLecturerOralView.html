@@ -1,3 +1,8 @@
-<fieldset><legend>$r.translate("examLecturerOralView_html.appointmentTable")</legend>
-$r.render("appointmentTable")
-</fieldset>
+#if ($showAppointmentTable)
+	<fieldset><legend>$r.translate("examLecturerOralView_html.appointmentTable")</legend>
+	<p><span style="float:right;">$r.render("ExamLecturerWrittenController.refreshTable")</span></p>
+	$r.render("appointmentTable")
+	</fieldset>
+#else
+	<p>$r.translate("examLecturerOralView_html.noApp")</p>
+#end

@@ -13,6 +13,8 @@ import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.Windows;
 import org.olat.core.gui.components.Component;
 import org.olat.core.gui.components.form.Form;
+import org.olat.core.gui.components.link.Link;
+import org.olat.core.gui.components.link.LinkFactory;
 import org.olat.core.gui.components.stack.StackedController;
 import org.olat.core.gui.components.stack.PopEvent;
 import org.olat.core.gui.components.table.TableController;
@@ -64,6 +66,8 @@ public class ExamLecturerOralController extends BasicController {
 	private AppointmentLecturerOralTableModel appointmentTableModel;
 
 	private CloseableModalController cmc;
+	
+	private Link refreshTableButton;
 
 	private UserSearchController userSearchController;
 	private Appointment userSearchControllerAppointmentHolder;
@@ -113,8 +117,16 @@ public class ExamLecturerOralController extends BasicController {
 		
 		mainVC = new VelocityContainer("examStudentView", VELOCITY_ROOT + "/examLecturerOralView.html", getTranslator(), this);
 		baseVC.put("anyForm", mainVC);
-		
-		buildAppointmentTable(ureq, wControl);
+
+		if(AppointmentManager.getInstance().findAllAppointmentsByExamId(exam.getKey()).size() > 0) {
+			mainVC.contextPut("showAppointmentTable", true);
+			
+			refreshTableButton = LinkFactory.createButton("ExamLecturerWrittenController.refreshTable", mainVC, this);
+			
+			buildAppointmentTable(ureq, wControl);
+		} else {
+			mainVC.contextPut("showAppointmentTable", false);
+		}
 	}
 	
 	private void buildAppointmentTable(UserRequest ureq, WindowControl wControl) {
@@ -540,7 +552,11 @@ public class ExamLecturerOralController extends BasicController {
 
 	@Override
 	protected void event(UserRequest ureq, Component source, Event event) {
-
+		if(source == refreshTableButton) {
+			// update view
+			appointmentTableModel.update();
+			appointmentTable.modelChanged();
+		}
 	}
 
 	@Override
