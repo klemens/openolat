@@ -164,6 +164,8 @@ public class ExamLecturerWrittenController extends BasicController {
 	@Override
 	protected void event(UserRequest ureq, Controller source, Event event) {
 		if(event instanceof PopEvent) {
+			// reload exam
+			exam = ExamDBManager.getInstance().findExamByID(exam.getKey());
 			// complete rebuild
 			init(ureq, getWindowControl());
 		}

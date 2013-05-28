@@ -142,10 +142,10 @@ public class ExamLecturerOralController extends BasicController {
 	@Override
 	protected void event(UserRequest ureq, Controller source, Event event) {
 		if(event instanceof PopEvent) {
-			// reload table on pop
-			appointmentTableModel.update();
-			appointmentTable.modelChanged();
-			return;
+			// reload exam
+			exam = ExamDBManager.getInstance().findExamByID(exam.getKey());
+			// complete rebuild
+			init(ureq, getWindowControl());
 		}
 		
 		if(source == appointmentTable) {
