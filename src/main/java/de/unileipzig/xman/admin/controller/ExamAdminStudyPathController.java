@@ -114,10 +114,14 @@ public class ExamAdminStudyPathController extends BasicController {
 
 		if(source == chooseFileForm){
 			if(event == Form.EVNT_VALIDATION_OK){
+				// deactivate dialog
+				dialogCtr.deactivate();
+				
 				if(chooseFileForm.getFile() != null){ 
 					ArrayList<StudyPath> studys = new ArrayList<StudyPath>();
 			        File f = chooseFileForm.getFile();
 			        SAXBuilder builder = new SAXBuilder();
+			        
 			        try {
 			        	Document doc = builder.build(f);
 				        Element root = doc.getRootElement();
@@ -129,14 +133,18 @@ public class ExamAdminStudyPathController extends BasicController {
 				        	studyPath.setName(course.getText());
 				        	studys.add(studyPath);
 				        }
+				        System.err.println("got to finish");
 					} catch (JDOMException e) {
-			        	getWindowControl().setError(translate("ExamAdminStudyPathCotroller.JDOOMException", new String[] { e.getMessage() }));
+			        	showError("ExamAdminStudyPathCotroller.JDOOMException", e.getMessage());
+			        	System.err.println(translate("ExamAdminStudyPathCotroller.JDOOMException", e.getMessage()));
 						return;
 					} catch (IOException e) {
 						throw new RuntimeException(e);
 					}
+			        
+			        // create studypaths and reload table
 					StudyPathManager.getInstance().createAllStudyPaths(studys);
-					dialogCtr.deactivate();
+					createTableModel(ureq, getWindowControl());
 				} else {
 					showError("ExamAdminStudyPathCotroller.NoFile");
 				}
