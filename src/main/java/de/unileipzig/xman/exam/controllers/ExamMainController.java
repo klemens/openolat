@@ -90,7 +90,6 @@ public class ExamMainController extends MainLayoutBasicController {
 			ExamDBManager.getInstance().updateExam(exam);
 		}
 		
-		// TODO Split LaunchController into StudentController and LecturerController
 		String name = exam.getName() + " (" + (exam.getIsOral() ? translate("oral") : translate("written")) + ")";
 		if(view == View.STUDENT) {
 			Controller examController = new ExamStudentController(ureq, getWindowControl(), exam);
@@ -100,7 +99,6 @@ public class ExamMainController extends MainLayoutBasicController {
 			if(exam.getIsOral()) {
 				examController = new ExamLecturerOralController(ureq, getWindowControl(), cstack, exam);
 			} else {
-				//examController = new ExamLaunchController(ureq, getWindowControl(), exam, true, false);
 				examController = new ExamLecturerWrittenController(ureq, getWindowControl(), cstack, exam);
 			}
 			buildToolController();
@@ -126,6 +124,11 @@ public class ExamMainController extends MainLayoutBasicController {
 	}
 	
 	private void pushEditor(UserRequest ureq) throws AlreadyLockedException {
+		if(ExamDBManager.getInstance().isClosed(exam)) {
+			showInfo("ExamMainController.info.closed");
+			return;
+		}
+		
 		OLATResourceable res = OLATResourceManager.getInstance().findResourceable(exam.getResourceableId(), exam.getResourceableTypeName());
 		cstack.pushController(translate("examEditor_html.header"), new ExamEditorController(ureq, getWindowControl(), res));
 		inEditor = true;

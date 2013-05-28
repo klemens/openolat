@@ -163,6 +163,12 @@ public class ExamLecturerWrittenController extends BasicController {
 	
 	@Override
 	protected void event(UserRequest ureq, Controller source, Event event) {
+		// check that exam was not closed in the meantime
+		if(ExamDBManager.getInstance().isClosed(exam)) {
+			showInfo("ExamMainController.info.closed");
+			return;
+		}
+
 		if(event instanceof PopEvent) {
 			// reload exam
 			exam = ExamDBManager.getInstance().findExamByID(exam.getKey());
@@ -522,6 +528,12 @@ public class ExamLecturerWrittenController extends BasicController {
 	
 	@Override
 	protected void event(UserRequest ureq, Component source, Event event) {
+		// check that exam was not closed in the meantime
+		if(ExamDBManager.getInstance().isClosed(exam)) {
+			showInfo("ExamMainController.info.closed");
+			return;
+		}
+
 		if(source == refreshTableButton) {
 			// update view
 			protocolTableModel.update();

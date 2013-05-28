@@ -106,10 +106,21 @@ public class ExamStudentController extends BasicController {
 
 	@Override
 	protected void event(UserRequest ureq, Component source, Event event) {
+		// check that exam was not closed in the meantime
+		if(ExamDBManager.getInstance().isClosed(exam)) {
+			showInfo("ExamMainController.info.closed");
+			return;
+		}
 	}
 
 	@Override
 	protected void event(UserRequest ureq, Controller source, Event event) {
+		// check that exam was not closed in the meantime
+		if(ExamDBManager.getInstance().isClosed(exam)) {
+			showInfo("ExamMainController.info.closed");
+			return;
+		}
+		
 		// User clicked subscribe or unsubscribe
 		if(source == subscriptionTable) {
 			TableEvent tableEvent = (TableEvent) event;

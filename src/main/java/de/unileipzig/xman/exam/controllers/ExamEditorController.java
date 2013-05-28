@@ -31,6 +31,8 @@ import org.olat.core.gui.control.controller.BasicController;
 import org.olat.core.gui.control.generic.closablewrapper.CloseableModalController;
 import org.olat.core.gui.control.generic.dtabs.DTab;
 import org.olat.core.gui.control.generic.dtabs.DTabs;
+import org.olat.core.gui.control.generic.modal.ButtonClickedEvent;
+import org.olat.core.gui.control.generic.modal.DialogBoxController;
 import org.olat.core.gui.control.generic.tool.ToolController;
 import org.olat.core.gui.control.generic.tool.ToolFactory;
 import org.olat.core.gui.translator.PackageTranslator;
@@ -95,6 +97,9 @@ public class ExamEditorController extends BasicController {
 	private Link addAppLink;
 	private CloseableModalController cmc;
 	private RepositoryEntry repoEntry;
+	
+	private Link closeExam;
+	private DialogBoxController closeExamOkCancelDialog;
 
 	/**
 	 * creates the controller for the exam editor
@@ -130,6 +135,8 @@ public class ExamEditorController extends BasicController {
 
 			mainPanel = new Panel("examEditorPanel");
 			mainPanel.setContent(vcMain);
+			
+			closeExam = LinkFactory.createButton("ExamEditorController.link.closeExam", vcMain, this);
 
 			layoutCtr = new LayoutMain3ColsController(ureq, wControl, null, null, mainPanel, "examEditorCtrLayoutKey");
 
@@ -230,6 +237,7 @@ public class ExamEditorController extends BasicController {
 		if(lockResult != null) {
 			CoordinatorManager.getInstance().getCoordinator().getLocker().releaseLock(lockResult);
 		}
+		removeAsListenerAndDispose(closeExamOkCancelDialog);
 	}
 
 	/**
@@ -250,6 +258,8 @@ public class ExamEditorController extends BasicController {
 			cmc = new CloseableModalController(this.getWindowControl(),
 					translate("close"), vcEditApp);
 			cmc.activate();
+		} else if(source == closeExam) {
+			closeExamOkCancelDialog = activateOkCancelDialog(ureq, translate("ExamEditorController.link.closeExam"), translate("ExamEditorController.link.closeExam.warning"), closeExamOkCancelDialog);
 		}
 	}
 
@@ -415,6 +425,19 @@ public class ExamEditorController extends BasicController {
 					);
 				}
 			}
+		} else if(source == closeExamOkCancelDialog) {
+			ButtonClickedEvent bEvent = (ButtonClickedEvent) event;
+            if(bEvent.getPosition() == 0) {
+            	// close exam
+				ExamDBManager.getInstance().close(exam);
+				
+				// and close tab, because the editor does not make sense anymore
+				OLATResourceable ores = OLATResourceManager.getInstance().findResourceable(exam.getResourceableId(), Exam.ORES_TYPE_NAME);
+				DTabs dts = (DTabs) Windows.getWindows(ureq).getWindow(ureq).getAttribute("DTabs");
+				DTab dt = dts.getDTab(ores);
+				if(dt == null) return;
+				dts.removeDTab(ureq, dt);
+            }
 		}
 	}
 }
