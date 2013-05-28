@@ -49,7 +49,6 @@ public class ExamAdminStudyPathController extends BasicController {
 	private static final String ACTION_DELETE = "delete.StudyPath";
 	private static final String ACTION_EDIT_STUDY_PATH = "edit.studyPath";
 
-	private Translator translator;
 	private VelocityContainer vcMain;
 	private ToolController toolCtr;
 
@@ -67,14 +66,15 @@ public class ExamAdminStudyPathController extends BasicController {
 			WindowControl windowControl) {
 		super(ureq, windowControl);
 
-		translator = Util.createPackageTranslator(StudyPath.class, ureq
+		Util.createPackageTranslator(StudyPath.class, ureq
 				.getLocale());
+		setTranslator(Util.createPackageTranslator(StudyPath.class, ureq.getLocale()));
 
 		toolCtr = ToolFactory.createToolController(windowControl);
 		toolCtr.addControllerListener(this);
-		toolCtr.addHeader(translator
+		toolCtr.addHeader(this.getTranslator()
 				.translate("ExamAdminStudyPathController.tool.header"));
-		toolCtr.addLink(ACTION_ADD, translator
+		toolCtr.addLink(ACTION_ADD, this.getTranslator()
 				.translate("ExamAdminStudyPathController.tool.add"));
 
 		// it's not possible to use this right now
@@ -86,7 +86,7 @@ public class ExamAdminStudyPathController extends BasicController {
 		// translator.translate("ExamAdminStudyPathController.tool.delete"));
 
 		vcMain = new VelocityContainer("vcAttr", VELOCITY_ROOT
-				+ "/studyPath.html", translator, this);
+				+ "/studyPath.html", this.getTranslator(), this);
 
 		this.createTableModel(ureq, windowControl);
 
@@ -97,13 +97,13 @@ public class ExamAdminStudyPathController extends BasicController {
 
 		TableGuiConfiguration catalogEntryTableConfig = new TableGuiConfiguration();
 		catalogEntryTableConfig
-				.setTableEmptyMessage(this.translator
+				.setTableEmptyMessage(this.getTranslator()
 						.translate("ExamAdminStudyPathController.studyPathEntryTable.emptyTableMessage"));
 		studyPathTableCtr = new TableController(catalogEntryTableConfig, ureq,
-				windowControl, translator);
+				windowControl, this.getTranslator());
 		// if no catalogEntry is choosen, find all children from root-entry
 		studyPathTableMdl = new StudyPathTableModel(ureq.getLocale(),
-				StudyPathManager.getInstance().findAllStudyPaths(), translator);
+				StudyPathManager.getInstance().findAllStudyPaths(), this.getTranslator());
 		studyPathTableMdl.setTable(studyPathTableCtr);
 		studyPathTableCtr.setTableDataModel(studyPathTableMdl);
 		studyPathTableCtr.setSortColumn(0, true);
@@ -129,6 +129,7 @@ public class ExamAdminStudyPathController extends BasicController {
 		System.err.println(source);
 	}
 
+	
 	@Override
 	protected void event(UserRequest ureq, Controller source, Event event) {
 
@@ -155,10 +156,10 @@ public class ExamAdminStudyPathController extends BasicController {
 			        catch (JDOMException e) {
 
 						this.showError("ExamAdminStudyPathCotroller.JDOOMException");
+						return;
 					} catch (IOException e) {
-
-						this.showError("ExamAdminStudyPathCotroller.IOException");
-					} 
+						throw new RuntimeException();
+					}
 					StudyPathManager.getInstance().createAllStudyPaths(studys);
 					dialogCtr.deactivate();
 				}
@@ -187,7 +188,7 @@ public class ExamAdminStudyPathController extends BasicController {
 						this
 								.getWindowControl()
 								.setWarning(
-										translator
+										this.getTranslator()
 												.translate(
 														"ExamAdminStudyPathController.duplicateObject",
 														new String[] { studyPathCreateForm
@@ -199,7 +200,7 @@ public class ExamAdminStudyPathController extends BasicController {
 					this
 							.getWindowControl()
 							.setInfo(
-									translator
+									this.getTranslator()
 											.translate(
 													"ExamAdminStudyPathController.duplicateObject",
 													new String[] { studyPathCreateForm
@@ -222,7 +223,7 @@ public class ExamAdminStudyPathController extends BasicController {
 					this
 							.getWindowControl()
 							.setInfo(
-									translator
+									this.getTranslator()
 											.translate(
 													"ExamAdminStudyPathController.duplicateObject",
 													new String[] { studyPathEditForm
@@ -234,7 +235,7 @@ public class ExamAdminStudyPathController extends BasicController {
 
 			// somebody wants to add a new study path
 			if (event.getCommand().equals(ACTION_ADD)) {
-				chooseFileForm = new ChooseStudyPathXMLFile(ureq, this.getWindowControl(), translator);
+				chooseFileForm = new ChooseStudyPathXMLFile(ureq, this.getWindowControl(), this.getTranslator());
 				this.removeAsListenerAndDispose(dialogCtr);
 				this.listenTo(chooseFileForm);
 				dialogCtr = new CloseableModalController(this.getWindowControl(), "close", chooseFileForm.getInitialComponent());
@@ -263,13 +264,13 @@ public class ExamAdminStudyPathController extends BasicController {
 				if (actionid.equals(StudyPathTableModel.ENTRY_SELECTED)) {
 
 					studyPathEditForm = new StudyPathCreateAndEditForm(ureq,
-							getWindowControl(), "studyPathForm", translator,
+							getWindowControl(), "studyPathForm", this.getTranslator(),
 							studyPath);
 					studyPathEditForm.addControllerListener(this);
 
 					// make it a modal dialog
 					dialogCtr = new CloseableModalController(
-							getWindowControl(), translator.translate("close"),
+							getWindowControl(), this.getTranslator().translate("close"),
 							studyPathEditForm.getInitialComponent());
 					dialogCtr.activate();
 				}
