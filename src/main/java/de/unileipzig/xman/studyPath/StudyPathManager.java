@@ -29,24 +29,12 @@ public class StudyPathManager {
 	public static StudyPathManager getInstance(){
 		if ( INSTANCE == null ) {
 			INSTANCE = new StudyPathManager();
-			try {
-				INSTANCE.init();
-			} catch (IOException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
-			}
 		}
 		
 		return INSTANCE;
 	}
-	
-	private void init() throws IOException {
-		
-		this.createAllStudyPaths();
-				
-	}
-	
-	private void createAllStudyPaths()  {
+			
+	public void createAllStudyPaths(File xmlFile)  {
 		List<StudyPath> oldStudyPaths = this.findAllStudyPaths();
 		
 		for(int i = 0; i < oldStudyPaths.size(); i++){
@@ -67,7 +55,7 @@ public class StudyPathManager {
 		}
 		
 		Document doc = null;
-        File f = new File("studypath.xml");
+        File f = xmlFile;
         SAXBuilder builder = new SAXBuilder();
         try {
 			doc = builder.build(f);
@@ -179,10 +167,5 @@ public class StudyPathManager {
 	public void updateDatabase()
 	{
 		
-	}
-	
-	public void updateStudyPaths(){
-				
-		this.createAllStudyPaths();
-	}
+	}		
 }

@@ -27,6 +27,7 @@ import org.olat.core.logging.Tracing;
 import org.olat.core.util.Util;
 
 import de.unileipzig.xman.admin.ExamAdminSite;
+import de.unileipzig.xman.admin.form.ChooseStudyPathXMLFile;
 import de.unileipzig.xman.esf.DuplicateObjectException;
 import de.unileipzig.xman.studyPath.StudyPath;
 import de.unileipzig.xman.studyPath.StudyPathManager;
@@ -48,6 +49,7 @@ public class ExamAdminStudyPathController extends BasicController {
 	private TableController studyPathTableCtr;
 	private StudyPathTableModel studyPathTableMdl;
 
+	private ChooseStudyPathXMLFile chooseFileForm;
 	private CloseableModalController dialogCtr;
 	private StudyPathCreateAndEditForm studyPathCreateForm;
 	private StudyPathCreateAndEditForm studyPathEditForm;
@@ -123,6 +125,17 @@ public class ExamAdminStudyPathController extends BasicController {
 	@Override
 	protected void event(UserRequest ureq, Controller source, Event event) {
 
+		if(source == chooseFileForm){
+			
+			if(event == Form.EVNT_VALIDATION_OK){
+				dialogCtr.deactivate();
+				StudyPathManager.getInstance().createAllStudyPaths(chooseFileForm.getFile());
+				System.out.println("/nRobert/n");
+			}
+		}
+		
+		
+		
 		if (source == studyPathCreateForm) {
 
 			if (event == Form.EVNT_VALIDATION_OK) {
@@ -165,7 +178,6 @@ public class ExamAdminStudyPathController extends BasicController {
 		if (source == studyPathEditForm) {
 
 			if (event == Form.EVNT_VALIDATION_OK) {
-				StudyPathManager.getInstance().updateStudyPaths();
 				this.getWindowControl().pop();
 
 				if (this.checkTakenNames(ureq, studyPathEditForm)) {
@@ -190,7 +202,11 @@ public class ExamAdminStudyPathController extends BasicController {
 
 			// somebody wants to add a new study path
 			if (event.getCommand().equals(ACTION_ADD)) {
-				StudyPathManager.getInstance().updateStudyPaths();
+				chooseFileForm = new ChooseStudyPathXMLFile(ureq, this.getWindowControl(), translator);
+				this.removeAsListenerAndDispose(dialogCtr);
+				this.listenTo(chooseFileForm);
+				dialogCtr = new CloseableModalController(this.getWindowControl(), "close", chooseFileForm.getInitialComponent());
+				dialogCtr.activate();
 		/*		studyPathCreateForm = new StudyPathCreateAndEditForm(ureq,
 						getWindowControl(), "studyPathForm", translator, null);
 				studyPathCreateForm.addControllerListener(this);
