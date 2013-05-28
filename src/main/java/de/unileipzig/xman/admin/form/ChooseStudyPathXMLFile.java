@@ -6,22 +6,20 @@ import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.form.Form;
 import org.olat.core.gui.components.form.flexible.FormItemContainer;
 import org.olat.core.gui.components.form.flexible.elements.FileElement;
-import org.olat.core.gui.components.form.flexible.elements.Submit;
 import org.olat.core.gui.components.form.flexible.impl.FormBasicController;
 import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.WindowControl;
 import org.olat.core.gui.translator.Translator;
 
-
-
 public class ChooseStudyPathXMLFile extends FormBasicController{
 
 	private FileElement fileElement;
-	private Submit submit;
 	
 	public ChooseStudyPathXMLFile(UserRequest ureq, WindowControl wControl, Translator translator) {
 		super(ureq, wControl);
-		this.setTranslator(translator);
+		
+		setTranslator(translator);
+		
 		initForm(ureq);
 	}
 
@@ -29,9 +27,14 @@ public class ChooseStudyPathXMLFile extends FormBasicController{
 	protected void initForm(FormItemContainer formLayout, Controller listener,
 			UserRequest ureq) {
 		fileElement = uifactory.addFileElement("file", "ChooseStudyPathXMLFile.file", formLayout);
-		fileElement.setEnabled(true);
+		fileElement.setMandatory(true, "ExamAdminStudyPathCotroller.NoFile");
 		
-		submit = uifactory.addFormSubmitButton("submitKey", "ChooseStudyPathXMLFile.submit", formLayout);
+		uifactory.addFormSubmitButton("submitKey", "ChooseStudyPathXMLFile.submit", formLayout);
+	}
+	
+	@Override
+	protected boolean validateFormLogic(UserRequest ureq) {
+		return fileElement.isUploadSuccess();
 	}
 	
 	@Override

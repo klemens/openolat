@@ -17,8 +17,6 @@ public class StudyPathTableModel extends DefaultTableDataModel {
 	private Locale locale;
 	private Translator translator;
 	
-	public static String ENTRY_SELECTED = "studyPath.edit";
-	
 	public StudyPathTableModel(Locale locale, List<StudyPath> entries, Translator translator) {
 		super(entries);
 		
@@ -59,7 +57,7 @@ public class StudyPathTableModel extends DefaultTableDataModel {
 
 	public void setTable(TableController tableCtr) {
 		
-		tableCtr.addColumnDescriptor(new DefaultColumnDescriptor("StudyPathTableModel.header.name", 0, ENTRY_SELECTED, locale));
+		tableCtr.addColumnDescriptor(new DefaultColumnDescriptor("StudyPathTableModel.header.name", 0, null, locale));
 		tableCtr.addColumnDescriptor(new DefaultColumnDescriptor("StudyPathTableModel.header.lastModified", 1, null, locale));
 		tableCtr.addColumnDescriptor(new DefaultColumnDescriptor("StudyPathTableModel.header.creationDate", 2, null, locale));
 	}

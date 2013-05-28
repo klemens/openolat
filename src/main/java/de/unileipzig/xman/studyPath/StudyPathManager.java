@@ -13,8 +13,8 @@ public class StudyPathManager {
 	
 	private static StudyPathManager INSTANCE = null;
 	private OLog log = Tracing.createLoggerFor(this.getClass());
-	public static final String DEFAULT_STUDY_PATH = "Keiner";
-	private static final String OTHER_STUDY_PATH = "sonstiges";
+	public static final String DEFAULT_STUDY_PATH = "ESFCreateForm.noStudyPath";
+	private static final String OTHER_STUDY_PATH = "Sonstiges";
 
 	private StudyPathManager() {
 		// singleton
@@ -32,29 +32,25 @@ public class StudyPathManager {
 		return INSTANCE;
 	}
 			
-	public void createAllStudyPaths(Vector<StudyPath> studyPaths)  {
-		List<StudyPath> oldStudyPaths = this.findAllStudyPaths();
+	public void createAllStudyPaths(List<StudyPath> studyPaths)  {
+		List<StudyPath> oldStudyPaths = findAllStudyPaths();
 		
 		for(int i = 0; i < oldStudyPaths.size(); i++){
 			DBFactory.getInstance().deleteObject(oldStudyPaths.get(i));
 		}
 		
-		StudyPath defaultStudyPath = this.createStudyPath();
-		defaultStudyPath.setName(DEFAULT_STUDY_PATH);
-		StudyPath otherStudyPath = this.createStudyPath();
+		StudyPath otherStudyPath = createStudyPath();
 		otherStudyPath.setName(OTHER_STUDY_PATH);
 		
 		try {
-			saveStudyPath(defaultStudyPath);
 			saveStudyPath(otherStudyPath);
 		} catch (DuplicateObjectException e1) {
-			// TODO Auto-generated catch block
-			e1.printStackTrace();
+			// can not happen
 		}
 		
-		for(int i = 0; i < studyPaths.size(); i++){
+		for(StudyPath s : studyPaths) {
 			try{
-				saveStudyPath(studyPaths.get(i));
+				saveStudyPath(s);
 			} catch(DuplicateObjectException e1){
 				e1.printStackTrace();
 			}
@@ -122,12 +118,9 @@ public class StudyPathManager {
 	 * 
 	 * @return An array of all Studypaths
 	 */
-	public String[] getAllStudyPathsAsString() {
+	public List<String> getAllStudyPathsAsString() {
 		List<String> res = (List<String>) DBFactory.getInstance().find("select name from de.unileipzig.xman.studyPath.StudyPathImpl");
 		
-		String[] keys = new String[res.size()];
-		for (int i = 0; i < res.size(); i++) keys[i] = res.get(i);
-		
-		return keys;
+		return res;
 	}
 }
