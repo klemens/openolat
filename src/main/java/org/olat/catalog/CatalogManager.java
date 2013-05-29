@@ -51,10 +51,6 @@ import org.olat.repository.RepositoryManager;
 import org.olat.repository.controllers.EntryChangedEvent;
 import org.olat.user.UserDataDeletable;
 
-import org.hibernate.Hibernate;
-import org.hibernate.type.StandardBasicTypes;
-import org.hibernate.type.Type;
-
 /**
  * Description: <br>
  * The CatalogManager is responsible for the persistence of CatalogEntries.

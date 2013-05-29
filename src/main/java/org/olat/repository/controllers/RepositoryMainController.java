@@ -848,12 +848,12 @@ public class RepositoryMainController extends MainLayoutBasicController implemen
 			cmc.activate();
 			return;
 		} else if (event.getCommand().equals(ACTION_NEW_EXAM)) {
-			// XMAN: möglichweise muss hier noch:
-			// removeAsListenerAndDispose(addController);
+			removeAsListenerAndDispose(addController);
 			addController = new RepositoryAddController(urequest, getWindowControl(), RepositoryAddController.ACTION_NEW_EXAM);
-			addController.addControllerListener(this);
+			listenTo(addController);
+			removeAsListenerAndDispose(cmc);
 			cmc = new CloseableModalController(getWindowControl(), translate("close"), addController.getInitialComponent());
-			// XMAN: möglichweise muss hier noch: listenTo(cmc);
+			listenTo(cmc);
 			cmc.activate();
 			return;
 		}
