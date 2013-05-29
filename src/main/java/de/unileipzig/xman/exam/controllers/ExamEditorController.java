@@ -64,6 +64,7 @@ import de.unileipzig.xman.exam.AlreadyLockedException;
 import de.unileipzig.xman.exam.forms.CreateAndEditAppointmentForm;
 import de.unileipzig.xman.exam.forms.EditCommentsForm;
 import de.unileipzig.xman.exam.forms.EditEarmarkedForm;
+import de.unileipzig.xman.exam.forms.EditMultiSubscriptionForm;
 import de.unileipzig.xman.exam.forms.EditRegistrationForm;
 import de.unileipzig.xman.protocol.Protocol;
 import de.unileipzig.xman.protocol.ProtocolManager;
@@ -91,6 +92,7 @@ public class ExamEditorController extends BasicController {
 	private EditCommentsForm editCommentsForm;
 	private EditRegistrationForm editRegForm;
 	private EditEarmarkedForm editEarmarkedForm;
+	private EditMultiSubscriptionForm editMultiSubscriptionForm;
 	private CreateAndEditAppointmentForm createAppForm, editAppForm;
 	private TableController appTableCtr;
 	private AppointmentTableModel appTableMdl;
@@ -223,6 +225,10 @@ public class ExamEditorController extends BasicController {
 		editEarmarkedForm.addControllerListener(this);
 		tabbedPane.addTab(translate("ExamEditorController.tabbedPane.earmarked"),
 				editEarmarkedForm.getInitialComponent());
+		
+		editMultiSubscriptionForm = new EditMultiSubscriptionForm(ureq, getWindowControl(), exam.getIsMultiSubscription(), !exam.getIsOral());
+		editMultiSubscriptionForm.addControllerListener(this);
+		tabbedPane.addTab(translate("EditMultiSubscriptionForm.name"), editMultiSubscriptionForm.getInitialComponent());
 
 		ExamCatalogController ecc = new ExamCatalogController(ureq, this
 				.getWindowControl(), exam);
@@ -353,12 +359,17 @@ public class ExamEditorController extends BasicController {
 				tabbedPane.setSelectedPane(1);
 			}
 		} else if (source == editEarmarkedForm) {
-
+			
 			if (event == Form.EVNT_VALIDATION_OK) {
-
+				
 				// TODO: hier müssen entweder die vorgemerkten studenten
 				// gelöscht oder in die registrierten liste übernommen werden
 				exam.setEarmarkedEnabled(editEarmarkedForm.getEarmarked());
+				ExamDBManager.getInstance().updateExam(exam);
+			}
+		} else if (source == editMultiSubscriptionForm) {
+			if (event == Form.EVNT_VALIDATION_OK) {
+				exam.setIsMultiSubscription(editMultiSubscriptionForm.getMultiSubscription());
 				ExamDBManager.getInstance().updateExam(exam);
 			}
 		} else if (source == createAppForm) {
