@@ -21,6 +21,7 @@ import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.DefaultController;
 import org.olat.core.gui.control.Event;
 import org.olat.core.gui.control.WindowControl;
+import org.olat.core.gui.control.controller.BasicController;
 import org.olat.core.gui.translator.Translator;
 import org.olat.core.id.OLATResourceable;
 import org.olat.core.util.Util;
@@ -30,12 +31,12 @@ import org.olat.resource.OLATResourceManager;
 
 import de.unileipzig.xman.catalog.table.CatalogEntryTableModel;
 import de.unileipzig.xman.exam.Exam;
+import de.unileipzig.xman.studyPath.StudyPath;
 
-public class ExamCatalogController extends DefaultController {
+public class ExamCatalogController extends BasicController {
 
 	private static final String VELOCITY_ROOT = Util.getPackageVelocityRoot(Exam.class);
 	private static final String COMMAND_CONFIRM = "confirm.entry";
-	private Translator translator;
 	
 	private VelocityContainer vcMain;
 
@@ -48,43 +49,47 @@ public class ExamCatalogController extends DefaultController {
 	private CatalogEntry choosenEntry;
 	
 	public ExamCatalogController(UserRequest ureq, WindowControl control, Exam exam) {
-		super(control);
+		super(ureq, control);
+				
+		setTranslator(Util.createPackageTranslator(Exam.class, ureq.getLocale()));
 		
-		vcMain = new VelocityContainer("vcAttr", VELOCITY_ROOT + "/chooseCatalogEntry.html", translator, this);
-		
-		translator = Util.createPackageTranslator(Exam.class, ureq.getLocale());
+		vcMain = new VelocityContainer("vcAttr", VELOCITY_ROOT + "/chooseCatalogEntry.html", getTranslator(), this);
 		
 		// add root entry anyway
 		entryList = new Vector<CatalogEntry>();
-		entryList.add((CatalogEntry)CatalogManager.getInstance().getRootCatalogEntries().get(0));
+		entryList.add(CatalogManager.getInstance().getRootCatalogEntries().get(0));
 		
 		this.exam = exam;
 		this.createCatalogTableModel(ureq, control, null);
 		
-		vcMain.contextPut("choise", translator.translate("ExamCatalogController.yourChoise"));
-		vcMain.contextPut("catalog", translator.translate("ExamCatalogController.catalog"));
-		vcMain.contextPut("usage", translator.translate("ExamCatalogController.usage"));
-		vcMain.contextPut("help", translator.translate("ExamCatalogController.help"));
+		vcMain.contextPut("choise", translate("ExamCatalogController.yourChoise"));
+		vcMain.contextPut("catalog", translate("ExamCatalogController.catalog"));
+		vcMain.contextPut("usage", translate("ExamCatalogController.usage"));
+		vcMain.contextPut("help", translate("ExamCatalogController.help"));
 		
-		this.setInitialComponent(vcMain);
+		putInitialPanel(vcMain);
 	}	
 
 	private void createCatalogTableModel(UserRequest ureq, WindowControl wControl, CatalogEntry ce) {
+		removeAsListenerAndDispose(catalogTableCtr);
 		
 		TableGuiConfiguration catalogEntryTableConfig = new TableGuiConfiguration();
-		catalogEntryTableConfig.setTableEmptyMessage(this.translator.translate("ExamCatalogController.catalogEntryTable.emptyTableMessage"));
-		catalogTableCtr = new TableController(catalogEntryTableConfig, ureq, wControl, translator);
+		catalogEntryTableConfig.setTableEmptyMessage(translate("ExamCatalogController.catalogEntryTable.emptyTableMessage"));
+		
+		catalogTableCtr = new TableController(catalogEntryTableConfig, ureq, wControl, getTranslator());
 		// if no catalogEntry is choosen, find all children from root-entry 
-		catalogTableMdl = new CatalogEntryTableModel(	ureq.getLocale(), 
-													 	choosenEntry != null ? CatalogManager.getInstance().getChildrenOfExceptRepoEntries(choosenEntry) : 
-													 			CatalogManager.getInstance().getChildrenOfExceptRepoEntries(
-													 			(CatalogEntry)CatalogManager.getInstance().getRootCatalogEntries().get(0)),
-													 	translator);
+		catalogTableMdl = new CatalogEntryTableModel(ureq.getLocale(), 
+													 choosenEntry != null ?
+														getChildrenOfExceptRepoEntries(choosenEntry) : 
+														getChildrenOfExceptRepoEntries(CatalogManager.getInstance().getRootCatalogEntries().get(0)),
+													 getTranslator());
 		catalogTableMdl.setTable(catalogTableCtr);
 		catalogTableCtr.setTableDataModel(catalogTableMdl);
 		catalogTableCtr.setSortColumn(0, true);
 		catalogTableCtr.setMultiSelect(true);
 		catalogTableCtr.addMultiSelectAction("ExamCatalogController.catalogEntryTable.multiselect.confirm", COMMAND_CONFIRM);
+		
+		listenTo(catalogTableCtr);
 		
 		this.vcMain.put("catalogEntryTable", catalogTableCtr.getInitialComponent());
 		this.vcMain.contextPut("path", this.createSelectedCatalogEntryPath());
@@ -92,8 +97,7 @@ public class ExamCatalogController extends DefaultController {
 
 	@Override
 	protected void doDispose() {
-		// TODO Auto-generated method stub
-		
+		removeAsListenerAndDispose(catalogTableCtr);
 	}
 
 	@Override
@@ -115,14 +119,13 @@ public class ExamCatalogController extends DefaultController {
 					
 					this.choosenEntry = catalogTableMdl.getEntryAt(te.getRowId());
 					// it should be not possible to change in a category with no children
-					if ( CatalogManager.getInstance().getChildrenOfExceptRepoEntries(choosenEntry).size() != 0 ) {
+					if (getChildrenOfExceptRepoEntries(choosenEntry).size() != 0 ) {
 						
 						this.entryList.add(choosenEntry);
 						this.createCatalogTableModel(ureq, this.getWindowControl(),	choosenEntry);
 					}
 					else {
-						
-						this.getWindowControl().setInfo(translator.translate("ExamCatalogController.catalogTable.noChildren"));
+						showInfo("ExamCatalogController.catalogTable.noChildren");
 					}
 				}
 
@@ -141,8 +144,7 @@ public class ExamCatalogController extends DefaultController {
 						this.createCatalogTableModel(ureq, this.getWindowControl(), choosenEntry);
 						
 					} else {
-
-						this.getWindowControl().setInfo(translator.translate("ExamCatalogController.tryToRemoveRoot"));
+						showInfo("ExamCatalogController.tryToRemoveRoot");
 					}
 				}
 			}
@@ -179,15 +181,26 @@ public class ExamCatalogController extends DefaultController {
 						path = path.endsWith("> ") ? (path + (entries.get(0).getName())) : (path + " > " + entries.get(0).getName());
 						
 						// show the user the path where the link has been placed
-						this.getWindowControl().setInfo(translator.translate("ExamCatalogController.catalogEntrySuccessfullyCreated", new String[]{  path /*+ " > " +entries.get(0).getName() */} ));
+						showInfo("ExamCatalogController.catalogEntrySuccessfullyCreated", path);
 					}
 					else {
-						
-						this.getWindowControl().setInfo(translator.translate("ExamCatalogController.moreThenOneCatalogEntryChoosen"));
+						showInfo("ExamCatalogController.moreThenOneCatalogEntryChoosen");
 					}
 				}
 			}
 		}
+	}
+	
+	private List<CatalogEntry> getChildrenOfExceptRepoEntries(CatalogEntry ce) {
+		List<CatalogEntry> children = CatalogManager.getInstance().getChildrenOf(ce);
+		
+		ArrayList<CatalogEntry> folders = new ArrayList<CatalogEntry>();
+		for(CatalogEntry ceNew : children) {
+			if(ceNew.getRepositoryEntry() == null)
+				folders.add(ceNew);
+		}
+		
+		return folders;
 	}
 	
 	private String createSelectedCatalogEntryPath() {
@@ -198,7 +211,7 @@ public class ExamCatalogController extends DefaultController {
 			choosenEntry += entryList.get(i).getName();
 			
 			// only add the ">" if there are children for this entry
-			if ( CatalogManager.getInstance().getChildrenOfExceptRepoEntries(entryList.get(i)).size() != 0 ) {
+			if ( getChildrenOfExceptRepoEntries(entryList.get(i)).size() != 0 ) {
 				
 				choosenEntry += " > ";
 			}

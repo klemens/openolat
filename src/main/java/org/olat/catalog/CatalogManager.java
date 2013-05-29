@@ -138,23 +138,6 @@ public class CatalogManager extends BasicManager implements UserDataDeletable, I
 	}
 
 	/**
-	 * ADDON: XMAN finds all catalogEntries which are not a repositoryentry it
-	 * would be possible to create one method ( merge getChildrenOf and
-	 * getChildrenOfExceptRepoEntries) for example: getChildrenOf(CatalogEntry
-	 * ce, boolean withRepoEntries)
-	 *
-	 * @param ce - the catalogEntry for which the children should be found
-	 * @return - a list of all child-entries
-	 */
-	public List getChildrenOfExceptRepoEntries(CatalogEntry ce) {
-		List res = DBFactory.getInstance().find(
-					"select cei from org.olat.catalog.CatalogEntryImpl as cei" +
-					" where cei.parent = ? and cei.repositoryEntry = null order by cei.name",
-					new Object[] { ce.getKey() }, new Type[] { StandardBasicTypes.LONG });
-		return res;
-	}
-
-	/**
 	 * Returns a list catalog categories
 	 * 
 	 * @return List of catalog entries of type CatalogEntry.TYPE_NODE
