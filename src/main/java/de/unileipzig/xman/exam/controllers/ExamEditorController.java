@@ -226,9 +226,11 @@ public class ExamEditorController extends BasicController {
 		tabbedPane.addTab(translate("ExamEditorController.tabbedPane.earmarked"),
 				editEarmarkedForm.getInitialComponent());
 		
-		editMultiSubscriptionForm = new EditMultiSubscriptionForm(ureq, getWindowControl(), exam.getIsMultiSubscription(), !exam.getIsOral());
-		editMultiSubscriptionForm.addControllerListener(this);
-		tabbedPane.addTab(translate("EditMultiSubscriptionForm.name"), editMultiSubscriptionForm.getInitialComponent());
+		if(exam.getIsOral()) { // only oral exams can have multiSubscription
+			editMultiSubscriptionForm = new EditMultiSubscriptionForm(ureq, getWindowControl(), exam.getIsMultiSubscription());
+			editMultiSubscriptionForm.addControllerListener(this);
+			tabbedPane.addTab(translate("EditMultiSubscriptionForm.name"), editMultiSubscriptionForm.getInitialComponent());
+		}
 
 		ExamCatalogController ecc = new ExamCatalogController(ureq, this
 				.getWindowControl(), exam);
