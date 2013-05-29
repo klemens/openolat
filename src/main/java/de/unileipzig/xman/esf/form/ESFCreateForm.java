@@ -2,6 +2,7 @@ package de.unileipzig.xman.esf.form;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -77,13 +78,16 @@ public class ESFCreateForm extends FormBasicController {
 			emailAddress.setEnabled(false);
 		}
 		
-		String[] studyPaths = StudyPathManager.getInstance().getAllStudyPathsAsString();
-		studyPath = uifactory.addDropdownSingleselect("studyPath", "ESFCreateForm.studyPath", formLayout, studyPaths, studyPaths, null);
+		List<String> studyPathKeys = StudyPathManager.getInstance().getAllStudyPathsAsString();
+		List<String> studyPathValues = new ArrayList<String>(studyPathKeys);
+		studyPathKeys.add(0, StudyPathManager.DEFAULT_STUDY_PATH);
+		studyPathValues.add(0, translate(StudyPathManager.DEFAULT_STUDY_PATH));
+		studyPath = uifactory.addDropdownSingleselect("studyPath", "ESFCreateForm.studyPath", formLayout, studyPathKeys.toArray(new String[0]), studyPathValues.toArray(new String[0]), null);
 		studyPath.setMandatory(true);
 
 		// select the studyPath of the User
 		userStudyPath = user.getProperty(UserConstants.STUDYSUBJECT, null);
-		if (userStudyPath != null && !userStudyPath.isEmpty() && Arrays.asList(studyPaths).contains(userStudyPath)) {
+		if (userStudyPath != null && !userStudyPath.isEmpty() && studyPathValues.contains(userStudyPath)) {
 			studyPath.select(userStudyPath, true);
 		}
 

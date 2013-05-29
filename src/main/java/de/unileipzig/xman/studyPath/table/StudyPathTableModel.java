@@ -17,8 +17,6 @@ public class StudyPathTableModel extends DefaultTableDataModel {
 	private Locale locale;
 	private Translator translator;
 	
-	public static String ENTRY_SELECTED = "studyPath.edit";
-	
 	public StudyPathTableModel(Locale locale, List<StudyPath> entries, Translator translator) {
 		super(entries);
 		
@@ -28,7 +26,7 @@ public class StudyPathTableModel extends DefaultTableDataModel {
 
 	public int getColumnCount() {
 
-		return 3;
+		return 2;
 	}
 
 	public int getRowCount() {
@@ -43,9 +41,7 @@ public class StudyPathTableModel extends DefaultTableDataModel {
 		switch(col) {
 			case 0: return sp.getName(); 
 			
-			case 1: return sp.getCreationDate();
-			
-			case 2: return sp.getLastModified();
+			case 1: return sp.getLastModified();
 			
 			default: return "N/A";
 		}
@@ -59,8 +55,7 @@ public class StudyPathTableModel extends DefaultTableDataModel {
 
 	public void setTable(TableController tableCtr) {
 		
-		tableCtr.addColumnDescriptor(new DefaultColumnDescriptor("StudyPathTableModel.header.name", 0, ENTRY_SELECTED, locale));
-		tableCtr.addColumnDescriptor(new DefaultColumnDescriptor("StudyPathTableModel.header.lastModified", 1, null, locale));
-		tableCtr.addColumnDescriptor(new DefaultColumnDescriptor("StudyPathTableModel.header.creationDate", 2, null, locale));
+		tableCtr.addColumnDescriptor(new DefaultColumnDescriptor("StudyPathTableModel.header.name", 0, null, locale));
+		tableCtr.addColumnDescriptor(new DefaultColumnDescriptor("StudyPathTableModel.header.creationDate", 1, null, locale));
 	}
 }

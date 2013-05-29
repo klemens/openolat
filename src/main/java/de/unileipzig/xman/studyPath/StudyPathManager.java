@@ -1,6 +1,7 @@
 package de.unileipzig.xman.studyPath;
-
 import java.util.List;
+import java.util.Vector;
+import java.io.*;
 
 import org.olat.core.commons.persistence.DBFactory;
 import org.olat.core.logging.OLog;
@@ -12,7 +13,8 @@ public class StudyPathManager {
 	
 	private static StudyPathManager INSTANCE = null;
 	private OLog log = Tracing.createLoggerFor(this.getClass());
-	public static final String DEFAULT_STUDY_PATH = "Keiner";
+	public static final String DEFAULT_STUDY_PATH = "ESFCreateForm.noStudyPath";
+	private static final String OTHER_STUDY_PATH = "Sonstiges";
 
 	private StudyPathManager() {
 		// singleton
@@ -20,66 +22,40 @@ public class StudyPathManager {
 	
 	/**
 	 * @return Singleton.
+	 * @throws IOException 
 	 */
-	public static StudyPathManager getInstance() {
+	public static StudyPathManager getInstance(){
 		if ( INSTANCE == null ) {
 			INSTANCE = new StudyPathManager();
-			INSTANCE.init();
 		}
 		
 		return INSTANCE;
 	}
-	
-	private void init() {
-		StudyPath defaultStudyPath = this.findStudyPath(StudyPathManager.DEFAULT_STUDY_PATH);
-		if (defaultStudyPath == null) {
 			
-			defaultStudyPath = this.createStudyPath();
-			defaultStudyPath.setName(StudyPathManager.DEFAULT_STUDY_PATH);
-			try {
-				saveStudyPath(defaultStudyPath);
-			}
-			// can never happen
-			catch (DuplicateObjectException doe) {
-				log.info("There is already a studyPath with the name " + defaultStudyPath.getName() + " in the database");
-			}
-			
-			// TODO: remove this
-			this.TEMPcreateAllStudyPaths();
-		}		
-	}
-	
-	private void TEMPcreateAllStudyPaths() {
-		String[] keys = {
-				"Diplom-Informatik",
-				"Informatik-Bachelor (alt)",
-				"Informatik-Bachelor (neu)",
-				"Informatik-Master (alt)",
-				"Informatik-Master (neu)",
-				"Informatik-Lehramt (alt)",
-				"Bachelorstudiengang Lehramt Informatik",
-				"Magister mit Hauptfach Informatik",
-				"Magister mit Nebenfach Informatik",
-				"Wirtschaftsmathematik",
-				"Mathematik-Diplom",
-				"Mathematik-Lehramt (alt)",
-				"Bachelorstudiengang Lehramt Mathematik",
-				"Magister mit Hauptfach Mathematik",
-				"Magister mit Nebenfach Mathematik",
-				"Wirtschaftsinformatik-Diplom",
-				"Wirtschaftsinformatik-Bachelor",
-				"Wirtschaftspädagogik",
-				"Nebenfach Informatik",
-			};
+	public void createAllStudyPaths(List<StudyPath> studyPaths)  {
+		List<StudyPath> oldStudyPaths = findAllStudyPaths();
 		
-		for (String name : keys ) {
-			StudyPath studyPath = this.createStudyPath();
-			studyPath.setName(name);
-			DBFactory.getInstance().saveObject(studyPath);
+		for(int i = 0; i < oldStudyPaths.size(); i++){
+			DBFactory.getInstance().deleteObject(oldStudyPaths.get(i));
 		}
-	}
-	
-
+		
+		StudyPath otherStudyPath = createStudyPath();
+		otherStudyPath.setName(OTHER_STUDY_PATH);
+		
+		try {
+			saveStudyPath(otherStudyPath);
+		} catch (DuplicateObjectException e1) {
+			// can not happen
+		}
+		
+		for(StudyPath s : studyPaths) {
+			try{
+				saveStudyPath(s);
+			} catch(DuplicateObjectException e1){
+				e1.printStackTrace();
+			}
+		}
+	} 
 	/**
 	 * Creates a new studyPath and returns it.
 	 * @return the new created studyPath
@@ -142,12 +118,9 @@ public class StudyPathManager {
 	 * 
 	 * @return An array of all Studypaths
 	 */
-	public String[] getAllStudyPathsAsString() {
+	public List<String> getAllStudyPathsAsString() {
 		List<String> res = (List<String>) DBFactory.getInstance().find("select name from de.unileipzig.xman.studyPath.StudyPathImpl");
 		
-		String[] keys = new String[res.size()];
-		for (int i = 0; i < res.size(); i++) keys[i] = res.get(i);
-		
-		return keys;
+		return res;
 	}
 }

@@ -1,10 +1,15 @@
 package de.unileipzig.xman.admin.controller;
 
-import java.io.FileNotFoundException;
+import java.io.File;
+import java.io.IOException;
 import java.util.ArrayList;
-import java.util.List;
+import java.util.Iterator;
+import java.util.Vector;
 
-import org.olat.catalog.CatalogEntry;
+import org.jdom.Document;
+import org.jdom.Element;
+import org.jdom.JDOMException;
+import org.jdom.input.SAXBuilder;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.Component;
 import org.olat.core.gui.components.form.Form;
@@ -12,7 +17,6 @@ import org.olat.core.gui.components.table.Table;
 import org.olat.core.gui.components.table.TableController;
 import org.olat.core.gui.components.table.TableEvent;
 import org.olat.core.gui.components.table.TableGuiConfiguration;
-import org.olat.core.gui.components.table.TableMultiSelectEvent;
 import org.olat.core.gui.components.velocity.VelocityContainer;
 import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.Event;
@@ -21,12 +25,10 @@ import org.olat.core.gui.control.controller.BasicController;
 import org.olat.core.gui.control.generic.closablewrapper.CloseableModalController;
 import org.olat.core.gui.control.generic.tool.ToolController;
 import org.olat.core.gui.control.generic.tool.ToolFactory;
-import org.olat.core.gui.translator.Translator;
-import org.olat.core.logging.StartupException;
-import org.olat.core.logging.Tracing;
 import org.olat.core.util.Util;
 
 import de.unileipzig.xman.admin.ExamAdminSite;
+import de.unileipzig.xman.admin.form.ChooseStudyPathXMLFile;
 import de.unileipzig.xman.esf.DuplicateObjectException;
 import de.unileipzig.xman.studyPath.StudyPath;
 import de.unileipzig.xman.studyPath.StudyPathManager;
@@ -41,16 +43,14 @@ public class ExamAdminStudyPathController extends BasicController {
 	private static final String ACTION_DELETE = "delete.StudyPath";
 	private static final String ACTION_EDIT_STUDY_PATH = "edit.studyPath";
 
-	private Translator translator;
 	private VelocityContainer vcMain;
 	private ToolController toolCtr;
 
 	private TableController studyPathTableCtr;
 	private StudyPathTableModel studyPathTableMdl;
 
+	private ChooseStudyPathXMLFile chooseFileForm;
 	private CloseableModalController dialogCtr;
-	private StudyPathCreateAndEditForm studyPathCreateForm;
-	private StudyPathCreateAndEditForm studyPathEditForm;
 
 	private StudyPath studyPath;
 
@@ -58,15 +58,12 @@ public class ExamAdminStudyPathController extends BasicController {
 			WindowControl windowControl) {
 		super(ureq, windowControl);
 
-		translator = Util.createPackageTranslator(StudyPath.class, ureq
-				.getLocale());
+		setTranslator(Util.createPackageTranslator(StudyPath.class, ureq.getLocale()));
 
 		toolCtr = ToolFactory.createToolController(windowControl);
 		toolCtr.addControllerListener(this);
-		toolCtr.addHeader(translator
-				.translate("ExamAdminStudyPathController.tool.header"));
-		toolCtr.addLink(ACTION_ADD, translator
-				.translate("ExamAdminStudyPathController.tool.add"));
+		toolCtr.addHeader(translate("ExamAdminStudyPathController.tool.header"));
+		toolCtr.addLink(ACTION_ADD, translate("ExamAdminStudyPathController.tool.add"));
 
 		// it's not possible to use this right now
 		// what would happen when a studypath gets deleted
@@ -77,7 +74,7 @@ public class ExamAdminStudyPathController extends BasicController {
 		// translator.translate("ExamAdminStudyPathController.tool.delete"));
 
 		vcMain = new VelocityContainer("vcAttr", VELOCITY_ROOT
-				+ "/studyPath.html", translator, this);
+				+ "/studyPath.html", getTranslator(), this);
 
 		this.createTableModel(ureq, windowControl);
 
@@ -88,24 +85,16 @@ public class ExamAdminStudyPathController extends BasicController {
 
 		TableGuiConfiguration catalogEntryTableConfig = new TableGuiConfiguration();
 		catalogEntryTableConfig
-				.setTableEmptyMessage(this.translator
-						.translate("ExamAdminStudyPathController.studyPathEntryTable.emptyTableMessage"));
+				.setTableEmptyMessage(translate("ExamAdminStudyPathController.studyPathEntryTable.emptyTableMessage"));
 		studyPathTableCtr = new TableController(catalogEntryTableConfig, ureq,
-				windowControl, translator);
+				windowControl, getTranslator());
 		// if no catalogEntry is choosen, find all children from root-entry
-		studyPathTableMdl = new StudyPathTableModel(ureq.getLocale(),
-				StudyPathManager.getInstance().findAllStudyPaths(), translator);
+		studyPathTableMdl = new StudyPathTableModel(ureq.getLocale(), StudyPathManager.getInstance().findAllStudyPaths(), getTranslator());
 		studyPathTableMdl.setTable(studyPathTableCtr);
 		studyPathTableCtr.setTableDataModel(studyPathTableMdl);
 		studyPathTableCtr.setSortColumn(0, true);
-		// not needed at the moment, maybe if the studypath gets a little bit
-		// more extended
-		studyPathTableCtr.setMultiSelect(false);
-		// studyPathTableCtr.addMultiSelectAction("ExamAdminStudyPathController.studyPathTable.edit",
-		// ACTION_EDIT_STUDY_PATH);
 
-		this.vcMain.put("studyPathEntryTable", studyPathTableCtr
-				.getInitialComponent());
+		this.vcMain.put("studyPathEntryTable", studyPathTableCtr.getInitialComponent());
 	}
 
 	@Override
@@ -123,108 +112,54 @@ public class ExamAdminStudyPathController extends BasicController {
 	@Override
 	protected void event(UserRequest ureq, Controller source, Event event) {
 
-		if (source == studyPathCreateForm) {
-
-			if (event == Form.EVNT_VALIDATION_OK) {
-
-				this.getWindowControl().pop();
-
-				if (this.checkTakenNames(ureq, studyPathCreateForm)) {
-
-					StudyPath sp = StudyPathManager.getInstance()
-							.createStudyPath();
-					sp.setName(studyPathCreateForm.getName());
-
-					try {
-						StudyPathManager.getInstance().saveStudyPath(sp);
-					} catch (DuplicateObjectException e) {
-
-						this
-								.getWindowControl()
-								.setWarning(
-										translator
-												.translate(
-														"ExamAdminStudyPathController.duplicateObject",
-														new String[] { studyPathCreateForm
-																.getName() }));
+		if(source == chooseFileForm){
+			if(event == Form.EVNT_VALIDATION_OK){
+				// deactivate dialog
+				dialogCtr.deactivate();
+				
+				if(chooseFileForm.getFile() != null){ 
+					ArrayList<StudyPath> studys = new ArrayList<StudyPath>();
+			        File f = chooseFileForm.getFile();
+			        SAXBuilder builder = new SAXBuilder();
+			        
+			        try {
+			        	Document doc = builder.build(f);
+				        Element root = doc.getRootElement();
+				        
+				        Iterator it = root.getChildren("course").iterator();
+				        while(it.hasNext()) {
+				        	Element course = (Element) it.next();
+				        	StudyPath studyPath = StudyPathManager.getInstance().createStudyPath();
+				        	studyPath.setName(course.getText());
+				        	studys.add(studyPath);
+				        }
+				        System.err.println("got to finish");
+					} catch (JDOMException e) {
+			        	showError("ExamAdminStudyPathCotroller.JDOOMException", e.getMessage());
+			        	System.err.println(translate("ExamAdminStudyPathCotroller.JDOOMException", e.getMessage()));
+						return;
+					} catch (IOException e) {
+						throw new RuntimeException(e);
 					}
-
-					this.createTableModel(ureq, this.getWindowControl());
-				} else
-					this
-							.getWindowControl()
-							.setInfo(
-									translator
-											.translate(
-													"ExamAdminStudyPathController.duplicateObject",
-													new String[] { studyPathCreateForm
-															.getName() }));
-			}
-		}
-
-		if (source == studyPathEditForm) {
-
-			if (event == Form.EVNT_VALIDATION_OK) {
-
-				this.getWindowControl().pop();
-
-				if (this.checkTakenNames(ureq, studyPathEditForm)) {
-					StudyPath oldPath = StudyPathManager.getInstance().findStudyPath(studyPath.getName());
-					String newName = studyPathEditForm.getName();
-					String oldName = studyPath.getName();
-
-					this.createTableModel(ureq, this.getWindowControl());
-				} else
-					this
-							.getWindowControl()
-							.setInfo(
-									translator
-											.translate(
-													"ExamAdminStudyPathController.duplicateObject",
-													new String[] { studyPathEditForm
-															.getName() }));
-			}
-		}
-
-		if (source == toolCtr) {
-
-			// somebody wants to add a new study path
-			if (event.getCommand().equals(ACTION_ADD)) {
-
-				studyPathCreateForm = new StudyPathCreateAndEditForm(ureq,
-						getWindowControl(), "studyPathForm", translator, null);
-				studyPathCreateForm.addControllerListener(this);
-
-				// make it a modal dialog
-				dialogCtr = new CloseableModalController(getWindowControl(),
-						translator.translate("close"), studyPathCreateForm
-								.getInitialComponent());
-				dialogCtr.activate();
-			}
-		}
-
-		if (source == studyPathTableCtr) {
-
-			if (event.getCommand().equals(Table.COMMANDLINK_ROWACTION_CLICKED)) {
-
-				TableEvent te = (TableEvent) event;
-				String actionid = te.getActionId();
-				int rowid = te.getRowId();
-				studyPath = studyPathTableMdl.getEntryAt(rowid);
-
-				if (actionid.equals(StudyPathTableModel.ENTRY_SELECTED)) {
-
-					studyPathEditForm = new StudyPathCreateAndEditForm(ureq,
-							getWindowControl(), "studyPathForm", translator,
-							studyPath);
-					studyPathEditForm.addControllerListener(this);
-
-					// make it a modal dialog
-					dialogCtr = new CloseableModalController(
-							getWindowControl(), translator.translate("close"),
-							studyPathEditForm.getInitialComponent());
-					dialogCtr.activate();
+			        
+			        // create studypaths and reload table
+					StudyPathManager.getInstance().createAllStudyPaths(studys);
+					createTableModel(ureq, getWindowControl());
+				} else {
+					showError("ExamAdminStudyPathCotroller.NoFile");
 				}
+			}
+		}
+		
+		if (source == toolCtr) {
+			// somebody wants to upload new study paths
+			if (event.getCommand().equals(ACTION_ADD)) {
+				removeAsListenerAndDispose(chooseFileForm);
+				chooseFileForm = new ChooseStudyPathXMLFile(ureq, this.getWindowControl(), getTranslator());
+				listenTo(chooseFileForm);
+				
+				dialogCtr = new CloseableModalController(this.getWindowControl(), "close", chooseFileForm.getInitialComponent());
+				dialogCtr.activate();
 			}
 		}
 	}
@@ -235,22 +170,5 @@ public class ExamAdminStudyPathController extends BasicController {
 	public ToolController getToolController() {
 
 		return this.toolCtr;
-	}
-
-	/**
-	 * 
-	 * @param ureq
-	 * @param form
-	 * @return
-	 */
-	private boolean checkTakenNames(UserRequest ureq, StudyPathCreateAndEditForm form) {
-
-		String[] takenNames = StudyPathManager.getInstance().getAllStudyPathsAsString();
-		for (int i = 0; i < takenNames.length; i++) {
-			if (takenNames[i].equals(form.getName())) {
-				return false;
-			}
-		}
-		return true;
 	}
 }
