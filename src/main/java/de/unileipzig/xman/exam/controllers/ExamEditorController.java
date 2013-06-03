@@ -446,7 +446,7 @@ public class ExamEditorController extends BasicController {
 				
 				// and close tab, because the editor does not make sense anymore
 				OLATResourceable ores = OLATResourceManager.getInstance().findResourceable(exam.getResourceableId(), Exam.ORES_TYPE_NAME);
-				DTabs dts = (DTabs) Windows.getWindows(ureq).getWindow(ureq).getAttribute("DTabs");
+				DTabs dts = Windows.getWindows(ureq).getWindow(ureq).getDTabs();
 				DTab dt = dts.getDTab(ores);
 				if(dt == null) return;
 				dts.removeDTab(ureq, dt);

@@ -245,8 +245,7 @@ public class ExamAdminESFController extends BasicController {
 					this.getWindowControl().pop();
 
 					// add the esf in a dtab
-					DTabs dts = (DTabs) Windows.getWindows(ureq)
-							.getWindow(ureq).getAttribute("DTabs");
+					DTabs dts = Windows.getWindows(ureq).getWindow(ureq).getDTabs();
 					DTab dt = dts.getDTab(ores);
 					if (dt == null) {
 						// does not yet exist -> create and add
@@ -294,8 +293,7 @@ public class ExamAdminESFController extends BasicController {
 									ElectronicStudentFile.ORES_TYPE_NAME);
 
 					// add the esf in a dtab
-					DTabs dts = (DTabs) Windows.getWindows(ureq)
-							.getWindow(ureq).getAttribute("DTabs");
+					DTabs dts = Windows.getWindows(ureq).getWindow(ureq).getDTabs();
 					DTab dt = dts.getDTab(ores);
 					if (dt == null) {
 						// does not yet exist -> create and add

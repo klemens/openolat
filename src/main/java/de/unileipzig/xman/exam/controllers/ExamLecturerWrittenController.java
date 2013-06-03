@@ -188,7 +188,7 @@ public class ExamLecturerWrittenController extends BasicController {
 					
 					OLATResourceable ores = HomePageConfigManagerImpl.getInstance().loadConfigFor(p.getIdentity().getName());
 
-					DTabs dts = (DTabs) Windows.getWindows(ureq).getWindow(ureq).getAttribute("DTabs");
+					DTabs dts = Windows.getWindows(ureq).getWindow(ureq).getDTabs();
 					DTab dt = dts.getDTab(ores);
 					if (dt == null) {
 						// does not yet exist
