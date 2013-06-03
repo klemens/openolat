@@ -11,8 +11,6 @@
 
 <hibernate-mapping default-lazy="false">
   <class name="de.unileipzig.xman.studyPath.StudyPathImpl" table="o_xman_studyPath">  
-  
-		<cache usage="read-write" />
 
     <id name="key" column="studyPath_id" type="long" unsaved-value="null">
       <generator class="hilo"/>

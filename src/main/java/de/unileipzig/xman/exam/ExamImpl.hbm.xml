@@ -11,8 +11,6 @@
 
 <hibernate-mapping default-lazy="false">
   <class name="de.unileipzig.xman.exam.ExamImpl" table="o_xman_exam">  
-  
-		<cache usage="read-write" />
 
     <id name="key" column="exam_id" type="long" unsaved-value="null">
       <generator class="hilo"/>

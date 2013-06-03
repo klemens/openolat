@@ -11,8 +11,6 @@
 
 <hibernate-mapping default-lazy="false">
   <class name="de.unileipzig.xman.protocol.ProtocolImpl" table="o_xman_protocol">  
-  
-		<cache usage="read-write" />
 
     <id name="key" column="protocol_id" type="long" unsaved-value="null">
       <generator class="hilo"/>
