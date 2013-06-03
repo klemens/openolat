@@ -26,7 +26,13 @@
 package org.olat.admin.securitygroup.gui;
 
 import java.util.ArrayList;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.UUID;
 
 import org.olat.admin.securitygroup.gui.multi.UsersToGroupWizardController;
 import org.olat.admin.user.UserSearchController;
@@ -42,8 +48,8 @@ import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.Component;
 import org.olat.core.gui.components.link.Link;
 import org.olat.core.gui.components.link.LinkFactory;
-import org.olat.core.gui.components.panel.Panel;
 import org.olat.core.gui.components.table.ColumnDescriptor;
+import org.olat.core.gui.components.table.CustomRenderColumnDescriptor;
 import org.olat.core.gui.components.table.DefaultColumnDescriptor;
 import org.olat.core.gui.components.table.StaticColumnDescriptor;
 import org.olat.core.gui.components.table.Table;
@@ -72,6 +78,13 @@ import org.olat.core.util.mail.MailNotificationEditController;
 import org.olat.core.util.mail.MailTemplate;
 import org.olat.core.util.mail.MailerResult;
 import org.olat.core.util.mail.MailerWithTemplate;
+import org.olat.core.util.session.UserSessionManager;
+import org.olat.group.ui.main.OnlineIconRenderer;
+import org.olat.instantMessaging.InstantMessagingModule;
+import org.olat.instantMessaging.InstantMessagingService;
+import org.olat.instantMessaging.OpenInstantMessageEvent;
+import org.olat.instantMessaging.model.Buddy;
+import org.olat.instantMessaging.model.Presence;
 import org.olat.user.UserInfoMainController;
 import org.olat.user.UserManager;
 import org.olat.user.propertyhandlers.UserPropertyHandler;
@@ -101,13 +114,12 @@ public class GroupController extends BasicController {
 	protected boolean mayModifyMembers;
 
 	protected static final String COMMAND_REMOVEUSER = "removesubjectofgroup";
+	protected static final String COMMAND_IM = "im";
 	protected static final String COMMAND_VCARD = "show.vcard";
 	protected static final String COMMAND_SELECTUSER = "select.user";
 
 	protected SecurityGroup securityGroup;
-	protected BaseSecurity securityManager;
 	protected VelocityContainer groupmemberview;
-	protected Panel content;
 
 	protected IdentitiesOfGroupTableDataModel identitiesTableModel;
 
@@ -130,6 +142,13 @@ public class GroupController extends BasicController {
 	protected static final String usageIdentifyer = IdentitiesOfGroupTableDataModel.class.getCanonicalName();
 	protected boolean isAdministrativeUser;
 	protected boolean mandatoryEmail;
+	private boolean chatEnabled;
+
+	protected BaseSecurity securityManager;
+	private UserManager userManager;
+	private InstantMessagingModule imModule;
+	private InstantMessagingService imService;
+	private UserSessionManager sessionManager;
 
 	/**
 	 * @param ureq
@@ -154,10 +173,16 @@ public class GroupController extends BasicController {
 		this.mayModifyMembers = mayModifyMembers;
 		this.keepAtLeastOne = keepAtLeastOne;
 		this.mandatoryEmail = mandatoryEmail;
-		this.securityManager = BaseSecurityManager.getInstance();
+		securityManager = BaseSecurityManager.getInstance();
+		imModule = CoreSpringFactory.getImpl(InstantMessagingModule.class);
+		imService = CoreSpringFactory.getImpl(InstantMessagingService.class);
+		userManager = CoreSpringFactory.getImpl(UserManager.class);
+		sessionManager = CoreSpringFactory.getImpl(UserSessionManager.class);
+		
 		Roles roles = ureq.getUserSession().getRoles();
 		BaseSecurityModule securityModule = CoreSpringFactory.getImpl(BaseSecurityModule.class);
 		isAdministrativeUser = securityModule.isUserAllowedAdminProps(roles);
+		chatEnabled = imModule.isEnabled() && imModule.isPrivateEnabled();
 
 		// default group controller has no mail functionality
 		this.addUserMailDefaultTempl = null;
@@ -185,21 +210,17 @@ public class GroupController extends BasicController {
 				tableConfig.setPreferencesOffered(true, "groupcontrollerreadonly" + securityGroup.getKey());
 			}
 		}
-		// TODO:fj:c move to UserControllerFactory class
-		myTrans = UserManager.getInstance().getPropertyHandlerTranslator(getTranslator());
+		
+		myTrans = userManager.getPropertyHandlerTranslator(getTranslator());
 		tableCtr = new TableController(tableConfig, ureq, getWindowControl(), myTrans);	
 		listenTo(tableCtr);
 		
 		initGroupTable(tableCtr, ureq, enableTablePreferences, enableUserSelection);
 
 		// set data model
-		List<Object[]> combo = securityManager.getIdentitiesAndDateOfSecurityGroup(this.securityGroup);			
-		List<UserPropertyHandler> userPropertyHandlers = UserManager.getInstance().getUserPropertyHandlersFor(usageIdentifyer, isAdministrativeUser);
-		identitiesTableModel = new IdentitiesOfGroupTableDataModel(combo, ureq.getLocale(), userPropertyHandlers, isAdministrativeUser);
-		tableCtr.setTableDataModel(identitiesTableModel);
+		reloadData();
 		groupmemberview.put("subjecttable", tableCtr.getInitialComponent());
-
-		content = putInitialPanel(groupmemberview);
+		putInitialPanel(groupmemberview);
 	}
 
 	/**
@@ -264,10 +285,9 @@ public class GroupController extends BasicController {
 				// Single row selects
 				TableEvent te = (TableEvent) event;
 				String actionid = te.getActionId();
+				final Identity identity = identitiesTableModel.getObject(te.getRowId()).getIdentity();
 				if (actionid.equals(COMMAND_VCARD)) {
-					// get identitiy and open new visiting card controller in new window
-					int rowid = te.getRowId();
-					final Identity identity = identitiesTableModel.getIdentityAt(rowid);
+					//get identity and open new visiting card controller in new window
 					ControllerCreator userInfoMainControllerCreator = new ControllerCreator() {
 						public Controller createController(UserRequest lureq, WindowControl lwControl) {
 							return new UserInfoMainController(lureq, lwControl, identity);
@@ -280,19 +300,16 @@ public class GroupController extends BasicController {
 					pbw.open(ureq);
 					//
 				} else if (actionid.equals(COMMAND_SELECTUSER)) {
-					int rowid = te.getRowId();
-					Identity identity = identitiesTableModel.getIdentityAt(rowid);
-					// TODO whats this??
 					fireEvent(ureq, new SingleIdentityChosenEvent(identity));
+				} else if (COMMAND_IM.equals(actionid)) {
+					doIm(ureq, identity);
 				}
-
 			} else if (event.getCommand().equals(Table.COMMAND_MULTISELECT)) {
 				// Multiselect events
 				TableMultiSelectEvent tmse = (TableMultiSelectEvent) event;
 				if (tmse.getAction().equals(COMMAND_REMOVEUSER)) {
 					if(tmse.getSelection().isEmpty()){
 						//empty selection 
-						content.setDirty(true);
 						showWarning("msg.selectionempty");
 						return;
 					}
@@ -303,7 +320,6 @@ public class GroupController extends BasicController {
 						//at least one must be kept
 						//do not delete the last one => ==1
 						//do not allow to delete all => size - selectedCnt == 0
-						content.setDirty(true);
 						showError("msg.atleastone");
 					} else {
 						//valid selection to be deleted.
@@ -328,12 +344,9 @@ public class GroupController extends BasicController {
 				removeUserMailCustomTempl = removeUserMailCtr.getMailTemplate();
 				cmc.deactivate();
 				doBuildConfirmDeleteDialog(ureq);
-			} else if (event == Event.CANCELLED_EVENT) {
-				cmc.deactivate();
 			} else {
-				throw new RuntimeException("unknown event ::" + event.getCommand());
+				cmc.deactivate();
 			}
-
 		} else if (sourceController == usc) {
 			if (event == Event.CANCELLED_EVENT) {
 				cmc.deactivate();
@@ -454,6 +467,12 @@ public class GroupController extends BasicController {
 
 		} 
 	}
+	
+	private void doIm(UserRequest ureq, Identity identity) {
+		Buddy buddy = imService.getBuddyById(identity.getKey());
+		OpenInstantMessageEvent e = new OpenInstantMessageEvent(ureq, buddy);
+		ureq.getUserSession().getSingleUserEventCenter().fireEventToListenersOf(e, InstantMessagingService.TOWER_EVENT_ORES);
+	}
 
 	private void doBuildConfirmDeleteDialog(UserRequest ureq) {
 		if (confirmDelete != null) confirmDelete.dispose();
@@ -490,8 +509,9 @@ public class GroupController extends BasicController {
 				ccIdentities = null;	
 			}
 			//fxdiff VCRP-16: intern mail system
+			String metaId = UUID.randomUUID().toString();
 			MailContext context = new MailContextImpl(getWindowControl().getBusinessControl().getAsString());
-			MailerResult mailerResult = mailer.sendMailAsSeparateMails(context, toBeRemoved, ccIdentities, mailTemplate, sender);
+			MailerResult mailerResult = mailer.sendMailAsSeparateMails(context, toBeRemoved, ccIdentities, mailTemplate, sender, metaId);
 			MailHelper.printErrorsAndWarnings(mailerResult, getWindowControl(), ureq.getLocale());
 		}
 	}
@@ -512,8 +532,7 @@ public class GroupController extends BasicController {
 		fireEvent(ureq, identitiesAddedEvent); 
 		if (!identitiesAddedEvent.getAddedIdentities().isEmpty()) {
   		// update table model
-      identitiesTableModel.add(identitiesAddedEvent.getAddedIdentities());
-			tableCtr.modelChanged();			
+			reloadData();			
 		}
 		// build info message for identities which could be added.
 		StringBuilder infoMessage = new StringBuilder();
@@ -538,8 +557,9 @@ public class GroupController extends BasicController {
 				ccIdentities = null;	
 			}
 			//fxdiff VCRP-16: intern mail system
+			String metaId = UUID.randomUUID().toString();
 			MailContext context = new MailContextImpl(getWindowControl().getBusinessControl().getAsString());
-			MailerResult mailerResult = mailer.sendMailAsSeparateMails(context, identitiesAddedEvent.getAddedIdentities(), ccIdentities, mailTemplate, sender);
+			MailerResult mailerResult = mailer.sendMailAsSeparateMails(context, identitiesAddedEvent.getAddedIdentities(), ccIdentities, mailTemplate, sender, metaId);
 			MailHelper.appendErrorsAndWarnings(mailerResult, errorMessage, infoMessage, ureq.getLocale());
 		}
 		// report any errors on screen
@@ -558,19 +578,24 @@ public class GroupController extends BasicController {
 	 * owner-list).
 	 */
 	protected void initGroupTable(TableController tableCtr, UserRequest ureq, boolean enableTablePreferences, boolean enableUserSelection) {			
-		List<UserPropertyHandler> userPropertyHandlers = UserManager.getInstance().getUserPropertyHandlersFor(usageIdentifyer, isAdministrativeUser);
+		List<UserPropertyHandler> userPropertyHandlers = userManager.getUserPropertyHandlersFor(usageIdentifyer, isAdministrativeUser);
 		if (isAdministrativeUser) {
 			// first the login name, but only if administrative user
 			DefaultColumnDescriptor cd0 = new DefaultColumnDescriptor("table.user.login", 0, COMMAND_VCARD, ureq.getLocale());
 			cd0.setIsPopUpWindowAction(true, "height=700, width=900, location=no, menubar=no, resizable=yes, status=no, scrollbars=yes, toolbar=no");
 			tableCtr.addColumnDescriptor(cd0);
 		}
+		if(chatEnabled) {
+			tableCtr.addColumnDescriptor(new CustomRenderColumnDescriptor("table.header.online", 1, COMMAND_IM, getLocale(),
+					ColumnDescriptor.ALIGNMENT_LEFT, new OnlineIconRenderer()));
+		}
+		
 		int visibleColId = 0;
 		// followed by the users fields
 		for (int i = 0; i < userPropertyHandlers.size(); i++) {
 			UserPropertyHandler userPropertyHandler	= userPropertyHandlers.get(i);
-			boolean visible = UserManager.getInstance().isMandatoryUserProperty(usageIdentifyer , userPropertyHandler);
-			ColumnDescriptor cd = userPropertyHandler.getColumnDescriptor(i + (isAdministrativeUser ? 1 : 0), COMMAND_VCARD, ureq.getLocale());
+			boolean visible = userManager.isMandatoryUserProperty(usageIdentifyer , userPropertyHandler);
+			ColumnDescriptor cd = userPropertyHandler.getColumnDescriptor(i + 3, COMMAND_VCARD, ureq.getLocale());
 			// make all user attributes clickable to open visiting card
 			if (cd instanceof DefaultColumnDescriptor) {
 				DefaultColumnDescriptor dcd = (DefaultColumnDescriptor) cd;
@@ -585,26 +610,59 @@ public class GroupController extends BasicController {
 		
 		// in the end
 		if (enableTablePreferences) {
-			tableCtr.addColumnDescriptor(true, new DefaultColumnDescriptor("table.subject.addeddate", userPropertyHandlers.size() + (isAdministrativeUser ? 1 : 0), COMMAND_VCARD, ureq.getLocale()));
+			tableCtr.addColumnDescriptor(true, new DefaultColumnDescriptor("table.subject.addeddate", 2, COMMAND_VCARD, ureq.getLocale()));
 			tableCtr.setSortColumn(++visibleColId,true);	
 		}
 		if (enableUserSelection) {
 			tableCtr.addColumnDescriptor(new StaticColumnDescriptor(COMMAND_SELECTUSER, "table.subject.action", myTrans.translate("action.general")));
 		}
-		
 		if (mayModifyMembers) {
 			tableCtr.addMultiSelectAction("action.remove", COMMAND_REMOVEUSER);
 			tableCtr.setMultiSelect(true);
-		} else {
-			// neither offer a table delete column nor allow adduser link
 		}
 	}
 
 	public void reloadData() {
 		// refresh view		
-		List<Object[]> combo = securityManager.getIdentitiesAndDateOfSecurityGroup(this.securityGroup); 
-		List<UserPropertyHandler> userPropertyHandlers = UserManager.getInstance().getUserPropertyHandlersFor(usageIdentifyer, isAdministrativeUser);
-		identitiesTableModel = new IdentitiesOfGroupTableDataModel(combo, myTrans.getLocale(), userPropertyHandlers, isAdministrativeUser);
+		List<Object[]> combo = securityManager.getIdentitiesAndDateOfSecurityGroup(securityGroup); 
+		List<GroupMemberView> views = new ArrayList<GroupMemberView>(combo.size());
+		Map<Long,GroupMemberView> idToViews = new HashMap<Long,GroupMemberView>();
+
+		Set<Long> loadStatus = new HashSet<Long>();
+		for(Object[] co:combo) {
+			Identity identity = (Identity)co[0];
+			Date addedAt = (Date)co[1];
+			String onlineStatus = null;
+			if(chatEnabled) {
+				if(getIdentity().equals(identity)) {
+					onlineStatus = "me";
+				} else if(sessionManager.isOnline(identity.getKey())) {
+					loadStatus.add(identity.getKey());
+				} else {
+					onlineStatus = Presence.unavailable.name();
+				}
+			}
+			GroupMemberView member = new GroupMemberView(identity, addedAt, onlineStatus);
+			views.add(member);
+			idToViews.put(identity.getKey(), member);
+		}
+		
+		if(loadStatus.size() > 0) {
+			List<Long> statusToLoadList = new ArrayList<Long>(loadStatus);
+			Map<Long,String> statusMap = imService.getBuddyStatus(statusToLoadList);
+			for(Long toLoad:statusToLoadList) {
+				String status = statusMap.get(toLoad);
+				GroupMemberView member = idToViews.get(toLoad);
+				if(status == null) {
+					member.setOnlineStatus(Presence.available.name());	
+				} else {
+					member.setOnlineStatus(status);	
+				}
+			}
+		}
+		
+		List<UserPropertyHandler> userPropertyHandlers = userManager.getUserPropertyHandlersFor(usageIdentifyer, isAdministrativeUser);
+		identitiesTableModel = new IdentitiesOfGroupTableDataModel(views, getLocale(), userPropertyHandlers, isAdministrativeUser);
 		tableCtr.setTableDataModel(identitiesTableModel);
 	}
 }

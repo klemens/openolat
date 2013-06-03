@@ -26,24 +26,11 @@
 
 package org.olat.instantMessaging;
 
-import javax.net.SocketFactory;
-
-import org.jivesoftware.smack.ConnectionConfiguration;
-import org.jivesoftware.smack.ConnectionConfiguration.SecurityMode;
-import org.jivesoftware.smack.XMPPConnection;
-import org.olat.admin.user.delete.service.UserDeletionManager;
-import org.olat.core.commons.persistence.DB;
-import org.olat.core.configuration.Destroyable;
-import org.olat.core.configuration.Initializable;
-import org.olat.core.gui.control.Event;
-import org.olat.core.id.Identity;
-import org.olat.core.logging.OLog;
-import org.olat.core.logging.Tracing;
-import org.olat.core.util.event.FrameworkStartupEventChannel;
+import org.olat.core.configuration.AbstractOLATModule;
+import org.olat.core.configuration.ConfigOnOff;
+import org.olat.core.configuration.PersistedProperties;
+import org.olat.core.util.StringHelper;
 import org.olat.core.util.event.GenericEventListener;
-import org.olat.properties.PropertyManager;
-import org.olat.user.UserDataDeletable;
-import org.springframework.beans.factory.annotation.Autowired;
 
 
 /**
@@ -55,168 +42,250 @@ import org.springframework.beans.factory.annotation.Autowired;
  * 
  * @author Guido Schnider
  */
-public class InstantMessagingModule implements Initializable, Destroyable, UserDataDeletable, GenericEventListener {
+public class InstantMessagingModule extends AbstractOLATModule implements ConfigOnOff, GenericEventListener {
 
-	private static ConnectionConfiguration connConfig;
-	@Autowired
-	private static XMPPConnection adminConnection;
-	//FIXME: used for legacy access
-	private static InstantMessaging instantMessaingStatic;
-	private static boolean enabled = false;
-	//fxdiff: FXOLAT-219 decrease the load for synching groups
-	public static final String CONFIG_SYNCED_LEARNING_GROUPS = "syncedlearninggroups";
-	private static final OLog log = Tracing.createLoggerFor(InstantMessagingModule.class);
-	@Autowired
-	private PropertyManager propertyManager;
-	@Autowired
-	private DB database;
-	private InstantMessaging instantMessaging;
-	
-	
-	/**
-	 * [used by spring]
-	 */
-	private InstantMessagingModule() {
-		super();
-		FrameworkStartupEventChannel.registerForStartupEvent(this);
-	}
-	
-	/**
-	 * 
-	 * @param instantMessaging
-	 */
-	@Autowired(required=true)
-	public void setInstantMessaing(InstantMessaging instantMessaging) {
-		this.instantMessaging = instantMessaging;
-		instantMessaingStatic = instantMessaging;
-	}
-	
-	/**
-	 * [spring]
-	 * @param userDeletionManager
-	 */
-	@Autowired(required=true)
-	public void setUserDeletionManager(UserDeletionManager userDeletionManager) {
-		userDeletionManager.registerDeletableUserData(this);
-	}
-	
-	/**
-	 * [spring]
-	 * @param config
-	 */
-	@Autowired(required=true)
-	public void setIMConfig(IMConfig config) {
-		enabled = config.isEnabled();
-	}
+	private static final String CONFIG_ENABLED = "im.enabled";
+	private static final String CONFIG_GROUP_ENABLED = "im.enabled.group";
+	private static final String CONFIG_GROUP_ANONYM_ENABLED = "im.enabled.group.anonym";
+	private static final String CONFIG_GROUP_ANONYM_DEFAULT_ENABLED = "im.enabled.group.anonym.default";
+	private static final String CONFIG_COURSE_ENABLED = "im.enabled.course";
+	private static final String CONFIG_COURSE_ANONYM_ENABLED = "im.enabled.course.anonym";
+	private static final String CONFIG_COURSE_ANONYM_DEFAULT_ENABLED = "im.enabled.course.anonym.default";
+	private static final String CONFIG_PRIVATE_ENABLED = "im.enabled.private";
+	private static final String CONFIG_ONLINESTATUS_ENABLED = "im.enabled.onlinestatus";
+	private static final String CONFIG_GROUPPEERS_ENABLED = "im.enabled.grouppeers";
+
+	private boolean enabled = false;
+	private boolean groupEnabled = false;
+	private boolean groupAnonymEnabled = false;
+	private boolean groupAnonymDefaultEnabled = false;	
+	private boolean courseEnabled = false;
+	private boolean courseAnonymEnabled = false;
+	private boolean courseAnonymDefaultEnabled = false;
+	private boolean privateEnabled = false;
+	private boolean onlineStatusEnabled = false;
+	private boolean groupPeersEnabled = false;
 
 	public void init() {
-		//synched moved to the job 
-	}
-	
-	/**
-   * Internal helper to create a property name for a class configuration property
-   * @param clazz
-   * @param configurationName
-   * @return String
-   */
-
-	//fxdiff: FXOLAT-219 decrease the load for synching groups
-  public static String createPropertyName(Class<?> clazz, String configurationName) {
-  	return clazz.getName() + "::" + configurationName;
-  }
-
-	/**
-	 * @see org.olat.core.configuration.OLATModule#destroy()
-	 */
-	public void destroy() {
-	 if (adminConnection != null) {
-		 adminConnection.disconnect();
-	 }
-	}
-
-
-	/**
-	 * @return the adapter instance
-	 */
-	public static InstantMessaging getAdapter() {
-		return instantMessaingStatic;
-	}
-
-	/**
-	 * @return Returns the enabled.
-	 */
-	public static boolean isEnabled() {
-		return enabled;
-	}
-
-
-	/**
-	 * @return a reused connection configuration for connecting to the im server
-	 */
-	protected static ConnectionConfiguration getConnectionConfiguration() {
-		if (connConfig == null) {
-			// 5222 is the default unsecured jabber server port
-			connConfig = new ConnectionConfiguration(instantMessaingStatic.getConfig().getServername(), 5222);
-			connConfig.setNotMatchingDomainCheckEnabled(false);
-			connConfig.setSASLAuthenticationEnabled(false);
-			connConfig.setReconnectionAllowed(false);
-			//disable the SSL connection to save a lot of memory
-			connConfig.setSecurityMode(SecurityMode.disabled);
-			//make sure that smackx doesn't use the SSLSocketFactory
-			connConfig.setSocketFactory(SocketFactory.getDefault());
+		String enabledObj = getStringPropertyValue(CONFIG_ENABLED, true);
+		if(StringHelper.containsNonWhitespace(enabledObj)) {
+			enabled = "true".equals(enabledObj);
 		}
-		return connConfig;
-	}
-
-	/**
-	 * 
-	 * @see org.olat.user.UserDataDeletable#deleteUserData(org.olat.core.id.Identity)
-	 */
-	public void deleteUserData(Identity identity, String newDeletedUserName) {
-		if (instantMessaging.getConfig().isEnabled()) {
-			instantMessaging.deleteAccount(identity.getName());
-			log.debug("Deleted IM account for identity=" + identity);
+		enabledObj = getStringPropertyValue(CONFIG_GROUP_ENABLED, true);
+		if(StringHelper.containsNonWhitespace(enabledObj)) {
+			groupEnabled = "true".equals(enabledObj);
 		}
-	}
-
-	/**
-	 * @return Returns the iDLE_POLLTIME.
-	 */
-	public static int getIDLE_POLLTIME() {
-		return instantMessaingStatic.getConfig().getIdlePolltime();
-	}
-
-	/**
-	 * @param idle_polltime The iDLE_POLLTIME to set.
-	 */
-	public static void setIDLE_POLLTIME(int idle_polltime) {
-		instantMessaingStatic.getConfig().setIdlePolltime(idle_polltime);
-	}
-
-	/**
-	 * @return Returns the cHAT_POLLTIME.
-	 */
-	public static int getCHAT_POLLTIME() {
-		return instantMessaingStatic.getConfig().getChatPolltime();
-	}
-
-	/**
-	 * @param chat_polltime The cHAT_POLLTIME to set.
-	 */
-	public static void setCHAT_POLLTIME(int chat_polltime) {
-		instantMessaingStatic.getConfig().setChatPolltime(chat_polltime);
-	}
-
-
-	public static boolean isSyncGroups() {
-		return instantMessaingStatic.getConfig().isEnabled()
-				&& (IMConfigSync.allGroups.equals(instantMessaingStatic.getConfig().getSyncGroupsConfig())
-						|| IMConfigSync.perConfig.equals(instantMessaingStatic.getConfig().getSyncGroupsConfig()));
+		enabledObj = getStringPropertyValue(CONFIG_GROUP_ANONYM_ENABLED, true);
+		if(StringHelper.containsNonWhitespace(enabledObj)) {
+			groupAnonymEnabled = "true".equals(enabledObj);
+		}
+		enabledObj = getStringPropertyValue(CONFIG_GROUP_ANONYM_DEFAULT_ENABLED, true);
+		if(StringHelper.containsNonWhitespace(enabledObj)) {
+			groupAnonymDefaultEnabled = "true".equals(enabledObj);
+		}
+		enabledObj = getStringPropertyValue(CONFIG_COURSE_ENABLED, true);
+		if(StringHelper.containsNonWhitespace(enabledObj)) {
+			courseEnabled = "true".equals(enabledObj);
+		}
+		enabledObj = getStringPropertyValue(CONFIG_COURSE_ANONYM_ENABLED, true);
+		if(StringHelper.containsNonWhitespace(enabledObj)) {
+			courseAnonymEnabled = "true".equals(enabledObj);
+		}
+		enabledObj = getStringPropertyValue(CONFIG_COURSE_ANONYM_DEFAULT_ENABLED, true);
+		if(StringHelper.containsNonWhitespace(enabledObj)) {
+			courseAnonymDefaultEnabled = "true".equals(enabledObj);
+		}
+		enabledObj = getStringPropertyValue(CONFIG_PRIVATE_ENABLED, true);
+		if(StringHelper.containsNonWhitespace(enabledObj)) {
+			privateEnabled = "true".equals(enabledObj);
+		}
+		enabledObj = getStringPropertyValue(CONFIG_ONLINESTATUS_ENABLED, true);
+		if(StringHelper.containsNonWhitespace(enabledObj)) {
+			onlineStatusEnabled = "true".equals(enabledObj);
+		}
+		enabledObj = getStringPropertyValue(CONFIG_GROUPPEERS_ENABLED, true);
+		if(StringHelper.containsNonWhitespace(enabledObj)) {
+			groupPeersEnabled = "true".equals(enabledObj);
+		}
 	}
 
 	@Override
-	public void event(Event event) {
-		// synchronistion of learning groups needs the whole olat course stuff loaded
-		//fxdiff: FXOLAT-219 decrease the load for synching groups
+	protected void initDefaultProperties() {
+		enabled = getBooleanConfigParameter(CONFIG_ENABLED, true);
+		groupEnabled = getBooleanConfigParameter(CONFIG_GROUP_ENABLED, true);
+		groupAnonymEnabled= getBooleanConfigParameter(CONFIG_GROUP_ANONYM_ENABLED, true);
+		groupAnonymDefaultEnabled = getBooleanConfigParameter(CONFIG_GROUP_ANONYM_DEFAULT_ENABLED, false);
+		courseEnabled = getBooleanConfigParameter(CONFIG_COURSE_ENABLED, true);
+		courseAnonymEnabled = getBooleanConfigParameter(CONFIG_COURSE_ANONYM_ENABLED, true);
+		courseAnonymDefaultEnabled = getBooleanConfigParameter(CONFIG_COURSE_ANONYM_DEFAULT_ENABLED, true);
+		privateEnabled = getBooleanConfigParameter(CONFIG_PRIVATE_ENABLED, true);
+		onlineStatusEnabled = getBooleanConfigParameter(CONFIG_ONLINESTATUS_ENABLED, true);
+		groupPeersEnabled = getBooleanConfigParameter(CONFIG_GROUPPEERS_ENABLED, true);
+	}
+
+	@Override
+	protected void initFromChangedProperties() {
+		init();
+	}
+	
+	@Override
+	public void setPersistedProperties(PersistedProperties persistedProperties) {
+		this.moduleConfigProperties = persistedProperties;
+	}
+
+	/**
+	 * Global flag to turn the IM module on and off
+	 * @return true: the IM module is enabled; false: IM functionality is not enabled
+	 */
+	@Override
+	public boolean isEnabled() {
+		return enabled;
+	}
+
+	public void setEnabled(boolean enabled) {
+		setStringProperty(CONFIG_ENABLED, Boolean.toString(enabled), true);
+	}
+
+	/**
+	 * Flag to enable/disable the group chat. If enabled, group users are
+	 * allowed to chat in the group chat room. See isPrivateEnabled() and
+	 * isGroupPeersEnabled() to check if group users are allowed to send private
+	 * messages to each others.
+	 * 
+	 * @return true: the group chat tool is enabled; false: the group chat tool
+	 *         is disabled
+	 */
+	public boolean isGroupEnabled() {
+		return groupEnabled;
+	}
+
+	public void setGroupEnabled(boolean enabled) {
+		setStringProperty(CONFIG_GROUP_ENABLED, Boolean.toString(enabled), true);
+	}
+
+	/**
+	 * Flag to enable/disable the anonymous mode in the group chat. If enabled, 
+	 * the user can toggle between his real identity and a anonymous identity during 
+	 * the chat. 
+	 * 
+	 * @return true: group chat room can be used anonymously; false: no anonym
+	 *         group chat rooms available
+	 */
+	public boolean isGroupAnonymEnabled() {
+		return groupAnonymEnabled;
+	}
+
+	public void setGroupAnonymEnabled(boolean enabled) {
+		setStringProperty(CONFIG_GROUP_ANONYM_ENABLED, Boolean.toString(enabled), true);
+	}
+
+	/**
+	 * Flag to set the anonymous mode as the default mode when entering the
+	 * group chat. This is only used when isGroupAnonymEnabled() is set to
+	 * true.
+	 * 
+	 * @return true: group chat room entered anonym by default. false: group
+	 *         chat room entered with the real identity.
+	 */
+	public boolean isGroupAnonymDefaultEnabled() {
+		return groupAnonymDefaultEnabled;
+	}
+
+	public void setGroupAnonymDefaultEnabled(boolean enabled) {
+		setStringProperty(CONFIG_GROUP_ANONYM_DEFAULT_ENABLED, Boolean.toString(enabled), true);
+	}
+
+	/**
+	 * Flag to enable/disable the course chat. If enabled, the course users are
+	 * allowed to chat in the course chat room. See isPrivateEnabled() to check
+	 * if users are allowed to send private messages to each others.
+	 * 
+	 * @return true: course chat room can be used; false: no course chat rooms
+	 *         available
+	 */
+	public boolean isCourseEnabled() {
+		return courseEnabled;
+	}
+
+	public void setCourseEnabled(boolean enabled) {
+		setStringProperty(CONFIG_COURSE_ENABLED, Boolean.toString(enabled), true);
+	}
+
+	/**
+	 * Flag to enable/disable the anonymous mode in the course chat. If enabled,
+	 * the user can toggle between his real identity and a anonymous identity
+	 * during the chat.
+	 * 
+	 * @return true: course chat room can be used anonymously; false: no anonym
+	 *         course chat rooms available
+	 */
+	public boolean isCourseAnonymEnabled() {
+		return courseAnonymEnabled;
+	}
+
+	public void setCourseAnonymEnabled(boolean enabled) {
+		setStringProperty(CONFIG_COURSE_ANONYM_ENABLED, Boolean.toString(enabled), true);
+	}
+
+	/**
+	 * Flag to set the anonymous mode as the default mode when entering the
+	 * course chat. This is only used when isCourseAnonymEnabled() is set to
+	 * true.
+	 * 
+	 * @return true: course chat room entered anonym by default. false: course
+	 *         chat room entered with the real identity.
+	 */
+	public boolean isCourseAnonymDefaultEnabled() {
+		return courseAnonymDefaultEnabled;
+	}
+
+	public void setCourseAnonymDefaultEnabled(boolean enabled) {
+		setStringProperty(CONFIG_COURSE_ANONYM_DEFAULT_ENABLED, Boolean.toString(enabled), true);
+	}
+
+	/**
+	 * Flag to enable/disable private messaging between any user. When enabled
+	 * users are allowed to send private messages to other users.
+	 * 
+	 * @return true: private messaging between users enabled; false: private
+	 *         messaging between users disabled
+	 */
+	public boolean isPrivateEnabled() {
+		return privateEnabled;
+	}
+
+	public void setPrivateEnabled(boolean enabled) {
+		setStringProperty(CONFIG_PRIVATE_ENABLED, Boolean.toString(enabled), true);
+	}
+
+	/**
+	 * Flag to enable/disable the visibility of the online status. This has only
+	 * effect in conjunction with isPrivateEnabled() or isGroupPeersEnabled().
+	 * When set to false, the user does not know if the sent message can be
+	 * delivered immediately or if it will be sent deferred.
+	 * 
+	 * @return true: show the user online status; false: hide the user status.
+	 */
+	public boolean isOnlineStatusEnabled() {
+		return onlineStatusEnabled;
+	}
+
+	public void setOnlineStatusEnabled(boolean enabled) {
+		setStringProperty(CONFIG_ONLINESTATUS_ENABLED, Boolean.toString(enabled), true);
+	}
+
+	/**
+	 * Flag to enable/disable the listing of group peers in the roster for quick
+	 * private messaging access. The listing includes all members of groups in
+	 * which the group members are configured to be visible to the group.
+	 * 
+	 * @return true: group peers visible in roster; false: no roster with group peers.
+	 */
+	public boolean isGroupPeersEnabled() {
+		return groupPeersEnabled;
+	}
+
+	public void setGroupPeersEnabled(boolean enabled) {
+		setStringProperty(CONFIG_GROUPPEERS_ENABLED, Boolean.toString(enabled), true);
 	}
 }

@@ -26,8 +26,12 @@
 
 package org.olat.core.util;
 
+import java.io.Serializable;
+
 import javax.servlet.http.HttpSession;
 
+import org.olat.admin.sysinfo.manager.SessionStatsManager;
+import org.olat.core.CoreSpringFactory;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.Windows;
 
@@ -36,10 +40,13 @@ import org.olat.core.gui.Windows;
  *
  * @author Mike Stock
  */
-public class SessionInfo {
+public class SessionInfo implements Serializable {
 
+	private static final long serialVersionUID = -380173272533291504L;
+	
+	private Long identityKey;
 	private String login;
-	private HttpSession session;
+	private transient HttpSession session;
 	private String firstname;
 	private String lastname;
 	private String fromIP;
@@ -58,7 +65,8 @@ public class SessionInfo {
 	 * @param login
 	 * @param session
 	 */
-	public SessionInfo(String login, HttpSession session) {
+	public SessionInfo(Long identityKey, String login, HttpSession session) {
+		this.identityKey = identityKey;
 		setLogin(login);
 		setSession(session);
 		secure = false;
@@ -84,6 +92,13 @@ public class SessionInfo {
 	 */
 	public boolean isSecure() {
 		return secure;
+	}
+	
+	/**
+	 * @return The primary key of the identity object
+	 */
+	public Long getIdentityKey() {
+		return identityKey;
 	}
 	
 	/**
@@ -236,6 +251,7 @@ public class SessionInfo {
 	 */
 	public void setLastClickTime(){ 
 		this.timestmp = System.currentTimeMillis();
+		CoreSpringFactory.getImpl(SessionStatsManager.class).incrementAuthenticatedClick();
 	}
 	/**
 	 * last time a business relevant click was made

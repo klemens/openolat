@@ -4,7 +4,7 @@
 	"http://www.hibernate.org/dtd/hibernate-mapping-3.0.dtd">
 <hibernate-mapping default-lazy="false">
   <class name="org.olat.core.commons.services.mark.impl.MarkImpl" table="o_mark">
-		<cache usage="read-write" />
+		<cache usage="transactional" />
 	
 		<id name="key" type="long" column="mark_id"	unsaved-value="null">
 			<generator class="hilo"/>
@@ -18,6 +18,11 @@
 		<property name="resSubPath" column="ressubpath" type="string"  length="2048" index="mark_subpath_idx"  not-null="false"/>
 		<property name="businessPath" column="businesspath" type="string" length="2048" index="mark_businesspath_idx"  not-null="false"/>
 		
-		<many-to-one name="creator" class="org.olat.basesecurity.IdentityImpl" column="creator_id" outer-join="true" cascade="none" not-null="true"/>
+		<many-to-one name="creator"
+			class="org.olat.basesecurity.IdentityImpl"
+			column="creator_id"
+			outer-join="true"
+			cascade="none"
+			not-null="true"/>
   </class>
 </hibernate-mapping>

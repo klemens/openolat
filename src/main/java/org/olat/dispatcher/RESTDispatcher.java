@@ -37,6 +37,7 @@ import org.olat.core.CoreSpringFactory;
 import org.olat.core.dispatcher.Dispatcher;
 import org.olat.core.dispatcher.DispatcherAction;
 import org.olat.core.gui.UserRequest;
+import org.olat.core.gui.UserRequestImpl;
 import org.olat.core.gui.Windows;
 import org.olat.core.gui.components.Window;
 import org.olat.core.gui.control.ChiefController;
@@ -138,7 +139,7 @@ public class RESTDispatcher implements Dispatcher {
 		UserRequest ureq = null;
 		try {
 			//upon creation URL is checked for 
-			ureq = new UserRequest(uriPrefix, request, response);
+			ureq = new UserRequestImpl(uriPrefix, request, response);
 		} catch(NumberFormatException nfe) {
 			//MODE could not be decoded
 			//typically if robots with wrong urls hit the system
@@ -204,7 +205,7 @@ public class RESTDispatcher implements Dispatcher {
 		boolean auth = usess.isAuthenticated();
 		if (auth) {
 			//fxdiff FXOLAT-113: business path in DMZ
-			setBusinessPathInUserSession(usess, businessPath);
+			setBusinessPathInUserSession(usess, businessPath, ureq.getParameter("wsettings"));
 			
 			//fxdiff
 			if (Windows.getWindows(usess).getAttribute("AUTHCHIEFCONTROLLER") == null) {
@@ -220,7 +221,7 @@ public class RESTDispatcher implements Dispatcher {
 		} else {
 			//prepare for redirect
 			//fxdiff FXOLAT-113: business path in DMZ
-			setBusinessPathInUserSession(usess, businessPath);
+			setBusinessPathInUserSession(usess, businessPath, ureq.getParameter("wsettings"));
 			String invitationAccess = ureq.getParameter(AuthenticatedDispatcher.INVITATION);
 			if (invitationAccess != null && LoginModule.isInvitationEnabled()) {
 			// try to log in as anonymous
@@ -271,7 +272,7 @@ public class RESTDispatcher implements Dispatcher {
 	 * @param businessPath
 	 */
 	//fxdiff FXOLAT-113: business path in DMZ
-	private void setBusinessPathInUserSession(UserSession usess, String businessPath) {
+	private void setBusinessPathInUserSession(UserSession usess, String businessPath, String options) {
 		if(StringHelper.containsNonWhitespace(businessPath) && usess != null) {
 			if(businessPath.startsWith("[changepw:0]") || "[registration:0]".equals(businessPath) || "[guest:0]".equals(businessPath)
 					|| "[browsercheck:0]".equals(businessPath) || "[accessibility:0]".equals(businessPath) || "[about:0]".equals(businessPath)) {
@@ -279,6 +280,9 @@ public class RESTDispatcher implements Dispatcher {
 			} else {
 				usess.putEntryInNonClearedStore(AuthenticatedDispatcher.AUTHDISPATCHER_BUSINESSPATH, businessPath);
 			}
+		}
+		if(StringHelper.containsNonWhitespace(options) && usess != null) {
+			usess.putEntryInNonClearedStore(AuthenticatedDispatcher.AUTHDISPATCHER_OPTIONS, options);
 		}
 	}
 	

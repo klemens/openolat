@@ -37,6 +37,7 @@ import org.olat.core.CoreSpringFactory;
 import org.olat.core.dispatcher.Dispatcher;
 import org.olat.core.dispatcher.DispatcherAction;
 import org.olat.core.gui.UserRequest;
+import org.olat.core.gui.UserRequestImpl;
 import org.olat.core.gui.Windows;
 import org.olat.core.gui.components.Window;
 import org.olat.core.gui.control.ChiefController;
@@ -174,7 +175,7 @@ public class DMZDispatcher implements Dispatcher {
 		try {
 			// upon creation URL is checked for
 
-			ureq = new UserRequest(uriPrefix, request, response);
+			ureq = new UserRequestImpl(uriPrefix, request, response);
 		} catch (NumberFormatException nfe) {
 			// MODE could not be decoded
 			// typically if robots with wrong urls hit the system
@@ -293,6 +294,7 @@ public class DMZDispatcher implements Dispatcher {
 				if (window == null) {
 					// no window found, -> start a new WorkFlow/Controller and obtain the window
 					// main controller which also implements the windowcontroller for pagestatus and modal dialogs
+					Object wSettings = usess.getEntry(AuthenticatedDispatcher.AUTHDISPATCHER_OPTIONS);
 					ChiefController occ = chiefControllerCreator.createChiefController(ureq);
 					
 					window = occ.getWindow();
@@ -302,9 +304,11 @@ public class DMZDispatcher implements Dispatcher {
 					String businessPath = (String) usess.removeEntryFromNonClearedStore(DMZDISPATCHER_BUSINESSPATH);
 					if (businessPath != null) {
 						List<ContextEntry> ces = BusinessControlFactory.getInstance().createCEListFromString(businessPath);
-						DTabs dts = (DTabs) window.getAttribute("DTabs");
+						DTabs dts = window.getDTabs();
 						dts.activate(ureq, null, ces);
 					}
+					//apply the settings forward
+					usess.putEntryInNonClearedStore(AuthenticatedDispatcher.AUTHDISPATCHER_OPTIONS, wSettings);
 				}
 				window.dispatchRequest(ureq);
 			}

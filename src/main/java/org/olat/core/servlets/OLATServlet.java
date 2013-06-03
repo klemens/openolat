@@ -34,7 +34,7 @@ import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
-import org.apache.log4j.LogManager;
+import org.olat.admin.sysinfo.manager.SessionStatsManager;
 import org.olat.core.CoreSpringFactory;
 import org.olat.core.commons.persistence.DBFactory;
 import org.olat.core.dispatcher.Dispatcher;
@@ -62,6 +62,7 @@ public class OLATServlet extends HttpServlet {
 	private static final long serialVersionUID = 4146352020009404834L;
 	private static OLog log = Tracing.createLoggerFor(OLATServlet.class);
 	private Dispatcher dispatcher;
+	private SessionStatsManager sessionStatsManager;
 	private RequestBasedLogLevelManager requestBasedLogLevelManager;
 	
 	/**
@@ -86,15 +87,30 @@ public class OLATServlet extends HttpServlet {
 		log.info("Framework has started, sending event to listeners of FrameworkStartupEventChannel");
 		FrameworkStartupEventChannel.fireEvent();
 		log.info("FrameworkStartupEvent processed by alle listeners. Webapp has started.");
+		sessionStatsManager = CoreSpringFactory.getImpl(SessionStatsManager.class);
 	}
 	
 	/**
 	 * @see javax.servlet.Servlet#destroy()
 	 */
 	public void destroy() {
-		log.info("*** Destroying OLAT servlet.");
-		log.info("*** Shutting down the logging system - do not use logger after this point!");
-		LogManager.shutdown();
+		//
+	}
+	
+	
+	/**
+	 * Filter BitKinex at the root
+	 */
+	@Override
+	public void service(HttpServletRequest req, HttpServletResponse res)
+	throws ServletException, IOException {
+		String userAgent = req.getHeader("User-Agent");
+		if(userAgent != null && userAgent.indexOf("BitKinex") >= 0) {
+			//BitKinex isn't allow to see this context
+			res.sendError(HttpServletResponse.SC_FORBIDDEN);
+		} else {
+			super.service(req, res);
+		}
 	}
 
 	/**
@@ -133,6 +149,7 @@ public class OLATServlet extends HttpServlet {
 		WorkThreadInformations.set("Serve request: " + request.getRequestURI());
 
 		try{
+			if(sessionStatsManager != null) sessionStatsManager.incrementRequest();
 		  if (requestBasedLogLevelManager!=null) requestBasedLogLevelManager.activateRequestBasedLogLevel(request);
 		  if (dispatcher == null) dispatcher = (Dispatcher) CoreSpringFactory.getBean(DispatcherAction.class);
 			dispatcher.execute(request, response, null);
@@ -144,7 +161,7 @@ public class OLATServlet extends HttpServlet {
 			I18nManager.remove18nInfoFromThread();
 			Tracing.setUreq(null);
 			GUIInterna.end(request);
-			DBFactory.getInstanceForClosing().cleanUpSession();
+			DBFactory.getInstanceForClosing().closeSession();
 		}
 	}
 

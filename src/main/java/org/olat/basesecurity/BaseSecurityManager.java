@@ -303,6 +303,21 @@ public class BaseSecurityManager extends BasicManager implements BaseSecurity {
 		return query.getResultList();
 	}
 	
+	@Override
+	public List<String> getIdentityPermissionOnresourceable(Identity identity, OLATResourceable olatResourceable) {
+		Long oresid = olatResourceable.getResourceableId();
+		if (oresid == null) {
+			oresid = new Long(0);
+		}
+		List<String> permissions = dbInstance.getCurrentEntityManager()
+				.createNamedQuery("getIdentityPermissionsOnResourceableCheckType", String.class)
+			.setParameter("identitykey", identity.getKey())
+			.setParameter("resid", oresid)
+			.setParameter("resname", olatResourceable.getResourceableTypeName())
+			.getResultList();
+		return permissions;
+	}
+	
 	public boolean isIdentityPermittedOnResourceable(Identity identity, String permission, OLATResourceable olatResourceable) {
 		return isIdentityPermittedOnResourceable(identity, permission, olatResourceable, true);
 	}
@@ -895,7 +910,7 @@ public class BaseSecurityManager extends BasicManager implements BaseSecurity {
 	private void notifyNewIdentityCreated(Identity newIdentity) {
 		//Save the identity on the DB. So can the listeners of the event retrieve it
 		//in cluster mode
-		DBFactory.getInstance().intermediateCommit();
+		DBFactory.getInstance().commit();
 		CoordinatorManager.getInstance().getCoordinator().getEventBus().fireEventToListenersOf(new NewIdentityCreatedEvent(newIdentity), IDENTITY_EVENT_CHANNEL);
 	}
 
@@ -1192,13 +1207,28 @@ public class BaseSecurityManager extends BasicManager implements BaseSecurity {
 		sb.append("select identity from ").append(IdentityShort.class.getName()).append(" as identity ")
 			.append(" where identity.key=:identityKey");
 		
-		DBQuery query = DBFactory.getInstance().createQuery(sb.toString());
-		query.setLong("identityKey", identityKey);
-		List<IdentityShort> idents = query.list();
+		List<IdentityShort> idents = DBFactory.getInstance().getCurrentEntityManager()
+				.createQuery(sb.toString(), IdentityShort.class)
+				.setParameter("identityKey", identityKey)
+				.getResultList();
 		if(idents.isEmpty()) {
 			return null;
 		}
 		return idents.get(0);
+	}
+	
+	@Override
+	public List<IdentityShort> loadIdentityShortByKeys(Collection<Long> identityKeys) {
+		if (identityKeys == null || identityKeys.isEmpty()) {
+			return Collections.emptyList();
+		}
+		StringBuilder sb = new StringBuilder();
+		sb.append("select ident from ").append(IdentityShort.class.getName()).append(" as ident where ident.key in (:keys)");
+		
+		return DBFactory.getInstance().getCurrentEntityManager()
+				.createQuery(sb.toString(), IdentityShort.class)
+				.setParameter("keys", identityKeys)
+				.getResultList();
 	}
 
 	/**
@@ -1271,6 +1301,26 @@ public class BaseSecurityManager extends BasicManager implements BaseSecurity {
 		return results.get(0);
 	}
 	
+	@Override
+	public String findCredentials(Identity identity, String provider) {
+		if (identity==null) {
+			throw new IllegalArgumentException("identity must not be null");
+		}
+		
+		StringBuilder sb = new StringBuilder();
+		sb.append("select auth.credential from ").append(AuthenticationImpl.class.getName())
+		  .append(" as auth where auth.identity.key=:identityKey and auth.provider=:provider");
+		
+		List<String> results = dbInstance.getCurrentEntityManager()
+				.createQuery(sb.toString(), String.class)
+				.setParameter("identityKey", identity.getKey())
+				.setParameter("provider", provider)
+				.getResultList();
+		if (results == null || results.size() == 0) return null;
+		if (results.size() > 1) throw new AssertException("Found more than one Authentication for a given subject and a given provider.");
+		return results.get(0);
+	}
+
 	@Override
 	//fxdiff: FXOLAT-219 decrease the load for synching groups
 	public boolean hasAuthentication(Long identityKey, String provider) {
@@ -1681,6 +1731,13 @@ public class BaseSecurityManager extends BasicManager implements BaseSecurity {
 		return (cntL.longValue() > 0);
 	}
 
+	@Override
+	public boolean isIdentityVisible(Identity identity) {
+		if(identity == null) return false;
+		Integer status = identity.getStatus();
+		return (status != null && status.intValue() < Identity.STATUS_VISIBLE_LIMIT);
+	}
+
 	private boolean checkAnd(StringBuilder sb, boolean needsAnd) {
 		if (needsAnd) 	sb.append(" and ");
 		return true;
@@ -1727,34 +1784,43 @@ public class BaseSecurityManager extends BasicManager implements BaseSecurity {
 	 */
 	@Override
 	public Identity saveIdentityStatus(Identity identity, Integer status) {
-		Identity reloadedIdentity = loadForUpdate(identity.getKey()); 
+		Identity reloadedIdentity = loadForUpdate(identity); 
 		reloadedIdentity.setStatus(status);
-		return dbInstance.getCurrentEntityManager().merge(reloadedIdentity);
+		reloadedIdentity = dbInstance.getCurrentEntityManager().merge(reloadedIdentity);
+		dbInstance.commit();
+		return reloadedIdentity;
 	}
 	
 	@Override
 	public Identity setIdentityLastLogin(Identity identity) {
-		Identity reloadedIdentity = loadForUpdate(identity.getKey()); 
+		Identity reloadedIdentity = loadForUpdate(identity); 
 		reloadedIdentity.setLastLogin(new Date());
-		return dbInstance.getCurrentEntityManager().merge(reloadedIdentity);
+		reloadedIdentity = dbInstance.getCurrentEntityManager().merge(reloadedIdentity);
+		dbInstance.commit();
+		return reloadedIdentity;
 	}
 	
-	private IdentityImpl loadForUpdate(Long identityKey) {
+	/**
+	 * Don't forget to commit/roolback the transaction as soon as possible
+	 * @param identityKey
+	 * @return
+	 */
+	private IdentityImpl loadForUpdate(Identity identity) {
 		StringBuilder sb = new StringBuilder();
 		sb.append("select id from ").append(IdentityImpl.class.getName()).append(" as id")
 		  .append(" inner join fetch id.user user ")
 		  .append(" where id.key=:identityKey");
 		
-		List<IdentityImpl> identity = dbInstance.getCurrentEntityManager()
+		dbInstance.getCurrentEntityManager().detach(identity);
+		List<IdentityImpl> identities = dbInstance.getCurrentEntityManager()
 	  		.createQuery(sb.toString(), IdentityImpl.class)
-	  		.setParameter("identityKey", identityKey)
+	  		.setParameter("identityKey", identity.getKey())
 	  		.setLockMode(LockModeType.PESSIMISTIC_WRITE)
 	  		.getResultList();
-		
-		if(identity.isEmpty()) {
+		if(identities.isEmpty()) {
 			return null;
 		}
-		return identity.get(0);
+		return identities.get(0);
 	}
 
 	@Override

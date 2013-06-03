@@ -41,6 +41,7 @@ import org.olat.core.gui.GUIInterna;
 import org.olat.core.gui.GUIMessage;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.WindowManager;
+import org.olat.core.gui.WindowSettings;
 import org.olat.core.gui.components.Component;
 import org.olat.core.gui.components.Window;
 import org.olat.core.gui.components.htmlheader.jscss.CustomCSS;
@@ -94,7 +95,6 @@ import org.olat.core.util.resource.OresHelper;
  */
 public class BaseFullWebappController extends BasicController implements GenericEventListener {
 	private static final String PRESENTED_AFTER_LOGIN_WORKFLOW = "presentedAfterLoginWorkflow";
-	public static final String CURRENT_CUSTOM_CSS_KEY = "currentcustomcss";
 	
 	// STARTED
 	private GuiStack currentGuiStack;
@@ -277,14 +277,9 @@ public class BaseFullWebappController extends BasicController implements Generic
 		
 		
 		Window myWindow = myWControl.getWindowBackOffice().getWindow();
-		myWindow.setAttribute("DTabs", myDTabsImpl);
+		myWindow.setDTabs(myDTabsImpl);
 		//REVIEW:PB remove if back support is desired
 		myWindow.addListener(this);//to be able to report BACK / FORWARD / RELOAD
-		/*
-		 * use getAttribute on i.e. Windows(ureq).getWindow(ureq) to retrieve this "service"
-		 */
-
-		
 		
 		/*
 		 * does all initialisation, moved to method because of possibility to react
@@ -369,44 +364,48 @@ public class BaseFullWebappController extends BasicController implements Generic
 				navLinkCounter++;
 			}
 		}
+		
+		WindowSettings wSettings = getWindowControl().getWindowBackOffice().getWindowSettings();
 
 		navVc.contextPut("sites", sites);
 		navVc.contextPut("dtabs", dtabs);
 		navVc.contextPut("dtabsLinkNames", dtabsLinkNames);
 		navVc.contextPut("tabhelper", this);
+		navVc.setVisible(!wSettings.isHideNavigation());
 
-		// ----------- header, optional (e.g. for logo, advertising )
+		// header, optional (e.g. for logo, advertising )
 		headerCtr = baseFullWebappControllerParts.createHeaderController(ureq, getWindowControl());
 		if (headerCtr != null) {
 			listenTo(headerCtr); // cleanup on dispose
-			mainVc.put("headerComponent", headerCtr.getInitialComponent());
+			Component headerCmp = headerCtr.getInitialComponent();
+			mainVc.put("headerComponent", headerCmp);
+			headerCmp.setVisible(!wSettings.isHideHeader());
 		}
 
-		// ----------- topnav, optional (e.g. for imprint, logout)
+		// topnav, optional (e.g. for imprint, logout)
 		topnavCtr = baseFullWebappControllerParts.createTopNavController(ureq, getWindowControl());
 		if (topnavCtr != null) {
 			listenTo(topnavCtr); // cleanup on dispose
-			mainVc.put("topnavComponent", topnavCtr.getInitialComponent());
+			Component topNavCmp = topnavCtr.getInitialComponent();
+			mainVc.put("topnavComponent", topNavCmp);
+			topNavCmp.setVisible(!wSettings.isHideHeader());
 		}
-
-		// ----------- nav, optional (e.g. site navigation with tabs)
-		// TODO fg: refactor to its own component // REVIEW:(pb) should then go also
-		// into ..Parts?!
 
 		// panel for modal overlays, placed right after the olat-header-div
 		modalPanel = new Panel("ccmodalpanel");
 		mainVc.put("modalpanel", modalPanel);
 
-		// ----------- main, mandatory (e.g. a LayoutMain3ColsController)
-		// ------------------
+		// main, mandatory (e.g. a LayoutMain3ColsController)
 		main = new Panel("main");
 		mainVc.put("main", main);
 
-		// ----------- footer, optional (e.g. for copyright, powered by)
+		// footer, optional (e.g. for copyright, powered by)
 		footerCtr = baseFullWebappControllerParts.createFooterController(ureq, getWindowControl());
 		if (footerCtr != null) {
 			listenTo(footerCtr); // cleanup on dispose
-			mainVc.put("footerComponent", footerCtr.getInitialComponent());
+			Component footerCmp = footerCtr.getInitialComponent();
+			mainVc.put("footerComponent", footerCmp);
+			footerCmp.setVisible(!wSettings.isHideFooter());
 		}
 		
 		
@@ -422,7 +421,7 @@ public class BaseFullWebappController extends BasicController implements Generic
 			SiteInstance s = sites.get(0);
 			if (contentCtrl == null) {
 				//activate site only if no content was set -> allow content before activation of default site.
-				activateSite(s, ureq, null, null);
+				activateSite(s, ureq, null, null, false);
 				updateBusinessPath(ureq, s);
 			}
 		}
@@ -468,7 +467,7 @@ public class BaseFullWebappController extends BasicController implements Generic
 				if(siteToBusinessPath.containsKey(s)) {
 					point = siteToBusinessPath.get(s);
 				}
-				activateSite(s, ureq, null, null);
+				activateSite(s, ureq, null, null, true);
 				if(point != null) {
 					BusinessControlFactory.getInstance().addToHistory(ureq, point);
 				}
@@ -547,7 +546,7 @@ public class BaseFullWebappController extends BasicController implements Generic
 				SiteInstance site = ((StateSite)s).getSite();
 				for(SiteInstance savedSite:sites) {
 					if(savedSite != null && site.getClass().equals(savedSite.getClass())) {
-						activateSite(savedSite, ureq, null, entries);
+						activateSite(savedSite, ureq, null, entries, false);
 						//updateBusinessPath(ureq, savedSite);
 					}
 				}
@@ -593,7 +592,7 @@ public class BaseFullWebappController extends BasicController implements Generic
 		//clear the DTabs Service
 		Window myWindow = getWindowControl().getWindowBackOffice().getWindow();
 		myDTabsImpl = null;
-		myWindow.setAttribute("DTabs", null);		
+		myWindow.setDTabs(null);
 
 		getWindowControl().getWindowBackOffice().removeCycleListener(this);
 	}
@@ -611,7 +610,8 @@ public class BaseFullWebappController extends BasicController implements Generic
 
 	// FROM FULLCHIEFCONTROLLER
 	//fxdiff BAKS-7 Resume function
-	private void activateSite(SiteInstance s, UserRequest ureq, String viewIdentifier, List<ContextEntry> entries) {
+	private void activateSite(SiteInstance s, UserRequest ureq, String viewIdentifier,
+			List<ContextEntry> entries, boolean forceReload) {
 		BornSiteInstance bs = siteToBornSite.get(s);
 		GuiStack gs;
 		Controller resC;
@@ -620,7 +620,10 @@ public class BaseFullWebappController extends BasicController implements Generic
 			// single - click -> fetch guistack from cache
 			gs = bs.getGuiStackHandle();
 			resC = bs.getController();
-			//PB//site_wControl = bs.getWindowControl();
+		} else if (bs != null && s == curSite && !forceReload) {
+			//via activate, don't force the reload
+			gs = bs.getGuiStackHandle();
+			resC = bs.getController();
 		} else {
 			// bs == null (not yet in cache) || s == curSite
 			// double click or not yet in cache.
@@ -644,9 +647,6 @@ public class BaseFullWebappController extends BasicController implements Generic
 		}
 		//fxdiff perhaps has activation changed the gui stack and it need to be updated
 		setGuiStack(gs);
-
-		//set current BusPath for extraction in the TopNav Controller
-		getWindowControl().getWindowBackOffice().getWindow().setAttribute("BUSPATH", getWindowControl());
 	}
 
 	private void doActivateSite(SiteInstance s, GuiStack gs) {
@@ -664,18 +664,10 @@ public class BaseFullWebappController extends BasicController implements Generic
 	}
 
 	private void doActivateDTab(DTab dtabi) {
-		
-		//System.err.println(">>>>> dynamic site >>>>");
-		getWindowControl().getWindowBackOffice().getWindow().setAttribute("BUSPATH", dtabi.getWindowControl());
-		//System.err.println(busPath);
-		//System.err.println("wControl:"+dtabi.getWindowControl());
-		//System.err.println("<<<<< dynamic site <<<<");
-		
 		removeCurrentCustomCSSFromView();
 
 		//set curDTab
 		setCurrent(null, dtabi);
-		
 		setGuiStack(dtabi.getGuiStackHandle());
 		// set description as page title, getTitel() might contain trucated values
 		//TODO:gs:a html escaping or removing should be done everywhere where text input fields are written to velocity. Best would be to not allow it in the input fields or escape it there
@@ -690,11 +682,11 @@ public class BaseFullWebappController extends BasicController implements Generic
 	 */
 	protected void removeCurrentCustomCSSFromView() {
 		Window myWindow = getWindowControl().getWindowBackOffice().getWindow();
-		CustomCSS currentCustomCSS = (CustomCSS) myWindow.getAttribute(CURRENT_CUSTOM_CSS_KEY);
+		CustomCSS currentCustomCSS = myWindow.getCustomCSS();
 		if (currentCustomCSS != null) {
 			// remove css and js from view
 			mainVc.remove(currentCustomCSS.getJSAndCSSComponent());
-			myWindow.removeAttribute(CURRENT_CUSTOM_CSS_KEY);
+			myWindow.setCustomCSS(null);
 		}
 	}
 
@@ -708,7 +700,7 @@ public class BaseFullWebappController extends BasicController implements Generic
 		// The current CSS is stored as a window attribute so that is can be
 		// accessed by the IFrameDisplayController
 		Window myWindow = getWindowControl().getWindowBackOffice().getWindow();
-		myWindow.setAttribute(CURRENT_CUSTOM_CSS_KEY, customCSS);
+		myWindow.setCustomCSS(customCSS);
 		// add css component to view
 		mainVc.put("jsAndCss", customCSS.getJSAndCSSComponent());		
 		
@@ -874,9 +866,6 @@ public class BaseFullWebappController extends BasicController implements Generic
 
 		DTab old = getDTab(dt.getOLATResourceable());
 		if (old != null) {
-			//do make a red screen for that
-			//throw new AssertException("dtabs already contained: " + old);
-			getWindowControl().getWindowBackOffice().getWindow().setAttribute("BUSPATH", dt.getWindowControl());
 			return true;
 		}
 		// add to tabs list
@@ -911,10 +900,6 @@ public class BaseFullWebappController extends BasicController implements Generic
 			// increase DTab added counter.
 			dtabCreateCounter++;
 		}
-		
-		//set current BusPath for extraction in the TopNav Controller
-		//FIXME:pb:2009-06-21:move core
-		getWindowControl().getWindowBackOffice().getWindow().setAttribute("BUSPATH", dt.getWindowControl());		
 		return true;
 	}
 
@@ -971,7 +956,7 @@ public class BaseFullWebappController extends BasicController implements Generic
 			SiteInstance site = it_sites.next();
 			String cName = site.getClass().getName();
 			if (cName.equals(className)) {
-				activateSite(site, ureq, viewIdentifier, entries);
+				activateSite(site, ureq, viewIdentifier, entries, false);
 				return;
 			}
 		}
@@ -981,13 +966,13 @@ public class BaseFullWebappController extends BasicController implements Generic
 		if (event == Window.AFTER_VALIDATING) {
 			// now update the guimessage
 
-			List places = (List) getWindowControl().getWindowBackOffice().getData("guimessage");
+			List<ZIndexWrapper> places = getWindowControl().getWindowBackOffice().getGuiMessages();
 			Panel winnerP = null;
 			int maxZ = -1;
 			if (places != null) {
 				// we have places where we can put the gui message
-				for (Iterator it_places = places.iterator(); it_places.hasNext();) {
-					ZIndexWrapper ziw = (ZIndexWrapper) it_places.next();
+				for (Iterator<ZIndexWrapper> it_places = places.iterator(); it_places.hasNext();) {
+					ZIndexWrapper ziw = it_places.next();
 					int cind = ziw.getZindex();
 					if (cind > maxZ) {
 						maxZ = cind;
@@ -998,12 +983,14 @@ public class BaseFullWebappController extends BasicController implements Generic
 				winnerP = guimsgHolder;
 			}
 
-			if (winnerP != currentMsgHolder) {
+			if (winnerP != null && winnerP != currentMsgHolder) {
 				currentMsgHolder.setContent(null);
 				winnerP.setContent(guimsgPanel);
 				currentMsgHolder = winnerP;
-			} // else same place, nothing to change
-			//
+			} else {
+				currentMsgHolder = guimsgHolder;
+				currentMsgHolder.setContent(guimsgPanel);
+			}
 		} else if(event instanceof LanguageChangedEvent){
 			LanguageChangedEvent lce = (LanguageChangedEvent)event;
 			getTranslator().setLocale(lce.getNewLocale());

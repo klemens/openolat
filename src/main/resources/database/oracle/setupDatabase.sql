@@ -1339,6 +1339,66 @@ create table o_as_user_course_infos (
 );
 
 --
+-- Table: o_im_message
+--;
+
+create table o_im_message (
+   id number(20) not null,
+   creationdate date,
+   msg_resname varchar2(50 char) not null,
+   msg_resid number(20) not null,
+   msg_anonym number default 0,
+   msg_from varchar2(255 char) not null,
+   msg_body clob,
+   fk_from_identity_id number(20) not null,
+   primary key (id)
+);
+
+--
+-- Table: o_im_notification
+--;
+
+create table o_im_notification (
+   id number(20) not null,
+   creationdate date,
+   chat_resname varchar(50) not null,
+   chat_resid number(20) not null,
+   fk_to_identity_id number(20) not null,
+   fk_from_identity_id number(20) not null,
+   primary key (id)
+);
+
+--
+-- Table: o_im_roster_entry
+--;
+
+create table o_im_roster_entry (
+   id number(20) not null,
+   creationdate date,
+   r_resname varchar2(50 char) not null,
+   r_resid number(20) not null,
+   r_nickname varchar2(255 char),
+   r_fullname varchar2(255 char),
+   r_vip number default 0,
+   r_anonym number default 0,
+   fk_identity_id number(20) not null,
+   primary key (id)
+);
+
+--
+-- Table: o_im_preferences
+--;
+
+create table o_im_preferences (
+   id number(20) not null,
+   creationdate date,
+   visible_to_others number default 0,
+   roster_def_status varchar(12),
+   fk_from_identity_id number(20) not null,
+   primary key (id)
+);
+
+--
 -- Table: o_mapper
 --;
 
@@ -1487,26 +1547,6 @@ create or replace view o_gp_business_to_repository_v as (
 	inner join o_repositoryentry repoentry on (repoentry.fk_olatresource = relation.fk_resource)
 );
 
-create or replace view o_re_member_v as (
-   select
-      re.repositoryentry_id as re_id,
-      re.membersonly as re_membersonly,
-      re.accesscode as re_accesscode,
-      re_part_member.identity_id as re_part_member_id,
-      re_tutor_member.identity_id as re_tutor_member_id,
-      re_owner_member.identity_id as re_owner_member_id,
-      bg_part_member.identity_id as bg_part_member_id,
-      bg_owner_member.identity_id as bg_owner_member_id
-   from o_repositoryentry re
-   left join o_bs_membership re_part_member on (re_part_member.secgroup_id = re.fk_participantgroup)
-   left join o_bs_membership re_tutor_member on (re_tutor_member.secgroup_id = re.fk_tutorgroup)
-   left join o_bs_membership re_owner_member on (re_owner_member.secgroup_id = re.fk_ownergroup)
-   left join o_gp_business_to_resource bgroup_rel on (bgroup_rel.fk_resource = re.fk_olatresource)
-   left join o_gp_business bgroup on (bgroup.group_id = bgroup_rel.fk_group)
-   left join o_bs_membership bg_part_member on (bg_part_member.secgroup_id = bgroup.fk_partipiciantgroup)
-   left join o_bs_membership bg_owner_member on (bg_owner_member.secgroup_id = bgroup.fk_ownergroup)
-);
-
 create or replace view o_re_strict_member_v as (
    select
       re.repositoryentry_id as re_id,
@@ -1627,6 +1667,52 @@ create or replace view o_gp_business_v  as (
       gp.fk_partipiciantgroup as fk_partipiciantgroup,
       gp.fk_waitinggroup as fk_waitinggroup
    from o_gp_business gp
+);
+
+create view o_gp_visible_participant_v as (
+   select
+      bg_part_member.id as membership_id,
+      bgroup.group_id as bg_id,
+      bgroup.groupname as bg_name,
+      bgroup.fk_partipiciantgroup as bg_part_sec_id,
+      bgroup.fk_ownergroup as bg_owner_sec_id,
+      bg_part_member.identity_id as bg_part_member_id,
+      ident.name as bg_part_member_name 
+   from o_gp_business bgroup
+   inner join o_property bconfig on (bconfig.grp = bgroup.group_id and bconfig.name = 'displayMembers' and bconfig.category = 'config' and bconfig.longValue in (2,3,6,7))
+   inner join o_bs_membership bg_part_member on (bg_part_member.secgroup_id = bgroup.fk_partipiciantgroup)
+   inner join o_bs_identity ident on (bg_part_member.identity_id = ident.id)
+ );
+   
+create view o_gp_visible_owner_v as ( 
+   select
+      bg_owner_member.id as membership_id,
+      bgroup.group_id as bg_id,
+      bgroup.groupname as bg_name,
+      bgroup.fk_partipiciantgroup as bg_part_sec_id,
+      bgroup.fk_ownergroup as bg_owner_sec_id,
+      bg_owner_member.identity_id as bg_owner_member_id,
+      ident.name as bg_owner_member_name
+   from o_gp_business bgroup
+   inner join o_property bconfig on (bconfig.grp = bgroup.group_id and bconfig.name = 'displayMembers' and bconfig.category = 'config' and bconfig.longValue in (1,3,5,7))
+   inner join o_bs_membership bg_owner_member on (bg_owner_member.secgroup_id = bgroup.fk_ownergroup)
+   inner join o_bs_identity ident on (bg_owner_member.identity_id = ident.id)
+);
+
+create or replace view o_im_roster_entry_v as (
+   select
+      entry.id as re_id,
+      entry.creationdate as re_creationdate,
+      ident.id as ident_id,
+      ident.name as ident_name,
+      entry.r_nickname as re_nickname,
+      entry.r_fullname as re_fullname,
+      entry.r_anonym as re_anonym,
+      entry.r_vip as re_vip,
+      entry.r_resname as re_resname,
+      entry.r_resid as re_resid
+   from o_im_roster_entry entry
+   inner join o_bs_identity ident on (entry.fk_identity_id = ident.id)
 );
 
 
@@ -1860,7 +1946,7 @@ create index FK9A1C5101E2E76DB on o_bs_policy (group_id);
 alter table o_bs_policy  add constraint FK9A1C5101E2E76DB foreign key (group_id) references o_bs_secgroup (id);
 
 create index name_idx6 on o_gp_bgarea (name);
-
+create index idx_area_resource on o_gp_bgarea (fk_resource);
 alter table o_gp_bgarea add constraint idx_area_to_resource foreign key (fk_resource) references o_olatresource (resource_id);
 
 create index descritpion_idx on o_repositoryentry (description);
@@ -1877,6 +1963,8 @@ alter table o_repositoryentry  add constraint FK2F9C4398A1FAC766 foreign key (fk
 create index repo_members_only_idx on o_repositoryentry (membersonly);
 alter table o_repositoryentry add constraint repo_tutor_sec_group_ctx foreign key (fk_tutorgroup) references o_bs_secgroup (id);
 alter table o_repositoryentry add constraint repo_parti_sec_group_ctx foreign key (fk_participantgroup) references o_bs_secgroup (id);
+create index idx_repoentry_tutor on o_repositoryentry(fk_tutorgroup);
+create index idx_repoentry_parti on o_repositoryentry(fk_participantgroup);
 create index FK68C4E30663219E27 on o_bookmark (owner_id);
 alter table o_bookmark  add constraint FK68C4E30663219E27 foreign key (owner_id) references o_bs_identity (id);
 create index FK7B6288B45259603C on o_bs_membership (identity_id);
@@ -1954,6 +2042,20 @@ alter table o_as_user_course_infos add constraint user_course_infos_res_cstr for
 
 alter table o_ac_reservation add constraint idx_rsrv_to_rsrc_rsrc foreign key (fk_resource) references o_olatresource (resource_id);
 alter table o_ac_reservation add constraint idx_rsrv_to_rsrc_identity foreign key (fk_identity) references o_bs_identity (id);
+
+alter table o_im_message add constraint idx_im_msg_to_fromid foreign key (fk_from_identity_id) references o_bs_identity (id);
+create index idx_im_msg_res_idx on o_im_message (msg_resid,msg_resname);
+create index idx_im_msg_from_idx on o_im_message(fk_from_identity_id);
+alter table o_im_notification add constraint idx_im_not_to_toid foreign key (fk_to_identity_id) references o_bs_identity (id);
+alter table o_im_notification add constraint idx_im_not_to_fromid foreign key (fk_from_identity_id) references o_bs_identity (id);
+create index idx_im_chat_res_idx on o_im_notification (chat_resid,chat_resname);
+create index idx_im_chat_to_idx on o_im_notification (fk_to_identity_id);
+create index idx_im_chat_from_idx on o_im_notification (fk_from_identity_id);
+alter table o_im_roster_entry add constraint idx_im_rost_to_id foreign key (fk_identity_id) references o_bs_identity (id);
+create index idx_im_rost_res_idx on o_im_roster_entry (r_resid,r_resname);
+create index idx_im_rost_ident_idx on o_im_roster_entry (fk_identity_id);
+alter table o_im_preferences add constraint idx_im_prfs_to_id foreign key (fk_from_identity_id) references o_bs_identity (id);
+create index idx_im_prefs_ident_idx on o_im_preferences (fk_from_identity_id);
 
 create index o_co_db_course_idx on o_co_db_entry (courseid);
 create index o_co_db_cat_idx on o_co_db_entry (category);
