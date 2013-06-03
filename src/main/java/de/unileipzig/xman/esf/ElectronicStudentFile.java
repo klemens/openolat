@@ -91,7 +91,7 @@ public interface ElectronicStudentFile extends CreateInfo, ModifiedInfo, Persist
 	 * @param the key of the CommentEntry to delete
 	 * @return the deleted CommentEntry
 	 */
-	public void removeCommentEntry(Long commentEntryKey);
+	public void removeCommentEntries(List<CommentEntry> entries);
 	
 	
 	/**************************************************************/

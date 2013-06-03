@@ -70,9 +70,9 @@ public class ElectronicStudentFileImpl extends PersistentObject implements Elect
 		this.comments.addCommentEntry(commentEntry);
 	}
 
-	public void removeCommentEntry(Long commentEntryKey) {
+	public void removeCommentEntries(List<CommentEntry> entries) {
 		
-		this.comments.removeCommentEntry(commentEntryKey);
+		this.comments.removeCommentEntries(entries);
 	}
 	
 	public List<CommentEntry> getCommentEntries() {

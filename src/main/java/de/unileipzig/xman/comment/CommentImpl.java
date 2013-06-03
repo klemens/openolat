@@ -2,8 +2,10 @@ package de.unileipzig.xman.comment;
 
 import java.util.ArrayList;
 import java.util.Date;
+import java.util.Iterator;
 import java.util.List;
 
+import org.olat.core.commons.persistence.DBFactory;
 import org.olat.core.commons.persistence.PersistentObject;
 import org.olat.core.id.ModifiedInfo;
 
@@ -38,10 +40,15 @@ public class CommentImpl extends PersistentObject implements Comment {
 	/**
 	 * @see de.xman.comment.Comment#removeCommentEntry(java.lang.Long)
 	 */
-	public void removeCommentEntry(Long key) {
-		
-		CommentEntry commentEntry = CommentManager.getInstance().retrieveCommentEntryByKey(key);
-		this.comments.remove(commentEntry);
+	public void removeCommentEntries(List<CommentEntry> entries) {
+		Iterator<CommentEntry> it = comments.iterator();
+		while(it.hasNext()) {
+			CommentEntry comment = it.next();
+			for(CommentEntry commentToDelete : entries) {
+				if(commentToDelete.equalsByPersistableKey(comment))
+					it.remove();
+			}
+		}
 	}
 	
 	/**

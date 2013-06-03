@@ -19,7 +19,7 @@ public interface Comment extends ModifiedInfo, CreateInfo, Persistable {
 	
 	public void addCommentEntry(CommentEntry commentEntry);
 	
-	public void removeCommentEntry(Long key);
+	public void removeCommentEntries(List<CommentEntry> entries);
 	
 	public List<CommentEntry> getComments();
 	
