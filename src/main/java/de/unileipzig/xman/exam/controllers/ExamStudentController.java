@@ -144,8 +144,8 @@ public class ExamStudentController extends BasicController {
 				// Email Remove
 				BusinessControlFactory bcf = BusinessControlFactory.getInstance();
 				MailManager.getInstance().sendEmail(
-					translate("ExamStudentController.Remove.Subject",new String[] { ExamDBManager.getInstance().getExamName(exam) }),
-					translate("ExamStudentController.Remove.Body",
+					translate("Mail.Remove.Subject",new String[] { ExamDBManager.getInstance().getExamName(exam) }),
+					translate("Mail.Remove.Body",
 						new String[] {
 							ExamDBManager.getInstance().getExamName(exam),
 							protocol.getIdentity().getUser().getProperty(UserConstants.LASTNAME, null) + ", " + protocol.getIdentity().getUser().getProperty(UserConstants.FIRSTNAME, null),

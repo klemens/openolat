@@ -288,8 +288,8 @@ public class ProtocolManager {
 			// {5} exam.type {6} exam.url {7} proto.earmarked {8} semester
 			// {9} studserv email {11} email {11} studyPath
 			MailManager.getInstance().sendEmail(
-				translator.translate("ExamLaunchController.Register.Subject", new String[] { ExamDBManager.getInstance().getExamName(proto.getExam()) }),
-				translator.translate("ExamLaunchController.Register.Body",
+				translator.translate("Mail.Register.Subject", new String[] { ExamDBManager.getInstance().getExamName(proto.getExam()) }),
+				translator.translate("Mail.Register.Body",
 					new String[] {
 						ExamDBManager.getInstance().getExamName(proto.getExam()),
 						proto.getIdentity().getUser().getProperty(UserConstants.LASTNAME, null) + ", " + proto.getIdentity().getUser().getProperty(UserConstants.FIRSTNAME, null),
