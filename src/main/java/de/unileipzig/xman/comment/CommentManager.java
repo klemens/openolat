@@ -68,7 +68,8 @@ public class CommentManager {
 		CommentEntry commentEntry = createCommentEntry(text, author);
 
 		// add comment and update the esf
-		esf.addCommentEntry(commentEntry);
+		esf = ElectronicStudentFileManager.getInstance().retrieveESFByIdentity(esf.getIdentity());
+		esf.addCommentEntry(commentEntry);		
 		ElectronicStudentFileManager.getInstance().updateElectronicStundentFile(esf);
 	}
 	

@@ -101,6 +101,7 @@ public class ExamHandler implements RepositoryHandler {
 		
 		// delete Protocols and calendar events
 		for ( Protocol p : protoList ) {
+			p = ProtocolManager.getInstance().findProtocolByID(p.getKey());
 			
 			CalendarManager.getInstance().deleteKalendarEventForExam(deleteableExam, p.getIdentity());
 			

@@ -309,6 +309,8 @@ public class ExamEditorController extends BasicController {
 								.getInstance().findAllProtocolsByAppointment(
 										tempApp);
 						for (Protocol p : protoList) {
+							p = ProtocolManager.getInstance().findProtocolByID(p.getKey());
+							
 							tempApp = p.getAppointment();
 							CalendarManager.getInstance().deleteKalendarEventForExam(exam,p.getIdentity());
 							Locale userLocale = new Locale(p.getIdentity().getUser().getPreferences().getLanguage());
@@ -346,6 +348,7 @@ public class ExamEditorController extends BasicController {
 
 			if (event == Form.EVNT_VALIDATION_OK) {
 
+				exam = ExamDBManager.getInstance().findExamByID(exam.getKey());
 				exam.setComments(editCommentsForm.getComments());
 				ExamDBManager.getInstance().updateExam(exam);
 			}
@@ -353,6 +356,7 @@ public class ExamEditorController extends BasicController {
 
 			if (event == Form.EVNT_VALIDATION_OK) {
 
+				exam = ExamDBManager.getInstance().findExamByID(exam.getKey());
 				exam.setRegStartDate(editRegForm.getRegStart());
 				exam.setRegEndDate(editRegForm.getRegEnd());
 				exam.setSignOffDate(editRegForm.getSignOff());
@@ -366,11 +370,13 @@ public class ExamEditorController extends BasicController {
 				
 				// TODO: hier müssen entweder die vorgemerkten studenten
 				// gelöscht oder in die registrierten liste übernommen werden
+				exam = ExamDBManager.getInstance().findExamByID(exam.getKey());
 				exam.setEarmarkedEnabled(editEarmarkedForm.getEarmarked());
 				ExamDBManager.getInstance().updateExam(exam);
 			}
 		} else if (source == editMultiSubscriptionForm) {
 			if (event == Form.EVNT_VALIDATION_OK) {
+				exam = ExamDBManager.getInstance().findExamByID(exam.getKey());
 				exam.setIsMultiSubscription(editMultiSubscriptionForm.getMultiSubscription());
 				ExamDBManager.getInstance().updateExam(exam);
 			}
@@ -407,6 +413,7 @@ public class ExamEditorController extends BasicController {
 			if (event == Form.EVNT_VALIDATION_OK) {
 
 				cmc.deactivate();
+				app = AppointmentManager.getInstance().findAppointmentByID(app.getKey());
 				app.setDate(editAppForm.getDate());
 				app.setPlace(editAppForm.getPlace());
 				app.setDuration(editAppForm.getDuration());

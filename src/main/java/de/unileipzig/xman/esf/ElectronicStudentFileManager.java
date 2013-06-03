@@ -97,10 +97,9 @@ public class ElectronicStudentFileManager implements UserDataDeletable {
 	 * @param esf
 	 * @return
 	 */
-	public ElectronicStudentFile updateElectronicStundentFile(ElectronicStudentFile esf) {
+	public void updateElectronicStundentFile(ElectronicStudentFile esf) {
 
 		DBFactory.getInstance().updateObject(esf);
-		return this.retrieveESFByIdentity(esf.getIdentity());
 	}
 	
 	/**

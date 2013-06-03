@@ -267,6 +267,7 @@ public class ProtocolManager {
 			ProtocolManager.getInstance().saveProtocol(proto);
 
 			// add the protocol to the students esf
+			esf = ElectronicStudentFileManager.getInstance().retrieveESFByIdentity(esf.getIdentity());
 			esf.addProtocol(proto);
 			ElectronicStudentFileManager.getInstance().updateElectronicStundentFile(esf);
 

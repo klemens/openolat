@@ -145,8 +145,11 @@ public class ExamCreateController extends DefaultController implements
 	 */
 	public void transactionAborted() {
 
-		if (newExam != null)
-			ExamDBManager.getInstance().deleteExam(newExam);
+		if (newExam != null) {
+			newExam = ExamDBManager.getInstance().findExamByID(newExam.getKey());
+			if(newExam != null)
+				ExamDBManager.getInstance().deleteExam(newExam);
+		}
 	}
 
 	/**

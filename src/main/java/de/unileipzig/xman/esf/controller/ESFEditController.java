@@ -264,6 +264,7 @@ public class ESFEditController extends MainLayoutBasicController {
 								ureq.getIdentity());
 
 				// add it to the esf, and update it in the db
+				this.esf = ElectronicStudentFileManager.getInstance().retrieveESFByIdentity(esf.getIdentity());
 				this.esf.addCommentEntry(commentEntry);
 				ElectronicStudentFileManager.getInstance()
 						.updateElectronicStundentFile(esf);
@@ -291,6 +292,7 @@ public class ESFEditController extends MainLayoutBasicController {
 				this.getWindowControl().pop();
 
 				// set changed comment and update
+				this.commentEntry = CommentManager.getInstance().retrieveCommentEntryByKey(this.commentEntry.getKey());
 				this.commentEntry.setComment(editCommentForm.getComment());
 				CommentManager.getInstance().updateCommentEntry(commentEntry);
 
@@ -393,20 +395,13 @@ public class ESFEditController extends MainLayoutBasicController {
 
 					if (commentList.size() > 0) {
 
-						for (CommentEntry entry : commentList) {
+						ElectronicStudentFile file = ElectronicStudentFileManager.getInstance().retrieveESFByIdentity(esf.getIdentity());
+						file.removeCommentEntries(commentList);
+						ElectronicStudentFileManager.getInstance().updateElectronicStundentFile(file);
 
-							ElectronicStudentFile file = ElectronicStudentFileManager
-									.getInstance().retrieveESFByIdentity(
-											esf.getIdentity());
-							file.removeCommentEntry(entry.getKey());
+						// update the field
+						this.esf = file;
 
-							// update the modified esf
-							ElectronicStudentFileManager.getInstance()
-									.updateElectronicStundentFile(file);
-
-							// update the field
-							this.esf = file;
-						}
 						this.createCommentTableModel(ureq, this
 								.getWindowControl());
 					} else {

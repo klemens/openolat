@@ -86,6 +86,7 @@ public class ExamMainController extends MainLayoutBasicController {
 		//Copy the repo name to the exam if necessary (not set after creation)
 		String newExamName = ExamDBManager.getInstance().getExamName(exam);
 		if (!newExamName.equals(exam.getName())) {
+			exam = ExamDBManager.getInstance().findExamByID(exam.getKey());
 			exam.setName(newExamName);
 			ExamDBManager.getInstance().updateExam(exam);
 		}

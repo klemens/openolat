@@ -159,7 +159,7 @@ public class ExamStudentController extends BasicController {
 				);
 				
 				if (exam.getIsOral()) {
-					Appointment tempApp = protocol.getAppointment();
+					Appointment tempApp = AppointmentManager.getInstance().findAppointmentByID(protocol.getAppointment().getKey());
 					tempApp.setOccupied(false);
 					AppointmentManager.getInstance().updateAppointment(tempApp);
 					tempApp = null;
@@ -173,6 +173,7 @@ public class ExamStudentController extends BasicController {
 				CommentEntry commentEntry = CommentManager.getInstance().createCommentEntry(commentText, ureq.getIdentity());
 
 				// add to esf an update the esf
+				esf = ElectronicStudentFileManager.getInstance().retrieveESFByIdentity(esf.getIdentity());
 				esf.addCommentEntry(commentEntry);
 				ElectronicStudentFileManager.getInstance().updateElectronicStundentFile(esf);
 				
