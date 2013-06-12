@@ -37,6 +37,8 @@ create table if not exists o_gp_business (
    lastusage datetime,
    businessgrouptype varchar(15) not null,
    groupname varchar(255),
+   external_id varchar(64),
+   managed_flags varchar(255),
    descr longtext,
    minparticipants integer,
    maxparticipants integer,
@@ -104,6 +106,8 @@ create table if not exists o_qtiresultset (
    assessmentid bigint not null,
    repositoryref_fk bigint not null,
    ispassed bit,
+   issuspended bit default 0,
+   fullyassessed bit default 0,
    score FLOAT(65,30),
    duration bigint,
    primary key (resultset_id)
@@ -297,12 +301,16 @@ create table if not exists o_repositoryentry (
    creationdate datetime,
    lastusage datetime,
    softkey varchar(30) not null unique,
+   external_id varchar(64),
+   external_ref varchar(64),
+   managed_flags varchar(255),
    displayname varchar(110) not null,
    resourcename varchar(100) not null,
+   fk_lifecycle bigint,
    fk_olatresource bigint unique,
    fk_ownergroup bigint unique,
    fk_tutorgroup bigint,
-	 fk_participantgroup bigint,
+   fk_participantgroup bigint,
    description longtext,
    initialauthor varchar(128) not null,
    accesscode integer not null default 0,
@@ -315,6 +323,17 @@ create table if not exists o_repositoryentry (
    launchcounter bigint not null,
    downloadcounter bigint not null,
    primary key (repositoryentry_id)
+);
+create table o_repositoryentry_cycle (
+   id bigint not null,
+   creationdate datetime not null,
+   lastmodified datetime not null,
+   r_softkey varchar(64),
+   r_label varchar(255),
+   r_privatecycle bit default 0,
+   r_validfrom datetime,
+   r_validto datetime,
+   primary key (id)
 );
 create table if not exists o_bookmark (
    bookmark_id bigint not null,
@@ -430,7 +449,7 @@ create table if not exists o_checklist (
    checklist_id bigint not null,
    version mediumint unsigned not null,
    lastmodified datetime not null,
-   title varchar(255) not null,
+   title varchar(255),
    description longtext,
    primary key (checklist_id)
 );
@@ -440,7 +459,7 @@ create table if not exists o_checkpoint (
    checkpoint_id bigint not null,
    version mediumint unsigned not null,
    lastmodified datetime not null,
-   title varchar(255) not null,
+   title varchar(255),
    description longtext,
    modestring varchar(64) not null,
    checklist_fk bigint,
@@ -820,14 +839,17 @@ create table if not exists o_mail_recipient (
 
 -- mail attachments
 create table o_mail_attachment (
-	attachment_id bigint NOT NULL,
-  creationdate datetime,
-	datas mediumblob,
-	datas_size bigint,
-	datas_name varchar(255),
-	mimetype varchar(255),
-  fk_att_mail_id bigint,
-	primary key (attachment_id)
+   attachment_id bigint NOT NULL,
+   creationdate datetime,
+   datas mediumblob,
+   datas_size bigint,
+   datas_name varchar(255),
+   datas_checksum bigint,
+   datas_path varchar(1024),
+   datas_lastmodified datetime,
+   mimetype varchar(255),
+   fk_att_mail_id bigint,
+   primary key (attachment_id)
 );
 
 -- access control
@@ -1077,13 +1099,142 @@ create table o_mapper (
    id int8 not null,
    lastmodified timestamp,
    creationdate timestamp,
+   expirationdate datetime,
    mapper_uuid varchar(64),
-   orig_session_id varchar(32),
+   orig_session_id varchar(64),
    xml_config TEXT,
    primary key (id)
 );
-alter table o_mapper ENGINE = InnoDB;
-create index o_mapper_uuid_idx on o_mapper (mapper_uuid);
+
+-- question item
+create table o_qp_pool (
+   id bigint not null,
+   creationdate datetime not null,
+   lastmodified datetime not null,
+   q_name varchar(255) not null,
+   q_public bit default 0,
+   fk_ownergroup bigint,
+   primary key (id)
+);
+
+create table o_qp_taxonomy_level (
+   id bigint not null,
+   creationdate datetime not null,
+   lastmodified datetime not null,
+   q_field varchar(255) not null,
+   q_mat_path_ids varchar(1024),
+   q_mat_path_names varchar(2048),
+   fk_parent_field bigint,
+   primary key (id)
+);
+
+create table o_qp_item (
+   id bigint not null,
+   q_identifier varchar(36) not null,
+   q_master_identifier varchar(36),
+   q_title varchar(1024) not null,
+   q_description varchar(2048),
+   q_keywords varchar(1024),
+   q_coverage varchar(1024),
+   q_additional_informations varchar(256),
+   q_language varchar(16),
+   fk_edu_context bigint,
+   q_educational_learningtime varchar(32),
+   fk_type bigint,
+   q_difficulty decimal(10,9),
+   q_stdev_difficulty decimal(10,9),
+   q_differentiation decimal(10,9),
+   q_num_of_answers_alt bigint not null default 0,
+   q_usage bigint not null default 0,
+   q_assessment_type varchar(64),
+   q_status varchar(32) not null,
+   q_version varchar(50),
+   fk_license bigint,
+   q_editor varchar(256),
+   q_editor_version varchar(256),
+   q_format varchar(32) not null,
+   creationdate datetime not null,
+   lastmodified datetime not null,
+   q_dir varchar(32),
+   q_root_filename varchar(255),
+   fk_taxonomy_level bigint,
+   fk_ownergroup bigint not null,
+   primary key (id)
+);
+
+create table o_qp_pool_2_item (
+   id bigint not null,
+   creationdate datetime not null,
+   q_editable bit default 0,
+   fk_pool_id bigint not null,
+   fk_item_id bigint not null,
+   primary key (id)
+);
+
+create table o_qp_share_item (
+   id bigint not null,
+   creationdate datetime not null,
+   q_editable bit default 0,
+   fk_resource_id bigint not null,
+   fk_item_id bigint not null,
+   primary key (id)
+);
+
+create table o_qp_item_collection (
+   id bigint not null,
+   creationdate datetime not null,
+   lastmodified datetime not null,
+   q_name varchar(256),
+   fk_owner_id bigint not null,
+   primary key (id)
+);
+
+create table o_qp_collection_2_item (
+   id bigint not null,
+   creationdate datetime not null,
+   fk_collection_id bigint not null,
+   fk_item_id bigint not null,
+   primary key (id)
+);
+
+create table o_qp_edu_context (
+   id bigint not null,
+   creationdate datetime not null,
+   q_level varchar(256) not null,
+   q_deletable bit default 0,
+   primary key (id)
+);
+
+create table if not exists o_qp_item_type (
+   id bigint not null,
+   creationdate datetime not null,
+   q_type varchar(256) not null,
+   q_deletable bit default 0,
+   primary key (id)
+);
+
+create table if not exists o_qp_license (
+   id bigint not null,
+   creationdate datetime not null,
+   q_license varchar(256) not null,
+   q_text varchar(2048),
+   q_deletable bit default 0,
+   primary key (id)
+);
+
+create table o_lti_outcome (
+   id bigint not null,
+   creationdate datetime not null,
+   lastmodified datetime not null,
+   r_ressubpath varchar(2048),
+   r_action varchar(255) not null,
+   r_outcome_key varchar(255) not null,
+   r_outcome_value varchar(2048),
+   fk_resource_id bigint not null,
+   fk_identity_id bigint not null,
+   primary key (id)
+);
+
 
 -- user view
 create view o_bs_identity_short_v as (
@@ -1463,6 +1614,178 @@ create or replace view o_im_roster_entry_v as (
    inner join o_bs_identity as ident on (entry.fk_identity_id = ident.id)
 );
 
+
+-- views with rating
+create or replace view o_qp_item_v as (
+   select
+      item.id as item_id,
+      item.q_identifier as item_identifier,
+      item.q_master_identifier as item_master_identifier,
+      item.q_title as item_title,
+      item.q_language as item_language,
+      item.q_keywords as item_keywords,
+      taxlevel.q_field as item_taxonomy_level,
+      educontext.q_level as item_edu_context,
+      item.q_educational_learningtime as item_educational_learningtime,
+      itemtype.q_type as item_type,
+      item.q_difficulty as item_difficulty,
+      item.q_stdev_difficulty as item_stdev_difficulty,
+      item.q_differentiation as item_differentiation,
+      item.q_num_of_answers_alt as item_num_of_answers_alt,
+      item.q_usage as item_usage,
+      item.q_status as item_status,
+      item.q_format as item_format,
+      item.creationdate as item_creationdate,
+      item.lastmodified as item_lastmodified,
+      ownership.identity_id as owner_id,
+      mark.creator_id as mark_creator,
+      (case when mark.creator_id is null then 0 else 1 end) as marked,
+      (select avg(rating.rating) from o_userrating as rating
+         where rating.resid=item.id and rating.resname='QuestionItem' and rating.ressubpath is null
+      ) as item_rating
+   from o_qp_item as item
+   inner join o_bs_secgroup as ownergroup on (ownergroup.id = item.fk_ownergroup)
+   left join o_bs_membership as ownership on (ownergroup.id = ownership.secgroup_id) 
+   left join o_qp_taxonomy_level as taxlevel on (item.fk_taxonomy_level = taxlevel.id)
+   left join o_qp_item_type as itemtype on (item.fk_type = itemtype.id)
+   left join o_qp_edu_context as educontext on (item.fk_edu_context = educontext.id)
+   left join o_mark as mark on (mark.resid = item.id and mark.resname = 'QuestionItem')
+);
+
+create or replace view o_qp_item_author_v as (
+   select
+      item.id as item_id,
+      ownership.identity_id as item_author,
+      item.q_identifier as item_identifier,
+      item.q_master_identifier as item_master_identifier,
+      item.q_title as item_title,
+      item.q_language as item_language,
+      item.q_keywords as item_keywords,
+      taxlevel.q_field as item_taxonomy_level,
+      educontext.q_level as item_edu_context,
+      item.q_educational_learningtime as item_educational_learningtime,
+      itemtype.q_type as item_type,
+      item.q_difficulty as item_difficulty,
+      item.q_stdev_difficulty as item_stdev_difficulty,
+      item.q_differentiation as item_differentiation,
+      item.q_num_of_answers_alt as item_num_of_answers_alt,
+      item.q_usage as item_usage,
+      item.q_status as item_status,
+      item.q_format as item_format,
+      item.creationdate as item_creationdate,
+      item.lastmodified as item_lastmodified,
+      mark.creator_id as mark_creator,
+      (case when mark.creator_id is null then 0 else 1 end) as marked,
+      (select avg(rating.rating) from o_userrating as rating
+         where rating.resid=item.id and rating.resname='QuestionItem' and rating.ressubpath is null
+      ) as item_rating
+   from o_qp_item as item
+   inner join o_bs_secgroup as ownergroup on (ownergroup.id = item.fk_ownergroup)
+   inner join o_bs_membership as ownership on (ownergroup.id = ownership.secgroup_id) 
+   left join o_mark as mark on (mark.resid = item.id and mark.resname = 'QuestionItem')
+   left join o_qp_taxonomy_level as taxlevel on (item.fk_taxonomy_level = taxlevel.id)
+   left join o_qp_item_type as itemtype on (item.fk_type = itemtype.id)
+   left join o_qp_edu_context as educontext on (item.fk_edu_context = educontext.id)
+);
+
+create or replace view o_qp_item_pool_v as (
+   select
+      item.id as item_id,
+      pool2item.q_editable as item_editable,
+      pool2item.fk_pool_id as item_pool,
+      item.q_identifier as item_identifier,
+      item.q_master_identifier as item_master_identifier,
+      item.q_title as item_title,
+      item.q_language as item_language,
+      item.q_keywords as item_keywords,
+      taxlevel.q_field as item_taxonomy_level,
+      educontext.q_level as item_edu_context,
+      item.q_educational_learningtime as item_educational_learningtime,
+      itemtype.q_type as item_type,
+      item.q_difficulty as item_difficulty,
+      item.q_stdev_difficulty as item_stdev_difficulty,
+      item.q_differentiation as item_differentiation,
+      item.q_num_of_answers_alt as item_num_of_answers_alt,
+      item.q_usage as item_usage,
+      item.q_status as item_status,
+      item.q_format as item_format,
+      item.creationdate as item_creationdate,
+      item.lastmodified as item_lastmodified,
+      mark.creator_id as mark_creator,
+      (case when mark.creator_id is null then 0 else 1 end) as marked,
+      (select avg(rating.rating) from o_userrating as rating
+         where rating.resid=item.id and rating.resname='QuestionItem' and rating.ressubpath is null
+      ) as item_rating
+   from o_qp_item as item
+   inner join o_qp_pool_2_item as pool2item on (pool2item.fk_item_id = item.id)
+   left join o_mark as mark on (mark.resid = item.id and mark.resname = 'QuestionItem')
+   left join o_qp_taxonomy_level as taxlevel on (item.fk_taxonomy_level = taxlevel.id)
+   left join o_qp_item_type as itemtype on (item.fk_type = itemtype.id)
+   left join o_qp_edu_context as educontext on (item.fk_edu_context = educontext.id)
+);
+
+create or replace view o_qp_pool_2_item_short_v as (
+   select
+      pool2item.id as item_to_pool_id,
+      pool2item.creationdate as item_to_pool_creationdate,
+      item.id as item_id,
+      pool2item.q_editable as item_editable,
+      pool2item.fk_pool_id as item_pool,
+      pool.q_name as item_pool_name
+   from o_qp_item as item
+   inner join o_qp_pool_2_item as pool2item on (pool2item.fk_item_id = item.id)
+   inner join o_qp_pool as pool on (pool2item.fk_pool_id = pool.id)
+);
+
+create or replace view o_qp_item_shared_v as (
+   select
+      item.id as item_id,
+      shareditem.q_editable as item_editable,
+      shareditem.fk_resource_id as item_resource_id,
+      item.q_identifier as item_identifier,
+      item.q_master_identifier as item_master_identifier,
+      item.q_title as item_title,
+      item.q_language as item_language,
+      item.q_keywords as item_keywords,
+      taxlevel.q_field as item_taxonomy_level,
+      educontext.q_level as item_edu_context,
+      item.q_educational_learningtime as item_educational_learningtime,
+      itemtype.q_type as item_type,
+      item.q_difficulty as item_difficulty,
+      item.q_stdev_difficulty as item_stdev_difficulty,
+      item.q_differentiation as item_differentiation,
+      item.q_num_of_answers_alt as item_num_of_answers_alt,
+      item.q_usage as item_usage,
+      item.q_status as item_status,
+      item.q_format as item_format,
+      item.creationdate as item_creationdate,
+      item.lastmodified as item_lastmodified,
+      mark.creator_id as mark_creator,
+      (case when mark.creator_id is null then 0 else 1 end) as marked,
+      (select avg(rating.rating) from o_userrating as rating
+         where rating.resid=item.id and rating.resname='QuestionItem' and rating.ressubpath is null
+      ) as item_rating
+   from o_qp_item as item
+   inner join o_qp_share_item as shareditem on (shareditem.fk_item_id = item.id)
+   left join o_mark as mark on (mark.resid = item.id and mark.resname = 'QuestionItem')
+   left join o_qp_taxonomy_level as taxlevel on (item.fk_taxonomy_level = taxlevel.id)
+   left join o_qp_item_type as itemtype on (item.fk_type = itemtype.id)
+   left join o_qp_edu_context as educontext on (item.fk_edu_context = educontext.id)
+);
+
+create or replace view o_qp_share_2_item_short_v as (
+   select
+      shareditem.id as item_to_share_id,
+      shareditem.creationdate as item_to_share_creationdate,
+      item.id as item_id,
+      shareditem.q_editable as item_editable,
+      shareditem.fk_resource_id as resource_id,
+      bgroup.groupname as resource_name
+   from o_qp_item as item
+   inner join o_qp_share_item as shareditem on (shareditem.fk_item_id = item.id)
+   inner join o_gp_business as bgroup on (shareditem.fk_resource_id = bgroup.fk_resource)
+);
+
 create index  ocl_asset_idx on oc_lock (asset);
 alter table oc_lock add index FK9E30F4B66115906D (identity_fk), add constraint FK9E30F4B66115906D foreign key (identity_fk) references o_bs_identity (id);
 
@@ -1471,7 +1794,9 @@ alter table hibernate_unique_key ENGINE = InnoDB;
 alter table o_forum ENGINE = InnoDB;
 alter table o_property ENGINE = InnoDB;
 alter table o_bs_secgroup ENGINE = InnoDB;
+alter table  o_repositoryentry_cycle ENGINE = InnoDB;
 alter table o_repositorymetadata ENGINE = InnoDB;
+alter table o_lti_outcome ENGINE = InnoDB;
 alter table o_user ENGINE = InnoDB;
 alter table o_userproperty ENGINE = InnoDB;
 alter table o_message ENGINE = InnoDB;
@@ -1532,6 +1857,22 @@ alter table o_ac_reservation ENGINE = InnoDB;
 alter table o_ac_paypal_transaction ENGINE = InnoDB;
 alter table o_as_eff_statement ENGINE = InnoDB;
 alter table o_as_user_course_infos ENGINE = InnoDB;
+alter table o_mapper ENGINE = InnoDB;
+alter table o_qp_pool ENGINE = InnoDB;
+alter table o_qp_taxonomy_level ENGINE = InnoDB;
+alter table o_qp_item ENGINE = InnoDB;
+alter table o_qp_pool_2_item ENGINE = InnoDB;
+alter table o_qp_share_item ENGINE = InnoDB;
+alter table o_qp_item_collection ENGINE = InnoDB;
+alter table o_qp_collection_2_item ENGINE = InnoDB;
+alter table o_qp_edu_context ENGINE = InnoDB;
+alter table o_qp_item_type ENGINE = InnoDB;
+alter table o_qp_license ENGINE = InnoDB;
+alter table o_om_room_reference ENGINE = InnoDB;
+alter table o_im_message ENGINE = InnoDB;
+alter table o_im_notification ENGINE = InnoDB;
+alter table o_im_roster_entry ENGINE = InnoDB;
+alter table o_im_preferences ENGINE = InnoDB;
 
 
 create index  resid_idx on o_property (resourcetypeid);
@@ -1622,6 +1963,8 @@ create index  projectbroker_project_broker_idx on o_projectbroker_project (proje
 create index  projectbroker_project_id_idx on o_projectbroker_project (project_id);
 create index  o_projectbroker_customfields_idx on o_projectbroker_customfields (fk_project_id);
 
+create index o_mapper_uuid_idx on o_mapper (mapper_uuid);
+
 alter table o_ac_reservation add constraint idx_rsrv_to_rsrc_rsrc foreign key (fk_resource) references o_olatresource (resource_id);
 alter table o_ac_reservation add constraint idx_rsrv_to_rsrc_identity foreign key (fk_identity) references o_bs_identity (id);
 
@@ -1682,6 +2025,9 @@ alter table o_mail_recipient add constraint FKF86663165A4FA5DG foreign key (fk_r
 alter table o_mail add constraint FKF86663165A4FA5DC foreign key (fk_from_id) references o_mail_recipient (recipient_id);
 alter table o_mail_to_recipient add constraint FKF86663165A4FA5DD foreign key (fk_recipient_id) references o_mail_recipient (recipient_id);
 alter table o_mail_attachment add constraint FKF86663165A4FA5DF foreign key (fk_att_mail_id) references o_mail (mail_id);
+create index idx_mail_att_checksum_idx on o_mail_attachment (datas_checksum);
+create index idx_mail_path_idx on o_mail_attachment (datas_path(255));
+create index idx_mail_att_siblings_idx on o_mail_attachment (datas_checksum, mimetype, datas_size, datas_name);
 
 create index ac_offer_to_resource_idx on o_ac_offer (fk_resource_id);
 alter table o_ac_offer_access add constraint off_to_meth_meth_ctx foreign key (fk_method_id) references o_ac_method (method_id);
@@ -1716,6 +2062,43 @@ create index eff_statement_repo_key_idx on o_as_eff_statement (course_repo_key);
 alter table o_as_user_course_infos add index user_course_infos_id_cstr (fk_identity), add constraint user_course_infos_id_cstr foreign key (fk_identity) references o_bs_identity (id);
 alter table o_as_user_course_infos add index user_course_infos_res_cstr (fk_resource_id), add constraint user_course_infos_res_cstr foreign key (fk_resource_id) references o_olatresource (resource_id);
 alter table o_as_user_course_infos add unique (fk_identity, fk_resource_id);
+
+alter table o_qp_pool add constraint idx_qp_pool_owner_grp_id foreign key (fk_ownergroup) references o_bs_secgroup(id);
+
+alter table o_qp_pool_2_item add constraint idx_qp_pool_2_item_pool_id foreign key (fk_pool_id) references o_qp_pool(id);
+alter table o_qp_pool_2_item add constraint idx_qp_pool_2_item_item_id foreign key (fk_item_id) references o_qp_item(id);
+alter table o_qp_pool_2_item add unique (fk_pool_id, fk_item_id);
+
+alter table o_qp_share_item add constraint idx_qp_share_rsrc_id foreign key (fk_resource_id) references o_olatresource(resource_id);
+alter table o_qp_share_item add constraint idx_qp_share_item_id foreign key (fk_item_id) references o_qp_item(id);
+alter table o_qp_share_item add unique (fk_resource_id, fk_item_id);
+
+alter table o_qp_item_collection add constraint idx_qp_coll_owner_id foreign key (fk_owner_id) references o_bs_identity(id);
+
+alter table o_qp_collection_2_item add constraint idx_qp_coll_coll_id foreign key (fk_collection_id) references o_qp_item_collection(id);
+alter table o_qp_collection_2_item add constraint idx_qp_coll_item_id foreign key (fk_item_id) references o_qp_item(id);
+alter table o_qp_collection_2_item add unique (fk_collection_id, fk_item_id);
+
+alter table o_qp_item add constraint idx_qp_pool_2_field_id foreign key (fk_taxonomy_level) references o_qp_taxonomy_level(id);
+alter table o_qp_item add constraint idx_qp_item_owner_id foreign key (fk_ownergroup) references o_bs_secgroup(id);
+alter table o_qp_item add constraint idx_qp_item_edu_ctxt_id foreign key (fk_edu_context) references o_qp_edu_context(id);
+alter table o_qp_item add constraint idx_qp_item_type_id foreign key (fk_type) references o_qp_item_type(id);
+alter table o_qp_item add constraint idx_qp_item_license_id foreign key (fk_license) references o_qp_license(id);
+
+alter table o_qp_taxonomy_level add constraint idx_qp_field_2_parent_id foreign key (fk_parent_field) references o_qp_taxonomy_level(id);
+
+alter table o_qp_item_type add unique (q_type(200));
+
+alter table o_lti_outcome add constraint idx_lti_outcome_ident_id foreign key (fk_identity_id) references o_bs_identity(id);
+alter table o_lti_outcome add constraint idx_lti_outcome_rsrc_id foreign key (fk_resource_id) references o_olatresource(resource_id);
+
+
+create index idx_re_lifecycle_soft_idx on o_repositoryentry_cycle (r_softkey);
+create index idx_re_lifecycle_extid_idx on o_repositoryentry (external_id);
+create index idx_re_lifecycle_extref_idx on o_repositoryentry (external_ref);
+alter table o_repositoryentry add constraint idx_re_lifecycle_fk foreign key (fk_lifecycle) references o_repositoryentry_cycle(id);
+
+create index idx_grp_lifecycle_soft_idx on o_gp_business (external_id);
 
 insert into hibernate_unique_key values ( 0 );
 

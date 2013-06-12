@@ -35,6 +35,7 @@ import javax.ws.rs.core.Response.Status;
 
 import org.olat.core.CoreSpringFactory;
 import org.olat.core.id.Identity;
+import org.olat.core.util.StringHelper;
 import org.olat.group.BusinessGroup;
 import org.olat.group.BusinessGroupService;
 import org.olat.group.model.SearchBusinessGroupParams;
@@ -63,7 +64,7 @@ public class MyGroupWebService {
 	}
 	
 	/**
-	 * Return all groups of a user
+	 * Return all groups of a user where the user is coach or participant.
 	 * @response.representation.200.qname {http://www.example.com}groupVO
 	 * @response.representation.200.mediaType application/xml, application/json
 	 * @response.representation.200.doc The groups of the user
@@ -71,6 +72,8 @@ public class MyGroupWebService {
 	 * @response.representation.404.doc The identity not found
 	 * @param start The first result
 	 * @param limit The maximum results
+	 * @param externalId Search with an external ID
+	 * @param managed (true / false) Search only managed / not managed groups 
 	 * @param httpRequest The HTTP request
 	 * @param request The REST request
 	 * @return The list of groups informations
@@ -78,11 +81,17 @@ public class MyGroupWebService {
 	@GET
 	@Produces({MediaType.APPLICATION_XML, MediaType.APPLICATION_JSON})
 	public Response getUserGroupList(@QueryParam("start") @DefaultValue("0") Integer start, @QueryParam("limit") @DefaultValue("25") Integer limit,
+			@QueryParam("externalId") String externalId, @QueryParam("managed") Boolean managed,
 			@Context HttpServletRequest httpRequest, @Context Request request) {
 
 		BusinessGroupService bgs = CoreSpringFactory.getImpl(BusinessGroupService.class);
 		
 		SearchBusinessGroupParams params = new SearchBusinessGroupParams(retrievedUser, true, true);
+		if(StringHelper.containsNonWhitespace(externalId)) {
+			params.setExternalId(externalId);
+		}
+		params.setManaged(managed);
+		
 		List<BusinessGroup> groups;
 		if(MediaTypeVariants.isPaged(httpRequest, request)) {
 			int totalCount = bgs.countBusinessGroups(params, null);
@@ -118,6 +127,8 @@ public class MyGroupWebService {
 	 * @response.representation.406.doc The request hasn't paging information
 	 * @param start The first result
 	 * @param limit The maximum results
+	 * @param externalId Search with an external ID
+	 * @param managed (true / false) Search only managed / not managed groups 
 	 * @param httpRequest The HTTP request
 	 * @param request The REST request
 	 * @return The list of groups with additional informations
@@ -127,11 +138,17 @@ public class MyGroupWebService {
 	@Produces({MediaType.APPLICATION_XML, MediaType.APPLICATION_JSON})
 	public Response getUserGroupInfosList(@QueryParam("start") @DefaultValue("0") Integer start,
 			@QueryParam("limit") @DefaultValue("25") Integer limit,
+			@QueryParam("externalId") String externalId, @QueryParam("managed") Boolean managed,
 			@Context HttpServletRequest httpRequest, @Context Request request) {
 
 		BusinessGroupService bgs = CoreSpringFactory.getImpl(BusinessGroupService.class);
 		
 		SearchBusinessGroupParams params = new SearchBusinessGroupParams(retrievedUser, true, true);
+		if(StringHelper.containsNonWhitespace(externalId)) {
+			params.setExternalId(externalId);
+		}
+		params.setManaged(managed);
+		
 		List<BusinessGroup> groups;
 		if(MediaTypeVariants.isPaged(httpRequest, request)) {
 			int totalCount = bgs.countBusinessGroups(params, null);

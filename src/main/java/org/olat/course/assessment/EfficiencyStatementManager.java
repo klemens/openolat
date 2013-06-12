@@ -33,7 +33,6 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 
-import org.olat.admin.user.delete.service.UserDeletionManager;
 import org.olat.core.commons.persistence.DB;
 import org.olat.core.commons.persistence.DBFactory;
 import org.olat.core.commons.persistence.DBQuery;
@@ -85,8 +84,7 @@ public class EfficiencyStatementManager extends BasicManager implements UserData
 	/**
 	 * Constructor
 	 */
-	private EfficiencyStatementManager(UserDeletionManager userDeletionManager) {
-		userDeletionManager.getInstance().registerDeletableUserData(this);
+	private EfficiencyStatementManager() {
 		INSTANCE = this;
 	}
 	
@@ -148,7 +146,7 @@ public class EfficiencyStatementManager extends BasicManager implements UserData
 			efficiencyStatement.setCourseTitle(userCourseEnv.getCourseEnvironment().getCourseTitle());
 			efficiencyStatement.setCourseRepoEntryKey(repoEntryKey);
 			User user = identity.getUser();
-			efficiencyStatement.setDisplayableUserInfo(user.getProperty(UserConstants.FIRSTNAME, null) + " " + user.getProperty(UserConstants.LASTNAME, null) + " (" + identity.getName() + ")");
+			efficiencyStatement.setDisplayableUserInfo(user.getProperty(UserConstants.FIRSTNAME, null) + " " + user.getProperty(UserConstants.LASTNAME, null) + " (" + identity.getName() + ")");//TODO username
 			efficiencyStatement.setLastUpdated(System.currentTimeMillis());
 							
 			UserEfficiencyStatementImpl efficiencyProperty = getUserEfficiencyStatementFull(repoEntryKey, identity);

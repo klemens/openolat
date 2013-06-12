@@ -241,6 +241,7 @@ public class BusinessGroupRelationDAO {
 		StringBuilder sb = new StringBuilder();
 		sb.append("select v from ").append(RepositoryEntry.class.getName()).append(" as v ")
 			.append(" inner join fetch v.olatResource as ores ")
+			.append(" left join fetch v.lifecycle as lifecycle")
 			.append(" left join fetch v.ownerGroup as ownerGroup ")
 			.append(" left join fetch v.tutorGroup as tutorGroup ")
 			.append(" left join fetch v.participantGroup as participantGroup ")
@@ -290,19 +291,35 @@ public class BusinessGroupRelationDAO {
 		if(groupKeys == null || groupKeys.isEmpty()) {
 			return Collections.emptyList();
 		}
-
+		
 		StringBuilder sb = new StringBuilder();
 		sb.append("select rel from ").append(BGRepositoryEntryRelation.class.getName()).append(" as rel ")
 			.append(" where rel.groupKey in (:groupKeys)");
 
 		TypedQuery<BGRepositoryEntryRelation> query = dbInstance.getCurrentEntityManager().createQuery(sb.toString(), BGRepositoryEntryRelation.class);
-		query.setFirstResult(firstResult);
-		if(maxResults > 0) {
-			query.setMaxResults(maxResults);
+
+		if(firstResult >= 0 && maxResults >= 0) {
+			query.setFirstResult(firstResult);
+			if(maxResults > 0) {
+				query.setMaxResults(maxResults);
+			}
+			query.setParameter("groupKeys", groupKeys);
+			return query.getResultList();
 		}
+
+		List<Long> groupKeyList = new ArrayList<Long>(groupKeys);
+		List<BGRepositoryEntryRelation> relations = new ArrayList<BGRepositoryEntryRelation>(groupKeys.size());
 		
-		query.setParameter("groupKeys", groupKeys);
-		return query.getResultList();
+		int count = 0;
+		int batch = 500;
+		do {
+			int toIndex = Math.min(count + batch, groupKeyList.size());
+			List<Long> toLoad = groupKeyList.subList(count, toIndex);
+			List<BGRepositoryEntryRelation> batchOfRelations = query.setParameter("groupKeys", toLoad).getResultList();
+			relations.addAll(batchOfRelations);
+			count += batch;
+		} while(count < groupKeyList.size());
+		return relations;
 	}
 	
 	public List<BGResourceRelation> findRelations(Collection<Long> groupKeys, int firstResult, int maxResults) {

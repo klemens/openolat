@@ -20,7 +20,6 @@
 package org.olat.core.commons.fullWebApp;
 
 import org.olat.core.CoreSpringFactory;
-import org.olat.core.defaults.dispatcher.ClassPathStaticDispatcher;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.Windows;
 import org.olat.core.gui.components.Component;
@@ -30,6 +29,7 @@ import org.olat.core.gui.control.WindowControl;
 import org.olat.core.gui.control.controller.BasicController;
 import org.olat.core.helpers.Settings;
 import org.olat.core.util.session.UserSessionManager;
+import org.olat.user.UserManager;
 
 /**
  * <h3>Description:</h3>
@@ -51,9 +51,6 @@ public class DefaultFooterController extends BasicController {
 
 		// Initialize velocity container
 		footerVC = createVelocityContainer("defaultfooter");
-
-		String ressourceMapperUri = ClassPathStaticDispatcher.getInstance().getMapperBasePath(this.getClass());
-		footerVC.contextPut("ressourceMapperUri", ressourceMapperUri);
 		footerVC.contextPut("olatversion", Settings.getFullVersionInfo() +" "+ Settings.getNodeInfo());
 
 		// Push information about AJAX mode
@@ -76,7 +73,8 @@ public class DefaultFooterController extends BasicController {
 		// Push information about user
 		if (ureq.getUserSession().isAuthenticated()) {
 			footerVC.contextPut("loggedIn", Boolean.TRUE);
-			footerVC.contextPut("username", ureq.getIdentity().getName());
+			String fullName = CoreSpringFactory.getImpl(UserManager.class).getUserDisplayName(getIdentity());
+			footerVC.contextPut("username", fullName);
 		} else {
 			footerVC.contextPut("loggedIn", Boolean.FALSE);
 		}

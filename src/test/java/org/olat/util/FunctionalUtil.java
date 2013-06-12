@@ -47,14 +47,14 @@ public class FunctionalUtil {
 	public final static String LOGIN_PAGE = "dmz";
 	public final static String ACKNOWLEDGE_CHECKBOX = "acknowledge_checkbox";
 
-	public final static long TIMEOUT = 60000;
-	public final static long POLL_INTERVAL = 100;
+	public final static long TIMEOUT = 20000;
+	public final static long POLL_INTERVAL = 200;
 	
 	public enum WaitLimitAttribute {
 		NORMAL("10000"),
-		EXTENDED("20000"),
-		SAVE("30000"),
-		VERY_SAVE("60000");
+		EXTENDED("15000"),
+		SAVE("20000"),
+		VERY_SAVE("30000");
 		
 		private String extend;
 		private long extendAsLong;
@@ -132,9 +132,9 @@ public class FunctionalUtil {
 	public final static String TABLE_LAST_CHILD_CSS = "b_last_child";
 	public final static String TABLE_ALL_CSS = "b_table_page_all";
 	
-	public final static String TREE_NODE_ANCHOR_CSS = "x-tree-node-anchor";
-	public final static String TREE_NODE_CSS = "x-tree-node";
-	public final static String TREE_NODE_LOADING_CSS = "x-tree-node-loading";
+	public final static String TREE_NODE_ANCHOR_CSS = "b_tree_item_wrapper";
+	public final static String TREE_NODE_CSS = "b_tree_item_wrapper";
+	public final static String TREE_NODE_LOADING_CSS = null;
 	public final static String TREE_LEVEL0_CSS = "b_tree_l0";
 	public final static String TREE_LEVEL1_CSS = "b_tree_l1";
 	public final static String TREE_LEVEL2_CSS = "b_tree_l2";
@@ -328,6 +328,11 @@ public class FunctionalUtil {
 		long startTime = Calendar.getInstance().getTimeInMillis();
 		long currentTime = startTime;
 		long waitLimit = TIMEOUT;
+
+		//FIXME:JK: this is really ugly. For better performance revise confirmation
+		if(browser.isConfirmationPresent()){
+			browser.getConfirmation();
+		}
 		
 		while(linkBusy(browser) && waitLimit >  currentTime - startTime){
 			try {

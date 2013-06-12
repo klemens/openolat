@@ -44,6 +44,7 @@ import org.olat.core.gui.components.form.flexible.impl.elements.table.DefaultFle
 import org.olat.core.gui.components.form.flexible.impl.elements.table.FlexiTableColumnModel;
 import org.olat.core.gui.components.form.flexible.impl.elements.table.FlexiTableDataModel;
 import org.olat.core.gui.components.form.flexible.impl.elements.table.FlexiTableDataModelFactory;
+import org.olat.core.gui.components.form.flexible.impl.elements.table.FlexiTableDataModelImpl;
 import org.olat.core.gui.components.table.TableDataModel;
 import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.WindowControl;
@@ -185,7 +186,7 @@ class UserBulkChangeStep02 extends BasicStep {
 				List<String> userDataArray = new ArrayList<String>();
 
 				// add column for login
-				userDataArray.add(identity.getName());
+				userDataArray.add(identity.getName());//TODO username
 				// add columns for password
 				if (attributeChangeMap.containsKey(UserBulkChangeManager.PWD_IDENTIFYER)) {
 					userDataArray.add(attributeChangeMap.get(UserBulkChangeManager.PWD_IDENTIFYER));
@@ -249,33 +250,21 @@ class UserBulkChangeStep02 extends BasicStep {
 			FlexiTableColumnModel tableColumnModel = FlexiTableDataModelFactory.createFlexiTableColumnModel();
 			// fixed fields:
 			int colPos = 0;
-			tableColumnModel.addFlexiColumnModel(new DefaultFlexiColumnModel("table.user.login"));
-			colPos++;
-			tableColumnModel.addFlexiColumnModel(new DefaultFlexiColumnModel("form.name.pwd"));
-			colPos++;
-			tableColumnModel.addFlexiColumnModel(new DefaultFlexiColumnModel("form.name.language"));
-			colPos++;
-
+			tableColumnModel.addFlexiColumnModel(new DefaultFlexiColumnModel("table.user.login", colPos++));
+			tableColumnModel.addFlexiColumnModel(new DefaultFlexiColumnModel("form.name.pwd", colPos++));
+			tableColumnModel.addFlexiColumnModel(new DefaultFlexiColumnModel("form.name.language", colPos++));
 			for (int j = 0; j < userPropertyHandlers.size(); j++) {
 				UserPropertyHandler userPropertyHandler = userPropertyHandlers.get(j);
-				tableColumnModel.addFlexiColumnModel(new DefaultFlexiColumnModel(userPropertyHandler.i18nColumnDescriptorLabelKey()));
-				colPos++;
+				tableColumnModel.addFlexiColumnModel(new DefaultFlexiColumnModel(userPropertyHandler.i18nColumnDescriptorLabelKey(), colPos++));
 			}
+			tableColumnModel.addFlexiColumnModel(new DefaultFlexiColumnModel("table.role.useradmin", colPos++));
+			tableColumnModel.addFlexiColumnModel(new DefaultFlexiColumnModel("table.role.groupadmin", colPos++));
+			tableColumnModel.addFlexiColumnModel(new DefaultFlexiColumnModel("table.role.author", colPos++));
+			tableColumnModel.addFlexiColumnModel(new DefaultFlexiColumnModel("table.role.admin", colPos++));
+			tableColumnModel.addFlexiColumnModel(new DefaultFlexiColumnModel("table.role.status", colPos++));
 
-			tableColumnModel.addFlexiColumnModel(new DefaultFlexiColumnModel("table.role.useradmin"));
-			colPos++;
-			tableColumnModel.addFlexiColumnModel(new DefaultFlexiColumnModel("table.role.groupadmin"));
-			colPos++;
-			tableColumnModel.addFlexiColumnModel(new DefaultFlexiColumnModel("table.role.author"));
-			colPos++;
-			tableColumnModel.addFlexiColumnModel(new DefaultFlexiColumnModel("table.role.admin"));
-			colPos++;
-			tableColumnModel.addFlexiColumnModel(new DefaultFlexiColumnModel("table.role.status"));
-
-			FlexiTableDataModel tableDataModel = FlexiTableDataModelFactory.createFlexiTableDataModel(new OverviewModel(mergedDataChanges,
-					colPos + 1), tableColumnModel);
-
-			uifactory.addTableElement("newUsers", tableDataModel, formLayoutVertical);
+			FlexiTableDataModel tableDataModel = new FlexiTableDataModelImpl<List<String>>(new OverviewModel(mergedDataChanges, colPos), tableColumnModel);
+			uifactory.addTableElement(ureq, getWindowControl(), "newUsers", tableDataModel, formLayoutVertical);
 
 			//fxdiff: 101 add group overview
 			Set<Long> allGroups = new HashSet<Long>(); 
@@ -289,16 +278,16 @@ class UserBulkChangeStep02 extends BasicStep {
 				uifactory.addSpacerElement("space", formLayout, true);
 				uifactory.addStaticTextElement("add.to.groups", "", formLayout);
 				FlexiTableColumnModel groupColumnModel = FlexiTableDataModelFactory.createFlexiTableColumnModel();
-				groupColumnModel.addFlexiColumnModel(new DefaultFlexiColumnModel("table.group.name"));
-				groupColumnModel.addFlexiColumnModel(new DefaultFlexiColumnModel("description"));
-				groupColumnModel.addFlexiColumnModel(new DefaultFlexiColumnModel("table.user.role"));
-				groupColumnModel.addFlexiColumnModel(new DefaultFlexiColumnModel("send.email"));
+				groupColumnModel.addFlexiColumnModel(new DefaultFlexiColumnModel("table.group.name", 0));
+				groupColumnModel.addFlexiColumnModel(new DefaultFlexiColumnModel("description", 1));
+				groupColumnModel.addFlexiColumnModel(new DefaultFlexiColumnModel("table.user.role", 2));
+				groupColumnModel.addFlexiColumnModel(new DefaultFlexiColumnModel("send.email", 3));
 
 				List<BusinessGroup> groups = businessGroupService.loadBusinessGroups(allGroups);
 				TableDataModel<BusinessGroup> model = new GroupAddOverviewModel(groups, ownGroups, partGroups, mailGroups, getTranslator()); 
-				FlexiTableDataModel groupDataModel = FlexiTableDataModelFactory.createFlexiTableDataModel(model, groupColumnModel);
+				FlexiTableDataModel groupDataModel = new FlexiTableDataModelImpl<BusinessGroup>(model, groupColumnModel);
 				
-				uifactory.addTableElement("groupOverview", groupDataModel, formLayout);
+				uifactory.addTableElement(ureq, getWindowControl(), "groupOverview", groupDataModel, formLayout);
 			}
 		}
 
