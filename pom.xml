@@ -1031,6 +1031,11 @@
 				<updatePolicy>daily</updatePolicy>
 			</snapshots>
 		</repository>
+		<repository>
+			<id>thirdparty-releases</id>
+			<name>JBoss Thirdparty Releases</name>
+			<url>https://repository.jboss.org/nexus/content/repositories/thirdparty-releases</url>
+		</repository>
 	</repositories>
 	<pluginRepositories>
 		<pluginRepository>
@@ -2033,6 +2038,11 @@
 			<artifactId>junit</artifactId>
 			<version>4.8.2</version>
 			<scope>test</scope>
+		</dependency>
+		<dependency>
+			<groupId>redstone.xmlrpc</groupId>
+			<artifactId>xmlrpc</artifactId>
+			<version>1.1.1</version>
 		</dependency>
     
 		<!-- Start test dependencies for Arquillian and Selenium -->
