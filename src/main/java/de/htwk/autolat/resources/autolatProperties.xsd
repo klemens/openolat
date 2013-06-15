@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<schema xmlns="http://www.w3.org/2001/XMLSchema" targetNamespace="http://www.example.org/autolatProperties" xmlns:tns="http://www.example.org/autolatProperties" elementFormDefault="qualified">
+
+    <element name="autolat" type="tns:autolatType"></element>
+    
+
+    <complexType name="autolatType">
+    	<sequence>
+    		<element name="autotoolservers"
+    			type="tns:autotoolservertype">
+    		</element>
+    	</sequence>
+    </complexType>
+
+    <complexType name="autotoolservertype">
+    	<sequence>
+    		<element name="server" type="tns:servertype"></element>
+    	</sequence>
+    </complexType>
+
+    <complexType name="servertype">
+    	<sequence>
+
+            <element name="name" type="string" maxOccurs="1"
+            	minOccurs="1">
+            </element>
+            <element name="version" type="string" minOccurs="1"
+    			maxOccurs="1">
+    		</element>
+    		<element name="url" type="string" minOccurs="1"
+    			maxOccurs="1">
+    		</element>
+    		<element name="alturl" type="string" maxOccurs="unbounded"
+    			minOccurs="0">
+    		</element>
+    	</sequence>
+    </complexType>
+</schema>

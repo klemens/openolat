@@ -1,0 +1,11 @@
+<fieldset class="b_clearfix">
+<legend>$r.translate("label.controller.cmcexistingtc.title")</legend>
+#if($notempty)
+$r.translate("output.controller.cmcexistingtc.statusinformation"): $status<br><br>
+<center>$r.render("backward")&nbsp;&nbsp;&nbsp;$r.render("forward")</center>
+<br><br><br>
+$r.render("editTaskForm")
+#else
+$r.translate("output.controller.cmcexistingtc.noconfigurations")
+#end
+</fieldset>

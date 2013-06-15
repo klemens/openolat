@@ -1,0 +1,25 @@
+<?xml version="1.0"?>
+<!DOCTYPE hibernate-mapping PUBLIC 
+        "-//Hibernate/Hibernate Mapping DTD//EN"
+        "http://hibernate.sourceforge.net/hibernate-mapping-3.0.dtd">
+
+<hibernate-mapping default-lazy="false">
+  <class name="de.htwk.autolat.Student.StudentImpl" table="ao_student">  
+  
+		<cache usage="read-write" />
+
+    <id name="key" column="id" type="long" unsaved-value="null">
+      <generator class="hilo"/>
+    </id>
+
+	<many-to-one name="identity" column="fk_identity" class="org.olat.basesecurity.IdentityImpl" />
+    
+    <bag name="taskInstanceList" inverse="true" cascade="none" lazy="true">
+    
+    	<key column="fk_student" />
+    	<one-to-many class="de.htwk.autolat.TaskInstance.TaskInstanceImpl" />
+    
+    </bag>
+    
+  </class>
+</hibernate-mapping>

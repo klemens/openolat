@@ -1,0 +1,12 @@
+drop table if exists ao_task_type;
+drop table if exists ao_task_solution;
+drop table if exists ao_task_result;
+drop table if exists ao_task_instance;
+drop table if exists ao_task_module;
+drop table if exists ao_living_task_instance;
+drop table if exists ao_serverconnection;
+drop table if exists ao_student;
+drop table if exists ao_task_configuration;
+drop table if exists ao_configuration;
+drop table if exists ao_scorepoints;
+drop table if exists ao_configuration_taskmodule;

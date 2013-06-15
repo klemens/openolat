@@ -1,0 +1,23 @@
+<?xml version="1.0"?>
+<!DOCTYPE hibernate-mapping PUBLIC 
+        "-//Hibernate/Hibernate Mapping DTD//EN"
+        "http://hibernate.sourceforge.net/hibernate-mapping-3.0.dtd">
+
+<hibernate-mapping default-lazy="true">
+  <class name="de.htwk.autolat.TaskSolution.TaskSolutionImpl" table="ao_task_solution">  
+  
+		<cache usage="read-write" />
+
+    <id name="key" column="id" type="long" unsaved-value="null">
+      <generator class="hilo"/>
+    </id>
+    
+	<property name="evaluationText" column="evaluationtext" type="text" />   
+	<property name="score" column="score" type="double" />
+	<property name="solutionText" column="solutiontext" type="text" />
+	<property name="solutionDate" column="solutiondate" type="timestamp" />
+	
+	<many-to-one name="taskInstance" column="fk_taskinstance" class="de.htwk.autolat.TaskInstance.TaskInstanceImpl" />
+	
+  </class>
+</hibernate-mapping>

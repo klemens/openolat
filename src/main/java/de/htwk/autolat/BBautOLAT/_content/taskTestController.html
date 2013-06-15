@@ -1,0 +1,68 @@
+#if($showSeedInputField)
+	<fieldset class="b_clearfix">
+	<legend>$r.translate("label.form.task.seed.title")</legend>
+	$r.render("taskSeedForm")
+	</fieldset>
+#end
+
+#if($showRandomSeedButton)
+	<fieldset class="b_clearfix">
+	<legend>$r.translate("label.controller.task.random")</legend>
+	<center style="margin: 1.5em">
+	<span style="margin: 1em">$r.render("randomSeed")</span>
+	</center>
+	</fieldset>
+#end
+
+#if($showTaskText)
+	<fieldset class="b_clearfix">
+	<legend>$r.translate("label.form.task.text")</legend>
+	#foreach($piece in $htmlPieces)
+		#if($r.available("$piece"))		  	
+			<table><tr>
+			<td style="border: 1px solid #acaaaa; padding:0px">$r.render("$piece")</td>	
+			</tr></table>		
+		#else
+			$piece
+		#end
+	#end	
+	$descriptionText	
+	</fieldset>
+#end
+
+#if($showOptions)
+	<fieldset class="b_clearfix">
+	<legend>$r.translate("label.controller.task.options")</legend>
+	<center style="margin: 1.5em">
+	<span style="margin: 1em">$r.render("loadExample")</span>
+	</center>
+	</fieldset>
+#end
+
+#if($showSolutionForm)
+	<fieldset class="b_clearfix">
+	<legend>$r.translate("label.form.task.solution")</legend>
+	$r.render("taskForm")
+	</fieldset>
+#end
+
+#if($displaySolution)
+	#if($showSolutionText)
+		<fieldset class="b_clearfix">
+		<legend>$r.translate("label.controller.task.solution.text")</legend>
+		<pre>$solutionText</pre>
+		</fieldset>
+	#end
+	<fieldset class="b_clearfix">
+	<legend>$r.translate("label.controller.task.evaluation.title")</legend>
+	#foreach($piece in $solutionPieces)
+		#if($r.available("$piece"))		  	
+			<table><tr>
+			<td style="border: 1px solid #acaaaa; padding:0px">$r.render("$piece")</td>	
+			</tr></table>		
+		#else
+			$piece
+		#end
+	#end	
+	</fieldset>
+#end

@@ -1,0 +1,24 @@
+<fieldset class="b_clearfix">
+<legend>$r.translate("label.controller.cmcbestsolutionview.title")</legend>
+<br>
+$bestSolutionView
+</fieldset>
+
+<fieldset class="b_clearfix">
+	<legend>$r.translate("label.controller.cmctaskviewcontroller.evaluation.title")</legend>
+	<div>
+		$r.translate("label.form.task.score"): $score		
+	</div>
+	<div>
+		$r.translate("label.form.task.reason"):
+	</div>
+	#foreach($piece in $solutionPieces)
+		#if($r.available("$piece"))		  	
+			<table><tr>
+			<td style="border: 1px solid #acaaaa; padding:0px">$r.render("$piece")</td>	
+			</tr></table>		
+		#else
+			$piece
+		#end
+	#end	
+</fieldset>

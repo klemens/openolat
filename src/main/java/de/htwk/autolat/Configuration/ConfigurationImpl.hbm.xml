@@ -1,0 +1,50 @@
+<?xml version="1.0"?>
+<!DOCTYPE hibernate-mapping PUBLIC 
+        "-//Hibernate/Hibernate Mapping DTD//EN"
+        "http://hibernate.sourceforge.net/hibernate-mapping-3.0.dtd">
+
+<hibernate-mapping default-lazy="false">
+  <class name="de.htwk.autolat.Configuration.ConfigurationImpl" table="ao_configuration">  
+  
+		<cache usage="read-write" />
+
+    <id name="key" column="id" type="long" unsaved-value="null">
+      <generator class="hilo"/>
+    </id>
+    
+	<many-to-one name="taskConfiguration" column="fk_taskconfiguration" class="de.htwk.autolat.TaskConfiguration.TaskConfigurationImpl" />
+	
+	<many-to-one name="serverConnection" column="fk_serverconnection" class="de.htwk.autolat.ServerConnection.ServerConnectionImpl" />
+
+	<property name="autolatServer" column="autolatserver" type="string" />	
+
+	<property name="courseID" column="courseid" type="long" />
+	<property name="courseNodeID" column="coursenodeid" type="long" />
+	<property name="beginDate" column="begindate" type="timestamp" />
+	<property name="endDate" column="enddate" type="timestamp" />
+	
+	<list name="taskPlan" table="ao_configuration_taskmodule" lazy="true">
+	
+		<key column="id" />
+		<list-index column="position" base="0" />
+		<many-to-many column="fk_taskmodule" class="de.htwk.autolat.TaskModule.TaskModuleImpl" />
+	
+	</list>
+	
+	<bag name="taskInstanceList" inverse="true" cascade="none" lazy="true">
+	
+		<key column="fk_configuration" />
+		<one-to-many class="de.htwk.autolat.TaskInstance.TaskInstanceImpl" />
+	
+	</bag>
+	
+	<list name="scorePoints" table="ao_scorepoints" lazy="true">
+	
+		<key column="id" />
+		<list-index column="position" base="0" />
+		<element column="point" type="integer" />
+	
+	</list>
+	
+  </class>
+</hibernate-mapping>

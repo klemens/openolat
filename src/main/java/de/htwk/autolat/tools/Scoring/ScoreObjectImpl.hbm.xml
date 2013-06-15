@@ -1,0 +1,17 @@
+<?xml version="1.0"?>
+<!DOCTYPE hibernate-mapping PUBLIC "-//Hibernate/Hibernate Mapping DTD//EN" "http://hibernate.sourceforge.net/hibernate-mapping-3.0.dtd">
+
+<hibernate-mapping default-lazy="false">
+	<class name="de.htwk.autolat.tools.Scoring.ScoreObjectImpl" mutable="false">
+		<subselect>SELECT ao_task_result.id as id, ao_task_result.maxscore as score_size, ao_task_result.maxscoredate as score_date, ao_student.fk_identity as fk_identity, ao_task_instance.fk_configuration as fk_configuration FROM ao_task_instance LEFT JOIN ao_student ON ao_student.id =  ao_task_instance.fk_student JOIN ao_task_result ON ao_task_result.id = ao_task_instance.fk_result</subselect>
+		<cache usage="read-only" />
+		<synchronize table="ao_task_instance"/>
+		<synchronize table="ao_task_result"/>
+		<synchronize table="ao_student"/>
+		<id column="id" type="long"/>
+		<property name="scoreDate" column="score_date" type="timestamp" /> 
+		<property name="scoreSize" column="score_size" type="long" />
+		<many-to-one name="identity" column="fk_identity" class="org.olat.basesecurity.IdentityImpl"/> 
+		<many-to-one name="configuration" column="fk_configuration" class="de.htwk.autolat.Configuration.ConfigurationImpl"/> 
+	</class>
+</hibernate-mapping>

@@ -1,0 +1,32 @@
+<?xml version="1.0"?>
+<!DOCTYPE hibernate-mapping PUBLIC 
+        "-//Hibernate/Hibernate Mapping DTD//EN"
+        "http://hibernate.sourceforge.net/hibernate-mapping-3.0.dtd">
+
+<hibernate-mapping default-lazy="false">
+  <class name="de.htwk.autolat.TaskConfiguration.TaskConfigurationImpl" table="ao_task_configuration">  
+  
+		<cache usage="read-write" />
+
+    <id name="key" column="id" type="long" unsaved-value="null">
+      <generator class="hilo"/>
+    </id>
+
+	<property name="configurationText" column="configuration" type="text" />
+	<property name="documentationText" column="documentation" type="text" />
+	<property name="descriptionText" column="description" type="text" />
+	<property name="authorComment" column="comment" type="text" />
+	<property name="signature" column="signature" type="string" />
+	<property name="isAltered" column="isaltered" type="boolean" />
+	
+	<many-to-one name="taskType" column="fk_tasktype" class="de.htwk.autolat.TaskType.TaskTypeImpl" />
+	
+	<bag name="taskInstanceList" inverse="true" cascade="none" lazy="true">
+	
+		<key column="fk_taskconfiguration" />
+		<one-to-many class="de.htwk.autolat.TaskInstance.TaskInstanceImpl" />
+		
+	</bag>	 
+    
+  </class>
+</hibernate-mapping>

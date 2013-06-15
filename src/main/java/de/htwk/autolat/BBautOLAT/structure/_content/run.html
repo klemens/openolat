@@ -1,0 +1,125 @@
+<fieldset class="b_clearfix">
+<legend>$r.translate("st.run.title")</legend>
+$r.contextHelpWithWrapper("de.htwk.autolat.BBautOLAT.structure","toplist-help.html","help.toplist")
+
+<div class="o_course_run">
+	<h3 class="b_with_small_icon_left o_st_icon">$!menuTitle</h3>
+	<div class="o_course_run_displaytitle">$!displayTitle</div>
+	#if($hasObjectives)
+		$r.render("learningObjectives")
+	#end
+
+#if ($isCoach)
+	<br></br>
+	<br></br>
+	$r.translate("structure.toplist")
+	$r.render("highscoreList")
+	<br></br>
+	$r.translate("structure.pointList")
+	$r.render("pointList")
+	
+	#if ($hasScore || $hasPassed)
+		<div class="o_course_run_scoreinfo">
+			<h4>$r.translate("score.title")</h4>		
+			<table>
+				<tbody>
+				#if ($hasScore)
+					<tr>
+						<td>			
+							$r.translate("calcedscore"): 
+						</td>
+						<td>
+							#if($scoreScore)		
+								$scoreScore
+							#else
+								<i>$r.translate("score.noinfo")</i>
+							#end
+						</td>
+					</tr>
+				#end
+				#if ($hasPassed)
+					<tr>
+						<td>			
+							$r.translate("calcedpassed"): 
+						</td>
+						<td>
+							#if ($hasPassedValue && $scorePassed == true)		
+								<span class="o_passed">$r.translate("passed.yes")</span>
+							#elseif($hasPassedValue && $scorePassed == false)		
+								<span class="o_notpassed">$r.translate("passed.no")</span>
+							#else
+								<i>$r.translate("passed.noinfo")</i>
+							#end
+						</td>
+					</tr>
+				#end
+				</tbody>
+			</table>
+		</div>
+	#end
+
+	<div class="o_course_run_toc">
+	#foreach($coursenode in $children)
+		<div class="o_course_run_toc_entry">
+			<h5>
+				#set ($nodeconfig = $nodeFactory.getCourseNodeConfiguration($coursenode.getType()))
+				## scroll to position 0,0 first to fix jump which is expected by users and otherwhise does not happen in ajax mode (OLAT-3387)
+				<a href="$r.commandURIbg("${coursenode.getIdent()}")" $r.bgTarget() class="b_with_small_icon_left ${nodeconfig.getIconCSSClass()}" onclick="window.scrollTo(0,0);return true;">
+					$coursenode.getShortTitle()
+				</a>
+			</h5>
+			<div class="o_course_run_displaytitle">$coursenode.getLongTitle()</div>
+			#if ($coursenode.getLearningObjectives() &&  $coursenode.getLearningObjectives() != "")
+				<div class="o_course_run_objectives">
+					$r.formatLatexFormulas("$coursenode.getLearningObjectives()")
+				</div>
+			#end
+		</div>
+	#end
+	</div>
+
+#else
+	$r.render("topList")
+
+	#if ($hasScore || $hasPassed)
+		<div class="o_course_run_scoreinfo">
+			<h4>$r.translate("score.title")</h4>		
+			<table>
+				<tbody>
+				#if ($hasScore)
+					<tr>
+						<td>			
+							$r.translate("calcedscore"): 
+						</td>
+						<td>
+							#if($scoreScore)		
+								$scoreScore
+							#else
+								<i>$r.translate("score.noinfo")</i>
+							#end
+						</td>
+					</tr>
+				#end
+				#if ($hasPassed)
+					<tr>
+						<td>			
+							$r.translate("calcedpassed"): 
+						</td>
+						<td>
+							#if ($hasPassedValue && $scorePassed == true)		
+								<span class="o_passed">$r.translate("passed.yes")</span>
+							#elseif($hasPassedValue && $scorePassed == false)		
+								<span class="o_notpassed">$r.translate("passed.no")</span>
+							#else
+								<i>$r.translate("passed.noinfo")</i>
+							#end
+						</td>
+					</tr>
+				#end
+				</tbody>
+			</table>
+		</div>
+	#end
+#end
+</div>
+</fieldset>

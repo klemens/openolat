@@ -1,0 +1,22 @@
+<?xml version="1.0"?>
+<!DOCTYPE hibernate-mapping PUBLIC 
+        "-//Hibernate/Hibernate Mapping DTD//EN"
+        "http://hibernate.sourceforge.net/hibernate-mapping-3.0.dtd">
+
+<hibernate-mapping default-lazy="true">
+  <class name="de.htwk.autolat.TaskResult.TaskResultImpl" table="ao_task_result">  
+  
+		<cache usage="read-write" />
+
+    <id name="key" column="id" type="long" unsaved-value="null">
+      <generator class="hilo"/>
+    </id>
+
+	<property  name="maxScoreDate" column="maxscoredate" type="timestamp" />
+	<property  name="maxScore" column="maxscore" type="double" />   
+	<property  name="maxScoreTaskText" column="maxscoretasktext" type="text" /> 
+	<property  name="hasPassed" column="haspassed" type="boolean" /> 
+    <property  name="maxScoreSolutionText" column="solutiontext" type="text" />
+    
+  </class>
+</hibernate-mapping>

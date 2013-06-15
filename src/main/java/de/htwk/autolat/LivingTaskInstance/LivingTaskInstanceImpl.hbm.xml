@@ -1,0 +1,23 @@
+<?xml version="1.0"?>
+<!DOCTYPE hibernate-mapping PUBLIC 
+        "-//Hibernate/Hibernate Mapping DTD//EN"
+        "http://hibernate.sourceforge.net/hibernate-mapping-3.0.dtd">
+
+<hibernate-mapping default-lazy="true">
+  <class name="de.htwk.autolat.LivingTaskInstance.LivingTaskInstanceImpl" table="ao_living_task_instance">  
+  
+		<cache usage="read-write" />
+
+    <id name="key" column="id" type="long" unsaved-value="null">
+      <generator class="hilo"/>
+    </id>
+
+	<property name="signature" column="signature" type="string" />
+	<property name="taskText" column="tasktext" type="text" />
+	<property name="internalTaskText" column="internaltasktext" type="text" />
+	<property name="sampleSolution" column="samplesolution" type="text" />
+	<property name="sampleDocumentation" column="sampledocumentation" type="text" />
+	<property name="creationDate" column="creationdate" type="timestamp" />
+    
+  </class>
+</hibernate-mapping>

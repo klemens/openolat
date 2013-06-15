@@ -1,0 +1,85 @@
+#if($hasPassed)
+	<fieldset class="b_clearfix">
+	<legend>$r.translate("label.controller.task.notification")</legend>		
+		<span class="o_passed">$r.translate("label.controller.task.haspassed", "$maxScore")</span>		
+	</fieldset>
+#end
+
+<fieldset class="b_clearfix">
+<legend>$r.translate("label.form.task.text")</legend>
+#foreach($piece in $htmlPieces)
+	#if($r.available("$piece"))		  	
+		<table><tr>
+		<td style="border: 1px solid #acaaaa; padding:0px">$r.render("$piece")</td>	
+		</tr></table>		
+	#else
+		$piece
+	#end
+#end
+$descriptionText
+</fieldset>
+
+#if($taskExpired)
+	#if($taskLocked)
+		<fieldset class="b_clearfix">
+		<legend><font style="color:#CC0000;">$r.translate("label.controller.task.warning")</font></legend>
+		$r.translate("label.controller.task.locked")
+		</fieldset>
+	#else
+		<fieldset class="b_clearfix">
+		<legend><font style="color:#CC0000;">$r.translate("label.controller.task.warning")</font></legend>
+		$r.translate("label.controller.task.expired")
+		<center style="margin: 1.5em">
+		<span style="margin: 1em">$r.render("getNewTaskInstance")</span>	
+		</center>
+		</fieldset>
+	#end
+#end
+
+<fieldset class="b_clearfix">
+<legend>$r.translate("label.controller.task.options")</legend>
+$r.contextHelpWithWrapper("de.htwk.autolat.BBautOLAT","taskoptions-help.html","help.taskoptions")
+#if($isPreview)
+	$r.translate("label.controller.task.nobuttons")
+#end
+<center>
+<table style="border: none;">
+	<tr>
+		<td style="padding:1ex;">$r.render("loadExample")</td>
+		<td style="padding:1ex;">$r.render("loadLastCorrect")</td>
+		<td style="padding:1ex;">$r.render("showTopList")</td>
+	</tr>
+	<tr>
+		<td style="padding:1ex;">$r.render("loadLast")</td>
+		<td style="padding:1ex;">$r.render("loadBest")</td>
+		<td style="padding:1ex;"></td>
+	</tr>
+</table>
+</center>
+</fieldset>
+
+<fieldset class="b_clearfix">
+<legend>$r.translate("label.form.task.solution")</legend>
+$r.render("taskForm")
+</fieldset>
+
+#if($displayEvaluation)
+	<fieldset class="b_clearfix">
+	<legend>$r.translate("label.controller.task.evaluation.title")</legend>
+	<div>
+		$r.translate("label.form.task.score"): $score		
+	</div>
+	<div>
+		$r.translate("label.form.task.reason"):
+	</div>
+	#foreach($piece in $solutionPieces)
+		#if($r.available("$piece"))		  	
+			<table><tr>
+			<td style="border: 1px solid #acaaaa; padding:0px">$r.render("$piece")</td>	
+			</tr></table>		
+		#else
+			$piece
+		#end
+	#end	
+	</fieldset>
+#end

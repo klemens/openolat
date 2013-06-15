@@ -1,0 +1,24 @@
+<?xml version="1.0"?>
+<!DOCTYPE hibernate-mapping PUBLIC 
+        "-//Hibernate/Hibernate Mapping DTD//EN"
+        "http://hibernate.sourceforge.net/hibernate-mapping-3.0.dtd">
+
+<hibernate-mapping default-lazy="false">
+  <class name="de.htwk.autolat.TaskModule.TaskModuleImpl" table="ao_task_module">  
+  
+		<cache usage="read-write" />
+
+    <id name="key" column="id" type="long" unsaved-value="null">
+      <generator class="hilo"/>
+    </id>
+
+	<property  name="taskDuration" column="duration" type="long" />   
+	<property  name="taskEndDate" column="enddate" type="timestamp" /> 
+	<property  name="maxCount" column="maxcount" type="long" /> 
+	
+	<many-to-one name="nextModule" column="fk_nextmodule" class="de.htwk.autolat.TaskModule.TaskModuleImpl"/>
+    
+    <many-to-one name="configuration" column="fk_configuration" class="de.htwk.autolat.Configuration.ConfigurationImpl"/> 	  
+    
+  </class>
+</hibernate-mapping>

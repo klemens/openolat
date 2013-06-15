@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<tns:autolat xmlns:tns="http://www.example.org/autolatProperties" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.example.org/autolatProperties autolatProperties.xsd ">
+  <tns:autotoolservers>
+    <tns:server>
+      <tns:name>Autotool Server HTWK Leipzig</tns:name>
+      <tns:version>0.2.0</tns:version>
+      <tns:url>http://autolat.imn.htwk-leipzig.de/cgi-bin/autotool-0.2.0.cgi</tns:url>
+    </tns:server>
+  </tns:autotoolservers>
+</tns:autolat>

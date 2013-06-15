@@ -1,0 +1,40 @@
+<?xml version="1.0"?>
+<!DOCTYPE hibernate-mapping PUBLIC 
+        "-//Hibernate/Hibernate Mapping DTD//EN"
+        "http://hibernate.sourceforge.net/hibernate-mapping-3.0.dtd">
+
+<hibernate-mapping default-lazy="false">
+  <class name="de.htwk.autolat.TaskInstance.TaskInstanceImpl" table="ao_task_instance">  
+  
+		<cache usage="read-write" />
+
+    <id name="key" column="id" type="long" unsaved-value="null">
+      <generator class="hilo"/>
+    </id>
+
+	<property name="solutionCounter" column="scounter" type="long" />
+	<property name="failedAttempts" column="fcounter" type="long" />
+	<property  name="instanceCounter" column="icounter" type="long" />   
+	<property name="livingInstanceCounter" column="lcounter" type="long" />
+	
+	<many-to-one name="configuration" column="fk_configuration" class="de.htwk.autolat.Configuration.ConfigurationImpl"/>
+    
+    <many-to-one name="livingTaskInstance" column="fk_livinginstance" class="de.htwk.autolat.LivingTaskInstance.LivingTaskInstanceImpl"/> 	  
+
+	<many-to-one name="result" column="fk_result" class="de.htwk.autolat.TaskResult.TaskResultImpl"></many-to-one>
+    
+    <many-to-one name="student" column="fk_student" class="de.htwk.autolat.Student.StudentImpl"></many-to-one>
+  
+  	<many-to-one name="taskConfiguration" column="fk_taskconfiguration" class="de.htwk.autolat.TaskConfiguration.TaskConfigurationImpl"></many-to-one>
+  
+  	<many-to-one name="taskModule" column="fk_taskmodule" class="de.htwk.autolat.TaskModule.TaskModuleImpl"></many-to-one>
+  
+  	<bag name="solutions" inverse="true" order-by="solutiondate" cascade="none" lazy="true">
+		
+			<key column="fk_taskinstance" />
+			<one-to-many class="de.htwk.autolat.TaskSolution.TaskSolutionImpl"/>
+	</bag>	
+  	
+  	
+  </class>
+</hibernate-mapping>
