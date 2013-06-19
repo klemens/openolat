@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.springframework.org/schema/beans 
+  						http://www.springframework.org/schema/beans/spring-beans-3.0.xsd">
+	
+	<bean id="simpleShibbolethDispatcher" class="de.unileipzig.shibboleth.SimpleShibbolethDispatcher">
+		<property name="mapping">
+			<props>
+				<prop key="uid">username</prop>
+				<!--
+				<prop key="Shib_firstname">firstname</prop>
+				<prop key="Shib_lastname">lastname</prop>
+				<prop key="Shib_email">email</prop>
+				<prop key="Shib_identifier">identifier</prop>
+				<prop key="Shib_subject">subject</prop>
+				-->
+			</props>
+		</property>
+	</bean>
+	
+</beans>
