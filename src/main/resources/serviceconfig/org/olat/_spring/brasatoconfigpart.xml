@@ -41,7 +41,7 @@
 					<ref bean="authbean" />
 				</entry>
 				<entry key="/shib/">
-					<ref bean="shibbean" />
+					<ref bean="simpleShibbolethDispatcher" />
 				</entry>
 				<entry key="/stats.html">
 					<ref bean="statisticbean" />
