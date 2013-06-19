@@ -16,6 +16,8 @@ import org.olat.core.dispatcher.Dispatcher;
 import org.olat.core.dispatcher.DispatcherAction;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.UserRequestImpl;
+import org.olat.core.gui.media.MediaResource;
+import org.olat.core.gui.media.RedirectMediaResource;
 import org.olat.core.id.Identity;
 import org.olat.core.id.User;
 import org.olat.core.id.UserConstants;
@@ -110,6 +112,17 @@ public class SimpleShibbolethDispatcher implements Dispatcher {
 			// login the user the normal way
 			loginUser(auth.getIdentity(), ureq);
 		}
+		
+		// redirect to home
+		MediaResource mr = ureq.getDispatchResult().getResultingMediaResource();
+		if (!(mr instanceof RedirectMediaResource)) {
+			log.error("got wrong type of MediaResource");
+			DispatcherAction.redirectToDefaultDispatcher(response);
+			return;
+		}
+		
+		RedirectMediaResource rmr = (RedirectMediaResource) mr;
+		rmr.prepare(response);
 	}
 	
 	/**
