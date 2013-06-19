@@ -212,4 +212,14 @@ public class SimpleShibbolethDispatcher implements Dispatcher {
 			}
 		}
 	}
+	
+	/**
+	 * Spring setters and getters
+	 */
+	public void setMapping(Properties mapping) {
+		this.mapping = mapping;
+	}
+	public Properties getMapping() {
+		return mapping;
+	}
 }
