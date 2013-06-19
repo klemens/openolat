@@ -71,14 +71,15 @@ public class SimpleShibbolethDispatcher implements Dispatcher {
 			log = Tracing.createLoggerFor(this.getClass());
 		if(userAttributes == null)
 			userAttributes = new Properties();
-
+		
 		// parse http headers
 		parseAttributes(request);
 		
 		// check if username present
 		if(userAttributes.getProperty("username", "").isEmpty()) {
-			if(log.isDebug()) log.error("no username was supplied by shibboleth, check your configuration");
-			throw new RuntimeException("no valid username given");
+			log.error("no username was supplied by shibboleth, check your configuration");
+			DispatcherAction.redirectToDefaultDispatcher(response);
+			return;
 		}
 		String username = userAttributes.getProperty("username");
 		
@@ -88,7 +89,7 @@ public class SimpleShibbolethDispatcher implements Dispatcher {
 		try{
 			ureq = new UserRequestImpl(uriPrefix, request, response);
 		}catch(NumberFormatException nfe){
-			log.debug("Bad Request " + request.getPathInfo());
+			log.error("Bad Request " + request.getPathInfo());
 			DispatcherAction.sendBadRequest(request.getPathInfo(), response);
 			return;
 		}
@@ -101,15 +102,18 @@ public class SimpleShibbolethDispatcher implements Dispatcher {
 			
 			if(identity == null) {
 				// register user
+				log.info("First login of user " + username + " using shibboleth");
 				Identity newUser = registerUser(username);
 				loginUser(newUser, ureq);
 			} else {
 				// migrate user to shibboleth authentication
+				log.info("Migrating user " +  username + " to shibboleth auth and logging in");
 				migrateUser(identity, username);
 				loginUser(identity, ureq);
 			}
 		} else {
 			// login the user the normal way
+			log.info("user login via shibboleth");
 			loginUser(auth.getIdentity(), ureq);
 		}
 		
@@ -137,6 +141,7 @@ public class SimpleShibbolethDispatcher implements Dispatcher {
 			if(loginStatus == AuthHelper.LOGIN_NOTAVAILABLE) {
 				DispatcherAction.redirectToServiceNotAvailable(ureq.getHttpResp());
 			} else {
+				log.error("could not login user using shibboleth");
 				DispatcherAction.redirectToDefaultDispatcher(ureq.getHttpResp()); // login screen
 			}
 			
