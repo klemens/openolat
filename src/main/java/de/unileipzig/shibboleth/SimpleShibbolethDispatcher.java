@@ -128,7 +128,7 @@ public class SimpleShibbolethDispatcher implements Dispatcher {
 					migrateUser(identity, username);
 					loginUser(identity, ureq);
 				} else {
-					log.info("existing username but migration not enabled");
+					log.info("existing username " + username + " but migration not enabled");
 					DispatcherAction.redirectToDefaultDispatcher(response);
 					return;
 				}
