@@ -17,6 +17,8 @@
 				-->
 			</props>
 		</property>
+		<property name="enabled" value="${simpleShibboleth.enable:false}"/>
+		<property name="migrate" value="${simpleShibboleth.migrateUsers:false}" />
 	</bean>
 	
 </beans>

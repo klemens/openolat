@@ -59,6 +59,16 @@ public class SimpleShibbolethDispatcher implements Dispatcher {
 	private Properties mapping;
 	
 	/**
+	 * If login using shibboleth is enabled
+	 */
+	private boolean enabled;
+	
+	/**
+	 * If migration of existing users is enabled
+	 */
+	private boolean migrate;
+	
+	/**
 	 * Contains the actual user properties
 	 */
 	private Properties userAttributes;
@@ -71,6 +81,12 @@ public class SimpleShibbolethDispatcher implements Dispatcher {
 			log = Tracing.createLoggerFor(this.getClass());
 		if(userAttributes == null)
 			userAttributes = new Properties();
+		
+		if(!enabled) {
+			log.error("got shibboleth login although not enabled");
+			DispatcherAction.redirectToDefaultDispatcher(response);
+			return;
+		}
 		
 		// parse http headers
 		parseAttributes(request);
@@ -107,9 +123,15 @@ public class SimpleShibbolethDispatcher implements Dispatcher {
 				loginUser(newUser, ureq);
 			} else {
 				// migrate user to shibboleth authentication
-				log.info("Migrating user " +  username + " to shibboleth auth and logging in");
-				migrateUser(identity, username);
-				loginUser(identity, ureq);
+				if(migrate) {
+					log.info("Migrating user " +  username + " to shibboleth auth and logging in");
+					migrateUser(identity, username);
+					loginUser(identity, ureq);
+				} else {
+					log.info("existing username but migration not enabled");
+					DispatcherAction.redirectToDefaultDispatcher(response);
+					return;
+				}
 			}
 		} else {
 			// login the user the normal way
@@ -221,5 +243,17 @@ public class SimpleShibbolethDispatcher implements Dispatcher {
 	}
 	public Properties getMapping() {
 		return mapping;
+	}
+	public void setEnabled(boolean enabled) {
+		this.enabled = enabled;
+	}
+	public boolean getEnabled() {
+		return enabled;
+	}
+	public void setMigrate(boolean migrate) {
+		this.migrate = migrate;
+	}
+	public boolean getMigrate() {
+		return migrate;
 	}
 }

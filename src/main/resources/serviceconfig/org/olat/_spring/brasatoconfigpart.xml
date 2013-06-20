@@ -40,7 +40,7 @@
 					<!-- if you change /auth make sure you also modify olatcore/src/main/java/org/olat/core/gui/components/form/flexible/impl/elements/richText/_static/js/BTinyHelper.js accordingly -->
 					<ref bean="authbean" />
 				</entry>
-				<entry key="/shib/">
+				<entry key="/${simpleShibboleth.path:shib}/">
 					<ref bean="simpleShibbolethDispatcher" />
 				</entry>
 				<entry key="/stats.html">
