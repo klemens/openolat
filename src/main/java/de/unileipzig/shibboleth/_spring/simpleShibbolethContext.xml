@@ -21,4 +21,16 @@
 		<property name="migrate" value="${simpleShibboleth.migrateUsers:false}" />
 	</bean>
 	
+	<bean id="SimpleShibbolethAuthenticationProvider" class="org.olat.login.auth.AuthenticationProvider" >
+		<constructor-arg index="0" value="SimpleShibboleth"/>
+		<constructor-arg index="1" value="de.unileipzig.shibboleth.SimpleShibbolethLoginFormController"/>
+		<constructor-arg index="2" value="${simpleShibboleth.enable:false}"/>
+		<constructor-arg index="3" value="${simpleShibboleth.default:false}"/>
+	</bean>
+	
+	<bean class="org.springframework.beans.factory.config.MethodInvokingFactoryBean">
+        <property name="staticMethod" value="de.unileipzig.shibboleth.SimpleShibbolethLoginFormController.setPath"/>
+        <property name="arguments" value="/${simpleShibboleth.path:shib}/" />
+    </bean>
+	
 </beans>

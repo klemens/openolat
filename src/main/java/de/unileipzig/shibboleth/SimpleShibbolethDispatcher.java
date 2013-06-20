@@ -40,7 +40,7 @@ public class SimpleShibbolethDispatcher implements Dispatcher {
 	
 	/**
 	 * Mapping of Shibboleth attribute names (keys) to openolat user properties (values).
-	 * Use the following values:
+	 * Use the following values: (set by spring)
 	 * <dl>
 	 * <dt>username <b>(required)</b></dt>
 	 *   <dd>The unique username of the user</dd>
