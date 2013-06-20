@@ -36,7 +36,7 @@ public class SimpleShibbolethDispatcher implements Dispatcher {
 	/**
 	 * Identifier as authentication provider
 	 */
-	public static final String PROVIDER_SSHIB = "SShib";
+	public static final String PROVIDER_SSHIB = "SplShib";
 	
 	/**
 	 * Mapping of Shibboleth attribute names (keys) to openolat user properties (values).
