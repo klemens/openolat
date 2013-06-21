@@ -93,7 +93,7 @@ public class SimpleShibbolethDispatcher implements Dispatcher {
 		
 		// check if username present
 		if(userAttributes.getProperty("username", "").isEmpty()) {
-			log.error("no username was supplied by shibboleth, check your configuration");
+			log.error("shibboleth login failed: no username was supplied by shibboleth, check your configuration");
 			DispatcherAction.redirectToDefaultDispatcher(response);
 			return;
 		}
@@ -118,24 +118,24 @@ public class SimpleShibbolethDispatcher implements Dispatcher {
 			
 			if(identity == null) {
 				// register user
-				log.info("First login of user " + username + " using shibboleth");
-				Identity newUser = registerUser(username);
+				log.info("First login of user '" + username + "' using shibboleth");
+				Identity newUser = registerUser(username, userAttributes);
 				loginUser(newUser, ureq);
 			} else {
 				// migrate user to shibboleth authentication
 				if(migrate) {
-					log.info("Migrating user " +  username + " to shibboleth auth and logging in");
+					log.info("Migrating user '" +  username + "' to shibboleth auth and logging in");
 					migrateUser(identity, username);
 					loginUser(identity, ureq);
 				} else {
-					log.info("existing username " + username + " but migration not enabled");
+					log.info("existing username '" + username + "' but migration not enabled");
 					DispatcherAction.redirectToDefaultDispatcher(response);
 					return;
 				}
 			}
 		} else {
 			// login the user the normal way
-			log.info("user login via shibboleth");
+			log.info("user '" + username + "' login via shibboleth");
 			loginUser(auth.getIdentity(), ureq);
 		}
 		
