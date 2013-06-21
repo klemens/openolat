@@ -1,6 +1,5 @@
 package de.unileipzig.shibboleth;
 
-import java.util.Enumeration;
 import java.util.Properties;
 
 import javax.servlet.http.HttpServletRequest;
@@ -68,19 +67,12 @@ public class SimpleShibbolethDispatcher implements Dispatcher {
 	 */
 	private boolean migrate;
 	
-	/**
-	 * Contains the actual user properties
-	 */
-	private Properties userAttributes;
-	
 	private OLog log;
 	
 	@Override
 	public void execute(HttpServletRequest request, HttpServletResponse response, String uriPrefix) {
 		if(log == null)
 			log = Tracing.createLoggerFor(this.getClass());
-		if(userAttributes == null)
-			userAttributes = new Properties();
 		
 		if(!enabled) {
 			log.error("got shibboleth login although not enabled");
@@ -89,7 +81,7 @@ public class SimpleShibbolethDispatcher implements Dispatcher {
 		}
 		
 		// parse http headers
-		parseAttributes(request);
+		Properties userAttributes = parseAttributes(request);
 		
 		// check if username present
 		if(userAttributes.getProperty("username", "").isEmpty()) {
@@ -179,7 +171,7 @@ public class SimpleShibbolethDispatcher implements Dispatcher {
 	/**
 	 * Registers the new user and fills in the supplied properties
 	 */
-	private Identity registerUser(String username) {
+	private Identity registerUser(String username, Properties userAttributes) {
 		BaseSecurity secMgr = BaseSecurityManager.getInstance();
 
 		// if no names are present, user empty names
@@ -223,16 +215,20 @@ public class SimpleShibbolethDispatcher implements Dispatcher {
 	}
 	
 	/**
-	 * Find the supplied username by iterating over http attributes
+	 * Find the supplied username (and other properties) form JavaEE request
 	 */
-	private void parseAttributes(HttpServletRequest request) {
-		for(Enumeration<String> e = request.getHeaderNames(); e.hasMoreElements();) {
-			String attributeName = e.nextElement();
+	private Properties parseAttributes(HttpServletRequest request) {
+		Properties userAttributes = new Properties();
+
+		for(String propShib : mapping.stringPropertyNames()) {
+			String value = (String) request.getAttribute(propShib);
 			
-			if(mapping.containsKey(attributeName)) {
-				userAttributes.setProperty(mapping.getProperty(attributeName), request.getHeader(attributeName));
+			if(value != null) {
+				userAttributes.setProperty(mapping.getProperty(propShib), value);
 			}
 		}
+		
+		return userAttributes;
 	}
 	
 	/**
