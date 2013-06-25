@@ -43,6 +43,8 @@ import org.olat.basesecurity.events.SingleIdentityChosenEvent;
 import org.olat.core.commons.fullWebApp.popup.BaseFullWebappPopupLayoutFactory;
 import org.olat.core.commons.persistence.DBFactory;
 import org.olat.core.commons.persistence.PersistenceHelper;
+import org.olat.core.commons.services.webdav.WebDAVManager;
+import org.olat.core.commons.services.webdav.manager.WebDAVAuthManager;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.Component;
 import org.olat.core.gui.components.form.flexible.FormItem;
@@ -83,7 +85,6 @@ import org.olat.core.id.context.StateEntry;
 import org.olat.core.id.context.StateMapped;
 import org.olat.core.logging.AssertException;
 import org.olat.core.logging.activity.ThreadLocalUserActivityLogger;
-import org.olat.core.servlets.WebDAVManager;
 import org.olat.core.util.StringHelper;
 import org.olat.core.util.Util;
 import org.olat.core.util.mail.ContactList;
@@ -91,7 +92,6 @@ import org.olat.core.util.mail.ContactMessage;
 import org.olat.core.util.resource.OresHelper;
 import org.olat.login.LoginModule;
 import org.olat.login.auth.AuthenticationProvider;
-import org.olat.login.auth.WebDAVAuthManager;
 import org.olat.modules.co.ContactFormController;
 import org.olat.user.UserInfoMainController;
 import org.olat.user.UserManager;
@@ -852,15 +852,15 @@ class UsermanagerUserSearchForm extends FormBasicController {
 		status.select(statusKeys[0], true);		
 		
 		uifactory.addSpacerElement("space4", formLayout, false);
-		afterDate  = uifactory.addDateChooser("search.form.afterDate","",formLayout);
+		afterDate  = uifactory.addDateChooser("search.form.afterDate", null, formLayout);
 		afterDate.setValidDateCheck("error.search.form.no.valid.datechooser");
-		beforeDate = uifactory.addDateChooser("search.form.beforeDate","",formLayout);
+		beforeDate = uifactory.addDateChooser("search.form.beforeDate", null, formLayout);
 		beforeDate.setValidDateCheck("error.search.form.no.valid.datechooser");
 		
 		uifactory.addSpacerElement("space5", formLayout, false);
-		userLoginAfter = uifactory.addDateChooser("search.form.userLoginAfterDate", "", formLayout);
+		userLoginAfter = uifactory.addDateChooser("search.form.userLoginAfterDate", null, formLayout);
 		userLoginAfter.setValidDateCheck("error.search.form.no.valid.datechooser");
-		userLoginBefore = uifactory.addDateChooser("search.form.userLoginBeforeDate", "", formLayout);
+		userLoginBefore = uifactory.addDateChooser("search.form.userLoginBeforeDate", null, formLayout);
 		userLoginBefore.setValidDateCheck("error.search.form.no.valid.datechooser");
 		
 		// creation date constraints

@@ -33,7 +33,6 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 
-import org.olat.admin.user.delete.service.UserDeletionManager;
 import org.olat.basesecurity.BaseSecurityManager;
 import org.olat.basesecurity.SecurityGroup;
 import org.olat.commons.lifecycle.LifeCycleManager;
@@ -92,9 +91,8 @@ public class RepositoryDeletionManager extends BasicManager implements UserDataD
 	 * [used by spring]
 	 * @param userDeletionManager
 	 */
-	private RepositoryDeletionManager(UserDeletionManager userDeletionManager, DeletionModule deletionModule) {
+	private RepositoryDeletionManager(DeletionModule deletionModule) {
 		this.deletionModule = deletionModule;
-		userDeletionManager.registerDeletableUserData(this);
 		INSTANCE = this;
 	}
 
@@ -257,6 +255,7 @@ public class RepositoryDeletionManager extends BasicManager implements UserDataD
 			}
 			return null; // Send ok => return null
 		} else {
+			//TODO username
 			return pT.translate("email.error.send.failed", new String[] {identity.getUser().getProperty(UserConstants.EMAIL, null), identity.getName()} );
 		}
 	}

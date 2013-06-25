@@ -506,11 +506,11 @@ public class EPShareListController extends FormBasicController {
 				String text = translate("map.share.with.tutor");
 				uifactory.addStaticTextElement("map.share.text." + cmpName, text, container);
 			} else {
-				DateChooser fromChooser = uifactory.addDateChooser("map.share.from." + cmpName, "map.share.from", "", container);
+				DateChooser fromChooser = uifactory.addDateChooser("map.share.from." + cmpName, "map.share.from", null, container);
 				fromChooser.setDate(policyWrapper.getFrom());
 				fromChooser.setValidDateCheck("map.share.date.invalid");
 				policyWrapper.setFromChooser(fromChooser);
-				DateChooser toChooser = uifactory.addDateChooser("map.share.to." + cmpName, "map.share.to", "", container);
+				DateChooser toChooser = uifactory.addDateChooser("map.share.to." + cmpName, "map.share.to", null, container);
 				toChooser.setDate(policyWrapper.getTo());
 				toChooser.setValidDateCheck("map.share.date.invalid");
 				policyWrapper.setToChooser(toChooser);
@@ -593,7 +593,7 @@ public class EPShareListController extends FormBasicController {
 	
 	protected String formatIdentity(Identity ident) {
 		User u = ident.getUser();
-		String login = ident.getName();
+		String login = ident.getName();//TODO username
 		String first = u.getProperty(UserConstants.FIRSTNAME, null);
 		String last = u.getProperty(UserConstants.LASTNAME, null);
 		return login + ": " + last + " " + first;
@@ -613,7 +613,7 @@ public class EPShareListController extends FormBasicController {
 				boolean hasMore = false;
 				for (Identity ident:res) {
 					maxEntries--;
-					String login = ident.getName();
+					String login = ident.getName();//TODO username
 					resMap.put(formatIdentity(ident), login);
 					if(maxEntries <= 0) {
 						hasMore = true;
@@ -767,7 +767,7 @@ public class EPShareListController extends FormBasicController {
 			
 			Map<String,String> values = new HashMap<String,String>();
 			for(Identity identity:mapPolicy.getIdentities()) {
-				String login = identity.getName();
+				String login = identity.getName();//TODO username
 				values.put(formatIdentity(identity), login);
 			}
 			return values;

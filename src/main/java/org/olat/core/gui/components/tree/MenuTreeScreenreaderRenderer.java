@@ -66,13 +66,13 @@ public class MenuTreeScreenreaderRenderer implements ComponentRenderer {
 	public void render(Renderer renderer, StringOutput target, Component source, URLBuilder ubu, Translator translator,
 			RenderResult renderResult, String[] args) {
 		MenuTree tree = (MenuTree) source;
-		String compPrefix = renderer.getComponentPrefix(tree);
+		String compPrefix = Renderer.getComponentPrefix(tree);
 		
 		INode selNode = tree.getSelectedNode();
 		TreeNode root = tree.getTreeModel().getRootNode();
 		if (root == null) return; // tree is completely empty
 
-		List selPath = new ArrayList(5);
+		List<INode> selPath = new ArrayList<INode>(5);
 		INode cur = selNode;
 		if (cur == null) cur = root; // if no selection, select the first node to
 		// expand the children
@@ -104,13 +104,13 @@ public class MenuTreeScreenreaderRenderer implements ComponentRenderer {
 			//target.append(comptrans.translate("sr.endintro"));
 		}
 		
-		renderLevel(target, 0, root, selPath, ubu, renderer.getGlobalSettings().getAjaxFlags(), compPrefix, tree.markingTreeNode);
+		renderLevel(target, 0, root, selPath, ubu, renderer.getGlobalSettings().getAjaxFlags(), compPrefix);
 	}
 
 	/**
 	 * @param target
 	 */
-	private void renderLevel(StringOutput target, int level, TreeNode curRoot, List selPath, URLBuilder ubu, AJAXFlags flags, String componentPrefix, TreeNode markedNode) {
+	private void renderLevel(StringOutput target, int level, TreeNode curRoot, List<INode> selPath, URLBuilder ubu, AJAXFlags flags, String componentPrefix) {
 
 		INode curSel = null;
 		if (level < selPath.size()) {
@@ -164,7 +164,7 @@ public class MenuTreeScreenreaderRenderer implements ComponentRenderer {
 			// render children
 			for (int i = 0; i < chdCnt; i++) {
 				TreeNode curChd = (TreeNode) curRoot.getChildAt(i);
-				renderLevel(target, level + 1, curChd, selPath, ubu, flags, componentPrefix, markedNode);
+				renderLevel(target, level + 1, curChd, selPath, ubu, flags, componentPrefix);
 			}
 		}
 		
