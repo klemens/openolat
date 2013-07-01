@@ -33,9 +33,6 @@ import org.olat.basesecurity.IdentityShort;
 import org.olat.basesecurity.Policy;
 import org.olat.basesecurity.SecurityGroup;
 import org.olat.core.commons.persistence.DB;
-import org.olat.core.commons.services.search.AbstractOlatDocument;
-import org.olat.core.commons.services.search.ResultDocument;
-import org.olat.core.commons.services.search.SearchResults;
 import org.olat.core.commons.services.tagging.manager.TaggingManager;
 import org.olat.core.commons.services.tagging.model.Tag;
 import org.olat.core.id.Identity;
@@ -70,6 +67,9 @@ import org.olat.portfolio.model.structel.ElementType;
 import org.olat.portfolio.model.structel.PortfolioStructure;
 import org.olat.portfolio.model.structel.PortfolioStructureMap;
 import org.olat.resource.OLATResource;
+import org.olat.search.SearchResults;
+import org.olat.search.model.AbstractOlatDocument;
+import org.olat.search.model.ResultDocument;
 import org.olat.search.service.indexer.identity.PortfolioArtefactIndexer;
 import org.olat.search.service.searcher.SearchClient;
 import org.olat.user.UserManager;
@@ -1255,7 +1255,7 @@ public class EPFrontendManager extends BasicManager {
 		List<Identity> ownerIdents = securityManager.getIdentitiesOfSecurityGroup(map.getOwnerGroup(), 0, 1);
 		if(ownerIdents.size() > 0){
 			Identity id = ownerIdents.get(0);
-			return userManager.getUserDisplayName(id.getUser());
+			return userManager.getUserDisplayName(id);
 		}
 		return "n/a";
 	}

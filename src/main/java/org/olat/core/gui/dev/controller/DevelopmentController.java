@@ -30,7 +30,6 @@ package org.olat.core.gui.dev.controller;
 
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 
@@ -344,8 +343,8 @@ public class DevelopmentController extends BasicController {
 		String pcid = Renderer.getComponentPrefix(current);
 		sb.append("<div");
 		if (current.isVisible() && current.isDomReplaceable()) {
-			sb.append(" onMouseOver=\"this.style.background='#FFF';o_dbg_mark('").append(pcid)
-			.append("')\" onMouseOut=\"this.style.background='';o_dbg_unmark('").append(pcid).append("')\"");
+			sb.append(" onMouseOver=\"jQuery(this).css('background-color','#f3feff');o_dbg_mark('").append(pcid)
+			.append("')\" onMouseOut=\"jQuery(this).css('background-color','');o_dbg_unmark('").append(pcid).append("')\"");
 		}
 		sb.append(" style=\"color:blue; padding-bottom:2px; font-size:10px\"><div style=\"margin-left:"+marginLeft+"px\">");
 		
@@ -371,10 +370,10 @@ public class DevelopmentController extends BasicController {
 		
 		int pxInd = indent * 25;
 		String pcid = Renderer.getComponentPrefix(current);
-		sb.append("<div");
+		sb.append("<div id='dmt_").append(pcid).append("' ");
 		if (current.isVisible() && current.isDomReplaceable()) {
-			sb.append(" onMouseOver=\"this.style.background='#FFF';o_dbg_mark('").append(pcid)
-			.append("')\" onMouseOut=\"this.style.background='';o_dbg_unmark('").append(pcid).append("')\"");
+			sb.append(" onMouseOver=\"jQuery(this).css('background-color','#f3feff');o_dbg_mark('").append(pcid)
+			.append("')\" onMouseOut=\"jQuery(this).css('background-color','');o_dbg_unmark('").append(pcid).append("')\"");
 		}
 		sb.append(" style=\"color:blue; padding-bottom:2px; font-size:10px\"><div style=\"margin-left:"+pxInd+"px\">");
 		
@@ -389,9 +388,7 @@ public class DevelopmentController extends BasicController {
 			sb.append("</div></div>");
 			if (current instanceof Container) {
 				Container co = (Container) current;
-				Map children = co.getComponents();
-				for (Iterator iter = children.values().iterator(); iter.hasNext();) {
-					Component child = (Component) iter.next();
+				for (Component child:co.getComponents()) {
 					dumpTree(sb, child, indent + 1, controllerInfos);
 				}
 			}
@@ -402,30 +399,22 @@ public class DevelopmentController extends BasicController {
 		int cnt = 1;
 		if (current instanceof Container) {
 			Container co = (Container) current;
-			Map children = co.getComponents();
-			for (Iterator iter = children.values().iterator(); iter.hasNext();) {
-				Component child = (Component) iter.next();
+			for (Component child:co.getComponents()) {
 				cnt += cntTree(child);
 			}
 		}
 		return cnt;
 	}
-
-	
 }
 
 class ControllerInfo {
-	private Controller controller;
 	private List<Component> listeningTo;
 	
 	ControllerInfo(Controller controller) {
-		this.controller = controller;
 		listeningTo = new ArrayList<Component>();
 	}
 	
 	void addListeningComponent(Component listener) {
 		listeningTo.add(listener);
 	}
-	
 }
-

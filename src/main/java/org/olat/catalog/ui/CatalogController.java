@@ -94,6 +94,7 @@ import org.olat.resource.accesscontrol.ACService;
 import org.olat.resource.accesscontrol.model.OLATResourceAccess;
 import org.olat.resource.accesscontrol.model.PriceMethodBundle;
 import org.olat.resource.accesscontrol.ui.PriceFormat;
+import org.olat.user.UserManager;
 
 /**
  * <pre>
@@ -229,6 +230,7 @@ public class CatalogController extends BasicController implements Activateable2 
 	public static final String LOCK_TOKEN = "catalogeditlock";
 	
 	private final MarkManager markManager;
+	private final UserManager userManager;
 	
 	/**
 	 * Init with catalog root
@@ -245,6 +247,7 @@ public class CatalogController extends BasicController implements Activateable2 
 		acService = CoreSpringFactory.getImpl(ACService.class);
 		markManager = CoreSpringFactory.getImpl(MarkManager.class);
 		repositoryManager = CoreSpringFactory.getImpl(RepositoryManager.class);
+		userManager = CoreSpringFactory.getImpl(UserManager.class);
 
 		List<CatalogEntry> rootNodes = cm.getRootCatalogEntries();
 		CatalogEntry rootce;
@@ -345,17 +348,11 @@ public class CatalogController extends BasicController implements Activateable2 
 					// move a resource in the catalog - moving of catalog leves is triggered by a toolbox action
 					int pos = Integer.parseInt(s.substring(CATENTRY_LEAF.length()));
 					linkMarkedToBeEdited = (CatalogEntry) childCe.get(pos);
-					removeAsListenerAndDispose(catEntryMoveController);
-					boolean ajax = getWindowControl().getWindowBackOffice().getWindowManager().isAjaxEnabled();
-					if (ajax) {
-						// fancy ajax tree
-						catEntryMoveController= new CatalogAjaxMoveController(ureq, getWindowControl(), linkMarkedToBeEdited);
-					} else {
-						// old-school selection tree
-						catEntryMoveController= new CatalogEntryMoveController(getWindowControl(), ureq, linkMarkedToBeEdited, getTranslator());
-					}
-					listenTo(catEntryMoveController);
+					
 					removeAsListenerAndDispose(cmc);
+					removeAsListenerAndDispose(catEntryMoveController);
+					catEntryMoveController= new CatalogEntryMoveController(getWindowControl(), ureq, linkMarkedToBeEdited, getTranslator());
+					listenTo(catEntryMoveController);
 					cmc = new CloseableModalController(getWindowControl(), "close", catEntryMoveController.getInitialComponent());
 					listenTo(cmc);
 					cmc.activate();
@@ -428,7 +425,8 @@ public class CatalogController extends BasicController implements Activateable2 
 			if (event.getCommand().equals(ACTION_ADD_CTLGCATEGORY)) {
 				catModificationLock = CoordinatorManager.getInstance().getCoordinator().getLocker().acquireLock(OresHelper.createOLATResourceableType(CatalogController.class), ureq.getIdentity(), LOCK_TOKEN);
 				if ( ! catModificationLock.isSuccess()) {
-					showError("catalog.locked.by", catModificationLock.getOwner().getName());
+					String ownerName = userManager.getUserDisplayName(catModificationLock.getOwner());
+					showError("catalog.locked.by", ownerName);
 					return;
 				}
 				removeAsListenerAndDispose(addEntryForm);
@@ -470,7 +468,8 @@ public class CatalogController extends BasicController implements Activateable2 
 			else if (event.getCommand().equals(ACTION_EDIT_CTLGCATEGORY)) {
 				catModificationLock = CoordinatorManager.getInstance().getCoordinator().getLocker().acquireLock(OresHelper.createOLATResourceableType(CatalogController.class), ureq.getIdentity(), LOCK_TOKEN);
 				if ( ! catModificationLock.isSuccess()) {
-					showError("catalog.locked.by", catModificationLock.getOwner().getName());
+					String ownerName = userManager.getUserDisplayName(catModificationLock.getOwner());
+					showError("catalog.locked.by", ownerName);
 					return;
 				}
 				removeAsListenerAndDispose(editEntryForm);
@@ -519,7 +518,8 @@ public class CatalogController extends BasicController implements Activateable2 
 			else if (event.getCommand().equals(ACTION_DELETE_CTLGCATEGORY)) {
 				catModificationLock = CoordinatorManager.getInstance().getCoordinator().getLocker().acquireLock(OresHelper.createOLATResourceableType(CatalogController.class), ureq.getIdentity(), LOCK_TOKEN);
 				if ( ! catModificationLock.isSuccess()) {
-					showError("catalog.locked.by", catModificationLock.getOwner().getName());
+					String ownerName = userManager.getUserDisplayName(catModificationLock.getOwner());
+					showError("catalog.locked.by", ownerName);
 					return;
 				}
 				String[] trnslP = { currentCatalogEntry.getName() };
@@ -597,22 +597,16 @@ public class CatalogController extends BasicController implements Activateable2 
 				linkMarkedToBeEdited = null; 
 				//
 				catModificationLock = CoordinatorManager.getInstance().getCoordinator().getLocker().acquireLock(OresHelper.createOLATResourceableType(CatalogController.class), ureq.getIdentity(), LOCK_TOKEN);
-				if ( ! catModificationLock.isSuccess()) {
-					showError("catalog.locked.by", catModificationLock.getOwner().getName());
+				if (!catModificationLock.isSuccess()) {
+					String ownerName = userManager.getUserDisplayName(catModificationLock.getOwner());
+					showError("catalog.locked.by", ownerName);
 					return;
 				}
-				// check if user surfs in ajax mode
-				removeAsListenerAndDispose(catEntryMoveController);
-				boolean ajax = getWindowControl().getWindowBackOffice().getWindowManager().isAjaxEnabled();
-				if (ajax) {
-					// fancy ajax tree
-					catEntryMoveController= new CatalogAjaxMoveController(ureq, getWindowControl(), currentCatalogEntry);
-				} else {
-					// old-school selection tree
-					catEntryMoveController= new CatalogEntryMoveController(getWindowControl(), ureq, currentCatalogEntry, getTranslator());					
-				}
-				listenTo(catEntryMoveController);
+				
 				removeAsListenerAndDispose(cmc);
+				removeAsListenerAndDispose(catEntryMoveController);
+				catEntryMoveController= new CatalogEntryMoveController(getWindowControl(), ureq, currentCatalogEntry, getTranslator());					
+				listenTo(catEntryMoveController);
 				cmc = new CloseableModalController(getWindowControl(), "close", catEntryMoveController.getInitialComponent());
 				listenTo(cmc);
 				cmc.activate();
@@ -758,13 +752,12 @@ public class CatalogController extends BasicController implements Activateable2 
 			}
 		}
 		else if (source == repositoryEditDescriptionController) {
-			if (event == Event.CHANGED_EVENT) {
+			if (event == Event.CHANGED_EVENT || event == Event.DONE_EVENT) {
 				linkMarkedToBeEdited.setRepositoryEntry(repositoryEditDescriptionController.getRepositoryEntry());
 				updateContent(ureq, currentCatalogEntry, currentCatalogEntryLevel);
 				cm.updateReferencedRepositoryEntry(repositoryEditDescriptionController.getRepositoryEntry());
-			} else if (event == Event.CANCELLED_EVENT) {
-				cmc.deactivate();
 			}
+			cmc.deactivate();
 		} else if (source == addEntryForm) {
 			// remove modal dialog
 			cmc.deactivate();
