@@ -239,16 +239,16 @@ public class RepositorySearchController extends BasicController implements Activ
 		} else {
 			restrictedTypes = (s == null) ? null : new ArrayList<String>(s);
 		}
-		//fxdiff VCRP-1,2: access control of resources
-		//List<RepositoryEntry> entries = rm.genericANDQueryWithRolesRestriction(searchForm.getDisplayName(), searchForm.getAuthor(),
-		//	searchForm.getDescription(), restrictedTypes, ureq.getIdentity(), ureq.getUserSession().getRoles(), ureq.getIdentity().getUser().getProperty(UserConstants.INSTITUTIONALNAME, null));
-		
+
 		SearchRepositoryEntryParameters params =
 				new SearchRepositoryEntryParameters(searchForm.getDisplayName(), searchForm.getAuthor(), searchForm.getDescription(),
 						restrictedTypes, ureq.getIdentity(), ureq.getUserSession().getRoles(),
 						ureq.getIdentity().getUser().getProperty(UserConstants.INSTITUTIONALNAME, null));
-		List<RepositoryEntry> entries = rm.genericANDQueryWithRolesRestriction(params, 0, -1, true);	
-		
+		List<RepositoryEntry> entries = rm.genericANDQueryWithRolesRestriction(params, 0, -1, true);		
+		//List<RepositoryEntry> entries =	rm.genericANDQueryWithRolesRestriction(searchForm.getDisplayName(), searchForm.getAuthor(),
+		//	searchForm.getDescription(), restrictedTypes, ureq.getIdentity(), ureq.getUserSession().getRoles(), ureq.getIdentity().getUser().getProperty(UserConstants.INSTITUTIONALNAME, null));
+
+		//fxdiff VCRP-1,2: access control of resources
 		repoTableModel.setObjects(entries);
 		//fxdiff VCRP-10: repository search with type filter
 		if(updateFilters) {

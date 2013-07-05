@@ -64,8 +64,14 @@ public interface BusinessGroupView extends BusinessGroupShort, Persistable, Crea
 	
 	public long getNumWaiting();
 	
+	/**
+	 * @return The number of offers linked to this group (absolute number)
+	 */
 	public long getNumOfOffers();
 	
+	/**
+	 * @return The number of currently valid offers
+	 */
 	public long getNumOfValidOffers();
 
 	/**

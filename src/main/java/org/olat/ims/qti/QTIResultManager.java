@@ -31,10 +31,8 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 
-import org.hibernate.Hibernate;
 import org.hibernate.type.StandardBasicTypes;
 import org.hibernate.type.Type;
-import org.olat.admin.user.delete.service.UserDeletionManager;
 import org.olat.core.commons.persistence.DB;
 import org.olat.core.commons.persistence.DBFactory;
 import org.olat.core.id.Identity;
@@ -55,8 +53,7 @@ public class QTIResultManager extends BasicManager implements UserDataDeletable 
 	/**
 	 * Constructor for QTIResultManager.
 	 */
-	private QTIResultManager(UserDeletionManager userDeletionManager) {
-		userDeletionManager.registerDeletableUserData(this);
+	private QTIResultManager() {
 		instance = this;
 	}
 
@@ -117,7 +114,7 @@ public class QTIResultManager extends BasicManager implements UserDataDeletable 
 	 * @param repositoryRef
 	 * @return List of QTIResult objects
 	 */
-	public List selectResults(Long olatResource, String olatResourceDetail, Long repositoryRef, int type) {
+	public List<QTIResult> selectResults(Long olatResource, String olatResourceDetail, Long repositoryRef, int type) {
 		Long olatRes = olatResource;
 		String olatResDet = olatResourceDetail;
 		Long repRef = repositoryRef;

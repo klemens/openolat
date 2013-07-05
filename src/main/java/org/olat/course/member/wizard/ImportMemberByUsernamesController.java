@@ -34,11 +34,12 @@ import org.olat.core.gui.control.generic.wizard.StepsRunContext;
  * @author srosse, stephane.rosse@frentix.com, http://www.frentix.com
  */
 public class ImportMemberByUsernamesController extends StepFormBasicController {
+
 	private TextElement idata;
 
-	public ImportMemberByUsernamesController(UserRequest ureq, WindowControl wControl, Form rootForm, StepsRunContext runContext) {
+	public ImportMemberByUsernamesController(UserRequest ureq, WindowControl wControl, Form rootForm,
+			StepsRunContext runContext) {
 		super(ureq, wControl, rootForm, runContext, LAYOUT_DEFAULT, null);
-		
 		initForm (ureq);
 	}
 
