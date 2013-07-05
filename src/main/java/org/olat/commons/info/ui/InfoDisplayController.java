@@ -20,7 +20,6 @@
 
 package org.olat.commons.info.ui;
 
-import java.text.DateFormat;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
@@ -30,6 +29,7 @@ import java.util.Set;
 import org.olat.commons.info.manager.InfoMessageFrontendManager;
 import org.olat.commons.info.manager.MailFormatter;
 import org.olat.commons.info.model.InfoMessage;
+import org.olat.core.CoreSpringFactory;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.date.DateComponentFactory;
 import org.olat.core.gui.components.date.DateElement;
@@ -114,7 +114,7 @@ public class InfoDisplayController extends FormBasicController {
 		this.resSubPath = resSubPath;
 		this.businessPath = businessPath;
 		
-		infoMessageManager = InfoMessageFrontendManager.getInstance();
+		infoMessageManager = CoreSpringFactory.getImpl(InfoMessageFrontendManager.class);
 		maxResults = maxResultsConfig = getConfigValue(config, InfoCourseNodeConfiguration.CONFIG_LENGTH, 10);
 		duration = getConfigValue(config, InfoCourseNodeConfiguration.CONFIG_DURATION, 90);
 		
@@ -231,14 +231,14 @@ public class InfoDisplayController extends FormBasicController {
 			message = Formatter.escWithBR(info.getMessage()).toString();
 		}
 		
-		DateFormat formatter = DateFormat.getDateInstance(DateFormat.MEDIUM, getLocale());
+		Formatter formatter = Formatter.getInstance(getLocale());
 		
 		String modifier = null;
 		if(info.getModifier() != null) {
 			User user = info.getModifier().getUser();
 			String formattedName = user.getProperty(UserConstants.FIRSTNAME, null)
 				+ " " + user.getProperty(UserConstants.LASTNAME, null);
-			String creationDate = formatter.format(info.getModificationDate());
+			String creationDate = formatter.formatDateAndTime(info.getModificationDate());
 			modifier = translate("display.modifier", new String[]{formattedName, creationDate});
 		}
 
@@ -246,7 +246,7 @@ public class InfoDisplayController extends FormBasicController {
 		String authorName = author.getProperty(UserConstants.FIRSTNAME, null)
 			+ " " + author.getProperty(UserConstants.LASTNAME, null);
 		
-		String creationDate = formatter.format(info.getCreationDate());
+		String creationDate = formatter.formatDateAndTime(info.getCreationDate());
 		String infos = translate("display.info", new String[]{authorName, creationDate});
 
 		return new InfoMessageForDisplay(info.getKey(), info.getTitle(), message, infos, modifier);
@@ -406,6 +406,7 @@ public class InfoDisplayController extends FormBasicController {
 			
 			String title = (String)runContext.get(WizardConstants.MSG_TITLE);
 			String message = (String)runContext.get(WizardConstants.MSG_MESSAGE);
+			@SuppressWarnings("unchecked")
 			Set<String> selectedOptions = (Set<String>)runContext.get(WizardConstants.SEND_MAIL);
 			
 			InfoMessage msg = infoMessageManager.createInfoMessage(ores, resSubPath, businessPath, ureq.getIdentity());
@@ -419,7 +420,7 @@ public class InfoDisplayController extends FormBasicController {
 				}
 			}
 			
-			infoMessageManager.sendInfoMessage(msg, sendMailFormatter, ureq.getLocale(), identities);
+			infoMessageManager.sendInfoMessage(msg, sendMailFormatter, ureq.getLocale(), ureq.getIdentity(), identities);
 			
 			ThreadLocalUserActivityLogger.log(CourseLoggingAction.INFO_MESSAGE_CREATED, getClass(),
 					LoggingResourceable.wrap(msg.getOLATResourceable(), OlatResourceableType.infoMessage));

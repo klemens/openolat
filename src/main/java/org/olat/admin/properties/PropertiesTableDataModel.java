@@ -25,11 +25,13 @@
 
 package org.olat.admin.properties;
 
+import java.util.ArrayList;
 import java.util.List;
 
 import org.olat.core.gui.components.table.DefaultTableDataModel;
 import org.olat.core.id.Identity;
 import org.olat.properties.Property;
+import org.olat.user.UserManager;
 
 /**
 *  Description:<br>
@@ -37,22 +39,27 @@ import org.olat.properties.Property;
 *
 * @author Alexander Schneider
 */
-public class PropertiesTableDataModel extends DefaultTableDataModel {
+public class PropertiesTableDataModel extends DefaultTableDataModel<Property> {
 
-
+	private final boolean isAdministrativeUser;
+	private final UserManager userManager;
+	
 	/**
 	 * Default constructor.
 	 */
-	public PropertiesTableDataModel() {
-		super(null);
+	public PropertiesTableDataModel(boolean isAdministrativeUser) {
+		this(new ArrayList<Property>(), isAdministrativeUser);
+		
 	}
 
 	/**
 	 * Initialize table model with objects.
 	 * @param objects
 	 */
-	public PropertiesTableDataModel(List objects) {
+	public PropertiesTableDataModel(List<Property> objects, boolean isAdministrativeUser) {
 		super(objects);
+		this.isAdministrativeUser = isAdministrativeUser;
+		userManager = UserManager.getInstance();
 	}
 	
 	/**
@@ -68,11 +75,17 @@ public class PropertiesTableDataModel extends DefaultTableDataModel {
 	 * @see org.olat.core.gui.components.table.TableDataModel#getValueAt(int, int)
 	 */
 	public final Object getValueAt(int row, int col) {
-		Property p = (Property)objects.get(row); 
+		Property p = getObject(row); 
 		switch(col) {
 			case 0:
 				Identity id = p.getIdentity();
-				return ((id != null) ?  (p.getIdentity().getName()): (null));
+				if(id == null) {
+					return null;
+				}
+				if(isAdministrativeUser) {
+					return id.getName();
+				}
+				return userManager.getUserDisplayName(id);
 			case 1:
 				return p.getResourceTypeName();
 			case 2:

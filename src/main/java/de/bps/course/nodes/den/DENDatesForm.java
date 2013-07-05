@@ -22,13 +22,10 @@ package de.bps.course.nodes.den;
 import java.util.Date;
 
 import org.olat.core.gui.UserRequest;
-import org.olat.core.gui.components.Component;
-import org.olat.core.gui.components.form.flexible.FormItem;
 import org.olat.core.gui.components.form.flexible.FormItemContainer;
 import org.olat.core.gui.components.form.flexible.elements.DateChooser;
 import org.olat.core.gui.components.form.flexible.elements.TextElement;
 import org.olat.core.gui.components.form.flexible.impl.FormBasicController;
-import org.olat.core.gui.components.form.flexible.impl.FormEvent;
 import org.olat.core.gui.components.form.flexible.impl.elements.FormSubmit;
 import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.Event;
@@ -143,14 +140,12 @@ public class DENDatesForm extends FormBasicController {
 		retakeTE.setEnabled(showRetakeTE);
 		retakeTE.setVisible(showRetakeTE);
 		
-		beginDateChooser = uifactory.addDateChooser("begin", "config.dates.begin", "", formLayout);
+		beginDateChooser = uifactory.addDateChooser("begin", "config.dates.begin", null, formLayout);
 		beginDateChooser.setNotEmptyCheck("form.error.notempty");
 		beginDateChooser.setValidDateCheck("form.error.date");
 		beginDateChooser.setMandatory(true);
 		beginDateChooser.setDisplaySize(20);
 		beginDateChooser.setDateChooserTimeEnabled(true);
-		beginDateChooser.setDateChooserDateFormat("%d.%m.%Y %H:%M");
-		beginDateChooser.setCustomDateFormat("dd.MM.yyyy HH:mm");
 		beginDateChooser.setExampleKey("config.dates.begin.example", null);
 		beginDateChooser.setEnabled(showBeginDateChooser);
 		beginDateChooser.setVisible(showBeginDateChooser);

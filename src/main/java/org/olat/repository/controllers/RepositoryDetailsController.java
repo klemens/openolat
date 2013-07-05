@@ -37,7 +37,6 @@ import org.olat.basesecurity.BaseSecurity;
 import org.olat.basesecurity.BaseSecurityManager;
 import org.olat.basesecurity.Constants;
 import org.olat.basesecurity.IdentityShort;
-import org.olat.catalog.ui.CatalogAjaxAddController;
 import org.olat.catalog.ui.CatalogEntryAddController;
 import org.olat.catalog.ui.RepoEntryCategoriesTableController;
 import org.olat.core.CoreSpringFactory;
@@ -573,11 +572,8 @@ public class RepositoryDetailsController extends BasicController implements Gene
 			if (cmd.equals(ACTION_DETAILSEDIT)) {
 				// detailsForm.setDisplayOnly(false);
 				main.contextPut("enableEdit", Boolean.valueOf(false)); // disable edit
-				// button
-				return;
 			} else if (cmd.equals(ACTION_CLOSE)) { // close details
 				doCloseDetailView(ureq);
-				return;
 			} else if (cmd.equals(ACTION_LAUNCH)) { // launch resource
 
 			}
@@ -611,7 +607,8 @@ public class RepositoryDetailsController extends BasicController implements Gene
 				removeAsListenerAndDispose(repositoryEditPropertiesController);
 				repositoryEditPropertiesController = new RepositoryEditPropertiesController(ureq, getWindowControl(), repositoryEntry, false);
 				listenTo(repositoryEditPropertiesController);
-				doEditSettings(ureq, repositoryEditPropertiesController);
+				String title = translate("properties.for", new String[]{ repositoryEntry.getDisplayname() });
+				doEditSettings(ureq, repositoryEditPropertiesController, title);
 				
 				List<ContextEntry> subEntries = entries.subList(1, entries.size());
 				repositoryEditPropertiesController.activate(ureq, subEntries, entry.getTransientState());
@@ -705,7 +702,7 @@ public class RepositoryDetailsController extends BasicController implements Gene
 	 * @param ureq
 	 * @param contentController
 	 */
-	private void doEditSettings(UserRequest ureq, Controller contentController) {
+	private void doEditSettings(UserRequest ureq, Controller contentController, String title) {
 	  if (!isAuthor) throw new OLATSecurityException("Trying to edit properties , but user is not author: user = " + ureq.getIdentity());
 	 
 	  Component component = contentController.getInitialComponent();
@@ -713,7 +710,7 @@ public class RepositoryDetailsController extends BasicController implements Gene
 	  if(component!=null) {
 	  	removeAsListenerAndDispose(settingsCloseableModalController);
 	    settingsCloseableModalController = new CloseableModalController(getWindowControl(), translate("close"),
-			  contentController.getInitialComponent());
+			  contentController.getInitialComponent(), true, title);
 	    listenTo(settingsCloseableModalController);
 	    
 	    settingsCloseableModalController.activate();
@@ -753,10 +750,12 @@ public class RepositoryDetailsController extends BasicController implements Gene
 			    fireEvent(ureq, Event.FAILED_EVENT);			
 		    }
 		  } else if(lockResult!=null && lockResult.isSuccess() && isAlreadyLocked) {
-		  	showInfo("warning.course.alreadylocked.bySameUser", lockResult.getOwner().getName());
+		  	String fullName = userManager.getUserDisplayName(lockResult.getOwner());
+		  	showInfo("warning.course.alreadylocked.bySameUser", fullName);
 		  	lockResult = null; //invalid lock, it was already locked
 		  } else {
-		  	showInfo("warning.course.alreadylocked", lockResult.getOwner().getName());
+		  	String fullName = userManager.getUserDisplayName(lockResult.getOwner());
+		  	showInfo("warning.course.alreadylocked", fullName);
 		  }
 		}
 		finally {	
@@ -780,16 +779,19 @@ public class RepositoryDetailsController extends BasicController implements Gene
 		  copyController = new RepositoryCopyController(ureq, getWindowControl(), repositoryEntry);
 		  listenTo(copyController);
 		  
+		  String title = translate("details.copy");
 		  removeAsListenerAndDispose(copyCloseableModalController);
-		  copyCloseableModalController = new CloseableModalController(getWindowControl(), translate("close"), copyController.getInitialComponent());
+		  copyCloseableModalController = new CloseableModalController(getWindowControl(), translate("close"), copyController.getInitialComponent(),
+		  		true, title);
 		  listenTo(copyCloseableModalController);
 		  
 		  copyCloseableModalController.activate();				  
 		} else if (lockResult!=null && lockResult.isSuccess() && isAlreadyLocked) {
 			showWarning("warning.course.alreadylocked.bySameUser");
 			lockResult = null;
-		}	else {			  
-		  showWarning("warning.course.alreadylocked", lockResult.getOwner().getName());
+		}	else {	
+			String fullName = userManager.getUserDisplayName(lockResult.getOwner());
+		  showWarning("warning.course.alreadylocked", fullName);
 	  }
 	}
 	
@@ -801,13 +803,16 @@ public class RepositoryDetailsController extends BasicController implements Gene
 	 */
 	void doEdit(UserRequest ureq) {
 		if (!isOwner) throw new OLATSecurityException("Trying to launch editor, but not allowed: user = " + ureq.getIdentity());
-		RepositoryHandler typeToEdit = RepositoryHandlerFactory.getInstance().getRepositoryHandler(repositoryEntry);
-		if (!typeToEdit.supportsEdit(repositoryEntry)){
+		doEdit(ureq, repositoryEntry);
+	}
+		
+	public static void doEdit(UserRequest ureq, RepositoryEntry re) {
+		RepositoryHandler typeToEdit = RepositoryHandlerFactory.getInstance().getRepositoryHandler(re);
+		if (!typeToEdit.supportsEdit(re)){
 			throw new AssertException("Trying to edit repository entry which has no assoiciated editor: "+ typeToEdit);
 		}
-				
 
-		OLATResourceable ores = repositoryEntry.getOlatResource();
+		OLATResourceable ores = re.getOlatResource();
 		
 		//was brasato:: DTabs dts = getWindowControl().getDTabs();
 		DTabs dts = Windows.getWindows(ureq).getWindow(ureq).getDTabs();
@@ -815,7 +820,7 @@ public class RepositoryDetailsController extends BasicController implements Gene
 		if (dt == null) {
 			// does not yet exist -> create and add
 			//fxdiff BAKS-7 Resume function
-			dt = dts.createDTab(ores, repositoryEntry, repositoryEntry.getDisplayname());
+			dt = dts.createDTab(ores, re, re.getDisplayname());
 			if (dt == null){
 				//null means DTabs are full -> warning is shown
 				return;
@@ -840,19 +845,10 @@ public class RepositoryDetailsController extends BasicController implements Gene
 	 */
 	private void doAddCatalog(UserRequest ureq) {
 		removeAsListenerAndDispose(catalogAdddController);
-		boolean ajax = getWindowControl().getWindowBackOffice().getWindowManager().isAjaxEnabled();
-		if (ajax) {
-			// fancy ajax tree
-			catalogAdddController = new CatalogAjaxAddController(ureq, getWindowControl(), repositoryEntry);
-		} else {
-			// old-school selection tree
-			catalogAdddController = new CatalogEntryAddController(ureq, getWindowControl(), repositoryEntry);
-		}
-
-		
-		
-		listenTo(catalogAdddController);
 		removeAsListenerAndDispose(closeableModalController);
+		
+		catalogAdddController = new CatalogEntryAddController(ureq, getWindowControl(), repositoryEntry);
+		listenTo(catalogAdddController);
 		closeableModalController = new CloseableModalController(getWindowControl(), "close", catalogAdddController.getInitialComponent());
 		listenTo(closeableModalController);
 		closeableModalController.activate();
@@ -885,7 +881,8 @@ public class RepositoryDetailsController extends BasicController implements Gene
 				removeAsListenerAndDispose(repositoryEditDescriptionController);
 				repositoryEditDescriptionController = new RepositoryEditDescriptionController(ureq, getWindowControl(), repositoryEntry, false);
 				listenTo(repositoryEditDescriptionController);
-				doEditSettings(ureq, repositoryEditDescriptionController);
+				String title = translate("properties.for", new String[]{ repositoryEntry.getDisplayname() });
+				doEditSettings(ureq, repositoryEditDescriptionController, title);
 				return;
 			} else if (cmd.equals(ACTION_ADD_CATALOG)) { // start add to catalog workflow
 				doAddCatalog(ureq);
@@ -894,7 +891,8 @@ public class RepositoryDetailsController extends BasicController implements Gene
 				removeAsListenerAndDispose(repositoryEditPropertiesController);
 				repositoryEditPropertiesController = new RepositoryEditPropertiesController(ureq, getWindowControl(), repositoryEntry, false);
 				listenTo(repositoryEditPropertiesController);
-				doEditSettings(ureq, repositoryEditPropertiesController);
+				String title = translate("properties.for", new String[]{ repositoryEntry.getDisplayname() });
+				doEditSettings(ureq, repositoryEditPropertiesController, title);
 				return;
 			} else if (cmd.equals(ACTION_CLOSE)) {
 				doCloseDetailView(ureq);
@@ -965,7 +963,7 @@ public class RepositoryDetailsController extends BasicController implements Gene
 			removeAsListenerAndDispose(copyController);
 			copyController = null;
 		} else if (source == repositoryEditDescriptionController) {
-			if (event == Event.CHANGED_EVENT) {
+			if (event == Event.CHANGED_EVENT || event == Event.DONE_EVENT) {
 				// RepositoryEntry changed
 				// setEntry(repositoryEditDescriptionController.getRepositoryEntry(), ureq);
 				String displayname = repositoryEditDescriptionController.getRepositoryEntry().getDisplayname();
@@ -974,10 +972,10 @@ public class RepositoryDetailsController extends BasicController implements Gene
 				// do not close upon save/upload image closeableModalController.deactivate();
 				updateView(ureq);
 			} else if (event == Event.CANCELLED_EVENT) {
-				settingsCloseableModalController.deactivate();
 				removeAsListenerAndDispose(repositoryEditDescriptionController);
-				this.repositoryEntry = repositoryEditDescriptionController.getRepositoryEntry();
+				repositoryEntry = repositoryEditDescriptionController.getRepositoryEntry();
 			}
+			settingsCloseableModalController.deactivate();
 		} else if (source == repositoryEditPropertiesController) {
 			if (event == Event.CHANGED_EVENT || event.getCommand().equals("courseChanged")) {
 				// RepositoryEntry changed

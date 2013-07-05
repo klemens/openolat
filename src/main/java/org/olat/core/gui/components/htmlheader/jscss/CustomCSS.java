@@ -21,22 +21,16 @@ package org.olat.core.gui.components.htmlheader.jscss;
 
 import java.util.Collections;
 
-import javax.servlet.http.HttpServletRequest;
-
 import org.olat.core.CoreSpringFactory;
 import org.olat.core.dispatcher.mapper.Mapper;
 import org.olat.core.dispatcher.mapper.MapperService;
 import org.olat.core.gui.control.Disposable;
 import org.olat.core.gui.control.JSAndCSSAdder;
-import org.olat.core.gui.media.MediaResource;
-import org.olat.core.gui.media.NotFoundMediaResource;
 import org.olat.core.logging.LogDelegator;
 import org.olat.core.util.UserSession;
 import org.olat.core.util.vfs.VFSContainer;
-import org.olat.core.util.vfs.VFSItem;
-import org.olat.core.util.vfs.VFSLeaf;
+import org.olat.core.util.vfs.VFSContainerMapper;
 import org.olat.core.util.vfs.VFSManager;
-import org.olat.core.util.vfs.VFSMediaResource;
 
 /**
  * Description:<br>
@@ -75,11 +69,10 @@ public class CustomCSS extends LogDelegator implements Disposable {
 		this.relCssFilename = relCssFilename;
 		registerMapper(cssBaseContainer, uSess);
 		// initialize js and css component
-		this.jsAndCssComp = new JSAndCSSComponent("jsAndCssComp", this.getClass(),
-				null, null, false, null);
+		jsAndCssComp = new JSAndCSSComponent("jsAndCssComp", this.getClass(), false);
 		String fulluri = mapperBaseURI + relCssFilename;
 		// load CSS after the theme
-		this.jsAndCssComp.addAutoRemovedCssPathName(fulluri, JSAndCSSAdder.CSS_INDEX_AFTER_THEME);
+		jsAndCssComp.addAutoRemovedCssPathName(fulluri, JSAndCSSAdder.CSS_INDEX_AFTER_THEME);
 	}
 	
 	public CustomCSS(final VFSContainer cssBaseContainer,
@@ -90,11 +83,10 @@ public class CustomCSS extends LogDelegator implements Disposable {
 		registerMapper(cssBaseContainer, uSess);
 		
 		// initialize js and css component
-		this.jsAndCssComp = new JSAndCSSComponent("jsAndCssComp", this.getClass(),
-				null, null, false, null);
+		jsAndCssComp = new JSAndCSSComponent("jsAndCssComp", this.getClass(), false);
 		String fulluri = mapperBaseURI + relCssFilename;
 		// load CSS after the theme
-		this.jsAndCssComp.addAutoRemovedCssPathName(fulluri, JSAndCSSAdder.CSS_INDEX_AFTER_THEME);
+		jsAndCssComp.addAutoRemovedCssPathName(fulluri, JSAndCSSAdder.CSS_INDEX_AFTER_THEME);
 		
 	}
 
@@ -120,21 +112,8 @@ public class CustomCSS extends LogDelegator implements Disposable {
 	 * @param cssBaseContainer
 	 */
 	private void createCSSUriMapper(final VFSContainer cssBaseContainer) {
-		cssUriMapper = new Mapper() {
-			public MediaResource handle(String relPath,
-					HttpServletRequest request) {
-				VFSItem vfsItem = cssBaseContainer.resolve(relPath);
-				MediaResource mr;
-				if (vfsItem == null || !(vfsItem instanceof VFSLeaf))
-					mr = new NotFoundMediaResource(relPath);
-				else
-					mr = new VFSMediaResource((VFSLeaf) vfsItem);
-				return mr;
-			}
-		};
+		cssUriMapper = new VFSContainerMapper(cssBaseContainer);
 	}
-	
-
 
 	/**
 	 * Get the js and css component that embedds the CSS file

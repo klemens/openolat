@@ -1,8 +1,7 @@
-
-	#if ($showPreviewButton)
-		<div class="b_float_right">$r.render("command.preview")</div>
-		<br/>
-	#end
-	$r.render("ltConfigForm")
-
+<div class="b_lti_edit_wrapper">
+#if ($showPreviewButton)
+	<div class="o_buttons_box_right">$r.render("command.preview")</div>
+#end
+$r.render("ltConfigForm")
+</div>
 
