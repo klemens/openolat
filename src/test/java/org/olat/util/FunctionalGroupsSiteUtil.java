@@ -147,6 +147,7 @@ public class FunctionalGroupsSiteUtil {
 		CALENDAR,
 		FOLDER,
 		FORUM,
+		CHAT,
 		WIKI,
 		EPORTFOLIO;
 	}
@@ -158,6 +159,7 @@ public class FunctionalGroupsSiteUtil {
 		EMAIL("o_co_icon"),
 		FOLDER("o_bc_icon"),
 		FORUM("o_fo_icon"),
+		CHAT("o_chat_icon"),
 		WIKI("o_wiki_icon"),
 		PORTFOLIO("o_ep_icon"),
 		ADMINISTRATION("o_admin_icon"),
@@ -235,7 +237,12 @@ public class FunctionalGroupsSiteUtil {
 	private String groupParticipantsCss;
 	
 	private String accessControlTokenEntryCss;
-	
+
+	private String instantMessagingChatCss;
+	private String instantMessagingBodyCss;
+	private String instantMessagingAvatarCss;
+	private String instantMessagingFormCss;
+
 	private FunctionalUtil functionalUtil;
 	
 	public FunctionalGroupsSiteUtil(FunctionalUtil functionalUtil){
@@ -266,6 +273,11 @@ public class FunctionalGroupsSiteUtil {
 		this.groupParticipantsCss = GROUP_PARTICIPANTS_CSS;
 		
 		this.accessControlTokenEntryCss = ACCESS_CONTROL_TOKEN_ENTRY_CSS;
+		
+		this.instantMessagingChatCss = FunctionalInstantMessagingUtil.INSTANT_MESSAGING_CHAT_CSS;
+		this.instantMessagingBodyCss = FunctionalInstantMessagingUtil.INSTANT_MESSAGING_BODY_CSS;
+		this.instantMessagingAvatarCss = FunctionalInstantMessagingUtil.INSTANT_MESSAGING_AVATAR_CSS;
+		this.instantMessagingFormCss = FunctionalInstantMessagingUtil.INSTANT_MESSAGING_FORM_CSS;
 		
 		this.functionalUtil = functionalUtil;
 	}
@@ -522,6 +534,11 @@ public class FunctionalGroupsSiteUtil {
 			action = GroupsTabAction.FORUM;
 		}
 		break;
+		case CHAT:
+		{
+			action = GroupsTabAction.CHAT;
+		}
+		break;
 		case WIKI:
 		{
 			action = GroupsTabAction.WIKI;
@@ -587,30 +604,42 @@ public class FunctionalGroupsSiteUtil {
 		
 		if(ArrayUtils.contains(tools, GroupTools.INFORMATION)){
 			functionalUtil.clickCheckbox(browser, null, Integer.toString(GroupTools.INFORMATION.ordinal()));
+			functionalUtil.idle(browser);
 		}
 		
 		if(ArrayUtils.contains(tools, GroupTools.EMAIL)){
 			functionalUtil.clickCheckbox(browser, null, Integer.toString(GroupTools.EMAIL.ordinal()));
+			functionalUtil.idle(browser);
 		}
 		
 		if(ArrayUtils.contains(tools, GroupTools.CALENDAR)){
 			functionalUtil.clickCheckbox(browser, null, Integer.toString(GroupTools.CALENDAR.ordinal()));
+			functionalUtil.idle(browser);
 		}
 		
 		if(ArrayUtils.contains(tools, GroupTools.FOLDER)){
 			functionalUtil.clickCheckbox(browser, null, Integer.toString(GroupTools.FOLDER.ordinal()));
+			functionalUtil.idle(browser);
 		}
 		
 		if(ArrayUtils.contains(tools, GroupTools.FORUM)){
 			functionalUtil.clickCheckbox(browser, null, Integer.toString(GroupTools.FORUM.ordinal()));
+			functionalUtil.idle(browser);
+		}
+		
+		if(ArrayUtils.contains(tools, GroupTools.CHAT)){
+			functionalUtil.clickCheckbox(browser, null, Integer.toString(GroupTools.CHAT.ordinal()));
+			functionalUtil.idle(browser);
 		}
 		
 		if(ArrayUtils.contains(tools, GroupTools.WIKI)){
 			functionalUtil.clickCheckbox(browser, null, Integer.toString(GroupTools.WIKI.ordinal()));
+			functionalUtil.idle(browser);
 		}
 		
 		if(ArrayUtils.contains(tools, GroupTools.EPORTFOLIO)){
 			functionalUtil.clickCheckbox(browser, null, Integer.toString(GroupTools.EPORTFOLIO.ordinal()));
+			functionalUtil.idle(browser);
 		}
 		
 		return(true);
@@ -1018,6 +1047,113 @@ public class FunctionalGroupsSiteUtil {
 		return(true);
 	}
 	
+	/**
+	 * Opens the chat of the appropriate group.
+	 * 
+	 * @param browser
+	 * @param groupName
+	 * @return
+	 */
+	public boolean openGroupChat(Selenium browser, String groupName){
+		if(!openMyGroup(browser, groupName)){
+			return(false);
+		}
+		
+		if(!openGroupsTabActionByMenuTree(browser, GroupsTabAction.CHAT)){
+			return(false);
+		}
+		
+		functionalUtil.idle(browser);
+		
+		StringBuffer selectorBuffer = new StringBuffer();
+		
+		selectorBuffer.append("xpath=//div[@id='")
+		.append(functionalUtil.getContentCss())
+		.append("']//a[contains(@class, '")
+		.append(functionalUtil.getButtonCss())
+		.append("')]");
+
+		functionalUtil.waitForPageToLoadElement(browser, selectorBuffer.toString());
+		
+		browser.click(selectorBuffer.toString());
+		
+		return(true);
+	}
+	
+	/**
+	 * Waits until message has arrived.
+	 * 
+	 * @param browser
+	 * @param message
+	 * @return
+	 */
+	public boolean waitForPageToLoadMessage(Selenium browser, String group, String message, int index){
+		if(message == null){
+			return(true);
+		}
+		
+		functionalUtil.idle(browser);
+		
+		StringBuffer selectorBuffer = new StringBuffer();
+		selectorBuffer.append("xpath=(//div[contains(@class, '")
+		.append(getInstantMessagingChatCss())
+		.append("')]//div[contains(@class, '")
+		.append(getInstantMessagingBodyCss())
+		.append("')])[")
+		.append(index + 1)
+		.append("]");
+		
+		functionalUtil.waitForPageToLoadElement(browser, selectorBuffer.toString());
+		
+		String content = browser.getText(selectorBuffer.toString());
+		
+		return(content.contains(message));
+	}
+	
+	/**
+	 * Sends message to group.
+	 * 
+	 * @param browser
+	 * @param groupName
+	 * @param message
+	 * @return
+	 */
+	public boolean sendMessageToGroup(Selenium browser, String groupName, String message){
+		if(!openGroupChat(browser, groupName)){
+			return(false);
+		}
+
+		functionalUtil.idle(browser);
+		
+		/* type */
+		StringBuffer selectorBuffer = new StringBuffer();
+		
+		selectorBuffer.append("xpath=//div[contains(@class, '")
+		.append(getInstantMessagingChatCss())
+		.append("')]//div[contains(@class, '")
+		.append(getInstantMessagingFormCss())
+		.append("')]//input[@type='text']");
+
+		functionalUtil.waitForPageToLoadElement(browser, selectorBuffer.toString());
+		browser.type(selectorBuffer.toString(), message);
+		
+		/* send */
+		selectorBuffer = new StringBuffer();
+		
+		selectorBuffer.append("xpath=//div[contains(@class, '")
+		.append(getInstantMessagingChatCss())
+		.append("')]//div[contains(@class, '")
+		.append(getInstantMessagingFormCss())
+		.append("')]//a[contains(@class, '")
+		.append(functionalUtil.getButtonCss())
+		.append("')]");
+		
+		functionalUtil.waitForPageToLoadElement(browser, selectorBuffer.toString());
+		browser.click(selectorBuffer.toString());
+		
+		return(true);
+	}
+	
 	public FunctionalUtil getFunctionalUtil() {
 		return functionalUtil;
 	}
@@ -1178,5 +1314,37 @@ public class FunctionalGroupsSiteUtil {
 
 	public void setAccessControlTokenEntryCss(String accessControlTokenEntryCss) {
 		this.accessControlTokenEntryCss = accessControlTokenEntryCss;
+	}
+
+	public String getInstantMessagingChatCss() {
+		return instantMessagingChatCss;
+	}
+
+	public void setInstantMessagingChatCss(String instantMessagingChatCss) {
+		this.instantMessagingChatCss = instantMessagingChatCss;
+	}
+
+	public String getInstantMessagingBodyCss() {
+		return instantMessagingBodyCss;
+	}
+
+	public void setInstantMessagingBodyCss(String instantMessagingBodyCss) {
+		this.instantMessagingBodyCss = instantMessagingBodyCss;
+	}
+
+	public String getInstantMessagingAvatarCss() {
+		return instantMessagingAvatarCss;
+	}
+
+	public void setInstantMessagingAvatarCss(String instantMessagingAvatarCss) {
+		this.instantMessagingAvatarCss = instantMessagingAvatarCss;
+	}
+
+	public String getInstantMessagingFormCss() {
+		return instantMessagingFormCss;
+	}
+
+	public void setInstantMessagingFormCss(String instantMessagingFormCss) {
+		this.instantMessagingFormCss = instantMessagingFormCss;
 	}
 }

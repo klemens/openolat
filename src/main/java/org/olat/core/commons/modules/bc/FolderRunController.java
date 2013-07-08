@@ -31,8 +31,6 @@ import java.util.Enumeration;
 import java.util.Iterator;
 import java.util.List;
 
-import javax.servlet.http.HttpServletRequest;
-
 import org.olat.core.CoreSpringFactory;
 import org.olat.core.commons.controllers.linkchooser.CustomLinkTreeModel;
 import org.olat.core.commons.modules.bc.commands.CmdCreateFile;
@@ -45,10 +43,7 @@ import org.olat.core.commons.modules.bc.commands.FolderCommand;
 import org.olat.core.commons.modules.bc.commands.FolderCommandFactory;
 import org.olat.core.commons.modules.bc.commands.FolderCommandStatus;
 import org.olat.core.commons.modules.bc.components.FolderComponent;
-import org.olat.core.commons.services.search.ui.SearchController;
-import org.olat.core.commons.services.search.ui.SearchServiceUIFactory;
-import org.olat.core.commons.services.search.ui.SearchServiceUIFactory.DisplayOption;
-import org.olat.core.dispatcher.mapper.Mapper;
+import org.olat.core.commons.services.webdav.WebDAVManager;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.Component;
 import org.olat.core.gui.components.download.DisplayOrDownloadComponent;
@@ -62,8 +57,6 @@ import org.olat.core.gui.control.WindowControl;
 import org.olat.core.gui.control.controller.BasicController;
 import org.olat.core.gui.control.generic.closablewrapper.CloseableModalController;
 import org.olat.core.gui.control.generic.dtabs.Activateable2;
-import org.olat.core.gui.media.MediaResource;
-import org.olat.core.gui.media.NotFoundMediaResource;
 import org.olat.core.id.OLATResourceable;
 import org.olat.core.id.context.BusinessControl;
 import org.olat.core.id.context.BusinessControlFactory;
@@ -74,7 +67,6 @@ import org.olat.core.logging.Tracing;
 import org.olat.core.logging.activity.CoreLoggingResourceable;
 import org.olat.core.logging.activity.ILoggingAction;
 import org.olat.core.logging.activity.ThreadLocalUserActivityLogger;
-import org.olat.core.servlets.WebDAVManager;
 import org.olat.core.util.notifications.ContextualSubscriptionController;
 import org.olat.core.util.notifications.PublisherData;
 import org.olat.core.util.notifications.SubscriptionContext;
@@ -82,12 +74,14 @@ import org.olat.core.util.resource.OresHelper;
 import org.olat.core.util.vfs.OlatRelPathImpl;
 import org.olat.core.util.vfs.Quota;
 import org.olat.core.util.vfs.VFSContainer;
+import org.olat.core.util.vfs.VFSContainerMapper;
 import org.olat.core.util.vfs.VFSItem;
-import org.olat.core.util.vfs.VFSLeaf;
 import org.olat.core.util.vfs.VFSManager;
-import org.olat.core.util.vfs.VFSMediaResource;
 import org.olat.core.util.vfs.callbacks.VFSSecurityCallback;
 import org.olat.core.util.vfs.filters.VFSItemFilter;
+import org.olat.search.SearchServiceUIFactory;
+import org.olat.search.SearchServiceUIFactory.DisplayOption;
+import org.olat.search.ui.SearchInputController;
 
 /**
  * Description:<br>
@@ -111,7 +105,7 @@ public class FolderRunController extends BasicController implements Activateable
 	private SubscriptionContext subsContext;
 	private ContextualSubscriptionController csController;
 	
-	private SearchController searchC;
+	private SearchInputController searchC;
 	private FolderComponent folderComponent;
 	private Controller folderCommandController;
 	private FolderCommand folderCommand;
@@ -393,11 +387,12 @@ public class FolderRunController extends BasicController implements Activateable
 			
 			folderCommand = FolderCommandFactory.getInstance().getCommand(cmd, ureq, getWindowControl());
 			if (folderCommand != null) {
-				folderCommandController = folderCommand.execute(folderComponent, ureq, getWindowControl(), getTranslator());
-				if (folderCommandController != null) {
+				Controller commandController = folderCommand.execute(folderComponent, ureq, getWindowControl(), getTranslator());
+				if (commandController != null) {
+					folderCommandController = commandController;
 					// activate command's controller
-					this.listenTo(folderCommandController);
-					if ( ! folderCommand.runsModal()) {
+					listenTo(folderCommandController);
+					if (!folderCommand.runsModal()) {
 						cmc = new CloseableModalController(getWindowControl(), translate("close"), folderCommandController.getInitialComponent());
 						cmc.activate();						
 						listenTo(cmc);
@@ -511,16 +506,7 @@ public class FolderRunController extends BasicController implements Activateable
 				// and can not reuse the standard briefcase way of file delivering, some
 				// very old fancy code
 				// Mapper is cleaned up automatically by basic controller
-				String baseUrl = registerMapper(ureq, new Mapper() {
-					public MediaResource handle(String relPath, HttpServletRequest request) {
-						VFSLeaf vfsfile = (VFSLeaf) folderComponent.getRootContainer().resolve(relPath);
-						if (vfsfile == null) {
-							return new NotFoundMediaResource(relPath);
-						} else {
-							return new VFSMediaResource(vfsfile);
-						}
-					}
-				});
+				String baseUrl = registerMapper(ureq, new VFSContainerMapper(folderComponent.getRootContainer()));
 				// Trigger auto-download
 				DisplayOrDownloadComponent dordc = new DisplayOrDownloadComponent("downloadcomp",baseUrl + path);
 				folderContainer.put("autoDownloadComp", dordc);

@@ -27,38 +27,45 @@ package org.olat.course.nodes.basiclti;
 
 import java.net.MalformedURLException;
 import java.net.URL;
-import java.util.List;
-import java.util.Locale;
-import java.util.Properties;
-
-import javax.servlet.http.HttpServletRequest;
+import java.util.Enumeration;
+import java.util.Map;
 
 import org.imsglobal.basiclti.BasicLTIUtil;
-import org.olat.basesecurity.Authentication;
-import org.olat.basesecurity.BaseSecurityManager;
+import org.olat.core.CoreSpringFactory;
+import org.olat.core.commons.fullWebApp.popup.BaseFullWebappPopupLayoutFactory;
 import org.olat.core.dispatcher.mapper.Mapper;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.Component;
+import org.olat.core.gui.components.link.Link;
+import org.olat.core.gui.components.link.LinkFactory;
 import org.olat.core.gui.components.panel.Panel;
 import org.olat.core.gui.components.velocity.VelocityContainer;
 import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.Event;
 import org.olat.core.gui.control.WindowControl;
 import org.olat.core.gui.control.controller.BasicController;
-import org.olat.core.gui.media.MediaResource;
-import org.olat.core.gui.media.StringMediaResource;
+import org.olat.core.gui.control.creator.ControllerCreator;
+import org.olat.core.gui.control.generic.popup.PopupBrowserWindow;
 import org.olat.core.helpers.Settings;
-import org.olat.core.id.Identity;
 import org.olat.core.id.Roles;
 import org.olat.core.id.User;
 import org.olat.core.id.UserConstants;
+import org.olat.core.util.Encoder;
+import org.olat.core.util.SortedProperties;
 import org.olat.core.util.StringHelper;
-import org.olat.core.util.WebappHelper;
+import org.olat.course.groupsandrights.CourseGroupManager;
 import org.olat.course.nodes.BasicLTICourseNode;
+import org.olat.course.properties.CoursePropertyManager;
 import org.olat.course.run.environment.CourseEnvironment;
-import org.olat.ldap.ui.LDAPAuthenticationController;
+import org.olat.course.run.scoring.ScoreEvaluation;
+import org.olat.course.run.userview.UserCourseEnvironment;
+import org.olat.ims.lti.LTIContext;
+import org.olat.ims.lti.LTIManager;
+import org.olat.ims.lti.ui.PostDataMapper;
+import org.olat.ims.lti.ui.TalkBackMapper;
 import org.olat.modules.ModuleConfiguration;
-import org.olat.shibboleth.ShibbolethDispatcher;
+import org.olat.properties.Property;
+import org.olat.resource.OLATResource;
 
 /**
  * Description:<br>
@@ -68,15 +75,41 @@ import org.olat.shibboleth.ShibbolethDispatcher;
  * 
  */
 public class LTIRunController extends BasicController {
-
-	private VelocityContainer run;
+	private static final String PROP_NAME_DATA_EXCHANGE_ACCEPTED = "LtiDataExchageAccepted";
+	
+	private Link startButton;
+	private final Panel mainPanel;
+	private VelocityContainer run, startPage, acceptPage;
 	private BasicLTICourseNode courseNode;
-	private Panel main;
 	private ModuleConfiguration config;
-	private CourseEnvironment courseEnv;
-	private String postData;
-	private Mapper contentMapper;
-	private Mapper talkbackMapper;
+	private final CourseEnvironment courseEnv;
+	private UserCourseEnvironment userCourseEnv;
+	private SortedProperties userData = new SortedProperties(); 
+	private SortedProperties customUserData = new SortedProperties(); 
+	private Link acceptLink;
+	
+	private final Roles roles;
+	private final LTIManager ltiManager;
+	private final boolean newWindow;
+	
+	public LTIRunController(WindowControl wControl, ModuleConfiguration config, UserRequest ureq, BasicLTICourseNode ltCourseNode,
+			CourseEnvironment courseEnv) {
+		super(ureq, wControl);
+		this.courseNode = ltCourseNode;
+		this.config = config;
+		this.roles = ureq.getUserSession().getRoles();
+		this.courseEnv = courseEnv;
+		newWindow = false;
+		ltiManager = CoreSpringFactory.getImpl(LTIManager.class);
+
+		run = createVelocityContainer("run");
+		// push title and learning objectives, only visible on intro page
+		run.contextPut("menuTitle", courseNode.getShortTitle());
+		run.contextPut("displayTitle", courseNode.getLongTitle());
+
+		doBasicLTI(ureq, run);
+		mainPanel = putInitialPanel(run);
+	}
 
 	/**
 	 * Constructor for tunneling run controller
@@ -88,241 +121,323 @@ public class LTIRunController extends BasicController {
 	 * @param cenv the course environment
 	 */
 	public LTIRunController(WindowControl wControl, ModuleConfiguration config, UserRequest ureq, BasicLTICourseNode ltCourseNode,
-			CourseEnvironment cenv) {
-		super(ureq, wControl);
+			UserCourseEnvironment userCourseEnv) {
+ 		super(ureq, wControl);
 		this.courseNode = ltCourseNode;
 		this.config = config;
-		this.courseEnv = cenv;
+		this.userCourseEnv = userCourseEnv;
+		this.roles = ureq.getUserSession().getRoles();
+		this.courseEnv = userCourseEnv.getCourseEnvironment();
+		this.ltiManager = CoreSpringFactory.getImpl(LTIManager.class);
+		String display = config.getStringValue(BasicLTICourseNode.CONFIG_DISPLAY, "iframe");
+		this.newWindow = "window".equals(display);
 
-		main = new Panel("ltrunmain");
-		doBasicLTI(ureq);
-		this.putInitialPanel(main);
-	}
-
-	public void event(UserRequest ureq, Component source, Event event) {
-		//nothing to do
-	}
-
-	protected void event(UserRequest ureq, Controller source, Event event) {
-	// nothing to do
-	}
-
-	private void doBasicLTI(UserRequest ureq) {
-		run = createVelocityContainer("run");
-
-		// push title and learning objectives, only visible on intro page
-		run.contextPut("menuTitle", courseNode.getShortTitle());
-		run.contextPut("displayTitle", courseNode.getLongTitle());
-
-		// put url in template to show content on extern page
-		URL url = null;
-		try {
-			url = new URL((String) config.get(LTIConfigForm.CONFIGKEY_PROTO), (String) config.get(LTIConfigForm.CONFIGKEY_HOST), ((Integer) config
-					.get(LTIConfigForm.CONFIGKEY_PORT)).intValue(), (String) config.get(LTIConfigForm.CONFIGKEY_URI));
-		} catch (MalformedURLException e) {
-			// this should not happen since the url was already validated in edit mode
-			run.contextPut("url", "");
-		}
-		if (url != null) {
-			StringBuilder sb = new StringBuilder(128);
-			sb.append(url.toString());
-			// since the url only includes the path, but not the query (?...), append
-			// it here, if any
-			String query = (String) config.get(LTIConfigForm.CONFIGKEY_QUERY);
-			if (query != null) {
-				sb.append("?");
-				sb.append(query);
-			}
-			run.contextPut("url", sb.toString());
-
-			String key = (String) config.get(LTIConfigForm.CONFIGKEY_KEY);
-			String pass = (String) config.get(LTIConfigForm.CONFIGKEY_PASS);
-			String debug = (String) config.get(LTIConfigForm.CONFIG_KEY_DEBUG);
-
-			talkbackMapper = new Mapper() {
-
-				@Override
-				public MediaResource handle(String relPath, HttpServletRequest request) {
-					/**
-					 * this is the place for error handling coming from the LTI tool, depending on error state
-					 * may present some information for the user or just add some information to the olat.log file
-					 */
-					StringMediaResource mediares = new StringMediaResource();
-					StringBuilder sb = new StringBuilder();
-					sb.append("lti_msg: ").append(request.getParameter("lti_msg")).append("<br/>");
-					sb.append("lti_errormsg: ").append(request.getParameter("lti_errormsg")).append("<br/>");
-					sb.append("lti_log: ").append(request.getParameter("lti_log")).append("<br/>");
-					sb.append("lti_errorlog: ").append(request.getParameter("lti_errorlog")).append("<br/>");
-					mediares.setData("<html><body>" + sb.toString() + "</body></html>");
-					mediares.setContentType("text/html");
-					mediares.setEncoding("UTF-8");
-					return mediares;
-				}
-			};
-			String backMapperUrl = registerMapper(ureq, talkbackMapper);
-
-			String serverUri = ureq.getHttpReq().getScheme()+"://"+ureq.getHttpReq().getServerName()+":"+ureq.getHttpReq().getServerPort();
-
-			Properties props = LTIProperties(ureq);
-			setProperty(props, "launch_presentation_return_url", serverUri + backMapperUrl + "/");
-			props = BasicLTIUtil.signProperties(props, sb.toString(), "POST", key, pass, null, null, null);
-
-			postData = BasicLTIUtil.postLaunchHTML(props, sb.toString(), "true".equals(debug));
-
-			contentMapper = new Mapper() {
-				@Override
-				public MediaResource handle(String relPath, HttpServletRequest request) {
-					StringMediaResource mediares = new StringMediaResource();
-					mediares.setData(postData);
-					mediares.setContentType("text/html");
-					mediares.setEncoding("UTF-8");
-					return mediares;
-				}
-
-			};
-			logDebug("Basic LTI Post data: "+postData, null);
-
-		}
-		String mapperUri = registerMapper(ureq, contentMapper);
-		run.contextPut("mapperUri", mapperUri + "/");
-
-		main.setContent(run);
-	}
-
-	
-
-	private Properties LTIProperties(UserRequest ureq) {
-		final Identity ident = ureq.getIdentity();
-		final Locale loc = ureq.getLocale();
-		User u = ident.getUser();
-		final String lastName = u.getProperty(UserConstants.LASTNAME, loc);
-		final String firstName = u.getProperty(UserConstants.FIRSTNAME, loc);
-		final String email = u.getProperty(UserConstants.EMAIL, loc);
-
-		String custom = (String) config.get(LTIConfigForm.CONFIG_KEY_CUSTOM);
-		boolean sendname = Boolean.valueOf((String)config.get(LTIConfigForm.CONFIG_KEY_SENDNAME));
-		boolean sendemail = Boolean.valueOf((String) config.get(LTIConfigForm.CONFIG_KEY_SENDEMAIL));
-
-		Properties props = new Properties();
-		setProperty(props, "resource_link_id", courseNode.getIdent());
-		setProperty(props, "resource_link_title", courseNode.getShortTitle());
-		setProperty(props, "resource_link_description", courseNode.getLongTitle());
-		setProperty(props, "user_id", u.getKey() + "");		
-		setProperty(props, "lis_person_sourcedid", createPersonSourceId());
+		mainPanel = new Panel("ltiContainer");
+		putInitialPanel(mainPanel);
 		
-		setProperty(props, "launch_presentation_locale", loc.toString());
-		setProperty(props, "launch_presentation_document_target", "iframe");
-
-		if (sendname) {
-			setProperty(props, "lis_person_name_given", firstName);
-			setProperty(props, "lis_person_name_family", lastName);
-			setProperty(props, "lis_person_name_full", firstName+" "+lastName);
-		}
-		if (sendemail) {
-			setProperty(props, "lis_person_contact_email_primary", email);
+		// only run directly when user as already accepted to data exchange or no data has to be exchanged
+		createExchangeDataProperties();
+		String dataExchangeHash = createHashFromExchangeDataProperties();
+		if (dataExchangeHash == null || checkHasDataExchangeAccepted(dataExchangeHash)) {
+			doRun(ureq);						
+		} else {
+			doAskDataExchange();
 		}
 
-		setProperty(props, "roles", setRoles(ureq.getUserSession().getRoles()));
-		setProperty(props, "context_id", courseEnv.getCourseResourceableId().toString());
-		setProperty(props, "context_label", courseEnv.getCourseTitle());
-		setProperty(props, "context_title", courseEnv.getCourseTitle());
-		setProperty(props, "context_type", "CourseSection");
+	}
 
-		// Pull in and parse the custom parameters
-		// Note to Chuck - move this into BasicLTI Util
-		if (custom != null) {
+	/**
+	 * Helper method to check if user has already accepted. this info is stored
+	 * in a user property, the accepted values are stored as an MD5 hash (save
+	 * space, privacy)
+	 * 
+	 * @param hash
+	 *            MD5 hash with all user data
+	 * @return true: user has already accepted for this hash; false: user has
+	 *         not yet accepted or for other values
+	 */
+	private boolean checkHasDataExchangeAccepted(String hash) {
+		// 
+		CoursePropertyManager propMgr = this.userCourseEnv.getCourseEnvironment().getCoursePropertyManager();
+		Property prop = propMgr.findCourseNodeProperty(this.courseNode, getIdentity(), null, PROP_NAME_DATA_EXCHANGE_ACCEPTED);
+		if (prop != null) {
+			// compare if value in property is the same as calculated today. If not, user as to accept again
+			String storedHash = prop.getStringValue();
+			if (storedHash != null && hash != null && storedHash.equals(hash)) {
+				return true;
+			} else {
+				// remove property, not valid anymore
+				propMgr.deleteProperty(prop);
+			}
+		}
+		return false;
+	}
+
+	/**
+	 * Helper to initialize the ask-for-data-exchange screen
+	 */
+	private void doAskDataExchange() {
+		acceptPage = createVelocityContainer("accept");
+		acceptPage.contextPut("userData", userData);
+		acceptPage.contextPut("customUserData", customUserData);
+		acceptLink = LinkFactory.createButton("accept", acceptPage, this);
+		mainPanel.setContent(acceptPage);
+	}
+	
+	/**
+	 * Helper to save the user accepted data exchange
+	 */
+	private void storeDataExchangeAcceptance() {
+		CoursePropertyManager propMgr = this.userCourseEnv.getCourseEnvironment().getCoursePropertyManager();
+		String hash = createHashFromExchangeDataProperties();
+		Property prop = propMgr.createCourseNodePropertyInstance(this.courseNode, getIdentity(), null, PROP_NAME_DATA_EXCHANGE_ACCEPTED, null, null, hash, null);
+		propMgr.saveProperty(prop);
+	}
+	
+	/**
+	 * Helper to read all user data that is exchanged with LTI tool and saves it
+	 * to the userData and customUserData properties fields
+	 */
+	private void createExchangeDataProperties() {
+		final User user = getIdentity().getUser();
+		//user data
+		if (config.getBooleanSafe(LTIConfigForm.CONFIG_KEY_SENDNAME, false)) {
+			userData.put("lastName", user.getProperty(UserConstants.LASTNAME, getLocale()));
+			userData.put("firstName", user.getProperty(UserConstants.FIRSTNAME, getLocale()));
+		}
+		if (config.getBooleanSafe(LTIConfigForm.CONFIG_KEY_SENDEMAIL, false)) {
+			userData.put("email", user.getProperty(UserConstants.EMAIL, getLocale()));
+		}
+		// customUserData
+		String custom = (String)config.get(LTIConfigForm.CONFIG_KEY_CUSTOM);
+		if (StringHelper.containsNonWhitespace(custom)) {
 			String[] params = custom.split("[\n;]");
 			for (int i = 0; i < params.length; i++) {
 				String param = params[i];
-				if (param == null) continue;
-				if (param.length() < 1) continue;
+				if (!StringHelper.containsNonWhitespace(param)) {
+					continue;
+				}
+				
 				int pos = param.indexOf("=");
-				if (pos < 1) continue;
-				if (pos + 1 > param.length()) continue;
+				if (pos < 1 || pos + 1 > param.length()) {
+					continue;
+				}
+				
 				String key = BasicLTIUtil.mapKeyName(param.substring(0, pos));
-				if (key == null) continue;
-				String value = param.substring(pos + 1);
-				value = value.trim();
-				if (value.length() < 1) continue;
-				if (value == null) continue;
-				setProperty(props, "custom_" + key, value);
+				if(!StringHelper.containsNonWhitespace(key)) {
+					continue;
+				}
+				
+				String value = param.substring(pos + 1).trim();
+				if(value.length() < 1) {
+					continue;
+				}
+				
+				if(value.startsWith(LTIManager.USER_PROPS_PREFIX)) {
+					String userProp = value.substring(LTIManager.USER_PROPS_PREFIX.length(), value.length());
+					value = user.getProperty(userProp, null);
+					if (value!= null) {
+						customUserData.put(userProp, value);
+					}
+				}
 			}
 		}
-
-		setProperty(props, "tool_consumer_instance_guid", Settings.getServerconfig("server_fqdn"));
-		setProperty(props, "tool_consumer_instance_name", WebappHelper.getInstanceId());
-		setProperty(props, "tool_consumer_instance_contact_email", WebappHelper.getMailConfig("mailSupport"));
-		
-
-		return props;
 	}
 	
 	/**
-	 * Generates the LTI lis_person_sourcedid property for the current user.
-	 * Uses the Shib ID or LDAP ID if available, otherwhise a combination of
-	 * server domain name and identity key
-	 * 
-	 * @return personSourceId
-	 */
-	private String createPersonSourceId() {
-		// The person source ID is used as user identifier. The rule is as follows: 
-		// 1) if a shibboleth authentication token is availble, use the ShibbolethModule.getDefaultUIDAttribute() 
-		// 2) if a LDAP authentication token is available, use the LDAPConstants.LDAP_USER_IDENTIFYER
-		// 3) as fallback use the system URL together with the identity username
-		String personSourceId = null;
-		// Use the shibboleth ID as person source identificator
-		List<Authentication> authMethods = BaseSecurityManager.getInstance().getAuthentications(getIdentity());
-		for (Authentication method : authMethods) {
-			String provider = method.getProvider();
-			if (ShibbolethDispatcher.PROVIDER_SHIB.equals(provider)) {
-				personSourceId = method.getAuthusername();
-				// done, case 1)
-				break;
-			} else if (LDAPAuthenticationController.PROVIDER_LDAP.equals(provider)) {
-				personSourceId = method.getAuthusername();
-				// normally done, case 2). however, lets continue because we might still find a case 1)
-			}			
-			// ignore all other authentication providers
-		}
-		if (!StringHelper.containsNonWhitespace(personSourceId)) {
-			// fallback to the serverDomainName:identityId as case 3)
-			personSourceId = Settings.getServerconfig("server_fqdn") + ":" + getIdentity().getKey();
-		}
-		return personSourceId;
-	}
-
-	public static void setProperty(Properties props, String key, String value) {
-		if (value == null) return;
-		if (value.trim().length() < 1) return;
-		props.setProperty(key, value);
-	}
-
-	/**
-	 * A comma-separated list of URN values for roles. If this list is non-empty,
-	 * it should contain at least one role from the LIS System Role, LIS
-	 * Institution Role, or LIS Context Role vocabularies (See Appendix A of
-	 * LTI_BasicLTI_Implementation_Guide_rev1.pdf).
-	 * 
-	 * @param roles
+	 * Helper to create an MD5 hash from the exchanged user properties. 
 	 * @return
 	 */
-	private String setRoles(Roles roles) {
-		StringBuilder rolesStr;
-		if (roles.isGuestOnly()) {
-			rolesStr = new StringBuilder("Guest");
-		} else {
-			rolesStr = new StringBuilder("Learner");
-			boolean coach = courseEnv.getCourseGroupManager().isIdentityCourseCoach(getIdentity());
-			if (coach) {
-				rolesStr.append(",").append("Instructor");
-			}
-			boolean admin = courseEnv.getCourseGroupManager().isIdentityCourseAdministrator(getIdentity());
-			if (roles.isOLATAdmin() || admin) {
-				rolesStr.append(",").append("Administrator");
+	private String createHashFromExchangeDataProperties() {
+		String data = "";
+		String hash = null;
+		if (userData != null && userData.size() > 0) {
+			Enumeration<Object> keys = userData.keys();
+			while (keys.hasMoreElements()) {
+				String key = (String) keys.nextElement();
+				data += userData.getProperty((String)key);				
 			}
 		}
+		if (customUserData != null && customUserData.size() > 0) {
+			Enumeration<Object> keys = customUserData.keys();
+			while (keys.hasMoreElements()) {
+				String key = (String) keys.nextElement();
+				data += customUserData.getProperty((String)key);				
+			}
+		}
+		if (data.length() > 0) {
+			hash = Encoder.encrypt(data);
+		}
+		if (isLogDebugEnabled()) {
+			logDebug("Create accept hash::" + hash + " for data::" + data, null);
+		}
+		return hash;
+	}
+	
+	/**
+	 * Helper to initialize the LTI run view after user has accepted data exchange.
+	 * @param ureq
+	 */
+	private void doRun(UserRequest ureq) {
+		run = createVelocityContainer("run");
+		// push title and learning objectives, only visible on intro page
+		run.contextPut("menuTitle", courseNode.getShortTitle());
+		run.contextPut("displayTitle", courseNode.getLongTitle());
 		
-		return rolesStr.toString();
+
+		startPage = createVelocityContainer("overview");
+		startPage.contextPut("menuTitle", courseNode.getShortTitle());
+		startPage.contextPut("displayTitle", courseNode.getLongTitle());
+		
+		startButton = LinkFactory.createButton("start", startPage, this);
+	    if(newWindow) {
+	    	startButton.setTarget("_help");
+	    }
+
+
+		Boolean assessable = config.getBooleanEntry(BasicLTICourseNode.CONFIG_KEY_HAS_SCORE_FIELD);
+		if(assessable != null && assessable.booleanValue()) {
+	    startPage.contextPut("isassessable", assessable);
+	    
+	    Integer attempts = courseNode.getUserAttempts(userCourseEnv);
+	    startPage.contextPut("attempts", attempts);
+	    
+	    ScoreEvaluation eval = courseNode.getUserScoreEvaluation(userCourseEnv);
+	    Float cutValue = config.getFloatEntry(BasicLTICourseNode.CONFIG_KEY_PASSED_CUT_VALUE);
+	    if(cutValue != null) {
+	    	startPage.contextPut("hasPassedValue", Boolean.TRUE);
+	    	startPage.contextPut("passed", eval.getPassed());
+	    }
+	    startPage.contextPut("score", eval.getScore()); 
+	    mainPanel.setContent(startPage);
+		} else if(newWindow) {
+			mainPanel.setContent(startPage);
+		} else {
+			doBasicLTI(ureq, run);
+			mainPanel.setContent(run);
+		}
+
+	}
+	
+	public void event(UserRequest ureq, Component source, Event event) {
+		if(source == startButton) {
+			courseNode.incrementUserAttempts(userCourseEnv);
+			if(newWindow) {
+				//wrap the content controller into a full header layout
+				ControllerCreator layoutCtrlr = BaseFullWebappPopupLayoutFactory.createAuthMinimalPopupLayout(ureq, new ControllerCreator() {
+					@Override
+					public Controller createController(UserRequest lureq,	WindowControl lwControl) {
+						return new LTIPopedController(lureq, lwControl);
+					}
+				});
+				//open in new browser window
+				PopupBrowserWindow pbw = getWindowControl().getWindowBackOffice().getWindowManager().createNewPopupBrowserWindowFor(ureq, layoutCtrlr);
+				pbw.open(ureq);
+			} else {
+				doBasicLTI(ureq, run);
+				mainPanel.setContent(run);
+			}
+		} else if (source == acceptLink) {
+			storeDataExchangeAcceptance();
+			doRun(ureq);
+		}
+	}
+	
+	private String getUrl() {
+		// put url in template to show content on extern page
+		URL url = null;
+		try {
+			url = new URL((String)config.get(LTIConfigForm.CONFIGKEY_PROTO), (String) config.get(LTIConfigForm.CONFIGKEY_HOST), ((Integer) config
+					.get(LTIConfigForm.CONFIGKEY_PORT)).intValue(), (String) config.get(LTIConfigForm.CONFIGKEY_URI));
+		} catch (MalformedURLException e) {
+			// this should not happen since the url was already validated in edit mode
+			return null;
+		}
+
+		StringBuilder querySb = new StringBuilder(128);
+		querySb.append(url.toString());
+		// since the url only includes the path, but not the query (?...), append
+		// it here, if any
+		String query = (String) config.get(LTIConfigForm.CONFIGKEY_QUERY);
+		if (query != null) {
+			querySb.append("?");
+			querySb.append(query);
+		}
+		return querySb.toString();
+	}
+	
+
+
+	private void doBasicLTI(UserRequest ureq, VelocityContainer container) {
+		String url = getUrl();
+		container.contextPut("url", url == null ? "" : url);
+
+		String oauth_consumer_key = (String) config.get(LTIConfigForm.CONFIGKEY_KEY);
+		String oauth_secret = (String) config.get(LTIConfigForm.CONFIGKEY_PASS);
+		String debug = (String) config.get(LTIConfigForm.CONFIG_KEY_DEBUG);
+		String serverUri = Settings.createServerURI();
+		String sourcedId = courseEnv.getCourseResourceableId() + "_" + courseNode.getIdent() + "_" + getIdentity().getKey();
+		OLATResource courseResource = courseEnv.getCourseGroupManager().getCourseResource();
+		
+		Mapper talkbackMapper = new TalkBackMapper();
+		String backMapperUrl = registerCacheableMapper(ureq, sourcedId + "_talkback", talkbackMapper);
+		String backMapperUri = serverUri + backMapperUrl + "/";
+
+		Mapper outcomeMapper = new CourseNodeOutcomeMapper(getIdentity(), courseResource, courseNode.getIdent(),
+				oauth_consumer_key, oauth_secret, sourcedId);
+		String outcomeMapperUrl = registerCacheableMapper(ureq, sourcedId, outcomeMapper, LTIManager.EXPIRATION_TIME);
+		String outcomeMapperUri = serverUri + outcomeMapperUrl + "/";
+
+		boolean sendname = config.getBooleanSafe(LTIConfigForm.CONFIG_KEY_SENDNAME, false);
+		boolean sendmail = config.getBooleanSafe(LTIConfigForm.CONFIG_KEY_SENDEMAIL, false);
+		String ltiRoles = getLTIRoles();
+		String target = config.getStringValue(BasicLTICourseNode.CONFIG_DISPLAY);
+		String width = config.getStringValue(BasicLTICourseNode.CONFIG_WIDTH);
+		String height = config.getStringValue(BasicLTICourseNode.CONFIG_HEIGHT);
+		String custom = (String)config.get(LTIConfigForm.CONFIG_KEY_CUSTOM);
+		container.contextPut("height", height);
+		container.contextPut("width", width);
+		LTIContext context = new LTICourseNodeContext(courseEnv, courseNode, ltiRoles,
+				sourcedId, backMapperUri, outcomeMapperUri, custom, target, width, height);
+		Map<String,String> props = ltiManager.forgeLTIProperties(getIdentity(), getLocale(), context, sendname, sendmail);
+		props = ltiManager.sign(props, url, oauth_consumer_key, oauth_secret);
+
+		String postData = BasicLTIUtil.postLaunchHTML(props, url, "true".equals(debug));
+		Mapper contentMapper = new PostDataMapper(postData);
+		logDebug("Basic LTI Post data: " + postData, null);
+
+		String mapperUri = registerMapper(ureq, contentMapper);
+		container.contextPut("mapperUri", mapperUri + "/");
+	}
+
+	
+	private String getLTIRoles() {
+		if (roles.isGuestOnly()) {
+			return "Guest";
+		}
+		CourseGroupManager groupManager = courseEnv.getCourseGroupManager();
+		boolean admin = groupManager.isIdentityCourseAdministrator(getIdentity());
+		if(admin || roles.isOLATAdmin()) {
+			String authorRole = config.getStringValue(BasicLTICourseNode.CONFIG_KEY_AUTHORROLE);
+			if(StringHelper.containsNonWhitespace(authorRole)) {
+				return authorRole;
+			}
+			return "Instructor,Administrator";
+		}
+		boolean coach = groupManager.isIdentityCourseCoach(getIdentity());
+		if(coach) {
+			String coachRole = config.getStringValue(BasicLTICourseNode.CONFIG_KEY_COACHROLE);
+			if(StringHelper.containsNonWhitespace(coachRole)) {
+				return coachRole;
+			}
+			return "Instructor";
+		}
+		
+		String participantRole = config.getStringValue(BasicLTICourseNode.CONFIG_KEY_PARTICIPANTROLE);
+		if(StringHelper.containsNonWhitespace(participantRole)) {
+			return participantRole;
+		}
+		return "Learner";
 	}
 	
 	/**
@@ -332,5 +447,24 @@ public class LTIRunController extends BasicController {
 	protected void doDispose() {
 		//
 	}
+	
+	private class LTIPopedController extends BasicController {
+		
+		public LTIPopedController(UserRequest ureq, WindowControl wControl) {
+			super(ureq, wControl);
+			VelocityContainer run = createVelocityContainer("run");
+			doBasicLTI(ureq,  run);
+			putInitialPanel(run);
+		}
 
+		@Override
+		protected void event(UserRequest ureq, Component source, Event event) {
+			//
+		}
+
+		@Override
+		protected void doDispose() {
+			//
+		}
+	}
 }

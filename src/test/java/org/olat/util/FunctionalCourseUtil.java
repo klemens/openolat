@@ -24,6 +24,7 @@ import java.io.StringWriter;
 import java.net.MalformedURLException;
 import java.net.URI;
 import java.util.ArrayList;
+import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -878,36 +879,71 @@ public class FunctionalCourseUtil {
 	 * @param path
 	 * @return
 	 */
-	public String[] createCatalogSelectors(String path){
+	public String createCatalogSelectors(Selenium browser, String path){
 		if(path == null ||
 				!path.startsWith("/")){
 			return(null);
 		}
 		
-		Matcher categoryMatcher = categoryPattern.matcher(path);
-		ArrayList<String> selectors = new ArrayList<String>();
+		functionalUtil.idle(browser);
 		
-		StringBuffer selectorBuffer = new StringBuffer();
+		/*
+		 * Determine best matching item by using regular expressions
+		 */
+		StringBuffer itemLocator = new StringBuffer();
+		itemLocator.append("//div[contains(@class, 'b_selectiontree_item')]");
 		
-		selectorBuffer.append("xpath=//li//a[contains(@class, '")
-		.append(functionalUtil.getTreeNodeAnchorCss())
-		.append("')]");
+		VelocityContext context = new VelocityContext();
+
+		context.put("treeSelector", itemLocator.toString());
+		context.put("treePath", path);
 		
-		selectors.add(selectorBuffer.toString());
+		VelocityEngine engine = null;
+
+		engine = new VelocityEngine();
+
+		StringWriter sw = new StringWriter();
+		Integer offset = null;
 		
-		while(categoryMatcher.find()){
-			StringBuffer selector = new StringBuffer();
+		StringBuffer locatorBuffer = new StringBuffer();
+		
+		locatorBuffer.append("xpath=")
+		.append(itemLocator.toString());
+		functionalUtil.waitForPageToLoadElement(browser, locatorBuffer.toString());
+		
+		try {
+			engine.evaluate(context, sw, "catalogTreeEntryPosition", FunctionalEPortfolioUtil.class.getResourceAsStream("CatalogTreeEntryPosition.vm"));
+
+			offset = new Integer(browser.getEval(sw.toString()));
 			
-			selector.append("xpath=//li//a[contains(@class, '")
-			.append(functionalUtil.getTreeNodeCss())
-			.append("')]//span[text()='")
-			.append(categoryMatcher.group(1))
-			.append("']/..");
-			
-			selectors.add(selector.toString());
+			if(offset.intValue() == -1){
+				return(null);
+			}
+
+		} catch (ParseErrorException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		} catch (MethodInvocationException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		} catch (ResourceNotFoundException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
 		}
 		
-		return(selectors.toArray(new String[selectors.size()]));
+		/* create selector */
+		StringBuffer selectorBuffer = new StringBuffer();
+				
+		selectorBuffer.append("xpath=(//div[contains(@class, '")
+		.append("b_selectiontree_item")
+		.append("')]//input[@type='radio'])[position()='")
+		.append(offset.intValue() + 1)
+		.append("']");
+		
+		return(selectorBuffer.toString());
 	}
 	
 	/**
@@ -968,25 +1004,17 @@ public class FunctionalCourseUtil {
 			
 			browser.click(selectorBuffer.toString());
 			
-			String[] catalogSelectors = createCatalogSelectors(catalog);
-			
-			for(String catalogSelector: catalogSelectors){
-				functionalUtil.idle(browser);
-				functionalUtil.waitForPageToLoadElement(browser, catalogSelector);
-
-				if(browser.isElementPresent(catalogSelector + "/../img[contains(@class, 'x-tree-elbow-end-plus')]")){
-					browser.doubleClick(catalogSelector);
-				}else{
-					browser.click(catalogSelector);
-				}
-			}
+			String catalogSelector = createCatalogSelectors(browser, catalog);
+			functionalUtil.idle(browser);
+			functionalUtil.waitForPageToLoadElement(browser, catalogSelector);
+			browser.click(catalogSelector);
 			
 			/* click choose */
 			selectorBuffer = new StringBuffer();
 			
 			selectorBuffer.append("xpath=//div[contains(@class, '")
 			.append(getCatalogCss())
-			.append("')]//a[contains(@class, '")
+			.append("')]//button[contains(@class, '")
 			.append(functionalUtil.getButtonDirtyCss())
 			.append("')]");
 			

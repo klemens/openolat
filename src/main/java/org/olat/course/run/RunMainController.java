@@ -123,6 +123,7 @@ import org.olat.repository.RepositoryEntry;
 import org.olat.repository.RepositoryEntryStatus;
 import org.olat.repository.RepositoryManager;
 import org.olat.repository.controllers.EntryChangedEvent;
+import org.olat.repository.controllers.RepositoryDetailsController;
 import org.olat.util.logging.activity.LoggingResourceable;
 
 /**
@@ -145,6 +146,7 @@ public class RunMainController extends MainLayoutBasicController implements Gene
 	private static final String TOOL_BOOKMARK = "b";
 	private static final String TOOL_CHAT = "chat";
 	
+	public static final String REBUILD = "rebuild";
 	public static final String ORES_TYPE_COURSE_RUN = OresHelper.calculateTypeName(RunMainController.class, CourseModule.ORES_TYPE_COURSE);
 	private final OLATResourceable courseRunOres; //course run ores for course run channel 
 
@@ -624,6 +626,9 @@ public class RunMainController extends MainLayoutBasicController implements Gene
 					needsRebuildAfterRunDone = false;
 					updateTreeAndContent(ureq, currentCourseNode, null);
 				}
+			} else if (REBUILD.equals(event.getCommand())) {
+				needsRebuildAfterRunDone = false;
+				updateTreeAndContent(ureq, currentCourseNode, null);
 			} else if (event instanceof TreeNodeEvent) {
 				TreeNodeEvent tne = (TreeNodeEvent) event;
 				TreeNode newCpTreeNode = tne.getChosenTreeNode();
@@ -677,21 +682,9 @@ public class RunMainController extends MainLayoutBasicController implements Gene
 
 			}
 		} else if (cmd.equals(COMMAND_EDIT)) {
-			if (hasCourseRight(CourseRights.RIGHT_COURSEEDITOR) || isCourseAdmin) {
-				Controller ec = CourseFactory.createEditorController(ureq, getWindowControl(), all, course);
-				//user activity logger which was initialized with course run
-				if(ec != null){
-					//we are in editing mode
-					currentToolCtr = ec;
-					listenTo(currentToolCtr);
-					isInEditor = true;
-					all.pushController(translate("command.openeditor"), currentToolCtr);
-				}
-			} else throw new OLATSecurityException("wanted to activate editor, but no according right");
-
+			doEdit(ureq) ;
 		} else if (cmd.equals("unifiedusermngt")) {
 			launchMembersManagement(ureq);
-			
 		} else if (cmd.equals("statistic")) {
 			if (hasCourseRight(CourseRights.RIGHT_STATISTICS) || isCourseAdmin) {
 				currentToolCtr = new StatisticMainController(ureq, getWindowControl(), course);
@@ -821,6 +814,20 @@ public class RunMainController extends MainLayoutBasicController implements Gene
 			pbw.open(ureq);
 			//
 		} 
+	}
+	
+	private void doEdit(UserRequest ureq) {
+		if (hasCourseRight(CourseRights.RIGHT_COURSEEDITOR) || isCourseAdmin) {
+			Controller ec = CourseFactory.createEditorController(ureq, getWindowControl(), all, course, currentCourseNode);
+			//user activity logger which was initialized with course run
+			if(ec != null){
+				//we are in editing mode
+				currentToolCtr = ec;
+				listenTo(currentToolCtr);
+				isInEditor = true;
+				all.pushController(translate("command.openeditor"), currentToolCtr);
+			}
+		} else throw new OLATSecurityException("wanted to activate editor, but no according right");
 	}
 	
 	private MembersManagementMainController launchMembersManagement(UserRequest ureq) {
@@ -1143,7 +1150,7 @@ public class RunMainController extends MainLayoutBasicController implements Gene
 			currentUserCountLink = LinkFactory.createCustomLink("currentUsers", "cUsers", "", Link.NONTRANSLATED, currentUsers, this);
 			updateCurrentUserCount();
 			currentUserCountLink.setCustomEnabledLinkCSS("b_toolbox_link");
-			currentUserCountLink.setTooltip(getTranslator().translate("participants.in.course.desc"), false);
+			currentUserCountLink.setTooltip(getTranslator().translate("participants.in.course.desc"));
 			currentUserCountLink.setEnabled(false);
 			myTool.addComponent(currentUserCountLink);
 	}
@@ -1253,6 +1260,8 @@ public class RunMainController extends MainLayoutBasicController implements Gene
 			} catch (OLATSecurityException e) {
 				//the wrong link to the wrong person
 			}
+		} else if(RepositoryDetailsController.ACTIVATE_EDITOR.equals(type)) {
+			doEdit(ureq);
 		}
 	}
 

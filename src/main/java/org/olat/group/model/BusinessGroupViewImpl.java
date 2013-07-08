@@ -120,8 +120,7 @@ public class BusinessGroupViewImpl extends PersistentObject implements BusinessG
 	public void setNumOfValidOffers(long numOfValidOffers) {
 		this.numOfValidOffers = numOfValidOffers;
 	}
-
-
+	
 	public Long getIdentityKey() {
 		return identityKey;
 	}

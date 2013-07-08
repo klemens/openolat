@@ -42,6 +42,7 @@ import org.olat.core.gui.control.creator.ControllerCreator;
 import org.olat.core.gui.control.generic.clone.CloneController;
 import org.olat.core.gui.control.generic.clone.CloneLayoutControllerCreatorCallback;
 import org.olat.core.gui.control.generic.clone.CloneableController;
+import org.olat.core.gui.control.generic.iframe.DeliveryOptions;
 import org.olat.core.id.OLATResourceable;
 import org.olat.core.logging.AssertException;
 import org.olat.core.util.resource.OresHelper;
@@ -155,12 +156,15 @@ public class SPRunController extends BasicController {
 		boolean allowRelativeLinks = config.getBooleanSafe(SPEditController.CONFIG_KEY_ALLOW_RELATIVE_LINKS);
 		// create the possibility to float
 		OLATResourceable ores = OresHelper.createOLATResourceableInstance(ICourse.class, userCourseEnv.getCourseEnvironment().getCourseResourceableId());
-		spCtr = new SinglePageController(ureq, getWindowControl(), courseFolderContainer, fileName, null, allowRelativeLinks, ores);
+
+		DeliveryOptions deliveryOptions = (DeliveryOptions)config.get(SPEditController.CONFIG_KEY_DELIVERYOPTIONS);
+		spCtr = new SinglePageController(ureq, getWindowControl(), courseFolderContainer, fileName, null,
+				allowRelativeLinks, ores, deliveryOptions);
 		spCtr.setAllowDownload(true);
 		
 		// only for inline integration: register for controller event to forward a olatcmd to the course,
 		// and also to remember latest position in the script		
-		this.listenTo(spCtr);
+		listenTo(spCtr);
 		// enable edit mode if user has the according rights
 		if (hasEditRightsTo) {
 			spCtr.allowPageEditing();
