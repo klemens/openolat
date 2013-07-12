@@ -39,7 +39,6 @@ import org.olat.core.gui.GUIInterna;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.Component;
 import org.olat.core.gui.components.ComponentRenderer;
-import org.olat.core.gui.components.htmlheader.jscss.JSAndCSSComponent;
 import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.render.ValidationResult;
 import org.olat.core.util.StringHelper;
@@ -106,20 +105,14 @@ public class MenuTree extends Component {
 	private String selectedNodeId = null;
 	private Set<String> openNodeIds = new HashSet<String>();
 	private boolean expandServerOnly = true; // default is serverside menu
-	private boolean dragAndDropEnabled = false; 
+	private boolean dragEnabled = false;
+	private boolean dropEnabled = false;
+	private boolean dropSiblingEnabled = false;
 	private boolean expandSelectedNode = true;
 	private boolean rootVisible = true;
-	//fxdiff VCRP-9: drag and drop in menu tree
-	private String dragAndDropGroup;
 	private String dndFeedbackUri;
-	
-	private final JSAndCSSComponent dragAndDropCmp;
-	
-	// for recording / visual marking purposes
-	TreeNode markingTreeNode; 
-	
-	private boolean dirtyForUser = false;
 
+	private boolean dirtyForUser = false;
 	
 	/**
 	 * @param name
@@ -134,8 +127,6 @@ public class MenuTree extends Component {
 	 */
 	public MenuTree(String id, String name) {
 		super(id, name);
-		//fxdiff VCRP-9: drag and drop in menu tree
-		dragAndDropCmp = new JSAndCSSComponent("jsComp", MenuTree.class, new String[]{"dd.js"}, null, false); 
 	}
 	
 	/**
@@ -156,6 +147,8 @@ public class MenuTree extends Component {
 			String compPath = ureq.getParameter("en");
 			TreeNode selTreeNode = TreeHelper.resolveTreeNode(compPath, getTreeModel());
 			selectedNodeId = selTreeNode.getIdent();
+			handleClick(ureq, "", selectedNodeId);
+			return;
 		}
 		
 		//fxdiff VCRP-9: drag and drop in menu tree
@@ -172,7 +165,7 @@ public class MenuTree extends Component {
 			String sneValue = ureq.getParameter(SIBLING_NODE);
 			boolean sibling = StringHelper.containsNonWhitespace(sneValue);
 			boolean atTheEnd = "end".equals(sneValue);
-			handleDropped(ureq, nodeId, targetNodeId, sibling, atTheEnd);
+			handleDropped(ureq, targetNodeId, nodeId, sibling, atTheEnd);
 		}
 	}
 	
@@ -305,10 +298,8 @@ public class MenuTree extends Component {
 	}
 	
 	@Override
-	//fxdiff VCRP-9: drag and drop in menu tree
 	public void validate(UserRequest ureq, ValidationResult vr) {
-		if(dragAndDropEnabled) {
-			dragAndDropCmp.validate(ureq, vr);
+		if(dragEnabled || dropEnabled) {
 			if(dndFeedbackUri == null && treeModel instanceof DnDTreeModel) {
 				dndFeedbackUri = CoreSpringFactory.getImpl(MapperService.class).register(ureq.getUserSession(), new DnDFeedbackMapper(this));
 			}
@@ -355,10 +346,6 @@ public class MenuTree extends Component {
 		return dndFeedbackUri;
 	}
 
-	public JSAndCSSComponent getDragAndDropCmp() {
-		return dragAndDropCmp;
-	}
-
 	/**
 	 * 
 	 */
@@ -399,34 +386,35 @@ public class MenuTree extends Component {
 		this.expandServerOnly = expandServerOnly;
 	}
 	
-	/**
-	 * @return Is Drag & Drop enable for the tree
-	 */
-	public boolean isDragAndDropEnabled() {
-		return dragAndDropEnabled;
+	public boolean isDragEnabled() {
+		return dragEnabled;
 	}
 
 	/**
 	 * @param enableDragAndDrop Enable or not drag and drop
 	 */
-	public void setDragAndDropEnabled(boolean dragAndDropEnabled) {
-		this.dragAndDropEnabled = dragAndDropEnabled;
+	public void setDragEnabled(boolean enabled) {
+		dragEnabled = enabled;
+	}
+
+	/**
+	 * @return Is Drag & Drop enable for the tree
+	 */
+	public boolean isDropEnabled() {
+		return dropEnabled;
 	}
 	
-	/**
-	 * @return The group of drag and drop (cannot be null).
-	 */
-	public String getDragAndDropGroup() {
-		return dragAndDropGroup == null ? "dndGroup" : dragAndDropGroup;
+	public void setDropEnabled(boolean enabled) {
+		dropEnabled = enabled;
 	}
-
-	/**
-	 * @param dragAndDropGroup The group of drag and drop
-	 */
-	public void setDragAndDropGroup(String dragAndDropGroup) {
-		this.dragAndDropGroup = dragAndDropGroup;
+	
+	public boolean isDropSiblingEnabled() {
+		return dropSiblingEnabled;
 	}
-
+	
+	public void setDropSiblingEnabled(boolean enabled) {
+		dropSiblingEnabled = enabled;
+	}
 	
 	/**
 	 * Expand the selected node to view its children

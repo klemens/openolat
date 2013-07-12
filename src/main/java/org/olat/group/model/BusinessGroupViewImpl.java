@@ -25,6 +25,7 @@ import org.olat.basesecurity.SecurityGroup;
 import org.olat.core.commons.persistence.PersistentObject;
 import org.olat.core.util.resource.OresHelper;
 import org.olat.group.BusinessGroup;
+import org.olat.group.BusinessGroupManagedFlag;
 import org.olat.group.BusinessGroupView;
 import org.olat.resource.OLATResource;
 
@@ -49,6 +50,7 @@ public class BusinessGroupViewImpl extends PersistentObject implements BusinessG
 	private Boolean waitingListEnabled;
 	private Boolean autoCloseRanksEnabled;
 	private Date lastModified;
+	private String managedFlagsString;
 
 	private long numOfOwners;
 	private long numOfParticipants;
@@ -120,8 +122,7 @@ public class BusinessGroupViewImpl extends PersistentObject implements BusinessG
 	public void setNumOfValidOffers(long numOfValidOffers) {
 		this.numOfValidOffers = numOfValidOffers;
 	}
-
-
+	
 	public Long getIdentityKey() {
 		return identityKey;
 	}
@@ -177,6 +178,19 @@ public class BusinessGroupViewImpl extends PersistentObject implements BusinessG
 		this.lastUsage = lastUsage;
 	}
 
+	public String getManagedFlagsString() {
+		return managedFlagsString;
+	}
+
+	public void setManagedFlagsString(String managedFlagsString) {
+		this.managedFlagsString = managedFlagsString;
+	}
+
+	@Override
+	public BusinessGroupManagedFlag[] getManagedFlags() {
+		return BusinessGroupManagedFlag.toEnum(managedFlagsString);
+	}
+
 	@Override
 	public OLATResource getResource() {
 		return resource;
@@ -187,7 +201,6 @@ public class BusinessGroupViewImpl extends PersistentObject implements BusinessG
 		this.resource = resource;
 	}
 
-	@Override
 	public SecurityGroup getOwnerGroup() {
 		return ownerGroup;
 	}
@@ -196,7 +209,6 @@ public class BusinessGroupViewImpl extends PersistentObject implements BusinessG
 		this.ownerGroup = ownerGroup;
 	}
 
-	@Override
 	public SecurityGroup getPartipiciantGroup() {
 		return partipiciantGroup;
 	}
@@ -205,7 +217,6 @@ public class BusinessGroupViewImpl extends PersistentObject implements BusinessG
 		this.partipiciantGroup = partipiciantGroup;
 	}
 
-	@Override
 	public SecurityGroup getWaitingGroup() {
 		return waitingGroup;
 	}

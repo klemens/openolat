@@ -52,13 +52,6 @@ import org.olat.resource.accesscontrol.model.ResourceReservation;
 public interface BusinessGroupService {
 
 	/**
-	 * Extension-point method to register objects which have deletable group-data.
-	 * Listener will be called in method deleteBusinessGroup.
-	 * @param listener
-	 */
-	public void registerDeletableGroupDataListener(DeletableGroupData listener);
-
-	/**
 	 * Create a persistent BusinessGroup with the provided
 	 * parameters. The BusinessGroup can have a waiting-list.
 	 * @param creator
@@ -76,6 +69,25 @@ public interface BusinessGroupService {
 			RepositoryEntry resource);
 	
 	/**
+	 * Mostly used by REST API. Same as above but with parameter to save an external id and a list of flags.
+	 * @param creator
+	 * @param name
+	 * @param description
+	 * @param externalId
+	 * @param managedFlags
+	 * @param minParticipants
+	 * @param maxParticipants
+	 * @param waitingListEnabled
+	 * @param autoCloseRanksEnabled
+	 * @param resource
+	 * @return
+	 */
+	public BusinessGroup createBusinessGroup(Identity creator, String name, String description,
+			String externalId, String managedFlags,
+			Integer minParticipants, Integer maxParticipants, boolean waitingListEnabled, boolean autoCloseRanksEnabled,
+			RepositoryEntry resource);
+	
+	/**
 	 * Update the business group with the supplied arguments and do it in sync
 	 * @param group
 	 * @param name
@@ -85,7 +97,7 @@ public interface BusinessGroupService {
 	 * @return
 	 */
 	public BusinessGroup updateBusinessGroup(Identity ureqIdentity, BusinessGroup group, String name, String description,
-			Integer minParticipants, Integer maxParticipants);
+			String managedFlags, Integer minParticipants, Integer maxParticipants);
 	
 	/**
 	 * Update the business group with the supplied arguments and do it in sync
@@ -408,7 +420,8 @@ public interface BusinessGroupService {
 	/**
 	 * Remove the members (tutors and participants) from all business groups connected
 	 * to the resource (the resource can be a BusinessGroup) by cancelling their membership
-	 * or their reservations.
+	 * or their reservations.<br/>
+	 * This method respect the managed flags.
 	 * 
 	 * @param ureqIdentity
 	 * @param identities
@@ -534,8 +547,5 @@ public interface BusinessGroupService {
 	public BusinessGroupEnvironment importGroups(RepositoryEntry re, File fGroupExportXML);
 	
 	public void archiveGroups(List<BusinessGroup> groups, File exportFile);
-
-	public File archiveGroupMembers(OLATResource resource, List<String> columnList, List<BusinessGroup> groupList, String archiveType,
-			Locale locale, String charset);
 
 }

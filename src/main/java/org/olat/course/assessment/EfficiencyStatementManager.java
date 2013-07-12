@@ -33,14 +33,11 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 
-import org.olat.admin.user.delete.service.UserDeletionManager;
 import org.olat.core.commons.persistence.DB;
 import org.olat.core.commons.persistence.DBFactory;
 import org.olat.core.commons.persistence.DBQuery;
 import org.olat.core.id.Identity;
 import org.olat.core.id.OLATResourceable;
-import org.olat.core.id.User;
-import org.olat.core.id.UserConstants;
 import org.olat.core.manager.BasicManager;
 import org.olat.core.util.coordinate.CoordinatorManager;
 import org.olat.core.util.coordinate.SyncerExecutor;
@@ -57,6 +54,7 @@ import org.olat.course.run.userview.UserCourseEnvironment;
 import org.olat.repository.RepositoryEntry;
 import org.olat.repository.RepositoryManager;
 import org.olat.user.UserDataDeletable;
+import org.olat.user.UserManager;
 
 import com.thoughtworks.xstream.XStream;
 
@@ -78,6 +76,7 @@ public class EfficiencyStatementManager extends BasicManager implements UserData
 	private static EfficiencyStatementManager INSTANCE;
 
 	private DB dbInstance;
+	private UserManager userManager;
 	private RepositoryManager repositoryManager;
 	private final XStream xstream = XStreamHelper.createXStreamInstance();
 
@@ -85,8 +84,7 @@ public class EfficiencyStatementManager extends BasicManager implements UserData
 	/**
 	 * Constructor
 	 */
-	private EfficiencyStatementManager(UserDeletionManager userDeletionManager) {
-		userDeletionManager.getInstance().registerDeletableUserData(this);
+	private EfficiencyStatementManager() {
 		INSTANCE = this;
 	}
 	
@@ -112,6 +110,14 @@ public class EfficiencyStatementManager extends BasicManager implements UserData
 	 */
 	public void setRepositoryManager(RepositoryManager repositoryManager) {
 		this.repositoryManager = repositoryManager;
+	}
+	
+	/**
+	 * [used by Spring]
+	 * @param userManager
+	 */
+	public void setUserManager(UserManager userManager) {
+		this.userManager = userManager;
 	}
 
 	/**
@@ -147,8 +153,8 @@ public class EfficiencyStatementManager extends BasicManager implements UserData
 			efficiencyStatement.setAssessmentNodes(assessmentNodes);
 			efficiencyStatement.setCourseTitle(userCourseEnv.getCourseEnvironment().getCourseTitle());
 			efficiencyStatement.setCourseRepoEntryKey(repoEntryKey);
-			User user = identity.getUser();
-			efficiencyStatement.setDisplayableUserInfo(user.getProperty(UserConstants.FIRSTNAME, null) + " " + user.getProperty(UserConstants.LASTNAME, null) + " (" + identity.getName() + ")");
+			String userInfos = userManager.getUserDisplayName(identity);
+			efficiencyStatement.setDisplayableUserInfo(userInfos);
 			efficiencyStatement.setLastUpdated(System.currentTimeMillis());
 							
 			UserEfficiencyStatementImpl efficiencyProperty = getUserEfficiencyStatementFull(repoEntryKey, identity);
@@ -446,10 +452,10 @@ public class EfficiencyStatementManager extends BasicManager implements UserData
 			sb.append("select statement from ").append(UserEfficiencyStatementLight.class.getName()).append(" as statement ")
 			  .append(" where statement.identity.key=:identityKey");
 
-			DBQuery query = dbInstance.createQuery(sb.toString());
-			query.setLong("identityKey", identity.getKey());
-			List<UserEfficiencyStatementLight> statements = query.list();
-			return statements;
+			return dbInstance.getCurrentEntityManager()
+					.createQuery(sb.toString(), UserEfficiencyStatementLight.class)
+					.setParameter("identityKey", identity.getKey())
+					.getResultList();
 		} catch (Exception e) {
 			logError("findEfficiencyStatements: " + identity, e);
 			return Collections.emptyList();

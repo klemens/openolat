@@ -29,10 +29,12 @@ import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.form.flexible.FormItemContainer;
 import org.olat.core.gui.components.form.flexible.elements.MultipleSelectionElement;
 import org.olat.core.gui.components.form.flexible.elements.RichTextElement;
+import org.olat.core.gui.components.form.flexible.elements.StaticTextElement;
 import org.olat.core.gui.components.form.flexible.elements.TextElement;
 import org.olat.core.gui.components.form.flexible.impl.Form;
 import org.olat.core.gui.components.form.flexible.impl.FormBasicController;
 import org.olat.core.gui.components.form.flexible.impl.FormLayoutContainer;
+import org.olat.core.gui.components.form.flexible.impl.elements.FormSubmit;
 import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.Event;
 import org.olat.core.gui.control.WindowControl;
@@ -40,6 +42,7 @@ import org.olat.core.id.context.BusinessControlFactory;
 import org.olat.core.id.context.ContextEntry;
 import org.olat.core.util.StringHelper;
 import org.olat.group.BusinessGroup;
+import org.olat.group.BusinessGroupManagedFlag;
 
 /**
  * Implements a Business group creation dialog using FlexiForms.
@@ -150,24 +153,28 @@ public class BusinessGroupFormController extends FormBasicController {
 			businessGroupName.setRegexMatchCheck(BusinessGroup.VALID_GROUPNAME_REGEXP, "create.form.error.illegalName");
 		}
 		businessGroupName.setMandatory(true);
+		businessGroupName.setEnabled(!BusinessGroupManagedFlag.isManaged(businessGroup, BusinessGroupManagedFlag.title));
 		
 		formLayout.setElementCssClass("o_sel_group_edit_group_form");
 
 		// Create the business group description input rich text element
 		businessGroupDescription = uifactory.addRichTextElementForStringDataMinimalistic("create.form.title.description",
 				"create.form.title.description", "", 10, -1, false, formLayout, ureq.getUserSession(), getWindowControl());
+		businessGroupDescription.setEnabled(!BusinessGroupManagedFlag.isManaged(businessGroup, BusinessGroupManagedFlag.description));
 
 		if(businessGroup != null && !bulkMode) {
 			// link to group direct jump in business path
 			BusinessControlFactory bcf = BusinessControlFactory.getInstance();
 			List<ContextEntry> entries = bcf.createCEListFromString("[BusinessGroup:" + businessGroup.getKey() + "]");
 			String url = bcf.getAsURIString(entries, true);
-			uifactory.addStaticTextElement("create.form.businesspath", url, formLayout);
+			StaticTextElement urlEl = uifactory.addStaticTextElement("create.form.businesspath", url, formLayout);
+			urlEl.setElementCssClass("o_sel_group_url");
 			// link to group visiting card
 			bcf = BusinessControlFactory.getInstance();
 			entries = bcf.createCEListFromString("[GroupCard:" + businessGroup.getKey() + "]");
 			url = bcf.getAsURIString(entries, true);
-			uifactory.addStaticTextElement("create.form.groupcard", url, formLayout);
+			StaticTextElement cardEl = uifactory.addStaticTextElement("create.form.groupcard", url, formLayout);
+			cardEl.setElementCssClass("o_sel_group_card_url");
 		}
 		
 		uifactory.addSpacerElement("myspacer", formLayout, true);
@@ -192,6 +199,12 @@ public class BusinessGroupFormController extends FormBasicController {
 		businessGroupMaximumMembers.setVisible(true);
 		enableWaitingList.setVisible(true);
 		enableAutoCloseRanks.setVisible(true);
+		
+		boolean managedSettings = BusinessGroupManagedFlag.isManaged(businessGroup, BusinessGroupManagedFlag.settings);
+		businessGroupMinimumMembers.setEnabled(!managedSettings);
+		businessGroupMaximumMembers.setEnabled(!managedSettings);
+		enableWaitingList.setEnabled(!managedSettings);
+		enableAutoCloseRanks.setEnabled(!managedSettings);
 
 		if ((businessGroup != null) && (!bulkMode)) {
 			businessGroupName.setValue(businessGroup.getName());
@@ -212,13 +225,15 @@ public class BusinessGroupFormController extends FormBasicController {
 			// Create submit and cancel buttons
 			final FormLayoutContainer buttonLayout = FormLayoutContainer.createButtonLayout("buttonLayout", getTranslator());
 			formLayout.add(buttonLayout);
-			uifactory.addFormSubmitButton("finish", buttonLayout);
+			FormSubmit submit = uifactory.addFormSubmitButton("finish", buttonLayout);
+			submit.setEnabled(!BusinessGroupManagedFlag.isManaged(businessGroup, BusinessGroupManagedFlag.details));
 			uifactory.addFormCancelButton("cancel", buttonLayout, ureq, getWindowControl());
 		}
 	}
 	
 	public void setAllowWaitingList(boolean allowWaitingList) {
-		enableWaitingList.setEnabled(allowWaitingList);
+		boolean managed = BusinessGroupManagedFlag.isManaged(businessGroup, BusinessGroupManagedFlag.settings);
+		enableWaitingList.setEnabled(allowWaitingList && !managed);
 	}
 
 	/**

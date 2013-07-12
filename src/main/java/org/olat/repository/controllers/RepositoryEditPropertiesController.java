@@ -25,7 +25,6 @@
 */
 package org.olat.repository.controllers;
 
-import java.util.Iterator;
 import java.util.List;
 
 import org.olat.basesecurity.SecurityGroup;
@@ -43,6 +42,8 @@ import org.olat.core.gui.control.Event;
 import org.olat.core.gui.control.WindowControl;
 import org.olat.core.gui.control.controller.BasicController;
 import org.olat.core.gui.control.generic.dtabs.Activateable2;
+import org.olat.core.gui.control.generic.iframe.DeliveryOptions;
+import org.olat.core.gui.control.generic.iframe.DeliveryOptionsConfigurationController;
 import org.olat.core.gui.control.generic.modal.DialogBoxController;
 import org.olat.core.gui.control.generic.modal.DialogBoxUIFactory;
 import org.olat.core.id.Identity;
@@ -79,16 +80,23 @@ import org.olat.fileresource.types.BlogFileResource;
 import org.olat.fileresource.types.GlossaryResource;
 import org.olat.fileresource.types.ImsCPFileResource;
 import org.olat.fileresource.types.PodcastFileResource;
+import org.olat.fileresource.types.ScormCPFileResource;
+import org.olat.ims.cp.CPManager;
+import org.olat.ims.cp.ui.CPPackageConfig;
 import org.olat.instantMessaging.InstantMessagingModule;
 import org.olat.modules.glossary.GlossaryEditSettingsController;
 import org.olat.modules.glossary.GlossaryManager;
 import org.olat.modules.glossary.GlossaryRegisterSettingsController;
+import org.olat.modules.scorm.ScormMainManager;
+import org.olat.modules.scorm.ScormPackageConfig;
 import org.olat.repository.PropPupForm;
 import org.olat.repository.RepositoryEntry;
+import org.olat.repository.RepositoryEntryManagedFlag;
 import org.olat.repository.RepositoryManager;
 import org.olat.resource.accesscontrol.ui.AccessConfigurationController;
 import org.olat.resource.references.ReferenceImpl;
 import org.olat.resource.references.ReferenceManager;
+import org.olat.user.UserManager;
 import org.olat.util.logging.activity.LoggingResourceable;
 
 /**
@@ -114,6 +122,7 @@ public class RepositoryEditPropertiesController extends BasicController implemen
 	private CourseEfficencyStatementController ceffC;
 	private CourseCalendarConfigController calCfgCtr;
 	private CourseConfigGlossaryController cglosCtr;
+	private DeliveryOptionsConfigurationController deliveryOptionsCtrl;
 	//fxdiff VCRP-1,2: access control of resources
 	private AccessConfigurationController acCtr;
 	private TabbedPane tabbedPane;
@@ -165,7 +174,9 @@ public class RepositoryEditPropertiesController extends BasicController implemen
 		editproptabpubVC.put("proppupform", propPupForm.getInitialComponent());
 		
 		//fxdiff VCRP-1,2: access control of resources
-	  acCtr = new AccessConfigurationController(ureq, getWindowControl(), repositoryEntry.getOlatResource(), repositoryEntry.getDisplayname(), true);
+		boolean managedBookings = RepositoryEntryManagedFlag.isManaged(entry, RepositoryEntryManagedFlag.bookings);
+	  acCtr = new AccessConfigurationController(ureq, getWindowControl(), repositoryEntry.getOlatResource(), repositoryEntry.getDisplayname(),
+	  		true, !managedBookings);
 	  int access = propPupForm.getAccess();
 	  if(access == RepositoryEntry.ACC_USERS || access == RepositoryEntry.ACC_USERS_GUESTS) {
 	  	editproptabpubVC.put("accesscontrol", acCtr.getInitialComponent());
@@ -185,11 +196,12 @@ public class RepositoryEditPropertiesController extends BasicController implemen
 			 //try to acquire edit lock for this course and show dialog box on failure..
 			courseLockEntry = CoordinatorManager.getInstance().getCoordinator().getLocker().acquireLock(repositoryEntry.getOlatResource(), ureq.getIdentity(), CourseFactory.COURSE_EDITOR_LOCK);
 			if (!courseLockEntry.isSuccess()){				
-				this.showWarning("error.course.alreadylocked", courseLockEntry.getOwner().getName());
+				String fullName = CoreSpringFactory.getImpl(UserManager.class).getUserDisplayName(courseLockEntry.getOwner());
+				showWarning("error.course.alreadylocked", fullName);
 				//beware: the controller is not properly initialized - the initial component is null
 				return;
 			} else if(courseLockEntry.isSuccess() && isAlreadyLocked) {
-				this.showWarning("warning.course.alreadylocked.bySameUser");
+				showWarning("warning.course.alreadylocked.bySameUser");
 				//beware: the controller is not properly initialized - the initial component is null
 				courseLockEntry = null; //invalid lock
 				return;
@@ -199,29 +211,38 @@ public class RepositoryEditPropertiesController extends BasicController implemen
 			  // and course chat is enabled.
 				InstantMessagingModule imModule = CoreSpringFactory.getImpl(InstantMessagingModule.class);
 			  if (imModule.isEnabled() && imModule.isCourseEnabled() && CourseModule.isCourseChatEnabled()) {
-				  ccc = new CourseChatSettingController(ureq, getWindowControl(), changedCourseConfig);
+			  	boolean managedChat = RepositoryEntryManagedFlag.isManaged(entry, RepositoryEntryManagedFlag.chat);
+				  ccc = new CourseChatSettingController(ureq, getWindowControl(), changedCourseConfig, !managedChat);
 				  listenTo(ccc);
 				  // push on controller stack and register <this> as controllerlistener
 				  tabbedPane.addTab(translate("tab.chat"), ccc.getInitialComponent());
 			  }
-			  clayoutC = new CourseLayoutGeneratorController(ureq, getWindowControl(), changedCourseConfig, course.getCourseEnvironment());
+			  
+			  boolean managedLayout = RepositoryEntryManagedFlag.isManaged(entry, RepositoryEntryManagedFlag.layout);
+			  clayoutC = new CourseLayoutGeneratorController(ureq, getWindowControl(), changedCourseConfig,
+			  		course.getCourseEnvironment(), !managedLayout);
 			  listenTo(clayoutC);
 			  tabbedPane.addTab(translate("tab.layout"), clayoutC.getInitialComponent());
 
-			  csfC = new CourseSharedFolderController(ureq, getWindowControl(), changedCourseConfig);
-			  this.listenTo(csfC);
+			  boolean managedFolder = RepositoryEntryManagedFlag.isManaged(entry, RepositoryEntryManagedFlag.resourcefolder);
+			  csfC = new CourseSharedFolderController(ureq, getWindowControl(), changedCourseConfig, !managedFolder);
+			  listenTo(csfC);
 			  tabbedPane.addTab(translate("tab.sharedfolder"), csfC.getInitialComponent());
 
-			  ceffC = new CourseEfficencyStatementController(ureq, getWindowControl(), changedCourseConfig);
-			  this.listenTo(ceffC);
+			  boolean managedStatement = RepositoryEntryManagedFlag.isManaged(entry, RepositoryEntryManagedFlag.efficencystatement);
+			  ceffC = new CourseEfficencyStatementController(ureq, getWindowControl(), changedCourseConfig, !managedStatement);
+			  listenTo(ceffC);
 			  efficiencyConfigPos = tabbedPane.addTab(translate("tab.efficencystatement"), ceffC.getInitialComponent());
-			
-			  calCfgCtr = new CourseCalendarConfigController(ureq, getWindowControl(), changedCourseConfig);
-			  this.listenTo(calCfgCtr);
+
+			  boolean managedCalendar = RepositoryEntryManagedFlag.isManaged(entry, RepositoryEntryManagedFlag.calendar);
+			  calCfgCtr = new CourseCalendarConfigController(ureq, getWindowControl(), changedCourseConfig, !managedCalendar);
+			  listenTo(calCfgCtr);
 			  tabbedPane.addTab(translate("tab.calendar"), calCfgCtr.getInitialComponent());
 
-			  cglosCtr = new CourseConfigGlossaryController(ureq, getWindowControl(), changedCourseConfig, course.getResourceableId());
-			  this.listenTo(cglosCtr);
+			  boolean managedGlossary = RepositoryEntryManagedFlag.isManaged(entry, RepositoryEntryManagedFlag.glossary);
+			  cglosCtr = new CourseConfigGlossaryController(ureq, getWindowControl(), changedCourseConfig,
+			  		course.getResourceableId(), !managedGlossary);
+			  listenTo(cglosCtr);
 			  tabbedPane.addTab(translate("tab.glossary"), cglosCtr.getInitialComponent());		
 			}     
 		} else if (repositoryEntry.getOlatResource().getResourceableTypeName().equals(GlossaryResource.TYPE_NAME)){
@@ -238,6 +259,18 @@ public class RepositoryEditPropertiesController extends BasicController implemen
 				Controller quotaCtrl = qm.getQuotaEditorInstance(ureq, wControl, cpRoot.getRelPath(), false);
 				tabbedPane.addTab(translate("tab.quota.edit"), quotaCtrl.getInitialComponent());
 			}
+			
+			CPPackageConfig cpConfig = CPManager.getInstance().getCPPackageConfig(repositoryEntry.getOlatResource());
+			DeliveryOptions config = cpConfig == null ? null : cpConfig.getDeliveryOptions();
+			deliveryOptionsCtrl = new DeliveryOptionsConfigurationController(ureq, getWindowControl(), config);
+			tabbedPane.addTab(translate("tab.layout"), deliveryOptionsCtrl.getInitialComponent());
+			listenTo(deliveryOptionsCtrl);
+		}  else if (ScormCPFileResource.TYPE_NAME.equals(repositoryEntry.getOlatResource().getResourceableTypeName())) {
+			ScormPackageConfig scormConfig = ScormMainManager.getInstance().getScormPackageConfig(repositoryEntry.getOlatResource());
+			DeliveryOptions config = scormConfig == null ? null : scormConfig.getDeliveryOptions();
+			deliveryOptionsCtrl = new DeliveryOptionsConfigurationController(ureq, getWindowControl(), config);
+			tabbedPane.addTab(translate("tab.layout"), deliveryOptionsCtrl.getInitialComponent());
+			listenTo(deliveryOptionsCtrl);
 		} else if (BlogFileResource.TYPE_NAME.equals(repositoryEntry.getOlatResource().getResourceableTypeName())
 				|| PodcastFileResource.TYPE_NAME.equals(repositoryEntry.getOlatResource().getResourceableTypeName())) {
 			QuotaManager qm = QuotaManager.getInstance();
@@ -410,9 +443,8 @@ public class RepositoryEditPropertiesController extends BasicController implemen
 					if(changedCourseConfig.getGlossarySoftKey()==null) {
             // update references
 					  ReferenceManager refM = ReferenceManager.getInstance();
-						List repoRefs = refM.getReferences(course);
-						for (Iterator iter = repoRefs.iterator(); iter.hasNext();) {
-							ReferenceImpl ref = (ReferenceImpl) iter.next();
+						List<ReferenceImpl> repoRefs = refM.getReferences(course);
+						for (ReferenceImpl ref:repoRefs) {
 							if (ref.getUserdata().equals(GlossaryManager.GLOSSARY_REPO_REF_IDENTIFYER)) {
 								refM.delete(ref);
 								continue;
@@ -433,9 +465,9 @@ public class RepositoryEditPropertiesController extends BasicController implemen
 				CourseConfigEvent courseConfigEvent = new CourseConfigEvent(CourseConfigEvent.CALENDAR_TYPE, course.getResourceableId());
 				eventBus.fireEventToListenersOf(courseConfigEvent, course);
 				
-				this.fireEvent(ureq, Event.DONE_EVENT);
+				fireEvent(ureq, Event.DONE_EVENT);
 			} else if(!DialogBoxUIFactory.isYesEvent(event) || DialogBoxUIFactory.isYesEvent(event)) {				
-				this.fireEvent(ureq, Event.DONE_EVENT);
+				fireEvent(ureq, Event.DONE_EVENT);
 			} 
 		} else if (source == this.propPupForm) { // process details form events
 			if (event == Event.CANCELLED_EVENT) {
@@ -443,9 +475,8 @@ public class RepositoryEditPropertiesController extends BasicController implemen
 			} else if (event == Event.DONE_EVENT) {
 				repositoryEntryChanged = true;				
 				// inform user about inconsistent configuration: doesn't make sense to set a repositoryEntry canReference=true if it is only accessible to owners
-				//fxdiff VCRP-1,2: access control of resources
 				if (!repositoryEntry.getCanReference() && propPupForm.canReference() && (propPupForm.getAccess() < RepositoryEntry.ACC_OWNERS_AUTHORS && !propPupForm.isMembersOnly())) {					
-					this.showError("warn.config.reference.no.access");
+					showError("warn.config.reference.no.access");
 				}	
 				//if not a course, update the repositoryEntry NOW!
 				if(!repositoryEntry.getOlatResource().getResourceableTypeName().equals(CourseModule.getCourseTypeName())) {
@@ -468,7 +499,27 @@ public class RepositoryEditPropertiesController extends BasicController implemen
 				
 				return;
 			}
+		} else if(source == deliveryOptionsCtrl) {
+			if(event == Event.DONE_EVENT || event == Event.CHANGED_EVENT) {
+				DeliveryOptions config = deliveryOptionsCtrl.getDeliveryOptions();
+				if (ImsCPFileResource.TYPE_NAME.equals(repositoryEntry.getOlatResource().getResourceableTypeName())) {
+					CPPackageConfig cpConfig = CPManager.getInstance().getCPPackageConfig(repositoryEntry.getOlatResource());
+					if(cpConfig == null) {
+						cpConfig = new CPPackageConfig();
+					}
+					cpConfig.setDeliveryOptions(config);
+					CPManager.getInstance().setCPPackageConfig(repositoryEntry.getOlatResource(), cpConfig);
+				} else if (ScormCPFileResource.TYPE_NAME.equals(repositoryEntry.getOlatResource().getResourceableTypeName())) {
+					ScormPackageConfig scormConfig = ScormMainManager.getInstance().getScormPackageConfig(repositoryEntry.getOlatResource());
+					if(scormConfig == null) {
+						scormConfig = new ScormPackageConfig();
+					}
+					scormConfig.setDeliveryOptions(config);
+					ScormMainManager.getInstance().setScormPackageConfig(repositoryEntry.getOlatResource(), scormConfig);
+				}
+			}
 		}
+		
 	  } catch (RuntimeException e) {
 			log.warn(RELEASE_LOCK_AT_CATCH_EXCEPTION);			
 			this.dispose();

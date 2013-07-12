@@ -28,9 +28,11 @@ package org.olat.repository;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 
 import org.olat.core.CoreSpringFactory;
 import org.olat.core.gui.components.table.ColumnDescriptor;
@@ -42,8 +44,12 @@ import org.olat.core.gui.components.table.StaticColumnDescriptor;
 import org.olat.core.gui.components.table.TableController;
 import org.olat.core.gui.translator.PackageTranslator;
 import org.olat.core.gui.translator.Translator;
+import org.olat.core.util.StringHelper;
+import org.olat.login.LoginModule;
 import org.olat.resource.accesscontrol.ACService;
+import org.olat.resource.accesscontrol.AccessControlModule;
 import org.olat.resource.accesscontrol.model.OLATResourceAccess;
+import org.olat.user.UserManager;
 
 /**
  * Initial Date:  Mar 31, 2004
@@ -70,11 +76,14 @@ public class RepositoryTableModel extends DefaultTableDataModel<RepositoryEntry>
 	public static final String TABLE_ACTION_SELECT_ENTRIES = "rtbSelectEntrIES";
 	//fxdiff VCRP-1,2: access control of resources
 	private static final int COLUMN_COUNT = 7;
-	Translator translator; // package-local to avoid synthetic accessor method.
+	private final Translator translator; // package-local to avoid synthetic accessor method.
 	private final ACService acService;
+	private final AccessControlModule acModule;
+	private final UserManager userManager;
 	
-	private Map<Long,OLATResourceAccess> repoEntriesWithOffer;
-		
+	private final Map<Long,OLATResourceAccess> repoEntriesWithOffer = new HashMap<Long,OLATResourceAccess>();;
+	private final Map<String,String> fullNames = new HashMap<String, String>();
+	
 	/**
 	 * Default constructor.
 	 * @param translator
@@ -82,8 +91,10 @@ public class RepositoryTableModel extends DefaultTableDataModel<RepositoryEntry>
 	public RepositoryTableModel(Translator translator) {
 		super(new ArrayList<RepositoryEntry>());
 		this.translator = translator;
-		repoEntriesWithOffer = new HashMap<Long,OLATResourceAccess>();
+
 		acService = CoreSpringFactory.getImpl(ACService.class);
+		acModule = CoreSpringFactory.getImpl(AccessControlModule.class);
+		userManager = CoreSpringFactory.getImpl(UserManager.class);
 	}
 
 	/**
@@ -166,7 +177,7 @@ public class RepositoryTableModel extends DefaultTableDataModel<RepositoryEntry>
 			}
 			case 1: return re; 
 			case 2: return getDisplayName(re, translator.getLocale());
-			case 3: return re.getInitialAuthor();
+			case 3: return getFullname(re.getInitialAuthor());
 			case 4: {
 				//fxdiff VCRP-1,2: access control of resources
 				if(re.isMembersOnly()) {
@@ -176,7 +187,12 @@ public class RepositoryTableModel extends DefaultTableDataModel<RepositoryEntry>
 					case RepositoryEntry.ACC_OWNERS: return translator.translate("table.header.access.owner");
 					case RepositoryEntry.ACC_OWNERS_AUTHORS: return translator.translate("table.header.access.author");
 					case RepositoryEntry.ACC_USERS: return translator.translate("table.header.access.user");
-					case RepositoryEntry.ACC_USERS_GUESTS: return translator.translate("table.header.access.guest");
+					case RepositoryEntry.ACC_USERS_GUESTS: {
+						if(!LoginModule.isGuestLoginLinksEnabled()) {
+							return translator.translate("table.header.access.user");
+						}
+						return translator.translate("table.header.access.guest");
+					}
 					default:						
 						// OLAT-6272 in case of broken repo entries with no access code
 						// return error instead of nothing
@@ -194,34 +210,65 @@ public class RepositoryTableModel extends DefaultTableDataModel<RepositoryEntry>
 	//fxdiff VCRP-1,2: access control of resources
 	public void setObjects(List<RepositoryEntry> objects) {
 		super.setObjects(objects);
-		
-		repoEntriesWithOffer = new HashMap<Long,OLATResourceAccess>();
-		List<OLATResourceAccess> withOffers = acService.filterRepositoryEntriesWithAC(objects);
-		for(OLATResourceAccess withOffer:withOffers) {
-			repoEntriesWithOffer.put(withOffer.getResource().getKey(), withOffer);
-		}
+		repoEntriesWithOffer.clear();
+		secondaryInformations(objects);
 	}
 	
 	public void addObject(RepositoryEntry object) {
 		getObjects().add(object);
-		List<RepositoryEntry> repoList = Collections.singletonList(object);
-		List<OLATResourceAccess> withOffers = acService.filterRepositoryEntriesWithAC(repoList);
+		List<RepositoryEntry> objects = Collections.singletonList(object);
+		secondaryInformations(objects);
+	}
+	
+	public void addObjects(List<RepositoryEntry> objects) {
+		getObjects().addAll(objects);
+		secondaryInformations(objects);
+	}
+	
+	private void secondaryInformations(List<RepositoryEntry> repoEntries) {
+		if(repoEntries == null || repoEntries.isEmpty()) return;
+		
+		secondaryInformationsAccessControl(repoEntries);
+		secondaryInformationsUsernames(repoEntries);
+	}
+
+	private void secondaryInformationsAccessControl(List<RepositoryEntry> repoEntries) {
+		if(repoEntries == null || repoEntries.isEmpty() || !acModule.isEnabled()) return;
+
+		List<OLATResourceAccess> withOffers = acService.filterRepositoryEntriesWithAC(repoEntries);
 		for(OLATResourceAccess withOffer:withOffers) {
 			repoEntriesWithOffer.put(withOffer.getResource().getKey(), withOffer);
 		}
 	}
 	
-	public void addObjects(List<RepositoryEntry> objects) {
-		getObjects().addAll(objects);
-		List<OLATResourceAccess> withOffers = acService.filterRepositoryEntriesWithAC(objects);
-		for(OLATResourceAccess withOffer:withOffers) {
-			repoEntriesWithOffer.put(withOffer.getResource().getKey(), withOffer);
+	private void secondaryInformationsUsernames(List<RepositoryEntry> repoEntries) {
+		if(repoEntries == null || repoEntries.isEmpty()) return;
+
+		Set<String> newNames = new HashSet<String>();
+		for(RepositoryEntry re:repoEntries) {
+			final String author = re.getInitialAuthor();
+			if(StringHelper.containsNonWhitespace(author) &&
+				!fullNames.containsKey(author)) {
+				newNames.add(author);
+			}
+		}
+		
+		if(!newNames.isEmpty()) {
+			Map<String,String> newFullnames = userManager.getUserDisplayNamesByUserName(newNames);
+			fullNames.putAll(newFullnames);
 		}
 	}
 	
 	public void removeObject(RepositoryEntry object) {
 		getObjects().remove(object);
 		repoEntriesWithOffer.remove(object.getOlatResource().getKey());
+	}
+	
+	private String getFullname(String author) {
+		if(fullNames.containsKey(author)) {
+			return fullNames.get(author);
+		}
+		return author;
 	}
 
 	/**
