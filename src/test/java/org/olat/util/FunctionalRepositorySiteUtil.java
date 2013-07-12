@@ -28,6 +28,7 @@ import java.util.regex.Pattern;
 import org.olat.core.logging.OLog;
 import org.olat.core.logging.Tracing;
 import org.olat.util.FunctionalUtil.OlatSite;
+import org.olat.util.xss.XssUtil;
 
 import com.thoughtworks.selenium.Selenium;
 
@@ -36,6 +37,7 @@ import com.thoughtworks.selenium.Selenium;
  * 
  * @author jkraehemann, joel.kraehemann@frentix.com, frentix.com
  */
+@XssUtil
 public class FunctionalRepositorySiteUtil {	
 	private final static OLog log = Tracing.createLoggerFor(FunctionalRepositorySiteUtil.class);
 	
@@ -1122,7 +1124,7 @@ public class FunctionalRepositorySiteUtil {
 		
 		selectorBuffer.append("xpath=//div[contains(@class, '")
 		.append(getRepositoryPopupCss())
-		.append("')]//form//input[@type='text']");
+		.append("')]//input[@type='text']");
 		
 		functionalUtil.waitForPageToLoadElement(browser, selectorBuffer.toString());
 		browser.type(selectorBuffer.toString(), title);
@@ -1135,7 +1137,7 @@ public class FunctionalRepositorySiteUtil {
 		
 		selectorBuffer.append("xpath=(//div[contains(@class, '")
 		.append(getRepositoryPopupCss())
-		.append("')]//form//div[contains(@class, '")
+		.append("')]//div[contains(@class, '")
 		.append(getRepositorySaveDetailsCss())
 		.append("')]//button[contains(@class, '")
 		.append(functionalUtil.getButtonDirtyCss())
@@ -1254,19 +1256,11 @@ public class FunctionalRepositorySiteUtil {
 		
 		/* catalog */
 		if(catalog != null){
-			String[] catalogSelectors = functionalCourseUtil.createCatalogSelectors(catalog);
-			
-			for(String catalogSelector: catalogSelectors){
-				functionalUtil.idle(browser);
-				
-				functionalUtil.waitForPageToLoadElement(browser, catalogSelector);
-
-				if(browser.isElementPresent(catalogSelector + "/../img[contains(@class, 'x-tree-elbow-end-plus')]")){
-					browser.doubleClick(catalogSelector);
-				}else{
-					browser.click(catalogSelector);
-				}
-			}
+			String catalogSelectors = functionalCourseUtil.createCatalogSelectors(browser, catalog);
+		
+			functionalUtil.idle(browser);
+			functionalUtil.waitForPageToLoadElement(browser, catalogSelectors);
+			browser.click(catalogSelectors);
 		}
 		
 		functionalUtil.clickWizardNext(browser);

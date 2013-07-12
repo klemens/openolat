@@ -32,6 +32,7 @@ import org.olat.core.commons.persistence.PersistentObject;
 import org.olat.core.logging.AssertException;
 import org.olat.core.logging.OLog;
 import org.olat.core.logging.Tracing;
+import org.olat.core.util.StringHelper;
 import org.olat.core.util.resource.OresHelper;
 import org.olat.resource.OLATResource;
 
@@ -52,6 +53,8 @@ public class BusinessGroupImpl extends PersistentObject implements BusinessGroup
 	private String description;
 	private String name;
 	private String type;
+	private String externalId;
+	private String managedFlagsString;
 	private Integer minParticipants;
 	private Integer maxParticipants;
 	private OLATResource resource;
@@ -132,6 +135,32 @@ public class BusinessGroupImpl extends PersistentObject implements BusinessGroup
 	 */
 	public void setDescription(final String descriptionP) {
 		this.description = descriptionP;
+	}
+
+	public String getExternalId() {
+		return externalId;
+	}
+
+	public void setExternalId(String externalId) {
+		this.externalId = externalId;
+	}
+
+	@Override
+	public BusinessGroupManagedFlag[] getManagedFlags() {
+		if(StringHelper.containsNonWhitespace(managedFlagsString)) {
+			return BusinessGroupManagedFlag.toEnum(managedFlagsString);
+		}
+		return new BusinessGroupManagedFlag[0];
+	}
+
+	@Override
+	public String getManagedFlagsString() {
+		return managedFlagsString;
+	}
+
+	@Override
+	public void setManagedFlagsString(String managedFlags) {
+		this.managedFlagsString = managedFlags;
 	}
 
 	/**

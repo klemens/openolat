@@ -24,6 +24,7 @@ import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -111,6 +112,7 @@ import org.olat.util.logging.activity.LoggingResourceable;
  */
 public abstract class AbstractBusinessGroupListController extends BasicController implements Activateable2 {
 	protected static final String TABLE_ACTION_LEAVE = "bgTblLeave";
+	protected static final String TABLE_ACTION_EDIT = "bgTblEdit";
 	protected static final String TABLE_ACTION_LAUNCH = "bgTblLaunch";
 	protected static final String TABLE_ACTION_ACCESS = "bgTblAccess";
 	protected static final String TABLE_ACTION_DUPLICATE = "bgTblDuplicate";
@@ -150,9 +152,16 @@ public abstract class AbstractBusinessGroupListController extends BasicControlle
 	protected final BusinessGroupService businessGroupService;
 	protected final CollaborationToolsFactory collaborationTools;
 	
+	private BusinessGroupViewFilter filter;
+	private Object userObject;
+	
 	public AbstractBusinessGroupListController(UserRequest ureq, WindowControl wControl, String page) {
+		this(ureq, wControl, page, null);
+	}
+	
+	public AbstractBusinessGroupListController(UserRequest ureq, WindowControl wControl, String page, Object userObject) {
 		super(ureq, wControl, Util.createPackageTranslator(AbstractBusinessGroupListController.class, ureq.getLocale()));
-		
+
 		admin = ureq.getUserSession().getRoles().isOLATAdmin() || ureq.getUserSession().getRoles().isGroupManager();
 		businessGroupService = CoreSpringFactory.getImpl(BusinessGroupService.class);
 		areaManager = CoreSpringFactory.getImpl(BGAreaManager.class);
@@ -162,6 +171,8 @@ public abstract class AbstractBusinessGroupListController extends BasicControlle
 		securityManager = CoreSpringFactory.getImpl(BaseSecurity.class);
 		markManager = CoreSpringFactory.getImpl(MarkManager.class);
 		collaborationTools = CollaborationToolsFactory.getInstance();
+		
+		this.userObject = userObject;
 		
 		mainVC = createVelocityContainer(page);
 
@@ -183,10 +194,22 @@ public abstract class AbstractBusinessGroupListController extends BasicControlle
 		putInitialPanel(mainVC);
 	}
 	
+	public Object getUserObject() {
+		return userObject;
+	}
+	
+	public BusinessGroupViewFilter getFilter() {
+		return filter;
+	}
+
+	public void setFilter(BusinessGroupViewFilter filter) {
+		this.filter = filter;
+	}
+
 	protected abstract void initButtons(UserRequest ureq);
 
 	protected void initButtons(UserRequest ureq, boolean create) {
-		if(create && canCreateBusinessGroup(ureq)) {
+		if(create && groupModule.isAllowedCreate(ureq.getUserSession().getRoles())) {
 			createButton = LinkFactory.createButton("create.group", mainVC, this);
 			createButton.setElementCssClass("o_sel_group_create");
 		}
@@ -281,6 +304,8 @@ public abstract class AbstractBusinessGroupListController extends BasicControlle
 					confirmDelete(ureq, Collections.singletonList(item));
 				} else if(actionid.equals(TABLE_ACTION_LAUNCH)) {
 					doLaunch(ureq, businessGroup);
+				} else if(actionid.equals(TABLE_ACTION_EDIT)) {
+					doEdit(ureq, businessGroup);
 				} else if(actionid.equals(TABLE_ACTION_LEAVE)) {
 					leaveDialogBox = activateYesNoDialog(ureq, null, translate("dialog.modal.bg.leave.text", businessGroup.getName()), leaveDialogBox);
 					leaveDialogBox.setUserObject(businessGroup);
@@ -405,6 +430,16 @@ public abstract class AbstractBusinessGroupListController extends BasicControlle
 	 */
 	protected void doLaunch(UserRequest ureq, BusinessGroup group) {
 		String businessPath = "[BusinessGroup:" + group.getKey() + "]";
+		NewControllerFactory.getInstance().launch(businessPath, ureq, getWindowControl());
+	}
+	
+	/**
+	 * Launch a business group with its business path in administration part
+	 * @param ureq
+	 * @param group
+	 */
+	protected void doEdit(UserRequest ureq, BusinessGroup group) {
+		String businessPath = "[BusinessGroup:" + group.getKey() + "][tooladmin:0]";
 		NewControllerFactory.getInstance().launch(businessPath, ureq, getWindowControl());
 	}
 	
@@ -768,6 +803,14 @@ public abstract class AbstractBusinessGroupListController extends BasicControlle
 			groups = new ArrayList<BusinessGroupView>();
 		} else {
 			groups = businessGroupService.findBusinessGroupViews(params, getResource(), 0, -1);
+			
+			if(filter != null) {
+				for(Iterator<BusinessGroupView> groupIt=groups.iterator(); groupIt.hasNext(); ) {
+					if(!filter.accept(groupIt.next())) {
+						groupIt.remove();
+					}
+				}
+			}
 		}
 		return groups;
 	}
