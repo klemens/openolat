@@ -17,7 +17,7 @@ create index idx_im_msg_from_idx on o_im_message(fk_from_identity_id);
 create table o_im_notification (
    id number(20) not null,
    creationdate date,
-   chat_resname varchar(50) not null,
+   chat_resname varchar2(50 char) not null,
    chat_resid number(20) not null,
    fk_to_identity_id number(20) not null,
    fk_from_identity_id number(20) not null,
@@ -49,7 +49,7 @@ create table o_im_preferences (
    id number(20) not null,
    creationdate date,
    visible_to_others number default 0,
-   roster_def_status varchar(12),
+   roster_def_status varchar2(12 char),
    fk_from_identity_id number(20) not null,
    primary key (id)
 );

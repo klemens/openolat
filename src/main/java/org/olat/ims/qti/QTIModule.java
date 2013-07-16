@@ -70,15 +70,13 @@ public class QTIModule extends AbstractOLATModule {
 
 	@Override
 	protected void initFromChangedProperties() {
-		// TODO Auto-generated method stub
-		
+		//
 	}
 
 	@Override
 	public void setPersistedProperties(PersistedProperties persistedProperties) {
 		this.moduleConfigProperties = persistedProperties;
 	}
-
 
 	/**
 	 * [SPRING]

@@ -57,7 +57,7 @@ public class StackedControllerImpl extends DefaultController implements StackedC
 		// Add back link before the bread crumbs, when pressed delegates click to current bread-crumb - 1
 		backLink = LinkFactory.createCustomLink("back", "back", null, Link.NONTRANSLATED + Link.LINK_CUSTOM_CSS, mainVC, this);
 		backLink.setCustomEnabledLinkCSS("b_breadcumb_back");
-		backLink.setCustomDisplayText("\u25C4"); // unicode back arrow (black left pointer symbol)
+		backLink.setCustomDisplayText("&#x25C4;"); // unicode back arrow (black left pointer symbol)
 		backLink.setTitle(trans.translate("back"));
 		backLink.setAccessKey("b"); // allow navigation using keyboard
 		
@@ -72,11 +72,14 @@ public class StackedControllerImpl extends DefaultController implements StackedC
 		}
 	}
 	
-	
-
 	@Override
 	public void popController(Controller controller) {
-		popController(controller.getInitialComponent());
+		for(Link link:stack) {
+			Controller popCtrl = (Controller)link.getUserObject();
+			if(popCtrl == controller) {
+				popController(link);
+			}
+		}
 	}
 	
 	private Controller popController(Component source) {

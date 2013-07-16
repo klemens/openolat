@@ -44,6 +44,7 @@ import org.olat.core.logging.Tracing;
 import org.olat.core.util.StringHelper;
 import org.olat.group.BusinessGroup;
 import org.olat.group.BusinessGroupImpl;
+import org.olat.group.BusinessGroupLazy;
 import org.olat.group.BusinessGroupOrder;
 import org.olat.group.BusinessGroupShort;
 import org.olat.group.BusinessGroupView;
@@ -83,6 +84,15 @@ public class BusinessGroupDAO {
 	public BusinessGroup createAndPersist(Identity creator, String name, String description,
 			Integer minParticipants, Integer maxParticipants, boolean waitingListEnabled, boolean autoCloseRanksEnabled,
 			boolean showOwners, boolean showParticipants, boolean showWaitingList) {
+		return createAndPersist(creator, name, description, null, null,
+				minParticipants, maxParticipants, waitingListEnabled, autoCloseRanksEnabled,
+				showOwners, showParticipants, showWaitingList);
+	}
+		
+	public BusinessGroup createAndPersist(Identity creator, String name, String description,
+				String externalId, String managedFlags,
+				Integer minParticipants, Integer maxParticipants, boolean waitingListEnabled, boolean autoCloseRanksEnabled,
+				boolean showOwners, boolean showParticipants, boolean showWaitingList) {
 
 		BusinessGroupImpl businessgroup = null;
 		//security groups
@@ -96,6 +106,13 @@ public class BusinessGroupDAO {
 		}
 		if(maxParticipants != null && maxParticipants.intValue() > 0) {
 			businessgroup.setMaxParticipants(maxParticipants);
+		}
+		
+		if(StringHelper.containsNonWhitespace(externalId)) {
+			businessgroup.setExternalId(externalId);
+		}
+		if(StringHelper.containsNonWhitespace(managedFlags)) {
+			businessgroup.setManagedFlagsString(managedFlags);
 		}
 		
 		businessgroup.setWaitingListEnabled(waitingListEnabled);
@@ -359,6 +376,31 @@ public class BusinessGroupDAO {
 		return res.get(0);
 	}
 	
+	public List<BusinessGroupLazy> findBusinessGroup(Identity identity, int maxResults, BusinessGroupOrder... ordering) {
+		StringBuilder sb = new StringBuilder();
+		sb.append("select gp from lazybusinessgroup gp where gp.memberId=:identityKey)");
+
+		if(ordering != null && ordering.length > 0) {
+			sb.append(" order by ");
+			for(BusinessGroupOrder o:ordering) {
+				switch(o) {
+					case nameAsc: sb.append("gp.name");break;
+					case nameDesc: sb.append("gp.name desc");break;
+					case creationDateAsc: sb.append("gp.creationDate");break;
+					case creationDateDesc: sb.append("gp.creationDate desc");break;
+				}
+			}
+			//sb.append(" gp.key ");
+		}
+
+		List<BusinessGroupLazy> res = dbInstance.getCurrentEntityManager()
+				.createQuery(sb.toString(), BusinessGroupLazy.class)
+				.setParameter("identityKey", identity.getKey())
+				.setMaxResults(maxResults)
+				.getResultList();
+		return res;
+	}
+	
 	public List<BusinessGroup> findBusinessGroupsWithWaitingListAttendedBy(Identity identity, OLATResource resource) {
 		StringBuilder sb = new StringBuilder();
 		if(resource == null) {
@@ -451,6 +493,20 @@ public class BusinessGroupDAO {
 			query.append(" or ");
 			searchLikeAttribute(query, "identity", "name", "owner");
 			query.append(")");
+		}
+
+		if(StringHelper.containsNonWhitespace(params.getExternalId())) {
+			where = where(query, where);
+			query.append("bgi.externalId=:externalId");
+		}
+		
+		if(params.getManaged() != null) {
+			where = where(query, where);
+			if(params.getManaged().booleanValue()) {
+				query.append("bgi.managedFlagsString is not null");
+			} else {
+				query.append("bgi.managedFlagsString is null");
+			}
 		}
 		
 		if(params.getGroupKeys() != null && !params.getGroupKeys().isEmpty()) {
@@ -588,6 +644,9 @@ public class BusinessGroupDAO {
 		if(params.getGroupKeys() != null && !params.getGroupKeys().isEmpty()) {
 			dbq.setParameter("groupKeys", params.getGroupKeys());
 		}
+		if(StringHelper.containsNonWhitespace(params.getExternalId())) {
+			dbq.setParameter("externalId", params.getExternalId());
+		}
 		
 		if (resource != null) {
 			dbq.setParameter("resourceKey", resource.getKey());
@@ -620,10 +679,10 @@ public class BusinessGroupDAO {
 	public List<BusinessGroupView> findBusinessGroupWithAuthorConnection(Identity author) {
 		StringBuilder sb = new StringBuilder();
 		sb.append("select bgi from ").append(BusinessGroupViewImpl.class.getName()).append(" as bgi ")
-	    .append("inner join fetch bgi.ownerGroup ownerGroup ")
-		  .append("inner join fetch bgi.partipiciantGroup participantGroup ")
-		  .append("inner join fetch bgi.waitingGroup waitingGroup ")
-		  .append("inner join fetch bgi.resource bgResource ")
+		  .append("inner join fetch bgi.ownerGroup ownerGroup ")
+			.append("inner join fetch bgi.partipiciantGroup participantGroup ")
+			.append("inner join fetch bgi.waitingGroup waitingGroup ")
+			.append("inner join fetch bgi.resource bgResource ")
 		  .append("where bgi.key in (")
 		  .append("  select rel.group.key from ").append(BGResourceRelation.class.getName()).append(" as rel ")
 		  .append("  where rel.resource.key in (")
