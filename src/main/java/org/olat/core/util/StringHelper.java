@@ -122,6 +122,17 @@ public class StringHelper {
 		if (date == -1) return "-";
 		return DateFormat.getDateInstance(DateFormat.FULL, locale).format(new Date(date));
 	}
+	
+	/**
+	 * 
+	 * @param date
+	 * @param locale
+	 * @return Formatted date
+	 */
+	public static String formatLocaleDateFull(Date date, Locale locale) {
+		if (date == null) return "-";
+		return DateFormat.getDateInstance(DateFormat.FULL, locale).format(date);
+	}
 
 	/**
 	 * @param date
@@ -141,6 +152,17 @@ public class StringHelper {
 	public static String formatLocaleTime(long time, Locale locale) {
 		if (time == -1) return "-";
 		return DateFormat.getTimeInstance(DateFormat.SHORT, locale).format(new Date(time));
+	}
+	
+	/**
+	 * 
+	 * @param time
+	 * @param locale
+	 * @return
+	 */
+	public static String formatLocaleTime(Date time, Locale locale) {
+		if (time == null) return "-";
+		return DateFormat.getTimeInstance(DateFormat.SHORT, locale).format(time);
 	}
 
 	/**
@@ -334,8 +356,9 @@ public class StringHelper {
 		if(string == null || string.length() == 0) {
 			return false;
 		}
+		int stop = string.startsWith("-") ? 1 : 0;
 		char[] charArr = string.toCharArray();
-		for(int i=charArr.length; i-->0; ) {
+		for(int i=charArr.length; i-->stop; ) {
 			char ch = charArr[i];
 			if(ch < 47 || ch > 58) {
 				return false;

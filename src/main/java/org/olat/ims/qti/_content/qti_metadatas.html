@@ -1,0 +1,35 @@
+#if($r.available("leftSettings") || $r.available("rightSettings"))
+	<fieldset>
+		<legend>$r.translate("editor.settings")</legend>
+		$r.contextHelpWithWrapper("org.olat.ims.qti","metadatas.html","help.hover.metadatas")
+		<div class="b_clearfix">
+			<div class="b_c50l">
+				<div class="b_subcl">
+					$r.render("leftSettings")
+				</div>
+			</div>
+			<div class="b_c50r">
+				<div class="b_subcr">	
+					$r.render("rightSettings")
+				</div>
+			</div>
+		</div>
+	</fieldset>
+#end
+#if($r.available("leftFeedback") || $r.available("rightFeedback"))
+	<fieldset>
+		<legend>$r.translate("editor.feedback")</legend>
+		<div class="b_clearfix">
+			<div class="b_c50l">
+				<div class="b_subcl">
+					$r.render("leftFeedback")
+				</div>
+			</div>
+			<div class="b_c50r">
+				<div class="b_subcr">	
+					$r.render("rightFeedback")
+				</div>
+			</div>
+		</div>
+	</fieldset>
+#end

@@ -26,6 +26,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 
@@ -56,6 +57,7 @@ import org.olat.core.gui.control.generic.dtabs.Activateable2;
 import org.olat.core.gui.control.generic.modal.DialogBoxController;
 import org.olat.core.gui.control.generic.modal.DialogBoxUIFactory;
 import org.olat.core.id.Identity;
+import org.olat.core.id.Roles;
 import org.olat.core.id.context.ContextEntry;
 import org.olat.core.id.context.StateEntry;
 import org.olat.core.util.StringHelper;
@@ -66,6 +68,7 @@ import org.olat.core.util.mail.MailPackage;
 import org.olat.core.util.session.UserSessionManager;
 import org.olat.course.member.MemberListController;
 import org.olat.group.BusinessGroup;
+import org.olat.group.BusinessGroupManagedFlag;
 import org.olat.group.BusinessGroupMembership;
 import org.olat.group.BusinessGroupModule;
 import org.olat.group.BusinessGroupService;
@@ -79,6 +82,7 @@ import org.olat.instantMessaging.model.Buddy;
 import org.olat.instantMessaging.model.Presence;
 import org.olat.modules.co.ContactFormController;
 import org.olat.repository.RepositoryEntry;
+import org.olat.repository.RepositoryEntryManagedFlag;
 import org.olat.repository.RepositoryManager;
 import org.olat.repository.model.RepositoryEntryMembership;
 import org.olat.repository.model.RepositoryEntryPermissionChangeEvent;
@@ -115,8 +119,10 @@ public abstract class AbstractMemberListController extends BasicController imple
 
 	private final RepositoryEntry repoEntry;
 	private final BusinessGroup businessGroup;
+	private final boolean isLastVisitVisible;
 	private final boolean isAdministrativeUser;
 	private final boolean chatEnabled;
+	private final boolean globallyManaged;
 	
 	private final UserManager userManager;
 	
@@ -133,15 +139,18 @@ public abstract class AbstractMemberListController extends BasicController imple
 	private final GroupMemberViewComparator memberViewComparator;
 	private static final CourseMembershipComparator MEMBERSHIP_COMPARATOR = new CourseMembershipComparator();
 	
-	public AbstractMemberListController(UserRequest ureq, WindowControl wControl, RepositoryEntry repoEntry, String page) {
+	public AbstractMemberListController(UserRequest ureq, WindowControl wControl, RepositoryEntry repoEntry,
+			String page) {
 		this(ureq, wControl, repoEntry, null, page);
 	}
 	
-	public AbstractMemberListController(UserRequest ureq, WindowControl wControl, BusinessGroup group, String page) {
+	public AbstractMemberListController(UserRequest ureq, WindowControl wControl, BusinessGroup group,
+			String page) {
 		this(ureq, wControl, null, group, page);
 	}
 	
-	private AbstractMemberListController(UserRequest ureq, WindowControl wControl, RepositoryEntry repoEntry, BusinessGroup group, String page) {
+	private AbstractMemberListController(UserRequest ureq, WindowControl wControl, RepositoryEntry repoEntry, BusinessGroup group,
+			String page) {
 		super(ureq, wControl, Util.createPackageTranslator(UserPropertyHandler.class, ureq.getLocale()));
 		
 		this.businessGroup = group;
@@ -158,9 +167,13 @@ public abstract class AbstractMemberListController extends BasicController imple
 		imService = CoreSpringFactory.getImpl(InstantMessagingService.class);
 		sessionManager = CoreSpringFactory.getImpl(UserSessionManager.class);
 		memberViewComparator = new GroupMemberViewComparator(Collator.getInstance(getLocale()));
+
+		globallyManaged = calcGloballyManaged();
 		
+		Roles roles = ureq.getUserSession().getRoles();
 		chatEnabled = imModule.isEnabled() && imModule.isPrivateEnabled();
-		isAdministrativeUser = securityModule.isUserAllowedAdminProps(ureq.getUserSession().getRoles());
+		isAdministrativeUser = securityModule.isUserAllowedAdminProps(roles);
+		isLastVisitVisible = securityModule.isUserLastVisitVisible(roles);
 		mainVC = createVelocityContainer(page);
 
 		//table
@@ -176,13 +189,34 @@ public abstract class AbstractMemberListController extends BasicController imple
 		MemberListTableModel memberListModel = new MemberListTableModel(userPropertyHandlers);
 		memberListCtr.setTableDataModel(memberListModel);
 		memberListCtr.setMultiSelect(true);
-		memberListCtr.addMultiSelectAction("table.header.edit", TABLE_ACTION_EDIT);
+		if(!globallyManaged) {
+			memberListCtr.addMultiSelectAction("table.header.edit", TABLE_ACTION_EDIT);
+		}
 		memberListCtr.addMultiSelectAction("table.header.mail", TABLE_ACTION_MAIL);
-		memberListCtr.addMultiSelectAction("table.header.remove", TABLE_ACTION_REMOVE);
+		if(!globallyManaged) {
+			memberListCtr.addMultiSelectAction("table.header.remove", TABLE_ACTION_REMOVE);
+		}
 
 		mainVC.put("memberList", memberListCtr.getInitialComponent());
 		
 		putInitialPanel(mainVC);
+	}
+	
+	private boolean calcGloballyManaged() {
+		boolean managed = true;
+		if(businessGroup != null) {
+			managed &= BusinessGroupManagedFlag.isManaged(businessGroup, BusinessGroupManagedFlag.membersmanagement);
+		}
+		if(repoEntry != null) {
+			boolean managedEntry = RepositoryEntryManagedFlag.isManaged(repoEntry, RepositoryEntryManagedFlag.membersmanagement);
+			managed &= managedEntry;
+			
+			List<BusinessGroup> groups = businessGroupService.findBusinessGroups(null, repoEntry.getOlatResource(), 0, -1);
+			for(BusinessGroup group:groups) {
+				managed &= BusinessGroupManagedFlag.isManaged(group, BusinessGroupManagedFlag.membersmanagement);
+			}
+		}
+		return managed;
 	}
 	
 	@Override
@@ -207,7 +241,10 @@ public abstract class AbstractMemberListController extends BasicController imple
 		}
 		
 		memberListCtr.addColumnDescriptor(new DefaultColumnDescriptor(Cols.firstTime.i18n(), Cols.firstTime.ordinal(), null, getLocale()));
-		memberListCtr.addColumnDescriptor(new DefaultColumnDescriptor(Cols.lastTime.i18n(), Cols.lastTime.ordinal(), null, getLocale()));
+		if(isLastVisitVisible) {
+			memberListCtr.addColumnDescriptor(new DefaultColumnDescriptor(Cols.lastTime.i18n(), Cols.lastTime.ordinal(), null, getLocale()));
+		}
+		
 		CustomCellRenderer roleRenderer = new CourseRoleCellRenderer(getLocale());
 		memberListCtr.addColumnDescriptor(new CustomRenderColumnDescriptor(Cols.role.i18n(), Cols.role.ordinal(), null, getLocale(),  ColumnDescriptor.ALIGNMENT_LEFT, roleRenderer) {
 			@Override
@@ -237,7 +274,9 @@ public abstract class AbstractMemberListController extends BasicController imple
 		
 		memberListCtr.addColumnDescriptor(new GraduateColumnDescriptor("table.header.graduate", TABLE_ACTION_GRADUATE, getTranslator()));
 		memberListCtr.addColumnDescriptor(new StaticColumnDescriptor(TABLE_ACTION_EDIT, "table.header.edit", translate("table.header.edit")));
-		memberListCtr.addColumnDescriptor(new StaticColumnDescriptor(TABLE_ACTION_REMOVE, "table.header.remove", translate("table.header.remove")));
+		if(!globallyManaged) {
+			memberListCtr.addColumnDescriptor(new LeaveColumnDescriptor("table.header.remove", TABLE_ACTION_REMOVE, getTranslator()));
+		}
 	}
 
 	@Override
@@ -503,6 +542,8 @@ public abstract class AbstractMemberListController extends BasicController imple
 
 	protected List<MemberView> updateTableModel(SearchMembersParams params) {
 		//course membership
+		boolean managedMembersRepo = 
+				RepositoryEntryManagedFlag.isManaged(repoEntry, RepositoryEntryManagedFlag.membersmanagement);
 		List<RepositoryEntryMembership> repoMemberships =
 				repoEntry == null ? Collections.<RepositoryEntryMembership>emptyList()
 				: repositoryManager.getRepositoryEntryMembership(repoEntry);
@@ -518,8 +559,9 @@ public abstract class AbstractMemberListController extends BasicController imple
 			groupKeys.add(group.getKey());
 			keyToGroupMap.put(group.getKey(), group);
 		}
+
 		List<BusinessGroupMembership> memberships = groups.isEmpty() ? Collections.<BusinessGroupMembership>emptyList() :
-				businessGroupService.getBusinessGroupMembership(groupKeys);
+			businessGroupService.getBusinessGroupsMembership(groups);
 
 		//get identities
 		Set<Long> identityKeys = new HashSet<Long>();
@@ -547,6 +589,7 @@ public abstract class AbstractMemberListController extends BasicController imple
 
 		Map<Long,MemberView> keyToMemberMap = new HashMap<Long,MemberView>();
 		List<MemberView> memberList = new ArrayList<MemberView>();
+		Locale locale = getLocale();
 
 		//reservations
 		if(params.isPending()) {
@@ -560,7 +603,7 @@ public abstract class AbstractMemberListController extends BasicController imple
 			List<ResourceReservation> reservations = acService.getReservations(resourcesForReservations);
 			for(ResourceReservation reservation:reservations) {
 				Identity identity = reservation.getIdentity();
-				MemberView member = new MemberView(identity);
+				MemberView member = new MemberView(identity, userPropertyHandlers, locale);
 				member.getMembership().setPending(true);
 				memberList.add(member);
 				keyToMemberMap.put(identity.getKey(), member);
@@ -571,7 +614,7 @@ public abstract class AbstractMemberListController extends BasicController imple
 		Long me = getIdentity().getKey();
 		Set<Long> loadStatus = new HashSet<Long>();
 		for(Identity identity:identities) {
-			MemberView member = new MemberView(identity);
+			MemberView member = new MemberView(identity, userPropertyHandlers, locale);
 			if(chatEnabled) {
 				if(identity.getKey().equals(me)) {
 					member.setOnlineStatus("me");
@@ -627,6 +670,7 @@ public abstract class AbstractMemberListController extends BasicController imple
 			if(memberView != null) {
 				memberView.setFirstTime(membership.getCreationDate());
 				memberView.setLastTime(membership.getLastModified());
+				memberView.getMembership().setManagedMembersRepo(managedMembersRepo);
 				if(membership.getOwnerRepoKey() != null) {
 					memberView.getMembership().setRepoOwner(true);
 				}

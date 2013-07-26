@@ -76,6 +76,7 @@
 				&.o_site_guidemo div { background-image: url('../openolat/images/light-bulb.png'); }
 				&.b_resource_GroupInfoMainController div { background-image: url(../openolat/images/users.png); }
 				&.o_site_catalog div { background-image: url(../openolat/images/drawer-open.png); }
+				&.o_site_qpool div { background-image: url(../openolat/images/book-question.png); }
 			}
 			
 			/* -- TABS ( courses, wiki, etc.) -- */
@@ -156,6 +157,13 @@ div.b_tree {
 				left: 0px;
 				z-index: 9;
 			}
+			
+			.b_tree_level_open.b_tree_oc_l1 {
+				z-index: 10;
+			}
+			.b_tree_level_close.b_tree_oc_l1 {
+				z-index: 10;
+			}
 
 
 			/* selected, hovered, active <a> tag */
@@ -169,7 +177,7 @@ div.b_tree {
 			}
 
 			@for $i from 0 through 11 {
-				a.b_tree_l#{$i}  { padding-left: $tree_padding_opener_px + ($i * $tree_padding_steps_px); }
+				a.b_tree_l#{$i}  { padding-left: $tree_padding_opener_px + ($i * $tree_padding_steps_px); z-index:9; }
 			}			
 			
 			
@@ -180,6 +188,7 @@ div.b_tree {
 				float: right;
 				display: inline;
 				position: static;
+				z-index:9;
 				background-repeat:no-repeat;
 			}
 			

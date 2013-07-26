@@ -30,7 +30,6 @@ import java.util.List;
 
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.Component;
-import org.olat.core.gui.components.htmlheader.jscss.JSAndCSSComponent;
 import org.olat.core.gui.components.link.Link;
 import org.olat.core.gui.components.link.LinkFactory;
 import org.olat.core.gui.components.panel.Panel;
@@ -123,6 +122,24 @@ public class CloseableModalController extends DefaultController {
 		setInitialComponent(myContent);
 	}
 	
+	public void setCustomCSS(String className){
+		myContent.contextPut("cssClass", className);
+	}
+	
+	public void setCustomWindowCSS(String cssClass){
+		myContent.contextPut("windowCssClass", cssClass);
+	}
+	
+	public void setContextHelp(UserRequest ureq, String packageName, String pageName, String hoverTextKey) {
+		if (packageName == null) {
+			myContent.contextRemove("off_chelp_package");
+		} else {
+			myContent.contextPut("off_chelp_package", packageName);
+			myContent.contextPut("off_chelp_page", pageName);
+			myContent.contextPut("off_chelp_hover", hoverTextKey);
+			myContent.setTranslator(Util.createPackageTranslator(packageName, ureq.getLocale(), null));
+		}
+	}
 
 	/**
 	 * @see org.olat.core.gui.control.DefaultController#event(org.olat.core.gui.UserRequest,
@@ -134,7 +151,6 @@ public class CloseableModalController extends DefaultController {
 			fireEvent(ureq, CLOSE_MODAL_EVENT);
 		}
 	}
-	
 
 	/**
 	 * @see org.olat.core.gui.control.DefaultController#getInitialComponent()
@@ -143,9 +159,6 @@ public class CloseableModalController extends DefaultController {
 		throw new RuntimeException("please use activate() instead");
 	}
 
-	/**
-	 * 
-	 */
 	public void activate() {
 		if (displayAsOverlay) getWindowControl().pushAsModalDialog(myContent);
 		else getWindowControl().pushToMainArea(myContent);
@@ -160,19 +173,9 @@ public class CloseableModalController extends DefaultController {
 	}
 
 	/**
-	 * insert css in HTML-header, wich overwrites default css
-	 */
-	public void insertHeaderCss() {
-		JSAndCSSComponent jac = new JSAndCSSComponent("cmc-css", this.getClass(), null, "olat-preview.css", true);
-		myContent.put("cmc-css", jac);
-	}
-
-	/**
 	 * @see org.olat.core.gui.control.DefaultController#doDispose(boolean)
 	 */
 	protected void doDispose() {
-	// TODO Auto-generated method stub
-
+		//
 	}
-
 }

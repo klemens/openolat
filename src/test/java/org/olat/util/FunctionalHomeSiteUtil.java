@@ -32,6 +32,7 @@ import org.junit.Assert;
 import org.olat.core.logging.OLog;
 import org.olat.core.logging.Tracing;
 import org.olat.util.FunctionalUtil.OlatSite;
+import org.olat.util.xss.XssUtil;
 
 import com.thoughtworks.selenium.Selenium;
 
@@ -39,6 +40,7 @@ import com.thoughtworks.selenium.Selenium;
  * 
  * @author jkraehemann, joel.kraehemann@frentix.com, frentix.com
  */
+@XssUtil
 public class FunctionalHomeSiteUtil {
 	private final static OLog log = Tracing.createLoggerFor(FunctionalHomeSiteUtil.class);
 	
@@ -571,10 +573,20 @@ public class FunctionalHomeSiteUtil {
 				.append("']//a");
 
 				browser.click(actionSelectorBuffer.toString());
+				
+				if(browser.isConfirmationPresent()){
+					browser.getConfirmation();
+				}
+				
 				functionalUtil.waitForPageToLoad(browser);
 			}
 
 			browser.click(selectorBuffer.toString());
+			
+			if(browser.isConfirmationPresent()){
+				browser.getConfirmation();
+			}
+			
 			functionalUtil.waitForPageToLoad(browser);
 			functionalUtil.waitForPageToLoadElement(browser, selectorBuffer.toString());
 		}
