@@ -1217,6 +1217,13 @@
 							<artifactId>xercesImpl</artifactId>
 							<version>2.9.1</version>
 						</dependency>
+						<dependency>
+							<groupId>com.sun</groupId>
+							<artifactId>tools</artifactId>
+							<version>1.7</version>
+							<scope>system</scope>
+							<systemPath>${java.home}/../lib/tools.jar</systemPath>
+						</dependency>
 					</dependencies>
 				</plugin>
 
@@ -1640,12 +1647,12 @@
 		<dependency>
 			<groupId>net.sourceforge.nekohtml</groupId>
 			<artifactId>nekohtml</artifactId>
-			<version>1.9.14</version>
+			<version>1.9.16</version>
 		</dependency>
 		<dependency>
 			<groupId>org.owasp.antisamy</groupId>
 			<artifactId>antisamy</artifactId>
-			<version>1.4.4</version>
+			<version>1.5.2</version>
 		</dependency>
 		<dependency>
 			<groupId>org.w3c.css</groupId>

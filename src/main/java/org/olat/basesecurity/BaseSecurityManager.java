@@ -37,6 +37,7 @@ import java.util.Map;
 import java.util.UUID;
 
 import javax.persistence.LockModeType;
+import javax.persistence.TemporalType;
 import javax.persistence.TypedQuery;
 
 import org.hibernate.type.StandardBasicTypes;
@@ -370,57 +371,59 @@ public class BaseSecurityManager extends BasicManager implements BaseSecurity {
 	}
 
 	@Override
-	public void updateRoles(Identity identity, Roles roles) {
+	public void updateRoles(Identity actingIdentity, Identity updatedIdentity, Roles roles) {
 		SecurityGroup anonymousGroup = findSecurityGroupByName(Constants.GROUP_ANONYMOUS);
-		boolean hasBeenAnonymous = isIdentityInSecurityGroup(identity, anonymousGroup);
-		updateRolesInSecurityGroup(identity, anonymousGroup, hasBeenAnonymous, roles.isGuestOnly());
+		boolean hasBeenAnonymous = isIdentityInSecurityGroup(updatedIdentity, anonymousGroup);
+		updateRolesInSecurityGroup(actingIdentity, updatedIdentity, anonymousGroup, hasBeenAnonymous, roles.isGuestOnly(), Constants.GROUP_ANONYMOUS);
 		
 		// system users - opposite of anonymous users
 		SecurityGroup usersGroup = findSecurityGroupByName(Constants.GROUP_OLATUSERS);
-		boolean hasBeenUser = isIdentityInSecurityGroup(identity, usersGroup);
-		updateRolesInSecurityGroup(identity,  usersGroup, hasBeenUser, !roles.isGuestOnly());
+		boolean hasBeenUser = isIdentityInSecurityGroup(updatedIdentity, usersGroup);
+		updateRolesInSecurityGroup(actingIdentity, updatedIdentity,  usersGroup, hasBeenUser, !roles.isGuestOnly(), Constants.GROUP_OLATUSERS);
 
 		SecurityGroup groupManagerGroup = findSecurityGroupByName(Constants.GROUP_GROUPMANAGERS);
-		boolean hasBeenGroupManager = isIdentityInSecurityGroup(identity, groupManagerGroup);
+		boolean hasBeenGroupManager = isIdentityInSecurityGroup(updatedIdentity, groupManagerGroup);
 		boolean groupManager = roles.isGroupManager()
 				&& !roles.isGuestOnly() && !roles.isInvitee();
-		updateRolesInSecurityGroup(identity, groupManagerGroup, hasBeenGroupManager, groupManager);
+		updateRolesInSecurityGroup(actingIdentity, updatedIdentity, groupManagerGroup, hasBeenGroupManager, groupManager, Constants.GROUP_GROUPMANAGERS);
 
-	// author
+		// author
 		SecurityGroup authorGroup = findSecurityGroupByName(Constants.GROUP_AUTHORS);
-		boolean hasBeenAuthor = isIdentityInSecurityGroup(identity, authorGroup);
+		boolean hasBeenAuthor = isIdentityInSecurityGroup(updatedIdentity, authorGroup);
 		boolean isAuthor = (roles.isAuthor() || roles.isInstitutionalResourceManager())
 				&& !roles.isGuestOnly() && !roles.isInvitee();
-		updateRolesInSecurityGroup(identity, authorGroup, hasBeenAuthor, isAuthor);
+		updateRolesInSecurityGroup(actingIdentity, updatedIdentity, authorGroup, hasBeenAuthor, isAuthor, Constants.GROUP_AUTHORS);
 
 		// user manager, only allowed by admin
 		SecurityGroup userManagerGroup = findSecurityGroupByName(Constants.GROUP_USERMANAGERS);
-		boolean hasBeenUserManager = isIdentityInSecurityGroup(identity, userManagerGroup);
+		boolean hasBeenUserManager = isIdentityInSecurityGroup(updatedIdentity, userManagerGroup);
 		boolean userManager = roles.isUserManager()
 				&& !roles.isGuestOnly() && !roles.isInvitee();
-		updateRolesInSecurityGroup(identity,  userManagerGroup, hasBeenUserManager, userManager);
+		updateRolesInSecurityGroup(actingIdentity, updatedIdentity,  userManagerGroup, hasBeenUserManager, userManager, Constants.GROUP_USERMANAGERS);
 
  		// institutional resource manager
 		SecurityGroup institutionalResourceManagerGroup = findSecurityGroupByName(Constants.GROUP_INST_ORES_MANAGER);
-		boolean hasBeenInstitutionalResourceManager = isIdentityInSecurityGroup(identity, institutionalResourceManagerGroup);
+		boolean hasBeenInstitutionalResourceManager = isIdentityInSecurityGroup(updatedIdentity, institutionalResourceManagerGroup);
 		boolean institutionalResourceManager = roles.isInstitutionalResourceManager()
 				&& !roles.isGuestOnly() && !roles.isInvitee();
-		updateRolesInSecurityGroup(identity, institutionalResourceManagerGroup, hasBeenInstitutionalResourceManager, institutionalResourceManager);
+		updateRolesInSecurityGroup(actingIdentity, updatedIdentity, institutionalResourceManagerGroup, hasBeenInstitutionalResourceManager, institutionalResourceManager, Constants.GROUP_INST_ORES_MANAGER);
 
 		// system administrator
 		SecurityGroup adminGroup = findSecurityGroupByName(Constants.GROUP_ADMIN);
-		boolean hasBeenAdmin = isIdentityInSecurityGroup(identity, adminGroup);
+		boolean hasBeenAdmin = isIdentityInSecurityGroup(updatedIdentity, adminGroup);
 		boolean isOLATAdmin = roles.isOLATAdmin() && !roles.isGuestOnly() && !roles.isInvitee();
-		updateRolesInSecurityGroup(identity, adminGroup, hasBeenAdmin, isOLATAdmin);		
+		updateRolesInSecurityGroup(actingIdentity, updatedIdentity, adminGroup, hasBeenAdmin, isOLATAdmin, Constants.GROUP_ADMIN);		
 	}
 	
-	private void updateRolesInSecurityGroup(Identity identity, SecurityGroup securityGroup, boolean hasBeenInGroup, boolean isNowInGroup) {
+	private void updateRolesInSecurityGroup(Identity actingIdentity, Identity updatedIdentity, SecurityGroup securityGroup, boolean hasBeenInGroup, boolean isNowInGroup, String groupName) {
 		if (!hasBeenInGroup && isNowInGroup) {
 			// user not yet in security group, add him
-			addIdentityToSecurityGroup(identity, securityGroup);
+			addIdentityToSecurityGroup(updatedIdentity, securityGroup);
+			logAudit("User::" + actingIdentity.getName() + " added system role::" + groupName + " to user::" + updatedIdentity.getName(), null);
 		} else if (hasBeenInGroup && !isNowInGroup) {
 			// user not anymore in security group, remove him
-			removeIdentityFromSecurityGroup(identity, securityGroup);
+			removeIdentityFromSecurityGroup(updatedIdentity, securityGroup);
+			logAudit("User::" + actingIdentity.getName() + " removed system role::" + groupName + " from user::" + updatedIdentity.getName(), null);
 		}
 	}
 
@@ -1301,6 +1304,45 @@ public class BaseSecurityManager extends BasicManager implements BaseSecurity {
 		return results.get(0);
 	}
 	
+	/**
+	 * @see org.olat.basesecurity.Manager#findAuthentication(org.olat.core.id.Identity, java.lang.String)
+	 */
+	@Override
+	public List<Authentication> findAuthentication(String provider, String credential) {
+		if (provider==null || credential==null) {
+			throw new IllegalArgumentException("provider and token must not be null");
+		}
+		
+		StringBuilder sb = new StringBuilder();
+		sb.append("select auth from ").append(AuthenticationImpl.class.getName())
+		  .append(" as auth where auth.credential=:credential and auth.provider=:provider");
+		
+		List<Authentication> results = dbInstance.getCurrentEntityManager()
+				.createQuery(sb.toString(), Authentication.class)
+				.setParameter("credential", credential)
+				.setParameter("provider", provider)
+				.getResultList();
+		return results;
+	}
+	
+	@Override
+	public List<Authentication> findOldAuthentication(String provider, Date creationDate) {
+		if (provider == null || creationDate == null) {
+			throw new IllegalArgumentException("provider and token must not be null");
+		}
+		
+		StringBuilder sb = new StringBuilder();
+		sb.append("select auth from ").append(AuthenticationImpl.class.getName())
+		  .append(" as auth where auth.provider=:provider and auth.creationDate<:creationDate");
+		
+		List<Authentication> results = dbInstance.getCurrentEntityManager()
+				.createQuery(sb.toString(), Authentication.class)
+				.setParameter("creationDate", creationDate, TemporalType.TIMESTAMP)
+				.setParameter("provider", provider)
+				.getResultList();
+		return results;
+	}
+
 	@Override
 	public String findCredentials(Identity identity, String provider) {
 		if (identity==null) {
@@ -1333,6 +1375,11 @@ public class BaseSecurityManager extends BasicManager implements BaseSecurity {
 		
 		Number count = (Number)query.uniqueResult();
 		return count.intValue() > 0;
+	}
+
+	@Override
+	public Authentication updateAuthentication(Authentication authentication) {
+		return dbInstance.getCurrentEntityManager().merge(authentication);
 	}
 
 	/**
@@ -1799,6 +1846,16 @@ public class BaseSecurityManager extends BasicManager implements BaseSecurity {
 		dbInstance.commit();
 		return reloadedIdentity;
 	}
+	
+	@Override
+	public Identity saveIdentityName(Identity identity, String newName) {
+		Identity reloadedIdentity = loadForUpdate(identity); 
+		reloadedIdentity.setName(newName);
+		reloadedIdentity = dbInstance.getCurrentEntityManager().merge(reloadedIdentity);
+		dbInstance.commit();
+		return reloadedIdentity;
+	}
+	
 	
 	/**
 	 * Don't forget to commit/roolback the transaction as soon as possible
