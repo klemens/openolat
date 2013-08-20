@@ -36,12 +36,16 @@ import java.util.List;
 
 import org.olat.catalog.CatalogEntry;
 import org.olat.catalog.CatalogManager;
-import org.olat.catalog.ui.CatalogAjaxAddController;
+import org.olat.catalog.ui.CatalogEntryAddController;
 import org.olat.core.gui.UserRequest;
-import org.olat.core.gui.control.Controller;
+import org.olat.core.gui.components.Component;
+import org.olat.core.gui.components.tree.MenuTree;
+import org.olat.core.gui.components.tree.TreeEvent;
+import org.olat.core.gui.components.velocity.VelocityContainer;
 import org.olat.core.gui.control.Event;
 import org.olat.core.gui.control.WindowControl;
-import org.olat.core.gui.control.generic.ajax.tree.TreeNodeClickedEvent;
+import org.olat.core.util.StringHelper;
+import org.olat.core.util.Util;
 import org.olat.repository.RepositoryEntry;
 
 import de.tuchemnitz.wizard.workflows.coursecreation.model.CourseCreationConfiguration;
@@ -55,44 +59,55 @@ import de.tuchemnitz.wizard.workflows.coursecreation.model.CourseCreationConfigu
  * 
  * @author Marcel Karras (toka@freebits.de)
  */
-public class CatalogInsertController extends CatalogAjaxAddController {
+public class CatalogInsertController extends CatalogEntryAddController {
 
+	private CatalogEntry selectedParent;
+	private final RepositoryEntry toBeAddedEntry;
 	private CourseCreationConfiguration courseConfig;
 
 	public CatalogInsertController(UserRequest ureq, WindowControl control, RepositoryEntry repositoryEntry,
 			CourseCreationConfiguration courseConfig) {
-		super(ureq, control, repositoryEntry);
-
+		super(ureq, control, repositoryEntry, false, true);
+		toBeAddedEntry = repositoryEntry;
 		this.courseConfig = courseConfig;
-
-		cancelLink.setVisible(false);
-		selectLink.setVisible(false);
+		this.selectionTree.clearSelection();
+	}
+	
+	@Override
+	protected VelocityContainer createVelocityContainer(String page) {
+		setTranslator(Util.createPackageTranslator(CatalogEntryAddController.class, getLocale()));
+		velocity_root = Util.getPackageVelocityRoot(CatalogEntryAddController.class);
+		return super.createVelocityContainer(page);
 	}
 
 	@Override
-	protected void event(UserRequest ureq, Controller source, Event event) {
-		if (source == treeCtr) {
-			if (event instanceof TreeNodeClickedEvent) {
-				TreeNodeClickedEvent clickedEvent = (TreeNodeClickedEvent) event;
+	public void event(UserRequest ureq, Component source, Event event) {
+		if (source instanceof MenuTree) {
+
+			TreeEvent te = (TreeEvent) event;
+			if(MenuTree.COMMAND_TREENODE_EXPANDED.equals(te.getCommand())) {
 				// build new entry for this catalog level
 				CatalogManager cm = CatalogManager.getInstance();
-				String nodeId = clickedEvent.getNodeId();
-				Long newParentId = Long.parseLong(nodeId);
-				CatalogEntry newParent = cm.loadCatalogEntry(newParentId);
-				// check first if this repo entry is already attached to this new parent
-				List<CatalogEntry> existingChildren = cm.getChildrenOf(newParent);
-				for (CatalogEntry existingChild : existingChildren) {
-					RepositoryEntry existingRepoEntry = existingChild.getRepositoryEntry();
-					if (existingRepoEntry != null && existingRepoEntry.equalsByPersistableKey(toBeAddedEntry)) {
-						return;
+				String nodeId = selectionTree.getSelectedNodeId();
+				if(nodeId == null) {
+					selectedParent = null;
+				} else if(StringHelper.isLong(nodeId)) {
+					Long newParentId = Long.parseLong(nodeId);
+					CatalogEntry newParent = cm.loadCatalogEntry(newParentId);
+					// check first if this repo entry is already attached to this new parent
+					List<CatalogEntry> existingChildren = cm.getChildrenOf(newParent);
+					for (CatalogEntry existingChild : existingChildren) {
+						RepositoryEntry existingRepoEntry = existingChild.getRepositoryEntry();
+						if (existingRepoEntry != null && existingRepoEntry.equalsByPersistableKey(toBeAddedEntry)) {
+							return;
+						}
 					}
+					// don't create entry right away, user must select submit button first
+					selectedParent = newParent;
 				}
-				// don't create entry right away, user must select submit button first
-				this.selectedParent = newParent;
-				fireEvent(ureq, Event.DONE_EVENT);
 			}
 		}
-
+		super.event(ureq, source, event);
 	}
 
 	/**
@@ -100,19 +115,18 @@ public class CatalogInsertController extends CatalogAjaxAddController {
 	 */
 	public void init() {
 		if (getCourseCreationConfiguration().getSelectedCatalogEntry() != null) {
-			this.selectedParent = getCourseCreationConfiguration().getSelectedCatalogEntry();
-			treeCtr.selectPath(CatalogHelper.getPath(this.selectedParent));
+			selectedParent = getCourseCreationConfiguration().getSelectedCatalogEntry();
 		}
 	}
 
 	private CourseCreationConfiguration getCourseCreationConfiguration() {
-		return this.courseConfig;
+		return courseConfig;
 	}
 
 	/**
 	 * @return the selected catalogEntry
 	 */
 	public CatalogEntry getSelectedParent() {
-		return this.selectedParent;
+		return selectedParent;
 	}
 }

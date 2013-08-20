@@ -282,9 +282,9 @@ public class TableController extends BasicController {
 		//preference + download links
 		preferenceLink = LinkFactory.createCustomLink("prefLink", "cmd.changecols", "", Link.NONTRANSLATED, contentVc, this);
 		preferenceLink.setCustomEnabledLinkCSS("b_table_prefs");
-		preferenceLink.setTooltip(translate("command.changecols"),false);
+		preferenceLink.setTooltip(translate("command.changecols"));
 		downloadLink = LinkFactory.createCustomLink("downloadLink", "cmd.download", "", Link.NONTRANSLATED, contentVc, this);
-		downloadLink.setTooltip(translate("table.export.title"),false);
+		downloadLink.setTooltip(translate("table.export.title"));
 		downloadLink.setCustomEnabledLinkCSS("b_table_download");
 		
 		putInitialPanel(contentVc);
@@ -719,6 +719,15 @@ public class TableController extends BasicController {
 				&& table.getColumnDescriptor(sortColumn).isSortingAllowed()) {
 			table.setSortColumn(sortColumn, isSortAscending);
 			table.resort();
+		}
+	}
+	
+	public void setSortColumn(final ColumnDescriptor sortColumn, final boolean isSortAscending) {
+		for(int i=table.getColumnCount(); i-->0; ) {
+			if(sortColumn == table.getColumnDescriptor(i)) {
+				table.setSortColumn(i, isSortAscending);
+				table.resort();
+			}
 		}
 	}
 

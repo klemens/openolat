@@ -30,6 +30,7 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.fail;
 
 import java.util.Collections;
+import java.util.Date;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -55,6 +56,8 @@ import org.olat.core.util.CodeHelper;
 import org.olat.core.util.resource.OresHelper;
 import org.olat.group.BusinessGroup;
 import org.olat.group.BusinessGroupService;
+import org.olat.repository.manager.RepositoryEntryLifecycleDAO;
+import org.olat.repository.model.RepositoryEntryLifecycle;
 import org.olat.repository.model.RepositoryEntryMembership;
 import org.olat.resource.OLATResource;
 import org.olat.resource.OLATResourceManager;
@@ -85,6 +88,8 @@ public class RepositoryManagerTest extends OlatTestCase {
 	private BusinessGroupService businessGroupService;
 	@Autowired
 	private MarkManager markManager;
+	@Autowired
+	private RepositoryEntryLifecycleDAO lifecycleDao;
 	
 	@Before
 	public void setup() {
@@ -252,6 +257,64 @@ public class RepositoryManagerTest extends OlatTestCase {
 	}
 	
 	@Test
+	public void getParticipantRepositoryEntry() {
+		Identity id = JunitTestHelper.createAndPersistIdentityAsUser("re-stud-lc-" + UUID.randomUUID().toString());
+		RepositoryEntry re = JunitTestHelper.createAndPersistRepositoryEntry(true);
+		securityManager.addIdentityToSecurityGroup(id, re.getParticipantGroup());
+		dbInstance.commitAndCloseSession();
+
+		List<RepositoryEntryLight> entries = repositoryManager.getParticipantRepositoryEntry(id, -1, RepositoryEntryOrder.nameAsc);
+		Assert.assertNotNull(entries);
+		Assert.assertFalse(entries.isEmpty());
+		
+		boolean found = false;
+		Set<Long> duplicates = new HashSet<Long>();
+		for(RepositoryEntryLight entry:entries) {
+			Assert.assertTrue(duplicates.add(entry.getKey()));
+			if(entry.getKey().equals(re.getKey())) {
+				found = true;
+			}
+		
+			if(entry.getAccess() >= RepositoryEntry.ACC_USERS) {
+				//OK
+			} else if(entry.getAccess() == RepositoryEntry.ACC_OWNERS && entry.isMembersOnly()) {
+				RepositoryEntry reloadedRe = repositoryManager.lookupRepositoryEntry(entry.getKey());
+				boolean member = securityManager.isIdentityInSecurityGroup(id, reloadedRe.getParticipantGroup());
+				Assert.assertTrue(member);
+			} else {
+				Assert.fail();
+			}
+		}
+		
+		Assert.assertTrue(found);
+	}
+	
+	@Test
+	public void getParticipantRepositoryEntryWithGroups() {
+		Identity id = JunitTestHelper.createAndPersistIdentityAsUser("re-stud-ld-" + UUID.randomUUID().toString());
+		RepositoryEntry re = JunitTestHelper.createAndPersistRepositoryEntry();
+		BusinessGroup group = businessGroupService.createBusinessGroup(null, "studh", "th", null, null, false, false, re);
+		securityManager.addIdentityToSecurityGroup(id, group.getPartipiciantGroup());
+		dbInstance.commitAndCloseSession();
+
+		List<RepositoryEntryLight> entries = repositoryManager.getParticipantRepositoryEntry(id, -1);
+		Assert.assertNotNull(entries);
+		Assert.assertFalse(entries.isEmpty());
+		
+		boolean found = false;
+		Set<Long> duplicates = new HashSet<Long>();
+		for(RepositoryEntryLight entry:entries) {
+			Assert.assertTrue(duplicates.add(entry.getKey()));
+			
+			if(entry.getKey().equals(re.getKey())) {
+				found = true;
+			}
+		}
+		
+		Assert.assertTrue(found);
+	}
+	
+	@Test
 	public void getLearningResourcesAsTeacher() {
 		Identity id = JunitTestHelper.createAndPersistIdentityAsUser("re-teac-la-" + UUID.randomUUID().toString());
 		RepositoryEntry re = JunitTestHelper.createAndPersistRepositoryEntry();
@@ -310,6 +373,64 @@ public class RepositoryManagerTest extends OlatTestCase {
 		//check count
 		int countEntries = repositoryManager.countFavoritLearningResourcesAsTeacher(id, null);
 		Assert.assertEquals(1, countEntries);
+	}
+	
+	@Test
+	public void getTutorRepositoryEntry() {
+		Identity id = JunitTestHelper.createAndPersistIdentityAsUser("re-stud-le-" + UUID.randomUUID().toString());
+		RepositoryEntry re = JunitTestHelper.createAndPersistRepositoryEntry(true);
+		securityManager.addIdentityToSecurityGroup(id, re.getTutorGroup());
+		dbInstance.commitAndCloseSession();
+
+		List<RepositoryEntryLight> entries = repositoryManager.getTutorRepositoryEntry(id, -1, RepositoryEntryOrder.nameAsc);
+		Assert.assertNotNull(entries);
+		Assert.assertFalse(entries.isEmpty());
+		
+		boolean found = false;
+		Set<Long> duplicates = new HashSet<Long>();
+		for(RepositoryEntryLight entry:entries) {
+			Assert.assertTrue(duplicates.add(entry.getKey()));
+			if(entry.getKey().equals(re.getKey())) {
+				found = true;
+			}
+		
+			if(entry.getAccess() >= RepositoryEntry.ACC_USERS) {
+				//OK
+			} else if(entry.getAccess() == RepositoryEntry.ACC_OWNERS && entry.isMembersOnly()) {
+				RepositoryEntry reloadedRe = repositoryManager.lookupRepositoryEntry(entry.getKey());
+				boolean member = securityManager.isIdentityInSecurityGroup(id, reloadedRe.getTutorGroup());
+				Assert.assertTrue(member);
+			} else {
+				Assert.fail();
+			}
+		}
+		
+		Assert.assertTrue(found);
+	}
+	
+	@Test
+	public void getTutorRepositoryEntryWithGroups() {
+		Identity id = JunitTestHelper.createAndPersistIdentityAsUser("re-stud-lf-" + UUID.randomUUID().toString());
+		RepositoryEntry re = JunitTestHelper.createAndPersistRepositoryEntry();
+		BusinessGroup group = businessGroupService.createBusinessGroup(null, "studi", "ti", null, null, false, false, re);
+		securityManager.addIdentityToSecurityGroup(id, group.getOwnerGroup());
+		dbInstance.commitAndCloseSession();
+
+		List<RepositoryEntryLight> entries = repositoryManager.getTutorRepositoryEntry(id, -1);
+		Assert.assertNotNull(entries);
+		Assert.assertFalse(entries.isEmpty());
+		
+		boolean found = false;
+		Set<Long> duplicates = new HashSet<Long>();
+		for(RepositoryEntryLight entry:entries) {
+			Assert.assertTrue(duplicates.add(entry.getKey()));
+			
+			if(entry.getKey().equals(re.getKey())) {
+				found = true;
+			}
+		}
+		
+		Assert.assertTrue(found);
 	}
 	
 	@Test
@@ -531,19 +652,29 @@ public class RepositoryManagerTest extends OlatTestCase {
 		//check with all identities
 		List<RepositoryEntryMembership> memberships = repositoryManager.getRepositoryEntryMembership(re);
 		Assert.assertNotNull(memberships);
-		Assert.assertEquals(7, memberships.size());
+		Assert.assertEquals(6, memberships.size());
+		
+		int countOwner = 0;
+		int countTutor = 0;
+		int countParticipant = 0;
 		for(RepositoryEntryMembership membership:memberships) {
 			if(membership.getOwnerRepoKey() != null) {
+				countOwner++;
 				Assert.assertEquals(re.getKey(), membership.getOwnerRepoKey());
-			} else if (membership.getTutorRepoKey() != null) {
+			}
+			if (membership.getTutorRepoKey() != null) {
+				countTutor++;
 				Assert.assertEquals(re.getKey(), membership.getTutorRepoKey());
-			} else if (membership.getParticipantRepoKey() != null) {
+			}
+			if (membership.getParticipantRepoKey() != null) {
+				countParticipant++;
 				Assert.assertEquals(re.getKey(), membership.getParticipantRepoKey());
-			} else {
-				Assert.assertTrue(false);
 			}
 			Assert.assertTrue(identityKeys.contains(membership.getIdentityKey()));
 		}
+		Assert.assertEquals(2, countOwner);
+		Assert.assertEquals(2, countTutor);
+		Assert.assertEquals(3, countParticipant);
 		
 		//check with id1
 		List<RepositoryEntryMembership> membership1s = repositoryManager.getRepositoryEntryMembership(re, id1);
@@ -696,6 +827,78 @@ public class RepositoryManagerTest extends OlatTestCase {
 			Assert.assertTrue(entry.getAccess() >= RepositoryEntry.ACC_USERS);
 		}
 	}
+
+	@Test
+	public void genericANDQueryWithRoles_managed() {
+		RepositoryEntry managedRe = JunitTestHelper.createAndPersistRepositoryEntry();
+		managedRe.setManagedFlagsString("all");
+		managedRe = dbInstance.getCurrentEntityManager().merge(managedRe);
+		RepositoryEntry freeRe = JunitTestHelper.createAndPersistRepositoryEntry();
+		dbInstance.commitAndCloseSession();
+		
+		//search managed
+		SearchRepositoryEntryParameters paramsManaged = new SearchRepositoryEntryParameters();
+		paramsManaged.setRoles(new Roles(true, false, false, false, false, false, false));
+		paramsManaged.setManaged(Boolean.TRUE);
+		List<RepositoryEntry> managedEntries = repositoryManager.genericANDQueryWithRolesRestriction(paramsManaged, 0, -1, true);
+		Assert.assertNotNull(managedEntries);
+		Assert.assertTrue(managedEntries.size() > 0);
+		Assert.assertTrue(managedEntries.contains(managedRe));
+		Assert.assertFalse(managedEntries.contains(freeRe));
+
+		//search unmanaged
+		SearchRepositoryEntryParameters paramsFree = new SearchRepositoryEntryParameters();
+		paramsFree.setRoles(new Roles(true, false, false, false, false, false, false));
+		paramsFree.setManaged(Boolean.FALSE);
+		List<RepositoryEntry> freeEntries = repositoryManager.genericANDQueryWithRolesRestriction(paramsFree, 0, -1, true);
+		Assert.assertNotNull(freeEntries);
+		Assert.assertTrue(freeEntries.size() > 0);
+		Assert.assertFalse(freeEntries.contains(managedRe));
+		Assert.assertTrue(freeEntries.contains(freeRe));
+	}
+
+	@Test
+	public void setDescriptionAndName() {
+		RepositoryEntry re = JunitTestHelper.createAndPersistRepositoryEntry();
+		dbInstance.commitAndCloseSession();
+		Assert.assertNotNull(re);
+		
+		String newName = "Brand new name";
+		String newDesc = "Brand new description";
+		re = repositoryManager.setDescriptionAndName(re, newName, newDesc);
+		Assert.assertNotNull(re);
+		
+		dbInstance.commitAndCloseSession();
+		
+		RepositoryEntry reloaded = repositoryManager.lookupRepositoryEntry(re.getKey());
+		Assert.assertNotNull(reloaded);
+		Assert.assertEquals("Brand new name", reloaded.getDisplayname());
+		Assert.assertEquals("Brand new description", reloaded.getDescription());
+	}
+	
+	@Test
+	public void setDescriptionAndName_lifecycle() {
+		RepositoryEntryLifecycle publicCycle
+			= lifecycleDao.create("Public 1", "Soft public 1", false, new Date(), new Date());
+
+		RepositoryEntry re = JunitTestHelper.createAndPersistRepositoryEntry();
+		dbInstance.commitAndCloseSession();
+		Assert.assertNotNull(re);
+		
+		String newName = "Brand new name";
+		String newDesc = "Brand new description";
+		re = repositoryManager.setDescriptionAndName(re, newName, newDesc, publicCycle);
+		Assert.assertNotNull(re);
+		
+		dbInstance.commitAndCloseSession();
+		
+		RepositoryEntry reloaded = repositoryManager.lookupRepositoryEntry(re.getKey());
+		Assert.assertNotNull(reloaded);
+		Assert.assertEquals("Brand new name", reloaded.getDisplayname());
+		Assert.assertEquals("Brand new description", reloaded.getDescription());
+		Assert.assertEquals(publicCycle, reloaded.getLifecycle());
+	}
+	
 
 	private RepositoryEntry createRepositoryEntry(final String type, long i) {
 		OLATResourceable resourceable = OresHelper.createOLATResourceableInstance(type, new Long(i));

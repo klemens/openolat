@@ -82,7 +82,7 @@ public class MailHelper {
 		UserManager um = UserManager.getInstance();
 		List<UserPropertyHandler> userPropertyHandlers = um.getUserPropertyHandlersFor(MailHelper.class.getCanonicalName(), false);
 		ArrayList<String> uProps = new ArrayList<String>(userPropertyHandlers.size()+2);
-		uProps.add(sender.getName());
+		uProps.add(sender.getUser().getProperty(UserConstants.EMAIL, null));
 		uProps.add(Settings.getServerContextPathURI());
 		
 		for (Iterator<UserPropertyHandler> iterator = userPropertyHandlers.iterator(); iterator.hasNext();) {
@@ -197,8 +197,13 @@ public class MailHelper {
 				for (Identity identity : failedIdentites) {
 					User user = identity.getUser();
 					warnings.append("<li>");
-					warnings.append(trans.translate("mailhelper.error.failedusers.user", new String[] { user.getProperty(UserConstants.FIRSTNAME, null), user.getProperty(UserConstants.LASTNAME, null),
-							user.getProperty(UserConstants.EMAIL, null), identity.getName() }));
+					String fullname = UserManager.getInstance().getUserDisplayName(identity);
+					warnings.append(trans.translate("mailhelper.error.failedusers.user", new String[] {
+							user.getProperty(UserConstants.FIRSTNAME, null),
+							user.getProperty(UserConstants.LASTNAME, null),
+							user.getProperty(UserConstants.EMAIL, null),
+							fullname
+						}));
 					warnings.append("</li>");
 				}
 				warnings.append("</ul></p>");

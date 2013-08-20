@@ -30,10 +30,8 @@ import java.util.UUID;
 
 import org.olat.catalog.CatalogEntry;
 import org.olat.catalog.CatalogManager;
-import org.olat.catalog.ui.CatalogAjaxAddController;
 import org.olat.catalog.ui.CatalogEntryAddController;
 import org.olat.core.gui.UserRequest;
-import org.olat.core.gui.components.Component;
 import org.olat.core.gui.components.form.flexible.FormItem;
 import org.olat.core.gui.components.form.flexible.FormItemContainer;
 import org.olat.core.gui.components.form.flexible.elements.FormLink;
@@ -42,13 +40,10 @@ import org.olat.core.gui.components.form.flexible.impl.Form;
 import org.olat.core.gui.components.form.flexible.impl.FormEvent;
 import org.olat.core.gui.components.form.flexible.impl.FormLayoutContainer;
 import org.olat.core.gui.components.link.Link;
-import org.olat.core.gui.components.tree.SelectionTree;
-import org.olat.core.gui.components.tree.TreeEvent;
 import org.olat.core.gui.components.velocity.VelocityContainer;
 import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.Event;
 import org.olat.core.gui.control.WindowControl;
-import org.olat.core.gui.control.generic.ajax.tree.TreeNodeClickedEvent;
 import org.olat.core.gui.control.generic.closablewrapper.CloseableModalController;
 import org.olat.core.gui.control.generic.wizard.BasicStep;
 import org.olat.core.gui.control.generic.wizard.PrevNextFinishConfig;
@@ -208,15 +203,11 @@ class PublishStepCatalog extends BasicStep {
 			}
 			
 			removeAsListenerAndDispose(catalogAddController);
-			if (getWindowControl().getWindowBackOffice().getWindowManager().isAjaxEnabled()) {
-				catalogAddController = new SpecialCatalogAjaxAddController(ureq, getWindowControl(), repositoryEntry, categories);
-			} else {
-				catalogAddController = new SpecialCatalogEntryAddController(ureq, getWindowControl(), repositoryEntry, categories);
-			}
-
+			catalogAddController = new SpecialCatalogEntryAddController(ureq, getWindowControl(), repositoryEntry, categories);
 			listenTo(catalogAddController);
 			removeAsListenerAndDispose(cmc);
-			cmc = new CloseableModalController(getWindowControl(), "close", catalogAddController.getInitialComponent());
+			cmc = new CloseableModalController(getWindowControl(), "close",
+					catalogAddController.getInitialComponent(), true, translate("publish.catalog.add"));
 			listenTo(cmc);
 			cmc.activate();
 		}
@@ -268,6 +259,7 @@ class PublishStepCatalog extends BasicStep {
 					link.setUserObject(label);
 					deleteLinks.add(link);
 					catalogBox.clearError();
+					closeAddCatalog();
 				} else if (event instanceof UndoCategoryEvent) {
 					UndoCategoryEvent e = (UndoCategoryEvent)event;
 					CategoryLabel undelete = e.getUndelete();
@@ -279,15 +271,20 @@ class PublishStepCatalog extends BasicStep {
 							break;
 						}
 					}
+					closeAddCatalog();
 				}
-				cmc.deactivate();
-				removeAsListenerAndDispose(catalogAddController);
-				removeAsListenerAndDispose(cmc);
-				catalogAddController = null;
-				cmc = null;
+				
 			} else {
 				super.event(ureq, source, event);
 			}
+		}
+		
+		private void closeAddCatalog() {
+			if(cmc != null) cmc.deactivate();
+			removeAsListenerAndDispose(catalogAddController);
+			removeAsListenerAndDispose(cmc);
+			catalogAddController = null;
+			cmc = null;
 		}
 
 		@Override
@@ -334,89 +331,14 @@ class PublishStepCatalog extends BasicStep {
 		}
 	}
 	
-	public class SpecialCatalogAjaxAddController extends CatalogAjaxAddController {
-		
-		private CategoryLabel undoDelete;
-		private List<CategoryLabel> categories;
-		
-		public SpecialCatalogAjaxAddController(UserRequest ureq, WindowControl wControl, RepositoryEntry toBeAddedEntry,
-				List<CategoryLabel> categories) {
-			super(ureq, wControl, toBeAddedEntry);
-			this.categories = categories;
-		}
-
-		@Override
-		protected VelocityContainer createVelocityContainer(String page) {
-			setTranslator(Util.createPackageTranslator(CatalogAjaxAddController.class, getLocale()));
-			velocity_root = Util.getPackageVelocityRoot(CatalogAjaxAddController.class);
-			return super.createVelocityContainer(page);
-		}
-		
-		@Override
-		protected void event(UserRequest ureq, Controller source, Event event) {
-			if (source == treeCtr) {
-				if (event instanceof TreeNodeClickedEvent) {
-					TreeNodeClickedEvent clickedEvent = (TreeNodeClickedEvent) event;
-					// build new entry for this catalog level
-					CatalogManager cm = CatalogManager.getInstance();
-					String nodeId = clickedEvent.getNodeId();
-					Long newParentId = Long.parseLong(nodeId);
-					CatalogEntry newParent = cm.loadCatalogEntry(newParentId);
-					// check first if this repo entry is already attached to this new parent
-					for (CategoryLabel label:categories) {
-						CatalogEntry category = label.getCategory();
-						if(category.getKey() == null) {
-							category = label.getParentCategory();
-						}
-						
-						if(category.equalsByPersistableKey(newParent)) {
-							if(label.isDeleted()) {
-								undoDelete = label;
-							} else {
-								showError("catalog.tree.add.already.exists", toBeAddedEntry.getDisplayname());
-								return;
-							}
-						}
-					}
-					// don't create entry right away, user must select submit button first
-					selectedParent = newParent;
-					// enable link, set dirty button class and trigger redrawing
-					selectLink.setEnabled(true);
-					selectLink.setCustomEnabledLinkCSS("b_button b_button_dirty");
-					selectLink.setDirty(true); 
-				}
-			}
-		}
-
-		@Override
-		protected void event(UserRequest ureq, Component source, Event event) {
-			 if (source == selectLink) {
-				if(undoDelete != null) {
-					fireEvent(ureq, new UndoCategoryEvent(undoDelete));
-				} else if (selectedParent != null) {
-					CatalogManager cm = CatalogManager.getInstance();
-					CatalogEntry newEntry = cm.createCatalogEntry();
-					newEntry.setRepositoryEntry(toBeAddedEntry);
-					newEntry.setName(toBeAddedEntry.getDisplayname());
-					newEntry.setDescription(toBeAddedEntry.getDescription());
-					newEntry.setType(CatalogEntry.TYPE_LEAF);
-					newEntry.setParent(selectedParent);
-					fireEvent(ureq, new AddToCategoryEvent(newEntry, selectedParent));								
-				}
-			} else {
-				super.event(ureq, source, event);
-			}
-		}
-	}
-	
-	public class SpecialCatalogEntryAddController extends CatalogEntryAddController {
+	public static class SpecialCatalogEntryAddController extends CatalogEntryAddController {
 		
 		private final RepositoryEntry toBeAddedEntry;
 		private final List<CategoryLabel> categories;
 		
 		public SpecialCatalogEntryAddController(UserRequest ureq, WindowControl wControl, RepositoryEntry toBeAddedEntry,
 				List<CategoryLabel> categories) {
-			super(ureq, wControl, toBeAddedEntry);
+			super(ureq, wControl, toBeAddedEntry, true, false);
 
 			this.toBeAddedEntry = toBeAddedEntry;
 			this.categories = categories;
@@ -424,49 +346,39 @@ class PublishStepCatalog extends BasicStep {
 		
 		@Override
 		protected VelocityContainer createVelocityContainer(String page) {
-			setTranslator(Util.createPackageTranslator(CatalogAjaxAddController.class, getLocale()));
-			velocity_root = Util.getPackageVelocityRoot(CatalogAjaxAddController.class);
+			setTranslator(Util.createPackageTranslator(CatalogEntryAddController.class, getLocale()));
+			velocity_root = Util.getPackageVelocityRoot(CatalogEntryAddController.class);
 			return super.createVelocityContainer(page);
 		}
-		
-		@Override
-		public void event(UserRequest ureq, Component source, Event event) {
-			if (source instanceof SelectionTree) {
-				TreeEvent te = (TreeEvent) event;
-				if (te.getCommand().equals(TreeEvent.COMMAND_TREENODE_CLICKED)) {
-					CatalogManager cm = CatalogManager.getInstance();
-					Long newParentId = Long.parseLong(te.getNodeId());
-					CatalogEntry newParent = cm.loadCatalogEntry(newParentId);
-					// check first if this repo entry is already attached to this new parent
-					for (CategoryLabel label:categories) {
-						CatalogEntry category = label.getCategory();
-						if(category.getKey() == null) {
-							category = label.getParentCategory();
-						}
-						
-						if(category.equalsByPersistableKey(newParent)) {
-							if(label.isDeleted()) {
-								fireEvent(ureq, new UndoCategoryEvent(label));
-							} else {
-								showError("catalog.tree.add.already.exists", toBeAddedEntry.getDisplayname());
-							}
-							return;
-						}
-					}
-					
-					CatalogEntry newEntry = cm.createCatalogEntry();
-					newEntry.setRepositoryEntry(toBeAddedEntry);
-					newEntry.setName(toBeAddedEntry.getDisplayname());
-					newEntry.setDescription(toBeAddedEntry.getDescription());
-					newEntry.setType(CatalogEntry.TYPE_LEAF);
-					newEntry.setParent(newParent);
-					fireEvent(ureq, new AddToCategoryEvent(newEntry, newParent));	
 
-				} else if (te.getCommand().equals(TreeEvent.COMMAND_CANCELLED)) {
-					fireEvent(ureq, Event.CANCELLED_EVENT);
+		@Override
+		protected void insertNode(UserRequest ureq, Long newParentId) {
+			CatalogManager cm = CatalogManager.getInstance();
+			CatalogEntry newParent = cm.loadCatalogEntry(newParentId);
+			// check first if this repo entry is already attached to this new parent
+			for (CategoryLabel label:categories) {
+				CatalogEntry category = label.getCategory();
+				if(category.getKey() == null) {
+					category = label.getParentCategory();
+				}
+				
+				if(category.equalsByPersistableKey(newParent)) {
+					if(label.isDeleted()) {
+						fireEvent(ureq, new UndoCategoryEvent(label));
+					} else {
+						showError("catalog.tree.add.already.exists", toBeAddedEntry.getDisplayname());
+					}
+					return;
 				}
 			}
-
+			
+			CatalogEntry newEntry = cm.createCatalogEntry();
+			newEntry.setRepositoryEntry(toBeAddedEntry);
+			newEntry.setName(toBeAddedEntry.getDisplayname());
+			newEntry.setDescription(toBeAddedEntry.getDescription());
+			newEntry.setType(CatalogEntry.TYPE_LEAF);
+			newEntry.setParent(newParent);
+			fireEvent(ureq, new AddToCategoryEvent(newEntry, newParent));	
 		}
 	}
 	

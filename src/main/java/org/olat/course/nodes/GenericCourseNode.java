@@ -44,6 +44,7 @@ import org.olat.core.util.nodes.GenericNode;
 import org.olat.core.util.xml.XStreamHelper;
 import org.olat.course.ICourse;
 import org.olat.course.condition.Condition;
+import org.olat.course.condition.additionalconditions.AdditionalCondition;
 import org.olat.course.condition.interpreter.ConditionErrorMessage;
 import org.olat.course.condition.interpreter.ConditionExpression;
 import org.olat.course.condition.interpreter.ConditionInterpreter;
@@ -65,13 +66,14 @@ import org.olat.modules.ModuleConfiguration;
  * @author BPS (<a href="http://www.bps-system.de/">BPS Bildungsportal Sachsen GmbH</a>)
  */
 public abstract class GenericCourseNode extends GenericNode implements CourseNode {
+	private static final long serialVersionUID = -1093400247219150363L;
 	private String type, shortTitle, longTitle, learningObjectives, displayOption;
 	private ModuleConfiguration moduleConfiguration;
 	private String noAccessExplanation;
 	private Condition preConditionVisibility;
 	private Condition preConditionAccess;
-	private List<Condition> additionalConditions;
 	protected transient StatusDescription[] oneClickStatusCache = null;
+	protected List<AdditionalCondition> additionalConditions = new ArrayList<AdditionalCondition>();
 
 	/**
 	 * Generic course node constructor
@@ -253,11 +255,11 @@ public abstract class GenericCourseNode extends GenericNode implements CourseNod
 	 *      org.olat.course.run.userview.TreeEvaluation)
 	 */
 	public NodeEvaluation eval(ConditionInterpreter ci, TreeEvaluation treeEval) {
-		// each CourseNodeImplementation has the full control over all children
-		// eval.
+		// each CourseNodeImplementation has the full control over all children eval.
 		// default behaviour is to eval all visible children
 		NodeEvaluation nodeEval = new NodeEvaluation(this);
 		calcAccessAndVisibility(ci, nodeEval);
+		
 		nodeEval.build();
 		treeEval.cacheCourseToTreeNode(this, nodeEval.getTreeNode());
 		// only add children (coursenodes/nodeeval) when I am visible and
@@ -265,7 +267,7 @@ public abstract class GenericCourseNode extends GenericNode implements CourseNod
 		if (nodeEval.isVisible() && nodeEval.isAtLeastOneAccessible()) {
 			int childcnt = getChildCount();
 			for (int i = 0; i < childcnt; i++) {
-				CourseNode cn = (CourseNode) this.getChildAt(i);
+				CourseNode cn = (CourseNode)getChildAt(i);
 				NodeEvaluation chdEval = cn.eval(ci, treeEval);
 				if (chdEval.isVisible()) { // child is visible
 					nodeEval.addNodeEvaluationChild(chdEval);
@@ -330,18 +332,6 @@ public abstract class GenericCourseNode extends GenericNode implements CourseNod
 		}
 		preConditionAccess.setConditionId("accessability");
 		return preConditionAccess;
-	}
-	
-	/**
-	 * Only a placeholder to accept courses from others OLAT vendors
-	 * @return
-	 */
-	public List<Condition> getAdditionalConditions() {
-		return additionalConditions;
-	}
-
-	public void setAdditionalConditions(List<Condition> additionalConditions) {
-		this.additionalConditions = additionalConditions;
 	}
 
 	/**

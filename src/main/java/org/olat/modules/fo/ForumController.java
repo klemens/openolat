@@ -45,8 +45,6 @@ import org.olat.core.commons.persistence.PersistenceHelper;
 import org.olat.core.commons.services.mark.Mark;
 import org.olat.core.commons.services.mark.MarkResourceStat;
 import org.olat.core.commons.services.mark.MarkingService;
-import org.olat.core.commons.services.search.ui.SearchServiceUIFactory;
-import org.olat.core.commons.services.search.ui.SearchServiceUIFactory.DisplayOption;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.Component;
 import org.olat.core.gui.components.link.Link;
@@ -102,7 +100,10 @@ import org.olat.core.util.vfs.filters.VFSItemExcludePrefixFilter;
 import org.olat.modules.fo.archiver.ForumArchiveManager;
 import org.olat.modules.fo.archiver.formatters.ForumRTFFormatter;
 import org.olat.portfolio.EPUIFactory;
+import org.olat.search.SearchServiceUIFactory;
+import org.olat.search.SearchServiceUIFactory.DisplayOption;
 import org.olat.user.DisplayPortraitController;
+import org.olat.user.UserManager;
 import org.olat.util.logging.activity.LoggingResourceable;
 
 /**
@@ -192,7 +193,7 @@ public class ForumController extends BasicController implements GenericEventList
 	
 	private final OLATResourceable forumOres;
 	private final BaseSecurityModule securityModule;
-
+	private final UserManager userManager;
 
 	/**
 	 * @param forum
@@ -206,6 +207,8 @@ public class ForumController extends BasicController implements GenericEventList
 		this.focallback = focallback;
 		securityModule = CoreSpringFactory.getImpl(BaseSecurityModule.class);
 		addLoggingResourceable(LoggingResourceable.wrap(forum));
+		
+		userManager = CoreSpringFactory.getImpl(UserManager.class);
 		
 		forumOres = OresHelper.createOLATResourceableInstance(Forum.class,forum.getKey());
 		f = Formatter.getInstance(ureq.getLocale());
@@ -851,9 +854,7 @@ public class ForumController extends BasicController implements GenericEventList
 								if (m.getCreator().getStatus().equals(Identity.STATUS_DELETED)) {
 									return m.getCreator().getName();
 								} else {
-									String last = m.getCreator().getUser().getProperty(UserConstants.LASTNAME, getLocale());
-									String first = m.getCreator().getUser().getProperty(UserConstants.FIRSTNAME, getLocale());
-									return last + " " + first;
+									return userManager.getUserDisplayName(m.getCreator()); 
 								}
 							case 2 :
 								Date mod = m.getLastModified();

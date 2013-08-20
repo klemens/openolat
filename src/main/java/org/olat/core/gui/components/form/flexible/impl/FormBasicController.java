@@ -32,7 +32,6 @@ import org.olat.core.gui.components.Component;
 import org.olat.core.gui.components.form.flexible.FormItem;
 import org.olat.core.gui.components.form.flexible.FormItemContainer;
 import org.olat.core.gui.components.form.flexible.FormUIFactory;
-import org.olat.core.gui.components.form.flexible.elements.InlineElement;
 import org.olat.core.gui.components.panel.Panel;
 import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.Disposable;
@@ -85,7 +84,12 @@ public abstract class FormBasicController extends BasicController {
 	protected FormUIFactory uifactory = FormUIFactory.getInstance();
 	
 	public FormBasicController(UserRequest ureq, WindowControl wControl) {
-		this(ureq, wControl, null);
+		this(ureq, wControl, (String)null);
+	}
+	
+	
+	public FormBasicController(UserRequest ureq, WindowControl wControl, Translator fallbackTranslator) {
+		this(ureq, wControl, null, null, fallbackTranslator);
 	}
 
 	public FormBasicController(UserRequest ureq, WindowControl wControl, String pageName) {
@@ -124,8 +128,6 @@ public abstract class FormBasicController extends BasicController {
 	public FormBasicController(UserRequest ureq, WindowControl wControl, String mainFormId, String pageName, Translator fallbackTranslator) {
 		super(ureq, wControl, fallbackTranslator);
 		constructorInit(mainFormId, pageName);
-		//TODO: Translator-fix: flc , mainForm also needs to know about the new Translator
-//		setTranslator(getTranslator()); 
 	}
 	
 
@@ -249,6 +251,14 @@ public abstract class FormBasicController extends BasicController {
 	 * Typically one will read and save/update values then.
 	 */
 	abstract protected void formOK(UserRequest ureq);
+	
+	protected void formNext(UserRequest ureq) {
+		formOK(ureq);
+	}
+	
+	protected void formFinish(UserRequest ureq) {
+		formOK(ureq);
+	}
 
 	/**
 	 * called if form validation was not ok.<br>
@@ -306,6 +316,18 @@ public abstract class FormBasicController extends BasicController {
 				// flag
 				this.flc.setDirty(true);
 				formOK(ureq);
+			} else if (event == org.olat.core.gui.components.form.Form.EVNT_VALIDATION_NEXT) {
+				// Set container dirty to remove potentially rendered error messages. Do
+				// this before calling formOK() to let formOK override the dirtiness
+				// flag
+				this.flc.setDirty(true);
+				formNext(ureq);
+			} else if (event == org.olat.core.gui.components.form.Form.EVNT_VALIDATION_FINISH) {
+				// Set container dirty to remove potentially rendered error messages. Do
+				// this before calling formOK() to let formOK override the dirtiness
+				// flag
+				this.flc.setDirty(true);
+				formFinish(ureq);
 			} else if (event == org.olat.core.gui.components.form.Form.EVNT_VALIDATION_NOK) {
 				// Set container dirty to rendered error messages. Do this before calling
 				// formNOK() to let formNOK override the dirtiness flag
@@ -332,18 +354,20 @@ public abstract class FormBasicController extends BasicController {
 				 * evaluate normal inner form events
 				 */
 				FormItem fiSrc = fe.getFormItemSource();
-				// check for InlineElments
+				// check for InlineElments remove as the tag library has been replaced
+				/*
 				if(fiSrc instanceof InlineElement){
 					if(!((InlineElement) fiSrc).isInlineEditingElement()){ //OO-137
 						this.flc.setDirty(true);
 					}
-				}
+				}*/
 				//
 				formInnerEvent(ureq, fiSrc, fe);
 				// no need to set container dirty, up to controller code if something is dirty
 			}
 		}
 	}
+
 
 	/**
 	 * Set an optional form title that is rendered as a fieldset legend. If you

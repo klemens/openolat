@@ -40,6 +40,7 @@ import org.olat.core.gui.control.creator.ControllerCreator;
 import org.olat.core.gui.control.generic.clone.CloneController;
 import org.olat.core.gui.control.generic.clone.CloneLayoutControllerCreatorCallback;
 import org.olat.core.gui.control.generic.clone.CloneableController;
+import org.olat.core.gui.control.generic.iframe.DeliveryOptions;
 import org.olat.core.gui.control.generic.tabbable.TabbableController;
 import org.olat.core.id.Identity;
 import org.olat.core.id.OLATResourceable;
@@ -94,6 +95,7 @@ import org.olat.util.logging.activity.LoggingResourceable;
  */
 public class STCourseNode extends AbstractAccessableCourseNode implements AssessableCourseNode {
 
+	private static final long serialVersionUID = -7460670977531082040L;
 	private static final String TYPE = "st";
 	private static final String ICON_CSS_CLASS = "o_st_icon";
 
@@ -149,9 +151,10 @@ public class STCourseNode extends AbstractAccessableCourseNode implements Assess
 			if(allowRelativeLinks == null) {
 				allowRelativeLinks = Boolean.FALSE;
 			}
+			DeliveryOptions deliveryOptions = (DeliveryOptions)getModuleConfiguration().get(SPEditController.CONFIG_KEY_DELIVERYOPTIONS);
 			OLATResourceable ores = OresHelper.createOLATResourceableInstance(CourseModule.class, userCourseEnv.getCourseEnvironment().getCourseResourceableId());
-			SinglePageController spCtr = new SinglePageController(ureq, wControl, userCourseEnv.getCourseEnvironment().getCourseFolderContainer(), relPath, null, allowRelativeLinks
-					.booleanValue(), ores);
+			SinglePageController spCtr = new SinglePageController(ureq, wControl, userCourseEnv.getCourseEnvironment().getCourseFolderContainer(),
+					relPath, null, allowRelativeLinks.booleanValue(), ores, deliveryOptions);
 			// check if user is allowed to edit the page in the run view
 			CourseGroupManager cgm = userCourseEnv.getCourseEnvironment().getCourseGroupManager();
 			boolean hasEditRights = (cgm.isIdentityCourseAdministrator(ureq.getIdentity()) || cgm.hasRight(ureq.getIdentity(),
@@ -562,6 +565,10 @@ public class STCourseNode extends AbstractAccessableCourseNode implements Assess
 			// set the default display to peekview in two columns
 			config.setStringValue(STCourseNodeEditController.CONFIG_KEY_DISPLAY_TYPE, STCourseNodeEditController.CONFIG_VALUE_DISPLAY_PEEKVIEW);
 			config.setIntValue(STCourseNodeEditController.CONFIG_KEY_COLUMNS, 2);
+
+			DeliveryOptions defaultOptions = DeliveryOptions.defaultWithGlossary();
+			config.set(SPEditController.CONFIG_KEY_DELIVERYOPTIONS, defaultOptions);
+			
 			config.setConfigurationVersion(3);
 		} else {
 			// update to version 2
@@ -587,6 +594,14 @@ public class STCourseNode extends AbstractAccessableCourseNode implements Assess
 					config.setIntValue(STCourseNodeEditController.CONFIG_KEY_COLUMNS, 1);
 				}
 				config.setConfigurationVersion(3);
+			}
+
+			if (config.getConfigurationVersion() < 4) {
+				if(config.get(SPEditController.CONFIG_KEY_DELIVERYOPTIONS) == null) {
+					DeliveryOptions defaultOptions = DeliveryOptions.defaultWithGlossary();
+					config.set(SPEditController.CONFIG_KEY_DELIVERYOPTIONS, defaultOptions);
+				}
+				config.setConfigurationVersion(4);
 			}
 		}
 	}

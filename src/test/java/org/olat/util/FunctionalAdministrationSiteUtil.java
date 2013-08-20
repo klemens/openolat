@@ -19,9 +19,8 @@
  */
 package org.olat.util;
 
-import org.olat.core.logging.OLog;
-import org.olat.core.logging.Tracing;
 import org.olat.util.FunctionalUtil.OlatSite;
+import org.olat.util.xss.XssUtil;
 
 import com.thoughtworks.selenium.Selenium;
 
@@ -29,8 +28,8 @@ import com.thoughtworks.selenium.Selenium;
  * 
  * @author jkraehemann, joel.kraehemann@frentix.com, frentix.com
  */
+@XssUtil
 public class FunctionalAdministrationSiteUtil {
-	private final static OLog log = Tracing.createLoggerFor(FunctionalAdministrationSiteUtil.class);
 	
 	public enum AdministrationSiteAction {
 		SYSTEM("o_sel_system"),
@@ -209,7 +208,7 @@ public class FunctionalAdministrationSiteUtil {
 			selectorBuffer.append("xpath=//li[contains(@class, '")
 			.append(((AdministrationSiteAction) action).getActionCss())
 			.append("')]//a[contains(@class, '")
-			.append(functionalUtil.getTreeLevel1Css())
+			.append(functionalUtil.getTreeLevel0Css())
 			.append("')]");
 		}else{
 			String actionL1Css = null;
@@ -254,7 +253,7 @@ public class FunctionalAdministrationSiteUtil {
 			selectorBuffer.append("xpath=//li[contains(@class, '")
 			.append(actionL2Css)
 			.append("')]//a[contains(@class, '")
-			.append(functionalUtil.getTreeLevel2Css())
+			.append(functionalUtil.getTreeLevel1Css())
 			.append("')]");
 		}
 		

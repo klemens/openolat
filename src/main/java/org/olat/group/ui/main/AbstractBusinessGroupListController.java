@@ -24,6 +24,7 @@ import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -66,12 +67,14 @@ import org.olat.core.id.Roles;
 import org.olat.core.id.context.ContextEntry;
 import org.olat.core.id.context.StateEntry;
 import org.olat.core.logging.activity.ThreadLocalUserActivityLogger;
+import org.olat.core.util.StringHelper;
 import org.olat.core.util.Util;
 import org.olat.core.util.mail.MailHelper;
 import org.olat.core.util.mail.MailPackage;
 import org.olat.core.util.mail.MailTemplate;
 import org.olat.core.util.resource.OresHelper;
 import org.olat.group.BusinessGroup;
+import org.olat.group.BusinessGroupManagedFlag;
 import org.olat.group.BusinessGroupMembership;
 import org.olat.group.BusinessGroupModule;
 import org.olat.group.BusinessGroupService;
@@ -111,6 +114,7 @@ import org.olat.util.logging.activity.LoggingResourceable;
  */
 public abstract class AbstractBusinessGroupListController extends BasicController implements Activateable2 {
 	protected static final String TABLE_ACTION_LEAVE = "bgTblLeave";
+	protected static final String TABLE_ACTION_EDIT = "bgTblEdit";
 	protected static final String TABLE_ACTION_LAUNCH = "bgTblLaunch";
 	protected static final String TABLE_ACTION_ACCESS = "bgTblAccess";
 	protected static final String TABLE_ACTION_DUPLICATE = "bgTblDuplicate";
@@ -150,9 +154,16 @@ public abstract class AbstractBusinessGroupListController extends BasicControlle
 	protected final BusinessGroupService businessGroupService;
 	protected final CollaborationToolsFactory collaborationTools;
 	
+	private BusinessGroupViewFilter filter;
+	private Object userObject;
+	
 	public AbstractBusinessGroupListController(UserRequest ureq, WindowControl wControl, String page) {
+		this(ureq, wControl, page, null);
+	}
+	
+	public AbstractBusinessGroupListController(UserRequest ureq, WindowControl wControl, String page, Object userObject) {
 		super(ureq, wControl, Util.createPackageTranslator(AbstractBusinessGroupListController.class, ureq.getLocale()));
-		
+
 		admin = ureq.getUserSession().getRoles().isOLATAdmin() || ureq.getUserSession().getRoles().isGroupManager();
 		businessGroupService = CoreSpringFactory.getImpl(BusinessGroupService.class);
 		areaManager = CoreSpringFactory.getImpl(BGAreaManager.class);
@@ -162,6 +173,8 @@ public abstract class AbstractBusinessGroupListController extends BasicControlle
 		securityManager = CoreSpringFactory.getImpl(BaseSecurity.class);
 		markManager = CoreSpringFactory.getImpl(MarkManager.class);
 		collaborationTools = CollaborationToolsFactory.getInstance();
+		
+		this.userObject = userObject;
 		
 		mainVC = createVelocityContainer(page);
 
@@ -183,10 +196,22 @@ public abstract class AbstractBusinessGroupListController extends BasicControlle
 		putInitialPanel(mainVC);
 	}
 	
+	public Object getUserObject() {
+		return userObject;
+	}
+	
+	public BusinessGroupViewFilter getFilter() {
+		return filter;
+	}
+
+	public void setFilter(BusinessGroupViewFilter filter) {
+		this.filter = filter;
+	}
+
 	protected abstract void initButtons(UserRequest ureq);
 
 	protected void initButtons(UserRequest ureq, boolean create) {
-		if(create && canCreateBusinessGroup(ureq)) {
+		if(create && groupModule.isAllowedCreate(ureq.getUserSession().getRoles())) {
 			createButton = LinkFactory.createButton("create.group", mainVC, this);
 			createButton.setElementCssClass("o_sel_group_create");
 		}
@@ -281,6 +306,8 @@ public abstract class AbstractBusinessGroupListController extends BasicControlle
 					confirmDelete(ureq, Collections.singletonList(item));
 				} else if(actionid.equals(TABLE_ACTION_LAUNCH)) {
 					doLaunch(ureq, businessGroup);
+				} else if(actionid.equals(TABLE_ACTION_EDIT)) {
+					doEdit(ureq, businessGroup);
 				} else if(actionid.equals(TABLE_ACTION_LEAVE)) {
 					leaveDialogBox = activateYesNoDialog(ureq, null, translate("dialog.modal.bg.leave.text", businessGroup.getName()), leaveDialogBox);
 					leaveDialogBox.setUserObject(businessGroup);
@@ -409,6 +436,16 @@ public abstract class AbstractBusinessGroupListController extends BasicControlle
 	}
 	
 	/**
+	 * Launch a business group with its business path in administration part
+	 * @param ureq
+	 * @param group
+	 */
+	protected void doEdit(UserRequest ureq, BusinessGroup group) {
+		String businessPath = "[BusinessGroup:" + group.getKey() + "][tooladmin:0]";
+		NewControllerFactory.getInstance().launch(businessPath, ureq, getWindowControl());
+	}
+	
+	/**
 	 * Removes user from the group as owner and participant. If
 	 * no other owner are found the user won't be removed from the owner group
 	 * 
@@ -529,6 +566,21 @@ public abstract class AbstractBusinessGroupListController extends BasicControlle
 			CollaborationToolsFactory.getInstance().getOrCreateCollaborationTools(groups.get(0));
 		}
 		
+		StringBuilder managedNames = new StringBuilder();
+		for(BusinessGroup group:groups) {
+			String gname = group.getName() == null ? "???" : group.getName();
+			if(BusinessGroupManagedFlag.isManaged(group, BusinessGroupManagedFlag.resources)
+					|| BusinessGroupManagedFlag.isManaged(group, BusinessGroupManagedFlag.tools)) {
+				if(managedNames.length() > 0) managedNames.append(", ");
+				managedNames.append(gname);
+			}
+		}
+
+		if(managedNames.length() > 0) {
+			showWarning("error.managed.group", managedNames.toString());
+			return;
+		} 
+		
 		boolean isAuthor = ureq.getUserSession().getRoles().isAuthor()
 				|| ureq.getUserSession().getRoles().isInstitutionalResourceManager();
 
@@ -600,13 +652,30 @@ public abstract class AbstractBusinessGroupListController extends BasicControlle
 	private void doUserManagement(UserRequest ureq, List<BGTableItem> selectedItems) {
 		removeAsListenerAndDispose(cmc);
 		removeAsListenerAndDispose(userManagementController);
-		if(selectedItems == null || selectedItems.isEmpty()) return;
+		if(selectedItems == null || selectedItems.isEmpty()) {
+			showWarning("error.select.one");
+			return;
+		}
 		
 		List<BusinessGroup> groups = toBusinessGroups(ureq, selectedItems, true);
 		if(groups.isEmpty()) {
 			showWarning("msg.alleastone.editable.group");
 			return;
 		}
+		
+		StringBuilder managedNames = new StringBuilder();
+		for(BusinessGroup group:groups) {
+			String gname = group.getName() == null ? "???" : group.getName();
+			if(BusinessGroupManagedFlag.isManaged(group, BusinessGroupManagedFlag.membersmanagement)) {
+				if(managedNames.length() > 0) managedNames.append(", ");
+				managedNames.append(gname);
+			}
+		}
+
+		if(managedNames.length() > 0) {
+			showWarning("error.managed.group", managedNames.toString());
+			return;
+		} 
 		
 		userManagementController = new BGUserManagementController(ureq, getWindowControl(), groups);
 		listenTo(userManagementController);
@@ -664,13 +733,30 @@ public abstract class AbstractBusinessGroupListController extends BasicControlle
 	 */
 	private void doMerge(UserRequest ureq, List<BGTableItem> selectedItems) {
 		removeAsListenerAndDispose(businessGroupWizard);
-		if(selectedItems == null || selectedItems.isEmpty()) return;
+		if(selectedItems == null || selectedItems.size() < 2) {
+			showWarning("error.select.one");
+			return;
+		}
 
 		final List<BusinessGroup> groups = toBusinessGroups(ureq, selectedItems, true);
 		if(groups.isEmpty()) {
 			showWarning("msg.alleastone.editable.group");
 			return;
 		}
+		
+		StringBuilder managedNames = new StringBuilder();
+		for(BusinessGroup group:groups) {
+			String gname = group.getName() == null ? "???" : group.getName();
+			if(StringHelper.containsNonWhitespace(group.getManagedFlagsString())) {
+				if(managedNames.length() > 0) managedNames.append(", ");
+				managedNames.append(gname);
+			}
+		}
+
+		if(managedNames.length() > 0) {
+			showWarning("error.managed.group", managedNames.toString());
+			return;
+		} 
 
 		Step start = new BGMergeStep(ureq, groups);
 		StepRunnerCallback finish = new StepRunnerCallback() {
@@ -695,24 +781,35 @@ public abstract class AbstractBusinessGroupListController extends BasicControlle
 	 * @param selectedItems
 	 */
 	private void confirmDelete(UserRequest ureq, List<BGTableItem> selectedItems) {
-		StringBuilder names = new StringBuilder();
 		List<BusinessGroup> groups = toBusinessGroups(ureq, selectedItems, true);
 		if(groups.isEmpty()) {
 			showWarning("msg.alleastone.editable.group");
 			return;
 		}
-
+		
+		StringBuilder names = new StringBuilder();
+		StringBuilder managedNames = new StringBuilder();
 		for(BusinessGroup group:groups) {
-			if(names.length() > 0) names.append(", ");
-			names.append(group.getName());
+			String gname = group.getName() == null ? "???" : group.getName();
+			if(BusinessGroupManagedFlag.isManaged(group, BusinessGroupManagedFlag.delete)) {
+				if(managedNames.length() > 0) managedNames.append(", ");
+				managedNames.append(gname);
+			} else {
+				if(names.length() > 0) names.append(", ");
+				names.append(gname);
+			}
 		}
 		
-		deleteDialogBox = new BusinessGroupDeleteDialogBoxController(ureq, getWindowControl(), groups);
-		listenTo(deleteDialogBox);
-		cmc = new CloseableModalController(getWindowControl(), translate("close"), deleteDialogBox.getInitialComponent(),
-				true, translate("dialog.modal.bg.delete.title"));
-		cmc.activate();
-		listenTo(cmc);
+		if(managedNames.length() > 0) {
+			showWarning("error.managed.group", managedNames.toString());
+		} else {
+			deleteDialogBox = new BusinessGroupDeleteDialogBoxController(ureq, getWindowControl(), groups);
+			listenTo(deleteDialogBox);
+			cmc = new CloseableModalController(getWindowControl(), translate("close"), deleteDialogBox.getInitialComponent(),
+					true, translate("dialog.modal.bg.delete.title"));
+			cmc.activate();
+			listenTo(cmc);
+		}
 	}
 	
 	protected List<BusinessGroup> toBusinessGroups(UserRequest ureq, List<BGTableItem> items, boolean editableOnly) {
@@ -768,6 +865,14 @@ public abstract class AbstractBusinessGroupListController extends BasicControlle
 			groups = new ArrayList<BusinessGroupView>();
 		} else {
 			groups = businessGroupService.findBusinessGroupViews(params, getResource(), 0, -1);
+			
+			if(filter != null) {
+				for(Iterator<BusinessGroupView> groupIt=groups.iterator(); groupIt.hasNext(); ) {
+					if(!filter.accept(groupIt.next())) {
+						groupIt.remove();
+					}
+				}
+			}
 		}
 		return groups;
 	}
