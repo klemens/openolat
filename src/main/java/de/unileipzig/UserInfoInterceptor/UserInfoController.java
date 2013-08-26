@@ -1,4 +1,4 @@
-package de.unileipzig.LoginInterceptor.controller;
+package de.unileipzig.UserInfoInterceptor;
 
 import org.olat.core.commons.persistence.DBFactory;
 import org.olat.core.gui.UserRequest;
@@ -27,16 +27,16 @@ import org.olat.core.logging.Tracing;
  * 
  * @author Sascha Vinz
  */
-public class InterceptorController extends FormBasicController implements
+public class UserInfoController extends FormBasicController implements
 		SupportsAfterLoginInterceptor {
 
 	private TextElement firstName;
 	private TextElement lastName;
 	private TextElement ID;
 	private Submit submit;        
-        private static OLog log = Tracing.createLoggerFor(InterceptorController.class);
+        private static OLog log = Tracing.createLoggerFor(UserInfoController.class);
 
-	public InterceptorController(UserRequest ureq, WindowControl wControl) {
+	public UserInfoController(UserRequest ureq, WindowControl wControl) {
 		super(ureq, wControl);
 		//
 		// calls our initForm(formlayout,listener,ureq) with default values.
