@@ -112,13 +112,19 @@ public class SimpleShibbolethDispatcher implements Dispatcher {
 				// register user
 				log.info("first login of user '" + username + "' using shibboleth");
 				Identity newUser = registerUser(username, userAttributes);
-				loginUser(newUser, ureq);
+				if(!loginUser(newUser, ureq)) {
+					DispatcherAction.redirectToDefaultDispatcher(response);
+					return;
+				}
 			} else {
 				// migrate user to shibboleth authentication
 				if(migrate) {
 					log.info("migrating user '" +  username + "' to shibboleth auth and logging in");
 					migrateUser(identity, username);
-					loginUser(identity, ureq);
+					if(!loginUser(identity, ureq)) {
+						DispatcherAction.redirectToDefaultDispatcher(response);
+						return;
+					}
 				} else {
 					log.error("existing username '" + username + "' but migration to shibboleth not enabled");
 					DispatcherAction.redirectToDefaultDispatcher(response);
@@ -128,7 +134,10 @@ public class SimpleShibbolethDispatcher implements Dispatcher {
 		} else {
 			// login the user the normal way
 			log.info("user '" + username + "' logged in via shibboleth");
-			loginUser(auth.getIdentity(), ureq);
+			if(!loginUser(auth.getIdentity(), ureq)) {
+				DispatcherAction.redirectToDefaultDispatcher(response);
+				return;
+			}
 		}
 		
 		// redirect to home
