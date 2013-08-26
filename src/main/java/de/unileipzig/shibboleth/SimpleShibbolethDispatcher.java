@@ -75,7 +75,7 @@ public class SimpleShibbolethDispatcher implements Dispatcher {
 			log = Tracing.createLoggerFor(this.getClass());
 		
 		if(!enabled) {
-			log.error("got shibboleth login although not enabled");
+			log.error("shibboleth login attempted although not enabled");
 			DispatcherAction.redirectToDefaultDispatcher(response);
 			return;
 		}
@@ -110,24 +110,24 @@ public class SimpleShibbolethDispatcher implements Dispatcher {
 			
 			if(identity == null) {
 				// register user
-				log.info("First login of user '" + username + "' using shibboleth");
+				log.info("first login of user '" + username + "' using shibboleth");
 				Identity newUser = registerUser(username, userAttributes);
 				loginUser(newUser, ureq);
 			} else {
 				// migrate user to shibboleth authentication
 				if(migrate) {
-					log.info("Migrating user '" +  username + "' to shibboleth auth and logging in");
+					log.info("migrating user '" +  username + "' to shibboleth auth and logging in");
 					migrateUser(identity, username);
 					loginUser(identity, ureq);
 				} else {
-					log.info("existing username '" + username + "' but migration not enabled");
+					log.error("existing username '" + username + "' but migration to shibboleth not enabled");
 					DispatcherAction.redirectToDefaultDispatcher(response);
 					return;
 				}
 			}
 		} else {
 			// login the user the normal way
-			log.info("user '" + username + "' login via shibboleth");
+			log.info("user '" + username + "' logged in via shibboleth");
 			loginUser(auth.getIdentity(), ureq);
 		}
 		
@@ -155,7 +155,7 @@ public class SimpleShibbolethDispatcher implements Dispatcher {
 			if(loginStatus == AuthHelper.LOGIN_NOTAVAILABLE) {
 				DispatcherAction.redirectToServiceNotAvailable(ureq.getHttpResp());
 			} else {
-				log.error("could not login user using shibboleth");
+				log.error("could not login user using shibboleth, login status: " + loginStatus);
 				DispatcherAction.redirectToDefaultDispatcher(ureq.getHttpResp()); // login screen
 			}
 			
