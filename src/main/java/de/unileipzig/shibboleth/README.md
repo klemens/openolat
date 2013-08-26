@@ -5,26 +5,66 @@ attributes to OO attributes is done in the spring config. At least a unique
 username must be provided.
 
 This authenticator can also migrate existing OO users to shibboleth
-when usernames match. This feature must be enabled.
-_Warning:_ This can be dangerous, because the matching is only done by
-username!
+when usernames match. This feature must be enabled.<br />
+__Warning:__ This can be dangerous, because the matching is only done by
+username without further checks!
 
-Also make sure, OO is not accessible directly on the net, only through
-a shibboleth proxy, because otherwise anyone could login as any user
-simply by providing the right username as http header parameter!
+For security reasons, this authenticator only uses attributes passed by environment
+variable. Passing by header is __not__ supported, because these can be set by the
+user and are not trustworthy without further checks.<br />
+So make sure your reverse proxy (eg Apache) is passing the right attributes!
 
-## Configuration ## 
+## Installing automatically ##
+
+If you are using git to maintain your OpenOLAT instance, simply merge the branch
+`shibboleth` into your working branch. This will replace the integrated Shibboleth
+authenticator. (by using its url, see below for more details)
+
+## Installing manually ##
+
+Include or link unileipzig/shibboleth into your source tree. Because OpenOLAT does
+not provide extension points to insert authenticators via spring, you have to change
+the following spring configuration files manually:
+
+### java/org/olat/login/_spring/loginContext.xml ###
+
+Add the following entry to the property map `authenticaionProviders`:
+```
+<entry key="SimpleShibboleth">
+    <ref bean="SimpleShibbolethAuthenticationProvider" />
+</entry>
+```
+
+### resources/serviceconfig/org/olat/_spring/brasatoconfigpart.xml ###
+
+Add the following entry to the property map `dispatchers` (or replace the
+existing `/shib/` if you want to use this url):
+```
+<entry key="/${simpleShibboleth.path:shib}/">
+        <ref bean="simpleShibbolethDispatcher" />
+</entry>
+```
+
+## Configuration ##
 
 You can provide the following options in olat.local.properties to customize
 this library. (You must set simpleShibboleth.enable to true to use it!)
 
-    # enable lib and set as default login
-    simpleShibboleth.enable=true
-    simpleShibboleth.default=true
-    # customize the path used for shib authentication
-    simpleShibboleth.path=shib
-    # migrate existing users by matching username
-    simpleShibboleth.migrateUsers=false
+```
+# enable lib and set as default login
+simpleShibboleth.enable=true
+simpleShibboleth.default=true
+
+# customize the url used for shib authentication (without slashes)
+simpleShibboleth.path=shiburl
+
+# migrate existing users by matching username
+simpleShibboleth.migrateUsers=false
+```
+
+To control the mapping between Shibboleth and OpenOLAT attributes, see the
+included `_spring/simpleShibbolethContext.xml`. There are some examples and the
+mapping `uid` -> `username` is activated by default.
 
 ## Licence ##
 
