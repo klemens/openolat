@@ -19,6 +19,7 @@
 		</property>
 		<property name="enabled" value="${simpleShibboleth.enable:false}"/>
 		<property name="migrate" value="${simpleShibboleth.migrateUsers:false}" />
+		<property name="emailTemplate" value="${simpleShibboleth.emailTemplate:%s@student.my.uni}" />
 	</bean>
 	
 	<bean id="SimpleShibbolethAuthenticationProvider" class="org.olat.login.auth.AuthenticationProvider" >

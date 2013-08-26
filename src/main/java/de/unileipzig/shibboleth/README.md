@@ -60,6 +60,9 @@ simpleShibboleth.path=shiburl
 
 # migrate existing users by matching username
 simpleShibboleth.migrateUsers=false
+
+# generate email from username when no email given by shibboleth
+simpleShibboleth.emailTemplate=%s@student.my.uni
 ```
 
 To control the mapping between Shibboleth and OpenOLAT attributes, see the

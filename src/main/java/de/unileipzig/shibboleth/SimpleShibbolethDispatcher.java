@@ -67,6 +67,12 @@ public class SimpleShibbolethDispatcher implements Dispatcher {
 	 */
 	private boolean migrate;
 	
+	/**
+	 * The template used to generate an email from the username
+	 * (using String.format with the username string being the only parameter)
+	 */
+	private String emailTemplate;
+	
 	private OLog log;
 	
 	@Override
@@ -187,7 +193,7 @@ public class SimpleShibbolethDispatcher implements Dispatcher {
 		String firstName = userAttributes.getProperty("firstname", "");
 		String lastName = userAttributes.getProperty("lastname", "");
 		// if no email is present, generate one from username
-		String email = userAttributes.getProperty("email", username + "@studserv.uni-leipzig.de");
+		String email = userAttributes.getProperty("email", String.format(emailTemplate, username));
 		
 		// create user
 		User user = UserManager.getInstance().createUser(firstName, lastName, email);
@@ -262,5 +268,11 @@ public class SimpleShibbolethDispatcher implements Dispatcher {
 	}
 	public boolean getMigrate() {
 		return migrate;
+	}
+	public void setEmailTemplate(String emailTemplate) {
+		this.emailTemplate = emailTemplate;
+	}
+	public String getEmailTemplate() {
+		return emailTemplate;
 	}
 }
