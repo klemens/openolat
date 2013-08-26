@@ -94,9 +94,9 @@ public class SimpleShibbolethDispatcher implements Dispatcher {
 		// create the user request, send bad request for invalid uris
 		// see other openolat dispatchers
 		UserRequest ureq = null;
-		try{
+		try {
 			ureq = new UserRequestImpl(uriPrefix, request, response);
-		}catch(NumberFormatException nfe){
+		} catch(NumberFormatException nfe) {
 			log.error("Bad Request " + request.getPathInfo());
 			DispatcherAction.sendBadRequest(request.getPathInfo(), response);
 			return;
@@ -104,7 +104,7 @@ public class SimpleShibbolethDispatcher implements Dispatcher {
 		
 		// find shibboleth authentication
 		Authentication auth = BaseSecurityManager.getInstance().findAuthenticationByAuthusername(username, PROVIDER_SSHIB);
-		if (auth == null) {
+		if(auth == null) {
 			// check if username exists in system
 			Identity identity = BaseSecurityManager.getInstance().findIdentityByName(username);
 			
@@ -185,10 +185,12 @@ public class SimpleShibbolethDispatcher implements Dispatcher {
 		
 		// apply the user attributes of present
 		user.setProperty(UserConstants.INSTITUTIONALEMAIL, email);
-		if(userAttributes.containsKey("identifier"))
+		if(userAttributes.containsKey("identifier")) {
 			user.setProperty(UserConstants.INSTITUTIONALUSERIDENTIFIER, userAttributes.getProperty("identifier"));
-		if(userAttributes.containsKey("subject"))
+		}
+		if(userAttributes.containsKey("subject")) {
 			user.setProperty(UserConstants.STUDYSUBJECT, userAttributes.getProperty("subject"));
+		}
 		
 		// persist user
 		Identity identity = secMgr.createAndPersistIdentityAndUser(username, user, PROVIDER_SSHIB, username, null);
