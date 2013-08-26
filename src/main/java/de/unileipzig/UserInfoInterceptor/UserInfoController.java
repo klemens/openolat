@@ -123,10 +123,10 @@ public class UserInfoController extends FormBasicController implements
 	public boolean isInterceptionRequired(UserRequest ureq) {
 		Roles usersRoles = ureq.getUserSession().getRoles();
 		User user = ureq.getIdentity().getUser();
+		
 		if (usersRoles.isAuthor() || usersRoles.isGroupManager()
 				|| usersRoles.isInstitutionalResourceManager()
 				|| usersRoles.isOLATAdmin() || usersRoles.isUserManager()) {
-			if (log.isDebug()) logReasonForFailedCall(ureq, true);
 			return false;
 		} else if ((user.getProperty(UserConstants.INSTITUTIONALUSERIDENTIFIER,
 				null) == null)
@@ -139,43 +139,8 @@ public class UserInfoController extends FormBasicController implements
 				|| (user.getProperty(UserConstants.LASTNAME, null).isEmpty())) {
 			return true;
 		} else {
-			if (log.isDebug()) logReasonForFailedCall(ureq, false);
 			return false;
 		}
-	}
-
-	/**
-	 * Internal method to log the reason for not calling the interceptor.
-	 */
-	private void logReasonForFailedCall(UserRequest ureq,
-			boolean itsBecauseOfHisRoles) {
-		Roles usersRoles = ureq.getUserSession().getRoles();
-		User user = ureq.getIdentity().getUser();
-		String reason = "Alle Informationen sind bereits im System.";
-		if (itsBecauseOfHisRoles) {
-			if (usersRoles.isAuthor()) {
-				reason = "Der Nutzer hat u.a. die Rolle Author.";
-			} else if (usersRoles.isGroupManager()) {
-				reason = "Der Nutzer ist u.a. Lerngruppenmanager.";
-			} else if (usersRoles.isInstitutionalResourceManager()) {
-				reason = "Der Nutzer ist u.a. Institutionsressourcenverwalter.";
-			} else if (usersRoles.isOLATAdmin()) {
-				reason = "Der Nutzer ist u.a. Administrator.";
-			} else if (usersRoles.isUserManager()) {
-				reason = "Der Nutzer ist u.a. Benutzerverwalter.";
-			} else {
-				reason = "Schwerwiegender Fehler des Programmierers.";
-			}
-		}
-		log.debug("LoginInterceptor: Nutzer "
-			  + ureq.getIdentity().getName()
-			  + " \nVorname: " + user.getProperty(UserConstants.FIRSTNAME, null)
-			  + " \nNachname: "+ user.getProperty(UserConstants.LASTNAME, null)
-			  + " \nMatrikelnummer: "
-			  + user.getProperty(UserConstants.INSTITUTIONALUSERIDENTIFIER, null)
-			  + " \nRollen: "  + usersRoles.toString()
-			  + " \nwurde nicht zum Nachtragen fehlender Informationen aufgefordert."
-			  + " \nGrund: " + reason, null);
 	}
 
 }
