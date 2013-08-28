@@ -1,12 +1,13 @@
 package de.unileipzig.UserInfoInterceptor;
 
-import org.olat.core.commons.persistence.DBFactory;
+import java.util.Arrays;
+import java.util.regex.PatternSyntaxException;
+
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.form.flexible.FormItemContainer;
-import org.olat.core.gui.components.form.flexible.elements.Submit;
 import org.olat.core.gui.components.form.flexible.elements.TextElement;
 import org.olat.core.gui.components.form.flexible.impl.FormBasicController;
-import org.olat.core.gui.components.form.flexible.impl.elements.FormSubmit;
+import org.olat.core.gui.components.form.flexible.impl.FormLayoutContainer;
 import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.Event;
 import org.olat.core.gui.control.WindowControl;
@@ -15,131 +16,166 @@ import org.olat.core.id.User;
 import org.olat.core.id.UserConstants;
 import org.olat.login.SupportsAfterLoginInterceptor;
 import org.olat.user.UserManager;
-// HGG 2012-04-17 logging via OLog added
 import org.olat.core.logging.OLog;
 import org.olat.core.logging.Tracing;
 
-
 /**
- * Description: A mandatory form called after a user logs in to make
- * ldap-generated users add their first name, last name and institutional
- * identifier (german: "Matrikelnummer")
- * 
- * @author Sascha Vinz
+ * A form to request the name of the user if missing.
+ * Also supports request of student numbers in different ways.
  */
-public class UserInfoController extends FormBasicController implements
-		SupportsAfterLoginInterceptor {
+public class UserInfoController extends FormBasicController implements SupportsAfterLoginInterceptor {
+	private static boolean enabled = false;
+	private static String studentNumberStatus = "ignore";
+	private static String studentNumberCheck = "";
+	
+	private static OLog log = Tracing.createLoggerFor(UserInfoController.class);
 
-	private TextElement firstName;
-	private TextElement lastName;
-	private TextElement ID;
-	private Submit submit;        
-        private static OLog log = Tracing.createLoggerFor(UserInfoController.class);
+	private TextElement firstNameField;
+	private TextElement lastNameField;
+	private TextElement studentNumberField;
 
 	public UserInfoController(UserRequest ureq, WindowControl wControl) {
 		super(ureq, wControl);
-		//
-		// calls our initForm(formlayout,listener,ureq) with default values.
 		initForm(ureq);
 	}
 
-	/**
-	 * @see org.olat.core.gui.components.form.flexible.impl.FormBasicController#doDispose(boolean)
-	 * 
-	 *      I'll just keep that here. Never change a running system.
-	 */
 	@Override
-	protected void doDispose() {
-		// TODO Auto-generated method stub
-	}
-
-	/**
-	 * @see org.olat.core.gui.components.form.flexible.impl.FormBasicController#formOK(org.olat.core.gui.UserRequest)
-	 */
-	@Override
-	protected void formOK(UserRequest ureq) {
-		// this method is called if the form has validated
-		// which means that all form items are filled without error
-		// and all complex business rules validated also to true.
-		//
-		// the form values are now read out and persisted
-		User user = ureq.getIdentity().getUser();
-		user.setProperty(UserConstants.FIRSTNAME, firstName.getValue());
-		user.setProperty(UserConstants.LASTNAME, lastName.getValue());
-		user.setProperty(UserConstants.INSTITUTIONALUSERIDENTIFIER, ID.getValue());
-		user.setProperty(UserConstants.INSTITUTIONALNAME, "Universität Leipzig");
-		UserManager.getInstance().updateUser(user);
-		DBFactory.getInstance(true).intermediateCommit();
-		fireEvent(ureq, Event.DONE_EVENT);
-
-	}
-
-	/**
-	 * @see org.olat.core.gui.components.form.flexible.impl.FormBasicController#initForm(org.olat.core.gui.components.form.flexible.FormItemContainer,
-	 *      org.olat.core.gui.control.Controller, org.olat.core.gui.UserRequest)
-	 */
-	@Override
-	protected void initForm(FormItemContainer formLayout, Controller listener,
-			UserRequest ureq) {
-		/*
-		 * create a form with a title and 3 input fields to enter the missing
-		 * personal data
-		 */
-		User user = ureq.getIdentity().getUser();
-		setFormTitle("text");
-		final int defaultDisplaySize = 20;
-		firstName = uifactory.addTextElement("firstname",
-				"IDForm.firstnameField", 20, user.getProperty(
-						UserConstants.FIRSTNAME, null), formLayout);
-		firstName.setDisplaySize(defaultDisplaySize);
-		firstName.setNotEmptyCheck("IDForm.mustbefilled");
-		firstName.setMandatory(true);
-		firstName.setEnabled(true);
-
-		lastName = uifactory.addTextElement("lastname", "IDForm.surnameField",
-				20, user.getProperty(UserConstants.LASTNAME, null), formLayout);
-		lastName.setDisplaySize(defaultDisplaySize);
-		lastName.setNotEmptyCheck("IDForm.mustbefilled");
-		lastName.setMandatory(true);
-		lastName.setEnabled(true);
-
-		ID = uifactory.addTextElement("instID", "IDForm.idField", 10, user
-				.getProperty(UserConstants.INSTITUTIONALUSERIDENTIFIER, null),
-				formLayout);
-		ID.setDisplaySize(defaultDisplaySize);
-		ID.setNotEmptyCheck("IDForm.mustbefilled");
-		ID.setMandatory(true);
-		ID.setEnabled(true);
-
-		submit = new FormSubmit("submit", "IDForm.OK");
-		formLayout.add(submit);
-	}
-
-	/**
-	 * A new method of SupportsAfterLoginInterceptor, encapsulates checking if
-	 * the call for this is really necessary. The fields are checked for null
-	 * and for just being empty strings.
-	 */
-	public boolean isInterceptionRequired(UserRequest ureq) {
-		Roles usersRoles = ureq.getUserSession().getRoles();
+	protected void initForm(FormItemContainer formLayout, Controller listener, UserRequest ureq) {
 		User user = ureq.getIdentity().getUser();
 		
-		if (usersRoles.isAuthor() || usersRoles.isGroupManager()
-				|| usersRoles.isInstitutionalResourceManager()
-				|| usersRoles.isOLATAdmin() || usersRoles.isUserManager()) {
-			return false;
-		} else if ((user.getProperty(UserConstants.INSTITUTIONALUSERIDENTIFIER,
-				null) == null)
-				|| (user.getProperty(UserConstants.FIRSTNAME, null) == null)
-				|| (user.getProperty(UserConstants.LASTNAME, null) == null)) {
-			return true;
-		} else if ((user.getProperty(UserConstants.INSTITUTIONALUSERIDENTIFIER,
-				null).isEmpty())
-				|| (user.getProperty(UserConstants.FIRSTNAME, null).isEmpty())
-				|| (user.getProperty(UserConstants.LASTNAME, null).isEmpty())) {
+		String firstName = user.getProperty(UserConstants.FIRSTNAME, null);
+		String lastName = user.getProperty(UserConstants.LASTNAME, null);
+		String studentNumber = user.getProperty(UserConstants.INSTITUTIONALUSERIDENTIFIER, null);
+		if(firstName == null) firstName = "";
+		if(lastName == null) lastName = "";
+		if(studentNumber == null) studentNumber = "";
+
+		firstNameField = uifactory.addTextElement("firstname", "UserInfoController.firstName", 40, firstName, formLayout);
+		firstNameField.setNotEmptyCheck("UserInfoController.emptyFirstName");
+		firstNameField.setMandatory(true);
+
+		lastNameField = uifactory.addTextElement("lastname", "UserInfoController.lastName", 40, lastName, formLayout);
+		lastNameField.setNotEmptyCheck("UserInfoController.emptyLastName");
+		lastNameField.setMandatory(true);
+
+		// show student number input only for students
+		if(isStudent(ureq) && !"ignore".equals(studentNumberStatus)) {
+			studentNumberField = uifactory.addTextElement("studentnumber", "UserInfoController.studentNumber", 10, studentNumber, formLayout);
+			if("require".equals(studentNumberStatus)) {
+				studentNumberField.setNotEmptyCheck("UserInfoController.emptyStudentNumber");
+				studentNumberField.setMandatory(true);
+			}
+		}
+		
+		FormLayoutContainer buttonLayout = FormLayoutContainer.createButtonLayout("button_layout", getTranslator());
+		formLayout.add(buttonLayout);
+		uifactory.addFormSubmitButton("submit", "UserInfoController.submit", buttonLayout);
+	}
+	
+	@Override
+	protected boolean validateFormLogic(UserRequest ureq) {
+		// validate student number (only for students)
+		if(isStudent(ureq) && !"ignore".equals(studentNumberStatus)) {
+			String studentNumber = studentNumberField.getValue().trim();
+			
+			if(!studentNumberCheck.isEmpty() && !studentNumber.isEmpty()) {
+				try {
+					if(!studentNumber.matches(studentNumberCheck)) {
+						studentNumberField.setErrorKey("UserInfoController.studentNumberWrong", null);
+						return false;
+					}
+				} catch(PatternSyntaxException e) {
+					log.error("The configured regex '" + studentNumberCheck + "' is syntactically wrong", e);
+				}
+			}
+		}
+		
+		return true;
+	}
+
+	@Override
+	protected void formOK(UserRequest ureq) {
+		// get fresh user instance (prevent hibernate issues)
+		User user = UserManager.getInstance().loadUserByKey(ureq.getIdentity().getUser().getKey());
+		
+		user.setProperty(UserConstants.FIRSTNAME, firstNameField.getValue().trim());
+		user.setProperty(UserConstants.LASTNAME, lastNameField.getValue().trim());
+		if(isStudent(ureq) && !"ignore".equals(studentNumberStatus)) {
+			user.setProperty(UserConstants.INSTITUTIONALUSERIDENTIFIER, studentNumberField.getValue().trim());
+		}
+		
+		UserManager.getInstance().updateUser(user);
+		
+		// signal completion
+		fireEvent(ureq, Event.DONE_EVENT);
+	}
+	
+	/**
+	 * Checks if the logged in user is a student by checking if he is not a
+	 * admin, guest, author, resource manager, user manager or group manager
+	 */
+	private boolean isStudent(UserRequest ureq) {
+		Roles roles = ureq.getUserSession().getRoles();
+		if(!roles.isGuestOnly() && !roles.isOLATAdmin() && !roles.isAuthor() && !roles.isUserManager() &&
+				!roles.isInstitutionalResourceManager() && !roles.isGroupManager()) {
 			return true;
 		} else {
 			return false;
+		}
+	}
+	
+	/**
+	 * Requests interception if the name is missing or - if configured via
+	 * userInfoInterceptor.studentNumber - if the student number is missing
+	 * and the user in not admin or author
+	 */
+	public boolean isInterceptionRequired(UserRequest ureq) {
+		if(!enabled) {
+			return false;
+		}
+		
+		User user = ureq.getIdentity().getUser();
+
+		// do not ask guests
+		if(ureq.getUserSession().getRoles().isGuestOnly()) {
+			return false;
+		}
+		
+		// name missing
+		String firstName = user.getProperty(UserConstants.FIRSTNAME, null);
+		String lastName = user.getProperty(UserConstants.LASTNAME, null);
+		if(firstName == null || firstName.isEmpty() || lastName == null || lastName.isEmpty()) {
+			return true;
+		}
+		
+		// student number missing (only for students)
+		String identifier = user.getProperty(UserConstants.INSTITUTIONALUSERIDENTIFIER, null);
+		if(isStudent(ureq) && "require".equals(studentNumberStatus) && (identifier == null || identifier.isEmpty())) {
+			return true;
+		}
+		
+		return false;
+	}
+	
+	@Override
+	protected void doDispose() {
+		// nothing to dispose
+	}
+	
+	/**
+	 * Spring setter to configure the interceptor
+	 * @param enabled Enable of disable the interceptor
+	 * @param studentNumberStatus One of ignore, ask and require
+	 * @param studentNumberCheck regex to check the supplied student number
+	 */
+	public static void setSettings(boolean enabled, String studentNumberStatus, String studentNumberCheck) {
+		UserInfoController.enabled = enabled;
+		UserInfoController.studentNumberCheck = studentNumberCheck;
+		
+		if(Arrays.asList("ignore", "ask", "require").contains(studentNumberStatus)) {
+			UserInfoController.studentNumberStatus = studentNumberStatus;
+		} else {
+			log.error("Given student number configuration '" + studentNumberStatus + "' is invalid. (valid options: ignore, ask, require)");
 		}
 	}
 
