@@ -493,6 +493,9 @@ public class TaskInstanceRunController extends BasicController
 					 */
 					connector.getTaskConfiguration(taskInstance.getTaskConfiguration().getTaskType());
 
+					// reload taskInstance to avoid hibernate duplicate object exception
+					taskInstance = TaskInstanceManagerImpl.getInstance().loadTaskInstanceByID(taskInstance.getKey());
+
 					// don't touch the data base if the node is only previewed!
 					if(!isPreview)
 					{
