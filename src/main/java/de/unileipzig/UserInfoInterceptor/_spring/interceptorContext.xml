@@ -31,4 +31,15 @@
 		</property>
 	</bean>
 
+	<bean class="org.springframework.beans.factory.config.MethodInvokingFactoryBean">
+		<property name="staticMethod" value="de.unileipzig.UserInfoInterceptor.UserInfoController.setSettings" />
+		<property name="arguments">
+			<list>
+				<value>${userInfoInterceptor.enable:false}</value>
+				<value>${userInfoInterceptor.studentNumber:ignore}</value>
+				<value>${userInfoInterceptor.studentNumberCheck:}</value> <!-- empty string: do not perform a check -->
+			</list>
+		</property>
+	</bean>
+
 </beans>
