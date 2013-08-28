@@ -24,7 +24,7 @@
 					</entry>
 					<entry key="forceUser"><value>true</value></entry> <!-- user cannot continue without completing the form -->
 					<entry key="redoTimeout"><value>0</value></entry> <!-- check on every login -->
-					<!-- <entry key="i18nIntro"><value>de.unileipzig.UserInfoInterceptor:title</value></entry> -->	
+					<entry key="i18nIntro"><value>de.unileipzig.UserInfoInterceptor:UserInfoController.title</value></entry>
 					<entry key="order"><value>500</value></entry>
 				</map>
 			</list>
