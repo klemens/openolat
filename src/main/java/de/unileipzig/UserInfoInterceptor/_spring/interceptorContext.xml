@@ -22,10 +22,10 @@
 							<property name="className" value="de.unileipzig.UserInfoInterceptor.UserInfoController"/>
 						</bean>
 					</entry>
-					<entry key="forceUser"><value>true</value></entry> <!-- user cannot continue without completing the form -->
-					<entry key="redoTimeout"><value>0</value></entry> <!-- check on every login -->
-					<entry key="i18nIntro"><value>de.unileipzig.UserInfoInterceptor:UserInfoController.title</value></entry>
-					<entry key="order"><value>500</value></entry>
+					<entry key="forceUser" value="true" /> <!-- user cannot continue without completing the form -->
+					<entry key="redoTimeout" value="0" /> <!-- check on every login -->
+					<entry key="i18nIntro" value="de.unileipzig.UserInfoInterceptor:UserInfoController.title" />	
+					<entry key="order" value="100" /> <!-- show as first dialog -->
 				</map>
 			</list>
 		</property>
