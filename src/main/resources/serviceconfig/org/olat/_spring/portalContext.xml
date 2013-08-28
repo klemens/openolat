@@ -50,7 +50,7 @@
 		<property name="name" value="Groups" />
 		<property name="enabled" value="${portlet.groups.enabled}" />
 	</bean>
-	<bean id="Bookmarks" class="org.olat.bookmark.BookmarksPortlet" scope="prototype">
+	<bean id="Bookmarks" class="org.olat.core.commons.services.mark.ui.BookmarksPortlet" scope="prototype">
 		<property name="name" value="Bookmarks" />
 		<property name="enabled" value="${portlet.bookmarks.enabled}" />
 	</bean>

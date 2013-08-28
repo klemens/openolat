@@ -22,6 +22,7 @@
 						<entry key="sslEnabled" value="${smtp.sslEnabled}"/>
 						<entry key="sslCheckCertificate" value="${smtp.sslCheckCertificate}"/>
 						<entry key="mailFrom" value="${fromemail}"/>
+						<entry key="mailFromName" value="${fromname}"/>
 						<entry key="mailReplyTo" value="${adminemail}"/>
 						<entry key="mailSupport" value="${supportemail}"/>
 						<entry key="mailQuota" value="${quotaemail}"/>
@@ -33,6 +34,7 @@
 				<property name="defaultCharset" value="${defaultcharset}" />
 				<property name="version" value="${build.version}" />
 				<property name="applicationName" value="${application.name}" />
+				<property name="mobileContext" value="${mobile.context}" />
 			</bean>
 
 			<bean id="org.olat.core.helpers.Settings" class="org.olat.core.helpers.Settings" depends-on="org.olat.core.util.WebappHelper" init-method="init" destroy-method="destroy">
@@ -86,6 +88,7 @@
 						<value>.*Lynx.*</value>					<!-- Lynx console browser (no js) -->
 					</list>
 				</property>
+				<property name="crossOriginFilter" value="${allow.cross.origin.domain}"/>
 				<!-- 
 					Set the system theme here. Make sure the directory webapp/WEB-INF/static/themes/YOURTHEME exists. 
 					This is only the default value in case no user configuration is found. Use the administration GUI to

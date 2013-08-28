@@ -37,13 +37,12 @@ import org.olat.basesecurity.BaseSecurity;
 import org.olat.basesecurity.BaseSecurityManager;
 import org.olat.basesecurity.Constants;
 import org.olat.basesecurity.IdentityShort;
-import org.olat.bookmark.AddAndEditBookmarkController;
-import org.olat.bookmark.BookmarkManager;
 import org.olat.catalog.ui.CatalogAjaxAddController;
 import org.olat.catalog.ui.CatalogEntryAddController;
 import org.olat.catalog.ui.RepoEntryCategoriesTableController;
 import org.olat.core.CoreSpringFactory;
 import org.olat.core.commons.persistence.DBFactory;
+import org.olat.core.commons.services.mark.MarkManager;
 import org.olat.core.dispatcher.DispatcherAction;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.Windows;
@@ -149,8 +148,7 @@ public class RepositoryDetailsController extends BasicController implements Gene
 	private GroupController groupController;
 	private RepositoryMembersController membersEditController;
 	private OrdersAdminController ordersController;
-	private AddAndEditBookmarkController bookmarkController;
-	private ToolController detailsToolC = null;
+	private ToolController detailsToolC;
 	private RepositoryCopyController copyController;
 	private RepositoryEditPropertiesController repositoryEditPropertiesController;
 	private RepositoryEditDescriptionController repositoryEditDescriptionController;
@@ -184,6 +182,7 @@ public class RepositoryDetailsController extends BasicController implements Gene
 	
 	private final BaseSecurity securityManager;
 	private final UserManager userManager;
+	private final MarkManager markManager;
 
 	/**
 	 * Controller displaying details of a given repository entry.
@@ -198,6 +197,7 @@ public class RepositoryDetailsController extends BasicController implements Gene
 		setBasePackage(RepositoryManager.class);
 		securityManager = CoreSpringFactory.getImpl(BaseSecurity.class);
 		userManager = CoreSpringFactory.getImpl(UserManager.class);
+		markManager = CoreSpringFactory.getImpl(MarkManager.class);
 		if (log.isDebug()){
 			log.debug("Constructing ReposityMainController using velocity root " + velocity_root);
 		}
@@ -205,11 +205,15 @@ public class RepositoryDetailsController extends BasicController implements Gene
 		main = createVelocityContainer("details");
 		
 		downloadButton = LinkFactory.createButton("details.download", main, this);
+		downloadButton.setElementCssClass("o_sel_repo_download_button");
 		LinkFactory.markDownloadLink(downloadButton);
 		launchButton = LinkFactory.createButton("details.launch", main, this);
+		launchButton.setElementCssClass("o_sel_repo_launch_button");
 		
 		backLink = LinkFactory.createLinkBack(main, this);
+		backLink.setElementCssClass("o_sel_repo_back_button");
 		loginLink = LinkFactory.createLink("repo.login", main, this);
+		loginLink.setElementCssClass("o_sel_repo_login_button");
 		
 		putInitialPanel(main);
 	}
@@ -448,15 +452,19 @@ public class RepositoryDetailsController extends BasicController implements Gene
 		RepositoryHandler handler = RepositoryHandlerFactory.getInstance().getRepositoryHandler(repositoryEntry);
 		if (isNewController) {
 			detailsToolC.addHeader(translate("tools.details.header"));
-			detailsToolC.addLink(ACTION_LAUNCH, translate("details.launch"), TOOL_LAUNCH, null);
+			detailsToolC.addLink(ACTION_LAUNCH, translate("details.launch"), TOOL_LAUNCH, null, "o_sel_repo_launch", false);
 		}
 		detailsToolC.setEnabled(TOOL_LAUNCH, checkIsRepositoryEntryLaunchable(ureq) && !corrupted);
 		if (!isGuestOnly) {
 			if (isNewController) {
 				//mark as download link
-				detailsToolC.addLink(ACTION_DOWNLOAD, translate("details.download"), TOOL_DOWNLOAD, null, true);
-				detailsToolC.addLink(ACTION_DOWNLOAD_BACKWARD_COMPAT, translate("details.download.compatible"), TOOL_DOWNLOAD_BACKWARD_COMPAT, null, true);
-				detailsToolC.addLink(ACTION_BOOKMARK, translate("details.bookmark"), TOOL_BOOKMARK, null);
+				detailsToolC.addLink(ACTION_DOWNLOAD, translate("details.download"), TOOL_DOWNLOAD, null, "o_sel_repo_download", true);
+				detailsToolC.addLink(ACTION_DOWNLOAD_BACKWARD_COMPAT, translate("details.download.compatible"), TOOL_DOWNLOAD_BACKWARD_COMPAT,
+						null, "o_sel_repo_download_backward", true);
+				//bookmark
+				boolean marked = markManager.isMarked(repositoryEntry, getIdentity(), null);
+				String css = marked ? "b_mark_set" : "b_mark_not_set";
+				detailsToolC.addLink(ACTION_BOOKMARK, translate("details.bookmark"), TOOL_BOOKMARK, css);
 			}
 			boolean canDownload = repositoryEntry.getCanDownload() && handler.supportsDownload(repositoryEntry);
 			// disable download for courses if not author or owner
@@ -469,10 +477,7 @@ public class RepositoryDetailsController extends BasicController implements Gene
 			detailsToolC.setEnabled(TOOL_DOWNLOAD, canDownload && !corrupted);
 			detailsToolC.setEnabled(TOOL_DOWNLOAD_BACKWARD_COMPAT, canDownload && !corrupted
 					&& "CourseModule".equals(repositoryEntry.getOlatResource().getResourceableTypeName()));
-			boolean canBookmark = true;
-			if (BookmarkManager.getInstance().isResourceableBookmarked(ureq.getIdentity(), repositoryEntry) || !repositoryEntry.getCanLaunch())
-				canBookmark = false;
-			detailsToolC.setEnabled(TOOL_BOOKMARK, canBookmark && !corrupted);
+			detailsToolC.setEnabled(TOOL_BOOKMARK, !corrupted);
 		}
 		//fxdiff VCRP-1 : moved some things around here to split large toolbox into smaller pieces
 		if (isNewController)
@@ -490,11 +495,11 @@ public class RepositoryDetailsController extends BasicController implements Gene
 						detailsToolC.addLink(ACTION_EDITDESC, translate("details.chdesc"), TOOL_CHDESC, null, "o_sel_repo_edit_descritpion", false);
 						detailsToolC.addLink(ACTION_EDITPROP, translate("details.chprop"), TOOL_CHPROP, null, "o_sel_repor_edit_properties", false);
 					}
-					detailsToolC.addLink(ACTION_ADD_CATALOG, translate("details.catadd"), TOOL_CATALOG, null);
+					detailsToolC.addLink(ACTION_ADD_CATALOG, translate("details.catadd"), TOOL_CATALOG, null, "o_sel_repo_add_to_catalog", false);
 					
 					detailsToolC.addHeader(translate("table.action"));
 					if ((OresHelper.isOfType(repositoryEntry.getOlatResource(), CourseModule.class)) && (!RepositoryManager.getInstance().createRepositoryEntryStatus(repositoryEntry.getStatusCode()).isClosed())) {
-						detailsToolC.addLink(ACTION_CLOSE_RESSOURCE, translate("details.close.ressoure"), TOOL_CLOSE_RESSOURCE, null);
+						detailsToolC.addLink(ACTION_CLOSE_RESSOURCE, translate("details.close.ressoure"), TOOL_CLOSE_RESSOURCE, null, "o_sel_repo_close_resource", false);
 						if(corrupted) {
 							detailsToolC.setEnabled(TOOL_CLOSE_RESSOURCE, false);
 						}
@@ -508,15 +513,15 @@ public class RepositoryDetailsController extends BasicController implements Gene
 			}
 			if (isNewController) {
 				if(isAuthor) {
-					detailsToolC.addLink(ACTION_COPY, translate("details.copy"), TOOL_COPY, null);
+					detailsToolC.addLink(ACTION_COPY, translate("details.copy"), TOOL_COPY, null, "o_sel_repo_copy", false);
 				}
 			}
 			if (isOwner) {
 				if (isNewController) {
-					detailsToolC.addLink(ACTION_DELETE, translate("details.delete"));
+					detailsToolC.addLink(ACTION_DELETE, translate("details.delete"), null, null, "o_sel_repo_delete", false);
 					detailsToolC.addHeader(translate("details.members"));
-					detailsToolC.addLink(ACTION_MEMBERS, translate("details.members"));
-					detailsToolC.addLink(ACTION_ORDERS, translate("details.orders"));
+					detailsToolC.addLink(ACTION_MEMBERS, translate("details.members"), null, null, "o_sel_repo_members", false);
+					detailsToolC.addLink(ACTION_ORDERS, translate("details.orders"), null, null, "o_sel_repo_booking", false);
 				}
 				// enable
 				if(isAuthor) {
@@ -582,9 +587,9 @@ public class RepositoryDetailsController extends BasicController implements Gene
 				doCloseDetailView(ureq);
 				return;
 			} else if (sourceLink == downloadButton){
-				doDownload(ureq, false);
+				doDownload(ureq, repositoryEntry, false);
 			} else if (sourceLink == launchButton){
-				doLaunch(ureq);
+				doLaunch(ureq, repositoryEntry);
 			} else if (sourceLink == loginLink){
 				DispatcherAction.redirectToDefaultDispatcher(ureq.getHttpResp());
 			} else if (sourceLink.getUserObject() instanceof IdentityShort) {
@@ -617,7 +622,7 @@ public class RepositoryDetailsController extends BasicController implements Gene
 	private void doCloseDetailView(UserRequest ureq) {
 		// REVIEW:pb:note:handles jumps from Catalog and Course
 		if (jumpfromcourse && repositoryEntry.getCanLaunch()) {
-			doLaunch(ureq);
+			doLaunch(ureq, repositoryEntry);
 		} else {
 			fireEvent(ureq, Event.DONE_EVENT);
 		}
@@ -654,28 +659,28 @@ public class RepositoryDetailsController extends BasicController implements Gene
 	 * 
 	 * @param ureq
 	 */
-	boolean doLaunch(UserRequest ureq) {
-		RepositoryHandler typeToLaunch = RepositoryHandlerFactory.getInstance().getRepositoryHandler(repositoryEntry);
+	boolean doLaunch(UserRequest ureq, RepositoryEntry re) {
+		RepositoryHandler typeToLaunch = RepositoryHandlerFactory.getInstance().getRepositoryHandler(re);
 		if (typeToLaunch == null){
 			StringBuilder sb = new StringBuilder(translate("error.launch"));
 			sb.append(": No launcher for repository entry: ");
-			sb.append(repositoryEntry.getKey());
+			sb.append(re.getKey());
 			throw new OLATRuntimeException(RepositoryDetailsController.class,sb.toString(), null);
 		}
-		if (RepositoryManager.getInstance().lookupRepositoryEntry(repositoryEntry.getKey()) == null) {
+		if (RepositoryManager.getInstance().lookupRepositoryEntry(re.getKey()) == null) {
 			showInfo("info.entry.deleted");
 			return false;
 		}
 		
 		try {
-			String businessPath = "[RepositoryEntry:" + repositoryEntry.getKey() + "]";
+			String businessPath = "[RepositoryEntry:" + re.getKey() + "]";
 			boolean ok = NewControllerFactory.getInstance().launch(businessPath, ureq, getWindowControl());
 			if(ok) {
 				fireEvent(ureq, LAUNCHED_EVENT);
 			}
 			return ok;
 		} catch (CorruptedCourseException e) {
-			logError("Corrupted course: " + repositoryEntry, e);
+			logError("Corrupted course: " + re, e);
 			return false;
 		}
 	}
@@ -715,32 +720,22 @@ public class RepositoryDetailsController extends BasicController implements Gene
 	  }
 	  return;
 	}
-	
-	private void doAddBookmark(Controller contentController) {
-		removeAsListenerAndDispose(closeableModalController);		
-		closeableModalController = new CloseableModalController(getWindowControl(), translate("close"),
-				contentController.getInitialComponent());
-		listenTo(closeableModalController);
-		
-		closeableModalController.activate();
-		return;
-	}
 
 	/**
 	 * Also used by RepositoryMainController
 	 * 
 	 * @param ureq
 	 */
-	void doDownload(UserRequest ureq, boolean backwardsCompatible) {
-		RepositoryHandler typeToDownload = RepositoryHandlerFactory.getInstance().getRepositoryHandler(repositoryEntry);
+	void doDownload(UserRequest ureq, RepositoryEntry re, boolean backwardsCompatible) {
+		RepositoryHandler typeToDownload = RepositoryHandlerFactory.getInstance().getRepositoryHandler(re);
 
 		if (typeToDownload == null){
 			StringBuilder sb = new StringBuilder(translate("error.download"));
 			sb.append(": No download handler for repository entry: ");
-			sb.append(repositoryEntry.getKey());
+			sb.append(re.getKey());
 			throw new OLATRuntimeException(RepositoryDetailsController.class, sb.toString(), null);
 		}
-		OLATResource ores = OLATResourceManager.getInstance().findResourceable(repositoryEntry.getOlatResource());
+		OLATResource ores = OLATResourceManager.getInstance().findResourceable(re.getOlatResource());
 		if (ores == null) {
 			showError("error.download");
 			return;
@@ -751,7 +746,7 @@ public class RepositoryDetailsController extends BasicController implements Gene
 		  if(lockResult==null || (lockResult!=null && lockResult.isSuccess() && !isAlreadyLocked)) {
 		    MediaResource mr = typeToDownload.getAsMediaResource(ores, backwardsCompatible);
 		    if(mr!=null) {
-		      RepositoryManager.getInstance().incrementDownloadCounter(repositoryEntry);
+		      RepositoryManager.getInstance().incrementDownloadCounter(re);
 		      ureq.getDispatchResult().setResultingMediaResource(mr);
 		    } else {
 			    showError("error.export");
@@ -815,7 +810,7 @@ public class RepositoryDetailsController extends BasicController implements Gene
 		OLATResourceable ores = repositoryEntry.getOlatResource();
 		
 		//was brasato:: DTabs dts = getWindowControl().getDTabs();
-		DTabs dts = (DTabs)Windows.getWindows(ureq).getWindow(ureq).getAttribute("DTabs");
+		DTabs dts = Windows.getWindows(ureq).getWindow(ureq).getDTabs();
 		DTab dt = dts.getDTab(ores);
 		if (dt == null) {
 			// does not yet exist -> create and add
@@ -876,12 +871,12 @@ public class RepositoryDetailsController extends BasicController implements Gene
 			//
 		} else if (source == detailsToolC) {
 			if (cmd.equals(ACTION_DOWNLOAD)) { // download
-				doDownload(ureq, false);
+				doDownload(ureq, repositoryEntry, false);
 				return;
 			} else if (cmd.equals(ACTION_DOWNLOAD_BACKWARD_COMPAT)) {
-				doDownload(ureq, true);
+				doDownload(ureq, repositoryEntry, true);
 			} else if (cmd.equals(ACTION_LAUNCH)) { // launch resource
-				doLaunch(ureq);
+				doLaunch(ureq, repositoryEntry);
 				return;
 			} else if (cmd.equals(ACTION_EDIT)) { // start editor
 				doEdit(ureq);
@@ -905,13 +900,15 @@ public class RepositoryDetailsController extends BasicController implements Gene
 				doCloseDetailView(ureq);
 				return;
 			} else if (cmd.equals(ACTION_BOOKMARK)) {
-				removeAsListenerAndDispose(bookmarkController);
-				bookmarkController = new AddAndEditBookmarkController(ureq, getWindowControl(), repositoryEntry.getDisplayname(), "",
-						repositoryEntry, repositoryEntry.getOlatResource().getResourceableTypeName());
-				listenTo(bookmarkController);
-				
-				doAddBookmark(bookmarkController);
-				return;
+				boolean marked = markManager.isMarked(repositoryEntry, getIdentity(), null);
+				if(marked) {
+					markManager.removeMark(repositoryEntry, getIdentity(), null);
+				} else {
+					String businessPath = "[RepositoryEntry:" + repositoryEntry.getKey() + "]";
+					markManager.setMark(repositoryEntry, getIdentity(), null, businessPath);
+				}
+				String css = marked ? "b_mark_not_set" : "b_mark_set";
+				detailsToolC.setCssClass(TOOL_BOOKMARK, css);
 			} else if (cmd.equals(ACTION_COPY)) { // copy
 				if (!isAuthor) throw new OLATSecurityException("Trying to copy, but user is not author: user = " + ureq.getIdentity());
 				doCopy(ureq);
@@ -950,13 +947,6 @@ public class RepositoryDetailsController extends BasicController implements Gene
 				detailsToolC = null; // force recreation of tool controller
 				updateView(ureq);
 				fireEvent(ureq, Event.CHANGED_EVENT);
-			}
-		} else if (source == bookmarkController) {
-			closeableModalController.deactivate();
-			if (event.equals(Event.DONE_EVENT)) { // bookmark added... remove tool
-				if (detailsToolC != null) {
-					detailsToolC.setEnabled(TOOL_BOOKMARK, false);
-				}
 			}
 		} else if (source == copyController) {				
 			RepositoryHandlerFactory.getInstance().getRepositoryHandler(repositoryEntry).releaseLock(lockResult);		

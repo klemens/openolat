@@ -28,11 +28,15 @@ package org.olat.admin.sysinfo;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.olat.admin.sysinfo.manager.SessionStatsManager;
+import org.olat.admin.sysinfo.model.SessionsStats;
+import org.olat.admin.sysinfo.model.UserSessionView;
 import org.olat.core.CoreSpringFactory;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.Component;
 import org.olat.core.gui.components.stack.StackedController;
 import org.olat.core.gui.components.stack.StackedControllerAware;
+import org.olat.core.gui.components.table.BooleanColumnDescriptor;
 import org.olat.core.gui.components.table.DefaultColumnDescriptor;
 import org.olat.core.gui.components.table.StaticColumnDescriptor;
 import org.olat.core.gui.components.table.Table;
@@ -46,6 +50,9 @@ import org.olat.core.gui.control.WindowControl;
 import org.olat.core.gui.control.controller.BasicController;
 import org.olat.core.util.UserSession;
 import org.olat.core.util.session.UserSessionManager;
+import org.olat.instantMessaging.InstantMessagingService;
+import org.olat.instantMessaging.OpenInstantMessageEvent;
+import org.olat.instantMessaging.model.Buddy;
 import org.olat.user.UserManager;
 
 /**
@@ -57,17 +64,14 @@ public class UserSessionController extends BasicController implements StackedCon
 	
 	private VelocityContainer myContent;
 	private TableController tableCtr;
-	//private Formatter f;
 	private UserSessionTableModel usessTableModel;
 
-	private final UserSessionManager sessionManager;
 	private StackedController stackController;
+	private final UserSessionManager sessionManager;
+	private final InstantMessagingService imService;
+	private final SessionStatsManager sessionStatsManager;
 	
-	/**
-	 * Timeframe in minutes is needed to calculate the last klicks from users in OLAT. 
-	 */
-	private static final int LAST_KLICK_TIMEFRAME = 5;
-	private static final long DIFF = 1000 * 60 * LAST_KLICK_TIMEFRAME; // milliseconds of klick difference
+
 	/**
 	 * Controlls user session in admin view.
 	 * 
@@ -76,8 +80,10 @@ public class UserSessionController extends BasicController implements StackedCon
 	 */
 	public UserSessionController(UserRequest ureq, WindowControl wControl) { 
 		super(ureq, wControl);
-
+		
+		imService = CoreSpringFactory.getImpl(InstantMessagingService.class);
 		sessionManager = CoreSpringFactory.getImpl(UserSessionManager.class);
+		sessionStatsManager = CoreSpringFactory.getImpl(SessionStatsManager.class);
 		
 		myContent = createVelocityContainer("sessions");
 		
@@ -91,7 +97,9 @@ public class UserSessionController extends BasicController implements StackedCon
 		tableCtr.addColumnDescriptor(new DefaultColumnDescriptor("sess.access", 5, null, ureq.getLocale()));
 		tableCtr.addColumnDescriptor(new DefaultColumnDescriptor("sess.duration", 6, null, ureq.getLocale()));
 		tableCtr.addColumnDescriptor(new DefaultColumnDescriptor("sess.mode", 7, null, ureq.getLocale()));
-		tableCtr.addColumnDescriptor(new StaticColumnDescriptor("sess.details", "table.action", translate("sess.details")));
+		tableCtr.addColumnDescriptor(new StaticColumnDescriptor("sess.details", "sess.details", translate("sess.details")));
+		tableCtr.addColumnDescriptor(new BooleanColumnDescriptor("sess.chat", 8, "sess.chat", translate("sess.chat"), null));
+
 		listenTo(tableCtr);
 		reset();
 		myContent.put("sessiontable", tableCtr.getInitialComponent());
@@ -108,19 +116,29 @@ public class UserSessionController extends BasicController implements StackedCon
 	 */
 	public void reset() {
 		List<UserSession> authUserSessions = new ArrayList<UserSession>(sessionManager.getAuthenticatedUserSessions());
-		usessTableModel = new UserSessionTableModel(authUserSessions);
-		tableCtr.setTableDataModel(usessTableModel);
-		// view number of user - lastKlick <= LAST_KLICK_TIMEFRAME min
-		long now = System.currentTimeMillis();
-		int counter = 0;
-		for (UserSession usess : authUserSessions) {
-			long lastklick = usess.getSessionInfo() == null ? -1 : usess.getSessionInfo().getLastClickTime();
-			if ((now - lastklick) <= DIFF) {
-				counter++;
-			}
+		List<UserSessionView> authUserSessionViews = new ArrayList<UserSessionView>(authUserSessions.size());
+		for(UserSession authUserSession:authUserSessions) {
+			authUserSessionViews.add(new UserSessionView(authUserSession));
 		}
-		myContent.contextPut("scount", String.valueOf(counter));
-		myContent.contextPut("minutes", String.valueOf(LAST_KLICK_TIMEFRAME));
+		usessTableModel = new UserSessionTableModel(authUserSessionViews, getIdentity().getKey());
+		tableCtr.setTableDataModel(usessTableModel);
+		//lats 5 minutes
+		long activeSessions = sessionStatsManager.getActiveSessions(300);
+		myContent.contextPut("count5Minutes", String.valueOf(activeSessions));
+		SessionsStats stats = sessionStatsManager.getSessionsStatsLast(300);
+		myContent.contextPut("click5Minutes", String.valueOf(stats.getAuthenticatedClickCalls()));
+		myContent.contextPut("poll5Minutes", String.valueOf(stats.getAuthenticatedPollerCalls()));
+		myContent.contextPut("request5Minutes", String.valueOf(stats.getRequests()));
+		myContent.contextPut("minutes", String.valueOf(5));
+		
+		//last minute
+		activeSessions = sessionStatsManager.getActiveSessions(60);
+		myContent.contextPut("count1Minute", String.valueOf(activeSessions));
+		stats = sessionStatsManager.getSessionsStatsLast(60);
+		myContent.contextPut("click1Minute", String.valueOf(stats.getAuthenticatedClickCalls()));
+		myContent.contextPut("poll1Minute", String.valueOf(stats.getAuthenticatedPollerCalls()));
+		myContent.contextPut("request1Minute", String.valueOf(stats.getRequests()));
+		myContent.contextPut("oneMinute", "1");
 	}
 
 	/**
@@ -141,13 +159,20 @@ public class UserSessionController extends BasicController implements StackedCon
 				TableEvent te = (TableEvent)event;
 				int selRow = te.getRowId();
 				// session info (we only have authenticated sessions here
-				UserSession usess = (UserSession) tableCtr.getTableDataModel().getObject(selRow);
-				UserSessionDetailsController detailsCtrl = new UserSessionDetailsController(ureq, getWindowControl(), usess);
-				listenTo(detailsCtrl);
-				
-				String username = usess.getIdentity() == null ? "-"
-						: UserManager.getInstance().getUserDisplayName(usess.getIdentity().getUser());
-				stackController.pushController(username, detailsCtrl);
+				UserSessionView usessw = (UserSessionView)tableCtr.getTableDataModel().getObject(selRow);
+				if("sess.chat".equals(te.getActionId())) {
+					Buddy buddy = imService.getBuddyById(usessw.getIdentityKey());
+					OpenInstantMessageEvent e = new OpenInstantMessageEvent(ureq, buddy);
+					ureq.getUserSession().getSingleUserEventCenter().fireEventToListenersOf(e, InstantMessagingService.TOWER_EVENT_ORES);
+				} else if("sess.details".equals(te.getActionId())) {
+					UserSession usess = usessw.getUserSession();
+					UserSessionDetailsController detailsCtrl = new UserSessionDetailsController(ureq, getWindowControl(), usess);
+					listenTo(detailsCtrl);
+					
+					String username = usess.getIdentity() == null ? "-"
+							: UserManager.getInstance().getUserDisplayName(usess.getIdentity().getUser());
+					stackController.pushController(username, detailsCtrl);
+				}
 			}
 		}
 	}
@@ -155,4 +180,6 @@ public class UserSessionController extends BasicController implements StackedCon
 	protected void doDispose() {
 		// DialogBoxController and TableController get disposed by BasicController
 	}
+	
+	
 }

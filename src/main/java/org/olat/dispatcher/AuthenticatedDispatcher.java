@@ -37,6 +37,8 @@ import org.olat.core.CoreSpringFactory;
 import org.olat.core.dispatcher.Dispatcher;
 import org.olat.core.dispatcher.DispatcherAction;
 import org.olat.core.gui.UserRequest;
+import org.olat.core.gui.UserRequestImpl;
+import org.olat.core.gui.WindowSettings;
 import org.olat.core.gui.Windows;
 import org.olat.core.gui.components.Window;
 import org.olat.core.gui.control.ChiefController;
@@ -95,7 +97,7 @@ public class AuthenticatedDispatcher implements Dispatcher {
 		UserRequest ureq = null;
 		try{
 			//upon creation URL is checked for 
-			ureq = new UserRequest(uriPrefix, request, response);
+			ureq = new UserRequestImpl(uriPrefix, request, response);
 		} catch(NumberFormatException nfe) {
 			//MODE could not be decoded
 			//typically if robots with wrong urls hit the system
@@ -188,8 +190,14 @@ public class AuthenticatedDispatcher implements Dispatcher {
 			if (businessPath != null) {
 				BusinessControl bc = BusinessControlFactory.getInstance().createFromString(businessPath);
 				ChiefController cc = (ChiefController) Windows.getWindows(usess).getAttribute("AUTHCHIEFCONTROLLER");
-
 				WindowControl wControl = cc.getWindowControl();
+
+				String wSettings = (String) usess.removeEntryFromNonClearedStore(WINDOW_SETTINGS);
+				if(wSettings != null) {
+					WindowSettings settings = WindowSettings.parse(wSettings);
+					wControl.getWindowBackOffice().setWindowSettings(settings);
+				}
+
 			  WindowControl bwControl = BusinessControlFactory.getInstance().createBusinessWindowControl(bc, wControl);
 			  NewControllerFactory.getInstance().launch(ureq, bwControl);	
 				// render the window

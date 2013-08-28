@@ -29,10 +29,12 @@ package org.olat.core.commons.chiefcontrollers;
 import java.util.HashSet;
 import java.util.Set;
 
+import org.olat.core.dispatcher.Dispatcher;
 import org.olat.core.dispatcher.mapper.GlobalMapperRegistry;
 import org.olat.core.dispatcher.mapper.Mapper;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.WindowManager;
+import org.olat.core.gui.WindowSettings;
 import org.olat.core.gui.Windows;
 import org.olat.core.gui.components.Component;
 import org.olat.core.gui.components.Window;
@@ -143,7 +145,9 @@ public class BaseChiefController extends DefaultChiefController implements Conte
 		mainPanel.setContent(mainvc);
 
 		WindowManager winman = Windows.getWindows(ureq).getWindowManager();
-		wbo = winman.createWindowBackOffice("basechiefwindow", this);
+		String wSettings = (String)ureq.getUserSession().removeEntryFromNonClearedStore(Dispatcher.WINDOW_SETTINGS);
+		WindowSettings settings = WindowSettings.parse(wSettings);
+		wbo = winman.createWindowBackOffice("basechiefwindow", this, settings);
 		Window w = wbo.getWindow();
 
 		// part that builds the css and javascript lib includes (<script

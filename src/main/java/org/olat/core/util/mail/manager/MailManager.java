@@ -365,7 +365,7 @@ public class MailManager extends BasicManager {
 	 */
 	public List<DBMail> getOutbox(Identity from, int firstResult, int maxResults) {
 		StringBuilder sb = new StringBuilder();
-		sb.append("select mail from ").append(DBMailImpl.class.getName()).append(" mail")
+		sb.append("select distinct(mail) from ").append(DBMailImpl.class.getName()).append(" mail")
 			.append(" inner join fetch mail.from fromRecipient")
 			.append(" inner join fromRecipient.recipient fromRecipientIdentity")
 			.append(" inner join fetch mail.recipients recipient")
@@ -414,6 +414,7 @@ public class MailManager extends BasicManager {
 		StringBuilder sb = new StringBuilder();
 		String fetchOption = (fetchRecipients != null && fetchRecipients.booleanValue()) ? "fetch" : "";
 		sb.append("select mail from ").append(DBMailImpl.class.getName()).append(" mail")
+		  .append(" inner join fetch ").append(" mail.from fromRecipient")
 			.append(" inner join ").append(fetchOption).append(" mail.recipients recipient")
 			.append(" inner join ").append(fetchOption).append(" recipient.recipient recipientIdentity")
 			.append(" where recipientIdentity.key=:recipientKey and recipient.deleted=false");
@@ -1137,8 +1138,7 @@ public class MailManager extends BasicManager {
 			// following doesn't work correctly, therefore add bounce-address in message already
 			Address convertedFrom = getRawEmailFromAddress(from); 
 			MimeMessage msg = createMessage(convertedFrom);
-			String uri = Settings.createServerURI();
-			Address viewableFrom = createAddressWithName(WebappHelper.getMailConfig("mailFrom"), "OLAT @ " + uri);
+			Address viewableFrom = createAddressWithName(WebappHelper.getMailConfig("mailFrom"), WebappHelper.getMailConfig("mailFromName"));
 			msg.setFrom(viewableFrom);
 			msg.setSubject(subject, "utf-8");
 			// reply to can only be an address without name (at least for postfix!), see FXOLAT-312

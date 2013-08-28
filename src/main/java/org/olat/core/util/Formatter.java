@@ -30,17 +30,21 @@ import java.io.UnsupportedEncodingException;
 import java.math.BigDecimal;
 import java.net.URLEncoder;
 import java.text.DateFormat;
+import java.text.SimpleDateFormat;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.GregorianCalendar;
+import java.util.HashMap;
 import java.util.Locale;
+import java.util.Map;
 import java.util.StringTokenizer;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import org.olat.core.commons.chiefcontrollers.BaseChiefController;
+import org.olat.core.defaults.dispatcher.StaticMediaDispatcher;
+import org.olat.core.gui.render.StringOutput;
 import org.olat.core.helpers.Settings;
-import org.olat.core.logging.LogDelegator;
 
 /**
  * enclosing_type Description: <br>
@@ -48,15 +52,32 @@ import org.olat.core.logging.LogDelegator;
  * 
  * @author Felix Jost
  */
-public class Formatter extends LogDelegator {
+public class Formatter {
 
-	private Locale locale;
+	private static final DateFormat formatterDatetimeFilesystem = new SimpleDateFormat("yyyy-MM-dd'T'HH-mm-ss_SSS");
+	private static final DateFormat formatDateTime = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss");
+	
+	private static final Map<Locale,Formatter> localToFormatterMap = new HashMap<Locale,Formatter>();
+	
+	private final Locale locale;
+	private final DateFormat shortDateFormat;
+	private final DateFormat shortDateTimeFormat;
+	private final DateFormat shortTimeFormat;
+	private final DateFormat mediumTimeFormat;
 
 	/**
 	 * Constructor for Formatter.
 	 */
 	private Formatter(Locale locale) {
 		this.locale = locale;
+		shortDateFormat = DateFormat.getDateInstance(DateFormat.SHORT, locale);
+		shortDateFormat.setLenient(false);
+		mediumTimeFormat = DateFormat.getTimeInstance(DateFormat.MEDIUM, locale);
+		mediumTimeFormat.setLenient(false);
+		shortDateTimeFormat = DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT, locale);
+		shortDateTimeFormat.setLenient(false);
+		shortTimeFormat = DateFormat.getTimeInstance(DateFormat.SHORT, locale);
+		shortTimeFormat.setLenient(false);
 	}
 
 	/**
@@ -66,7 +87,14 @@ public class Formatter extends LogDelegator {
 	 * @return the instance of the Formatter
 	 */
 	public static Formatter getInstance(Locale locale) {
-		return new Formatter(locale);
+		Formatter formatter;
+		if(localToFormatterMap.containsKey(locale)) {
+			formatter = localToFormatterMap.get(locale);
+		} else {
+			formatter = new Formatter(locale);
+			localToFormatterMap.put(locale, formatter);
+		}
+		return formatter;
 	}
 
 	/**
@@ -76,10 +104,9 @@ public class Formatter extends LogDelegator {
 	 * @return a String with the formatted date
 	 */
 	public String formatDate(Date d) {
-		DateFormat df = DateFormat.getDateInstance(DateFormat.SHORT, locale);
-		df.setLenient(false);
-		String da = df.format(d);
-		return da;
+		synchronized (shortDateFormat) {
+			return shortDateFormat.format(d);
+		}
 	}
 	
 	/**
@@ -89,10 +116,9 @@ public class Formatter extends LogDelegator {
 	 * @return a String with the formatted time
 	 */
 	public String formatTime(Date d) {
-		DateFormat df = DateFormat.getTimeInstance(DateFormat.MEDIUM, locale);
-		df.setLenient(false);
-		String da = df.format(d);
-		return da;
+		synchronized (mediumTimeFormat) {
+			return mediumTimeFormat.format(d);
+		}
 	}
 
 	/**
@@ -103,10 +129,9 @@ public class Formatter extends LogDelegator {
 	 */
 	public String formatDateAndTime(Date d) {
 		if (d == null) return null;
-		DateFormat df = DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT, locale);
-		df.setLenient(false);
-		String da = df.format(d);
-		return da;
+		synchronized (shortDateTimeFormat) {
+			return shortDateTimeFormat.format(d);
+		}
 	}
 
 	/**
@@ -166,8 +191,9 @@ public class Formatter extends LogDelegator {
 	 * @return a String with the formatted date and time
 	 */
 	public static String formatDatetime(Date d) {
-		java.text.SimpleDateFormat formatter = new java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss");
-		return formatter.format(d);
+		synchronized (formatDateTime) {
+			return formatDateTime.format(d);
+		}
 	}
 	
 	/**
@@ -178,8 +204,9 @@ public class Formatter extends LogDelegator {
 	 * @return a String with the formatted date and time
 	 */
 	public static String formatDatetimeFilesystemSave(Date d) {
-		java.text.SimpleDateFormat formatter = new java.text.SimpleDateFormat("yyyy-MM-dd'T'HH-mm-ss_SSS");
-		return formatter.format(d);
+		synchronized (formatterDatetimeFilesystem) {
+			return formatterDatetimeFilesystem.format(d);
+		}
 	}
 
 	/**
@@ -189,10 +216,9 @@ public class Formatter extends LogDelegator {
 	 * @return a String with the formatted time
 	 */
 	public String formatTimeShort(Date d) {
-		DateFormat df = DateFormat.getTimeInstance(DateFormat.SHORT, locale);
-		df.setLenient(false);
-		String da = df.format(d);
-		return da;
+		synchronized (shortTimeFormat) {
+			return shortTimeFormat.format(d);
+		}
 	}
 
 	/**
@@ -460,8 +486,7 @@ public class Formatter extends LogDelegator {
 			// add math wrapper
 			String domid = "mw_" + CodeHelper.getRAMUniqueID();
 			String elem = htmlFragment.contains("<div") ? "div" : "span";
-			StringBuffer sb = new StringBuffer();
-			
+			StringBuilder sb = new StringBuilder(htmlFragment.length() + 200);
 			sb.append("<").append(elem).append(" id=\"").append(domid).append("\">");
 			sb.append(htmlFragment);
 			sb.append("</").append(elem).append(">");
@@ -473,8 +498,8 @@ public class Formatter extends LogDelegator {
 	
 	
 	// Pattern to find URL's in text
-	private static final Pattern urlPattern = Pattern.compile("((http[s]*://|www\\.)[-A-Za-z0-9+&@#/%?=~_|!:,\\.;]+[-A-Za-z0-9+&@#/%=~_|]*)");
-	
+	private static final Pattern urlPattern = Pattern.compile("((mailto\\:|(news|(ht|f)tp(s?))\\://|www\\.)[-A-Za-z0-9+&@#/%?=~_|!:,\\.;]+[-A-Za-z0-9+&@#/%=~_|]*)");
+
 	/**
 	 * Search in given text fragment for URL's and surround them with clickable
 	 * HTML link objects.
@@ -485,7 +510,7 @@ public class Formatter extends LogDelegator {
 	public static String formatURLsAsLinks(String textFragment) {
 		Matcher matcher = urlPattern.matcher(textFragment); 		
 		
-		StringBuffer sb = new StringBuffer();
+		StringBuilder sb = new StringBuilder(128);
 		int pos = 0;
 		while (matcher.find()) {
 			// Add text since last match and set end of current patch as new end
@@ -495,20 +520,26 @@ public class Formatter extends LogDelegator {
 			// The URL is in group1, the other groups are ignored
 			String url = matcher.group(1);
 			// Fix URL's without protocol, assume http
-			if (!url.startsWith("http")) {
+			if (url.startsWith("www")) {
 				url = "http://" + url; 
 			}
 			// Fix URL's at end of a sentence
-			if (url.endsWith(",") || url.endsWith(".")) {
+			if (url.endsWith(",") || url.endsWith(".") || url.endsWith(":")) {
 				url = url.substring(0, url.length()-1);
 				pos--;
 			}
 			sb.append("<a href=\"");
 			sb.append(url);
 			sb.append("\"");
+			if (url.startsWith("mailto")) {
+				sb.append(" target=\"_blank\" class=\"b_link_mailto\"");				
+			}
 			// OpenOLAT URL's are opened in same window, all other URL's in separate window
-			if (!url.startsWith(Settings.getServerContextPathURI())) {
+			else if (!url.startsWith(Settings.getServerContextPathURI())) {
 				sb.append(" target=\"_blank\" class=\"b_link_extern\"");				
+			}
+			else {
+				sb.append(" class=\"b_link_forward\"");				
 			}
 			sb.append(">");
 			sb.append(url);
@@ -518,6 +549,63 @@ public class Formatter extends LogDelegator {
 		sb.append(textFragment.substring(pos));
 		//
 		return sb.toString();
+	}
+	
+
+	/* emoticon patterns */
+	private static final Pattern angelPattern = Pattern.compile("(O\\:-*(\\)|3))");
+	private static final Pattern angryPattern = Pattern.compile("(\\:-*(\\|\\||@))");
+	private static final Pattern confusedPattern = Pattern.compile("(%-*\\))");
+	private static final Pattern coolPattern = Pattern.compile("(8-*\\))");
+	private static final Pattern grinPattern = Pattern.compile("(;-*\\))");
+	private static final Pattern kissPattern = Pattern.compile("(\\:(\\^)*\\*)");
+	private static final Pattern ohohPattern = Pattern.compile("(\\:-*O)");
+	private static final Pattern sadPattern = Pattern.compile("(\\:-*\\()");
+	private static final Pattern smilePattern = Pattern.compile("(\\:-*\\))");
+	private static final Pattern tonguePattern = Pattern.compile("(\\:-*P)");
+	private static final Pattern upPattern = Pattern.compile("(\\+(\\s|$))");
+	private static final Pattern downPattern = Pattern.compile("(-(\\s|$))");
+	
+	private static final StringOutput emptyGifUrl = new StringOutput();
+	static {
+		StaticMediaDispatcher.renderStaticURI(emptyGifUrl, "images/transparent.gif");
+	}
+	/**
+	 * Search in textFragment for emoticons such as :-) :-( etc and replace them
+	 * with image tags that render a nice icon.
+	 * 
+	 * @param textFragment
+	 * @return replaced text
+	 */
+	public static String formatEmoticonsAsImages(String textFragment) {
+		
+		Matcher matcher;
+		matcher = confusedPattern.matcher(textFragment);
+		textFragment= matcher.replaceAll("<img src='" + emptyGifUrl + "' class='b_emoticons_confused' />");
+		matcher = coolPattern.matcher(textFragment);
+		textFragment= matcher.replaceAll("<img src='" + emptyGifUrl + "' class='b_emoticons_cool' />");
+		matcher = angryPattern.matcher(textFragment);
+		textFragment= matcher.replaceAll("<img src='" + emptyGifUrl + "' class='b_emoticons_angry' />");
+		matcher = grinPattern.matcher(textFragment);
+		textFragment= matcher.replaceAll("<img src='" + emptyGifUrl + "' class='b_emoticons_grin' />");
+		matcher = kissPattern.matcher(textFragment);
+		textFragment= matcher.replaceAll("<img src='" + emptyGifUrl + "' class='b_emoticons_kiss' />");
+		matcher = ohohPattern.matcher(textFragment);
+		textFragment= matcher.replaceAll("<img src='" + emptyGifUrl + "' class='b_emoticons_ohoh' />");
+		matcher = angelPattern.matcher(textFragment); // must be before smile pattern
+		textFragment= matcher.replaceAll("<img src='" + emptyGifUrl + "' class='b_emoticons_angel' />");
+		matcher = smilePattern.matcher(textFragment); 
+		textFragment= matcher.replaceAll("<img src='" + emptyGifUrl + "' class='b_emoticons_smile' />");
+		matcher = sadPattern.matcher(textFragment);
+		textFragment= matcher.replaceAll("<img src='" + emptyGifUrl + "' class='b_emoticons_sad' />");
+		matcher = tonguePattern.matcher(textFragment); 
+		textFragment= matcher.replaceAll("<img src='" + emptyGifUrl + "' class='b_emoticons_tongue' />");
+		matcher = upPattern.matcher(textFragment); 
+		textFragment= matcher.replaceAll("<img src='" + emptyGifUrl + "' class='b_emoticons_up' />");
+		matcher = downPattern.matcher(textFragment); 
+		textFragment= matcher.replaceAll("<img src='" + emptyGifUrl + "' class='b_emoticons_down' />");
+				
+		return textFragment;
 	}
 	
 	/**
@@ -562,4 +650,3 @@ public class Formatter extends LogDelegator {
 	}
 	
 }
-	

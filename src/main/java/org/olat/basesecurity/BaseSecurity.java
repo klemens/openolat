@@ -62,6 +62,14 @@ public interface BaseSecurity {
 	public boolean isIdentityPermittedOnResourceable(Identity identity, String permission, OLATResourceable olatResourceable);
 
 	/**
+	 * Return the list of "allowed to..."
+	 * @param identity
+	 * @param olatResourceable
+	 * @return
+	 */
+	public List<String> getIdentityPermissionOnresourceable(Identity identity, OLATResourceable olatResourceable);
+	
+	/**
 	 * Get the identity's roles
 	 * 
 	 * @param identity
@@ -71,9 +79,11 @@ public interface BaseSecurity {
 	
 	/**
 	 * Update the roles
-	 * @param identity
+	 * @param actingIdentity The identity who is performing the change
+	 * @param updatedIdentity The identity that is changed
+	 * @param roles The new roles to set on updatedIdentity
 	 */
-	public void updateRoles(Identity identity, Roles roles);
+	public void updateRoles(Identity actingIdentity, Identity updatedIdentity, Roles roles);
 
 	/**
 	 * @param identity
@@ -202,6 +212,9 @@ public interface BaseSecurity {
 	 */
 	public Identity loadIdentityByKey(Long identityKey);
 	
+
+	public IdentityShort loadIdentityShortByKey(Long identityKey);
+	
 	/**
 	 * Load a list of identities by their keys.
 	 * 
@@ -210,7 +223,12 @@ public interface BaseSecurity {
 	 */
 	public List<Identity> loadIdentityByKeys(Collection<Long> identityKeys);
 	
-	public IdentityShort loadIdentityShortByKey(Long identityKey);
+	/**
+	 * Load a list of identities (short) by their keys
+	 * @param identityKeys
+	 * @return
+	 */
+	public List<IdentityShort> loadIdentityShortByKeys(Collection<Long> identityKeys);
 	
 	/**
 	 * find an identity by the key or return null if no identity found
@@ -272,6 +290,30 @@ public interface BaseSecurity {
 	 *         found
 	 */
 	public Authentication findAuthentication(Identity identity, String provider);
+	
+	/**
+	 * 
+	 * @param identity
+	 * @param creationDate
+	 * @return
+	 */
+	public List<Authentication> findOldAuthentication(String provider, Date creationDate);
+	
+	/**
+	 * 
+	 * @param provider
+	 * @param token
+	 * @return
+	 */
+	public List<Authentication> findAuthentication(String provider, String credential);
+	
+	/**
+	 * Return the credential or null
+	 * @param identity
+	 * @param provider
+	 * @return
+	 */
+	public String findCredentials(Identity identity, String provider);
 
 	//fxdiff: FXOLAT-219 decrease the load for synching groups
 	public boolean hasAuthentication(Long identityKey, String provider);
@@ -289,6 +331,12 @@ public interface BaseSecurity {
 	 * @param authentication
 	 */
 	public void deleteAuthentication(Authentication authentication);
+	
+	/**
+	 * 
+	 * @param authentication
+	 */
+	public Authentication updateAuthentication(Authentication authentication);
 
 	// --- SecGroup management
 
@@ -583,11 +631,35 @@ public interface BaseSecurity {
 	public Identity setIdentityLastLogin(Identity identity);
 	
 	/**
+	 * Set the identity name. 
+	 * <p><b>NOTE: do not use this to rename identities during
+	 * lifetime! This is currently not supported. This method does only rename
+	 * the identity on the database, however it does NOT rename anything on the
+	 * filesystem. </b></p>
+	 * <p>Unfortunately there are references to the identity name on
+	 * the filesystem, thus just using this method is not save at all. This
+	 * method is intended for renaming the identity after the delete process.
+	 * </p>
+	 * @param identity The identity to be renamed
+	 * @param newName The new identity name
+	 * @return The reloaded and renamed identity
+	 */
+	public Identity saveIdentityName(Identity identity, String newName);
+	
+	/**
 	 * Check if identity is visible. Deleted or login-denied users are not visible.
 	 * @param identityName
 	 * @return
 	 */
 	public boolean isIdentityVisible(String identityName);
+
+	/**
+	 * Check if identity is visible. Deleted or login-denied users are not visible.
+	 * @param identity
+	 * @return
+	 */
+	public boolean isIdentityVisible(Identity identity);
+	
 	
 	/**
 	 * Get all SecurtityGroups an Identity is in

@@ -14,6 +14,8 @@
 		<directive name="embedStyleSheets" value="false" />
 		<directive name="useXHTML" value="true" />
 		<directive name="formatOutput" value="false" />
+		<directive name="entityEncodeIntlChars" value="true" />
+		<directive name="preserveSpace" value="true" />
 	</directives>
 
 	<common-regexps>
@@ -592,6 +594,21 @@
 				<regexp name="length" />
 				<regexp name="percentage" />
 			</regexp-list>
+		</property>
+		
+		<property name="float" default="none"
+			description="">
+
+			<category-list>
+				<category value="visual" />
+			</category-list>
+
+			<literal-list>
+				<literal value="left" />
+				<literal value="right" />
+				<literal value="none" />
+				<literal value="inherit" />
+			</literal-list>
 		</property>
 
 		<property name="text-decoration" default="none"

@@ -19,12 +19,12 @@
  */
 package org.olat.user.restapi;
 
+import static org.olat.restapi.security.RestSecurityHelper.getIdentity;
 import static org.olat.restapi.security.RestSecurityHelper.getLocale;
 import static org.olat.restapi.security.RestSecurityHelper.getUserRequest;
 import static org.olat.restapi.security.RestSecurityHelper.isUserManager;
 import static org.olat.user.restapi.UserVOFactory.formatDbUserProperty;
 import static org.olat.user.restapi.UserVOFactory.get;
-import static org.olat.user.restapi.UserVOFactory.link;
 import static org.olat.user.restapi.UserVOFactory.parseUserProperty;
 import static org.olat.user.restapi.UserVOFactory.post;
 
@@ -63,6 +63,7 @@ import org.olat.basesecurity.AuthHelper;
 import org.olat.basesecurity.Authentication;
 import org.olat.basesecurity.BaseSecurity;
 import org.olat.basesecurity.BaseSecurityManager;
+import org.olat.basesecurity.IdentityShort;
 import org.olat.core.gui.components.form.ValidationError;
 import org.olat.core.gui.translator.PackageTranslator;
 import org.olat.core.gui.translator.Translator;
@@ -179,7 +180,7 @@ public class UserWebService {
 		int count = 0;
 		UserVO[] userVOs = new UserVO[identities.size()];
 		for(Identity identity:identities) {
-			userVOs[count++] = link(get(identity), uriInfo);
+			userVOs[count++] = get(identity);
 		}
 		return Response.ok(userVOs).build();
 	}
@@ -284,7 +285,8 @@ public class UserWebService {
 				return Response.serverError().status(Status.NOT_FOUND).build();
 			}
 			Roles modRoles = roles.toRoles();
-			BaseSecurityManager.getInstance().updateRoles(identity, modRoles);
+			Identity actingIdentity = getIdentity(request);
+			BaseSecurityManager.getInstance().updateRoles(actingIdentity, identity, modRoles);
 			return Response.ok(new RolesVO(modRoles)).build();
 		} catch (Throwable e) {
 			throw new WebApplicationException(e);
@@ -301,7 +303,6 @@ public class UserWebService {
    * @response.representation.404.doc The identity not found
 	 * @param identityKey The user key identifier of the user being searched
 	 * @param withPortrait If true return the portrait as Base64 (default false)
-	 * @param uriInfo The URI infos
 	 * @param httpRequest The HTTP request
 	 * @return an xml or json representation of a the user being search. The xml
 	 *         correspond to a <code>UserVO</code>. <code>UserVO</code> is a
@@ -311,7 +312,7 @@ public class UserWebService {
 	@Path("{identityKey}")
 	@Produces({MediaType.APPLICATION_XML ,MediaType.APPLICATION_JSON})
 	public Response findById(@PathParam("identityKey") Long identityKey, @QueryParam("withPortrait") @DefaultValue("false") Boolean withPortrait,
-			@Context UriInfo uriInfo, @Context HttpServletRequest httpRequest) {
+			@Context HttpServletRequest httpRequest) {
 		try {
 			Identity identity = BaseSecurityManager.getInstance().loadIdentityByKey(identityKey, false);
 			if(identity == null) {
@@ -319,11 +320,35 @@ public class UserWebService {
 			}
 			
 			boolean isUserManager = isUserManager(httpRequest);
-			UserVO userVO = link(get(identity, null, true, isUserManager, withPortrait), uriInfo);
+			UserVO userVO = get(identity, null, true, isUserManager, withPortrait);
 			return Response.ok(userVO).build();
 		} catch (Throwable e) {
 			throw new WebApplicationException(e);
 		}
+	}
+	
+	@Path("{identityKey}/folders")
+	public UserFoldersWebService getFoldersWebService(@PathParam("identityKey") Long identityKey) {
+		Identity identity = BaseSecurityManager.getInstance().loadIdentityByKey(identityKey, false);
+		if(identity == null) {
+			throw new WebApplicationException(Response.serverError().status(Status.NOT_FOUND).build());
+		}
+		return new UserFoldersWebService(identity);
+	}
+	
+	@Path("{identityKey}/courses")
+	public UserCoursesWebService getCoursesWebService(@PathParam("identityKey") Long identityKey,
+			@Context HttpServletRequest httpRequest) {
+		Identity identity = BaseSecurityManager.getInstance().loadIdentityByKey(identityKey, false);
+		if(identity == null) {
+			throw new WebApplicationException(Response.serverError().status(Status.NOT_FOUND).build());
+		}
+
+		Identity ureqIdentity = getIdentity(httpRequest);
+		if(ureqIdentity == null || !ureqIdentity.equals(identity)) {
+			throw new WebApplicationException(Response.serverError().status(Status.UNAUTHORIZED).build());
+		}
+		return new UserCoursesWebService(identity);
 	}
 	
 	/**
@@ -340,12 +365,12 @@ public class UserWebService {
 	@Produces({"image/jpeg","image/jpg",MediaType.APPLICATION_OCTET_STREAM})
 	public Response getPortrait(@PathParam("identityKey") Long identityKey, @Context Request request) {
 		try {
-			Identity identity = BaseSecurityManager.getInstance().loadIdentityByKey(identityKey, false);
+			IdentityShort identity = BaseSecurityManager.getInstance().loadIdentityShortByKey(identityKey);
 			if(identity == null) {
 				return Response.serverError().status(Status.NOT_FOUND).build();
 			}
 			
-			File portrait = DisplayPortraitManager.getInstance().getBigPortrait(identity);
+			File portrait = DisplayPortraitManager.getInstance().getBigPortrait(identity.getName());
 			if(portrait == null || !portrait.exists()) {
 				return Response.serverError().status(Status.NOT_FOUND).build();
 			}
@@ -378,7 +403,7 @@ public class UserWebService {
 	public Response postPortrait(@PathParam("identityKey") Long identityKey, @Context HttpServletRequest request) {
 		MultipartReader partsReader = null;
 		try {
-			Identity identity = BaseSecurityManager.getInstance().loadIdentityByKey(identityKey, false);
+			IdentityShort identity = BaseSecurityManager.getInstance().loadIdentityShortByKey(identityKey);
 			if(identity == null) {
 				return Response.serverError().status(Status.NOT_FOUND).build();
 			}
@@ -389,7 +414,7 @@ public class UserWebService {
 			}
 			partsReader = new MultipartReader(request);
 			File tmpFile = partsReader.getFile();
-			DisplayPortraitManager.getInstance().setPortrait(tmpFile, identity);
+			DisplayPortraitManager.getInstance().setPortrait(tmpFile, identity.getName());
 			return Response.ok().build();
 		} catch (Throwable e) {
 			throw new WebApplicationException(e);
@@ -452,7 +477,6 @@ public class UserWebService {
    * @response.representation.406.example {@link org.olat.restapi.support.vo.Examples#SAMPLE_ERRORVOes}
 	 * @param identityKey The user key identifier
 	 * @param user The user datas
-	 * @param uriInfo The URI infos
 	 * @param request The HTTP request
 	 * @return <code>User</code> object. The operation status (success or fail)
 	 */
@@ -460,7 +484,7 @@ public class UserWebService {
 	@Path("{identityKey}")
 	@Consumes({MediaType.APPLICATION_XML, MediaType.APPLICATION_JSON})
 	@Produces({MediaType.APPLICATION_XML, MediaType.APPLICATION_JSON})
-	public Response update(@PathParam("identityKey") Long identityKey, UserVO user, @Context UriInfo uriInfo, @Context HttpServletRequest request) {
+	public Response update(@PathParam("identityKey") Long identityKey, UserVO user, @Context HttpServletRequest request) {
 		try {
 			if(user == null) {
 				return Response.serverError().status(Status.NO_CONTENT).build();
@@ -480,7 +504,7 @@ public class UserWebService {
 			if(errors.isEmpty()) {
 				post(retrievedUser, user, getLocale(request));
 				UserManager.getInstance().updateUser(retrievedUser);
-				return Response.ok(link(get(retrievedIdentity, true, true), uriInfo)).build();
+				return Response.ok(get(retrievedIdentity, true, true)).build();
 			}
 			
 			//content not ok

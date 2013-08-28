@@ -30,6 +30,7 @@ import java.util.Set;
 
 import org.olat.commons.calendar.CalendarManager;
 import org.olat.commons.calendar.ui.events.KalendarModifiedEvent;
+import org.olat.core.CoreSpringFactory;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.Component;
 import org.olat.core.gui.components.form.flexible.FormItem;
@@ -266,8 +267,11 @@ class ChoiceOfToolsForm extends FormBasicController {
 		
 		for (int i=0; i<CollaborationTools.TOOLS.length; i++) {
 			String k = CollaborationTools.TOOLS[i];
-			if (k.equals(CollaborationTools.TOOL_CHAT) && !InstantMessagingModule.isEnabled()) {
-				continue;
+			if (k.equals(CollaborationTools.TOOL_CHAT)) {
+				InstantMessagingModule imModule = CoreSpringFactory.getImpl(InstantMessagingModule.class);
+				if (!imModule.isEnabled() || !imModule.isGroupEnabled()) {
+					continue;
+				}
 			}
 			theKeys.add(""+i);
 			theValues.add(translate("collabtools.named."+CollaborationTools.TOOLS[i]));

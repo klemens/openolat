@@ -32,6 +32,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
 
 import javax.annotation.PostConstruct;
 
@@ -45,7 +46,6 @@ import org.olat.basesecurity.SecurityGroup;
 import org.olat.collaboration.CollaborationTools;
 import org.olat.collaboration.CollaborationToolsFactory;
 import org.olat.core.commons.persistence.DB;
-import org.olat.core.commons.taskExecutor.TaskExecutorManager;
 import org.olat.core.id.Identity;
 import org.olat.core.id.Roles;
 import org.olat.core.logging.DBRuntimeException;
@@ -97,9 +97,6 @@ import org.olat.group.right.BGRightManager;
 import org.olat.group.right.BGRightsRole;
 import org.olat.group.ui.BGMailHelper;
 import org.olat.group.ui.edit.BusinessGroupModifiedEvent;
-import org.olat.instantMessaging.IMConfigSync;
-import org.olat.instantMessaging.InstantMessagingModule;
-import org.olat.instantMessaging.syncservice.SyncUserListTask;
 import org.olat.properties.Property;
 import org.olat.repository.RepositoryEntry;
 import org.olat.repository.RepositoryEntryShort;
@@ -114,7 +111,6 @@ import org.olat.user.UserDataDeletable;
 import org.olat.util.logging.activity.LoggingResourceable;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 
 /**
@@ -137,6 +133,8 @@ public class BusinessGroupServiceImpl implements BusinessGroupService, UserDataD
 	private RepositoryManager repositoryManager;
 	@Autowired
 	private BaseSecurity securityManager;
+	@Autowired
+	private ContactDAO contactDao;
 	@Autowired
 	private BusinessGroupRelationDAO businessGroupRelationDAO;
 	@Autowired
@@ -213,11 +211,9 @@ public class BusinessGroupServiceImpl implements BusinessGroupService, UserDataD
 	}
 
 	@Override
-	@Transactional
 	public BusinessGroup updateBusinessGroup(Identity ureqIdentity, BusinessGroup group, String name, String description,
 			Integer minParticipants, Integer maxParticipants) {
 		
-		SyncUserListTask syncIM = new SyncUserListTask(group);
 		BusinessGroup bg = businessGroupDAO.loadForUpdate(group.getKey());
 
 		Integer previousMaxParticipants = bg.getMaxParticipants();
@@ -227,10 +223,11 @@ public class BusinessGroupServiceImpl implements BusinessGroupService, UserDataD
 		bg.setMinParticipants(minParticipants);
 		bg.setLastUsage(new Date(System.currentTimeMillis()));
 		//auto rank if possible
-		autoRankCheck(ureqIdentity, bg, previousMaxParticipants, syncIM);
+		List<BusinessGroupModifiedEvent.Deferred> events = new ArrayList<BusinessGroupModifiedEvent.Deferred>();
+		autoRankCheck(ureqIdentity, bg, previousMaxParticipants, events);
 		BusinessGroup updatedGroup = businessGroupDAO.merge(bg);
-
-		syncIM(syncIM, updatedGroup);
+		dbInstance.commit();
+		BusinessGroupModifiedEvent.fireDeferredEvents(events);
 		return updatedGroup;
 	}
 
@@ -238,7 +235,6 @@ public class BusinessGroupServiceImpl implements BusinessGroupService, UserDataD
 	public BusinessGroup updateBusinessGroup(Identity ureqIdentity, BusinessGroup group, String name, String description,
 			Integer minParticipants, Integer maxParticipants, Boolean waitingList, Boolean autoCloseRanks) {
 		
-		SyncUserListTask syncIM = new SyncUserListTask(group);
 		BusinessGroup bg = businessGroupDAO.loadForUpdate(group.getKey());
 		
 		Integer previousMaxParticipants = bg.getMaxParticipants();
@@ -255,11 +251,17 @@ public class BusinessGroupServiceImpl implements BusinessGroupService, UserDataD
 		bg.setAutoCloseRanksEnabled(autoCloseRanks);
 		bg.setLastUsage(new Date(System.currentTimeMillis()));
 		//auto rank if possible
-		autoRankCheck(ureqIdentity, bg, previousMaxParticipants, syncIM);
-		return businessGroupDAO.merge(bg);
+
+		List<BusinessGroupModifiedEvent.Deferred> events = new ArrayList<BusinessGroupModifiedEvent.Deferred>();
+		autoRankCheck(ureqIdentity, bg, previousMaxParticipants, events);
+		BusinessGroup mergedGroup = businessGroupDAO.merge(bg);
+		dbInstance.commit();
+		BusinessGroupModifiedEvent.fireDeferredEvents(events);
+		return mergedGroup;
 	}
 	
-	private void autoRankCheck(Identity identity, BusinessGroup updatedGroup, Integer previousMaxParticipants, SyncUserListTask syncIM) {
+	private void autoRankCheck(Identity identity, BusinessGroup updatedGroup, Integer previousMaxParticipants,
+			List<BusinessGroupModifiedEvent.Deferred> events) {
 		if(updatedGroup.getWaitingListEnabled() == null || !updatedGroup.getWaitingListEnabled().booleanValue()
 				|| updatedGroup.getAutoCloseRanksEnabled() == null || !updatedGroup.getAutoCloseRanksEnabled().booleanValue()) {
 			//do not check further, no waiting list, no automatic ranks
@@ -273,7 +275,7 @@ public class BusinessGroupServiceImpl implements BusinessGroupService, UserDataD
 		
 		if(currentMaxNumber > previousMaxNumber) {
 			//I can rank up some users
-			transferFirstIdentityFromWaitingToParticipant(identity, updatedGroup, null, syncIM);
+			transferFirstIdentityFromWaitingToParticipant(identity, updatedGroup, null, events);
 		}
 	}
 
@@ -305,7 +307,6 @@ public class BusinessGroupServiceImpl implements BusinessGroupService, UserDataD
 	}
 
 	@Override
-	@Transactional
 	public BusinessGroup setLastUsageFor(final Identity identity, final BusinessGroup group) {
 		BusinessGroup reloadedBusinessGroup = businessGroupDAO.loadForUpdate(group.getKey());
 		reloadedBusinessGroup.setLastUsage(new Date());
@@ -322,29 +323,27 @@ public class BusinessGroupServiceImpl implements BusinessGroupService, UserDataD
 			}
 			securityManager.touchMembership(identity, secGroups);
 		}
-		return businessGroupDAO.merge(reloadedBusinessGroup);
+		BusinessGroup mergedGroup = businessGroupDAO.merge(reloadedBusinessGroup);
+		dbInstance.commit();
+		return mergedGroup;
 	}
 
 	@Override
-	@Transactional
 	public BusinessGroup loadBusinessGroup(BusinessGroup group) {
 		return businessGroupDAO.load(group.getKey());
 	}
 
 	@Override
-	@Transactional
 	public BusinessGroup loadBusinessGroup(Long key) {
 		return businessGroupDAO.load(key);
 	}
 
 	@Override
-	@Transactional
 	public BusinessGroup loadBusinessGroup(OLATResource resource) {
 		return businessGroupDAO.load(resource.getResourceableId());
 	}
 
 	@Override
-	@Transactional
 	public List<BusinessGroup> loadBusinessGroups(Collection<Long> keys) {
 		return businessGroupDAO.load(keys);
 	}
@@ -355,13 +354,11 @@ public class BusinessGroupServiceImpl implements BusinessGroupService, UserDataD
 	}
 
 	@Override
-	@Transactional
 	public List<BusinessGroup> loadAllBusinessGroups() {
 		return businessGroupDAO.loadAll();
 	}
 
 	@Override
-	@Transactional
 	public BusinessGroup copyBusinessGroup(Identity identity, BusinessGroup sourceBusinessGroup, String targetName, String targetDescription,
 			Integer targetMin, Integer targetMax,  boolean copyAreas, boolean copyCollabToolConfig, boolean copyRights,
 			boolean copyOwners, boolean copyParticipants, boolean copyMemberVisibility, boolean copyWaitingList, boolean copyRelations) {
@@ -452,7 +449,6 @@ public class BusinessGroupServiceImpl implements BusinessGroupService, UserDataD
 	public BusinessGroup mergeBusinessGroups(final Identity ureqIdentity, BusinessGroup targetGroup,
 			final List<BusinessGroup> groupsToMerge, MailPackage mailing) {
 		groupsToMerge.remove(targetGroup);//to be sure
-		SyncUserListTask syncIM = new SyncUserListTask(targetGroup);
 		Roles ureqRoles = securityManager.getRoles(ureqIdentity);
 
 		targetGroup = businessGroupDAO.loadForUpdate(targetGroup.getKey());
@@ -495,21 +491,24 @@ public class BusinessGroupServiceImpl implements BusinessGroupService, UserDataD
 				}
 			}
 		}
+
+		List<BusinessGroupModifiedEvent.Deferred> events = new ArrayList<BusinessGroupModifiedEvent.Deferred>();
 		
 		for(Identity newOwner:newOwners) {
-			addOwner(ureqIdentity, ureqRoles, newOwner, targetGroup, mailing, syncIM);
+			addOwner(ureqIdentity, ureqRoles, newOwner, targetGroup, mailing, events);
 		}
 		for(Identity newParticipant:newParticipants) {
-			addParticipant(ureqIdentity, ureqRoles, newParticipant, targetGroup, mailing, syncIM);
+			addParticipant(ureqIdentity, ureqRoles, newParticipant, targetGroup, mailing, events);
 		}
 		for(Identity newWaiter:newWaiters) {
-			addToWaitingList(ureqIdentity, newWaiter, targetGroup, mailing);
+			addToWaitingList(ureqIdentity, newWaiter, targetGroup, mailing, events);
 		}
 			
-		syncIM(syncIM, targetGroup);
 		for(BusinessGroup group:groupsToMerge) {
 			deleteBusinessGroup(group);
 		}
+		dbInstance.commit();
+		BusinessGroupModifiedEvent.fireDeferredEvents(events);
 		return targetGroup;
 	}
 
@@ -524,53 +523,46 @@ public class BusinessGroupServiceImpl implements BusinessGroupService, UserDataD
 	
 	private void updateMembers(Identity ureqIdentity, Roles ureqRoles, MembershipModification membersMod,
 			BusinessGroup group, MailPackage mailing) {
-		final SyncUserListTask syncIM = new SyncUserListTask(group);
-		
 		group = businessGroupDAO.loadForUpdate(group.getKey());
 		
 		List<Identity> currentOwners = securityManager.getIdentitiesOfSecurityGroup(group.getOwnerGroup());
 		List<Identity> currentParticipants = securityManager.getIdentitiesOfSecurityGroup(group.getPartipiciantGroup());
 		List<Identity> currentWaitingList = securityManager.getIdentitiesOfSecurityGroup(group.getWaitingGroup());
+		List<BusinessGroupModifiedEvent.Deferred> events = new ArrayList<BusinessGroupModifiedEvent.Deferred>();
 
 		for(Identity owner:membersMod.getAddOwners()) {
 			if(!currentOwners.contains(owner)) {
-				addOwner(ureqIdentity, ureqRoles, owner, group, mailing, syncIM);
+				addOwner(ureqIdentity, ureqRoles, owner, group, mailing, events);
 			}
 		}
 		for(Identity participant:membersMod.getAddParticipants()) {
 			if(!currentParticipants.contains(participant)) {
-				addParticipant(ureqIdentity, ureqRoles, participant, group, mailing, syncIM);
+				addParticipant(ureqIdentity, ureqRoles, participant, group, mailing, events);
 			}
 		}
 		for(Identity waitingIdentity:membersMod.getAddToWaitingList()) {
 			if(!currentWaitingList.contains(waitingIdentity)) {
-				addToWaitingList(ureqIdentity, waitingIdentity, group, mailing);
+				addToWaitingList(ureqIdentity, waitingIdentity, group, mailing, events);
 			}
 		}
-		
-		//remove owners
-		List<Identity> ownerToRemove = new ArrayList<Identity>();
+
 		for(Identity removed:membersMod.getRemovedIdentities()) {
 			if(currentOwners.contains(removed)) {
-				ownerToRemove.add(removed);
+				removeOwner(ureqIdentity, removed, group, events);
 			}
 			if(currentParticipants.contains(removed)) {
-				removeParticipant(ureqIdentity, removed, group, mailing, syncIM);
+				removeParticipant(ureqIdentity, removed, group, mailing, events);
 			}
 			if(currentWaitingList.contains(removed)) {
-				removeFromWaitingList(ureqIdentity, removed, group, mailing);
+				removeFromWaitingList(ureqIdentity, removed, group, mailing, events);
 			}
 		}
-		removeOwners(ureqIdentity, ownerToRemove, group);
 		
-		//release lock
 		dbInstance.commit();
-		
-		syncIM(syncIM, group);
+		BusinessGroupModifiedEvent.fireDeferredEvents(events);
 	}
 
 	@Override
-	@Transactional
 	public void updateMemberships(final Identity ureqIdentity, final List<BusinessGroupMembershipChange> changes,
 			MailPackage mailing) {
 		Roles ureqRoles = securityManager.getRoles(ureqIdentity);
@@ -609,53 +601,49 @@ public class BusinessGroupServiceImpl implements BusinessGroupService, UserDataD
 				}
 			}
 		}
-		
+		List<BusinessGroupModifiedEvent.Deferred> events = new ArrayList<BusinessGroupModifiedEvent.Deferred>();
 		List<BusinessGroup> groups = loadBusinessGroups(changesMap.keySet());
 		for(BusinessGroup group:groups) {
 			BusinessGroupMembershipsChanges changesWrapper = changesMap.get(group.getKey());
-			SyncUserListTask syncIM = new SyncUserListTask(group);
 			group = businessGroupDAO.loadForUpdate(group.getKey());
 					
 			for(Identity id:changesWrapper.addToWaitingList) {
-				addToWaitingList(ureqIdentity, id, group, mailing);
+				addToWaitingList(ureqIdentity, id, group, mailing, events);
 			}
 			for(Identity id:changesWrapper.removeFromWaitingList) {
-				removeFromWaitingList(ureqIdentity, id, group, mailing);
+				removeFromWaitingList(ureqIdentity, id, group, mailing, events);
 			}
 			for(Identity id:changesWrapper.addTutors) {
-				addOwner(ureqIdentity, ureqRoles, id, group, mailing, syncIM);
+				addOwner(ureqIdentity, ureqRoles, id, group, mailing, events);
 			}
 			for(Identity id:changesWrapper.removeTutors) {
-				removeOwner(ureqIdentity, id, group, syncIM);
+				removeOwner(ureqIdentity, id, group, events);
 			}
 			for(Identity id:changesWrapper.addParticipants) {
-				addParticipant(ureqIdentity, ureqRoles, id, group, mailing, syncIM);
+				addParticipant(ureqIdentity, ureqRoles, id, group, mailing, events);
 			}
 			for(Identity id:changesWrapper.removeParticipants) {
-				removeParticipant(ureqIdentity, id, group, mailing, syncIM);
+				removeParticipant(ureqIdentity, id, group, mailing, events);
 			}
 			//release lock
 			dbInstance.commit();
-			
-			syncIM(syncIM, group);
 		}
+		
+		BusinessGroupModifiedEvent.fireDeferredEvents(events);
 	}
 
 	@Override
-	@Transactional
 	public BusinessGroup findBusinessGroup(SecurityGroup secGroup) {
 		return businessGroupDAO.findBusinessGroup(secGroup);
 	}
 
 	@Override
-	@Transactional(readOnly=true)
 	public List<BusinessGroup> findBusinessGroupsOwnedBy(Identity identity, OLATResource resource) {
 		SearchBusinessGroupParams params = new SearchBusinessGroupParams(identity, true, false);
 		return businessGroupDAO.findBusinessGroups(params, resource, 0, -1);
 	}
 	
 	@Override
-	@Transactional(readOnly=true)
 	public List<BusinessGroup> findBusinessGroupsAttendedBy(Identity identity, OLATResource resource) {
 		SearchBusinessGroupParams params = new SearchBusinessGroupParams(identity, false, true);
 		return businessGroupDAO.findBusinessGroups(params, resource, 0, -1);
@@ -667,7 +655,6 @@ public class BusinessGroupServiceImpl implements BusinessGroupService, UserDataD
 	}
 	
 	@Override
-	@Transactional(readOnly=true)
 	public int countBusinessGroups(SearchBusinessGroupParams params, OLATResource resource) {
 		if(params == null) {
 			params = new SearchBusinessGroupParams();
@@ -676,7 +663,6 @@ public class BusinessGroupServiceImpl implements BusinessGroupService, UserDataD
 	}
 
 	@Override
-	@Transactional(readOnly=true)
 	public List<BusinessGroup> findBusinessGroups(SearchBusinessGroupParams params, OLATResource resource,
 			int firstResult, int maxResults, BusinessGroupOrder... ordering) {
 		if(params == null) {
@@ -686,7 +672,6 @@ public class BusinessGroupServiceImpl implements BusinessGroupService, UserDataD
 	}
 
 	@Override
-	@Transactional(readOnly=true)
 	public int countBusinessGroupViews(SearchBusinessGroupParams params, OLATResource resource) {
 		if(params == null) {
 			params = new SearchBusinessGroupParams();
@@ -695,7 +680,6 @@ public class BusinessGroupServiceImpl implements BusinessGroupService, UserDataD
 	}
 
 	@Override
-	@Transactional(readOnly=true)
 	public List<BusinessGroupView> findBusinessGroupViews(SearchBusinessGroupParams params, OLATResource resource, int firstResult,
 			int maxResults, BusinessGroupOrder... ordering) {
 		if(params == null) {
@@ -705,27 +689,23 @@ public class BusinessGroupServiceImpl implements BusinessGroupService, UserDataD
 	}
 
 	@Override
-	@Transactional(readOnly=true)
 	public List<BusinessGroupView> findBusinessGroupViewsWithAuthorConnection(Identity author) {
 		return businessGroupDAO.findBusinessGroupWithAuthorConnection(author);
 	}
 
 	@Override
-	@Transactional(readOnly=true)
 	public List<Long> toGroupKeys(String groupNames, OLATResource resource) {
 		return businessGroupRelationDAO.toGroupKeys(groupNames, resource);
 	}
 
 	@Override
-	@Transactional(readOnly=true)
 	public int countContacts(Identity identity) {
-		return businessGroupDAO.countContacts(identity);
+		return contactDao.countContacts(identity);
 	}
 
 	@Override
-	@Transactional(readOnly=true)
 	public List<Identity> findContacts(Identity identity, int firstResult, int maxResults) {
-		return businessGroupDAO.findContacts(identity, firstResult, maxResults);
+		return contactDao.findContacts(identity, firstResult, maxResults);
 	}
 
 	@Override
@@ -778,12 +758,9 @@ public class BusinessGroupServiceImpl implements BusinessGroupService, UserDataD
 			// delete the publisher attached to this group (e.g. the forum and folder
 			// publisher)
 			notificationsManager.deletePublishersOf(group);
+
+			dbInstance.commit();
 	
-			// delete potential jabber group roster
-			if (InstantMessagingModule.isEnabled()) {
-				String groupID = InstantMessagingModule.getAdapter().createChatRoomString(group);
-				InstantMessagingModule.getAdapter().deleteRosterGroup(groupID);
-			}
 			log.audit("Deleted Business Group", group.toString());
 		} catch(DBRuntimeException dbre) {
 			Throwable th = dbre.getCause();
@@ -826,13 +803,14 @@ public class BusinessGroupServiceImpl implements BusinessGroupService, UserDataD
 		}
 		// now delete the group first
 		deleteBusinessGroup(businessGroupTodelete);
+		dbInstance.commit();
 		// finally send email
 		MailerWithTemplate mailer = MailerWithTemplate.getInstance();
 		MailTemplate mailTemplate = BGMailHelper.createDeleteGroupMailTemplate(businessGroupTodelete, deletedBy);
 		if (mailTemplate != null) {
-			//fxdiff VCRP-16: intern mail system
+			String metaId = UUID.randomUUID().toString();
 			MailContext context = new MailContextImpl(businessPath);
-			MailerResult mailerResult = mailer.sendMailAsSeparateMails(context, users, null, mailTemplate, null);
+			MailerResult mailerResult = mailer.sendMailAsSeparateMails(context, users, null, mailTemplate, null, metaId);
 			//MailHelper.printErrorsAndWarnings(mailerResult, wControl, locale);
 			return mailerResult;
 		}
@@ -852,24 +830,26 @@ public class BusinessGroupServiceImpl implements BusinessGroupService, UserDataD
 	@Override
 	public BusinessGroupAddResponse addOwners(Identity ureqIdentity, Roles ureqRoles, List<Identity> addIdentities,
 			BusinessGroup group, MailPackage mailing) {
-		SyncUserListTask syncIM = new SyncUserListTask(group);
 		BusinessGroupAddResponse response = new BusinessGroupAddResponse();
+		List<BusinessGroupModifiedEvent.Deferred> events = new ArrayList<BusinessGroupModifiedEvent.Deferred>();
 		for (Identity identity : addIdentities) {
 			group = loadBusinessGroup(group); // reload business group
 			if (securityManager.isIdentityPermittedOnResourceable(identity, Constants.PERMISSION_HASROLE, Constants.ORESOURCE_GUESTONLY)) {
 				response.getIdentitiesWithoutPermission().add(identity);
-			} else if(addOwner(ureqIdentity, ureqRoles, identity, group, mailing, syncIM)) {
+			} else if(addOwner(ureqIdentity, ureqRoles, identity, group, mailing, events)) {
 				response.getAddedIdentities().add(identity);
-				log.audit("added identity '" + identity.getName() + "' to securitygroup with key " + group.getOwnerGroup().getKey());
 			} else {
 				response.getIdentitiesAlreadyInGroup().add(identity);
 			}
 		}
-		syncIM(syncIM, group);
+		
+		dbInstance.commit();
+		BusinessGroupModifiedEvent.fireDeferredEvents(events);
 		return response;
 	}
 	
-	private boolean addOwner(Identity ureqIdentity, Roles ureqRoles, Identity identityToAdd, BusinessGroup group, MailPackage mailing, SyncUserListTask syncIM) {
+	private boolean addOwner(Identity ureqIdentity, Roles ureqRoles, Identity identityToAdd, BusinessGroup group, MailPackage mailing,
+			List<BusinessGroupModifiedEvent.Deferred> events) {
 		if (!securityManager.isIdentityInSecurityGroup(identityToAdd, group.getOwnerGroup())) {
 			boolean mustAccept = true;
 			if(ureqIdentity != null && ureqIdentity.equals(identityToAdd)) {
@@ -890,10 +870,12 @@ public class BusinessGroupServiceImpl implements BusinessGroupService, UserDataD
 							reservationDao.createReservation(identityToAdd, "group_coach", expiration, group.getResource());
 					if(reservation != null) {
 						BusinessGroupMailing.sendEmail(ureqIdentity, identityToAdd, group, MailType.addCoach, mailing, mailer);
+						// logging
+						log.audit("Idenitity(.key):" + ureqIdentity.getKey() + " added identity '" + identityToAdd.getName() + "' to securitygroup with key " + group.getOwnerGroup().getKey());
 					}
 				}
 			} else {
-				internalAddCoach(identityToAdd, group, syncIM);
+				internalAddCoach(ureqIdentity, identityToAdd, group, events);
 				BusinessGroupMailing.sendEmail(ureqIdentity, identityToAdd, group, MailType.addCoach, mailing, mailer);
 			}
 			return true;
@@ -901,20 +883,22 @@ public class BusinessGroupServiceImpl implements BusinessGroupService, UserDataD
 		return false;
 	}
 	
-	private void internalAddCoach(Identity identityToAdd, BusinessGroup group, SyncUserListTask syncIM) {
+	private void internalAddCoach(Identity ureqIdentity, Identity identityToAdd, BusinessGroup group,
+			List<BusinessGroupModifiedEvent.Deferred> events) {
+		
 		securityManager.addIdentityToSecurityGroup(identityToAdd, group.getOwnerGroup());
-		// add user to buddies rosters
-		if(syncIM != null) {
-			syncIM.addUserToAdd(identityToAdd.getName());
-		}
 		// notify currently active users of this business group
-		BusinessGroupModifiedEvent.fireModifiedGroupEvents(BusinessGroupModifiedEvent.IDENTITY_ADDED_EVENT, group, identityToAdd);
+		BusinessGroupModifiedEvent.Deferred event = BusinessGroupModifiedEvent.createDeferredEvent(BusinessGroupModifiedEvent.IDENTITY_ADDED_EVENT, group, identityToAdd);
+		if(events != null) {
+			events.add(event);
+		}
 		// do logging
 		ThreadLocalUserActivityLogger.log(GroupLoggingAction.GROUP_OWNER_ADDED, getClass(), LoggingResourceable.wrap(group), LoggingResourceable.wrap(identityToAdd));
+		log.audit("Idenitity(.key):" + ureqIdentity.getKey() + " added identity '" + identityToAdd.getName() + "' to securitygroup with key " + group.getOwnerGroup().getKey());
 	}
 	
 	private boolean addParticipant(Identity ureqIdentity, Roles ureqRoles, Identity identityToAdd, BusinessGroup group,
-			MailPackage mailing, SyncUserListTask syncIM) {
+			MailPackage mailing, List<BusinessGroupModifiedEvent.Deferred> events) {
 		
 		if(!securityManager.isIdentityInSecurityGroup(identityToAdd, group.getPartipiciantGroup())) {
 			boolean mustAccept = true;
@@ -939,7 +923,7 @@ public class BusinessGroupServiceImpl implements BusinessGroupService, UserDataD
 					}
 				}
 			} else {
-				internalAddParticipant(identityToAdd, group, syncIM);
+				internalAddParticipant(ureqIdentity, identityToAdd, group, events);
 				BusinessGroupMailing.sendEmail(ureqIdentity, identityToAdd, group, MailType.addParticipant, mailing, mailer);
 			}
 			return true;
@@ -955,100 +939,100 @@ public class BusinessGroupServiceImpl implements BusinessGroupService, UserDataD
 	 * @param group
 	 * @param syncIM
 	 */
-	private void internalAddParticipant(Identity identityToAdd, BusinessGroup group, SyncUserListTask syncIM) {
+	private void internalAddParticipant(Identity ureqIdentity, Identity identityToAdd, BusinessGroup group,
+			List<BusinessGroupModifiedEvent.Deferred> events) {
+		
 		securityManager.addIdentityToSecurityGroup(identityToAdd, group.getPartipiciantGroup());
-		
-		// add user to buddies rosters
-		if(syncIM != null) {
-			syncIM.addUserToAdd(identityToAdd.getName());
-		}
-		
+
 		// notify currently active users of this business group
-		BusinessGroupModifiedEvent.fireModifiedGroupEvents(BusinessGroupModifiedEvent.IDENTITY_ADDED_EVENT, group, identityToAdd);
+		BusinessGroupModifiedEvent.Deferred event = BusinessGroupModifiedEvent.createDeferredEvent(BusinessGroupModifiedEvent.IDENTITY_ADDED_EVENT, group, identityToAdd);
+		if(events != null) {
+			events.add(event);
+		}
 		// do logging
 		ThreadLocalUserActivityLogger.log(GroupLoggingAction.GROUP_PARTICIPANT_ADDED, getClass(), LoggingResourceable.wrap(group), LoggingResourceable.wrap(identityToAdd));
+		log.audit("Idenitity(.key):" + ureqIdentity.getKey() + " added identity '" + identityToAdd.getName() + "' to securitygroup with key " + group.getPartipiciantGroup().getKey());
 		// send notification mail in your controller!
 	}
 
 	@Override
-	@Transactional
 	public BusinessGroupAddResponse addParticipants(Identity ureqIdentity, Roles ureqRoles, List<Identity> addIdentities,
 			BusinessGroup group, MailPackage mailing) {	
 		BusinessGroupAddResponse response = new BusinessGroupAddResponse();
-		SyncUserListTask syncIM = new SyncUserListTask(group);
+		List<BusinessGroupModifiedEvent.Deferred> events = new ArrayList<BusinessGroupModifiedEvent.Deferred>();
 
 		BusinessGroup currBusinessGroup = businessGroupDAO.loadForUpdate(group.getKey());	
 		for (final Identity identity : addIdentities) {
 			if (securityManager.isIdentityPermittedOnResourceable(identity, Constants.PERMISSION_HASROLE, Constants.ORESOURCE_GUESTONLY)) {
 				response.getIdentitiesWithoutPermission().add(identity);
-			} else if(addParticipant(ureqIdentity, ureqRoles, identity, currBusinessGroup, mailing, syncIM)) {
+			} else if(addParticipant(ureqIdentity, ureqRoles, identity, currBusinessGroup, mailing, events)) {
 				response.getAddedIdentities().add(identity);
-				log.audit("added identity '" + identity.getName() + "' to securitygroup with key " + currBusinessGroup.getPartipiciantGroup().getKey());
 			} else {
 				response.getIdentitiesAlreadyInGroup().add(identity);
 			}
 		}
-
-		syncIM(syncIM, group);
+		dbInstance.commit();
+		BusinessGroupModifiedEvent.fireDeferredEvents(events);
 		return response;
 	}
 	
 	@Override
-	@Transactional
 	public void cancelPendingParticipation(Identity ureqIdentity, ResourceReservation reservation) {
 		if(reservation != null && "BusinessGroup".equals(reservation.getResource().getResourceableTypeName())) {
 			BusinessGroup group = businessGroupDAO.loadForUpdate(reservation.getResource().getResourceableId());
 			if(group != null) {
-				SyncUserListTask syncIM = new SyncUserListTask(group);
-				transferFirstIdentityFromWaitingToParticipant(ureqIdentity, group, null, null);
-				syncIM(syncIM, group);
+				List<BusinessGroupModifiedEvent.Deferred> events = new ArrayList<BusinessGroupModifiedEvent.Deferred>();
+				transferFirstIdentityFromWaitingToParticipant(ureqIdentity, group, null, events);
+				dbInstance.commit();
+				BusinessGroupModifiedEvent.fireDeferredEvents(events);
 			}
 		}
 	}
 
 	@Override
-	@Transactional
 	public void acceptPendingParticipation(Identity ureqIdentity, Identity reservationOwner, OLATResource resource) {
 		ResourceReservation reservation = acService.getReservation(reservationOwner, resource);
 		if(reservation != null && "BusinessGroup".equals(resource.getResourceableTypeName())) {
 			BusinessGroup group = businessGroupDAO.loadForUpdate(resource.getResourceableId());
+			List<BusinessGroupModifiedEvent.Deferred> events = new ArrayList<BusinessGroupModifiedEvent.Deferred>();
 			if(group != null) {
 				String type = reservation.getType();
 				if("group_coach".equals(type)) {
 					if(!securityManager.isIdentityInSecurityGroup(reservationOwner, group.getOwnerGroup())) {
-						SyncUserListTask syncIM = new SyncUserListTask(group);
-						internalAddCoach(reservationOwner, group, syncIM);
-						syncIM(syncIM, group);
+						internalAddCoach(ureqIdentity, reservationOwner, group, events);
 					}
 				} else if("group_participant".equals(type)) {
 					if(!securityManager.isIdentityInSecurityGroup(reservationOwner, group.getPartipiciantGroup())) {
-						SyncUserListTask syncIM = new SyncUserListTask(group);
-						internalAddParticipant(reservationOwner, group, syncIM);
-						syncIM(syncIM, group);
+						internalAddParticipant(ureqIdentity, reservationOwner, group, events);
 					}
 				}
 			}
 			reservationDao.deleteReservation(reservation);
+			dbInstance.commit();
+			BusinessGroupModifiedEvent.fireDeferredEvents(events);
 		}
 	}
 
-	private void removeParticipant(Identity ureqIdentity, Identity identity, BusinessGroup group, MailPackage mailing, SyncUserListTask syncIM) {
+	private void removeParticipant(Identity ureqIdentity, Identity identity, BusinessGroup group, MailPackage mailing,
+			List<BusinessGroupModifiedEvent.Deferred> events) {
 
 		boolean removed = securityManager.removeIdentityFromSecurityGroup(identity, group.getPartipiciantGroup());
 		if(removed) {
-			// remove user from buddies rosters
-			syncIM.addUserToRemove(identity.getName());
 			//remove subscriptions if user gets removed
 			removeSubscriptions(identity, group);
 			
 			// notify currently active users of this business group
-			BusinessGroupModifiedEvent.fireModifiedGroupEvents(BusinessGroupModifiedEvent.IDENTITY_REMOVED_EVENT, group, identity);
+			BusinessGroupModifiedEvent.Deferred event = BusinessGroupModifiedEvent.createDeferredEvent(BusinessGroupModifiedEvent.IDENTITY_REMOVED_EVENT, group, identity);
+			if(events != null) {
+				events.add(event);
+			}
 			// do logging
 			ThreadLocalUserActivityLogger.log(GroupLoggingAction.GROUP_PARTICIPANT_REMOVED, getClass(), LoggingResourceable.wrap(identity), LoggingResourceable.wrap(group));
+			log.audit("Idenitity(.key):" + ureqIdentity.getKey() + " removed identity '" + identity.getName() + "' from securitygroup with key " + group.getPartipiciantGroup().getKey());
 			// Check if a waiting-list with auto-close-ranks is configurated
 			if ( group.getWaitingListEnabled().booleanValue() && group.getAutoCloseRanksEnabled().booleanValue() ) {
 				// even when doOnlyPostRemovingStuff is set to true we really transfer the first Identity here
-				transferFirstIdentityFromWaitingToParticipant(ureqIdentity, group, null, syncIM);
+				transferFirstIdentityFromWaitingToParticipant(ureqIdentity, group, null, events);
 			}	
 			// send mail
 			BusinessGroupMailing.sendEmail(ureqIdentity, identity, group, MailType.removeParticipant, mailing, mailer);
@@ -1056,15 +1040,14 @@ public class BusinessGroupServiceImpl implements BusinessGroupService, UserDataD
 	}
 	
 	@Override
-	@Transactional
 	public void removeParticipants(Identity ureqIdentity, List<Identity> identities, BusinessGroup group, MailPackage mailing) {
-		final SyncUserListTask syncIM = new SyncUserListTask(group);
 		group = businessGroupDAO.loadForUpdate(group.getKey());
+		List<BusinessGroupModifiedEvent.Deferred> events = new ArrayList<BusinessGroupModifiedEvent.Deferred>();
 		for (Identity identity : identities) {
-		  removeParticipant(ureqIdentity, identity, group, mailing, syncIM);
-		  log.audit("removed identiy '" + identity.getName() + "' from securitygroup with key " + group.getPartipiciantGroup().getKey());
+		  removeParticipant(ureqIdentity, identity, group, mailing, events);
 		}
-		syncIM(syncIM, group);
+		dbInstance.commit();
+		BusinessGroupModifiedEvent.fireDeferredEvents(events);
 	}
 
 	@Override
@@ -1095,7 +1078,8 @@ public class BusinessGroupServiceImpl implements BusinessGroupService, UserDataD
 		for(Identity identity:identities) {
 			keyToIdentityMap.put(identity.getKey(), identity);
 		}
-		
+
+		List<BusinessGroupModifiedEvent.Deferred> events = new ArrayList<BusinessGroupModifiedEvent.Deferred>();
 		List<BusinessGroupMembershipViewImpl> memberships = businessGroupDAO.getMembershipInfoInBusinessGroups(groups, identities);
 		Collections.sort(memberships, new BusinessGroupMembershipViewComparator());
 
@@ -1111,11 +1095,9 @@ public class BusinessGroupServiceImpl implements BusinessGroupService, UserDataD
 			
 			Long groupKey = currentMembership.getGroupKey();
 			BusinessGroup nextGroup = businessGroupDAO.loadForUpdate(groupKey);
-			SyncUserListTask syncIM = new SyncUserListTask(nextGroup);
-			nextGroupMembership = removeGroupMembers(ureqIdentity, currentMembership, nextGroup, keyToIdentityMap, itMembership, mailing, syncIM);
+			nextGroupMembership = removeGroupMembers(ureqIdentity, currentMembership, nextGroup, keyToIdentityMap, itMembership, mailing, events);
 			//release the lock
 			dbInstance.commit();
-			syncIM(syncIM, nextGroup);
 		}
 
 		List<ResourceReservation> reservations = acService.getReservations(groupResources);
@@ -1124,11 +1106,13 @@ public class BusinessGroupServiceImpl implements BusinessGroupService, UserDataD
 				reservationDao.deleteReservation(reservation);
 			}
 		}
+		dbInstance.commit();
+		BusinessGroupModifiedEvent.fireDeferredEvents(events);
 	}
 	
 	private final BusinessGroupMembershipViewImpl removeGroupMembers(Identity ureqIdentity, BusinessGroupMembershipViewImpl currentMembership,
 			BusinessGroup currentGroup, Map<Long,Identity> keyToIdentityMap, Iterator<BusinessGroupMembershipViewImpl> itMembership,
-			MailPackage mailing, SyncUserListTask syncIM) {
+			MailPackage mailing, List<BusinessGroupModifiedEvent.Deferred> events) {
 
 		BusinessGroupMembershipViewImpl previsousComputedMembership = currentMembership;
 		BusinessGroupMembershipViewImpl membership;
@@ -1147,13 +1131,13 @@ public class BusinessGroupServiceImpl implements BusinessGroupService, UserDataD
 			if(currentGroup.getKey().equals(membership.getGroupKey())) {
 				Identity id = keyToIdentityMap.get(membership.getIdentityKey());
 				if(membership.getOwnerGroupKey() != null) {
-					removeOwner(ureqIdentity, id, currentGroup, syncIM);
+					removeOwner(ureqIdentity, id, currentGroup, events);
 				}
 				if(membership.getParticipantGroupKey() != null) {
-					removeParticipant(ureqIdentity, id, currentGroup, mailing, syncIM);
+					removeParticipant(ureqIdentity, id, currentGroup, mailing, events);
 				}
 				if(membership.getWaitingGroupKey() != null) {
-					removeFromWaitingList(ureqIdentity, id, currentGroup, mailing);
+					removeFromWaitingList(ureqIdentity, id, currentGroup, mailing, events);
 				}
 			} else {
 				return membership;
@@ -1163,13 +1147,18 @@ public class BusinessGroupServiceImpl implements BusinessGroupService, UserDataD
 		return null;
 	}
 
-	private void addToWaitingList(Identity ureqIdentity, Identity identity, BusinessGroup group, MailPackage mailing) {
+	private void addToWaitingList(Identity ureqIdentity, Identity identity, BusinessGroup group, MailPackage mailing,
+			List<BusinessGroupModifiedEvent.Deferred> events) {
 		securityManager.addIdentityToSecurityGroup(identity, group.getWaitingGroup());
 
 		// notify currently active users of this business group
-		BusinessGroupModifiedEvent.fireModifiedGroupEvents(BusinessGroupModifiedEvent.IDENTITY_ADDED_EVENT, group, identity);
+		BusinessGroupModifiedEvent.Deferred event = BusinessGroupModifiedEvent.createDeferredEvent(BusinessGroupModifiedEvent.IDENTITY_ADDED_EVENT, group, identity);
+		if(events != null) {
+			events.add(event);
+		}
 		// do logging
 		ThreadLocalUserActivityLogger.log(GroupLoggingAction.GROUP_TO_WAITING_LIST_ADDED, getClass(), LoggingResourceable.wrap(identity));
+		log.audit("Idenitity(.key):" + ureqIdentity.getKey() + " added identity '" + identity.getName() + "' to securitygroup with key " + group.getPartipiciantGroup().getKey());
 		// send mail
 		BusinessGroupMailing.sendEmail(ureqIdentity, identity, group, MailType.addToWaitingList, mailing, mailer);
 	}
@@ -1178,6 +1167,7 @@ public class BusinessGroupServiceImpl implements BusinessGroupService, UserDataD
 	public BusinessGroupAddResponse addToWaitingList(Identity ureqIdentity, List<Identity> addIdentities, BusinessGroup group, MailPackage mailing) {
 		BusinessGroupAddResponse response = new BusinessGroupAddResponse();
 		BusinessGroup currBusinessGroup = businessGroupDAO.loadForUpdate(group.getKey()); // reload business group
+		List<BusinessGroupModifiedEvent.Deferred> events = new ArrayList<BusinessGroupModifiedEvent.Deferred>();
 
 		for (final Identity identity : addIdentities) {	
 			if (securityManager.isIdentityPermittedOnResourceable(identity, Constants.PERMISSION_HASROLE, Constants.ORESOURCE_GUESTONLY)) {
@@ -1191,32 +1181,39 @@ public class BusinessGroupServiceImpl implements BusinessGroupService, UserDataD
 				response.getIdentitiesAlreadyInGroup().add(identity);
 			} else {
 				// identity has permission and is not already in group => add it
-				addToWaitingList(ureqIdentity, identity, currBusinessGroup, mailing);
+				addToWaitingList(ureqIdentity, identity, currBusinessGroup, mailing, events);
 				response.getAddedIdentities().add(identity);
-				log.audit("added identity '" + identity.getName() + "' to securitygroup with key " + currBusinessGroup.getPartipiciantGroup().getKey());
 			}
 		}
+		dbInstance.commit();
+		BusinessGroupModifiedEvent.fireDeferredEvents(events);
 		return response;
 	}
 
-	private final void removeFromWaitingList(Identity ureqIdentity, Identity identity, BusinessGroup group, MailPackage mailing) {
+	private final void removeFromWaitingList(Identity ureqIdentity, Identity identity, BusinessGroup group, MailPackage mailing,
+			List<BusinessGroupModifiedEvent.Deferred> events) {
 		securityManager.removeIdentityFromSecurityGroup(identity, group.getWaitingGroup());
 		// notify currently active users of this business group
-		BusinessGroupModifiedEvent.fireModifiedGroupEvents(BusinessGroupModifiedEvent.IDENTITY_REMOVED_EVENT, group, identity);
+		BusinessGroupModifiedEvent.Deferred event = BusinessGroupModifiedEvent.createDeferredEvent(BusinessGroupModifiedEvent.IDENTITY_REMOVED_EVENT, group, identity);
+		if(events != null) {
+			events.add(event);
+		}
 		// do logging
 		ThreadLocalUserActivityLogger.log(GroupLoggingAction.GROUP_FROM_WAITING_LIST_REMOVED, getClass(), LoggingResourceable.wrap(identity));
+		log.audit("Idenitity(.key):" + ureqIdentity.getKey() + " removed identity '" + identity.getName() + "' from securitygroup with key " + group.getOwnerGroup().getKey());
 		// send mail
 		BusinessGroupMailing.sendEmail(ureqIdentity, identity, group, MailType.removeToWaitingList, mailing, mailer);
 	}
 	
 	@Override
 	public void removeFromWaitingList(Identity ureqIdentity, List<Identity> identities, BusinessGroup businessGroup, MailPackage mailing) {
+		List<BusinessGroupModifiedEvent.Deferred> events = new ArrayList<BusinessGroupModifiedEvent.Deferred>();
 		businessGroup = businessGroupDAO.loadForUpdate(businessGroup.getKey());
-		
 		for (Identity identity : identities) {
-		  removeFromWaitingList(ureqIdentity, identity, businessGroup, mailing);
-		  log.audit("removed identiy '" + identity.getName() + "' from securitygroup with key " + businessGroup.getOwnerGroup().getKey());
+		  removeFromWaitingList(ureqIdentity, identity, businessGroup, mailing, events);
 		}
+		dbInstance.commit();
+		BusinessGroupModifiedEvent.fireDeferredEvents(events);
 	}
 	
 	@Override
@@ -1240,47 +1237,24 @@ public class BusinessGroupServiceImpl implements BusinessGroupService, UserDataD
 		Roles ureqRoles = securityManager.getRoles(ureqIdentity);
 		
 		BusinessGroupAddResponse response = new BusinessGroupAddResponse();
-		SyncUserListTask syncIM = new SyncUserListTask(currBusinessGroup);
+		List<BusinessGroupModifiedEvent.Deferred> events = new ArrayList<BusinessGroupModifiedEvent.Deferred>();
 		currBusinessGroup = businessGroupDAO.loadForUpdate(currBusinessGroup.getKey());
 		
 		for (Identity identity : identities) {
 			// check if identity is already in participant
 			if (!securityManager.isIdentityInSecurityGroup(identity,currBusinessGroup.getPartipiciantGroup()) ) {
 				// Identity is not in participant-list => move idenity from waiting-list to participant-list
-				addParticipant(ureqIdentity, ureqRoles, identity, currBusinessGroup, mailing, syncIM);
-				removeFromWaitingList(ureqIdentity, identity, currBusinessGroup, mailing);
+				addParticipant(ureqIdentity, ureqRoles, identity, currBusinessGroup, mailing, events);
+				removeFromWaitingList(ureqIdentity, identity, currBusinessGroup, mailing, events);
 				response.getAddedIdentities().add(identity);
 				// notification mail is handled in controller
 			} else {
 				response.getIdentitiesAlreadyInGroup().add(identity);
 			}
 		}
-		
-		syncIM(syncIM, currBusinessGroup);
-		return response;
-	}
 
-	@Override
-	public BusinessGroupAddResponse addToSecurityGroupAndFireEvent(Identity ureqIdentity, List<Identity> addIdentities, SecurityGroup secGroup) {
-		BusinessGroupAddResponse response = new BusinessGroupAddResponse();
-		for (Identity identity : addIdentities) {
-			if (securityManager.isIdentityPermittedOnResourceable(identity, Constants.PERMISSION_HASROLE, Constants.ORESOURCE_GUESTONLY)) {
-				response.getIdentitiesWithoutPermission().add(identity);
-			}
-			// Check if identity is already in group. make a db query in case
-			// someone in another workflow already added this user to this group. if
-			// found, add user to model
-			else if (securityManager.isIdentityInSecurityGroup(identity, secGroup)) {
-				response.getIdentitiesAlreadyInGroup().add(identity);
-			} else {
-	      // identity has permission and is not already in group => add it
-				securityManager.addIdentityToSecurityGroup(identity, secGroup);
-				ThreadLocalUserActivityLogger.log(GroupLoggingAction.GROUP_OWNER_ADDED, getClass(), LoggingResourceable.wrap(identity));
-				
-				response.getAddedIdentities().add(identity);
-				log.audit("added identity '" + identity.getName() + "' to securitygroup with key " + secGroup.getKey());
-			}
-		}
+		dbInstance.commit();
+		BusinessGroupModifiedEvent.fireDeferredEvents(events);
 		return response;
 	}
 	
@@ -1288,7 +1262,7 @@ public class BusinessGroupServiceImpl implements BusinessGroupService, UserDataD
 	public void removeAndFireEvent(Identity ureqIdentity, List<Identity> identities, SecurityGroup secGroup) {
 		for (Identity identity : identities) {
 			securityManager.removeIdentityFromSecurityGroup(identity, secGroup);
-		  log.audit("removed identiy '" + identity.getName() + "' from securitygroup with key " + secGroup.getKey());
+		  log.audit("Idenitity(.key):" + ureqIdentity.getKey() + " removed identity '" + identity.getName() + "' from securitygroup with key " + secGroup.getKey());
 		}
 	}
 	
@@ -1299,13 +1273,13 @@ public class BusinessGroupServiceImpl implements BusinessGroupService, UserDataD
 		
 		log.info("doEnroll start: group=" + OresHelper.createStringRepresenting(group), identity.getName());
 		EnrollState enrollStatus = new EnrollState();
+		List<BusinessGroupModifiedEvent.Deferred> events = new ArrayList<BusinessGroupModifiedEvent.Deferred>();
 
 		ResourceReservation reservation = acService.getReservation(identity, reloadedGroup.getResource());
-		SyncUserListTask syncIM = new SyncUserListTask(reloadedGroup);
 		
 		//reservation has the highest priority over max participant or other settings
 		if(reservation != null) {
-			addParticipant(ureqIdentity, ureqRoles, identity, reloadedGroup, mailing, syncIM);
+			addParticipant(ureqIdentity, ureqRoles, identity, reloadedGroup, mailing, events);
 			enrollStatus.setEnrolled(BGMembership.participant);
 			log.info("doEnroll (reservation) - setIsEnrolled ", identity.getName());
 			if(reservation != null) {
@@ -1319,7 +1293,7 @@ public class BusinessGroupServiceImpl implements BusinessGroupService, UserDataD
 			if (reservation == null && (participantsCounter + reservations) >= reloadedGroup.getMaxParticipants().intValue()) {
 				// already full, show error and updated choose page again
 				if (reloadedGroup.getWaitingListEnabled().booleanValue()) {
-					addToWaitingList(ureqIdentity, identity, reloadedGroup, mailing);
+					addToWaitingList(ureqIdentity, identity, reloadedGroup, mailing, events);
 					enrollStatus.setEnrolled(BGMembership.waiting);
 				} else {
 					// No Waiting List => List is full
@@ -1328,18 +1302,19 @@ public class BusinessGroupServiceImpl implements BusinessGroupService, UserDataD
 				}
 			} else {
 				//enough place
-				addParticipant(ureqIdentity, ureqRoles, identity, reloadedGroup, mailing, syncIM);
+				addParticipant(ureqIdentity, ureqRoles, identity, reloadedGroup, mailing, events);
 				enrollStatus.setEnrolled(BGMembership.participant);
 				log.info("doEnroll - setIsEnrolled ", identity.getName());
 			}
 		} else {
 			if (log.isDebug()) log.debug("doEnroll as participant beginTransaction");
-			addParticipant(ureqIdentity, ureqRoles, identity, reloadedGroup, mailing, syncIM);
+			addParticipant(ureqIdentity, ureqRoles, identity, reloadedGroup, mailing, events);
 			enrollStatus.setEnrolled(BGMembership.participant);						
 			if (log.isDebug()) log.debug("doEnroll as participant committed");
 		}
-		
-		syncIM(syncIM, reloadedGroup);
+
+		dbInstance.commit();
+		BusinessGroupModifiedEvent.fireDeferredEvents(events);
 		log.info("doEnroll end", identity.getName());
 		return enrollStatus;
 	}
@@ -1352,7 +1327,7 @@ public class BusinessGroupServiceImpl implements BusinessGroupService, UserDataD
 	 * @param syncIM
 	 */
 	private void transferFirstIdentityFromWaitingToParticipant(Identity ureqIdentity, BusinessGroup group, 
-			MailPackage mailing, SyncUserListTask syncIM) {
+			MailPackage mailing, List<BusinessGroupModifiedEvent.Deferred> events) {
 
 		// Check if waiting-list is enabled and auto-rank-up
 		if (group.getWaitingListEnabled() != null && group.getWaitingListEnabled().booleanValue()
@@ -1385,8 +1360,8 @@ public class BusinessGroupServiceImpl implements BusinessGroupService, UserDataD
 							//            This is needed to make sure the targetIdentity ends up in the o_loggingtable
 							ThreadLocalUserActivityLogger.setStickyActionType(ActionType.admin);
 							MailPackage subMailing = new MailPackage(false);//doesn0t send these emails but a specific one
-							addParticipant(ureqIdentity, null, firstWaitingListIdentity, group, subMailing, syncIM);
-							removeFromWaitingList(ureqIdentity, firstWaitingListIdentity, group, subMailing);
+							addParticipant(ureqIdentity, null, firstWaitingListIdentity, group, subMailing, events);
+							removeFromWaitingList(ureqIdentity, firstWaitingListIdentity, group, subMailing, events);
 						} finally {
 							ThreadLocalUserActivityLogger.setStickyActionType(formerStickyActionType);
 						}
@@ -1399,57 +1374,38 @@ public class BusinessGroupServiceImpl implements BusinessGroupService, UserDataD
 		}
 	}
 	
-	private void syncIM(SyncUserListTask task, BusinessGroup group) {
-		if (!task.isEmpty() && InstantMessagingModule.isEnabled()) {
-			//evaluate whether to sync or not
-			IMConfigSync syncGroup = InstantMessagingModule.getAdapter().getConfig().getSyncGroupsConfig();
-			//only sync when a group is a certain type and this type is configured that you want to sync it
-			if(syncGroup.equals(IMConfigSync.allGroups) || 
-					(syncGroup.equals(IMConfigSync.perConfig) && isChatEnableFor(group))) { 
-
-				//course group enrolment is time critial so we move this in an separate thread and catch all failures 
-				try {
-					TaskExecutorManager.getInstance().runTask(task);
-				} catch (Exception e) {
-					log.error("Error trying to sync the roster of the business group: " + group, e);
-				}
-			}
-		}
-	}
-	
-	private boolean isChatEnableFor(BusinessGroup group) {
-		CollaborationTools tools = CollaborationToolsFactory.getInstance().getOrCreateCollaborationTools(group);
-		if(tools == null) {
-			return false;
-		}
-		return tools.isToolEnabled(CollaborationTools.TOOL_CHAT);
-	}
-	
-	private void removeOwner(Identity ureqIdentity, Identity identityToRemove, BusinessGroup group, SyncUserListTask syncIM) {
+	private void removeOwner(Identity ureqIdentity, Identity identityToRemove, BusinessGroup group,
+			List<BusinessGroupModifiedEvent.Deferred> events) {
+		
 		securityManager.removeIdentityFromSecurityGroup(identityToRemove, group.getOwnerGroup());
-		// remove user from buddies rosters
-		syncIM.addUserToRemove(identityToRemove.getName());
 		
 		//remove subsciptions if user gets removed
 		removeSubscriptions(identityToRemove, group);
 		
 		// notify currently active users of this business group
+		BusinessGroupModifiedEvent.Deferred event;
 		if (identityToRemove.getKey().equals(ureqIdentity.getKey()) ) {
-			BusinessGroupModifiedEvent.fireModifiedGroupEvents(BusinessGroupModifiedEvent.MYSELF_ASOWNER_REMOVED_EVENT, group, identityToRemove);
+			event = BusinessGroupModifiedEvent.createDeferredEvent(BusinessGroupModifiedEvent.MYSELF_ASOWNER_REMOVED_EVENT, group, identityToRemove);
 		} else {
-  		BusinessGroupModifiedEvent.fireModifiedGroupEvents(BusinessGroupModifiedEvent.IDENTITY_REMOVED_EVENT, group, identityToRemove);
+  		event = BusinessGroupModifiedEvent.createDeferredEvent(BusinessGroupModifiedEvent.IDENTITY_REMOVED_EVENT, group, identityToRemove);
 		}
+		if(events != null) {
+			events.add(event);
+		}
+		
 		// do logging
+		log.audit("Idenitity(.key):" + ureqIdentity.getKey() + " removed identiy '" + identityToRemove.getName() + "' from securitygroup with key " + group.getOwnerGroup().getKey());
 		ThreadLocalUserActivityLogger.log(GroupLoggingAction.GROUP_OWNER_REMOVED, getClass(), LoggingResourceable.wrap(group), LoggingResourceable.wrap(identityToRemove));
 	}
 	
 	@Override
 	public void removeOwners(Identity ureqIdentity, Collection<Identity> identitiesToRemove, BusinessGroup group) {
-		SyncUserListTask syncIM = new SyncUserListTask(group);
+		List<BusinessGroupModifiedEvent.Deferred> events = new ArrayList<BusinessGroupModifiedEvent.Deferred>();
 		for(Identity identityToRemove:identitiesToRemove) {
-			removeOwner(ureqIdentity, identityToRemove, group, syncIM);
+			removeOwner(ureqIdentity, identityToRemove, group, events);
 		}
-		syncIM(syncIM, group);
+		dbInstance.commit();
+		BusinessGroupModifiedEvent.fireDeferredEvents(events);
 	}
 	
 	private void removeSubscriptions(Identity identity, BusinessGroup group) {
@@ -1466,19 +1422,16 @@ public class BusinessGroupServiceImpl implements BusinessGroupService, UserDataD
 	}
 	
 	@Override
-	@Transactional(readOnly=true)
 	public boolean hasResources(BusinessGroup group) {
 		return businessGroupRelationDAO.countResources(group) > 0;
 	}
 	
 	@Override
-	@Transactional(readOnly=true)
 	public boolean hasResources(List<BusinessGroup> groups) {
 		return businessGroupRelationDAO.countResources(groups) > 0;
 	}
 
 	@Override
-	@Transactional
 	public void addResourceTo(BusinessGroup group, RepositoryEntry re) {
 		businessGroupRelationDAO.addRelationToResource(group, re.getOlatResource());
 		//add author permission
@@ -1489,7 +1442,6 @@ public class BusinessGroupServiceImpl implements BusinessGroupService, UserDataD
 	}
 
 	@Override
-	@Transactional
 	public void addResourcesTo(List<BusinessGroup> groups, List<RepositoryEntry> resources) {
 		if(groups == null || groups.isEmpty()) return;
 		if(resources == null || resources.isEmpty()) return;
@@ -1555,13 +1507,12 @@ public class BusinessGroupServiceImpl implements BusinessGroupService, UserDataD
 	}
 
 	@Override
-	@Transactional
 	public void dedupMembers(Identity ureqIdentity, RepositoryEntry entry, boolean coaches, boolean participants) {
 		dedupSingleRepositoryentry(ureqIdentity, entry, coaches, participants, false);
+		dbInstance.commit();
 	}
 	
 	@Override
-	@Transactional(readOnly=true)
 	public int countDuplicateMembers(RepositoryEntry entry, boolean coaches, boolean participants) {
 		return dedupSingleRepositoryentry(null, entry, coaches, participants, true);
 	}
@@ -1613,7 +1564,6 @@ public class BusinessGroupServiceImpl implements BusinessGroupService, UserDataD
 	}
 
 	@Override
-	@Transactional
 	public void removeResourceFrom(List<BusinessGroup> groups, RepositoryEntry re) {
 		if(groups == null || groups.isEmpty()) {
 			return; // nothing to do
@@ -1628,13 +1578,13 @@ public class BusinessGroupServiceImpl implements BusinessGroupService, UserDataD
 			securityManager.deletePolicy(group.getOwnerGroup(), Constants.PERMISSION_COACH, re.getOlatResource());
 			securityManager.deletePolicy(group.getPartipiciantGroup(), Constants.PERMISSION_PARTI, re.getOlatResource());
 			if(count++ % 20 == 0) {
-				dbInstance.intermediateCommit();
+				dbInstance.commit();
 			}
 		}
+		dbInstance.commit();
 	}
 	
 	@Override
-	@Transactional
 	public void removeResource(OLATResource resource) {
 		SearchBusinessGroupParams params = new SearchBusinessGroupParams();
 		List<BusinessGroup> groups = findBusinessGroups(params, resource, 0, -1);
@@ -1646,34 +1596,30 @@ public class BusinessGroupServiceImpl implements BusinessGroupService, UserDataD
 			securityManager.deletePolicy(group.getOwnerGroup(), Constants.PERMISSION_COACH, resource);
 			securityManager.deletePolicy(group.getPartipiciantGroup(), Constants.PERMISSION_PARTI, resource);
 		}
+		dbInstance.commit();
 	}
 
 	@Override
-	@Transactional(readOnly=true)
 	public List<OLATResource> findResources(Collection<BusinessGroup> groups, int firstResult, int maxResults) {
 		return businessGroupRelationDAO.findResources(groups, firstResult, maxResults);
 	}
 
 	@Override
-	@Transactional(readOnly=true)
 	public List<RepositoryEntry> findRepositoryEntries(Collection<BusinessGroup> groups, int firstResult, int maxResults) {
 		return businessGroupRelationDAO.findRepositoryEntries(groups, firstResult, maxResults);
 	}
 
 	@Override
-	@Transactional(readOnly=true)
 	public List<RepositoryEntryShort> findShortRepositoryEntries(Collection<BusinessGroupShort> groups, int firstResult, int maxResults) {
 		return businessGroupRelationDAO.findShortRepositoryEntries(groups, firstResult, maxResults);
 	}
 	
 	@Override
-	@Transactional(readOnly=true)
 	public List<BGRepositoryEntryRelation> findRelationToRepositoryEntries(Collection<Long> groupKeys, int firstResult, int maxResults) {
 		return businessGroupRelationDAO.findRelationToRepositoryEntries(groupKeys, firstResult, maxResults);
 	}
 
 	@Override
-	@Transactional(readOnly=true)
 	public boolean isIdentityInBusinessGroup(Identity identity, BusinessGroup businessGroup) {
 		SecurityGroup participants = businessGroup.getPartipiciantGroup();
 		if (participants != null && securityManager.isIdentityInSecurityGroup(identity, participants)) {
@@ -1687,7 +1633,6 @@ public class BusinessGroupServiceImpl implements BusinessGroupService, UserDataD
 	}
 
 	@Override
-	@Transactional(readOnly=true)
 	public List<BusinessGroupMembership> getBusinessGroupMembership(Collection<Long> businessGroups, Identity... identity) {
 		List<BusinessGroupMembershipViewImpl> views =
 				businessGroupDAO.getMembershipInfoInBusinessGroups(businessGroups, identity);
@@ -1733,7 +1678,6 @@ public class BusinessGroupServiceImpl implements BusinessGroupService, UserDataD
 	}
 	
 	@Override
-	@Transactional(readOnly=true)
 	public boolean isIdentityInBusinessGroup(Identity identity, Long groupKey,
 			boolean ownedById, boolean attendedById, OLATResource resource) {
 		return businessGroupRelationDAO.isIdentityInBusinessGroup(identity, groupKey, ownedById, attendedById, resource);

@@ -264,13 +264,14 @@ public class BaseSecurityManagerTest extends OlatTestCase {
 	@Test
 	public void testUpdateRoles_giveAllRights() {
 		Identity id1 = JunitTestHelper.createAndPersistIdentityAsUser( "roles-" + UUID.randomUUID().toString());
+		Identity id2 = JunitTestHelper.createAndPersistIdentityAsUser( "roles-" + UUID.randomUUID().toString());
 		Roles roles = securityManager.getRoles(id1);
 		Assert.assertNotNull(roles);
 		dbInstance.commitAndCloseSession();
 
 		//update roles
 		Roles modifiedRoles = new Roles(true, true, true, true, false, true, false);
-		securityManager.updateRoles(id1, modifiedRoles);
+		securityManager.updateRoles(id2, id1, modifiedRoles);
 		dbInstance.commitAndCloseSession();
 		
 		//check roles
@@ -291,13 +292,14 @@ public class BaseSecurityManagerTest extends OlatTestCase {
 	@Test
 	public void testUpdateRoles_someRights() {
 		Identity id1 = JunitTestHelper.createAndPersistIdentityAsUser( "roles-" + UUID.randomUUID().toString());
+		Identity id2 = JunitTestHelper.createAndPersistIdentityAsUser( "roles-" + UUID.randomUUID().toString());
 		Roles roles = securityManager.getRoles(id1);
 		Assert.assertNotNull(roles);
 		dbInstance.commitAndCloseSession();
 
 		//update roles
 		Roles modifiedRoles = new Roles(false, true, false, true, false, false, false);
-		securityManager.updateRoles(id1, modifiedRoles);
+		securityManager.updateRoles(id2, id1, modifiedRoles);
 		dbInstance.commitAndCloseSession();
 		
 		//check roles
@@ -318,13 +320,14 @@ public class BaseSecurityManagerTest extends OlatTestCase {
 	@Test
 	public void testUpdateRoles_guest() {
 		Identity invitee = JunitTestHelper.createAndPersistIdentityAsUser("invitee-" + UUID.randomUUID().toString());
+		Identity user = JunitTestHelper.createAndPersistIdentityAsUser("invitee-" + UUID.randomUUID().toString());
 		Roles roles = securityManager.getRoles(invitee);
 		Assert.assertNotNull(roles);
 		dbInstance.commitAndCloseSession();
 
 		//update roles
 		Roles modifiedRoles = new Roles(true, true, true, true, true, true, false);
-		securityManager.updateRoles(invitee, modifiedRoles);
+		securityManager.updateRoles(user, invitee, modifiedRoles);
 		dbInstance.commitAndCloseSession();
 
 		//check roles
@@ -759,5 +762,87 @@ public class BaseSecurityManagerTest extends OlatTestCase {
 		Assert.assertEquals(1, policies_3.size());
 		Assert.assertTrue(policies_3.contains(policy_3_3));
 		Assert.assertFalse(policies_3.contains(policy_1_3));
+	}
+	
+	@Test
+	public void isIdentityPermittedOnResourceable_checkType() {
+		//create an identity, a security group, a resource and give the identity some
+		//permissions on the resource
+		SecurityGroup secGroup = securityManager.createAndPersistSecurityGroup();
+		OLATResource resource = JunitTestHelper.createRandomResource();
+		Identity id = JunitTestHelper.createAndPersistIdentityAsUser("test-ipor-1-" + UUID.randomUUID().toString());
+		securityManager.addIdentityToSecurityGroup(id, secGroup);
+		securityManager.createAndPersistPolicy(secGroup, "test.ipor-1_1", resource);
+		securityManager.createAndPersistPolicy(secGroup, "test.ipor-1_2", resource);
+		dbInstance.commitAndCloseSession();
+		
+		//check
+		boolean hasIpor_1_1 = securityManager.isIdentityPermittedOnResourceable(id, "test.ipor-1_1", resource);
+		Assert.assertTrue(hasIpor_1_1);
+		boolean hasIpor_1_2 = securityManager.isIdentityPermittedOnResourceable(id, "test.ipor-1_2", resource);
+		Assert.assertTrue(hasIpor_1_2);
+		boolean hasIpor_1_3 = securityManager.isIdentityPermittedOnResourceable(id, "test.ipor-1_3", resource);
+		Assert.assertFalse(hasIpor_1_3);
+		
+		//check type
+		boolean hasIpor_1_1_ct = securityManager.isIdentityPermittedOnResourceable(id, "test.ipor-1_1", resource, true);
+		Assert.assertTrue(hasIpor_1_1_ct);
+		boolean hasIpor_1_2_ct = securityManager.isIdentityPermittedOnResourceable(id, "test.ipor-1_2", resource, true);
+		Assert.assertTrue(hasIpor_1_2_ct);
+		boolean hasIpor_1_3_ct = securityManager.isIdentityPermittedOnResourceable(id, "test.ipor-1_3", resource, true);
+		Assert.assertFalse(hasIpor_1_3_ct);
+	}
+	
+	@Test
+	public void isIdentityPermittedOnResourceable_noCheckType() {
+		//create an identity, a security group, a resource and give the identity some
+		//permissions on the resource
+		SecurityGroup secGroup = securityManager.createAndPersistSecurityGroup();
+		OLATResource resource = JunitTestHelper.createRandomResource();
+		Identity id = JunitTestHelper.createAndPersistIdentityAsUser("test-ipornc-1-" + UUID.randomUUID().toString());
+		securityManager.addIdentityToSecurityGroup(id, secGroup);
+		securityManager.createAndPersistPolicy(secGroup, "test.ipornc-1_1", resource);
+		securityManager.createAndPersistPolicy(secGroup, "test.ipornc-1_2", resource);
+		dbInstance.commitAndCloseSession();
+		
+		//check
+		boolean hasIpor_1_1 = securityManager.isIdentityPermittedOnResourceable(id, "test.ipornc-1_1", resource, false);
+		Assert.assertTrue(hasIpor_1_1);
+		boolean hasIpor_1_2 = securityManager.isIdentityPermittedOnResourceable(id, "test.ipornc-1_2", resource, false);
+		Assert.assertTrue(hasIpor_1_2);
+		boolean hasIpor_1_3 = securityManager.isIdentityPermittedOnResourceable(id, "test.ipornc-1_3", resource, false);
+		Assert.assertFalse(hasIpor_1_3);
+	}
+	
+	@Test
+	public void getIdentityPermissionsOnResourceable() {
+		//create an identity, a security group, a resource and give the identity some
+		//permissions on the resource
+		SecurityGroup secGroup = securityManager.createAndPersistSecurityGroup();
+		OLATResource resource = JunitTestHelper.createRandomResource();
+		Identity id = JunitTestHelper.createAndPersistIdentityAsUser("test-gpor-1-" + UUID.randomUUID().toString());
+		securityManager.addIdentityToSecurityGroup(id, secGroup);
+		securityManager.createAndPersistPolicy(secGroup, "test.gpor-1_1", resource);
+		securityManager.createAndPersistPolicy(secGroup, "test.gpor-1_2", resource);
+		dbInstance.commitAndCloseSession();
+		
+		//check
+		List<String> permissions = securityManager.getIdentityPermissionOnresourceable(id, resource);
+		Assert.assertNotNull(permissions);
+		Assert.assertTrue(permissions.size() >= 2);
+		Assert.assertTrue(permissions.contains("test.gpor-1_1"));
+		Assert.assertTrue(permissions.contains("test.gpor-1_2"));
+		Assert.assertFalse(permissions.contains("test.gpor-1_3"));
+	}
+	
+	@Test
+	public void findCredentials() {
+		//create a user with the default provider
+		Identity id = JunitTestHelper.createAndPersistIdentityAsUser("find-cred-" + UUID.randomUUID().toString());
+		
+		dbInstance.commitAndCloseSession();
+		
+		String credential = securityManager.findCredentials(id, BaseSecurityModule.getDefaultAuthProviderIdentifier());
+		Assert.assertNotNull(credential);	
 	}
 }

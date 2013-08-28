@@ -40,6 +40,7 @@ import org.olat.basesecurity.BaseSecurityModule;
 import org.olat.core.CoreSpringFactory;
 import org.olat.core.commons.persistence.DBFactory;
 import org.olat.core.gui.UserRequest;
+import org.olat.core.gui.UserRequestImpl;
 import org.olat.core.helpers.Settings;
 import org.olat.core.id.Identity;
 import org.olat.core.logging.OLog;
@@ -167,7 +168,7 @@ public class RestApiLoginFilter implements Filter {
 						UserRequest ureq = null;
 						try{
 							//upon creation URL is checked for
-							ureq = new UserRequest(requestURI, request, response);
+							ureq = new UserRequestImpl(requestURI, request, response);
 						} catch(NumberFormatException nfe) {
 							return false;
 						}
@@ -197,8 +198,8 @@ public class RestApiLoginFilter implements Filter {
 	
 	private boolean isRequestTokenValid(HttpServletRequest request) {
 		String token = request.getHeader(RestSecurityHelper.SEC_TOKEN);
-		RestSecurityBean securityBean = (RestSecurityBean)CoreSpringFactory.getBean(RestSecurityBean.class);
-		return securityBean.isTokenRegistrated(token);
+		RestSecurityBean securityBean =  CoreSpringFactory.getImpl(RestSecurityBean.class);
+		return securityBean.isTokenRegistrated(token, request.getSession(true));
 	}
 	
 	private boolean isRequestURIInOpenSpace(String requestURI) {
@@ -228,7 +229,7 @@ public class RestApiLoginFilter implements Filter {
 		UserRequest ureq = null;
 		try{
 			//upon creation URL is checked for 
-			ureq = new UserRequest(requestURI, request, response);
+			ureq = new UserRequestImpl(requestURI, request, response);
 		} catch(NumberFormatException nfe) {
 			response.sendError(401);
 			return;
@@ -249,7 +250,7 @@ public class RestApiLoginFilter implements Filter {
 		
 		String token = request.getHeader(RestSecurityHelper.SEC_TOKEN);
 		RestSecurityBean securityBean = (RestSecurityBean)CoreSpringFactory.getBean(RestSecurityBean.class);
-		if(StringHelper.containsNonWhitespace(token) && securityBean.isTokenRegistrated(token)) {
+		if(StringHelper.containsNonWhitespace(token) && securityBean.isTokenRegistrated(token, request.getSession(true))) {
 			//is authenticated by token, follow its current token
 			followToken(token, request, response, chain);
 			return;
@@ -259,7 +260,7 @@ public class RestApiLoginFilter implements Filter {
 		try{
 			//upon creation URL is checked for
 			String requestURI = request.getRequestURI();
-			ureq = new UserRequest(requestURI, request, response);
+			ureq = new UserRequestImpl(requestURI, request, response);
 		} catch(NumberFormatException nfe) {
 			response.sendError(401);
 			return;
@@ -280,7 +281,7 @@ public class RestApiLoginFilter implements Filter {
 			try{
 				//upon creation URL is checked for
 				String requestURI = request.getRequestURI();
-				ureq = new UserRequest(requestURI, request, response);
+				ureq = new UserRequestImpl(requestURI, request, response);
 			} catch(Exception e) {
 				response.sendError(500);
 				return;
@@ -307,7 +308,7 @@ public class RestApiLoginFilter implements Filter {
 			try{
 				//upon creation URL is checked for
 				String requestURI = request.getRequestURI();
-				ureq = new UserRequest(requestURI, request, response);
+				ureq = new UserRequestImpl(requestURI, request, response);
 			} catch(NumberFormatException nfe) {
 				response.sendError(401);
 				return;

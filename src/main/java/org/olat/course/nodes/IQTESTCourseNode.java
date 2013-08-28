@@ -160,7 +160,7 @@ public class IQTESTCourseNode extends AbstractAccessableCourseNode implements As
 		// only here we know which translator to take for translating condition
 		// error messages
 		String translatorStr = Util.getPackageName(IQEditController.class);
-		List sds = isConfigValidWithTranslator(cev, translatorStr, getConditionExpressions());
+		List<StatusDescription> sds = isConfigValidWithTranslator(cev, translatorStr, getConditionExpressions());
 		oneClickStatusCache = StatusDescriptionHelper.sort(sds);
 		return oneClickStatusCache;
 	}
@@ -263,7 +263,7 @@ public class IQTESTCourseNode extends AbstractAccessableCourseNode implements As
 		try {
 		 am.saveScoreEvaluation(this, coachingIdentity, mySelf, scoreEvaluation, userCourseEnvironment, incrementAttempts);
 		} catch(DBRuntimeException ex) {
-			throw new KnownIssueException("DBRuntimeException - Row was updated or deleted...",3570);
+			throw new KnownIssueException("DBRuntimeException - Row was updated or deleted...", 3570, ex);
 		}
 	}
 
