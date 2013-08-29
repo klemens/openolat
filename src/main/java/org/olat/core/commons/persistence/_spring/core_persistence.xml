@@ -7,6 +7,18 @@
 	<persistence-unit name="default">
 		<provider>org.hibernate.ejb.HibernatePersistence</provider>
 
+		<mapping-file>de/htwk/autolat/LivingTaskInstance/LivingTaskInstanceImpl.hbm.xml</mapping-file>
+		<mapping-file>de/htwk/autolat/tools/Scoring/ScoreObjectImpl.hbm.xml</mapping-file>
+		<mapping-file>de/htwk/autolat/TaskSolution/TaskSolutionImpl.hbm.xml</mapping-file>
+		<mapping-file>de/htwk/autolat/TaskModule/TaskModuleImpl.hbm.xml</mapping-file>
+		<mapping-file>de/htwk/autolat/TaskConfiguration/TaskConfigurationImpl.hbm.xml</mapping-file>
+		<mapping-file>de/htwk/autolat/Student/StudentImpl.hbm.xml</mapping-file>
+		<mapping-file>de/htwk/autolat/Configuration/ConfigurationImpl.hbm.xml</mapping-file>
+		<mapping-file>de/htwk/autolat/TaskResult/TaskResultImpl.hbm.xml</mapping-file>
+		<mapping-file>de/htwk/autolat/TaskType/TaskTypeImpl.hbm.xml</mapping-file>
+		<mapping-file>de/htwk/autolat/TaskInstance/TaskInstanceImpl.hbm.xml</mapping-file>
+		<mapping-file>de/htwk/autolat/ServerConnection/ServerConnectionImpl.hbm.xml</mapping-file>
+
 		<mapping-file>de/bps/olat/modules/cl/Checklist.hbm.xml</mapping-file>
 		<mapping-file>de/bps/olat/modules/cl/CheckpointResult.hbm.xml</mapping-file>
 		<mapping-file>de/bps/olat/modules/cl/Checkpoint.hbm.xml</mapping-file>
