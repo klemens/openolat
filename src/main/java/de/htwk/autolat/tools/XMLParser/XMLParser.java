@@ -57,7 +57,7 @@ public class XMLParser {
 	
 	private List<AutotoolServer> buildServer(List children,String name, String version) throws MalformedURLException {
 		List<AutotoolServer> serverList = new ArrayList<AutotoolServer>();
-		System.out.println("Kinderanzahl: " + children.size());
+
 		for(int i = 0; i < children.size(); i++) {
 			Element aServer = (Element) children.get(i);
 			AutotoolServer autotoolServer = new AutotoolServer();
