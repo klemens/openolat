@@ -6,8 +6,6 @@
 <hibernate-mapping default-lazy="true">
   <class name="de.htwk.autolat.TaskResult.TaskResultImpl" table="ao_task_result">  
   
-		<cache usage="read-write" />
-
     <id name="key" column="id" type="long" unsaved-value="null">
       <generator class="hilo"/>
     </id>
