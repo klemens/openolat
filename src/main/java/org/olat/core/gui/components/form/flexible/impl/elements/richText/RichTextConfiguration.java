@@ -19,6 +19,7 @@
  */
 package org.olat.core.gui.components.form.flexible.impl.elements.richText;
 
+import java.io.File;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -30,14 +31,12 @@ import java.util.Map.Entry;
 
 import org.olat.core.CoreSpringFactory;
 import org.olat.core.commons.controllers.linkchooser.CustomLinkTreeModel;
-import org.olat.core.defaults.dispatcher.ClassPathStaticDispatcher;
 import org.olat.core.defaults.dispatcher.StaticMediaDispatcher;
 import org.olat.core.dispatcher.mapper.Mapper;
 import org.olat.core.dispatcher.mapper.MapperService;
 import org.olat.core.gui.components.form.flexible.impl.elements.richText.plugins.TinyMCECustomPlugin;
 import org.olat.core.gui.components.form.flexible.impl.elements.richText.plugins.TinyMCECustomPluginFactory;
 import org.olat.core.gui.control.Disposable;
-import org.olat.core.gui.media.ClasspathMediaResource;
 import org.olat.core.gui.render.StringOutput;
 import org.olat.core.gui.themes.Theme;
 import org.olat.core.gui.translator.Translator;
@@ -48,9 +47,11 @@ import org.olat.core.util.Formatter;
 import org.olat.core.util.StringHelper;
 import org.olat.core.util.UserSession;
 import org.olat.core.util.Util;
+import org.olat.core.util.WebappHelper;
 import org.olat.core.util.i18n.I18nManager;
 import org.olat.core.util.vfs.LocalFolderImpl;
 import org.olat.core.util.vfs.VFSContainer;
+import org.olat.core.util.vfs.VFSContainerMapper;
 import org.olat.core.util.vfs.VFSManager;
 
 /**
@@ -238,7 +239,6 @@ public class RichTextConfiguration implements Disposable {
 	public static final String DIRECTIONALITY_VALUE_RTL = "rtl";
 	public static final String DIRECTIONALITY_VALUE_LTR = "ltr";
 	public static final String DOCUMENT_BASE_URL = "document_base_url";
-	public static final String TINY_BASE_CONTAINER_PATH = "brasato_tiny_base_container_path";
 	//
 	// Generic boolean true / false values
 	public static final String VALUE_TRUE = "true";
@@ -388,11 +388,10 @@ public class RichTextConfiguration implements Disposable {
 		// setDocType(DOCTYPE_VALUE_XHTML_1_0_TRANSITIONAL);
 		// set default plugins
 		plugins.add(SAFARI_PLUGIN);
-		// set base path to tiny resources
-		setQuotedConfigValue(TINY_BASE_CONTAINER_PATH, ClassPathStaticDispatcher.getInstance().getMapperBasePath(RichTextConfiguration.class) + "/js/tinymce/");
 		// Start observing of diry richt text element and trigger calling of setFlexiFormDirty() method
 		// This check is initialized after the editor has fully loaded
-		addOnInitCallbackFunction(ONINIT_CALLBACK_VALUE_START_DIRTY_OBSERVER + ".curry('" + rootFormDispatchId + "','" + domID + "')");
+		addOnInitCallbackFunction(ONINIT_CALLBACK_VALUE_START_DIRTY_OBSERVER + "('" + rootFormDispatchId + "','" + domID + "')");
+		addOnInitCallbackFunction("tinyMCE.get('" + domID + "').focus()");
 	}
 
 	/**
@@ -785,10 +784,13 @@ public class RichTextConfiguration implements Disposable {
 	public void setLanguage(Locale loc) {
 		// tiny does not support country or vairant codes, only language code
 		String langKey = loc.getLanguage();
-		ClasspathMediaResource resource = new ClasspathMediaResource(this.getClass(), "_static/js/tinymce/langs/" + langKey + ".js");
-		if (resource.getInputStream() == null) {
-			// fallback to EN
-			langKey = "en";
+
+		String contextRoot = WebappHelper.getContextRoot();
+		if(StringHelper.containsNonWhitespace(contextRoot)) {
+			File file = new File(contextRoot, "static/js/tinymce/tinymce/langs/" + langKey + ".js");
+			if(!file.exists()) {
+				langKey = "en";
+			}
 		}
 		setQuotedConfigValue(LANGUAGE, langKey);
 	}
@@ -1319,7 +1321,7 @@ public class RichTextConfiguration implements Disposable {
 	 */
 	public void setFileBrowserCallback(VFSContainer vfsContainer, CustomLinkTreeModel customLinkTreeModel, String[] supportedImageSuffixes, String[] supportedMediaSuffixes, String[] supportedFlashPlayerSuffixes) {
 		// Add dom ID variable using prototype curry method
-		setNonQuotedConfigValue(FILE_BROWSER_CALLBACK, FILE_BROWSER_CALLBACK_VALUE_LINK_BROWSER + ".curry('" + this.domID + "')");
+		setNonQuotedConfigValue(FILE_BROWSER_CALLBACK, FILE_BROWSER_CALLBACK_VALUE_LINK_BROWSER + ".curry('" + domID + "')");
 		linkBrowserImageSuffixes = supportedImageSuffixes;
 		linkBrowserMediaSuffixes = supportedMediaSuffixes;
 		linkBrowserFlashPlayerSuffixes = supportedFlashPlayerSuffixes;
@@ -1354,7 +1356,7 @@ public class RichTextConfiguration implements Disposable {
 	public void setDocumentMediaBase(final VFSContainer documentBaseContainer, String relFilePath, UserSession usess) {
 		linkBrowserRelativeFilePath = relFilePath;
 		// get a usersession-local mapper for the file storage (and tinymce's references to images and such)
-		contentMapper = new RichTextMediaMapper(documentBaseContainer);
+		contentMapper = new VFSContainerMapper(documentBaseContainer);
 		// Register mapper for this user. This mapper is cleaned up in the
 		// dispose method (RichTextElementImpl will clean it up)
 
@@ -1561,7 +1563,15 @@ public class RichTextConfiguration implements Disposable {
  				sb.append("function(){");
  				while (iter.hasNext()) {
 					String function = iter.next();
-					sb.append(function).append("();");
+					sb.append(function);
+					if(function.endsWith(")")) {
+						sb.append(";");
+					} else {
+						sb.append("();");
+					}
+					
+					
+					
 				}
  				sb.append("}");
  			}

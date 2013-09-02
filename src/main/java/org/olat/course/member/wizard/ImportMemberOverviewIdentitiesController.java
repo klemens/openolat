@@ -43,6 +43,8 @@ import org.olat.core.gui.control.generic.wizard.StepsEvent;
 import org.olat.core.gui.control.generic.wizard.StepsRunContext;
 import org.olat.core.gui.translator.Translator;
 import org.olat.core.id.Identity;
+import org.olat.core.id.UserConstants;
+import org.olat.core.util.mail.MailHelper;
 import org.olat.user.UserManager;
 import org.olat.user.propertyhandlers.UserPropertyHandler;
 
@@ -103,8 +105,9 @@ public class ImportMemberOverviewIdentitiesController extends StepFormBasicContr
 		
 		//add the table
 		FlexiTableColumnModel tableColumnModel = FlexiTableDataModelFactory.createFlexiTableColumnModel();
+		int colIndex = 0;
 		if(isAdministrativeUser) {
-			tableColumnModel.addFlexiColumnModel(new DefaultFlexiColumnModel("table.user.login"));
+			tableColumnModel.addFlexiColumnModel(new DefaultFlexiColumnModel("table.user.login", colIndex++));
 		}
 		List<UserPropertyHandler> userPropertyHandlers = userManager.getUserPropertyHandlersFor(usageIdentifyer, isAdministrativeUser);
 		List<UserPropertyHandler> resultingPropertyHandlers = new ArrayList<UserPropertyHandler>();
@@ -114,21 +117,21 @@ public class ImportMemberOverviewIdentitiesController extends StepFormBasicContr
 			boolean visible = UserManager.getInstance().isMandatoryUserProperty(usageIdentifyer , userPropertyHandler);
 			if(visible) {
 				resultingPropertyHandlers.add(userPropertyHandler);
-				tableColumnModel.addFlexiColumnModel(new DefaultFlexiColumnModel(userPropertyHandler.i18nColumnDescriptorLabelKey()));
+				tableColumnModel.addFlexiColumnModel(new DefaultFlexiColumnModel(userPropertyHandler.i18nColumnDescriptorLabelKey(), colIndex++));
 			}
 		}
 		
 		Translator myTrans = userManager.getPropertyHandlerTranslator(getTranslator());
 		ImportMemberOverviewDataModel userTableModel = new ImportMemberOverviewDataModel(oks, resultingPropertyHandlers,
 				isAdministrativeUser, getLocale(), tableColumnModel);
-		uifactory.addTableElement("users", userTableModel, myTrans, formLayout);
+		uifactory.addTableElement(ureq, getWindowControl(), "users", userTableModel, myTrans, formLayout);
 	}
 	
 	private void loadModel(List<String> keys) {
 		oks = new ArrayList<Identity>();
 		List<String> isanonymous = new ArrayList<String>();
 		notfounds = new ArrayList<String>();
-		
+
 		SecurityGroup anonymousSecGroup = securityManager.findSecurityGroupByName(Constants.GROUP_ANONYMOUS);
 		for (String identityKey : keys) {
 			Identity ident = securityManager.loadIdentityByKey(Long.parseLong(identityKey));
@@ -144,25 +147,66 @@ public class ImportMemberOverviewIdentitiesController extends StepFormBasicContr
 	
 	private void loadModel(String inp) {
 		oks = new ArrayList<Identity>();
-		List<String> isanonymous = new ArrayList<String>();
 		notfounds = new ArrayList<String>();
 
 		SecurityGroup anonymousSecGroup = securityManager.findSecurityGroupByName(Constants.GROUP_ANONYMOUS);
 
+		List<String> identList = new ArrayList<String>();
 		String[] lines = inp.split("\r?\n");
 		for (int i = 0; i < lines.length; i++) {
 			String username = lines[i].trim();
-			if (!username.equals("")) { // skip empty lines
-				Identity ident = securityManager.findIdentityByName(username);
-				if (ident == null) { // not found, add to not-found-list
-					notfounds.add(username);
-				} else if (securityManager.isIdentityInSecurityGroup(ident, anonymousSecGroup)) {
-					isanonymous.add(username);
-				} else if (!PersistenceHelper.containsPersistable(oks, ident)) {
-					oks.add(ident);
-				}
+			if(username.length() > 0) {
+				identList.add(username);
 			}
 		}
+		
+		//search by names
+		List<Identity> identities = securityManager.findIdentitiesByName(identList);
+		for(Identity identity:identities) {
+			identList.remove(identity.getName());
+			if (!PersistenceHelper.containsPersistable(oks, identity)
+					&& !securityManager.isIdentityInSecurityGroup(identity, anonymousSecGroup)) {
+				oks.add(identity);
+			}
+		}
+		
+		//search by email
+		List<String> emails = new ArrayList<String>();
+		for(String ident:identList) {
+			if(MailHelper.isValidEmailAddress(ident)) {
+				emails.add(ident);
+			}
+		}
+		List<Identity> mailIdentities = userManager.findIdentitiesByEmail(emails);
+		for(Identity identity:mailIdentities) {
+			String email = identity.getUser().getProperty(UserConstants.EMAIL, null);
+			if(email != null) {
+				identList.remove(email);
+			}
+			String institutEmail = identity.getUser().getProperty(UserConstants.INSTITUTIONALEMAIL, null);
+			if(institutEmail != null) {
+				identList.remove(institutEmail);
+			}
+			if (!PersistenceHelper.containsPersistable(oks, identity)
+					&& !securityManager.isIdentityInSecurityGroup(identity, anonymousSecGroup)) {
+				oks.add(identity);
+			}
+		}
+		
+		//search by institutionalUserIdentifier
+		List<Identity> institutIdentities = securityManager.findIdentitiesByNumber(identList);
+		for(Identity identity:institutIdentities) {
+			String userIdent = identity.getUser().getProperty(UserConstants.INSTITUTIONALUSERIDENTIFIER, null);
+			if(userIdent != null) {
+				identList.remove(userIdent);
+			}
+			if (!PersistenceHelper.containsPersistable(oks, identity)
+					&& !securityManager.isIdentityInSecurityGroup(identity, anonymousSecGroup)) {
+				oks.add(identity);
+			}
+		}
+		
+		notfounds.addAll(identList);
 	}
 
 	public boolean validate() {

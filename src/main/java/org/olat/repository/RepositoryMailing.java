@@ -161,7 +161,7 @@ public class RepositoryMailing {
 				actor.getUser().getProperty(UserConstants.FIRSTNAME, null),
 				actor.getUser().getProperty(UserConstants.LASTNAME, null),
 				actor.getUser().getProperty(UserConstants.EMAIL, null),
-				actor.getName()
+				actor.getUser().getProperty(UserConstants.EMAIL, null)// 2x for compatibility with old i18m properties
 			};
 		
 		Locale locale = I18nManager.getInstance().getLocaleOrDefault(actor.getUser().getPreferences().getLanguage());
@@ -180,7 +180,7 @@ public class RepositoryMailing {
 				User user = identity.getUser();
 				context.put("firstname", user.getProperty(UserConstants.FIRSTNAME, null));
 				context.put("lastname", user.getProperty(UserConstants.LASTNAME, null));
-				context.put("login", identity.getName());
+				context.put("login",  user.getProperty(UserConstants.EMAIL, null));
 				// Put variables from greater context
 				context.put("coursename", reName);
 				context.put("coursedescription", redescription);

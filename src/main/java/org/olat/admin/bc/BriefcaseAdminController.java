@@ -2,6 +2,7 @@ package org.olat.admin.bc;
 
 import java.io.File;
 
+import org.olat.core.CoreSpringFactory;
 import org.olat.core.commons.modules.bc.FolderConfig;
 import org.olat.core.commons.modules.bc.meta.MetaInfoFileImpl;
 import org.olat.core.commons.taskExecutor.TaskExecutorManager;
@@ -24,9 +25,12 @@ import org.olat.core.gui.control.WindowControl;
 public class BriefcaseAdminController extends FormBasicController {
 	
 	private FormLink thumbnailReset;
+	private final TaskExecutorManager taskExecutor;
 
 	public BriefcaseAdminController(UserRequest ureq, WindowControl wControl) {
 		super(ureq, wControl, "bc_admin");
+		
+		taskExecutor = CoreSpringFactory.getImpl(TaskExecutorManager.class);
 		
 		initForm(ureq);
 	}
@@ -51,7 +55,7 @@ public class BriefcaseAdminController extends FormBasicController {
 		if(thumbnailReset == source) {
 			flc.contextPut("recalculating", Boolean.TRUE);
 			ResetThumbnails task = new ResetThumbnails();
-			TaskExecutorManager.getInstance().runTask(task);
+			taskExecutor.execute(task);
 		}
 		super.formInnerEvent(ureq, source, event);
 	}

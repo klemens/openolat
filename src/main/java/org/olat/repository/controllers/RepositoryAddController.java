@@ -116,6 +116,7 @@ public class RepositoryAddController extends BasicController {
 	private Link cancelButton;
 	private Link forwardButton;
 	private String actionAddCommand, actionProcess;
+	private String typeIntro, translatedTypeName;
 	
 	/**
 	 * Controller implementing "Add Repository Entry"-workflow.
@@ -142,9 +143,7 @@ public class RepositoryAddController extends BasicController {
 		cancelButton.setElementCssClass("o_sel_repo_add_cancel");
 		forwardButton = LinkFactory.createButton("cmd.forward", repositoryadd, this);
 		forwardButton.setElementCssClass("o_sel_repo_add_forward");
-		
-		String translatedTypeName = null;
-		String typeIntro = null;
+
 		addCallback = new RepositoryAddCallback(this);
 		if (actionAddCommand.equals(ACTION_ADD_COURSE)) {
 			typeToAdd = new CourseHandler();
@@ -267,7 +266,7 @@ public class RepositoryAddController extends BasicController {
 			typeToAdd = new ImsCPHandler();
 			addController = typeToAdd.createAddController(addCallback, ImsCPHandler.PROCESS_CREATENEW, ureq, getWindowControl());
 			translatedTypeName = translate("tools.add.cp");
-			typeIntro = translate("new.cp.intro");
+			typeIntro = translate("new.cp");
 		}		
 		else throw new AssertException("Unsuported Repository Type.");
 
@@ -283,6 +282,20 @@ public class RepositoryAddController extends BasicController {
 		forwardButton.setEnabled(false);
 		forwardButton.setTextReasonForDisabling(translate("disabledforwardreason"));
 		putInitialPanel(repositoryadd);
+	}
+	
+	public String getTitle() {
+		return typeIntro;
+		
+		/*
+		return translatedTypeName == null ?
+				translate("add.header") :
+				translate("add.header.specific", new String[] {translatedTypeName});
+				*/
+	}
+	
+	public void setUserObject(Object userObject) {
+		addCallback.setUserObject(userObject);
 	}
 
 	/**
@@ -343,8 +356,7 @@ public class RepositoryAddController extends BasicController {
 				// clean up temporary data and abort transaction
 				cleanup();
 				fireEvent(ureq, Event.CANCELLED_EVENT);
-				return;
-			} else if (event == Event.DONE_EVENT) {
+			} else if (event == Event.DONE_EVENT || event == Event.CHANGED_EVENT) {
 				forwardButton.setEnabled(true);
 				addedEntry = detailsController.getRepositoryEntry();
 			}

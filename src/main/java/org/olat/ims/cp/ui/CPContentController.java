@@ -39,6 +39,7 @@ import org.olat.core.gui.control.Event;
 import org.olat.core.gui.control.WindowControl;
 import org.olat.core.gui.control.controller.BasicController;
 import org.olat.core.gui.control.generic.closablewrapper.CloseableModalController;
+import org.olat.core.gui.control.generic.iframe.DeliveryOptions;
 import org.olat.core.gui.control.generic.iframe.IFrameDisplayController;
 import org.olat.core.gui.control.generic.iframe.NewIframeUriEvent;
 import org.olat.core.util.vfs.VFSContainer;
@@ -61,11 +62,17 @@ public class CPContentController extends BasicController {
 	private CloseableModalController dialogCtr;
 	private LayoutMain3ColsPreviewController previewCtr;
 	private Link editMetadataLink, previewLink;
+	private DeliveryOptions deliveryOptions;
 
 	protected CPContentController(UserRequest ureq, WindowControl control, ContentPackage cp) {
 		super(ureq, control);
 
 		this.cp = cp;
+		
+		CPPackageConfig packageConfig = CPManager.getInstance().getCPPackageConfig(cp.getResourcable());
+		if(packageConfig != null) {
+			deliveryOptions = packageConfig.getDeliveryOptions();
+		}
 
 		contentVC = createVelocityContainer("cpContent");
 		// set initial page to display
@@ -79,12 +86,12 @@ public class CPContentController extends BasicController {
 		editMetadataLink = LinkFactory.createCustomLink("contentcontroller.editlink", "contentcontroller.editlink", null, Link.NONTRANSLATED,
 				contentVC, this);
 		editMetadataLink.setCustomEnabledLinkCSS("o_cpeditor_edit");
-		editMetadataLink.setTooltip(translate("contentcontroller.editlink_title"), false);
+		editMetadataLink.setTooltip(translate("contentcontroller.editlink_title"));
 
 		previewLink = LinkFactory.createCustomLink("contentcontroller.previewlink", "contentcontroller.previewlink", null, Link.NONTRANSLATED,
 				contentVC, this);
 		previewLink.setCustomEnabledLinkCSS("o_cpeditor_preview");
-		previewLink.setTooltip(translate("contentcontroller.previewlink_title"), false);
+		previewLink.setTooltip(translate("contentcontroller.previewlink_title"));
 
 		this.putInitialPanel(contentVC);
 
@@ -260,7 +267,7 @@ public class CPContentController extends BasicController {
 	 */
 	private void displayPreview(UserRequest ureq) {
 		if (previewCtr != null) previewCtr.dispose();
-		previewCtr = CPUIFactory.getInstance().createMainLayoutPreviewController(ureq, getWindowControl(), cp.getRootDir(), true);
+		previewCtr = CPUIFactory.getInstance().createMainLayoutPreviewController(ureq, getWindowControl(), cp.getRootDir(), true, deliveryOptions);
 		previewCtr.activate();
 	}
 

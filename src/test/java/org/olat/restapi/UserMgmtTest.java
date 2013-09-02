@@ -107,6 +107,8 @@ import org.olat.restapi.support.vo.GroupVOes;
 import org.olat.test.JunitTestHelper;
 import org.olat.test.OlatJerseyTestCase;
 import org.olat.user.DisplayPortraitManager;
+import org.olat.user.UserManager;
+import org.olat.user.restapi.PreferencesVO;
 import org.olat.user.restapi.RolesVO;
 import org.olat.user.restapi.UserVO;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -124,6 +126,7 @@ public class UserMgmtTest extends OlatJerseyTestCase {
 	
 	private static Identity owner1, id1, id2, id3;
 	private static BusinessGroup g1, g2, g3, g4;
+	private static String g1externalId, g3ExternalId;
 	
 	private static ICourse demoCourse;
 	private static FOCourseNode demoForumNode;
@@ -138,6 +141,8 @@ public class UserMgmtTest extends OlatJerseyTestCase {
 	private BusinessGroupService businessGroupService;
 	@Autowired
 	private BaseSecurity securityManager;
+	@Autowired
+	private UserManager userManager;
 	
 	@Before
 	@Override
@@ -183,7 +188,8 @@ public class UserMgmtTest extends OlatJerseyTestCase {
     // 1) context one: learning groups
     RepositoryEntry c1 = JunitTestHelper.createAndPersistRepositoryEntry();
     // create groups without waiting list
-    g1 = businessGroupService.createBusinessGroup(null, "user-rest-g1", null, 0, 10, false, false, c1);
+    g1externalId = UUID.randomUUID().toString();
+    g1 = businessGroupService.createBusinessGroup(null, "user-rest-g1", null, g1externalId, "all", 0, 10, false, false, c1);
     g2 = businessGroupService.createBusinessGroup(null, "user-rest-g2", null, 0, 10, false, false, c1);
     // members g1
     secm.addIdentityToSecurityGroup(id1, g1.getOwnerGroup());
@@ -195,7 +201,8 @@ public class UserMgmtTest extends OlatJerseyTestCase {
     // 2) context two: right groups
     RepositoryEntry c2 = JunitTestHelper.createAndPersistRepositoryEntry();
     // groups
-    g3 = businessGroupService.createBusinessGroup(null, "user-rest-g3", null, -1, -1, false, false, c2);
+    g3ExternalId = UUID.randomUUID().toString();
+    g3 = businessGroupService.createBusinessGroup(null, "user-rest-g3", null, g3ExternalId, "all", -1, -1, false, false, c2);
     g4 = businessGroupService.createBusinessGroup(null, "user-rest-g4", null, -1, -1, false, false, c2);
     // members
     secm.addIdentityToSecurityGroup(id1, g3.getPartipiciantGroup());
@@ -331,6 +338,28 @@ public class UserMgmtTest extends OlatJerseyTestCase {
 			}
 		}
 		assertTrue(onlyLikeAdmin);
+		conn.shutdown();
+	}
+	
+	@Test
+	public void testFindUsersByLogin_notFuzzy() throws IOException, URISyntaxException {
+		//there is user-rest-...
+		Identity id = JunitTestHelper.createAndPersistIdentityAsUser("user-rest");
+		Assert.assertNotNull(id);
+
+		RestConnection conn = new RestConnection();
+		assertTrue(conn.login("administrator", "openolat"));
+		
+		URI request = UriBuilder.fromUri(getContextURI()).path("users")
+				.queryParam("login","\"user-rest\"").build();
+		HttpGet method = conn.createGet(request, MediaType.APPLICATION_JSON, true);
+		HttpResponse response = conn.execute(method);
+		assertEquals(200, response.getStatusLine().getStatusCode());
+		List<UserVO> vos = parseUserArray(response.getEntity().getContent());
+
+		assertNotNull(vos);
+		assertEquals(1, vos.size());
+		assertEquals("user-rest", vos.get(0).getLogin());
 		conn.shutdown();
 	}
 	
@@ -612,6 +641,25 @@ public class UserMgmtTest extends OlatJerseyTestCase {
 	}
 	
 	@Test
+	public void testGetRoles_xml() throws IOException, URISyntaxException {
+		//create an author
+		Identity author = JunitTestHelper.createAndPersistIdentityAsAuthor("author-" + UUID.randomUUID().toString());
+		dbInstance.commitAndCloseSession();
+		RestConnection conn = new RestConnection();
+		assertTrue(conn.login("administrator", "openolat"));
+		
+		//get roles of author
+		URI request = UriBuilder.fromUri(getContextURI()).path("/users/" + author.getKey() + "/roles").build();
+		HttpGet method = conn.createGet(request, MediaType.APPLICATION_XML, true);
+		HttpResponse response = conn.execute(method);
+		assertEquals(200, response.getStatusLine().getStatusCode());
+		String xmlOutput = EntityUtils.toString(response.getEntity());
+		Assert.assertTrue(xmlOutput.contains("<rolesVO>"));
+		Assert.assertTrue(xmlOutput.contains("<olatAdmin>"));
+		conn.shutdown();
+	}
+	
+	@Test
 	public void testUpdateRoles() throws IOException, URISyntaxException {
 		//create an author
 		Identity author = JunitTestHelper.createAndPersistIdentityAsAuthor("author-" + UUID.randomUUID().toString());
@@ -640,7 +688,65 @@ public class UserMgmtTest extends OlatJerseyTestCase {
 		Assert.assertFalse(reloadRoles.isInstitutionalResourceManager());
 		Assert.assertFalse(reloadRoles.isInvitee());
 		Assert.assertFalse(reloadRoles.isOLATAdmin());
+		Assert.assertFalse(reloadRoles.isPoolAdmin());
 		Assert.assertTrue(reloadRoles.isUserManager());
+		conn.shutdown();
+	}
+	
+	@Test
+	public void testGetPreferences() throws IOException, URISyntaxException {
+		//create an author
+		Identity prefsId = JunitTestHelper.createAndPersistIdentityAsAuthor("prefs-1-" + UUID.randomUUID().toString());
+		dbInstance.commitAndCloseSession();
+		prefsId.getUser().getPreferences().setLanguage("fr");
+		prefsId.getUser().getPreferences().setFontsize("11");
+		userManager.updateUserFromIdentity(prefsId);
+		dbInstance.commitAndCloseSession();
+		
+		RestConnection conn = new RestConnection();
+		assertTrue(conn.login("administrator", "openolat"));
+		
+		//get preferences of author
+		URI request = UriBuilder.fromUri(getContextURI()).path("/users/" + prefsId.getKey() + "/preferences").build();
+		HttpGet method = conn.createGet(request, MediaType.APPLICATION_JSON, true);
+		HttpResponse response = conn.execute(method);
+		assertEquals(200, response.getStatusLine().getStatusCode());
+		PreferencesVO prefsVo = conn.parse(response, PreferencesVO.class);
+		Assert.assertNotNull(prefsVo);
+		Assert.assertEquals("fr", prefsVo.getLanguage());
+		conn.shutdown();
+	}
+	
+	@Test
+	public void testUpdatePreferences() throws IOException, URISyntaxException {
+		//create an author
+		Identity prefsId = JunitTestHelper.createAndPersistIdentityAsAuthor("prefs-1-" + UUID.randomUUID().toString());
+		dbInstance.commitAndCloseSession();
+		prefsId.getUser().getPreferences().setLanguage("de");
+		userManager.updateUserFromIdentity(prefsId);
+		dbInstance.commitAndCloseSession();
+		
+		RestConnection conn = new RestConnection();
+		assertTrue(conn.login("administrator", "openolat"));
+		
+		PreferencesVO prefsVo = new PreferencesVO();
+		prefsVo.setLanguage("fr");
+		
+		//get roles of author
+		URI request = UriBuilder.fromUri(getContextURI()).path("/users/" + prefsId.getKey() + "/preferences").build();
+		HttpPost method = conn.createPost(request, MediaType.APPLICATION_JSON, true);
+		conn.addJsonEntity(method, prefsVo);
+		HttpResponse response = conn.execute(method);
+		assertEquals(200, response.getStatusLine().getStatusCode());
+		PreferencesVO modPrefs = conn.parse(response, PreferencesVO.class);
+		Assert.assertNotNull(modPrefs);
+		Assert.assertEquals("fr", prefsVo.getLanguage());
+		
+		//double check
+		Identity reloadedPrefsId = securityManager.loadIdentityByKey(prefsId.getKey());
+		Assert.assertNotNull(reloadedPrefsId);
+		Assert.assertEquals("fr", reloadedPrefsId.getUser().getPreferences().getLanguage());
+		
 		conn.shutdown();
 	}
 	
@@ -887,6 +993,69 @@ public class UserMgmtTest extends OlatJerseyTestCase {
 	}
 	
 	@Test
+	public void testUserGroup_managed() throws IOException, URISyntaxException {
+		RestConnection conn = new RestConnection();
+		assertTrue(conn.login("administrator", "openolat"));
+		
+		//retrieve managed groups
+		URI request = UriBuilder.fromUri(getContextURI()).path("users").path(id1.getKey().toString()).path("groups")
+				.queryParam("managed", "true").build();
+		
+		HttpGet method = conn.createGet(request, MediaType.APPLICATION_JSON, true);
+		HttpResponse response = conn.execute(method);
+		assertEquals(200, response.getStatusLine().getStatusCode());
+
+		InputStream body = response.getEntity().getContent();
+		List<GroupVO> groups = parseGroupArray(body);
+		assertNotNull(groups);
+		assertEquals(2, groups.size());//g1 and g3
+		conn.shutdown();
+	}
+	
+	@Test
+	public void testUserGroup_notManaged() throws IOException, URISyntaxException {
+		RestConnection conn = new RestConnection();
+		assertTrue(conn.login("administrator", "openolat"));
+		
+		//retrieve free groups
+		URI request = UriBuilder.fromUri(getContextURI()).path("users").path(id1.getKey().toString()).path("groups")
+				.queryParam("managed", "false").build();
+		
+		HttpGet method = conn.createGet(request, MediaType.APPLICATION_JSON, true);
+		HttpResponse response = conn.execute(method);
+		assertEquals(200, response.getStatusLine().getStatusCode());
+
+		InputStream body = response.getEntity().getContent();
+		List<GroupVO> groups = parseGroupArray(body);
+		assertNotNull(groups);
+		assertEquals(1, groups.size());//g2
+		conn.shutdown();
+	}
+	
+	@Test
+	public void testUserGroup_externalId() throws IOException, URISyntaxException {
+		RestConnection conn = new RestConnection();
+		assertTrue(conn.login("administrator", "openolat"));
+		
+		//retrieve g1
+		URI request = UriBuilder.fromUri(getContextURI()).path("users").path(id1.getKey().toString()).path("groups")
+				.queryParam("externalId", g1externalId).build();
+		
+		HttpGet method = conn.createGet(request, MediaType.APPLICATION_JSON, true);
+		HttpResponse response = conn.execute(method);
+		assertEquals(200, response.getStatusLine().getStatusCode());
+
+		InputStream body = response.getEntity().getContent();
+		List<GroupVO> groups = parseGroupArray(body);
+		assertNotNull(groups);
+		assertEquals(1, groups.size());
+		assertEquals(g1.getKey(), groups.get(0).getKey());
+		assertEquals(g1externalId, groups.get(0).getExternalId());
+
+		conn.shutdown();
+	}
+	
+	@Test
 	public void testUserGroupWithPaging() throws IOException, URISyntaxException {
 		RestConnection conn = new RestConnection();
 		assertTrue(conn.login("administrator", "openolat"));
@@ -904,6 +1073,48 @@ public class UserMgmtTest extends OlatJerseyTestCase {
 		assertNotNull(groups.getGroups());
 		assertEquals(1, groups.getGroups().length);
 		assertEquals(3, groups.getTotalCount());//g1, g2 and g3
+		conn.shutdown();
+	}
+	
+	@Test
+	public void testUserGroup_owner() throws IOException, URISyntaxException {
+		RestConnection conn = new RestConnection();
+		assertTrue(conn.login("administrator", "openolat"));
+		
+		//retrieve all groups
+		URI uri =UriBuilder.fromUri(getContextURI()).path("users").path(id1.getKey().toString())
+			.path("groups").path("owner").queryParam("start", 0).queryParam("limit", 1).build();
+
+		HttpGet method = conn.createGet(uri, MediaType.APPLICATION_JSON + ";pagingspec=1.0", true);
+		HttpResponse response = conn.execute(method);
+		assertEquals(200, response.getStatusLine().getStatusCode());
+		GroupVOes groups = conn.parse(response, GroupVOes.class);
+		
+		assertNotNull(groups);
+		assertNotNull(groups.getGroups());
+		assertEquals(1, groups.getGroups().length);
+		assertEquals(1, groups.getTotalCount());//g1
+		conn.shutdown();
+	}
+	
+	@Test
+	public void testUserGroup_participant() throws IOException, URISyntaxException {
+		RestConnection conn = new RestConnection();
+		assertTrue(conn.login("administrator", "openolat"));
+		
+		//retrieve all groups
+		URI uri =UriBuilder.fromUri(getContextURI()).path("users").path(id1.getKey().toString())
+			.path("groups").path("participant").queryParam("start", 0).queryParam("limit", 1).build();
+
+		HttpGet method = conn.createGet(uri, MediaType.APPLICATION_JSON + ";pagingspec=1.0", true);
+		HttpResponse response = conn.execute(method);
+		assertEquals(200, response.getStatusLine().getStatusCode());
+		GroupVOes groups = conn.parse(response, GroupVOes.class);
+		
+		assertNotNull(groups);
+		assertNotNull(groups.getGroups());
+		assertEquals(1, groups.getGroups().length);
+		assertEquals(2, groups.getTotalCount());//g2 and g3
 		conn.shutdown();
 	}
 	

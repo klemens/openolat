@@ -49,13 +49,15 @@ public class URLPropertyHandler extends Generic127CharTextPropertyHandler {
 	public String getUserPropertyAsHTML(User user, Locale locale) {
 		String href = getUserProperty(user, locale);
 		if (StringHelper.containsNonWhitespace(href)) {
+			href = StringHelper.escapeHtml(href);
 			StringBuffer sb = new StringBuffer();
 			sb.append("<a href=\"");
 			sb.append(href);
 			sb.append("\" class=\"b_link_extern\" target=\"_blank\">");
-			sb.append(getUserProperty(user, locale));
+			sb.append(href);
 			sb.append("</a>");
-			return sb.toString();
+			String htmlFragment = sb.toString();
+			return StringHelper.xssScan(htmlFragment);
 		}
 		return null;
 	}
@@ -74,7 +76,7 @@ public class URLPropertyHandler extends Generic127CharTextPropertyHandler {
 	}
 
 	@Override
-	public boolean isValid(FormItem formItem, Map formContext) {
+	public boolean isValid(FormItem formItem, Map<String,String> formContext) {
 		// check parent rules first: check if mandatory and empty
 		if ( ! super.isValid(formItem, formContext)) return false;
 		org.olat.core.gui.components.form.flexible.elements.TextElement uiEl = (org.olat.core.gui.components.form.flexible.elements.TextElement) formItem;

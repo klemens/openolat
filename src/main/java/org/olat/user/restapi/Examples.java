@@ -35,6 +35,8 @@ public class Examples {
 	public static final UserVOes SAMPLE_USERVOes = new UserVOes();
 
 	public static final RolesVO SAMPLE_ROLESVO = new RolesVO();
+	
+	public static final PreferencesVO SAMPLE_PREFERENCESVO = new PreferencesVO();
   
   static {
   	SAMPLE_USERVO.setKey(345l);
@@ -48,5 +50,7 @@ public class Examples {
   	SAMPLE_USERVOes.setUsers(new UserVO[]{SAMPLE_USERVO});
 
   	SAMPLE_ROLESVO.setAuthor(true);
+  	
+  	SAMPLE_PREFERENCESVO.setLanguage("de");
   }
 }

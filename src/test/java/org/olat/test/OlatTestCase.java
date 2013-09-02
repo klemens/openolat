@@ -32,8 +32,12 @@ import java.util.Properties;
 
 import org.junit.After;
 import org.junit.Before;
+import org.junit.Rule;
+import org.junit.rules.TestName;
 import org.olat.core.commons.persistence.DBFactory;
 import org.olat.core.helpers.Settings;
+import org.olat.core.logging.OLog;
+import org.olat.core.logging.Tracing;
 import org.olat.core.util.event.FrameworkStartupEventChannel;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.core.io.Resource;
@@ -49,49 +53,16 @@ import org.springframework.test.context.junit4.AbstractJUnit4SpringContextTests;
  * This class is common parent to all JUnit Use Case tests in OLAT framework integration tests. 
  */
 @ContextConfiguration(loader = MockServletContextWebContextLoader.class, locations = {
-	"classpath:/org/olat/core/util/threadlog/_spring/threadlogCorecontext.xml",
-	"classpath:/org/olat/core/util/vfs/version/_spring/versioningCorecontext.xml",
-	"classpath:/org/olat/core/util/i18n/_spring/i18nCorecontext.xml",
-	"classpath:/org/olat/core/util/_spring/utilCorecontext.xml",
-	"classpath:/org/olat/core/util/i18n/devtools/_spring/devtoolsCorecontext.xml",
-	"classpath:/org/olat/core/util/event/_spring/frameworkStartedEventCorecontext.xml",
-	"classpath:/org/olat/core/id/context/_spring/historyCorecontext.xml",
-
-	"classpath:/org/olat/core/commons/persistence/_spring/databaseCorecontext.xml",
-	"classpath:/org/olat/core/commons/taskExecutor/_spring/taskExecutorCorecontext.xml",
-	"classpath:/org/olat/core/commons/fullWebApp/util/_spring/StickyMessageCorecontext.xml",
-	"classpath:/org/olat/core/commons/modules/bc/_spring/folderModuleCorecontext.xml",
-	"classpath:/org/olat/core/commons/modules/glossary/_spring/glossaryCorecontext.xml",
-	"classpath:/org/olat/core/commons/contextHelp/_spring/contextHelpCorecontext.xml",
-
-	"classpath:/org/olat/core/logging/_spring/loggingCorecontext.xml",
-	"classpath:/org/olat/core/logging/activity/_spring/activityCorecontext.xml",
-	"classpath:/org/olat/core/_spring/mainCorecontext.xml",
-
-	"classpath:/serviceconfig/org/olat/core/gui/components/form/flexible/impl/elements/richText/_spring/richTextCorecontext.xml",
-	"classpath:/serviceconfig/org/olat/core/commons/modules/glossary/_spring/glossaryCorecontext.xml",
-	"classpath:/serviceconfig/org/olat/core/commons/services/commentAndRating/_spring/commentsAndRatingCorecontext.xml",
-	"classpath:/org/olat/core/commons/services/tagging/_spring/taggingContext.xml",
-	"classpath:/serviceconfig/org/olat/core/commons/linkchooser/_spring/linkchooserCorecontext.xml",
-	"classpath:/serviceconfig/org/olat/core/_spring/mainCorecontext.xml",
-	"classpath:/org/olat/core/commons/services/_spring/servicesCorecontext.xml",
-
-	"classpath:/serviceconfig/org/olat/core/_spring/olatcoreconfig.xml",
-	"classpath:/serviceconfig/brasatoconfig.xml",
-  "classpath:/serviceconfig/org/olat/_spring/brasatoconfigpart.xml",
-  "classpath:/serviceconfig/org/olat/_spring/olatextconfig.xml",
-  "classpath:/serviceconfig/org/olat/core/commons/scheduler/_spring/olatextconfig.xml",
-  "classpath:/serviceconfig/org/olat/commons/coordinate/cluster/_spring/olatdefaultconfig.xml",
-  "classpath:/serviceconfig/org/olat/notifications/_spring/olatdefaultconfig.xml",
-  "classpath:/serviceconfig/org/olat/user/_spring/olatdefaultconfig.xml",
-
-	"classpath*:**/_spring/*Context.xml"
+	"classpath:/org/olat/_spring/mainContext.xml"
 })
 public abstract class OlatTestCase extends AbstractJUnit4SpringContextTests {
+	private static final OLog log = Tracing.createLoggerFor(OlatTestCase.class);
 	
 	private static boolean postgresqlConfigured = false;
 	private static boolean oracleConfigured = false;
 	private static boolean started = false;
+	
+	 @Rule public TestName name = new TestName();
 	
 	/**
 	 * If you like to disable a test method for some time just add the
@@ -108,8 +79,13 @@ public abstract class OlatTestCase extends AbstractJUnit4SpringContextTests {
 		Settings.setJUnitTest(true);
 	}
 	
-	@Before public void printBanner(){
-		if(started) return;
+	@Before
+	public void printBanner(){
+		log.info("Method run: " + name.getMethodName() + "(" + this.getClass().getCanonicalName() + ")");
+		
+		if(started) {
+			return;
+		}
 		
 		FrameworkStartupEventChannel.fireEvent();
 		
@@ -128,6 +104,7 @@ public abstract class OlatTestCase extends AbstractJUnit4SpringContextTests {
 	
 	@After
 	public void closeConnectionAfter() {
+		log.info("Method test finished: " + name.getMethodName() + "(" + this.getClass().getCanonicalName() + ")");
 		try {
 			DBFactory.getInstance().commitAndCloseSession();
 		} catch (Exception e) {

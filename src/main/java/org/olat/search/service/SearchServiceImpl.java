@@ -27,33 +27,32 @@ package org.olat.search.service;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
 import org.apache.lucene.analysis.Analyzer;
 import org.apache.lucene.analysis.standard.StandardAnalyzer;
-import org.apache.lucene.index.IndexReader;
-import org.apache.lucene.queryParser.MultiFieldQueryParser;
-import org.apache.lucene.queryParser.ParseException;
-import org.apache.lucene.queryParser.QueryParser;
+import org.apache.lucene.document.Document;
+import org.apache.lucene.index.DirectoryReader;
+import org.apache.lucene.index.MultiReader;
+import org.apache.lucene.queryparser.classic.MultiFieldQueryParser;
+import org.apache.lucene.queryparser.classic.ParseException;
+import org.apache.lucene.queryparser.classic.QueryParser;
 import org.apache.lucene.search.BooleanClause.Occur;
 import org.apache.lucene.search.BooleanQuery;
 import org.apache.lucene.search.IndexSearcher;
 import org.apache.lucene.search.Query;
-import org.apache.lucene.search.Searcher;
+import org.apache.lucene.search.Sort;
+import org.apache.lucene.search.SortField;
 import org.apache.lucene.search.TopDocs;
 import org.apache.lucene.store.Directory;
 import org.apache.lucene.store.FSDirectory;
-import org.apache.lucene.util.Version;
 import org.olat.core.CoreSpringFactory;
-import org.olat.core.commons.services.search.AbstractOlatDocument;
-import org.olat.core.commons.services.search.SearchModule;
-import org.olat.core.commons.services.search.SearchResults;
-import org.olat.core.commons.services.search.SearchService;
-import org.olat.core.commons.services.search.SearchServiceStatus;
-import org.olat.core.commons.services.search.ServiceNotAvailableException;
+import org.olat.core.commons.persistence.SortKey;
 import org.olat.core.id.Identity;
 import org.olat.core.id.Roles;
 import org.olat.core.logging.AssertException;
@@ -61,8 +60,17 @@ import org.olat.core.logging.OLog;
 import org.olat.core.logging.Tracing;
 import org.olat.core.util.ArrayHelper;
 import org.olat.core.util.StringHelper;
+import org.olat.modules.qpool.model.QItemDocument;
+import org.olat.search.QueryException;
+import org.olat.search.SearchModule;
+import org.olat.search.SearchResults;
+import org.olat.search.SearchService;
+import org.olat.search.SearchServiceStatus;
+import org.olat.search.ServiceNotAvailableException;
+import org.olat.search.model.AbstractOlatDocument;
 import org.olat.search.service.indexer.FullIndexerStatus;
 import org.olat.search.service.indexer.Index;
+import org.olat.search.service.indexer.LifeFullIndexer;
 import org.olat.search.service.indexer.MainIndexer;
 import org.olat.search.service.searcher.JmsSearchProvider;
 import org.olat.search.service.searcher.SearchResultsImpl;
@@ -83,33 +91,54 @@ public class SearchServiceImpl implements SearchService {
 	private MainIndexer mainIndexer;
 	private Scheduler scheduler;
 
-	private long maxIndexTime;
 	private Analyzer analyzer;
-	private Searcher searcher;
+	private IndexSearcher searcher;
+	private DirectoryReader reader;
+	private DirectoryReader permReader;
+	
+	private LifeFullIndexer lifeIndexer;
 	private SearchSpellChecker searchSpellChecker;
 	private String indexPath;
+	private String permanentIndexPath;
+	
 	/** Counts number of search queries since last restart. */
 	private long queryCount = 0;
 	private Object createIndexSearcherLock = new Object();
-	private Date openIndexDate;
 
 	private String fields[] = {
 			AbstractOlatDocument.TITLE_FIELD_NAME, AbstractOlatDocument.DESCRIPTION_FIELD_NAME,
 			AbstractOlatDocument.CONTENT_FIELD_NAME, AbstractOlatDocument.AUTHOR_FIELD_NAME,
-			AbstractOlatDocument.DOCUMENTTYPE_FIELD_NAME, AbstractOlatDocument.FILETYPE_FIELD_NAME
+			AbstractOlatDocument.DOCUMENTTYPE_FIELD_NAME, AbstractOlatDocument.FILETYPE_FIELD_NAME,
+			QItemDocument.TAXONOMIC_PATH_FIELD, QItemDocument.IDENTIFIER_FIELD,
+			QItemDocument.MASTER_IDENTIFIER_FIELD, QItemDocument.KEYWORDS_FIELD,
+			QItemDocument.COVERAGE_FIELD, QItemDocument.ADD_INFOS_FIELD,
+			QItemDocument.LANGUAGE_FIELD, QItemDocument.EDU_CONTEXT_FIELD,
+			QItemDocument.ITEM_TYPE_FIELD, QItemDocument.ASSESSMENT_TYPE_FIELD,
+			QItemDocument.ITEM_VERSION_FIELD, QItemDocument.ITEM_STATUS_FIELD,
+			QItemDocument.COPYRIGHT_FIELD, QItemDocument.EDITOR_FIELD,
+			QItemDocument.EDITOR_VERSION_FIELD, QItemDocument.FORMAT_FIELD
 	};
 
 	
 	/**
 	 * [used by spring]
 	 */
-	private SearchServiceImpl(SearchModule searchModule, MainIndexer mainIndexer, JmsSearchProvider searchProvider, Scheduler scheduler) {
+	private SearchServiceImpl(SearchModule searchModule, MainIndexer mainIndexer, JmsSearchProvider searchProvider,
+			Scheduler scheduler) {
 		log.info("Start SearchServiceImpl constructor...");
 		this.scheduler = scheduler;
 		this.searchModuleConfig = searchModule;
 		this.mainIndexer = mainIndexer;
-		analyzer = new StandardAnalyzer(Version.LUCENE_30);
+		analyzer = new StandardAnalyzer(SearchService.OO_LUCENE_VERSION);
 		searchProvider.setSearchService(this);
+	}
+	
+	/**
+	 * [user by Spring]
+	 * @param lifeIndexer
+	 */
+	public void setLifeIndexer(LifeFullIndexer lifeIndexer) {
+		this.lifeIndexer = lifeIndexer;
 	}
 	
 	/**
@@ -161,15 +190,10 @@ public class SearchServiceImpl implements SearchService {
 		searchSpellChecker.setSpellDictionaryPath(searchModuleConfig.getSpellCheckDictionaryPath());
 		searchSpellChecker.setSpellCheckEnabled(searchModuleConfig.getSpellCheckEnabled());
 		
-	  indexer = new Index(searchModuleConfig, searchSpellChecker, mainIndexer);
+	  indexer = new Index(searchModuleConfig, searchSpellChecker, mainIndexer, lifeIndexer);
 
-	  indexPath = searchModuleConfig.getFullIndexPath();
-
-	  try {
-		  checkIsIndexUpToDate();
-		} catch (IOException e) {
-			log.info("Can not create IndexSearcher at startup");
-		}		
+	  indexPath = searchModuleConfig.getFullIndexPath();	
+	  permanentIndexPath = searchModuleConfig.getFullPermanentIndexPath();
 
   	if (startingFullIndexingAllowed()) {
   		try {
@@ -190,63 +214,29 @@ public class SearchServiceImpl implements SearchService {
  	 * @return              SearchResults object for this query
 	 */
 	@Override
-	public SearchResults doSearch(String queryString, List<String> condQueries, Identity identity, Roles roles, int firstResult, int maxResults, boolean doHighlighting) throws ServiceNotAvailableException, ParseException {
+	public SearchResults doSearch(String queryString, List<String> condQueries, Identity identity, Roles roles,
+			int firstResult, int maxResults, boolean doHighlighting)
+	throws ServiceNotAvailableException, ParseException {
 		try {
 			if (!existIndex()) {
 				log.warn("Index does not exist, can't search for queryString: "+queryString);
 				throw new ServiceNotAvailableException("Index does not exist");
 			}
-			synchronized (createIndexSearcherLock) {//o_clusterOK by:fj if service is only configured on one vm, which is recommended way
-				if (searcher == null) {
-					try {
-						createIndexSearcher(indexPath);
-						checkIsIndexUpToDate();
-					} catch(IOException ioEx) {
-						log.warn("Can not create searcher", ioEx);
-						throw new ServiceNotAvailableException("Index is not available");
-					}
-				}
-				if ( hasNewerIndexFile() ) {
-					reopenIndexSearcher();
-					checkIsIndexUpToDate();
-				}			
-			}
+			
 			log.info("queryString=" + queryString);
-			
-			BooleanQuery query = new BooleanQuery();
-			if(StringHelper.containsNonWhitespace(queryString)) {
-				QueryParser queryParser = new MultiFieldQueryParser(Version.LUCENE_CURRENT, fields, analyzer);
-				queryParser.setLowercaseExpandedTerms(false);//some add. fields are not tokenized and not lowered case
-		  	Query multiFieldQuery = queryParser.parse(queryString.toLowerCase());
-		  	query.add(multiFieldQuery, Occur.MUST);
-			}
-			
-			if(condQueries != null && !condQueries.isEmpty()) {
-				for(String condQueryString:condQueries) {
-					QueryParser condQueryParser = new QueryParser(Version.LUCENE_CURRENT, condQueryString, analyzer);
-					condQueryParser.setLowercaseExpandedTerms(false);
-			  	Query condQuery = condQueryParser.parse(condQueryString);
-			  	query.add(condQuery, Occur.MUST);
-				}
-			}
-
+			IndexSearcher searcher = getIndexSearcher();
+			BooleanQuery query = createQuery(queryString, condQueries);
 			if (log.isDebug()) log.debug("query=" + query);
-// TODO: 14.06.2010/cg : fellowig cide fragment can be removed later, do no longer call rewrite(query) because wildcard-search problem (OLAT-5359)
-//	  	Query query = null;
-//			try {
-//	      query = searcher.rewrite(query);
-//	      log.debug("after 'searcher.rewrite(query)' query=" + query);
-//	    } catch (Exception ex) {
-//				throw new QueryException("Rewrite-Exception query because too many clauses. Query=" + query);
-//			}
+			
 	    long startTime = System.currentTimeMillis();
 	    int n = SearchServiceFactory.getService().getSearchModuleConfig().getMaxHits();
+
 	    TopDocs docs = searcher.search(query, n);
 	    long queryTime = System.currentTimeMillis() - startTime;
 	    if (log.isDebug()) log.debug("hits.length()=" + docs.totalHits);
-	    SearchResultsImpl searchResult = new SearchResultsImpl(mainIndexer, searcher, docs, query, analyzer, identity, roles, firstResult, maxResults, doHighlighting);
+	    SearchResultsImpl searchResult = new SearchResultsImpl(mainIndexer, searcher, docs, query, analyzer, identity, roles, firstResult, maxResults, doHighlighting, false);
 	    searchResult.setQueryTime(queryTime);
-	    searchResult.setNumberOfIndexDocuments(searcher.maxDoc());
+	    searchResult.setNumberOfIndexDocuments(docs.totalHits);
 	    queryCount++;
 	    return searchResult;
 		} catch (ServiceNotAvailableException naex) {
@@ -259,6 +249,84 @@ public class SearchServiceImpl implements SearchService {
 			throw new ServiceNotAvailableException(ex.getMessage());
 		}
  	}
+	
+	@Override
+	public List<Long> doSearch(String queryString, List<String> condQueries, Identity identity, Roles roles,
+			int firstResult, int maxResults, SortKey... orderBy)
+	throws ServiceNotAvailableException, ParseException, QueryException {
+		try {
+			if (!existIndex()) {
+				log.warn("Index does not exist, can't search for queryString: "+queryString);
+				throw new ServiceNotAvailableException("Index does not exist");
+			}
+			
+			log.info("queryString=" + queryString);
+			IndexSearcher searcher = getIndexSearcher();
+			BooleanQuery query = createQuery(queryString, condQueries);
+
+	    int n = SearchServiceFactory.getService().getSearchModuleConfig().getMaxHits();
+	    TopDocs docs;
+	    if(orderBy != null && orderBy.length > 0 && orderBy[0] != null) {
+	    	SortField[] sortFields = new SortField[orderBy.length];
+	    	for(int i=0; i<orderBy.length; i++) {
+	    		sortFields[i] = new SortField(orderBy[i].getKey(), SortField.Type.STRING_VAL, orderBy[i].isAsc());
+	    	}
+	    	Sort sort = new Sort(sortFields);
+	    	docs = searcher.search(query, n, sort);
+	    } else {
+	    	docs = searcher.search(query, n);
+	    }
+
+			int numOfDocs = Math.min(n, docs.totalHits);
+			Set<String> retrievedFields = new HashSet<String>();
+			retrievedFields.add(AbstractOlatDocument.DB_ID_NAME);
+			
+			List<Long> res = new ArrayList<Long>();
+	    for (int i=firstResult; i<numOfDocs && res.size() < maxResults; i++) {
+	    	Document doc = searcher.doc(docs.scoreDocs[i].doc, retrievedFields);
+	    	String dbKeyStr = doc.get(AbstractOlatDocument.DB_ID_NAME);
+	    	if(StringHelper.containsNonWhitespace(dbKeyStr)) {
+	    		res.add(Long.parseLong(dbKeyStr));
+	    	}
+	    }
+	    queryCount++;
+	    return res;
+		} catch (ServiceNotAvailableException naex) {
+			// pass exception 
+			throw new ServiceNotAvailableException(naex.getMessage());
+		} catch (ParseException pex) {
+			throw new ParseException("can not parse query=" + queryString);
+		} catch (Exception ex) {
+			log.warn("Exception in search", ex);
+			throw new ServiceNotAvailableException(ex.getMessage());
+		}
+	}
+	
+	private BooleanQuery createQuery(String queryString, List<String> condQueries)
+	throws ParseException {
+		BooleanQuery query = new BooleanQuery();
+		if(StringHelper.containsNonWhitespace(queryString)) {
+			String[] fieldsArr = getFieldsToSearchIn();
+			QueryParser queryParser = new MultiFieldQueryParser(SearchService.OO_LUCENE_VERSION, fieldsArr, analyzer);
+			queryParser.setLowercaseExpandedTerms(false);//some add. fields are not tokenized and not lowered case
+	  	Query multiFieldQuery = queryParser.parse(queryString.toLowerCase());
+	  	query.add(multiFieldQuery, Occur.MUST);
+		}
+		
+		if(condQueries != null && !condQueries.isEmpty()) {
+			for(String condQueryString:condQueries) {
+				QueryParser condQueryParser = new QueryParser(SearchService.OO_LUCENE_VERSION, condQueryString, analyzer);
+				condQueryParser.setLowercaseExpandedTerms(false);
+		  	Query condQuery = condQueryParser.parse(condQueryString);
+		  	query.add(condQuery, Occur.MUST);
+			}
+		}
+		return query;
+	}
+	
+	private String[] getFieldsToSearchIn() {
+		return fields;
+	}
 
 	/**
 	 * Delegates impl to the searchSpellChecker.
@@ -271,13 +339,6 @@ public class SearchServiceImpl implements SearchService {
 
 	public long getQueryCount() {
 		return queryCount;
-	}
-
-	/**
-	 * [used by spring]
-	 */
-	public void setMaxIndexTime(long maxIndexTime) {
-		this.maxIndexTime = maxIndexTime;
 	}
 	
 	public SearchServiceStatus getStatus() {
@@ -310,67 +371,66 @@ public class SearchServiceImpl implements SearchService {
 		}
 		try {
 			if (searcher != null) {
-				searcher.close();
+				searcher.getIndexReader().close();
 				searcher = null;
 			}
-		} catch (IOException e) {
+		} catch (Exception e) {
 			log.error("", e);
 		}
-
 	}
 
 	public boolean isEnabled() {
 		return true;
 	}
-
 	
-	//////////////////
-	// Private Methods
-	//////////////////
-	private void checkIsIndexUpToDate() throws IOException {
-		long indexTime = getCurrentIndexDate().getTime();
-		long currentTime = System.currentTimeMillis();
-		if ( (currentTime - indexTime ) > maxIndexTime) {
-			log.error("Search index is too old indexDate=" + getCurrentIndexDate());
-		}
-	}
-
-	private void createIndexSearcher(String path) throws IOException {
-		File indexFile = new File(path);
-		Directory directory = FSDirectory.open(indexFile);
-		searcher = new IndexSearcher(directory);
-		openIndexDate = getCurrentIndexDate();
-	}
-
-	/**
-	 * @return  Creation date of current used search index. 
-	 */
-	private Date getCurrentIndexDate() throws IOException {
-		File indexFile = new File(indexPath);
-		Directory directory = FSDirectory.open(indexFile);
-		return new Date(IndexReader.getCurrentVersion(directory));
-	}
-
-	private void reopenIndexSearcher() {
-		if ( hasNewerIndexFile() ) {
-			log.debug("New index file available, reopen it");
-			try {
-				searcher.close();
-				createIndexSearcher(indexPath);
-			} catch (IOException e) {
-				log.warn("Could not reopen index-searcher", e);
+	private IndexSearcher getIndexSearcher() throws ServiceNotAvailableException, IOException {
+		if(searcher == null) {
+			synchronized (createIndexSearcherLock) {//o_clusterOK by:fj if service is only configured on one vm, which is recommended way
+				if (searcher == null) {
+					try {
+						getIndexSearcher(indexPath, permanentIndexPath);
+					} catch(IOException ioEx) {
+						log.warn("Can not create searcher", ioEx);
+						throw new ServiceNotAvailableException("Index is not available");
+					}
+				}
 			}
 		}
+	
+		return getIndexSearcher(indexPath, permanentIndexPath);
 	}
 
-	private boolean hasNewerIndexFile() {
-		try {
-			if (getCurrentIndexDate().after(openIndexDate) ) {
-				return true;
+	private synchronized IndexSearcher getIndexSearcher(String path, String permanentPath)
+	throws IOException {
+		boolean hasChanged = false;
+		if(reader == null) {
+			hasChanged = true;
+			reader = DirectoryReader.open(FSDirectory.open(new File(path)));
+		} else {
+			DirectoryReader newReader = DirectoryReader.openIfChanged(reader);
+			if(newReader != null) {
+				hasChanged = true;
+				reader = newReader;
 			}
-		} catch (IOException e) { // no index file exist
 		}
-		return false;
+		
+		if(permReader == null) {
+			hasChanged = true;
+			permReader = DirectoryReader.open(FSDirectory.open(new File(permanentPath)));
+		} else {
+			DirectoryReader newReader = DirectoryReader.openIfChanged(permReader);
+			if(newReader != null) {
+				hasChanged = true;
+				permReader = newReader;
+			}
+		}
+		
+		if(hasChanged) {
+			MultiReader mReader = new MultiReader(reader, permReader);
+			searcher = new IndexSearcher(mReader);
+			//openIndexDate = reader.getVersion();
+		}
+		return searcher;
 	}
 
 	/**
@@ -383,10 +443,10 @@ public class SearchServiceImpl implements SearchService {
 		if (metadataFields != null) {
 			// add metadata fields to normal fields
 			String[] metaFields = ArrayHelper.toArray(metadataFields.getAdvancedSearchableFields());		
-			String[] newFields = new String[this.fields.length + metaFields.length];
-			System.arraycopy(this.fields, 0, newFields, 0, this.fields.length);
-			System.arraycopy(metaFields, 0, newFields, this.fields.length, metaFields.length);
-			this.fields = newFields;			
+			String[] newFields = new String[fields.length + metaFields.length];
+			System.arraycopy(fields, 0, newFields, 0, fields.length);
+			System.arraycopy(metaFields, 0, newFields, fields.length, metaFields.length);
+			fields = newFields;			
 		}
 	}
 
@@ -399,7 +459,9 @@ public class SearchServiceImpl implements SearchService {
 		try {
 			File indexFile = new File(searchModuleConfig.getFullIndexPath());
 			Directory directory = FSDirectory.open(indexFile);
-			return IndexReader.indexExists(directory);
+			File permIndexFile = new File(searchModuleConfig.getFullPermanentIndexPath());
+			Directory permDirectory = FSDirectory.open(permIndexFile);
+			return DirectoryReader.indexExists(directory) && DirectoryReader.indexExists(permDirectory);
 		} catch (IOException e) {
 			throw e;
 		}
