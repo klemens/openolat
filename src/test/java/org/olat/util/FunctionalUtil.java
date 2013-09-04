@@ -414,11 +414,13 @@ public class FunctionalUtil {
 
 		log.info("waiting for page to load element");
 		
+		int count = 0;
 		do{
 			if(browser.isElementPresent(locator)){
 				log.info("found element after " + (currentTime - startTime) + "ms");
-				
-				return(true);
+				return true;
+			} else if(count > 2) {
+				System.out.println();
 			}
 			
 			try {
@@ -426,10 +428,10 @@ public class FunctionalUtil {
 			} catch (InterruptedException e) {
 				e.printStackTrace();
 			}
-			
-			
+
 			currentTime = Calendar.getInstance().getTimeInMillis();
-		}while(waitLimit >  currentTime - startTime);
+			count++;
+		} while(waitLimit >  currentTime - startTime);
 		
 		log.warn("giving up after " + waitLimit + "ms");
 		
@@ -438,6 +440,10 @@ public class FunctionalUtil {
 		}
 		
 		return(false);
+	}
+	
+	public boolean waitForPageToLoadContent(Selenium browser, String iframeSelectors, String content, WaitLimitAttribute wait, boolean throwException){
+		return(waitForPageToLoadContent(browser, new String[]{ iframeSelectors }, content, wait, new WaitForContentFlag[]{WaitForContentFlag.EQUALS, WaitForContentFlag.STRIP_TAGS}, throwException));
 	}
 	
 	/**
@@ -464,7 +470,9 @@ public class FunctionalUtil {
 		
 		/* traverse iframes */
 		if(iframeSelectors != null){
-			for(int i=0; i < iframeSelectors.length;i++) browser.selectFrame(iframeSelectors[i]);
+			for(int i=0; i < iframeSelectors.length;i++) {
+				browser.selectFrame(iframeSelectors[i]);
+			}
 		}
 		
 		do{
@@ -474,9 +482,11 @@ public class FunctionalUtil {
 				source = functionalHtmlUtil.stripTags(source, true);
 			}
 			
+			boolean useEquals = (flags != null && ArrayUtils.contains(flags, WaitForContentFlag.EQUALS));
+			
 			if((content == null && source == null) || 
-					(flags != null && content != null && ArrayUtils.contains(flags, WaitForContentFlag.EQUALS) && content.equals(source)) ||
-					(source != null && !ArrayUtils.contains(flags, WaitForContentFlag.EQUALS) && source.contains(content))){
+					(useEquals && content != null && source != null && content.trim().equals(source.trim())) ||
+					(source != null && content != null && !ArrayUtils.contains(flags, WaitForContentFlag.EQUALS) && source.trim().contains(content.trim()))) {
 				log.info("found content after " + (currentTime - startTime) + "ms");
 				
 				/* go back to toplevel */
@@ -484,7 +494,7 @@ public class FunctionalUtil {
 					browser.selectFrame("relative=top");
 				}
 				
-				return(true);
+				return true;
 			}
 			
 			try {
@@ -505,8 +515,7 @@ public class FunctionalUtil {
 		if(throwException){
 			throw new SeleniumException("timed out after " + waitLimit + "ms");
 		}
-		
-		return(false);
+		return false;
 	}
 	
 	/**
@@ -1205,33 +1214,19 @@ public class FunctionalUtil {
 	 * @param content
 	 * @return
 	 */
-	public boolean typeMCE(Selenium browser, String content){
-		if(content == null)
-			return(true);
+	public void typeMCE(Selenium browser, String content){
+		if(content == null)return;
 		
 		idle(browser);
 		
-		StringBuffer selectorBuffer = new StringBuffer();
-		
-		selectorBuffer.append("dom=document.getElementsByClassName('")
-		.append("mceIframeContainer")
-		.append("')[0].getElementsByTagName('iframe')[0].contentDocument.body");
-		
-		waitForPageToLoadElement(browser, selectorBuffer.toString());
-		
-		browser.type(selectorBuffer.toString(), content);
-		
-		waitForPageToLoadContent(browser,
-				new String[]{"dom=document.getElementsByClassName('mceIframeContainer')[0].getElementsByTagName('iframe')[0]"},
-				functionalHtmlUtil.stripTags(content, true), DEFAULT_WAIT_LIMIT, true);
-		
-		return(true);
+		String iframeSelector = "dom=document.getElementsByClassName('mce-edit-area')[0].getElementsByTagName('iframe')[0]";
+
+		browser.runScript("top.tinymce.activeEditor.setContent('" + content + "')");
+
+		String strippedContent = functionalHtmlUtil.stripTags(content, true);
+		waitForPageToLoadContent(browser, iframeSelector, strippedContent, DEFAULT_WAIT_LIMIT, true);
 	}
-	
-	public boolean typeMCE(Selenium browser, String cssClass, String content){
-		return(typeMCE(browser, cssClass, 0, content));
-	}
-	
+
 	/**
 	 * 
 	 * @param browser
@@ -1239,35 +1234,37 @@ public class FunctionalUtil {
 	 * @param content
 	 * @return
 	 */
-	public boolean typeMCE(Selenium browser, String cssClass, int nth, String content){
-		if(content == null)
-			return(true);
-		
+	public void typeMCE(Selenium browser, String cssClass, String content) {
+		if(content == null) return;
+
 		idle(browser);
 		
-		StringBuffer iframeSelectorBuffer = new StringBuffer();
-		
+		//wait tiny
+		StringBuilder iframeSelectorBuffer = new StringBuilder();
 		iframeSelectorBuffer.append("dom=document.getElementsByClassName('")
-		.append(cssClass)
-		.append("')[0].getElementsByClassName('")
-		.append("mceIframeContainer")
-		.append("')[")
-		.append(nth)
-		.append("].getElementsByTagName('iframe')[0]");
+		  .append(cssClass)
+		  .append("')[0].getElementsByClassName('mce-edit-area')[0].getElementsByTagName('iframe')[0]");
 		
-		StringBuffer selectorBuffer = new StringBuffer(iframeSelectorBuffer);
-		
+		StringBuilder selectorBuffer = new StringBuilder(iframeSelectorBuffer);
 		selectorBuffer.append(".contentDocument.body");
-		
 		waitForPageToLoadElement(browser, selectorBuffer.toString());
 		
-		browser.type(selectorBuffer.toString(), content);
-		
-		waitForPageToLoadContent(browser,
-				new String[]{iframeSelectorBuffer.toString()},
-				functionalHtmlUtil.stripTags(content, true), DEFAULT_WAIT_LIMIT, true);
-		
-		return(true);
+		//write in tiny
+		try {
+			String selIframe = "//div[contains(@class,'" + cssClass + "')]//div[contains(@class,'mce-tinymce')]//iframe";
+			String iframeId = browser.getAttribute("" + selIframe + "@id");
+			int index = iframeId.lastIndexOf('_');
+			String editorId = iframeId.substring(0, index);
+			content = content.replace("\n", "<br/>");
+			browser.runScript("top.tinymce.editors['" + editorId + "'].setContent('" + content + "')");
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+
+		//wait until it's done
+		String strippedContent = functionalHtmlUtil.stripTags(content, true);
+		waitForPageToLoadContent(browser, iframeSelectorBuffer.toString(),
+				strippedContent, DEFAULT_WAIT_LIMIT, true);
 	}
 	
 	/**
