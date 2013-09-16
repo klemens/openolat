@@ -28,6 +28,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.StringTokenizer;
 
 import org.olat.core.CoreSpringFactory;
 import org.olat.core.commons.controllers.linkchooser.CustomLinkTreeModel;
@@ -665,6 +666,10 @@ public class RichTextConfiguration implements Disposable {
 		if(functionName != null) {
 			oninit.add(functionName);
 		}
+	}
+	
+	public List<String> getOnInit() {
+		return oninit;
 	}
 
 	/**
@@ -1507,6 +1512,174 @@ public class RichTextConfiguration implements Disposable {
 			return nonQuotedConfigValues.get(key);
 		}
 	}
+	
+	
+	
+	
+	void appendConfigToTinyJSArray_4(StringOutput sb) {
+		// Add plugins first
+		List<String> plugins4 = new ArrayList<String>(plugins);
+		plugins4.remove("safari");
+		plugins4.remove("inlinepopups");
+		plugins4.remove("advlink");
+		plugins4.remove("xhtmlxtras");
+		plugins4.remove("advimage");
+		if(plugins4.contains("visualchars")) {
+			plugins4.remove("visualchars");
+			plugins4.add("charmap");
+		}
+		if(plugins4.remove("-olatmatheditor")) {
+			plugins4.add("olatmatheditor");
+		}
+		if(plugins4.remove("-olatmovieviewer")) {
+			plugins4.add("olatmovieviewer");
+		}
+		if(plugins4.remove("-olatsmileys")) {
+			plugins4.add("olatsmileys");
+		}
+		if(plugins4.remove("-quotespliter")) {
+			plugins4.add("quotespliter");
+		}
+		if(plugins4.remove("-wordcount")) {
+			plugins4.add("wordcount");
+		}
+		plugins4.add("link");
+		plugins4.add("image");
+		plugins4.add("emoticons");
+		if(theme_advanced_buttons3.contains(CODE_BUTTON)) {
+			plugins4.add("code");
+		}
+		
+		if(theme_advanced_buttons1.contains("forecolor,backcolor") || theme_advanced_buttons1.contains("bakcolor")) {
+			plugins4.add("textcolor");
+		}
+	
+		
+		List<String> menubar = new ArrayList<String>();
+		//if(theme_advanced_buttons3.contains("tablecontrols")) menubar.add("table");
+		//if(theme_advanced_buttons3.contains("code"))          menubar.add("tools");
+		
+		List<String> buttons1 = new ArrayList<String>(theme_advanced_buttons1);
+		if(buttons1.contains("justifyleft")) buttons1.set(buttons1.indexOf("justifyleft"), "alignleft");
+		if(buttons1.contains("justifycenter")) buttons1.set(buttons1.indexOf("justifycenter"), "aligncenter");
+		if(buttons1.contains("justifyright")) buttons1.set(buttons1.indexOf("justifyright"), "alignright");
+		if(buttons1.contains("justifyfull")) buttons1.set(buttons1.indexOf("justifyfull"), "alignjustify");
+		if(buttons1.contains(JUSTIFY_BUTTONGROUP)) {
+			int index = buttons1.indexOf(JUSTIFY_BUTTONGROUP);
+			buttons1.remove(index);
+			buttons1.add(index, "alignleft");
+			buttons1.add(index, "aligncenter");
+			buttons1.add(index, "alignright");
+			buttons1.add(index, "alignjustify");
+		}
+
+		List<String> buttons2 = new ArrayList<String>(theme_advanced_buttons2);
+		List<String> buttons3 = new ArrayList<String>(theme_advanced_buttons3);
+		if(buttons3.contains("visualchars")) buttons3.set(buttons3.indexOf("visualchars"), "charmap");
+		if(buttons3.contains("tablecontrols")) buttons3.set(buttons3.indexOf("tablecontrols"), "table");
+		buttons3.remove("cleanup");
+		
+		System.out.println("Plugins: " + plugins);
+		System.out.println("Buttons 1: " + theme_advanced_buttons1);
+		System.out.println("Buttons 1n: " +buttons1);
+		System.out.println("Buttons 2: " + theme_advanced_buttons2);
+		System.out.println("Buttons 2n: " + buttons2);
+		System.out.println("Buttons 3: " + theme_advanced_buttons3);
+		System.out.println("Buttons 3n: " + buttons3);
+
+		appendValuesFromList(sb, PLUGINS, plugins4);
+		sb.append(",\n")
+		  .append("image_advtab:true,\n")
+		  .append("statusbar:true,\n");
+		
+		//menubar
+		if(menubar.isEmpty()) {
+			sb.append("menubar:false,\n");
+		} else {
+			listToString(sb, "menubar", menubar);	
+			sb.append(",\n");
+		}
+		
+		//toolbar 1
+		if (buttons1.size() == 0) {
+			sb.append("toolbar1").append(":false,\n");
+		} else {
+			listToString(sb, "toolbar1", buttons1);
+			sb.append(",\n");	
+		}
+
+		if (buttons2.size() == 0) {
+			sb.append("toolbar2").append(": false,\n");
+		} else {
+			listToString(sb, "toolbar2", buttons2);
+			sb.append(",\n");	
+		}
+
+		if (buttons3.size() == 0) {
+			sb.append("toolbar3").append(":false,\n");			
+		} else {
+			listToString(sb, "toolbar3", buttons3);
+			sb.append(",\n");							
+		}
+		
+
+		// Now add the quoted values
+		Map<String,String> copyValues = new HashMap<String,String>(quotedConfigValues);
+		//remove unused configurations in 4
+		copyValues.remove("skin");
+		copyValues.remove("skin_variant");
+		copyValues.remove("theme");
+		copyValues.remove("theme_advanced_toolbar_location");
+		copyValues.remove("theme_advanced_statusbar_location");
+		copyValues.remove("theme_advanced_resize_horizontal");
+		copyValues.remove("theme_advanced_resizing");
+		copyValues.remove("theme_advanced_toolbar_align");
+		copyValues.remove("theme_advanced_link_targets");
+		copyValues.remove("dialog_type");
+		copyValues.remove("mode");
+		copyValues.remove("elements");
+		//update value from 3 to 4
+		String tabfocus = copyValues.remove("tab_focus");
+		if(tabfocus != null) {
+			copyValues.put("tabfocus_elements", tabfocus);
+		}
+		for (Map.Entry<String, String> entry : copyValues.entrySet()) {
+			sb.append(entry.getKey()).append(": \"").append(entry.getValue()).append("\",\n");
+		}
+		
+		// Now add the non-quoted values (e.g. true, false or functions)
+		Map<String,String> copyNonValues = new HashMap<String,String>(nonQuotedConfigValues);
+		copyNonValues.remove("theme_advanced_resizing");
+		copyNonValues.remove("theme_advanced_resize_horizontal");
+		String converter = copyNonValues.remove(URLCONVERTER_CALLBACK);
+		if(converter != null) {
+			copyNonValues.put("convert_urls", converter);	
+		}
+ 		for (Map.Entry<String, String> entry : copyNonValues.entrySet()) {
+			sb.append(entry.getKey()).append(": ").append(entry.getValue()).append(",\n");
+		}
+
+ 		System.out.println("Quoted: " + quotedConfigValues);
+ 		System.out.println("Non quoted: " + copyNonValues);
+	}
+	
+	
+	private int listToString(StringOutput sb, String key, List<String> values) {
+		if (values.size() == 0) return 0;
+		sb.append(key).append(": \"");
+		for (String value : values) {
+			for(StringTokenizer tokenizer=new StringTokenizer(value,","); tokenizer.hasMoreTokens(); ) {
+				String token = tokenizer.nextToken();
+				if("separator".equals(token)) {
+					sb.append(" | ");
+				} else {
+					sb.append(token).append(" ");
+				}
+			}
+		}
+		sb.append("\"");
+		return 1;
+	}
 
 	/**
 	 * append all configurations to the given string buffer as js array
@@ -1590,6 +1763,10 @@ public class RichTextConfiguration implements Disposable {
 			String pluginURL = plugin.getPluginURL();
 			sb.append("tinymce.PluginManager.load('").append(pluginName).append("', '").append(pluginURL).append("');");					
 		}
+	}
+	
+	public List<TinyMCECustomPlugin> getCustomPlugins() {
+		return enabledCustomPlugins;
 	}
 	
 	
