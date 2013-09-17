@@ -38,7 +38,6 @@ import org.olat.core.helpers.Settings;
 import org.olat.core.id.Identity;
 import org.olat.core.id.User;
 import org.olat.core.id.UserConstants;
-import org.olat.core.util.ArrayHelper;
 import org.olat.core.util.Util;
 import org.olat.core.util.i18n.I18nModule;
 import org.olat.user.UserManager;
@@ -82,7 +81,7 @@ public class MailHelper {
 		UserManager um = UserManager.getInstance();
 		List<UserPropertyHandler> userPropertyHandlers = um.getUserPropertyHandlersFor(MailHelper.class.getCanonicalName(), false);
 		ArrayList<String> uProps = new ArrayList<String>(userPropertyHandlers.size()+2);
-		uProps.add(sender.getName());
+		uProps.add(sender.getUser().getProperty(UserConstants.EMAIL, null));
 		uProps.add(Settings.getServerContextPathURI());
 		
 		for (Iterator<UserPropertyHandler> iterator = userPropertyHandlers.iterator(); iterator.hasNext();) {
@@ -94,9 +93,13 @@ public class MailHelper {
 			uProps.add("");
 		}
 		
-		String[] userProps = new String[]{};
-		userProps = ArrayHelper.toArray(uProps);
-		return trans.translate("footer.with.userdata", userProps);
+		String[] userPropArr = uProps.toArray(new String[uProps.size()]);
+		for(int i=userPropArr.length; i-->0; ) {
+			if(userPropArr[i] == null) {
+				userPropArr[i] = "";
+			}
+		}
+		return trans.translate("footer.with.userdata", userPropArr);
 	}
 	
 	public static String getTitleForFailedUsersError(Locale locale) {
@@ -197,8 +200,13 @@ public class MailHelper {
 				for (Identity identity : failedIdentites) {
 					User user = identity.getUser();
 					warnings.append("<li>");
-					warnings.append(trans.translate("mailhelper.error.failedusers.user", new String[] { user.getProperty(UserConstants.FIRSTNAME, null), user.getProperty(UserConstants.LASTNAME, null),
-							user.getProperty(UserConstants.EMAIL, null), identity.getName() }));
+					String fullname = UserManager.getInstance().getUserDisplayName(identity);
+					warnings.append(trans.translate("mailhelper.error.failedusers.user", new String[] {
+							user.getProperty(UserConstants.FIRSTNAME, null),
+							user.getProperty(UserConstants.LASTNAME, null),
+							user.getProperty(UserConstants.EMAIL, null),
+							fullname
+						}));
 					warnings.append("</li>");
 				}
 				warnings.append("</ul></p>");

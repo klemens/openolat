@@ -108,13 +108,20 @@ public abstract class StepFormBasicController extends FormBasicController implem
 		
 	}
 	
-	@SuppressWarnings("unused")
 	@Override
 	public void event(UserRequest ureq, Component source, Event event) {
 		if (source == mainForm.getInitialComponent()) {
 			// general form events
 			if (event == org.olat.core.gui.components.form.Form.EVNT_VALIDATION_OK) {
 				formOK(ureq);
+				// set container dirty to remove potentially rendered error messages
+				this.flc.setDirty(true);
+			} else if (event == org.olat.core.gui.components.form.Form.EVNT_VALIDATION_NEXT) {
+				formNext(ureq);
+				// set container dirty to remove potentially rendered error messages
+				this.flc.setDirty(true);
+			} else if (event == org.olat.core.gui.components.form.Form.EVNT_VALIDATION_FINISH) {
+				formFinish(ureq);
 				// set container dirty to remove potentially rendered error messages
 				this.flc.setDirty(true);
 			} else if (event == org.olat.core.gui.components.form.Form.EVNT_VALIDATION_NOK) {
@@ -138,11 +145,9 @@ public abstract class StepFormBasicController extends FormBasicController implem
 		}
 	}
 	
-	
 	abstract protected void doDispose();
 
 	abstract protected void formOK(UserRequest ureq);
-
 
 	/**
 	 * @return Returns the usedInStepWizzard.

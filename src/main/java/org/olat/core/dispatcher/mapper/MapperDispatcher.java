@@ -76,14 +76,16 @@ public class MapperDispatcher extends LogDelegator implements Dispatcher {
 		// e.g. cacheable: 		my.mapper.path/bla/blu.html
 		String subInfo = pathInfo.substring(DispatcherAction.PATH_MAPPED.length());
 		int slashPos = subInfo.indexOf('/');
+		
+		String smappath;
 		if (slashPos == -1) {
-			DispatcherAction.sendNotFound("not found", hres);
-			return;
+			smappath = subInfo;
+		} else {
+			smappath = subInfo.substring(0, slashPos);
 		}
 
 		// e.g. non-cacheable: 	23423
 		// e.g. cacheable: 		my.mapper.path
-		String smappath = subInfo.substring(0, slashPos);
 		UserSession usess = CoreSpringFactory.getImpl(UserSessionManager.class).getUserSession(hreq);
 		Mapper m = CoreSpringFactory.getImpl(MapperService.class).getMapperById(usess, smappath);
 		if (m == null) {
@@ -93,7 +95,7 @@ public class MapperDispatcher extends LogDelegator implements Dispatcher {
 			DispatcherAction.sendNotFound(pathInfo, hres);
 			return;
 		}
-		String mod = subInfo.substring(slashPos);
+		String mod = slashPos > 0 ? subInfo.substring(slashPos) : "";
 		if (mod.indexOf("..") != -1) {
 			logWarn("Illegal mapper path::" + mod + " contains '..'",
 					null);

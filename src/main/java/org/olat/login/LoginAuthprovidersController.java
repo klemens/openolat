@@ -119,6 +119,7 @@ public class LoginAuthprovidersController extends MainLayoutBasicController impl
 		TreeModel tm = buildTreeModel(); 
 		olatMenuTree.setTreeModel(tm);
 		olatMenuTree.setSelectedNodeId(tm.getRootNode().getIdent());
+		olatMenuTree.setRootVisible(false);
 		olatMenuTree.addListener(this);
 
 		// Activate correct position in menu
@@ -300,7 +301,6 @@ public class LoginAuthprovidersController extends MainLayoutBasicController impl
 		VelocityContainer aboutVC = createVelocityContainer("about");
 		// Add version info and licenses
 		aboutVC.contextPut("version", Settings.getFullVersionInfo());
-		aboutVC.contextPut("license", WebappHelper.getOlatLicense());
 		// Add translator and languages info
 		I18nManager i18nMgr = I18nManager.getInstance();
 		Set<String> enabledKeysSet = I18nModule.getEnabledLanguageKeys();

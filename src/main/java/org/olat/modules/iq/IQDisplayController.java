@@ -31,7 +31,6 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Set;
 
-import org.apache.log4j.Logger;
 import org.dom4j.Document;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.Component;
@@ -52,6 +51,8 @@ import org.olat.core.id.OLATResourceable;
 import org.olat.core.id.context.ContextEntry;
 import org.olat.core.id.context.StateEntry;
 import org.olat.core.logging.AssertException;
+import org.olat.core.logging.OLog;
+import org.olat.core.logging.Tracing;
 import org.olat.core.logging.activity.LearningResourceLoggingAction;
 import org.olat.core.logging.activity.StringResourceableType;
 import org.olat.core.logging.activity.ThreadLocalUserActivityLogger;
@@ -86,8 +87,8 @@ public class IQDisplayController extends DefaultController implements GenericEve
 	private static final String PACKAGE = Util.getPackageName(IQDisplayController.class);
 	private static final String VELOCITY_ROOT = Util.getPackageVelocityRoot(IQDisplayController.class);
 
-	private static Logger log = Logger.getLogger(IQDisplayController.class.getName());
-
+	private static OLog log = Tracing.createLoggerFor(IQDisplayController.class);
+	
 	private VelocityContainer myContent;
 
 	private Translator translator;
@@ -208,7 +209,7 @@ public class IQDisplayController extends DefaultController implements GenericEve
 			sb.append("<script type=\"text/javascript\" src=\"").append(autcompResolver.getStaticsBaseURI()).append("/").append(ImsRepositoryResolver.QTI_FIB_AUTOCOMPLETE_JS_FILE).append("\"></script>\n");
 			// must be like <link rel="StyleSheet" href="/olat/secstatic/qti/74579818809617/_unzipped_/fibautocompl.css" type="text/css" media="screen, print">
 			sb.append("<link rel=\"StyleSheet\" href=\"").append(autcompResolver.getStaticsBaseURI()).append("/").append(ImsRepositoryResolver.QTI_FIB_AUTOCOMPLETE_CSS_FILE).append("\" type=\"text/css\" media=\"screen\" >\n");
-			JSAndCSSComponent autoCompleteJsCss = new JSAndCSSComponent("auto_complete_js_css", this.getClass(), null, null, true, sb.toString());
+			JSAndCSSComponent autoCompleteJsCss = new JSAndCSSComponent("auto_complete_js_css", this.getClass(), true, sb.toString());
 			myContent.put("autoCompleteJsCss", autoCompleteJsCss);
 		}
 		closeButton = LinkFactory.createButton("close", myContent, this);
@@ -597,7 +598,7 @@ public class IQDisplayController extends DefaultController implements GenericEve
 			sb.append(ureq.getParameter(paramName));
 		}
 		
-		log.info("qti audit logging: hreq=" + ureq.getHttpReq().getRequestURL() + ", params=" + sb.toString());
+		log.audit("QTI audit logging: hreq=" + ureq.getHttpReq().getRequestURL() + ", params=" + sb.toString());
 
 		String command = ureq.getParameter("cid");
 		

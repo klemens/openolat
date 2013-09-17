@@ -23,19 +23,12 @@ package org.olat.user.propertyhandlers;
 import java.util.Locale;
 import java.util.Map;
 
-import org.apache.commons.httpclient.HttpClient;
-import org.apache.commons.httpclient.HttpMethod;
-import org.apache.commons.httpclient.methods.GetMethod;
-import org.apache.commons.httpclient.params.HttpClientParams;
 import org.olat.core.gui.components.form.ValidationError;
 import org.olat.core.gui.components.form.flexible.FormItem;
 import org.olat.core.gui.components.form.flexible.FormItemContainer;
 import org.olat.core.gui.components.form.flexible.elements.TextElement;
 import org.olat.core.id.User;
-import org.olat.core.logging.OLog;
-import org.olat.core.logging.Tracing;
 import org.olat.core.util.StringHelper;
-import org.olat.core.util.httpclient.HttpClientFactory;
 import org.olat.user.UserManager;
 
 /**
@@ -62,11 +55,13 @@ public class ICQPropertyHandler extends Generic127CharTextPropertyHandler {
 		// return super.getUserPropertyAsHTML(user, locale);
 		String icqname = getUserProperty(user, locale);
 		if (StringHelper.containsNonWhitespace(icqname)) {
-			StringBuffer stringBuffer = new StringBuffer();
-			stringBuffer.append("<a href=\"" + ICQ_NAME_VALIDATION_URL + "" + icqname + "\" target=\"_blank\">" + icqname + "</a>");
-			stringBuffer.append("<img src=\"" + ICQ_INDICATOR_URL + "?icq=" + icqname
-					+ "&img=5\" style=\"width:10px; height:10px; margin-left:2px;\">");
-			return stringBuffer.toString();
+			icqname = StringHelper.escapeHtml(icqname);
+			StringBuilder sb = new StringBuilder();
+			sb.append("<a href=\"").append(ICQ_NAME_VALIDATION_URL).append(icqname).append("\" target=\"_blank\">")
+			  .append(icqname).append("</a>")
+			  .append("<img src=\"").append(ICQ_INDICATOR_URL).append("?icq=").append(icqname)
+			  .append("&img=5\" style=\"width:10px; height:10px; margin-left:2px;\">");
+			return sb.toString();
 		} else {
 			return null;
 		}
@@ -130,9 +125,8 @@ public class ICQPropertyHandler extends Generic127CharTextPropertyHandler {
 	 * @see org.olat.user.propertyhandlers.Generic127CharTextPropertyHandler#isValid(org.olat.core.gui.components.form.flexible.FormItem,
 	 *      java.util.Map)
 	 */
-	@SuppressWarnings({ "unchecked", "unused" })
 	@Override
-	public boolean isValid(FormItem formItem, Map formContext) {
+	public boolean isValid(FormItem formItem, Map<String,String> formContext) {
 		// FXOLAT-343 ::
 		// there's no official icq-api to check if a user exists..
 		// the previous check failed (nov 2011), urls changed etc...

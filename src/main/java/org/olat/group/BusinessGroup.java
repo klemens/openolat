@@ -43,12 +43,6 @@ import org.olat.resource.OLATResource;
  */
 public interface BusinessGroup extends BusinessGroupShort, Persistable, CreateInfo, ModifiedInfo, OLATResourceable {
 
-	/** group type: buddygroup * */
-	//public final static String TYPE_BUDDYGROUP = "BuddyGroup";
-	/** group type: learning group * */
-	//public final static String TYPE_LEARNINGROUP = "LearningGroup";
-	/** group type: course right group * */
-	//public final static String TYPE_RIGHTGROUP = "RightGroup";
 	/** regular expression to check for valid group names */
 	// commas are not allowed. name is used in course conditions for weak binding
 	public final static String VALID_GROUPNAME_REGEXP = "^[^,\"]*$";
@@ -75,6 +69,38 @@ public interface BusinessGroup extends BusinessGroupShort, Persistable, CreateIn
 	 * @return The group description or NULL if none set.
 	 */
 	public String getDescription();
+	
+	/**
+	 * @param description the description of this group. Might be NULL
+	 */
+	public void setDescription(String description);
+	
+	/**
+	 * 
+	 * @return An ID used by external system for example.
+	 */
+	public String getExternalId();
+	
+	public void setExternalId(String externalId);
+	
+	/**
+	 * 
+	 * @return List of flags which say what features are externally managed
+	 */
+	public BusinessGroupManagedFlag[] getManagedFlags();
+
+	/**
+	 * Return the list of managed flags as a string with the
+	 * flags separated by comma.
+	 * @return
+	 */
+	public String getManagedFlagsString();
+	
+	/**
+	 * A list of flags
+	 * @param flags
+	 */
+	public void setManagedFlagsString(String flags);
 
 	/**
 	 * BusinessGroup was active, lastUsage will be used to determine which groups
@@ -83,11 +109,6 @@ public interface BusinessGroup extends BusinessGroupShort, Persistable, CreateIn
 	 * @param lastUsage
 	 */
 	public void setLastUsage(Date lastUsage);
-
-	/**
-	 * @param description the description of this group. Might be NULL
-	 */
-	public void setDescription(String description);
 	
 	/**
 	 * @return The associated resource

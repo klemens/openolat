@@ -25,6 +25,7 @@ import org.olat.core.configuration.AbstractOLATModule;
 import org.olat.core.configuration.PersistedProperties;
 import org.olat.core.id.Roles;
 import org.olat.core.id.context.SiteContextEntryControllerCreator;
+import org.olat.core.util.StringHelper;
 import org.olat.group.BusinessGroupModule;
 import org.olat.repository.site.RepositorySite;
 
@@ -38,6 +39,15 @@ import org.olat.repository.site.RepositorySite;
  * @author gnaegi
  */
 public class RepositoryModule extends AbstractOLATModule {
+
+	private static final String MANAGED_REPOENTRY_ENABLED = "managedRepositoryEntries";
+	private static final String LIST_ALL_COURSES = "listallcourse";
+	private static final String LIST_ALL_RESOURCETYPES = "listallresourcetypes";
+
+	private boolean listAllCourses;
+	private boolean listAllResourceTypes;
+	
+	private boolean managedRepositoryEntries;
 	
 	private BusinessGroupModule groupModule;
 	
@@ -56,6 +66,7 @@ public class RepositoryModule extends AbstractOLATModule {
 		NewControllerFactory.getInstance().addContextEntryControllerCreator(RepositorySite.class.getSimpleName(),
 				new SiteContextEntryControllerCreator(RepositorySite.class));
 		
+		updateProperties();
 	}
 
 	/**
@@ -71,7 +82,28 @@ public class RepositoryModule extends AbstractOLATModule {
 	 */
 	@Override
 	protected void initDefaultProperties() {
-	// nothing to init
+		String listAllCoursesStr = getStringConfigParameter(LIST_ALL_COURSES, "true", false);
+		listAllCourses = "true".equals(listAllCoursesStr);
+		String listAllResourceTypesStr = getStringConfigParameter(LIST_ALL_RESOURCETYPES, "true", false);
+		listAllResourceTypes = "true".equals(listAllResourceTypesStr);
+		
+		managedRepositoryEntries = getBooleanConfigParameter(MANAGED_REPOENTRY_ENABLED, false);
+	}
+
+	private void updateProperties() {
+		String listAllCoursesStr = getStringPropertyValue(LIST_ALL_COURSES, true);
+		if(StringHelper.containsNonWhitespace(listAllCoursesStr)) {
+			listAllCourses = "true".equals(listAllCoursesStr);
+		}
+		String listAllResourceTypesStr = getStringPropertyValue(LIST_ALL_RESOURCETYPES, true);
+		if(StringHelper.containsNonWhitespace(listAllResourceTypesStr)) {
+			listAllResourceTypes = "true".equals(listAllResourceTypesStr);
+		}
+		
+		String managedRepo = getStringPropertyValue(MANAGED_REPOENTRY_ENABLED, true);
+		if(StringHelper.containsNonWhitespace(managedRepo)) {
+			managedRepositoryEntries = "true".equals(managedRepo);
+		}
 	}
 
 	/**
@@ -79,7 +111,7 @@ public class RepositoryModule extends AbstractOLATModule {
 	 */
 	@Override
 	protected void initFromChangedProperties() {
-	// nothing to init
+		updateProperties();
 	}
 
 	@Override
@@ -95,4 +127,27 @@ public class RepositoryModule extends AbstractOLATModule {
 		return groupModule.isMandatoryEnrolmentEmail(roles);
 	}
 
+	public boolean isListAllCourses() {
+		return listAllCourses;
+	}
+
+	public void setListAllCourses(boolean listAllCourses) {
+		setBooleanProperty(LIST_ALL_COURSES, listAllCourses, true);
+	}
+
+	public boolean isListAllResourceTypes() {
+		return listAllResourceTypes;
+	}
+
+	public void setListAllResourceTypes(boolean listAllResourceTypes) {
+		setBooleanProperty(LIST_ALL_RESOURCETYPES, listAllResourceTypes, true);
+	}
+
+	public boolean isManagedRepositoryEntries() {
+		return managedRepositoryEntries;
+	}
+
+	public void setManagedRepositoryEntries(boolean enabled) {
+		setStringProperty(MANAGED_REPOENTRY_ENABLED, Boolean.toString(enabled), true);
+	}
 }

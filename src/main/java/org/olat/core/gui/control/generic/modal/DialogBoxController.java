@@ -57,6 +57,7 @@ import org.olat.core.gui.control.Event;
 import org.olat.core.gui.control.WindowControl;
 import org.olat.core.gui.control.controller.BasicController;
 import org.olat.core.util.StringHelper;
+import org.olat.core.util.Util;
 
 /**
  * <h3>Description:</h3>
@@ -94,7 +95,7 @@ public class DialogBoxController extends BasicController {
 		// add content to velocity
 		dialogBoxVC.contextPut("text", text);
 		// add optional buttons to velocity
-		List buttons = new ArrayList();
+		List<String> buttons = new ArrayList<String>();
 		if (buttonLabels != null) {
 			for (int i = 0; i < buttonLabels.size(); i++) {
 				String buttonText = buttonLabels.get(i);
@@ -128,6 +129,18 @@ public class DialogBoxController extends BasicController {
 			dialogBoxVC.contextPut("closeIcon", Boolean.TRUE);
 		}	else {
 			dialogBoxVC.contextPut("closeIcon", Boolean.FALSE);			
+		}
+	}
+	
+	public void setContextHelp(String packageName, String pageName, String hoverTextKey) {
+		if (packageName == null) {
+			dialogBoxVC.contextRemove("off_chelp_package");
+		} else {
+			setTranslator(Util.createPackageTranslator(packageName, getLocale(), getTranslator()));
+			dialogBoxVC.contextPut("off_chelp_package", packageName);
+			dialogBoxVC.contextPut("off_chelp_page", pageName);
+			dialogBoxVC.contextPut("off_chelp_hover", hoverTextKey);
+			dialogBoxVC.setTranslator(getTranslator());
 		}
 	}
 

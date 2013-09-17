@@ -70,14 +70,18 @@ import org.junit.runners.Suite;
 	org.olat.user.EmailCheckPerformanceTest.class,//fail
 	org.olat.user.UserTest.class,//ok
 	org.olat.user.UserPropertiesTest.class,//ok
-	org.olat.commons.calendar.ui.components.WeeklyCalendarComponentTest.class,//ok
 	org.olat.commons.calendar.test.CalendarUtilsTest.class,//ok
 	org.olat.commons.calendar.ICalFileCalendarManagerTest.class,//ok
 	org.olat.commons.lifecycle.LifeCycleManagerTest.class,//fail christian fragen...
 	org.olat.commons.coordinate.cluster.jms.JMSTest.class,//ok
 	org.olat.commons.coordinate.cluster.lock.LockTest.class,//ok
 	org.olat.commons.coordinate.CoordinatorTest.class,//ok
+	org.olat.core.commons.service.webdav.WebDAVTestCase.class,//ok
+	org.olat.core.commons.services.webdav.manager.WebDAVManagerTest.class,//ok
+	org.olat.core.commons.taskExecutor.PersistentTaskDAOTest.class,//ok
+	org.olat.core.commons.taskExecutor.TaskExecutorManagerTest.class,//ok
 	org.olat.admin.user.delete.service.UserDeletionManagerTest.class,//ok
+	org.olat.group.BusinessGroupManagedFlagsTest.class,//ok
 	org.olat.group.test.BGRightManagerTest.class,//ok
 	org.olat.group.test.BGAreaManagerTest.class,//ok
 	org.olat.group.test.BusinessGroupServiceTest.class,//ok
@@ -91,6 +95,7 @@ import org.junit.runners.Suite;
 	org.olat.basesecurity.SecurityManagerTest.class,//ok
 	org.olat.basesecurity.BaseSecurityTest.class,//ok
 	org.olat.basesecurity.BaseSecurityManagerTest.class,//ok
+	org.olat.user.UserManagerTest.class,//ok
 	org.olat.repository.RepositoryManagerTest.class,//ok
 	org.olat.repository.RepositoryManagerConcurrentTest.class,//ok
 	org.olat.repository.RepositoryManagerQueryTest.class,//ok
@@ -108,7 +113,7 @@ import org.junit.runners.Suite;
 	org.olat.modules.wiki.WikiUnitTest.class,//ok
 	org.olat.modules.wiki.versioning.diff.CookbookDiffTest.class,//ok
 	org.olat.modules.wiki.gui.components.wikiToHtml.FilterUtilTest.class,
-	org.olat.modules.coach.CoachingManagerTest.class,//ok
+	//org.olat.modules.coach.CoachingManagerTest.class,//ok
 	org.olat.properties.PropertyTest.class,//ok
 	org.olat.search.service.document.file.FileDocumentFactoryTest.class,
 	org.olat.search.service.document.file.PDFDocumentTest.class,
@@ -116,11 +121,24 @@ import org.junit.runners.Suite;
 	org.olat.catalog.CatalogManagerTest.class,//ok
 	org.olat.notifications.NotificationsManagerTest.class,//fail
 	org.olat.registration.RegistrationManagerTest.class,//ok
-	org.olat.commons.coordinate.singlevm.SingleVMLockerTest.class,//ok
 	org.olat.course.nodes.projectbroker.ProjectBrokerManagerTest.class,
 	org.olat.core.commons.persistence.DBTest.class,
 	org.olat.modules.ims.cp.CPManagerTest.class,
+	org.olat.modules.ims.qti.fileresource.FileResourceValidatorTest.class,
+	org.olat.ims.qti.qpool.QTIImportProcessorTest.class,
+	org.olat.ims.qti.qpool.QTIExportProcessorTest.class,
+	org.olat.ims.lti.LTIManagerTest.class,
 	org.olat.modules.webFeed.FeedManagerImplTest.class,
+	org.olat.modules.qpool.manager.MetadataConverterHelperTest.class,
+	org.olat.modules.qpool.manager.QuestionDAOTest.class,
+	org.olat.modules.qpool.manager.FileStorageTest.class,
+	org.olat.modules.qpool.manager.CollectionDAOTest.class,
+	org.olat.modules.qpool.manager.QLicenseDAOTest.class,
+	org.olat.modules.qpool.manager.QItemTypeDAOTest.class,
+	org.olat.modules.qpool.manager.QEducationalContextDAOTest.class,
+	org.olat.modules.qpool.manager.PoolDAOTest.class,
+	org.olat.modules.qpool.manager.TaxonomyLevelDAOTest.class,
+	org.olat.modules.qpool.manager.QuestionPoolServiceTest.class,
 	org.olat.ldap.LDAPLoginTest.class,
 	org.olat.core.commons.service.mark.MarksTest.class,
 //	org.olat.test.OlatJerseyTestCase.class, // NO TEST METHODS 
@@ -142,7 +160,6 @@ import org.junit.runners.Suite;
 	org.olat.modules.openmeetings.manager.OpenMeetingsDAOTest.class,
 	org.olat.commons.info.InfoManagerTest.class,
 	org.olat.core.commons.service.tagging.SimpleTagProposalManagerTest.class,
-	org.olat.commons.coordinate.singlevm.SingleVMLockerTest.class,
 	org.olat.core.commons.service.tagging.TaggingManagerTest.class,
 	org.olat.core.dispatcher.mapper.MapperDAOTest.class,
 	org.olat.core.dispatcher.mapper.MapperServiceTest.class,
@@ -150,6 +167,7 @@ import org.junit.runners.Suite;
 	org.olat.restapi.CatalogTest.class,
 	org.olat.restapi.CalendarTest.class,
 	org.olat.restapi.CourseGroupMgmtTest.class,
+	org.olat.restapi.CourseCalendarTest.class,
 	org.olat.restapi.CoursesContactElementTest.class,
 	org.olat.restapi.CourseSecurityTest.class,
 	org.olat.restapi.CoursesElementsTest.class,
@@ -166,6 +184,7 @@ import org.junit.runners.Suite;
 	org.olat.restapi.I18nTest.class,
 	org.olat.restapi.MyForumsTest.class,
 	org.olat.restapi.NotificationsTest.class,
+	org.olat.restapi.RepositoryEntryLifecycleTest.class,
 	org.olat.restapi.RepositoryEntriesTest.class,
 	org.olat.restapi.RestApiLoginFilterTest.class,
 	org.olat.restapi.UserAuthenticationMgmtTest.class,

@@ -30,7 +30,6 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
 
-import org.olat.admin.user.UserTableDataModel;
 import org.olat.core.gui.components.table.BooleanColumnDescriptor;
 import org.olat.core.gui.components.table.ColumnDescriptor;
 import org.olat.core.gui.components.table.CustomRenderColumnDescriptor;
@@ -54,7 +53,7 @@ import org.olat.user.propertyhandlers.UserPropertyHandler;
  * Initial Date:  Jun 23, 2004
  * @author gnaegi
  */
-public class AssessedIdentitiesTableDataModel extends DefaultTableDataModel {
+public class AssessedIdentitiesTableDataModel extends DefaultTableDataModel<AssessedIdentityWrapper> {
 
 	private int colCount;
 	private AssessableCourseNode courseNode;
@@ -73,30 +72,27 @@ public class AssessedIdentitiesTableDataModel extends DefaultTableDataModel {
 
 	private List<String> colMapping;	
 	private List<String> userPropertyNameList;
-	private List<UserPropertyHandler> userPropertyHandlers;
+	private final boolean isAdministrativeUser;
+	private final List<UserPropertyHandler> userPropertyHandlers;
 	private static final String usageIdentifyer = AssessedIdentitiesTableDataModel.class.getCanonicalName();
-	private Translator translator;
-	
-	private String identifyer;
+	private final Translator translator;
+
 
 	/**
-	 * @param objects List of wrapped identities (AssessedIdentityWrapper)
-	 * @param courseNode the current courseNode
+	 * 
+	 * @param objects
+	 * @param courseNode
+	 * @param locale
+	 * @param isAdministrativeUser
 	 */
-	public AssessedIdentitiesTableDataModel(List objects, AssessableCourseNode courseNode, Locale locale, boolean isAdministrativeUser) {
-		this(objects, courseNode, locale, isAdministrativeUser, false);
-	}
-	
-		public AssessedIdentitiesTableDataModel(List objects, AssessableCourseNode courseNode, Locale locale, boolean isAdministrativeUser,
-				boolean compatibilityUserProperties) {
+	public AssessedIdentitiesTableDataModel(List<AssessedIdentityWrapper> objects, AssessableCourseNode courseNode, Locale locale, boolean isAdministrativeUser) {
 		super(objects);
 		this.courseNode = courseNode;		
 		this.setLocale(locale);
 		this.translator = Util.createPackageTranslator(this.getClass(), locale);
 		
-		//fxdiff FXOLAT-108: improve results table of tests
-		identifyer = compatibilityUserProperties ? UserTableDataModel.class.getCanonicalName() : usageIdentifyer;
-		userPropertyHandlers = UserManager.getInstance().getUserPropertyHandlersFor(identifyer, isAdministrativeUser);
+		this.isAdministrativeUser = isAdministrativeUser;
+		userPropertyHandlers = UserManager.getInstance().getUserPropertyHandlersFor(usageIdentifyer, isAdministrativeUser);
 		
 		colCount = 0; // default
 		colMapping = new ArrayList<String>();
@@ -137,32 +133,17 @@ public class AssessedIdentitiesTableDataModel extends DefaultTableDataModel {
 	/**
 	 * @see org.olat.core.gui.components.table.TableDataModel#getColumnCount()
 	 */
+	@Override
 	public int getColumnCount() {
 		return colCount;
 	}
 
 	/**
-	 * @param row The row number
-	 * @return The wrapped identity for this row
-	 */
-	public AssessedIdentityWrapper getWrappedIdentity(int row) {
-		return (AssessedIdentityWrapper) getObject(row);
-	}
-
-	/**
-	 * @param row The row number
-	 * @return The identity for this row
-	 */
-	public Identity getIdentity(int row) {
-		AssessedIdentityWrapper wrappedIdentity = getWrappedIdentity(row);
-		return wrappedIdentity.getIdentity();
-	}
-
-	/**
 	 * @see org.olat.core.gui.components.table.TableDataModel#getValueAt(int, int)
 	 */
+	@Override
 	public Object getValueAt(int row, int col) {
-		AssessedIdentityWrapper wrappedIdentity = (AssessedIdentityWrapper) getObject(row);
+		AssessedIdentityWrapper wrappedIdentity = getObject(row);
 		Identity identity = wrappedIdentity.getIdentity();
 
 		// lookup the column name first and 
@@ -235,14 +216,16 @@ public class AssessedIdentitiesTableDataModel extends DefaultTableDataModel {
 			editCmd = actionCommand; // only selectable if editable
 		}
 		int colCount = 0;
-		userListCtr.addColumnDescriptor(new DefaultColumnDescriptor("table.header.name", colCount++, editCmd, getLocale()));
+		
+		if(isAdministrativeUser) {
+			userListCtr.addColumnDescriptor(new DefaultColumnDescriptor("table.header.name", colCount++, editCmd, getLocale()));
+		}
 		
 		for (int i = 0; i < userPropertyHandlers.size(); i++) {
 			UserPropertyHandler userPropertyHandler	= userPropertyHandlers.get(i);
 			//fxdiff FXOLAT-108: improve results table of tests
-			boolean visible = UserManager.getInstance().isMandatoryUserProperty(identifyer , userPropertyHandler);
-			userListCtr.addColumnDescriptor(visible, userPropertyHandler.getColumnDescriptor(i+1, null, getLocale()));	
-			colCount++;
+			boolean visible = UserManager.getInstance().isMandatoryUserProperty(usageIdentifyer , userPropertyHandler);
+			userListCtr.addColumnDescriptor(visible, userPropertyHandler.getColumnDescriptor(colCount++, editCmd, getLocale()));	
 		}		
 		if ( (courseNode != null) && isNodeOrGroupFocus) {			
 			if (courseNode.hasDetails()) {
@@ -274,5 +257,4 @@ public class AssessedIdentitiesTableDataModel extends DefaultTableDataModel {
 			userListCtr.addColumnDescriptor(false, new DefaultColumnDescriptor("table.header.lastScoreDate", colCount++, null, getLocale(), ColumnDescriptor.ALIGNMENT_LEFT));
 		}
 	}
-
 }
