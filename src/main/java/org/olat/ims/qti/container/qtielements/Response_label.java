@@ -26,10 +26,16 @@
 package org.olat.ims.qti.container.qtielements;
 
 import java.util.List;
+import java.util.Map;
 
 import org.dom4j.Element;
 import org.olat.core.logging.AssertException;
+import org.olat.core.util.StringHelper;
+import org.olat.core.util.openxml.OpenXMLDocument;
+import org.olat.core.util.openxml.OpenXMLDocument.Style;
+import org.olat.core.util.openxml.OpenXMLDocument.Unit;
 import org.olat.ims.qti.container.ItemInput;
+import org.w3c.dom.Node;
 
 /**
  *    Initial Date:  25.11.2004
@@ -38,32 +44,30 @@ import org.olat.ims.qti.container.ItemInput;
  */
 public class Response_label extends GenericQTIElement {
 
+	private static final long serialVersionUID = -4391486220424218044L;
 	/**
 	 * Comment for <code>xmlClass</code>
 	 */
 	public static final String xmlClass = "response_label";
 	private static String PARA = "§";
+	
 	/**
 	 * @param el_element
 	 */
 	public Response_label(Element el_element) {
 		super(el_element);
-
 	}
 
 	/**
 	 * @see org.olat.ims.qti.container.qtielements.QTIElement#render(StringBuilder,
 	 *      RenderInstructions)
 	 */
+	@Override
 	public void render(StringBuilder buffer, RenderInstructions ri) {
 		ItemInput iinput = (ItemInput) ri.get(RenderInstructions.KEY_ITEM_INPUT);
 		String responseIdent = (String) ri.get(RenderInstructions.KEY_RESPONSE_IDENT);
 		// find parent render_xxx element
 		String renderClass = (String) ri.get(RenderInstructions.KEY_RENDER_CLASS);
-		if (ri == null) {
-			throw new AssertException("Render class must be set previousely to call respnse_label.render.");
-		}
-		
 		if(renderClass == null) {
 			//we don't know what to do
 		} else if (renderClass.equals("choice")) {
@@ -135,7 +139,7 @@ public class Response_label extends GenericQTIElement {
 		} else if (renderClass.equals("kprim")) {
 			buffer.append("<tr><td align=\"center\"><input id=\"QTI_").append(ri.get(RenderInstructions.KEY_ITEM_IDENT)).append(getQTIIdent()).append("\" type=\"radio\" class=\"b_radio\" name=\"");
 			appendParameterIdent(buffer, ri);
-			buffer.append("\" value=\"" + getQTIIdent() + ":correct\"");
+			buffer.append("\" value=\"" + getQTIIdent() + ":correct");
 			if (iinput != null && !iinput.isEmpty()) {
 				List responses = iinput.getAsList(responseIdent);
 				if (responses != null && responses.contains(getQTIIdent() + ":correct")) buffer.append("\" checked=\"checked");
@@ -143,7 +147,7 @@ public class Response_label extends GenericQTIElement {
 			buffer.append("\" onchange=\"return setFormDirty('ofo_iq_item')\" onclick=\"return setFormDirty('ofo_iq_item')\"/>");
 			buffer.append("</td><td align=\"center\"><input id=\"QTI_").append(ri.get(RenderInstructions.KEY_ITEM_IDENT)).append(getQTIIdent()).append("\" type=\"radio\" class=\"b_radio\" name=\"");
 			appendParameterIdent(buffer, ri);
-			buffer.append("\" value=\"" + getQTIIdent() + ":wrong\"");
+			buffer.append("\" value=\"" + getQTIIdent() + ":wrong");
 			if (iinput != null && !iinput.isEmpty()) {
 				List responses = iinput.getAsList(responseIdent);
 				if (responses != null && responses.contains(getQTIIdent() + ":wrong")) buffer.append("\" checked=\"checked");
@@ -202,5 +206,95 @@ public class Response_label extends GenericQTIElement {
 	private void appendParameterIdent(StringBuilder buffer, RenderInstructions ri) {
 		buffer.append("qti").append(PARA).append(ri.get(RenderInstructions.KEY_ITEM_IDENT)).append(PARA).append(
 				ri.get(RenderInstructions.KEY_RESPONSE_IDENT)).append(PARA).append(getQTIIdent());
+	}
+
+	@Override
+	public void renderOpenXML(OpenXMLDocument document, RenderInstructions ri) {
+		String renderClass = (String) ri.get(RenderInstructions.KEY_RENDER_CLASS);
+		
+		
+		if(renderClass == null) {
+			//we don't know what to do
+		} else if(renderClass.equals("choice")) {
+			Node row = document.createTableRow();
+			//answer
+			Node answerCell = row.appendChild(document.createTableCell("E9EAF2", 4560, Unit.pct));
+			document.pushCursor(answerCell);
+			super.renderOpenXML(document, ri);
+			document.popCursor(answerCell);
+
+			//checkbox
+			boolean correct = isCorrectMCResponse(ri);
+			appendCheckBox(correct, row, document);
+			//append row
+			document.getCursor().appendChild(row);
+		} else if (renderClass.equals("kprim")) {
+			Node row = document.createTableRow();
+			//answer
+			Node answerCell = row.appendChild(document.createTableCell("E9EAF2", 4120, Unit.pct));
+			document.pushCursor(answerCell);
+			super.renderOpenXML(document, ri);
+			document.popCursor(answerCell);
+			
+			//checkbox
+			boolean correct = isCorrectKPrimResponse(ri, "correct");
+			appendCheckBox(correct, row, document);
+			boolean wrong = isCorrectKPrimResponse(ri, "wrong");
+			appendCheckBox(wrong, row, document);
+			
+			//append row
+			document.getCursor().appendChild(row);
+		} else if (renderClass.equals("fib")) {
+			Boolean render = (Boolean)ri.get(RenderInstructions.KEY_RENDER_CORRECT_RESPONSES);
+			@SuppressWarnings("unchecked")
+			Map<String,String> iinput = (Map<String,String>)ri.get(RenderInstructions.KEY_CORRECT_RESPONSES_MAP);
+			
+			if(render != null && render.booleanValue() && iinput != null
+					&& StringHelper.containsNonWhitespace(iinput.get(getQTIIdent()))) {
+				//show the response
+				String response = iinput.get(getQTIIdent());
+				response = response.replace(";", ", ");
+				document.appendText(response, false, Style.underline);
+			} else {
+				Integer rows = (Integer)ri.get(RenderInstructions.KEY_FIB_ROWS);
+				if (rows != null && rows.intValue() > 1) {
+					document.appendFillInBlanckWholeLine(rows.intValue());
+				} else {
+					Integer maxlength = (Integer)ri.get(RenderInstructions.KEY_FIB_MAXLENGTH);
+					int length = (maxlength == null ? 8 : maxlength.intValue()) / 2;
+					document.appendFillInBlanck(length, false);
+				}
+			}
+		}
+	}
+	
+	private void appendCheckBox(boolean checked, Node row, OpenXMLDocument document) {
+		Node checkboxCell = row.appendChild(document.createTableCell(null, 369, Unit.pct));
+		Node responseEl = document.createCheckbox(checked);
+		Node wrapEl = document.wrapInParagraph(responseEl);
+		//Node responseEl = document.createParagraphEl("OK");
+		checkboxCell.appendChild(wrapEl);
+	}
+	
+	private boolean isCorrectMCResponse(RenderInstructions ri) {
+		Boolean render = (Boolean)ri.get(RenderInstructions.KEY_RENDER_CORRECT_RESPONSES);
+		if(render == null || !render.booleanValue()) return false;
+		@SuppressWarnings("unchecked")
+		Map<String,String> iinput = (Map<String,String>)ri.get(RenderInstructions.KEY_CORRECT_RESPONSES_MAP);
+		if(iinput != null && iinput.containsKey(getQTIIdent())) {
+			return true;
+		}
+		return false;	
+	}
+	
+	private boolean isCorrectKPrimResponse(RenderInstructions ri, String add) {
+		Boolean render = (Boolean)ri.get(RenderInstructions.KEY_RENDER_CORRECT_RESPONSES);
+		if(render == null || !render.booleanValue()) return false;
+		@SuppressWarnings("unchecked")
+		Map<String,String> iinput = (Map<String,String>)ri.get(RenderInstructions.KEY_CORRECT_RESPONSES_MAP);
+		if(iinput != null && iinput.containsKey(getQTIIdent() + ":" + add)) {
+			return true;
+		}
+		return false;	
 	}
 }
