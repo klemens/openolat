@@ -311,7 +311,6 @@ public class ExamEditorController extends BasicController {
 						for (Protocol p : protoList) {
 							p = ProtocolManager.getInstance().findProtocolByID(p.getKey());
 							
-							tempApp = p.getAppointment();
 							CalendarManager.getInstance().deleteKalendarEventForExam(exam,p.getIdentity());
 							Locale userLocale = new Locale(p.getIdentity().getUser().getPreferences().getLanguage());
 							Translator tmpTranslator = Util.createPackageTranslator(Exam.class, userLocale);
@@ -335,8 +334,8 @@ public class ExamEditorController extends BasicController {
 							
 							ProtocolManager.getInstance().deleteProtocol(p);
 						}
-						AppointmentManager.getInstance().deleteAppointment(
-								tempApp);
+						tempApp = AppointmentManager.getInstance().findAppointmentByID(tempApp.getKey());
+						AppointmentManager.getInstance().deleteAppointment(tempApp);
 					}
 
 					appTableMdl.setEntries(AppointmentManager.getInstance()
