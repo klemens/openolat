@@ -29,6 +29,7 @@ import java.util.UUID;
 import org.olat.core.CoreSpringFactory;
 import org.olat.core.commons.persistence.PersistenceHelper;
 import org.olat.core.gui.UserRequest;
+import org.olat.core.gui.components.EscapeMode;
 import org.olat.core.gui.components.form.flexible.FormItemContainer;
 import org.olat.core.gui.components.form.flexible.elements.MultipleSelectionElement;
 import org.olat.core.gui.components.form.flexible.impl.Form;
@@ -45,6 +46,7 @@ import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.Event;
 import org.olat.core.gui.control.WindowControl;
 import org.olat.core.id.Identity;
+import org.olat.core.util.StringHelper;
 import org.olat.course.member.PermissionHelper;
 import org.olat.course.member.PermissionHelper.BGPermission;
 import org.olat.course.member.PermissionHelper.RepoPermission;
@@ -216,6 +218,7 @@ public class EditMembershipController extends FormBasicController {
 		if(formLayout instanceof FormLayoutContainer) {
 			FormLayoutContainer layoutCont = (FormLayoutContainer)formLayout;
 			String name = repoEntry == null ? businessGroup.getName() : repoEntry.getDisplayname();
+			name = StringHelper.escapeHtml(name);
 			String title = translate("edit.member.title", new String[]{ name });
 			layoutCont.contextPut("editTitle", title);
 		}
@@ -240,9 +243,8 @@ public class EditMembershipController extends FormBasicController {
 		tableColumnModel.addFlexiColumnModel(new DefaultFlexiColumnModel("table.header.groups", 0));
 		tableColumnModel.addFlexiColumnModel(new DefaultFlexiColumnModel("table.header.tutorsCount", 1));
 		tableColumnModel.addFlexiColumnModel(new DefaultFlexiColumnModel("table.header.participantsCount", 2));
-		//tableColumnModel.addFlexiColumnModel(new DefaultFlexiColumnModel("table.header.freePlace", 3));
 		tableColumnModel.addFlexiColumnModel(new DefaultFlexiColumnModel(true, "table.header.freePlace", 3,
-				false, null, FlexiColumnModel.ALIGNMENT_LEFT, new TextFlexiCellRenderer(false)));
+				false, null, FlexiColumnModel.ALIGNMENT_LEFT, new TextFlexiCellRenderer(EscapeMode.none)));
 		tableColumnModel.addFlexiColumnModel(new DefaultFlexiColumnModel("table.header.tutors", 4));
 		tableColumnModel.addFlexiColumnModel(new DefaultFlexiColumnModel("table.header.participants", 5));
 		tableColumnModel.addFlexiColumnModel(new DefaultFlexiColumnModel("table.header.waitingList", 6));
