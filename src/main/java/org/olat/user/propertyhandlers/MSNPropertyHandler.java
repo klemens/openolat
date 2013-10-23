@@ -49,6 +49,7 @@ import org.olat.user.UserManager;
  * @author twuersch
  */
 public class MSNPropertyHandler extends Generic127CharTextPropertyHandler {
+	private static final OLog log = Tracing.createLoggerFor(MSNPropertyHandler.class);
 
 	public static final int MSN_NAME_MAX_LENGTH = 64;
 	
@@ -64,9 +65,12 @@ public class MSNPropertyHandler extends Generic127CharTextPropertyHandler {
 	public String getUserPropertyAsHTML(User user, Locale locale) {
 		String msnname = getUserProperty(user, locale);
 		if (StringHelper.containsNonWhitespace(msnname)) {
-			StringBuffer stringBuffer = new StringBuffer();
-			stringBuffer.append("<a href=\"" + MSN_NAME_VALIDATION_URL + "?" + MSN_NAME_URL_PARAMETER + "=" + msnname + "\" target=\"_blank\">" + msnname + "</a>");
-			return stringBuffer.toString();
+			msnname = StringHelper.escapeHtml(msnname);
+			StringBuilder sb = new StringBuilder();
+			sb.append("<a href=\"").append(MSN_NAME_VALIDATION_URL).append("?")
+			  .append(MSN_NAME_URL_PARAMETER).append("=").append(msnname)
+			  .append("\" target=\"_blank\">").append(msnname).append("</a>");
+			return sb.toString();
 		} else {
 			return null;
 		}
@@ -111,12 +115,10 @@ public class MSNPropertyHandler extends Generic127CharTextPropertyHandler {
 	/**
 	 * @see org.olat.user.propertyhandlers.Generic127CharTextPropertyHandler#isValid(org.olat.core.gui.components.form.flexible.FormItem, java.util.Map)
 	 */
-	@SuppressWarnings({"unchecked"})
 	@Override
-	public boolean isValid(FormItem formItem, Map formContext) {
+	public boolean isValid(FormItem formItem, Map<String,String> formContext) {
 		boolean result;
 		TextElement textElement = (TextElement)formItem;
-		OLog log = Tracing.createLoggerFor(this.getClass());
 		if (StringHelper.containsNonWhitespace(textElement.getValue())) {
 			
 			// Use an HttpClient to fetch a profile information page from MSN.
@@ -156,7 +158,6 @@ public class MSNPropertyHandler extends Generic127CharTextPropertyHandler {
 		} else {
 			result = true;
 		}
-		log = null;
 		return result;
 	}
 }

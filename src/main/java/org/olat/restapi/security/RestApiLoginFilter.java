@@ -20,6 +20,8 @@
 package org.olat.restapi.security;
 
 import java.io.IOException;
+import java.net.InetAddress;
+import java.net.UnknownHostException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.StringTokenizer;
@@ -43,9 +45,11 @@ import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.UserRequestImpl;
 import org.olat.core.helpers.Settings;
 import org.olat.core.id.Identity;
+import org.olat.core.id.Roles;
 import org.olat.core.logging.OLog;
 import org.olat.core.logging.Tracing;
 import org.olat.core.logging.activity.ThreadLocalUserActivityLoggerInstaller;
+import org.olat.core.util.SessionInfo;
 import org.olat.core.util.StringHelper;
 import org.olat.core.util.UserSession;
 import org.olat.core.util.WebappHelper;
@@ -73,6 +77,7 @@ public class RestApiLoginFilter implements Filter {
 	
 	private static List<String> openUrls;
 	private static List<String> alwaysEnabledUrls;
+	private static List<String> ipProtectedUrls;
 	private static String LOGIN_URL;
 	
 	/**
@@ -102,7 +107,7 @@ public class RestApiLoginFilter implements Filter {
 				
 				String requestURI = httpRequest.getRequestURI();
 				RestModule restModule = (RestModule)CoreSpringFactory.getBean("restModule");
-				if(!restModule.isEnabled() && !isRequestURIAlwaysEnabled(requestURI)) {
+				if(restModule == null || !restModule.isEnabled() && !isRequestURIAlwaysEnabled(requestURI)) {
 					httpResponse.sendError(403);
 					return;
 				}
@@ -117,9 +122,12 @@ public class RestApiLoginFilter implements Filter {
 					//use the available session
 					followSession(httpRequest, httpResponse, chain);
 				} else {
-					if(requestURI.startsWith(getLoginUrl())) {
+					if(isRequestURIInLoginSpace(requestURI)) {
 						followForAuthentication(requestURI, uress, httpRequest, httpResponse, chain);
 					} else if(isRequestURIInOpenSpace(requestURI)) {
+						followWithoutAuthentication(httpRequest, httpResponse, chain);
+					} else if( isRequestURIInIPProtectedSpace(requestURI, httpRequest, restModule)) {
+						upgradeIpAuthentication(httpRequest, httpResponse);
 						followWithoutAuthentication(httpRequest, httpResponse, chain);
 					} else if (isRequestTokenValid(httpRequest)) {
 						String token = httpRequest.getHeader(RestSecurityHelper.SEC_TOKEN);
@@ -202,8 +210,18 @@ public class RestApiLoginFilter implements Filter {
 		return securityBean.isTokenRegistrated(token, request.getSession(true));
 	}
 	
+	private boolean isRequestURIInLoginSpace(String requestURI) {
+		String loginUrl = getLoginUrl();
+		if(loginUrl != null && requestURI.startsWith(loginUrl)) {
+			return true;
+		}
+		return false;
+	}
+	
 	private boolean isRequestURIInOpenSpace(String requestURI) {
-		for(String openURI : getOpenURIs()) {
+		List<String> uris = getOpenURIs();
+		if(uris == null) return false;
+		for(String openURI : uris) {
 			if(requestURI.startsWith(openURI)) {
 				return true;
 			}
@@ -211,8 +229,24 @@ public class RestApiLoginFilter implements Filter {
 		return false;
 	}
 	
+	private boolean isRequestURIInIPProtectedSpace(String requestURI, HttpServletRequest httpRequest, RestModule restModule) {
+		List<String> uris = getIPProtectedURIs();
+		if(uris == null) return false;
+		for(String openURI : uris) {
+			if(requestURI.startsWith(openURI)) {
+				String remoteAddr = httpRequest.getRemoteAddr();
+				if(StringHelper.containsNonWhitespace(remoteAddr)) {
+					return restModule.getIpsWithSystemAccess().contains(remoteAddr);
+				}
+			}
+		}
+		return false;
+	}
+	
 	private boolean isRequestURIAlwaysEnabled(String requestURI) {
-		for(String openURI : getAlwaysEnabledURIs()) {
+		List<String> uris = getAlwaysEnabledURIs();
+		if(uris == null) return false;
+		for(String openURI : uris) {
 			if(requestURI.startsWith(openURI)) {
 				return true;
 			}
@@ -271,6 +305,50 @@ public class RestApiLoginFilter implements Filter {
 		chain.doFilter(request, response);
 	}
 	
+	private void upgradeIpAuthentication(HttpServletRequest request, HttpServletResponse response) 
+	throws IOException, ServletException {
+		UserSessionManager sessionManager = CoreSpringFactory.getImpl(UserSessionManager.class);
+		UserSession usess = sessionManager.getUserSessionIfAlreadySet(request);
+		if(usess == null) {
+			usess = sessionManager.getUserSession(request.getSession(true));
+		}
+		if(usess.getIdentity() == null) {
+			usess.setRoles(new Roles(false, false, false, false, false, false, false));
+			
+			String remoteAddr = request.getRemoteAddr();
+			SessionInfo sinfo = new SessionInfo(new Long(-1), "REST", request.getSession());
+			sinfo.setFirstname("REST");
+			sinfo.setLastname(remoteAddr);
+			sinfo.setFromIP(remoteAddr);
+			sinfo.setFromFQN(remoteAddr);
+			try {
+				InetAddress[] iaddr = InetAddress.getAllByName(request.getRemoteAddr());
+				if (iaddr.length > 0) sinfo.setFromFQN(iaddr[0].getHostName());
+			} catch (UnknownHostException e) {
+				 // ok, already set IP as FQDN
+			}
+			sinfo.setAuthProvider("IP");
+			sinfo.setUserAgent(request.getHeader("User-Agent"));
+			sinfo.setSecure(request.isSecure());
+			sinfo.setREST(true);
+			sinfo.setWebModeFromUreq(null);
+			// set session info for this session
+			usess.setSessionInfo(sinfo);
+		}
+		
+		UserRequest ureq = null;
+		try{
+			//upon creation URL is checked for
+			String requestURI = request.getRequestURI();
+			ureq = new UserRequestImpl(requestURI, request, response);
+			ureq.getUserSession().putEntryInNonClearedStore(RestSecurityHelper.SYSTEM_MARKER, Boolean.TRUE);
+		} catch(NumberFormatException nfe) {
+			response.sendError(401);
+			return;
+		}
+		request.setAttribute(RestSecurityHelper.SEC_USER_REQUEST, ureq);
+	}
+	
 	private void followToken(String token, HttpServletRequest request, HttpServletResponse response, FilterChain chain) 
 	throws IOException, ServletException {
 		HttpSession session = request.getSession(true);
@@ -322,8 +400,15 @@ public class RestApiLoginFilter implements Filter {
 		}
 	}
 	
+	private boolean isWebappHelperInitiated() {
+		if(Settings.isJUnitTest()) {
+			return true;
+		}
+		return StringHelper.containsNonWhitespace(WebappHelper.getServletContextPath());
+	}
+	
 	private String getLoginUrl() {
-		if(LOGIN_URL == null) {
+		if(LOGIN_URL == null && isWebappHelperInitiated()) {
 			String context = (Settings.isJUnitTest() ? "/olat" : WebappHelper.getServletContextPath() + RestSecurityHelper.SUB_CONTEXT);
 			LOGIN_URL = context + "/auth";
 		}
@@ -331,31 +416,43 @@ public class RestApiLoginFilter implements Filter {
 	}
 	
 	private List<String> getAlwaysEnabledURIs() {
-		if(alwaysEnabledUrls == null) {
+		if(alwaysEnabledUrls == null && isWebappHelperInitiated() ) {
 			String context = (Settings.isJUnitTest() ? "/olat" : WebappHelper.getServletContextPath() + RestSecurityHelper.SUB_CONTEXT);
-			alwaysEnabledUrls = new ArrayList<String>();
-			alwaysEnabledUrls.add(context + "/i18n");
-			alwaysEnabledUrls.add(context + "/api");
-			alwaysEnabledUrls.add(context + "/ping");
-			alwaysEnabledUrls.add(context + "/openmeetings");
-			alwaysEnabledUrls.add(context + "/system");
+			List<String > urls = new ArrayList<String>();
+			urls.add(context + "/i18n");
+			urls.add(context + "/api");
+			urls.add(context + "/ping");
+			urls.add(context + "/openmeetings");
+			urls.add(context + "/system");
+			alwaysEnabledUrls = urls;
 		}
 		return alwaysEnabledUrls;
 	}
 	
 	private List<String> getOpenURIs() {
-		if(openUrls == null) {
+		if(openUrls == null && isWebappHelperInitiated()) {
 			String context = (Settings.isJUnitTest() ? "/olat" : WebappHelper.getServletContextPath() + RestSecurityHelper.SUB_CONTEXT);
-			openUrls = new ArrayList<String>();
-			openUrls.add(context + "/i18n");
-			openUrls.add(context + "/api");
-			openUrls.add(context + "/ping");
-			openUrls.add(context + "/application.wadl");
-			openUrls.add(context + "/application.html");
-			openUrls.add(context + "/wadl");
-			openUrls.add(context + "/registration");
-			openUrls.add(context + "/openmeetings");
+			List<String > urls = new ArrayList<String>();
+			urls.add(context + "/i18n");
+			urls.add(context + "/api");
+			urls.add(context + "/ping");
+			urls.add(context + "/application.wadl");
+			urls.add(context + "/application.html");
+			urls.add(context + "/wadl");
+			urls.add(context + "/registration");
+			urls.add(context + "/openmeetings");
+			openUrls = urls;
 		}
 		return openUrls;
+	}
+	
+	private List<String> getIPProtectedURIs() {
+		if(ipProtectedUrls == null && isWebappHelperInitiated()) {
+			String context = (Settings.isJUnitTest() ? "/olat" : WebappHelper.getServletContextPath() + RestSecurityHelper.SUB_CONTEXT);
+			List<String > urls  = new ArrayList<String>();
+			urls.add(context + "/system");
+			ipProtectedUrls = urls;
+		}
+		return ipProtectedUrls;
 	}
 }

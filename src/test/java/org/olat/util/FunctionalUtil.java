@@ -47,14 +47,14 @@ public class FunctionalUtil {
 	public final static String LOGIN_PAGE = "dmz";
 	public final static String ACKNOWLEDGE_CHECKBOX = "acknowledge_checkbox";
 
-	public final static long TIMEOUT = 60000;
-	public final static long POLL_INTERVAL = 100;
+	public final static long TIMEOUT = 20000;
+	public final static long POLL_INTERVAL = 3000;
 	
 	public enum WaitLimitAttribute {
 		NORMAL("10000"),
-		EXTENDED("20000"),
-		SAVE("30000"),
-		VERY_SAVE("60000");
+		EXTENDED("15000"),
+		SAVE("20000"),
+		VERY_SAVE("30000");
 		
 		private String extend;
 		private long extendAsLong;
@@ -132,9 +132,9 @@ public class FunctionalUtil {
 	public final static String TABLE_LAST_CHILD_CSS = "b_last_child";
 	public final static String TABLE_ALL_CSS = "b_table_page_all";
 	
-	public final static String TREE_NODE_ANCHOR_CSS = "x-tree-node-anchor";
-	public final static String TREE_NODE_CSS = "x-tree-node";
-	public final static String TREE_NODE_LOADING_CSS = "x-tree-node-loading";
+	public final static String TREE_NODE_ANCHOR_CSS = "b_tree_item_wrapper";
+	public final static String TREE_NODE_CSS = "b_tree_item_wrapper";
+	public final static String TREE_NODE_LOADING_CSS = null;
 	public final static String TREE_LEVEL0_CSS = "b_tree_l0";
 	public final static String TREE_LEVEL1_CSS = "b_tree_l1";
 	public final static String TREE_LEVEL2_CSS = "b_tree_l2";
@@ -143,6 +143,7 @@ public class FunctionalUtil {
 	
 	public final static String WINDOW_CLOSE_LINK_CSS = "b_link_close";
 	
+	public final static String FORM_ELEMENT_CSS = "b_form_element";
 	public final static String FORM_SAVE_XPATH = "//button[@type='button' and last()]";
 
 	public final static String INFO_CSS = "b_info";
@@ -306,11 +307,8 @@ public class FunctionalUtil {
 	 */
 	public void loadPage(Selenium browser, String page){
 		/* create url */
-		StringBuffer urlBuffer = new StringBuffer();
-		
-		urlBuffer.append(deploymentUrl)
-		.append('/')
-		.append(page);
+		StringBuilder urlBuffer = new StringBuilder();
+		urlBuffer.append(deploymentUrl).append('/').append(page);
 		
 		String url = urlBuffer.toString();
 		
@@ -328,6 +326,11 @@ public class FunctionalUtil {
 		long startTime = Calendar.getInstance().getTimeInMillis();
 		long currentTime = startTime;
 		long waitLimit = TIMEOUT;
+
+		//FIXME:JK: this is really ugly. For better performance revise confirmation
+		if(browser.isConfirmationPresent()){
+			browser.getConfirmation();
+		}
 		
 		while(linkBusy(browser) && waitLimit >  currentTime - startTime){
 			try {
@@ -631,6 +634,22 @@ public class FunctionalUtil {
 	}
 	
 	/**
+	 * Retrieve the user count who currently are logged in by parsing openolat footer.
+	 * 
+	 * @param browser
+	 * @return
+	 */
+	public int retrieveUserCount(Selenium browser){
+		StringBuffer selectorBuffer = new StringBuffer();
+		selectorBuffer.append("xpath=//span[@id='b_counter']//span");
+		
+		waitForPageToLoadElement(browser, selectorBuffer.toString());
+		String str = browser.getText(selectorBuffer.toString());
+		
+		return(Integer.valueOf(str));
+	}
+	
+	/**
 	 * Find CSS mapping for specific olat site.
 	 * 
 	 * @param site
@@ -857,11 +876,12 @@ public class FunctionalUtil {
 	 */
 	public boolean login(Selenium browser, String username, String password, boolean closeDialogs){
 		loadPage(browser, getLoginPage());
+		waitForPageToLoadElement(browser, "xpath=//button[@id='o_fiooolat_login_button']");
 		
 		/* fill in login form */
 		browser.type("id=o_fiooolat_login_name", username);
 		browser.type("id=o_fiooolat_login_pass", password);
-	    browser.click("id=o_fiooolat_login_button");
+	    browser.click("xpath=//button[@id='o_fiooolat_login_button']");
 	    waitForPageToLoad(browser, DEFAULT_WAIT_LIMIT);
 	    
 	    if(closeDialogs){
@@ -938,6 +958,8 @@ public class FunctionalUtil {
 			.append(getContentTabCss())
 			.append(tabIndex + 1)
 			.append(" * a");
+			
+			waitForPageToLoadElement(browser, selectorBuffer.toString());
 			
 			browser.click(selectorBuffer.toString());
 			waitForPageToLoad(browser);

@@ -36,7 +36,6 @@ import org.olat.core.gui.components.link.Link;
 import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.Event;
 import org.olat.core.gui.control.WindowControl;
-import org.olat.core.gui.control.generic.wizard.StepsEvent;
 import org.olat.core.gui.translator.Translator;
 import org.olat.core.util.StringHelper;
 import org.olat.core.util.Util;
@@ -159,6 +158,7 @@ public class UserSearchForm extends FormBasicController {
 	@Override
 	protected void initForm(FormItemContainer formLayout, Controller listener, UserRequest ureq) {
 		login = uifactory.addTextElement("login", "search.form.login", 128, "", formLayout);
+		login.setVisible(isAdminProps);
 
 		UserManager um = UserManager.getInstance();
 		Translator tr = Util.createPackageTranslator(
@@ -214,7 +214,7 @@ public class UserSearchForm extends FormBasicController {
 	
 	@Override
 	protected void formOK(UserRequest ureq) {
-		fireEvent(ureq, StepsEvent.ACTIVATE_NEXT);
+		//fireEvent (ureq, Event.DONE_EVENT);
 	}
 	
 	@Override

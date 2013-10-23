@@ -23,7 +23,7 @@ import java.io.IOException;
 import java.io.StringWriter;
 import java.net.MalformedURLException;
 import java.net.URI;
-import java.util.ArrayList;
+import java.util.StringTokenizer;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -33,8 +33,17 @@ import org.apache.velocity.app.VelocityEngine;
 import org.apache.velocity.exception.MethodInvocationException;
 import org.apache.velocity.exception.ParseErrorException;
 import org.apache.velocity.exception.ResourceNotFoundException;
-import org.olat.core.logging.OLog;
-import org.olat.core.logging.Tracing;
+import org.olat.util.xss.NotImplemented;
+import org.olat.util.xss.XssInjection;
+import org.olat.util.xss.XssInjectionDependencies;
+import org.olat.util.xss.XssInjectionDependency;
+import org.olat.util.xss.XssInjectionElement;
+import org.olat.util.xss.XssInjectionIndex;
+import org.olat.util.xss.XssInjectionPositional;
+import org.olat.util.xss.XssInjectionProvider;
+import org.olat.util.xss.XssInjectionRandom;
+import org.olat.util.xss.XssTutorOnly;
+import org.olat.util.xss.XssUtil;
 
 import com.thoughtworks.selenium.Selenium;
 
@@ -43,10 +52,8 @@ import com.thoughtworks.selenium.Selenium;
  * 
  * @author jkraehemann, joel.kraehemann@frentix.com, frentix.com
  */
+@XssUtil
 public class FunctionalCourseUtil {
-	private final static OLog log = Tracing.createLoggerFor(FunctionalCourseUtil.class);
-	
-	private final static Pattern categoryPattern = Pattern.compile("/([^/]+)");
 	
 	public final static String COURSE_RUN_CSS = "o_course_run";
 	public final static String COURSE_OPEN_EDITOR_CSS = "o_sel_course_open_editor";
@@ -823,7 +830,9 @@ public class FunctionalCourseUtil {
 	 * @return true on success
 	 * @throws MalformedURLException 
 	 */
-	public boolean uploadOverviewPage(Selenium browser, URI file) throws MalformedURLException{
+	@XssInjection
+	@XssTutorOnly
+	public boolean uploadOverviewPage(Selenium browser, @XssInjectionElement URI file) throws MalformedURLException{
 		if(!openCourseEditorCourseTab(browser, CourseEditorCourseTab.OVERVIEW)){
 			return(false);
 		}
@@ -878,36 +887,35 @@ public class FunctionalCourseUtil {
 	 * @param path
 	 * @return
 	 */
-	public String[] createCatalogSelectors(String path){
-		if(path == null ||
-				!path.startsWith("/")){
-			return(null);
+
+	public String selectCatalogPath(Selenium browser, String path){
+		if(path == null || !path.startsWith("/")){
+			return null;
 		}
 		
-		Matcher categoryMatcher = categoryPattern.matcher(path);
-		ArrayList<String> selectors = new ArrayList<String>();
+		functionalUtil.idle(browser);
 		
-		StringBuffer selectorBuffer = new StringBuffer();
-		
-		selectorBuffer.append("xpath=//li//a[contains(@class, '")
-		.append(functionalUtil.getTreeNodeAnchorCss())
-		.append("')]");
-		
-		selectors.add(selectorBuffer.toString());
-		
-		while(categoryMatcher.find()){
-			StringBuffer selector = new StringBuffer();
+		/*
+		 * Determine best matching item by using regular expressions
+		 */
+		String locator = null;
+		String parentPath = null;
+		String currentPath = null;
+		for(StringTokenizer tokenizer=new StringTokenizer(path, "/"); tokenizer.hasMoreTokens(); ) {
+			parentPath = currentPath;
+			currentPath = tokenizer.nextToken();
+
+			StringBuilder sl = new StringBuilder();
+			sl.append("//a[span[text() = '").append(currentPath).append("']]");
+			if(parentPath != null) {
+				sl.append("[ancestor::li[div//span[text() = '").append(parentPath).append("']]]");
+			}
 			
-			selector.append("xpath=//li//a[contains(@class, '")
-			.append(functionalUtil.getTreeNodeCss())
-			.append("')]//span[text()='")
-			.append(categoryMatcher.group(1))
-			.append("']/..");
-			
-			selectors.add(selector.toString());
+			locator = sl.toString();
+			functionalUtil.waitForPageToLoadElement(browser, "xpath=" + locator);
+			browser.click("xpath=" + locator);
 		}
-		
-		return(selectors.toArray(new String[selectors.size()]));
+		return locator;
 	}
 	
 	/**
@@ -968,34 +976,22 @@ public class FunctionalCourseUtil {
 			
 			browser.click(selectorBuffer.toString());
 			
-			String[] catalogSelectors = createCatalogSelectors(catalog);
-			
-			for(String catalogSelector: catalogSelectors){
-				functionalUtil.idle(browser);
-				functionalUtil.waitForPageToLoadElement(browser, catalogSelector);
-
-				if(browser.isElementPresent(catalogSelector + "/../img[contains(@class, 'x-tree-elbow-end-plus')]")){
-					browser.doubleClick(catalogSelector);
-				}else{
-					browser.click(catalogSelector);
-				}
-			}
+			String catalogSelector = selectCatalogPath(browser, catalog);
+			functionalUtil.idle(browser);
+			functionalUtil.waitForPageToLoadElement(browser, catalogSelector);
+			//browser.click("xpath=" + catalogSelector);
 			
 			/* click choose */
-			selectorBuffer = new StringBuffer();
+			StringBuilder selectOk = new StringBuilder();
+			selectOk.append("xpath=//div[contains(@class,'").append(getCatalogCss()).append("')]")
+			  .append("//a[contains(@class,'").append(functionalUtil.getButtonCss()).append("')][contains(@href,'cid%3Aok/')]");
 			
-			selectorBuffer.append("xpath=//div[contains(@class, '")
-			.append(getCatalogCss())
-			.append("')]//a[contains(@class, '")
-			.append(functionalUtil.getButtonDirtyCss())
-			.append("')]");
+			functionalUtil.waitForPageToLoadElement(browser, selectOk.toString());
 			
-			functionalUtil.waitForPageToLoadElement(browser, selectorBuffer.toString());
+			browser.focus(selectOk.toString());
+			browser.click(selectOk.toString());
 			
-			browser.focus(selectorBuffer.toString());
-			browser.click(selectorBuffer.toString());
-			
-			functionalUtil.waitForPageToUnloadElement(browser, selectorBuffer.toString());
+			functionalUtil.waitForPageToUnloadElement(browser, selectOk.toString());
 		}else{
 			functionalUtil.selectOption(browser, getCourseEditorPublishWizardCatalogId(), ADD_TO_CATALOG_NO_VALUE);
 		}
@@ -1016,7 +1012,12 @@ public class FunctionalCourseUtil {
 	 * @param position
 	 * @return true on success otherwise false
 	 */
-	public boolean createCourseNode(Selenium browser, CourseNodeAlias node, String shortTitle, String longTitle, String description, int position){
+	@XssInjection
+	@XssTutorOnly
+	public boolean createCourseNode(Selenium browser, @XssInjectionRandom CourseNodeAlias node,
+			@XssInjectionElement String shortTitle, @XssInjectionElement String longTitle,
+			@XssInjectionElement String description,
+			@XssInjectionPositional int position){
 		functionalUtil.idle(browser);
 		
 		/* click on the appropriate link to create node */
@@ -1091,9 +1092,16 @@ public class FunctionalCourseUtil {
 	 * @param browser
 	 * @return true on success
 	 */
+	@XssInjection
+	@XssInjectionDependencies({
+		@XssInjectionDependency(className = "org.olat.util.FunctionalEPortfolioUtil", methodName = "createDefaultBinder", parameterName = { "binder" }),
+		@XssInjectionDependency(className = "org.olat.util.FunctionalEPortfolioUtil", methodName = "createPage", parameterName = { "page" }),
+		@XssInjectionDependency(className = "org.olat.util.FunctionalEPortfolioUtil", methodName = "createStructure", parameterName = { "structure" })
+	})
 	public boolean addToEportfolio(Selenium browser, String binder, String page, String structure,
-			String title, String description, String[] tags,
-			FunctionalEPortfolioUtil functionalEPortfolioUtil){
+			@XssInjectionElement String title, @XssInjectionElement String description,
+			@XssInjectionElement String[] tags,
+			@XssInjectionProvider FunctionalEPortfolioUtil functionalEPortfolioUtil){
 
 		functionalUtil.idle(browser);
 		
@@ -1168,7 +1176,14 @@ public class FunctionalCourseUtil {
 	 * @param message
 	 * @return true on success, otherwise false
 	 */
-	public boolean postForumMessage(Selenium browser, long courseId, int nthForum, String title, String message){
+	@XssInjection
+	@XssInjectionDependencies({
+		@XssInjectionDependency(className = "org.olat.util.FunctionalRepositorySiteUtil", methodName = "createCourse", parameterName = {}),
+		@XssInjectionDependency(className = "org.olat.util.FunctionalCourseUtil", methodName = "extractRepositoryEntryKey", parameterName = {"courseId"}, useReturnValue = true),
+		@XssInjectionDependency(className = "org.olat.util.FunctionalCourseUtil", methodName = "createForum", parameterName = {})
+	})
+	public boolean postForumMessage(Selenium browser, long courseId, @XssInjectionIndex int nthForum,
+			@XssInjectionElement String title, @XssInjectionElement String message){
 		if(!openForum(browser, courseId, nthForum))
 			return(false);
 
@@ -1238,7 +1253,17 @@ public class FunctionalCourseUtil {
 	 * @param content
 	 * @return true on success, otherwise false
 	 */
-	public boolean createWikiArticle(Selenium browser, long wikiId, String pagename, String content){
+	@XssInjection
+	@XssInjectionDependencies({
+		@XssInjectionDependency(className = "org.olat.util.FunctionalRepositorySiteUtil", methodName = "createCourse", parameterName = {}),
+		@XssInjectionDependency(className = "org.olat.util.FunctionalRepositorySiteUtil", methodName = "createWiki", parameterName = {}),
+		@XssInjectionDependency(className = "org.olat.util.FunctionalRepositorySiteUtil", methodName = "readIdFromDetailedView", parameterName = {"wikiId"}, useReturnValue = true),
+		@XssInjectionDependency(className = "org.olat.util.FunctionalCourseUtil", methodName = "createCourseNode", parameterName = {}),
+		@XssInjectionDependency(className = "org.olat.util.FunctionalCourseUtil", methodName = "chooseWiki", parameterName = {})
+	})
+	@NotImplemented(reason = "missing dependencies: read repository entry key")
+	public boolean createWikiArticle(Selenium browser, long wikiId,
+			@XssInjectionElement String pagename, @XssInjectionElement String content){
 		if(!openWiki(browser, wikiId))
 			return(false);
 
@@ -1354,6 +1379,9 @@ public class FunctionalCourseUtil {
 	 * @param url
 	 * @return true on success
 	 */
+	@XssInjection
+	@XssTutorOnly
+	@NotImplemented(reason = "test case won't understand url string as url")
 	public boolean importBlogFeed(Selenium browser, String url){
 
 		functionalUtil.idle(browser);
@@ -1463,14 +1491,33 @@ public class FunctionalCourseUtil {
 	 * @param content
 	 * @return true on success, otherwise false
 	 */
-	public boolean editBlogEntry(Selenium browser, long courseId, int nth,
-			String title, String description, String content, int entry, BlogEdit[] edit){
+	@XssInjection
+	@XssInjectionDependencies({
+		@XssInjectionDependency(className = "org.olat.util.FunctionalRepositorySiteUtil", methodName = "createCourse", parameterName = {}),
+		@XssInjectionDependency(className = "org.olat.util.FunctionalRepositorySiteUtil", methodName = "readIdFromDetailedView", parameterName = {"courseId"}, useReturnValue = true)
+	})
+	@NotImplemented(reason = "missing dependencies: read repository entry key")
+	public boolean editBlogEntry(Selenium browser, long courseId, @XssInjectionIndex int nth,
+			@XssInjectionElement String title, @XssInjectionElement String description,
+			@XssInjectionElement String content,
+			@XssInjectionPositional int entry, @XssInjectionElement BlogEdit[] edit){
 		if(!openBlogWithoutBusinessPath(browser, courseId, nth))
 			return(false);
 
 		return(editBlogEntry(browser, title, description, content, entry, edit));
 	}
 	
+	/**
+	 * Edit a blog entry.
+	 * 
+	 * @param browser
+	 * @param title
+	 * @param description
+	 * @param content
+	 * @param entry
+	 * @param edit
+	 * @return
+	 */
 	public boolean editBlogEntry(Selenium browser,
 			String title, String description, String content, int entry, BlogEdit[] edit){
 		StringBuffer selectorBuffer = new StringBuffer();
@@ -1935,6 +1982,20 @@ public class FunctionalCourseUtil {
 		}
 				
 		return(true);
+	}
+	
+	/**
+	 * Creates a new forum.
+	 * 
+	 * @param browser
+	 * @param title
+	 * @param description
+	 * @return
+	 */
+	public boolean createForum(Selenium browser, String title, String description){
+		//TODO:JK: implement me
+		
+		return(false);
 	}
 	
 	/**

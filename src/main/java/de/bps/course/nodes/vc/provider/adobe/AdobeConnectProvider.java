@@ -57,6 +57,7 @@ import org.olat.core.id.UserConstants;
 import org.olat.core.logging.AssertException;
 import org.olat.core.logging.LogDelegator;
 import org.olat.core.util.Encoder;
+import org.olat.core.util.StringHelper;
 import org.w3c.dom.Document;
 import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
@@ -144,7 +145,10 @@ public class AdobeConnectProvider extends LogDelegator implements VCProvider {
   public boolean createClassroom(String roomId, String name, String description, Date begin, Date end, VCConfiguration config) {
     if(existsClassroom(roomId, config)) return true;
     
-    if(!loginAdmin()) throw new AssertException("Cannot login to Adobe Connect. Please check module configuration and Adobe Connect connectivity."); 
+    if(!loginAdmin()) {
+    	logError("Cannot login to Adobe Connect. Please check module configuration and Adobe Connect connectivity.", null); 
+    	return false;
+    }
 
     // begin and end can be NULL, see interface description
     if(begin == null) begin = new Date();
@@ -463,8 +467,11 @@ public class AdobeConnectProvider extends LogDelegator implements VCProvider {
     parameters.put("login", adminLogin);
     parameters.put("password", adminPassword);
     Document responseDoc = getResponseDocument(sendRequest(parameters));
-
-    return evaluateOk(responseDoc);
+    boolean success = evaluateOk(responseDoc);
+    if(!success) {
+    	logWarn("Admin login to Adobe Connect failed", null);
+    }
+    return success;
   }
 
   private boolean logout() {
@@ -692,11 +699,22 @@ public class AdobeConnectProvider extends LogDelegator implements VCProvider {
   }
   
   public void setAccountId(String accountId) {
-  	this.accountId = accountId;
+  	if(StringHelper.containsNonWhitespace(accountId)) {
+  		this.accountId = accountId;
+  	} else {
+  		this.accountId = null;
+  	}
   }
   
   public void setTemplates(Map<String,String> templates) {
-  	this.templates = templates;
+		this.templates = templates;
+
+		List<Map.Entry<String, String>> entries = new ArrayList<Map.Entry<String, String>>(templates.entrySet());
+		for(Map.Entry<String, String> entry:entries) {
+			if(!StringHelper.containsNonWhitespace(entry.getKey()) || !StringHelper.containsNonWhitespace(entry.getValue())) {
+				templates.remove(entry.getKey());
+			}
+		}
   }
 
 	public void setGuestAccessAllowedDefault(boolean guestAccessAllowedDefault) {

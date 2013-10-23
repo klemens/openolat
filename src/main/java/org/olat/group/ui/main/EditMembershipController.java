@@ -36,10 +36,11 @@ import org.olat.core.gui.components.form.flexible.impl.FormBasicController;
 import org.olat.core.gui.components.form.flexible.impl.FormLayoutContainer;
 import org.olat.core.gui.components.form.flexible.impl.elements.MultipleSelectionElementImpl;
 import org.olat.core.gui.components.form.flexible.impl.elements.table.DefaultFlexiColumnModel;
+import org.olat.core.gui.components.form.flexible.impl.elements.table.DefaultFlexiTableDataModel;
+import org.olat.core.gui.components.form.flexible.impl.elements.table.FlexiColumnModel;
 import org.olat.core.gui.components.form.flexible.impl.elements.table.FlexiTableColumnModel;
-import org.olat.core.gui.components.form.flexible.impl.elements.table.FlexiTableDataModel;
 import org.olat.core.gui.components.form.flexible.impl.elements.table.FlexiTableDataModelFactory;
-import org.olat.core.gui.components.table.DefaultTableDataModel;
+import org.olat.core.gui.components.form.flexible.impl.elements.table.TextFlexiCellRenderer;
 import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.Event;
 import org.olat.core.gui.control.WindowControl;
@@ -48,12 +49,14 @@ import org.olat.course.member.PermissionHelper;
 import org.olat.course.member.PermissionHelper.BGPermission;
 import org.olat.course.member.PermissionHelper.RepoPermission;
 import org.olat.group.BusinessGroup;
+import org.olat.group.BusinessGroupManagedFlag;
 import org.olat.group.BusinessGroupMembership;
 import org.olat.group.BusinessGroupService;
 import org.olat.group.BusinessGroupView;
 import org.olat.group.model.BusinessGroupMembershipChange;
 import org.olat.group.model.SearchBusinessGroupParams;
 import org.olat.repository.RepositoryEntry;
+import org.olat.repository.RepositoryEntryManagedFlag;
 import org.olat.repository.RepositoryManager;
 import org.olat.repository.model.RepositoryEntryMembership;
 import org.olat.resource.OLATResource;
@@ -163,17 +166,33 @@ public class EditMembershipController extends FormBasicController {
 			resource = repoEntry.getOlatResource();
 		}
 		List<BusinessGroupView> groups = businessGroupService.findBusinessGroupViews(params, resource, 0, -1);
+	
+		boolean defaultMembership = false;
+		if(member == null) {
+			if(repoEntry != null && groups.isEmpty()) {
+				boolean managed = RepositoryEntryManagedFlag.isManaged(repoEntry, RepositoryEntryManagedFlag.membersmanagement);
+				if(!managed) {
+					repoRightsEl.select("participant", true);
+				}
+			} else if(repoEntry == null && groups.size() == 1) {
+				boolean managed = BusinessGroupManagedFlag.isManaged(groups.get(0).getManagedFlags(), BusinessGroupManagedFlag.membersmanagement);
+				if(!managed) {
+					defaultMembership = true;
+				}
+			}
+		}
 
 		List<Long> businessGroupKeys = PersistenceHelper.toKeys(groups);
 		groupMemberships = member == null ?
 				Collections.<BusinessGroupMembership>emptyList() : businessGroupService.getBusinessGroupMembership(businessGroupKeys, member);
 		List<MemberOption> options = new ArrayList<MemberOption>();
 		for(BusinessGroupView group:groups) {
+			boolean managed = BusinessGroupManagedFlag.isManaged(group.getManagedFlags(), BusinessGroupManagedFlag.membersmanagement);
 			MemberOption option = new MemberOption(group);
 			BGPermission bgPermission = PermissionHelper.getPermission(group.getKey(), member, groupMemberships);
-			option.setTutor(createSelection(bgPermission.isTutor(), true));
-			option.setParticipant(createSelection(bgPermission.isParticipant(), true));
-			boolean waitingListEnable = group.getWaitingListEnabled() != null && group.getWaitingListEnabled().booleanValue();
+			option.setTutor(createSelection(bgPermission.isTutor(), !managed));
+			option.setParticipant(createSelection(bgPermission.isParticipant() || defaultMembership, !managed));
+			boolean waitingListEnable = !managed && group.getWaitingListEnabled() != null && group.getWaitingListEnabled().booleanValue();
 			option.setWaiting(createSelection(bgPermission.isWaitingList(), waitingListEnable));
 			options.add(option);
 		}
@@ -205,7 +224,9 @@ public class EditMembershipController extends FormBasicController {
 			String[] repoValues = new String[] {
 					translate("role.repo.owner"), translate("role.repo.tutor"), translate("role.repo.participant")
 			};
+			boolean managed = RepositoryEntryManagedFlag.isManaged(repoEntry, RepositoryEntryManagedFlag.membersmanagement);
 			repoRightsEl = uifactory.addCheckboxesVertical("repoRights", formLayout, repoRightsKeys, repoValues, null, 1);
+			repoRightsEl.setEnabled(!managed);
 			if(member != null) {
 				RepoPermission repoPermission = PermissionHelper.getPermission(repoEntry, member, memberships);
 				repoRightsEl.select("owner", repoPermission.isOwner());
@@ -216,16 +237,18 @@ public class EditMembershipController extends FormBasicController {
 
 		//group rights
 		FlexiTableColumnModel tableColumnModel = FlexiTableDataModelFactory.createFlexiTableColumnModel();
-		tableColumnModel.addFlexiColumnModel(new DefaultFlexiColumnModel("table.header.groups"));
-		tableColumnModel.addFlexiColumnModel(new DefaultFlexiColumnModel("table.header.tutorsCount"));
-		tableColumnModel.addFlexiColumnModel(new DefaultFlexiColumnModel("table.header.participantsCount"));
-		tableColumnModel.addFlexiColumnModel(new DefaultFlexiColumnModel("table.header.freePlace"));
-		tableColumnModel.addFlexiColumnModel(new DefaultFlexiColumnModel("table.header.tutors"));
-		tableColumnModel.addFlexiColumnModel(new DefaultFlexiColumnModel("table.header.participants"));
-		tableColumnModel.addFlexiColumnModel(new DefaultFlexiColumnModel("table.header.waitingList"));
+		tableColumnModel.addFlexiColumnModel(new DefaultFlexiColumnModel("table.header.groups", 0));
+		tableColumnModel.addFlexiColumnModel(new DefaultFlexiColumnModel("table.header.tutorsCount", 1));
+		tableColumnModel.addFlexiColumnModel(new DefaultFlexiColumnModel("table.header.participantsCount", 2));
+		//tableColumnModel.addFlexiColumnModel(new DefaultFlexiColumnModel("table.header.freePlace", 3));
+		tableColumnModel.addFlexiColumnModel(new DefaultFlexiColumnModel(true, "table.header.freePlace", 3,
+				false, null, FlexiColumnModel.ALIGNMENT_LEFT, new TextFlexiCellRenderer(false)));
+		tableColumnModel.addFlexiColumnModel(new DefaultFlexiColumnModel("table.header.tutors", 4));
+		tableColumnModel.addFlexiColumnModel(new DefaultFlexiColumnModel("table.header.participants", 5));
+		tableColumnModel.addFlexiColumnModel(new DefaultFlexiColumnModel("table.header.waitingList", 6));
 		
 		tableDataModel = new EditMemberTableDataModel(Collections.<MemberOption>emptyList(), tableColumnModel);
-		uifactory.addTableElement("groupList", tableDataModel, formLayout);
+		uifactory.addTableElement(ureq, getWindowControl(), "groupList", tableDataModel, formLayout);
 		
 		if(withButtons) {
 			FormLayoutContainer buttonLayout = FormLayoutContainer.createButtonLayout("buttonLayout", getTranslator());
@@ -359,27 +382,10 @@ public class EditMembershipController extends FormBasicController {
 		}
 	}
 	
-	private static class EditMemberTableDataModel extends DefaultTableDataModel<MemberOption> implements FlexiTableDataModel {
-		private FlexiTableColumnModel columnModel;
-		
+	private static class EditMemberTableDataModel extends DefaultFlexiTableDataModel<MemberOption>  {
+
 		public EditMemberTableDataModel(List<MemberOption> options, FlexiTableColumnModel columnModel) {
-			super(options);
-			this.columnModel = columnModel;
-		}
-
-		@Override
-		public FlexiTableColumnModel getTableColumnModel() {
-			return columnModel;
-		}
-
-		@Override
-		public void setTableColumnModel(FlexiTableColumnModel tableColumnModel) {
-			columnModel = tableColumnModel;
-		}
-
-		@Override
-		public int getColumnCount() {
-			return columnModel.getColumnCount();
+			super(options, columnModel);
 		}
 
 		@Override
@@ -406,7 +412,7 @@ public class EditMembershipController extends FormBasicController {
 
 		@Override
 		public EditMemberTableDataModel createCopyWithEmptyList() {
-			return new EditMemberTableDataModel(new ArrayList<MemberOption>(), columnModel);
+			return new EditMemberTableDataModel(new ArrayList<MemberOption>(), getTableColumnModel());
 		}
 	}
 	

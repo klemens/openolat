@@ -530,7 +530,7 @@ public class FilterForUserController extends BasicController {
 	/**
 	 * TableDataModel for the overview of all users in the forum
 	 */
-	public class UsersTableModel extends BaseTableDataModelWithoutFilter implements TableDataModel {
+	public class UsersTableModel extends BaseTableDataModelWithoutFilter<UserInfo> implements TableDataModel<UserInfo> {
 		private final List<UserInfo> infos;
 		
 		public UsersTableModel(List<UserInfo> infos) {

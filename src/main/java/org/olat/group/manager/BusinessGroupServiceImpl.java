@@ -34,8 +34,6 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 
-import javax.annotation.PostConstruct;
-
 import org.hibernate.ObjectNotFoundException;
 import org.hibernate.StaleObjectStateException;
 import org.olat.admin.user.delete.service.UserDeletionManager;
@@ -45,6 +43,7 @@ import org.olat.basesecurity.Constants;
 import org.olat.basesecurity.SecurityGroup;
 import org.olat.collaboration.CollaborationTools;
 import org.olat.collaboration.CollaborationToolsFactory;
+import org.olat.core.CoreSpringFactory;
 import org.olat.core.commons.persistence.DB;
 import org.olat.core.id.Identity;
 import org.olat.core.id.Roles;
@@ -66,9 +65,10 @@ import org.olat.core.util.notifications.NotificationsManager;
 import org.olat.core.util.notifications.Subscriber;
 import org.olat.core.util.resource.OLATResourceableJustBeforeDeletedEvent;
 import org.olat.core.util.resource.OresHelper;
-import org.olat.course.nodes.projectbroker.service.ProjectBrokerManagerFactory;
 import org.olat.group.BusinessGroup;
 import org.olat.group.BusinessGroupAddResponse;
+import org.olat.group.BusinessGroupLazy;
+import org.olat.group.BusinessGroupManagedFlag;
 import org.olat.group.BusinessGroupMembership;
 import org.olat.group.BusinessGroupModule;
 import org.olat.group.BusinessGroupOrder;
@@ -156,18 +156,6 @@ public class BusinessGroupServiceImpl implements BusinessGroupService, UserDataD
 	@Autowired
 	private DB dbInstance;
 	
-	private List<DeletableGroupData> deleteListeners = new ArrayList<DeletableGroupData>();
-
-	@PostConstruct
-	public void init() {
-		userDeletionManager.registerDeletableUserData(this);
-	}
-	
-	@Override
-	public void registerDeletableGroupDataListener(DeletableGroupData listener) {
-		this.deleteListeners.add(listener);
-	}
-	
 	@Override
 	public void deleteUserData(Identity identity, String newDeletedUserName) {
 		// remove as Participant 
@@ -201,8 +189,20 @@ public class BusinessGroupServiceImpl implements BusinessGroupService, UserDataD
 	public BusinessGroup createBusinessGroup(Identity creator, String name, String description,
 			Integer minParticipants, Integer maxParticipants, boolean waitingListEnabled, boolean autoCloseRanksEnabled,
 			RepositoryEntry re) {
+		return createBusinessGroup(creator, name,  description, null, null,
+				minParticipants, maxParticipants, waitingListEnabled, autoCloseRanksEnabled, re);
+	}
 
-		BusinessGroup group = businessGroupDAO.createAndPersist(creator, name, description,
+	@Override
+	public BusinessGroup createBusinessGroup(Identity creator, String name, String description,
+			String externalId, String managedFlags, Integer minParticipants, Integer maxParticipants,
+			boolean waitingListEnabled, boolean autoCloseRanksEnabled, RepositoryEntry re) {
+		
+		if("".equals(managedFlags) || "none".equals(managedFlags)) {
+			managedFlags = null;
+		}
+		
+		BusinessGroup group = businessGroupDAO.createAndPersist(creator, name, description, externalId, managedFlags,
 				minParticipants, maxParticipants, waitingListEnabled, autoCloseRanksEnabled, false, false, false);
 		if(re != null) {
 			addResourceTo(group, re);
@@ -212,7 +212,7 @@ public class BusinessGroupServiceImpl implements BusinessGroupService, UserDataD
 
 	@Override
 	public BusinessGroup updateBusinessGroup(Identity ureqIdentity, BusinessGroup group, String name, String description,
-			Integer minParticipants, Integer maxParticipants) {
+			String externalId, String managedFlags, Integer minParticipants, Integer maxParticipants) {
 		
 		BusinessGroup bg = businessGroupDAO.loadForUpdate(group.getKey());
 
@@ -222,6 +222,14 @@ public class BusinessGroupServiceImpl implements BusinessGroupService, UserDataD
 		bg.setMaxParticipants(maxParticipants);
 		bg.setMinParticipants(minParticipants);
 		bg.setLastUsage(new Date(System.currentTimeMillis()));
+		
+		//strip
+		if("none".equals(managedFlags) || "".equals(managedFlags)) {
+			managedFlags = null;
+		}
+		bg.setManagedFlagsString(managedFlags);
+		bg.setExternalId(externalId);
+
 		//auto rank if possible
 		List<BusinessGroupModifiedEvent.Deferred> events = new ArrayList<BusinessGroupModifiedEvent.Deferred>();
 		autoRankCheck(ureqIdentity, bg, previousMaxParticipants, events);
@@ -639,6 +647,11 @@ public class BusinessGroupServiceImpl implements BusinessGroupService, UserDataD
 	}
 
 	@Override
+	public List<BusinessGroupLazy> findBusinessGroups(Identity identity, int maxResults, BusinessGroupOrder... orderBy) {
+		return businessGroupDAO.findBusinessGroup(identity, maxResults, orderBy);
+	}
+
+	@Override
 	public List<BusinessGroup> findBusinessGroupsOwnedBy(Identity identity, OLATResource resource) {
 		SearchBusinessGroupParams params = new SearchBusinessGroupParams(identity, true, false);
 		return businessGroupDAO.findBusinessGroups(params, resource, 0, -1);
@@ -720,17 +733,15 @@ public class BusinessGroupServiceImpl implements BusinessGroupService, UserDataD
 			// refresh object to avoid stale object exceptions
 			group = loadBusinessGroup(group);
 			// 0) Loop over all deletableGroupData
-			for (DeletableGroupData deleteListener : deleteListeners) {
+			Map<String,DeletableGroupData> deleteListeners = CoreSpringFactory.getBeansOfType(DeletableGroupData.class);
+			for (DeletableGroupData deleteListener : deleteListeners.values()) {
 				if(log.isDebug()) {
 					log.debug("deleteBusinessGroup: call deleteListener=" + deleteListener);
 				}
 				deleteListener.deleteGroupDataFor(group);
 			} 
 			
-			// 0) Delete from project broker 
-			ProjectBrokerManagerFactory.getProjectBrokerManager().deleteGroupDataFor(group);
 			// 1) Delete all group properties
-			
 			CollaborationTools ct = CollaborationToolsFactory.getInstance().getOrCreateCollaborationTools(group);
 			ct.deleteTools(group);// deletes everything concerning properties&collabTools
 			
@@ -1066,6 +1077,18 @@ public class BusinessGroupServiceImpl implements BusinessGroupService, UserDataD
 			groups = findBusinessGroups(null, resource, 0, -1);
 		}
 		if(groups == null || groups.isEmpty()) {
+			return;//nothing to do
+		}
+		
+		//remove managed groups
+		for(Iterator<BusinessGroup> groupIt=groups.iterator(); groupIt.hasNext(); ) {
+			boolean managed = BusinessGroupManagedFlag.isManaged(groupIt.next(), BusinessGroupManagedFlag.membersmanagement);
+			if(managed) {
+				groupIt.remove();
+			}
+		}
+		
+		if(groups.isEmpty()) {
 			return;//nothing to do
 		}
 
@@ -1634,6 +1657,11 @@ public class BusinessGroupServiceImpl implements BusinessGroupService, UserDataD
 	}
 
 	@Override
+	public List<BusinessGroupMembership> getBusinessGroupsMembership(Collection<BusinessGroup> businessGroups) {
+		return businessGroupDAO.getBusinessGroupsMembership(businessGroups);
+	}
+
+	@Override
 	public List<BusinessGroupMembership> getBusinessGroupMembership(Collection<Long> businessGroups, Identity... identity) {
 		List<BusinessGroupMembershipViewImpl> views =
 				businessGroupDAO.getMembershipInfoInBusinessGroups(businessGroups, identity);
@@ -1698,10 +1726,5 @@ public class BusinessGroupServiceImpl implements BusinessGroupService, UserDataD
 	@Override
 	public void archiveGroups(List<BusinessGroup> groups, File exportFile) {
 		businessGroupArchiver.archiveGroups(groups, exportFile);
-	}
-
-	@Override
-	public File archiveGroupMembers(OLATResource resource, List<String> columnList, List<BusinessGroup> groupList, String archiveType, Locale locale, String charset) {
-		return businessGroupArchiver.archiveGroupMembers(resource, columnList, groupList, archiveType, locale, charset);
 	}
 }

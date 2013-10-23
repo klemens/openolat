@@ -2,7 +2,7 @@
 <beans xmlns="http://www.springframework.org/schema/beans"
        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
        xsi:schemaLocation="http://www.springframework.org/schema/beans
-           http://www.springframework.org/schema/beans/spring-beans-3.0.xsd">
+           http://www.springframework.org/schema/beans/spring-beans.xsd">
 
 	<bean id="restModule" class="org.olat.restapi.RestModule">
 		<property name="defaultEnabled" value="${restapi.enable}"/>
@@ -14,6 +14,7 @@
 				<constructor-arg index="1" ref="restModule" />
 			</bean>
 		</property>
+		<property name="ipsByPass" value="${restapi.ips.system}"/>
 	</bean>
 
 	<bean id="org.olat.restapi.security.RestSecurityBean" class="org.olat.restapi.security.RestSecurityBeanImpl">
@@ -32,6 +33,7 @@
 				<value>org.olat.user.restapi.UserAuthenticationWebService</value>
 				<value>org.olat.restapi.group.LearningGroupWebService</value>
 				<value>org.olat.restapi.repository.RepositoryEntriesResource</value>
+				<value>org.olat.restapi.repository.RepositoryEntryLifecycleWebService</value>
 				<value>org.olat.restapi.repository.course.CourseWebService</value>
 				<value>org.olat.restapi.repository.course.CoursesWebService</value>
 				<value>org.olat.restapi.repository.course.CoursesInfosWebService</value>
@@ -49,16 +51,12 @@
 				<value>org.olat.catalog.restapi.CatalogWebService</value>
 				<value>org.olat.notifications.restapi.NotificationsWebService</value>
 				<value>org.olat.registration.restapi.RegistrationWebService</value>
-				<value>org.olat.commons.calendar.restapi.CalendarWebService</value>
+				<value>org.olat.registration.restapi.ChangePasswordWebService</value>
+				<value>org.olat.commons.calendar.restapi.UserCalendarWebService</value>
 				<value>org.olat.restapi.system.LogWebService</value>
 				<value>org.olat.restapi.system.SystemWebService</value>
 			</list>
 		</property>
-		<!-- property name="singletonBeans">
-			<list>
-				<ref bean="userWebService"/>
-			</list>
-		</property -->
 	</bean>
 	
 	<bean id="systemSamplerTrigger" class="org.springframework.scheduling.quartz.CronTriggerBean">
@@ -101,14 +99,6 @@
 		<property name="jobClass" value="org.olat.core.commons.scheduler.DummyJob" />
 	</bean>
 	
-	<!-- Using singletons would be good for the future and prevent using CoreSpringFactory -->
-	<!-- bean id="userWebService" class="org.olat.user.restapi.UserWebService"/ -->
-	<bean id="configFactory" class="org.olat.restapi.repository.course.config.CustomConfigFactory">
-		<constructor-arg index="0" ref="${assessmentplugin.activate}CustomConfigCreator" />
-	</bean>
-
-	<bean id="OlatCustomConfigCreator" class="org.olat.restapi.repository.course.config.OlatCustomConfigCreator" lazy-init="true"/>
-
 	<!-- Definition of the providers -->
 	<bean id="monitoringModule" class="org.olat.restapi.system.MonitoringModule">
 		<property name="databaseHost" value="${db.host}" />

@@ -37,6 +37,7 @@ import org.olat.core.id.OLATResourceable;
 import org.olat.core.id.context.ContextEntry;
 import org.olat.core.id.context.StateEntry;
 import org.olat.core.util.Formatter;
+import org.olat.core.util.StringHelper;
 import org.olat.core.util.resource.OresHelper;
 import org.olat.portfolio.EPSecurityCallback;
 import org.olat.portfolio.manager.EPFrontendManager;
@@ -113,12 +114,12 @@ public class EPMultiplePageController extends BasicController implements Activat
 			ArrayList<Link> pageLinkList = new ArrayList<Link>();
 			for (PortfolioStructure page : pageList) {
 				pageListByKeys.add(page.getKey());
-				String pageTitle = ((EPPage) page).getTitle();
+				String pageTitle =StringHelper.escapeHtml(((EPPage) page).getTitle());
 				String shortPageTitle = Formatter.truncate(pageTitle, 20);
 				Link pageLink = LinkFactory
 						.createCustomLink("pageLink" + i, "pageLink" + i, shortPageTitle, Link.LINK + Link.NONTRANSLATED, vC, this);
 				pageLink.setUserObject(i - 1);
-				pageLink.setTooltip(pageTitle, false);
+				pageLink.setTooltip(pageTitle);
 				pageLinkList.add(pageLink);
 				i++;
 			}

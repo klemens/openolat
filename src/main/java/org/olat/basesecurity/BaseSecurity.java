@@ -70,6 +70,15 @@ public interface BaseSecurity {
 	public List<String> getIdentityPermissionOnresourceable(Identity identity, OLATResourceable olatResourceable);
 	
 	/**
+	 * 
+	 * @param permission
+	 * @param olatResourceableTypeName
+	 * @return
+	 */
+	public List<Identity> getIdentitiesWithPermissionWithOlatResourceableType(String permission, String olatResourceableTypeName);
+	
+	
+	/**
 	 * Get the identity's roles
 	 * 
 	 * @param identity
@@ -173,6 +182,19 @@ public interface BaseSecurity {
 	public Identity findIdentityByName(String identityName);
 	
 	public List<Identity> findIdentitiesByName(Collection<String> identityName);
+
+	/**
+	 * Find an identity by student/institutionalnumber (i.e., Matrikelnummer), using the getIdentititesByPowerSearch() method.
+	 * <p>
+	 * Be aware that this method does <b>not</b> check the identities status! This method returns identities with any state, also deleted identities!
+	 * 
+	 * @param identityNumber
+	 * @return the identity or null if not found
+	 */
+	public Identity findIdentityByNumber(String identityNumber);
+	
+
+	public List<Identity> findIdentitiesByNumber(Collection<String> identityNumbers);
 	
 	/**
 	 * Find an identity by its user

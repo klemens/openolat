@@ -58,6 +58,7 @@ import org.olat.portfolio.EPTemplateMapResource;
 import org.olat.repository.RepositoryEntry;
 import org.olat.repository.RepositoryManager;
 import org.olat.repository.RepositoryTableModel;
+import org.olat.repository.controllers.RepositorySearchController.Can;
 import org.olat.repository.handlers.RepositoryHandler;
 import org.olat.repository.handlers.RepositoryHandlerFactory;
 
@@ -100,19 +101,29 @@ public class ReferencableEntriesSearchController extends BasicController {
 	
 	private final boolean canImport;
 	private final boolean canCreate;
+	private final Can canBe;
 
 	public ReferencableEntriesSearchController(WindowControl wControl, UserRequest ureq, String limitType, String commandLabel) {
-		this(wControl, ureq, new String[]{limitType},commandLabel, true, true, true, false, false);
+		this(wControl, ureq, new String[]{limitType}, null, commandLabel, true, true, true, false, false, Can.referenceable);
 		setBasePackage(RepositoryManager.class);
 	}
 	
 	public ReferencableEntriesSearchController(WindowControl wControl, UserRequest ureq, String[] limitTypes, String commandLabel) {
-		this(wControl, ureq, limitTypes,commandLabel, true, true, true, false, false);
+		this(wControl, ureq, limitTypes, null, commandLabel, true, true, true, false, false, Can.referenceable);
 	}
-
+	
 	public ReferencableEntriesSearchController(WindowControl wControl, UserRequest ureq, String[] limitTypes, String commandLabel,
 			boolean canImport, boolean canCreate, boolean canDirectLaunch, boolean multiSelect, boolean adminSearch) {
+		this(wControl, ureq, limitTypes, null, commandLabel, canImport, canCreate, canDirectLaunch, multiSelect, adminSearch, Can.referenceable);
+	}
+
+	public ReferencableEntriesSearchController(WindowControl wControl, UserRequest ureq,
+			String[] limitTypes, RepositoryEntryFilter filter, String commandLabel,
+			boolean canImport, boolean canCreate, boolean canDirectLaunch, boolean multiSelect, boolean adminSearch,
+			Can canBe) {
+
 		super(ureq, wControl);
+		this.canBe = canBe;
 		this.canImport = canImport;
 		this.canCreate = canCreate;
 		this.limitTypes = limitTypes;
@@ -124,7 +135,7 @@ public class ReferencableEntriesSearchController extends BasicController {
 		}
 
 		// add repo search controller
-		searchCtr = new RepositorySearchController(commandLabel, ureq, getWindowControl(), false, canDirectLaunch, multiSelect, limitTypes);
+		searchCtr = new RepositorySearchController(commandLabel, ureq, getWindowControl(), false, canDirectLaunch, multiSelect, limitTypes, filter);
 		listenTo(searchCtr);
 		
 		// do instantiate buttons
@@ -155,7 +166,7 @@ public class ReferencableEntriesSearchController extends BasicController {
 		}
 
 		searchCtr.doSearchByOwnerLimitType(ureq.getIdentity(), limitTypes);
-		searchCtr.enableSearchforAllReferencalbeInSearchForm(true);
+		searchCtr.enableSearchforAllXXAbleInSearchForm(canBe);
 		mainVC.put("searchCtr", searchCtr.getInitialComponent());
 		
 		putInitialPanel(mainVC);
@@ -328,7 +339,14 @@ public class ReferencableEntriesSearchController extends BasicController {
 				if (clickedLink == myEntriesLink) {
 					searchCtr.doSearchByOwnerLimitType(ureq.getIdentity(), limitTypes);
 				} else if (clickedLink == allEntriesLink){
-					searchCtr.doSearchForReferencableResourcesLimitType(ureq.getIdentity(), limitTypes, ureq.getUserSession().getRoles());
+					switch(canBe) {
+						case referenceable:
+							searchCtr.doSearchForReferencableResourcesLimitType(ureq.getIdentity(), limitTypes, ureq.getUserSession().getRoles());
+							break;
+						case copyable:
+							searchCtr.doSearchForCopyableResourcesLimitType(ureq.getIdentity(), limitTypes, ureq.getUserSession().getRoles());
+							break;
+					}
 				} else if (clickedLink == searchEntriesLink){
 					searchCtr.displaySearchForm();
 				} else if (clickedLink == adminEntriesLink) {
@@ -341,7 +359,8 @@ public class ReferencableEntriesSearchController extends BasicController {
 			listenTo(addController);
 			
 			removeAsListenerAndDispose(cmc);
-			cmc = new CloseableModalController(getWindowControl(), translate("close"), addController.getInitialComponent());
+			cmc = new CloseableModalController(getWindowControl(), translate("close"), addController.getInitialComponent(),
+					true, addController.getTitle());
 			listenTo(cmc);
 			
 			cmc.activate();
@@ -352,7 +371,8 @@ public class ReferencableEntriesSearchController extends BasicController {
 			listenTo(addController);
 			
 			removeAsListenerAndDispose(cmc);
-			cmc = new CloseableModalController(getWindowControl(), translate("close"), addController.getInitialComponent());
+			cmc = new CloseableModalController(getWindowControl(), translate("close"), addController.getInitialComponent(),
+					true, addController.getTitle());
 			listenTo(cmc);
 			
 			cmc.activate();
@@ -431,5 +451,4 @@ public class ReferencableEntriesSearchController extends BasicController {
 	protected void doDispose() {
 		//
 	}
-
 }

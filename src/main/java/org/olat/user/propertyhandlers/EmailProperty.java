@@ -19,7 +19,6 @@
  */
 package org.olat.user.propertyhandlers;
 
-import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -75,13 +74,14 @@ public class EmailProperty extends Generic127CharTextPropertyHandler {
 	public String getUserPropertyAsHTML(User user, Locale locale) {
 		String mail = getUserProperty(user, locale);
 		if (StringHelper.containsNonWhitespace(mail)) {
-			StringBuffer sb = new StringBuffer();
+			mail = StringHelper.escapeHtml(mail);
+			StringBuilder sb = new StringBuilder();
 			sb.append("<a href=\"mailto:");
 			sb.append(mail);
 			sb.append("\" class=\"b_link_mailto\">");
-			sb.append(getUserProperty(user, locale));
+			sb.append(mail);
 			sb.append("</a>");
-			return sb.toString();
+			return StringHelper.xssScan(sb.toString());
 		}
 		return null;
 	}
@@ -124,7 +124,7 @@ public class EmailProperty extends Generic127CharTextPropertyHandler {
 	 * @see org.olat.user.propertyhandlers.Generic127CharTextPropertyHandler#isValid(org.olat.core.gui.components.form.flexible.FormItem, java.util.Map)
 	 */
 	@Override
-	public boolean isValid(FormItem formItem, Map formContext) {
+	public boolean isValid(FormItem formItem, Map<String,String> formContext) {
 		if (!super.isValid(formItem, formContext)) {
 			return false;
 		}
@@ -199,7 +199,8 @@ public class EmailProperty extends Generic127CharTextPropertyHandler {
 		if (tk != null) {
 			for (TemporaryKey temporaryKey : tk) {
 				XStream xml = new XStream();
-				HashMap<String, String> mails = (HashMap<String, String>) xml.fromXML(temporaryKey.getEmailAddress());
+				@SuppressWarnings("unchecked")
+				Map<String, String> mails = (Map<String, String>) xml.fromXML(temporaryKey.getEmailAddress());
 				if (emailAddress.equals(mails.get("changedEMail"))) {
 					return false;
 				}

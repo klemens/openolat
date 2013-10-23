@@ -36,7 +36,7 @@ button { border:none; }
 	 * @valid      no!
 */	 
 .b_button:focus, .b_button:hover {
-	border: 1px solid #aaa\9;
+	border: 1px solid #aaa;
 } 
 
 /* dirty button (form with unsaved values ) */
@@ -46,7 +46,7 @@ button { border:none; }
 	
 	&:focus,&:hover {
 		text-decoration: none;
-		border:1px solid #ffc20e;
+		border:1px solid $selectcolor;
 		@include o-gradient2( #ffffff,#FFF7E0);
 	}
 }
@@ -68,6 +68,7 @@ button { border:none; }
 /* multiple buttons groups below a form */
 div.b_button_group { text-align: center; margin: 2em 0 1em 0;}
 div.b_button_group div { display: inline;}
+
 
 
 .b_xsmall, sup, sub {
@@ -172,6 +173,40 @@ span.b_toggle_slide_legend {font-size: 90%; }
 
 .b_link_nok {
 	> span {background-image: url('../openolat/images/cross.png');}
+}
+
+.b_link_edit {
+	> span {background-image: url('../openolat/images/docs/document--pencil.png');}
+}
+
+.b_move_left_icon {
+	> span {background-image: url('../openolat/images/arrow_left_big.png');}
+}
+
+.b_move_right_icon { 
+	> span {background-image: url('../openolat/images/arrow_right_big.png');}
+}
+
+.b_remove_icon {
+	> span {background-image: url('../openolat/images/cross_small.png');}
+}
+
+.b_deletableentry_wrapper {
+	.b_deletableentry {
+		
+	}
+	
+	.b_link_left_icon {
+		border: none;
+		background:inherit;
+		margin: 0;
+		
+		&:focus, &:hover, &:focus, &:active {
+			text-decoration: none;
+			border:none;
+			@include o-box-shadow(0, 0, 0, transparent);
+		}
+	}
 }
 
 
@@ -280,6 +315,7 @@ div.b_form {
 	&.b_form_vertical div.b_button_group { text-align: left; }
 	
 	div.b_form_element div.b_form_example { display: inline; font-size: 80%; color: #504D4E;}
+	div.b_form_element div.b_inline_elements div { display: inline; }
 	
 	div.b_form_element {
 		.b_form_disabled { color: #504D4E; }

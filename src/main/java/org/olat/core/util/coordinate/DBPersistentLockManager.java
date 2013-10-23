@@ -26,13 +26,13 @@ package org.olat.core.util.coordinate;
 
 import org.hibernate.type.StandardBasicTypes;
 import org.hibernate.type.Type;
-import org.olat.admin.user.delete.service.UserDeletionManager;
 import org.olat.basesecurity.BaseSecurityManager;
 import org.olat.core.commons.persistence.DBFactory;
 import org.olat.core.id.Identity;
 import org.olat.core.id.OLATResourceable;
 import org.olat.core.logging.AssertException;
-import org.olat.core.manager.BasicManager;
+import org.olat.core.logging.OLog;
+import org.olat.core.logging.Tracing;
 import org.olat.core.util.resource.OresHelper;
 import org.olat.properties.Property;
 import org.olat.properties.PropertyManager;
@@ -46,16 +46,17 @@ import org.olat.user.UserDataDeletable;
  * 
  * @author patrickb
  */
-public class DBPersistentLockManager extends BasicManager implements PersistentLockManager,UserDataDeletable {
-
+public class DBPersistentLockManager implements PersistentLockManager, UserDataDeletable {
+	
+	private static final OLog log = Tracing.createLoggerFor(DBPersistentLockManager.class);
 	private static final String CATEGORY_PERSISTENTLOCK = "o_lock";
 	
 	/**
 	 * [used by spring]
 	 * @param userDeletionManager
 	 */
-	private DBPersistentLockManager(UserDeletionManager userDeletionManager) {
-		userDeletionManager.registerDeletableUserData(this);
+	private DBPersistentLockManager() {
+		//
 	}
 
 	/**
@@ -129,7 +130,7 @@ public class DBPersistentLockManager extends BasicManager implements PersistentL
 		String query = "from v in class org.olat.properties.Property where v.category = ? and v.longValue = ?";
 		DBFactory.getInstance().delete(query, new Object[] { CATEGORY_PERSISTENTLOCK, identity.getKey() },
 				new Type[] { StandardBasicTypes.STRING, StandardBasicTypes.LONG });
-		logDebug("All db-persisting-locks deleted for identity=" + identity);
+		log.debug("All db-persisting-locks deleted for identity=" + identity);
 	}
 
 }

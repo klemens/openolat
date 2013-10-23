@@ -19,14 +19,18 @@
  */
 package org.olat.user;
 
+import java.io.Serializable;
 import java.nio.charset.Charset;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+
+import javax.annotation.PostConstruct;
+import javax.persistence.TypedQuery;
 
 import org.olat.basesecurity.BaseSecurity;
 import org.olat.basesecurity.IdentityImpl;
@@ -41,6 +45,8 @@ import org.olat.core.id.User;
 import org.olat.core.id.UserConstants;
 import org.olat.core.logging.AssertException;
 import org.olat.core.util.WebappHelper;
+import org.olat.core.util.cache.CacheWrapper;
+import org.olat.core.util.coordinate.CoordinatorManager;
 import org.olat.core.util.i18n.I18nModule;
 import org.olat.core.util.mail.MailHelper;
 import org.olat.properties.Property;
@@ -66,6 +72,10 @@ public class UserManagerImpl extends UserManager {
   private DB dbInstance;
   @Autowired
   private BaseSecurity securityManager;
+  @Autowired
+  private CoordinatorManager coordinatorManager;
+
+	private CacheWrapper<Serializable,String> usernameCache;
   
 	/**
 	 * Use UserManager.getInstance(), this is a spring factory method to load the
@@ -73,6 +83,12 @@ public class UserManagerImpl extends UserManager {
 	 */
 	private UserManagerImpl() {
 		INSTANCE = this;
+	}
+	
+	@PostConstruct
+	public void init() {
+		usernameCache = coordinatorManager.getCoordinator().getCacher()
+				.getCache(UserManager.class.getSimpleName(), "username");
 	}
 
 	/**
@@ -135,28 +151,37 @@ public class UserManagerImpl extends UserManager {
 		if (!MailHelper.isValidEmailAddress(email)) {
 			throw new AssertException("Identity cannot be searched by email, if email is not valid. Used address: " + email);
 		}
-		
-		DB db = DBFactory.getInstance();
+
 		StringBuilder sb = new StringBuilder("select identity from ").append(IdentityImpl.class.getName()).append(" identity ")
 			.append(" inner join identity.user user ")
 			.append(" where ");
 		
+		boolean mysql = "mysql".equals(dbInstance.getDbVendor());
 		//search email
 		StringBuilder emailSb = new StringBuilder(sb);
-		emailSb.append(" user.properties['").append(UserConstants.EMAIL).append("'] =:email");
-		DBQuery emailQuery = db.createQuery(emailSb.toString());
-		emailQuery.setString("email", email);
-		List<Identity> identities = emailQuery.list();
+		if(mysql) {
+			emailSb.append(" user.properties['").append(UserConstants.EMAIL).append("'] =:email");
+		} else {
+			emailSb.append(" lower(user.properties['").append(UserConstants.EMAIL).append("']) = lower(:email)");
+		}
+
+		List<Identity> identities = dbInstance.getCurrentEntityManager()
+				.createQuery(emailSb.toString(), Identity.class)
+				.setParameter("email", email).getResultList();
 		if (identities.size() > 1) {
 			throw new AssertException("more than one identity found with email::" + email);
 		}
 
 		//search institutional email
 		StringBuilder institutionalSb = new StringBuilder(sb);
-		institutionalSb.append(" user.properties['").append(UserConstants.INSTITUTIONALEMAIL).append("'] =:email");
-		DBQuery institutionalQuery = db.createQuery(institutionalSb.toString());
-		institutionalQuery.setString("email", email);
-		List<Identity> instIdentities = institutionalQuery.list();
+		if(mysql) {
+			institutionalSb.append(" user.properties['").append(UserConstants.INSTITUTIONALEMAIL).append("'] =:email");
+		} else {
+			institutionalSb.append(" lower(user.properties['").append(UserConstants.INSTITUTIONALEMAIL).append("']) = lower(:email)");
+		}
+		List<Identity> instIdentities = dbInstance.getCurrentEntityManager()
+				.createQuery(institutionalSb.toString(), Identity.class)
+				.setParameter("email", email).getResultList();
 		if (instIdentities.size() > 1) {
 			throw new AssertException("more than one identity found with institutional-email::" + email);
 		}
@@ -176,43 +201,55 @@ public class UserManagerImpl extends UserManager {
 	}
 	
 	@Override
-	public List<Identity> findIdentitiesByEmail(List<String> emails) {
-		for(Iterator<String> emailIt=emails.iterator(); emailIt.hasNext(); ) {
-			String email = emailIt.next();
+	public List<Identity> findIdentitiesByEmail(List<String> emailList) {
+		List<String> emails = new ArrayList<String>(emailList);
+		for (int i=0; i<emails.size(); i++) {
+			String email = emails.get(i).toLowerCase();
 			if (!MailHelper.isValidEmailAddress(email)) {
-				emailIt.remove();
+				emails.remove(i);
 				logWarn("Invalid email address: " + email, null);
 			}
+			else {
+				emails.set(i, email);
+			}
 		}
-		
 		if(emails.isEmpty()) {
 			return Collections.emptyList();
 		}
-
-		DB db = DBFactory.getInstance();
 		StringBuilder sb = new StringBuilder("select identity from ").append(IdentityImpl.class.getName()).append(" identity ")
 			.append(" inner join identity.user user ")
 			.append(" where ");
 		
+		boolean mysql = "mysql".equals(dbInstance.getDbVendor());
 		//search email
 		StringBuilder emailSb = new StringBuilder(sb);
-		emailSb.append(" user.properties['").append(UserConstants.EMAIL).append("']  in (:emails) ");
-		DBQuery emailQuery = db.createQuery(emailSb.toString());
-		emailQuery.setParameterList("emails", emails);
-		List<Identity> identities = emailQuery.list();
+		if(mysql) {
+			emailSb.append(" user.properties['").append(UserConstants.EMAIL).append("']  in (:emails) ");
+		} else {
+			emailSb.append(" lower(user.properties['").append(UserConstants.EMAIL).append("']) in (:emails)");
+		}
+
+		List<Identity> identities = dbInstance.getCurrentEntityManager()
+				.createQuery(emailSb.toString(), Identity.class)
+				.setParameter("emails", emails).getResultList();
 
 		//search institutional email
 		StringBuilder institutionalSb = new StringBuilder(sb);
-		institutionalSb.append(" user.properties['").append(UserConstants.INSTITUTIONALEMAIL).append("'] in (:emails) ");
+		if(mysql) {
+			institutionalSb.append(" user.properties['").append(UserConstants.INSTITUTIONALEMAIL).append("'] in (:emails) ");
+		} else {
+			institutionalSb.append(" lower(user.properties['").append(UserConstants.INSTITUTIONALEMAIL).append("']) in (:emails)");
+		}
 		if(!identities.isEmpty()) {
 			institutionalSb.append(" and identity not in (:identities) ");
 		}
-		DBQuery institutionalQuery = db.createQuery(institutionalSb.toString());
-		institutionalQuery.setParameterList("emails", emails);
+		TypedQuery<Identity> institutionalQuery = dbInstance.getCurrentEntityManager()
+				.createQuery(institutionalSb.toString(), Identity.class)
+				.setParameter("emails", emails);
 		if(!identities.isEmpty()) {
-			institutionalQuery.setParameterList("identities", identities);
+			institutionalQuery.setParameter("identities", identities);
 		}
-		List<Identity> instIdentities = institutionalQuery.list();
+		List<Identity> instIdentities = institutionalQuery.getResultList();
 		identities.addAll(instIdentities);
 		return identities;
 	}
@@ -237,35 +274,43 @@ public class UserManagerImpl extends UserManager {
 	}
 	
 	public boolean userExist(String email) {
-		DB db = DBFactory.getInstance();
 		StringBuilder sb = new StringBuilder("select distinct count(user) from ").append(UserImpl.class.getName()).append(" user where ");
-		
+		boolean mysql = "mysql".equals(dbInstance.getDbVendor());
 		//search email
 		StringBuilder emailSb = new StringBuilder(sb);
-		emailSb.append(" user.properties['").append(UserConstants.EMAIL).append("'] =:email");
-		DBQuery emailQuery = db.createQuery(emailSb.toString());
-		emailQuery.setString("email", email);
-		Number count = (Number)emailQuery.uniqueResult();
+		if(mysql) {
+			emailSb.append(" user.properties['").append(UserConstants.EMAIL).append("'] =:email");
+		} else {
+			emailSb.append(" lower(user.properties['").append(UserConstants.EMAIL).append("']) = lower(:email)");
+		}
+		
+		Number count = dbInstance.getCurrentEntityManager()
+				.createQuery(emailSb.toString(), Number.class)
+				.setParameter("email", email)
+				.getSingleResult();
 		if(count.intValue() > 0) {
 			return true;
 		}
+		
 		//search institutional email
 		StringBuilder institutionalSb = new StringBuilder(sb);
-		institutionalSb.append(" user.properties['").append(UserConstants.INSTITUTIONALEMAIL).append("'] =:email");
-		DBQuery institutionalQuery = db.createQuery(institutionalSb.toString());
-		institutionalQuery.setString("email", email);
-		count = (Number)institutionalQuery.uniqueResult();
-		if(count.intValue() > 0) {
-			return true;
+		if(mysql) {
+			institutionalSb.append(" user.properties['").append(UserConstants.INSTITUTIONALEMAIL).append("'] =:email");
+		} else {
+			institutionalSb.append(" lower(user.properties['").append(UserConstants.INSTITUTIONALEMAIL).append("']) = lower(:email)");
 		}
-		return false;
+		count = dbInstance.getCurrentEntityManager()
+				.createQuery(institutionalSb.toString(), Number.class)
+				.setParameter("email", email)
+				.getSingleResult();
+		return count.intValue() > 0;
 	}
 
 	/**
 	 * @see org.olat.user.UserManager#loadUserByKey(java.lang.Long)
 	 */
 	public User loadUserByKey(Long key) {
-		return (UserImpl) DBFactory.getInstance().loadObject(UserImpl.class, key);
+		return DBFactory.getInstance().loadObject(UserImpl.class, key);
 		// User not loaded yet (lazy initialization). Need to access
 		// a field first to really load user from database.
 	}
@@ -273,15 +318,23 @@ public class UserManagerImpl extends UserManager {
 	/**
 	 * @see org.olat.user.UserManager#updateUser(org.olat.core.id.User)
 	 */
-	public void updateUser(User usr) {
+	@Override
+	public User updateUser(User usr) {
 		if (usr == null) throw new AssertException("User object is null!");
-		DBFactory.getInstance().updateObject(usr);
+		return dbInstance.getCurrentEntityManager().merge(usr);
 	}
 
 	/**
 	 * @see org.olat.user.UserManager#updateUserFromIdentity(org.olat.core.id.Identity)
 	 */
+	@Override
 	public boolean updateUserFromIdentity(Identity identity) {
+		try {
+			String fullName = getUserDisplayName(identity);
+			updateUsernameCache(identity.getKey(), identity.getName(), fullName);
+		} catch (Exception e) {
+			logWarn("Error update usernames cache", e);
+		}
 		updateUser(identity.getUser());
 		return true;
 	}
@@ -344,34 +397,130 @@ public class UserManagerImpl extends UserManager {
 		updateUser(user);
 		if(isLogDebugEnabled()) logDebug("Delete all user-attributtes for user=" + user);
 	}
+	
+	
+
+	@Override
+	public String getUserDisplayName(String username) {
+		String fullName = usernameCache.get(username);
+		if(fullName == null) {
+			List<IdentityShort> identities = securityManager.findShortIdentitiesByName(Collections.singletonList(username));
+			for(IdentityShort identity:identities) {
+				fullName = getUserDisplayName(identity);
+			}
+		}
+		return fullName;
+	}
+
+	@Override
+	public String getUserDisplayName(Long identityKey) {
+		if(identityKey == null || identityKey.longValue() <= 0) {
+			return "";
+		}
+		
+		String fullName = usernameCache.get(identityKey);
+		if(fullName == null) {
+			IdentityShort identity = securityManager.loadIdentityShortByKey(identityKey);
+			fullName = getUserDisplayName(identity);
+		}
+		return fullName;
+	}
+
+	@Override
+	public Map<String, String> getUserDisplayNamesByUserName(Collection<String> usernames) {
+		if(usernames == null | usernames.isEmpty()) {
+			return Collections.emptyMap();
+		}
+		
+		Map<String, String> fullNames = new HashMap<String,String>();
+		List<String> newUsernames = new ArrayList<String>();
+		for(String username:usernames) {
+			String fullName = usernameCache.get(username);
+			if(fullName != null) {
+				fullNames.put(username, fullName);
+			} else {
+				newUsernames.add(username);
+			}
+		}
+
+		List<IdentityShort> identities = securityManager.findShortIdentitiesByName(newUsernames);
+		for(IdentityShort identity:identities) {
+			String fullName = getUserDisplayName(identity);
+			fullNames.put(identity.getName(), fullName);
+			newUsernames.remove(identity.getName());
+		}
+		//not found
+		for(String notFound:newUsernames) {
+			usernameCache.put(notFound, notFound);
+		}
+		return fullNames;
+	}
+
+	@Override
+	public String getUserDisplayName(Identity identity) {
+		if (userDisplayNameCreator == null || identity == null) return "";
+		String fullName = getUserDisplayName(identity.getUser());
+		updateUsernameCache(identity.getKey(), identity.getName(), fullName);
+		return fullName;
+	}
 
 	/**
 	 * @see org.olat.user.UserManager#getUserDisplayName(org.olat.core.id.User)
 	 */
 	@Override
 	public String getUserDisplayName(User user) {
-		if (this.userDisplayNameCreator == null) return "";
-		return this.userDisplayNameCreator.getUserDisplayName(user);
+		if (userDisplayNameCreator == null || user == null) return "";
+		return userDisplayNameCreator.getUserDisplayName(user);
 	}
 	
 	/**
 	 * @see org.olat.user.UserManager#getUserDisplayName(org.olat.core.id.IdentityShort)
 	 */
 	@Override
-	public String getUserDisplayName(IdentityShort user) {
-		if (this.userDisplayNameCreator == null) return "";
-		return this.userDisplayNameCreator.getUserDisplayName(user);
+	public String getUserDisplayName(IdentityShort identity) {
+		if (userDisplayNameCreator == null || identity == null) return "";
+		String fullName = userDisplayNameCreator.getUserDisplayName(identity);
+		updateUsernameCache(identity.getKey(), identity.getName(), fullName);
+		return fullName;
 	}
 
 	@Override
-	public Map<Long, String> getUserDisplayNames(Collection<Long> identityKeys) {
-		List<IdentityShort> identities = securityManager.loadIdentityShortByKeys(identityKeys);
-		Map<Long,String> namesMap = new HashMap<Long,String>(identities.size());
-		for(IdentityShort identity:identities) {
-			String displayName = this.getUserDisplayName(identity);
-			namesMap.put(identity.getKey(), displayName);
+	public Map<Long, String> getUserDisplayNamesByKey(Collection<Long> identityKeys) {
+		
+		if(identityKeys == null | identityKeys.isEmpty()) {
+			return Collections.emptyMap();
 		}
-		return namesMap;
+		
+		Map<Long, String> fullNames = new HashMap<Long,String>();
+		List<Long> newIdentityKeys = new ArrayList<Long>();
+		for(Long identityKey:identityKeys) {
+			String fullName = usernameCache.get(identityKey);
+			if(fullName != null) {
+				fullNames.put(identityKey, fullName);
+			} else {
+				newIdentityKeys.add(identityKey);
+			}
+		}
+
+		List<IdentityShort> identities = securityManager.loadIdentityShortByKeys(identityKeys);
+		for(IdentityShort identity:identities) {
+			String fullName = getUserDisplayName(identity);
+			updateUsernameCache(identity.getKey(), identity.getName(), fullName);
+			fullNames.put(identity.getKey(), fullName);
+		}
+
+		return fullNames;
+	}
+	
+	private void updateUsernameCache(Long identityKey, String username, String fullName) {
+		if(fullName == null) return;
+		
+		if(identityKey != null) {
+			usernameCache.put(identityKey, fullName);
+		}
+		if(username != null) {
+			usernameCache.put(username, fullName);
+		}
 	}
 
 	/**
