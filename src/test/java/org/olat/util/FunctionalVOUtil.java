@@ -36,19 +36,16 @@ import java.util.UUID;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.UriBuilder;
 
-import org.apache.commons.httpclient.HttpClient;
+import org.apache.http.HttpEntity;
 import org.apache.http.HttpResponse;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.methods.HttpPost;
 import org.apache.http.client.methods.HttpPut;
+import org.apache.http.entity.ContentType;
 import org.apache.http.entity.mime.HttpMultipartMode;
-import org.apache.http.entity.mime.MultipartEntity;
-import org.apache.http.entity.mime.content.FileBody;
-import org.apache.http.entity.mime.content.StringBody;
+import org.apache.http.entity.mime.MultipartEntityBuilder;
 import org.apache.http.util.EntityUtils;
 import org.junit.Assert;
-import org.olat.core.logging.OLog;
-import org.olat.core.logging.Tracing;
 import org.olat.restapi.RestConnection;
 import org.olat.restapi.support.vo.CourseVO;
 import org.olat.restapi.support.vo.GroupConfigurationVO;
@@ -62,7 +59,6 @@ import org.olat.user.restapi.UserVO;
  * @author jkraehemann, joel.kraehemann@frentix.com, frentix.com
  */
 public class FunctionalVOUtil {
-	private final static OLog log = Tracing.createLoggerFor(FunctionalVOUtil.class);
 	
 	public final static String WAIT_LIMIT = "15000";
 	
@@ -84,8 +80,6 @@ public class FunctionalVOUtil {
 	
 	private String allElementsCourseDisplayname;
 	private String allElementsCourseFilename;
-
-	private HttpClient client;
 	private String waitLimit;
 	
 	public FunctionalVOUtil(String username, String password){
@@ -94,8 +88,7 @@ public class FunctionalVOUtil {
 		
 		setAllElementsCourseDisplayname(ALL_ELEMENTS_COURSE_DISPLAYNAME);
 		setAllElementsCourseFilename(ALL_ELEMENTS_COURSE_FILENAME);
-		
-		client = new HttpClient();
+
 		waitLimit = WAIT_LIMIT;
 	}
 	
@@ -126,11 +119,9 @@ public class FunctionalVOUtil {
 	 */
 	public List<UserVO> createTestUsers(URL deploymentUrl, int count) throws IOException, URISyntaxException{
 		RestConnection restConnection = new RestConnection(deploymentUrl);
-
-		restConnection.login(getUsername(), getPassword());
+		assertTrue(restConnection.login(getUsername(), getPassword()));
 		
-		List<UserVO> user = new ArrayList<UserVO>();
-		
+		List<UserVO> user = new ArrayList<UserVO>(count);
 		for(int i = 0; i < count; i++){
 			UserVO vo = new UserVO();
 			String username = ("selenium_" + i + "_" + UUID.randomUUID().toString()).substring(0, 24);
@@ -152,14 +143,13 @@ public class FunctionalVOUtil {
 			method.addHeader("Accept-Language", "en");
 
 			HttpResponse response = restConnection.execute(method);
-			assertTrue(response.getStatusLine().getStatusCode() == 200 || response.getStatusLine().getStatusCode() == 201);
+			int responseCode = response.getStatusLine().getStatusCode();
+			assertTrue(responseCode == 200 || responseCode == 201);
 			InputStream body = response.getEntity().getContent();
-			
 			UserVO current = restConnection.parse(body, UserVO.class);
 			Assert.assertNotNull(current);
 			
 			current.setPassword(vo.getPassword());
-			
 			user.add(current);
 		}
 
@@ -200,7 +190,7 @@ public class FunctionalVOUtil {
 			roles.setUserManager(true);
 			
 			request = UriBuilder.fromUri(deploymentUrl.toURI()).path("restapi").path("users/" + currentUser.getKey() + "/roles").build();
-			HttpPost postMethod = restConnection.createPost(request, MediaType.APPLICATION_JSON, true);
+			HttpPost postMethod = restConnection.createPost(request, MediaType.APPLICATION_JSON);
 			restConnection.addJsonEntity(postMethod, roles);
 			response = restConnection.execute(postMethod);
 			assertEquals(200, response.getStatusLine().getStatusCode());
@@ -337,7 +327,7 @@ public class FunctionalVOUtil {
 		config.setWaitingListVisible(waitingListVisible);
 		
 		/* post modified configuration */
-		HttpPost postMethod = restConnection.createPost(request, MediaType.APPLICATION_JSON, true);
+		HttpPost postMethod = restConnection.createPost(request, MediaType.APPLICATION_JSON);
 		restConnection.addJsonEntity(postMethod, config);
 		
 		HttpResponse response = restConnection.execute(postMethod);
@@ -368,15 +358,17 @@ public class FunctionalVOUtil {
 		assertTrue(conn.login(getUsername(), getPassword()));
 		
 		URI request = UriBuilder.fromUri(deploymentUrl.toURI()).path("restapi").path("repo/courses").build();
-		HttpPost method = conn.createPost(request, MediaType.APPLICATION_JSON, true);
-		MultipartEntity entity = new MultipartEntity(HttpMultipartMode.BROWSER_COMPATIBLE);
-		entity.addPart("file", new FileBody(cp));
-		entity.addPart("filename", new StringBody(filename));
-		entity.addPart("resourcename", new StringBody(resourcename));
-		entity.addPart("displayname", new StringBody(displayname));
-		entity.addPart("access", new StringBody("3"));
+		HttpPost method = conn.createPost(request, MediaType.APPLICATION_JSON);
 		String softKey = UUID.randomUUID().toString().replace("-", "").substring(0, 30);
-		entity.addPart("softkey", new StringBody(softKey));
+		HttpEntity entity = MultipartEntityBuilder.create()
+				.setMode(HttpMultipartMode.BROWSER_COMPATIBLE)
+				.addBinaryBody("file", cp, ContentType.APPLICATION_OCTET_STREAM, cp.getName())
+				.addTextBody("filename", filename)
+				.addTextBody("resourcename", resourcename)
+				.addTextBody("displayname", displayname)
+				.addTextBody("access", "3")
+				.addTextBody("softkey", softKey)
+				.build();
 		method.setEntity(entity);
 		
 		HttpResponse response = conn.execute(method);
@@ -501,12 +493,14 @@ public class FunctionalVOUtil {
 		
 		URI request = UriBuilder.fromUri(deploymentUrl.toURI()).path("restapi").path("repo/entries").build();
 		HttpPut method = restConnection.createPut(request, MediaType.APPLICATION_JSON, true);
-		MultipartEntity entity = new MultipartEntity(HttpMultipartMode.BROWSER_COMPATIBLE);
-		entity.addPart("file", new FileBody(wiki));
-		entity.addPart("filename", new StringBody("wiki.zip"));
-		entity.addPart("resourcename", new StringBody("Wiki"));
-		entity.addPart("displayname", new StringBody("Wiki"));
-		entity.addPart("access", new StringBody("3"));
+		HttpEntity entity = MultipartEntityBuilder.create()
+				.setMode(HttpMultipartMode.BROWSER_COMPATIBLE)
+				.addBinaryBody("file", wiki, ContentType.APPLICATION_OCTET_STREAM, wiki.getName())
+				.addTextBody("filename", "wiki.zip")
+				.addTextBody("resourcename", "Wiki")
+				.addTextBody("displayname", "Wiki")
+				.addTextBody("access", "3")
+				.build();
 		method.setEntity(entity);
 		
 		HttpResponse response = restConnection.execute(method);
@@ -542,12 +536,14 @@ public class FunctionalVOUtil {
 		
 		URI request = UriBuilder.fromUri(deploymentUrl.toURI()).path("restapi").path("repo/entries").build();
 		HttpPut method = restConnection.createPut(request, MediaType.APPLICATION_JSON, true);
-		MultipartEntity entity = new MultipartEntity(HttpMultipartMode.BROWSER_COMPATIBLE);
-		entity.addPart("file", new FileBody(blog));
-		entity.addPart("filename", new StringBody(filename));
-		entity.addPart("resourcename", new StringBody(resourcename));
-		entity.addPart("displayname", new StringBody(displayname));
-		entity.addPart("access", new StringBody("3"));
+		HttpEntity entity = MultipartEntityBuilder.create()
+				.setMode(HttpMultipartMode.BROWSER_COMPATIBLE)
+				.addBinaryBody("file", blog, ContentType.APPLICATION_OCTET_STREAM, blog.getName())
+				.addTextBody("filename", filename)
+				.addTextBody("resourcename", resourcename)
+				.addTextBody("displayname", displayname)
+				.addTextBody("access", "3")
+				.build();
 		method.setEntity(entity);
 		
 		HttpResponse response = restConnection.execute(method);
@@ -619,14 +615,6 @@ public class FunctionalVOUtil {
 
 	public void setAllElementsCourseFilename(String allElementsCourseFilename) {
 		this.allElementsCourseFilename = allElementsCourseFilename;
-	}
-
-	public HttpClient getClient() {
-		return client;
-	}
-
-	public void setClient(HttpClient client) {
-		this.client = client;
 	}
 
 	public String getWaitLimit() {

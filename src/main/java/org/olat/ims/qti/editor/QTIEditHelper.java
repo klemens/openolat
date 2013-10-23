@@ -33,6 +33,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 
@@ -110,9 +111,9 @@ public class QTIEditHelper {
 	 */
 	public static int countItems(Assessment assessment) {
 		int itemCount = 0;
-		Iterator sectionIter = assessment.getSections().iterator();
+		Iterator<Section> sectionIter = assessment.getSections().iterator();
 		while (sectionIter.hasNext()) {
-			itemCount += ((Section)sectionIter.next()).getItems().size();
+			itemCount += sectionIter.next().getItems().size();
 		}
 		return itemCount;
 	}
@@ -170,9 +171,9 @@ public class QTIEditHelper {
 		newItem.setIdent(EDITOR_IDENT+":"+ITEM_TYPE_SC+":"+String.valueOf(CodeHelper.getRAMUniqueID()));
 		newItem.setTitle(trans.translate("editor.newquestion"));
 		newItem.setLabel("");
-		// conrols
+		// controls
 		Control control = new Control();
-		ArrayList controls = new ArrayList();
+		List<Control> controls = new ArrayList<Control>();
 		controls.add(control);
 		newItem.setItemcontrols(controls);
 
@@ -211,7 +212,7 @@ public class QTIEditHelper {
 
 		// conrols
 		Control control = new Control();
-		ArrayList controls = new ArrayList();
+		List<Control> controls = new ArrayList<Control>();
 		controls.add(control);
 		newItem.setItemcontrols(controls);
 		
@@ -250,7 +251,7 @@ public class QTIEditHelper {
 
 		// controls
 		Control control = new Control();
-		ArrayList controls = new ArrayList();
+		List<Control> controls = new ArrayList<Control>();
 		controls.add(control);
 		newItem.setItemcontrols(controls);
 		
@@ -306,7 +307,7 @@ public class QTIEditHelper {
 
 		// conrols
 		Control control = new Control();
-		ArrayList controls = new ArrayList();
+		List<Control> controls = new ArrayList<Control>();
 		controls.add(control);
 		newItem.setItemcontrols(controls);
 		
@@ -343,7 +344,7 @@ public class QTIEditHelper {
 
 		// conrols
 		Control control = new Control();
-		ArrayList controls = new ArrayList();
+		List<Control> controls = new ArrayList<Control>();
 		controls.add(control);
 		newItem.setItemcontrols(controls);
 		
@@ -425,8 +426,8 @@ public class QTIEditHelper {
 	public static float calculateMaxScore(Question question) {
 		float tmpScore = 0;
 		if (question.isSingleCorrect()) return question.getSingleCorrectScore();
-		for (Iterator iter = question.getResponses().iterator(); iter.hasNext();) {
-			Response resp = (Response) iter.next();
+		for (Iterator<Response> iter = question.getResponses().iterator(); iter.hasNext();) {
+			Response resp = iter.next();
 			float points = resp.getPoints();
 			if (points > 0) tmpScore = tmpScore + points;
 		}
@@ -440,9 +441,9 @@ public class QTIEditHelper {
 	 * @param type
 	 * @return hasmap with responselabel_idents as keys and points as values.
 	 */
-	public static HashMap fetchPoints(List respconditions, int type) {
-		HashMap points = new HashMap();
-		for (Iterator i = respconditions.iterator(); i.hasNext();) {
+	public static Map<String,Float> fetchPoints(List<?> respconditions, int type) {
+		Map<String,Float> points = new HashMap<String,Float>();
+		for (Iterator<?> i = respconditions.iterator(); i.hasNext();) {
 			Element el_resp_condition = (Element) i.next();
 			///todo
 			float fPoints = 0;
@@ -461,11 +462,14 @@ public class QTIEditHelper {
 				Element and = conditionvar.element("and");
 				// in and are all choices that are true
 
-				List tmp_points = (and == null) ? conditionvar.selectNodes(".//varequal") : and.selectNodes(".//varequal");
-				for (Iterator iter = tmp_points.iterator(); iter.hasNext();) {
+				List<?> tmp_points = (and == null) ? conditionvar.selectNodes(".//varequal") : and.selectNodes(".//varequal");
+				for (Iterator<?> iter = tmp_points.iterator(); iter.hasNext();) {
 					Element el_varequal = (Element) iter.next();
-					if (type == Question.TYPE_SC || type == Question.TYPE_MC || type == Question.TYPE_KPRIM) points.put(el_varequal.getTextTrim(), new Float(fPoints));
-					else if (type == Question.TYPE_FIB) points.put(el_varequal.attributeValue("respident"), new Float(fPoints));
+					if (type == Question.TYPE_SC || type == Question.TYPE_MC || type == Question.TYPE_KPRIM){
+						points.put(el_varequal.getTextTrim(), new Float(fPoints));
+					} else if (type == Question.TYPE_FIB) {
+						points.put(el_varequal.attributeValue("respident"), new Float(fPoints));
+					}
 				}
 			}
 		}
@@ -477,8 +481,8 @@ public class QTIEditHelper {
 	 * @param response_labels
 	 * @return Map of choices.
 	 */
-	public static List fetchChoices(List response_labels) {
-		List choices = new ArrayList();
+	public static List<Response> fetchChoices(List response_labels) {
+		List<Response> choices = new ArrayList<Response>();
 		for (Iterator i = response_labels.iterator(); i.hasNext();) {
 			ChoiceResponse choice = new ChoiceResponse();
 			Element response_label = (Element) i.next();

@@ -297,7 +297,7 @@ public class KalendarEntryForm extends FormBasicController {
 		}
 		chooseCalendar.setVisible(isNew);
 		
-		String calName = choosenWrapper == null ? "" : choosenWrapper.getKalendarConfig().getDisplayName();
+		String calName = choosenWrapper == null ? "" : StringHelper.escapeHtml(choosenWrapper.getKalendarConfig().getDisplayName());
 		calendarName = uifactory.addStaticTextElement("calendarname", "cal.form.calendarname", calName, formLayout);
 		calendarName.setVisible(!isNew);
 		
@@ -353,7 +353,7 @@ public class KalendarEntryForm extends FormBasicController {
 				buf.append(" ");
 				buf.append(getTranslator().translate("cal.form.created.by"));
 				buf.append(" ");
-				buf.append(event.getCreatedBy());
+				buf.append(StringHelper.escapeHtml(event.getCreatedBy()));
 			} 
 		} else {
 			buf.append("-");

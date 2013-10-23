@@ -4,7 +4,7 @@
 	<modelVersion>4.0.0</modelVersion>
 	<groupId>org.openolat</groupId>
 	<artifactId>openolat-lms</artifactId>
-	<version>9.0-SNAPSHOT</version>
+	<version>9.1-SNAPSHOT</version>
 	<packaging>war</packaging>
 	<name>OpenOLAT LMS</name>
 	<url>http://www.openolat.org</url>
@@ -64,13 +64,13 @@
 	<properties>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 		<targetJdk>1.6</targetJdk>
-		<org.springframework.version>3.2.3.RELEASE</org.springframework.version>
-		<org.hibernate.version>4.2.3.Final</org.hibernate.version>
+		<org.springframework.version>3.2.4.RELEASE</org.springframework.version>
+		<org.hibernate.version>4.2.6.Final</org.hibernate.version>
 		<com.sun.jersey.version>1.17.1</com.sun.jersey.version>
 		<jackson.version>1.9.2</jackson.version>
-		<org.mysql.version>5.1.24</org.mysql.version>
+		<org.mysql.version>5.1.26</org.mysql.version>
 		<org.postgresql.version>9.1-901.jdbc4</org.postgresql.version>
-		<org.infinispan.version>5.2.5.Final</org.infinispan.version>
+		<org.infinispan.version>5.2.7.Final</org.infinispan.version>
 
 	    <!-- properties for testing and Q&A -->
 	    <!-- by default no tests are executed so far (April 2011). Use appropriate profiles and properties on the command line -->
@@ -120,69 +120,97 @@
 				<plugins>
 					<!-- Compress jquery plugins -->
 					<plugin>
-		        <groupId>net.alchim31.maven</groupId>
-		        <artifactId>yuicompressor-maven-plugin</artifactId>
-		        <version>1.3.2</version>
-		        <executions>
-		          <execution>
-		          	<id>compressjs</id>
-                <phase>process-resources</phase>
-		            <goals>
-		              <goal>compress</goal>
-		            </goals>
-		            <configuration>
-		          		<suffix>.min</suffix>
-		          		<force>true</force>
-				          <encoding>UTF-8</encoding>
-				          <nocompress>false</nocompress>
-		    					<outputDirectory>${basedir}/target/jquery</outputDirectory>
-		    					<sourceDirectory>${basedir}/src/main/webapp/static/js</sourceDirectory>
-				          <aggregations>
-				            <aggregation>
-				            	<output>${basedir}/src/main/webapp/static/js/js.plugins.min.js</output>
-		                	<removeIncluded>false</removeIncluded>
-				              <includes>
-				                <include>${basedir}/target/jquery/functions.min.js</include>
-				                <include>${basedir}/target/jquery/jshashtable-2.1_src.min.js</include>
-				                <include>${basedir}/target/jquery/jquery/openolat/jquery.oolog.min.js</include>
-				                <include>${basedir}/target/jquery/jquery/openolat/jquery.translator.min.js</include>
-				                <include>${basedir}/target/jquery/jquery/periodic/jquery.periodic.min.js</include>
-				              </includes>
-				            </aggregation>
-				          </aggregations>
-				        </configuration> 
-		          </execution>
-		          <execution>
-		          	<id>compresscss</id>
-                <phase>process-resources</phase>
-		            <goals>
-		              <goal>compress</goal>
-		            </goals>
-		            <configuration>
-		          		<suffix>.min</suffix>
-		          		<force>true</force>
-				          <encoding>UTF-8</encoding>
-				          <nocompress>false</nocompress>
-		    					<outputDirectory>${basedir}/target/jquery</outputDirectory>
-		    					<sourceDirectory>${basedir}/src/main/webapp/static/js</sourceDirectory>
-				          <aggregations>
-				            <aggregation>
-				            	<output>${basedir}/src/main/webapp/static/js/js.plugins.min.css</output>
-		                	<removeIncluded>false</removeIncluded>
-				              <includes>
-				                <include>${basedir}/target/jquery/jquery/tagit/jquery.tagit.min.css</include>
-				                <include>${basedir}/target/jquery/jquery/uilayout/layout-default-latest.min.css</include>
-				                <include>${basedir}/target/jquery/jquery/fullcalendar/fullcalendar.min.css</include>
-				                <include>${basedir}/src/main/webapp/static/js/jquery/datatables/css/jquery.dataTables.css</include>
-				                <include>${basedir}/src/main/webapp/static/yaml/core/slim_base.css</include>
-				              </includes>
-				            </aggregation>
-				          </aggregations>
-				        </configuration> 
-		          </execution>
-		        </executions>        
-		        
-		      </plugin>
+						<groupId>net.alchim31.maven</groupId>
+						<artifactId>yuicompressor-maven-plugin</artifactId>
+						<version>1.3.2</version>
+						<executions>
+							<execution>
+								<id>compressjs</id>
+								<phase>process-resources</phase>
+								<goals>
+									<goal>compress</goal>
+								</goals>
+								<configuration>
+									<suffix>.min</suffix>
+									<force>true</force>
+									<encoding>UTF-8</encoding>
+									<nocompress>false</nocompress>
+									<outputDirectory>${basedir}/target/jquery</outputDirectory>
+									<sourceDirectory>${basedir}/src/main/webapp/static/js</sourceDirectory>
+									<aggregations>
+										<aggregation>
+											<output>${basedir}/src/main/webapp/static/js/js.plugins.min.js</output>
+											<removeIncluded>false</removeIncluded>
+											<includes>
+												<include>${basedir}/target/jquery/functions.min.js</include>
+												<include>${basedir}/target/jquery/jshashtable-2.1_src.min.js</include>
+												<include>${basedir}/target/jquery/jquery/openolat/jquery.oolog.min.js</include>
+												<include>${basedir}/target/jquery/jquery/openolat/jquery.translator.min.js</include>
+												<include>${basedir}/target/jquery/jquery/periodic/jquery.periodic.min.js</include>
+												<include>${basedir}/src/main/webapp/static/js/tinymce4/tinymce/jquery.tinymce.min.js</include>
+											</includes>
+										</aggregation>
+										<aggregation>
+											<output>${basedir}/src/main/webapp/static/js/tinymce4/tinymce/plugins/olatmatheditor/plugin.min.js</output>
+											<removeIncluded>false</removeIncluded>
+											<includes>
+												<include>${basedir}/target/jquery/tinymce4/tinymce/plugins/olatmatheditor/plugin.min.js</include>
+											</includes>
+										</aggregation>
+										<aggregation>
+											<output>${basedir}/src/main/webapp/static/js/tinymce4/tinymce/plugins/olatmovieviewer/plugin.min.js</output>
+											<removeIncluded>false</removeIncluded>
+											<includes>
+												<include>${basedir}/target/jquery/tinymce4/tinymce/plugins/olatmovieviewer/plugin.min.js</include>
+											</includes>
+										</aggregation>
+										<aggregation>
+											<output>${basedir}/src/main/webapp/static/js/tinymce4/tinymce/plugins/olatsmileys/plugin.min.js</output>
+											<removeIncluded>false</removeIncluded>
+											<includes>
+												<include>${basedir}/target/jquery/tinymce4/tinymce/plugins/olatsmileys/plugin.min.js</include>
+											</includes>
+										</aggregation>
+										<aggregation>
+											<output>${basedir}/src/main/webapp/static/js/tinymce4/tinymce/plugins/quotespliter/plugin.min.js</output>
+											<removeIncluded>false</removeIncluded>
+											<includes>
+												<include>${basedir}/target/jquery/tinymce4/tinymce/plugins/quotespliter/plugin.min.js</include>
+											</includes>
+										</aggregation>
+									</aggregations>
+								</configuration>
+							</execution>
+							<execution>
+								<id>compresscss</id>
+								<phase>process-resources</phase>
+								<goals>
+									<goal>compress</goal>
+								</goals>
+								<configuration>
+									<suffix>.min</suffix>
+									<force>true</force>
+									<encoding>UTF-8</encoding>
+									<nocompress>false</nocompress>
+									<outputDirectory>${basedir}/target/jquery</outputDirectory>
+									<sourceDirectory>${basedir}/src/main/webapp/static/js</sourceDirectory>
+									<aggregations>
+										<aggregation>
+											<output>${basedir}/src/main/webapp/static/js/js.plugins.min.css</output>
+											<removeIncluded>false</removeIncluded>
+											<includes>
+												<include>${basedir}/target/jquery/jquery/tagit/jquery.tagit.min.css</include>
+												<include>${basedir}/target/jquery/jquery/uilayout/layout-default-latest.min.css</include>
+												<include>${basedir}/target/jquery/jquery/fullcalendar/fullcalendar.min.css</include>
+												<include>${basedir}/src/main/webapp/static/js/jquery/datatables/css/jquery.dataTables.css</include>
+												<include>${basedir}/src/main/webapp/static/yaml/core/slim_base.css</include>
+											</includes>
+										</aggregation>
+									</aggregations>
+								</configuration>
+							</execution>
+						</executions>
+					</plugin>
 				</plugins>
 			</build>
 		</profile>
@@ -352,6 +380,23 @@
 						</exclusion>
 					</exclusions>
 				</dependency>
+				<!-- webservice stack -->
+				<dependency>
+	      			<groupId>com.sun.xml.ws</groupId>
+	      			<artifactId>jaxws-rt</artifactId>
+	      			<version>2.2.6</version>
+	      			<exclusions>
+	      				<exclusion>
+	      					<groupId>javax.activation</groupId>
+	      					<artifactId>activation</artifactId>
+	      				</exclusion>
+	      			</exclusions>
+	    		</dependency>
+	    		<dependency>
+	    			<groupId>com.sun.xml.fastinfoset</groupId>
+	    			<artifactId>FastInfoset</artifactId>
+	    			<version>1.2.8</version>
+	    		</dependency>
 			</dependencies>
 			
 			<build>
@@ -1503,60 +1548,24 @@
 				</exclusion>
 			</exclusions>
 		</dependency>
-		<dependency>
-			<!-- Dependencies for onyx plugin and vitero -->
-			<groupId>org.apache.axis2</groupId>
-			<artifactId>axis2</artifactId>
-			<version>1.4.1</version>
-		</dependency>
-		<dependency>
-			<groupId>org.apache.ws.commons.axiom</groupId>
-			<artifactId>axiom-api</artifactId>
-			<version>1.2.8</version>
-			<exclusions>
-				<exclusion>
-					<groupId>org.apache.geronimo.specs</groupId>
-					<artifactId>geronimo-javamail_1.4_spec</artifactId>
-				</exclusion>
-				<exclusion>
-					<groupId>org.apache.geronimo.specs</groupId>
-					<artifactId>geronimo-activation_1.1_spec</artifactId>
-				</exclusion>
-				<exclusion>
-					<groupId>org.apache.geronimo.specs</groupId>
-					<artifactId>geronimo-stax-api_1.0_spec</artifactId>
-				</exclusion>
-			</exclusions>
-		</dependency>
-		<dependency>
-			<groupId>org.apache.ws.commons.axiom</groupId>
-			<artifactId>axiom-impl</artifactId>
-			<version>1.2.8</version>
-			<exclusions>
-				<exclusion>
-					<groupId>org.apache.geronimo.specs</groupId>
-					<artifactId>geronimo-javamail_1.4_spec</artifactId>
-				</exclusion>
-				<exclusion>
-					<groupId>org.apache.geronimo.specs</groupId>
-					<artifactId>geronimo-activation_1.1_spec</artifactId>
-				</exclusion>
-				<exclusion>
-					<groupId>org.apache.geronimo.specs</groupId>
-					<artifactId>geronimo-stax-api_1.0_spec</artifactId>
-				</exclusion>
-			</exclusions>
-		</dependency>
 	    <!-- <OLATCE-1322> -->
 	    <dependency>
 	      <groupId>com.sun.xml.ws</groupId>
 	      <artifactId>jaxws-rt</artifactId>
 	      <version>2.2.6</version>
+	      <scope>test</scope>
+	      <exclusions>
+	      	<exclusion>
+				<groupId>javax.activation</groupId>
+				<artifactId>activation</artifactId>
+	      	</exclusion>
+	      </exclusions>
 	    </dependency>
 	    <dependency>
 	    	<groupId>com.sun.xml.fastinfoset</groupId>
 	    	<artifactId>FastInfoset</artifactId>
 	    	<version>1.2.8</version>
+	    	<scope>test</scope>
 	    </dependency>
 	    <!-- </OLATCE-1322> -->
 		<dependency>
@@ -1596,39 +1605,30 @@
 			<version>1.0.0</version>
 		</dependency>
 		<dependency>
-			<groupId>jaxen</groupId>
-			<artifactId>jaxen</artifactId>
-			<version>1.1.1</version>
-			<exclusions>
-				<exclusion>
-					<groupId>com.ibm.icu</groupId>
-					<artifactId>icu4j</artifactId>
-				</exclusion>
-				<exclusion>
-					<groupId>xalan</groupId>
-					<artifactId>xalan</artifactId>
-				</exclusion>
-			</exclusions>
-		</dependency>
-		<dependency>
 			<groupId>opensaml</groupId>
 			<artifactId>opensaml</artifactId>
 			<version>1.1</version>
 		</dependency>
 		<dependency>
-			<groupId>org.openolat.openmeetings</groupId>
-			<artifactId>openmeetings-stubs</artifactId>
-			<version>2.0-SNAPSHOT</version>
+			<groupId>org.openolat</groupId>
+			<artifactId>openmeetingws</artifactId>
+			<version>2.1.1</version>
 		</dependency>
+		<dependency>
+			<groupId>org.openolat</groupId>
+			<artifactId>viterows</artifactId>
+			<version>4.4</version>
+		</dependency>
+		<!-- docx4j need poi scratchpad version 3.8 -->
 		<dependency>
 			<groupId>org.apache.poi</groupId>
 			<artifactId>poi</artifactId>
-			<version>3.7</version>
+			<version>3.8</version>
 		</dependency>
 		<dependency>
 			<groupId>org.apache.poi</groupId>
 			<artifactId>poi-scratchpad</artifactId>
-			<version>3.7</version>
+			<version>3.8</version>
 		</dependency>
 		<dependency>
 			<groupId>org.apache.pdfbox</groupId>
@@ -1646,9 +1646,34 @@
 			<version>1.46</version>
 		</dependency>
 		<dependency>
-			<groupId>jdom</groupId>
+			<groupId>jaxen</groupId>
+			<artifactId>jaxen</artifactId>
+			<version>1.1.4</version>
+			<exclusions>
+				<exclusion>
+					<groupId>com.ibm.icu</groupId>
+					<artifactId>icu4j</artifactId>
+				</exclusion>
+				<exclusion>
+					<groupId>xalan</groupId>
+					<artifactId>xalan</artifactId>
+				</exclusion>
+				<exclusion>
+					<groupId>jdom</groupId>
+					<artifactId>jdom</artifactId>
+				</exclusion>
+			</exclusions>
+		</dependency>
+		<dependency>
+			<groupId>org.jdom</groupId>
 			<artifactId>jdom</artifactId>
-			<version>1.0</version>
+			<version>1.1.3</version>
+		</dependency>
+		<dependency>
+			<groupId>fmath</groupId>
+			<artifactId>fmath-latex-mathml</artifactId>
+			<version>0.5</version>
+			<!--  need org.jdom 1.1.3, jaxen 1.1.4 and commons-codec -->
 		</dependency>
 		<dependency>
 			<groupId>jgrapht</groupId>
@@ -1681,6 +1706,12 @@
 			<groupId>rome</groupId>
 			<artifactId>rome</artifactId>
 			<version>1.0</version>
+			<exclusions>
+				<exclusion>
+					<groupId>jdom</groupId>
+					<artifactId>jdom</artifactId>
+				</exclusion>
+			</exclusions>
 		</dependency>
 		<dependency>
 			<groupId>ch.ethz</groupId>
@@ -1776,36 +1807,6 @@
 			<version>1.1.1</version>
 		</dependency>
 		<dependency>
-			<groupId>wsdl4j</groupId>
-			<artifactId>wsdl4j</artifactId>
-			<version>1.6.2</version>
-		</dependency>
-		<dependency>
-			<groupId>org.apache.ws.commons.schema</groupId>
-			<artifactId>XmlSchema</artifactId>
-			<version>1.4.2</version>
-		</dependency>
-		<dependency>
-			<groupId>org.apache.neethi</groupId>
-			<artifactId>neethi</artifactId>
-			<version>2.0.4</version>
-		</dependency>
-		<dependency>
-			<groupId>org.apache.woden</groupId>
-			<artifactId>woden-api</artifactId>
-			<version>1.0M8</version>
-			<exclusions>
-				<exclusion>
-					<groupId>xerces</groupId>
-					<artifactId>xmlParserAPIs</artifactId>
-				</exclusion>
-				<exclusion>
-					<groupId>org.apache.ant</groupId>
-					<artifactId>ant</artifactId>
-				</exclusion>
-			</exclusions>
-		</dependency>
-		<dependency>
 			<groupId>commons-httpclient</groupId>
 			<artifactId>commons-httpclient</artifactId>
 			<version>3.1</version>
@@ -1813,17 +1814,17 @@
 		<dependency>
 			<groupId>org.apache.httpcomponents</groupId>
 			<artifactId>httpcore</artifactId>
-			<version>4.1.1</version>
+			<version>4.3</version>
 		</dependency>
 		<dependency>
 			<groupId>org.apache.httpcomponents</groupId>
 			<artifactId>httpclient</artifactId>
-			<version>4.1.1</version>
+			<version>4.3</version>
 		</dependency>
 		<dependency>
 			<groupId>org.apache.httpcomponents</groupId>
 			<artifactId>httpmime</artifactId>
-			<version>4.1.1</version>
+			<version>4.3</version>
 		</dependency>
 		<dependency>
 			<groupId>commons-lang</groupId>
@@ -2128,12 +2129,6 @@
 
 		<!-- Start test dependencies -->
 		<dependency>
-			<groupId>org.mockito</groupId>
-			<artifactId>mockito-all</artifactId>
-			<version>1.8.1</version>
-			<scope>test</scope>
-		</dependency>
-		<dependency>
 			<groupId>junit</groupId>
 			<artifactId>junit</artifactId>
 			<version>4.8.2</version>
@@ -2182,12 +2177,6 @@
 					<artifactId>servlet-api-2.5</artifactId>
 				</exclusion>
 			</exclusions>
-		</dependency>
-		<dependency>
-		    <groupId>org.apache.xmlrpc</groupId>
-		    <artifactId>xmlrpc-server</artifactId>
-		    <version>3.1.3</version>
-			<scope>test</scope>
 		</dependency>
 		<!-- End test dependencies -->
 	</dependencies>
