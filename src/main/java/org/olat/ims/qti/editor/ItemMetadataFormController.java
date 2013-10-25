@@ -166,14 +166,17 @@ public class ItemMetadataFormController extends FormBasicController {
 	 *      org.olat.core.gui.control.Controller, org.olat.core.gui.UserRequest)
 	 */
 	protected void initForm(FormItemContainer formLayout, Controller listener, UserRequest ureq) {
-		this.setFormTitle("fieldset.legend.metadata");
+		setFormTitle("fieldset.legend.metadata");
 		
 		int t = item.getQuestion().getType();
+		if(!isSurvey && t == Question.TYPE_ESSAY) {
+			setFormWarning("warning.essay.test");
+		}
 		
 		if (isSurvey) {
-			this.setFormContextHelp("org.olat.ims.qti.editor", "qed-meta-surv-"+t+".html", "help.hover.qti-meta-"+t);
+			setFormContextHelp("org.olat.ims.qti.editor", "qed-meta-surv-"+t+".html", "help.hover.qti-meta-"+t);
 		} else {
-			this.setFormContextHelp("org.olat.ims.qti.editor", "qed-meta-test-"+t+".html", "help.hover.qti-meta-"+t);
+			setFormContextHelp("org.olat.ims.qti.editor", "qed-meta-test-"+t+".html", "help.hover.qti-meta-"+t);
 		}
 		
 		// Title
@@ -186,7 +189,7 @@ public class ItemMetadataFormController extends FormBasicController {
 		uifactory.addStaticTextElement("type", "form.imd.type", typeName, formLayout);
 
 		// Description
-		desc = uifactory.addRichTextElementForStringData("desc", "form.imd.descr", item.getObjectives(), 8, -1, false, true, null, null,
+		desc = uifactory.addRichTextElementForStringData("desc", "form.imd.descr", item.getObjectives(), 8, -1, true, null, null,
 				formLayout, ureq.getUserSession(), getWindowControl());
 		RichTextConfiguration richTextConfig = desc.getEditorConfiguration();
 		// set upload dir to the media dir
@@ -250,7 +253,7 @@ public class ItemMetadataFormController extends FormBasicController {
 			showHints = uifactory.addRadiosHorizontal("showHints", "form.imd.solutionhints.show", formLayout, yesnoKeys, yesnoValues);
 			showHints.addActionListener(this, FormEvent.ONCLICK); // Radios/Checkboxes need onclick because of IE bug OLAT-5753
 			
-			hint = uifactory.addRichTextElementForStringData("hint", "form.imd.solutionhints", item.getQuestion().getHintText(), 8, -1, false,
+			hint = uifactory.addRichTextElementForStringData("hint", "form.imd.solutionhints", item.getQuestion().getHintText(), 8, -1, 
 					true, qti.getBaseDir(), null, formLayout, ureq.getUserSession(), getWindowControl());
 			// set upload dir to the media dir
 			hint.getEditorConfiguration().setFileBrowserUploadRelPath("media");
@@ -265,7 +268,7 @@ public class ItemMetadataFormController extends FormBasicController {
 			showSolution = uifactory.addRadiosHorizontal("showSolution", "form.imd.correctsolution.show", formLayout, yesnoKeys, yesnoValues);
 			showSolution.addActionListener(this, FormEvent.ONCLICK); // Radios/Checkboxes need onclick because of IE bug OLAT-5753
 			solution = uifactory.addRichTextElementForStringData("solution", "form.imd.correctsolution", item.getQuestion().getSolutionText(), 8,
-					-1, false, true, qti.getBaseDir(), null, formLayout, ureq.getUserSession(), getWindowControl());
+					-1, true, qti.getBaseDir(), null, formLayout, ureq.getUserSession(), getWindowControl());
 			// set upload dir to the media dir
 			solution.getEditorConfiguration().setFileBrowserUploadRelPath("media");
 			if (itemControl.isSolution()) {

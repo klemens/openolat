@@ -102,6 +102,8 @@ public class ReferencableEntriesSearchController extends BasicController {
 	private final boolean canImport;
 	private final boolean canCreate;
 	private final Can canBe;
+	
+	private Object userObject;
 
 	public ReferencableEntriesSearchController(WindowControl wControl, UserRequest ureq, String limitType, String commandLabel) {
 		this(wControl, ureq, new String[]{limitType}, null, commandLabel, true, true, true, false, false, Can.referenceable);
@@ -172,6 +174,14 @@ public class ReferencableEntriesSearchController extends BasicController {
 		putInitialPanel(mainVC);
 	}
 	
+	public Object getUserObject() {
+		return userObject;
+	}
+
+	public void setUserObject(Object userObject) {
+		this.userObject = userObject;
+	}
+
 	/**
 	 * Admin. search allow group managers to search all courses
 	 * @param limitTypes

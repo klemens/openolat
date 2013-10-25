@@ -604,6 +604,7 @@ public class NotificationsManagerTest extends OlatTestCase {
 				exceptionHolder.add(ex);// no exception should happen
 			} finally {
 				countDown.countDown();
+				dbInstance.closeSession();
 			}
 		}
 	}
@@ -686,6 +687,7 @@ public class NotificationsManagerTest extends OlatTestCase {
 				exceptionHolder.add(ex);// no exception should happen
 			} finally {
 				countDown.countDown();
+				dbInstance.closeSession();
 			}
 		}
 	}

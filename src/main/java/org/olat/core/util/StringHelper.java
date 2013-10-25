@@ -282,6 +282,12 @@ public class StringHelper {
 		// contain non-whitespace
 		return !matcher.find();
 	}
+	
+	public static boolean isHtml(String s) {
+		if (s == null) return false;
+
+		return s.contains("<html") || s.contains("<body") || s.contains("<p") || s.contains("<span");
+	}
 
 	/**
 	 * takes an array of Identies and converts them to a String containing the
@@ -350,6 +356,24 @@ public class StringHelper {
 	
 	public static final String xssScan(String str) {
 		return new OWASPAntiSamyXSSFilter().filter(str);
+	}
+	
+	public static final boolean xssScanForErrors(String str) {
+		OWASPAntiSamyXSSFilter filter = new OWASPAntiSamyXSSFilter();
+		filter.filter(str);
+		return filter.getNumOfErrors() > 0;
+	}
+	
+	public static final String escapeJavaScript(String str) {
+		return StringEscapeUtils.escapeJavaScript(str);
+	}
+	
+	public static final void escapeJavaScript(Writer writer, String str) {
+		try {
+			StringEscapeUtils.escapeJavaScript(writer, str);
+		} catch (IOException e) {
+			log.error("Error escaping JavaScript", e);
+		}
 	}
 
 	/**
