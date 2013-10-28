@@ -28,13 +28,9 @@ package org.olat.course.nodes.ta;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.Component;
 import org.olat.core.gui.components.velocity.VelocityContainer;
-import org.olat.core.gui.control.DefaultController;
 import org.olat.core.gui.control.Event;
 import org.olat.core.gui.control.WindowControl;
 import org.olat.core.gui.control.controller.BasicController;
-import org.olat.core.gui.translator.PackageTranslator;
-import org.olat.core.gui.translator.Translator;
-import org.olat.core.util.Util;
 import org.olat.course.nodes.AssessableCourseNode;
 import org.olat.course.nodes.ObjectivesHelper;
 import org.olat.course.nodes.TACourseNode;
@@ -101,10 +97,9 @@ public class TACourseNodeRunController extends BasicController {
 			content.contextPut("hasDropbox", Boolean.TRUE);
 		}
 		if (hasReturnbox) {
-			returnboxController = new ReturnboxController(ureq, wControl, config, ne.getCourseNode(), userCourseEnv, previewMode);
+			returnboxController = new ReturnboxController(ureq, wControl, ne.getCourseNode(), userCourseEnv, previewMode);
 			content.put("returnboxController", returnboxController.getInitialComponent());
 			content.contextPut("hasReturnbox", Boolean.TRUE);
-			
 		}
 
 		if (hasSolution) {

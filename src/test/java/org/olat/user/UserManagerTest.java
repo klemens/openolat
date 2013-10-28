@@ -33,7 +33,6 @@ import org.olat.core.commons.persistence.DB;
 import org.olat.core.id.Identity;
 import org.olat.core.id.User;
 import org.olat.core.id.UserConstants;
-import org.olat.core.util.Encoder;
 import org.olat.test.OlatTestCase;
 import org.springframework.beans.factory.annotation.Autowired;
 
@@ -129,7 +128,7 @@ public class UserManagerTest extends OlatTestCase {
 		String institutEmail = name + "@openolat.com";
 		User user = userManager.createUser("first" + name, "last" + name, email);
 		user.setProperty(UserConstants.INSTITUTIONALEMAIL, institutEmail);
-		Identity identity = securityManager.createAndPersistIdentityAndUser(name, user, BaseSecurityModule.getDefaultAuthProviderIdentifier(), name, Encoder.encrypt("secret"));
+		Identity identity = securityManager.createAndPersistIdentityAndUser(name, user, BaseSecurityModule.getDefaultAuthProviderIdentifier(), name, "secret");
 		Assert.assertNotNull(identity);
 		return identity;
 	}

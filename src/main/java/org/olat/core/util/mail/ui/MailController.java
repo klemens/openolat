@@ -25,6 +25,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
+import org.olat.core.CoreSpringFactory;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.form.flexible.FormItem;
 import org.olat.core.gui.components.form.flexible.FormItemContainer;
@@ -36,16 +37,15 @@ import org.olat.core.gui.components.link.Link;
 import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.Event;
 import org.olat.core.gui.control.WindowControl;
-import org.olat.core.id.Identity;
-import org.olat.core.id.User;
-import org.olat.core.id.UserConstants;
 import org.olat.core.util.StringHelper;
 import org.olat.core.util.Util;
+import org.olat.core.util.filter.impl.OWASPAntiSamyXSSFilter;
+import org.olat.core.util.mail.MailManager;
 import org.olat.core.util.mail.MailModule;
-import org.olat.core.util.mail.manager.MailManager;
 import org.olat.core.util.mail.model.DBMail;
 import org.olat.core.util.mail.model.DBMailAttachment;
 import org.olat.core.util.mail.model.DBMailRecipient;
+import org.olat.user.UserManager;
 
 /**
  * 
@@ -64,13 +64,15 @@ public class MailController extends FormBasicController {
 	private final DBMail mail;
 	private final List<DBMailAttachment> attachments;
 	private final MailManager mailManager;
+	private final UserManager userManager;
 	
 	public MailController(UserRequest ureq, WindowControl wControl, DBMail mail, boolean back) {
 		super(ureq, wControl, LAYOUT_VERTICAL);
 		setTranslator(Util.createPackageTranslator(MailModule.class, ureq.getLocale()));
 		this.mail = mail;
 		this.back = back;
-		mailManager = MailManager.getInstance();
+		mailManager = CoreSpringFactory.getImpl(MailManager.class);
+		userManager = CoreSpringFactory.getImpl(UserManager.class);
 		attachments = mailManager.getAttachments(mail);
 		if(!attachments.isEmpty()) {
 			mapperBaseURI = registerMapper(ureq, new MailAttachmentMapper(mailManager));
@@ -95,9 +97,10 @@ public class MailController extends FormBasicController {
 		formLayout.setRootForm(mainForm);
 		vcLayout.add("mainCmp", formLayout);
 		
-		uifactory.addStaticTextElement("subject", "mail.subject", mail.getSubject(), formLayout);		
+		String subject = StringHelper.escapeHtml(mail.getSubject());
+		uifactory.addStaticTextElement("subject", "mail.subject", subject, formLayout);		
 		
-		String from = getFullName(mail.getFrom());
+		String from = StringHelper.escapeHtml(getFullName(mail.getFrom()));
 		uifactory.addStaticTextElement("from", "mail.from", from, formLayout);
 		
 		String recipients = getRecipients();
@@ -138,18 +141,7 @@ public class MailController extends FormBasicController {
 	
 	private String getFullName(DBMailRecipient recipient) {
 		if(recipient == null) return "";
-		return getFullName(recipient.getRecipient());
-	}
-	
-	private String getFullName(Identity identity) {
-		StringBuilder sb = new StringBuilder();
-		if(identity != null) {
-			User user = identity.getUser();
-			sb.append(user.getProperty(UserConstants.LASTNAME, null))
-				.append(" ")
-				.append(user.getProperty(UserConstants.FIRSTNAME, null));
-		}
-		return sb.toString();
+		return userManager.getUserDisplayName(recipient.getRecipient());
 	}
 	
 	private String formattedBody() {
@@ -163,7 +155,7 @@ public class MailController extends FormBasicController {
 
 		body = body.replace("\n\r", "<br />");//if windows
 		body = body.replace("\n", "<br />");
-		return body;
+		return new OWASPAntiSamyXSSFilter().filter(body);
 	}
 	
 
