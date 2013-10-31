@@ -24,7 +24,9 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
 import java.util.ArrayList;
+import java.util.Calendar;
 import java.util.Collections;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
@@ -264,13 +266,14 @@ public class BaseSecurityManagerTest extends OlatTestCase {
 	@Test
 	public void testUpdateRoles_giveAllRights() {
 		Identity id1 = JunitTestHelper.createAndPersistIdentityAsUser( "roles-" + UUID.randomUUID().toString());
+		Identity id2 = JunitTestHelper.createAndPersistIdentityAsUser( "roles-" + UUID.randomUUID().toString());
 		Roles roles = securityManager.getRoles(id1);
 		Assert.assertNotNull(roles);
 		dbInstance.commitAndCloseSession();
 
 		//update roles
-		Roles modifiedRoles = new Roles(true, true, true, true, false, true, false);
-		securityManager.updateRoles(id1, modifiedRoles);
+		Roles modifiedRoles = new Roles(true, true, true, true, false, true, true, false);
+		securityManager.updateRoles(id2, id1, modifiedRoles);
 		dbInstance.commitAndCloseSession();
 		
 		//check roles
@@ -282,6 +285,7 @@ public class BaseSecurityManagerTest extends OlatTestCase {
 		Assert.assertTrue(reloadRoles.isInstitutionalResourceManager());
 		Assert.assertFalse(reloadRoles.isInvitee());
 		Assert.assertTrue(reloadRoles.isOLATAdmin());
+		Assert.assertTrue(reloadRoles.isPoolAdmin());
 		Assert.assertTrue(reloadRoles.isUserManager());
 	}
 	
@@ -291,13 +295,14 @@ public class BaseSecurityManagerTest extends OlatTestCase {
 	@Test
 	public void testUpdateRoles_someRights() {
 		Identity id1 = JunitTestHelper.createAndPersistIdentityAsUser( "roles-" + UUID.randomUUID().toString());
+		Identity id2 = JunitTestHelper.createAndPersistIdentityAsUser( "roles-" + UUID.randomUUID().toString());
 		Roles roles = securityManager.getRoles(id1);
 		Assert.assertNotNull(roles);
 		dbInstance.commitAndCloseSession();
 
 		//update roles
-		Roles modifiedRoles = new Roles(false, true, false, true, false, false, false);
-		securityManager.updateRoles(id1, modifiedRoles);
+		Roles modifiedRoles = new Roles(false, true, false, true, false, false, false, false);
+		securityManager.updateRoles(id2, id1, modifiedRoles);
 		dbInstance.commitAndCloseSession();
 		
 		//check roles
@@ -309,6 +314,7 @@ public class BaseSecurityManagerTest extends OlatTestCase {
 		Assert.assertFalse(reloadRoles.isInstitutionalResourceManager());
 		Assert.assertFalse(reloadRoles.isInvitee());
 		Assert.assertFalse(reloadRoles.isOLATAdmin());
+		Assert.assertFalse(reloadRoles.isPoolAdmin());
 		Assert.assertTrue(reloadRoles.isUserManager());
 	}
 	
@@ -318,13 +324,14 @@ public class BaseSecurityManagerTest extends OlatTestCase {
 	@Test
 	public void testUpdateRoles_guest() {
 		Identity invitee = JunitTestHelper.createAndPersistIdentityAsUser("invitee-" + UUID.randomUUID().toString());
+		Identity user = JunitTestHelper.createAndPersistIdentityAsUser("invitee-" + UUID.randomUUID().toString());
 		Roles roles = securityManager.getRoles(invitee);
 		Assert.assertNotNull(roles);
 		dbInstance.commitAndCloseSession();
 
 		//update roles
 		Roles modifiedRoles = new Roles(true, true, true, true, true, true, false);
-		securityManager.updateRoles(invitee, modifiedRoles);
+		securityManager.updateRoles(user, invitee, modifiedRoles);
 		dbInstance.commitAndCloseSession();
 
 		//check roles
@@ -841,5 +848,48 @@ public class BaseSecurityManagerTest extends OlatTestCase {
 		
 		String credential = securityManager.findCredentials(id, BaseSecurityModule.getDefaultAuthProviderIdentifier());
 		Assert.assertNotNull(credential);	
+	}
+	
+	/**
+	 * Dummy test to make sure all works as wanted
+	 */
+	@Test
+	public void createSecurityGroupMembership() {
+		//create a user with the default provider
+		Identity identity = JunitTestHelper.createAndPersistIdentityAsUser("update-membership-" + UUID.randomUUID().toString());
+		SecurityGroup secGroup = securityManager.createAndPersistSecurityGroup();
+		securityManager.addIdentityToSecurityGroup(identity, secGroup);
+		dbInstance.commitAndCloseSession();
+
+		boolean member = securityManager.isIdentityInSecurityGroup(identity, secGroup);
+		Assert.assertTrue(member);
+	}
+	
+	/**
+	 * We remove the optimistic locking from SecurityGroupMembershipImpl mapping
+	 */
+	@Test
+	public void createAndUpdateSecurityGroupMembership_lastCommitWin() {
+		//create a user with the default provider
+		Identity identity = JunitTestHelper.createAndPersistIdentityAsUser("update-membership-" + UUID.randomUUID().toString());
+		SecurityGroup secGroup = securityManager.createAndPersistSecurityGroup();
+		
+		SecurityGroupMembershipImpl sgmsi = new SecurityGroupMembershipImpl();
+		sgmsi.setIdentity(identity);
+		sgmsi.setSecurityGroup(secGroup);
+		sgmsi.setLastModified(new Date());
+		dbInstance.getCurrentEntityManager().persist(sgmsi);
+		dbInstance.commitAndCloseSession();
+
+		Calendar cal = Calendar.getInstance();
+		cal.add(Calendar.DATE, -1);
+		sgmsi.setLastModified(cal.getTime());
+		dbInstance.getCurrentEntityManager().merge(sgmsi);
+		dbInstance.commitAndCloseSession();
+	
+		cal.add(Calendar.DATE, -1);
+		sgmsi.setLastModified(cal.getTime());
+		dbInstance.getCurrentEntityManager().merge(sgmsi);
+		dbInstance.commitAndCloseSession();	
 	}
 }

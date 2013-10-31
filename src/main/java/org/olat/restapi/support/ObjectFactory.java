@@ -19,13 +19,22 @@
  */
 package org.olat.restapi.support;
 
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
+import java.util.Date;
+
 import javax.ws.rs.core.EntityTag;
 
 import org.olat.basesecurity.Authentication;
+import org.olat.basesecurity.BaseSecurityManager;
 import org.olat.collaboration.CollaborationTools;
 import org.olat.collaboration.CollaborationToolsFactory;
 import org.olat.core.gui.components.form.ValidationError;
+import org.olat.core.id.Identity;
 import org.olat.core.id.OLATResourceable;
+import org.olat.core.logging.OLog;
+import org.olat.core.logging.Tracing;
+import org.olat.core.util.StringHelper;
 import org.olat.core.util.resource.OresHelper;
 import org.olat.course.CourseModule;
 import org.olat.course.ICourse;
@@ -42,6 +51,7 @@ import org.olat.restapi.support.vo.CourseVO;
 import org.olat.restapi.support.vo.ErrorVO;
 import org.olat.restapi.support.vo.GroupInfoVO;
 import org.olat.restapi.support.vo.GroupVO;
+import org.olat.restapi.support.vo.RepositoryEntryLifecycleVO;
 import org.olat.restapi.support.vo.RepositoryEntryVO;
 
 /**
@@ -53,6 +63,30 @@ import org.olat.restapi.support.vo.RepositoryEntryVO;
  * @author srosse, stephane.rosse@frentix.com
  */
 public class ObjectFactory {
+	private static final OLog log = Tracing.createLoggerFor(ObjectFactory.class);
+	private static final SimpleDateFormat format = new SimpleDateFormat("yyyy-MM-dd'T'hh:mm:ss");
+
+	public static String formatDate(Date date) {
+		if(date == null) return null;
+		synchronized(format) {
+			return format.format(date);
+		}
+	}
+	
+	public static Date parseDate(String date) {
+		if(!StringHelper.containsNonWhitespace(date)) {
+			return null;
+		}
+		
+		try {
+			synchronized(format) {
+				return format.parse(date);
+			}
+		} catch (ParseException e) {
+			log.warn("", e);
+			return null;
+		}
+	}
 	
 	public static GroupVO get(BusinessGroup grp) {
 		GroupVO vo = new GroupVO();
@@ -61,15 +95,19 @@ public class ObjectFactory {
 		vo.setDescription(grp.getDescription());
 		vo.setMaxParticipants(grp.getMaxParticipants());
 		vo.setMinParticipants(grp.getMinParticipants());
+		vo.setExternalId(grp.getExternalId());
+		vo.setManagedFlags(grp.getManagedFlagsString());
 		vo.setType(grp.getType());
 		return vo;
 	}
 	
-	public static GroupInfoVO getInformation(BusinessGroup grp) {
+	public static GroupInfoVO getInformation(Identity identity, BusinessGroup grp) {
 		GroupInfoVO vo = new GroupInfoVO();
 		vo.setKey(grp.getKey());
 		vo.setName(grp.getName());
 		vo.setDescription(grp.getDescription());
+		
+		
 		vo.setMaxParticipants(grp.getMaxParticipants());
 		vo.setMinParticipants(grp.getMinParticipants());
 		vo.setType(grp.getType());
@@ -87,6 +125,16 @@ public class ObjectFactory {
 		
 		boolean hasFolder = collabTools.isToolEnabled(CollaborationTools.TOOL_FOLDER);
 		vo.setHasFolder(hasFolder);
+		boolean hasFolderWrite = hasFolder;
+		if(hasFolder) {
+			Long access = collabTools.lookupFolderAccess();
+			if(access != null && access.intValue() == CollaborationTools.FOLDER_ACCESS_OWNERS) {
+				//is owner?
+				hasFolderWrite = BaseSecurityManager.getInstance().isIdentityInSecurityGroup(identity, grp.getOwnerGroup());
+			}
+		}
+		vo.setFolderWrite(hasFolderWrite);
+		
 		return vo;
 	}
 	
@@ -113,7 +161,13 @@ public class ObjectFactory {
 		OLATResource resource = entry.getOlatResource();
 		if(resource != null) {
 			vo.setOlatResourceId(resource.getResourceableId());
-			vo.setOlatRresourceTypeName(resource.getResourceableTypeName());
+			vo.setOlatResourceTypeName(resource.getResourceableTypeName());
+		}
+		vo.setExternalId(entry.getExternalId());
+		vo.setExternalRef(entry.getExternalRef());
+		vo.setManagedFlags(entry.getManagedFlagsString());
+		if(entry.getLifecycle() != null) {
+			vo.setLifecycle(new RepositoryEntryLifecycleVO(entry.getLifecycle()));
 		}
 		return vo;
 	}
@@ -132,6 +186,12 @@ public class ObjectFactory {
 		vo.setEditorRootNodeId(course.getEditorTreeModel().getRootNode().getIdent());
 		vo.setSoftKey(re.getSoftkey());
 		vo.setRepoEntryKey(re.getKey());
+		vo.setExternalId(re.getExternalId());
+		vo.setExternalRef(re.getExternalRef());
+		vo.setManagedFlags(re.getManagedFlagsString());
+		if(re.getLifecycle() != null) {
+			vo.setLifecycle(new RepositoryEntryLifecycleVO(re.getLifecycle()));
+		}
 		return vo;
 	}
 	

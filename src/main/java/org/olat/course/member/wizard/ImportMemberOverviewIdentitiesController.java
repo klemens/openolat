@@ -20,7 +20,6 @@
 package org.olat.course.member.wizard;
 
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 
 import org.olat.admin.user.UserTableDataModel;
@@ -33,6 +32,7 @@ import org.olat.core.commons.persistence.PersistenceHelper;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.form.flexible.FormItemContainer;
 import org.olat.core.gui.components.form.flexible.impl.Form;
+import org.olat.core.gui.components.form.flexible.impl.FormLayoutContainer;
 import org.olat.core.gui.components.form.flexible.impl.elements.table.DefaultFlexiColumnModel;
 import org.olat.core.gui.components.form.flexible.impl.elements.table.FlexiTableColumnModel;
 import org.olat.core.gui.components.form.flexible.impl.elements.table.FlexiTableDataModelFactory;
@@ -43,6 +43,8 @@ import org.olat.core.gui.control.generic.wizard.StepsEvent;
 import org.olat.core.gui.control.generic.wizard.StepsRunContext;
 import org.olat.core.gui.translator.Translator;
 import org.olat.core.id.Identity;
+import org.olat.core.id.UserConstants;
+import org.olat.core.util.mail.MailHelper;
 import org.olat.user.UserManager;
 import org.olat.user.propertyhandlers.UserPropertyHandler;
 
@@ -55,6 +57,7 @@ public class ImportMemberOverviewIdentitiesController extends StepFormBasicContr
 	private static final String usageIdentifyer = UserTableDataModel.class.getCanonicalName();
 	
 	private List<Identity> oks;
+	private List<String> notfounds;
 	private boolean isAdministrativeUser;
 	
 	private final UserManager userManager;
@@ -70,11 +73,11 @@ public class ImportMemberOverviewIdentitiesController extends StepFormBasicContr
 		oks = null;
 		if(containsRunContextKey("logins")) {
 			String logins = (String)runContext.get("logins");
-			oks = loadModel(logins);
+			loadModel(logins);
 		} else if(containsRunContextKey("keys")) {
 			@SuppressWarnings("unchecked")
 			List<String> keys = (List<String>)runContext.get("keys");
-			oks = loadModel(keys);
+			loadModel(keys);
 		}
 
 		isAdministrativeUser = securityModule.isUserAllowedAdminProps(ureq.getUserSession().getRoles());
@@ -84,11 +87,27 @@ public class ImportMemberOverviewIdentitiesController extends StepFormBasicContr
 	
 	@Override
 	protected void initForm(FormItemContainer formLayout, Controller listener, UserRequest ureq) {
+		if(notfounds != null && !notfounds.isEmpty()) {
+			String page = velocity_root + "/warn_notfound.html";
+			FormLayoutContainer warnLayout = FormLayoutContainer.createCustomFormLayout("warnNotFounds", getTranslator(), page);
+			warnLayout.setRootForm(mainForm);
+			formLayout.add(warnLayout);
+			
+			StringBuffer sb = new StringBuffer();
+			for(String notfound:notfounds) {
+				if(sb.length() > 0) sb.append(", ");
+				sb.append(notfound);
+			}
+			String msg = translate("user.notfound", new String[]{sb.toString()});
+			addToRunContext("notFounds", sb.toString());
+			warnLayout.contextPut("notFounds", msg);
+		}
 		
 		//add the table
 		FlexiTableColumnModel tableColumnModel = FlexiTableDataModelFactory.createFlexiTableColumnModel();
+		int colIndex = 0;
 		if(isAdministrativeUser) {
-			tableColumnModel.addFlexiColumnModel(new DefaultFlexiColumnModel("table.user.login"));
+			tableColumnModel.addFlexiColumnModel(new DefaultFlexiColumnModel("table.user.login", colIndex++));
 		}
 		List<UserPropertyHandler> userPropertyHandlers = userManager.getUserPropertyHandlersFor(usageIdentifyer, isAdministrativeUser);
 		List<UserPropertyHandler> resultingPropertyHandlers = new ArrayList<UserPropertyHandler>();
@@ -98,23 +117,20 @@ public class ImportMemberOverviewIdentitiesController extends StepFormBasicContr
 			boolean visible = UserManager.getInstance().isMandatoryUserProperty(usageIdentifyer , userPropertyHandler);
 			if(visible) {
 				resultingPropertyHandlers.add(userPropertyHandler);
-				tableColumnModel.addFlexiColumnModel(new DefaultFlexiColumnModel(userPropertyHandler.i18nColumnDescriptorLabelKey()));
+				tableColumnModel.addFlexiColumnModel(new DefaultFlexiColumnModel(userPropertyHandler.i18nColumnDescriptorLabelKey(), colIndex++));
 			}
 		}
 		
 		Translator myTrans = userManager.getPropertyHandlerTranslator(getTranslator());
 		ImportMemberOverviewDataModel userTableModel = new ImportMemberOverviewDataModel(oks, resultingPropertyHandlers,
 				isAdministrativeUser, getLocale(), tableColumnModel);
-		uifactory.addTableElement("users", userTableModel, myTrans, formLayout);
+		uifactory.addTableElement(ureq, getWindowControl(), "users", userTableModel, myTrans, formLayout);
 	}
 	
-	private List<Identity> loadModel(List<String> keys) {
-		List<Identity> existIdents = Collections.emptyList();//securityManager.getIdentitiesOfSecurityGroup(securityGroup);
-
-		List<Identity> oks = new ArrayList<Identity>();
+	private void loadModel(List<String> keys) {
+		oks = new ArrayList<Identity>();
 		List<String> isanonymous = new ArrayList<String>();
-		List<String> notfounds = new ArrayList<String>();
-		List<String> alreadyin = new ArrayList<String>();
+		notfounds = new ArrayList<String>();
 
 		SecurityGroup anonymousSecGroup = securityManager.findSecurityGroupByName(Constants.GROUP_ANONYMOUS);
 		for (String identityKey : keys) {
@@ -123,62 +139,75 @@ public class ImportMemberOverviewIdentitiesController extends StepFormBasicContr
 				notfounds.add(identityKey);
 			} else if (securityManager.isIdentityInSecurityGroup(ident, anonymousSecGroup)) {
 				isanonymous.add(identityKey);
-			} else {
-				// check if already in group
-				boolean inGroup = PersistenceHelper.containsPersistable(existIdents, ident);
-				if (inGroup) {
-					// added to warning: already in group
-					alreadyin.add(ident.getName());
-				} else {
-					// ok to add -> preview (but filter duplicate entries)
-					if (!PersistenceHelper.containsPersistable(oks, ident)) {
-						oks.add(ident);
-					}
-				}
+			} else if (!PersistenceHelper.containsPersistable(oks, ident)) {
+				oks.add(ident);
 			}
 		}
-		
-		return oks;
 	}
 	
-	private List<Identity> loadModel(String inp) {
-		List<Identity> existIdents = Collections.emptyList();//securityManager.getIdentitiesOfSecurityGroup(securityGroup);
-
-		List<Identity> oks = new ArrayList<Identity>();
-		List<String> isanonymous = new ArrayList<String>();
-		List<String> notfounds = new ArrayList<String>();
-		List<String> alreadyin = new ArrayList<String>();
+	private void loadModel(String inp) {
+		oks = new ArrayList<Identity>();
+		notfounds = new ArrayList<String>();
 
 		SecurityGroup anonymousSecGroup = securityManager.findSecurityGroupByName(Constants.GROUP_ANONYMOUS);
 
+		List<String> identList = new ArrayList<String>();
 		String[] lines = inp.split("\r?\n");
 		for (int i = 0; i < lines.length; i++) {
 			String username = lines[i].trim();
-			if (!username.equals("")) { // skip empty lines
-				Identity ident = securityManager.findIdentityByName(username);
-				if (ident == null) { // not found, add to not-found-list
-					notfounds.add(username);
-				} else if (securityManager.isIdentityInSecurityGroup(ident, anonymousSecGroup)) {
-					isanonymous.add(username);
-				} else {
-					// check if already in group
-					boolean inGroup = PersistenceHelper.containsPersistable(existIdents, ident);
-					if (inGroup) {
-						// added to warning: already in group
-						alreadyin.add(ident.getName());
-					} else {
-						// ok to add -> preview (but filter duplicate entries)
-						if (!PersistenceHelper.containsPersistable(oks, ident)) {
-							oks.add(ident);
-						}
-					}
-				}
+			if(username.length() > 0) {
+				identList.add(username);
 			}
 		}
 		
-		return oks;
+		//search by names
+		List<Identity> identities = securityManager.findIdentitiesByName(identList);
+		for(Identity identity:identities) {
+			identList.remove(identity.getName());
+			if (!PersistenceHelper.containsPersistable(oks, identity)
+					&& !securityManager.isIdentityInSecurityGroup(identity, anonymousSecGroup)) {
+				oks.add(identity);
+			}
+		}
+		
+		//search by email
+		List<String> emails = new ArrayList<String>();
+		for(String ident:identList) {
+			if(MailHelper.isValidEmailAddress(ident)) {
+				emails.add(ident);
+			}
+		}
+		List<Identity> mailIdentities = userManager.findIdentitiesByEmail(emails);
+		for(Identity identity:mailIdentities) {
+			String email = identity.getUser().getProperty(UserConstants.EMAIL, null);
+			if(email != null) {
+				identList.remove(email);
+			}
+			String institutEmail = identity.getUser().getProperty(UserConstants.INSTITUTIONALEMAIL, null);
+			if(institutEmail != null) {
+				identList.remove(institutEmail);
+			}
+			if (!PersistenceHelper.containsPersistable(oks, identity)
+					&& !securityManager.isIdentityInSecurityGroup(identity, anonymousSecGroup)) {
+				oks.add(identity);
+			}
+		}
+		
+		//search by institutionalUserIdentifier
+		List<Identity> institutIdentities = securityManager.findIdentitiesByNumber(identList);
+		for(Identity identity:institutIdentities) {
+			String userIdent = identity.getUser().getProperty(UserConstants.INSTITUTIONALUSERIDENTIFIER, null);
+			if(userIdent != null) {
+				identList.remove(userIdent);
+			}
+			if (!PersistenceHelper.containsPersistable(oks, identity)
+					&& !securityManager.isIdentityInSecurityGroup(identity, anonymousSecGroup)) {
+				oks.add(identity);
+			}
+		}
+		
+		notfounds.addAll(identList);
 	}
-	
 
 	public boolean validate() {
 		return true;

@@ -30,12 +30,12 @@ import org.olat.core.commons.fullWebApp.LayoutMain3ColsController;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.Component;
 import org.olat.core.gui.components.panel.Panel;
+import org.olat.core.gui.components.tree.TreeEvent;
 import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.Event;
 import org.olat.core.gui.control.WindowControl;
 import org.olat.core.gui.control.controller.MainLayoutBasicController;
-import org.olat.core.gui.control.generic.ajax.tree.TreeNodeClickedEvent;
-import org.olat.core.gui.control.generic.ajax.tree.TreeNodeModifiedEvent;
+import org.olat.core.gui.control.generic.iframe.DeliveryOptions;
 import org.olat.core.gui.control.generic.layout.MainLayout3ColumnsController;
 import org.olat.core.id.OLATResourceable;
 import org.olat.core.util.coordinate.CoordinatorManager;
@@ -55,17 +55,20 @@ public class CPEditMainController extends MainLayoutBasicController {
 	private CPTreeController treeCtr;
 	private final ContentPackage cp;
 	private LockResult lock;
+	private DeliveryOptions deliveryOptions;
 
 	public CPEditMainController(UserRequest ureq, WindowControl wControl, VFSContainer cpContainer, OLATResourceable ores) {
 		super(ureq, wControl);
 
 		// acquire lock for resource
 		lock = CoordinatorManager.getInstance().getCoordinator().getLocker().acquireLock(ores, ureq.getIdentity(), null);
-
-		CPManager cpMgm = CPManager.getInstance();
-
-		this.cp = cpMgm.load(cpContainer, ores);
-
+		cp = CPManager.getInstance().load(cpContainer, ores);
+		
+		CPPackageConfig packageConfig = CPManager.getInstance().getCPPackageConfig(ores);
+		if(packageConfig != null) {
+			deliveryOptions = packageConfig.getDeliveryOptions();
+		}
+		
 		String errorString = cp.getLastError();
 		if (errorString == null) {
 			if (lock.isSuccess()) {
@@ -76,7 +79,7 @@ public class CPEditMainController extends MainLayoutBasicController {
 			}
 		} else {
 			initErrorView(ureq, wControl, errorString);
-			this.showError("maincontroller.loaderror", errorString);
+			showError("maincontroller.loaderror", errorString);
 		}
 		logAudit("cp editor started. oresId: " + ores.getResourceableId(), null);
 	}
@@ -89,8 +92,8 @@ public class CPEditMainController extends MainLayoutBasicController {
 	 * @param root
 	 */
 	private void displayCP(UserRequest ureq, WindowControl wControl, VFSContainer root) {
-		MainLayout3ColumnsController cpCtr = CPUIFactory.getInstance().createMainLayoutController(ureq, wControl, root, true);
-		this.putInitialPanel(cpCtr.getInitialComponent());
+		MainLayout3ColumnsController cpCtr = CPUIFactory.getInstance().createMainLayoutController(ureq, wControl, root, true, deliveryOptions);
+		putInitialPanel(cpCtr.getInitialComponent());
 	}
 
 	/**
@@ -156,26 +159,18 @@ public class CPEditMainController extends MainLayoutBasicController {
 	// nothing
 	}
 
+	@Override
 	protected void event(UserRequest ureq, Controller source, Event event) {
 		if (source == treeCtr) {
-			// event from TreeController
-			if (event instanceof TreeNodeClickedEvent) {
-				TreeNodeClickedEvent clickedEvent = (TreeNodeClickedEvent) event;
-				String nodeId = clickedEvent.getNodeId();
+			if (event instanceof TreeEvent) {
+				TreeEvent te = (TreeEvent)event;
+				String nodeId = te.getNodeId();
 				contentCtr.displayPage(ureq, nodeId);
-
-			} else if (event instanceof TreeNodeModifiedEvent) {
-				TreeNodeModifiedEvent nodeEvent = (TreeNodeModifiedEvent) event;
-				String nodeId = nodeEvent.getNodeId();
-				String newItemTitle = nodeEvent.getModifiedValue();
-				treeCtr.updateNode(nodeId, newItemTitle);
-
 			} else if (event.getCommand().equals("New Page")) {
 				String newIdentifier = treeCtr.addNewHTMLPage();
-				contentCtr.displayPage(ureq, newIdentifier);
-
+				contentCtr.displayPageWithMetadataEditor(ureq, newIdentifier);
 			} else if (event instanceof NewCPPageEvent) {
-				contentCtr.displayPage(ureq, ((NewCPPageEvent) event).getCPPage().getIdentifier());
+				contentCtr.displayPageWithMetadataEditor(ureq, ((NewCPPageEvent) event).getCPPage().getIdentifier());
 			}
 		} else if (source == contentCtr) {
 			// event from contentController

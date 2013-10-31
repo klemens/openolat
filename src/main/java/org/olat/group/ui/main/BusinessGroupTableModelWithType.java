@@ -28,13 +28,12 @@ package org.olat.group.ui.main;
 import java.util.ArrayList;
 import java.util.List;
 
-import org.apache.commons.lang.StringEscapeUtils;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.table.DefaultTableDataModel;
 import org.olat.core.gui.translator.Translator;
 import org.olat.core.util.Formatter;
 import org.olat.core.util.filter.FilterFactory;
-import org.olat.group.BusinessGroup;
+import org.olat.group.BusinessGroupManagedFlag;
 import org.olat.group.BusinessGroupMembership;
 
 /**
@@ -65,20 +64,35 @@ public class BusinessGroupTableModelWithType extends DefaultTableDataModel<BGTab
 	 * @see org.olat.core.gui.components.table.TableDataModel#getValueAt(int, int)
 	 */
 	public Object getValueAt(int row, int col) {
-		BGTableItem wrapped = (BGTableItem)objects.get(row);
+		BGTableItem wrapped = objects.get(row);
 		switch (Cols.values()[col]) {
 			case name:
-				String name = wrapped.getBusinessGroup().getName();
-				return name == null ? "" : StringEscapeUtils.escapeHtml(name);
+				return wrapped.getBusinessGroup();
 			case description:
 				String description = wrapped.getBusinessGroupDescription();
 				description = FilterFactory.getHtmlTagsFilter().filter(description);
 				description = Formatter.truncate(description, 256);
 				return description;
-			case allowLeave:
-				return wrapped.getAllowLeave();
-			case allowDelete:
-				return wrapped.getAllowDelete();
+			case allowLeave: {
+				Boolean allowed = wrapped.getAllowLeave();
+				if(allowed != null && allowed.booleanValue()) {
+					//check managed groups
+					if(BusinessGroupManagedFlag.isManaged(wrapped.getManagedFlags(), BusinessGroupManagedFlag.membersmanagement)) {
+						return Boolean.FALSE;
+					}
+				}
+				return allowed;
+			}
+			case allowDelete: {
+				Boolean allowed =  wrapped.getAllowDelete();
+				if(allowed != null && allowed.booleanValue()) {
+					//check managed groups
+					if(BusinessGroupManagedFlag.isManaged(wrapped.getManagedFlags(), BusinessGroupManagedFlag.delete)) {
+						return Boolean.FALSE;
+					}
+				}
+				return allowed;
+			}
 			case resources:
 				return wrapped;
 			//fxdiff VCRP-1,2: access control of resources
@@ -135,6 +149,8 @@ public class BusinessGroupTableModelWithType extends DefaultTableDataModel<BGTab
 			}
 			case wrapper:
 				return wrapped;
+			case externalId:
+				return wrapped.getBusinessGroupExternalId();
 			default:
 				return "ERROR";
 		}
@@ -173,10 +189,12 @@ public class BusinessGroupTableModelWithType extends DefaultTableDataModel<BGTab
 		setObjects(owned);
 	}
 	
-	public void removeBusinessGroup(BusinessGroup bg) {
+	public void removeBusinessGroup(Long bgKey) {
+		if(bgKey == null) return;
+		
 		for(int i=objects.size(); i-->0; ) {
 			BGTableItem wrapped = (BGTableItem)objects.get(i);
-			if(bg.getKey().equals(wrapped.getBusinessGroupKey())) {
+			if(bgKey.equals(wrapped.getBusinessGroupKey())) {
 				objects.remove(i);
 				return;
 			}
@@ -204,7 +222,8 @@ public class BusinessGroupTableModelWithType extends DefaultTableDataModel<BGTab
 		tutorsCount("table.header.tutorsCount"),
 		waitingListCount("table.header.waitingListCount"),
 		wrapper(""),
-		card("table.header.businesscard");
+		card("table.header.businesscard"),
+		externalId("table.header.externalid");
 		
 		private final String i18n;
 		

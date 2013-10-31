@@ -29,7 +29,9 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Iterator;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 
 import org.dom4j.Element;
 import org.olat.ims.qti.editor.QTIEditHelper;
@@ -348,14 +350,26 @@ public class FIBQuestion extends Question implements QTIObject {
 		Element conditionvar = respcondition_fail.addElement("conditionvar");
 		Element or = conditionvar.addElement("or");
 
-		for (Iterator i = getResponses().iterator(); i.hasNext();) {
+		for (Iterator<Response> i = getResponses().iterator(); i.hasNext();) {
 			FIBResponse tmpResponse = (FIBResponse) i.next();
-			if (!tmpResponse.getType().equals(FIBResponse.TYPE_BLANK)) continue;
-			Element not = or.addElement("not");
-			Element varequal = not.addElement("varequal");
-			varequal.addAttribute("respident", tmpResponse.getIdent());
-			varequal.addAttribute("case", tmpResponse.getCaseSensitive());
-			varequal.setText(tmpResponse.getCorrectBlank());
+			if (!tmpResponse.getType().equals(FIBResponse.TYPE_BLANK)) {
+				continue;
+			}
+			
+			String[] correctFIBs = tmpResponse.getCorrectBlank().split(";");
+			if(correctFIBs.length > 1) {
+				Element not = or.addElement("not");
+				Element orVal = not.addElement("or");
+				for (int j = 0; j < correctFIBs.length; j++) {
+					String correctFIB = correctFIBs[j];
+					if (correctFIB.length() > 0) {
+						Element varequal = orVal.addElement("varequal");
+						varequal.addAttribute("respident", tmpResponse.getIdent());
+						varequal.addAttribute("case", tmpResponse.getCaseSensitive());
+						varequal.addCDATA(correctFIB);
+					}
+				} // for loop correct FIB
+			}
 		} // for loop
 
 		if (isSingleCorrect){
@@ -374,5 +388,4 @@ public class FIBQuestion extends Question implements QTIObject {
 		if (or.element("not") == null)
 			resprocessingXML.remove(respcondition_fail);
 	}
-
 }

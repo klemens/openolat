@@ -23,8 +23,11 @@ import java.util.Collections;
 import java.util.Locale;
 
 import org.apache.velocity.VelocityContext;
+import org.olat.basesecurity.BaseSecurity;
+import org.olat.core.CoreSpringFactory;
 import org.olat.core.gui.translator.Translator;
 import org.olat.core.id.Identity;
+import org.olat.core.id.Roles;
 import org.olat.core.id.User;
 import org.olat.core.id.UserConstants;
 import org.olat.core.util.StringHelper;
@@ -115,6 +118,15 @@ public class RepositoryMailing {
 		if(mailing != null && !mailing.isSendEmail()) {
 			return;
 		}
+		
+		if(mailing == null) {
+			BaseSecurity securityManager = CoreSpringFactory.getImpl(BaseSecurity.class);
+			RepositoryModule repositoryModule = CoreSpringFactory.getImpl(RepositoryModule.class);
+			Roles ureqRoles = securityManager.getRoles(ureqIdentity);
+			if(!repositoryModule.isMandatoryEnrolmentEmail(ureqRoles)) {
+				return;
+			}
+		}
 
 		MailTemplate template = mailing == null ? null : mailing.getTemplate();
 		if(mailing == null || mailing.getTemplate() == null) {
@@ -149,7 +161,7 @@ public class RepositoryMailing {
 				actor.getUser().getProperty(UserConstants.FIRSTNAME, null),
 				actor.getUser().getProperty(UserConstants.LASTNAME, null),
 				actor.getUser().getProperty(UserConstants.EMAIL, null),
-				actor.getName()
+				actor.getUser().getProperty(UserConstants.EMAIL, null)// 2x for compatibility with old i18m properties
 			};
 		
 		Locale locale = I18nManager.getInstance().getLocaleOrDefault(actor.getUser().getPreferences().getLanguage());
@@ -168,7 +180,7 @@ public class RepositoryMailing {
 				User user = identity.getUser();
 				context.put("firstname", user.getProperty(UserConstants.FIRSTNAME, null));
 				context.put("lastname", user.getProperty(UserConstants.LASTNAME, null));
-				context.put("login", identity.getName());
+				context.put("login",  user.getProperty(UserConstants.EMAIL, null));
 				// Put variables from greater context
 				context.put("coursename", reName);
 				context.put("coursedescription", redescription);

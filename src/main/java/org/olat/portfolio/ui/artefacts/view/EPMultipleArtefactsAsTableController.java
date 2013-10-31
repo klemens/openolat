@@ -24,6 +24,7 @@ import java.util.List;
 import org.olat.core.CoreSpringFactory;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.Component;
+import org.olat.core.gui.components.EscapeMode;
 import org.olat.core.gui.components.table.ColumnDescriptor;
 import org.olat.core.gui.components.table.CustomRenderColumnDescriptor;
 import org.olat.core.gui.components.table.DefaultColumnDescriptor;
@@ -36,7 +37,7 @@ import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.Event;
 import org.olat.core.gui.control.WindowControl;
 import org.olat.core.gui.control.controller.BasicController;
-import org.olat.core.gui.control.generic.closablewrapper.CloseableModalWindowWrapperController;
+import org.olat.core.gui.control.generic.closablewrapper.CloseableModalController;
 import org.olat.core.gui.control.generic.modal.DialogBoxController;
 import org.olat.core.gui.control.generic.modal.DialogBoxUIFactory;
 import org.olat.core.gui.translator.Translator;
@@ -77,7 +78,7 @@ public class EPMultipleArtefactsAsTableController extends BasicController implem
 	private VelocityContainer vC;
 	private TableController artefactListTblCtrl;
 	
-	private CloseableModalWindowWrapperController artefactBox;
+	private CloseableModalController artefactBox;
 	private PortfolioStructure struct;
 	private EPFrontendManager ePFMgr;
 	private boolean mapClosed = false;
@@ -86,7 +87,7 @@ public class EPMultipleArtefactsAsTableController extends BasicController implem
 	private PortfolioModule portfolioModule;
 	private DialogBoxController deleteDialogController;
 	private EPCollectStepForm04 moveTreeCtrl;
-	private CloseableModalWindowWrapperController moveTreeBox;
+	private CloseableModalController moveTreeBox;
 
 	public EPMultipleArtefactsAsTableController(UserRequest ureq, WindowControl wControl, List<AbstractArtefact> artefacts, PortfolioStructure struct, boolean artefactChooseMode, EPSecurityCallback secCallback) {
 		super(ureq, wControl);
@@ -127,6 +128,7 @@ public class EPMultipleArtefactsAsTableController extends BasicController implem
 		artefactListTblCtrl.addColumnDescriptor(descr);
 		
 		descr = new DefaultColumnDescriptor("artefact.description", 1, null, getLocale());
+		descr.setEscapeHtml(EscapeMode.antisamy);
 		artefactListTblCtrl.addColumnDescriptor(true, descr);
 		
 		descr = new DefaultColumnDescriptor("artefact.date", 2, null, getLocale());
@@ -209,7 +211,6 @@ public class EPMultipleArtefactsAsTableController extends BasicController implem
 	/**
 	 * @see org.olat.core.gui.control.DefaultController#event(org.olat.core.gui.UserRequest, org.olat.core.gui.components.Component, org.olat.core.gui.control.Event)
 	 */
-	@SuppressWarnings("unused")
 	@Override
 	protected void event(UserRequest ureq, Component source, Event event) {
 		//
@@ -287,9 +288,9 @@ public class EPMultipleArtefactsAsTableController extends BasicController implem
 		moveTreeCtrl = new EPCollectStepForm04(ureq, getWindowControl(), artefact, struct);
 		listenTo(moveTreeCtrl);
 		String title = translate("artefact.move.title");
-		moveTreeBox = new CloseableModalWindowWrapperController(ureq, getWindowControl(), title, moveTreeCtrl.getInitialComponent(), "moveTreeBox");
+		moveTreeBox = new CloseableModalController(getWindowControl(), title, moveTreeCtrl.getInitialComponent());
 		listenTo(moveTreeBox);
-		moveTreeBox.setInitialWindowSize(450, 300);
+		//moveTreeBox.setInitialWindowSize(450, 300);
 		moveTreeBox.activate();
 	}
 

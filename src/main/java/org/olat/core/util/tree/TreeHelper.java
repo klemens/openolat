@@ -32,7 +32,10 @@ import java.util.List;
 
 import org.olat.core.gui.components.tree.TreeModel;
 import org.olat.core.gui.components.tree.TreeNode;
+import org.olat.core.id.OLATResourceable;
 import org.olat.core.logging.AssertException;
+import org.olat.core.util.nodes.INode;
+import org.olat.core.util.resource.OresHelper;
 
 /**
  * Description:<br>
@@ -61,6 +64,36 @@ public class TreeHelper {
 			if (result != null) return result;
 		}
 		return null;
+	}
+	
+	public static TreeNode findNodeByResourceableUserObject(OLATResourceable userObject, TreeNode node) {
+		if (node.getUserObject() instanceof OLATResourceable
+				&& OresHelper.equals((OLATResourceable)node.getUserObject(), userObject)) {
+			return node;
+		}
+		int childcnt = node.getChildCount();
+		for (int i = 0; i < childcnt; i++) {
+			TreeNode child = (TreeNode) node.getChildAt(i);
+			TreeNode result = findNodeByUserObject(userObject, child);
+			if (result != null) return result;
+		}
+		return null;
+	}
+	
+	public static int indexOfByUserObject(Object childUserObject, TreeNode parentNode) {
+		TreeNode childNode = findNodeByUserObject(childUserObject, parentNode);
+		return indexOf(childNode, parentNode);
+	}
+
+	public static int indexOf(TreeNode childNode, INode parentNode) {
+		if(parentNode == null) return -1;
+		for(int i=parentNode.getChildCount(); i-->0; ) {
+			INode n = parentNode.getChildAt(i);
+			if(n.getIdent().equals(childNode.getIdent())) {
+				return i;
+			}
+		}
+		return -1;
 	}
 
 	public static TreeNode resolveTreeNode(String treePath, TreeModel treeModel) {

@@ -34,6 +34,8 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Set;
 
+import javax.persistence.TemporalType;
+
 import org.hibernate.type.StandardBasicTypes;
 import org.hibernate.type.Type;
 import org.olat.core.CoreSpringFactory;
@@ -284,11 +286,11 @@ public class ForumManager extends BasicManager {
 		     .append(" inner join fetch msg.creator as creator")
 		     .append(" where msg.forum.key =:forumKey and msg.lastModified>:latestRead order by msg.lastModified desc");
 
-		DBQuery dbquery = DBFactory.getInstance().createQuery(query.toString());
-		dbquery.setLong("forumKey", forumKey.longValue());
-		dbquery.setTimestamp("latestRead", latestRead);
-		dbquery.setCacheable(true);
-		return dbquery.list();
+		return DBFactory.getInstance().getCurrentEntityManager()
+				.createQuery(query.toString(), Message.class)
+				.setParameter("forumKey", forumKey.longValue())
+				.setParameter("latestRead", latestRead, TemporalType.TIMESTAMP)
+				.getResultList();
 	}
 
 	/**
@@ -346,7 +348,7 @@ public class ForumManager extends BasicManager {
 		//delete all flags
 		MarkingService markingService = (MarkingService)CoreSpringFactory.getBean(MarkingService.class);
 		OLATResourceable ores = OresHelper.createOLATResourceableInstance(Forum.class, forum.getKey());
-		markingService.getMarkManager().deleteMark(ores);
+		markingService.getMarkManager().deleteMarks(ores);
 	}
 
 	/**
@@ -477,7 +479,7 @@ public class ForumManager extends BasicManager {
 		//delete all flags
 		MarkingService markingService = (MarkingService)CoreSpringFactory.getBean(MarkingService.class);
 		OLATResourceable ores = OresHelper.createOLATResourceableInstance(Forum.class, forumKey);
-		markingService.getMarkManager().deleteMark(ores, m.getKey().toString());
+		markingService.getMarkManager().deleteMarks(ores, m.getKey().toString());
 		
 		if(isLogDebugEnabled()){
 			logDebug("Deleting message ", m.getKey().toString());

@@ -85,9 +85,8 @@ public abstract class AbstractTextElement extends FormItemImpl implements TextEl
 	private boolean originalInitialised=false;
 	
 	
-	@SuppressWarnings("unchecked")
 	@Override
-	public void validate(List validationResults) {
+	public void validate(List<ValidationStatus> validationResults) {
 		if(checkForNotEmpty && !notEmpty()){
 			validationResults.add(new ValidationStatusImpl(ValidationStatus.ERROR));
 			return;
@@ -127,6 +126,7 @@ public abstract class AbstractTextElement extends FormItemImpl implements TextEl
 	/**
 	 * @see org.olat.core.gui.components.form.flexible.elements.TextElement#getValue()
 	 */
+	@Override
 	public String getValue() {
 		return value;
 	}
@@ -134,6 +134,7 @@ public abstract class AbstractTextElement extends FormItemImpl implements TextEl
 	/**
 	 * @see org.olat.core.gui.components.form.flexible.elements.TextElement#getValue(org.olat.core.util.filter.Filter)
 	 */
+	@Override
 	public String getValue(Filter filter) {
 		return filter.filter(value);
 	}
@@ -196,6 +197,11 @@ public abstract class AbstractTextElement extends FormItemImpl implements TextEl
 	 */
 	public void setDisplaySize(int displaySize){
 		this.displaySize = displaySize;
+	}
+	
+	@Override
+	public int getMaxLength() {
+		return maxlength;
 	}
 
 	/**

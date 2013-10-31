@@ -28,6 +28,7 @@
 */
 package org.olat.core.helpers;
 
+import java.io.File;
 import java.io.IOException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -70,7 +71,6 @@ public class Settings implements Initializable, Destroyable, GenericEventListene
 	private static Map<String, String> serverconfig = null;
 	private static List<Pattern> ajaxBlacklistPatterns = new ArrayList<Pattern>();
 	private static boolean jUnitTest;
-	private static final String KEY_SERVER_MODJK_ENABLED = "server_modjk_enabled";
 	// the persited properties contain user configurable config data (overrides
 	// default values from spring config)
 	private static PersistedProperties persistedProperties;
@@ -85,7 +85,8 @@ public class Settings implements Initializable, Destroyable, GenericEventListene
 	private static String clusterMode;
 	private static Date buildDate;
 	private static String repoRevision;
-	private static String patchRepoRevision;
+	private static String crossOriginFilter;
+	private static File guiCustomThemePath;
 	
 	/**
 	 * [used by spring]
@@ -365,6 +366,31 @@ public class Settings implements Initializable, Destroyable, GenericEventListene
 	}
 
 	/**
+	 * @return the File object pointing to the custom themes folder or null if
+	 *         no custom themes folder configured
+	 */
+	public static File getGuiCustomThemePath() {
+		return guiCustomThemePath;			
+	}
+
+	/**
+	 * Set the custom CSS themes folder (optional). Only used by spring.
+	 * 
+	 * @param guiCustomThemePath
+	 *            Absolute path pointing to the custom themes directory
+	 */
+	public void setGuiCustomThemePath(String guiCustomThemePath) {
+		File newPath = new File(guiCustomThemePath);
+		if (newPath.exists()) {
+			Settings.guiCustomThemePath = newPath;
+		} else {
+			log.info("No custom theme directory configured, path::"
+					+ guiCustomThemePath
+					+ " invalid. Configure property layout.custom.themes.dir if you want to use a custom themes directory.");
+		}
+	}	
+	
+	/**
 	 * Set the CSS theme used for this webapp. The configuration is stored in
 	 * the olatdata/system/configuration properties file and overrides the
 	 * spring default configuration.
@@ -384,24 +410,13 @@ public class Settings implements Initializable, Destroyable, GenericEventListene
 			guiThemeIdentifyer = persistedProperties.getStringPropertyValue(KEY_GUI_THEME_IDENTIFYER, false);
 		}
 	}
-
-	
-	/**
-	 * check if mod jk is enabled
-	 * @return
-	 */
-	public static boolean isModjkEnabled() {
-		return Settings.serverconfig.containsKey(KEY_SERVER_MODJK_ENABLED) 
-				 && Settings.serverconfig.get(KEY_SERVER_MODJK_ENABLED).equalsIgnoreCase("true");
-	}
-	
 	
 	public static String getURIScheme() {
 		return (isSecurePortAvailable() ? "https:" : "http:");
 	}
 
-	private static boolean isSecurePortAvailable() {
-		return ! Settings.getServerconfig("server_securePort").equals("0");
+	public static boolean isSecurePortAvailable() {
+		return !Settings.getServerconfig("server_securePort").equals("0");
 	}
 
 
@@ -445,6 +460,14 @@ public class Settings implements Initializable, Destroyable, GenericEventListene
 	 */
 	public static String getServerContextPathURI() {
 		return createServerURI() + WebappHelper.getServletContextPath();
+	}
+	
+	public static String getCrossOriginFilter() {
+		return crossOriginFilter;
+	}
+	
+	public void setCrossOriginFilter(String crossOriginFilter) {
+		Settings.crossOriginFilter = crossOriginFilter;
 	}
 	
 	/**

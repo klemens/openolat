@@ -25,6 +25,7 @@
 
 package org.olat.admin.user;
 
+import org.olat.admin.user.bulkChange.UserBulkChangeManager;
 import org.olat.basesecurity.BaseSecurity;
 import org.olat.basesecurity.BaseSecurityManager;
 import org.olat.basesecurity.BaseSecurityModule;
@@ -37,9 +38,7 @@ import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.Event;
 import org.olat.core.gui.control.WindowControl;
 import org.olat.core.gui.control.controller.BasicController;
-import org.olat.core.gui.translator.PackageTranslator;
 import org.olat.core.id.Identity;
-import org.olat.core.util.Util;
 
 /**
  * Initial Date:  Jan 27, 2006
@@ -60,11 +59,8 @@ import org.olat.core.util.Util;
  * There should be no need to use it anywhere else.
  */
 public class SystemRolesAndRightsController extends BasicController {
-	private static final String PACKAGE = Util.getPackageName(SystemRolesAndRightsController.class);
-	private static final String VELOCITY_ROOT = Util.getPackageVelocityRoot(PACKAGE);
 	
-	private VelocityContainer main;
-	private PackageTranslator translator;
+	private final VelocityContainer main;
 	private SystemRolesAndRightsForm sysRightsForm;
 	private Identity identity;
 	
@@ -75,9 +71,8 @@ public class SystemRolesAndRightsController extends BasicController {
 	 * @param identity identity to be edited
 	 */
 	public SystemRolesAndRightsController(WindowControl wControl, UserRequest ureq, Identity identity){
-		super(ureq, wControl);		
-		translator = new PackageTranslator(PACKAGE, ureq.getLocale());
-		main = new VelocityContainer("sysRolesVC", VELOCITY_ROOT + "/usysRoles.html", translator, null);
+		super(ureq, wControl);
+		main = createVelocityContainer("usysRoles");
 		this.identity = identity;
 		putInitialPanel(main);
 		createForm(ureq, identity);
@@ -133,12 +128,12 @@ public class SystemRolesAndRightsController extends BasicController {
 			SecurityGroup anonymousGroup = secMgr.findSecurityGroupByName(Constants.GROUP_ANONYMOUS);
 			boolean hasBeenAnonymous = secMgr.isIdentityInSecurityGroup(myIdentity, anonymousGroup);
 			isAnonymous = form.isAnonymous();
-			updateSecurityGroup(myIdentity, secMgr, anonymousGroup, hasBeenAnonymous, isAnonymous);
+			updateSecurityGroup(myIdentity, secMgr, anonymousGroup, hasBeenAnonymous, isAnonymous, Constants.GROUP_ANONYMOUS);
 			// system users - oposite of anonymous users
 			SecurityGroup usersGroup = secMgr.findSecurityGroupByName(Constants.GROUP_OLATUSERS);
 			boolean hasBeenUser = secMgr.isIdentityInSecurityGroup(myIdentity, usersGroup);
 			boolean isUser = !form.isAnonymous();
-			updateSecurityGroup(myIdentity, secMgr, usersGroup, hasBeenUser, isUser);
+			updateSecurityGroup(myIdentity, secMgr, usersGroup, hasBeenUser, isUser,Constants.GROUP_OLATUSERS);
 		}
 		// 2) system roles
 		// group manager
@@ -147,7 +142,15 @@ public class SystemRolesAndRightsController extends BasicController {
 			SecurityGroup groupManagerGroup = secMgr.findSecurityGroupByName(Constants.GROUP_GROUPMANAGERS);
 			boolean hasBeenGroupManager = secMgr.isIdentityInSecurityGroup(myIdentity, groupManagerGroup);
 			boolean isGroupManager = form.isGroupmanager();
-			updateSecurityGroup(myIdentity, secMgr, groupManagerGroup, hasBeenGroupManager, isGroupManager);
+			updateSecurityGroup(myIdentity, secMgr, groupManagerGroup, hasBeenGroupManager, isGroupManager, Constants.GROUP_GROUPMANAGERS);
+		}
+		// pool manager
+		Boolean canPoolmanagerByConfig =BaseSecurityModule.USERMANAGER_CAN_MANAGE_POOLMANAGERS;	
+		if (canPoolmanagerByConfig.booleanValue() || iAmOlatAdmin) {
+			SecurityGroup poolManagerGroup = secMgr.findSecurityGroupByName(Constants.GROUP_POOL_MANAGER);
+			boolean hasBeenPoolManager = secMgr.isIdentityInSecurityGroup(myIdentity, poolManagerGroup);
+			boolean isPoolManager = form.isPoolmanager();
+			updateSecurityGroup(myIdentity, secMgr, poolManagerGroup, hasBeenPoolManager, isPoolManager, Constants.GROUP_AUTHORS);
 		}
 		// author
 		Boolean canAuthorByConfig = BaseSecurityModule.USERMANAGER_CAN_MANAGE_AUTHORS;	
@@ -155,31 +158,49 @@ public class SystemRolesAndRightsController extends BasicController {
 			SecurityGroup authorGroup = secMgr.findSecurityGroupByName(Constants.GROUP_AUTHORS);
 			boolean hasBeenAuthor = secMgr.isIdentityInSecurityGroup(myIdentity, authorGroup);
 			boolean isAuthor = form.isAuthor() || form.isInstitutionalResourceManager();
-			updateSecurityGroup(myIdentity, secMgr, authorGroup, hasBeenAuthor, isAuthor);
+			updateSecurityGroup(myIdentity, secMgr, authorGroup, hasBeenAuthor, isAuthor, Constants.GROUP_AUTHORS);
 		}
 		// user manager, only allowed by admin
 		if (iAmOlatAdmin) {
 			SecurityGroup userManagerGroup = secMgr.findSecurityGroupByName(Constants.GROUP_USERMANAGERS);
 			boolean hasBeenUserManager = secMgr.isIdentityInSecurityGroup(myIdentity, userManagerGroup);
 			boolean isUserManager = form.isUsermanager();
-			updateSecurityGroup(myIdentity, secMgr, userManagerGroup, hasBeenUserManager, isUserManager);
+			updateSecurityGroup(myIdentity, secMgr, userManagerGroup, hasBeenUserManager, isUserManager, Constants.GROUP_USERMANAGERS);
 		}
 	 	// institutional resource manager, only allowed by admin
 		if (iAmUserManager || iAmOlatAdmin) {
 			SecurityGroup institutionalResourceManagerGroup = secMgr.findSecurityGroupByName(Constants.GROUP_INST_ORES_MANAGER);
 			boolean hasBeenInstitutionalResourceManager = secMgr.isIdentityInSecurityGroup(myIdentity, institutionalResourceManagerGroup);
 			boolean isInstitutionalResourceManager = form.isInstitutionalResourceManager();
-			updateSecurityGroup(myIdentity, secMgr, institutionalResourceManagerGroup, hasBeenInstitutionalResourceManager, isInstitutionalResourceManager);
+			updateSecurityGroup(myIdentity, secMgr, institutionalResourceManagerGroup, hasBeenInstitutionalResourceManager, isInstitutionalResourceManager, Constants.GROUP_INST_ORES_MANAGER);
 		}
 		// system administrator, only allowed by admin
 		if (iAmOlatAdmin) {
 			SecurityGroup adminGroup = secMgr.findSecurityGroupByName(Constants.GROUP_ADMIN);
 			boolean hasBeenAdmin = secMgr.isIdentityInSecurityGroup(myIdentity, adminGroup);
 			boolean isAdmin = form.isAdmin();
-			updateSecurityGroup(myIdentity, secMgr, adminGroup, hasBeenAdmin, isAdmin);		
+			updateSecurityGroup(myIdentity, secMgr, adminGroup, hasBeenAdmin, isAdmin, Constants.GROUP_ADMIN);		
 		}
-		if (iAmOlatAdmin &&  !myIdentity.getStatus().equals(form.getStatus()) ) {
-			identity = secMgr.saveIdentityStatus(myIdentity, form.getStatus());
+		if (iAmOlatAdmin &&  !myIdentity.getStatus().equals(form.getStatus()) ) {			
+			int oldStatus = myIdentity.getStatus();
+			String oldStatusText = (oldStatus == Identity.STATUS_PERMANENT ? "permanent"
+					: (oldStatus == Identity.STATUS_ACTIV ? "active"
+							: (oldStatus == Identity.STATUS_LOGIN_DENIED ? "login_denied"
+									: (oldStatus == Identity.STATUS_DELETED ? "deleted"
+											: "unknown"))));
+			int newStatus = form.getStatus();
+			String newStatusText = (newStatus == Identity.STATUS_PERMANENT ? "permanent"
+					: (newStatus == Identity.STATUS_ACTIV ? "active"
+							: (newStatus == Identity.STATUS_LOGIN_DENIED ? "login_denied"
+									: (newStatus == Identity.STATUS_DELETED ? "deleted"
+											: "unknown"))));
+			
+			if(newStatus == Identity.STATUS_LOGIN_DENIED) {
+				UserBulkChangeManager.getInstance().sendLoginDeniedEmail(myIdentity);
+			}
+			
+			identity = secMgr.saveIdentityStatus(myIdentity, newStatus);
+			logAudit("User::" + getIdentity().getName() + " changed accout status for user::" + myIdentity.getName() + " from::" + oldStatusText + " to::" + newStatusText, null);
 		}
 	}
 
@@ -191,13 +212,15 @@ public class SystemRolesAndRightsController extends BasicController {
 	 * @param hasBeenInGroup
 	 * @param isNowInGroup
 	 */
-	private void updateSecurityGroup(Identity myIdentity, BaseSecurity secMgr, SecurityGroup securityGroup, boolean hasBeenInGroup, boolean isNowInGroup) {
+	private void updateSecurityGroup(Identity myIdentity, BaseSecurity secMgr, SecurityGroup securityGroup, boolean hasBeenInGroup, boolean isNowInGroup, String role) {
 		if (!hasBeenInGroup && isNowInGroup) {
 			// user not yet in security group, add him
 			secMgr.addIdentityToSecurityGroup(myIdentity, securityGroup);
+			logAudit("User::" + getIdentity().getName() + " added system role::" + role + " to user::" + myIdentity.getName(), null);
 		} else if (hasBeenInGroup && !isNowInGroup) {
 			// user not anymore in security group, remove him
 			secMgr.removeIdentityFromSecurityGroup(myIdentity, securityGroup);
+			logAudit("User::" + getIdentity().getName() + " removed system role::" + role + " from user::" + myIdentity.getName(), null);
 		}
 	}
 	

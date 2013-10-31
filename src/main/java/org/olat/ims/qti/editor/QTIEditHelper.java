@@ -25,17 +25,30 @@
 
 package org.olat.ims.qti.editor;
 
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
+import java.util.UUID;
 
+import org.dom4j.Document;
+import org.dom4j.DocumentFactory;
 import org.dom4j.Element;
+import org.dom4j.io.OutputFormat;
+import org.dom4j.io.XMLWriter;
 import org.olat.core.gui.translator.Translator;
+import org.olat.core.logging.OLog;
+import org.olat.core.logging.Tracing;
 import org.olat.core.util.CodeHelper;
 import org.olat.core.util.vfs.VFSItem;
+import org.olat.core.util.vfs.VFSLeaf;
+import org.olat.core.util.xml.XMLParser;
+import org.olat.ims.qti.QTIConstants;
 import org.olat.ims.qti.editor.beecom.objects.Assessment;
 import org.olat.ims.qti.editor.beecom.objects.ChoiceQuestion;
 import org.olat.ims.qti.editor.beecom.objects.ChoiceResponse;
@@ -54,13 +67,17 @@ import org.olat.ims.qti.editor.beecom.objects.QTIObject;
 import org.olat.ims.qti.editor.beecom.objects.Question;
 import org.olat.ims.qti.editor.beecom.objects.Response;
 import org.olat.ims.qti.editor.beecom.objects.Section;
+import org.olat.ims.qti.editor.beecom.parser.ItemParser;
 import org.olat.ims.qti.editor.beecom.parser.ParserManager;
 import org.olat.ims.qti.process.AssessmentInstance;
+import org.olat.ims.resources.IMSEntityResolver;
 
 /**
  * @author rkulow
  */
 public class QTIEditHelper {
+	
+	private static final OLog log = Tracing.createLoggerFor(QTIEditHelper.class);
 
 	private static String EDITOR_IDENT = "QTIEDIT";
 	private static String ITEM_TYPE_SC = "SCQ";
@@ -70,6 +87,12 @@ public class QTIEditHelper {
 	private static String ITEM_TYPE_KPRIM = "KPRIM";
 
 	private static ParserManager parserManager = new ParserManager();
+	
+	private static OutputFormat outformat;
+	static {
+		outformat = OutputFormat.createPrettyPrint();
+		outformat.setEncoding("UTF-8");
+	}
 
 	/**
 	 * Counts the number of sections in this assessment.
@@ -92,6 +115,21 @@ public class QTIEditHelper {
 			itemCount += ((Section)sectionIter.next()).getItems().size();
 		}
 		return itemCount;
+	}
+	
+	public static String generateNewIdent(String currentIdent) {
+		String newIdent = null;
+		if(currentIdent != null) {
+			for(String ooPrefix:ItemParser.OO_ITEM_PREFIX) {
+				if(currentIdent.startsWith(ooPrefix)) {
+					newIdent = ooPrefix + UUID.randomUUID().toString().replace("-", "");
+				}	
+			}
+		}
+		if(newIdent == null) {
+			newIdent = UUID.randomUUID().toString().replace("-", "");
+		}
+		return newIdent;
 	}
 	
 	/**
@@ -909,5 +947,59 @@ public class QTIEditHelper {
   			item.delete();
   		}
   	}
+	}
+  
+	public static Item readItemXml(VFSLeaf leaf) {
+		Document doc = null;
+		try {
+			InputStream is = leaf.getInputStream();
+			XMLParser xmlParser = new XMLParser(new IMSEntityResolver());
+			doc = xmlParser.parse(is, false);
+			
+			Element item = (Element)doc.selectSingleNode("questestinterop/item");
+		  ParserManager parser = new ParserManager();
+		  Item qtiItem = (Item)parser.parse(item);
+
+			is.close();
+			return qtiItem;
+		} catch (Exception e) {
+			log.error("", e);
+			return null;
+		}
+	}
+	
+	public static void serialiazeItem(Item qtiItem, VFSLeaf leaf) {
+		try {
+			Document doc = itemToXml(qtiItem);
+			serialiazeDoc(doc, leaf);
+		} catch (Exception e) {
+			log.error("", e);
+		}
+	}
+	
+	public static void serialiazeDoc(Document doc, VFSLeaf leaf) {
+		try {
+			OutputStream out = leaf.getOutputStream(false);
+			XMLWriter writer = new XMLWriter(out, outformat);
+			writer.write(doc);
+			writer.close();
+		} catch (IOException e) {
+			log.error("", e);
+		}
+	}
+	
+	public static Document itemToXml(Item qtiItem) {
+		try {
+			DocumentFactory df = DocumentFactory.getInstance();
+			Document doc = df.createDocument();
+			doc.addDocType(QTIConstants.XML_DOCUMENT_ROOT, null, QTIConstants.XML_DOCUMENT_DTD);
+			Element questestinteropEl = df.createElement(QTIDocument.DOCUMENT_ROOT);
+			doc.setRootElement(questestinteropEl);
+			qtiItem.addToElement(questestinteropEl);
+			return doc;
+		} catch (Exception e) {
+			log.error("", e);
+			return null;
+		}
 	}
 }

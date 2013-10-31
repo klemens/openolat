@@ -30,9 +30,12 @@ package org.olat.core.util;
 
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStream;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Properties;
+import java.util.UUID;
 
 import javax.servlet.ServletContext;
 
@@ -60,6 +63,7 @@ public class WebappHelper implements Initializable, Destroyable, ServletContextA
 	
 	private static final OLog log = Tracing.createLoggerFor(WebappHelper.class);
 	private static int nodeId;
+	private static final String bootId = UUID.randomUUID().toString();
 	private static String fullPathToSrc;
 	private static String fullPathToWebappSrc;
 	private static ServletContext servletContext;
@@ -70,11 +74,18 @@ public class WebappHelper implements Initializable, Destroyable, ServletContextA
 	private static Map<String, String> mailConfig = new HashMap<String, String>(6);
 	private static long timeOfServerStartup = System.currentTimeMillis();
 	
+	
+	private static String mobileContext;
+	
 	/** need to set this at least once before the actual request, since we cannot extract it from the servletContext, 
 	 * but many methods use it (renderers) which do not have access to userRequest and thus to to getPathInfo...**/
 	private static String servletContextPath;
 	private String applicationName;
 	private String version;
+	private static String buildJdk;
+	private static String changeSet;
+	private static String changeSetDate;
+	private static String implementationVersion;
 	
 
 	/**
@@ -98,6 +109,20 @@ public class WebappHelper implements Initializable, Destroyable, ServletContextA
 			throw new StartupException("Error getting canonical context root.", e);
 		}
 		servletContextPath = servletContext.getContextPath();
+		
+		InputStream meta = servletContext.getResourceAsStream("META-INF/MANIFEST.MF");
+		if(meta != null) {
+			try {
+				Properties props = new Properties();
+				props.load(meta);
+				changeSet = props.getProperty("Build-Change-Set");
+				changeSetDate = props.getProperty("Build-Change-Set-Date");
+				implementationVersion = props.getProperty("Implementation-Version");
+				buildJdk = props.getProperty("Build-Jdk");
+			} catch (IOException e) {
+				log.error("", e);
+			}
+		}
 
 		File fil = new File(fullPathToSrc);
 		if(fil.exists()){
@@ -124,6 +149,13 @@ public class WebappHelper implements Initializable, Destroyable, ServletContextA
 	 */
 	public static int getNodeId() {
 		return nodeId;
+	}
+	
+	/**
+	 * @return Return a unique ID per node and per reboot
+	 */
+	public static String getBootId() {
+		return bootId;
 	}
 
 	/**
@@ -227,6 +259,21 @@ public class WebappHelper implements Initializable, Destroyable, ServletContextA
 	 */
 	public static Long getTimeOfServerStartup() {
 		return timeOfServerStartup;
+	}
+
+	/**
+	 * @return The context of the moible application starting with /
+	 */
+	public static String getMobileContext() {
+		return mobileContext;
+	}
+
+	public void setMobileContext(String mobileContext) {
+		if(!mobileContext.startsWith("/")) {
+			mobileContext = "/" + mobileContext;
+		}
+		
+		WebappHelper.mobileContext = mobileContext;
 	}
 
 	public void setFullPathToSrc(String fullPathToSrc) {
@@ -383,24 +430,6 @@ public class WebappHelper implements Initializable, Destroyable, ServletContextA
 		writeFile.delete();
 	}
 	
-	
-	/**
-	 * @return The full OLAT licencse as a string
-	 */
-	public static String getOlatLicense() {
-		Resource license = new ClassPathResource("NOTICE.TXT");
-		String licenseS = "";
-		if (license.exists()) {
-			licenseS = FileUtils.load(license, "UTF-8");
-		}
-		File copyLicense = new File(contextRoot + "/COPYING");
-		String copyLicenseS = "";
-		if (copyLicense.exists()) {
-			copyLicenseS = FileUtils.load(copyLicense, "UTF-8");
-		}
-		return licenseS + "<br /><br />" + copyLicenseS;
-	}
-	
 	/**
 	 * Either the version of the core or the webapps provided version gets printed
 	 */
@@ -416,8 +445,28 @@ public class WebappHelper implements Initializable, Destroyable, ServletContextA
 		log.info("");
 	}
 	
+	public String getVersion() {
+		return version;
+	}
+	
 	public void setVersion(String version) {
 		this.version = version;
+	}
+
+	public static String getBuildJdk() {
+		return buildJdk;
+	}
+
+	public static String getChangeSet() {
+		return changeSet;
+	}
+
+	public static String getChangeSetDate() {
+		return changeSetDate;
+	}
+
+	public static String getImplementationVersion() {
+		return implementationVersion;
 	}
 
 	@Override

@@ -77,6 +77,7 @@ import org.olat.portfolio.EPTemplateMapResource;
 import org.olat.portfolio.PortfolioModule;
 import org.olat.repository.RepositoryEntry;
 import org.olat.repository.RepositoryManager;
+import org.olat.repository.RepositoryModule;
 import org.olat.repository.RepositoryTableModel;
 import org.olat.repository.delete.TabbedPaneController;
 import org.olat.repository.handlers.RepositoryHandler;
@@ -152,6 +153,7 @@ public class RepositoryMainController extends MainLayoutBasicController implemen
 	private Controller creationWizardController;
 	private final PortfolioModule portfolioModule;
 	private final CatalogModule catalogModule;
+	private final RepositoryModule repositoryModule;
 
 	/**
 	 * The check for author rights is executed on construction time and then
@@ -166,8 +168,9 @@ public class RepositoryMainController extends MainLayoutBasicController implemen
 		if (log.isDebug()) {
 			log.debug("Constructing ReposityMainController for user::" + ureq.getIdentity());
 		}
-		portfolioModule = (PortfolioModule) CoreSpringFactory.getBean("portfolioModule");
+		portfolioModule = CoreSpringFactory.getImpl(PortfolioModule.class);
 		catalogModule = CoreSpringFactory.getImpl(CatalogModule.class);
+		repositoryModule = CoreSpringFactory.getImpl(RepositoryModule.class);
 
 		// use i18n from RepositoryManager level
 		setTranslator(Util.createPackageTranslator(RepositoryManager.class, ureq.getLocale()));
@@ -307,12 +310,16 @@ public class RepositoryMainController extends MainLayoutBasicController implemen
 				rootNode.addChild(node);
 			}
 		}
-		rootNode.addChild(new GenericTreeNode(translate("search.exam"), "search.exam"));
 
-		node = new GenericTreeNode(translate("search.course"), "search.course");
-		node.setCssClass("o_sel_repo_course");
-		rootNode.addChild(node);
-		if (bIsAuthor) {
+		rootNode.addChild(new GenericTreeNode(translate("search.exam"), "search.exam"));
+		
+		if(repositoryModule.isListAllCourses()) {
+			node = new GenericTreeNode(translate("search.course"), "search.course");
+			node.setCssClass("o_sel_repo_course");
+			rootNode.addChild(node);
+		}
+		
+		if (bIsAuthor && repositoryModule.isListAllResourceTypes()) {
 			//cp, scorm, wiki, podcast, portfolie, test, questionn, resource folder, glossary
 			node = new GenericTreeNode(translate("search.cp"), "search.cp");
 			node.setCssClass("o_sel_repo_cp");
@@ -747,7 +754,8 @@ public class RepositoryMainController extends MainLayoutBasicController implemen
 			addController = new RepositoryAddController(urequest, getWindowControl(), event.getCommand());
 			listenTo(addController);
 			removeAsListenerAndDispose(cmc);
-			cmc = new CloseableModalController(getWindowControl(), translate("close"), addController.getInitialComponent());
+			cmc = new CloseableModalController(getWindowControl(), translate("close"), addController.getInitialComponent(),
+					true, addController.getTitle());
 			listenTo(cmc);
 			cmc.activate();
 			return;
@@ -756,7 +764,8 @@ public class RepositoryMainController extends MainLayoutBasicController implemen
 			addController = new RepositoryAddController(urequest, getWindowControl(), RepositoryAddController.ACTION_NEW_COURSE);
 			listenTo(addController);
 			removeAsListenerAndDispose(cmc);
-			cmc = new CloseableModalController(getWindowControl(), translate("close"), addController.getInitialComponent());
+			cmc = new CloseableModalController(getWindowControl(), translate("close"), addController.getInitialComponent(),
+					true, addController.getTitle());
 			listenTo(cmc);
 			cmc.activate();
 			return;
@@ -765,7 +774,8 @@ public class RepositoryMainController extends MainLayoutBasicController implemen
 			addController = new RepositoryAddController(urequest, getWindowControl(), RepositoryAddController.ACTION_NEW_TEST);
 			listenTo(addController);
 			removeAsListenerAndDispose(cmc);
-			cmc = new CloseableModalController(getWindowControl(), translate("close"), addController.getInitialComponent());
+			cmc = new CloseableModalController(getWindowControl(), translate("close"), addController.getInitialComponent(),
+					true, addController.getTitle());
 			listenTo(cmc);
 			cmc.activate();
 			return;
@@ -774,7 +784,8 @@ public class RepositoryMainController extends MainLayoutBasicController implemen
 			addController = new RepositoryAddController(urequest, getWindowControl(), RepositoryAddController.ACTION_NEW_SURVEY);
 			listenTo(addController);
 			removeAsListenerAndDispose(cmc);
-			cmc = new CloseableModalController(getWindowControl(), translate("close"), addController.getInitialComponent());
+			cmc = new CloseableModalController(getWindowControl(), translate("close"), addController.getInitialComponent(),
+					true, addController.getTitle());
 			listenTo(cmc);
 			cmc.activate();
 			return;
@@ -783,7 +794,8 @@ public class RepositoryMainController extends MainLayoutBasicController implemen
 			addController = new RepositoryAddController(urequest, getWindowControl(), RepositoryAddController.ACTION_NEW_SHAREDFOLDER);
 			listenTo(addController);
 			removeAsListenerAndDispose(cmc);
-			cmc = new CloseableModalController(getWindowControl(), translate("close"), addController.getInitialComponent());
+			cmc = new CloseableModalController(getWindowControl(), translate("close"), addController.getInitialComponent(),
+					true, addController.getTitle());
 			listenTo(cmc);
 			cmc.activate();
 			return;
@@ -792,7 +804,8 @@ public class RepositoryMainController extends MainLayoutBasicController implemen
 			addController = new RepositoryAddController(urequest, getWindowControl(), RepositoryAddController.ACTION_NEW_WIKI);
 			listenTo(addController);
 			removeAsListenerAndDispose(cmc);
-			cmc = new CloseableModalController(getWindowControl(), translate("close"), addController.getInitialComponent());
+			cmc = new CloseableModalController(getWindowControl(), translate("close"), addController.getInitialComponent(),
+					true, addController.getTitle());
 			listenTo(cmc);
 			cmc.activate();
 			return;
@@ -801,7 +814,8 @@ public class RepositoryMainController extends MainLayoutBasicController implemen
 			addController = new RepositoryAddController(urequest, getWindowControl(), RepositoryAddController.ACTION_NEW_PODCAST);
 			listenTo(addController);
 			removeAsListenerAndDispose(cmc);
-			cmc = new CloseableModalController(getWindowControl(), translate("close"), addController.getInitialComponent());
+			cmc = new CloseableModalController(getWindowControl(), translate("close"), addController.getInitialComponent(),
+					true, addController.getTitle());
 			listenTo(cmc);
 			cmc.activate();
 			return;
@@ -810,7 +824,8 @@ public class RepositoryMainController extends MainLayoutBasicController implemen
 			addController = new RepositoryAddController(urequest, getWindowControl(), RepositoryAddController.ACTION_NEW_BLOG);
 			listenTo(addController);
 			removeAsListenerAndDispose(cmc);
-			cmc = new CloseableModalController(getWindowControl(), translate("close"), addController.getInitialComponent());
+			cmc = new CloseableModalController(getWindowControl(), translate("close"), addController.getInitialComponent(),
+					true, addController.getTitle());
 			listenTo(cmc);
 			cmc.activate();
 			return;
@@ -819,7 +834,8 @@ public class RepositoryMainController extends MainLayoutBasicController implemen
 			addController = new RepositoryAddController(urequest, getWindowControl(), RepositoryAddController.ACTION_NEW_GLOSSARY);
 			listenTo(addController);
 			removeAsListenerAndDispose(cmc);
-			cmc = new CloseableModalController(getWindowControl(), translate("close"), addController.getInitialComponent());
+			cmc = new CloseableModalController(getWindowControl(), translate("close"), addController.getInitialComponent(),
+					true, addController.getTitle());
 			listenTo(cmc);
 			cmc.activate();
 			return;
@@ -828,7 +844,8 @@ public class RepositoryMainController extends MainLayoutBasicController implemen
 			addController = new RepositoryAddController(urequest, getWindowControl(), RepositoryAddController.ACTION_NEW_PORTFOLIO);
 			listenTo(addController);
 			removeAsListenerAndDispose(cmc);
-			cmc = new CloseableModalController(getWindowControl(), translate("close"), addController.getInitialComponent());
+			cmc = new CloseableModalController(getWindowControl(), translate("close"), addController.getInitialComponent(),
+					true, addController.getTitle());
 			listenTo(cmc);
 			cmc.activate();
 			return;
@@ -842,7 +859,8 @@ public class RepositoryMainController extends MainLayoutBasicController implemen
 			addController = new RepositoryAddController(urequest, getWindowControl(), RepositoryAddController.ACTION_NEW_CP);
 			listenTo(addController);
 			removeAsListenerAndDispose(cmc);
-			cmc = new CloseableModalController(getWindowControl(), translate("close"), addController.getInitialComponent());
+			cmc = new CloseableModalController(getWindowControl(), translate("close"), addController.getInitialComponent(),
+					true, addController.getTitle());
 			listenTo(cmc);
 			cmc.activate();
 			return;

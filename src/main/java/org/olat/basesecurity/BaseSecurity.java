@@ -70,6 +70,15 @@ public interface BaseSecurity {
 	public List<String> getIdentityPermissionOnresourceable(Identity identity, OLATResourceable olatResourceable);
 	
 	/**
+	 * 
+	 * @param permission
+	 * @param olatResourceableTypeName
+	 * @return
+	 */
+	public List<Identity> getIdentitiesWithPermissionWithOlatResourceableType(String permission, String olatResourceableTypeName);
+	
+	
+	/**
 	 * Get the identity's roles
 	 * 
 	 * @param identity
@@ -79,9 +88,11 @@ public interface BaseSecurity {
 	
 	/**
 	 * Update the roles
-	 * @param identity
+	 * @param actingIdentity The identity who is performing the change
+	 * @param updatedIdentity The identity that is changed
+	 * @param roles The new roles to set on updatedIdentity
 	 */
-	public void updateRoles(Identity identity, Roles roles);
+	public void updateRoles(Identity actingIdentity, Identity updatedIdentity, Roles roles);
 
 	/**
 	 * @param identity
@@ -171,6 +182,19 @@ public interface BaseSecurity {
 	public Identity findIdentityByName(String identityName);
 	
 	public List<Identity> findIdentitiesByName(Collection<String> identityName);
+
+	/**
+	 * Find an identity by student/institutionalnumber (i.e., Matrikelnummer), using the getIdentititesByPowerSearch() method.
+	 * <p>
+	 * Be aware that this method does <b>not</b> check the identities status! This method returns identities with any state, also deleted identities!
+	 * 
+	 * @param identityNumber
+	 * @return the identity or null if not found
+	 */
+	public Identity findIdentityByNumber(String identityNumber);
+	
+
+	public List<Identity> findIdentitiesByNumber(Collection<String> identityNumbers);
 	
 	/**
 	 * Find an identity by its user
@@ -290,6 +314,22 @@ public interface BaseSecurity {
 	public Authentication findAuthentication(Identity identity, String provider);
 	
 	/**
+	 * 
+	 * @param identity
+	 * @param creationDate
+	 * @return
+	 */
+	public List<Authentication> findOldAuthentication(String provider, Date creationDate);
+	
+	/**
+	 * 
+	 * @param provider
+	 * @param token
+	 * @return
+	 */
+	public List<Authentication> findAuthentication(String provider, String credential);
+	
+	/**
 	 * Return the credential or null
 	 * @param identity
 	 * @param provider
@@ -313,6 +353,12 @@ public interface BaseSecurity {
 	 * @param authentication
 	 */
 	public void deleteAuthentication(Authentication authentication);
+	
+	/**
+	 * 
+	 * @param authentication
+	 */
+	public Authentication updateAuthentication(Authentication authentication);
 
 	// --- SecGroup management
 
@@ -605,6 +651,22 @@ public interface BaseSecurity {
 	 * @return
 	 */
 	public Identity setIdentityLastLogin(Identity identity);
+	
+	/**
+	 * Set the identity name. 
+	 * <p><b>NOTE: do not use this to rename identities during
+	 * lifetime! This is currently not supported. This method does only rename
+	 * the identity on the database, however it does NOT rename anything on the
+	 * filesystem. </b></p>
+	 * <p>Unfortunately there are references to the identity name on
+	 * the filesystem, thus just using this method is not save at all. This
+	 * method is intended for renaming the identity after the delete process.
+	 * </p>
+	 * @param identity The identity to be renamed
+	 * @param newName The new identity name
+	 * @return The reloaded and renamed identity
+	 */
+	public Identity saveIdentityName(Identity identity, String newName);
 	
 	/**
 	 * Check if identity is visible. Deleted or login-denied users are not visible.

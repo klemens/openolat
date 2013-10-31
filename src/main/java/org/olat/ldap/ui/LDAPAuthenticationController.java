@@ -42,6 +42,8 @@ import org.olat.core.gui.components.velocity.VelocityContainer;
 import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.Event;
 import org.olat.core.gui.control.WindowControl;
+import org.olat.core.gui.control.generic.closablewrapper.CloseableModalController;
+import org.olat.core.gui.control.generic.dtabs.Activateable2;
 import org.olat.core.id.Identity;
 import org.olat.core.id.context.ContextEntry;
 import org.olat.core.id.context.StateEntry;
@@ -64,9 +66,6 @@ import org.olat.registration.DisclaimerController;
 import org.olat.registration.PwChangeController;
 import org.olat.registration.RegistrationManager;
 import org.olat.user.UserModule;
-
-import org.olat.core.gui.control.generic.closablewrapper.CloseableModalController;
-import org.olat.core.gui.control.generic.dtabs.Activateable2;
 
 public class LDAPAuthenticationController extends AuthenticationController implements Activateable2 {
 	public static final String PROVIDER_LDAP = "LDAP";
@@ -148,7 +147,26 @@ protected void event(UserRequest ureq, Component source, Event event) {
 			String login = loginForm.getLogin();
 			String pass = loginForm.getPass();
 
+			if (LoginModule.isLoginBlocked(login)) {
+				// do not proceed when already blocked
+				showError("login.blocked", LoginModule.getAttackPreventionTimeoutMin().toString());
+				getLogger().audit("Login attempt on already blocked login for " + login + ". IP::" + ureq.getHttpReq().getRemoteAddr(), null);
+				return;
+			}
 			authenticatedIdentity= authenticate(login, pass, ldapError);
+
+			if(!ldapError.isEmpty()) {
+				final String errStr = ldapError.get();
+				if ("login.notauthenticated".equals(errStr)) {
+					// user exists in LDAP, authentication was ok, but user
+					// has not got the OLAT service or has not been created by now
+					getWindowControl().setError(translate("login.notauthenticated"));
+					return;                                
+				} else {
+					// tell about the error again
+					ldapError.insert(errStr);
+				}
+			}
 
 			if (authenticatedIdentity != null) {
 				provider = LDAPAuthenticationController.PROVIDER_LDAP;
@@ -164,7 +182,7 @@ protected void event(UserRequest ureq, Component source, Event event) {
 			// Still not found? register for hacking attempts
 			if (authenticatedIdentity == null) {
 				if (LoginModule.registerFailedLoginAttempt(login)) {
-					logAudit("Too many failed login attempts for " + login + ". Login blocked.", null);
+					logAudit("Too many failed login attempts for " + login + ". Login blocked. IP::" + ureq.getHttpReq().getRemoteAddr(), null);
 					showError("login.blocked", LoginModule.getAttackPreventionTimeoutMin().toString());
 					return;
 				} else {
@@ -241,17 +259,25 @@ protected void event(UserRequest ureq, Component source, Event event) {
 	}
 	
 	public static Identity authenticate(String username, String pwd, LDAPError ldapError) {
+		final LDAPLoginModule ldapModule = CoreSpringFactory.getImpl(LDAPLoginModule.class);
+		final LDAPLoginManager ldapManager = CoreSpringFactory.getImpl(LDAPLoginManager.class);
+		final BaseSecurity secMgr = BaseSecurityManager.getInstance();
 		
-		LDAPLoginManager ldapManager = (LDAPLoginManager) CoreSpringFactory.getBean(LDAPLoginManager.class);
+		//authenticate against LDAP server
 		Attributes attrs = ldapManager.bindUser(username, pwd, ldapError);
-		
 		if (ldapError.isEmpty() && attrs != null) { 
 			Identity identity = ldapManager.findIdentyByLdapAuthentication(username, ldapError);
-			if (!ldapError.isEmpty()) return null;
+			if (!ldapError.isEmpty()) {
+				return null;
+			}
 			if (identity == null) {
-				// User authenticated but not yet existing - create as new OLAT user
-				ldapManager.createAndPersistUser(attrs);
-				identity = ldapManager.findIdentyByLdapAuthentication(username, ldapError);
+				if(ldapModule.isCreateUsersOnLogin()) {
+					// User authenticated but not yet existing - create as new OLAT user
+					ldapManager.createAndPersistUser(attrs);
+					identity = ldapManager.findIdentyByLdapAuthentication(username, ldapError);
+				} else {
+					ldapError.insert("login.notauthenticated");
+				}
 			} else {
 				// User does already exist - just sync attributes
 				Map<String, String> olatProToSync = ldapManager.prepareUserPropertyForSync(attrs, identity);
@@ -261,7 +287,7 @@ protected void event(UserRequest ureq, Component source, Event event) {
 			}
 			// Add or update an OLAT authentication token for this user if configured in the module
 			if (identity != null && LDAPLoginModule.isCacheLDAPPwdAsOLATPwdOnLogin()) {
-				BaseSecurity secMgr = BaseSecurityManager.getInstance();
+				
 				Authentication auth = secMgr.findAuthentication(identity, BaseSecurityModule.getDefaultAuthProviderIdentifier());
 				if (auth == null) {
 					// Create new authentication token

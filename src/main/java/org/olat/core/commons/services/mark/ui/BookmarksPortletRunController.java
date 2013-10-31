@@ -34,7 +34,6 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 
-import org.apache.commons.lang.StringEscapeUtils;
 import org.olat.ControllerFactory;
 import org.olat.NewControllerFactory;
 import org.olat.core.CoreSpringFactory;
@@ -92,8 +91,9 @@ public class BookmarksPortletRunController extends AbstractPortletRunController<
 	 * @param ureq
 	 * @param component
 	 */
-	public BookmarksPortletRunController(WindowControl wControl, UserRequest ureq, Translator trans, String portletName) { 		
-		super(wControl, ureq, trans, portletName);
+	public BookmarksPortletRunController(WindowControl wControl, UserRequest ureq, Translator trans,
+			String portletName, int defaultMaxEntries) { 		
+		super(wControl, ureq, trans, portletName, defaultMaxEntries);
 		sortingTermsList.add(SortingCriteria.TYPE_SORTING);
 		sortingTermsList.add(SortingCriteria.ALPHABETICAL_SORTING);
 		sortingTermsList.add(SortingCriteria.DATE_SORTING);
@@ -319,7 +319,6 @@ public class BookmarksPortletRunController extends AbstractPortletRunController<
 			switch (col) {
 			case 0:
 				String name = getBookmarkTitle(bookmark);
-				name = StringEscapeUtils.escapeHtml(name).toString();
 				return name;
 			case 1:
 				String resType = bookmark.getDisplayrestype();

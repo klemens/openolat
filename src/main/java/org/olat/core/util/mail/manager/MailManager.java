@@ -25,12 +25,16 @@ import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.OutputStream;
 import java.io.UnsupportedEncodingException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Date;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Properties;
+import java.util.Set;
+import java.util.zip.Adler32;
 
 import javax.activation.DataHandler;
 import javax.activation.DataSource;
@@ -48,10 +52,10 @@ import javax.mail.internet.InternetAddress;
 import javax.mail.internet.MimeBodyPart;
 import javax.mail.internet.MimeMessage;
 import javax.mail.internet.MimeMultipart;
-import javax.mail.util.ByteArrayDataSource;
 import javax.persistence.TemporalType;
 import javax.persistence.TypedQuery;
 
+import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.IOUtils;
 import org.olat.core.commons.persistence.DB;
 import org.olat.core.commons.persistence.PersistentObject;
@@ -60,23 +64,31 @@ import org.olat.core.id.Identity;
 import org.olat.core.id.OLATResourceable;
 import org.olat.core.id.UserConstants;
 import org.olat.core.manager.BasicManager;
+import org.olat.core.util.Encoder;
 import org.olat.core.util.StringHelper;
 import org.olat.core.util.WebappHelper;
 import org.olat.core.util.mail.ContactList;
+import org.olat.core.util.mail.MailAttachment;
 import org.olat.core.util.mail.MailContext;
 import org.olat.core.util.mail.MailModule;
 import org.olat.core.util.mail.MailerResult;
 import org.olat.core.util.mail.MailerSMTPAuthenticator;
 import org.olat.core.util.mail.model.DBMail;
 import org.olat.core.util.mail.model.DBMailAttachment;
-import org.olat.core.util.mail.model.DBMailAttachmentData;
 import org.olat.core.util.mail.model.DBMailImpl;
+import org.olat.core.util.mail.model.DBMailLight;
+import org.olat.core.util.mail.model.DBMailLightImpl;
 import org.olat.core.util.mail.model.DBMailRecipient;
 import org.olat.core.util.notifications.NotificationsManager;
 import org.olat.core.util.notifications.Publisher;
 import org.olat.core.util.notifications.PublisherData;
 import org.olat.core.util.notifications.Subscriber;
 import org.olat.core.util.notifications.SubscriptionContext;
+import org.olat.core.util.vfs.FileStorage;
+import org.olat.core.util.vfs.VFSContainer;
+import org.olat.core.util.vfs.VFSItem;
+import org.olat.core.util.vfs.VFSLeaf;
+import org.olat.core.util.vfs.VFSManager;
 
 /**
  * 
@@ -93,6 +105,7 @@ public class MailManager extends BasicManager {
 	
 	private final MailModule mailModule;
 	private DB dbInstance;
+	private FileStorage attachmentStorage;
 	private NotificationsManager notificationsManager;
 	
 	private static MailManager INSTANCE;
@@ -127,6 +140,9 @@ public class MailManager extends BasicManager {
 	 * [used by Spring]
 	 */
 	public void init() {
+		VFSContainer root = mailModule.getRootForAttachments();
+		attachmentStorage = new FileStorage(root);
+		
 		PublisherData pdata = getPublisherData();
 		SubscriptionContext scontext = getSubscriptionContext();
 		notificationsManager.getOrCreatePublisher(scontext, pdata);
@@ -175,7 +191,7 @@ public class MailManager extends BasicManager {
 		return mails.get(0);
 	}
 	
-	public List<DBMailAttachment> getAttachments(DBMail mail) {
+	public List<DBMailAttachment> getAttachments(DBMailLight mail) {
 		StringBuilder sb = new StringBuilder();
 		sb.append("select attachment from ").append(DBMailAttachment.class.getName()).append(" attachment")
 			.append(" inner join attachment.mail mail")
@@ -187,17 +203,89 @@ public class MailManager extends BasicManager {
 				.getResultList();
 	}
 	
-	public DBMailAttachmentData getAttachmentWithData(Long key) {
+	public DBMailAttachment getAttachment(Long key) {
 		StringBuilder sb = new StringBuilder();
-		sb.append("select attachment from ").append(DBMailAttachmentData.class.getName()).append(" attachment")
+		sb.append("select attachment from ").append(DBMailAttachment.class.getName()).append(" attachment")
 			.append(" where attachment.key=:attachmentKey");
 
-		List<DBMailAttachmentData> mails = dbInstance.getCurrentEntityManager()
-				.createQuery(sb.toString(), DBMailAttachmentData.class)
+		List<DBMailAttachment> attachments = dbInstance.getCurrentEntityManager()
+				.createQuery(sb.toString(), DBMailAttachment.class)
 				.setParameter("attachmentKey", key)
 				.getResultList();
-		if(mails.isEmpty()) return null;
-		return mails.get(0);
+
+		if(attachments.isEmpty()) {
+			return null;
+		}
+		return attachments.get(0);
+	}
+	
+	public String saveAttachmentToStorage(String name, String mimetype, long checksum, long size, InputStream stream) {
+		String hasSibling = getAttachmentSibling(name, mimetype, checksum, size);
+		if(StringHelper.containsNonWhitespace(hasSibling)) {
+			return hasSibling;
+		}
+		
+		String uuid = Encoder.encrypt(name + checksum);
+		String dir = attachmentStorage.generateDir(uuid, false);
+		VFSContainer container = attachmentStorage.getContainer(dir);
+		String uniqueName = VFSManager.similarButNonExistingName(container, name);
+		VFSLeaf file = container.createChildLeaf(uniqueName);
+		VFSManager.copyContent(stream, file);
+		return dir + uniqueName;
+	}
+	
+	public String getAttachmentSibling(String name, String mimetype, long checksum, long size) {
+		StringBuilder sb = new StringBuilder();
+		sb.append("select attachment from ").append(DBMailAttachment.class.getName()).append(" attachment")
+			.append(" where attachment.checksum=:checksum and attachment.size=:size and attachment.name=:name");
+		if(mimetype == null) {
+			sb.append(" and attachment.mimetype is null");
+		} else {
+			sb.append(" and attachment.mimetype=:mimetype");
+		}
+		
+		TypedQuery<DBMailAttachment> query = dbInstance.getCurrentEntityManager()
+				.createQuery(sb.toString(), DBMailAttachment.class)
+				.setParameter("checksum", new Long(checksum))
+				.setParameter("size", new Long(size))
+				.setParameter("name", name);
+		if(mimetype != null) {
+			query.setParameter("mimetype", mimetype);
+		}
+
+		List<DBMailAttachment> attachments = query.getResultList();
+		if(attachments.isEmpty()) {
+			return null;
+		}
+		return attachments.get(0).getPath();
+	}
+	
+	public int countAttachment(String path) {
+		StringBuilder sb = new StringBuilder();
+		sb.append("select count(attachment) from ").append(DBMailAttachment.class.getName()).append(" attachment")
+			.append(" where attachment.path=:path");
+
+		return dbInstance.getCurrentEntityManager()
+				.createQuery(sb.toString(), Number.class)
+				.setParameter("path", path)
+				.getSingleResult().intValue();
+	}
+	
+	public VFSLeaf getAttachmentDatas(Long key) {
+		DBMailAttachment attachment = getAttachment(key);
+		return getAttachmentDatas(attachment);
+	}
+	
+	public VFSLeaf getAttachmentDatas(MailAttachment attachment) {
+		String path = attachment.getPath();
+		if(StringHelper.containsNonWhitespace(path)) {
+			VFSContainer root = mailModule.getRootForAttachments();
+			VFSItem item = root.resolve(path);
+			if(item instanceof VFSLeaf) {
+				return (VFSLeaf)item;
+			}
+		}
+		return null;
 	}
 	
 	public boolean hasNewMail(Identity identity) {
@@ -220,7 +308,7 @@ public class MailManager extends BasicManager {
 	 * @param identity
 	 * @return true if the read flag has been changed
 	 */
-	public boolean setRead(DBMail mail, Boolean read, Identity identity) {
+	public boolean setRead(DBMailLight mail, Boolean read, Identity identity) {
 		if(mail == null || read == null || identity == null) throw new NullPointerException();
 		
 		boolean changed = false;
@@ -237,7 +325,7 @@ public class MailManager extends BasicManager {
 		return changed;
 	}
 	
-	public DBMail toggleRead(DBMail mail, Identity identity) {
+	public DBMailLight toggleRead(DBMailLight mail, Identity identity) {
 		Boolean read = null;
 		for(DBMailRecipient recipient:mail.getRecipients()) {
 			if(recipient == null) continue;
@@ -258,7 +346,7 @@ public class MailManager extends BasicManager {
 	 * @param identity
 	 * @return true if the marked flag has been changed
 	 */
-	public boolean setMarked(DBMail mail, Boolean marked, Identity identity) {
+	public boolean setMarked(DBMailLight mail, Boolean marked, Identity identity) {
 		if(mail == null || marked == null || identity == null) throw new NullPointerException();
 
 		boolean changed = false;
@@ -278,7 +366,7 @@ public class MailManager extends BasicManager {
 		return changed;
 	}
 	
-	public DBMail toggleMarked(DBMail mail, Identity identity) {
+	public DBMailLight toggleMarked(DBMailLight mail, Identity identity) {
 		Boolean marked = null;
 		for(DBMailRecipient recipient:mail.getRecipients()) {
 			if(recipient == null) continue;
@@ -298,10 +386,10 @@ public class MailManager extends BasicManager {
 	 * @param mail
 	 * @param identity
 	 */
-	public void delete(DBMail mail, Identity identity, boolean deleteMetaMail) {
+	public void delete(DBMailLight mail, Identity identity, boolean deleteMetaMail) {
 		if(StringHelper.containsNonWhitespace(mail.getMetaId()) && deleteMetaMail) {
-			List<DBMail> mails = getEmailsByMetaId(mail.getMetaId());
-			for(DBMail childMail:mails) {
+			List<DBMailLight> mails = getEmailsByMetaId(mail.getMetaId());
+			for(DBMailLight childMail:mails) {
 				deleteMail(childMail, identity, false);
 			}
 		} else {
@@ -309,7 +397,7 @@ public class MailManager extends BasicManager {
 		}
 	}
 
-	private void deleteMail(DBMail mail, Identity identity, boolean forceRemoveRecipient) {
+	private void deleteMail(DBMailLight mail, Identity identity, boolean forceRemoveRecipient) {
 		boolean delete = true;
 		List<DBMailRecipient> updates = new ArrayList<DBMailRecipient>();
 		if(mail.getFrom() != null && mail.getFrom().getRecipient() != null) {
@@ -341,13 +429,29 @@ public class MailManager extends BasicManager {
 		}
 		
 		if(delete) {
+			Set<String> paths = new HashSet<String>();
+			
 			//all marked as deleted -> delete the mail
 			List<DBMailAttachment> attachments = getAttachments(mail);
 			for(DBMailAttachment attachment: attachments) {
 				mail = attachment.getMail();//reload from the hibernate session
 				dbInstance.deleteObject(attachment);
+				if(StringHelper.containsNonWhitespace(attachment.getPath())) {
+					paths.add(attachment.getPath());
+				}
 			}
 			dbInstance.deleteObject(mail);
+			
+			//try to remove orphans file
+			for(String path:paths) {
+				int count = countAttachment(path);
+				if(count == 0) {
+					VFSItem item = mailModule.getRootForAttachments().resolve(path);
+					if(item instanceof VFSLeaf) {
+						((VFSLeaf)item).delete();
+					}
+				}
+			}
 		} else {
 			for(DBMailRecipient update:updates) {
 				dbInstance.updateObject(update);
@@ -363,17 +467,18 @@ public class MailManager extends BasicManager {
 	 * @param maxResults
 	 * @return
 	 */
-	public List<DBMail> getOutbox(Identity from, int firstResult, int maxResults) {
+	public List<DBMailLight> getOutbox(Identity from, int firstResult, int maxResults) {
 		StringBuilder sb = new StringBuilder();
-		sb.append("select mail from ").append(DBMailImpl.class.getName()).append(" mail")
+		sb.append("select distinct(mail) from ").append(DBMailLightImpl.class.getName()).append(" mail")
 			.append(" inner join fetch mail.from fromRecipient")
 			.append(" inner join fromRecipient.recipient fromRecipientIdentity")
-			.append(" inner join fetch mail.recipients recipient")
+			.append(" inner join mail.recipients recipient")
 			.append(" inner join recipient.recipient recipientIdentity")
 			.append(" where fromRecipientIdentity.key=:fromKey and fromRecipient.deleted=false and recipientIdentity.key!=:fromKey")
 			.append(" order by mail.creationDate desc");
 
-		TypedQuery<DBMail> query = dbInstance.getCurrentEntityManager().createQuery(sb.toString(), DBMail.class)
+		TypedQuery<DBMailLight> query = dbInstance.getCurrentEntityManager()
+				.createQuery(sb.toString(), DBMailLight.class)
 				.setParameter("fromKey", from.getKey());
 		if(maxResults > 0) {
 			query.setMaxResults(maxResults);
@@ -381,20 +486,20 @@ public class MailManager extends BasicManager {
 		if(firstResult > 0) {
 			query.setFirstResult(firstResult);
 		}
-		List<DBMail> mails = query.getResultList();
+		List<DBMailLight> mails = query.getResultList();
 		return mails;
 	}
 	
-	public List<DBMail> getEmailsByMetaId(String metaId) {
+	public List<DBMailLight> getEmailsByMetaId(String metaId) {
 		if(!StringHelper.containsNonWhitespace(metaId)) return Collections.emptyList();
 		
 		StringBuilder sb = new StringBuilder();
-		sb.append("select mail from ").append(DBMailImpl.class.getName()).append(" mail")
+		sb.append("select mail from ").append(DBMailLightImpl.class.getName()).append(" mail")
 			.append(" inner join fetch mail.from fromRecipient")
 			.append(" inner join fromRecipient.recipient fromRecipientIdentity")
 			.append(" where mail.metaId=:metaId");
 
-		return dbInstance.getCurrentEntityManager().createQuery(sb.toString(), DBMail.class)
+		return dbInstance.getCurrentEntityManager().createQuery(sb.toString(), DBMailLight.class)
 				.setParameter("metaId", metaId)
 				.getResultList();
 	}
@@ -410,11 +515,12 @@ public class MailManager extends BasicManager {
 	 * @param maxResults
 	 * @return
 	 */
-	public List<DBMail> getInbox(Identity identity, Boolean unreadOnly, Boolean fetchRecipients, Date from, int firstResult, int maxResults) {
+	public List<DBMailLight> getInbox(Identity identity, Boolean unreadOnly, Boolean fetchRecipients, Date from, int firstResult, int maxResults) {
 		StringBuilder sb = new StringBuilder();
 		String fetchOption = (fetchRecipients != null && fetchRecipients.booleanValue()) ? "fetch" : "";
-		sb.append("select mail from ").append(DBMailImpl.class.getName()).append(" mail")
-			.append(" inner join ").append(fetchOption).append(" mail.recipients recipient")
+		sb.append("select mail from ").append(DBMailLightImpl.class.getName()).append(" mail")
+			.append(" inner join fetch ").append(" mail.from fromRecipient")
+		  .append(" inner join ").append(fetchOption).append(" mail.recipients recipient")
 			.append(" inner join ").append(fetchOption).append(" recipient.recipient recipientIdentity")
 			.append(" where recipientIdentity.key=:recipientKey and recipient.deleted=false");
 		if(unreadOnly != null && unreadOnly.booleanValue()) {
@@ -425,7 +531,7 @@ public class MailManager extends BasicManager {
 		}
 		sb.append(" order by mail.creationDate desc");
 
-		TypedQuery<DBMail> query = dbInstance.getCurrentEntityManager().createQuery(sb.toString(), DBMail.class)
+		TypedQuery<DBMailLight> query = dbInstance.getCurrentEntityManager().createQuery(sb.toString(), DBMailLight.class)
 				.setParameter("recipientKey", identity.getKey());
 		if(maxResults > 0) {
 			query.setMaxResults(maxResults);
@@ -437,7 +543,7 @@ public class MailManager extends BasicManager {
 			query.setParameter("from", from, TemporalType.TIMESTAMP);
 		}
 
-		List<DBMail> mails = query.getResultList();
+		List<DBMailLight> mails = query.getResultList();
 		return mails;
 	}
 	
@@ -651,36 +757,43 @@ public class MailManager extends BasicManager {
 			//add bcc recipients
 			appendRecipients(mail, bccLists, toAddress, bccAddress, false, makeRealMail, result);
 			
-			dbInstance.saveObject(mail);
+			dbInstance.getCurrentEntityManager().persist(mail);
 			
 			//save attachments
 			if(attachments != null && !attachments.isEmpty()) {
 				for(File attachment:attachments) {
-					DBMailAttachmentData data = new DBMailAttachmentData();
-					data.setSize(attachment.length());
-					data.setName(attachment.getName());
-					data.setMimetype(WebappHelper.getMimeType(attachment.getName()));
-					data.setMail(mail);
-					
-					InputStream fis = null;
+
+					FileInputStream in = null;
 					try {
-						byte[] datas = new byte[(int)attachment.length()];
-						fis = new FileInputStream(attachment);
-						fis.read(datas);
-						data.setDatas(datas);
-						dbInstance.saveObject(data);
+						DBMailAttachment data = new DBMailAttachment();
+						data.setSize(attachment.length());
+						data.setName(attachment.getName());
+						
+						long checksum = FileUtils.checksum(attachment, new Adler32()).getValue();
+						data.setChecksum(new Long(checksum));
+						data.setMimetype(WebappHelper.getMimeType(attachment.getName()));
+						
+						in = new FileInputStream(attachment);
+						String path = saveAttachmentToStorage(data.getName(), data.getMimetype(), checksum, attachment.length(), in);
+						data.setPath(path);
+						data.setMail(mail);
+
+						dbInstance.getCurrentEntityManager().persist(data);
 					} catch (FileNotFoundException e) {
 						logError("File attachment not found: " + attachment, e);
 					} catch (IOException e) {
 						logError("Error with file attachment: " + attachment, e);
 					} finally {
-						IOUtils.closeQuietly(fis);
+						IOUtils.closeQuietly(in);
 					}
 				}
 			}
 			
 			if(makeRealMail) {
-				sendRealMessage(fromAddress, toAddress, ccAddress, bccAddress, subject, body, attachments, result);
+				//check that we send an email to someone
+				if(!toAddress.isEmpty() || !ccAddress.isEmpty() || !bccAddress.isEmpty()) {
+					sendRealMessage(fromAddress, toAddress, ccAddress, bccAddress, subject, body, attachments, result);
+				}
 			}
 
 			//update subscription
@@ -828,7 +941,9 @@ public class MailManager extends BasicManager {
 			List<Address> ccList = new ArrayList<Address>();
 			if(ccId != null) {
 				Address ccAddress = createAddress(ccId, result, true);
-				ccList.add(ccAddress);
+				if(ccAddress != null) {
+					ccList.add(ccAddress);
+				}
 			}
 
 			//add cc contact list
@@ -927,6 +1042,8 @@ public class MailManager extends BasicManager {
 					result.setReturnCode(MailerResult.RECIPIENT_ADDRESS_ERROR);
 				}
 			}
+		} else if(recipient.getRecipient().getStatus() == Identity.STATUS_LOGIN_DENIED) {
+			result.addFailedIdentites(recipient.getRecipient());
 		} else {
 			if(force || wantRealMailToo(recipient.getRecipient())) {
 				if(!StringHelper.containsNonWhitespace(emailAddress)) {
@@ -956,21 +1073,25 @@ public class MailManager extends BasicManager {
 	
 	private Address createAddress(Identity recipient, MailerResult result, boolean error) {
 		if(recipient != null) {
-			String emailAddress = recipient.getUser().getProperty(UserConstants.EMAIL, null);
-			Address address;
-			try {
-				address = createAddress(emailAddress);
-				if(address == null) {
+			if(recipient.getStatus() == Identity.STATUS_LOGIN_DENIED) {
+				result.addFailedIdentites(recipient);
+			} else {
+				String emailAddress = recipient.getUser().getProperty(UserConstants.EMAIL, null);
+				Address address;
+				try {
+					address = createAddress(emailAddress);
+					if(address == null) {
+						result.addFailedIdentites(recipient);
+						if(error) {
+							result.setReturnCode(MailerResult.RECIPIENT_ADDRESS_ERROR);
+						}
+					}
+					return address;
+				} catch (AddressException e) {
 					result.addFailedIdentites(recipient);
 					if(error) {
 						result.setReturnCode(MailerResult.RECIPIENT_ADDRESS_ERROR);
 					}
-				}
-				return address;
-			} catch (AddressException e) {
-				result.addFailedIdentites(recipient);
-				if(error) {
-					result.setReturnCode(MailerResult.RECIPIENT_ADDRESS_ERROR);
 				}
 			}
 		}
@@ -1055,9 +1176,9 @@ public class MailManager extends BasicManager {
 						return msg;
 					}
 					messageBodyPart = new MimeBodyPart();
-					
-					DBMailAttachmentData data = getAttachmentWithData(attachment.getKey());
-					DataSource source = new ByteArrayDataSource(data.getDatas(), attachment.getMimetype());
+
+					VFSLeaf data = getAttachmentDatas(attachment);
+					DataSource source = new VFSDataSource(attachment.getName(), attachment.getMimetype(), data);
 					messageBodyPart.setDataHandler(new DataHandler(source));
 					messageBodyPart.setFileName(attachment.getName());
 					multipart.addBodyPart(messageBodyPart);
@@ -1224,5 +1345,37 @@ public class MailManager extends BasicManager {
 			logWarn("Could not send mail", e);
 		}
 	}
+	
+	private static class VFSDataSource implements DataSource {
+		
+		private final String name;
+		private final String contentType;
+		private final VFSLeaf file;
+		
+		public VFSDataSource(String name, String contentType, VFSLeaf file) {
+			this.name = name;
+			this.contentType = contentType;
+			this.file = file;
+		}
 
+		@Override
+		public String getContentType() {
+			return contentType;
+		}
+
+		@Override
+		public InputStream getInputStream() throws IOException {
+			return file.getInputStream();
+		}
+
+		@Override
+		public String getName() {
+			return name;
+		}
+
+		@Override
+		public OutputStream getOutputStream() throws IOException {
+			return null;
+		}
+	}
 }

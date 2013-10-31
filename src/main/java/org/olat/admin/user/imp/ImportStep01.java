@@ -24,7 +24,6 @@
 */
 package org.olat.admin.user.imp;
 
-import java.util.ArrayList;
 import java.util.List;
 
 import org.olat.core.gui.UserRequest;
@@ -37,6 +36,7 @@ import org.olat.core.gui.components.form.flexible.impl.elements.table.FlexiColum
 import org.olat.core.gui.components.form.flexible.impl.elements.table.FlexiTableColumnModel;
 import org.olat.core.gui.components.form.flexible.impl.elements.table.FlexiTableDataModel;
 import org.olat.core.gui.components.form.flexible.impl.elements.table.FlexiTableDataModelFactory;
+import org.olat.core.gui.components.form.flexible.impl.elements.table.FlexiTableDataModelImpl;
 import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.WindowControl;
 import org.olat.core.gui.control.generic.wizard.BasicStep;
@@ -46,6 +46,7 @@ import org.olat.core.gui.control.generic.wizard.StepFormController;
 import org.olat.core.gui.control.generic.wizard.StepsEvent;
 import org.olat.core.gui.control.generic.wizard.StepsRunContext;
 import org.olat.core.gui.translator.Translator;
+import org.olat.core.id.Identity;
 import org.olat.user.UserManager;
 import org.olat.user.propertyhandlers.UserPropertyHandler;
 
@@ -79,8 +80,8 @@ class ImportStep01 extends BasicStep {
 	}
 
 	private final class ImportStepForm01 extends StepFormBasicController {
-		private ArrayList<List<String>> newIdents;
-		private List<Object> idents;
+		private List<TransientIdentity> newIdents;
+		private List<Identity> idents;
 		private FormLayoutContainer textContainer;
 		private List<UserPropertyHandler> userPropertyHandlers;
 
@@ -103,14 +104,14 @@ class ImportStep01 extends BasicStep {
 			fireEvent(ureq, StepsEvent.ACTIVATE_NEXT);
 		}
 
-		@SuppressWarnings({ "unused", "unchecked"})
+		@SuppressWarnings("unchecked")
 		@Override
 		protected void initForm(FormItemContainer formLayout, Controller listener, UserRequest ureq) {
 			FormLayoutContainer formLayoutVertical = FormLayoutContainer.createVerticalFormLayout("vertical", getTranslator());
 			formLayout.add(formLayoutVertical);
 
-			idents = (List<Object>) getFromRunContext("idents");
-			newIdents = (ArrayList<List<String>>) getFromRunContext("newIdents");
+			idents = (List<Identity>) getFromRunContext("idents");
+			newIdents = (List<TransientIdentity>) getFromRunContext("newIdents");
 			textContainer = FormLayoutContainer.createCustomFormLayout("step1", getTranslator(), this.velocity_root + "/step1.html");
 			formLayoutVertical.add(textContainer);
 
@@ -125,37 +126,29 @@ class ImportStep01 extends BasicStep {
 			int colPos = 0;
 			// add special column with information about whether this user
 			// exists already or not
-			FlexiColumnModel newUserCustomColumnModel = new DefaultFlexiColumnModel("table.user.existing");
+			FlexiColumnModel newUserCustomColumnModel = new DefaultFlexiColumnModel("table.user.existing", colPos++);
 			newUserCustomColumnModel.setCellRenderer(new UserNewOldCustomFlexiCellRenderer());
 			newUserCustomColumnModel.setAlignment(FlexiColumnModel.ALIGNMENT_CENTER);
 			tableColumnModel.addFlexiColumnModel(newUserCustomColumnModel);
-			colPos++;
 			
 			// fixed fields:
-			tableColumnModel.addFlexiColumnModel(new DefaultFlexiColumnModel("table.user.login"));
-			colPos++;
+			tableColumnModel.addFlexiColumnModel(new DefaultFlexiColumnModel("table.user.login", colPos++));
 			if (canCreateOLATPassword) {
-				tableColumnModel.addFlexiColumnModel(new DefaultFlexiColumnModel("table.user.pwd"));
+				tableColumnModel.addFlexiColumnModel(new DefaultFlexiColumnModel("table.user.pwd", colPos++));
 			}
-			colPos++;
-			tableColumnModel.addFlexiColumnModel(new DefaultFlexiColumnModel("table.user.lang"));
-			colPos++;
+			tableColumnModel.addFlexiColumnModel(new DefaultFlexiColumnModel("table.user.lang", colPos++));
+
 			// followed by all properties configured
 			// if only mandatory required: check for um.isMandatoryUserProperty(usageIdentifyer, userPropertyHandler);
 			userPropertyHandlers = UserManager.getInstance().getUserPropertyHandlersFor(usageIdentifyer, true);
 			for (int i = 0; i < userPropertyHandlers.size(); i++) {
 				UserPropertyHandler userPropertyHandler = userPropertyHandlers.get(i);
-					tableColumnModel.addFlexiColumnModel(new DefaultFlexiColumnModel(userPropertyHandler.i18nColumnDescriptorLabelKey()));
-					colPos++;
+					tableColumnModel.addFlexiColumnModel(new DefaultFlexiColumnModel(userPropertyHandler.i18nColumnDescriptorLabelKey(), colPos++));
 			}
 
-
-			FlexiTableDataModel tableDataModel = FlexiTableDataModelFactory.createFlexiTableDataModel(new Model(idents, colPos),
-					tableColumnModel);
-			uifactory.addTableElement("newUsers", tableDataModel, formLayoutVertical);
-
+			FlexiTableDataModel<Identity> tableDataModel = new FlexiTableDataModelImpl<Identity>(new Model(idents, colPos), tableColumnModel);
+			uifactory.addTableElement(ureq, getWindowControl(), "newUsers", tableDataModel, formLayoutVertical);
 		}
-
 	}
 }
 
