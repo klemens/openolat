@@ -161,7 +161,6 @@ public class ExamCourseNodeEditController extends ActivateableTabbableDefaultCon
 				
 				cmcExamCtr = new CloseableModalController(getWindowControl(), translator.translate("examEditController.command.close"), examLaunchCtr.getInitialComponent());
 				cmcExamCtr.addControllerListener(this);
-				cmcExamCtr.insertHeaderCss();
 				cmcExamCtr.activate();
 			}
 		} else if (source == chooseButton || source == changeButton) {

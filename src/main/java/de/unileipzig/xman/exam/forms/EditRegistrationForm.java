@@ -63,54 +63,36 @@ public class EditRegistrationForm extends FormBasicController {
 	@Override
 	protected void initForm(FormItemContainer formLayout, Controller listener,
 			UserRequest ureq) {
-		SimpleDateFormat formater = new SimpleDateFormat("dd.MM.yyyy HH:mm");
 		Calendar future = Calendar.getInstance(ureq.getLocale());
 		future.setTime(new Date()); future.add(Calendar.MONTH, 1);
 		
-		String now = formater.format(new Date());
-		String inAMonth = formater.format(future.getTime());
+		Date now = new Date();
+		Date inAMonth = future.getTime();
 		
-		regStart = uifactory.addDateChooser("regStart",
-				"EditRegistrationForm.regStartDate", now, formLayout);
-		regStart.setCustomDateFormat("dd.MM.yyyy HH:mm");
+		regStart = uifactory.addDateChooser("regStart", "EditRegistrationForm.regStartDate", now, formLayout);
 		regStart.setMandatory(true);
 		regStart.setDisplaySize(20);
 		regStart.setMaxLength(16);
 		regStart.setDateChooserTimeEnabled(true);
-		regStart.setDateChooserDateFormat("%d.%m.%Y %H:%M");
 		if (regStartDate != null)
 			regStart.setDate(regStartDate);
-		regStart.setRegexMatchCheck(
-				"\\d{2}\\.\\d{2}\\.\\d{4}\\ \\d{2}\\:\\d{2}",
-				"EditRegistrationForm.isEmpty");
 
-		regEnd = uifactory.addDateChooser("regEnd",
-				"EditRegistrationForm.regEndDate", inAMonth, formLayout);
-		regEnd.setCustomDateFormat("dd.MM.yyyy HH:mm");
+		regEnd = uifactory.addDateChooser("regEnd", "EditRegistrationForm.regEndDate", inAMonth, formLayout);
 		regEnd.setMandatory(true);
 		regEnd.setDisplaySize(20);
 		regEnd.setMaxLength(16);
 		regEnd.setDateChooserTimeEnabled(true);
-		regEnd.setDateChooserDateFormat("%d.%m.%Y %H:%M");
 		if (regEndDate != null)
 			regEnd.setDate(regEndDate);
-		regEnd.setRegexMatchCheck("\\d{2}\\.\\d{2}\\.\\d{4}\\ \\d{2}\\:\\d{2}",
-				"EditRegistrationForm.isEmpty");
 
-		signOff = uifactory.addDateChooser("signOff",
-				"EditRegistrationForm.signOffDate", inAMonth, formLayout);
-		signOff.setCustomDateFormat("dd.MM.yyyy HH:mm");
+		signOff = uifactory.addDateChooser("signOff", "EditRegistrationForm.signOffDate", inAMonth, formLayout);
 		signOff.setMandatory(true);
 		signOff.setExampleKey("EditRegistrationForm.signOffDate.example", null);
 		signOff.setDisplaySize(20);
 		signOff.setMaxLength(16);
 		signOff.setDateChooserTimeEnabled(true);
-		signOff.setDateChooserDateFormat("%d.%m.%Y %H:%M");
 		if (signOffDate != null)
 			signOff.setDate(signOffDate);
-		signOff.setRegexMatchCheck(
-				"\\d{2}\\.\\d{2}\\.\\d{4}\\ \\d{2}\\:\\d{2}",
-				"EditRegistrationForm.isEmpty");
 
 		FormLayoutContainer buttonGroupLayout = FormLayoutContainer.createButtonLayout("buttonGroupLayout", getTranslator());
 		formLayout.add(buttonGroupLayout);

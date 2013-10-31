@@ -1,6 +1,5 @@
 package de.unileipzig.xman.esf;
 
-import java.util.Date;
 import java.util.List;
 
 import org.olat.admin.user.delete.service.UserDeletionManager;
@@ -30,7 +29,6 @@ public class ElectronicStudentFileManager implements UserDataDeletable {
 	 * @param userDeletionManager
 	 */
 	private ElectronicStudentFileManager(UserDeletionManager userDeletionManager) {
-		userDeletionManager.registerDeletableUserData(this);
 		INSTANCE = this;
 	}
 	

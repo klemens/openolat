@@ -61,9 +61,7 @@ public class CreateAndEditAppointmentForm extends FormBasicController {
 	@Override
 	protected void initForm(FormItemContainer formLayout, Controller listener,
 			UserRequest ureq) {
-		date = uifactory.addDateChooser("date", "CreateAndEditAppointmentForm.date", new SimpleDateFormat("dd.MM.yyyy HH:mm").format(new Date()), formLayout);
-		date.setCustomDateFormat("dd.MM.yyyy HH:mm");
-		date.setDateChooserDateFormat("%d.%m.%Y %H:%M");
+		date = uifactory.addDateChooser("date", "CreateAndEditAppointmentForm.date", new Date(), formLayout);
 		date.setMandatory(true);
 		date.setMaxLength(16);
 		date.setDisplaySize(20);
