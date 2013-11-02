@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 
+import org.olat.core.gui.components.EscapeMode;
 import org.olat.core.gui.components.table.DefaultColumnDescriptor;
 import org.olat.core.gui.components.table.DefaultTableDataModel;
 import org.olat.core.gui.components.table.TableController;
@@ -94,7 +95,10 @@ public class AppointmentStudentTableModel extends DefaultTableDataModel<Appointm
 		tableController.addColumnDescriptor(new DefaultColumnDescriptor("AppointmentStudentTableModel.header.duration", 2, null, null));
 		tableController.addColumnDescriptor(new DefaultColumnDescriptor("AppointmentStudentTableModel.header.subscribe", 3, ACTION_SUBSCRIBE, null));
 		tableController.addColumnDescriptor(new DefaultColumnDescriptor("AppointmentStudentTableModel.header.unsubscribe", 4, ACTION_UNSUBSCRIBE, null));
-		tableController.addColumnDescriptor(new DefaultColumnDescriptor("AppointmentStudentTableModel.header.status", 5, null, null));
+		
+		DefaultColumnDescriptor status = new DefaultColumnDescriptor("AppointmentStudentTableModel.header.status", 5, null, null);
+		status.setEscapeHtml(EscapeMode.none);
+		tableController.addColumnDescriptor(status);
 		
 		columnCount = 6;
 	}

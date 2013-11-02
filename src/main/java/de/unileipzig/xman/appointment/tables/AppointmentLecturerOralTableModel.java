@@ -5,6 +5,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 
+import org.olat.core.gui.components.EscapeMode;
 import org.olat.core.gui.components.table.DefaultColumnDescriptor;
 import org.olat.core.gui.components.table.DefaultTableDataModel;
 import org.olat.core.gui.components.table.TableController;
@@ -96,7 +97,7 @@ public class AppointmentLecturerOralTableModel extends DefaultTableDataModel<App
 		tableController.addColumnDescriptor(new DefaultColumnDescriptor("AppointmentLecturerOralTableModel.header.studypath", 5, null, getLocale()));
 		tableController.addColumnDescriptor(new DefaultColumnDescriptor("AppointmentLecturerOralTableModel.header.result", 6, null, getLocale()));
 		tableController.addColumnDescriptor(new DefaultColumnDescriptor("AppointmentLecturerOralTableModel.header.comment", 7, null, getLocale()));
-		tableController.addColumnDescriptor(new DefaultColumnDescriptor("AppointmentLecturerOralTableModel.header.status", 8, null, getLocale()) {
+		DefaultColumnDescriptor status = new DefaultColumnDescriptor("AppointmentLecturerOralTableModel.header.status", 8, null, getLocale()) {
 			/**
 			 * Sort order: free, registered, earmarked
 			 */
@@ -119,7 +120,9 @@ public class AppointmentLecturerOralTableModel extends DefaultTableDataModel<App
 				
 				return scoreA - scoreB;
 			}
-		});
+		};
+		status.setEscapeHtml(EscapeMode.none);
+		tableController.addColumnDescriptor(status);
 		
 		columnCount = 9;
 		

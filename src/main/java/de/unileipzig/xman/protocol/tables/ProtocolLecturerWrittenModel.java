@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 
+import org.olat.core.gui.components.EscapeMode;
 import org.olat.core.gui.components.table.DefaultColumnDescriptor;
 import org.olat.core.gui.components.table.DefaultTableDataModel;
 import org.olat.core.gui.components.table.TableController;
@@ -76,7 +77,8 @@ public class ProtocolLecturerWrittenModel extends DefaultTableDataModel<Protocol
 		tableController.addColumnDescriptor(new DefaultColumnDescriptor("ProtocolLecturerWrittenModel.header.studypath", 2, null, getLocale()));
 		tableController.addColumnDescriptor(new DefaultColumnDescriptor("ProtocolLecturerWrittenModel.header.result", 3, null, getLocale()));
 		tableController.addColumnDescriptor(new DefaultColumnDescriptor("ProtocolLecturerWrittenModel.header.comment", 4, null, getLocale()));
-		tableController.addColumnDescriptor(new DefaultColumnDescriptor("ProtocolLecturerWrittenModel.header.status", 5, null, getLocale()) {
+				
+		DefaultColumnDescriptor status = new DefaultColumnDescriptor("ProtocolLecturerWrittenModel.header.status", 5, null, getLocale()) {
 			/**
 			 * Sort order: registered, earmarked
 			 */
@@ -103,7 +105,9 @@ public class ProtocolLecturerWrittenModel extends DefaultTableDataModel<Protocol
 				
 				return scoreA - scoreB;
 			}
-		});
+		};
+		status.setEscapeHtml(EscapeMode.none);
+		tableController.addColumnDescriptor(status);
 		
 		columnCount = 6;
 		
