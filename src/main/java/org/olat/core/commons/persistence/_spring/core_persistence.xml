@@ -9,7 +9,6 @@
 
 		<mapping-file>de/unileipzig/xman/appointment/AppointmentImpl.hbm.xml</mapping-file>
 		<mapping-file>de/unileipzig/xman/comment/CommentEntry.hbm.xml</mapping-file>
-		<mapping-file>de/unileipzig/xman/comment/CommentImpl.hbm.xml</mapping-file>
 		<mapping-file>de/unileipzig/xman/esf/ElectronicStudentFileImpl.hbm.xml</mapping-file>
 		<mapping-file>de/unileipzig/xman/exam/ExamImpl.hbm.xml</mapping-file>
 		<mapping-file>de/unileipzig/xman/protocol/ProtocolImpl.hbm.xml</mapping-file>

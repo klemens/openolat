@@ -21,13 +21,6 @@ CREATE TABLE `o_xman_category` (
   PRIMARY KEY (`category_id`)
 );
 
-CREATE TABLE `o_xman_comment` (
-  `comment_id` bigint(20) NOT NULL DEFAULT '0',
-  `lastmodified` datetime NOT NULL DEFAULT '0000-00-00 00:00:00',
-  `creationdate` datetime DEFAULT NULL,
-  PRIMARY KEY (`comment_id`)
-);
-
 CREATE TABLE `o_xman_commentEntry` (
   `parent_id` bigint(20) DEFAULT NULL,
   `commentEntry_id` bigint(20) NOT NULL DEFAULT '0',
@@ -43,7 +36,6 @@ CREATE TABLE `o_xman_esf` (
   `lastmodified` datetime NOT NULL DEFAULT '0000-00-00 00:00:00',
   `creationdate` datetime DEFAULT NULL,
   `identity_id` bigint(20) DEFAULT NULL,
-  `comment_id` bigint(20) DEFAULT NULL,
   PRIMARY KEY (`esf_id`)
 );
 

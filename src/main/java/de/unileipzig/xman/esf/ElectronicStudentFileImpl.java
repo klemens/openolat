@@ -2,36 +2,37 @@ package de.unileipzig.xman.esf;
 
 import java.util.ArrayList;
 import java.util.Date;
+import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
+import java.util.Set;
 
 import org.olat.core.commons.persistence.PersistentObject;
 import org.olat.core.id.Identity;
-import org.olat.core.id.ModifiedInfo;
 
-import de.unileipzig.xman.comment.Comment;
 import de.unileipzig.xman.comment.CommentEntry;
-import de.unileipzig.xman.comment.CommentManager;
 import de.unileipzig.xman.protocol.Protocol;
 
 public class ElectronicStudentFileImpl extends PersistentObject implements ElectronicStudentFile {
 
 	private Identity identity;
 	private List<Protocol> protocolList;
-	private Comment comments;
+	private Set<CommentEntry> comments;
 	private Date lastModified;
 	
-	ElectronicStudentFileImpl(){}
+	ElectronicStudentFileImpl() {
+		
+	}
 	
 	/**
 	 * all fields will be set via the setMethods, so here is nothing to do
 	 */
 	ElectronicStudentFileImpl(Identity identity){
-		
-		this.comments = CommentManager.getInstance().createComment();
-		CommentManager.getInstance().persistComment(this.comments);
+		comments = new HashSet<CommentEntry>();
+		protocolList = new ArrayList<Protocol>();
+		lastModified = new Date();
 		
 		this.identity = identity;
-		this.protocolList = new ArrayList<Protocol>();
 	}
 		
 	// ############################# Identity ####################################
@@ -66,30 +67,33 @@ public class ElectronicStudentFileImpl extends PersistentObject implements Elect
 	// ########################### Comment ###################################
 	
 	public void addCommentEntry(CommentEntry commentEntry) {
-		
-		this.comments.addCommentEntry(commentEntry);
+		comments.add(commentEntry);
 	}
 
 	public void removeCommentEntries(List<CommentEntry> entries) {
-		
-		this.comments.removeCommentEntries(entries);
+		comments.remove(entries);
+		Iterator<CommentEntry> it = comments.iterator();
+		while(it.hasNext()) {
+			CommentEntry c1 = it.next();
+			for(CommentEntry c2 : entries) {
+				if(c2.equalsByPersistableKey(c1)) {
+					it.remove();
+					break;
+				}
+			}
+		}
 	}
 	
-	public List<CommentEntry> getCommentEntries() {
-		
-		return comments.getComments();
+	@Override
+	public Set<CommentEntry> getComments() {
+		return comments;
 	}
 	
-	public Comment getComments() {
-		
-		return this.comments;
+	@Override
+	public void setComments(Set<CommentEntry> comments) {
+		this.comments = comments;
 	}
 	
-	public void setComments(Comment comment) {
-		
-		this.comments = comment;
-	}
-
 
 	// ########################## OLAT Resourceable ########################
 	

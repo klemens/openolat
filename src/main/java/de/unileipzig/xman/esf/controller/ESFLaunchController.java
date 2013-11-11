@@ -208,10 +208,7 @@ public class ESFLaunchController extends BasicController {
 				.translate("ESFEditController.comment.emptyTableMessage"));
 		commentTableCtr = new TableController(commentTableConfig, ureq,
 				wControl, translator);
-		// if esf is null, give an empty list to the model
-		commentTableMdl = new CommentEntryTableModel(translator.getLocale(),
-				(esf != null ? esf.getCommentEntries()
-						: new ArrayList<CommentEntry>()));
+		commentTableMdl = new CommentEntryTableModel(translator.getLocale(), new ArrayList<CommentEntry>(esf.getComments()));
 		commentTableMdl.setTable(commentTableCtr);
 		commentTableCtr.setTableDataModel(commentTableMdl);
 		commentTableCtr.setSortColumn(0, false);

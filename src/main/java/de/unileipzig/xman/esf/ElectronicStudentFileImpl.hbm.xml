@@ -26,9 +26,11 @@
     
      <many-to-one name="identity" class="org.olat.basesecurity.IdentityImpl" 
 		column="identity_id" outer-join="true" cascade="none" not-null="false"/> 
-    
-     <many-to-one name="comments" class="de.unileipzig.xman.comment.CommentImpl" 
-		column="comment_id" outer-join="true" cascade="all" not-null="false"/> 
+
+	<set name="comments" cascade="all-delete-orphan">
+		<key column="parent_id"/>
+		<one-to-many class="de.unileipzig.xman.comment.CommentEntry"/>
+	</set>
 		
   </class>  
 </hibernate-mapping>

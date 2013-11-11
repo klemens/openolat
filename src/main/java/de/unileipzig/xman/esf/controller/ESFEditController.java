@@ -177,9 +177,7 @@ public class ESFEditController extends MainLayoutBasicController {
 		commentTableCtr.addMultiSelectAction("ESFEditController.edit",
 				EDIT_COMMENT);
 		// if esf is null, give an empty list to the model
-		commentTableMdl = new CommentEntryTableModel(translator.getLocale(),
-				(esf != null ? esf.getCommentEntries()
-						: new ArrayList<CommentEntry>()));
+		commentTableMdl = new CommentEntryTableModel(translator.getLocale(), new ArrayList<CommentEntry>(esf.getComments()));
 		commentTableMdl.setTable(commentTableCtr);
 		commentTableCtr.setTableDataModel(commentTableMdl);
 		commentTableCtr.setSortColumn(0, true);
@@ -258,22 +256,14 @@ public class ESFEditController extends MainLayoutBasicController {
 			// validation ok, comment should be saved
 			if (event == Form.EVNT_VALIDATION_OK) {
 
-				// create commentEntry and set it
-				CommentEntry commentEntry = CommentManager.getInstance()
-						.createCommentEntry(addCommentForm.getComment(),
-								ureq.getIdentity());
-
-				// add it to the esf, and update it in the db
-				this.esf = ElectronicStudentFileManager.getInstance().retrieveESFByIdentity(esf.getIdentity());
-				this.esf.addCommentEntry(commentEntry);
-				ElectronicStudentFileManager.getInstance()
-						.updateElectronicStundentFile(esf);
+				// add new comment
+				CommentManager.getInstance().createCommentInEsa(esf, addCommentForm.getComment(), ureq.getIdentity());
 
 				// deactivate the modal dialog
 				this.getWindowControl().pop();
 
-				// update the comment table
-				this.createCommentTableModel(ureq, this.getWindowControl());
+				// refresh view
+				this.buildView(ureq, this.getWindowControl());
 			}
 		}
 
@@ -291,10 +281,8 @@ public class ESFEditController extends MainLayoutBasicController {
 				// close modal dialog
 				this.getWindowControl().pop();
 
-				// set changed comment and update
-				this.commentEntry = CommentManager.getInstance().retrieveCommentEntryByKey(this.commentEntry.getKey());
-				this.commentEntry.setComment(editCommentForm.getComment());
-				CommentManager.getInstance().updateCommentEntry(commentEntry);
+				// update comment
+				CommentManager.getInstance().updateCommentInEsa(commentEntry, editCommentForm.getComment());
 
 				// refresh view
 				this.buildView(ureq, this.getWindowControl());
@@ -423,9 +411,7 @@ public class ESFEditController extends MainLayoutBasicController {
 					// you could only edit one comment at a time
 					if (commentList.size() == 1) {
 
-						this.commentEntry = CommentManager.getInstance()
-								.retrieveCommentEntryByKey(
-										commentList.get(0).getKey());
+						commentEntry = commentList.get(0);
 
 						editCommentForm = new ESFCommentCreateAndEditForm(ureq,
 								getWindowControl(),

@@ -2,6 +2,7 @@ package de.unileipzig.xman.esf;
 
 import java.util.Date;
 import java.util.List;
+import java.util.Set;
 
 import org.olat.core.id.CreateInfo;
 import org.olat.core.id.Identity;
@@ -10,9 +11,7 @@ import org.olat.core.id.OLATResourceable;
 import org.olat.core.id.Persistable;
 import org.olat.core.util.resource.OresHelper;
 
-import de.unileipzig.xman.comment.Comment;
 import de.unileipzig.xman.comment.CommentEntry;
-import de.unileipzig.xman.exam.Exam;
 import de.unileipzig.xman.protocol.Protocol;
 
 /**
@@ -41,14 +40,9 @@ public interface ElectronicStudentFile extends CreateInfo, ModifiedInfo, Persist
 	public List<Protocol> getProtocolList();
 	
 	/**
-	 * @return the CommentEntries witch are set for this student
-	 */
-	public List<CommentEntry> getCommentEntries();
-	
-	/**
 	 * @return the comments of this esf
 	 */
-	public Comment getComments();
+	public Set<CommentEntry> getComments();
 	
 	/**
 	 * @return the date, when the esf was edited the last time
@@ -66,6 +60,11 @@ public interface ElectronicStudentFile extends CreateInfo, ModifiedInfo, Persist
 	 * @return the list of protocol of the student
 	 */
 	public void setProtocolList(List<Protocol> protocolList);
+	
+	/**
+	 * spring setter
+	 */
+	public void setComments(Set<CommentEntry> comments);
 	
 	/**
 	 * @param the date to set

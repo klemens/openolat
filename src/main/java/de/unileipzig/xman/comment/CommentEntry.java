@@ -22,9 +22,13 @@ public class CommentEntry extends PersistentObject implements ModifiedInfo {
 	private Date lastModified;
 	
 	CommentEntry() {
-		
 		this.author = null;
 		this.comment = "";
+	}
+	
+	CommentEntry(Identity author, String comment) {
+		this.author = author;
+		this.comment = comment;
 	}
 
 	/**

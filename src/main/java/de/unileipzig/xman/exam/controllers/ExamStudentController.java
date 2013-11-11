@@ -170,13 +170,8 @@ public class ExamStudentController extends BasicController {
 
 				// create comment
 				String commentText = translate("ExamStudentController.studentDeRegisteredHimself", new String[] { "'" + exam.getName() + "'" });
-				CommentEntry commentEntry = CommentManager.getInstance().createCommentEntry(commentText, ureq.getIdentity());
+				CommentManager.getInstance().createCommentInEsa(esf, commentText, ureq.getIdentity());
 
-				// add to esf an update the esf
-				esf = ElectronicStudentFileManager.getInstance().retrieveESFByIdentity(esf.getIdentity());
-				esf.addCommentEntry(commentEntry);
-				ElectronicStudentFileManager.getInstance().updateElectronicStundentFile(esf);
-				
 				// update view
 				subscriptionTableModel.update();
 				subscriptionTable.modelChanged();

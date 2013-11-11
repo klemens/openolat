@@ -123,21 +123,12 @@ public class ESFCreateController extends BasicController {
 					// create a comment for change of esf
 					// the comment
 					String[] comment = { new Date().toString(), oldLastName, oldFirstName, oldStudyPath, newLastName, newFirstName, newStudyPath };
-					String entry = translator.translate(
-							"ESFCreateController.changed", comment);
+					String entry = translator.translate("ESFCreateController.changed", comment);
 
-					CommentEntry commentEntry = CommentManager.getInstance()
-							.createCommentEntry();
-					commentEntry.setAuthor(ureq.getIdentity());
-					commentEntry.setComment(entry);
+					CommentManager.getInstance().createCommentInEsa(esf, entry, ureq.getIdentity());
 
-					// add the commentEntry
-					esf.addCommentEntry(commentEntry);
-
-					ElectronicStudentFileManager.getInstance()
-							.updateElectronicStundentFile(esf);
-					this.fireEvent(ureq, new Event(
-							ESFCreateController.CHANGE_EVENT));
+					this.fireEvent(ureq, new Event(ESFCreateController.CHANGE_EVENT));
+					
 					return;
 				}
 				// someone wants to validate/create his esf
@@ -162,12 +153,7 @@ public class ESFCreateController extends BasicController {
 						String entry = translator.translate(
 								"ESFCreateController.created", comment);
 
-						CommentEntry commentEntry = CommentManager.getInstance()
-								.createCommentEntry();
-						commentEntry.setAuthor(ureq.getIdentity());
-						commentEntry.setComment(entry);
-						
-						esf.addCommentEntry(commentEntry);
+						CommentManager.getInstance().createCommentInEsa(esf, entry, ureq.getIdentity());
 						
 					} catch (DuplicateObjectException e) {
 

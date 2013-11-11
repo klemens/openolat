@@ -21,7 +21,7 @@ import de.unileipzig.xman.comment.CommentEntry;
  * Initial Date:  22.05.2008 <br>
  * @author gerb
  */
-public class CommentEntryTableModel extends DefaultTableDataModel {
+public class CommentEntryTableModel extends DefaultTableDataModel<CommentEntry> {
 
 	private List<CommentEntry> entries;
 	private int COLUMN_COUNT = 3;
