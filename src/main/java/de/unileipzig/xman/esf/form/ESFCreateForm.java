@@ -106,10 +106,14 @@ public class ESFCreateForm extends FormBasicController {
 						&& !lastName.isEmpty("ESFCreateForm.empty");
 
 		// Check if valid institutional number given
-		// TODO could be more extensive
-		if(institutionalNumber.getIntValue() <= 0) {
-			institutionalNumber.setErrorKey("ESFCreateForm.empty", null);
-			valid = false;
+		try {
+			if(institutionalNumber.getIntValue() <= 0) {
+				institutionalNumber.setErrorKey("ESFCreateForm.empty", null);
+				valid = false;
+			}
+		} catch(NumberFormatException e) {
+			institutionalNumber.setErrorKey("ESFCreateForm.noInteger", null);
+			return false;
 		}
 		
 		// no esf yet, student wants to create one (no modification)
