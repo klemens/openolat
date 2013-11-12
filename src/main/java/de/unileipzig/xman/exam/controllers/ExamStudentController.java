@@ -212,7 +212,7 @@ public class ExamStudentController extends BasicController {
 					ElectronicStudentFileManager.getInstance().updateElectronicStundentFile(esf);
 					AppointmentManager.getInstance().updateAppointment(appointment);
 				} else {
-					getWindowControl().setInfo(translate("ExamStudentController.info.appNotAvailable"));
+					showInfo("ExamStudentController.info.appNotAvailable");
 				}
 				
 				// update view
