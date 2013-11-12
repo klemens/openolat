@@ -168,16 +168,22 @@ public class ExamStudentController extends BasicController {
 				// delete protocol
 				ProtocolManager.getInstance().deleteProtocol(protocol);
 
+				// reload esf
+				esf = ElectronicStudentFileManager.getInstance().retrieveESFByIdentity(esf.getIdentity());
+				
 				// create comment
 				String commentText = translate("ExamStudentController.studentDeRegisteredHimself", new String[] { "'" + exam.getName() + "'" });
-				CommentManager.getInstance().createCommentInEsa(esf, commentText, ureq.getIdentity());
+				CommentManager.getInstance().createCommentInEsf(esf, commentText, ureq.getIdentity());
+				
+				// save changed esf
+				ElectronicStudentFileManager.getInstance().updateElectronicStundentFile(esf);
 
 				// update view
 				subscriptionTableModel.update();
 				subscriptionTable.modelChanged();
 			}
 		} else if(source == examDetailsControler) {
-			Appointment appointment = examDetailsControler.getAppointment();
+			Appointment appointment = AppointmentManager.getInstance().findAppointmentByID(examDetailsControler.getAppointment().getKey());
 			
 			// subscribe to exam
 			if (event == Event.DONE_EVENT) {
@@ -193,11 +199,18 @@ public class ExamStudentController extends BasicController {
                 else
                 	comment = examType + ": " + accountFor;
                 
+                // reload esf
+                esf = ElectronicStudentFileManager.getInstance().retrieveESFByIdentity(esf.getIdentity());
+                
 				// register student to the chosen appointment
 				if(ProtocolManager.getInstance().registerStudent(appointment, esf, getTranslator(), exam.getEarmarkedEnabled(), comment)) {
 					// create comment
 					String commentText = translate("ExamStudentController.studentRegisteredHimself", new String[] { "'" + exam.getName() + "'" });
-					CommentManager.getInstance().createCommentInEsa(esf, commentText, ureq.getIdentity());
+					CommentManager.getInstance().createCommentInEsf(esf, commentText, ureq.getIdentity());
+					
+					// save changed esf and appointment
+					ElectronicStudentFileManager.getInstance().updateElectronicStundentFile(esf);
+					AppointmentManager.getInstance().updateAppointment(appointment);
 				} else {
 					getWindowControl().setInfo(translate("ExamStudentController.info.appNotAvailable"));
 				}

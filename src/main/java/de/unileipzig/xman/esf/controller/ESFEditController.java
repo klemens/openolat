@@ -255,15 +255,20 @@ public class ESFEditController extends MainLayoutBasicController {
 
 			// validation ok, comment should be saved
 			if (event == Form.EVNT_VALIDATION_OK) {
+				// reload esf from database
+				esf = ElectronicStudentFileManager.getInstance().retrieveESFByIdentity(esf.getIdentity());
 
 				// add new comment
-				CommentManager.getInstance().createCommentInEsa(esf, addCommentForm.getComment(), ureq.getIdentity());
+				CommentManager.getInstance().createCommentInEsf(esf, addCommentForm.getComment(), ureq.getIdentity());
+				
+				// save changed esf
+				ElectronicStudentFileManager.getInstance().updateElectronicStundentFile(esf);
 
 				// deactivate the modal dialog
-				this.getWindowControl().pop();
+				getWindowControl().pop();
 
 				// refresh view
-				this.buildView(ureq, this.getWindowControl());
+				buildView(ureq, this.getWindowControl());
 			}
 		}
 

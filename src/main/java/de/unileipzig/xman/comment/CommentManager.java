@@ -22,18 +22,22 @@ public class CommentManager {
 	public static CommentManager getInstance() { return INSTANCE; }
 	
 	/**
-	 * Convenience method for creating a comment
-	 * @param esf Valid esf
-	 * @param text Has to be size() >= 1
+	 * Create a comment in a student's esf
+	 * 
+	 * <br><b>Warning:</b>
+	 * The esf is not updated (hibernate) after the comment has been added.
+	 * You have to do this yourself.
+	 * 
+	 * @param esf
+	 * @param text
+	 * @param author
 	 */
-	public void createCommentInEsa(ElectronicStudentFile esf, String text, Identity author) {
+	public void createCommentInEsf(ElectronicStudentFile esf, String text, Identity author) {
 		// create comment
 		CommentEntry commentEntry = new CommentEntry(author, text);
 
-		// add comment and update the esf
-		esf = ElectronicStudentFileManager.getInstance().retrieveESFByIdentity(esf.getIdentity());
+		// add comment
 		esf.addCommentEntry(commentEntry);		
-		ElectronicStudentFileManager.getInstance().updateElectronicStundentFile(esf);
 	}
 	
 	/**

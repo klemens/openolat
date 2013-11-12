@@ -296,11 +296,16 @@ public class ExamLecturerWrittenController extends BasicController {
 								}),
 							proto.getIdentity()
 						);
+						
+						// load esf
+						ElectronicStudentFile esf = ElectronicStudentFileManager.getInstance().retrieveESFByIdentity(proto.getIdentity());
 
 						// add a comment to the esf
 						String commentText = translate("ExamLecturerWrittenController.earmarkedStudentManually", new String[] { getName(ureq.getIdentity()), exam.getName() });
+						CommentManager.getInstance().createCommentInEsf(esf, commentText, ureq.getIdentity());
 						
-						CommentManager.getInstance().createCommentInEsa(ElectronicStudentFileManager.getInstance().retrieveESFByIdentity(proto.getIdentity()), commentText, ureq.getIdentity());
+						// save changed esf
+						ElectronicStudentFileManager.getInstance().updateElectronicStundentFile(esf);
 					}
 					
 					// update view
@@ -350,11 +355,16 @@ public class ExamLecturerWrittenController extends BasicController {
 								}),
 							proto.getIdentity()
 						);
+						
+						// load esf
+						ElectronicStudentFile esf = ElectronicStudentFileManager.getInstance().retrieveESFByIdentity(proto.getIdentity());
 
 						// add a comment to the esf
 						String commentText = translate("ExamLecturerWrittenController.registeredFromEarmarkedStudentManually", new String[] { getName(ureq.getIdentity()), exam.getName() });
+						CommentManager.getInstance().createCommentInEsf(esf, commentText, ureq.getIdentity());
 						
-						CommentManager.getInstance().createCommentInEsa(ElectronicStudentFileManager.getInstance().retrieveESFByIdentity(proto.getIdentity()), commentText, ureq.getIdentity());
+						// save changed esf
+						ElectronicStudentFileManager.getInstance().updateElectronicStundentFile(esf);
 					}
 					
 					// update view
@@ -398,10 +408,15 @@ public class ExamLecturerWrittenController extends BasicController {
 						// delete protocol
 						ProtocolManager.getInstance().deleteProtocol(proto);
 						
+						// load esf
+						ElectronicStudentFile esf = ElectronicStudentFileManager.getInstance().retrieveESFByIdentity(proto.getIdentity());
+						
 						// add a comment to the esf
 						String commentText = translate("ExamLecturerWrittenController.removedStudentManually", new String[] { getName(ureq.getIdentity()), exam.getName() });
+						CommentManager.getInstance().createCommentInEsf(esf, commentText, ureq.getIdentity());
 						
-						CommentManager.getInstance().createCommentInEsa(ElectronicStudentFileManager.getInstance().retrieveESFByIdentity(proto.getIdentity()), commentText, ureq.getIdentity());
+						// save changed esf
+						ElectronicStudentFileManager.getInstance().updateElectronicStundentFile(esf);
 					}
 					
 					// update view
@@ -428,8 +443,11 @@ public class ExamLecturerWrittenController extends BasicController {
 						if(ProtocolManager.getInstance().registerStudent(userSearchControllerAppointmentHolder, esf, getTranslator(), false, "")) {
 							// create comment in esf
 							String commentText = translate("ExamLecturerOralController.registeredStudentManually", new String[] { getName(ureq.getIdentity()), exam.getName()});
+							CommentManager.getInstance().createCommentInEsf(esf, commentText, ureq.getIdentity());
 							
-							CommentManager.getInstance().createCommentInEsa(esf, commentText, ureq.getIdentity());
+							// safe changed esf and appointment
+							ElectronicStudentFileManager.getInstance().updateElectronicStundentFile(esf);
+							AppointmentManager.getInstance().updateAppointment(userSearchControllerAppointmentHolder);
 							
 							// update view
 							protocolTableModel.update();
@@ -515,9 +533,16 @@ public class ExamLecturerWrittenController extends BasicController {
 				String body = editMailForm.getBody();
 			
 				for (Protocol proto : editMailFormProtocolHolder) {
-						MailManager.getInstance().sendEmail(subject, body, proto.getIdentity());
-						
-						CommentManager.getInstance().createCommentInEsa(ElectronicStudentFileManager.getInstance().retrieveESFByIdentity(proto.getIdentity()), "E-Mail: " + subject + "\n" + body, ureq.getIdentity());
+					MailManager.getInstance().sendEmail(subject, body, proto.getIdentity());
+					
+					// load esf
+					ElectronicStudentFile esf = ElectronicStudentFileManager.getInstance().retrieveESFByIdentity(proto.getIdentity());
+					
+					// create comment in esf
+					CommentManager.getInstance().createCommentInEsf(esf, "E-Mail: " + subject + "\n" + body, ureq.getIdentity());
+					
+					// save changed esf
+					ElectronicStudentFileManager.getInstance().updateElectronicStundentFile(esf);
 				}
 				
 				editMailFormProtocolHolder = null;

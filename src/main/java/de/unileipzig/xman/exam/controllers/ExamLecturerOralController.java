@@ -7,8 +7,11 @@ import java.util.Calendar;
 import java.util.List;
 import java.util.Locale;
 
+import javax.persistence.LockModeType;
+
 import org.olat.admin.user.UserSearchController;
 import org.olat.basesecurity.events.SingleIdentityChosenEvent;
+import org.olat.core.commons.persistence.DBFactory;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.Windows;
 import org.olat.core.gui.components.Component;
@@ -313,10 +316,16 @@ public class ExamLecturerOralController extends BasicController {
 								proto.getIdentity()
 							);
 
+							// load esf
+							ElectronicStudentFile esf = ElectronicStudentFileManager.getInstance().retrieveESFByIdentity(proto.getIdentity());
+							
 							// add a comment to the esf
 							String commentText = translate("ExamLecturerOralController.earmarkedStudentManually", new String[] { getName(ureq.getIdentity()), exam.getName() });
+							CommentManager.getInstance().createCommentInEsf(esf, commentText, ureq.getIdentity());
 							
-							CommentManager.getInstance().createCommentInEsa(ElectronicStudentFileManager.getInstance().retrieveESFByIdentity(proto.getIdentity()), commentText, ureq.getIdentity());
+							// needed, because loading the same esf multiple times causes hibernate to fail (stale exception) the transaction
+							// TODO: there might be a better way to avoid the exception
+							DBFactory.getInstance().intermediateCommit();
 						}
 					}
 					
@@ -369,10 +378,15 @@ public class ExamLecturerOralController extends BasicController {
 								proto.getIdentity()
 							);
 
+							// load esf
+							ElectronicStudentFile esf = ElectronicStudentFileManager.getInstance().retrieveESFByIdentity(proto.getIdentity());
+							
 							// add a comment to the esf
 							String commentText = translate("ExamLecturerOralController.registeredFromEarmarkedStudentManually", new String[] { getName(ureq.getIdentity()), exam.getName() });
+							CommentManager.getInstance().createCommentInEsf(esf, commentText, ureq.getIdentity());
 							
-							CommentManager.getInstance().createCommentInEsa(ElectronicStudentFileManager.getInstance().retrieveESFByIdentity(proto.getIdentity()), commentText, ureq.getIdentity());
+							// TODO: see first occurrence
+							DBFactory.getInstance().intermediateCommit();
 						}
 					}
 					
@@ -419,10 +433,15 @@ public class ExamLecturerOralController extends BasicController {
 							// delete protocol
 							ProtocolManager.getInstance().deleteProtocol(proto);
 							
+							// load esf
+							ElectronicStudentFile esf = ElectronicStudentFileManager.getInstance().retrieveESFByIdentity(proto.getIdentity());
+							
 							// add a comment to the esf
 							String commentText = translate("ExamLecturerOralController.removedStudentManually", new String[] { getName(ureq.getIdentity()), exam.getName() });
+							CommentManager.getInstance().createCommentInEsf(esf, commentText, ureq.getIdentity());
 							
-							CommentManager.getInstance().createCommentInEsa(ElectronicStudentFileManager.getInstance().retrieveESFByIdentity(proto.getIdentity()), commentText, ureq.getIdentity());
+							// TODO: see first occurrence
+							DBFactory.getInstance().intermediateCommit();
 						}
 					}
 					
@@ -454,8 +473,11 @@ public class ExamLecturerOralController extends BasicController {
 					if(ProtocolManager.getInstance().registerStudent(userSearchControllerAppointmentHolder, esf, getTranslator(), false, "")) {
 						// create comment in esf
 						String commentText = translate("ExamLecturerOralController.registeredStudentManually", new String[] { getName(ureq.getIdentity()), exam.getName()});
+						CommentManager.getInstance().createCommentInEsf(esf, commentText, ureq.getIdentity());
 						
-						CommentManager.getInstance().createCommentInEsa(esf, commentText, ureq.getIdentity());
+						//save updated esf and appointment
+						ElectronicStudentFileManager.getInstance().updateElectronicStundentFile(esf);
+						AppointmentManager.getInstance().updateAppointment(userSearchControllerAppointmentHolder);
 						
 						// update view
 						appointmentTableModel.update();
@@ -547,7 +569,14 @@ public class ExamLecturerOralController extends BasicController {
 						
 						MailManager.getInstance().sendEmail(subject, body, proto.getIdentity());
 						
-						CommentManager.getInstance().createCommentInEsa(ElectronicStudentFileManager.getInstance().retrieveESFByIdentity(proto.getIdentity()), "E-Mail: " + subject + "\n" + body, ureq.getIdentity());
+						// load esf
+						ElectronicStudentFile esf = ElectronicStudentFileManager.getInstance().retrieveESFByIdentity(proto.getIdentity());
+						
+						// create comment in esf
+						CommentManager.getInstance().createCommentInEsf(esf, "E-Mail: " + subject + "\n" + body, ureq.getIdentity());
+						
+						// TODO: see first occurrence
+						DBFactory.getInstance().intermediateCommit();
 					}
 				}
 				

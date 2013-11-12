@@ -240,36 +240,37 @@ public class ProtocolManager {
 	}
 	
 	/**
-	 * Register student for given appointment; can show error on screen
-	 * @param app
-	 * @param id
-	 * @param isEarmarked
+	 * Register student for given appointment and update its esf
+	 * 
+	 * <br/><b>Warning:</b>
+	 * The esf is not updated (hibernate) automatically, so you have
+	 * to do this yourself.
+	 * 
+	 * @param appointment The appointment to register the student for
+	 * @param esf The electronic student file of the student
+	 * @param translator Translator used to translate email and comment in esf
+	 * @param earmark The student is only earmarked when set to true
+	 * @param initialComment The comment for the protocol, can be empty
 	 * @return true if registered successfully
 	 */
-	public boolean registerStudent(Appointment appointment, ElectronicStudentFile esf, Translator translator, boolean isEarmarked, String initialComment) {
-
-		Appointment tempApp = AppointmentManager.getInstance().findAppointmentByID(appointment.getKey());
-
+	public boolean registerStudent(Appointment appointment, ElectronicStudentFile esf, Translator translator, boolean earmark, String initialComment) {
 		// check if app is available
-		if (!tempApp.getOccupied()) {
+		if (!appointment.getOccupied()) {
 			Protocol proto = ProtocolManager.getInstance().createProtocol();
 			proto.setIdentity(esf.getIdentity());
-			proto.setEarmarked(isEarmarked);
+			proto.setEarmarked(earmark);
 			proto.setExam(appointment.getExam());
 			proto.setComments(initialComment);
 			
 			if (appointment.getExam().getIsOral()) {
-				tempApp.setOccupied(true);
-				AppointmentManager.getInstance().updateAppointment(tempApp);
+				appointment.setOccupied(true);
 			}
 			
-			proto.setAppointment(tempApp);
+			proto.setAppointment(appointment);
 			ProtocolManager.getInstance().saveProtocol(proto);
 
 			// add the protocol to the students esf
-			esf = ElectronicStudentFileManager.getInstance().retrieveESFByIdentity(esf.getIdentity());
 			esf.addProtocol(proto);
-			ElectronicStudentFileManager.getInstance().updateElectronicStundentFile(esf);
 
 			//TODO CalendarManager.getInstance().createKalendarEventForExam(exam, id, res);
 			
