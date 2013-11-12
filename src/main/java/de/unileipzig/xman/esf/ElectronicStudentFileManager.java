@@ -13,6 +13,7 @@ import org.olat.resource.OLATResource;
 import org.olat.resource.OLATResourceManager;
 import org.olat.user.UserDataDeletable;
 
+import de.unileipzig.xman.protocol.Protocol;
 import de.unileipzig.xman.studyPath.StudyPathManager;
 
 /**
@@ -101,18 +102,28 @@ public class ElectronicStudentFileManager implements UserDataDeletable {
 	}
 	
 	/**
-	 * 
-	 * @param esf
+	 * Removes the esf and all its protocols and makes the oral appointments
+	 * available again
 	 */
 	public void removeElectronicStudentFile(ElectronicStudentFile esf) {
-		
-		if ( esf != null ) {
+		if(esf != null ) {
+			for(Protocol protocol : esf.getProtocolList()) {
+				// make appointments available again
+				if(protocol.getExam().getIsOral()) {
+					protocol.getAppointment().setOccupied(false);
+				}
+				
+				// delete the protocol
+				DBFactory.getInstance().deleteObject(protocol);
+			}
 			
+			// delete the esf
 			DBFactory.getInstance().deleteObject(esf);
+			
+			// commit changes
+			DBFactory.getInstance().intermediateCommit();
+			
 			log.info("The ESF with the following key was deleted: " + esf.getKey());
-		}
-		else {
-			log.warn("Parameter was null");
 		}
 	}
 	
