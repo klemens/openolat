@@ -84,7 +84,6 @@ public class ESFLaunchController extends BasicController {
 
 	private ElectronicStudentFile esf;
 
-	private Translator translator;
 	private VelocityContainer mainVC;
 	private ToolController toolCtr;
 
@@ -114,9 +113,9 @@ public class ESFLaunchController extends BasicController {
 	public ESFLaunchController(UserRequest ureq, WindowControl wControl) {
 		super(ureq, wControl);
 
-		this.translator = Util.createPackageTranslator(ElectronicStudentFile.class, ureq.getLocale());
+		setTranslator(Util.createPackageTranslator(ElectronicStudentFile.class, ureq.getLocale()));
 
-		mainVC = new VelocityContainer("esfView", VELOCITY_ROOT + "/esf-launch.html", translator, this);
+		mainVC = new VelocityContainer("esfView", VELOCITY_ROOT + "/esf-launch.html", getTranslator(), this);
 		
 		this.init(ureq, wControl);
 		
@@ -155,7 +154,7 @@ public class ESFLaunchController extends BasicController {
 			linkCreateEsf = LinkFactory.createButton("ESFLaunchController.tool.create", mainVC, this);
 
 			mainVC.contextPut("esf_available", false);
-			mainVC.contextPut("error", translator.translate("ESFLaunchController.noESF"));
+			mainVC.contextPut("error", translate("ESFLaunchController.noESF"));
 		} else {
 			linkChangeEsf = LinkFactory.createButton("ESFLaunchController.tool.change", mainVC, this);
 
@@ -204,11 +203,10 @@ public class ESFLaunchController extends BasicController {
 			WindowControl wControl) {
 
 		TableGuiConfiguration commentTableConfig = new TableGuiConfiguration();
-		commentTableConfig.setTableEmptyMessage(this.translator
-				.translate("ESFEditController.comment.emptyTableMessage"));
+		commentTableConfig.setTableEmptyMessage(translate("ESFEditController.comment.emptyTableMessage"));
 		commentTableCtr = new TableController(commentTableConfig, ureq,
-				wControl, translator);
-		commentTableMdl = new CommentEntryTableModel(translator.getLocale(), new ArrayList<CommentEntry>(esf.getComments()));
+				wControl, getTranslator());
+		commentTableMdl = new CommentEntryTableModel(getLocale(), new ArrayList<CommentEntry>(esf.getComments()));
 		commentTableMdl.setTable(commentTableCtr);
 		commentTableCtr.setTableDataModel(commentTableMdl);
 		commentTableCtr.setSortColumn(0, false);
@@ -226,17 +224,12 @@ public class ESFLaunchController extends BasicController {
 			WindowControl wControl) {
 
 		TableGuiConfiguration protoTableConfig = new TableGuiConfiguration();
-		protoTableConfig.setTableEmptyMessage(this.translator
-				.translate("ESFEditController.protocol.emptyTableMessage"));
-		protoTableCtr = new TableController(protoTableConfig, ureq, wControl,
-				translator);
-		// if esf is null, give an empty list to the model
-		protoTableMdl = new ProtocolTableModel(translator.getLocale(),
-				(esf != null ? esf.getProtocolList()
-						: new ArrayList<Protocol>()), true, true, false, false);
+		protoTableConfig.setTableEmptyMessage(translate("ESFEditController.protocol.emptyTableMessage"));
+		protoTableCtr = new TableController(protoTableConfig, ureq, wControl, getTranslator());
+		protoTableMdl = new ProtocolTableModel(esf.getProtocolList(), getLocale());
 		protoTableMdl.setTable(protoTableCtr);
 		protoTableCtr.setTableDataModel(protoTableMdl);
-		protoTableCtr.setSortColumn(4, false);
+		protoTableCtr.setSortColumn(1, false);
 
 		// NEU
 		protoTableCtr.addControllerListener(this);
@@ -249,8 +242,6 @@ public class ESFLaunchController extends BasicController {
 	 * @see org.olat.core.gui.control.DefaultController#doDispose()
 	 */
 	protected void doDispose() {
-
-		this.translator = null;
 		this.mainVC = null;
 		this.toolCtr = null;
 	}
@@ -263,14 +254,14 @@ public class ESFLaunchController extends BasicController {
 	 */
 	protected void event(UserRequest ureq, Component source, Event event) {
 		if(source == linkChangeEsf) {
-			esfController = new ESFCreateController(ureq, getWindowControl(), translator, user, translator.translate("ESFCreateForm.title"), CHANGE_ESF);
+			esfController = new ESFCreateController(ureq, getWindowControl(), getTranslator(), user, translate("ESFCreateForm.title"), CHANGE_ESF);
 			esfController.addControllerListener(this);
 
 			cmc = new CloseableModalController(getWindowControl(), translate("close"), esfController.getInitialComponent());
 			listenTo(cmc);
 			cmc.activate();
 		} else if(source == linkCreateEsf) {
-			esfController = new ESFCreateController(ureq, getWindowControl(), translator, user, translator.translate("ESFCreateForm.title"), CREATE_ESF);
+			esfController = new ESFCreateController(ureq, getWindowControl(), getTranslator(), user, translate("ESFCreateForm.title"), CREATE_ESF);
 			esfController.addControllerListener(this);
 
 			cmc = new CloseableModalController(getWindowControl(), translate("close"), esfController.getInitialComponent());
@@ -311,7 +302,7 @@ public class ESFLaunchController extends BasicController {
 				// somebody wants to open an esf
 				if (actionID.equals(ProtocolTableModel.EXAM_LAUNCH)) {
 
-					Exam exam = protoTableMdl.getEntryAt(te.getRowId())
+					Exam exam = protoTableMdl.getObject(te.getRowId())
 							.getExam();
 					OLATResourceable ores = OLATResourceManager.getInstance()
 							.findResourceable(exam.getResourceableId(),

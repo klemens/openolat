@@ -205,12 +205,10 @@ public class ESFEditController extends MainLayoutBasicController {
 		// protocolTableCtr.addMultiSelectAction("ESFEditController.addProtocol",
 		// ADD_PROTOCOL);
 		// if esf is null, give an empty list to the model
-		protocolTableMdl = new ProtocolTableModel(translator.getLocale(),
-				(esf != null ? esf.getProtocolList()
-						: new ArrayList<Protocol>()), true, true, false, true);
+		protocolTableMdl = new ProtocolTableModel(esf.getProtocolList(), translator.getLocale());
 		protocolTableMdl.setTable(protocolTableCtr);
 		protocolTableCtr.setTableDataModel(protocolTableMdl);
-		protocolTableCtr.setSortColumn(0, true);
+		protocolTableCtr.setSortColumn(1, false);
 
 		protocolTableCtr.addControllerListener(this);
 		
@@ -333,25 +331,9 @@ public class ESFEditController extends MainLayoutBasicController {
 				TableEvent te = (TableEvent) event;
 				String actionID = te.getActionId();
 
-				// somebody wants to open a vcard
-				if (actionID.equals(ProtocolTableModel.COMMAND_VCARD)) {
-					
-					OLATResourceable ores = HomePageConfigManagerImpl.getInstance().loadConfigFor(esf.getIdentity().getName());
-
-					DTabs dts = Windows.getWindows(ureq).getWindow(ureq).getDTabs();
-					DTab dt = dts.getDTab(ores);
-					if (dt == null) {
-						// does not yet exist
-						dt = dts.createDTab(ores, esf.getIdentity().getName());
-						if (dt == null) return;
-						UserInfoMainController uimc = new UserInfoMainController(ureq, dt.getWindowControl(), esf.getIdentity());
-						dt.setController(uimc);
-						dts.addDTab(ureq, dt);
-					}
-					dts.activate(ureq, dt, null);
-				} else if(actionID.equals(ProtocolTableModel.EXAM_LAUNCH)) {
+				if(actionID.equals(ProtocolTableModel.EXAM_LAUNCH)) {
 					// open exam
-					Exam exam = protocolTableMdl.getEntryAt(te.getRowId()).getExam();
+					Exam exam = protocolTableMdl.getObject(te.getRowId()).getExam();
 					OLATResourceable ores = OLATResourceManager.getInstance().findResourceable(exam.getResourceableId(), Exam.ORES_TYPE_NAME);
 
 					// add the esf in a dtab
