@@ -11,5 +11,6 @@
 	<import resource="classpath:/de/unileipzig/xman/admin/_spring/adminContext.xml"/>
 	<import resource="classpath:/de/unileipzig/xman/esf/_spring/esfContext.xml"/>
 	<import resource="classpath:/de/unileipzig/xman/nodes/_spring/nodesContext.xml"/>
+	<import resource="classpath:/de/unileipzig/xman/protocol/archived/_spring/archivedContext.xml"/>
 
 </beans>

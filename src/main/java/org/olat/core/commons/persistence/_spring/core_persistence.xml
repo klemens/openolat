@@ -95,6 +95,7 @@
 		<mapping-file>org/olat/upgrade/model/BookmarkImpl.hbm.xml</mapping-file>
 		<mapping-file>org/olat/upgrade/model/DBMailAttachmentData.hbm.xml</mapping-file>
 		
+		<class>de.unileipzig.xman.protocol.archived.ArchivedProtocol</class>
 		<class>org.olat.core.dispatcher.mapper.model.PersistedMapper</class>
 		<class>org.olat.core.commons.taskExecutor.model.PersistentTask</class>
 		<class>org.olat.group.model.BusinessGroupParticipantViewImpl</class>

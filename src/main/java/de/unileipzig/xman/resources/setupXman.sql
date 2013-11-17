@@ -10,6 +10,18 @@ CREATE TABLE `o_xman_appointment` (
   PRIMARY KEY (`appointment_id`)
 );
 
+create table `o_xman_archived_protocol` (
+  `id` bigint not null,
+  `student_id` varchar(255) not null,
+  `name` varchar(255) not null,
+  `date` datetime not null,
+  `location` varchar(255) not null,
+  `comment` varchar(255) not null,
+  `result` varchar(255) not null,
+  `study_path` varchar(255) not null,
+  primary key (`id`)
+);
+
 -- wird nicht verwendet? Kein dump da.
 CREATE TABLE `o_xman_category` (
   `category_id` bigint(20) NOT NULL DEFAULT '0',
