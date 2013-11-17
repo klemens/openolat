@@ -15,7 +15,6 @@ import org.olat.core.gui.components.table.TableGuiConfiguration;
 import org.olat.core.gui.components.table.TableMultiSelectEvent;
 import org.olat.core.gui.components.velocity.VelocityContainer;
 import org.olat.core.gui.control.Controller;
-import org.olat.core.gui.control.DefaultController;
 import org.olat.core.gui.control.Event;
 import org.olat.core.gui.control.WindowControl;
 import org.olat.core.gui.control.controller.MainLayoutBasicController; //#### Änderung Name
@@ -24,17 +23,11 @@ import org.olat.core.gui.control.generic.dtabs.DTab;
 import org.olat.core.gui.control.generic.dtabs.DTabs;
 import org.olat.core.gui.control.generic.tool.ToolController;
 import org.olat.core.gui.control.generic.tool.ToolFactory;
-import org.olat.core.gui.translator.PackageTranslator;
-import org.olat.core.gui.translator.Translator;
 import org.olat.core.id.OLATResourceable;
 import org.olat.core.id.User;
 import org.olat.core.id.UserConstants;
 import org.olat.core.util.Util;
-import org.olat.repository.RepositoryEntry;
-import org.olat.repository.RepositoryManager;
 import org.olat.resource.OLATResourceManager;
-import org.olat.user.HomePageConfigManagerImpl;
-import org.olat.user.UserInfoMainController;
 
 import de.unileipzig.xman.comment.CommentEntry;
 import de.unileipzig.xman.comment.CommentManager;
@@ -42,29 +35,24 @@ import de.unileipzig.xman.comment.table.CommentEntryTableModel;
 import de.unileipzig.xman.esf.ElectronicStudentFile;
 import de.unileipzig.xman.esf.ElectronicStudentFileManager;
 import de.unileipzig.xman.esf.form.ESFCommentCreateAndEditForm;
-import de.unileipzig.xman.esf.table.ESFTableModel;
 import de.unileipzig.xman.exam.Exam;
 import de.unileipzig.xman.exam.controllers.ExamMainController;
-import de.unileipzig.xman.protocol.Protocol;
+import de.unileipzig.xman.protocol.archived.ArchivedProtocol;
+import de.unileipzig.xman.protocol.archived.ArchivedProtocolManager;
+import de.unileipzig.xman.protocol.archived.tables.ArchivedProtocolTableModel;
 import de.unileipzig.xman.protocol.tables.ProtocolTableModel;
-import de.unileipzig.xman.studyPath.StudyPath;
 
 public class ESFEditController extends MainLayoutBasicController {
 
-	private static final String PACKAGE = Util
-			.getPackageName(ElectronicStudentFile.class);
-	private static final String VELOCITY_ROOT = Util
-			.getPackageVelocityRoot(ElectronicStudentFile.class);
+	private static final String VELOCITY_ROOT = Util.getPackageVelocityRoot(ElectronicStudentFile.class);
 
 	public static final String ADD_COMMENT = "add.comment";
-	public static final String ADD_PROTOCOL = "add.protocol";
 
 	public static final String REMOVE_COMMENT = "remove.comment";
 	public static final String EDIT_COMMENT = "edit.comment";
 
 	private ElectronicStudentFile esf;
 
-	private Translator translator;
 	private VelocityContainer mainVC;
 	private ToolController toolCtr;
 
@@ -76,6 +64,9 @@ public class ESFEditController extends MainLayoutBasicController {
 
 	private TableController commentTableCtr;
 	private CommentEntryTableModel commentTableMdl;
+
+	private TableController archiveTableCtr;
+	private ArchivedProtocolTableModel archiveTableMdl;
 
 	// CommentAddController
 	private CloseableModalController addCommentCtr;
@@ -93,68 +84,46 @@ public class ESFEditController extends MainLayoutBasicController {
 		super(ureq, wControl);
 
 		this.esf = esf;
-		this.translator = new PackageTranslator(PACKAGE, ureq.getLocale());
-		this.mainVC = new VelocityContainer("esfView", VELOCITY_ROOT
-				+ "/esf-edit.html", translator, this);
-		this.toolCtr = ToolFactory.createToolController(wControl);
-		this.toolCtr.addControllerListener(this);
+		setTranslator(Util.createPackageTranslator(ElectronicStudentFile.class, ureq.getLocale()));
+		mainVC = new VelocityContainer("esfView", VELOCITY_ROOT + "/esf-edit.html", getTranslator(), this);
+		
+		toolCtr = ToolFactory.createToolController(wControl);
+		toolCtr.addControllerListener(this);
 
-		columnLayoutCtr = new LayoutMain3ColsController(ureq,
-				getWindowControl(), null, toolCtr.getInitialComponent(),
-				mainVC, "editESF");
+		columnLayoutCtr = new LayoutMain3ColsController(ureq, getWindowControl(), null, toolCtr.getInitialComponent(), mainVC, "editESF");
 		listenTo(columnLayoutCtr);// cleanup on dispose
-		// add background image to home site
-		columnLayoutCtr.addCssClassToMain("o_home");
 
 		init(ureq, wControl);
-		this.putInitialPanel(columnLayoutCtr.getInitialComponent());
+		putInitialPanel(columnLayoutCtr.getInitialComponent());
 	}
 
 	private void init(UserRequest ureq, WindowControl wControl) {
-
-		this.toolCtr.addHeader(this.translator
-				.translate("ESFEditController.toolheader"));
-		// useless
-		// this.toolCtr.addLink(ADD_PROTOCOL,
-		// this.translator.translate("ESFEditController.addProtocol"));
-		this.toolCtr.addLink(ADD_COMMENT, this.translator
-				.translate("ESFEditController.addComment"));
+		toolCtr.addHeader(translate("ESFEditController.toolheader"));
+		toolCtr.addLink(ADD_COMMENT, translate("ESFEditController.addComment"));
 	
-		this.buildView(ureq, wControl);
+		buildView(ureq, wControl);
 	}
 
 	private void buildView(UserRequest ureq, WindowControl wControl) {
-
 		// refresh esf
-		this.esf = ElectronicStudentFileManager.getInstance()
-				.retrieveESFByIdentity(esf.getIdentity());
+		esf = ElectronicStudentFileManager.getInstance().retrieveESFByIdentity(esf.getIdentity());
 
 		User user = esf.getIdentity().getUser();
 
 		// add personal information in the esf-edit.html
-		this.mainVC.contextPut("lastName", user.getProperty(
-				UserConstants.LASTNAME, null));
-		this.mainVC.contextPut("firstName", user.getProperty(
-				UserConstants.FIRSTNAME, null));
-		this.mainVC.contextPut("institutionalIdentifier", user.getProperty(
-				UserConstants.INSTITUTIONALUSERIDENTIFIER, null));
-		this.mainVC.contextPut("email", user.getProperty(
-				UserConstants.INSTITUTIONALEMAIL, null));
+		mainVC.contextPut("lastName", user.getProperty(UserConstants.LASTNAME, null));
+		mainVC.contextPut("firstName", user.getProperty(UserConstants.FIRSTNAME, null));
+		mainVC.contextPut("institutionalIdentifier", user.getProperty(UserConstants.INSTITUTIONALUSERIDENTIFIER, null));
+		mainVC.contextPut("email", user.getProperty(UserConstants.INSTITUTIONALEMAIL, null));
+		mainVC.contextPut("studyPath", user.getProperty(UserConstants.STUDYSUBJECT, null));
 
-		// create a translator with the studyPath translations
-		Translator translator = Util.createPackageTranslator(StudyPath.class,
-				ureq.getLocale());
-		this.mainVC.contextPut("studyPath", user.getProperty(UserConstants.STUDYSUBJECT, null));
-
-		this.createTableModels(ureq, wControl);
-
+		createTableModels(ureq, wControl);
 	}
 
 	private void createTableModels(UserRequest ureq, WindowControl wControl) {
-
-		this.createProtocolTableModel(ureq, wControl);
-		this.createCommentTableModel(ureq, wControl);
-	
+		createProtocolTableModel(ureq, wControl);
+		createArchiveTable(ureq, wControl);
+		createCommentTableModel(ureq, wControl);
 	}
 
 
@@ -166,21 +135,19 @@ public class ESFEditController extends MainLayoutBasicController {
 		commentTableConfig.setColumnMovingOffered(true);
 		commentTableConfig.setDownloadOffered(true);
 		commentTableConfig.setPageingEnabled(true);
-		commentTableConfig.setTableEmptyMessage(this.translator
-				.translate("ESFEditController.comment.emptyTableMessage")); // TODO
+		commentTableConfig.setTableEmptyMessage(translate("ESFEditController.comment.emptyTableMessage"));
 		commentTableConfig.setShowAllLinkEnabled(true);
-		commentTableCtr = new TableController(commentTableConfig, ureq,
-				wControl, translator);
+		commentTableCtr = new TableController(commentTableConfig, ureq, wControl, getTranslator());
 		commentTableCtr.setMultiSelect(true);
 		commentTableCtr.addMultiSelectAction("ESFEditController.remove",
 				REMOVE_COMMENT);
 		commentTableCtr.addMultiSelectAction("ESFEditController.edit",
 				EDIT_COMMENT);
 		// if esf is null, give an empty list to the model
-		commentTableMdl = new CommentEntryTableModel(translator.getLocale(), new ArrayList<CommentEntry>(esf.getComments()));
+		commentTableMdl = new CommentEntryTableModel(getLocale(), new ArrayList<CommentEntry>(esf.getComments()));
 		commentTableMdl.setTable(commentTableCtr);
 		commentTableCtr.setTableDataModel(commentTableMdl);
-		commentTableCtr.setSortColumn(0, true);
+		commentTableCtr.setSortColumn(1, false);
 		
 		commentTableCtr.addControllerListener(this);
 		
@@ -196,16 +163,14 @@ public class ESFEditController extends MainLayoutBasicController {
 		protocolTableConfig.setColumnMovingOffered(true);
 		protocolTableConfig.setDownloadOffered(true);
 		protocolTableConfig.setPageingEnabled(true);
-		protocolTableConfig.setTableEmptyMessage(this.translator
-				.translate("ESFEditController.protocol.emptyTableMessage")); // TODO
+		protocolTableConfig.setTableEmptyMessage(translate("ESFEditController.protocol.emptyTableMessage"));
 		protocolTableConfig.setShowAllLinkEnabled(true);
-		protocolTableCtr = new TableController(protocolTableConfig, ureq,
-				wControl, translator);
+		protocolTableCtr = new TableController(protocolTableConfig, ureq, wControl, getTranslator());
 		// protocolTableCtr.setMultiSelect(true);
 		// protocolTableCtr.addMultiSelectAction("ESFEditController.addProtocol",
 		// ADD_PROTOCOL);
 		// if esf is null, give an empty list to the model
-		protocolTableMdl = new ProtocolTableModel(esf.getProtocolList(), translator.getLocale());
+		protocolTableMdl = new ProtocolTableModel(esf.getProtocolList(), getLocale());
 		protocolTableMdl.setTable(protocolTableCtr);
 		protocolTableCtr.setTableDataModel(protocolTableMdl);
 		protocolTableCtr.setSortColumn(1, false);
@@ -216,12 +181,31 @@ public class ESFEditController extends MainLayoutBasicController {
 				.put("protocolTable", protocolTableCtr.getInitialComponent());
 	}
 
+	private void createArchiveTable(UserRequest ureq, WindowControl wControl) {
+		String studentId = esf.getIdentity().getUser().getProperty(UserConstants.INSTITUTIONALUSERIDENTIFIER, null);
+		List<ArchivedProtocol> protocols = ArchivedProtocolManager.getInstance().findAllByStudent(studentId);
+		
+		TableGuiConfiguration tableConfig = new TableGuiConfiguration();
+		tableConfig.setPreferencesOffered(true, "esf.edit.table.archive");
+		archiveTableCtr = new TableController(tableConfig, ureq, wControl, getTranslator());
+		
+		archiveTableMdl = new ArchivedProtocolTableModel(protocols, getLocale());
+		archiveTableMdl.initTable(archiveTableCtr);
+		archiveTableCtr.setTableDataModel(archiveTableMdl);
+		
+		archiveTableCtr.setSortColumn(1, false);
+		
+		listenTo(archiveTableCtr);
+		mainVC.put("archiveTable", archiveTableCtr.getInitialComponent());
+	}
+
 	/**
 	 * 
 	 * @see org.olat.core.gui.control.DefaultController#doDispose()
 	 */
 	protected void doDispose() {
-
+		removeAsListenerAndDispose(archiveTableCtr);
+		removeAsListenerAndDispose(columnLayoutCtr);
 	}
 
 	/**
@@ -302,7 +286,7 @@ public class ESFEditController extends MainLayoutBasicController {
 				
 				addCommentForm = new ESFCommentCreateAndEditForm(ureq,
 						getWindowControl(), "ESFCommentCreateForm",
-						this.translator, "");
+						getTranslator(), "");
 				addCommentForm.addControllerListener(this);
 
 				addCommentCtr = new CloseableModalController(
@@ -310,16 +294,6 @@ public class ESFEditController extends MainLayoutBasicController {
 								.getInitialComponent());
 				listenTo(addCommentCtr);
 				addCommentCtr.activate();
-			}
-
-			// somebody wants to add a protocol
-			if (event.getCommand().equals(ADD_PROTOCOL)) {
-
-				this
-						.getWindowControl()
-						.setInfo(
-								translator
-										.translate("ESFEditController.atTheMomentNotAvailable"));
 			}
 		}
 
@@ -380,12 +354,7 @@ public class ESFEditController extends MainLayoutBasicController {
 						this.createCommentTableModel(ureq, this
 								.getWindowControl());
 					} else {
-
-						this
-								.getWindowControl()
-								.setWarning(
-										translator
-												.translate("ESFEditController.pleaseChoseAtLeastOneComment"));
+						showWarning("ESFEditController.pleaseChoseAtLeastOneComment");
 					}
 				}
 
@@ -402,7 +371,7 @@ public class ESFEditController extends MainLayoutBasicController {
 
 						editCommentForm = new ESFCommentCreateAndEditForm(ureq,
 								getWindowControl(),
-								"ESFCommentCreateAndEditForm", this.translator,
+								"ESFCommentCreateAndEditForm", getTranslator(),
 								this.commentEntry.getComment());
 						editCommentForm.addControllerListener(this);
 
@@ -412,22 +381,10 @@ public class ESFEditController extends MainLayoutBasicController {
 						listenTo(editCommentCtr);
 						editCommentCtr.activate();
 					} else {
-
-						this
-								.getWindowControl()
-								.setWarning(
-										translator
-												.translate("ESFEditController.pleaseChoseOnlyOneComment"));
+						showWarning("ESFEditController.pleaseChoseOnlyOneComment");
 					}
 				}
 			}
 		}
-
-
 	}
-
-	public void setEsf(ElectronicStudentFile esf) {
-		this.esf = esf;
-	}
-
 }

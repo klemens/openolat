@@ -48,6 +48,7 @@ import org.olat.repository.RepositoryManager;
 import org.olat.repository.handlers.RepositoryHandlerFactory;
 import org.olat.resource.OLATResourceManager;
 import org.olat.user.UserManager;
+import org.olat.user.UserPropertiesConfig;
 
 import de.unileipzig.xman.admin.ExamAdminSite;
 import de.unileipzig.xman.comment.CommentEntry;
@@ -62,6 +63,9 @@ import de.unileipzig.xman.exam.ExamDBManager;
 import de.unileipzig.xman.exam.controllers.ExamMainController;
 import de.unileipzig.xman.protocol.Protocol;
 import de.unileipzig.xman.protocol.ProtocolManager;
+import de.unileipzig.xman.protocol.archived.ArchivedProtocol;
+import de.unileipzig.xman.protocol.archived.ArchivedProtocolManager;
+import de.unileipzig.xman.protocol.archived.tables.ArchivedProtocolTableModel;
 import de.unileipzig.xman.protocol.tables.ProtocolTableModel;
 import de.unileipzig.xman.studyPath.StudyPath;
 
@@ -93,6 +97,9 @@ public class ESFLaunchController extends BasicController {
 
 	private TableController commentTableCtr;
 	private CommentEntryTableModel commentTableMdl;
+	
+	private TableController archiveTableCtr;
+	private ArchivedProtocolTableModel archiveTableMdl;
 
 	// For creating a new nonValidated ESF
 	private ESFCreateController esfController;
@@ -187,9 +194,9 @@ public class ESFLaunchController extends BasicController {
 	 * @param wControl
 	 */
 	private void createTableModels(UserRequest ureq, WindowControl wControl) {
-
-		this.createProtocolTableModel(ureq, wControl);
-		this.createCommentTableModel(ureq, wControl);
+		createProtocolTableModel(ureq, wControl);
+		createArchiveTable(ureq, wControl);
+		createCommentTableModel(ureq, wControl);
 	}
 
 
@@ -204,6 +211,7 @@ public class ESFLaunchController extends BasicController {
 
 		TableGuiConfiguration commentTableConfig = new TableGuiConfiguration();
 		commentTableConfig.setTableEmptyMessage(translate("ESFEditController.comment.emptyTableMessage"));
+		commentTableConfig.setResultsPerPage(10);
 		commentTableCtr = new TableController(commentTableConfig, ureq,
 				wControl, getTranslator());
 		commentTableMdl = new CommentEntryTableModel(getLocale(), new ArrayList<CommentEntry>(esf.getComments()));
@@ -236,14 +244,32 @@ public class ESFLaunchController extends BasicController {
 
 		this.mainVC.put("protoTable", protoTableCtr.getInitialComponent());
 	}
+	
+	private void createArchiveTable(UserRequest ureq, WindowControl wControl) {
+		String studentId = user.getProperty(UserConstants.INSTITUTIONALUSERIDENTIFIER, null);
+		List<ArchivedProtocol> protocols = ArchivedProtocolManager.getInstance().findAllByStudent(studentId);
+		
+		TableGuiConfiguration tableConfig = new TableGuiConfiguration();
+		tableConfig.setPreferencesOffered(true, "esf.launch.table.archive");
+		tableConfig.setResultsPerPage(15);
+		archiveTableCtr = new TableController(tableConfig, ureq, wControl, getTranslator());
+		
+		archiveTableMdl = new ArchivedProtocolTableModel(protocols, getLocale());
+		archiveTableMdl.initTable(archiveTableCtr);
+		archiveTableCtr.setTableDataModel(archiveTableMdl);
+		
+		archiveTableCtr.setSortColumn(1, false);
+		
+		listenTo(archiveTableCtr);
+		mainVC.put("archiveTable", archiveTableCtr.getInitialComponent());
+	}
 
 	/**
 	 * 
 	 * @see org.olat.core.gui.control.DefaultController#doDispose()
 	 */
 	protected void doDispose() {
-		this.mainVC = null;
-		this.toolCtr = null;
+		removeAsListenerAndDispose(archiveTableCtr);
 	}
 
 	/**

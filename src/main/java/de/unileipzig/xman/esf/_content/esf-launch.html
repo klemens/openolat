@@ -1,52 +1,56 @@
  #if ($esf_available)
 
 <!-- personal informations like name email etc. -->
-<fieldset class="o_whiteBg"><legend><b>$r.translate("esf-launch_html.personalInformation")</b></legend>
-<table>
-	<colgroup>
-		<col align="left">
-		<col>
-	</colgroup>
-	<tbody>
+<div style="overflow: hidden; margin-bottom: 1em; padding: 1em;">
+	<p style="float: right;">$r.render("ESFLaunchController.tool.change")</p>
+	<table style="float: left;">
 		<tr>
-			<td>$r.translate("esf-launch_html.lastName"):</td>
-			<td>#if ($lastName != "") $lastName #else $r.translate("esf-launch_html.empty") #end</td>
+			<td><b>$r.translate("esf-launch_html.name"):</b></td>
+			<td style="padding-left: 1em;">$firstName $lastName</td>
 		</tr>
 		<tr>
-			<td>$r.translate("esf-launch_html.firstName"):</td>
-			<td>#if ($firstName != "") $firstName #else $r.translate("esf-launch_html.empty") #end</td>
+			<td><b>$r.translate("esf-launch_html.studyPath"):</b></td>
+			<td style="padding-left: 1em;">$studyPath</td>
+		</tr>
+	</table>
+	<table style="float: left; margin-left: 3em;">
+		<tr>
+			<td><b>$r.translate("esf-launch_html.institutionalIdentifier"):</b></td>
+			<td style="padding-left: 1em;">$institutionalIdentifier</td>
 		</tr>
 		<tr>
-			<td>$r.translate("esf-launch_html.institutionalIdentifier"):</td>
-			<td>#if ($institutionalIdentifier != "") $institutionalIdentifier #else $r.translate("esf-launch_html.empty") #end</td>
+			<td><b>$r.translate("esf-launch_html.email"):</b></td>
+			<td style="padding-left: 1em;">$email</td>
 		</tr>
-		<tr>
-			<td>$r.translate("esf-launch_html.email"):</td>
-			<td>#if ($email != "") $email #else $r.translate("esf-launch_html.empty") #end</td>
-		</tr>
-		<tr>
-			<td>$r.translate("esf-launch_html.studyPath"):</td>
-			<td>#if ($studyPath != "") $studyPath #else $r.translate("esf-launch_html.empty") #end</td>
-		</tr>
-	</tbody>
-</table>
-<p>$r.render("ESFLaunchController.tool.change")</p>
-</fieldset>
+	</table>
+</div>
 
 <!-- exam protocols -->
-<fieldset class="o_whiteBg"><legend><b>$r.translate("esf-launch_html.myExams")</b></legend>
-$r.render("protoTable")</fieldset>
+<fieldset>
+	<legend>$r.translate("esf-launch_html.exams")</legend>
+	$r.render("protoTable")
+</fieldset>
+
+<!-- archived protocols -->
+<fieldset>
+	<legend>$r.translate("esf-launch_html.archivedExams")</legend>
+	$r.render("archiveTable")
+</fieldset>
 
 <!-- comments -->
-<fieldset class="o_whiteBg"><legend><b>$r.translate("esf-launch_html.myComments")</b></legend>
-$r.render("commentTable")</fieldset>
+<fieldset>
+	<legend>$r.translate("esf-launch_html.comments")</legend>
+	$r.render("commentTable")
+</fieldset>
 
 #else
-	<!-- if the student has no esf this error is shown -->
-	
-	<fieldset class="o_whiteBg"><legend><b>$r.translate("esf-launch_html.currentState")</b></legend>
-		<p>$error</p>
-		<p>$r.render("ESFLaunchController.tool.create")</p>
-	</fieldset>
+
+<!-- if the student has no esf this error is shown -->
+
+<fieldset>
+	<legend>$r.translate("esf-launch_html.currentState")</legend>
+	<p>$error</p>
+	<p>$r.render("ESFLaunchController.tool.create")</p>
+</fieldset>
 
 #end
