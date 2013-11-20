@@ -4,9 +4,11 @@ import java.util.Date;
 import java.util.List;
 
 import org.olat.core.commons.persistence.DBFactory;
+import org.olat.core.id.OLATResourceable;
 import org.olat.core.logging.Tracing;
 import org.olat.repository.RepositoryEntry;
 import org.olat.repository.RepositoryEntryStatus;
+import org.olat.repository.RepositoryManager;
 import org.olat.resource.OLATResource;
 import org.olat.resource.OLATResourceManager;
 
@@ -125,12 +127,8 @@ public class ExamDBManager {
 	 * @return the RepositoryEntry of the given exam 
 	 */
 	public RepositoryEntry findRepositoryEntryOfExam(Exam exam) {
-		
-		String query = "from org.olat.repository.RepositoryEntry as rep where rep.olatResource = "
-			+ "(select key from org.olat.resource.OLATResourceImpl as res where res.resId = " + exam.getKey() + ")";
-		List<RepositoryEntry> list = DBFactory.getInstance().find(query);
-		if ( list.size() == 1 ) return list.get(0);
-		return null;
+		OLATResourceable ores = OLATResourceManager.getInstance().findResourceable(exam.getResourceableId(), exam.getResourceableTypeName());
+		return RepositoryManager.getInstance().lookupRepositoryEntry(ores, true);
 	}
 	
 	/**
@@ -138,7 +136,7 @@ public class ExamDBManager {
 	 * @return true if exam is closed 
 	 */
 	public boolean isClosed(Exam exam){
-		return findRepositoryEntryOfExam(exam).getStatusCode() == RepositoryEntryStatus.REPOSITORY_STATUS_CLOSED;
+		return RepositoryManager.getInstance().createRepositoryEntryStatus(findRepositoryEntryOfExam(exam).getStatusCode()).isClosed();
 	}
 	
 	/**

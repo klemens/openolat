@@ -11,6 +11,7 @@ import org.olat.core.gui.translator.Translator;
 import org.olat.core.util.Util;
 
 import de.unileipzig.xman.esf.ElectronicStudentFile;
+import de.unileipzig.xman.exam.ExamDBManager;
 import de.unileipzig.xman.protocol.Protocol;
 
 public class ProtocolTableModel extends DefaultTableDataModel<Protocol> {
@@ -41,7 +42,11 @@ public class ProtocolTableModel extends DefaultTableDataModel<Protocol> {
 		
 		switch(col) {
 			case 0:
-				return protocol.getExam().getName();
+				String name = protocol.getExam().getName();
+				if(ExamDBManager.getInstance().isClosed(protocol.getExam())) {
+					name += " [" + translator.translate("ProtocolTableModel.status.archived") + "]";
+				}
+				return name;
 			
 			case 1:
 				return protocol.getAppointment().getDate();
