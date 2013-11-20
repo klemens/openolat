@@ -232,7 +232,7 @@ public class ESFLaunchController extends BasicController {
 			WindowControl wControl) {
 
 		TableGuiConfiguration protoTableConfig = new TableGuiConfiguration();
-		protoTableConfig.setTableEmptyMessage(translate("ESFEditController.protocol.emptyTableMessage"));
+		protoTableConfig.setTableEmptyMessage(translate("ESFLaunchController.protocol.emptyTableMessage"));
 		protoTableCtr = new TableController(protoTableConfig, ureq, wControl, getTranslator());
 		protoTableMdl = new ProtocolTableModel(esf.getProtocolList(), getLocale());
 		protoTableMdl.setTable(protoTableCtr);
@@ -249,6 +249,15 @@ public class ESFLaunchController extends BasicController {
 		String studentId = user.getProperty(UserConstants.INSTITUTIONALUSERIDENTIFIER, null);
 		List<ArchivedProtocol> protocols = ArchivedProtocolManager.getInstance().findAllByStudent(studentId);
 		
+		if(protocols.size() == 0) {
+			if(archiveTableCtr != null) {
+				mainVC.remove(archiveTableCtr.getInitialComponent());
+				removeAsListenerAndDispose(archiveTableCtr);
+				archiveTableCtr = null;
+			}
+			return;
+		}
+
 		TableGuiConfiguration tableConfig = new TableGuiConfiguration();
 		tableConfig.setPreferencesOffered(true, "esf.launch.table.archive");
 		tableConfig.setResultsPerPage(15);

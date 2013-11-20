@@ -31,11 +31,13 @@
 	$r.render("protoTable")
 </fieldset>
 
+#if($r.available("archiveTable"))
 <!-- archived protocols -->
 <fieldset>
 	<legend>$r.translate("esf-launch_html.archivedExams")</legend>
 	$r.render("archiveTable")
 </fieldset>
+#end
 
 <!-- comments -->
 <fieldset>
