@@ -15,6 +15,10 @@ import javax.persistence.TemporalType;
 import org.hibernate.annotations.GenericGenerator;
 import org.olat.core.id.Persistable;
 
+import com.thoughtworks.xstream.annotations.XStreamAlias;
+import com.thoughtworks.xstream.annotations.XStreamAsAttribute;
+import com.thoughtworks.xstream.annotations.XStreamOmitField;
+
 /**
  * This class represents an archived protocol.
  * It has no references to other xman objects and thus is suited for export.
@@ -25,6 +29,8 @@ import org.olat.core.id.Persistable;
 @Table(name="o_xman_archived_protocol")
 @NamedQueries({
 	@NamedQuery(name = "loadArchivedProtocolsByStudent", query = "SELECT proto FROM archivedprotocol proto WHERE proto.studentId = :studentId"),
+	@NamedQuery(name = "loadArchivedProtocols", query = "SELECT proto FROM archivedprotocol proto"),
+	@NamedQuery(name = "countArchivedProtocols", query = "SELECT count(proto) FROM archivedprotocol proto"),
 	@NamedQuery(name = "deleteArchivedProtocolsByStudent", query = "DELETE FROM archivedprotocol proto WHERE proto.studentId = :studentId")
 })
 public class ArchivedProtocol implements Persistable {
@@ -34,9 +40,12 @@ public class ArchivedProtocol implements Persistable {
 	@GeneratedValue(generator = "system-uuid")
 	@GenericGenerator(name = "system-uuid", strategy = "hilo")
 	@Column(name="id")
+	@XStreamOmitField
 	private Long key;
 
 	@Column(name="student_id")
+	@XStreamAsAttribute
+	@XStreamAlias("id")
 	private String studentId;
 
 	@Column

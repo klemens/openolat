@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<xsd:schema version="1.0" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+    <xsd:element name="archivedProtocols" type="archivedProtocols_t" />
+
+    <xsd:complexType name="archivedProtocols_t">
+        <xsd:sequence>
+            <xsd:element maxOccurs="unbounded" name="protocol" type="protocol_t" />
+        </xsd:sequence>
+    </xsd:complexType>
+
+    <xsd:complexType name="protocol_t">
+        <xsd:sequence>
+            <xsd:element name="name" type="xsd:string" />
+            <!-- "yyyy-MM-ddThh:mm:ss" in UTC -->
+            <xsd:element name="date" type="xsd:dateTime" />
+            <xsd:element name="location" type="xsd:string" />
+            <xsd:element name="comment" type="xsd:string" />
+            <xsd:element name="result" type="xsd:string" />
+            <xsd:element name="studyPath" type="xsd:string" />
+        </xsd:sequence>
+        <!-- student number (ger. matrikelnummer) -->
+        <xsd:attribute name="id" type="xsd:string" use="required" />
+    </xsd:complexType>
+</xsd:schema>
