@@ -45,7 +45,7 @@ public class ArchivedProtocolManager extends BasicManager {
 	 */
 	public List<ArchivedProtocol> findAllByStudent(String studentId) {
 		return dbInstance.getCurrentEntityManager()
-			.createNamedQuery("findByStudent", ArchivedProtocol.class)
+			.createNamedQuery("loadArchivedProtocolsByStudent", ArchivedProtocol.class)
 			.setParameter("studentId", studentId)
 			.getResultList();
 	}
@@ -57,7 +57,7 @@ public class ArchivedProtocolManager extends BasicManager {
 	 */
 	public int deleteAllByStudent(String studentId) {
 		return dbInstance.getCurrentEntityManager()
-			.createNamedQuery("deleteByStudent")
+			.createNamedQuery("deleteArchivedProtocolsByStudent")
 			.setParameter("studentId", studentId)
 			.executeUpdate();
 	}

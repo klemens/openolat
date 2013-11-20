@@ -12,6 +12,7 @@ import javax.persistence.Table;
 import javax.persistence.Temporal;
 import javax.persistence.TemporalType;
 
+import org.hibernate.annotations.GenericGenerator;
 import org.olat.core.id.Persistable;
 
 /**
@@ -23,13 +24,15 @@ import org.olat.core.id.Persistable;
 @Entity(name="archivedprotocol")
 @Table(name="o_xman_archived_protocol")
 @NamedQueries({
-	@NamedQuery(name = "findByStudent", query = "SELECT proto FROM archivedprotocol proto WHERE proto.studentId = :studentId"),
-	@NamedQuery(name = "deleteByStudent", query = "DELETE FROM archivedprotocol proto WHERE proto.studentId = :studentId")
+	@NamedQuery(name = "loadArchivedProtocolsByStudent", query = "SELECT proto FROM archivedprotocol proto WHERE proto.studentId = :studentId"),
+	@NamedQuery(name = "deleteArchivedProtocolsByStudent", query = "DELETE FROM archivedprotocol proto WHERE proto.studentId = :studentId")
 })
 public class ArchivedProtocol implements Persistable {
 	private static final long serialVersionUID = -6985508337654400770L;
 
-	@Id @GeneratedValue
+	@Id
+	@GeneratedValue(generator = "system-uuid")
+	@GenericGenerator(name = "system-uuid", strategy = "hilo")
 	@Column(name="id")
 	private Long key;
 
