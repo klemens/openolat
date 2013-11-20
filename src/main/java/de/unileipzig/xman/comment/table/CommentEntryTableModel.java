@@ -7,6 +7,7 @@ import java.util.Locale;
 import org.olat.core.gui.components.table.DefaultColumnDescriptor;
 import org.olat.core.gui.components.table.DefaultTableDataModel;
 import org.olat.core.gui.components.table.TableController;
+import org.olat.core.id.User;
 import org.olat.core.id.UserConstants;
 import org.olat.core.util.Formatter;
 
@@ -63,8 +64,10 @@ public class CommentEntryTableModel extends DefaultTableDataModel<CommentEntry> 
 			
 			case 0: return  entry.getCreationDate();
 			
-			case 1: return  entry.getAuthor().getUser().getProperty(UserConstants.LASTNAME, null) + ", " + 
-											entry.getAuthor().getUser().getProperty(UserConstants.FIRSTNAME, null);
+			case 1:
+				User user = entry.getAuthor().getUser();
+				return user.getProperty(UserConstants.FIRSTNAME, null) + " " + user.getProperty(UserConstants.LASTNAME, null);
+
 			/**
 			 * Old code: Formatter.formatWikiMarkup(entry.getComment());
 			 * 
