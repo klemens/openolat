@@ -31,7 +31,7 @@
 	
 	<bean class="org.springframework.beans.factory.config.MethodInvokingFactoryBean">
         <property name="staticMethod" value="de.unileipzig.shibboleth.SimpleShibbolethLoginFormController.setPath"/>
-        <property name="arguments" value="/${simpleShibboleth.path:shib}/" />
+        <property name="arguments" value="${simpleShibboleth.path:shib}" />
     </bean>
 	
 </beans>
