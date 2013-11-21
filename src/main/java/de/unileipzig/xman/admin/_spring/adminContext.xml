@@ -10,7 +10,7 @@
   
 
 <bean id="olatsites_examadmin" class="de.unileipzig.xman.admin.ExamAdminSiteDef" scope="prototype" />
-
+<bean id="xman_mailer" class="de.unileipzig.xman.admin.mail.MailManager" />
 
 
 </beans>
