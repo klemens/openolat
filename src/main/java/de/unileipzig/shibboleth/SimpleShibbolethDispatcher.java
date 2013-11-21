@@ -226,7 +226,7 @@ public class SimpleShibbolethDispatcher implements Dispatcher {
 	 */
 	private void migrateUser(Identity identity, String username) {
 		// create additional authentication method for user
-		BaseSecurityManager.getInstance().createAndPersistAuthentication(identity, PROVIDER_SSHIB, username, null);
+		BaseSecurityManager.getInstance().createAndPersistAuthentication(identity, PROVIDER_SSHIB, username, null, null);
 		
 		// TODO here we could update the user attributes with shibboleth attributes
 	}
