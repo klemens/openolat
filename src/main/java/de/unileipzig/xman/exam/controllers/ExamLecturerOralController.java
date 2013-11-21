@@ -373,7 +373,7 @@ public class ExamLecturerOralController extends BasicController {
 										semester,
 										proto.getIdentity().getUser().getProperty(UserConstants.INSTITUTIONALEMAIL, null),
 										proto.getIdentity().getUser().getProperty(UserConstants.EMAIL, null),
-										proto.getIdentity().getUser().getProperty(UserConstants.STUDYSUBJECT, null)
+										proto.getStudyPath()
 									}),
 								proto.getIdentity()
 							);

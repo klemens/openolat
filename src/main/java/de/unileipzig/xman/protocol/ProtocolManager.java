@@ -261,6 +261,8 @@ public class ProtocolManager {
 			proto.setEarmarked(earmark);
 			proto.setExam(appointment.getExam());
 			proto.setComments(initialComment);
+			// we save the studypath in the protocol, because it may change at any time
+			proto.setStudyPath(esf.getIdentity().getUser().getProperty(UserConstants.STUDYSUBJECT, null));
 			
 			if (appointment.getExam().getIsOral()) {
 				appointment.setOccupied(true);
@@ -304,7 +306,7 @@ public class ProtocolManager {
 						semester,
 						proto.getIdentity().getUser().getProperty(UserConstants.INSTITUTIONALEMAIL, null),
 						proto.getIdentity().getUser().getProperty(UserConstants.EMAIL, null),
-						proto.getIdentity().getUser().getProperty(UserConstants.STUDYSUBJECT, null)
+						proto.getStudyPath()
 					}),
 				proto.getIdentity()
 			);

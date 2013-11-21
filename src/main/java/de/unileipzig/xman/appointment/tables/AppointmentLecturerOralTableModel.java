@@ -72,7 +72,7 @@ public class AppointmentLecturerOralTableModel extends DefaultTableDataModel<App
 			case 2: return new Integer(app.getDuration()) + " min";
 			case 3: return protocol.getIdentity().getUser().getProperty(UserConstants.FIRSTNAME, null) + " " + protocol.getIdentity().getUser().getProperty(UserConstants.LASTNAME, null);
 			case 4: return protocol.getIdentity().getUser().getProperty(UserConstants.INSTITUTIONALUSERIDENTIFIER, null);
-			case 5: return protocol.getIdentity().getUser().getProperty(UserConstants.STUDYSUBJECT, null);
+			case 5: return protocol.getStudyPath();
 			case 6: return protocol.getGrade();
 			case 7: return protocol.getComments();
 			case 8:	if(protocol != null) {

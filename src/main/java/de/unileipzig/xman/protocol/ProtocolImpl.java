@@ -17,6 +17,7 @@ public class ProtocolImpl extends PersistentObject implements Protocol {
 	private boolean earmarked;
 	private String comments;
 	private String grade;
+	private String studyPath;
 	private Date lastModified;
 	
 	/**
@@ -74,6 +75,11 @@ public class ProtocolImpl extends PersistentObject implements Protocol {
 		return this.grade;
 	}
 
+	@Override
+	public void setStudyPath(String studyPath) {
+		this.studyPath = studyPath;
+	}
+
 	/* 
 	 * @see de.xman.protocol.Protocol#getIdentity()
 	 */
@@ -122,6 +128,11 @@ public class ProtocolImpl extends PersistentObject implements Protocol {
 	public void setGrade(String grade) {
 		
 		this.grade = grade;
+	}
+
+	@Override
+	public String getStudyPath() {
+		return studyPath;
 	}
 
 	/* 

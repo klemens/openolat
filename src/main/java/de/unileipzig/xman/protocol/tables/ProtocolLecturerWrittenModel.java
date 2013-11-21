@@ -58,7 +58,7 @@ public class ProtocolLecturerWrittenModel extends DefaultTableDataModel<Protocol
 		switch(col) {
 			case 0: return proto.getIdentity().getUser().getProperty(UserConstants.FIRSTNAME, null) + " " + proto.getIdentity().getUser().getProperty(UserConstants.LASTNAME, null);
 			case 1: return proto.getIdentity().getUser().getProperty(UserConstants.INSTITUTIONALUSERIDENTIFIER, null);
-			case 2: return proto.getIdentity().getUser().getProperty(UserConstants.STUDYSUBJECT, null);
+			case 2: return proto.getStudyPath();
 			case 3: return proto.getGrade();
 			case 4: return proto.getComments();
 			case 5:	if(proto.getEarmarked()) {

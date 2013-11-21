@@ -47,6 +47,11 @@ public interface Protocol extends OLATResourceable, CreateInfo, Persistable, Mod
 	 */
 	public void setGrade(String grade);
 	
+	/**
+	 * @param studyPath set the studypath of the student
+	 */
+	public void setStudyPath(String studyPath);
+
 	/*---------------- getter ------------------*/
 	
 	/**
@@ -78,4 +83,9 @@ public interface Protocol extends OLATResourceable, CreateInfo, Persistable, Mod
 	 * @return the grade for this student
 	 */
 	public String getGrade();
+
+	/**
+	 * @return the studypath of the student
+	 */
+	public String getStudyPath();
 }

@@ -463,7 +463,7 @@ public class ExamEditorController extends BasicController {
 					archivedProtocol.setLocation(appointment.getPlace() != null ? appointment.getPlace() : "");
 					archivedProtocol.setComment(protocol.getComments() != null ? protocol.getComments() : "");
 					archivedProtocol.setResult(protocol.getGrade() != null ? protocol.getGrade() : "");
-					archivedProtocol.setStudyPath(protocol.getIdentity().getUser().getProperty(UserConstants.STUDYSUBJECT, null));
+					archivedProtocol.setStudyPath(protocol.getStudyPath() != null ? protocol.getStudyPath() : "");
 					
 					ArchivedProtocolManager.getInstance().save(archivedProtocol);
 				}

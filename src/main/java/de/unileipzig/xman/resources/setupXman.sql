@@ -78,6 +78,7 @@ CREATE TABLE `o_xman_protocol` (
   `earmarked` tinyint(1) DEFAULT NULL,
   `comments` text,
   `grade` text,
+  `study_path` VARCHAR(255) DEFAULT NULL,
   PRIMARY KEY (`protocol_id`)
 );
 
