@@ -15,6 +15,7 @@ import org.olat.core.dispatcher.Dispatcher;
 import org.olat.core.dispatcher.DispatcherAction;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.UserRequestImpl;
+import org.olat.core.gui.control.ChiefController;
 import org.olat.core.gui.media.MediaResource;
 import org.olat.core.gui.media.RedirectMediaResource;
 import org.olat.core.id.Identity;
@@ -77,12 +78,14 @@ public class SimpleShibbolethDispatcher implements Dispatcher {
 	
 	@Override
 	public void execute(HttpServletRequest request, HttpServletResponse response, String uriPrefix) {
+		UserRequest ureq = new UserRequestImpl(uriPrefix, request, response);
+
 		if(log == null)
 			log = Tracing.createLoggerFor(this.getClass());
 		
 		if(!enabled) {
 			log.error("shibboleth login attempted although not enabled");
-			DispatcherAction.redirectToDefaultDispatcher(response);
+			showError(ureq, "Shibboleth is not enabled, please contact admin.", null);
 			return;
 		}
 		
@@ -92,21 +95,10 @@ public class SimpleShibbolethDispatcher implements Dispatcher {
 		// check if username present
 		if(userAttributes.getProperty("username", "").isEmpty()) {
 			log.error("shibboleth login failed: no username was supplied by shibboleth, check your configuration");
-			DispatcherAction.redirectToDefaultDispatcher(response);
+			showError(ureq, "Could not transfer username correctly, please try again!", null);
 			return;
 		}
 		String username = userAttributes.getProperty("username");
-		
-		// create the user request, send bad request for invalid uris
-		// see other openolat dispatchers
-		UserRequest ureq = null;
-		try {
-			ureq = new UserRequestImpl(uriPrefix, request, response);
-		} catch(NumberFormatException nfe) {
-			log.error("Bad Request " + request.getPathInfo());
-			DispatcherAction.sendBadRequest(request.getPathInfo(), response);
-			return;
-		}
 		
 		// find shibboleth authentication
 		Authentication auth = BaseSecurityManager.getInstance().findAuthenticationByAuthusername(username, PROVIDER_SSHIB);
@@ -119,7 +111,7 @@ public class SimpleShibbolethDispatcher implements Dispatcher {
 				log.info("first login of user '" + username + "' using shibboleth");
 				Identity newUser = registerUser(username, userAttributes);
 				if(!loginUser(newUser, ureq)) {
-					DispatcherAction.redirectToDefaultDispatcher(response);
+					showError(ureq, "Login failed", null);
 					return;
 				}
 			} else {
@@ -128,12 +120,12 @@ public class SimpleShibbolethDispatcher implements Dispatcher {
 					log.info("migrating user '" +  username + "' to shibboleth auth and logging in");
 					migrateUser(identity, username);
 					if(!loginUser(identity, ureq)) {
-						DispatcherAction.redirectToDefaultDispatcher(response);
+						showError(ureq, "Login failed", null);
 						return;
 					}
 				} else {
 					log.error("existing username '" + username + "' but migration to shibboleth not enabled");
-					DispatcherAction.redirectToDefaultDispatcher(response);
+					showError(ureq, "Your username does already exists, but migration to shibboleth is disabled.", null);
 					return;
 				}
 			}
@@ -141,7 +133,7 @@ public class SimpleShibbolethDispatcher implements Dispatcher {
 			// login the user the normal way
 			log.info("user '" + username + "' logged in via shibboleth");
 			if(!loginUser(auth.getIdentity(), ureq)) {
-				DispatcherAction.redirectToDefaultDispatcher(response);
+				showError(ureq, "Login failed", null);
 				return;
 			}
 		}
@@ -159,28 +151,16 @@ public class SimpleShibbolethDispatcher implements Dispatcher {
 	}
 	
 	/**
-	 * Logs the user in and redirects on error case
+	 * Logs the user in
 	 */
 	private boolean loginUser(Identity identity, UserRequest ureq) {
 		// try to login
 		int loginStatus = AuthHelper.doLogin(identity, PROVIDER_SSHIB, ureq);
-		
-		// redirect in error case
-		if(loginStatus != AuthHelper.LOGIN_OK) {
-			if(loginStatus == AuthHelper.LOGIN_NOTAVAILABLE) {
-				DispatcherAction.redirectToServiceNotAvailable(ureq.getHttpResp());
-			} else {
-				log.error("could not login user using shibboleth, login status: " + loginStatus);
-				DispatcherAction.redirectToDefaultDispatcher(ureq.getHttpResp()); // login screen
-			}
-			
-			return false;
-		}
-		
+
 		// set user as active
 		UserDeletionManager.getInstance().setIdentityAsActiv(identity);
 
-		return true;
+		return loginStatus == AuthHelper.LOGIN_OK;
 	}
 	
 	/**
@@ -247,7 +227,15 @@ public class SimpleShibbolethDispatcher implements Dispatcher {
 		
 		return userAttributes;
 	}
-	
+
+	/**
+	 * @see SimpleShibbolethErrorController#SimpleShibbolethErrorController(UserRequest, String, String)
+	 */
+	private void showError(UserRequest ureq, String message, String detail) {
+		ChiefController controller = new SimpleShibbolethErrorController(ureq, message, detail);
+		controller.getWindow().dispatchRequest(ureq, true);
+	}
+
 	/**
 	 * Spring setters and getters
 	 */
