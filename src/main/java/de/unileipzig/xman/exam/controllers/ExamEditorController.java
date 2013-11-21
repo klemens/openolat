@@ -33,6 +33,7 @@ import org.olat.core.gui.control.generic.dtabs.DTab;
 import org.olat.core.gui.control.generic.dtabs.DTabs;
 import org.olat.core.gui.control.generic.modal.ButtonClickedEvent;
 import org.olat.core.gui.control.generic.modal.DialogBoxController;
+import org.olat.core.gui.control.generic.modal.DialogBoxUIFactory;
 import org.olat.core.gui.control.generic.tool.ToolController;
 import org.olat.core.gui.control.generic.tool.ToolFactory;
 import org.olat.core.gui.translator.PackageTranslator;
@@ -68,6 +69,8 @@ import de.unileipzig.xman.exam.forms.EditMultiSubscriptionForm;
 import de.unileipzig.xman.exam.forms.EditRegistrationForm;
 import de.unileipzig.xman.protocol.Protocol;
 import de.unileipzig.xman.protocol.ProtocolManager;
+import de.unileipzig.xman.protocol.archived.ArchivedProtocol;
+import de.unileipzig.xman.protocol.archived.ArchivedProtocolManager;
 
 /**
  * 
@@ -100,8 +103,8 @@ public class ExamEditorController extends BasicController {
 	private CloseableModalController cmc;
 	private RepositoryEntry repoEntry;
 	
-	private Link closeExam;
-	private DialogBoxController closeExamOkCancelDialog;
+	private Link archiveExamLink;
+	private DialogBoxController archiveExamOkCancelDialog;
 
 	/**
 	 * creates the controller for the exam editor
@@ -138,7 +141,7 @@ public class ExamEditorController extends BasicController {
 			mainPanel = new Panel("examEditorPanel");
 			mainPanel.setContent(vcMain);
 			
-			closeExam = LinkFactory.createButton("ExamEditorController.link.closeExam", vcMain, this);
+			archiveExamLink = LinkFactory.createButton("ExamEditorController.link.archiveExam", vcMain, this);
 
 			layoutCtr = new LayoutMain3ColsController(ureq, wControl, null, null, mainPanel, "examEditorCtrLayoutKey");
 
@@ -245,7 +248,7 @@ public class ExamEditorController extends BasicController {
 		if(lockResult != null) {
 			CoordinatorManager.getInstance().getCoordinator().getLocker().releaseLock(lockResult);
 		}
-		removeAsListenerAndDispose(closeExamOkCancelDialog);
+		removeAsListenerAndDispose(archiveExamOkCancelDialog);
 	}
 
 	/**
@@ -266,8 +269,8 @@ public class ExamEditorController extends BasicController {
 			cmc = new CloseableModalController(this.getWindowControl(),
 					translate("close"), vcEditApp);
 			cmc.activate();
-		} else if(source == closeExam) {
-			closeExamOkCancelDialog = activateOkCancelDialog(ureq, translate("ExamEditorController.link.closeExam"), translate("ExamEditorController.link.closeExam.warning"), closeExamOkCancelDialog);
+		} else if(source == archiveExamLink) {
+			archiveExamOkCancelDialog = activateOkCancelDialog(ureq, translate("ExamEditorController.link.archiveExam"), translate("ExamEditorController.link.archiveExam.warning"), archiveExamOkCancelDialog);
 		}
 	}
 
@@ -444,11 +447,26 @@ public class ExamEditorController extends BasicController {
 					);
 				}
 			}
-		} else if(source == closeExamOkCancelDialog) {
-			ButtonClickedEvent bEvent = (ButtonClickedEvent) event;
-            if(bEvent.getPosition() == 0) {
+		} else if(source == archiveExamOkCancelDialog) {
+            if(DialogBoxUIFactory.isOkEvent(event)) {
             	// close exam
 				ExamDBManager.getInstance().close(exam);
+				
+				// archive the protocols of the exam
+				for(Protocol protocol : ProtocolManager.getInstance().findAllProtocolsByExam(exam)) {
+					Appointment appointment = protocol.getAppointment();
+					
+					ArchivedProtocol archivedProtocol = new ArchivedProtocol();
+					archivedProtocol.setIdentifier(protocol.getIdentity().getUser().getProperty(UserConstants.INSTITUTIONALUSERIDENTIFIER, null));
+					archivedProtocol.setName(exam.getName());
+					archivedProtocol.setDate(appointment.getDate());
+					archivedProtocol.setLocation(appointment.getPlace() != null ? appointment.getPlace() : "");
+					archivedProtocol.setComment(protocol.getComments() != null ? protocol.getComments() : "");
+					archivedProtocol.setResult(protocol.getGrade() != null ? protocol.getGrade() : "");
+					archivedProtocol.setStudyPath(protocol.getIdentity().getUser().getProperty(UserConstants.STUDYSUBJECT, null));
+					
+					ArchivedProtocolManager.getInstance().save(archivedProtocol);
+				}
 				
 				// and close tab, because the editor does not make sense anymore
 				OLATResourceable ores = OLATResourceManager.getInstance().findResourceable(exam.getResourceableId(), Exam.ORES_TYPE_NAME);

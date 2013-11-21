@@ -228,13 +228,20 @@ public class ESFLaunchController extends BasicController {
 	 * @param ureq
 	 * @param wControl
 	 */
-	private void createProtocolTableModel(UserRequest ureq,
-			WindowControl wControl) {
+	private void createProtocolTableModel(UserRequest ureq, WindowControl wControl) {
+		// filter out protocols of archived (closed) exams, because they
+		// are already shown in the ArchivedProtocol table
+		List<Protocol> protocols = new ArrayList<Protocol>();
+		for(Protocol protocol : esf.getProtocolList()) {
+			if(!ExamDBManager.getInstance().isClosed(protocol.getExam())) {
+				protocols.add(protocol);
+			}
+		}
 
 		TableGuiConfiguration protoTableConfig = new TableGuiConfiguration();
 		protoTableConfig.setTableEmptyMessage(translate("ESFLaunchController.protocol.emptyTableMessage"));
 		protoTableCtr = new TableController(protoTableConfig, ureq, wControl, getTranslator());
-		protoTableMdl = new ProtocolTableModel(esf.getProtocolList(), getLocale());
+		protoTableMdl = new ProtocolTableModel(protocols, getLocale());
 		protoTableMdl.setTable(protoTableCtr);
 		protoTableCtr.setTableDataModel(protoTableMdl);
 		protoTableCtr.setSortColumn(1, false);
