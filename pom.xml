@@ -46,9 +46,9 @@
 		<url>http://jira.openolat.org</url>
 	</issueManagement>
 	<scm>
-		<connection>scm:hg:http://hg.openolat.org</connection>
-		<developerConnection>scm:hg:http://hg.openolat.org</developerConnection>
-		<url>http://hg.openolat.org</url>
+		<connection>scm:git:https://github.com/klemens/openolat.git</connection>
+		<developerConnection>scm:git:https://github.com/klemens/openolat.git</developerConnection>
+		<url>https://github.com/klemens/openolat</url>
 	</scm>
 	<mailingLists>
 		<mailingList>
@@ -1207,13 +1207,12 @@
 					<execution>
 						<phase>validate</phase>
 						<goals>
-							<goal>hgchangeset</goal>
+							<goal>create</goal>
 						</goals>
 					</execution>
 				</executions>
 				<configuration>
-					<doCheck>true</doCheck>
-					<doUpdate>true</doUpdate>
+					<shortRevisionLength>7</shortRevisionLength>
 				</configuration>
 			</plugin>
 		</plugins>
