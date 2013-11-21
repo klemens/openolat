@@ -85,9 +85,8 @@ public abstract class AbstractTextElement extends FormItemImpl implements TextEl
 	private boolean originalInitialised=false;
 	
 	
-	@SuppressWarnings("unchecked")
 	@Override
-	public void validate(List validationResults) {
+	public void validate(List<ValidationStatus> validationResults) {
 		if(checkForNotEmpty && !notEmpty()){
 			validationResults.add(new ValidationStatusImpl(ValidationStatus.ERROR));
 			return;
@@ -198,6 +197,11 @@ public abstract class AbstractTextElement extends FormItemImpl implements TextEl
 	 */
 	public void setDisplaySize(int displaySize){
 		this.displaySize = displaySize;
+	}
+	
+	@Override
+	public int getMaxLength() {
+		return maxlength;
 	}
 
 	/**
@@ -344,11 +348,11 @@ public abstract class AbstractTextElement extends FormItemImpl implements TextEl
 		Locale locale = getTranslator().getLocale();
 		ValidationError validationErrorCallback = new ValidationError();
 		boolean isValid = itemValidatorProvider.isValidValue(value, validationErrorCallback, locale);
-		if (isValid) return true;
-		else {
-			setErrorKey(validationErrorCallback.getErrorKey(), null);
+		if (isValid) {
+			return true;
+		} else {
+			setErrorKey(validationErrorCallback.getErrorKey(), validationErrorCallback.getArgs());
 			return false; 
 		}
 	}
-	
 }

@@ -244,7 +244,6 @@ public class EpisodeFormController extends FormBasicController {
 	 *      org.olat.core.gui.control.Controller, org.olat.core.gui.UserRequest)
 	 */
 	@Override
-	@SuppressWarnings("unused")
 	protected void initForm(FormItemContainer formLayout, Controller listener, UserRequest ureq) {
 		this.setFormTitle("feed.edit.item");
 		this.setFormContextHelp(this.getClass().getPackage().getName(), "episode_form_help.html", "chelp.hover.episode");
@@ -253,7 +252,7 @@ public class EpisodeFormController extends FormBasicController {
 		title.setMandatory(true);
 		title.setNotEmptyCheck("feed.form.field.is_mandatory");
 
-		desc = uifactory.addRichTextElementForStringData("desc", "feed.form.description", episode.getDescription(), 12, -1, false,
+		desc = uifactory.addRichTextElementForStringData("desc", "feed.form.description", episode.getDescription(), 12, -1,
 				false, baseDir, null, formLayout, ureq.getUserSession(), getWindowControl());
 		RichTextConfiguration richTextConfig = desc.getEditorConfiguration();
 		// set upload dir to the media dir

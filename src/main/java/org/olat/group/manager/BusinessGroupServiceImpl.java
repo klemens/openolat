@@ -34,8 +34,6 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 
-import javax.annotation.PostConstruct;
-
 import org.hibernate.ObjectNotFoundException;
 import org.hibernate.StaleObjectStateException;
 import org.olat.admin.user.delete.service.UserDeletionManager;
@@ -45,6 +43,7 @@ import org.olat.basesecurity.Constants;
 import org.olat.basesecurity.SecurityGroup;
 import org.olat.collaboration.CollaborationTools;
 import org.olat.collaboration.CollaborationToolsFactory;
+import org.olat.core.CoreSpringFactory;
 import org.olat.core.commons.persistence.DB;
 import org.olat.core.id.Identity;
 import org.olat.core.id.Roles;
@@ -56,19 +55,21 @@ import org.olat.core.logging.activity.ActionType;
 import org.olat.core.logging.activity.ThreadLocalUserActivityLogger;
 import org.olat.core.util.async.ProgressDelegate;
 import org.olat.core.util.coordinate.CoordinatorManager;
+import org.olat.core.util.mail.MailBundle;
 import org.olat.core.util.mail.MailContext;
 import org.olat.core.util.mail.MailContextImpl;
+import org.olat.core.util.mail.MailManager;
 import org.olat.core.util.mail.MailPackage;
 import org.olat.core.util.mail.MailTemplate;
 import org.olat.core.util.mail.MailerResult;
-import org.olat.core.util.mail.MailerWithTemplate;
 import org.olat.core.util.notifications.NotificationsManager;
 import org.olat.core.util.notifications.Subscriber;
 import org.olat.core.util.resource.OLATResourceableJustBeforeDeletedEvent;
 import org.olat.core.util.resource.OresHelper;
-import org.olat.course.nodes.projectbroker.service.ProjectBrokerManagerFactory;
 import org.olat.group.BusinessGroup;
 import org.olat.group.BusinessGroupAddResponse;
+import org.olat.group.BusinessGroupLazy;
+import org.olat.group.BusinessGroupManagedFlag;
 import org.olat.group.BusinessGroupMembership;
 import org.olat.group.BusinessGroupModule;
 import org.olat.group.BusinessGroupOrder;
@@ -148,25 +149,13 @@ public class BusinessGroupServiceImpl implements BusinessGroupService, UserDataD
 	@Autowired
 	private NotificationsManager notificationsManager;
 	@Autowired
-	private MailerWithTemplate mailer;
+	private MailManager mailManager;
 	@Autowired
 	private ACService acService;
 	@Autowired
 	private ACReservationDAO reservationDao;
 	@Autowired
 	private DB dbInstance;
-	
-	private List<DeletableGroupData> deleteListeners = new ArrayList<DeletableGroupData>();
-
-	@PostConstruct
-	public void init() {
-		userDeletionManager.registerDeletableUserData(this);
-	}
-	
-	@Override
-	public void registerDeletableGroupDataListener(DeletableGroupData listener) {
-		this.deleteListeners.add(listener);
-	}
 	
 	@Override
 	public void deleteUserData(Identity identity, String newDeletedUserName) {
@@ -201,8 +190,20 @@ public class BusinessGroupServiceImpl implements BusinessGroupService, UserDataD
 	public BusinessGroup createBusinessGroup(Identity creator, String name, String description,
 			Integer minParticipants, Integer maxParticipants, boolean waitingListEnabled, boolean autoCloseRanksEnabled,
 			RepositoryEntry re) {
+		return createBusinessGroup(creator, name,  description, null, null,
+				minParticipants, maxParticipants, waitingListEnabled, autoCloseRanksEnabled, re);
+	}
 
-		BusinessGroup group = businessGroupDAO.createAndPersist(creator, name, description,
+	@Override
+	public BusinessGroup createBusinessGroup(Identity creator, String name, String description,
+			String externalId, String managedFlags, Integer minParticipants, Integer maxParticipants,
+			boolean waitingListEnabled, boolean autoCloseRanksEnabled, RepositoryEntry re) {
+		
+		if("".equals(managedFlags) || "none".equals(managedFlags)) {
+			managedFlags = null;
+		}
+		
+		BusinessGroup group = businessGroupDAO.createAndPersist(creator, name, description, externalId, managedFlags,
 				minParticipants, maxParticipants, waitingListEnabled, autoCloseRanksEnabled, false, false, false);
 		if(re != null) {
 			addResourceTo(group, re);
@@ -212,7 +213,7 @@ public class BusinessGroupServiceImpl implements BusinessGroupService, UserDataD
 
 	@Override
 	public BusinessGroup updateBusinessGroup(Identity ureqIdentity, BusinessGroup group, String name, String description,
-			Integer minParticipants, Integer maxParticipants) {
+			String externalId, String managedFlags, Integer minParticipants, Integer maxParticipants) {
 		
 		BusinessGroup bg = businessGroupDAO.loadForUpdate(group.getKey());
 
@@ -222,6 +223,14 @@ public class BusinessGroupServiceImpl implements BusinessGroupService, UserDataD
 		bg.setMaxParticipants(maxParticipants);
 		bg.setMinParticipants(minParticipants);
 		bg.setLastUsage(new Date(System.currentTimeMillis()));
+		
+		//strip
+		if("none".equals(managedFlags) || "".equals(managedFlags)) {
+			managedFlags = null;
+		}
+		bg.setManagedFlagsString(managedFlags);
+		bg.setExternalId(externalId);
+
 		//auto rank if possible
 		List<BusinessGroupModifiedEvent.Deferred> events = new ArrayList<BusinessGroupModifiedEvent.Deferred>();
 		autoRankCheck(ureqIdentity, bg, previousMaxParticipants, events);
@@ -309,21 +318,24 @@ public class BusinessGroupServiceImpl implements BusinessGroupService, UserDataD
 	@Override
 	public BusinessGroup setLastUsageFor(final Identity identity, final BusinessGroup group) {
 		BusinessGroup reloadedBusinessGroup = businessGroupDAO.loadForUpdate(group.getKey());
-		reloadedBusinessGroup.setLastUsage(new Date());
-		if(identity != null) {
-			List<SecurityGroup> secGroups = new ArrayList<SecurityGroup>();
-			if(group.getOwnerGroup() != null) {
-				secGroups.add(group.getOwnerGroup());
+		BusinessGroup mergedGroup = null;
+		if(reloadedBusinessGroup != null) {
+			reloadedBusinessGroup.setLastUsage(new Date());
+			if(identity != null) {
+				List<SecurityGroup> secGroups = new ArrayList<SecurityGroup>();
+				if(group.getOwnerGroup() != null) {
+					secGroups.add(group.getOwnerGroup());
+				}
+				if(group.getPartipiciantGroup() != null) {
+					secGroups.add(group.getPartipiciantGroup());
+				}
+				if(group.getWaitingGroup() != null) {
+					secGroups.add(group.getWaitingGroup());
+				}
+				securityManager.touchMembership(identity, secGroups);
 			}
-			if(group.getPartipiciantGroup() != null) {
-				secGroups.add(group.getPartipiciantGroup());
-			}
-			if(group.getWaitingGroup() != null) {
-				secGroups.add(group.getWaitingGroup());
-			}
-			securityManager.touchMembership(identity, secGroups);
+			mergedGroup = businessGroupDAO.merge(reloadedBusinessGroup);
 		}
-		BusinessGroup mergedGroup = businessGroupDAO.merge(reloadedBusinessGroup);
 		dbInstance.commit();
 		return mergedGroup;
 	}
@@ -437,10 +449,8 @@ public class BusinessGroupServiceImpl implements BusinessGroupService, UserDataD
 		}
 		//9. copy relations
 		if(copyRelations) {
-			List<OLATResource> resources = businessGroupRelationDAO.findResources(Collections.singletonList(sourceBusinessGroup), 0, -1);
-			for(OLATResource resource:resources) {
-				businessGroupRelationDAO.addRelationToResource(newGroup, resource);
-			}	
+			List<RepositoryEntry> resources = businessGroupRelationDAO.findRepositoryEntries(Collections.singletonList(sourceBusinessGroup), 0, -1);
+			addResourcesTo(Collections.singletonList(newGroup), resources);
 		}
 		return newGroup;
 	}
@@ -638,6 +648,11 @@ public class BusinessGroupServiceImpl implements BusinessGroupService, UserDataD
 	}
 
 	@Override
+	public List<BusinessGroupLazy> findBusinessGroups(Identity identity, int maxResults, BusinessGroupOrder... orderBy) {
+		return businessGroupDAO.findBusinessGroup(identity, maxResults, orderBy);
+	}
+
+	@Override
 	public List<BusinessGroup> findBusinessGroupsOwnedBy(Identity identity, OLATResource resource) {
 		SearchBusinessGroupParams params = new SearchBusinessGroupParams(identity, true, false);
 		return businessGroupDAO.findBusinessGroups(params, resource, 0, -1);
@@ -719,17 +734,15 @@ public class BusinessGroupServiceImpl implements BusinessGroupService, UserDataD
 			// refresh object to avoid stale object exceptions
 			group = loadBusinessGroup(group);
 			// 0) Loop over all deletableGroupData
-			for (DeletableGroupData deleteListener : deleteListeners) {
+			Map<String,DeletableGroupData> deleteListeners = CoreSpringFactory.getBeansOfType(DeletableGroupData.class);
+			for (DeletableGroupData deleteListener : deleteListeners.values()) {
 				if(log.isDebug()) {
 					log.debug("deleteBusinessGroup: call deleteListener=" + deleteListener);
 				}
 				deleteListener.deleteGroupDataFor(group);
 			} 
 			
-			// 0) Delete from project broker 
-			ProjectBrokerManagerFactory.getProjectBrokerManager().deleteGroupDataFor(group);
 			// 1) Delete all group properties
-			
 			CollaborationTools ct = CollaborationToolsFactory.getInstance().getOrCreateCollaborationTools(group);
 			ct.deleteTools(group);// deletes everything concerning properties&collabTools
 			
@@ -805,14 +818,14 @@ public class BusinessGroupServiceImpl implements BusinessGroupService, UserDataD
 		deleteBusinessGroup(businessGroupTodelete);
 		dbInstance.commit();
 		// finally send email
-		MailerWithTemplate mailer = MailerWithTemplate.getInstance();
 		MailTemplate mailTemplate = BGMailHelper.createDeleteGroupMailTemplate(businessGroupTodelete, deletedBy);
 		if (mailTemplate != null) {
 			String metaId = UUID.randomUUID().toString();
 			MailContext context = new MailContextImpl(businessPath);
-			MailerResult mailerResult = mailer.sendMailAsSeparateMails(context, users, null, mailTemplate, null, metaId);
-			//MailHelper.printErrorsAndWarnings(mailerResult, wControl, locale);
-			return mailerResult;
+			MailerResult result = new MailerResult();
+			MailBundle[] bundles = mailManager.makeMailBundles(context, users, mailTemplate, null, metaId, result);
+			result.append(mailManager.sendMessage(bundles));
+			return result;
 		}
 		return null;
 	}
@@ -869,14 +882,14 @@ public class BusinessGroupServiceImpl implements BusinessGroupService, UserDataD
 					ResourceReservation reservation =
 							reservationDao.createReservation(identityToAdd, "group_coach", expiration, group.getResource());
 					if(reservation != null) {
-						BusinessGroupMailing.sendEmail(ureqIdentity, identityToAdd, group, MailType.addCoach, mailing, mailer);
+						BusinessGroupMailing.sendEmail(ureqIdentity, identityToAdd, group, MailType.addCoach, mailing);
 						// logging
 						log.audit("Idenitity(.key):" + ureqIdentity.getKey() + " added identity '" + identityToAdd.getName() + "' to securitygroup with key " + group.getOwnerGroup().getKey());
 					}
 				}
 			} else {
 				internalAddCoach(ureqIdentity, identityToAdd, group, events);
-				BusinessGroupMailing.sendEmail(ureqIdentity, identityToAdd, group, MailType.addCoach, mailing, mailer);
+				BusinessGroupMailing.sendEmail(ureqIdentity, identityToAdd, group, MailType.addCoach, mailing);
 			}
 			return true;
 		}
@@ -919,12 +932,12 @@ public class BusinessGroupServiceImpl implements BusinessGroupService, UserDataD
 					ResourceReservation reservation =
 							reservationDao.createReservation(identityToAdd, "group_participant", expiration, group.getResource());
 					if(reservation != null) {
-						BusinessGroupMailing.sendEmail(ureqIdentity, identityToAdd, group, MailType.addParticipant, mailing, mailer);
+						BusinessGroupMailing.sendEmail(ureqIdentity, identityToAdd, group, MailType.addParticipant, mailing);
 					}
 				}
 			} else {
 				internalAddParticipant(ureqIdentity, identityToAdd, group, events);
-				BusinessGroupMailing.sendEmail(ureqIdentity, identityToAdd, group, MailType.addParticipant, mailing, mailer);
+				BusinessGroupMailing.sendEmail(ureqIdentity, identityToAdd, group, MailType.addParticipant, mailing);
 			}
 			return true;
 		}
@@ -1035,7 +1048,7 @@ public class BusinessGroupServiceImpl implements BusinessGroupService, UserDataD
 				transferFirstIdentityFromWaitingToParticipant(ureqIdentity, group, null, events);
 			}	
 			// send mail
-			BusinessGroupMailing.sendEmail(ureqIdentity, identity, group, MailType.removeParticipant, mailing, mailer);
+			BusinessGroupMailing.sendEmail(ureqIdentity, identity, group, MailType.removeParticipant, mailing);
 		}
 	}
 	
@@ -1065,6 +1078,18 @@ public class BusinessGroupServiceImpl implements BusinessGroupService, UserDataD
 			groups = findBusinessGroups(null, resource, 0, -1);
 		}
 		if(groups == null || groups.isEmpty()) {
+			return;//nothing to do
+		}
+		
+		//remove managed groups
+		for(Iterator<BusinessGroup> groupIt=groups.iterator(); groupIt.hasNext(); ) {
+			boolean managed = BusinessGroupManagedFlag.isManaged(groupIt.next(), BusinessGroupManagedFlag.membersmanagement);
+			if(managed) {
+				groupIt.remove();
+			}
+		}
+		
+		if(groups.isEmpty()) {
 			return;//nothing to do
 		}
 
@@ -1160,7 +1185,7 @@ public class BusinessGroupServiceImpl implements BusinessGroupService, UserDataD
 		ThreadLocalUserActivityLogger.log(GroupLoggingAction.GROUP_TO_WAITING_LIST_ADDED, getClass(), LoggingResourceable.wrap(identity));
 		log.audit("Idenitity(.key):" + ureqIdentity.getKey() + " added identity '" + identity.getName() + "' to securitygroup with key " + group.getPartipiciantGroup().getKey());
 		// send mail
-		BusinessGroupMailing.sendEmail(ureqIdentity, identity, group, MailType.addToWaitingList, mailing, mailer);
+		BusinessGroupMailing.sendEmail(ureqIdentity, identity, group, MailType.addToWaitingList, mailing);
 	}
 	
 	@Override
@@ -1202,7 +1227,7 @@ public class BusinessGroupServiceImpl implements BusinessGroupService, UserDataD
 		ThreadLocalUserActivityLogger.log(GroupLoggingAction.GROUP_FROM_WAITING_LIST_REMOVED, getClass(), LoggingResourceable.wrap(identity));
 		log.audit("Idenitity(.key):" + ureqIdentity.getKey() + " removed identity '" + identity.getName() + "' from securitygroup with key " + group.getOwnerGroup().getKey());
 		// send mail
-		BusinessGroupMailing.sendEmail(ureqIdentity, identity, group, MailType.removeToWaitingList, mailing, mailer);
+		BusinessGroupMailing.sendEmail(ureqIdentity, identity, group, MailType.removeToWaitingList, mailing);
 	}
 	
 	@Override
@@ -1366,7 +1391,7 @@ public class BusinessGroupServiceImpl implements BusinessGroupService, UserDataD
 							ThreadLocalUserActivityLogger.setStickyActionType(formerStickyActionType);
 						}
 
-						BusinessGroupMailing.sendEmail(ureqIdentity, firstWaitingListIdentity, group, MailType.graduateFromWaitingListToParticpant, mailing, mailer);				
+						BusinessGroupMailing.sendEmail(ureqIdentity, firstWaitingListIdentity, group, MailType.graduateFromWaitingListToParticpant, mailing);				
 						counter++;
 				  }
 				}
@@ -1633,6 +1658,11 @@ public class BusinessGroupServiceImpl implements BusinessGroupService, UserDataD
 	}
 
 	@Override
+	public List<BusinessGroupMembership> getBusinessGroupsMembership(Collection<BusinessGroup> businessGroups) {
+		return businessGroupDAO.getBusinessGroupsMembership(businessGroups);
+	}
+
+	@Override
 	public List<BusinessGroupMembership> getBusinessGroupMembership(Collection<Long> businessGroups, Identity... identity) {
 		List<BusinessGroupMembershipViewImpl> views =
 				businessGroupDAO.getMembershipInfoInBusinessGroups(businessGroups, identity);
@@ -1685,8 +1715,8 @@ public class BusinessGroupServiceImpl implements BusinessGroupService, UserDataD
 	
 	@Override
 	public void exportGroups(List<BusinessGroup> groups, List<BGArea> areas, File fExportFile,
-			BusinessGroupEnvironment env, boolean backwardsCompatible) {
-		businessGroupImportExport.exportGroups(groups, areas, fExportFile, env, backwardsCompatible);
+			BusinessGroupEnvironment env, boolean runtimeDatas, boolean backwardsCompatible) {
+		businessGroupImportExport.exportGroups(groups, areas, fExportFile, env, runtimeDatas, backwardsCompatible);
 	}
 
 	@Override
@@ -1697,10 +1727,5 @@ public class BusinessGroupServiceImpl implements BusinessGroupService, UserDataD
 	@Override
 	public void archiveGroups(List<BusinessGroup> groups, File exportFile) {
 		businessGroupArchiver.archiveGroups(groups, exportFile);
-	}
-
-	@Override
-	public File archiveGroupMembers(OLATResource resource, List<String> columnList, List<BusinessGroup> groupList, String archiveType, Locale locale, String charset) {
-		return businessGroupArchiver.archiveGroupMembers(resource, columnList, groupList, archiveType, locale, charset);
 	}
 }

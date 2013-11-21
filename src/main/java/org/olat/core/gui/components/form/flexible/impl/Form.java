@@ -50,6 +50,7 @@ import org.olat.core.gui.components.form.flexible.FormBaseComponentIdProvider;
 import org.olat.core.gui.components.form.flexible.FormItem;
 import org.olat.core.gui.components.form.flexible.FormItemContainer;
 import org.olat.core.gui.control.Controller;
+import org.olat.core.gui.control.Event;
 import org.olat.core.gui.translator.Translator;
 import org.olat.core.logging.AssertException;
 import org.olat.core.logging.LogDelegator;
@@ -170,6 +171,11 @@ public class Form extends LogDelegator {
 	private Map<String, String> requestMultipartFileNames = new HashMap<String,String>();
 	private Map<String, String> requestMultipartFileMimeTypes = new HashMap<String,String>();
 	private int requestError = REQUEST_ERROR_NO_ERROR;
+	
+	// replayableID Counter
+	private long replayIdCount;
+	// Map to replayableID real dispatchID
+	private Map<String,Long> replayIdMap = new HashMap<String,Long>();
 	
 	private Form(Controller listener) {
 		// internal use only
@@ -464,6 +470,18 @@ public class Form extends LogDelegator {
 	 * @param ureq
 	 */
 	public void submit(UserRequest ureq) {
+		submit(ureq, org.olat.core.gui.components.form.Form.EVNT_VALIDATION_OK);
+	}
+	
+	public void submitAndNext(UserRequest ureq) {
+		submit(ureq, org.olat.core.gui.components.form.Form.EVNT_VALIDATION_NEXT);
+	}
+	
+	public void submitAndFinish(UserRequest ureq) {
+		submit(ureq, org.olat.core.gui.components.form.Form.EVNT_VALIDATION_FINISH);
+	}
+	
+	private final void submit(UserRequest ureq, Event validationOkEvent) {	
 		ValidatingFormComponentVisitor vfcv = new ValidatingFormComponentVisitor();
 		FormComponentTraverser ct = new FormComponentTraverser(vfcv, formLayout, false);
 		ct.visitAll(ureq);
@@ -479,12 +497,12 @@ public class Form extends LogDelegator {
 			//let further validate even if one fails. TODO:pb discuss with cg
 			isValid = fbc.validateFormLogic(ureq) && isValid;
 		}
-		
-		//
-		formWrapperComponent.fireValidation(ureq, isValid);
+
+		formWrapperComponent.fireValidation(ureq, isValid, validationOkEvent);
 		isValidAndSubmitted = isValid;
 		hasAlreadyFired = true;
 	}
+	
 	
 	/**
 	 * @param ureq
@@ -803,10 +821,6 @@ public class Form extends LogDelegator {
 		return multipartEnabled;
 	}
 	
-	
-	// replayableID Counter
-	private long replayIdCount;
-	
 	/**
 	 * Make replayID distinct for distinct forms by inserting the 
 	 * number of Form Objects created during the current session at
@@ -851,8 +865,6 @@ public class Form extends LogDelegator {
 		// max 10000 forms can appear in a  load test run
 	}
 	
-	// Map to replayableID real dispatchID
-	private  HashMap<String,Long> replayIdMap = new HashMap<String,Long>();
 	
 	/**
 	 * Get the replayableID for a component, for use only in urlReplay mode.

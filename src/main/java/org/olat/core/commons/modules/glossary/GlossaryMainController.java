@@ -28,9 +28,9 @@ import java.util.List;
 import java.util.Properties;
 import java.util.Set;
 
+import org.olat.core.CoreSpringFactory;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.Component;
-import org.olat.core.gui.components.htmlheader.jscss.JSAndCSSComponent;
 import org.olat.core.gui.components.link.Link;
 import org.olat.core.gui.components.link.LinkFactory;
 import org.olat.core.gui.components.velocity.VelocityContainer;
@@ -56,6 +56,7 @@ import org.olat.core.util.StringHelper;
 import org.olat.core.util.coordinate.CoordinatorManager;
 import org.olat.core.util.coordinate.LockResult;
 import org.olat.core.util.vfs.VFSContainer;
+import org.olat.user.UserManager;
 
 /**
  * Description:<br>
@@ -86,6 +87,7 @@ public class GlossaryMainController extends BasicController implements Activatea
 	private static final String CMD_MODIFIER = "cmd.modifier.";
 	private static final String REGISTER_LINK = "register.link.";
 	private final Formatter formatter;
+	private final UserManager userManager;
 
 	public GlossaryMainController(WindowControl control, UserRequest ureq, VFSContainer glossaryFolder, OLATResourceable res,
 			GlossarySecurityCallback glossarySecCallback, boolean eventProfil) {
@@ -98,6 +100,7 @@ public class GlossaryMainController extends BasicController implements Activatea
 		ThreadLocalUserActivityLogger.log(LearningResourceLoggingAction.LEARNING_RESOURCE_OPEN, getClass());
 		glistVC = createVelocityContainer("glossarylist");
 
+		userManager = CoreSpringFactory.getImpl(UserManager.class);
 		formatter = Formatter.getInstance(getLocale());
 
 		glossaryItemList = GlossaryItemManager.getInstance().getGlossaryItemListByVFSItem(glossaryFolder);
@@ -117,10 +120,6 @@ public class GlossaryMainController extends BasicController implements Activatea
 		Link showAllLink = LinkFactory.createCustomLink(REGISTER_LINK + "all", REGISTER_LINK + "all", "glossary.list.showall", Link.LINK,
 				glistVC, this);
 		glistVC.contextPut("showAllLink", showAllLink);
-
-		// add javascript and css file
-		JSAndCSSComponent tmJs = new JSAndCSSComponent("glossaryJS", this.getClass(), null, "glossary.css", true);
-		glistVC.put("glossaryJS", tmJs);
 
 		putInitialPanel(glistVC);
 	}
@@ -231,6 +230,7 @@ public class GlossaryMainController extends BasicController implements Activatea
 	private void openProfil(UserRequest ureq, String pos, boolean author) {
 		int id = Integer.parseInt(pos);
 		
+		@SuppressWarnings("unchecked")
 		List<GlossaryItemWrapper> wrappers = (List<GlossaryItemWrapper>)glistVC.getContext().get("editAndDelButtonList");
 		for(GlossaryItemWrapper wrapper:wrappers) {
 			if(id == wrapper.getId()) {
@@ -340,7 +340,8 @@ public class GlossaryMainController extends BasicController implements Activatea
 			// try to get lock for this glossary
 			lockEntry = CoordinatorManager.getInstance().getCoordinator().getLocker().acquireLock(resourceable, ureq.getIdentity(), "GlossaryEdit");
 			if (!lockEntry.isSuccess()) {
-				showInfo("glossary.locked", lockEntry.getOwner().getName());
+				String fullName = userManager.getUserDisplayName(lockEntry.getOwner());
+				showInfo("glossary.locked", StringHelper.escapeHtml(fullName));
 				glistVC.contextPut("editModeEnabled", Boolean.FALSE);
 			}
 		}

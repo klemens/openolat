@@ -4,7 +4,7 @@
 		<div class="o_reservation b_clearfix">
 			<div>
 				<span class="o_reservation_name b_with_small_icon_left #if($reservation.isGroupReservation()) b_group_icon #elseif($reservation.isRepositoryEntryReservation()) o_course_icon  #end">
-					${reservation.name}
+					$r.escapeHtml(${reservation.name})
 				</span>
 				#if($reservation.coach)
 					<span class="o_reservation_role_coach">
@@ -47,16 +47,18 @@
 
 	<script type="text/javascript">
 	/* <![CDATA[ */ 
-		Ext.onReady(function() {  
-			Ext.get('o_reservation_details_show_$id').on('click', function() { 
-				Effect.toggle('o_reservation_details_$id', 'slide', {duration: 0.3});
-				$('o_reservation_details_show_$id').hide();
-				$('o_reservation_details_hide_$id').show();
+		jQuery(function() {  
+			jQuery('#o_reservation_details_show_$id').click(function() {
+				jQuery('#o_reservation_details_$id').slideDown(300, function() {
+					jQuery('#o_reservation_details_show_$id').hide();
+					jQuery('#o_reservation_details_hide_$id').show();
+				});
 			});
-			Ext.get('o_reservation_details_hide_$id').on('click', function() { 
-				Effect.toggle('o_reservation_details_$id', 'slide', {duration: 0.3});
-				$('o_reservation_details_hide_$id').hide();
-				$('o_reservation_details_show_$id').show();
+			jQuery('#o_reservation_details_hide_$id').click(function() {
+				jQuery('#o_reservation_details_$id').slideUp(300, function() {
+					jQuery('#o_reservation_details_hide_$id').hide();
+					jQuery('#o_reservation_details_show_$id').show();
+				});
 			});
 		});
 	/* ]]> */

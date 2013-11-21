@@ -22,8 +22,6 @@ package org.olat.search.ui;
 
 import static org.olat.search.ui.ResultsController.RESULT_PER_PAGE;
 
-import java.io.IOException;
-import java.io.StringReader;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -34,23 +32,9 @@ import java.util.Properties;
 import java.util.Set;
 import java.util.StringTokenizer;
 
-import org.apache.lucene.analysis.Analyzer;
-import org.apache.lucene.analysis.TokenStream;
-import org.apache.lucene.analysis.standard.StandardAnalyzer;
-import org.apache.lucene.analysis.tokenattributes.TermAttribute;
-import org.apache.lucene.queryParser.ParseException;
-import org.apache.lucene.util.Version;
+import org.apache.lucene.queryparser.classic.ParseException;
 import org.olat.NewControllerFactory;
 import org.olat.core.CoreSpringFactory;
-import org.olat.core.commons.services.search.AbstractOlatDocument;
-import org.olat.core.commons.services.search.QueryException;
-import org.olat.core.commons.services.search.ResultDocument;
-import org.olat.core.commons.services.search.SearchResults;
-import org.olat.core.commons.services.search.ServiceNotAvailableException;
-import org.olat.core.commons.services.search.ui.SearchController;
-import org.olat.core.commons.services.search.ui.SearchEvent;
-import org.olat.core.commons.services.search.ui.SearchServiceUIFactory;
-import org.olat.core.commons.services.search.ui.SearchServiceUIFactory.DisplayOption;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.form.flexible.FormItem;
 import org.olat.core.gui.components.form.flexible.FormItemContainer;
@@ -64,13 +48,19 @@ import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.Event;
 import org.olat.core.gui.control.WindowControl;
 import org.olat.core.gui.control.generic.closablewrapper.CloseableModalController;
-import org.olat.core.gui.control.generic.closablewrapper.CloseableModalWindowController;
 import org.olat.core.gui.media.RedirectMediaResource;
 import org.olat.core.id.context.BusinessControl;
 import org.olat.core.id.context.BusinessControlFactory;
 import org.olat.core.logging.OLog;
 import org.olat.core.logging.Tracing;
 import org.olat.core.util.StringHelper;
+import org.olat.search.QueryException;
+import org.olat.search.SearchResults;
+import org.olat.search.SearchServiceUIFactory;
+import org.olat.search.SearchServiceUIFactory.DisplayOption;
+import org.olat.search.ServiceNotAvailableException;
+import org.olat.search.model.AbstractOlatDocument;
+import org.olat.search.model.ResultDocument;
 import org.olat.search.service.searcher.SearchClient;
 
 /**
@@ -82,7 +72,7 @@ import org.olat.search.service.searcher.SearchClient;
  * Initial Date:  3 dec. 2009 <br>
  * @author srosse, stephane.rosse@frentix.com
  */
-public class SearchInputController extends FormBasicController implements SearchController {
+public class SearchInputController extends FormBasicController {
 	private static final OLog log = Tracing.createLoggerFor(SearchInputController.class);
 	
 	private static final String FUZZY_SEARCH = "~0.7";
@@ -100,7 +90,7 @@ public class SearchInputController extends FormBasicController implements Search
 	protected FormLink searchButton;
 	protected TextElement searchInput;
 	private ResultsSearchController resultCtlr;
-	private Controller searchDialogBox;
+	private CloseableModalController searchDialogBox;
 
 	protected List<FormLink> didYouMeanLinks;
 	
@@ -214,10 +204,11 @@ public class SearchInputController extends FormBasicController implements Search
 		if(!context.isEmpty()) {
 			String scope = context.getValueAt(context.getSize() - 1);
 			String tooltip = getTranslator().translate("form.search.label.tooltip", new String[]{scope});
-			((Link)searchButton.getComponent()).setTooltip(tooltip, false);
+			((Link)searchButton.getComponent()).setTooltip(tooltip);
 		}
 	}
 	
+	@SuppressWarnings("unchecked")
 	private void setSearchStore(UserRequest ureq) {
 		prefs = (Map<String,Properties>)ureq.getUserSession().getEntry(SEARCH_STORE_KEY);
 		if(prefs == null) {
@@ -270,12 +261,12 @@ public class SearchInputController extends FormBasicController implements Search
 			oldSearchString = props.getProperty("s");
 		}
 		
-		persistSearch(ureq);
+		persistSearch();
 		
 		if (DisplayOption.BUTTON.equals(displayOption) || DisplayOption.BUTTON_WITH_LABEL.equals(displayOption)) {
 			//no search, only popup
 			createResultsSearchController(ureq);
-			popupResultsSearchController(ureq);
+			popupResultsSearchController();
 			if(resultCtlr.getPersistedSearch() != null && !resultCtlr.getPersistedSearch().isEmpty()) {
 				resultCtlr.doSearch(ureq);
 			}
@@ -288,7 +279,7 @@ public class SearchInputController extends FormBasicController implements Search
 
 				createResultsSearchController(ureq);
 				resultCtlr.setSearchString(searchString);
-				popupResultsSearchController(ureq);
+				popupResultsSearchController();
 				resultCtlr.doSearch(ureq);
 			}
 		}
@@ -318,7 +309,7 @@ public class SearchInputController extends FormBasicController implements Search
 		}
 	}
 	
-	protected void persistSearch(UserRequest ureq) {
+	protected final void persistSearch() {
 		if(getResourceUrl() != null) {
 			String uri = getResourceUrl();
 			Properties props = prefs.get(uri);
@@ -371,17 +362,11 @@ public class SearchInputController extends FormBasicController implements Search
 		}
 	}
 	
-	private void popupResultsSearchController(UserRequest ureq) {
+	private void popupResultsSearchController() {
 		String title = translate("search.title");
-		boolean ajaxOn = getWindowControl().getWindowBackOffice().getWindowManager().isAjaxEnabled();
-		if (ajaxOn) {
-			searchDialogBox = new CloseableModalWindowController(ureq, getWindowControl(), title, resultCtlr.getInitialComponent(), "ofulltextsearch");
-			((CloseableModalWindowController)searchDialogBox).activate();
-			resultCtlr.listenTo(searchDialogBox);
-		} else {
-			searchDialogBox = new CloseableModalController(getWindowControl(), title, resultCtlr.getInitialComponent());
-			((CloseableModalController)searchDialogBox).activate();
-		}
+		searchDialogBox = new CloseableModalController(getWindowControl(), title, resultCtlr.getInitialComponent());
+		searchDialogBox.activate();
+		listenTo(searchDialogBox);
 	}
 
 	@Override
@@ -394,18 +379,16 @@ public class SearchInputController extends FormBasicController implements Search
 			} else if (event == Event.DONE_EVENT) {
 				setSearchString(resultCtlr.getSearchString());
 			}
-		} else if (CloseableModalWindowController.CLOSE_WINDOW_EVENT.equals(event)) {
+		} else if (source == searchDialogBox) {
 			fireEvent(ureq, Event.DONE_EVENT);
 		}
 	}
 
 	public void closeSearchDialogBox() {
-		if (searchDialogBox instanceof CloseableModalController) {
+		if(searchDialogBox != null) {
 			((CloseableModalController)searchDialogBox).deactivate();
-		} else if(searchDialogBox instanceof CloseableModalWindowController) {
-			((CloseableModalWindowController)searchDialogBox).deactivate();
+			searchDialogBox = null;
 		}
-		searchDialogBox = null;
 	}
 	
 	/**
@@ -448,9 +431,7 @@ public class SearchInputController extends FormBasicController implements Search
 				//remove first old "did you mean words"
 				hideDidYouMeanWords();
 			}
-			
-			getHighlightWords(searchString);
-			
+
 			query = getQueryString(searchString, false);
 			condQueries = getCondQueryStrings(condSearchStrings, parentCtxt, docType, rsrcUrl);
 			SearchResults searchResults = searchCache.get(getQueryCacheKey(firstResult, query, condQueries));
@@ -489,22 +470,6 @@ public class SearchInputController extends FormBasicController implements Search
 			getWindowControl().setWarning(translate("search.service.unexpected.error"));
 		}
 		return SearchResults.EMPTY_SEARCH_RESULTS;
-	}
-	
-	protected Set<String> getHighlightWords(String searchString) {
-		try {
-			Analyzer analyzer = new StandardAnalyzer(Version.LUCENE_CURRENT);
-			TokenStream stream = analyzer.tokenStream("content", new StringReader(searchString));
-			TermAttribute termAtt = (TermAttribute) stream.addAttribute(TermAttribute.class);
-			for (boolean next = stream.incrementToken(); next; next = stream.incrementToken()) {
-				String term = termAtt.term();
-				if(log.isDebug()) log.debug(term);
-			}
-			analyzer.close();
-		} catch (IOException e) {
-			log.error("", e);
-		}
-		return null;
 	}
 	
 	protected SearchResults doFuzzySearch(UserRequest ureq, String searchString, List<String> condSearchStrings, String parentCtxt, String docType, String rsrcUrl,

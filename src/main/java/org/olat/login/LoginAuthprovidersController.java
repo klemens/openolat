@@ -119,6 +119,7 @@ public class LoginAuthprovidersController extends MainLayoutBasicController impl
 		TreeModel tm = buildTreeModel(); 
 		olatMenuTree.setTreeModel(tm);
 		olatMenuTree.setSelectedNodeId(tm.getRootNode().getIdent());
+		olatMenuTree.setRootVisible(false);
 		olatMenuTree.addListener(this);
 
 		// Activate correct position in menu
@@ -144,7 +145,7 @@ public class LoginAuthprovidersController extends MainLayoutBasicController impl
 			showAccessibilityPage();
 			olatMenuTree.setSelectedNodeId(accessibilityNode.getIdent());
 		} else if ("about".equals(type)) {
-			showAboutPage(ureq);
+			showAboutPage();
 			olatMenuTree.setSelectedNodeId(aboutNode.getIdent());
 		} else if ("registration".equals(type)) {
 			// make sure the OLAT authentication controller is activated as only this one can handle registration requests
@@ -271,7 +272,7 @@ public class LoginAuthprovidersController extends MainLayoutBasicController impl
 				} else if (cmd.equals(ACTION_COOKIES)) {
 					dmzPanel.pushContent(createVelocityContainer("cookies"));
 				} else if (cmd.equals(ACTION_ABOUT)) {
-					showAboutPage(ureq);//fxdiff FXOLAT-113: business path in DMZ
+					showAboutPage();//fxdiff FXOLAT-113: business path in DMZ
 				} else if (cmd.equals(ACTION_ACCESSIBILITY)) {
 					showAccessibilityPage();//fxdiff FXOLAT-113: business path in DMZ
 				}
@@ -295,12 +296,11 @@ public class LoginAuthprovidersController extends MainLayoutBasicController impl
 		dmzPanel.pushContent(browserCheck);
 	}
 	//fxdiff FXOLAT-113: business path in DMZ
-	protected void showAboutPage(UserRequest ureq) {
+	protected void showAboutPage() {
 	//fxdiff FXOLAT-139
 		VelocityContainer aboutVC = createVelocityContainer("about");
 		// Add version info and licenses
 		aboutVC.contextPut("version", Settings.getFullVersionInfo());
-		aboutVC.contextPut("license", WebappHelper.getOlatLicense());
 		// Add translator and languages info
 		I18nManager i18nMgr = I18nManager.getInstance();
 		Set<String> enabledKeysSet = I18nModule.getEnabledLanguageKeys();
@@ -336,8 +336,7 @@ public class LoginAuthprovidersController extends MainLayoutBasicController impl
 			if (loginStatus == AuthHelper.LOGIN_OK) {
 				return;
 			} else if (loginStatus == AuthHelper.LOGIN_NOTAVAILABLE){
-				//getWindowControl().setError(translate("login.notavailable", OLATContext.getSupportaddress()));
-				DispatcherAction.redirectToServiceNotAvailable( ureq.getHttpResp() );
+				DispatcherAction.redirectToDefaultDispatcher(ureq.getHttpResp());
 			} else {
 				// fxdiff: show useradmin-mail for pw-requests
 				getWindowControl().setError(translate("login.error", WebappHelper.getMailConfig("mailReplyTo")));

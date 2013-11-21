@@ -1,0 +1,539 @@
+/**
+ * <a href="http://www.openolat.org">
+ * OpenOLAT - Online Learning and Training</a><br>
+ * <p>
+ * Licensed under the Apache License, Version 2.0 (the "License"); <br>
+ * you may not use this file except in compliance with the License.<br>
+ * You may obtain a copy of the License at the
+ * <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache homepage</a>
+ * <p>
+ * Unless required by applicable law or agreed to in writing,<br>
+ * software distributed under the License is distributed on an "AS IS" BASIS, <br>
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. <br>
+ * See the License for the specific language governing permissions and <br>
+ * limitations under the License.
+ * <p>
+ * Initial code contributed and copyrighted by<br>
+ * frentix GmbH, http://www.frentix.com
+ * <p>
+ */
+package org.olat.ims.qti.qpool;
+
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.StringReader;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipOutputStream;
+
+import org.apache.commons.io.IOUtils;
+import org.cyberneko.html.parsers.SAXParser;
+import org.dom4j.Attribute;
+import org.dom4j.CDATA;
+import org.dom4j.Document;
+import org.dom4j.DocumentFactory;
+import org.dom4j.Element;
+import org.dom4j.Node;
+import org.dom4j.io.OutputFormat;
+import org.dom4j.io.XMLWriter;
+import org.olat.core.logging.OLog;
+import org.olat.core.logging.Tracing;
+import org.olat.core.util.CodeHelper;
+import org.olat.core.util.FileUtils;
+import org.olat.core.util.StringHelper;
+import org.olat.core.util.ZipUtil;
+import org.olat.core.util.vfs.VFSContainer;
+import org.olat.core.util.vfs.VFSItem;
+import org.olat.core.util.vfs.VFSLeaf;
+import org.olat.core.util.vfs.VFSManager;
+import org.olat.core.util.xml.XMLParser;
+import org.olat.ims.qti.QTIConstants;
+import org.olat.ims.qti.editor.QTIEditHelper;
+import org.olat.ims.resources.IMSEntityResolver;
+import org.olat.modules.qpool.QuestionItemFull;
+import org.olat.modules.qpool.manager.QPoolFileStorage;
+import org.xml.sax.Attributes;
+import org.xml.sax.InputSource;
+import org.xml.sax.helpers.DefaultHandler;
+
+/**
+ * 
+ * Initial date: 11.03.2013<br>
+ * @author srosse, stephane.rosse@frentix.com, http://www.frentix.com
+ *
+ */
+public class QTIExportProcessor {
+	
+	private static final OLog log = Tracing.createLoggerFor(QTIExportProcessor.class);
+
+	private final QPoolFileStorage qpoolFileStorage;
+	
+	public QTIExportProcessor(QPoolFileStorage qpoolFileStorage) {
+		this.qpoolFileStorage = qpoolFileStorage;
+	}
+	
+	public void process(QuestionItemFull fullItem, ZipOutputStream zout, Set<String> names) {
+		String dir = fullItem.getDirectory();
+		VFSContainer container = qpoolFileStorage.getContainer(dir);
+
+		String rootDir = "qitem_" + fullItem.getKey();
+		List<VFSItem> items = container.getItems();
+		for(VFSItem item:items) {
+			ZipUtil.addToZip(item, rootDir, zout);
+		}
+	}
+	
+	/**
+	 * <li>List all items
+	 * <li>Rewrite path
+	 * <li>Assemble qti.xml
+	 * <li>Write files at new path
+	 * @param fullItems
+	 * @param zout
+	 */
+	public void assembleTest(List<QuestionItemFull> fullItems, ZipOutputStream zout) {
+		ItemsAndMaterials itemAndMaterials = new ItemsAndMaterials();
+		for(QuestionItemFull fullItem:fullItems) {
+			collectMaterials(fullItem, itemAndMaterials);
+		}
+		
+		try {
+			byte[] buffer = new byte[FileUtils.BSIZE];
+			
+			//write qti.xml
+			Element sectionEl = createSectionBasedAssessment("Assessment");
+			for(Element itemEl:itemAndMaterials.getItemEls()) {
+				//generate new ident per item
+				String ident = getAttributeValue(itemEl, "ident");
+				String exportIdent = QTIEditHelper.generateNewIdent(ident);
+				itemEl.addAttribute("ident", exportIdent);
+				sectionEl.add(itemEl);
+			}
+			zout.putNextEntry(new ZipEntry("qti.xml"));
+			XMLWriter xw = new XMLWriter(zout, new OutputFormat("  ", true));
+			xw.write(sectionEl.getDocument());
+			zout.closeEntry();
+			
+			//write materials
+			for(ItemMaterial material:itemAndMaterials.getMaterials()) {
+				String exportPath = material.getExportUri();
+				zout.putNextEntry(new ZipEntry(exportPath));
+				InputStream in = material.getLeaf().getInputStream();
+				int c;
+				while ((c = in.read(buffer, 0, buffer.length)) != -1) {
+					zout.write(buffer, 0, c);
+				}
+				IOUtils.closeQuietly(in);
+				zout.closeEntry();
+			}
+		} catch (IOException e) {
+			log.error("", e);
+		}
+	}
+	
+	public Element exportToQTIEditor(QuestionItemFull fullItem, VFSContainer editorContainer) {
+		ItemsAndMaterials itemAndMaterials = new ItemsAndMaterials();
+		collectMaterials(fullItem, itemAndMaterials);
+		if(itemAndMaterials.getItemEls().isEmpty()) {
+			return null;//nothing found
+		}
+		
+		Element itemEl = itemAndMaterials.getItemEls().get(0);
+		//write materials
+		for(ItemMaterial material:itemAndMaterials.getMaterials()) {
+			String exportPath = material.getExportUri();
+			VFSLeaf leaf = editorContainer.createChildLeaf(exportPath);
+			VFSManager.copyContent(material.getLeaf(), leaf);
+		}
+		return itemEl;
+	}
+	
+	protected void collectMaterials(QuestionItemFull fullItem, ItemsAndMaterials materials) {
+		String dir = fullItem.getDirectory();
+		String rootFilename = fullItem.getRootFilename();
+		VFSContainer container = qpoolFileStorage.getContainer(dir);
+		VFSItem rootItem = container.resolve(rootFilename);
+
+		if(rootItem instanceof VFSLeaf) {
+			VFSLeaf rootLeaf = (VFSLeaf)rootItem;
+			Element el = (Element)readItemXml(rootLeaf).clone();
+			Element itemEl = (Element)el.clone();
+			//enrichScore(itemEl);
+			enrichWithMetadata(fullItem, itemEl);
+			collectResources(itemEl, container, materials);
+			materials.addItemEl(itemEl);
+		}
+	}
+	
+	private String getAttributeValue(Element el, String attrName) {
+		if(el == null) return null;
+		Attribute attr = el.attribute(attrName);
+		return (attr == null) ? null : attr.getStringValue();
+	}
+
+	private void collectResources(Element el, VFSContainer container, ItemsAndMaterials materials) {
+		collectResourcesInMatText(el, container, materials);
+		collectResourcesInMatMedias(el, container, materials);
+	}
+	
+	/**
+	 * Collect the file and rewrite the 
+	 * @param el
+	 * @param container
+	 * @param materials
+	 * @param paths
+	 */
+	private void collectResourcesInMatText(Element el, VFSContainer container, ItemsAndMaterials materials) {
+		//mattext
+		@SuppressWarnings("unchecked")
+		List<Element> mattextList = el.selectNodes(".//mattext");
+		for(Element mat:mattextList) {
+			Attribute texttypeAttr = mat.attribute("texttype");
+			String texttype = texttypeAttr.getValue();
+			if("text/html".equals(texttype)) {
+				@SuppressWarnings("unchecked")
+				List<Node> childElList = new ArrayList<Node>(mat.content());
+				for(Node childEl:childElList) {
+					mat.remove(childEl);
+				}
+
+				for(Node childEl:childElList) {
+					if(Node.CDATA_SECTION_NODE == childEl.getNodeType()) {
+						CDATA data = (CDATA)childEl;
+						boolean changed = false;
+						String text = data.getText();
+						List<String> materialPaths = findMaterialInMatText(text);
+						for(String materialPath:materialPaths) {
+							VFSItem matVfsItem = container.resolve(materialPath);
+							if(matVfsItem instanceof VFSLeaf) {
+								String exportUri = generateExportPath(materials.getPaths(), matVfsItem);
+								materials.addMaterial(new ItemMaterial((VFSLeaf)matVfsItem, exportUri));
+								text = text.replaceAll(materialPath, exportUri);
+								changed = true;
+							}
+						}
+						if(changed) {
+							mat.addCDATA(text);
+						} else {
+							mat.add(childEl);
+						}
+					} else {
+						mat.add(childEl);
+					}
+				}
+			}
+		}
+	}
+	
+	@SuppressWarnings("unchecked")
+	private void collectResourcesInMatMedias(Element el, VFSContainer container, ItemsAndMaterials materials) {
+		//matimage uri
+		List<Element> matList = new ArrayList<Element>();
+		matList.addAll(el.selectNodes(".//matimage"));
+		matList.addAll(el.selectNodes(".//mataudio"));
+		matList.addAll(el.selectNodes(".//matvideo"));
+		
+		for(Element mat:matList) {
+			Attribute uriAttr = mat.attribute("uri");
+			String uri = uriAttr.getValue();
+			
+			VFSItem matVfsItem = container.resolve(uri);
+			if(matVfsItem instanceof VFSLeaf) {
+				String exportUri = generateExportPath(materials.getPaths(), matVfsItem);
+				ItemMaterial iMat = new ItemMaterial((VFSLeaf)matVfsItem, exportUri);
+				materials.addMaterial(iMat);
+				mat.addAttribute("uri", exportUri);
+			}
+		}
+	}
+	
+	private String generateExportPath(Set<String> paths, VFSItem leaf) {
+		String filename = leaf.getName();
+		for(int count=0; paths.contains(filename) && count < 999 ; ) {
+			filename = VFSManager.appendNumberAtTheEndOfFilename(filename, count++);
+		}
+		paths.add(filename);
+		return "media/" + filename;
+	}
+	
+	/**
+	 * Parse the content and collect the images source
+	 * @param content
+	 * @param materialPath
+	 */
+	private List<String> findMaterialInMatText(String content) {
+		try {
+			SAXParser parser = new SAXParser();
+			HTMLHandler contentHandler = new HTMLHandler();
+			parser.setContentHandler(contentHandler);
+			parser.parse(new InputSource(new StringReader(content)));
+			return contentHandler.getMaterialPath();
+		} catch (Exception e) {
+			log.error("", e);
+			return Collections.emptyList();
+		}
+	}
+	
+	private Element createSectionBasedAssessment(String title) {
+		DocumentFactory df = DocumentFactory.getInstance();
+		Document doc = df.createDocument();
+		doc.addDocType(QTIConstants.XML_DOCUMENT_ROOT, null, QTIConstants.XML_DOCUMENT_DTD);
+		
+		/*
+		<questestinterop>
+  		<assessment ident="frentix_9_87230240084930" title="SR Test">
+		 */
+		Element questestinterop = doc.addElement(QTIConstants.XML_DOCUMENT_ROOT);
+		Element assessment = questestinterop.addElement("assessment");
+		assessment.addAttribute("ident", CodeHelper.getGlobalForeverUniqueID());
+		assessment.addAttribute("title", title);
+		//metadata
+		/*
+		<qtimetadata>
+      <qtimetadatafield>
+        <fieldlabel>qmd_assessmenttype</fieldlabel>
+        <fieldentry>Assessment</fieldentry>
+      </qtimetadatafield>
+    </qtimetadata>
+		*/
+		Element qtimetadata = assessment.addElement("qtimetadata");
+		addMetadataField("qmd_assessmenttype", "Assessment", qtimetadata);
+		//section
+		/*
+		<section ident="frentix_9_87230240084931" title="Section">
+    	<selection_ordering>
+      	<selection/>
+      	<order order_type="Sequential"/>
+    	</selection_ordering>
+    */
+		Element section = assessment.addElement("section");
+		section.addAttribute("ident", CodeHelper.getGlobalForeverUniqueID());
+		section.addAttribute("title", "Section");
+		Element selectionOrdering = section.addElement("selection_ordering");
+		selectionOrdering.addElement("selection");
+		Element order = selectionOrdering.addElement("order");
+		order.addAttribute("order_type", "Sequential");
+		return section;
+	}
+	
+	private Element readItemXml(VFSLeaf leaf) {
+		Document doc = null;
+		try {
+			InputStream is = leaf.getInputStream();
+			XMLParser xmlParser = new XMLParser(new IMSEntityResolver());
+			doc = xmlParser.parse(is, false);
+			
+			Element item = (Element)doc.selectSingleNode("questestinterop/item");
+			is.close();
+			return item;
+		} catch (Exception e) {
+			log.error("", e);
+			return null;
+		}
+	}
+	
+	/**
+	 * OpenOLAT QTI 1.2 runtime need it:
+	 	 <resprocessing>
+    	<outcomes>
+      	<decvar varname="SCORE" vartype="Decimal" defaultval="0" minvalue="0.0" maxvalue="1.0" cutvalue="1.0"/>
+    	</outcomes>
+	 * @param fullItem
+	 * @param item
+	 */
+	protected void enrichScoreDontUseIt(Element item) {
+		@SuppressWarnings("unchecked")
+		List<Element> sv = item.selectNodes("./resprocessing/outcomes/decvar[@varname='SCORE']");
+		// the QTIv1.2 system relies on the SCORE variable of items
+		if (sv.isEmpty()) {
+			//create resprocessing if needed
+			Element resprocessing;
+			if(item.selectNodes("./resprocessing").isEmpty()) {
+				resprocessing = item.addElement("resprocessing");
+			} else {
+				resprocessing = (Element)item.selectNodes("./resprocessing").get(0);
+			}
+
+			//create outcomes if needed
+			Element outcomes;
+			if(resprocessing.selectNodes("./outcomes").isEmpty()) {
+				outcomes = resprocessing.addElement("outcomes");
+			} else {
+				outcomes = (Element)resprocessing.selectNodes("./outcomes").get(0);
+			}
+			
+			//create decvar if needed
+			Element decvar = outcomes.addElement("decvar");
+			decvar.addAttribute("varname", "SCORE");
+			decvar.addAttribute("vartype", "Decimal");
+			decvar.addAttribute("defaultval", "0");
+			decvar.addAttribute("minvalue", "0.0");
+			decvar.addAttribute("maxvalue", "1.0");
+			decvar.addAttribute("cutvalue", "1.0");
+		}
+	}
+	
+	private void enrichWithMetadata(QuestionItemFull fullItem, Element item) {
+		Element qtimetadata = (Element)item.selectSingleNode("./itemmetadata/qtimetadata");
+		String path = fullItem.getTaxonomicPath();
+		System.out.println("enrichWithMetadata: " + qtimetadata + " " + path);
+	}
+	
+	private void addMetadataField(String label, String entry, Element qtimetadata) {
+		Element qtimetadatafield = qtimetadata.addElement("qtimetadatafield");
+		qtimetadatafield.addElement("fieldlabel").setText(label);
+		qtimetadatafield.addElement("fieldentry").setText(entry);
+	}
+	
+	/*
+	 * 
+	 * <itemmetadata>
+					<qtimetadata>
+						<qtimetadatafield>
+							<fieldlabel>qmd_levelofdifficulty</fieldlabel>
+							<fieldentry>basic</fieldentry>
+						</qtimetadatafield>
+						<qtimetadatafield>
+							<fieldlabel>qmd_topic</fieldlabel>
+							<fieldentry>qtiv1p2test</fieldentry>
+						</qtimetadatafield>
+					</qtimetadata>
+				</itemmetadata>
+
+				<qtimetadata>
+            <vocabulary uri="imsqtiv1p2_metadata.txt" vocab_type="text/plain"/>
+            <qtimetadatafield>
+               <fieldlabel>qmd_weighting</fieldlabel>
+               <fieldentry>2</fieldentry>
+            </qtimetadatafield>
+            ...
+         </qtimetadata>
+
+         
+         
+         http://qtimigration.googlecode.com/svn-history/r29/trunk/pyslet/unittests/data_imsqtiv1p2p1/input/
+
+
+<qtimetadatafield>
+                    <fieldlabel>name</fieldlabel>
+                    <fieldentry>Metadata New-Style</fieldentry>
+                </qtimetadatafield>
+                <qtimetadatafield>
+                    <fieldlabel>marks</fieldlabel>
+                    <fieldentry>50.0</fieldentry>
+                </qtimetadatafield>
+                <qtimetadatafield>
+                    <fieldlabel>syllabusarea</fieldlabel>
+                    <fieldentry>Migration</fieldentry>
+                </qtimetadatafield>
+                <qtimetadatafield>
+                    <fieldlabel>author</fieldlabel>
+                    <fieldentry>Steve Author</fieldentry>
+                </qtimetadatafield>
+                <qtimetadatafield>
+                    <fieldlabel>creator</fieldlabel>
+                    <fieldentry>Steve Creator</fieldentry>
+                </qtimetadatafield>
+                <qtimetadatafield>
+                    <fieldlabel>owner</fieldlabel>
+                    <fieldentry>Steve Owner</fieldentry>
+                </qtimetadatafield>
+                <qtimetadatafield>
+                    <fieldlabel>item type</fieldlabel>
+                    <fieldentry>MCQ</fieldentry>
+                </qtimetadatafield>
+                <qtimetadatafield>
+                    <fieldlabel>status</fieldlabel>
+                    <fieldentry>Experimental</fieldentry>
+                </qtimetadatafield>
+                <qtimetadatafield>
+                    <fieldlabel>qmd_levelofdifficulty</fieldlabel>
+                    <fieldentry>Professional Development</fieldentry>
+                </qtimetadatafield>
+                <qtimetadatafield>
+                    <fieldlabel>qmd_toolvendor</fieldlabel>
+                    <fieldentry>Steve Lay</fieldentry>
+                </qtimetadatafield>
+                <qtimetadatafield>
+                    <fieldlabel>description</fieldlabel>
+                    <fieldentry>General Description Extension</fieldentry>
+                </qtimetadatafield>
+                
+                
+                <itemmetadata>
+            <qmd_itemtype>MCQ</qmd_itemtype>
+            <qmd_levelofdifficulty>Professional Development</qmd_levelofdifficulty>
+            <qmd_maximumscore>50.0</qmd_maximumscore>
+            <qmd_status>Experimental</qmd_status>
+            <qmd_toolvendor>Steve Lay</qmd_toolvendor>
+            <qmd_topic>Migration</qmd_topic>
+        </itemmetadata>
+	 */
+	
+	private static final class HTMLHandler extends DefaultHandler {
+		private final List<String> materialPath = new ArrayList<String>();
+		
+		public List<String> getMaterialPath() {
+			return materialPath;
+		}
+		
+		@Override
+		public void startElement(String uri, String localName, String qName, Attributes attributes) {
+			String elem = localName.toLowerCase();
+			if("img".equals(elem)) {
+				String imgSrc = attributes.getValue("src");
+				if(StringHelper.containsNonWhitespace(imgSrc)) {
+					materialPath.add(imgSrc);
+				}
+			}
+		}
+	}
+	
+	private static final class ItemsAndMaterials {
+		private final Set<String> paths = new HashSet<String>();
+		private final List<Element> itemEls = new ArrayList<Element>();
+		private final List<ItemMaterial> materials = new ArrayList<ItemMaterial>();
+		
+		public Set<String> getPaths() {
+			return paths;
+		}
+		
+		public List<Element> getItemEls() {
+			return itemEls;
+		}
+		
+		public void addItemEl(Element el) {
+			itemEls.add(el);
+		}
+		
+		public List<ItemMaterial> getMaterials() {
+			return materials;
+		}
+		
+		public void addMaterial(ItemMaterial material) {
+			materials.add(material);
+		}
+	}
+	
+	private static final class ItemMaterial {
+		private final VFSLeaf leaf;
+		private final String exportUri;
+		
+		public ItemMaterial(VFSLeaf leaf, String exportUri) {
+			this.leaf = leaf;
+			this.exportUri = exportUri;
+		}
+		
+		public VFSLeaf getLeaf() {
+			return leaf;
+		}
+		
+		public String getExportUri() {
+			return exportUri;
+		}
+	}
+}

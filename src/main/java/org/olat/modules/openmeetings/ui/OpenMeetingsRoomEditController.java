@@ -20,6 +20,7 @@
 package org.olat.modules.openmeetings.ui;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 import org.olat.core.CoreSpringFactory;
@@ -40,8 +41,6 @@ import org.olat.modules.openmeetings.manager.OpenMeetingsException;
 import org.olat.modules.openmeetings.manager.OpenMeetingsManager;
 import org.olat.modules.openmeetings.model.OpenMeetingsRoom;
 import org.olat.modules.openmeetings.model.RoomType;
-
-import edu.emory.mathcs.backport.java.util.Collections;
 
 /**
  * 
@@ -74,7 +73,7 @@ public class OpenMeetingsRoomEditController extends FormBasicController {
 	private long[] sizes = {2, 4, 6, 8, 10, 12, 14, 16, 25, 50, 100, 150, 200, 1000};
 
 	public OpenMeetingsRoomEditController(UserRequest ureq, WindowControl wControl, BusinessGroup group, OLATResourceable ores,
-			String subIdentifier, String resourceName, OpenMeetingsRoom defaultSettings, boolean admin) {
+			String subIdentifier, OpenMeetingsRoom defaultSettings) {
 		super(ureq, wControl);
 		
 		this.group = group;
@@ -182,7 +181,7 @@ public class OpenMeetingsRoomEditController extends FormBasicController {
 
 		String comment = room == null ? (defaultSettings == null ? null : defaultSettings.getComment()) : room.getComment();
 		commentEl = uifactory.addRichTextElementForStringData("roomcomment", "room.comment", comment == null ? "" : comment,
-				10, -1, false, false, null, null, formLayout, ureq.getUserSession(), getWindowControl());
+				10, -1, false, null, null, formLayout, ureq.getUserSession(), getWindowControl());
 
 		FormLayoutContainer buttonContainer = FormLayoutContainer.createButtonLayout("buttons", getTranslator());
 		formLayout.add(buttonContainer);

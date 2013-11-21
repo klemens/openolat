@@ -56,12 +56,21 @@ public class AssessmentModule implements Initializable, Destroyable, GenericEven
 
 	private List<Long> upcomingWork;
 	private CourseModule courseModule;
+	private TaskExecutorManager taskExecutorManager;
 	
 	/**
 	 * [used by spring]
 	 */
 	private AssessmentModule(CourseModule courseModule) {
 		this.courseModule = courseModule;
+	}
+	
+	/**
+	 * [user by Spring]
+	 * @param taskExecutorManager
+	 */
+	public void setTaskExecutorManager(TaskExecutorManager taskExecutorManager) {
+		this.taskExecutorManager = taskExecutorManager;
 	}
 
 	/**
@@ -136,7 +145,7 @@ public class AssessmentModule implements Initializable, Destroyable, GenericEven
 		if (recalc) {
 			ICourse pubCourse = CourseFactory.loadCourse(resId);
 			UpdateEfficiencyStatementsWorker worker = new UpdateEfficiencyStatementsWorker(pubCourse);
-			TaskExecutorManager.getInstance().runTask(worker);
+			taskExecutorManager.execute(worker);
 		}
 	}
 
@@ -151,14 +160,14 @@ public class AssessmentModule implements Initializable, Destroyable, GenericEven
 			return;
 		}
 		// deleted + inserted + modified node ids -> changedNodeIds
-		Set changedNodeIds = pe.getDeletedCourseNodeIds();
+		Set<String> changedNodeIds = pe.getDeletedCourseNodeIds();
 		changedNodeIds.addAll(pe.getInsertedCourseNodeIds());
 		changedNodeIds.addAll(pe.getModifiedCourseNodeIds());
 		//
 		boolean courseAssessmentChanged = false;
 		Structure courseRun = course.getRunStructure();
-		for (Iterator iter = changedNodeIds.iterator(); iter.hasNext();) {
-			String nodeId = (String) iter.next();
+		for (Iterator<String> iter = changedNodeIds.iterator(); iter.hasNext();) {
+			String nodeId = iter.next();
 			boolean wasNodeAsessable = AssessmentHelper.checkIfNodeIsAssessable(courseRun.getNode(nodeId));
 			boolean isNodeAssessable = AssessmentHelper.checkIfNodeIsAssessable(course.getEditorTreeModel().getCourseNode(nodeId));
 			//if node was or became assessable

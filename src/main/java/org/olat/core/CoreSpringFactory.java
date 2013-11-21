@@ -46,8 +46,8 @@ import org.springframework.beans.factory.support.DefaultListableBeanFactory;
 import org.springframework.context.ApplicationContext;
 import org.springframework.core.io.Resource;
 import org.springframework.web.context.ServletContextAware;
+import org.springframework.web.context.WebApplicationContext;
 import org.springframework.web.context.support.WebApplicationContextUtils;
-import org.springframework.web.context.support.XmlWebApplicationContext;
 
 /**
  * Description:<br>
@@ -97,6 +97,11 @@ public class CoreSpringFactory implements ServletContextAware, BeanFactoryAware 
 		}
 		return res;
 	}
+	
+	public static String resolveProperty(String name) {
+    String rv = beanFactory.resolveEmbeddedValue("${" + name + "}");
+    return rv;
+	}
 
 	/**
 	 * @param beanName
@@ -125,6 +130,7 @@ public class CoreSpringFactory implements ServletContextAware, BeanFactoryAware 
 		
 		if(idToBeans.containsKey(interfaceClass)) {
 			String id = idToBeans.get(interfaceClass);
+			@SuppressWarnings("unchecked")
 			T bean = (T)context.getBean(id);
 			if(bean != null) {
 				return bean;
@@ -187,7 +193,7 @@ public class CoreSpringFactory implements ServletContextAware, BeanFactoryAware 
 	 * @param classz
 	 * @return
 	 */
-	public static boolean containsBean(Class classz) {
+	public static boolean containsBean(Class<?> classz) {
 		ApplicationContext context = WebApplicationContextUtils.getWebApplicationContext(CoreSpringFactory.servletContext);
 		return context.getBeansOfType(classz).size() > 0;
 	}
@@ -198,8 +204,8 @@ public class CoreSpringFactory implements ServletContextAware, BeanFactoryAware 
 	 * At the moment it is used for calling the shutdown hook in Spring
 	 * @return the OLAT Spring application Context
 	 */
-	public static XmlWebApplicationContext getContext() {
-		return (XmlWebApplicationContext) WebApplicationContextUtils.getWebApplicationContext(CoreSpringFactory.servletContext);
+	public static WebApplicationContext getContext() {
+		return WebApplicationContextUtils.getWebApplicationContext(CoreSpringFactory.servletContext);
 	}
 
 
@@ -212,15 +218,111 @@ public class CoreSpringFactory implements ServletContextAware, BeanFactoryAware 
 		CoreSpringFactory.servletContext = servletContext;
 	}
 	
-	public static Map<String, Object> getBeansOfType(BeanType extensionType) {
-		XmlWebApplicationContext context = (XmlWebApplicationContext) WebApplicationContextUtils.getWebApplicationContext(CoreSpringFactory.servletContext);
-		Map beans = context.getBeansOfType(extensionType.getExtensionTypeClass());
-		Map<String, Object> clone = new HashMap<String, Object>(beans);
+	public static <T> Map<String, T> getBeansOfType(Class<T> extensionType) {
+		WebApplicationContext context = WebApplicationContextUtils.getWebApplicationContext(CoreSpringFactory.servletContext);
+		Map<String, T> beans = context.getBeansOfType(extensionType);
+		Map<String, T> clone = new HashMap<String, T>(beans);
 		return clone;
 	}
 
 	@Override
 	public void setBeanFactory(BeanFactory beanFactory) throws BeansException {
-		this.beanFactory = (DefaultListableBeanFactory) beanFactory;
+		CoreSpringFactory.beanFactory = (DefaultListableBeanFactory) beanFactory;
 	}
+	
+	/*
+	public static void createGraph() {
+		XmlWebApplicationContext context = (XmlWebApplicationContext)WebApplicationContextUtils.getWebApplicationContext(CoreSpringFactory.servletContext);
+		ConfigurableListableBeanFactory factory = context.getBeanFactory();
+  	StringBuilder sb = new StringBuilder();
+		
+		Map<String,BeanDefinition> beans = new HashMap<String,BeanDefinition>();
+    List<String> beanNames = Arrays.asList(factory.getBeanDefinitionNames());
+    for (String name : beanNames) {
+    	BeanDefinition def = factory.getBeanDefinition(name);
+    	beans.put(name, def);
+
+			sb.append("****").append(name).append("\n");
+			if("businessGroupService".equals(name)) {
+    		System.out.println("BGS: " + name);
+			}
+
+    	ConstructorArgumentValues ctorArgs = def.getConstructorArgumentValues();
+    	for (ValueHolder valHolder : ctorArgs.getGenericArgumentValues()) {
+    		Object value = valHolder.getValue();
+    		System.out.println("Val: " + value);
+    		sb.append(valHolder.getName() != null ? valHolder.getName():"");
+    		if( valHolder.getValue() instanceof RuntimeBeanReference ) {
+    			RuntimeBeanReference ref = (RuntimeBeanReference)valHolder.getValue();
+    			sb.append("C: ref("+makeLabel(ref.getBeanName())+")");
+    		}
+    	}
+ 
+    	MutablePropertyValues props = def.getPropertyValues();
+    	for (PropertyValue propVal : props.getPropertyValueList()) {
+    		//checkReferences(name, propVal.getValue());
+    		if( propVal.getValue() instanceof RuntimeBeanReference ) {
+    			RuntimeBeanReference ref = (RuntimeBeanReference)propVal.getValue();
+    			sb.append(propVal.getName()+": ref("+makeLabel(ref.getBeanName())+")\n");
+    		} else if(propVal.getValue() instanceof BeanDefinitionHolder) {
+    			BeanDefinitionHolder holder = (BeanDefinitionHolder) propVal.getValue();
+    			String facBean = holder.getBeanDefinition().getFactoryBeanName();
+    			if( facBean != null ) {
+    				sb.append(propVal.getName()+": fac("+makeLabel(facBean)+")\n");
+    			}
+    		}
+    	}
+    	
+    	try {
+				String className = def.getBeanClassName();
+				Class<?> clazz = Class.forName(className);
+				Object obj = clazz.getAnnotation(Service.class);
+				boolean isService = obj != null;
+	    	
+	    	if(def instanceof AnnotatedBeanDefinition) {
+	    		
+						Field[] fields = clazz.getDeclaredFields();
+						for(Field field:fields) {
+							Annotation[] annotations = field.getAnnotations();
+							for(Annotation annotation:annotations) {
+								if(Autowired.class.equals(annotation.annotationType())) {
+									
+									Class<?> impl = field.getType();
+									sb.append("->").append(impl.getSimpleName()).append("\n");
+								}
+							}
+						}
+	
+						Annotation[] annotations = clazz.getAnnotations();
+						for(Annotation annotation:annotations) {
+							
+							if(Autowired.class.equals(annotation.annotationType())) {
+								//System.out.println("Found");
+								if(!isService) {
+
+									System.out.println("BGS: " + className);
+									
+								}
+							}
+						}
+						
+						AnnotatedBeanDefinition adef = (AnnotatedBeanDefinition)def;
+						AnnotationMetadata metadata = adef.getMetadata();
+						Set<String> types = metadata.getAnnotationTypes();
+						if(types != null && !types.isEmpty()) {
+							//System.out.println("BGS: " + types);
+						}
+					
+	    	}
+    	} catch (Exception e) {
+				e.printStackTrace();
+			}
+    }
+    //System.out.println(sb.toString());
+	}
+	
+	private static String makeLabel(String in) {
+		int i = in.lastIndexOf(".");
+		return i==-1?in:in.substring(i+1);
+	 }*/
 }

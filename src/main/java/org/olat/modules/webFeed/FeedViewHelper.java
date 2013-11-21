@@ -35,6 +35,7 @@ import org.olat.core.id.context.BusinessControlFactory;
 import org.olat.core.id.context.ContextEntry;
 import org.olat.core.logging.OLog;
 import org.olat.core.logging.Tracing;
+import org.olat.core.util.Formatter;
 import org.olat.core.util.StringHelper;
 import org.olat.core.util.filter.Filter;
 import org.olat.core.util.filter.FilterFactory;
@@ -67,6 +68,7 @@ public class FeedViewHelper {
 	// display 5 items per default
 	private int itemsPerPage = 5;
 	private Feed feed;
+	private String feedAuthor;
 	private Identity identity;
 	private Translator translator;
 	private Locale locale;
@@ -76,7 +78,6 @@ public class FeedViewHelper {
 	// Per default show the first page
 	private int page = 0;
 	private List<Item> cachedItems;
-	private FeedSecurityCallback callback;
 	//
 	private FeedManager feedManager = FeedManager.getInstance();
 
@@ -84,17 +85,18 @@ public class FeedViewHelper {
 	 * Use this constructor for localized content (like e.g. date formats)
 	 * 
 	 * @param feed
-	 * @param identityKey
+	 * @param identity
+	 * @param feedAuthor The full name's of the author
 	 * @param locale
 	 */
-	public FeedViewHelper(Feed feed, Identity identity, Translator translator, Long courseId, String nodeId, FeedSecurityCallback callback) {
+	public FeedViewHelper(Feed feed, Identity identity, String feedAuthor, Translator translator, Long courseId, String nodeId, FeedSecurityCallback callback) {
 		this.feed = feed;
 		this.identity = identity;
+		this.feedAuthor = feedAuthor;
 		this.translator = translator;
 		this.locale = translator.getLocale();
 		this.courseId = courseId;
 		this.nodeId = nodeId;
-		this.callback = callback;
 		this.cachedItems = feed.getFilteredItems(callback, identity);
 		this.setURIs();
 	}
@@ -108,9 +110,14 @@ public class FeedViewHelper {
 	FeedViewHelper(Feed feed, Identity identity, Long courseId, String nodeId) {
 		this.feed = feed;
 		this.identity = identity;
+		
 		this.courseId = courseId;
 		this.nodeId = nodeId;
 		this.setURIs();
+	}
+
+	public String getFeedAuthor() {
+		return feedAuthor;
 	}
 
 	/**
@@ -271,7 +278,7 @@ public class FeedViewHelper {
 
 		String info = null;
 		String date = getPublishDate(item);
-		String author = item.getAuthor();
+		String author = StringHelper.escapeHtml(item.getAuthor());
 		if (author != null) {
 			if (date != null) {
 				info = translator.translate("feed.published.by.on", new String[] { author, date });
@@ -424,6 +431,7 @@ public class FeedViewHelper {
 				itemDescription = mediaUrlFilter.filter(itemDescription);
 			}
 		}
+		itemDescription = Formatter.formatLatexFormulas(itemDescription);
 		return itemDescription;
 	}
 	

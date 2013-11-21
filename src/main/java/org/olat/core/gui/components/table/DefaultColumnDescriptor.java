@@ -31,9 +31,12 @@ import java.text.Collator;
 import java.util.Date;
 import java.util.Locale;
 
+import org.olat.core.gui.components.EscapeMode;
 import org.olat.core.gui.render.Renderer;
 import org.olat.core.gui.render.StringOutput;
 import org.olat.core.util.Formatter;
+import org.olat.core.util.StringHelper;
+import org.olat.core.util.filter.impl.OWASPAntiSamyXSSFilter;
 
 
 /**
@@ -56,6 +59,7 @@ public class DefaultColumnDescriptor implements ColumnDescriptor {
 	protected Collator collator; 
 	protected Table table; 
 	protected int dataColumn;
+	private EscapeMode escapeHtml = EscapeMode.html;
 	private boolean translateHeaderKey = true; 
 
 	/**
@@ -103,6 +107,10 @@ public class DefaultColumnDescriptor implements ColumnDescriptor {
 	public void setTranslateHeaderKey(final boolean translateHeaderKey) {
 		this.translateHeaderKey = translateHeaderKey;
 	}
+	
+	public void setEscapeHtml(EscapeMode escape) {
+		this.escapeHtml = escape;
+	}
 
 	/**
 	 * 
@@ -118,17 +126,32 @@ public class DefaultColumnDescriptor implements ColumnDescriptor {
 	 */
 	public void renderValue(final StringOutput sb, final int row, final Renderer renderer) {
 		Object val = getModelData(row);
-		String res;
-		if (val == null){
+		if (val == null) {
 			return;
 		}
 		if (val instanceof Date) {
-			res =  formatter.formatDateAndTime((Date)val);
+			String res =  formatter.formatDateAndTime((Date)val);
+			sb.append(res);
+		} else if(val instanceof String) {
+			renderString(sb, (String)val);
+		} else {
+			renderString(sb, val.toString());
 		}
-		else {
-			res = val.toString();
+	}
+	
+	private void renderString(StringOutput sb, String val) {
+		switch(escapeHtml) {
+			case none:
+				sb.append((String)val);
+				break;
+			case html:
+				StringHelper.escapeHtml(sb, (String)val);
+				break;
+			case antisamy:
+				sb.append(new OWASPAntiSamyXSSFilter().filter(val));
+				break;
+			default : StringHelper.escapeHtml(sb, (String)val);
 		}
-		sb.append(res);
 	}
 
 	/**
@@ -258,7 +281,8 @@ public class DefaultColumnDescriptor implements ColumnDescriptor {
 	/**
 	 * @return int
 	 */
-	protected int getDataColumn() {
+	@Override
+	public int getDataColumn() {
 		return dataColumn;
 	}
 
@@ -323,16 +347,6 @@ public class DefaultColumnDescriptor implements ColumnDescriptor {
 	 */
 	public void setHrefGenerator(final HrefGenerator hrefGenerator) {
 		this.hrefGenerator = hrefGenerator;
-	}
-
-	public String toString(final int rowid) {
-		Object obj = getModelData(rowid);
-		if(obj instanceof Date){
-			return "[date]";
-		}
-		StringOutput sb = new StringOutput();
-		renderValue(sb,rowid,null);
-		return sb.toString();
 	}
 
 }

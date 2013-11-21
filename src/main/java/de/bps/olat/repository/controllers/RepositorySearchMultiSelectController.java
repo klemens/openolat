@@ -19,9 +19,7 @@
  */
 package de.bps.olat.repository.controllers;
 
-import java.util.ArrayList;
 import java.util.List;
-import java.util.Set;
 
 import org.olat.basesecurity.BaseSecurity;
 import org.olat.basesecurity.BaseSecurityManager;
@@ -91,7 +89,9 @@ public class RepositorySearchMultiSelectController extends RepositorySearchContr
 		vc.put("searchform",searchForm.getInitialComponent());
 		
 		TableGuiConfiguration tableConfig = new TableGuiConfiguration();
-		if (selectButtonLabel != null) tableConfig.setPreferencesOffered(true, "repositorySearchResult");
+		if (selectButtonLabel != null) {
+			tableConfig.setPreferencesOffered(true, "repositorySearchResult_v2");
+		}
 		
 		removeAsListenerAndDispose(tableCtr);
 		tableCtr = new TableController(tableConfig, ureq, getWindowControl(), getTranslator());
@@ -109,7 +109,7 @@ public class RepositorySearchMultiSelectController extends RepositorySearchContr
 		vc.contextPut("withCancel", Boolean.valueOf(withCancel));
 		
 		enableBackToSearchFormLink(false); // default, must be enabled explicitly
-		enableSearchforAllReferencalbeInSearchForm(false); // default
+		enableSearchforAllXXAbleInSearchForm(null); // default
 		
 		putInitialPanel(vc);
 	}

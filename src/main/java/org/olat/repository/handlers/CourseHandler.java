@@ -156,7 +156,7 @@ public class CourseHandler implements RepositoryHandler {
 		RepositoryEntry re = RepositoryManager.getInstance().lookupRepositoryEntry(res, true);
 		String exportFileName = StringHelper.transformDisplayNameToFileSystemName(re.getDisplayname()) + ".zip";
 		File fExportZIP = new File(WebappHelper.getTmpDir(), exportFileName);
-		CourseFactory.exportCourseToZIP(res, fExportZIP, backwardsCompatible);
+		CourseFactory.exportCourseToZIP(res, fExportZIP, false, backwardsCompatible);
 		return new CleanupAfterDeliveryFileMediaResource(fExportZIP);
 	}
 
@@ -164,8 +164,10 @@ public class CourseHandler implements RepositoryHandler {
 	 * @see org.olat.repository.handlers.RepositoryHandler#getEditorController(org.olat.core.id.OLATResourceable org.olat.core.gui.UserRequest, org.olat.core.gui.control.WindowControl)
 	 */
 	public Controller createEditorController(OLATResourceable res, UserRequest ureq, WindowControl wControl) {
-		//throw new AssertException("a course is not directly editable!!! (reason: lock is never released), res-id:"+res.getResourceableId());
-		return CourseFactory.createEditorController(ureq, wControl, null, res);
+		//run + activate
+		MainLayoutController courseCtrl = CourseFactory.createLaunchController(ureq, wControl, res);
+		RepositoryMainAccessControllerWrapper wrapper = new RepositoryMainAccessControllerWrapper(ureq, wControl, res, courseCtrl);
+		return wrapper;
 	}
 
 	/**
@@ -271,7 +273,7 @@ public class CourseHandler implements RepositoryHandler {
 		// Archive course run structure (like course export)
 		String courseExportFileName = "course_export.zip";
 		File courseExportZIP = new File(tmpExportDir, courseExportFileName);
-		CourseFactory.exportCourseToZIP(entry.getOlatResource(), courseExportZIP, false);
+		CourseFactory.exportCourseToZIP(entry.getOlatResource(), courseExportZIP, true, false);
 		// Zip runtime data and course run structure data into one zip-file
 		String completeArchiveFileName = "del_course_" + entry.getOlatResource().getResourceableId() + ".zip";
 		String completeArchivePath = archivFilePath + File.separator + completeArchiveFileName;

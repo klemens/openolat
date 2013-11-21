@@ -32,23 +32,23 @@
 				</div>
 			#end
 			<dt>
-				$glossaryItem.getGlossTerm()
+				$r.escapeHtml($glossaryItem.glossTerm)
 				#if($userAllowToEditEnabled)
 					#if($glossaryItem.hasAuthor())
 						<span class="o_glossary_author">$r.translate("glossary.item.published.by")
 						#if($glossaryItem.authorCmd)
-							<a href="$r.commandURI($glossaryItem.authorCmd)" target="o_glossary_profil" onclick="return o2cl()">$glossaryItem.authorName</a>
+							<a href="$r.commandURI($glossaryItem.authorCmd)" target="o_glossary_profil" onclick="return o2cl()">$r.escapeHtml($glossaryItem.authorName)</a>
 						#else
-							<a href="$glossaryItem.authorLink" class="">$glossaryItem.authorName</a>#end
+							<a href="$glossaryItem.authorLink" class="">$r.escapeHtml($glossaryItem.authorName)</a>#end
 							${glossaryItem.creationDate}
 							#if($glossaryItem.hasModifier()), #end</span>
 					#end
 					#if($glossaryItem.hasModifier())
 						<span class="o_glossary_modifier">$r.translate("glossary.item.modified.by.on")
 						#if($glossaryItem.modifierCmd)
-							<a href="$r.commandURI($glossaryItem.modifierCmd)" target="o_glossary_profil" onclick="return o2cl()" >$glossaryItem.modifierName</a>
+							<a href="$r.commandURI($glossaryItem.modifierCmd)" target="o_glossary_profil" onclick="return o2cl()" >$r.escapeHtml($glossaryItem.modifierName)</a>
 						#else
-							<a href="$glossaryItem.modifierLink" class="">$glossaryItem.modifierName</a>
+							<a href="$glossaryItem.modifierLink" class="">$r.escapeHtml($glossaryItem.modifierName)</a>
 						#end
 						$glossaryItem.lastModificationDate</span>
 					#end
@@ -56,13 +56,13 @@
 				#if ( $glossaryItem.getGlossSynonyms().size() > 0)
 				  <div class="o_glossary_synonym">
 					#foreach ( $glossSynonym in $glossaryItem.getGlossSynonyms() )  
-				    	$glossSynonym
+				    	$r.escapeHtml($glossSynonym)
 					#end
 				  </div>
 				#end  
 			</dt>
 			<dd>
-				$glossaryItem.getGlossDef()
+				$r.xssScan($glossaryItem.getGlossDef())
 			</dd>
 ##		</div>
 		#end

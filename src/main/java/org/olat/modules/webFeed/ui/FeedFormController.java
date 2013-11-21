@@ -218,11 +218,16 @@ class FeedFormController extends FormBasicController {
 	 * @param newResource
 	 */
 	private void setImage(MediaResource newResource) {
+		if(newResource == null) {
+			unsetImage();
+			return;
+		}
+		
 		image.setMediaResource(newResource);
 		image.setMaxWithAndHeightToFitWithin(150, 150);
 		imageContainer.setVisible(true);
 		// This is needed. ImageContainer is not displayed otherwise.
-		this.getInitialComponent().setDirty(true);
+		getInitialComponent().setDirty(true);
 		imageDeleted = false;
 		file.setLabel(null, null);
 	}
@@ -244,8 +249,6 @@ class FeedFormController extends FormBasicController {
 	 *      org.olat.core.gui.control.Controller, org.olat.core.gui.UserRequest)
 	 */
 	@Override
-	// formLayout == this.flc && listener == this !!!
-	@SuppressWarnings("unused")
 	protected void initForm(FormItemContainer formLayout, Controller listener, UserRequest ureq) {
 		this.setFormTitle("feed.edit");
 		// this.setFormContextHelp(packageName, pageName, hoverTextKey);
@@ -257,7 +260,7 @@ class FeedFormController extends FormBasicController {
 		title.setNotEmptyCheck("feed.form.field.is_mandatory");
 
 		description = uifactory.addRichTextElementForStringDataMinimalistic("description", "feed.form.description", feed
-				.getDescription(), 5, -1, false, formLayout, ureq.getUserSession(), getWindowControl());
+				.getDescription(), 5, -1, formLayout, ureq.getUserSession(), getWindowControl());
 		description.setMandatory(true);
 		description.setMaxLength(4000);
 		description.setNotEmptyCheck("feed.form.field.is_mandatory");

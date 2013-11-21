@@ -147,7 +147,7 @@ public class InlineEditDetailsFormController extends FormBasicController {
 		projectLeaders.setEnabled(false);
 		
 		// add the learning objectives rich text input element
-		projectDescription = uifactory.addRichTextElementForStringData("description", "detailsform.description.label", project.getDescription(), 10, -1, false, false, null, null, formLayout, ureq.getUserSession(), getWindowControl());
+		projectDescription = uifactory.addRichTextElementForStringData("description", "detailsform.description.label", project.getDescription(), 10, -1, false, null, null, formLayout, ureq.getUserSession(), getWindowControl());
 		projectDescription.setMaxLength(2500);
 		uifactory.addSpacerElement("spacer_1", formLayout, false);
 		
@@ -207,22 +207,16 @@ public class InlineEditDetailsFormController extends FormBasicController {
 		for (Project.EventType eventType : Project.EventType.values()) {
 			if ( projectBrokerModuleConfiguration.isProjectEventEnabled(eventType) ){
 				ProjectEvent projectEvent = project.getProjectEvent(eventType);
-				DateChooser dateChooserStart = uifactory.addDateChooser(eventType + "start", "", formLayout);
+				DateChooser dateChooserStart = uifactory.addDateChooser(eventType + "start", null, formLayout);
 				dateChooserStart.setLabel(eventType.getI18nKey() + ".start.label", null);
 				dateChooserStart.setDateChooserTimeEnabled(true);
-				// not i18n'ified yet
-				dateChooserStart.setDateChooserDateFormat(CHOOSER_DATE_FORMAT);
-				dateChooserStart.setCustomDateFormat(CUSTOM_DATE_FORMAT);
 				dateChooserStart.setDisplaySize(CUSTOM_DATE_FORMAT.length());
 				getLogger().info("Event=" + eventType + ", startDate=" + projectEvent.getStartDate());
 				dateChooserStart.setDate(projectEvent.getStartDate());
 				eventStartElementList.put(eventType, dateChooserStart);
-				DateChooser dateChooserEnd   = uifactory.addDateChooser(eventType + "end", "", formLayout);
+				DateChooser dateChooserEnd   = uifactory.addDateChooser(eventType + "end", null, formLayout);
 				dateChooserEnd.setLabel(eventType.getI18nKey() + ".end.label", null);
 				dateChooserEnd.setDateChooserTimeEnabled(true);
-				// not i18n'ified yet
-				dateChooserEnd.setDateChooserDateFormat(CHOOSER_DATE_FORMAT);
-				dateChooserEnd.setCustomDateFormat(CUSTOM_DATE_FORMAT);
 				dateChooserEnd.setDisplaySize(CUSTOM_DATE_FORMAT.length());
 				getLogger().info("Event=" + eventType + ", endDate=" + projectEvent.getEndDate());
 				dateChooserEnd.setDate(projectEvent.getEndDate());

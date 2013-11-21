@@ -32,7 +32,6 @@ import org.olat.basesecurity.BaseSecurity;
 import org.olat.basesecurity.BaseSecurityManager;
 import org.olat.basesecurity.BaseSecurityModule;
 import org.olat.core.CoreSpringFactory;
-import org.olat.core.commons.persistence.DBFactory;
 import org.olat.core.dispatcher.DispatcherAction;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.Component;
@@ -49,7 +48,6 @@ import org.olat.core.id.context.ContextEntry;
 import org.olat.core.id.context.StateEntry;
 import org.olat.core.logging.OLATRuntimeException;
 import org.olat.core.logging.OLATSecurityException;
-import org.olat.core.util.Encoder;
 import org.olat.core.util.StringHelper;
 import org.olat.core.util.UserSession;
 import org.olat.core.util.Util;
@@ -59,8 +57,8 @@ import org.olat.ldap.LDAPError;
 import org.olat.ldap.LDAPLoginManager;
 import org.olat.ldap.LDAPLoginModule;
 import org.olat.login.LoginModule;
-import org.olat.login.OLATAuthenticationController;
 import org.olat.login.auth.AuthenticationController;
+import org.olat.login.auth.OLATAuthManager;
 import org.olat.login.auth.OLATAuthentcationForm;
 import org.olat.registration.DisclaimerController;
 import org.olat.registration.PwChangeController;
@@ -80,10 +78,14 @@ public class LDAPAuthenticationController extends AuthenticationController imple
 	private String provider = null;
 
 	private CloseableModalController cmc;
+	
+	private final OLATAuthManager olatAuthenticationSpi;
 
 	public LDAPAuthenticationController(UserRequest ureq, WindowControl control) {
 		// use fallback translator to login and registration package
 		super(ureq, control, Util.createPackageTranslator(LoginModule.class, ureq.getLocale(), Util.createPackageTranslator(RegistrationManager.class, ureq.getLocale())));
+
+		olatAuthenticationSpi = CoreSpringFactory.getImpl(OLATAuthManager.class);
 		
 		loginComp = createVelocityContainer("ldaplogin");
 		
@@ -155,12 +157,25 @@ protected void event(UserRequest ureq, Component source, Event event) {
 			}
 			authenticatedIdentity= authenticate(login, pass, ldapError);
 
+			if(!ldapError.isEmpty()) {
+				final String errStr = ldapError.get();
+				if ("login.notauthenticated".equals(errStr)) {
+					// user exists in LDAP, authentication was ok, but user
+					// has not got the OLAT service or has not been created by now
+					getWindowControl().setError(translate("login.notauthenticated"));
+					return;                                
+				} else {
+					// tell about the error again
+					ldapError.insert(errStr);
+				}
+			}
+
 			if (authenticatedIdentity != null) {
 				provider = LDAPAuthenticationController.PROVIDER_LDAP;
 			} else {
 				// try fallback to OLAT provider if configured
 				if (LDAPLoginModule.isCacheLDAPPwdAsOLATPwdOnLogin()) {
-					authenticatedIdentity = OLATAuthenticationController.authenticate(login, pass);
+					authenticatedIdentity = olatAuthenticationSpi.authenticate(null, login, pass);
 				}
 				if (authenticatedIdentity != null) {
 					provider = BaseSecurityModule.getDefaultAuthProviderIdentifier();
@@ -246,17 +261,25 @@ protected void event(UserRequest ureq, Component source, Event event) {
 	}
 	
 	public static Identity authenticate(String username, String pwd, LDAPError ldapError) {
+		final LDAPLoginModule ldapModule = CoreSpringFactory.getImpl(LDAPLoginModule.class);
+		final LDAPLoginManager ldapManager = CoreSpringFactory.getImpl(LDAPLoginManager.class);
+		final BaseSecurity secMgr = BaseSecurityManager.getInstance();
 		
-		LDAPLoginManager ldapManager = (LDAPLoginManager) CoreSpringFactory.getBean(LDAPLoginManager.class);
+		//authenticate against LDAP server
 		Attributes attrs = ldapManager.bindUser(username, pwd, ldapError);
-		
 		if (ldapError.isEmpty() && attrs != null) { 
 			Identity identity = ldapManager.findIdentyByLdapAuthentication(username, ldapError);
-			if (!ldapError.isEmpty()) return null;
+			if (!ldapError.isEmpty()) {
+				return null;
+			}
 			if (identity == null) {
-				// User authenticated but not yet existing - create as new OLAT user
-				ldapManager.createAndPersistUser(attrs);
-				identity = ldapManager.findIdentyByLdapAuthentication(username, ldapError);
+				if(ldapModule.isCreateUsersOnLogin()) {
+					// User authenticated but not yet existing - create as new OLAT user
+					ldapManager.createAndPersistUser(attrs);
+					identity = ldapManager.findIdentyByLdapAuthentication(username, ldapError);
+				} else {
+					ldapError.insert("login.notauthenticated");
+				}
 			} else {
 				// User does already exist - just sync attributes
 				Map<String, String> olatProToSync = ldapManager.prepareUserPropertyForSync(attrs, identity);
@@ -266,15 +289,13 @@ protected void event(UserRequest ureq, Component source, Event event) {
 			}
 			// Add or update an OLAT authentication token for this user if configured in the module
 			if (identity != null && LDAPLoginModule.isCacheLDAPPwdAsOLATPwdOnLogin()) {
-				BaseSecurity secMgr = BaseSecurityManager.getInstance();
 				Authentication auth = secMgr.findAuthentication(identity, BaseSecurityModule.getDefaultAuthProviderIdentifier());
 				if (auth == null) {
 					// Create new authentication token
-					secMgr.createAndPersistAuthentication(identity, BaseSecurityModule.getDefaultAuthProviderIdentifier(), username, Encoder.encrypt(pwd));
+					secMgr.createAndPersistAuthentication(identity, BaseSecurityModule.getDefaultAuthProviderIdentifier(), username, pwd, LoginModule.getDefaultHashAlgorithm());
 				} else {
 					// Reuse existing authentication token
-					auth.setCredential(Encoder.encrypt(pwd));
-					DBFactory.getInstance().updateObject(auth);
+					secMgr.updateCredentials(auth, pwd, LoginModule.getDefaultHashAlgorithm());
 				}				
 			}
 			return identity;

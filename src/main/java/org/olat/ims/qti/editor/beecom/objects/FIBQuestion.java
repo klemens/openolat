@@ -27,9 +27,9 @@ package org.olat.ims.qti.editor.beecom.objects;
 
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 
 import org.dom4j.Element;
 import org.olat.ims.qti.editor.QTIEditHelper;
@@ -59,7 +59,7 @@ public class FIBQuestion extends Question implements QTIObject {
 
 		Element presentationXML = item.element("presentation");
 		List elementsXML =  presentationXML.element("flow").elements();
-		List responses = instance.getResponses();
+		List<Response> responses = instance.getResponses();
 		Element el_resprocessing = item.element("resprocessing");
 	
 		for(Iterator i = elementsXML.iterator(); i.hasNext();) {
@@ -81,7 +81,7 @@ public class FIBQuestion extends Question implements QTIObject {
 				fibresponse.setSizeFromColumns(render_fib.attribute("columns"));
 				fibresponse.setMaxLengthFromMaxChar(render_fib.attribute("maxchars"));
 				List el_varequals = el_resprocessing.selectNodes(".//varequal[@respident='" + ident + "']");
-				List processedSolutions = new ArrayList(); // list of already process strings
+				List<String> processedSolutions = new ArrayList<String>(); // list of already process strings
 				if (el_varequals != null) {
 					String correctBlank = "";
 					String correctBlankCaseAttribute = "No";
@@ -109,12 +109,12 @@ public class FIBQuestion extends Question implements QTIObject {
 		if (resprocessingXML != null) {
 			
 			List respconditions = resprocessingXML.elements("respcondition");
-			HashMap points = QTIEditHelper.fetchPoints(respconditions, instance.getType());
+			Map<String,Float> points = QTIEditHelper.fetchPoints(respconditions, instance.getType());
 		
 			// postprocessing choices
 			for(Iterator i = responses.iterator(); i.hasNext();) {
 				FIBResponse fibResp = (FIBResponse)i.next();		
-				Float fPoints = (Float)points.get(fibResp.getIdent());
+				Float fPoints = points.get(fibResp.getIdent());
 				if (fPoints != null) {
 					fibResp.setPoints(fPoints.floatValue());
 					fibResp.setCorrect(true);
@@ -348,14 +348,26 @@ public class FIBQuestion extends Question implements QTIObject {
 		Element conditionvar = respcondition_fail.addElement("conditionvar");
 		Element or = conditionvar.addElement("or");
 
-		for (Iterator i = getResponses().iterator(); i.hasNext();) {
+		for (Iterator<Response> i = getResponses().iterator(); i.hasNext();) {
 			FIBResponse tmpResponse = (FIBResponse) i.next();
-			if (!tmpResponse.getType().equals(FIBResponse.TYPE_BLANK)) continue;
-			Element not = or.addElement("not");
-			Element varequal = not.addElement("varequal");
-			varequal.addAttribute("respident", tmpResponse.getIdent());
-			varequal.addAttribute("case", tmpResponse.getCaseSensitive());
-			varequal.setText(tmpResponse.getCorrectBlank());
+			if (!tmpResponse.getType().equals(FIBResponse.TYPE_BLANK)) {
+				continue;
+			}
+			
+			String[] correctFIBs = tmpResponse.getCorrectBlank().split(";");
+			if(correctFIBs.length > 1) {
+				Element not = or.addElement("not");
+				Element orVal = not.addElement("or");
+				for (int j = 0; j < correctFIBs.length; j++) {
+					String correctFIB = correctFIBs[j];
+					if (correctFIB.length() > 0) {
+						Element varequal = orVal.addElement("varequal");
+						varequal.addAttribute("respident", tmpResponse.getIdent());
+						varequal.addAttribute("case", tmpResponse.getCaseSensitive());
+						varequal.addCDATA(correctFIB);
+					}
+				} // for loop correct FIB
+			}
 		} // for loop
 
 		if (isSingleCorrect){
@@ -374,5 +386,4 @@ public class FIBQuestion extends Question implements QTIObject {
 		if (or.element("not") == null)
 			resprocessingXML.remove(respcondition_fail);
 	}
-
 }

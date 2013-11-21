@@ -1,6 +1,27 @@
+/**
+ * <a href="http://www.openolat.org">
+ * OpenOLAT - Online Learning and Training</a><br>
+ * <p>
+ * Licensed under the Apache License, Version 2.0 (the "License"); <br>
+ * you may not use this file except in compliance with the License.<br>
+ * You may obtain a copy of the License at the
+ * <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache homepage</a>
+ * <p>
+ * Unless required by applicable law or agreed to in writing,<br>
+ * software distributed under the License is distributed on an "AS IS" BASIS, <br>
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. <br>
+ * See the License for the specific language governing permissions and <br>
+ * limitations under the License.
+ * <p>
+ * Initial code contributed and copyrighted by<br>
+ * frentix GmbH, http://www.frentix.com
+ * <p>
+ */
 package org.olat.admin.sysinfo.model;
 
 import java.util.Date;
+
+import javax.servlet.http.HttpSession;
 
 import org.olat.core.util.SessionInfo;
 import org.olat.core.util.UserSession;
@@ -18,6 +39,7 @@ public class UserSessionView {
 	private String login, authProvider;
 	private String fromFQN;
 	private Date lastClickTime;
+	private Date lastAccessTime;
 	private long sessionDuration;
 	private String mode;
 	
@@ -56,6 +78,16 @@ public class UserSessionView {
 				mode = sessInfo.getWebMode();
 			}
 		}
+		
+		HttpSession se = sessInfo.getSession();
+		if(se != null) {
+			try {
+				lastAccessTime = new Date(se.getLastAccessedTime());
+			} catch (Exception e) {
+				lastAccessTime = null;
+			}
+		}
+		
 	}
 	
 	public UserSession getUserSession() {
@@ -92,8 +124,12 @@ public class UserSessionView {
 	
 	public Date getLastClickTime() {
 		return lastClickTime;
-	} 
+	}
 	
+	public Date getLastAccessTime() {
+		return lastAccessTime;
+	}
+
 	public long getSessionDuration() {
 		return sessionDuration;
 	}

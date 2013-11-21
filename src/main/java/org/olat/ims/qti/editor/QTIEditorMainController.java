@@ -25,6 +25,8 @@
 
 package org.olat.ims.qti.editor;
 
+import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -35,6 +37,7 @@ import java.util.Set;
 
 import org.olat.basesecurity.BaseSecurityManager;
 import org.olat.basesecurity.SecurityGroup;
+import org.olat.core.CoreSpringFactory;
 import org.olat.core.commons.fullWebApp.LayoutMain3ColsController;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.Component;
@@ -59,11 +62,11 @@ import org.olat.core.gui.control.generic.modal.DialogBoxController;
 import org.olat.core.gui.control.generic.modal.DialogBoxUIFactory;
 import org.olat.core.gui.control.generic.tool.ToolController;
 import org.olat.core.gui.control.generic.tool.ToolFactory;
+import org.olat.core.gui.media.MediaResource;
 import org.olat.core.id.Identity;
 import org.olat.core.id.User;
 import org.olat.core.id.UserConstants;
 import org.olat.core.logging.AssertException;
-import org.olat.core.logging.Tracing;
 import org.olat.core.util.CodeHelper;
 import org.olat.core.util.Formatter;
 import org.olat.core.util.StringHelper;
@@ -73,8 +76,10 @@ import org.olat.core.util.mail.ContactList;
 import org.olat.core.util.mail.ContactMessage;
 import org.olat.core.util.memento.Memento;
 import org.olat.core.util.nodes.INode;
+import org.olat.core.util.tree.TreeHelper;
 import org.olat.core.util.tree.TreeVisitor;
 import org.olat.core.util.tree.Visitor;
+import org.olat.core.util.vfs.VFSContainer;
 import org.olat.core.util.xml.XStreamHelper;
 import org.olat.course.CourseFactory;
 import org.olat.course.ICourse;
@@ -83,11 +88,12 @@ import org.olat.course.nodes.iq.IQEditController;
 import org.olat.course.tree.TreePosition;
 import org.olat.fileresource.types.FileResource;
 import org.olat.ims.qti.QTIChangeLogMessage;
+import org.olat.ims.qti.QTIConstants;
 import org.olat.ims.qti.QTIResult;
 import org.olat.ims.qti.QTIResultManager;
+import org.olat.ims.qti.editor.beecom.objects.Assessment;
 import org.olat.ims.qti.editor.beecom.objects.ChoiceQuestion;
 import org.olat.ims.qti.editor.beecom.objects.Item;
-import org.olat.ims.qti.editor.beecom.objects.QTIDocument;
 import org.olat.ims.qti.editor.beecom.objects.QTIObject;
 import org.olat.ims.qti.editor.beecom.objects.Question;
 import org.olat.ims.qti.editor.beecom.objects.Response;
@@ -99,15 +105,21 @@ import org.olat.ims.qti.editor.tree.InsertItemTreeModel;
 import org.olat.ims.qti.editor.tree.ItemNode;
 import org.olat.ims.qti.editor.tree.QTIEditorTreeModel;
 import org.olat.ims.qti.editor.tree.SectionNode;
+import org.olat.ims.qti.export.QTIWordExport;
 import org.olat.ims.qti.process.AssessmentInstance;
 import org.olat.ims.qti.process.QTIEditorResolver;
+import org.olat.ims.qti.qpool.QTIQPoolServiceProvider;
 import org.olat.modules.co.ContactFormController;
 import org.olat.modules.iq.IQDisplayController;
 import org.olat.modules.iq.IQManager;
 import org.olat.modules.iq.IQPreviewSecurityCallback;
+import org.olat.modules.qpool.QuestionItemView;
+import org.olat.modules.qpool.ui.SelectItemController;
+import org.olat.modules.qpool.ui.events.QItemViewEvent;
 import org.olat.repository.RepositoryEntry;
 import org.olat.repository.RepositoryManager;
 import org.olat.resource.references.ReferenceImpl;
+import org.olat.user.UserManager;
 
 /**
  * Description: <br>
@@ -144,6 +156,9 @@ public class QTIEditorMainController extends MainLayoutBasicController implement
 	private static final String CMD_TOOLS_ADD_SINGLECHOICE = CMD_TOOLS_ADD_PREFIX + "sc";
 	private static final String CMD_TOOLS_ADD_KPRIM = CMD_TOOLS_ADD_PREFIX + "kprim";
 	private static final String CMD_TOOLS_ADD_SECTION = CMD_TOOLS_ADD_PREFIX + "section";
+	private static final String CMD_TOOLS_ADD_QPOOL = "cmd.import.qpool";
+	private static final String CMD_TOOLS_EXPORT_QPOOL = "cmd.export.qpool";
+	private static final String CMD_TOOLS_EXPORT_DOCX = "cmd.export.docx";
 
 	private static final String CMD_EXIT_SAVE = "exit.save";
 	private static final String CMD_EXIT_DISCARD = "exit.discard";
@@ -189,45 +204,49 @@ public class QTIEditorMainController extends MainLayoutBasicController implement
 	//
 	//public static final ReentrantReadWriteLock IS_SAVING_RWL = new ReentrantReadWriteLock();
 
-	private QTIEditorPackage qtiPackage;
+	private QTIEditorPackageImpl qtiPackage;
 
 	private VelocityContainer main, exitVC, chngMsgFormVC, restrictedEditWarningVC;
 	private ToolController mainToolC;
 	private MenuTree menuTree;
-	private Panel mainPanel, wrapperPanel;
+	private Panel mainPanel;
 	private LayoutMain3ColsController columnLayoutCtr;
 
-	private QTIDocument qtiDoc;
 	private QTIEditorTreeModel menuTreeModel;
 	private DialogBoxController deleteDialog;
 	private DialogBoxController deleteMediaDialog;
 	private IQDisplayController previewController;
 	private SelectionTree moveTree, copyTree, insertTree;
 	private InsertItemTreeModel insertTreeModel;
-	private GenericQtiNode insertObject;
 	private LockResult lockEntry;
-	private Controller failedMonolog, lockMonolog;
 	private boolean restrictedEdit;
-	private Map history = null;
+	private Map<String, Memento> history = null;
 	private String startedWithTitle;
-	private List referencees;
+	private List<ReferenceImpl> referencees;
 	private ChangeMessageForm chngMsgFrom;
 	private DialogController proceedRestricedEditDialog;
 	private ContactMessage changeEmail;
 	private ContactFormController cfc;
 	private String changeLog = null;
 	private CloseableModalController cmc, cmcPrieview, cmcExit;
+	private SelectItemController selectQItemCtrl;
 	private Panel exitPanel;
 	private boolean notEditable;
 	private LockResult activeSessionLock;
 	private Link notEditableButton; 
 	private Set<String> deletableMediaFiles;
-	
-	public QTIEditorMainController(List referencees, UserRequest ureq, WindowControl wControl, FileResource fileResource) {
-		super(ureq, wControl);
 
-		for(Iterator iter = referencees.iterator(); iter.hasNext(); ) {
-			ReferenceImpl ref = (ReferenceImpl)iter.next();
+	private final UserManager userManager;
+	private final QTIQPoolServiceProvider qtiQpoolServiceProvider;
+	
+	public QTIEditorMainController(List<ReferenceImpl> referencees, UserRequest ureq, WindowControl wControl, FileResource fileResource) {
+		super(ureq, wControl);
+		
+		qtiQpoolServiceProvider = (QTIQPoolServiceProvider)CoreSpringFactory.getBean("qtiPoolServiceProvider");
+		userManager = CoreSpringFactory.getImpl(UserManager.class);
+
+		for(Iterator<ReferenceImpl> iter = referencees.iterator(); iter.hasNext(); ) {
+			ReferenceImpl ref = iter.next();
 			if ("CourseModule".equals(ref.getSource().getResourceableTypeName())) {
 				ICourse course = CourseFactory.loadCourse(ref.getSource().getResourceableId());
 				CourseNode courseNode = course.getEditorTreeModel().getCourseNode(ref.getUserdata());
@@ -243,7 +262,7 @@ public class QTIEditorMainController extends MainLayoutBasicController implement
 		}
 		this.referencees = referencees;
 		
-		qtiPackage = new QTIEditorPackage(ureq.getIdentity(), fileResource, getTranslator());
+		qtiPackage = new QTIEditorPackageImpl(ureq.getIdentity(), fileResource, getTranslator());
 
 		// try to get lock which lives longer then the browser session in case of a closing browser window
 		lockEntry = CoordinatorManager.getInstance().getCoordinator().getLocker().aquirePersistentLock(qtiPackage.getRepresentingResourceable(), ureq.getIdentity(), null);
@@ -252,16 +271,17 @@ public class QTIEditorMainController extends MainLayoutBasicController implement
 			//fileResource has the RepositoryEntre.getOlatResource within, which is used in qtiPackage
 			activeSessionLock = CoordinatorManager.getInstance().getCoordinator().getLocker().acquireLock(qtiPackage.getRepresentingResourceable(), ureq.getIdentity(), null);
 			//
-			qtiDoc = qtiPackage.getQTIDocument();
-			if (qtiDoc == null) {
+			if (qtiPackage.getQTIDocument() == null) {
 				notEditable = true;				
 			} else if (qtiPackage.isResumed()) {
 				showInfo("info.resumed", null);
 			}
 			//
 			init(ureq); // initialize the gui
+			updateWarning();
 		} else {
-			wControl.setWarning( getTranslator().translate("error.lock", new String[] { lockEntry.getOwner().getName(),
+			String fullName = userManager.getUserDisplayName(lockEntry.getOwner());
+			wControl.setWarning( getTranslator().translate("error.lock", new String[] { fullName,
 				Formatter.formatDatetime(new Date(lockEntry.getLockAquiredTime())) }) );
 		}
 	}
@@ -283,7 +303,7 @@ public class QTIEditorMainController extends MainLayoutBasicController implement
 		main = createVelocityContainer("index");
 		JSAndCSSComponent jsAndCss;
 		// Add html header js
-		jsAndCss = new JSAndCSSComponent("qitjsandcss", this.getClass(), new String[] { "qti.js" }, null, true);
+		jsAndCss = new JSAndCSSComponent("qitjsandcss", new String[] { "js/openolat/qti.js" }, null);
 		main.put("qitjsandcss", jsAndCss);
 		
 		//
@@ -297,7 +317,7 @@ public class QTIEditorMainController extends MainLayoutBasicController implement
 			Panel panel = new Panel("notEditable");
 			panel.setContent(notEditable);
 			columnLayoutCtr = new LayoutMain3ColsController(ureq, getWindowControl(), null, null, panel, null);
-			wrapperPanel = putInitialPanel(columnLayoutCtr.getInitialComponent());
+			putInitialPanel(columnLayoutCtr.getInitialComponent());
 			return;
 		}
 				
@@ -311,17 +331,18 @@ public class QTIEditorMainController extends MainLayoutBasicController implement
 		} else {
 			// start with a fresh history. Editor is resumed but no changes were made
 			// so far.
-			history = new HashMap();
+			history = new HashMap<String, Memento>();
 		}
 
 		if (restrictedEdit) {
 			mainToolC.setEnabled(CMD_TOOLS_ADD_SECTION, false);
 			mainToolC.setEnabled(CMD_TOOLS_ADD_SINGLECHOICE, false);
 			mainToolC.setEnabled(CMD_TOOLS_ADD_MULTIPLECHOICE, false);
+			mainToolC.setEnabled(CMD_TOOLS_ADD_QPOOL, false);
 
 			mainToolC.setEnabled(CMD_TOOLS_ADD_FIB, false);
 			if (!qtiPackage.getQTIDocument().isSurvey()) mainToolC.setEnabled(CMD_TOOLS_ADD_KPRIM, false);
-			if (qtiPackage.getQTIDocument().isSurvey()) mainToolC.setEnabled(CMD_TOOLS_ADD_FREETEXT, false);
+			mainToolC.setEnabled(CMD_TOOLS_ADD_FREETEXT, false);
 		}
 		mainToolC.setEnabled(CMD_TOOLS_CHANGE_DELETE, false);
 		mainToolC.setEnabled(CMD_TOOLS_CHANGE_MOVE, false);
@@ -351,7 +372,7 @@ public class QTIEditorMainController extends MainLayoutBasicController implement
 		} else {
 			columnLayoutCtr.addCssClassToMain("o_editor_qti");
 		}
-		wrapperPanel = putInitialPanel(columnLayoutCtr.getInitialComponent());
+		putInitialPanel(columnLayoutCtr.getInitialComponent());
 		
 		if (restrictedEdit) {
 			restrictedEditWarningVC = createVelocityContainer("restrictedEditDialog");
@@ -366,6 +387,23 @@ public class QTIEditorMainController extends MainLayoutBasicController implement
 			columnLayoutCtr.hideCol1(true);
 			columnLayoutCtr.hideCol2(true);
 		}
+	}
+	
+	private void updateWarning() {
+		boolean warningEssay = false;
+		if(qtiPackage.getQTIDocument() != null && !qtiPackage.getQTIDocument().isSurvey()) {
+			//check if the test contains some essay
+			List<TreeNode> flattedTree = new ArrayList<TreeNode>();
+			TreeHelper.makeTreeFlat(menuTreeModel.getRootNode(), flattedTree);
+			for(TreeNode node:flattedTree) {
+				Object uo = node.getUserObject();
+				if(uo instanceof String && ((String)uo).startsWith("QTIEDIT:ESSAY")) {
+					warningEssay = true;
+					break;
+				}
+			}
+		}
+		main.contextPut("warningEssay", new Boolean(warningEssay));
 	}
 
 
@@ -438,6 +476,7 @@ public class QTIEditorMainController extends MainLayoutBasicController implement
 				parentTargetNode.insertQTIObjectAt(subject, targetPos);
 				qtiPackage.serializeQTIDocument();
 				menuTree.setDirty(true); //force rerendering for ajax mode
+				updateWarning();
 			}
 		} else if (source == copyTree) { // catch copy operations
 			cmc.deactivate();
@@ -487,6 +526,7 @@ public class QTIEditorMainController extends MainLayoutBasicController implement
 				menuTree.setSelectedNodeId(newNode.getIdent());
 				event(ureq, menuTree, new Event(MenuTree.COMMAND_TREENODE_CLICKED));
 				qtiPackage.serializeQTIDocument();
+				updateWarning();
 			}
 		} else if (source == insertTree) { // catch insert operations
 			cmc.deactivate();
@@ -495,19 +535,8 @@ public class QTIEditorMainController extends MainLayoutBasicController implement
 			
 			TreeEvent te = (TreeEvent) event;
 			if (te.getCommand().equals(TreeEvent.COMMAND_TREENODE_CLICKED)) { // insert
-				// new
-				// node
-				String nodeId = te.getNodeId();
-				TreePosition tp = insertTreeModel.getTreePosition(nodeId);
-				GenericQtiNode parentTargetNode = (GenericQtiNode) tp.getParentTreeNode();
-				// insert into menu tree
-				parentTargetNode.insert(insertObject, tp.getChildpos());
-				// insert into model
-				parentTargetNode.insertQTIObjectAt(insertObject.getUnderlyingQTIObject(), tp.getChildpos());
-				// activate inserted node
-				menuTree.setSelectedNodeId(insertObject.getIdent());
-				event(ureq, menuTree, new Event(MenuTree.COMMAND_TREENODE_CLICKED));
-				qtiPackage.serializeQTIDocument();
+				doInsert(ureq, te.getNodeId(), insertTree.getUserObject());
+				updateWarning();
 			}
 		} else if (source == exitVC) {
 			if (event.getCommand().equals(CMD_EXIT_SAVE)) {
@@ -529,7 +558,7 @@ public class QTIEditorMainController extends MainLayoutBasicController implement
 					// sein wenn man nur ein Menü braucht.
 					// TODO:pb:a extend ContentOnlyController to work also if menu and
 					// tool are null, hence only content is desired
-					String userN = ureq.getIdentity().getName();
+					String userN = ureq.getIdentity().getUser().getProperty(UserConstants.EMAIL, ureq.getLocale());
 					String lastN = ureq.getIdentity().getUser().getProperty(UserConstants.LASTNAME, ureq.getLocale());
 					String firstN = ureq.getIdentity().getUser().getProperty(UserConstants.FIRSTNAME, ureq.getLocale());
 					String changeMsg = "Changed by: " + firstN + " " + lastN + " [" + userN + "]\n";
@@ -632,7 +661,6 @@ public class QTIEditorMainController extends MainLayoutBasicController implement
 					previewController.addControllerListener(this);
 					cmcPrieview = new CloseableModalController(getWindowControl(), translate("editor.preview.close"),
 							previewController.getInitialComponent());
-					cmcPrieview.insertHeaderCss();
 					cmcPrieview.activate();
 					listenTo(cmcPrieview);
 					
@@ -640,6 +668,7 @@ public class QTIEditorMainController extends MainLayoutBasicController implement
 					getWindowControl().setWarning(translate("error.preview"));
 				}
 			} else if (cmd.equals(CMD_TOOLS_CHANGE_DELETE)) { // prepare delete
+				if(deleteDialog != null) return;//multi return in Firefox
 
 				GenericQtiNode clickedNode = menuTreeModel.getQtiNode(menuTree.getSelectedNodeId());
 				String msg = "";
@@ -689,8 +718,15 @@ public class QTIEditorMainController extends MainLayoutBasicController implement
 				cmc.activate();
 				listenTo(cmc);
 				
+			} else if (CMD_TOOLS_ADD_QPOOL.equals(cmd)) {
+				doSelectQItem(ureq);
+			} else if (CMD_TOOLS_EXPORT_QPOOL.equals(cmd)) {
+				doExportQItem();
+			} else if (CMD_TOOLS_EXPORT_DOCX.equals(cmd)) {
+				doExportDocx(ureq);
 			} else if (cmd.startsWith(CMD_TOOLS_ADD_PREFIX)) { // add new object
 				// fetch new object
+				GenericQtiNode insertObject = null;
 				if (cmd.equals(CMD_TOOLS_ADD_SECTION)) {
 					Section newSection = QTIEditHelper.createSection(getTranslator());
 					Item newItem = QTIEditHelper.createSCItem(getTranslator());
@@ -699,23 +735,18 @@ public class QTIEditorMainController extends MainLayoutBasicController implement
 					ItemNode itemNode = new ItemNode(newItem, qtiPackage);
 					scNode.addChild(itemNode);
 					insertObject = scNode;
-				} else if (cmd.equals(CMD_TOOLS_ADD_SINGLECHOICE)) insertObject = new ItemNode(QTIEditHelper.createSCItem(getTranslator()), qtiPackage);
-				else if (cmd.equals(CMD_TOOLS_ADD_MULTIPLECHOICE)) insertObject = new ItemNode(QTIEditHelper.createMCItem(getTranslator()), qtiPackage);
-				else if (cmd.equals(CMD_TOOLS_ADD_KPRIM)) insertObject = new ItemNode(QTIEditHelper.createKPRIMItem(getTranslator()), qtiPackage);
-				else if (cmd.equals(CMD_TOOLS_ADD_FIB)) insertObject = new ItemNode(QTIEditHelper.createFIBItem(getTranslator()), qtiPackage);
-				else if (cmd.equals(CMD_TOOLS_ADD_FREETEXT)) insertObject = new ItemNode(QTIEditHelper.createEssayItem(getTranslator()), qtiPackage);
-
-				// prepare insert tree
-				insertTree = new SelectionTree("insertTree", getTranslator());
-				insertTree.setFormButtonKey("submit");
-				if (cmd.equals(CMD_TOOLS_ADD_SECTION)) insertTreeModel = new InsertItemTreeModel(menuTreeModel,
-						InsertItemTreeModel.INSTANCE_ASSESSMENT);
-				else insertTreeModel = new InsertItemTreeModel(menuTreeModel, InsertItemTreeModel.INSTANCE_SECTION);
-				insertTree.setTreeModel(insertTreeModel);
-				insertTree.addListener(this);
-				cmc = new CloseableModalController(getWindowControl(), translate("close"), insertTree, true, translate("title.add") );
-				cmc.activate();
-				listenTo(cmc);
+				} else if (cmd.equals(CMD_TOOLS_ADD_SINGLECHOICE)) {
+					insertObject = new ItemNode(QTIEditHelper.createSCItem(getTranslator()), qtiPackage);
+				} else if (cmd.equals(CMD_TOOLS_ADD_MULTIPLECHOICE)) {
+					insertObject = new ItemNode(QTIEditHelper.createMCItem(getTranslator()), qtiPackage);
+				} else if (cmd.equals(CMD_TOOLS_ADD_KPRIM)) {
+					insertObject = new ItemNode(QTIEditHelper.createKPRIMItem(getTranslator()), qtiPackage);
+				} else if (cmd.equals(CMD_TOOLS_ADD_FIB)) {
+					insertObject = new ItemNode(QTIEditHelper.createFIBItem(getTranslator()), qtiPackage);
+				} else if (cmd.equals(CMD_TOOLS_ADD_FREETEXT)) {
+					insertObject = new ItemNode(QTIEditHelper.createEssayItem(getTranslator()), qtiPackage);
+				}
+				doSelectInsertionPoint(cmd, insertObject);
 			}
 		} else if (source == deleteDialog) { // event from delete dialog
 			if (DialogBoxUIFactory.isYesEvent(event)) { // yes, delete
@@ -738,7 +769,8 @@ public class QTIEditorMainController extends MainLayoutBasicController implement
 				if(deletableMediaFiles!=null && deletableMediaFiles.size()>0) {					
 					String msg = translate("delete.item.media", deletableMediaFiles.toString());
 					deleteMediaDialog = activateYesNoDialog(ureq, null, msg, deleteMediaDialog);
-				}		
+				}
+				updateWarning();
 			}
 			// cleanup controller
 			removeAsListenerAndDispose(deleteDialog);
@@ -808,7 +840,7 @@ public class QTIEditorMainController extends MainLayoutBasicController implement
 				QTIChangeLogMessage clm = new QTIChangeLogMessage(changeLog, chngMsgFrom.hasInformLearners());
 				qtiPackage.commitChangelog(clm);
 				StringBuilder traceMsg = new StringBuilder(chngMsgFrom.hasInformLearners() ? "Visible for ALL \n" : "Visible for GROUP only \n");
-				Tracing.logAudit(traceMsg.append(changeLog).toString(), QTIEditorMainController.class);
+				logAudit(traceMsg.append(changeLog).toString(), null);
 				// save, remove locks and tmp files
 				saveAndExit(ureq);
 			}
@@ -834,7 +866,151 @@ public class QTIEditorMainController extends MainLayoutBasicController implement
 				// just go back to the editor - remove modal dialog
 				cmcExit.deactivate();
 			}
+		} else if (source == selectQItemCtrl) {
+			cmc.deactivate();
+			cleanUp();
+			
+			if(event instanceof QItemViewEvent) {
+				QItemViewEvent e = (QItemViewEvent)event;
+				List<QuestionItemView> items = e.getItemList();
+				doSelectInsertionPoint(CMD_TOOLS_ADD_QPOOL, items);
+			}
 		}
+	}
+	
+	private void cleanUp() {
+		removeAsListenerAndDispose(cmc);
+		removeAsListenerAndDispose(selectQItemCtrl);
+		cmc = null;
+		selectQItemCtrl = null;
+	}
+	
+	private void doSelectInsertionPoint(String cmd, Object userObj) {
+	// prepare insert tree
+		insertTree = new SelectionTree("insertTree", getTranslator());
+		insertTree.setUserObject(userObj);
+		insertTree.setFormButtonKey("submit");
+		if (cmd.equals(CMD_TOOLS_ADD_SECTION)) {
+			insertTreeModel = new InsertItemTreeModel(menuTreeModel, InsertItemTreeModel.INSTANCE_ASSESSMENT);
+		} else {
+			insertTreeModel = new InsertItemTreeModel(menuTreeModel, InsertItemTreeModel.INSTANCE_SECTION);
+		}
+		insertTree.setTreeModel(insertTreeModel);
+		insertTree.addListener(this);
+		cmc = new CloseableModalController(getWindowControl(), translate("close"), insertTree, true, translate("title.add") );
+		cmc.activate();
+		listenTo(cmc);
+	}
+	
+	private void doInsert(UserRequest ureq, String nodeId, Object toInsert) {
+		// new node
+		TreePosition tp = insertTreeModel.getTreePosition(nodeId);
+		GenericQtiNode parentTargetNode = (GenericQtiNode) tp.getParentTreeNode();
+		
+		if(toInsert instanceof GenericQtiNode) {
+			doInsert(parentTargetNode, (GenericQtiNode)toInsert, tp.getChildpos());
+		} else if(toInsert instanceof QuestionItemView) {
+			QuestionItemView item = (QuestionItemView)toInsert;
+			GenericQtiNode insertNode = doConvertItemToQtiNode(item);
+			doInsert(parentTargetNode, insertNode, tp.getChildpos());
+		} else if(toInsert instanceof Collection) {
+			int position = tp.getChildpos();
+			@SuppressWarnings("unchecked")
+			Collection<QuestionItemView> items = (Collection<QuestionItemView>)toInsert;
+			for(QuestionItemView item:items) {
+				GenericQtiNode insertNode = doConvertItemToQtiNode(item);
+				doInsert(parentTargetNode, insertNode, position++);
+			}
+		}
+
+		event(ureq, menuTree, new Event(MenuTree.COMMAND_TREENODE_CLICKED));
+		qtiPackage.serializeQTIDocument();
+		updateWarning();
+	}
+	
+	private void doInsert(GenericQtiNode parentTargetNode, GenericQtiNode insertNode, int position) {
+		// insert into menu tree
+		parentTargetNode.insert(insertNode, position);
+		// insert into model
+		parentTargetNode.insertQTIObjectAt(insertNode.getUnderlyingQTIObject(), position);
+		// activate inserted node
+		menuTree.setSelectedNodeId(insertNode.getIdent());
+	}
+	
+	private GenericQtiNode doConvertItemToQtiNode(QuestionItemView qitemv) {
+		VFSContainer editorContainer = qtiPackage.getBaseDir();
+		Item theItem = qtiQpoolServiceProvider.exportToQTIEditor(qitemv, editorContainer);
+		GenericQtiNode node = new ItemNode(theItem, qtiPackage);
+		return node;
+	}
+	
+	private void doSelectQItem(UserRequest ureq) {
+		removeAsListenerAndDispose(cmc);
+		removeAsListenerAndDispose(selectQItemCtrl);
+		
+		selectQItemCtrl = new SelectItemController(ureq, getWindowControl(), QTIConstants.QTI_12_FORMAT);
+		listenTo(selectQItemCtrl);
+
+		cmc = new CloseableModalController(getWindowControl(), translate("close"), selectQItemCtrl.getInitialComponent(), true, translate("title.add") );
+		cmc.activate();
+		listenTo(cmc);
+	}
+
+	private void doExportDocx(UserRequest ureq) {
+		AssessmentNode rootNode = (AssessmentNode)menuTreeModel.getRootNode();
+		VFSContainer editorContainer = qtiPackage.getBaseDir();
+		MediaResource mr = new QTIWordExport(rootNode, editorContainer, getLocale(), "UTF-8");
+		ureq.getDispatchResult().setResultingMediaResource(mr);
+	}
+	
+	private void doExportQItem() {
+		GenericQtiNode selectedNode = menuTreeModel.getQtiNode(menuTree.getSelectedNodeId());
+		if(selectedNode instanceof ItemNode) {
+			ItemNode itemNode = (ItemNode)selectedNode;
+			QTIObject qtiObject = itemNode.getUnderlyingQTIObject();
+			if(qtiObject instanceof Item) {
+				Item item = (Item)qtiObject;
+				VFSContainer editorContainer = qtiPackage.getBaseDir();
+				qtiQpoolServiceProvider.importBeecomItem(getIdentity(), item, editorContainer, getLocale());
+				showInfo("export.qpool.successful", "1");
+			}	
+		} else if(selectedNode instanceof SectionNode) {
+			SectionNode sectionNode = (SectionNode)selectedNode;
+			QTIObject qtiObject = sectionNode.getUnderlyingQTIObject();
+			if(qtiObject instanceof Section) {
+				int count = doExportSection((Section)qtiObject);
+				showInfo("export.qpool.successful", Integer.toString(count));
+			}
+		} else if(selectedNode instanceof AssessmentNode) {
+			AssessmentNode assessmentNode = (AssessmentNode)selectedNode;
+			QTIObject qtiObject = assessmentNode.getUnderlyingQTIObject();
+			if(qtiObject instanceof Assessment) {
+				int count = doExportAssessment((Assessment)qtiObject);
+				
+				showInfo("export.qpool.successful", Integer.toString(count));
+			}
+		}
+	}
+	
+	private int doExportAssessment(Assessment assessment) {
+		int count = 0;
+		if(assessment.getSections() != null) {
+			for(Section section:assessment.getSections()) {
+				count += doExportSection(section);
+			}
+		}
+		return count;
+	}
+	
+	private int doExportSection(Section section) {
+		if(section.getItems() != null) {
+			VFSContainer editorContainer = qtiPackage.getBaseDir();
+			for(Item item:section.getItems()) {
+				qtiQpoolServiceProvider.importBeecomItem(getIdentity(), item, editorContainer, getLocale());
+			}
+			return section.getItems().size();
+		}
+		return 0;
 	}
 
 	/**
@@ -853,10 +1029,13 @@ public class QTIEditorMainController extends MainLayoutBasicController implement
 		// tools
 		tc.addHeader(translate("tools.tools.header"));
 		tc.addLink(CMD_TOOLS_PREVIEW, translate("tools.tools.preview"), CMD_TOOLS_PREVIEW, "b_toolbox_preview");
+		tc.addLink(CMD_TOOLS_EXPORT_QPOOL, translate("tools.export.qpool"), CMD_TOOLS_EXPORT_QPOOL, "o_mi_qpool_export");
+		tc.addLink(CMD_TOOLS_EXPORT_DOCX, translate("tools.export.docx"), CMD_TOOLS_EXPORT_DOCX, "o_mi_docx_export");
 		tc.addLink(CMD_TOOLS_CLOSE_EDITOR, translate("tools.tools.closeeditor"), null, "b_toolbox_close");
 		// if (!restrictedEdit) {
 		tc.addHeader(translate("tools.add.header"));
 		// adds within the qti document level
+		tc.addLink(CMD_TOOLS_ADD_QPOOL, translate("tools.import.qpool"), CMD_TOOLS_ADD_QPOOL, "o_mi_qpool_import");
 		tc.addLink(CMD_TOOLS_ADD_SECTION, translate("tools.add.section"), CMD_TOOLS_ADD_SECTION, "o_mi_qtisection");
 		// adds within a section
 		tc.addLink(CMD_TOOLS_ADD_SINGLECHOICE, translate("tools.add.singlechoice"), CMD_TOOLS_ADD_SINGLECHOICE, "o_mi_qtisc");
@@ -864,8 +1043,7 @@ public class QTIEditorMainController extends MainLayoutBasicController implement
 		if (!qtiPackage.getQTIDocument().isSurvey()) tc.addLink(CMD_TOOLS_ADD_KPRIM, translate("tools.add.kprim"), CMD_TOOLS_ADD_KPRIM,
 				"o_mi_qtikprim");
 		tc.addLink(CMD_TOOLS_ADD_FIB, translate("tools.add.cloze"), CMD_TOOLS_ADD_FIB, "o_mi_qtifib");
-		if (qtiPackage.getQTIDocument().isSurvey()) tc.addLink(CMD_TOOLS_ADD_FREETEXT, translate("tools.add.freetext"),
-				CMD_TOOLS_ADD_FREETEXT, "o_mi_qtiessay");
+		tc.addLink(CMD_TOOLS_ADD_FREETEXT, translate("tools.add.freetext"), CMD_TOOLS_ADD_FREETEXT, "o_mi_qtiessay");
 		// change
 		tc.addHeader(translate("tools.change.header"));
 		// change actions
@@ -918,8 +1096,8 @@ public class QTIEditorMainController extends MainLayoutBasicController implement
 
 		StringBuilder result = new StringBuilder();
 		result.append(translate("qti.restricted.leading"));
-		for (Iterator iter = referencees.iterator(); iter.hasNext();) {
-			ReferenceImpl element = (ReferenceImpl) iter.next();
+		for (Iterator<ReferenceImpl> iter = referencees.iterator(); iter.hasNext();) {
+			ReferenceImpl element = iter.next();
 			// FIXME:discuss:possible performance/cache problem
 			if ("CourseModule".equals(element.getSource().getResourceableTypeName())) {
 				ICourse course = CourseFactory.loadCourse(element.getSource().getResourceableId());
@@ -929,7 +1107,7 @@ public class QTIEditorMainController extends MainLayoutBasicController implement
 				RepositoryEntry entry = rm.lookupRepositoryEntry(course, false);
 				String courseTitle = course.getCourseTitle();
 				SecurityGroup owners = entry.getOwnerGroup();
-				List stakeHoldersIds = BaseSecurityManager.getInstance().getIdentitiesOfSecurityGroup(owners);
+				List<Identity> stakeHoldersIds = BaseSecurityManager.getInstance().getIdentitiesOfSecurityGroup(owners);
 
 				// add stakeholders as group
 				cl = new ContactList(courseTitle);
@@ -1013,7 +1191,7 @@ public class QTIEditorMainController extends MainLayoutBasicController implement
 							Memento respMem = null;
 							if (history.containsKey(key)) {
 								// question changed!
-								questMem = (Memento) history.get(key);
+								questMem = history.get(key);
 								hasChanges = true;
 							}
 							// if(!hasChanges){
@@ -1021,11 +1199,11 @@ public class QTIEditorMainController extends MainLayoutBasicController implement
 							// new prefix for responses
 							prefixKey += "/null/";
 							// list contains org.olat.ims.qti.editor.beecom.objects.Response
-							List responses = question != null ? question.getResponses() : null;
+							List<Response> responses = question != null ? question.getResponses() : null;
 							if (responses != null && responses.size() > 0) {
 								// check for changes in each response
-								for (Iterator iter = responses.iterator(); iter.hasNext();) {
-									Response resp = (Response) iter.next();
+								for (Iterator<Response> iter = responses.iterator(); iter.hasNext();) {
+									Response resp = iter.next();
 									if (history.containsKey(prefixKey + resp.getIdent())) {
 										// this response changed!
 										Memento tmpMem = (Memento) history.get(prefixKey + resp.getIdent());

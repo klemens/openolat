@@ -112,7 +112,7 @@ public class NoAccessExplanationFormController extends FormBasicController {
 	protected void initForm(FormItemContainer formLayout, Controller listener, UserRequest ureq) {
 		// Add the rich text element
 		noAccessExplanationInput = uifactory.addRichTextElementForStringDataMinimalistic("form.noAccessExplanation", "form.noAccessExplanation",
-				(noAccessString == null ? "" : noAccessString), 10, -1, false, formLayout, ureq.getUserSession(), getWindowControl());
+				(noAccessString == null ? "" : noAccessString), 10, -1, formLayout, ureq.getUserSession(), getWindowControl());
 
 		if (constructorInitCall) {
 			// Create submit button
@@ -152,7 +152,7 @@ public class NoAccessExplanationFormController extends FormBasicController {
 		boolean formOK = true;
 		if (noAccessExplanationInput.getValue().length() > 4000) {
 			formOK = false;
-			noAccessExplanationInput.setErrorKey("input.toolong", new String[] {});
+			noAccessExplanationInput.setErrorKey("input.toolong", new String[] {"4000"});
 		}
 		if (formOK && super.validateFormLogic(ureq)) {
 			noAccessExplanationInput.clearError();

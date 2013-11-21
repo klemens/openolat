@@ -22,6 +22,7 @@ package org.olat.commons.info.ui;
 
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.form.flexible.FormItemContainer;
+import org.olat.core.gui.components.form.flexible.elements.RichTextElement;
 import org.olat.core.gui.components.form.flexible.elements.TextElement;
 import org.olat.core.gui.components.form.flexible.impl.Form;
 import org.olat.core.gui.components.form.flexible.impl.FormBasicController;
@@ -41,25 +42,26 @@ import org.olat.core.util.StringHelper;
 public class InfoEditFormController extends FormBasicController {
 
 	private TextElement title;
-	private TextElement message;
+	private RichTextElement message;
+	private final boolean showTitle;
 	
-	public InfoEditFormController(UserRequest ureq, WindowControl wControl) {
-		super(ureq, wControl);
-		initForm(ureq);
-	}
-	
-	public InfoEditFormController(UserRequest ureq, WindowControl wControl, Form mainForm) {
+	public InfoEditFormController(UserRequest ureq, WindowControl wControl, Form mainForm, boolean showTitle) {
 		super(ureq, wControl, LAYOUT_DEFAULT, null, mainForm);
+		this.showTitle = showTitle;
 		initForm(ureq);
 	}
 
 	@Override
 	protected void initForm(FormItemContainer formLayout, Controller listener, UserRequest ureq) {
-		setFormTitle("edit.title");
+		if(showTitle) {
+			setFormTitle("edit.title");
+		}
 		
 		title = uifactory.addTextElement("info_title", "edit.info_title", 512, "", formLayout);
 		title.setMandatory(true);
-		message = uifactory.addTextAreaElement("edit.info_message", 6, 80, "", formLayout);
+		
+		message = uifactory.addRichTextElementForStringDataMinimalistic("edit.info_message", "edit.info_message", "", 6, 80,
+				formLayout, ureq.getUserSession(), getWindowControl());
 		message.setMandatory(true);
 		message.setMaxLength(2000);
 	}

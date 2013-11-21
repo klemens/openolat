@@ -46,7 +46,7 @@ import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.Event;
 import org.olat.core.gui.control.WindowControl;
 import org.olat.core.gui.control.generic.closablewrapper.CloseableCalloutWindowController;
-import org.olat.core.gui.control.generic.closablewrapper.CloseableModalWindowWrapperController;
+import org.olat.core.gui.control.generic.closablewrapper.CloseableModalController;
 import org.olat.core.gui.control.generic.modal.DialogBoxController;
 import org.olat.core.gui.control.generic.modal.DialogBoxUIFactory;
 import org.olat.core.id.context.BusinessControlFactory;
@@ -92,7 +92,7 @@ public class EPArtefactViewController extends FormBasicController {
 	private PortfolioModule portfolioModule;
 	private final boolean detailsLinkEnabled;
 	
-	private CloseableModalWindowWrapperController artefactBox;
+	private CloseableModalController artefactBox;
 	private FormLink detailsLink;
 	private FormLink reflexionBtn;
 	private EPCollectStepForm03 reflexionCtrl;
@@ -172,12 +172,12 @@ public class EPArtefactViewController extends FormBasicController {
 	 *      org.olat.core.gui.control.Controller, org.olat.core.gui.UserRequest)
 	 */
 	@Override
-	@SuppressWarnings("unused")
 	protected void initForm(FormItemContainer formLayout, Controller listener, UserRequest ureq) {
 		if(detailsLinkEnabled && !artefactChooseMode) {
 			detailsLink = uifactory.addFormLink("details.link", formLayout, Link.LINK);
 			detailsLink.setElementCssClass("o_sel_artefact_details");
-		} 
+		}
+
 		title = uifactory.addInlineTextElement("title", artefact.getTitle(), formLayout, this);
 		
 		flc.contextPut("cssClosed", artefactInClosedMap ? "b_artefact_closed" : "");
@@ -191,8 +191,9 @@ public class EPArtefactViewController extends FormBasicController {
 			tagLM.put(tag, tag);
 		}	
 		tblE = uifactory.addTextBoxListElement("tagTextbox", null, "tag.textboxlist.hint", tagLM, formLayout, getTranslator());
-		if (viewOnlyMode || artefactInClosedMap) tblE.setEnabled(false);
-		else {
+		if (viewOnlyMode || artefactInClosedMap) {
+			tblE.setEnabled(false);
+		} else {
 			flc.contextPut("tagclass", "b_tag_list");
 			//tblE.addActionListener(this, FormEvent.ONCHANGE);
 			Map<String, String> allUsersTags = ePFMgr.getUsersMostUsedTags(getIdentity(), -1);
@@ -202,13 +203,16 @@ public class EPArtefactViewController extends FormBasicController {
 		// get maps wherein this artefact is linked and create links to them
 		List<PortfolioStructure> linkedMaps = ePFMgr.getReferencedMapsForArtefact(artefact);
 		if (linkedMaps != null && linkedMaps.size() != 0) {
-			StringBuffer buf = new StringBuffer();
+			StringBuilder buf = new StringBuilder();
 			for (Iterator<PortfolioStructure> iterator = linkedMaps.iterator(); iterator.hasNext();) {
 				PortfolioStructure ePMap = iterator.next();
 				if (viewOnlyMode || artefactChooseMode){
-					buf.append(ePMap.getTitle()).append(", ");
+					StringHelper.escapeHtml(ePMap.getTitle());
+					buf.append(", ");
 				} else {
-					buf.append("<a href=\"").append(createLinkToMap(ePMap)).append("\">").append(ePMap.getTitle()).append("</a>, ");
+					buf.append("<a href=\"").append(createLinkToMap(ePMap)).append("\">");
+					StringHelper.escapeHtml(ePMap.getTitle());
+					buf.append("</a>, ");
 				}
 			}
 			String mapLinks = buf.toString();
@@ -235,15 +239,23 @@ public class EPArtefactViewController extends FormBasicController {
 				
 		// create edit buttons the adapt meta-data
 		if (!(viewOnlyMode || artefactChooseMode || artefactInClosedMap)){
-			String reflexion = FilterFactory.getHtmlTagAndDescapingFilter().filter(artefact.getReflexion());
+			String reflexion = artefact.getReflexion();
+			reflexion = FilterFactory.getHtmlTagAndDescapingFilter().filter(reflexion);
+			reflexion = StringHelper.xssScan(reflexion);
 			reflexion = Formatter.truncate(reflexion, 50);
-			if (reflexion == null || !StringHelper.containsNonWhitespace(reflexion)) reflexion = "&nbsp; "; // show a link even if empty
+			if (!StringHelper.containsNonWhitespace(reflexion)) {
+				reflexion = "&nbsp; "; // show a link even if empty
+			}
 			reflexionBtn = uifactory.addFormLink("reflexionBtn", reflexion, null, formLayout, Link.NONTRANSLATED);
 			reflexionBtn.setCustomEnabledLinkCSS("b_inline_editable b_ep_nolink");
 			
-			String description = FilterFactory.getHtmlTagAndDescapingFilter().filter(artefact.getDescription());
+			String description = artefact.getDescription();
+			description = FilterFactory.getHtmlTagAndDescapingFilter().filter(description);
 			description = Formatter.truncate(description, 50);
-			if (description == null || !StringHelper.containsNonWhitespace(description)) description = "&nbsp; "; // show a link even if empty
+			description = StringHelper.xssScan(description);
+			if (!StringHelper.containsNonWhitespace(description)) {
+				description = "&nbsp; "; // show a link even if empty
+			}
 			descriptionBtn = uifactory.addFormLink("descriptionBtn", description, null, formLayout, Link.NONTRANSLATED);
 			descriptionBtn.setCustomEnabledLinkCSS("b_inline_editable b_ep_nolink");
 		}
@@ -292,8 +304,8 @@ public class EPArtefactViewController extends FormBasicController {
 	protected void formInnerEvent(UserRequest ureq, FormItem source, FormEvent event) {
 		super.formInnerEvent(ureq, source, event);
 		if (source == deleteBtn) {
-			delYesNoDialog = activateYesNoDialog(ureq, translate("delete.artefact"), translate("delete.artefact.text", artefact.getTitle()),
-					delYesNoDialog);
+			String text = translate("delete.artefact.text", StringHelper.escapeHtml(artefact.getTitle()));
+			delYesNoDialog = activateYesNoDialog(ureq, translate("delete.artefact"), text, delYesNoDialog);
 		} else if (source == chooseBtn){
 			fireEvent(ureq, new EPArtefactChoosenEvent(artefact));
 		} else if (source == detailsLink) {

@@ -130,6 +130,7 @@ import org.olat.resource.OLATResourceManager;
 import org.olat.resource.references.ReferenceImpl;
 import org.olat.resource.references.ReferenceManager;
 import org.olat.testutils.codepoints.server.Codepoint;
+import org.olat.user.UserManager;
 import org.olat.util.logging.activity.LoggingResourceable;
 
 
@@ -144,7 +145,7 @@ import org.olat.util.logging.activity.LoggingResourceable;
  */
 public class CourseFactory extends BasicManager {
 		
-	private static CacheWrapper loadedCourses;
+	private static CacheWrapper<Long,PersistingCourseImpl> loadedCourses;
 	private static ConcurrentHashMap<Long, ModifyCourseEvent> modifyCourseEvents = new ConcurrentHashMap<Long, ModifyCourseEvent>();
 
 	public static final String COURSE_EDITOR_LOCK = "courseEditLock";
@@ -184,14 +185,14 @@ public class CourseFactory extends BasicManager {
 	 */
 	public static MainLayoutController createLaunchController(UserRequest ureq, WindowControl wControl, final OLATResourceable olatResource) {
 		ICourse course = loadCourse(olatResource);
-		boolean isDebug = Tracing.isDebugEnabled(CourseFactory.class);
+		boolean isDebug = log.isDebug();
 		long startT = 0;
 		if(isDebug){
 			startT = System.currentTimeMillis();
 		}
 		MainLayoutController launchC = new RunMainController(ureq, wControl, course, true, true);
 		if(isDebug){
-			Tracing.logDebug("Runview for [["+course.getCourseTitle()+"]] took [ms]"+(System.currentTimeMillis() - startT), CourseFactory.class);
+			log.debug("Runview for [["+course.getCourseTitle()+"]] took [ms]"+(System.currentTimeMillis() - startT));
 		}
 		
 		return launchC;
@@ -206,15 +207,17 @@ public class CourseFactory extends BasicManager {
 	 * @return editor controller for the given course resourceable; if the editor
 	 *         is already locked, it returns a controller with a lock message
 	 */
-	public static Controller createEditorController(UserRequest ureq, WindowControl wControl, StackedController stack, OLATResourceable olatResource) {
+	public static Controller createEditorController(UserRequest ureq, WindowControl wControl, StackedController stack,
+			OLATResourceable olatResource, CourseNode selectedNode) {
 		ICourse course = loadCourse(olatResource);
-		EditorMainController emc = new EditorMainController(ureq, wControl, course, stack);
+		EditorMainController emc = new EditorMainController(ureq, wControl, course, stack, selectedNode);
 		if (!emc.getLockEntry().isSuccess()) {
 			// get i18n from the course runmaincontroller to say that this editor is
 			// already locked by another person
 
 			Translator translator = Util.createPackageTranslator(RunMainController.class, ureq.getLocale());
-			wControl.setWarning(translator.translate("error.editoralreadylocked", new String[] { emc.getLockEntry().getOwner().getName() }));
+			String lockerName = CoreSpringFactory.getImpl(UserManager.class).getUserDisplayName(emc.getLockEntry().getOwner());
+			wControl.setWarning(translator.translate("error.editoralreadylocked", new String[] { lockerName }));
 			return null;
 		}
 		//set the logger if editor is started
@@ -312,7 +315,7 @@ public class CourseFactory extends BasicManager {
 	 * @return the PersistingCourseImpl instance for the input key.
 	 */
 	static PersistingCourseImpl getCourseFromCache(Long resourceableId) {	//o_clusterOK by:ld    
-		return (PersistingCourseImpl)loadedCourses.get(String.valueOf(resourceableId.longValue()));
+		return loadedCourses.get(resourceableId);
 	}
 
 	/**
@@ -321,8 +324,8 @@ public class CourseFactory extends BasicManager {
 	 * @param course
 	 */
 	static void putCourseInCache(Long resourceableId, PersistingCourseImpl course) { //o_clusterOK by:ld    
-		loadedCourses.put(String.valueOf(resourceableId.longValue()), course);
-		Tracing.logDebug("putCourseInCache ", CourseFactory.class);
+		loadedCourses.put(resourceableId, course);
+		log.debug("putCourseInCache ");
 	}
 			
 	/**
@@ -330,8 +333,8 @@ public class CourseFactory extends BasicManager {
 	 * @param resourceableId
 	 */
 	private static void removeFromCache(Long resourceableId) { //o_clusterOK by: ld
-		loadedCourses.remove(String.valueOf(resourceableId.longValue()));	
-		Tracing.logDebug("removeFromCache ", CourseFactory.class);
+		loadedCourses.remove(resourceableId);	
+		log.debug("removeFromCache");
 	}
 	
 	/**
@@ -340,8 +343,8 @@ public class CourseFactory extends BasicManager {
 	 * @param course
 	 */
 	private static void updateCourseInCache(Long resourceableId, PersistingCourseImpl course) { //o_clusterOK by:ld    
-		loadedCourses.update(String.valueOf(resourceableId.longValue()), course);				
-		Tracing.logDebug("updateCourseInCache ", CourseFactory.class);
+		loadedCourses.update(resourceableId, course);				
+		log.debug("updateCourseInCache");
 	}
 
 	/**
@@ -519,22 +522,23 @@ public class CourseFactory extends BasicManager {
 	 * @param fTargetZIP
 	 * @return true if successfully exported, false otherwise.
 	 */
-	public static void exportCourseToZIP(OLATResourceable sourceRes, File fTargetZIP, boolean backwardsCompatible) {
+	public static void exportCourseToZIP(OLATResourceable sourceRes, File fTargetZIP, boolean runtimeDatas, boolean backwardsCompatible) {
 		PersistingCourseImpl sourceCourse = (PersistingCourseImpl) loadCourse(sourceRes);
 
 		// add files to ZIP
 		File fExportDir = new File(WebappHelper.getTmpDir(), CodeHelper.getUniqueID());
 		fExportDir.mkdirs();
+		log.info("Export folder: " + fExportDir);
 		synchronized (sourceCourse) { //o_clusterNOK - cannot be solved with doInSync since could take too long (leads to error: "Lock wait timeout exceeded")
 			OLATResource courseResource = sourceCourse.getCourseEnvironment().getCourseGroupManager().getCourseResource();
-			sourceCourse.exportToFilesystem(courseResource, fExportDir, backwardsCompatible);
-			Codepoint.codepoint(CourseFactory.class, "longExportCourseToZIP");
+			sourceCourse.exportToFilesystem(courseResource, fExportDir, runtimeDatas, backwardsCompatible);
 			Set<String> fileSet = new HashSet<String>();
 			String[] files = fExportDir.list();
 			for (int i = 0; i < files.length; i++) {
 				fileSet.add(files[i]);
 			}
 			ZipUtil.zip(fileSet, fExportDir, fTargetZIP, false);
+			log.info("Delete export folder: " + fExportDir);
 			FileUtils.deleteDirsAndFiles(fExportDir, true, true);
 		}
 	}
@@ -590,7 +594,7 @@ public class CourseFactory extends BasicManager {
 		ICourse course = CourseFactory.importCourseFromZip(newCourseResource, exportedCourseZIPFile);
 		// course is now also in course cache!
 		if (course == null) {
-			Tracing.logError("Error deploying course from ZIP: " + exportedCourseZIPFile.getAbsolutePath(), CourseFactory.class);
+			log.error("Error deploying course from ZIP: " + exportedCourseZIPFile.getAbsolutePath());
 			return null;
 		}
 		File courseExportData = course.getCourseExportDataDir().getBasefile();
@@ -603,7 +607,7 @@ public class CourseFactory extends BasicManager {
 		}
 		RepositoryEntry existingEntry = repositoryManager.lookupRepositoryEntryBySoftkey(softKey, false);
 		if (existingEntry != null) {
-			Tracing.logInfo("RepositoryEntry with softkey " + softKey + " already exists. Course will not be deployed.", CourseFactory.class);
+			log.info("RepositoryEntry with softkey " + softKey + " already exists. Course will not be deployed.");
 			//seem to be a problem
 			UserCourseInformationsManager userCourseInformationsManager = CoreSpringFactory.getImpl(UserCourseInformationsManager.class);
 			userCourseInformationsManager.deleteUserCourseInformations(existingEntry);
@@ -678,7 +682,7 @@ public class CourseFactory extends BasicManager {
 		closeCourseEditSession(course.getResourceableId(), true);
 		// cleanup export data
 		FileUtils.deleteDirsAndFiles(courseExportData, true, true);
-		Tracing.logInfo("Successfully deployed course " + re.getDisplayname() + " from ZIP: " + exportedCourseZIPFile.getAbsolutePath(), CourseFactory.class);
+		log.info("Successfully deployed course " + re.getDisplayname() + " from ZIP: " + exportedCourseZIPFile.getAbsolutePath());
 		return re;
 	}
 	
@@ -742,19 +746,20 @@ public class CourseFactory extends BasicManager {
 	 * @param locale
 	 * @param identity
 	 */
-	public static void publishCourse(ICourse course, Identity identity, Locale locale) {
+	public static void publishCourse(ICourse course, int access, boolean membersOnly, Identity identity, Locale locale) {
 		 CourseEditorTreeModel cetm = course.getEditorTreeModel();
 		 PublishProcess publishProcess = PublishProcess.getInstance(course, cetm, locale);
 		 PublishTreeModel publishTreeModel = publishProcess.getPublishTreeModel();
 
-		 int newAccess = RepositoryEntry.ACC_USERS;
+		 int newAccess = (access < RepositoryEntry.ACC_OWNERS || access > RepositoryEntry.ACC_USERS_GUESTS)
+				 ? RepositoryEntry.ACC_USERS : access;
 		 //access rule -> all users can the see course
 		 //RepositoryEntry.ACC_OWNERS
 		 //only owners can the see course
 		 //RepositoryEntry.ACC_OWNERS_AUTHORS //only owners and authors can the see course
 		 //RepositoryEntry.ACC_USERS_GUESTS // users and guests can see the course
 		 //fxdiff VCRP-1,2: access control of resources
-		 publishProcess.changeGeneralAccess(null, newAccess, false);
+		 publishProcess.changeGeneralAccess(null, newAccess, membersOnly);
 		 
 		 if (publishTreeModel.hasPublishableChanges()) {
 			 List<String>nodeToPublish = new ArrayList<String>();
@@ -769,11 +774,16 @@ public class CourseFactory extends BasicManager {
 					 return;
 				 }
 			 }
+			 
+			 try {
+				 course = CourseFactory.openCourseEditSession(course.getResourceableId());
+				 publishProcess.applyPublishSet(identity, locale);
+			 } catch(Exception e) {
+				 log.error("",  e);
+			 } finally {
+				 closeCourseEditSession(course.getResourceableId(), true);
+			 }
 		 }
-
-		 course = CourseFactory.openCourseEditSession(course.getResourceableId());
-		 publishProcess.applyPublishSet(identity, locale);
-		 closeCourseEditSession(course.getResourceableId(), true);
 	}
 	
 	/**
@@ -900,10 +910,10 @@ public class CourseFactory extends BasicManager {
 	 * @return The file representing the dat export directory
 	 */
 	public static File getOrCreateDataExportDirectory(Identity identity, String courseName) {
-		File exportFolder = new File( // folder where exported user data should be
-				// put
-				FolderConfig.getCanonicalRoot() + FolderConfig.getUserHomes() + "/" + identity.getName() + "/private/archive/"
-						+ Formatter.makeStringFilesystemSave(courseName));
+		String courseFolder = StringHelper.transformDisplayNameToFileSystemName(courseName);
+		// folder where exported user data should be put
+		File exportFolder = new File(FolderConfig.getCanonicalRoot() + FolderConfig.getUserHomes() + "/" + identity.getName() + "/private/archive/"
+						+ courseFolder);
 		if (exportFolder.exists()) {
 			if (!exportFolder.isDirectory()) { throw new OLATRuntimeException(ExportUtil.class, "File " + exportFolder.getAbsolutePath()
 					+ " already exists but it is not a folder!", null); }
@@ -1167,9 +1177,9 @@ public class CourseFactory extends BasicManager {
 		int numOfChildren = node.getChildCount();
 		for (int i = 0; i < numOfChildren; i++) {
 			INode child = node.getChildAt(i);
-			if (child instanceof TreeNode) {
+			if (child instanceof TreeNode && publishTreeModel.isVisible(child)) {
 				nodeToPublish.add(child.getIdent());
-				visitPublishModel((TreeNode) child, publishTreeModel, nodeToPublish);
+				visitPublishModel((TreeNode)child, publishTreeModel, nodeToPublish);
 			}
 		}
 	}
@@ -1267,7 +1277,7 @@ class NodeDeletionVisitor implements Visitor {
  * @author Lavinia Dumitrescu
  */
 class ModifyCourseEvent extends MultiUserEvent {
-
+	private static final long serialVersionUID = -2940724437608086461L;
 	private final Long courseId;
 	/**
 	 * @param command
@@ -1280,6 +1290,4 @@ class ModifyCourseEvent extends MultiUserEvent {
 	public Long getCourseId() {
 		return courseId;
 	}
-
-	
 }

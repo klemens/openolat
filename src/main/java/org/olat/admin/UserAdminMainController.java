@@ -45,7 +45,8 @@ import org.olat.basesecurity.events.SingleIdentityChosenEvent;
 import org.olat.core.commons.fullWebApp.LayoutMain3ColsController;
 import org.olat.core.extensions.ExtManager;
 import org.olat.core.extensions.Extension;
-import org.olat.core.extensions.action.ActionExtension;
+import org.olat.core.extensions.ExtensionElement;
+import org.olat.core.extensions.action.GenericActionExtension;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.Component;
 import org.olat.core.gui.components.panel.Panel;
@@ -74,6 +75,7 @@ import org.olat.core.logging.activity.ThreadLocalUserActivityLogger;
 import org.olat.core.util.coordinate.CoordinatorManager;
 import org.olat.core.util.coordinate.LockResult;
 import org.olat.core.util.resource.OresHelper;
+import org.olat.user.UserManager;
 import org.olat.util.logging.activity.LoggingResourceable;
 
 /**
@@ -104,6 +106,7 @@ public class UserAdminMainController extends MainLayoutBasicController implement
 	private String activatePaneInDetailView = null;
 
 	private LockResult lock;
+	private final UserManager userManager;
 
 	/**
 	 * Constructor of the home main controller
@@ -112,13 +115,20 @@ public class UserAdminMainController extends MainLayoutBasicController implement
 	 */
 	public UserAdminMainController(UserRequest ureq, WindowControl wControl) {
 		super(ureq, wControl);		
+		
+		userManager = UserManager.getInstance();
+		
 		olatMenuTree = new MenuTree("olatMenuTree");
 		olatMenuTree.setExpandSelectedNode(false);
+		olatMenuTree.setRootVisible(false);
 		TreeModel tm = buildTreeModel(ureq); 
 		olatMenuTree.setTreeModel(tm);
 		TreeNode firstNode = (TreeNode)tm.getRootNode().getChildAt(0);
 		olatMenuTree.setSelectedNodeId(firstNode.getIdent());
 		olatMenuTree.addListener(this);
+		// allow closing of active menu tree element
+		olatMenuTree.setExpandSelectedNode(false);
+
 
 		// we always start with a search controller
 		//fxdiff BAKS-7 Resume function
@@ -219,8 +229,8 @@ public class UserAdminMainController extends MainLayoutBasicController implement
 		//in any case release delete user gui lock (reaquired if user deletion is again clicked)
 		releaseDeleteUserLock();
 		
-		if (uobject instanceof ActionExtension) {
-			ActionExtension ae = (ActionExtension) uobject;
+		if (uobject instanceof GenericActionExtension) {
+			GenericActionExtension ae = (GenericActionExtension) uobject;
 			//fxdiff BAKS-7 Resume function
 			TreeNode node = ((GenericTreeModel)olatMenuTree.getTreeModel()).findNodeByUserObject(uobject);
 			OLATResourceable ores = OresHelper.createOLATResourceableInstance("AE", new Long(node.getPosition()));
@@ -340,7 +350,7 @@ public class UserAdminMainController extends MainLayoutBasicController implement
 			addToHistory(ureq, bwControl);
 			// now subtract users that are in the author group to get the co-authors
 			SecurityGroup[] secGroup = {BaseSecurityManager.getInstance().findSecurityGroupByName(Constants.GROUP_AUTHORS)};
-			List identitiesFromAuthorGroup = BaseSecurityManager.getInstance().getVisibleIdentitiesByPowerSearch(null, null, true, secGroup , null, null, null, null);
+			List<Identity> identitiesFromAuthorGroup = BaseSecurityManager.getInstance().getVisibleIdentitiesByPowerSearch(null, null, true, secGroup , null, null, null, null);
 			myCtr.removeIdentitiesFromSearchResult(ureq, identitiesFromAuthorGroup);
 			contentCtr = myCtr;
 			listenTo(contentCtr);
@@ -513,7 +523,8 @@ public class UserAdminMainController extends MainLayoutBasicController implement
 		OLATResourceable lockResourceable = OresHelper.createOLATResourceableTypeWithoutCheck(TabbedPaneController.class.getName());
 		lock = CoordinatorManager.getInstance().getCoordinator().getLocker().acquireLock(lockResourceable, ureq.getIdentity(), "deleteGroup");
 		if (!lock.isSuccess()) {
-			String text = getTranslator().translate("error.deleteworkflow.locked.by", new String[]{lock.getOwner().getName()});
+			String fullname = userManager.getUserDisplayName(lock.getOwner());
+			String text = getTranslator().translate("error.deleteworkflow.locked.by", new String[]{ fullname });
 			Controller monoCtr = MessageUIFactory.createInfoMessage(ureq, getWindowControl(), null, text);
 			return monoCtr;
 		}
@@ -703,8 +714,9 @@ public class UserAdminMainController extends MainLayoutBasicController implement
 		for (int i = 0; i < cnt; i++) {
 			Extension anExt = extm.getExtension(i);
 			// 1) general menu extensions
-			ActionExtension ae = (ActionExtension) anExt.getExtensionFor(UserAdminMainController.class.getName() + EXTENSIONPOINT_MENU_MENUQUERIES, ureq);
-			if (ae != null && anExt.isEnabled()) {
+			ExtensionElement ee = anExt.getExtensionFor(UserAdminMainController.class.getName() + EXTENSIONPOINT_MENU_MENUQUERIES, ureq);
+			if (ee instanceof GenericActionExtension && anExt.isEnabled()) {
+				GenericActionExtension ae = (GenericActionExtension)ee;
 				gtnChild = new GenericTreeNode();
 				String menuText = ae.getActionText(getLocale());
 				gtnChild.setTitle(menuText);

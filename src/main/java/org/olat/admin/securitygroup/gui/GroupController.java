@@ -34,7 +34,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 
-import org.olat.admin.securitygroup.gui.multi.UsersToGroupWizardController;
+import org.olat.admin.securitygroup.gui.multi.UsersToGroupWizardStep00;
 import org.olat.admin.user.UserSearchController;
 import org.olat.basesecurity.BaseSecurity;
 import org.olat.basesecurity.BaseSecurityManager;
@@ -67,17 +67,22 @@ import org.olat.core.gui.control.generic.closablewrapper.CloseableModalControlle
 import org.olat.core.gui.control.generic.modal.DialogBoxController;
 import org.olat.core.gui.control.generic.modal.DialogBoxUIFactory;
 import org.olat.core.gui.control.generic.popup.PopupBrowserWindow;
+import org.olat.core.gui.control.generic.wizard.Step;
+import org.olat.core.gui.control.generic.wizard.StepRunnerCallback;
+import org.olat.core.gui.control.generic.wizard.StepsMainRunController;
+import org.olat.core.gui.control.generic.wizard.StepsRunContext;
 import org.olat.core.gui.translator.Translator;
 import org.olat.core.id.Identity;
 import org.olat.core.id.Roles;
 import org.olat.core.logging.AssertException;
+import org.olat.core.util.mail.MailBundle;
 import org.olat.core.util.mail.MailContext;
 import org.olat.core.util.mail.MailContextImpl;
 import org.olat.core.util.mail.MailHelper;
 import org.olat.core.util.mail.MailNotificationEditController;
+import org.olat.core.util.mail.MailManager;
 import org.olat.core.util.mail.MailTemplate;
 import org.olat.core.util.mail.MailerResult;
-import org.olat.core.util.mail.MailerWithTemplate;
 import org.olat.core.util.session.UserSessionManager;
 import org.olat.group.ui.main.OnlineIconRenderer;
 import org.olat.instantMessaging.InstantMessagingModule;
@@ -127,7 +132,7 @@ public class GroupController extends BasicController {
 
 	private UserSearchController usc;
 	private MailNotificationEditController addUserMailCtr, removeUserMailCtr;
-	private UsersToGroupWizardController userToGroupWizardCtr;
+	private StepsMainRunController userToGroupWizard;
 	private DialogBoxController confirmDelete;
 
 	protected TableController tableCtr;
@@ -149,6 +154,9 @@ public class GroupController extends BasicController {
 	private InstantMessagingModule imModule;
 	private InstantMessagingService imService;
 	private UserSessionManager sessionManager;
+	private MailManager mailManager;
+	
+	public Object userObject;
 
 	/**
 	 * @param ureq
@@ -178,6 +186,7 @@ public class GroupController extends BasicController {
 		imService = CoreSpringFactory.getImpl(InstantMessagingService.class);
 		userManager = CoreSpringFactory.getImpl(UserManager.class);
 		sessionManager = CoreSpringFactory.getImpl(UserSessionManager.class);
+		mailManager = CoreSpringFactory.getImpl(MailManager.class);
 		
 		Roles roles = ureq.getUserSession().getRoles();
 		BaseSecurityModule securityModule = CoreSpringFactory.getImpl(BaseSecurityModule.class);
@@ -223,6 +232,14 @@ public class GroupController extends BasicController {
 		putInitialPanel(groupmemberview);
 	}
 
+	public Object getUserObject() {
+		return userObject;
+	}
+
+	public void setUserObject(Object userObject) {
+		this.userObject = userObject;
+	}
+
 	/**
 	 * @param addUserMailDefaultTempl Set a template to send mail when adding
 	 *          users to group
@@ -249,29 +266,10 @@ public class GroupController extends BasicController {
 	public void event(UserRequest ureq, Component source, Event event) {
 		if (source == addUserButton) {
 			if (!mayModifyMembers) throw new AssertException("not allowed to add a member!");
-			
-			removeAsListenerAndDispose(usc);
-			usc = new UserSearchController(ureq, getWindowControl(), true, true);			
-			listenTo(usc);
-			
-			Component usersearchview = usc.getInitialComponent();
-			removeAsListenerAndDispose(cmc);
-			cmc = new CloseableModalController(getWindowControl(), translate("close"), usersearchview, true, translate("add.searchuser"));
-			listenTo(cmc);
-			
-			cmc.activate();
+			doAddUsers(ureq);
 		} else if (source == addUsersButton) {
 			if (!mayModifyMembers) throw new AssertException("not allowed to add members!");
-			
-			removeAsListenerAndDispose(userToGroupWizardCtr);
-			userToGroupWizardCtr = new UsersToGroupWizardController(ureq, getWindowControl(), securityGroup, addUserMailDefaultTempl, mandatoryEmail);			
-			listenTo(userToGroupWizardCtr);
-			
-			removeAsListenerAndDispose(cmc);
-			cmc = new CloseableModalController(getWindowControl(), translate("close"), userToGroupWizardCtr.getInitialComponent());
-			listenTo(cmc);
-			
-			cmc.activate();
+			doImportUsers(ureq);
 		}
 	}
 
@@ -374,7 +372,8 @@ public class GroupController extends BasicController {
 				if (toAdd.size() == 1) {
 					//check if already in group [makes only sense for a single choosen identity]
 					if (securityManager.isIdentityInSecurityGroup(toAdd.get(0), securityGroup)) {
-						getWindowControl().setInfo(translate("msg.subjectalreadyingroup", new String[]{toAdd.get(0).getName()}));
+						String fullName = userManager.getUserDisplayName(toAdd.get(0));
+						getWindowControl().setInfo(translate("msg.subjectalreadyingroup", new String[]{ fullName }));
 						return;
 					}
 				} else if (toAdd.size() > 1) {
@@ -389,7 +388,8 @@ public class GroupController extends BasicController {
 					if (!alreadyInGroup.isEmpty()) {
 						StringBuilder names = new StringBuilder();
 						for(Identity ident: alreadyInGroup) {
-							names.append(" ").append(ident.getName());
+							if(names.length() > 0) names.append(", ");
+							names.append(userManager.getUserDisplayName(ident));
 							toAdd.remove(ident);
 						}
 						getWindowControl().setInfo(translate("msg.subjectsalreadyingroup", names.toString()));
@@ -447,25 +447,54 @@ public class GroupController extends BasicController {
 				}
 			}
 
-		} else if (sourceController == userToGroupWizardCtr) {
-			if (event instanceof MultiIdentityChosenEvent) {
-				MultiIdentityChosenEvent multiEvent = (MultiIdentityChosenEvent) event;
-				List<Identity> choosenIdentities = multiEvent.getChosenIdentities();
-				MailTemplate customTemplate = multiEvent.getMailTemplate();
-				if (choosenIdentities.size() == 0) {
-					showError("msg.selectionempty");
-					return;
+		} else if (sourceController == userToGroupWizard) {
+			if(event == Event.CANCELLED_EVENT || event == Event.DONE_EVENT || event == Event.CHANGED_EVENT) {
+				getWindowControl().pop();
+				removeAsListenerAndDispose(userToGroupWizard);
+				userToGroupWizard = null;
+				if(event == Event.DONE_EVENT || event == Event.CHANGED_EVENT) {
+					reloadData();
 				}
-				doAddIdentitiesToGroup(ureq, choosenIdentities, customTemplate);
-
-			} else if (event == Event.CANCELLED_EVENT) {
-				// nothing special to do
 			}
-			
-			// else cancelled
-			cmc.deactivate();
-
 		} 
+	}
+	
+	private void doAddUsers(UserRequest ureq) {
+		removeAsListenerAndDispose(usc);
+		usc = new UserSearchController(ureq, getWindowControl(), true, true);			
+		listenTo(usc);
+		
+		Component usersearchview = usc.getInitialComponent();
+		removeAsListenerAndDispose(cmc);
+		cmc = new CloseableModalController(getWindowControl(), translate("close"), usersearchview, true, translate("add.searchuser"));
+		listenTo(cmc);
+		
+		cmc.activate();
+	}
+	
+	private void doImportUsers(UserRequest ureq) {
+		removeAsListenerAndDispose(userToGroupWizard);
+
+		Step start = new UsersToGroupWizardStep00(ureq, addUserMailDefaultTempl, mandatoryEmail);
+		StepRunnerCallback finish = new StepRunnerCallback() {
+			@Override
+			public Step execute(UserRequest ureq, WindowControl wControl, StepsRunContext runContext) {
+				@SuppressWarnings("unchecked")
+				List<Identity> choosenIdentities = (List<Identity>)runContext.get("members");
+				MailTemplate customTemplate = (MailTemplate)runContext.get("mailTemplate");
+				if (choosenIdentities == null || choosenIdentities.size() == 0) {
+					showError("msg.selectionempty");
+				} else {
+					doAddIdentitiesToGroup(ureq, choosenIdentities, customTemplate);
+				}
+				return StepsMainRunController.DONE_MODIFIED;
+			}
+		};
+		
+		userToGroupWizard = new StepsMainRunController(ureq, getWindowControl(), start, finish, null,
+				translate("overview.addusers"), "o_sel_secgroup_import_logins_wizard");
+		listenTo(userToGroupWizard);
+		getWindowControl().pushAsModalDialog(userToGroupWizard.getInitialComponent());
 	}
 	
 	private void doIm(UserRequest ureq, Identity identity) {
@@ -478,10 +507,10 @@ public class GroupController extends BasicController {
 		if (confirmDelete != null) confirmDelete.dispose();
 		StringBuilder names = new StringBuilder();
 		for (Identity identity : toRemove) {
-			names.append(identity.getName()).append(" ");
+			if(names.length() > 0) names.append(", ");
+			names.append(userManager.getUserDisplayName(identity));
 		}
 		confirmDelete = activateYesNoDialog(ureq, null, translate("remove.text", names.toString()), confirmDelete);
-		return;
 	}
 
 	private void doRemoveIdentitiesFromGroup(UserRequest ureq, List<Identity> toBeRemoved, MailTemplate mailTemplate) {
@@ -497,22 +526,21 @@ public class GroupController extends BasicController {
 
 		// send the notification mail
 		if (mailTemplate != null) {
-			MailerWithTemplate mailer = MailerWithTemplate.getInstance();
 			Identity sender = null; // means no sender in footer
-			if (this.showSenderInRemovMailFooter) {
+			if (showSenderInRemovMailFooter) {
 				sender = ureq.getIdentity();
 			}
-			List<Identity> ccIdentities = new ArrayList<Identity>();
-			if(mailTemplate.getCpfrom()) {
-				ccIdentities.add(ureq.getIdentity());// add sender to cc-list
-			} else {
-				ccIdentities = null;	
-			}
-			//fxdiff VCRP-16: intern mail system
+
 			String metaId = UUID.randomUUID().toString();
 			MailContext context = new MailContextImpl(getWindowControl().getBusinessControl().getAsString());
-			MailerResult mailerResult = mailer.sendMailAsSeparateMails(context, toBeRemoved, ccIdentities, mailTemplate, sender, metaId);
-			MailHelper.printErrorsAndWarnings(mailerResult, getWindowControl(), ureq.getLocale());
+			MailerResult result = new MailerResult();
+			MailBundle[] bundles = mailManager.makeMailBundles(context, toBeRemoved, mailTemplate, sender, metaId, result);
+			result.append(mailManager.sendMessage(bundles));
+			if(mailTemplate.getCpfrom()) {
+				MailBundle ccBundle = mailManager.makeMailBundle(context, ureq.getIdentity(), mailTemplate, sender, metaId, result);
+				result.append(mailManager.sendMessage(ccBundle));
+			}
+			MailHelper.printErrorsAndWarnings(result, getWindowControl(), ureq.getLocale());
 		}
 	}
 
@@ -537,30 +565,29 @@ public class GroupController extends BasicController {
 		// build info message for identities which could be added.
 		StringBuilder infoMessage = new StringBuilder();
 		for (Identity identity : identitiesAddedEvent.getIdentitiesWithoutPermission()) {
-	    infoMessage.append(translate("msg.isingroupanonymous", identity.getName())).append("<br />");
+	    infoMessage.append(translate("msg.isingroupanonymous", userManager.getUserDisplayName(identity))).append("<br />");
 		}
 		for (Identity identity : identitiesAddedEvent.getIdentitiesAlreadyInGroup()) {
-			infoMessage.append(translate("msg.subjectalreadyingroup", identity.getName())).append("<br />");
+			infoMessage.append(translate("msg.subjectalreadyingroup", userManager.getUserDisplayName(identity))).append("<br />");
 		}
 		// send the notification mail fro added users
 		StringBuilder errorMessage = new StringBuilder();
 		if (mailTemplate != null) {
-			MailerWithTemplate mailer = MailerWithTemplate.getInstance();
 			Identity sender = null; // means no sender in footer
-			if (this.showSenderInAddMailFooter) {
+			if (showSenderInAddMailFooter) {
 				sender = ureq.getIdentity();
 			}
-			List<Identity> ccIdentities = new ArrayList<Identity>();
-			if(mailTemplate.getCpfrom()) {
-				ccIdentities.add(ureq.getIdentity());// add sender to cc-list
-			} else {
-				ccIdentities = null;	
-			}
-			//fxdiff VCRP-16: intern mail system
+			
 			String metaId = UUID.randomUUID().toString();
 			MailContext context = new MailContextImpl(getWindowControl().getBusinessControl().getAsString());
-			MailerResult mailerResult = mailer.sendMailAsSeparateMails(context, identitiesAddedEvent.getAddedIdentities(), ccIdentities, mailTemplate, sender, metaId);
-			MailHelper.appendErrorsAndWarnings(mailerResult, errorMessage, infoMessage, ureq.getLocale());
+			MailerResult result = new MailerResult();
+			MailBundle[] bundles = mailManager.makeMailBundles(context, identitiesAddedEvent.getAddedIdentities(), mailTemplate, sender, metaId, result);
+			result.append(mailManager.sendMessage(bundles));
+			if(mailTemplate.getCpfrom()) {
+				MailBundle ccBundle = mailManager.makeMailBundle(context, ureq.getIdentity(), mailTemplate, sender, metaId, result);
+				result.append(mailManager.sendMessage(ccBundle));
+			}
+			MailHelper.appendErrorsAndWarnings(result, errorMessage, infoMessage, ureq.getLocale());
 		}
 		// report any errors on screen
 		if (infoMessage.length() > 0) getWindowControl().setWarning(infoMessage.toString());

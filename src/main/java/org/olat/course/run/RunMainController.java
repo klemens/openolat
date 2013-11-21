@@ -75,8 +75,8 @@ import org.olat.core.logging.AssertException;
 import org.olat.core.logging.OLATSecurityException;
 import org.olat.core.logging.activity.CourseLoggingAction;
 import org.olat.core.logging.activity.ThreadLocalUserActivityLogger;
+import org.olat.core.util.StringHelper;
 import org.olat.core.util.coordinate.CoordinatorManager;
-import org.olat.core.util.coordinate.SyncerExecutor;
 import org.olat.core.util.event.GenericEventListener;
 import org.olat.core.util.event.MultiUserEvent;
 import org.olat.core.util.prefs.Preferences;
@@ -120,9 +120,11 @@ import org.olat.instantMessaging.OpenInstantMessageEvent;
 import org.olat.modules.cp.TreeNodeEvent;
 import org.olat.note.NoteController;
 import org.olat.repository.RepositoryEntry;
+import org.olat.repository.RepositoryEntryManagedFlag;
 import org.olat.repository.RepositoryEntryStatus;
 import org.olat.repository.RepositoryManager;
 import org.olat.repository.controllers.EntryChangedEvent;
+import org.olat.repository.controllers.RepositoryDetailsController;
 import org.olat.util.logging.activity.LoggingResourceable;
 
 /**
@@ -145,6 +147,7 @@ public class RunMainController extends MainLayoutBasicController implements Gene
 	private static final String TOOL_BOOKMARK = "b";
 	private static final String TOOL_CHAT = "chat";
 	
+	public static final String REBUILD = "rebuild";
 	public static final String ORES_TYPE_COURSE_RUN = OresHelper.calculateTypeName(RunMainController.class, CourseModule.ORES_TYPE_COURSE);
 	private final OLATResourceable courseRunOres; //course run ores for course run channel 
 
@@ -341,20 +344,10 @@ public class RunMainController extends MainLayoutBasicController implements Gene
 	}
 	
 	private void setLaunchDates(final Identity identity) {
-		CoordinatorManager.getInstance().getCoordinator().getSyncer().doInSync(createOLATResourceableForLocking(identity), new SyncerExecutor(){
-			public void execute() {
-				UserCourseInformationsManager efficiencyStatementManager = CoreSpringFactory.getImpl(UserCourseInformationsManager.class);
-				efficiencyStatementManager.updateUserCourseInformations(uce.getCourseEnvironment().getCourseResourceableId(), getIdentity());
-			}
-		});
+		UserCourseInformationsManager efficiencyStatementManager = CoreSpringFactory.getImpl(UserCourseInformationsManager.class);
+		efficiencyStatementManager.updateUserCourseInformations(uce.getCourseEnvironment().getCourseResourceableId(), getIdentity());
 	}
 	
-	private OLATResourceable createOLATResourceableForLocking(Identity identity) {				
-		String type = "CourseLaunchDate::Identity";
-		OLATResourceable oLATResourceable = OresHelper.createOLATResourceableInstance(type,identity.getKey());
-		return oLATResourceable;
-	}
-
 	/**
 	 * @param locale
 	 * @return
@@ -624,6 +617,9 @@ public class RunMainController extends MainLayoutBasicController implements Gene
 					needsRebuildAfterRunDone = false;
 					updateTreeAndContent(ureq, currentCourseNode, null);
 				}
+			} else if (REBUILD.equals(event.getCommand())) {
+				needsRebuildAfterRunDone = false;
+				updateTreeAndContent(ureq, currentCourseNode, null);
 			} else if (event instanceof TreeNodeEvent) {
 				TreeNodeEvent tne = (TreeNodeEvent) event;
 				TreeNode newCpTreeNode = tne.getChosenTreeNode();
@@ -677,21 +673,9 @@ public class RunMainController extends MainLayoutBasicController implements Gene
 
 			}
 		} else if (cmd.equals(COMMAND_EDIT)) {
-			if (hasCourseRight(CourseRights.RIGHT_COURSEEDITOR) || isCourseAdmin) {
-				Controller ec = CourseFactory.createEditorController(ureq, getWindowControl(), all, course);
-				//user activity logger which was initialized with course run
-				if(ec != null){
-					//we are in editing mode
-					currentToolCtr = ec;
-					listenTo(currentToolCtr);
-					isInEditor = true;
-					all.pushController(translate("command.openeditor"), currentToolCtr);
-				}
-			} else throw new OLATSecurityException("wanted to activate editor, but no according right");
-
+			doEdit(ureq) ;
 		} else if (cmd.equals("unifiedusermngt")) {
 			launchMembersManagement(ureq);
-			
 		} else if (cmd.equals("statistic")) {
 			if (hasCourseRight(CourseRights.RIGHT_STATISTICS) || isCourseAdmin) {
 				currentToolCtr = new StatisticMainController(ureq, getWindowControl(), course);
@@ -794,7 +778,7 @@ public class RunMainController extends MainLayoutBasicController implements Gene
 		} else if (cmd.equals(ACTION_BOOKMARK)) { // add bookmark
 			boolean marked = markManager.isMarked(courseRepositoryEntry, getIdentity(), null);
 			if(marked) {
-				markManager.removeMark(course, getIdentity(), null);
+				markManager.removeMark(courseRepositoryEntry, getIdentity(), null);
 			} else {
 				String businessPath = "[RepositoryEntry:" + courseRepositoryEntry.getKey() + "]";
 				markManager.setMark(courseRepositoryEntry, getIdentity(), null, businessPath);
@@ -821,6 +805,20 @@ public class RunMainController extends MainLayoutBasicController implements Gene
 			pbw.open(ureq);
 			//
 		} 
+	}
+	
+	private void doEdit(UserRequest ureq) {
+		if (hasCourseRight(CourseRights.RIGHT_COURSEEDITOR) || isCourseAdmin) {
+			Controller ec = CourseFactory.createEditorController(ureq, getWindowControl(), all, course, currentCourseNode);
+			//user activity logger which was initialized with course run
+			if(ec != null){
+				//we are in editing mode
+				currentToolCtr = ec;
+				listenTo(currentToolCtr);
+				isInEditor = true;
+				all.pushController(translate("command.openeditor"), currentToolCtr);
+			}
+		} else throw new OLATSecurityException("wanted to activate editor, but no according right");
 	}
 	
 	private MembersManagementMainController launchMembersManagement(UserRequest ureq) {
@@ -1015,7 +1013,9 @@ public class RunMainController extends MainLayoutBasicController implements Gene
 				|| hasCourseRight(CourseRights.RIGHT_ASSESSMENT)) {
 			myTool.addHeader(translate("header.tools"));
 			if (hasCourseRight(CourseRights.RIGHT_COURSEEDITOR) || isCourseAdmin) {
-				myTool.addLink(COMMAND_EDIT, translate("command.openeditor"), null, null, "o_sel_course_open_editor", false);
+				boolean managed = RepositoryEntryManagedFlag.isManaged(courseRepositoryEntry, RepositoryEntryManagedFlag.editcontent);
+				myTool.addLink(COMMAND_EDIT, translate("command.openeditor"), "edit.cmd", null, "o_sel_course_open_editor", false);
+				myTool.setEnabled("edit.cmd", !managed);
 			}
 			if (hasCourseRight(CourseRights.RIGHT_GROUPMANAGEMENT) || isCourseAdmin) {
 				//fxdiff VCRP-1,2: access control of resources
@@ -1043,7 +1043,7 @@ public class RunMainController extends MainLayoutBasicController implements Gene
 		if (uce.getCoachedGroups().size() > 0) {
 			myTool.addHeader(translate("header.tools.ownerGroups"));
 			for (BusinessGroup group:uce.getCoachedGroups()) {
-				myTool.addLink(CMD_START_GROUP_PREFIX + group.getKey().toString(), group.getName());
+				myTool.addLink(CMD_START_GROUP_PREFIX + group.getKey().toString(), StringHelper.escapeHtml(group.getName()));
 			}
 		}
 
@@ -1143,7 +1143,7 @@ public class RunMainController extends MainLayoutBasicController implements Gene
 			currentUserCountLink = LinkFactory.createCustomLink("currentUsers", "cUsers", "", Link.NONTRANSLATED, currentUsers, this);
 			updateCurrentUserCount();
 			currentUserCountLink.setCustomEnabledLinkCSS("b_toolbox_link");
-			currentUserCountLink.setTooltip(getTranslator().translate("participants.in.course.desc"), false);
+			currentUserCountLink.setTooltip(getTranslator().translate("participants.in.course.desc"));
 			currentUserCountLink.setEnabled(false);
 			myTool.addComponent(currentUserCountLink);
 	}
@@ -1206,7 +1206,6 @@ public class RunMainController extends MainLayoutBasicController implements Gene
 	}
 
 	@Override
-	//fxdiff BAKS-7 Resume function
 	public void activate(UserRequest ureq, List<ContextEntry> entries, StateEntry state) {
 		if(entries == null || entries.isEmpty()) return;
 		
@@ -1218,7 +1217,7 @@ public class RunMainController extends MainLayoutBasicController implements Gene
 			// FIXME:fj:b is this needed in some cases?: currentCourseNode = cn;
 			getWindowControl().makeFlat();
 
-			// add loggin information for case course gets started via jumpin
+			// add logging information for case course gets started via jump-in
 			// link/search
 			addLoggingResourceable(LoggingResourceable.wrap(course));
 			if (cn != null) {
@@ -1252,6 +1251,18 @@ public class RunMainController extends MainLayoutBasicController implements Gene
 				launchMembersManagement(ureq).activate(ureq, subEntries, firstEntry.getTransientState());
 			} catch (OLATSecurityException e) {
 				//the wrong link to the wrong person
+			}
+		} else if(RepositoryDetailsController.ACTIVATE_EDITOR.equals(type)) {
+			// Nothing to do if already in editor. Can happen when editor is
+			// triggered externally, e.g. from the details page while user has
+			// the editor already open
+			if (!isInEditor) {
+				boolean managed = RepositoryEntryManagedFlag.isManaged(courseRepositoryEntry, RepositoryEntryManagedFlag.editcontent);
+				if(!managed) {
+					doEdit(ureq);
+				}
+			} else {
+				logDebug("Activate called for editor but editor for course::" + courseRepositoryEntry.getResourceableId() + " is already opened. Reuse current editor instance.",  null);
 			}
 		}
 	}

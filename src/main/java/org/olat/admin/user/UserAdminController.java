@@ -26,9 +26,9 @@
 package org.olat.admin.user;
 
 import java.util.List;
-import java.util.Locale;
 
 import org.olat.admin.policy.PolicyController;
+import org.olat.admin.user.course.CourseOverviewController;
 import org.olat.admin.user.groups.GroupOverviewController;
 import org.olat.basesecurity.Authentication;
 import org.olat.basesecurity.BaseSecurity;
@@ -51,7 +51,6 @@ import org.olat.core.gui.control.WindowControl;
 import org.olat.core.gui.control.controller.BasicController;
 import org.olat.core.gui.control.generic.dtabs.Activateable2;
 import org.olat.core.id.Identity;
-import org.olat.core.id.UserConstants;
 import org.olat.core.id.context.ContextEntry;
 import org.olat.core.id.context.StateEntry;
 import org.olat.core.logging.OLATSecurityException;
@@ -94,6 +93,7 @@ public class UserAdminController extends BasicController implements Activateable
 	private static final String NLS_EDIT_UROLES			= "edit.uroles";
 	private static final String NLS_EDIT_UQUOTA			= "edit.uquota";
 	private static final String NLS_VIEW_GROUPS 		= "view.groups";
+	private static final String NLS_VIEW_COURSES		= "view.courses";
 	private static final String NLS_VIEW_SUBSCRIPTIONS 		= "view.subscriptions";
 	
 	private VelocityContainer myContent;
@@ -107,8 +107,9 @@ public class UserAdminController extends BasicController implements Activateable
 	private UserAuthenticationsEditorController authenticationsCtr;
 	private Link backLink;
 	private ProfileAndHomePageEditController userProfileCtr;
+	private CourseOverviewController courseCtr;
 	private GroupOverviewController grpCtr;
-	
+
 
 	/**
 	 * Constructor that creates a back - link as default
@@ -118,6 +119,7 @@ public class UserAdminController extends BasicController implements Activateable
 	 */
 	public UserAdminController(UserRequest ureq, WindowControl wControl, Identity identity) {
 		super(ureq, wControl);
+
 		BaseSecurity mgr = BaseSecurityManager.getInstance();
 		if (!mgr.isIdentityPermittedOnResourceable(
 				ureq.getIdentity(), 
@@ -128,7 +130,7 @@ public class UserAdminController extends BasicController implements Activateable
 		myIdentity = identity;
 				
 		if (allowedToManageUser(ureq, myIdentity)) {			
-			myContent = this.createVelocityContainer("udispatcher");
+			myContent = createVelocityContainer("udispatcher");
 			backLink = LinkFactory.createLinkBack(myContent, this);
 			userShortDescrCtr = new UserShortDescription(ureq, wControl, identity);
 			myContent.put("userShortDescription", userShortDescrCtr.getInitialComponent());
@@ -136,11 +138,11 @@ public class UserAdminController extends BasicController implements Activateable
 			setBackButtonEnabled(true); // default
 			initTabbedPane(myIdentity, ureq);
 			exposeUserDataToVC(ureq, myIdentity);					
-			this.putInitialPanel(myContent);
+			putInitialPanel(myContent);
 		} else {
 			String supportAddr = WebappHelper.getMailConfig("mailSupport");			
-			this.showWarning(NLS_ERROR_NOACCESS_TO_USER, supportAddr);			
-			this.putInitialPanel(new Panel("empty"));
+			showWarning(NLS_ERROR_NOACCESS_TO_USER, supportAddr);			
+			putInitialPanel(new Panel("empty"));
 		}
 	}
 	
@@ -153,7 +155,7 @@ public class UserAdminController extends BasicController implements Activateable
 		if("tab".equals(entryPoint)) {
 			userTabP.activate(ureq, entries, state);
 		} else if (userTabP != null) {
-				userTabP.setSelectedPane(translate(entryPoint));
+			userTabP.setSelectedPane(translate(entryPoint));
 		}
 	}
 
@@ -311,6 +313,10 @@ public class UserAdminController extends BasicController implements Activateable
 		grpCtr = new GroupOverviewController(ureq, getWindowControl(), identity, canStartGroups);
 		listenTo(grpCtr);
 		userTabP.addTab(translate(NLS_VIEW_GROUPS), grpCtr.getInitialComponent());
+		
+		courseCtr = new CourseOverviewController(ureq, getWindowControl(), identity);
+		listenTo(courseCtr);
+		userTabP.addTab(translate(NLS_VIEW_COURSES), courseCtr.getInitialComponent());
 
 		Boolean canSubscriptions = BaseSecurityModule.USERMANAGER_CAN_MODIFY_SUBSCRIPTIONS;
 		if (canSubscriptions.booleanValue() || isOlatAdmin) {
@@ -339,11 +345,6 @@ public class UserAdminController extends BasicController implements Activateable
 	 * @param identity
 	 */
 	private void exposeUserDataToVC(UserRequest ureq, Identity identity) {		
-		Locale loc = ureq.getLocale();
-		myContent.contextPut("foundUserName", identity.getName());
-		myContent.contextPut("foundFirstName", identity.getUser().getProperty(UserConstants.FIRSTNAME, loc));
-		myContent.contextPut("foundLastName", identity.getUser().getProperty(UserConstants.LASTNAME, loc));
-		myContent.contextPut("foundEmail", identity.getUser().getProperty(UserConstants.EMAIL, loc));
 		removeAsListenerAndDispose(portraitCtr);
 		portraitCtr = new DisplayPortraitController(ureq, getWindowControl(), identity, true, true);
 		myContent.put("portrait", portraitCtr.getInitialComponent());

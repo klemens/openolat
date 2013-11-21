@@ -19,24 +19,27 @@
  */
 package org.olat.repository;
 
-import java.util.Collections;
 import java.util.Locale;
 
 import org.apache.velocity.VelocityContext;
+import org.olat.basesecurity.BaseSecurity;
+import org.olat.core.CoreSpringFactory;
 import org.olat.core.gui.translator.Translator;
 import org.olat.core.id.Identity;
+import org.olat.core.id.Roles;
 import org.olat.core.id.User;
 import org.olat.core.id.UserConstants;
 import org.olat.core.util.StringHelper;
 import org.olat.core.util.Util;
 import org.olat.core.util.filter.FilterFactory;
 import org.olat.core.util.i18n.I18nManager;
+import org.olat.core.util.mail.MailBundle;
 import org.olat.core.util.mail.MailContext;
 import org.olat.core.util.mail.MailContextImpl;
+import org.olat.core.util.mail.MailManager;
 import org.olat.core.util.mail.MailPackage;
 import org.olat.core.util.mail.MailTemplate;
 import org.olat.core.util.mail.MailerResult;
-import org.olat.core.util.mail.MailerWithTemplate;
 import org.olat.group.ui.main.MemberPermissionChangeEvent;
 
 /**
@@ -46,7 +49,7 @@ import org.olat.group.ui.main.MemberPermissionChangeEvent;
 public class RepositoryMailing {
 	
 	public static Type getDefaultTemplateType(MemberPermissionChangeEvent event) {
-		if(event.size() == 1) {
+		if(event != null && event.size() == 1) {
 			if(event.getRepoTutor() != null && event.getRepoTutor().booleanValue()) {
 				return Type.addTutor;
 			} else if(event.getRepoParticipant() != null && event.getRepoParticipant().booleanValue()) {
@@ -110,10 +113,19 @@ public class RepositoryMailing {
 	}
 
 	protected static void sendEmail(Identity ureqIdentity, Identity identity, RepositoryEntry re,
-			Type type, MailPackage mailing, MailerWithTemplate mailer) {
+			Type type, MailPackage mailing) {
 		
 		if(mailing != null && !mailing.isSendEmail()) {
 			return;
+		}
+		
+		if(mailing == null) {
+			BaseSecurity securityManager = CoreSpringFactory.getImpl(BaseSecurity.class);
+			RepositoryModule repositoryModule = CoreSpringFactory.getImpl(RepositoryModule.class);
+			Roles ureqRoles = securityManager.getRoles(ureqIdentity);
+			if(!repositoryModule.isMandatoryEnrolmentEmail(ureqRoles)) {
+				return;
+			}
 		}
 
 		MailTemplate template = mailing == null ? null : mailing.getTemplate();
@@ -127,7 +139,12 @@ public class RepositoryMailing {
 		}
 
 		String metaId = mailing == null ? null : mailing.getUuid();
-		MailerResult result = mailer.sendMailAsSeparateMails(context, Collections.singletonList(identity), null, template, ureqIdentity, metaId);
+		MailerResult result = new MailerResult();
+		MailManager mailManager = CoreSpringFactory.getImpl(MailManager.class);
+		MailBundle bundle = mailManager.makeMailBundle(context, identity, template, ureqIdentity, metaId, result);
+		if(bundle != null) {
+			mailManager.sendMessage(bundle);
+		}
 		if(mailing != null) {
 			mailing.appendResult(result);
 		}
@@ -149,7 +166,7 @@ public class RepositoryMailing {
 				actor.getUser().getProperty(UserConstants.FIRSTNAME, null),
 				actor.getUser().getProperty(UserConstants.LASTNAME, null),
 				actor.getUser().getProperty(UserConstants.EMAIL, null),
-				actor.getName()
+				actor.getUser().getProperty(UserConstants.EMAIL, null)// 2x for compatibility with old i18m properties
 			};
 		
 		Locale locale = I18nManager.getInstance().getLocaleOrDefault(actor.getUser().getPreferences().getLanguage());
@@ -168,7 +185,7 @@ public class RepositoryMailing {
 				User user = identity.getUser();
 				context.put("firstname", user.getProperty(UserConstants.FIRSTNAME, null));
 				context.put("lastname", user.getProperty(UserConstants.LASTNAME, null));
-				context.put("login", identity.getName());
+				context.put("login",  user.getProperty(UserConstants.EMAIL, null));
 				// Put variables from greater context
 				context.put("coursename", reName);
 				context.put("coursedescription", redescription);

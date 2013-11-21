@@ -45,8 +45,6 @@ import org.olat.core.commons.persistence.PersistenceHelper;
 import org.olat.core.commons.services.mark.Mark;
 import org.olat.core.commons.services.mark.MarkResourceStat;
 import org.olat.core.commons.services.mark.MarkingService;
-import org.olat.core.commons.services.search.ui.SearchServiceUIFactory;
-import org.olat.core.commons.services.search.ui.SearchServiceUIFactory.DisplayOption;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.Component;
 import org.olat.core.gui.components.link.Link;
@@ -87,6 +85,7 @@ import org.olat.core.logging.activity.ILoggingAction;
 import org.olat.core.logging.activity.ThreadLocalUserActivityLogger;
 import org.olat.core.util.ConsumableBoolean;
 import org.olat.core.util.Formatter;
+import org.olat.core.util.StringHelper;
 import org.olat.core.util.coordinate.CoordinatorManager;
 import org.olat.core.util.event.GenericEventListener;
 import org.olat.core.util.notifications.ContextualSubscriptionController;
@@ -102,7 +101,10 @@ import org.olat.core.util.vfs.filters.VFSItemExcludePrefixFilter;
 import org.olat.modules.fo.archiver.ForumArchiveManager;
 import org.olat.modules.fo.archiver.formatters.ForumRTFFormatter;
 import org.olat.portfolio.EPUIFactory;
+import org.olat.search.SearchServiceUIFactory;
+import org.olat.search.SearchServiceUIFactory.DisplayOption;
 import org.olat.user.DisplayPortraitController;
+import org.olat.user.UserManager;
 import org.olat.util.logging.activity.LoggingResourceable;
 
 /**
@@ -192,7 +194,7 @@ public class ForumController extends BasicController implements GenericEventList
 	
 	private final OLATResourceable forumOres;
 	private final BaseSecurityModule securityModule;
-
+	private final UserManager userManager;
 
 	/**
 	 * @param forum
@@ -206,6 +208,8 @@ public class ForumController extends BasicController implements GenericEventList
 		this.focallback = focallback;
 		securityModule = CoreSpringFactory.getImpl(BaseSecurityModule.class);
 		addLoggingResourceable(LoggingResourceable.wrap(forum));
+		
+		userManager = CoreSpringFactory.getImpl(UserManager.class);
 		
 		forumOres = OresHelper.createOLATResourceableInstance(Forum.class,forum.getKey());
 		f = Formatter.getInstance(ureq.getLocale());
@@ -759,19 +763,20 @@ public class ForumController extends BasicController implements GenericEventList
 		int numOfChildren = countNumOfChildren(currentMsg, threadMsgs);
 		boolean children = fm.hasChildren(currentMsg);
 		boolean userIsMsgCreator = ureq.getIdentity().getKey().equals(currentMsg.getCreator().getKey());
-
+		String currentMsgTitle = StringHelper.escapeHtml(currentMsg.getTitle());
+		
 		if (focallback.mayDeleteMessageAsModerator()) {
 			// user is forum-moderator -> may delete every message on every level
 			if (numOfChildren == 0) {
-				yesno = activateYesNoDialog(ureq, null, translate("reallydeleteleaf", currentMsg.getTitle()), yesno);
+				yesno = activateYesNoDialog(ureq, null, translate("reallydeleteleaf", currentMsgTitle), yesno);
 			} else if (numOfChildren == 1) {
-				yesno = activateYesNoDialog(ureq, null, translate("reallydeletenode1", currentMsg.getTitle()), yesno);
+				yesno = activateYesNoDialog(ureq, null, translate("reallydeletenode1", currentMsgTitle), yesno);
 			} else {
-				yesno = activateYesNoDialog(ureq, null, getTranslator().translate("reallydeletenodeN", new String[] { currentMsg.getTitle(), Integer.toString(numOfChildren) }), yesno);
+				yesno = activateYesNoDialog(ureq, null, getTranslator().translate("reallydeletenodeN", new String[] { currentMsgTitle, Integer.toString(numOfChildren) }), yesno);
 			}
 		} else if ((userIsMsgCreator) && (children == false)) {
 			// user may delete his own message if it has no children
-			yesno = activateYesNoDialog(ureq, null, translate("reallydeleteleaf", currentMsg.getTitle()), yesno);
+			yesno = activateYesNoDialog(ureq, null, translate("reallydeleteleaf", currentMsgTitle), yesno);
 		} else if ((userIsMsgCreator) && (children == true)) {
 			// user may not delete his own message because it has at least one child
 			showWarning("may.not.delete.msg.as.author");
@@ -851,9 +856,7 @@ public class ForumController extends BasicController implements GenericEventList
 								if (m.getCreator().getStatus().equals(Identity.STATUS_DELETED)) {
 									return m.getCreator().getName();
 								} else {
-									String last = m.getCreator().getUser().getProperty(UserConstants.LASTNAME, getLocale());
-									String first = m.getCreator().getUser().getProperty(UserConstants.FIRSTNAME, getLocale());
-									return last + " " + first;
+									return userManager.getUserDisplayName(m.getCreator()); 
 								}
 							case 2 :
 								Date mod = m.getLastModified();

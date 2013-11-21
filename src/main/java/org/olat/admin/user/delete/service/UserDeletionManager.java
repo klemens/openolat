@@ -28,14 +28,11 @@ package org.olat.admin.user.delete.service;
 import java.io.File;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
-import java.util.ArrayList;
 import java.util.Calendar;
-import java.util.Collections;
 import java.util.Date;
-import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
-import java.util.Set;
+import java.util.Map;
 
 import org.olat.admin.user.delete.SelectionController;
 import org.olat.basesecurity.Authentication;
@@ -45,6 +42,7 @@ import org.olat.basesecurity.IdentityImpl;
 import org.olat.basesecurity.SecurityGroup;
 import org.olat.commons.calendar.CalendarManagerFactory;
 import org.olat.commons.lifecycle.LifeCycleManager;
+import org.olat.core.CoreSpringFactory;
 import org.olat.core.commons.persistence.DBFactory;
 import org.olat.core.commons.persistence.DBQuery;
 import org.olat.core.gui.translator.Translator;
@@ -57,9 +55,10 @@ import org.olat.core.util.Util;
 import org.olat.core.util.coordinate.CoordinatorManager;
 import org.olat.core.util.coordinate.SyncerExecutor;
 import org.olat.core.util.i18n.I18nManager;
+import org.olat.core.util.mail.MailBundle;
+import org.olat.core.util.mail.MailManager;
 import org.olat.core.util.mail.MailTemplate;
 import org.olat.core.util.mail.MailerResult;
-import org.olat.core.util.mail.MailerWithTemplate;
 import org.olat.core.util.resource.OresHelper;
 import org.olat.course.assessment.EfficiencyStatementManager;
 import org.olat.properties.Property;
@@ -70,7 +69,6 @@ import org.olat.repository.delete.service.DeletionModule;
 import org.olat.user.UserDataDeletable;
 import org.olat.user.UserManager;
 import org.olat.user.propertyhandlers.UserPropertyHandler;
-import org.springframework.beans.factory.annotation.Autowired;
 
 
 /**
@@ -96,15 +94,13 @@ public class UserDeletionManager extends BasicManager {
 	private static boolean keepUserLoginAfterDeletion;
 	private static boolean keepUserEmailAfterDeletion;
 	
-	private Set<UserDataDeletable> userDataDeletableResources;
 
 	// Flag used in user-delete to indicate that all deletable managers are initialized
 	private boolean managersInitialized = false;
 	private DeletionModule deletionModule;
 	private CoordinatorManager coordinatorManager;
-	
-	@Autowired
 	private BaseSecurity securityManager;
+	private MailManager mailManager;
 
 	/**
 	 * [used by spring]
@@ -112,9 +108,26 @@ public class UserDeletionManager extends BasicManager {
 	private UserDeletionManager(DeletionModule deletionModule, CoordinatorManager coordinatorManager) {
 		this.deletionModule = deletionModule;
 		this.coordinatorManager = coordinatorManager;
-		userDataDeletableResources = new HashSet<UserDataDeletable>();
 		INSTANCE = this;
 	}
+
+
+	/**
+	 * 
+	 * @param securityManager
+	 */
+	public void setBaseSecurityManager(BaseSecurity securityManager) {
+		this.securityManager = securityManager;
+	}
+	
+	/**
+	 * [used by Spring]
+	 * @param mailManager
+	 */
+	public void setMailManager(MailManager mailManager) {
+		this.mailManager = mailManager;
+	}
+
 
 	/**
 	 * @return Singleton.
@@ -132,7 +145,6 @@ public class UserDeletionManager extends BasicManager {
 			boolean isTemplateChanged, String keyEmailSubject, String keyEmailBody, Identity sender, Translator pT ) {
 		StringBuilder buf = new StringBuilder();
 		if (template != null) {
-			MailerWithTemplate mailer = MailerWithTemplate.getInstance();
 			template.addToContext("responseTo", deletionModule.getEmailResponseTo());
 			for (Iterator<Identity> iter = selectedIdentities.iterator(); iter.hasNext();) {
 				Identity identity = iter.next();
@@ -144,15 +156,21 @@ public class UserDeletionManager extends BasicManager {
 				} 
 				template.putVariablesInMailContext(template.getContext(), identity);
 				logDebug(" Try to send Delete-email to identity=" + identity.getName() + " with email=" + identity.getUser().getProperty(UserConstants.EMAIL, null));
-				List<Identity> ccIdentities = new ArrayList<Identity>();
-				if(template.getCpfrom()) {
-					ccIdentities.add(sender);
-				} else {
-					ccIdentities = null;	
-				}
-				MailerResult mailerResult = mailer.sendMailAsSeparateMails(null, Collections.singletonList(identity), ccIdentities, template, sender);
+				Identity ccIdentity = null;
 				
-				if (mailerResult.getReturnCode() != MailerResult.OK) {
+				MailerResult result = new MailerResult();
+				MailBundle bundle = mailManager.makeMailBundle(null, identity, template, sender, null, result);
+				if(bundle != null) {
+					mailManager.sendMessage(bundle);
+				}
+				if(template.getCpfrom()) {
+					MailBundle ccBundle = mailManager.makeMailBundle(null, ccIdentity, template, sender, null, result);
+					if(ccBundle != null) {
+						mailManager.sendMessage(ccBundle);
+					}
+				}
+				
+				if (result.getReturnCode() != MailerResult.OK) {
 					buf.append(pT.translate("email.error.send.failed", new String[] {identity.getUser().getProperty(UserConstants.EMAIL, null), identity.getName()} )).append("\n");
 				}
 				logAudit("User-Deletion: Delete-email send to identity=" + identity.getName() + " with email=" + identity.getUser().getProperty(UserConstants.EMAIL, null));
@@ -179,7 +197,7 @@ public class UserDeletionManager extends BasicManager {
 	 * @param lastLoginDuration  last-login duration in month
 	 * @return List of Identity objects
 	 */
-	public List getDeletableIdentities(int lastLoginDuration) {
+	public List<Identity> getDeletableIdentities(int lastLoginDuration) {
 		Calendar lastLoginLimit = Calendar.getInstance();
 		lastLoginLimit.add(Calendar.MONTH, - lastLoginDuration);
 		logDebug("lastLoginLimit=" + lastLoginLimit);
@@ -189,7 +207,7 @@ public class UserDeletionManager extends BasicManager {
 			+ " and (ident.lastLogin = null or ident.lastLogin < :lastLogin)";	
 		DBQuery dbq = DBFactory.getInstance().createQuery(queryStr);
 		dbq.setDate("lastLogin", lastLoginLimit.getTime());
-		List identities = dbq.list();
+		List<Identity> identities = dbq.list();
 		// 2. get all 'active' identities in deletion process
 		queryStr = "select ident from org.olat.core.id.Identity as ident"
 			+ " , org.olat.commons.lifecycle.LifeCycleEntry as le"
@@ -197,7 +215,7 @@ public class UserDeletionManager extends BasicManager {
 			+ " and le.persistentTypeName ='" + IdentityImpl.class.getName() + "'" 
 			+ " and le.action ='" + SEND_DELETE_EMAIL_ACTION + "' ";
 		dbq = DBFactory.getInstance().createQuery(queryStr);
-		List identitiesInProcess = dbq.list();
+		List<Identity> identitiesInProcess = dbq.list();
 		// 3. Remove all identities in deletion-process from all inactive-identities
 		identities.removeAll(identitiesInProcess);
 		return identities;		 
@@ -209,7 +227,7 @@ public class UserDeletionManager extends BasicManager {
 	 * @param deleteEmailDuration  Duration of user-deletion-process in days
 	 * @return List of Identity objects
 	 */
-	public List getIdentitiesInDeletionProcess(int deleteEmailDuration) {
+	public List<Identity> getIdentitiesInDeletionProcess(int deleteEmailDuration) {
 		Calendar deleteEmailLimit = Calendar.getInstance();
 		deleteEmailLimit.add(Calendar.DAY_OF_MONTH, - (deleteEmailDuration-1));
 		logDebug("deleteEmailLimit=" + deleteEmailLimit);
@@ -230,7 +248,7 @@ public class UserDeletionManager extends BasicManager {
 	 * @param deleteEmailDuration  Duration of user-deletion-process in days
 	 * @return List of Identity objects
 	 */
-	public List getIdentitiesReadyToDelete(int deleteEmailDuration) {
+	public List<Identity> getIdentitiesReadyToDelete(int deleteEmailDuration) {
 		Calendar deleteEmailLimit = Calendar.getInstance();
 		deleteEmailLimit.add(Calendar.DAY_OF_MONTH, - (deleteEmailDuration - 1));
 		logDebug("deleteEmailLimit=" + deleteEmailLimit);
@@ -245,13 +263,6 @@ public class UserDeletionManager extends BasicManager {
 		return dbq.list();
 	}
 	
-	/**
-	 * 
-	 * @return true when user can be deleted (non deletion-process is still running)
-	 */
-	public boolean isReadyToDelete() {
-		return UserFileDeletionManager.isReadyToDelete();
-	}
 	/**
 	 * Delete all user-data in registered deleteable resources.
 	 * @param identity
@@ -269,21 +280,7 @@ public class UserDeletionManager extends BasicManager {
 		
 		// FIXME: it would be better to call the mangers over a common interface which would not need to have references to all mangers here
 		if (!managersInitialized) {
-			//HomePageConfigManagerImpl.getInstance();
-			//DisplayPortraitManager.getInstance();
-			//NoteManager.getInstance();
-			//PropertyManager.getInstance();
-			//BookmarkManager.getInstance();
-			//NotificationsManager.getInstance();
-			//PersonalFolderManager.getInstance();
-			//IQManager.getInstance();
-			//QTIResultManager.getInstance();
-			//BusinessGroupManagerImpl.getInstance();
-			//RepositoryDeletionManager.getInstance();
-			//CatalogManager.getInstance();
 			CalendarManagerFactory.getInstance(); //the only one that left for refactoring
-			//EfficiencyStatementManager.getInstance();
-			//UserFileDeletionManager.getInstance();
 			managersInitialized = true;
 		}
 		
@@ -291,8 +288,8 @@ public class UserDeletionManager extends BasicManager {
 		EfficiencyStatementManager.getInstance().archiveUserData(identity, getArchivFilePath(identity) );
 
 		logInfo("Start Deleting user=" + identity);
-		for (Iterator<UserDataDeletable> iter = userDataDeletableResources.iterator(); iter.hasNext();) {
-			UserDataDeletable element = iter.next();
+		Map<String,UserDataDeletable> userDataDeletableResources = CoreSpringFactory.getBeansOfType(UserDataDeletable.class);
+		for (UserDataDeletable element : userDataDeletableResources.values()) {
 			logInfo("UserDataDeletable-Loop element=" + element);
 			element.deleteUserData(identity, newName);
 		}
@@ -449,10 +446,6 @@ public class UserDeletionManager extends BasicManager {
 		return deletionModule.getAdminUserIdentity();
 	}
 
-	public void registerDeletableUserData(UserDataDeletable deletableUserDataResource) {
-		userDataDeletableResources.add(deletableUserDataResource);
-	}
-
 	private File getArchivFilePath(Identity identity) {
 		String archiveFilePath = deletionModule.getArchiveRootPath() + File.separator + USER_ARCHIVE_DIR + File.separator + DeletionModule.getArchiveDatePath() 
 		     + File.separator + "del_identity_" + identity.getName();
@@ -468,7 +461,7 @@ public class UserDeletionManager extends BasicManager {
 	 * @param keepUserLoginAfterDeletion The keepUserLoginAfterDeletion to set.
 	 */
 	public void setKeepUserLoginAfterDeletion(boolean keepUserLoginAfterDeletion) {
-		this.keepUserLoginAfterDeletion = keepUserLoginAfterDeletion;
+		UserDeletionManager.keepUserLoginAfterDeletion = keepUserLoginAfterDeletion;
 	}
 
 	/**
@@ -476,7 +469,7 @@ public class UserDeletionManager extends BasicManager {
 	 * @param keepUserEmailAfterDeletion The keepUserEmailAfterDeletion to set.
 	 */
 	public void setKeepUserEmailAfterDeletion(boolean keepUserEmailAfterDeletion) {
-		this.keepUserEmailAfterDeletion = keepUserEmailAfterDeletion;
+		UserDeletionManager.keepUserEmailAfterDeletion = keepUserEmailAfterDeletion;
 	}
 
 	public static boolean isKeepUserLoginAfterDeletion() {

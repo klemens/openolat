@@ -27,7 +27,6 @@ package org.olat.user;
 
 import java.io.File;
 
-import org.olat.admin.user.delete.service.UserDeletionManager;
 import org.olat.core.commons.modules.bc.FolderConfig;
 import org.olat.core.id.Identity;
 import org.olat.core.logging.OLog;
@@ -46,7 +45,7 @@ import org.olat.core.util.xml.XStreamHelper;
  * @author Alexander Schneider
  */
 public class HomePageConfigManagerImpl extends BasicManager implements HomePageConfigManager {
-	//TODO already in basic manager
+
 	private static OLog log = Tracing.createLoggerFor(HomePageConfigManagerImpl.class);
 	private static HomePageConfigManagerImpl singleton;
 
@@ -54,8 +53,7 @@ public class HomePageConfigManagerImpl extends BasicManager implements HomePageC
 	 * [spring]
 	 * @param userDeletionManager
 	 */
-	private HomePageConfigManagerImpl(UserDeletionManager userDeletionManager) {
-		userDeletionManager.registerDeletableUserData(this);
+	private HomePageConfigManagerImpl() {
 		singleton = this;
 	}
 	/**
@@ -157,7 +155,7 @@ public class HomePageConfigManagerImpl extends BasicManager implements HomePageC
 	public void deleteUserData(Identity identity, String newDeletedUserName) {
 		getConfigFile(identity.getName()).delete();
 		FileUtils.deleteDirsAndFiles(getUserHomePageDir(identity.getName()), true, true);
-		Tracing.logDebug("Homepage-config file and homepage-dir deleted for identity=" + identity, this.getClass());
+		logDebug("Homepage-config file and homepage-dir deleted for identity=" + identity);
 	}
 
 }

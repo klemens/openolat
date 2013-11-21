@@ -47,7 +47,6 @@ import org.olat.core.id.Roles;
 import org.olat.core.id.User;
 import org.olat.core.logging.OLog;
 import org.olat.core.logging.Tracing;
-import org.olat.core.util.Encoder;
 import org.olat.core.util.mail.MailPackage;
 import org.olat.group.BusinessGroup;
 import org.olat.group.BusinessGroupService;
@@ -169,8 +168,8 @@ public class BusinessGroupServiceTest extends OlatTestCase {
 			bgWithWaitingList.setMaxParticipants(new Integer(2));
 			// Identities
 			String suffix = UUID.randomUUID().toString();
-			User UserWg1 = userManager.createAndPersistUser("FirstName_" + suffix, "LastName_" + suffix, suffix + "_junittest@olat.unizh.ch");
-			wg1 = securityManager.createAndPersistIdentity(suffix, UserWg1, BaseSecurityModule.getDefaultAuthProviderIdentifier(), suffix, Encoder.encrypt("wg1"));
+			User userWg1 = userManager.createAndPersistUser("FirstName_" + suffix, "LastName_" + suffix, suffix + "_junittest@olat.unizh.ch");
+			wg1 = securityManager.createAndPersistIdentity(suffix, userWg1, BaseSecurityModule.getDefaultAuthProviderIdentifier(), suffix, "wg1");
 
 			dbInstance.commitAndCloseSession();
 
@@ -225,7 +224,7 @@ public class BusinessGroupServiceTest extends OlatTestCase {
 		dbInstance.commitAndCloseSession();
 		
 		//check update
-		BusinessGroup updateGroup = businessGroupService.updateBusinessGroup(id, group, "up-1-b", "up-1-desc-b", new Integer(2), new Integer(3));
+		BusinessGroup updateGroup = businessGroupService.updateBusinessGroup(id, group, "up-1-b", "up-1-desc-b", null, null, new Integer(2), new Integer(3));
 		Assert.assertNotNull(updateGroup);
 		dbInstance.commitAndCloseSession();
 		
@@ -283,7 +282,7 @@ public class BusinessGroupServiceTest extends OlatTestCase {
 		dbInstance.commitAndCloseSession();
 
 		//update max participants
-		BusinessGroup updateGroup = businessGroupService.updateBusinessGroup(id0, group, "auto-1", "auto-1-desc", new Integer(0), new Integer(3));
+		BusinessGroup updateGroup = businessGroupService.updateBusinessGroup(id0, group, "auto-1", "auto-1-desc", null, null, new Integer(0), new Integer(3));
 		Assert.assertNotNull(updateGroup);
 		dbInstance.commitAndCloseSession();
 		

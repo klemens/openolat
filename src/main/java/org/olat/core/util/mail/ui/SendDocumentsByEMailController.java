@@ -22,16 +22,13 @@ package org.olat.core.util.mail.ui;
 import java.io.File;
 import java.text.DecimalFormat;
 import java.util.ArrayList;
-import java.util.Date;
-import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
-import java.util.Locale;
-import java.util.Map;
+import java.util.UUID;
 
-import org.apache.velocity.VelocityContext;
 import org.olat.basesecurity.BaseSecurity;
 import org.olat.basesecurity.BaseSecurityManager;
+import org.olat.basesecurity.events.SingleIdentityChosenEvent;
 import org.olat.core.CoreSpringFactory;
 import org.olat.core.commons.modules.bc.FileSelection;
 import org.olat.core.commons.modules.bc.FolderConfig;
@@ -44,40 +41,39 @@ import org.olat.core.commons.modules.bc.meta.MetaInfo;
 import org.olat.core.commons.modules.bc.meta.MetaInfoFormController;
 import org.olat.core.commons.modules.bc.meta.tagged.MetaTagged;
 import org.olat.core.gui.UserRequest;
+import org.olat.core.gui.components.form.flexible.FormItem;
 import org.olat.core.gui.components.form.flexible.FormItemContainer;
-import org.olat.core.gui.components.form.flexible.elements.TextBoxListElement;
+import org.olat.core.gui.components.form.flexible.elements.FormLink;
 import org.olat.core.gui.components.form.flexible.elements.TextElement;
 import org.olat.core.gui.components.form.flexible.impl.FormBasicController;
+import org.olat.core.gui.components.form.flexible.impl.FormEvent;
 import org.olat.core.gui.components.form.flexible.impl.FormLayoutContainer;
-import org.olat.core.gui.components.textboxlist.ResultMapProvider;
-import org.olat.core.gui.components.textboxlist.TextBoxListComponent;
+import org.olat.core.gui.components.link.Link;
 import org.olat.core.gui.control.Controller;
+import org.olat.core.gui.control.Event;
 import org.olat.core.gui.control.WindowControl;
-import org.olat.core.gui.control.generic.ajax.autocompletion.ListProvider;
-import org.olat.core.gui.control.generic.ajax.autocompletion.ListReceiver;
+import org.olat.core.gui.control.generic.closablewrapper.CloseableCalloutWindowController;
 import org.olat.core.gui.control.generic.folder.FolderHelper;
 import org.olat.core.gui.translator.Translator;
 import org.olat.core.gui.util.CSSHelper;
 import org.olat.core.id.Identity;
-import org.olat.core.id.ModifiedInfo;
-import org.olat.core.id.Persistable;
-import org.olat.core.id.Preferences;
-import org.olat.core.id.User;
 import org.olat.core.id.UserConstants;
 import org.olat.core.id.context.BusinessControlFactory;
 import org.olat.core.id.context.ContextEntry;
+import org.olat.core.util.CodeHelper;
 import org.olat.core.util.StringHelper;
 import org.olat.core.util.Util;
+import org.olat.core.util.mail.MailBundle;
 import org.olat.core.util.mail.MailHelper;
+import org.olat.core.util.mail.MailManager;
 import org.olat.core.util.mail.MailModule;
-import org.olat.core.util.mail.MailTemplate;
 import org.olat.core.util.mail.MailerResult;
-import org.olat.core.util.mail.MailerWithTemplate;
 import org.olat.core.util.vfs.LocalFileImpl;
 import org.olat.core.util.vfs.VFSContainer;
 import org.olat.core.util.vfs.VFSItem;
 import org.olat.core.util.vfs.VFSLeaf;
 import org.olat.core.util.vfs.VFSManager;
+import org.olat.user.UserManager;
 
 /**
  * 
@@ -91,25 +87,31 @@ import org.olat.core.util.vfs.VFSManager;
 public class SendDocumentsByEMailController extends FormBasicController implements CmdSendMail {
 
 	private TextElement bodyElement;
+	private FormLink addEmailLink;
 	private TextElement subjectElement;
-	private TextBoxListElement userListBox;
+	private FormLayoutContainer userListBox;
 	private FormLayoutContainer attachmentsLayout;
+	private EMailCalloutCtrl emailCalloutCtrl;
+	private CloseableCalloutWindowController calloutCtrl;
+	
 	private final DecimalFormat formatMb = new DecimalFormat("0.00");
 
 	private int status = FolderCommandStatus.STATUS_SUCCESS;
 	private List<VFSLeaf> files;
 	private FileSelection selection;
 	private List<File> attachments;
+	private List<IdentityWrapper> toValues = new ArrayList<IdentityWrapper>();
 
+	private final MailManager mailManager;
 	private final BaseSecurity securityManager;
 	private final boolean allowAttachments;
-	private static final int MAX_RESULTS_USERS = 12;
 
 	public SendDocumentsByEMailController(UserRequest ureq, WindowControl wControl) {
 		super(ureq, wControl, null, Util.createPackageTranslator(MetaInfoFormController.class, ureq.getLocale(),
 				Util.createPackageTranslator(MailModule.class, ureq.getLocale())));
 		setBasePackage(MailModule.class);
 
+		mailManager = CoreSpringFactory.getImpl(MailManager.class);
 		securityManager = BaseSecurityManager.getInstance();
 		allowAttachments = !FolderConfig.getSendDocumentLinkOnly();
 
@@ -123,13 +125,15 @@ public class SendDocumentsByEMailController extends FormBasicController implemen
 		setFormStyle("b_send_documents");
 
 		int emailCols = 25;
-		boolean allowExtern = FolderConfig.getSendDocumentToExtern();
 
-		userListBox = uifactory.addTextBoxListElement("send.mail.to.auto", "send.mail.to", "send.mail.to", null, formLayout, getTranslator());
-		userListBox.setMapperProvider(new UserListProvider());
-		userListBox.setAllowNewValues(allowExtern);
-		userListBox.setAllowDuplicates(false);
-		userListBox.setMaxResults(MAX_RESULTS_USERS + 2);
+		String toPage = velocity_root + "/tos.html";
+		userListBox = FormLayoutContainer.createCustomFormLayout("send.mail.to.auto", getTranslator(), toPage);
+		userListBox.setLabel("send.mail.to", null);
+		userListBox.setRootForm(mainForm);
+		userListBox.contextPut("tos", toValues);
+		formLayout.add(userListBox);
+
+		addEmailLink = uifactory.addFormLink("add.email", userListBox,"b_form_userchooser");
 
 		subjectElement = uifactory.addTextElement("tsubject", "send.mail.subject", 255, "", formLayout);
 
@@ -393,11 +397,10 @@ public class SendDocumentsByEMailController extends FormBasicController implemen
 			bodyElement.setErrorKey("form.legende.mandatory", null);
 		}
 
-		
-		List<String> invalidTos = getInvalidToAddressesFromTextBoxList();
+		List<Identity> invalidTos = getInvalidToAddressesFromTextBoxList();
 		if (invalidTos.size() > 0) {
 			String[] invalidTosArray = new String[invalidTos.size()];
-			userListBox.setErrorKey("mailhelper.error.addressinvalid", invalidTos.toArray(invalidTosArray));
+			flc.setErrorKey("mailhelper.error.addressinvalid", invalidTos.toArray(invalidTosArray));
 			allOk = false;
 		}
 
@@ -411,22 +414,24 @@ public class SendDocumentsByEMailController extends FormBasicController implemen
 	 * 
 	 * @return
 	 */
-	private List<String> getInvalidToAddressesFromTextBoxList() {
-		List<String> invalidTos = new ArrayList<String>();
+	private List<Identity> getInvalidToAddressesFromTextBoxList() {
+		List<Identity> invalidTos = new ArrayList<Identity>();
 
 		// the toValues are either usernames (from autocompletion, thus OLAT
 		// users) or email-addresses (external)
-		List<String> toValues = this.userListBox.getValueList();
 		if (FolderConfig.getSendDocumentToExtern()) {
-			for (String value : toValues) {
-				if (!MailHelper.isValidEmailAddress(value) && !securityManager.isIdentityVisible(value)) {
-					invalidTos.add(value);
+			for (IdentityWrapper toValue : toValues) {
+				Identity id = toValue.getIdentity();
+				if (!MailHelper.isValidEmailAddress(id.getUser().getProperty(UserConstants.EMAIL, null))
+						&& !securityManager.isIdentityVisible(id)) {
+					invalidTos.add(id);
 				}
 			}
 		} else {
-			for (String toValue : toValues) {
-				if(!securityManager.isIdentityVisible(toValue)){
-					invalidTos.add(toValue);
+			for (IdentityWrapper toValue : toValues) {
+				Identity id = toValue.getIdentity();
+				if(!securityManager.isIdentityVisible(id)){
+					invalidTos.add(id);
 				}
 			}
 		}
@@ -434,8 +439,56 @@ public class SendDocumentsByEMailController extends FormBasicController implemen
 	}
 
 	@Override
+	protected void formInnerEvent(UserRequest ureq, FormItem source, FormEvent event) {
+		if(source == addEmailLink) {
+			doAddEmail(ureq);
+		} if(source instanceof FormLink && source.getUserObject() instanceof IdentityWrapper) {
+			if(source.getName().startsWith("rm-")) {
+				for(Iterator<IdentityWrapper> wrapperIt=toValues.iterator(); wrapperIt.hasNext(); ) {
+					IdentityWrapper wrapper = wrapperIt.next();
+					if(source.getUserObject().equals(wrapper)) {
+						wrapperIt.remove();
+					}
+				}
+			}
+			userListBox.setDirty(true);
+		}
+		super.formInnerEvent(ureq, source, event);
+	}
+
+	@Override
+	public void event(UserRequest ureq, Controller source, Event event) {
+		if(source == emailCalloutCtrl) {
+			if (event instanceof SingleIdentityChosenEvent) {
+				addIdentity((SingleIdentityChosenEvent)event);
+			}
+			calloutCtrl.deactivate();
+		}
+	}
+	
+	private void addIdentity(SingleIdentityChosenEvent foundEvent) {
+		Identity chosenIdentity = foundEvent.getChosenIdentity();
+		if (chosenIdentity != null) {
+			addIdentity(chosenIdentity);
+		}
+		userListBox.setDirty(true);
+	}
+	
+	private void addIdentity(Identity identity) {
+		FormLink rmLink = uifactory.addFormLink("rm-" + CodeHelper.getForeverUniqueID(), "&nbsp;", null, userListBox, Link.NONTRANSLATED + Link.LINK);
+		IdentityWrapper wrapper = new IdentityWrapper(identity, rmLink);
+		rmLink.setCustomEnabledLinkCSS("b_link_left_icon b_remove_icon");
+		rmLink.setUserObject(wrapper);
+		toValues.add(wrapper);
+		userListBox.setDirty(true);
+	}
+
+	@Override
 	protected void formOK(UserRequest ureq) {
-		List<Identity> tos = getTos();
+		List<Identity> tos = new ArrayList<Identity>(toValues.size());
+		for(IdentityWrapper wrapper:toValues) {
+			tos.add(wrapper.getIdentity());
+		}
 		String subject = subjectElement.getValue();
 		String body = bodyElement.getValue();
 		sendEmail(tos, subject, body, ureq);
@@ -446,104 +499,40 @@ public class SendDocumentsByEMailController extends FormBasicController implemen
 	protected void formCancelled(UserRequest ureq) {
 		fireEvent(ureq, FolderCommand.FOLDERCOMMAND_FINISHED);
 	}
-
-	/**
-	 * returns a List of Identites from the names in the userListBox.<br />
-	 * 
-	 * @return
-	 */
-	protected List<Identity> getTos() {
-		List<String> values = userListBox.getValueList();
-		List<Identity> identities = new ArrayList<Identity>();
-		for (String value : values) {
-			Identity id = securityManager.findIdentityByName(value);
-			if (id != null) {
-				identities.add(id);
-			} else if (FolderConfig.getSendDocumentToExtern()) {
-				identities.add(new EMailIdentity(value));
-			}
-		}
-		return identities;
+	
+	
+	
+	protected void doAddEmail(UserRequest ureq) {
+		String title = translate("add.email");
+		removeAsListenerAndDispose(emailCalloutCtrl);
+		boolean allowExtern = FolderConfig.getSendDocumentToExtern();
+		emailCalloutCtrl = new EMailCalloutCtrl(ureq, getWindowControl(), allowExtern);
+		listenTo(emailCalloutCtrl);
+		
+		removeAsListenerAndDispose(calloutCtrl);
+		calloutCtrl = new CloseableCalloutWindowController(ureq, getWindowControl(), emailCalloutCtrl.getInitialComponent(), addEmailLink, title, true, null);
+		listenTo(calloutCtrl);
+		calloutCtrl.activate();	
 	}
 
 	protected void sendEmail(List<Identity> tos, String subject, String body, UserRequest ureq) {
 		File[] attachmentArray = null;
 		if (attachments != null && !attachments.isEmpty() && allowAttachments) {
-			attachmentArray = new File[attachments.size()];
-			attachmentArray = attachments.toArray(attachmentArray);
+			attachmentArray = attachments.toArray(new File[attachments.size()]);
 		}
 
-		MailTemplate mailTemplate = new MailTemplate(subject, body, attachmentArray) {
-			@Override
-			public void putVariablesInMailContext(VelocityContext context, Identity recipient) {
-				// nothing to do;
-			}
-		};
-
-		MailerResult mailerResult = MailerWithTemplate.getInstance().sendMailAsSeparateMails(null, tos, null, mailTemplate, ureq.getIdentity());
-		MailHelper.printErrorsAndWarnings(mailerResult, getWindowControl(), ureq.getLocale());
-	}
-
-	public class UserListProvider implements ListProvider, ResultMapProvider {
-
-		protected String formatIdentity(Identity ident) {
-			User u = ident.getUser();
-			String login = ident.getName();
-			String first = u.getProperty(UserConstants.FIRSTNAME, null);
-			String last = u.getProperty(UserConstants.LASTNAME, null);
-			String mail = u.getProperty(UserConstants.EMAIL, null);
-			return login + ": " + last + " " + first + " " + mail;
+		MailerResult result = new MailerResult();
+		String metaId = UUID.randomUUID().toString().replace("-", "");
+		for(Identity to:tos) {
+			MailBundle bundle = new MailBundle();
+			bundle.setToId(to);
+			bundle.setMetaId(metaId);
+			bundle.setFromId(ureq.getIdentity());
+			bundle.setContent(subject, body, attachmentArray);
+			result.append(mailManager.sendMessage(bundle));
 		}
 
-		@Override
-		public void getAutoCompleteContent(String searchValue, Map<String, String> resMap) {
-			Map<String, String> userProperties = new HashMap<String, String>();
-			userProperties.put(UserConstants.FIRSTNAME, searchValue);
-			userProperties.put(UserConstants.LASTNAME, searchValue);
-			userProperties.put(UserConstants.EMAIL, searchValue);
-			if (StringHelper.containsNonWhitespace(searchValue)) {
-				List<Identity> res = securityManager.getVisibleIdentitiesByPowerSearch(searchValue, userProperties, false, null, null, null, null,
-						null);
-
-				int maxEntries = 14;
-				boolean hasMore = false;
-				for (Identity ident : res) {
-					maxEntries--;
-					String login = ident.getName();
-					resMap.put(formatIdentity(ident), login);
-					if (maxEntries <= 0) {
-						hasMore = true;
-						break;
-					}
-				}
-				if (hasMore) {
-					resMap.put(TextBoxListComponent.MORE_RESULTS_INDICATOR, TextBoxListComponent.MORE_RESULTS_INDICATOR);
-				}
-			}
-		}
-
-		public void getResult(String searchValue, ListReceiver receiver) {
-			Map<String, String> userProperties = new HashMap<String, String>();
-			userProperties.put(UserConstants.FIRSTNAME, searchValue);
-			userProperties.put(UserConstants.LASTNAME, searchValue);
-			userProperties.put(UserConstants.EMAIL, searchValue);
-
-			String login = (searchValue.equals("") ? null : searchValue);
-			List<Identity> res = securityManager.getVisibleIdentitiesByPowerSearch(login, userProperties, false, null, null, null, null, null);
-
-			int maxEntries = MAX_RESULTS_USERS;
-			boolean hasMore = false;
-			for (Iterator<Identity> it_res = res.iterator(); (hasMore = it_res.hasNext()) && maxEntries > 0;) {
-				maxEntries--;
-				Identity ident = it_res.next();
-				User u = ident.getUser();
-				String mail = u.getProperty(UserConstants.EMAIL, null);
-				receiver.addEntry(mail, mail);
-			}
-			if (hasMore) {
-				receiver.addEntry(".....", ".....");
-			}
-		}
+		MailHelper.printErrorsAndWarnings(result, getWindowControl(), ureq.getLocale());
 	}
 
 	public class FileInfo {
@@ -569,181 +558,29 @@ public class SendDocumentsByEMailController extends FormBasicController implemen
 			return cssClass;
 		}
 	}
-
-	private class EMailIdentity implements Identity {
-
-		private static final long serialVersionUID = -2899896628137672419L;
-		private final String email;
-		private final User user;
-
-		public EMailIdentity(String email) {
-			this.email = email;
-			user = new EMailUser(email);
+	
+	public final class IdentityWrapper {
+		private Identity identity;
+		private FormLink removeLink;
+		
+		public IdentityWrapper(Identity identity, FormLink removeLink) {
+			this.identity = identity;
+			this.removeLink = removeLink;
 		}
-
-		@Override
-		public Long getKey() {
-			return null;
-		}
-
-		@Override
-		public boolean equalsByPersistableKey(Persistable persistable) {
-			return this == persistable;
-		}
-
-		@Override
-		public Date getCreationDate() {
-			return null;
-		}
-
-		@Override
+		
 		public String getName() {
-			return email;
+			if(identity instanceof EMailIdentity) {
+				return identity.getUser().getProperty(UserConstants.EMAIL, null);
+			}
+			return UserManager.getInstance().getUserDisplayName(identity);
 		}
-
-		@Override
-		public User getUser() {
-			return user;
+		
+		public Identity getIdentity() {
+			return identity;
 		}
-
-		@Override
-		public Date getLastLogin() {
-			return null;
-		}
-
-		@Override
-		public void setLastLogin(Date loginDate) {/**/
-		}
-
-		@Override
-		public Integer getStatus() {
-			return null;
-		}
-
-		@Override
-		public void setStatus(Integer newStatus) {/**/
-		}
-
-		@Override
-		public void setName(String name) {/**/
-		}
-	}
-
-	private class EMailUser implements User, ModifiedInfo {
-
-		private static final long serialVersionUID = 7260225880639460228L;
-		private final EMailPreferences prefs = new EMailPreferences();
-		private Map<String, String> data = new HashMap<String, String>();
-
-		public EMailUser(String email) {
-			data.put(UserConstants.FIRSTNAME, "");
-			data.put(UserConstants.LASTNAME, "");
-			data.put(UserConstants.EMAIL, email);
-		}
-
-		public Long getKey() {
-			return null;
-		}
-
-		public boolean equalsByPersistableKey(Persistable persistable) {
-			return this == persistable;
-		}
-
-		public Date getLastModified() {
-			return null;
-		}
-
-		@Override
-		public void setLastModified(Date date) {
-			//
-		}
-
-		public Date getCreationDate() {
-			return null;
-		}
-
-		public void setProperty(String propertyName, String propertyValue) {
-			//
-		}
-
-		public void setPreferences(Preferences prefs) {
-			//
-		}
-
-		public String getProperty(String propertyName, Locale locale) {
-			return data.get(propertyName);
-		}
-
-		public void setIdentityEnvironmentAttributes(Map<String, String> identEnvAttribs) {/**/
-		}
-
-		public String getPropertyOrIdentityEnvAttribute(String propertyName, Locale locale) {
-			return data.get(propertyName);
-		}
-
-		public Preferences getPreferences() {
-			return prefs;
-		}
-	}
-
-	private class EMailPreferences implements Preferences {
-		private static final long serialVersionUID = 7039109437910126584L;
-
-		@Override
-		public String getLanguage() {
-			return getLocale().getLanguage();
-		}
-
-		@Override
-		public void setLanguage(String l) {
-			//
-		}
-
-		@Override
-		public String getFontsize() {
-			return null;
-		}
-
-		@Override
-		public void setFontsize(String l) {
-			//
-		}
-
-		@Override
-		public String getNotificationInterval() {
-			return null;
-		}
-
-		@Override
-		public void setNotificationInterval(String notificationInterval) {/* */
-		}
-
-		@Override
-		public String getReceiveRealMail() {
-			return "true";
-		}
-
-		@Override
-		public void setReceiveRealMail(String receiveRealMail) {
-			//
-		}
-
-		@Override
-		public boolean getInformSessionTimeout() {
-			return false;
-		}
-
-		@Override
-		public void setInformSessionTimeout(boolean b) {/* */
-		}
-
-		@Override
-		public boolean getPresenceMessagesPublic() {
-			return false;
-		}
-
-		@Override
-		public void setPresenceMessagesPublic(boolean b) {/* */
+		
+		public String getRemoveLinkName() {
+			return removeLink.getComponent().getComponentName();
 		}
 	}
 }

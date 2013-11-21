@@ -53,6 +53,7 @@ import org.olat.core.util.vfs.VFSContainer;
 import org.olat.core.util.vfs.VFSItem;
 import org.olat.core.util.vfs.VFSLeaf;
 import org.olat.core.util.vfs.version.Versionable;
+import org.olat.user.UserManager;
 
 /**
  * Description:<br>
@@ -85,7 +86,7 @@ public class HTMLEditorController extends FormBasicController {
 	public static final String CLOSE_HEAD_OPEN_BODY = "</head><body>";
 	// Editor version metadata to check if file has already been edited with this editor
 	public static final String GENERATOR = "olat-tinymce-";
-	public static final String GENERATOR_VERSION = "3";
+	public static final String GENERATOR_VERSION = "4";
 	public static final String GENERATOR_META = "<meta name=\"generator\" content=\"" + GENERATOR + GENERATOR_VERSION + "\" />\n";
 	// Default char set for new files is UTF-8
 	public static final String UTF_8 = "utf-8";
@@ -164,13 +165,14 @@ public class HTMLEditorController extends FormBasicController {
 			// OLAT-5066: the use of "fileName" gives users the (false) impression that the file they wish to access
 			// is already locked by someone else. Since the lock token must be smaller than 50 characters we us an 
 			// MD5 hash of the absolute file path which will always be 32 characters long and virtually unique.
-			String lockToken = Encoder.encrypt(getFileDebuggingPath(baseContainer, relFilePath));
+			String lockToken = Encoder.md5hash(getFileDebuggingPath(baseContainer, relFilePath));
 			this.lock = CoordinatorManager.getInstance().getCoordinator().getLocker().acquireLock(lockResourceable, ureq.getIdentity(), lockToken);
 			VelocityContainer vc = (VelocityContainer) flc.getComponent();
 			if (!lock.isSuccess()) {
 				vc.contextPut("locked", Boolean.TRUE);
-				vc.contextPut("lockOwner", lock.getOwner().getName());
-				this.editable = false;
+				String fullname = UserManager.getInstance().getUserDisplayName(lock.getOwner());
+				vc.contextPut("lockOwner", fullname);
+				editable = false;
 				return;
 			} else {
 				vc.contextPut("locked", Boolean.FALSE);				
@@ -229,12 +231,12 @@ public class HTMLEditorController extends FormBasicController {
 			VelocityContainer vc = (VelocityContainer) formLayout.getComponent();
 			vc.contextPut("fileToLargeError", fileToLargeError);
 		} else {
-			htmlElement = uifactory.addRichTextElementForFileData("rtfElement", null, body, -1, -1, false, baseContainer, fileName, customLinkTreeModel, formLayout, ureq.getUserSession(), getWindowControl());
+			htmlElement = uifactory.addRichTextElementForFileData("rtfElement", null, body, -1, -1, baseContainer, fileName, customLinkTreeModel, formLayout, ureq.getUserSession(), getWindowControl());
 			//
 			// Add resize handler
 			RichTextConfiguration editorConfiguration = htmlElement.getEditorConfiguration(); 
 			editorConfiguration.addOnInitCallbackFunction("b_resizetofit_htmleditor");
-			editorConfiguration.setNonQuotedConfigValue(RichTextConfiguration.HEIGHT, "b_initialEditorHeight()");
+			editorConfiguration.enableEditorHeight();
 			//
 			// The buttons
 			save = uifactory.addFormLink("savebuttontext", formLayout, Link.BUTTON);

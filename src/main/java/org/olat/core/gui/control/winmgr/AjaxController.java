@@ -40,8 +40,8 @@ import org.json.JSONException;
 import org.json.JSONObject;
 import org.olat.admin.sysinfo.manager.SessionStatsManager;
 import org.olat.core.CoreSpringFactory;
-import org.olat.core.defaults.dispatcher.StaticMediaDispatcher;
 import org.olat.core.dispatcher.DispatcherAction;
+import org.olat.core.dispatcher.impl.StaticMediaDispatcher;
 import org.olat.core.dispatcher.mapper.Mapper;
 import org.olat.core.dispatcher.mapper.MapperService;
 import org.olat.core.gui.UserRequest;
@@ -239,7 +239,7 @@ public class AjaxController extends DefaultController {
 		}
 	}
 	
-	private void pushJSONAndClear(Writer writer) throws IOException {
+	public void pushJSONAndClear(Writer writer) throws IOException {
 		synchronized (windowcommands) { //o_clusterOK by:fj
 			// handle all windowcommands now, create json
 			writer.append("{\"cmds\":[");
