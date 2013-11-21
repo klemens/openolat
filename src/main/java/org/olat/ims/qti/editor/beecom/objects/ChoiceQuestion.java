@@ -26,9 +26,9 @@
 package org.olat.ims.qti.editor.beecom.objects;
 
 import java.util.Collection;
-import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 
 import org.dom4j.Element;
 import org.dom4j.Node;
@@ -113,19 +113,19 @@ public class ChoiceQuestion extends Question implements QTIObject {
 			if (flow_label != null) instance.setFlowLabelClass(flow_label.attributeValue("class"));
 
 			List response_lables = response_lid.selectNodes(".//response_label");
-			List choices = QTIEditHelper.fetchChoices(response_lables);
+			List<Response> choices = QTIEditHelper.fetchChoices(response_lables);
 			instance.setResponses(choices);
 
 			Element resprocessingXML = item.element("resprocessing");
 			if (resprocessingXML != null) {
 
 				List respconditions = resprocessingXML.elements("respcondition");
-				HashMap points = QTIEditHelper.fetchPoints(respconditions, instance.getType());
+				Map<String,Float> points = QTIEditHelper.fetchPoints(respconditions, instance.getType());
 
 				// postprocessing choices
 				for (Iterator i = choices.iterator(); i.hasNext();) {
 					ChoiceResponse choice = (ChoiceResponse) i.next();
-					Float fPoints = (Float) points.get(choice.getIdent());
+					Float fPoints = points.get(choice.getIdent());
 					if (fPoints != null) {
 						choice.setPoints(fPoints.floatValue());
 						choice.setCorrect(true);

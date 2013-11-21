@@ -22,6 +22,7 @@ package org.olat.course.nodes.feed;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.olat.core.CoreSpringFactory;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.Component;
 import org.olat.core.gui.components.htmlsite.OlatCmdEvent;
@@ -33,6 +34,7 @@ import org.olat.core.gui.control.Event;
 import org.olat.core.gui.control.WindowControl;
 import org.olat.core.gui.control.controller.BasicController;
 import org.olat.core.util.Formatter;
+import org.olat.core.util.StringHelper;
 import org.olat.modules.webFeed.FeedSecurityCallback;
 import org.olat.modules.webFeed.FeedViewHelper;
 import org.olat.modules.webFeed.managers.FeedManager;
@@ -40,6 +42,7 @@ import org.olat.modules.webFeed.models.Feed;
 import org.olat.modules.webFeed.models.Item;
 import org.olat.modules.webFeed.ui.FeedUIFactory;
 import org.olat.resource.OLATResource;
+import org.olat.user.UserManager;
 
 /**
  * <h3>Description:</h3> The feed peekview controller displays the configurable
@@ -78,11 +81,13 @@ public class FeedPeekviewController extends BasicController implements Controlle
 		this.nodeId = nodeId;
 		FeedManager feedManager = FeedManager.getInstance();
 		Feed feed = feedManager.getFeed(olatResource);
+		UserManager userManager = CoreSpringFactory.getImpl(UserManager.class);
 
 		VelocityContainer peekviewVC = createVelocityContainer("peekview");
 		peekviewVC.contextPut("wrapperCssClass", wrapperCssClass != null ? wrapperCssClass : "");
 		// add gui helper
-		FeedViewHelper helper = new FeedViewHelper(feed, getIdentity(), getTranslator(), courseId, nodeId, callback);
+		String authorFullname = userManager.getUserDisplayName(feed.getAuthor());
+		FeedViewHelper helper = new FeedViewHelper(feed, getIdentity(), authorFullname, getTranslator(), courseId, nodeId, callback);
 		peekviewVC.contextPut("helper", helper);
 		// add items, only as many as configured
 		List<Item> allItems = feed.getFilteredItems(callback, getIdentity());
@@ -98,7 +103,7 @@ public class FeedPeekviewController extends BasicController implements Controlle
 				// add link to item
 				// Add link to jump to course node
 				Link nodeLink = LinkFactory.createLink("nodeLink_" + item.getGuid(), peekviewVC, this);
-				nodeLink.setCustomDisplayText(item.getTitle());
+				nodeLink.setCustomDisplayText(StringHelper.escapeHtml(item.getTitle()));
 				nodeLink.setCustomEnabledLinkCSS("b_with_small_icon_left o_feed_item_icon o_gotoNode");
 				nodeLink.setUserObject(item.getGuid());
 			}
@@ -109,8 +114,7 @@ public class FeedPeekviewController extends BasicController implements Controlle
 		allItemsLink.setCustomEnabledLinkCSS("b_float_right");
 		// Add Formatter for proper date formatting
 		peekviewVC.contextPut("formatter", Formatter.getInstance(getLocale()));
-		//
-		this.putInitialPanel(peekviewVC);
+		putInitialPanel(peekviewVC);
 	}
 
 	/**

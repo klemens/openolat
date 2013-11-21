@@ -292,13 +292,15 @@ public class ListRenderer {
 		if (metaInfo != null) {
 			boolean hasMeta = false;
 			sb.append("<div id='o_sel_doc_tooltip_").append(pos).append("' class='b_ext_tooltip_wrapper b_briefcase_meta' style='display:none;'>");
-			if (StringHelper.containsNonWhitespace(metaInfo.getTitle())) {				
-				sb.append("<h5>").append(Formatter.escapeDoubleQuotes(metaInfo.getTitle())).append("</h5>");		
+			if (StringHelper.containsNonWhitespace(metaInfo.getTitle())) {
+				String title = StringHelper.escapeHtml(metaInfo.getTitle());
+				sb.append("<h5>").append(Formatter.escapeDoubleQuotes(title)).append("</h5>");
 				hasMeta = true;
 			}
 			if (StringHelper.containsNonWhitespace(metaInfo.getComment())) {
 				sb.append("<div class=\"b_briefcase_comment\">");
-				sb.append(Formatter.escapeDoubleQuotes(metaInfo.getComment()));			
+				String comment = StringHelper.escapeHtml(metaInfo.getComment());
+				sb.append(Formatter.escapeDoubleQuotes(comment));			
 				sb.append("</div>");
 				hasMeta = true;
 			}
@@ -323,9 +325,9 @@ public class ListRenderer {
 					author = UserManager.getInstance().getUserDisplayName(author);
 				} else {
 					author = null;
-				}
-					
+				}		
 			}
+			author = StringHelper.escapeHtml(author);
 			if (StringHelper.containsNonWhitespace(author)) {
 				sb.append("<p class=\"b_briefcase_author\">").append(Formatter.escapeDoubleQuotes(translator.translate("mf.author")));
 				sb.append(": ").append(Formatter.escapeDoubleQuotes(author)).append("</p>");			

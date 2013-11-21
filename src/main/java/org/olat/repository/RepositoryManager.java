@@ -75,7 +75,6 @@ import org.olat.core.util.ImageHelper;
 import org.olat.core.util.StringHelper;
 import org.olat.core.util.image.Size;
 import org.olat.core.util.mail.MailPackage;
-import org.olat.core.util.mail.MailerWithTemplate;
 import org.olat.core.util.vfs.LocalFolderImpl;
 import org.olat.core.util.vfs.VFSContainer;
 import org.olat.core.util.vfs.VFSItem;
@@ -127,8 +126,6 @@ public class RepositoryManager extends BasicManager {
 	private RepositoryModule repositoryModule;
 	@Autowired
 	private ACReservationDAO reservationDao;
-	@Autowired
-	private MailerWithTemplate mailer;
 
 	
 	/**
@@ -1175,11 +1172,36 @@ public class RepositoryManager extends BasicManager {
 			// if user has no author right he can not reference to any resource at all
 			return new ArrayList<RepositoryEntry>();
 		}
-		return queryResourcesLimitType(identity, resourceTypes, displayName, author, desc);
+		return queryResourcesLimitType(identity, resourceTypes, displayName, author, desc, true, false);
+	}
+	
+	/**
+	 * Search for resources that can be copied by an author. This is the case:
+	 * 1) the user is the owner of the resource
+	 * 2) the user is author and the resource is at least visible to authors (BA) 
+	 *    and the resource is set to canCopy
+	 * @param identity The user initiating the query
+	 * @param roles The current users role set
+	 * @param resourceTypes Limit search result to this list of repo types. Can be NULL
+	 * @param displayName Limit search to this repo title. Can be NULL
+	 * @param author Limit search to this user (Name, firstname, loginname). Can be NULL
+	 * @param desc Limit search to description. Can be NULL
+	 * @return List of repository entries
+	 */	
+	public List<RepositoryEntry> queryCopyableResourcesLimitType(Identity identity, Roles roles, List<String> resourceTypes,
+			String displayName, String author, String desc) {
+		if (identity == null) {
+			throw new AssertException("identity can not be null!");
+		}
+		if (!roles.isAuthor()) {
+			// if user has no author right he can not reference to any resource at all
+			return new ArrayList<RepositoryEntry>();
+		}
+		return queryResourcesLimitType(identity, resourceTypes, displayName, author, desc, false, true);
 	}
 		
 	public List<RepositoryEntry> queryResourcesLimitType(Identity identity, List<String> resourceTypes,
-			String displayName, String author, String desc) {
+			String displayName, String author, String desc, boolean checkCanReference, boolean checkCanCopy) {
 			
 		// cleanup some data: use null values if emtpy
 		if (resourceTypes != null && resourceTypes.size() == 0) resourceTypes = null;
@@ -1214,7 +1236,15 @@ public class RepositoryManager extends BasicManager {
 		int access;
 		if(identity != null) {
 			access = RepositoryEntry.ACC_OWNERS_AUTHORS;
-			query.append(" sgmsi.identity = :identity  or (v.access>=:access and v.canReference = true) ");
+			
+			query.append(" sgmsi.identity = :identity  or (v.access>=:access  ");
+			if(checkCanReference) {
+				query.append(" and v.canReference = true ");
+			}
+			if(checkCanCopy) {
+				query.append(" and v.canCopy = true ");
+			}
+			query.append(")");
 		} else {
 			access = RepositoryEntry.ACC_OWNERS;
 			query.append(" v.access>=:access ");
@@ -1937,12 +1967,12 @@ public class RepositoryManager extends BasicManager {
 						ResourceReservation reservation =
 								reservationDao.createReservation(identityToAdd, "repo_tutors", expiration, re.getOlatResource());
 						if(reservation != null) {
-							RepositoryMailing.sendEmail(ureqIdentity, identityToAdd, re, RepositoryMailing.Type.addTutor, mailing, mailer);
+							RepositoryMailing.sendEmail(ureqIdentity, identityToAdd, re, RepositoryMailing.Type.addTutor, mailing);
 						}
 					}
 				} else {
 					addInternalTutors(ureqIdentity, identityToAdd, re, reallyAddedId);
-					RepositoryMailing.sendEmail(ureqIdentity, identityToAdd, re, RepositoryMailing.Type.addTutor, mailing, mailer);
+					RepositoryMailing.sendEmail(ureqIdentity, identityToAdd, re, RepositoryMailing.Type.addTutor, mailing);
 				}
 
 			}//else silently ignore already owner identities
@@ -2028,13 +2058,13 @@ public class RepositoryManager extends BasicManager {
 						ResourceReservation reservation =
 								reservationDao.createReservation(identityToAdd, "repo_participant", expiration, re.getOlatResource());
 						if(reservation != null) {
-							RepositoryMailing.sendEmail(ureqIdentity, identityToAdd, re, RepositoryMailing.Type.addParticipant, mailing, mailer);
+							RepositoryMailing.sendEmail(ureqIdentity, identityToAdd, re, RepositoryMailing.Type.addParticipant, mailing);
 						}
 					}
 				} else {
 					addInternalParticipant(ureqIdentity, identityToAdd, re);
 					reallyAddedId.add(identityToAdd);
-					RepositoryMailing.sendEmail(ureqIdentity, identityToAdd, re, RepositoryMailing.Type.addParticipant, mailing, mailer);
+					RepositoryMailing.sendEmail(ureqIdentity, identityToAdd, re, RepositoryMailing.Type.addParticipant, mailing);
 				}
 			}
 		}
@@ -2074,7 +2104,7 @@ public class RepositoryManager extends BasicManager {
     	securityManager.removeIdentityFromSecurityGroup(identity, re.getParticipantGroup());
 
     	if(sendMail) {
-    		RepositoryMailing.sendEmail(ureqIdentity, identity, re, RepositoryMailing.Type.removeParticipant, mailing, mailer);
+    		RepositoryMailing.sendEmail(ureqIdentity, identity, re, RepositoryMailing.Type.removeParticipant, mailing);
     	}
 
 			ActionType actionType = ThreadLocalUserActivityLogger.getStickyActionType();
@@ -2145,7 +2175,7 @@ public class RepositoryManager extends BasicManager {
 		}
 		
 		for(Identity identity:members) {
-			RepositoryMailing.sendEmail(ureqIdentity, identity, re, RepositoryMailing.Type.removeParticipant, mailing, mailer);
+			RepositoryMailing.sendEmail(ureqIdentity, identity, re, RepositoryMailing.Type.removeParticipant, mailing);
 		}
 		return allOk;
 	}
@@ -2293,6 +2323,21 @@ public class RepositoryManager extends BasicManager {
 
 		List<RepositoryEntryLight> repoEntries = query.getResultList();
 		return repoEntries;
+	}
+	
+	public int countLearningResourcesAsOwner(Identity identity) {
+		StringBuilder sb = new StringBuilder(200);
+		sb.append("select count(v) from ").append(RepositoryEntry.class.getName()).append(" v ")
+			.append(" inner join v.olatResource as res ")
+			.append(" inner join v.ownerGroup as ownerGroup")
+			.append(" where v.access>=0 ")
+	  	.append(" and exists (from ").append(SecurityGroupMembershipImpl.class.getName()).append(" as vmember ")
+	    .append("     where vmember.identity.key=:identityKey and vmember.securityGroup=ownerGroup)");
+		
+		return dbInstance.getCurrentEntityManager()
+				.createQuery(sb.toString(), Number.class)
+				.setParameter("identityKey", identity.getKey())
+				.getSingleResult().intValue();
 	}
 	
 	/**

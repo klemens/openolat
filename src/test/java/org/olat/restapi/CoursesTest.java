@@ -46,14 +46,14 @@ import javax.ws.rs.core.UriBuilder;
 
 import junit.framework.Assert;
 
+import org.apache.http.HttpEntity;
 import org.apache.http.HttpResponse;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.methods.HttpPost;
 import org.apache.http.client.methods.HttpPut;
+import org.apache.http.entity.ContentType;
 import org.apache.http.entity.mime.HttpMultipartMode;
-import org.apache.http.entity.mime.MultipartEntity;
-import org.apache.http.entity.mime.content.FileBody;
-import org.apache.http.entity.mime.content.StringBody;
+import org.apache.http.entity.mime.MultipartEntityBuilder;
 import org.codehaus.jackson.map.ObjectMapper;
 import org.codehaus.jackson.type.TypeReference;
 import org.junit.After;
@@ -103,16 +103,16 @@ public class CoursesTest extends OlatJerseyTestCase {
 		try {
 			// create course and persist as OLATResourceImpl
 			admin = BaseSecurityManager.getInstance().findIdentityByName("administrator");
-			course1 = CoursesWebService.createEmptyCourse(admin, "courses1", "courses1 long name", null, null, null, null, null);
+			course1 = CoursesWebService.createEmptyCourse(admin, "courses1", "courses1 long name", null, null, RepositoryEntry.ACC_OWNERS, false, null, null, null, null);
 			
 			externalId = UUID.randomUUID().toString();
 			externalRef = UUID.randomUUID().toString();
-			course2 = CoursesWebService.createEmptyCourse(admin, "courses2", "courses2 long name", null, externalId, externalRef, "all", null);
+			course2 = CoursesWebService.createEmptyCourse(admin, "courses2", "courses2 long name", null, null, RepositoryEntry.ACC_OWNERS, false, externalId, externalRef, "all", null);
 			
 			dbInstance.commitAndCloseSession();
 
 			externalId3 = UUID.randomUUID().toString();
-			course3 = CoursesWebService.createEmptyCourse(admin, "courses3", "courses3 long name", null, externalId3, null, "all", null);
+			course3 = CoursesWebService.createEmptyCourse(admin, "courses3", "courses3 long name", null, null, RepositoryEntry.ACC_OWNERS, false, externalId3, null, "all", null);
 			RepositoryEntry re3 = repositoryManager.lookupRepositoryEntry(course3, false);
 			RepositoryEntryLifecycle lifecycle3 = reLifecycleDao.create("course3 lifecycle", UUID.randomUUID().toString(), true, new Date(), new Date());
 			dbInstance.commit();
@@ -312,15 +312,19 @@ public class CoursesTest extends OlatJerseyTestCase {
 		assertTrue(conn.login("administrator", "openolat"));
 		
 		URI request = UriBuilder.fromUri(getContextURI()).path("repo/courses").build();
-		HttpPost method = conn.createPost(request, MediaType.APPLICATION_JSON, true);
-		MultipartEntity entity = new MultipartEntity(HttpMultipartMode.BROWSER_COMPATIBLE);
-		entity.addPart("file", new FileBody(cp));
-		entity.addPart("filename", new StringBody("Very_small_course.zip"));
-		entity.addPart("resourcename", new StringBody("Very small course"));
-		entity.addPart("displayname", new StringBody("Very small course"));
-		entity.addPart("access", new StringBody("3"));
+		HttpPost method = conn.createPost(request, MediaType.APPLICATION_JSON);
+
 		String softKey = UUID.randomUUID().toString().replace("-", "").substring(0, 30);
-		entity.addPart("softkey", new StringBody(softKey));
+		HttpEntity entity = MultipartEntityBuilder.create()
+				.setMode(HttpMultipartMode.BROWSER_COMPATIBLE)
+				.addBinaryBody("file", cp, ContentType.APPLICATION_OCTET_STREAM, cp.getName())
+				.addTextBody("filename", "Very_small_course.zip")
+				.addTextBody("foldername", "New folder 1 2 3")
+				.addTextBody("resourcename", "Very small course")
+				.addTextBody("displayname", "Very small course")
+				.addTextBody("access", "3")
+				.addTextBody("softkey", softKey)
+				.build();
 		method.setEntity(entity);
 		
 		HttpResponse response = conn.execute(method);

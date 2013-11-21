@@ -80,14 +80,14 @@ public class EPCollectStepForm00 extends StepFormBasicController {
 	}
 
 	@Override
-	protected void initForm(FormItemContainer formLayout, @SuppressWarnings("unused") Controller listener, UserRequest ureq) {
+	protected void initForm(FormItemContainer formLayout, Controller listener, UserRequest ureq) {
 		title = uifactory.addTextElement("title", "artefact.title", 500, artefact.getTitle(), formLayout);
 		title.setMandatory(true);
 		title.setNotEmptyCheck("artefact.title.not.empty");
 		title.setNotLongerThanCheck(512, "artefact.title.too.long");
 		title.setVisible(!simpleMode);
 		descript = uifactory.addRichTextElementForStringDataMinimalistic("description", "artefact.description", artefact.getDescription(), 7,
-				-1, false, formLayout, ureq.getUserSession(), getWindowControl());
+				-1, formLayout, ureq.getUserSession(), getWindowControl());
 		descript.setMaxLength(4000);
 		descript.setNotLongerThanCheck(4000, "artefact.description.too.long");
 

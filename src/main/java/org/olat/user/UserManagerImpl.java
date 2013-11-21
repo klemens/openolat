@@ -25,7 +25,6 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -144,6 +143,32 @@ public class UserManagerImpl extends UserManager {
 		}
 		return false;
 	}
+	
+	@Override
+	public List<Long> findUserKeyWithProperty(String propName, String propValue) {
+		StringBuilder sb = new StringBuilder("select user.key from ").append(UserImpl.class.getName()).append(" user ")
+			.append(" where user.properties['").append(propName).append("'] =:propValue");
+
+		List<Long> userKeys = dbInstance.getCurrentEntityManager()
+				.createQuery(sb.toString(), Long.class)
+				.setParameter("propValue", propValue).getResultList();
+		return userKeys;
+	}
+	
+	@Override
+	public Identity findIdentityKeyWithProperty(String propName, String propValue) {
+		StringBuilder sb = new StringBuilder("select identity from ").append(IdentityImpl.class.getName()).append(" identity ")
+			.append(" inner join identity.user user ")
+			.append(" where user.properties['").append(propName).append("'] =:propValue");
+
+		List<Identity> userKeys = dbInstance.getCurrentEntityManager()
+				.createQuery(sb.toString(), Identity.class)
+				.setParameter("propValue", propValue).getResultList();
+		if(userKeys.isEmpty()) {
+			return null;
+		}
+		return userKeys.get(0);
+	}
 
 	/**
 	 * @see org.olat.user.UserManager#findIdentityByEmail(java.lang.String)
@@ -204,14 +229,16 @@ public class UserManagerImpl extends UserManager {
 	@Override
 	public List<Identity> findIdentitiesByEmail(List<String> emailList) {
 		List<String> emails = new ArrayList<String>(emailList);
-		for(Iterator<String> emailIt=emails.iterator(); emailIt.hasNext(); ) {
-			String email = emailIt.next();
+		for (int i=0; i<emails.size(); i++) {
+			String email = emails.get(i).toLowerCase();
 			if (!MailHelper.isValidEmailAddress(email)) {
-				emailIt.remove();
+				emails.remove(i);
 				logWarn("Invalid email address: " + email, null);
 			}
+			else {
+				emails.set(i, email);
+			}
 		}
-		
 		if(emails.isEmpty()) {
 			return Collections.emptyList();
 		}
@@ -225,7 +252,7 @@ public class UserManagerImpl extends UserManager {
 		if(mysql) {
 			emailSb.append(" user.properties['").append(UserConstants.EMAIL).append("']  in (:emails) ");
 		} else {
-			emailSb.append(" lower(user.properties['").append(UserConstants.EMAIL).append("']) = lower(:emails)");
+			emailSb.append(" lower(user.properties['").append(UserConstants.EMAIL).append("']) in (:emails)");
 		}
 
 		List<Identity> identities = dbInstance.getCurrentEntityManager()
@@ -237,7 +264,7 @@ public class UserManagerImpl extends UserManager {
 		if(mysql) {
 			institutionalSb.append(" user.properties['").append(UserConstants.INSTITUTIONALEMAIL).append("'] in (:emails) ");
 		} else {
-			institutionalSb.append(" lower(user.properties['").append(UserConstants.INSTITUTIONALEMAIL).append("']) = lower(:emails)");
+			institutionalSb.append(" lower(user.properties['").append(UserConstants.INSTITUTIONALEMAIL).append("']) in (:emails)");
 		}
 		if(!identities.isEmpty()) {
 			institutionalSb.append(" and identity not in (:identities) ");

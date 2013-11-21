@@ -67,19 +67,18 @@ public class EPReflexionViewController extends FormBasicController {
 	 *      org.olat.core.gui.control.Controller, org.olat.core.gui.UserRequest)
 	 */
 	@Override
-	@SuppressWarnings("unused")
 	protected void initForm(FormItemContainer formLayout, Controller listener, UserRequest ureq) {
 		setFormDescription("artefact.reflexion.view.descr");
 
 		if (canSeeArtefactReflexion){
 			artRef = uifactory.addRichTextElementForStringDataMinimalistic("reflexion.artefact", "reflexion.artefact", artefactReflexion, 12, -1,
-					false, formLayout, ureq.getUserSession(), getWindowControl());
+					formLayout, ureq.getUserSession(), getWindowControl());
 			artRef.setEnabled(false);
 		}
 		
 		if (StringHelper.containsNonWhitespace(linkReflexion)){
 			linkRef = uifactory.addRichTextElementForStringDataMinimalistic("reflexion.link", "reflexion.link", linkReflexion, 12, -1,
-					false, formLayout, ureq.getUserSession(), getWindowControl());
+					formLayout, ureq.getUserSession(), getWindowControl());
 			linkRef.setEnabled(false);
 		}
 		
@@ -97,7 +96,6 @@ public class EPReflexionViewController extends FormBasicController {
 	 * @see org.olat.core.gui.control.generic.wizard.StepFormBasicController#formOK(org.olat.core.gui.UserRequest)
 	 */
 	@Override
-	@SuppressWarnings("unused")
 	protected void formOK(UserRequest ureq) {
 		//do nothing
 	}

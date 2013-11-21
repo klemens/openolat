@@ -20,7 +20,10 @@
 
 package org.olat.core.gui.components.form.flexible.impl.elements.richText;
 
+import java.util.List;
+
 import org.apache.commons.lang.StringEscapeUtils;
+import org.olat.core.dispatcher.impl.StaticMediaDispatcher;
 import org.olat.core.gui.GUIInterna;
 import org.olat.core.gui.components.Component;
 import org.olat.core.gui.components.ComponentRenderer;
@@ -55,12 +58,10 @@ class RichTextElementRenderer implements ComponentRenderer {
 	 *      org.olat.core.gui.translator.Translator,
 	 *      org.olat.core.gui.render.RenderResult, java.lang.String[])
 	 */
-	@SuppressWarnings("unused")
-	public void render(
-	Renderer renderer, StringOutput sb, Component source,
-			URLBuilder ubu, Translator translator, RenderResult renderResult,
-			String[] args) {
-		//
+	@Override
+	public void render(Renderer renderer, StringOutput sb, Component source, URLBuilder ubu,
+			Translator translator, RenderResult renderResult, String[] args) {
+
 		RichTextElementComponent teC = (RichTextElementComponent) source;
 		RichTextElementImpl te = teC.getRichTextElementImpl();
 		int cols = teC.getCols();
@@ -68,11 +69,12 @@ class RichTextElementRenderer implements ComponentRenderer {
 		// DOM ID used to identify the rich text element in the browser DOM
 		String domID;
         if (GUIInterna.isLoadPerformanceMode()) {
-                domID = FormBaseComponentIdProvider.DISPPREFIX+te.getRootForm().getReplayableDispatchID(teC);
+        	domID = FormBaseComponentIdProvider.DISPPREFIX+te.getRootForm().getReplayableDispatchID(teC);
         } else {
-                domID = teC.getFormDispatchId();
+        	domID = teC.getFormDispatchId();
         }
-		// Use an empty string as default value
+		
+        // Use an empty string as default value
 		String value = te.getRawValue();
 		if (value == null) {
 			value = "";
@@ -81,102 +83,99 @@ class RichTextElementRenderer implements ComponentRenderer {
 		if (!source.isEnabled()) {
 			// Read only view
 			sb.append("<div ");
-			sb.append(FormJSHelper.getRawJSFor(te.getRootForm(), domID, te
-					.getAction()));
+			sb.append(FormJSHelper.getRawJSFor(te.getRootForm(), domID, te.getAction()));
 			sb.append(" id=\"");
 			sb.append(domID);
-			sb
-					.append("_disabled\" readonly class=\"b_form_element_disabled\" style=\"");
+			sb.append("_disabled\" readonly class=\"b_form_element_disabled\" style=\"");
 			if (cols != -1) {
-				sb.append(" width:");
-				sb.append(cols);
-				sb.append("em;");
+				sb.append(" width:").append(cols).append("em;");
 			}
 			if (rows != -1) {
-				sb.append(" min-height:");
-				sb.append(rows);
-				sb.append("em;");
+				sb.append(" min-height:").append(rows).append("em;");
 			}
 			sb.append("\" >");
 			sb.append(Formatter.formatLatexFormulas(value));
 			sb.append("</div>");
-
-		} else {
-			// Read write view
-			sb.append("<textarea id=\"");
-			sb.append(domID);
-			sb.append("\" name=\"");
-			sb.append(domID);
-			sb.append("\" ");
-			StringBuilder rawData = FormJSHelper.getRawJSFor(te.getRootForm(), domID, te.getAction());
-			sb.append(rawData.toString());
-			sb.append(" style=\"");
-			sb.append(" width:");
-			if (cols == -1) {
-				sb.append("100%;");
-			} else {
-				sb.append(cols);
-				sb.append("em;");
-			}
-			sb.append("height:");
-			if (rows == -1) {
-				sb.append("100%;");
-			} else {
-				sb.append(rows);
-				sb.append("em;");
-			}
-			sb.append("\" class=\"BGlossarIgnore\">");
-			// The value needs to be encoded when loading into the editor to properly display < > etc values. 
-			// See http://tinymce.moxiecode.com/punbb/viewtopic.php?id=1846
-			sb.append(StringEscapeUtils.escapeHtml(value));
-			sb.append("</textarea>");
-
-			// Load TinyMCE code. 
-			sb.append("<script type='text/javascript'>/* <![CDATA[ */ ");
-			// Execute code within an anonymous function (closure) to not leak
-			// variables to global scope (OLAT-5755)
-			sb.append("(function(){");
-			// Stop existing form dirty observers first
-			sb.append("BTinyHelper.stopFormDirtyObserver('" + te.getRootForm().getDispatchFieldId() + "','" + domID + "');");
-			// Now add component dispatch URL as a tiny helper variable to open the
-			// media browser in new window at a later point from javascript
-			sb.append("BTinyHelper.editorMediaUris.put('").append(domID).append("','");
-			ubu.buildURI(sb, null, null);
-			sb.append("');");	
-			
-			// Wait until the browser has fully loaded the tiny js file and the
-			// window.tinyMCE object is available. Loop until its there.
-			sb.append("if(jQuery.isNumeric(o_info.tinyLoaderId)) window.clearTimeout(o_info.tinyLoaderId);");
-			// To actually load tiny we use a function that is executed deferred
-			// and retries to initialize the tiny instance as long as it might
-			// take to load the tiny code. To not get confused with several tiny
-			// instances on the screen we use a custom method name per rich text element
-			String checkAndLoadTinyFunctionName = "o_checkTinyLoaded" + domID;
-			sb.append("var ").append(checkAndLoadTinyFunctionName).append(" = function() { ");
-			sb.append("if(jQuery.type(window.tinyMCE) === 'undefined') o_info.tinyLoaderId = ").append(checkAndLoadTinyFunctionName).append(".delay(0.01); else {");
-			// Add custom modules just before initializing tiny		
-			RichTextConfiguration richTextConfiguration = te.getEditorConfiguration();
-			richTextConfiguration.appendLoadCustomModulesFromConfig(sb);
-			// First see if there is an existing editor instance for this DOM element. 
-			// If yes, remove the editor first to prevent clashes with the new created 
-			// editor instance.
-			sb.append("BTinyHelper.removeEditorInstance('").append(domID).append("');");
-			// Now initialize IntyMCE with the generated configuration
-			sb.append("tinyMCE.init({");
-			richTextConfiguration.appendConfigToTinyJSArray(sb);
-			// Add set dirty form only if enabled. For the RichTextElement we need
-			// some special code to find out when the element is dirty. See the comments
-			// BTinyHelpers.js
-			sb.append("});");
-
-			
-			sb.append("} };");
-			sb.append(checkAndLoadTinyFunctionName).append("();");
-			sb.append("})();");
-			sb.append("/* ]]> */</script>");
-			// Done with loading of TinyMCE code
+		} else if(teC.isUseTiny4()) {
+			renderTinyMCE_4(sb, domID, teC, ubu);
 		}
+	}
+	
 
+	private void renderTinyMCE_4(StringOutput sb, String domID, RichTextElementComponent teC, URLBuilder ubu) {
+		RichTextElementImpl te = teC.getRichTextElementImpl();
+		RichTextConfiguration config = te.getEditorConfiguration();
+		List<String> onInit = config.getOnInit();
+
+		// Read write view
+		renderTextarea(sb, domID, teC);
+
+		StringOutput configurations = new StringOutput();
+		config.appendConfigToTinyJSArray_4(configurations);
+		
+		StringOutput baseUrl = new StringOutput();
+		StaticMediaDispatcher.renderStaticURI(baseUrl, "js/tinymce4/tinymce/tinymce.min.js", false);
+
+		sb.append("<script type='text/javascript'>/* <![CDATA[ */ ");
+		//file browser url
+		sb.append("  BTinyHelper.editorMediaUris.put('").append(domID).append("','");
+		ubu.buildURI(sb, null, null);
+		sb.append("');");
+		//remove if a instance is there
+		sb.append("  BTinyHelper.stopFormDirtyObserver('" + te.getRootForm().getDispatchFieldId() + "','" + domID + "');");
+		sb.append("  BTinyHelper.removeEditorInstance('").append(domID).append("');");
+		
+		sb.append("  jQuery('#").append(domID).append("').tinymce({\n")
+		  .append("    selector: '#").append(domID).append("',\n")
+		  .append("    script_url: '").append(baseUrl.toString()).append("',\n")
+		  .append("    setup: function(ed){\n")
+		  .append("      ed.on('init', function(e) {\n")
+		  .append("        ").append(onInit.get(0).replace(".curry(", "(")).append(";\n")
+		  .append("      });\n")
+		  .append("      ed.on('change', function(e) {\n")
+		  .append("        BTinyHelper.triggerOnChange('").append(domID).append("');\n")
+		  .append("      });\n") 
+		  .append("    },\n")
+		  .append(configurations)
+		  .append("  });\n");
+
+		sb.append("/* ]]> */</script>");
+	}
+	
+	private void renderTextarea(StringOutput sb, String domID, RichTextElementComponent teC) {
+		RichTextElementImpl te = teC.getRichTextElementImpl();
+		int cols = teC.getCols();
+		int rows = teC.getRows();
+		String value = te.getRawValue();
+		
+		// Read write view
+		sb.append("<textarea id=\"");
+		sb.append(domID);
+		sb.append("\" name=\"");
+		sb.append(domID);
+		sb.append("\" ");
+		StringBuilder rawData = FormJSHelper.getRawJSFor(te.getRootForm(), domID, te.getAction());
+		sb.append(rawData.toString());
+		sb.append(" style=\"");
+		sb.append(" width:");
+		if (cols == -1) {
+			sb.append("100%;");
+		} else {
+			sb.append(cols);
+			sb.append("em;");
+		}
+		sb.append("height:");
+		if (rows == -1) {
+			sb.append("100%;");
+		} else {
+			sb.append(rows);
+			sb.append("em;");
+		}
+		sb.append("\" class=\"BGlossarIgnore\">");
+		// The value needs to be encoded when loading into the editor to properly display < > etc values. 
+		// See http://tinymce.moxiecode.com/punbb/viewtopic.php?id=1846
+		sb.append(StringEscapeUtils.escapeHtml(value));
+		sb.append("</textarea>");
 	}
 
 	/**
@@ -185,7 +184,7 @@ class RichTextElementRenderer implements ComponentRenderer {
 	 *      org.olat.core.gui.components.Component,
 	 *      org.olat.core.gui.render.RenderingState)
 	 */
-	@SuppressWarnings("unused")
+	@Override
 	public void renderBodyOnLoadJSFunctionCall(Renderer renderer,
 			StringOutput sb, Component source, RenderingState rstate) {
 		// nothing to load
@@ -199,7 +198,7 @@ class RichTextElementRenderer implements ComponentRenderer {
 	 *      org.olat.core.gui.translator.Translator,
 	 *      org.olat.core.gui.render.RenderingState)
 	 */
-	@SuppressWarnings({ "unused", "deprecation" })
+	@Override
 	public void renderHeaderIncludes(Renderer renderer, StringOutput sb,
 			Component source, URLBuilder ubu, Translator translator,
 			RenderingState rstate) {

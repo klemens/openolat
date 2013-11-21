@@ -60,6 +60,7 @@ import org.junit.runners.Suite;
 	org.olat.core.util.coordinate.LockEntryTest.class,
 	org.olat.core.util.StringHelperTest.class,
 	org.olat.core.util.FormatterTest.class,
+	org.olat.core.util.EncoderTest.class,
 	org.olat.core.util.mail.manager.MailManagerTest.class,
 	org.olat.core.id.context.BusinessControlFactoryTest.class,
 	org.olat.core.id.context.HistoryManagerTest.class,
@@ -96,6 +97,7 @@ import org.junit.runners.Suite;
 	org.olat.basesecurity.BaseSecurityTest.class,//ok
 	org.olat.basesecurity.BaseSecurityManagerTest.class,//ok
 	org.olat.user.UserManagerTest.class,//ok
+	org.olat.user.UserNameAndPasswordSyntaxCheckerWithRegexpTest.class,//ok
 	org.olat.repository.RepositoryManagerTest.class,//ok
 	org.olat.repository.RepositoryManagerConcurrentTest.class,//ok
 	org.olat.repository.RepositoryManagerQueryTest.class,//ok
@@ -175,6 +177,7 @@ import org.junit.runners.Suite;
 	org.olat.restapi.CoursesForumsTest.class,
 	org.olat.restapi.CoursesResourcesFoldersTest.class,
 	org.olat.restapi.CoursesTest.class,
+	org.olat.restapi.CoursePublishTest.class,
 	org.olat.restapi.CoursesInfosTest.class,
 	org.olat.restapi.CourseTest.class,
 	org.olat.restapi.FolderTest.class,
@@ -193,6 +196,7 @@ import org.junit.runners.Suite;
 	org.olat.restapi.UserMgmtTest.class,
 	org.olat.restapi.ContactsTest.class,
 	org.olat.restapi.SystemTest.class,
+	org.olat.restapi.ChangePasswordTest.class,
 	org.olat.restapi.RegistrationTest.class,
 	de.bps.olat.portal.institution.InstitutionPortletTest.class,
 	org.olat.group.manager.BusinessGroupImportExportXStreamTest.class,

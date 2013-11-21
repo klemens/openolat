@@ -522,22 +522,23 @@ public class CourseFactory extends BasicManager {
 	 * @param fTargetZIP
 	 * @return true if successfully exported, false otherwise.
 	 */
-	public static void exportCourseToZIP(OLATResourceable sourceRes, File fTargetZIP, boolean backwardsCompatible) {
+	public static void exportCourseToZIP(OLATResourceable sourceRes, File fTargetZIP, boolean runtimeDatas, boolean backwardsCompatible) {
 		PersistingCourseImpl sourceCourse = (PersistingCourseImpl) loadCourse(sourceRes);
 
 		// add files to ZIP
 		File fExportDir = new File(WebappHelper.getTmpDir(), CodeHelper.getUniqueID());
 		fExportDir.mkdirs();
+		log.info("Export folder: " + fExportDir);
 		synchronized (sourceCourse) { //o_clusterNOK - cannot be solved with doInSync since could take too long (leads to error: "Lock wait timeout exceeded")
 			OLATResource courseResource = sourceCourse.getCourseEnvironment().getCourseGroupManager().getCourseResource();
-			sourceCourse.exportToFilesystem(courseResource, fExportDir, backwardsCompatible);
-			Codepoint.codepoint(CourseFactory.class, "longExportCourseToZIP");
+			sourceCourse.exportToFilesystem(courseResource, fExportDir, runtimeDatas, backwardsCompatible);
 			Set<String> fileSet = new HashSet<String>();
 			String[] files = fExportDir.list();
 			for (int i = 0; i < files.length; i++) {
 				fileSet.add(files[i]);
 			}
 			ZipUtil.zip(fileSet, fExportDir, fTargetZIP, false);
+			log.info("Delete export folder: " + fExportDir);
 			FileUtils.deleteDirsAndFiles(fExportDir, true, true);
 		}
 	}
@@ -745,19 +746,20 @@ public class CourseFactory extends BasicManager {
 	 * @param locale
 	 * @param identity
 	 */
-	public static void publishCourse(ICourse course, Identity identity, Locale locale) {
+	public static void publishCourse(ICourse course, int access, boolean membersOnly, Identity identity, Locale locale) {
 		 CourseEditorTreeModel cetm = course.getEditorTreeModel();
 		 PublishProcess publishProcess = PublishProcess.getInstance(course, cetm, locale);
 		 PublishTreeModel publishTreeModel = publishProcess.getPublishTreeModel();
 
-		 int newAccess = RepositoryEntry.ACC_USERS;
+		 int newAccess = (access < RepositoryEntry.ACC_OWNERS || access > RepositoryEntry.ACC_USERS_GUESTS)
+				 ? RepositoryEntry.ACC_USERS : access;
 		 //access rule -> all users can the see course
 		 //RepositoryEntry.ACC_OWNERS
 		 //only owners can the see course
 		 //RepositoryEntry.ACC_OWNERS_AUTHORS //only owners and authors can the see course
 		 //RepositoryEntry.ACC_USERS_GUESTS // users and guests can see the course
 		 //fxdiff VCRP-1,2: access control of resources
-		 publishProcess.changeGeneralAccess(null, newAccess, false);
+		 publishProcess.changeGeneralAccess(null, newAccess, membersOnly);
 		 
 		 if (publishTreeModel.hasPublishableChanges()) {
 			 List<String>nodeToPublish = new ArrayList<String>();
@@ -772,11 +774,16 @@ public class CourseFactory extends BasicManager {
 					 return;
 				 }
 			 }
+			 
+			 try {
+				 course = CourseFactory.openCourseEditSession(course.getResourceableId());
+				 publishProcess.applyPublishSet(identity, locale);
+			 } catch(Exception e) {
+				 log.error("",  e);
+			 } finally {
+				 closeCourseEditSession(course.getResourceableId(), true);
+			 }
 		 }
-
-		 course = CourseFactory.openCourseEditSession(course.getResourceableId());
-		 publishProcess.applyPublishSet(identity, locale);
-		 closeCourseEditSession(course.getResourceableId(), true);
 	}
 	
 	/**
@@ -1170,9 +1177,9 @@ public class CourseFactory extends BasicManager {
 		int numOfChildren = node.getChildCount();
 		for (int i = 0; i < numOfChildren; i++) {
 			INode child = node.getChildAt(i);
-			if (child instanceof TreeNode) {
+			if (child instanceof TreeNode && publishTreeModel.isVisible(child)) {
 				nodeToPublish.add(child.getIdent());
-				visitPublishModel((TreeNode) child, publishTreeModel, nodeToPublish);
+				visitPublishModel((TreeNode)child, publishTreeModel, nodeToPublish);
 			}
 		}
 	}

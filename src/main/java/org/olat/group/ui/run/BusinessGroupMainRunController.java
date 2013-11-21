@@ -78,7 +78,6 @@ import org.olat.core.util.resource.OLATResourceableJustBeforeDeletedEvent;
 import org.olat.core.util.resource.OresHelper;
 import org.olat.course.nodes.iq.AssessmentEvent;
 import org.olat.group.BusinessGroup;
-import org.olat.group.BusinessGroupManagedFlag;
 import org.olat.group.BusinessGroupMembership;
 import org.olat.group.BusinessGroupService;
 import org.olat.group.GroupLoggingAction;
@@ -1128,18 +1127,14 @@ public class BusinessGroupMainRunController extends MainLayoutBasicController im
 
 			//fxdiff VCRP-1,2: access control of resources
 			AccessControlModule acModule = (AccessControlModule)CoreSpringFactory.getBean("acModule");
-			if(acModule.isEnabled()) {
-				if(!BusinessGroupManagedFlag.isManaged(businessGroup, BusinessGroupManagedFlag.bookings)
-						|| acService.isResourceAccessControled(businessGroup.getResource(), null)) {
-					gtnChild = new GenericTreeNode();
-					gtnChild.setTitle(translate("menutree.ac"));
-					gtnChild.setUserObject(ACTIVITY_MENUSELECT_AC);
-					gtnChild.setIdent(ACTIVITY_MENUSELECT_AC);
-					gtnChild.setAltText(translate("menutree.ac.alt"));
-					gtnChild.setIconCssClass("b_order_icon");
-					root.addChild(gtnChild);
-					//acNodeId = gtnChild.getIdent();
-				}
+			if(acModule.isEnabled() && acService.isResourceAccessControled(businessGroup.getResource(), null)) {
+				gtnChild = new GenericTreeNode();
+				gtnChild.setTitle(translate("menutree.ac"));
+				gtnChild.setUserObject(ACTIVITY_MENUSELECT_AC);
+				gtnChild.setIdent(ACTIVITY_MENUSELECT_AC);
+				gtnChild.setAltText(translate("menutree.ac.alt"));
+				gtnChild.setIconCssClass("b_order_icon");
+				root.addChild(gtnChild);
 			}
 		}
 

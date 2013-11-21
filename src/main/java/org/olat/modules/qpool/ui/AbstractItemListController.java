@@ -148,9 +148,7 @@ public abstract class AbstractItemListController extends FormBasicController
 		initButtons(formLayout);
 	}
 	
-	protected void initButtons(FormItemContainer formLayout) {
-		//to override
-	}
+	protected abstract void initButtons(FormItemContainer formLayout);
 	
 	protected FlexiTableElement getItemsTable() {
 		return itemsTable;
@@ -215,7 +213,7 @@ public abstract class AbstractItemListController extends FormBasicController
 				doSelect(ureq, row);
 			} else if("mark".equals(link.getCmd())) {
 				ItemRow row = (ItemRow)link.getUserObject();
-				if(doMark(ureq, row)) {
+				if(doMark(row)) {
 					link.setCustomEnabledLinkCSS("b_mark_set");
 				} else {
 					link.setCustomEnabledLinkCSS("b_mark_not_set");
@@ -309,7 +307,7 @@ public abstract class AbstractItemListController extends FormBasicController
 	
 	protected abstract void doSelect(UserRequest ureq, ItemRow row);
 	
-	protected boolean doMark(UserRequest ureq, OLATResourceable item) {
+	protected boolean doMark(OLATResourceable item) {
 		if(markManager.isMarked(item, getIdentity(), null)) {
 			markManager.removeMark(item, getIdentity(), null);
 			return false;

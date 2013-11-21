@@ -38,7 +38,6 @@ import org.olat.core.logging.OLog;
 import org.olat.core.logging.Tracing;
 import org.olat.core.manager.BasicManager;
 import org.olat.core.util.StringHelper;
-import org.olat.core.util.mail.manager.MailManager;
 import org.olat.core.util.mail.model.DBMailLight;
 import org.olat.core.util.mail.ui.MailContextResolver;
 import org.olat.group.BusinessGroupService;
@@ -127,7 +126,7 @@ public class MailBoxExtension extends BasicManager implements MailContextResolve
 			mailManager.delete(inMail, identity, true);
 		}
 
-		Collection<DBMailLight> outbox = new HashSet<DBMailLight>(mailManager.getOutbox(identity, 0, 0));
+		Collection<DBMailLight> outbox = new HashSet<DBMailLight>(mailManager.getOutbox(identity, 0, 0, false));
 		for(DBMailLight outMail:outbox) {
 			mailManager.delete(outMail, identity, true);
 		}

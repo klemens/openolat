@@ -335,7 +335,7 @@ public class RepositoryDetailsController extends BasicController implements Gene
 		for(IdentityShort author:authors) {
 			String authorName = userManager.getUserDisplayName(author);
 			Link authorLink = LinkFactory.createLink("author_" + counter++, main, this);
-			authorLink.setCustomDisplayText(authorName);
+			authorLink.setCustomDisplayText(StringHelper.escapeHtml(authorName));
 			authorLink.setUserObject(author);
 			authorLinkNames.add(authorLink.getComponentName());
 		}
@@ -347,7 +347,7 @@ public class RepositoryDetailsController extends BasicController implements Gene
 		if(!initialAuthors.isEmpty()) {
 			String authorName = userManager.getUserDisplayName(initialAuthors.get(0));
 			Link authorLink = LinkFactory.createLink("author_" + counter++, main, this);
-			authorLink.setCustomDisplayText(authorName);
+			authorLink.setCustomDisplayText(StringHelper.escapeHtml(authorName));
 			authorLink.setUserObject(initialAuthors.get(0));
 			main.contextPut("initialauthorlinkename", authorLink.getComponentName());
 		}
@@ -591,8 +591,7 @@ public class RepositoryDetailsController extends BasicController implements Gene
 				}
 				
 				if(detailsToolC.hasTool(TOOL_ORDERS)) {
-					boolean booking = !RepositoryEntryManagedFlag.isManaged(repositoryEntry, RepositoryEntryManagedFlag.bookings)
-							|| acService.isResourceAccessControled(repositoryEntry.getOlatResource(), null);
+					boolean booking = acService.isResourceAccessControled(repositoryEntry.getOlatResource(), null);
 					detailsToolC.setEnabled(TOOL_ORDERS, booking);
 				}
 				

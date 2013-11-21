@@ -49,10 +49,9 @@ import org.apache.http.client.methods.HttpDelete;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.methods.HttpPost;
 import org.apache.http.client.methods.HttpPut;
+import org.apache.http.entity.ContentType;
 import org.apache.http.entity.mime.HttpMultipartMode;
-import org.apache.http.entity.mime.MultipartEntity;
-import org.apache.http.entity.mime.content.FileBody;
-import org.apache.http.entity.mime.content.StringBody;
+import org.apache.http.entity.mime.MultipartEntityBuilder;
 import org.apache.http.util.EntityUtils;
 import org.apache.log4j.Logger;
 import org.codehaus.jackson.map.ObjectMapper;
@@ -189,7 +188,7 @@ public class RepositoryEntriesTest extends OlatJerseyTestCase {
 		repoVo.setManagedFlags("booking,delete");
 		
 		URI request = UriBuilder.fromUri(getContextURI()).path("repo/entries").path(re.getKey().toString()).build();
-		HttpPost method = conn.createPost(request, MediaType.APPLICATION_JSON, true);
+		HttpPost method = conn.createPost(request, MediaType.APPLICATION_JSON);
 		conn.addJsonEntity(method, repoVo);
 		
 		HttpResponse response = conn.execute(method);
@@ -235,7 +234,7 @@ public class RepositoryEntriesTest extends OlatJerseyTestCase {
 		repoVo.setLifecycle(cycleVo);
 		
 		URI request = UriBuilder.fromUri(getContextURI()).path("repo/entries").path(re.getKey().toString()).build();
-		HttpPost method = conn.createPost(request, MediaType.APPLICATION_JSON, true);
+		HttpPost method = conn.createPost(request, MediaType.APPLICATION_JSON);
 		conn.addJsonEntity(method, repoVo);
 		
 		HttpResponse response = conn.execute(method);
@@ -280,12 +279,14 @@ public class RepositoryEntriesTest extends OlatJerseyTestCase {
 		
 		URI request = UriBuilder.fromUri(getContextURI()).path("repo/entries").build();
 		HttpPut method = conn.createPut(request, MediaType.APPLICATION_JSON, true);
-		MultipartEntity entity = new MultipartEntity(HttpMultipartMode.BROWSER_COMPATIBLE);
-		entity.addPart("file", new FileBody(cp));
-		entity.addPart("filename", new StringBody("cp-demo.zip"));
-		entity.addPart("resourcename", new StringBody("CP demo"));
-		entity.addPart("displayname", new StringBody("CP demo"));
-		entity.addPart("access", new StringBody("3"));
+		HttpEntity entity = MultipartEntityBuilder.create()
+			.setMode(HttpMultipartMode.BROWSER_COMPATIBLE)
+			.addBinaryBody("file", cp, ContentType.APPLICATION_OCTET_STREAM, cp.getName())
+			.addTextBody("filename", "cp-demo.zip")
+			.addTextBody("resourcename", "CP demo")
+			.addTextBody("displayname", "CP demo")
+			.addTextBody("access", "3")
+			.build();
 		method.setEntity(entity);
 		
 		HttpResponse response = conn.execute(method);
@@ -316,11 +317,13 @@ public class RepositoryEntriesTest extends OlatJerseyTestCase {
 		
 		URI request = UriBuilder.fromUri(getContextURI()).path("repo/entries").build();
 		HttpPut method = conn.createPut(request, MediaType.APPLICATION_JSON, true);
-		MultipartEntity entity = new MultipartEntity(HttpMultipartMode.BROWSER_COMPATIBLE);
-		entity.addPart("file", new FileBody(cp));
-		entity.addPart("filename", new StringBody("qti-demo.zip"));
-		entity.addPart("resourcename", new StringBody("QTI demo"));
-		entity.addPart("displayname", new StringBody("QTI demo"));
+		HttpEntity entity = MultipartEntityBuilder.create()
+				.setMode(HttpMultipartMode.BROWSER_COMPATIBLE)
+				.addBinaryBody("file", cp, ContentType.APPLICATION_OCTET_STREAM, cp.getName())
+				.addTextBody("filename", "qti-demo.zip")
+				.addTextBody("resourcename", "QTI demo")
+				.addTextBody("displayname", "QTI demo")
+				.build();
 		method.setEntity(entity);
 		
 		HttpResponse response = conn.execute(method);
@@ -351,11 +354,13 @@ public class RepositoryEntriesTest extends OlatJerseyTestCase {
 		
 		URI request = UriBuilder.fromUri(getContextURI()).path("repo/entries").build();
 		HttpPut method = conn.createPut(request, MediaType.APPLICATION_JSON, true);
-		MultipartEntity entity = new MultipartEntity(HttpMultipartMode.BROWSER_COMPATIBLE);
-		entity.addPart("file", new FileBody(cp));
-		entity.addPart("filename", new StringBody("questionnaire-demo.zip"));
-		entity.addPart("resourcename", new StringBody("Questionnaire demo"));
-		entity.addPart("displayname", new StringBody("Questionnaire demo"));
+		HttpEntity entity = MultipartEntityBuilder.create()
+				.setMode(HttpMultipartMode.BROWSER_COMPATIBLE)
+				.addBinaryBody("file", cp, ContentType.APPLICATION_OCTET_STREAM, cp.getName())
+				.addTextBody("filename", "questionnaire-demo.zip")
+				.addTextBody("resourcename", "Questionnaire demo")
+				.addTextBody("displayname", "Questionnaire demo")
+				.build();
 		method.setEntity(entity);
 		
 		HttpResponse response = conn.execute(method);
@@ -385,11 +390,13 @@ public class RepositoryEntriesTest extends OlatJerseyTestCase {
 		assertTrue(conn.login("administrator", "openolat"));
 		URI request = UriBuilder.fromUri(getContextURI()).path("repo/entries").build();
 		HttpPut method = conn.createPut(request, MediaType.APPLICATION_JSON, true);
-		MultipartEntity entity = new MultipartEntity(HttpMultipartMode.BROWSER_COMPATIBLE);
-		entity.addPart("file", new FileBody(cp));
-		entity.addPart("filename", new StringBody("wiki-demo.zip"));
-		entity.addPart("resourcename", new StringBody("Wiki demo"));
-		entity.addPart("displayname", new StringBody("Wiki demo"));
+		HttpEntity entity = MultipartEntityBuilder.create()
+				.setMode(HttpMultipartMode.BROWSER_COMPATIBLE)
+				.addBinaryBody("file", cp, ContentType.APPLICATION_OCTET_STREAM, cp.getName())
+				.addTextBody("filename", "wiki-demo.zip")
+				.addTextBody("resourcename", "Wiki demo")
+				.addTextBody("displayname", "Wiki demo")
+				.build();
 		method.setEntity(entity);
 		
 		HttpResponse response = conn.execute(method);
@@ -420,11 +427,13 @@ public class RepositoryEntriesTest extends OlatJerseyTestCase {
 		
 		URI request = UriBuilder.fromUri(getContextURI()).path("repo/entries").build();
 		HttpPut method = conn.createPut(request, MediaType.APPLICATION_JSON, true);
-		MultipartEntity entity = new MultipartEntity(HttpMultipartMode.BROWSER_COMPATIBLE);
-		entity.addPart("file", new FileBody(cp));
-		entity.addPart("filename", new StringBody("blog-demo.zip"));
-		entity.addPart("resourcename", new StringBody("Blog demo"));
-		entity.addPart("displayname", new StringBody("Blog demo"));
+		HttpEntity entity = MultipartEntityBuilder.create()
+				.setMode(HttpMultipartMode.BROWSER_COMPATIBLE)
+				.addBinaryBody("file", cp, ContentType.APPLICATION_OCTET_STREAM, cp.getName())
+				.addTextBody("filename", "blog-demo.zip")
+				.addTextBody("resourcename", "Blog demo")
+				.addTextBody("displayname", "Blog demo")
+				.build();
 		method.setEntity(entity);
 		
 		HttpResponse response = conn.execute(method);
@@ -518,7 +527,7 @@ public class RepositoryEntriesTest extends OlatJerseyTestCase {
 		
 		URI request = UriBuilder.fromUri(getContextURI())
 				.path("repo/entries").path(re.getKey().toString()).path("owners").path(owner.getKey().toString()).build();
-		HttpDelete method = conn.createDelete(request, MediaType.APPLICATION_JSON, true);
+		HttpDelete method = conn.createDelete(request, MediaType.APPLICATION_JSON);
 		HttpResponse response = conn.execute(method);
 		assertEquals(200, response.getStatusLine().getStatusCode());
 		EntityUtils.consume(response.getEntity());
@@ -608,7 +617,7 @@ public class RepositoryEntriesTest extends OlatJerseyTestCase {
 		
 		URI request = UriBuilder.fromUri(getContextURI())
 				.path("repo/entries").path(re.getKey().toString()).path("coaches").path(coach.getKey().toString()).build();
-		HttpDelete method = conn.createDelete(request, MediaType.APPLICATION_JSON, true);
+		HttpDelete method = conn.createDelete(request, MediaType.APPLICATION_JSON);
 		HttpResponse response = conn.execute(method);
 		assertEquals(200, response.getStatusLine().getStatusCode());
 		EntityUtils.consume(response.getEntity());
@@ -697,7 +706,7 @@ public class RepositoryEntriesTest extends OlatJerseyTestCase {
 		
 		URI request = UriBuilder.fromUri(getContextURI())
 				.path("repo/entries").path(re.getKey().toString()).path("participants").path(participant.getKey().toString()).build();
-		HttpDelete method = conn.createDelete(request, MediaType.APPLICATION_JSON, true);
+		HttpDelete method = conn.createDelete(request, MediaType.APPLICATION_JSON);
 		HttpResponse response = conn.execute(method);
 		assertEquals(200, response.getStatusLine().getStatusCode());
 		EntityUtils.consume(response.getEntity());
