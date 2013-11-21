@@ -49,6 +49,10 @@
 					<constructor-arg index="3" value="${shibbolethGeneric.default}"/>
 			</bean>
 		</entry>
+		<!-- Simple Shibboleth authenticater -->
+		<entry key="SimpleShibboleth">
+			<ref bean="SimpleShibbolethAuthenticationProvider" />
+		</entry>
 		<!-- The LDAP authentication provider -->
 		<entry key="LDAP">
 			<bean id="LDAPAuthenticationProvider" class="org.olat.login.auth.AuthenticationProvider" >

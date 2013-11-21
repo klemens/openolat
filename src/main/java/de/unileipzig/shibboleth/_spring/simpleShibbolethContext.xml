@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.springframework.org/schema/beans 
+  						http://www.springframework.org/schema/beans/spring-beans-3.0.xsd">
+	
+	<bean id="simpleShibbolethDispatcher" class="de.unileipzig.shibboleth.SimpleShibbolethDispatcher">
+		<property name="mapping">
+			<props>
+				<prop key="uid">username</prop>
+				<!--
+				<prop key="Shib_firstname">firstname</prop>
+				<prop key="Shib_lastname">lastname</prop>
+				<prop key="Shib_email">email</prop>
+				<prop key="Shib_identifier">identifier</prop>
+				<prop key="Shib_subject">subject</prop>
+				-->
+			</props>
+		</property>
+		<property name="enabled" value="${simpleShibboleth.enable:false}"/>
+		<property name="migrate" value="${simpleShibboleth.migrateUsers:false}" />
+		<property name="emailTemplate" value="${simpleShibboleth.emailTemplate:%s@student.my.uni}" />
+	</bean>
+	
+	<bean id="SimpleShibbolethAuthenticationProvider" class="org.olat.login.auth.AuthenticationProvider" >
+		<constructor-arg index="0" value="SimpleShibboleth"/>
+		<constructor-arg index="1" value="de.unileipzig.shibboleth.SimpleShibbolethLoginFormController"/>
+		<constructor-arg index="2" value="${simpleShibboleth.enable:false}"/>
+		<constructor-arg index="3" value="${simpleShibboleth.default:false}"/>
+	</bean>
+	
+	<bean class="org.springframework.beans.factory.config.MethodInvokingFactoryBean">
+        <property name="staticMethod" value="de.unileipzig.shibboleth.SimpleShibbolethLoginFormController.setPath"/>
+        <property name="arguments" value="${simpleShibboleth.path:shib}" />
+    </bean>
+	
+</beans>

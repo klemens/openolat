@@ -33,6 +33,7 @@
 	<import resource="classpath:/org/olat/core/logging/activity/_spring/activityCorecontext.xml"/>
 	
 	<import resource="classpath:/de/unileipzig/xman/_spring/xmanContext.xml"/>
+	<import resource="classpath:/de/unileipzig/shibboleth/_spring/simpleShibbolethContext.xml" />
 	
 	<import resource="classpath:/org/olat/core/dispatcher/_spring/dispatcherContext.xml"/>
 	<import resource="classpath:/org/olat/core/gui/control/_spring/fullWebAppContext.xml"/>
