@@ -63,6 +63,7 @@
 								<ref bean="userPropertyLastName" />
 								<ref bean="userPropertyEmail" />
 								<ref bean="userPropertyEmailDisabled" />
+							<!--
 								<ref bean="userPropertyBirthDay" />
 								<ref bean="userPropertyGender" />
 								<ref bean="userPropertyTelPrivate" />
@@ -81,9 +82,12 @@
 								<ref bean="userPropertyCity" />
 								<ref bean="userPropertyCountry" />
 								<ref bean="userPropertyInstitutionalName" />
+							-->
 								<ref bean="userPropertyInstitutionalUserIdentifier" />
 								<ref bean="userPropertyInstitutionalEmail" />
+							<!--
 								<ref bean="userPropertyOrgUnit" />
+							-->
 								<ref bean="userPropertyStudySubject" />
 							</list>
 						</property>
