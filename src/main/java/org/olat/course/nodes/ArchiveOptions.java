@@ -17,21 +17,37 @@
  * frentix GmbH, http://www.frentix.com
  * <p>
  */
-package org.olat.modules.scorm.archiver;
+package org.olat.course.nodes;
 
-import org.olat.core.extensions.action.GenericActionExtension;
-import org.olat.core.gui.UserRequest;
-import org.olat.core.gui.control.Controller;
-import org.olat.core.gui.control.WindowControl;
-import org.olat.course.ICourse;
+import java.util.List;
 
-public class ArchiverActionExtension extends GenericActionExtension {
+import org.olat.core.id.Identity;
+import org.olat.group.BusinessGroup;
 
-	@Override
-	public Controller createController(UserRequest ureq, WindowControl wControl, Object arg) {
-		if(arg instanceof ICourse) {
-			return new ScormResultArchiveController(ureq, wControl, (ICourse)arg);
-		}
-		return super.createController(ureq, wControl, arg);
+/**
+ * 
+ * Initial date: 20.12.2013<br>
+ * @author srosse, stephane.rosse@frentix.com, http://www.frentix.com
+ *
+ */
+public class ArchiveOptions {
+	
+	private BusinessGroup group;
+	private List<Identity> identities;
+	
+	public BusinessGroup getGroup() {
+		return group;
+	}
+	
+	public void setGroup(BusinessGroup group) {
+		this.group = group;
+	}
+	
+	public List<Identity> getIdentities() {
+		return identities;
+	}
+	
+	public void setIdentities(List<Identity> identities) {
+		this.identities = identities;
 	}
 }
