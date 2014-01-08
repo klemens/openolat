@@ -188,7 +188,7 @@ public class SimpleShibbolethDispatcher implements Dispatcher {
 		}
 		
 		// persist user
-		Identity identity = secMgr.createAndPersistIdentityAndUser(username, user, PROVIDER_SSHIB, username, null);
+		Identity identity = secMgr.createAndPersistIdentityAndUser(username, user, PROVIDER_SSHIB, username);
 		
 		// add to group user
 		secMgr.addIdentityToSecurityGroup(identity, secMgr.findSecurityGroupByName(Constants.GROUP_OLATUSERS));
