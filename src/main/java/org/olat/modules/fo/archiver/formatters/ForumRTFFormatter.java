@@ -43,6 +43,7 @@ import org.olat.core.commons.modules.bc.vfs.OlatRootFolderImpl;
 import org.olat.core.id.Identity;
 import org.olat.core.id.UserConstants;
 import org.olat.core.logging.AssertException;
+import org.olat.core.logging.OLog;
 import org.olat.core.logging.Tracing;
 import org.olat.core.util.Formatter;
 import org.olat.core.util.WebappHelper;
@@ -64,6 +65,8 @@ import org.olat.modules.fo.MessageNode;
  */
 
 public class ForumRTFFormatter extends ForumFormatter {
+	
+	private static final OLog log = Tracing.createLoggerFor(ForumRTFFormatter.class);
 
 	private VFSContainer container;
 	private VFSItem vfsFil = null;
@@ -97,10 +100,7 @@ public class ForumRTFFormatter extends ForumFormatter {
 		super();
 		// where to write
 		this.container = container;
-		this.filePerThread = filePerThread;		
-		//
-		/*Translator translator = new PackageTranslator(PACKAGE, locale);
-		HIDDEN_STR = translator.translate("fo_hidden");*/
+		this.filePerThread = filePerThread;
 	}
 
 	/**
@@ -115,10 +115,10 @@ public class ForumRTFFormatter extends ForumFormatter {
 				//to have a meaningful filename we create the file here
 				String filName = "Thread_" + mn.getKey().toString();
 				tempContainer = makeTempVFSContainer();			
-				this.vfsFil=tempContainer.resolve(filName + ".rtf");
+				vfsFil=tempContainer.resolve(filName + ".rtf");
 				if(vfsFil==null){
 					tempContainer.createChildLeaf(filName + ".rtf");
-					this.vfsFil=tempContainer.resolve(filName + ".rtf");
+					vfsFil=tempContainer.resolve(filName + ".rtf");
 				}
 			}
 			//important!
@@ -157,8 +157,8 @@ public class ForumRTFFormatter extends ForumFormatter {
 		}
 		sb.append(" \\par}");
 		// attachment(s)
-		OlatRootFolderImpl msgContainer = fm.getMessageContainer((Long)(getMetainfo(ForumFormatter.MANDATORY_METAINFO_KEY)), mn.getKey());
-		List attachments = msgContainer.getItems();
+		OlatRootFolderImpl msgContainer = fm.getMessageContainer(getForumKey(), mn.getKey());
+		List<VFSItem> attachments = msgContainer.getItems();
 		if (attachments != null && attachments.size() > 0){
 			VFSItem item = container.resolve("attachments");
 			if (item == null){
@@ -169,8 +169,7 @@ public class ForumRTFFormatter extends ForumFormatter {
 			
 			sb.append("{\\pard \\f0\\fs15 Attachment(s): ");
 			boolean commaFlag = false;
-			for (Iterator iter = attachments.iterator(); iter.hasNext();) {
-				VFSItem attachment = (VFSItem) iter.next();
+			for (VFSItem attachment: attachments) {
 				if (commaFlag) sb.append(", ");
 				sb.append(attachment.getName());
 				commaFlag = true;
@@ -178,7 +177,6 @@ public class ForumRTFFormatter extends ForumFormatter {
 			sb.append("} \\line");
 		}
 		sb.append("{\\pard \\brdrb\\brdrs\\brdrw10 \\par}");
-		
 	}
 
 	/**
@@ -207,7 +205,7 @@ public class ForumRTFFormatter extends ForumFormatter {
 			sb.append("}");
 		}
 		writeToFile(append, sb);
-		if(this.filePerThread) {
+		if(filePerThread) {
 			zipContainer(tempContainer);			
 			tempContainer.delete();	
 		}
@@ -221,7 +219,7 @@ public class ForumRTFFormatter extends ForumFormatter {
 	public void openForum(){
 		if(!filePerThread){
 			//make one ForumFile
-			Long forumKey = (Long) metaInfo.get(ForumFormatter.MANDATORY_METAINFO_KEY);
+			Long forumKey = getForumKey();
 			String filName = forumKey.toString();
 			filName = "Threads_" + filName + ".rtf";
 			
@@ -229,7 +227,7 @@ public class ForumRTFFormatter extends ForumFormatter {
 			this.vfsFil=tempContainer.resolve(filName);
 			if(vfsFil==null){
 				tempContainer.createChildLeaf(filName);
-				this.vfsFil=tempContainer.resolve(filName);
+				vfsFil = tempContainer.resolve(filName);
 			}
 			sb.append("{\\rtf1\\ansi\\deff0");
 			sb.append("{\\fonttbl {\\f0\\fswiss Arial;}} ");
@@ -433,7 +431,7 @@ public class ForumRTFFormatter extends ForumFormatter {
 				container.copyFrom(imgFile);
 				fileNameList.add(file.getName());
 			} else {
-				Tracing.logError("Could not find image for forum RTF formatter::" + iconPath, ForumFormatter.class);
+				log.error("Could not find image for forum RTF formatter::" + iconPath);
 			}
 		}
 		return fileNameList;
@@ -446,7 +444,7 @@ public class ForumRTFFormatter extends ForumFormatter {
 	 * @return the path of the static icon image.
 	 */
 	private String getImagePath(Object val) { 		
-		return WebappHelper.getContextRoot() + "/static/images/forum/" + val.toString() + ".png";				
+		return WebappHelper.getContextRealPath("/static/images/forum/" + val.toString() + ".png");				
 	}
 	
 	/**
@@ -454,7 +452,7 @@ public class ForumRTFFormatter extends ForumFormatter {
 	 * @return the temp container.
 	 */
 	private VFSContainer makeTempVFSContainer() {		
-		Long forumKey = (Long) metaInfo.get(ForumFormatter.MANDATORY_METAINFO_KEY);
+		Long forumKey = getForumKey();
 		String dateStamp = String.valueOf(System.currentTimeMillis());
     //TODO: (LD) could this filename regarded as unique or use System.nanoTime() instead?
 		String fileName = "forum" + forumKey.toString() + "_" + dateStamp; 

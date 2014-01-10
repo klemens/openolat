@@ -29,6 +29,7 @@ import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.zip.ZipOutputStream;
 
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.stack.StackedController;
@@ -362,11 +363,11 @@ public abstract class GenericCourseNode extends GenericNode implements CourseNod
 	 * implementation.
 	 * 
 	 * @see org.olat.course.nodes.CourseNode#archiveNodeData(java.util.Locale,
-	 *      org.olat.course.ICourse, java.io.File)
+	 *      org.olat.course.ICourse, java.util.zip.ZipOutputStream, String charset)
 	 */
-	//implemented by specialized node
-	public boolean archiveNodeData(Locale locale, ICourse course, File exportDirectory, String charset) {
-	// nothing to do in default implementation
+	@Override
+	public boolean archiveNodeData(Locale locale, ICourse course, ArchiveOptions options, ZipOutputStream exportStream, String charset) {
+		// nothing to do in default implementation
 		return true;
 	}
 
