@@ -52,6 +52,7 @@ import org.olat.course.assessment.AssessmentHelper;
 import org.olat.course.assessment.AssessmentManager;
 import org.olat.course.assessment.manager.UserCourseInformationsManager;
 import org.olat.course.groupsandrights.CourseGroupManager;
+import org.olat.course.nodes.ArchiveOptions;
 import org.olat.course.nodes.AssessableCourseNode;
 import org.olat.course.nodes.CourseNode;
 import org.olat.course.nodes.STCourseNode;
@@ -376,7 +377,6 @@ public class ScoreAccountingHelper {
 	 * @param courseEnv
 	 * @return The list of identities from this course
 	 */
-	//fxdiff VCRP-1,2: access control of resources
 	public static List<Identity> loadUsers(CourseEnvironment courseEnv) {
 		CourseGroupManager gm = courseEnv.getCourseGroupManager();
 		BaseSecurity securityManager = BaseSecurityManager.getInstance();
@@ -397,6 +397,21 @@ public class ScoreAccountingHelper {
 		List<Identity> assessedList = courseEnv.getCoursePropertyManager().getAllIdentitiesWithCourseAssessmentData(userList);
 		userList.addAll(assessedList);
 		return userList;
+	}
+	
+	public static List<Identity> loadUsers(CourseEnvironment courseEnv, ArchiveOptions options) {
+		BaseSecurity securityManager = BaseSecurityManager.getInstance();
+		List<Identity> users;
+		if(options == null) {
+			users = loadUsers(courseEnv);
+		} else if(options.getGroup() != null) {
+			users = securityManager.getIdentitiesOfSecurityGroup(options.getGroup().getPartipiciantGroup());
+		} else if(options.getIdentities() != null) {
+			users = options.getIdentities();
+		} else {
+			users = loadUsers(courseEnv);
+		}
+		return users;
 	}
 	
 	/**
