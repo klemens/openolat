@@ -38,6 +38,7 @@ import org.olat.basesecurity.BaseSecurityManager;
 import org.olat.basesecurity.Constants;
 import org.olat.commons.file.filechooser.FileChooseCreateEditController;
 import org.olat.commons.file.filechooser.LinkChooseCreateEditController;
+import org.olat.core.CoreSpringFactory;
 import org.olat.core.commons.fullWebApp.LayoutMain3ColsController;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.Component;
@@ -216,6 +217,8 @@ public class IQEditController extends ActivateableTabbableDefaultController impl
 	private CloseableModalController cmc;
 	private Link editTestButton;
 	private final StackedController stackPanel;
+	
+	private final IQManager iqManager;
 
 	/**
 	 * Constructor for the IMS QTI edit controller for a test course node
@@ -235,6 +238,9 @@ public class IQEditController extends ActivateableTabbableDefaultController impl
 		this.course = course;
 		this.courseNode = courseNode;
 		this.euce = euce;
+		
+		iqManager = CoreSpringFactory.getImpl(IQManager.class);
+		
 		type = AssessmentInstance.QMD_ENTRY_TYPE_ASSESS;
 		this.PANE_TAB_IQCONFIG_XXX = PANE_TAB_IQCONFIG_TEST;
 		paneKeys = new String[]{PANE_TAB_IQCONFIG_XXX,PANE_TAB_ACCESSIBILITY};
@@ -268,6 +274,7 @@ public class IQEditController extends ActivateableTabbableDefaultController impl
 		this.course = course;
 		this.courseNode = courseNode;
 		this.euce = euce;
+		iqManager = CoreSpringFactory.getImpl(IQManager.class);
 		type = AssessmentInstance.QMD_ENTRY_TYPE_SELF;
 		this.PANE_TAB_IQCONFIG_XXX = PANE_TAB_IQCONFIG_SELF;
 		paneKeys = new String[]{PANE_TAB_IQCONFIG_XXX,PANE_TAB_ACCESSIBILITY};
@@ -299,6 +306,7 @@ public class IQEditController extends ActivateableTabbableDefaultController impl
 		this.course = course;
 		this.courseNode = courseNode;
 		this.euce = euce;
+		iqManager = CoreSpringFactory.getImpl(IQManager.class);
 		type = AssessmentInstance.QMD_ENTRY_TYPE_SURVEY;
 		this.PANE_TAB_IQCONFIG_XXX = PANE_TAB_IQCONFIG_SURV;
 		paneKeys = new String[]{PANE_TAB_IQCONFIG_XXX,PANE_TAB_ACCESSIBILITY};
@@ -453,7 +461,7 @@ public class IQEditController extends ActivateableTabbableDefaultController impl
 		} else if (source == previewLink){
 			removeAsListenerAndDispose(previewLayoutCtr);
 			// handle preview
-			Controller previewController = IQManager.getInstance().createIQDisplayController(moduleConfiguration, new IQPreviewSecurityCallback(), ureq, getWindowControl(), course
+			Controller previewController = iqManager.createIQDisplayController(moduleConfiguration, new IQPreviewSecurityCallback(), ureq, getWindowControl(), course
 					.getResourceableId().longValue(), courseNode.getIdent(), null);
 			previewLayoutCtr = new LayoutMain3ColsController(ureq, getWindowControl(), previewController);
 			stackPanel.pushController(translate("preview"), previewLayoutCtr);
@@ -520,7 +528,7 @@ public class IQEditController extends ActivateableTabbableDefaultController impl
 					boolean passed = (results != null && results.size() > 0) ? true : false;
 					// test was started and not passed
 					// it exists partly results for this test
-					List<Identity> identitiesWithQtiSerEntry = IQManager.getInstance().getIdentitiesWithQtiSerEntry(course.getResourceableId(), courseNode.getIdent());
+					List<Identity> identitiesWithQtiSerEntry = iqManager.getIdentitiesWithQtiSerEntry(course.getResourceableId(), courseNode.getIdent());
 					if(passed || identitiesWithQtiSerEntry.size() > 0) {
 						learners = new ArrayList<Identity>();
 						for(QTIResult result : results) {
@@ -614,7 +622,7 @@ public class IQEditController extends ActivateableTabbableDefaultController impl
 				Long repKey = RepositoryManager.getInstance().lookupRepositoryEntryBySoftkey(repositorySoftKey, true).getKey();
 				QTIResultManager.getInstance().deleteAllResults(course.getResourceableId(), courseNode.getIdent(), repKey);
 				removeIQReference(moduleConfiguration);
-				VFSStatus isDeleted = IQManager.getInstance().removeQtiSerFiles(course.getResourceableId(), courseNode.getIdent());
+				VFSStatus isDeleted = iqManager.removeQtiSerFiles(course.getResourceableId(), courseNode.getIdent());
 				if (!isDeleted.equals(VFSConstants.YES)) {
 					// couldn't removed qtiser files
 					log.warn("Couldn't removed course node folder! Course resourceable id: " + course.getResourceableId() + ", Course node ident: " + courseNode.getIdent());
