@@ -27,6 +27,7 @@ package org.olat.ims.qti.repository.handlers;
 
 import java.io.File;
 
+import org.olat.core.CoreSpringFactory;
 import org.olat.core.commons.fullWebApp.LayoutMain3ColsController;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.control.WindowControl;
@@ -84,10 +85,11 @@ public abstract class QTIHandler extends FileHandler implements RepositoryHandle
 	public MainLayoutController createLaunchController(RepositoryEntry re, UserRequest ureq, WindowControl wControl) {
 		Resolver resolver = new ImsRepositoryResolver(re);
 		IQSecurityCallback secCallback = new IQPreviewSecurityCallback();
+		IQManager iqManager = CoreSpringFactory.getImpl(IQManager.class);
 		OLATResource res = re.getOlatResource();
 		MainLayoutController runController = res.getResourceableTypeName().equals(SurveyFileResource.TYPE_NAME) ?
-			IQManager.getInstance().createIQDisplayController(res, resolver, AssessmentInstance.QMD_ENTRY_TYPE_SURVEY, secCallback, ureq, wControl) :	
-			IQManager.getInstance().createIQDisplayController(res, resolver, AssessmentInstance.QMD_ENTRY_TYPE_SELF, secCallback, ureq, wControl);
+			iqManager.createIQDisplayController(res, resolver, AssessmentInstance.QMD_ENTRY_TYPE_SURVEY, secCallback, ureq, wControl) :	
+			iqManager.createIQDisplayController(res, resolver, AssessmentInstance.QMD_ENTRY_TYPE_SELF, secCallback, ureq, wControl);
 			// use on column layout
 		LayoutMain3ColsController layoutCtr = new LayoutMain3ColsController(ureq, wControl, null, null, runController.getInitialComponent(), null);
 		layoutCtr.addDisposableChildController(runController); // dispose content on layout dispose

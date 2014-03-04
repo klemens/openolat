@@ -29,6 +29,7 @@ import java.util.Set;
 
 import org.olat.core.gui.components.form.flexible.FormItem;
 import org.olat.core.gui.components.form.flexible.impl.elements.table.ExtendedFlexiTableSearchController;
+import org.olat.core.gui.components.form.flexible.impl.elements.table.FlexiColumnModel;
 import org.olat.core.gui.components.form.flexible.impl.elements.table.FlexiTableRendererType;
 
 /**
@@ -137,6 +138,49 @@ public interface FlexiTableElement extends FormItem {
 	 * @param enable
 	 */
 	public void setSearchEnabled(boolean enable);
+	
+	/**
+	 * Is the filer enabled?
+	 * @return
+	 */
+	public boolean isFilterEnabled();
+	
+	/**
+	 * @return The selected key by the filter, or null if no item is selected
+	 */
+	public String getSelectedFilterKey();
+	
+	/**
+	 * @return The selected value by the filter, or null if no item is selected
+	 */
+	public String getSelectedFilterValue();
+	
+	/**
+	 * Set the values for the filter and will enable it.
+	 * @param keys
+	 * @param values
+	 */
+	public void setFilterKeysAndValues(String labelI18nKey, String[] keys, String[] values);
+	
+	/**
+	 * Enable export
+	 * @return True if export is enabled
+	 */
+	public boolean isExportEnabled();
+	
+	public void setExportEnabled(boolean enabled);
+	
+	public boolean isEditMode();
+
+	/**
+	 * Set a visual change but do not change anything on the model
+	 * @param editMode
+	 */
+	public void setEditMode(boolean editMode);
+	
+	public boolean isColumnModelVisible(FlexiColumnModel col);
+	
+	public void setColumnModelVisible(FlexiColumnModel col, boolean visible);
 	
 	/**
 	 * 
