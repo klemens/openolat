@@ -14,7 +14,7 @@
 
     <complexType name="autotoolservertype">
     	<sequence>
-    		<element name="server" type="tns:servertype"></element>
+    		<element name="server" type="tns:servertype" maxOccurs="unbounded" />
     	</sequence>
     </complexType>
 
