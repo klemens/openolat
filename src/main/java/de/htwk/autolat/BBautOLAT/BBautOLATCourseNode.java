@@ -326,9 +326,7 @@ public class BBautOLATCourseNode extends AbstractAccessableCourseNode implements
 
 	public ScoreEvaluation getUserScoreEvaluation(UserCourseEnvironment userCourseEnv) {
 		
-		AssessmentManager am = userCourseEnv.getCourseEnvironment().getAssessmentManager();
-		Identity identity = userCourseEnv.getIdentityEnvironment().getIdentity();
-		ScoreEvaluation scoreEvaluation = new ScoreEvaluation(0f, false,am.getAssessmentID(this, identity));		
+		ScoreEvaluation scoreEvaluation = new ScoreEvaluation(0f, false);
 		
 		try {
 			Long courseID = userCourseEnv.getCourseEnvironment().getCourseResourceableId();
@@ -337,8 +335,7 @@ public class BBautOLATCourseNode extends AbstractAccessableCourseNode implements
 			TaskInstance taskInstance = student.getTaskInstanceByConfiguration(ConfigurationManagerImpl.getInstance().getConfigurationByCourseID(courseID, courseNodeID));	
 			TaskResult taskResult = taskInstance.getResult();
 			if(taskResult!=null) {
-				scoreEvaluation = new ScoreEvaluation(Float.valueOf(String.valueOf(taskResult.getMaxScore())), true
-						, am.getAssessmentID(this, identity));
+				scoreEvaluation = new ScoreEvaluation(Float.valueOf(String.valueOf(taskResult.getMaxScore())), true);
 			}
 		}
 		catch (Exception e) {};

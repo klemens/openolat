@@ -90,7 +90,7 @@ public class EditTaskForm extends FormBasicController {
 			}
 			
 			doc = uifactory.addRichTextElementForStringDataMinimalistic("documentation", "label.form.edittask.documentation",
-					documentationTextAsHTML, -1, -1, false, formLayout, ureq.getUserSession(), getWindowControl());
+					documentationTextAsHTML, -1, -1, formLayout, ureq.getUserSession(), getWindowControl());
 			
 			//doc = uifactory.addTextElement("documentation", "label.form.edittask.documentation",
 			//		30000, documentationTextAsHTML, formLayout);
@@ -116,7 +116,7 @@ public class EditTaskForm extends FormBasicController {
 			}
 			
 			doc = uifactory.addRichTextElementForStringDataMinimalistic("documentation", "label.form.edittask.documentation",
-					documentationTextAsHTML, -1, -1, false, formLayout, ureq.getUserSession(), getWindowControl());
+					documentationTextAsHTML, -1, -1, formLayout, ureq.getUserSession(), getWindowControl());
 			
 			//doc = uifactory.addTextElement("documentation", "label.form.edittask.documentation",
 			//		30000, documentationTextAsHTML, formLayout);

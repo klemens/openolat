@@ -133,7 +133,7 @@ public class BBautOLATStructureNode extends AbstractAccessableCourseNode impleme
 			Boolean allowRelativeLinks = getModuleConfiguration().getBooleanEntry(BBautOLATStructureNodeEditController.CONFIG_KEY_ALLOW_RELATIVE_LINKS);
 			OLATResourceable ores = OresHelper.createOLATResourceableInstance(CourseModule.class, userCourseEnv.getCourseEnvironment().getCourseResourceableId());
 			SinglePageController spCtr = new SinglePageController(ureq, wControl, userCourseEnv.getCourseEnvironment().getCourseFolderContainer(), relPath, null, allowRelativeLinks
-					.booleanValue(), ores);
+					.booleanValue(), ores, null);
 			// check if user is allowed to edit the page in the run view
 			CourseGroupManager cgm = userCourseEnv.getCourseEnvironment().getCourseGroupManager();
 			boolean hasEditRights = (cgm.isIdentityCourseAdministrator(ureq.getIdentity()) || cgm.hasRight(ureq.getIdentity(),

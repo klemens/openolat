@@ -36,9 +36,8 @@ public class ScoreObjectManagerImpl {
 			// TaskTypeImpl.SO_NONE
 			dbqOrder = "so.scoreDate ASC";
 		}
-		DBQuery dbq = DBFactory.getInstance().createQuery(
-				"SELECT so FROM ScoreObjectImpl AS so WHERE so.configuration = :conf ORDER BY " +
-				dbqOrder + " LIMIT " + scorePoints.size());
+		DBQuery dbq = DBFactory.getInstance().createQuery("SELECT so FROM ScoreObjectImpl AS so WHERE so.configuration = :conf ORDER BY " + dbqOrder);
+		dbq.setMaxResults(scorePoints.size());
 		dbq.setLong("conf", conf.getKey());
 
 		List<ScoreObject> result = (List<ScoreObject>) dbq.list();

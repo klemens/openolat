@@ -29,6 +29,8 @@
 	<import resource="classpath:/org/olat/core/logging/_spring/loggingCorecontext.xml"/>
 	<import resource="classpath:/org/olat/core/logging/activity/_spring/activityCorecontext.xml"/>
 	
+	<import resource="classpath:/de/htwk/autolat/_spring/mainCorecontext.xml"/>
+
 	<import resource="classpath:/org/olat/core/dispatcher/_spring/dispatcherContext.xml"/>
 	<import resource="classpath:/org/olat/core/gui/control/_spring/fullWebAppContext.xml"/>
 	<import resource="classpath:/org/olat/core/gui/control/_spring/sitedefContext.xml"/>

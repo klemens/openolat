@@ -70,19 +70,15 @@ public class EditPropertiesForm extends FormBasicController {
 	protected void initForm(FormItemContainer formLayout, Controller listener,
 			UserRequest ureq) {
 		
-		beginDate = uifactory.addDateChooser("beginDate", "label.form.editproperties.begindate", "", formLayout);
+		beginDate = uifactory.addDateChooser("beginDate", "label.form.editproperties.begindate", null, formLayout);
 		beginDate.setDateChooserTimeEnabled(true);
-		beginDate.setDateChooserDateFormat("%d.%m.%Y %H:%M");
 		beginDate.setMandatory(true);
 		beginDate.setNotEmptyCheck("error.form.editproperties.setdate");
-		beginDate.setCustomDateFormat("dd.MM.yyyy HH:mm");
 		
-		endDate = uifactory.addDateChooser("endDate", "label.form.editproperties.begindate", "", formLayout);
+		endDate = uifactory.addDateChooser("endDate", "label.form.editproperties.begindate", null, formLayout);
 		endDate.setDateChooserTimeEnabled(true);
-		endDate.setDateChooserDateFormat("%d.%m.%Y %H:%M");
 		endDate.setMandatory(true);
 		endDate.setNotEmptyCheck("error.form.editproperties.setdate");
-		endDate.setCustomDateFormat("dd.MM.yyyy HH:mm");
 		
 		scorepoints = uifactory.addTextElement("scorepoints", "label.form.editproperties.scorepoints", 150,
 				"", formLayout);

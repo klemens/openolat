@@ -73,9 +73,8 @@ public class EditTaskModuleForm extends FormBasicController {
 		duration = uifactory.addTextElement("duration", "label.form.edittaskmodule.duration", 50, "00:00:00:00", formLayout);
 		duration.setExampleKey("example.form.edittaskmodule.duration", null);
 		
-		enddate = uifactory.addDateChooser("enddate","label.form.edittaskmodule.enddate", "", formLayout);
+		enddate = uifactory.addDateChooser("enddate","label.form.edittaskmodule.enddate", null, formLayout);
 		enddate.setDateChooserTimeEnabled(true);
-		enddate.setDateChooserDateFormat("%d.%m.%Y %H:%M");
 		
 		maxcount = uifactory.addTextElement("maxcount", "label.form.edittaskmodule.maxcount", 10, "0", formLayout);
 		
