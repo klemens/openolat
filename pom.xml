@@ -46,9 +46,9 @@
 		<url>http://jira.openolat.org</url>
 	</issueManagement>
 	<scm>
-		<connection>scm:hg:http://hg.openolat.org</connection>
-		<developerConnection>scm:hg:http://hg.openolat.org</developerConnection>
-		<url>http://hg.openolat.org</url>
+		<connection>scm:git:https://github.com/klemens/openolat.git</connection>
+		<developerConnection>scm:git:https://github.com/klemens/openolat.git</developerConnection>
+		<url>https://github.com/klemens/openolat</url>
 	</scm>
 	<mailingLists>
 		<mailingList>
@@ -1322,13 +1322,12 @@
 					<execution>
 						<phase>validate</phase>
 						<goals>
-							<goal>hgchangeset</goal>
+							<goal>create</goal>
 						</goals>
 					</execution>
 				</executions>
 				<configuration>
-					<doCheck>true</doCheck>
-					<doUpdate>true</doUpdate>
+					<shortRevisionLength>7</shortRevisionLength>
 				</configuration>
 			</plugin>
 		</plugins>
@@ -1359,9 +1358,9 @@
 								<addDefaultImplementationEntries>true</addDefaultImplementationEntries>
 							</manifest>
 							<manifestEntries>
-								<Build-Change-Set>${changeSet}</Build-Change-Set>
+								<Build-Change-Set>${maven.build.timestamp}</Build-Change-Set>
 								<Build-Change-Set-Date>${changeSetDate}</Build-Change-Set-Date>
-								<Build-Revision-Number>${revisionNumber}</Build-Revision-Number>
+								<Build-Revision-Number>${buildNumber}</Build-Revision-Number>
 								<Implementation-Build>${buildNumber}</Implementation-Build>
 							</manifestEntries>
 						</archive>
