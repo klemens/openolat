@@ -28,6 +28,7 @@ import java.util.List;
 
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.Component;
+import org.olat.core.gui.components.EscapeMode;
 import org.olat.core.gui.components.htmlsite.OlatCmdEvent;
 import org.olat.core.gui.components.panel.Panel;
 import org.olat.core.gui.components.table.DefaultColumnDescriptor;
@@ -237,11 +238,15 @@ public class BBautOLATStructureNodeRunController extends BasicController {
 				else {
 					defCD = new DefaultColumnDescriptor("task.nn", i+3, null, getLocale());
 				}
+				
+				defCD.setEscapeHtml(EscapeMode.none);
 				tableCntr.addColumnDescriptor(defCD);
 
 
 			}
-			tableCntr.addColumnDescriptor(new DefaultColumnDescriptor("label.controller.highscore.sum", i+3+1, null, getLocale()));
+			DefaultColumnDescriptor sum = new DefaultColumnDescriptor("label.controller.highscore.sum", i+3+1, null, getLocale());
+			sum.setEscapeHtml(EscapeMode.none);
+			tableCntr.addColumnDescriptor(sum);
 			tableCntr.setSortColumn(autotoolTask.size()+2, false);
 			
 			tableModel = new HighScoreTableModel(uCourseEnv.getCourseEnvironment().getCourseResourceableId(), getCoachedStudents(), autotoolTask);
@@ -269,11 +274,15 @@ public class BBautOLATStructureNodeRunController extends BasicController {
 				else {
 					defCD = new DefaultColumnDescriptor("task.nn", i+3, null, getLocale());
 				}
+				
+				defCD.setEscapeHtml(EscapeMode.none);
 				tableCntrPoints.addColumnDescriptor(defCD);
 
 
 			}
-			tableCntrPoints.addColumnDescriptor(new DefaultColumnDescriptor("label.controller.highscore.sum", i+3+1, null, getLocale()));
+			sum = new DefaultColumnDescriptor("label.controller.highscore.sum", i+3+1, null, getLocale());
+			sum.setEscapeHtml(EscapeMode.none);
+			tableCntrPoints.addColumnDescriptor(sum);
 			tableCntrPoints.setSortColumn(autotoolTask.size()+2, false);
 			
 			pointModel = new PointOverviewTableModel(uCourseEnv.getCourseEnvironment().getCourseResourceableId(), getCoachedStudents(), autotoolTask);
@@ -337,11 +346,15 @@ public class BBautOLATStructureNodeRunController extends BasicController {
 				else {
 					defCD = new DefaultColumnDescriptor("task.nn", i, null, getLocale());
 				}
+				
+				defCD.setEscapeHtml(EscapeMode.none);
 				tableCntr.addColumnDescriptor(defCD);
 
 
 			}
-			tableCntr.addColumnDescriptor(new DefaultColumnDescriptor("label.controller.highscore.sum", i+1, null, getLocale()));
+			DefaultColumnDescriptor sum = new DefaultColumnDescriptor("label.controller.highscore.sum", i+1, null, getLocale());
+			sum.setEscapeHtml(EscapeMode.none);
+			tableCntr.addColumnDescriptor(sum);
 			tableCntr.setSortColumn(autotoolTask.size(), false);
 			
 			topListTableModel = new TopListTableModel(uCourseEnv.getCourseEnvironment().getCourseResourceableId(), getStudents(), userID, autotoolTask);
