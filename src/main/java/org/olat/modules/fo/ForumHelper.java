@@ -27,6 +27,10 @@ package org.olat.modules.fo;
 
 import java.text.Collator;
 import java.util.Comparator;
+import java.util.Date;
+import java.util.Locale;
+
+import org.olat.core.util.Formatter;
 
 /**
  * 
@@ -52,22 +56,8 @@ public class ForumHelper {
 	 * @return a MessageNode comparator.
 	 * @see java.util.Comparator 
 	 */
-	public static Comparator getMessageNodeComparator() {
-		return new Comparator(){
-			//puts the sticky threads first
-			public int compare(final Object o1, final Object o2) {
-				MessageNode m1 = (MessageNode)o1;
-				MessageNode m2 = (MessageNode)o2;				
-				if(m1.isSticky() && m2.isSticky()) {
-					return m2.getModifiedDate().compareTo(m1.getModifiedDate()); //last first
-				} else if(m1.isSticky()) {
-					return -1;
-				} else if(m2.isSticky()){
-					return 1;
-				} else {
-					return m2.getModifiedDate().compareTo(m1.getModifiedDate()); //last first
-				}				
-			}};
+	public static Comparator<MessageNode> getMessageNodeComparator() {
+		return new MessageNodeComparator();
 	}
 	
 	/**
@@ -108,12 +98,16 @@ public class ForumHelper {
 		private Comparable value;
 		private boolean sticky;
 		private Collator collator = Collator.getInstance();
+		private Formatter formatter = Formatter.getInstance(Locale.getDefault());
 		
-		public MessageWrapper(Comparable value_, boolean sticky_, Collator collator) {
+		public MessageWrapper(Comparable value_, boolean sticky_, Collator collator, Formatter formatter) {
 			value = value_;
 			sticky = sticky_;
 			if (collator != null) {				
 				this.collator = collator;
+			}
+			if (formatter != null) {				
+				this.formatter = formatter;
 			}
 		}
 		
@@ -122,7 +116,10 @@ public class ForumHelper {
 		 * @see java.lang.Object#toString()
 		 */
 		public String toString() {
-			return value.toString();
+			if (value instanceof Date) {
+				return formatter.formatDateAndTime((Date)value);
+			}
+			else return value.toString();
 		}
 
 		public boolean isSticky() {
@@ -160,4 +157,17 @@ public class ForumHelper {
 		}		
 	}
 	
+	private static class MessageNodeComparator implements Comparator<MessageNode> {
+		public int compare(final MessageNode m1, final MessageNode m2) {			
+			if(m1.isSticky() && m2.isSticky()) {
+				return m2.getModifiedDate().compareTo(m1.getModifiedDate()); //last first
+			} else if(m1.isSticky()) {
+				return -1;
+			} else if(m2.isSticky()){
+				return 1;
+			} else {
+				return m2.getModifiedDate().compareTo(m1.getModifiedDate()); //last first
+			}				
+		}
+	}
 }

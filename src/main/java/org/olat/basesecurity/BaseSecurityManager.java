@@ -36,6 +36,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
 
+import javax.persistence.EntityNotFoundException;
 import javax.persistence.LockModeType;
 import javax.persistence.TemporalType;
 import javax.persistence.TypedQuery;
@@ -62,17 +63,19 @@ import org.olat.core.id.User;
 import org.olat.core.id.UserConstants;
 import org.olat.core.logging.AssertException;
 import org.olat.core.manager.BasicManager;
-import org.olat.core.util.StringHelper;
+import org.olat.core.util.Encoder;
+import org.olat.core.util.Encoder.Algorithm;
 import org.olat.core.util.Util;
 import org.olat.core.util.coordinate.CoordinatorManager;
 import org.olat.core.util.coordinate.SyncerCallback;
 import org.olat.core.util.resource.OresHelper;
+import org.olat.login.LoginModule;
 import org.olat.resource.OLATResource;
+import org.olat.resource.OLATResourceImpl;
 import org.olat.resource.OLATResourceManager;
 import org.olat.user.ChangePasswordController;
 import org.olat.user.PersonalSettingsController;
 import org.olat.user.UserManager;
-import org.springframework.beans.factory.annotation.Autowired;
 
 /**
  * <h3>Description:</h3>
@@ -84,14 +87,12 @@ import org.springframework.beans.factory.annotation.Autowired;
  * @author Felix Jost, Florian Gnaegi
  */
 public class BaseSecurityManager extends BasicManager implements BaseSecurity {
+	private DB dbInstance;
 	private OLATResourceManager orm;
 	private String dbVendor = "";
 	private static BaseSecurityManager INSTANCE;
 	private static String GUEST_USERNAME_PREFIX = "guest_";
 	public static final OLATResourceable IDENTITY_EVENT_CHANNEL = OresHelper.lookupType(Identity.class);
-
-	@Autowired
-	private DB dbInstance;
 	
 	/**
 	 * [used by spring]
@@ -107,6 +108,22 @@ public class BaseSecurityManager extends BasicManager implements BaseSecurity {
 	public static BaseSecurity getInstance() {
 		return INSTANCE;
 	}
+	
+	/**
+	 * [used by spring]
+	 * @param orm
+	 */
+	public void setResourceManager(OLATResourceManager orm) {
+		this.orm = orm;
+	}
+	
+	/**
+	 * [used by Spring]
+	 * @param dbInstance
+	 */
+	public void setDbInstance(DB dbInstance) {
+		this.dbInstance = dbInstance;
+	}
 
 	/**
 	 * @see org.olat.basesecurity.Manager#init()
@@ -118,6 +135,8 @@ public class BaseSecurityManager extends BasicManager implements BaseSecurity {
 		initSysGroupAuthors();
 		DBFactory.getInstance(false).intermediateCommit();
 		initSysGroupGroupmanagers();
+		DBFactory.getInstance(false).intermediateCommit();
+		initSysGroupPoolsmanagers();
 		DBFactory.getInstance(false).intermediateCommit();
 		initSysGroupUsermanagers();
 		DBFactory.getInstance(false).intermediateCommit();
@@ -159,6 +178,9 @@ public class BaseSecurityManager extends BasicManager implements BaseSecurity {
 		// and to all courses
 		createAndPersistPolicyIfNotExists(adminGroup, Constants.PERMISSION_ADMIN, Constants.ORESOURCE_COURSES);
 
+		// and to pool admiistration
+		createAndPersistPolicyIfNotExists(adminGroup, Constants.PERMISSION_ADMIN, Constants.ORESOURCE_POOLS);
+
 		createAndPersistPolicyIfNotExists(adminGroup, Constants.PERMISSION_ACCESS, OresHelper.lookupType(SysinfoController.class));
 		createAndPersistPolicyIfNotExists(adminGroup, Constants.PERMISSION_ACCESS, OresHelper.lookupType(UserAdminController.class));
 		createAndPersistPolicyIfNotExists(adminGroup, Constants.PERMISSION_ACCESS, OresHelper.lookupType(UserChangePasswordController.class));
@@ -190,6 +212,17 @@ public class BaseSecurityManager extends BasicManager implements BaseSecurity {
 			olatGroupmanagerGroup = createAndPersistNamedSecurityGroup(Constants.GROUP_GROUPMANAGERS);
 		//gropumanagers have a groupmanager policy and access permissions to groupmanaging tools
 		createAndPersistPolicyIfNotExists(olatGroupmanagerGroup, Constants.PERMISSION_HASROLE, Constants.ORESOURCE_GROUPMANAGER);
+	}
+	
+	/**
+	 * Users with access to group context management (groupmanagement that can be used in multiple courses
+	 */
+	private void initSysGroupPoolsmanagers() {
+		SecurityGroup secGroup = findSecurityGroupByName(Constants.GROUP_POOL_MANAGER);
+		if (secGroup == null) 
+			secGroup = createAndPersistNamedSecurityGroup(Constants.GROUP_POOL_MANAGER);
+		//pools managers have a goupmanager policy and access permissions to groupmanaging tools
+		createAndPersistPolicyIfNotExists(secGroup, Constants.PERMISSION_HASROLE, Constants.ORESOURCE_POOLS);
 	}
 
 	/**
@@ -240,7 +273,7 @@ public class BaseSecurityManager extends BasicManager implements BaseSecurity {
 		//guest(=anonymous) have a guest policy
 		createAndPersistPolicyIfNotExists(guestGroup, Constants.PERMISSION_HASROLE, Constants.ORESOURCE_GUESTONLY);
 	}
-
+	
 	/**
 	 * @see org.olat.basesecurity.Manager#getPoliciesOfSecurityGroup(org.olat.basesecurity.SecurityGroup)
 	 */
@@ -305,6 +338,25 @@ public class BaseSecurityManager extends BasicManager implements BaseSecurity {
 	}
 	
 	@Override
+	public List<Identity> getIdentitiesWithPermissionWithOlatResourceableType(
+			String permission, String olatResourceableTypeName) {
+		// if the olatResourceable is not persisted as OLATResource, then the answer
+		// is false, therefore we can use the query assuming there is an OLATResource
+		StringBuilder sb = new StringBuilder();
+		sb.append("select distinct im from ").append(SecurityGroupMembershipImpl.class.getName()).append(" as sgmsi,")
+		  .append(IdentityImpl.class.getName()).append(" as im,")
+		  .append(PolicyImpl.class.getName()).append(" as poi,")
+		  .append(OLATResourceImpl.class.getName()).append(" as ori ")
+		  .append("where im=sgmsi.identity and sgmsi.securityGroup=poi.securityGroup ")
+		  .append(" and poi.permission=:permission and poi.olatResource=ori and ori.resName=:resName");
+
+		return dbInstance.getCurrentEntityManager().createQuery(sb.toString(), Identity.class)
+				.setParameter("permission", permission)
+				.setParameter("resName", olatResourceableTypeName)
+				.getResultList();
+	}
+	
+	@Override
 	public List<String> getIdentityPermissionOnresourceable(Identity identity, OLATResourceable olatResourceable) {
 		Long oresid = olatResourceable.getResourceableId();
 		if (oresid == null) {
@@ -318,17 +370,19 @@ public class BaseSecurityManager extends BasicManager implements BaseSecurity {
 			.getResultList();
 		return permissions;
 	}
-	
+
+	@Override
 	public boolean isIdentityPermittedOnResourceable(Identity identity, String permission, OLATResourceable olatResourceable) {
 		return isIdentityPermittedOnResourceable(identity, permission, olatResourceable, true);
 	}
-	
 
 	/**
 	 * @see org.olat.basesecurity.Manager#isIdentityPermittedOnResourceable(org.olat.core.id.Identity, java.lang.String, org.olat.core.id.OLATResourceable boolean)
 	 */
+	@Override
 	public boolean isIdentityPermittedOnResourceable(Identity identity, String permission, OLATResourceable olatResourceable, boolean checkTypeRight) {
-		IdentityImpl iimpl = getImpl(identity);
+		if(identity == null || identity.getKey() == null) return false;//no identity, no permission
+
 		Long oresid = olatResourceable.getResourceableId();
 		if (oresid == null) oresid = new Long(0); //TODO: make a method in
 		// OLATResorceManager, since this
@@ -345,7 +399,7 @@ public class BaseSecurityManager extends BasicManager implements BaseSecurity {
 			query = DBFactory.getInstance().getCurrentEntityManager().createNamedQuery("isIdentityPermittedOnResourceable", Number.class);
 		}
 		
-		Number count = query.setParameter("identitykey", iimpl.getKey())
+		Number count = query.setParameter("identitykey", identity.getKey())
 				.setParameter("permission", permission)
 				.setParameter("resid", oresid)
 				.setParameter("resname", oresName)
@@ -357,17 +411,41 @@ public class BaseSecurityManager extends BasicManager implements BaseSecurity {
 	/**
 	 * @see org.olat.basesecurity.Manager#getRoles(org.olat.core.id.Identity)
 	 */
+	@Override
 	public Roles getRoles(Identity identity) {
-		boolean isAdmin = isIdentityPermittedOnResourceable(identity, Constants.PERMISSION_HASROLE, Constants.ORESOURCE_ADMIN);
-		boolean isAuthor = isIdentityPermittedOnResourceable(identity, Constants.PERMISSION_HASROLE, Constants.ORESOURCE_AUTHOR);
-		boolean isGroupManager = isIdentityPermittedOnResourceable(identity, Constants.PERMISSION_HASROLE, Constants.ORESOURCE_GROUPMANAGER);
-		boolean isUserManager = isIdentityPermittedOnResourceable(identity, Constants.PERMISSION_HASROLE, Constants.ORESOURCE_USERMANAGER);
-		boolean isGuestOnly = isIdentityPermittedOnResourceable(identity, Constants.PERMISSION_HASROLE, Constants.ORESOURCE_GUESTONLY);
-		boolean isInstitutionalResourceManager = isIdentityPermittedOnResourceable(identity, Constants.PERMISSION_HASROLE,
-				Constants.ORESOURCE_INSTORESMANAGER);
-		boolean isInvitee = isIdentityInvited(identity);
-		Roles roles = new Roles(isAdmin, isUserManager, isGroupManager, isAuthor, isGuestOnly, isInstitutionalResourceManager, isInvitee);
-		return roles;
+		
+		boolean isGuestOnly = false;
+		boolean isInvitee = false;
+
+		List<String> rolesStr = getRolesAsString(identity);
+		boolean admin = rolesStr.contains(Constants.GROUP_ADMIN);
+		boolean author = admin || rolesStr.contains(Constants.GROUP_AUTHORS);
+		boolean groupManager = admin || rolesStr.contains(Constants.GROUP_GROUPMANAGERS);
+		boolean userManager = admin || rolesStr.contains(Constants.GROUP_USERMANAGERS);
+		boolean resourceManager = rolesStr.contains(Constants.GROUP_INST_ORES_MANAGER);
+		boolean poolManager = admin || rolesStr.contains(Constants.GROUP_POOL_MANAGER);
+		
+		if(!rolesStr.contains(Constants.GROUP_OLATUSERS)) {
+			isInvitee = isIdentityInvited(identity);
+			isGuestOnly = isIdentityPermittedOnResourceable(identity, Constants.PERMISSION_HASROLE, Constants.ORESOURCE_GUESTONLY);
+		}
+		
+		return new Roles(admin, userManager, groupManager, author, isGuestOnly, resourceManager, poolManager, isInvitee);
+	}
+
+	@Override
+	public List<String> getRolesAsString(Identity identity) {
+		StringBuilder sb = new StringBuilder();
+		sb.append("select ngroup.groupName from ").append(NamedGroupImpl.class.getName()).append(" as ngroup ")
+		  .append(" inner join ngroup.securityGroup sgi ")
+		  .append(" where exists (")
+		  .append("   select sgmsi from ").append(SecurityGroupMembershipImpl.class.getName()).append(" as sgmsi where sgmsi.identity.key=:identityKey and sgmsi.securityGroup=sgi")
+		  .append(" )");
+		
+		return dbInstance.getCurrentEntityManager()
+				.createQuery(sb.toString(), String.class)
+				.setParameter("identityKey", identity.getKey())
+				.getResultList();
 	}
 
 	@Override
@@ -407,6 +485,12 @@ public class BaseSecurityManager extends BasicManager implements BaseSecurity {
 		boolean institutionalResourceManager = roles.isInstitutionalResourceManager()
 				&& !roles.isGuestOnly() && !roles.isInvitee();
 		updateRolesInSecurityGroup(actingIdentity, updatedIdentity, institutionalResourceManagerGroup, hasBeenInstitutionalResourceManager, institutionalResourceManager, Constants.GROUP_INST_ORES_MANAGER);
+
+		// institutional resource manager
+		SecurityGroup poolManagerGroup = findSecurityGroupByName(Constants.GROUP_POOL_MANAGER);
+		boolean hasBeenPoolManager = isIdentityInSecurityGroup(updatedIdentity, poolManagerGroup);
+		boolean poolManager = roles.isPoolAdmin()	&& !roles.isGuestOnly() && !roles.isInvitee();
+		updateRolesInSecurityGroup(actingIdentity, updatedIdentity, poolManagerGroup, hasBeenPoolManager, poolManager, Constants.GROUP_POOL_MANAGER);
 
 		// system administrator
 		SecurityGroup adminGroup = findSecurityGroupByName(Constants.GROUP_ADMIN);
@@ -530,15 +614,17 @@ public class BaseSecurityManager extends BasicManager implements BaseSecurity {
 	}
 
 	/**
+	 * 
+	 * 
 	 * @see org.olat.basesecurity.Manager#addIdentityToSecurityGroup(org.olat.core.id.Identity, org.olat.basesecurity.SecurityGroup)
 	 */
+	@Override
 	public void addIdentityToSecurityGroup(Identity identity, SecurityGroup secGroup) {
 		SecurityGroupMembershipImpl sgmsi = new SecurityGroupMembershipImpl();
 		sgmsi.setIdentity(identity);
 		sgmsi.setSecurityGroup(secGroup);
 		sgmsi.setLastModified(new Date());
-		DBFactory.getInstance().saveObject(sgmsi);
-		//TODO: tracing
+		dbInstance.getCurrentEntityManager().persist(sgmsi);
 	}
 
 	/**
@@ -551,6 +637,9 @@ public class BaseSecurityManager extends BasicManager implements BaseSecurity {
 
 	@Override
 	public boolean removeIdentityFromSecurityGroups(List<Identity> identities, List<SecurityGroup> secGroups) {
+		if(identities == null || identities.isEmpty()) return true;//nothing to do
+		if(secGroups == null || secGroups.isEmpty()) return true;//nothing to do
+		
 		StringBuilder sb = new StringBuilder();
 		sb.append("delete from ").append(SecurityGroupMembershipImpl.class.getName()).append(" as msi ")
 		  .append("  where msi.identity.key in (:identityKeys) and msi.securityGroup.key in (:secGroupKeys)");
@@ -860,14 +949,6 @@ public class BaseSecurityManager extends BasicManager implements BaseSecurity {
 	  }
 	}
 
-	private IdentityImpl getImpl(Identity identity) {
-		// since we are a persistingmanager, we also only accept real identities
-		if (!(identity instanceof IdentityImpl)) throw new AssertException("identity was not of type identityimpl, but "
-				+ identity.getClass().getName());
-		IdentityImpl iimpl = (IdentityImpl) identity;
-		return iimpl;
-	}
-
 	/**
 	 * @param username the username
 	 * @param user the presisted User
@@ -878,11 +959,31 @@ public class BaseSecurityManager extends BasicManager implements BaseSecurity {
 	 * @param credential the credentials or null if not used
 	 * @return Identity
 	 */
+	@Override
 	public Identity createAndPersistIdentity(String username, User user, String provider, String authusername, String credential) {
 		IdentityImpl iimpl = new IdentityImpl(username, user);
 		dbInstance.getCurrentEntityManager().persist(iimpl);
 		if (provider != null) { 
-			createAndPersistAuthentication(iimpl, provider, authusername, credential);
+			createAndPersistAuthentication(iimpl, provider, authusername, credential, LoginModule.getDefaultHashAlgorithm());
+		}
+		notifyNewIdentityCreated(iimpl);
+		return iimpl;
+	}
+
+	/**
+	 * @param username The username
+	 * @param user The unpresisted User
+	 * @param provider The provider of the authentication ("OLAT" or "AAI"). If null, no authentication token is generated.
+	 * @param authusername The username used as authentication credential (=username for provider "OLAT")
+	 * @return Identity
+	 */
+	@Override
+	public Identity createAndPersistIdentityAndUser(String username, User user, String provider, String authusername) {
+		dbInstance.getCurrentEntityManager().persist(user);
+		IdentityImpl iimpl = new IdentityImpl(username, user);
+		dbInstance.getCurrentEntityManager().persist(iimpl);
+		if (provider != null) { 
+			createAndPersistAuthentication(iimpl, provider, authusername, null, null);
 		}
 		notifyNewIdentityCreated(iimpl);
 		return iimpl;
@@ -898,12 +999,13 @@ public class BaseSecurityManager extends BasicManager implements BaseSecurity {
 	 * @param credential the credentials or null if not used
 	 * @return Identity
 	 */
+	@Override
 	public Identity createAndPersistIdentityAndUser(String username, User user, String provider, String authusername, String credential) {
 		dbInstance.getCurrentEntityManager().persist(user);
 		IdentityImpl iimpl = new IdentityImpl(username, user);
 		dbInstance.getCurrentEntityManager().persist(iimpl);
 		if (provider != null) { 
-			createAndPersistAuthentication(iimpl, provider, authusername, credential);
+			createAndPersistAuthentication(iimpl, provider, authusername, credential, LoginModule.getDefaultHashAlgorithm());
 		}
 		notifyNewIdentityCreated(iimpl);
 		return iimpl;
@@ -1073,13 +1175,18 @@ public class BaseSecurityManager extends BasicManager implements BaseSecurity {
 	/**
 	 * @see org.olat.basesecurity.Manager#findSecurityGroupByName(java.lang.String)
 	 */
+	@Override
 	public SecurityGroup findSecurityGroupByName(String securityGroupName) {
-		List group = DBFactory.getInstance().find(
-				"select sgi from" 
-				+ " org.olat.basesecurity.NamedGroupImpl as ngroup," 
-				+ " org.olat.basesecurity.SecurityGroupImpl as sgi"
-				+ " where ngroup.groupName = ? and ngroup.securityGroup = sgi", new Object[] { securityGroupName },
-				new Type[] { StandardBasicTypes.STRING });
+		StringBuilder sb = new StringBuilder();
+		sb.append("select sgi from ").append(NamedGroupImpl.class.getName()).append(" as ngroup, ")
+		  .append(SecurityGroupImpl.class.getName()).append("  as sgi ")
+		  .append(" where ngroup.groupName=:groupName and ngroup.securityGroup=sgi");
+
+		List<SecurityGroup> group = this.dbInstance.getCurrentEntityManager()
+				.createQuery(sb.toString(), SecurityGroup.class)
+				.setParameter("groupName", securityGroupName)
+				.getResultList();
+
 		int size = group.size();
 		if (size == 0) return null;
 		if (size != 1) throw new AssertException("non unique name in namedgroup: " + securityGroupName);
@@ -1107,7 +1214,42 @@ public class BaseSecurityManager extends BasicManager implements BaseSecurity {
 		}
 		return identities.get(0);
 	}
-	
+
+	/**
+	 * Custom search operation by BiWa
+	 * find identity by student/institution number 
+	 * @return
+	 */
+	@Override
+	public Identity findIdentityByNumber(String identityNumber) {
+		//default initializations
+		Map<String, String> userPropertiesSearch = new HashMap<String, String>();
+		// institutional identifier
+		userPropertiesSearch.put(UserConstants.INSTITUTIONALUSERIDENTIFIER, identityNumber);
+		List<Identity> identities = getIdentitiesByPowerSearch(null, userPropertiesSearch, true, null, null, null, null, null, null, null, null);
+
+		//check for unique search result
+		if(identities.size() == 1) {
+			return identities.get(0);
+		}
+		return null;
+	}
+
+	@Override
+	public List<Identity> findIdentitiesByNumber(Collection<String> identityNumbers) {
+		if(identityNumbers == null || identityNumbers.isEmpty()) return Collections.emptyList();
+		
+		StringBuilder sb = new StringBuilder();
+		sb.append("select identity from ").append(IdentityImpl.class.getName()).append(" identity ")
+			.append(" inner join identity.user user ")
+			.append(" where user.properties['").append(UserConstants.INSTITUTIONALUSERIDENTIFIER).append("'] in (:idNumbers) ");
+
+		return dbInstance.getCurrentEntityManager()
+				.createQuery(sb.toString(), Identity.class)
+				.setParameter("idNumbers", identityNumbers)
+				.getResultList();
+	}
+
 	@Override
 	public List<Identity> findIdentitiesByName(Collection<String> identityNames) {
 		if (identityNames == null || identityNames.isEmpty()) return Collections.emptyList();
@@ -1147,10 +1289,23 @@ public class BaseSecurityManager extends BasicManager implements BaseSecurity {
 		}
 		StringBuilder sb = new StringBuilder();
 		sb.append("select ident from ").append(IdentityShort.class.getName()).append(" as ident where ident.name in (:names)");
-		
-		DBQuery query = DBFactory.getInstance().createQuery(sb.toString());
-		query.setParameterList("names", identityNames);
-		return query.list();
+
+		TypedQuery<IdentityShort> query = dbInstance.getCurrentEntityManager()
+				.createQuery(sb.toString(), IdentityShort.class);
+
+		int count = 0;
+		int batch = 500;
+		List<String> names = new ArrayList<String>(identityNames);
+		List<IdentityShort> shortIdentities = new ArrayList<IdentityShort>(names.size());
+		do {
+			int toIndex = Math.min(count + batch, names.size());
+			List<String> toLoad = names.subList(count, toIndex);
+			List<IdentityShort> allProperties = query.setParameter("names", toLoad).getResultList();
+			shortIdentities.addAll(allProperties);	
+
+			count += batch;
+		} while(count < names.size());
+		return shortIdentities;
 	}
 	
 	@Override
@@ -1161,9 +1316,22 @@ public class BaseSecurityManager extends BasicManager implements BaseSecurity {
 		StringBuilder sb = new StringBuilder();
 		sb.append("select ident from ").append(IdentityShort.class.getName()).append(" as ident where ident.key in (:keys)");
 		
-		DBQuery query = DBFactory.getInstance().createQuery(sb.toString());
-		query.setParameterList("keys", identityKeys);
-		return query.list();
+		TypedQuery<IdentityShort> query = dbInstance.getCurrentEntityManager()
+				.createQuery(sb.toString(), IdentityShort.class);
+
+		int count = 0;
+		int batch = 500;
+		List<Long> names = new ArrayList<Long>(identityKeys);
+		List<IdentityShort> shortIdentities = new ArrayList<IdentityShort>(names.size());
+		do {
+			int toIndex = Math.min(count + batch, names.size());
+			List<Long> toLoad = names.subList(count, toIndex);
+			List<IdentityShort> allProperties = query.setParameter("keys", toLoad).getResultList();
+			shortIdentities.addAll(allProperties);	
+
+			count += batch;
+		} while(count < names.size());
+		return shortIdentities;
 	}
 
 	/**
@@ -1267,13 +1435,20 @@ public class BaseSecurityManager extends BasicManager implements BaseSecurity {
 	 * @see org.olat.basesecurity.Manager#createAndPersistAuthentication(org.olat.core.id.Identity, java.lang.String, java.lang.String, java.lang.String)
 	 */
 	@Override
-	public Authentication createAndPersistAuthentication(final Identity ident, final String provider, final String authUserName, final String credential) {
+	public Authentication createAndPersistAuthentication(final Identity ident, final String provider, final String authUserName,
+			final String credentials, final Encoder.Algorithm algorithm) {
 		OLATResourceable resourceable = OresHelper.createOLATResourceableInstanceWithoutCheck(provider, ident.getKey());
 		return CoordinatorManager.getInstance().getCoordinator().getSyncer().doInSync(resourceable, new SyncerCallback<Authentication>(){
 			public Authentication execute() {
 				Authentication auth = findAuthentication(ident, provider);
 				if(auth == null) {
-					auth = new AuthenticationImpl(ident, provider, authUserName, credential);
+					if(algorithm != null) {
+						String salt = algorithm.isSalted() ? Encoder.getSalt() : null;
+						String hash = Encoder.encrypt(credentials, salt, algorithm);
+						auth = new AuthenticationImpl(ident, provider, authUserName, hash, salt, algorithm.name());
+					} else {
+						auth = new AuthenticationImpl(ident, provider, authUserName, credentials);
+					}
 					dbInstance.getCurrentEntityManager().persist(auth);
 				}
 				return auth;
@@ -1308,8 +1483,8 @@ public class BaseSecurityManager extends BasicManager implements BaseSecurity {
 	 * @see org.olat.basesecurity.Manager#findAuthentication(org.olat.core.id.Identity, java.lang.String)
 	 */
 	@Override
-	public List<Authentication> findAuthentication(String provider, String credential) {
-		if (provider==null || credential==null) {
+	public List<Authentication> findAuthenticationByToken(String provider, String securityToken) {
+		if (provider==null || securityToken==null) {
 			throw new IllegalArgumentException("provider and token must not be null");
 		}
 		
@@ -1319,7 +1494,7 @@ public class BaseSecurityManager extends BasicManager implements BaseSecurity {
 		
 		List<Authentication> results = dbInstance.getCurrentEntityManager()
 				.createQuery(sb.toString(), Authentication.class)
-				.setParameter("credential", credential)
+				.setParameter("credential", securityToken)
 				.setParameter("provider", provider)
 				.getResultList();
 		return results;
@@ -1344,63 +1519,72 @@ public class BaseSecurityManager extends BasicManager implements BaseSecurity {
 	}
 
 	@Override
-	public String findCredentials(Identity identity, String provider) {
-		if (identity==null) {
-			throw new IllegalArgumentException("identity must not be null");
-		}
-		
-		StringBuilder sb = new StringBuilder();
-		sb.append("select auth.credential from ").append(AuthenticationImpl.class.getName())
-		  .append(" as auth where auth.identity.key=:identityKey and auth.provider=:provider");
-		
-		List<String> results = dbInstance.getCurrentEntityManager()
-				.createQuery(sb.toString(), String.class)
-				.setParameter("identityKey", identity.getKey())
-				.setParameter("provider", provider)
-				.getResultList();
-		if (results == null || results.size() == 0) return null;
-		if (results.size() > 1) throw new AssertException("Found more than one Authentication for a given subject and a given provider.");
-		return results.get(0);
-	}
-
-	@Override
-	//fxdiff: FXOLAT-219 decrease the load for synching groups
-	public boolean hasAuthentication(Long identityKey, String provider) {
-		if (identityKey == null || !StringHelper.containsNonWhitespace(provider)) return false;
-		
-		String queryStr = "select count(auth) from org.olat.basesecurity.AuthenticationImpl as auth where auth.identity.key=:key and auth.provider=:provider";
-		DBQuery query = DBFactory.getInstance().createQuery(queryStr);
-		query.setLong("key", identityKey);
-		query.setString("provider", provider);
-		
-		Number count = (Number)query.uniqueResult();
-		return count.intValue() > 0;
-	}
-
-	@Override
 	public Authentication updateAuthentication(Authentication authentication) {
 		return dbInstance.getCurrentEntityManager().merge(authentication);
+	}
+
+	@Override
+	public boolean checkCredentials(Authentication authentication, String password) {
+		Algorithm algorithm = Algorithm.find(authentication.getAlgorithm());
+		String hash = Encoder.encrypt(password, authentication.getSalt(), algorithm);
+		return authentication.getCredential() != null && authentication.getCredential().equals(hash);
+	}
+
+	@Override
+	public Authentication updateCredentials(Authentication authentication, String password, Algorithm algorithm) {
+		if(authentication.getAlgorithm() != null && authentication.getAlgorithm().equals(algorithm.name())) {
+			//check if update is needed
+			String currentSalt = authentication.getSalt();
+			String newCredentials = Encoder.encrypt(password, currentSalt, algorithm);
+			if(newCredentials.equals(authentication.getCredential())) {
+				//same credentials
+				return authentication;
+			}
+		}
+
+		String salt = algorithm.isSalted() ? Encoder.getSalt() : null;
+		String newCredentials = Encoder.encrypt(password, salt, algorithm);
+		authentication.setSalt(salt);
+		authentication.setCredential(newCredentials);
+		authentication.setAlgorithm(algorithm.name());
+		return updateAuthentication(authentication);
 	}
 
 	/**
 	 * @see org.olat.basesecurity.Manager#deleteAuthentication(org.olat.basesecurity.Authentication)
 	 */
+	@Override
 	public void deleteAuthentication(Authentication auth) {
-		DBFactory.getInstance().deleteObject(auth);
+		if(auth == null || auth.getKey() == null) return;//nothing to do
+		try {
+			AuthenticationImpl authRef = dbInstance.getCurrentEntityManager()
+					.getReference(AuthenticationImpl.class, auth.getKey());
+			dbInstance.getCurrentEntityManager().remove(authRef);
+		} catch (EntityNotFoundException e) {
+			logError("", e);
+		}
 	}
 
 	/**
 	 * @see org.olat.basesecurity.Manager#findAuthenticationByAuthusername(java.lang.String, java.lang.String)
 	 */
+	@Override
 	public Authentication findAuthenticationByAuthusername(String authusername, String provider) {
-		List results = DBFactory.getInstance().find(
-				"from org.olat.basesecurity.AuthenticationImpl as auth where auth.provider = ? and auth.authusername = ?",
-				new Object[] { provider, authusername }, new Type[] { StandardBasicTypes.STRING, StandardBasicTypes.STRING });
+		StringBuilder sb = new StringBuilder();
+		sb.append("select auth from ").append(AuthenticationImpl.class.getName()).append(" as auth")
+		  .append(" inner join fetch auth.identity ident")
+		  .append(" where auth.provider=:provider and auth.authusername=:authusername");
+
+		List<Authentication> results = dbInstance.getCurrentEntityManager()
+				.createQuery(sb.toString(), Authentication.class)
+				.setParameter("provider", provider)
+				.setParameter("authusername", authusername)
+				.getResultList();
 		if (results.size() == 0) return null;
-		if (results.size() != 1) throw new AssertException(
-				"more than one entry for the a given authusername and provider, should never happen (even db has a unique constraint on those columns combined) ");
-		Authentication auth = (Authentication) results.get(0);
-		return auth;
+		if (results.size() != 1) {
+			throw new AssertException("more than one entry for the a given authusername and provider, should never happen (even db has a unique constraint on those columns combined) ");
+		}
+		return results.get(0);
 	}
 
 	/**
@@ -1917,17 +2101,4 @@ public class BaseSecurityManager extends BasicManager implements BaseSecurity {
 		}
 		return guestIdentity;
 	}
-
-
-	/**
-	 * [used by spring]
-	 * @param orm
-	 */
-	public void setResourceManager(OLATResourceManager orm) {
-		this.orm = orm;
-	}
-
-	
-	
-	
 }

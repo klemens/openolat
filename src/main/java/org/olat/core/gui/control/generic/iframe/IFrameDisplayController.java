@@ -28,7 +28,6 @@ package org.olat.core.gui.control.generic.iframe;
 
 import java.io.File;
 
-import org.olat.core.defaults.dispatcher.ClassPathStaticDispatcher;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.Component;
 import org.olat.core.gui.components.Window;
@@ -40,7 +39,6 @@ import org.olat.core.gui.components.velocity.VelocityContainer;
 import org.olat.core.gui.control.Event;
 import org.olat.core.gui.control.WindowControl;
 import org.olat.core.gui.control.controller.BasicController;
-import org.olat.core.gui.control.generic.textmarker.GlossaryMarkupItemController;
 import org.olat.core.gui.control.generic.textmarker.TextMarkerManagerImpl;
 import org.olat.core.gui.media.MediaResource;
 import org.olat.core.id.OLATResourceable;
@@ -73,7 +71,7 @@ public class IFrameDisplayController extends BasicController implements GenericE
 	private Panel newUriEventPanel;
 	private Panel main;
 	private IFrameDeliveryMapper contentMapper;
-
+	private DeliveryOptions deliveryOptions;
 	/**
 	 * Base URI of contentMapper
 	 */
@@ -94,7 +92,7 @@ public class IFrameDisplayController extends BasicController implements GenericE
 	 * @param fileRoot File that points to the root directory of the resource 
 	 */
 	public IFrameDisplayController(UserRequest ureq, WindowControl wControl, File fileRoot) {
-		this(ureq, wControl, new LocalFolderImpl(fileRoot), null);
+		this(ureq, wControl, new LocalFolderImpl(fileRoot), null, null);
 	}
 	
 	/**
@@ -105,7 +103,7 @@ public class IFrameDisplayController extends BasicController implements GenericE
 	 * @param ores - send an OLATresourcable of the context (e.g. course) where the iframe runs and it will be checked if the user has textmarking (glossar) enabled in this course
 	 */
 	public IFrameDisplayController(UserRequest ureq, WindowControl wControl, File fileRoot, OLATResourceable ores) {
-		this(ureq, wControl, new LocalFolderImpl(fileRoot), null, ores);
+		this(ureq, wControl, new LocalFolderImpl(fileRoot), null, ores, null);
 	}
 	/**
 	 * 
@@ -114,7 +112,7 @@ public class IFrameDisplayController extends BasicController implements GenericE
 	 * @param rootDir VFSItem that points to the root folder of the resource
 	 */
 	public IFrameDisplayController(UserRequest ureq, WindowControl wControl, VFSContainer rootDir) {
-		this(ureq, wControl, rootDir, null, null);
+		this(ureq, wControl, rootDir, null, null, null);
 	}
 	/**
 	 * 
@@ -123,8 +121,8 @@ public class IFrameDisplayController extends BasicController implements GenericE
 	 * @param rootDir
 	 * @param ores - send an OLATresourcable of the context (e.g. course) where the iframe runs and it will be checked if the user has textmarking (glossar) enabled in this course
 	 */
-	public IFrameDisplayController(UserRequest ureq, WindowControl wControl, VFSContainer rootDir, OLATResourceable ores) {
-		this(ureq, wControl, rootDir, null, ores);
+	public IFrameDisplayController(UserRequest ureq, WindowControl wControl, VFSContainer rootDir, OLATResourceable ores, DeliveryOptions deliveryOptions) {
+		this(ureq, wControl, rootDir, null, ores, deliveryOptions);
 	}
 	/**
 	 * 
@@ -134,7 +132,8 @@ public class IFrameDisplayController extends BasicController implements GenericE
 	 * @param frameId if you need access to the iframe html id, provide it here
 	 * @param enableTextmarking to enable textmakring of the content in the iframe enable it here
 	 */
-	public IFrameDisplayController(final UserRequest ureq, WindowControl wControl, VFSContainer rootDir, String frameId, OLATResourceable contextRecourcable) {
+	public IFrameDisplayController(final UserRequest ureq, WindowControl wControl, VFSContainer rootDir, String frameId,
+			OLATResourceable contextRecourcable, DeliveryOptions options) {
 		super(ureq, wControl);
 		
 		//register this object for textMarking on/off events
@@ -142,15 +141,11 @@ public class IFrameDisplayController extends BasicController implements GenericE
 		if (contextRecourcable != null) {
 			ureq.getUserSession().getSingleUserEventCenter().registerFor(this, getIdentity(), contextRecourcable);
 		}
+		this.deliveryOptions = options;
 		
 		boolean  enableTextmarking = TextMarkerManagerImpl.getInstance().isTextmarkingEnabled(ureq, contextRecourcable);
 		// Set correct user content theme
 		String themeBaseUri = wControl.getWindowBackOffice().getWindow().getGuiTheme().getBaseURI();
-		// Deliver js files via class path static dispatcher to enable browser caching
-		String staticFilesPath = ClassPathStaticDispatcher.getInstance().getMapperBasePath(this.getClass());
-		//mapping for glossar
-		String mapPathGlossar = getWindowControl().getWindowBackOffice().getWindowManager().getMapPathFor(GlossaryMarkupItemController.class);
-		
 		if (frameId == null) {
 			frameId = "ifdc" + hashCode();
 		}
@@ -162,9 +157,8 @@ public class IFrameDisplayController extends BasicController implements GenericE
 		//TODO:gs may use the same contentMapper if users clicks again on the same singlePage, now each time a new Mapper gets created and 
 		//therefore the browser can not reuse the cached elements
 		contentMapper = new IFrameDeliveryMapper(rootDir, false, enableTextmarking, adjusteightAutomatically,
-				null /*g_encoding*/, null /*jsEncoding*/, null /*contentEncoding*/,
-				frameId, null /*customCssURL*/, themeBaseUri, null /*customHeaderContent*/,
-				staticFilesPath, mapPathGlossar);
+				frameId, null /*customCssURL*/, themeBaseUri, null /*customHeaderContent*/);
+		contentMapper.setDeliveryOptions(options);
 
 		String mapperID = VFSManager.getRealPath(rootDir);
 		if (mapperID == null) {
@@ -180,22 +174,25 @@ public class IFrameDisplayController extends BasicController implements GenericE
 		newUriEventPanel = new Panel("newUriEvent");
 		newUriEventPanel.setContent(eventVC);
 		
-
 		main = new Panel("iframemain");
 		
 		main.setContent(myContent);
 		myContent.contextPut("frameId", frameId);
 		myContent.put("newUriEvent", newUriEventPanel);
 		// add default iframe height
-		myContent.contextPut("iframeHeight", 600); // used as fallback
-	
-		myContent.contextPut("adjustAutoHeight", Boolean.TRUE);
-		
+		if(options == null || DeliveryOptions.CONFIG_HEIGHT_AUTO.equals(options.getHeight())
+				|| options.getHeight() == null) {
+			myContent.contextPut("iframeHeight", 600); // used as fallback
+			myContent.contextPut("adjustAutoHeight", Boolean.TRUE);
+		} else {
+			myContent.contextPut("iframeHeight", options.getHeight());
+			myContent.contextPut("adjustAutoHeight", Boolean.FALSE);
+		}
+
 		// Add us as cycle listener to be notified when current dispatch cycle is
 		// finished. we then need to add the css which is not yet defined at this
 		// point
 		getWindowControl().getWindowBackOffice().addCycleListener(this);
-		//
 		putInitialPanel(main);
 	}
 
@@ -251,6 +248,15 @@ public class IFrameDisplayController extends BasicController implements GenericE
 	
 	public void setJSEncoding(String encoding) {
 		contentMapper.setJsEncoding(encoding);
+	}
+	
+	public DeliveryOptions getDeliveryOptions() {
+		return deliveryOptions;
+	}
+	
+	public void setDeliveryOptions(DeliveryOptions config) {
+		deliveryOptions = config;
+		contentMapper.setDeliveryOptions(config);
 	}
 
 	/**
@@ -321,7 +327,7 @@ public class IFrameDisplayController extends BasicController implements GenericE
 			if(downloadLink == null) {
 				downloadLink = LinkFactory.createCustomLink(COMMAND_DOWNLOAD, COMMAND_DOWNLOAD, "", Link.NONTRANSLATED, myContent, this);
 				downloadLink.setCustomEnabledLinkCSS("b_content_download");
-				downloadLink.setTooltip(getTranslator().translate(COMMAND_DOWNLOAD), false);
+				downloadLink.setTooltip(getTranslator().translate(COMMAND_DOWNLOAD));
 			} else if (!downloadLink.isVisible()) {
 				downloadLink.setVisible(true);
 			}

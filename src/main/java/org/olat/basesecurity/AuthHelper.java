@@ -43,7 +43,7 @@ import org.olat.core.commons.chiefcontrollers.BaseChiefControllerCreator;
 import org.olat.core.commons.fullWebApp.BaseFullWebappController;
 import org.olat.core.commons.fullWebApp.BaseFullWebappControllerParts;
 import org.olat.core.commons.persistence.DBFactory;
-import org.olat.core.dispatcher.DispatcherAction;
+import org.olat.core.dispatcher.DispatcherModule;
 import org.olat.core.gui.GUIInterna;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.WindowManager;
@@ -65,7 +65,6 @@ import org.olat.core.logging.OLog;
 import org.olat.core.logging.Tracing;
 import org.olat.core.logging.activity.OlatLoggingAction;
 import org.olat.core.logging.activity.ThreadLocalUserActivityLogger;
-import org.olat.core.util.Encoder;
 import org.olat.core.util.SessionInfo;
 import org.olat.core.util.UserSession;
 import org.olat.core.util.WebappHelper;
@@ -137,12 +136,12 @@ public class AuthHelper {
 		}
 	
 		Window currentWindow = occ.getWindow();
-		currentWindow.setUriPrefix(WebappHelper.getServletContextPath() + DispatcherAction.PATH_AUTHENTICATED);
+		currentWindow.setUriPrefix(WebappHelper.getServletContextPath() + DispatcherModule.PATH_AUTHENTICATED);
 		Windows.getWindows(ureq).registerWindow(currentWindow);
 	
 		// redirect to AuthenticatedDispatcher
 		// IMPORTANT: windowID has changed due to re-registering current window -> do not use ureq.getWindowID() to build new URLBuilder.
-		URLBuilder ubu = new URLBuilder(WebappHelper.getServletContextPath() + DispatcherAction.PATH_AUTHENTICATED, currentWindow.getInstanceId(), "1", null);	
+		URLBuilder ubu = new URLBuilder(WebappHelper.getServletContextPath() + DispatcherModule.PATH_AUTHENTICATED, currentWindow.getInstanceId(), "1", null);	
 		StringOutput sout = new StringOutput(30);
 		ubu.buildURI(sout, null, null);
 		ureq.getDispatchResult().setResultingMediaResource(new RedirectMediaResource(sout.toString()));
@@ -362,10 +361,10 @@ public class AuthHelper {
 		if (pwd == null) {
 			// when no password is used the provider must be set to null to not generate
 			// an OLAT authentication token. See method doku.
-			ident = BaseSecurityManager.getInstance().createAndPersistIdentityAndUser(loginName, newUser, null, null, null);
+			ident = BaseSecurityManager.getInstance().createAndPersistIdentityAndUser(loginName, newUser, null, null);
  		} else {
 			ident = BaseSecurityManager.getInstance().createAndPersistIdentityAndUser(loginName, newUser,
-			BaseSecurityModule.getDefaultAuthProviderIdentifier(), loginName, Encoder.encrypt(pwd));
+			BaseSecurityModule.getDefaultAuthProviderIdentifier(), loginName, pwd);
 		}
 		// TODO: Tracing message
 		return ident;

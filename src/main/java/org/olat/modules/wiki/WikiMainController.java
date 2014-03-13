@@ -39,8 +39,6 @@ import org.olat.core.CoreSpringFactory;
 import org.olat.core.commons.modules.bc.FileUploadController;
 import org.olat.core.commons.modules.bc.FolderConfig;
 import org.olat.core.commons.modules.bc.FolderEvent;
-import org.olat.core.commons.services.search.ui.SearchServiceUIFactory;
-import org.olat.core.commons.services.search.ui.SearchServiceUIFactory.DisplayOption;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.Component;
 import org.olat.core.gui.components.htmlheader.jscss.JSAndCSSComponent;
@@ -64,18 +62,17 @@ import org.olat.core.gui.control.generic.closablewrapper.CloseableModalControlle
 import org.olat.core.gui.control.generic.dtabs.Activateable2;
 import org.olat.core.gui.control.generic.modal.DialogBoxController;
 import org.olat.core.gui.control.generic.modal.DialogBoxUIFactory;
-import org.olat.core.id.Identity;
 import org.olat.core.id.OLATResourceable;
 import org.olat.core.id.context.BusinessControlFactory;
 import org.olat.core.id.context.ContextEntry;
 import org.olat.core.id.context.StateEntry;
-import org.olat.core.logging.AssertException;
 import org.olat.core.logging.OLATRuntimeException;
 import org.olat.core.logging.OLog;
 import org.olat.core.logging.Tracing;
 import org.olat.core.logging.activity.LearningResourceLoggingAction;
 import org.olat.core.logging.activity.OlatResourceableType;
 import org.olat.core.logging.activity.ThreadLocalUserActivityLogger;
+import org.olat.core.util.StringHelper;
 import org.olat.core.util.coordinate.CoordinatorManager;
 import org.olat.core.util.coordinate.LockResult;
 import org.olat.core.util.notifications.ContextualSubscriptionController;
@@ -85,6 +82,7 @@ import org.olat.core.util.notifications.SubscriptionContext;
 import org.olat.core.util.resource.OresHelper;
 import org.olat.core.util.vfs.Quota;
 import org.olat.core.util.vfs.VFSContainer;
+import org.olat.core.util.vfs.VFSItem;
 import org.olat.core.util.vfs.VFSLeaf;
 import org.olat.core.util.vfs.VFSMediaResource;
 import org.olat.modules.fo.Forum;
@@ -100,8 +98,11 @@ import org.olat.modules.wiki.gui.components.wikiToHtml.RequestNewPageEvent;
 import org.olat.modules.wiki.gui.components.wikiToHtml.RequestPageEvent;
 import org.olat.modules.wiki.gui.components.wikiToHtml.WikiMarkupComponent;
 import org.olat.modules.wiki.portfolio.WikiArtefact;
+import org.olat.modules.wiki.versioning.ChangeInfo;
 import org.olat.modules.wiki.versioning.HistoryTableDateModel;
 import org.olat.portfolio.EPUIFactory;
+import org.olat.search.SearchServiceUIFactory;
+import org.olat.search.SearchServiceUIFactory.DisplayOption;
 import org.olat.util.logging.activity.LoggingResourceable;
 
 
@@ -118,7 +119,7 @@ import org.olat.util.logging.activity.LoggingResourceable;
  */
 public class WikiMainController extends BasicController implements CloneableController, Activateable2 {
 	
-	OLog log = Tracing.createLoggerFor(this.getClass());
+	private static final OLog log = Tracing.createLoggerFor(WikiMainController.class);
 
 	private TabbedPane tabs;
 	private WikiPage selectedPage;
@@ -135,8 +136,7 @@ public class WikiMainController extends BasicController implements CloneableCont
 	private FileUploadController fileUplCtr;
 	private BreadCrumbController breadCrumpCtr;
 	private DialogBoxController removePageDialogCtr, archiveWikiDialogCtr;
-	private List diffs = new ArrayList(2);
-	private Identity ident;
+	private List<ChangeInfo> diffs = new ArrayList<ChangeInfo>(2);
 	private SubscriptionContext subsContext;
 	private LockResult lockEntry;
 	private Link archiveLink, closePreviewButton, deletePageButton, manageMediaButton, toMainPageLink, a2zLink, changesLink, editMenuButton, revertVersionButton;
@@ -146,6 +146,7 @@ public class WikiMainController extends BasicController implements CloneableCont
 	private WikiSecurityCallback securityCallback;
 	private WikiArticleSearchForm searchOrCreateArticleForm;
 	private Controller searchCtrl;
+	private Panel mainPanel;
 	
 	public static final String ACTION_COMPARE = "compare";
 	public static final String ACTION_SHOW = "view.version";
@@ -174,22 +175,28 @@ public class WikiMainController extends BasicController implements CloneableCont
 		this.ores = ores;
 		this.securityCallback = securityCallback;
 		this.subsContext = securityCallback.getSubscriptionContext();
-		this.ident = ureq.getIdentity();
 		WikiPage page = null;
 		Wiki wiki = getWiki();
+		if(wiki == null) {
+			VelocityContainer vc = createVelocityContainer("deleted");
+			mainPanel = putInitialPanel(vc);
+			return;
+		}
+		
 		if (!ores.getResourceableTypeName().equals("BusinessGroup")) {
 			addLoggingResourceable(LoggingResourceable.wrap(ores, OlatResourceableType.genRepoEntry));
 		}
 		ThreadLocalUserActivityLogger.log(LearningResourceLoggingAction.LEARNING_RESOURCE_OPEN, getClass());
 		// init the first page either startpage or an other page identified by initial page name
-		if (initialPageName != null && wiki.pageExists(WikiManager.generatePageId(initialPageName))) page = wiki.getPage(initialPageName, true);
-		else {
+		if (initialPageName != null && wiki.pageExists(WikiManager.generatePageId(initialPageName))) {
+			page = wiki.getPage(initialPageName, true);
+		} else {
 			page = wiki.getPage(WikiPage.WIKI_INDEX_PAGE);
 			if (initialPageName != null) showError("wiki.error.page.not.found");
 		}
 		this.pageId = page.getPageId();
 		
-		WikiPage menuPage = getWiki().getPage(WikiPage.WIKI_MENU_PAGE);
+		WikiPage menuPage = wiki.getPage(WikiPage.WIKI_MENU_PAGE);
 		tabs = new TabbedPane("userTabP", ureq.getLocale());
 		tabs.addListener(this);
 		// init the tabbed pane container
@@ -279,7 +286,7 @@ public class WikiMainController extends BasicController implements CloneableCont
 
 		editContent.put("editForm", wikiEditForm.getInitialComponent());
 		
-		JSAndCSSComponent js = new JSAndCSSComponent("js", this.getClass(), new String[] { "wiki-script.js" }, null, false);
+		JSAndCSSComponent js = new JSAndCSSComponent("js", new String[] { "js/openolat/wiki.js" }, null);
 		content.put("js", js);
 		// FIXME:gs:a FileUploadCtr should accept vfsContainers instead of
 		// OLATrootfolderimpl. Refactor it!!!!!!!
@@ -316,7 +323,7 @@ public class WikiMainController extends BasicController implements CloneableCont
 		}
 		updatePageContext(ureq, page);
 		setTabsEnabled(true); //apply security settings to tabs by may disabling edit tab
-		putInitialPanel(content);
+		mainPanel = putInitialPanel(content);
 		
 		//set pageId to the latest used
 		this.pageId = page.getPageId();
@@ -326,18 +333,22 @@ public class WikiMainController extends BasicController implements CloneableCont
 	//fxdiff BAKS-7 Resume function
 	public void activate(UserRequest ureq, List<ContextEntry> entries, StateEntry state) {
 		if(entries == null || entries.isEmpty()) return;
+
+		Wiki wiki = getWiki();
+		if(wiki == null) {
+			return;
+		}
 		
 		ContextEntry ce = entries.get(0);
 		String typ = ce.getOLATResourceable().getResourceableTypeName();
 		if("az".equals(typ)) {
-			openAtoZPage(ureq, getWiki());
+			openAtoZPage(ureq, wiki);
 		} else if ("lastChanges".equals(typ)) {
-			openLastChangesPage(ureq, getWiki());
+			openLastChangesPage(ureq, wiki);
 		} else if ("index".equals(typ)) {
-			WikiPage page = openIndexPage(ureq, getWiki());
+			WikiPage page = openIndexPage(ureq, wiki);
 			pageId = page.getPageId();
 		} else if ("Forum".equals(typ)) {
-			Wiki wiki = getWiki();
 			Long forumKey = ce.getOLATResourceable().getResourceableId();
 			for(WikiPage page:wiki.getAllPagesWithContent()) {
 				if(forumKey.longValue() == page.getForumKey()) {
@@ -358,7 +369,9 @@ public class WikiMainController extends BasicController implements CloneableCont
 			}
 		} else {
 			String path = BusinessControlFactory.getInstance().getPath(ce);
-			Wiki wiki = getWiki();
+			if(path.startsWith("page=")) {
+				path = path.substring(5, path.length());
+			}
 			String activatePageId = WikiManager.generatePageId(FilterUtil.normalizeWikiLink(path));
 			if(wiki.pageExists(activatePageId)) {
 				WikiPage page = wiki.getPage(activatePageId, true);
@@ -384,13 +397,17 @@ public class WikiMainController extends BasicController implements CloneableCont
 		setTabsEnabled(true);
 		//to make shure we use the lateste page, reload from cache
 		Wiki wiki = getWiki();
+		if(wiki == null) {
+			mainPanel.setContent(createVelocityContainer("deleted"));
+			return;
+		}
 		WikiPage page = null;
 		
 		//FIXME:gs images and media should also be wiki pages -> see jamwiki
 		if (!(event instanceof RequestNewPageEvent) && !(event instanceof RequestMediaEvent) && !(event instanceof RequestImageEvent)) {
 			page = wiki.getPage(pageId, true);
 			//set recent page id to the page currently used
-			if (page != null) this.pageId = page.getPageId();
+			if (page != null) pageId = page.getPageId();
 		}
 		
 		if (source == content) {
@@ -417,7 +434,7 @@ public class WikiMainController extends BasicController implements CloneableCont
 				breadCrumpCtr.addLink(page.getPageName(), page.getPageName());
 				tabs.setSelectedPane(0);
 			} else if (event instanceof RequestNewPageEvent) {
-				page = handleRequestNewPageEvent(ureq, (RequestNewPageEvent) event);
+				page = handleRequestNewPageEvent(ureq, (RequestNewPageEvent)event, wiki);
 			} else  if (event instanceof ErrorEvent) {
 				showWarning(event.getCommand());
 			} else if (event instanceof RequestMediaEvent) {
@@ -483,7 +500,7 @@ public class WikiMainController extends BasicController implements CloneableCont
 		} else if (source == manageMediaButton){
 			if(wiki.getMediaFileListWithMetadata().size() > 0){
 				mediaMgntContent = createVelocityContainer("media");
-				refreshTableDataModel(ureq);
+				refreshTableDataModel(ureq, wiki);
 				mediaMgntContent.put("mediaMgmtTable", mediaTableCtr.getInitialComponent());
 				
 				removeAsListenerAndDispose(cmc);
@@ -521,7 +538,7 @@ public class WikiMainController extends BasicController implements CloneableCont
 			 * tabbed pane change to edit tab
 			 **********************************************************************/
 			wikiEditForm.resetUpdateComment();
-			editContent.contextPut("mayDeleteArticle", Boolean.valueOf(ident.getKey().equals(Long.valueOf(page.getInitalAuthor() )) || securityCallback.mayEditWikiMenu() ));
+			editContent.contextPut("mayDeleteArticle", Boolean.valueOf(getIdentity().getKey().equals(Long.valueOf(page.getInitalAuthor() )) || securityCallback.mayEditWikiMenu() ));
 			editContent.contextPut("linkList", wiki.getListOfAllPageNames());
 			editContent.contextPut("fileList", wiki.getMediaFileList());
 			// try to edit acquire lock for this page
@@ -610,7 +627,7 @@ public class WikiMainController extends BasicController implements CloneableCont
 	}
 
 
-	private void refreshTableDataModel(UserRequest ureq) {
+	private void refreshTableDataModel(UserRequest ureq, Wiki wiki) {
 		
 		removeAsListenerAndDispose(mediaTableCtr);
 		mediaTableCtr = new TableController(new TableGuiConfiguration(), ureq, getWindowControl(), getTranslator());
@@ -619,9 +636,9 @@ public class WikiMainController extends BasicController implements CloneableCont
 		mediaTableCtr.setMultiSelect(true);
 		mediaTableCtr.addMultiSelectAction(ACTION_DELETE_MEDIAS, ACTION_DELETE_MEDIAS);
 		
-		List filelist = getWiki().getMediaFileListWithMetadata();
-		Map files = new HashMap();
-		for (Iterator iter = filelist.iterator(); iter.hasNext();) {
+		List<VFSItem> filelist = wiki.getMediaFileListWithMetadata();
+		Map<String,MediaFileElement> files = new HashMap<String,MediaFileElement>();
+		for (Iterator<VFSItem> iter = filelist.iterator(); iter.hasNext();) {
 			VFSLeaf elem = (VFSLeaf) iter.next();
 			if(elem.getName().endsWith(METADATA_SUFFIX)) {  //*.metadata files go here
 				Properties p = new Properties();
@@ -636,7 +653,7 @@ public class WikiMainController extends BasicController implements CloneableCont
 				}
 			}
 		}
-		for (Iterator iter = filelist.iterator(); iter.hasNext();) {
+		for (Iterator<VFSItem> iter = filelist.iterator(); iter.hasNext();) {
 			VFSLeaf elem = (VFSLeaf) iter.next();
 			if(!elem.getName().endsWith(METADATA_SUFFIX)){
 				if(!files.containsKey(elem.getName())) {
@@ -650,29 +667,29 @@ public class WikiMainController extends BasicController implements CloneableCont
 			}
 		}
 		
-		mediaFilesTableModel = new MediaFilesTableModel(new ArrayList(files.values()), getTranslator());
+		mediaFilesTableModel = new MediaFilesTableModel(new ArrayList<MediaFileElement>(files.values()), getTranslator());
 		mediaFilesTableModel.addColumnDescriptors(mediaTableCtr);
 		mediaTableCtr.setTableDataModel(mediaFilesTableModel);
 		mediaTableCtr.setSortColumn(3, false);
 		mediaTableCtr.modelChanged();
 	}
 
-	private WikiPage handleRequestNewPageEvent(UserRequest ureq, RequestNewPageEvent requestPage) {
+	private WikiPage handleRequestNewPageEvent(UserRequest ureq, RequestNewPageEvent requestPage, Wiki wiki) {
 		if(!securityCallback.mayEditAndCreateArticle()){
 			if (ureq.getUserSession().getRoles().isGuestOnly()) showInfo("guest.no.edit");
 			showInfo("no.edit");
 			return null;
 		}
 		// first check if no page exist 
-		WikiPage page = getWiki().findPage(requestPage.getCommand());
+		WikiPage page = wiki.findPage(requestPage.getCommand());
 		if (page.getPageName().equals(Wiki.NEW_PAGE)) {
 			// create new page
 			log.debug("Page does not exist, create a new one...");
 			page = new WikiPage(requestPage.getCommand());
 			page.setCreationTime(System.currentTimeMillis());
 			page.setInitalAuthor(ureq.getIdentity().getKey().longValue());
-			getWiki().addPage(page);
-			WikiManager.getInstance().saveWikiPage(ores, page, false, getWiki());
+			wiki.addPage(page);
+			WikiManager.getInstance().saveWikiPage(ores, page, false, wiki);
 			log.debug("Safe new page=" + page);
 			log.debug("Safe new pageId=" + page.getPageId());
 		} 
@@ -683,8 +700,13 @@ public class WikiMainController extends BasicController implements CloneableCont
 		return page;
 	}
 	
+	@Override
 	public void event(UserRequest ureq, Controller source, Event event) {
 		Wiki wiki = getWiki();
+		if(wiki == null) {
+			mainPanel.setContent(createVelocityContainer("deleted"));
+			return;
+		}
 		//reload page from cache
 		WikiPage page = wiki.getPage(pageId, true);
 		//set recent page id to the page currently used
@@ -746,7 +768,7 @@ public class WikiMainController extends BasicController implements CloneableCont
 			if (event.getCommand().equals(Table.COMMANDLINK_ROWACTION_CLICKED)) {
 				TableEvent te = (TableEvent) event;
 				if (te.getActionId().equals(ACTION_DELETE_MEDIA)) {
-					List list = new ArrayList(1);
+					List<MediaFileElement> list = new ArrayList<MediaFileElement>(1);
 					list.add(mediaFilesTableModel.getObject(te.getRowId()));
 					deleteMediaFile(list, ureq);
 				} else if (te.getActionId().equals(ACTION_SHOW_MEDIA)) {
@@ -775,7 +797,7 @@ public class WikiMainController extends BasicController implements CloneableCont
 		} else if (source == archiveWikiDialogCtr) {
 			if (DialogBoxUIFactory.isOkEvent(event)) {
 				//convert wiki into IMS content package and copy to users home folder
-				WikiToCPExport utils = new WikiToCPExport(ores, ident, getTranslator());
+				WikiToCPExport utils = new WikiToCPExport(ores, getIdentity(), getTranslator());
 				utils.archiveWikiToCP();
 				showInfo("wiki.exported.done.infomessage");
 			}
@@ -783,7 +805,9 @@ public class WikiMainController extends BasicController implements CloneableCont
 
 		else if (source == searchOrCreateArticleForm) {
 			String query = searchOrCreateArticleForm.getQuery();
-			if (query == null) query = WikiPage.WIKI_INDEX_PAGE;
+			if (!StringHelper.containsNonWhitespace(query)) {
+				query = WikiPage.WIKI_INDEX_PAGE;
+			}
 			page = wiki.findPage(query);
 			pageId = page.getPageId();
 			if (page.getPageName().equals(Wiki.NEW_PAGE)) setTabsEnabled(false);
@@ -835,9 +859,9 @@ public class WikiMainController extends BasicController implements CloneableCont
 
 						editContent.contextPut("isDirty", Boolean.valueOf(false));
 						page.setContent(wikiEditForm.getWikiContent());
-						page.setModifyAuthor(ident.getKey().longValue());
+						page.setModifyAuthor(getIdentity().getKey().longValue());
 						page.setUpdateComment(wikiEditForm.getUpdateComment());
-						if(page.getInitalAuthor() == 0) page.setInitalAuthor(ident.getKey().longValue());
+						if(page.getInitalAuthor() == 0) page.setInitalAuthor(getIdentity().getKey().longValue());
 						//menu page only editable by admin and owner set new content if changed
 						if (page.getPageName().equals(WikiPage.WIKI_MENU_PAGE)) wikiMenuComp.setWikiContent(page.getContent());
 						WikiManager.getInstance().saveWikiPage(ores, page, true, wiki);
@@ -894,10 +918,10 @@ public class WikiMainController extends BasicController implements CloneableCont
 	}
 
 
-	private void deleteMediaFile(List toDelete, UserRequest ureq) {
-		for (Iterator iter = toDelete.iterator(); iter.hasNext();) {
+	private void deleteMediaFile(List<MediaFileElement> toDelete, UserRequest ureq) {
+		for (Iterator<MediaFileElement> iter = toDelete.iterator(); iter.hasNext();) {
 			VFSContainer mediaFolder = WikiManager.getInstance().getMediaFolder(ores);
-			MediaFileElement element = (MediaFileElement) iter.next();
+			MediaFileElement element = iter.next();
 			if(log.isDebug()) log.debug("deleting media file: "+element.getFilename());
 			if(!element.getFilename().endsWith(METADATA_SUFFIX)) {
 				VFSLeaf file = (VFSLeaf)mediaFolder.resolve(element.getFilename());

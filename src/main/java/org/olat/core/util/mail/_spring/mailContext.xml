@@ -54,11 +54,7 @@
 		<property name="parentTreeNodeIdentifier" value="sysconfigParent" /> 
 	</bean> 
 	
-	<bean id="mailerWithTemplate" class="org.olat.core.util.mail.MailerWithTemplate" init-method="init">
-	
-	</bean>
-	
-	<bean id="mailManager" class="org.olat.core.util.mail.manager.MailManager" init-method="init">
+	<bean id="mailManager" class="org.olat.core.util.mail.manager.MailManagerImpl" init-method="init">
 		<constructor-arg index="0" ref="mailModule" />
 		<property name="dbInstance" ref="database"/>
 		<property name="notificationsManager" ref="org.olat.core.util.notifications.NotificationsManager"/>
@@ -69,9 +65,10 @@
 	</bean>
 	
 		<!-- Inbox in users Home -->
-	<bean id="mailBoxExtension" class="org.olat.core.util.mail.MailBoxExtension">
-		<constructor-arg index="0" ref="userDeletionManager" />
+	<bean id="mailBoxExtension" class="org.olat.core.util.mail.MailBoxExtension" init-method="init">
 		<property name="mailManager" ref="mailManager" />
+		<property name="repositoryManager" ref="repositoryManager"/>
+		<property name="businessGroupService" ref="businessGroupService"/>
 	</bean>
 	
 	<!--  the email-parent-menu  -->

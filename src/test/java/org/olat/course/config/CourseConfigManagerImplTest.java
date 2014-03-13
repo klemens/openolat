@@ -26,22 +26,20 @@
 
 package org.olat.course.config;
 
-import org.junit.After;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
+
 import org.junit.Before;
 import org.junit.Test;
-import junit.framework.TestSuite;
-
-import org.apache.log4j.Logger;
 import org.olat.core.commons.persistence.DBFactory;
 import org.olat.core.id.OLATResourceable;
-import org.olat.core.logging.activity.IUserActivityLogger;
+import org.olat.core.logging.OLog;
+import org.olat.core.logging.Tracing;
 import org.olat.core.util.resource.OresHelper;
 import org.olat.core.util.vfs.VFSItem;
 import org.olat.course.CourseFactory;
 import org.olat.course.ICourse;
 import org.olat.test.OlatTestCase;
-
-import static org.junit.Assert.*;
 
 /**
  * Description: <br>
@@ -52,12 +50,11 @@ import static org.junit.Assert.*;
  * @author patrick
  */
 public class CourseConfigManagerImplTest extends OlatTestCase {
-	private static Logger log = Logger.getLogger(CourseConfigManagerImplTest.class.getName());
+	private static OLog log = Tracing.createLoggerFor(CourseConfigManagerImplTest.class);
 
 	private static ICourse course1;
 
 	private static boolean isSetup = false;
-	private static boolean isTearDown = false;
 
 	
 	/**
@@ -102,23 +99,5 @@ public class CourseConfigManagerImplTest extends OlatTestCase {
 		ccm.deleteConfigOf(course1);
 		VFSItem cc1File = CourseConfigManagerImpl.getConfigFile(course1);
 		assertFalse("CourseConfig file no longer exists.", cc1File != null);
-	}
-
-	/**
-	 * TearDown is called after each test.
-	 * 
-	 * @throws Exception
-	 */
-	@After
-	public void tearDown() throws Exception {
-		if (isTearDown) return;
-		try {
-			DBFactory.getInstance().closeSession();
-			isTearDown = true;
-		} catch (Exception e) {
-			log.error("Exception in tearDown(): " + e);
-			e.printStackTrace();
-			throw e;
-		}
 	}
 }

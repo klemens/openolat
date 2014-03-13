@@ -25,6 +25,7 @@
 
 package org.olat.admin.user;
 
+import org.olat.admin.user.bulkChange.UserBulkChangeManager;
 import org.olat.basesecurity.BaseSecurity;
 import org.olat.basesecurity.BaseSecurityManager;
 import org.olat.basesecurity.BaseSecurityModule;
@@ -37,9 +38,7 @@ import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.Event;
 import org.olat.core.gui.control.WindowControl;
 import org.olat.core.gui.control.controller.BasicController;
-import org.olat.core.gui.translator.PackageTranslator;
 import org.olat.core.id.Identity;
-import org.olat.core.util.Util;
 
 /**
  * Initial Date:  Jan 27, 2006
@@ -60,11 +59,8 @@ import org.olat.core.util.Util;
  * There should be no need to use it anywhere else.
  */
 public class SystemRolesAndRightsController extends BasicController {
-	private static final String PACKAGE = Util.getPackageName(SystemRolesAndRightsController.class);
-	private static final String VELOCITY_ROOT = Util.getPackageVelocityRoot(PACKAGE);
 	
-	private VelocityContainer main;
-	private PackageTranslator translator;
+	private final VelocityContainer main;
 	private SystemRolesAndRightsForm sysRightsForm;
 	private Identity identity;
 	
@@ -75,9 +71,8 @@ public class SystemRolesAndRightsController extends BasicController {
 	 * @param identity identity to be edited
 	 */
 	public SystemRolesAndRightsController(WindowControl wControl, UserRequest ureq, Identity identity){
-		super(ureq, wControl);		
-		translator = new PackageTranslator(PACKAGE, ureq.getLocale());
-		main = new VelocityContainer("sysRolesVC", VELOCITY_ROOT + "/usysRoles.html", translator, null);
+		super(ureq, wControl);
+		main = createVelocityContainer("usysRoles");
 		this.identity = identity;
 		putInitialPanel(main);
 		createForm(ureq, identity);
@@ -149,6 +144,14 @@ public class SystemRolesAndRightsController extends BasicController {
 			boolean isGroupManager = form.isGroupmanager();
 			updateSecurityGroup(myIdentity, secMgr, groupManagerGroup, hasBeenGroupManager, isGroupManager, Constants.GROUP_GROUPMANAGERS);
 		}
+		// pool manager
+		Boolean canPoolmanagerByConfig =BaseSecurityModule.USERMANAGER_CAN_MANAGE_POOLMANAGERS;	
+		if (canPoolmanagerByConfig.booleanValue() || iAmOlatAdmin) {
+			SecurityGroup poolManagerGroup = secMgr.findSecurityGroupByName(Constants.GROUP_POOL_MANAGER);
+			boolean hasBeenPoolManager = secMgr.isIdentityInSecurityGroup(myIdentity, poolManagerGroup);
+			boolean isPoolManager = form.isPoolmanager();
+			updateSecurityGroup(myIdentity, secMgr, poolManagerGroup, hasBeenPoolManager, isPoolManager, Constants.GROUP_AUTHORS);
+		}
 		// author
 		Boolean canAuthorByConfig = BaseSecurityModule.USERMANAGER_CAN_MANAGE_AUTHORS;	
 		if (canAuthorByConfig.booleanValue() || iAmOlatAdmin) {
@@ -191,6 +194,11 @@ public class SystemRolesAndRightsController extends BasicController {
 							: (newStatus == Identity.STATUS_LOGIN_DENIED ? "login_denied"
 									: (newStatus == Identity.STATUS_DELETED ? "deleted"
 											: "unknown"))));
+			
+			if(newStatus == Identity.STATUS_LOGIN_DENIED) {
+				UserBulkChangeManager.getInstance().sendLoginDeniedEmail(myIdentity);
+			}
+			
 			identity = secMgr.saveIdentityStatus(myIdentity, newStatus);
 			logAudit("User::" + getIdentity().getName() + " changed accout status for user::" + myIdentity.getName() + " from::" + oldStatusText + " to::" + newStatusText, null);
 		}

@@ -29,16 +29,16 @@ package org.olat.modules.fo;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 
+import java.util.Calendar;
 import java.util.Date;
 import java.util.Iterator;
 import java.util.List;
 
-import org.apache.log4j.Logger;
-import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
-import org.olat.core.commons.persistence.DBFactory;
 import org.olat.core.id.Identity;
+import org.olat.core.logging.OLog;
+import org.olat.core.logging.Tracing;
 import org.olat.test.JunitTestHelper;
 import org.olat.test.OlatTestCase;
 import org.olat.user.UserManager;
@@ -49,7 +49,7 @@ import org.olat.user.UserManager;
 
 public class ForumManagerTest extends OlatTestCase {
 
-	private static Logger log = Logger.getLogger(ForumManagerTest.class.getName()); 
+	private static OLog log = Tracing.createLoggerFor(ForumManagerTest.class); 
 
 	public Identity u1;
 	public Identity u2;
@@ -113,18 +113,9 @@ public class ForumManagerTest extends OlatTestCase {
 		 	log.error("Exception in setUp(): "+e);	
 		}
 	}
-
-	/**
-	 * TearDown is called after each test
-	 */
-	@After public void tearDown(){
-		try{
-			DBFactory.getInstance().closeSession();
-		}
-		catch(Exception e) {log.error("Exception in tearDown(): "+e);}
-	}
 	
-	@Test public void testGetMessagesByForumID() throws Exception {
+	@Test
+	public void testGetMessagesByForumID() throws Exception {
 		log.debug("Start testGetMessagesByForumID()");
 		
 		ForumManager foma = ForumManager.getInstance();
@@ -168,12 +159,15 @@ public class ForumManagerTest extends OlatTestCase {
 	@Test public void testGetNewMessageInfo() {
 		log.debug("Start testGetNewMessageInfo()");
 		ForumManager foma = ForumManager.getInstance();
-		Date now = new Date();
-		List<Message> msgList = foma.getNewMessageInfo(fo.getKey(), new Date() );
-		assertEquals(0,msgList.size());
-		Date before = new Date(now.getTime() - 3600);
-		msgList = foma.getNewMessageInfo(fo.getKey(), before );
-		assertEquals(14,msgList.size());
+		
+		sleep(1500);//we must ensure a lap of 1 second
+		Calendar cal = Calendar.getInstance();
+		cal.setTime(new Date());
+		List<Message> msgList = foma.getNewMessageInfo(fo.getKey(), cal.getTime());
+		assertEquals(0, msgList.size());
+		cal.add(Calendar.HOUR_OF_DAY, - 1);
+		msgList = foma.getNewMessageInfo(fo.getKey(), cal.getTime());
+		assertEquals(14, msgList.size());
 	}
 	
 	@Test public void testDeleteMessageTree() {

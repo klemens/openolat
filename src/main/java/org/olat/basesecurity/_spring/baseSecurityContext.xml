@@ -3,14 +3,15 @@
 	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
 	xsi:schemaLocation="
   http://www.springframework.org/schema/beans 
-  http://www.springframework.org/schema/beans/spring-beans-3.0.xsd">
+  http://www.springframework.org/schema/beans/spring-beans.xsd">
 
 
 <!-- manager -->
 <bean id="baseSecurityManager" class="org.olat.basesecurity.BaseSecurityManager" init-method="init" 
-depends-on="database, i18nModule, triggerI18nModuleInit">
-<property name="resourceManager" ref="resourceManager"/>
-<property name="dbVendor" value="${db.vendor}" />
+	depends-on="database, i18nModule, triggerI18nModuleInit">
+	<property name="resourceManager" ref="resourceManager"/>
+	<property name="dbInstance" ref="database"/>
+	<property name="dbVendor" value="${db.vendor}" />
 </bean>
 
 <!-- module -->
@@ -37,12 +38,20 @@ depends-on="database, i18nModule, triggerI18nModuleInit">
 						userSearchAdminPropsForGroupmanagers=${usersearch.adminProps.groupmanagers}
 						userSearchAdminPropsForAdministrators=${usersearch.adminProps.administrators}
 						
+						userLastLoginVisibleForUsers=${user.lastlogin.visible.users}
+						userLastLoginVisibleForAuthors=${user.lastlogin.visible.authors}
+						userLastLoginVisibleForUsermanagers=${user.lastlogin.visible.usermanagers}
+						userLastLoginVisibleForGroupmanagers=${user.lastlogin.visible.groupmanagers}
+						userLastLoginVisibleForAdministrators=${user.lastlogin.visible.administrators}
+						
 						userSearchAutocompleteForUsers=${usersearch.autocomplete.users}
 						userSearchAutocompleteForAuthors=${usersearch.autocomplete.authors}
 						userSearchAutocompleteForUsermanagers=${usersearch.autocomplete.usermanagers}
 						userSearchAutocompleteForGroupmanagers=${usersearch.autocomplete.groupmanagers}
 						userSearchAutocompleteForAdministrators=${usersearch.autocomplete.administrators}
 						userSearchMaxResults=${usersearch.maxResults}
+						
+						userInfosTunnelCourseBuildingBlock=${userinfos.tunnelcoursebuildingblock}
             
 						sysGroupUsermanager.canCreateUser=true
 						sysGroupUsermanager.canDeleteUser=false
@@ -145,7 +154,7 @@ depends-on="database, i18nModule, triggerI18nModuleInit">
 	
 <!-- dummy bean -->
 <bean id="invitationCleanupJob.disabled" class="org.springframework.scheduling.quartz.JobDetailBean"  lazy-init="true">
-	<property name="jobClass" value="org.olat.core.commons.scheduler.DummyJob" />
+	<property name="jobClass" value="org.olat.core.commons.services.scheduler.DummyJob" />
 </bean>
 
 </beans>

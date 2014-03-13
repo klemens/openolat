@@ -25,10 +25,10 @@
 package org.olat.core.commons.modules.bc.meta;
 
 import java.text.DateFormat;
-import java.util.Date;
 import java.util.HashSet;
 import java.util.Set;
 
+import org.olat.core.CoreSpringFactory;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.form.flexible.FormItem;
 import org.olat.core.gui.components.form.flexible.FormItemContainer;
@@ -44,14 +44,17 @@ import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.Event;
 import org.olat.core.gui.control.WindowControl;
 import org.olat.core.gui.control.generic.folder.FolderHelper;
-import org.olat.core.id.Identity;
-import org.olat.core.id.UserConstants;
+import org.olat.core.id.Roles;
 import org.olat.core.util.FileUtils;
 import org.olat.core.util.StringHelper;
 import org.olat.core.util.vfs.OlatRelPathImpl;
 import org.olat.core.util.vfs.VFSConstants;
+import org.olat.core.util.vfs.VFSContainer;
 import org.olat.core.util.vfs.VFSItem;
 import org.olat.core.util.vfs.VFSLeaf;
+import org.olat.core.util.vfs.VFSLockManager;
+import org.olat.core.util.vfs.lock.LockInfo;
+import org.olat.user.UserManager;
 
 /**
  * This is the metadata flexiform controller with or without upload capability.
@@ -63,14 +66,19 @@ import org.olat.core.util.vfs.VFSLeaf;
  */
 public class MetaInfoFormController extends FormBasicController {
 	private VFSItem item;
-	private MetaInfo meta;
+	//private MetaInfo meta;
 	private FormLink moreMetaDataLink;
 	private String initialFilename;
 	private TextElement filename, title, publisher, creator, source, city, pages, language, url, comment, publicationMonth, publicationYear;
 	private SingleSelection locked;
 	// Fields needed for upload dialog
 	private boolean isSubform;
-	Set<FormItem> metaFields;
+	private Set<FormItem> metaFields;
+	
+	private final Roles roles;
+	private final UserManager userManager;
+	private final VFSLockManager vfsLockManager;
+	private final MetaInfoFactory metaInfoFactory;
 
 	/**
 	 * Use this controller for editing meta data of an existing file.
@@ -80,10 +88,13 @@ public class MetaInfoFormController extends FormBasicController {
 	 */
 	public MetaInfoFormController(UserRequest ureq, WindowControl control, VFSItem item) {
 		super(ureq, control);
-		this.isSubform = false;
+		isSubform = false;
 		this.item = item;
 		// load the metainfo
-		meta = MetaInfoFactory.createMetaInfoFor((OlatRelPathImpl) item);
+		roles = ureq.getUserSession().getRoles();
+		userManager = CoreSpringFactory.getImpl(UserManager.class);
+		vfsLockManager = CoreSpringFactory.getImpl(VFSLockManager.class);
+		metaInfoFactory = CoreSpringFactory.getImpl(MetaInfoFactory.class);
 		initForm(ureq);
 	}
 
@@ -97,7 +108,11 @@ public class MetaInfoFormController extends FormBasicController {
 	 */
 	public MetaInfoFormController(UserRequest ureq, WindowControl control, Form parentForm) {
 		super(ureq, control, FormBasicController.LAYOUT_DEFAULT, null, parentForm);
-		this.isSubform = true;
+		roles = ureq.getUserSession().getRoles();
+		userManager = CoreSpringFactory.getImpl(UserManager.class);
+		vfsLockManager = CoreSpringFactory.getImpl(VFSLockManager.class);
+		metaInfoFactory = CoreSpringFactory.getImpl(MetaInfoFactory.class);
+		isSubform = true;
 		initForm(ureq);
 	}
 	
@@ -111,9 +126,12 @@ public class MetaInfoFormController extends FormBasicController {
 	 */
 	public MetaInfoFormController(UserRequest ureq, WindowControl wControl, Form parentForm, VFSItem vfsItem) {
 		super(ureq, wControl, FormBasicController.LAYOUT_DEFAULT, null, parentForm);
-		this.isSubform = true;
+		isSubform = true;
 		this.item = vfsItem;
-		this.meta = MetaInfoFactory.createMetaInfoFor((OlatRelPathImpl)vfsItem);
+		roles = ureq.getUserSession().getRoles();
+		userManager = CoreSpringFactory.getImpl(UserManager.class);
+		vfsLockManager = CoreSpringFactory.getImpl(VFSLockManager.class);
+		metaInfoFactory = CoreSpringFactory.getImpl(MetaInfoFactory.class);
 		initForm(ureq);
 	}
 	
@@ -153,7 +171,7 @@ public class MetaInfoFormController extends FormBasicController {
 			// show metadata
 			// and hide link
 			setMetaFieldsVisible(true);
-			this.flc.setDirty(true);
+			flc.setDirty(true);
 			moreMetaDataLink.setVisible(false);
 		}
 	}
@@ -175,24 +193,32 @@ public class MetaInfoFormController extends FormBasicController {
 			filename.setNotEmptyCheck("mf.error.empty");
 			filename.setMandatory(true);
 		}
+		
+		MetaInfo meta = item == null ? null : metaInfoFactory.createMetaInfoFor((OlatRelPathImpl)item);
 
 		// title
-		title = uifactory.addTextElement("title", "mf.title", -1, (meta != null ? meta.getTitle() : null), formLayout);
+		String titleVal = StringHelper.escapeHtml(meta != null ? meta.getTitle() : null);
+		title = uifactory.addTextElement("title", "mf.title", -1, titleVal, formLayout);
 
 		// comment/description
-		comment = uifactory.addTextAreaElement("comment", "mf.comment", -1, 3, 1, true, (meta != null ? meta.getComment() : null), formLayout);
+		String commentVal =  StringHelper.xssScan(meta != null ? meta.getComment() : null);
+		comment = uifactory.addTextAreaElement("comment", "mf.comment", -1, 3, 1, true, commentVal, formLayout);
 
 		// creator
-		creator = uifactory.addTextElement("creator", "mf.creator", -1, (meta != null ? meta.getCreator() : null), formLayout);
+		String creatorVal = StringHelper.escapeHtml(meta != null ? meta.getCreator() : null);
+		creator = uifactory.addTextElement("creator", "mf.creator", -1, creatorVal, formLayout);
 
 		// publisher
-		publisher = uifactory.addTextElement("publisher", "mf.publisher", -1, (meta != null ? meta.getPublisher() : null), formLayout);
+		String publisherVal = StringHelper.escapeHtml(meta != null ? meta.getPublisher() : null);
+		publisher = uifactory.addTextElement("publisher", "mf.publisher", -1, publisherVal, formLayout);
 
 		// source/origin
-		source = uifactory.addTextElement("source", "mf.source", -1, (meta != null ? meta.getSource() : null), formLayout);
+		String sourceVal = StringHelper.escapeHtml(meta != null ? meta.getSource() : null);
+		source = uifactory.addTextElement("source", "mf.source", -1, sourceVal, formLayout);
 
 		// city
-		city = uifactory.addTextElement("city", "mf.city", -1, (meta != null ? meta.getCity() : null), formLayout);
+		String cityVal = StringHelper.escapeHtml(meta != null ? meta.getCity() : null);
+		city = uifactory.addTextElement("city", "mf.city", -1, cityVal, formLayout);
 
 		// publish date
 		FormLayoutContainer publicationDate = FormLayoutContainer.createHorizontalFormLayout("publicationDateLayout", getTranslator());
@@ -200,22 +226,25 @@ public class MetaInfoFormController extends FormBasicController {
 		formLayout.add(publicationDate);
 
 		String[] pubDate = (meta != null ? meta.getPublicationDate() : new String[] { "", "" });
-		publicationMonth = uifactory.addTextElement("publicationMonth", "mf.month", 2, pubDate[1], publicationDate);
+		publicationMonth = uifactory.addTextElement("publicationMonth", "mf.month", 2, StringHelper.escapeHtml(pubDate[1]), publicationDate);
 		publicationMonth.setMaxLength(2);
 		publicationMonth.setDisplaySize(2);
 
-		publicationYear = uifactory.addTextElement("publicationYear", "mf.year", 4, pubDate[0], publicationDate);
+		publicationYear = uifactory.addTextElement("publicationYear", "mf.year", 4, StringHelper.escapeHtml(pubDate[0]), publicationDate);
 		publicationYear.setMaxLength(4);
 		publicationYear.setDisplaySize(4);
 
 		// number of pages
-		pages = uifactory.addTextElement("pages", "mf.pages", -1, (meta != null ? meta.getPages() : null), formLayout);
+		String pageVal = StringHelper.escapeHtml(meta != null ? meta.getPages() : null);
+		pages = uifactory.addTextElement("pages", "mf.pages", -1, pageVal, formLayout);
 
 		// language
-		language = uifactory.addTextElement("language", "mf.language", -1, (meta != null ? meta.getLanguage() : null), formLayout);
+		String langVal = StringHelper.escapeHtml(meta != null ? meta.getLanguage() : null);
+		language = uifactory.addTextElement("language", "mf.language", -1, langVal, formLayout);
 
 		// url/link
-		url = uifactory.addTextElement("url", "mf.url", -1, (meta != null ? meta.getUrl() : null), formLayout);
+		String urlVal = StringHelper.escapeHtml(meta != null ? meta.getUrl() : null);
+		url = uifactory.addTextElement("url", "mf.url", -1, urlVal, formLayout);
 
 		/* static fields */
 		String sizeText, typeText;
@@ -238,7 +267,7 @@ public class MetaInfoFormController extends FormBasicController {
 		metaFields.add(language);
 		metaFields.add(url);
 
-		if (!hasMetadata()) {
+		if (!hasMetadata(meta)) {
 			moreMetaDataLink = uifactory.addFormLink("mf.more.meta.link", formLayout, Link.LINK_CUSTOM_CSS);
 			moreMetaDataLink.setCustomEnabledLinkCSS("b_link_moreinfo");
 			setMetaFieldsVisible(false);
@@ -247,27 +276,27 @@ public class MetaInfoFormController extends FormBasicController {
 		if (!isSubform) {
 
 			if(meta != null && !meta.isDirectory()) {
-				Long lockedById = meta.getLockedBy();
+				LockInfo lock = vfsLockManager.getLock(item);
 				//locked
 				String lockedTitle = getTranslator().translate("mf.locked");
 				String unlockedTitle = getTranslator().translate("mf.unlocked");
 				locked = uifactory.addRadiosHorizontal("locked","mf.locked",formLayout, new String[]{"lock","unlock"}, new String[]{lockedTitle, unlockedTitle});
-				if(meta.isLocked()) {
+				if(vfsLockManager.isLocked(item)) {
 					locked.select("lock", true);
 				} else {
 					locked.select("unlock", true);
 				}
-				locked.setEnabled(!MetaInfoHelper.isLocked(item, ureq));
+				boolean lockForMe = vfsLockManager.isLockedForMe(item, getIdentity(), roles);
+				locked.setEnabled(!lockForMe);
 				
 				//locked by
 				String lockedDetails = "";
-				if(lockedById != null) {
-					Identity lockedIdentity = meta.getLockedByIdentity();
-					String user = lockedIdentity.getUser().getProperty(UserConstants.LASTNAME, ureq.getLocale()) + " " +
-						lockedIdentity.getUser().getProperty(UserConstants.FIRSTNAME, ureq.getLocale());
+				if(lock != null) {
+					String user = userManager.getUserDisplayName(lock.getLockedBy());
+					user = StringHelper.escapeHtml(user);
 					String date = "";
-					if (meta.getLockedDate() != null) {
-						date = DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT, ureq.getLocale()).format(meta.getLockedDate());
+					if (lock.getCreationDate() != null) {
+						date = DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT, getLocale()).format(lock.getCreationDate());
 					}
 					lockedDetails = getTranslator().translate("mf.locked.description", new String[]{user, date});
 				} else {
@@ -277,18 +306,18 @@ public class MetaInfoFormController extends FormBasicController {
 			}
 			
 			// username
-			String author = meta == null ? "" : meta.getHTMLFormattedAuthor();
+			String author = StringHelper.escapeHtml(meta == null ? "" : meta.getHTMLFormattedAuthor());
 			uifactory.addStaticTextElement("mf.author", author, formLayout);
 
 			// filesize
-			uifactory.addStaticTextElement("mf.size", sizeText, formLayout);
+			uifactory.addStaticTextElement("mf.size", StringHelper.escapeHtml(sizeText), formLayout);
 
 			// last modified date
 			String lastModified = meta == null ? "" : StringHelper.formatLocaleDate(meta.getLastModified(), getLocale());
 			uifactory.addStaticTextElement("mf.lastModified", lastModified, formLayout);
 
 			// file type
-			uifactory.addStaticTextElement("mf.type", typeText, formLayout);
+			uifactory.addStaticTextElement("mf.type", StringHelper.escapeHtml(typeText), formLayout);
 
 			String downloads = meta == null ? "" : String.valueOf(meta.getDownloadCount());
 			uifactory.addStaticTextElement("mf.downloads", downloads, formLayout);
@@ -316,7 +345,7 @@ public class MetaInfoFormController extends FormBasicController {
 	/**
 	 * @return True if one or more metadata fields are non-emtpy.
 	 */
-	private boolean hasMetadata() {
+	private boolean hasMetadata(MetaInfo meta) {
 		if (meta != null) { return StringHelper.containsNonWhitespace(meta.getCreator())
 				|| StringHelper.containsNonWhitespace(meta.getPublisher()) || StringHelper.containsNonWhitespace(meta.getSource())
 				|| StringHelper.containsNonWhitespace(meta.getCity()) || StringHelper.containsNonWhitespace(meta.getPublicationDate()[0])
@@ -353,11 +382,8 @@ public class MetaInfoFormController extends FormBasicController {
 	public String getFilename() {
 		return filename.getValue();
 	}
-
-	/**
-	 * @return The updated MeatInfo object
-	 */
-	public MetaInfo getMetaInfo() {
+	
+	public MetaInfo getMetaInfo(MetaInfo meta) {
 		meta.setCreator(creator.getValue());
 		meta.setComment(comment.getValue());
 		meta.setTitle(title.getValue());
@@ -368,31 +394,31 @@ public class MetaInfoFormController extends FormBasicController {
 		meta.setSource(source.getValue());
 		meta.setUrl(url.getValue());
 		meta.setPages(pages.getValue());
-		if (!isSubform && (meta != null && !meta.isDirectory()) && (locked != null && locked.isEnabled())) {
-			//isSubForm
-			boolean alreadyLocked = meta.isLocked();
-			boolean currentlyLocked = locked.isSelected(0);
-			if(!currentlyLocked || !alreadyLocked) {
-				meta.setLocked(currentlyLocked);
-				if(meta.isLocked()) {
-					meta.setLockedBy(getIdentity().getKey());
-					meta.setLockedDate(new Date());
-				}
-			}
-		}
 		return meta;
 	}
 
 	/**
-	 * Puts the metadata of this form into the existing metaInfo object and
-	 * returns it.
-	 * 
-	 * @param meta
-	 * @return The MetaInfo object with the attributes of the form
+	 * @return The updated MeatInfo object
 	 */
-	public MetaInfo getMetaInfo(MetaInfo meta) {
-		this.meta = meta;
-		return getMetaInfo();
+	public MetaInfo getMetaInfo() {
+		if (!isSubform && (item instanceof VFSLeaf) && (locked != null && locked.isEnabled())) {
+			//isSubForm
+			boolean alreadyLocked = vfsLockManager.isLocked(item);
+			boolean currentlyLocked = locked.isSelected(0);
+			if(!currentlyLocked || !alreadyLocked) {
+				if(currentlyLocked) {
+					vfsLockManager.lock(item, getIdentity(), roles);
+				} else {
+					vfsLockManager.unlock(item, getIdentity(), roles);
+				}
+			}
+		}
+		
+		MetaInfo meta = CoreSpringFactory.getImpl(MetaInfoFactory.class).createMetaInfoFor((OlatRelPathImpl)item);
+		if(meta == null) {
+			return null;
+		}
+		return getMetaInfo(meta);
 	}
 
 	/**
@@ -430,8 +456,13 @@ public class MetaInfoFormController extends FormBasicController {
 			}
 		}
 				
-		if(isFileRenamed()) {			
-			valid = FileUtils.validateFilename(this.getFilename());
+		if(isFileRenamed()) {
+			//check if filetype is directory
+			if (item instanceof VFSContainer) {
+				valid &= true;
+			} else {
+				valid &= FileUtils.validateFilename(getFilename());
+			}
 			if(!valid) {
 				filename.setErrorKey("file.name.notvalid", new String[0]);
 			}			

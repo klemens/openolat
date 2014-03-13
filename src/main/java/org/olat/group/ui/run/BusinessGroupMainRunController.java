@@ -32,6 +32,7 @@ import org.olat.NewControllerFactory;
 import org.olat.admin.securitygroup.gui.GroupController;
 import org.olat.basesecurity.BaseSecurity;
 import org.olat.basesecurity.BaseSecurityManager;
+import org.olat.basesecurity.BaseSecurityModule;
 import org.olat.basesecurity.Constants;
 import org.olat.basesecurity.SecurityGroup;
 import org.olat.collaboration.CollaborationTools;
@@ -194,6 +195,7 @@ public class BusinessGroupMainRunController extends MainLayoutBasicController im
 
 	private boolean isAdmin;
 
+	private final ACService acService;
 	private final BaseSecurity securityManager;
 	private final BusinessGroupService businessGroupService;
 	private EventBus singleUserEventBus;
@@ -233,6 +235,7 @@ public class BusinessGroupMainRunController extends MainLayoutBasicController im
 		securityManager = CoreSpringFactory.getImpl(BaseSecurity.class);
 		businessGroupService = CoreSpringFactory.getImpl(BusinessGroupService.class);
 		businessGroup = businessGroupService.setLastUsageFor(getIdentity(), bGroup);
+		acService = CoreSpringFactory.getImpl(ACService.class);
 		if(businessGroup == null) {
 			VelocityContainer vc = createVelocityContainer("deleted");
 			vc.contextPut("name", bGroup.getName());
@@ -1079,7 +1082,8 @@ public class BusinessGroupMainRunController extends MainLayoutBasicController im
 			root.addChild(gtnChild);
 		}
 
-		if (collabTools.isToolEnabled(CollaborationTools.TOOL_WIKI)) {
+		BaseSecurityModule securityModule = CoreSpringFactory.getImpl(BaseSecurityModule.class); 
+		if (collabTools.isToolEnabled(CollaborationTools.TOOL_WIKI) && securityModule.isWikiEnabled()) {
 			gtnChild = new GenericTreeNode();
 			gtnChild.setTitle(translate("menutree.wiki"));
 			gtnChild.setUserObject(ACTIVITY_MENUSELECT_WIKI);
@@ -1125,7 +1129,7 @@ public class BusinessGroupMainRunController extends MainLayoutBasicController im
 
 			//fxdiff VCRP-1,2: access control of resources
 			AccessControlModule acModule = (AccessControlModule)CoreSpringFactory.getBean("acModule");
-			if(acModule.isEnabled()) {
+			if(acModule.isEnabled() && acService.isResourceAccessControled(businessGroup.getResource(), null)) {
 				gtnChild = new GenericTreeNode();
 				gtnChild.setTitle(translate("menutree.ac"));
 				gtnChild.setUserObject(ACTIVITY_MENUSELECT_AC);
@@ -1133,7 +1137,6 @@ public class BusinessGroupMainRunController extends MainLayoutBasicController im
 				gtnChild.setAltText(translate("menutree.ac.alt"));
 				gtnChild.setIconCssClass("b_order_icon");
 				root.addChild(gtnChild);
-				//acNodeId = gtnChild.getIdent();
 			}
 		}
 

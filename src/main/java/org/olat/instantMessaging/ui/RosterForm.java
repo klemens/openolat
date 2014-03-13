@@ -31,6 +31,7 @@ import org.olat.core.gui.components.form.flexible.impl.FormLayoutContainer;
 import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.Event;
 import org.olat.core.gui.control.WindowControl;
+import org.olat.core.util.StringHelper;
 import org.olat.user.UserManager;
 
 /**
@@ -56,7 +57,7 @@ public class RosterForm extends FormBasicController {
 		this.defaultAnonym = defaultAnonym;
 		this.offerAnonymMode = offerAnonymMode;
 		this.buddyList = buddyList;
-		fullName = CoreSpringFactory.getImpl(UserManager.class).getUserDisplayName(getIdentity().getUser());
+		fullName = CoreSpringFactory.getImpl(UserManager.class).getUserDisplayName(getIdentity());
 
 		initForm(ureq);
 	}
@@ -65,7 +66,7 @@ public class RosterForm extends FormBasicController {
 	protected void initForm(FormItemContainer formLayout, Controller listener, UserRequest ureq) {
 		// for simplicity we initialize the form even when the anonymous mode is disabled
 		// and just hide the form elements in the GUI
-		String[] theValues = new String[]{ fullName, translate("anonymous") };
+		String[] theValues = new String[]{ StringHelper.escapeHtml(fullName), translate("anonymous") };
 		toggle = uifactory.addRadiosVertical("toggle", "toogle.anonymous", formLayout, anonKeys, theValues);
 
 		if(defaultAnonym) {

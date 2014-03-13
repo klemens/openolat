@@ -40,8 +40,11 @@ import org.olat.core.gui.control.ControllerEventListener;
 import org.olat.core.gui.control.Event;
 import org.olat.core.gui.control.WindowControl;
 import org.olat.core.gui.control.controller.BasicController;
+import org.olat.core.gui.control.generic.iframe.DeliveryOptions;
 import org.olat.core.logging.AssertException;
 import org.olat.core.util.CodeHelper;
+import org.olat.core.util.Formatter;
+import org.olat.core.util.StringHelper;
 import org.olat.core.util.event.GenericEventListener;
 import org.olat.course.assessment.AssessmentHelper;
 import org.olat.course.editor.NodeEditController;
@@ -58,6 +61,7 @@ import org.olat.modules.scorm.ScormAPIandDisplayController;
 import org.olat.modules.scorm.ScormCPManifestTreeModel;
 import org.olat.modules.scorm.ScormConstants;
 import org.olat.modules.scorm.ScormMainManager;
+import org.olat.modules.scorm.ScormPackageConfig;
 import org.olat.repository.RepositoryEntry;
 import org.olat.util.logging.activity.LoggingResourceable;
 
@@ -87,6 +91,7 @@ public class ScormRunController extends BasicController implements ScormAPICallb
 	private boolean isPreview;
 	private boolean isAssessable;
 	private String assessableType;
+	private DeliveryOptions deliveryOptions;
 
 	/**
 	 * Use this constructor to launch a CP via Repository reference key set in
@@ -109,6 +114,7 @@ public class ScormRunController extends BasicController implements ScormAPICallb
 		this.userCourseEnv = userCourseEnv;
 		this.config = config;
 		this.scormNode = scormNode;
+		deliveryOptions = (DeliveryOptions)config.get(ScormEditController.CONFIG_DELIVERY_OPTIONS);
 
 		addLoggingResourceable(LoggingResourceable.wrap(scormNode));
 		init(ureq);
@@ -142,7 +148,7 @@ public class ScormRunController extends BasicController implements ScormAPICallb
 		doStartPage();
 		putInitialPanel(main);
 
-		boolean doSkip = config.getBooleanSafe(ScormEditController.CONFIG_SKIPLAUNCHPAGE, true);
+		boolean doSkip = config.getBooleanSafe(ScormEditController.CONFIG_SKIPLAUNCHPAGE, false);
 		if (doSkip && !maxAttemptsReached()) {
 			doLaunch(ureq, true);
 			getWindowControl().getWindowBackOffice().addCycleListener(this);
@@ -228,7 +234,9 @@ public class ScormRunController extends BasicController implements ScormAPICallb
 			}
 			startPage.contextPut("hasPassedValue", (scoreEval.getPassed() == null ? Boolean.FALSE : Boolean.TRUE));
 			startPage.contextPut("passed", scoreEval.getPassed());
-			startPage.contextPut("comment", scormNode.getUserUserComment(userCourseEnv));
+
+			StringBuilder comment = Formatter.stripTabsAndReturns(scormNode.getUserUserComment(userCourseEnv));
+			startPage.contextPut("comment", StringHelper.xssScan(comment));
 			startPage.contextPut("attempts", scormNode.getUserAttempts(userCourseEnv));
 		}
 		startPage.contextPut("isassessable", Boolean.valueOf(isAssessable));
@@ -266,8 +274,8 @@ public class ScormRunController extends BasicController implements ScormAPICallb
 		if (isPreview) {
 			courseId = new Long(CodeHelper.getRAMUniqueID()).toString();
 			scormDispC = ScormMainManager.getInstance().createScormAPIandDisplayController(ureq, getWindowControl(), showMenu, null,
-					cpRoot, null, courseId, ScormConstants.SCORM_MODE_BROWSE, ScormConstants.SCORM_MODE_NOCREDIT, true, null, doActivate,
-					fullWindow, false);
+					cpRoot, null, courseId, ScormConstants.SCORM_MODE_BROWSE, ScormConstants.SCORM_MODE_NOCREDIT,
+					true, null, doActivate, fullWindow, false, deliveryOptions);
 		} else {
 			boolean attemptsIncremented = false;
 			//increment user attempts only once!
@@ -282,40 +290,36 @@ public class ScormRunController extends BasicController implements ScormAPICallb
 			if (isAssessable) {
 				scormDispC = ScormMainManager.getInstance().createScormAPIandDisplayController(ureq, getWindowControl(), showMenu, this,
 						cpRoot, null, courseId + "-" + scormNode.getIdent(), ScormConstants.SCORM_MODE_NORMAL,
-						ScormConstants.SCORM_MODE_CREDIT, false, assessableType, doActivate, fullWindow, attemptsIncremented);
+						ScormConstants.SCORM_MODE_CREDIT, false, assessableType, doActivate, fullWindow,
+						attemptsIncremented, deliveryOptions);
 				// <OLATCE-289>
 				// scormNode.incrementUserAttempts(userCourseEnv);
 				// </OLATCE-289>
 			} else if (chooseScormRunMode.getSelectedElement().equals(ScormConstants.SCORM_MODE_NORMAL)) {
 				scormDispC = ScormMainManager.getInstance().createScormAPIandDisplayController(ureq, getWindowControl(), showMenu, null,
 						cpRoot, null, courseId + "-" + scormNode.getIdent(), ScormConstants.SCORM_MODE_NORMAL,
-						ScormConstants.SCORM_MODE_CREDIT, false, assessableType, doActivate, fullWindow, attemptsIncremented);
+						ScormConstants.SCORM_MODE_CREDIT, false, assessableType, doActivate, fullWindow,
+						attemptsIncremented, deliveryOptions);
 			} else {
 				scormDispC = ScormMainManager.getInstance().createScormAPIandDisplayController(ureq, getWindowControl(), showMenu, null,
-						cpRoot, null, courseId, ScormConstants.SCORM_MODE_BROWSE, ScormConstants.SCORM_MODE_NOCREDIT, false, assessableType, doActivate,
-						fullWindow, attemptsIncremented);
+						cpRoot, null, courseId, ScormConstants.SCORM_MODE_BROWSE, ScormConstants.SCORM_MODE_NOCREDIT,
+						false, assessableType, doActivate, fullWindow, attemptsIncremented, deliveryOptions);
 			}
 			
 		}
 		// configure some display options
 		boolean showNavButtons = config.getBooleanSafe(ScormEditController.CONFIG_SHOWNAVBUTTONS, true);
 		scormDispC.showNavButtons(showNavButtons);
-		boolean rawContent = config.getBooleanSafe(ScormEditController.CONFIG_RAW_CONTENT, true);
-		scormDispC.setRawContent(rawContent);
-		String height = (String) config.get(ScormEditController.CONFIG_HEIGHT);
-		if (!height.equals(ScormEditController.CONFIG_HEIGHT_AUTO)) {
-			scormDispC.setHeightPX(Integer.parseInt(height));
-		} else if(config.getBooleanSafe(ScormEditController.CONFIG_RAW_CONTENT, true)) {
-			//height auto but raw content set -> set default
+		DeliveryOptions deliveryOptions = (DeliveryOptions)config.get(ScormEditController.CONFIG_DELIVERY_OPTIONS);
+		if(deliveryOptions != null && deliveryOptions.getInherit() != null && deliveryOptions.getInherit().booleanValue()) {
+			ScormPackageConfig pConfig = ScormMainManager.getInstance().getScormPackageConfig(cpRoot);
+			deliveryOptions = (pConfig == null ? null : pConfig.getDeliveryOptions());
+		}
+		
+		if(deliveryOptions == null) {
 			scormDispC.setHeightPX(680);
-		}
-		String contentEncoding = (String) config.get(NodeEditController.CONFIG_CONTENT_ENCODING);
-		if (!contentEncoding.equals(NodeEditController.CONFIG_CONTENT_ENCODING_AUTO)) {
-			scormDispC.setContentEncoding(contentEncoding);
-		}
-		String jsEncoding = (String) config.get(NodeEditController.CONFIG_JS_ENCODING);
-		if (!jsEncoding.equals(NodeEditController.CONFIG_JS_ENCODING_AUTO)) {
-			scormDispC.setJSEncoding(jsEncoding);
+		} else {
+			scormDispC.setDeliveryOptions(deliveryOptions);
 		}
 		listenTo(scormDispC);
 		// the scormDispC activates itself

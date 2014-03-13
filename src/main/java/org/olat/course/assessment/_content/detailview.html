@@ -1,7 +1,7 @@
 #if ($courseNode)
-	<div class="b_with_small_icon_left $courseNodeCss">$courseNode.getShortTitle()
+	<div class="b_with_small_icon_left $courseNodeCss">$r.escapeHtml($courseNode.getShortTitle())
 	#if ($courseNode.getLongTitle() && $courseNode.getLongTitle() != "")
-		($courseNode.getLongTitle())
+		($r.escapeHtml($courseNode.getLongTitle()))
 	#end
 	</div>
 	<hr />
@@ -13,18 +13,24 @@ $r.render("backLink")
 <table class="b_table">
 	<tr>
 		<td>
-			<span class="b_with_small_icon_left b_user_icon">$user.getProperty("firstName", $locale) $user.getProperty("lastName", $locale)</span>
+			<span class="b_with_small_icon_left b_user_icon">$r.escapeHtml($user.getProperty("firstName", $locale)) $r.escapeHtml($user.getProperty("lastName", $locale))</span>
 		</td>
 		<td>
+			#if ($user.getProperty("institutionalName", $locale) && $user.getProperty("institutionalName", $locale).length() > 0)
+				#set ($inst = $r.escapeHtml($user.getProperty("institutionalName", $locale)))
+			#end
+			#if ($user.getProperty("institutionalUserIdentifier", $locale) && $user.getProperty("institutionalUserIdentifier", $locale).length() > 0)
+				#set ($matnr = $r.escapeHtml($user.getProperty("institutionalUserIdentifier", $locale)))
+			#end
 			$user.getProperty("email", $locale)
 			#if ($user.getProperty("institutionalEmail", $locale) && $user.getProperty("institutionalEmail", $locale) != "" && $user.getProperty("email", $locale) != $user.getProperty("institutionalEmail", $locale))
 			 / $user.getProperty("institutionalEmail", $locale)
 			#end
-			#if ($user.getProperty("institutionalName", $locale))
-				<br />$user.getProperty("institutionalName", $locale)
+			#if ($inst)
+				<br />$inst
 			#end
-			#if ($user.getProperty("institutionalUserIdentifier", $locale))
-				<br />$user.getProperty("institutionalUserIdentifier", $locale)
+			#if ($matnr)
+				<br />$matnr
 			#end
 		</td>
 	</tr>
@@ -34,7 +40,7 @@ $r.render("backLink")
 		</td>
 		<td>
 			#foreach($group in $participantGroups)
-				$group.getName()
+				$r.escapeHtml($group.getName())
 				#if ($velocityCount < $participantGroups.size())
 			,
 				#end

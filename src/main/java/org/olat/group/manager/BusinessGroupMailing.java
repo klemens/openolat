@@ -19,16 +19,20 @@
  */
 package org.olat.group.manager;
 
-import java.util.Collections;
 import java.util.List;
 
+import org.olat.basesecurity.BaseSecurity;
+import org.olat.core.CoreSpringFactory;
 import org.olat.core.id.Identity;
+import org.olat.core.id.Roles;
+import org.olat.core.util.mail.MailBundle;
 import org.olat.core.util.mail.MailContext;
 import org.olat.core.util.mail.MailContextImpl;
 import org.olat.core.util.mail.MailPackage;
+import org.olat.core.util.mail.MailManager;
 import org.olat.core.util.mail.MailTemplate;
 import org.olat.core.util.mail.MailerResult;
-import org.olat.core.util.mail.MailerWithTemplate;
+import org.olat.group.BusinessGroupModule;
 import org.olat.group.BusinessGroupShort;
 import org.olat.group.model.BusinessGroupMembershipChange;
 import org.olat.group.model.MembershipModification;
@@ -42,7 +46,7 @@ import org.olat.group.ui.main.MemberPermissionChangeEvent;
 public class BusinessGroupMailing {
 
 	public static MailType getDefaultTemplateType(MemberPermissionChangeEvent event) {
-		if(event.size() == 1) {
+		if(event != null && event.size() == 1) {
 			List<BusinessGroupMembershipChange> changes = event.getGroupChanges();
 			if(changes.size() == 1) {
 				BusinessGroupMembershipChange change = changes.get(0);
@@ -98,10 +102,19 @@ public class BusinessGroupMailing {
 	}
 		
 	protected static void sendEmail(Identity ureqIdentity, Identity identity, BusinessGroupShort group,
-			MailType type, MailPackage mailing, MailerWithTemplate mailer) {
+			MailType type, MailPackage mailing) {
 		
 		if(mailing != null && !mailing.isSendEmail()) {
 			return;
+		}
+		
+		if(mailing == null) {
+			BaseSecurity securityManager = CoreSpringFactory.getImpl(BaseSecurity.class);
+			BusinessGroupModule groupModule = CoreSpringFactory.getImpl(BusinessGroupModule.class);
+			Roles ureqRoles = securityManager.getRoles(ureqIdentity);
+			if(!groupModule.isMandatoryEnrolmentEmail(ureqRoles)) {
+				return;
+			}
 		}
 
 		MailTemplate template = mailing == null ? null : mailing.getTemplate();
@@ -114,8 +127,13 @@ public class BusinessGroupMailing {
 			context = new MailContextImpl(null, null, "[BusinessGroup:" + group.getKey() + "]");
 		}
 		
+		MailerResult result = new MailerResult();
 		String metaId = mailing != null ? mailing.getUuid() : null;
-		MailerResult result = mailer.sendMailAsSeparateMails(context, Collections.singletonList(identity), null, template, ureqIdentity, metaId);
+		MailManager mailService = CoreSpringFactory.getImpl(MailManager.class);
+		MailBundle bundle = mailService.makeMailBundle(context, identity, template, ureqIdentity, metaId, result);
+		if(bundle != null) {
+			mailService.sendMessage(bundle);
+		}
 		if(mailing != null) {
 			mailing.appendResult(result);
 		}

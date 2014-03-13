@@ -37,9 +37,12 @@ import org.olat.core.gui.control.WindowControl;
 import org.olat.core.gui.control.controller.BasicController;
 import org.olat.core.helpers.Settings;
 import org.olat.core.id.Identity;
+import org.olat.core.util.StringHelper;
 import org.olat.core.util.Util;
+import org.olat.core.util.WebappHelper;
 import org.olat.social.SocialModule;
 import org.olat.social.shareLink.ShareLinkController;
+import org.olat.user.UserManager;
 
 /**
  * Overrides the default footer of the webapplication framework showing the 
@@ -88,13 +91,24 @@ public class OlatFooterController extends BasicController {
 			if(isInvitee) {
 				olatFootervc.contextPut("username", translate("invitee"));
 			} else {
-				olatFootervc.contextPut("username", ureq.getIdentity().getName());
+				String fullName = CoreSpringFactory.getImpl(UserManager.class).getUserDisplayName(ureq.getIdentity());
+				olatFootervc.contextPut("username", StringHelper.escapeHtml(fullName));
 			}
 		} else {
 			olatFootervc.contextPut("loggedIn", Boolean.FALSE);
 		}
 
+		olatFootervc.contextPut("appName", Settings.getApplicationName());
+		olatFootervc.contextPut("appVersion", Settings.getVersion());
+		
+		olatFootervc.contextPut("buildIdentifier", Settings.getBuildIdentifier());
+		olatFootervc.contextPut("revisionNumber", WebappHelper.getRevisionNumber());
+		olatFootervc.contextPut("changeSet", WebappHelper.getChangeSet());
+		olatFootervc.contextPut("changeSetDate", WebappHelper.getChangeSetDate());
+		
+		olatFootervc.contextPut("node", Settings.getNodeInfo());
 		olatFootervc.contextPut("olatversion", Settings.getFullVersionInfo() +" "+ Settings.getNodeInfo());
+
 		putInitialPanel(olatFootervc);
 	}
 

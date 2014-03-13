@@ -219,36 +219,13 @@ public class CourseGroupWebService {
     	bg = bgm.loadBusinessGroup(group.getKey());
     	bgm.addResourceTo(bg, courseRe);
     } else {
-    	String name = group.getName();
-  		String desc = group.getDescription();
   		Integer min = normalize(group.getMinParticipants());
   		Integer max = normalize(group.getMaxParticipants());
-  		
-  		bg = bgm.createBusinessGroup(ureq.getIdentity(), name, desc, min, max, false, false, courseRe);
+  		bg = bgm.createBusinessGroup(ureq.getIdentity(), group.getName(), group.getDescription(),
+  				group.getExternalId(), group.getManagedFlags(), min, max, false, false, courseRe);
     }
     GroupVO savedVO = ObjectFactory.get(bg);
 		return Response.ok(savedVO).build();
-	}
-	
-	/**
-	 * Fallback method for the browser.
-	 * @response.representation.qname {http://www.example.com}groupVO
-   * @response.representation.mediaType application/xml, application/json
-   * @response.representation.doc A group to save
-   * @response.representation.example {@link org.olat.restapi.support.vo.Examples#SAMPLE_GROUPVO}
-	 * @response.representation.200.qname {http://www.example.com}groupVO
-   * @response.representation.200.mediaType application/xml, application/json
-   * @response.representation.200.doc The persisted group
-   * @response.representation.200.example {@link org.olat.restapi.support.vo.Examples#SAMPLE_GROUPVO}
-	 * @response.representation.401.doc The roles of the authenticated user are not sufficient
-   * @param group The group's metadatas
-   * @param request The HTTP request
-	 * @return
-	 */
-	@POST
-	@Path("new")
-	public Response postNewGroup(GroupVO group, @Context HttpServletRequest request) {
-		return putNewGroup(group, request);
 	}
 	
 	/**

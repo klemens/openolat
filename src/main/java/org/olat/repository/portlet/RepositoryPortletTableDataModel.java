@@ -24,7 +24,8 @@ import java.util.Locale;
 
 import org.olat.core.gui.control.generic.portal.PortletDefaultTableDataModel;
 import org.olat.core.gui.control.generic.portal.PortletEntry;
-import org.olat.repository.RepositoryEntryShort;
+import org.olat.core.util.filter.FilterFactory;
+import org.olat.repository.RepositoryEntryLight;
 
 /**
  * Description:<br>
@@ -35,11 +36,11 @@ import org.olat.repository.RepositoryEntryShort;
  * Initial Date:  06.03.2009 <br>
  * @author gnaegi, rhaag
  */
-public class RepositoryPortletTableDataModel extends PortletDefaultTableDataModel<RepositoryEntryShort> {
+public class RepositoryPortletTableDataModel extends PortletDefaultTableDataModel<RepositoryEntryLight> {
 	/**
 	 * @see org.olat.core.gui.components.table.DefaultTableDataModel#getValueAt(int, int)
 	 */
-	public  RepositoryPortletTableDataModel(List<PortletEntry<RepositoryEntryShort>> objects, Locale locale) {
+	public  RepositoryPortletTableDataModel(List<PortletEntry<RepositoryEntryLight>> objects, Locale locale) {
 		super(objects, 3);
 		super.setLocale(locale);
 	}
@@ -53,7 +54,8 @@ public class RepositoryPortletTableDataModel extends PortletDefaultTableDataMode
 			case 0:
 				return repoEntry.getValue().getDisplayname();
 			case 1:
-				return repoEntry.getDescription(); 
+				String desc = repoEntry.getDescription();
+				return FilterFactory.getHtmlTagsFilter().filter(desc);
 			case 2:
 				return repoEntry.getValue();
 			default:
@@ -61,8 +63,8 @@ public class RepositoryPortletTableDataModel extends PortletDefaultTableDataMode
 		}
 	}	
 
-	public RepositoryEntryShort getRepositoryEntry(int row) {
-		PortletEntry<RepositoryEntryShort> portletEntry = getObject(row);
+	public RepositoryEntryLight getRepositoryEntry(int row) {
+		PortletEntry<RepositoryEntryLight> portletEntry = getObject(row);
 		return portletEntry.getValue();
 	}
 }

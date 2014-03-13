@@ -32,8 +32,9 @@ import java.util.HashMap;
  *
  * @author Mike Stock
  */
-public class RenderInstructions extends HashMap {
-	
+public class RenderInstructions extends HashMap<String,Object> {
+
+	private static final long serialVersionUID = -7899908178364768916L;
 	/**
 	 * Render as form for input.
 	 */
@@ -100,6 +101,19 @@ public class RenderInstructions extends HashMap {
 	protected static final String KEY_FIB_COLUMNS = "cols";
 	// Denotes maxlength attribute of a render_fib element
 	protected static final String KEY_FIB_MAXLENGTH = "max";
+	// Output the correct responses too
+	public static final String KEY_RENDER_CORRECT_RESPONSES = "rCorrectResponses";
+	
+	public static final String KEY_CORRECT_RESPONSES_MAP = "correctResponsesMap";
+	
+	public static final String KEY_QUESTION_OO_TYPE = "rQuestionOpenOLATType";
+	
+	public static final String KEY_QUESTION_TYPE = "rQuestionType";
+	
+	public static final String KEY_QUESTION_SCORE = "rQuestionScore";
+	
+	public static final String KEY_BREAK_DELAY = "breakDelay";
+	
 	
 	// just a simple HashMap
 }

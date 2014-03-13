@@ -39,6 +39,7 @@ import org.olat.core.gui.components.form.flexible.FormItem;
 import org.olat.core.gui.components.form.flexible.FormItemContainer;
 import org.olat.core.gui.components.form.flexible.elements.FileElement;
 import org.olat.core.gui.components.form.flexible.elements.FormLink;
+import org.olat.core.gui.components.form.flexible.elements.RichTextElement;
 import org.olat.core.gui.components.form.flexible.elements.SelectionElement;
 import org.olat.core.gui.components.form.flexible.elements.TextElement;
 import org.olat.core.gui.components.form.flexible.impl.Form;
@@ -52,9 +53,12 @@ import org.olat.core.gui.control.WindowControl;
 import org.olat.core.gui.util.CSSHelper;
 import org.olat.core.id.Identity;
 import org.olat.core.util.FileUtils;
+import org.olat.core.util.StringHelper;
 import org.olat.core.util.Util;
+import org.olat.core.util.filter.FilterFactory;
 import org.olat.core.util.mail.ContactList;
 import org.olat.core.util.mail.MailModule;
+import org.olat.user.UserManager;
 
 /**
  * highly configurable contact form. Depending on each field value the
@@ -87,7 +91,7 @@ public class ContactForm extends FormBasicController {
 	private final static String NLS_CONTACT_SUBJECT = "contact.subject";
 	private TextElement tsubject;
 	private final static String NLS_CONTACT_BODY = "contact.body";
-	private TextElement tbody;
+	private RichTextElement tbody;
 	private final static String NLS_CONTACT_ATTACHMENT = "contact.attachment";
 	private final static String NLS_CONTACT_ATTACHMENT_EXPL = "contact.attachment.maxsize";
 	private int contactAttachmentMaxSizeInMb = 5;
@@ -107,8 +111,9 @@ public class ContactForm extends FormBasicController {
 	private Map<String,String> attachmentCss = new HashMap<String,String>();
 	private Map<String,String> attachmentNames = new HashMap<String,String>();
 	private Map<String,ContactList> contactLists = new Hashtable<String,ContactList>();
-
 	
+	private final UserManager userManager;
+
 	public ContactForm(UserRequest ureq, WindowControl wControl, Identity emailFrom, boolean readOnly, boolean isCancellable, boolean hasRecipientsEditable) {
 		super(ureq, wControl);
 		this.emailFrom = emailFrom;
@@ -116,6 +121,7 @@ public class ContactForm extends FormBasicController {
 		this.recipientsAreEditable = hasRecipientsEditable;
 		this.hasMsgCancel = isCancellable;
 		this.contactAttachmentMaxSizeInMb = CoreSpringFactory.getImpl(MailModule.class).getMaxSizeForAttachement();
+		userManager = CoreSpringFactory.getImpl(UserManager.class);
 		initForm(ureq);
 	}
 	
@@ -127,6 +133,7 @@ public class ContactForm extends FormBasicController {
 		this.hasMsgCancel = isCancellable;
 		this.hasMsgSave = isSaveable;
 		this.contactAttachmentMaxSizeInMb = CoreSpringFactory.getImpl(MailModule.class).getMaxSizeForAttachement();
+		userManager = CoreSpringFactory.getImpl(UserManager.class);
 		initForm(ureq);
 	}
 		
@@ -165,16 +172,13 @@ public class ContactForm extends FormBasicController {
 	 * @param defaultEmailTo
 	 */
 	private void addContactFormEmailTo(String defaultEmailTo) {
-		
 		defaultEmailTo += tto.getValue();
 		tto.setValue(defaultEmailTo);
 		ttoBig.setValue(defaultEmailTo);
 		
-		
 		tto.setVisible(!recipientsAreEditable);
 		ttoBig.setVisible(recipientsAreEditable);
 	}
-
 
 	/**
 	 * @param defaultBody
@@ -185,8 +189,6 @@ public class ContactForm extends FormBasicController {
 		tbody.setVisible(true);
 		tbody.setMandatory(!readOnly);
 	}
-
-	
 	
 	@Override
 	public boolean validateFormLogic(UserRequest ureq) {
@@ -271,15 +273,15 @@ public class ContactForm extends FormBasicController {
 	 * @return email body text
  	 */
  	public String getBody() {
- 			return tbody.getValue();
+ 		return tbody.getValue(FilterFactory.getSmileysCssToDataUriFilter());
 	}
  	
- 	public List<File> getAttachments() {
+ 	public File[] getAttachments() {
  		List<File> attachments = new ArrayList<File>();
  		for(FormLink removeLink : attachmentLinks) {
  			attachments.add((File)removeLink.getUserObject());
  		}
- 		return attachments;
+ 		return attachments.toArray(new File[attachments.size()]);
  	}
  	
  	public void cleanUpAttachments() {
@@ -366,9 +368,11 @@ public class ContactForm extends FormBasicController {
 	@Override
 	protected void initForm(FormItemContainer formLayout, Controller listener, UserRequest ureq) {
 		setFormTitle("header.newcntctmsg");
-		
-		tfrom = uifactory.addTextElement("ttfrom", NLS_CONTACT_FROM, 255, "", formLayout);
-		tfrom.setValue(emailFrom.getName());
+		String fullName = userManager.getUserDisplayName(emailFrom);
+		if(StringHelper.containsNonWhitespace(fullName)) {
+			fullName = "[" + fullName + "]";
+		}
+		tfrom = uifactory.addTextElement("ttfrom", NLS_CONTACT_FROM, 255, fullName, formLayout);
 		tfrom.setEnabled(false);
 		
 		tto = uifactory.addTextElement("tto", NLS_CONTACT_TO, 255, "", formLayout);
@@ -381,7 +385,7 @@ public class ContactForm extends FormBasicController {
 		
 		tsubject = uifactory.addTextElement("tsubject", NLS_CONTACT_SUBJECT, 255, "", formLayout);
 		tsubject.setDisplaySize(emailCols);
-		tbody = uifactory.addTextAreaElement("tbody", NLS_CONTACT_BODY, -1, 10, emailCols, true, "", formLayout);
+		tbody = uifactory.addRichTextElementForStringDataMinimalistic("tbody", NLS_CONTACT_BODY, "", 15, emailCols, formLayout, ureq.getUserSession(), getWindowControl());
 		tbody.setEnabled(!readOnly);
 		
 		String VELOCITY_ROOT = Util.getPackageVelocityRoot(this.getClass());

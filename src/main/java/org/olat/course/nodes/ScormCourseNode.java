@@ -26,16 +26,27 @@
 package org.olat.course.nodes;
 
 import java.io.File;
+import java.io.IOException;
+import java.util.Date;
 import java.util.List;
 import java.util.Locale;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipOutputStream;
 
+import org.apache.commons.io.IOUtils;
 import org.olat.basesecurity.BaseSecurityManager;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.stack.StackedController;
 import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.WindowControl;
+import org.olat.core.gui.control.generic.iframe.DeliveryOptions;
 import org.olat.core.gui.control.generic.tabbable.TabbableController;
+import org.olat.core.gui.translator.Translator;
 import org.olat.core.id.Identity;
+import org.olat.core.logging.OLog;
+import org.olat.core.logging.Tracing;
+import org.olat.core.util.Formatter;
+import org.olat.core.util.StringHelper;
 import org.olat.core.util.Util;
 import org.olat.course.ICourse;
 import org.olat.course.assessment.AssessmentManager;
@@ -53,6 +64,9 @@ import org.olat.course.run.scoring.ScoreEvaluation;
 import org.olat.course.run.userview.NodeEvaluation;
 import org.olat.course.run.userview.UserCourseEnvironment;
 import org.olat.modules.ModuleConfiguration;
+import org.olat.modules.scorm.ScormMainManager;
+import org.olat.modules.scorm.ScormPackageConfig;
+import org.olat.modules.scorm.archiver.ScormExportManager;
 import org.olat.modules.scorm.assessment.ScormResultDetailsController;
 import org.olat.repository.RepositoryEntry;
 import org.olat.repository.RepositoryEntryImportExport;
@@ -63,8 +77,16 @@ import org.olat.repository.RepositoryEntryImportExport;
  * @author BPS (<a href="http://www.bps-system.de/">BPS Bildungsportal Sachsen GmbH</a>)
  */
 public class ScormCourseNode extends AbstractAccessableCourseNode implements AssessableCourseNode {
+	private static final OLog log = Tracing.createLoggerFor(ScormCourseNode.class);
+	private static final long serialVersionUID = 2970594874787761801L;
 	private static final String TYPE = "scorm";
-	private static final int CURRENT_CONFIG_VERSION = 4;
+	private static final int CURRENT_CONFIG_VERSION = 5;
+	
+
+	private static final String CONFIG_RAW_CONTENT = "rawcontent";
+	private static final String CONFIG_HEIGHT = "height";	
+	private final static String CONFIG_HEIGHT_AUTO = "auto";
+	
 
 	/**
 	 * Constructor for a course building block of the type IMS CP learning content
@@ -183,7 +205,7 @@ public class ScormCourseNode extends AbstractAccessableCourseNode implements Ass
 			config.setBooleanEntry(NodeEditController.CONFIG_STARTPAGE, Boolean.TRUE.booleanValue());
 			config.setBooleanEntry(NodeEditController.CONFIG_COMPONENT_MENU, Boolean.TRUE.booleanValue());
 			config.setBooleanEntry(ScormEditController.CONFIG_SHOWNAVBUTTONS, Boolean.TRUE.booleanValue());
-			config.set(ScormEditController.CONFIG_HEIGHT, "680");
+			config.set(CONFIG_HEIGHT, "680");
 			config.set(NodeEditController.CONFIG_CONTENT_ENCODING, NodeEditController.CONFIG_CONTENT_ENCODING_AUTO);	
 			config.set(NodeEditController.CONFIG_JS_ENCODING, NodeEditController.CONFIG_JS_ENCODING_AUTO);	
 			//fxdiff FXOLAT-116: SCORM improvements
@@ -193,7 +215,10 @@ public class ScormCourseNode extends AbstractAccessableCourseNode implements Ass
 			config.setBooleanEntry(ScormEditController.CONFIG_ATTEMPTSDEPENDONSCORE, false);
 			config.setIntValue(ScormEditController.CONFIG_MAXATTEMPTS, 0);
 			config.setConfigurationVersion(CURRENT_CONFIG_VERSION);
-			config.setBooleanEntry(ScormEditController.CONFIG_RAW_CONTENT, true);
+			
+			DeliveryOptions deliveryOptions = new DeliveryOptions();
+			deliveryOptions.setInherit(Boolean.TRUE);
+			config.set(ScormEditController.CONFIG_DELIVERY_OPTIONS, deliveryOptions);
 		} else {
 			int version = config.getConfigurationVersion();
 			if (version < CURRENT_CONFIG_VERSION) {
@@ -204,7 +229,7 @@ public class ScormCourseNode extends AbstractAccessableCourseNode implements Ass
 					config.remove(NodeEditController.CONFIG_INTEGRATION);
 					// add new parameter 'shownavbuttons' and 'height'
 					config.setBooleanEntry(ScormEditController.CONFIG_SHOWNAVBUTTONS, Boolean.TRUE.booleanValue());
-					config.set(ScormEditController.CONFIG_HEIGHT, ScormEditController.CONFIG_HEIGHT_AUTO);					
+					config.set(CONFIG_HEIGHT, CONFIG_HEIGHT_AUTO);					
 				}
 				
 				if (version == 2) {
@@ -221,6 +246,66 @@ public class ScormCourseNode extends AbstractAccessableCourseNode implements Ass
 					config.setBooleanEntry(ScormEditController.CONFIG_ADVANCESCORE, false);
 					config.setBooleanEntry(ScormEditController.CONFIG_ATTEMPTSDEPENDONSCORE, false);
 					config.setIntValue(ScormEditController.CONFIG_MAXATTEMPTS, 0);
+				}
+				
+				if (version == 4) {
+					boolean rawContent = config.getBooleanSafe(CONFIG_RAW_CONTENT, true);
+					
+					String height = (String)config.get(CONFIG_HEIGHT);
+					String contentEncoding = (String)config.get(NodeEditController.CONFIG_CONTENT_ENCODING);
+					String jsEncoding = (String)config.get(NodeEditController.CONFIG_JS_ENCODING);
+
+					ScormPackageConfig reConfig = null;
+					DeliveryOptions nodeDeliveryOptions = new DeliveryOptions();
+					RepositoryEntry re = getReferencedRepositoryEntry();
+					if(re != null) {
+						reConfig = ScormMainManager.getInstance().getScormPackageConfig(re.getOlatResource());
+
+						//move the settings from the node to the repo
+						if(reConfig == null || reConfig.getDeliveryOptions() == null) {
+							if(reConfig == null) {
+								reConfig = new ScormPackageConfig();
+							}
+							reConfig.setDeliveryOptions(new DeliveryOptions());
+							nodeDeliveryOptions.setInherit(Boolean.TRUE);
+							if(rawContent) {
+								nodeDeliveryOptions.setStandardMode(Boolean.TRUE);
+							} else {	
+								nodeDeliveryOptions.setStandardMode(Boolean.FALSE);
+								reConfig.getDeliveryOptions().setOpenolatCss(Boolean.TRUE);
+								reConfig.getDeliveryOptions().setPrototypeEnabled(Boolean.TRUE);
+								reConfig.getDeliveryOptions().setHeight(height);
+							}
+							reConfig.getDeliveryOptions().setContentEncoding(contentEncoding);
+							reConfig.getDeliveryOptions().setJavascriptEncoding(jsEncoding);
+							ScormMainManager.getInstance().setScormPackageConfig(re.getOlatResource(), reConfig);
+						} else {
+							DeliveryOptions repoDeliveryOptions = reConfig.getDeliveryOptions();
+							boolean reRawContent = repoDeliveryOptions.getStandardMode() == null ? true : repoDeliveryOptions.getStandardMode().booleanValue();
+							if(((height == null && repoDeliveryOptions.getHeight() == null) || (height != null && height.equals(repoDeliveryOptions.getHeight())))
+									&& ((contentEncoding == null && repoDeliveryOptions.getContentEncoding() == null) || (contentEncoding != null && contentEncoding.equals(repoDeliveryOptions.getContentEncoding())))
+									&& ((jsEncoding == null && repoDeliveryOptions.getJavascriptEncoding() == null) || (jsEncoding != null && jsEncoding.equals(repoDeliveryOptions.getJavascriptEncoding())))
+									&& rawContent == reRawContent) {
+								nodeDeliveryOptions.setInherit(Boolean.TRUE);	
+							} else {
+								nodeDeliveryOptions.setInherit(Boolean.FALSE);	
+								nodeDeliveryOptions.setContentEncoding(contentEncoding);
+								nodeDeliveryOptions.setJavascriptEncoding(jsEncoding);
+								nodeDeliveryOptions.setHeight(height);
+								if(rawContent) {
+									nodeDeliveryOptions.setStandardMode(Boolean.TRUE);
+								} else {
+									nodeDeliveryOptions.setStandardMode(Boolean.FALSE);
+									nodeDeliveryOptions.setOpenolatCss(Boolean.TRUE);
+									nodeDeliveryOptions.setPrototypeEnabled(Boolean.TRUE);
+									nodeDeliveryOptions.setHeight(height);
+								}
+							}
+						}
+					}
+
+					config.set(ScormEditController.CONFIG_DELIVERY_OPTIONS, nodeDeliveryOptions);
+					version = 5;
 				}
 				
 				//version is now set to current version
@@ -260,6 +345,24 @@ public class ScormCourseNode extends AbstractAccessableCourseNode implements Ass
 		} else {
 			return new ImportReferencesController(ureq, wControl, this, ImportReferencesController.IMPORT_SCORM, rie);
 		}
+	}
+
+	@Override
+	public boolean archiveNodeData(Locale locale, ICourse course, ArchiveOptions options, ZipOutputStream exportStream, String charset) {
+		String fileName = "scorm_"
+				+ StringHelper.transformDisplayNameToFileSystemName(getShortName())
+				+ "_" + Formatter.formatDatetimeFilesystemSave(new Date(System.currentTimeMillis()))
+				+ ".xls";
+		Translator trans = Util.createPackageTranslator(ScormExportManager.class, locale);
+		String results = ScormExportManager.getInstance().getResults(course.getCourseEnvironment(), this, trans);
+		try {
+			exportStream.putNextEntry(new ZipEntry(fileName));
+			IOUtils.write(results, exportStream);
+			exportStream.closeEntry();
+		} catch (IOException e) {
+			log.error("", e);
+		}
+		return true;
 	}
 
 	/**
@@ -505,6 +608,7 @@ public class ScormCourseNode extends AbstractAccessableCourseNode implements Ass
 	/**
 	 * @see org.olat.course.nodes.CourseNode#cleanupOnDelete(org.olat.course.ICourse)
 	 */
+	@Override
 	public void cleanupOnDelete(ICourse course) {
 		CoursePropertyManager pm = course.getCourseEnvironment().getCoursePropertyManager();
 		// 1) Delete all properties: score, passed, log, comment, coach_comment,
@@ -517,24 +621,4 @@ public class ScormCourseNode extends AbstractAccessableCourseNode implements Ass
 		// I would consider refatoring this and setting up an upgrade task that moves the
 		// folders accordingly
 	}
-
-	/**
-	 * Override default implementation
-	 * 
-	 * @see org.olat.course.nodes.CourseNode#archiveNodeData(java.util.Locale,
-	 *      org.olat.course.ICourse, java.io.File)
-	 */
-	public boolean archiveNodeData(Locale locale, ICourse course, File exportDirectory, String charset) {	
-		return super.archiveNodeData(locale, course, exportDirectory, charset);
-		// copy all user directories containing the xml files into the export dir
-		
-		// FIXME gs
-		// we would have to work through all users
-		// of the system since data is stored under users name instead of the repo entry
-		// with many users on the system it could take quite some time and the user
-		// is waiting in a workflow
-		// see comment on cleanupOnDelete
-	}
-
-
 }

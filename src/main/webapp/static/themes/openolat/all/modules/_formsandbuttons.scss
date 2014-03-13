@@ -36,7 +36,7 @@ button { border:none; }
 	 * @valid      no!
 */	 
 .b_button:focus, .b_button:hover {
-	border: 1px solid #aaa\9;
+	border: 1px solid #aaa;
 } 
 
 /* dirty button (form with unsaved values ) */
@@ -46,7 +46,7 @@ button { border:none; }
 	
 	&:focus,&:hover {
 		text-decoration: none;
-		border:1px solid #ffc20e;
+		border:1px solid $selectcolor;
 		@include o-gradient2( #ffffff,#FFF7E0);
 	}
 }
@@ -68,6 +68,7 @@ button { border:none; }
 /* multiple buttons groups below a form */
 div.b_button_group { text-align: center; margin: 2em 0 1em 0;}
 div.b_button_group div { display: inline;}
+
 
 
 .b_xsmall, sup, sub {
@@ -174,6 +175,40 @@ span.b_toggle_slide_legend {font-size: 90%; }
 	> span {background-image: url('../openolat/images/cross.png');}
 }
 
+.b_link_edit {
+	> span {background-image: url('../openolat/images/docs/document--pencil.png');}
+}
+
+.b_move_left_icon {
+	> span {background-image: url('../openolat/images/arrow_left_big.png');}
+}
+
+.b_move_right_icon { 
+	> span {background-image: url('../openolat/images/arrow_right_big.png');}
+}
+
+.b_remove_icon {
+	> span {background-image: url('../openolat/images/cross_small.png');}
+}
+
+.b_deletableentry_wrapper {
+	.b_deletableentry {
+		
+	}
+	
+	.b_link_left_icon {
+		border: none;
+		background:inherit;
+		margin: 0;
+		
+		&:focus, &:hover, &:focus, &:active {
+			text-decoration: none;
+			border:none;
+			@include o-box-shadow(0, 0, 0, transparent);
+		}
+	}
+}
+
 
 /** ----------------- FORMS + LOGIN  ----------------- **/
 div.o_login {
@@ -232,7 +267,7 @@ div.b_form {
 	div.b_form_general_error { padding: 10px 10px 10px 50px; margin-bottom: 20px; text-align: left; background: url(../openolat/images/icon_error_32.png) no-repeat 10px 10px; min-height: 32px; border: 1px solid $nokcolor; color: $nokcolor; font-style: italic;}
 	div.b_form_spacer { margin: 10px 0; }
 	
-	hr {
+	hr {	
 		&.b_form_spacer { margin: 10px 0; border-bottom: 1px solid #eee; padding: 0;}
 		&.b_form_spacer.b_form_horizontal { display: inline-block; width: 2em;}
 		&.b_form_spacer.b_form_spacer_noline { margin: 10px 0; border-bottom: 0; padding: 0;}
@@ -252,7 +287,12 @@ div.b_form {
 			 label {  float: left; display: inline; line-height: 1.3em;}
 			 span.b_form_mandatory { background: url(../openolat/images/star-small.png) no-repeat; padding-left: 16px; height: 16px;}
 			&.b_form_horizontal { width: auto; float: left; display: inline;} 
-		 	&.b_form_vertical { width: auto; float: none; display: block; } 
+		 	&.b_form_vertical { 
+		 		width: auto; float: none; display: block; 
+		 		margin-top: 1em;
+		 		margin-bottom: 0.3em;
+		 		label { float: none;}	
+		 	} 
 		} 
 	 	
 	 	div.b_form_element { 
@@ -280,6 +320,7 @@ div.b_form {
 	&.b_form_vertical div.b_button_group { text-align: left; }
 	
 	div.b_form_element div.b_form_example { display: inline; font-size: 80%; color: #504D4E;}
+	div.b_form_element div.b_inline_elements div { display: inline; }
 	
 	div.b_form_element {
 		.b_form_disabled { color: #504D4E; }
@@ -408,15 +449,12 @@ div.b_progress div.b_progress_bar div { height: 12px; @include o-gradient2($base
 div.b_progress div.b_progress_label {}
 	
 	
-	
-	
 /* MARK */
 .b_mark_set {
 	background-image: url('../openolat/images/flag.png') ! important;
 }
 .b_mark_not_set {
-	background-image: url('../openolat/images/flag.png') ! important;
-	@include o-opacity(40);
+	background-image: url('../openolat/images/flag_off.png') ! important;
 }
 div.b_mark { 
 	width:20px; height:20px; 
@@ -425,9 +463,11 @@ div.b_mark {
 		margin:0;
 		div.b_form_element { margin:0; padding:0; } 
 	}
-	a.b_mark_set { background: url(../openolat/images/flag.png) center right no-repeat; display:block; width:20px; height:20px; }
-	a.b_mark_not_set { background: url(../openolat/images/flag.png) center right no-repeat; display:block; width:20px; height:20px; @include o-opacity(40);}
-	a.b_mark_set span, a.b_mark_not_set span { display:block; width:19px; height:19px; }
+	a { 
+		background-position: center right; background-repeat: no-repeat; display:block; width:20px; height:20px; 
+		span { display:block; width:19px; height:19px; }
+		&:hover { text-decoration: none; }
+	}
 }
 	
 	

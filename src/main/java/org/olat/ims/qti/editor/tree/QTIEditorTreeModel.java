@@ -75,12 +75,12 @@ public class QTIEditorTreeModel extends GenericTreeModel {
 		GenericQtiNode rootNode = new AssessmentNode(ass, qtiPackage);
 		this.setRootNode(rootNode);
 		//Sections with their Items
-		List sections = ass.getSections();
+		List<Section> sections = ass.getSections();
 		for (int i=0; i < sections.size(); i++) {
 			//get section data
-			Section elem = (Section)sections.get(i);
+			Section elem = sections.get(i);
 			GenericQtiNode sectionNode = new SectionNode(elem, qtiPackage);
-			List items = elem.getItems();
+			List<Item> items = elem.getItems();
 			for (int j=0; j < items.size(); j++) {
 				//get item data
 				Item elem2 = (Item)items.get(j);

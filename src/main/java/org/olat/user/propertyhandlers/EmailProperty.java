@@ -19,7 +19,6 @@
  */
 package org.olat.user.propertyhandlers;
 
-import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -60,9 +59,9 @@ public class EmailProperty extends Generic127CharTextPropertyHandler {
 
 	@Override
 	protected void setInternalValue(User user, String mail) {
-		// save mail addresses always lowercase
+		// save mail addresses always lower case and remove trailing whitespace
 		if (mail != null) {
-			super.setInternalValue(user, mail.toLowerCase());
+			super.setInternalValue(user, mail.toLowerCase().trim());
 		} else {
 			super.setInternalValue(user, null);			
 		}
@@ -75,13 +74,14 @@ public class EmailProperty extends Generic127CharTextPropertyHandler {
 	public String getUserPropertyAsHTML(User user, Locale locale) {
 		String mail = getUserProperty(user, locale);
 		if (StringHelper.containsNonWhitespace(mail)) {
-			StringBuffer sb = new StringBuffer();
+			mail = StringHelper.escapeHtml(mail);
+			StringBuilder sb = new StringBuilder();
 			sb.append("<a href=\"mailto:");
 			sb.append(mail);
 			sb.append("\" class=\"b_link_mailto\">");
-			sb.append(getUserProperty(user, locale));
+			sb.append(mail);
 			sb.append("</a>");
-			return sb.toString();
+			return StringHelper.xssScan(sb.toString());
 		}
 		return null;
 	}
@@ -102,7 +102,7 @@ public class EmailProperty extends Generic127CharTextPropertyHandler {
 					UserBulkChangeManager ubcMan = UserBulkChangeManager.getInstance();
 					Context vcContext = new VelocityContext();
 					if (user==null){
-						vcContext = ubcMan.getDemoContext(locale2, isAdministrativeUser);
+						vcContext = ubcMan.getDemoContext(locale2);
 					}
 					//should be used if user-argument !=null --> move to right place
 					else {
@@ -112,7 +112,7 @@ public class EmailProperty extends Generic127CharTextPropertyHandler {
 					}
 					value = value.replace("$", "$!");
 					String evaluatedValue = ubcMan.evaluateValueWithUserContext(value, vcContext);
-					return EmailProperty.this.isValidValue(evaluatedValue, validationError, locale2);
+					return EmailProperty.this.isValidValue(user, evaluatedValue, validationError, locale2);
 				}
 			});
 		} 
@@ -124,14 +124,15 @@ public class EmailProperty extends Generic127CharTextPropertyHandler {
 	 * @see org.olat.user.propertyhandlers.Generic127CharTextPropertyHandler#isValid(org.olat.core.gui.components.form.flexible.FormItem, java.util.Map)
 	 */
 	@Override
-	public boolean isValid(FormItem formItem, Map formContext) {
-		if (!super.isValid(formItem, formContext)) {
+	public boolean isValid(User user, FormItem formItem, Map<String,String> formContext) {
+		if (!super.isValid(user, formItem, formContext)) {
 			return false;
 		}
 		org.olat.core.gui.components.form.flexible.elements.TextElement textElement = (org.olat.core.gui.components.form.flexible.elements.TextElement)formItem;
 		String value = textElement.getValue();
 
 		if (StringHelper.containsNonWhitespace(value)) {
+			value = value.toLowerCase().trim();
 			// check mail address syntax
 			if (!MailHelper.isValidEmailAddress(value)) {
 				textElement.setErrorKey(i18nFormElementLabelKey() + ".error.valid", null);
@@ -148,17 +149,18 @@ public class EmailProperty extends Generic127CharTextPropertyHandler {
 		return true; 
 	}
 
-	@Override
 	/**
 	 * check for valid email
 	 */
-	public boolean isValidValue(String value, ValidationError validationError, Locale locale) {
+	@Override
+	public boolean isValidValue(User user, String value, ValidationError validationError, Locale locale) {
 		// check for length
-		if (!super.isValidValue(value, validationError, locale)) {
+		if (!super.isValidValue(user, value, validationError, locale)) {
 			return false; 
 		}
 
 		if (StringHelper.containsNonWhitespace(value)) {
+			value = value.toLowerCase().trim();
 			// check mail address syntax
 			if ( ! MailHelper.isValidEmailAddress(value)) {
 				validationError.setErrorKey(i18nFormElementLabelKey() + ".error.valid");
@@ -199,7 +201,8 @@ public class EmailProperty extends Generic127CharTextPropertyHandler {
 		if (tk != null) {
 			for (TemporaryKey temporaryKey : tk) {
 				XStream xml = new XStream();
-				HashMap<String, String> mails = (HashMap<String, String>) xml.fromXML(temporaryKey.getEmailAddress());
+				@SuppressWarnings("unchecked")
+				Map<String, String> mails = (Map<String, String>) xml.fromXML(temporaryKey.getEmailAddress());
 				if (emailAddress.equals(mails.get("changedEMail"))) {
 					return false;
 				}

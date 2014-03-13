@@ -30,6 +30,7 @@ import java.io.File;
 import org.olat.core.commons.modules.bc.vfs.OlatRootFolderImpl;
 import org.olat.core.id.OLATResourceable;
 import org.olat.core.util.vfs.VFSContainer;
+import org.olat.course.config.CourseConfig;
 import org.olat.course.export.CourseEnvironmentMapper;
 import org.olat.course.run.environment.CourseEnvironment;
 import org.olat.course.tree.CourseEditorTreeModel;
@@ -62,9 +63,14 @@ public interface ICourse extends OLATResourceable {
 		
 	/**
 	 * Export course to file system.
-	 * @param exportDirecotry The directory to export files to.
+	 * @param originalCourseResource The original resource
+	 * @param exportDirectory The directory to export files to.
+	 * @param runtimeDatas Export with runtime datas (true add archives of the groups...)
+	 * @param backwardsCompatible Export in a format compatible with older OpenOLAT version
+	 * @param foldersToCleanup Can add there folders which need to be clean up after the export
 	 */
-	public void exportToFilesystem(OLATResource originalCourseResource, File exportDirecotry, boolean backwardsCompatible);
+	public void exportToFilesystem(OLATResource originalCourseResource, File exportDirectory,
+			boolean runtimeDatas, boolean backwardsCompatible);
 	
 	public void postImport(CourseEnvironmentMapper envMapper);
 	
@@ -103,5 +109,9 @@ public interface ICourse extends OLATResourceable {
 	 * is true
 	 */
 	public boolean hasAssessableNodes();
-	
+
+	/**
+	 * @return The course configuration
+	 */
+	public CourseConfig getCourseConfig();
 }

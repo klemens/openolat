@@ -30,6 +30,7 @@ import java.io.UnsupportedEncodingException;
 import java.math.BigDecimal;
 import java.net.URLEncoder;
 import java.text.DateFormat;
+import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.Calendar;
 import java.util.Date;
@@ -42,7 +43,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import org.olat.core.commons.chiefcontrollers.BaseChiefController;
-import org.olat.core.defaults.dispatcher.StaticMediaDispatcher;
+import org.olat.core.dispatcher.impl.StaticMediaDispatcher;
 import org.olat.core.gui.render.StringOutput;
 import org.olat.core.helpers.Settings;
 
@@ -106,6 +107,12 @@ public class Formatter {
 	public String formatDate(Date d) {
 		synchronized (shortDateFormat) {
 			return shortDateFormat.format(d);
+		}
+	}
+	
+	public Date parseDate(String val) throws ParseException {
+		synchronized (shortDateFormat) {
+			return shortDateFormat.parse(val);
 		}
 	}
 	
@@ -445,7 +452,7 @@ public class Formatter {
 	 */
 	public static StringBuilder stripTabsAndReturns(String source) {
 		if (source == null) return null;
-		StringBuilder sb = new StringBuilder(300);
+		StringBuilder sb = new StringBuilder(source.length() + (source.length() / 10));
 		int len = source.length();
 		char[] cs = source.toCharArray();
 		for (int i = 0; i < len; i++) {
@@ -490,7 +497,7 @@ public class Formatter {
 			sb.append("<").append(elem).append(" id=\"").append(domid).append("\">");
 			sb.append(htmlFragment);
 			sb.append("</").append(elem).append(">");
-			sb.append("<script type='text/javascript'>/* <![CDATA[ */ BFormatter.formatLatexFormulas('").append(domid).append("');/* ]]> */</script>");
+			sb.append("\n<script type='text/javascript'>\n/* <![CDATA[ */\n setTimeout(function() { BFormatter.formatLatexFormulas('").append(domid).append("');}, 100);\n/* ]]> */\n</script>");
 			return sb.toString();
 		}			
 		return htmlFragment;

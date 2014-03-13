@@ -128,7 +128,6 @@ public class EPCollectStepForm03 extends StepFormBasicController {
 	 *      org.olat.core.gui.control.Controller, org.olat.core.gui.UserRequest)
 	 */
 	@Override
-	@SuppressWarnings("unused")
 	protected void initForm(FormItemContainer formLayout, Controller listener, UserRequest ureq) {
 		setFormDescription("step3.short.descr");
 		setFormContextHelp("org.olat.portfolio.ui.artefacts.collect", "reflexion.html", "step3.chelp.hover");
@@ -139,8 +138,7 @@ public class EPCollectStepForm03 extends StepFormBasicController {
 		
 		String text = StringHelper.containsNonWhitespace(reflexion) ? reflexion : artefactReflexion;
 		reflexionEl = uifactory.addRichTextElementForStringDataMinimalistic("reflexion", "artefact.reflexion", text, 12, -1,
-				false, formLayout, ureq.getUserSession(), getWindowControl());
-		reflexionEl.setExtDelay(true);
+				formLayout, ureq.getUserSession(), getWindowControl());
 		reflexionEl.setNotLongerThanCheck(REFLEXION_MAX_SIZE, "reflexion.too.long");
 		reflexionEl.setMaxLength(REFLEXION_MAX_SIZE);
 
@@ -152,8 +150,7 @@ public class EPCollectStepForm03 extends StepFormBasicController {
 		if(artefact != null && StringHelper.containsNonWhitespace(artefactReflexion)) {
 			uifactory.addSpacerElement("reflexion-in-space", formLayout, false);
 			reflexionOrigEl = uifactory.addRichTextElementForStringDataMinimalistic("reflexion_original", "artefact.reflexion.original", artefactReflexion, 12, -1,
-					false, formLayout, ureq.getUserSession(), getWindowControl());
-			reflexionOrigEl.setExtDelay(true);
+					formLayout, ureq.getUserSession(), getWindowControl());
 			reflexionOrigEl.setEnabled(false);
 		}
 	}

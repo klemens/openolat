@@ -32,10 +32,10 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 
-import org.apache.log4j.Logger;
 import org.dom4j.Attribute;
 import org.dom4j.Document;
 import org.dom4j.Element;
+import org.olat.core.logging.OLog;
 import org.olat.core.logging.Tracing;
 import org.olat.core.util.ObjectCloner;
 import org.olat.core.util.cache.CacheWrapper;
@@ -76,15 +76,16 @@ import org.olat.ims.resources.IMSEntityResolver;
  */
 public class QTIHelper {
 	// logging
-	private static final Logger log = Logger.getLogger(QTIHelper.class);
+	private static final OLog log = Tracing.createLoggerFor(QTIHelper.class);
+
 	
-	private static CacheWrapper ehCachLoadedQTIDocs = CoordinatorManager.getInstance().getCoordinator().getCacher().getCache(QTIHelper.class.getSimpleName(), "QTI_xml_Documents");
+	private static CacheWrapper<String,Object[]> ehCachLoadedQTIDocs = CoordinatorManager.getInstance().getCoordinator().getCacher().getCache(QTIHelper.class.getSimpleName(), "QTI_xml_Documents");
 	/**
 	 * 
 	 */
-	private static Map booleanEvals;
-	private static Map scoreBooleanEvals;
-	private static Map expressionBuilders;
+	private static Map<String,BooleanEvaluable> booleanEvals;
+	private static Map<String,ScoreBooleanEvaluable> scoreBooleanEvals;
+	private static Map<String,ExpressionBuilder> expressionBuilders;
 
 	private final static long sec = 1000;
 	private final static long minute = 60 * sec;
@@ -94,7 +95,7 @@ public class QTIHelper {
 	private final static long month = 30 * day;
 
 	static {
-		booleanEvals = new HashMap();
+		booleanEvals = new HashMap<String,BooleanEvaluable>();
 		booleanEvals.put("and", new QTI_and());
 		booleanEvals.put("or", new QTI_or());
 		booleanEvals.put("not", new QTI_not());
@@ -107,14 +108,14 @@ public class QTIHelper {
 		booleanEvals.put("other", new QTI_other());
 
 		// section boolean evaluables
-		scoreBooleanEvals = new HashMap();
+		scoreBooleanEvals = new HashMap<String,ScoreBooleanEvaluable>();
 		scoreBooleanEvals.put("and_test", new QTI_and_test());
 		scoreBooleanEvals.put("or_test", new QTI_or_test());
 		scoreBooleanEvals.put("not_test", new QTI_not_test());
 		scoreBooleanEvals.put("variable_test", new QTI_variable_test());
 
 		// ims qti sao
-		expressionBuilders = new HashMap();
+		expressionBuilders = new HashMap<String,ExpressionBuilder>();
 		expressionBuilders.put("and_selection", new QTI_and_selection());
 		expressionBuilders.put("or_selection", new QTI_or_selection());
 		expressionBuilders.put("not_selection", new QTI_not_selection());
@@ -152,7 +153,7 @@ public class QTIHelper {
 	 * @return
 	 */
 	public static BooleanEvaluable getBooleanEvaluableInstance(String name) {
-		BooleanEvaluable bev = (BooleanEvaluable) booleanEvals.get(name);
+		BooleanEvaluable bev = booleanEvals.get(name);
 		if (bev == null) throw new RuntimeException("no bev for '<" + name + ">'");
 		return bev;
 	}
@@ -162,13 +163,13 @@ public class QTIHelper {
 	 * @return
 	 */
 	public static ScoreBooleanEvaluable getSectionBooleanEvaluableInstance(String name) {
-		ScoreBooleanEvaluable sbev = (ScoreBooleanEvaluable) scoreBooleanEvals.get(name);
+		ScoreBooleanEvaluable sbev = scoreBooleanEvals.get(name);
 		if (sbev == null) throw new RuntimeException("no section bev for " + name);
 		return sbev;
 	}
 
 	public static ExpressionBuilder getExpressionBuilder(String name) {
-		ExpressionBuilder eb = (ExpressionBuilder) expressionBuilders.get(name);
+		ExpressionBuilder eb = expressionBuilders.get(name);
 		if (eb == null) throw new RuntimeException("no expression builder for " + name);
 		return eb;
 	}
@@ -393,7 +394,7 @@ public class QTIHelper {
 	 */
 	public static Document getDocument(LocalFileImpl pathToXml) {
 
-		boolean isDebugEnabled = log.isDebugEnabled();
+		boolean isDebugEnabled = log.isDebug();
 		long debugEnabledTime = 0;
 
 		Document doc = null;
@@ -418,7 +419,7 @@ public class QTIHelper {
 		if (tuple != null && ((Long) tuple[0]).compareTo(lmf) == 0) {
 			// in cache and not modified
 			doc = (Document) tuple[1];
-			Tracing.logAudit("Document Cache Hit for [[" + key + "]]", QTIHelper.class);
+			log.audit("Document Cache Hit for [[" + key + "]]");
 			if (isDebugEnabled) {
 				log.debug("[" + debugEnabledTime + "] Document comes from EHCache!");
 				log.debug("[" + debugEnabledTime + "] Document approx Mem usage " + ObjectCloner.getObjectSize(doc));
@@ -438,7 +439,7 @@ public class QTIHelper {
 			// we use a putSilent here (no invalidation notifications to other cluster nodes), since
 			// we did not generate new data, but simply asked to reload it. 
 			ehCachLoadedQTIDocs.put(key, new Object[] { lmf, doc });
-			Tracing.logAudit("load, parse and cache Document for [[" + key + "]]", QTIHelper.class);
+			log.audit("load, parse and cache Document for [[" + key + "]]");
 
 			if (isDebugEnabled) {
 				log.debug("[" + debugEnabledTime + "] Document loaded, parsed and put into cache!");

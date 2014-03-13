@@ -29,7 +29,10 @@ import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Properties;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipOutputStream;
 
+import org.apache.commons.io.IOUtils;
 import org.olat.core.logging.AssertException;
 import org.olat.core.util.FileUtils;
 import org.olat.core.util.ZipUtil;
@@ -54,13 +57,13 @@ public class WikiToZipUtils {
 	 * @param vfsLeaves
 	 * @return
 	 */
-	private static String createIndexPageForExport(List vfsLeaves) {
+	private static String createIndexPageForExport(List<VFSItem> vfsLeaves) {
 		boolean hasProperties = false;
 		StringBuilder sb = new StringBuilder();
 		sb.append("<html><head>");
 		sb.append("<meta http-equiv=\"Content-Type\" content=\"text/html; charset=utf-8\">");
 		sb.append("</head><body><ul>");
-		for (Iterator iter = vfsLeaves.iterator(); iter.hasNext();) {
+		for (Iterator<VFSItem> iter = vfsLeaves.iterator(); iter.hasNext();) {
 			VFSLeaf element = (VFSLeaf) iter.next();
 			// destination.copyFrom(element);
 			if (element.getName().endsWith(WikiManager.WIKI_PROPERTIES_SUFFIX)) {
@@ -113,5 +116,23 @@ public class WikiToZipUtils {
 		ZipUtil.zip(filesTozip, rootContainer.createChildLeaf("wiki.zip"), true);
 		return (VFSLeaf)rootContainer.resolve("wiki.zip");
 	}
-
+	
+	public static void wikiToZip(VFSContainer rootContainer, String currentPath, ZipOutputStream exportStream)
+	throws IOException {
+		for (VFSItem item:rootContainer.getItems()) {
+			if (item instanceof VFSContainer) {
+				VFSContainer folder = (VFSContainer) item;
+				List<VFSItem> items = folder.getItems();
+				String overviewPage = WikiToZipUtils.createIndexPageForExport(items);
+				if(overviewPage != null){
+					exportStream.putNextEntry(new ZipEntry(currentPath + "/index.html"));
+					IOUtils.write(overviewPage, exportStream);
+					exportStream.closeEntry();
+				}
+				for(VFSItem wikiItem:items) {
+					ZipUtil.addToZip(wikiItem, currentPath, exportStream);
+				}
+			}
+		}
+	}
 }

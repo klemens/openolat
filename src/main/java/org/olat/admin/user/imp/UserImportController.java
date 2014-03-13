@@ -32,6 +32,7 @@ import java.util.List;
 import java.util.Set;
 
 import org.olat.basesecurity.AuthHelper;
+import org.olat.basesecurity.Authentication;
 import org.olat.basesecurity.BaseSecurity;
 import org.olat.core.CoreSpringFactory;
 import org.olat.core.commons.persistence.DBFactory;
@@ -54,16 +55,19 @@ import org.olat.core.util.StringHelper;
 import org.olat.core.util.mail.MailPackage;
 import org.olat.group.BusinessGroupService;
 import org.olat.group.model.BusinessGroupMembershipChange;
+import org.olat.login.auth.OLATAuthManager;
 import org.olat.user.UserManager;
 import org.olat.user.propertyhandlers.UserPropertyHandler;
 
 /**
  * Description:<br>
- * TODO: Felix Class Description for UserImportController
+ * Bulk import and update of users.
+ * 
  * <P>
  * Initial Date: 17.08.2005 <br>
  * 
  * @author Felix, Roman Haag
+ * @author srosse, stephane.rosse@frentix.com, http://www.frentix.com
  */
 public class UserImportController extends BasicController {
 
@@ -76,7 +80,9 @@ public class UserImportController extends BasicController {
 	private StepsMainRunController importStepsController;
 	
 	private final BaseSecurity securityManager;
+	private final OLATAuthManager olatAuthManager;
 	private final BusinessGroupService businessGroupService;
+	private final UserManager um ;
 
 	/**
 	 * @param ureq
@@ -86,7 +92,9 @@ public class UserImportController extends BasicController {
 	 */
 	public UserImportController(UserRequest ureq, WindowControl wControl, boolean canCreateOLATPassword) {
 		super(ureq, wControl);
+		um = UserManager.getInstance();
 		securityManager = CoreSpringFactory.getImpl(BaseSecurity.class);
+		olatAuthManager = CoreSpringFactory.getImpl(OLATAuthManager.class);
 		businessGroupService = CoreSpringFactory.getImpl(BusinessGroupService.class);
 		this.canCreateOLATPassword = canCreateOLATPassword;
 		mainVC = createVelocityContainer("importindex");
@@ -127,7 +135,7 @@ public class UserImportController extends BasicController {
 		}
 
 		// Create transient user without firstName,lastName, email
-		UserManager um = UserManager.getInstance();
+		
 		User newUser = um.createUser(null, null, null);
 
 		List<UserPropertyHandler> userProperties = userPropertyHandlers;
@@ -143,6 +151,25 @@ public class UserImportController extends BasicController {
 		Identity ident = AuthHelper.createAndPersistIdentityAndUserWithUserGroup(login, pwd, newUser);
 		return ident;
 	}
+	
+	private Identity doUpdateIdentity(UpdateIdentity userToUpdate, Boolean updateUsers, Boolean updatePassword) {
+		Identity identity;
+		if(updateUsers != null && updateUsers.booleanValue()) {
+			identity = userToUpdate.getIdentity(true);
+			um.updateUserFromIdentity(identity);
+		} else {
+			identity = userToUpdate.getIdentity();
+		}
+		
+		String password = userToUpdate.getPassword();
+		if(StringHelper.containsNonWhitespace(password) && updatePassword != null && updatePassword.booleanValue()) {
+			Authentication auth = securityManager.findAuthentication(identity, "OLAT");
+			if(auth != null) {
+				olatAuthManager.changePassword(getIdentity(), identity, password);
+			}
+		}
+		return userToUpdate.getIdentity();
+	}
 
 	/**
 	 * @see org.olat.core.gui.control.DefaultController#doDispose(boolean)
@@ -155,8 +182,8 @@ public class UserImportController extends BasicController {
 	protected void event(UserRequest ureq, Component source, Event event) {
 		if (source == startLink){
 		// use fallback translator for user property translation
-		setTranslator(UserManager.getInstance().getPropertyHandlerTranslator(getTranslator()));
-		userPropertyHandlers = UserManager.getInstance().getUserPropertyHandlersFor(usageIdentifyer, true);
+		setTranslator(um.getPropertyHandlerTranslator(getTranslator()));
+		userPropertyHandlers = um.getUserPropertyHandlersFor(usageIdentifyer, true);
 		
 		Step start = new ImportStep00(ureq, canCreateOLATPassword);
 		// callback executed in case wizard is finished.
@@ -171,6 +198,14 @@ public class UserImportController extends BasicController {
 						List<TransientIdentity> newIdents = (List<TransientIdentity>) runContext.get("newIdents");
 						for (TransientIdentity newIdent:newIdents) {
 							doCreateAndPersistIdentity(newIdent);
+						}
+
+						Boolean updateUsers = (Boolean)runContext.get("updateUsers");
+						Boolean updatePasswords = (Boolean)runContext.get("updatePasswords");
+						@SuppressWarnings("unchecked")
+						List<UpdateIdentity> updateIdents = (List<UpdateIdentity>) runContext.get("updateIdents");
+						for (UpdateIdentity updateIdent:updateIdents) {
+							doUpdateIdentity(updateIdent, updateUsers, updatePasswords);
 						}
 
 						@SuppressWarnings("unchecked")
@@ -210,6 +245,8 @@ public class UserImportController extends BasicController {
 			if(o instanceof TransientIdentity) {
 				TransientIdentity transIdent = (TransientIdentity)o;
 				usernames.add(transIdent.getName());
+			} else if (o instanceof UpdateIdentity) {
+				identities.add(((UpdateIdentity)o).getIdentity());	
 			} else if (o instanceof Identity) {
 				identities.add((Identity)o);	
 			}

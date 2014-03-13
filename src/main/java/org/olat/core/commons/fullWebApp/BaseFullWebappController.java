@@ -175,6 +175,11 @@ public class BaseFullWebappController extends BasicController implements Generic
 				currentGuiStack.pushModalDialog(newModalDialog);
 			}
 
+			@Override
+			public void pushAsCallout(Component comp, String targetId) {
+				currentGuiStack.pushCallout(comp, targetId);
+			}
+
 			/**
 			 * @see org.olat.core.gui.control.WindowControl#pop()
 			 */
@@ -423,6 +428,9 @@ public class BaseFullWebappController extends BasicController implements Generic
 		if (sites == null && contentCtrl == null) { 
 		  // fxdiff: FXOLAT-190  RS if no sites displayed... show empty page instead
 			main.setContent(TextFactory.createTextComponentFromString("empty", "", null, false, null));
+			//set a guistack for the after login interceptor
+			GuiStack gs = getWindowControl().getWindowBackOffice().createGuiStack(new Panel("dummy"));
+			setGuiStack(gs);
 		}
 
 		// set maintenance message
@@ -457,10 +465,10 @@ public class BaseFullWebappController extends BasicController implements Generic
 	private void addCustomThemeJS() {
 		Theme currentTheme = getWindowControl().getWindowBackOffice().getWindow().getGuiTheme();
 		if (currentTheme.hasCustomJS()) {
-			String fullPath = currentTheme.getFullPathToCustomJS();
-			CustomJSComponent customJS = new CustomJSComponent("customThemejs", new String[] { fullPath });
+			String relPath = currentTheme.getRelPathToCustomJS();
+			CustomJSComponent customJS = new CustomJSComponent("customThemejs", new String[] { relPath });
 			if (isLogDebugEnabled())
-				logDebug("injecting custom javascript from current OLAT-Theme", fullPath);
+				logDebug("injecting custom javascript from current OLAT-Theme", relPath);
 			mainVc.put(customJS.getComponentName(), customJS);
 		}
 	}
@@ -886,7 +894,7 @@ public class BaseFullWebappController extends BasicController implements Generic
 			dtabs.add(dt);
 			dtabsLinkNames.add(Integer.toString(dtabCreateCounter));
 			Link link = LinkFactory.createCustomLink("a" + dtabCreateCounter, "a" + dtabCreateCounter, "", Link.NONTRANSLATED, navVc, this);
-			link.setCustomDisplayText(((DTabImpl) dt).getNavElement().getTitle());
+			link.setCustomDisplayText(StringHelper.escapeHtml(dt.getNavElement().getTitle()));
 			link.setTitle(dt.getTitle());
 			link.setUserObject(dt);
 			// Set accessibility access key using the 's' key. You can loop through all opened tabs by
@@ -896,12 +904,10 @@ public class BaseFullWebappController extends BasicController implements Generic
 			Link calink = LinkFactory.createCustomLink("ca" + dtabCreateCounter, "ca" + dtabCreateCounter, "", Link.NONTRANSLATED, navVc, this);
 			calink.setCustomEnabledLinkCSS("b_nav_tab_close");
 			calink.setTitle(translate("close"));
-			calink.setTooltip(translate("close"), false);
 			calink.setUserObject(dt);
 			Link cplink = LinkFactory.createCustomLink("cp" + dtabCreateCounter, "cp" + dtabCreateCounter, "", Link.NONTRANSLATED, navVc, this);
 			cplink.setCustomEnabledLinkCSS("b_nav_tab_close");
 			cplink.setTitle(translate("close"));
-			cplink.setTooltip(translate("close"), false);
 			cplink.setUserObject(dt);
 
 			Controller dtabCtr = dt.getController();
@@ -1094,7 +1100,8 @@ public class BaseFullWebappController extends BasicController implements Generic
 	}
 	
 	private void updateBusinessPath(UserRequest ureq, DTab tab) {
-		if(tab == null) return;
+		//dtabToBusinessPath is null if the controller is disposed
+		if(tab == null || dtabToBusinessPath == null) return;
 
 		String businessPath = tab.getController().getWindowControlForDebug().getBusinessControl().getAsString();
 		HistoryPoint point = ureq.getUserSession().getLastHistoryPoint();

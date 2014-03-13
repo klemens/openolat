@@ -33,7 +33,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import org.olat.core.CoreBeanTypes;
 import org.olat.core.CoreSpringFactory;
 import org.olat.core.extensions.action.GenericActionExtension;
 import org.olat.core.logging.LogDelegator;
@@ -128,7 +127,7 @@ public class ExtManager extends LogDelegator {
 		if (extensions == null) {
 			synchronized(lockObject) {
 				if (extensions == null) {
-					initExtentions();
+					extensions = initExtentions();
 				}
 			}
 		}
@@ -142,23 +141,22 @@ public class ExtManager extends LogDelegator {
 		return timeOfExtensionStartup;
 	}
 	
-	private void initExtentions() {
+	private ArrayList<Extension> initExtentions() {
 		logInfo("****** start loading extensions *********");
 		Map<Integer, Extension> orderKeys = new HashMap<Integer, Extension>();
 		idExtensionlookup = new HashMap<Long, Extension>();
 		navKeyGAExtensionlookup = new HashMap<ExtensionPointKeyPair, GenericActionExtension>();
 		
-		extensions = new ArrayList<Extension>();
-		Map<String, Object> extensionMap = CoreSpringFactory.getBeansOfType(CoreBeanTypes.extension);
-		Collection<Object> extensionValues = extensionMap.values();
+		ArrayList<Extension> extensionsList = new ArrayList<Extension>();
+		Map<String, Extension> extensionMap = CoreSpringFactory.getBeansOfType(Extension.class);
+		Collection<Extension> extensionValues = extensionMap.values();
 
 		int count_disabled = 0;
 		int count_duplid = 0;
 		int count_duplnavkey = 0;
 		
 		// first build ordered list
-		for (Object object : extensionValues) {
-			Extension extension = (Extension) object;
+		for (Extension extension : extensionValues) {
 			if (!extension.isEnabled()){
 				count_disabled++;
 				logWarn("* Disabled Extension got loaded :: " + extension + ".  Check yourself that you don't use it or that extension returns null for getExtensionFor() when disabled, resp. overwrite isEnabled().",null);
@@ -184,7 +182,7 @@ public class ExtManager extends LogDelegator {
 					count_duplid++;
 					logWarn("Devel-Info :: duplicate unique id generated for extensions :: "+uid+" [ ["+idExtensionlookup.get(uid)+"]  and ["+extension+"] ]",null);
 			}else{
-				extensions.add(extension);
+				extensionsList.add(extension);
 				idExtensionlookup.put(uid, extension);
 				if (extension instanceof GenericActionExtension) {
 					GenericActionExtension gAE = (GenericActionExtension) extension;
@@ -207,7 +205,8 @@ public class ExtManager extends LogDelegator {
 			logDebug("Created unique-id "+uid+" for extension:: "+extension);
 		}
 		logInfo("Devel-Info :: initExtensions done. :: "+count_disabled+" disabled Extensions, "+count_duplid+" extensions with duplicate ids, "+count_duplnavkey+ " extensions with duplicate navigationKeys");
-		Collections.sort(extensions);
+		Collections.sort(extensionsList);
+		return extensionsList;
 	}
 	
 	private class ExtensionPointKeyPair {

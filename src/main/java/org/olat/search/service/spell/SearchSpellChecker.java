@@ -27,21 +27,27 @@ package org.olat.search.service.spell;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.HashSet;
 import java.util.Set;
-import java.util.TreeSet;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Future;
 
+import org.apache.lucene.analysis.Analyzer;
 import org.apache.lucene.analysis.standard.StandardAnalyzer;
+import org.apache.lucene.index.DirectoryReader;
 import org.apache.lucene.index.IndexReader;
 import org.apache.lucene.index.IndexWriter;
+import org.apache.lucene.index.IndexWriterConfig;
 import org.apache.lucene.search.spell.Dictionary;
 import org.apache.lucene.search.spell.LuceneDictionary;
 import org.apache.lucene.search.spell.SpellChecker;
 import org.apache.lucene.store.Directory;
 import org.apache.lucene.store.FSDirectory;
-import org.apache.lucene.util.Version;
-import org.olat.core.commons.services.search.OlatDocument;
 import org.olat.core.logging.OLog;
 import org.olat.core.logging.Tracing;
+import org.olat.core.util.FileUtils;
+import org.olat.search.SearchService;
+import org.olat.search.model.OlatDocument;
 
 /**
  * Spell-checker part inside of search-service.
@@ -60,10 +66,14 @@ public class SearchSpellChecker {
 	private String spellDictionaryPath;
 	private SpellChecker spellChecker;
 	private boolean isSpellCheckEnabled = true;
-	
+	private ExecutorService searchExecutor;
 	
 	public SearchSpellChecker() {
-		//called by Spring
+		//
+	}
+	
+	public void setSearchExecutor(ExecutorService searchExecutor) {
+		this.searchExecutor = searchExecutor;
 	}
 	
 	/**
@@ -74,34 +84,31 @@ public class SearchSpellChecker {
 	 */
   public Set<String> check(String query) {
   	try {
-  		if(spellChecker==null) { //lazy initialization
-  			try {
-  				synchronized(spellDictionaryPath) {//o_clusterOK by:pb if service is only configured on one vm, which is recommended way
-  				  File spellDictionaryFile = new File(spellDictionaryPath);
-  				  Directory spellIndexDirectory = FSDirectory.open(spellDictionaryFile);
-  					if (spellChecker==null && IndexReader.indexExists(spellIndexDirectory) && isSpellCheckEnabled ) {
-  					  spellChecker = new SpellChecker(spellIndexDirectory);
-  					  spellChecker.setAccuracy(0.7f);
-  				  }
-  				}
-  	 		} catch (IOException e) {
-  	 			log.warn("Can not initialze SpellChecker",e);
-  			}
-  		} 
-  		if (spellChecker != null) {
-  			String[] words = spellChecker.suggestSimilar(query,5);
-  			// Remove dublicate 
-  			Set<String> filteredList = new TreeSet<String>();
-  			for (String word : words) {
-  				filteredList.add(word);
-				}
-			  return filteredList;
-  		}
-		} catch (IOException e) {
+  		CheckCallable run = new CheckCallable(query, this);
+  		Future<Set<String>> futureResults = searchExecutor.submit(run);
+  		return futureResults.get();
+		} catch (Exception e) {
 			log.warn("Can not spell check",e);
-			return null;
+			return new HashSet<String>();
 		}
-		return null;
+  }
+  
+  protected SpellChecker getSpellChecker() {
+  	if(spellChecker==null) { //lazy initialization
+			try {
+				synchronized(spellDictionaryPath) {//o_clusterOK by:pb if service is only configured on one vm, which is recommended way
+				  File spellDictionaryFile = new File(spellDictionaryPath);
+				  Directory spellIndexDirectory = FSDirectory.open(spellDictionaryFile);
+					if (spellChecker==null && DirectoryReader.indexExists(spellIndexDirectory) && isSpellCheckEnabled ) {
+					  spellChecker = new SpellChecker(spellIndexDirectory);
+					  spellChecker.setAccuracy(0.7f);
+				  }
+				}
+	 		} catch (IOException e) {
+	 			log.warn("Can not initialze SpellChecker",e);
+			}
+		}
+  	return spellChecker;
   }
   	
   /**
@@ -116,36 +123,64 @@ public class SearchSpellChecker {
 		    long startSpellIndexTime = 0;
 		    if (log.isDebug()) startSpellIndexTime = System.currentTimeMillis();
 	      Directory indexDir = FSDirectory.open(new File(indexPath));
-		    indexReader = IndexReader.open(indexDir);
-	      // 1. Create content spellIndex 
+		    indexReader = DirectoryReader.open(indexDir);
+	      
+		    // 1. Create content spellIndex 
 		    File spellDictionaryFile = new File(spellDictionaryPath);
-	      Directory contentSpellIndexDirectory = FSDirectory.open(new File(spellDictionaryPath + CONTENT_PATH));//true
+	      FSDirectory contentSpellIndexDirectory = FSDirectory.open(new File(spellDictionaryPath + CONTENT_PATH));//true
 	      SpellChecker contentSpellChecker = new SpellChecker(contentSpellIndexDirectory);
 	      Dictionary contentDictionary = new LuceneDictionary(indexReader, OlatDocument.CONTENT_FIELD_NAME);
-	      contentSpellChecker.indexDictionary(contentDictionary);
+				Analyzer analyzer = new StandardAnalyzer(SearchService.OO_LUCENE_VERSION);
+	      IndexWriterConfig contentIndexWriterConfig = new IndexWriterConfig(SearchService.OO_LUCENE_VERSION, analyzer);
+	      contentSpellChecker.indexDictionary(contentDictionary, contentIndexWriterConfig, true);
+	      
 	      // 2. Create title spellIndex 
-	      Directory titleSpellIndexDirectory = FSDirectory.open(new File(spellDictionaryPath + TITLE_PATH));//true
+	      FSDirectory titleSpellIndexDirectory = FSDirectory.open(new File(spellDictionaryPath + TITLE_PATH));//true
 	      SpellChecker titleSpellChecker = new SpellChecker(titleSpellIndexDirectory);
 	      Dictionary titleDictionary = new LuceneDictionary(indexReader, OlatDocument.TITLE_FIELD_NAME);
-	      titleSpellChecker.indexDictionary(titleDictionary);
+	      IndexWriterConfig titleIndexWriterConfig = new IndexWriterConfig(SearchService.OO_LUCENE_VERSION, analyzer);
+	      titleSpellChecker.indexDictionary(titleDictionary, titleIndexWriterConfig, true);
+	      
 	      // 3. Create description spellIndex 
-	      Directory descriptionSpellIndexDirectory = FSDirectory.open(new File(spellDictionaryPath + DESCRIPTION_PATH));//true
+	      FSDirectory descriptionSpellIndexDirectory = FSDirectory.open(new File(spellDictionaryPath + DESCRIPTION_PATH));//true
 	      SpellChecker descriptionSpellChecker = new SpellChecker(descriptionSpellIndexDirectory);
 	      Dictionary descriptionDictionary = new LuceneDictionary(indexReader, OlatDocument.DESCRIPTION_FIELD_NAME);
-	      descriptionSpellChecker.indexDictionary(descriptionDictionary);
+	      IndexWriterConfig descIndexWriterConfig = new IndexWriterConfig(SearchService.OO_LUCENE_VERSION, analyzer);
+	      descriptionSpellChecker.indexDictionary(descriptionDictionary, descIndexWriterConfig, true);
 	      // 4. Create author spellIndex 
-	      Directory authorSpellIndexDirectory = FSDirectory.open(new File(spellDictionaryPath + AUTHOR_PATH));//true
+	      
+	      FSDirectory authorSpellIndexDirectory = FSDirectory.open(new File(spellDictionaryPath + AUTHOR_PATH));//true
 	      SpellChecker authorSpellChecker = new SpellChecker(authorSpellIndexDirectory);
 	      Dictionary authorDictionary = new LuceneDictionary(indexReader, OlatDocument.AUTHOR_FIELD_NAME);
-	      authorSpellChecker.indexDictionary(authorDictionary);
+	      IndexWriterConfig authorIndexWriterConfig = new IndexWriterConfig(SearchService.OO_LUCENE_VERSION, analyzer);
+	      authorSpellChecker.indexDictionary(authorDictionary, authorIndexWriterConfig, true);
 	      
 	      // Merge all part spell indexes (content,title etc.) to one common spell index
 	      Directory spellIndexDirectory = FSDirectory.open(spellDictionaryFile);//true
-	      IndexWriter merger = new IndexWriter(spellIndexDirectory, new StandardAnalyzer(Version.LUCENE_CURRENT), true, IndexWriter.MaxFieldLength.UNLIMITED);
+	      
+	      //clean up the main index
+	      IndexWriterConfig spellIndexWriterConfig = new IndexWriterConfig(SearchService.OO_LUCENE_VERSION, analyzer);
+	      IndexWriter merger = new IndexWriter(spellIndexDirectory, spellIndexWriterConfig);
+	      merger.deleteAll();
+	      merger.commit();
+	      
 	      Directory[] directories = { contentSpellIndexDirectory, titleSpellIndexDirectory, descriptionSpellIndexDirectory, authorSpellIndexDirectory};
-	      merger.addIndexesNoOptimize(directories);
-	      merger.optimize();
+	      for(Directory directory:directories) { 
+	      	merger.addIndexes(directory);
+	      }
+	     
 	      merger.close();
+	      contentSpellChecker.close();
+	      titleSpellChecker.close();
+	      descriptionSpellChecker.close();
+	      authorSpellChecker.close();
+	      
+	      //remove all files
+	      FileUtils.deleteDirsAndFiles(contentSpellIndexDirectory.getDirectory(), true, true);
+	      FileUtils.deleteDirsAndFiles(titleSpellIndexDirectory.getDirectory(), true, true);
+	      FileUtils.deleteDirsAndFiles(descriptionSpellIndexDirectory.getDirectory(), true, true);
+	      FileUtils.deleteDirsAndFiles(authorSpellIndexDirectory.getDirectory(), true, true);
+
 	      spellChecker = new SpellChecker(spellIndexDirectory);
 	      spellChecker.setAccuracy(0.7f);
 	       if (log.isDebug()) log.debug("SpellIndex created in " + (System.currentTimeMillis() - startSpellIndexTime) + "ms");

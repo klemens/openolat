@@ -40,7 +40,7 @@ import org.olat.basesecurity.SecurityGroup;
 import org.olat.core.CoreSpringFactory;
 import org.olat.core.commons.chiefcontrollers.LanguageChangedEvent;
 import org.olat.core.commons.fullWebApp.LayoutMain3ColsController;
-import org.olat.core.dispatcher.DispatcherAction;
+import org.olat.core.dispatcher.DispatcherModule;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.Component;
 import org.olat.core.gui.components.velocity.VelocityContainer;
@@ -353,7 +353,7 @@ public class ShibbolethRegistrationController extends DefaultController implemen
 						user.setProperty(UserConstants.INSTITUTIONALEMAIL, institutionalEmail);
 					}
 					user.setProperty(UserConstants.INSTITUTIONALUSERIDENTIFIER, shibbolethAttributesMap.get(ShibbolethModule.getInstitutionalUserIdentifier()));
-					identity = secMgr.createAndPersistIdentityAndUser(choosenLogin, user, ShibbolethDispatcher.PROVIDER_SHIB, shibbolethUniqueID, null);
+					identity = secMgr.createAndPersistIdentityAndUser(choosenLogin, user, ShibbolethDispatcher.PROVIDER_SHIB, shibbolethUniqueID);
 					SecurityGroup olatUserGroup = secMgr.findSecurityGroupByName(Constants.GROUP_OLATUSERS);
 					secMgr.addIdentityToSecurityGroup(identity, olatUserGroup);
 					// tell system that this user did accept the disclaimer
@@ -365,7 +365,7 @@ public class ShibbolethRegistrationController extends DefaultController implemen
 					Authentication auth = migrationForm.getAuthentication();
 					Identity authenticationedIdentity = auth.getIdentity();
 					BaseSecurity secMgr = BaseSecurityManager.getInstance();
-					secMgr.createAndPersistAuthentication(authenticationedIdentity, ShibbolethDispatcher.PROVIDER_SHIB, shibbolethUniqueID, null);
+					secMgr.createAndPersistAuthentication(authenticationedIdentity, ShibbolethDispatcher.PROVIDER_SHIB, shibbolethUniqueID, null, null);
 					
 					// update user profile
 					User user = authenticationedIdentity.getUser();
@@ -398,7 +398,7 @@ public class ShibbolethRegistrationController extends DefaultController implemen
 			//instead set the media resource accordingly
 			//pb -> provide a DispatcherAction.getDefaultDispatcherRedirectMediaresource();
 			//to be used here. (and some more places like CatalogController.
-			DispatcherAction.redirectToDefaultDispatcher(ureq.getHttpResp()); // error, redirect to login screen
+			DispatcherModule.redirectToDefaultDispatcher(ureq.getHttpResp()); // error, redirect to login screen
 			return;
 		}
 		// successfull login

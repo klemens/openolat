@@ -20,12 +20,6 @@
 
 package org.olat.core.util.mail.model;
 
-import java.util.Date;
-import java.util.List;
-
-import org.olat.core.id.CreateInfo;
-import org.olat.core.id.ModifiedInfo;
-import org.olat.core.id.Persistable;
 
 /**
  * 
@@ -36,19 +30,8 @@ import org.olat.core.id.Persistable;
  * Initial Date:  28 mars 2011 <br>
  * @author srosse, stephane.rosse@frentix.com, http://www.frentix.com
  */
-public interface DBMail extends CreateInfo, ModifiedInfo, Persistable {
+public interface DBMail extends DBMailLight {
 
-	public DBMailRecipient getFrom();
-
-	public String getSubject();
-	
 	public String getBody();
-
-	public Date getLastModified();
 	
-	public String getMetaId();
-	
-	public List<DBMailRecipient> getRecipients();
-	
-	public DBMailContext getContext();
 }

@@ -28,7 +28,6 @@ import java.util.Set;
 
 import org.olat.basesecurity.BaseSecurity;
 import org.olat.core.commons.persistence.DB;
-import org.olat.core.commons.persistence.DBFactory;
 import org.olat.core.commons.persistence.DBQuery;
 import org.olat.core.id.Identity;
 import org.olat.core.util.notifications.Publisher;
@@ -230,6 +229,7 @@ public class OLATUpgrade_8_1_0 extends OLATUpgrade {
 
 		UserCourseInfosImpl infos = new UserCourseInfosImpl();
 		infos.setIdentity(identity);
+		infos.setCreationDate(new Date());
 		infos.setLastModified(new Date());
 		infos.setInitialLaunch(prop.initialLaunch);
 		infos.setRecentLaunch(prop.recentLaunch);

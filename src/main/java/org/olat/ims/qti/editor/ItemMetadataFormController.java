@@ -22,11 +22,9 @@ package org.olat.ims.qti.editor;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.form.flexible.FormItem;
 import org.olat.core.gui.components.form.flexible.FormItemContainer;
-import org.olat.core.gui.components.form.flexible.FormUIFactory;
 import org.olat.core.gui.components.form.flexible.elements.IntegerElement;
 import org.olat.core.gui.components.form.flexible.elements.RichTextElement;
 import org.olat.core.gui.components.form.flexible.elements.SingleSelection;
-import org.olat.core.gui.components.form.flexible.elements.StaticTextElement;
 import org.olat.core.gui.components.form.flexible.elements.TextElement;
 import org.olat.core.gui.components.form.flexible.impl.FormBasicController;
 import org.olat.core.gui.components.form.flexible.impl.FormEvent;
@@ -61,7 +59,7 @@ public class ItemMetadataFormController extends FormBasicController {
 	private RichTextElement desc, hint, solution;
 	private SingleSelection layout, limitAttempts, limitTime, shuffle, showHints, showSolution;
 	private IntegerElement attempts, timeMin, timeSec;
-	private QTIEditorPackage qti;
+	private final QTIEditorPackage qti;
 
 	public ItemMetadataFormController(UserRequest ureq, WindowControl control, Item item, QTIEditorPackage qti, boolean restrictedEdit) {
 		super(ureq, control);
@@ -93,7 +91,9 @@ public class ItemMetadataFormController extends FormBasicController {
 		} else if (source == showHints) {
 			toggle(hint);
 		} else if (source == showSolution) {
-			toggle(solution);
+			if(item.getQuestion().getType() != Question.TYPE_ESSAY) {
+				toggle(solution);
+			}
 		}
 	}
 
@@ -147,8 +147,10 @@ public class ItemMetadataFormController extends FormBasicController {
 			itemControl.setFeedback(itemControl.getFeedback() == Control.CTRL_UNDEF ? Control.CTRL_NO : itemControl.getFeedback());
 			itemControl.setHint(showHints.getSelected() == 0 ? Control.CTRL_YES : Control.CTRL_NO);
 			itemControl.setSolution(showSolution.getSelected() == 0 ? Control.CTRL_YES : Control.CTRL_NO);
-			q.setHintText(conditionalCommentFilter.filter(hint.getRawValue())); // trust authors, don't to XSS filtering
-			q.setSolutionText(conditionalCommentFilter.filter(solution.getRawValue())); // trust authors, don't to XSS filtering
+			String hintRawValue = hint.getRawValue();
+			q.setHintText(conditionalCommentFilter.filter(hintRawValue)); // trust authors, don't to XSS filtering
+			String solutionRawValue = solution.getRawValue();
+			q.setSolutionText(conditionalCommentFilter.filter(solutionRawValue)); // trust authors, don't to XSS filtering
 			if (limitTime.getSelectedKey().equals("y")) {
 				item.setDuration(new Duration(1000 * timeSec.getIntValue() + 1000 * 60 * timeMin.getIntValue()));
 			} else {
@@ -168,14 +170,17 @@ public class ItemMetadataFormController extends FormBasicController {
 	 *      org.olat.core.gui.control.Controller, org.olat.core.gui.UserRequest)
 	 */
 	protected void initForm(FormItemContainer formLayout, Controller listener, UserRequest ureq) {
-		this.setFormTitle("fieldset.legend.metadata");
+		setFormTitle("fieldset.legend.metadata");
 		
 		int t = item.getQuestion().getType();
+		if(!isSurvey && t == Question.TYPE_ESSAY) {
+			setFormWarning("warning.essay.test");
+		}
 		
 		if (isSurvey) {
-			this.setFormContextHelp("org.olat.ims.qti.editor", "qed-meta-surv-"+t+".html", "help.hover.qti-meta-"+t);
+			setFormContextHelp("org.olat.ims.qti.editor", "qed-meta-surv-"+t+".html", "help.hover.qti-meta-"+t);
 		} else {
-			this.setFormContextHelp("org.olat.ims.qti.editor", "qed-meta-test-"+t+".html", "help.hover.qti-meta-"+t);
+			setFormContextHelp("org.olat.ims.qti.editor", "qed-meta-test-"+t+".html", "help.hover.qti-meta-"+t);
 		}
 		
 		// Title
@@ -188,7 +193,7 @@ public class ItemMetadataFormController extends FormBasicController {
 		uifactory.addStaticTextElement("type", "form.imd.type", typeName, formLayout);
 
 		// Description
-		desc = uifactory.addRichTextElementForStringData("desc", "form.imd.descr", item.getObjectives(), 8, -1, false, true, null, null,
+		desc = uifactory.addRichTextElementForStringData("desc", "form.imd.descr", item.getObjectives(), 8, -1, true, null, null,
 				formLayout, ureq.getUserSession(), getWindowControl());
 		RichTextConfiguration richTextConfig = desc.getEditorConfiguration();
 		// set upload dir to the media dir
@@ -252,7 +257,7 @@ public class ItemMetadataFormController extends FormBasicController {
 			showHints = uifactory.addRadiosHorizontal("showHints", "form.imd.solutionhints.show", formLayout, yesnoKeys, yesnoValues);
 			showHints.addActionListener(this, FormEvent.ONCLICK); // Radios/Checkboxes need onclick because of IE bug OLAT-5753
 			
-			hint = uifactory.addRichTextElementForStringData("hint", "form.imd.solutionhints", item.getQuestion().getHintText(), 8, -1, false,
+			hint = uifactory.addRichTextElementForStringData("hint", "form.imd.solutionhints", item.getQuestion().getHintText(), 8, -1, 
 					true, qti.getBaseDir(), null, formLayout, ureq.getUserSession(), getWindowControl());
 			// set upload dir to the media dir
 			hint.getEditorConfiguration().setFileBrowserUploadRelPath("media");
@@ -266,15 +271,20 @@ public class ItemMetadataFormController extends FormBasicController {
 			// Solution
 			showSolution = uifactory.addRadiosHorizontal("showSolution", "form.imd.correctsolution.show", formLayout, yesnoKeys, yesnoValues);
 			showSolution.addActionListener(this, FormEvent.ONCLICK); // Radios/Checkboxes need onclick because of IE bug OLAT-5753
-			solution = uifactory.addRichTextElementForStringData("solution", "form.imd.correctsolution", item.getQuestion().getSolutionText(), 8,
-					-1, false, true, qti.getBaseDir(), null, formLayout, ureq.getUserSession(), getWindowControl());
+			
+			boolean essay = (q.getType() == Question.TYPE_ESSAY);
+			String solLabel = essay ? "form.imd.correctsolution.word" : "form.imd.correctsolution";
+			solution = uifactory.addRichTextElementForStringData("solution", solLabel, item.getQuestion().getSolutionText(), 8,
+					-1, true, qti.getBaseDir(), null, formLayout, ureq.getUserSession(), getWindowControl());
 			// set upload dir to the media dir
 			solution.getEditorConfiguration().setFileBrowserUploadRelPath("media");
 			if (itemControl.isSolution()) {
 				showSolution.select("y", true);
 			} else {
 				showSolution.select("n", true);
-				solution.setVisible(false);
+				showSolution.setVisible(!essay);
+				//solution always visible for essay
+				solution.setVisible(essay);
 			}
 		}
 		// Submit Button
@@ -312,7 +322,7 @@ public class ItemMetadataFormController extends FormBasicController {
 	 */
 	private void toggle(FormItem formItem) {
 		formItem.setVisible(!formItem.isVisible());
-		this.flc.setDirty(true);
+		flc.setDirty(true);
 	}
 
 }

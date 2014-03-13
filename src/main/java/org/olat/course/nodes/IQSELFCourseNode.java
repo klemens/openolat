@@ -26,8 +26,10 @@
 package org.olat.course.nodes;
 
 import java.io.File;
+import java.io.IOException;
 import java.util.List;
 import java.util.Locale;
+import java.util.zip.ZipOutputStream;
 
 import org.olat.basesecurity.BaseSecurityManager;
 import org.olat.core.gui.UserRequest;
@@ -37,6 +39,8 @@ import org.olat.core.gui.control.WindowControl;
 import org.olat.core.gui.control.generic.tabbable.TabbableController;
 import org.olat.core.gui.translator.PackageTranslator;
 import org.olat.core.id.Identity;
+import org.olat.core.logging.OLog;
+import org.olat.core.logging.Tracing;
 import org.olat.core.util.Util;
 import org.olat.course.ICourse;
 import org.olat.course.assessment.AssessmentManager;
@@ -63,14 +67,17 @@ import org.olat.repository.RepositoryEntry;
 import org.olat.repository.RepositoryEntryImportExport;
 import org.olat.repository.RepositoryManager;
 
+import de.bps.onyx.plugin.OnyxModule;
+
 /**
  * Initial Date: Feb 9, 2004
  * 
  * @author Mike Stock
  * @author BPS (<a href="http://www.bps-system.de/">BPS Bildungsportal Sachsen GmbH</a>)
  */
-public class IQSELFCourseNode extends AbstractAccessableCourseNode implements SelfAssessableCourseNode {
-
+public class IQSELFCourseNode extends AbstractAccessableCourseNode implements SelfAssessableCourseNode, QTICourseNode {
+	private static final long serialVersionUID = -1929987728611139729L;
+	private static final OLog log = Tracing.createLoggerFor(IQSELFCourseNode.class);
 	private static final String PACKAGE_IQ = Util.getPackageName(IQRunController.class);
 	private static final String TYPE = "iqself";
 
@@ -203,22 +210,19 @@ public class IQSELFCourseNode extends AbstractAccessableCourseNode implements Se
 		}
 	}
 
-	/**
-	 * Override default implementation
-	 * 
-	 * @see org.olat.course.nodes.CourseNode#archiveNodeData(java.util.Locale,
-	 *      org.olat.course.ICourse, java.io.File)
-	 */
-	public boolean archiveNodeData(Locale locale, ICourse course, File exportDirectory, String charset) {
-		super.archiveNodeData(locale, course, exportDirectory, charset);
-
+	@Override
+	public boolean archiveNodeData(Locale locale, ICourse course, ArchiveOptions options, ZipOutputStream exportStream, String charset) {
 		QTIExportManager qem = QTIExportManager.getInstance();
 		String repositorySoftKey = (String) getModuleConfiguration().get(IQEditController.CONFIG_KEY_REPOSITORY_SOFTKEY);
-		Long repKey = RepositoryManager.getInstance().lookupRepositoryEntryBySoftkey(repositorySoftKey, true).getKey();
+		RepositoryEntry re = RepositoryManager.getInstance().lookupRepositoryEntryBySoftkey(repositorySoftKey, true);
 		
-  	QTIExportFormatter qef = new QTIExportFormatterCSVType2(locale,null,"\t", "\"", "\\", "\r\n", false);
-  	return qem.selectAndExportResults(qef, course.getResourceableId(), this.getShortTitle(), this.getIdent(), repKey, exportDirectory,charset, ".xls");
-  	
+		try {
+			QTIExportFormatter qef = new QTIExportFormatterCSVType2(locale, null, "\t", "\"", "\\", "\r\n", false);
+			return qem.selectAndExportResults(qef, course.getResourceableId(), getShortTitle(), getIdent(), re, exportStream, charset, ".xls");
+		} catch (IOException e) {
+			log.error("", e);
+			return false;
+		}
 	}
 
 	/**
@@ -294,13 +298,31 @@ public class IQSELFCourseNode extends AbstractAccessableCourseNode implements Se
 	 * 
 	 * @see org.olat.course.nodes.SelfAssessableCourseNode#getUserScoreEvaluation(org.olat.course.run.userview.UserCourseEnvironment)
 	 */
-	public ScoreEvaluation getUserScoreEvaluation(UserCourseEnvironment userCourseEnv) {
-		Identity identity = userCourseEnv.getIdentityEnvironment().getIdentity();
-		long olatResourceId = userCourseEnv.getCourseEnvironment().getCourseResourceableId().longValue();
-		QTIResultSet qTIResultSet = IQManager.getInstance().getLastResultSet(identity, olatResourceId, this.getIdent());
-		if(qTIResultSet!=null) {
-		  ScoreEvaluation scoreEvaluation = new ScoreEvaluation(new Float(qTIResultSet.getScore()), qTIResultSet.getIsPassed(), new Long(qTIResultSet.getAssessmentID()));
-		  return scoreEvaluation;
+	@Override
+	public ScoreEvaluation getUserScoreEvaluation(final UserCourseEnvironment userCourseEnv) {
+		// read score from properties save score, passed and attempts information
+		RepositoryEntry referencedRepositoryEntry = getReferencedRepositoryEntry();
+		if (referencedRepositoryEntry != null && OnyxModule.isOnyxTest(getReferencedRepositoryEntry().getOlatResource())) {
+			AssessmentManager am = userCourseEnv.getCourseEnvironment().getAssessmentManager();
+			Identity mySelf = userCourseEnv.getIdentityEnvironment().getIdentity();
+			Boolean passed = am.getNodePassed(this, mySelf);
+			Float score = am.getNodeScore(this, mySelf);
+			Long assessmentID = am.getAssessmentID(this, mySelf);
+			// <OLATCE-374>
+			Boolean fullyAssessed = am.getNodeFullyAssessed(this, mySelf);
+			ScoreEvaluation se = new ScoreEvaluation(score, passed, fullyAssessed, assessmentID);
+			// </OLATCE-374>
+			return se;
+		} else {
+			Identity identity = userCourseEnv.getIdentityEnvironment().getIdentity();
+			long olatResourceId = userCourseEnv.getCourseEnvironment().getCourseResourceableId().longValue();
+			QTIResultSet qTIResultSet = IQManager.getInstance().getLastResultSet(identity, olatResourceId, this.getIdent());
+			if (qTIResultSet != null) {
+				Boolean passed = qTIResultSet.getIsPassed();
+				Boolean fullyAssessed = qTIResultSet.getFullyAssessed();
+				ScoreEvaluation scoreEvaluation = new ScoreEvaluation(new Float(qTIResultSet.getScore()), passed, fullyAssessed, new Long(qTIResultSet.getAssessmentID()));
+				return scoreEvaluation;
+			}
 		}
 		return null;
 	}

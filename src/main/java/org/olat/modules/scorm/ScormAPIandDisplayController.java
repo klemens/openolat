@@ -28,7 +28,6 @@ package org.olat.modules.scorm;
 import java.io.File;
 import java.io.IOException;
 import java.util.Iterator;
-import java.util.Locale;
 import java.util.Map;
 
 import org.olat.core.commons.fullWebApp.LayoutMain3ColsBackController;
@@ -52,9 +51,9 @@ import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.Event;
 import org.olat.core.gui.control.WindowControl;
 import org.olat.core.gui.control.controller.MainLayoutBasicController;
+import org.olat.core.gui.control.generic.iframe.DeliveryOptions;
 import org.olat.core.gui.control.generic.iframe.IFrameDisplayController;
 import org.olat.core.id.OLATResourceable;
-import org.olat.core.id.UserConstants;
 import org.olat.core.logging.AssertException;
 import org.olat.core.logging.OLATRuntimeException;
 import org.olat.core.logging.activity.LearningResourceLoggingAction;
@@ -64,6 +63,7 @@ import org.olat.core.util.WebappHelper;
 import org.olat.core.util.resource.OresHelper;
 import org.olat.core.util.vfs.LocalFolderImpl;
 import org.olat.course.CourseModule;
+import org.olat.user.UserManager;
 
 /**
  * Description:<br>
@@ -104,10 +104,12 @@ public class ScormAPIandDisplayController extends MainLayoutBasicController impl
 	 *          "review"
 	 * @param credit_mode add null for the default value or "credit", "no-credit"
 	 * @param attemptsIncremented Is the attempts counter already incremented 
+	 * @param deliveryOptions This delivery options can override the default from the SCORM module
 	 */
 	ScormAPIandDisplayController(UserRequest ureq, WindowControl wControl, boolean showMenu, ScormAPICallback apiCallback,
-			File cpRoot, String resourceId, String courseIdNodeId, String lesson_mode, String credit_mode,
-			boolean previewMode, String assessableType, boolean activate, boolean fullWindow, boolean attemptsIncremented) {
+			File cpRoot, Long scormResourceId, String courseIdNodeId, String lesson_mode, String credit_mode,
+			boolean previewMode, String assessableType, boolean activate, boolean fullWindow, boolean attemptsIncremented,
+			DeliveryOptions deliveryOptions) {
 		super(ureq, wControl);
 		
 		// logging-note: the callers of createScormAPIandDisplayController make sure they have the scorm resource added to the ThreadLocalUserActivityLogger
@@ -122,18 +124,19 @@ public class ScormAPIandDisplayController extends MainLayoutBasicController impl
 		scorm_lesson_mode = lesson_mode;
 		
 		myContent = createVelocityContainer("display");
-		Locale loc = ureq.getLocale();
-		JSAndCSSComponent jsAdapter = new JSAndCSSComponent("apiadapter", this.getClass(), new String[] {"scormApiAdapter.js"}, null, true);
+		JSAndCSSComponent jsAdapter = new JSAndCSSComponent("apiadapter", new String[] {"js/openolat/scormApiAdapter.js"}, null);
 		myContent.put("apiadapter", jsAdapter);
 		
 		// init SCORM adapter
 		try {
 			scormAdapter = new OLATApiAdapter();	
 			scormAdapter.addAPIListener(apiCallback);
-			scormAdapter.init(cpRoot, resourceId, courseIdNodeId, FolderConfig.getCanonicalRoot(), this.username, ureq.getIdentity().getUser().getProperty(UserConstants.LASTNAME, loc)+", "+ureq.getIdentity().getUser().getProperty(UserConstants.FIRSTNAME, loc), lesson_mode, credit_mode, this.hashCode());
+			String fullname = UserManager.getInstance().getUserDisplayName(getIdentity());
+			String scormResourceIdStr = scormResourceId == null ? null : scormResourceId.toString();
+			scormAdapter.init(cpRoot, scormResourceIdStr, courseIdNodeId, FolderConfig.getCanonicalRoot(), username, fullname, lesson_mode, credit_mode, hashCode());
 		} catch (IOException e) {
 			showError("error.manifest.corrupted");
-			LayoutMain3ColsController ctr = new LayoutMain3ColsController(ureq, getWindowControl(), null, null, new Panel("empty"), "scorm" + resourceId);
+			LayoutMain3ColsController ctr = new LayoutMain3ColsController(ureq, getWindowControl(), null, null, new Panel("empty"), "scorm" + scormResourceId);
 			columnLayoutCtr = ctr;
 			putInitialPanel(columnLayoutCtr.getInitialComponent());
 			return;
@@ -167,7 +170,12 @@ public class ScormAPIandDisplayController extends MainLayoutBasicController impl
 			}
 			courseOres = OresHelper.createOLATResourceableInstance(CourseModule.class, Long.valueOf(courseId));
 		}
-		iframectr = new IFrameDisplayController(ureq, wControl, new LocalFolderImpl(cpRoot), SCORM_CONTENT_FRAME,  courseOres);
+		ScormPackageConfig packageConfig = ScormMainManager.getInstance().getScormPackageConfig(cpRoot);
+		if((deliveryOptions == null || (deliveryOptions.getInherit() != null && deliveryOptions.getInherit().booleanValue()))
+				&& packageConfig != null) {
+			deliveryOptions = packageConfig.getDeliveryOptions();
+		}
+		iframectr = new IFrameDisplayController(ureq, wControl, new LocalFolderImpl(cpRoot), SCORM_CONTENT_FRAME,  courseOres, deliveryOptions);
 		listenTo(iframectr);
 		myContent.contextPut("frameId", SCORM_CONTENT_FRAME);
 		
@@ -210,25 +218,26 @@ public class ScormAPIandDisplayController extends MainLayoutBasicController impl
 
 		if (activate) {
 			if (previewMode) {
-				LayoutMain3ColsPreviewController ctr = new LayoutMain3ColsPreviewController(ureq, getWindowControl(), (showMenu ? menuTree : null), null, myContent, "scorm" + resourceId);
+				LayoutMain3ColsPreviewController ctr = new LayoutMain3ColsPreviewController(ureq, getWindowControl(), (showMenu ? menuTree : null), null, myContent, "scorm" + scormResourceId);
 				if(fullWindow)
 					ctr.setAsFullscreen(ureq);
 				columnLayoutCtr = ctr;
 			} else {
-				LayoutMain3ColsBackController ctr = new LayoutMain3ColsBackController(ureq, getWindowControl(), (showMenu ? menuTree : null), null, myContent, "scorm" + resourceId);
+				LayoutMain3ColsBackController ctr = new LayoutMain3ColsBackController(ureq, getWindowControl(), (showMenu ? menuTree : null), null, myContent, "scorm" + scormResourceId);
 				if(fullWindow)
 					ctr.setAsFullscreen(ureq);
 				columnLayoutCtr = ctr;
 			}
 		} else {
-			LayoutMain3ColsController ctr = new LayoutMain3ColsController(ureq, getWindowControl(), (showMenu ? menuTree : null), null, myContent, "scorm" + resourceId);
+			LayoutMain3ColsController ctr = new LayoutMain3ColsController(ureq, getWindowControl(), (showMenu ? menuTree : null), null, myContent, "scorm" + scormResourceId);
 			columnLayoutCtr = ctr;			
 			putInitialPanel(columnLayoutCtr.getInitialComponent());
 		}
 		listenTo(columnLayoutCtr);
 		
 		//scrom API calls get handled by this mapper
-		Mapper mapper = new ScormAPIMapper(ureq.getIdentity(), resourceId, courseIdNodeId, assessableType, cpRoot, scormAdapter, attemptsIncremented);
+		String scormResourceIdStr = (scormResourceId == null ? null : scormResourceId.toString());
+		Mapper mapper = new ScormAPIMapper(ureq.getIdentity(), scormResourceIdStr, courseIdNodeId, assessableType, cpRoot, scormAdapter, attemptsIncremented);
 		String scormCallbackUri = registerMapper(ureq, mapper);
 		myContent.contextPut("scormCallbackUri", scormCallbackUri+"/");
 	}
@@ -259,6 +268,14 @@ public class ScormAPIandDisplayController extends MainLayoutBasicController impl
 	
 	public void setRawContent(boolean rawContent) {
 		iframectr.setRawContent(rawContent);
+	}
+	
+	public DeliveryOptions getDeliveryOptions() {
+		return iframectr.getDeliveryOptions();
+	}
+	
+	public void setDeliveryOptions(DeliveryOptions config) {
+		iframectr.setDeliveryOptions(config);
 	}
 	
 	public void setContentEncoding(String encoding) {

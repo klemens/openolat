@@ -27,10 +27,12 @@ package org.olat.course.nodes.ta;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 
 import org.apache.velocity.VelocityContext;
 import org.apache.velocity.context.Context;
 import org.olat.admin.quota.QuotaConstants;
+import org.olat.core.CoreSpringFactory;
 import org.olat.core.commons.modules.bc.FolderEvent;
 import org.olat.core.commons.modules.bc.FolderRunController;
 import org.olat.core.commons.modules.bc.vfs.OlatNamedContainerImpl;
@@ -58,13 +60,14 @@ import org.olat.core.id.UserConstants;
 import org.olat.core.logging.OLog;
 import org.olat.core.logging.Tracing;
 import org.olat.core.util.Util;
+import org.olat.core.util.mail.MailBundle;
 import org.olat.core.util.mail.MailContext;
 import org.olat.core.util.mail.MailContextImpl;
 import org.olat.core.util.mail.MailHelper;
+import org.olat.core.util.mail.MailManager;
 import org.olat.core.util.mail.MailNotificationEditController;
 import org.olat.core.util.mail.MailTemplate;
 import org.olat.core.util.mail.MailerResult;
-import org.olat.core.util.mail.MailerWithTemplate;
 import org.olat.core.util.notifications.SubscriptionContext;
 import org.olat.core.util.vfs.Quota;
 import org.olat.core.util.vfs.QuotaManager;
@@ -142,6 +145,8 @@ public class TACourseNodeEditController extends ActivateableTabbableDefaultContr
 	private MailNotificationEditController mailCtr;
 	private CloseableModalController cmc;
 	private List<Identity> identitiesToBeNotified;
+	
+	private MailManager mailManager;
 
 	/**
 	 * @param ureq
@@ -153,6 +158,8 @@ public class TACourseNodeEditController extends ActivateableTabbableDefaultContr
 	public TACourseNodeEditController(UserRequest ureq, WindowControl wControl, ICourse course, TACourseNode node,
 			CourseGroupManager groupMgr, UserCourseEnvironment euce) {
 		super(ureq, wControl);
+		
+		mailManager = CoreSpringFactory.getImpl(MailManager.class);
 
 		this.node = node;
 		//o_clusterOk by guido: save to hold reference to course inside editor
@@ -510,7 +517,6 @@ public class TACourseNodeEditController extends ActivateableTabbableDefaultContr
 				
 		Context c = new VelocityContext();
 		Identity identity = ureq.getIdentity();
-		c.put("login", identity.getName());
 		c.put("first", identity.getUser().getProperty(UserConstants.FIRSTNAME, getLocale()));
 		c.put("last", identity.getUser().getProperty(UserConstants.LASTNAME, getLocale()));
 		c.put("email", identity.getUser().getProperty(UserConstants.EMAIL, getLocale()));
@@ -524,18 +530,17 @@ public class TACourseNodeEditController extends ActivateableTabbableDefaultContr
 	private void sendNotificationEmail(UserRequest ureq, MailTemplate mailTemplate, List<Identity> recipients) {
 	// send the notification mail
 		if (mailTemplate != null) {
-			MailerWithTemplate mailer = MailerWithTemplate.getInstance();
 			Identity sender = ureq.getIdentity();
-			List<Identity> ccIdentities = new ArrayList<Identity>();
-			if(mailTemplate.getCpfrom()) {
-				ccIdentities.add(sender);
-			} else {
-				ccIdentities = null;	
-			}
-			//fxdiff VCRP-16: intern mail system
 			MailContext context = new MailContextImpl(getWindowControl().getBusinessControl().getAsString());
-			MailerResult mailerResult = mailer.sendMailAsSeparateMails(context, recipients, ccIdentities, mailTemplate, sender);
-			MailHelper.printErrorsAndWarnings(mailerResult, getWindowControl(), ureq.getLocale());
+			MailerResult result = new MailerResult();
+			String metaId = UUID.randomUUID().toString().replace("-", "");
+			MailBundle[] bundles = mailManager.makeMailBundles(context, recipients, mailTemplate, sender, metaId, result);
+			result.append(mailManager.sendMessage(bundles));
+			if(mailTemplate.getCpfrom()) {
+				MailBundle ccBundle = mailManager.makeMailBundle(context, sender, mailTemplate, sender, metaId, result);
+				result.append(mailManager.sendMessage(ccBundle));
+			}
+			MailHelper.printErrorsAndWarnings(result, getWindowControl(), ureq.getLocale());
 		}
 	}
 	
@@ -637,6 +642,11 @@ class TaskFolderCallback implements VFSSecurityCallback {
 	 */
 	public boolean canWrite() {
 		return !folderLocked;
+	}
+
+	@Override
+	public boolean canCreateFolder() {
+		return false;
 	}
 
 	/**

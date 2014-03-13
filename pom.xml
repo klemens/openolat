@@ -4,7 +4,7 @@
 	<modelVersion>4.0.0</modelVersion>
 	<groupId>org.openolat</groupId>
 	<artifactId>openolat-lms</artifactId>
-	<version>8.4-SNAPSHOT</version>
+	<version>9.3-SNAPSHOT</version>
 	<packaging>war</packaging>
 	<name>OpenOLAT LMS</name>
 	<url>http://www.openolat.org</url>
@@ -31,14 +31,14 @@
 	</licenses>
 	<distributionManagement>
 		<repository>
-			<id>releases</id>
+			<id>nexus.openolat</id>
 			<name>OpenOLAT Internal Nexus Release Repository</name>
-			<url>http://nexus.openolat.org/nexus/content/repositories/releases</url>
+			<url>http://nexus.openolat.org/nexus/content/repositories/openolat</url>
 		</repository>
 		<snapshotRepository>
-			<id>snapshots</id>
+			<id>nexus.openolat</id>
 			<name>OpenOLAT Internal Nexus Snapshot Repository</name>
-			<url>http://nexus.openolat.org/nexus/content/repositories/snapshots</url>
+			<url>http://nexus.openolat.org/nexus/content/repositories/openolat-snapshots</url>
 		</snapshotRepository>
 	</distributionManagement>
 	<issueManagement>
@@ -58,19 +58,19 @@
 			<archive>https://groups.google.com/forum/#!forum/openolat</archive>
 		</mailingList>
 	</mailingLists>
-	<!-- Unless otherwise explicitly stated the character encoding for all resources 
-		(e.g., source, test etc.) will be UTF-8. This can be overriden at the plugin 
+	<!-- Unless otherwise explicitly stated the character encoding for all resources
+		(e.g., source, test etc.) will be UTF-8. This can be overriden at the plugin
 		level if necessary. -->
 	<properties>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-		<targetJdk>1.6</targetJdk>
-		<org.springframework.version>3.2.1.RELEASE</org.springframework.version>
-		<org.hibernate.version>4.1.10.Final</org.hibernate.version>
-		<com.sun.jersey.version>1.15</com.sun.jersey.version>
+		<targetJdk>1.7</targetJdk>
+		<org.springframework.version>3.2.4.RELEASE</org.springframework.version>
+		<org.hibernate.version>4.2.8.Final</org.hibernate.version>
+		<com.sun.jersey.version>1.17.1</com.sun.jersey.version>
 		<jackson.version>1.9.2</jackson.version>
-		<org.mysql.version>5.1.23</org.mysql.version>
+		<org.mysql.version>5.1.26</org.mysql.version>
 		<org.postgresql.version>9.1-901.jdbc4</org.postgresql.version>
-		<org.infinispan.version>5.2.1.Final</org.infinispan.version>
+		<org.infinispan.version>5.2.7.Final</org.infinispan.version>
 
 	    <!-- properties for testing and Q&A -->
 	    <!-- by default no tests are executed so far (April 2011). Use appropriate profiles and properties on the command line -->
@@ -114,6 +114,106 @@
 				</plugins>
 			</build>
 		</profile>
+		<profile>
+			<id>compressjs</id>
+			<build>
+				<plugins>
+					<!-- Compress jquery plugins -->
+					<plugin>
+						<groupId>net.alchim31.maven</groupId>
+						<artifactId>yuicompressor-maven-plugin</artifactId>
+						<version>1.3.2</version>
+						<executions>
+							<execution>
+								<id>compressjs</id>
+								<phase>process-resources</phase>
+								<goals>
+									<goal>compress</goal>
+								</goals>
+								<configuration>
+									<suffix>.min</suffix>
+									<force>true</force>
+									<encoding>UTF-8</encoding>
+									<nocompress>false</nocompress>
+									<outputDirectory>${basedir}/target/jquery</outputDirectory>
+									<sourceDirectory>${basedir}/src/main/webapp/static/js</sourceDirectory>
+									<aggregations>
+										<aggregation>
+											<output>${basedir}/src/main/webapp/static/js/js.plugins.min.js</output>
+											<removeIncluded>false</removeIncluded>
+											<includes>
+												<include>${basedir}/target/jquery/functions.min.js</include>
+												<include>${basedir}/target/jquery/jshashtable-2.1_src.min.js</include>
+												<include>${basedir}/target/jquery/jquery/openolat/jquery.oolog.min.js</include>
+												<include>${basedir}/target/jquery/jquery/openolat/jquery.translator.min.js</include>
+												<include>${basedir}/target/jquery/jquery/periodic/jquery.periodic.min.js</include>
+												<include>${basedir}/src/main/webapp/static/js/tinymce4/tinymce/jquery.tinymce.min.js</include>
+											</includes>
+										</aggregation>
+										<aggregation>
+											<output>${basedir}/src/main/webapp/static/js/tinymce4/tinymce/plugins/olatmatheditor/plugin.min.js</output>
+											<removeIncluded>false</removeIncluded>
+											<includes>
+												<include>${basedir}/target/jquery/tinymce4/tinymce/plugins/olatmatheditor/plugin.min.js</include>
+											</includes>
+										</aggregation>
+										<aggregation>
+											<output>${basedir}/src/main/webapp/static/js/tinymce4/tinymce/plugins/olatmovieviewer/plugin.min.js</output>
+											<removeIncluded>false</removeIncluded>
+											<includes>
+												<include>${basedir}/target/jquery/tinymce4/tinymce/plugins/olatmovieviewer/plugin.min.js</include>
+											</includes>
+										</aggregation>
+										<aggregation>
+											<output>${basedir}/src/main/webapp/static/js/tinymce4/tinymce/plugins/olatsmileys/plugin.min.js</output>
+											<removeIncluded>false</removeIncluded>
+											<includes>
+												<include>${basedir}/target/jquery/tinymce4/tinymce/plugins/olatsmileys/plugin.min.js</include>
+											</includes>
+										</aggregation>
+										<aggregation>
+											<output>${basedir}/src/main/webapp/static/js/tinymce4/tinymce/plugins/quotespliter/plugin.min.js</output>
+											<removeIncluded>false</removeIncluded>
+											<includes>
+												<include>${basedir}/target/jquery/tinymce4/tinymce/plugins/quotespliter/plugin.min.js</include>
+											</includes>
+										</aggregation>
+									</aggregations>
+								</configuration>
+							</execution>
+							<execution>
+								<id>compresscss</id>
+								<phase>process-resources</phase>
+								<goals>
+									<goal>compress</goal>
+								</goals>
+								<configuration>
+									<suffix>.min</suffix>
+									<force>true</force>
+									<encoding>UTF-8</encoding>
+									<nocompress>false</nocompress>
+									<outputDirectory>${basedir}/target/jquery</outputDirectory>
+									<sourceDirectory>${basedir}/src/main/webapp/static/js</sourceDirectory>
+									<aggregations>
+										<aggregation>
+											<output>${basedir}/src/main/webapp/static/js/js.plugins.min.css</output>
+											<removeIncluded>false</removeIncluded>
+											<includes>
+												<include>${basedir}/target/jquery/jquery/tagit/jquery.tagit.min.css</include>
+												<include>${basedir}/target/jquery/jquery/uilayout/layout-default-latest.min.css</include>
+												<include>${basedir}/target/jquery/jquery/fullcalendar/fullcalendar.min.css</include>
+												<include>${basedir}/src/main/webapp/static/js/jquery/datatables/css/jquery.dataTables.css</include>
+												<include>${basedir}/src/main/webapp/static/yaml/core/slim_base.css</include>
+											</includes>
+										</aggregation>
+									</aggregations>
+								</configuration>
+							</execution>
+						</executions>
+					</plugin>
+				</plugins>
+			</build>
+		</profile>
 		<!-- This is the default build which had all dependencies needed by tomcat -->
 		<profile>
 			<id>tomcat</id>
@@ -121,6 +221,11 @@
 				<activeByDefault>true</activeByDefault>
 			</activation>
 			<dependencies>
+				<dependency>
+					<groupId>log4j</groupId>
+					<artifactId>log4j</artifactId>
+					<version>1.2.17</version>
+				</dependency>
 				<!-- Jersey for tomcat -->
 				<dependency>
 					<groupId>javax.ws.rs</groupId>
@@ -167,7 +272,7 @@
 					<artifactId>jersey-servlet</artifactId>
 					<version>${com.sun.jersey.version}</version>
 				</dependency>
-				
+
 				<dependency>
 					<groupId>dom4j</groupId>
 					<artifactId>dom4j</artifactId>
@@ -198,15 +303,8 @@
 					<groupId>org.hibernate</groupId>
 					<artifactId>hibernate-c3p0</artifactId>
 					<version>${org.hibernate.version}</version>
-					<exclusions>
-						<!-- includes an old version of c3p0 -->
-						<exclusion>
-							<artifactId>c3p0</artifactId>
-							<groupId>c3p0</groupId>
-						</exclusion>
-					</exclusions>
 				</dependency>
-				
+
 				<dependency>
 					<groupId>org.infinispan</groupId>
 					<artifactId>infinispan-core</artifactId>
@@ -234,7 +332,7 @@
 						</exclusion>
 					</exclusions>
 				</dependency>
-		
+
 				<dependency>
 					<groupId>mysql</groupId>
 					<artifactId>mysql-connector-java</artifactId>
@@ -245,7 +343,7 @@
 					<artifactId>postgresql</artifactId>
 					<version>${org.postgresql.version}</version>
 				</dependency>
-		
+
 				<dependency>
 					<groupId>org.apache.geronimo.specs</groupId>
 					<artifactId>geronimo-jms_1.1_spec</artifactId>
@@ -285,10 +383,31 @@
 							<groupId>commons-logging</groupId>
 							<artifactId>commons-logging-api</artifactId>
 						</exclusion>
+						<exclusion>
+							<groupId>commons-logging</groupId>
+							<artifactId>commons-logging</artifactId>
+						</exclusion>
 					</exclusions>
 				</dependency>
+				<!-- webservice stack -->
+				<dependency>
+	      			<groupId>com.sun.xml.ws</groupId>
+	      			<artifactId>jaxws-rt</artifactId>
+	      			<version>2.2.6</version>
+	      			<exclusions>
+	      				<exclusion>
+	      					<groupId>javax.activation</groupId>
+	      					<artifactId>activation</artifactId>
+	      				</exclusion>
+	      			</exclusions>
+	    		</dependency>
+	    		<dependency>
+	    			<groupId>com.sun.xml.fastinfoset</groupId>
+	    			<artifactId>FastInfoset</artifactId>
+	    			<version>1.2.8</version>
+	    		</dependency>
 			</dependencies>
-			
+
 			<build>
 				<plugins>
 					<plugin>
@@ -313,7 +432,106 @@
 
 		<profile>
 			<id>jbossas7</id>
-	
+			<dependencies>
+				<dependency>
+					<groupId>javax.ws.rs</groupId>
+					<artifactId>jsr311-api</artifactId>
+					<version>1.1.1</version>
+					<scope>provided</scope>
+				</dependency>
+				<dependency>
+					<groupId>com.sun.jersey</groupId>
+					<artifactId>jersey-servlet</artifactId>
+					<version>${com.sun.jersey.version}</version>
+					<scope>test</scope>
+				</dependency>
+
+				<dependency>
+					<groupId>org.apache.geronimo.specs</groupId>
+					<artifactId>geronimo-jms_1.1_spec</artifactId>
+					<version>1.1.1</version>
+					<scope>provided</scope>
+				</dependency>
+
+				<dependency>
+					<groupId>dom4j</groupId>
+					<artifactId>dom4j</artifactId>
+					<version>1.6.1</version>
+					<scope>provided</scope>
+				</dependency>
+				<dependency>
+					<groupId>org.hibernate</groupId>
+					<artifactId>hibernate-core</artifactId>
+					<version>${org.hibernate.version}</version>
+					<scope>provided</scope>
+					<exclusions>
+						<exclusion>
+							<groupId>org.slf4j</groupId>
+							<artifactId>slf4j-log4j12</artifactId>
+						</exclusion>
+					</exclusions>
+				</dependency>
+				<dependency>
+					<groupId>org.hibernate</groupId>
+					<artifactId>hibernate-entitymanager</artifactId>
+					<version>${org.hibernate.version}</version>
+					<scope>provided</scope>
+				</dependency>
+				<dependency>
+					<groupId>org.hibernate</groupId>
+					<artifactId>hibernate-infinispan</artifactId>
+					<version>${org.hibernate.version}</version>
+					<scope>provided</scope>
+				</dependency>
+				<dependency>
+					<groupId>org.hibernate</groupId>
+					<artifactId>hibernate-c3p0</artifactId>
+					<version>${org.hibernate.version}</version>
+					<scope>provided</scope>
+				</dependency>
+
+				<dependency>
+					<groupId>org.infinispan</groupId>
+					<artifactId>infinispan-core</artifactId>
+					<version>${org.infinispan.version}</version>
+					<scope>provided</scope>
+					<exclusions>
+						<exclusion>
+							<groupId>org.jboss.spec.javax.transaction</groupId>
+							<artifactId>jboss-transaction-api_1.1_spec</artifactId>
+						</exclusion>
+						<exclusion>
+							<groupId>org.jboss.logging</groupId>
+							<artifactId>jboss-logging</artifactId>
+						</exclusion>
+						<exclusion>
+							<groupId>org.codehaus.woodstox</groupId>
+							<artifactId>woodstox-core-asl</artifactId>
+						</exclusion>
+						<exclusion>
+							<groupId>org.codehaus.woodstox</groupId>
+							<artifactId>stax2-api</artifactId>
+						</exclusion>
+						<exclusion>
+							<groupId>org.rhq.helpers</groupId>
+							<artifactId>rhq-pluginAnnotations</artifactId>
+						</exclusion>
+					</exclusions>
+				</dependency>
+
+				<dependency>
+					<groupId>mysql</groupId>
+					<artifactId>mysql-connector-java</artifactId>
+					<version>${org.mysql.version}</version>
+					<scope>provided</scope>
+				</dependency>
+				<dependency>
+					<groupId>postgresql</groupId>
+					<artifactId>postgresql</artifactId>
+					<version>${org.postgresql.version}</version>
+					<scope>provided</scope>
+				</dependency>
+			</dependencies>
 			<build>
 				<plugins>
 					<plugin>
@@ -335,7 +553,7 @@
 				</plugins>
 			</build>
 		</profile>
-		
+
 		<profile>
 			<id>gae</id>
 			<dependencies>
@@ -369,15 +587,8 @@
 					<groupId>org.hibernate</groupId>
 					<artifactId>hibernate-c3p0</artifactId>
 					<version>${org.hibernate.version}</version>
-					<exclusions>
-						<!-- includes an old version of c3p0 -->
-						<exclusion>
-							<artifactId>c3p0</artifactId>
-							<groupId>c3p0</groupId>
-						</exclusion>
-					</exclusions>
 				</dependency>
-		
+
 				<dependency>
 					<groupId>mysql</groupId>
 					<artifactId>mysql-connector-java</artifactId>
@@ -388,7 +599,7 @@
 					<artifactId>postgresql</artifactId>
 					<version>${org.postgresql.version}</version>
 				</dependency>
-		
+
 				<dependency>
 					<groupId>org.apache.activemq</groupId>
 					<artifactId>activemq-core</artifactId>
@@ -423,10 +634,14 @@
 							<groupId>commons-logging</groupId>
 							<artifactId>commons-logging-api</artifactId>
 						</exclusion>
+						<exclusion>
+							<groupId>commons-logging</groupId>
+							<artifactId>commons-logging</artifactId>
+						</exclusion>
 					</exclusions>
 				</dependency>
 			</dependencies>
-		
+
 			<build>
 				<plugins>
 					<plugin>
@@ -562,7 +777,7 @@
             <dependencies>
               <dependency>
                 <!-- DO NOT UPDATE! -->
-                <!-- Due to our special setup where we use the jdbc driver to convert 
+                <!-- Due to our special setup where we use the jdbc driver to convert
 				          from utf-8 to iso we cannot update this lib at the moment. -->
                 <groupId>mysql</groupId>
                 <artifactId>mysql-connector-java</artifactId>
@@ -578,7 +793,7 @@
               <password>${test.env.db.pass}</password>
               <!-- You can comment out username/password configurations and
                    have maven to look them up in your settings.xml using ${settingsKey}
-              
+
               <settingsKey>sensibleKey</settingsKey>-->
               <!--all executions are ignored if -Dmaven.test.skip=true-->
               <skip>${maven.test.skip}</skip>
@@ -648,7 +863,7 @@
         </plugins>
       </build>
     </profile>
-    
+
     <profile>
       <id>postgresqlunittests</id>
       <activation>
@@ -775,7 +990,7 @@
               <password>${test.env.db.postgresql.pass}</password>
               <!-- You can comment out username/password configurations and
                    have maven to look them up in your settings.xml using ${settingsKey}
-              
+
               <settingsKey>sensibleKey</settingsKey>-->
               <!--all executions are ignored if -Dmaven.test.skip=true-->
               <skip>${maven.test.skip}</skip>
@@ -848,7 +1063,7 @@
         </plugins>
       </build>
     </profile>
-    
+
 	<profile>
 		<id>oracleunittests</id>
 		<activation>
@@ -886,7 +1101,7 @@
 					<executions>
 						<execution>
 							<id>copy-resources-4-postgresqlunittests</id>
-							<!-- hook in to copy maven.build.properties to allow test and integration-test 
+							<!-- hook in to copy maven.build.properties to allow test and integration-test
 								phase run properly -->
 							<phase>generate-test-resources</phase>
 							<goals>
@@ -967,8 +1182,8 @@
 							<testNGArtifactName>none:none</testNGArtifactName>
 							<!-- commented out because surefire plugin doesn't understand @Suite annotation of JUnit and openolat won't undeploy.
 							<includes>
-               					 <include>org/olat/test/Selenium2TestsJunit4.java</include>  
-              				</includes> 
+               					 <include>org/olat/test/Selenium2TestsJunit4.java</include>
+              				</includes>
               				-->
               				<test>**/Functional*Test.java</test>
 						</configuration>
@@ -979,14 +1194,14 @@
 	</profiles>
 	<repositories>
 		<repository>
-      <id>central</id>
-      <name>Maven Repository Switchboard</name>
-      <layout>default</layout>
-      <url>http://repo1.maven.org/maven2</url>
-      <snapshots>
-        <enabled>false</enabled>
-      </snapshots>
-    </repository>
+			<id>central</id>
+			<name>Maven Repository Switchboard</name>
+			<layout>default</layout>
+			<url>http://repo1.maven.org/maven2</url>
+			<snapshots>
+				<enabled>false</enabled>
+			</snapshots>
+		</repository>
 		<repository>
 			<id>maven2-repository.java.net</id>
 			<name>Java.net repository for Maven</name>
@@ -1001,7 +1216,7 @@
 		<repository>
 			<id>jboss-public-repository-group</id>
 			<name>JBoss Public Maven Repository Group</name>
-			<url>https://repository.jboss.org/nexus/content/groups/public/</url>
+			<url>https://repository.jboss.org/nexus/content/groups/public</url>
 			<layout>default</layout>
 			<releases>
 				<enabled>true</enabled>
@@ -1011,18 +1226,18 @@
 				<enabled>true</enabled>
 				<updatePolicy>daily</updatePolicy>
 			</snapshots>
-		</repository>	
+		</repository>
 		<repository>
 			<id>openolat-repo</id>
 			<name>OpenOLAT Public Maven Repository Group</name>
-			<url>http://nexus.openolat.org/nexus/content/groups/public/</url>
+			<url>http://nexus.openolat.org/nexus/content/groups/public</url>
 			<layout>default</layout>
 			<releases>
 				<enabled>true</enabled>
 				<updatePolicy>never</updatePolicy>
 			</releases>
 			<snapshots>
-				<enabled>true</enabled>
+				<enabled>false</enabled>
 				<updatePolicy>daily</updatePolicy>
 			</snapshots>
 		</repository>
@@ -1045,22 +1260,32 @@
 				<updatePolicy>daily</updatePolicy>
 			</snapshots>
 		</pluginRepository>
+		<pluginRepository>
+			<id>openolat-plugin-repo</id>
+			<name>OpenOLAT Public Maven Repository Group</name>
+			<url>http://nexus.openolat.org/nexus/content/groups/public</url>
+			<layout>default</layout>
+			<releases>
+				<enabled>true</enabled>
+				<updatePolicy>never</updatePolicy>
+			</releases>
+		</pluginRepository>
 	</pluginRepositories>
 	<build>
-		<!-- Useful maven commands: o mvn dependency:tree - check to see what other 
-			dependencies get downloaded by an artifact o Maven lifecycle: Each phase 
-			of the lifecycle can also be called independent - e.g. mvn process-resources 
-			- http://maven.apache.org/guides/introduction/introduction-to-the-lifecycle.html#Lifecycle_Reference 
-			o mvn versions:display-plugin-updates (find updates to maven plugins) o mvn 
-			versions:use-latest-versions (automatically update dependencies. WARNING!!!) 
-			o mvn versions:display-dependency-updates (shows updates for dependencies) 
-			o mvn help:effective-pom - displays the computed pom, where you will see 
+		<!-- Useful maven commands: o mvn dependency:tree - check to see what other
+			dependencies get downloaded by an artifact o Maven lifecycle: Each phase
+			of the lifecycle can also be called independent - e.g. mvn process-resources
+			- http://maven.apache.org/guides/introduction/introduction-to-the-lifecycle.html#Lifecycle_Reference
+			o mvn versions:display-plugin-updates (find updates to maven plugins) o mvn
+			versions:use-latest-versions (automatically update dependencies. WARNING!!!)
+			o mvn versions:display-dependency-updates (shows updates for dependencies)
+			o mvn help:effective-pom - displays the computed pom, where you will see
 			what is getting executed after expanding vars and plugin settings -->
 
 		<resources>
-			<!-- as long as we have resources like html, css, js in the src/main/java 
-				tree we need these two entries. the first tells maven to treat the java folder 
-				as the resource folder but not to copy the java files. The later tell maven 
+			<!-- as long as we have resources like html, css, js in the src/main/java
+				tree we need these two entries. the first tells maven to treat the java folder
+				as the resource folder but not to copy the java files. The later tell maven
 				that we have an other resource folder which is normally the default -->
 			<resource>
 				<directory>src/main/java</directory>
@@ -1070,9 +1295,12 @@
 			</resource>
 			<resource>
 				<directory>src/main/resources</directory>
-				<!-- when enabled resources will be searched and variables replaces with 
+				<!-- when enabled resources will be searched and variables replaces with
 					values -->
 				<filtering>false</filtering>
+				<excludes>
+					<exclude>log4j.xml</exclude>
+				</excludes>
 			</resource>
 		</resources>
     <testResources>
@@ -1085,25 +1313,41 @@
       </testResource>
       <testResource>
         <directory>src/test/resources</directory>
-        <!-- when enabled resources will be searched and variables replaces with 
+        <!-- when enabled resources will be searched and variables replaces with
 					values -->
         <filtering>true</filtering>
       </testResource>
     </testResources>
 		<plugins>
-
+			<plugin>
+				<groupId>org.openolat.mojo</groupId>
+				<artifactId>buildnumber-maven-plugin</artifactId>
+				<version>1.2.0</version>
+				<executions>
+					<execution>
+						<phase>validate</phase>
+						<goals>
+							<goal>hgchangeset</goal>
+						</goals>
+					</execution>
+				</executions>
+				<configuration>
+					<doCheck>true</doCheck>
+					<doUpdate>true</doUpdate>
+				</configuration>
+			</plugin>
 		</plugins>
 		<pluginManagement>
 			<plugins>
 
-				<!-- OLAT requires JDK 1.6 or later ! -->
+				<!-- OLAT requires JDK 1.7 or later ! -->
 				<plugin>
 					<groupId>org.apache.maven.plugins</groupId>
 					<artifactId>maven-compiler-plugin</artifactId>
 					<version>2.5.1</version>
 					<configuration>
-						<source>1.6</source>
-						<target>1.6</target>
+						<source>1.7</source>
+						<target>1.7</target>
 						<encoding>UTF-8</encoding>
 					</configuration>
 				</plugin>
@@ -1115,10 +1359,21 @@
 					<configuration>
 						<attachClasses>true</attachClasses>
 						<directory>src/main/java</directory>
+						<archive>
+							<manifest>
+								<addDefaultImplementationEntries>true</addDefaultImplementationEntries>
+							</manifest>
+							<manifestEntries>
+								<Build-Change-Set>${changeSet}</Build-Change-Set>
+								<Build-Change-Set-Date>${changeSetDate}</Build-Change-Set-Date>
+								<Build-Revision-Number>${revisionNumber}</Build-Revision-Number>
+								<Implementation-Build>${buildNumber}</Implementation-Build>
+							</manifestEntries>
+						</archive>
 					</configuration>
 				</plugin>
 
-				<!-- The Eclipse plugin is only of interest to developers and requires 
+				<!-- The Eclipse plugin is only of interest to developers and requires
 					that WTP be installed. -->
 				<plugin>
 					<groupId>org.apache.maven.plugins</groupId>
@@ -1136,9 +1391,9 @@
 		                        <type>1</type>
 		                        <location>${basedir}/src/test/profile/mysql/olat.eclipse.properties</location>
                 			</linkedResource>
-				        </linkedResources>				        
-				        
-                        
+				        </linkedResources>
+
+
 						<wtpversion>2.0</wtpversion>
 						<!-- context name for servlet container e.g. localhost:8080/olat -->
 						<wtpContextName>olat</wtpContextName>
@@ -1183,7 +1438,7 @@
 										<version>2.2+</version>
 									</requireMavenVersion>
 									<requireJavaVersion>
-										<version>1.6+</version>
+										<version>1.7+</version>
 									</requireJavaVersion>
 								</rules>
 							</configuration>
@@ -1263,7 +1518,7 @@
 								<artifactId>wadl-resourcedoc-doclet</artifactId>
 								<version>${com.sun.jersey.version}</version>
 							</docletArtifact>
-							<!-- Also specify jersey and xerces as doclet artifacts as the ResourceDoclet 
+							<!-- Also specify jersey and xerces as doclet artifacts as the ResourceDoclet
 								uses classes provided by them to generate the resourcedoc. -->
 							<docletArtifact>
 								<groupId>com.sun.jersey</groupId>
@@ -1422,52 +1677,32 @@
 					<groupId>commons-logging</groupId>
 					<artifactId>commons-logging-api</artifactId>
 				</exclusion>
-			</exclusions>
-		</dependency>
-		<dependency>
-			<!-- Dependencies for onyx plugin and vitero -->
-			<groupId>org.apache.axis2</groupId>
-			<artifactId>axis2</artifactId>
-			<version>1.4.1</version>
-		</dependency>
-		<dependency>
-			<groupId>org.apache.ws.commons.axiom</groupId>
-			<artifactId>axiom-api</artifactId>
-			<version>1.2.8</version>
-			<exclusions>
 				<exclusion>
-					<groupId>org.apache.geronimo.specs</groupId>
-					<artifactId>geronimo-javamail_1.4_spec</artifactId>
-				</exclusion>
-				<exclusion>
-					<groupId>org.apache.geronimo.specs</groupId>
-					<artifactId>geronimo-activation_1.1_spec</artifactId>
-				</exclusion>
-				<exclusion>
-					<groupId>org.apache.geronimo.specs</groupId>
-					<artifactId>geronimo-stax-api_1.0_spec</artifactId>
+					<groupId>commons-logging</groupId>
+					<artifactId>commons-logging</artifactId>
 				</exclusion>
 			</exclusions>
 		</dependency>
-		<dependency>
-			<groupId>org.apache.ws.commons.axiom</groupId>
-			<artifactId>axiom-impl</artifactId>
-			<version>1.2.8</version>
-			<exclusions>
-				<exclusion>
-					<groupId>org.apache.geronimo.specs</groupId>
-					<artifactId>geronimo-javamail_1.4_spec</artifactId>
-				</exclusion>
-				<exclusion>
-					<groupId>org.apache.geronimo.specs</groupId>
-					<artifactId>geronimo-activation_1.1_spec</artifactId>
-				</exclusion>
-				<exclusion>
-					<groupId>org.apache.geronimo.specs</groupId>
-					<artifactId>geronimo-stax-api_1.0_spec</artifactId>
-				</exclusion>
-			</exclusions>
-		</dependency>
+	    <!-- <OLATCE-1322> -->
+	    <dependency>
+	      <groupId>com.sun.xml.ws</groupId>
+	      <artifactId>jaxws-rt</artifactId>
+	      <version>2.2.6</version>
+	      <scope>test</scope>
+	      <exclusions>
+	      	<exclusion>
+				<groupId>javax.activation</groupId>
+				<artifactId>activation</artifactId>
+	      	</exclusion>
+	      </exclusions>
+	    </dependency>
+	    <dependency>
+	    	<groupId>com.sun.xml.fastinfoset</groupId>
+	    	<artifactId>FastInfoset</artifactId>
+	    	<version>1.2.8</version>
+	    	<scope>test</scope>
+	    </dependency>
+	    <!-- </OLATCE-1322> -->
 		<dependency>
 			<!-- Used by SCORM implementation -->
 			<groupId>org.beanshell</groupId>
@@ -1487,12 +1722,18 @@
 		<dependency>
 			<groupId>commons-io</groupId>
 			<artifactId>commons-io</artifactId>
-			<version>1.4</version>
+			<version>2.4</version>
 		</dependency>
 		<dependency>
 			<groupId>org.mnode.ical4j</groupId>
 			<artifactId>ical4j</artifactId>
 			<version>1.0.2</version>
+			<exclusions>
+				<exclusion>
+					<groupId>commons-logging</groupId>
+					<artifactId>commons-logging</artifactId>
+				</exclusion>
+			</exclusions>
 		</dependency>
 		<dependency><!-- Velocity dependency -->
 			<groupId>oro</groupId>
@@ -1505,44 +1746,41 @@
 			<version>1.0.0</version>
 		</dependency>
 		<dependency>
-			<groupId>jaxen</groupId>
-			<artifactId>jaxen</artifactId>
-			<version>1.1.1</version>
-			<exclusions>
-				<exclusion>
-					<groupId>com.ibm.icu</groupId>
-					<artifactId>icu4j</artifactId>
-				</exclusion>
-				<exclusion>
-					<groupId>xalan</groupId>
-					<artifactId>xalan</artifactId>
-				</exclusion>
-			</exclusions>
-		</dependency>
-		<dependency>
 			<groupId>opensaml</groupId>
 			<artifactId>opensaml</artifactId>
 			<version>1.1</version>
 		</dependency>
 		<dependency>
-			<groupId>org.openolat.openmeetings</groupId>
-			<artifactId>openmeetings-stubs</artifactId>
-			<version>2.0-SNAPSHOT</version>
+			<groupId>org.openolat</groupId>
+			<artifactId>openmeetingws</artifactId>
+			<version>2.1.1</version>
 		</dependency>
+		<dependency>
+			<groupId>org.openolat</groupId>
+			<artifactId>viterows</artifactId>
+			<version>4.4</version>
+		</dependency>
+		<!-- docx4j need poi scratchpad version 3.8 -->
 		<dependency>
 			<groupId>org.apache.poi</groupId>
 			<artifactId>poi</artifactId>
-			<version>3.7</version>
+			<version>3.8</version>
 		</dependency>
 		<dependency>
 			<groupId>org.apache.poi</groupId>
 			<artifactId>poi-scratchpad</artifactId>
-			<version>3.7</version>
+			<version>3.8</version>
 		</dependency>
 		<dependency>
 			<groupId>org.apache.pdfbox</groupId>
 			<artifactId>pdfbox</artifactId>
-			<version>1.7.1</version>
+			<version>1.8.3</version>
+			<exclusions>
+				<exclusion>
+					<groupId>commons-logging</groupId>
+					<artifactId>commons-logging</artifactId>
+				</exclusion>
+			</exclusions>
 		</dependency>
 		<dependency>
 			<groupId>org.bouncycastle</groupId>
@@ -1555,9 +1793,34 @@
 			<version>1.46</version>
 		</dependency>
 		<dependency>
-			<groupId>jdom</groupId>
+			<groupId>jaxen</groupId>
+			<artifactId>jaxen</artifactId>
+			<version>1.1.4</version>
+			<exclusions>
+				<exclusion>
+					<groupId>com.ibm.icu</groupId>
+					<artifactId>icu4j</artifactId>
+				</exclusion>
+				<exclusion>
+					<groupId>xalan</groupId>
+					<artifactId>xalan</artifactId>
+				</exclusion>
+				<exclusion>
+					<groupId>jdom</groupId>
+					<artifactId>jdom</artifactId>
+				</exclusion>
+			</exclusions>
+		</dependency>
+		<dependency>
+			<groupId>org.jdom</groupId>
 			<artifactId>jdom</artifactId>
-			<version>1.0</version>
+			<version>1.1.3</version>
+		</dependency>
+		<dependency>
+			<groupId>fmath</groupId>
+			<artifactId>fmath-latex-mathml</artifactId>
+			<version>0.5</version>
+			<!--  need org.jdom 1.1.3, jaxen 1.1.4 and commons-codec -->
 		</dependency>
 		<dependency>
 			<groupId>jgrapht</groupId>
@@ -1590,19 +1853,26 @@
 			<groupId>rome</groupId>
 			<artifactId>rome</artifactId>
 			<version>1.0</version>
+			<exclusions>
+				<exclusion>
+					<groupId>jdom</groupId>
+					<artifactId>jdom</artifactId>
+				</exclusion>
+			</exclusions>
 		</dependency>
 		<dependency>
 			<groupId>ch.ethz</groupId>
 			<artifactId>pfplms-scorm</artifactId>
 			<version>unknown</version>
-			<classifier>patched</classifier><!-- patched version of scorm adapter: 
+			<classifier>patched</classifier><!-- patched version of scorm adapter:
 				contact: matthai.kurian@gmail.com -->
 		</dependency>
 		<dependency><!-- used by SCORM -->
 			<groupId>gnu-regexp</groupId>
 			<artifactId>gnu-regexp</artifactId>
 			<version>1.1.4</version>
-		</dependency>	
+		</dependency>
+		<!-- logging stuff -->
 		<dependency>
 			<groupId>org.slf4j</groupId>
 			<artifactId>slf4j-api</artifactId>
@@ -1613,17 +1883,35 @@
 			<artifactId>slf4j-log4j12</artifactId>
 			<version>1.5.11</version>
 		</dependency>
+		<dependency>
+			<groupId>org.slf4j</groupId>
+			<artifactId>jul-to-slf4j</artifactId>
+			<version>1.5.8</version>
+		</dependency>
+		<!-- Replace commons-logging -->
+		<dependency>
+			<groupId>org.slf4j</groupId>
+			<artifactId>jcl-over-slf4j</artifactId>
+			<version>1.5.8</version>
+		</dependency>
+		<dependency>
+			<groupId>log4j</groupId>
+			<artifactId>log4j</artifactId>
+			<version>1.2.17</version>
+			<scope>test</scope>
+		</dependency>
+
 		<!-- basic LTI stuff for lti demo: http://www.imsglobal.org/toolsinteroperability2.cfm -->
 		<dependency>
 			<groupId>org.sakaiproject.basiclti</groupId>
 			<artifactId>basiclti-util</artifactId>
-			<version>1.4</version>
+			<version>2.10.SP1</version>
 		</dependency>
 		<!-- J2EE dependencies but provided -->
 		<dependency>
 			<groupId>javax.servlet</groupId>
-			<artifactId>servlet-api</artifactId>
-			<version>2.5</version>
+			<artifactId>javax.servlet-api</artifactId>
+			<version>3.0.1</version>
 			<scope>provided</scope>
 		</dependency>
 		<dependency>
@@ -1633,17 +1921,6 @@
 			<scope>test</scope>
 		</dependency>
 		<!-- core dependencies -->
-		<dependency>
-			<groupId>tomcat</groupId>
-			<artifactId>naming-resources</artifactId>
-			<version>5.5.15</version>
-			<exclusions>
-				<exclusion>
-					<groupId>commons-logging</groupId>
-					<artifactId>commons-logging-api</artifactId>
-				</exclusion>
-			</exclusions>
-		</dependency>
 		<dependency>
 			<groupId>commons-fileupload</groupId>
 			<artifactId>commons-fileupload</artifactId>
@@ -1680,59 +1957,36 @@
 			<version>5.0</version>
 		</dependency>
 		<dependency>
-			<groupId>commons-logging</groupId>
-			<artifactId>commons-logging</artifactId>
-			<version>1.1.1</version>
-		</dependency>
-		<dependency>
-			<groupId>wsdl4j</groupId>
-			<artifactId>wsdl4j</artifactId>
-			<version>1.6.2</version>
-		</dependency>
-		<dependency>
-			<groupId>org.apache.ws.commons.schema</groupId>
-			<artifactId>XmlSchema</artifactId>
-			<version>1.4.2</version>
-		</dependency>
-		<dependency>
-			<groupId>org.apache.neethi</groupId>
-			<artifactId>neethi</artifactId>
-			<version>2.0.4</version>
-		</dependency>
-		<dependency>
-			<groupId>org.apache.woden</groupId>
-			<artifactId>woden-api</artifactId>
-			<version>1.0M8</version>
+			<groupId>commons-httpclient</groupId>
+			<artifactId>commons-httpclient</artifactId>
+			<version>3.1</version>
 			<exclusions>
 				<exclusion>
-					<groupId>xerces</groupId>
-					<artifactId>xmlParserAPIs</artifactId>
-				</exclusion>
-				<exclusion>
-					<groupId>org.apache.ant</groupId>
-					<artifactId>ant</artifactId>
+					<groupId>commons-logging</groupId>
+					<artifactId>commons-logging</artifactId>
 				</exclusion>
 			</exclusions>
 		</dependency>
 		<dependency>
-			<groupId>commons-httpclient</groupId>
-			<artifactId>commons-httpclient</artifactId>
-			<version>3.1</version>
-		</dependency>
-		<dependency>
 			<groupId>org.apache.httpcomponents</groupId>
 			<artifactId>httpcore</artifactId>
-			<version>4.1.1</version>
+			<version>4.3.1</version>
 		</dependency>
 		<dependency>
 			<groupId>org.apache.httpcomponents</groupId>
 			<artifactId>httpclient</artifactId>
-			<version>4.1.1</version>
+			<version>4.3.1</version>
+			<exclusions>
+				<exclusion>
+					<groupId>commons-logging</groupId>
+					<artifactId>commons-logging</artifactId>
+				</exclusion>
+			</exclusions>
 		</dependency>
 		<dependency>
 			<groupId>org.apache.httpcomponents</groupId>
 			<artifactId>httpmime</artifactId>
-			<version>4.1.1</version>
+			<version>4.3.1</version>
 		</dependency>
 		<dependency>
 			<groupId>commons-lang</groupId>
@@ -1801,23 +2055,6 @@
 			<artifactId>hibernate-c3p0</artifactId>
 			<version>${org.hibernate.version}</version>
 			<scope>test</scope>
-			<exclusions>
-				<!-- includes an old version of c3p0 -->
-				<exclusion>
-					<artifactId>c3p0</artifactId>
-					<groupId>c3p0</groupId>
-				</exclusion>
-			</exclusions>
-		</dependency>
-		<dependency>
-			<groupId>c3p0</groupId>
-			<artifactId>c3p0</artifactId>
-			<version>0.9.1.2</version>
-		</dependency>
-		<dependency>
-			<groupId>log4j</groupId>
-			<artifactId>log4j</artifactId>
-			<version>1.2.14</version>
 		</dependency>
 		<dependency>
 			<groupId>org.apache.velocity</groupId>
@@ -1843,7 +2080,7 @@
 		<dependency>
 			<groupId>com.thoughtworks.xstream</groupId>
 			<artifactId>xstream</artifactId>
-			<version>1.4.3</version>
+			<version>1.4.5</version>
 		</dependency>
 		<dependency>
 			<groupId>cos</groupId>
@@ -1877,37 +2114,54 @@
 					<groupId>javax.activation</groupId>
 					<artifactId>activation</artifactId>
 				</exclusion>
-			</exclusions>			
+			</exclusions>
 		</dependency>
 		<dependency>
 			<groupId>com.neemsoft</groupId>
 			<artifactId>jmep</artifactId>
 			<version>unknown</version>
-			<classifier>patched</classifier> <!-- unknown patched version of jmep (java mathematical expression parser)[http://jmep.tigris.org/], 
+			<classifier>patched</classifier> <!-- unknown patched version of jmep (java mathematical expression parser)[http://jmep.tigris.org/],
 				do not replace unless you know what you do! -->
 		</dependency>
 		<!-- Lucene dependencies -->
 		<dependency>
 			<groupId>org.apache.lucene</groupId>
 			<artifactId>lucene-core</artifactId>
-			<version>3.0.2</version>
+			<version>4.5.1</version>
 		</dependency>
 		<dependency>
 			<groupId>org.apache.lucene</groupId>
 			<artifactId>lucene-highlighter</artifactId>
-			<version>3.0.2</version>
+			<version>4.5.1</version>
 		</dependency>
 		<dependency>
 			<groupId>org.apache.lucene</groupId>
-			<artifactId>lucene-spellchecker</artifactId>
-			<version>3.0.2</version>
+			<artifactId>lucene-queryparser</artifactId>
+			<version>4.5.1</version>
 		</dependency>
+		<dependency>
+			<groupId>org.apache.lucene</groupId>
+			<artifactId>lucene-analyzers-common</artifactId>
+			<version>4.5.1</version>
+		</dependency>
+		<dependency>
+			<groupId>org.apache.lucene</groupId>
+			<artifactId>lucene-suggest</artifactId>
+			<version>4.5.1</version>
+		</dependency>
+
 		<!-- End lucene dependencies -->
 		<!-- Spring dependencies -->
 		<dependency>
 			<groupId>org.springframework</groupId>
 			<artifactId>spring-core</artifactId>
 			<version>${org.springframework.version}</version>
+			<exclusions>
+				<exclusion>
+					<groupId>commons-logging</groupId>
+					<artifactId>commons-logging</artifactId>
+				</exclusion>
+			</exclusions>
 		</dependency>
 		<dependency>
 			<groupId>org.springframework</groupId>
@@ -1918,11 +2172,23 @@
 			<groupId>org.springframework</groupId>
 			<artifactId>spring-beans</artifactId>
 			<version>${org.springframework.version}</version>
+			<exclusions>
+				<exclusion>
+					<groupId>commons-logging</groupId>
+					<artifactId>commons-logging</artifactId>
+				</exclusion>
+			</exclusions>
 		</dependency>
 		<dependency>
 			<groupId>org.springframework</groupId>
 			<artifactId>spring-context</artifactId>
 			<version>${org.springframework.version}</version>
+			<exclusions>
+				<exclusion>
+					<groupId>commons-logging</groupId>
+					<artifactId>commons-logging</artifactId>
+				</exclusion>
+			</exclusions>
 		</dependency>
 		<dependency>
 			<groupId>org.springframework</groupId>
@@ -1958,48 +2224,6 @@
 			<version>1.1.1</version>
 			<scope>test</scope>
 		</dependency>
-		<dependency>
-			<groupId>com.sun.jersey</groupId>
-			<artifactId>jersey-server</artifactId>
-			<version>${com.sun.jersey.version}</version>
-			<scope>test</scope>
-			<exclusions>
-				<exclusion>
-					<groupId>org.springframework</groupId>
-					<artifactId>spring-core</artifactId>
-				</exclusion>
-				<exclusion>
-					<groupId>org.springframework</groupId>
-					<artifactId>spring</artifactId>
-				</exclusion>
-				<exclusion>
-					<groupId>org.springframework</groupId>
-					<artifactId>spring-beans</artifactId>
-				</exclusion>
-				<exclusion>
-					<groupId>org.springframework</groupId>
-					<artifactId>spring-context</artifactId>
-				</exclusion>
-				<exclusion>
-					<groupId>org.springframework</groupId>
-					<artifactId>spring-web</artifactId>
-				</exclusion>
-				<exclusion>
-					<groupId>org.springframework</groupId>
-					<artifactId>spring-aop</artifactId>
-				</exclusion>
-				<exclusion>
-					<groupId>org.springframework</groupId>
-					<artifactId>spring-jca</artifactId>
-				</exclusion>
-			</exclusions>
-		</dependency>
-		<dependency>
-			<groupId>com.sun.jersey.jersey-test-framework</groupId>
-			<artifactId>jersey-test-framework-grizzly</artifactId>
-			<version>${com.sun.jersey.version}</version>
-			<scope>test</scope>
-		</dependency>
 
 		<dependency>
 			<groupId>org.codehaus.jackson</groupId>
@@ -2022,7 +2246,7 @@
 			<version>${jackson.version}</version>
 		</dependency>
 		<!-- end jersey -->
-		
+
 		<!-- paypal -->
 		<dependency>
 			<groupId>com.paypal</groupId>
@@ -2036,13 +2260,14 @@
 		</dependency>
 		<!-- end Paypal -->
 
-		<!-- Start test dependencies -->
+		<!-- redstone for autolat -->
 		<dependency>
-			<groupId>org.mockito</groupId>
-			<artifactId>mockito-all</artifactId>
-			<version>1.8.1</version>
-			<scope>test</scope>
+			<groupId>redstone.xmlrpc</groupId>
+			<artifactId>xmlrpc</artifactId>
+			<version>1.1.1</version>
 		</dependency>
+
+		<!-- Start test dependencies -->
 		<dependency>
 			<groupId>junit</groupId>
 			<artifactId>junit</artifactId>
@@ -2050,11 +2275,18 @@
 			<scope>test</scope>
 		</dependency>
 		<dependency>
-			<groupId>redstone.xmlrpc</groupId>
-			<artifactId>xmlrpc</artifactId>
-			<version>1.1.1</version>
+		    <groupId>io.undertow</groupId>
+		    <artifactId>undertow-core</artifactId>
+		    <version>1.0.0.Beta30</version>
+			<scope>test</scope>
 		</dependency>
-    
+		<dependency>
+		    <groupId>io.undertow</groupId>
+		    <artifactId>undertow-servlet</artifactId>
+		    <version>1.0.0.Beta30</version>
+			<scope>test</scope>
+		</dependency>
+
 		<!-- Start test dependencies for Arquillian and Selenium -->
     	<dependency>
 			<groupId>org.jboss.arquillian.junit</groupId>
@@ -2064,7 +2296,7 @@
 		<dependency>
         	<groupId>org.jboss.arquillian.container</groupId>
         	<artifactId>arquillian-tomcat-managed-7</artifactId>
-        	<version>1.0.0.CR3</version>
+        	<version>1.0.0.CR5</version>
         	<scope>test</scope>
       	</dependency>
 		<dependency>
@@ -2086,6 +2318,12 @@
 			<groupId>org.seleniumhq.selenium</groupId>
 			<artifactId>selenium-java</artifactId>
 			<scope>test</scope>
+			<exclusions>
+				<exclusion>
+					<groupId>commons-logging</groupId>
+					<artifactId>commons-logging</artifactId>
+				</exclusion>
+			</exclusions>
 		</dependency>
 		<dependency>
 			<groupId>org.seleniumhq.selenium</groupId>
@@ -2100,26 +2338,26 @@
 		</dependency>
 		<!-- End test dependencies -->
 	</dependencies>
-	
+
 	<dependencyManagement>
 		<dependencies>
 			<dependency>
 				<groupId>org.jboss.arquillian</groupId>
 				<artifactId>arquillian-bom</artifactId>
-				<version>1.0.1.Final</version>
+				<version>1.1.1.Final</version>
 				<scope>import</scope>
 				<type>pom</type>
 			</dependency>
 			<dependency>
 				<groupId>org.jboss.arquillian.extension</groupId>
 				<artifactId>arquillian-drone-bom</artifactId>
-				<version>1.0.0.Final</version>
+				<version>1.1.1.Final</version>
 				<type>pom</type>
 				<scope>import</scope>
 			</dependency>
 		</dependencies>
 	</dependencyManagement>
-	
+
 	<reporting>
 		<plugins>
 			<plugin>
@@ -2141,7 +2379,7 @@
 
 
 			<!-- <reportSets> <reportSet> <reports> <report>javadoc</report> -->
-			<!-- Note: leave this line commented out if unit tests are not to be documented 
+			<!-- Note: leave this line commented out if unit tests are not to be documented
 				<report>test-javadoc</report>report> -->
 			<!-- </reports> </reportSet> </reportSets> </plugin> -->
 			<plugin>
@@ -2191,7 +2429,7 @@
 			</plugin>
 		</plugins>
 	</reporting>
-	
+
 	<ciManagement>
 		<system>Hudson</system>
 		<url>http://jenkins.frentix.com</url>

@@ -31,8 +31,6 @@ import java.util.BitSet;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
-import java.util.Set;
-import java.util.TreeSet;
 
 import org.olat.core.gui.ShortName;
 import org.olat.core.gui.UserRequest;
@@ -48,19 +46,13 @@ import org.olat.core.gui.control.controller.BasicController;
 import org.olat.core.gui.control.generic.ajax.autocompletion.AutoCompleterController;
 import org.olat.core.gui.control.generic.ajax.autocompletion.EntriesChosenEvent;
 import org.olat.core.gui.control.generic.ajax.autocompletion.ListProvider;
-import org.olat.core.gui.control.generic.ajax.autocompletion.ListReceiver;
 import org.olat.core.gui.control.generic.closablewrapper.CloseableCalloutWindowController;
 import org.olat.core.gui.media.MediaResource;
-import org.olat.core.gui.render.StringOutput;
-import org.olat.core.gui.translator.PackageTranslator;
 import org.olat.core.gui.translator.Translator;
 import org.olat.core.logging.AssertException;
 import org.olat.core.logging.OLog;
 import org.olat.core.logging.Tracing;
-import org.olat.core.util.StringHelper;
 import org.olat.core.util.Util;
-import org.olat.core.util.filter.Filter;
-import org.olat.core.util.filter.FilterFactory;
 
 /**
  * <!--**************-->
@@ -121,8 +113,6 @@ public class TableController extends BasicController {
 
 	private static final String VC_VAR_HAS_TABLE_SEARCH = "hasTableSearch";
 
-	private static final String LOG_DEBUG_DURATION = "  duration=";
-
 	private OLog log = Tracing.createLoggerFor(this.getClass());
 	
 	private static final String CMD_FILTER = "cmd.filter.";
@@ -136,10 +126,6 @@ public class TableController extends BasicController {
 	 */
 	public static final Event EVENT_FILTER_SELECTED = new Event("filter.selected");
 
-	/**
-	 * Limit the number of search-suggestions in table-search-popup
-	 */
-	private static final int MAX_TABLE_SEARCH_RESULT_ENTRIES = 20;
 
 	private VelocityContainer contentVc;
 
@@ -149,7 +135,7 @@ public class TableController extends BasicController {
 	private TablePrefs prefs;
 	private TableGuiConfiguration tableConfig;
 
-	private List filters;
+	private List<ShortName> filters;
 	private String filterTitle;
 	private ShortName activeFilter;
 
@@ -241,22 +227,22 @@ public class TableController extends BasicController {
 		}
 		
 		if (tableTrans != null) {
-			setTranslator(new PackageTranslator(Util.getPackageName(TableController.class), ureq.getLocale(), tableTrans));
+			setTranslator(Util.createPackageTranslator(TableController.class, ureq.getLocale(), tableTrans));
 		}
 		
-		this.table = new Table(COMPONENT_TABLE_NAME, getTranslator());
-		this.table.addListener(this);
+		table = new Table(COMPONENT_TABLE_NAME, getTranslator());
+		table.addListener(this);
 
 		// propagate table specific configuration to table,
 		// rest of configuration is handled by this controller
-		this.table.setColumnMovingOffered(tableConfig.isColumnMovingOffered());
-		this.table.setDisplayTableHeader(tableConfig.isDisplayTableHeader());
-		this.table.setSelectedRowUnselectable(tableConfig.isSelectedRowUnselectable());
-		this.table.setSortingEnabled(tableConfig.isSortingEnabled());
-		this.table.setPageingEnabled(tableConfig.isPageingEnabled());
-		this.table.setResultsPerPage(tableConfig.getResultsPerPage());
-		this.table.setMultiSelect(tableConfig.isMultiSelect());
-		this.table.enableShowAllLink(tableConfig.isShowAllLinkEnabled());
+		table.setColumnMovingOffered(tableConfig.isColumnMovingOffered());
+		table.setDisplayTableHeader(tableConfig.isDisplayTableHeader());
+		table.setSelectedRowUnselectable(tableConfig.isSelectedRowUnselectable());
+		table.setSortingEnabled(tableConfig.isSortingEnabled());
+		table.setPageingEnabled(tableConfig.isPageingEnabled());
+		table.setResultsPerPage(tableConfig.getResultsPerPage());
+		table.setMultiSelect(tableConfig.isMultiSelect());
+		table.enableShowAllLink(tableConfig.isShowAllLinkEnabled());
 
 
 		// table is embedded in a velocity page that renders the surrounding layout
@@ -282,9 +268,9 @@ public class TableController extends BasicController {
 		//preference + download links
 		preferenceLink = LinkFactory.createCustomLink("prefLink", "cmd.changecols", "", Link.NONTRANSLATED, contentVc, this);
 		preferenceLink.setCustomEnabledLinkCSS("b_table_prefs");
-		preferenceLink.setTooltip(translate("command.changecols"),false);
+		preferenceLink.setTooltip(translate("command.changecols"));
 		downloadLink = LinkFactory.createCustomLink("downloadLink", "cmd.download", "", Link.NONTRANSLATED, contentVc, this);
-		downloadLink.setTooltip(translate("table.export.title"),false);
+		downloadLink.setTooltip(translate("table.export.title"));
 		downloadLink.setCustomEnabledLinkCSS("b_table_download");
 		
 		putInitialPanel(contentVc);
@@ -303,69 +289,7 @@ public class TableController extends BasicController {
 	}
 
 	private Controller createTableSearchController(final UserRequest ureq, final WindowControl wControl) {
-		ListProvider genericProvider = new ListProvider() {
-			public void getResult(final String searchValue, final ListReceiver receiver) {
-				Filter htmlFilter = FilterFactory.getHtmlTagsFilter();
-				log.debug("getResult start");
-				long startTime = System.currentTimeMillis();
-				Set<String> searchEntries = new TreeSet<String>();
-				int entryCounter = 1;
-				// loop over whole data-model
-				for (int rowIndex=0; rowIndex < table.getUnfilteredTableDataModel().getRowCount(); rowIndex++) {
-					for (int colIndex=0; colIndex < table.getUnfilteredTableDataModel().getColumnCount(); colIndex++) {
-						Object obj = table.getUnfilteredTableDataModel().getValueAt(rowIndex, colIndex);
-						// When a CustomCellRenderer exist, use this to render cell-value to String
-						ColumnDescriptor cd = table.getColumnDescriptorFromAllCDs(colIndex);
-						if (table.isColumnDescriptorVisible(cd)) {
-							
-							if (cd instanceof CustomRenderColumnDescriptor) {
-								CustomCellRenderer customCellRenderer = ((CustomRenderColumnDescriptor)cd).getCustomCellRenderer();
-								if (customCellRenderer instanceof CustomCssCellRenderer) {
-									// For css renderers only use the hover
-									// text, not the CSS class name and other
-									// markup
-									CustomCssCellRenderer cssRenderer = (CustomCssCellRenderer) customCellRenderer;
-									obj = cssRenderer.getHoverText(obj);									
-									if (!StringHelper.containsNonWhitespace((String) obj)) {
-										continue;
-									}
-								} else {
-									StringOutput sb = new StringOutput();
-									customCellRenderer.render(sb, null, obj, ((CustomRenderColumnDescriptor) cd).getLocale(), cd.getAlignment(), null);
-									obj = sb.toString();																		
-								}
-							} 
-	
-							if (obj instanceof String) {
-								String valueString = (String)obj;
-								// Remove any HTML markup from the value
-								valueString = htmlFilter.filter(valueString);
-								// Finally compare with search value based on a simple lowercase match
-								if (valueString.toLowerCase().indexOf(searchValue.toLowerCase()) != -1) {
-									if (searchEntries.add(valueString) ) {
-										// Add to receiver list same entries only once
-										if (searchEntries.size() == 1) {
-											// before first entry, add searchValue. But add only when one search match
-											receiver.addEntry( searchValue, searchValue );
-										}
-										// limit the number of entries
-										if (entryCounter++ > MAX_TABLE_SEARCH_RESULT_ENTRIES) {
-											receiver.addEntry("...", "...");
-											long duration = System.currentTimeMillis() - startTime;	
-											log.debug("getResult reach MAX_TABLE_SEARCH_RESULT_ENTRIES, entryCounter=" + entryCounter + LOG_DEBUG_DURATION + duration);
-											return;
-										}
-										receiver.addEntry(valueString, valueString);
-									}								
-								}
-							}
-						}
-					}
-				}
-				long duration = System.currentTimeMillis() - startTime;	
-				log.debug("getResult finished entryCounter=" + entryCounter + LOG_DEBUG_DURATION + duration);
-			}
-		};
+		ListProvider genericProvider = new TableListProvider(table);
 		removeAsListenerAndDispose(tableSearchController);
 		tableSearchController = new AutoCompleterController(ureq, wControl, genericProvider, null, false, 60, 3, translate("table.filter.label"));
 		listenTo(tableSearchController); // TODO:CG 02.09.2010 Test Tablesearch Performance, remove
@@ -425,13 +349,13 @@ public class TableController extends BasicController {
 				throw new AssertException("Filter size was ::" + filters.size() + " but requested filter was ::" + filterPosition);
 			}
 			// update new filter value
-			setActiveFilter((ShortName) filters.get(filterPosition));
+			setActiveFilter(filters.get(filterPosition));
 			fireEvent(ureq, EVENT_FILTER_SELECTED);
 		}
 	}
 
 	private void applyAndcheckChangedColumnsChoice(final UserRequest ureq) {
-		List selRows = colsChoice.getSelectedRows();
+		List<Integer> selRows = colsChoice.getSelectedRows();
 		if (selRows.size() == 0) {
 			showError("error.selectatleastonecolumn");
 		} else {
@@ -463,17 +387,18 @@ public class TableController extends BasicController {
 		return choice;
 	}
 
+	@Override
 	public void event(final UserRequest ureq, final Controller source, final Event event) {
 		log.debug("dispatchEvent event=" + event + "  source=" + source);
 		if (event instanceof EntriesChosenEvent) {
 			EntriesChosenEvent ece = (EntriesChosenEvent)event;				
-			List filterList = ece.getEntries();
+			List<String> filterList = ece.getEntries();
 			if (!filterList.isEmpty()) {
-				this.table.setSearchString((String)filterList.get(0));
-				this.modelChanged(false);
+				table.setSearchString(filterList.get(0));
+				modelChanged(false);
 			}	else {
 			  // reset filter search filter in modelChanged
-				this.modelChanged();
+				modelChanged();
 			}
 		} 
 	}
@@ -493,9 +418,7 @@ public class TableController extends BasicController {
 	 */
 	public Object getSortedObjectAt(int sortedRow) {
 		int row = table.getSortedRow(sortedRow);
-		TableDataModel model = getTableDataModel();
-		Object obj = model.getObject(row);
-		return obj;
+		return getTableDataModel().getObject(row);
 	}
 	
 	/**
@@ -526,7 +449,7 @@ public class TableController extends BasicController {
 	 *         filter is applied
 	 */
 	public ShortName getActiveFilter() {
-		return this.activeFilter;
+		return activeFilter;
 	}
 
 	/**
@@ -535,10 +458,10 @@ public class TableController extends BasicController {
 	 */
 	public void setActiveFilter(final ShortName activeFilter) {
 		this.activeFilter = activeFilter;
-		if (this.activeFilter == null) {
-			this.contentVc.contextPut(VC_VAR_SELECTED_FILTER_VALUE, CMD_FILTER_NOFILTER);
+		if (activeFilter == null) {
+			contentVc.contextPut(VC_VAR_SELECTED_FILTER_VALUE, CMD_FILTER_NOFILTER);
 		} else {
-			this.contentVc.contextPut(VC_VAR_SELECTED_FILTER_VALUE, this.activeFilter.getShortName());
+			contentVc.contextPut(VC_VAR_SELECTED_FILTER_VALUE, activeFilter);
 		}
 	}
 
@@ -548,11 +471,11 @@ public class TableController extends BasicController {
 	 * @param filters List of TableFilter
 	 * @param activeFilter active TableFilter
 	 */
-	public void setFilters(final List filters, final ShortName activeFilter) {
+	public void setFilters(final List<ShortName> filters, final ShortName activeFilter) {
 		this.filters = filters;
-		this.contentVc.contextPut("hasFilters", filters == null ? Boolean.FALSE : Boolean.TRUE);
-		this.contentVc.contextPut("filters", filters);
-		this.contentVc.contextPut("filterTitle", filterTitle == null ? "" : filterTitle);
+		contentVc.contextPut("hasFilters", filters == null ? Boolean.FALSE : Boolean.TRUE);
+		contentVc.contextPut("filters", filters);
+		contentVc.contextPut("filterTitle", filterTitle == null ? "" : filterTitle);
 		setActiveFilter(activeFilter);
 	}
 
@@ -600,7 +523,7 @@ public class TableController extends BasicController {
 		if (!tablePrefsInitialized) { // first time
 			if (prefs != null) {
 				try {
-					List acolRefs = prefs.getActiveColumnsRef();
+					List<Integer> acolRefs = prefs.getActiveColumnsRef();
 					table.updateConfiguredRows(acolRefs);
 				} catch(IndexOutOfBoundsException ex) {
 					// GUI prefs match not to table data model => reset prefs
@@ -721,6 +644,15 @@ public class TableController extends BasicController {
 			table.resort();
 		}
 	}
+	
+	public void setSortColumn(final ColumnDescriptor sortColumn, final boolean isSortAscending) {
+		for(int i=table.getColumnCount(); i-->0; ) {
+			if(sortColumn == table.getColumnDescriptor(i)) {
+				table.setSortColumn(i, isSortAscending);
+				table.resort();
+			}
+		}
+	}
 
 	/**
 	 * Sets whether user is able to select multiple rows via checkboxes.
@@ -771,5 +703,4 @@ public class TableController extends BasicController {
 	protected void doDispose() {
 		//
 	}
-	
 }

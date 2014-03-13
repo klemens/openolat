@@ -81,7 +81,7 @@ public class EPMultipleArtefactPreviewController extends BasicController impleme
 		ePFMgr = (EPFrontendManager) CoreSpringFactory.getBean("epFrontendManager");
 		if (!artefactChooseMode) {
 			artAttribBtn = LinkFactory.createCustomLink("detail.options", "detail.options", "", Link.LINK_CUSTOM_CSS + Link.NONTRANSLATED, vC, this);
-			artAttribBtn.setTooltip(translate("detail.options"), false);
+			artAttribBtn.setTooltip(translate("detail.options"));
 			artAttribBtn.setTitle(translate("detail.options"));
 			artAttribBtn.setCustomEnabledLinkCSS("b_ep_artAttribLink b_small_icon");
 		}
@@ -180,7 +180,6 @@ public class EPMultipleArtefactPreviewController extends BasicController impleme
 	 *      org.olat.core.gui.control.Event)
 	 */
 	@Override
-	@SuppressWarnings("unused")
 	protected void event(UserRequest ureq, Component source, Event event) {
 		if (source == artAttribBtn) {
 			if (artAttribCalloutCtr == null){

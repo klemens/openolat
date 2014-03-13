@@ -40,6 +40,7 @@ import org.olat.core.gui.control.Event;
 import org.olat.core.gui.control.WindowControl;
 import org.olat.core.id.Identity;
 import org.olat.core.id.OLATResourceable;
+import org.olat.core.util.StringHelper;
 import org.olat.core.util.event.EventBus;
 import org.olat.core.util.event.GenericEventListener;
 import org.olat.core.util.resource.OLATResourceableJustBeforeDeletedEvent;
@@ -114,7 +115,7 @@ public class NoteController extends FormBasicController implements GenericEventL
 		// At beginning, the forms shows the note as a disabled field and an edit button. When the user
 		// clicks the edit button, the rich text field turns to the enabled state and the edit button
 		// is set to visible false and the submit button to visible true.
-		setFormTitle("note", new String[] { n.getNoteTitle() });
+		setFormTitle("note", new String[] { StringHelper.escapeHtml(n.getNoteTitle()) });
 		// set custom css style to override default read-only view of rich text element
 		setFormStyle("o_notes");
 
@@ -123,7 +124,7 @@ public class NoteController extends FormBasicController implements GenericEventL
 		editButton.setCustomEnabledLinkCSS("b_float_right b_button b_small");
 		formLayout.add(editButton);
 		
-		noteField = uifactory.addRichTextElementForStringData("noteField", null, n.getNoteText(), 20, -1, false, false, null, null, formLayout, ureq.getUserSession(), getWindowControl());
+		noteField = uifactory.addRichTextElementForStringData("noteField", null, n.getNoteText(), 20, -1, false, null, null, formLayout, ureq.getUserSession(), getWindowControl());
 		noteField.setEnabled(false);
 		noteField.setMaxLength(4000);
 
@@ -137,7 +138,7 @@ public class NoteController extends FormBasicController implements GenericEventL
 			nm.saveNote(n);
 			Long newKey = n.getKey();
 			OLATResourceable ores = OresHelper.createOLATResourceableInstance(Note.class, newKey);
-			sec.fireEventToListenersOf(new NoteEvent(getIdentity().getName()), ores);
+			sec.fireEventToListenersOf(new NoteEvent(getIdentity().getKey()), ores);
 		} else {
 			nm.updateNote(n);
 		}

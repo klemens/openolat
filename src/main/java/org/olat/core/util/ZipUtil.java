@@ -45,10 +45,12 @@ import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 import java.util.zip.ZipOutputStream;
 
+import org.apache.commons.io.IOUtils;
+import org.olat.core.CoreSpringFactory;
 import org.olat.core.commons.modules.bc.meta.MetaInfo;
-import org.olat.core.commons.modules.bc.meta.MetaInfoHelper;
 import org.olat.core.commons.modules.bc.meta.tagged.MetaTagged;
 import org.olat.core.id.Identity;
+import org.olat.core.id.Roles;
 import org.olat.core.logging.OLATRuntimeException;
 import org.olat.core.logging.OLog;
 import org.olat.core.logging.Tracing;
@@ -58,6 +60,7 @@ import org.olat.core.util.vfs.LocalImpl;
 import org.olat.core.util.vfs.VFSContainer;
 import org.olat.core.util.vfs.VFSItem;
 import org.olat.core.util.vfs.VFSLeaf;
+import org.olat.core.util.vfs.VFSLockManager;
 import org.olat.core.util.vfs.version.Versionable;
 
 /**
@@ -124,6 +127,33 @@ public class ZipUtil {
 		
 		return unzip(zipLeaf, targetDir, null, false);
 	}
+	
+	/**
+	 * Unzip a file in the target dir with the restricted version
+	 * @param zipFile
+	 * @param targetDir
+	 * @return
+	 */
+	public static boolean unzipStrict(File zipFile, VFSContainer targetDir) {
+		if (targetDir instanceof LocalFolderImpl) {
+			String outdir = ((LocalFolderImpl) targetDir).getBasefile().getAbsolutePath();
+			InputStream in = null;
+			try {
+				long s = System.currentTimeMillis();
+				in = new FileInputStream(zipFile);
+				xxunzip (in, outdir);
+				log.info("unzip file="+zipFile.getName()+" to="+outdir +" t="+Long.toString(System.currentTimeMillis()-s));
+				return true;
+			} catch (IOException e) {
+				log.error("I/O failure while unzipping "+zipFile.getName()+" to "+outdir);
+				return false;
+			} finally {
+				IOUtils.closeQuietly(in);
+			}
+		}
+		return false;
+	}
+	
 	
 	/**
 	 * Unzip a file to a directory using the versioning system of VFS
@@ -198,7 +228,7 @@ public class ZipUtil {
 							if(newEntry instanceof MetaTagged) {
 								MetaInfo info = ((MetaTagged)newEntry).getMetaInfo();
 								if(info != null) {
-									info.setAuthor(identity.getName());
+									info.setAuthor(identity);
 									info.write();
 								}
 							}
@@ -213,7 +243,7 @@ public class ZipUtil {
 							if(newEntry instanceof MetaTagged) {
 								MetaInfo info = ((MetaTagged)newEntry).getMetaInfo();
 								if(info != null && identity != null) {
-									info.setAuthor(identity.getName());
+									info.setAuthor(identity);
 									info.write();
 								}
 							}
@@ -306,7 +336,7 @@ public class ZipUtil {
 							if(newEntry instanceof MetaTagged) {
 								MetaInfo info = ((MetaTagged)newEntry).getMetaInfo();
 								if(info != null) {
-									info.setAuthor(identity.getName());
+									info.setAuthor(identity);
 									info.write();
 								}
 							}
@@ -321,7 +351,7 @@ public class ZipUtil {
 							if(newEntry instanceof MetaTagged) {
 								MetaInfo info = ((MetaTagged)newEntry).getMetaInfo();
 								if(info != null && identity != null) {
-									info.setAuthor(identity.getName());
+									info.setAuthor(identity);
 									info.write();
 								}
 							}
@@ -347,11 +377,13 @@ public class ZipUtil {
 	 * @param isAdmin
 	 * @return the list of files which already exist
 	 */
-	public static List<String> checkLockedFileBeforeUnzip(VFSLeaf zipLeaf, VFSContainer targetDir, Identity identity, boolean isAdmin) {
+	public static List<String> checkLockedFileBeforeUnzip(VFSLeaf zipLeaf, VFSContainer targetDir, Identity identity, Roles isAdmin) {
 		List<String> lockedFiles = new ArrayList<String>();
 		
 		InputStream in = zipLeaf.getInputStream();
 		ZipInputStream oZip = new ZipInputStream(in);
+		
+		VFSLockManager vfsLockManager = CoreSpringFactory.getImpl(VFSLockManager.class);
 		
 		try {
 			// unzip files
@@ -388,7 +420,7 @@ public class ZipUtil {
 						}
 						
 						VFSLeaf newEntry = (VFSLeaf)createIn.resolve(name);
-						if(MetaInfoHelper.isLocked(newEntry, identity, isAdmin)) {
+						if(vfsLockManager.isLockedForMe(newEntry, identity, isAdmin)) {
 							lockedFiles.add(name);
 						}
 					}
@@ -411,14 +443,16 @@ public class ZipUtil {
 	 * @param zipLeaf
 	 * @param targetDir
 	 * @param identity
-	 * @param isAdmin
+	 * @param roles
 	 * @return
 	 */
-	public static List<String> checkLockedFileBeforeUnzipNonStrict(VFSLeaf zipLeaf, VFSContainer targetDir, Identity identity, boolean isAdmin) {
+	public static List<String> checkLockedFileBeforeUnzipNonStrict(VFSLeaf zipLeaf, VFSContainer targetDir, Identity identity, Roles roles) {
 		List<String> lockedFiles = new ArrayList<String>();
 		
 		InputStream in = zipLeaf.getInputStream();
 		net.sf.jazzlib.ZipInputStream oZip = new net.sf.jazzlib.ZipInputStream(in);
+
+		VFSLockManager vfsLockManager = CoreSpringFactory.getImpl(VFSLockManager.class);
 		
 		try {
 			// unzip files
@@ -455,7 +489,7 @@ public class ZipUtil {
 						}
 						
 						VFSLeaf newEntry = (VFSLeaf)createIn.resolve(name);
-						if(MetaInfoHelper.isLocked(newEntry, identity, isAdmin)) {
+						if(vfsLockManager.isLockedForMe(newEntry, identity, roles)) {
 							lockedFiles.add(name);
 						}
 					}
@@ -480,7 +514,7 @@ public class ZipUtil {
 	 * @param subDirPath
 	 * @return Returns the last container of this subpath.
 	 */
-	private static VFSContainer getAllSubdirs(VFSContainer base, String subDirPath, Identity identity, boolean create) {
+	public static VFSContainer getAllSubdirs(VFSContainer base, String subDirPath, Identity identity, boolean create) {
 		StringTokenizer st;
 		if (subDirPath.indexOf("/") != -1) { 
 			st = new StringTokenizer(subDirPath, "/", false);
@@ -501,7 +535,7 @@ public class ZipUtil {
 				if (identity != null && vfsSubpath instanceof MetaTagged) {
 					MetaInfo info = ((MetaTagged)vfsSubpath).getMetaInfo();
 					if(info != null) {
-						info.setAuthor(identity.getName());
+						info.setAuthor(identity);
 						info.write();
 					}
 				}
@@ -595,7 +629,7 @@ public class ZipUtil {
 		return success;
 	}
 	
-	private static boolean addToZip(VFSItem vfsItem, String currentPath, ZipOutputStream out) {
+	public static boolean addToZip(VFSItem vfsItem, String currentPath, ZipOutputStream out) {
 
 		boolean success = true;
 		InputStream in = null;

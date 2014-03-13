@@ -35,6 +35,7 @@ import org.olat.core.id.context.BusinessControlFactory;
 import org.olat.core.id.context.ContextEntry;
 import org.olat.core.logging.OLog;
 import org.olat.core.logging.Tracing;
+import org.olat.core.util.Formatter;
 import org.olat.core.util.StringHelper;
 import org.olat.core.util.filter.Filter;
 import org.olat.core.util.filter.FilterFactory;
@@ -67,6 +68,7 @@ public class FeedViewHelper {
 	// display 5 items per default
 	private int itemsPerPage = 5;
 	private Feed feed;
+	private String feedAuthor;
 	private Identity identity;
 	private Translator translator;
 	private Locale locale;
@@ -76,7 +78,6 @@ public class FeedViewHelper {
 	// Per default show the first page
 	private int page = 0;
 	private List<Item> cachedItems;
-	private FeedSecurityCallback callback;
 	//
 	private FeedManager feedManager = FeedManager.getInstance();
 
@@ -84,17 +85,18 @@ public class FeedViewHelper {
 	 * Use this constructor for localized content (like e.g. date formats)
 	 * 
 	 * @param feed
-	 * @param identityKey
+	 * @param identity
+	 * @param feedAuthor The full name's of the author
 	 * @param locale
 	 */
-	public FeedViewHelper(Feed feed, Identity identity, Translator translator, Long courseId, String nodeId, FeedSecurityCallback callback) {
+	public FeedViewHelper(Feed feed, Identity identity, String feedAuthor, Translator translator, Long courseId, String nodeId, FeedSecurityCallback callback) {
 		this.feed = feed;
 		this.identity = identity;
+		this.feedAuthor = feedAuthor;
 		this.translator = translator;
 		this.locale = translator.getLocale();
 		this.courseId = courseId;
 		this.nodeId = nodeId;
-		this.callback = callback;
 		this.cachedItems = feed.getFilteredItems(callback, identity);
 		this.setURIs();
 	}
@@ -108,9 +110,14 @@ public class FeedViewHelper {
 	FeedViewHelper(Feed feed, Identity identity, Long courseId, String nodeId) {
 		this.feed = feed;
 		this.identity = identity;
+		
 		this.courseId = courseId;
 		this.nodeId = nodeId;
 		this.setURIs();
+	}
+
+	public String getFeedAuthor() {
+		return feedAuthor;
 	}
 
 	/**
@@ -180,6 +187,9 @@ public class FeedViewHelper {
 		// Reload item to prevent displaying of stale content
 		feed = feedManager.getFeed(feed);
 		item = feedManager.getItem(feed, item.getGuid());
+		if(item == null) {
+			return null;
+		}
 
 		String file = null;
 		Enclosure enclosure = item.getEnclosure();
@@ -236,7 +246,7 @@ public class FeedViewHelper {
 		item = feedManager.getItem(feed, item.getGuid());
 
 		String lastModified = null;
-		Date date = item.getLastModified();
+		Date date = item == null ? null : item.getLastModified();
 		if (date != null) {
 			lastModified = DateFormat.getDateInstance(DateFormat.MEDIUM, this.locale).format(date);
 		}
@@ -251,6 +261,9 @@ public class FeedViewHelper {
 		// Reload item to prevent displaying of stale content
 		feed = feedManager.getFeed(feed);
 		item = feedManager.getItem(feed, item.getGuid());
+		if(item == null) {
+			return "";
+		}
 
 		String publishDate = null;
 		Date date = item.getPublishDate();
@@ -268,10 +281,13 @@ public class FeedViewHelper {
 		// Reload item to prevent displaying of stale content
 		feed = feedManager.getFeed(feed);
 		item = feedManager.getItem(feed, item.getGuid());
+		if(item == null) {
+			return "";
+		}
 
 		String info = null;
 		String date = getPublishDate(item);
-		String author = item.getAuthor();
+		String author = StringHelper.escapeHtml(item.getAuthor());
 		if (author != null) {
 			if (date != null) {
 				info = translator.translate("feed.published.by.on", new String[] { author, date });
@@ -298,7 +314,10 @@ public class FeedViewHelper {
 		item = feedManager.getItem(feed, item.getGuid());
 
 		String info = null;
-		if (item.isDraft()) {
+		if(item == null) {
+			//oops deleted
+			info = "";
+		} else if (item.isDraft()) {
 			info = translator.translate("feed.item.draft");
 		} else if (item.isScheduled()) {
 			info = translator.translate("feed.item.scheduled.for", new String[] { getPublishDate(item) });
@@ -312,8 +331,7 @@ public class FeedViewHelper {
 		// Reload item to prevent displaying of stale content
 		feed = feedManager.getFeed(feed);
 		item = feedManager.getItem(feed, item.getGuid());
-
-		return item.getModifierKey() > 0 && StringHelper.containsNonWhitespace(item.getModifier());
+		return item != null && item.getModifierKey() > 0 && StringHelper.containsNonWhitespace(item.getModifier());
 	}
 	
 	/**
@@ -324,6 +342,9 @@ public class FeedViewHelper {
 		// Reload item to prevent displaying of stale content
 		feed = feedManager.getFeed(feed);
 		item = feedManager.getItem(feed, item.getGuid());
+		if(item == null) {
+			return "";
+		}
 
 		if (isModified(item)) {
 			String date = getLastModified(item);
@@ -349,8 +370,7 @@ public class FeedViewHelper {
 		// Reload item to prevent displaying of stale content
 		feed = feedManager.getFeed(feed);
 		item = feedManager.getItem(feed, item.getGuid());
-
-		int width = item.getWidth();
+		int width = item == null ? 0 : item.getWidth();
 		if(width > 0 && width < 2000) {
 			return Integer.toString(width);
 		}
@@ -362,7 +382,7 @@ public class FeedViewHelper {
 		feed = feedManager.getFeed(feed);
 		item = feedManager.getItem(feed, item.getGuid());
 
-		int height = item.getHeight();
+		int height = item == null ? 0 : item.getHeight();
 		if(height > 0 && height < 2000) {
 			return Integer.toString(height);
 		}
@@ -408,6 +428,9 @@ public class FeedViewHelper {
 		// Reload item to prevent displaying of stale content
 		feed = feedManager.getFeed(feed);
 		item = feedManager.getItem(feed, item.getGuid());
+		if(item == null) {
+			return "";
+		}
 		
 		String itemDescription = item.getDescription();
 		if (itemDescription != null) {
@@ -424,6 +447,7 @@ public class FeedViewHelper {
 				itemDescription = mediaUrlFilter.filter(itemDescription);
 			}
 		}
+		itemDescription = Formatter.formatLatexFormulas(itemDescription);
 		return itemDescription;
 	}
 	
@@ -436,6 +460,9 @@ public class FeedViewHelper {
 		// Reload item to prevent displaying of stale content
 		feed = feedManager.getFeed(feed);
 		item = feedManager.getItem(feed, item.getGuid());
+		if(item == null) {
+			return "";
+		}
 		
 		String itemContent = item.getContent();
 		if (itemContent != null) {

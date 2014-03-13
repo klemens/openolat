@@ -38,7 +38,6 @@ import org.olat.core.logging.OLog;
 import org.olat.core.logging.Tracing;
 import org.olat.core.util.FileUtils;
 import org.olat.core.util.nodes.INode;
-import org.olat.core.util.resource.OresHelper;
 import org.olat.core.util.tree.TreeVisitor;
 import org.olat.core.util.tree.Visitor;
 import org.olat.core.util.vfs.Quota;
@@ -181,16 +180,11 @@ public class PersistingCourseImpl implements ICourse, OLATResourceable, Serializ
 	/**
 	 * @see org.olat.course.ICourse#getCourseTitle()
 	 */
-	public String getCourseTitle() {
-		synchronized (courseTitleSyncObj) { //o_clusterOK by:ld/se
-			if (courseTitle == null) {
+	public String getCourseTitle() {	
+		if (courseTitle == null) {
+			synchronized (courseTitleSyncObj) { //o_clusterOK by:ld/se
 				// load repository entry for this course and get title from it
-				RepositoryEntry re = RepositoryManager.getInstance().lookupRepositoryEntry(
-						OresHelper.createOLATResourceableInstance(CourseModule.class, this.resourceableId), false);
-				if (re == null) throw new AssertException(
-						"trying to get repoentry of a course to get the title, but no repoentry found although course is there, course resid = "
-								+ resourceableId);
-				courseTitle = re.getDisplayname();				
+				courseTitle = RepositoryManager.getInstance().lookupDisplayNameByOLATResourceableId(resourceableId);	
 			}
 		}
 		return courseTitle;
@@ -249,7 +243,9 @@ public class PersistingCourseImpl implements ICourse, OLATResourceable, Serializ
 	 * See OLAT-5368: Course Export can take longer than say 2min.
 	 * <p>
 	 */
-	public void exportToFilesystem(OLATResource originalCourseResource, File exportDirectory, boolean backwardsCompatible) {
+	@Override
+	public void exportToFilesystem(OLATResource originalCourseResource, File exportDirectory,
+			boolean runtimeDatas, boolean backwardsCompatible) {
 		long s = System.currentTimeMillis();
 		log.info("exportToFilesystem: exporting course "+this+" to "+exportDirectory+"...");
 		File fCourseBase = getCourseBaseContainer().getBasefile();
@@ -266,7 +262,7 @@ public class PersistingCourseImpl implements ICourse, OLATResourceable, Serializ
 			//prevents duplicate names
 			envMapper.avoidDuplicateNames();
 		}
-		PersistingCourseGroupManager.getInstance(this).exportCourseBusinessGroups(fExportedDataDir, envMapper, backwardsCompatible);
+		PersistingCourseGroupManager.getInstance(this).exportCourseBusinessGroups(fExportedDataDir, envMapper, runtimeDatas, backwardsCompatible);
 		if(backwardsCompatible) {
 			XStream xstream = CourseXStreamAliases.getReadCourseXStream();
 

@@ -34,12 +34,14 @@ import org.olat.core.commons.modules.bc.vfs.OlatRootFolderImpl;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.WindowControl;
+import org.olat.core.gui.control.generic.iframe.DeliveryOptions;
 import org.olat.core.gui.control.generic.layout.MainLayoutController;
 import org.olat.core.id.Identity;
 import org.olat.core.id.OLATResourceable;
 import org.olat.core.id.context.BusinessControl;
 import org.olat.core.id.context.ContextEntry;
 import org.olat.core.logging.AssertException;
+import org.olat.core.logging.OLog;
 import org.olat.core.logging.Tracing;
 import org.olat.core.util.coordinate.LockResult;
 import org.olat.core.util.vfs.LocalFolderImpl;
@@ -47,16 +49,18 @@ import org.olat.core.util.vfs.Quota;
 import org.olat.core.util.vfs.QuotaManager;
 import org.olat.core.util.vfs.callbacks.FullAccessWithQuotaCallback;
 import org.olat.core.util.vfs.callbacks.VFSSecurityCallback;
-import org.olat.course.nodes.cp.CPRunController;
 import org.olat.fileresource.FileResourceManager;
 import org.olat.fileresource.types.ImsCPFileResource;
+import org.olat.ims.cp.CPManager;
 import org.olat.ims.cp.ui.CPEditMainController;
+import org.olat.ims.cp.ui.CPPackageConfig;
 import org.olat.ims.cp.ui.CreateNewCPController;
 import org.olat.modules.cp.CPUIFactory;
 import org.olat.repository.RepositoryEntry;
 import org.olat.repository.controllers.IAddController;
 import org.olat.repository.controllers.RepositoryAddCallback;
 import org.olat.repository.controllers.WizardCloseResourceController;
+import org.olat.resource.OLATResource;
 import org.olat.resource.accesscontrol.ui.RepositoryMainAccessControllerWrapper;
 
 
@@ -69,6 +73,8 @@ import org.olat.resource.accesscontrol.ui.RepositoryMainAccessControllerWrapper;
  * 
  */
 public class ImsCPHandler extends FileHandler implements RepositoryHandler {
+	
+	private static final OLog log = Tracing.createLoggerFor(ImsCPHandler.class);
 	
 	public static final String PROCESS_CREATENEW = "new";
 	public static final String PROCESS_IMPORT = "add";
@@ -125,7 +131,9 @@ public class ImsCPHandler extends FileHandler implements RepositoryHandler {
 	/**
 	 * @see org.olat.repository.handlers.RepositoryHandler#getLaunchController(org.olat.core.id.OLATResourceable java.lang.String, org.olat.core.gui.UserRequest, org.olat.core.gui.control.WindowControl)
 	 */
-	public MainLayoutController createLaunchController(OLATResourceable res, UserRequest ureq, WindowControl wControl) {
+	@Override
+	public MainLayoutController createLaunchController(RepositoryEntry re, UserRequest ureq, WindowControl wControl) {
+		OLATResource res = re.getOlatResource();
 		File cpRoot = FileResourceManager.getInstance().unzipFileResource(res);
 		LocalFolderImpl vfsWrapper = new LocalFolderImpl(cpRoot);
 		
@@ -133,25 +141,28 @@ public class ImsCPHandler extends FileHandler implements RepositoryHandler {
 		BusinessControl bc = wControl.getBusinessControl();
 		ContextEntry ce = bc.popLauncherContextEntry();
 		MainLayoutController layoutCtr;
+		
+		CPPackageConfig packageConfig = CPManager.getInstance().getCPPackageConfig(res);
+		DeliveryOptions deliveryOptions = (packageConfig == null ? null : packageConfig.getDeliveryOptions());
 		if ( ce != null ) { // a context path is left for me
-			Tracing.logDebug("businesscontrol (for further jumps) would be:"+bc, CPRunController.class);
+			log.debug("businesscontrol (for further jumps) would be:"+bc);
 			OLATResourceable ores = ce.getOLATResourceable();
-			Tracing.logDebug("OLATResourceable=" + ores, CPRunController.class);
+			log.debug("OLATResourceable=" + ores);
 			String typeName = ores.getResourceableTypeName();
 			// typeName format: 'path=/test1/test2/readme.txt'
 			// First remove prefix 'path='
 			String path = typeName.substring("path=".length());
 			if  (path.length() > 0) {
-			  Tracing.logDebug("direct navigation to container-path=" + path, CPRunController.class);
-			  layoutCtr = CPUIFactory.getInstance().createMainLayoutResourceableListeningWrapperController(res, ureq, wControl, vfsWrapper, true, false, path);
+			  log.debug("direct navigation to container-path=" + path);
+			  layoutCtr = CPUIFactory.getInstance().createMainLayoutResourceableListeningWrapperController(res, ureq, wControl, vfsWrapper, true, false, deliveryOptions, path);
 			} else {
-				layoutCtr = CPUIFactory.getInstance().createMainLayoutResourceableListeningWrapperController(res, ureq, wControl, vfsWrapper);
+				layoutCtr = CPUIFactory.getInstance().createMainLayoutResourceableListeningWrapperController(res, ureq, wControl, vfsWrapper, deliveryOptions);
 			}
 		} else {
-			layoutCtr = CPUIFactory.getInstance().createMainLayoutResourceableListeningWrapperController(res, ureq, wControl, vfsWrapper);
+			layoutCtr = CPUIFactory.getInstance().createMainLayoutResourceableListeningWrapperController(res, ureq, wControl, vfsWrapper, deliveryOptions);
 		}
-		//fxdiff VCRP-1: access control of learn resources
-		RepositoryMainAccessControllerWrapper wrapper = new RepositoryMainAccessControllerWrapper(ureq, wControl, res, layoutCtr);
+		
+		RepositoryMainAccessControllerWrapper wrapper = new RepositoryMainAccessControllerWrapper(ureq, wControl, re, layoutCtr);
 		return wrapper;
 	}
 
@@ -161,9 +172,10 @@ public class ImsCPHandler extends FileHandler implements RepositoryHandler {
 	 *      org.olat.core.gui.UserRequest,
 	 *      org.olat.core.gui.control.WindowControl)
 	 */
-	public Controller createEditorController(OLATResourceable res, UserRequest ureq, WindowControl wControl) {
+	@Override
+	public Controller createEditorController(RepositoryEntry re, UserRequest ureq, WindowControl wControl) {
 		// only unzips, if not already unzipped
-		OlatRootFolderImpl cpRoot = FileResourceManager.getInstance().unzipContainerResource(res);
+		OlatRootFolderImpl cpRoot = FileResourceManager.getInstance().unzipContainerResource(re.getOlatResource());
 
 		Quota quota = QuotaManager.getInstance().getCustomQuota(cpRoot.getRelPath());
 		if (quota == null) {
@@ -173,7 +185,7 @@ public class ImsCPHandler extends FileHandler implements RepositoryHandler {
 		VFSSecurityCallback secCallback = new FullAccessWithQuotaCallback(quota);
 		cpRoot.setLocalSecurityCallback(secCallback);
 
-		return new CPEditMainController(ureq, wControl, cpRoot, res);
+		return new CPEditMainController(ureq, wControl, cpRoot, re.getOlatResource());
 	}
 
 	/**

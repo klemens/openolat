@@ -36,7 +36,7 @@ public class ArquillianDeployments {
 	public static final String WEBINF    = "src/main/webapp/WEB-INF";
 	public static final String WEBINF_TOMCAT = "src/main/webapp-tomcat/WEB-INF";
 	public static final String TEST_RSRC = "src/test/resources";
-	public static final String LIB_DIR   = "target/openolat-lms-8.4-SNAPSHOT/WEB-INF/lib";
+	public static final String LIB_DIR   = "target/openolat-lms-9.3-SNAPSHOT/WEB-INF/lib";
 
 	
 	public static WebArchive createDeployment() {
@@ -74,7 +74,8 @@ public class ArquillianDeployments {
 		return archive
 				.addAsWebInfResource(new File(WEBINF, "olat_portals_links.xsd"), "olat_portals_links.xsd")
 				.addAsWebInfResource(new File(WEBINF, "olat_portals_links.xml"), "olat_portals_links.xml")
-				.addAsWebInfResource(new File(WEBINF, "olat_portals_institution.xml"), "olat_portals_institution.xml");
+				.addAsWebInfResource(new File(WEBINF, "olat_portals_institution.xml"), "olat_portals_institution.xml")
+				.addAsWebInfResource(new File(WEBINF, "sun-jaxws.xml"), "sun-jaxws.xml");
 				//.addAsWebInfResource(new File(WEBINF, "services/ReturnWSService/META-INF/ReturnWSService.wsdl"), "services/ReturnWSService/META-INF/ReturnWSService.wsdl")
 				//.addAsWebInfResource(new File(WEBINF, "services/ReturnWSService/META-INF/services.xml"), "services/ReturnWSService/META-INF/services.xml");
 	}

@@ -25,9 +25,7 @@
 */
 package org.olat.commons.calendar;
 
-import org.olat.core.commons.scheduler.JobWithDB;
-import org.olat.core.logging.OLog;
-import org.olat.core.logging.Tracing;
+import org.olat.core.commons.services.scheduler.JobWithDB;
 import org.quartz.JobExecutionContext;
 
 /**
@@ -40,8 +38,6 @@ import org.quartz.JobExecutionContext;
  */
 public class ImportCalendarJob extends JobWithDB {
 	
-	private static final OLog log = Tracing.createLoggerFor(ImportCalendarJob.class);
-
 	@Override
 	public void executeWithDB(JobExecutionContext context) {
 		try {

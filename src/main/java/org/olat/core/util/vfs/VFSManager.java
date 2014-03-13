@@ -115,6 +115,14 @@ public class VFSManager extends BasicManager {
 		return false;
 	}
 	
+	public static boolean isDirectoryAndNotEmpty(VFSItem directory){
+		if(directory instanceof VFSContainer) {
+			List<VFSItem> children = ((VFSContainer)directory).getItems();
+			return !children.isEmpty();
+		}
+		return false; 
+	}
+	
 	/**
 	 * @see org.olat.core.util.vfs.VFSItem#resolveFile(java.lang.String)
 	 */
@@ -497,6 +505,37 @@ public class VFSManager extends BasicManager {
 			if (log.isDebug()) log.debug("Either the source or the target is null. Content of leaf cannot be copied.");
 		}
 		return successful;
+	}
+	
+	/**
+	 * Copy the content of the source container to the target container.
+	 * @param source
+	 * @param target
+	 * @return
+	 */
+	public static boolean copyContent(VFSContainer source, VFSContainer target) {
+		if(!source.exists()) {
+			return false;
+		}
+		if(isSelfOrParent(source, target)) {
+			return false;
+		}
+		
+		if(source instanceof NamedContainerImpl) {
+			source = ((NamedContainerImpl)source).getDelegate();
+		}
+		if(target instanceof NamedContainerImpl) {
+			target = ((NamedContainerImpl)target).getDelegate();
+		}
+
+		if(source instanceof LocalImpl && target instanceof LocalImpl) {
+			LocalImpl localSource = (LocalImpl)source;
+			LocalImpl localTarget = (LocalImpl)target;
+			File localSourceFile = localSource.getBasefile();
+			File localTargetFile = localTarget.getBasefile();
+			return FileUtils.copyDirContentsToDir(localSourceFile, localTargetFile, false, "VFScopyDir");
+		}
+		return false;
 	}
 	
 	/**

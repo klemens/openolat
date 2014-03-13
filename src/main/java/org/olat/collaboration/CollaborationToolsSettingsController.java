@@ -47,6 +47,7 @@ import org.olat.core.util.coordinate.CoordinatorManager;
 import org.olat.core.util.resource.OresHelper;
 import org.olat.core.util.vfs.QuotaManager;
 import org.olat.group.BusinessGroup;
+import org.olat.group.BusinessGroupManagedFlag;
 import org.olat.instantMessaging.InstantMessagingModule;
 
 /**
@@ -65,9 +66,11 @@ public class CollaborationToolsSettingsController extends BasicController {
 	private CalendarToolSettingsController calendarForm;
 	private FolderToolSettingsController folderForm;
 
-	boolean lastCalendarEnabledState;
+	private boolean lastCalendarEnabledState;
 	private Controller quotaCtr;
-	private BusinessGroup businessGroup;
+	private final String[] availableTools; 
+	private final boolean managed;
+	private final BusinessGroup businessGroup;
 
 	/**
 	 * @param ureq
@@ -76,11 +79,15 @@ public class CollaborationToolsSettingsController extends BasicController {
 	public CollaborationToolsSettingsController(UserRequest ureq, WindowControl wControl, BusinessGroup businessGroup) {
 		super(ureq, wControl);
 		this.businessGroup = businessGroup;
+		managed = BusinessGroupManagedFlag.isManaged(businessGroup, BusinessGroupManagedFlag.tools);
+		// make copy to be independent, for during lifetime of controller
+		availableTools = CollaborationToolsFactory.getInstance().getAvailableTools().clone();
 		CollaborationTools collabTools = CollaborationToolsFactory.getInstance().getOrCreateCollaborationTools(businessGroup);
 		
 		vc_collabtools = createVelocityContainer ("collaborationtools");
 
-		cots = new ChoiceOfToolsForm (ureq, wControl, collabTools);
+		cots = new ChoiceOfToolsForm (ureq, wControl, collabTools, availableTools);
+		cots.setEnabled(!managed);
 		listenTo(cots);
 		vc_collabtools.put("choiceOfTools", cots.getInitialComponent());
 		
@@ -92,7 +99,11 @@ public class CollaborationToolsSettingsController extends BasicController {
 		
 		if (ureq.getUserSession().getRoles().isOLATAdmin()) {
 			vc_collabtools.contextPut("isOlatAdmin", Boolean.TRUE);
-			quotaCtr = QuotaManager.getInstance().getQuotaEditorInstance(ureq, getWindowControl(), collabTools.getFolderRelPath(), false);
+			if(managed) {
+				quotaCtr = QuotaManager.getInstance().getQuotaViewInstance(ureq, getWindowControl(), collabTools.getFolderRelPath(), false);
+			} else {
+				quotaCtr = QuotaManager.getInstance().getQuotaEditorInstance(ureq, getWindowControl(), collabTools.getFolderRelPath(), false);
+			}
 			listenTo(quotaCtr);
 		} else {
 			vc_collabtools.contextPut("isOlatAdmin", Boolean.FALSE);
@@ -106,6 +117,7 @@ public class CollaborationToolsSettingsController extends BasicController {
 			Long lCalendarAccess = collabTools.lookupCalendarAccess();
 			if (lCalendarAccess != null) iCalendarAccess = lCalendarAccess.intValue();
 			calendarForm = new CalendarToolSettingsController(ureq, getWindowControl(), iCalendarAccess);
+			calendarForm.setEnabled(!managed);
 			listenTo(calendarForm);
 			
 			vc_collabtools.put("calendarform", calendarForm.getInitialComponent());
@@ -128,6 +140,7 @@ public class CollaborationToolsSettingsController extends BasicController {
 			Long lFolderAccess = collabTools.lookupFolderAccess();
 			int access = lFolderAccess == null ? CollaborationTools.FOLDER_ACCESS_ALL : lFolderAccess.intValue();
 			folderForm = new FolderToolSettingsController(ureq, getWindowControl(), access);
+			folderForm.setEnabled(!managed);
 			listenTo(folderForm);
 			vc_collabtools.put("folderform", folderForm.getInitialComponent());
 		} else {
@@ -145,6 +158,7 @@ public class CollaborationToolsSettingsController extends BasicController {
 			removeAsListenerAndDispose(newsController);
 		}
 		newsController = new NewsFormController(ureq, getWindowControl(), (newsValue == null ? "" : newsValue));
+		newsController.setEnabled(!managed);
 		listenTo(newsController);
 		
 		vc_collabtools.contextPut("newsToolEnabled", Boolean.TRUE);
@@ -159,11 +173,11 @@ public class CollaborationToolsSettingsController extends BasicController {
 		if (source == cots && event.getCommand().equals("ONCHANGE")) {
 			
 			Set<String> set = cots.getSelected();
-			for (int i = 0; i < CollaborationTools.TOOLS.length; i++) {
+			for (int i = 0; i < availableTools.length; i++) {
 				// usually one should check which one changed but here
 				// it is okay to set all of them because ctsm has a cache
 				// and writes only when really necessary.
-				collabTools.setToolEnabled(CollaborationTools.TOOLS[i], set.contains(""+i));	
+				collabTools.setToolEnabled(availableTools[i], set.contains(""+i));	
 			}
 			//reload tools after a change
 			collabTools = CollaborationToolsFactory.getInstance().getOrCreateCollaborationTools(businessGroup);
@@ -189,6 +203,7 @@ public class CollaborationToolsSettingsController extends BasicController {
 						this.removeAsListenerAndDispose(calendarForm);
 					}
 					calendarForm = new CalendarToolSettingsController(ureq, getWindowControl(), iCalendarAccess);
+					calendarForm.setEnabled(!managed);
 					listenTo(calendarForm);
 					vc_collabtools.put("calendarform", calendarForm.getInitialComponent());
 
@@ -214,6 +229,7 @@ public class CollaborationToolsSettingsController extends BasicController {
 				Long lFolderAccess = collabTools.lookupFolderAccess();
 				int access = lFolderAccess == null ? CollaborationTools.FOLDER_ACCESS_ALL : lFolderAccess.intValue();
 				folderForm = new FolderToolSettingsController(ureq, getWindowControl(), access);
+				folderForm.setEnabled(!managed);
 				listenTo(folderForm);
 				vc_collabtools.put("folderform", folderForm.getInitialComponent());
 				if (ureq.getUserSession().getRoles().isOLATAdmin()) {
@@ -223,13 +239,13 @@ public class CollaborationToolsSettingsController extends BasicController {
 				vc_collabtools.contextPut("folderToolEnabled", Boolean.FALSE);
 			}
 			
-		} else if (source == this.newsController) {
+		} else if (source == newsController) {
 			if (event.equals(Event.DONE_EVENT)) {
-				String news = this.newsController.getNewsValue();
+				String news = newsController.getNewsValue();
 				collabTools.saveNews(news);
 			}
 			
-		} else if (source == this.calendarForm) {	
+		} else if (source == calendarForm) {	
 			collabTools.saveCalendarAccess(new Long(calendarForm.getCalendarAccess()));
 			// notify calendar components to refresh their calendars
 			CoordinatorManager.getInstance().getCoordinator().getEventBus().fireEventToListenersOf(
@@ -254,19 +270,21 @@ public class CollaborationToolsSettingsController extends BasicController {
 }
 
 class ChoiceOfToolsForm extends FormBasicController {
-
 	CollaborationTools cts;
 	MultipleSelectionElement ms;
 	
 	List <String>theKeys   = new ArrayList<String>();
 	List <String>theValues = new ArrayList<String>();
+
+	final String[] availableTools;
 	
-	public ChoiceOfToolsForm(UserRequest ureq, WindowControl wControl, CollaborationTools cts) {
+	public ChoiceOfToolsForm(UserRequest ureq, WindowControl wControl, CollaborationTools cts, final String[] availableTools) {
 		super(ureq, wControl);
 		this.cts = cts;
+		this.availableTools = availableTools;
 		
-		for (int i=0; i<CollaborationTools.TOOLS.length; i++) {
-			String k = CollaborationTools.TOOLS[i];
+		for (int i=0; i<availableTools.length; i++) {
+			String k = availableTools[i];
 			if (k.equals(CollaborationTools.TOOL_CHAT)) {
 				InstantMessagingModule imModule = CoreSpringFactory.getImpl(InstantMessagingModule.class);
 				if (!imModule.isEnabled() || !imModule.isGroupEnabled()) {
@@ -274,10 +292,14 @@ class ChoiceOfToolsForm extends FormBasicController {
 				}
 			}
 			theKeys.add(""+i);
-			theValues.add(translate("collabtools.named."+CollaborationTools.TOOLS[i]));
+			theValues.add(translate("collabtools.named."+availableTools[i]));
 		}
 		
 		initForm(ureq);
+	}
+	
+	public void setEnabled(boolean enabled) {
+		ms.setEnabled(enabled);
 	}
 
 	@Override
@@ -293,8 +315,8 @@ class ChoiceOfToolsForm extends FormBasicController {
 				theValues.toArray(new String[theValues.size()]),
 				null, 1
 		);
-		for (int i=0; i<CollaborationTools.TOOLS.length; i++) {
-			ms.select(""+i, cts.isToolEnabled(CollaborationTools.TOOLS[i]));
+		for (int i=0; i<availableTools.length; i++) {
+			ms.select(""+i, cts.isToolEnabled(availableTools[i]));
 		}
 		ms.addActionListener(listener, FormEvent.ONCLICK);
 	}

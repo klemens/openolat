@@ -27,9 +27,8 @@ package org.olat.modules.sharedfolder;
 
 import java.util.List;
 
+import org.olat.core.commons.services.webdav.WebDAVProvider;
 import org.olat.core.id.Identity;
-import org.olat.core.logging.LogDelegator;
-import org.olat.core.util.servlets.WebDAVProvider;
 import org.olat.core.util.vfs.VFSContainer;
 import org.olat.core.util.vfs.callbacks.ReadOnlyCallback;
 import org.olat.core.util.vfs.callbacks.VFSSecurityCallback;
@@ -40,7 +39,7 @@ import org.olat.core.util.vfs.callbacks.VFSSecurityCallback;
  * 
  * @author Alexander Schneider, Gregor Wassmann
  */
-public class SharedFolderWebDAVProvider extends LogDelegator implements WebDAVProvider {
+public class SharedFolderWebDAVProvider implements WebDAVProvider {
 	private static List<String> publiclyReadableFolders;
 	protected static final VFSSecurityCallback readOnlyCallback = new ReadOnlyCallback();
 	
@@ -78,14 +77,14 @@ public class SharedFolderWebDAVProvider extends LogDelegator implements WebDAVPr
 	}
 
 	/**
-	 * @see org.olat.commons.servlets.util.WebDAVProvider#getMountPoint()
+	 * @see org.olat.core.commons.services.webdav.WebDAVProvider#getMountPoint()
 	 */
 	public String getMountPoint() {
 		return "sharedfolders";
 	}
 
 	/**
-	 * @see org.olat.commons.servlets.util.WebDAVProvider#getContainer(org.olat.core.id.Identity)
+	 * @see org.olat.core.commons.services.webdav.WebDAVProvider#getContainer(org.olat.core.id.Identity)
 	 */
 	public VFSContainer getContainer(Identity identity) {
 		return new SharedFolderWebDAVMergeSource(identity, publiclyReadableFolders);

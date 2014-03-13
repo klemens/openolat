@@ -29,6 +29,8 @@ import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
@@ -50,6 +52,7 @@ import org.olat.core.gui.components.form.flexible.FormBaseComponentIdProvider;
 import org.olat.core.gui.components.form.flexible.FormItem;
 import org.olat.core.gui.components.form.flexible.FormItemContainer;
 import org.olat.core.gui.control.Controller;
+import org.olat.core.gui.control.Event;
 import org.olat.core.gui.translator.Translator;
 import org.olat.core.logging.AssertException;
 import org.olat.core.logging.LogDelegator;
@@ -58,7 +61,6 @@ import org.olat.core.util.ArrayHelper;
 import org.olat.core.util.CodeHelper;
 import org.olat.core.util.FileUtils;
 import org.olat.core.util.ValidationStatus;
-import org.olat.core.util.ValidationStatusHelper;
 import org.olat.core.util.WebappHelper;
 import org.olat.core.util.component.FormComponentTraverser;
 import org.olat.core.util.component.FormComponentVisitor;
@@ -171,6 +173,11 @@ public class Form extends LogDelegator {
 	private Map<String, String> requestMultipartFileMimeTypes = new HashMap<String,String>();
 	private int requestError = REQUEST_ERROR_NO_ERROR;
 	
+	// replayableID Counter
+	private long replayIdCount;
+	// Map to replayableID real dispatchID
+	private Map<String,Long> replayIdMap = new HashMap<String,Long>();
+	
 	private Form(Controller listener) {
 		// internal use only
 		
@@ -243,8 +250,12 @@ public class Form extends LogDelegator {
 				// see also OLAT-3141
 				implicitFormSubmit = true;
 			}
-		}else{
-			action = Integer.valueOf(dispatchAction);
+		} else {
+			try {
+				action = Integer.valueOf(dispatchAction);
+			} catch(Exception e) {
+				throw new InvalidRequestParameterException();
+			}
 		}
 		hasAlreadyFired = false;
 		isValidAndSubmitted = false;
@@ -464,6 +475,18 @@ public class Form extends LogDelegator {
 	 * @param ureq
 	 */
 	public void submit(UserRequest ureq) {
+		submit(ureq, org.olat.core.gui.components.form.Form.EVNT_VALIDATION_OK);
+	}
+	
+	public void submitAndNext(UserRequest ureq) {
+		submit(ureq, org.olat.core.gui.components.form.Form.EVNT_VALIDATION_NEXT);
+	}
+	
+	public void submitAndFinish(UserRequest ureq) {
+		submit(ureq, org.olat.core.gui.components.form.Form.EVNT_VALIDATION_FINISH);
+	}
+	
+	private final void submit(UserRequest ureq, Event validationOkEvent) {	
 		ValidatingFormComponentVisitor vfcv = new ValidatingFormComponentVisitor();
 		FormComponentTraverser ct = new FormComponentTraverser(vfcv, formLayout, false);
 		ct.visitAll(ureq);
@@ -479,12 +502,12 @@ public class Form extends LogDelegator {
 			//let further validate even if one fails. TODO:pb discuss with cg
 			isValid = fbc.validateFormLogic(ureq) && isValid;
 		}
-		
-		//
-		formWrapperComponent.fireValidation(ureq, isValid);
+
+		formWrapperComponent.fireValidation(ureq, isValid, validationOkEvent);
 		isValidAndSubmitted = isValid;
 		hasAlreadyFired = true;
 	}
+	
 	
 	/**
 	 * @param ureq
@@ -702,15 +725,45 @@ public class Form extends LogDelegator {
 		final List<ValidationStatus> tmp = new ArrayList<ValidationStatus>();
 
 		public ValidationStatus[] getStatus() {
-			return ValidationStatusHelper.sort(tmp);
+			return sort(tmp);
 		}
 
+		@Override
 		public boolean visit(FormItem comp, UserRequest ureq) {
 			if(comp.isVisible() && comp.isEnabled()){
 				//validate only if form item is visible and enabled
 				comp.validate(tmp);
 			}
 			return true;
+		}
+		
+		private ValidationStatus[] sort(List<ValidationStatus> statusList) {
+			Collections.sort(statusList, new ErrorsGtWarningGtInfo());
+			/*
+			 * remove NOERRORS size bigger 1; NOERROR -> Level == OFF > SEVERE > WARNING >
+			 * INFO
+			 */
+			if (statusList.size() > 1) {
+				for(int i=0;i<statusList.size();i++) {
+					if(statusList.get(i)==ValidationStatus.NOERROR) {
+						//aha found one to remove. Remove shifts all elements to the left, e.g. subtracts one of the indices
+						statusList.remove(i);
+						//thus we have to loop on place to remove all NOERRORS which shift to the ith place.
+						while(statusList.get(i)==ValidationStatus.NOERROR) {
+							statusList.remove(i);
+						}
+					}
+				}
+			}
+
+			return statusList.toArray(new ValidationStatus[statusList.size()]);
+		}
+
+		private static class ErrorsGtWarningGtInfo implements Comparator<ValidationStatus> {
+			@Override
+			public int compare(ValidationStatus s1, ValidationStatus s2) {
+				return s2.getLevel().intValue() - s1.getLevel().intValue();
+			}
 		}
 	}
 
@@ -803,10 +856,6 @@ public class Form extends LogDelegator {
 		return multipartEnabled;
 	}
 	
-	
-	// replayableID Counter
-	private long replayIdCount;
-	
 	/**
 	 * Make replayID distinct for distinct forms by inserting the 
 	 * number of Form Objects created during the current session at
@@ -822,17 +871,14 @@ public class Form extends LogDelegator {
 	private void initReplayIdCounter(Controller listener) {
 		
 		Integer formNum = null;
-		Object o;
-		Map m;
-		
-		o = GUIInterna.getReplayModeData().get("formsSeen");
+		Object o = GUIInterna.getReplayModeData().get("formsSeen");
 			
 		if (o == null) {
-			o = new HashMap();
+			o = new HashMap<String,Integer>();
 			GUIInterna.getReplayModeData().put("formsSeen", o);
 		} 
 		
-		m = (Map) o;
+		Map<String,Integer> m = (Map<String,Integer>) o;
 		String k = listener.getClass().getName();
 		if (m.containsKey(k)) {
 			formNum = (Integer) m.get(k);
@@ -842,7 +888,7 @@ public class Form extends LogDelegator {
 			o = GUIInterna.getReplayModeData().get("formNum");
 			formNum = (o == null) ? 1 : (Integer) o + 1;
 			GUIInterna.getReplayModeData().put("formNum", formNum); 
-			m = (Map) GUIInterna.getReplayModeData().get("formsSeen");
+			m = (Map<String,Integer>) GUIInterna.getReplayModeData().get("formsSeen");
 			m.put(listener.getClass().getName(), formNum);
 		} 
 		
@@ -851,8 +897,6 @@ public class Form extends LogDelegator {
 		// max 10000 forms can appear in a  load test run
 	}
 	
-	// Map to replayableID real dispatchID
-	private  HashMap<String,Long> replayIdMap = new HashMap<String,Long>();
 	
 	/**
 	 * Get the replayableID for a component, for use only in urlReplay mode.

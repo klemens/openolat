@@ -37,12 +37,17 @@ import org.olat.admin.user.bulkChange.UserBulkChangeManager;
 import org.olat.admin.user.bulkChange.UserBulkChangeStep00;
 import org.olat.basesecurity.BaseSecurity;
 import org.olat.basesecurity.BaseSecurityManager;
+import org.olat.basesecurity.BaseSecurityModule;
+import org.olat.basesecurity.Constants;
 import org.olat.basesecurity.PermissionOnResourceable;
 import org.olat.basesecurity.SecurityGroup;
 import org.olat.basesecurity.events.SingleIdentityChosenEvent;
+import org.olat.core.CoreSpringFactory;
 import org.olat.core.commons.fullWebApp.popup.BaseFullWebappPopupLayoutFactory;
 import org.olat.core.commons.persistence.DBFactory;
 import org.olat.core.commons.persistence.PersistenceHelper;
+import org.olat.core.commons.services.webdav.WebDAVModule;
+import org.olat.core.commons.services.webdav.manager.WebDAVAuthManager;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.Component;
 import org.olat.core.gui.components.form.flexible.FormItem;
@@ -77,13 +82,11 @@ import org.olat.core.gui.control.generic.wizard.StepsRunContext;
 import org.olat.core.gui.translator.Translator;
 import org.olat.core.id.Identity;
 import org.olat.core.id.OLATResourceable;
-import org.olat.core.id.Roles;
 import org.olat.core.id.context.ContextEntry;
 import org.olat.core.id.context.StateEntry;
 import org.olat.core.id.context.StateMapped;
 import org.olat.core.logging.AssertException;
 import org.olat.core.logging.activity.ThreadLocalUserActivityLogger;
-import org.olat.core.servlets.WebDAVManager;
 import org.olat.core.util.StringHelper;
 import org.olat.core.util.Util;
 import org.olat.core.util.mail.ContactList;
@@ -91,7 +94,6 @@ import org.olat.core.util.mail.ContactMessage;
 import org.olat.core.util.resource.OresHelper;
 import org.olat.login.LoginModule;
 import org.olat.login.auth.AuthenticationProvider;
-import org.olat.login.auth.WebDAVAuthManager;
 import org.olat.modules.co.ContactFormController;
 import org.olat.user.UserInfoMainController;
 import org.olat.user.UserManager;
@@ -130,7 +132,8 @@ public class UsermanagerUserSearchController extends BasicController implements 
 	private Link backFromList;
 	private boolean showEmailButton = true;
 	private StepsMainRunController userBulkChangeStepsController;
-	private boolean isAdministrativeUser = false;
+	private final boolean isAdministrativeUser;
+	private final BaseSecurityModule securityModule;
 
 	/**
 	 * Constructor to trigger the user search workflow using a generic search form
@@ -140,7 +143,10 @@ public class UsermanagerUserSearchController extends BasicController implements 
 	 */
 	public UsermanagerUserSearchController(UserRequest ureq, WindowControl wControl) {
 		super(ureq, wControl);
-
+		
+		securityModule = CoreSpringFactory.getImpl(BaseSecurityModule.class);
+		isAdministrativeUser = securityModule.isUserAllowedAdminProps(ureq.getUserSession().getRoles());
+		
 		userSearchVC = createVelocityContainer("usermanagerUsersearch");
 
 		mailVC = createVelocityContainer("usermanagerMail");
@@ -154,7 +160,7 @@ public class UsermanagerUserSearchController extends BasicController implements 
 		userListVC.contextPut("emptyList", Boolean.FALSE);
 		userListVC.contextPut("showTitle", Boolean.TRUE);
 
-		searchform = new UsermanagerUserSearchForm(ureq, wControl);
+		searchform = new UsermanagerUserSearchForm(ureq, wControl, isAdministrativeUser);
 		listenTo(searchform);
 		
 		userSearchVC.put("usersearch", searchform.getInitialComponent());
@@ -179,6 +185,9 @@ public class UsermanagerUserSearchController extends BasicController implements 
 			PermissionOnResourceable[] searchPermissionOnResources, String[] searchAuthProviders, Date searchCreatedAfter,
 			Date searchCreatedBefore, Integer status, boolean showEmailButton) {
 		super(ureq, wControl);
+		
+		securityModule = CoreSpringFactory.getImpl(BaseSecurityModule.class);
+		isAdministrativeUser = securityModule.isUserAllowedAdminProps(ureq.getUserSession().getRoles());
 
 		mailVC = createVelocityContainer("usermanagerMail");
 
@@ -213,6 +222,9 @@ public class UsermanagerUserSearchController extends BasicController implements 
 	public UsermanagerUserSearchController(UserRequest ureq, WindowControl wControl, List<Identity> identitiesList,
 			Integer status, boolean showEmailButton, boolean showTitle) {
 		super(ureq, wControl);
+		
+		securityModule = CoreSpringFactory.getImpl(BaseSecurityModule.class);
+		isAdministrativeUser = securityModule.isUserAllowedAdminProps(ureq.getUserSession().getRoles());
 
 		mailVC = createVelocityContainer("usermanagerMail");
 
@@ -353,23 +365,27 @@ public class UsermanagerUserSearchController extends BasicController implements 
 		// get group memberships from form
 		List<SecurityGroup> groupsList = new ArrayList<SecurityGroup>();
 		if (searchform.getRole("admin")) {
-			SecurityGroup group = secMgr.findSecurityGroupByName(org.olat.basesecurity.Constants.GROUP_ADMIN);
+			SecurityGroup group = secMgr.findSecurityGroupByName(Constants.GROUP_ADMIN);
 			groupsList.add(group);
 		}
 		if (searchform.getRole("author")) {
-			SecurityGroup group = secMgr.findSecurityGroupByName(org.olat.basesecurity.Constants.GROUP_AUTHORS);
+			SecurityGroup group = secMgr.findSecurityGroupByName(Constants.GROUP_AUTHORS);
 			groupsList.add(group);
 		}
 		if (searchform.getRole("groupmanager")) {
-			SecurityGroup group = secMgr.findSecurityGroupByName(org.olat.basesecurity.Constants.GROUP_GROUPMANAGERS);
+			SecurityGroup group = secMgr.findSecurityGroupByName(Constants.GROUP_GROUPMANAGERS);
 			groupsList.add(group);
 		}
 		if (searchform.getRole("usermanager")) {
-			SecurityGroup group = secMgr.findSecurityGroupByName(org.olat.basesecurity.Constants.GROUP_USERMANAGERS);
+			SecurityGroup group = secMgr.findSecurityGroupByName(Constants.GROUP_USERMANAGERS);
 			groupsList.add(group);
 		}
 		if (searchform.getRole("oresmanager")) {
-			SecurityGroup group = secMgr.findSecurityGroupByName(org.olat.basesecurity.Constants.GROUP_INST_ORES_MANAGER);
+			SecurityGroup group = secMgr.findSecurityGroupByName(Constants.GROUP_INST_ORES_MANAGER);
+			groupsList.add(group);
+		}
+		if (searchform.getRole("poolmanager")) {
+			SecurityGroup group = secMgr.findSecurityGroupByName(Constants.GROUP_POOL_MANAGER);
 			groupsList.add(group);
 		}
 		
@@ -426,13 +442,13 @@ public class UsermanagerUserSearchController extends BasicController implements 
 				String actionid = te.getActionId();
 				if (actionid.equals(ExtendedIdentitiesTableControllerFactory.COMMAND_SELECTUSER)) {
 					int rowid = te.getRowId();
-					foundIdentity = tdm.getIdentityAt(rowid);
+					foundIdentity = tdm.getObject(rowid);
 					// Tell parentController that a subject has been found
 					fireEvent(ureq, new SingleIdentityChosenEvent(foundIdentity));
 				} else if (actionid.equals(ExtendedIdentitiesTableControllerFactory.COMMAND_VCARD)) {
-					// get identitiy and open new visiting card controller in new window
+					// get identity and open new visiting card controller in new window
 					int rowid = te.getRowId();
-					final Identity identity = tdm.getIdentityAt(rowid);
+					final Identity identity = tdm.getObject(rowid);
 					ControllerCreator userInfoMainControllerCreator = new ControllerCreator() {
 						public Controller createController(UserRequest lureq, WindowControl lwControl) {
 							return new UserInfoMainController(lureq, lwControl, identity);
@@ -460,9 +476,7 @@ public class UsermanagerUserSearchController extends BasicController implements 
 					final UserBulkChangeManager ubcMan = UserBulkChangeManager.getInstance();
 					// valid selection: load in wizard
 					Step start = new UserBulkChangeStep00(ureq, selectedIdentities);
-					Roles roles = ureq.getUserSession().getRoles();
-					isAdministrativeUser = (roles.isAuthor() || roles.isGroupManager() || roles.isUserManager() || roles.isOLATAdmin());
-
+					
 					// callback executed in case wizard is finished.
 					StepRunnerCallback finish = new StepRunnerCallback() {
 						public Step execute(UserRequest ureq1, WindowControl wControl1, StepsRunContext runContext) {
@@ -474,11 +488,11 @@ public class UsermanagerUserSearchController extends BasicController implements 
 									HashMap<String, String> roleChangeMap = (HashMap<String, String>) runContext.get("roleChangeMap");
 									List<Long> ownGroups = (List<Long>) runContext.get("ownerGroups");
 									List<Long> partGroups = (List<Long>) runContext.get("partGroups");
-									List<Long> mailGroups = (List<Long>) runContext.get("mailGroups");
+									//List<Long> mailGroups = (List<Long>) runContext.get("mailGroups");
 									if (attributeChangeMap.size() != 0 || roleChangeMap.size() != 0 || ownGroups.size() != 0 || partGroups.size() != 0){
 										Identity addingIdentity = ureq1.getIdentity();
 										ubcMan.changeSelectedIdentities(selectedIdentities, attributeChangeMap, roleChangeMap, notUpdatedIdentities,
-											isAdministrativeUser, ownGroups, partGroups, mailGroups, getTranslator(), addingIdentity);
+											isAdministrativeUser, ownGroups, partGroups, getTranslator(), addingIdentity);
 										hasChanges = true;
 									}
 								}
@@ -617,13 +631,15 @@ class UsermanagerUserSearchForm extends FormBasicController {
 	private String[] roleKeys, roleValues;
 	private String[] authKeys, authValues;
 	
-	Map <String,FormItem>items;
+	private Map <String,FormItem>items;
+	private final boolean isAdministrativeUser;
 	/**
 	 * @param binderName
 	 * @param cancelbutton
 	 */
-	public UsermanagerUserSearchForm(UserRequest ureq, WindowControl wControl) {
+	public UsermanagerUserSearchForm(UserRequest ureq, WindowControl wControl, boolean isAdministrativeUser) {
 		super(ureq, wControl);
+		this.isAdministrativeUser = isAdministrativeUser;
 
 		UserManager um = UserManager.getInstance();
 		Translator decoratedTranslator = um.getPropertyHandlerTranslator(this.getTranslator());
@@ -634,7 +650,7 @@ class UsermanagerUserSearchForm extends FormBasicController {
 		items = new HashMap<String,FormItem>(); 
 		
 		roleKeys = new String[] {
-				"admin", "author", "groupmanager", "usermanager", "oresmanager"
+				"admin", "author", "groupmanager", "usermanager", "oresmanager", "poolmanager"
 		};
 		
 		roleValues = new String[]{
@@ -642,7 +658,8 @@ class UsermanagerUserSearchForm extends FormBasicController {
 				translate("search.form.constraint.author"),
 				translate("search.form.constraint.groupmanager"),
 				translate("search.form.constraint.usermanager"),
-				translate("search.form.constraint.oresmanager")
+				translate("search.form.constraint.oresmanager"),
+				translate("search.form.constraint.poolmanager")
 		};
 		
 		statusKeys = new String[] { 
@@ -674,7 +691,7 @@ class UsermanagerUserSearchForm extends FormBasicController {
 				));
 			}
 		}
-		if(WebDAVManager.getInstance().isEnabled()) {
+		if(CoreSpringFactory.getImpl(WebDAVModule.class).isEnabled()) {
 			authKeyList.add(WebDAVAuthManager.PROVIDER_WEBDAV);
 			authValueList.add(translate("search.form.constraint.auth.WEBDAV"));
 		}
@@ -722,7 +739,6 @@ class UsermanagerUserSearchForm extends FormBasicController {
 		return null;
 	}
 
-	//fxdiff BAKS-7 Resume function
 	protected void setStringValue(String key, String value) {
 		FormItem f = items.get(key);
 		if (f == null) return;
@@ -731,7 +747,7 @@ class UsermanagerUserSearchForm extends FormBasicController {
 		}
 	}
 	
-	protected boolean getRole (String key) {
+	protected boolean getRole(String key) {
 		return roles.isSelected(Arrays.asList(roleKeys).indexOf(key));
 	}
 	
@@ -753,7 +769,6 @@ class UsermanagerUserSearchForm extends FormBasicController {
 		return apl.toArray(new String[apl.size()]);
 	}
 
-	//fxdiff BAKS-7 Resume function
 	protected StateMapped getStateEntry() {
 		StateMapped state = new StateMapped();
 		if(items != null) {
@@ -779,7 +794,6 @@ class UsermanagerUserSearchForm extends FormBasicController {
 		return state;
 	}
 
-	//fxdiff BAKS-7 Resume function
 	protected void setStateEntry(StateMapped state) {
 		for(Map.Entry<String, String> entry:state.getDelegate().entrySet()) {
 			String key = entry.getKey();
@@ -794,10 +808,10 @@ class UsermanagerUserSearchForm extends FormBasicController {
 	}
 	
 	@Override
-	@SuppressWarnings("unused")
 	protected void initForm(FormItemContainer formLayout, Controller listener, UserRequest ureq) {
 	
 		login = uifactory.addTextElement("login", "search.form.login", 128, "", formLayout);
+		login.setVisible(isAdministrativeUser);
 		items.put("login", login);
 
 		Translator tr = Util.createPackageTranslator(
@@ -852,28 +866,16 @@ class UsermanagerUserSearchForm extends FormBasicController {
 		status.select(statusKeys[0], true);		
 		
 		uifactory.addSpacerElement("space4", formLayout, false);
-		afterDate  = uifactory.addDateChooser("search.form.afterDate","",formLayout);
+		afterDate  = uifactory.addDateChooser("search.form.afterDate", null, formLayout);
 		afterDate.setValidDateCheck("error.search.form.no.valid.datechooser");
-		beforeDate = uifactory.addDateChooser("search.form.beforeDate","",formLayout);
+		beforeDate = uifactory.addDateChooser("search.form.beforeDate", null, formLayout);
 		beforeDate.setValidDateCheck("error.search.form.no.valid.datechooser");
 		
 		uifactory.addSpacerElement("space5", formLayout, false);
-		userLoginAfter = uifactory.addDateChooser("search.form.userLoginAfterDate", "", formLayout);
+		userLoginAfter = uifactory.addDateChooser("search.form.userLoginAfterDate", null, formLayout);
 		userLoginAfter.setValidDateCheck("error.search.form.no.valid.datechooser");
-		userLoginBefore = uifactory.addDateChooser("search.form.userLoginBeforeDate", "", formLayout);
+		userLoginBefore = uifactory.addDateChooser("search.form.userLoginBeforeDate", null, formLayout);
 		userLoginBefore.setValidDateCheck("error.search.form.no.valid.datechooser");
-		
-		// creation date constraints
-		/*
-		addFormElement("space3", new SpacerElement(true, false));
-		addFormElement("title.date", new TitleElement("search.form.title.date"));
-		afterDate = new DateElement("search.form.afterDate", getLocale());
-		addFormElement("afterDate", afterDate);
-		beforeDate = new DateElement("search.form.beforeDate", getLocale());
-		addFormElement("beforeDate", beforeDate);
-
-		addSubmitKey("submit.search", "submit.search");
-		 */
 		
 		uifactory.addSpacerElement("spaceBottom", formLayout, false);
 		
@@ -890,7 +892,6 @@ class UsermanagerUserSearchForm extends FormBasicController {
 	 *      org.olat.core.gui.components.form.flexible.impl.FormEvent)
 	 */
 	@Override
-	@SuppressWarnings("unused")
 	protected void formInnerEvent(UserRequest ureq, FormItem source, FormEvent event) {
 		if (source == searchButton) {
 			source.getRootForm().submit(ureq);			

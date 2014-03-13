@@ -59,7 +59,6 @@ public class EPCreateMapController extends FormBasicController {
 	 * @see org.olat.core.gui.components.form.flexible.impl.FormBasicController#initForm(org.olat.core.gui.components.form.flexible.FormItemContainer,
 	 *      org.olat.core.gui.control.Controller, org.olat.core.gui.UserRequest)
 	 */
-	@SuppressWarnings("unused")
 	@Override
 	protected void initForm(FormItemContainer formLayout, Controller listener, UserRequest ureq) {
 		String title = "";
@@ -68,10 +67,9 @@ public class EPCreateMapController extends FormBasicController {
 		titleEl.setMandatory(true);
 
 		String description = "";
-		descEl = uifactory.addRichTextElementForStringDataMinimalistic("map.description", "map.description", description, 7, -1, false,
+		descEl = uifactory.addRichTextElementForStringDataMinimalistic("map.description", "map.description", description, 7, -1,
 				formLayout, ureq.getUserSession(), getWindowControl());
 		descEl.setNotLongerThanCheck(2047, "map.description.too.long");
-		descEl.setExtDelay(true);
 
 		uifactory.addSpacerElement("spacer", formLayout, true);
 		uifactory.addFormSubmitButton("save.and.open.map", formLayout);

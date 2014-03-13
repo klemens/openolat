@@ -22,13 +22,13 @@ package org.olat.search.ui;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Properties;
 import java.util.Set;
 
 import org.olat.core.CoreSpringFactory;
-import org.olat.core.commons.services.search.AbstractOlatDocument;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.form.flexible.FormItem;
 import org.olat.core.gui.components.form.flexible.FormItemContainer;
@@ -47,6 +47,7 @@ import org.olat.core.logging.OLog;
 import org.olat.core.logging.Tracing;
 import org.olat.core.util.ArrayHelper;
 import org.olat.core.util.StringHelper;
+import org.olat.search.model.AbstractOlatDocument;
 import org.olat.search.service.SearchMetadataFieldsProvider;
 import org.olat.search.service.document.ContextHelpDocument;
 import org.olat.search.service.document.file.ExcelDocument;
@@ -117,8 +118,8 @@ public class AdvancedSearchInputController extends FormBasicController {
 		authorQuery = uifactory.addTextElement("search_author", "form.search.label.author", 255, "", formLayout); 
 		titleQuery = uifactory.addTextElement("search_title", "form.search.label.title", 255, "", formLayout);
 		descriptionQuery = uifactory.addTextElement("search_description", "form.search.label.description", 255, "", formLayout);
-		createdDate = uifactory.addDateChooser("search_creation", "form.search.label.created.date", "", formLayout);
-		modifiedDate = uifactory.addDateChooser("search_modification", "form.search.label.modified.date", "", formLayout);
+		createdDate = uifactory.addDateChooser("search_creation", "form.search.label.created.date", null, formLayout);
+		modifiedDate = uifactory.addDateChooser("search_modification", "form.search.label.modified.date", null, formLayout);
 
 		//document types
 		initDocumentTypesKeysAndValues();
@@ -235,10 +236,16 @@ public class AdvancedSearchInputController extends FormBasicController {
 			appendAnd(queries, AbstractOlatDocument.DESCRIPTION_FIELD_NAME, ":(", descriptionQuery.getValue(), ") ");
 	  }
 		if (StringHelper.containsNonWhitespace(createdDate.getValue())) {
-			appendAnd(queries, AbstractOlatDocument.CREATED_FIELD_NAME, ":(", format.format(createdDate.getDate()), ") ");
+			Date creationDate = createdDate.getDate();
+			if(creationDate != null) {
+				appendAnd(queries, AbstractOlatDocument.CREATED_FIELD_NAME, ":(", format.format(creationDate), ") ");
+			}
 	  }
 		if (StringHelper.containsNonWhitespace(modifiedDate.getValue())) {
-			appendAnd(queries, AbstractOlatDocument.CHANGED_FIELD_NAME, ":(", format.format(modifiedDate.getDate()), ") ");
+			Date modificationDate = modifiedDate.getDate();
+			if(modificationDate != null) {
+				appendAnd(queries, AbstractOlatDocument.CHANGED_FIELD_NAME, ":(", format.format(modificationDate), ") ");
+			}
 	  }
 		//Check for null on metadata element since it might not be configured and initialized
 		if (metadataQuery != null && StringHelper.containsNonWhitespace(metadataQuery.getValue())) {

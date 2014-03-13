@@ -61,6 +61,7 @@ import org.olat.course.nodes.BCCourseNode;
 import org.olat.course.nodes.CourseNode;
 import org.olat.course.nodes.CourseNodeConfiguration;
 import org.olat.course.nodes.CourseNodeFactory;
+import org.olat.repository.RepositoryEntry;
 import org.olat.restapi.repository.course.CoursesWebService;
 import org.olat.restapi.support.vo.FolderVO;
 import org.olat.restapi.support.vo.FolderVOes;
@@ -93,7 +94,7 @@ public class CoursesFoldersTest extends OlatJerseyTestCase {
 		bcNode.setNoAccessExplanation("You don't have access");
 		course1.getEditorTreeModel().addCourseNode(bcNode, course1.getRunStructure().getRootNode());
 
-		CourseFactory.publishCourse(course1, admin, Locale.ENGLISH);
+		CourseFactory.publishCourse(course1, RepositoryEntry.ACC_USERS, false, admin, Locale.ENGLISH);
 		
 		DBFactory.getInstance().intermediateCommit();
 	}
@@ -225,7 +226,7 @@ public class CoursesFoldersTest extends OlatJerseyTestCase {
 		assertTrue(conn.login("administrator", "openolat"));
 		
 		URI uri = UriBuilder.fromUri(getNodeURI()).path("files").path("FolderToDelete").build();
-		HttpDelete method = conn.createDelete(uri, MediaType.APPLICATION_JSON, true);
+		HttpDelete method = conn.createDelete(uri, MediaType.APPLICATION_JSON);
 		HttpResponse response = conn.execute(method);
 		assertEquals(200, response.getStatusLine().getStatusCode());
 		

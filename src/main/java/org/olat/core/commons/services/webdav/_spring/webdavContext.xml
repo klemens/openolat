@@ -1,0 +1,110 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="
+  http://www.springframework.org/schema/beans 
+  http://www.springframework.org/schema/beans/spring-beans.xsd">
+
+	<!-- WebDAV module -->
+	<bean id="webdavModule" class="org.olat.core.commons.services.webdav.WebDAVModule" depends-on="org.olat.core.util.WebappHelper">
+		<property name="persistedProperties">
+	  		<bean class="org.olat.core.configuration.PersistedProperties" scope="prototype" init-method="init" destroy-method="destroy" 
+	  			depends-on="coordinatorManager,org.olat.core.util.WebappHelper">
+	    		<constructor-arg index="0" ref="coordinatorManager"/>
+	    		<constructor-arg index="1" ref="webdavModule" />
+	  		</bean>
+		</property>
+		<property name="webdavProviderList">
+			<list>
+				<ref bean="webdav_briefcase"/>
+				<ref bean="webdav_coursefolders"/>
+				<ref bean="webdav_sharedfolders"/>
+				<ref bean="webdav_groupfolders"/>
+			</list>
+		</property>
+	</bean>
+	
+	<bean class="org.springframework.beans.factory.config.MethodInvokingFactoryBean">
+		<property name="targetObject" ref="webdavModule" />
+		<property name="targetMethod" value="init" />
+		<property name="arguments">
+			<value>
+				webdav.enabled=${webdav.enabled}
+				webdav.links.enabled=${webdav.links.enabled}
+				auth.digest.enabled=${auth.digest.enabled}
+			</value>
+		</property>
+	</bean>
+
+	<bean id="webDAVManager" class="org.olat.core.commons.services.webdav.manager.WebDAVManagerImpl" init-method="init">
+		<constructor-arg ref="coordinatorManager"/>
+		<property name="sessionManager" ref="userSessionManager" />
+		<property name="webDAVAuthManager" ref="webDAVAuthenticationSpi" />
+		<property name="webDAVModule" ref="webdavModule" />
+	</bean>
+	
+	<bean id="webDAVDispatcher" class="org.olat.core.commons.services.webdav.servlets.WebDAVDispatcherImpl">
+		<property name="lockManager" ref="vfsLockManager" />
+		<property name="webDAVManager" ref="webDAVManager" />
+		<property name="webDAVModule" ref="webdavModule" />
+	</bean>
+	
+	<bean id="webDAVAuthenticationSpi" class="org.olat.core.commons.services.webdav.manager.WebDAVAuthManager" >
+		<property name="securityManager" ref="baseSecurityManager" />
+		<property name="olatAuthenticationSpi" ref="olatAuthenticationSpi" />
+		<property name="webDAVModule" ref="webdavModule" />
+	</bean>
+	
+	<bean id="webdav_briefcase" class="org.olat.core.commons.modules.bc.BriefcaseWebDAVProvider" scope="prototype" />
+	<bean id="webdav_coursefolders" class="org.olat.course.CoursefolderWebDAVProvider" scope="prototype" />
+	<bean id="webdav_sharedfolders" class="org.olat.modules.sharedfolder.SharedFolderWebDAVProvider" scope="prototype" >
+				<!-- 
+					Optional configuration: specify shared folder that should be visible to normal users. 
+					By default, shared folders are only mounted for shared folder owners (read/write). By
+					using this config option, it is possible to mount shared folders also to normal users
+					(read-only). The shared folder access must be set to users in the learning resource 
+					configuration.
+					Two configuration option:
+
+					1) Expose all publicly visible shared folder to all users via WebDAV
+					<property name="publiclyReadableFolders">
+						<list>
+							<value>*</value>
+						</list>
+					</property>
+					
+					2) Alternatively it's possible to explicitly name the shared folders that should be
+					   exposed. Use the shared folder ID that you see in the learning resource details page
+					<property name="publiclyReadableFolders">
+						<list>
+							<value>7045120</value>
+							<value>7208960</value>
+						</list>
+					</property>
+				-->
+	</bean> 
+	<bean id="webdav_groupfolders" class="org.olat.group.GroupfoldersWebDAVProvider" scope="prototype">
+		<property name="collaborationManager" ref="collaborationManager" />
+	</bean>
+	
+	<!-- WebDAV admin. panel -->
+	<bean class="org.olat.core.extensions.action.GenericActionExtension" init-method="initExtensionPoints">
+		<property name="order" value="7219" />
+		<property name="actionController">	
+			<bean class="org.olat.core.gui.control.creator.AutoCreator" scope="prototype">
+				<property name="className" value="org.olat.core.commons.services.webdav.ui.WebDAVAdminController"/>
+			</bean>
+		</property>
+		<property name="navigationKey" value="webdavadmin" />
+		<property name="i18nActionKey" value="admin.menu.title"/>
+		<property name="i18nDescriptionKey" value="admin.menu.title.alt"/>
+		<property name="translationPackage" value="org.olat.core.commons.services.webdav.ui"/>
+		<property name="parentTreeNodeIdentifier" value="sysconfigParent" /> 
+		<property name="extensionPoints">
+			<list>	
+				<value>org.olat.admin.SystemAdminMainController</value>		
+			</list>
+		</property>
+	</bean>
+
+</beans>

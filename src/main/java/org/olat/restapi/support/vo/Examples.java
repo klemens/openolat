@@ -20,6 +20,10 @@
 
 package org.olat.restapi.support.vo;
 
+import java.util.Calendar;
+
+import org.olat.restapi.support.ObjectFactory;
+
 
 public class Examples {
  
@@ -27,6 +31,8 @@ public class Examples {
 	public static final GroupVOes SAMPLE_GROUPVOes = new GroupVOes();
 	public static final GroupInfoVO SAMPLE_GROUPINFOVO = new GroupInfoVO();
 	public static final GroupInfoVOes SAMPLE_GROUPINFOVOes = new GroupInfoVOes();
+	
+	public static final RepositoryEntryLifecycleVO SAMPLE_LIFECYCLE = new RepositoryEntryLifecycleVO();
 	
 	public static final ErrorVO SAMPLE_ERRORVO = new ErrorVO();
 	public static final ErrorVOes SAMPLE_ERRORVOes = new ErrorVOes();
@@ -63,6 +69,8 @@ public class Examples {
   	SAMPLE_GROUPVO.setKey(123467l);
   	SAMPLE_GROUPVO.setName("My group");
   	SAMPLE_GROUPVO.setDescription("My group description");
+  	SAMPLE_GROUPVO.setExternalId("External Identifier");
+  	SAMPLE_GROUPVO.setManagedFlags("title,description");
   	SAMPLE_GROUPVO.setMinParticipants(0);
   	SAMPLE_GROUPVO.setMaxParticipants(0);
   	SAMPLE_GROUPVOes.setGroups(new GroupVO[]{SAMPLE_GROUPVO});
@@ -70,6 +78,7 @@ public class Examples {
   	SAMPLE_GROUPINFOVO.setKey(123467l);
   	SAMPLE_GROUPINFOVO.setName("My group");
   	SAMPLE_GROUPINFOVO.setDescription("My group description");
+  	SAMPLE_GROUPINFOVO.setExternalId("External identifier");
   	SAMPLE_GROUPINFOVO.setMinParticipants(0);
   	SAMPLE_GROUPINFOVO.setMaxParticipants(0);
   	SAMPLE_GROUPINFOVO.setNews("<p>Hello world</p>");
@@ -86,8 +95,19 @@ public class Examples {
   	SAMPLE_REPOENTRYVO.setResourcename("fdhasl");
   	SAMPLE_REPOENTRYVO.setResourceableId(4368567l);
   	SAMPLE_REPOENTRYVO.setResourceableTypeName("CourseModule");
+  	SAMPLE_REPOENTRYVO.setExternalId("External identifier");
+  	SAMPLE_REPOENTRYVO.setExternalRef("External reference");
+  	SAMPLE_REPOENTRYVO.setManagedFlags("title.description");
   	SAMPLE_REPOENTRYVOes.setRepositoryEntries(new RepositoryEntryVO[]{SAMPLE_REPOENTRYVO});
   	SAMPLE_REPOENTRYVOes.setTotalCount(1);
+  	
+  	Calendar cal = Calendar.getInstance();
+  	SAMPLE_LIFECYCLE.setKey(2873423876l);
+  	SAMPLE_LIFECYCLE.setLabel("Semester 13");
+  	SAMPLE_LIFECYCLE.setSoftkey("st_13");
+  	SAMPLE_LIFECYCLE.setValidFrom(ObjectFactory.formatDate(cal.getTime()));
+  	cal.add(Calendar.DATE, 5);
+  	SAMPLE_LIFECYCLE.setValidTo(ObjectFactory.formatDate(cal.getTime()));
   	
   	SAMPLE_AUTHVO.setKey(38759l);
   	SAMPLE_AUTHVO.setAuthUsername("john");
@@ -105,8 +125,13 @@ public class Examples {
   	SAMPLE_KEYVALUEVOes.getPairs().add(SAMPLE_KEYVALUEVO);
   	
   	SAMPLE_COURSEVO.setKey(777l);
+  	SAMPLE_COURSEVO.setRepoEntryKey(27684l);
+  	SAMPLE_COURSEVO.setSoftKey("internal_fx_cp");
   	SAMPLE_COURSEVO.setDisplayName("Demo course");
   	SAMPLE_COURSEVO.setTitle("Demo course");
+  	SAMPLE_COURSEVO.setExternalId("External identifier");
+  	SAMPLE_COURSEVO.setExternalRef("External reference");
+  	SAMPLE_COURSEVO.setManagedFlags("title,description");
   	SAMPLE_COURSEVOes.setTotalCount(0);
   	SAMPLE_COURSEVOes.setCourses(new CourseVO[]{SAMPLE_COURSEVO});
   	

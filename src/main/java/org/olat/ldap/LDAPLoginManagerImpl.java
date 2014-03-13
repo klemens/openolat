@@ -61,7 +61,7 @@ import org.olat.basesecurity.BaseSecurityModule;
 import org.olat.basesecurity.Constants;
 import org.olat.basesecurity.SecurityGroup;
 import org.olat.core.commons.persistence.DBFactory;
-import org.olat.core.commons.taskExecutor.TaskExecutorManager;
+import org.olat.core.commons.services.taskexecutor.TaskExecutorManager;
 import org.olat.core.gui.control.Event;
 import org.olat.core.id.Identity;
 import org.olat.core.id.User;
@@ -149,25 +149,24 @@ public class LDAPLoginManagerImpl extends LDAPLoginManager implements GenericEve
 				batchSyncIsRunning = false;
 				lastSyncDate = ((LDAPEvent)event).getTimestamp();
 			} else if(LDAPEvent.DO_SYNCHING.equals(event.getCommand())) {
-				doHandleBatchSync();
+				doHandleBatchSync(false);
 			} else if(LDAPEvent.DO_FULL_SYNCHING.equals(event.getCommand())) {
-				lastSyncDate = null;
-				doHandleBatchSync();
+				doHandleBatchSync(true);
 			}
 		}
 	}
 	
-	private void doHandleBatchSync() {
+	private void doHandleBatchSync(final boolean full) {
 		//fxdiff: also run on nodes != 1 as nodeid = tomcat-id in fx-environment
 //		if(WebappHelper.getNodeId() != 1) return;
 		
 		Runnable batchSyncTask = new Runnable() {
 			public void run() {
 				LDAPError errors = new LDAPError();
-				doBatchSync(errors);
+				doBatchSync(errors, full);
 			}				
 		};
-		taskExecutorManager.runTask(batchSyncTask);		
+		taskExecutorManager.execute(batchSyncTask);		
 	}
 
 	/**
@@ -336,11 +335,9 @@ public class LDAPLoginManagerImpl extends LDAPLoginManager implements GenericEve
 			return null;
 
 		List<String> ldapBases = LDAPLoginModule.getLdapBases();
-		String objctClass = LDAPLoginModule.getLdapUserObjectClass();
 		String[] serachAttr = { "dn" };
 		
-		String ldapUserIDAttribute = LDAPLoginModule.mapOlatPropertyToLdapAttribute(LDAPConstants.LDAP_USER_IDENTIFYER);
-		String filter = "(&(objectClass=" + objctClass + ")(" + ldapUserIDAttribute + "=" + uid + "))";
+		String filter = buildSearchUserFilter(uid);
 		SearchControls ctls = new SearchControls();
 		ctls.setSearchScope(SearchControls.SUBTREE_SCOPE);
 		ctls.setReturningAttributes(serachAttr);
@@ -365,6 +362,26 @@ public class LDAPLoginManagerImpl extends LDAPLoginManager implements GenericEve
 	}
 
 	/**
+	 * Build an LDAP search filter for the given user ID using the preconfigured filters
+	 * @param uid the user ID
+	 * @return the filter String
+	 */
+	private String buildSearchUserFilter(String uid) {
+		String ldapUserIDAttribute = LDAPLoginModule.mapOlatPropertyToLdapAttribute(LDAPConstants.LDAP_USER_IDENTIFYER);
+		String ldapUserFilter = LDAPLoginModule.getLdapUserFilter();
+		StringBuilder filter = new StringBuilder();
+		if (ldapUserFilter != null) {
+			// merge preconfigured filter (e.g. object class, group filters) with username using AND rule
+			filter.append("(&").append(ldapUserFilter);	
+		}
+		filter.append("(").append(ldapUserIDAttribute).append("=").append(uid).append(")");
+		if (ldapUserFilter != null) {
+			filter.append(")");	
+		}
+		return filter.toString();
+	}
+
+	/**
 	 * 
 	 * Creates list of all LDAP Users or changed Users since syncTime
 	 * 
@@ -384,22 +401,31 @@ public class LDAPLoginManagerImpl extends LDAPLoginManager implements GenericEve
 	 * @throws NamingException
 	 */
 	public List<Attributes> getUserAttributesModifiedSince(Date syncTime, LdapContext ctx) {
-		String objctClass = LDAPLoginModule.getLdapUserObjectClass();
+		String userFilter = LDAPLoginModule.getLdapUserFilter();
 		StringBuilder filter = new StringBuilder();
 		if (syncTime == null) {
 			logDebug("LDAP get user attribs since never -> full sync!");
-			filter.append("(objectClass=").append(objctClass).append(")");
+			if (filter != null) {
+				filter.append(userFilter);				
+			}
 		} else {
 			String dateFormat = LDAPLoginModule.getLdapDateFormat();
 			SimpleDateFormat generalizedTimeFormatter = new SimpleDateFormat(dateFormat);
 			generalizedTimeFormatter.setTimeZone(UTC_TIME_ZONE);
 			String syncTimeForm = generalizedTimeFormatter.format(syncTime);
 			logDebug("LDAP get user attribs since " + syncTime + " -> means search with date restriction-filter: " + syncTimeForm);
-			filter.append("(&(objectClass=").append(objctClass).append(")(|(");
+			if (userFilter != null) {
+				// merge user filter with time fileter using and rule
+				filter.append("(&").append(userFilter);				
+			}
+			filter.append("(|(");								
 			filter.append(LDAPLoginModule.getLdapUserLastModifiedTimestampAttribute()).append(">=").append(syncTimeForm);
 			filter.append(")(");
 			filter.append(LDAPLoginModule.getLdapUserCreatedTimestampAttribute()).append(">=").append(syncTimeForm);
-			filter.append(")))");
+			filter.append("))");
+			if (userFilter != null) {
+				filter.append(")");				
+			}
 		}
 		final List<Attributes> ldapUserList = new ArrayList<Attributes>();
 
@@ -544,7 +570,7 @@ public class LDAPLoginManagerImpl extends LDAPLoginManager implements GenericEve
 		}
 
 		// Create Identity
-		Identity identity = securityManager.createAndPersistIdentityAndUser(uid, user, LDAPAuthenticationController.PROVIDER_LDAP, uid, null);
+		Identity identity = securityManager.createAndPersistIdentityAndUser(uid, user, LDAPAuthenticationController.PROVIDER_LDAP, uid);
 		// Add to SecurityGroup LDAP
 		SecurityGroup secGroup = securityManager.findSecurityGroupByName(LDAPConstants.SECURITY_GROUP_LDAP);
 		securityManager.addIdentityToSecurityGroup(identity, secGroup);
@@ -662,14 +688,14 @@ public class LDAPLoginManagerImpl extends LDAPLoginManager implements GenericEve
 				Authentication ldapAuth = securityManager.findAuthentication(identity, LDAPAuthenticationController.PROVIDER_LDAP);
 				if(ldapAuth == null) {
 					//BUG Fixe: update the user and test if it has a ldap provider
-					securityManager.createAndPersistAuthentication(identity, LDAPAuthenticationController.PROVIDER_LDAP, identity.getName(), null);
+					securityManager.createAndPersistAuthentication(identity, LDAPAuthenticationController.PROVIDER_LDAP, identity.getName(), null, null);
 				}
 				return identity;
 			}
 			else {
 				if (LDAPLoginModule.isConvertExistingLocalUsersToLDAPUsers()) {
 					// Add user to LDAP security group and add the ldap provider
-					securityManager.createAndPersistAuthentication(identity, LDAPAuthenticationController.PROVIDER_LDAP, identity.getName(), null);
+					securityManager.createAndPersistAuthentication(identity, LDAPAuthenticationController.PROVIDER_LDAP, identity.getName(), null, null);
 					securityManager.addIdentityToSecurityGroup(identity, ldapGroup);
 					logInfo("Found identity by LDAP username that was not yet in LDAP security group. Converted user::" + uid
 							+ " to be an LDAP managed user");
@@ -705,7 +731,7 @@ public class LDAPLoginManagerImpl extends LDAPLoginManager implements GenericEve
 		if (ctx == null) return null;
 		// Find all LDAP Users
 		String userID = LDAPLoginModule.mapOlatPropertyToLdapAttribute(LDAPConstants.LDAP_USER_IDENTIFYER);
-		String objctClass = LDAPLoginModule.getLdapUserObjectClass();
+		String userFilter = LDAPLoginModule.getLdapUserFilter();
 		final List<String> ldapList = new ArrayList<String>();
 		
 		searchInLdap(new LdapVisitor() {
@@ -718,7 +744,7 @@ public class LDAPLoginManagerImpl extends LDAPLoginManager implements GenericEve
 					ldapList.add(attr.get().toString().toLowerCase());
 				}
 			}
-		}, "(objectClass=" + objctClass + ")", new String[] { userID }, ctx);
+		}, (userFilter == null ? "" : userFilter), new String[] { userID }, ctx);
 
 		if (ldapList.isEmpty()) {
 			logWarn("No users in LDAP found, can't create deletionList!!", null);
@@ -840,7 +866,8 @@ public class LDAPLoginManagerImpl extends LDAPLoginManager implements GenericEve
 	 * @param LDAPError
 	 * 
 	 */
-	public boolean doBatchSync(LDAPError errors) {
+	@Override
+	public boolean doBatchSync(LDAPError errors, boolean full) {
 		//fxdiff: also run on nodes != 1 as nodeid = tomcat-id in fx-environment
 //		if(WebappHelper.getNodeId() != 1) {
 //			logWarn("Sync happens only on node 1", null);
@@ -867,6 +894,10 @@ public class LDAPLoginManagerImpl extends LDAPLoginManager implements GenericEve
 		WorkThreadInformations.setLongRunningTask("ldapSync");
 		
 		coordinator.getEventBus().fireEventToListenersOf(new LDAPEvent(LDAPEvent.SYNCHING), ldapSyncLockOres);
+		
+		if(full) {
+			lastSyncDate = null;
+		}
 		
 		LdapContext ctx = null;
 		boolean success = false;

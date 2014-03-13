@@ -49,8 +49,8 @@ public class XingPropertyHandler extends Generic127CharTextPropertyHandler {
 	 *      org.olat.core.gui.components.form.ValidationError, java.util.Locale)
 	 */
 	@Override
-	public boolean isValidValue(String value, ValidationError validationError, Locale locale) {
-		if (!super.isValidValue(value, validationError, locale)) {
+	public boolean isValidValue(User user, String value, ValidationError validationError, Locale locale) {
+		if (!super.isValidValue(user, value, validationError, locale)) {
 			return false;
 		}
 		if (StringHelper.containsNonWhitespace(value)) {
@@ -85,9 +85,11 @@ public class XingPropertyHandler extends Generic127CharTextPropertyHandler {
 		// FXOLAT-343 ::  can't search by user-email on xing... just link to xing-homepage
 		String xingname = getUserProperty(user, locale);
 		if (StringHelper.containsNonWhitespace(xingname)) {
-			StringBuffer stringBuffer = new StringBuffer();
-			stringBuffer.append("<a href=\"http://www.xing.com\" target=\"_blank\">" + xingname + "</a>");
-			return stringBuffer.toString();
+			StringBuilder sb = new StringBuilder();
+			sb.append("<a href=\"http://www.xing.com\" target=\"_blank\">")
+			  .append(StringHelper.escapeHtml(xingname))
+			  .append("</a>");
+			return sb.toString();
 		} else {
 			return null;
 		}
@@ -98,7 +100,7 @@ public class XingPropertyHandler extends Generic127CharTextPropertyHandler {
 	 *      java.util.Map)
 	 */
 	@Override
-	public boolean isValid(FormItem formItem, Map formContext) {
+	public boolean isValid(User user, FormItem formItem, Map<String,String> formContext) {
 		TextElement textElement = (TextElement) formItem;
 		if (StringHelper.containsNonWhitespace(textElement.getValue())) {
 			return textElement.getValue().length() <= XING_NAME_MAX_LENGTH;

@@ -31,7 +31,6 @@ import java.util.UUID;
 
 import junit.framework.Assert;
 
-import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.olat.basesecurity.BaseSecurity;
@@ -41,13 +40,11 @@ import org.olat.basesecurity.SecurityGroupImpl;
 import org.olat.collaboration.CollaborationTools;
 import org.olat.collaboration.CollaborationToolsFactory;
 import org.olat.core.commons.persistence.DB;
-import org.olat.core.commons.persistence.DBFactory;
 import org.olat.core.id.Identity;
 import org.olat.core.id.Roles;
 import org.olat.core.id.User;
 import org.olat.core.logging.OLog;
 import org.olat.core.logging.Tracing;
-import org.olat.core.util.Encoder;
 import org.olat.core.util.mail.MailPackage;
 import org.olat.group.BusinessGroup;
 import org.olat.group.BusinessGroupService;
@@ -169,22 +166,12 @@ public class BusinessGroupServiceTest extends OlatTestCase {
 			bgWithWaitingList.setMaxParticipants(new Integer(2));
 			// Identities
 			String suffix = UUID.randomUUID().toString();
-			User UserWg1 = userManager.createAndPersistUser("FirstName_" + suffix, "LastName_" + suffix, suffix + "_junittest@olat.unizh.ch");
-			wg1 = securityManager.createAndPersistIdentity(suffix, UserWg1, BaseSecurityModule.getDefaultAuthProviderIdentifier(), suffix, Encoder.encrypt("wg1"));
+			User userWg1 = userManager.createAndPersistUser("FirstName_" + suffix, "LastName_" + suffix, suffix + "_junittest@olat.unizh.ch");
+			wg1 = securityManager.createAndPersistIdentity(suffix, userWg1, BaseSecurityModule.getDefaultAuthProviderIdentifier(), suffix, "wg1");
 
 			dbInstance.commitAndCloseSession();
 
 			initialize = true;
-	}
-	
-	@After
-	public void tearDown() throws Exception {
-		try {
-			DBFactory.getInstance().commitAndCloseSession();
-		} catch (Exception e) {
-			log.error("Exception in tearDown(): " + e);
-			throw e;
-		}
 	}
 	
 	@Test
@@ -225,7 +212,7 @@ public class BusinessGroupServiceTest extends OlatTestCase {
 		dbInstance.commitAndCloseSession();
 		
 		//check update
-		BusinessGroup updateGroup = businessGroupService.updateBusinessGroup(id, group, "up-1-b", "up-1-desc-b", new Integer(2), new Integer(3));
+		BusinessGroup updateGroup = businessGroupService.updateBusinessGroup(id, group, "up-1-b", "up-1-desc-b", null, null, new Integer(2), new Integer(3));
 		Assert.assertNotNull(updateGroup);
 		dbInstance.commitAndCloseSession();
 		
@@ -283,7 +270,7 @@ public class BusinessGroupServiceTest extends OlatTestCase {
 		dbInstance.commitAndCloseSession();
 
 		//update max participants
-		BusinessGroup updateGroup = businessGroupService.updateBusinessGroup(id0, group, "auto-1", "auto-1-desc", new Integer(0), new Integer(3));
+		BusinessGroup updateGroup = businessGroupService.updateBusinessGroup(id0, group, "auto-1", "auto-1-desc", null, null, new Integer(0), new Integer(3));
 		Assert.assertNotNull(updateGroup);
 		dbInstance.commitAndCloseSession();
 		
@@ -682,32 +669,33 @@ public class BusinessGroupServiceTest extends OlatTestCase {
 		List<BusinessGroup>  sqlRes = businessGroupService.findBusinessGroupsOwnedBy(id2, null);
 		BusinessGroup found = (BusinessGroup) sqlRes.get(0);
 		CollaborationTools myCTSMngr = CollaborationToolsFactory.getInstance().getOrCreateCollaborationTools(found);
-		for (int i = 0; i < CollaborationTools.TOOLS.length; i++) {
-			String msg = "Tool " + CollaborationTools.TOOLS[i] + " is enabled";
-			boolean enabled = myCTSMngr.isToolEnabled(CollaborationTools.TOOLS[i]);
+		String[] availableTools = CollaborationToolsFactory.getInstance().getAvailableTools().clone();
+		for (int i = 0; i < availableTools.length; i++) {
+			String msg = "Tool " + availableTools[i] + " is enabled";
+			boolean enabled = myCTSMngr.isToolEnabled(availableTools[i]);
 			// all tools are disabled by default exept the news tool
 			assertTrue(msg, !enabled);
 
 		}
 
-		for (int i = 0; i < CollaborationTools.TOOLS.length; i++) {
-			myCTSMngr.setToolEnabled(CollaborationTools.TOOLS[i], true);
+		for (int i = 0; i < availableTools.length; i++) {
+			myCTSMngr.setToolEnabled(availableTools[i], true);
 		}
 
-		for (int i = 0; i < CollaborationTools.TOOLS.length; i++) {
-			String msg = "Tool " + CollaborationTools.TOOLS[i] + " is enabled";
-			boolean enabled = myCTSMngr.isToolEnabled(CollaborationTools.TOOLS[i]);
+		for (int i = 0; i < availableTools.length; i++) {
+			String msg = "Tool " + availableTools[i] + " is enabled";
+			boolean enabled = myCTSMngr.isToolEnabled(availableTools[i]);
 			assertTrue(msg, enabled);
 
 		}
 
-		for (int i = 0; i < CollaborationTools.TOOLS.length; i++) {
-			myCTSMngr.setToolEnabled(CollaborationTools.TOOLS[i], false);
+		for (int i = 0; i < availableTools.length; i++) {
+			myCTSMngr.setToolEnabled(availableTools[i], false);
 		}
 
-		for (int i = 0; i < CollaborationTools.TOOLS.length; i++) {
-			String msg = "Tool " + CollaborationTools.TOOLS[i] + " is disabled";
-			boolean enabled = myCTSMngr.isToolEnabled(CollaborationTools.TOOLS[i]);
+		for (int i = 0; i < availableTools.length; i++) {
+			String msg = "Tool " + availableTools[i] + " is disabled";
+			boolean enabled = myCTSMngr.isToolEnabled(availableTools[i]);
 			assertTrue(msg, !enabled);
 		}
 	}
@@ -790,9 +778,10 @@ public class BusinessGroupServiceTest extends OlatTestCase {
 		assertTrue("1 BuddyGroup owned by id2", sqlRes.size() == 1);
 		BusinessGroup found = (BusinessGroup) sqlRes.get(0);
 		CollaborationTools myCTSMngr = CollaborationToolsFactory.getInstance().getOrCreateCollaborationTools(found);
+		String[] availableTools = CollaborationToolsFactory.getInstance().getAvailableTools().clone();
 
-		for (int i = 0; i < CollaborationTools.TOOLS.length; i++) {
-			myCTSMngr.setToolEnabled(CollaborationTools.TOOLS[i], true);
+		for (int i = 0; i < availableTools.length; i++) {
+			myCTSMngr.setToolEnabled(availableTools[i], true);
 		}
 
 		businessGroupService.deleteBusinessGroup(found);

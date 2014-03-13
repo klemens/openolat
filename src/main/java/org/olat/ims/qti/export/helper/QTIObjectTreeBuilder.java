@@ -33,6 +33,7 @@ import org.dom4j.Document;
 import org.dom4j.Element;
 import org.olat.ims.qti.process.ImsRepositoryResolver;
 import org.olat.ims.qti.process.Resolver;
+import org.olat.repository.RepositoryEntry;
 
 /**
  * <pre>
@@ -84,33 +85,23 @@ import org.olat.ims.qti.process.Resolver;
 
 public class QTIObjectTreeBuilder {
 
-	private Long repositoryEntryKey;
-	
-	/**
-	 * Constructor for QTIObjectTreeBuilder
-	 * @param repositoryEntryKey
-	 * @param downloadtrans
-	 * @param type
-	 * @param anonymizerCallback
-	 */
-	public QTIObjectTreeBuilder(Long repositoryEntryKey) {
-		this.repositoryEntryKey = repositoryEntryKey;
+	public List<QTIItemObject> getQTIItemObjectList(Long entryKey) {
+		Resolver resolver = new ImsRepositoryResolver(entryKey);
+		return getQTIItemObjectList(resolver);
 	}
 	
-	/**
-	 * 
-	 *
-	 */
-	public List getQTIItemObjectList() {
-		Resolver resolver = new ImsRepositoryResolver(repositoryEntryKey);
+	public List<QTIItemObject> getQTIItemObjectList(RepositoryEntry entry) {
+		Resolver resolver = new ImsRepositoryResolver(entry);
+		return getQTIItemObjectList(resolver);
+	}
+	
+	private final List<QTIItemObject> getQTIItemObjectList(Resolver resolver) {
 		Document doc = resolver.getQTIDocument();
 		Element root = doc.getRootElement();
-		List items = root.selectNodes("//item");
-		
-		ArrayList itemList = new ArrayList();
-
-		for (Iterator iter= items.iterator(); iter.hasNext();) {
-			Element el_item= (Element) iter.next();
+		List<Element> items = root.selectNodes("//item");
+		List<QTIItemObject> itemList = new ArrayList<QTIItemObject>();
+		for (Iterator<Element> iter= items.iterator(); iter.hasNext();) {
+			Element el_item= iter.next();
 			if (el_item.selectNodes(".//response_lid").size() > 0){
 				itemList.add(new ItemWithResponseLid(el_item));
 			}else if (el_item.selectNodes(".//response_str").size() > 0){

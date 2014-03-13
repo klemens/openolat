@@ -22,6 +22,7 @@ package org.olat.portfolio.ui;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.olat.collaboration.CollaborationToolsFactory;
 import org.olat.core.CoreSpringFactory;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.form.flexible.FormItem;
@@ -71,7 +72,7 @@ public class PortfolioAdminController extends FormBasicController  {
 	}
 
 	@Override
-	protected void initForm(FormItemContainer formLayout, Controller listener, @SuppressWarnings("unused") UserRequest ureq) {
+	protected void initForm(FormItemContainer formLayout, Controller listener, UserRequest ureq) {
 		if(formLayout instanceof FormLayoutContainer) {
 			FormLayoutContainer layoutContainer = (FormLayoutContainer)formLayout;
 			
@@ -119,7 +120,6 @@ public class PortfolioAdminController extends FormBasicController  {
 		//auto-disposed
 	}
 
-	@SuppressWarnings("unused")
 	@Override
 	protected void formOK(UserRequest ureq) {
 		//
@@ -131,6 +131,8 @@ public class PortfolioAdminController extends FormBasicController  {
 		if(source == portfolioEnabled) {
 			boolean enabled = portfolioEnabled.isSelected(0);
 			portfolioModule.setEnabled(enabled);
+			// update collaboration tools list
+			CollaborationToolsFactory.getInstance().initAvailableTools();
 			showWarning("portfolio.module.change.warning");
 		} else if(handlersEnabled.contains(source)) {
 			EPArtefactHandler<?> handler = (EPArtefactHandler<?>)source.getUserObject();

@@ -23,20 +23,13 @@ import java.io.IOException;
 import java.net.URISyntaxException;
 import java.net.URL;
 import java.util.Arrays;
-import java.util.UUID;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.ReentrantLock;
 
 import org.apache.commons.lang.ArrayUtils;
-import org.jboss.arquillian.config.descriptor.api.ArquillianDescriptor;
 import org.jboss.arquillian.container.test.api.Deployment;
 import org.jboss.arquillian.container.test.api.RunAsClient;
 import org.jboss.arquillian.drone.api.annotation.Drone;
-import org.jboss.arquillian.drone.impl.DroneConfigurator;
-import org.jboss.arquillian.drone.selenium.configuration.SeleniumConfiguration;
-import org.jboss.arquillian.drone.selenium.factory.DefaultSeleniumFactory;
-import org.jboss.arquillian.drone.spi.DroneConfiguration;
-import org.jboss.arquillian.drone.spi.Instantiator;
 import org.jboss.arquillian.junit.Arquillian;
 import org.jboss.arquillian.test.api.ArquillianResource;
 import org.jboss.shrinkwrap.api.spec.WebArchive;
@@ -61,13 +54,8 @@ import org.olat.util.browser.Student1;
 import org.olat.util.browser.Student2;
 import org.olat.util.browser.Tutor1;
 import org.olat.util.browser.Tutor2;
-import org.olat.util.browser.arquillian.Student;
-import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.context.ApplicationContext;
-import org.springframework.context.annotation.AnnotationConfigApplicationContext;
 
 import com.thoughtworks.selenium.DefaultSelenium;
-import com.thoughtworks.selenium.HttpCommandProcessor;
 import com.thoughtworks.selenium.Selenium;
 
 /**
@@ -96,7 +84,7 @@ public class FunctionalBlogTest {
 	public final static String CONCURRENT_CLEAR_CACHE_BLOG_POST1_CONTENT = "Please take a look at ReentrantLock class in JavaSE package java.util.concurrent.locks for further information.";
 	public final static String CONCURRENT_CLEAR_CACHE_BLOG_POST2_TITLE = "Creating conditions";
 	public final static String CONCURRENT_CLEAR_CACHE_BLOG_POST2_DESCRIPTION = "Wait until condition is fulfilled.";
-	public final static String CONCURRENT_CLEAR_CACHE_BLOG_POST2_CONTENT = "With the ReentrantLock class you may create new conditions like following:<br>\n<code>\nfinal Lock lock = new ReentrantLock();<br>\nfinal Condition cond  = lock.newCondition()<br>\n</code>\n";
+	public final static String CONCURRENT_CLEAR_CACHE_BLOG_POST2_CONTENT = "With the ReentrantLock class you may create new conditions like following:<br>\n<code>\nfinal Lock lock = new ReentrantLock();<br>\nfinal Condition cond = lock.newCondition()<br>\n</code>\n";
 	
 	public final static String CONCURRENT_RW_BLOG_SHORT_TITLE = "blog";
 	public final static String CONCURRENT_RW_BLOG_LONG_TITLE = "blog cleared cache";
@@ -502,6 +490,7 @@ public class FunctionalBlogTest {
 		Assert.assertTrue(functionalUtil.logout(browser));
 	}
 	
+	@Ignore
 	@Test
 	@RunAsClient
 	public void checkConcurrentTutors(@Drone @Tutor1 DefaultSelenium tutor0, @Drone @Tutor2 DefaultSelenium tutor1) throws IOException, URISyntaxException{

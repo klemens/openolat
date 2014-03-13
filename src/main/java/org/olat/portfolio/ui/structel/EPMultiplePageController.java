@@ -37,6 +37,7 @@ import org.olat.core.id.OLATResourceable;
 import org.olat.core.id.context.ContextEntry;
 import org.olat.core.id.context.StateEntry;
 import org.olat.core.util.Formatter;
+import org.olat.core.util.StringHelper;
 import org.olat.core.util.resource.OresHelper;
 import org.olat.portfolio.EPSecurityCallback;
 import org.olat.portfolio.manager.EPFrontendManager;
@@ -78,7 +79,7 @@ public class EPMultiplePageController extends BasicController implements Activat
 		this.pageList = pageList;
 		this.pageListByKeys = new ArrayList<Long>(pageList.size());
 		this.secCallback = secCallback;
-		ePFMgr = (EPFrontendManager) CoreSpringFactory.getBean("epFrontendManager");
+		ePFMgr = CoreSpringFactory.getImpl(EPFrontendManager.class);
 
 		vC = createVelocityContainer("multiPages");
 
@@ -110,15 +111,15 @@ public class EPMultiplePageController extends BasicController implements Activat
 			changelogLink.setUserObject(PAGENUM_CL);
 
 			int i = 1;
-			ArrayList<Link> pageLinkList = new ArrayList<Link>();
+			List<Link> pageLinkList = new ArrayList<Link>();
 			for (PortfolioStructure page : pageList) {
 				pageListByKeys.add(page.getKey());
-				String pageTitle = ((EPPage) page).getTitle();
+				String pageTitle =StringHelper.escapeHtml(page.getTitle());
 				String shortPageTitle = Formatter.truncate(pageTitle, 20);
 				Link pageLink = LinkFactory
 						.createCustomLink("pageLink" + i, "pageLink" + i, shortPageTitle, Link.LINK + Link.NONTRANSLATED, vC, this);
 				pageLink.setUserObject(i - 1);
-				pageLink.setTooltip(pageTitle, false);
+				pageLink.setTooltip(pageTitle);
 				pageLinkList.add(pageLink);
 				i++;
 			}
@@ -195,7 +196,7 @@ public class EPMultiplePageController extends BasicController implements Activat
 	private void setAndInitTOCPage(UserRequest ureq) {
 		// this is the toc
 		if (tocPageCtrl == null) {
-			EPPage page = (EPPage) pageList.get(0);
+			PortfolioStructure page = pageList.get(0);
 			PortfolioStructure map = ePFMgr.loadStructureParent(page);
 			tocPageCtrl = new EPTOCReadOnlyController(ureq, getWindowControl(), map, secCallback);
 			listenTo(tocPageCtrl);
@@ -266,7 +267,7 @@ public class EPMultiplePageController extends BasicController implements Activat
 	}
 
 	@Override
-	protected void event(UserRequest ureq, Component source, @SuppressWarnings("unused") Event event) {
+	protected void event(UserRequest ureq, Component source, Event event) {
 		if (source instanceof Link) {
 			Link link = (Link) source;
 			int pageNum = PAGENUM_TOC;

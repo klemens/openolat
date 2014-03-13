@@ -32,7 +32,9 @@ import java.util.Locale;
 import java.util.Map;
 
 import org.olat.basesecurity.BaseSecurityManager;
+import org.olat.basesecurity.BaseSecurityModule;
 import org.olat.basesecurity.IdentityShort;
+import org.olat.core.CoreSpringFactory;
 import org.olat.core.commons.modules.bc.commands.FolderCommand;
 import org.olat.core.commons.modules.bc.commands.FolderCommandStatus;
 import org.olat.core.gui.UserRequest;
@@ -60,6 +62,7 @@ import org.olat.core.util.vfs.VFSRevisionMediaResource;
 import org.olat.core.util.vfs.version.VFSRevision;
 import org.olat.core.util.vfs.version.Versionable;
 import org.olat.core.util.vfs.version.Versions;
+import org.olat.user.UserManager;
 
 /**
  * 
@@ -88,15 +91,18 @@ public class RevisionListController extends BasicController {
 	private DialogBoxController confirmDeleteBoxCtr;
 	private final VelocityContainer mainVC;
 	private final boolean isAdmin;
+	private final UserManager userManager;
 
-	public RevisionListController(UserRequest ureq, WindowControl wControl, Versionable versionedFile) {
-		this(ureq, wControl, versionedFile, null, null);
+	public RevisionListController(UserRequest ureq, WindowControl wControl, Versionable versionedFile, boolean readOnly) {
+		this(ureq, wControl, versionedFile, null, null, readOnly);
 	}
 
-	public RevisionListController(UserRequest ureq, WindowControl wControl, Versionable versionedFile, String title, String description) {
+	public RevisionListController(UserRequest ureq, WindowControl wControl, Versionable versionedFile,
+			String title, String description, boolean readOnly) {
 		super(ureq, wControl);
-		
-		isAdmin = ureq.getUserSession().getRoles().isOLATAdmin();
+		isAdmin = CoreSpringFactory.getImpl(BaseSecurityModule.class)
+				.isUserAllowedAdminProps(ureq.getUserSession().getRoles());
+		userManager = CoreSpringFactory.getImpl(UserManager.class);
 		
 		//reload the file with all possible precautions
 		VFSLeaf versionedLeaf = null;
@@ -140,10 +146,13 @@ public class RevisionListController extends BasicController {
 		revisionListTableCtr.addColumnDescriptor(new DefaultColumnDescriptor("version.date", 3, null, ureq.getLocale()));
 		revisionListTableCtr.addColumnDescriptor(new StaticColumnDescriptor(CMD_DOWNLOAD, "version.download", getTranslator().translate(
 				"version.download")));
-		revisionListTableCtr.addColumnDescriptor(new StaticColumnDescriptor(CMD_RESTORE, "version.restore", getTranslator().translate(
-				"version.restore")));
-
-		revisionListTableCtr.addMultiSelectAction("delete", CMD_DELETE);
+		//read only cannot restore / delete
+		if(!readOnly) {
+			revisionListTableCtr.addColumnDescriptor(new StaticColumnDescriptor(CMD_RESTORE, "version.restore", getTranslator().translate(
+					"version.restore")));
+			revisionListTableCtr.addMultiSelectAction("delete", CMD_DELETE);
+		}
+		
 		revisionListTableCtr.addMultiSelectAction("cancel", CMD_CANCEL);
 		revisionListTableCtr.setMultiSelect(true);
 		loadModel(versionedLeaf);
@@ -251,6 +260,7 @@ public class RevisionListController extends BasicController {
 			}
 		} else if (source == confirmDeleteBoxCtr) {
 			if (DialogBoxUIFactory.isYesEvent(event)) {
+				@SuppressWarnings("unchecked")
 				List<VFSRevision> selectedVersions = (List<VFSRevision>) confirmDeleteBoxCtr.getUserObject();
 				versionedFile.getVersions().delete(ureq.getIdentity(), selectedVersions);
 				status = FolderCommandStatus.STATUS_SUCCESS;
@@ -275,7 +285,7 @@ public class RevisionListController extends BasicController {
 		return results;
 	}
 
-	public class RevisionListDataModel extends BaseTableDataModelWithoutFilter implements TableDataModel {
+	public class RevisionListDataModel extends BaseTableDataModelWithoutFilter<VFSRevision> implements TableDataModel<VFSRevision> {
 		private final DateFormat format;
 		private final List<VFSRevision> versionList;
 		private final Calendar cal = Calendar.getInstance();
@@ -329,10 +339,7 @@ public class RevisionListController extends BasicController {
 			}
 			
 			StringBuilder sb = new StringBuilder();
-			sb.append(id.getFirstName())
-			  .append(" ")
-			  .append(id.getLastName());
-			
+			sb.append(userManager.getUserDisplayName(id));
 			if(isAdmin) {
 				sb.append(" (").append(name).append(")");
 			}

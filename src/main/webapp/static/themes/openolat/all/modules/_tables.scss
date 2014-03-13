@@ -9,16 +9,33 @@ table {
 	border-bottom: 0px solid white; 
 	
 	caption { font-variant:small-caps; }
-	&.b_full { width: 99.5%; }
 	&.fixed { table-layout:fixed; }
 	
 	 th,td { padding:0.3em; }
-	 thead th { color:inherit; border-bottom:1px solid #ccc; }
+	 thead th { 
+	 	color: inherit; 
+	 	border-bottom:1px solid #ccc; 
+	 }
 	 
 	 tbody{
-	 	/* olat odd rows */
-		tr.b_table_odd td {  background: #eee; }
+	 	/* odd and even rows and rollover effect */
+		tr {
+			&.b_table_odd td { 
+				background: #eee; 
+			}
+			&.b_row_selected td { 
+				background: $selectcolor_light; 
+			}
+		}
+		
 	 }
+}
+
+div.b_table_drag {
+	padding:5px;
+	@include o-border-radius($di_border_radius);
+	border:1px solid $basecolor;
+	@include o-box-shadow(0px,0px,6px,rgba(0,0,0,0.3));
 }
 	
 	
@@ -28,8 +45,18 @@ div.b_table_wrapper {
 		width: 99.5%;
 		margin-left: 1px;
 		border:1px solid $basegray_ultra_light;
-		tbody{
-			tr:hover td { background: $basecolor_ultra_light; ; }
+		thead, thead a { 
+	 		color: $tablecolor_header; 
+	 	}		
+	 	tbody{
+			tr:hover td { background: $selectcolor_ultra_light; }
+			tr.b_row_selected:hover td { background: $selectcolor_light; }
+			a {
+				color: $tablecolor_links;
+				&:hover {
+					color: $tablecolor_links_hover;
+				}
+			}
 		}
 	}
 	
@@ -54,7 +81,69 @@ div.b_table_wrapper {
 		margin: 1em 0;
 	}
 	
+	div.b_table_footer {
+		float:left;
+		margin: 5px 0 0 10px;
+	}
+	
+	div.dataTables_info {
+		float:left;
+		margin: 5px 0 0 0;
+	}
+	
+	
+	
+	.dataTables_wrapper {
+		.paginate_enabled_previous{background:url('../openolat/images/arrow_left.png') no-repeat top left}
+		.paginate_enabled_previous:hover{background:url('../openolat/images/arrow_left.png') no-repeat top left}
+		.paginate_disabled_previous{background:url('../openolat/images/arrow_left.png') no-repeat top left}
+		.paginate_enabled_next{background:url('../openolat/images/arrow_right.png') no-repeat top right}
+		.paginate_enabled_next:hover{background:url('../openolat/images/arrow_right.png') no-repeat top right}
+		.paginate_disabled_next{background:url('../openolat/images/arrow_right.png') no-repeat top right}
+		
+		.sorting{background:url('../openolat/images/arrow-resize-090.png') no-repeat center right}
+		.sorting_asc{background:url('../openolat/images/arrow_up.png') no-repeat center right}
+		.sorting_desc{background:url('../openolat/images/arrow_down.png') no-repeat center right}
+		.sorting_asc_disabled{background:url('../openolat/images/arrow_up.png') no-repeat center right}
+		.sorting_desc_disabled{background:url('../openolat/images/arrow_down.png') no-repeat center right}
+	
+		div.dataTables_scrollBody {
+			table.dataTable {
+				border-top: none;
+			  thead th {
+					border:none;
+				}
+			}
+		}
+
+		table.dataTable {
+			thead th {
+				border-bottom: 1px solid #ccc;
+				color: $tablecolor_header;
+			}
+			tbody a {
+				color: $tablecolor_links;
+				&:hover {
+					color: $tablecolor_links_hover;
+				}
+			}
+		
+			tr.even td.sorting_1 {
+				background: #eee;
+			}
+			
+			tr.odd {
+				background-color: #fff;
+			
+				td.sorting_1 {
+					background: #fff;
+				}
+			}
+		}
+	}
 }
+
+
 	
 /* table paging */
 div.b_table_page { 

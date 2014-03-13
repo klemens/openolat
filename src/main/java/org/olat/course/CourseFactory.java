@@ -26,8 +26,11 @@
 package org.olat.course;
 
 import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Date;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
@@ -35,7 +38,9 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.zip.ZipOutputStream;
 
+import org.apache.poi.util.IOUtils;
 import org.olat.basesecurity.BaseSecurity;
 import org.olat.basesecurity.BaseSecurityManager;
 import org.olat.basesecurity.Constants;
@@ -49,6 +54,7 @@ import org.olat.core.commons.fullWebApp.LayoutMain3ColsController;
 import org.olat.core.commons.modules.bc.FolderConfig;
 import org.olat.core.commons.modules.bc.vfs.OlatRootFolderImpl;
 import org.olat.core.commons.persistence.DBFactory;
+import org.olat.core.commons.services.taskexecutor.TaskExecutorManager;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.htmlheader.jscss.CustomCSS;
 import org.olat.core.gui.components.stack.StackedController;
@@ -130,6 +136,7 @@ import org.olat.resource.OLATResourceManager;
 import org.olat.resource.references.ReferenceImpl;
 import org.olat.resource.references.ReferenceManager;
 import org.olat.testutils.codepoints.server.Codepoint;
+import org.olat.user.UserManager;
 import org.olat.util.logging.activity.LoggingResourceable;
 
 
@@ -144,7 +151,7 @@ import org.olat.util.logging.activity.LoggingResourceable;
  */
 public class CourseFactory extends BasicManager {
 		
-	private static CacheWrapper loadedCourses;
+	private static CacheWrapper<Long,PersistingCourseImpl> loadedCourses;
 	private static ConcurrentHashMap<Long, ModifyCourseEvent> modifyCourseEvents = new ConcurrentHashMap<Long, ModifyCourseEvent>();
 
 	public static final String COURSE_EDITOR_LOCK = "courseEditLock";
@@ -176,22 +183,22 @@ public class CourseFactory extends BasicManager {
 	 * 
 	 * @param ureq
 	 * @param wControl
-	 * @param olatResource
+	 * @param re
 	 * @param initialViewIdentifier if null the default view will be started,
 	 *          otherwise a controllerfactory type dependant view will be
 	 *          activated (subscription subtype)
 	 * @return run controller for the given course resourceable
 	 */
-	public static MainLayoutController createLaunchController(UserRequest ureq, WindowControl wControl, final OLATResourceable olatResource) {
-		ICourse course = loadCourse(olatResource);
-		boolean isDebug = Tracing.isDebugEnabled(CourseFactory.class);
+	public static MainLayoutController createLaunchController(UserRequest ureq, WindowControl wControl, final RepositoryEntry re) {
+		ICourse course = loadCourse(re.getOlatResource());
+		boolean isDebug = log.isDebug();
 		long startT = 0;
 		if(isDebug){
 			startT = System.currentTimeMillis();
 		}
-		MainLayoutController launchC = new RunMainController(ureq, wControl, course, true, true);
+		MainLayoutController launchC = new RunMainController(ureq, wControl, course, re, true, true);
 		if(isDebug){
-			Tracing.logDebug("Runview for [["+course.getCourseTitle()+"]] took [ms]"+(System.currentTimeMillis() - startT), CourseFactory.class);
+			log.debug("Runview for [["+course.getCourseTitle()+"]] took [ms]"+(System.currentTimeMillis() - startT));
 		}
 		
 		return launchC;
@@ -206,15 +213,17 @@ public class CourseFactory extends BasicManager {
 	 * @return editor controller for the given course resourceable; if the editor
 	 *         is already locked, it returns a controller with a lock message
 	 */
-	public static Controller createEditorController(UserRequest ureq, WindowControl wControl, StackedController stack, OLATResourceable olatResource) {
+	public static Controller createEditorController(UserRequest ureq, WindowControl wControl, StackedController stack,
+			OLATResourceable olatResource, CourseNode selectedNode) {
 		ICourse course = loadCourse(olatResource);
-		EditorMainController emc = new EditorMainController(ureq, wControl, course, stack);
+		EditorMainController emc = new EditorMainController(ureq, wControl, course, stack, selectedNode);
 		if (!emc.getLockEntry().isSuccess()) {
 			// get i18n from the course runmaincontroller to say that this editor is
 			// already locked by another person
 
 			Translator translator = Util.createPackageTranslator(RunMainController.class, ureq.getLocale());
-			wControl.setWarning(translator.translate("error.editoralreadylocked", new String[] { emc.getLockEntry().getOwner().getName() }));
+			String lockerName = CoreSpringFactory.getImpl(UserManager.class).getUserDisplayName(emc.getLockEntry().getOwner());
+			wControl.setWarning(translator.translate("error.editoralreadylocked", new String[] { lockerName }));
 			return null;
 		}
 		//set the logger if editor is started
@@ -312,7 +321,7 @@ public class CourseFactory extends BasicManager {
 	 * @return the PersistingCourseImpl instance for the input key.
 	 */
 	static PersistingCourseImpl getCourseFromCache(Long resourceableId) {	//o_clusterOK by:ld    
-		return (PersistingCourseImpl)loadedCourses.get(String.valueOf(resourceableId.longValue()));
+		return loadedCourses.get(resourceableId);
 	}
 
 	/**
@@ -321,8 +330,8 @@ public class CourseFactory extends BasicManager {
 	 * @param course
 	 */
 	static void putCourseInCache(Long resourceableId, PersistingCourseImpl course) { //o_clusterOK by:ld    
-		loadedCourses.put(String.valueOf(resourceableId.longValue()), course);
-		Tracing.logDebug("putCourseInCache ", CourseFactory.class);
+		loadedCourses.put(resourceableId, course);
+		log.debug("putCourseInCache ");
 	}
 			
 	/**
@@ -330,8 +339,8 @@ public class CourseFactory extends BasicManager {
 	 * @param resourceableId
 	 */
 	private static void removeFromCache(Long resourceableId) { //o_clusterOK by: ld
-		loadedCourses.remove(String.valueOf(resourceableId.longValue()));	
-		Tracing.logDebug("removeFromCache ", CourseFactory.class);
+		loadedCourses.remove(resourceableId);	
+		log.debug("removeFromCache");
 	}
 	
 	/**
@@ -340,8 +349,8 @@ public class CourseFactory extends BasicManager {
 	 * @param course
 	 */
 	private static void updateCourseInCache(Long resourceableId, PersistingCourseImpl course) { //o_clusterOK by:ld    
-		loadedCourses.update(String.valueOf(resourceableId.longValue()), course);				
-		Tracing.logDebug("updateCourseInCache ", CourseFactory.class);
+		loadedCourses.update(resourceableId, course);				
+		log.debug("updateCourseInCache");
 	}
 
 	/**
@@ -387,6 +396,10 @@ public class CourseFactory extends BasicManager {
 		if(course != null) {
 			CourseConfigManagerImpl.getInstance().deleteConfigOf(course);
 		}
+		
+		//clean up tasks
+		OLATResource resource = course.getCourseEnvironment().getCourseGroupManager().getCourseResource();
+		CoreSpringFactory.getImpl(TaskExecutorManager.class).delete(resource);
 		
 		// delete course group- and rightmanagement
 		CourseGroupManager courseGroupManager = PersistingCourseGroupManager.getInstance(res);
@@ -519,22 +532,23 @@ public class CourseFactory extends BasicManager {
 	 * @param fTargetZIP
 	 * @return true if successfully exported, false otherwise.
 	 */
-	public static void exportCourseToZIP(OLATResourceable sourceRes, File fTargetZIP, boolean backwardsCompatible) {
+	public static void exportCourseToZIP(OLATResourceable sourceRes, File fTargetZIP, boolean runtimeDatas, boolean backwardsCompatible) {
 		PersistingCourseImpl sourceCourse = (PersistingCourseImpl) loadCourse(sourceRes);
 
 		// add files to ZIP
 		File fExportDir = new File(WebappHelper.getTmpDir(), CodeHelper.getUniqueID());
 		fExportDir.mkdirs();
+		log.info("Export folder: " + fExportDir);
 		synchronized (sourceCourse) { //o_clusterNOK - cannot be solved with doInSync since could take too long (leads to error: "Lock wait timeout exceeded")
 			OLATResource courseResource = sourceCourse.getCourseEnvironment().getCourseGroupManager().getCourseResource();
-			sourceCourse.exportToFilesystem(courseResource, fExportDir, backwardsCompatible);
-			Codepoint.codepoint(CourseFactory.class, "longExportCourseToZIP");
+			sourceCourse.exportToFilesystem(courseResource, fExportDir, runtimeDatas, backwardsCompatible);
 			Set<String> fileSet = new HashSet<String>();
 			String[] files = fExportDir.list();
 			for (int i = 0; i < files.length; i++) {
 				fileSet.add(files[i]);
 			}
 			ZipUtil.zip(fileSet, fExportDir, fTargetZIP, false);
+			log.info("Delete export folder: " + fExportDir);
 			FileUtils.deleteDirsAndFiles(fExportDir, true, true);
 		}
 	}
@@ -590,7 +604,7 @@ public class CourseFactory extends BasicManager {
 		ICourse course = CourseFactory.importCourseFromZip(newCourseResource, exportedCourseZIPFile);
 		// course is now also in course cache!
 		if (course == null) {
-			Tracing.logError("Error deploying course from ZIP: " + exportedCourseZIPFile.getAbsolutePath(), CourseFactory.class);
+			log.error("Error deploying course from ZIP: " + exportedCourseZIPFile.getAbsolutePath());
 			return null;
 		}
 		File courseExportData = course.getCourseExportDataDir().getBasefile();
@@ -603,7 +617,7 @@ public class CourseFactory extends BasicManager {
 		}
 		RepositoryEntry existingEntry = repositoryManager.lookupRepositoryEntryBySoftkey(softKey, false);
 		if (existingEntry != null) {
-			Tracing.logInfo("RepositoryEntry with softkey " + softKey + " already exists. Course will not be deployed.", CourseFactory.class);
+			log.info("RepositoryEntry with softkey " + softKey + " already exists. Course will not be deployed.");
 			//seem to be a problem
 			UserCourseInformationsManager userCourseInformationsManager = CoreSpringFactory.getImpl(UserCourseInformationsManager.class);
 			userCourseInformationsManager.deleteUserCourseInformations(existingEntry);
@@ -678,7 +692,7 @@ public class CourseFactory extends BasicManager {
 		closeCourseEditSession(course.getResourceableId(), true);
 		// cleanup export data
 		FileUtils.deleteDirsAndFiles(courseExportData, true, true);
-		Tracing.logInfo("Successfully deployed course " + re.getDisplayname() + " from ZIP: " + exportedCourseZIPFile.getAbsolutePath(), CourseFactory.class);
+		log.info("Successfully deployed course " + re.getDisplayname() + " from ZIP: " + exportedCourseZIPFile.getAbsolutePath());
 		return re;
 	}
 	
@@ -742,19 +756,20 @@ public class CourseFactory extends BasicManager {
 	 * @param locale
 	 * @param identity
 	 */
-	public static void publishCourse(ICourse course, Identity identity, Locale locale) {
+	public static void publishCourse(ICourse course, int access, boolean membersOnly, Identity identity, Locale locale) {
 		 CourseEditorTreeModel cetm = course.getEditorTreeModel();
 		 PublishProcess publishProcess = PublishProcess.getInstance(course, cetm, locale);
 		 PublishTreeModel publishTreeModel = publishProcess.getPublishTreeModel();
 
-		 int newAccess = RepositoryEntry.ACC_USERS;
+		 int newAccess = (access < RepositoryEntry.ACC_OWNERS || access > RepositoryEntry.ACC_USERS_GUESTS)
+				 ? RepositoryEntry.ACC_USERS : access;
 		 //access rule -> all users can the see course
 		 //RepositoryEntry.ACC_OWNERS
 		 //only owners can the see course
 		 //RepositoryEntry.ACC_OWNERS_AUTHORS //only owners and authors can the see course
 		 //RepositoryEntry.ACC_USERS_GUESTS // users and guests can see the course
 		 //fxdiff VCRP-1,2: access control of resources
-		 publishProcess.changeGeneralAccess(null, newAccess, false);
+		 publishProcess.changeGeneralAccess(null, newAccess, membersOnly);
 		 
 		 if (publishTreeModel.hasPublishableChanges()) {
 			 List<String>nodeToPublish = new ArrayList<String>();
@@ -769,11 +784,16 @@ public class CourseFactory extends BasicManager {
 					 return;
 				 }
 			 }
+			 
+			 try {
+				 course = CourseFactory.openCourseEditSession(course.getResourceableId());
+				 publishProcess.applyPublishSet(identity, locale);
+			 } catch(Exception e) {
+				 log.error("",  e);
+			 } finally {
+				 closeCourseEditSession(course.getResourceableId(), true);
+			 }
 		 }
-
-		 course = CourseFactory.openCourseEditSession(course.getResourceableId());
-		 publishProcess.applyPublishSet(identity, locale);
-		 closeCourseEditSession(course.getResourceableId(), true);
 	}
 	
 	/**
@@ -819,7 +839,7 @@ public class CourseFactory extends BasicManager {
 			ContextEntry ce = BusinessControlFactory.getInstance().createContextEntry(entry);
 			WindowControl bwControl = BusinessControlFactory.getInstance().createBusinessWindowControl(ce, wControl);	
 			
-			RunMainController launchC = new RunMainController(ureq, bwControl, course, false, false);
+			RunMainController launchC = new RunMainController(ureq, bwControl, course, entry, false, false);
 			return launchC;			
 		}		
 	}
@@ -900,10 +920,10 @@ public class CourseFactory extends BasicManager {
 	 * @return The file representing the dat export directory
 	 */
 	public static File getOrCreateDataExportDirectory(Identity identity, String courseName) {
-		File exportFolder = new File( // folder where exported user data should be
-				// put
-				FolderConfig.getCanonicalRoot() + FolderConfig.getUserHomes() + "/" + identity.getName() + "/private/archive/"
-						+ Formatter.makeStringFilesystemSave(courseName));
+		String courseFolder = StringHelper.transformDisplayNameToFileSystemName(courseName);
+		// folder where exported user data should be put
+		File exportFolder = new File(FolderConfig.getCanonicalRoot() + FolderConfig.getUserHomes() + "/" + identity.getName() + "/private/archive/"
+						+ courseFolder);
 		if (exportFolder.exists()) {
 			if (!exportFolder.isDirectory()) { throw new OLATRuntimeException(ExportUtil.class, "File " + exportFolder.getAbsolutePath()
 					+ " already exists but it is not a folder!", null); }
@@ -1167,93 +1187,82 @@ public class CourseFactory extends BasicManager {
 		int numOfChildren = node.getChildCount();
 		for (int i = 0; i < numOfChildren; i++) {
 			INode child = node.getChildAt(i);
-			if (child instanceof TreeNode) {
+			if (child instanceof TreeNode && publishTreeModel.isVisible(child)) {
 				nodeToPublish.add(child.getIdent());
-				visitPublishModel((TreeNode) child, publishTreeModel, nodeToPublish);
+				visitPublishModel((TreeNode)child, publishTreeModel, nodeToPublish);
 			}
 		}
 	}
-}
+	
+	private static class NodeArchiveVisitor implements Visitor {
+		private File exportPath;
+		private Locale locale;
+		private ICourse course;
+		private String charset;
 
+		/**
+		 * @param locale
+		 * @param course
+		 * @param exportPath
+		 * @param charset
+		 */
+		public NodeArchiveVisitor(Locale locale, ICourse course, File exportPath, String charset) {
+			this.locale = locale;
+			this.exportPath = exportPath;
+			//o_clusterOk by guido: save to hold reference to course inside editor
+			this.course = course;
+			this.charset = charset;
+		}
 
+		/**
+		 * @see org.olat.core.util.tree.Visitor#visit(org.olat.core.util.nodes.INode)
+		 */
+		public void visit(INode node) {
+			CourseNode cn = (CourseNode) node;
 
-/**
-* OLAT - Online Learning and Training<br>
-* http://www.olat.org
-* <p>
-* Licensed under the Apache License, Version 2.0 (the "License"); <br>
-* you may not use this file except in compliance with the License.<br>
-* You may obtain a copy of the License at
-* <p>
-* http://www.apache.org/licenses/LICENSE-2.0
-* <p>
-* Unless required by applicable law or agreed to in writing,<br>
-* software distributed under the License is distributed on an "AS IS" BASIS, <br>
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. <br>
-* See the License for the specific language governing permissions and <br>
-* limitations under the License.
-* <p>
-* Copyright (c) since 2004 at Multimedia- & E-Learning Services (MELS),<br>
-* University of Zurich, Switzerland.
-* <hr>
-* <a href="http://www.openolat.org">
-* OpenOLAT - Online Learning and Training</a><br>
-* This file has been modified by the OpenOLAT community. Changes are licensed
-* under the Apache 2.0 license as the original file.
-*/
-
-class NodeArchiveVisitor implements Visitor {
-	private File exportPath;
-	private Locale locale;
-	private ICourse course;
-	private String charset;
-
-	/**
-	 * @param locale
-	 * @param course
-	 * @param exportPath
-	 * @param charset
-	 */
-	public NodeArchiveVisitor(Locale locale, ICourse course, File exportPath, String charset) {
-		this.locale = locale;
-		this.exportPath = exportPath;
-		//o_clusterOk by guido: save to hold reference to course inside editor
-		this.course = course;
-		this.charset = charset;
+			String archiveName = cn.getType() + "_"
+					+ StringHelper.transformDisplayNameToFileSystemName(cn.getShortName())
+					+ "_" + Formatter.formatDatetimeFilesystemSave(new Date(System.currentTimeMillis()));
+			
+			FileOutputStream fileStream = null;
+			ZipOutputStream exportStream = null;
+			try {
+				File exportFile = new File(exportPath, archiveName);
+				fileStream = new FileOutputStream(exportFile);
+				exportStream = new ZipOutputStream(fileStream);
+				cn.archiveNodeData(locale, course, null, exportStream, charset);
+			} catch (FileNotFoundException e) {
+				log.error("", e);
+			} finally {
+				IOUtils.closeQuietly(exportStream);
+				IOUtils.closeQuietly(fileStream);
+			}
+		}
 	}
+	
+	private static class NodeDeletionVisitor implements Visitor {
 
-	/**
-	 * @see org.olat.core.util.tree.Visitor#visit(org.olat.core.util.nodes.INode)
-	 */
-	public void visit(INode node) {
-		CourseNode cn = (CourseNode) node;
-		cn.archiveNodeData(locale, course, exportPath, charset);
+		private ICourse course;
+
+		/**
+		 * Constructor of the node deletion visitor
+		 * 
+		 * @param course
+		 */
+		public NodeDeletionVisitor(ICourse course) {
+			this.course = course;
+		}
+
+		/**
+		 * Visitor pattern to delete the course nodes
+		 * 
+		 * @see org.olat.core.util.tree.Visitor#visit(org.olat.core.util.nodes.INode)
+		 */
+		public void visit(INode node) {
+			CourseNode cNode = (CourseNode) node;
+			cNode.cleanupOnDelete(course);
+		}
 	}
-}
-
-class NodeDeletionVisitor implements Visitor {
-
-	private ICourse course;
-
-	/**
-	 * Constructor of the node deletion visitor
-	 * 
-	 * @param course
-	 */
-	public NodeDeletionVisitor(ICourse course) {
-		this.course = course;
-	}
-
-	/**
-	 * Visitor pattern to delete the course nodes
-	 * 
-	 * @see org.olat.core.util.tree.Visitor#visit(org.olat.core.util.nodes.INode)
-	 */
-	public void visit(INode node) {
-		CourseNode cNode = (CourseNode) node;
-		cNode.cleanupOnDelete(course);
-	}
-
 }
 
 /**
@@ -1267,7 +1276,7 @@ class NodeDeletionVisitor implements Visitor {
  * @author Lavinia Dumitrescu
  */
 class ModifyCourseEvent extends MultiUserEvent {
-
+	private static final long serialVersionUID = -2940724437608086461L;
 	private final Long courseId;
 	/**
 	 * @param command
@@ -1280,6 +1289,4 @@ class ModifyCourseEvent extends MultiUserEvent {
 	public Long getCourseId() {
 		return courseId;
 	}
-
-	
 }
