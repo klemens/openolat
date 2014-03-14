@@ -1,3 +1,34 @@
+/* stats */
+a.o_print_icon { background-image: url('../openolat/images/printer.png'); }
+a.o_print_icon span { display:none; }
+
+.d3chart {
+	.bar_green { fill: #9dd53a; }
+	.bar_red { fill: #f85032; }
+	.bar_grey { fill: lightgrey; }
+}
+
+div.o_qti_statistics {
+	ul { list-style-type: none; padding:0; margin:0; }
+	li { padding-left: 22px; }
+	
+	li.o_qti_statistics-survey-item { padding-left: 0px; }
+	li.o_qti_statistics-ncorrect { background: url(../img/decorator_error.png) no-repeat 5px 4px; }
+	li.o_qti_statistics-correct { background: url(../img/decorator_ok.png) no-repeat 5px 2px; }
+
+	h4 {
+		&.qti-qtype1 {padding-left:20px; background: url(../img/scItem.png) no-repeat;}
+
+		&.qti-qtype2 {padding-left:20px; background: url(../img/mcItem.png) no-repeat;}
+	
+		&.qti-qtype3 {padding-left:20px; background: url(../img/fibItem.png) no-repeat;}
+	
+		&.qti-qtype4 {padding-left:20px; background: url(../img/essayItem.png) no-repeat;}
+	
+		&.qti-qtype5 {padding-left:20px; background: url(../img/kprimItem.png) no-repeat;}
+	}
+}
+
 /* QTI legacy styles */
 	#o_qti_run {}
 	#o_qti_run div.b_button_group { text-align: left;}
