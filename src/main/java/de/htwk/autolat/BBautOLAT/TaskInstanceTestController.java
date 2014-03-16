@@ -316,9 +316,15 @@ public class TaskInstanceTestController extends BasicController
 					showInfo("error.form.editconnection.Servererror");
 					return;
 				}
-				showInfo("info.form.taskform.solutionsubmitted");				
 				String enteredTaskSolution = taskForm.solution.getValue();				
-				taskSolution = connector.gradeTaskSolution(livingTaskInstance, enteredTaskSolution);												
+				try {
+					taskSolution = connector.gradeTaskSolution(livingTaskInstance, enteredTaskSolution);
+				} catch (AutolatConnectorException e) {
+					showError("error.form.taskform.rpcerror", e.getCause().getMessage());
+					return;
+				}
+
+				showInfo("info.form.taskform.solutionsubmitted");
 				solutionPreset = taskSolution.getSolutionText();				
 				// displaySolution = true;
 				createOutput(ureq);

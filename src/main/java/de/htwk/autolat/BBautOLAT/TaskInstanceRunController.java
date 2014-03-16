@@ -482,7 +482,14 @@ public class TaskInstanceRunController extends BasicController
 					return;
 				}
 				solutionPreset = taskForm.solution.getValue();				
-				taskSolution = connector.gradeTaskSolution(livingTaskInstance, solutionPreset);
+
+				try {
+					taskSolution = connector.gradeTaskSolution(livingTaskInstance, solutionPreset);
+				} catch (AutolatConnectorException e) {
+					showError("error.form.taskform.rpcerror", e.getCause().getMessage());
+					return;
+				}
+
 				if(beginDate.before(new Date()) && endDate.after(new Date()))
 				{
 					showInfo("info.form.taskform.solutionsubmitted");

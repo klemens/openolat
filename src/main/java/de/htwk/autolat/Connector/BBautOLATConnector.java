@@ -261,7 +261,7 @@ public class BBautOLATConnector {
 	}
 	
 	
-	public TaskSolution gradeTaskSolution (LivingTaskInstance livingTaskInstance, String taskSolution) {
+	public TaskSolution gradeTaskSolution (LivingTaskInstance livingTaskInstance, String taskSolution) throws AutolatConnectorException {
 		
 		Signed<Pair<String, Instance>> instanceAsPair = new Signed<Pair<String, Instance>>(
 				//task type for the whole object
@@ -271,17 +271,8 @@ public class BBautOLATConnector {
 				//signature for the living instance
 				livingTaskInstance.getSignature());
 		
-		Either<String, Documented<Double>> result = null;
-		
-		try {
-			
-			result = connector.gradeTaskSolution(instanceAsPair, taskSolution);
-			
-		} catch(Exception e) {
-			//server problem possible: random reselect routine
-			if(handleConnectionProblem(e)) return gradeTaskSolution(livingTaskInstance, taskSolution);
-			else return null;
-		}
+		// This may throw a AutolatConnectorException
+		Either<String, Documented<Double>> result = connector.gradeTaskSolution(instanceAsPair, taskSolution);
 		
 		String documentation = "";
 		double score = 0;
