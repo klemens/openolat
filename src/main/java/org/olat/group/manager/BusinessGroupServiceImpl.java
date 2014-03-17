@@ -389,8 +389,9 @@ public class BusinessGroupServiceImpl implements BusinessGroupService, UserDataD
 			CollaborationTools oldTools = toolsF.getOrCreateCollaborationTools(sourceBusinessGroup);
 			CollaborationTools newTools = toolsF.getOrCreateCollaborationTools(newGroup);
 			// copy the collab tools settings
-			for (int i = 0; i < CollaborationTools.TOOLS.length; i++) {
-				String tool = CollaborationTools.TOOLS[i];
+			String[] availableTools = CollaborationToolsFactory.getInstance().getAvailableTools().clone();
+			for (int i = 0; i < availableTools.length; i++) {
+				String tool = availableTools[i];
 				newTools.setToolEnabled(tool, oldTools.isToolEnabled(tool));
 			}			
 			String oldNews = oldTools.lookupNews();
@@ -1646,6 +1647,8 @@ public class BusinessGroupServiceImpl implements BusinessGroupService, UserDataD
 
 	@Override
 	public boolean isIdentityInBusinessGroup(Identity identity, BusinessGroup businessGroup) {
+		if(businessGroup == null || identity == null) return false;
+		
 		SecurityGroup participants = businessGroup.getPartipiciantGroup();
 		if (participants != null && securityManager.isIdentityInSecurityGroup(identity, participants)) {
 			return true;

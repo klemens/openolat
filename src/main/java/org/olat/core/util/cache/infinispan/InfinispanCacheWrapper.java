@@ -30,7 +30,6 @@ import java.util.ArrayList;
 import java.util.List;
 
 import org.infinispan.Cache;
-import org.infinispan.CacheException;
 import org.olat.core.logging.OLATRuntimeException;
 import org.olat.core.util.cache.CacheWrapper;
 
@@ -76,7 +75,7 @@ public class InfinispanCacheWrapper<U,V extends Serializable> implements CacheWr
 			elem = cache.get(key);				
 		} catch (IllegalStateException e) {
 			throw new OLATRuntimeException("cache state error for cache " + cache.getName(), e);
-		} catch (CacheException e) {
+		} catch (Exception e) {//don't catch CacheException to be compatible with infinispan 5.2 to 6.0
 			throw new OLATRuntimeException("cache error for cache " + cache.getName(), e);
 		}
 		return elem;
@@ -103,4 +102,11 @@ public class InfinispanCacheWrapper<U,V extends Serializable> implements CacheWr
 		V oldOne = cache.put(key, value);
 		return oldOne;
 	}
+
+	@Override
+	public V putIfAbsent(U key, V value) {
+		return cache.putIfAbsent(key, value);
+	}
+	
+	
 }

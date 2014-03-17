@@ -36,6 +36,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
 
+import javax.persistence.EntityNotFoundException;
 import javax.persistence.LockModeType;
 import javax.persistence.TemporalType;
 import javax.persistence.TypedQuery;
@@ -62,8 +63,8 @@ import org.olat.core.id.User;
 import org.olat.core.id.UserConstants;
 import org.olat.core.logging.AssertException;
 import org.olat.core.manager.BasicManager;
-import org.olat.core.util.Encoder.Algorithm;
 import org.olat.core.util.Encoder;
+import org.olat.core.util.Encoder.Algorithm;
 import org.olat.core.util.Util;
 import org.olat.core.util.coordinate.CoordinatorManager;
 import org.olat.core.util.coordinate.SyncerCallback;
@@ -369,17 +370,19 @@ public class BaseSecurityManager extends BasicManager implements BaseSecurity {
 			.getResultList();
 		return permissions;
 	}
-	
+
+	@Override
 	public boolean isIdentityPermittedOnResourceable(Identity identity, String permission, OLATResourceable olatResourceable) {
 		return isIdentityPermittedOnResourceable(identity, permission, olatResourceable, true);
 	}
-	
 
 	/**
 	 * @see org.olat.basesecurity.Manager#isIdentityPermittedOnResourceable(org.olat.core.id.Identity, java.lang.String, org.olat.core.id.OLATResourceable boolean)
 	 */
+	@Override
 	public boolean isIdentityPermittedOnResourceable(Identity identity, String permission, OLATResourceable olatResourceable, boolean checkTypeRight) {
-		IdentityImpl iimpl = getImpl(identity);
+		if(identity == null || identity.getKey() == null) return false;//no identity, no permission
+
 		Long oresid = olatResourceable.getResourceableId();
 		if (oresid == null) oresid = new Long(0); //TODO: make a method in
 		// OLATResorceManager, since this
@@ -396,7 +399,7 @@ public class BaseSecurityManager extends BasicManager implements BaseSecurity {
 			query = DBFactory.getInstance().getCurrentEntityManager().createNamedQuery("isIdentityPermittedOnResourceable", Number.class);
 		}
 		
-		Number count = query.setParameter("identitykey", iimpl.getKey())
+		Number count = query.setParameter("identitykey", identity.getKey())
 				.setParameter("permission", permission)
 				.setParameter("resid", oresid)
 				.setParameter("resname", oresName)
@@ -634,6 +637,9 @@ public class BaseSecurityManager extends BasicManager implements BaseSecurity {
 
 	@Override
 	public boolean removeIdentityFromSecurityGroups(List<Identity> identities, List<SecurityGroup> secGroups) {
+		if(identities == null || identities.isEmpty()) return true;//nothing to do
+		if(secGroups == null || secGroups.isEmpty()) return true;//nothing to do
+		
 		StringBuilder sb = new StringBuilder();
 		sb.append("delete from ").append(SecurityGroupMembershipImpl.class.getName()).append(" as msi ")
 		  .append("  where msi.identity.key in (:identityKeys) and msi.securityGroup.key in (:secGroupKeys)");
@@ -941,14 +947,6 @@ public class BaseSecurityManager extends BasicManager implements BaseSecurity {
 	  	DBFactory.getInstance().deleteObject(invitation);
 	  	DBFactory.getInstance().intermediateCommit();
 	  }
-	}
-
-	private IdentityImpl getImpl(Identity identity) {
-		// since we are a persistingmanager, we also only accept real identities
-		if (!(identity instanceof IdentityImpl)) throw new AssertException("identity was not of type identityimpl, but "
-				+ identity.getClass().getName());
-		IdentityImpl iimpl = (IdentityImpl) identity;
-		return iimpl;
 	}
 
 	/**
@@ -1445,7 +1443,7 @@ public class BaseSecurityManager extends BasicManager implements BaseSecurity {
 				Authentication auth = findAuthentication(ident, provider);
 				if(auth == null) {
 					if(algorithm != null) {
-						String salt = Encoder.getSalt();
+						String salt = algorithm.isSalted() ? Encoder.getSalt() : null;
 						String hash = Encoder.encrypt(credentials, salt, algorithm);
 						auth = new AuthenticationImpl(ident, provider, authUserName, hash, salt, algorithm.name());
 					} else {
@@ -1534,7 +1532,17 @@ public class BaseSecurityManager extends BasicManager implements BaseSecurity {
 
 	@Override
 	public Authentication updateCredentials(Authentication authentication, String password, Algorithm algorithm) {
-		String salt = Encoder.getSalt();
+		if(authentication.getAlgorithm() != null && authentication.getAlgorithm().equals(algorithm.name())) {
+			//check if update is needed
+			String currentSalt = authentication.getSalt();
+			String newCredentials = Encoder.encrypt(password, currentSalt, algorithm);
+			if(newCredentials.equals(authentication.getCredential())) {
+				//same credentials
+				return authentication;
+			}
+		}
+
+		String salt = algorithm.isSalted() ? Encoder.getSalt() : null;
 		String newCredentials = Encoder.encrypt(password, salt, algorithm);
 		authentication.setSalt(salt);
 		authentication.setCredential(newCredentials);
@@ -1547,7 +1555,14 @@ public class BaseSecurityManager extends BasicManager implements BaseSecurity {
 	 */
 	@Override
 	public void deleteAuthentication(Authentication auth) {
-		dbInstance.getCurrentEntityManager().remove(auth);
+		if(auth == null || auth.getKey() == null) return;//nothing to do
+		try {
+			AuthenticationImpl authRef = dbInstance.getCurrentEntityManager()
+					.getReference(AuthenticationImpl.class, auth.getKey());
+			dbInstance.getCurrentEntityManager().remove(authRef);
+		} catch (EntityNotFoundException e) {
+			logError("", e);
+		}
 	}
 
 	/**

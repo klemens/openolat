@@ -38,7 +38,6 @@ import java.util.UUID;
 
 import junit.framework.Assert;
 
-import org.junit.Before;
 import org.junit.Test;
 import org.olat.core.commons.persistence.DB;
 import org.olat.core.id.Identity;
@@ -61,10 +60,7 @@ import org.springframework.beans.factory.annotation.Autowired;
  */
 public class PropertyTest extends OlatTestCase {
 
-	private static OLog log = Tracing.createLoggerFor(PropertyTest.class);
-	private static Identity identity, id2, id3, id4 ;
-	private static BusinessGroup group = null;
-	private static OLATResource res;
+	private static final OLog log = Tracing.createLoggerFor(PropertyTest.class);
 
 	@Autowired
 	private DB dbInstance;
@@ -72,35 +68,18 @@ public class PropertyTest extends OlatTestCase {
 	private PropertyManager pm;
 	@Autowired
 	private BusinessGroupService businessGroupService;
-
-	/**
-	 * @see junit.framework.TestCase#setUp()
-	 */
-	@Before
-	public void setup() {
-		if(res == null) {
-			// identity with null User should be ok for test case
-			identity = JunitTestHelper.createAndPersistIdentityAsUser("foo-" + UUID.randomUUID().toString());
-			id2 = JunitTestHelper.createAndPersistIdentityAsUser("eis-" + UUID.randomUUID().toString());
-			id3 = JunitTestHelper.createAndPersistIdentityAsUser("zwoi-" + UUID.randomUUID().toString());
-			id4 = JunitTestHelper.createAndPersistIdentityAsUser("drp-" + UUID.randomUUID().toString());
-			res = JunitTestHelper.createRandomResource();
-	
-			List<BusinessGroup> l = businessGroupService.findBusinessGroupsOwnedBy(identity, null);
-			if (l.size() == 0) {
-				group = businessGroupService.createBusinessGroup(identity, "a buddygroup", "a desc", -1, -1, false, false, null);
-			} else {
-				group =  (BusinessGroup)l.get(0);
-			}
-		}
-	}
 	
 	/**
 	 * testGenericInsertFindDelete
 	 */
 	@Test
 	public void testGenericInsertFindDelete() {
+		//create resource, identity and group
 		OLATResource ores = JunitTestHelper.createRandomResource();
+		Identity identity = JunitTestHelper.createAndPersistIdentityAsUser("prop-1-" + UUID.randomUUID().toString());
+		BusinessGroup group = businessGroupService.createBusinessGroup(identity, "a buddygroup", "a desc", -1, -1, false, false, null);
+		dbInstance.commitAndCloseSession();
+		
 		Property p = pm.createPropertyInstance(identity, group, ores, "catgeneric", "TestProperty", new Float(1.1), new Long(123456), "stringValue", "textValue");
 		pm.saveProperty(p);
 		dbInstance.commitAndCloseSession();
@@ -119,8 +98,11 @@ public class PropertyTest extends OlatTestCase {
 	
 	@Test
 	public void testFindWithResourceIdList() {
-		//create a property
+		//create resource, identity
 		OLATResource ores = JunitTestHelper.createRandomResource();
+		Identity identity = JunitTestHelper.createAndPersistIdentityAsUser("prop-2-" + UUID.randomUUID().toString());
+		dbInstance.commitAndCloseSession();
+		//create the property
 		Property p = pm.createPropertyInstance(identity, null, ores, "catidlist", "TestProperty", new Float(1.1), new Long(123456), "stringValue", "textValue");
 		pm.saveProperty(p);
 		dbInstance.commitAndCloseSession();
@@ -142,7 +124,7 @@ public class PropertyTest extends OlatTestCase {
 	
 	@Test
 	public void testFindWithIdentityList() {
-		//create a property
+		//create identities, resource and properties
 		Identity id1 = JunitTestHelper.createAndPersistIdentityAsUser("cat-id-1-" + UUID.randomUUID().toString());
 		Identity id2 = JunitTestHelper.createAndPersistIdentityAsUser("cat-id-2-" + UUID.randomUUID().toString());
 		Identity id3 = JunitTestHelper.createAndPersistIdentityAsUser("cat-id-3-" + UUID.randomUUID().toString());
@@ -177,7 +159,13 @@ public class PropertyTest extends OlatTestCase {
 	 */
 	@Test
 	public void testGetAllResourceTypeNames() {
+		//create resource, identity and group
 		OLATResource ores = JunitTestHelper.createRandomResource();
+		Identity identity = JunitTestHelper.createAndPersistIdentityAsUser("prop-3-" + UUID.randomUUID().toString());
+		BusinessGroup group = businessGroupService.createBusinessGroup(identity, "a buddygroup", "a desc", -1, -1, false, false, null);
+		dbInstance.commitAndCloseSession();
+		
+		//create a property
 		Property p = pm.createPropertyInstance(identity, group, ores, "catall", "TestProperty", new Float(1.1), new Long(123456), "stringValue", "textValue");
 		pm.saveProperty(p);
 		dbInstance.commitAndCloseSession();
@@ -191,8 +179,13 @@ public class PropertyTest extends OlatTestCase {
 	 * testListProperties
 	 */
 	@Test
-	public void testListProperties(){
+	public void testListProperties() {
+		//create resource, identity and group
 		OLATResource ores = JunitTestHelper.createRandomResource();
+		Identity identity = JunitTestHelper.createAndPersistIdentityAsUser("prop-4-" + UUID.randomUUID().toString());
+		BusinessGroup group = businessGroupService.createBusinessGroup(identity, "a buddygroup", "a desc", -1, -1, false, false, null);
+		dbInstance.commitAndCloseSession();
+		
 		Property p = pm.createPropertyInstance(identity, group, ores, "cat", "TestProperty", new Float(1.1), new Long(123456), "stringValue", "textValue");
 		pm.saveProperty(p);
 		
@@ -203,6 +196,9 @@ public class PropertyTest extends OlatTestCase {
 		Property prop = (Property) entries.get(0);
 		assertEquals(ores.getResourceableTypeName(), prop.getResourceTypeName());
 		assertEquals(ores.getResourceableId(), prop.getResourceTypeId());
+		
+		int numOfEntries = PropertyManager.getInstance().countProperties(identity, group, ores.getResourceableTypeName(), ores.getResourceableId(), "cat", "TestProperty", null, null);
+		Assert.assertEquals(entries.size(), numOfEntries);
 	}
 	
 	/**
@@ -210,6 +206,7 @@ public class PropertyTest extends OlatTestCase {
 	 */
 	@Test
 	public void testUserInsertFindDelete() {
+		//create identity and property
 		Identity id = JunitTestHelper.createAndPersistIdentityAsUser("user-prop-" + UUID.randomUUID().toString());
 		Property p = pm.createUserPropertyInstance(id, "catuser", "TestProperty", new Float(1.1), new Long(123456), "stringValue", "textValue");
 		pm.saveProperty(p);
@@ -224,11 +221,12 @@ public class PropertyTest extends OlatTestCase {
 		pm.deleteProperty(p);
 		p = pm.findUserProperty(id, "catuser", "TestProperty");
 		assertNull(p);
+		dbInstance.commitAndCloseSession();
 	}
 	
 	@Test
 	public void testDeleteUserData() {
-		//create some properties
+		//create some identities and properties
 		Identity id1 = JunitTestHelper.createAndPersistIdentityAsUser("del-user-1-" + UUID.randomUUID().toString());
 		Identity id2 = JunitTestHelper.createAndPersistIdentityAsUser("del-user-2-" + UUID.randomUUID().toString());
 		Property p10 = pm.createPropertyInstance(id1, null, null, "prop-del-1", "TestProperty", new Float(1.1), new Long(123456), "stringValue", "textValue");
@@ -241,6 +239,7 @@ public class PropertyTest extends OlatTestCase {
 		
 		//delete user 1 datas
 		pm.deleteUserData(id1, "del-" + id1.getName());
+		dbInstance.commitAndCloseSession();
 		
 		//check if really deleted
 		Property p10x = pm.findUserProperty(id1, "prop-del-1", "TestProperty");
@@ -259,7 +258,12 @@ public class PropertyTest extends OlatTestCase {
 	 */
 	@Test
 	public void testPerf500Properties() {
-		
+		//create identity, group and resource
+		OLATResource res = JunitTestHelper.createRandomResource();
+		Identity identity = JunitTestHelper.createAndPersistIdentityAsUser("prop-5-" + UUID.randomUUID().toString());
+		BusinessGroup group = businessGroupService.createBusinessGroup(identity, "a buddygroup", "a desc", -1, -1, false, false, null);
+		dbInstance.commitAndCloseSession();
+
 
 		long start, stop;
 		long count = 500;
@@ -270,26 +274,35 @@ public class PropertyTest extends OlatTestCase {
 		log.info("CREATE generic property test started...");
 		start = System.currentTimeMillis();
 		for (int i = 0; i < count; i++) {
-			Property p = pm.createPropertyInstance(identity, group, res, "cat", "TestProperty" + i, new Float(1.1), new Long(123456), "stringValue", "textValue");
+			Property p = pm.createPropertyInstance(identity, group, res, "perf500", "TestProperty" + i, new Float(1.1), new Long(123456), "stringValue", "textValue");
 			pm.saveProperty(p);
-			dbInstance.closeSession();
+			
+			if(i % 50 == 0) {
+				dbInstance.commitAndCloseSession();
+			}
 		}
+		dbInstance.commitAndCloseSession();
+		
 		stop = System.currentTimeMillis();
 		log.info("CREATE generic property test: " + (stop-start) + " ms (" + (count * 1000 / (stop-start)) + "/sec)");
 		// some find identitites tests
-		List<Identity> ids = pm.findIdentitiesWithProperty(null, null, "cat", "TestProperty", false);
-		Assert.assertNotNull(ids);
-		Assert.assertFalse(ids.isEmpty());
-		Assert.assertTrue(ids.contains(identity));
+		List<Identity> ids = pm.findIdentitiesWithProperty(null, null, "perf500", null, false);
+		Assert.assertNotNull("Identities cannot be null", ids);
+		Assert.assertFalse("Identities cannot be empty", ids.isEmpty());
+		Assert.assertTrue("Identities must contains reference identity", ids.contains(identity));
 		
 		// create course and user properties
 		log.info("Preparing user/group properties test. Creating additional properties..");
 		start = System.currentTimeMillis();
 		for (int i = 0; i < count; i++) {
-			Property pUser = pm.createUserPropertyInstance(identity, "cat", "TestProperty" + i, new Float(1.1), new Long(123456), "stringValue", "textValue");
+			Property pUser = pm.createUserPropertyInstance(identity, "perf500", "TestProperty" + i, new Float(1.1), new Long(123456), "stringValue", "textValue");
 			pm.saveProperty(pUser);
-			dbInstance.commitAndCloseSession();
+			if(i % 50 == 0) {
+				dbInstance.commitAndCloseSession();
+			}
 		}
+		dbInstance.commitAndCloseSession();
+		
 		stop = System.currentTimeMillis();
 		log.info("Ready : " + (stop-start) + " ms (" + (2* count * 1000 / (stop-start)) + "/sec)");
 		log.info("Starting find tests. DB holds " + count * 3 + " records.");
@@ -298,8 +311,8 @@ public class PropertyTest extends OlatTestCase {
 		log.info("FIND generic property test started...");
 		start = System.currentTimeMillis();
 		for (int i = 0; i < count; i++) {
-			Property p = pm.findProperty(identity, group, res, "cat", "TestProperty" + i);
-			assertNotNull(p);
+			Property p = pm.findProperty(identity, group, res, "perf500", "TestProperty" + i);
+			assertNotNull("Must find the p (count=" + i + ")", p);
 			dbInstance.commitAndCloseSession();
 		}
 		stop = System.currentTimeMillis();
@@ -309,8 +322,8 @@ public class PropertyTest extends OlatTestCase {
 		log.info("FIND user property test started...");
 		start = System.currentTimeMillis();
 		for (int i = 0; i < count; i++) {
-			Property p = pm.findUserProperty(identity, "cat", "TestProperty" + i);
-			assertNotNull(p);
+			Property p = pm.findUserProperty(identity, "perf500", "TestProperty" + i);
+			assertNotNull("Must find the p (count=" + i + ")", p);
 			dbInstance.commitAndCloseSession();
 		}
 		stop = System.currentTimeMillis();
@@ -320,7 +333,7 @@ public class PropertyTest extends OlatTestCase {
 		log.info("FIND and DELETE generic property test started...");
 		start = System.currentTimeMillis();
 		for (int i = 0; i < count; i++) {
-			Property p = pm.findUserProperty(identity, "cat", "TestProperty" + i);
+			Property p = pm.findUserProperty(identity, "perf500", "TestProperty" + i);
 			pm.deleteProperty(p);
 		}
 		stop = System.currentTimeMillis();
@@ -337,6 +350,13 @@ public class PropertyTest extends OlatTestCase {
 	 */
 	@Test
 	public void testFloatValues() {
+		//create identity, group and resource
+		OLATResource res = JunitTestHelper.createRandomResource();
+		Identity identity = JunitTestHelper.createAndPersistIdentityAsUser("prop-6-" + UUID.randomUUID().toString());
+		BusinessGroup group = businessGroupService.createBusinessGroup(identity, "a buddygroup", "a desc", -1, -1, false, false, null);
+		dbInstance.commitAndCloseSession();
+		
+		
 	  Property original, copy;
 	  //gs:changed to FLOAT(65,30) to be compatible with hsqldb and auto generated ddl
 	  // Define my own MAX float value because the db precision changed from DECIMAL(78,36) to DECIMAL(65,30)   
@@ -409,9 +429,18 @@ public class PropertyTest extends OlatTestCase {
 	
 	@Test
 	public void testFindIdentities() {
+		//create identities, group and resource
+		OLATResource res = JunitTestHelper.createRandomResource();
+		Identity id1 = JunitTestHelper.createAndPersistIdentityAsUser("prop-7-" + UUID.randomUUID().toString());
+		Identity id2 = JunitTestHelper.createAndPersistIdentityAsUser("prop-10-" + UUID.randomUUID().toString());
+		Identity id3 = JunitTestHelper.createAndPersistIdentityAsUser("prop-11-" + UUID.randomUUID().toString());
+		Identity id4 = JunitTestHelper.createAndPersistIdentityAsUser("prop-12-" + UUID.randomUUID().toString());
+		BusinessGroup group = businessGroupService.createBusinessGroup(id1, "a buddygroup", "a desc", -1, -1, false, false, null);
+		dbInstance.commitAndCloseSession();
+
 		String propName = UUID.randomUUID().toString();
 		
-		Property p = pm.createPropertyInstance(identity, group, res, "cat", propName, new Float(1.1), new Long(123456), "stringValue", "textValue");
+		Property p = pm.createPropertyInstance(id1, group, res, "cat", propName, new Float(1.1), new Long(123456), "stringValue", "textValue");
 		pm.saveProperty(p);
 		p = pm.createPropertyInstance(id2, group, res, "cat", propName, new Float(1.1), new Long(123456), "stringValue", "textValue");
 		pm.saveProperty(p);
@@ -419,7 +448,7 @@ public class PropertyTest extends OlatTestCase {
 		pm.saveProperty(p);
 		p = pm.createPropertyInstance(id4, group, res, "cat", propName, new Float(1.1), new Long(123456), "stringValue", "textValue");
 		pm.saveProperty(p);
-		p = pm.createPropertyInstance(identity, group, res, "cat2", propName, new Float(1.1), new Long(123456), "stringValue", "textValue");
+		p = pm.createPropertyInstance(id1, group, res, "cat2", propName, new Float(1.1), new Long(123456), "stringValue", "textValue");
 		pm.saveProperty(p);
 		p = pm.createPropertyInstance(id2, group, res, "cat2", propName, new Float(1.1), new Long(123456), "stringValue", "textValue");
 		pm.saveProperty(p);
@@ -444,18 +473,25 @@ public class PropertyTest extends OlatTestCase {
 	
 	@Test
 	public void testFindProperties() {
+		//create identities, group and resource
+		OLATResource res = JunitTestHelper.createRandomResource();
+		Identity id1 = JunitTestHelper.createAndPersistIdentityAsUser("prop-8-" + UUID.randomUUID().toString());
+		Identity id2 = JunitTestHelper.createAndPersistIdentityAsUser("prop-9-" + UUID.randomUUID().toString());
+		BusinessGroup group = businessGroupService.createBusinessGroup(id1, "a buddygroup", "a desc", -1, -1, false, false, null);
+		dbInstance.commitAndCloseSession();
+		
 		String category = "cat3";
 		String propertyName = "TestProperty3";
 		String textValue = "textValue3";
-		Property p = pm.createPropertyInstance(identity, group, res, category, propertyName, new Float(1.1), new Long(123456), "stringValue", textValue);
+		Property p = pm.createPropertyInstance(id1, group, res, category, propertyName, new Float(1.1), new Long(123456), "stringValue", textValue);
 		pm.saveProperty(p);
 		p = pm.createPropertyInstance(id2, group, res, category, propertyName, new Float(1.1), new Long(123456), "stringValue", textValue);
 		pm.saveProperty(p);
-		List<Property> propertyList = pm.findProperties(identity, group, res.getResourceableTypeName(), res.getResourceableId(), category, propertyName);
+		List<Property> propertyList = pm.findProperties(id1, group, res.getResourceableTypeName(), res.getResourceableId(), category, propertyName);
 		assertEquals(1, propertyList.size());
 		assertEquals(propertyName, ((Property)propertyList.get(0)).getName() );
 		assertEquals(textValue,    ((Property)propertyList.get(0)).getTextValue() );
-		int deletedCount1 = pm.deleteProperties(identity, group, res, category, propertyName);
+		int deletedCount1 = pm.deleteProperties(id1, group, res, category, propertyName);
 		Assert.assertEquals(1, deletedCount1);
 		int deletedCount2 = pm.deleteProperties(id2, group, res, category, propertyName);
 		Assert.assertEquals(1, deletedCount2);

@@ -31,6 +31,7 @@ import java.util.List;
 import org.dom4j.Document;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.Component;
+import org.olat.core.gui.components.EscapeMode;
 import org.olat.core.gui.components.table.DefaultColumnDescriptor;
 import org.olat.core.gui.components.table.TableController;
 import org.olat.core.gui.components.table.TableEvent;
@@ -123,7 +124,7 @@ public class QTI12ResultDetailsController extends BasicController {
 	private boolean checkEssay() {
 		TestFileResource fr = new TestFileResource();
 		fr.overrideResourceableId(repositoryEntry.getOlatResource().getResourceableId());
-		QTIEditorPackage qtiPackage = new QTIEditorPackageImpl(getIdentity(), fr, getTranslator());
+		QTIEditorPackage qtiPackage = new QTIEditorPackageImpl(getIdentity(), fr, null, getTranslator());
 		Assessment ass = qtiPackage.getQTIDocument().getAssessment();
 
 		//Sections with their Items
@@ -150,8 +151,12 @@ public class QTI12ResultDetailsController extends BasicController {
 		TableGuiConfiguration tableConfig = new TableGuiConfiguration();
 		tableCtr = new TableController(tableConfig, ureq, getWindowControl(), getTranslator());
 		tableCtr.addColumnDescriptor(new DefaultColumnDescriptor("column.header.date", 0, null, ureq.getLocale()));
-		tableCtr.addColumnDescriptor(new DefaultColumnDescriptor("column.header.duration", 1, null, ureq.getLocale()));
-		tableCtr.addColumnDescriptor(new DefaultColumnDescriptor("column.header.assesspoints", 2, null, ureq.getLocale()));
+		DefaultColumnDescriptor durationCol = new DefaultColumnDescriptor("column.header.duration", 1, null, ureq.getLocale());
+		durationCol.setEscapeHtml(EscapeMode.none);
+		tableCtr.addColumnDescriptor(durationCol);
+		DefaultColumnDescriptor pointCol = new DefaultColumnDescriptor("column.header.assesspoints", 2, null, ureq.getLocale());
+		pointCol.setEscapeHtml(EscapeMode.none);
+		tableCtr.addColumnDescriptor(pointCol);
 		tableCtr.addColumnDescriptor(new QTISelectColumnDescriptor("column.header.action", 3, ureq.getLocale(), getTranslator()));
 
 		List<QTIResultSet> resultSets = qrm.getResultSets(courseResourceableId, nodeIdent, repositoryEntry.getKey(), assessedIdentity);

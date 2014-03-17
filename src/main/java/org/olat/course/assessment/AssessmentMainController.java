@@ -27,7 +27,6 @@ package org.olat.course.assessment;
 
 import java.util.ArrayList;
 import java.util.Date;
-import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -87,17 +86,20 @@ import org.olat.core.util.tree.TreeHelper;
 import org.olat.course.CourseFactory;
 import org.olat.course.ICourse;
 import org.olat.course.assessment.NodeTableDataModel.Cols;
+import org.olat.course.assessment.bulk.BulkAssessmentOverviewController;
 import org.olat.course.assessment.manager.UserCourseInformationsManager;
 import org.olat.course.condition.Condition;
 import org.olat.course.condition.interpreter.ConditionExpression;
 import org.olat.course.condition.interpreter.OnlyGroupConditionInterpreter;
 import org.olat.course.groupsandrights.CourseGroupManager;
 import org.olat.course.nodes.AssessableCourseNode;
+import org.olat.course.nodes.AssessmentToolOptions;
 import org.olat.course.nodes.CourseNode;
 import org.olat.course.nodes.CourseNodeFactory;
 import org.olat.course.nodes.ProjectBrokerCourseNode;
 import org.olat.course.nodes.STCourseNode;
 import org.olat.course.properties.CoursePropertyManager;
+import org.olat.course.run.environment.CourseEnvironment;
 import org.olat.course.run.userview.UserCourseEnvironment;
 import org.olat.course.run.userview.UserCourseEnvironmentImpl;
 import org.olat.group.BusinessGroup;
@@ -193,8 +195,8 @@ public class AssessmentMainController extends MainLayoutBasicController implemen
 	private Link showAllCourseNodesButton;
 	private Link filterCourseNodesButton;
 	
-	private BulkAssessmentMainController bamc;
 	private EfficiencyStatementAssessmentController esac;
+	private BulkAssessmentOverviewController bulkAssOverviewCtrl;
 	private final StackedController stackPanel;
 
 	private OLATResourceable ores;
@@ -207,7 +209,7 @@ public class AssessmentMainController extends MainLayoutBasicController implemen
 	 * @param course
 	 * @param assessmentCallback
 	 */
-	AssessmentMainController(UserRequest ureq, WindowControl wControl, StackedController stackPanel, OLATResourceable ores, IAssessmentCallback assessmentCallback) {
+	public AssessmentMainController(UserRequest ureq, WindowControl wControl, StackedController stackPanel, OLATResourceable ores, IAssessmentCallback assessmentCallback) {
 		super(ureq, wControl);	
 		
 		onyxModule = CoreSpringFactory.getImpl(OnyxModule.class);
@@ -347,22 +349,22 @@ public class AssessmentMainController extends MainLayoutBasicController implemen
 				if (cmd.equals(CMD_INDEX)) {
 					main.setContent(index);
 				} else if (cmd.equals(CMD_USERFOCUS)) {
-					this.mode = MODE_USERFOCUS;
-					this.identitiesList = getAllAssessableIdentities();
+					mode = MODE_USERFOCUS;
+					identitiesList = getAllAssessableIdentities();
 					//fxdiff FXOLAT-108: improve results table of tests
 					doUserChooseWithData(ureq, identitiesList, null, null);
 				} else if (cmd.equals(CMD_GROUPFOCUS)) {
-					this.mode = MODE_GROUPFOCUS;
+					mode = MODE_GROUPFOCUS;
 					doGroupChoose(ureq);
 				} else if (cmd.equals(CMD_NODEFOCUS)) {
-					this.mode = MODE_NODEFOCUS;
+					mode = MODE_NODEFOCUS;
 					doNodeChoose(ureq);
 				} else if (cmd.equals(CMD_BULKFOCUS)){
-					this.mode = MODE_BULKFOCUS;
-					doBulkChoose(ureq);
+					mode = MODE_BULKFOCUS;
+					doBulkAssessment(ureq);
 				} else if (cmd.equals(CMD_EFF_STATEMENT)){
 					if(callback.mayRecalculateEfficiencyStatements()) {
-						this.mode = MODE_EFF_STATEMENT;
+						mode = MODE_EFF_STATEMENT;
 						doEfficiencyStatement(ureq);
 					}
 				}
@@ -517,8 +519,8 @@ public class AssessmentMainController extends MainLayoutBasicController implemen
 				if (actionid.equals(CMD_SELECT_NODE)) {
 					ICourse course = CourseFactory.loadCourse(ores);
 					int rowid = te.getRowId();
-					Map<String,Object> nodeData = (Map<String,Object>) nodeTableModel.getObject(rowid);
-					CourseNode node = course.getRunStructure().getNode((String) nodeData.get(AssessmentHelper.KEY_IDENTIFYER));
+					NodeTableRow nodeData = nodeTableModel.getObject(rowid);
+					CourseNode node = course.getRunStructure().getNode(nodeData.getIdent());
 					this.currentCourseNode = (AssessableCourseNode) node;
 					// cast should be save, only assessable nodes are selectable
 					if((repoTutor && coachedGroups.isEmpty()) || (callback.mayAssessAllUsers() || callback.mayViewAllUsersAssessments())) {
@@ -530,8 +532,8 @@ public class AssessmentMainController extends MainLayoutBasicController implemen
 				} else if (actionid.equals(CMD_SHOW_ONYXREPORT)) {
 					int rowid = te.getRowId();
 					ICourse course = CourseFactory.loadCourse(ores);
-					Map<String, Object> nodeData = (Map<String, Object>) nodeTableModel.getObject(rowid);
-					CourseNode node = course.getRunStructure().getNode((String) nodeData.get(AssessmentHelper.KEY_IDENTIFYER));
+					NodeTableRow nodeData = nodeTableModel.getObject(rowid);
+					CourseNode node = course.getRunStructure().getNode(nodeData.getIdent());
 					this.currentCourseNode = (AssessableCourseNode) node;
 					this.onyxReporterBackLocation = "nodeListCtr";
 					if (!showOnyxReporter(ureq)) {
@@ -806,6 +808,26 @@ public class AssessmentMainController extends MainLayoutBasicController implemen
 		AssessedIdentitiesTableDataModel tdm = new AssessedIdentitiesTableDataModel(wrappedIdentities, courseNode, getLocale(), isAdministrativeUser);
 		tdm.addColumnDescriptors(userListCtr, CMD_CHOOSE_USER, mode == MODE_NODEFOCUS || mode == MODE_GROUPFOCUS || mode == MODE_USERFOCUS);
 		userListCtr.setTableDataModel(tdm);
+		
+		List<String> toolCmpNames = new ArrayList<>(3);
+		if(courseNode != null) {
+			CourseEnvironment courseEnv = course.getCourseEnvironment();
+			AssessmentToolOptions options = new AssessmentToolOptions();
+			if(group == null) {
+				options.setIdentities(identities);
+			} else {
+				options.setGroup(group);
+			}
+			List<Controller> tools = courseNode.createAssessmentTools(ureq, getWindowControl(), courseEnv, options);
+			int count = 0;
+			for(Controller tool:tools) {
+				listenTo(tool);
+				String toolCmpName = "ctrl_" + (count++);
+				userChoose.put(toolCmpName, tool.getInitialComponent());
+				toolCmpNames.add(toolCmpName);
+			}
+		}
+		userChoose.contextPut("toolCmpNames", toolCmpNames);
 
 		if (mode == MODE_USERFOCUS) {
 			userChoose.contextPut("showBack", Boolean.FALSE);
@@ -889,7 +911,7 @@ public class AssessmentMainController extends MainLayoutBasicController implemen
 		
 		// get list of course node data and populate table data model 
 		CourseNode rootNode = course.getRunStructure().getRootNode();		
-		List<Map<String, Object>> nodesTableObjectArrayList = addAssessableNodesAndParentsToList(0, rootNode);
+		List<NodeTableRow> nodesTableObjectArrayList = addAssessableNodesAndParentsToList(0, rootNode);
 		
 		// only populate data model if data available
 		if (nodesTableObjectArrayList == null) {
@@ -907,13 +929,10 @@ public class AssessmentMainController extends MainLayoutBasicController implemen
 		main.setContent(nodeChoose);
 	}
 	
-	private void doBulkChoose(UserRequest ureq) {
-		ICourse course = CourseFactory.loadCourse(ores);
-		List<Identity> allowedIdentities = getAllAssessableIdentities();
-		removeAsListenerAndDispose(bamc);
-		bamc = new BulkAssessmentMainController(ureq, getWindowControl(), course, allowedIdentities);
-		listenTo(bamc);
-		main.setContent(bamc.getInitialComponent());
+	private void doBulkAssessment(UserRequest ureq) {
+		bulkAssOverviewCtrl = new BulkAssessmentOverviewController(ureq, getWindowControl(), ores);
+		listenTo(bulkAssOverviewCtrl);
+		main.setContent(bulkAssOverviewCtrl.getInitialComponent());
 	}
 	
 	private void doEfficiencyStatement(UserRequest ureq) {
@@ -929,12 +948,12 @@ public class AssessmentMainController extends MainLayoutBasicController implemen
 	 * @param courseNode
 	 * @return A list of maps containing the node data
 	 */
-	private List<Map<String, Object>> addAssessableNodesAndParentsToList(int recursionLevel, CourseNode courseNode) {
+	private List<NodeTableRow> addAssessableNodesAndParentsToList(int recursionLevel, CourseNode courseNode) {
 		// 1) Get list of children data using recursion of this method
-		List<Map<String, Object>> childrenData = new ArrayList<Map<String, Object>>();
+		List<NodeTableRow> childrenData = new ArrayList<>();
 		for (int i = 0; i < courseNode.getChildCount(); i++) {
 			CourseNode child = (CourseNode) courseNode.getChildAt(i);
-			List<Map<String, Object>> childData = addAssessableNodesAndParentsToList( (recursionLevel + 1),  child);
+			List<NodeTableRow> childData = addAssessableNodesAndParentsToList( (recursionLevel + 1),  child);
 			if (childData != null)
 				childrenData.addAll(childData);
 		}
@@ -944,26 +963,18 @@ public class AssessmentMainController extends MainLayoutBasicController implemen
 			// TODO:cg 04.11.2010 ProjectBroker : no assessment-tool in V1.0 , remove projectbroker completely form assessment-tool gui			// Store node data in hash map. This hash map serves as data model for 
 			// the user assessment overview table. Leave user data empty since not used in
 			// this table. (use only node data)
-			Map<String,Object> nodeData = new HashMap<String, Object>();
-			// indent
-			nodeData.put(AssessmentHelper.KEY_INDENT, new Integer(recursionLevel));
-			// course node data
-			nodeData.put(AssessmentHelper.KEY_TYPE, courseNode.getType());
-			nodeData.put(AssessmentHelper.KEY_TITLE_SHORT, courseNode.getShortTitle());
-
+			NodeTableRow nodeData = new NodeTableRow(recursionLevel, courseNode);
 			if (courseNode.getReferencedRepositoryEntry() != null) {
 				if (OnyxModule.isOnyxTest(courseNode.getReferencedRepositoryEntry().getOlatResource())) {
-					nodeData.put(KEY_IS_ONYX, Boolean.TRUE);
+					nodeData.setOnyx(true);
 					if (getAllAssessableIdentities().size() <= 0) {
-						nodeData.put(KEY_IS_ONYX, Boolean.FALSE);
+						nodeData.setOnyx(false);
 					}
 				} else {
-					nodeData.put(KEY_IS_ONYX, Boolean.FALSE);
+					nodeData.setOnyx(false);
 				}
 			}
 
-			nodeData.put(AssessmentHelper.KEY_TITLE_LONG, courseNode.getLongTitle());
-			nodeData.put(AssessmentHelper.KEY_IDENTIFYER, courseNode.getIdent());
 			
 			if (courseNode instanceof AssessableCourseNode) {
 				AssessableCourseNode assessableCourseNode = (AssessableCourseNode) courseNode;
@@ -979,37 +990,37 @@ public class AssessmentMainController extends MainLayoutBasicController implemen
 				if(assessableCourseNode.hasScoreConfigured()) {
 					if(!(courseNode instanceof STCourseNode)) {
 						Float min = assessableCourseNode.getMinScoreConfiguration();
-						nodeData.put(AssessmentHelper.KEY_MIN, min);
+						nodeData.setMinScore(min);
 						Float max = assessableCourseNode.getMaxScoreConfiguration();
-						nodeData.put(AssessmentHelper.KEY_MAX, max);
+						nodeData.setMaxScore(max);
 					}
 				}
 
 				if (assessableCourseNode.isEditableConfigured()) {
 					// Assessable course nodes are selectable when they are aditable
-					nodeData.put(AssessmentHelper.KEY_SELECTABLE, Boolean.TRUE);
+					nodeData.setSelectable(true);
 				} else if (courseNode instanceof STCourseNode 
 						&& (assessableCourseNode.hasScoreConfigured()
 						|| assessableCourseNode.hasPassedConfigured())) {
 					// st node is special case: selectable on node choose list as soon as it 
 					// has score or passed
-					nodeData.put(AssessmentHelper.KEY_SELECTABLE, Boolean.TRUE);
+					nodeData.setSelectable(true);
 				} else {
 					// assessable nodes that do not have score or passed are not selectable
 					// (e.g. a st node with no defined rule
-					nodeData.put(AssessmentHelper.KEY_SELECTABLE, Boolean.FALSE);
+					nodeData.setSelectable(false);
 				}
 			} else {
 				// Not assessable nodes are not selectable. (e.g. a node that 
 				// has an assessable child node but is itself not assessable)
-				nodeData.put(AssessmentHelper.KEY_SELECTABLE, Boolean.FALSE);
+				nodeData.setSelectable(false);
 			}
 			// 3) Add data of this node to mast list if node assessable or children list has any data.
 			// Do only add nodes when they have any assessable element, otherwhise discard (e.g. empty course, 
 			// structure nodes without scoring rules)! When the discardEmptyNodes flag is set then only
 			// add this node when there is user data found for this node.
 			if (childrenData.size() > 0 || hasDisplayableValuesConfigured) {
-				List<Map<String, Object>> nodeAndChildren = new ArrayList<Map<String, Object>>();
+				List<NodeTableRow> nodeAndChildren = new ArrayList<>();
 				nodeAndChildren.add(nodeData);
 				// 4) Add children data list to master list
 				nodeAndChildren.addAll(childrenData);

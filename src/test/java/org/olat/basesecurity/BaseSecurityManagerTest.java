@@ -40,6 +40,8 @@ import org.olat.core.id.Identity;
 import org.olat.core.id.Roles;
 import org.olat.core.id.User;
 import org.olat.core.id.UserConstants;
+import org.olat.core.util.Encoder;
+import org.olat.login.LoginModule;
 import org.olat.resource.OLATResource;
 import org.olat.test.JunitTestHelper;
 import org.olat.test.OlatTestCase;
@@ -237,6 +239,36 @@ public class BaseSecurityManagerTest extends OlatTestCase {
 		Assert.assertNotNull(members);
 		Assert.assertEquals(1, members.size());
 		Assert.assertEquals(id2, members.get(0));
+	}
+	
+	@Test
+	public void testRemoveFromSecurityGroup_list() {
+		//create a security group with 2 identites
+		Identity id1 = JunitTestHelper.createAndPersistIdentityAsUser( "rm-3-sec-" + UUID.randomUUID().toString());
+		Identity id2 = JunitTestHelper.createAndPersistIdentityAsUser( "rm-4-sec-" + UUID.randomUUID().toString());
+		SecurityGroup secGroup = securityManager.createAndPersistSecurityGroup();
+		securityManager.addIdentityToSecurityGroup(id1, secGroup);
+		securityManager.addIdentityToSecurityGroup(id2, secGroup);
+		dbInstance.commitAndCloseSession();
+		
+		//remove the first one
+		List<Identity> ids = new ArrayList<Identity>();
+		ids.add(id1);
+		ids.add(id2);
+		securityManager.removeIdentityFromSecurityGroups(ids, Collections.singletonList(secGroup));
+		dbInstance.commitAndCloseSession();
+		
+		int countMembers = securityManager.countIdentitiesOfSecurityGroup(secGroup);
+		Assert.assertEquals(0, countMembers);
+		List<Identity> members = securityManager.getIdentitiesOfSecurityGroup(secGroup);
+		Assert.assertNotNull(members);
+		Assert.assertTrue(members.isEmpty());
+		
+		//check if robust against null and empty
+		securityManager.removeIdentityFromSecurityGroups(ids, Collections.<SecurityGroup>emptyList());
+		securityManager.removeIdentityFromSecurityGroups(Collections.<Identity>emptyList(), Collections.singletonList(secGroup));
+		securityManager.removeIdentityFromSecurityGroups(ids, null);
+		securityManager.removeIdentityFromSecurityGroups(null, Collections.singletonList(secGroup));
 	}
 	
 	/**
@@ -818,6 +850,23 @@ public class BaseSecurityManagerTest extends OlatTestCase {
 	}
 	
 	@Test
+	public void isIdentityPermittedOnResourceable_null() {
+		//create an identity, a security group, a resource and give the identity some
+		//permissions on the resource
+		SecurityGroup secGroup = securityManager.createAndPersistSecurityGroup();
+		OLATResource resource = JunitTestHelper.createRandomResource();
+		Identity id = JunitTestHelper.createAndPersistIdentityAsUser("test-ipornc-null-" + UUID.randomUUID().toString());
+		securityManager.addIdentityToSecurityGroup(id, secGroup);
+		securityManager.createAndPersistPolicy(secGroup, "test.ipornc-null", resource);
+		dbInstance.commitAndCloseSession();
+		
+		//check that null doesn't return an exception but false
+		boolean hasIpor = securityManager.isIdentityPermittedOnResourceable(null, "test.ipornc-null", resource, false);
+		Assert.assertFalse(hasIpor);
+
+	}
+	
+	@Test
 	public void getIdentityPermissionsOnResourceable() {
 		//create an identity, a security group, a resource and give the identity some
 		//permissions on the resource
@@ -879,5 +928,66 @@ public class BaseSecurityManagerTest extends OlatTestCase {
 		sgmsi.setLastModified(cal.getTime());
 		dbInstance.getCurrentEntityManager().merge(sgmsi);
 		dbInstance.commitAndCloseSession();	
+	}
+	
+	@Test
+	public void updateToSaltedAuthentication() {
+		Identity ident = JunitTestHelper.createAndPersistIdentityAsUser("auth-c-" + UUID.randomUUID().toString());
+		dbInstance.commitAndCloseSession();
+		
+		Authentication auth = securityManager.findAuthentication(ident, "OLAT");
+		String credentials = auth.getCredential();
+		Authentication updatedAuth = securityManager.updateCredentials(auth, "secret", LoginModule.getDefaultHashAlgorithm());
+		Assert.assertNotNull(auth);
+		Assert.assertNotNull(updatedAuth);
+		Assert.assertEquals(auth, updatedAuth);
+		Assert.assertFalse(credentials.equals(updatedAuth.getCredential()));
+		dbInstance.commitAndCloseSession();
+		
+		Authentication auth2 = securityManager.findAuthentication(ident, "OLAT");
+		String credentials2 = auth2.getCredential();
+		Authentication notUpdatedAuth = securityManager.updateCredentials(auth2, "secret", LoginModule.getDefaultHashAlgorithm());
+		Assert.assertNotNull(auth2);
+		Assert.assertNotNull(notUpdatedAuth);
+		Assert.assertSame(auth2, notUpdatedAuth);
+		Assert.assertEquals(credentials2, notUpdatedAuth.getCredential());
+		Assert.assertFalse(credentials.equals(notUpdatedAuth.getCredential()));
+		dbInstance.commitAndCloseSession();
+	}
+	
+	@Test
+	public void deleteAuthentication() {
+		Identity identity = JunitTestHelper.createAndPersistIdentityAsUser("auth-del-" + UUID.randomUUID().toString());
+		Authentication auth = securityManager.createAndPersistAuthentication(identity, "del-test", identity.getName(), "secret", Encoder.Algorithm.sha512);
+		dbInstance.commitAndCloseSession();
+		Assert.assertNotNull(auth);
+		
+		//reload and check
+		Authentication reloadedAuth = securityManager.findAuthentication(identity, "del-test");
+		Assert.assertNotNull(reloadedAuth);
+		Assert.assertEquals(auth, reloadedAuth);
+		dbInstance.commitAndCloseSession();
+		
+		//delete
+		securityManager.deleteAuthentication(auth);
+	}
+	
+	@Test
+	public void deleteAuthentication_checkTransactionSurvive() {
+		Identity identity = JunitTestHelper.createAndPersistIdentityAsUser("auth-del-" + UUID.randomUUID().toString());
+		Authentication auth = securityManager.createAndPersistAuthentication(identity, "del-test", identity.getName(), "secret", Encoder.Algorithm.sha512);
+		dbInstance.commitAndCloseSession();
+		Assert.assertNotNull(auth);
+		
+		//delete
+		securityManager.deleteAuthentication(auth);
+		dbInstance.commitAndCloseSession();
+		
+		//delete deleted auth
+		securityManager.deleteAuthentication(auth);
+		//check that the transaction is not in "rollback" mode
+		Identity reloadedId = securityManager.loadIdentityByKey(identity.getKey());
+		Assert.assertEquals(identity, reloadedId);
+		dbInstance.commitAndCloseSession();
 	}
 }

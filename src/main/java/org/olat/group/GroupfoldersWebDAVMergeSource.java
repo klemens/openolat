@@ -19,6 +19,7 @@
  */
 package org.olat.group;
 
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -28,8 +29,8 @@ import org.olat.collaboration.CollaborationManager;
 import org.olat.collaboration.CollaborationTools;
 import org.olat.core.CoreSpringFactory;
 import org.olat.core.commons.modules.bc.vfs.OlatRootFolderImpl;
+import org.olat.core.commons.services.webdav.servlets.RequestUtil;
 import org.olat.core.id.Identity;
-import org.olat.core.util.Formatter;
 import org.olat.core.util.notifications.SubscriptionContext;
 import org.olat.core.util.vfs.MergeSource;
 import org.olat.core.util.vfs.NamedContainerImpl;
@@ -55,6 +56,7 @@ class GroupfoldersWebDAVMergeSource extends MergeSource {
 	private boolean init = false;
 	private final Identity identity;
 	private final CollaborationManager collaborationManager;
+	private long loadTime;
 	
 	public GroupfoldersWebDAVMergeSource(Identity identity, CollaborationManager collaborationManager) {
 		super(null, null);
@@ -97,7 +99,7 @@ class GroupfoldersWebDAVMergeSource extends MergeSource {
 
 	@Override
 	public List<VFSItem> getItems(VFSItemFilter filter) {
-		if(!init) {
+		if(!init  || (System.currentTimeMillis() - loadTime) > 60000) {
 			init();
 		}
 		return super.getItems(filter);
@@ -127,7 +129,7 @@ class GroupfoldersWebDAVMergeSource extends MergeSource {
 				continue;
 			}
 			
-			name = Formatter.makeStringFilesystemSave(name);
+			name = RequestUtil.normalizeFilename(name);
 			if(childName.equals(name)) {
 				String nextPath = path.substring(childName.length() + 1);
 				VFSContainer grpContainer = getGroupContainer(name, group, false);
@@ -142,28 +144,34 @@ class GroupfoldersWebDAVMergeSource extends MergeSource {
 	@Override
 	protected void init() {
 		super.init();
-	// collect buddy groups
+
+		// collect buddy groups
 		BusinessGroupService bgs = CoreSpringFactory.getImpl(BusinessGroupService.class);
 
 		Set<Long> addedGroupKeys = new HashSet<Long>();
 		Set<String> addedGroupNames = new HashSet<String>();
+		List<VFSContainer> containers = new ArrayList<>();
 		
 		SearchBusinessGroupParams params = new SearchBusinessGroupParams(identity, true, false);
 		params.addTools(CollaborationTools.TOOL_FOLDER);
 		List<BusinessGroup> tutorGroups = bgs.findBusinessGroups(params, null, 0, -1);
 		for (BusinessGroup group : tutorGroups) {
-			addContainer(group, addedGroupKeys, addedGroupNames, true);
+			addContainer(group, addedGroupKeys, addedGroupNames, containers, true);
 		}
 
 		SearchBusinessGroupParams paramsParticipants = new SearchBusinessGroupParams(identity, false, true);
+		paramsParticipants.addTools(CollaborationTools.TOOL_FOLDER);
 		List<BusinessGroup> participantsGroups = bgs.findBusinessGroups(paramsParticipants, null, 0, -1);
 		for (BusinessGroup group : participantsGroups) {
-			addContainer(group, addedGroupKeys, addedGroupNames, false);
+			addContainer(group, addedGroupKeys, addedGroupNames, containers, false);
 		}
+		setMergedContainers(containers);
+		loadTime = System.currentTimeMillis();
 		init = true;
 	}
 	
-	private void addContainer(BusinessGroup group, Set<Long> addedGroupKeys, Set<String> addedGroupNames, boolean isOwner) {
+	private void addContainer(BusinessGroup group, Set<Long> addedGroupKeys, Set<String> addedGroupNames,
+			List<VFSContainer> containers, boolean isOwner) {
 		if(addedGroupKeys.contains(group.getKey())) {
 			return;
 		}
@@ -174,7 +182,7 @@ class GroupfoldersWebDAVMergeSource extends MergeSource {
 
 		VFSContainer grpContainer = getGroupContainer(name, group, isOwner);
 		// add container
-		addContainer(grpContainer);
+		addContainerToList(grpContainer, containers);
 		addedGroupKeys.add(group.getKey());
 	}
 	
@@ -201,10 +209,9 @@ class GroupfoldersWebDAVMergeSource extends MergeSource {
 		// create container and set quota
 		OlatRootFolderImpl localImpl = new OlatRootFolderImpl(folderPath, this);
 		//already done in OlatRootFolderImpl localImpl.getBasefile().mkdirs(); // lazy initialize dirs
-		NamedContainerImpl grpContainer = new NamedContainerImpl(Formatter.makeStringFilesystemSave(name), localImpl);
-		
-		
-		//fxdiff VCRP-8: collaboration tools folder access control
+		String containerName = RequestUtil.normalizeFilename(name);
+		NamedContainerImpl grpContainer = new NamedContainerImpl(containerName, localImpl);
+
 		boolean writeAccess;
 		if (!isOwner) {
 			// check if participants have read/write access
@@ -229,7 +236,7 @@ class GroupfoldersWebDAVMergeSource extends MergeSource {
 		return grpContainer;
 	}
 	
-	private class FullAccessWithLazyQuotaCallback extends FullAccessWithQuotaCallback {
+	private static class FullAccessWithLazyQuotaCallback extends FullAccessWithQuotaCallback {
 		
 		private final String folderPath;
 		

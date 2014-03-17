@@ -299,7 +299,9 @@ public class QuestionPoolServiceImpl implements QPoolService {
 	@Override
 	public QuestionItem createAndPersistItem(Identity owner, String subject, String format, String language,
 			TaxonomyLevel taxonLevel, String dir, String rootFilename, QItemType type) {
-		return questionItemDao.createAndPersist(owner, subject, format, language, taxonLevel, dir, rootFilename, type);
+		QuestionItemImpl newItem = questionItemDao.createAndPersist(owner, subject, format, language, taxonLevel, dir, rootFilename, type);
+		lifeIndexer.indexDocument(QItemDocument.TYPE, newItem.getKey());
+		return newItem;
 	}
 
 	@Override
@@ -751,5 +753,10 @@ public class QuestionPoolServiceImpl implements QPoolService {
 	@Override
 	public TaxonomyLevel updateTaxonomyLevel(String newField, TaxonomyLevel level) {
 		return taxonomyLevelDao.update(newField, level);
+	}
+
+	@Override
+	public boolean delete(TaxonomyLevel level) {
+		return taxonomyLevelDao.delete(level);
 	}
 }

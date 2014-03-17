@@ -43,6 +43,8 @@ import org.olat.core.gui.control.controller.BasicController;
 import org.olat.core.gui.control.generic.iframe.DeliveryOptions;
 import org.olat.core.logging.AssertException;
 import org.olat.core.util.CodeHelper;
+import org.olat.core.util.Formatter;
+import org.olat.core.util.StringHelper;
 import org.olat.core.util.event.GenericEventListener;
 import org.olat.course.assessment.AssessmentHelper;
 import org.olat.course.editor.NodeEditController;
@@ -146,7 +148,7 @@ public class ScormRunController extends BasicController implements ScormAPICallb
 		doStartPage();
 		putInitialPanel(main);
 
-		boolean doSkip = config.getBooleanSafe(ScormEditController.CONFIG_SKIPLAUNCHPAGE, true);
+		boolean doSkip = config.getBooleanSafe(ScormEditController.CONFIG_SKIPLAUNCHPAGE, false);
 		if (doSkip && !maxAttemptsReached()) {
 			doLaunch(ureq, true);
 			getWindowControl().getWindowBackOffice().addCycleListener(this);
@@ -232,7 +234,9 @@ public class ScormRunController extends BasicController implements ScormAPICallb
 			}
 			startPage.contextPut("hasPassedValue", (scoreEval.getPassed() == null ? Boolean.FALSE : Boolean.TRUE));
 			startPage.contextPut("passed", scoreEval.getPassed());
-			startPage.contextPut("comment", scormNode.getUserUserComment(userCourseEnv));
+
+			StringBuilder comment = Formatter.stripTabsAndReturns(scormNode.getUserUserComment(userCourseEnv));
+			startPage.contextPut("comment", StringHelper.xssScan(comment));
 			startPage.contextPut("attempts", scormNode.getUserAttempts(userCourseEnv));
 		}
 		startPage.contextPut("isassessable", Boolean.valueOf(isAssessable));

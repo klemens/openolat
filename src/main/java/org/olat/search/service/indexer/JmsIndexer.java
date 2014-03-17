@@ -51,6 +51,7 @@ import org.apache.lucene.search.TermQuery;
 import org.apache.lucene.search.TopDocs;
 import org.apache.lucene.store.Directory;
 import org.apache.lucene.store.FSDirectory;
+import org.olat.core.commons.persistence.DBFactory;
 import org.olat.core.logging.OLog;
 import org.olat.core.logging.Tracing;
 import org.olat.search.SearchModule;
@@ -89,7 +90,7 @@ public class JmsIndexer implements MessageListener, LifeFullIndexer {
 	
 	public JmsIndexer(SearchModule searchModuleConfig) {
 		indexingNode = searchModuleConfig.isSearchServiceEnabled();
-    ramBufferSizeMB = searchModuleConfig.getRAMBufferSizeMB();
+		ramBufferSizeMB = searchModuleConfig.getRAMBufferSizeMB();
 		permanentIndexPath = searchModuleConfig.getFullPermanentIndexPath();
 	}
 
@@ -208,7 +209,6 @@ public class JmsIndexer implements MessageListener, LifeFullIndexer {
 		if(consumer != null) {
 			try {
 				consumer.close();
-				System.out.println("Close consumer JMSINDEXER");
 			} catch (JMSException e) {
 				log.error("", e);
 			}
@@ -217,7 +217,6 @@ public class JmsIndexer implements MessageListener, LifeFullIndexer {
 			try {
 				indexerSession.close();
 				connection.close();
-				System.out.println("Close connection JMSINDEXER");
 			} catch (JMSException e) {
 				log.error("", e);
 			}
@@ -289,6 +288,8 @@ public class JmsIndexer implements MessageListener, LifeFullIndexer {
 				message.acknowledge();
 			} catch (JMSException e) {
 				log.error("", e);
+			} finally {
+				DBFactory.getInstance().commitAndCloseSession();
 			}
 		}
 	}
@@ -336,7 +337,7 @@ public class JmsIndexer implements MessageListener, LifeFullIndexer {
 		IndexWriter writer = null;
 		try {
 			Term uuidTerm = new Term(AbstractOlatDocument.RESOURCEURL_FIELD_NAME, resourceUrl);
-	    writer = permanentIndexWriter.getAndLock();
+			writer = permanentIndexWriter.getAndLock();
 			writer.deleteDocuments(uuidTerm);
 		} catch (IOException e) {
 			log.error("", e);
@@ -352,6 +353,8 @@ public class JmsIndexer implements MessageListener, LifeFullIndexer {
 	 */
 	@Override
 	public void addDocument(Document document) {
+		if(document == null) return;//nothing to do
+		
 		IndexWriter writer = null;
 		try {
 			String resourceUrl = document.get(AbstractOlatDocument.RESOURCEURL_FIELD_NAME);
@@ -359,8 +362,8 @@ public class JmsIndexer implements MessageListener, LifeFullIndexer {
 
 			DirectoryReader reader = getReader();
 			IndexSearcher searcher = new IndexSearcher(reader);
-	    TopDocs hits = searcher.search(new TermQuery(uuidTerm), 10);
-	    writer = permanentIndexWriter.getAndLock();
+			TopDocs hits = searcher.search(new TermQuery(uuidTerm), 10);
+			writer = permanentIndexWriter.getAndLock();
 			if(hits.totalHits > 0) {
 				writer.updateDocument(uuidTerm, document);
 			} else {
@@ -380,7 +383,7 @@ public class JmsIndexer implements MessageListener, LifeFullIndexer {
 			Term uuidTerm = new Term(AbstractOlatDocument.RESOURCEURL_FIELD_NAME, resourceUrl);
 			DirectoryReader reader = getReader();
 			IndexSearcher searcher = new IndexSearcher(reader);
-	    TopDocs hits = searcher.search(new TermQuery(uuidTerm), 10);
+			TopDocs hits = searcher.search(new TermQuery(uuidTerm), 10);
 			if(hits.totalHits > 0) {
 				writer.updateDocument(uuidTerm, document);
 			} else {

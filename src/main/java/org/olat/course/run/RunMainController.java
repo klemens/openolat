@@ -88,7 +88,7 @@ import org.olat.course.ICourse;
 import org.olat.course.archiver.ArchiverMainController;
 import org.olat.course.archiver.IArchiverCallback;
 import org.olat.course.assessment.AssessmentChangedEvent;
-import org.olat.course.assessment.AssessmentUIFactory;
+import org.olat.course.assessment.AssessmentMainController;
 import org.olat.course.assessment.CoachingGroupAccessAssessmentCallback;
 import org.olat.course.assessment.EfficiencyStatementController;
 import org.olat.course.assessment.EfficiencyStatementManager;
@@ -191,6 +191,7 @@ public class RunMainController extends MainLayoutBasicController implements Gene
 	
 	private final MarkManager markManager;
 	private final BusinessGroupService businessGroupService;
+	private final EfficiencyStatementManager efficiencyStatementManager;
 	
 	/**
 	 * Constructor for the run main controller
@@ -206,17 +207,18 @@ public class RunMainController extends MainLayoutBasicController implements Gene
 	 * @param showCourseConfigLink  Flag to enable/disable link to detail-page in tool menu. 
 	 */
 	public RunMainController(final UserRequest ureq, final WindowControl wControl, final ICourse course,
-			final boolean offerBookmark, final boolean showCourseConfigLink) {
+			final RepositoryEntry re, final boolean offerBookmark, final boolean showCourseConfigLink) {
 
 		super(ureq, wControl);
 		
 		businessGroupService = CoreSpringFactory.getImpl(BusinessGroupService.class);
 		markManager = CoreSpringFactory.getImpl(MarkManager.class);
+		efficiencyStatementManager = CoreSpringFactory.getImpl(EfficiencyStatementManager.class);
 
 		this.course = course;
 		addLoggingResourceable(LoggingResourceable.wrap(course));
 		this.courseTitle = course.getCourseTitle();
-		this.courseRepositoryEntry = RepositoryManager.getInstance().lookupRepositoryEntry(course, true);
+		this.courseRepositoryEntry = re;
 		this.offerBookmark = offerBookmark;
 		this.showCourseConfigLink = showCourseConfigLink;
 		this.courseRunOres = OresHelper.createOLATResourceableInstance(ORES_TYPE_COURSE_RUN, course.getResourceableId());
@@ -344,8 +346,8 @@ public class RunMainController extends MainLayoutBasicController implements Gene
 	}
 	
 	private void setLaunchDates(final Identity identity) {
-		UserCourseInformationsManager efficiencyStatementManager = CoreSpringFactory.getImpl(UserCourseInformationsManager.class);
-		efficiencyStatementManager.updateUserCourseInformations(uce.getCourseEnvironment().getCourseResourceableId(), getIdentity());
+		UserCourseInformationsManager userCourseInfoMgr = CoreSpringFactory.getImpl(UserCourseInformationsManager.class);
+		userCourseInfoMgr.updateUserCourseInformations(uce.getCourseEnvironment().getCourseResourceableId(), getIdentity(), false);
 	}
 	
 	/**
@@ -844,20 +846,20 @@ public class RunMainController extends MainLayoutBasicController implements Gene
 		
 		// 1) course admins and users with tool right: full access
 		if (hasCourseRight(CourseRights.RIGHT_ASSESSMENT) || isCourseAdmin) {
-			Activateable2 assessmentToolCtr = 
-				AssessmentUIFactory.createAssessmentMainController(ureq, swControl, all, course, new FullAccessAssessmentCallback(isCourseAdmin));
+			AssessmentMainController assessmentToolCtr = new AssessmentMainController(ureq, swControl, all, course,
+					new FullAccessAssessmentCallback(isCourseAdmin));
 			assessmentToolCtr.activate(ureq, null, null);
-			currentToolCtr = (Controller)assessmentToolCtr;
+			currentToolCtr = assessmentToolCtr;
 			listenTo(currentToolCtr);
 			all.pushController(translate("command.openassessment"), currentToolCtr);
 			return assessmentToolCtr;
 		}
 		// 2) users with coach right: limited access to coached groups
 		else if (isCourseCoach) {
-			Activateable2 assessmentToolCtr = AssessmentUIFactory.createAssessmentMainController(ureq, swControl, all, course,
+			AssessmentMainController assessmentToolCtr =  new AssessmentMainController(ureq, swControl, all, course,
 					new CoachingGroupAccessAssessmentCallback());
 			assessmentToolCtr.activate(ureq, null, null);
-			currentToolCtr = (Controller)assessmentToolCtr;
+			currentToolCtr = assessmentToolCtr;
 			listenTo(currentToolCtr);
 			all.pushController(translate("command.openassessment"), currentToolCtr);
 			return assessmentToolCtr;
@@ -924,12 +926,9 @@ public class RunMainController extends MainLayoutBasicController implements Gene
 					assessmentChangedEventReceived = true;										
 				} else if (assessmentChangeType.equals(AssessmentChangedEvent.TYPE_EFFICIENCY_STATEMENT_CHANGED)) {
 					// update tools, maybe efficiency statement link has changed
-					removeAsListenerAndDispose(toolC);
-					toolC = initToolController(identity, null);
-					listenTo(toolC);
-					
-					Component toolComp = (toolC == null ? null : toolC.getInitialComponent());
-					columnLayoutCtr.setCol2(toolComp);
+					UserEfficiencyStatement es = efficiencyStatementManager
+							.getUserEfficiencyStatementLight(courseRepositoryEntry.getKey(), identity);
+					toolC.setEnabled("command.efficiencystatement", (es != null));
 				}
 				// raise a flag to indicate refresh
 				needsRebuildAfterRunDone = true;
@@ -1096,8 +1095,8 @@ public class RunMainController extends MainLayoutBasicController implements Gene
 			// data exists for user
 			myTool.addPopUpLink("efficiencystatement", translate("command.efficiencystatement"), "command.efficiencystatement", null,
 					"750", "800", false);
-			EfficiencyStatementManager esm = EfficiencyStatementManager.getInstance();
-			UserEfficiencyStatement es = esm.getUserEfficiencyStatementLight(courseRepositoryEntry.getKey(), identity);
+			UserEfficiencyStatement es = efficiencyStatementManager
+					.getUserEfficiencyStatementLight(courseRepositoryEntry.getKey(), identity);
 			if (es == null) {
 				myTool.setEnabled("command.efficiencystatement", false);
 			}

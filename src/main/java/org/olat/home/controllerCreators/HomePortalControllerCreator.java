@@ -35,6 +35,7 @@ import org.olat.core.gui.control.controller.BasicController;
 import org.olat.core.gui.control.creator.AutoCreator;
 import org.olat.core.gui.control.generic.portal.PortalImpl;
 import org.olat.core.gui.render.StringOutput;
+import org.olat.core.id.Roles;
 import org.olat.core.util.Util;
 import org.olat.home.InviteeHomeMainController;
 
@@ -102,13 +103,19 @@ public class HomePortalControllerCreator extends AutoCreator  {
 
 			// add portal
 			if (myPortal == null) {
-				if(ureq.getUserSession().getRoles().isGuestOnly()){
-					myPortal = ((PortalImpl)CoreSpringFactory.getBean("guestportal")).createInstance(getWindowControl(), ureq);
+				Roles roles = ureq.getUserSession().getRoles();
+				PortalImpl portalTemplate;
+				if(roles.isGuestOnly()){
+					portalTemplate = ((PortalImpl)CoreSpringFactory.getBean("guestportal"));
 					portalEditButton.setEnabled(false);
 					portalEditButton.setVisible(false);
-				}else{
-					myPortal = ((PortalImpl)CoreSpringFactory.getBean("homeportal")).createInstance(getWindowControl(), ureq);
+				} else if((roles.isGroupManager() || roles.isInstitutionalResourceManager() || roles.isOLATAdmin() || roles.isPoolAdmin() || roles.isUserManager() || roles.isAuthor())
+						&& CoreSpringFactory.containsBean("authorportal")) {
+					portalTemplate = ((PortalImpl)CoreSpringFactory.getBean("authorportal"));
+				} else {
+					portalTemplate = ((PortalImpl)CoreSpringFactory.getBean("homeportal"));
 				}
+				myPortal = portalTemplate.createInstance(getWindowControl(), ureq);
 			}
 			
 			welcome.put("myPortal", myPortal.getInitialComponent());
@@ -128,10 +135,10 @@ public class HomePortalControllerCreator extends AutoCreator  {
 		@Override
 		public void event(UserRequest ureq, Component source, Event event) {
 			if (source == portalBackButton){
-				this.myPortal.setIsEditMode(ureq, Boolean.FALSE);
+				myPortal.setIsEditMode(ureq, false);
 				welcome.contextPut("portalEditMode", Boolean.FALSE);
 			} else if (source == portalEditButton){
-				this.myPortal.setIsEditMode(ureq, Boolean.TRUE);
+				myPortal.setIsEditMode(ureq, true);
 				welcome.contextPut("portalEditMode", Boolean.TRUE);
 			} 
 		}

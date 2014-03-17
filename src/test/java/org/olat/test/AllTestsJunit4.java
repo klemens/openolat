@@ -66,6 +66,7 @@ import org.junit.runners.Suite;
 	org.olat.core.id.context.HistoryManagerTest.class,
 	org.olat.core.id.IdentityEnvironmentTest.class,
 	org.olat.core.gui.render.VelocityTemplateTest.class,
+	org.olat.core.gui.control.generic.iframe.IFrameDeliveryMapperTest.class,
 	org.olat.note.NoteTest.class,//ok
 	org.olat.user.UserPropertiesPerformanceTest.class,//ok
 	org.olat.user.EmailCheckPerformanceTest.class,//fail
@@ -77,10 +78,11 @@ import org.junit.runners.Suite;
 	org.olat.commons.coordinate.cluster.jms.JMSTest.class,//ok
 	org.olat.commons.coordinate.cluster.lock.LockTest.class,//ok
 	org.olat.commons.coordinate.CoordinatorTest.class,//ok
-	org.olat.core.commons.service.webdav.WebDAVTestCase.class,//ok
+	org.olat.core.commons.services.webdav.WebDAVCommandsTest.class,//ok
 	org.olat.core.commons.services.webdav.manager.WebDAVManagerTest.class,//ok
-	org.olat.core.commons.taskExecutor.PersistentTaskDAOTest.class,//ok
-	org.olat.core.commons.taskExecutor.TaskExecutorManagerTest.class,//ok
+	org.olat.core.commons.services.webdav.servlets.RequestUtilsTest.class,//ok
+	org.olat.core.commons.services.taskexecutor.PersistentTaskDAOTest.class,//ok
+	org.olat.core.commons.services.taskexecutor.TaskExecutorManagerTest.class,//ok
 	org.olat.admin.user.delete.service.UserDeletionManagerTest.class,//ok
 	org.olat.group.BusinessGroupManagedFlagsTest.class,//ok
 	org.olat.group.test.BGRightManagerTest.class,//ok
@@ -120,7 +122,6 @@ import org.junit.runners.Suite;
 	org.olat.search.service.document.file.FileDocumentFactoryTest.class,
 	org.olat.search.service.document.file.PDFDocumentTest.class,
 	org.olat.search.service.document.file.OfficeDocumentTest.class,
-	org.olat.catalog.CatalogManagerTest.class,//ok
 	org.olat.notifications.NotificationsManagerTest.class,//fail
 	org.olat.registration.RegistrationManagerTest.class,//ok
 	org.olat.course.nodes.projectbroker.ProjectBrokerManagerTest.class,
@@ -142,13 +143,13 @@ import org.junit.runners.Suite;
 	org.olat.modules.qpool.manager.TaxonomyLevelDAOTest.class,
 	org.olat.modules.qpool.manager.QuestionPoolServiceTest.class,
 	org.olat.ldap.LDAPLoginTest.class,
-	org.olat.core.commons.service.mark.MarksTest.class,
+	org.olat.core.commons.services.mark.MarksTest.class,
 //	org.olat.test.OlatJerseyTestCase.class, // NO TEST METHODS 
 	org.olat.test.SpringInitDestroyVerficationTest.class,
 	org.olat.course.statistic.TestLoggingVersionManagerImpl.class,
 	//org.olat.course.statistic.weekly.TestWeeklyStatisticManager_fillGaps.class, don't know what it tests
-	org.olat.core.commons.service.usercomments.UserCommentsTest.class,
-	org.olat.core.commons.service.usercomments.UserRatingsTest.class,
+	org.olat.core.commons.services.usercomments.UserCommentsTest.class,
+	org.olat.core.commons.services.usercomments.UserRatingsTest.class,
 	org.olat.course.auditing.UserNodeAuditManagerTest.class,
 	org.olat.shibboleth.util.ShibbolethAttributeTest.class,
 	org.olat.core.CoreSpringFactoryTest.class,
@@ -161,8 +162,8 @@ import org.junit.runners.Suite;
 	org.olat.modules.openmeetings.OpenMeetingsTest.class,
 	org.olat.modules.openmeetings.manager.OpenMeetingsDAOTest.class,
 	org.olat.commons.info.InfoManagerTest.class,
-	org.olat.core.commons.service.tagging.SimpleTagProposalManagerTest.class,
-	org.olat.core.commons.service.tagging.TaggingManagerTest.class,
+	org.olat.core.commons.services.tagging.SimpleTagProposalManagerTest.class,
+	org.olat.core.commons.services.tagging.TaggingManagerTest.class,
 	org.olat.core.dispatcher.mapper.MapperDAOTest.class,
 	org.olat.core.dispatcher.mapper.MapperServiceTest.class,
 	org.olat.restapi.AuthenticationTest.class,
@@ -170,6 +171,7 @@ import org.junit.runners.Suite;
 	org.olat.restapi.CalendarTest.class,
 	org.olat.restapi.CourseGroupMgmtTest.class,
 	org.olat.restapi.CourseCalendarTest.class,
+	org.olat.restapi.CourseDBTest.class,
 	org.olat.restapi.CoursesContactElementTest.class,
 	org.olat.restapi.CourseSecurityTest.class,
 	org.olat.restapi.CoursesElementsTest.class,
@@ -223,7 +225,7 @@ import org.junit.runners.Suite;
 	 * as well as the tests on hudson run agains a jar version of olatcore where the test source
 	 * tree is not available
 	 */
-	org.olat.core.commons.scheduler.SchedulerTest.class,
+	org.olat.core.commons.services.scheduler.SchedulerTest.class,
 	org.olat.course.TestDeployableRepositoryExport.class,
 	org.olat.upgrade.UpgradeDefinitionTest.class
 })

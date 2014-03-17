@@ -25,9 +25,12 @@
 
 package org.olat.course.nodes;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 
+import org.olat.core.CoreSpringFactory;
+import org.olat.core.commons.services.taskexecutor.TaskExecutorManager;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.stack.StackedController;
 import org.olat.core.gui.control.Controller;
@@ -42,6 +45,7 @@ import org.olat.core.logging.OLATRuntimeException;
 import org.olat.core.util.Util;
 import org.olat.course.ICourse;
 import org.olat.course.assessment.AssessmentManager;
+import org.olat.course.assessment.bulk.BulkAssessmentToolController;
 import org.olat.course.auditing.UserNodeAuditManager;
 import org.olat.course.editor.CourseEditorEnv;
 import org.olat.course.editor.NodeEditController;
@@ -51,6 +55,7 @@ import org.olat.course.nodes.ms.MSCourseNodeRunController;
 import org.olat.course.nodes.ms.MSEditFormController;
 import org.olat.course.properties.CoursePropertyManager;
 import org.olat.course.properties.PersistingCoursePropertyManager;
+import org.olat.course.run.environment.CourseEnvironment;
 import org.olat.course.run.navigation.NodeRunConstructionResult;
 import org.olat.course.run.scoring.ScoreEvaluation;
 import org.olat.course.run.userview.NodeEvaluation;
@@ -58,6 +63,7 @@ import org.olat.course.run.userview.UserCourseEnvironment;
 import org.olat.modules.ModuleConfiguration;
 import org.olat.properties.Property;
 import org.olat.repository.RepositoryEntry;
+import org.olat.resource.OLATResource;
 
 /**
  * Initial Date: Jun 16, 2004
@@ -66,8 +72,8 @@ import org.olat.repository.RepositoryEntry;
  * @author BPS (<a href="http://www.bps-system.de/">BPS Bildungsportal Sachsen GmbH</a>)
  */
 public class MSCourseNode extends AbstractAccessableCourseNode implements AssessableCourseNode {
+	private static final long serialVersionUID = -7741172700015384397L;
 	private static final String PACKAGE_MS = Util.getPackageName(MSCourseNodeRunController.class);
-
 	private static final String PACKAGE = Util.getPackageName(MSCourseNode.class);
 
 	private static final String TYPE = "ms";
@@ -243,6 +249,9 @@ public class MSCourseNode extends AbstractAccessableCourseNode implements Assess
 		CoursePropertyManager pm = course.getCourseEnvironment().getCoursePropertyManager();
 		// Delete all properties: score, passed, log, comment, coach_comment
 		pm.deleteNodeProperties(this, null);
+		
+		OLATResource resource = course.getCourseEnvironment().getCourseGroupManager().getCourseResource();
+		CoreSpringFactory.getImpl(TaskExecutorManager.class).delete(resource, getIdent());
 	}
 
 	/**
@@ -422,6 +431,13 @@ public class MSCourseNode extends AbstractAccessableCourseNode implements Assess
 	 */
 	public Controller getDetailsEditController(UserRequest ureq, WindowControl wControl, StackedController stackPanel, UserCourseEnvironment userCourseEnvironment) {
 		throw new OLATRuntimeException(MSCourseNode.class, "Details controler not available in MS nodes", null);
+	}
+
+	@Override
+	public List<Controller> createAssessmentTools(UserRequest ureq, WindowControl wControl, CourseEnvironment courseEnv, AssessmentToolOptions options) {
+		List<Controller> tools = new ArrayList<>(1);
+		tools.add(new BulkAssessmentToolController(ureq, wControl, courseEnv, this));
+		return tools;
 	}
 
 	/**
