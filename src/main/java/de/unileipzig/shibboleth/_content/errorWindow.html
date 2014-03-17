@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Shibboleth error</title>
+    <link rel="stylesheet" href="$cssURL" />
+</head>
+<body style="background: none;">
+    <div style="margin: auto; width: 50em; padding: 2em;">
+        <div class="b_important">
+            <h2>Shibboleth error</h2>
+            <p>$message</p>
+            #if($detail)
+            <h4>Details:</h4>
+			<p class="b_note">$detail</p>
+			#end
+        </div>
+        <div class="b_button_group">
+            <a class="b_button" href="$backLink"><span>Login</span></a>
+        </div>
+    </div>
+</body>
+</html>

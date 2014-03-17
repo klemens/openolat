@@ -30,6 +30,7 @@
 	<import resource="classpath:/org/olat/core/logging/activity/_spring/activityCorecontext.xml"/>
 	
 	<import resource="classpath:/de/htwk/autolat/_spring/mainCorecontext.xml"/>
+	<import resource="classpath:/de/unileipzig/shibboleth/_spring/simpleShibbolethContext.xml" />
 
 	<import resource="classpath:/org/olat/core/dispatcher/_spring/dispatcherContext.xml"/>
 	<import resource="classpath:/org/olat/core/gui/control/_spring/fullWebAppContext.xml"/>
