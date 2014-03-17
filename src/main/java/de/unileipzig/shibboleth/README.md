@@ -26,6 +26,13 @@ Include or link unileipzig/shibboleth into your source tree. Because OpenOLAT do
 not provide extension points to insert authenticators via spring, you have to change
 the following spring configuration files manually:
 
+### java/org/olat/core/_spring/mainCorecontext.xml ###
+
+Add the following import to the other ones:
+```
+<import resource="classpath:/de/unileipzig/shibboleth/_spring/simpleShibbolethContext.xml" />
+```
+
 ### java/org/olat/login/_spring/loginContext.xml ###
 
 Add the following entry to the property map `authenticaionProviders`:
