@@ -17,6 +17,13 @@ If you are using git to maintain your OpenOLAT instance, simply merge the branch
 
 Copy or link unileipzig/UserInfoInterceptor into your source tree.
 
+### java/org/olat/core/_spring/mainCorecontext.xml ###
+
+Add the following import to the other ones:
+```
+<import resource="classpath:/de/unileipzig/UserInfoInterceptor/_spring/interceptorContext.xml" />
+```
+
 ## Configuration ##
 
 You can provide the following options in olat.local.properties to customize

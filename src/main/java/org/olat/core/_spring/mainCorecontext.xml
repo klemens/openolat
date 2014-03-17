@@ -35,6 +35,8 @@
 	<import resource="classpath:/org/olat/core/gui/control/_spring/portalContext.xml"/>
 	<import resource="classpath:/org/olat/core/gui/components/form/flexible/impl/elements/richText/_spring/richTextCorecontext.xml"/> 
 	
+	<import resource="classpath:/de/unileipzig/UserInfoInterceptor/_spring/interceptorContext.xml" />
+
 	<import resource="classpath:/org/olat/core/commons/services/_spring/servicesCorecontext.xml"/>
 	<import resource="classpath:/org/olat/core/commons/services/tagging/_spring/taggingContext.xml"/>
 	<import resource="classpath:/org/olat/core/commons/services/thumbnail/_spring/thumbnailserviceContext.xml"/>
