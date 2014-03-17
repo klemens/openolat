@@ -29,24 +29,21 @@ import java.util.Date;
 import java.util.List;
 import java.util.Set;
 
-import org.apache.commons.lang.StringEscapeUtils;
 import org.olat.core.gui.components.table.DefaultTableDataModel;
-import org.olat.core.id.UserConstants;
+import org.olat.user.UserManager;
 
 /**
 * @author Felix Jost
 */
-public class ForumMessagesTableDataModel extends DefaultTableDataModel {
+public class ForumMessagesTableDataModel extends DefaultTableDataModel<Message> {
 
-	private Set readMsgs;
+	private Set<Long> readMsgs;
+	private UserManager userManager;
 
-	public ForumMessagesTableDataModel() {
-		super(null);
-	}
-
-	public ForumMessagesTableDataModel(List objects, Set readMsgs) {
+	public ForumMessagesTableDataModel(UserManager userManager, List<Message> objects, Set<Long> readMsgs) {
 		super(objects);
 		this.readMsgs = readMsgs;
+		this.userManager = userManager;
 	}
 
 	public int getColumnCount() {
@@ -61,15 +58,13 @@ public class ForumMessagesTableDataModel extends DefaultTableDataModel {
 	 * fourth if it is new or not
 	 */
 	public final Object getValueAt(int row, int col) {
-		Message m= (Message) getObject(row);
+		Message m= getObject(row);
 		switch (col) {
 			case 0 :
-				String title = StringEscapeUtils.escapeHtml(m.getTitle()).toString();
+				String title = m.getTitle();
 				return title;
 			case 1 :
-				String last= m.getCreator().getUser().getProperty(UserConstants.LASTNAME, getLocale());
-				String first= m.getCreator().getUser().getProperty(UserConstants.FIRSTNAME, getLocale()); 
-				return last + " " + first;
+				return userManager.getUserDisplayName(m.getCreator().getUser());
 			case 2 :
 				Date mod = m.getLastModified();
 				return mod;

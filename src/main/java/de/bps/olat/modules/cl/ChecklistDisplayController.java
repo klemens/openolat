@@ -71,31 +71,31 @@ public class ChecklistDisplayController extends BasicController {
 	private Controller manageController, editController;
 	
 	// data
-	private List<ChecklistFilter> filter;
 	private Checklist checklist;
 	private ICourse course;
 	private List<Checkpoint> visibleCheckpoints;
 	private ChecklistRunTableDataModel runTableData;
 	private BitSet selection;
 	
-	protected ChecklistDisplayController(UserRequest ureq, WindowControl wControl, Checklist checklist, List<ChecklistFilter> filter, boolean canEdit, boolean canManage, ICourse course) {
+	protected ChecklistDisplayController(UserRequest ureq, WindowControl wControl, Checklist checklist, boolean canEdit, boolean canManage, ICourse course) {
 		super(ureq, wControl);
 		// initialize attributes
 		this.checklist = checklist;
 		this.course = course;
-		this.filter = filter;
 		this.canEdit = canEdit;
 		this.canManage = canManage;
 		this.visibleCheckpoints = checklist.getVisibleCheckpoints();
 		
 		// display checklist
-		displayChecklist(ureq, wControl);
+		displayChecklist(ureq);
 	}
 	
-	private void displayChecklist(UserRequest ureq, WindowControl wControl) {
+	private void displayChecklist(UserRequest ureq) {
 		// add title
 		VelocityContainer displayChecklistVC = this.createVelocityContainer("display");
-		displayChecklistVC.contextPut("checklistTitle", this.checklist.getTitle());
+		
+		String title = checklist.getTitle() == null ? "" : checklist.getTitle();
+		displayChecklistVC.contextPut("checklistTitle", title);
 		// add edit and manage button
 		if((canEdit | canManage) && course != null) {
 			displayChecklistVC.contextPut("showAuthorBtns", Boolean.TRUE);
@@ -167,9 +167,12 @@ public class ChecklistDisplayController extends BasicController {
 				checkpoint.setSelectionFor(ureq.getIdentity(), selection.get(i));
 				manager.updateCheckpoint(checkpoint);
 				// do logging
+				String listTitle = checklist.getTitle() == null ? "" : checklist.getTitle();
+				String pointTitle = checkpoint.getTitle() == null ? "" : checkpoint.getTitle();
+				
 				ThreadLocalUserActivityLogger.log(CourseLoggingAction.CHECKLIST_ELEMENT_CHECKPOINT_UPDATED, getClass(), 
-						LoggingResourceable.wrapNonOlatResource(StringResourceableType.checklist, Long.toString(checklist.getKey()), checklist.getTitle()),
-						LoggingResourceable.wrapNonOlatResource(StringResourceableType.checkpoint, Long.toString(checkpoint.getKey()), checkpoint.getTitle()));
+						LoggingResourceable.wrapNonOlatResource(StringResourceableType.checklist, Long.toString(checklist.getKey()), listTitle),
+						LoggingResourceable.wrapNonOlatResource(StringResourceableType.checkpoint, Long.toString(checkpoint.getKey()), pointTitle));
 			}
 		}
 		initTable(ureq);
@@ -329,7 +332,6 @@ class ChecklistAuthorOptionsForm extends FormBasicController {
 	}
 
 	@Override
-	@SuppressWarnings("unused")
 	protected void initForm(FormItemContainer formLayout, Controller listener, UserRequest ureq) {
 		FormLayoutContainer mainLayout = FormLayoutContainer.createHorizontalFormLayout("mainLayout", getTranslator());
 		formLayout.add(mainLayout);
@@ -343,7 +345,7 @@ class ChecklistAuthorOptionsForm extends FormBasicController {
 	}
 
 	@Override
-	protected void formInnerEvent(UserRequest ureq, FormItem source, @SuppressWarnings("unused") FormEvent event) {
+	protected void formInnerEvent(UserRequest ureq, FormItem source, FormEvent event) {
 		if(source == manageCheckpointsBtn) {
 			fireEvent(ureq, MANAGE_CHECKPOINT);
 		} else if(source == configCheckpointsBtn) {
@@ -357,7 +359,7 @@ class ChecklistAuthorOptionsForm extends FormBasicController {
 	}
 
 	@Override
-	protected void formOK(@SuppressWarnings("unused") UserRequest ureq) {
+	protected void formOK(UserRequest ureq) {
 		// nothing to do
 	}
 

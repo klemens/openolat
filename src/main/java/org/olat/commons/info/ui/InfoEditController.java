@@ -24,6 +24,7 @@ import java.util.Date;
 
 import org.olat.commons.info.manager.InfoMessageFrontendManager;
 import org.olat.commons.info.model.InfoMessage;
+import org.olat.core.CoreSpringFactory;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.form.flexible.FormItemContainer;
 import org.olat.core.gui.components.form.flexible.impl.FormBasicController;
@@ -55,8 +56,8 @@ public class InfoEditController extends FormBasicController {
 		super(ureq, wControl, "edit");
 		
 		this.messageToEdit = messageToEdit;
-		infoFrontendManager = InfoMessageFrontendManager.getInstance();
-		editForm = new InfoEditFormController(ureq, wControl, mainForm);
+		infoFrontendManager = CoreSpringFactory.getImpl(InfoMessageFrontendManager.class);
+		editForm = new InfoEditFormController(ureq, wControl, mainForm, false);
 		editForm.setTitle(messageToEdit.getTitle());
 		editForm.setMessage(messageToEdit.getMessage());
 		listenTo(editForm);
@@ -95,7 +96,7 @@ public class InfoEditController extends FormBasicController {
 		messageToEdit.setMessage(message);
 		messageToEdit.setModificationDate(new Date());
 		messageToEdit.setModifier(getIdentity());
-		infoFrontendManager.sendInfoMessage(messageToEdit, null, null, null);
+		infoFrontendManager.sendInfoMessage(messageToEdit, null, null, ureq.getIdentity(), null);
 		
 		ThreadLocalUserActivityLogger.log(CourseLoggingAction.INFO_MESSAGE_UPDATED, getClass(),
 				LoggingResourceable.wrap(messageToEdit.getOLATResourceable(), OlatResourceableType.infoMessage));

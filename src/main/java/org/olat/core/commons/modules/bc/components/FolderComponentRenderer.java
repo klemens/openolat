@@ -28,7 +28,6 @@ package org.olat.core.commons.modules.bc.components;
 
 import java.util.Iterator;
 
-import org.apache.commons.lang.StringEscapeUtils;
 import org.olat.core.commons.modules.bc.FolderConfig;
 import org.olat.core.commons.modules.bc.FolderRunController;
 import org.olat.core.commons.modules.bc.commands.FolderCommandFactory;
@@ -44,6 +43,7 @@ import org.olat.core.gui.render.URLBuilder;
 import org.olat.core.gui.translator.Translator;
 import org.olat.core.util.CodeHelper;
 import org.olat.core.util.Formatter;
+import org.olat.core.util.StringHelper;
 import org.olat.core.util.vfs.VFSConstants;
 import org.olat.core.util.vfs.VFSContainer;
 import org.olat.core.util.vfs.VFSItem;
@@ -53,8 +53,8 @@ import org.olat.core.util.vfs.VFSItem;
  */
 public class FolderComponentRenderer implements ComponentRenderer {
 
-	private ListRenderer listRenderer;
-	private CrumbRenderer crumbRenderer;
+	private final ListRenderer listRenderer;
+	private final CrumbRenderer crumbRenderer;
 
 	/**
 	 * Constructor for TableRenderer. Singleton and must be reentrant
@@ -81,18 +81,24 @@ public class FolderComponentRenderer implements ComponentRenderer {
 		// get ajax flag for link rendering
 		boolean iframePostEnabled = renderer.getGlobalSettings().getAjaxFlags().isIframePostEnabled();
 		
-		if (renderType == 1)
-			target.append(crumbRenderer.render(fc, ubu, true, iframePostEnabled));
-		else if (renderType == 2)
-			target.append(crumbRenderer.render(fc, ubu, false, iframePostEnabled));
-		else
-			renderList(renderer, target, fc, ubu, translator, iframePostEnabled);
+		if (renderType == 1) {
+			crumbRenderer.render(fc, target, ubu, true, iframePostEnabled);
+		} else if (renderType == 2) {
+			crumbRenderer.render(fc, target, ubu, false, iframePostEnabled);
+		} else {
+			renderList(target, fc, ubu, translator, iframePostEnabled);
+		}
 	}
 
-	private void renderList(Renderer r, StringOutput target, FolderComponent fc, URLBuilder ubu, Translator translator, boolean iframePostEnabled) {
+	private void renderList(StringOutput target, FolderComponent fc, URLBuilder ubu, Translator translator, boolean iframePostEnabled) {
 		
 		VFSContainer currentContainer = fc.getCurrentContainer();
 		boolean canWrite = currentContainer.canWrite() == VFSConstants.YES;
+		boolean canCreateFolder = true;
+		if(currentContainer.getLocalSecurityCallback() != null && !currentContainer.getLocalSecurityCallback().canCreateFolder()) {
+			canCreateFolder = false;
+		}
+		
 		boolean canDelete = false;
 		boolean canVersion = FolderConfig.versionsEnabled(fc.getCurrentContainer());
 		boolean canMail = fc.isCanMail();
@@ -105,10 +111,10 @@ public class FolderComponentRenderer implements ComponentRenderer {
 		}
 		
 		String formName = "folder" + CodeHelper.getRAMUniqueID();
-		target.append("<form  method=\"post\" id=\"" + formName + "\" action=\"");
+		target.append("<form  method=\"post\" id=\"").append(formName).append("\" action=\"");
 		ubu.buildURI(target, new String[] { VelocityContainer.COMMAND_ID }, new String[] {FolderRunController.FORM_ACTION }, iframePostEnabled ? AJAXFlags.MODE_TOBGIFRAME : AJAXFlags.MODE_NORMAL);
 		target.append("\" onsubmit=\"if ( b_briefcase_isChecked('").append(formName)
-			.append("', '").append(Formatter.escapeSingleAndDoubleQuotes(StringEscapeUtils.escapeHtml(translator.translate("alert")).toString())) 
+			.append("', '").append(Formatter.escapeSingleAndDoubleQuotes(StringHelper.escapeHtml(translator.translate("alert")).toString())) 
 			.append("')) { if(o_info.linkbusy) return false; else o_beforeserver(); return true; } else {return false; }\"");
 		if (iframePostEnabled) { // add ajax iframe target
 			StringOutput so = new StringOutput();
@@ -119,7 +125,7 @@ public class FolderComponentRenderer implements ComponentRenderer {
 
 		target.append("<div class=\"b_briefcase_createactions b_clearfix\"><ul>");
 		if (canWrite) {
-			// add folder actions: upload file, create new folder, creat new file
+			// add folder actions: upload file, create new folder, create new file
 
 			if(canVersion) {
 			// deleted files
@@ -166,18 +172,20 @@ public class FolderComponentRenderer implements ComponentRenderer {
 				target.append(translator.translate("ul"));			
 				target.append("</a></li>");
 	
-				// option new folder
-				target.append("<li><a class=\"b_briefcase_newfolder\" href=\"");
-				ubu.buildURI(target, new String[] { VelocityContainer.COMMAND_ID }, new String[] { "cf"  }, iframePostEnabled ? AJAXFlags.MODE_TOBGIFRAME : AJAXFlags.MODE_NORMAL);
-				target.append("\"");
-				if (iframePostEnabled) { // add ajax iframe target
-					StringOutput so = new StringOutput();
-					ubu.appendTarget(so);
-					target.append(so.toString());
+				if(canCreateFolder) {
+					// option new folder
+					target.append("<li><a class=\"b_briefcase_newfolder\" href=\"");
+					ubu.buildURI(target, new String[] { VelocityContainer.COMMAND_ID }, new String[] { "cf"  }, iframePostEnabled ? AJAXFlags.MODE_TOBGIFRAME : AJAXFlags.MODE_NORMAL);
+					target.append("\"");
+					if (iframePostEnabled) { // add ajax iframe target
+						StringOutput so = new StringOutput();
+						ubu.appendTarget(so);
+						target.append(so.toString());
+					}
+					target.append(">");
+					target.append(translator.translate("cf"));
+					target.append("</a></li>");
 				}
-				target.append(">");
-				target.append(translator.translate("cf"));
-				target.append("</a></li>");
 	
 				// option new file
 				target.append("<li><a class=\"b_briefcase_newfile\" href=\"");
@@ -198,9 +206,9 @@ public class FolderComponentRenderer implements ComponentRenderer {
 		target.append("</ul></div>");
 		
 		// add current file bread crumb path
-		target.append(crumbRenderer.render(fc, ubu, true, iframePostEnabled));			
+		crumbRenderer.render(fc, target, ubu, true, iframePostEnabled);			
 		// add file listing for current folder
-		target.append(listRenderer.render(fc, ubu, translator, iframePostEnabled));
+		listRenderer.render(fc, target, ubu, translator, iframePostEnabled);
 
 		if (fc.getCurrentContainerChildren().size() > 0) {
 			if (canWrite || canDelete || canMail) {
@@ -222,7 +230,7 @@ public class FolderComponentRenderer implements ComponentRenderer {
 					target.append("<input type=\"submit\" class=\"b_button\" name=\"");
 					target.append(FolderRunController.ACTION_PRE).append(FolderCommandFactory.COMMAND_MAIL);
 					target.append("\" value=\"");
-					target.append(StringEscapeUtils.escapeHtml(translator.translate("send")));
+					target.append(StringHelper.escapeHtml(translator.translate("send")));
 					target.append("\"/>");
 				}
 				
@@ -231,7 +239,7 @@ public class FolderComponentRenderer implements ComponentRenderer {
 					target.append("<input type=\"submit\" class=\"b_button\" name=\"");
 					target.append(FolderRunController.ACTION_PRE).append(FolderCommandFactory.COMMAND_DEL);
 					target.append("\" value=\"");
-					target.append(StringEscapeUtils.escapeHtml(translator.translate("del")));
+					target.append(StringHelper.escapeHtml(translator.translate("del")));
 					target.append("\"/>");
 				}
 
@@ -240,12 +248,12 @@ public class FolderComponentRenderer implements ComponentRenderer {
 					target.append("<input type=\"submit\" class=\"b_button\" name=\"");
 					target.append(FolderRunController.ACTION_PRE).append(FolderCommandFactory.COMMAND_MOVE);
 					target.append("\" value=\"");
-					target.append(StringEscapeUtils.escapeHtml(translator.translate("move")));
+					target.append(StringHelper.escapeHtml(translator.translate("move")));
 					// copy
 					target.append("\"/><input type=\"submit\" class=\"b_button\" name=\"");
 					target.append(FolderRunController.ACTION_PRE).append(FolderCommandFactory.COMMAND_COPY);
 					target.append("\" value=\"");
-					target.append(StringEscapeUtils.escapeHtml(translator.translate("copy")));
+					target.append(StringHelper.escapeHtml(translator.translate("copy")));
 					target.append("\"/>");
 				}
 									
@@ -254,12 +262,12 @@ public class FolderComponentRenderer implements ComponentRenderer {
 					target.append("<input type=\"submit\" class=\"b_button\" name=\"");
 					target.append(FolderRunController.ACTION_PRE).append(FolderCommandFactory.COMMAND_ZIP);
 					target.append("\" value=\"");
-					target.append(StringEscapeUtils.escapeHtml(translator.translate("zip")));
+					target.append(StringHelper.escapeHtml(translator.translate("zip")));
 					//unzip
 					target.append("\"/><input type=\"submit\" class=\"b_button\" name=\"");
 					target.append(FolderRunController.ACTION_PRE).append(FolderCommandFactory.COMMAND_UNZIP);
 					target.append("\" value=\"");
-					target.append(StringEscapeUtils.escapeHtml(translator.translate("unzip")));
+					target.append(StringHelper.escapeHtml(translator.translate("unzip")));
 					target.append("\"/>");				
 				}
 				target.append("</div>");

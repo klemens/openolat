@@ -86,18 +86,17 @@ public class EPCreateTextArtefactStepForm00 extends StepFormBasicController {
 	}
 
 	@Override
-	protected void initForm(FormItemContainer formLayout, @SuppressWarnings("unused") Controller listener, UserRequest ureq) {
+	protected void initForm(FormItemContainer formLayout, Controller listener, UserRequest ureq) {
 
 		VFSItem contFile = vfsTemp.resolve(EPArtefactManager.ARTEFACT_CONTENT_FILENAME);
 		if (contFile == null) {
 			vfsTemp.createChildLeaf(EPArtefactManager.ARTEFACT_CONTENT_FILENAME);
 		}
-		content = uifactory.addRichTextElementForFileData("content", "artefact.content", artFulltextContent, 15, -1, false, vfsTemp,
+		content = uifactory.addRichTextElementForFileData("content", "artefact.content", artFulltextContent, 15, -1, vfsTemp,
 				EPArtefactManager.ARTEFACT_CONTENT_FILENAME, null, formLayout, ureq.getUserSession(), getWindowControl());
 		content.getEditorConfiguration().setFileBrowserUploadRelPath("media");
 		content.setMandatory(true);
 		content.setNotEmptyCheck("artefact.content.not.empty");
-		content.setExtDelay(true);
 
 		if (!isUsedInStepWizzard()) {
 			// add form buttons

@@ -78,44 +78,44 @@ public class PortletContainer extends BasicController implements PortletContaine
 		toolboxContainer = createVelocityContainer("portletToolbox");
 				
 		moveLeftLink = LinkFactory.createCustomLink("move.left", "move.left", null, Link.NONTRANSLATED, toolboxContainer, this);
-		moveLeftLink.setTooltip(translate("move.left"), false);
+		moveLeftLink.setTooltip(translate("move.left"));
 		moveLeftLink.setTextReasonForDisabling(translate("move.left.impossible"));		
 		moveLeftLink.setCustomEnabledLinkCSS("b_portlet_edit_left");
 		moveLeftLink.setCustomDisabledLinkCSS("b_portlet_edit_left_disabled");
 		
 		moveUpLink = LinkFactory.createCustomLink("move.up", "move.up", null, Link.NONTRANSLATED, toolboxContainer, this);
-		moveUpLink.setTooltip(translate("move.up"), false);
+		moveUpLink.setTooltip(translate("move.up"));
 		moveUpLink.setTextReasonForDisabling(translate("move.up.impossible"));
 		moveUpLink.setCustomEnabledLinkCSS("b_portlet_edit_up");
 		moveUpLink.setCustomDisabledLinkCSS("b_portlet_edit_up_disabled");
 		
 		moveDownLink = LinkFactory.createCustomLink("move.down", "move.down", null, Link.NONTRANSLATED, toolboxContainer, this);
-		moveDownLink.setTooltip(translate("move.down"), false);
+		moveDownLink.setTooltip(translate("move.down"));
 		moveDownLink.setTextReasonForDisabling(translate("move.down.impossible"));
 		moveDownLink.setCustomEnabledLinkCSS("b_portlet_edit_down");
 		moveDownLink.setCustomDisabledLinkCSS("b_portlet_edit_down_disabled");
 				
 		moveRightLink = LinkFactory.createCustomLink("move.right", "move.right", null, Link.NONTRANSLATED, toolboxContainer, this);
-		moveRightLink.setTooltip(translate("move.right"), false);
+		moveRightLink.setTooltip(translate("move.right"));
 		moveRightLink.setTextReasonForDisabling(translate("move.right.impossible"));
 		moveRightLink.setCustomEnabledLinkCSS("b_portlet_edit_right");
 		moveRightLink.setCustomDisabledLinkCSS("b_portlet_edit_right_disabled");
 		
 		close = LinkFactory.createCustomLink("close", "close", null, Link.NONTRANSLATED, toolboxContainer, this);
-		close.setTooltip(translate("close"), false);
+		close.setTooltip(translate("close"));
 		close.setCustomEnabledLinkCSS("b_portlet_edit_delete");
 		
 		portletContainerVC.put("toolbox", toolboxContainer);
-		
 	}
 
 	/**
 	 * Initializes the portlet runtime view
 	 * @param ureq
 	 */
-	protected void initializeRunComponent(UserRequest ureq) {
-		this.runComponent = this.portlet.getInitialRunComponent(getWindowControl(), ureq);
-		this.portletContainerVC.put("portlet", runComponent);
+	protected void initializeRunComponent(UserRequest ureq, boolean editModeEnabled) {
+		runComponent = portlet.getInitialRunComponent(getWindowControl(), ureq);
+		portletContainerVC.put("portlet", runComponent);
+		addAdditonalTools(ureq, editModeEnabled);
 	}
 	
 	/**
@@ -135,7 +135,7 @@ public class PortletContainer extends BasicController implements PortletContaine
 	 * @param value Boolean value
 	 */
 	protected void contextPut(String name, Boolean value) {
-		this.portletContainerVC.contextPut(name, value);
+		portletContainerVC.contextPut(name, value);
 	}
 	
 	/**
@@ -166,18 +166,20 @@ public class PortletContainer extends BasicController implements PortletContaine
 	/**
 	 * @param editModeEnabled true: portal is in edit mode, false in run mode
 	 */
-	protected void setIsEditMode(UserRequest ureq, Boolean editModeEnabled) {
-		this.portletContainerVC.contextPut(MODE_EDIT, editModeEnabled);
-		
+	protected void setIsEditMode(UserRequest ureq, boolean editModeEnabled) {
+		portletContainerVC.contextPut(MODE_EDIT, editModeEnabled);
 		//only create sorting and moving stuff if switching to edit mode otherwise lots or memory is wasted!
-		if (editModeEnabled) {
-			Controller additionalPortletTools = portlet.getTools(ureq, getWindowControl());
-			if(additionalPortletTools!=null) {
-				toolboxContainer.contextPut("hasAdditional", Boolean.TRUE);
-				toolboxContainer.put("additionalTools", additionalPortletTools.getInitialComponent());
-			}
-		}
+		addAdditonalTools(ureq, editModeEnabled);
+	}
+	
+	private void addAdditonalTools(UserRequest ureq, boolean editModeEnabled) {
+		if(!editModeEnabled) return;
 		
+		Controller additionalPortletTools = portlet.getTools(ureq, getWindowControl());
+		if(additionalPortletTools!=null) {
+			toolboxContainer.contextPut("hasAdditional", Boolean.TRUE);
+			toolboxContainer.put("additionalTools", additionalPortletTools.getInitialComponent());
+		}
 	}
 
 	public void setCanMoveDown(boolean canMoveDown) {

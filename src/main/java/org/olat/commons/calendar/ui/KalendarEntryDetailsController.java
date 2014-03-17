@@ -99,7 +99,7 @@ public class KalendarEntryDetailsController extends BasicController {
 		listenTo(eventForm);
 		eventVC.put("eventForm", eventForm.getInitialComponent());
 		eventVC.contextPut("isNewEvent", new Boolean(isNew));
-		isReadOnly = calendarWrapper.getAccess() == KalendarRenderWrapper.ACCESS_READ_ONLY;
+		isReadOnly = calendarWrapper == null ? true : calendarWrapper.getAccess() == KalendarRenderWrapper.ACCESS_READ_ONLY;
 		eventVC.contextPut("isReadOnly", new Boolean(isReadOnly));
 		pane.addTab(translate("tab.event"), eventVC);
 		
@@ -141,9 +141,11 @@ public class KalendarEntryDetailsController extends BasicController {
 					// display link provider if any
 					String calendarID = eventForm.getChoosenKalendarID();
 					KalendarRenderWrapper calendarWrapper = null;
-					for (Iterator iter = availableCalendars.iterator(); iter.hasNext();) {
-						calendarWrapper = (KalendarRenderWrapper) iter.next();
-						if (calendarWrapper.getKalendar().getCalendarID().equals(calendarID)) break;
+					for (Iterator<KalendarRenderWrapper> iter = availableCalendars.iterator(); iter.hasNext();) {
+						calendarWrapper = iter.next();
+						if (calendarWrapper.getKalendar().getCalendarID().equals(calendarID)) {
+							break;
+						}
 					}
 					
 					if(activeLinkProvider == null) {
@@ -193,8 +195,8 @@ public class KalendarEntryDetailsController extends BasicController {
 				if (isNew) {
 					// this is a new event, add event to calendar
 					String calendarID = eventForm.getChoosenKalendarID();
-					for (Iterator iter = availableCalendars.iterator(); iter.hasNext();) {
-						KalendarRenderWrapper calendarWrapper = (KalendarRenderWrapper) iter.next();
+					for (Iterator<KalendarRenderWrapper> iter = availableCalendars.iterator(); iter.hasNext();) {
+						KalendarRenderWrapper calendarWrapper = iter.next();
 						if (!calendarWrapper.getKalendar().getCalendarID().equals(calendarID)) continue;
 						Kalendar cal = calendarWrapper.getKalendar();
 						boolean result = CalendarManagerFactory.getInstance().getCalendarManager().addEventTo(cal, kalendarEvent);

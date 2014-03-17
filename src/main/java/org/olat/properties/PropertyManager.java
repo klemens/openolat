@@ -33,7 +33,6 @@ import java.util.List;
 import javax.persistence.Query;
 import javax.persistence.TypedQuery;
 
-import org.olat.admin.user.delete.service.UserDeletionManager;
 import org.olat.core.commons.persistence.DBFactory;
 import org.olat.core.id.Identity;
 import org.olat.core.id.OLATResourceable;
@@ -57,8 +56,7 @@ public class PropertyManager extends BasicManager implements UserDataDeletable {
 	/**
 	 * [used by spring]
 	 */
-	private PropertyManager(UserDeletionManager userDeletionManager) {
-		userDeletionManager.registerDeletableUserData(this);
+	private PropertyManager() {
 		INSTANCE = this;
 	}
 
@@ -183,10 +181,19 @@ public class PropertyManager extends BasicManager implements UserDataDeletable {
 	 * @return a list of Property objects
 	 */
 	public List<Property> listProperties(Identity identity, BusinessGroup grp, OLATResourceable resourceable, String category, String name) {
-		if (resourceable == null) 
+		if (resourceable == null) {
 			return listProperties(identity, grp, null, null, category, name);
-		else
+		} else {
 			return listProperties(identity, grp, resourceable.getResourceableTypeName(), resourceable.getResourceableId(), category, name);
+		}
+	}
+	
+	public int countProperties(Identity identity, BusinessGroup grp, OLATResourceable resourceable, String category, String name) {
+		if (resourceable == null) {
+			return countProperties(identity, grp, null, null, category, name, null, null);
+		} else {
+			return countProperties(identity, grp, resourceable.getResourceableTypeName(), resourceable.getResourceableId(), category, name, null, null);
+		}
 	}
 	
 	/**
@@ -200,13 +207,68 @@ public class PropertyManager extends BasicManager implements UserDataDeletable {
 	 * @return a list of Property objects
 	 */
 	public List<Property> listProperties(Identity identity, BusinessGroup grp, String resourceTypeName, Long resourceTypeId, String category, String name) {
+		return listProperties(identity, grp, resourceTypeName, resourceTypeId, category, name, null, null);
+	}
+
+	public int countProperties(Identity identity, BusinessGroup grp, String resourceTypeName, Long resourceTypeId,
+			String category, String name, Long longValue, String stringValue) {
+		TypedQuery<Number> query = createQueryListProperties(identity, grp, resourceTypeName, resourceTypeId,
+				category, name, longValue, stringValue, Number.class);
+		return query.getSingleResult().intValue();
+	}
+
+	/**
+	 * Only to use if no OLATResourceable Object is available.
+	 * @param identity
+	 * @param grp
+	 * @param resourceTypeName
+	 * @param resourceTypeId
+	 * @param category
+	 * @param name
+	 * @param longValue
+	 * @param stringValue
+	 * @return a list of Property objects
+	 */
+	public List<Property> listProperties(Identity identity, BusinessGroup grp, String resourceTypeName, Long resourceTypeId,
+			String category, String name, Long longValue, String stringValue) {
+		TypedQuery<Property> query = createQueryListProperties(identity, grp, resourceTypeName, resourceTypeId,
+				category, name, longValue, stringValue, Property.class);
+		return query.getResultList();
+	}
+	
+	/**
+	 * 
+	 * @param identity
+	 * @param grp
+	 * @param resourceTypeName
+	 * @param resourceTypeId
+	 * @param category
+	 * @param name
+	 * @param longValue
+	 * @param stringValue
+	 * @param resultClass Only Number and Property are acceptable
+	 * @return
+	 */
+	private <U> TypedQuery<U> createQueryListProperties(Identity identity, BusinessGroup grp, String resourceTypeName, Long resourceTypeId,
+			String category, String name, Long longValue, String stringValue, Class<U> resultClass) {
+		
 		StringBuilder sb = new StringBuilder();
-		sb.append("select v from ").append(Property.class.getName()).append(" as v ");
-		if (identity != null) {
-			sb.append(" inner join fetch v.identity identity ");
-		}
-		if (grp != null) {
-			sb.append(" inner join fetch v.grp grp ");
+		if(Number.class.equals(resultClass)) {
+			sb.append("select count(v) from ").append(Property.class.getName()).append(" as v ");
+			if (identity != null) {
+				sb.append(" inner join v.identity identity ");
+			}
+			if (grp != null) {
+				sb.append(" inner join v.grp grp ");
+			}
+		} else {
+			sb.append("select v from ").append(Property.class.getName()).append(" as v ");
+			if (identity != null) {
+				sb.append(" inner join fetch v.identity identity ");
+			}
+			if (grp != null) {
+				sb.append(" inner join fetch v.grp grp ");
+			}
 		}
 		sb.append(" where ");
 
@@ -235,8 +297,16 @@ public class PropertyManager extends BasicManager implements UserDataDeletable {
 			and = and(sb, and);
 			sb.append("v.name=:name");
 		}
+		if (longValue != null) {
+			and = and(sb, and);
+			sb.append("v.longValue=:long");			
+		}
+		if (stringValue != null) {
+			and = and(sb, and);
+			sb.append("v.stringValue=:string");			
+		}
 		
-		TypedQuery<Property> queryProps = DBFactory.getInstance().getCurrentEntityManager().createQuery(sb.toString(), Property.class);
+		TypedQuery<U> queryProps = DBFactory.getInstance().getCurrentEntityManager().createQuery(sb.toString(), resultClass);
 		if (identity != null) {
 			queryProps.setParameter("identityKey", identity.getKey());
 		}
@@ -255,7 +325,13 @@ public class PropertyManager extends BasicManager implements UserDataDeletable {
 		if (name != null) {
 			queryProps.setParameter("name", name);
 		}
-		return queryProps.getResultList();
+		if (longValue != null) {
+			queryProps.setParameter("long", longValue);
+		}
+		if (stringValue != null) {
+			queryProps.setParameter("string", stringValue);
+		}
+		return queryProps;
 	}
 	
 	/**

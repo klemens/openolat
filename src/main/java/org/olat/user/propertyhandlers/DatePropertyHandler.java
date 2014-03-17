@@ -33,7 +33,9 @@ import org.olat.core.gui.components.form.flexible.FormItem;
 import org.olat.core.gui.components.form.flexible.FormItemContainer;
 import org.olat.core.gui.components.form.flexible.FormUIFactory;
 import org.olat.core.gui.components.form.flexible.elements.DateChooser;
+import org.olat.core.gui.components.form.flexible.impl.elements.ItemValidatorProvider;
 import org.olat.core.id.User;
+import org.olat.core.logging.OLog;
 import org.olat.core.logging.Tracing;
 import org.olat.core.util.Formatter;
 import org.olat.core.util.StringHelper;
@@ -52,6 +54,7 @@ import org.olat.user.UserManager;
  * @author Florian Gnaegi, frentix GmbH, http://www.frentix.com
  */
 public class DatePropertyHandler extends AbstractUserPropertyHandler {
+	private static final OLog log = Tracing.createLoggerFor(DatePropertyHandler.class);
 	
 	/**
 	 * Format internal values as yyyyMMdd string e.g. "19751210".
@@ -75,6 +78,7 @@ public class DatePropertyHandler extends AbstractUserPropertyHandler {
 	/**
 	 * @see org.olat.user.propertyhandlers.UserPropertyHandler#updateUserFromFormItem(org.olat.core.id.User, org.olat.core.gui.components.form.flexible.FormItem)
 	 */
+	@Override
 	public void updateUserFromFormItem(User user, FormItem formItem) {
 		String internalValue = getStringValue(formItem);
 		setInternalValue(user, internalValue);
@@ -84,6 +88,7 @@ public class DatePropertyHandler extends AbstractUserPropertyHandler {
 	/**
 	 * @see org.olat.user.propertyhandlers.UserPropertyHandler#getStringValue(org.olat.core.gui.components.form.flexible.FormItem)
 	 */
+	@Override
 	public String getStringValue(FormItem formItem) {
 		Date date = ((org.olat.core.gui.components.form.flexible.elements.DateChooser) formItem).getDate();
 		return encode(date);
@@ -92,6 +97,7 @@ public class DatePropertyHandler extends AbstractUserPropertyHandler {
 	/**
 	 * @see org.olat.user.propertyhandlers.UserPropertyHandler#getStringValue(java.lang.String, java.util.Locale)
 	 */
+	@Override
 	public String getStringValue(String displayValue, Locale locale) {
 		if (StringHelper.containsNonWhitespace(displayValue)) {
 			DateFormat df = DateFormat.getDateInstance(DateFormat.SHORT, locale);
@@ -111,10 +117,17 @@ public class DatePropertyHandler extends AbstractUserPropertyHandler {
 	 *  
 	 * @see org.olat.user.propertyhandlers.UserPropertyHandler#addFormItem(java.util.Locale, org.olat.core.id.User, java.lang.String, boolean, org.olat.core.gui.components.form.flexible.FormItemContainer)
 	 */
-	public FormItem addFormItem(Locale locale, User user, String usageIdentifyer, boolean isAdministrativeUser,	FormItemContainer formItemContainer) {
+	@Override
+	public FormItem addFormItem(Locale locale, final User user, String usageIdentifyer, boolean isAdministrativeUser,	FormItemContainer formItemContainer) {
 		org.olat.core.gui.components.form.flexible.elements.DateChooser dateElem = null;
-		dateElem = FormUIFactory.getInstance().addDateChooser(getName(), i18nFormElementLabelKey(), getInternalValue(user), formItemContainer);
-		dateElem.setItemValidatorProvider(this);
+		Date val = decode(getInternalValue(user));
+		dateElem = FormUIFactory.getInstance().addDateChooser(getName(), i18nFormElementLabelKey(), val, formItemContainer);
+		dateElem.setItemValidatorProvider(new ItemValidatorProvider() {
+			@Override
+			public boolean isValidValue(String value,ValidationError validationError, Locale locale) {
+				return DatePropertyHandler.this.isValidValue(user, value, validationError, locale);
+			}
+		});
 		UserManager um = UserManager.getInstance();
 		if ( um.isUserViewReadOnly(usageIdentifyer, this) && ! isAdministrativeUser) {
 			dateElem.setEnabled(false);
@@ -132,7 +145,8 @@ public class DatePropertyHandler extends AbstractUserPropertyHandler {
 	/**
 	 * @see org.olat.user.propertyhandlers.UserPropertyHandler#isValid(org.olat.core.gui.components.form.flexible.FormItem, java.util.Map)
 	 */
-	public boolean isValid(FormItem formItem, Map formContext) {
+	@Override
+	public boolean isValid(User user, FormItem formItem, Map<String,String> formContext) {
 		
 		DateChooser dateElem = (DateChooser) formItem;
 		
@@ -170,7 +184,7 @@ public class DatePropertyHandler extends AbstractUserPropertyHandler {
 		try {
 			return INTERNAL_DATE_FORMATTER.parse(value.trim());
 		} catch (ParseException e) {
-			Tracing.logWarn("Could not parse BirthDayField from database", e, this.getClass());
+			log.warn("Could not parse BirthDayField from database", e);
 			return null;
 		}
 	}
@@ -178,7 +192,8 @@ public class DatePropertyHandler extends AbstractUserPropertyHandler {
 	/**
 	 * @see org.olat.user.propertyhandlers.UserPropertyHandler#isValidValue(java.lang.String, org.olat.core.gui.components.form.ValidationError, java.util.Locale)
 	 */
-	public boolean isValidValue(String value, ValidationError validationError, Locale locale) {
+	@Override
+	public boolean isValidValue(User user, String value, ValidationError validationError, Locale locale) {
 		if (StringHelper.containsNonWhitespace(value)) {
 			DateFormat df = DateFormat.getDateInstance(DateFormat.SHORT, locale);
 			df.setLenient(false);
@@ -193,5 +208,4 @@ public class DatePropertyHandler extends AbstractUserPropertyHandler {
 		//  null values are ok
 		return true;
 	}
-
 }

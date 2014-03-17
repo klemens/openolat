@@ -27,7 +27,6 @@ package org.olat.course.assessment;
 
 import java.util.ArrayList;
 import java.util.Date;
-import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -37,6 +36,7 @@ import org.apache.commons.lang.StringEscapeUtils;
 import org.olat.admin.user.UserTableDataModel;
 import org.olat.basesecurity.BaseSecurity;
 import org.olat.basesecurity.BaseSecurityManager;
+import org.olat.basesecurity.BaseSecurityModule;
 import org.olat.basesecurity.SecurityGroup;
 import org.olat.core.CoreSpringFactory;
 import org.olat.core.commons.fullWebApp.LayoutMain3ColsController;
@@ -85,23 +85,32 @@ import org.olat.core.util.resource.OresHelper;
 import org.olat.core.util.tree.TreeHelper;
 import org.olat.course.CourseFactory;
 import org.olat.course.ICourse;
+import org.olat.course.assessment.NodeTableDataModel.Cols;
+import org.olat.course.assessment.bulk.BulkAssessmentOverviewController;
 import org.olat.course.assessment.manager.UserCourseInformationsManager;
 import org.olat.course.condition.Condition;
 import org.olat.course.condition.interpreter.ConditionExpression;
 import org.olat.course.condition.interpreter.OnlyGroupConditionInterpreter;
 import org.olat.course.groupsandrights.CourseGroupManager;
 import org.olat.course.nodes.AssessableCourseNode;
+import org.olat.course.nodes.AssessmentToolOptions;
 import org.olat.course.nodes.CourseNode;
 import org.olat.course.nodes.CourseNodeFactory;
 import org.olat.course.nodes.ProjectBrokerCourseNode;
 import org.olat.course.nodes.STCourseNode;
 import org.olat.course.properties.CoursePropertyManager;
+import org.olat.course.run.environment.CourseEnvironment;
 import org.olat.course.run.userview.UserCourseEnvironment;
 import org.olat.course.run.userview.UserCourseEnvironmentImpl;
 import org.olat.group.BusinessGroup;
 import org.olat.repository.RepositoryEntry;
 import org.olat.repository.RepositoryManager;
 import org.olat.user.UserManager;
+
+import de.bps.onyx.plugin.OnyxModule;
+import de.bps.webservices.clients.onyxreporter.OnyxReporterConnector;
+import de.bps.webservices.clients.onyxreporter.OnyxReporterException;
+import de.bps.webservices.clients.onyxreporter.ReporterRole;
 
 /**
  * Initial Date:  Jun 18, 2004
@@ -114,18 +123,21 @@ import org.olat.user.UserManager;
  * centric or course node centric.
  */
 public class AssessmentMainController extends MainLayoutBasicController implements Activateable2, GenericEventListener {
-	OLog log = Tracing.createLoggerFor(AssessmentMainController.class);
+	private static final OLog log = Tracing.createLoggerFor(AssessmentMainController.class);
 
-	private static final String CMD_INDEX 			= "cmd.index";
-	private static final String CMD_USERFOCUS 	= "cmd.userfocus";
-	private static final String CMD_GROUPFOCUS 	= "cmd.groupfocus";
-	private static final String CMD_NODEFOCUS 	= "cmd.nodefocus";
-	private static final String CMD_BULKFOCUS 	= "cmd.bulkfocus";
-	private static final String CMD_EFF_STATEMENT 	= "cmd.effstatement";
+	private static final String CMD_INDEX = "cmd.index";
+	private static final String CMD_USERFOCUS = "cmd.userfocus";
+	private static final String CMD_GROUPFOCUS = "cmd.groupfocus";
+	private static final String CMD_NODEFOCUS = "cmd.nodefocus";
+	private static final String CMD_BULKFOCUS = "cmd.bulkfocus";
+	private static final String CMD_EFF_STATEMENT = "cmd.effstatement";
 
 	private static final String CMD_CHOOSE_GROUP = "cmd.choose.group";
 	private static final String CMD_CHOOSE_USER = "cmd.choose.user";
-	private static final String CMD_SELECT_NODE = "cmd.select.node"; 
+	private static final String CMD_SELECT_NODE = "cmd.select.node";
+	private static final String CMD_SHOW_ONYXREPORT = "cmd.show.onyxreport";
+
+	public static final String KEY_IS_ONYX = "isOnyx";
 	
 	private static final int MODE_USERFOCUS		= 0;
 	private static final int MODE_GROUPFOCUS	= 1;
@@ -140,6 +152,8 @@ public class AssessmentMainController extends MainLayoutBasicController implemen
 	
 	private VelocityContainer index, groupChoose, userChoose, nodeChoose, wrapper;
 
+	private VelocityContainer onyxReporterVC;
+	
 	private NodeTableDataModel nodeTableModel;
 	private TableController groupListCtr, userListCtr, nodeListCtr;
 	private List<ShortName> nodeFilters;
@@ -169,6 +183,11 @@ public class AssessmentMainController extends MainLayoutBasicController implemen
 	private Link backLinkGC;
 	private Link allUsersButton;
 	
+	//back button for the Onyx Reporter
+	private Link backLinkOR;
+	//backbutton needs information where it should go back
+	private String onyxReporterBackLocation;
+	
 	private boolean isAdministrativeUser;
 	private Translator propertyHandlerTranslator;
 	
@@ -176,11 +195,12 @@ public class AssessmentMainController extends MainLayoutBasicController implemen
 	private Link showAllCourseNodesButton;
 	private Link filterCourseNodesButton;
 	
-	private BulkAssessmentMainController bamc;
 	private EfficiencyStatementAssessmentController esac;
+	private BulkAssessmentOverviewController bulkAssOverviewCtrl;
 	private final StackedController stackPanel;
 
 	private OLATResourceable ores;
+	private final OnyxModule onyxModule;
 	
 	/**
 	 * Constructor for the assessment tool controller. 
@@ -189,8 +209,10 @@ public class AssessmentMainController extends MainLayoutBasicController implemen
 	 * @param course
 	 * @param assessmentCallback
 	 */
-AssessmentMainController(UserRequest ureq, WindowControl wControl, StackedController stackPanel, OLATResourceable ores, IAssessmentCallback assessmentCallback) {
-		super(ureq, wControl);		
+	public AssessmentMainController(UserRequest ureq, WindowControl wControl, StackedController stackPanel, OLATResourceable ores, IAssessmentCallback assessmentCallback) {
+		super(ureq, wControl);	
+		
+		onyxModule = CoreSpringFactory.getImpl(OnyxModule.class);
 		
 		getUserActivityLogger().setStickyActionType(ActionType.admin);
 		this.stackPanel = stackPanel;
@@ -203,7 +225,9 @@ AssessmentMainController(UserRequest ureq, WindowControl wControl, StackedContro
 		propertyHandlerTranslator = UserManager.getInstance().getPropertyHandlerTranslator(getTranslator());
 		
 		Roles roles = ureq.getUserSession().getRoles();
-		isAdministrativeUser = (roles.isAuthor() || roles.isGroupManager() || roles.isUserManager() || roles.isOLATAdmin());		
+		BaseSecurityModule securityModule = CoreSpringFactory.getImpl(BaseSecurityModule.class);
+		isAdministrativeUser = securityModule.isUserAllowedAdminProps(roles);
+		//was: (roles.isAuthor() || roles.isGroupManager() || roles.isUserManager() || roles.isOLATAdmin());		
 		
 		main = new Panel("assessmentmain");
 
@@ -243,11 +267,15 @@ AssessmentMainController(UserRequest ureq, WindowControl wControl, StackedContro
 			backLinkGC = LinkFactory.createLinkBack(groupChoose, this);
 	
 			userChoose = createVelocityContainer("userchoose");
+
 			showAllCourseNodesButton = LinkFactory.createButtonSmall("cmd.showAllCourseNodes", userChoose, this);
 			filterCourseNodesButton  = LinkFactory.createButtonSmall("cmd.filterCourseNodes", userChoose, this);
 			userChoose.contextPut("isFiltering", Boolean.TRUE);
 			backLinkUC = LinkFactory.createLinkBack(userChoose, this);
 			
+			onyxReporterVC = createVelocityContainer("onyxreporter");
+			backLinkOR = LinkFactory.createLinkBack(onyxReporterVC, this);
+
 			nodeChoose = createVelocityContainer("nodechoose");
 
 			// Initialize all groups that the user is allowed to coach
@@ -321,22 +349,22 @@ AssessmentMainController(UserRequest ureq, WindowControl wControl, StackedContro
 				if (cmd.equals(CMD_INDEX)) {
 					main.setContent(index);
 				} else if (cmd.equals(CMD_USERFOCUS)) {
-					this.mode = MODE_USERFOCUS;
-					this.identitiesList = getAllAssessableIdentities();
+					mode = MODE_USERFOCUS;
+					identitiesList = getAllAssessableIdentities();
 					//fxdiff FXOLAT-108: improve results table of tests
 					doUserChooseWithData(ureq, identitiesList, null, null);
 				} else if (cmd.equals(CMD_GROUPFOCUS)) {
-					this.mode = MODE_GROUPFOCUS;
+					mode = MODE_GROUPFOCUS;
 					doGroupChoose(ureq);
 				} else if (cmd.equals(CMD_NODEFOCUS)) {
-					this.mode = MODE_NODEFOCUS;
+					mode = MODE_NODEFOCUS;
 					doNodeChoose(ureq);
 				} else if (cmd.equals(CMD_BULKFOCUS)){
-					this.mode = MODE_BULKFOCUS;
-					doBulkChoose(ureq);
+					mode = MODE_BULKFOCUS;
+					doBulkAssessment(ureq);
 				} else if (cmd.equals(CMD_EFF_STATEMENT)){
 					if(callback.mayRecalculateEfficiencyStatements()) {
-						this.mode = MODE_EFF_STATEMENT;
+						mode = MODE_EFF_STATEMENT;
 						doEfficiencyStatement(ureq);
 					}
 				}
@@ -362,13 +390,67 @@ AssessmentMainController(UserRequest ureq, WindowControl wControl, StackedContro
 			enableFilteringCourseNodes(false);
 		}  else if (source == filterCourseNodesButton) {
 			enableFilteringCourseNodes(true);
+
+		} else if (source == backLinkOR) {
+			if (onyxReporterBackLocation.equals("userChoose")) {
+				setContent(userChoose);
+			} else if (onyxReporterBackLocation.equals("nodeListCtr")) {
+				setContent(nodeListCtr.getInitialComponent());
+			}
 		}
 	}
 
 	/**
-	 * Enable/disable filtering of course-nodes in user-selection table
-	 * and update new course-node-list.
-	 * (Assessemnt-tool =>  
+	 * This methods calls the OnyxReporter and shows it in an iframe.
+	 * 
+	 * @param ureq The UserRequest for getting the identity and role of the current user.
+	 */
+	private boolean showOnyxReporter(final UserRequest ureq) {
+		if (OnyxModule.isOnyxTest(currentCourseNode.getReferencedRepositoryEntry().getOlatResource())) {
+			//<ONYX-705>
+			OnyxReporterConnector onyxReporter = null;
+			try {
+				onyxReporter = new OnyxReporterConnector();
+			} catch (OnyxReporterException e){
+				log.error("unable to connect to onyxreporter!", e);
+			}
+			//</ONYX-705>
+			if (onyxReporter != null) {
+				if (identitiesList == null) {
+					identitiesList = getAllAssessableIdentities();
+				}
+				String iframeSrc = "";
+				try {
+					//<ONYX-705>
+					iframeSrc = onyxReporter.startReporterGUI(ureq.getIdentity(), identitiesList, currentCourseNode, null, ReporterRole.ASSESSMENT);
+				} catch (OnyxReporterException orE) {
+					// </ONYX-705>
+					if (orE.getMessage().equals("noresults")) {
+						onyxReporterVC.contextPut("iframeOK", Boolean.FALSE);
+						onyxReporterVC.contextPut("showBack", Boolean.TRUE);
+						onyxReporterVC.contextPut("message", translate("no.testresults"));
+						setContent(onyxReporterVC);
+						return true;
+					}
+					return false;
+				}
+				onyxReporterVC.contextPut("showBack", Boolean.TRUE);
+				onyxReporterVC.contextPut("iframeOK", Boolean.TRUE);
+				onyxReporterVC.contextPut("onyxReportLink", iframeSrc);
+				setContent(onyxReporterVC);
+				return true;
+			} else {
+				userChoose.contextPut("iframeOK", Boolean.FALSE);
+				return false;
+			}
+		} else {
+			return false;
+		}
+	}
+
+	/**
+	 * Enable/disable filtering of course-nodes in user-selection table and update new course-node-list. (Assessemnt-tool =>
+	 * 
 	 * @param enableFiltering
 	 */
 	private void enableFilteringCourseNodes(boolean enableFiltering) {
@@ -414,7 +496,7 @@ AssessmentMainController(UserRequest ureq, WindowControl wControl, StackedContro
 					} else {
 						// all other cases where user can be choosen the assessed identity wrapper is used
 						AssessedIdentitiesTableDataModel userListModel = (AssessedIdentitiesTableDataModel) userListCtr.getTableDataModel();
-						this.assessedIdentityWrapper = userListModel.getWrappedIdentity(rowid);
+						this.assessedIdentityWrapper = userListModel.getObject(rowid);
 					}
 					// init edit controller for this identity and this course node 
 					// or use identity assessment overview if no course node is defined
@@ -437,8 +519,8 @@ AssessmentMainController(UserRequest ureq, WindowControl wControl, StackedContro
 				if (actionid.equals(CMD_SELECT_NODE)) {
 					ICourse course = CourseFactory.loadCourse(ores);
 					int rowid = te.getRowId();
-					Map<String,Object> nodeData = (Map<String,Object>) nodeTableModel.getObject(rowid);
-					CourseNode node = course.getRunStructure().getNode((String) nodeData.get(AssessmentHelper.KEY_IDENTIFYER));
+					NodeTableRow nodeData = nodeTableModel.getObject(rowid);
+					CourseNode node = course.getRunStructure().getNode(nodeData.getIdent());
 					this.currentCourseNode = (AssessableCourseNode) node;
 					// cast should be save, only assessable nodes are selectable
 					if((repoTutor && coachedGroups.isEmpty()) || (callback.mayAssessAllUsers() || callback.mayViewAllUsersAssessments())) {
@@ -446,6 +528,16 @@ AssessmentMainController(UserRequest ureq, WindowControl wControl, StackedContro
 						doUserChooseWithData(ureq, identitiesList, null, currentCourseNode);
 					} else {
 						doGroupChoose(ureq);
+					}
+				} else if (actionid.equals(CMD_SHOW_ONYXREPORT)) {
+					int rowid = te.getRowId();
+					ICourse course = CourseFactory.loadCourse(ores);
+					NodeTableRow nodeData = nodeTableModel.getObject(rowid);
+					CourseNode node = course.getRunStructure().getNode(nodeData.getIdent());
+					this.currentCourseNode = (AssessableCourseNode) node;
+					this.onyxReporterBackLocation = "nodeListCtr";
+					if (!showOnyxReporter(ureq)) {
+						getWindowControl().setError(translate("onyxreporter.error"));
 					}
 				}
 			} else if (event.equals(TableController.EVENT_FILTER_SELECTED)) {
@@ -713,15 +805,43 @@ AssessmentMainController(UserRequest ureq, WindowControl wControl, StackedContro
 		}
 		
 		// Add the wrapped identities to the table data model
-		AssessedIdentitiesTableDataModel tdm = new AssessedIdentitiesTableDataModel(wrappedIdentities, courseNode, ureq.getLocale(), isAdministrativeUser, mode == MODE_USERFOCUS);
+		AssessedIdentitiesTableDataModel tdm = new AssessedIdentitiesTableDataModel(wrappedIdentities, courseNode, getLocale(), isAdministrativeUser);
 		tdm.addColumnDescriptors(userListCtr, CMD_CHOOSE_USER, mode == MODE_NODEFOCUS || mode == MODE_GROUPFOCUS || mode == MODE_USERFOCUS);
 		userListCtr.setTableDataModel(tdm);
-
+		
+		List<String> toolCmpNames = new ArrayList<>(3);
+		if(courseNode != null) {
+			CourseEnvironment courseEnv = course.getCourseEnvironment();
+			AssessmentToolOptions options = new AssessmentToolOptions();
+			if(group == null) {
+				options.setIdentities(identities);
+			} else {
+				options.setGroup(group);
+			}
+			List<Controller> tools = courseNode.createAssessmentTools(ureq, getWindowControl(), courseEnv, options);
+			int count = 0;
+			for(Controller tool:tools) {
+				listenTo(tool);
+				String toolCmpName = "ctrl_" + (count++);
+				userChoose.put(toolCmpName, tool.getInitialComponent());
+				toolCmpNames.add(toolCmpName);
+			}
+		}
+		userChoose.contextPut("toolCmpNames", toolCmpNames);
 
 		if (mode == MODE_USERFOCUS) {
 			userChoose.contextPut("showBack", Boolean.FALSE);
 		} else {
 			userChoose.contextPut("showBack", Boolean.TRUE);
+
+			if (currentCourseNode != null && currentCourseNode.getReferencedRepositoryEntry() != null
+					&& currentCourseNode.getReferencedRepositoryEntry().getOlatResource() != null
+					&& OnyxModule.isOnyxTest(currentCourseNode.getReferencedRepositoryEntry().getOlatResource())) {
+				userChoose.contextPut("showOnyxReporterButton", Boolean.TRUE);
+			} else {
+				userChoose.contextPut("showOnyxReporterButton", Boolean.FALSE);
+			}
+
 			if (mode == MODE_NODEFOCUS) {
 				userChoose.contextPut("showFilterButton", Boolean.FALSE);
 			} else {
@@ -770,25 +890,28 @@ AssessmentMainController(UserRequest ureq, WindowControl wControl, StackedContro
 		};
 		
 		// table columns		
-		nodeListCtr.addColumnDescriptor(new CustomRenderColumnDescriptor("table.header.node", 0,
-				null, ureq.getLocale(), ColumnDescriptor.ALIGNMENT_LEFT, nodeRenderer){
-					@Override
-					//fxdiff VCRP-4: assessment overview with max score
-					public int compareTo(int rowa, int rowb) {
-						//the order is already ok
-						return rowa - rowb;
-					}
+		nodeListCtr.addColumnDescriptor(new CustomRenderColumnDescriptor("table.header.node", Cols.data.ordinal(),
+				null, getLocale(), ColumnDescriptor.ALIGNMENT_LEFT, nodeRenderer){
+			@Override
+			public int compareTo(int rowa, int rowb) {
+				//the order is already ok
+				return rowa - rowb;
+			}
 		});
-		//fxdiff VCRP-4: assessment overview with max score
-		nodeListCtr.addColumnDescriptor(false, new CustomRenderColumnDescriptor("table.header.min", 2, null, ureq.getLocale(),
+		nodeListCtr.addColumnDescriptor(new DefaultColumnDescriptor("table.action.select", Cols.select.ordinal(), CMD_SELECT_NODE, getLocale()));
+		nodeListCtr.addColumnDescriptor(false, new CustomRenderColumnDescriptor("table.header.min", Cols.min.ordinal(), null, getLocale(),
 				ColumnDescriptor.ALIGNMENT_RIGHT, new ScoreCellRenderer()));
-		nodeListCtr.addColumnDescriptor(new CustomRenderColumnDescriptor("table.header.max", 3, null, ureq.getLocale(),
+		nodeListCtr.addColumnDescriptor(new CustomRenderColumnDescriptor("table.header.max", Cols.max.ordinal(), null, getLocale(),
 				ColumnDescriptor.ALIGNMENT_RIGHT, new ScoreCellRenderer()));
-		nodeListCtr.addColumnDescriptor(new DefaultColumnDescriptor("table.action.select", 1, CMD_SELECT_NODE, ureq.getLocale()));
+		if(onyxModule.isEnabled()) {
+			nodeListCtr.addColumnDescriptor(new DefaultColumnDescriptor("table.header.overallselect", Cols.onyxReport.ordinal(),
+					CMD_SHOW_ONYXREPORT, ureq.getLocale()));
+		}
+		
 		
 		// get list of course node data and populate table data model 
 		CourseNode rootNode = course.getRunStructure().getRootNode();		
-		List<Map<String, Object>> nodesTableObjectArrayList = addAssessableNodesAndParentsToList(0, rootNode);
+		List<NodeTableRow> nodesTableObjectArrayList = addAssessableNodesAndParentsToList(0, rootNode);
 		
 		// only populate data model if data available
 		if (nodesTableObjectArrayList == null) {
@@ -806,13 +929,10 @@ AssessmentMainController(UserRequest ureq, WindowControl wControl, StackedContro
 		main.setContent(nodeChoose);
 	}
 	
-	private void doBulkChoose(UserRequest ureq) {
-		ICourse course = CourseFactory.loadCourse(ores);
-		List<Identity> allowedIdentities = getAllAssessableIdentities();
-		removeAsListenerAndDispose(bamc);
-		bamc = new BulkAssessmentMainController(ureq, getWindowControl(), course, allowedIdentities);
-		listenTo(bamc);
-		main.setContent(bamc.getInitialComponent());
+	private void doBulkAssessment(UserRequest ureq) {
+		bulkAssOverviewCtrl = new BulkAssessmentOverviewController(ureq, getWindowControl(), ores);
+		listenTo(bulkAssOverviewCtrl);
+		main.setContent(bulkAssOverviewCtrl.getInitialComponent());
 	}
 	
 	private void doEfficiencyStatement(UserRequest ureq) {
@@ -828,12 +948,12 @@ AssessmentMainController(UserRequest ureq, WindowControl wControl, StackedContro
 	 * @param courseNode
 	 * @return A list of maps containing the node data
 	 */
-	private List<Map<String, Object>> addAssessableNodesAndParentsToList(int recursionLevel, CourseNode courseNode) {
+	private List<NodeTableRow> addAssessableNodesAndParentsToList(int recursionLevel, CourseNode courseNode) {
 		// 1) Get list of children data using recursion of this method
-		List<Map<String, Object>> childrenData = new ArrayList<Map<String, Object>>();
+		List<NodeTableRow> childrenData = new ArrayList<>();
 		for (int i = 0; i < courseNode.getChildCount(); i++) {
 			CourseNode child = (CourseNode) courseNode.getChildAt(i);
-			List<Map<String, Object>> childData = addAssessableNodesAndParentsToList( (recursionLevel + 1),  child);
+			List<NodeTableRow> childData = addAssessableNodesAndParentsToList( (recursionLevel + 1),  child);
 			if (childData != null)
 				childrenData.addAll(childData);
 		}
@@ -843,14 +963,18 @@ AssessmentMainController(UserRequest ureq, WindowControl wControl, StackedContro
 			// TODO:cg 04.11.2010 ProjectBroker : no assessment-tool in V1.0 , remove projectbroker completely form assessment-tool gui			// Store node data in hash map. This hash map serves as data model for 
 			// the user assessment overview table. Leave user data empty since not used in
 			// this table. (use only node data)
-			Map<String,Object> nodeData = new HashMap<String, Object>();
-			// indent
-			nodeData.put(AssessmentHelper.KEY_INDENT, new Integer(recursionLevel));
-			// course node data
-			nodeData.put(AssessmentHelper.KEY_TYPE, courseNode.getType());
-			nodeData.put(AssessmentHelper.KEY_TITLE_SHORT, courseNode.getShortTitle());
-			nodeData.put(AssessmentHelper.KEY_TITLE_LONG, courseNode.getLongTitle());
-			nodeData.put(AssessmentHelper.KEY_IDENTIFYER, courseNode.getIdent());
+			NodeTableRow nodeData = new NodeTableRow(recursionLevel, courseNode);
+			if (courseNode.getReferencedRepositoryEntry() != null) {
+				if (OnyxModule.isOnyxTest(courseNode.getReferencedRepositoryEntry().getOlatResource())) {
+					nodeData.setOnyx(true);
+					if (getAllAssessableIdentities().size() <= 0) {
+						nodeData.setOnyx(false);
+					}
+				} else {
+					nodeData.setOnyx(false);
+				}
+			}
+
 			
 			if (courseNode instanceof AssessableCourseNode) {
 				AssessableCourseNode assessableCourseNode = (AssessableCourseNode) courseNode;
@@ -866,37 +990,37 @@ AssessmentMainController(UserRequest ureq, WindowControl wControl, StackedContro
 				if(assessableCourseNode.hasScoreConfigured()) {
 					if(!(courseNode instanceof STCourseNode)) {
 						Float min = assessableCourseNode.getMinScoreConfiguration();
-						nodeData.put(AssessmentHelper.KEY_MIN, min);
+						nodeData.setMinScore(min);
 						Float max = assessableCourseNode.getMaxScoreConfiguration();
-						nodeData.put(AssessmentHelper.KEY_MAX, max);
+						nodeData.setMaxScore(max);
 					}
 				}
 
 				if (assessableCourseNode.isEditableConfigured()) {
 					// Assessable course nodes are selectable when they are aditable
-					nodeData.put(AssessmentHelper.KEY_SELECTABLE, Boolean.TRUE);
+					nodeData.setSelectable(true);
 				} else if (courseNode instanceof STCourseNode 
 						&& (assessableCourseNode.hasScoreConfigured()
 						|| assessableCourseNode.hasPassedConfigured())) {
 					// st node is special case: selectable on node choose list as soon as it 
 					// has score or passed
-					nodeData.put(AssessmentHelper.KEY_SELECTABLE, Boolean.TRUE);
+					nodeData.setSelectable(true);
 				} else {
 					// assessable nodes that do not have score or passed are not selectable
 					// (e.g. a st node with no defined rule
-					nodeData.put(AssessmentHelper.KEY_SELECTABLE, Boolean.FALSE);
+					nodeData.setSelectable(false);
 				}
 			} else {
 				// Not assessable nodes are not selectable. (e.g. a node that 
 				// has an assessable child node but is itself not assessable)
-				nodeData.put(AssessmentHelper.KEY_SELECTABLE, Boolean.FALSE);
+				nodeData.setSelectable(false);
 			}
 			// 3) Add data of this node to mast list if node assessable or children list has any data.
 			// Do only add nodes when they have any assessable element, otherwhise discard (e.g. empty course, 
 			// structure nodes without scoring rules)! When the discardEmptyNodes flag is set then only
 			// add this node when there is user data found for this node.
 			if (childrenData.size() > 0 || hasDisplayableValuesConfigured) {
-				List<Map<String, Object>> nodeAndChildren = new ArrayList<Map<String, Object>>();
+				List<NodeTableRow> nodeAndChildren = new ArrayList<>();
 				nodeAndChildren.add(nodeData);
 				// 4) Add children data list to master list
 				nodeAndChildren.addAll(childrenData);
@@ -1097,7 +1221,7 @@ AssessmentMainController(UserRequest ureq, WindowControl wControl, StackedContro
 	 *
 	 * @author gnaegi
 	 */
-	class AssessmentCachePreloadThread extends Thread {
+	private class AssessmentCachePreloadThread extends Thread {
 		/**
 		 * @param name Thread name
 		 */
@@ -1111,35 +1235,34 @@ AssessmentMainController(UserRequest ureq, WindowControl wControl, StackedContro
 		public void run() {
 			boolean success = false;
 			try{
-			ICourse course = CourseFactory.loadCourse(ores);
-			// 1) preload assessment cache with database properties
-			long start = 0;
-			boolean logDebug = log.isDebug();
-			if(logDebug) start = System.currentTimeMillis();
-			List<Identity> identities = getAllAssessableIdentities();
-			course.getCourseEnvironment().getAssessmentManager().preloadCache(identities);
-
-			UserCourseInformationsManager mgr = CoreSpringFactory.getImpl(UserCourseInformationsManager.class);
-			initialLaunchDates.putAll(mgr.getInitialLaunchDates(course.getResourceableId(), identities));
-			
-			for (Identity identity : identities) {
-				AssessmentHelper.wrapIdentity(identity, localUserCourseEnvironmentCache, initialLaunchDates, course, null);
-				if (Thread.interrupted()) break;
+				ICourse course = CourseFactory.loadCourse(ores);
+				// 1) preload assessment cache with database properties
+				long start = 0;
+				boolean logDebug = log.isDebug();
+				if(logDebug) start = System.currentTimeMillis();
+				List<Identity> identities = getAllAssessableIdentities();
+				course.getCourseEnvironment().getAssessmentManager().preloadCache(identities);
+	
+				UserCourseInformationsManager mgr = CoreSpringFactory.getImpl(UserCourseInformationsManager.class);
+				initialLaunchDates.putAll(mgr.getInitialLaunchDates(course.getResourceableId(), identities));
+				
+				for (Identity identity : identities) {
+					AssessmentHelper.wrapIdentity(identity, localUserCourseEnvironmentCache, initialLaunchDates, course, null);
+					if (Thread.interrupted()) break;
+				}
+				if (logDebug) {
+					log.debug("Preloading of user course environment cache for course::" + course.getResourceableId() + " for "
+							+ localUserCourseEnvironmentCache.size() + " user course environments. Loading time::" + (System.currentTimeMillis() - start)
+							+ "ms");
+				}
+				// finished in this thread, close database session of this thread!
+				DBFactory.getInstance(false).commitAndCloseSession();
+				success = true;
+			} finally {
+				if (!success) {
+					DBFactory.getInstance(false).rollbackAndCloseSession();
+				}
 			}
-			if (logDebug) {
-				log.debug("Preloading of user course environment cache for course::" + course.getResourceableId() + " for "
-						+ localUserCourseEnvironmentCache.size() + " user course environments. Loading time::" + (System.currentTimeMillis() - start)
-						+ "ms");
-			}
-      // TODO: cg(04.09.2008): replace 'commit/closeSession' with doInManagedBlock 
-			// finished in this thread, close database session of this thread!
-			DBFactory.getInstance(false).commitAndCloseSession();
-			success = true;
-		} finally {
-			if (!success) {
-				DBFactory.getInstance(false).rollbackAndCloseSession();
-			}
-		}
 		}
 	}
 

@@ -37,7 +37,7 @@ import org.olat.core.commons.modules.bc.commands.CmdUpload;
 import org.olat.core.commons.modules.bc.commands.FolderCommand;
 import org.olat.core.commons.modules.bc.components.FolderComponent;
 import org.olat.core.commons.modules.bc.meta.MetaInfo;
-import org.olat.core.commons.modules.bc.meta.MetaInfoFactory;
+import org.olat.core.commons.modules.bc.meta.tagged.MetaTagged;
 import org.olat.core.commons.modules.singlepage.SinglePageController;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.Component;
@@ -68,7 +68,6 @@ import org.olat.core.util.WebappHelper;
 import org.olat.core.util.ZipUtil;
 import org.olat.core.util.vfs.LocalFileImpl;
 import org.olat.core.util.vfs.NamedContainerImpl;
-import org.olat.core.util.vfs.OlatRelPathImpl;
 import org.olat.core.util.vfs.Quota;
 import org.olat.core.util.vfs.VFSConstants;
 import org.olat.core.util.vfs.VFSContainer;
@@ -137,6 +136,7 @@ public class FileChooseCreateEditController extends BasicController{
 	public static final Event FILE_CONTENT_CHANGED_EVENT = new Event("filecontentchanged");
 	/** Event fired when configuration option to allow relative links has been changed **/
 	public static final Event ALLOW_RELATIVE_LINKS_CHANGED_EVENT = new Event("allowrelativelinkschanged");
+	public static final Event DELIVERY_OPTIONS_CHANGED_EVENT = new Event("deliveryoptionschanged");
 	private Link editButton;
 	private Link deleteButton;
 	private Link changeFileButtonOne;
@@ -187,7 +187,7 @@ public class FileChooseCreateEditController extends BasicController{
 		this.chosenFile = file;		
 		this.rootContainer = rContainer;
 		this.allowRelativeLinks = allowRelLinks == null ? false : allowRelLinks.booleanValue();
-		this.myContent = createVelocityContainer("chosenfile");
+		myContent = createVelocityContainer("chosenfile");
 		editButton = LinkFactory.createButtonSmall("command.edit", myContent, this);
 		editButton.setElementCssClass("o_sel_filechooser_edit");
 		deleteButton = LinkFactory.createButtonSmall("command.delete", myContent, this);
@@ -215,13 +215,13 @@ public class FileChooseCreateEditController extends BasicController{
 		
 		allowRelativeLinksForm = new AllowRelativeLinksForm(ureq, wControl, allowRelativeLinks);
 		listenTo(allowRelativeLinksForm);
-
+		
 		VFSContainer namedCourseFolder = new NamedContainerImpl(getTranslator().translate(NLS_FOLDER_DISPLAYNAME), rContainer);
 		rootContainer = namedCourseFolder;
 		FolderComponent folderComponent = new FolderComponent(ureq, "foldercomp", namedCourseFolder, null, null);
 		folderComponent.addListener(this);
 		cmdUpload = new CmdUpload(ureq, getWindowControl(), false, false);
-		cmdUpload.execute(folderComponent, ureq, getWindowControl(), getTranslator(), true);		
+		cmdUpload.execute(folderComponent, ureq, getTranslator(), true);		
 		cmdUpload.hideFieldset();
 		listenTo(cmdUpload);
 		Panel mainPanel = new Panel("upl");
@@ -317,9 +317,9 @@ public class FileChooseCreateEditController extends BasicController{
 					// delete file
 					VFSItem item = rootContainer.resolve(cmdUpload.getFileName());
 						if (item != null && (item.canDelete() == VFSConstants.YES)) {
-							if (item instanceof OlatRelPathImpl) {
+							if (item instanceof MetaTagged) {
 								// delete all meta info
-								MetaInfo meta = MetaInfoFactory.createMetaInfoFor((OlatRelPathImpl)item);
+								MetaInfo meta = ((MetaTagged)item).getMetaInfo();
 								if (meta != null) meta.deleteAll();
 							}
 							// delete the item itself
@@ -385,7 +385,7 @@ public class FileChooseCreateEditController extends BasicController{
 				allowRelativeLinks = allowRelativeLinksForm.getAllowRelativeLinksConfig();
 				fireEvent(ureq, ALLOW_RELATIVE_LINKS_CHANGED_EVENT);
 			}
-		}	 
+		}
 	}
 
 	/**
@@ -461,7 +461,6 @@ public class FileChooseCreateEditController extends BasicController{
 			removeAsListenerAndDispose(cmcFileChooser);
 			cmcFileChooser = new CloseableModalController(getWindowControl(), getTranslator().translate("close"), fileChooser);			
 			listenTo(cmcFileChooser);
-			cmcFileChooser.insertHeaderCss();
 			cmcFileChooser.activate();
 			
 			fileChooserActive = true;
@@ -486,14 +485,19 @@ public class FileChooseCreateEditController extends BasicController{
 	 * @return The choosen file name
 	 */
 	public String getChosenFile(){
-	    return this.chosenFile;
+	    return chosenFile;
+	}
+	
+	public boolean isEditorEnabled() {
+		Boolean editable = (Boolean)myContent.getContext().get(VC_ENABLEEDIT);
+		return editable != null && editable.booleanValue();
 	}
 	
 	/**
 	 * @return The configuration for the allow relative links flag
 	 */
 	public Boolean getAllowRelativeLinks() {
-		return this.allowRelativeLinks;
+		return allowRelativeLinks;
 	}
 	
 	/**
@@ -513,10 +517,10 @@ public class FileChooseCreateEditController extends BasicController{
 			// add form to velocity
 			myContent.put("allowRelativeLinksForm", allowRelativeLinksForm.getInitialComponent());
 			if (file.toLowerCase().endsWith(".html") || file.toLowerCase().endsWith(".htm")) {
-					myContent.contextPut(VC_ENABLEEDIT, Boolean.TRUE);
-				} else {
-					myContent.contextPut(VC_ENABLEEDIT, Boolean.FALSE);
-				}
+				myContent.contextPut(VC_ENABLEEDIT, Boolean.TRUE);
+			} else {
+				myContent.contextPut(VC_ENABLEEDIT, Boolean.FALSE);
+			}
 		} else {
 			myContent.contextPut(VC_CHANGE, Boolean.FALSE);
 			fileChooser.contextPut(VC_CHANGE, Boolean.FALSE);			

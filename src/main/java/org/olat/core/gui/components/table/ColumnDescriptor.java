@@ -64,6 +64,12 @@ public interface ColumnDescriptor {
 	 * renderer, otherwise <code>false</code>
 	 */
 	boolean translateHeaderKey();
+	
+	/**
+	 * Return the index used to retrieve the value in the table model
+	 * @return
+	 */
+	public int getDataColumn();
 
 	/**
 	 * @return
@@ -142,10 +148,5 @@ public interface ColumnDescriptor {
 	void setHrefGenerator(HrefGenerator h);
 
 	HrefGenerator getHrefGenerator();
-	/**
-	 * String represenation of the value at specified row
-	 * @param rowid
-	 * @return
-	 */
-	String toString(int rowid);
+
 }

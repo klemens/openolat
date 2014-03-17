@@ -117,7 +117,7 @@ public class PortfolioTextForm extends FormBasicController {
 		
 		//absolut deadline
 		Date deadline = (Date)config.get(PortfolioCourseNodeConfiguration.DEADLINE_DATE);
-		deadlineChooser = uifactory.addDateChooser("deadline-date", "map.deadline." + DeadlineType.absolut.name() + ".label", "", formLayout);
+		deadlineChooser = uifactory.addDateChooser("deadline-date", "map.deadline." + DeadlineType.absolut.name() + ".label", null, formLayout);
 		if(deadline != null) {
 			deadlineChooser.setDate(deadline);
 		}
@@ -154,7 +154,7 @@ public class PortfolioTextForm extends FormBasicController {
 	
 		Object nodeText = config.get(PortfolioCourseNodeConfiguration.NODE_TEXT);
 		String text = nodeText instanceof String ? (String)nodeText : "";
-		textEl = uifactory.addRichTextElementForStringDataMinimalistic("text", "explanation.text", text, 10, -1, false, formLayout, ureq.getUserSession(), getWindowControl());
+		textEl = uifactory.addRichTextElementForStringDataMinimalistic("text", "explanation.text", text, 10, -1, formLayout, ureq.getUserSession(), getWindowControl());
 
 		if(formLayout instanceof FormLayoutContainer) {
 			FormLayoutContainer layoutContainer = (FormLayoutContainer)formLayout;

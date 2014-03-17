@@ -25,6 +25,8 @@
 
 package org.olat.modules.tu;
 
+import org.apache.commons.io.IOUtils;
+import org.apache.http.impl.client.CloseableHttpClient;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.Component;
 import org.olat.core.gui.components.velocity.VelocityContainer;
@@ -33,8 +35,10 @@ import org.olat.core.gui.control.DefaultController;
 import org.olat.core.gui.control.Event;
 import org.olat.core.gui.control.WindowControl;
 import org.olat.core.gui.control.generic.clone.CloneableController;
-import org.olat.core.gui.translator.PackageTranslator;
+import org.olat.core.gui.translator.Translator;
 import org.olat.core.util.Util;
+import org.olat.core.util.httpclient.HttpClientFactory;
+import org.olat.course.nodes.tu.TUConfigForm;
 import org.olat.modules.ModuleConfiguration;
 
 /**
@@ -46,12 +50,12 @@ import org.olat.modules.ModuleConfiguration;
  * @author gnaegi 
  */
 public class TunnelController extends DefaultController implements CloneableController {
-	private static final String PACKAGE = Util.getPackageName(TunnelController.class);
 	private static final String VELOCITY_ROOT = Util.getPackageVelocityRoot(TunnelController.class);
 
 	private TunnelComponent tuc;
 	private ModuleConfiguration config;
 	private VelocityContainer main;
+	private CloseableHttpClient httpClientInstance;
 	
 	/**
 	 * Constructor for a tunnel component wrapper controller
@@ -61,9 +65,16 @@ public class TunnelController extends DefaultController implements CloneableCont
 	public TunnelController(UserRequest ureq, WindowControl wControl, ModuleConfiguration config) {
 		super(wControl);
 		this.config = config;
-		PackageTranslator trans = new PackageTranslator(PACKAGE, ureq.getLocale());
+		Translator trans = Util.createPackageTranslator(TunnelController.class, ureq.getLocale());
 		main = new VelocityContainer("tucMain", VELOCITY_ROOT + "/index.html", trans, null);
-		tuc = new TunnelComponent("tuc", config, ureq);
+
+		String user = (String)config.get(TUConfigForm.CONFIGKEY_USER);
+		String pass = (String)config.get(TUConfigForm.CONFIGKEY_PASS);
+		String host = (String)config.get(TUConfigForm.CONFIGKEY_HOST);
+		Integer port = (Integer)config.get(TUConfigForm.CONFIGKEY_PORT);
+		httpClientInstance = HttpClientFactory.getHttpClientInstance(host, port.intValue(), user, pass, true);
+
+		tuc = new TunnelComponent("tuc", config, httpClientInstance, ureq);
 		main.put("tuc", tuc);
 		setInitialComponent(main);
 	}
@@ -71,6 +82,7 @@ public class TunnelController extends DefaultController implements CloneableCont
 	/** 
 	 * @see org.olat.core.gui.control.DefaultController#event(org.olat.core.gui.UserRequest, org.olat.core.gui.components.Component, org.olat.core.gui.control.Event)
 	 */
+	@Override
 	public void event(UserRequest ureq, Component source, Event event) {
 		// nothing to do
 	}
@@ -78,13 +90,16 @@ public class TunnelController extends DefaultController implements CloneableCont
 	/** 
 	 * @see org.olat.core.gui.control.DefaultController#doDispose(boolean)
 	 */
+	@Override
 	protected void doDispose() {
+		IOUtils.closeQuietly(httpClientInstance);
 		tuc = null;
 	}
 
 	/**
 	 * @see org.olat.core.gui.control.generic.clone.CloneableController#cloneController(org.olat.core.gui.UserRequest, org.olat.core.gui.control.WindowControl)
 	 */
+	@Override
 	public Controller cloneController(UserRequest ureq, WindowControl control) {
 		return new TunnelController(ureq, control, config);
 	}

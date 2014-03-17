@@ -164,6 +164,8 @@ public interface ToolController extends Controller {
 	 * @param ident
 	 */
 	public void remove(String ident);
+	
+	public boolean hasTool(String ident);
 
 	/**
 	 * Enable/Disable a tool entry.
@@ -172,17 +174,10 @@ public interface ToolController extends Controller {
 	 * @param enabled
 	 */
 	public void setEnabled(String ident, boolean enabled);
-	
-	/**
-	 * 
-	 * @param dragEnabled if true, all active toolentries can be dragged
-	 */
-	public void setDragEnabled(boolean dragEnabled);
 
 	/**
 	 * @return true when toolbox has no entries, false if toolbox has at least one entry
 	 */
 	public boolean isEmpty();
-
 
 }

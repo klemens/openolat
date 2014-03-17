@@ -19,9 +19,10 @@
  */
 package org.olat.core.util.mail.ui;
 
+import org.olat.core.CoreSpringFactory;
 import org.olat.core.gui.components.tree.GenericTreeNode;
 import org.olat.core.id.Identity;
-import org.olat.core.util.mail.manager.MailManager;
+import org.olat.core.util.mail.MailManager;
 
 /**
  * 
@@ -49,7 +50,7 @@ public class MailTreeNode extends GenericTreeNode {
 
 	@Override
 	public String getIconDecorator1CssClass() {
-		if(MailManager.getInstance().hasNewMail(identity)) {
+		if(CoreSpringFactory.getImpl(MailManager.class).hasNewMail(identity)) {
 			return "b_mail_new";
 		}
 		return null;

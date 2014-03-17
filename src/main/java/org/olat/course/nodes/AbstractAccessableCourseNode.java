@@ -26,17 +26,26 @@
 package org.olat.course.nodes;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 import org.olat.core.gui.UserRequest;
+import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.WindowControl;
+import org.olat.core.id.Identity;
 import org.olat.course.condition.Condition;
+import org.olat.course.condition.additionalconditions.AdditionalCondition;
+import org.olat.course.condition.additionalconditions.AdditionalConditionAnswerContainer;
+import org.olat.course.condition.additionalconditions.AdditionalConditionManager;
 import org.olat.course.condition.interpreter.ConditionExpression;
 import org.olat.course.condition.interpreter.ConditionInterpreter;
 import org.olat.course.export.CourseEnvironmentMapper;
+import org.olat.course.run.environment.CourseEnvironment;
 import org.olat.course.run.navigation.NodeRunConstructionResult;
 import org.olat.course.run.userview.NodeEvaluation;
 import org.olat.course.run.userview.UserCourseEnvironment;
+
+import de.bps.course.nodes.CourseNodePasswordManagerImpl;
 
 /**
  * Initial Date: May 28, 2004
@@ -48,7 +57,11 @@ import org.olat.course.run.userview.UserCourseEnvironment;
  */
 public abstract class AbstractAccessableCourseNode extends GenericCourseNode {
 
+	private static final long serialVersionUID = 8769187818935593237L;
+
 	private Condition preConditionAccess;
+
+	public static final String BLOCKED_BY_ORIGINAL_ACCESS_RULES = "blockedByOriginalAccessRules";
 
 	/**
 	 * Constructor, only used by implementing course nodes
@@ -70,6 +83,7 @@ public abstract class AbstractAccessableCourseNode extends GenericCourseNode {
 	 * 
 	 * @return Condition
 	 */
+	@Override
 	public Condition getPreConditionAccess() {
 		if (preConditionAccess == null) {
 			preConditionAccess = new Condition();
@@ -108,8 +122,20 @@ public abstract class AbstractAccessableCourseNode extends GenericCourseNode {
 	 *      org.olat.course.run.userview.NodeEvaluation)
 	 */
 	protected void calcAccessAndVisibility(ConditionInterpreter ci, NodeEvaluation nodeEval) {
+		// </OLATCE-91>
 		// for this node: only one role: accessing the node
 		boolean accessible = (getPreConditionAccess().getConditionExpression() == null ? true : ci.evaluateCondition(getPreConditionAccess()));
+		// <OLATCE-91>
+		if(accessible){
+			Long courseId = ci.getUserCourseEnvironment().getCourseEnvironment().getCourseResourceableId();
+			Identity identity = ci.getUserCourseEnvironment().getIdentityEnvironment().getIdentity();
+			AdditionalConditionAnswerContainer answers= CourseNodePasswordManagerImpl.getInstance().getAnswerContainer(identity);
+
+			nodeEval.putAccessStatus(BLOCKED_BY_ORIGINAL_ACCESS_RULES, false);
+			AdditionalConditionManager addMan = new AdditionalConditionManager(this, courseId, answers);
+			accessible = addMan.evaluateConditions();
+		}
+		// </OLATCE-91>
 		nodeEval.putAccessStatus("access", accessible);
 		boolean visible = (getPreConditionVisibility().getConditionExpression() == null ? true : ci
 				.evaluateCondition(getPreConditionVisibility()));
@@ -158,5 +184,16 @@ public abstract class AbstractAccessableCourseNode extends GenericCourseNode {
 		//
 		return retVal;
 	}
+	
+	/** Factory method to launch course element assessment tools. limitToGroup is optional to skip he the group choose step */
+	public List<Controller> createAssessmentTools(UserRequest ureq, WindowControl wControl, CourseEnvironment courseEnv, AssessmentToolOptions options) {
+		return Collections.emptyList();
+	}
+	
 
+	public List<AdditionalCondition> getAdditionalConditions(){
+		if(additionalConditions==null)
+			additionalConditions= new ArrayList<AdditionalCondition>();
+		return additionalConditions;
+	}
 }

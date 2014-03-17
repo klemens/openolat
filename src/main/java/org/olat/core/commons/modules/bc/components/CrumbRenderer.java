@@ -31,7 +31,6 @@ import java.util.StringTokenizer;
 import org.olat.core.gui.control.winmgr.AJAXFlags;
 import org.olat.core.gui.render.StringOutput;
 import org.olat.core.gui.render.URLBuilder;
-import org.olat.core.util.StringHelper;
 
 /**
  * Initial Date:  08.07.2003
@@ -39,11 +38,6 @@ import org.olat.core.util.StringHelper;
  * @author Mike Stock
  */
 public class CrumbRenderer {
-
-	/**
-	 * Default constructor.
-	 */
-	public CrumbRenderer() { super(); }
 	
 	/**
 	 * Return a path-like html fragment for the given briefcase path.
@@ -53,12 +47,10 @@ public class CrumbRenderer {
 	 * @param iframePostEnabled
 	 * @return	HTML fragment of briefcase path
 	 */
-	public final String render(FolderComponent fc, URLBuilder ubu, boolean renderLinks, boolean iframePostEnabled) {
-
+	public final void render(FolderComponent fc, StringOutput sb, URLBuilder ubu, boolean renderLinks, boolean iframePostEnabled) {
 		StringOutput pathLink = new StringOutput();
 		ubu.buildURI(pathLink, null, null, iframePostEnabled ? AJAXFlags.MODE_TOBGIFRAME : AJAXFlags.MODE_NORMAL);
-		StringOutput sb = new StringOutput();
-		
+
 		// append toplevel node
 		sb.append("<div class=\"b_briefcase_breadcrumb\">/&nbsp;");
 		if (renderLinks) {
@@ -79,7 +71,7 @@ public class CrumbRenderer {
 		StringTokenizer st = new StringTokenizer(fc.getCurrentContainerPath(), "/", false);
 		while (st.hasMoreElements()) {
 			String token = st.nextToken();
-			pathLink.append(StringHelper.urlEncodeUTF8(token));
+			pathLink.append(ubu.encodeUrl(token));
 			sb.append("&nbsp;/&nbsp;");
 			if (st.hasMoreElements() && renderLinks) {
 				sb.append("<a href=\"");
@@ -99,7 +91,5 @@ public class CrumbRenderer {
 			pathLink.append("/");
 		}
 		sb.append("</div>");
-		return sb.toString();
 	}
-	
 }

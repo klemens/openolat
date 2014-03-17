@@ -19,9 +19,7 @@
  */
 package de.bps.olat.repository.controllers;
 
-import java.util.ArrayList;
 import java.util.List;
-import java.util.Set;
 
 import org.olat.basesecurity.BaseSecurity;
 import org.olat.basesecurity.BaseSecurityManager;
@@ -63,19 +61,12 @@ public class RepositorySearchMultiSelectController extends RepositorySearchContr
 	 */
 	public RepositorySearchMultiSelectController(String selectButtonLabel, UserRequest ureq, WindowControl myWControl, boolean withCancel,
 			boolean enableDirectLaunch, String limitType) {
-		this(selectButtonLabel, ureq, myWControl, withCancel, enableDirectLaunch, limitType, null);
-	}
-	
-	public RepositorySearchMultiSelectController(String selectButtonLabel, UserRequest ureq, WindowControl myWControl, boolean withCancel,
-			boolean enableDirectLaunch, String limitType, String limitUser) {
 		super(ureq, myWControl);
-		
 		setBasePackage(RepositoryEntry.class);
-		
-		init(selectButtonLabel, ureq, withCancel, enableDirectLaunch, limitType, limitUser);
+		init(selectButtonLabel, ureq, withCancel, enableDirectLaunch, limitType);
 	}
 	
-	private void init(String selectButtonLabel, UserRequest ureq, boolean withCancel, boolean enableDirectLaunch, String limitType, String limitUser) {
+	private void init(String selectButtonLabel, UserRequest ureq, boolean withCancel, boolean enableDirectLaunch, String limitType) {
 		Roles roles = ureq.getUserSession().getRoles();
 		
 		vc = createVelocityContainer("search");
@@ -85,13 +76,15 @@ public class RepositorySearchMultiSelectController extends RepositorySearchContr
 		boolean isUserManager = secMgr.isIdentityInSecurityGroup(ureq.getIdentity(), usermanagerGroup);
 		
 		removeAsListenerAndDispose(searchForm);
-		searchForm = new SearchForm(ureq, getWindowControl(), withCancel, isUserManager||roles.isOLATAdmin(), limitType, limitUser);
+		searchForm = new SearchForm(ureq, getWindowControl(), withCancel, isUserManager||roles.isOLATAdmin(), limitType);
 		listenTo(searchForm);
 		
 		vc.put("searchform",searchForm.getInitialComponent());
 		
 		TableGuiConfiguration tableConfig = new TableGuiConfiguration();
-		if (selectButtonLabel != null) tableConfig.setPreferencesOffered(true, "repositorySearchResult");
+		if (selectButtonLabel != null) {
+			tableConfig.setPreferencesOffered(true, "repositorySearchResult_v2");
+		}
 		
 		removeAsListenerAndDispose(tableCtr);
 		tableCtr = new TableController(tableConfig, ureq, getWindowControl(), getTranslator());
@@ -109,7 +102,7 @@ public class RepositorySearchMultiSelectController extends RepositorySearchContr
 		vc.contextPut("withCancel", Boolean.valueOf(withCancel));
 		
 		enableBackToSearchFormLink(false); // default, must be enabled explicitly
-		enableSearchforAllReferencalbeInSearchForm(false); // default
+		enableSearchforAllXXAbleInSearchForm(null); // default
 		
 		putInitialPanel(vc);
 	}
@@ -134,21 +127,31 @@ public class RepositorySearchMultiSelectController extends RepositorySearchContr
 		return repoTableModel.getObject(row);
 	}
 	
+	@Override
+	protected void doSearch(UserRequest ureq, String limitType, boolean updateFilters) {
+		Roles roles = ureq.getUserSession().getRoles();
+		boolean onlyOwned = (!roles.isInstitutionalResourceManager() && !roles.isOLATAdmin());
+		doSearch(ureq, limitType, onlyOwned, updateFilters);
+	}
+	
 	/**
 	 * Implementation normal search: find all repo entries
 	 * @param ureq
 	 */
 	public void doSearchAll(UserRequest ureq) {
 		RepositoryManager rm = RepositoryManager.getInstance();
-		//Set s = searchForm.getRestrictedTypes();
-		//List restrictedTypes = (s == null) ? null : new ArrayList(s);
-		//fxdiff VCRP-1,2: access control of resources
-		SearchRepositoryEntryParameters params = new SearchRepositoryEntryParameters(null, null, null, null,
-				ureq.getIdentity(), ureq.getUserSession().getRoles(), ureq.getIdentity().getUser().getProperty("institutionalName", null));
+		
+		Roles roles = ureq.getUserSession().getRoles();
+		String institution = getIdentity().getUser().getProperty("institutionalName", null);
+		SearchRepositoryEntryParameters params
+			= new SearchRepositoryEntryParameters(null, null, null, null, getIdentity(), roles, institution);
+		if(!roles.isInstitutionalResourceManager() && !roles.isOLATAdmin()) {
+			params.setOnlyOwnedResources(true);
+		}
+		
 		List<RepositoryEntry> entries = rm.genericANDQueryWithRolesRestriction(params, 0, -1, true);
 		repoTableModel.setObjects(entries);
 		tableCtr.modelChanged();
 		displaySearchResults(ureq);
 	}
-
 }

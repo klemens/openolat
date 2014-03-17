@@ -20,9 +20,11 @@
 
 package org.olat.search.ui;
 
-import org.olat.core.commons.services.search.ResultDocument;
-import org.olat.core.commons.services.search.ui.ResultController;
-import org.olat.core.commons.services.search.ui.SearchEvent;
+import java.util.Collections;
+import java.util.List;
+
+import org.olat.basesecurity.BaseSecurityManager;
+import org.olat.basesecurity.IdentityShort;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.form.flexible.FormItem;
 import org.olat.core.gui.components.form.flexible.FormItemContainer;
@@ -36,6 +38,9 @@ import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.WindowControl;
 import org.olat.core.util.Formatter;
 import org.olat.core.util.StringHelper;
+import org.olat.core.util.filter.FilterFactory;
+import org.olat.search.model.ResultDocument;
+import org.olat.user.UserManager;
 
 /**
  * Description:<br>
@@ -66,24 +71,45 @@ public class StandardResultController extends FormBasicController implements Res
 		if(formLayout instanceof FormLayoutContainer) {
 			FormLayoutContainer formLayoutCont = (FormLayoutContainer)formLayout;
 			formLayoutCont.contextPut("result", document);
-			formLayoutCont.contextPut("id", this.hashCode());
+			formLayoutCont.contextPut("id", hashCode());
 			formLayoutCont.contextPut("formatter", Formatter.getInstance(getLocale()));
+			
+			String author = document.getAuthor();
+			if(StringHelper.containsNonWhitespace(author)) {
+				List<IdentityShort> identities = BaseSecurityManager.getInstance().findShortIdentitiesByName(Collections.singleton(author));
+				if(identities.size() > 0) {
+					author = UserManager.getInstance().getUserDisplayName(identities.get(0));
+				}
+			}
+			formLayoutCont.contextPut("author", author);
 		}
 		
-		String highlightLabel = document.getHighlightTitle();
-		docHighlightLink = uifactory.addFormLink("open_doc_highlight", highlightLabel, highlightLabel, formLayout, Link.NONTRANSLATED);
 		String icon = document.getCssIcon();
 		if(!StringHelper.containsNonWhitespace(icon)) {
 			icon = "o_sp_icon";
 		}
-		String cssClass = "b_with_small_icon_left " + icon;
-		((Link)docHighlightLink.getComponent()).setCustomEnabledLinkCSS(cssClass);
-		((Link)docHighlightLink.getComponent()).setCustomDisabledLinkCSS(cssClass);
+		String cssClass = ("b_with_small_icon_left " + icon).intern();
 		
 		String label = document.getTitle();
+		if(label != null) {
+			label = label.trim();
+		}
+		if(label.length() > 128) {
+			label = FilterFactory.getHtmlTagsFilter().filter(label);
+			label = Formatter.truncate(label, 128);
+		}
+		label = StringHelper.escapeHtml(label);
 		docLink = uifactory.addFormLink("open_doc", label, label, formLayout, Link.NONTRANSLATED);
 		((Link)docLink.getComponent()).setCustomEnabledLinkCSS(cssClass);
 		((Link)docLink.getComponent()).setCustomDisabledLinkCSS(cssClass);
+		
+		String highlightLabel = document.getHighlightTitle();
+		if(!StringHelper.containsNonWhitespace(highlightLabel)) {
+			highlightLabel = label;
+		}
+		docHighlightLink = uifactory.addFormLink("open_doc_highlight", highlightLabel, highlightLabel, formLayout, Link.NONTRANSLATED);
+		((Link)docHighlightLink.getComponent()).setCustomEnabledLinkCSS(cssClass);
+		((Link)docHighlightLink.getComponent()).setCustomDisabledLinkCSS(cssClass);
 	}
 
 	@Override

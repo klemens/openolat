@@ -26,7 +26,9 @@
 
 package org.olat.core.util;
 
+import java.io.IOException;
 import java.io.UnsupportedEncodingException;
+import java.io.Writer;
 import java.net.URLEncoder;
 import java.text.DateFormat;
 import java.text.DecimalFormat;
@@ -44,9 +46,13 @@ import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import org.apache.commons.lang.StringEscapeUtils;
 import org.olat.core.id.Identity;
 import org.olat.core.id.UserConstants;
 import org.olat.core.logging.AssertException;
+import org.olat.core.logging.OLog;
+import org.olat.core.logging.Tracing;
+import org.olat.core.util.filter.impl.OWASPAntiSamyXSSFilter;
 
 /**
  * enclosing_type Description: <br>
@@ -55,13 +61,12 @@ import org.olat.core.logging.AssertException;
  * @author Felix Jost
  */
 public class StringHelper {
+	
+	private static final OLog log = Tracing.createLoggerFor(StringHelper.class);
 
 	private static final NumberFormat numFormatter;
 	private static final String WHITESPACE_REGEXP = "^\\s*$";
 	private static final Pattern WHITESPACE_PATTERN = Pattern.compile(WHITESPACE_REGEXP);
-	
-	private static final Pattern p1 = Pattern.compile("\\+");
-	private static final Pattern p2 = Pattern.compile("%2F");
 	
 	/**
 	 * regex for not allowing
@@ -122,6 +127,17 @@ public class StringHelper {
 		if (date == -1) return "-";
 		return DateFormat.getDateInstance(DateFormat.FULL, locale).format(new Date(date));
 	}
+	
+	/**
+	 * 
+	 * @param date
+	 * @param locale
+	 * @return Formatted date
+	 */
+	public static String formatLocaleDateFull(Date date, Locale locale) {
+		if (date == null) return "-";
+		return DateFormat.getDateInstance(DateFormat.FULL, locale).format(date);
+	}
 
 	/**
 	 * @param date
@@ -141,6 +157,17 @@ public class StringHelper {
 	public static String formatLocaleTime(long time, Locale locale) {
 		if (time == -1) return "-";
 		return DateFormat.getTimeInstance(DateFormat.SHORT, locale).format(new Date(time));
+	}
+	
+	/**
+	 * 
+	 * @param time
+	 * @param locale
+	 * @return
+	 */
+	public static String formatLocaleTime(Date time, Locale locale) {
+		if (time == null) return "-";
+		return DateFormat.getTimeInstance(DateFormat.SHORT, locale).format(time);
 	}
 
 	/**
@@ -164,21 +191,7 @@ public class StringHelper {
 		numFormatter.setMaximumFractionDigits(fractionDigits);
 		return numFormatter.format(f);
 	}
-
-	/**
-	 * @param url
-	 * @return encoded string
-	 */
-	public static String urlEncodeISO88591(String url) {
-		String part;
-		try {
-			part = URLEncoder.encode(url, "iso-8859-1");
-		} catch (UnsupportedEncodingException e) {
-			throw new RuntimeException("encoding failed (iso-8859-1) for :" + url);
-		}
-		return part;
-	}
-
+	
 	/**
 	 * @param url
 	 * @return encoded string
@@ -195,13 +208,8 @@ public class StringHelper {
 			 */
 			throw new AssertException("utf-8 encoding is needed for proper encoding, but not offered on this java platform????");
 		}
-		encodedURL = p1.matcher(encodedURL).replaceAll("%20");
-		encodedURL = p2.matcher(encodedURL).replaceAll("/");
 		return encodedURL;
 	}
-	
-
-	
 
 	/**
 	 * Converts all keys of a hash map to a string array.
@@ -251,6 +259,12 @@ public class StringHelper {
 		// if string matches whitespace pattern then string does not
 		// contain non-whitespace
 		return !matcher.find();
+	}
+	
+	public static boolean isHtml(String s) {
+		if (s == null) return false;
+
+		return s.contains("<html") || s.contains("<body") || s.contains("<p") || s.contains("<span");
 	}
 
 	/**
@@ -305,6 +319,46 @@ public class StringHelper {
 		}
 		return tmpDET.toString();
 	}
+	
+	public static final String escapeHtml(String str) {
+		return StringEscapeUtils.escapeHtml(str);
+	}
+	
+	public static final void escapeHtml(Writer writer, String str) {
+		try {
+			StringEscapeUtils.escapeHtml(writer, str);
+		} catch (IOException e) {
+			log.error("Error escaping HTML", e);
+		}
+	}
+	
+	public static final String xssScan(String str) {
+		return new OWASPAntiSamyXSSFilter().filter(str);
+	}
+	
+	public static final String xssScan(StringBuilder str) {
+		if(str == null) return null;
+		if(str.length() == 0) return "";
+		return new OWASPAntiSamyXSSFilter().filter(str.toString());
+	}
+	
+	public static final boolean xssScanForErrors(String str) {
+		OWASPAntiSamyXSSFilter filter = new OWASPAntiSamyXSSFilter();
+		filter.filter(str);
+		return filter.getNumOfErrors() > 0;
+	}
+	
+	public static final String escapeJavaScript(String str) {
+		return StringEscapeUtils.escapeJavaScript(str);
+	}
+	
+	public static final void escapeJavaScript(Writer writer, String str) {
+		try {
+			StringEscapeUtils.escapeJavaScript(writer, str);
+		} catch (IOException e) {
+			log.error("Error escaping JavaScript", e);
+		}
+	}
 
 	/**
 	 * @param cellValue
@@ -334,14 +388,41 @@ public class StringHelper {
 		if(string == null || string.length() == 0) {
 			return false;
 		}
+		int stop = string.startsWith("-") ? 1 : 0;
 		char[] charArr = string.toCharArray();
-		for(int i=charArr.length; i-->0; ) {
+		for(int i=charArr.length; i-->stop; ) {
 			char ch = charArr[i];
 			if(ch < 47 || ch > 58) {
 				return false;
 			}
 		}
 		return true;
+	}
+	
+	public static String cleanUTF8ForXml(String string) {
+		if(string == null) return null;
+		if(string.length() == 0) return string;
+		
+		StringBuilder sb = new StringBuilder();
+		char[] charArr = string.toCharArray();
+		int numOfCharacters = charArr.length;
+		for(int i=0; i<numOfCharacters; i++) {
+			char ch = charArr[i];
+			if(ch < 32) {
+				switch(ch) {
+					case '\n': sb.append(ch); break;//0x000A
+					case '\t': sb.append(ch); break;//0x0009
+					case '\r': sb.append(ch); break;//0x000D
+				}
+			} else if(ch >= 0x0020 && ch <= 0xD7FF) {
+				sb.append(ch);
+			} else if(ch >= 0xE000 && ch <= 0xFFFD) {
+				sb.append(ch);
+			} else if(ch >= 0x10000 && ch <= 0x10FFFF) {
+				sb.append(ch);
+			}
+		}
+		return sb.toString();
 	}
 	
 	public static String replaceAllCaseInsensitive(String expression, String name, String replacement) {

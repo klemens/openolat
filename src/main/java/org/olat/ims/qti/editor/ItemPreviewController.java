@@ -37,6 +37,8 @@ import org.olat.core.gui.control.DefaultController;
 import org.olat.core.gui.control.Event;
 import org.olat.core.gui.control.WindowControl;
 import org.olat.core.gui.translator.Translator;
+import org.olat.core.logging.OLog;
+import org.olat.core.logging.Tracing;
 import org.olat.core.util.Formatter;
 import org.olat.core.util.Util;
 import org.olat.core.util.filter.Filter;
@@ -50,6 +52,8 @@ import org.olat.ims.qti.editor.beecom.objects.Item;
  * @author mike
  */
 public class ItemPreviewController extends DefaultController implements ControllerEventListener {
+	private static final OLog log = Tracing.createLoggerFor(ItemPreviewController.class);
+	
 	/*
 	 * Logging, Velocity
 	 */
@@ -58,22 +62,28 @@ public class ItemPreviewController extends DefaultController implements Controll
 
 	private Panel mainPanel;
 	private VelocityContainer main;
-	private Item item;
-	RenderInstructions renderInstructions;
-	private QTIEditorPackage qtiPackage;
+	private final Item item;
+	private final String mediaBaseUrl;
+	private RenderInstructions renderInstructions;
+
 	/**
 	 * @param item
 	 * @param qtiPackage
 	 * @param translator
 	 */
 	public ItemPreviewController(WindowControl wControl, Item item, QTIEditorPackage qtiPackage, Translator translator) {
+		this(wControl, item, qtiPackage.getMediaBaseURL(), translator);
+	}
+
+	public ItemPreviewController(WindowControl wControl, Item item, String mediaBaseUrl, Translator translator) {
 		super(wControl);
 		this.item = item;
-		this.qtiPackage = qtiPackage;
+		this.mediaBaseUrl = mediaBaseUrl;
 		renderInstructions = new RenderInstructions();
-		renderInstructions.put(RenderInstructions.KEY_STATICS_PATH, qtiPackage.getMediaBaseURL() + "/");
+		renderInstructions.put(RenderInstructions.KEY_STATICS_PATH, mediaBaseUrl + "/");
 		renderInstructions.put(RenderInstructions.KEY_LOCALE, translator.getLocale());
 		renderInstructions.put(RenderInstructions.KEY_RENDER_TITLE, Boolean.TRUE);
+		
 		main = new VelocityContainer("vcItemPreview", VC_ROOT + "/tab_itemPreview.html", translator, this);
 		main.contextPut("itemPreview", getQuestionPreview(item));
 		mainPanel = new Panel("itemPreviewPanel");
@@ -93,14 +103,19 @@ public class ItemPreviewController extends DefaultController implements Controll
 	}
 
 	private String getQuestionPreview(Item theItem) {
-		Element el = DocumentFactory.getInstance().createElement("dummy");
-		theItem.addToElement(el);
-		StringBuilder sb = new StringBuilder();
-		org.olat.ims.qti.container.qtielements.Item foo = new org.olat.ims.qti.container.qtielements.Item((Element) el.elements().get(0));
-		foo.render(sb, renderInstructions);
-		String previewWithFormattedMathElements = Formatter.formatLatexFormulas(sb.toString());
-		Filter filter = FilterFactory.getBaseURLToMediaRelativeURLFilter(qtiPackage.getMediaBaseURL());
-		return filter.filter(previewWithFormattedMathElements);
+		try {
+			Element el = DocumentFactory.getInstance().createElement("dummy");
+			theItem.addToElement(el);
+			StringBuilder sb = new StringBuilder();
+			org.olat.ims.qti.container.qtielements.Item foo = new org.olat.ims.qti.container.qtielements.Item((Element) el.elements().get(0));
+			foo.render(sb, renderInstructions);
+			String previewWithFormattedMathElements = Formatter.formatLatexFormulas(sb.toString());
+			Filter filter = FilterFactory.getBaseURLToMediaRelativeURLFilter(mediaBaseUrl);
+			return filter.filter(previewWithFormattedMathElements);
+		} catch (Exception e) {
+			log.warn("Cannot render preview of an QTI 1.2 item: " + theItem);
+			return "ERROR";
+		}
 	}
 
 	/**

@@ -33,6 +33,7 @@ import org.apache.velocity.exception.MethodInvocationException;
 import org.apache.velocity.exception.ParseErrorException;
 import org.apache.velocity.exception.ResourceNotFoundException;
 import org.apache.velocity.runtime.RuntimeConstants;
+import org.olat.admin.user.SystemRolesAndRightsController;
 import org.olat.basesecurity.BaseSecurity;
 import org.olat.basesecurity.BaseSecurityManager;
 import org.olat.basesecurity.Constants;
@@ -45,11 +46,16 @@ import org.olat.core.gui.translator.Translator;
 import org.olat.core.id.Identity;
 import org.olat.core.id.Preferences;
 import org.olat.core.id.User;
+import org.olat.core.id.UserConstants;
 import org.olat.core.logging.OLog;
 import org.olat.core.logging.Tracing;
 import org.olat.core.manager.BasicManager;
 import org.olat.core.util.StringHelper;
 import org.olat.core.util.Util;
+import org.olat.core.util.WebappHelper;
+import org.olat.core.util.i18n.I18nManager;
+import org.olat.core.util.mail.MailBundle;
+import org.olat.core.util.mail.MailManager;
 import org.olat.core.util.mail.MailPackage;
 import org.olat.group.BusinessGroupService;
 import org.olat.group.model.BusinessGroupMembershipChange;
@@ -94,7 +100,8 @@ public class UserBulkChangeManager extends BasicManager {
 	}
 
 	public void changeSelectedIdentities(List<Identity> selIdentities, HashMap<String, String> attributeChangeMap,
-			HashMap<String, String> roleChangeMap, ArrayList<String> notUpdatedIdentities, boolean isAdministrativeUser, List<Long> ownGroups, List<Long> partGroups, List<Long> mailGroups, Translator trans, Identity addingIdentity) {
+			HashMap<String, String> roleChangeMap, ArrayList<String> notUpdatedIdentities, boolean isAdministrativeUser, List<Long> ownGroups, List<Long> partGroups,
+			Translator trans, Identity addingIdentity) {
 
 		Translator transWithFallback = UserManager.getInstance().getPropertyHandlerTranslator(trans);
 		String usageIdentifyer = UserBulkChangeStep00.class.getCanonicalName();
@@ -123,8 +130,11 @@ public class UserBulkChangeManager extends BasicManager {
 						errorDesc = transWithFallback.translate("error.password");
 						updateError = true;
 					}
-				} else newPwd = null;
-				OLATAuthManager.changePasswordAsAdmin(identity, newPwd);
+				} else {
+					newPwd = null;
+				}
+				OLATAuthManager olatAuthenticationSpi = CoreSpringFactory.getImpl(OLATAuthManager.class);
+				olatAuthenticationSpi.changePasswordAsAdmin(identity, newPwd);
 			}
 
 			// set language
@@ -158,8 +168,8 @@ public class UserBulkChangeManager extends BasicManager {
 					ValidationError validationError = new ValidationError();
 					// do validation checks with users current locale!
 					Locale locale = transWithFallback.getLocale();
-					if (!propHandler.isValidValue(evaluatedInputFieldValue, validationError, locale)) {
-						errorDesc = transWithFallback.translate(validationError.getErrorKey()) + " (" + evaluatedInputFieldValue + ")";
+					if (!propHandler.isValidValue(identity.getUser(), evaluatedInputFieldValue, validationError, locale)) {
+						errorDesc = transWithFallback.translate(validationError.getErrorKey(), validationError.getArgs()) + " (" + evaluatedInputFieldValue + ")";
 						updateError = true;
 						break;
 					}
@@ -209,6 +219,9 @@ public class UserBulkChangeManager extends BasicManager {
 								: (status == Identity.STATUS_LOGIN_DENIED ? "login_denied"
 										: (status == Identity.STATUS_DELETED ? "deleted"
 												: "unknown"))));
+				if(status == Identity.STATUS_LOGIN_DENIED) {
+					sendLoginDeniedEmail(identity);
+				}
 				identity = secMgr.saveIdentityStatus(identity, status);
 				logAudit("User::" + addingIdentity.getName() + " changed accout status for user::" + identity.getName() + " from::" + oldStatusText + " to::" + newStatusText, null);
 			}
@@ -254,6 +267,25 @@ public class UserBulkChangeManager extends BasicManager {
 			DBFactory.getInstance().commit();
 		}
 	}
+	
+	public void sendLoginDeniedEmail(Identity identity) {
+		String[] args = new String[] {
+				identity.getName(),//0: changed users username
+				identity.getUser().getProperty(UserConstants.EMAIL, null),// 1: changed users email address
+				UserManager.getInstance().getUserDisplayName(identity.getUser()),// 2: Name (first and last name) of user who changed the password
+				WebappHelper.getMailConfig("mailSupport"), //3: configured support email address
+		};
+		
+		String lang = identity.getUser().getPreferences().getLanguage();
+		Locale locale = I18nManager.getInstance().getLocaleOrDefault(lang);
+		Translator translator = Util.createPackageTranslator(SystemRolesAndRightsController.class, locale);
+
+		MailBundle bundle = new MailBundle();
+		bundle.setToId(identity);
+		bundle.setContent(translator.translate("mailtemplate.login.denied.subject", args),
+			translator.translate("mailtemplate.login.denied.body", args));
+		CoreSpringFactory.getImpl(MailManager.class).sendExternMessage(bundle, null);
+	}
 
 	public String evaluateValueWithUserContext(String valToEval, Context vcContext) {
 		StringWriter evaluatedUserValue = new StringWriter();
@@ -296,12 +328,12 @@ public class UserBulkChangeManager extends BasicManager {
 		}
 	}
 
-	public Context getDemoContext(Locale locale, boolean isAdministrativeUser) {
+	public Context getDemoContext(Locale locale) {
 		Translator propertyTrans = Util.createPackageTranslator(UserPropertyHandler.class, locale);
-		return getDemoContext(propertyTrans, isAdministrativeUser);
+		return getDemoContext(propertyTrans);
 	}
 	
-	public Context getDemoContext(Translator propertyTrans, boolean isAdministrativeUser) {
+	public Context getDemoContext(Translator propertyTrans) {
 		Context vcContext = new VelocityContext();
 		List<UserPropertyHandler> userPropertyHandlers2;
 		userPropertyHandlers2 = UserManager.getInstance().getAllUserPropertyHandlers();
@@ -312,6 +344,4 @@ public class UserBulkChangeManager extends BasicManager {
 		}
 		return vcContext;
 	}
-
-
 }

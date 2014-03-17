@@ -28,6 +28,7 @@ package org.olat.user;
 import java.util.Date;
 import java.util.List;
 
+import org.olat.core.CoreSpringFactory;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.Component;
 import org.olat.core.gui.components.table.DefaultColumnDescriptor;
@@ -41,7 +42,6 @@ import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.Event;
 import org.olat.core.gui.control.WindowControl;
 import org.olat.core.gui.control.controller.BasicController;
-import org.olat.core.gui.control.generic.modal.DialogBoxController;
 import org.olat.core.gui.control.generic.modal.DialogBoxUIFactory;
 import org.olat.core.id.Identity;
 import org.olat.group.BusinessGroup;
@@ -77,7 +77,7 @@ public class UserPropertiesController extends BasicController {
 		super(ureq, wControl);
 		PropertyManager pm = PropertyManager.getInstance();
 		this.displayedIdentity = displayedIdentity;
-		List l = pm.listProperties(displayedIdentity, null, null, null, null);
+		List<Property> l = pm.listProperties(displayedIdentity, null, null, null, null);
 		TableGuiConfiguration tableConfig = new TableGuiConfiguration();
 		tableConfig.setTableEmptyMessage(getTranslator().translate("error.no.props.found"));
 		tableCtr = new TableController(tableConfig, ureq, getWindowControl(), getTranslator());
@@ -124,7 +124,8 @@ public class UserPropertiesController extends BasicController {
 				else if (actionid.equals("delete")) {
 					int rowid = te.getRowId();
 					foundProp = (Property) tdm.getObject(rowid);
-					activateYesNoDialog(ureq, translate("propdelete.yesno.title"),translate("propdelete.yesno.text",new String[]{foundProp.getName(),displayedIdentity.getName()}), null);
+					String fullName = CoreSpringFactory.getImpl(UserManager.class).getUserDisplayName(displayedIdentity);
+					activateYesNoDialog(ureq, translate("propdelete.yesno.title"),translate("propdelete.yesno.text",new String[]{foundProp.getName(), fullName}), null);
 				}
 			}
 		}
@@ -161,13 +162,13 @@ public class UserPropertiesController extends BasicController {
  *  
  */
 
-class PropTableDataModel extends DefaultTableDataModel {
+class PropTableDataModel extends DefaultTableDataModel<Property> {
 
 	/**
 	 * Table model holding list of properties.
 	 * @param objects
 	 */
-	public PropTableDataModel(List objects) {
+	public PropTableDataModel(List<Property> objects) {
 		super(objects);
 	}
 
@@ -175,7 +176,7 @@ class PropTableDataModel extends DefaultTableDataModel {
 	 * @see org.olat.core.gui.components.table.TableDataModel#getValueAt(int, int)
 	 */
 	public final Object getValueAt(int row, int col) {
-		Property p = (Property) getObject(row);
+		Property p = getObject(row);
 		switch (col) {
 			case 0 :
 				String cat = p.getCategory();

@@ -24,9 +24,6 @@
 */
 package org.olat.course.nodes.iq;
 
-import java.io.File;
-import java.util.Locale;
-
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.stack.StackedController;
 import org.olat.core.gui.control.Controller;
@@ -60,10 +57,10 @@ public class IQUIFactory {
 	 * XXXController(..) creation of different IQxyzRun / IQxyzEdit /
 	 * IQxyzPreviewControllers within the IQxyzCourseNodes.
 	 */
-	static IQControllerCreator iqControllerCreator = null;
+	private static IQControllerCreator iqControllerCreator = new IQControllerCreatorOlat();
 
-	IQUIFactory(IQControllerCreator specificIqControllerCreator) {
-		IQUIFactory.iqControllerCreator = specificIqControllerCreator;
+	public IQUIFactory() {
+		//
 	}
 
 	public static TabbableController createIQTestEditController(UserRequest ureq, WindowControl wControl, StackedController stackPanel, ICourse course,
@@ -106,9 +103,4 @@ public class IQUIFactory {
 		return IQUIFactory.iqControllerCreator.createIQTestDetailsEditController(courseResourceableId, ident, identity,
 				referencedRepositoryEntry, qmdEntryTypeAssess, ureq, wControl);
 	}
-
-	public static boolean archive(Locale locale, String repositorySoftkey, Long courseResourceableId, String shortTitle,  String ident, File exportDirectory, String charset){
-		return IQUIFactory.iqControllerCreator.archiveIQTestCourseNode(locale, repositorySoftkey, courseResourceableId, shortTitle, ident, exportDirectory, charset);
-	}
-	
 }

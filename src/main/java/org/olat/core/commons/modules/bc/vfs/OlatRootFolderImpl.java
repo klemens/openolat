@@ -30,6 +30,7 @@ import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.olat.core.CoreSpringFactory;
 import org.olat.core.commons.modules.bc.FolderConfig;
 import org.olat.core.commons.modules.bc.meta.MetaInfo;
 import org.olat.core.commons.modules.bc.meta.MetaInfoFactory;
@@ -39,7 +40,6 @@ import org.olat.core.util.vfs.LocalFolderImpl;
 import org.olat.core.util.vfs.OlatRelPathImpl;
 import org.olat.core.util.vfs.VFSContainer;
 import org.olat.core.util.vfs.VFSItem;
-import org.olat.core.util.vfs.VFSLeaf;
 import org.olat.core.util.vfs.filters.VFSItemFilter;
 
 public class OlatRootFolderImpl extends LocalFolderImpl implements OlatRelPathImpl, MetaTagged {
@@ -56,7 +56,8 @@ public class OlatRootFolderImpl extends LocalFolderImpl implements OlatRelPathIm
 	 *
 	 * @see org.olat.core.util.vfs.VFSContainer#createChildContainer(java.lang.String)
 	 */
-	public VFSContainer createChildContainer(String name) {
+	@Override
+	public OlatRootFolderImpl createChildContainer(String name) {
 		VFSItem result = super.createChildContainer(name);
 		if (result == null) return null;
 		return new OlatRootFolderImpl(folderRelPath + "/" + name, this);
@@ -67,7 +68,8 @@ public class OlatRootFolderImpl extends LocalFolderImpl implements OlatRelPathIm
 	 *
 	 * @see org.olat.core.util.vfs.VFSContainer#createChildLeaf(java.lang.String)
 	 */
-	public VFSLeaf createChildLeaf(String name) {
+	@Override
+	public OlatRootFileImpl createChildLeaf(String name) {
 		VFSItem result = super.createChildLeaf(name);
 		if (result == null) return null;
 		return new OlatRootFileImpl(folderRelPath + "/" + name, this);
@@ -121,7 +123,7 @@ public class OlatRootFolderImpl extends LocalFolderImpl implements OlatRelPathIm
 	 * @see org.olat.core.commons.modules.bc.meta.tagged.MetaTagged#getMetaInfo()
 	 */
 	public MetaInfo getMetaInfo() {
-		return MetaInfoFactory.createMetaInfoFor(this);
+		return CoreSpringFactory.getImpl(MetaInfoFactory.class).createMetaInfoFor(this);
 	}
 	
 }

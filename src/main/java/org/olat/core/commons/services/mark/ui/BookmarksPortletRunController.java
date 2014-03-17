@@ -34,7 +34,6 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 
-import org.apache.commons.lang.StringEscapeUtils;
 import org.olat.ControllerFactory;
 import org.olat.NewControllerFactory;
 import org.olat.core.CoreSpringFactory;
@@ -63,6 +62,7 @@ import org.olat.core.gui.translator.PackageTranslator;
 import org.olat.core.gui.translator.Translator;
 import org.olat.core.id.context.BusinessControl;
 import org.olat.core.id.context.BusinessControlFactory;
+import org.olat.core.util.filter.FilterFactory;
 import org.olat.repository.RepositoryEntry;
 import org.olat.repository.RepositoryEntryStatus;
 import org.olat.repository.RepositoryManager;
@@ -92,8 +92,9 @@ public class BookmarksPortletRunController extends AbstractPortletRunController<
 	 * @param ureq
 	 * @param component
 	 */
-	public BookmarksPortletRunController(WindowControl wControl, UserRequest ureq, Translator trans, String portletName) { 		
-		super(wControl, ureq, trans, portletName);
+	public BookmarksPortletRunController(WindowControl wControl, UserRequest ureq, Translator trans,
+			String portletName, int defaultMaxEntries) { 		
+		super(wControl, ureq, trans, portletName, defaultMaxEntries);
 		sortingTermsList.add(SortingCriteria.TYPE_SORTING);
 		sortingTermsList.add(SortingCriteria.ALPHABETICAL_SORTING);
 		sortingTermsList.add(SortingCriteria.DATE_SORTING);
@@ -319,7 +320,6 @@ public class BookmarksPortletRunController extends AbstractPortletRunController<
 			switch (col) {
 			case 0:
 				String name = getBookmarkTitle(bookmark);
-				name = StringEscapeUtils.escapeHtml(name).toString();
 				return name;
 			case 1:
 				String resType = bookmark.getDisplayrestype();
@@ -376,7 +376,7 @@ public class BookmarksPortletRunController extends AbstractPortletRunController<
 					return bm.getTitle();
 				case 1:
 					String desc = bm.getDescription();
-					return (desc == null ? "n/a" : desc);
+					return (desc == null ? "n/a" : FilterFactory.getHtmlTagsFilter().filter(desc));
 				case 2:
 					String resType = bm.getDisplayrestype();
 					return (resType == null ? "n/a" : ControllerFactory.translateResourceableTypeName(resType, locale));

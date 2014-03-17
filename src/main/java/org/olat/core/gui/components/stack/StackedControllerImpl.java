@@ -44,12 +44,15 @@ public class StackedControllerImpl extends DefaultController implements StackedC
 	private final List<Link> stack = new ArrayList<Link>(3);
 	private final VelocityContainer mainVC;
 	private final Link backLink;
+	private final Link closeLink;
+	private final Translator translator;
 	
 	public StackedControllerImpl(WindowControl wControl, Translator trans, String mainCssClass) {
 		super(wControl);
+		translator = Util.createPackageTranslator(StackedControllerImpl.class, trans.getLocale(), trans);
 
 		String path = Util.getPackageVelocityRoot(StackedController.class) + "/stack.html";
-		mainVC = new VelocityContainer("vc_stacked", path, trans,  this);
+		mainVC = new VelocityContainer("vc_stacked", path, translator,  this);
 		mainVC.contextPut("breadCrumbs", stack);
 		if(StringHelper.containsNonWhitespace(mainCssClass)) {
 			mainVC.contextPut("mainCssClass", mainCssClass);
@@ -57,10 +60,16 @@ public class StackedControllerImpl extends DefaultController implements StackedC
 		// Add back link before the bread crumbs, when pressed delegates click to current bread-crumb - 1
 		backLink = LinkFactory.createCustomLink("back", "back", null, Link.NONTRANSLATED + Link.LINK_CUSTOM_CSS, mainVC, this);
 		backLink.setCustomEnabledLinkCSS("b_breadcumb_back");
-		backLink.setCustomDisplayText("\u25C4"); // unicode back arrow (black left pointer symbol)
-		backLink.setTitle(trans.translate("back"));
+		backLink.setCustomDisplayText("&#x25C4;"); // unicode back arrow (black left pointer symbol)
+		backLink.setTitle(translator.translate("back"));
 		backLink.setAccessKey("b"); // allow navigation using keyboard
-		
+
+		// Add back link before the bread crumbs, when pressed delegates click to current bread-crumb - 1
+		closeLink = LinkFactory.createCustomLink("close", "close", null, Link.NONTRANSLATED + Link.LINK_CUSTOM_CSS, mainVC, this);
+		closeLink.setCustomEnabledLinkCSS("b_close");
+		closeLink.setCustomDisplayText(translator.translate("doclose"));
+		closeLink.setAccessKey("x"); // allow navigation using keyboard
+
 		setInitialComponent(mainVC);
 	}
 	
@@ -72,11 +81,14 @@ public class StackedControllerImpl extends DefaultController implements StackedC
 		}
 	}
 	
-	
-
 	@Override
 	public void popController(Controller controller) {
-		popController(controller.getInitialComponent());
+		for(Link link:stack) {
+			Controller popCtrl = (Controller)link.getUserObject();
+			if(popCtrl == controller) {
+				popController(link);
+			}
+		}
 	}
 	
 	private Controller popController(Component source) {
@@ -93,6 +105,7 @@ public class StackedControllerImpl extends DefaultController implements StackedC
 			Link currentLink = stack.get(index);
 			Controller currentCtrl  = (Controller)currentLink.getUserObject();
 			setContent(currentCtrl);
+			updateCloseLinkTitle();
 			return popedCtrl;
 		}
 		return null;
@@ -112,6 +125,7 @@ public class StackedControllerImpl extends DefaultController implements StackedC
 			Link rootLink = stack.get(0);
 			Controller rootController  = (Controller)rootLink.getUserObject();
 			setContent(rootController); 
+			updateCloseLinkTitle();
 			fireEvent(ureq, new PopEvent(popedCtrl));
 		}
 	}
@@ -119,15 +133,16 @@ public class StackedControllerImpl extends DefaultController implements StackedC
 	@Override
 	public void pushController(String displayName, Controller controller) {
 		Link link = LinkFactory.createLink("crumb_" + stack.size(), mainVC, this);
-		link.setCustomDisplayText(displayName);
+		link.setCustomDisplayText(StringHelper.escapeHtml(displayName));
 		link.setUserObject(controller);
 		stack.add(link);
 		setContent(controller);
+		updateCloseLinkTitle();
 	}
-
+	
 	@Override
 	protected void event(UserRequest ureq, Component source, Event event) {
-		if (source.equals(backLink)) {
+		if (source.equals(backLink) || source.equals(closeLink)) {
 			if (stack.size() > 1) {
 				// back means to one level down, change source to the stack item one below current
 				source = stack.get(stack.size()-2);
@@ -147,6 +162,20 @@ public class StackedControllerImpl extends DefaultController implements StackedC
 		mainVC.put("content", ctrl.getInitialComponent());
 	}
 
+	/**
+	 * Update the close link title to match the name of the last visible item
+	 */
+	private void updateCloseLinkTitle() {
+		if(stack.size() < 2) { 
+			// special case: don't show close for last level
+			closeLink.setVisible(false);								
+		} else {
+			Link link = (Link) stack.get(stack.size()-1);
+			closeLink.setCustomDisplayText(translator.translate("doclose", new String[] {link.getCustomDisplayText()}));	
+			closeLink.setVisible(true);								
+		}
+	}
+	
 	@Override
 	protected void doDispose() {
 		//

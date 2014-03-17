@@ -19,9 +19,6 @@
  */
 package org.olat.portfolio.ui.artefacts.collect;
 
-import java.util.HashSet;
-import java.util.Set;
-
 import org.olat.core.CoreSpringFactory;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.form.flexible.FormItemContainer;
@@ -79,7 +76,6 @@ public class EPCreateFileArtefactStepForm00 extends StepFormBasicController {
 	 * @see org.olat.core.gui.control.generic.wizard.StepFormBasicController#initForm(org.olat.core.gui.components.form.flexible.FormItemContainer,
 	 *      org.olat.core.gui.control.Controller, org.olat.core.gui.UserRequest)
 	 */
-	@SuppressWarnings("unused")
 	@Override
 	protected void initForm(FormItemContainer formLayout, Controller listener, UserRequest ureq) {
 		setFormDescription("step0.file.short.descr");

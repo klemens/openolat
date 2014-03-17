@@ -123,6 +123,8 @@ public abstract class BasicController extends DefaultController {
 		// deregister all mappers if needed
 		if (mappers != null) {
 			CoreSpringFactory.getImpl(MapperService.class).cleanUp(mappers);
+			mappers.clear();
+			mappers = null;
 		}
 
 		// dispose child controller if needed
@@ -211,6 +213,19 @@ public abstract class BasicController extends DefaultController {
 	 * @return The mapper base URL
 	 */
 	protected String registerCacheableMapper(UserRequest ureq, String cacheableMapperID, Mapper m) {
+		return registerCacheableMapper(ureq, cacheableMapperID, m, -1);
+	}
+	
+	/**
+	 * Convenience method: registers a cacheable mapper which will be
+	 * automatically deregistered upon dispose of the controller
+	 * @param ureq
+	 * @param cacheableMapperID
+	 * @param m The mapper
+	 * @param expirationTime -1 is the default bevahiour, else is expiration time in seconds
+	 * @return
+	 */
+	protected String registerCacheableMapper(UserRequest ureq, String cacheableMapperID, Mapper m, int expirationTime) {
 		if (mappers == null) {
 			mappers = new ArrayList<Mapper>(2);
 		}
@@ -219,7 +234,7 @@ public abstract class BasicController extends DefaultController {
 			// use non cacheable as fallback
 			mapperBaseURL =  CoreSpringFactory.getImpl(MapperService.class).register(ureq.getUserSession(), m);			
 		} else {
-			mapperBaseURL =  CoreSpringFactory.getImpl(MapperService.class).register(ureq.getUserSession(), cacheableMapperID, m);
+			mapperBaseURL =  CoreSpringFactory.getImpl(MapperService.class).register(ureq.getUserSession(), cacheableMapperID, m, expirationTime);
 		}
 		// registration was successful, add to our mapper list
 		mappers.add(m);
@@ -567,7 +582,7 @@ public abstract class BasicController extends DefaultController {
 	 * <i>Hint</i><br>
 	 * try to avoid using this - and if, comment why.
 	 */
-	protected void setBasePackage(Class clazz) {
+	protected void setBasePackage(Class<?> clazz) {
 		setVelocityRoot(Util.getPackageVelocityRoot(clazz));
 		if (fallbackTranslator != null) {
 			setTranslator(Util.createPackageTranslator(clazz, getLocale(), fallbackTranslator));

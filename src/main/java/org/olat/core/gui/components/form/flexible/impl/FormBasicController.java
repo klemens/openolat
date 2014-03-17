@@ -85,7 +85,12 @@ public abstract class FormBasicController extends BasicController {
 	protected FormUIFactory uifactory = FormUIFactory.getInstance();
 	
 	public FormBasicController(UserRequest ureq, WindowControl wControl) {
-		this(ureq, wControl, null);
+		this(ureq, wControl, (String)null);
+	}
+	
+	
+	public FormBasicController(UserRequest ureq, WindowControl wControl, Translator fallbackTranslator) {
+		this(ureq, wControl, null, null, fallbackTranslator);
 	}
 
 	public FormBasicController(UserRequest ureq, WindowControl wControl, String pageName) {
@@ -124,8 +129,6 @@ public abstract class FormBasicController extends BasicController {
 	public FormBasicController(UserRequest ureq, WindowControl wControl, String mainFormId, String pageName, Translator fallbackTranslator) {
 		super(ureq, wControl, fallbackTranslator);
 		constructorInit(mainFormId, pageName);
-		//TODO: Translator-fix: flc , mainForm also needs to know about the new Translator
-//		setTranslator(getTranslator()); 
 	}
 	
 
@@ -249,6 +252,14 @@ public abstract class FormBasicController extends BasicController {
 	 * Typically one will read and save/update values then.
 	 */
 	abstract protected void formOK(UserRequest ureq);
+	
+	protected void formNext(UserRequest ureq) {
+		formOK(ureq);
+	}
+	
+	protected void formFinish(UserRequest ureq) {
+		formOK(ureq);
+	}
 
 	/**
 	 * called if form validation was not ok.<br>
@@ -295,7 +306,6 @@ public abstract class FormBasicController extends BasicController {
 	 *      org.olat.core.gui.components.Component,
 	 *      org.olat.core.gui.control.Event)
 	 */
-	@SuppressWarnings("unused")
 	@Override
 	public void event(UserRequest ureq, Component source, Event event) {
 		if (source == mainForm.getInitialComponent()) {
@@ -306,6 +316,18 @@ public abstract class FormBasicController extends BasicController {
 				// flag
 				this.flc.setDirty(true);
 				formOK(ureq);
+			} else if (event == org.olat.core.gui.components.form.Form.EVNT_VALIDATION_NEXT) {
+				// Set container dirty to remove potentially rendered error messages. Do
+				// this before calling formOK() to let formOK override the dirtiness
+				// flag
+				this.flc.setDirty(true);
+				formNext(ureq);
+			} else if (event == org.olat.core.gui.components.form.Form.EVNT_VALIDATION_FINISH) {
+				// Set container dirty to remove potentially rendered error messages. Do
+				// this before calling formOK() to let formOK override the dirtiness
+				// flag
+				this.flc.setDirty(true);
+				formFinish(ureq);
 			} else if (event == org.olat.core.gui.components.form.Form.EVNT_VALIDATION_NOK) {
 				// Set container dirty to rendered error messages. Do this before calling
 				// formNOK() to let formNOK override the dirtiness flag
@@ -323,7 +345,7 @@ public abstract class FormBasicController extends BasicController {
 				if (fe.getCommand().equals(org.olat.core.gui.components.form.Form.EVNT_FORM_CANCELLED.getCommand())) {
 					// Set container dirty to clear error messages. Do this before calling
 					// formCancelled() to let formCancelled override the dirtiness flag
-					this.flc.setDirty(true);
+					flc.setDirty(true);
 					formResetted(ureq);
 					formCancelled(ureq);
 					return;
@@ -332,15 +354,19 @@ public abstract class FormBasicController extends BasicController {
 				 * evaluate normal inner form events
 				 */
 				FormItem fiSrc = fe.getFormItemSource();
-				// check for InlineElments
-				if(fiSrc instanceof InlineElement){
-					if(!((InlineElement) fiSrc).isInlineEditingElement()){ //OO-137
-						this.flc.setDirty(true);
-					}
-				}
+				propagateDirtinessToContainer(fiSrc);
 				//
 				formInnerEvent(ureq, fiSrc, fe);
 				// no need to set container dirty, up to controller code if something is dirty
+			}
+		}
+	}
+	
+	protected void propagateDirtinessToContainer(FormItem fiSrc) {
+		// check for InlineElments remove as the tag library has been replaced
+		if(fiSrc instanceof InlineElement){
+			if(!((InlineElement) fiSrc).isInlineEditingElement()){ //OO-137
+				flc.setDirty(true);
 			}
 		}
 	}

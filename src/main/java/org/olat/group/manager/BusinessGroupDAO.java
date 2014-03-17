@@ -23,7 +23,9 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import javax.persistence.EntityManager;
 import javax.persistence.LockModeType;
@@ -44,14 +46,18 @@ import org.olat.core.logging.Tracing;
 import org.olat.core.util.StringHelper;
 import org.olat.group.BusinessGroup;
 import org.olat.group.BusinessGroupImpl;
+import org.olat.group.BusinessGroupLazy;
+import org.olat.group.BusinessGroupMembership;
 import org.olat.group.BusinessGroupOrder;
 import org.olat.group.BusinessGroupShort;
 import org.olat.group.BusinessGroupView;
 import org.olat.group.model.BGRepositoryEntryRelation;
 import org.olat.group.model.BGResourceRelation;
+import org.olat.group.model.BusinessGroupMembershipImpl;
 import org.olat.group.model.BusinessGroupMembershipViewImpl;
 import org.olat.group.model.BusinessGroupShortImpl;
 import org.olat.group.model.BusinessGroupViewImpl;
+import org.olat.group.model.IdentityGroupKey;
 import org.olat.group.model.SearchBusinessGroupParams;
 import org.olat.properties.Property;
 import org.olat.repository.model.RepositoryEntryMembership;
@@ -83,6 +89,15 @@ public class BusinessGroupDAO {
 	public BusinessGroup createAndPersist(Identity creator, String name, String description,
 			Integer minParticipants, Integer maxParticipants, boolean waitingListEnabled, boolean autoCloseRanksEnabled,
 			boolean showOwners, boolean showParticipants, boolean showWaitingList) {
+		return createAndPersist(creator, name, description, null, null,
+				minParticipants, maxParticipants, waitingListEnabled, autoCloseRanksEnabled,
+				showOwners, showParticipants, showWaitingList);
+	}
+		
+	public BusinessGroup createAndPersist(Identity creator, String name, String description,
+				String externalId, String managedFlags,
+				Integer minParticipants, Integer maxParticipants, boolean waitingListEnabled, boolean autoCloseRanksEnabled,
+				boolean showOwners, boolean showParticipants, boolean showWaitingList) {
 
 		BusinessGroupImpl businessgroup = null;
 		//security groups
@@ -96,6 +111,13 @@ public class BusinessGroupDAO {
 		}
 		if(maxParticipants != null && maxParticipants.intValue() > 0) {
 			businessgroup.setMaxParticipants(maxParticipants);
+		}
+		
+		if(StringHelper.containsNonWhitespace(externalId)) {
+			businessgroup.setExternalId(externalId);
+		}
+		if(StringHelper.containsNonWhitespace(managedFlags)) {
+			businessgroup.setManagedFlagsString(managedFlags);
 		}
 		
 		businessgroup.setWaitingListEnabled(waitingListEnabled);
@@ -232,6 +254,82 @@ public class BusinessGroupDAO {
 		return group;
 	}
 	
+	public List<BusinessGroupMembership> getBusinessGroupsMembership(Collection<BusinessGroup> groups) {
+		
+		List<Long> ownerGroupKeys = new ArrayList<Long>();
+		List<Long> participantGroupKeys = new ArrayList<Long>();
+		List<Long> waitingGroupKeys = new ArrayList<Long>();
+		Map<Long,Long> secGroupToGroup = new HashMap<Long,Long>();
+		for(BusinessGroup group:groups) {
+			if(group.getOwnerGroup() != null) {
+				ownerGroupKeys.add(group.getOwnerGroup().getKey());
+				secGroupToGroup.put(group.getOwnerGroup().getKey(), group.getKey());
+			}
+			if(group.getPartipiciantGroup() != null) {
+				participantGroupKeys.add(group.getPartipiciantGroup().getKey());
+				secGroupToGroup.put(group.getPartipiciantGroup().getKey(), group.getKey());
+			}
+			if(group.getWaitingListEnabled() != null && group.getWaitingListEnabled().booleanValue()
+					&& group.getWaitingGroup() != null) {
+				waitingGroupKeys.add(group.getWaitingGroup().getKey());
+				secGroupToGroup.put(group.getWaitingGroup().getKey(), group.getKey());
+			}
+		}
+
+		Map<IdentityGroupKey, BusinessGroupMembershipImpl> memberships = new HashMap<IdentityGroupKey, BusinessGroupMembershipImpl>();
+		
+		loadBusinessGroupsMembership(ownerGroupKeys, memberships, secGroupToGroup, true, false, false);
+		loadBusinessGroupsMembership(participantGroupKeys, memberships, secGroupToGroup, false, true, false);
+		loadBusinessGroupsMembership(waitingGroupKeys, memberships, secGroupToGroup, false, false, true);
+
+		return new ArrayList<BusinessGroupMembership>(memberships.values());
+	}
+	
+	private void loadBusinessGroupsMembership(Collection<Long> secGroupKeys,
+			Map<IdentityGroupKey, BusinessGroupMembershipImpl> memberships,
+			Map<Long,Long> secGroupToGroup, boolean owner, boolean participant, boolean waiting) {
+		
+		if(secGroupKeys == null || secGroupKeys.isEmpty()) {
+			return;
+		}
+		
+		StringBuilder sb = new StringBuilder(); 
+		sb.append("select membership.identity.key, membership.creationDate, membership.lastModified, membership.securityGroup.key from ")
+		  .append(SecurityGroupMembershipImpl.class.getName()).append(" as membership ")
+		  .append(" where membership.securityGroup.key in (:secGroupKeys)");
+		
+		List<Object[]> members = dbInstance.getCurrentEntityManager()
+				.createQuery(sb.toString(), Object[].class)
+				.setParameter("secGroupKeys", secGroupKeys)
+				.getResultList();
+		
+		for(Object[] membership:members) {
+			Long identityKey = (Long)membership[0];
+			Date creationDate = (Date)membership[1];
+			Date lastModified = (Date)membership[2];
+			Long secGroupKey = (Long)membership[3];
+			
+			Long groupKey = secGroupToGroup.get(secGroupKey);
+
+			IdentityGroupKey key = new IdentityGroupKey(identityKey, groupKey);
+			if(!memberships.containsKey(key)) {
+				memberships.put(key, new BusinessGroupMembershipImpl(identityKey, groupKey));
+			}
+			BusinessGroupMembershipImpl mb = memberships.get(key);
+			mb.setCreationDate(creationDate);
+			mb.setLastModified(lastModified);
+			if(owner) {
+				mb.setOwner(true);
+			}
+			if(participant) {
+				mb.setParticipant(true);
+			}
+			if(waiting) {
+				mb.setWaiting(true);
+			}	
+		}
+	}
+	
 	public int countMembershipInfoInBusinessGroups(Identity identity, List<Long> groupKeys) {
 		StringBuilder sb = new StringBuilder(); 
 		sb.append("select count(membership) from ").append(BusinessGroupMembershipViewImpl.class.getName()).append(" as membership ")
@@ -359,6 +457,32 @@ public class BusinessGroupDAO {
 		return res.get(0);
 	}
 	
+	public List<BusinessGroupLazy> findBusinessGroup(Identity identity, int maxResults, BusinessGroupOrder... ordering) {
+		StringBuilder sb = new StringBuilder();
+		sb.append("select gp from lazybusinessgroup gp where gp.memberId=:identityKey)");
+
+		if(ordering != null && ordering.length > 0 && ordering[0] != null) {
+			sb.append(" order by ");
+			for(BusinessGroupOrder o:ordering) {
+				switch(o) {
+					case nameAsc: sb.append("gp.name");break;
+					case nameDesc: sb.append("gp.name desc");break;
+					case creationDateAsc: sb.append("gp.creationDate");break;
+					case creationDateDesc: sb.append("gp.creationDate desc");break;
+				}
+			}
+			//sb.append(" gp.key ");
+		}
+
+		TypedQuery<BusinessGroupLazy> query = dbInstance.getCurrentEntityManager()
+				.createQuery(sb.toString(), BusinessGroupLazy.class)
+				.setParameter("identityKey", identity.getKey());
+		if(maxResults > 0) {
+			query.setMaxResults(maxResults);
+		}
+		return query.getResultList();
+	}
+	
 	public List<BusinessGroup> findBusinessGroupsWithWaitingListAttendedBy(Identity identity, OLATResource resource) {
 		StringBuilder sb = new StringBuilder();
 		if(resource == null) {
@@ -451,6 +575,20 @@ public class BusinessGroupDAO {
 			query.append(" or ");
 			searchLikeAttribute(query, "identity", "name", "owner");
 			query.append(")");
+		}
+
+		if(StringHelper.containsNonWhitespace(params.getExternalId())) {
+			where = where(query, where);
+			query.append("bgi.externalId=:externalId");
+		}
+		
+		if(params.getManaged() != null) {
+			where = where(query, where);
+			if(params.getManaged().booleanValue()) {
+				query.append("bgi.managedFlagsString is not null");
+			} else {
+				query.append("bgi.managedFlagsString is null");
+			}
 		}
 		
 		if(params.getGroupKeys() != null && !params.getGroupKeys().isEmpty()) {
@@ -588,6 +726,9 @@ public class BusinessGroupDAO {
 		if(params.getGroupKeys() != null && !params.getGroupKeys().isEmpty()) {
 			dbq.setParameter("groupKeys", params.getGroupKeys());
 		}
+		if(StringHelper.containsNonWhitespace(params.getExternalId())) {
+			dbq.setParameter("externalId", params.getExternalId());
+		}
 		
 		if (resource != null) {
 			dbq.setParameter("resourceKey", resource.getKey());
@@ -620,10 +761,10 @@ public class BusinessGroupDAO {
 	public List<BusinessGroupView> findBusinessGroupWithAuthorConnection(Identity author) {
 		StringBuilder sb = new StringBuilder();
 		sb.append("select bgi from ").append(BusinessGroupViewImpl.class.getName()).append(" as bgi ")
-	    .append("inner join fetch bgi.ownerGroup ownerGroup ")
-		  .append("inner join fetch bgi.partipiciantGroup participantGroup ")
-		  .append("inner join fetch bgi.waitingGroup waitingGroup ")
-		  .append("inner join fetch bgi.resource bgResource ")
+		  .append("inner join fetch bgi.ownerGroup ownerGroup ")
+			.append("inner join fetch bgi.partipiciantGroup participantGroup ")
+			.append("inner join fetch bgi.waitingGroup waitingGroup ")
+			.append("inner join fetch bgi.resource bgResource ")
 		  .append("where bgi.key in (")
 		  .append("  select rel.group.key from ").append(BGResourceRelation.class.getName()).append(" as rel ")
 		  .append("  where rel.resource.key in (")

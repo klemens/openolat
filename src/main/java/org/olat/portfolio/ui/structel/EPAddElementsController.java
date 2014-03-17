@@ -68,14 +68,13 @@ public class EPAddElementsController extends BasicController {
 	public static final String ADD_PAGE = "page";
 	public static final String ADD_STRUCTUREELEMENT = "struct";
 	public static final String ADD_PORTFOLIOSTRUCTURE = "map";
-	private static final Set<String> typeSet = new HashSet<String>() {
-		{
-			add(ADD_ARTEFACT);
-			add(ADD_PAGE);
-			add(ADD_STRUCTUREELEMENT);
-			add(ADD_PORTFOLIOSTRUCTURE);
-		}
-	};
+	private static final Set<String> typeSet = new HashSet<String>();
+	static {
+		typeSet.add(ADD_ARTEFACT);
+		typeSet.add(ADD_PAGE);
+		typeSet.add(ADD_STRUCTUREELEMENT);
+		typeSet.add(ADD_PORTFOLIOSTRUCTURE);
+	}
 	private final Map<String, Boolean> typeMap = new HashMap<String, Boolean>();
 	private CloseableModalController artefactBox;
 	private EPArtefactPoolRunController artefactPoolCtrl;
@@ -91,7 +90,7 @@ public class EPAddElementsController extends BasicController {
 		addStructLink.setVisible(false);
 
 		linkArtefactLink = LinkFactory.createCustomLink("linkArtefact", "link", "&nbsp;&nbsp;&nbsp;", Link.NONTRANSLATED, addLinkVC, this);
-		linkArtefactLink.setTooltip(translate("linkArtefact.tooltip"), false);
+		linkArtefactLink.setTooltip(translate("linkArtefact.tooltip"));
 		linkArtefactLink.setCustomEnabledLinkCSS("b_eportfolio_add_link b_eportfolio_link");
 
 		for (String key : typeSet) {
@@ -178,7 +177,7 @@ public class EPAddElementsController extends BasicController {
 
 	private void prepareAddLink(String type) {
 		addStructLink.setVisible(true);
-		addStructLink.setTooltip(translate("add." + type), false);
+		addStructLink.setTooltip(translate("add." + type));
 		addStructLink.setCustomEnabledLinkCSS("b_eportfolio_add_link b_ep_" + type + "_icon");
 	}
 

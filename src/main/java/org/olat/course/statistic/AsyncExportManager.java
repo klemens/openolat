@@ -29,7 +29,7 @@ import java.util.HashSet;
 import java.util.Locale;
 import java.util.Set;
 
-import org.olat.core.commons.taskExecutor.TaskExecutorManager;
+import org.olat.core.commons.services.taskexecutor.TaskExecutorManager;
 import org.olat.core.id.Identity;
 import org.olat.core.logging.OLog;
 import org.olat.core.logging.Tracing;
@@ -52,6 +52,8 @@ public class AsyncExportManager extends BasicManager {
 
 	/** set via spring **/
 	private int concurrentExportsPerNode_ = 2;
+	
+	private TaskExecutorManager taskExecutorManager;
 
 	/** the identities currently executing an export **/
 	private final Set<Identity> identitiesOfJobsCurrentlyRunning_ = new HashSet<Identity>();
@@ -65,6 +67,14 @@ public class AsyncExportManager extends BasicManager {
 		INSTANCE = this;
 	}
 	
+	/**
+	 * [used by Spring]
+	 * @param taskExecutorManager
+	 */
+	public void setTaskExecutorManager(TaskExecutorManager taskExecutorManager) {
+		this.taskExecutorManager = taskExecutorManager;
+	}
+
 	/**
 	 * @return Singleton.
 	 */
@@ -95,7 +105,7 @@ public class AsyncExportManager extends BasicManager {
 			log_.info("asyncArchiveCourseLogFiles: user "+identity.getName()+" wants to archive a course log. Already pending jobs: "+waitingCnt_);
 		}
 		
-		TaskExecutorManager.getInstance().runTask(new Runnable() {
+		taskExecutorManager.execute(new Runnable() {
 
 			@Override
 			public void run() {

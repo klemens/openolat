@@ -26,9 +26,12 @@
 
 package org.olat.core.gui.render.velocity;
 
+import java.io.Closeable;
+import java.io.IOException;
 import java.util.Date;
 import java.util.List;
 import java.util.Locale;
+import java.util.UUID;
 
 import org.apache.commons.lang.StringEscapeUtils;
 import org.olat.core.commons.contextHelp.ContextHelpModule;
@@ -37,23 +40,26 @@ import org.olat.core.gui.components.velocity.VelocityContainer;
 import org.olat.core.gui.control.winmgr.AJAXFlags;
 import org.olat.core.gui.render.Renderer;
 import org.olat.core.gui.render.StringOutput;
+import org.olat.core.gui.render.StringOutputPool;
 import org.olat.core.gui.translator.PackageTranslator;
 import org.olat.core.gui.translator.Translator;
 import org.olat.core.helpers.Settings;
 import org.olat.core.util.Formatter;
+import org.olat.core.util.StringHelper;
 import org.olat.core.util.filter.Filter;
 import org.olat.core.util.filter.FilterFactory;
+import org.olat.core.util.filter.impl.OWASPAntiSamyXSSFilter;
 import org.olat.core.util.i18n.I18nManager;
 
 /**
  * @author Felix Jost
  */
-public class VelocityRenderDecorator {
+public class VelocityRenderDecorator implements Closeable{
 	public static final String PARAM_CHELP_BUNDLE = "chelpbundle";
-	private final VelocityContainer vc;
-	private final Renderer renderer;
+	private VelocityContainer vc;
+	private Renderer renderer;
 	private final boolean isIframePostEnabled;
-	private final StringOutput target;
+	private StringOutput target;
 
 	/**
 	 * @param renderer
@@ -64,6 +70,13 @@ public class VelocityRenderDecorator {
 		this.vc = vc;
 		this.target = target;
 		this.isIframePostEnabled = renderer.getGlobalSettings().getAjaxFlags().isIframePostEnabled();
+	}
+
+	@Override
+	public void close() throws IOException {
+		vc = null;
+		target = null;
+		renderer = null;
 	}
 
 	/**
@@ -77,6 +90,12 @@ public class VelocityRenderDecorator {
 		sb.append("o_s").append(prefix).append(vc.getDispatchID());
 		return sb;
 	}
+	
+	public static String getId(String prefix, VelocityContainer vc) {
+		StringOutput sb = StringOutputPool.allocStringBuilder(24);
+		sb.append("o_s").append(prefix).append(vc.getDispatchID());
+		return StringOutputPool.freePop(sb);
+	}
 
 	/**
 	 * 
@@ -86,6 +105,10 @@ public class VelocityRenderDecorator {
 		StringOutput sb = new StringOutput(16);
 		sb.append("o_c").append(vc.getDispatchID());
 		return sb;
+	}
+	
+	public String getUuid() {
+		return UUID.randomUUID().toString().replace("-", "");
 	}
 	
 	/**
@@ -294,7 +317,9 @@ public class VelocityRenderDecorator {
 		StringOutput sb = new StringOutput(100);
 		if (ContextHelpModule.isContextHelpEnabled()) {
 			String hooverText = renderer.getTranslator().translate(hoverTextKey);
-			if (hooverText != null) hooverText = StringEscapeUtils.escapeHtml(hooverText).toString();
+			if (hooverText != null) {
+				hooverText = StringEscapeUtils.escapeHtml(hooverText);
+			}
 			String langCode = renderer.getTranslator().getLocale().toString();
 			sb.append("<a href=\"javascript:contextHelpWindow('");
 			Renderer.renderNormalURI(sb, "help/");
@@ -479,7 +504,7 @@ public class VelocityRenderDecorator {
 	 * Escapes the characters in a String for JavaScript use.
 	 */
 	public String escapeJavaScript(String str) {
-		return StringEscapeUtils.escapeJavaScript(str);
+		return StringHelper.escapeJavaScript(str);
 	}
 	
 	/**
@@ -487,9 +512,28 @@ public class VelocityRenderDecorator {
 	 * @param str
 	 * @return
 	 */
-	public String escapeHtml(String str) {
-		return StringEscapeUtils.escapeHtml(str);
+	public String escapeHtml(String str) throws IOException {
+		if(str == null) {
+			return "";
+		}
+		return StringHelper.escapeHtml(str);
 	}
+	
+	public String xssScan(String str) {
+		if(str == null) {
+			return "";
+		}
+		OWASPAntiSamyXSSFilter filter = new OWASPAntiSamyXSSFilter();
+		return filter.filter(str);
+	}
+	
+	public String filterHtml(String str) {
+		if(str == null) {
+			return "";
+		}
+		return FilterFactory.getHtmlTagsFilter().filter(str);
+	}
+	
 	
 	/**
 	 * @param key
@@ -510,7 +554,7 @@ public class VelocityRenderDecorator {
 	 * @return
 	 */
 	public String translateInAttribute(String key) {
-		return escapeHtml(translate(key));
+		return StringEscapeUtils.escapeHtml(translate(key));
 	}
 
 	/** 

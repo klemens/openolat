@@ -28,6 +28,7 @@ import java.util.List;
 
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.form.flexible.FormItemContainer;
+import org.olat.core.gui.components.form.flexible.elements.MultipleSelectionElement;
 import org.olat.core.gui.components.form.flexible.impl.Form;
 import org.olat.core.gui.components.form.flexible.impl.FormLayoutContainer;
 import org.olat.core.gui.components.form.flexible.impl.elements.table.CSSIconFlexiCellRenderer;
@@ -36,6 +37,7 @@ import org.olat.core.gui.components.form.flexible.impl.elements.table.FlexiColum
 import org.olat.core.gui.components.form.flexible.impl.elements.table.FlexiTableColumnModel;
 import org.olat.core.gui.components.form.flexible.impl.elements.table.FlexiTableDataModel;
 import org.olat.core.gui.components.form.flexible.impl.elements.table.FlexiTableDataModelFactory;
+import org.olat.core.gui.components.form.flexible.impl.elements.table.FlexiTableDataModelImpl;
 import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.WindowControl;
 import org.olat.core.gui.control.generic.wizard.BasicStep;
@@ -50,26 +52,22 @@ import org.olat.user.UserManager;
 import org.olat.user.propertyhandlers.UserPropertyHandler;
 
 class ImportStep01 extends BasicStep {
+	private static final String usageIdentifyer = UserImportController.class.getCanonicalName();
 
-	boolean canCreateOLATPassword;
-	boolean newUsers;
-	static final String usageIdentifyer = UserImportController.class.getCanonicalName();
+	private boolean newUsers;
+	private boolean canCreateOLATPassword;
 
 	public ImportStep01(UserRequest ureq, boolean canCreateOLATPassword, boolean newUsers) {
 		super(ureq);
-		this.canCreateOLATPassword = canCreateOLATPassword;
 		this.newUsers = newUsers;
+		this.canCreateOLATPassword = canCreateOLATPassword;
 		setI18nTitleAndDescr("step1.description", "step1.short.description");
-		setNextStep(new ImportStep02(ureq)); //fxdiff: 101 have another step for group addition
+		setNextStep(new ImportStep02(ureq));
 	}
 
 	@Override
 	public PrevNextFinishConfig getInitialPrevNextFinishConfig() {
-		if (newUsers) {
-			return new PrevNextFinishConfig(true, true, true);
-		} else {
-			return new PrevNextFinishConfig(true, false, false);
-		}
+		return new PrevNextFinishConfig(true, true, true);
 	}
 
 	@Override
@@ -79,9 +77,10 @@ class ImportStep01 extends BasicStep {
 	}
 
 	private final class ImportStepForm01 extends StepFormBasicController {
-		private List<TransientIdentity> newIdents;
-		private List<Identity> idents;
+
 		private FormLayoutContainer textContainer;
+		private MultipleSelectionElement updateEl;
+		private MultipleSelectionElement updatePasswordEl;
 		private List<UserPropertyHandler> userPropertyHandlers;
 
 		public ImportStepForm01(UserRequest ureq, WindowControl control, Form rootForm, StepsRunContext runContext) {
@@ -95,23 +94,37 @@ class ImportStep01 extends BasicStep {
 
 		@Override
 		protected void doDispose() {
-		// TODO Auto-generated method stub
+			//
 		}
 
 		@Override
 		protected void formOK(UserRequest ureq) {
+			Boolean updateUsers = Boolean.FALSE;
+			if(updateEl != null && updateEl.isAtLeastSelected(1)) {
+				updateUsers = Boolean.TRUE; 
+			}
+			addToRunContext("updateUsers", updateUsers);
+			
+			Boolean updatePasswords = Boolean.FALSE;
+			if(updatePasswordEl != null && updatePasswordEl.isAtLeastSelected(1)) {
+				updatePasswords = Boolean.TRUE; 
+			}
+			addToRunContext("updatePasswords", updatePasswords);
 			fireEvent(ureq, StepsEvent.ACTIVATE_NEXT);
 		}
 
-		@SuppressWarnings({ "unchecked"})
 		@Override
 		protected void initForm(FormItemContainer formLayout, Controller listener, UserRequest ureq) {
 			FormLayoutContainer formLayoutVertical = FormLayoutContainer.createVerticalFormLayout("vertical", getTranslator());
 			formLayout.add(formLayoutVertical);
 
-			idents = (List<Identity>) getFromRunContext("idents");
-			newIdents = (List<TransientIdentity>) getFromRunContext("newIdents");
-			textContainer = FormLayoutContainer.createCustomFormLayout("step1", getTranslator(), this.velocity_root + "/step1.html");
+			@SuppressWarnings("unchecked")
+			List<Identity> idents = (List<Identity>) getFromRunContext("idents");
+			@SuppressWarnings("unchecked")
+			List<UpdateIdentity> updateIdents = (List<UpdateIdentity>) getFromRunContext("updateIdents");
+			@SuppressWarnings("unchecked")
+			List<TransientIdentity> newIdents = (List<TransientIdentity>) getFromRunContext("newIdents");
+			textContainer = FormLayoutContainer.createCustomFormLayout("step1", getTranslator(), velocity_root + "/step1.html");
 			formLayoutVertical.add(textContainer);
 
 			int cntall = idents.size();
@@ -120,42 +133,47 @@ class ImportStep01 extends BasicStep {
 			textContainer.contextPut("newusers", newUsers);
 			String overview = getTranslator().translate("import.confirm", new String[] { "" + cntall, "" + cntNew, "" + cntOld });
 			textContainer.contextPut("overview", overview);
+			textContainer.contextPut("updateusers", updateIdents.isEmpty());
+			if(!updateIdents.isEmpty()) {
+				String[] updateValues = new String[]{ translate("update.user") };
+				updateEl = uifactory
+						.addCheckboxesHorizontal("update.user", textContainer, new String[]{"on"}, updateValues, null);
+				updateEl.select("on", true);
+				
+				if(canCreateOLATPassword) {
+					String[] theValues = new String[]{ translate("update.password") };
+					updatePasswordEl = uifactory
+							.addCheckboxesHorizontal("update.password", textContainer, new String[]{"on"}, theValues, null);
+				}
+			}
 
 			FlexiTableColumnModel tableColumnModel = FlexiTableDataModelFactory.createFlexiTableColumnModel();
 			int colPos = 0;
 			// add special column with information about whether this user
 			// exists already or not
-			FlexiColumnModel newUserCustomColumnModel = new DefaultFlexiColumnModel("table.user.existing");
+			FlexiColumnModel newUserCustomColumnModel = new DefaultFlexiColumnModel("table.user.existing", colPos++);
 			newUserCustomColumnModel.setCellRenderer(new UserNewOldCustomFlexiCellRenderer());
 			newUserCustomColumnModel.setAlignment(FlexiColumnModel.ALIGNMENT_CENTER);
 			tableColumnModel.addFlexiColumnModel(newUserCustomColumnModel);
-			colPos++;
 			
 			// fixed fields:
-			tableColumnModel.addFlexiColumnModel(new DefaultFlexiColumnModel("table.user.login"));
-			colPos++;
+			tableColumnModel.addFlexiColumnModel(new DefaultFlexiColumnModel("table.user.login", colPos++));
 			if (canCreateOLATPassword) {
-				tableColumnModel.addFlexiColumnModel(new DefaultFlexiColumnModel("table.user.pwd"));
+				tableColumnModel.addFlexiColumnModel(new DefaultFlexiColumnModel("table.user.pwd", colPos++));
 			}
-			colPos++;
-			tableColumnModel.addFlexiColumnModel(new DefaultFlexiColumnModel("table.user.lang"));
-			colPos++;
+			tableColumnModel.addFlexiColumnModel(new DefaultFlexiColumnModel("table.user.lang", colPos++));
+
 			// followed by all properties configured
 			// if only mandatory required: check for um.isMandatoryUserProperty(usageIdentifyer, userPropertyHandler);
 			userPropertyHandlers = UserManager.getInstance().getUserPropertyHandlersFor(usageIdentifyer, true);
 			for (int i = 0; i < userPropertyHandlers.size(); i++) {
 				UserPropertyHandler userPropertyHandler = userPropertyHandlers.get(i);
-					tableColumnModel.addFlexiColumnModel(new DefaultFlexiColumnModel(userPropertyHandler.i18nColumnDescriptorLabelKey()));
-					colPos++;
+					tableColumnModel.addFlexiColumnModel(new DefaultFlexiColumnModel(userPropertyHandler.i18nColumnDescriptorLabelKey(), colPos++));
 			}
 
-
-			FlexiTableDataModel tableDataModel = FlexiTableDataModelFactory.createFlexiTableDataModel(new Model(idents, colPos),
-					tableColumnModel);
-			uifactory.addTableElement("newUsers", tableDataModel, formLayoutVertical);
-
+			FlexiTableDataModel<Identity> tableDataModel = new FlexiTableDataModelImpl<Identity>(new Model(idents, colPos), tableColumnModel);
+			uifactory.addTableElement(ureq, getWindowControl(), "newUsers", tableDataModel, formLayoutVertical);
 		}
-
 	}
 }
 
@@ -198,5 +216,4 @@ class UserNewOldCustomFlexiCellRenderer extends CSSIconFlexiCellRenderer {
 		}
 		return translator.translate("error");
 	}
-
 }

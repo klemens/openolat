@@ -51,14 +51,14 @@ import org.dom4j.Document;
 import org.dom4j.Element;
 import org.dom4j.dom.DOMDocument;
 import org.dom4j.io.DocumentSource;
-import org.olat.core.defaults.dispatcher.StaticMediaDispatcher;
+import org.olat.core.dispatcher.impl.StaticMediaDispatcher;
 import org.olat.core.gui.translator.Translator;
 import org.olat.core.logging.OLATRuntimeException;
 import org.olat.core.logging.OLog;
 import org.olat.core.logging.Tracing;
 import org.olat.core.util.Util;
 import org.olat.core.util.i18n.I18nManager;
-import org.olat.ims.qti.QTIResultDetailsController;
+import org.olat.ims.qti.QTI12ResultDetailsController;
 import org.olat.ims.resources.IMSEntityResolver;
 import org.xml.sax.EntityResolver;
 import org.xml.sax.InputSource;
@@ -118,7 +118,7 @@ public class LocalizedXSLTransformer {
 	public synchronized static LocalizedXSLTransformer getInstance(Locale locale) {
 		LocalizedXSLTransformer instance = instanceHash.get(I18nManager.getInstance().getLocaleKey(locale));
 		if (instance == null) {
-			Translator trans = Util.createPackageTranslator(QTIResultDetailsController.class, locale);
+			Translator trans = Util.createPackageTranslator(QTI12ResultDetailsController.class, locale);
 			LocalizedXSLTransformer newInstance = new LocalizedXSLTransformer(trans);
 			instance = instanceHash.putIfAbsent(I18nManager.getInstance().getLocaleKey(locale), newInstance); //see javadoc of ConcurrentHashMap
 			if(instance==null) { //newInstance was put into the map

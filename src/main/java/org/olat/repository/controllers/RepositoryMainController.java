@@ -27,6 +27,7 @@ package org.olat.repository.controllers;
 
 import java.util.List;
 
+import org.olat.basesecurity.BaseSecurityModule;
 import org.olat.catalog.CatalogEntry;
 import org.olat.catalog.CatalogModule;
 import org.olat.catalog.ui.CatalogController;
@@ -77,6 +78,7 @@ import org.olat.portfolio.EPTemplateMapResource;
 import org.olat.portfolio.PortfolioModule;
 import org.olat.repository.RepositoryEntry;
 import org.olat.repository.RepositoryManager;
+import org.olat.repository.RepositoryModule;
 import org.olat.repository.RepositoryTableModel;
 import org.olat.repository.delete.TabbedPaneController;
 import org.olat.repository.handlers.RepositoryHandler;
@@ -148,6 +150,9 @@ public class RepositoryMainController extends MainLayoutBasicController implemen
 	private Controller creationWizardController;
 	private final PortfolioModule portfolioModule;
 	private final CatalogModule catalogModule;
+	private final RepositoryModule repositoryModule;
+	private final RepositoryManager repositoryManager;
+	private final BaseSecurityModule securityModule;
 
 	/**
 	 * The check for author rights is executed on construction time and then
@@ -162,9 +167,12 @@ public class RepositoryMainController extends MainLayoutBasicController implemen
 		if (log.isDebug()) {
 			log.debug("Constructing ReposityMainController for user::" + ureq.getIdentity());
 		}
-		portfolioModule = (PortfolioModule) CoreSpringFactory.getBean("portfolioModule");
+		portfolioModule = CoreSpringFactory.getImpl(PortfolioModule.class);
 		catalogModule = CoreSpringFactory.getImpl(CatalogModule.class);
-
+		repositoryModule = CoreSpringFactory.getImpl(RepositoryModule.class);
+		repositoryManager = CoreSpringFactory.getImpl(RepositoryManager.class);
+		securityModule = CoreSpringFactory.getImpl(BaseSecurityModule.class);
+		
 		// use i18n from RepositoryManager level
 		setTranslator(Util.createPackageTranslator(RepositoryManager.class, ureq.getLocale()));
 
@@ -230,7 +238,9 @@ public class RepositoryMainController extends MainLayoutBasicController implemen
 			mainToolC.addLink(RepositoryAddController.ACTION_ADD_COURSE, translate("tools.add.course"), RepositoryAddController.ACTION_ADD_COURSE, "o_toolbox_course o_sel_repo_import_course");
 			mainToolC.addLink(RepositoryAddController.ACTION_ADD_CP, translate("tools.add.cp"), RepositoryAddController.ACTION_ADD_CP, "o_toolbox_content o_sel_repo_import_cp");
 			mainToolC.addLink(RepositoryAddController.ACTION_ADD_SCORM, translate("tools.add.scorm"), RepositoryAddController.ACTION_ADD_SCORM, "o_toolbox_scorm o_sel_repo_import_scorm");
-			mainToolC.addLink(RepositoryAddController.ACTION_ADD_WIKI, translate("tools.add.wiki"), RepositoryAddController.ACTION_ADD_WIKI, "o_toolbox_wiki o_sel_repo_import_wiki");
+			if(securityModule.isWikiEnabled()) {
+				mainToolC.addLink(RepositoryAddController.ACTION_ADD_WIKI, translate("tools.add.wiki"), RepositoryAddController.ACTION_ADD_WIKI, "o_toolbox_wiki o_sel_repo_import_wiki");
+			}
 			mainToolC.addLink(RepositoryAddController.ACTION_ADD_PODCAST, translate("tools.add.podcast"), RepositoryAddController.ACTION_ADD_PODCAST, "o_toolbox_podcast o_sel_repo_import_podcast");
 			mainToolC.addLink(RepositoryAddController.ACTION_ADD_BLOG, translate("tools.add.blog"), RepositoryAddController.ACTION_ADD_BLOG, "o_toolbox_blog o_sel_repo_import_blog");
 			mainToolC.addLink(RepositoryAddController.ACTION_ADD_TEST, translate("tools.add.test"), RepositoryAddController.ACTION_ADD_TEST, "o_toolbox_test o_sel_repo_import_test");
@@ -241,7 +251,9 @@ public class RepositoryMainController extends MainLayoutBasicController implemen
 			mainToolC.addHeader(translate("tools.new.header"));
 			mainToolC.addLink(ACTION_NEW_CREATECOURSE, translate("tools.new.createcourse"), ACTION_NEW_CREATECOURSE, "o_toolbox_course o_sel_repo_new_course");
 			mainToolC.addLink(ACTION_NEW_CREATECP, translate("tools.new.createcp"), ACTION_NEW_CREATECP, "o_toolbox_content o_sel_repo_new_cp");
-			mainToolC.addLink(ACTION_NEW_WIKI, translate("tools.new.wiki"), ACTION_NEW_WIKI, "o_toolbox_wiki o_sel_repo_new_wiki");
+			if(securityModule.isWikiEnabled()) {
+				mainToolC.addLink(ACTION_NEW_WIKI, translate("tools.new.wiki"), ACTION_NEW_WIKI, "o_toolbox_wiki o_sel_repo_new_wiki");
+			}
 			mainToolC.addLink(ACTION_NEW_PODCAST, translate("tools.new.podcast"), ACTION_NEW_PODCAST, "o_toolbox_podcast o_sel_repo_new_podcast");
 			mainToolC.addLink(ACTION_NEW_BLOG, translate("tools.new.blog"), ACTION_NEW_BLOG, "o_toolbox_blog o_sel_repo_new_blog");
 			if (portfolioModule.isEnabled()){
@@ -283,7 +295,7 @@ public class RepositoryMainController extends MainLayoutBasicController implemen
 		node = new GenericTreeNode(translate("search.generic"), "search.generic");
 		node.setCssClass("o_sel_repo_search_generic");
 		rootNode.addChild(node);
-		if (bIsAuthor) {
+		if (bIsAuthor || repositoryManager.countLearningResourcesAsOwner(getIdentity()) > 0) {
 			GenericTreeNode myEntriesTn = new GenericTreeNode(translate("search.my"), "search.my");
 			myEntriesTn.setCssClass("o_sel_repo_my");
 			myEntriesNodeId = myEntriesTn.getIdent();
@@ -295,16 +307,20 @@ public class RepositoryMainController extends MainLayoutBasicController implemen
 			node.setCssClass("o_sel_repo_my_student");
 			rootNode.addChild(node);
 			// for authors or users with group rights also show the teacher portlet
-			if(bIsAuthor || RepositoryManager.getInstance().hasLearningResourcesAsTeacher(getIdentity())) {
+			if(bIsAuthor || repositoryManager.hasLearningResourcesAsTeacher(getIdentity())) {
 				node = new GenericTreeNode(translate("search.mycourses.teacher"), "search.mycourses.teacher");
 				node.setCssClass("o_sel_repo_my_teacher");
 				rootNode.addChild(node);
 			}
 		}
-		node = new GenericTreeNode(translate("search.course"), "search.course");
-		node.setCssClass("o_sel_repo_course");
-		rootNode.addChild(node);
-		if (bIsAuthor) {
+		
+		if(repositoryModule.isListAllCourses()) {
+			node = new GenericTreeNode(translate("search.course"), "search.course");
+			node.setCssClass("o_sel_repo_course");
+			rootNode.addChild(node);
+		}
+		
+		if (bIsAuthor && repositoryModule.isListAllResourceTypes()) {
 			//cp, scorm, wiki, podcast, portfolie, test, questionn, resource folder, glossary
 			node = new GenericTreeNode(translate("search.cp"), "search.cp");
 			node.setCssClass("o_sel_repo_cp");
@@ -312,9 +328,11 @@ public class RepositoryMainController extends MainLayoutBasicController implemen
 			node = new GenericTreeNode(translate("search.scorm"), "search.scorm");
 			node.setCssClass("o_sel_repo_scorm");
 			rootNode.addChild(node);
-			node = new GenericTreeNode(translate("search.wiki"), "search.wiki");
-			node.setCssClass("o_sel_repo_wiki");
-			rootNode.addChild(node);
+			if(securityModule.isWikiEnabled()) {
+				node = new GenericTreeNode(translate("search.wiki"), "search.wiki");
+				node.setCssClass("o_sel_repo_wiki");
+				rootNode.addChild(node);
+			}
 			node = new GenericTreeNode(translate("search.podcast"), "search.podcast" );
 			node.setCssClass("o_sel_repo_podcast");
 			rootNode.addChild(node);
@@ -382,7 +400,6 @@ public class RepositoryMainController extends MainLayoutBasicController implemen
 	 * @param subViewIdentifyer optional view identifyer for a sub controller
 	 */
 	private void activateContent(UserRequest ureq, Object userObject, List<ContextEntry> entries, StateEntry state) {
-		log.info("activateContent userObject=" + userObject);
 		if (userObject.equals("search.home")) { // the
 			// home
 			main.setPage(VELOCITY_ROOT + "/index.html");
@@ -442,10 +459,12 @@ public class RepositoryMainController extends MainLayoutBasicController implemen
 			searchController.enableBackToSearchFormLink(false);
 		} else if (userObject.equals("search.wiki")) { // search
 			// wiki
-			main.setPage(VELOCITY_ROOT + "/index2.html");
- 			mainPanel.setContent(main);
-			searchController.doSearchByTypeLimitAccess(WikiResource.TYPE_NAME, ureq);
-			searchController.enableBackToSearchFormLink(false);
+			if(securityModule.isWikiEnabled()) {
+				main.setPage(VELOCITY_ROOT + "/index2.html");
+	 			mainPanel.setContent(main);
+				searchController.doSearchByTypeLimitAccess(WikiResource.TYPE_NAME, ureq);
+				searchController.enableBackToSearchFormLink(false);
+			}
 		} else if (userObject.equals("search.podcast")) { // search
 			// podcast
 			main.setPage(VELOCITY_ROOT + "/index2.html");
@@ -734,7 +753,8 @@ public class RepositoryMainController extends MainLayoutBasicController implemen
 			addController = new RepositoryAddController(urequest, getWindowControl(), event.getCommand());
 			listenTo(addController);
 			removeAsListenerAndDispose(cmc);
-			cmc = new CloseableModalController(getWindowControl(), translate("close"), addController.getInitialComponent());
+			cmc = new CloseableModalController(getWindowControl(), translate("close"), addController.getInitialComponent(),
+					true, addController.getTitle());
 			listenTo(cmc);
 			cmc.activate();
 			return;
@@ -743,7 +763,8 @@ public class RepositoryMainController extends MainLayoutBasicController implemen
 			addController = new RepositoryAddController(urequest, getWindowControl(), RepositoryAddController.ACTION_NEW_COURSE);
 			listenTo(addController);
 			removeAsListenerAndDispose(cmc);
-			cmc = new CloseableModalController(getWindowControl(), translate("close"), addController.getInitialComponent());
+			cmc = new CloseableModalController(getWindowControl(), translate("close"), addController.getInitialComponent(),
+					true, addController.getTitle());
 			listenTo(cmc);
 			cmc.activate();
 			return;
@@ -752,7 +773,8 @@ public class RepositoryMainController extends MainLayoutBasicController implemen
 			addController = new RepositoryAddController(urequest, getWindowControl(), RepositoryAddController.ACTION_NEW_TEST);
 			listenTo(addController);
 			removeAsListenerAndDispose(cmc);
-			cmc = new CloseableModalController(getWindowControl(), translate("close"), addController.getInitialComponent());
+			cmc = new CloseableModalController(getWindowControl(), translate("close"), addController.getInitialComponent(),
+					true, addController.getTitle());
 			listenTo(cmc);
 			cmc.activate();
 			return;
@@ -761,7 +783,8 @@ public class RepositoryMainController extends MainLayoutBasicController implemen
 			addController = new RepositoryAddController(urequest, getWindowControl(), RepositoryAddController.ACTION_NEW_SURVEY);
 			listenTo(addController);
 			removeAsListenerAndDispose(cmc);
-			cmc = new CloseableModalController(getWindowControl(), translate("close"), addController.getInitialComponent());
+			cmc = new CloseableModalController(getWindowControl(), translate("close"), addController.getInitialComponent(),
+					true, addController.getTitle());
 			listenTo(cmc);
 			cmc.activate();
 			return;
@@ -770,16 +793,19 @@ public class RepositoryMainController extends MainLayoutBasicController implemen
 			addController = new RepositoryAddController(urequest, getWindowControl(), RepositoryAddController.ACTION_NEW_SHAREDFOLDER);
 			listenTo(addController);
 			removeAsListenerAndDispose(cmc);
-			cmc = new CloseableModalController(getWindowControl(), translate("close"), addController.getInitialComponent());
+			cmc = new CloseableModalController(getWindowControl(), translate("close"), addController.getInitialComponent(),
+					true, addController.getTitle());
 			listenTo(cmc);
 			cmc.activate();
 			return;
 		} else if (event.getCommand().equals(ACTION_NEW_WIKI)) {
+			if(!securityModule.isWikiEnabled()) return;
 			removeAsListenerAndDispose(addController);
 			addController = new RepositoryAddController(urequest, getWindowControl(), RepositoryAddController.ACTION_NEW_WIKI);
 			listenTo(addController);
 			removeAsListenerAndDispose(cmc);
-			cmc = new CloseableModalController(getWindowControl(), translate("close"), addController.getInitialComponent());
+			cmc = new CloseableModalController(getWindowControl(), translate("close"), addController.getInitialComponent(),
+					true, addController.getTitle());
 			listenTo(cmc);
 			cmc.activate();
 			return;
@@ -788,7 +814,8 @@ public class RepositoryMainController extends MainLayoutBasicController implemen
 			addController = new RepositoryAddController(urequest, getWindowControl(), RepositoryAddController.ACTION_NEW_PODCAST);
 			listenTo(addController);
 			removeAsListenerAndDispose(cmc);
-			cmc = new CloseableModalController(getWindowControl(), translate("close"), addController.getInitialComponent());
+			cmc = new CloseableModalController(getWindowControl(), translate("close"), addController.getInitialComponent(),
+					true, addController.getTitle());
 			listenTo(cmc);
 			cmc.activate();
 			return;
@@ -797,7 +824,8 @@ public class RepositoryMainController extends MainLayoutBasicController implemen
 			addController = new RepositoryAddController(urequest, getWindowControl(), RepositoryAddController.ACTION_NEW_BLOG);
 			listenTo(addController);
 			removeAsListenerAndDispose(cmc);
-			cmc = new CloseableModalController(getWindowControl(), translate("close"), addController.getInitialComponent());
+			cmc = new CloseableModalController(getWindowControl(), translate("close"), addController.getInitialComponent(),
+					true, addController.getTitle());
 			listenTo(cmc);
 			cmc.activate();
 			return;
@@ -806,7 +834,8 @@ public class RepositoryMainController extends MainLayoutBasicController implemen
 			addController = new RepositoryAddController(urequest, getWindowControl(), RepositoryAddController.ACTION_NEW_GLOSSARY);
 			listenTo(addController);
 			removeAsListenerAndDispose(cmc);
-			cmc = new CloseableModalController(getWindowControl(), translate("close"), addController.getInitialComponent());
+			cmc = new CloseableModalController(getWindowControl(), translate("close"), addController.getInitialComponent(),
+					true, addController.getTitle());
 			listenTo(cmc);
 			cmc.activate();
 			return;
@@ -815,7 +844,8 @@ public class RepositoryMainController extends MainLayoutBasicController implemen
 			addController = new RepositoryAddController(urequest, getWindowControl(), RepositoryAddController.ACTION_NEW_PORTFOLIO);
 			listenTo(addController);
 			removeAsListenerAndDispose(cmc);
-			cmc = new CloseableModalController(getWindowControl(), translate("close"), addController.getInitialComponent());
+			cmc = new CloseableModalController(getWindowControl(), translate("close"), addController.getInitialComponent(),
+					true, addController.getTitle());
 			listenTo(cmc);
 			cmc.activate();
 			return;
@@ -829,7 +859,8 @@ public class RepositoryMainController extends MainLayoutBasicController implemen
 			addController = new RepositoryAddController(urequest, getWindowControl(), RepositoryAddController.ACTION_NEW_CP);
 			listenTo(addController);
 			removeAsListenerAndDispose(cmc);
-			cmc = new CloseableModalController(getWindowControl(), translate("close"), addController.getInitialComponent());
+			cmc = new CloseableModalController(getWindowControl(), translate("close"), addController.getInitialComponent(),
+					true, addController.getTitle());
 			listenTo(cmc);
 			cmc.activate();
 			return;

@@ -34,6 +34,8 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Set;
 
+import javax.persistence.TemporalType;
+
 import org.hibernate.type.StandardBasicTypes;
 import org.hibernate.type.Type;
 import org.olat.core.CoreSpringFactory;
@@ -64,6 +66,8 @@ public class ForumManager extends BasicManager {
 	private static ForumManager INSTANCE;
 	@Autowired
 	private TextService txtService;
+	@Autowired
+	private DB dbInstance;
 
 	/**
 	 * [spring]
@@ -227,7 +231,7 @@ public class ForumManager extends BasicManager {
 		return messages;
 	}
 	
-	private int countMessagesByForumID(Long forum_id, boolean onlyThreads) {
+	private int countMessagesByForumID(Long forumId, boolean onlyThreads) {
 		StringBuilder query = new StringBuilder();
 		query.append("select count(msg) from ").append(MessageImpl.class.getName()).append(" as msg")
 		     .append(" where msg.forum.key=:forumId ");
@@ -235,11 +239,11 @@ public class ForumManager extends BasicManager {
 			query.append(" and msg.parent is null");
 		}
 		
-		DBQuery dbQuery = DBFactory.getInstance().createQuery(query.toString());
-		dbQuery.setLong("forumId", forum_id);
-		
-		Number totalCount = (Number)dbQuery.uniqueResult();
-		return totalCount.intValue();
+		return dbInstance.getCurrentEntityManager()
+				.createQuery(query.toString(), Number.class)
+				.setParameter("forumId", forumId)
+				.getSingleResult()
+				.intValue();
 	}
 	
 	/**
@@ -284,11 +288,11 @@ public class ForumManager extends BasicManager {
 		     .append(" inner join fetch msg.creator as creator")
 		     .append(" where msg.forum.key =:forumKey and msg.lastModified>:latestRead order by msg.lastModified desc");
 
-		DBQuery dbquery = DBFactory.getInstance().createQuery(query.toString());
-		dbquery.setLong("forumKey", forumKey.longValue());
-		dbquery.setTimestamp("latestRead", latestRead);
-		dbquery.setCacheable(true);
-		return dbquery.list();
+		return DBFactory.getInstance().getCurrentEntityManager()
+				.createQuery(query.toString(), Message.class)
+				.setParameter("forumKey", forumKey.longValue())
+				.setParameter("latestRead", latestRead, TemporalType.TIMESTAMP)
+				.getResultList();
 	}
 
 	/**

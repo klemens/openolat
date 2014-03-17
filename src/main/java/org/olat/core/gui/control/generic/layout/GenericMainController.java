@@ -113,6 +113,11 @@ public abstract class GenericMainController extends MainLayoutBasicController im
 
 		olatMenuTree.setSelectedNodeId(nodeToSelect.getIdent());
 		olatMenuTree.addListener(this);
+		
+		// default is to not display the root element and to let user open/close sub elements
+		olatMenuTree.setRootVisible(false);
+		olatMenuTree.setExpandSelectedNode(false);
+
 
 		Object uobject = nodeToSelect.getUserObject();
 		contentCtr = getContentCtr(uobject, ureq);
@@ -295,6 +300,8 @@ public abstract class GenericMainController extends MainLayoutBasicController im
 				}
 			} else {
 				logWarn("Could not add navigation-menu (" + childNode.getTitle() + ") to parent:: " + childNodeEntry.getValue(), null);
+				// make it at least appear on top level
+				rootTreeNode.addChild(childNode);
 			}
 		}
 
@@ -378,32 +385,36 @@ public abstract class GenericMainController extends MainLayoutBasicController im
 		if(stack.contains(source)) {
 			popController(source);
 		} else if (source == olatMenuTree) {
-			if (event.getCommand().equals(MenuTree.COMMAND_TREENODE_CLICKED)) {
-				// process menu commands
-				TreeNode selTreeNode = olatMenuTree.getSelectedNode();
-				// cleanup old content controller (never null)
-				removeAsListenerAndDispose(contentCtr);
-
-				// create new content controller
-				// Following cases:
-				// 1a) Simple Action Extension using only ureq and windowControl ->
-				// handled by default implementation of createController
-				// 1b) Specialised Action Extension which needs some more internals ->
-				// handled by the class extending GenericMainController, by overwriting
-				// createController
-				// 2) uobject is something special which needs evaluation by class
-				// extending GenericMainController
-				Object uobject = selTreeNode.getUserObject();
-				TreeNode delegatee = selTreeNode.getDelegate();
-				if (delegatee != null) {
-					olatMenuTree.setSelectedNode(delegatee);
+			if (event instanceof TreeEvent && event.getCommand().equals(MenuTree.COMMAND_TREENODE_CLICKED)) {
+				TreeEvent te = (TreeEvent)event;
+				if(te.getSubCommand() != null) {
+					// filter open/close events
+				} else {
+					// process menu commands
+					TreeNode selTreeNode = olatMenuTree.getSelectedNode();
+					// cleanup old content controller (never null)
+					removeAsListenerAndDispose(contentCtr);
+	
+					// create new content controller
+					// Following cases:
+					// 1a) Simple Action Extension using only ureq and windowControl ->
+					// handled by default implementation of createController
+					// 1b) Specialised Action Extension which needs some more internals ->
+					// handled by the class extending GenericMainController, by overwriting
+					// createController
+					// 2) uobject is something special which needs evaluation by class
+					// extending GenericMainController
+					Object uobject = selTreeNode.getUserObject();
+					TreeNode delegatee = selTreeNode.getDelegate();
+					if (delegatee != null) {
+						olatMenuTree.setSelectedNode(delegatee);
+					}
+					contentCtr = getContentCtr(uobject, ureq);
+					listenTo(contentCtr);
+					Component resComp = contentCtr.getInitialComponent();
+					content.setContent(resComp);
+					addToHistory(ureq, contentCtr);
 				}
-				contentCtr = getContentCtr(uobject, ureq);
-				listenTo(contentCtr);
-				Component resComp = contentCtr.getInitialComponent();
-				content.setContent(resComp);
-				// fxdiff BAKS-7 Resume function
-				addToHistory(ureq, contentCtr);
 			} else { // the action was not allowed anymore
 				content.setContent(null); // display an empty field (empty panel)
 			}
@@ -467,7 +478,7 @@ public abstract class GenericMainController extends MainLayoutBasicController im
 			contentCtr1Tmp = handleOwnMenuTreeEvent(uobject, ureq);
 		}
 		if (contentCtr1Tmp == null) { throw new AssertException(
-				"Node must either be an ActionExtension or implementation must handle this MenuTreeEvent: " + uobject.toString()); }
+				"Node must either be an ActionExtension or implementation must handle this MenuTreeEvent: " + (uobject == null ? "NULL" : uobject.toString())); }
 		return contentCtr1Tmp;
 	}
 	

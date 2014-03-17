@@ -30,10 +30,17 @@ import java.io.IOException;
 import java.io.Reader;
 import java.io.Writer;
 
+import org.apache.commons.lang.StringEscapeUtils;
+import org.olat.core.logging.OLog;
+import org.olat.core.logging.Tracing;
+import org.olat.core.util.filter.impl.OWASPAntiSamyXSSFilter;
+
 /**
  * @author Felix Jost
  */
 public class StringOutput extends Writer {
+	
+	private static final OLog log = Tracing.createLoggerFor(StringOutput.class);
 
 	private StringBuilder sb;
 
@@ -53,9 +60,18 @@ public class StringOutput extends Writer {
 
 	/**
 	 * @param val
-	 * @return
+	 * @return this
 	 */
 	public StringOutput append(String val) {
+		sb.append(val);
+		return this;
+	}
+	
+	/**
+	 * @param val
+	 * @return this
+	 */
+	public StringOutput append(boolean val) {
 		sb.append(val);
 		return this;
 	}
@@ -65,7 +81,7 @@ public class StringOutput extends Writer {
 	 * @return
 	 */
 	public StringOutput append(int i) {
-		sb.append(String.valueOf(i));
+		sb.append(i);
 		return this;
 	}
 
@@ -98,6 +114,28 @@ public class StringOutput extends Writer {
 	 */
 	public StringOutput append(StringBuilder buffer) {
 		sb.append(buffer);
+		return this;
+	}
+	
+	/**
+	 * @param buffer
+	 * @return
+	 */
+	public StringOutput appendScanned(String str) {
+		sb.append(new OWASPAntiSamyXSSFilter().filter(str));
+		return this;
+	}
+	
+	/**
+	 * @param buffer
+	 * @return
+	 */
+	public StringOutput appendHtmlEscaped(String str) {
+		try {
+			StringEscapeUtils.escapeHtml(this, str);
+		} catch (IOException e) {
+			log.error("Error escaping HTML", e);
+		}
 		return this;
 	}
 	

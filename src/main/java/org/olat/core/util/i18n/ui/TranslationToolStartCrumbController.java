@@ -22,7 +22,6 @@ package org.olat.core.util.i18n.ui;
 
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
@@ -482,7 +481,7 @@ class TranslationToolStartCrumbController extends CrumbFormBasicController {
 			if (bundle.equals(ALL_BUNDLES_IDENTIFYER)) bundle = null;
 			boolean includeBundlesChildren = missingBundlesIncludeBundlesChildrenSwitch.isSelected(0);
 			// use the fallback locale because it won't find the key if not already translated in the searchLocale
-			List<I18nItem> i18nItems = i18nMgr.findMissingI18nItems(I18nModule.getFallbackLocale(), targetLocale, bundle,
+			List<I18nItem> i18nItems = i18nMgr.findMissingI18nItems(referenceLocale, targetLocale, bundle,
 					includeBundlesChildren);
 			boolean prioSortEnabled = missingBundlesPrioritySortSwitch.isSelected(0);
 			i18nMgr.sortI18nItems(i18nItems, prioSortEnabled, prioSortEnabled);

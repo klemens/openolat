@@ -26,6 +26,10 @@
 package org.olat.ims.qti.container.qtielements;
 
 import org.dom4j.Element;
+import org.olat.core.util.StringHelper;
+import org.olat.core.util.nodes.INode;
+import org.olat.core.util.openxml.OpenXMLDocument;
+import org.olat.ims.qti.editor.beecom.objects.Question;
 /**
  * Initial Date:  25.11.2004
  *
@@ -33,7 +37,8 @@ import org.dom4j.Element;
  */
 public class Item extends GenericQTIElement {
 
-	String title;
+	private static final long serialVersionUID = 3195522706482981316L;
+	private String title;
 	/**
 	 * @param el_item
 	 */
@@ -45,6 +50,7 @@ public class Item extends GenericQTIElement {
 	/**
 	 * @see org.olat.ims.qti.container.qtielements.QTIElement#render(StringBuilder, RenderInstructions)
 	 */
+	@Override
 	public void render(StringBuilder buffer, RenderInstructions ri) {
 		buffer.append("<div class=\"o_qti_item\">");
 		if (((Boolean)ri.get(RenderInstructions.KEY_RENDER_TITLE)).booleanValue()) {
@@ -64,5 +70,53 @@ public class Item extends GenericQTIElement {
 		if (itemPresentation != null) itemPresentation.render(buffer, ri);
 		buffer.append("</div>");
 	}
-	
+
+	@Override
+	public void renderOpenXML(OpenXMLDocument document, RenderInstructions ri) {
+		if (Boolean.TRUE.equals(ri.get(RenderInstructions.KEY_RENDER_TITLE))) {
+			StringBuilder addText = new StringBuilder();
+			String type = (String)ri.get(RenderInstructions.KEY_QUESTION_TYPE);
+			String score = (String)ri.get(RenderInstructions.KEY_QUESTION_SCORE);
+			if(StringHelper.containsNonWhitespace(type) || StringHelper.containsNonWhitespace(score)) {
+				if(StringHelper.containsNonWhitespace(type)) {
+					addText.append("(").append(type).append(")");
+				}
+				if(StringHelper.containsNonWhitespace(score)) {
+					addText.append(" - ").append(score);
+				}
+			}
+			document.appendHeading1(title, addText.toString());
+		}
+
+		Objectives itemObjectives = null;
+		Presentation itemPresentation = null;
+		for (int i=getChildCount(); i-->0; ) {
+			INode next = getChildAt(i);
+			if (next instanceof Objectives) {
+				itemObjectives = (Objectives)next;
+			} else if (next instanceof Presentation) {
+				itemPresentation = (Presentation)next;
+			}
+		}
+		
+		if (itemObjectives != null) {
+			itemObjectives.renderOpenXML(document, ri);
+		}
+		if (itemPresentation != null) {
+			itemPresentation.renderOpenXML(document, ri);
+		}
+
+		Boolean renderResponse = (Boolean)ri.get(RenderInstructions.KEY_RENDER_CORRECT_RESPONSES);
+		Integer type = (Integer)ri.get(RenderInstructions.KEY_QUESTION_OO_TYPE);
+		if(renderResponse != null && renderResponse.booleanValue() &&
+				type != null && type.intValue() == Question.TYPE_ESSAY) {
+
+			for(int i=getChildCount(); i-->0; ) {
+				QTIElement el = (QTIElement)getChildAt(i);
+				if(el instanceof ItemFeedback && "Solution".equals(el.getQTIIdent())) {
+					el.renderOpenXML(document, ri);
+				}
+			}
+		}
+	}
 }

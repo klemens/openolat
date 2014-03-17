@@ -19,7 +19,7 @@
  */
 package org.olat.catalog.ui;
 
-import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 import org.olat.basesecurity.BaseSecurityManager;
@@ -27,9 +27,10 @@ import org.olat.catalog.CatalogEntry;
 import org.olat.catalog.CatalogManager;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.Component;
-import org.olat.core.gui.components.tree.GenericTreeNode;
-import org.olat.core.gui.components.tree.SelectionTree;
-import org.olat.core.gui.components.tree.TreeEvent;
+import org.olat.core.gui.components.link.Link;
+import org.olat.core.gui.components.link.LinkFactory;
+import org.olat.core.gui.components.tree.MenuTree;
+import org.olat.core.gui.components.tree.TreeNode;
 import org.olat.core.gui.components.velocity.VelocityContainer;
 import org.olat.core.gui.control.Event;
 import org.olat.core.gui.control.WindowControl;
@@ -52,9 +53,12 @@ import org.olat.repository.RepositoryEntry;
  * @author Florian Gnägi, frentix GmbH
  */
 public class CatalogEntryAddController extends BasicController {
-	private SelectionTree selectionTree;
+	
+	protected MenuTree selectionTree;
 	private VelocityContainer mainVC;
+	private Link okButton, cancelButton;
 	private RepositoryEntry toBeAddedEntry;
+	protected final CatalogManager catalogManager;
 
 	/**
 	 * Constructor
@@ -63,93 +67,70 @@ public class CatalogEntryAddController extends BasicController {
 	 * @param ureq
 	 * @param toBeAddedEntry
 	 */
-	public CatalogEntryAddController(UserRequest ureq, WindowControl wControl, RepositoryEntry toBeAddedEntry) {
+	public CatalogEntryAddController(UserRequest ureq, WindowControl wControl,
+			RepositoryEntry toBeAddedEntry, boolean withButtons, boolean title) {
 		super(ureq, wControl);
+		
 		this.toBeAddedEntry = toBeAddedEntry;
+		catalogManager = CatalogManager.getInstance();
+		
 		List<CatalogEntry> catEntryList = CatalogManager.getInstance().getAllCatalogNodes();
+		Collections.sort(catEntryList, new CatalogEntryNodeComparator(getLocale()));
 
 		mainVC = createVelocityContainer("catMove");
-		selectionTree = new SelectionTree("catSelection", getTranslator());
+		mainVC.contextPut("withTitle", new Boolean(title));
+		selectionTree = new MenuTree("catSelection");
+		selectionTree.setExpandSelectedNode(true);
+		selectionTree.setUnselectNodes(true);
 		selectionTree.addListener(this);
-		selectionTree.setMultiselect(false);
-		selectionTree.setFormButtonKey("cat.move.submit");
-		selectionTree.setShowCancelButton(true);
 		selectionTree.setTreeModel(new CatalogTreeModel(catEntryList, null, null));
 		mainVC.put("tree", selectionTree);
-
+		
+		if(withButtons) {
+			okButton = LinkFactory.createButton("ok", mainVC, this);
+			cancelButton = LinkFactory.createButton("cancel", mainVC, this);
+		}
 		putInitialPanel(mainVC);
-
 	}
 
 	@Override
 	protected void doDispose() {
-		this.mainVC = null;
-		this.selectionTree = null;
+		mainVC = null;
+		selectionTree = null;
 	}
 
 	@Override
 	public void event(UserRequest ureq, Component source, Event event) {
-		if (source == selectionTree) {
-			TreeEvent te = (TreeEvent) event;
-			if (te.getCommand().equals(TreeEvent.COMMAND_TREENODE_CLICKED)) {
-				GenericTreeNode node = (GenericTreeNode) selectionTree.getSelectedNode();
-				CatalogManager cm = CatalogManager.getInstance();
+		if(source == okButton) {
+			TreeNode node = selectionTree.getSelectedNode();
+			if(node != null) {//no selection is allowed
 				Long newParentId = Long.parseLong(node.getIdent());
-				CatalogEntry newParent = cm.loadCatalogEntry(newParentId);
-				// check first if this repo entry is already attached to this new parent
-				List<CatalogEntry> existingChildren = cm.getChildrenOf(newParent);
-				for (CatalogEntry existingChild : existingChildren) {
-					RepositoryEntry existingRepoEntry = existingChild.getRepositoryEntry();
-					if (existingRepoEntry != null && existingRepoEntry.equalsByPersistableKey(toBeAddedEntry)) {
-						showError("catalog.tree.add.already.exists", toBeAddedEntry.getDisplayname());
-						return;
-					}
-				}
-				CatalogEntry newEntry = cm.createCatalogEntry();
-				newEntry.setRepositoryEntry(toBeAddedEntry);
-				newEntry.setName(toBeAddedEntry.getDisplayname());
-				newEntry.setDescription(toBeAddedEntry.getDescription());
-				newEntry.setType(CatalogEntry.TYPE_LEAF);
-				newEntry.setOwnerGroup(BaseSecurityManager.getInstance().createAndPersistSecurityGroup());
-				// save entry
-				cm.addCatalogEntry(newParent, newEntry);
-				fireEvent(ureq, Event.DONE_EVENT);
-
-			} else if (te.getCommand().equals(TreeEvent.COMMAND_CANCELLED)) {
-				fireEvent(ureq, Event.CANCELLED_EVENT);
+				insertNode(ureq, newParentId);
+			}
+		} else if(source == cancelButton) {
+			fireEvent(ureq, Event.CANCELLED_EVENT);
+		}
+	}
+	
+	protected void insertNode(UserRequest ureq, Long newParentId) {
+		CatalogEntry newParent = catalogManager.loadCatalogEntry(newParentId);
+		// check first if this repo entry is already attached to this new parent
+		List<CatalogEntry> existingChildren = catalogManager.getChildrenOf(newParent);
+		for (CatalogEntry existingChild : existingChildren) {
+			RepositoryEntry existingRepoEntry = existingChild.getRepositoryEntry();
+			if (existingRepoEntry != null && existingRepoEntry.equalsByPersistableKey(toBeAddedEntry)) {
+				showError("catalog.tree.add.already.exists", toBeAddedEntry.getDisplayname());
+				return;
 			}
 		}
-
-	}
-
-	/**
-	 * Internal helper to get all children for a given list of parent category items
-	 * @param parents
-	 * @return
-	 */
-	private List<CatalogEntry> fetchChildren(List<CatalogEntry> parents) {
-		List<CatalogEntry> tmp = new ArrayList<CatalogEntry>();
-		for (CatalogEntry child : parents) {
-			tmp.add(child);
-			if (child.getType() == CatalogEntry.TYPE_NODE) {
-				tmp.addAll(fetchChildren((List<CatalogEntry>) CatalogManager.getInstance().getChildrenOf(child)));
-			}
-		}
-		return tmp;
-	}
-
-	/**
-	 * Internal helper method to get list of catalog entries where current user is
-	 * in the owner group
-	 * 
-	 * @param ureq
-	 * @return List of repo entries
-	 */
-	private List<CatalogEntry> getOwnedEntries(UserRequest ureq) {
-		if (ureq.getUserSession().getRoles().isOLATAdmin()) {
-			return (List<CatalogEntry>) CatalogManager.getInstance().getRootCatalogEntries();
-		} else {
-			return (List<CatalogEntry>) CatalogManager.getInstance().getCatalogEntriesOwnedBy(ureq.getIdentity());
-		}
+		CatalogEntry newEntry = catalogManager.createCatalogEntry();
+		newEntry.setRepositoryEntry(toBeAddedEntry);
+		newEntry.setName(toBeAddedEntry.getDisplayname());
+		newEntry.setDescription(toBeAddedEntry.getDescription());
+		newEntry.setType(CatalogEntry.TYPE_LEAF);
+		newEntry.setOwnerGroup(BaseSecurityManager.getInstance().createAndPersistSecurityGroup());
+		// save entry
+		catalogManager.addCatalogEntry(newParent, newEntry);
+		fireEvent(ureq, Event.DONE_EVENT);
 	}
 }

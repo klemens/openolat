@@ -90,8 +90,9 @@ public class NotesPortletRunController extends AbstractPortletRunController<Note
 	 * @param ureq
 	 * @param component
 	 */
-	public NotesPortletRunController(WindowControl wControl, UserRequest ureq, Translator trans, String portletName) { 
-		super(wControl, ureq, trans, portletName);		
+	public NotesPortletRunController(WindowControl wControl, UserRequest ureq, Translator trans,
+			String portletName, int defaultMaxEntries) { 
+		super(wControl, ureq, trans, portletName, defaultMaxEntries);		
 		this.cOwner = ureq.getIdentity();
 		
 		sortingTermsList.add(SortingCriteria.ALPHABETICAL_SORTING);
@@ -188,7 +189,7 @@ public class NotesPortletRunController extends AbstractPortletRunController<Note
 	 */
 	public void event(Event event) {		
 		if(event instanceof NoteEvent) {			
-			if(((NoteEvent)event).getUsername().equals(getIdentity().getName())) {
+			if(((NoteEvent)event).getIdentityKey().equals(getIdentity().getKey())) {
 			  reloadModel(sortingCriteria);						  
 			}
 		}		
@@ -247,6 +248,7 @@ public class NotesPortletRunController extends AbstractPortletRunController<Note
 	protected void doDispose() {
 		CoordinatorManager.getInstance().getCoordinator().getEventBus().deregisterFor(this, eventBusThisIdentityOres);
 		super.doDispose();
+		portletToolsController = null;
 	}
 	
 	/**
@@ -322,10 +324,10 @@ public class NotesPortletRunController extends AbstractPortletRunController<Note
 		 * @see org.olat.core.gui.components.table.TableDataModel#getValueAt(int, int)
 		 */
 		public final Object getValueAt(int row, int col) {				
-			Note note = (Note) getObject(row).getValue();
+			Note note = getObject(row).getValue();
 			switch (col) {
 				case 0:					
-					return StringEscapeUtils.escapeHtml(note.getNoteTitle()).toString();
+					return note.getNoteTitle();
 				case 1:								
 					String resType = note.getResourceTypeName();
 					return (resType == null ? "n/a" : ControllerFactory.translateResourceableTypeName(resType, locale));
@@ -359,7 +361,7 @@ public class NotesPortletRunController extends AbstractPortletRunController<Note
 			Note note = getObject(row).getValue();
 			switch (col) {
 				case 0:					
-					return StringEscapeUtils.escapeHtml(note.getNoteTitle()).toString();
+					return note.getNoteTitle();
 				case 1:								
 					Date lastUpdate = note.getLastModified();
 					return lastUpdate;

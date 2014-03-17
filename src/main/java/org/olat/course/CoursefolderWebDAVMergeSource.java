@@ -19,13 +19,15 @@
  */
 package org.olat.course;
 
+import java.util.ArrayList;
 import java.util.List;
 
+import org.olat.core.commons.services.webdav.servlets.RequestUtil;
 import org.olat.core.id.Identity;
-import org.olat.core.util.Formatter;
 import org.olat.core.util.vfs.MergeSource;
 import org.olat.core.util.vfs.NamedContainerImpl;
 import org.olat.core.util.vfs.VFSConstants;
+import org.olat.core.util.vfs.VFSContainer;
 import org.olat.core.util.vfs.VFSItem;
 import org.olat.core.util.vfs.VFSManager;
 import org.olat.core.util.vfs.VFSStatus;
@@ -43,6 +45,8 @@ class CoursefolderWebDAVMergeSource extends MergeSource {
 	
 	private boolean init = false;
 	private final Identity identity;
+	private long loadTime;
+	
 	
 	public CoursefolderWebDAVMergeSource(Identity identity) {
 		super(null, null);
@@ -89,7 +93,7 @@ class CoursefolderWebDAVMergeSource extends MergeSource {
 
 	@Override
 	public List<VFSItem> getItems(VFSItemFilter filter) {
-		if(!init) {
+		if(!init || (System.currentTimeMillis() - loadTime) > 60000) {
 			init();
 		}
 		return super.getItems(filter);
@@ -110,7 +114,7 @@ class CoursefolderWebDAVMergeSource extends MergeSource {
 		RepositoryManager rm = RepositoryManager.getInstance();
 		List<RepositoryEntry> entries = rm.queryByEditor(identity, CourseModule.getCourseTypeName());
 		for(RepositoryEntry entry:entries) {
-			String courseTitle = Formatter.makeStringFilesystemSave(entry.getDisplayname());
+			String courseTitle = RequestUtil.normalizeFilename(entry.getDisplayname());
 			if(childName.equals(courseTitle)) {
 				NamedContainerImpl cfContainer = new CoursefolderWebDAVNamedContainer(childName, entry.getOlatResource());
 				String nextPath = path.substring(childName.length() + 1);
@@ -126,12 +130,15 @@ class CoursefolderWebDAVMergeSource extends MergeSource {
 		super.init();
 		RepositoryManager rm = RepositoryManager.getInstance();
 		List<RepositoryEntry> courseEntries = rm.queryByEditor(identity, CourseModule.getCourseTypeName());
+		List<VFSContainer> containers = new ArrayList<>();
 		// Add all found repo entries to merge source
 		for (RepositoryEntry re:courseEntries) {
-			String courseTitle = Formatter.makeStringFilesystemSave(re.getDisplayname());
+			String courseTitle = RequestUtil.normalizeFilename(re.getDisplayname());
 			NamedContainerImpl cfContainer = new CoursefolderWebDAVNamedContainer(courseTitle, re.getOlatResource());
-			addContainer(cfContainer);
+			addContainerToList(cfContainer, containers);
 		}
+		setMergedContainers(containers);
+		loadTime = System.currentTimeMillis();
 		init = true;
 	}
 }

@@ -62,7 +62,7 @@ class FormWrapperContainerRenderer implements ComponentRenderer {
 	 *      org.olat.core.gui.translator.Translator,
 	 *      org.olat.core.gui.render.RenderResult, java.lang.String[])
 	 */
-	@SuppressWarnings("unused")
+	@Override
 	public void render(Renderer renderer, StringOutput sb, Component source, URLBuilder ubu, Translator translator,
 			RenderResult renderResult, String[] args) {
 		FormWrapperContainer formC = (FormWrapperContainer) source;
@@ -91,8 +91,11 @@ class FormWrapperContainerRenderer implements ComponentRenderer {
 			// transfer and parameter extracing overhead
 			if (formC.isMultipartEnabled()) {
 				sb.append(" enctype=\"multipart/form-data\"");
-			}			
-			sb.append(" name=\"");
+			}
+
+			sb.append(" id=\"");
+			sb.append(formC.getFormName());
+			sb.append("\" name=\"");
 			sb.append(formC.getFormName());
 			sb.append("\" action=\"");
 			ubu.buildURI(sb, new String[] { Form.FORMID }, new String[] { Form.FORMCMD }, iframePostEnabled ? AJAXFlags.MODE_TOBGIFRAME
@@ -132,6 +135,7 @@ class FormWrapperContainerRenderer implements ComponentRenderer {
 	 *      org.olat.core.gui.components.Component,
 	 *      org.olat.core.gui.render.RenderingState)
 	 */
+	@Override
 	public void renderBodyOnLoadJSFunctionCall(Renderer renderer, StringOutput sb, Component source, RenderingState rstate) {
 		FormWrapperContainer formC = (FormWrapperContainer) source;
 		Container toRender = formC.getFormLayout();
@@ -148,7 +152,7 @@ class FormWrapperContainerRenderer implements ComponentRenderer {
 	 *      org.olat.core.gui.translator.Translator,
 	 *      org.olat.core.gui.render.RenderingState)
 	 */
-	@SuppressWarnings("unused")
+	@Override
 	public void renderHeaderIncludes(Renderer renderer, StringOutput sb, Component source, URLBuilder ubu, Translator translator,
 			RenderingState rstate) {
 		FormWrapperContainer formC = (FormWrapperContainer) source;

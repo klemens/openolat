@@ -33,29 +33,32 @@ import java.util.List;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.UriBuilder;
 
+import org.apache.commons.io.IOUtils;
 import org.apache.http.Header;
 import org.apache.http.HttpEntity;
-import org.apache.http.HttpMessage;
 import org.apache.http.HttpResponse;
 import org.apache.http.NameValuePair;
 import org.apache.http.auth.AuthScope;
 import org.apache.http.auth.UsernamePasswordCredentials;
 import org.apache.http.client.CookieStore;
+import org.apache.http.client.config.CookieSpecs;
+import org.apache.http.client.config.RequestConfig;
 import org.apache.http.client.entity.UrlEncodedFormEntity;
 import org.apache.http.client.methods.HttpDelete;
 import org.apache.http.client.methods.HttpEntityEnclosingRequestBase;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.methods.HttpPost;
 import org.apache.http.client.methods.HttpPut;
+import org.apache.http.client.methods.HttpRequestBase;
 import org.apache.http.client.methods.HttpUriRequest;
-import org.apache.http.client.params.CookiePolicy;
-import org.apache.http.client.params.HttpClientParams;
+import org.apache.http.entity.ContentType;
 import org.apache.http.entity.StringEntity;
 import org.apache.http.entity.mime.HttpMultipartMode;
-import org.apache.http.entity.mime.MultipartEntity;
-import org.apache.http.entity.mime.content.FileBody;
-import org.apache.http.entity.mime.content.StringBody;
-import org.apache.http.impl.client.DefaultHttpClient;
+import org.apache.http.entity.mime.MultipartEntityBuilder;
+import org.apache.http.impl.client.BasicCookieStore;
+import org.apache.http.impl.client.BasicCredentialsProvider;
+import org.apache.http.impl.client.CloseableHttpClient;
+import org.apache.http.impl.client.HttpClientBuilder;
 import org.apache.http.util.EntityUtils;
 import org.codehaus.jackson.JsonFactory;
 import org.codehaus.jackson.map.ObjectMapper;
@@ -67,7 +70,7 @@ import org.olat.restapi.security.RestSecurityHelper;
 /**
  * 
  * Description:<br>
- * Manage a connection to the grizzly server used by the unit test
+ * Manage a connection to the server used by the unit test
  * with some helpers methods.
  * 
  * <P>
@@ -84,19 +87,19 @@ public class RestConnection {
 	private String PROTOCOL = "http";
 	private String CONTEXT_PATH = "olat";
 
-	private final DefaultHttpClient httpclient;
+	private final BasicCookieStore cookieStore = new BasicCookieStore();
+	private final BasicCredentialsProvider provider = new BasicCredentialsProvider();
+	private final CloseableHttpClient httpclient;
 	private static final JsonFactory jsonFactory = new JsonFactory();
 
 	private String securityToken;
 	
 	public RestConnection() {
-		httpclient = new DefaultHttpClient();
-		HttpClientParams.setCookiePolicy(httpclient.getParams(), CookiePolicy.RFC_2109);
-		
-		//CookieStore cookieStore = new BasicCookieStore();
-		//httpclient.setCookieStore(cookieStore);
+		httpclient = HttpClientBuilder.create()
+				.setDefaultCookieStore(cookieStore)
+				.setDefaultCredentialsProvider(provider)
+				.build();
 	}
-	
 	
 	public RestConnection(URL url) {
 		PORT = url.getPort();
@@ -104,12 +107,35 @@ public class RestConnection {
 		PROTOCOL = url.getProtocol();
 		CONTEXT_PATH = url.getPath();
 		
-		httpclient = new DefaultHttpClient();
-		HttpClientParams.setCookiePolicy(httpclient.getParams(), CookiePolicy.RFC_2109);
+		httpclient = HttpClientBuilder.create()
+				.setDefaultCookieStore(cookieStore)
+				.setDefaultCredentialsProvider(provider)
+				.build();
+	}
+	
+	/**
+	 * Build a client with basic authentication delegated
+	 * to the connection manager
+	 * @param url
+	 * @param user
+	 * @param password
+	 */
+	public RestConnection(URL url, String user, String password) {
+		PORT = url.getPort();
+		HOST = url.getHost();
+		PROTOCOL = url.getProtocol();
+		CONTEXT_PATH = url.getPath();
+		
+		provider.setCredentials(new AuthScope(HOST, PORT), new UsernamePasswordCredentials(user, password));
+		
+		httpclient = HttpClientBuilder.create()
+				.setDefaultCredentialsProvider(provider)
+				.setDefaultCookieStore(cookieStore)
+				.build();
 	}
 	
 	public CookieStore getCookieStore() {
-		return httpclient.getCookieStore();
+		return cookieStore;
 	}
 	
 	public String getSecurityToken() {
@@ -124,21 +150,16 @@ public class RestConnection {
 	}
 
 	public void shutdown() {
-		httpclient.getConnectionManager().shutdown();
-	}
-	
-	public void setCredentials(String username, String password) {
-		httpclient.getCredentialsProvider().setCredentials(
-        new AuthScope("localhost", PORT),
-        new UsernamePasswordCredentials(username, password));
+		IOUtils.closeQuietly(httpclient);
 	}
 	
 	public boolean login(String username, String password) throws IOException, URISyntaxException {
-		httpclient.getCredentialsProvider().setCredentials(
-        new AuthScope("localhost", PORT),
-        new UsernamePasswordCredentials(username, password));
-
 		URI uri = getContextURI().path("auth").path(username).queryParam("password", password).build();
+		
+		//provider credentials
+		provider.setCredentials(new AuthScope(HOST, PORT), new UsernamePasswordCredentials(username, password));
+		provider.setCredentials(new AuthScope(uri.getHost(), uri.getPort()), new UsernamePasswordCredentials(username, password));
+
 		HttpGet httpget = new HttpGet(uri);
 		HttpResponse response = httpclient.execute(httpget);
 		
@@ -147,10 +168,10 @@ public class RestConnection {
 			securityToken = header.getValue();
 		}
 		
-    HttpEntity entity = response.getEntity();
-    int code = response.getStatusLine().getStatusCode();
-    EntityUtils.consume(entity);
-    return code == 200;
+	    HttpEntity entity = response.getEntity();
+	    int code = response.getStatusLine().getStatusCode();
+	    EntityUtils.consume(entity);
+	    return code == 200;
 	}
 	
 	public <T> T get(URI uri, Class<T> cl) throws IOException, URISyntaxException {
@@ -187,17 +208,17 @@ public class RestConnection {
 		if(obj == null) return;
 		
 		String objectStr = stringuified(obj);
-		HttpEntity myEntity = new StringEntity(objectStr, MediaType.APPLICATION_JSON, "UTF-8");
+		HttpEntity myEntity = new StringEntity(objectStr, ContentType.APPLICATION_JSON);
 		put.setEntity(myEntity);
 	}
 	
 	public void addMultipart(HttpEntityEnclosingRequestBase post, String filename, File file)
 	throws UnsupportedEncodingException {
 		
-		MultipartEntity entity = new MultipartEntity(HttpMultipartMode.BROWSER_COMPATIBLE);
-		entity.addPart("filename", new StringBody(filename));
-		FileBody fileBody = new FileBody(file, "application/octet-stream");
-		entity.addPart("file", fileBody);
+		HttpEntity entity = MultipartEntityBuilder.create()
+				.setMode(HttpMultipartMode.BROWSER_COMPATIBLE)
+				.addTextBody("filename", filename)
+				.addBinaryBody("file", file, ContentType.APPLICATION_OCTET_STREAM, filename).build();
 		post.setEntity(entity);
 	}
 	
@@ -219,21 +240,24 @@ public class RestConnection {
 		return get;
 	}
 
-	public HttpPost createPost(URI uri, String accept, boolean cookie) {
+	public HttpPost createPost(URI uri, String accept) {
 		HttpPost get = new HttpPost(uri);
-		decorateHttpMessage(get,accept, "en", cookie);
+		decorateHttpMessage(get,accept, "en", true);
 		return get;
 	}
 	
-	public HttpDelete createDelete(URI uri, String accept, boolean cookie) {
+	public HttpDelete createDelete(URI uri, String accept) {
 		HttpDelete del = new HttpDelete(uri);
-		decorateHttpMessage(del, accept, "en", cookie);
+		decorateHttpMessage(del, accept, "en", true);
 		return del;
 	}
 	
-	private void decorateHttpMessage(HttpMessage msg, String accept, String langage, boolean cookie) {
+	private void decorateHttpMessage(HttpRequestBase msg, String accept, String langage, boolean cookie) {
 		if(cookie) {
-			HttpClientParams.setCookiePolicy(msg.getParams(), CookiePolicy.RFC_2109);
+			RequestConfig config = RequestConfig.copy(RequestConfig.DEFAULT)
+				.setCookieSpec(CookieSpecs.BROWSER_COMPATIBILITY)
+				.build();
+			msg.setConfig(config);
 		}
 		if(StringHelper.containsNonWhitespace(accept)) {
 			msg.addHeader("Accept", accept);
@@ -253,10 +277,7 @@ public class RestConnection {
 	 * @return http://localhost:9998
 	 */
 	public UriBuilder getBaseURI() throws URISyntaxException  {
-		URI uri;
-
-		uri = new URI(PROTOCOL, null, HOST, PORT, null, null, null);
-		
+		URI uri = new URI(PROTOCOL, null, HOST, PORT, null, null, null);
 		return UriBuilder.fromUri(uri);
 	}
 	
@@ -274,7 +295,7 @@ public class RestConnection {
 			mapper.writeValue(w, obj);
 			return w.toString();
 		} catch (Exception e) {
-			e.printStackTrace();
+			log.error("", e);
 			return null;
 		}
 	}
@@ -286,7 +307,7 @@ public class RestConnection {
 			U obj = mapper.readValue(body, cl);
 			return obj;
 		} catch (Exception e) {
-			e.printStackTrace();
+			log.error("", e);
 			return null;
 		}
 	}
@@ -297,9 +318,8 @@ public class RestConnection {
 			U obj = mapper.readValue(body, cl);
 			return obj;
 		} catch (Exception e) {
-			e.printStackTrace();
+			log.error("", e);
 			return null;
 		}
 	}
-
 }

@@ -42,8 +42,6 @@ import org.olat.core.commons.modules.bc.commands.FolderCommandStatus;
 import org.olat.core.commons.modules.bc.meta.MetaInfo;
 import org.olat.core.commons.modules.bc.meta.MetaInfoFactory;
 import org.olat.core.commons.modules.bc.meta.MetaInfoFormController;
-import org.olat.core.commons.modules.bc.meta.MetaInfoHelper;
-import org.olat.core.commons.modules.bc.meta.tagged.MetaTagged;
 import org.olat.core.commons.modules.bc.version.RevisionListController;
 import org.olat.core.commons.modules.bc.version.VersionCommentController;
 import org.olat.core.commons.modules.bc.vfs.OlatRootFileImpl;
@@ -62,18 +60,21 @@ import org.olat.core.gui.control.generic.closablewrapper.CloseableModalControlle
 import org.olat.core.gui.control.generic.modal.ButtonClickedEvent;
 import org.olat.core.gui.control.generic.modal.DialogBoxController;
 import org.olat.core.gui.control.generic.modal.DialogBoxUIFactory;
+import org.olat.core.id.Roles;
 import org.olat.core.logging.AssertException;
 import org.olat.core.logging.activity.CoreLoggingResourceable;
 import org.olat.core.logging.activity.ThreadLocalUserActivityLogger;
 import org.olat.core.util.FileUtils;
 import org.olat.core.util.Formatter;
 import org.olat.core.util.ImageHelper;
+import org.olat.core.util.StringHelper;
 import org.olat.core.util.WebappHelper;
 import org.olat.core.util.vfs.LocalImpl;
 import org.olat.core.util.vfs.VFSConstants;
 import org.olat.core.util.vfs.VFSContainer;
 import org.olat.core.util.vfs.VFSItem;
 import org.olat.core.util.vfs.VFSLeaf;
+import org.olat.core.util.vfs.VFSLockManager;
 import org.olat.core.util.vfs.VFSManager;
 import org.olat.core.util.vfs.version.Versionable;
 import org.olat.core.util.vfs.version.Versions;
@@ -137,6 +138,8 @@ public class FileUploadController extends FormBasicController {
 	
 	private static Pattern imageExtPattern = Pattern.compile("\\b.(jpg|jpeg|png)\\b");
 	
+	private final VFSLockManager vfsLockManager;
+	
 	/**
 	 * @param wControl
 	 * @param curContainer Path to the upload directory. Used to check for
@@ -175,8 +178,8 @@ public class FileUploadController extends FormBasicController {
 	public FileUploadController(WindowControl wControl, VFSContainer curContainer, UserRequest ureq, int upLimitKB, int remainingQuotKB,
 			Set<String> mimeTypesRestriction, boolean showTargetPath, boolean showMetadata, boolean resizeImg, boolean showCancel) {
 		super(ureq, wControl, "file_upload");
+		vfsLockManager = CoreSpringFactory.getImpl(VFSLockManager.class);
 		setVariables(curContainer, upLimitKB, remainingQuotKB, mimeTypesRestriction, showTargetPath, showMetadata, resizeImg, showCancel);
-		
 		initForm(ureq);
 	}
 	
@@ -374,7 +377,8 @@ public class FileUploadController extends FormBasicController {
 				}
 				
 				if (success) {
-					if (existingVFSItem instanceof MetaTagged && MetaInfoHelper.isLocked(existingVFSItem, ureq)) {
+					boolean locked = vfsLockManager.isLockedForMe(existingVFSItem, getIdentity(), ureq.getUserSession().getRoles());
+					if (locked) {
 						//the file is locked and cannot be overwritten
 						removeAsListenerAndDispose(lockedFileDialog);
 						lockedFileDialog = DialogBoxUIFactory.createGenericDialog(ureq, getWindowControl(), translate("ul.lockedFile.title"), translate("ul.lockedFile.text", new String[] {existingVFSItem.getName(), renamedFilename} ), asList(translate("ul.overwrite.threeoptions.rename", renamedFilename), translate("ul.overwrite.threeoptions.cancel")));
@@ -413,7 +417,7 @@ public class FileUploadController extends FormBasicController {
 							String description = translate("ul.tooManyRevisions.description", new String[]{Integer.toString(maxNumOfRevisions), Integer.toString(versions.getRevisions().size())});
 							
 							removeAsListenerAndDispose(revisionListCtr);
-							revisionListCtr = new RevisionListController(ureq, getWindowControl(), versionable, title, description);
+							revisionListCtr = new RevisionListController(ureq, getWindowControl(), versionable, title, description, false);
 							listenTo(revisionListCtr);
 							
 							removeAsListenerAndDispose(revisionListDialogBox);
@@ -446,16 +450,6 @@ public class FileUploadController extends FormBasicController {
 			status = FolderCommandStatus.STATUS_FAILED;
 			fireEvent(ureq, Event.FAILED_EVENT);					
 		}
-	}
-	
-	private boolean askForLock(VFSItem item, UserRequest ureq) {
-		if(item instanceof MetaTagged) {
-			MetaInfo info = ((MetaTagged)item).getMetaInfo();
-			if(info.isLocked() && !MetaInfoHelper.isLocked(item, ureq)) {
-				return true;
-			}
-		}
-		return false;
 	}
 	
 	/**
@@ -494,21 +488,19 @@ public class FileUploadController extends FormBasicController {
 							// ... and notify listeners.
 							finishUpload(ureq);
 						} else {
-							
 							removeAsListenerAndDispose(commentVersionCtr);
-							commentVersionCtr = new VersionCommentController(ureq,getWindowControl(), askForLock(existingVFSItem, ureq), true);
-							listenTo(commentVersionCtr);
-							
 							removeAsListenerAndDispose(commentVersionDialogBox);
+							
+							boolean locked = vfsLockManager.isLocked(existingVFSItem);
+							commentVersionCtr = new VersionCommentController(ureq, getWindowControl(), locked, true);
+							listenTo(commentVersionCtr);
 							commentVersionDialogBox = new CloseableModalController(getWindowControl(), translate("save"), commentVersionCtr.getInitialComponent());
 							listenTo(commentVersionDialogBox);
-							
 							commentVersionDialogBox.activate();
 						}
 					} else {
 						//if the file is locked, ask for unlocking it
-						if(existingVFSItem instanceof MetaTagged && ((MetaTagged)existingVFSItem).getMetaInfo().isLocked()) {
-							
+						if(vfsLockManager.isLocked(existingVFSItem)) {
 							removeAsListenerAndDispose(unlockCtr);
 							unlockCtr = new VersionCommentController(ureq,getWindowControl(), true, false);
 							listenTo(unlockCtr);
@@ -566,12 +558,11 @@ public class FileUploadController extends FormBasicController {
 			}
 		} else if (source == commentVersionCtr) {
 			String comment = commentVersionCtr.getComment();
-			if(existingVFSItem instanceof MetaTagged) {
-				MetaInfo info = ((MetaTagged)existingVFSItem).getMetaInfo();
-				if(info.isLocked() && !commentVersionCtr.keepLocked()) {
-					info.setLocked(false);
-					info.write();
-				}
+			
+			Roles roles = ureq.getUserSession().getRoles();
+			boolean locked = vfsLockManager.isLocked(existingVFSItem);
+			if(locked && !commentVersionCtr.keepLocked()) {
+				vfsLockManager.unlock(existingVFSItem, getIdentity(), roles);
 			}
 			
 			commentVersionDialogBox.deactivate();
@@ -594,12 +585,8 @@ public class FileUploadController extends FormBasicController {
 			// Overwrite...
 			String fileName = existingVFSItem.getName();
 			if(!unlockCtr.keepLocked()) {
-				MetaInfo info = ((MetaTagged)existingVFSItem).getMetaInfo();
-				info.setLocked(false);
-				info.setLockedBy(null);
-				info.write();
+				vfsLockManager.unlock(existingVFSItem, getIdentity(), ureq.getUserSession().getRoles());
 			}
-			
 			unlockDialogBox.deactivate();
 			
 			existingVFSItem.delete();
@@ -642,21 +629,19 @@ public class FileUploadController extends FormBasicController {
 					Versions versions = versionable.getVersions();
 					int maxNumOfRevisions = FolderConfig.versionsAllowed(null);
 					if(maxNumOfRevisions < 0 || maxNumOfRevisions > versions.getRevisions().size()) {
-						
 						removeAsListenerAndDispose(commentVersionCtr);
-						commentVersionCtr = new VersionCommentController(ureq,getWindowControl(), askForLock(existingVFSItem, ureq), true);
-						listenTo(commentVersionCtr);
-						
 						removeAsListenerAndDispose(commentVersionDialogBox);
+
+						boolean locked = vfsLockManager.isLocked(existingVFSItem);
+						commentVersionCtr = new VersionCommentController(ureq,getWindowControl(), locked, true);
+						listenTo(commentVersionCtr);
 						commentVersionDialogBox = new CloseableModalController(getWindowControl(), translate("save"), commentVersionCtr.getInitialComponent());
 						listenTo(commentVersionDialogBox);
-						
 						commentVersionDialogBox.activate();
-						
 					} else {
 						
 						removeAsListenerAndDispose(revisionListCtr);
-						revisionListCtr = new RevisionListController(ureq,getWindowControl(),versionable);
+						revisionListCtr = new RevisionListController(ureq,getWindowControl(),versionable, false);
 						listenTo(revisionListCtr);
 						
 						removeAsListenerAndDispose(revisionListDialogBox);
@@ -686,11 +671,11 @@ public class FileUploadController extends FormBasicController {
 		if (item instanceof OlatRootFileImpl) {
 			OlatRootFileImpl relPathItem = (OlatRootFileImpl) item;
 			// create meta data
-			MetaInfo meta = MetaInfoFactory.createMetaInfoFor(relPathItem);
+			MetaInfo meta = CoreSpringFactory.getImpl(MetaInfoFactory.class).createMetaInfoFor(relPathItem);
 			if (metaDataCtr != null) {
 				meta = metaDataCtr.getMetaInfo(meta);
 			}
-			meta.setAuthor(ureq.getIdentity().getName());
+			meta.setAuthor(ureq.getIdentity());
 			meta.clearThumbnails();//if overwrite an older file
 			meta.write();
 		}
@@ -800,29 +785,25 @@ public class FileUploadController extends FormBasicController {
 
 	@Override
 	protected boolean validateFormLogic(UserRequest ureq) {
-		
 		String fileName = fileEl.getUploadFileName();
-		
-		if (fileName == null) {
+		if (!StringHelper.containsNonWhitespace(fileName)) {
 			fileEl.setErrorKey("NoFileChosen", null);
 			return false;
 		}
-		
+
 		boolean isFilenameValid = FileUtils.validateFilename(fileName);		
 		if(!isFilenameValid) {
 			fileEl.setErrorKey("cfile.name.notvalid", null);
 			return false;
 		}
-		
-		if (remainingQuotKB != -1) {
-			if (fileEl.getUploadFile().length() / 1024 > remainingQuotKB) {
-				fileEl.clearError();
-				String supportAddr = WebappHelper.getMailConfig("mailQuota");
-				getWindowControl().setError(translate("ULLimitExceeded", new String[] { Formatter.roundToString((uploadLimitKB+0f) / 1000, 1), supportAddr }));
-				return false;
-			}				
+		if (remainingQuotKB != -1 
+			&& fileEl.getUploadFile().length() / 1024 > remainingQuotKB) {
+			
+			fileEl.clearError();
+			String supportAddr = WebappHelper.getMailConfig("mailQuota");
+			getWindowControl().setError(translate("ULLimitExceeded", new String[] { Formatter.roundToString((uploadLimitKB+0f) / 1000, 1), supportAddr }));
+			return false;
 		}
-		
 		return true;
 	}
 }

@@ -26,6 +26,8 @@
 
 package org.olat.core.gui.media;
 
+import java.io.ByteArrayInputStream;
+import java.io.Closeable;
 import java.io.InputStream;
 import java.text.DateFormat;
 import java.text.ParseException;
@@ -34,28 +36,34 @@ import java.util.Date;
 
 import javax.servlet.http.HttpServletResponse;
 
-import org.apache.commons.httpclient.Header;
-import org.apache.commons.httpclient.HttpMethod;
+import org.apache.commons.io.IOUtils;
+import org.apache.http.Header;
+import org.apache.http.HttpResponse;
+import org.olat.core.logging.OLog;
+import org.olat.core.logging.Tracing;
 
 /**
  * @author Mike Stock
  */
 public class HttpRequestMediaResource implements MediaResource {
+	
+	private static final OLog log = Tracing.createLoggerFor(HttpRequestMediaResource.class);
 
-	HttpMethod meth;
+	private final HttpResponse response;
 
 	/**
 	 * @param meth
 	 */
-	public HttpRequestMediaResource(HttpMethod meth) {
-		this.meth = meth;
+	public HttpRequestMediaResource(HttpResponse response) {
+		this.response = response;
 	}
 
 	/**
 	 * @see org.olat.core.gui.media.MediaResource#getContentType()
 	 */
+	@Override
 	public String getContentType() {
-		Header h = meth.getResponseHeader("Content-Type");
+		Header h = response.getFirstHeader("Content-Type");
 		return h == null ? "" : h.getValue();
 
 	}
@@ -63,21 +71,21 @@ public class HttpRequestMediaResource implements MediaResource {
 	/**
 	 * @see org.olat.core.gui.media.MediaResource#getSize()
 	 */
+	@Override
 	public Long getSize() {
-		Header h = meth.getResponseHeader("Content-Length");
+		Header h = response.getFirstHeader("Content-Length");
 		return h == null ? null : new Long(h.getValue());
 	}
 
 	/**
 	 * @see org.olat.core.gui.media.MediaResource#getInputStream()
 	 */
+	@Override
 	public InputStream getInputStream() {
 		try {
-			InputStream in = meth.getResponseBodyAsStream();
-			//meth.releaseConnection();
-			return in;
+			return response.getEntity().getContent();
 		} catch (Exception e) {
-			//  
+			log.error("", e);
 		}
 		return null;
 	}
@@ -85,8 +93,9 @@ public class HttpRequestMediaResource implements MediaResource {
 	/**
 	 * @see org.olat.core.gui.media.MediaResource#getLastModified()
 	 */
+	@Override
 	public Long getLastModified() {
-		Header h = meth.getResponseHeader("Last-Modified");
+		Header h = response.getFirstHeader("Last-Modified");
 		if (h != null) {
 			try {
 				DateFormat df = new SimpleDateFormat("EEE, d MMM yyyy HH:mm:ss z");
@@ -103,24 +112,26 @@ public class HttpRequestMediaResource implements MediaResource {
 	/**
 	 * @see org.olat.core.gui.media.MediaResource#release()
 	 */
+	@Override
 	public void release() {
-		meth.releaseConnection();
+		if(response instanceof Closeable) {
+			IOUtils.closeQuietly((Closeable)response);
+		}
 	}
 
 	/**
 	 * @see org.olat.core.gui.media.MediaResource#prepare(javax.servlet.http.HttpServletResponse)
 	 */
+	@Override
 	public void prepare(HttpServletResponse hres) {
 		//deliver content-disposition if available to forward this information 
 		//e.g. when someone is delivering generated files and sets the header himself
-		Header h = meth.getResponseHeader("Content-Disposition");
+		Header h = response.getFirstHeader("Content-Disposition");
 		if (h == null) return;
 		if (h.getValue().toLowerCase().contains("filename")) {
 			hres.setHeader("Content-Disposition", h.getValue());
 		} else {
 			hres.setHeader("Content-Disposition", "filename=" + h.getValue());
 		}
-		
 	}
-
 }

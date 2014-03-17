@@ -45,17 +45,19 @@ public class SkypePropertyHandler extends Generic127CharTextPropertyHandler {
 	public String getUserPropertyAsHTML(User user, Locale locale) {
 		String skypeid = getUserProperty(user, locale);
 		if (StringHelper.containsNonWhitespace(skypeid)) {
+			skypeid = StringHelper.escapeHtml(skypeid);
 			StringBuffer sb = new StringBuffer();
 			sb.append("<script type=\"text/javascript\" src=\"http://download.skype.com/share/skypebuttons/js/skypeCheck.js\"></script>");
 			sb.append("<img src=\"http://mystatus.skype.com/smallicon/");
-			sb.append(getUserProperty(user, locale));
+			sb.append(skypeid);
 			sb.append("\" style=\"border: none; position:relative; top:1px; margin-right:2px;\" width=\"10\" height=\"10\" alt=\"My status\" />");
 			sb.append("<a href=\"skype:");
 			sb.append(skypeid);
 			sb.append("?call\">");
 			sb.append(skypeid);
 			sb.append("</a>");
-			return sb.toString();
+			String htmlFragment = sb.toString();
+			return htmlFragment;
 		}
 		return null;
 	}
@@ -64,8 +66,8 @@ public class SkypePropertyHandler extends Generic127CharTextPropertyHandler {
 	 * @see org.olat.user.propertyhandlers.Generic127CharTextPropertyHandler#isValidValue(java.lang.String, org.olat.core.gui.components.form.ValidationError, java.util.Locale)
 	 */
 	@Override
-	public boolean isValidValue(String value, ValidationError validationError, Locale locale) {
-		if ( ! super.isValidValue(value, validationError, locale)) return false;
+	public boolean isValidValue(User user, String value, ValidationError validationError, Locale locale) {
+		if ( ! super.isValidValue(user, value, validationError, locale)) return false;
 		
 		if (StringHelper.containsNonWhitespace(value)) {		
 			// skype names are max 32 chars long

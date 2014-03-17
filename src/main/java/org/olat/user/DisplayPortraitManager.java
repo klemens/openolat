@@ -27,7 +27,6 @@ package org.olat.user;
 
 import java.io.File;
 
-import org.olat.admin.user.delete.service.UserDeletionManager;
 import org.olat.core.CoreSpringFactory;
 import org.olat.core.commons.modules.bc.FolderConfig;
 import org.olat.core.gui.media.FileMediaResource;
@@ -68,8 +67,7 @@ public class DisplayPortraitManager extends BasicManager implements UserDataDele
 	/**
 	 * [spring]
 	 */
-	private DisplayPortraitManager(UserDeletionManager userDeletionManager) {
-		userDeletionManager.registerDeletableUserData(this);
+	private DisplayPortraitManager() {
 		singleton = this;
 	}
 	

@@ -1,9 +1,14 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <beans xmlns="http://www.springframework.org/schema/beans"
 	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xmlns:context="http://www.springframework.org/schema/context"
 	xsi:schemaLocation="
   http://www.springframework.org/schema/beans 
-  http://www.springframework.org/schema/beans/spring-beans-3.0.xsd">
+  http://www.springframework.org/schema/beans/spring-beans.xsd
+  http://www.springframework.org/schema/context 
+  http://www.springframework.org/schema/context/spring-context.xsd">
+
+	<context:component-scan base-package="org.olat.repository.manager" />
 
 <bean id="repositoryModule" class="org.olat.repository.RepositoryModule" depends-on="userModule">
 	<property name="groupModule" ref="businessGroupModule"/>
@@ -15,12 +20,69 @@
 	</property>
 </bean>
 
-<bean  class="org.springframework.beans.factory.config.MethodInvokingFactoryBean">
-        <property name="targetObject" ref="repositoryModule" />
-        <property name="targetMethod" value="init" />
-</bean>
+	<bean  class="org.springframework.beans.factory.config.MethodInvokingFactoryBean">
+		<property name="targetObject" ref="repositoryModule" />
+		<property name="targetMethod" value="init" />
+		<property name="arguments">
+			<value>
+				listallcourse=${repo.listallcourses.enabled}
+				listallresourcetypes=${repo.listallresourcetypes.enabled}
+				managedRepositoryEntries=${repo.managed}
+			</value>
+		</property>
+	</bean>
+	
+	<bean id="repositoryManager" class="org.olat.repository.RepositoryManager"/>
+	
+		<bean id="deletionModule" class="org.olat.repository.delete.service.DeletionModule">
+		<property name="baseSecurityManager" ref="baseSecurityManager" />
+		<property name="persistedProperties">
+			<bean class="org.olat.core.configuration.PersistedProperties"
+				scope="prototype" init-method="init" destroy-method="destroy">
+				<constructor-arg index="0" ref="coordinatorManager" />
+				<constructor-arg index="1" ref="deletionModule" />
+			</bean>
+		</property>
+	</bean>
 
-		
-<bean id="repositoryManager" class="org.olat.repository.RepositoryManager"/>
+	<bean
+		class="org.springframework.beans.factory.config.MethodInvokingFactoryBean">
+		<property name="targetObject" ref="deletionModule" />
+		<property name="targetMethod" value="init" />
+		<property name="arguments">
+			<value>
+				archiveRootPath=${archive.dir}
+				deleteEmailResponseToUserName=administrator
+				adminUserName=${deletionModule.adminUserName}
+	    </value>
+		</property>
+	</bean>
+
+	<bean id="repositoryDeletionManager"
+		class="org.olat.repository.delete.service.RepositoryDeletionManager">
+		<constructor-arg index="0" ref="deletionModule" />
+		<property name="mailManager" ref="mailManager" />
+	</bean>
+	
+	<!-- vitero admin. panel -->
+	<bean class="org.olat.core.extensions.action.GenericActionExtension" init-method="initExtensionPoints">
+		<property name="order" value="7216" />
+		<property name="actionController">	
+			<bean class="org.olat.core.gui.control.creator.FactoryControllerCreator" scope="prototype">
+				<property name="factoryName" value="org.olat.repository.RepositoyUIFactory"/>
+				<property name="factoryMethod" value="createLifecylceAdminController"/>
+			</bean>
+		</property>
+		<property name="navigationKey" value="vitero" />
+		<property name="parentTreeNodeIdentifier" value="modulesParent" /> 
+		<property name="i18nActionKey" value="admin.menu.lifecycle.title"/>
+		<property name="i18nDescriptionKey" value="admin.lifecycles.title"/>
+		<property name="translationPackage" value="org.olat.repository"/>
+		<property name="extensionPoints">
+			<list>	
+				<value>org.olat.admin.SystemAdminMainController</value>		
+			</list>
+		</property>
+	</bean>
 
 </beans>

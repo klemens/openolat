@@ -20,21 +20,13 @@
 package org.olat.util;
 
 import java.io.IOException;
-import java.io.StringWriter;
 import java.net.MalformedURLException;
 import java.net.URI;
-import java.util.ArrayList;
+import java.util.StringTokenizer;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import org.apache.commons.lang.ArrayUtils;
-import org.apache.velocity.VelocityContext;
-import org.apache.velocity.app.VelocityEngine;
-import org.apache.velocity.exception.MethodInvocationException;
-import org.apache.velocity.exception.ParseErrorException;
-import org.apache.velocity.exception.ResourceNotFoundException;
-import org.olat.core.logging.OLog;
-import org.olat.core.logging.Tracing;
 
 import com.thoughtworks.selenium.Selenium;
 
@@ -44,9 +36,6 @@ import com.thoughtworks.selenium.Selenium;
  * @author jkraehemann, joel.kraehemann@frentix.com, frentix.com
  */
 public class FunctionalCourseUtil {
-	private final static OLog log = Tracing.createLoggerFor(FunctionalCourseUtil.class);
-	
-	private final static Pattern categoryPattern = Pattern.compile("/([^/]+)");
 	
 	public final static String COURSE_RUN_CSS = "o_course_run";
 	public final static String COURSE_OPEN_EDITOR_CSS = "o_sel_course_open_editor";
@@ -878,36 +867,35 @@ public class FunctionalCourseUtil {
 	 * @param path
 	 * @return
 	 */
-	public String[] createCatalogSelectors(String path){
-		if(path == null ||
-				!path.startsWith("/")){
-			return(null);
+
+	public String selectCatalogPath(Selenium browser, String path){
+		if(path == null || !path.startsWith("/")){
+			return null;
 		}
 		
-		Matcher categoryMatcher = categoryPattern.matcher(path);
-		ArrayList<String> selectors = new ArrayList<String>();
+		functionalUtil.idle(browser);
 		
-		StringBuffer selectorBuffer = new StringBuffer();
-		
-		selectorBuffer.append("xpath=//li//a[contains(@class, '")
-		.append(functionalUtil.getTreeNodeAnchorCss())
-		.append("')]");
-		
-		selectors.add(selectorBuffer.toString());
-		
-		while(categoryMatcher.find()){
-			StringBuffer selector = new StringBuffer();
+		/*
+		 * Determine best matching item by using regular expressions
+		 */
+		String locator = null;
+		String parentPath = null;
+		String currentPath = null;
+		for(StringTokenizer tokenizer=new StringTokenizer(path, "/"); tokenizer.hasMoreTokens(); ) {
+			parentPath = currentPath;
+			currentPath = tokenizer.nextToken();
+
+			StringBuilder sl = new StringBuilder();
+			sl.append("//a[span[text() = '").append(currentPath).append("']]");
+			if(parentPath != null) {
+				sl.append("[ancestor::li[div//span[text() = '").append(parentPath).append("']]]");
+			}
 			
-			selector.append("xpath=//li//a[contains(@class, '")
-			.append(functionalUtil.getTreeNodeCss())
-			.append("')]//span[text()='")
-			.append(categoryMatcher.group(1))
-			.append("']/..");
-			
-			selectors.add(selector.toString());
+			locator = sl.toString();
+			functionalUtil.waitForPageToLoadElement(browser, "xpath=" + locator);
+			browser.click("xpath=" + locator);
 		}
-		
-		return(selectors.toArray(new String[selectors.size()]));
+		return locator;
 	}
 	
 	/**
@@ -968,34 +956,22 @@ public class FunctionalCourseUtil {
 			
 			browser.click(selectorBuffer.toString());
 			
-			String[] catalogSelectors = createCatalogSelectors(catalog);
-			
-			for(String catalogSelector: catalogSelectors){
-				functionalUtil.idle(browser);
-				functionalUtil.waitForPageToLoadElement(browser, catalogSelector);
-
-				if(browser.isElementPresent(catalogSelector + "/../img[contains(@class, 'x-tree-elbow-end-plus')]")){
-					browser.doubleClick(catalogSelector);
-				}else{
-					browser.click(catalogSelector);
-				}
-			}
+			String catalogSelector = selectCatalogPath(browser, catalog);
+			functionalUtil.idle(browser);
+			functionalUtil.waitForPageToLoadElement(browser, catalogSelector);
+			//browser.click("xpath=" + catalogSelector);
 			
 			/* click choose */
-			selectorBuffer = new StringBuffer();
+			StringBuilder selectOk = new StringBuilder();
+			selectOk.append("xpath=//div[contains(@class,'").append(getCatalogCss()).append("')]")
+			  .append("//a[contains(@class,'").append(functionalUtil.getButtonCss()).append("')][contains(@href,'cid%3Aok/')]");
 			
-			selectorBuffer.append("xpath=//div[contains(@class, '")
-			.append(getCatalogCss())
-			.append("')]//a[contains(@class, '")
-			.append(functionalUtil.getButtonDirtyCss())
-			.append("')]");
+			functionalUtil.waitForPageToLoadElement(browser, selectOk.toString());
 			
-			functionalUtil.waitForPageToLoadElement(browser, selectorBuffer.toString());
+			browser.focus(selectOk.toString());
+			browser.click(selectOk.toString());
 			
-			browser.focus(selectorBuffer.toString());
-			browser.click(selectorBuffer.toString());
-			
-			functionalUtil.waitForPageToUnloadElement(browser, selectorBuffer.toString());
+			functionalUtil.waitForPageToUnloadElement(browser, selectOk.toString());
 		}else{
 			functionalUtil.selectOption(browser, getCourseEditorPublishWizardCatalogId(), ADD_TO_CATALOG_NO_VALUE);
 		}
@@ -1016,7 +992,10 @@ public class FunctionalCourseUtil {
 	 * @param position
 	 * @return true on success otherwise false
 	 */
-	public boolean createCourseNode(Selenium browser, CourseNodeAlias node, String shortTitle, String longTitle, String description, int position){
+	public boolean createCourseNode(Selenium browser, CourseNodeAlias node,
+			String shortTitle, String longTitle,
+			String description,
+			int position){
 		functionalUtil.idle(browser);
 		
 		/* click on the appropriate link to create node */
@@ -1057,31 +1036,22 @@ public class FunctionalCourseUtil {
 		
 		/* fill in short title */
 		functionalUtil.idle(browser);
-		
-		selectorBuffer = new StringBuffer();
-		
-		selectorBuffer.append("xpath=(//div[contains(@class, 'o_editor')]//form//input[@type='text'])[1]");
-		
-		browser.type(selectorBuffer.toString(), shortTitle);
+		String selShortTitle = "xpath=(//div[contains(@class, 'o_editor')]//form//input[@type='text'])[1]";
+		browser.type(selShortTitle, shortTitle);
 		
 		/* fill in long title */
-		selectorBuffer = new StringBuffer();
-		
-		selectorBuffer.append("xpath=(//div[contains(@class, 'o_editor')]//form//input[@type='text'])[2]");
-		
-		browser.type(selectorBuffer.toString(), longTitle);
+		String selLongtitle = "xpath=(//div[contains(@class, 'o_editor')]//form//input[@type='text'])[2]";
+		browser.type(selLongtitle, longTitle);
 		
 		/* fill in description */
 		functionalUtil.typeMCE(browser, description);
 		
 		/* click save */
-		selectorBuffer = new StringBuffer();
-		
-		selectorBuffer.append("xpath=(//div[contains(@class, 'o_editor')]//form//button)[1]");
-		browser.click(selectorBuffer.toString());
+		String selSave = "xpath=(//div[contains(@class, 'o_editor')]//form//button[contains(@class, 'b_button')])[1]";
+		browser.click(selSave);
 		functionalUtil.waitForPageToLoad(browser);
 		
-		return(true);
+		return true;
 	}
 	
 	/**
@@ -1092,7 +1062,8 @@ public class FunctionalCourseUtil {
 	 * @return true on success
 	 */
 	public boolean addToEportfolio(Selenium browser, String binder, String page, String structure,
-			String title, String description, String[] tags,
+			String title, String description,
+			String[] tags,
 			FunctionalEPortfolioUtil functionalEPortfolioUtil){
 
 		functionalUtil.idle(browser);
@@ -1168,7 +1139,8 @@ public class FunctionalCourseUtil {
 	 * @param message
 	 * @return true on success, otherwise false
 	 */
-	public boolean postForumMessage(Selenium browser, long courseId, int nthForum, String title, String message){
+	public boolean postForumMessage(Selenium browser, long courseId, int nthForum,
+			String title, String message){
 		if(!openForum(browser, courseId, nthForum))
 			return(false);
 
@@ -1203,13 +1175,13 @@ public class FunctionalCourseUtil {
 		functionalUtil.typeMCE(browser, message);
 		
 		/* save form */
-		selectorBuffer = new StringBuffer();
 		
-		selectorBuffer.append("xpath=//div[contains(@class, '")
-		.append(getCourseRunCss())
-		.append("')]//form//button[last()]");
+		StringBuilder selSave = new StringBuilder();
+		selSave.append("xpath=//div[contains(@class, '")
+		  .append(getCourseRunCss())
+		  .append("')]//form//button[last()][contains(@class,'b_button')]");
 		
-		browser.click(selectorBuffer.toString());
+		browser.click(selSave.toString());
 		
 		functionalUtil.waitForPageToLoad(browser);
 		
@@ -1238,6 +1210,7 @@ public class FunctionalCourseUtil {
 	 * @param content
 	 * @return true on success, otherwise false
 	 */
+
 	public boolean createWikiArticle(Selenium browser, long wikiId, String pagename, String content){
 		if(!openWiki(browser, wikiId))
 			return(false);
@@ -1471,6 +1444,17 @@ public class FunctionalCourseUtil {
 		return(editBlogEntry(browser, title, description, content, entry, edit));
 	}
 	
+	/**
+	 * Edit a blog entry.
+	 * 
+	 * @param browser
+	 * @param title
+	 * @param description
+	 * @param content
+	 * @param entry
+	 * @param edit
+	 * @return
+	 */
 	public boolean editBlogEntry(Selenium browser,
 			String title, String description, String content, int entry, BlogEdit[] edit){
 		StringBuffer selectorBuffer = new StringBuffer();
@@ -1527,30 +1511,28 @@ public class FunctionalCourseUtil {
 		
 		/* fill in form - description */
 		if(edit == null || ArrayUtils.contains(edit, BlogEdit.DESCRIPTION)){
-			functionalUtil.typeMCE(browser, getBlogFormCss(), 0, description);
+			functionalUtil.typeMCE(browser, "o_sel_blog_description", description);
 		}
 		
 		/* fill in form - content */
 		if(edit == null || ArrayUtils.contains(edit, BlogEdit.CONTENT)){
-			functionalUtil.typeMCE(browser, getBlogFormCss(), 1, content);
+			functionalUtil.typeMCE(browser, "o_sel_blog_content", content);
 		}
 		
 		/* save form */
 		if(edit == null || edit.length > 0){
-			selectorBuffer = new StringBuffer();
+			StringBuilder okSelector = new StringBuilder();
 
-			selectorBuffer.append("xpath=//form//div[contains(@class, '")
-			.append(getBlogFormCss())
-			.append("')]//button[last() and contains(@class, '")
-			.append(functionalUtil.getButtonDirtyCss())
-			.append("')]");
+			okSelector.append("xpath=//form//div[contains(@class, '")
+			  .append(getBlogFormCss())
+			  .append("')]//button[last()][contains(@class,'b_button')]");
 
-			functionalUtil.waitForPageToLoadElement(browser, selectorBuffer.toString());
-			browser.click(selectorBuffer.toString());
+			functionalUtil.waitForPageToLoadElement(browser, okSelector.toString());
+			browser.click(okSelector.toString());
 			functionalUtil.waitForPageToLoad(browser);
 		}
 		
-		return(true);
+		return true;
 	}
 	
 	/**
@@ -1935,6 +1917,20 @@ public class FunctionalCourseUtil {
 		}
 				
 		return(true);
+	}
+	
+	/**
+	 * Creates a new forum.
+	 * 
+	 * @param browser
+	 * @param title
+	 * @param description
+	 * @return
+	 */
+	public boolean createForum(Selenium browser, String title, String description){
+		//TODO:JK: implement me
+		
+		return(false);
 	}
 	
 	/**

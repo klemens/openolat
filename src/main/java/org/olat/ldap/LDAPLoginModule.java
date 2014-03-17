@@ -80,6 +80,10 @@ public class LDAPLoginModule implements Initializable {
 	// List of bases where to find users
 	private static List<String> ldapBases;
 	private static Integer connectionTimeout;
+	/**
+	 * Create LDAP users on the fly when authenticated successfully
+	 */
+	private boolean createUsersOnLogin;
 	// Use a valid ldap password and save it as olat password to reduce dependency
 	// to LDAP server availability and allow WeDAV access
 	private static boolean cacheLDAPPwdAsOLATPwdOnLogin;
@@ -97,7 +101,7 @@ public class LDAPLoginModule implements Initializable {
 	// Propagate the password changes onto the LDAP server
 	private static boolean propagatePasswordChangedOnLdapServer;
 	// Configuration for syncing user attributes
-	private static String ldapUserObjectClass;
+	private static String ldapUserFilter;
 	private static String ldapUserCreatedTimestampAttribute;
 	private static String ldapUserLastModifiedTimestampAttribute;
 	private static String ldapUserPasswordAttribute;
@@ -158,7 +162,13 @@ public class LDAPLoginModule implements Initializable {
 			setEnableLDAPLogins(false);
 			return;
 		}
-		if (!checkConfigParameterIsNotEmpty(ldapUserObjectClass)) return;
+		if (ldapUserFilter != null) {
+			if (!ldapUserFilter.startsWith("(") || !ldapUserFilter.endsWith(")")) {
+				log.error("Wrong configuration 'ldapUserFilter'. Set filter to emtpy value or enclose filter in brackets like '(objectClass=person)'. Disabling LDAP");
+				setEnableLDAPLogins(false);
+				return;
+			}
+		}
 		if (!checkConfigParameterIsNotEmpty(ldapUserCreatedTimestampAttribute)) return;
 		if (!checkConfigParameterIsNotEmpty(ldapUserLastModifiedTimestampAttribute)) return;
 		if (userAttrMap == null || userAttrMap.size() == 0) {
@@ -236,7 +246,7 @@ public class LDAPLoginModule implements Initializable {
 	 */
 	private void initStartSyncJob() {
 		LDAPError errors = new LDAPError();
-		if (ldapManager.doBatchSync(errors)) {
+		if (ldapManager.doBatchSync(errors, true)) {
 			log.info("LDAP start sync: users synced");
 		} else {
 			log.warn("LDAP start sync error: " + errors.get());
@@ -258,12 +268,10 @@ public class LDAPLoginModule implements Initializable {
 			log.info("LDAP cron syncer is enabled with expression::" + ldapSyncCronSyncExpression);
 		} catch (ParseException e) {
 			setLdapSyncCronSync(false);
-			log
-					.error(
-							"LDAP configuration in attribute 'ldapSyncCronSyncExpression' is not valid ("
-									+ ldapSyncCronSyncExpression
-									+ "). See http://quartz.sourceforge.net/javadoc/org/quartz/CronTrigger.html to learn more about the cron syntax. Disabling LDAP cron syncing",
-							e);
+			log.error("LDAP configuration in attribute 'ldapSyncCronSyncExpression' is not valid ("
+				+ ldapSyncCronSyncExpression
+				+ "). See http://quartz.sourceforge.net/javadoc/org/quartz/CronTrigger.html to learn more about the cron syntax. Disabling LDAP cron syncing",
+				e);
 		} catch (SchedulerException e) {
 			log.error("Error while scheduling LDAP cron sync job. Disabling LDAP cron syncing", e);
 		}
@@ -473,8 +481,13 @@ public class LDAPLoginModule implements Initializable {
 		ldapSyncOnStartup = ldapStartSyncs;
 	}
 
-	public void setLdapUserObjectClass(String objectClass) {
-		ldapUserObjectClass = objectClass.trim();
+	public void setLdapUserFilter(String filter) {
+		if (StringHelper.containsNonWhitespace(filter)) {
+			ldapUserFilter = filter.trim();			
+		} else {
+			// set explicitly to null for no filter
+			ldapUserFilter = null;
+		}
 	}
 
 	public void setLdapSystemDN(String ldapSystemDN) {
@@ -581,7 +594,11 @@ public class LDAPLoginModule implements Initializable {
 	public void setCacheLDAPPwdAsOLATPwdOnLogin(boolean cacheLDAPPwdAsOLATPwdOnLogin) {
 		LDAPLoginModule.cacheLDAPPwdAsOLATPwdOnLogin = cacheLDAPPwdAsOLATPwdOnLogin;
 	}
-	
+
+	public void setCreateUsersOnLogin(boolean createUsersOnLogin) {
+		this.createUsersOnLogin = createUsersOnLogin;
+	}
+
 	public void setConvertExistingLocalUsersToLDAPUsers(boolean convertExistingLocalUsersToLDAPUsers) {
 		LDAPLoginModule.convertExistingLocalUsersToLDAPUsers = convertExistingLocalUsersToLDAPUsers;
 	}
@@ -621,8 +638,11 @@ public class LDAPLoginModule implements Initializable {
 		return connectionTimeout;
 	}
 
-	public static String getLdapUserObjectClass() {
-		return ldapUserObjectClass;
+	/**
+	 * @return A filter expression enclosed in () brackets to filter for valid users or NULL for no filtering
+	 */
+	public static String getLdapUserFilter() {
+		return ldapUserFilter;
 	}
 
 	public static String getLdapUserLastModifiedTimestampAttribute() {
@@ -702,6 +722,10 @@ public class LDAPLoginModule implements Initializable {
 
 	public static String getLdapSyncCronSyncExpression() {
 		return ldapSyncCronSyncExpression;
+	}
+	
+	public boolean isCreateUsersOnLogin() {
+		return createUsersOnLogin;
 	}
 
 	public static boolean isCacheLDAPPwdAsOLATPwdOnLogin() {

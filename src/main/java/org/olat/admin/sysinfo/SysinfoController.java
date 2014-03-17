@@ -32,9 +32,10 @@ import java.lang.management.MemoryMXBean;
 import java.util.Calendar;
 import java.util.Date;
 
+import org.olat.admin.sysinfo.manager.SessionStatsManager;
+import org.olat.admin.sysinfo.model.SessionsStats;
 import org.olat.basesecurity.BaseSecurity;
 import org.olat.core.CoreSpringFactory;
-import org.olat.core.dispatcher.DispatcherAction;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.form.flexible.FormItemContainer;
 import org.olat.core.gui.components.form.flexible.elements.MultipleSelectionElement;
@@ -58,6 +59,7 @@ import org.olat.core.util.WebappHelper;
 public class SysinfoController extends FormBasicController {
 	
 	private final BaseSecurity securityManager;
+	private final SessionStatsManager sessionStatsManager;
 	
 	/**
 	 * @param ureq
@@ -67,6 +69,7 @@ public class SysinfoController extends FormBasicController {
 		super(ureq, wControl, "sysinfo");
 		
 		securityManager = CoreSpringFactory.getImpl(BaseSecurity.class);
+		sessionStatsManager = CoreSpringFactory.getImpl(SessionStatsManager.class);
 
 		initForm(ureq);
 	}
@@ -118,8 +121,32 @@ public class SysinfoController extends FormBasicController {
 		//controllers
 		int controllerCnt = DefaultController.getControllerCount();
 		uifactory.addStaticTextElement("controllercount", "runtime.controllercount", Integer.toString(controllerCnt), runtimeCont);
-		int numOfDispatchingThreads = DispatcherAction.getConcurrentCounter();
+		int numOfDispatchingThreads = sessionStatsManager.getConcurrentCounter();
 		uifactory.addStaticTextElement("dispatchingthreads", "runtime.dispatchingthreads", Integer.toString(numOfDispatchingThreads), runtimeCont);
+		
+		//sessions and clicks
+		String sessionAndClicksPage = velocity_root + "/session_clicks.html";
+		FormLayoutContainer sessionAndClicksCont = FormLayoutContainer.createCustomFormLayout("session_clicks", getTranslator(), sessionAndClicksPage);
+		runtimeCont.add(sessionAndClicksCont);
+		sessionAndClicksCont.setLabel("sess.and.clicks", null);
+		
+		//last 5 minutes
+		long activeSessions = sessionStatsManager.getActiveSessions(300);
+		sessionAndClicksCont.contextPut("count5Minutes", String.valueOf(activeSessions));
+		SessionsStats stats = sessionStatsManager.getSessionsStatsLast(300);
+		sessionAndClicksCont.contextPut("click5Minutes", String.valueOf(stats.getAuthenticatedClickCalls()));
+		sessionAndClicksCont.contextPut("poll5Minutes", String.valueOf(stats.getAuthenticatedPollerCalls()));
+		sessionAndClicksCont.contextPut("request5Minutes", String.valueOf(stats.getRequests()));
+		sessionAndClicksCont.contextPut("minutes", String.valueOf(5));
+		
+		//last minute
+		activeSessions = sessionStatsManager.getActiveSessions(60);
+		sessionAndClicksCont.contextPut("count1Minute", String.valueOf(activeSessions));
+		stats = sessionStatsManager.getSessionsStatsLast(60);
+		sessionAndClicksCont.contextPut("click1Minute", String.valueOf(stats.getAuthenticatedClickCalls()));
+		sessionAndClicksCont.contextPut("poll1Minute", String.valueOf(stats.getAuthenticatedPollerCalls()));
+		sessionAndClicksCont.contextPut("request1Minute", String.valueOf(stats.getRequests()));
+		sessionAndClicksCont.contextPut("oneMinute", "1");
 
 		//server informations
 		FormLayoutContainer serverCont = FormLayoutContainer.createDefaultFormLayout("server", getTranslator());
@@ -128,7 +155,7 @@ public class SysinfoController extends FormBasicController {
 		
 		//version
 		uifactory.addStaticTextElement("version", "sysinfo.version", Settings.getFullVersionInfo(), serverCont);
-		uifactory.addStaticTextElement("version.hg", "sysinfo.version.hg", Settings.getRepoRevision(), serverCont);
+		uifactory.addStaticTextElement("version.hg", "sysinfo.version.hg", WebappHelper.getChangeSet(), serverCont);
 		String buildDate = format.formatDateAndTime(Settings.getBuildDate());
 		uifactory.addStaticTextElement("version.date", "sysinfo.version.date", buildDate, serverCont);
 
@@ -142,7 +169,7 @@ public class SysinfoController extends FormBasicController {
 		String nodeId = StringHelper.containsNonWhitespace(Settings.getNodeInfo()) ? Settings.getNodeInfo() : "N1";
 		uifactory.addStaticTextElement("node", "sysinfo.node", nodeId, serverCont);
 
-		File baseDir = new File(WebappHelper.getContextRoot(), "..");
+		File baseDir = new File(WebappHelper.getContextRoot());
 		String baseDirPath = null;
 		try {
 			baseDirPath = baseDir.getCanonicalPath();
@@ -150,6 +177,7 @@ public class SysinfoController extends FormBasicController {
 			baseDirPath = baseDir.getAbsolutePath();
 		}
 		uifactory.addStaticTextElement("sysinfo.basedir", "sysinfo.basedir", baseDirPath, serverCont);
+		uifactory.addStaticTextElement("sysinfo.olatdata", "sysinfo.olatdata", WebappHelper.getUserDataRoot(), serverCont);
 	}
 	
 	private String getHeapValue() {

@@ -123,7 +123,7 @@ public class ChatController extends BasicController implements GenericEventListe
 		mainVC.contextPut("isAjaxMode", Boolean.valueOf(ajaxOn));
 		
 		//	checks with the given intervall if dirty components are available to rerender
-		jsc = new JSAndCSSComponent("intervall", this.getClass(), null, null, false, null, 2500);
+		jsc = new JSAndCSSComponent("intervall", this.getClass(), 2500);
 		mainVC.put("updatecontrol", jsc);
 
 		// configure anonym mode depending on configuration. separate configurations for course and group chats
@@ -141,7 +141,6 @@ public class ChatController extends BasicController implements GenericEventListe
 		}
 		
 		// register to chat events for this resource
-		imService.listenChat(getIdentity(), getOlatResourceable(), defaultAnonym, vip, this);
 		
 		if(privateReceiverKey == null) {
 			buddyList = new Roster(getIdentity().getKey());
@@ -150,14 +149,19 @@ public class ChatController extends BasicController implements GenericEventListe
 			//chat started as anonymous depending on configuratino
 			rosterCtrl = new RosterForm(ureq, getWindowControl(), buddyList, defaultAnonym, offerAnonymMode);
 			listenTo(rosterCtrl);
+			String nickName = rosterCtrl.getNickName();
+			imService.listenChat(getIdentity(), getOlatResourceable(), nickName, defaultAnonym, vip, this);
 		} else {
 			buddyList = null;
+			imService.listenChat(getIdentity(), getOlatResourceable(), null, defaultAnonym, vip, this);
 		}
 
 		chatPanelCtr = new FloatingResizableDialogController(ureq, getWindowControl(), mainVC,
-				roomName , width, height, offsetX, offsetY, rosterCtrl == null ? null : rosterCtrl.getInitialComponent(),
+				roomName , width, height, offsetX, offsetY,
+				rosterCtrl == null ? null : rosterCtrl.getInitialComponent(),
 				translate("groupchat.roster"), true, false, true, String.valueOf(hashCode()));
 		listenTo(chatPanelCtr);
+		chatPanelCtr.setElementCSSClass("o_instantmessaging_chat_dialog");
 		
 		String pn = chatPanelCtr.getPanelName();
 		
@@ -279,7 +283,7 @@ public class ChatController extends BasicController implements GenericEventListe
 			fromName = rosterCtrl.getNickName();
 		} else {
 			anonym = false;
-			fromName = userManager.getUserDisplayName(getIdentity().getUser());
+			fromName = userManager.getUserDisplayName(getIdentity());
 		}
 		InstantMessage message;
 		if(privateReceiverKey == null) {
@@ -314,6 +318,8 @@ public class ChatController extends BasicController implements GenericEventListe
 	}
 	
 	private void appendToMessageHistory(InstantMessage message, boolean focus) {
+		if(message == null || message.getBody() == null) return;
+		
 		String m = message.getBody().replaceAll("<br/>\n", "\r\n");
 		m = prepareMsgBody(m.replaceAll("<", "&lt;").replaceAll(">", "&gt;")).replaceAll("\r\n", "<br/>\n");
 		String creationDate = formatter.formatTime(message.getCreationDate());

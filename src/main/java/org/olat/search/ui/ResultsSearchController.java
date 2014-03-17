@@ -25,8 +25,6 @@ import static org.olat.search.ui.ResultsController.RESULT_PER_PAGE;
 import java.util.List;
 import java.util.Properties;
 
-import org.olat.core.commons.services.search.SearchResults;
-import org.olat.core.commons.services.search.ui.SearchEvent;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.form.flexible.FormItem;
 import org.olat.core.gui.components.form.flexible.FormItemContainer;
@@ -38,6 +36,7 @@ import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.Event;
 import org.olat.core.gui.control.WindowControl;
 import org.olat.core.util.StringHelper;
+import org.olat.search.SearchResults;
 
 /**
  * Description:<br>
@@ -145,7 +144,7 @@ public class ResultsSearchController extends SearchInputController {
 			hideDidYouMeanWords();
 			SearchResults results = doSearch(ureq, didYouMeanWord, condQueries, getParentContext(), getDocumentType(), key, 0, RESULT_PER_PAGE, false);
 			resultCtlr.setSearchResults(ureq, results);
-			persistSearch(ureq);
+			persistSearch();
 		} else if (source == extendedSearchLink) {
 			extendedSearch = true;
 			advancedSearchController.setSearchString(getSearchString());
@@ -198,7 +197,7 @@ public class ResultsSearchController extends SearchInputController {
 			resultCtlr.nextSearchResults(ureq, results);
 		}
 		
-		persistSearch(ureq);
+		persistSearch();
 	}
 
 	@Override

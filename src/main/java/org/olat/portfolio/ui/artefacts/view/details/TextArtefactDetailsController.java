@@ -19,10 +19,7 @@
  */
 package org.olat.portfolio.ui.artefacts.view.details;
 
-import javax.servlet.http.HttpServletRequest;
-
 import org.olat.core.CoreSpringFactory;
-import org.olat.core.dispatcher.mapper.Mapper;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.Component;
 import org.olat.core.gui.components.link.Link;
@@ -33,14 +30,12 @@ import org.olat.core.gui.control.Event;
 import org.olat.core.gui.control.WindowControl;
 import org.olat.core.gui.control.controller.BasicController;
 import org.olat.core.gui.control.generic.closablewrapper.CloseableCalloutWindowController;
-import org.olat.core.gui.media.MediaResource;
 import org.olat.core.util.Formatter;
+import org.olat.core.util.StringHelper;
 import org.olat.core.util.filter.Filter;
 import org.olat.core.util.filter.FilterFactory;
 import org.olat.core.util.vfs.VFSContainer;
-import org.olat.core.util.vfs.VFSItem;
-import org.olat.core.util.vfs.VFSLeaf;
-import org.olat.core.util.vfs.VFSMediaResource;
+import org.olat.core.util.vfs.VFSContainerMapper;
 import org.olat.portfolio.manager.EPFrontendManager;
 import org.olat.portfolio.model.artefacts.AbstractArtefact;
 import org.olat.portfolio.ui.artefacts.collect.EPCreateTextArtefactStepForm00;
@@ -81,21 +76,14 @@ public class TextArtefactDetailsController extends BasicController {
 		if (!readOnlyMode) {
 			// prepare an edit link
 			String fulltext = FilterFactory.getHtmlTagAndDescapingFilter().filter(artFulltextContent);
+			fulltext = StringHelper.xssScan(fulltext);
 			fulltext = Formatter.truncate(fulltext, 50);
 			editBtn = LinkFactory.createCustomLink("text.edit.link", "edit", fulltext, Link.NONTRANSLATED, vC, this);
 			editBtn.setCustomEnabledLinkCSS("b_inline_editable b_ep_nolink");
 		} else {
 			// register a mapper to deliver uploaded media files
 			final VFSContainer artefactFolder = ePFMgr.getArtefactContainer(artefact);
-			String mapperBase = registerMapper(ureq, new Mapper() {			
-				@SuppressWarnings("unused")
-				@Override
-				public MediaResource handle(String relPath, HttpServletRequest request) {
-					VFSItem currentItem = artefactFolder.resolve(relPath);
-					VFSMediaResource vmr = new VFSMediaResource((VFSLeaf)currentItem);
-					return vmr;
-				}
-			});
+			String mapperBase = registerMapper(ureq, new VFSContainerMapper(artefactFolder));
 			Filter urlFilter = FilterFactory.getBaseURLToMediaRelativeURLFilter(mapperBase);
 			String wrappedText = urlFilter.filter(artFulltextContent);
 			vC.contextPut("text", wrappedText);
@@ -104,14 +92,12 @@ public class TextArtefactDetailsController extends BasicController {
 	
 
 	@Override
-	@SuppressWarnings("unused")
 	protected void event(UserRequest ureq, Component source, Event event) {
 		if (source == editBtn) {
 			popupEditorCallout(ureq);
 		} 
 	}
 
-	@SuppressWarnings("unused")
 	@Override
 	protected void event(UserRequest ureq, Controller source, Event event) {
 		if (source == calloutCtrl && event.equals(CloseableCalloutWindowController.CLOSE_WINDOW_EVENT)) {

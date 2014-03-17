@@ -20,14 +20,14 @@
     #if ($result.parentContextName && $result.parentContextName != "")
 		<div class="o_search_result_context">
 			<strong>$r.translate("label.search.result.parent.context"):</strong>
-			$r.translate("$result.parentContextType") "$result.parentContextName" 
+			$r.translate("$result.parentContextType") "$r.escapeHtml($result.parentContextName)" 
 		</div> 
     #end
     
     <div class="o_search_result_details" style="display: none" id="o_search_result_$id">
-		#if (!$result.author.equals("") ) 
+		#if (!$author.equals("") ) 
 			<div class="o_search_result_author">
-		    	<strong>$r.translate("label.search.author"):</strong> $result.author.
+		    	<strong>$r.translate("label.search.author"):</strong> $r.escapeHtml($author).
 			</div>
 		#end
 		#if ($result.lastChange )
@@ -48,16 +48,18 @@
     
 	<script type="text/javascript">
 	/* <![CDATA[ */ 
-		Ext.onReady(function() {  
-			Ext.get('o_search_result_show_$id').on('click', function() { 
-				Effect.toggle('o_search_result_$id', 'slide', {duration: 0.3});
-				$('o_search_result_show_$id').hide();
-				$('o_search_result_hide_$id').show();
+		jQuery(function() {  
+			jQuery('#o_search_result_show_$id').click(function() { 
+				jQuery('#o_search_result_$id').slideDown(300, function() {
+					jQuery('#o_search_result_show_$id').hide();
+					jQuery('#o_search_result_hide_$id').show();
+				})
 			});
-			Ext.get('o_search_result_hide_$id').on('click', function() { 
-				Effect.toggle('o_search_result_$id', 'slide', {duration: 0.3});
-				$('o_search_result_hide_$id').hide();
-				$('o_search_result_show_$id').show();
+			jQuery('#o_search_result_hide_$id').click(function() { 
+				jQuery('#o_search_result_$id').slideUp(300, function() {
+					jQuery('#o_search_result_hide_$id').hide();
+					jQuery('#o_search_result_show_$id').show();
+				})
 			});
 		});
 	/* ]]> */

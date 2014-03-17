@@ -33,7 +33,6 @@ import java.util.Map;
 
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.tabbedpane.TabbedPane;
-import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.WindowControl;
 import org.olat.core.gui.control.generic.tabbable.TabbableController;
 import org.olat.core.gui.translator.Translator;
@@ -110,15 +109,6 @@ public class ItemNode extends GenericQtiNode {
 	}
 
 	/**
-	 * @see org.olat.ims.qti.editor.tree.IQtiNode#createRunController(org.olat.core.gui.UserRequest,
-	 *      org.olat.core.gui.control.WindowControl)
-	 */
-	public Controller createRunController(UserRequest ureq, WindowControl wControl) {
-		// TODO Auto-generated method stub
-		return null;
-	}
-
-	/**
 	 * @see org.olat.ims.qti.editor.tree.GenericQtiNode#createEditTabbedPane(org.olat.core.gui.UserRequest,
 	 *      org.olat.core.gui.control.WindowControl,
 	 *      org.olat.core.gui.translator.Translator, QTIEditorMainController)
@@ -138,6 +128,11 @@ public class ItemNode extends GenericQtiNode {
 			}
 		}
 		return myTabbedPane;
+	}
+
+	@Override
+	public void childNodeChanges() {
+		//
 	}
 
 	/**
@@ -186,12 +181,12 @@ public class ItemNode extends GenericQtiNode {
 		qtiState.put("QUESTION.HINTTEXT", question.getHintText());
 		Material questMaterial = question.getQuestion();
 		qtiState.put("QUESTION.MATERIAL.ASTEXT", questMaterial.renderAsText());
-		List ids = new ArrayList();
-		List asTexts = new ArrayList();
-		List feedbacks = new ArrayList();
-		List responses = question.getResponses();
-		for (Iterator iter = responses.iterator(); iter.hasNext();) {
-			Response resp = (Response) iter.next();
+		List<String> ids = new ArrayList<String>();
+		List<String> asTexts = new ArrayList<String>();
+		List<String> feedbacks = new ArrayList<String>();
+		List<Response> responses = question.getResponses();
+		for (Iterator<Response> iter = responses.iterator(); iter.hasNext();) {
+			Response resp = iter.next();
 			if (isFIB) {
 				if (FIBResponse.TYPE_BLANK.equals(((FIBResponse) resp).getType())) {
 					asTexts.add(formatFIBResponseAsText((FIBResponse) resp));
@@ -288,12 +283,12 @@ public class ItemNode extends GenericQtiNode {
 			String oldFeedback = null;
 			String newFeedback = null;
 			String responsesChanges = "";
-			List responses = question.getResponses();
+			List<Response> responses = question.getResponses();
 			int i = 0;
 			boolean nothingToDo = false;
-			for (Iterator iter = responses.iterator(); iter.hasNext();) {
+			for (Iterator<Response> iter = responses.iterator(); iter.hasNext();) {
 				nothingToDo = false;
-				Response resp = (Response) iter.next();
+				Response resp = iter.next();
 				if (isFIB) {
 					if (FIBResponse.TYPE_BLANK.equals(((FIBResponse) resp).getType())) {
 						newResp = formatFIBResponseAsText((FIBResponse) resp);

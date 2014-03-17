@@ -19,26 +19,10 @@
  */
 package org.olat.repository.handlers;
 
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
-import java.io.File;
-import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.StringWriter;
-import java.io.Writer;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.zip.ZipEntry;
-import java.util.zip.ZipInputStream;
-import java.util.zip.ZipOutputStream;
-
-import javax.xml.transform.Result;
-import javax.xml.transform.Source;
-import javax.xml.transform.Transformer;
-import javax.xml.transform.TransformerFactory;
-import javax.xml.transform.stream.StreamResult;
-import javax.xml.transform.stream.StreamSource;
 
 import org.olat.core.CoreSpringFactory;
 import org.olat.core.commons.fullWebApp.LayoutMain3ColsController;
@@ -54,25 +38,16 @@ import org.olat.core.id.OLATResourceable;
 import org.olat.core.logging.AssertException;
 import org.olat.core.logging.OLog;
 import org.olat.core.logging.Tracing;
-import org.olat.core.util.FileUtils;
 import org.olat.core.util.Util;
 import org.olat.core.util.coordinate.CoordinatorManager;
 import org.olat.core.util.coordinate.LockResult;
-import org.olat.core.util.xml.XStreamHelper;
 import org.olat.portfolio.EPSecurityCallback;
 import org.olat.portfolio.EPSecurityCallbackFactory;
 import org.olat.portfolio.EPTemplateMapResource;
 import org.olat.portfolio.EPUIFactory;
 import org.olat.portfolio.manager.EPFrontendManager;
 import org.olat.portfolio.manager.EPXStreamHandler;
-import org.olat.portfolio.model.restriction.CollectRestriction;
 import org.olat.portfolio.model.structel.EPAbstractMap;
-import org.olat.portfolio.model.structel.EPDefaultMap;
-import org.olat.portfolio.model.structel.EPPage;
-import org.olat.portfolio.model.structel.EPStructureElement;
-import org.olat.portfolio.model.structel.EPStructureToArtefactLink;
-import org.olat.portfolio.model.structel.EPStructureToStructureLink;
-import org.olat.portfolio.model.structel.EPStructuredMap;
 import org.olat.portfolio.model.structel.EPStructuredMapTemplate;
 import org.olat.portfolio.model.structel.PortfolioStructure;
 import org.olat.portfolio.model.structel.PortfolioStructureMap;
@@ -84,8 +59,6 @@ import org.olat.repository.controllers.RepositoryAddCallback;
 import org.olat.repository.controllers.WizardCloseResourceController;
 import org.olat.resource.accesscontrol.ui.RepositoryMainAccessControllerWrapper;
 import org.olat.resource.references.ReferenceManager;
-
-import com.thoughtworks.xstream.XStream;
 
 import de.bps.onyx.plugin.StreamMediaResource;
 
@@ -99,7 +72,6 @@ import de.bps.onyx.plugin.StreamMediaResource;
  * @author srosse, stephane.rosse@frentix.com, http://www.frentix.com
  */
 // Loads of parameters are unused
-@SuppressWarnings("unused")
 public class PortfolioHandler implements RepositoryHandler {
 	private static final OLog log = Tracing.createLoggerFor(PortfolioHandler.class);
 	
@@ -250,8 +222,9 @@ public class PortfolioHandler implements RepositoryHandler {
 	 *      org.olat.core.gui.UserRequest,
 	 *      org.olat.core.gui.control.WindowControl)
 	 */
-	public Controller createEditorController(OLATResourceable res, UserRequest ureq, WindowControl control) {
-		return createLaunchController(res, ureq, control);
+	@Override
+	public Controller createEditorController(RepositoryEntry re, UserRequest ureq, WindowControl control) {
+		return createLaunchController(re, ureq, control);
 	}
 
 	/**
@@ -259,11 +232,11 @@ public class PortfolioHandler implements RepositoryHandler {
 	 *      java.lang.String, org.olat.core.gui.UserRequest,
 	 *      org.olat.core.gui.control.WindowControl)
 	 */
-	public MainLayoutController createLaunchController(OLATResourceable res, UserRequest ureq,
+	@Override
+	public MainLayoutController createLaunchController(RepositoryEntry re, UserRequest ureq,
 			WindowControl wControl) {
-		RepositoryEntry repoEntry = RepositoryManager.getInstance().lookupRepositoryEntry(res, false);
 		EPFrontendManager ePFMgr = (EPFrontendManager) CoreSpringFactory.getBean("epFrontendManager");
-		PortfolioStructureMap map = (PortfolioStructureMap)ePFMgr.loadPortfolioStructure(repoEntry.getOlatResource());
+		PortfolioStructureMap map = (PortfolioStructureMap)ePFMgr.loadPortfolioStructure(re.getOlatResource());
 		EPSecurityCallback secCallback = EPSecurityCallbackFactory.getSecurityCallback(ureq, map, ePFMgr);
 		Controller epCtr = EPUIFactory.createPortfolioStructureMapController(ureq, wControl, map, secCallback);
 		LayoutMain3ColsController layoutCtr = new LayoutMain3ColsController(ureq, wControl, null, null, epCtr.getInitialComponent(), null);
@@ -272,7 +245,7 @@ public class PortfolioHandler implements RepositoryHandler {
 		}
 		layoutCtr.addDisposableChildController(epCtr);
 		//fxdiff VCRP-1: access control of learn resources
-		RepositoryMainAccessControllerWrapper wrapper = new RepositoryMainAccessControllerWrapper(ureq, wControl, res, layoutCtr);
+		RepositoryMainAccessControllerWrapper wrapper = new RepositoryMainAccessControllerWrapper(ureq, wControl, re, layoutCtr);
 		return wrapper;
 	}
 

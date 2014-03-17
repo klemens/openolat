@@ -2,29 +2,57 @@
 <beans xmlns="http://www.springframework.org/schema/beans"
 	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
 	xsi:schemaLocation="http://www.springframework.org/schema/beans 
-                        http://www.springframework.org/schema/beans/spring-beans-3.0.xsd">
+                        http://www.springframework.org/schema/beans/spring-beans.xsd">
 
-	<!-- SEARCH SERVICE SIDE CONFIGURATION -->
-	<!-- ================================= -->
+	<!-- Search components -->
+	<bean id="org.olat.admin.user.UserSearchUIService"
+		class="org.olat.admin.user.UserSearchUIServiceImpl" />
+	
+	<bean id="org.olat.search.ui.SearchServiceUIFactory"
+		class="org.olat.search.ui.SearchControllerFactory" />
 
 	<bean id="searchServiceFactory" class="org.olat.search.service.SearchServiceFactory">
 	  <constructor-arg index="0" ref="org.olat.search.service.${search.service}" />
    	</bean>
    	
-	<bean id="org.olat.search.service.enabled" class="org.olat.search.service.SearchServiceImpl" init-method="init" destroy-method="stop" depends-on="searchModuleInit" lazy-init="true">
+	<bean id="org.olat.search.service.enabled" class="org.olat.search.service.SearchServiceImpl"
+		init-method="init" destroy-method="stop" depends-on="searchModuleInit" lazy-init="true">
 		<constructor-arg index="0" ref="searchModule" />
 		<constructor-arg index="1" ref="mainIndexer" />
 		<constructor-arg index="2" ref="searchProvider" />
 		<constructor-arg index="3" ref="schedulerFactoryBean"/>
-	    <!-- When index is older than maxIndexTime in millis, an error will be logged 432000000 = 5d, 86400 = 1d -->
-	   	<property name="maxIndexTime" value="432000000"/>
+		<property name="lifeIndexer" ref="jmsIndexer"/>
 		<property name="metadataFields" ref="SearchMetadataFieldsProvider" />
-	</bean>
-
-	<bean id="org.olat.search.service.disabled" class="org.olat.search.service.SearchServiceDisabled" init-method="init" destroy-method="stop" lazy-init="true">
+		<property name="searchExecutor" ref="searchExecutor" />
 	</bean>
 	
-	<bean id="searchModule" class="org.olat.core.commons.services.search.SearchModule" lazy-init="true">
+		<bean id="searchExecutor" class="org.springframework.core.task.support.ExecutorServiceAdapter">
+		<constructor-arg index="0" ref="searchSpringExecutor" />
+	</bean>
+	
+	<bean id="searchSpringExecutor" class="org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor">
+		<property name="corePoolSize" value="2" />
+		<property name="maxPoolSize" value="3" />
+		<property name="queueCapacity" value="100" />
+	</bean>
+
+	<bean id="org.olat.search.service.disabled" class="org.olat.search.service.SearchServiceDisabled"
+		init-method="init" destroy-method="stop" lazy-init="true">
+	</bean>
+	
+	<bean id="jmsIndexer" class="org.olat.search.service.indexer.JmsIndexer" init-method="springInit" destroy-method="stop">
+		<constructor-arg index="0" ref="searchModule" />
+		<property name="connectionFactory" ref="indexConnectionFactory"/>
+		<property name="jmsQueue" ref="indexQueue"/>
+		<property name="searchService" ref="org.olat.search.service.${search.service}" />
+		<property name="indexers">
+			<list>
+				<ref bean="questionItemIndexer" />
+			</list>
+		</property>
+	</bean>
+	
+	<bean id="searchModule" class="org.olat.search.SearchModule" lazy-init="true">
 		<property name="fileBlackList">
 			<list>
 				<!-- list of files which will not be indexed -->
@@ -55,6 +83,7 @@
 		<property name="connectionFactory" ref="searchConnectionFactory"/>
 		<property name="searchQueue" ref="searchQueue"/>
 		<property name="receiveTimeout" value="45000"/>
+		<property name="taskExecutorManager" ref="taskExecutorManager"/>
 	</bean>
 	
 	<bean id="fileDocumentFactory" class="org.olat.search.service.document.file.FileDocumentFactory">
@@ -69,11 +98,14 @@
 	       <property name="targetMethod" value="init" />
 	       <property name="arguments">
 	             <value>
-	        		generateIndexAtStartup=${generate.index.at.startup}		
+	        searchService=${search.service}
+	             
+	        generateIndexAtStartup=${generate.index.at.startup}		
 					tempIndexPath=${search.index.tempIndex}
 					tempSpellCheckPath=${search.index.tempSpellcheck}
 					pdfTextBufferPath=${search.index.pdfBuffer}
 					indexPath=${search.index.path}
+					permanentIndexPath=${search.permanent.index.path}
 					<!-- indexInterval in ms (0=no delay) -->
 					indexInterval=0
 					documentsPerInterval=4
@@ -89,7 +121,9 @@
 					<!-- Restart only at this day 1=Sunday,2=Monday...7=Saturday (0=restart every day) -->
 					restartDayOfWeek=0
 					<!-- Enable text-buffering of extracted PDF text -->
-					pdfTextBuffering=true		
+					pdfTextBuffering=true
+					pdfExternalIndexer=${search.pdf.external}
+					pdfExternExtractorCommand=${search.pdf.external.command}
 					<!-- updater runs every xx ms (0=stopped) -->
 					<!-- The updater is NOT implemented for all index elements, do not use it for now! -->
 					updateInterval=0
@@ -233,6 +267,10 @@
 		</property>				
 	</bean>
 	
+	
+	<!-- Question items -->
+	<bean id="questionItemIndexer" class="org.olat.search.service.indexer.QuestionItemIndexer"/>
+	
 	<!-- Inject security callback to IdentityIndexer which reduce the visibility of users 
 	     via the full text search to admin and user managers -->
 	<!--
@@ -266,6 +304,13 @@
 		<property name="receiveTimeout" value="45000"/>
 		<property name="timeToLive" value="45000"/>
 	</bean>
+	
+	
+	<bean id="pdfInternalIndexer" class="org.olat.search.service.document.file.pdf.PdfBoxExtractor"/>
+	<bean id="pdfExternalIndexer" class="org.olat.search.service.document.file.pdf.PdfExternalExtractor">
+		<property name="searchModule" ref="searchModule" />
+	</bean>
+	
 
 	<!-- SEARCH COMMON CONFIGURATION (PROXY-SIDE AND SERVICE-SIDE) -->
 	<!-- ========================================================= -->

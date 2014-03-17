@@ -22,7 +22,7 @@ package org.olat.group.ui;
 import java.util.Set;
 
 import org.olat.core.CoreSpringFactory;
-import org.olat.core.commons.taskExecutor.TaskExecutorManager;
+import org.olat.core.commons.services.taskexecutor.TaskExecutorManager;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.form.flexible.FormItem;
 import org.olat.core.gui.components.form.flexible.FormItemContainer;
@@ -253,7 +253,7 @@ public class BusinessGroupModuleAdminController extends FormBasicController impl
 				businessGroupService.dedupMembers(getIdentity(), coaches, participants, BusinessGroupModuleAdminController.this);
 			}
 		};
-		TaskExecutorManager.getInstance().runTask(worker);
+		CoreSpringFactory.getImpl(TaskExecutorManager.class).execute(worker);
 	}
 
 	@Override

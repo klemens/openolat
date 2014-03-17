@@ -38,7 +38,6 @@ import org.olat.core.gui.control.WindowControl;
 import org.olat.core.gui.control.generic.closablewrapper.CloseableModalController;
 import org.olat.core.gui.control.generic.dialog.DialogController;
 import org.olat.core.gui.translator.Translator;
-import org.olat.core.util.Formatter;
 import org.olat.core.util.Util;
 import org.olat.ims.qti.editor.beecom.objects.FIBQuestion;
 import org.olat.ims.qti.editor.beecom.objects.FIBResponse;
@@ -108,14 +107,14 @@ public class FIBItemController extends DefaultController implements ControllerEv
 			if (sPosid != null) posid = Integer.parseInt(sPosid);
 			if (cmd.equals("up")) {
 				if (posid > 0) {
-					List elements = item.getQuestion().getResponses();
-					Object obj = elements.remove(posid);
+					List<Response> elements = item.getQuestion().getResponses();
+					Response obj = elements.remove(posid);
 					elements.add(posid - 1, obj);
 				}
 			} else if (cmd.equals("down")) {
-				List elements = item.getQuestion().getResponses();
+				List<Response> elements = item.getQuestion().getResponses();
 				if (posid < elements.size() - 1) {
-					Object obj = elements.remove(posid);
+					Response obj = elements.remove(posid);
 					elements.add(posid + 1, obj);
 				}
 			} else if (cmd.equals("editq")) {
@@ -150,7 +149,7 @@ public class FIBItemController extends DefaultController implements ControllerEv
 				FIBQuestion question = (FIBQuestion) item.getQuestion();
 				// Survey specific variables
 				if (surveyMode) {
-					List responses = question.getResponses();
+					List<Response> responses = question.getResponses();
 					for (int i = 0; i < responses.size(); i++) {
 						FIBResponse response = (FIBResponse) responses.get(i);
 						if (FIBResponse.TYPE_BLANK.equals(response.getType())) {
@@ -170,18 +169,18 @@ public class FIBItemController extends DefaultController implements ControllerEv
 						// min_value, max_value, valuation_method
 						question.setMinValue(ureq.getParameter("min_value"));
 						question.setMaxValue(ureq.getParameter("max_value"));
-						question.setSingleCorrect(ureq.getParameter("valuation_method").equals("single"));
+						question.setSingleCorrect("single".equals(ureq.getParameter("valuation_method")));
 						if (question.isSingleCorrect()) {
 							question.setSingleCorrectScore(ureq.getParameter("single_score"));
 						}	else {
-							question.setSingleCorrectScore(0);
+							question.setSingleCorrectScore(0.0f);
 						}
 					}
 
 					NodeBeforeChangeEvent nce = new NodeBeforeChangeEvent();
 					nce.setItemIdent(item.getIdent());
 
-					List responses = question.getResponses();
+					List<Response> responses = question.getResponses();
 					for (int i = 0; i < responses.size(); i++) {
 						FIBResponse response = (FIBResponse) responses.get(i);
 						nce.setResponseIdent(response.getIdent());
@@ -199,7 +198,19 @@ public class FIBItemController extends DefaultController implements ControllerEv
 							if (size != null) response.setSizeFromString(size);
 							String maxLength = ureq.getParameter("maxl_q" + i);
 							if (maxLength != null) response.setMaxLengthFromString(maxLength);
-							if (response.getCorrectBlank().length() > response.getMaxLength()) response.setMaxLength(response.getCorrectBlank().length());
+
+							// find longest correct blank in all synonyms of
+							// correct answers, fix max lenght if a longer value
+							// is found
+							String[] allCorrect = response.getCorrectBlank().split(";");
+							int longestCorrect = 0;
+							for (int j = 0; j < allCorrect.length; j++) {
+								String singleCorrect = allCorrect[j];
+								if (singleCorrect.length()  > longestCorrect) {
+									longestCorrect = singleCorrect.length();
+								}
+							}
+							if (longestCorrect > response.getMaxLength()) response.setMaxLength(longestCorrect);
 						}
 					}
 				}
@@ -260,7 +271,7 @@ public class FIBItemController extends DefaultController implements ControllerEv
 				Object position = delYesNoCtrl.getUserObject();
 				if(position instanceof Integer) {
 					int pos = ((Integer)position).intValue();
-					List responses = item.getQuestion().getResponses();
+					List<Response> responses = item.getQuestion().getResponses();
 					if(!responses.isEmpty() && pos < responses.size()) {
 						responses.remove(pos);
 					}

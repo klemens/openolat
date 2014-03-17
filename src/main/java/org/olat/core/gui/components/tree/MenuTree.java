@@ -33,15 +33,11 @@ import java.util.Collection;
 import java.util.HashSet;
 import java.util.Set;
 
-import org.olat.core.CoreSpringFactory;
-import org.olat.core.dispatcher.mapper.MapperService;
 import org.olat.core.gui.GUIInterna;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.Component;
 import org.olat.core.gui.components.ComponentRenderer;
-import org.olat.core.gui.components.htmlheader.jscss.JSAndCSSComponent;
 import org.olat.core.gui.control.Controller;
-import org.olat.core.gui.render.ValidationResult;
 import org.olat.core.util.StringHelper;
 import org.olat.core.util.nodes.INode;
 import org.olat.core.util.tree.TreeHelper;
@@ -106,20 +102,16 @@ public class MenuTree extends Component {
 	private String selectedNodeId = null;
 	private Set<String> openNodeIds = new HashSet<String>();
 	private boolean expandServerOnly = true; // default is serverside menu
-	private boolean dragAndDropEnabled = false; 
+	private boolean dragEnabled = false;
+	private boolean dropEnabled = false;
+	private boolean dropSiblingEnabled = false;
 	private boolean expandSelectedNode = true;
 	private boolean rootVisible = true;
-	//fxdiff VCRP-9: drag and drop in menu tree
-	private String dragAndDropGroup;
+	private boolean unselectNodes;
 	private String dndFeedbackUri;
-	
-	private final JSAndCSSComponent dragAndDropCmp;
-	
-	// for recording / visual marking purposes
-	TreeNode markingTreeNode; 
-	
-	private boolean dirtyForUser = false;
+	private String dndAcceptJSMethod = "treeAcceptDrop_notWithChildren";
 
+	private boolean dirtyForUser = false;
 	
 	/**
 	 * @param name
@@ -134,8 +126,6 @@ public class MenuTree extends Component {
 	 */
 	public MenuTree(String id, String name) {
 		super(id, name);
-		//fxdiff VCRP-9: drag and drop in menu tree
-		dragAndDropCmp = new JSAndCSSComponent("jsComp", MenuTree.class, new String[]{"dd.js"}, null, false); 
 	}
 	
 	/**
@@ -151,11 +141,14 @@ public class MenuTree extends Component {
 	/**
 	 * @see org.olat.core.gui.components.Component#dispatchRequest(org.olat.core.gui.UserRequest)
 	 */
+	@Override
 	protected void doDispatchRequest(UserRequest ureq) {
 		if (GUIInterna.isLoadPerformanceMode()) {
 			String compPath = ureq.getParameter("en");
 			TreeNode selTreeNode = TreeHelper.resolveTreeNode(compPath, getTreeModel());
 			selectedNodeId = selTreeNode.getIdent();
+			handleClick(ureq, "", selectedNodeId);
+			return;
 		}
 		
 		//fxdiff VCRP-9: drag and drop in menu tree
@@ -164,7 +157,12 @@ public class MenuTree extends Component {
 		if(COMMAND_TREENODE_CLICKED.equals(cmd)) {
 			String openClose = ureq.getParameter(COMMAND_TREENODE);
 			if(!StringHelper.containsNonWhitespace(openClose)) {
-				selectedNodeId = nodeId;
+				boolean unselect = isUnselectNodes() && isSelectedOrDescendant(nodeId);
+				if(unselect) {
+					handleDeselect(nodeId);
+				} else {
+					selectedNodeId = nodeId;
+				}
 			}
 			handleClick(ureq, openClose, nodeId);
 		} else if (COMMAND_TREENODE_DROP.equals(cmd)) {
@@ -172,18 +170,8 @@ public class MenuTree extends Component {
 			String sneValue = ureq.getParameter(SIBLING_NODE);
 			boolean sibling = StringHelper.containsNonWhitespace(sneValue);
 			boolean atTheEnd = "end".equals(sneValue);
-			handleDropped(ureq, nodeId, targetNodeId, sibling, atTheEnd);
+			handleDropped(ureq, targetNodeId, nodeId, sibling, atTheEnd);
 		}
-	}
-	
-	//fxdiff VCRP-9: drag and drop in menu tree
-	boolean canDrop(String dropNodeId, String targetNodeId, boolean sibling) {
-		if(treeModel instanceof DnDTreeModel) {
-			TreeNode dropNode = treeModel.getNodeById(dropNodeId);
-			TreeNode targetNode = treeModel.getNodeById(targetNodeId);
-			return ((DnDTreeModel)treeModel).canDrop(dropNode, targetNode, sibling);
-		}
-		return true;
 	}
 	
 	/**
@@ -210,6 +198,16 @@ public class MenuTree extends Component {
 		TreeDropEvent te = new TreeDropEvent(COMMAND_TREENODE_DROP, droppedNodeId, targetNodeId, !sibling, atTheEnd);
 		fireEvent(ureq, te);
 		super.setDirty(true);
+	}
+	
+	private void handleDeselect(String nodeId) {
+		TreeNode node = treeModel.getNodeById(nodeId);
+		INode parentNode = node.getParent();
+		if(parentNode != null) {
+			setSelectedNodeId(parentNode.getIdent());
+		} else {
+			clearSelection();
+		}
 	}
 	
 	/**
@@ -251,6 +249,14 @@ public class MenuTree extends Component {
 		} // else dirtyForUser is false, since we clicked a node (which only results in the node beeing marked in a visual style)
 		super.setDirty(true);
 		fireEvent(ureq, te);
+	}
+	
+	private boolean isSelectedOrDescendant(String nodeId) {
+		if(nodeId.equals(getSelectedNodeId())) {
+			return true;
+		}
+		
+		return false;
 	}
 	
 	private boolean updateOpenedNode(TreeNode treeNode, String nodeId, String cmd) {
@@ -303,18 +309,6 @@ public class MenuTree extends Component {
 		}
 		return false;
 	}
-	
-	@Override
-	//fxdiff VCRP-9: drag and drop in menu tree
-	public void validate(UserRequest ureq, ValidationResult vr) {
-		if(dragAndDropEnabled) {
-			dragAndDropCmp.validate(ureq, vr);
-			if(dndFeedbackUri == null && treeModel instanceof DnDTreeModel) {
-				dndFeedbackUri = CoreSpringFactory.getImpl(MapperService.class).register(ureq.getUserSession(), new DnDFeedbackMapper(this));
-			}
-		}
-		super.validate(ureq, vr);
-	}
 
 	/**
 	 * @return the selected node
@@ -342,21 +336,17 @@ public class MenuTree extends Component {
 		return openNodeIds;
 	}
 
-	public void setOpenNodeIds(Collection<String> openNodeIds) {
-		if(openNodeIds == null) {
-			this.openNodeIds.clear();
+	public void setOpenNodeIds(Collection<String> nodeIds) {
+		if(nodeIds == null) {
+			openNodeIds.clear();
 		} else {
-			this.openNodeIds = new HashSet<String>(openNodeIds);
+			openNodeIds = new HashSet<String>(nodeIds);
 		}
 		setDirty(true);
 	}
 	
 	String getDndFeedbackUri() {
 		return dndFeedbackUri;
-	}
-
-	public JSAndCSSComponent getDragAndDropCmp() {
-		return dragAndDropCmp;
 	}
 
 	/**
@@ -399,35 +389,44 @@ public class MenuTree extends Component {
 		this.expandServerOnly = expandServerOnly;
 	}
 	
-	/**
-	 * @return Is Drag & Drop enable for the tree
-	 */
-	public boolean isDragAndDropEnabled() {
-		return dragAndDropEnabled;
+	public boolean isDragEnabled() {
+		return dragEnabled;
 	}
 
 	/**
 	 * @param enableDragAndDrop Enable or not drag and drop
 	 */
-	public void setDragAndDropEnabled(boolean dragAndDropEnabled) {
-		this.dragAndDropEnabled = dragAndDropEnabled;
-	}
-	
-	/**
-	 * @return The group of drag and drop (cannot be null).
-	 */
-	public String getDragAndDropGroup() {
-		return dragAndDropGroup == null ? "dndGroup" : dragAndDropGroup;
+	public void setDragEnabled(boolean enabled) {
+		dragEnabled = enabled;
 	}
 
 	/**
-	 * @param dragAndDropGroup The group of drag and drop
+	 * @return Is Drag & Drop enable for the tree
 	 */
-	public void setDragAndDropGroup(String dragAndDropGroup) {
-		this.dragAndDropGroup = dragAndDropGroup;
+	public boolean isDropEnabled() {
+		return dropEnabled;
+	}
+	
+	public void setDropEnabled(boolean enabled) {
+		dropEnabled = enabled;
+	}
+	
+	public boolean isDropSiblingEnabled() {
+		return dropSiblingEnabled;
+	}
+	
+	public void setDropSiblingEnabled(boolean enabled) {
+		dropSiblingEnabled = enabled;
+	}
+	
+	public String getDndAcceptJSMethod() {
+		return dndAcceptJSMethod;
 	}
 
-	
+	public void setDndAcceptJSMethod(String dndAcceptJSMethod) {
+		this.dndAcceptJSMethod = dndAcceptJSMethod;
+	}
+
 	/**
 	 * Expand the selected node to view its children
 	 * @return
@@ -440,6 +439,14 @@ public class MenuTree extends Component {
 		this.expandSelectedNode = expandSelectedNode;
 	}
 	
+	public boolean isUnselectNodes() {
+		return unselectNodes;
+	}
+	
+	public void setUnselectNodes(boolean unselectNodes) {
+		this.unselectNodes = unselectNodes;
+	}
+
 	/**
 	 * The root node is visible per default
 	 * @return
@@ -456,8 +463,12 @@ public class MenuTree extends Component {
 	 * @param nodeForum
 	 */
 	public void setSelectedNode(TreeNode node) {
-		String nId = node.getIdent();
-		setSelectedNodeId(nId);
+		if(node == null) {
+			setSelectedNodeId(null);
+		} else {
+			String nId = node.getIdent();
+			setSelectedNodeId(nId);
+		}
 	}
 
 	public ComponentRenderer getHTMLRendererSingleton() {

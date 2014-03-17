@@ -29,10 +29,7 @@ import org.olat.basesecurity.AuthHelper;
 import org.olat.core.CoreSpringFactory;
 import org.olat.core.commons.controllers.impressum.ImpressumMainController;
 import org.olat.core.commons.fullWebApp.popup.BaseFullWebappPopupLayoutFactory;
-import org.olat.core.commons.services.search.ui.SearchController;
-import org.olat.core.commons.services.search.ui.SearchServiceUIFactory;
-import org.olat.core.commons.services.search.ui.SearchServiceUIFactory.DisplayOption;
-import org.olat.core.dispatcher.DispatcherAction;
+import org.olat.core.dispatcher.DispatcherModule;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.Windows;
 import org.olat.core.gui.components.Component;
@@ -55,6 +52,9 @@ import org.olat.course.nodes.iq.AssessmentEvent;
 import org.olat.ims.qti.process.AssessmentInstance;
 import org.olat.instantMessaging.InstantMessagingModule;
 import org.olat.instantMessaging.ui.InstantMessagingMainController;
+import org.olat.search.SearchServiceUIFactory;
+import org.olat.search.SearchServiceUIFactory.DisplayOption;
+import org.olat.search.ui.SearchInputController;
 
 /**
  * Description:<br>
@@ -69,7 +69,7 @@ public class OlatTopNavController extends BasicController implements GenericEven
 	private static final String ACTION_LOGOUT = "logout";
 	private VelocityContainer topNavVC;
 	private InstantMessagingMainController imController;
-	private SearchController searchC;
+	private SearchInputController searchC;
 	private Link helpLink, loginLink, impressumLink;
 
 	
@@ -80,7 +80,7 @@ public class OlatTopNavController extends BasicController implements GenericEven
 		this(ureq, wControl, false, true);
 	}
 	
-	public OlatTopNavController(UserRequest ureq, WindowControl wControl, boolean impressum,	boolean search) {
+	public OlatTopNavController(UserRequest ureq, WindowControl wControl, boolean impressum, boolean search) {
 		super(ureq, wControl);
 		
 		topNavVC = createVelocityContainer("topnav");
@@ -99,7 +99,7 @@ public class OlatTopNavController extends BasicController implements GenericEven
 		if(!isInvitee && CourseModule.isHelpCourseEnabled()) {
 			helpLink = LinkFactory.createLink("topnav.help", topNavVC, this);
 			helpLink.setCustomEnabledLinkCSS("b_with_small_icon_right o_help_icon");
-			helpLink.setTooltip("topnav.help.alt", false);
+			helpLink.setTooltip("topnav.help.alt");
 			helpLink.setTarget("_help");
 		}
 		
@@ -107,18 +107,18 @@ public class OlatTopNavController extends BasicController implements GenericEven
 		if (ureq.getIdentity() == null) {
 			topNavVC.contextPut("isGuest", Boolean.TRUE);
 			loginLink = LinkFactory.createLink("topnav.login", topNavVC, this);
-			loginLink.setTooltip("topnav.login.alt", false);
+			loginLink.setTooltip("topnav.login.alt");
 		}
 		
 		if(impressum) {
 			impressumLink = LinkFactory.createLink("topnav.impressum", topNavVC, this);
-			impressumLink.setTooltip("topnav.impressum.alt", false);
+			impressumLink.setTooltip("topnav.impressum.alt");
 			impressumLink.setCustomEnabledLinkCSS("o_topnav_impressum");
 			impressumLink.setAjaxEnabled(false);
 			impressumLink.setTarget("_blank");
 		}
 		
-		if(ureq.getIdentity() != null && !isGuest && !isInvitee) {
+		if(search && ureq.getIdentity() != null && !isGuest && !isInvitee) {
 			SearchServiceUIFactory searchUIFactory = (SearchServiceUIFactory)CoreSpringFactory.getBean(SearchServiceUIFactory.class);
 			searchC = searchUIFactory.createInputController(ureq, wControl, DisplayOption.STANDARD, null);
 			searchC.setResourceContextEnable(false);
@@ -151,7 +151,7 @@ public class OlatTopNavController extends BasicController implements GenericEven
 				openInNewBrowserWindow(ureq, layoutCtrlr);
 				//
 			} else if (source == loginLink) {
-				DispatcherAction.redirectToDefaultDispatcher(ureq.getHttpResp());
+				DispatcherModule.redirectToDefaultDispatcher(ureq.getHttpResp());
 			} else if (source == topNavVC) {
 			if (command.equals(ACTION_LOGOUT)) {
 				AuthHelper.doLogout(ureq);

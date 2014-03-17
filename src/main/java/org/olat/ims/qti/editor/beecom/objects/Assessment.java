@@ -55,16 +55,17 @@ public class Assessment implements QTIObject {
 	private OutcomesProcessing outcomes_processing = null; // ?
 	private Metadata metadata = new Metadata(); // occurs 0 to 1 time
 	private List assessfeedbacks = new ArrayList(); // occurs 0 to many
-	private QTIObject selection_ordering = null; //?
+	private SelectionOrdering selection_ordering;
 	private QTIObject reference = null; //occurs 0 to 1 time
-	private List sections = new ArrayList(); // occurs 0 to 1 time ( sections and section_references)
-	private List items = new ArrayList();
+	private List<Section> sections = new ArrayList<Section>(); // occurs 0 to 1 time ( sections and section_references)
+	private List<Item> items = new ArrayList<Item>();
 	private boolean inheritControls = false;
 	
 	public Assessment() {
 		setIdent(String.valueOf(CodeHelper.getRAMUniqueID()));
 		setTitle("New QTI Document");
 		getAssessmentcontrols().add(new Control());
+		setSelection_ordering(new SelectionOrdering());
 	}
 	
 	public void addToElement(Element root) {
@@ -100,6 +101,12 @@ public class Assessment implements QTIObject {
 		QTIObject obj_outcomes_processing = this.getOutcomes_processing();
 		if(obj_outcomes_processing != null) {
 			obj_outcomes_processing.addToElement(assessment);
+		}
+		
+		//SELECTION ORDERING
+		SelectionOrdering selectionOrdering = this.getSelection_ordering();
+		if(selectionOrdering!=null) {
+			selectionOrdering.addToElement(assessment);
 		}
 
 		// SECTIONS
@@ -155,7 +162,7 @@ public class Assessment implements QTIObject {
 	 * Returns the sections.
 	 * @return List
 	 */
-	public List getSections() {
+	public List<Section> getSections() {
 		return sections;
 	}
 
@@ -163,7 +170,7 @@ public class Assessment implements QTIObject {
 	 * Sets the sections.
 	 * @param sections The sections to set
 	 */
-	public void setSections(List sections) {
+	public void setSections(List<Section> sections) {
 		this.sections = sections;
 	}
 	
@@ -252,7 +259,7 @@ public class Assessment implements QTIObject {
 	 * Returns the selection_ordering.
 	 * @return QTIObject
 	 */
-	public QTIObject getSelection_ordering() {
+	public SelectionOrdering getSelection_ordering() {
 		return selection_ordering;
 	}
 
@@ -332,7 +339,7 @@ public class Assessment implements QTIObject {
 	 * Sets the selection_ordering.
 	 * @param selection_ordering The selection_ordering to set
 	 */
-	public void setSelection_ordering(QTIObject selection_ordering) {
+	public void setSelection_ordering(SelectionOrdering selection_ordering) {
 		this.selection_ordering = selection_ordering;
 	}
 

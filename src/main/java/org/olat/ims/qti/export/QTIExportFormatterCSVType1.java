@@ -25,6 +25,7 @@
 
 package org.olat.ims.qti.export;
 
+import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -33,6 +34,8 @@ import java.util.Locale;
 import java.util.Map;
 
 import org.apache.commons.lang.StringEscapeUtils;
+import org.olat.core.id.context.BusinessControlFactory;
+import org.olat.core.id.context.ContextEntry;
 import org.olat.core.logging.OLATRuntimeException;
 import org.olat.core.util.Formatter;
 import org.olat.core.util.filter.FilterFactory;
@@ -92,8 +95,8 @@ public class QTIExportFormatterCSVType1 extends QTIExportFormatter {
 		StringBuilder hR2 = new StringBuilder();
 		
 		int i = 1;
-		for (Iterator iter = qtiItemObjectList.iterator(); iter.hasNext();) {
-			QTIItemObject item = (QTIItemObject) iter.next();
+		for (Iterator<QTIItemObject> iter = qtiItemObjectList.iterator(); iter.hasNext();) {
+			QTIItemObject item = iter.next();
 
 			if (displayItem(qeif.getExportItemConfig(item))) {
 				hR1.append(emb);
@@ -185,7 +188,8 @@ public class QTIExportFormatterCSVType1 extends QTIExportFormatter {
 		
 		String firstName = set.getFirstName();
 		String lastName = set.getLastName();
-		String login = set.getLogin();
+		ContextEntry ce = BusinessControlFactory.getInstance().createContextEntry(set.getIdentity());
+		String login = BusinessControlFactory.getInstance().getAsURIString(Collections.singletonList(ce), false);
 		String instUsrIdent = set.getInstitutionalUserIdentifier();
 		if (instUsrIdent == null) {
 			instUsrIdent = translator.translate("column.field.notavailable");
@@ -293,8 +297,8 @@ public class QTIExportFormatterCSVType1 extends QTIExportFormatter {
 		sb.append(legend);
 		sb.append(car + car);
 		int y = 1;
-		for (Iterator iter = qtiItemObjectList.iterator(); iter.hasNext();) {
-			QTIItemObject element = (QTIItemObject) iter.next();
+		for (Iterator<QTIItemObject> iter = qtiItemObjectList.iterator(); iter.hasNext();) {
+			QTIItemObject element = iter.next();
 			
 			sb.append(element.getItemIdent());
 			sb.append(sep);
@@ -501,10 +505,10 @@ public class QTIExportFormatterCSVType1 extends QTIExportFormatter {
 	}
 
 	private void setDefaultQTIItemConfigs() {
-		Map itConfigs = new HashMap();
+		Map<Class<?>, QTIExportItemFormatConfig> itConfigs = new HashMap<>();
   	
-		for (Iterator iter = qtiItemObjectList.iterator(); iter.hasNext();) {
-			QTIItemObject item = (QTIItemObject) iter.next();
+		for (Iterator<QTIItemObject> iter = qtiItemObjectList.iterator(); iter.hasNext();) {
+			QTIItemObject item = iter.next();
 			if (item.getItemIdent().startsWith(ItemParser.ITEM_PREFIX_SCQ)) {
 				if (itConfigs.get(QTIExportSCQItemFormatConfig.class) == null) {
 					QTIExportSCQItemFormatConfig confSCQ = new QTIExportSCQItemFormatConfig(true, false, false, false);

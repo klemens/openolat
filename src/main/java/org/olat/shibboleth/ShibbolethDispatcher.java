@@ -42,7 +42,7 @@ import org.olat.basesecurity.Authentication;
 import org.olat.basesecurity.BaseSecurityManager;
 import org.olat.core.CoreSpringFactory;
 import org.olat.core.dispatcher.Dispatcher;
-import org.olat.core.dispatcher.DispatcherAction;
+import org.olat.core.dispatcher.DispatcherModule;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.UserRequestImpl;
 import org.olat.core.gui.control.ChiefController;
@@ -55,6 +55,7 @@ import org.olat.core.logging.OLATRuntimeException;
 import org.olat.core.logging.OLATSecurityException;
 import org.olat.core.logging.OLog;
 import org.olat.core.logging.Tracing;
+import org.olat.core.logging.activity.ThreadLocalUserActivityLoggerInstaller;
 import org.olat.core.util.Util;
 import org.olat.core.util.WebappHelper;
 import org.olat.core.util.i18n.I18nModule;
@@ -89,14 +90,15 @@ public class ShibbolethDispatcher implements Dispatcher{
 	}
 
 	/**
-	 * Main method called by DIspatcherAction.
+	 * Main method called by OpenOLATServlet.
 	 * This processess all shibboleth requests.
 	 * 
 	 * @param req
 	 * @param resp
 	 * @param uriPrefix
 	 */
-	public void execute(HttpServletRequest req,	HttpServletResponse resp, String uriPrefix) {
+	@Override
+	public void execute(HttpServletRequest req,	HttpServletResponse resp) {
 		if(translator==null) {
 			translator = Util.createPackageTranslator(ShibbolethDispatcher.class, I18nModule.getDefaultLocale());
 		}
@@ -109,6 +111,7 @@ public class ShibbolethDispatcher implements Dispatcher{
 		} catch (UnsupportedEncodingException e) {
 			throw new AssertException("UTF-8 encoding not supported!!!!");
 		}
+		String uriPrefix = DispatcherModule.getLegacyUriPrefix(req);
 		uri = uri.substring(uriPrefix.length()); // guaranteed to exist by DispatcherAction	
 			
 		Map<String, String> attributesMap = getShibbolethAttributesFromRequest(req);		
@@ -131,7 +134,7 @@ public class ShibbolethDispatcher implements Dispatcher{
 			if(log.isDebug()){
 				log.debug("Bad Request "+req.getPathInfo());
 			}
-			DispatcherAction.sendBadRequest(req.getPathInfo(), resp);
+			DispatcherModule.sendBadRequest(req.getPathInfo(), resp);
 			return;
 		}		
 		
@@ -142,12 +145,16 @@ public class ShibbolethDispatcher implements Dispatcher{
 			redirectToShibbolethRegistration(resp);
 			return;
 		}
+		if(ureq.getUserSession() != null) {
+			//re-init the activity logger
+			ThreadLocalUserActivityLoggerInstaller.initUserActivityLogger(req);
+		}
 		int loginStatus = AuthHelper.doLogin(auth.getIdentity(), ShibbolethDispatcher.PROVIDER_SHIB, ureq);
 		if (loginStatus != AuthHelper.LOGIN_OK) {
 			if (loginStatus == AuthHelper.LOGIN_NOTAVAILABLE) {
-				DispatcherAction.redirectToServiceNotAvailable(resp);
+				DispatcherModule.redirectToServiceNotAvailable(resp);
 			} else {
-				DispatcherAction.redirectToDefaultDispatcher(resp); // error, redirect to login screen
+				DispatcherModule.redirectToDefaultDispatcher(resp); // error, redirect to login screen
 			}
 			return;
 		}
@@ -172,7 +179,7 @@ public class ShibbolethDispatcher implements Dispatcher{
 				RedirectMediaResource rmr = (RedirectMediaResource)mr;
 				rmr.prepare(resp);
 			} else {
-				DispatcherAction.redirectToDefaultDispatcher(resp); // error, redirect to login screen
+				DispatcherModule.redirectToDefaultDispatcher(resp); // error, redirect to login screen
 			}
 		}
 	}
@@ -223,24 +230,28 @@ public class ShibbolethDispatcher implements Dispatcher{
 		if(attributesMap.keySet().size()==1) {
 			return false;
 		}
-		String lastname = attributesMap.get(ShibbolethModule.getLastName());
-		String firstname = attributesMap.get(ShibbolethModule.getFirstName());
-		String email = ShibbolethHelper.getFirstValueOf(ShibbolethModule.getEMail(), attributesMap);
-		String institutionalEMail = ShibbolethHelper.getFirstValueOf(ShibbolethModule.getInstitutionalEMail(), attributesMap);
-		String institutionalName = attributesMap.get(ShibbolethModule.getInstitutionalName());
-		//String institutionalUserIdentifier = userMapping.getInstitutionalUserIdentifier();
-		if(lastname!=null && !lastname.equals("") && firstname!=null && !firstname.equals("") && email!=null && !email.equals("") &&
-				institutionalEMail!=null && !institutionalEMail.equals("") && institutionalName!=null && !institutionalName.equals("")) {
-			return true;
+		try {
+			String lastname = attributesMap.get(ShibbolethModule.getLastName());
+			String firstname = attributesMap.get(ShibbolethModule.getFirstName());
+			String email = ShibbolethHelper.getFirstValueOf(ShibbolethModule.getEMail(), attributesMap);
+			String institutionalEMail = ShibbolethHelper.getFirstValueOf(ShibbolethModule.getInstitutionalEMail(), attributesMap);
+			String institutionalName = attributesMap.get(ShibbolethModule.getInstitutionalName());
+			//String institutionalUserIdentifier = userMapping.getInstitutionalUserIdentifier();
+			if(lastname!=null && !lastname.equals("") && firstname!=null && !firstname.equals("") && email!=null && !email.equals("") &&
+					institutionalEMail!=null && !institutionalEMail.equals("") && institutionalName!=null && !institutionalName.equals("")) {
+				return true;
+			}
+		} catch (IllegalArgumentException e) {
+			log.error("Error when reading Shib attributes. Either home org not allowed to connect to this OO instance or user has missing attributes.");
 		}
 		return false;
 	}
 
 	private final void redirectToShibbolethRegistration(HttpServletResponse response) {
 		try {
-			response.sendRedirect(WebappHelper.getServletContextPath() + DispatcherAction.getPathDefault() + ShibbolethModule.PATH_REGISTER_SHIBBOLETH + "/");
+			response.sendRedirect(WebappHelper.getServletContextPath() + DispatcherModule.getPathDefault() + ShibbolethModule.PATH_REGISTER_SHIBBOLETH + "/");
 		} catch (IOException e) {
-			log.error("Redirect failed: url=" + WebappHelper.getServletContextPath() + DispatcherAction.getPathDefault(),e);
+			log.error("Redirect failed: url=" + WebappHelper.getServletContextPath() + DispatcherModule.getPathDefault(),e);
 		}
 	}
 

@@ -40,6 +40,7 @@ import org.olat.portfolio.manager.EPFrontendManager;
 import org.olat.portfolio.model.structel.EPStructureElement;
 import org.olat.portfolio.model.structel.EPStructuredMapTemplate;
 import org.olat.portfolio.model.structel.PortfolioStructure;
+import org.olat.portfolio.model.structel.PortfolioStructureMap;
 import org.olat.portfolio.ui.structel.EPArtefactClicked;
 import org.olat.portfolio.ui.structel.EPMapViewController;
 import org.olat.portfolio.ui.structel.EPStructureChangeEvent;
@@ -56,7 +57,7 @@ import org.olat.portfolio.ui.structel.EPStructureEvent;
 public class EPStructureTreeAndDetailsEditController extends FormBasicController {
 
 	private final EPFrontendManager ePFMgr;
-	private PortfolioStructure rootStructure;
+	private PortfolioStructureMap rootStructure;
 	private PortfolioStructure selectedStructure;
 	private final EPSecurityCallback secCallback;
 	
@@ -66,7 +67,7 @@ public class EPStructureTreeAndDetailsEditController extends FormBasicController
 
 
 	public EPStructureTreeAndDetailsEditController(UserRequest ureq, WindowControl wControl, PortfolioStructure selectedStructure,
-			PortfolioStructure rootStructure, EPSecurityCallback secCallback) {
+			PortfolioStructureMap rootStructure, EPSecurityCallback secCallback) {
 		super(ureq, wControl, "editor");
 		this.secCallback = secCallback;
 		this.rootStructure = rootStructure;
@@ -118,13 +119,12 @@ public class EPStructureTreeAndDetailsEditController extends FormBasicController
 	/**
 	 * @see org.olat.core.gui.components.form.flexible.impl.FormBasicController#formInnerEvent(org.olat.core.gui.UserRequest, org.olat.core.gui.components.form.flexible.FormItem, org.olat.core.gui.components.form.flexible.impl.FormEvent)
 	 */
-	@SuppressWarnings("unused")
 	@Override
 	protected void formInnerEvent(UserRequest ureq, FormItem source, FormEvent event) {
 		if (source == mapStyle){
 			if (!mapStyle.getSelectedKey().equals(mapStyle.getUserObject())){
 				String newStyle = mapStyle.getSelectedKey();
-				rootStructure = ePFMgr.reloadPortfolioStructure(rootStructure);
+				rootStructure = (PortfolioStructureMap)ePFMgr.reloadPortfolioStructure(rootStructure);
 				((EPStructureElement)rootStructure).setStyle(newStyle);
 				ePFMgr.savePortfolioStructure(rootStructure);
 				fireEvent(ureq, Event.CHANGED_EVENT);
@@ -135,7 +135,7 @@ public class EPStructureTreeAndDetailsEditController extends FormBasicController
 	private void initOrUpdateToc(UserRequest ureq) {
 		removeAsListenerAndDispose(tocCtrl);
 		// with new links (pages, sub-elements or artefacts) to map, map gets a new version, therefore needs a refresh!
-		rootStructure = ePFMgr.reloadPortfolioStructure(rootStructure);
+		rootStructure = (PortfolioStructureMap)ePFMgr.reloadPortfolioStructure(rootStructure);
 		tocCtrl = new EPTOCController(ureq, getWindowControl(), selectedStructure, rootStructure, secCallback);
 		listenTo(tocCtrl);
 		flc.put("tocCtrl", tocCtrl.getInitialComponent());
@@ -158,13 +158,13 @@ public class EPStructureTreeAndDetailsEditController extends FormBasicController
 	protected void doDispose() {
 		// nothing to dispose
 	}
-	
+
+	@Override
 	public FormItem getInitialFormItem() {
 		return flc;
 	}
 	
 	@Override
-	@SuppressWarnings("unused")
 	protected void formOK(UserRequest ureq) {
 		//
 	}
@@ -209,7 +209,7 @@ public class EPStructureTreeAndDetailsEditController extends FormBasicController
 			if(EPStructureEvent.CHANGE.equals(structureEvent.getCommand())) {
 				PortfolioStructure structure = structureEvent.getStructure();
 				if(rootStructure.equals(structure)) {
-					rootStructure = ePFMgr.reloadPortfolioStructure(rootStructure);
+					rootStructure = (PortfolioStructureMap)ePFMgr.reloadPortfolioStructure(rootStructure);
 				}
 				// refresh the tree on changes!
 				tocCtrl.update(ureq, structure);

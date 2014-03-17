@@ -25,7 +25,6 @@
 */
 package org.olat.instantMessaging.ui;
 
-import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -47,7 +46,6 @@ import org.olat.core.gui.themes.Theme;
 import org.olat.core.gui.util.SyntheticUserRequest;
 import org.olat.core.id.OLATResourceable;
 import org.olat.core.util.StringHelper;
-import org.olat.core.util.WebappHelper;
 import org.olat.core.util.event.EventBus;
 import org.olat.core.util.event.GenericEventListener;
 import org.olat.core.util.resource.OresHelper;
@@ -110,7 +108,7 @@ public class InstantMessagingMainController extends BasicController implements G
 		chatContent.contextPut("isAjaxMode", Boolean.valueOf(ajaxOn));
 		
 		//	checks with the given intervall if dirty components are available to rerender
-		jsc = new JSAndCSSComponent("intervall", this.getClass(), null, null, false, null, 5000);
+		jsc = new JSAndCSSComponent("intervall", this.getClass(), 5000);
 		main.put("updatecontrol", jsc);
 		
 		// configure new message sound
@@ -118,18 +116,14 @@ public class InstantMessagingMainController extends BasicController implements G
 		
 		Theme guiTheme = getWindowControl().getWindowBackOffice().getWindow().getGuiTheme();
 		String newMessageSoundURL = guiTheme.getBaseURI() + "/sounds/new_message.wav";
-		File soundFile = new File(WebappHelper.getContextRoot() + "/themes/" + guiTheme.getIdentifyer() + "/sounds/new_message.wav");
-		if (!soundFile.exists()) {
-			// fallback to default theme when file does not exist in configured theme
-			newMessageSoundURL = newMessageSoundURL.replace("/themes/" + guiTheme.getIdentifyer(), "/themes/openolat");
-		}
+		newMessageSoundURL = newMessageSoundURL.replace("/themes/" + guiTheme.getIdentifyer(), "/themes/openolat");
 		newMsgIcon.contextPut("newMessageSoundURL", newMessageSoundURL);
 		loadNotifications();
 
 		// status changer link
 		statusChangerLink = LinkFactory.createCustomLink("statusChanger", "cmd.status", "", Link.NONTRANSLATED, null, this);
 		statusChangerLink.registerForMousePositionEvent(true);
-		statusChangerLink.setTooltip(getTranslator().translate("im.status.change.long"), false);
+		statusChangerLink.setTooltip(getTranslator().translate("im.status.change.long"));
 		updateStatusCss(null);
 		main.put("statusChangerPanel", statusChangerLink);
 
@@ -137,7 +131,7 @@ public class InstantMessagingMainController extends BasicController implements G
 		InstantMessagingModule imModule = CoreSpringFactory.getImpl(InstantMessagingModule.class);
 		if (imModule.isGroupPeersEnabled()) {
 			onlineOfflineCount = LinkFactory.createCustomLink("onlineOfflineCount", "cmd.roster", "", Link.NONTRANSLATED, main, this);
-			onlineOfflineCount.setTooltip(getTranslator().translate("im.roster.intro"), false);
+			onlineOfflineCount.setTooltip(translate("im.roster.intro"));
 			onlineOfflineCount.registerForMousePositionEvent(true);
 			updateBuddyStats();
 			main.put("buddiesSummaryPanel", onlineOfflineCount);
@@ -156,8 +150,8 @@ public class InstantMessagingMainController extends BasicController implements G
 		listenTo(chatMgrCtrl);
 		newMsgIcon.put("chats", chatMgrCtrl.getInitialComponent());
 		
-		//listen to privat chat messages
-		imService.listenChat(getIdentity(), getPrivatListenToResourceable(), false, false, this);
+		//listen to private chat messages
+		imService.listenChat(getIdentity(), getPrivatListenToResourceable(), null, false, false, this);
 		
 		singleUserEventCenter = ureq.getUserSession().getSingleUserEventCenter();
 		singleUserEventCenter.registerFor(this, getIdentity(), InstantMessagingService.ASSESSMENT_EVENT_ORES);
@@ -419,7 +413,8 @@ public class InstantMessagingMainController extends BasicController implements G
 		Link link = LinkFactory.createCustomLink(buddy.getIdentityKey().toString(), ACTION_MSG, "", Link.NONTRANSLATED, newMsgIcon, this);
 		link.registerForMousePositionEvent(true);
 		link.setCustomEnabledLinkCSS("b_small_icon o_instantmessaging_new_msg_icon");
-		link.setTooltip(translate("im.new.message", new String[]{ buddy.getName() }), false);
+		String buddyName = StringHelper.escapeHtml(buddy.getName());
+		link.setTooltip(translate("im.new.message", new String[]{ buddyName }));
 		link.setUserObject(buddy);
 		newMsgIcon.put(buddy.getIdentityKey().toString(), link);
 		return link;

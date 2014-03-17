@@ -47,8 +47,7 @@ public interface TextElement extends FormItem{
 	public String getValue();
 
 	/**
-	 * Get the value and filter it using the given filter. To use multiple
-	 * filters, use the ChainedFilter instead of a single filter.
+	 * Get the value and filter it using the given filter.
 	 * 
 	 * @param filter
 	 * @return
@@ -139,8 +138,11 @@ public interface TextElement extends FormItem{
 	 * defines the desired display size of the element
 	 */
 	public void setDisplaySize(int displaySize);
+	
+	
+	public int getMaxLength();
 	/**
-	 * @param maxLength The maximum numbe of characters allowed in this field. Set
+	 * @param maxLength The maximum number of characters allowed in this field. Set
 	 *          -1 for no limit
 	 */
 	public void setMaxLength(int maxLength);

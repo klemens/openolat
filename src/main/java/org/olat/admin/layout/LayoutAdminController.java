@@ -21,7 +21,9 @@ package org.olat.admin.layout;
 
 import java.io.File;
 import java.io.FilenameFilter;
+import java.util.Arrays;
 
+import org.apache.commons.lang.ArrayUtils;
 import org.olat.admin.SystemAdminMainController;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.form.flexible.FormItem;
@@ -82,7 +84,7 @@ public class LayoutAdminController extends FormBasicController {
 	
 	private String[] getThemes(){
 		// get all themes from disc
-		String staticAbsPath = WebappHelper.getContextRoot() + "/static/themes";
+		String staticAbsPath = WebappHelper.getContextRealPath("/static/themes");
 		File themesDir = new File(staticAbsPath);
 		if(!themesDir.exists()){
 			logWarn("Themes dir not found: "+staticAbsPath, null);
@@ -95,6 +97,20 @@ public class LayoutAdminController extends FormBasicController {
 			File theme = themes[i];
 			themesStr[i] = theme.getName();
 		}
+		
+		// add custom themes from configuration if available
+		File customThemesDir = Settings.getGuiCustomThemePath();
+		if (customThemesDir != null) {
+			File[] customThemes = customThemesDir.listFiles(new ThemesFileNameFilter());
+			String[] customThemesStr = new String[customThemes.length];
+			for (int i = 0; i < customThemes.length; i++) {
+				File theme = customThemes[i];
+				customThemesStr[i] = theme.getName();
+			}
+			themesStr = (String[]) ArrayUtils.addAll(themesStr, customThemesStr);
+			Arrays.sort(themesStr);
+		}
+		
 		return themesStr;
 	}
 	
@@ -141,6 +157,7 @@ public class LayoutAdminController extends FormBasicController {
 				if (name.equalsIgnoreCase("CVS")) return false;
 				else if (name.equalsIgnoreCase(".DS_Store")) return false;
 				else if (name.equalsIgnoreCase(".sass-cache")) return false;
+				else if (name.equalsIgnoreCase(".hg")) return false;
 				else return true;
 			}
 	}

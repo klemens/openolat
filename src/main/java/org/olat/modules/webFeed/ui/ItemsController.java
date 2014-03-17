@@ -33,7 +33,6 @@ import org.olat.core.commons.controllers.navigation.NavigationEvent;
 import org.olat.core.commons.controllers.navigation.YearNavigationController;
 import org.olat.core.commons.services.commentAndRating.CommentAndRatingService;
 import org.olat.core.commons.services.commentAndRating.impl.ui.UserCommentsAndRatingsController;
-import org.olat.core.defaults.dispatcher.ClassPathStaticDispatcher;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.Windows;
 import org.olat.core.gui.components.Component;
@@ -65,7 +64,6 @@ import org.olat.core.util.coordinate.LockResult;
 import org.olat.core.util.vfs.VFSContainer;
 import org.olat.modules.webFeed.FeedSecurityCallback;
 import org.olat.modules.webFeed.FeedViewHelper;
-import org.olat.modules.webFeed.RSSFeed;
 import org.olat.modules.webFeed.managers.FeedManager;
 import org.olat.modules.webFeed.models.Feed;
 import org.olat.modules.webFeed.models.Item;
@@ -74,6 +72,7 @@ import org.olat.portfolio.EPUIFactory;
 import org.olat.user.HomePageConfigManager;
 import org.olat.user.HomePageConfigManagerImpl;
 import org.olat.user.UserInfoMainController;
+import org.olat.user.UserManager;
 import org.olat.util.logging.activity.LoggingResourceable;
 
 /**
@@ -112,6 +111,8 @@ public class ItemsController extends BasicController implements Activateable2 {
 	private FeedItemDisplayConfig displayConfig;
 	public static Event HANDLE_NEW_EXTERNAL_FEED_DIALOG_EVENT = new Event("cmd.handle.new.external.feed.dialog");
 	public static Event FEED_INFO_IS_DIRTY_EVENT = new Event("cmd.feed.info.is.dirty");
+	
+	private final UserManager userManager;
 
 	/**
 	 * default constructor, with full FeedItemDisplayConfig
@@ -142,6 +143,8 @@ public class ItemsController extends BasicController implements Activateable2 {
 	public ItemsController(final UserRequest ureq, final WindowControl wControl, final Feed feed, final FeedViewHelper helper, final FeedUIFactory uiFactory,
 			final FeedSecurityCallback callback, final VelocityContainer vcRightColumn, FeedItemDisplayConfig displayConfig) {
 		super(ureq, wControl);
+		
+		userManager = CoreSpringFactory.getImpl(UserManager.class);
 		if (displayConfig == null) {
 			displayConfig = new FeedItemDisplayConfig(true, true, true);
 		}
@@ -155,10 +158,6 @@ public class ItemsController extends BasicController implements Activateable2 {
 		vcItems = uiFactory.createItemsVelocityContainer(this);
 		vcItems.contextPut("feed", feed);
 		vcItems.contextPut("callback", callback);
-
-		String baseStaticPath = ClassPathStaticDispatcher.getInstance().getMapperBasePath(RSSFeed.class);
-		vcItems.contextPut("baseStaticPath", baseStaticPath);
-
 		vcItems.contextPut("helper", helper);
 
 		olderItemsLink = LinkFactory.createLink("feed.older.items", vcItems, this);
@@ -262,6 +261,7 @@ public class ItemsController extends BasicController implements Activateable2 {
 	 * @param item
 	 */
 	private void createCommentsAndRatingsLink(UserRequest ureq, Feed feed, Item item) {
+		if(feed == null || item == null) return;//check against concurrent changes
 		if (CoreSpringFactory.containsBean(CommentAndRatingService.class)) {
 			if(commentsLinks == null) {
 				commentsLinks = new HashMap<Item,Controller>();
@@ -415,7 +415,8 @@ public class ItemsController extends BasicController implements Activateable2 {
 					itemFormCtr = uiFactory.createItemFormController(ureq, getWindowControl(), currentItem, feed);
 					activateModalDialog(itemFormCtr);
 				} else {
-					showInfo("feed.item.is.being.edited.by", lock.getOwner().getName());
+					String fullName = userManager.getUserDisplayName(lock.getOwner());
+					showInfo("feed.item.is.being.edited.by", fullName);
 				}				
 			} else {
 				showInfo("feed.item.is.being.edited.by", "unknown");
@@ -430,8 +431,9 @@ public class ItemsController extends BasicController implements Activateable2 {
 			Item item = (Item) ((Link) source).getUserObject();
 			// Reload first, could be stale
 			item = feedManager.getItem(feed, item.getGuid());					
-			displayItemController(ureq, item);
-
+			if(item != null) {
+				displayItemController(ureq, item);
+			}
 		} else if (source == makeInternalButton) {
 			if (feed.isUndefined()) {
 				feedManager.updateFeedMode(Boolean.FALSE, feed);				
@@ -592,7 +594,8 @@ public class ItemsController extends BasicController implements Activateable2 {
 				ThreadLocalUserActivityLogger.log(FeedLoggingAction.FEED_ITEM_DELETE, getClass(), LoggingResourceable.wrap(item));
 
 			} else {
-				showInfo("feed.item.is.being.edited.by", lock.getOwner().getName());
+				String fullName = userManager.getUserDisplayName(lock.getOwner());
+				showInfo("feed.item.is.being.edited.by", fullName);
 			}
 
 		} else if (source == itemFormCtr) {
@@ -696,9 +699,12 @@ public class ItemsController extends BasicController implements Activateable2 {
 			if (event == UserCommentsAndRatingsController.EVENT_COMMENT_LINK_CLICKED) {
 				// go to details page
 				Item item = (Item) commentsRatingsCtr.getUserObject();
-				ItemController myItemCtr = displayItemController(ureq, item);
-				List<ContextEntry> entries = BusinessControlFactory.getInstance().createCEListFromResourceType(ItemController.ACTIVATION_KEY_COMMENTS);
-				myItemCtr.activate(ureq, entries, null);
+				item = feedManager.getItem(feed, item.getGuid());	
+				if(item != null) {
+					ItemController myItemCtr = displayItemController(ureq, item);
+					List<ContextEntry> entries = BusinessControlFactory.getInstance().createCEListFromResourceType(ItemController.ACTIVATION_KEY_COMMENTS);
+					myItemCtr.activate(ureq, entries, null);
+				}
 			}
 		}
 		

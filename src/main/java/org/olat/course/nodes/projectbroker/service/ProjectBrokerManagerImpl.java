@@ -38,7 +38,6 @@ import org.hibernate.type.StandardBasicTypes;
 import org.hibernate.type.Type;
 import org.olat.basesecurity.BaseSecurityManager;
 import org.olat.basesecurity.SecurityGroup;
-import org.olat.core.CoreSpringFactory;
 import org.olat.core.commons.modules.bc.vfs.OlatRootFolderImpl;
 import org.olat.core.commons.persistence.DBFactory;
 import org.olat.core.id.Identity;
@@ -49,7 +48,6 @@ import org.olat.core.util.cache.CacheWrapper;
 import org.olat.core.util.coordinate.CoordinatorManager;
 import org.olat.core.util.coordinate.SyncerCallback;
 import org.olat.core.util.coordinate.SyncerExecutor;
-import org.olat.core.util.resource.OLATResourceableDeletedEvent;
 import org.olat.core.util.resource.OresHelper;
 import org.olat.core.util.vfs.VFSContainer;
 import org.olat.core.util.vfs.VFSItem;
@@ -67,8 +65,6 @@ import org.olat.course.nodes.projectbroker.datamodel.ProjectImpl;
 import org.olat.course.properties.CoursePropertyManager;
 import org.olat.course.run.environment.CourseEnvironment;
 import org.olat.group.BusinessGroup;
-import org.olat.group.BusinessGroupService;
-import org.olat.group.DeletableGroupData;
 import org.olat.properties.Property;
 import org.olat.testutils.codepoints.server.Codepoint;
 
@@ -78,15 +74,14 @@ import org.olat.testutils.codepoints.server.Codepoint;
  * @author guretzki
  */
 
-public class ProjectBrokerManagerImpl extends BasicManager implements ProjectBrokerManager, DeletableGroupData{
+public class ProjectBrokerManagerImpl extends BasicManager implements ProjectBrokerManager {
 
 	private static final String ATTACHEMENT_DIR_NAME = "projectbroker_attach";
-	private CacheWrapper projectCache;
+	private CacheWrapper<String,ProjectBroker> projectCache;
 	
 	protected ProjectBrokerManagerImpl() {
 		// cache name should not be too long e.g. 'projectbroker' is too long, use 'pb' instead.
 		projectCache = CoordinatorManager.getInstance().getCoordinator().getCacher().getCache(ProjectBrokerManager.class.getSimpleName(), "pb");
-		CoreSpringFactory.getImpl(BusinessGroupService.class).registerDeletableGroupDataListener(this);
 		logDebug("ProjectBrokerManagerImpl created");
 	}
 
@@ -271,8 +266,8 @@ public class ProjectBrokerManagerImpl extends BasicManager implements ProjectBro
 
 	public int getNbrSelectedProjects(Identity identity, List<Project> projectList) {
 		int selectedCounter = 0;
-		for (Iterator iterator = projectList.iterator(); iterator.hasNext();) {
-			Project project = (Project) iterator.next();
+		for (Iterator<Project> iterator = projectList.iterator(); iterator.hasNext();) {
+			Project project = iterator.next();
 			if (BaseSecurityManager.getInstance().isIdentityInSecurityGroup(identity, project.getProjectParticipantGroup()) ||
 					BaseSecurityManager.getInstance().isIdentityInSecurityGroup(identity, project.getCandidateGroup()) ) {
 				selectedCounter++;
@@ -348,11 +343,11 @@ public class ProjectBrokerManagerImpl extends BasicManager implements ProjectBro
 		CoordinatorManager.getInstance().getCoordinator().getSyncer().doInSync( projectBrokerOres, new SyncerExecutor() {
 			public void execute() {
 				ProjectBroker projectBroker = getOrLoadProjectBoker(projectBrokerId);
-				for (Iterator iterator = projectBroker.getProjects().iterator(); iterator.hasNext();) {
-					Project project = (Project) iterator.next();
+				for (Iterator<Project> iterator = projectBroker.getProjects().iterator(); iterator.hasNext();) {
+					Project project = iterator.next();
 					// loop over all identities
-					for (Iterator iterator2 = chosenIdentities.iterator(); iterator2.hasNext();) {
-						Identity identity = (Identity) iterator2.next();
+					for (Iterator<Identity> iterator2 = chosenIdentities.iterator(); iterator2.hasNext();) {
+						Identity identity = iterator2.next();
 						BaseSecurityManager.getInstance().removeIdentityFromSecurityGroup(identity, project.getCandidateGroup());
 						logAudit("ProjectBroker: AutoSignOut: identity=" + identity + " from project=" + project);
 					}
@@ -410,8 +405,8 @@ public class ProjectBrokerManagerImpl extends BasicManager implements ProjectBro
 		// delete all projects of a project-broker
 		List<Project> deleteProjectList = new ArrayList<Project>();
 		deleteProjectList.addAll(projectBroker.getProjects());
-		for (Iterator iterator = deleteProjectList.iterator(); iterator.hasNext();) {
-			Project project = (Project) iterator.next();
+		for (Iterator<Project> iterator = deleteProjectList.iterator(); iterator.hasNext();) {
+			Project project = iterator.next();
 			deleteProject(project, true, courseEnvironment, courseNode);
 			logAudit("ProjectBroker: Deleted project=" + project );
 		}
@@ -550,8 +545,8 @@ public class ProjectBrokerManagerImpl extends BasicManager implements ProjectBro
 	 * @return
 	 */
 	public boolean isParticipantInAnyProject(Identity identity, List<Project> projectList) {
-		for (Iterator iterator = projectList.iterator(); iterator.hasNext();) {
-			Project project = (Project) iterator.next();
+		for (Iterator<Project> iterator = projectList.iterator(); iterator.hasNext();) {
+			Project project = iterator.next();
 			if ( BaseSecurityManager.getInstance().isIdentityInSecurityGroup(identity, project.getProjectParticipantGroup()) ) {
 				return true;
 			}
@@ -559,27 +554,8 @@ public class ProjectBrokerManagerImpl extends BasicManager implements ProjectBro
 		return false;
 	}
 
-	//////////////////////////////////////////
-	// implements interface DeletableGroupData
-	//////////////////////////////////////////
-	public boolean deleteGroupDataFor(BusinessGroup group) {
-		logDebug("deleteAllProjectGroupEntiresFor started.. group=" + group);
-		List<Project> projectList = getProjectsWith(group);
-		if (projectList.isEmpty()) {
-			return false;
-		}
-		for (Project project : projectList) {
-			this.deleteProject(project,false, null, null); // no course-env, no course-node
-			ProjectBroker projectBroker = project.getProjectBroker();
-			OLATResourceableDeletedEvent delEv = new OLATResourceableDeletedEvent(projectBroker);
-			CoordinatorManager.getInstance().getCoordinator().getEventBus().fireEventToListenersOf(delEv, projectBroker);
-			logDebug("deleteProjectWith: group=" + group  + " , project=" + project);
-		}
-		return true;
-	}
-
 	@SuppressWarnings("unchecked")
-	private List<Project> getProjectsWith(BusinessGroup group) {
+	public List<Project> getProjectsWith(BusinessGroup group) {
 		List<Project> projectList = DBFactory.getInstance().find(
 				"select project from org.olat.course.nodes.projectbroker.datamodel.ProjectImpl as project" +
 				" where project.projectGroup.key = ?", group.getKey(),	StandardBasicTypes.LONG);
@@ -629,8 +605,8 @@ public class ProjectBrokerManagerImpl extends BasicManager implements ProjectBro
 		List<Project> myProjects = new ArrayList<Project>();
 		List<Project> allProjects = getProjectListBy(projectBrokerId);
 		//TODO: for better performance should be done with sql query instead of a loop
-		for (Iterator iterator = allProjects.iterator(); iterator.hasNext();) {
-			Project project = (Project) iterator.next();
+		for (Iterator<Project> iterator = allProjects.iterator(); iterator.hasNext();) {
+			Project project = iterator.next();
 			if (BaseSecurityManager.getInstance().isIdentityInSecurityGroup(identity, project.getProjectParticipantGroup()) ) {
 				myProjects.add(project);
 			}
@@ -648,8 +624,8 @@ public class ProjectBrokerManagerImpl extends BasicManager implements ProjectBro
 		List<Project> myProjects = new ArrayList<Project>();
 		List<Project> allProjects = getProjectListBy(projectBrokerId);
 		//TODO: for better performance should be done with sql query instead of a loop
-		for (Iterator iterator = allProjects.iterator(); iterator.hasNext();) {
-			Project project = (Project) iterator.next();
+		for (Iterator<Project> iterator = allProjects.iterator(); iterator.hasNext();) {
+			Project project = iterator.next();
 			if (BaseSecurityManager.getInstance().isIdentityInSecurityGroup(identity, project.getProjectLeaderGroup()) ) {
 				myProjects.add(project);
 			}

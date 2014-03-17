@@ -26,8 +26,6 @@ import java.util.List;
 import java.util.Locale;
 
 import org.olat.NewControllerFactory;
-import org.olat.admin.user.delete.service.UserDeletionManager;
-import org.olat.core.CoreSpringFactory;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.WindowControl;
@@ -35,18 +33,17 @@ import org.olat.core.id.Identity;
 import org.olat.core.id.context.BusinessControl;
 import org.olat.core.id.context.BusinessControlFactory;
 import org.olat.core.id.context.ContextEntry;
+import org.olat.core.id.context.ContextEntryControllerCreator;
 import org.olat.core.id.context.DefaultContextEntryControllerCreator;
 import org.olat.core.logging.OLog;
 import org.olat.core.logging.Tracing;
 import org.olat.core.manager.BasicManager;
 import org.olat.core.util.StringHelper;
-import org.olat.core.util.mail.manager.MailManager;
-import org.olat.core.util.mail.model.DBMail;
+import org.olat.core.util.mail.model.DBMailLight;
 import org.olat.core.util.mail.ui.MailContextResolver;
-import org.olat.group.BusinessGroup;
 import org.olat.group.BusinessGroupService;
+import org.olat.group.BusinessGroupShort;
 import org.olat.home.HomeSite;
-import org.olat.repository.RepositoryEntry;
 import org.olat.repository.RepositoryManager;
 import org.olat.user.UserDataDeletable;
 
@@ -64,34 +61,15 @@ public class MailBoxExtension extends BasicManager implements MailContextResolve
 	private static final OLog log = Tracing.createLoggerFor(MailBoxExtension.class);
 
 	private MailManager mailManager;
+	private RepositoryManager repositoryManager;
+	private BusinessGroupService businessGroupService;
 	
-	public MailBoxExtension(UserDeletionManager userDeletionManager) {
-		userDeletionManager.registerDeletableUserData(this);
+	public MailBoxExtension() {
+		//
 	}
 	
 	public void init() {
-		NewControllerFactory.getInstance().addContextEntryControllerCreator("Inbox", new DefaultContextEntryControllerCreator(){
-			@Override
-			public Controller createController(ContextEntry ce, UserRequest ureq, WindowControl wControl) {
-				return null;
-			}
-
-			@Override
-			public String getTabName(ContextEntry ce, UserRequest ureq) {
-				// opens in home-tab
-				return null;
-			}
-
-			@Override
-			public String getSiteClassName(ContextEntry ce, UserRequest ureq) {
-				return HomeSite.class.getName();
-			}
-
-			@Override
-			public boolean validateContextEntryAndShowError(ContextEntry ce, UserRequest ureq, WindowControl wControl) {
-				return true;
-			}
-		});	
+		NewControllerFactory.getInstance().addContextEntryControllerCreator("Inbox", new InboxContextEntry());	
 	}
 	
 	/**
@@ -101,20 +79,35 @@ public class MailBoxExtension extends BasicManager implements MailContextResolve
 	public void setMailManager(MailManager mailManager) {
 		this.mailManager = mailManager;
 	}
-	
-	
+
+	/**
+	 * [used by Spring]
+	 * @param mailManager
+	 */
+	public void setRepositoryManager(RepositoryManager repositoryManager) {
+		this.repositoryManager = repositoryManager;
+	}
+
+	/**
+	 * [used by Spring]
+	 * @param mailManager
+	 */
+	public void setBusinessGroupService(BusinessGroupService businessGroupService) {
+		this.businessGroupService = businessGroupService;
+	}
+
 	@Override
 	public void deleteUserData(Identity identity, String newDeletedUserName) {
 		//set as deleted all recipients
 		logInfo("Delete intern messages");
 		
-		Collection<DBMail> inbox = new HashSet<DBMail>(mailManager.getInbox(identity, null, Boolean.FALSE, null, 0, 0));
-		for(DBMail inMail:inbox) {
+		Collection<DBMailLight> inbox = new HashSet<DBMailLight>(mailManager.getInbox(identity, null, Boolean.FALSE, null, 0, 0));
+		for(DBMailLight inMail:inbox) {
 			mailManager.delete(inMail, identity, true);
 		}
 
-		Collection<DBMail> outbox = new HashSet<DBMail>(mailManager.getOutbox(identity, 0, 0));
-		for(DBMail outMail:outbox) {
+		Collection<DBMailLight> outbox = new HashSet<DBMailLight>(mailManager.getOutbox(identity, 0, 0, false));
+		for(DBMailLight outMail:outbox) {
 			mailManager.delete(outMail, identity, true);
 		}
 		
@@ -133,17 +126,14 @@ public class MailBoxExtension extends BasicManager implements MailContextResolve
 				String resourceTypeName = entry.getOLATResourceable().getResourceableTypeName();
 				Long resourceId = entry.getOLATResourceable().getResourceableId();
 				if("BusinessGroup".equals(resourceTypeName)) {
-					BusinessGroup group = CoreSpringFactory.getImpl(BusinessGroupService.class).loadBusinessGroup(resourceId);
-					if(group == null) {
+					List<Long> ids = Collections.singletonList(resourceId);
+					List<BusinessGroupShort> groups = businessGroupService.loadShortBusinessGroups(ids);
+					if(groups == null || groups.isEmpty()) {
 						return null;
 					}
-					return group.getName();
+					return groups.get(0).getName();
 				} else if ("RepositoryEntry".equals(resourceTypeName)) {
-					RepositoryEntry re = RepositoryManager.getInstance().lookupRepositoryEntry(resourceId);
-					if(re == null) {
-						return null;
-					}
-					return re.getDisplayname();
+					return repositoryManager.lookupDisplayName(resourceId);
 				}
 			}
 		} catch (Exception e) {
@@ -157,5 +147,34 @@ public class MailBoxExtension extends BasicManager implements MailContextResolve
 		BusinessControl bc = BusinessControlFactory.getInstance().createFromString(businessPath);
 	  WindowControl bwControl = BusinessControlFactory.getInstance().createBusinessWindowControl(bc, wControl);
 	  NewControllerFactory.getInstance().launch(ureq, bwControl);
+	}
+	
+	private static class InboxContextEntry extends DefaultContextEntryControllerCreator {
+
+		@Override
+		public ContextEntryControllerCreator clone() {
+			return this;
+		}
+
+		@Override
+		public Controller createController(ContextEntry ce, UserRequest ureq, WindowControl wControl) {
+			return null;
+		}
+
+		@Override
+		public String getTabName(ContextEntry ce, UserRequest ureq) {
+			// opens in home-tab
+			return null;
+		}
+
+		@Override
+		public String getSiteClassName(ContextEntry ce, UserRequest ureq) {
+			return HomeSite.class.getName();
+		}
+
+		@Override
+		public boolean validateContextEntryAndShowError(ContextEntry ce, UserRequest ureq, WindowControl wControl) {
+			return true;
+		}
 	}
 }

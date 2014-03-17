@@ -28,12 +28,12 @@
 */
 package org.olat.core.helpers;
 
+import java.io.File;
 import java.io.IOException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
-import java.util.Map;
 import java.util.regex.Pattern;
 import java.util.regex.PatternSyntaxException;
 
@@ -45,7 +45,6 @@ import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.control.Event;
 import org.olat.core.logging.OLog;
 import org.olat.core.logging.Tracing;
-import org.olat.core.util.StringHelper;
 import org.olat.core.util.WebappHelper;
 import org.olat.core.util.event.GenericEventListener;
 import org.springframework.core.io.ClassPathResource;
@@ -67,10 +66,8 @@ public class Settings implements Initializable, Destroyable, GenericEventListene
 	private static boolean readOnlyDebug = false;
 	private static boolean ajaxGloballyOnBoolean = false;
 	private static String guiThemeIdentifyer = "default";
-	private static Map<String, String> serverconfig = null;
 	private static List<Pattern> ajaxBlacklistPatterns = new ArrayList<Pattern>();
 	private static boolean jUnitTest;
-	private static final String KEY_SERVER_MODJK_ENABLED = "server_modjk_enabled";
 	// the persited properties contain user configurable config data (overrides
 	// default values from spring config)
 	private static PersistedProperties persistedProperties;
@@ -85,8 +82,13 @@ public class Settings implements Initializable, Destroyable, GenericEventListene
 	private static String clusterMode;
 	private static Date buildDate;
 	private static String repoRevision;
-	private static String patchRepoRevision;
 	private static String crossOriginFilter;
+	private static File guiCustomThemePath;
+	
+	private static int securePort;
+	private static int insecurePort;
+	private static String domainName;
+	private static String legacyContextPath;
 	
 	/**
 	 * [used by spring]
@@ -135,7 +137,6 @@ public class Settings implements Initializable, Destroyable, GenericEventListene
 		repoRevision = repoRev;
 	}
 	
-	//fxdiff: get the mercurial changeset Information from the time this release had been built
 	public static String getRepoRevision(){
 		return repoRevision;
 	}
@@ -287,34 +288,41 @@ public class Settings implements Initializable, Destroyable, GenericEventListene
 		Settings.version = version;
 	}
 	
-	
-	
-	
-	/**
-	 * 	key='server_name'
-			key='server_fqdn'
-			key='server_securePort'
-			key='server_insecurePort'
-			key='server_modjk_enabled'
-			key='server_core_jar_name'
-			key="serverContextPath"
-	 * @return
-	 */
-	
-	//TODO getServerconfig only by enum to be less input tolerant
-	public static String getServerconfig(String key){
-		if("serverContextPath".equals(key)) {
-			return WebappHelper.getServletContextPath();
-		}
-		return Settings.serverconfig.get(key);
+	public static int getServerSecurePort() {
+		return Settings.securePort;
 	}
 	
-	/**
-	 * [spring]
-	 * @param serverconfig
-	 */
-	public void setServerconfig(Map<String,String> serverconfig){
-		Settings.serverconfig = serverconfig;
+	public void setServerSecurePort(int securePort) {
+		Settings.securePort = securePort;
+	}
+
+	public static int getServerInsecurePort() {
+		return Settings.insecurePort;
+	}
+	
+	public void setServerInsecurePort(int insecurePort) {
+		Settings.insecurePort = insecurePort;
+	}
+	
+	public static String getServerDomainName() {
+		return Settings.domainName;
+	}
+	
+	public void setServerDomainName(String domainName) {
+		Settings.domainName = domainName;
+	}
+	
+	public static String getServerContextPath() {
+		return WebappHelper.getServletContextPath();
+	}
+	
+
+	public String getLegacyContext() {
+		return legacyContextPath;
+	}
+
+	public void setLegacyContext(String legacyContextPath) {
+		Settings.legacyContextPath = legacyContextPath;
 	}
 
 	/**
@@ -328,6 +336,7 @@ public class Settings implements Initializable, Destroyable, GenericEventListene
 	/**
 	 * @see org.olat.core.configuration.ServiceLifeCycle#init()
 	 */
+	@Override
 	public void init() {
 		// Initialize the user configuration and the spring default configuration
 		//
@@ -340,6 +349,7 @@ public class Settings implements Initializable, Destroyable, GenericEventListene
 	/**
 	 * @see org.olat.core.configuration.ServiceLifeCycle#destroy()
 	 */
+	@Override
 	public void destroy() {
 		if (persistedProperties != null) {
 			persistedProperties.destroy();
@@ -366,6 +376,31 @@ public class Settings implements Initializable, Destroyable, GenericEventListene
 	}
 
 	/**
+	 * @return the File object pointing to the custom themes folder or null if
+	 *         no custom themes folder configured
+	 */
+	public static File getGuiCustomThemePath() {
+		return guiCustomThemePath;			
+	}
+
+	/**
+	 * Set the custom CSS themes folder (optional). Only used by spring.
+	 * 
+	 * @param guiCustomThemePath
+	 *            Absolute path pointing to the custom themes directory
+	 */
+	public void setGuiCustomThemePath(String guiCustomThemePath) {
+		File newPath = new File(guiCustomThemePath);
+		if (newPath.exists()) {
+			Settings.guiCustomThemePath = newPath;
+		} else {
+			log.info("No custom theme directory configured, path::"
+					+ guiCustomThemePath
+					+ " invalid. Configure property layout.custom.themes.dir if you want to use a custom themes directory.");
+		}
+	}	
+	
+	/**
 	 * Set the CSS theme used for this webapp. The configuration is stored in
 	 * the olatdata/system/configuration properties file and overrides the
 	 * spring default configuration.
@@ -385,37 +420,28 @@ public class Settings implements Initializable, Destroyable, GenericEventListene
 			guiThemeIdentifyer = persistedProperties.getStringPropertyValue(KEY_GUI_THEME_IDENTIFYER, false);
 		}
 	}
-
-	
-	/**
-	 * check if mod jk is enabled
-	 * @return
-	 */
-	public static boolean isModjkEnabled() {
-		return Settings.serverconfig.containsKey(KEY_SERVER_MODJK_ENABLED) 
-				 && Settings.serverconfig.get(KEY_SERVER_MODJK_ENABLED).equalsIgnoreCase("true");
-	}
-	
 	
 	public static String getURIScheme() {
 		return (isSecurePortAvailable() ? "https:" : "http:");
 	}
 
-	private static boolean isSecurePortAvailable() {
-		return ! Settings.getServerconfig("server_securePort").equals("0");
+	public static boolean isSecurePortAvailable() {
+		return getServerSecurePort() > 0;
+	}
+	
+	public static boolean isInsecurePortAvailable() {
+		return getServerInsecurePort() > 0;
 	}
 
 
 	public static String createServerURI() {
 		String uri;
-		String port;
-		
 		if (isSecurePortAvailable()) {
-			port = Settings.getServerconfig("server_securePort");
-			uri = "https://" + Settings.getServerconfig("server_fqdn") + createURIPortPartWithDefaultPortCheck(port, 443);
+			int port = getServerSecurePort();
+			uri = "https://" + getServerDomainName() + createURIPortPartWithDefaultPortCheck(port, 443);
 		} else {
-			port = Settings.getServerconfig("server_insecurePort");
-			uri = "http://" + Settings.getServerconfig("server_fqdn") + createURIPortPartWithDefaultPortCheck(port, 80);
+			int port = getServerInsecurePort();
+			uri = "http://" + getServerDomainName() + createURIPortPartWithDefaultPortCheck(port, 80);
 		}
 		return uri;
 	}
@@ -425,18 +451,11 @@ public class Settings implements Initializable, Destroyable, GenericEventListene
 	 * @param defaultPort use 80 for http, 443 for https
 	 * @return "" if no port is defined, or a default port. i.e. ":8080" if a port is configured and non-standard
 	 */
-	private static String createURIPortPartWithDefaultPortCheck(String configuredPort, int defaultPort){
-
-		if( ! StringHelper.containsNonWhitespace(configuredPort)){
+	private static String createURIPortPartWithDefaultPortCheck(int configuredPort, int defaultPort){
+		if(configuredPort <= 0){
 			return "";
 		}
-
-		int portFromConfig = Integer.valueOf(configuredPort);
-		if(portFromConfig == defaultPort){
-			return "";
-		}else{
-			return ":" + portFromConfig;
-		}
+		return (configuredPort == defaultPort) ? "" :  ":" + configuredPort;
 	}
 	
 	/**
@@ -446,6 +465,24 @@ public class Settings implements Initializable, Destroyable, GenericEventListene
 	 */
 	public static String getServerContextPathURI() {
 		return createServerURI() + WebappHelper.getServletContextPath();
+	}
+	
+	public static String getSecureServerContextPathURI() {
+		String uri = null;
+		if (isSecurePortAvailable()) {
+			int port = getServerSecurePort();
+			uri = "https://" + getServerDomainName() + createURIPortPartWithDefaultPortCheck(port, 443);
+		}
+		return uri;
+	}
+	
+	public static String getInsecureServerContextPathURI() {
+		String uri = null;
+		if (isInsecurePortAvailable()) {
+			int port = getServerInsecurePort();
+			uri = "http://" + getServerDomainName() + createURIPortPartWithDefaultPortCheck(port, 80);
+		}
+		return uri;
 	}
 	
 	public static String getCrossOriginFilter() {

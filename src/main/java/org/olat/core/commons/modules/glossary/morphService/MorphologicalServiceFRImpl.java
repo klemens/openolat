@@ -21,14 +21,16 @@ package org.olat.core.commons.modules.glossary.morphService;
 
 import java.io.InputStream;
 import java.util.ArrayList;
+import java.util.List;
 
-import org.apache.commons.httpclient.Header;
-import org.apache.commons.httpclient.HttpClient;
-import org.apache.commons.httpclient.HttpMethod;
-import org.apache.commons.httpclient.HttpStatus;
-import org.apache.commons.httpclient.NameValuePair;
-import org.apache.commons.httpclient.methods.GetMethod;
-import org.olat.core.gui.media.HttpRequestMediaResource;
+import org.apache.http.Header;
+import org.apache.http.HttpResponse;
+import org.apache.http.HttpStatus;
+import org.apache.http.NameValuePair;
+import org.apache.http.client.methods.HttpGet;
+import org.apache.http.client.utils.URIBuilder;
+import org.apache.http.impl.client.CloseableHttpClient;
+import org.apache.http.message.BasicNameValuePair;
 import org.olat.core.logging.LogDelegator;
 import org.olat.core.util.httpclient.HttpClientFactory;
 import org.olat.core.util.xml.XStreamHelper;
@@ -55,11 +57,8 @@ public class MorphologicalServiceFRImpl extends LogDelegator implements Morpholo
 
 	private String replyStatus = "";
 
-	/**
-	 * 
-	 */ 
 	public MorphologicalServiceFRImpl() {
-	// TODO Auto-generated constructor stub
+		//
 	}
 
 	/**
@@ -67,7 +66,8 @@ public class MorphologicalServiceFRImpl extends LogDelegator implements Morpholo
 	 * @see org.olat.core.commons.modules.glossary.morphService.FlexionServiceClient#getFlexions(java.lang.String,
 	 *      java.lang.String)
 	 */
-	public ArrayList<String> getFlexions(String word) {
+	@Override
+	public List<String> getFlexions(String word) {
 		InputStream xmlReplyStream = retreiveXMLReply(word);
 		XStream xstream = XStreamHelper.createXStreamInstance();
 		xstream.alias("xml", FlexionReply.class);
@@ -88,44 +88,44 @@ public class MorphologicalServiceFRImpl extends LogDelegator implements Morpholo
 	}
 
 	private InputStream retreiveXMLReply(String word) {
-		HttpClient client = HttpClientFactory.getHttpClientInstance();
-		HttpMethod method = new GetMethod(MORPHOLOGICAL_SERVICE_ADRESS);
-		NameValuePair wordValues = new NameValuePair(GLOSS_TERM_PARAM, word);
-		if (isLogDebugEnabled()) {
-			String url = MORPHOLOGICAL_SERVICE_ADRESS + "?" + GLOSS_TERM_PARAM + "=" + word;
-			logDebug("Send GET request to morph-service with URL: " + url);
-		}
-		method.setQueryString(new NameValuePair[] { wordValues });
 		try {
-			client.executeMethod(method);
-			int status = method.getStatusCode();
+			URIBuilder uriBuilder = new URIBuilder(MORPHOLOGICAL_SERVICE_ADRESS);
+			List<NameValuePair> nvps = new ArrayList<NameValuePair>(2);
+			nvps.add(new BasicNameValuePair(GLOSS_TERM_PARAM, word));
+			
+			CloseableHttpClient client = HttpClientFactory.getHttpClientInstance(true);
+			HttpGet method = new HttpGet(uriBuilder.build());
+			
+			HttpResponse response = client.execute(method);
+			int status = response.getStatusLine().getStatusCode();
 			if (status == HttpStatus.SC_NOT_MODIFIED || status == HttpStatus.SC_OK) {
 				if (isLogDebugEnabled()) {
 					logDebug("got a valid reply!");
 				}
-			} else if (method.getStatusCode() == HttpStatus.SC_NOT_FOUND) {
-				logError("Morphological Service unavailable (404)::" + method.getStatusLine().toString(), null);
+			} else if (status == HttpStatus.SC_NOT_FOUND) {
+				logError("Morphological Service unavailable (404)::" + response.getStatusLine().toString(), null);
 			} else {
-				logError("Unexpected HTTP Status::" + method.getStatusLine().toString(), null);
+				logError("Unexpected HTTP Status::" + response.getStatusLine().toString(), null);
 			}
+			
+			Header responseHeader = response.getFirstHeader("Content-Type");
+			if (responseHeader == null) {
+				// error
+				logError("URL not found!", null);
+			}
+
+			return response.getEntity().getContent();
 		} catch (Exception e) {
 			logError("Unexpected exception trying to get flexions!", e);
+			return null;
 		}
-		Header responseHeader = method.getResponseHeader("Content-Type");
-		if (responseHeader == null) {
-			// error
-			logError("URL not found!", null);
-		}
-		HttpRequestMediaResource mr = new HttpRequestMediaResource(method);
-		InputStream inputStream = mr.getInputStream();
-
-		return inputStream;
 	}
 
 	/**
 	 * 
 	 * @see org.olat.core.commons.modules.glossary.morphService.FlexionServiceClient#getReplyStatus()
 	 */
+	@Override
 	public String getReplyStatus() {
 		return replyStatus;
 	}
@@ -143,6 +143,7 @@ public class MorphologicalServiceFRImpl extends LogDelegator implements Morpholo
 	 * 
 	 * @see org.olat.core.commons.modules.glossary.morphService.FlexionServiceManager#getFlexionServiceDescriptor()
 	 */
+	@Override
 	public String getMorphServiceDescriptor() {
 		return SERVICE_NAME;
 	}
@@ -157,7 +158,7 @@ public class MorphologicalServiceFRImpl extends LogDelegator implements Morpholo
 
 
 	@Override
-	public ArrayList<String> getFlexions(String partOfSpeech, String word) {
+	public List<String> getFlexions(String partOfSpeech, String word) {
 		return getFlexions(word);
 	}
 

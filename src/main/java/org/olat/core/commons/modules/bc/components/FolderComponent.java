@@ -38,15 +38,12 @@ import org.olat.core.commons.controllers.linkchooser.CustomLinkTreeModel;
 import org.olat.core.commons.modules.bc.FolderLoggingAction;
 import org.olat.core.commons.modules.bc.FolderRunController;
 import org.olat.core.commons.modules.bc.commands.FolderCommandFactory;
-import org.olat.core.commons.modules.bc.meta.MetaInfo;
-import org.olat.core.commons.modules.bc.meta.tagged.MetaTagged;
+import org.olat.core.commons.modules.bc.meta.tagged.LockComparator;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.Component;
 import org.olat.core.gui.components.ComponentRenderer;
 import org.olat.core.gui.control.Event;
-import org.olat.core.gui.control.JSAndCSSAdder;
 import org.olat.core.gui.control.generic.folder.FolderHelper;
-import org.olat.core.gui.render.ValidationResult;
 import org.olat.core.gui.translator.Translator;
 import org.olat.core.id.IdentityEnvironment;
 import org.olat.core.logging.activity.CoreLoggingResourceable;
@@ -93,7 +90,7 @@ public class FolderComponent extends Component {
 	private String currentContainerPath;
 	// need to know our children in advance in order to be able to identify them later...
 	private List<VFSItem> currentContainerChildren;
-	Collator collator;
+	private final Collator collator;
 	private Comparator<VFSItem> comparator;
 	protected Translator translator;
 	private VFSItemFilter filter;
@@ -308,58 +305,16 @@ public class FolderComponent extends Component {
 					
 					String r1 = v1.getVersions().getRevisionNr();
 					String r2 = v2.getVersions().getRevisionNr();
-					if(v1 == null) {
+					if(r1 == null) {
 						return -1;
-					} else if (v2 == null) {
+					} else if (r2 == null) {
 						return 1;
 					}
 					return (sortAsc) ? collator.compare(r1, r2) : collator.compare(r2, r1);
 				}
 			};
 		}  else if (col.equals(SORT_LOCK)) {																							// sort after modification date (if same, then name)
-			comparator = new Comparator<VFSItem>() {
-				public int compare(VFSItem o1, VFSItem o2) {
-					boolean l1 = false;
-					if(o1 instanceof MetaTagged) {
-						MetaInfo meta = ((MetaTagged)o1).getMetaInfo();
-						l1 = meta == null ? false : meta.isLocked();
-					}
-					
-					boolean l2 = false;
-					if(o2 instanceof MetaTagged) {
-						MetaInfo meta = ((MetaTagged)o2).getMetaInfo();
-						l2 = meta == null ? false : meta.isLocked();
-					}
-					
-					if(l1 && !l2) return sortAsc ? -1 : 1;
-					if(!l1 && l2) return sortAsc ? 1 : -1;
-					
-					if (sortAsc) {
-						if ((o1 instanceof VFSLeaf && o2 instanceof VFSLeaf) || (!(o1 instanceof VFSLeaf) && !(o2 instanceof VFSLeaf))) {
-							return collator.compare(o1.getName(), o2.getName());
-						} else {
-							if (!(o1 instanceof VFSLeaf)) {
-
-								return -1;
-							} else {
-								return 1;
-							}
-						}
-					} else {
-						if ((o1 instanceof VFSLeaf && o2 instanceof VFSLeaf) || (!(o1 instanceof VFSLeaf) && !(o2 instanceof VFSLeaf))) {
-							return collator.compare(o2.getName(), o1.getName());
-						} else {
-							if (!(o1 instanceof VFSLeaf)) {
-
-								return -1;
-							} else {
-								return 1;
-							}
-						}
-					}
-					
-				}
-			};
+			comparator = new LockComparator(sortAsc, collator);
 		} 
 		if (currentContainerChildren != null) updateChildren();													// if not empty the update list
 	}
@@ -460,17 +415,6 @@ public class FolderComponent extends Component {
 	
 	public VFSContainer getExternContainerForCopy() {
 		return externContainerForCopy;
-	}
-
-	/**
-	 * 
-	 * @see org.olat.core.gui.components.Component#validate(org.olat.core.gui.UserRequest, org.olat.core.gui.render.ValidationResult)
-	 */
-	public void validate(UserRequest ureq, ValidationResult vr) {
-		super.validate(ureq, vr);
-		// include needed css and js files
-		JSAndCSSAdder jsa = vr.getJsAndCSSAdder();
-		jsa.addRequiredJsFile(FolderComponent.class, "js/folder.js");
 	}
 
 	public ComponentRenderer getHTMLRendererSingleton() {

@@ -167,6 +167,7 @@
 								<ref bean="userPropertyInstitutionalName" />
 								<ref bean="userPropertyInstitutionalUserIdentifier" />
 								<ref bean="userPropertyInstitutionalEmail" />
+								<ref bean="userPropertyStudySubject" />
 							</list>
 						</property>
 						<property name="adminViewOnlyProperties">
@@ -177,6 +178,7 @@
 								<!-- (UZH Note) may contain matrikel number, an information
 								which should not be revealed by a search. -->
 								<ref bean="userPropertyInstitutionalEmail" />
+								<ref bean="userPropertyStudySubject" />
 							</set>						
 						</property>
 					</bean>
@@ -637,6 +639,37 @@
 					</bean>
 				</entry>
 				
+				<entry key="de.bps.olat.modules.cl.ChecklistManageCheckpointsController">
+					<bean class="org.olat.user.propertyhandlers.UserPropertyUsageContext">
+						<property name="description" value="List of users in the check list course building block" />
+						<property name="propertyHandlers">
+							<list>
+								<ref bean="userPropertyFirstName" />
+								<ref bean="userPropertyLastName" />
+								<ref bean="userPropertyInstitutionalUserIdentifier" />
+							</list>
+						</property>	
+						<property name="userViewReadOnlyProperties">
+							<set>
+								<ref bean="userPropertyFirstName" />
+								<ref bean="userPropertyLastName" />
+							</set>
+						</property>
+						<property name="mandatoryProperties">
+							<set>
+								<ref bean="userPropertyFirstName" />
+								<ref bean="userPropertyLastName" />
+								<ref bean="userPropertyInstitutionalUserIdentifier" />
+							</set>
+						</property>
+						<property name="adminViewOnlyProperties">
+							<set>
+								<ref bean="userPropertyInstitutionalUserIdentifier" />
+							</set>
+						</property>					
+					</bean>
+				</entry>
+				
 				<entry key="org.olat.admin.user.UserShortDescription">
 					<bean class="org.olat.user.propertyhandlers.UserPropertyUsageContext">
 						<property name="description" value="Short description of a user" />
@@ -681,7 +714,13 @@
 								<ref bean="userPropertyFirstName" />
 								<ref bean="userPropertyLastName" />														
 							</list>
-						</property>						
+						</property>		
+						<property name="mandatoryProperties">
+							<set>
+								<ref bean="userPropertyFirstName" />
+								<ref bean="userPropertyLastName" />
+							</set>
+						</property>				
 					</bean>
 				</entry>
 				
@@ -792,6 +831,21 @@
 								-->
 								<ref bean="userPropertyEmailDisabled" />
 							</set>
+						</property>
+					</bean>
+				</entry>
+				
+				<entry key="org.olat.ims.lti.LTIManager">
+					<bean class="org.olat.user.propertyhandlers.UserPropertyUsageContext">
+						<property name="description" value="Can be used for LTI" />
+						<property name="propertyHandlers">
+							<list>
+								<ref bean="userPropertyInstitutionalName" />
+								<ref bean="userPropertyInstitutionalUserIdentifier" />	
+								<ref bean="userPropertyInstitutionalEmail" />						
+								<ref bean="userPropertyOrgUnit" />
+								<ref bean="userPropertyStudySubject" />
+							</list>
 						</property>
 					</bean>
 				</entry>

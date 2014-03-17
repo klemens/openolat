@@ -19,7 +19,7 @@
  */
 package org.olat.restapi.system;
 
-import static org.olat.restapi.security.RestSecurityHelper.isAdmin;
+import static org.olat.restapi.security.RestSecurityHelper.isAdminOrSystem;
 
 import java.lang.management.ManagementFactory;
 import java.lang.management.OperatingSystemMXBean;
@@ -35,6 +35,7 @@ import javax.ws.rs.core.Response;
 
 import org.olat.core.CoreSpringFactory;
 import org.olat.core.helpers.Settings;
+import org.olat.core.util.StringHelper;
 import org.olat.core.util.WebappHelper;
 import org.olat.restapi.system.vo.EnvironmentInformationsVO;
 import org.olat.restapi.system.vo.ReleaseInfosVO;
@@ -55,7 +56,7 @@ public class SystemWebService {
 	
 	@Path("log")
 	public LogWebService getLogsWS(@Context HttpServletRequest request) {
-		if(!isAdmin(request)) {
+		if(!isAdminOrSystem(request)) {
 			return null;
 		}
 		return new LogWebService();
@@ -75,7 +76,7 @@ public class SystemWebService {
 	@Path("environment")
 	@Produces({MediaType.APPLICATION_XML, MediaType.APPLICATION_JSON})
 	public Response getEnvironnementXml(@Context HttpServletRequest request) {
-		if(!isAdmin(request)) {
+		if(!isAdminOrSystem(request)) {
 			return null;
 		}
 		
@@ -99,12 +100,19 @@ public class SystemWebService {
 	@Path("release")
 	@Produces({MediaType.APPLICATION_XML, MediaType.APPLICATION_JSON})
 	public Response getReleaseInfos(@Context HttpServletRequest request) {
-		if(!isAdmin(request)) {
+		if(!isAdminOrSystem(request)) {
 			return null;
 		}
 		
 		ReleaseInfosVO version = new ReleaseInfosVO();
-		version.setBuildVersion(Settings.getBuildIdentifier());
+		if(StringHelper.containsNonWhitespace(WebappHelper.getRevisionNumber())) {
+			String v = WebappHelper.getRevisionNumber() + ":" + WebappHelper.getChangeSet();
+			version.setBuildVersion(v);
+			version.setRepoRevision(v);
+		} else {
+			version.setBuildVersion(Settings.getBuildIdentifier());
+			version.setRepoRevision(Settings.getRepoRevision());
+		}
 		version.setOlatVersion(Settings.getVersion());
 		version.setInstanceID(WebappHelper.getInstanceId());
 		return Response.ok(version).build();
@@ -112,7 +120,7 @@ public class SystemWebService {
 	
 	@Path("monitoring")
 	public MonitoringWebService getImplementedProbes(@Context HttpServletRequest request) {
-		if(!isMonitoringEnabled() && !isAdmin(request)) {
+		if(!isMonitoringEnabled() && !isAdminOrSystem(request)) {
 			return null;
 		}
 		return new MonitoringWebService();
@@ -120,7 +128,7 @@ public class SystemWebService {
 	
 	@Path("indexer")
 	public IndexerWebService getIndexer(@Context HttpServletRequest request) {
-		if(!isAdmin(request)) {
+		if(!isAdminOrSystem(request)) {
 			return null;
 		}
 		return new IndexerWebService();
@@ -128,7 +136,7 @@ public class SystemWebService {
 	
 	@Path("notifications")
 	public NotificationsAdminWebService getNotifications(@Context HttpServletRequest request) {
-		if(!isAdmin(request)) {
+		if(!isAdminOrSystem(request)) {
 			return null;
 		}
 		return new NotificationsAdminWebService();

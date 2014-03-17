@@ -26,6 +26,7 @@
 package org.olat.course.archiver;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Date;
 import java.util.List;
 import java.util.Locale;
@@ -39,6 +40,8 @@ import org.olat.core.gui.translator.Translator;
 import org.olat.core.id.Identity;
 import org.olat.core.id.IdentityEnvironment;
 import org.olat.core.id.OLATResourceable;
+import org.olat.core.id.context.BusinessControlFactory;
+import org.olat.core.id.context.ContextEntry;
 import org.olat.core.util.Formatter;
 import org.olat.core.util.StringHelper;
 import org.olat.core.util.Util;
@@ -49,6 +52,7 @@ import org.olat.course.assessment.AssessmentHelper;
 import org.olat.course.assessment.AssessmentManager;
 import org.olat.course.assessment.manager.UserCourseInformationsManager;
 import org.olat.course.groupsandrights.CourseGroupManager;
+import org.olat.course.nodes.ArchiveOptions;
 import org.olat.course.nodes.AssessableCourseNode;
 import org.olat.course.nodes.CourseNode;
 import org.olat.course.nodes.STCourseNode;
@@ -87,7 +91,7 @@ public class ScoreAccountingHelper {
 		StringBuilder table = new StringBuilder();
 
 		String sequentialNumber = t.translate("column.header.seqnum");
-		String login = t.translate("column.header.login");
+		String login = t.translate("column.header.businesspath");
 		// user properties are dynamic
 		String sc = t.translate("column.header.score");
 		String pa = t.translate("column.header.passed");
@@ -136,7 +140,8 @@ public class ScoreAccountingHelper {
 		Formatter formatter = Formatter.getInstance(locale);
 
 		for (Identity identity:identities) {
-			String uname = identity.getName();
+			ContextEntry ce = BusinessControlFactory.getInstance().createContextEntry(identity);
+			String uname = BusinessControlFactory.getInstance().getAsURIString(Collections.singletonList(ce), false);
 
 			tableContent.append(rowNumber);
 			tableContent.append("\t");
@@ -372,7 +377,6 @@ public class ScoreAccountingHelper {
 	 * @param courseEnv
 	 * @return The list of identities from this course
 	 */
-	//fxdiff VCRP-1,2: access control of resources
 	public static List<Identity> loadUsers(CourseEnvironment courseEnv) {
 		CourseGroupManager gm = courseEnv.getCourseGroupManager();
 		BaseSecurity securityManager = BaseSecurityManager.getInstance();
@@ -393,6 +397,21 @@ public class ScoreAccountingHelper {
 		List<Identity> assessedList = courseEnv.getCoursePropertyManager().getAllIdentitiesWithCourseAssessmentData(userList);
 		userList.addAll(assessedList);
 		return userList;
+	}
+	
+	public static List<Identity> loadUsers(CourseEnvironment courseEnv, ArchiveOptions options) {
+		BaseSecurity securityManager = BaseSecurityManager.getInstance();
+		List<Identity> users;
+		if(options == null) {
+			users = loadUsers(courseEnv);
+		} else if(options.getGroup() != null) {
+			users = securityManager.getIdentitiesOfSecurityGroup(options.getGroup().getPartipiciantGroup());
+		} else if(options.getIdentities() != null) {
+			users = options.getIdentities();
+		} else {
+			users = loadUsers(courseEnv);
+		}
+		return users;
 	}
 	
 	/**

@@ -1,5 +1,5 @@
 $r.render("backLink")
-<h4>$title - $r.translate("details.header")</h4>
+<h4>$r.escapeHtml($title) - $r.translate("details.header")</h4>
 #if($launchableTyp)
 	<p>
 		$r.render("details.launch")	
@@ -18,6 +18,45 @@ $r.render("backLink")
 	<div class="b_error">
 		<div class="b_error_icon">$r.translate("cif.error.corrupted")</div>
 	</div>
+#end
+
+#if($showLf)
+<fieldset class="b_clearfix">
+	<legend>$r.translate("cif.dates")</legend>
+	#if($lfStart || $lfEnd)
+	<div class="b_form">
+		#if($lfLabel)			
+		<div class="b_form_element_wrapper b_clearfix">
+			<div class="b_form_element_label"><label>$r.translate("cif.dates.public")</label></div>
+			<div class="b_form_element b_dates_public">
+				<span>$lfLabel</span>
+				#if($lfSoftKey)
+					(${lfSoftKey})
+				#end
+			</div>
+		</div>
+		#end
+		#if($lfStart)
+		<div class="b_form_element_wrapper b_clearfix">
+			<div class="b_form_element_label"><label>$r.translate("cif.date.start")</label></div>
+			<div class="b_form_element o_date_start">
+				$lfStart
+			</div>
+		</div>
+		#end
+		#if($lfStart)
+		<div class="b_form_element_wrapper b_clearfix">
+			<div class="b_form_element_label"><label>$r.translate("cif.date.end")</label></div>
+			<div class="b_form_element o_date_end">
+				$lfEnd
+			</div>
+		</div>
+		#end		
+	</div>
+	#else
+		<p>$r.translate("no.lifecycle")</p>
+	#end
+</fieldset>
 #end
 
 <fieldset class="b_clearfix">
@@ -76,8 +115,20 @@ $r.render("backLink")
 			<div class="b_form_element_label"><label>$r.translate("cif.softkey")</label></div>
 			<div class="b_form_element">$softkey</div>
 		</div>
-		
-		#end			
+		#end
+		#if($externalId)		
+		<div class="b_form_element_wrapper b_clearfix">
+			<div class="b_form_element_label"><label>$r.translate("cif.externalid")</label></div>
+			<div class="b_form_element">$externalId</div>
+		</div>
+		#end
+		#if($externalRef)
+		<div class="b_form_element_wrapper b_clearfix">
+			<div class="b_form_element_label"><label>$r.translate("cif.externalref")</label></div>
+			<div class="b_form_element">$externalRef</div>
+		</div>
+		#end
+					
 		#if ($launchableTyp)		
 		<div class="b_form_element_wrapper b_clearfix">
 			<div class="b_form_element_label"><label>$r.translate("details.extlinkheader")</label></div>

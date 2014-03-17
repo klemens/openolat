@@ -31,7 +31,7 @@ import java.util.Collection;
 import java.util.Date;
 import java.util.List;
 
-import org.olat.core.gui.translator.PackageTranslator;
+import org.olat.core.gui.translator.Translator;
 import org.olat.core.id.Identity;
 import org.olat.core.logging.AssertException;
 import org.olat.core.logging.OLATRuntimeException;
@@ -70,18 +70,13 @@ import de.bps.course.condition.interpreter.score.GetOnyxTestOutcomeNumFunction;
 public class ConditionInterpreter {
 	private OLog log = Tracing.createLoggerFor(this.getClass());
 
-	protected static final String PACKAGE = Util.getPackageName(ConditionInterpreter.class);
 	/** static Integer(1) object */
 	public static final Integer INT_TRUE = new Integer(1);
 	/** static Integer(0) object */
 	public static final Integer INT_FALSE = new Integer(0);
 	protected Environment env;
-	protected PackageTranslator translator = null;
+	protected Translator translator;
 	protected UserCourseEnvironment uce;
-
-	protected ConditionInterpreter() {
-
-	}
 
 	/**
 	 * ConditionInterpreter interpretes course conditions.
@@ -93,7 +88,7 @@ public class ConditionInterpreter {
 		//
 		CourseEditorEnv cev = uce.getCourseEditorEnv();
 		if (cev != null) {
-			translator = new PackageTranslator(PACKAGE, cev.getEditorEnvLocale());
+			translator = Util.createPackageTranslator(ConditionInterpreter.class, cev.getEditorEnvLocale());
 		}
 
 		env = new Environment();
@@ -104,13 +99,14 @@ public class ConditionInterpreter {
 
 		// variables
 		env.addVariable(NowVariable.name, new NowVariable(userCourseEnv));
+		env.addVariable(TodayVariable.name, new TodayVariable(userCourseEnv));
 		env.addVariable(NeverVariable.name, new NeverVariable(userCourseEnv));
 
 		// functions
 		env.addFunction(DateFunction.name, new DateFunction(userCourseEnv));
 		env.addFunction("inGroup", new InLearningGroupFunction(userCourseEnv, "inGroup")); // legacy
 		env.addFunction("inLearningGroup", new InLearningGroupFunction(userCourseEnv, "inLearningGroup"));
-		env.addFunction("isLearningGroupFull", new IsLearningGroupFullFunction(userCourseEnv, "isLearningGroupFull"));
+		env.addFunction("isLearningGroupFull", new IsLearningGroupFullFunction(userCourseEnv));
 		env.addFunction(InRightGroupFunction.name, new InRightGroupFunction(userCourseEnv));
 		env.addFunction(InLearningAreaFunction.name, new InLearningAreaFunction(userCourseEnv));
 		env.addFunction(IsUserFunction.name, new IsUserFunction(userCourseEnv));
@@ -138,10 +134,13 @@ public class ConditionInterpreter {
 		env.addFunction(IsCourseParticipantFunction.name, new IsCourseParticipantFunction(userCourseEnv));
 		env.addFunction(IsCourseAdministratorFunction.name, new IsCourseAdministratorFunction(userCourseEnv));
 
+		env.addFunction(GetCourseBeginDateFunction.name, new GetCourseBeginDateFunction(userCourseEnv));
+		env.addFunction(GetCourseEndDateFunction.name, new GetCourseEndDateFunction(userCourseEnv));
 		env.addFunction(GetInitialCourseLaunchDateFunction.name, new GetInitialCourseLaunchDateFunction(userCourseEnv));
 		env.addFunction(GetRecentCourseLaunchDateFunction.name, new GetRecentCourseLaunchDateFunction(userCourseEnv));
 
 		env.addFunction(GetAttemptsFunction.name, new GetAttemptsFunction(userCourseEnv));
+		env.addFunction(GetLastAttemptDateFunction.name, new GetLastAttemptDateFunction(userCourseEnv));
 
 		// enrollment building block specific functions
 		env.addFunction(GetInitialEnrollmentDateFunction.name, new GetInitialEnrollmentDateFunction(userCourseEnv));
@@ -164,6 +163,11 @@ public class ConditionInterpreter {
 		env.addUnit("d", new DayUnit());
 		env.addUnit("w", new WeekUnit());
 		env.addUnit("m", new MonthUnit());
+	}
+	
+
+	public UserCourseEnvironment getUserCourseEnvironment() {
+		return uce;
 	}
 
 	/**
@@ -259,6 +263,11 @@ public class ConditionInterpreter {
 			msg = apex.getWhatsWrong();
 			params = new String[] { apex.getFunctionName(), apex.getWrongArgs() };
 			solutionMsg = apex.getSolutionProposal();
+		} catch (ClassCastException ccex) {
+			// the function, units etc, are responsible to provide reasonable error
+			// messages (translation keys)
+			msg = "error.undefined.variable.at";
+			params = new String[]{};
 		} catch (Exception ex) {
 			// this must not happen!
 			throw new OLATRuntimeException(ex.getMessage(), ex);

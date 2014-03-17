@@ -37,14 +37,11 @@ import org.olat.core.gui.control.generic.wizard.Step;
 import org.olat.core.gui.control.generic.wizard.StepRunnerCallback;
 import org.olat.core.gui.control.generic.wizard.StepsMainRunController;
 import org.olat.core.id.OLATResourceable;
-import org.olat.core.logging.activity.ThreadLocalUserActivityLogger;
 import org.olat.core.util.vfs.VFSContainer;
 import org.olat.portfolio.EPArtefactHandler;
-import org.olat.portfolio.EPLoggingAction;
 import org.olat.portfolio.PortfolioModule;
 import org.olat.portfolio.manager.EPFrontendManager;
 import org.olat.portfolio.model.artefacts.AbstractArtefact;
-import org.olat.util.logging.activity.LoggingResourceable;
 
 /**
  * 
@@ -142,14 +139,14 @@ public class ArtefactWizzardStepsController extends BasicController {
 		addLink = LinkFactory.createCustomLink("add.to.eportfolio", "add.to.eportfolio", "", Link.LINK_CUSTOM_CSS + Link.NONTRANSLATED,
 				collectLinkVC, this);
 		addLink.setCustomEnabledLinkCSS("b_eportfolio_add");
-		addLink.setTooltip(translate("add.to.eportfolio"), false);
+		addLink.setTooltip(translate("add.to.eportfolio"));
 
 		// check for an already existing artefact with same businessPath, change collect-item
 		List<AbstractArtefact> existingArtefacts = ePFMgr.loadArtefactsByBusinessPath(businessPath, getIdentity());
 		if (existingArtefacts!=null){
 			int amount = existingArtefacts.size();
 			addLink.setCustomEnabledLinkCSS("b_eportfolio_add_again");
-			addLink.setTooltip(translate("add.to.eportfolio.again", String.valueOf(amount)), false);	
+			addLink.setTooltip(translate("add.to.eportfolio.again", String.valueOf(amount)));	
 		}
 		putInitialPanel(collectLinkVC);
 	}
@@ -185,7 +182,6 @@ public class ArtefactWizzardStepsController extends BasicController {
 	}
 
 	@Override
-	@SuppressWarnings("unused")
 	protected void event(UserRequest ureq, Component source, Event event) {
 		if (source == addLink) {
 			// someone triggered the 'add to my portfolio' workflow by its link

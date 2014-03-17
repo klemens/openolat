@@ -23,9 +23,12 @@ package org.olat.user;
 import java.util.List;
 
 import org.olat.basesecurity.Authentication;
-import org.olat.basesecurity.BaseSecurityManager;
+import org.olat.basesecurity.BaseSecurity;
 import org.olat.basesecurity.BaseSecurityModule;
+import org.olat.core.CoreSpringFactory;
 import org.olat.core.commons.modules.bc.FolderManager;
+import org.olat.core.commons.modules.bc.FolderRunController;
+import org.olat.core.commons.services.webdav.manager.WebDAVAuthManager;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.form.flexible.FormItem;
 import org.olat.core.gui.components.form.flexible.FormItemContainer;
@@ -41,7 +44,7 @@ import org.olat.core.gui.components.link.Link;
 import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.WindowControl;
 import org.olat.core.util.StringHelper;
-import org.olat.login.auth.WebDAVAuthManager;
+import org.olat.core.util.Util;
 
 /**
  * 
@@ -63,8 +66,15 @@ public class WebDAVPasswordController extends FormBasicController {
 	private FormLayoutContainer accessDataFlc;
 	private FormLayoutContainer buttonGroupLayout;
 	
+	private final WebDAVAuthManager webDAVAuthManager;
+	private final BaseSecurity securityManager;
+	
 	public WebDAVPasswordController(UserRequest ureq, WindowControl wControl) {
-		super(ureq,wControl, "pwdav");
+		super(ureq, wControl, "pwdav", Util.createPackageTranslator(FolderRunController.class, ureq.getLocale()));
+		
+		webDAVAuthManager = CoreSpringFactory.getImpl(WebDAVAuthManager.class);
+		securityManager = CoreSpringFactory.getImpl(BaseSecurity.class);
+		
 		initForm(ureq);
 	}
 	
@@ -74,7 +84,8 @@ public class WebDAVPasswordController extends FormBasicController {
 		
 		if(formLayout instanceof FormLayoutContainer) {
 			FormLayoutContainer layoutContainer = (FormLayoutContainer)formLayout;
-			layoutContainer.contextPut("webdavLink", FolderManager.getWebDAVLink());
+			layoutContainer.contextPut("webdavhttp", FolderManager.getWebDAVHttp());
+			layoutContainer.contextPut("webdavhttps", FolderManager.getWebDAVHttps());
 			
 			accessDataFlc = FormLayoutContainer.createDefaultFormLayout("flc_access_data", getTranslator());
 			layoutContainer.add(accessDataFlc);
@@ -82,7 +93,7 @@ public class WebDAVPasswordController extends FormBasicController {
 
 			boolean hasOlatToken = false;
 			boolean hasWebDAVToken = false;
-			List<Authentication> authentications = BaseSecurityManager.getInstance().getAuthentications(ureq.getIdentity());
+			List<Authentication> authentications = securityManager.getAuthentications(ureq.getIdentity());
 			for(Authentication auth : authentications) {
 				if(BaseSecurityModule.getDefaultAuthProviderIdentifier().equals(auth.getProvider())) {
 					hasOlatToken = true;
@@ -161,7 +172,7 @@ public class WebDAVPasswordController extends FormBasicController {
 	protected void formOK(UserRequest ureq) {
 		if(passwordEl != null && passwordEl.isVisible()) {
 			String newPassword = passwordEl.getValue();
-			if(WebDAVAuthManager.changePassword(ureq.getIdentity(), ureq.getIdentity(), newPassword)) {
+			if(webDAVAuthManager.changePassword(ureq.getIdentity(), ureq.getIdentity(), newPassword)) {
 				showInfo("pwdav.password.successful");
 				toogleChangePassword(ureq);
 			} else {
@@ -189,12 +200,14 @@ public class WebDAVPasswordController extends FormBasicController {
 		passwordEl.setVisible(visible);
 		confirmPasswordEl.setVisible(visible);
 		
-		Authentication auth = BaseSecurityManager.getInstance().findAuthentication(ureq.getIdentity(), WebDAVAuthManager.PROVIDER_WEBDAV);
+		Authentication auth = securityManager.findAuthentication(ureq.getIdentity(), WebDAVAuthManager.PROVIDER_WEBDAV);
 		String passwordPlaceholderKey = auth == null ? "pwdav.password.not_set" : "pwdav.password.set";
 		String passwordPlaceholder = getTranslator().translate(passwordPlaceholderKey);
 		passwordStaticEl.setValue(passwordPlaceholder);
 		
 		String buttonPlaceholderKey = auth == null ? "pwdav.password.new" : "pwdav.password.change";
 		newButton.setI18nKey(buttonPlaceholderKey);
+		
+		flc.setDirty(true);
 	}
 }
