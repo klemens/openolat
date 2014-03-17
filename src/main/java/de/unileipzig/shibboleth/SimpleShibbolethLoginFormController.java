@@ -2,7 +2,7 @@ package de.unileipzig.shibboleth;
 
 import java.util.Locale;
 
-import org.olat.core.dispatcher.DispatcherAction;
+import org.olat.core.dispatcher.DispatcherModule;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.Component;
 import org.olat.core.gui.components.link.Link;
@@ -33,7 +33,7 @@ public class SimpleShibbolethLoginFormController extends AuthenticationControlle
 	@Override
 	protected void event(UserRequest ureq, Component source, Event event) {
 		if(source == redirectButton) {
-			DispatcherAction.redirectTo(ureq.getHttpResp(), WebappHelper.getServletContextPath() + "/" + path + "/");
+			DispatcherModule.redirectTo(ureq.getHttpResp(), WebappHelper.getServletContextPath() + "/" + path + "/");
 		}
 	}
 
