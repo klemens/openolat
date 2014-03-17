@@ -67,8 +67,8 @@ public class BBautOLATConnector {
 			connector = new XmlRpcAutolatConnector_0_1(url);
 			//ServerConnectionManagerImpl.getInstance().setLastContact(conf.getServerConnection());
 			//ServerConnectionManagerImpl.getInstance().setActive(conf.getServerConnection(), true);
-		} catch (ArrayIndexOutOfBoundsException aioobe) {
-			throw new ArrayIndexOutOfBoundsException("server string broken");
+		} catch (IndexOutOfBoundsException aioobe) {
+			throw new AutolatConnectorException("server string broken");
 		} catch (AutolatConnectorException e) {
 			if(!handleConnectionProblem(e)) {
 				throw new AutolatConnectorException("not able to connect to server");
