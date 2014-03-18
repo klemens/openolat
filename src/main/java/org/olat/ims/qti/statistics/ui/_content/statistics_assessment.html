@@ -1,0 +1,107 @@
+<div class="o_qti_statistics">
+#if(!$printMode)
+	<div class="o_buttons_box_right">
+		<script type="text/javascript">
+		function $r.getId("print")() {
+			try {
+				var ww = window.open('$r.commandURI("print")', '$winid', 'height=400, width=800, left=0, top=0, location=no, menubar=no, resizable=yes, scrollbars=yes, toolbar=no');
+				ww.focus();
+			} catch(e) {
+				if(jQuery(document).ooLog().isDebugEnabled()) jQuery(document).ooLog('debug','Error when trying to print qti statistics' , "");
+			}
+		}
+		</script>
+		<a class="b_with_small_icon_left o_print_icon" href='javascript:$r.getId("print")()' title='$r.translateInAttribute("print")'>
+			<span>$r.translate("print")</span>
+		</a>
+		$r.render("download")
+	</div>
+#end
+
+<div class="b_clearfix">
+	<div class="b_c33l">
+		<h4>$r.translate("fig.title")</h4>
+		<table><tbody>
+			<tr><td>$r.translate("fig.participants")</td>
+				<td>$numOfParticipants</td></tr>
+			#if($numOfPassed)
+				<tr><td>$r.translate("fig.passed")</td>
+					<td>$numOfPassed</td></tr>
+			#end
+			#if($numOfFailed)
+				<tr><td>$r.translate("fig.failed")</td>
+					<td>$numOfFailed</td></tr>
+			#end
+			#if($maxScore)
+				<tr><td>$r.translate("chart.maxscore")</td>
+					<td>$maxScore</td></tr>
+			#end
+			#if($cutScore)
+			<tr><td>$r.translate("chart.cutscore")</td>
+				<td>$cutScore</td></tr>
+			#end
+			#if($average)
+			<tr><td>$r.translate("fig.avg")</td>
+				<td>$average</td></tr>
+			#end
+			#if($range)
+			<tr><td>$r.translate("fig.span")</td>
+				<td>$range</td></tr>
+			#end
+			#if($standardDeviation)
+			<tr><td>$r.translate("fig.stddev")</td>
+				<td>$standardDeviation</td></tr>
+			#end
+			#if($mode)
+			<tr><td>$r.translate("fig.mode")</td>
+				<td>$mode</td></tr>
+			#end
+			#if($median)
+			<tr><td>$r.translate("fig.median")</td>
+				<td>$median</td></tr>
+			#end
+			#if($averageDuration)
+			<tr><td>$r.translate("fig.averagedur")</td>
+				<td>$averageDuration</td></tr>
+			#end
+		</tbody></table>
+	</div>
+	<div class="b_c66r">
+		#if($r.available("scoreHistogram"))
+			$r.render("scoreHistogram")
+		#end
+	</div>
+</div>
+
+$r.render("durationHistogram")
+
+#if($r.available("averageScorePerItemChart"))
+	<h4>$r.translate("chart.averagescore.peritem")</h4>
+	$r.render("averageScorePerItemChart")
+	
+	<ul>
+	#foreach($itemInfo in $itemInfoList)
+		<li><strong>$itemInfo.label.</strong> $itemInfo.text</li>
+	#end
+	</ul>
+#end
+
+#if($r.available("percentRightAnswersPerItemChart"))
+	<h4>$r.translate("chart.rightanswers.peritem")</h4>
+	$r.render("percentRightAnswersPerItemChart")
+	<ul>
+	#foreach($itemInfo in $itemInfoList)
+		<li><strong>$itemInfo.label.</strong> $itemInfo.text</li>
+	#end
+	</ul>
+#end
+
+#if($overviewList)
+	#foreach($overview in $overviewList)
+		$r.render($overview)
+	
+	#end
+#end
+
+
+</div>

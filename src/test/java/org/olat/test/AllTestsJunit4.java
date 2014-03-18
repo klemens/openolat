@@ -113,6 +113,7 @@ import org.junit.runners.Suite;
 	org.olat.course.config.CourseConfigManagerImplTest.class,//ok
 	org.olat.course.groupsandrights.CourseGroupManagementTest.class,//ok
 	org.olat.course.editor.PublishProcessTest.class,//ok
+	org.olat.modules.iq.IQManagerTest.class,//ok
 	org.olat.modules.fo.ForumManagerTest.class,//fail
 	org.olat.modules.wiki.WikiUnitTest.class,//ok
 	org.olat.modules.wiki.versioning.diff.CookbookDiffTest.class,//ok
@@ -122,14 +123,18 @@ import org.junit.runners.Suite;
 	org.olat.search.service.document.file.FileDocumentFactoryTest.class,
 	org.olat.search.service.document.file.PDFDocumentTest.class,
 	org.olat.search.service.document.file.OfficeDocumentTest.class,
-	org.olat.notifications.NotificationsManagerTest.class,//fail
+	org.olat.core.commons.services.notifications.manager.NotificationsManagerTest.class,//fail
 	org.olat.registration.RegistrationManagerTest.class,//ok
 	org.olat.course.nodes.projectbroker.ProjectBrokerManagerTest.class,
 	org.olat.core.commons.persistence.DBTest.class,
 	org.olat.modules.ims.cp.CPManagerTest.class,
 	org.olat.modules.ims.qti.fileresource.FileResourceValidatorTest.class,
+	org.olat.ims.qti.QTIResultManagerTest.class,
 	org.olat.ims.qti.qpool.QTIImportProcessorTest.class,
 	org.olat.ims.qti.qpool.QTIExportProcessorTest.class,
+	org.olat.ims.qti.statistics.manager.QTIStatisticsManagerLargeTest.class,
+	org.olat.ims.qti.statistics.manager.QTIStatisticsManagerTest.class,
+	org.olat.ims.qti.statistics.manager.StatisticsTest.class,
 	org.olat.ims.lti.LTIManagerTest.class,
 	org.olat.modules.webFeed.FeedManagerImplTest.class,
 	org.olat.modules.qpool.manager.MetadataConverterHelperTest.class,
@@ -146,7 +151,6 @@ import org.junit.runners.Suite;
 	org.olat.core.commons.services.mark.MarksTest.class,
 //	org.olat.test.OlatJerseyTestCase.class, // NO TEST METHODS 
 	org.olat.test.SpringInitDestroyVerficationTest.class,
-	org.olat.course.statistic.TestLoggingVersionManagerImpl.class,
 	//org.olat.course.statistic.weekly.TestWeeklyStatisticManager_fillGaps.class, don't know what it tests
 	org.olat.core.commons.services.usercomments.UserCommentsTest.class,
 	org.olat.core.commons.services.usercomments.UserRatingsTest.class,

@@ -203,11 +203,12 @@ public class SelectionController extends BasicController {
 		if (identities.size() > 0) {
 			selectedIdentities = identities;
 			MailTemplate deleteMailTemplate = createMailTemplate(translate(KEY_EMAIL_SUBJECT), translate(KEY_EMAIL_BODY));
+			deleteMailTemplate.setCpfrom(Boolean.FALSE);
 			deleteMailTemplate.addToContext("lastloginduration",   Integer.toString(UserDeletionManager.getInstance().getLastLoginDuration() ));
 			deleteMailTemplate.addToContext("durationdeleteemail", Integer.toString(UserDeletionManager.getInstance().getDeleteEmailDuration() ));
 
 			removeAsListenerAndDispose(deleteUserMailCtr);
-			deleteUserMailCtr = new MailNotificationEditController(getWindowControl(), ureq, deleteMailTemplate, true, false);
+			deleteUserMailCtr = new MailNotificationEditController(getWindowControl(), ureq, deleteMailTemplate, true, false, false);
 			listenTo(deleteUserMailCtr);
 			
 			removeAsListenerAndDispose(cmc);
