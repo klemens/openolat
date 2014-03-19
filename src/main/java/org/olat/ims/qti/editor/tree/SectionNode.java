@@ -51,6 +51,15 @@ public class SectionNode extends GenericQtiNode {
 	private QTIEditorPackage qtiPackage;
 	private TabbedPane myTabbedPane;
 	private SectionController sectionCtrl;
+	
+	
+	public SectionNode(Section theSection) {
+		super(theSection.getIdent());
+		section = theSection;
+		setMenuTitleAndAlt(section.getTitle());
+		setUserObject(section.getIdent());
+		setIconCssClass("o_mi_qtisection");
+	}
 
 	/**
 	 * @param theSection
