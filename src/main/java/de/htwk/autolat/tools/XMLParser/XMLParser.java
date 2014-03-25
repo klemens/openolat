@@ -134,6 +134,17 @@ public class XMLParser {
 				Figure fig = buildFigure(ele.getChildren());
 				object.addFigure(fig);
 			}
+			if(ele.getName().equals("Image")) {
+				Picture pic = PictureFactory.getInstance().getPicture(
+					new Picture(
+						ele.getAttributeValue("type"),
+						ele.getText(),
+						ele.getAttributeValue("alt"),
+						Double.valueOf(ele.getAttributeValue("width")),
+						Double.valueOf(ele.getAttributeValue("height")),
+						ele.getAttributeValue("unit")));
+				object.addFigure(new Figure(pic));
+			}
 		}
 		return object;
 	}
