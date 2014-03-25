@@ -9,6 +9,11 @@ public class Figure {
 	public Figure() {
 	}
 	
+	public Figure(Picture picture) {
+		setDescription(null);
+		setPic(picture);
+	}
+
 	public Figure(Picture picture, OutputObject description) {
 		setDescription(description);
 		setPic(picture);
@@ -31,8 +36,11 @@ public class Figure {
 	}
 	
 	public String toString() {
-		return "<center><OLATPIC>" + pic.getName() + "</OLATPIC>" + description.toString() + "</center>";
-		
+		if(description != null) {
+			return "<center><OLATPIC>" + pic.getName() + "</OLATPIC>" + description.toString() + "</center>";
+		} else {
+			return "<center><OLATPIC>" + pic.getName() + "</OLATPIC></center>";
+		}
 	}
 	
 	

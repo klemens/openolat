@@ -186,7 +186,7 @@ public class OutputObject {
 		if(this.space == null) {
 			return buildString("<div>");
 		}
-		return buildString("<div style=\" margin-left: " + space.getWidth() + space.getUnit() + "; magin-top: " + space.getHeight() + space.getUnit() + "\"" );
+		return buildString("<div style=\" margin-left: " + space.getWidth() + space.getUnit() + "; magin-top: " + space.getHeight() + space.getUnit() + "\">" );
 	}
 	
 	private String buildString(String output) {
