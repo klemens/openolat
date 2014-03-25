@@ -71,6 +71,7 @@
 		<org.mysql.version>5.1.26</org.mysql.version>
 		<org.postgresql.version>9.1-901.jdbc4</org.postgresql.version>
 		<org.infinispan.version>5.2.7.Final</org.infinispan.version>
+		<maven.build.timestamp.format>yyyyMMddHHmm</maven.build.timestamp.format>
 
 	    <!-- properties for testing and Q&A -->
 	    <!-- by default no tests are executed so far (April 2011). Use appropriate profiles and properties on the command line -->
