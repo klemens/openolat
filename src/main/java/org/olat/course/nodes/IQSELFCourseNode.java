@@ -32,6 +32,7 @@ import java.util.Locale;
 import java.util.zip.ZipOutputStream;
 
 import org.olat.basesecurity.BaseSecurityManager;
+import org.olat.core.CoreSpringFactory;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.stack.StackedController;
 import org.olat.core.gui.control.Controller;
@@ -218,7 +219,7 @@ public class IQSELFCourseNode extends AbstractAccessableCourseNode implements Se
 		
 		try {
 			QTIExportFormatter qef = new QTIExportFormatterCSVType2(locale, null, "\t", "\"", "\\", "\r\n", false);
-			return qem.selectAndExportResults(qef, course.getResourceableId(), getShortTitle(), getIdent(), re, exportStream, charset, ".xls");
+			return qem.selectAndExportResults(qef, course.getResourceableId(), getShortTitle(), getIdent(), re, exportStream, ".xls");
 		} catch (IOException e) {
 			log.error("", e);
 			return false;
@@ -316,7 +317,7 @@ public class IQSELFCourseNode extends AbstractAccessableCourseNode implements Se
 		} else {
 			Identity identity = userCourseEnv.getIdentityEnvironment().getIdentity();
 			long olatResourceId = userCourseEnv.getCourseEnvironment().getCourseResourceableId().longValue();
-			QTIResultSet qTIResultSet = IQManager.getInstance().getLastResultSet(identity, olatResourceId, this.getIdent());
+			QTIResultSet qTIResultSet = CoreSpringFactory.getImpl(IQManager.class).getLastResultSet(identity, olatResourceId, this.getIdent());
 			if (qTIResultSet != null) {
 				Boolean passed = qTIResultSet.getIsPassed();
 				Boolean fullyAssessed = qTIResultSet.getFullyAssessed();
