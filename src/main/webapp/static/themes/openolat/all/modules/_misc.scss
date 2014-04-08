@@ -1,5 +1,23 @@
 /*  misc */
 
+/* charts (crispEdges) */
+
+.d3chart {
+
+	.bar { shape-rendering: crispEdges; }
+
+	.bar_default_light { fill: $basecolor_ultra_light; }
+	.bar_default { fill: $basecolor_light; }
+	.bar_default_dark { fill: $basecolor; }
+
+	.axis { font: 12px sans-serif; }
+
+	.axis path, .axis line {
+		fill: none;
+		stroke: #000;
+		shape-rendering: crispEdges;
+	}	
+}
 
 /* BUSINESS CARD &  Member site, members search  */
 div.o_members_search { padding-top: 10px; padding-left: 10px;  }
@@ -10,7 +28,7 @@ div.searchitem select, div.searchitem input { width: 250px; }
 .o_members_register_active { font-weight: bold; font-size: 120%; }
 div.o_members_paging { width: 100%; padding-bottom: 1em; padding-top: 0.5em; text-align: center; }
 div.o_members_paging div { padding-left: 1em; padding-right: 1em; display: inline; }
-	
+
 div.o_bcard { background-color: #eee; margin-top: 10px; @include o-border-radius(6px); }
 div.o_bcard_header, div.o_members_header {padding: 6px; border-bottom:1px solid #fff; }
 div.o_bcard_portrait {
@@ -101,8 +119,8 @@ div.o_infomsgs {
 		div.b_datecomp { top: 2px; float: left; display: inline; }
 		div.o_infomsg {  margin-bottom:1em; padding:10px 0 0 0; }
 		.b_year { display: none; }
-		.o_item_info { color: #7D7D7D; font-size: 90%; }
-		.o_item_info .o_item_info_mod { color:#98221F; }
+		p.o_item_info { color: #7D7D7D; font-size: 90%; margin: 0; }
+		p.o_item_info .o_item_info_mod { color:#98221F; }
 }
 
 div.b_table_wrapper td a.o_peekview_infomsg_link { display:inline; }
@@ -111,7 +129,6 @@ div.o_infomsgs_config {
 	div { display:inline; }
 }
 .o_infomsg_icon { background-image: url(../openolat/images/information-button.png); }
-.o_infomsg_create_button { position:absolute; top:0; right:250px; }
 	
 /* EMAIL */
 .b_mail_icon { background-image: url(../openolat/images/mail.png) }
@@ -261,11 +278,34 @@ div.b_rating {
 
 /* DATE COMPONENT (e.g. in notifications, shows calendar-image with date) */
 div.b_datecomp {
-		width: 2.5em; height: 3em; position: relative; margin-right: 5px;  font-weight: normal; color: white; text-align: center; vertical-align: middle; border: 1px solid #000; font-size: 85%;
-		div { width: 100%;  position: absolute; left: 0;}
-		div.b_year {height: 1em; top: -1.5em; font-size: 80%; font-weight: normal; color: #000; }
-		div.b_month {background: #BE5B5D; height: 40%; top: 0; font-size: 80%; font-weight: normal; color: white; }
-		div.b_day {background: #fff; height: 60%; bottom: 0; font-size: 120%; font-weight: bold; color: #000; border-top: 1px solid #000; border-bottom: 1px solid #aaaaaa; }
+		width: 2.5em; height: 3em; position: relative; 
+		border: 1px solid #000; 
+		margin-right: 5px; 
+		
+		div { 
+			position: absolute; left: 0;
+			width: 100%;  
+			font-weight: normal; color: #000; 
+			font-size: 0.8em;
+			text-align: center; vertical-align: middle; 
+		}
+		div.b_year {
+			height: 1em; top: -1.5em; 
+		}
+		div.b_month {
+			height: 40%; top: 0; 
+			background: #BE5B5D; 
+			font-size: 80%; color: white; 
+		}
+		div.b_day {
+			height: 60%; bottom: 0; 
+			border-top: 1px solid #000; border-bottom: 1px solid #aaaaaa; 
+			background: #fff; 
+			font-size: 1.2em;  
+		}
+		span {
+			line-height: 100%; vertical-align: middle;
+		}
 }
 
 /* Download link */

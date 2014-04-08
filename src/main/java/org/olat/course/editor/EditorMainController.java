@@ -84,6 +84,7 @@ import org.olat.core.util.coordinate.LockEntry;
 import org.olat.core.util.coordinate.LockRemovedEvent;
 import org.olat.core.util.coordinate.LockResult;
 import org.olat.core.util.event.GenericEventListener;
+import org.olat.core.util.event.MultiUserEvent;
 import org.olat.core.util.nodes.INode;
 import org.olat.core.util.resource.OLATResourceableJustBeforeDeletedEvent;
 import org.olat.core.util.resource.OresHelper;
@@ -97,10 +98,11 @@ import org.olat.course.area.CourseAreasController;
 import org.olat.course.config.CourseConfig;
 import org.olat.course.config.ui.courselayout.CourseLayoutHelper;
 import org.olat.course.editor.PublishStepCatalog.CategoryLabel;
-import org.olat.course.groupsandrights.CourseGroupManager;
 import org.olat.course.nodes.CourseNode;
 import org.olat.course.nodes.CourseNodeConfiguration;
 import org.olat.course.nodes.CourseNodeFactory;
+import org.olat.course.nodes.cl.ui.wizard.CheckListStepRunnerCallback;
+import org.olat.course.nodes.cl.ui.wizard.CheckList_1_CheckboxStep;
 import org.olat.course.run.preview.PreviewConfigController;
 import org.olat.course.tree.CourseEditorTreeModel;
 import org.olat.course.tree.CourseEditorTreeNode;
@@ -141,6 +143,7 @@ public class EditorMainController extends MainLayoutBasicController implements G
 	private static final String CMD_KEEPCLOSED_WARNING = "keep.closed.warning";
 	private static final String CMD_KEEPOPEN_WARNING = "keep.open.warning";
 	private static final String CMD_MULTI_SP = "cmp.multi.sp";
+	private static final String CMD_MULTI_CHECKLIST = "cmp.multi.checklist";
 
 	// NLS support
 	
@@ -167,6 +170,7 @@ public class EditorMainController extends MainLayoutBasicController implements G
 	private static final String NLS_COURSEFOLDER_NAME = "coursefolder.name";
 	private static final String NLS_ADMIN_HEADER = "command.admin.header";
 	private static final String NLS_MULTI_SPS = "command.multi.sps";
+	private static final String NLS_MULTI_CHECKLIST = "command.multi.checklist";
 	
 	private Boolean errorIsOpen = Boolean.TRUE;
 	private Boolean warningIsOpen = Boolean.FALSE;
@@ -180,6 +184,7 @@ public class EditorMainController extends MainLayoutBasicController implements G
 	CourseEditorTreeModel cetm;
 	private TabbableController nodeEditCntrllr;
 	private StepsMainRunController publishStepsController;
+	private StepsMainRunController checklistWizard;
 	private PreviewConfigController previewController;
 	private ToolController toolC;
 	private MoveCopySubtreeController moveCopyController;
@@ -230,6 +235,13 @@ public class EditorMainController extends MainLayoutBasicController implements G
 		getUserActivityLogger().setStickyActionType(ActionType.admin);
 		addLoggingResourceable(LoggingResourceable.wrap(CourseFactory.loadCourse(ores)));
 		
+		if(CourseFactory.isCourseEditSessionOpen(ores.getResourceableId())) {
+			Panel empty = new Panel("empty");// empty panel set as "menu" and "tool"
+			Controller emptyCtrl = new LayoutMain3ColsController(ureq, wControl, empty, empty, empty, "opened-course");
+			putInitialPanel(emptyCtrl.getInitialComponent());
+			return;
+		}
+		
 		// try to acquire edit lock for this course.			
 		lockEntry = CoordinatorManager.getInstance().getCoordinator().getLocker().acquireLock(ores, ureq.getIdentity(), CourseFactory.COURSE_EDITOR_LOCK);
 		OLATResourceable lockEntryOres = OresHelper.createOLATResourceableInstance(LockEntry.class, 0l);
@@ -238,7 +250,12 @@ public class EditorMainController extends MainLayoutBasicController implements G
 		try {			
 		ThreadLocalUserActivityLogger.log(CourseLoggingAction.COURSE_EDITOR_OPEN, getClass());
 
-		if (lockEntry.isSuccess()) {			
+		if (!lockEntry.isSuccess()) {
+			Panel empty = new Panel("empty");// empty panel set as "menu" and "tool"
+			Controller emptyCtrl = new LayoutMain3ColsController(ureq, wControl, empty, empty, empty, "opened-course");
+			putInitialPanel(emptyCtrl.getInitialComponent());
+			return;
+		} else {
 			ICourse course = CourseFactory.openCourseEditSession(ores.getResourceableId());
 			main = createVelocityContainer("index");
 			
@@ -331,6 +348,7 @@ public class EditorMainController extends MainLayoutBasicController implements G
 			
 			toolC.addHeader(translate(NLS_ADMIN_HEADER));
 			toolC.addLink(CMD_MULTI_SP, translate(NLS_MULTI_SPS), CMD_MULTI_SP, "b_toolbox_copy");
+			toolC.addLink(CMD_MULTI_CHECKLIST, translate(NLS_MULTI_CHECKLIST), CMD_MULTI_CHECKLIST, "b_toolbox_copy");
 
 			toolC.addHeader(translate(NLS_COMMAND_DELETENODE_HEADER));
 			toolC.addLink(CMD_DELNODE, translate(NLS_COMMAND_DELETENODE), CMD_DELNODE, "b_toolbox_delete");
@@ -364,7 +382,7 @@ public class EditorMainController extends MainLayoutBasicController implements G
 		}
 		} catch (RuntimeException e) {
 			log.warn(RELEASE_LOCK_AT_CATCH_EXCEPTION+" [in <init>]", e);		
-			this.dispose();
+			dispose();
 			throw e;
 		}
 	}
@@ -397,8 +415,8 @@ public class EditorMainController extends MainLayoutBasicController implements G
 					if (key.equals(findThis)) {
 						menuTree.setSelectedNodeId(courseStatus[i].getDescriptionForUnit());
 						euce.getCourseEditorEnv().setCurrentCourseNodeId(courseStatus[i].getDescriptionForUnit());
-						jumpToNodeEditor(courseStatus[i].getActivateableViewIdentifier(), ureq, cetm.getCourseNode(courseStatus[i]
-								.getDescriptionForUnit()), course.getCourseEnvironment().getCourseGroupManager());
+						jumpToNodeEditor(courseStatus[i].getActivateableViewIdentifier(), ureq,
+								cetm.getCourseNode(courseStatus[i].getDescriptionForUnit()));
 						break;
 					}
 				}
@@ -581,7 +599,7 @@ public class EditorMainController extends MainLayoutBasicController implements G
 	 * @param chosenNode
 	 * @param groupMgr
 	 */
-	private void jumpToNodeEditor(String activatorIdent, UserRequest ureq, CourseNode chosenNode, CourseGroupManager groupMgr) {
+	private void jumpToNodeEditor(String activatorIdent, UserRequest ureq, CourseNode chosenNode) {
 		initNodeEditor(ureq, chosenNode);
 		if (nodeEditCntrllr instanceof ActivateableTabbableDefaultController) {
 			OLATResourceable ores = OresHelper.createOLATResourceableInstanceWithoutCheck(activatorIdent, 0l);
@@ -674,46 +692,51 @@ public class EditorMainController extends MainLayoutBasicController implements G
 				 * callback executed in case wizard is finished.
 				 */
 				StepRunnerCallback finish = new StepRunnerCallback(){
-					@SuppressWarnings("unchecked")
+					
 					public Step execute(UserRequest ureq1, WindowControl wControl1, StepsRunContext runContext) {
-						/*
-						 * all information to do now is within the runContext saved
-						 */
+						//all information to do now is within the runContext saved
 						boolean hasChanges = false;
-
-						if (runContext.containsKey("validPublish") && ((Boolean) runContext.get("validPublish")).booleanValue()) {
-
+						
+						PublishProcess publishManager = (PublishProcess)runContext.get("publishProcess");
+						PublishEvents publishEvents = publishManager.getPublishEvents();
+						if (runContext.containsKey("validPublish") && ((Boolean)runContext.get("validPublish")).booleanValue()) {
+							@SuppressWarnings("unchecked")
 							Set<String> selectedNodeIds = (Set<String>) runContext.get("publishSetCreatedFor");
 							hasChanges = (selectedNodeIds != null) && (selectedNodeIds.size() > 0);
 							if (hasChanges) {
-								PublishProcess publishManager = (PublishProcess) runContext.get("publishProcess");
 								publishManager.applyPublishSet(ureq1.getIdentity(), ureq1.getLocale());
+								publishManager.applyUpdateSet(ureq1.getIdentity(), ureq1.getLocale());
 							}
 						}
+						
 						if (runContext.containsKey("changedaccess")) {
 							// there were changes made to the general course access
 							String newAccessStr = (String) runContext.get("changedaccess");
 							int newAccess;
-							//fxdiff VCRP-1,2: access control of resources
 							boolean membersOnly = RepositoryEntry.MEMBERS_ONLY.equals(newAccessStr);
 							if(membersOnly) {
 								newAccess = RepositoryEntry.ACC_OWNERS;
 							} else {
 								newAccess = Integer.valueOf(newAccessStr);
 							}
-							PublishProcess publishManager = (PublishProcess) runContext.get("publishProcess");
+							
 							// fires an EntryChangedEvent for repository entry notifying
 							// about modification.
 							publishManager.changeGeneralAccess(ureq1, newAccess, membersOnly);
 							hasChanges = true;
 						}
 						
-						//fxdiff VCRP-3: add catalog entry in publish wizard
 						if (runContext.containsKey("catalogChoice")) {
 							String choice = (String) runContext.get("catalogChoice");
+							@SuppressWarnings("unchecked")
 							List<CategoryLabel> categories = (List<CategoryLabel>)runContext.get("categories");
-							PublishProcess publishManager = (PublishProcess) runContext.get("publishProcess");
 							publishManager.publishToCatalog(choice, categories);
+						}
+						
+						if(publishEvents.getPostPublishingEvents().size() > 0) {
+							for(MultiUserEvent event:publishEvents.getPostPublishingEvents()) {
+								CoordinatorManager.getInstance().getCoordinator().getEventBus().fireEventToListenersOf(event, ores);
+							}
 						}
 
 						// signal correct completion and tell if changes were made or not.
@@ -758,6 +781,15 @@ public class EditorMainController extends MainLayoutBasicController implements G
 				cmc = new CloseableModalController(getWindowControl(), translate("close"), multiSPChooserCtr.getInitialComponent());
 				listenTo(cmc);
 				cmc.activate();
+			} else if (event.getCommand().equals(CMD_MULTI_CHECKLIST)) {
+				removeAsListenerAndDispose(checklistWizard);
+
+				Step start = new CheckList_1_CheckboxStep(ureq, ores);
+				StepRunnerCallback finish = new CheckListStepRunnerCallback(ores);
+				checklistWizard = new StepsMainRunController(ureq, getWindowControl(), start, finish, null,
+						translate("checklist.wizard"), "o_sel_checklist_wizard");
+				listenTo(checklistWizard);
+				getWindowControl().pushAsModalDialog(checklistWizard.getInitialComponent());
 			}
 		} else if (source == nodeEditCntrllr) {
 			// event from the tabbed pane (any tab)
@@ -766,7 +798,7 @@ public class EditorMainController extends MainLayoutBasicController implements G
 				// the event is too generic to find out what happened -> update tree in all cases (applies to ajax mode only)
 				menuTree.setDirty(true);
 				
-				cetm.nodeConfigChanged(menuTree.getSelectedNode());				
+				cetm.nodeConfigChanged(menuTree.getSelectedNode());
 				CourseFactory.saveCourseEditorTreeModel(course.getResourceableId());
 				euce.getCourseEditorEnv().validateCourse();
 				StatusDescription[] courseStatus = euce.getCourseEditorEnv().getCourseStatus();
@@ -795,6 +827,19 @@ public class EditorMainController extends MainLayoutBasicController implements G
 				previewController = null;
 			}
 			
+		} else if (source == checklistWizard) {
+			if(event == Event.CANCELLED_EVENT || event == Event.DONE_EVENT || event == Event.CHANGED_EVENT) {
+				getWindowControl().pop();
+				removeAsListenerAndDispose(checklistWizard);
+				checklistWizard = null;
+				if(event == Event.DONE_EVENT || event == Event.CHANGED_EVENT) {
+					menuTree.setDirty(true);
+					CourseFactory.saveCourseEditorTreeModel(course.getResourceableId());
+					euce.getCourseEditorEnv().validateCourse();
+					StatusDescription[] courseStatus = euce.getCourseEditorEnv().getCourseStatus();
+					updateCourseStatusMessages(ureq.getLocale(), courseStatus);
+				}
+			}
 		} else if (source == cmc) {
 			//aggressive clean-up
 			removeAsListenerAndDispose(multiSPChooserCtr);

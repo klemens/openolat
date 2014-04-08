@@ -1,0 +1,44 @@
+<div class="o_qti_statistics">
+#if(!$printMode)
+	<div class="o_buttons_box_right">
+		<script type="text/javascript">
+		function $r.getId("print")() {
+			try {
+				var ww = window.open('$r.commandURI("print")', '$winid', 'height=400, width=800, left=0, top=0, location=no, menubar=no, resizable=yes, scrollbars=yes, toolbar=no');
+				ww.focus();
+			} catch(e) {
+				if(jQuery(document).ooLog().isDebugEnabled()) jQuery(document).ooLog('debug','Error when trying to print qti statistics' , "");
+			}
+		}
+		</script>
+		<a class="b_with_small_icon_left o_print_icon" href='javascript:$r.getId("print")()' title='$r.translateInAttribute("print")'>
+			<span>$r.translate("print")</span>
+		</a>
+	</div>
+#end
+
+<h4>$r.translate("fig.title")</h4>
+<table class="o_qti_statistics_figures">
+	<tr><td>$r.translate("fig.participants")</td>
+		<td>$numOfParticipants</td></tr>
+	<tr><td>$r.translate("fig.avg")</td>
+		<td>$average</td></tr>
+	<tr><td>$r.translate("fig.span")</td>
+		<td>$range</td></tr>
+	<tr><td>$r.translate("fig.stddev")</td>
+		<td>$standardDeviation</td></tr>
+	<tr><td>$r.translate("fig.mode")</td>
+		<td>$mode</td></tr>
+	<tr><td>$r.translate("fig.median")</td>
+		<td>$median</td></tr>
+	<tr><td>$r.translate("fig.averagedur")</td>
+		<td>$averageDuration</td></tr>
+</table>
+
+#if($r.available("scoreHistogram"))
+	$r.render("scoreHistogram")
+#end
+#if($r.available("durationHistogram"))
+	$r.render("durationHistogram")
+#end
+</div>

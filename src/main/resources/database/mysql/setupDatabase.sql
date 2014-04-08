@@ -44,6 +44,13 @@ create table if not exists o_gp_business (
    maxparticipants integer,
    waitinglist_enabled bit,
    autocloseranks_enabled bit,
+   ownersintern bit not null default 0,
+   participantsintern bit not null default 0,
+   waitingintern bit not null default 0,
+   ownerspublic bit not null default 0,
+   participantspublic bit not null default 0,
+   waitingpublic bit not null default 0,
+   downloadmembers bit not null default 0,
    groupcontext_fk bigint,
    fk_resource bigint unique,
    fk_ownergroup bigint unique,
@@ -1237,6 +1244,28 @@ create table o_lti_outcome (
    primary key (id)
 );
 
+create table o_cl_checkbox (
+   id bigint not null,
+   creationdate datetime not null,
+   lastmodified datetime not null,
+   c_checkboxid varchar(50) not null,
+   c_resname varchar(50) not null,
+   c_resid bigint not null,
+   c_ressubpath varchar(255) not null,
+   primary key (id)
+);
+
+create table o_cl_check (
+   id bigint not null,
+   creationdate datetime not null,
+   lastmodified datetime not null,
+   c_score float(65,30),
+   c_checked bit(0),
+   fk_identity_id bigint not null,
+   fk_checkbox_id bigint not null,
+   primary key (id)
+);
+
 create table o_ex_task (
    id bigint not null,
    creationdate datetime not null,
@@ -1504,7 +1533,8 @@ select
   where re1.repositoryentry_id is not null or re2.repositoryentry_id is not null
 ;
 
-create or replace view o_gp_visible_participant_v as (
+-- contacts
+create or replace view o_gp_contact_participant_v as
    select
       bg_part_member.id as membership_id,
       bgroup.group_id as bg_id,
@@ -1514,12 +1544,12 @@ create or replace view o_gp_visible_participant_v as (
       bg_part_member.identity_id as bg_part_member_id,
       ident.name as bg_part_member_name 
    from o_gp_business as bgroup
-   inner join o_property as bconfig on (bconfig.grp = bgroup.group_id and bconfig.name = 'displayMembers' and bconfig.category = 'config' and bconfig.longValue in (2,3,6,7))
    inner join o_bs_membership as bg_part_member on (bg_part_member.secgroup_id = bgroup.fk_partipiciantgroup)
    inner join o_bs_identity as ident on (bg_part_member.identity_id = ident.id)
- );
+   where bgroup.participantsintern=1
+;
    
-create or replace view o_gp_visible_owner_v as ( 
+create or replace view o_gp_contact_owner_v as
    select
       bg_owner_member.id as membership_id,
       bgroup.group_id as bg_id,
@@ -1529,10 +1559,32 @@ create or replace view o_gp_visible_owner_v as (
       bg_owner_member.identity_id as bg_owner_member_id,
       ident.name as bg_owner_member_name
    from o_gp_business as bgroup
-   inner join o_property as bconfig on (bconfig.grp = bgroup.group_id and bconfig.name = 'displayMembers' and bconfig.category = 'config' and bconfig.longValue in (1,3,5,7))
    inner join o_bs_membership as bg_owner_member on (bg_owner_member.secgroup_id = bgroup.fk_ownergroup)
    inner join o_bs_identity as ident on (bg_owner_member.identity_id = ident.id)
-);
+   where bgroup.ownersintern=1
+;
+
+create or replace view o_gp_contactkey_participant_v as
+   select
+      bg_part_member.id as membership_id,
+      bgroup.fk_partipiciantgroup as bg_part_sec_id,
+      bgroup.fk_ownergroup as bg_owner_sec_id,
+      bg_part_member.identity_id as bg_part_member_id
+   from o_gp_business as bgroup
+   inner join o_bs_membership as bg_part_member on (bg_part_member.secgroup_id = bgroup.fk_partipiciantgroup)
+   where bgroup.participantsintern=1
+;
+   
+create or replace view o_gp_contactkey_owner_v as
+   select
+      bg_owner_member.id as membership_id,
+      bgroup.fk_partipiciantgroup as bg_part_sec_id,
+      bgroup.fk_ownergroup as bg_owner_sec_id,
+      bg_owner_member.identity_id as bg_owner_member_id
+   from o_gp_business as bgroup
+   inner join o_bs_membership as bg_owner_member on (bg_owner_member.secgroup_id = bgroup.fk_ownergroup)
+   where bgroup.ownersintern=1
+;
 
 -- coaching
 create or replace view o_as_eff_statement_groups_v as (
@@ -1918,6 +1970,8 @@ alter table o_im_roster_entry ENGINE = InnoDB;
 alter table o_im_preferences ENGINE = InnoDB;
 alter table o_ex_task ENGINE = InnoDB;
 alter table o_ex_task_modifier ENGINE = InnoDB;
+alter table o_cl_checkbox ENGINE = InnoDB;
+alter table o_cl_check ENGINE = InnoDB;
 
 
 -- rating
@@ -2101,6 +2155,12 @@ alter table o_ex_task add constraint idx_ex_task_ident_id foreign key (fk_identi
 alter table o_ex_task add constraint idx_ex_task_rsrc_id foreign key (fk_resource_id) references o_olatresource(resource_id);
 alter table o_ex_task_modifier add constraint idx_ex_task_mod_ident_id foreign key (fk_identity_id) references o_bs_identity(id);
 alter table o_ex_task_modifier add constraint idx_ex_task_mod_task_id foreign key (fk_task_id) references o_ex_task(id);
+
+-- checklist
+alter table o_cl_check add constraint check_identity_ctx foreign key (fk_identity_id) references o_bs_identity (id);
+alter table o_cl_check add constraint check_box_ctx foreign key (fk_checkbox_id) references o_cl_checkbox (id);
+alter table o_cl_check add unique check_identity_unique_ctx (fk_identity_id, fk_checkbox_id);
+create index idx_checkbox_uuid_idx on o_cl_checkbox (c_checkboxid);
 
 -- lifecycle
 create index lc_pref_idx on o_lifecycle (persistentref);
