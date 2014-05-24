@@ -27,8 +27,10 @@ package org.olat.course.nodes;
 
 import java.io.File;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
+import java.util.zip.ZipOutputStream;
 
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.stack.StackedController;
@@ -37,6 +39,7 @@ import org.olat.core.gui.control.WindowControl;
 import org.olat.core.gui.control.generic.messages.MessageUIFactory;
 import org.olat.core.gui.control.generic.tabbable.TabbableController;
 import org.olat.core.gui.translator.Translator;
+import org.olat.core.id.Identity;
 import org.olat.core.util.CodeHelper;
 import org.olat.core.util.StringHelper;
 import org.olat.core.util.Util;
@@ -50,14 +53,18 @@ import org.olat.course.condition.interpreter.ConditionExpression;
 import org.olat.course.condition.interpreter.ConditionInterpreter;
 import org.olat.course.editor.CourseEditorEnv;
 import org.olat.course.editor.NodeConfigFormController;
+import org.olat.course.editor.PublishEvents;
 import org.olat.course.editor.StatusDescription;
 import org.olat.course.export.CourseEnvironmentMapper;
 import org.olat.course.run.navigation.NodeRunConstructionResult;
 import org.olat.course.run.userview.NodeEvaluation;
 import org.olat.course.run.userview.TreeEvaluation;
 import org.olat.course.run.userview.UserCourseEnvironment;
+import org.olat.course.statistic.StatisticResourceOption;
+import org.olat.course.statistic.StatisticResourceResult;
 import org.olat.group.model.BGAreaReference;
 import org.olat.group.model.BusinessGroupReference;
+import org.olat.ims.qti.statistics.QTIType;
 import org.olat.modules.ModuleConfiguration;
 
 /**
@@ -141,6 +148,17 @@ public abstract class GenericCourseNode extends GenericNode implements CourseNod
 		Translator translator = Util.createPackageTranslator(GenericCourseNode.class, ureq.getLocale());
 		String text = translator.translate("preview.notavailable");
 		return MessageUIFactory.createInfoMessage(ureq, wControl, null, text);
+	}
+	
+	@Override
+	public StatisticResourceResult createStatisticNodeResult(UserRequest ureq, WindowControl wControl,
+			UserCourseEnvironment userCourseEnv, StatisticResourceOption options, QTIType... types) {
+		return null;
+	}
+
+	@Override
+	public boolean isStatisticNodeResultAvailable(UserCourseEnvironment userCourseEnv, QTIType... types) {
+		return false;
 	}
 
 	/**
@@ -333,6 +351,11 @@ public abstract class GenericCourseNode extends GenericNode implements CourseNod
 		preConditionAccess.setConditionId("accessability");
 		return preConditionAccess;
 	}
+	
+	@Override
+	public void updateOnPublish(Locale locale, ICourse course, Identity publisher, PublishEvents publishEvents) {
+		//default do nothing
+	}
 
 	/**
 	 * Generic interface implementation. May be overriden by specific node's
@@ -352,9 +375,7 @@ public abstract class GenericCourseNode extends GenericNode implements CourseNod
 	 * @see org.olat.course.nodes.CourseNode#cleanupOnDelete(org.olat.course.ICourse)
 	 */
 	public void cleanupOnDelete(ICourse course) {
-	/**
-	 * do nothing in default implementation
-	 */
+		// do nothing in default implementation
 	}
 
 	/**
@@ -362,11 +383,11 @@ public abstract class GenericCourseNode extends GenericNode implements CourseNod
 	 * implementation.
 	 * 
 	 * @see org.olat.course.nodes.CourseNode#archiveNodeData(java.util.Locale,
-	 *      org.olat.course.ICourse, java.io.File)
+	 *      org.olat.course.ICourse, java.util.zip.ZipOutputStream, String charset)
 	 */
-	//implemented by specialized node
-	public boolean archiveNodeData(Locale locale, ICourse course, File exportDirectory, String charset) {
-	// nothing to do in default implementation
+	@Override
+	public boolean archiveNodeData(Locale locale, ICourse course, ArchiveOptions options, ZipOutputStream exportStream, String charset) {
+		// nothing to do in default implementation
 		return true;
 	}
 
@@ -649,6 +670,11 @@ public abstract class GenericCourseNode extends GenericNode implements CourseNod
 			return description;
 		}
 		return retVal;
+	}
+	
+	@Override
+	public List<StatusDescription> publishUpdatesExplanations(CourseEditorEnv cev) {
+		return Collections.<StatusDescription>emptyList();
 	}
 
 	/**

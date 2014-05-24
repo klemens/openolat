@@ -25,13 +25,18 @@
 package org.olat.course.editor;
 
 import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
+import java.util.zip.ZipOutputStream;
 
+import org.apache.poi.util.IOUtils;
 import org.olat.basesecurity.BaseSecurityManager;
 import org.olat.catalog.CatalogEntry;
 import org.olat.catalog.CatalogManager;
@@ -42,7 +47,9 @@ import org.olat.core.id.OLATResourceable;
 import org.olat.core.logging.AssertException;
 import org.olat.core.logging.OLog;
 import org.olat.core.logging.Tracing;
+import org.olat.core.util.Formatter;
 import org.olat.core.util.ObjectCloner;
+import org.olat.core.util.StringHelper;
 import org.olat.core.util.Util;
 import org.olat.core.util.ValidationStatus;
 import org.olat.core.util.coordinate.CoordinatorManager;
@@ -99,12 +106,13 @@ public class PublishProcess {
 	/*
 	 * intermediate structures to calculate next course run
 	 */
-	private ArrayList<CourseEditorTreeNode> editorModelDeletedNodes;
-	private ArrayList<CourseEditorTreeNode> editorModelInsertedNodes;
-	private ArrayList<CourseEditorTreeNode> editorModelModifiedNodes;
+	private List<CourseEditorTreeNode> editorModelDeletedNodes;
+	private List<CourseEditorTreeNode> editorModelInsertedNodes;
+	private List<CourseEditorTreeNode> editorModelModifiedNodes;
 	private Structure resultingCourseRun;
 	private List<String> originalNodeIdsToPublish;
 
+	private final PublishEvents publishEvents = new PublishEvents();
 
 	
 	PublishProcess(ICourse course, CourseEditorTreeModel cetm, Locale locale) {
@@ -120,7 +128,9 @@ public class PublishProcess {
 		return new PublishProcess(course, cetm, locale);
 	}
 	
-
+	public PublishEvents getPublishEvents() {
+		return publishEvents;
+	}
 
 	/**
 	 * first step in publishing course editor nodes.<br>
@@ -190,10 +200,6 @@ public class PublishProcess {
 		Visitor nodePublishV = new NodePublishVisitor(editorRoot, nodesIdsToPublish, existingCourseRun);
 		TreeVisitor tv = new TreeVisitor(nodePublishV, editorRoot, visitChildrenFirst);
 		tv.visitAll();
-		/*
-		 * 
-		 */
-
 	}
 
 
@@ -222,21 +228,21 @@ public class PublishProcess {
 	 * @param locale
 	 * @return
 	 */
-	public StatusDescription[] testPublishSet(Locale locale) {
+	public PublishSetInformations testPublishSet(Locale locale) {
 		//check for valid references to tests, resource folder, wiki
 		List<StatusDescription> damagedRefsInsertedNodes = checkRefs(editorModelInsertedNodes);
 		if (damagedRefsInsertedNodes.size() > 0) {
 			// abort testing as a blocking error found!
 			StatusDescription[] status = new StatusDescription[damagedRefsInsertedNodes.size()];
 			status = damagedRefsInsertedNodes.toArray(status);
-			return status;
+			return new PublishSetInformations(status);
 		}
 		List<StatusDescription> damagedRefsModifiedNodes = checkRefs(editorModelModifiedNodes);
 		if (damagedRefsModifiedNodes.size() > 0) {
 			// abort testing as a blocking error found
 			StatusDescription[] status = new StatusDescription[damagedRefsModifiedNodes.size()];
 			status = damagedRefsModifiedNodes.toArray(status);
-			return status;
+			return new PublishSetInformations(status);
 		}
 
 		CourseNode clonedCourseNode = (CourseNode) ObjectCloner.deepCopy(resultingCourseRun.getRootNode());
@@ -291,7 +297,16 @@ public class PublishProcess {
 				status[i] = cn.explainThisDuringPublish(description);
 			}
 		}
-		return status;
+		
+		List<StatusDescription> updateNotifications = testUpdateSet(tmpCEV);
+		return new PublishSetInformations(status, updateNotifications);
+	}
+	
+	public List<StatusDescription> testUpdateSet(CourseEditorEnv cev) {
+		//check for valid references to tests, resource folder, wiki
+		List<StatusDescription> notifications = checkUpdates(editorModelInsertedNodes, cev);
+		notifications.addAll(checkUpdates(editorModelModifiedNodes, cev));
+		return notifications;
 	}
 	
 
@@ -320,6 +335,19 @@ public class PublishProcess {
 			}
 		}
 		return cetnDamaged;
+	}
+	
+	private List<StatusDescription> checkUpdates(List<CourseEditorTreeNode> courseEditorTreeNodes, CourseEditorEnv cev) {
+		List<StatusDescription> notifications = new ArrayList<StatusDescription>();
+		for (Iterator<CourseEditorTreeNode> iter = courseEditorTreeNodes.iterator(); iter.hasNext();) {
+			CourseEditorTreeNode cetn = iter.next();
+			CourseNode cn = cetn.getCourseNode();
+			List<StatusDescription> nodeNotes = cn.publishUpdatesExplanations(cev);
+			if(nodeNotes != null && nodeNotes.size() > 0) {
+				notifications.addAll(nodeNotes);
+			}
+		}
+		return notifications;
 	}
 
 	/**
@@ -415,8 +443,7 @@ public class PublishProcess {
 					// only clean up and archive of nodes which were already in run
 					// save data, remove references
 					deleteRefs(oldCn);
-					File exportDirectory = CourseFactory.getOrCreateDataExportDirectory(identity, course.getCourseTitle());
-					oldCn.archiveNodeData(locale, course, exportDirectory, charset);
+					archiveDeletedNode(identity, cn, oldCn, locale, charset);
 					// 2) delete all user data
 					oldCn.cleanupOnDelete(course);
 				}
@@ -480,6 +507,36 @@ public class PublishProcess {
 		 */
 
 	}
+	
+	public void applyUpdateSet(Identity identity, Locale locale) {
+		for (CourseEditorTreeNode cetn:editorModelInsertedNodes) {
+			cetn.getCourseNode().updateOnPublish(locale, course, identity, publishEvents);
+		}
+		for (CourseEditorTreeNode cetn:editorModelModifiedNodes) {
+			cetn.getCourseNode().updateOnPublish(locale, course, identity, publishEvents);
+		}
+	}
+	
+	private void archiveDeletedNode(Identity identity, CourseNode cn, CourseNode oldCn, Locale locale, String charset) {
+		File exportDirectory = CourseFactory.getOrCreateDataExportDirectory(identity, course.getCourseTitle());
+		String archiveName = cn.getType() + "_"
+				+ StringHelper.transformDisplayNameToFileSystemName(cn.getShortName())
+				+ "_" + Formatter.formatDatetimeFilesystemSave(new Date(System.currentTimeMillis()));
+		
+		FileOutputStream fileStream = null;
+		ZipOutputStream exportStream = null;
+		try {
+			File exportFile = new File(exportDirectory, archiveName);
+			fileStream = new FileOutputStream(exportFile);
+			exportStream = new ZipOutputStream(fileStream);
+			oldCn.archiveNodeData(locale, course, null, exportStream, charset);
+		} catch (FileNotFoundException e) {
+			log.error("", e);
+		} finally {
+			IOUtils.closeQuietly(exportStream);
+			IOUtils.closeQuietly(fileStream);
+		}
+	}
 
 	/**
 	 * Update references of a course node in the run. If the course node is new,
@@ -526,7 +583,6 @@ public class PublishProcess {
 		}
 	}
 
-//VCRP-3: add catalog entry in publish wizard
 	protected void publishToCatalog(String choiceValue, List<CategoryLabel> labels) {
 		
 		CoursePropertyManager cpm = course.getCourseEnvironment().getCoursePropertyManager();
@@ -595,7 +651,7 @@ public class PublishProcess {
 	String assemblePublishConfirmation() {
 		List<String> nodeIdsToPublish = this.originalNodeIdsToPublish;
 		
-		StringBuffer msg = new StringBuffer();
+		StringBuilder msg = new StringBuilder();
 
 		OLATResourceable courseRunOres = OresHelper.createOLATResourceableInstance(RunMainController.ORES_TYPE_COURSE_RUN, repositoryEntry.getOlatResource().getResourceableId());
 		int cnt = CoordinatorManager.getInstance().getCoordinator().getEventBus().getListeningIdentityCntFor(courseRunOres) -1; // -1: Remove myself from list

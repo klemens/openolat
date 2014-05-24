@@ -26,14 +26,14 @@
 package org.olat.course.nodes.ta;
 
 
+import org.olat.core.commons.services.notifications.NotificationsHandler;
+import org.olat.core.commons.services.notifications.SubscriptionContext;
 import org.olat.core.id.Identity;
 import org.olat.core.logging.OLog;
 import org.olat.core.logging.Tracing;
-import org.olat.core.util.notifications.NotificationsHandler;
-import org.olat.core.util.notifications.SubscriptionContext;
 import org.olat.course.CourseModule;
 import org.olat.course.nodes.CourseNode;
-import org.olat.course.run.userview.UserCourseEnvironment;
+import org.olat.course.run.environment.CourseEnvironment;
 
 /**
  * Description:<br>
@@ -52,8 +52,8 @@ public class ReturnboxFileUploadNotificationHandler extends AbstractTaskNotifica
 		//empty block
 	}
 
-	protected static SubscriptionContext getSubscriptionContext(UserCourseEnvironment userCourseEnv, CourseNode node, Identity identity) {
-	  return CourseModule.createSubscriptionContext(userCourseEnv.getCourseEnvironment(), node, "Returnbox-" + identity.getKey());
+	protected static SubscriptionContext getSubscriptionContext(CourseEnvironment courseEnv, CourseNode node, Identity identity) {
+	  return CourseModule.createSubscriptionContext(courseEnv, node, "Returnbox-" + identity.getKey());
 	}
 	
 	protected String getCssClassIcon() {

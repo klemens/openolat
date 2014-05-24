@@ -122,8 +122,8 @@ public class QTIWordExport implements MediaResource {
 			String secureLabel = StringHelper.transformDisplayNameToFileSystemName(label);
 
 			String file = secureLabel + ".zip";
-			hres.setHeader("Content-Disposition","attachment; filename=\"" + StringHelper.urlEncodeISO88591(file) + "\"");			
-			hres.setHeader("Content-Description",StringHelper.urlEncodeISO88591(label));
+			hres.setHeader("Content-Disposition", "attachment; filename*=UTF-8''" + StringHelper.urlEncodeUTF8(file));			
+			hres.setHeader("Content-Description", StringHelper.urlEncodeUTF8(label));
 			
 			zout = new ZipOutputStream(hres.getOutputStream());
 			zout.setLevel(9);
@@ -223,19 +223,15 @@ public class QTIWordExport implements MediaResource {
 				ChoiceQuestion choice = (ChoiceQuestion)question;
 				if(question.getType() == Question.TYPE_SC) {
 					questionType = translator.translate("item.type.sc");
+					fetchPointsOfMultipleChoices(itemEl, choice, iinput);
 				} else if(question.getType() == Question.TYPE_MC) {
 					questionType = translator.translate("item.type.mc");
+					fetchPointsOfMultipleChoices(itemEl, choice, iinput);
 				} else if (question.getType() == Question.TYPE_KPRIM) {
 					questionType = translator.translate("item.type.kprim");
+					fetchPointsOfKPrim(itemEl, choice, iinput);
 				}
-				Element resprocessingXML = itemEl.element("resprocessing");
-				if(resprocessingXML != null) {
-					List<?> respconditions = resprocessingXML.elements("respcondition");
-					Map<String,Float> points = QTIEditHelper.fetchPoints(respconditions, choice.getType());
-					for(String point:points.keySet()) {
-						iinput.put(point, point);
-					}
-				}
+				
 			} else if(question instanceof FIBQuestion) {
 				questionType = translator.translate("item.type.sc");
 				for (Response response: question.getResponses()) {
@@ -257,9 +253,38 @@ public class QTIWordExport implements MediaResource {
 			renderInstructions.put(RenderInstructions.KEY_CORRECT_RESPONSES_MAP, iinput);
 			renderInstructions.put(RenderInstructions.KEY_QUESTION_TYPE, questionType);
 			renderInstructions.put(RenderInstructions.KEY_QUESTION_SCORE, questionScore);
+			renderInstructions.put(RenderInstructions.KEY_QUESTION_OO_TYPE, new Integer(question.getType()));
 		}
 		
 		foo.renderOpenXML(document, renderInstructions);
+	}
+	
+	private static void fetchPointsOfKPrim(Element itemEl, ChoiceQuestion choice, Map<String,String> iinput) {
+		Element resprocessingXML = itemEl.element("resprocessing");
+		if(resprocessingXML != null) {
+			List<?> respconditions = resprocessingXML.elements("respcondition");
+			Map<String,Float> points = QTIEditHelper.fetchPoints(respconditions, choice.getType());
+			for(Map.Entry<String,Float> entryPoint:points.entrySet()) {
+				Float val = entryPoint.getValue();
+				if(val != null) {
+					iinput.put(entryPoint.getKey(), entryPoint.getKey());
+				}
+			}
+		}
+	}
+	
+	private static void fetchPointsOfMultipleChoices(Element itemEl, ChoiceQuestion choice, Map<String,String> iinput) {
+		Element resprocessingXML = itemEl.element("resprocessing");
+		if(resprocessingXML != null) {
+			List<?> respconditions = resprocessingXML.elements("respcondition");
+			Map<String,Float> points = QTIEditHelper.fetchPoints(respconditions, choice.getType());
+			for(Map.Entry<String,Float> entryPoint:points.entrySet()) {
+				Float val = entryPoint.getValue();
+				if(val != null && val.floatValue() > 0.0f) {
+					iinput.put(entryPoint.getKey(), entryPoint.getKey());
+				}
+			}
+		}
 	}
 	
 	public static void renderSection(Section section, OpenXMLDocument document) {

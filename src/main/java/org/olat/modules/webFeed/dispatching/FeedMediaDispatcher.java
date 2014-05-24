@@ -20,7 +20,6 @@
 package org.olat.modules.webFeed.dispatching;
 
 import java.io.IOException;
-import java.util.Date;
 import java.util.Hashtable;
 
 import javax.servlet.http.HttpServletRequest;
@@ -32,7 +31,7 @@ import org.olat.basesecurity.BaseSecurityManager;
 import org.olat.core.CoreSpringFactory;
 import org.olat.core.commons.persistence.DBFactory;
 import org.olat.core.dispatcher.Dispatcher;
-import org.olat.core.dispatcher.DispatcherAction;
+import org.olat.core.dispatcher.DispatcherModule;
 import org.olat.core.gui.media.MediaResource;
 import org.olat.core.gui.media.ServletUtil;
 import org.olat.core.id.Identity;
@@ -96,7 +95,9 @@ public class FeedMediaDispatcher extends LogDelegator implements Dispatcher {
 	 * @see org.olat.core.dispatcher.Dispatcher#execute(javax.servlet.http.HttpServletRequest,
 	 *      javax.servlet.http.HttpServletResponse, java.lang.String)
 	 */
-	public void execute(HttpServletRequest request, HttpServletResponse response, String uriPrefix) {
+	@Override
+	public void execute(HttpServletRequest request, HttpServletResponse response) {
+		String uriPrefix = DispatcherModule.getLegacyUriPrefix(request);
 		String requestedPath = getPath(request, uriPrefix);
 
 		Path path = null;
@@ -132,15 +133,15 @@ public class FeedMediaDispatcher extends LogDelegator implements Dispatcher {
 				} else {
 					// Deny access
 					log.info("Access was denied. Path::" + path);
-					DispatcherAction.sendForbidden(request.getRequestURI(), response);
+					DispatcherModule.sendForbidden(request.getRequestURI(), response);
 				}
 			}
 		} catch (InvalidPathException e) {
 			logWarn("The requested path is invalid. path::" + path, e);
-			DispatcherAction.sendBadRequest(request.getRequestURI(), response);
+			DispatcherModule.sendBadRequest(request.getRequestURI(), response);
 		} catch (Throwable t) {
 			logWarn("Nothing was delivered. Path::" + path, t);
-			DispatcherAction.sendNotFound(request.getRequestURI(), response);
+			DispatcherModule.sendNotFound(request.getRequestURI(), response);
 		}
 	}
 
@@ -164,19 +165,16 @@ public class FeedMediaDispatcher extends LogDelegator implements Dispatcher {
 		if (path.isFeedType()) {
 			// Only create feed if modified. Send not modified response else.
 			Identity identity = getIdentity(path.getIdentityKey());
-			long lastResponseMs = request.getDateHeader("If-Modified-Since");
-			Date lastResponse = null;
-			if (lastResponseMs != -1) {
-				lastResponse = new Date(lastResponseMs);
-			}
+			long sinceModifiedMillis = request.getDateHeader("If-Modified-Since");
+			
 			Feed feedLight = manager.getFeed(feed);
-			Date lastModified = null;
+			long lastModifiedMillis = -1;
 			if (feedLight != null) {
-				lastModified = feedLight.getLastModified();
+				lastModifiedMillis = feedLight.getLastModified().getTime();
 			}
-			if (lastResponse != null && lastResponse.before(lastModified)) {
+			if (sinceModifiedMillis >= (lastModifiedMillis / 1000L) * 1000L) {
 				// Send not modified response
-				response.setDateHeader("last-modified", lastModified.getTime());
+				response.setDateHeader("last-modified", lastModifiedMillis);
 				try {
 					response.sendError(HttpServletResponse.SC_NOT_MODIFIED);
 					return;

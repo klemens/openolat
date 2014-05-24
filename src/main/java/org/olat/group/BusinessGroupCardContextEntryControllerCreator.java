@@ -19,24 +19,28 @@
  */
 package org.olat.group;
 
-import java.util.Date;
-
 import org.olat.core.CoreSpringFactory;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.WindowControl;
 import org.olat.core.id.OLATResourceable;
 import org.olat.core.id.context.ContextEntry;
+import org.olat.core.id.context.ContextEntryControllerCreator;
 import org.olat.core.id.context.DefaultContextEntryControllerCreator;
 import org.olat.group.ui.homepage.GroupInfoMainController;
-import org.olat.resource.accesscontrol.ACService;
-import org.olat.resource.accesscontrol.AccessControlModule;
 
 /**
  * 
  * @author srosse, stephane.rosse@frentix.com, http://www.frentix.com
  */
 public class BusinessGroupCardContextEntryControllerCreator extends DefaultContextEntryControllerCreator {
+
+	private BusinessGroup group;
+	
+	@Override
+	public ContextEntryControllerCreator clone() {
+		return new BusinessGroupCardContextEntryControllerCreator();
+	}
 
 	/**
 	 * @see org.olat.core.id.context.ContextEntryControllerCreator#createController(org.olat.core.id.context.ContextEntry,
@@ -45,22 +49,11 @@ public class BusinessGroupCardContextEntryControllerCreator extends DefaultConte
 	 */
 	@Override
 	public Controller createController(ContextEntry ce, UserRequest ureq, WindowControl wControl) {
-		OLATResourceable ores = ce.getOLATResourceable();
-
-		Long gKey = ores.getResourceableId();
-		BusinessGroupService bgs = CoreSpringFactory.getImpl(BusinessGroupService.class);
-		Controller ctrl = null;
-		BusinessGroup bgroup = bgs.loadBusinessGroup(gKey);
+		BusinessGroup bgroup = getBusinessGroup(ce);
 		if(bgroup != null) {
-			// check if allowed to start (must be member or admin)
-			//fxdiff VCRP-1,2: access control of resources
-			if (ureq.getUserSession().getRoles().isOLATAdmin() || ureq.getUserSession().getRoles().isGroupManager()
-					|| bgs.isIdentityInBusinessGroup(ureq.getIdentity(), bgroup) || isAccessControlled(bgroup)) {
-				// only olatadmins or admins of this group can administer this group
-				ctrl = new GroupInfoMainController(ureq, wControl, bgroup);
-			}
+			return new GroupInfoMainController(ureq, wControl, bgroup);
 		}
-		return ctrl;
+		return null;
 	}
 
 	/**
@@ -68,34 +61,25 @@ public class BusinessGroupCardContextEntryControllerCreator extends DefaultConte
 	 */
 	@Override
 	public String getTabName(ContextEntry ce, UserRequest ureq) {
-		OLATResourceable ores = ce.getOLATResourceable();
-		Long gKey = ores.getResourceableId();
-		BusinessGroup bgroup = CoreSpringFactory.getImpl(BusinessGroupService.class).loadBusinessGroup(gKey);
-		return bgroup == null ? "" : bgroup.getName();
+		BusinessGroup bgroup = getBusinessGroup(ce);
+		if(bgroup != null) {
+			return bgroup.getName();
+		}
+		return null;
 	}
 
 	@Override
 	public boolean validateContextEntryAndShowError(ContextEntry ce, UserRequest ureq, WindowControl wControl) {
-		OLATResourceable ores = ce.getOLATResourceable();
-		Long gKey = ores.getResourceableId();
-		BusinessGroupService bgs = CoreSpringFactory.getImpl(BusinessGroupService.class);
-		BusinessGroup bgroup = bgs.loadBusinessGroup(gKey);
-		if (bgroup == null) {
-			return false;
-		}	
-		return ureq.getUserSession().getRoles().isOLATAdmin() ||
-				ureq.getUserSession().getRoles().isGroupManager() ||
-				bgs.isIdentityInBusinessGroup(ureq.getIdentity(), bgroup) || isAccessControlled(bgroup);
+		return getBusinessGroup(ce) != null;
 	}
 	
-	private boolean isAccessControlled(BusinessGroup bgroup) {
-		AccessControlModule acModule = (AccessControlModule)CoreSpringFactory.getBean("acModule");
-		if(acModule.isEnabled()) {
-			ACService acService = CoreSpringFactory.getImpl(ACService.class);
-			if(acService.isResourceAccessControled(bgroup.getResource(), new Date())) {
-				return true;
-			}
+	private BusinessGroup getBusinessGroup(ContextEntry ce) {
+		if(group == null) {
+			OLATResourceable ores = ce.getOLATResourceable();
+			Long gKey = ores.getResourceableId();
+			BusinessGroupService bgs = CoreSpringFactory.getImpl(BusinessGroupService.class);
+			group = bgs.loadBusinessGroup(gKey);
 		}
-		return false;
+		return group;
 	}
 }

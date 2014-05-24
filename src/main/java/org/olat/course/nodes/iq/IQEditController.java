@@ -38,6 +38,7 @@ import org.olat.basesecurity.BaseSecurityManager;
 import org.olat.basesecurity.Constants;
 import org.olat.commons.file.filechooser.FileChooseCreateEditController;
 import org.olat.commons.file.filechooser.LinkChooseCreateEditController;
+import org.olat.core.CoreSpringFactory;
 import org.olat.core.commons.fullWebApp.LayoutMain3ColsController;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.Component;
@@ -54,11 +55,11 @@ import org.olat.core.gui.control.WindowControl;
 import org.olat.core.gui.control.generic.closablewrapper.CloseableModalController;
 import org.olat.core.gui.control.generic.tabbable.ActivateableTabbableDefaultController;
 import org.olat.core.id.Identity;
-import org.olat.core.id.OLATResourceable;
 import org.olat.core.logging.AssertException;
 import org.olat.core.logging.OLog;
 import org.olat.core.logging.Tracing;
 import org.olat.core.util.coordinate.CoordinatorManager;
+import org.olat.core.util.coordinate.LockResult;
 import org.olat.core.util.vfs.LocalFileImpl;
 import org.olat.core.util.vfs.LocalFolderImpl;
 import org.olat.core.util.vfs.VFSConstants;
@@ -99,6 +100,7 @@ import org.olat.repository.controllers.ReferencableEntriesSearchController;
 import org.olat.repository.handlers.RepositoryHandler;
 import org.olat.repository.handlers.RepositoryHandlerFactory;
 import org.olat.resource.OLATResource;
+import org.olat.user.UserManager;
 
 import de.bps.onyx.plugin.OnyxModule;
 import de.bps.onyx.plugin.course.nodes.iq.IQEditForm;
@@ -217,6 +219,8 @@ public class IQEditController extends ActivateableTabbableDefaultController impl
 	private CloseableModalController cmc;
 	private Link editTestButton;
 	private final StackedController stackPanel;
+	
+	private final IQManager iqManager;
 
 	/**
 	 * Constructor for the IMS QTI edit controller for a test course node
@@ -236,6 +240,9 @@ public class IQEditController extends ActivateableTabbableDefaultController impl
 		this.course = course;
 		this.courseNode = courseNode;
 		this.euce = euce;
+		
+		iqManager = CoreSpringFactory.getImpl(IQManager.class);
+		
 		type = AssessmentInstance.QMD_ENTRY_TYPE_ASSESS;
 		this.PANE_TAB_IQCONFIG_XXX = PANE_TAB_IQCONFIG_TEST;
 		paneKeys = new String[]{PANE_TAB_IQCONFIG_XXX,PANE_TAB_ACCESSIBILITY};
@@ -269,6 +276,7 @@ public class IQEditController extends ActivateableTabbableDefaultController impl
 		this.course = course;
 		this.courseNode = courseNode;
 		this.euce = euce;
+		iqManager = CoreSpringFactory.getImpl(IQManager.class);
 		type = AssessmentInstance.QMD_ENTRY_TYPE_SELF;
 		this.PANE_TAB_IQCONFIG_XXX = PANE_TAB_IQCONFIG_SELF;
 		paneKeys = new String[]{PANE_TAB_IQCONFIG_XXX,PANE_TAB_ACCESSIBILITY};
@@ -300,6 +308,7 @@ public class IQEditController extends ActivateableTabbableDefaultController impl
 		this.course = course;
 		this.courseNode = courseNode;
 		this.euce = euce;
+		iqManager = CoreSpringFactory.getImpl(IQManager.class);
 		type = AssessmentInstance.QMD_ENTRY_TYPE_SURVEY;
 		this.PANE_TAB_IQCONFIG_XXX = PANE_TAB_IQCONFIG_SURV;
 		paneKeys = new String[]{PANE_TAB_IQCONFIG_XXX,PANE_TAB_ACCESSIBILITY};
@@ -446,8 +455,7 @@ public class IQEditController extends ActivateableTabbableDefaultController impl
 					//not found
 				} else {
 					RepositoryHandler typeToEdit = RepositoryHandlerFactory.getInstance().getRepositoryHandler(re);
-					OLATResourceable ores = re.getOlatResource();
-					correctQTIcontroller = typeToEdit.createEditorController(ores, ureq, getWindowControl());
+					correctQTIcontroller = typeToEdit.createEditorController(re, ureq, getWindowControl());
 					getWindowControl().pushToMainArea(correctQTIcontroller.getInitialComponent());					
 					listenTo(correctQTIcontroller);
 				}
@@ -455,7 +463,7 @@ public class IQEditController extends ActivateableTabbableDefaultController impl
 		} else if (source == previewLink){
 			removeAsListenerAndDispose(previewLayoutCtr);
 			// handle preview
-			Controller previewController = IQManager.getInstance().createIQDisplayController(moduleConfiguration, new IQPreviewSecurityCallback(), ureq, getWindowControl(), course
+			Controller previewController = iqManager.createIQDisplayController(moduleConfiguration, new IQPreviewSecurityCallback(), ureq, getWindowControl(), course
 					.getResourceableId().longValue(), courseNode.getIdent(), null);
 			previewLayoutCtr = new LayoutMain3ColsController(ureq, getWindowControl(), previewController);
 			stackPanel.pushController(translate("preview"), previewLayoutCtr);
@@ -504,10 +512,7 @@ public class IQEditController extends ActivateableTabbableDefaultController impl
 							onyxSuccess = surveyDir.listFiles().length;
 						}
 					} else {
-						List<QTIResult> results = QTIResultManager.getInstance().selectResults(course.getResourceableId(), courseNode.getIdent(), repKey, 1);
-						if (results != null && results.size() > 0) {
-							onyxSuccess = results.size();
-						}
+						onyxSuccess = QTIResultManager.getInstance().countResults(course.getResourceableId(), courseNode.getIdent(), repKey);
 					}
 				}
 				if (moduleConfiguration.get(CONFIG_KEY_TYPE_QTI) != null
@@ -517,12 +522,12 @@ public class IQEditController extends ActivateableTabbableDefaultController impl
 					replaceWizard.addControllerListener(this);
 					cmc = new CloseableModalController(getWindowControl(), translate("close"), replaceWizard.getInitialComponent());
 				} else {
-					List<QTIResult> results = QTIResultManager.getInstance().selectResults(course.getResourceableId(), courseNode.getIdent(), repKey, 1);
+					List<QTIResult> results = QTIResultManager.getInstance().selectResults(course.getResourceableId(), courseNode.getIdent(), repKey, null, 1);
 					// test was passed from an user
 					boolean passed = (results != null && results.size() > 0) ? true : false;
 					// test was started and not passed
 					// it exists partly results for this test
-					List<Identity> identitiesWithQtiSerEntry = IQManager.getInstance().getIdentitiesWithQtiSerEntry(course.getResourceableId(), courseNode.getIdent());
+					List<Identity> identitiesWithQtiSerEntry = iqManager.getIdentitiesWithQtiSerEntry(course.getResourceableId(), courseNode.getIdent());
 					if(passed || identitiesWithQtiSerEntry.size() > 0) {
 						learners = new ArrayList<Identity>();
 						for(QTIResult result : results) {
@@ -616,7 +621,7 @@ public class IQEditController extends ActivateableTabbableDefaultController impl
 				Long repKey = RepositoryManager.getInstance().lookupRepositoryEntryBySoftkey(repositorySoftKey, true).getKey();
 				QTIResultManager.getInstance().deleteAllResults(course.getResourceableId(), courseNode.getIdent(), repKey);
 				removeIQReference(moduleConfiguration);
-				VFSStatus isDeleted = IQManager.getInstance().removeQtiSerFiles(course.getResourceableId(), courseNode.getIdent());
+				VFSStatus isDeleted = iqManager.removeQtiSerFiles(course.getResourceableId(), courseNode.getIdent());
 				if (!isDeleted.equals(VFSConstants.YES)) {
 					// couldn't removed qtiser files
 					log.warn("Couldn't removed course node folder! Course resourceable id: " + course.getResourceableId() + ", Course node ident: " + courseNode.getIdent());
@@ -637,9 +642,12 @@ public class IQEditController extends ActivateableTabbableDefaultController impl
 	}
 	
 	private void checkEssay(RepositoryEntry re) {
+		if(OnyxModule.isOnyxTest(re.getOlatResource())) return;
+		if(courseNode instanceof IQSURVCourseNode || courseNode instanceof IQSELFCourseNode) return;
+		
 		TestFileResource fr = new TestFileResource();
 		fr.overrideResourceableId(re.getOlatResource().getResourceableId());
-		QTIEditorPackage qtiPackage = new QTIEditorPackageImpl(getIdentity(), fr, getTranslator());
+		QTIEditorPackage qtiPackage = new QTIEditorPackageImpl(getIdentity(), fr, null, getTranslator());
 		Assessment ass = qtiPackage.getQTIDocument().getAssessment();
 
 		//Sections with their Items
@@ -715,8 +723,14 @@ public class IQEditController extends ActivateableTabbableDefaultController impl
 	private void doIQReference(UserRequest urequest, RepositoryEntry re) {
 		// repository search controller done				
 		if (re != null) {
-			if (CoordinatorManager.getInstance().getCoordinator().getLocker().isLocked(re.getOlatResource(), null)) {						
-				showError("error.entry.locked");
+			if (CoordinatorManager.getInstance().getCoordinator().getLocker().isLocked(re.getOlatResource(), null)) {
+				LockResult lockResult = CoordinatorManager.getInstance().getCoordinator().getLocker().acquireLock(re.getOlatResource(), urequest.getIdentity(), null);
+				String fullName = CoreSpringFactory.getImpl(UserManager.class).getUserDisplayName(lockResult.getOwner());
+				showError("error.entry.locked", fullName);
+				if(lockResult.isSuccess()) {
+					//improbable concurrency security
+					CoordinatorManager.getInstance().getCoordinator().getLocker().releaseLock(lockResult);
+				}
 			} else {
 				if(editTestButton != null) {
 					myContent.remove(editTestButton);

@@ -35,6 +35,10 @@ import org.olat.course.groupsandrights.CourseGroupManager;
 import org.olat.course.run.environment.CourseEnvironment;
 import org.olat.course.run.scoring.ScoreAccounting;
 import org.olat.group.BusinessGroup;
+import org.olat.repository.RepositoryEntry;
+import org.olat.repository.RepositoryManager;
+import org.olat.repository.model.RepositoryEntryLifecycle;
+import org.olat.resource.OLATResource;
 
 /**
  * Initial Date:  Feb 6, 2004
@@ -46,7 +50,8 @@ public class UserCourseEnvironmentImpl implements UserCourseEnvironment {
 	private CourseEnvironment courseEnvironment;
 	private ConditionInterpreter conditionInterpreter;
 	private ScoreAccounting scoreAccounting;
-	
+	private RepositoryEntryLifecycle lifecycle;
+	private RepositoryEntry courseRepoEntry;
 	private List<BusinessGroup> coachedGroups;
 	private List<BusinessGroup> participatingGroups;
 	private List<BusinessGroup> waitingLists;
@@ -149,6 +154,26 @@ public class UserCourseEnvironmentImpl implements UserCourseEnvironment {
 		return partLazy;
 	}
 
+	@Override
+	public RepositoryEntryLifecycle getLifecycle() {
+		if(lifecycle == null) {
+			RepositoryEntry re = getCourseRepositoryEntry();
+			if(re != null) {
+				lifecycle = re.getLifecycle();
+			}
+		}
+		return lifecycle;
+	}
+
+	public RepositoryEntry getCourseRepositoryEntry() {
+		if(courseRepoEntry == null) {
+			CourseGroupManager cgm = courseEnvironment.getCourseGroupManager();
+			OLATResource courseResource = cgm.getCourseResource();
+			courseRepoEntry = RepositoryManager.getInstance().lookupRepositoryEntry(courseResource, false);
+		}
+		return courseRepoEntry;
+	}
+
 	public List<BusinessGroup> getCoachedGroups() {
 		return coachedGroups;
 	}
@@ -161,7 +186,8 @@ public class UserCourseEnvironmentImpl implements UserCourseEnvironment {
 		return waitingLists;
 	}
 	
-	public void setGroupMemberships(List<BusinessGroup> coachedGroups, List<BusinessGroup> participatingGroups, List<BusinessGroup> waitingLists) {
+	public void setGroupMemberships(RepositoryEntry repoEntry, List<BusinessGroup> coachedGroups,
+			List<BusinessGroup> participatingGroups, List<BusinessGroup> waitingLists) {
 		this.coachedGroups = coachedGroups;
 		this.participatingGroups = participatingGroups;
 		this.waitingLists = waitingLists;

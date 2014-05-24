@@ -639,14 +639,11 @@ public class LoggingResourceable implements ILoggingResourceable {
 				// in which case all we have is the key of the repositoryentry and we must make a DB lookup to
 				// map the repo key to the corresponding olatresource 
 				
-				RepositoryEntry re = RepositoryManager.getInstance().lookupRepositoryEntry(ceResourceable.getResourceableId());
-				if (re!=null) {
-					OLATResource ores = re.getOlatResource();
-					if (ores!=null && 
-							ores.getResourceableTypeName().equals(resourceable_.getResourceableTypeName()) &&
-							ores.getResourceableId().equals(resourceable_.getResourceableId())) {
-						return true;
-					}
+				OLATResource ores = RepositoryManager.getInstance().lookupRepositoryEntryResource(ceResourceable.getResourceableId());
+				if (ores!=null  && 
+						ores.getResourceableTypeName().equals(resourceable_.getResourceableTypeName()) &&
+						ores.getResourceableId().equals(resourceable_.getResourceableId())) {
+					return true;
 				}
 				
 			}

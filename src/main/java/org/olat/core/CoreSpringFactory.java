@@ -31,7 +31,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Map.Entry;
-import java.util.WeakHashMap;
+import java.util.concurrent.ConcurrentHashMap;
 
 import javax.servlet.ServletContext;
 
@@ -67,7 +67,7 @@ public class CoreSpringFactory implements ServletContextAware, BeanFactoryAware 
 	// Access servletContext only for spring beans admin-functions
 	public static ServletContext servletContext;
 	private static DefaultListableBeanFactory beanFactory;
-	private static Map<Class<?>, String> idToBeans = new WeakHashMap<Class<?>, String>();
+	private static Map<Class<?>, String> idToBeans = new ConcurrentHashMap<Class<?>, String>();
 	
 	/**
 	 * [used by spring only]
@@ -229,100 +229,4 @@ public class CoreSpringFactory implements ServletContextAware, BeanFactoryAware 
 	public void setBeanFactory(BeanFactory beanFactory) throws BeansException {
 		CoreSpringFactory.beanFactory = (DefaultListableBeanFactory) beanFactory;
 	}
-	
-	/*
-	public static void createGraph() {
-		XmlWebApplicationContext context = (XmlWebApplicationContext)WebApplicationContextUtils.getWebApplicationContext(CoreSpringFactory.servletContext);
-		ConfigurableListableBeanFactory factory = context.getBeanFactory();
-  	StringBuilder sb = new StringBuilder();
-		
-		Map<String,BeanDefinition> beans = new HashMap<String,BeanDefinition>();
-    List<String> beanNames = Arrays.asList(factory.getBeanDefinitionNames());
-    for (String name : beanNames) {
-    	BeanDefinition def = factory.getBeanDefinition(name);
-    	beans.put(name, def);
-
-			sb.append("****").append(name).append("\n");
-			if("businessGroupService".equals(name)) {
-    		System.out.println("BGS: " + name);
-			}
-
-    	ConstructorArgumentValues ctorArgs = def.getConstructorArgumentValues();
-    	for (ValueHolder valHolder : ctorArgs.getGenericArgumentValues()) {
-    		Object value = valHolder.getValue();
-    		System.out.println("Val: " + value);
-    		sb.append(valHolder.getName() != null ? valHolder.getName():"");
-    		if( valHolder.getValue() instanceof RuntimeBeanReference ) {
-    			RuntimeBeanReference ref = (RuntimeBeanReference)valHolder.getValue();
-    			sb.append("C: ref("+makeLabel(ref.getBeanName())+")");
-    		}
-    	}
- 
-    	MutablePropertyValues props = def.getPropertyValues();
-    	for (PropertyValue propVal : props.getPropertyValueList()) {
-    		//checkReferences(name, propVal.getValue());
-    		if( propVal.getValue() instanceof RuntimeBeanReference ) {
-    			RuntimeBeanReference ref = (RuntimeBeanReference)propVal.getValue();
-    			sb.append(propVal.getName()+": ref("+makeLabel(ref.getBeanName())+")\n");
-    		} else if(propVal.getValue() instanceof BeanDefinitionHolder) {
-    			BeanDefinitionHolder holder = (BeanDefinitionHolder) propVal.getValue();
-    			String facBean = holder.getBeanDefinition().getFactoryBeanName();
-    			if( facBean != null ) {
-    				sb.append(propVal.getName()+": fac("+makeLabel(facBean)+")\n");
-    			}
-    		}
-    	}
-    	
-    	try {
-				String className = def.getBeanClassName();
-				Class<?> clazz = Class.forName(className);
-				Object obj = clazz.getAnnotation(Service.class);
-				boolean isService = obj != null;
-	    	
-	    	if(def instanceof AnnotatedBeanDefinition) {
-	    		
-						Field[] fields = clazz.getDeclaredFields();
-						for(Field field:fields) {
-							Annotation[] annotations = field.getAnnotations();
-							for(Annotation annotation:annotations) {
-								if(Autowired.class.equals(annotation.annotationType())) {
-									
-									Class<?> impl = field.getType();
-									sb.append("->").append(impl.getSimpleName()).append("\n");
-								}
-							}
-						}
-	
-						Annotation[] annotations = clazz.getAnnotations();
-						for(Annotation annotation:annotations) {
-							
-							if(Autowired.class.equals(annotation.annotationType())) {
-								//System.out.println("Found");
-								if(!isService) {
-
-									System.out.println("BGS: " + className);
-									
-								}
-							}
-						}
-						
-						AnnotatedBeanDefinition adef = (AnnotatedBeanDefinition)def;
-						AnnotationMetadata metadata = adef.getMetadata();
-						Set<String> types = metadata.getAnnotationTypes();
-						if(types != null && !types.isEmpty()) {
-							//System.out.println("BGS: " + types);
-						}
-					
-	    	}
-    	} catch (Exception e) {
-				e.printStackTrace();
-			}
-    }
-    //System.out.println(sb.toString());
-	}
-	
-	private static String makeLabel(String in) {
-		int i = in.lastIndexOf(".");
-		return i==-1?in:in.substring(i+1);
-	 }*/
 }

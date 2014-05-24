@@ -20,16 +20,25 @@
 package de.bps.course.nodes;
 
 import java.io.File;
+import java.io.IOException;
+import java.util.Date;
 import java.util.List;
 import java.util.Locale;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipOutputStream;
 
+import org.apache.commons.io.IOUtils;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.stack.StackedController;
 import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.WindowControl;
 import org.olat.core.gui.control.generic.tabbable.TabbableController;
+import org.olat.core.logging.OLog;
+import org.olat.core.logging.Tracing;
 import org.olat.core.util.ExportUtil;
 import org.olat.core.util.FileUtils;
+import org.olat.core.util.Formatter;
+import org.olat.core.util.StringHelper;
 import org.olat.core.util.Util;
 import org.olat.core.util.ValidationStatus;
 import org.olat.core.util.WebappHelper;
@@ -44,6 +53,7 @@ import org.olat.course.editor.StatusDescription;
 import org.olat.course.groupsandrights.CourseGroupManager;
 import org.olat.course.groupsandrights.CourseRights;
 import org.olat.course.nodes.AbstractAccessableCourseNode;
+import org.olat.course.nodes.ArchiveOptions;
 import org.olat.course.nodes.CourseNode;
 import org.olat.course.nodes.StatusDescriptionHelper;
 import org.olat.course.nodes.TitledWrapperHelper;
@@ -74,7 +84,8 @@ import de.bps.olat.modules.cl.CheckpointMode;
  * @author skoeber <skoeber@bps-system.de>
  */
 public class ChecklistCourseNode extends AbstractAccessableCourseNode {
-	
+	private static final long serialVersionUID = -8978938639489414749L;
+	private static final OLog log = Tracing.createLoggerFor(ChecklistCourseNode.class);
 	private static final String TYPE = "cl";
 	public static final String CONF_COURSE_ID = "cl_course_id";
 	public static final String CONF_COURSE_NODE_ID = "cl_course_node_id";
@@ -149,7 +160,8 @@ public class ChecklistCourseNode extends AbstractAccessableCourseNode {
 			} else 
 			// this is part of a copied course, the original checklist will be copied
 			if(getModuleConfiguration().get(CONF_CHECKLIST) != null) {
-				Checklist orgChecklist = ChecklistManager.getInstance().loadChecklist((Checklist) getModuleConfiguration().get(ChecklistCourseNode.CONF_CHECKLIST));
+				Checklist confChecklist = (Checklist)getModuleConfiguration().get(ChecklistCourseNode.CONF_CHECKLIST);
+				Checklist orgChecklist = ChecklistManager.getInstance().loadChecklist(confChecklist);
 				checklist = ChecklistManager.getInstance().copyChecklist(orgChecklist);
 			} else {
 				// no checklist available, create new one
@@ -182,11 +194,18 @@ public class ChecklistCourseNode extends AbstractAccessableCourseNode {
 			UserCourseEnvironment userCourseEnv, NodeEvaluation ne, String nodecmd) {
 		ICourse course = CourseFactory.loadCourse(userCourseEnv.getCourseEnvironment().getCourseResourceableId());
 		CourseGroupManager cgm = course.getCourseEnvironment().getCourseGroupManager();
-		boolean canEdit = ureq.getUserSession().getRoles().isOLATAdmin() || cgm.isIdentityCourseAdministrator(ureq.getIdentity());
+		boolean canEdit = ureq.getUserSession().getRoles().isOLATAdmin()
+				|| cgm.isIdentityCourseAdministrator(ureq.getIdentity());
 		boolean canManage;
-		if(canEdit) canManage = true;
-		else canManage = cgm.isIdentityCourseCoach(ureq.getIdentity()) | cgm.hasRight(ureq.getIdentity(), CourseRights.RIGHT_GROUPMANAGEMENT);
-		Controller controller = ChecklistUIFactory.getInstance().createDisplayController(ureq, wControl, loadOrCreateChecklist(userCourseEnv.getCourseEnvironment().getCoursePropertyManager()), null, canEdit, canManage, course, this);
+		if(canEdit) {
+			canManage = true;
+		} else {
+			canManage = cgm.isIdentityCourseCoach(ureq.getIdentity())
+					|| cgm.hasRight(ureq.getIdentity(), CourseRights.RIGHT_GROUPMANAGEMENT);
+		}
+		Checklist checklist = loadOrCreateChecklist(userCourseEnv.getCourseEnvironment().getCoursePropertyManager());
+		Controller controller = ChecklistUIFactory.getInstance()
+				.createDisplayController(ureq, wControl, checklist, canEdit, canManage, course, this);
 		// Add title and descrition
 		controller = TitledWrapperHelper.getWrapper(ureq, wControl, controller, this, "o_cl_icon");
 		return new NodeRunConstructionResult(controller);
@@ -297,16 +316,23 @@ public class ChecklistCourseNode extends AbstractAccessableCourseNode {
 	}
 	
 	@Override
-	public boolean archiveNodeData(Locale locale, ICourse course, File exportDirectory, String charset) {
-		XStream xstream = new XStream();
+	public boolean archiveNodeData(Locale locale, ICourse course, ArchiveOptions options, ZipOutputStream exportStream, String charset) {
+		String filename = "checklist_"
+				+ StringHelper.transformDisplayNameToFileSystemName(getShortName())
+				+ "_" + Formatter.formatDatetimeFilesystemSave(new Date(System.currentTimeMillis()));
+		
 		Checklist checklist = loadOrCreateChecklist(course.getCourseEnvironment().getCoursePropertyManager());
-		String exportContent = xstream.toXML(checklist);
-		String exportFilename = ExportUtil.createFileNameWithTimeStamp("checklist_"+this.getIdent(), "xml");
-		ExportUtil.writeContentToFile(exportFilename, exportContent, exportDirectory, WebappHelper.getDefaultCharset());		
-	
-  	return true;
+		String exportContent = XStreamHelper.createXStreamInstance().toXML(checklist);
+		try {
+			exportStream.putNextEntry(new ZipEntry(filename));
+			IOUtils.write(exportContent, exportStream);
+			exportStream.closeEntry();
+		} catch (IOException e) {
+			log.error("", e);
+		}
+		return true;
 	}
-	
+
 	private String getExportFilename() {
 		return "checklist_"+this.getIdent()+".xml";
 	}

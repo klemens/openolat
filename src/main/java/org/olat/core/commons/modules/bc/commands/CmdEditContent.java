@@ -29,16 +29,16 @@ package org.olat.core.commons.modules.bc.commands;
 import java.util.Collections;
 import java.util.List;
 
+import org.olat.core.CoreSpringFactory;
 import org.olat.core.commons.controllers.linkchooser.CustomLinkTreeModel;
 import org.olat.core.commons.editor.htmleditor.HTMLEditorController;
 import org.olat.core.commons.editor.htmleditor.WysiwygFactory;
 import org.olat.core.commons.editor.plaintexteditor.PlainTextEditorController;
 import org.olat.core.commons.modules.bc.components.FolderComponent;
 import org.olat.core.commons.modules.bc.components.ListRenderer;
-import org.olat.core.commons.modules.bc.meta.MetaInfo;
-import org.olat.core.commons.modules.bc.meta.MetaInfoHelper;
-import org.olat.core.commons.modules.bc.meta.tagged.MetaTagged;
 import org.olat.core.commons.modules.bc.version.VersionCommentController;
+import org.olat.core.commons.services.notifications.NotificationsManager;
+import org.olat.core.commons.services.notifications.SubscriptionContext;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.Component;
 import org.olat.core.gui.control.Controller;
@@ -52,28 +52,33 @@ import org.olat.core.util.StringHelper;
 import org.olat.core.util.vfs.VFSContainer;
 import org.olat.core.util.vfs.VFSItem;
 import org.olat.core.util.vfs.VFSLeaf;
+import org.olat.core.util.vfs.VFSLockManager;
 import org.olat.core.util.vfs.VFSManager;
+import org.olat.core.util.vfs.callbacks.VFSSecurityCallback;
 import org.olat.core.util.vfs.util.ContainerAndFile;
 
 public class CmdEditContent extends BasicController implements FolderCommand {
 
 	private int status = FolderCommandStatus.STATUS_SUCCESS;
 	private VFSItem currentItem;
+	private FolderComponent folderComponent;
 	private Controller editorc;
 	private DialogBoxController lockedFiledCtr;
 
 	private VersionCommentController unlockCtr;
 	private CloseableModalController unlockDialogBox;
+	private final VFSLockManager vfsLockManager;
 	
 	protected CmdEditContent(UserRequest ureq, WindowControl wControl) {
 		super(ureq, wControl);
+		vfsLockManager = CoreSpringFactory.getImpl(VFSLockManager.class);
 	}
 
 	/**
 	 * @see org.olat.modules.bc.commands.FolderCommand#execute(org.olat.modules.bc.components.FolderComponent, org.olat.core.gui.UserRequest, org.olat.core.gui.control.WindowControl, org.olat.core.gui.translator.Translator)
 	 */
 	public Controller execute(FolderComponent folderComponent, UserRequest ureq, WindowControl wControl, Translator translator) {
-
+		this.folderComponent = folderComponent;
 		String pos = ureq.getParameter(ListRenderer.PARAM_CONTENTEDITID);
 		if (!StringHelper.containsNonWhitespace(pos)) {
 			// somehow parameter did not make it to us
@@ -101,9 +106,9 @@ public class CmdEditContent extends BasicController implements FolderCommand {
 			return null;
 		}
 		
-		if(MetaInfoHelper.isLocked(currentItem, ureq)) {
+		if(vfsLockManager.isLockedForMe(currentItem, ureq.getIdentity(), ureq.getUserSession().getRoles())) {
 			List<String> lockedFiles = Collections.singletonList(currentItem.getName());
-			String msg = MetaInfoHelper.renderLockedMessageAsHtml(translator, folderComponent.getCurrentContainer(), lockedFiles);
+			String msg = FolderCommandHelper.renderLockedMessageAsHtml(translator, lockedFiles);
 			List<String> buttonLabels = Collections.singletonList(translator.translate("ok"));
 			lockedFiledCtr = activateGenericDialog(ureq, translator.translate("lock.title"), msg, buttonLabels, lockedFiledCtr);
 			return null;
@@ -152,7 +157,9 @@ public class CmdEditContent extends BasicController implements FolderCommand {
 		return this;
 	}
 
-	public int getStatus() { return status; }
+	public int getStatus() {
+		return status;
+	}
 	
 	public String getFileName() {
 		return currentItem.getName();
@@ -171,13 +178,14 @@ public class CmdEditContent extends BasicController implements FolderCommand {
 	public void event(UserRequest ureq, Controller source, Event event) {
 		if (source == editorc) {
 			if (event == Event.DONE_EVENT) {
-				if(currentItem instanceof MetaTagged && ((MetaTagged)currentItem).getMetaInfo().isLocked()) {
+				boolean lock = vfsLockManager.isLocked(currentItem);
+				if(lock) {
 					unlockCtr = new VersionCommentController(ureq,getWindowControl(), true, false);
 					listenTo(unlockCtr);
 					unlockDialogBox = new CloseableModalController(getWindowControl(), translate("ok"), unlockCtr.getInitialComponent());
 					unlockDialogBox.activate();
 				} else {
-					fireEvent(ureq, FOLDERCOMMAND_FINISHED);
+					notifyFinished(ureq);
 				}
 				// cleanup editor
 				removeAsListenerAndDispose(editorc);
@@ -193,13 +201,23 @@ public class CmdEditContent extends BasicController implements FolderCommand {
 			fireEvent(ureq, FOLDERCOMMAND_FINISHED);
 		} else if (source == unlockCtr) {
 			if(!unlockCtr.keepLocked()) {
-				MetaInfo info = ((MetaTagged)currentItem).getMetaInfo();
-				info.setLocked(false);
-				info.write();
+				vfsLockManager.unlock(currentItem, getIdentity(), ureq.getUserSession().getRoles());
 			}
 			cleanUpUnlockDialog();
 			fireEvent(ureq, FOLDERCOMMAND_FINISHED);
 		}
+	}
+	
+	private void notifyFinished(UserRequest ureq) {
+		VFSContainer container = VFSManager.findInheritingSecurityCallbackContainer(folderComponent.getRootContainer());
+		VFSSecurityCallback secCallback = container.getLocalSecurityCallback();
+		if(secCallback != null) {
+			SubscriptionContext subsContext = secCallback.getSubscriptionContext();
+			if (subsContext != null) {
+				NotificationsManager.getInstance().markPublisherNews(subsContext, ureq.getIdentity(), true);
+			}
+		}
+		fireEvent(ureq, FOLDERCOMMAND_FINISHED);
 	}
 	
 	private void cleanUpUnlockDialog() {

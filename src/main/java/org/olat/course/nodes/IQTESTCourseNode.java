@@ -26,10 +26,14 @@
 package org.olat.course.nodes;
 
 import java.io.File;
+import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.zip.ZipOutputStream;
 
 import org.olat.basesecurity.BaseSecurityManager;
+import org.olat.basesecurity.SecurityGroup;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.stack.StackedController;
 import org.olat.core.gui.control.Controller;
@@ -37,9 +41,13 @@ import org.olat.core.gui.control.WindowControl;
 import org.olat.core.gui.control.generic.tabbable.TabbableController;
 import org.olat.core.gui.translator.Translator;
 import org.olat.core.id.Identity;
+import org.olat.core.id.OLATResourceable;
 import org.olat.core.logging.DBRuntimeException;
 import org.olat.core.logging.KnownIssueException;
+import org.olat.core.logging.OLog;
+import org.olat.core.logging.Tracing;
 import org.olat.core.util.Util;
+import org.olat.core.util.resource.OresHelper;
 import org.olat.course.ICourse;
 import org.olat.course.assessment.AssessmentManager;
 import org.olat.course.auditing.UserNodeAuditManager;
@@ -51,16 +59,31 @@ import org.olat.course.nodes.iq.IQRunController;
 import org.olat.course.nodes.iq.IQUIFactory;
 import org.olat.course.properties.CoursePropertyManager;
 import org.olat.course.repository.ImportReferencesController;
+import org.olat.course.run.environment.CourseEnvironment;
 import org.olat.course.run.navigation.NodeRunConstructionResult;
 import org.olat.course.run.scoring.ScoreEvaluation;
 import org.olat.course.run.userview.NodeEvaluation;
 import org.olat.course.run.userview.UserCourseEnvironment;
+import org.olat.course.statistic.StatisticResourceOption;
+import org.olat.course.statistic.StatisticResourceResult;
+import org.olat.group.BusinessGroup;
 import org.olat.ims.qti.QTIResultManager;
+import org.olat.ims.qti.QTIResultSet;
+import org.olat.ims.qti.export.QTIExportFormatter;
+import org.olat.ims.qti.export.QTIExportFormatterCSVType1;
+import org.olat.ims.qti.export.QTIExportManager;
 import org.olat.ims.qti.process.AssessmentInstance;
+import org.olat.ims.qti.statistics.QTIStatisticResourceResult;
+import org.olat.ims.qti.statistics.QTIStatisticSearchParams;
+import org.olat.ims.qti.statistics.QTIType;
+import org.olat.ims.qti.statistics.ui.QTI12StatisticsToolController;
 import org.olat.modules.ModuleConfiguration;
 import org.olat.repository.RepositoryEntry;
 import org.olat.repository.RepositoryEntryImportExport;
 import org.olat.repository.RepositoryManager;
+
+import de.bps.onyx.plugin.OnyxExportManager;
+import de.bps.onyx.plugin.OnyxModule;
 
 /**
  * Initial Date: Feb 9, 2004
@@ -68,6 +91,8 @@ import org.olat.repository.RepositoryManager;
  * @author BPS (<a href="http://www.bps-system.de/">BPS Bildungsportal Sachsen GmbH</a>)
  */
 public class IQTESTCourseNode extends AbstractAccessableCourseNode implements AssessableCourseNode, QTICourseNode {
+	private static final long serialVersionUID = 5806292895738005387L;
+	private static final OLog log = Tracing.createLoggerFor(IQTESTCourseNode.class);
 	private static final String TYPE = "iqtest";
 
 	private static final int CURRENT_CONFIG_VERSION = 2;
@@ -112,6 +137,56 @@ public class IQTESTCourseNode extends AbstractAccessableCourseNode implements As
 	 */
 	public Controller createPreviewController(UserRequest ureq, WindowControl wControl, UserCourseEnvironment userCourseEnv, NodeEvaluation ne) {
 		return IQUIFactory.createIQTestPreviewController(ureq, wControl, userCourseEnv, ne, this);
+	}
+
+	@Override
+	public List<Controller> createAssessmentTools(UserRequest ureq, WindowControl wControl,
+			CourseEnvironment courseEnv, AssessmentToolOptions options) {
+		List<Controller> tools = new ArrayList<>();
+		tools.add(new QTI12StatisticsToolController(ureq, wControl, courseEnv, options, this));
+		return tools;
+	}
+
+	@Override
+	public StatisticResourceResult createStatisticNodeResult(UserRequest ureq, WindowControl wControl,
+			UserCourseEnvironment userCourseEnv, StatisticResourceOption options, QTIType... types) {
+		if(!isQTITypeAllowed(types)) return null;
+		
+		Long courseId = userCourseEnv.getCourseEnvironment().getCourseResourceableId();
+		OLATResourceable courseOres = OresHelper.createOLATResourceableInstance("CourseModule", courseId);
+		
+		List<SecurityGroup> limitMemberships = new ArrayList<>();
+		if(options.getParticipantsCourse() != null) {
+			limitMemberships.add(options.getParticipantsCourse().getParticipantGroup());
+		}
+		if(options.getParticipantsGroups() != null && !options.getParticipantsGroups().isEmpty()) {
+			for(BusinessGroup group:options.getParticipantsGroups()) {
+				limitMemberships.add(group.getPartipiciantGroup());
+			}
+		}
+		
+		QTIStatisticSearchParams searchParams = new QTIStatisticSearchParams(courseOres.getResourceableId(), getIdent());
+		searchParams.setLimitToSecGroups(limitMemberships);
+
+		QTIStatisticResourceResult result = new QTIStatisticResourceResult(courseOres, this, searchParams);
+		return result;
+	}
+	
+	@Override
+	public boolean isStatisticNodeResultAvailable(UserCourseEnvironment userCourseEnv, QTIType... types) {
+		return isQTITypeAllowed(types);
+	}
+	
+	private boolean isQTITypeAllowed(QTIType... types) {
+		if(types == null) return true;
+		if(types.length == 0 || (types.length == 1 && types[0] == null)) return true;
+		
+		for(QTIType type:types) {
+			if(QTIType.test.equals(type) || QTIType.onyx.equals(type)) {
+				return true;
+			}
+		}
+		return false;
 	}
 
 	/**
@@ -359,21 +434,31 @@ public class IQTESTCourseNode extends AbstractAccessableCourseNode implements As
 		}
 	}
 
-
-	/**
-	 * Override default implementation
-	 * 
-	 * @see org.olat.course.nodes.CourseNode#archiveNodeData(java.util.Locale,
-	 *      org.olat.course.ICourse, java.io.File)
-	 */
-	public boolean archiveNodeData(Locale locale, ICourse course, File exportDirectory, String charset) {
-		super.archiveNodeData(locale, course, exportDirectory, charset);
-		String repositorySoftKey = (String) getModuleConfiguration().get(IQEditController.CONFIG_KEY_REPOSITORY_SOFTKEY);
+	@Override
+	public boolean archiveNodeData(Locale locale, ICourse course, ArchiveOptions options, ZipOutputStream exportStream, String charset) {
+		String repositorySoftKey = (String)getModuleConfiguration().get(IQEditController.CONFIG_KEY_REPOSITORY_SOFTKEY);
 		Long courseResourceableId = course.getResourceableId();
-		String shortTitle = this.getShortTitle();
-		String ident = this.getIdent();
-		return IQUIFactory.archive(locale, repositorySoftKey, courseResourceableId, shortTitle, ident, exportDirectory, charset);
-  
+
+		try {
+			RepositoryEntry re = RepositoryManager.getInstance().lookupRepositoryEntryBySoftkey(repositorySoftKey, true);
+			boolean onyx = OnyxModule.isOnyxTest(re.getOlatResource());
+			if (onyx) {
+				QTIResultManager qrm = QTIResultManager.getInstance();
+				List<QTIResultSet> results = qrm.getResultSets(courseResourceableId, getIdent(), re.getKey(), null);
+				if (results.size() > 0) {
+					OnyxExportManager.getInstance().exportResults(results, exportStream, this);
+				}
+				return true;
+			} else {
+				String shortTitle = getShortTitle();
+				QTIExportManager qem = QTIExportManager.getInstance();
+				QTIExportFormatter qef = new QTIExportFormatterCSVType1(locale, "\t", "\"", "\\", "\r\n", false);
+				return qem.selectAndExportResults(qef, courseResourceableId, shortTitle, getIdent(), re, exportStream, ".xls");
+			}
+		} catch (IOException e) {
+			log.error("", e);
+			return false;
+		}
 	}
 
 	/**

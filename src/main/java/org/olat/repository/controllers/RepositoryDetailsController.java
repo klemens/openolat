@@ -43,7 +43,7 @@ import org.olat.catalog.ui.RepoEntryCategoriesTableController;
 import org.olat.core.CoreSpringFactory;
 import org.olat.core.commons.persistence.DBFactory;
 import org.olat.core.commons.services.mark.MarkManager;
-import org.olat.core.dispatcher.DispatcherAction;
+import org.olat.core.dispatcher.DispatcherModule;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.Windows;
 import org.olat.core.gui.components.Component;
@@ -547,11 +547,9 @@ public class RepositoryDetailsController extends BasicController implements Gene
 			boolean canCopy = repositoryEntry.getCanCopy();
 			if (isOwner) {
 				if (isNewController) {
-					if(isAuthor) {
-						detailsToolC.addLink(ACTION_EDIT, translate("details.openeditor"), TOOL_EDIT, null, "o_sel_repo_open_editor", false);
-						detailsToolC.addLink(ACTION_EDITDESC, translate("details.chdesc"), TOOL_CHDESC, null, "o_sel_repo_edit_descritpion", false);
-						detailsToolC.addLink(ACTION_EDITPROP, translate("details.chprop"), TOOL_CHPROP, null, "o_sel_repor_edit_properties", false);
-					}
+					detailsToolC.addLink(ACTION_EDIT, translate("details.openeditor"), TOOL_EDIT, null, "o_sel_repo_open_editor", false);
+					detailsToolC.addLink(ACTION_EDITDESC, translate("details.chdesc"), TOOL_CHDESC, null, "o_sel_repo_edit_descritpion", false);
+					detailsToolC.addLink(ACTION_EDITPROP, translate("details.chprop"), TOOL_CHPROP, null, "o_sel_repor_edit_properties", false);
 					detailsToolC.addLink(ACTION_ADD_CATALOG, translate("details.catadd"), TOOL_CATALOG, null, "o_sel_repo_add_to_catalog", false);
 					
 					detailsToolC.addHeader(translate("table.action"));
@@ -596,12 +594,10 @@ public class RepositoryDetailsController extends BasicController implements Gene
 				}
 				
 				// enable
-				if(isAuthor) {
-					boolean editManaged = RepositoryEntryManagedFlag.isManaged(repositoryEntry, RepositoryEntryManagedFlag.editcontent);
-					detailsToolC.setEnabled(TOOL_EDIT, handler.supportsEdit(repositoryEntry) && !corrupted && !editManaged);
-					detailsToolC.setEnabled(TOOL_CHDESC, !corrupted);
-					detailsToolC.setEnabled(TOOL_CHPROP, !corrupted);
-				}
+				boolean editManaged = RepositoryEntryManagedFlag.isManaged(repositoryEntry, RepositoryEntryManagedFlag.editcontent);
+				detailsToolC.setEnabled(TOOL_EDIT, handler.supportsEdit(repositoryEntry) && !corrupted && !editManaged);
+				detailsToolC.setEnabled(TOOL_CHDESC, !corrupted);
+				detailsToolC.setEnabled(TOOL_CHPROP, !corrupted);
 				
 				canCopy = true;
 			}
@@ -626,7 +622,7 @@ public class RepositoryDetailsController extends BasicController implements Gene
 		if (repositoryEntry != null) {
 			// The controller has already a repository-entry => do de-register it
 			CoordinatorManager.getInstance().getCoordinator().getEventBus().deregisterFor(this, repositoryEntry);
-	  }
+		}
 		repositoryEntry = entry;
 		CoordinatorManager.getInstance().getCoordinator().getEventBus().registerFor(this, ureq.getIdentity(), repositoryEntry);
 		checkSecurity(ureq);
@@ -662,7 +658,7 @@ public class RepositoryDetailsController extends BasicController implements Gene
 			} else if (sourceLink == launchButton){
 				doLaunch(ureq, repositoryEntry);
 			} else if (sourceLink == loginLink){
-				DispatcherAction.redirectToDefaultDispatcher(ureq.getHttpResp());
+				DispatcherModule.redirectToDefaultDispatcher(ureq.getHttpResp());
 			} else if (sourceLink.getUserObject() instanceof IdentityShort) {
 				IdentityShort author = (IdentityShort)sourceLink.getUserObject();
 				String businessPath = "[Identity:" + author.getKey() + "]";
@@ -778,7 +774,9 @@ public class RepositoryDetailsController extends BasicController implements Gene
 	 * @param contentController
 	 */
 	private void doEditSettings(UserRequest ureq, Controller contentController, String title) {
-	  if (!isAuthor) throw new OLATSecurityException("Trying to edit properties , but user is not author: user = " + ureq.getIdentity());
+	  if (!isAuthor && !isOwner) {
+		  throw new OLATSecurityException("Trying to edit properties , but user is not author: user = " + ureq.getIdentity());
+	  }
 	 
 	  Component component = contentController.getInitialComponent();
 	  
@@ -888,20 +886,22 @@ public class RepositoryDetailsController extends BasicController implements Gene
 		}
 
 		OLATResourceable ores = re.getOlatResource();
+		BusinessControlFactory bcFactory = BusinessControlFactory.getInstance();
 		
 		//was brasato:: DTabs dts = getWindowControl().getDTabs();
 		DTabs dts = Windows.getWindows(ureq).getWindow(ureq).getDTabs();
 		DTab dt = dts.getDTab(ores);
 		if (dt == null) {
 			// does not yet exist -> create and add
-			//fxdiff BAKS-7 Resume function
 			dt = dts.createDTab(ores, re, re.getDisplayname());
 			if (dt == null){
 				//null means DTabs are full -> warning is shown
 				return;
 			}
 			//user activity logger is set by course factory
-			Controller editorController = typeToEdit.createEditorController(ores, ureq, dt.getWindowControl());
+			ContextEntry entry = bcFactory.createContextEntry(re);
+			WindowControl swControl = bcFactory.createBusinessWindowControl(entry, dt.getWindowControl());
+			Controller editorController = typeToEdit.createEditorController(re, ureq, swControl);
 			if(editorController == null){
 				//editor could not be created -> warning is shown
 				return;
@@ -909,7 +909,7 @@ public class RepositoryDetailsController extends BasicController implements Gene
 			dt.setController(editorController);
 			dts.addDTab(ureq, dt);
 		}
-		List<ContextEntry> entries = BusinessControlFactory.getInstance().createCEListFromResourceType(RepositoryDetailsController.ACTIVATE_EDITOR);
+		List<ContextEntry> entries = bcFactory.createCEListFromResourceType(RepositoryDetailsController.ACTIVATE_EDITOR);
 		dts.activate(ureq, dt, entries);
 	}
 
@@ -1186,7 +1186,7 @@ public class RepositoryDetailsController extends BasicController implements Gene
 	 * @return
 	 */
 	public ToolController getDetailsToolController() {
-		return this.detailsToolC;
+		return detailsToolC;
 	}
 
 }

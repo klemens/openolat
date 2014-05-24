@@ -42,6 +42,8 @@ public enum ActionObject {
 	
 	calendar,
 	chat,
+	check,
+	checkbox,
 	checkpoint,
 	comment,
 	course,
@@ -89,6 +91,7 @@ public enum ActionObject {
 	testsuccess,
 	tools,
 	toolsempty,
-	waitingperson;
+	waitingperson,
+	bulkassessment;
 
 }

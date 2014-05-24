@@ -42,6 +42,13 @@ create table o_gp_business (
    maxparticipants int4,
    waitinglist_enabled bool,
    autocloseranks_enabled bool,
+   ownersintern bool not null default false,
+   participantsintern bool not null default false,
+   waitingintern bool not null default false,
+   ownerspublic bool not null default false,
+   participantspublic bool not null default false,
+   waitingpublic bool not null default false,
+   downloadmembers bool not null default false,
    groupcontext_fk int8,
    fk_resource int8 unique,
    fk_ownergroup int8 unique,
@@ -1234,15 +1241,50 @@ create table o_lti_outcome (
    primary key (id)
 );
 
+create table o_cl_checkbox (
+   id int8 not null,
+   creationdate timestamp not null,
+   lastmodified timestamp not null,
+   c_checkboxid varchar(50) not null,
+   c_resname varchar(50) not null,
+   c_resid int8 not null,
+   c_ressubpath varchar(255) not null,
+   primary key (id)
+);
+
+create table o_cl_check (
+   id int8 not null,
+   creationdate timestamp not null,
+   lastmodified timestamp not null,
+   c_score float(24),
+   c_checked boolean default false,
+   fk_identity_id int8 not null,
+   fk_checkbox_id int8 not null,
+   primary key (id)
+);
+
 create table o_ex_task (
    id int8 not null,
    creationdate timestamp not null,
    lastmodified timestamp not null,
    e_name varchar(255) not null,
    e_status varchar(16) not null,
+   e_ressubpath varchar(2048),
    e_executor_node varchar(16),
    e_executor_boot_id varchar(64),
    e_task text not null,
+   e_scheduled timestamp,
+   e_status_before_edit varchar(16),
+   fk_resource_id int8,
+   fk_identity_id int8,
+   primary key (id)
+);
+
+create table o_ex_task_modifier (
+   id int8 not null,
+   creationdate timestamp not null,
+   fk_task_id int8 not null,
+   fk_identity_id int8 not null,
    primary key (id)
 );
 
@@ -1488,7 +1530,7 @@ union select
    inner join o_bs_membership bg_member on (bg_member.secgroup_id = bgroup.fk_ownergroup)
 ;
 
-create view o_gp_visible_participant_v as (
+create view o_gp_contact_participant_v as
    select
       bg_part_member.id as membership_id,
       bgroup.group_id as bg_id,
@@ -1498,12 +1540,13 @@ create view o_gp_visible_participant_v as (
       bg_part_member.identity_id as bg_part_member_id,
       ident.name as bg_part_member_name 
    from o_gp_business as bgroup
-   inner join o_property as bconfig on (bconfig.grp = bgroup.group_id and bconfig.name = 'displayMembers' and bconfig.category = 'config' and bconfig.longValue in (2,3,6,7))
    inner join o_bs_membership as bg_part_member on (bg_part_member.secgroup_id = bgroup.fk_partipiciantgroup)
    inner join o_bs_identity as ident on (bg_part_member.identity_id = ident.id)
- );
-   
-create view o_gp_visible_owner_v as ( 
+   where bgroup.participantsintern=true
+;
+  
+-- contacts
+create view o_gp_contact_owner_v as
    select
       bg_owner_member.id as membership_id,
       bgroup.group_id as bg_id,
@@ -1513,10 +1556,32 @@ create view o_gp_visible_owner_v as (
       bg_owner_member.identity_id as bg_owner_member_id,
       ident.name as bg_owner_member_name
    from o_gp_business as bgroup
-   inner join o_property as bconfig on (bconfig.grp = bgroup.group_id and bconfig.name = 'displayMembers' and bconfig.category = 'config' and bconfig.longValue in (1,3,5,7))
    inner join o_bs_membership as bg_owner_member on (bg_owner_member.secgroup_id = bgroup.fk_ownergroup)
    inner join o_bs_identity as ident on (bg_owner_member.identity_id = ident.id)
-);
+   where bgroup.ownersintern=true
+;
+
+create view o_gp_contactkey_participant_v as
+   select
+      bg_part_member.id as membership_id,
+      bgroup.fk_partipiciantgroup as bg_part_sec_id,
+      bgroup.fk_ownergroup as bg_owner_sec_id,
+      bg_part_member.identity_id as bg_part_member_id
+   from o_gp_business as bgroup
+   inner join o_bs_membership as bg_part_member on (bg_part_member.secgroup_id = bgroup.fk_partipiciantgroup)
+   where bgroup.participantsintern=true
+;
+  
+create view o_gp_contactkey_owner_v as
+   select
+      bg_owner_member.id as membership_id,
+      bgroup.fk_partipiciantgroup as bg_part_sec_id,
+      bgroup.fk_ownergroup as bg_owner_sec_id,
+      bg_owner_member.identity_id as bg_owner_member_id
+   from o_gp_business as bgroup
+   inner join o_bs_membership as bg_owner_member on (bg_owner_member.secgroup_id = bgroup.fk_ownergroup)
+   where bgroup.ownersintern=true
+;
 
 -- coaching
 create or replace view o_as_eff_statement_groups_v as (
@@ -1963,6 +2028,7 @@ create index assindex on o_qtiresultset (assessmentid);
 alter table o_qtiresult add constraint FK3563E67340EF401F foreign key (resultset_fk) references o_qtiresultset;
 create index FK3563E67340EF401F on o_qtiresult (resultset_fk);
 create index itemindex on o_qtiresult (itemident);
+create index result_lastmod_idx on o_qtiresult (lastmodified);
 
 -- catalog entry
 alter table o_catentry add constraint FKF4433C2C7B66B0D0 foreign key (parent_id) references o_catentry;
@@ -2051,6 +2117,24 @@ alter table o_note add constraint FKC2D855C263219E27 foreign key (owner_id) refe
 create index owner_idx on o_note (owner_id);
 create index resid_idx2 on o_note (resourcetypeid);
 create index restype_idx2 on o_note (resourcetypename);
+
+-- ex_task
+alter table o_ex_task add constraint idx_ex_task_ident_id foreign key (fk_identity_id) references o_bs_identity(id);
+create index idx_ex_task_ident_idx on o_ex_task (fk_identity_id);
+alter table o_ex_task add constraint idx_ex_task_rsrc_id foreign key (fk_resource_id) references o_olatresource(resource_id);
+create index idx_ex_task_rsrc_idx on o_ex_task (fk_resource_id);
+alter table o_ex_task_modifier add constraint idx_ex_task_mod_ident_id foreign key (fk_identity_id) references o_bs_identity(id);
+create index idx_ex_task_mod_ident_idx on o_ex_task_modifier (fk_identity_id);
+alter table o_ex_task_modifier add constraint idx_ex_task_mod_task_id foreign key (fk_task_id) references o_ex_task(id);
+create index idx_ex_task_mod_task_idx on o_ex_task_modifier (fk_task_id);
+
+-- checklist
+alter table o_cl_check add constraint check_identity_ctx foreign key (fk_identity_id) references o_bs_identity (id);
+create index check_to_identity_idx on o_cl_check (fk_identity_id);
+alter table o_cl_check add constraint check_box_ctx foreign key (fk_checkbox_id) references o_cl_checkbox (id);
+create index check_to_checkbox_idx on o_cl_check (fk_checkbox_id);
+alter table o_cl_check add unique (fk_identity_id, fk_checkbox_id);
+create index idx_checkbox_uuid_idx on o_cl_checkbox (c_checkboxid);
 
 -- lifecycle
 create index lc_pref_idx on o_lifecycle (persistentref);

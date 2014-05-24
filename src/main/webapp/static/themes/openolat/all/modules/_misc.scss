@@ -1,5 +1,23 @@
 /*  misc */
 
+/* charts (crispEdges) */
+
+.d3chart {
+
+	.bar { shape-rendering: crispEdges; }
+
+	.bar_default_light { fill: $basecolor_ultra_light; }
+	.bar_default { fill: $basecolor_light; }
+	.bar_default_dark { fill: $basecolor; }
+
+	.axis { font: 12px sans-serif; }
+
+	.axis path, .axis line {
+		fill: none;
+		stroke: #000;
+		shape-rendering: crispEdges;
+	}	
+}
 
 /* BUSINESS CARD &  Member site, members search  */
 div.o_members_search { padding-top: 10px; padding-left: 10px;  }
@@ -10,7 +28,7 @@ div.searchitem select, div.searchitem input { width: 250px; }
 .o_members_register_active { font-weight: bold; font-size: 120%; }
 div.o_members_paging { width: 100%; padding-bottom: 1em; padding-top: 0.5em; text-align: center; }
 div.o_members_paging div { padding-left: 1em; padding-right: 1em; display: inline; }
-	
+
 div.o_bcard { background-color: #eee; margin-top: 10px; @include o-border-radius(6px); }
 div.o_bcard_header, div.o_members_header {padding: 6px; border-bottom:1px solid #fff; }
 div.o_bcard_portrait {
@@ -101,8 +119,8 @@ div.o_infomsgs {
 		div.b_datecomp { top: 2px; float: left; display: inline; }
 		div.o_infomsg {  margin-bottom:1em; padding:10px 0 0 0; }
 		.b_year { display: none; }
-		.o_item_info { color: #7D7D7D; font-size: 90%; }
-		.o_item_info .o_item_info_mod { color:#98221F; }
+		p.o_item_info { color: #7D7D7D; font-size: 90%; margin: 0; }
+		p.o_item_info .o_item_info_mod { color:#98221F; }
 }
 
 div.b_table_wrapper td a.o_peekview_infomsg_link { display:inline; }
@@ -111,7 +129,6 @@ div.o_infomsgs_config {
 	div { display:inline; }
 }
 .o_infomsg_icon { background-image: url(../openolat/images/information-button.png); }
-.o_infomsg_create_button { position:absolute; top:0; right:250px; }
 	
 /* EMAIL */
 .b_mail_icon { background-image: url(../openolat/images/mail.png) }
@@ -184,13 +201,111 @@ div.o_ll_container ul li {
 }
 a.o_ll_browse span { display:block; width:20px; height:18px; background:url(../openolat/images/library.png) top left no-repeat; margin-left:1px;}
 
+
+/* HELP, context sensitive */
+div.b_contexthelp_wrapper { position: relative; }
+a.b_contexthelp { display: block; width: 16px; height: 16px; background: url(../openolat/images/help.png) no-repeat; line-height: 0; cursor: help; }
+div.b_contexthelp_wrapper a.b_contexthelp { position: absolute; top: 0; right: 0; }
+fieldset a.b_contexthelp, fieldset div.b_contexthelp_wrapper a.b_contexthelp { position: absolute; top: -1.5em; right: -0.8em; }
+#b_contexthelp {}
+#b_contexthelp_content { padding: 0;}
+#b_ch_topnav_search div.b_form_element_wrapper.b_form_horizontal { margin:2px 0 0 0; }
+#b_contexthelp_rating { 
+	text-align: center; margin-top: 20px; padding: 10px; border-top: 1px #ACAAAA solid; 
+	 h4{ font-size: 90%; margin: 0; font-style: italic; }
+	 table {
+		 display: inline-block; 
+		 td { width: 50%; }
+	 }
+}
+.b_contexthelp_icon {background-image: url(../openolat/images/help.png); }
+	
+	
+	
+	
+/* USER COMMENTS */
+div.b_ratings_and_comments { 
+	margin: 4em 0 1.5em 0; padding-bottom: 0.5em; border-bottom: 1px solid #eee; font-size: 0.9em; position: relative; 
+	div.b_rating_wrapper { position: absolute; right: 0; bottom: 0; width: 150px; height: 4em; }
+	div.b_rating { background: none; border: none;  padding: 0; margin: 0; position: absolute; left: 0; bottom: 2px; width: 100%}
+	div.b_rating_personal { background: #fff; z-index: 5; }
+}
+
+div.b_ratings_and_comments a.b_comments, div.b_eportfolio_map a.b_comments { background: url(../openolat/images/comment.png) 3px 50% no-repeat; padding: 3px 0 1px 23px; vertical-align: middle; min-height: 18px;}
+
+div.b_comments { 
+	font-size: 0.9em;
+	
+	div.b_comment_wrapper { 
+		border:1px solid #eee; padding: 10px 10px 5px 10px; margin-bottom: 2em; background: #fbfbfb;
+		@include o-border-radius(4px);
+		div.b_avatar img { border: 1px solid #aaa; }
+		h5 { font-size: 1em; background: url(../openolat/images/user.png) 0 50% no-repeat; padding: 1px 0 1px 20px; vertical-align: middle; min-height: 16px;}
+		span.b_date { color: #aaaaaa; font-weight: normal; display: block; margin-top: 5px;}
+		
+		// wrapper in wrapper in wrapper in ....
+		div.b_comment_wrapper { margin-left: 7px; background: #fff; div.b_comment_wrapper { background: #fbfbfb; div.b_comment_wrapper { background: #fff;} } }
+	}
+	blockquote.b_comment { padding: 3px 0 0 0px; margin: 0;}
+	div.b_form { 
+		padding: 10px; border:1px solid #eee; margin: 2em 0 2em 0; 
+		@include o-gradient-white();
+		@include o-border-radius(4px); 
+		h5 { font-size: 1em; margin-bottom: 0.5em;}
+		div.b_button_group { text-align: center; }
+	}		
+}
+
+.b_comment_icon {background-image: url(../openolat/images/comment.png);}
+#b_comment_form_link {font-size: 0.9em; position: relative; top: -15px; left: 23px;}
+	
+/* RATING */
+div.b_rating {
+	margin: 10px; padding: 5px; font-size: 80%; white-space: nowrap; text-align: left; background: #EEE; border: 1px solid #ACAAAA; 
+	@include o-border-radius(4px);
+	div.b_rating_title { font-weight: bold; }
+	div.b_rating_items { 
+		vertical-align: middle; line-height: 18px; 
+		a { float: left; display: inline; width: 16px; height: 16px; background-repeat: no-repeat; background-position: 0 0; margin: 1px 4px 1px 0}
+		a.b_rating_item_on { background-image: url(../openolat/images/star.png); }
+		a.b_rating_item_off { background-image: url(../openolat/images/star_grey.png); }
+		a:hover {cursor: default;}
+		&.b_enabled a:hover {cursor: pointer;}
+		&.b_enabled a.b_rating_item_off:hover { background-image: url(../openolat/images/star.png);}
+	}
+	div.b_rating_explanation { clear: both; font-size: 90%; }
+}
+
 /* DATE COMPONENT (e.g. in notifications, shows calendar-image with date) */
 div.b_datecomp {
-		width: 2.5em; height: 3em; position: relative; margin-right: 5px;  font-weight: normal; color: white; text-align: center; vertical-align: middle; border: 1px solid #000; font-size: 85%;
-		div { width: 100%;  position: absolute; left: 0;}
-		div.b_year {height: 1em; top: -1.5em; font-size: 80%; font-weight: normal; color: #000; }
-		div.b_month {background: #BE5B5D; height: 40%; top: 0; font-size: 80%; font-weight: normal; color: white; }
-		div.b_day {background: #fff; height: 60%; bottom: 0; font-size: 120%; font-weight: bold; color: #000; border-top: 1px solid #000; border-bottom: 1px solid #aaaaaa; }
+		width: 2.5em; height: 3em; position: relative; 
+		border: 1px solid #000; 
+		margin-right: 5px; 
+		
+		div { 
+			position: absolute; left: 0;
+			width: 100%;  
+			font-weight: normal; color: #000; 
+			font-size: 0.8em;
+			text-align: center; vertical-align: middle; 
+		}
+		div.b_year {
+			height: 1em; top: -1.5em; 
+		}
+		div.b_month {
+			height: 40%; top: 0; 
+			background: #BE5B5D; 
+			font-size: 80%; color: white; 
+		}
+		div.b_day {
+			height: 60%; bottom: 0; 
+			border-top: 1px solid #000; border-bottom: 1px solid #aaaaaa; 
+			background: #fff; 
+			font-size: 1.2em;  
+		}
+		span {
+			line-height: 100%; vertical-align: middle;
+		}
 }
 
 /* Download link */
@@ -248,6 +363,8 @@ div.o_notifications_news_subscription {
 	margin: 1.5em 0 2em 0;
 	h4 { font-size: 110%; }
 	h4.o_returnbox_icon { background-image: url(../openolat/images/box_return.png) !important; }
+	h4.o_dropbox_icon { background-image: url(../openolat/images/box_drop.png) !important; }
+	h4.o_solution_icon { background-image: url(../openolat/images/box_solution.png) !important; }
 }
 div.o_notifications_news_context { color: #7D7D7D; font-size: 90%; }
 div.o_notifications_news_content {

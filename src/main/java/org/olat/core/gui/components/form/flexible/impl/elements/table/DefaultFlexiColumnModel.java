@@ -34,9 +34,9 @@ package org.olat.core.gui.components.form.flexible.impl.elements.table;
 public class DefaultFlexiColumnModel implements FlexiColumnModel {
 
 	private String headerKey;
+	private String headerLabel;
 	private String columnKey;
 	private int columnIndex;
-	private String action;
 
 	private boolean sortable;
 	private String sortedKey;
@@ -49,9 +49,8 @@ public class DefaultFlexiColumnModel implements FlexiColumnModel {
 		this(headerKey, columnIndex, false, null);
 	}
 	
-	public DefaultFlexiColumnModel(String headerKey, int columnIndex, String action) {
-		this(headerKey, columnIndex, false, null);
-		this.action = action;
+	public DefaultFlexiColumnModel(String headerKey, int columnIndex, FlexiCellRenderer renderer) {
+		this(true, headerKey, columnIndex, false, null, FlexiColumnModel.ALIGNMENT_LEFT, renderer);
 	}
 	
 	public DefaultFlexiColumnModel(String headerKey, int columnIndex, boolean sortable, String sortKey) {
@@ -74,16 +73,21 @@ public class DefaultFlexiColumnModel implements FlexiColumnModel {
 
 	@Override
 	public String getAction() {
-		return action;
-	}
-	
-	public void setAction(String action) {
-		this.action = action;
+		return null;
 	}
 
 	@Override
 	public String getHeaderKey() {
 		return headerKey;
+	}
+
+	@Override
+	public String getHeaderLabel() {
+		return headerLabel;
+	}
+
+	public void setHeaderLabel(String headerLabel) {
+		this.headerLabel = headerLabel;
 	}
 
 	@Override
@@ -103,6 +107,10 @@ public class DefaultFlexiColumnModel implements FlexiColumnModel {
 
 	public boolean isDefaultVisible() {
 		return defaultVisible;
+	}
+	
+	public void setDefaultVisible(boolean defaultVisible) {
+		this.defaultVisible = defaultVisible;
 	}
 
 	@Override

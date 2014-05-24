@@ -43,6 +43,9 @@ import org.olat.core.commons.modules.bc.meta.MetaInfo;
 import org.olat.core.commons.modules.bc.meta.tagged.MetaTagged;
 import org.olat.core.commons.modules.bc.vfs.OlatNamedContainerImpl;
 import org.olat.core.commons.modules.bc.vfs.OlatRootFolderImpl;
+import org.olat.core.commons.services.notifications.NotificationsManager;
+import org.olat.core.commons.services.notifications.SubscriptionContext;
+import org.olat.core.commons.services.notifications.ui.ContextualSubscriptionController;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.Component;
 import org.olat.core.gui.components.link.Link;
@@ -65,9 +68,6 @@ import org.olat.core.util.mail.MailContextImpl;
 import org.olat.core.util.mail.MailHelper;
 import org.olat.core.util.mail.MailManager;
 import org.olat.core.util.mail.MailerResult;
-import org.olat.core.util.notifications.ContextualSubscriptionController;
-import org.olat.core.util.notifications.NotificationsManager;
-import org.olat.core.util.notifications.SubscriptionContext;
 import org.olat.core.util.vfs.Quota;
 import org.olat.core.util.vfs.QuotaManager;
 import org.olat.core.util.vfs.VFSContainer;
@@ -145,12 +145,13 @@ public class DropboxController extends BasicController {
 		myContent.contextPut("previewMode", previewMode ? Boolean.TRUE : Boolean.FALSE);
 
 		// notification
+		CourseEnvironment courseEnv = userCourseEnv.getCourseEnvironment();
+		subsContext = DropboxFileUploadNotificationHandler.getSubscriptionContext(courseEnv, node);
 		if ( hasNotification && !previewMode) {
 			// offer subscription, but not to guests
-			subsContext = DropboxFileUploadNotificationHandler.getSubscriptionContext(userCourseEnv, node);
 			if (subsContext != null) {
-				contextualSubscriptionCtr = AbstractTaskNotificationHandler.createContextualSubscriptionController(ureq, wControl, getDropboxPathRelToFolderRoot(
-						userCourseEnv.getCourseEnvironment(), node), subsContext, DropboxController.class);
+				String path = getDropboxPathRelToFolderRoot(courseEnv, node);
+				contextualSubscriptionCtr = AbstractTaskNotificationHandler.createContextualSubscriptionController(ureq, wControl, path, subsContext, DropboxController.class);
 				myContent.put("subscription", contextualSubscriptionCtr.getInitialComponent());
 				myContent.contextPut("hasNotification", Boolean.TRUE);
 			}
@@ -243,7 +244,7 @@ public class DropboxController extends BasicController {
 				
 				VFSLeaf fOut;
 				if (fDropbox.resolve(fIn.getName()) != null) {
-					//FIXME ms: check if dropbox quota is exceeded -> with customers abkl�ren
+					//FIXME ms: check if dropbox quota is exceeded -> clarify with customers 
 					fOut = fDropbox.createChildLeaf(getNewUniqueName(fIn.getName()));
 				} else {
 					fOut = fDropbox.createChildLeaf(fIn.getName());
@@ -308,7 +309,6 @@ public class DropboxController extends BasicController {
 						} 
 					}
 
-					subsContext = DropboxFileUploadNotificationHandler.getSubscriptionContext(userCourseEnv, node);
 					// inform subscription manager about new element
 					if (subsContext != null) {
 						NotificationsManager.getInstance().markPublisherNews(subsContext, ureq.getIdentity(), true);

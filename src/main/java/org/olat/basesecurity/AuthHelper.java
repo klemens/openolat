@@ -43,7 +43,7 @@ import org.olat.core.commons.chiefcontrollers.BaseChiefControllerCreator;
 import org.olat.core.commons.fullWebApp.BaseFullWebappController;
 import org.olat.core.commons.fullWebApp.BaseFullWebappControllerParts;
 import org.olat.core.commons.persistence.DBFactory;
-import org.olat.core.dispatcher.DispatcherAction;
+import org.olat.core.dispatcher.DispatcherModule;
 import org.olat.core.gui.GUIInterna;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.WindowManager;
@@ -136,12 +136,12 @@ public class AuthHelper {
 		}
 	
 		Window currentWindow = occ.getWindow();
-		currentWindow.setUriPrefix(WebappHelper.getServletContextPath() + DispatcherAction.PATH_AUTHENTICATED);
+		currentWindow.setUriPrefix(WebappHelper.getServletContextPath() + DispatcherModule.PATH_AUTHENTICATED);
 		Windows.getWindows(ureq).registerWindow(currentWindow);
 	
 		// redirect to AuthenticatedDispatcher
 		// IMPORTANT: windowID has changed due to re-registering current window -> do not use ureq.getWindowID() to build new URLBuilder.
-		URLBuilder ubu = new URLBuilder(WebappHelper.getServletContextPath() + DispatcherAction.PATH_AUTHENTICATED, currentWindow.getInstanceId(), "1", null);	
+		URLBuilder ubu = new URLBuilder(WebappHelper.getServletContextPath() + DispatcherModule.PATH_AUTHENTICATED, currentWindow.getInstanceId(), "1", null);	
 		StringOutput sout = new StringOutput(30);
 		ubu.buildURI(sout, null, null);
 		ureq.getDispatchResult().setResultingMediaResource(new RedirectMediaResource(sout.toString()));
@@ -356,7 +356,7 @@ public class AuthHelper {
 	 * @param newUser unpersisted user
 	 * @return Identity
 	 */
-	public static Identity createAndPersistIdentityAndUser(String loginName, String pwd, User newUser) {
+	private static Identity createAndPersistIdentityAndUser(String loginName, String pwd, User newUser) {
 		Identity ident = null;
 		if (pwd == null) {
 			// when no password is used the provider must be set to null to not generate
@@ -380,10 +380,29 @@ public class AuthHelper {
 	 * @param newUser unpersisted users
 	 * @return Identity
 	 */
-	public static Identity createAndPersistIdentityAndUserWithUserGroup(String loginName, String pwd, User newUser) {
+	public static Identity createAndPersistIdentityAndUserWithUserGroup(String loginName, String pwd,  User newUser) {
 		Identity ident = createAndPersistIdentityAndUser(loginName, pwd, newUser);
 		// Add user to system users group
 		BaseSecurity securityManager = BaseSecurityManager.getInstance();
+		SecurityGroup olatuserGroup = securityManager.findSecurityGroupByName(Constants.GROUP_OLATUSERS);
+		securityManager.addIdentityToSecurityGroup(ident, olatuserGroup);
+		return ident;
+	}
+	
+	/**
+	 * Persists the given user, creates an identity for it and adds the user to
+	 * the users system group, create an authentication for an external provider
+	 * 
+	 * @param loginName
+	 * @param provider
+	 * @param authusername
+	 * @param newUser
+	 * @return
+	 */
+	public static Identity createAndPersistIdentityAndUserWithUserGroup(String loginName, String provider, String authusername, User newUser) {
+		BaseSecurity securityManager = BaseSecurityManager.getInstance();
+		Identity ident = securityManager.createAndPersistIdentityAndUser(loginName, newUser, provider, authusername, null);
+		// Add user to system users group
 		SecurityGroup olatuserGroup = securityManager.findSecurityGroupByName(Constants.GROUP_OLATUSERS);
 		securityManager.addIdentityToSecurityGroup(ident, olatuserGroup);
 		return ident;

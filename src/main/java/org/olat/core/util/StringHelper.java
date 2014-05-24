@@ -68,8 +68,7 @@ public class StringHelper {
 	private static final String WHITESPACE_REGEXP = "^\\s*$";
 	private static final Pattern WHITESPACE_PATTERN = Pattern.compile(WHITESPACE_REGEXP);
 	
-	private static final Pattern p1 = Pattern.compile("\\+");
-	private static final Pattern p2 = Pattern.compile("%2F");
+	private static final int LONG_MAX_LENGTH = Long.toString(Long.MAX_VALUE).length();
 	
 	/**
 	 * regex for not allowing
@@ -194,21 +193,7 @@ public class StringHelper {
 		numFormatter.setMaximumFractionDigits(fractionDigits);
 		return numFormatter.format(f);
 	}
-
-	/**
-	 * @param url
-	 * @return encoded string
-	 */
-	public static String urlEncodeISO88591(String url) {
-		String part;
-		try {
-			part = URLEncoder.encode(url, "iso-8859-1");
-		} catch (UnsupportedEncodingException e) {
-			throw new RuntimeException("encoding failed (iso-8859-1) for :" + url);
-		}
-		return part;
-	}
-
+	
 	/**
 	 * @param url
 	 * @return encoded string
@@ -225,13 +210,8 @@ public class StringHelper {
 			 */
 			throw new AssertException("utf-8 encoding is needed for proper encoding, but not offered on this java platform????");
 		}
-		encodedURL = p1.matcher(encodedURL).replaceAll("%20");
-		encodedURL = p2.matcher(encodedURL).replaceAll("/");
 		return encodedURL;
 	}
-	
-
-	
 
 	/**
 	 * Converts all keys of a hash map to a string array.
@@ -358,6 +338,12 @@ public class StringHelper {
 		return new OWASPAntiSamyXSSFilter().filter(str);
 	}
 	
+	public static final String xssScan(StringBuilder str) {
+		if(str == null) return null;
+		if(str.length() == 0) return "";
+		return new OWASPAntiSamyXSSFilter().filter(str.toString());
+	}
+	
 	public static final boolean xssScanForErrors(String str) {
 		OWASPAntiSamyXSSFilter filter = new OWASPAntiSamyXSSFilter();
 		filter.filter(str);
@@ -400,19 +386,55 @@ public class StringHelper {
 		return FileUtils.normalizeFilename(s);
 	}
 	
+	/**
+	 * The method do only a precheck if the string can be a number. It's goal
+	 * is to prevent to generate hunderds of exceptions in a loop by using
+	 * the Long.parseLong() method (exceptions is time and CPU intensive).
+	 * 
+	 * return True if the string can be a digit (there is not boundaries check)
+	 */
 	public static boolean isLong(String string) {
 		if(string == null || string.length() == 0) {
 			return false;
 		}
 		int stop = string.startsWith("-") ? 1 : 0;
+		if(string.length() > LONG_MAX_LENGTH + stop) {
+			return false;
+		}
 		char[] charArr = string.toCharArray();
 		for(int i=charArr.length; i-->stop; ) {
 			char ch = charArr[i];
-			if(ch < 47 || ch > 58) {
+			if(ch < 48 || ch > 57) {
 				return false;
 			}
 		}
 		return true;
+	}
+	
+	public static String cleanUTF8ForXml(String string) {
+		if(string == null) return null;
+		if(string.length() == 0) return string;
+		
+		StringBuilder sb = new StringBuilder();
+		char[] charArr = string.toCharArray();
+		int numOfCharacters = charArr.length;
+		for(int i=0; i<numOfCharacters; i++) {
+			char ch = charArr[i];
+			if(ch < 32) {
+				switch(ch) {
+					case '\n': sb.append(ch); break;//0x000A
+					case '\t': sb.append(ch); break;//0x0009
+					case '\r': sb.append(ch); break;//0x000D
+				}
+			} else if(ch >= 0x0020 && ch <= 0xD7FF) {
+				sb.append(ch);
+			} else if(ch >= 0xE000 && ch <= 0xFFFD) {
+				sb.append(ch);
+			} else if(ch >= 0x10000 && ch <= 0x10FFFF) {
+				sb.append(ch);
+			}
+		}
+		return sb.toString();
 	}
 	
 	public static String replaceAllCaseInsensitive(String expression, String name, String replacement) {

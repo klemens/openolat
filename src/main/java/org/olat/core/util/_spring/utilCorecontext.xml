@@ -40,6 +40,7 @@
 			</map>
 		</property>
 		<property name="defaultCharset" value="${defaultcharset}" />
+		<property name="enforceUtf8Filesystem" value="${enforce.utf8.filesystem}" />
 		<property name="version" value="${build.version}" />
 		<property name="applicationName" value="${application.name}" />
 		<property name="mobileContext" value="${mobile.context}" />
@@ -53,14 +54,10 @@
 			</bean>
 		</property>
 		<!-- OLAT Tomcat server configuration parameters. This is used e.g. to assemble absolute URIS where needed. -->
-		<property name="serverconfig">
-			<map>
-				<entry key="server_name" value="REPLACE" />
-				<entry key="server_fqdn" value="${server.domainname}" />
-				<entry key="server_securePort" value="${server.port.ssl}" />
-				<entry key="server_insecurePort" value="${server.port}" />
-			</map>
-		</property>			
+		<property name="serverDomainName" value="${server.domainname}" />
+		<property name="serverSecurePort" value="${server.port.ssl}" />
+		<property name="serverInsecurePort" value="${server.port}" />
+		<property name="legacyContext" value="${server.legacy.context}" />		
 		<!-- true enable debug mode, not for production mode but for productive hours ;) -->
 		<property name="debug" value="${olat.debug}" />
 		<!-- if readOnlyDebug, then no file changes can be made in the debug mode -->
@@ -132,6 +129,10 @@
 		<constructor-arg index="1" ref="propertyManager" />
 	</bean>
 	
+	<bean id="vfsLockManager" class="org.olat.core.util.vfs.lock.VFSLockManagerImpl" >
+		<property name="metaInfoFactory" ref="metaInfoFactory"/>
+	</bean>
+	
 	<!--  gui prefs via database -->
 	<bean id="core.preferences.PreferencesStorage"
 		class="org.olat.core.util.prefs.db.DbStorage"  />
@@ -181,53 +182,48 @@
 		</property>
 	</bean>
 
+	<!-- * * * * * * *  -->
+	<!--  DEPRECATED!! use src/main/resources/infinispan-config.xml instead !! -->
+	<!--  Configure caches directly in infinispan files, not here. timeToLive not supported anymore -->
+	<!-- * * * * * * *  -->
+
 	<!-- Cache beans -->
 	<bean id="org.olat.login.LoginModule_blockafterfailedattempts" class="org.olat.core.util.cache.CacheConfig" >
-		<property name="timeToLive" value="300" />
 		<property name="timeToIdle" value="0" />
 		<property name="maxElementsInMemory" value="1000" />
 	</bean>
 	<bean id="org.olat.ims.qti.process.QTIHelper_QTI_xml_Documents" class="org.olat.core.util.cache.CacheConfig">
-		<property name="timeToLive" value="3600" />
 		<property name="timeToIdle" value="1800" />
 		<!-- qti files may be large -->
 		<property name="maxElementsInMemory" value="20" />
 	</bean>					
 	<bean id="org.olat.modules.wiki.WikiManager_wiki" class="org.olat.core.util.cache.CacheConfig">
-		<property name="timeToLive" value="14400" />
 		<property name="timeToIdle" value="1800" />
 		<property name="maxElementsInMemory" value="50" />								
 	</bean>
 	<bean id="org.olat.commons.calendar.ICalFileCalendarManager_calendar" class="org.olat.core.util.cache.CacheConfig">
-		<property name="timeToLive" value="3600" />
 		<property name="timeToIdle" value="3600" />
 		<property name="maxElementsInMemory" value="50" />								
 	</bean>
 	<bean id="org.olat.course.CourseFactory_courses" class="org.olat.core.util.cache.CacheConfig">
-		<property name="timeToLive" value="0" />
 		<property name="timeToIdle" value="3600" />
 		<property name="maxElementsInMemory" value="${course.cache.elements}" />								
 	</bean>
 	<bean id="org.olat.collaboration.CollaborationToolsFactory_tools" class="org.olat.core.util.cache.CacheConfig">
-			<property name="timeToLive" value="3600" />
 			<property name="timeToIdle" value="1800" />
 			<property name="maxElementsInMemory" value="5000" />								
 	</bean>
 	<bean id="org.olat.core.modules.glossary.GlossaryItemManager_glossary" class="org.olat.core.util.cache.CacheConfig">
-			<property name="timeToLive" value="7200" />
 			<property name="timeToIdle" value="1800" />
 			<property name="maxElementsInMemory" value="50" />								
 	</bean>
 	<bean id="org.olat.course.nodes.projectbroker.service.ProjectBrokerManagerImpl_pb" class="org.olat.core.util.cache.CacheConfig">
-		<property name="timeToLive" value="3600" />
 		<property name="timeToIdle" value="3600" />
 		<property name="maxElementsInMemory" value="50" />								
 	</bean>
 	<bean id="org.olat.course.assessment.NewCachePersistingAssessmentManager" class="org.olat.core.util.cache.CacheConfig">
-		<property name="timeToLive" value="0" />
 		<property name="timeToIdle" value="60" />
 		<property name="maxElementsInMemory" value="20000" />							
 	</bean>
-	
 	
 </beans>

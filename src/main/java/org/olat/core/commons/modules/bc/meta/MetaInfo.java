@@ -24,21 +24,11 @@
 */
 package org.olat.core.commons.modules.bc.meta;
 
-import java.util.Date;
-
 import org.olat.core.id.Identity;
 import org.olat.core.util.vfs.OlatRelPathImpl;
 import org.olat.core.util.vfs.VFSLeaf;
 
 public interface MetaInfo {
-
-	/**
-	 * Factory method to create a MetaInfo Bean.
-	 * 
-	 * @param olatRelPathImpl
-	 * @return
-	 */
-	public MetaInfo createMetaInfoFor(OlatRelPathImpl olatRelPathImpl);
 
 	/**
 	 * Rename the given meta info file
@@ -99,6 +89,8 @@ public interface MetaInfo {
 	 * @return The identity of the initial author.
 	 */
 	public Identity getAuthorIdentity();
+	
+	public boolean hasAuthorIdentity();
 
 	/**
 	 * Corresponds to DublinCore:description
@@ -173,32 +165,6 @@ public interface MetaInfo {
 	 * @return formatted representation of size of file
 	 */
 	public String getFormattedSize();
-	
-	/**
-	 * @return if the file is locked
-	 */
-	public boolean isLocked();
-	
-	public void setLocked(boolean locked);
-	
-	/**
-	 * @return Identity of the user who locked the file
-	 */
-	public Identity getLockedByIdentity();
-	
-	/**
-	 * @return key of the user's identity who locked the file
-	 */
-	public Long getLockedBy();
-	
-	public void setLockedBy(Long lockedById);
-	
-	/**
-	 * @return date of the lock
-	 */
-	public Date getLockedDate();
-	
-	public void setLockedDate(Date lockedDate);
 
 	/**
 	 * @param string
@@ -236,6 +202,9 @@ public interface MetaInfo {
 	
 	public VFSLeaf getThumbnail(int maxWidth, int maxHeight);
 	
+	/**
+	 * Thumbnails are cleared and the metadata file is written on the disk
+	 */
 	public void clearThumbnails();
 
 	/**

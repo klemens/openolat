@@ -58,4 +58,74 @@ public class StringHelperTest {
 		Assert.assertEquals("Webclass_Energie_20042005", StringHelper.transformDisplayNameToFileSystemName("Webclass Energie 2004:2005"));
 		Assert.assertEquals("Webclaess", StringHelper.transformDisplayNameToFileSystemName("Webcl\u00E4ss"));
 	}
+	
+	@Test
+	public void filterPrintControlCharacter() {
+		String value1 = StringHelper.cleanUTF8ForXml("Hello world");
+		Assert.assertEquals("Dummy test", "Hello world", value1);
+		
+		//print control
+		String value2 = StringHelper.cleanUTF8ForXml("Hello\u0002 world");
+		Assert.assertEquals("Print \\x02 test", "Hello world", value2);
+
+		//print control
+		String value3 = StringHelper.cleanUTF8ForXml("Hello\u001F world");
+		Assert.assertEquals("Print \\x02 like test", "Hello world", value3);
+
+		//it's a 0
+		String value4 = StringHelper.cleanUTF8ForXml("Hello\u0030 world");
+		Assert.assertEquals("Zero test", "Hello0 world", value4);
+			
+		//it's a u umlaut
+		String value5 = StringHelper.cleanUTF8ForXml("Hello\u00FC world");
+		Assert.assertEquals("Umlaut test", "Hello\u00FC world", value5);
+					
+		//it's a kanji
+		String value6 = StringHelper.cleanUTF8ForXml("Hello\u30b0 world");
+		Assert.assertEquals("Kanji test", "Hello\u30b0 world", value6);
+		
+		//it's a return
+		String value7 = StringHelper.cleanUTF8ForXml("Hello\n world");
+		Assert.assertEquals("Return test", "Hello\n world", value7);
+		
+		//it's a tab
+		String value8 = StringHelper.cleanUTF8ForXml("Hello\t world");
+		Assert.assertEquals("Tab test", "Hello\t world", value8);
+		
+		//it's a carriage
+		String value9 = StringHelper.cleanUTF8ForXml("Hello\r world");
+		Assert.assertEquals("Carriage test", "Hello\r world", value9);
+		
+		//it's a unicode emoticons
+		String value10 = StringHelper.cleanUTF8ForXml("Hello\u1F605 world");
+		Assert.assertEquals("Emoticons test", "Hello\u1F605 world", value10);
+		
+		//it's phoenician \u1090x
+		String value11 = StringHelper.cleanUTF8ForXml("Hello\u1090x phoenician");
+		Assert.assertEquals("Phoenician test", "Hello\u1090x phoenician", value11);
+		
+		//it's pahlavi \u10B7x
+		String value12 = StringHelper.cleanUTF8ForXml("Hello\u10B7x pahlavi");
+		Assert.assertEquals("Pahlavi test", "Hello\u10B7x pahlavi", value12);
+	}
+	
+	@Test
+	public void isLong() {
+		Assert.assertTrue(StringHelper.isLong("234"));
+		Assert.assertTrue(StringHelper.isLong("0123456789"));
+		Assert.assertTrue(StringHelper.isLong("9223372036854775807"));
+		Assert.assertTrue(StringHelper.isLong("-9223372036854775807"));
+
+		//check some unacceptable strings
+		Assert.assertFalse(StringHelper.isLong("10223372036854775807"));
+		Assert.assertFalse(StringHelper.isLong("-dru"));
+		Assert.assertFalse(StringHelper.isLong("OpenOLAT"));
+		Assert.assertFalse(StringHelper.isLong("A very long number with a lot of characters"));
+		
+		//check ascii range
+		Assert.assertFalse(StringHelper.isLong("/"));
+		Assert.assertFalse(StringHelper.isLong(":"));
+		Assert.assertFalse(StringHelper.isLong("."));
+		Assert.assertFalse(StringHelper.isLong(";"));
+	}
 }

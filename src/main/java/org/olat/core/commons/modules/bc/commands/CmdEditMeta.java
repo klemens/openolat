@@ -26,11 +26,15 @@
 
 package org.olat.core.commons.modules.bc.commands;
 
+import org.olat.core.CoreSpringFactory;
 import org.olat.core.commons.modules.bc.FolderEvent;
 import org.olat.core.commons.modules.bc.components.FolderComponent;
 import org.olat.core.commons.modules.bc.components.ListRenderer;
 import org.olat.core.commons.modules.bc.meta.MetaInfo;
+import org.olat.core.commons.modules.bc.meta.MetaInfoController;
 import org.olat.core.commons.modules.bc.meta.MetaInfoFormController;
+import org.olat.core.commons.services.notifications.NotificationsManager;
+import org.olat.core.commons.services.notifications.SubscriptionContext;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.Component;
 import org.olat.core.gui.control.Controller;
@@ -42,16 +46,25 @@ import org.olat.core.util.StringHelper;
 import org.olat.core.util.vfs.VFSConstants;
 import org.olat.core.util.vfs.VFSContainer;
 import org.olat.core.util.vfs.VFSItem;
+import org.olat.core.util.vfs.VFSLockManager;
+import org.olat.core.util.vfs.VFSManager;
+import org.olat.core.util.vfs.callbacks.VFSSecurityCallback;
 
 public class CmdEditMeta extends BasicController implements FolderCommand {
 
 	private int status = FolderCommandStatus.STATUS_SUCCESS;
+	
+	private MetaInfoController metaCtr;
 	private MetaInfoFormController metaInfoCtr;
 	private VFSItem currentItem;
+	private FolderComponent folderComponent;
 	private Translator translator;
+
+	private final VFSLockManager vfsLockManager;
 
 	protected CmdEditMeta(UserRequest ureq, WindowControl wControl) {
 		super(ureq, wControl);
+		vfsLockManager = CoreSpringFactory.getImpl(VFSLockManager.class);
 	}
 
 	/**
@@ -64,7 +77,7 @@ public class CmdEditMeta extends BasicController implements FolderCommand {
 	public Controller execute(FolderComponent folderComponent,
 			UserRequest ureq, WindowControl wControl, Translator trans) {
 		this.translator = trans;
-
+		this.folderComponent = folderComponent;
 		String pos = ureq.getParameter(ListRenderer.PARAM_EDTID);
 		if (!StringHelper.containsNonWhitespace(pos)) {
 			// somehow parameter did not make it to us
@@ -76,16 +89,24 @@ public class CmdEditMeta extends BasicController implements FolderCommand {
 		status = FolderCommandHelper.sanityCheck(wControl, folderComponent);
 		if(status == FolderCommandStatus.STATUS_SUCCESS) {
 			currentItem = folderComponent.getCurrentContainerChildren().get(Integer.parseInt(pos));
-			status = FolderCommandHelper.sanityCheck2(wControl, folderComponent, ureq, currentItem);
 		}
 		if(status == FolderCommandStatus.STATUS_FAILED) {
 			return null;
 		}	
-		
-		if (metaInfoCtr != null) metaInfoCtr.dispose();
-		metaInfoCtr = new MetaInfoFormController(ureq, wControl, currentItem);
-		listenTo(metaInfoCtr);
-		putInitialPanel(metaInfoCtr.getInitialComponent());
+
+		removeAsListenerAndDispose(metaCtr);
+		removeAsListenerAndDispose(metaInfoCtr);
+
+		if(vfsLockManager.isLockedForMe(currentItem, getIdentity(), ureq.getUserSession().getRoles())) {
+			//readonly
+			metaCtr = new MetaInfoController(ureq, wControl, currentItem);
+			listenTo(metaCtr);
+			putInitialPanel(metaCtr.getInitialComponent());
+		} else {
+			metaInfoCtr = new MetaInfoFormController(ureq, wControl, currentItem);
+			listenTo(metaInfoCtr);
+			putInitialPanel(metaInfoCtr.getInitialComponent());
+		}
 		return this;
 	}
 
@@ -107,13 +128,13 @@ public class CmdEditMeta extends BasicController implements FolderCommand {
 	 *      org.olat.core.gui.control.Controller,
 	 *      org.olat.core.gui.control.Event)
 	 */
+	@Override
 	public void event(UserRequest ureq, Controller source, Event event) {
-		if (source == metaInfoCtr) {
-			if (event == Event.DONE_EVENT) {
-				MetaInfo meta = metaInfoCtr.getMetaInfo();
+		if (source == metaInfoCtr && event == Event.DONE_EVENT) {
+			MetaInfo meta = metaInfoCtr.getMetaInfo();
+			String fileName = metaInfoCtr.getFilename();
+			if(meta != null) {
 				meta.write();
-				String fileName = metaInfoCtr.getFilename();
-				
 				if (metaInfoCtr.isFileRenamed()) {
 					// IMPORTANT: First rename the meta data because underlying file
 					// has to exist in order to work properly on it's meta data.
@@ -131,14 +152,24 @@ public class CmdEditMeta extends BasicController implements FolderCommand {
 						}
 					}
 				}
-				fireEvent(ureq, new FolderEvent(FolderEvent.EDIT_EVENT, fileName));
-				fireEvent(ureq, FOLDERCOMMAND_FINISHED);
-
-			} else if (event == Event.CANCELLED_EVENT) {
-				fireEvent(ureq, FOLDERCOMMAND_FINISHED);
 			}
-
+			fireEvent(ureq, new FolderEvent(FolderEvent.EDIT_EVENT, fileName));
+			notifyFinished(ureq);
+		} else if (event == Event.CANCELLED_EVENT) {
+			fireEvent(ureq, FOLDERCOMMAND_FINISHED);
 		}
+	}
+	
+	private void notifyFinished(UserRequest ureq) {
+		VFSContainer container = VFSManager.findInheritingSecurityCallbackContainer(folderComponent.getRootContainer());
+		VFSSecurityCallback secCallback = container.getLocalSecurityCallback();
+		if(secCallback != null) {
+			SubscriptionContext subsContext = secCallback.getSubscriptionContext();
+			if (subsContext != null) {
+				NotificationsManager.getInstance().markPublisherNews(subsContext, ureq.getIdentity(), true);
+			}
+		}
+		fireEvent(ureq, FOLDERCOMMAND_FINISHED);
 	}
 
 	protected void doDispose() {

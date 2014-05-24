@@ -116,7 +116,8 @@ class JSDateChooserRenderer implements ComponentRenderer {
 				.append("],\n")
 				.append("  showOtherMonths:true,\n")
 				.append("  onSelect:function(){\n")
-				.append("    setFlexiFormDirty('").append(te.getRootForm().getDispatchFieldId()).append("')")
+				.append("    setFlexiFormDirty('").append(te.getRootForm().getDispatchFieldId()).append("');\n")
+				.append("    jQuery(this).change();\n")
 				.append("  }\n")
 			  .append("})});")
 			  .append("\n/* ]]> */ \n</script>");
@@ -148,7 +149,7 @@ class JSDateChooserRenderer implements ComponentRenderer {
 	private StringOutput renderMS(StringOutput dc, String id, int time) {
 		dc.append("<input type=\"text\" id=\"").append(id).append("\"")
 	    .append(" name=\"").append(id).append("\" size=\"2\"")
-		  .append(" maxlength=\"2\"").append("\" value=\"").append(time).append("\"")
+		  .append(" maxlength=\"2\"").append("\" value=\"").append(time > 9 ? "" + time : "0" + time).append("\"")
 		  .append(" />");
 		return dc;
 	}

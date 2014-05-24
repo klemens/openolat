@@ -53,13 +53,11 @@ import org.olat.core.manager.BasicManager;
 import org.olat.core.util.StringHelper;
 import org.olat.core.util.Util;
 import org.olat.core.util.coordinate.CoordinatorManager;
-import org.olat.core.util.coordinate.SyncerExecutor;
 import org.olat.core.util.i18n.I18nManager;
 import org.olat.core.util.mail.MailBundle;
 import org.olat.core.util.mail.MailManager;
 import org.olat.core.util.mail.MailTemplate;
 import org.olat.core.util.mail.MailerResult;
-import org.olat.core.util.resource.OresHelper;
 import org.olat.course.assessment.EfficiencyStatementManager;
 import org.olat.properties.Property;
 import org.olat.properties.PropertyManager;
@@ -156,7 +154,6 @@ public class UserDeletionManager extends BasicManager {
 				} 
 				template.putVariablesInMailContext(template.getContext(), identity);
 				logDebug(" Try to send Delete-email to identity=" + identity.getName() + " with email=" + identity.getUser().getProperty(UserConstants.EMAIL, null));
-				Identity ccIdentity = null;
 				
 				MailerResult result = new MailerResult();
 				MailBundle bundle = mailManager.makeMailBundle(null, identity, template, sender, null, result);
@@ -164,7 +161,7 @@ public class UserDeletionManager extends BasicManager {
 					mailManager.sendMessage(bundle);
 				}
 				if(template.getCpfrom()) {
-					MailBundle ccBundle = mailManager.makeMailBundle(null, ccIdentity, template, sender, null, result);
+					MailBundle ccBundle = mailManager.makeMailBundle(null, sender, template, sender, null, result);
 					if(ccBundle != null) {
 						mailManager.sendMessage(ccBundle);
 					}
@@ -380,18 +377,11 @@ public class UserDeletionManager extends BasicManager {
 	public Identity setIdentityAsActiv(final Identity anIdentity) {
 		final Identity reloadedIdentity = securityManager.setIdentityLastLogin(anIdentity);
 
-		coordinatorManager.getCoordinator().getSyncer().doInSync(OresHelper.createOLATResourceableInstance(anIdentity.getClass(), anIdentity.getKey()) , 
-			new SyncerExecutor(){
-				public void execute() {
-					 //o_clusterOK by:fj : must be fast
-					LifeCycleManager lifeCycleManagerForIdenitiy = LifeCycleManager.createInstanceFor(reloadedIdentity);
-					if (lifeCycleManagerForIdenitiy.lookupLifeCycleEntry(SEND_DELETE_EMAIL_ACTION) != null) {
-						logAudit("User-Deletion: Remove from delete-list identity=" + reloadedIdentity);
-						lifeCycleManagerForIdenitiy.deleteTimestampFor(SEND_DELETE_EMAIL_ACTION);
-					}
-				}
-		});
-		
+		LifeCycleManager lifeCycleManagerForIdenitiy = LifeCycleManager.createInstanceFor(reloadedIdentity);
+		if (lifeCycleManagerForIdenitiy.hasLifeCycleEntry(SEND_DELETE_EMAIL_ACTION)) {
+			logAudit("User-Deletion: Remove from delete-list identity=" + reloadedIdentity);
+			lifeCycleManagerForIdenitiy.deleteTimestampFor(SEND_DELETE_EMAIL_ACTION);
+		}
 		return reloadedIdentity;
 	}
 
@@ -414,7 +404,7 @@ public class UserDeletionManager extends BasicManager {
 		if (properties.size() == 0) {
 			return defaultValue;
 		} else {
-			return ((Property)properties.get(0)).getLongValue().intValue();
+			return properties.get(0).getLongValue().intValue();
 		}
 	}
 

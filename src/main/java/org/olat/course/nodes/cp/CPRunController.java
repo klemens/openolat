@@ -162,7 +162,7 @@ public class CPRunController extends BasicController implements ControllerEventL
 	}
 	
 	@Override
-	//fxdiff BAKS-7 Resume function
+	// Resume function
 	public void activate(UserRequest ureq, List<ContextEntry> entries, StateEntry state) {
 		if(entries == null || entries.isEmpty()) return;
 		
@@ -176,12 +176,18 @@ public class CPRunController extends BasicController implements ControllerEventL
 			// it is the first time we start the contentpackaging from this instance
 			// of this controller.
 			// need to be strict when launching -> "true"
-			RepositoryEntry re = CPEditController.getCPReference(config, true);
-			if (re == null) throw new AssertException("configurationkey 'CONFIG_KEY_REPOSITORY_SOFTKEY' of BB CP was missing");
+			RepositoryEntry re = CPEditController.getCPReference(config, false);
+			if (re == null) {
+				showError(CPEditController.NLS_ERROR_CPREPOENTRYMISSING);
+				return;
+			}
 			cpRoot = FileResourceManager.getInstance().unzipFileResource(re.getOlatResource());
 			// should always exist because references cannot be deleted as long as
 			// nodes reference them
-			if (cpRoot == null) throw new AssertException("file of repository entry " + re.getKey() + " was missing");
+			if (cpRoot == null) {
+				showError(CPEditController.NLS_ERROR_CPREPOENTRYMISSING);
+				return;
+			}
 			
 			if(deliveryOptions != null && deliveryOptions.getInherit() != null && deliveryOptions.getInherit().booleanValue()) {
 				CPPackageConfig packageConfig = CPManager.getInstance().getCPPackageConfig(re.getOlatResource());
@@ -199,8 +205,8 @@ public class CPRunController extends BasicController implements ControllerEventL
 		//fxdiff VCRP-13: cp navigation
 		boolean navButtons = isNavButtonConfigured();
 		cpDispC = CPUIFactory.getInstance().createContentOnlyCPDisplayController(ureq, getWindowControl(), new LocalFolderImpl(cpRoot), activateFirstPage, navButtons, deliveryOptions, nodecmd, courseResource);
-		cpDispC.setContentEncoding(getContentEncoding());
-		cpDispC.setJSEncoding(getJSEncoding());
+		cpDispC.setContentEncoding(deliveryOptions.getContentEncoding());
+		cpDispC.setJSEncoding(deliveryOptions.getJavascriptEncoding());
 		cpDispC.addControllerListener(this);
 
 		main.setContent(cpDispC.getInitialComponent());
@@ -226,29 +232,15 @@ public class CPRunController extends BasicController implements ControllerEventL
 	private boolean isExternalMenuConfigured() {
 		return (config.getBooleanEntry(NodeEditController.CONFIG_COMPONENT_MENU).booleanValue());
 	}
-	
-	//fxdiff VCRP-13: cp navigation
+
+	/**
+	 * @return true: show next-previous buttons; false: hide next-previous buttons
+	 */
 	private boolean isNavButtonConfigured() {
 		Boolean navButton = config.getBooleanEntry(CPEditController.CONFIG_SHOWNAVBUTTONS);
 		return navButton == null ? true : navButton.booleanValue();
 	}
 	
-	private String getContentEncoding() {
-		String encoding = (String)config.get(NodeEditController.CONFIG_CONTENT_ENCODING);
-		if(!encoding.equals(NodeEditController.CONFIG_CONTENT_ENCODING_AUTO)) {
-			return encoding;
-		}
-		return null;
-	}
-	
-	private String getJSEncoding() {
-		String encoding = (String)config.get(NodeEditController.CONFIG_JS_ENCODING);
-		if(!encoding.equals(NodeEditController.CONFIG_JS_ENCODING_AUTO)) {
-			return encoding;
-		}
-		return null;
-	}
-
 	/**
 	 * @see org.olat.core.gui.control.DefaultController#doDispose(boolean)
 	 */
