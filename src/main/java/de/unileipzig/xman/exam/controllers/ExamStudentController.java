@@ -45,8 +45,8 @@ public class ExamStudentController extends BasicController {
 	private TableController subscriptionTable;
 	private AppointmentStudentTableModel subscriptionTableModel;
 	
-	private ExamDetailsController examDetailsControler;
-	private CloseableModalController examDetailsControlerModal;
+	private ExamStudentRegistrationDetailsController examStudentRegistrationDetailsControler;
+	private CloseableModalController examStudentRegistrationDetailsControlerModal;
 
 	public ExamStudentController(UserRequest ureq, WindowControl wControl, Exam exam) {
 		super(ureq, wControl);
@@ -126,16 +126,16 @@ public class ExamStudentController extends BasicController {
 			TableEvent tableEvent = (TableEvent) event;
 			
 			if(tableEvent.getActionId().equals(AppointmentStudentTableModel.ACTION_SUBSCRIBE)) {
-				removeAsListenerAndDispose(examDetailsControler);
+				removeAsListenerAndDispose(examStudentRegistrationDetailsControler);
 				
 				//Ask for exam type and accountFor
-				examDetailsControler = new ExamDetailsController(ureq, this.getWindowControl());
-				examDetailsControler.setAppointment(subscriptionTableModel.getObject(tableEvent.getRowId()));
+				examStudentRegistrationDetailsControler = new ExamStudentRegistrationDetailsController(ureq, this.getWindowControl());
+				examStudentRegistrationDetailsControler.setAppointment(subscriptionTableModel.getObject(tableEvent.getRowId()));
 				
-				listenTo(examDetailsControler);
+				listenTo(examStudentRegistrationDetailsControler);
 
-				examDetailsControlerModal = new CloseableModalController(getWindowControl(), translate("close"), examDetailsControler.getInitialComponent());
-				examDetailsControlerModal.activate();
+				examStudentRegistrationDetailsControlerModal = new CloseableModalController(getWindowControl(), translate("close"), examStudentRegistrationDetailsControler.getInitialComponent());
+				examStudentRegistrationDetailsControlerModal.activate();
 			} else if(tableEvent.getActionId().equals(AppointmentStudentTableModel.ACTION_UNSUBSCRIBE)) {
 				Protocol protocol = ProtocolManager.getInstance().findProtocolByIdentityAndAppointment(ureq.getIdentity(), subscriptionTableModel.getObject(tableEvent.getRowId()));
 
@@ -182,17 +182,17 @@ public class ExamStudentController extends BasicController {
 				subscriptionTableModel.update();
 				subscriptionTable.modelChanged();
 			}
-		} else if(source == examDetailsControler) {
-			Appointment appointment = AppointmentManager.getInstance().findAppointmentByID(examDetailsControler.getAppointment().getKey());
+		} else if(source == examStudentRegistrationDetailsControler) {
+			Appointment appointment = AppointmentManager.getInstance().findAppointmentByID(examStudentRegistrationDetailsControler.getAppointment().getKey());
 			
 			// subscribe to exam
 			if (event == Event.DONE_EVENT) {
-				examDetailsControlerModal.deactivate();
-				examDetailsControlerModal.dispose();
-				examDetailsControlerModal = null;
+				examStudentRegistrationDetailsControlerModal.deactivate();
+				examStudentRegistrationDetailsControlerModal.dispose();
+				examStudentRegistrationDetailsControlerModal = null;
 				
-				String examType = examDetailsControler.getChooseExamType() == Exam.ORIGINAL_EXAM ? translate("ExamDetailsController.first") : translate("ExamDetailsController.second");
-				String accountFor = examDetailsControler.getAccountFor();
+				String examType = examStudentRegistrationDetailsControler.getChooseExamType() == Exam.ORIGINAL_EXAM ? translate("ExamStudentRegistrationDetailsForm.first") : translate("ExamStudentRegistrationDetailsForm.second");
+				String accountFor = examStudentRegistrationDetailsControler.getAccountFor();
 				String comment;
                 if(accountFor.isEmpty())
                 	comment = examType;
@@ -225,10 +225,10 @@ public class ExamStudentController extends BasicController {
 	@Override
 	protected void doDispose() {
 		removeAsListenerAndDispose(subscriptionTable);
-		removeAsListenerAndDispose(examDetailsControler);
-		if(examDetailsControlerModal != null) {
-			examDetailsControlerModal.dispose();
-			examDetailsControlerModal = null;
+		removeAsListenerAndDispose(examStudentRegistrationDetailsControler);
+		if(examStudentRegistrationDetailsControlerModal != null) {
+			examStudentRegistrationDetailsControlerModal.dispose();
+			examStudentRegistrationDetailsControlerModal = null;
 		}
 	}
 

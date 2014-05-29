@@ -15,7 +15,7 @@ import org.olat.core.util.Util;
 
 import de.unileipzig.xman.appointment.Appointment;
 import de.unileipzig.xman.exam.Exam;
-import de.unileipzig.xman.exam.forms.ExamDetailsForm;
+import de.unileipzig.xman.exam.forms.ExamStudentRegistrationDetailsForm;
 
 /**
  * The Controller for the details, asked when writing into an Exam
@@ -23,11 +23,11 @@ import de.unileipzig.xman.exam.forms.ExamDetailsForm;
  * @author robert seidler
  *
  */
-public class ExamDetailsController extends MainLayoutBasicController implements MainLayoutController {
+public class ExamStudentRegistrationDetailsController extends MainLayoutBasicController implements MainLayoutController {
 
 
 	private VelocityContainer vcAttr;
-	private ExamDetailsForm examDetailsForm;
+	private ExamStudentRegistrationDetailsForm examDetailsForm;
 	private Translator translator;
 	private String accountFor;
 	private int examType;
@@ -39,7 +39,7 @@ public class ExamDetailsController extends MainLayoutBasicController implements 
 	 * @param ureq
 	 * @param wControl
 	 */
-	public ExamDetailsController(UserRequest ureq, WindowControl wControl) {
+	public ExamStudentRegistrationDetailsController(UserRequest ureq, WindowControl wControl) {
 		super(ureq, wControl);
 		
 		translator = Util.createPackageTranslator(Exam.class, ureq.getLocale());
@@ -47,9 +47,9 @@ public class ExamDetailsController extends MainLayoutBasicController implements 
 		setTranslator(translator);
 
 		vcAttr = new VelocityContainer("vcAttr", Util.getPackageVelocityRoot(Exam.class)
-				+ "/chooseAttr.html", translator, this);
+				+ "/examStudentRegistrationDetailsView.html", translator, this);
 
-		examDetailsForm = new ExamDetailsForm(ureq, wControl);
+		examDetailsForm = new ExamStudentRegistrationDetailsForm(ureq, wControl);
 		examDetailsForm.addControllerListener(this);
 
 		vcAttr.put("chooseExamAttrForm", examDetailsForm.getInitialComponent());

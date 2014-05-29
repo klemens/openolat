@@ -18,16 +18,16 @@ import de.unileipzig.xman.exam.Exam;
  * @author robert seidler
  *
  */
-public class ExamDetailsForm extends FormBasicController {
+public class ExamStudentRegistrationDetailsForm extends FormBasicController {
 
 	private SingleSelection examTypeSwitchElem;
 	private TextElement chooseAccountFor;
 	
-	public static String FIRST_KEY = "ExamDetailsController.first";
-	public static String SECOND_KEY = "ExamDetailsController.second";
+	public static String FIRST_KEY = "ExamStudentRegistrationDetailsForm.first";
+	public static String SECOND_KEY = "ExamStudentRegistrationDetailsForm.second";
 	
 	
-	public ExamDetailsForm(UserRequest ureq, WindowControl wControl) {
+	public ExamStudentRegistrationDetailsForm(UserRequest ureq, WindowControl wControl) {
 		super(ureq, wControl);
 		
 		setTranslator(Util.createPackageTranslator(Exam.class, ureq.getLocale()));
@@ -40,14 +40,14 @@ public class ExamDetailsForm extends FormBasicController {
 			UserRequest ureq) {
 		
 		String[] values = new String[] { translate(FIRST_KEY), translate(SECOND_KEY) };
-		String[] keys = new String[] { ExamDetailsForm.FIRST_KEY, ExamDetailsForm.SECOND_KEY };
+		String[] keys = new String[] { ExamStudentRegistrationDetailsForm.FIRST_KEY, ExamStudentRegistrationDetailsForm.SECOND_KEY };
 
-		examTypeSwitchElem = uifactory.addRadiosVertical("examDetails", "ExamDetailsForm.radioButton", formLayout, keys, values);
-		examTypeSwitchElem.select(ExamDetailsForm.FIRST_KEY, true);
+		examTypeSwitchElem = uifactory.addRadiosVertical("examDetails", "ExamStudentRegistrationDetailsForm.radioButton", formLayout, keys, values);
+		examTypeSwitchElem.select(ExamStudentRegistrationDetailsForm.FIRST_KEY, true);
 						
-		chooseAccountFor = uifactory.addTextElement("accountFor", "ExamDetailsForm.accountFor", 50, "", formLayout);
+		chooseAccountFor = uifactory.addTextElement("accountFor", "ExamStudentRegistrationDetailsForm.accountFor", 50, "", formLayout);
 		
-		uifactory.addFormSubmitButton("save", "ExamDetailsForm.submit", formLayout);
+		uifactory.addFormSubmitButton("save", "ExamStudentRegistrationDetailsForm.submit", formLayout);
 	}
 
 	@Override
@@ -66,7 +66,7 @@ public class ExamDetailsForm extends FormBasicController {
 	}
 	
 	public int getExamTypeSwitchElem(){
-		if(examTypeSwitchElem.getSelectedKey() == ExamDetailsForm.FIRST_KEY) return Exam.ORIGINAL_EXAM;
+		if(examTypeSwitchElem.getSelectedKey() == ExamStudentRegistrationDetailsForm.FIRST_KEY) return Exam.ORIGINAL_EXAM;
 		else return Exam.REAPEAT_EXAM;
 	}
 	
