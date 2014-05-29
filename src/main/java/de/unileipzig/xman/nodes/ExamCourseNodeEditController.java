@@ -157,7 +157,7 @@ public class ExamCourseNodeEditController extends ActivateableTabbableDefaultCon
 				getWindowControl().setError(translator.translate("examEditController.error.repoentrymissing"));
 			} else {
 				
-				examLaunchCtr = new ExamHandler().createLaunchController(re.getOlatResource(), ureq, getWindowControl());
+				examLaunchCtr = new ExamHandler().createLaunchController(re, ureq, getWindowControl());
 				
 				cmcExamCtr = new CloseableModalController(getWindowControl(), translator.translate("examEditController.command.close"), examLaunchCtr.getInitialComponent());
 				cmcExamCtr.addControllerListener(this);
