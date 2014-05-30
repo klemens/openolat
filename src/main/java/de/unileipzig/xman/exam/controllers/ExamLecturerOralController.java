@@ -59,10 +59,7 @@ import de.unileipzig.xman.protocol.ProtocolManager;
 
 public class ExamLecturerOralController extends BasicController {
 	
-	private static final String VELOCITY_ROOT = Util.getPackageVelocityRoot(Exam.class);
-	
 	private Exam exam;
-	private VelocityContainer baseVC;
 	private VelocityContainer mainVC;
 	
 	private TableController appointmentTable;
@@ -84,6 +81,8 @@ public class ExamLecturerOralController extends BasicController {
 	private MailForm editMailForm;
 	private List<Appointment> editMailFormAppointmentHolder;
 
+	private ExamDetailsController examDetailsController;
+
 	/**
 	 * The exam given MUST be oral, otherwise InvalidParameterException is thrown!
 	 * 
@@ -103,24 +102,17 @@ public class ExamLecturerOralController extends BasicController {
 		
 		listenTo(stack); // listen for pop events
 		
-		baseVC = new VelocityContainer("examBase", VELOCITY_ROOT + "/examBase.html", getTranslator(), this);
+		mainVC = new VelocityContainer("examStudentView", Exam.class, "examLecturerOralView", getTranslator(), this);
+
+		examDetailsController = new ExamDetailsController(ureq, wControl, getTranslator(), exam);
+		mainVC.put("examDetails", examDetailsController.getInitialComponent());
+
 		init(ureq, wControl);
-		putInitialPanel(baseVC);
+
+		putInitialPanel(mainVC);
 	}
 	
 	private void init(UserRequest ureq, WindowControl wControl) {
-		baseVC.contextPut("examType", translate("oral"));
-		baseVC.contextPut("regStartDate", exam.getRegStartDate() == null ? "n/a" : Formatter.getInstance(ureq.getLocale()).formatDateAndTime(exam.getRegStartDate()));
-		baseVC.contextPut("regEndDate", exam.getRegEndDate() == null ? "n/a" : Formatter.getInstance(ureq.getLocale()).formatDateAndTime(exam.getRegEndDate()));
-		baseVC.contextPut("signOffDate", exam.getSignOffDate() == null ? "n/a" : Formatter.getInstance(ureq.getLocale()).formatDateAndTime(exam.getSignOffDate()));
-		baseVC.contextPut("earmarkedEnabled", translate(exam.getEarmarkedEnabled() ? "yes" : "no"));
-		baseVC.contextPut("multiSubscriptionEnabled", translate(exam.getIsMultiSubscription() ? "yes" : "no"));
-		String comments = exam.getComments();
-		baseVC.contextPut("comments", comments.isEmpty() ? translate("examBase_html.comments.isEmpty") : comments);
-		
-		mainVC = new VelocityContainer("examStudentView", VELOCITY_ROOT + "/examLecturerOralView.html", getTranslator(), this);
-		baseVC.put("anyForm", mainVC);
-
 		if(AppointmentManager.getInstance().findAllAppointmentsByExamId(exam.getKey()).size() > 0) {
 			mainVC.contextPut("showAppointmentTable", true);
 			
@@ -167,6 +159,7 @@ public class ExamLecturerOralController extends BasicController {
 			exam = ExamDBManager.getInstance().findExamByID(exam.getKey());
 			// complete rebuild
 			init(ureq, getWindowControl());
+			examDetailsController.updateExam(exam);
 		}
 		
 		if(source == appointmentTable) {
@@ -607,6 +600,7 @@ public class ExamLecturerOralController extends BasicController {
 		removeAsListenerAndDispose(editMarkForm);
 		removeAsListenerAndDispose(editCommentForm);
 		removeAsListenerAndDispose(editMailForm);
+		examDetailsController.dispose();
 	}
 	
 	protected String getName(Identity id) {

@@ -59,10 +59,7 @@ import de.unileipzig.xman.protocol.tables.ProtocolLecturerWrittenModel;
 
 public class ExamLecturerWrittenController extends BasicController {
 	
-	private static final String VELOCITY_ROOT = Util.getPackageVelocityRoot(Exam.class);
-	
 	private Exam exam;
-	private VelocityContainer baseVC;
 	private VelocityContainer mainVC;
 	
 	private TableController protocolTable;
@@ -85,6 +82,8 @@ public class ExamLecturerWrittenController extends BasicController {
 	private MailForm editMailForm;
 	private List<Protocol> editMailFormProtocolHolder;
 
+	private ExamDetailsController examDetailsController;
+
 	/**
 	 * The exam given MUST be written, otherwise InvalidParameterException is thrown!
 	 * 
@@ -104,24 +103,17 @@ public class ExamLecturerWrittenController extends BasicController {
 		
 		listenTo(stack); // listen for pop events
 		
-		baseVC = new VelocityContainer("examBase", VELOCITY_ROOT + "/examBase.html", getTranslator(), this);
+		mainVC = new VelocityContainer("examStudentView", Exam.class, "examLecturerWrittenView", getTranslator(), this);
+
+		examDetailsController = new ExamDetailsController(ureq, wControl, getTranslator(), exam);
+		mainVC.put("examDetails", examDetailsController.getInitialComponent());
+
 		init(ureq, wControl);
-		putInitialPanel(baseVC);
+
+		putInitialPanel(mainVC);
 	}
 	
 	private void init(UserRequest ureq, WindowControl wControl) {
-		baseVC.contextPut("examType", translate("written"));
-		baseVC.contextPut("regStartDate", exam.getRegStartDate() == null ? "n/a" : Formatter.getInstance(ureq.getLocale()).formatDateAndTime(exam.getRegStartDate()));
-		baseVC.contextPut("regEndDate", exam.getRegEndDate() == null ? "n/a" : Formatter.getInstance(ureq.getLocale()).formatDateAndTime(exam.getRegEndDate()));
-		baseVC.contextPut("signOffDate", exam.getSignOffDate() == null ? "n/a" : Formatter.getInstance(ureq.getLocale()).formatDateAndTime(exam.getSignOffDate()));
-		baseVC.contextPut("earmarkedEnabled", translate(exam.getEarmarkedEnabled() ? "yes" : "no"));
-		baseVC.contextPut("multiSubscriptionEnabled", translate(exam.getIsMultiSubscription() ? "yes" : "no"));
-		String comments = exam.getComments();
-		baseVC.contextPut("comments", comments.isEmpty() ? translate("examBase_html.comments.isEmpty") : comments);
-		
-		mainVC = new VelocityContainer("examStudentView", VELOCITY_ROOT + "/examLecturerWrittenView.html", getTranslator(), this);
-		baseVC.put("anyForm", mainVC);
-		
 		List<Appointment> apps = AppointmentManager.getInstance().findAllAppointmentsByExamId(exam.getKey());
 		if(apps.size() == 1) {
 			mainVC.contextPut("showProtocolTable", true);
@@ -174,6 +166,7 @@ public class ExamLecturerWrittenController extends BasicController {
 			exam = ExamDBManager.getInstance().findExamByID(exam.getKey());
 			// complete rebuild
 			init(ureq, getWindowControl());
+			examDetailsController.updateExam(exam);
 		}
 		
 		if(source == protocolTable) {
@@ -583,6 +576,7 @@ public class ExamLecturerWrittenController extends BasicController {
 		removeAsListenerAndDispose(editCommentForm);
 		removeAsListenerAndDispose(editMailForm);
 		removeAsListenerAndDispose(editMarkForm);
+		examDetailsController.dispose();
 	}
 	
 	protected String getName(Identity id) {

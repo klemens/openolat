@@ -35,11 +35,8 @@ import de.unileipzig.xman.protocol.ProtocolManager;
 
 public class ExamStudentController extends BasicController {
 	
-	private static final String VELOCITY_ROOT = Util.getPackageVelocityRoot(Exam.class);
-	
 	private Exam exam;
 	private ElectronicStudentFile esf;
-	private VelocityContainer baseVC;
 	private VelocityContainer mainVC;
 	
 	private TableController subscriptionTable;
@@ -47,6 +44,7 @@ public class ExamStudentController extends BasicController {
 	
 	private ExamStudentRegistrationDetailsController examStudentRegistrationDetailsControler;
 	private CloseableModalController examStudentRegistrationDetailsControlerModal;
+	private ExamDetailsController examDetailsController;
 
 	public ExamStudentController(UserRequest ureq, WindowControl wControl, Exam exam) {
 		super(ureq, wControl);
@@ -54,25 +52,18 @@ public class ExamStudentController extends BasicController {
 		setTranslator(Util.createPackageTranslator(Exam.class, ureq.getLocale()));
 		this.exam = exam;
 		
+		mainVC = new VelocityContainer("examStudentView", Exam.class, "examStudentView", getTranslator(), this);
+
+		examDetailsController = new ExamDetailsController(ureq, wControl, getTranslator(), exam);
+		mainVC.put("examDetails", examDetailsController.getInitialComponent());
+
 		init(ureq, wControl);
+
+		putInitialPanel(mainVC);
 	}
 	
 	private void init(UserRequest ureq, WindowControl wControl) {
 		esf = ElectronicStudentFileManager.getInstance().retrieveESFByIdentity(ureq.getIdentity());
-		
-		baseVC = new VelocityContainer("examLaunch", VELOCITY_ROOT + "/examBase.html", getTranslator(), this);
-		
-		baseVC.contextPut("examType", translate(exam.getIsOral() ? "oral" : "written"));
-		baseVC.contextPut("regStartDate", exam.getRegStartDate() == null ? "n/a" : Formatter.getInstance(ureq.getLocale()).formatDateAndTime(exam.getRegStartDate()));
-		baseVC.contextPut("regEndDate", exam.getRegEndDate() == null ? "n/a" : Formatter.getInstance(ureq.getLocale()).formatDateAndTime(exam.getRegEndDate()));
-		baseVC.contextPut("signOffDate", exam.getSignOffDate() == null ? "n/a" : Formatter.getInstance(ureq.getLocale()).formatDateAndTime(exam.getSignOffDate()));
-		baseVC.contextPut("earmarkedEnabled", translate(exam.getEarmarkedEnabled() ? "yes" : "no"));
-		baseVC.contextPut("multiSubscriptionEnabled", translate(exam.getIsMultiSubscription() ? "yes" : "no"));
-		String comments = exam.getComments();
-		baseVC.contextPut("comments", comments.isEmpty() ? translate("examBase_html.comments.isEmpty") : comments);
-		
-		mainVC = new VelocityContainer("examStudentView", VELOCITY_ROOT + "/examStudentView.html", getTranslator(), this);
-		baseVC.put("anyForm", mainVC);
 		
 		if(esf != null) {
 			mainVC.contextPut("showSubscriptionTable", true);
@@ -80,8 +71,6 @@ public class ExamStudentController extends BasicController {
 		} else {
 			mainVC.contextPut("showSubscriptionTable", false);
 		}
-		
-		putInitialPanel(baseVC);
 	}
 	
 	private void buildAppointmentTable(UserRequest ureq, WindowControl wControl) {
@@ -230,6 +219,7 @@ public class ExamStudentController extends BasicController {
 			examStudentRegistrationDetailsControlerModal.dispose();
 			examStudentRegistrationDetailsControlerModal = null;
 		}
+		examDetailsController.dispose();
 	}
 
 }

@@ -1,0 +1,69 @@
+<!-- details about the exam -->
+<fieldset id="examDetailsView1">
+	<style type="text/css" scoped>
+		/* use id for backward compatible scoping */
+		#examDetailsView1 table {
+			display: inline-block;
+			-moz-box-sizing: border-box;
+			box-sizing: border-box;
+			width: 49.5%; /* because for some browsers 50% + 50% != 100% */
+		}
+		#examDetailsView1 th {
+			text-align: left;
+			font-weight: bold;
+		}
+		#examDetailsView1 td {
+			padding-left: 1em;
+		}
+		#examDetailsView1 .status {
+			display: inline-block;
+			width: 0.8em;
+			height: 0.8em;
+			border-radius: 50%;
+			margin-right: 3px;
+			background-color: transparent;
+			zoom: 1; /* make inline block work for IE 6 and 7 (doh) */
+			*display: inline;
+		}
+		#examDetailsView1 .notYetStarted {
+			background-color: #cacaca;
+			box-shadow: #c9c9c9 0 0 2px;
+		}
+		#examDetailsView1 .started {
+			background-color: #5b0;
+			box-shadow: #6d0 0 0 2px;
+		}
+		#examDetailsView1 .ended {
+			background-color: #d40;
+			box-shadow: #F50 0 0 2px;
+		}
+	</style>
+	<legend>$examName ($examType)</legend>
+	<table>
+		<tr>
+			<th><div class="status $registrationStatus"></div> $r.translate("examDetailsView_html.registration"):</th>
+			<td>$registationPhase $registrationMessage</td>
+		</tr>
+		<tr>
+			<th><div class="status $unregistrationStatus"></div> $r.translate("examDetailsView_html.unregistration"):</th>
+			<td>$unregistrationPhase $unregistrationMessage</td>
+		</tr>
+	</table><table>
+		<tr>
+			<th>$r.translate("examDetailsView_html.earmarkedEnabled"):</th>
+			<td><input type="checkbox" disabled #if($earmarkedEnabled) checked #end /></td>
+		</tr>
+		<tr>
+			<th>$r.translate("examDetailsView_html.multiSubscriptionEnabled"):</th>
+			<td><input type="checkbox" disabled #if($multiSubscriptionEnabled) checked #end /></td>
+		</tr>
+	</table>
+</fieldset>
+
+#if ($showExamDescription)
+<!-- exam description -->
+<fieldset>
+	<legend>$r.translate("examDetailsView_html.description")</legend>
+	$examDescription
+</fieldset>
+#end
