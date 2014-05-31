@@ -3,6 +3,7 @@ package de.unileipzig.xman.exam.controllers;
 import java.util.Calendar;
 import java.util.Date;
 
+import org.olat.NewControllerFactory;
 import org.olat.core.commons.fullWebApp.LayoutMain3ColsController;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.Component;
@@ -17,6 +18,7 @@ import org.olat.core.gui.control.generic.tool.ToolController;
 import org.olat.core.gui.control.generic.tool.ToolFactory;
 import org.olat.core.id.OLATResourceable;
 import org.olat.core.util.Util;
+import org.olat.repository.RepositoryManager;
 import org.olat.resource.OLATResourceManager;
 
 import de.unileipzig.xman.exam.AlreadyLockedException;
@@ -32,6 +34,7 @@ public class ExamMainController extends MainLayoutBasicController {
 	}
 	
 	static private String TOOL_EDIT_EXAM = "edit";
+	static private String TOOL_OPEN_COURSECONFIG = "courseconfig";
 	
 	private Exam exam;
 	private View view;
@@ -139,6 +142,9 @@ public class ExamMainController extends MainLayoutBasicController {
 		
 		toolController.addHeader(translate("ExamMainController.tool.header"));
 		toolController.addLink(TOOL_EDIT_EXAM, translate("ExamMainController.tool.editExam"));
+
+		toolController.addHeader(translate("ExamMainController.tool.header.general"));
+		toolController.addLink(TOOL_OPEN_COURSECONFIG, translate("ExamMainController.tool.courseconfig"));
 	}
 	
 	private void pushEditor(UserRequest ureq) throws AlreadyLockedException {
@@ -167,6 +173,12 @@ public class ExamMainController extends MainLayoutBasicController {
 				} catch(AlreadyLockedException e) {
 					getWindowControl().setInfo(translate("ExamEditorController.alreadyLocked", new String[] { e.getName() }));
 				}
+			} else if(event.getCommand().equals(TOOL_OPEN_COURSECONFIG)) {
+				OLATResourceable ores = OLATResourceManager.getInstance().findResourceable(exam.getResourceableId(), Exam.ORES_TYPE_NAME);
+				Long reKey = RepositoryManager.getInstance().lookupRepositoryEntryKey(ores, true);
+				
+				String businessPath = "[RepositorySite:0][RepositoryEntry:" + reKey + "]";
+				NewControllerFactory.getInstance().launch(businessPath, ureq, getWindowControl());
 			}
 		} else if(source == cstack) {
 			if(event instanceof PopEvent) {
