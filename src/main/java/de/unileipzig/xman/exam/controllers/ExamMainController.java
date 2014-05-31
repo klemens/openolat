@@ -1,5 +1,8 @@
 package de.unileipzig.xman.exam.controllers;
 
+import java.util.Calendar;
+import java.util.Date;
+
 import org.olat.core.commons.fullWebApp.LayoutMain3ColsController;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.Component;
@@ -86,9 +89,23 @@ public class ExamMainController extends MainLayoutBasicController {
 		//Copy the repo name to the exam if necessary (not set after creation)
 		String newExamName = ExamDBManager.getInstance().getExamName(exam);
 		if (!newExamName.equals(exam.getName())) {
-			exam = ExamDBManager.getInstance().findExamByID(exam.getKey());
 			exam.setName(newExamName);
-			ExamDBManager.getInstance().updateExam(exam);
+		}
+		// initialize exam registration dates
+		if(exam.getRegStartDate() == null) {
+			Calendar date = Calendar.getInstance();
+			date.add(Calendar.DAY_OF_MONTH, 1);
+			date.set(Calendar.HOUR_OF_DAY, 0);
+			date.set(Calendar.MINUTE, 0);
+			date.set(Calendar.SECOND, 0);
+			exam.setRegStartDate(date.getTime());
+
+			date.add(Calendar.MONTH, 1);
+			date.set(Calendar.HOUR_OF_DAY, 23);
+			date.set(Calendar.MINUTE, 59);
+			date.set(Calendar.SECOND, 59);
+			exam.setRegEndDate(date.getTime());
+			exam.setSignOffDate(date.getTime());
 		}
 		
 		String name = exam.getName() + " (" + (exam.getIsOral() ? translate("oral") : translate("written")) + ")";

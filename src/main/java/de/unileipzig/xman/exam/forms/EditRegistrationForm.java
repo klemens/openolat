@@ -63,36 +63,18 @@ public class EditRegistrationForm extends FormBasicController {
 	@Override
 	protected void initForm(FormItemContainer formLayout, Controller listener,
 			UserRequest ureq) {
-		Calendar future = Calendar.getInstance(ureq.getLocale());
-		future.setTime(new Date()); future.add(Calendar.MONTH, 1);
-		
-		Date now = new Date();
-		Date inAMonth = future.getTime();
-		
-		regStart = uifactory.addDateChooser("regStart", "EditRegistrationForm.regStartDate", now, formLayout);
+		regStart = uifactory.addDateChooser("regStart", "EditRegistrationForm.regStartDate", regStartDate, formLayout);
 		regStart.setMandatory(true);
-		regStart.setDisplaySize(20);
-		regStart.setMaxLength(16);
 		regStart.setDateChooserTimeEnabled(true);
-		if (regStartDate != null)
-			regStart.setDate(regStartDate);
 
-		regEnd = uifactory.addDateChooser("regEnd", "EditRegistrationForm.regEndDate", inAMonth, formLayout);
+		regEnd = uifactory.addDateChooser("regEnd", "EditRegistrationForm.regEndDate", regEndDate, formLayout);
 		regEnd.setMandatory(true);
-		regEnd.setDisplaySize(20);
-		regEnd.setMaxLength(16);
 		regEnd.setDateChooserTimeEnabled(true);
-		if (regEndDate != null)
-			regEnd.setDate(regEndDate);
 
-		signOff = uifactory.addDateChooser("signOff", "EditRegistrationForm.signOffDate", inAMonth, formLayout);
+		signOff = uifactory.addDateChooser("signOff", "EditRegistrationForm.signOffDate", signOffDate, formLayout);
 		signOff.setMandatory(true);
 		signOff.setExampleKey("EditRegistrationForm.signOffDate.example", null);
-		signOff.setDisplaySize(20);
-		signOff.setMaxLength(16);
 		signOff.setDateChooserTimeEnabled(true);
-		if (signOffDate != null)
-			signOff.setDate(signOffDate);
 
 		FormLayoutContainer buttonGroupLayout = FormLayoutContainer.createButtonLayout("buttonGroupLayout", getTranslator());
 		formLayout.add(buttonGroupLayout);
