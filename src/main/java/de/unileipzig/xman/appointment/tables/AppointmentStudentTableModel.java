@@ -15,6 +15,7 @@ import de.unileipzig.xman.appointment.Appointment;
 import de.unileipzig.xman.appointment.AppointmentManager;
 import de.unileipzig.xman.esf.ElectronicStudentFile;
 import de.unileipzig.xman.exam.Exam;
+import de.unileipzig.xman.exam.ExamDBManager;
 import de.unileipzig.xman.protocol.Protocol;
 import de.unileipzig.xman.protocol.ProtocolManager;
 
@@ -31,6 +32,8 @@ public class AppointmentStudentTableModel extends DefaultTableDataModel<Appointm
 	List<Protocol> userProtocols;
 	
 	private boolean subscribedToExam;
+	private boolean showSubscription;
+	private boolean showUnsubscription;
 
 	public AppointmentStudentTableModel(Exam exam, ElectronicStudentFile esf, Locale locale) {
 		super(new ArrayList<Appointment>());
@@ -39,7 +42,10 @@ public class AppointmentStudentTableModel extends DefaultTableDataModel<Appointm
 		this.translator = Util.createPackageTranslator(Exam.class, getLocale());
 		this.exam = exam;
 		this.esf = esf;
-		
+
+		showSubscription = ExamDBManager.getInstance().canSubscribe(exam);
+		showUnsubscription = ExamDBManager.getInstance().canUnsubscribe(exam);
+
 		update();
 	}
 	
@@ -90,17 +96,24 @@ public class AppointmentStudentTableModel extends DefaultTableDataModel<Appointm
 	}
 
 	public void createColumns(TableController tableController) {
+		columnCount = 4;
+
 		tableController.addColumnDescriptor(new DefaultColumnDescriptor("AppointmentStudentTableModel.header.date", 0, null, getLocale())); // locale needed for date formatting
 		tableController.addColumnDescriptor(new DefaultColumnDescriptor("AppointmentStudentTableModel.header.location", 1, null, null));
 		tableController.addColumnDescriptor(new DefaultColumnDescriptor("AppointmentStudentTableModel.header.duration", 2, null, null));
-		tableController.addColumnDescriptor(new DefaultColumnDescriptor("AppointmentStudentTableModel.header.subscribe", 3, ACTION_SUBSCRIBE, null));
-		tableController.addColumnDescriptor(new DefaultColumnDescriptor("AppointmentStudentTableModel.header.unsubscribe", 4, ACTION_UNSUBSCRIBE, null));
-		
+
+		if(showSubscription) {
+			tableController.addColumnDescriptor(new DefaultColumnDescriptor("AppointmentStudentTableModel.header.subscribe", 3, ACTION_SUBSCRIBE, null));
+			++columnCount;
+		}
+		if(showUnsubscription) {
+			tableController.addColumnDescriptor(new DefaultColumnDescriptor("AppointmentStudentTableModel.header.unsubscribe", 4, ACTION_UNSUBSCRIBE, null));
+			++columnCount;
+		}
+
 		DefaultColumnDescriptor status = new DefaultColumnDescriptor("AppointmentStudentTableModel.header.status", 5, null, null);
 		status.setEscapeHtml(EscapeMode.none);
 		tableController.addColumnDescriptor(status);
-		
-		columnCount = 6;
 	}
 	
 	private boolean isSubscribedToAppointment(Appointment appointment) {

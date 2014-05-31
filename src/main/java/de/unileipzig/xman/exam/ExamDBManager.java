@@ -146,4 +146,22 @@ public class ExamDBManager {
 	public void close(Exam exam){
 		findRepositoryEntryOfExam(exam).setStatusCode(RepositoryEntryStatus.REPOSITORY_STATUS_CLOSED);
 	}
+
+	/**
+	 * Checks if the subscription period is active
+	 */
+	public boolean canSubscribe(Exam exam) {
+		Date now = new Date();
+		exam = findExamByID(exam.getKey());
+		return now.after(exam.getRegStartDate()) && now.before(exam.getRegEndDate());
+	}
+
+	/**
+	 * Checks if the unsubscription period is active
+	 */
+	public boolean canUnsubscribe(Exam exam) {
+		Date now = new Date();
+		exam = findExamByID(exam.getKey());
+		return now.after(exam.getRegStartDate()) && now.before(exam.getSignOffDate());
+	}
 }

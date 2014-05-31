@@ -126,9 +126,12 @@ public class ExamStudentController extends BasicController {
 				examStudentRegistrationDetailsControlerModal = new CloseableModalController(getWindowControl(), translate("close"), examStudentRegistrationDetailsControler.getInitialComponent());
 				examStudentRegistrationDetailsControlerModal.activate();
 			} else if(tableEvent.getActionId().equals(AppointmentStudentTableModel.ACTION_UNSUBSCRIBE)) {
-				Protocol protocol = ProtocolManager.getInstance().findProtocolByIdentityAndAppointment(ureq.getIdentity(), subscriptionTableModel.getObject(tableEvent.getRowId()));
+				if(!ExamDBManager.getInstance().canUnsubscribe(exam)) {
+					showError("ExamStudentController.info.unsubscriptionPeriodOver");
+					return;
+				}
 
-				// TODO CalendarManager.getInstance().deleteKalendarEventForExam(exam, ureq.getIdentity());
+				Protocol protocol = ProtocolManager.getInstance().findProtocolByIdentityAndAppointment(ureq.getIdentity(), subscriptionTableModel.getObject(tableEvent.getRowId()));
 				
 				// Email Remove
 				BusinessControlFactory bcf = BusinessControlFactory.getInstance();
@@ -172,14 +175,17 @@ public class ExamStudentController extends BasicController {
 				subscriptionTable.modelChanged();
 			}
 		} else if(source == examStudentRegistrationDetailsControler) {
-			Appointment appointment = AppointmentManager.getInstance().findAppointmentByID(examStudentRegistrationDetailsControler.getAppointment().getKey());
-			
 			// subscribe to exam
 			if (event == Event.DONE_EVENT) {
 				examStudentRegistrationDetailsControlerModal.deactivate();
 				examStudentRegistrationDetailsControlerModal.dispose();
 				examStudentRegistrationDetailsControlerModal = null;
-				
+
+				if(!ExamDBManager.getInstance().canSubscribe(exam)) {
+					showError("ExamStudentController.info.subscriptionPeriodOver");
+					return;
+				}
+
 				String examType = examStudentRegistrationDetailsControler.getChooseExamType() == Exam.ORIGINAL_EXAM ? translate("ExamStudentRegistrationDetailsForm.first") : translate("ExamStudentRegistrationDetailsForm.second");
 				String accountFor = examStudentRegistrationDetailsControler.getAccountFor();
 				String comment;
@@ -188,7 +194,8 @@ public class ExamStudentController extends BasicController {
                 else
                 	comment = examType + ": " + accountFor;
                 
-                // reload esf
+                // reload appointment and esf
+                Appointment appointment = AppointmentManager.getInstance().findAppointmentByID(examStudentRegistrationDetailsControler.getAppointment().getKey());
                 esf = ElectronicStudentFileManager.getInstance().retrieveESFByIdentity(esf.getIdentity());
                 
 				// register student to the chosen appointment
