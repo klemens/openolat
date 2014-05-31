@@ -486,6 +486,11 @@ public class ExamLecturerWrittenController extends BasicController {
 							}),
 						proto.getIdentity()
 					);
+
+					// add a comment in esf
+					ElectronicStudentFile esf = ElectronicStudentFileManager.getInstance().retrieveESFByIdentity(proto.getIdentity());
+					String commentText = translate("ExamLecturerOralController.gotResult", new String[] { exam.getName(), proto.getGrade()});
+					CommentManager.getInstance().createCommentInEsf(esf, commentText, ureq.getIdentity());
 				}
 				
 				editMarkFormProtocolHolder = null;
