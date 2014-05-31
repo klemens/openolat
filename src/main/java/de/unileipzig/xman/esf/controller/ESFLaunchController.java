@@ -341,16 +341,14 @@ public class ESFLaunchController extends BasicController {
 				TableEvent te = (TableEvent) event;
 				String actionID = te.getActionId();
 
-				// somebody wants to open an esf
+				// somebody wants to open an exam
 				if (actionID.equals(ProtocolTableModel.EXAM_LAUNCH)) {
 
-					Exam exam = protoTableMdl.getObject(te.getRowId())
-							.getExam();
-					OLATResourceable ores = OLATResourceManager.getInstance()
-							.findResourceable(exam.getResourceableId(),
-									Exam.ORES_TYPE_NAME);
+					Exam exam = protoTableMdl.getObject(te.getRowId()).getExam();
+					// reload exam
+					exam = ExamDBManager.getInstance().findExamByID(exam.getKey());
+					OLATResourceable ores = OLATResourceManager.getInstance().findResourceable(exam.getResourceableId(), Exam.ORES_TYPE_NAME);
 
-					// add the esf in a dtab
 					DTabs dts = Windows.getWindows(ureq).getWindow(ureq).getDTabs();
 					DTab dt = dts.getDTab(ores);
 					if (dt == null) {
