@@ -22,16 +22,11 @@ package org.olat.course;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.olat.core.commons.services.webdav.manager.WebDAVMergeSource;
 import org.olat.core.commons.services.webdav.servlets.RequestUtil;
 import org.olat.core.id.Identity;
-import org.olat.core.util.vfs.MergeSource;
 import org.olat.core.util.vfs.NamedContainerImpl;
-import org.olat.core.util.vfs.VFSConstants;
 import org.olat.core.util.vfs.VFSContainer;
-import org.olat.core.util.vfs.VFSItem;
-import org.olat.core.util.vfs.VFSManager;
-import org.olat.core.util.vfs.VFSStatus;
-import org.olat.core.util.vfs.filters.VFSItemFilter;
 import org.olat.repository.RepositoryEntry;
 import org.olat.repository.RepositoryManager;
 
@@ -41,95 +36,16 @@ import org.olat.repository.RepositoryManager;
  * 
  * @author srosse, stephane.rosse@frentix.com, http://www.frentix.com
  */
-class CoursefolderWebDAVMergeSource extends MergeSource {
-	
-	private boolean init = false;
-	private final Identity identity;
-	private long loadTime;
-	
+class CoursefolderWebDAVMergeSource extends WebDAVMergeSource {
 	
 	public CoursefolderWebDAVMergeSource(Identity identity) {
-		super(null, null);
-		this.identity = identity;
+		super(identity);
 	}
 	
 	@Override
-	public VFSStatus canWrite() {
-		return VFSConstants.NO;
-	}
-
-	@Override
-	public VFSStatus canDelete() {
-		return VFSConstants.NO;
-	}
-	
-	@Override
-	public VFSStatus canRename() {
-		return VFSConstants.NO;
-	}
-
-	@Override
-	public VFSStatus canCopy() {
-		return VFSConstants.NO;
-	}
-
-	@Override
-	public VFSStatus delete() {
-		return VFSConstants.NO;
-	}
-	
-	@Override
-	public void setDefaultItemFilter(VFSItemFilter defaultFilter) {
-		//
-	}
-
-	@Override
-	public List<VFSItem> getItems() {
-		if(!init) {
-			init();
-		}
-		return super.getItems();
-	}
-
-	@Override
-	public List<VFSItem> getItems(VFSItemFilter filter) {
-		if(!init || (System.currentTimeMillis() - loadTime) > 60000) {
-			init();
-		}
-		return super.getItems(filter);
-	}
-
-	@Override
-	public VFSItem resolve(String path) {
-		if(init) {
-			return super.resolve(path);
-		}
-		
-		path = VFSManager.sanitizePath(path);
-		if (path.equals("/")) {
-			return this;
-		}
-		
-		String childName = VFSManager.extractChild(path);
+	protected List<VFSContainer> loadMergedContainers() {
 		RepositoryManager rm = RepositoryManager.getInstance();
-		List<RepositoryEntry> entries = rm.queryByEditor(identity, CourseModule.getCourseTypeName());
-		for(RepositoryEntry entry:entries) {
-			String courseTitle = RequestUtil.normalizeFilename(entry.getDisplayname());
-			if(childName.equals(courseTitle)) {
-				NamedContainerImpl cfContainer = new CoursefolderWebDAVNamedContainer(childName, entry.getOlatResource());
-				String nextPath = path.substring(childName.length() + 1);
-				return cfContainer.resolve(nextPath);
-			}
-		}
-
-		return super.resolve(path);
-	}
-	
-	@Override
-	protected void init() {
-		super.init();
-		RepositoryManager rm = RepositoryManager.getInstance();
-		List<RepositoryEntry> courseEntries = rm.queryByEditor(identity, CourseModule.getCourseTypeName());
+		List<RepositoryEntry> courseEntries = rm.queryByEditor(getIdentity(), CourseModule.getCourseTypeName());
 		List<VFSContainer> containers = new ArrayList<>();
 		// Add all found repo entries to merge source
 		for (RepositoryEntry re:courseEntries) {
@@ -137,8 +53,6 @@ class CoursefolderWebDAVMergeSource extends MergeSource {
 			NamedContainerImpl cfContainer = new CoursefolderWebDAVNamedContainer(courseTitle, re.getOlatResource());
 			addContainerToList(cfContainer, containers);
 		}
-		setMergedContainers(containers);
-		loadTime = System.currentTimeMillis();
-		init = true;
+		return containers;
 	}
 }

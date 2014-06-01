@@ -43,6 +43,9 @@ import org.olat.core.commons.modules.bc.commands.FolderCommand;
 import org.olat.core.commons.modules.bc.commands.FolderCommandFactory;
 import org.olat.core.commons.modules.bc.commands.FolderCommandStatus;
 import org.olat.core.commons.modules.bc.components.FolderComponent;
+import org.olat.core.commons.services.notifications.PublisherData;
+import org.olat.core.commons.services.notifications.SubscriptionContext;
+import org.olat.core.commons.services.notifications.ui.ContextualSubscriptionController;
 import org.olat.core.commons.services.webdav.WebDAVModule;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.Component;
@@ -67,9 +70,6 @@ import org.olat.core.logging.Tracing;
 import org.olat.core.logging.activity.CoreLoggingResourceable;
 import org.olat.core.logging.activity.ILoggingAction;
 import org.olat.core.logging.activity.ThreadLocalUserActivityLogger;
-import org.olat.core.util.notifications.ContextualSubscriptionController;
-import org.olat.core.util.notifications.PublisherData;
-import org.olat.core.util.notifications.SubscriptionContext;
 import org.olat.core.util.resource.OresHelper;
 import org.olat.core.util.vfs.OlatRelPathImpl;
 import org.olat.core.util.vfs.Quota;
@@ -270,6 +270,15 @@ public class FolderRunController extends BasicController implements Activateable
 		putInitialPanel(folderContainer);
 	}
 	
+	/**
+	 * Remove the subscription panel but let the subscription context active
+	 */
+	public void disableSubscriptionController() {
+		if(csController != null) {
+			folderContainer.remove(csController.getInitialComponent());
+		}
+	}
+	
 	public void setResourceURL(String resourceUrl) {
 		if(searchC != null) {
 			searchC.setResourceUrl(resourceUrl);
@@ -429,17 +438,22 @@ public class FolderRunController extends BasicController implements Activateable
 	private void enableDisableQuota(UserRequest ureq) {
 		//prevent a timing condition if the user logout while a thumbnail is generated
 		if (ureq.getUserSession() == null || ureq.getUserSession().getRoles() == null) {
-			folderContainer.contextPut("editQuota", Boolean.FALSE);
 			return;
-		} else if (!ureq.getUserSession().getRoles().isOLATAdmin()) {
-			if (!ureq.getUserSession().getRoles().isInstitutionalResourceManager()) {
-				folderContainer.contextPut("editQuota", Boolean.FALSE);
-				return;
-			}
+		} 
+		
+		Boolean newEditQuota = Boolean.FALSE;
+		if (ureq.getUserSession().getRoles().isOLATAdmin() || ureq.getUserSession().getRoles().isInstitutionalResourceManager()) {
+			// Only sys admins or institutonal resource managers can have the quota button
+			Quota q = VFSManager.isTopLevelQuotaContainer(folderComponent.getCurrentContainer());
+			newEditQuota = (q == null)? Boolean.FALSE : Boolean.TRUE;
 		}
 
-		Quota q = VFSManager.isTopLevelQuotaContainer(folderComponent.getCurrentContainer());
-		folderContainer.contextPut("editQuota", (q == null)? Boolean.FALSE : Boolean.TRUE);
+		Boolean currentEditQuota = (Boolean) folderContainer.contextGet("editQuota");
+		// Update the container only if a new value is available or no value is set to 
+		// not make the component dirty after asynchronous thumbnail loading
+		if (currentEditQuota == null || !currentEditQuota.equals(newEditQuota)) {
+			folderContainer.contextPut("editQuota", newEditQuota);			
+		}
 	}
 	
 	/**

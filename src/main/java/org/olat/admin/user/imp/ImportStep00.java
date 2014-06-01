@@ -58,6 +58,7 @@ import org.olat.core.util.i18n.I18nManager;
 import org.olat.core.util.i18n.I18nModule;
 import org.olat.registration.RegistrationManager;
 import org.olat.registration.TemporaryKey;
+import org.olat.shibboleth.ShibbolethModule;
 import org.olat.user.UserManager;
 import org.olat.user.propertyhandlers.UserPropertyHandler;
 
@@ -197,7 +198,10 @@ class ImportStep00 extends BasicStep {
 					if (parts.length > columnId) {
 						pwd = parts[columnId].trim();
 						if (StringHelper.containsNonWhitespace(pwd)) {
-							if (!UserManager.getInstance().syntaxCheckOlatPassword(pwd)) {
+							if(pwd.startsWith(UserImportController.SHIBBOLETH_MARKER)
+									&& ShibbolethModule.isEnableShibbolethLogins()) {
+								//something to check?
+							} else if (!UserManager.getInstance().syntaxCheckOlatPassword(pwd)) {
 								textAreaElement.setErrorKey("error.pwd", new String[] { String.valueOf(i + 1), pwd });
 								importDataError = true;
 								break;
@@ -241,7 +245,7 @@ class ImportStep00 extends BasicStep {
 					idents.add(uIdentity);
 					updateIdents.add(uIdentity);
 					
-					importDataError = updateUserProperties(uIdentity, parts, i, columnId, tempEmailsInUse, importedEmails, true);
+					importDataError = updateUserProperties(uIdentity, parts, i, columnId, tempEmailsInUse, importedEmails);
 					if(importDataError) break;
 				} else {
 					// no identity/user yet, create
@@ -260,7 +264,7 @@ class ImportStep00 extends BasicStep {
 					ud.setName(login);
 					ud.setPassword(pwd);
 					ud.setLanguage(lang);
-					importDataError = updateUserProperties(ud, parts, i, columnId, tempEmailsInUse, importedEmails, false);
+					importDataError = updateUserProperties(ud, parts, i, columnId, tempEmailsInUse, importedEmails);
 					if(importDataError) break;
 					
 					idents.add(ud);
@@ -290,7 +294,7 @@ class ImportStep00 extends BasicStep {
 		}
 		
 		private boolean updateUserProperties(Identity ud, String[] parts, int i, int columnId,
-				Set<String> tempEmailsInUse, List<String> importedEmails, boolean update) {
+				Set<String> tempEmailsInUse, List<String> importedEmails) {
 			
 			boolean importDataError = false;
 			for (int j = 0; j < userPropertyHandlers.size(); j++) {
@@ -305,15 +309,26 @@ class ImportStep00 extends BasicStep {
 				}
 				boolean isMandatoryField = um.isMandatoryUserProperty(usageIdentifyer, userPropertyHandler);
 				if (isMandatoryField && !StringHelper.containsNonWhitespace(thisValue)) {
-					textAreaElement.setErrorKey("error.mandatory", new String[] { String.valueOf(i + 1), translate(userPropertyHandler.i18nFormElementLabelKey()) });
+					String label = "";
+					if(userPropertyHandler.i18nFormElementLabelKey() != null) {
+						label = translate(userPropertyHandler.i18nFormElementLabelKey());
+					}
+					textAreaElement.setErrorKey("error.mandatory", new String[] { String.valueOf(i + 1), label });
 					importDataError = true;
 					break;
 				}
 				// used for call-back value depending on PropertyHandler
 				ValidationError validationError = new ValidationError();
 				if (!userPropertyHandler.isValidValue(null, thisValue, validationError, getLocale())) {
-					textAreaElement.setErrorKey("error.lengthorformat", new String[] { String.valueOf(i + 1), translate(userPropertyHandler.i18nFormElementLabelKey()),
-							translate(validationError.getErrorKey(), validationError.getArgs()) });
+					String error = "unkown";
+					String label = "";
+					if(userPropertyHandler.i18nFormElementLabelKey() != null) {
+						label = translate(userPropertyHandler.i18nFormElementLabelKey());
+					}
+					if(validationError.getErrorKey() != null) {
+						error = translate(validationError.getErrorKey(), validationError.getArgs());
+					}
+					textAreaElement.setErrorKey("error.lengthorformat", new String[] { String.valueOf(i + 1), label, error});
 					importDataError = true;
 					break;
 				}

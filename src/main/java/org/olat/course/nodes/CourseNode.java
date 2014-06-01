@@ -36,18 +36,23 @@ import org.olat.core.gui.components.stack.StackedController;
 import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.WindowControl;
 import org.olat.core.gui.control.generic.tabbable.TabbableController;
+import org.olat.core.id.Identity;
 import org.olat.core.util.nodes.INode;
 import org.olat.course.ICourse;
 import org.olat.course.condition.Condition;
 import org.olat.course.condition.interpreter.ConditionExpression;
 import org.olat.course.condition.interpreter.ConditionInterpreter;
 import org.olat.course.editor.CourseEditorEnv;
+import org.olat.course.editor.PublishEvents;
 import org.olat.course.editor.StatusDescription;
 import org.olat.course.export.CourseEnvironmentMapper;
 import org.olat.course.run.navigation.NodeRunConstructionResult;
 import org.olat.course.run.userview.NodeEvaluation;
 import org.olat.course.run.userview.TreeEvaluation;
 import org.olat.course.run.userview.UserCourseEnvironment;
+import org.olat.course.statistic.StatisticResourceOption;
+import org.olat.course.statistic.StatisticResourceResult;
+import org.olat.ims.qti.statistics.QTIType;
 import org.olat.modules.ModuleConfiguration;
 import org.olat.repository.RepositoryEntry;
 
@@ -247,6 +252,21 @@ public interface CourseNode extends INode, ShortName {
 	public Controller createPeekViewRunController(UserRequest ureq, WindowControl wControl, UserCourseEnvironment userCourseEnv, NodeEvaluation ne);
 	
 	/**
+	 * Return a construct with all the informations needed to build the statistics of
+	 * a course node.
+	 * 
+	 * @param ureq
+	 * @param wControl
+	 * @param userCourseEnv
+	 * @param options
+	 * @return
+	 */
+	public StatisticResourceResult createStatisticNodeResult(UserRequest ureq, WindowControl wControl,
+			UserCourseEnvironment userCourseEnv, StatisticResourceOption options, QTIType... type);
+	
+	public boolean isStatisticNodeResultAvailable(UserCourseEnvironment userCourseEnv, QTIType... type);
+	
+	/**
 	 * this method must generate a nodeevaluation and take care of (if any) child
 	 * nodeevaluations. A nodeevaluation is done in the context of ci (an
 	 * interpreter per user is needed at the moment) and a treeeval
@@ -271,6 +291,9 @@ public interface CourseNode extends INode, ShortName {
 	 *         within the specified course environment.
 	 */
 	public StatusDescription[] isConfigValid(CourseEditorEnv cev);
+	
+	
+	public void updateOnPublish(Locale locale, ICourse course, Identity publisher, PublishEvents publishEvents);
 
 	/**
 	 * Called if this node is ABOUT TO BE deleted. For the time being, the node
@@ -384,6 +407,13 @@ public interface CourseNode extends INode, ShortName {
 	 * @return
 	 */
 	public StatusDescription explainThisDuringPublish(StatusDescription description);
+	
+	/**
+	 * Return some explanations if an update is planned after publishing
+	 * @param cev
+	 * @return
+	 */
+	public List<StatusDescription> publishUpdatesExplanations(CourseEditorEnv cev);
 
 	/**
 	 * Update the module configuration to have all mandatory configuration flags

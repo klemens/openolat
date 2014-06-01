@@ -28,9 +28,11 @@ package org.olat.instantMessaging.ui;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
+import java.util.Deque;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.LinkedBlockingDeque;
 
 import javax.servlet.http.HttpServletRequest;
 
@@ -79,12 +81,13 @@ public class ChatController extends BasicController implements GenericEventListe
 	private final VelocityContainer chatMsgFieldContent;
 
 	private Map<Long,String> avatarKeyCache = new HashMap<Long,String>();
-	private List<ChatMessage> messageHistory = new ArrayList<ChatMessage>();
+	private Deque<ChatMessage> messageHistory = new LinkedBlockingDeque<>();
 
 	private Link refresh, todayLink, lastWeek, lastMonth;
 	private JSAndCSSComponent jsc;
 	private FloatingResizableDialogController chatPanelCtr;
 	
+	private Date today;
 	private List<String> allChats;
 	private final Formatter formatter;
 
@@ -109,6 +112,7 @@ public class ChatController extends BasicController implements GenericEventListe
 		this.ores = ores;
 		this.privateReceiverKey = privateReceiverKey;
 		this.vip = vip;
+		setToday();
 
 		avatarBaseURL = registerCacheableMapper(ureq, "avatars-members", new AvatarMapper());
 		
@@ -193,6 +197,15 @@ public class ChatController extends BasicController implements GenericEventListe
 		}
 	}
 	
+	private void setToday() {
+		Calendar cal = Calendar.getInstance();
+		cal.set(Calendar.HOUR_OF_DAY, 0);
+		cal.set(Calendar.MINUTE, 0);
+		cal.set(Calendar.SECOND, 0);
+		cal.set(Calendar.MILLISECOND, 0);
+		today = cal.getTime();
+	}
+	
 	private Date getYesterday() {
 		Calendar cal = Calendar.getInstance();
 		cal.add(Calendar.DATE, -1);
@@ -254,6 +267,7 @@ public class ChatController extends BasicController implements GenericEventListe
 	}
 	
 	private void loadModel(Date from, int maxResults) {
+		setToday();
 		messageHistory.clear();
 		List<InstantMessage> lastMessages = imService.getMessages(getIdentity(), getOlatResourceable(), from, 0, maxResults, true);
 		for(int i=lastMessages.size(); i-->0; ) {
@@ -322,26 +336,30 @@ public class ChatController extends BasicController implements GenericEventListe
 		
 		String m = message.getBody().replaceAll("<br/>\n", "\r\n");
 		m = prepareMsgBody(m.replaceAll("<", "&lt;").replaceAll(">", "&gt;")).replaceAll("\r\n", "<br/>\n");
-		String creationDate = formatter.formatTime(message.getCreationDate());
-		String from = message.getFromNickName();
 		
-		synchronized (messageHistory) {
-			boolean first = true;
-			if(!messageHistory.isEmpty()) {
-				ChatMessage last = messageHistory.get(messageHistory.size() - 1);
-				if(from.equals(last.getFrom())) {
-					first = false;
-				}
-			}
-
-			boolean anonym = message.isAnonym();
-			Long fromKey = message.getFromKey();
-			ChatMessage msg = new ChatMessage(creationDate, from, fromKey, m, first, anonym);
-			if(!anonym ) {
-				msg.setAvatarKey(getAvatarKey(message.getFromKey()));
-			}
-			messageHistory.add(msg);
+		Date msgDate = message.getCreationDate();
+		String creationDate;
+		if(today.compareTo(msgDate) < 0) {
+			creationDate = formatter.formatTime(message.getCreationDate());
+		} else {
+			creationDate = formatter.formatDateAndTime(message.getCreationDate());
 		}
+
+		boolean first = true;
+		String from = message.getFromNickName();
+		ChatMessage last = messageHistory.peekLast();
+		if(last != null && from.equals(last.getFrom())) {
+			first = false;
+		}
+
+		boolean anonym = message.isAnonym();
+		Long fromKey = message.getFromKey();
+		ChatMessage msg = new ChatMessage(creationDate, from, fromKey, m, first, anonym);
+		if(!anonym ) {
+			msg.setAvatarKey(getAvatarKey(message.getFromKey()));
+		}
+		messageHistory.addLast(msg);
+
 		chatMsgFieldContent.contextPut("chatMessages", messageHistory);
 		chatMsgFieldContent.contextPut("focus", new Boolean(focus));
 	}

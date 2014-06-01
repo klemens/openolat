@@ -35,6 +35,7 @@ import org.olat.core.commons.modules.bc.FolderEvent;
 import org.olat.core.commons.modules.bc.FolderRunController;
 import org.olat.core.commons.modules.bc.vfs.OlatNamedContainerImpl;
 import org.olat.core.commons.modules.bc.vfs.OlatRootFolderImpl;
+import org.olat.core.commons.services.notifications.SubscriptionContext;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.Component;
 import org.olat.core.gui.components.htmlsite.HtmlStaticPageComponent;
@@ -64,7 +65,6 @@ import org.olat.core.util.mail.MailContext;
 import org.olat.core.util.mail.MailContextImpl;
 import org.olat.core.util.mail.MailManager;
 import org.olat.core.util.mail.MailerResult;
-import org.olat.core.util.notifications.SubscriptionContext;
 import org.olat.core.util.resource.OresHelper;
 import org.olat.core.util.vfs.LocalFolderImpl;
 import org.olat.core.util.vfs.Quota;
@@ -163,13 +163,16 @@ public class DropboxScoringViewController extends BasicController {
 		
 		myContent.put("dropbox", dropboxFolderRunController.getInitialComponent());
 
+		Identity assessedIdentity = userCourseEnv.getIdentityEnvironment().getIdentity();
 		// returnbox display
 		OlatRootFolderImpl rootReturnbox = new OlatRootFolderImpl(getReturnboxFilePath(assesseeName), null);
-		rootReturnbox.setLocalSecurityCallback( getReturnboxVfsSecurityCallback(rootReturnbox.getRelPath()) );
+		VFSSecurityCallback secCallback = getReturnboxVfsSecurityCallback(rootReturnbox.getRelPath(), assessedIdentity);
+		rootReturnbox.setLocalSecurityCallback(secCallback);
 		OlatNamedContainerImpl namedReturnbox = new OlatNamedContainerImpl(assesseeFullName, rootReturnbox);
-		namedReturnbox.setLocalSecurityCallback(getReturnboxVfsSecurityCallback(rootReturnbox.getRelPath()));
+		namedReturnbox.setLocalSecurityCallback(secCallback);
 
 		returnboxFolderRunController = new FolderRunController(namedReturnbox, false, ureq, getWindowControl());
+		returnboxFolderRunController.disableSubscriptionController();
 		listenTo(returnboxFolderRunController);
 		
 		myContent.put("returnbox", returnboxFolderRunController.getInitialComponent());
@@ -187,7 +190,7 @@ public class DropboxScoringViewController extends BasicController {
 			myContent.put("statusForm",statusForm.getInitialComponent());
 		}
 		
-		assignedTask = TaskController.getAssignedTask(userCourseEnv.getIdentityEnvironment().getIdentity(), userCourseEnv.getCourseEnvironment(), node);
+		assignedTask = TaskController.getAssignedTask(assessedIdentity, userCourseEnv.getCourseEnvironment(), node);
 		if (assignedTask != null) {
 			myContent.contextPut("assignedtask", assignedTask);
 			if (!(assignedTask.toLowerCase().endsWith(".html") || assignedTask.toLowerCase().endsWith(".htm") || assignedTask.toLowerCase().endsWith(".txt"))){
@@ -200,8 +203,10 @@ public class DropboxScoringViewController extends BasicController {
 		return new ReadOnlyAndDeleteCallback();
 	}
 
-	protected VFSSecurityCallback getReturnboxVfsSecurityCallback(String returnboxRelPath) {
-		return new ReturnboxFullAccessCallback(returnboxRelPath);
+	protected VFSSecurityCallback getReturnboxVfsSecurityCallback(String returnboxRelPath, Identity assessedIdentity) {
+		SubscriptionContext subscriptionContext = ReturnboxFileUploadNotificationHandler
+				.getSubscriptionContext(userCourseEnv.getCourseEnvironment(), node, assessedIdentity);
+		return new ReturnboxFullAccessCallback(returnboxRelPath, subscriptionContext);
 	}
 
 	/**
@@ -402,8 +407,10 @@ class ReadOnlyAndDeleteCallback implements VFSSecurityCallback {
 class ReturnboxFullAccessCallback implements VFSSecurityCallback {
 
 	private Quota quota;
+	private final SubscriptionContext subscriptionContext;
 
-	public ReturnboxFullAccessCallback(String relPath) {
+	public ReturnboxFullAccessCallback(String relPath, SubscriptionContext subscriptionContext) {
+		this.subscriptionContext = subscriptionContext;
 		QuotaManager qm = QuotaManager.getInstance();
 		quota = qm.getCustomQuota(relPath);
 		if (quota == null) { // if no custom quota set, use the default quotas...
@@ -454,6 +461,6 @@ class ReturnboxFullAccessCallback implements VFSSecurityCallback {
 	 * @see org.olat.modules.bc.callbacks.SecurityCallback#getSubscriptionContext()
 	 */
 	public SubscriptionContext getSubscriptionContext() {
-		return null;
+		return subscriptionContext;
 	} 
 }

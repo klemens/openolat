@@ -48,6 +48,7 @@ import org.olat.core.id.Identity;
 import org.olat.core.logging.AssertException;
 import org.olat.core.logging.OLog;
 import org.olat.core.logging.Tracing;
+import org.olat.core.util.UserSession;
 import org.olat.core.util.Util;
 
 /**
@@ -229,12 +230,13 @@ public abstract class BasicController extends DefaultController {
 		if (mappers == null) {
 			mappers = new ArrayList<Mapper>(2);
 		}
-		String mapperBaseURL; 
+		String mapperBaseURL;
+		UserSession usess = ureq == null ? null : ureq.getUserSession();
 		if (cacheableMapperID == null) {
 			// use non cacheable as fallback
-			mapperBaseURL =  CoreSpringFactory.getImpl(MapperService.class).register(ureq.getUserSession(), m);			
+			mapperBaseURL =  CoreSpringFactory.getImpl(MapperService.class).register(usess, m);			
 		} else {
-			mapperBaseURL =  CoreSpringFactory.getImpl(MapperService.class).register(ureq.getUserSession(), cacheableMapperID, m, expirationTime);
+			mapperBaseURL =  CoreSpringFactory.getImpl(MapperService.class).register(usess, cacheableMapperID, m, expirationTime);
 		}
 		// registration was successful, add to our mapper list
 		mappers.add(m);
@@ -444,6 +446,22 @@ public abstract class BasicController extends DefaultController {
 	protected void showInfo(String key, String arg) {
 		getWindowControl().setInfo(
 				getTranslator().translate(key, new String[] { arg }));
+	}
+	
+	/**
+	 * convenience method to inform the user. this will call
+	 * 
+	 * <pre>
+	 * getWindowControl().setInfo(getTranslator().translate(key, args));
+	 * </pre>
+	 * 
+	 * @param key
+	 *            the key to use (in the LocalStrings_curlanguage file of your
+	 *            controller)
+	 * @param args
+	 */
+	protected void showInfo(String key, String[] args) {
+		getWindowControl().setInfo(getTranslator().translate(key, args));
 	}
 
 	/**

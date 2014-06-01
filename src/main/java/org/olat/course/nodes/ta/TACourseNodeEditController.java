@@ -37,6 +37,7 @@ import org.olat.core.commons.modules.bc.FolderEvent;
 import org.olat.core.commons.modules.bc.FolderRunController;
 import org.olat.core.commons.modules.bc.vfs.OlatNamedContainerImpl;
 import org.olat.core.commons.modules.bc.vfs.OlatRootFolderImpl;
+import org.olat.core.commons.services.notifications.SubscriptionContext;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.Component;
 import org.olat.core.gui.components.link.Link;
@@ -68,7 +69,6 @@ import org.olat.core.util.mail.MailManager;
 import org.olat.core.util.mail.MailNotificationEditController;
 import org.olat.core.util.mail.MailTemplate;
 import org.olat.core.util.mail.MailerResult;
-import org.olat.core.util.notifications.SubscriptionContext;
 import org.olat.core.util.vfs.Quota;
 import org.olat.core.util.vfs.QuotaManager;
 import org.olat.core.util.vfs.callbacks.FullAccessWithQuotaCallback;
@@ -257,7 +257,7 @@ public class TACourseNodeEditController extends ActivateableTabbableDefaultContr
 		editScoring.contextPut("isOverwriting", new Boolean(false));
 		
 		// Solution-Tab		
-		solutionVC = this.createVelocityContainer("editSolutionFolder");
+		solutionVC = createVelocityContainer("editSolutionFolder");
 		vfButton = LinkFactory.createButton("link.solutionFolder", solutionVC, this);
 				
 	}
@@ -292,10 +292,9 @@ public class TACourseNodeEditController extends ActivateableTabbableDefaultContr
 			} else {				
 				// already assigned task => open dialog with warn
 				String[] args = new String[] { new Integer(assignedProps.size()).toString() };				
-				dialogBoxController = this.activateOkCancelDialog(ureq, "", getTranslator().translate("taskfolder.overwriting.confirm", args), dialogBoxController);
+				dialogBoxController = activateOkCancelDialog(ureq, "", getTranslator().translate("taskfolder.overwriting.confirm", args), dialogBoxController);
 			}
-		} else if (source == vfButton) {			
-			if (log.isDebug()) log.debug("Event for sampleVC");
+		} else if (source == vfButton) {
 			// switch to new dialog
 			OlatNamedContainerImpl namedContainer = TACourseNode.getNodeFolderContainer(node, course.getCourseEnvironment());
 			Quota quota = QuotaManager.getInstance().getCustomQuota(namedContainer.getRelPath());
@@ -303,14 +302,12 @@ public class TACourseNodeEditController extends ActivateableTabbableDefaultContr
 				Quota defQuota = QuotaManager.getInstance().getDefaultQuota(QuotaConstants.IDENTIFIER_DEFAULT_NODES);
 				quota = QuotaManager.getInstance().createQuota(namedContainer.getRelPath(), defQuota.getQuotaKB(), defQuota.getUlLimitKB());
 			}
-			VFSSecurityCallback secCallback = new FullAccessWithQuotaCallback(quota);
+			SubscriptionContext subContext = SolutionFileUploadNotificationHandler.getSubscriptionContext(course.getCourseEnvironment(), node);
+			VFSSecurityCallback secCallback = new FullAccessWithQuotaCallback(quota, subContext);
 			namedContainer.setLocalSecurityCallback(secCallback);
-			CloseableModalController cmc = new CloseableModalController(getWindowControl(), translate("close"),
-				new FolderRunController(namedContainer, false, ureq, getWindowControl()).getInitialComponent());
+			FolderRunController folderCtrl = new FolderRunController(namedContainer, false, ureq, getWindowControl());
+			CloseableModalController cmc = new CloseableModalController(getWindowControl(), translate("close"), folderCtrl.getInitialComponent());
 			cmc.activate();
-			
-			if (log.isDebug()) log.debug("Switch to sample folder dialog : DONE");
-			return;
 		} else if (source == editScoringConfigButton){
 			scoringController.setDisplayOnly(false);
 			editScoring.contextPut("isOverwriting", new Boolean(true));
@@ -449,7 +446,7 @@ public class TACourseNodeEditController extends ActivateableTabbableDefaultContr
 			  RepositoryEntry repositoryEntry = RepositoryManager.getInstance().lookupRepositoryEntry(course, true);
 			  String courseURL = Settings.getServerContextPathURI() + "/url/RepositoryEntry/" + repositoryEntry.getKey();
 			  MailTemplate mailTemplate = this.createTaskDeletedMailTemplate(urequest, course.getCourseTitle(), courseURL, deletedTaskFile);
-			  mailCtr = new MailNotificationEditController(getWindowControl(), urequest, mailTemplate, true, false);
+			  mailCtr = new MailNotificationEditController(getWindowControl(), urequest, mailTemplate, true, false, true);
 			  listenTo(mailCtr);
 			  cmc = new CloseableModalController(getWindowControl(), translate("close"), mailCtr.getInitialComponent());
 			  listenTo(cmc);			
