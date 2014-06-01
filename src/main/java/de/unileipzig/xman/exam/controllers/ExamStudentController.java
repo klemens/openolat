@@ -35,18 +35,16 @@ import de.unileipzig.xman.protocol.ProtocolManager;
 
 public class ExamStudentController extends BasicController {
 	
-	private static final String VELOCITY_ROOT = Util.getPackageVelocityRoot(Exam.class);
-	
 	private Exam exam;
 	private ElectronicStudentFile esf;
-	private VelocityContainer baseVC;
 	private VelocityContainer mainVC;
 	
 	private TableController subscriptionTable;
 	private AppointmentStudentTableModel subscriptionTableModel;
 	
-	private ExamDetailsController examDetailsControler;
-	private CloseableModalController examDetailsControlerModal;
+	private ExamStudentRegistrationDetailsController examStudentRegistrationDetailsControler;
+	private CloseableModalController examStudentRegistrationDetailsControlerModal;
+	private ExamDetailsController examDetailsController;
 
 	public ExamStudentController(UserRequest ureq, WindowControl wControl, Exam exam) {
 		super(ureq, wControl);
@@ -54,25 +52,18 @@ public class ExamStudentController extends BasicController {
 		setTranslator(Util.createPackageTranslator(Exam.class, ureq.getLocale()));
 		this.exam = exam;
 		
+		mainVC = new VelocityContainer("examStudentView", Exam.class, "examStudentView", getTranslator(), this);
+
+		examDetailsController = new ExamDetailsController(ureq, wControl, getTranslator(), exam);
+		mainVC.put("examDetails", examDetailsController.getInitialComponent());
+
 		init(ureq, wControl);
+
+		putInitialPanel(mainVC);
 	}
 	
 	private void init(UserRequest ureq, WindowControl wControl) {
 		esf = ElectronicStudentFileManager.getInstance().retrieveESFByIdentity(ureq.getIdentity());
-		
-		baseVC = new VelocityContainer("examLaunch", VELOCITY_ROOT + "/examBase.html", getTranslator(), this);
-		
-		baseVC.contextPut("examType", translate(exam.getIsOral() ? "oral" : "written"));
-		baseVC.contextPut("regStartDate", exam.getRegStartDate() == null ? "n/a" : Formatter.getInstance(ureq.getLocale()).formatDateAndTime(exam.getRegStartDate()));
-		baseVC.contextPut("regEndDate", exam.getRegEndDate() == null ? "n/a" : Formatter.getInstance(ureq.getLocale()).formatDateAndTime(exam.getRegEndDate()));
-		baseVC.contextPut("signOffDate", exam.getSignOffDate() == null ? "n/a" : Formatter.getInstance(ureq.getLocale()).formatDateAndTime(exam.getSignOffDate()));
-		baseVC.contextPut("earmarkedEnabled", translate(exam.getEarmarkedEnabled() ? "yes" : "no"));
-		baseVC.contextPut("multiSubscriptionEnabled", translate(exam.getIsMultiSubscription() ? "yes" : "no"));
-		String comments = exam.getComments();
-		baseVC.contextPut("comments", comments.isEmpty() ? translate("examBase_html.comments.isEmpty") : comments);
-		
-		mainVC = new VelocityContainer("examStudentView", VELOCITY_ROOT + "/examStudentView.html", getTranslator(), this);
-		baseVC.put("anyForm", mainVC);
 		
 		if(esf != null) {
 			mainVC.contextPut("showSubscriptionTable", true);
@@ -80,8 +71,6 @@ public class ExamStudentController extends BasicController {
 		} else {
 			mainVC.contextPut("showSubscriptionTable", false);
 		}
-		
-		putInitialPanel(baseVC);
 	}
 	
 	private void buildAppointmentTable(UserRequest ureq, WindowControl wControl) {
@@ -126,20 +115,23 @@ public class ExamStudentController extends BasicController {
 			TableEvent tableEvent = (TableEvent) event;
 			
 			if(tableEvent.getActionId().equals(AppointmentStudentTableModel.ACTION_SUBSCRIBE)) {
-				removeAsListenerAndDispose(examDetailsControler);
+				removeAsListenerAndDispose(examStudentRegistrationDetailsControler);
 				
 				//Ask for exam type and accountFor
-				examDetailsControler = new ExamDetailsController(ureq, this.getWindowControl());
-				examDetailsControler.setAppointment(subscriptionTableModel.getObject(tableEvent.getRowId()));
+				examStudentRegistrationDetailsControler = new ExamStudentRegistrationDetailsController(ureq, this.getWindowControl());
+				examStudentRegistrationDetailsControler.setAppointment(subscriptionTableModel.getObject(tableEvent.getRowId()));
 				
-				listenTo(examDetailsControler);
+				listenTo(examStudentRegistrationDetailsControler);
 
-				examDetailsControlerModal = new CloseableModalController(getWindowControl(), translate("close"), examDetailsControler.getInitialComponent());
-				examDetailsControlerModal.activate();
+				examStudentRegistrationDetailsControlerModal = new CloseableModalController(getWindowControl(), translate("close"), examStudentRegistrationDetailsControler.getInitialComponent());
+				examStudentRegistrationDetailsControlerModal.activate();
 			} else if(tableEvent.getActionId().equals(AppointmentStudentTableModel.ACTION_UNSUBSCRIBE)) {
-				Protocol protocol = ProtocolManager.getInstance().findProtocolByIdentityAndAppointment(ureq.getIdentity(), subscriptionTableModel.getObject(tableEvent.getRowId()));
+				if(!ExamDBManager.getInstance().canUnsubscribe(exam)) {
+					showError("ExamStudentController.info.unsubscriptionPeriodOver");
+					return;
+				}
 
-				// TODO CalendarManager.getInstance().deleteKalendarEventForExam(exam, ureq.getIdentity());
+				Protocol protocol = ProtocolManager.getInstance().findProtocolByIdentityAndAppointment(ureq.getIdentity(), subscriptionTableModel.getObject(tableEvent.getRowId()));
 				
 				// Email Remove
 				BusinessControlFactory bcf = BusinessControlFactory.getInstance();
@@ -182,24 +174,28 @@ public class ExamStudentController extends BasicController {
 				subscriptionTableModel.update();
 				subscriptionTable.modelChanged();
 			}
-		} else if(source == examDetailsControler) {
-			Appointment appointment = AppointmentManager.getInstance().findAppointmentByID(examDetailsControler.getAppointment().getKey());
-			
+		} else if(source == examStudentRegistrationDetailsControler) {
 			// subscribe to exam
 			if (event == Event.DONE_EVENT) {
-				examDetailsControlerModal.deactivate();
-				examDetailsControlerModal.dispose();
-				examDetailsControlerModal = null;
-				
-				String examType = examDetailsControler.getChooseExamType() == Exam.ORIGINAL_EXAM ? translate("ExamDetailsController.first") : translate("ExamDetailsController.second");
-				String accountFor = examDetailsControler.getAccountFor();
+				examStudentRegistrationDetailsControlerModal.deactivate();
+				examStudentRegistrationDetailsControlerModal.dispose();
+				examStudentRegistrationDetailsControlerModal = null;
+
+				if(!ExamDBManager.getInstance().canSubscribe(exam)) {
+					showError("ExamStudentController.info.subscriptionPeriodOver");
+					return;
+				}
+
+				String examType = examStudentRegistrationDetailsControler.getChooseExamType() == Exam.ORIGINAL_EXAM ? translate("ExamStudentRegistrationDetailsForm.first") : translate("ExamStudentRegistrationDetailsForm.second");
+				String accountFor = examStudentRegistrationDetailsControler.getAccountFor();
 				String comment;
                 if(accountFor.isEmpty())
                 	comment = examType;
                 else
                 	comment = examType + ": " + accountFor;
                 
-                // reload esf
+                // reload appointment and esf
+                Appointment appointment = AppointmentManager.getInstance().findAppointmentByID(examStudentRegistrationDetailsControler.getAppointment().getKey());
                 esf = ElectronicStudentFileManager.getInstance().retrieveESFByIdentity(esf.getIdentity());
                 
 				// register student to the chosen appointment
@@ -225,11 +221,12 @@ public class ExamStudentController extends BasicController {
 	@Override
 	protected void doDispose() {
 		removeAsListenerAndDispose(subscriptionTable);
-		removeAsListenerAndDispose(examDetailsControler);
-		if(examDetailsControlerModal != null) {
-			examDetailsControlerModal.dispose();
-			examDetailsControlerModal = null;
+		removeAsListenerAndDispose(examStudentRegistrationDetailsControler);
+		if(examStudentRegistrationDetailsControlerModal != null) {
+			examStudentRegistrationDetailsControlerModal.dispose();
+			examStudentRegistrationDetailsControlerModal = null;
 		}
+		examDetailsController.dispose();
 	}
 
 }

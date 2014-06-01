@@ -336,7 +336,8 @@ public class CatalogExportModuleDispatcher implements Dispatcher {
 		return f;
 	}
 
-	public void execute(HttpServletRequest request, HttpServletResponse response, String uriPrefix) {
+	@Override
+	public void execute(HttpServletRequest request, HttpServletResponse response) {
 		if(!this.reInitialize())
 			Tracing.logError("Some Failsaves in reInitialization needed !", CatalogExportModuleDispatcher.class);
 			try {

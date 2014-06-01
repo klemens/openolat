@@ -48,9 +48,11 @@ import org.olat.core.id.OLATResourceable;
 import org.olat.core.logging.activity.ActionType;
 import org.olat.course.CourseFactory;
 import org.olat.course.ICourse;
+import org.olat.course.nodes.CheckListCourseNode;
 import org.olat.course.nodes.DialogCourseNode;
 import org.olat.course.nodes.FOCourseNode;
 import org.olat.course.nodes.ProjectBrokerCourseNode;
+import org.olat.course.nodes.ScormCourseNode;
 import org.olat.course.nodes.TACourseNode;
 import org.olat.course.nodes.WikiCourseNode;
 import org.olat.ims.qti.export.CourseQTIArchiveController;
@@ -72,6 +74,8 @@ public class ArchiverMainController extends MainLayoutBasicController {
 	private static final String CMD_FORUMS = "forums";
 	private static final String CMD_DIALOGS = "dialogs";
 	private static final String CMD_WIKIS = "wikis";
+	private static final String CMD_SCORM = "scorm";
+	private static final String CMD_CHECKLIST = "checklist";
 	
 	
 	private IArchiverCallback archiverCallback;
@@ -127,7 +131,9 @@ public class ArchiverMainController extends MainLayoutBasicController {
 			if (event.getCommand().equals(MenuTree.COMMAND_TREENODE_CLICKED)) { // goto node in edit mode
 				TreeNode selTreeNode = menuTree.getSelectedNode();
 				Object cmd = selTreeNode.getUserObject();
-				if(cmd instanceof ActionExtension) launchExtensionController(ureq, cmd);
+				if(cmd instanceof ActionExtension) {
+					launchExtensionController(ureq, cmd);
+				}
 				else launchArchiveControllers(ureq, (String)cmd);
 			}
 		}
@@ -220,6 +226,20 @@ public class ArchiverMainController extends MainLayoutBasicController {
 			gtn.setAltText(translate("menu.wikis.alt"));
 			root.addChild(gtn);
 		}
+		if (archiverCallback.mayArchiveScorm()) {
+			gtn = new GenericTreeNode();		
+			gtn.setTitle(translate("menu.scorm"));
+			gtn.setUserObject(CMD_SCORM);
+			gtn.setAltText(translate("menu.scorm.alt"));
+			root.addChild(gtn);
+		}
+		if (archiverCallback.mayArchiveChecklist()) {
+			gtn = new GenericTreeNode();		
+			gtn.setTitle(translate("menu.checklist"));
+			gtn.setUserObject(CMD_CHECKLIST);
+			gtn.setAltText(translate("menu.checklist.alt"));
+			root.addChild(gtn);
+		}
 		
 		//add extension menues
 		ExtManager extm = ExtManager.getInstance();
@@ -249,40 +269,38 @@ public class ArchiverMainController extends MainLayoutBasicController {
 	private void launchArchiveControllers(UserRequest ureq, String menuCommand) {
 		if (menuCommand.equals(CMD_INDEX)) {
 			main.setContent(intro);
-		}
-		else {
+		} else {
 			removeAsListenerAndDispose(contentCtr);
 			if (menuCommand.equals(CMD_QTIRESULTS)) {
-				this.contentCtr = new CourseQTIArchiveController(ureq, getWindowControl(), ores);
+				contentCtr = new CourseQTIArchiveController(ureq, getWindowControl(), ores);
 				main.setContent(contentCtr.getInitialComponent());
-			}
-			else if (menuCommand.equals(CMD_SCOREACCOUNTING)) {
-		    this.contentCtr = new ScoreAccountingArchiveController(ureq, getWindowControl(), ores);
+			} else if (menuCommand.equals(CMD_SCOREACCOUNTING)) {
+				contentCtr = new ScoreAccountingArchiveController(ureq, getWindowControl(), ores);
 				main.setContent(contentCtr.getInitialComponent());
-			}
-			else if (menuCommand.equals(CMD_ARCHIVELOGFILES)) {
-		    this.contentCtr = new CourseLogsArchiveController(ureq, getWindowControl(), ores);
+			} else if (menuCommand.equals(CMD_ARCHIVELOGFILES)) {
+				contentCtr = new CourseLogsArchiveController(ureq, getWindowControl(), ores);
 				main.setContent(contentCtr.getInitialComponent());
-			}
-			else if (menuCommand.equals(CMD_HANDEDINTASKS)) { //TACourseNode
-		    this.contentCtr = new GenericArchiveController(ureq, getWindowControl(), ores, new TACourseNode());
+			} else if (menuCommand.equals(CMD_HANDEDINTASKS)) { //TACourseNode
+				contentCtr = new GenericArchiveController(ureq, getWindowControl(), ores, new TACourseNode());
 				main.setContent(contentCtr.getInitialComponent());
-			}
-			else if (menuCommand.equals(CMD_PROJECTBROKER)) { 
-		    this.contentCtr = new GenericArchiveController(ureq, getWindowControl(), ores, new ProjectBrokerCourseNode());
+			} else if (menuCommand.equals(CMD_PROJECTBROKER)) { 
+				contentCtr = new GenericArchiveController(ureq, getWindowControl(), ores, new ProjectBrokerCourseNode());
 				main.setContent(contentCtr.getInitialComponent());
-			}
-			else if (menuCommand.equals(CMD_FORUMS)) {
-		    this.contentCtr = new GenericArchiveController(ureq, getWindowControl(), ores, new FOCourseNode());
-		    main.setContent(contentCtr.getInitialComponent());
-			}
-			else if (menuCommand.equals(CMD_DIALOGS)) {
-		    this.contentCtr = new GenericArchiveController(ureq, getWindowControl(), ores, new DialogCourseNode());
-		    main.setContent(contentCtr.getInitialComponent());
-			}
-			else if (menuCommand.equals(CMD_WIKIS)) {
-		    this.contentCtr = new GenericArchiveController(ureq, getWindowControl(), ores, new WikiCourseNode());
-		    main.setContent(contentCtr.getInitialComponent());
+			} else if (menuCommand.equals(CMD_FORUMS)) {
+				contentCtr = new GenericArchiveController(ureq, getWindowControl(), ores, new FOCourseNode());
+				main.setContent(contentCtr.getInitialComponent());
+			} else if (menuCommand.equals(CMD_DIALOGS)) {
+				contentCtr = new GenericArchiveController(ureq, getWindowControl(), ores, new DialogCourseNode());
+				main.setContent(contentCtr.getInitialComponent());
+			} else if (menuCommand.equals(CMD_WIKIS)) {
+				contentCtr = new GenericArchiveController(ureq, getWindowControl(), ores, new WikiCourseNode());
+				main.setContent(contentCtr.getInitialComponent());
+			} else if (menuCommand.equals(CMD_SCORM)) {
+				contentCtr = new GenericArchiveController(ureq, getWindowControl(), ores, new ScormCourseNode());
+				main.setContent(contentCtr.getInitialComponent());
+			} else if (menuCommand.equals(CMD_CHECKLIST)) {
+				contentCtr = new GenericArchiveController(ureq, getWindowControl(), ores, new CheckListCourseNode());
+				main.setContent(contentCtr.getInitialComponent());
 			}
 			listenTo(contentCtr);
 		}		

@@ -53,6 +53,8 @@ import org.olat.core.id.OLATResourceable;
 import org.olat.core.logging.OLog;
 import org.olat.core.logging.Tracing;
 import org.olat.core.util.CodeHelper;
+import org.olat.core.util.Formatter;
+import org.olat.core.util.StringHelper;
 import org.olat.core.util.vfs.VFSContainer;
 import org.olat.course.CourseFactory;
 import org.olat.course.ICourse;
@@ -212,6 +214,12 @@ public class OnyxRunController extends BasicController {
 
 		if (viewmode != SURVEYVIEW) {
 			ScoreEvaluation se = null;
+			
+			//<OLATCE-1232>
+			boolean isVisibilityPeriod = AssessmentHelper.isResultVisible(modConfig);
+			vc.contextPut("showResultsVisible", new Boolean(isVisibilityPeriod));
+			//</OLATCE-1232>
+				
 			if (courseNodeTest != null) {
 				// <OLATCE-498>
 				Integer attempts = courseNodeTest.getUserAttempts(userCourseEnv);
@@ -230,7 +238,8 @@ public class OnyxRunController extends BasicController {
 				}
 				vc.contextPut("hasResults", hasResults.booleanValue());
 				// </OLATCE-498>
-				vc.contextPut("comment", courseNodeTest.getUserUserComment(userCourseEnv));
+				StringBuilder comment = Formatter.stripTabsAndReturns(courseNodeTest.getUserUserComment(userCourseEnv));
+				vc.contextPut("comment", StringHelper.xssScan(comment));
 
 				if (courseNodeTest.getUserAttempts(userCourseEnv) > 0) {
 					se = courseNodeTest.getUserScoreEvaluation(userCourseEnv);
@@ -268,7 +277,7 @@ public class OnyxRunController extends BasicController {
 			if (hasResult) {
 				vc.contextPut("hasResult", Boolean.TRUE);
 				boolean isPassesSet = se.getPassed() != null;
-				vc.contextPut(IQEditController.CONFIG_KEY_RESULT_ON_HOME_PAGE, modConfig.get(IQEditController.CONFIG_KEY_RESULT_ON_HOME_PAGE));
+				vc.contextPut("showResultsOnHomePage", modConfig.get(IQEditController.CONFIG_KEY_RESULT_ON_HOME_PAGE));
 				if (isPassesSet) {
 					vc.contextPut("passed", se.getPassed());
 				} else {

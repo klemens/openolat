@@ -39,6 +39,7 @@ import org.olat.core.gui.components.form.flexible.FormItem;
 import org.olat.core.gui.components.form.flexible.FormItemContainer;
 import org.olat.core.gui.components.form.flexible.elements.FileElement;
 import org.olat.core.gui.components.form.flexible.elements.FormLink;
+import org.olat.core.gui.components.form.flexible.elements.RichTextElement;
 import org.olat.core.gui.components.form.flexible.elements.SelectionElement;
 import org.olat.core.gui.components.form.flexible.elements.TextElement;
 import org.olat.core.gui.components.form.flexible.impl.Form;
@@ -54,6 +55,7 @@ import org.olat.core.id.Identity;
 import org.olat.core.util.FileUtils;
 import org.olat.core.util.StringHelper;
 import org.olat.core.util.Util;
+import org.olat.core.util.filter.FilterFactory;
 import org.olat.core.util.mail.ContactList;
 import org.olat.core.util.mail.MailModule;
 import org.olat.user.UserManager;
@@ -89,7 +91,7 @@ public class ContactForm extends FormBasicController {
 	private final static String NLS_CONTACT_SUBJECT = "contact.subject";
 	private TextElement tsubject;
 	private final static String NLS_CONTACT_BODY = "contact.body";
-	private TextElement tbody;
+	private RichTextElement tbody;
 	private final static String NLS_CONTACT_ATTACHMENT = "contact.attachment";
 	private final static String NLS_CONTACT_ATTACHMENT_EXPL = "contact.attachment.maxsize";
 	private int contactAttachmentMaxSizeInMb = 5;
@@ -170,16 +172,13 @@ public class ContactForm extends FormBasicController {
 	 * @param defaultEmailTo
 	 */
 	private void addContactFormEmailTo(String defaultEmailTo) {
-		
 		defaultEmailTo += tto.getValue();
 		tto.setValue(defaultEmailTo);
 		ttoBig.setValue(defaultEmailTo);
 		
-		
 		tto.setVisible(!recipientsAreEditable);
 		ttoBig.setVisible(recipientsAreEditable);
 	}
-
 
 	/**
 	 * @param defaultBody
@@ -190,8 +189,6 @@ public class ContactForm extends FormBasicController {
 		tbody.setVisible(true);
 		tbody.setMandatory(!readOnly);
 	}
-
-	
 	
 	@Override
 	public boolean validateFormLogic(UserRequest ureq) {
@@ -276,7 +273,7 @@ public class ContactForm extends FormBasicController {
 	 * @return email body text
  	 */
  	public String getBody() {
- 			return tbody.getValue();
+ 		return tbody.getValue(FilterFactory.getSmileysCssToDataUriFilter());
 	}
  	
  	public File[] getAttachments() {
@@ -388,7 +385,7 @@ public class ContactForm extends FormBasicController {
 		
 		tsubject = uifactory.addTextElement("tsubject", NLS_CONTACT_SUBJECT, 255, "", formLayout);
 		tsubject.setDisplaySize(emailCols);
-		tbody = uifactory.addTextAreaElement("tbody", NLS_CONTACT_BODY, -1, 10, emailCols, true, "", formLayout);
+		tbody = uifactory.addRichTextElementForStringDataMinimalistic("tbody", NLS_CONTACT_BODY, "", 15, emailCols, formLayout, ureq.getUserSession(), getWindowControl());
 		tbody.setEnabled(!readOnly);
 		
 		String VELOCITY_ROOT = Util.getPackageVelocityRoot(this.getClass());

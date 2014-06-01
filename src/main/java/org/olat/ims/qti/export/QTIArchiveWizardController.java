@@ -58,9 +58,9 @@ import org.olat.core.util.WebappHelper;
 import org.olat.core.util.coordinate.LockResult;
 import org.olat.course.CourseFactory;
 import org.olat.course.ICourse;
-import org.olat.course.assessment.AssessmentHelper;
 import org.olat.course.assessment.IndentedNodeRenderer;
 import org.olat.course.assessment.NodeTableDataModel;
+import org.olat.course.assessment.NodeTableRow;
 import org.olat.course.nodes.CourseNode;
 import org.olat.course.nodes.IQSELFCourseNode;
 import org.olat.course.nodes.IQSURVCourseNode;
@@ -89,7 +89,6 @@ import de.bps.onyx.plugin.OnyxExportManager;
  */
 public class QTIArchiveWizardController extends BasicController {
 	private static final String CMD_SELECT_NODE = "cmd.select.node";
-	private static final String CMD_BACK = "back";
 	
 	private boolean dummyMode;
 	
@@ -124,9 +123,9 @@ public class QTIArchiveWizardController extends BasicController {
 	private File exportDir;
 	private String targetFileName;
 	private int type;
-	private Map qtiItemConfigs;
-	private List results;
-	private List qtiItemObjectList;
+	private Map<Class<?>, QTIExportItemFormatConfig> qtiItemConfigs;
+	private List<QTIResult> results;
+	private List<QTIItemObject> qtiItemObjectList;
 	private Link showFileButton;
 	private Link backLinkAtOptionChoose;
 	private Link backLinkAtNoResults;
@@ -134,7 +133,7 @@ public class QTIArchiveWizardController extends BasicController {
 	private OLATResourceable ores;
 
 
-	public QTIArchiveWizardController(boolean dummyMode, UserRequest ureq, List nodesTableObjectArrayList, OLATResourceable ores, WindowControl wControl) {
+	public QTIArchiveWizardController(boolean dummyMode, UserRequest ureq, List<NodeTableRow> nodesTableObjectArrayList, OLATResourceable ores, WindowControl wControl) {
 		super(ureq, wControl);
 		this.dummyMode = dummyMode;
 		this.ores = ores;
@@ -219,9 +218,9 @@ public class QTIArchiveWizardController extends BasicController {
 				String actionid = te.getActionId();
 				if (actionid.equals(CMD_SELECT_NODE)) {
 					int rowid = te.getRowId();
-					Map nodeData = (Map) nodeTableModel.getObject(rowid);
+					NodeTableRow nodeData = nodeTableModel.getObject(rowid);
 					ICourse course = CourseFactory.loadCourse(ores);
-					this.currentCourseNode = course.getRunStructure().getNode((String) nodeData.get(AssessmentHelper.KEY_IDENTIFYER));
+					this.currentCourseNode = course.getRunStructure().getNode(nodeData.getIdent());
 
 					boolean isOnyx = false;
 					if (currentCourseNode.getModuleConfiguration().get(IQEditController.CONFIG_KEY_TYPE_QTI) != null) {
@@ -259,7 +258,7 @@ public class QTIArchiveWizardController extends BasicController {
 							// </OLATBPS-498>
 						}
 				    } else {
-						success = hasResultSets(ureq);
+						success = hasResultSets();
 				    }
 				    
 				    if (success) {
@@ -274,13 +273,12 @@ public class QTIArchiveWizardController extends BasicController {
 						} else {
 				    
 							QTIResultManager qrm = QTIResultManager.getInstance();
-							results = qrm.selectResults(olatResource, currentCourseNode.getIdent(), repKey, type);
-							QTIResult res0 = (QTIResult) results.get(0);
+							results = qrm.selectResults(olatResource, currentCourseNode.getIdent(), repKey, null, type);
+							QTIResult res0 = results.get(0);
 							
-							QTIObjectTreeBuilder qotb = new QTIObjectTreeBuilder(new Long(res0.getResultSet().getRepositoryRef()));
-							qtiItemObjectList = qotb.getQTIItemObjectList();
+							qtiItemObjectList = new QTIObjectTreeBuilder().getQTIItemObjectList(new Long(res0.getResultSet().getRepositoryRef()));
 							
-							qtiItemConfigs = getQTIItemConfigs();
+							qtiItemConfigs = getQTIItemConfigs(qtiItemObjectList);
 						
 							if(dummyMode){
 								finishedVC = createVelocityContainer("finished");
@@ -433,7 +431,7 @@ public class QTIArchiveWizardController extends BasicController {
 		return filename;
 	}
 
-	private boolean hasResultSets(UserRequest ureq) {
+	private boolean hasResultSets() {
 		if (currentCourseNode instanceof IQTESTCourseNode) {
 			type = 1;
 		} else if (currentCourseNode instanceof IQSELFCourseNode) {
@@ -456,7 +454,7 @@ public class QTIArchiveWizardController extends BasicController {
 		}
 	}
 
-	private String convert2CtrlChars(String source) {
+	public static String convert2CtrlChars(String source) {
 		if (source == null) return null;
 		StringBuilder sb = new StringBuilder(300);
 		int len = source.length();
@@ -483,59 +481,51 @@ public class QTIArchiveWizardController extends BasicController {
 		return sb.toString();
 	}
 	
-	private Map getQTIItemConfigs(){
-		Map itConfigs = new HashMap();
+	public static Map<Class<?>, QTIExportItemFormatConfig> getQTIItemConfigs(List<QTIItemObject> itemList){
+		Map<Class<?>, QTIExportItemFormatConfig> itConfigs = new HashMap<>();
   	
-		for (Iterator iter = qtiItemObjectList.iterator(); iter.hasNext();) {
-			QTIItemObject item = (QTIItemObject) iter.next();
+		for (Iterator<QTIItemObject> iter = itemList.iterator(); iter.hasNext();) {
+			QTIItemObject item = iter.next();
 			if (item.getItemIdent().startsWith(ItemParser.ITEM_PREFIX_SCQ)){
 				if (itConfigs.get(QTIExportSCQItemFormatConfig.class) == null){
 					QTIExportSCQItemFormatConfig confSCQ = new QTIExportSCQItemFormatConfig(true, false, false, false);
-			  	itConfigs.put(QTIExportSCQItemFormatConfig.class, confSCQ);
+					itConfigs.put(QTIExportSCQItemFormatConfig.class, confSCQ);
 				}
-			}
-			else if (item.getItemIdent().startsWith(ItemParser.ITEM_PREFIX_MCQ)){
+			} else if (item.getItemIdent().startsWith(ItemParser.ITEM_PREFIX_MCQ)){
 				if (itConfigs.get(QTIExportMCQItemFormatConfig.class) == null){
 					QTIExportMCQItemFormatConfig confMCQ = new QTIExportMCQItemFormatConfig(true, false, false, false);
-			  	itConfigs.put(QTIExportMCQItemFormatConfig.class, confMCQ );
+					itConfigs.put(QTIExportMCQItemFormatConfig.class, confMCQ );
 				}
-			}
-			else if (item.getItemIdent().startsWith(ItemParser.ITEM_PREFIX_KPRIM)){
+			} else if (item.getItemIdent().startsWith(ItemParser.ITEM_PREFIX_KPRIM)){
 				if (itConfigs.get(QTIExportKPRIMItemFormatConfig.class) == null){
 					QTIExportKPRIMItemFormatConfig confKPRIM = new QTIExportKPRIMItemFormatConfig(true, false, false, false);
-			  	itConfigs.put(QTIExportKPRIMItemFormatConfig.class, confKPRIM);
+					itConfigs.put(QTIExportKPRIMItemFormatConfig.class, confKPRIM);
 				}
-			}
-			else if (item.getItemIdent().startsWith(ItemParser.ITEM_PREFIX_ESSAY)){
+			} else if (item.getItemIdent().startsWith(ItemParser.ITEM_PREFIX_ESSAY)){
 				if (itConfigs.get(QTIExportEssayItemFormatConfig.class) == null){
 					QTIExportEssayItemFormatConfig confEssay = new QTIExportEssayItemFormatConfig(true, false);
-			  	itConfigs.put(QTIExportEssayItemFormatConfig.class, confEssay);
+					itConfigs.put(QTIExportEssayItemFormatConfig.class, confEssay);
 				}
-			}
-			else if (item.getItemIdent().startsWith(ItemParser.ITEM_PREFIX_FIB)){
+			} else if (item.getItemIdent().startsWith(ItemParser.ITEM_PREFIX_FIB)){
 				if (itConfigs.get(QTIExportFIBItemFormatConfig.class) == null){
 					QTIExportFIBItemFormatConfig confFIB = new QTIExportFIBItemFormatConfig(true, false, false);
-			  	itConfigs.put(QTIExportFIBItemFormatConfig.class, confFIB);
+					itConfigs.put(QTIExportFIBItemFormatConfig.class, confFIB);
 				}
 			}
 			//if cannot find the type via the ItemParser, look for the QTIItemObject type
 			else if (item.getItemType().equals(QTIItemObject.TYPE.A)){
 				QTIExportEssayItemFormatConfig confEssay = new QTIExportEssayItemFormatConfig(true, false);
-		  	itConfigs.put(QTIExportEssayItemFormatConfig.class, confEssay);
-			} 
-			else if (item.getItemType().equals(QTIItemObject.TYPE.R)){
+				itConfigs.put(QTIExportEssayItemFormatConfig.class, confEssay);
+			} else if (item.getItemType().equals(QTIItemObject.TYPE.R)){
 				QTIExportSCQItemFormatConfig confSCQ = new QTIExportSCQItemFormatConfig(true, false, false, false);
-		  	itConfigs.put(QTIExportSCQItemFormatConfig.class, confSCQ);
-			}
-			else if (item.getItemType().equals(QTIItemObject.TYPE.C)){
+				itConfigs.put(QTIExportSCQItemFormatConfig.class, confSCQ);
+			} else if (item.getItemType().equals(QTIItemObject.TYPE.C)){
 				QTIExportMCQItemFormatConfig confMCQ = new QTIExportMCQItemFormatConfig(true, false, false, false);
-		  	itConfigs.put(QTIExportMCQItemFormatConfig.class, confMCQ );
-			}
-			else if (item.getItemType().equals(QTIItemObject.TYPE.B)){
+				itConfigs.put(QTIExportMCQItemFormatConfig.class, confMCQ );
+			} else if (item.getItemType().equals(QTIItemObject.TYPE.B)){
 				QTIExportFIBItemFormatConfig confFIB = new QTIExportFIBItemFormatConfig(true, false, false);
-		  	itConfigs.put(QTIExportFIBItemFormatConfig.class, confFIB);
-			}
-			else{
+				itConfigs.put(QTIExportFIBItemFormatConfig.class, confFIB);
+			} else {
 				throw new OLATRuntimeException(null,"Can not resolve QTIItem type", null);
 			}
 		}

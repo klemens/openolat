@@ -83,8 +83,6 @@ public class BusinessGroupDAO {
 	private BaseSecurity securityManager;
 	@Autowired
 	private OLATResourceManager olatResourceManager;
-	@Autowired
-	private BusinessGroupPropertyDAO businessGroupPropertyManager;
 	
 	public BusinessGroup createAndPersist(Identity creator, String name, String description,
 			Integer minParticipants, Integer maxParticipants, boolean waitingListEnabled, boolean autoCloseRanksEnabled,
@@ -109,7 +107,7 @@ public class BusinessGroupDAO {
 		if(minParticipants != null && minParticipants.intValue() >= 0) {
 			businessgroup.setMinParticipants(minParticipants);
 		}
-		if(maxParticipants != null && maxParticipants.intValue() > 0) {
+		if(maxParticipants != null && maxParticipants.intValue() >= 0) {
 			businessgroup.setMaxParticipants(maxParticipants);
 		}
 		
@@ -119,6 +117,14 @@ public class BusinessGroupDAO {
 		if(StringHelper.containsNonWhitespace(managedFlags)) {
 			businessgroup.setManagedFlagsString(managedFlags);
 		}
+		businessgroup.setOwnersVisibleIntern(showOwners);
+		businessgroup.setParticipantsVisibleIntern(showParticipants);
+		businessgroup.setWaitingListVisibleIntern(showWaitingList);
+		// group members visibility
+		businessgroup.setOwnersVisiblePublic(false);
+		businessgroup.setParticipantsVisiblePublic(false);
+		businessgroup.setWaitingListVisiblePublic(false);
+		businessgroup.setDownloadMembersLists(false);
 		
 		businessgroup.setWaitingListEnabled(waitingListEnabled);
 		businessgroup.setAutoCloseRanksEnabled(autoCloseRanksEnabled);
@@ -137,9 +143,9 @@ public class BusinessGroupDAO {
 		OLATResource businessgroupOlatResource =  olatResourceManager.createOLATResourceInstance(businessgroup);
 		olatResourceManager.saveOLATResource(businessgroupOlatResource);
 		businessgroup.setResource(businessgroupOlatResource);
-		em.merge(businessgroup);
+		businessgroup = em.merge(businessgroup);
 
-		//		securityManager.createAndPersistPolicy(ownerGroup, Constants.PERMISSION_ACCESS, businessgroup);
+		// securityManager.createAndPersistPolicy(ownerGroup, Constants.PERMISSION_ACCESS, businessgroup);
 		securityManager.createAndPersistPolicyWithResource(ownerGroup, Constants.PERMISSION_ACCESS, businessgroupOlatResource);
 		securityManager.createAndPersistPolicyWithResource(participantGroup, Constants.PERMISSION_READ, businessgroupOlatResource);
 		// membership: add identity
@@ -148,9 +154,6 @@ public class BusinessGroupDAO {
 		}
 
 		// per default all collaboration-tools are disabled
-
-		// group members visibility
-		businessGroupPropertyManager.createAndPersistDisplayMembers(businessgroup, showOwners, showParticipants, showWaitingList);
 		return businessgroup;
 	}
 	

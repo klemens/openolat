@@ -63,9 +63,7 @@ import de.unileipzig.xman.exam.ExamDBManager;
 import de.unileipzig.xman.exam.ExamHandler;
 import de.unileipzig.xman.exam.AlreadyLockedException;
 import de.unileipzig.xman.exam.forms.CreateAndEditAppointmentForm;
-import de.unileipzig.xman.exam.forms.EditCommentsForm;
-import de.unileipzig.xman.exam.forms.EditEarmarkedForm;
-import de.unileipzig.xman.exam.forms.EditMultiSubscriptionForm;
+import de.unileipzig.xman.exam.forms.EditDescriptionForm;
 import de.unileipzig.xman.exam.forms.EditRegistrationForm;
 import de.unileipzig.xman.protocol.Protocol;
 import de.unileipzig.xman.protocol.ProtocolManager;
@@ -92,10 +90,8 @@ public class ExamEditorController extends BasicController {
 	private Exam exam;
 	private Appointment app;
 	private TabbedPane tabbedPane;
-	private EditCommentsForm editCommentsForm;
+	private EditDescriptionForm editDescriptionForm;
 	private EditRegistrationForm editRegForm;
-	private EditEarmarkedForm editEarmarkedForm;
-	private EditMultiSubscriptionForm editMultiSubscriptionForm;
 	private CreateAndEditAppointmentForm createAppForm, editAppForm;
 	private TableController appTableCtr;
 	private AppointmentTableModel appTableMdl;
@@ -165,75 +161,47 @@ public class ExamEditorController extends BasicController {
 		tabbedPane.addListener(this);
 		vcMain.put("tabbedPane", tabbedPane);
 
-		editCommentsForm = new EditCommentsForm(ureq, this.getWindowControl(),
-				"editCommentsForm", getTranslator(), exam.getComments());
-		editCommentsForm.addControllerListener(this);
+		editDescriptionForm = new EditDescriptionForm(ureq, this.getWindowControl(), exam.getComments());
+		editDescriptionForm.addControllerListener(this);
 		tabbedPane.addTab(translate("ExamEditorController.tabbedPane.comments"),
-				editCommentsForm.getInitialComponent());
+				editDescriptionForm.getInitialComponent());
 
-		editRegForm = new EditRegistrationForm(ureq, this.getWindowControl(),
-				"editRegistrationForm", getTranslator(), exam.getRegStartDate(),
-				exam.getRegEndDate(), exam.getSignOffDate());
+		editRegForm = new EditRegistrationForm(ureq, this.getWindowControl(), exam);
 		editRegForm.addControllerListener(this);
 		tabbedPane.addTab(translate("ExamEditorController.tabbedPane.registration"),
 				editRegForm.getInitialComponent());
 
-		if (exam.getRegEndDate() != null) {
-			vcApp = new VelocityContainer("appPage", VELOCITY_ROOT
-					+ "/tabApp.html", getTranslator(), this);
-			addAppLink = LinkFactory.createButtonSmall(
-					"ExamEditorController.link.addAppointment", vcApp, this);
-			boolean enableAppLink = true;
-			if (!exam.getIsOral()) {
-				if (AppointmentManager.getInstance()
-						.findAllAppointmentsByExamId(exam.getKey()).size() != 0) {
-					enableAppLink = false;
-				}
+		vcApp = new VelocityContainer("appPage", VELOCITY_ROOT + "/tabApp.html", getTranslator(), this);
+		addAppLink = LinkFactory.createButtonSmall("ExamEditorController.link.addAppointment", vcApp, this);
+		boolean enableAppLink = true;
+		if (!exam.getIsOral()) {
+			if (AppointmentManager.getInstance()
+					.findAllAppointmentsByExamId(exam.getKey()).size() != 0) {
+				enableAppLink = false;
 			}
-			vcApp.contextPut("enableAppLink", enableAppLink);
-			TableGuiConfiguration tgc = new TableGuiConfiguration();
-			tgc.setMultiSelect(true);
-			tgc.setColumnMovingOffered(true);
-			tgc.setDownloadOffered(true);
-			tgc.setTableEmptyMessage(translate("ExamEditorController.appointmentTable.empty"));
-			appTableCtr = new TableController(tgc, ureq, this
-					.getWindowControl(), getTranslator());
-			appTableCtr.setMultiSelect(true);
-			appTableCtr.addMultiSelectAction(
-					"ExamEditorController.appointmentTable.edit",
-					"appTable.edit");
-			if (exam.getIsOral())
-				appTableCtr.addMultiSelectAction(
-						"ExamEditorController.appointmentTable.del",
-						"appTable.del");
-			List<Appointment> appList = AppointmentManager.getInstance()
-					.findAllAppointmentsByExamId(exam.getKey());
-			appTableMdl = new AppointmentTableModel(ureq.getLocale(), appList,
-					AppointmentTableModel.NO_SELECTION);
-			appTableMdl.setTable(appTableCtr);
-			appTableCtr.setTableDataModel(appTableMdl);
-			appTableCtr.setSortColumn(0, true);
-
-			// NEU
-			appTableCtr.addControllerListener(this);
-
-			vcApp.put("appointmentTable", appTableCtr.getInitialComponent());
-			tabbedPane.addTab(translate("ExamEditorController.tabbedPane.appointments"),
-					vcApp);
 		}
+		vcApp.contextPut("enableAppLink", enableAppLink);
+		TableGuiConfiguration tgc = new TableGuiConfiguration();
+		tgc.setMultiSelect(true);
+		tgc.setColumnMovingOffered(true);
+		tgc.setDownloadOffered(true);
+		tgc.setTableEmptyMessage(translate("ExamEditorController.appointmentTable.empty"));
+		appTableCtr = new TableController(tgc, ureq, getWindowControl(), getTranslator());
+		appTableCtr.setMultiSelect(true);
+		appTableCtr.addMultiSelectAction("ExamEditorController.appointmentTable.edit", "appTable.edit");
+		if (exam.getIsOral())
+			appTableCtr.addMultiSelectAction("ExamEditorController.appointmentTable.del", "appTable.del");
+		List<Appointment> appList = AppointmentManager.getInstance().findAllAppointmentsByExamId(exam.getKey());
+		appTableMdl = new AppointmentTableModel(ureq.getLocale(), appList, AppointmentTableModel.NO_SELECTION);
+		appTableMdl.setTable(appTableCtr);
+		appTableCtr.setTableDataModel(appTableMdl);
+		appTableCtr.setSortColumn(0, true);
 
-		editEarmarkedForm = new EditEarmarkedForm(ureq,
-				this.getWindowControl(), "editEarmarkedForm", getTranslator(), exam
-						.getEarmarkedEnabled());
-		editEarmarkedForm.addControllerListener(this);
-		tabbedPane.addTab(translate("ExamEditorController.tabbedPane.earmarked"),
-				editEarmarkedForm.getInitialComponent());
-		
-		if(exam.getIsOral()) { // only oral exams can have multiSubscription
-			editMultiSubscriptionForm = new EditMultiSubscriptionForm(ureq, getWindowControl(), exam.getIsMultiSubscription());
-			editMultiSubscriptionForm.addControllerListener(this);
-			tabbedPane.addTab(translate("EditMultiSubscriptionForm.name"), editMultiSubscriptionForm.getInitialComponent());
-		}
+		// NEU
+		appTableCtr.addControllerListener(this);
+
+		vcApp.put("appointmentTable", appTableCtr.getInitialComponent());
+		tabbedPane.addTab(translate("ExamEditorController.tabbedPane.appointments"), vcApp);
 
 		ExamCatalogController ecc = new ExamCatalogController(ureq, this
 				.getWindowControl(), exam);
@@ -346,12 +314,12 @@ public class ExamEditorController extends BasicController {
 					appTableCtr.modelChanged();
 				}
 			}
-		} else if (source == editCommentsForm) {
+		} else if (source == editDescriptionForm) {
 
 			if (event == Form.EVNT_VALIDATION_OK) {
 
 				exam = ExamDBManager.getInstance().findExamByID(exam.getKey());
-				exam.setComments(editCommentsForm.getComments());
+				exam.setComments(editDescriptionForm.getDescription());
 				ExamDBManager.getInstance().updateExam(exam);
 			}
 		} else if (source == editRegForm) {
@@ -362,25 +330,12 @@ public class ExamEditorController extends BasicController {
 				exam.setRegStartDate(editRegForm.getRegStart());
 				exam.setRegEndDate(editRegForm.getRegEnd());
 				exam.setSignOffDate(editRegForm.getSignOff());
-				ExamDBManager.getInstance().updateExam(exam);
+
+				exam.setEarmarkedEnabled(editRegForm.getEarmarked());
+				exam.setIsMultiSubscription(editRegForm.getMultiSubscription());
+
 				this.createTabbedPane(ureq);
 				tabbedPane.setSelectedPane(1);
-			}
-		} else if (source == editEarmarkedForm) {
-			
-			if (event == Form.EVNT_VALIDATION_OK) {
-				
-				// TODO: hier müssen entweder die vorgemerkten studenten
-				// gelöscht oder in die registrierten liste übernommen werden
-				exam = ExamDBManager.getInstance().findExamByID(exam.getKey());
-				exam.setEarmarkedEnabled(editEarmarkedForm.getEarmarked());
-				ExamDBManager.getInstance().updateExam(exam);
-			}
-		} else if (source == editMultiSubscriptionForm) {
-			if (event == Form.EVNT_VALIDATION_OK) {
-				exam = ExamDBManager.getInstance().findExamByID(exam.getKey());
-				exam.setIsMultiSubscription(editMultiSubscriptionForm.getMultiSubscription());
-				ExamDBManager.getInstance().updateExam(exam);
 			}
 		} else if (source == createAppForm) {
 

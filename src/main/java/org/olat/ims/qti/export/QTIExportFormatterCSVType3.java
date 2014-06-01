@@ -100,8 +100,8 @@ public class QTIExportFormatterCSVType3 extends QTIExportFormatter{
 		StringBuilder hR2 = new StringBuilder();
 
 		int i = 1;
-		for (Iterator iter = qtiItemObjectList.iterator(); iter.hasNext();) {
-			QTIItemObject item = (QTIItemObject) iter.next();
+		for (Iterator<QTIItemObject> iter = qtiItemObjectList.iterator(); iter.hasNext();) {
+			QTIItemObject item = iter.next();
 			if(displayItem(qeif.getExportItemConfig(item))){
 				hR1.append(emb);
 				hR1.append(escape(item.getItemTitle()));
@@ -121,12 +121,12 @@ public class QTIExportFormatterCSVType3 extends QTIExportFormatter{
 				hR1.append(emb);
 		
 				if (qeif.getExportItemConfig(item).hasResponseCols()){
-					List responseColumnHeaders = item.getResponseColumnHeaders();
-					for (Iterator iterator = responseColumnHeaders.iterator(); iterator.hasNext();) {
+					List<String> responseColumnHeaders = item.getResponseColumnHeaders();
+					for (Iterator<String> iterator = responseColumnHeaders.iterator(); iterator.hasNext();) {
 						// HeaderRow1
 						hR1.append(sep);
 					    // HeaderRow2
-					    String columnHeader = (String) iterator.next();
+					    String columnHeader = iterator.next();
 						hR2.append(i);
 						hR2.append("_");
 						hR2.append(columnHeader);
@@ -179,12 +179,6 @@ public class QTIExportFormatterCSVType3 extends QTIExportFormatter{
 	}
 
 	public void openResultSet(QTIExportSet set) {
-
-		String instUsrIdent = set.getInstitutionalUserIdentifier();
-		if (instUsrIdent == null){
-			instUsrIdent = translator.translate("column.field.notavailable");
-		}
-
 		if (anonymizerCallback == null)
 			sb.append(row_counter);
 		else 
@@ -198,13 +192,13 @@ public class QTIExportFormatterCSVType3 extends QTIExportFormatter{
 	}
 
 	public void visit(QTIExportItem eItem) {
-		List responseColumns = eItem.getResponseColumns();
+		List<String> responseColumns = eItem.getResponseColumns();
 		QTIExportItemFormatConfig itemFormatConfig = eItem.getConfig();
 		
 		if(displayItem(itemFormatConfig)){	
 			if (itemFormatConfig.hasResponseCols()){
-				for (Iterator iter = responseColumns.iterator(); iter.hasNext();) {
-					String responseColumn = (String) iter.next();
+				for (Iterator<String> iter = responseColumns.iterator(); iter.hasNext();) {
+					String responseColumn = iter.next();
 					sb.append(emb);
 					sb.append(escape(responseColumn));
 					sb.append(emb);
@@ -262,8 +256,8 @@ public class QTIExportFormatterCSVType3 extends QTIExportFormatter{
 		sb.append(legend);
 		sb.append(car+car);
 		int y = 1;
-		for (Iterator iter = qtiItemObjectList.iterator(); iter.hasNext();) {
-			QTIItemObject element = (QTIItemObject) iter.next();
+		for (Iterator<QTIItemObject> iter = qtiItemObjectList.iterator(); iter.hasNext();) {
+			QTIItemObject element = iter.next();
 			
 			sb.append(element.getItemIdent());
 			sb.append(sep);
@@ -284,7 +278,7 @@ public class QTIExportFormatterCSVType3 extends QTIExportFormatter{
 			sb.append(car);
 			// CELFI#107 END
 			
-			List responseLabelMaterials = element.getResponseLabelMaterials();
+			List<String> responseLabelMaterials = element.getResponseLabelMaterials();
 			
 			for (int i = 0; i < element.getResponseIdentifier().size() ; i++) {
 				sb.append(sep+sep);
@@ -399,11 +393,10 @@ public class QTIExportFormatterCSVType3 extends QTIExportFormatter{
   	return s.replaceAll(emb, emb + emb);
   }
   
-  @SuppressWarnings("unchecked")
 	private void setDefaultQTIItemConfigs(){
-		Map itConfigs = new HashMap();
+		Map<Class<?>, QTIExportItemFormatConfig> itConfigs = new HashMap<>();
   	
-		for (Iterator iter = qtiItemObjectList.iterator(); iter.hasNext();) {
+		for (Iterator<QTIItemObject> iter = qtiItemObjectList.iterator(); iter.hasNext();) {
 			QTIItemObject item = (QTIItemObject) iter.next();
 			if (item.getItemIdent().startsWith(ItemParser.ITEM_PREFIX_SCQ)){
 				if (itConfigs.get(QTIExportSCQItemFormatConfig.class) == null){

@@ -35,7 +35,7 @@ import org.olat.admin.user.delete.service.UserDeletionManager;
 import org.olat.basesecurity.AuthHelper;
 import org.olat.core.CoreSpringFactory;
 import org.olat.core.dispatcher.Dispatcher;
-import org.olat.core.dispatcher.DispatcherAction;
+import org.olat.core.dispatcher.DispatcherModule;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.UserRequestImpl;
 import org.olat.core.gui.Windows;
@@ -48,6 +48,7 @@ import org.olat.core.id.context.BusinessControl;
 import org.olat.core.id.context.BusinessControlFactory;
 import org.olat.core.logging.OLog;
 import org.olat.core.logging.Tracing;
+import org.olat.core.logging.activity.ThreadLocalUserActivityLoggerInstaller;
 import org.olat.core.util.StringHelper;
 import org.olat.core.util.UserSession;
 import org.olat.core.util.WebappHelper;
@@ -83,10 +84,12 @@ import org.olat.restapi.security.RestSecurityHelper;
 public class RESTDispatcher implements Dispatcher {
 	private static final OLog log = Tracing.createLoggerFor(RESTDispatcher.class);
 
-	public void execute(HttpServletRequest request, HttpServletResponse response, String uriPrefix) {
+	@Override
+	public void execute(HttpServletRequest request, HttpServletResponse response) {
 		//
 		// create a ContextEntries String which can be used to create a BusinessControl -> move to 
 		//
+		String uriPrefix = DispatcherModule.getLegacyUriPrefix(request);
 		final String origUri = request.getRequestURI();
 		String restPart = origUri.substring(uriPrefix.length());
 		try {
@@ -99,7 +102,7 @@ public class RESTDispatcher implements Dispatcher {
 		if (split.length % 2 != 0) {
 			// assert(split.length % 2 == 0);
 			//The URL is not a valid business path
-			DispatcherAction.sendBadRequest(origUri, response);
+			DispatcherModule.sendBadRequest(origUri, response);
 			log.warn("URL is not valid: "+restPart);
 			return;
 		}
@@ -123,11 +126,11 @@ public class RESTDispatcher implements Dispatcher {
 			BusinessControl bc = BusinessControlFactory.getInstance().createFromString(businessPath);
 			if(!bc.hasContextEntry()) {
 				//The URL is not a valid business path
-				DispatcherAction.sendBadRequest(origUri, response);
+				DispatcherModule.sendBadRequest(origUri, response);
 				return;
 			}
 		} catch (Exception e) {
-			DispatcherAction.sendBadRequest(origUri, response);
+			DispatcherModule.sendBadRequest(origUri, response);
 			log.warn("Error with business path: " + origUri, e);
 			return;
 		}
@@ -136,6 +139,9 @@ public class RESTDispatcher implements Dispatcher {
 		// create the olat ureq and get an associated main window to spawn the "tab"
 		//
 		UserSession usess = CoreSpringFactory.getImpl(UserSessionManager.class).getUserSession(request);
+		if(usess != null) {
+			ThreadLocalUserActivityLoggerInstaller.initUserActivityLogger(request);
+		}
 		UserRequest ureq = null;
 		try {
 			//upon creation URL is checked for 
@@ -150,7 +156,7 @@ public class RESTDispatcher implements Dispatcher {
 			if(log.isDebug()){
 				log.debug("Bad Request "+request.getPathInfo());
 			}
-			DispatcherAction.sendBadRequest(request.getPathInfo(), response);
+			DispatcherModule.sendBadRequest(request.getPathInfo(), response);
 			return;
 		}
 		//XX:GUIInterna.setLoadPerformanceMode(ureq);		
@@ -187,14 +193,14 @@ public class RESTDispatcher implements Dispatcher {
 						UserDeletionManager.getInstance().setIdentityAsActiv(restIdentity);
 					} else {
 						//error, redirect to login screen
-						DispatcherAction.redirectToDefaultDispatcher(response);
+						DispatcherModule.redirectToDefaultDispatcher(response);
 					}
 				} else if (Windows.getWindows(usess).getAttribute("AUTHCHIEFCONTROLLER") == null) {
 					// Session is already available, but no main window (Head-less REST
 					// session). Only create the base chief controller and the window
 					Window currentWindow = AuthHelper.createAuthHome(ureq).getWindow();
 					//the user is authenticated successfully with a security token, we can set the authenticated path
-					currentWindow.setUriPrefix(WebappHelper.getServletContextPath() + DispatcherAction.PATH_AUTHENTICATED);
+					currentWindow.setUriPrefix(WebappHelper.getServletContextPath() + DispatcherModule.PATH_AUTHENTICATED);
 					Windows ws = Windows.getWindows(ureq);
 					ws.registerWindow(currentWindow);
 					// no need to call setIdentityAsActive as this was already done by RestApiLoginFilter...
@@ -213,10 +219,10 @@ public class RESTDispatcher implements Dispatcher {
 				// session). Only create the base chief controller and the window
 				AuthHelper.createAuthHome(ureq);
 				String url = getRedirectToURL(usess) + ";jsessionid=" + usess.getSessionInfo().getSession().getId();
-				DispatcherAction.redirectTo(response, url);
+				DispatcherModule.redirectTo(response, url);
 			} else {
 				String url = getRedirectToURL(usess);
-				DispatcherAction.redirectTo(response, url);
+				DispatcherModule.redirectTo(response, url);
 			}
 		} else {
 			//prepare for redirect
@@ -234,17 +240,17 @@ public class RESTDispatcher implements Dispatcher {
 					UserDeletionManager.getInstance().setIdentityAsActiv(invite);					
 					//logged in as invited user, continue
 					String url = getRedirectToURL(usess);
-					DispatcherAction.redirectTo(response, url);
+					DispatcherModule.redirectTo(response, url);
 				} else if (loginStatus == AuthHelper.LOGIN_NOTAVAILABLE) {
-					DispatcherAction.redirectToServiceNotAvailable(response);
+					DispatcherModule.redirectToServiceNotAvailable(response);
 				} else {
 					//error, redirect to login screen
-					DispatcherAction.redirectToDefaultDispatcher(response); 
+					DispatcherModule.redirectToDefaultDispatcher(response); 
 				}
 			} else {
 				String guestAccess = ureq.getParameter(AuthenticatedDispatcher.GUEST);
 				if (guestAccess == null || !LoginModule.isGuestLoginLinksEnabled()) {
-					DispatcherAction.redirectToDefaultDispatcher(response);
+					DispatcherModule.redirectToDefaultDispatcher(response);
 					return;
 				} else if (guestAccess.equals(AuthenticatedDispatcher.TRUE)) {
 					// try to log in as anonymous
@@ -254,12 +260,12 @@ public class RESTDispatcher implements Dispatcher {
 					if ( loginStatus == AuthHelper.LOGIN_OK) {
 						//logged in as anonymous user, continue
 						String url = getRedirectToURL(usess);
-						DispatcherAction.redirectTo(response, url);
+						DispatcherModule.redirectTo(response, url);
 					} else if (loginStatus == AuthHelper.LOGIN_NOTAVAILABLE) {
-						DispatcherAction.redirectToServiceNotAvailable(response);
+						DispatcherModule.redirectToServiceNotAvailable(response);
 					} else {
 						//error, redirect to login screen
-						DispatcherAction.redirectToDefaultDispatcher(response); 
+						DispatcherModule.redirectToDefaultDispatcher(response); 
 					}
 				}
 			}
@@ -303,7 +309,7 @@ public class RESTDispatcher implements Dispatcher {
 		ChiefController cc = (ChiefController) Windows.getWindows(usess).getAttribute("AUTHCHIEFCONTROLLER");
 		Window w = cc.getWindow();
 
-		URLBuilder ubu = new URLBuilder(WebappHelper.getServletContextPath() + DispatcherAction.PATH_AUTHENTICATED, w.getInstanceId(), String.valueOf(w.getTimestamp()), null);
+		URLBuilder ubu = new URLBuilder(WebappHelper.getServletContextPath() + DispatcherModule.PATH_AUTHENTICATED, w.getInstanceId(), String.valueOf(w.getTimestamp()), null);
 		StringOutput sout = new StringOutput(30);
 		ubu.buildURI(sout, null, null);
 		

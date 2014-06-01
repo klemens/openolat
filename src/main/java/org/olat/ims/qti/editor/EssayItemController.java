@@ -35,6 +35,7 @@ import org.olat.core.gui.control.Event;
 import org.olat.core.gui.control.WindowControl;
 import org.olat.core.gui.control.generic.closablewrapper.CloseableModalController;
 import org.olat.core.gui.translator.Translator;
+import org.olat.core.helpers.Settings;
 import org.olat.core.util.Util;
 import org.olat.ims.qti.editor.beecom.objects.EssayQuestion;
 import org.olat.ims.qti.editor.beecom.objects.Item;
@@ -79,7 +80,11 @@ public class EssayItemController extends DefaultController implements Controller
 		essayQuestion = (EssayQuestion) item.getQuestion();
 		main.contextPut("question", essayQuestion);
 		main.contextPut("response", essayQuestion.getEssayResponse());
-		main.contextPut("mediaBaseURL", qtiPackage.getMediaBaseURL());
+		String mediaBaseUrl = qtiPackage.getMediaBaseURL();
+		if(mediaBaseUrl != null && !mediaBaseUrl.startsWith("http")) {
+			mediaBaseUrl = Settings.getServerContextPathURI() + mediaBaseUrl;
+		}
+		main.contextPut("mediaBaseURL", mediaBaseUrl);
 		main.contextPut("isRestrictedEdit", restrictedEdit ? Boolean.TRUE : Boolean.FALSE);
 		main.contextPut("isSurveyMode", qtiPackage.getQTIDocument().isSurvey() ? "true" : "false");
 		
@@ -121,13 +126,16 @@ public class EssayItemController extends DefaultController implements Controller
 				try {
 					String score = ureq.getParameter("single_score");
 					float sc = Float.parseFloat(score);
-					if(sc <= 0.0001f) {
+					if(sc <= 0.0001f && !qtiPackage.getQTIDocument().isSurvey()) {
 						getWindowControl().setWarning(trnsltr.translate("editor.info.mc.zero.points"));
 					}
 					essayQuestion.setMinValue(0.0f);
 					essayQuestion.setMaxValue(sc);
+					essayQuestion.setSingleCorrectScore(sc);
 				} catch(Exception e) {
-					getWindowControl().setWarning(trnsltr.translate("editor.info.mc.zero.points"));
+					if(!qtiPackage.getQTIDocument().isSurvey()) {
+						getWindowControl().setWarning(trnsltr.translate("editor.info.mc.zero.points"));
+					}
 				}
 
 				if (restrictedEdit) {

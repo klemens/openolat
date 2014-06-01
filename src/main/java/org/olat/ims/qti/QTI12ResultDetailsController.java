@@ -29,8 +29,10 @@ import java.io.File;
 import java.util.List;
 
 import org.dom4j.Document;
+import org.olat.core.CoreSpringFactory;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.Component;
+import org.olat.core.gui.components.EscapeMode;
 import org.olat.core.gui.components.table.DefaultColumnDescriptor;
 import org.olat.core.gui.components.table.TableController;
 import org.olat.core.gui.components.table.TableEvent;
@@ -111,8 +113,8 @@ public class QTI12ResultDetailsController extends BasicController {
 		this.assessedIdentity = assessedIdentity;
 		this.repositoryEntry = re;
 		this.type = type;
-		this.iqm = IQManager.getInstance();
-		this.qrm = QTIResultManager.getInstance();
+		iqm = CoreSpringFactory.getImpl(IQManager.class);
+		qrm = QTIResultManager.getInstance();
 		
 		String resourcePath = courseResourceableId + File.separator + nodeIdent;
 		qtiPersister = new FilePersister(assessedIdentity, resourcePath);
@@ -123,7 +125,7 @@ public class QTI12ResultDetailsController extends BasicController {
 	private boolean checkEssay() {
 		TestFileResource fr = new TestFileResource();
 		fr.overrideResourceableId(repositoryEntry.getOlatResource().getResourceableId());
-		QTIEditorPackage qtiPackage = new QTIEditorPackageImpl(getIdentity(), fr, getTranslator());
+		QTIEditorPackage qtiPackage = new QTIEditorPackageImpl(getIdentity(), fr, null, getTranslator());
 		Assessment ass = qtiPackage.getQTIDocument().getAssessment();
 
 		//Sections with their Items
@@ -150,8 +152,12 @@ public class QTI12ResultDetailsController extends BasicController {
 		TableGuiConfiguration tableConfig = new TableGuiConfiguration();
 		tableCtr = new TableController(tableConfig, ureq, getWindowControl(), getTranslator());
 		tableCtr.addColumnDescriptor(new DefaultColumnDescriptor("column.header.date", 0, null, ureq.getLocale()));
-		tableCtr.addColumnDescriptor(new DefaultColumnDescriptor("column.header.duration", 1, null, ureq.getLocale()));
-		tableCtr.addColumnDescriptor(new DefaultColumnDescriptor("column.header.assesspoints", 2, null, ureq.getLocale()));
+		DefaultColumnDescriptor durationCol = new DefaultColumnDescriptor("column.header.duration", 1, null, ureq.getLocale());
+		durationCol.setEscapeHtml(EscapeMode.none);
+		tableCtr.addColumnDescriptor(durationCol);
+		DefaultColumnDescriptor pointCol = new DefaultColumnDescriptor("column.header.assesspoints", 2, null, ureq.getLocale());
+		pointCol.setEscapeHtml(EscapeMode.none);
+		tableCtr.addColumnDescriptor(pointCol);
 		tableCtr.addColumnDescriptor(new QTISelectColumnDescriptor("column.header.action", 3, ureq.getLocale(), getTranslator()));
 
 		List<QTIResultSet> resultSets = qrm.getResultSets(courseResourceableId, nodeIdent, repositoryEntry.getKey(), assessedIdentity);
@@ -221,7 +227,7 @@ public class QTI12ResultDetailsController extends BasicController {
 				if(tableModel.isTestRunning()) {
 					IQRetrievedEvent retrieveEvent = new IQRetrievedEvent(assessedIdentity, courseResourceableId, nodeIdent);
 					CoordinatorManager.getInstance().getCoordinator().getEventBus().fireEventToListenersOf(retrieveEvent, retrieveEvent);
-					doRetrieveTest(ureq);
+					doRetrieveTest();
 				}
 			}
 			removeAsListenerAndDispose(retrieveConfirmationCtr);
@@ -247,7 +253,7 @@ public class QTI12ResultDetailsController extends BasicController {
 	 * result set, pass the score to the course node.
 	 * @param ureq
 	 */
-	protected void doRetrieveTest(UserRequest ureq2) {
+	private void doRetrieveTest() {
 		ICourse course = CourseFactory.loadCourse(courseResourceableId);
 		AssessableCourseNode testNode = (AssessableCourseNode)course.getRunStructure().getNode(nodeIdent);
 		ModuleConfiguration modConfig = testNode.getModuleConfiguration();

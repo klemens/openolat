@@ -22,19 +22,17 @@ package org.olat.modules.sharedfolder;
 import static org.olat.modules.sharedfolder.SharedFolderWebDAVProvider.readOnlyCallback;
 
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
-import org.olat.core.commons.persistence.PersistenceHelper;
+import org.olat.core.commons.services.webdav.manager.WebDAVMergeSource;
 import org.olat.core.id.Identity;
 import org.olat.core.id.Roles;
 import org.olat.core.logging.OLog;
 import org.olat.core.logging.Tracing;
-import org.olat.core.util.Formatter;
-import org.olat.core.util.vfs.MergeSource;
 import org.olat.core.util.vfs.VFSContainer;
-import org.olat.core.util.vfs.VFSItem;
-import org.olat.core.util.vfs.VFSManager;
-import org.olat.core.util.vfs.filters.VFSItemFilter;
 import org.olat.fileresource.types.SharedFolderFileResource;
 import org.olat.repository.RepositoryEntry;
 import org.olat.repository.RepositoryManager;
@@ -45,150 +43,43 @@ import org.olat.repository.RepositoryManager;
  * 
  * @author srosse, stephane.rosse@frentix.com, http://www.frentix.com
  */
-public class SharedFolderWebDAVMergeSource extends MergeSource {
+public class SharedFolderWebDAVMergeSource extends WebDAVMergeSource {
 	
-	private OLog log = Tracing.createLoggerFor(SharedFolderWebDAVMergeSource.class);
+	private static final OLog log = Tracing.createLoggerFor(SharedFolderWebDAVMergeSource.class);
 
-	private boolean init = false;
-	private final Identity identity;
 	private final List<String> publiclyReadableFolders;
 	
 	public SharedFolderWebDAVMergeSource(Identity identity, List<String> publiclyReadableFolders) {
-		super(null, "root");
-		this.identity = identity;
+		super(identity);
 		this.publiclyReadableFolders = publiclyReadableFolders;
 	}
 
 	@Override
-	public List<VFSItem> getItems() {
-		if(!init) {
-			init();
-		}
-		return super.getItems();
-	}
-
-	@Override
-	public List<VFSItem> getItems(VFSItemFilter filter) {
-		if(!init) {
-			init();
-		}
-		return super.getItems(filter);
-	}
-
-	@Override
-	public VFSItem resolve(String path) {
-		if(init) {
-			return super.resolve(path);
-		}
-
-		path = VFSManager.sanitizePath(path);
-		if (path.equals("/")) {
-			return this;
-		}
-		
-		String childName = VFSManager.extractChild(path);
-		RepositoryManager repoManager = RepositoryManager.getInstance();
-		
-		//lookup in my shared folders
-		List<RepositoryEntry> ownerEntries = repoManager.queryByOwner(identity, SharedFolderFileResource.TYPE_NAME);
-		for (RepositoryEntry re : ownerEntries) {
-			String name = Formatter.makeStringFilesystemSave(re.getDisplayname());
-			if(childName.equals(name)) {
-				VFSContainer shared = getSharedContainer(re, false);
-				String nextPath = path.substring(childName.length() + 1);
-				return shared.resolve(nextPath);
-			}	
-		}
-		
-		if (publiclyReadableFolders != null && publiclyReadableFolders.size() > 0) {
-			String firstItem = publiclyReadableFolders.get(0);
-			// If the first value in the list is '*', list all resource folders.
-			if (firstItem != null && firstItem.equals("*")) {
-				// fake role that represents normally logged in user
-				Roles registeredUserRole = new Roles(false, false, false, false, false, false, false);
-				//fxdiff VCRP-1,2: access control of resources
-				List<RepositoryEntry> allEntries = repoManager.queryByTypeLimitAccess(identity, SharedFolderFileResource.TYPE_NAME, registeredUserRole);
-				for (RepositoryEntry re : allEntries) {
-					String name = Formatter.makeStringFilesystemSave(re.getDisplayname());
-					if(childName.equals(name)) {
-						VFSContainer shared = getSharedContainer(re, true);
-						String nextPath = path.substring(childName.length() + 1);
-						return shared.resolve(nextPath);
-					}	
-				}
-			} else {
-				// only list the specified folders
-				List<Long> publiclyReadableFoldersKeys = getSharedKeys();	
-				List<RepositoryEntry> entries = repoManager.lookupRepositoryEntries(publiclyReadableFoldersKeys);
-				for (RepositoryEntry re:entries) {
-					String name = Formatter.makeStringFilesystemSave(re.getDisplayname());
-					if (childName.equals(name) && 
-							(re.getAccess() >= RepositoryEntry.ACC_USERS || (re.getAccess() == RepositoryEntry.ACC_OWNERS && re.isMembersOnly()))) {
-						
-						VFSContainer shared = getSharedContainer(re, true);
-						String nextPath = path.substring(childName.length() + 1);
-						return shared.resolve(nextPath);
-					}
-				}
-			}
-		}
-		
-		return super.resolve(path);
-	}
-	
-	private VFSContainer getSharedContainer(RepositoryEntry re, boolean readOnly) {
-		SharedFolderManager sfm = SharedFolderManager.getInstance();
-		VFSContainer shared = sfm.getNamedSharedFolder(re, true);
-		if(readOnly) {
-			shared.setLocalSecurityCallback(readOnlyCallback);
-		}
-		return shared;
-	}
-	
-	/**
-	 * Outsourced helper method for adding an entry to the root container.
-	 * 
-	 * @param rootContainer
-	 * @param sfm
-	 * @param ownerEntries
-	 * @param entry
-	 */
-	private void addReadonlyFolder(MergeSource rootContainer, RepositoryEntry entry, SharedFolderManager sfm,
-			List<RepositoryEntry> addedEntries) {
-		//
-		if (addedEntries == null || !PersistenceHelper.listContainsObjectByKey(addedEntries, entry)) {
-			// add the entry (readonly)
-			VFSContainer folder = sfm.getNamedSharedFolder(entry, true);
-			folder.setLocalSecurityCallback(readOnlyCallback);
-			rootContainer.addContainer(folder);
-			addedEntries.add(entry);
-		}
-	}
-	
-	@Override
-	protected void init() {
-		super.init();
+	protected List<VFSContainer> loadMergedContainers() {
 		SharedFolderManager sfm = SharedFolderManager.getInstance();
 		RepositoryManager repoManager = RepositoryManager.getInstance();
-		List<RepositoryEntry> ownerEntries = (List<RepositoryEntry>) repoManager.queryByOwner(identity, SharedFolderFileResource.TYPE_NAME);
-		for (RepositoryEntry repoEntry : ownerEntries) {
-			addContainer(sfm.getNamedSharedFolder(repoEntry, true));
+		List<VFSContainer> containers = new ArrayList<>();
+		Set<Long> addedEntries = new HashSet<>();
+		List<RepositoryEntry> ownerEntries = (List<RepositoryEntry>) repoManager.queryByOwner(getIdentity(), SharedFolderFileResource.TYPE_NAME);
+		for (RepositoryEntry entry : ownerEntries) {
+			VFSContainer container = sfm.getNamedSharedFolder(entry, true);
+			addContainerToList(container, containers);
+			addedEntries.add(entry.getKey());
 		}
 
 		// see /olat3/webapp/WEB-INF/olat_extensions.xml
 		if (publiclyReadableFolders != null && publiclyReadableFolders.size() > 0) {
 			// Temporarily save added entries. This is needed to make sure not to add an entry twice.
-			List<RepositoryEntry> addedEntries = new ArrayList<RepositoryEntry>(ownerEntries);
+			
 			String firstItem = publiclyReadableFolders.get(0);
 			// If the first value in the list is '*', list all resource folders.
 			if (firstItem != null && firstItem.equals("*")) {
 				// fake role that represents normally logged in user
 				Roles registeredUserRole = new Roles(false, false, false, false, false, false, false);
-				//fxdiff VCRP-1,2: access control of resources
-				List<RepositoryEntry> allEntries = repoManager.queryByTypeLimitAccess(identity, SharedFolderFileResource.TYPE_NAME,
-						registeredUserRole);
+				List<String> types = Collections.singletonList(SharedFolderFileResource.TYPE_NAME);
+				List<RepositoryEntry> allEntries = repoManager.queryByTypeLimitAccess(getIdentity(), types, registeredUserRole);
 				for (RepositoryEntry entry : allEntries) {
-					addReadonlyFolder(this, entry, sfm, addedEntries);
+					addReadonlyFolder(entry, sfm, addedEntries, containers);
 				}
 			} else {
 				// only list the specified folders
@@ -197,15 +88,29 @@ public class SharedFolderWebDAVMergeSource extends MergeSource {
 				for (RepositoryEntry entry:entries) {
 					if (entry.getAccess() >= RepositoryEntry.ACC_USERS || (entry.getAccess() == RepositoryEntry.ACC_OWNERS && entry.isMembersOnly())) {
 						// add folder (which is a repo entry) to root container if not present
-						addReadonlyFolder(this, entry, sfm, addedEntries);
+						addReadonlyFolder(entry, sfm, addedEntries, containers);
 					} else {
 						log.warn("Access denied on entry::" + entry.getKey(), null);
 					}
 				}
 			}
 		}
-		init = true;
+
+		return containers;
 	}
+
+	private void addReadonlyFolder(RepositoryEntry entry, SharedFolderManager sfm,
+			Set<Long> addedEntries, List<VFSContainer> containers) {
+		//
+		if (!addedEntries.contains(entry.getKey())) {
+			// add the entry (readonly)
+			VFSContainer folder = sfm.getNamedSharedFolder(entry, true);
+			folder.setLocalSecurityCallback(readOnlyCallback);
+			addContainerToList(folder, containers);
+			addedEntries.add(entry.getKey());
+		}
+	}
+	
 	
 	private List<Long> getSharedKeys() {
 		List<Long> publiclyReadableFoldersKeys = new ArrayList<Long>();

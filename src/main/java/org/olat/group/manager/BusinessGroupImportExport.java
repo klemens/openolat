@@ -46,7 +46,6 @@ import org.olat.group.area.BGAreaManager;
 import org.olat.group.model.BGAreaReference;
 import org.olat.group.model.BusinessGroupEnvironment;
 import org.olat.group.model.BusinessGroupReference;
-import org.olat.properties.Property;
 import org.olat.repository.RepositoryEntry;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -69,8 +68,6 @@ public class BusinessGroupImportExport {
 	private BGAreaManager areaManager;
 	@Autowired
 	private BusinessGroupService businessGroupService;
-	@Autowired
-	private BusinessGroupPropertyDAO businessGroupPropertyManager;
 	@Autowired
 	private BusinessGroupModule groupModule;
 	
@@ -135,12 +132,15 @@ public class BusinessGroupImportExport {
 		}
 		// collab tools
 
+		String[] availableTools = CollaborationToolsFactory.getInstance().getAvailableTools().clone();
 		CollabTools toolsConfig = new CollabTools();
 		CollaborationTools ct = CollaborationToolsFactory.getInstance().getOrCreateCollaborationTools(group);
-		for (int i = 0; i < CollaborationTools.TOOLS.length; i++) {
+		for (int i = 0; i < availableTools.length; i++) {
 			try {
-				Field field = toolsConfig.getClass().getField(CollaborationTools.TOOLS[i]);
-				field.setBoolean(toolsConfig, ct.isToolEnabled(CollaborationTools.TOOLS[i]));
+				Field field = toolsConfig.getClass().getField(availableTools[i]);
+				field.setBoolean(toolsConfig, ct.isToolEnabled(availableTools[i]));
+			} catch(NoSuchFieldException e) {
+				//no field to fill (hasOpenMeetings is not set for backwards compatibility)
 			} catch (Exception e) {
 				log.error("", e);
 			}
@@ -172,10 +172,9 @@ public class BusinessGroupImportExport {
 			newGroup.areaRelations.add(areaRelation.getName());
 		}
 		// export properties
-		Property property = businessGroupPropertyManager.findProperty(group);
-		boolean showOwners = businessGroupPropertyManager.showOwners(property);
-		boolean showParticipants = businessGroupPropertyManager.showPartips(property);
-		boolean showWaitingList = businessGroupPropertyManager.showWaitingList(property);
+		boolean showOwners = group.isOwnersVisibleIntern();
+		boolean showParticipants = group.isParticipantsVisibleIntern();
+		boolean showWaitingList = group.isWaitingListVisibleIntern();
 
 		newGroup.showOwners = showOwners;
 		newGroup.showParticipants = showParticipants;
@@ -259,18 +258,33 @@ public class BusinessGroupImportExport {
 					enableAutoCloseRanks = group.autoCloseRanks.booleanValue();
 				}
 				
+				// get properties
+				boolean showOwners = true;
+				boolean showParticipants = true;
+				boolean showWaitingList = true;
+				if (group.showOwners != null) {
+					showOwners = group.showOwners;
+				}
+				if (group.showParticipants != null) {
+					showParticipants = group.showParticipants;
+				}
+				if (group.showWaitingList != null) {
+					showWaitingList = group.showWaitingList;
+				}
+				
 				BusinessGroup newGroup = businessGroupService.createBusinessGroup(null, groupName, groupDesc, groupMinParticipants, groupMaxParticipants, waitingList, enableAutoCloseRanks, re);
 				//map the group
 				env.getGroups().add(new BusinessGroupReference(newGroup, group.key, group.name));
 				// get tools config
+				String[] availableTools = CollaborationToolsFactory.getInstance().getAvailableTools().clone();
 				CollabTools toolsConfig = group.tools;
 				CollaborationTools ct = CollaborationToolsFactory.getInstance().getOrCreateCollaborationTools(newGroup);
-				for (int i = 0; i < CollaborationTools.TOOLS.length; i++) {
+				for (int i = 0; i < availableTools.length; i++) {
 					try {
-						Field field = toolsConfig.getClass().getField(CollaborationTools.TOOLS[i]);
+						Field field = toolsConfig.getClass().getField(availableTools[i]);
 						Boolean val = field.getBoolean(toolsConfig);
 						if (val != null) {
-							ct.setToolEnabled(CollaborationTools.TOOLS[i], val);
+							ct.setToolEnabled(availableTools[i], val);
 						}
 					} catch (Exception e) {
 						log.error("", e);
@@ -300,21 +314,9 @@ public class BusinessGroupImportExport {
 					}
 				}
 
-				// get properties
-				boolean showOwners = true;
-				boolean showParticipants = true;
-				boolean showWaitingList = true;
-				if (group.showOwners != null) {
-					showOwners = group.showOwners;
-				}
-				if (group.showParticipants != null) {
-					showParticipants = group.showParticipants;
-				}
-				if (group.showWaitingList != null) {
-					showWaitingList = group.showWaitingList;
-				}
+				
 				boolean download = groupModule.isUserListDownloadDefaultAllowed();
-				businessGroupPropertyManager.updateDisplayMembers(newGroup, showOwners, showParticipants, showWaitingList, false, false, false, download);
+				newGroup = businessGroupService.updateDisplayMembers(newGroup, showOwners, showParticipants, showWaitingList, false, false, false, download);
 			
 				if(dbCount++ % 3 == 0) {
 					dbInstance.commitAndCloseSession();

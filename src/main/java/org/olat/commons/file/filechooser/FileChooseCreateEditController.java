@@ -37,7 +37,7 @@ import org.olat.core.commons.modules.bc.commands.CmdUpload;
 import org.olat.core.commons.modules.bc.commands.FolderCommand;
 import org.olat.core.commons.modules.bc.components.FolderComponent;
 import org.olat.core.commons.modules.bc.meta.MetaInfo;
-import org.olat.core.commons.modules.bc.meta.MetaInfoFactory;
+import org.olat.core.commons.modules.bc.meta.tagged.MetaTagged;
 import org.olat.core.commons.modules.singlepage.SinglePageController;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.Component;
@@ -68,7 +68,6 @@ import org.olat.core.util.WebappHelper;
 import org.olat.core.util.ZipUtil;
 import org.olat.core.util.vfs.LocalFileImpl;
 import org.olat.core.util.vfs.NamedContainerImpl;
-import org.olat.core.util.vfs.OlatRelPathImpl;
 import org.olat.core.util.vfs.Quota;
 import org.olat.core.util.vfs.VFSConstants;
 import org.olat.core.util.vfs.VFSContainer;
@@ -222,7 +221,7 @@ public class FileChooseCreateEditController extends BasicController{
 		FolderComponent folderComponent = new FolderComponent(ureq, "foldercomp", namedCourseFolder, null, null);
 		folderComponent.addListener(this);
 		cmdUpload = new CmdUpload(ureq, getWindowControl(), false, false);
-		cmdUpload.execute(folderComponent, ureq, getWindowControl(), getTranslator(), true);		
+		cmdUpload.execute(folderComponent, ureq, getTranslator(), true);		
 		cmdUpload.hideFieldset();
 		listenTo(cmdUpload);
 		Panel mainPanel = new Panel("upl");
@@ -318,9 +317,9 @@ public class FileChooseCreateEditController extends BasicController{
 					// delete file
 					VFSItem item = rootContainer.resolve(cmdUpload.getFileName());
 						if (item != null && (item.canDelete() == VFSConstants.YES)) {
-							if (item instanceof OlatRelPathImpl) {
+							if (item instanceof MetaTagged) {
 								// delete all meta info
-								MetaInfo meta = MetaInfoFactory.createMetaInfoFor((OlatRelPathImpl)item);
+								MetaInfo meta = ((MetaTagged)item).getMetaInfo();
 								if (meta != null) meta.deleteAll();
 							}
 							// delete the item itself

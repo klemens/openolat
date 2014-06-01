@@ -33,7 +33,6 @@ import java.util.Map;
 
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.tabbedpane.TabbedPane;
-import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.WindowControl;
 import org.olat.core.gui.control.generic.tabbable.TabbableController;
 import org.olat.core.gui.translator.Translator;
@@ -65,7 +64,19 @@ public class ItemNode extends GenericQtiNode {
 	private QTIEditorPackage qtiPackage;
 	private TabbedPane myTabbedPane;
 	private static OLog log = Tracing.createLoggerFor(ItemNode.class);
-
+	
+	/**
+	 * 
+	 * @param theItem
+	 */
+	public ItemNode(Item theItem) {
+		super(theItem.getIdent().replace(":", ""));
+		item = theItem;
+		setMenuTitleAndAlt(item.getTitle());
+		setUserObject(item.getIdent());
+		
+	}
+	
 	/**
 	 * @param theItem
 	 * @param qtiPackage
@@ -75,28 +86,23 @@ public class ItemNode extends GenericQtiNode {
 		this.qtiPackage = qtiPackage;
 		setMenuTitleAndAlt(item.getTitle());
 		setUserObject(item.getIdent());
+	}
+	
+	@Override
+	public String getIconCssClass() {
 		if (item.isAlient()) {
-			setIconCssClass("o_mi_qtialientitem");
+			return "o_mi_qtialientitem";
 		} else {
 			int questionType = item.getQuestion().getType();
 			switch (questionType) {
-				case Question.TYPE_SC:
-					setIconCssClass("o_mi_qtisc");
-					break;
-				case Question.TYPE_MC:
-					setIconCssClass("o_mi_qtimc");
-					break;
-				case Question.TYPE_KPRIM:
-					setIconCssClass("o_mi_qtikprim");
-					break;
-				case Question.TYPE_FIB:
-					setIconCssClass("o_mi_qtifib");
-					break;
-				case Question.TYPE_ESSAY:
-					setIconCssClass("o_mi_qtiessay");
-					break;
+				case Question.TYPE_SC: return "o_mi_qtisc";
+				case Question.TYPE_MC: return "o_mi_qtimc";
+				case Question.TYPE_KPRIM: return "o_mi_qtikprim";
+				case Question.TYPE_FIB: return "o_mi_qtifib";
+				case Question.TYPE_ESSAY: return "o_mi_qtiessay";
 			}
 		}
+		return "";
 	}
 
 	/**
@@ -107,15 +113,6 @@ public class ItemNode extends GenericQtiNode {
 	public void setMenuTitleAndAlt(String title) {
 		super.setMenuTitleAndAlt(title);
 		item.setTitle(title);
-	}
-
-	/**
-	 * @see org.olat.ims.qti.editor.tree.IQtiNode#createRunController(org.olat.core.gui.UserRequest,
-	 *      org.olat.core.gui.control.WindowControl)
-	 */
-	public Controller createRunController(UserRequest ureq, WindowControl wControl) {
-		// TODO Auto-generated method stub
-		return null;
 	}
 
 	/**
@@ -138,6 +135,11 @@ public class ItemNode extends GenericQtiNode {
 			}
 		}
 		return myTabbedPane;
+	}
+
+	@Override
+	public void childNodeChanges() {
+		//
 	}
 
 	/**
@@ -186,12 +188,12 @@ public class ItemNode extends GenericQtiNode {
 		qtiState.put("QUESTION.HINTTEXT", question.getHintText());
 		Material questMaterial = question.getQuestion();
 		qtiState.put("QUESTION.MATERIAL.ASTEXT", questMaterial.renderAsText());
-		List ids = new ArrayList();
-		List asTexts = new ArrayList();
-		List feedbacks = new ArrayList();
-		List responses = question.getResponses();
-		for (Iterator iter = responses.iterator(); iter.hasNext();) {
-			Response resp = (Response) iter.next();
+		List<String> ids = new ArrayList<String>();
+		List<String> asTexts = new ArrayList<String>();
+		List<String> feedbacks = new ArrayList<String>();
+		List<Response> responses = question.getResponses();
+		for (Iterator<Response> iter = responses.iterator(); iter.hasNext();) {
+			Response resp = iter.next();
 			if (isFIB) {
 				if (FIBResponse.TYPE_BLANK.equals(((FIBResponse) resp).getType())) {
 					asTexts.add(formatFIBResponseAsText((FIBResponse) resp));
@@ -288,12 +290,12 @@ public class ItemNode extends GenericQtiNode {
 			String oldFeedback = null;
 			String newFeedback = null;
 			String responsesChanges = "";
-			List responses = question.getResponses();
+			List<Response> responses = question.getResponses();
 			int i = 0;
 			boolean nothingToDo = false;
-			for (Iterator iter = responses.iterator(); iter.hasNext();) {
+			for (Iterator<Response> iter = responses.iterator(); iter.hasNext();) {
 				nothingToDo = false;
-				Response resp = (Response) iter.next();
+				Response resp = iter.next();
 				if (isFIB) {
 					if (FIBResponse.TYPE_BLANK.equals(((FIBResponse) resp).getType())) {
 						newResp = formatFIBResponseAsText((FIBResponse) resp);

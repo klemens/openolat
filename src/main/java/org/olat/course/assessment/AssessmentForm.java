@@ -25,16 +25,18 @@
 
 package org.olat.course.assessment;
 
-import java.util.Locale;
-
 import org.olat.core.gui.UserRequest;
+import org.olat.core.gui.components.form.flexible.FormItem;
 import org.olat.core.gui.components.form.flexible.FormItemContainer;
+import org.olat.core.gui.components.form.flexible.elements.FormLink;
 import org.olat.core.gui.components.form.flexible.elements.IntegerElement;
 import org.olat.core.gui.components.form.flexible.elements.SingleSelection;
 import org.olat.core.gui.components.form.flexible.elements.StaticTextElement;
 import org.olat.core.gui.components.form.flexible.elements.TextElement;
 import org.olat.core.gui.components.form.flexible.impl.FormBasicController;
+import org.olat.core.gui.components.form.flexible.impl.FormEvent;
 import org.olat.core.gui.components.form.flexible.impl.FormLayoutContainer;
+import org.olat.core.gui.components.link.Link;
 import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.Event;
 import org.olat.core.gui.control.WindowControl;
@@ -53,13 +55,15 @@ public class AssessmentForm extends FormBasicController {
 	
 	private TextElement score;
 	private IntegerElement attempts;
-	private StaticTextElement cutVal, minVal, maxVal;
+	private StaticTextElement cutVal;
 	private SingleSelection passed;
 	private TextElement userComment, coachComment;
+	private FormLink saveAndCloseLink;
+	
+	private final boolean saveAndClose;
 
 	private boolean hasScore, hasPassed, hasComment, hasAttempts;
-	Float min, max, cut;
-	Locale locale;
+	private Float min, max, cut;
 
 	private AssessedIdentityWrapper assessedIdentityWrapper;
 	private AssessableCourseNode assessableCourseNode;
@@ -77,13 +81,16 @@ public class AssessmentForm extends FormBasicController {
 	 * @param assessedIdentityWrapper The wrapped identity
 	 * @param trans The package translator
 	 */
-	AssessmentForm(UserRequest ureq, WindowControl wControl, AssessableCourseNode assessableCourseNode, AssessedIdentityWrapper assessedIdentityWrapper) {
+	public AssessmentForm(UserRequest ureq, WindowControl wControl, AssessableCourseNode assessableCourseNode,
+			AssessedIdentityWrapper assessedIdentityWrapper, boolean saveAndClose) {
 		super(ureq, wControl);
 		
-		this.hasAttempts = assessableCourseNode.hasAttemptsConfigured();
-		this.hasScore = assessableCourseNode.hasScoreConfigured();
-		this.hasPassed = assessableCourseNode.hasPassedConfigured();
-		this.hasComment = assessableCourseNode.hasCommentConfigured();
+		this.saveAndClose = saveAndClose;
+		
+		hasAttempts = assessableCourseNode.hasAttemptsConfigured();
+		hasScore = assessableCourseNode.hasScoreConfigured();
+		hasPassed = assessableCourseNode.hasPassedConfigured();
+		hasComment = assessableCourseNode.hasCommentConfigured();
 		
 		this.assessedIdentityWrapper = assessedIdentityWrapper;
 		this.assessableCourseNode = assessableCourseNode;
@@ -91,71 +98,85 @@ public class AssessmentForm extends FormBasicController {
 		initForm(ureq);
 	}
 
-	boolean isAttemptsDirty() {
+	public boolean isAttemptsDirty() {
 		return hasAttempts && attemptsValue.intValue() != attempts.getIntValue();
 	}
 	
-	int getAttempts() {
+	public int getAttempts() {
 		return attempts.getIntValue();
 	}
 
 
-	Float getCut() {
+	public Float getCut() {
 		return cut;
 	}
 
-	StaticTextElement getCutVal() {
+	public StaticTextElement getCutVal() {
 		return cutVal;
 	}
 
-	boolean isHasAttempts() {
+	public boolean isHasAttempts() {
 		return hasAttempts;
 	}
 
-	boolean isHasComment() {
+	public boolean isHasComment() {
 		return hasComment;
 	}
 
-	boolean isHasPassed() {
+	public boolean isHasPassed() {
 		return hasPassed;
 	}
 
-	boolean isHasScore() {
+	public boolean isHasScore() {
 		return hasScore;
 	}
 
-	SingleSelection getPassed() {
+	public SingleSelection getPassed() {
 		return passed;
 	}
 
-	boolean isScoreDirty() {
+	public boolean isScoreDirty() {
 		if (!hasScore) return false;
 		if (scoreValue == null) return !score.getValue().equals("");
 		return parseFloat(score) != scoreValue.floatValue();
 	}
 	
-	Float getScore() {
+	public Float getScore() {
 		return parseFloat(score);
 	}
 
-	boolean isUserCommentDirty () {
+	public boolean isUserCommentDirty () {
 		return hasComment && !userComment.getValue().equals(userCommentValue);
 	}
-	TextElement getUserComment() {
+	public TextElement getUserComment() {
 		return userComment;
 	}
 	
-	boolean isCoachCommentDirty () {
+	public boolean isCoachCommentDirty () {
 		return !coachComment.getValue().equals(coachCommentValue);
 	}
 	
-	TextElement getCoachComment() {
+	public TextElement getCoachComment() {
 		return coachComment;
 	}
 
 	@Override
+	protected void formInnerEvent(UserRequest ureq, FormItem source, FormEvent event) {
+		if(saveAndCloseLink == source) {
+			if(validateFormLogic(ureq)) {
+				fireEvent(ureq, Event.DONE_EVENT);
+			}
+		}
+		super.formInnerEvent(ureq, source, event);
+	}
+
+	@Override
 	protected void formOK(UserRequest ureq) {
+		if(saveAndClose) {
+			fireEvent(ureq, Event.CHANGED_EVENT);
+		} else {
 			fireEvent(ureq, Event.DONE_EVENT);
+		}
 	}
 	
 	protected void formCancelled (UserRequest ureq) {
@@ -163,9 +184,8 @@ public class AssessmentForm extends FormBasicController {
 	}
 
 	@Override
-	protected boolean validateFormLogic (UserRequest ureq) {
+	protected boolean validateFormLogic(UserRequest ureq) {
 		if (hasScore) {
-		//fxdiff VCRP-4: assessment overview with max score
 			try {
 				if(parseFloat(score) == null) {
 					score.setErrorKey("form.error.wrongFloat", null);
@@ -191,7 +211,6 @@ public class AssessmentForm extends FormBasicController {
 		return true;
 	}
 	
-	//fxdiff VCRP-4: assessment overview with max score
 	private Float parseFloat(TextElement textEl) throws NumberFormatException {
 		String scoreStr = textEl.getValue();
 		if(!StringHelper.containsNonWhitespace(scoreStr)) {
@@ -203,6 +222,30 @@ public class AssessmentForm extends FormBasicController {
 			return Float.parseFloat(scoreStr);
 		}
 		return Float.parseFloat(scoreStr);
+	}
+	
+	public void reloadData() {
+		UserCourseEnvironment userCourseEnv = assessedIdentityWrapper.getUserCourseEnvironment();
+		ScoreEvaluation scoreEval = userCourseEnv.getScoreAccounting().evalCourseNode(assessableCourseNode);
+		if (scoreEval == null) scoreEval = new ScoreEvaluation(null, null);
+		
+		if (hasAttempts) {
+			attemptsValue = assessableCourseNode.getUserAttempts(userCourseEnv);
+			attempts.setIntValue(attemptsValue == null ? 0 : attemptsValue.intValue());
+		}
+		
+		if (hasScore) {
+			scoreValue = scoreEval.getScore();
+			if (scoreValue != null) {
+				score.setValue(AssessmentHelper.getRoundedScore(scoreValue));
+			} 
+		}
+		
+		if (hasPassed) {
+			Boolean passedValue = scoreEval.getPassed();
+			passed.select(passedValue == null ? "undefined" :passedValue.toString(), true);
+			passed.setEnabled(cut == null);
+		}
 	}
 
 	@Override
@@ -227,11 +270,10 @@ public class AssessmentForm extends FormBasicController {
 				cut = assessableCourseNode.getCutValueConfiguration();
 			}
 			
-			//fxdiff VCRP-4: assessment overview with max score
 			String minStr = AssessmentHelper.getRoundedScore(min);
 			String maxStr = AssessmentHelper.getRoundedScore(max);
-			minVal = uifactory.addStaticTextElement("minval", "form.min", ((min == null) ? translate("form.valueUndefined") : minStr), formLayout);
-			maxVal = uifactory.addStaticTextElement("maxval", "form.max", ((max == null) ? translate("form.valueUndefined") : maxStr), formLayout);
+			uifactory.addStaticTextElement("minval", "form.min", ((min == null) ? translate("form.valueUndefined") : minStr), formLayout);
+			uifactory.addStaticTextElement("maxval", "form.max", ((max == null) ? translate("form.valueUndefined") : maxStr), formLayout);
 
 			// Use init variables from wrapper, already loaded from db
 			scoreValue = scoreEval.getScore();
@@ -241,7 +283,7 @@ public class AssessmentForm extends FormBasicController {
 			if (scoreValue != null) {
 				score.setValue(AssessmentHelper.getRoundedScore(scoreValue));
 			} 
-			//fxdiff VCRP-4: assessment overview with max score
+			// assessment overview with max score
 			score.setRegexMatchCheck("(\\d+)||(\\d+\\.\\d{1,3})||(\\d+\\,\\d{1,3})", "form.error.wrongFloat");
 		}
 
@@ -274,12 +316,16 @@ public class AssessmentForm extends FormBasicController {
 		if (hasComment) {
 			// Use init variables from db, not available from wrapper
 			userCommentValue = assessableCourseNode.getUserUserComment(userCourseEnv);
-			if (userCommentValue == null) userCommentValue = new String("");
+			if (userCommentValue == null) {
+				userCommentValue = "";
+			}
 			userComment = uifactory.addTextAreaElement("usercomment", "form.usercomment", 2500, 5, 40, true, userCommentValue, formLayout);
 		}
 
 		coachCommentValue = assessableCourseNode.getUserCoachComment(userCourseEnv);
-		if (coachCommentValue == null) coachCommentValue = new String("");
+		if (coachCommentValue == null) {
+			coachCommentValue = "";
+		}
 		coachComment = uifactory.addTextAreaElement("coachcomment", "form.coachcomment", 2500, 5, 40, true, coachCommentValue, formLayout);
 	
 		//why does the TextElement not use its default error key??? 
@@ -293,7 +339,11 @@ public class AssessmentForm extends FormBasicController {
 		
 		FormLayoutContainer buttonGroupLayout = FormLayoutContainer.createButtonLayout("buttonGroupLayout", getTranslator());
 		formLayout.add(buttonGroupLayout);
+		
 		uifactory.addFormSubmitButton("save", buttonGroupLayout);
+		if(saveAndClose) {
+			saveAndCloseLink = uifactory.addFormLink("save.close", buttonGroupLayout, Link.BUTTON);
+		}
 		uifactory.addFormCancelButton("cancel", buttonGroupLayout, ureq, getWindowControl());
 	}
 

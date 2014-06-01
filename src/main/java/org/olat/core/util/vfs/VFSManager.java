@@ -115,6 +115,14 @@ public class VFSManager extends BasicManager {
 		return false;
 	}
 	
+	public static boolean isDirectoryAndNotEmpty(VFSItem directory){
+		if(directory instanceof VFSContainer) {
+			List<VFSItem> children = ((VFSContainer)directory).getItems();
+			return !children.isEmpty();
+		}
+		return false; 
+	}
+	
 	/**
 	 * @see org.olat.core.util.vfs.VFSItem#resolveFile(java.lang.String)
 	 */
@@ -145,7 +153,7 @@ public class VFSManager extends BasicManager {
 				if (t.isDirectory()) {
 					VFSContainer subContainer;
 					if (fsPath.startsWith(bcroot)) {
-						fsPath = fsPath.replace(bcroot,"");
+						fsPath = fsPath.substring(bcroot.length(), fsPath.length());
 						subContainer = new OlatRootFolderImpl(fsPath, rootContainer);
 					} else {
 						subContainer = new LocalFolderImpl (t, rootContainer);

@@ -51,6 +51,13 @@ CREATE TABLE o_gp_business (
   maxparticipants number(11),
   waitinglist_enabled number,
   autocloseranks_enabled number,
+  ownersintern number default 0 not null,
+  participantsintern number default 0 not null,
+  waitingintern number default 0 not null,
+  ownerspublic number default 0 not null,
+  participantspublic number default 0 not null,
+  waitingpublic number default 0 not null,
+  downloadmembers number default 0 not null,
   groupcontext_fk number(20),
   fk_resource number(20),
   fk_ownergroup number(20),
@@ -1280,15 +1287,50 @@ create table o_lti_outcome (
    primary key (id)
 );
 
+create table o_cl_checkbox (
+   id number(20) not null,
+   creationdate date not null,
+   lastmodified date not null,
+   c_checkboxid varchar2(50 char) not null,
+   c_resname varchar2(50 char) not null,
+   c_resid number(20) not null,
+   c_ressubpath varchar2(255 char) not null,
+   primary key (id)
+);
+
+create table o_cl_check (
+   id number(20) not null,
+   creationdate date not null,
+   lastmodified date not null,
+   c_score float,
+   c_checked number default 0,
+   fk_identity_id number(20) not null,
+   fk_checkbox_id number(20) not null,
+   primary key (id)
+);
+
 create table o_ex_task (
    id number(20) not null,
    creationdate date not null,
    lastmodified date not null,
    e_name varchar2(255 char) not null,
    e_status varchar2(16 char) not null,
+   e_status_before_edit varchar2(16 char),
    e_executor_node varchar2(16 char),
    e_executor_boot_id varchar2(64 char),
    e_task clob not null,
+   e_scheduled date,
+   e_ressubpath varchar2(2048 char),
+   fk_resource_id number(20),
+   fk_identity_id number(20),
+   primary key (id)
+);
+
+create table o_ex_task_modifier (
+   id number(20) not null,
+   creationdate date not null,
+   fk_task_id number(20) not null,
+   fk_identity_id number(20) not null,
    primary key (id)
 );
 
@@ -1555,7 +1597,8 @@ create or replace view o_gp_business_v  as (
    from o_gp_business gp
 );
 
-create view o_gp_visible_participant_v as (
+-- contacts
+create view o_gp_contact_participant_v as
    select
       bg_part_member.id as membership_id,
       bgroup.group_id as bg_id,
@@ -1565,12 +1608,12 @@ create view o_gp_visible_participant_v as (
       bg_part_member.identity_id as bg_part_member_id,
       ident.name as bg_part_member_name 
    from o_gp_business bgroup
-   inner join o_property bconfig on (bconfig.grp = bgroup.group_id and bconfig.name = 'displayMembers' and bconfig.category = 'config' and bconfig.longValue in (2,3,6,7))
    inner join o_bs_membership bg_part_member on (bg_part_member.secgroup_id = bgroup.fk_partipiciantgroup)
    inner join o_bs_identity ident on (bg_part_member.identity_id = ident.id)
- );
-   
-create view o_gp_visible_owner_v as ( 
+   where bgroup.participantsintern=1
+;
+
+create view o_gp_contact_owner_v as
    select
       bg_owner_member.id as membership_id,
       bgroup.group_id as bg_id,
@@ -1580,10 +1623,32 @@ create view o_gp_visible_owner_v as (
       bg_owner_member.identity_id as bg_owner_member_id,
       ident.name as bg_owner_member_name
    from o_gp_business bgroup
-   inner join o_property bconfig on (bconfig.grp = bgroup.group_id and bconfig.name = 'displayMembers' and bconfig.category = 'config' and bconfig.longValue in (1,3,5,7))
    inner join o_bs_membership bg_owner_member on (bg_owner_member.secgroup_id = bgroup.fk_ownergroup)
    inner join o_bs_identity ident on (bg_owner_member.identity_id = ident.id)
-);
+   where bgroup.ownersintern=1
+;
+
+create view o_gp_contactkey_participant_v as
+   select
+      bg_part_member.id as membership_id,
+      bgroup.fk_partipiciantgroup as bg_part_sec_id,
+      bgroup.fk_ownergroup as bg_owner_sec_id,
+      bg_part_member.identity_id as bg_part_member_id
+   from o_gp_business bgroup
+   inner join o_bs_membership bg_part_member on (bg_part_member.secgroup_id = bgroup.fk_partipiciantgroup)
+   where bgroup.participantsintern=1
+;
+  
+create view o_gp_contactkey_owner_v as
+   select
+      bg_owner_member.id as membership_id,
+      bgroup.fk_partipiciantgroup as bg_part_sec_id,
+      bgroup.fk_ownergroup as bg_owner_sec_id,
+      bg_owner_member.identity_id as bg_owner_member_id
+   from o_gp_business bgroup
+   inner join o_bs_membership bg_owner_member on (bg_owner_member.secgroup_id = bgroup.fk_ownergroup)
+   where bgroup.ownersintern=1
+;
 
 create or replace view o_im_roster_entry_v as (
    select
@@ -2123,6 +2188,24 @@ alter table o_note  add constraint FKC2D855C263219E27 foreign key (owner_id) ref
 create index resid_idx2 on o_note (resourcetypeid);
 create index owner_idx on o_note (owner_id);
 create index restype_idx2 on o_note (resourcetypename);
+
+-- ex_task
+alter table o_ex_task add constraint idx_ex_task_ident_id foreign key (fk_identity_id) references o_bs_identity(id);
+create index idx_ex_task_ident_idx on o_ex_task (fk_identity_id);
+alter table o_ex_task add constraint idx_ex_task_rsrc_id foreign key (fk_resource_id) references o_olatresource(resource_id);
+create index idx_ex_task_rsrc_idx on o_ex_task (fk_resource_id);
+alter table o_ex_task_modifier add constraint idx_ex_task_mod_ident_id foreign key (fk_identity_id) references o_bs_identity(id);
+create index idx_ex_task_mod_ident_idx on o_ex_task_modifier (fk_identity_id);
+alter table o_ex_task_modifier add constraint idx_ex_task_mod_task_id foreign key (fk_task_id) references o_ex_task(id);
+create index idx_ex_task_mod_task_idx on o_ex_task_modifier (fk_task_id);
+
+-- checklist
+alter table o_cl_check add constraint check_identity_ctx foreign key (fk_identity_id) references o_bs_identity (id);
+create index check_to_identity_idx on o_cl_check (fk_identity_id);
+alter table o_cl_check add constraint check_box_ctx foreign key (fk_checkbox_id) references o_cl_checkbox (id);
+create index check_to_checkbox_idx on o_cl_check (fk_checkbox_id);
+alter table o_cl_check add unique (fk_identity_id, fk_checkbox_id);
+create index idx_checkbox_uuid_idx on o_cl_checkbox (c_checkboxid);
 
 -- lifecycle
 create index  lc_pref_idx on o_lifecycle (persistentref);

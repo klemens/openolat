@@ -42,6 +42,9 @@ body {
 	margin:0 auto;
 	width:100%;
 	height:100%;
+	/* fix layering issue with datepicker - OO content on layer 1 */
+	position: relative; 
+	z-index: 1;
 }
 #b_page_wrapper {
 //	@include o-border-radius(6px);
@@ -183,11 +186,10 @@ div.b_iframe_wrapper iframe { width:100%; position:relative; top: 0; left:0; bor
 	}
 	position:relative;
 	
-	//background:transparent url('../openolat/images/openolat_logo_header.png') no-repeat 20px 20px;
-	
 	/* the top-navigation */
 	#b_topnav {
 		position:absolute;
+		font-family: $topnavfont;
 		right:0px;
 		top:0px;
 		padding:4px 15px 0px 0px;
@@ -396,34 +398,49 @@ div.b_breadcumb_path {
 div.b_breadcumb div.b_breadcumb_path {}
 
 /* toolbar breadcrumb specific styles */
-#b_main_toolbar div.b_breadcumb_path { 
-	ul { 
-		a {
+#b_main_toolbar {
+	div.b_breadcumb_path { 
+		ul { 
+			a {
+				color: $tool_bar_color;
+				font-weight: bold;
+				&:hover {
+					color: $tool_bar_hover;
+					text-decoration: none;
+				}
+			}
+			
+			li.b_breadcumb_back {
+				background: transparent;
+				padding: 0 7px 0 7px; 
+				margin: 0 2px 0 0;
+				border-right: 1px solid $tool_bar_border;
+				a {
+					font-type: Arial; /* for special arrow key */
+					color: $tool_bar_color;
+					font-weight: normal;
+					&:hover {
+						color: $tool_bar_hover;
+					}
+				}
+			}
+		}
+	}
+	div.b_breadcumb_close {
+		position: absolute;
+		right: 5px;
+		size: 80%;
+		.b_close {
+			@extend .b_with_small_icon_right;
+			background-image: url('../openolat/images/close.png');
 			color: $tool_bar_color;
-			font-weight: bold;
 			&:hover {
 				color: $tool_bar_hover;
 				text-decoration: none;
 			}
 		}
-		
-		li.b_breadcumb_back {
-			background: transparent;
-			padding: 0 7px 0 7px; 
-			margin: 0 2px 0 0;
-			border-right: 1px solid $tool_bar_border;
-			a {
-				font-type: Arial; /* for special arrow key */
-				color: $tool_bar_color;
-				font-weight: normal;
-				&:hover {
-					color: $tool_bar_hover;
-				}
-			}
-		}
 	}
 }
-
 div.b_breadcumb_content { 
 	clear: both;  
 	margin-top: 0.5em; 
@@ -497,13 +514,22 @@ h5.b_titled_wrapper span { padding-right: 3em; font-style: italic;}
 a.b_togglebox_closed {background: url($ico_plus) no-repeat 0 50%; padding: 1px 0 1px 18px; vertical-align: middle;}
 a.b_togglebox_opened {background: url($ico_minus) no-repeat 0 50%; padding: 1px 0 1px 18px; vertical-align: middle;}
 
-div.b_titled_wrapper {
-	div.b_togglebox div.b_togglebox_content { background:transparent; border:0px; padding:0px; }
+div.b_togglebox {
+	margin-top: 10px;
+	padding: 10px;
+	background: #FAFAFA;
+	div.b_togglebox_content { background:transparent; border:0px; padding:0px; }
+}	
+
+div.b_titled_wrapper div.b_togglebox {
+	margin-top: 0;
+	padding: 0;
+	background: transparent;
+	div.b_togglebox_content { background:transparent; border:0px; padding:0px; }
 }
 
 div.b_titled_wrapper_desc {
-	
-	a.b_togglebox_opened { z-index:10; display:block; width:20px; height:20px;  position:absolute; top:2px; left:5px; background: url(../openolat/images/information-white.png) no-repeat 0 50%; }
+	a.b_togglebox_opened { z-index:10; display:block; width:20px; height:20px;  position:absolute; top:7px; left:8px; background: url(../openolat/images/information-white.png) no-repeat 0 50%; }
 	a.b_togglebox_closed { display:block; width:20px; height:20px; background: url(../openolat/images/information-white.png) no-repeat top left;  @include o-opacity(60); }
 	
 	div.b_togglebox div.b_togglebox_content { position:relative; margin-bottom:1em; }

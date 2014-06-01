@@ -9,7 +9,6 @@ table {
 	border-bottom: 0px solid white; 
 	
 	caption { font-variant:small-caps; }
-	&.b_full { width: 99.5%; }
 	&.fixed { table-layout:fixed; }
 	
 	 th,td { padding:0.3em; }
@@ -46,14 +45,32 @@ div.b_table_wrapper {
 		width: 99.5%;
 		margin-left: 1px;
 		border:1px solid $basegray_ultra_light;
-		thead, thead a { 
-	 		color: $tablecolor_header; 
+		thead, thead a {
+	 		color: $tablecolor_header;
+	 		a.b_sorting {
+	 			padding: 0 20px 0 0;
+	 			text-decoration: none;
+	 			background:url("../openolat/images/arrow-resize-090.png") no-repeat center right;
+	 		}
+	 		a.b_sorting_asc {
+	 			padding: 0 20px 0 0;
+	 			text-decoration: none;
+	 			background:url("../openolat/images/arrow_up.png") no-repeat center right;
+	 		}
+	 		a.b_sorting_desc {
+	 			padding: 0 20px 0 0;
+	 			text-decoration: none;
+	 			background:url("../openolat/images/arrow_down.png") no-repeat center right;
+	 		}
 	 	}		
 	 	tbody{
 			tr:hover td { background: $selectcolor_ultra_light; }
 			tr.b_row_selected:hover td { background: $selectcolor_light; }
 			a {
 				color: $tablecolor_links;
+				&:hover {
+					color: $tablecolor_links_hover;
+				}
 			}
 		}
 	}
@@ -65,7 +82,7 @@ div.b_table_wrapper {
 		select { border: 1px solid #ACAAAA	; }
 		option { }
 	}
-	div.b_clearfix div.b_floatbox { margin:5px 0 0 0;  }
+	//div.b_clearfix div.b_floatbox { margin:5px 0 0 0;  }
 	div.b_table_count { font-size: 95%; float: left; line-height: 16px; vertical-align: bottom; margin: 3px; font-size: 95%;}
 	a.b_table_prefs, a.b_table_download {float: right; display: block; background-repeat: no-repeat; background-position: top left; width: 16px; height: 16px; margin: 3px;}
 	a.b_table_prefs {background-image: url(../openolat/images/table_gear.png);}
@@ -121,6 +138,9 @@ div.b_table_wrapper {
 			}
 			tbody a {
 				color: $tablecolor_links;
+				&:hover {
+					color: $tablecolor_links_hover;
+				}
 			}
 		
 			tr.even td.sorting_1 {
@@ -135,6 +155,22 @@ div.b_table_wrapper {
 				}
 			}
 		}
+	}
+}
+
+div.b_table_wrapper.b_table_edit table tbody {
+	border:solid $dirtycolor 1px;
+	border-top:solid $dirtycolor 4px;
+	background: $dirtycolor_bg;
+}
+
+div.b_table_wrapper.b_flexitable_wrapper div.b_table_filter {
+	margin:3px 0 3px 0;
+	label {
+		padding:3px 7px 3px 0;
+	}
+	div.b_form_selection_element {
+		float:right;
 	}
 }
 

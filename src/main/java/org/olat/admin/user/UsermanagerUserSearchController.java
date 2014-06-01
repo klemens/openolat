@@ -46,7 +46,7 @@ import org.olat.core.CoreSpringFactory;
 import org.olat.core.commons.fullWebApp.popup.BaseFullWebappPopupLayoutFactory;
 import org.olat.core.commons.persistence.DBFactory;
 import org.olat.core.commons.persistence.PersistenceHelper;
-import org.olat.core.commons.services.webdav.WebDAVManager;
+import org.olat.core.commons.services.webdav.WebDAVModule;
 import org.olat.core.commons.services.webdav.manager.WebDAVAuthManager;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.Component;
@@ -97,6 +97,7 @@ import org.olat.login.auth.AuthenticationProvider;
 import org.olat.modules.co.ContactFormController;
 import org.olat.user.UserInfoMainController;
 import org.olat.user.UserManager;
+import org.olat.user.propertyhandlers.EmailProperty;
 import org.olat.user.propertyhandlers.UserPropertyHandler;
 import org.olat.util.logging.activity.LoggingResourceable;
 
@@ -347,6 +348,10 @@ public class UsermanagerUserSearchController extends BasicController implements 
 		BaseSecurity secMgr = BaseSecurityManager.getInstance();
 		// get user attributes from form
 		String login = searchform.getStringValue("login");
+		// when searching for deleted users, add wildcard to match with backup prefix
+		if (searchform.getStatus().equals(Identity.STATUS_DELETED)) {
+			login = "*" + login;
+		}
 		Integer status = null;
 
 		// get user fields from form
@@ -357,6 +362,10 @@ public class UsermanagerUserSearchController extends BasicController implements 
 			FormItem ui = searchform.getItem(userPropertyHandler.getName());
 			String uiValue = userPropertyHandler.getStringValue(ui);
 			if (StringHelper.containsNonWhitespace(uiValue)) {
+				// when searching for deleted users, add wildcard to match with backup prefix
+				if (userPropertyHandler instanceof EmailProperty && searchform.getStatus().equals(Identity.STATUS_DELETED)) {
+					uiValue = "*" + uiValue;
+				}
 				userPropertiesSearch.put(userPropertyHandler.getName(), uiValue);
 			}
 		}
@@ -666,13 +675,15 @@ class UsermanagerUserSearchForm extends FormBasicController {
 				Integer.toString(Identity.STATUS_VISIBLE_LIMIT),
 				Integer.toString(Identity.STATUS_ACTIV),
 				Integer.toString(Identity.STATUS_PERMANENT),
-				Integer.toString(Identity.STATUS_LOGIN_DENIED)
+				Integer.toString(Identity.STATUS_LOGIN_DENIED),
+				Integer.toString(Identity.STATUS_DELETED)
 		};
 		statusValues = new String[] {
 				translate("rightsForm.status.any.visible"),
 				translate("rightsForm.status.activ"),
 				translate("rightsForm.status.permanent"),
-				translate("rightsForm.status.login_denied")
+				translate("rightsForm.status.login_denied"),
+				translate("rightsForm.status.deleted")
 		};
 		
 		// take all providers from the config file
@@ -691,7 +702,7 @@ class UsermanagerUserSearchForm extends FormBasicController {
 				));
 			}
 		}
-		if(WebDAVManager.getInstance().isEnabled()) {
+		if(CoreSpringFactory.getImpl(WebDAVModule.class).isEnabled()) {
 			authKeyList.add(WebDAVAuthManager.PROVIDER_WEBDAV);
 			authValueList.add(translate("search.form.constraint.auth.WEBDAV"));
 		}

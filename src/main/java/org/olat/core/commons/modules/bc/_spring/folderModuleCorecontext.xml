@@ -33,10 +33,15 @@
 				SendDocLinkOnly=${folder.sendDocumentLinkOnly}
 				<!--   max edit filesize for online-editing in Bytes -->
 				EditFileSizeLimit=${folder.editFileSizeLimitBytes}
+				forceDownload=${folder.force.download}
              </value>
       </property>
 </bean>
 
 	<bean id="org.olat.core.commons.modules.bc.FilesInfoMBean" class="org.olat.core.commons.modules.bc.FilesInfoMBean" />
+	
+	<bean id="metaInfoFactory" class="org.olat.core.commons.modules.bc.meta.MetaInfoFactory">
+		<property name="thumbnailService" ref="thumbnailService" />
+	</bean>
 
 </beans>

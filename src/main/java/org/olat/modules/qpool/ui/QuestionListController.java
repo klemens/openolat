@@ -19,6 +19,7 @@
  */
 package org.olat.modules.qpool.ui;
 
+import java.util.Collections;
 import java.util.List;
 
 import org.olat.core.CoreSpringFactory;
@@ -53,11 +54,13 @@ import org.olat.ims.qti.qpool.QTIQPoolServiceProvider;
 import org.olat.modules.qpool.ExportFormatOptions;
 import org.olat.modules.qpool.Pool;
 import org.olat.modules.qpool.QItemFactory;
-import org.olat.modules.qpool.QPoolService;
+import org.olat.modules.qpool.QPoolItemEditorController;
 import org.olat.modules.qpool.QuestionItem;
 import org.olat.modules.qpool.QuestionItemCollection;
 import org.olat.modules.qpool.QuestionItemShort;
+import org.olat.modules.qpool.model.QItemDocument;
 import org.olat.modules.qpool.model.QItemList;
+import org.olat.modules.qpool.ui.events.QItemChangeEvent;
 import org.olat.modules.qpool.ui.events.QItemCreationCmdEvent;
 import org.olat.modules.qpool.ui.events.QItemEvent;
 import org.olat.modules.qpool.ui.events.QPoolEvent;
@@ -72,6 +75,7 @@ import org.olat.repository.controllers.ReferencableEntriesSearchController;
 import org.olat.repository.controllers.RepositoryAddController;
 import org.olat.repository.controllers.RepositoryDetailsController;
 import org.olat.repository.controllers.RepositorySearchController.Can;
+import org.olat.search.service.indexer.LifeFullIndexer;
 
 /**
  * 
@@ -84,14 +88,12 @@ import org.olat.repository.controllers.RepositorySearchController.Can;
 public class QuestionListController extends AbstractItemListController implements StackedControllerAware {
 
 	private FormLink list, exportItem, shareItem, removeItem, newItem, copyItem, deleteItem, authorItem, importItem, bulkChange;
-	
-	
-	private StackedController stackPanel;
 
-	private Controller newItemCtrl;
+	private StackedController stackPanel;
 	private RenameController renameCtrl;
 	private CloseableModalController cmc;
 	private CloseableModalController cmcNewItem;
+	private QPoolItemEditorController newItemCtrl;
 	private DialogBoxController confirmCopyBox;
 	private DialogBoxController confirmDeleteBox;
 	private DialogBoxController confirmRemoveBox;
@@ -117,18 +119,18 @@ public class QuestionListController extends AbstractItemListController implement
 	
 	private QuestionItemCollection itemCollection;
 	
-	private final QPoolService qpoolService;
+	private final LifeFullIndexer lifeFullIndexer;
 	private final RepositoryManager repositoryManager;
 	
 	public QuestionListController(UserRequest ureq, WindowControl wControl, QuestionItemsSource source, String key) {
 		super(ureq, wControl, source, key);
 
-		qpoolService = CoreSpringFactory.getImpl(QPoolService.class);
+		lifeFullIndexer = CoreSpringFactory.getImpl(LifeFullIndexer.class);
 		repositoryManager = CoreSpringFactory.getImpl(RepositoryManager.class);
 	}
 
 	@Override
-	protected void initButtons(FormItemContainer formLayout) {
+	protected void initButtons(UserRequest ureq, FormItemContainer formLayout) {
 		list = uifactory.addFormLink("list", formLayout, Link.BUTTON);
 		exportItem = uifactory.addFormLink("export.item", formLayout, Link.BUTTON);
 		shareItem = uifactory.addFormLink("share.item", formLayout, Link.BUTTON);
@@ -394,10 +396,21 @@ public class QuestionListController extends AbstractItemListController implement
 			}
 		} else if(source == cmcNewItem) {
 			showInfo("create.success");
+			if(newItemCtrl.getItem() != null && newItemCtrl.getItem().getKey() != null) {
+				List<QuestionItem> newItems = Collections.singletonList(newItemCtrl.getItem());
+				getSource().postImport(newItems);
+			}
 			getItemsTable().reset();
 			QPoolEvent qce = new QPoolEvent(QPoolEvent.ITEM_CREATED);
 			fireEvent(ureq, qce);
 			cleanUp();
+		} else if(source == newItemCtrl) {
+			if(event instanceof QItemChangeEvent) {
+				QItemChangeEvent ce = (QItemChangeEvent)event;
+				if(ce.getItem() != null) {
+					lifeFullIndexer.indexDocument(QItemDocument.TYPE, ce.getItem().getKey());
+				}
+			}
 		} else if(source == cmc) {
 			cleanUp();
 		}

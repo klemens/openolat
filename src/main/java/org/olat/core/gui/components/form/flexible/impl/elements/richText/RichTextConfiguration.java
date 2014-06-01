@@ -42,7 +42,6 @@ import org.olat.core.helpers.Settings;
 import org.olat.core.logging.OLog;
 import org.olat.core.logging.Tracing;
 import org.olat.core.util.Formatter;
-import org.olat.core.util.StringHelper;
 import org.olat.core.util.UserSession;
 import org.olat.core.util.WebappHelper;
 import org.olat.core.util.i18n.I18nManager;
@@ -74,6 +73,12 @@ public class RichTextConfiguration implements Disposable {
 	private static final String LANGUAGE = "language";
 	// Layout and theme
 	private static final String CONTENT_CSS = "content_css";
+	private static final String CONVERT_URLS = "convert_urls";
+	private static final String IMPORTCSS_APPEND = "importcss_append";
+	private static final String IMPORT_SELECTOR_CONVERTER = "importcss_selector_converter";
+	private static final String IMPORT_SELECTOR_CONVERTER_VALUE_REMOVE_EMOTICONS ="function(selector) { if (selector.indexOf('img.b_emoticons') != -1) {return false;} else { return this.convertSelectorToFormat(selector); }}";
+	private static final String IMPORTCSS_GROUPS = "importcss_groups";
+	private static final String IMPORTCSS_GROUPS_VALUE_MENU = "[{title: 'Paragraph', filter: /^(p)\\./},{title: 'Div', filter: /^(div|p)\\./},{title: 'Table', filter: /^(table|th|td|tr)\\./},{title: 'Url', filter: /^(a)\\./},{title: 'Style'}]";
 	private static final String HEIGHT = "height";
 	// Window appearance
 	private static final String DIALOG_TYPE = "dialog_type";
@@ -100,6 +105,7 @@ public class RichTextConfiguration implements Disposable {
 	private static final String FORCED_ROOT_BLOCK = "forced_root_block";
 	private static final String FORCED_ROOT_BLOCK_VALUE_NOROOT = "";
 	private static final String DOCUMENT_BASE_URL = "document_base_url";
+	private static final String PASTE_DATA_IMAGES = "paste_data_images";
 	//
 	// Generic boolean true / false values
 	private static final String VALUE_FALSE = "false";
@@ -154,6 +160,7 @@ public class RichTextConfiguration implements Disposable {
 		setQuotedConfigValue(ONCHANGE_CALLBACK, ONCHANGE_CALLBACK_VALUE_TEXT_AREA_ON_CHANGE);
 		// set custom url converter to deal with framework and content urls properly
 		setNonQuotedConfigValue(URLCONVERTER_CALLBACK, URLCONVERTER_CALLBACK_VALUE_BRASATO_URL_CONVERTER);
+		setNonQuotedConfigValue("allow_script_urls", "true");
 		// use modal windows, all OLAT workflows are implemented to work this way
 		setModalWindowsEnabled(true, true);
 		// Start observing of diry richt text element and trigger calling of setFlexiFormDirty() method
@@ -252,6 +259,7 @@ public class RichTextConfiguration implements Disposable {
 		setQuotedConfigValue(EXTENDED_VALID_ELEMENTS, EXTENDED_VALID_ELEMENTS_VALUE_FULL);
 		setQuotedConfigValue(INVALID_ELEMENTS, INVALID_ELEMENTS_FILE_FULL_VALUE_UNSAVE);
 		
+		setNonQuotedConfigValue(PASTE_DATA_IMAGES, "true");
 		// Setup file and link browser
 		if (baseContainer != null) {
 			setFileBrowserCallback(baseContainer, customLinkTreeModel, IMAGE_SUFFIXES_VALUES, MEDIA_SUFFIXES_VALUES, FLASH_PLAYER_SUFFIXES_VALUES);
@@ -338,13 +346,10 @@ public class RichTextConfiguration implements Disposable {
 	private void setLanguage(Locale loc) {
 		// tiny does not support country or variant codes, only language code
 		String langKey = loc.getLanguage();
-
-		String contextRoot = WebappHelper.getContextRoot();
-		if(StringHelper.containsNonWhitespace(contextRoot)) {
-			File file = new File(contextRoot, "static/js/tinymce4/tinymce/langs/" + langKey + ".js");
-			if(!file.exists()) {
-				langKey = "en";
-			}
+		String path = "/static/js/tinymce4/tinymce/langs/" + langKey + ".js";
+		String realPath = WebappHelper.getContextRealPath(path);
+		if(realPath == null || !(new File(realPath).exists())) {
+			langKey = "en";
 		}
 		setQuotedConfigValue(LANGUAGE, langKey);
 	}
@@ -703,15 +708,20 @@ public class RichTextConfiguration implements Disposable {
 
 		// Now add the non-quoted values (e.g. true, false or functions)
 		Map<String,String> copyNonValues = new HashMap<String,String>(nonQuotedConfigValues);
-		String converter = copyNonValues.remove(URLCONVERTER_CALLBACK);
+		String converter = copyNonValues.get(URLCONVERTER_CALLBACK);
 		if(converter != null) {
-			copyNonValues.put("convert_urls", converter);	
+			copyNonValues.put(CONVERT_URLS, "true");
 		}
 		
-		String contentCss = copyValues.remove("content_css");
+		String contentCss = copyValues.remove(CONTENT_CSS);
 		if(contentCss != null) {
-			copyNonValues.put("importcss_append", "true");
+			// add styles from content css and add them to format menu
+			copyNonValues.put(IMPORTCSS_APPEND, "true");
 			copyValues.put("content_css", Settings.createServerURI() + contentCss);
+			// filter emoticons classes from content css
+			copyNonValues.put(IMPORT_SELECTOR_CONVERTER, IMPORT_SELECTOR_CONVERTER_VALUE_REMOVE_EMOTICONS);
+			// group imported css classes to paragraph, div, table and style menu
+			copyNonValues.put(IMPORTCSS_GROUPS, IMPORTCSS_GROUPS_VALUE_MENU);
 		}
 
  		//new with menu
@@ -720,7 +730,13 @@ public class RichTextConfiguration implements Disposable {
  		  .append("image_advtab:true,\n")
 		  .append("statusbar:true,\n")
 		  .append("menubar:").append(tinyConfig.hasMenu()).append(",\n");
-
+ 		
+ 		tinyMenuSb.append("image_class_list: [\n")
+ 		  .append("  {title: 'Left', value: 'b_float_left'},\n")
+ 		  .append("  {title: 'Center', value: 'b_centered'},\n")
+ 		  .append("  {title: 'Right', value: 'b_float_right'}\n")
+ 		  .append("],\n");
+ 		
 		if (tinyConfig.getTool1() != null) {
 			tinyMenuSb.append("toolbar1: '").append(tinyConfig.getTool1()).append("',\n");
 		}

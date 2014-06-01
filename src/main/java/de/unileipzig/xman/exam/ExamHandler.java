@@ -216,19 +216,19 @@ public class ExamHandler implements RepositoryHandler {
 	public void releaseLock(LockResult lockResult) {}
 
 	@Override
-	public MainLayoutController createLaunchController(OLATResourceable res, UserRequest ureq, WindowControl wControl) {
+	public MainLayoutController createLaunchController(RepositoryEntry re, UserRequest ureq, WindowControl wControl) {
 		// increment launch counter
-		RepositoryManager.getInstance().incrementLaunchCounter(RepositoryManager.getInstance().lookupRepositoryEntry(res, false));
+		RepositoryManager.getInstance().incrementLaunchCounter(re);
 		
 		boolean isStudent = !ureq.getUserSession().getRoles().isGuestOnly();
 		boolean canEdit = ureq.getUserSession().getRoles().isOLATAdmin() || ureq.getUserSession().getRoles().isInstitutionalResourceManager();
 		
-		if(RepositoryManager.getInstance().isOwnerOfRepositoryEntry(ureq.getIdentity(), RepositoryManager.getInstance().lookupRepositoryEntry(res, true))) {
+		if(RepositoryManager.getInstance().isOwnerOfRepositoryEntry(ureq.getIdentity(), re)) {
 			canEdit = true;
 		}
 		
 		MainLayoutController launchController;
-		Exam exam = ExamDBManager.getInstance().findExamByID(res.getResourceableId());
+		Exam exam = ExamDBManager.getInstance().findExamByID(re.getOlatResource().getResourceableId());
 		if(canEdit) {
 			launchController = new ExamMainController(ureq, wControl, exam, ExamMainController.View.LECTURER);
 		} else if(isStudent) {
@@ -241,8 +241,8 @@ public class ExamHandler implements RepositoryHandler {
 	}
 
 	@Override
-	public Controller createEditorController(OLATResourceable res, UserRequest ureq, WindowControl wControl) {
-		Exam exam = ExamDBManager.getInstance().findExamByID(res.getResourceableId());
+	public Controller createEditorController(RepositoryEntry re, UserRequest ureq, WindowControl wControl) {
+		Exam exam = ExamDBManager.getInstance().findExamByID(re.getOlatResource().getResourceableId());
 		Controller editor;
 		try {
 			editor = new ExamMainController(ureq, wControl, exam, ExamMainController.View.LECTURER, true);

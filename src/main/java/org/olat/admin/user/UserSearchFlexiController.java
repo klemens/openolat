@@ -235,16 +235,19 @@ public class UserSearchFlexiController extends FlexiAutoCompleterController {
 		}
 	}
 	
+	@Override
 	protected String getSearchValue(UserRequest ureq) {
-		String searchValue = ureq.getParameter(autoCompleterContainer.getId(JSNAME_INPUTFIELD));
-		return searchValue;
+		if(autoCompleterContainer != null) {
+			return ureq.getParameter(autoCompleterContainer.getId(JSNAME_INPUTFIELD));
+		}
+		return null;
 	}
 
 	@Override
 	public void event(UserRequest ureq, Component source, Event event) {
 		if (source == backLink) {				
 			flc.contextPut("showButton","false");
-		} else if(source == autoCompleterContainer.getComponent()) {
+		} else if(autoCompleterContainer != null && source == autoCompleterContainer.getComponent()) {
 			if (event.getCommand().equals(COMMAND_SELECT)) {
 				doSelect(ureq);
 			}
@@ -253,9 +256,6 @@ public class UserSearchFlexiController extends FlexiAutoCompleterController {
 		}
 	}
 	
-	/**
-	 * 
-	 */
 	@Override
 	protected void doFireSelection(UserRequest ureq, List<String> res) {
 		// if we get the event, we have a result or an incorrect selection see OLAT-5114 -> check for empty

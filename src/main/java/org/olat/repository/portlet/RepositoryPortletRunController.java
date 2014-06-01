@@ -124,35 +124,34 @@ public class RepositoryPortletRunController extends AbstractPortletRunController
 		if (studentView) {
 			entries = RepositoryManager.getInstance().getParticipantRepositoryEntry(getIdentity(), maxResults, orderBy);
 		} else {
-			entries = RepositoryManager.getInstance().getTutorRepositoryEntry(getIdentity(), maxResults, orderBy);
+			List<RepositoryEntry> fullEntries = RepositoryManager.getInstance()
+					.getLearningResourcesAsTeacher(getIdentity(), 0, maxResults, orderBy);
+			entries = new ArrayList<RepositoryEntryLight>();
+			for(RepositoryEntry fullEntry:fullEntries) {
+				entries.add(new FullReWrapper(fullEntry));
+			}
 		}
 		return entries;
 	}
 
-	private List<PortletEntry<RepositoryEntryLight>> convertShortRepositoryEntriesToPortletEntryList(List<RepositoryEntryLight> items, boolean withDescription) {
+	private List<PortletEntry<RepositoryEntryLight>> convertShortRepositoryEntriesToPortletEntryList(List<RepositoryEntryLight> items) {
 		List<PortletEntry<RepositoryEntryLight>> convertedList = new ArrayList<PortletEntry<RepositoryEntryLight>>();
 		for(RepositoryEntryLight item:items) {
 			boolean closed = RepositoryManager.getInstance().createRepositoryEntryStatus(item.getStatusCode()).isClosed();
 			if(!closed) {
 				RepositoryPortletEntry entry = new RepositoryPortletEntry(item);
-				if(withDescription) {
-					entry.setDescription(item.getDescription());
-				}
 				convertedList.add(entry);
 			}
 		}
 		return convertedList;
 	}
 	
-	private List<PortletEntry<RepositoryEntryLight>> convertRepositoryEntriesToPortletEntryList(List<RepositoryEntry> items, boolean withDescription) {
+	private List<PortletEntry<RepositoryEntryLight>> convertRepositoryEntriesToPortletEntryList(List<RepositoryEntry> items) {
 		List<PortletEntry<RepositoryEntryLight>> convertedList = new ArrayList<PortletEntry<RepositoryEntryLight>>();
 		for(RepositoryEntry item:items) {
 			boolean closed = RepositoryManager.getInstance().createRepositoryEntryStatus(item.getStatusCode()).isClosed();
 			if(!closed) {
 				RepositoryPortletEntry entry = new RepositoryPortletEntry(item);
-				if(withDescription) {
-					entry.setDescription(item.getDescription());
-				}
 				convertedList.add(entry);
 			}
 		}
@@ -162,7 +161,7 @@ public class RepositoryPortletRunController extends AbstractPortletRunController
 	protected void reloadModel(SortingCriteria sortingCriteria) {
 		if (sortingCriteria.getSortingType() == SortingCriteria.AUTO_SORTING) {
 			List<RepositoryEntryLight> items = getAllEntries(sortingCriteria);
-			List<PortletEntry<RepositoryEntryLight>> entries = convertShortRepositoryEntriesToPortletEntryList(items, false);
+			List<PortletEntry<RepositoryEntryLight>> entries = convertShortRepositoryEntriesToPortletEntryList(items);
 			repoEntryListModel = new RepositoryPortletTableDataModel(entries, getLocale());
 			tableCtr.setTableDataModel(repoEntryListModel);
 		} else {
@@ -220,7 +219,7 @@ public class RepositoryPortletRunController extends AbstractPortletRunController
 	protected PortletToolSortingControllerImpl<RepositoryEntryLight> createSortingTool(UserRequest ureq, WindowControl wControl) {
 		if(portletToolsController==null) {			
 			List<RepositoryEntryLight> items = getAllEntries(null);
-			List<PortletEntry<RepositoryEntryLight>> entries = convertShortRepositoryEntriesToPortletEntryList(items, false);
+			List<PortletEntry<RepositoryEntryLight>> entries = convertShortRepositoryEntriesToPortletEntryList(items);
 			PortletDefaultTableDataModel<RepositoryEntryLight> tableDataModel = new RepositoryPortletTableDataModel(entries, ureq.getLocale());
 			List<PortletEntry<RepositoryEntryLight>> sortedItems = getPersistentManuallySortedItems(); 
 			
@@ -244,7 +243,7 @@ public class RepositoryPortletRunController extends AbstractPortletRunController
 			return new ArrayList<PortletEntry<RepositoryEntryLight>>();
 		}
 		List<RepositoryEntry> items = RepositoryManager.getInstance().lookupRepositoryEntries(storedPrefs.keySet());
-		List<PortletEntry<RepositoryEntryLight>> entries = convertRepositoryEntriesToPortletEntryList(items, false);
+		List<PortletEntry<RepositoryEntryLight>> entries = convertRepositoryEntriesToPortletEntryList(items);
 		return getPersistentManuallySortedItems(entries);
 	}
   
@@ -270,4 +269,47 @@ public class RepositoryPortletRunController extends AbstractPortletRunController
 			}};
 	}
   
+	private static class FullReWrapper implements  RepositoryEntryLight {
+		
+		private final RepositoryEntry re;
+		
+		public FullReWrapper(RepositoryEntry re) {
+			this.re = re;
+		}
+
+		@Override
+		public Long getKey() {
+			return re.getKey();
+		}
+
+		@Override
+		public String getDisplayname() {
+			return re.getDisplayname();
+		}
+
+		@Override
+		public String getResourceType() {
+			return re.getOlatResource().getResourceableTypeName();
+		}
+
+		@Override
+		public int getStatusCode() {
+			return re.getStatusCode();
+		}
+
+		@Override
+		public String getDescription() {
+			return re.getDescription();
+		}
+
+		@Override
+		public int getAccess() {
+			return re.getAccess();
+		}
+
+		@Override
+		public boolean isMembersOnly() {
+			return re.isMembersOnly();
+		} 
+	}
 }

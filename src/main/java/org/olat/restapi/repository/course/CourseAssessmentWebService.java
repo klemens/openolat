@@ -49,6 +49,7 @@ import javax.ws.rs.core.Response.Status;
 import org.olat.basesecurity.BaseSecurity;
 import org.olat.basesecurity.BaseSecurityManager;
 import org.olat.basesecurity.SecurityGroup;
+import org.olat.core.CoreSpringFactory;
 import org.olat.core.commons.persistence.DBFactory;
 import org.olat.core.commons.persistence.DBQuery;
 import org.olat.core.id.Identity;
@@ -143,7 +144,7 @@ public class CourseAssessmentWebService {
 			return Response.serverError().status(Status.UNAUTHORIZED).build();
 		}
 		
-		ICourse course = CourseWebService.loadCourse(courseId);
+		ICourse course = CoursesWebService.loadCourse(courseId);
 		if(course == null) {
 			return Response.serverError().status(Status.NOT_FOUND).build();
 		}
@@ -199,7 +200,7 @@ public class CourseAssessmentWebService {
 				return Response.serverError().status(Status.NOT_FOUND).build();
 			}
 
-			ICourse course = CourseWebService.loadCourse(courseId);
+			ICourse course = CoursesWebService.loadCourse(courseId);
 			if(course == null) {
 				return Response.serverError().status(Status.NOT_FOUND).build();
 			}
@@ -245,7 +246,7 @@ public class CourseAssessmentWebService {
 			return Response.serverError().status(Status.UNAUTHORIZED).build();
 		}
 		
-		ICourse course = CourseWebService.loadCourse(courseId);
+		ICourse course = CoursesWebService.loadCourse(courseId);
 		if(course == null) {
 			return Response.serverError().status(Status.NOT_FOUND).build();
 		} else if (!isAuthorEditor(course, httpRequest)) {
@@ -344,7 +345,7 @@ public class CourseAssessmentWebService {
 
 	private void importTestItems(ICourse course, String nodeKey, Identity identity, AssessableResultsVO resultsVO) {
 		try {
-			IQManager iqManager = IQManager.getInstance();
+			IQManager iqManager = CoreSpringFactory.getImpl(IQManager.class);
 
 			// load the course and the course node
 			CourseNode courseNode = getParentNode(course, nodeKey);
@@ -499,7 +500,7 @@ public class CourseAssessmentWebService {
 				return Response.serverError().status(Status.NOT_FOUND).build();
 			}
 
-			ICourse course = CourseWebService.loadCourse(courseId);
+			ICourse course = CoursesWebService.loadCourse(courseId);
 			if(course == null) {
 				return Response.serverError().status(Status.NOT_FOUND).build();
 			}

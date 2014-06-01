@@ -1,165 +1,129 @@
 package de.unileipzig.xman.exam.forms;
 
-import java.text.SimpleDateFormat;
-import java.util.Calendar;
 import java.util.Date;
 
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.form.Form;
 import org.olat.core.gui.components.form.flexible.FormItemContainer;
 import org.olat.core.gui.components.form.flexible.elements.DateChooser;
-import org.olat.core.gui.components.form.flexible.elements.Submit;
+import org.olat.core.gui.components.form.flexible.elements.FormToggle;
+import org.olat.core.gui.components.form.flexible.elements.MultipleSelectionElement;
 import org.olat.core.gui.components.form.flexible.impl.FormBasicController;
-import org.olat.core.gui.components.form.flexible.impl.FormLayoutContainer;
 import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.WindowControl;
-import org.olat.core.gui.translator.Translator;
 import org.olat.core.util.Util;
 
 import de.unileipzig.xman.exam.Exam;
 
-/**
- * 
- * @author
- */
 public class EditRegistrationForm extends FormBasicController {
 
-	private DateChooser regStart;
-	private DateChooser regEnd;
-	private DateChooser signOff;
-	private Submit submit;
-	Date regStartDate;
-	Date regEndDate;
-	Date signOffDate;
+	Exam exam;
 
-	/**
-	 * creates the editRegistrationForm
-	 * 
-	 * @param name
-	 *            the name of the form
-	 * @param translator
-	 *            the translator
-	 * @param regStartDate
-	 *            the start of the registration
-	 * @param regEndDate
-	 *            the end of the registratio
-	 * @param signOffDate
-	 *            the end of the unsubscription time
-	 */
-	public EditRegistrationForm(UserRequest ureq, WindowControl wControl,
-			String name, Translator translator, Date regStartDate,
-			Date regEndDate, Date signOffDate) {
+	private DateChooser regStartEdit;
+	private DateChooser regEndEdit;
+	private DateChooser signOffEdit;
+	private MultipleSelectionElement booleanAttributes;
+
+	private static final String EARMARKED = "earmarked";
+	private static final String MULTI_SUBSCRIPTION = "multiSubscription";
+
+	public EditRegistrationForm(UserRequest ureq, WindowControl wControl, Exam exam) {
 		super(ureq, wControl);
 		
 		setTranslator(Util.createPackageTranslator(Exam.class, ureq.getLocale()));
 		
-		this.regStartDate = regStartDate;
-		this.regEndDate = regEndDate;
-		this.signOffDate = signOffDate;
+		this.exam = exam;
 		
 		initForm(ureq);
 	}
 
 	@Override
-	protected void initForm(FormItemContainer formLayout, Controller listener,
-			UserRequest ureq) {
-		Calendar future = Calendar.getInstance(ureq.getLocale());
-		future.setTime(new Date()); future.add(Calendar.MONTH, 1);
-		
-		Date now = new Date();
-		Date inAMonth = future.getTime();
-		
-		regStart = uifactory.addDateChooser("regStart", "EditRegistrationForm.regStartDate", now, formLayout);
-		regStart.setMandatory(true);
-		regStart.setDisplaySize(20);
-		regStart.setMaxLength(16);
-		regStart.setDateChooserTimeEnabled(true);
-		if (regStartDate != null)
-			regStart.setDate(regStartDate);
+	protected void initForm(FormItemContainer formLayout, Controller listener, UserRequest ureq) {
+		regStartEdit = uifactory.addDateChooser("regStart", "EditRegistrationForm.regStartDate", exam.getRegStartDate(), formLayout);
+		regStartEdit.setMandatory(true);
+		regStartEdit.setDateChooserTimeEnabled(true);
 
-		regEnd = uifactory.addDateChooser("regEnd", "EditRegistrationForm.regEndDate", inAMonth, formLayout);
-		regEnd.setMandatory(true);
-		regEnd.setDisplaySize(20);
-		regEnd.setMaxLength(16);
-		regEnd.setDateChooserTimeEnabled(true);
-		if (regEndDate != null)
-			regEnd.setDate(regEndDate);
+		regEndEdit = uifactory.addDateChooser("regEnd", "EditRegistrationForm.regEndDate", exam.getRegEndDate(), formLayout);
+		regEndEdit.setMandatory(true);
+		regEndEdit.setDateChooserTimeEnabled(true);
 
-		signOff = uifactory.addDateChooser("signOff", "EditRegistrationForm.signOffDate", inAMonth, formLayout);
-		signOff.setMandatory(true);
-		signOff.setExampleKey("EditRegistrationForm.signOffDate.example", null);
-		signOff.setDisplaySize(20);
-		signOff.setMaxLength(16);
-		signOff.setDateChooserTimeEnabled(true);
-		if (signOffDate != null)
-			signOff.setDate(signOffDate);
+		signOffEdit = uifactory.addDateChooser("signOff", "EditRegistrationForm.signOffDate", exam.getSignOffDate(), formLayout);
+		signOffEdit.setMandatory(true);
+		signOffEdit.setExampleKey("EditRegistrationForm.signOffDate.example", null);
+		signOffEdit.setDateChooserTimeEnabled(true);
 
-		FormLayoutContainer buttonGroupLayout = FormLayoutContainer.createButtonLayout("buttonGroupLayout", getTranslator());
-		formLayout.add(buttonGroupLayout);
-		submit = uifactory.addFormSubmitButton("save", "saveButton", buttonGroupLayout);
+		booleanAttributes = uifactory.addCheckboxesVertical("boolOptions", null, formLayout, new String[] {EARMARKED, MULTI_SUBSCRIPTION},
+				new String[] {translate("EditRegistrationForm.earmarkedButton"), translate("EditRegistrationForm.multiSubscriptionButton")}, null, 1);
+		booleanAttributes.select(EARMARKED, exam.getEarmarkedEnabled());
+		booleanAttributes.select(MULTI_SUBSCRIPTION, exam.getIsMultiSubscription());
+		// only configurable for oral exams
+		booleanAttributes.setEnabled(MULTI_SUBSCRIPTION, exam.getIsOral());
+
+		uifactory.addFormSubmitButton("save", "saveButton", formLayout);
 	}
 
-	/**
-	 * @see Form#validate()
-	 */
+	@Override
 	public boolean validateFormLogic(UserRequest ureq) {
+		boolean result = !regStartEdit.isEmpty("EditRegistrationForm.isEmpty")
+						&& !regEndEdit.isEmpty("EditRegistrationForm.isEmpty")
+						&& !signOffEdit.isEmpty("EditRegistrationForm.isEmpty");
 
-		boolean validate = false;
-
-		validate = !regStart.isEmpty("EditRegistrationForm.isEmpty")
-				&& !regEnd.isEmpty("EditRegistrationForm.isEmpty")
-				&& !signOff.isEmpty("EditRegistrationForm.isEmpty");
-
-		if (validate) {
-
-			if (regEnd.getDate().getTime() <= regStart.getDate().getTime()) {
-
-				regEnd.setErrorKey("EditRegistrationForm.dateError", null);
-				validate = false;
+		if (result) {
+			if (regEndEdit.getDate().getTime() <= regStartEdit.getDate().getTime()) {
+				regEndEdit.setErrorKey("EditRegistrationForm.dateError", null);
+				result = false;
 			}
-			if (signOff.getDate().getTime() < regEnd.getDate().getTime()) {
-
-				signOff.setErrorKey("EditRegistrationForm.dateError", null);
-				validate = false;
+			if (signOffEdit.getDate().getTime() < regEndEdit.getDate().getTime()) {
+				signOffEdit.setErrorKey("EditRegistrationForm.dateError", null);
+				result = false;
 			}
 		}
 
-		return validate;
+		return result;
 	}
 
 	/**
 	 * @return a Date representing the start of the registration period
 	 */
 	public Date getRegStart() {
-
-		return regStart.getDate();
+		return regStartEdit.getDate();
 	}
 
 	/**
 	 * @return a Date representing the end of the registration period
 	 */
 	public Date getRegEnd() {
-
-		return regEnd.getDate();
+		return regEndEdit.getDate();
 	}
 
 	/**
 	 * @return a Date representing the sign off deadline
 	 */
 	public Date getSignOff() {
+		return signOffEdit.getDate();
+	}
 
-		return signOff.getDate();
+	/**
+	 * @return true, if the multiSubscription feature was enabled
+	 */
+	public boolean getMultiSubscription() {
+		return booleanAttributes.getSelectedKeys().contains(MULTI_SUBSCRIPTION);
+	}
+
+	/**
+	 * @return true, if the multiSubscription feature was enabled
+	 */
+	public boolean getEarmarked() {
+		return booleanAttributes.getSelectedKeys().contains(EARMARKED);
 	}
 
 	@Override
 	protected void formOK(UserRequest ureq) {
 		fireEvent(ureq, Form.EVNT_VALIDATION_OK);
-
 	}
 
 	@Override
 	protected void doDispose() {
-		// TODO Auto-generated method stub
-
+		// nothing to dispose
 	}
 }

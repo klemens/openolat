@@ -26,9 +26,11 @@
 package org.olat.course.nodes;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 import org.olat.core.gui.UserRequest;
+import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.WindowControl;
 import org.olat.core.id.Identity;
 import org.olat.course.condition.Condition;
@@ -38,9 +40,8 @@ import org.olat.course.condition.additionalconditions.AdditionalConditionManager
 import org.olat.course.condition.interpreter.ConditionExpression;
 import org.olat.course.condition.interpreter.ConditionInterpreter;
 import org.olat.course.export.CourseEnvironmentMapper;
-import org.olat.course.run.navigation.NodeRunConstructionResult;
+import org.olat.course.run.environment.CourseEnvironment;
 import org.olat.course.run.userview.NodeEvaluation;
-import org.olat.course.run.userview.UserCourseEnvironment;
 
 import de.bps.course.nodes.CourseNodePasswordManagerImpl;
 
@@ -68,12 +69,6 @@ public abstract class AbstractAccessableCourseNode extends GenericCourseNode {
 	protected AbstractAccessableCourseNode(String type) {
 		super(type);
 	}
-
-	/**
-	 * @see org.olat.course.nodes.CourseNode#createNodeRunConstructionResult(UserRequest, WindowControl, UserCourseEnvironment, NodeEvaluation, String)
-	 */
-	abstract public NodeRunConstructionResult createNodeRunConstructionResult(UserRequest ureq, WindowControl wControl,
-			UserCourseEnvironment userCourseEnv, NodeEvaluation ne, String nodecmd);
 
 	/**
 	 * Returns the generic access precondition
@@ -181,6 +176,12 @@ public abstract class AbstractAccessableCourseNode extends GenericCourseNode {
 		//
 		return retVal;
 	}
+	
+	/** Factory method to launch course element assessment tools. limitToGroup is optional to skip he the group choose step */
+	public List<Controller> createAssessmentTools(UserRequest ureq, WindowControl wControl, CourseEnvironment courseEnv, AssessmentToolOptions options) {
+		return Collections.emptyList();
+	}
+	
 
 	public List<AdditionalCondition> getAdditionalConditions(){
 		if(additionalConditions==null)

@@ -24,6 +24,10 @@ $selectcolor : #FF9F5B !default;
 $selectcolor_light : #FF9F5B !default;			
 $selectcolor_ultra_light : #FFDBC1 !default;	 
 
+/* color that indicates the edit fields or table */
+$dirtycolor : #FF9900 !default;
+$dirtycolor_bg : #FEFBF6 !default;
+
 /* then we need a base-gray and some variations */
 $basegray: #555 !default;
 $basegray_light: #777 !default;
@@ -47,6 +51,7 @@ $menulinkcolor_selected : $basecolor !default;
 
 $tablecolor_header : $linkcolor !default;
 $tablecolor_links : $linkcolor !default;
+$tablecolor_links_hover : $linkcolor !default;
 
 /* full screen margins. Set to 0% to have have no surrounding border at all */
 $fullScreenModalMarginPercents: 2% !default;
@@ -81,6 +86,11 @@ $ico_minus : '../openolat/images/tree_parent_open.png'  !default;
 $defaultfont : 'Helvetica Neue', Helvetica, Arial, sans-serif !default;
 /* the font used in :  navigation (tabs + tree), headings */
 $headerfont : Century Gothic, Apple Gothic, sans-serif !default;
+/* other fonts */
+$topnavfont : $headerfont !default;
+$navmainfont : $headerfont !default;
+$treefont : $headerfont !default;
+
 /* the overall default font-size */ 
 $defaultfontsize : 80% !default;
 

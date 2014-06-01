@@ -33,6 +33,7 @@ import org.olat.core.gui.components.Component;
 import org.olat.core.gui.components.form.ValidationError;
 import org.olat.core.gui.components.form.flexible.elements.TextElement;
 import org.olat.core.gui.components.form.flexible.impl.FormItemImpl;
+import org.olat.core.util.StringHelper;
 import org.olat.core.util.ValidationStatus;
 import org.olat.core.util.ValidationStatusImpl;
 import org.olat.core.util.filter.Filter;
@@ -82,7 +83,7 @@ public abstract class AbstractTextElement extends FormItemImpl implements TextEl
 	private String checkRegexp;
 	private String checkRegexpErrorKey;
 	private ItemValidatorProvider itemValidatorProvider;
-	private boolean originalInitialised=false;
+	protected boolean originalInitialised=false;
 	
 	
 	@Override
@@ -152,8 +153,9 @@ public abstract class AbstractTextElement extends FormItemImpl implements TextEl
 	 * @param value The value to set
 	 */
 	public void setValue(String value) {
-		if (value == null) value = "";
-		else {
+		if (value == null) {
+			value = "";
+		} else {
 			if(!preventTrim) // OO-31
 				value = value.trim();
 			
@@ -165,7 +167,8 @@ public abstract class AbstractTextElement extends FormItemImpl implements TextEl
 				originalInitialised = true;
 			}
 		}
-		this.value = value;
+
+		this.value = StringHelper.cleanUTF8ForXml(value);
 		Component c = getComponent();
 		if (c != null) {
 			// c may be null since it is only created when this formelement is added to a FormItemContainer

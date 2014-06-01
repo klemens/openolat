@@ -171,10 +171,9 @@
 			<props>
 				<prop key="hibernate.cache.use_query_cache">true</prop>
 				<prop key="hibernate.cache.use_second_level_cache">true</prop>
-				<prop key="hibernate.cache.region.factory_class">org.hibernate.cache.infinispan.JndiInfinispanRegionFactory</prop>
+				<prop key="hibernate.cache.region.factory_class">org.jboss.as.jpa.hibernate4.infinispan.InfinispanRegionFactory</prop>
+				<prop key="hibernate.cache.infinispan.cachemanager">java:jboss/infinispan/container/hibernate</prop>
 				<prop key="hibernate.transaction.manager_lookup_class">org.hibernate.transaction.JBossTransactionManagerLookup</prop>
-				<prop key="hibernate.cache.infinispan.use_synchronization">false</prop>
-				<prop key="hibernate.cache.infinispan.cachemanager">java:jboss/infinispan/hibernate</prop>
 			</props>
 		</constructor-arg>        
 	</bean>
@@ -265,7 +264,7 @@
 	<!-- The mysql datasource checks upon startup whether the tables are of type InnoDB, if not it will not start. If you have an other type of transactional tables just switch back the spring config
 	to the normal  org.springframework.jdbc.datasource.DriverManagerDataSource and the check is gone.-->                  
 	<bean id="mysql_local_DataSource" class="org.olat.core.commons.persistence.InnoDBAwareDriverManagerDataSource" lazy-init="true" init-method="init">
-		<property name="driverClassName"><value>com.mysql.jdbc.Driver</value></property>
+		<property name="driverClassName" value="com.mysql.jdbc.Driver" />
 		<property name="url"><value>jdbc:mysql://${db.host}:${db.host.port}/${db.name}?useUnicode=true&amp;characterEncoding=UTF-8</value></property>
 		<property name="username" value="${db.user}" />
 		<property name="password" value="${db.pass}" />
