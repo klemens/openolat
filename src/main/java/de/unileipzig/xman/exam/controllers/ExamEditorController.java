@@ -63,7 +63,7 @@ import de.unileipzig.xman.exam.ExamDBManager;
 import de.unileipzig.xman.exam.ExamHandler;
 import de.unileipzig.xman.exam.AlreadyLockedException;
 import de.unileipzig.xman.exam.forms.CreateAndEditAppointmentForm;
-import de.unileipzig.xman.exam.forms.EditCommentsForm;
+import de.unileipzig.xman.exam.forms.EditDescriptionForm;
 import de.unileipzig.xman.exam.forms.EditEarmarkedForm;
 import de.unileipzig.xman.exam.forms.EditMultiSubscriptionForm;
 import de.unileipzig.xman.exam.forms.EditRegistrationForm;
@@ -92,7 +92,7 @@ public class ExamEditorController extends BasicController {
 	private Exam exam;
 	private Appointment app;
 	private TabbedPane tabbedPane;
-	private EditCommentsForm editCommentsForm;
+	private EditDescriptionForm editDescriptionForm;
 	private EditRegistrationForm editRegForm;
 	private EditEarmarkedForm editEarmarkedForm;
 	private EditMultiSubscriptionForm editMultiSubscriptionForm;
@@ -165,11 +165,10 @@ public class ExamEditorController extends BasicController {
 		tabbedPane.addListener(this);
 		vcMain.put("tabbedPane", tabbedPane);
 
-		editCommentsForm = new EditCommentsForm(ureq, this.getWindowControl(),
-				"editCommentsForm", getTranslator(), exam.getComments());
-		editCommentsForm.addControllerListener(this);
+		editDescriptionForm = new EditDescriptionForm(ureq, this.getWindowControl(), exam.getComments());
+		editDescriptionForm.addControllerListener(this);
 		tabbedPane.addTab(translate("ExamEditorController.tabbedPane.comments"),
-				editCommentsForm.getInitialComponent());
+				editDescriptionForm.getInitialComponent());
 
 		editRegForm = new EditRegistrationForm(ureq, this.getWindowControl(),
 				"editRegistrationForm", getTranslator(), exam.getRegStartDate(),
@@ -346,12 +345,12 @@ public class ExamEditorController extends BasicController {
 					appTableCtr.modelChanged();
 				}
 			}
-		} else if (source == editCommentsForm) {
+		} else if (source == editDescriptionForm) {
 
 			if (event == Form.EVNT_VALIDATION_OK) {
 
 				exam = ExamDBManager.getInstance().findExamByID(exam.getKey());
-				exam.setComments(editCommentsForm.getComments());
+				exam.setComments(editDescriptionForm.getDescription());
 				ExamDBManager.getInstance().updateExam(exam);
 			}
 		} else if (source == editRegForm) {
