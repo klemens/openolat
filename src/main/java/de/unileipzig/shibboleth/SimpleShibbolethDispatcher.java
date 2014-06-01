@@ -12,7 +12,7 @@ import org.olat.basesecurity.BaseSecurity;
 import org.olat.basesecurity.BaseSecurityManager;
 import org.olat.basesecurity.Constants;
 import org.olat.core.dispatcher.Dispatcher;
-import org.olat.core.dispatcher.DispatcherAction;
+import org.olat.core.dispatcher.DispatcherModule;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.UserRequestImpl;
 import org.olat.core.gui.control.ChiefController;
@@ -77,7 +77,8 @@ public class SimpleShibbolethDispatcher implements Dispatcher {
 	private OLog log;
 	
 	@Override
-	public void execute(HttpServletRequest request, HttpServletResponse response, String uriPrefix) {
+	public void execute(HttpServletRequest request, HttpServletResponse response) {
+		String uriPrefix = DispatcherModule.getLegacyUriPrefix(request);
 		UserRequest ureq = new UserRequestImpl(uriPrefix, request, response);
 
 		if(log == null)
@@ -142,7 +143,7 @@ public class SimpleShibbolethDispatcher implements Dispatcher {
 		MediaResource mr = ureq.getDispatchResult().getResultingMediaResource();
 		if (!(mr instanceof RedirectMediaResource)) {
 			log.error("got wrong type of MediaResource");
-			DispatcherAction.redirectToDefaultDispatcher(response);
+			DispatcherModule.redirectToDefaultDispatcher(response);
 			return;
 		}
 		
