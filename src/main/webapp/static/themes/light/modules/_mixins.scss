@@ -1,0 +1,20 @@
+
+@mixin o-make-message-box($bgcolor, $titlecolor){
+	margin: $o-box-margin 0;
+	padding: $o-box-padding;
+	border-left: $o-box-border-left-size solid $titlecolor;
+	background-color: $bgcolor;
+	h2, h3, h4, h5 { color: $titlecolor;}
+}
+
+
+/* redundant style from font-awesome to support sass extend mechansism */
+@mixin o-make-icon() {
+  display: inline-block;
+  font-family: FontAwesome;
+  font-style: normal;
+  font-weight: normal;
+  line-height: 1;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}

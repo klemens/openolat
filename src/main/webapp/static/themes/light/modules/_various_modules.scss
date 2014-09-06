@@ -1,0 +1,432 @@
+/* HELP, context sensitive */
+a.o_chelp {
+	display: inline-block;
+	padding: 1px 3px;
+	text-align: center;
+	vertical-align: middle;
+	white-space: nowrap;
+	font-size: $o-chelp-font-size;
+	font-weight: $o-chelp-font-weight;
+	line-height: floor($o-chelp-font-size *1.5);
+	color: $o-chelp-color;
+  	background-color: $o-chelp-bg;
+	border: 1px solid $o-chelp-border;
+	border-radius: $o-chelp-border-radius;
+	cursor: help;
+ 	@include user-select(none);
+
+	&:active,
+	&:hover,
+	&:focus {
+    	text-decoration: none;
+	    color: $o-chelp-color;
+    	background-color: darken($o-chelp-bg, 8%);
+        border-color: darken($o-chelp-border, 12%);
+  	}
+  	
+	i {
+		font-size: $o-chelp-font-size !important;
+	}
+}
+.o_chelp_wrapper { 
+	position: relative;
+	float: right;
+	display: inline-block;
+	line-height: 1em;
+}
+
+/* iframe display controller - used to deliver all course contents */
+.o_iframedisplay {
+	iframe {
+		width: 100%;
+	}
+}
+/* normally content is wrapped in a single page which uses an iframedisplay */
+.o_singlepage {
+	.o_edit {
+		position: absolute;
+		top: $padding-large-vertical;
+		right: $padding-base-horizontal + $padding-xs-horizontal + $line-height-computed;
+ 	}
+}
+/* the clone controller is used to pop content out of the window into another window. */
+.o_content_popup {
+	position: absolute;
+	top: $padding-large-vertical;
+	right: $padding-base-horizontal;
+}
+
+/* content packaging module */
+.o_module_cp_wrapper {
+	.o_tools {
+		position: absolute;
+		top: $padding-large-vertical;
+		right: $padding-base-horizontal;
+		text-align: right;
+		vertical-align: middle;
+		.o_search_wrapper {
+			display: inline-block;
+			position: relative;
+			top: -2px;
+	 	}
+	}
+}
+
+.o_dropdown {
+	.divider {
+    	@include nav-divider($dropdown-divider-bg);
+  	}
+  	
+  	> li > a {
+    	display: block;
+		padding: 3px 0;
+		clear: both;
+		font-weight: normal;
+		line-height: $line-height-base;
+		color: $dropdown-link-color;
+		white-space: nowrap; // prevent links from randomly breaking onto new lines
+	}
+}
+
+/* SCORM module */
+.badge {
+	/* badge color */
+	&.o_scorm_org {}
+	&.o_scorm_item {}
+	&.o_scorm_completed { background-color: $state-success-text; }
+	&.o_scorm_failed { background-color: $state-danger-text; }
+	&.o_scorm_incomplete { background-color: $state-warning-text; }
+	&.o_scorm_not_attempted { background: none; }
+}
+
+/* briefcase (folder) module */
+.o_bc_empty{
+	@extend %o_important;
+}
+.o_bc_meta, .tooltip {
+	@extend %o_small;
+	.o_thumbnail{
+		width:200px; 
+		height:200px;
+	}
+}
+
+/* HTML editor */
+.o_htmleditor {
+	.o_lastmodified {
+		color: $text-muted;	
+	}
+	#o_save {
+		margin-top: 10px;
+		text-align: center;
+		input {
+			margin-right: 1em;
+			&:last-child {
+				margin-right: 0;		
+			}
+		}
+	}
+}
+
+/* notifications and subscription */
+.o_notifications_news_wrapper {
+	.o_notifications_news_subscription {
+		margin: $padding-large-vertical 0;
+		h4 i {
+			display: none;
+		}
+		.o_notifications_news_context {
+			color: $text-muted;	
+		}
+		.o_notifications_news_content {
+			margin-left: 1.5em;
+			position: relative;
+			.o_icon {
+				position: absolute;
+				left: -1.5em;
+				line-height: 1.5em;
+				top: 0;
+			}
+			.o_date {
+				color: $text-muted;
+			}
+		}
+		.o_notifications_news_url {
+			margin-left: 1.5em;			
+		}
+	}
+}
+.o_noti {
+	margin: $padding-base-vertical 0 $padding-base-vertical $padding-base-horizontal;
+	float: right;
+	color: $text-muted;	
+	@extend %o_small;
+	.o_label {
+		@extend %o_undecorated;
+		color: $text-muted;	
+		cursor:help;
+	}
+	@media (max-width: $screen-xs-max) { 
+		.o_label span {
+			display: none;
+		}	
+	}
+}
+.panel-body .o_noti {
+	/* override default margin */
+	margin: 0;
+}
+
+/* Portrait image */
+.o_portrait {
+	display: inline-block;
+	img {
+		border-radius: $o-portrait-radius;
+		border: $o-portrait-border;
+		background-color: $gray-lighter;
+		background-position: 50% 50%; 
+		background-repeat: no-repeat;
+		background-size: cover;
+	}
+}
+.o_portrait_name { 
+	margin-top: $padding-base-vertical;
+}
+
+/* Dummy user portrait (avatar) display - portrait sizes must match with DisplayPortraitManager.WIDTH_PORTRAIT_SMALL  DisplayPortraitManager.WIDTH_PORTRAIT_BIG */
+.o_portrait_avatar,
+.o_portrait_dummy,
+.o_portrait_dummy_female_big,
+.o_portrait_dummy_male_big,
+.o_portrait_anonymous 			 {width: 100px; height: 100px;}
+.o_portrait_dummy                {background-image: url('#{$o-images-path}portrait/dummy.png');}
+.o_portrait_dummy_female_big     {background-image: url('#{$o-images-path}portrait/dummy_female_big.png');}
+.o_portrait_dummy_male_big       {background-image: url('#{$o-images-path}portrait/dummy_male_big.png');}
+.o_portrait_anonymous 			 {background-image: url('#{$o-images-path}portrait/dummy.png'); }
+
+.o_portrait_avatar_small,
+.o_portrait_dummy_small,
+.o_portrait_dummy_female_small,
+.o_portrait_dummy_male_small,
+.o_portrait_anonymous_small 	 {width: 30px; height: 30px;}
+.o_portrait_dummy_small          {background-image: url('#{$o-images-path}portrait/dummy_small.png');}
+.o_portrait_dummy_female_small   {background-image: url('#{$o-images-path}portrait/dummy_female_small.png');}
+.o_portrait_dummy_male_small     {background-image: url('#{$o-images-path}portrait/dummy_male_small.png');}
+.o_portrait_anonymous_small 	 {background-image: url('#{$o-images-path}portrait/dummy_small.png'); } 
+
+
+/* Date component, used in info course element, blog etc */
+.o_datecomp {
+	position: relative; 
+	width: $line-height-computed * 2; 
+	height: $line-height-computed + floor($line-height-computed * 1.5) + 2px; 
+	border: 1px solid $o-datecomp-border; 
+	margin-right: $padding-base-horizontal; 
+	text-align: center; 
+	vertical-align: middle; 
+	
+	div.o_year {
+		position: absolute; 
+		left: 0;
+		width: 100%;
+		top: -$line-height-computed; 
+		height: $line-height-computed; 
+		line-height: $line-height-computed; 
+		font-size: ceil($font-size-base * 0.7);
+	}
+	div.o_month {
+		height: $line-height-computed; 
+		line-height: $line-height-computed; 
+		font-size: $font-size-small; 
+		background-color: $o-datecomp-month-bg;
+		color: $o-datecomp-month-color;
+	}
+	div.o_day {
+		height: floor($line-height-computed * 1.5);
+		line-height: floor($line-height-computed * 1.5);
+		font-size: $font-size-large;
+		border-top: 1px solid $o-datecomp-border;  
+		background-color: $o-datecomp-day-bg;
+		color: $o-datecomp-day-color;
+	}
+}
+.o_block_with_datecomp {
+	@extend %o_block_large; /* large to have space for year */
+	.o_head {
+		position: relative;
+		padding-left: $line-height-computed * 2 + $padding-base-horizontal;
+	}
+	.o_datecomp {
+		position: absolute;
+		top: 0.2em;
+		left: 0;		
+	}
+	.o_title {
+		margin-top: 0;
+	}
+	.o_meta {
+		color: $text-muted;
+		@extend %o_small;
+	}
+	.o_content {
+		@extend %o_block;
+		border-left: 5px solid $blockquote-border-color;
+		padding: 0 $line-height-computed;
+	}
+	.o_block_footer {
+		padding-left: $line-height-computed + 5px;
+	}
+}
+
+
+/* Calendar */
+.o_cal_toptoolbar {
+	margin-bottom: $padding-base-vertical;
+	.o_cal_toptoolbar_sub, .o_cal_toptoolbar_help {
+		float: left;
+		margin-right: $padding-base-horizontal;
+	}
+}
+.o_cal {
+	.fc-header-title h2 {
+		@extend h4;
+	}
+}
+
+/* Feed (Blog/Podcast */
+.o_feed {
+	.o_media {
+		@extend .img-thumbnail;
+	}
+	.o_date, .o_author {
+		color: $text-muted;
+	}
+	.o_subscription {
+		a {	
+			margin-right: 1.5em;
+		}
+		form {
+			margin-top: $padding-base-vertical;	
+		}
+	}
+	.o_blog_posts {
+		.o_ratings_and_comments {
+			.o_rating_wrapper {
+				float: left;
+				.o_rating_title, .o_rating_explanation, .o_legend {
+					display: none;
+				}		
+			}
+			a.o_comments {
+				span {
+					display: none;
+				}
+			}
+		}
+	}
+}
+
+/* Segmented view wrapper */
+.o_segments_content {
+	margin-top: $line-height-computed;
+}
+
+/* Tabbed pane component */
+.o_tabbed_pane { 
+	.o_tabbed_pane_content {
+		padding: $o-tabbed-pane-padding;
+	}
+}
+
+
+
+/* toogle box, based on bootstrap collapse plugin */
+.o_togglebox_wrapper {
+	.o_opener {
+		position: relative;
+		left: -0.5em;
+		i {
+			@extend .o_icon_open_togglebox;
+		}
+		&.o_in i {
+			@extend .o_icon_close_togglebox;
+		}
+	}
+	div.o_togglebox_content {
+		position: relative;
+		@extend %o_info;
+		margin: 0;
+		.o_hide {
+			position: absolute;
+			bottom: 0.5em;
+			right: 1em;		
+			@extend %o_small;
+		}
+	}	
+}
+
+/* the old toolbox */
+.o_toolboxes {
+	ul {
+		margin: 0 0 1.5em 0;
+		padding: 0 0 0 1.5em;
+	}
+}
+
+/* QR-Code container */ 
+.o_qrcode {
+	width: 256px; 
+	height: 256px;
+}
+
+/* busy screen */
+#o_ajax_busy { 
+	position: absolute; 
+	left:50%; 
+	top: 20em;
+	margin-left: -2.5em;
+	height: 5em; 
+	width: 5em;
+	color: #fff; 
+	z-index: 1201; /* modal backdrop set to 1200 */
+	display: none;
+}	
+#o_body.o_ajax_busy {
+	cursor: busy;
+}
+
+/* error screen */
+.o_exception {
+	.o_visual {
+		position: relative;
+		/* image CC by Nomadic Lass https://www.flickr.com/photos/nomadic_lass/5329061838/ */
+		background-image: url('#{$o-images-path}lion-500x333.jpg');
+		filter: grayscale(50%);
+		-webkit-filter: grayscale(50%);
+		-moz-filter: grayscale(50%);
+		-ms-filter: grayscale(50%); 
+		-o-filter: grayscale(50%);
+		width: 500px;
+		height: 333px;
+		background-repeat:no-repeat;
+		background-position:50% 50%;		
+		background-size: contain;	
+		margin: 0 0 $padding-large-vertical $padding-large-horizontal;
+
+		@media (min-width: $screen-sm-min) and (max-width: $screen-sm-max) { 
+			width: floor(500px *0.75);
+			height: floor(333px *0.75);		
+		}
+		@media (min-width: 500px) and (max-width: $screen-xs-max) { 
+			width: floor(500px *0.5);
+			height: floor(333px *0.5);		
+		}	
+		@media (max-width: 500px){ 
+			background-size: cover;	
+		}	
+	}
+	.jumbotron h1 { 
+		color: $brand-danger;
+	}
+
+}

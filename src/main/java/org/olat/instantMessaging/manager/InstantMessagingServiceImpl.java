@@ -30,6 +30,7 @@ import java.util.Map;
 import java.util.Set;
 
 import org.olat.basesecurity.BaseSecurity;
+import org.olat.basesecurity.GroupRoles;
 import org.olat.basesecurity.IdentityShort;
 import org.olat.core.commons.persistence.DB;
 import org.olat.core.id.Identity;
@@ -44,8 +45,7 @@ import org.olat.group.BusinessGroup;
 import org.olat.group.BusinessGroupMemberView;
 import org.olat.group.DeletableGroupData;
 import org.olat.group.manager.ContactDAO;
-import org.olat.group.model.BusinessGroupOwnerViewImpl;
-import org.olat.group.model.BusinessGroupParticipantViewImpl;
+import org.olat.group.model.ContactViewExtended;
 import org.olat.instantMessaging.ImPreferences;
 import org.olat.instantMessaging.InstantMessage;
 import org.olat.instantMessaging.InstantMessageNotification;
@@ -239,8 +239,8 @@ public class InstantMessagingServiceImpl extends BasicManager implements Instant
 
 		//count all my buddies
 		Collection<Long> buddiesColl = contactDao.getDistinctGroupOwnersParticipants(me);
+		buddiesColl.remove(me.getKey());
 		List<Long> buddies = new ArrayList<Long>(buddiesColl);
-		buddies.remove(me.getKey());
 		stats.setOfflineBuddies(buddies.size());
 
 		//filter online users
@@ -268,22 +268,10 @@ public class InstantMessagingServiceImpl extends BasicManager implements Instant
 		List<BuddyGroup> groups = new ArrayList<BuddyGroup>(25);
 		Map<Long,BuddyGroup> groupMap = new HashMap<Long,BuddyGroup>();
 		Map<Long, String> identityKeyToStatus = new HashMap<Long, String>();
-		List<BusinessGroupOwnerViewImpl> ownerList = contactDao.getGroupOwners(me);
-		collectMembersStatus(ownerList, identityKeyToStatus);
-		List<BusinessGroupParticipantViewImpl> participantList = contactDao.getParticipants(me);
-		collectMembersStatus(participantList, identityKeyToStatus);
-		for(BusinessGroupOwnerViewImpl owner:ownerList) {
-			addBuddyToGroupList(owner, me, groupMap, groups, identityKeyToStatus, true, offlineUsers);
-		}
-		for(BusinessGroupParticipantViewImpl participant:participantList) {
-			addBuddyToGroupList(participant, me, groupMap, groups, identityKeyToStatus, false, offlineUsers);
-		}
-		
-		Map<Long,String> nameMap = userManager.getUserDisplayNamesByKey(identityKeyToStatus.keySet());
-		for(BuddyGroup group:groups) {
-			for(Buddy buddy:group.getBuddy()) {
-				buddy.setName(nameMap.get(buddy.getIdentityKey()));	
-			}
+		List<ContactViewExtended> contactList = contactDao.getContactWithExtendedInfos(me);
+		collectMembersStatus(contactList, identityKeyToStatus);
+		for(ContactViewExtended contact:contactList) {
+			addBuddyToGroupList(contact, me, groupMap, groups, identityKeyToStatus, offlineUsers);
 		}
 		return groups;
 	}
@@ -316,8 +304,8 @@ public class InstantMessagingServiceImpl extends BasicManager implements Instant
 		}	
 	}
 	
-	private void addBuddyToGroupList(BusinessGroupMemberView member, Identity me, Map<Long,BuddyGroup> groupMap,
-			List<BuddyGroup> groups, Map<Long, String> identityKeyToStatus, boolean vip, boolean offlineUsers) {
+	private void addBuddyToGroupList(ContactViewExtended member, Identity me, Map<Long,BuddyGroup> groupMap,
+			List<BuddyGroup> groups, Map<Long, String> identityKeyToStatus, boolean offlineUsers) {
 		if(me != null && me.getKey().equals(member.getIdentityKey())) {
 			return;
 		}
@@ -342,7 +330,9 @@ public class InstantMessagingServiceImpl extends BasicManager implements Instant
 				groupMap.put(member.getGroupKey(), group);
 				groups.add(group);
 			}
-			group.addBuddy(new Buddy(member.getIdentityKey(), member.getUsername(), null, false, vip, status));	
+			boolean vip = GroupRoles.coach.name().equals(member.getRole());
+			String name = userManager.getUserDisplayName(member);
+			group.addBuddy(new Buddy(member.getIdentityKey(), member.getUsername(), name, false, vip, status));	
 		}
 	}
 

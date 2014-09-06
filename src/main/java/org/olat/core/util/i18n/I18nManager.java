@@ -39,6 +39,7 @@ import java.text.MessageFormat;
 import java.text.NumberFormat;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.Deque;
@@ -1279,7 +1280,7 @@ public class I18nManager extends BasicManager {
 	 * 
 	 * @param languageKeys The source array of language keys
 	 * @param additionalCssClass additional CSS classes that should be added or
-	 *          NULL. E.g. you could use 'b_with_small_icon_left'
+	 *          NULL. E.g. you could use 'o_flag'
 	 * @return
 	 */
 	public String[] createLanguageFlagsCssClasses(String[] languageKeys, String additionalCssClass) {
@@ -1287,7 +1288,7 @@ public class I18nManager extends BasicManager {
 		for (int i = 0; i < languageKeys.length; i++) {
 			String cssClasses = (additionalCssClass == null ? "" : additionalCssClass);
 			String langKey = languageKeys[i];
-			cssClasses += " b_flag_" + langKey;
+			cssClasses += " o_flag_" + langKey;
 			flagsCssClasses[i] = cssClasses;
 		}
 		return flagsCssClasses;
@@ -1677,10 +1678,6 @@ public class I18nManager extends BasicManager {
 	 * @return
 	 */
 	public String getLocaleKey(Locale locale) {
-		if(locale == null) {
-			System.out.println();
-		}
-		
 		String langKey = locale.getLanguage();
 		String country = locale.getCountry();
 		// Only add country when available - in case of an overlay country is
@@ -1850,7 +1847,7 @@ public class I18nManager extends BasicManager {
 	 * @param jarFile
 	 * @param toCopyI18nKeys
 	 */
-	public void copyLanguagesFromJar(File jarFile, Set<String> toCopyI18nKeys) {
+	public void copyLanguagesFromJar(File jarFile, Collection<String> toCopyI18nKeys) {
 		if (!I18nModule.isTransToolEnabled()) {
 			throw new AssertException("Programming error - can only copy i18n files from a language pack to the source when in translation mode");
 		}
@@ -2018,7 +2015,7 @@ public class I18nManager extends BasicManager {
 	 * @return The file handle to the created file or NULL if no such file could
 	 *         be created (e.g. there already exists a file with this file name)
 	 */
-	public File createLanguageJarFile(Set<String> languageKeys, String fileName) {
+	public File createLanguageJarFile(Collection<String> languageKeys, String fileName) {
 		// Create file olatdata temporary directory
 		File file = new File(WebappHelper.getTmpDir() + "/" + fileName);
 		file.getParentFile().mkdirs();

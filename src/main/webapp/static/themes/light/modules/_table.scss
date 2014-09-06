@@ -1,0 +1,130 @@
+.o_table_wrapper {
+
+	&.o_table_flexi {
+		.o_table_body{
+			margin-top: $line-height-computed;
+		}
+		.table {
+			margin-top: $line-height-computed;
+			td ul {
+				margin: 0;
+			}
+		}
+	}
+	&.o_table_edit table tbody {
+		border-top:solid $o-table-edit-border 4px;
+		background-color: $o-table-edit-bg;
+	}
+
+	.o_table_filter {
+	}
+	.o_table_search {
+		max-width:50em;
+	}
+
+	.o_table_footer {
+		.o_table_checkall { }	
+
+		.o_table_pagination {
+			text-align: center;
+		}		
+	}
+	
+	.o_row_selected td { 
+		background-color: $o-table-row-selected-color !important; 
+	}
+
+	.o_table {
+		margin-bottom: 0;
+	}
+	.o_marked {
+		 font-weight: bold;
+	}
+
+	/* make table always responsive, meaning span entire width with scrollbar in case of overflow
+	   note: bootstrapt table-responsive does the same but only for small viewports 
+	 */
+	width: 100%;
+	margin-bottom: 15px;
+	overflow-y: hidden;
+	overflow-x: auto;
+	-ms-overflow-style: -ms-autohiding-scrollbar;
+	-webkit-overflow-scrolling: touch;
+
+	.table {
+		margin-bottom: 0;
+	}
+	
+	th {
+		color: $o-table-header-color;
+	}
+}
+
+a.o_orderby, a.o_orderby:hover {
+	color: $o-table-header-color;
+	text-decoration: none;
+
+	&.o_orderby_asc, &.o_orderby_desc {
+		border-bottom: 1px solid $table-border-color;
+	}
+}
+
+.o_table_row_count {
+	padding-top:6px;
+	padding-bottom:6px;
+	vertical-align:middle;
+}
+
+.o_table_row_details td {
+	background-color: white !important;
+}
+
+.o_table_config {
+	font-size: floor($font-size-base * 0.9);
+}
+
+.o_table_buttons {
+	text-align: center;
+	input {
+		margin-right: 1em;
+		&:last-child {
+			margin-right: 0;		
+		}
+	}
+}
+
+.o_table_tools {
+	margin-left: 6px;
+}
+
+.o_table_tools_indications {
+	margin-left: 10px;
+	padding-top:3px;
+	font-size:66%;
+}
+
+.o_table_count {
+	max-width:20em;
+	float:left;
+	padding: 0 $panel-body-padding;
+}
+
+/* bootstrap extensions */
+.o_info, o_note, o_important, o_warning, o_error {
+	.table-bordered td {
+		border-color: $gray-dark;
+	}
+}
+
+/* table embedded in panels */
+.panel {
+	.o_table_layout {
+		border-top: 1px solid $panel-default-border;
+		padding-top: $padding-base-vertical;
+	}
+	.o_table_count {
+		padding: 0 $panel-body-padding;
+	}
+}
+
+	

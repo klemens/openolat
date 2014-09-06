@@ -22,11 +22,11 @@ package org.olat.course.nodes;
 
 import java.io.File;
 import java.util.List;
+import java.util.Locale;
 
-import org.olat.basesecurity.BaseSecurityManager;
 import org.olat.core.CoreSpringFactory;
 import org.olat.core.gui.UserRequest;
-import org.olat.core.gui.components.stack.StackedController;
+import org.olat.core.gui.components.stack.BreadcrumbPanel;
 import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.WindowControl;
 import org.olat.core.gui.control.generic.messages.MessageUIFactory;
@@ -50,16 +50,20 @@ import org.olat.course.nodes.portfolio.PortfolioCourseNodeConfiguration;
 import org.olat.course.nodes.portfolio.PortfolioCourseNodeEditController;
 import org.olat.course.nodes.portfolio.PortfolioCourseNodeRunController;
 import org.olat.course.nodes.portfolio.PortfolioResultDetailsController;
-import org.olat.course.repository.ImportPortfolioReferencesController;
 import org.olat.course.run.navigation.NodeRunConstructionResult;
 import org.olat.course.run.scoring.ScoreEvaluation;
 import org.olat.course.run.userview.NodeEvaluation;
 import org.olat.course.run.userview.UserCourseEnvironment;
 import org.olat.modules.ModuleConfiguration;
+import org.olat.portfolio.EPTemplateMapResource;
+import org.olat.portfolio.manager.EPFrontendManager;
 import org.olat.portfolio.manager.EPStructureManager;
+import org.olat.portfolio.model.structel.PortfolioStructure;
 import org.olat.repository.RepositoryEntry;
 import org.olat.repository.RepositoryEntryImportExport;
 import org.olat.repository.RepositoryManager;
+import org.olat.repository.handlers.RepositoryHandler;
+import org.olat.repository.handlers.RepositoryHandlerFactory;
 
 
 /**
@@ -92,7 +96,7 @@ public class PortfolioCourseNode extends AbstractAccessableCourseNode implements
 		ModuleConfiguration config = getModuleConfiguration();
 		if (isNewNode) {
 			MSCourseNode.initDefaultConfig(config);
-	    config.setConfigurationVersion(CURRENT_CONFIG_VERSION);
+			config.setConfigurationVersion(CURRENT_CONFIG_VERSION);
 		} 
 		if (config.getConfigurationVersion() < 2) {
 			if(config.get(PortfolioCourseNodeConfiguration.REPO_SOFT_KEY) == null) {
@@ -103,7 +107,7 @@ public class PortfolioCourseNode extends AbstractAccessableCourseNode implements
 					config.set(PortfolioCourseNodeConfiguration.REPO_SOFT_KEY, re.getSoftkey());
 				}
 			}
-	    config.setConfigurationVersion(2);
+			config.setConfigurationVersion(2);
 		}
 	}
 	
@@ -120,13 +124,12 @@ public class PortfolioCourseNode extends AbstractAccessableCourseNode implements
 	}
 
 	@Override
-	public TabbableController createEditController(UserRequest ureq, WindowControl wControl, StackedController stackPanel, ICourse course, UserCourseEnvironment euce) {
+	public TabbableController createEditController(UserRequest ureq, WindowControl wControl, BreadcrumbPanel stackPanel, ICourse course, UserCourseEnvironment euce) {
 		PortfolioCourseNodeEditController childTabCntrllr = new PortfolioCourseNodeEditController(ureq, wControl, stackPanel,
 				course, this, getModuleConfiguration(), euce);
 		updateModuleConfigDefaults(false);
 		CourseNode chosenNode = course.getEditorTreeModel().getCourseNode(euce.getCourseEditorEnv().getCurrentCourseNodeId());
-		return new NodeEditController(ureq, wControl, course.getEditorTreeModel(), course, chosenNode, course.getCourseEnvironment()
-				.getCourseGroupManager(), euce, childTabCntrllr);
+		return new NodeEditController(ureq, wControl, course.getEditorTreeModel(), course, chosenNode, euce, childTabCntrllr);
 	}
 	
 	@Override
@@ -356,7 +359,7 @@ public class PortfolioCourseNode extends AbstractAccessableCourseNode implements
 	}
 
 	@Override
-	public Controller getDetailsEditController(UserRequest ureq, WindowControl wControl, StackedController stackPanel, UserCourseEnvironment userCourseEnvironment) {
+	public Controller getDetailsEditController(UserRequest ureq, WindowControl wControl, BreadcrumbPanel stackPanel, UserCourseEnvironment userCourseEnvironment) {
 		return new PortfolioResultDetailsController(ureq, wControl, stackPanel, this, userCourseEnvironment);
 	}
 
@@ -419,18 +422,17 @@ public class PortfolioCourseNode extends AbstractAccessableCourseNode implements
 	}
 
 	@Override
-	public Controller importNode(File importDirectory, ICourse course, boolean unattendedImport, UserRequest ureq, WindowControl wControl) {
-		File importSubdir = new File(importDirectory, getIdent());
-		RepositoryEntryImportExport rie = new RepositoryEntryImportExport(importSubdir);
-		if (!rie.anyExportedPropertiesAvailable()) return null;
-
-		// do import referenced repository entries
-		if (unattendedImport) {
-			Identity admin = BaseSecurityManager.getInstance().findIdentityByName("administrator");
-			ImportPortfolioReferencesController.doImport(rie, this, true, admin);
-			return null;
-		} else {
-			return new ImportPortfolioReferencesController(ureq, wControl, this, rie);
+	public void importNode(File importDirectory, ICourse course, Identity owner, Locale locale) {
+		RepositoryEntryImportExport rie = new RepositoryEntryImportExport(importDirectory, getIdent());
+		if (rie.anyExportedPropertiesAvailable()) {
+			RepositoryHandler handler = RepositoryHandlerFactory.getInstance().getRepositoryHandler(EPTemplateMapResource.TYPE_NAME);
+			RepositoryEntry re = handler.importResource(owner, rie.getInitialAuthor(), rie.getDisplayName(),
+					rie.getDescription(), false, locale, rie.importGetExportedFile(), null);
+			if(re != null) {
+				EPFrontendManager ePFMgr = CoreSpringFactory.getImpl(EPFrontendManager.class);
+				PortfolioStructure map = ePFMgr.loadPortfolioStructure(re.getOlatResource());
+				PortfolioCourseNodeEditController.setReference(re, map, getModuleConfiguration());
+			}
 		}
 	}
 }

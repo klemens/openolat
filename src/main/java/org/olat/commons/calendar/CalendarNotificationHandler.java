@@ -27,6 +27,14 @@ import org.olat.commons.calendar.model.Kalendar;
 import org.olat.commons.calendar.model.KalendarEvent;
 import org.olat.commons.calendar.ui.CalendarController;
 import org.olat.core.CoreSpringFactory;
+import org.olat.core.commons.services.notifications.NotificationsHandler;
+import org.olat.core.commons.services.notifications.NotificationsManager;
+import org.olat.core.commons.services.notifications.Publisher;
+import org.olat.core.commons.services.notifications.Subscriber;
+import org.olat.core.commons.services.notifications.SubscriptionInfo;
+import org.olat.core.commons.services.notifications.manager.NotificationsUpgradeHelper;
+import org.olat.core.commons.services.notifications.model.SubscriptionListItem;
+import org.olat.core.commons.services.notifications.model.TitleItem;
 import org.olat.core.gui.translator.Translator;
 import org.olat.core.id.OLATResourceable;
 import org.olat.core.id.context.BusinessControlFactory;
@@ -34,18 +42,10 @@ import org.olat.core.logging.LogDelegator;
 import org.olat.core.util.Formatter;
 import org.olat.core.util.StringHelper;
 import org.olat.core.util.Util;
-import org.olat.core.util.notifications.NotificationsHandler;
-import org.olat.core.util.notifications.NotificationsManager;
-import org.olat.core.util.notifications.Publisher;
-import org.olat.core.util.notifications.Subscriber;
-import org.olat.core.util.notifications.SubscriptionInfo;
-import org.olat.core.util.notifications.items.SubscriptionListItem;
-import org.olat.core.util.notifications.items.TitleItem;
 import org.olat.core.util.resource.OresHelper;
 import org.olat.course.CourseModule;
 import org.olat.group.BusinessGroup;
 import org.olat.group.BusinessGroupService;
-import org.olat.notifications.NotificationsUpgradeHelper;
 import org.olat.repository.RepositoryEntry;
 import org.olat.repository.RepositoryManager;
 
@@ -89,7 +89,10 @@ public class CalendarNotificationHandler extends LogDelegator implements Notific
 				} else if (type.equals(CalendarController.ACTION_CALENDAR_GROUP)) {
 					BusinessGroup group = CoreSpringFactory.getImpl(BusinessGroupService.class).loadBusinessGroup(id);
 					calType = CalendarManager.TYPE_GROUP;
-					title = translator.translate("cal.notifications.header.group", new String[]{group.getName()});
+					if(group == null) {
+						return NotificationsManager.getInstance().getNoSubscriptionInfo();
+					}
+					title = translator.translate("cal.notifications.header.group", new String[]{ group.getName() });
 				}
 
 				if (calType != null) {

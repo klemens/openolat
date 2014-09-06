@@ -1,0 +1,103 @@
+table.table.o_qti_item_kprim>thead>tr>th,table.table.o_qti_item_kprim>tbody>tr>td, {
+	border:none;
+}
+
+td.o_qti_item_kprim_input, th.o_qti_item_kprim_input {
+	text-align:center;
+	
+	.radio {
+		display:inline;
+	}
+}
+
+/* space in menu between sections */
+div.o_qti_menu_section {
+	margin-top: $padding-large-vertical;
+}
+
+div.o_qti_item_itemfeedback {
+	@extend %o_info;
+	background-color: #ffffff;
+	border-color: #000000;
+}
+
+
+div.o_qti_item_choice_option_flow {
+	display: inline-block;
+	padding: .5em;
+	border: 1px solid transparent;
+}
+
+.d3chart {
+	.bar_green { fill: $brand-success; }
+	.bar_red { fill: $brand-danger; }
+	.bar_grey { fill: lightgrey; }
+}
+
+div.o_qti_statistics {
+	ul { 
+		list-style-type: none;
+		padding:0; 
+		margin:0;
+		font-size: 90%;
+		
+		strong {font-weight: normal;}
+		li { 
+			padding-left: 48px; 
+			margin-left: 0;
+			margin-bottom: 10px;	
+			&.o_qti_statistics-ncorrect:before { font-size: 125%; content:'\2A2F\00A0\00A0'; }
+			&.o_qti_statistics-correct:before { font-size: 125%; content:'\2713\00A0\00A0'; }
+			&.o_qti_statistics-kplus:before { font-size: 125%; content:'\2713\00A0\2A2F\00A0\00A0'; }
+			&.o_qti_statistics-kminus:before { font-size: 125%; content:'\2A2F\00A0\2713\00A0\00A0'; }
+			img { vertical-align: top;}
+		}
+	}
+
+	/* table style that floats to a two column table when enough space available */	
+	table.o_qti_statistics_figures {
+		tr { float: left; }		
+		tr:nth-child(2n+1) { clear: left; padding-right: 20px; }
+		td { width: 200px; padding-left: 0;}
+		td+td { width: 100px; }
+	}
+	
+	.o_qti_statistics_answer {
+		background: #F5F5F5;
+		padding: 1px 2px;
+		width: 90%;
+	}
+	
+	div.o_qti_statistics_legend {
+		padding-top: 10px;
+		width: 470px;
+		border: 1px solid $table-border-color;
+		border-radius: $panel-border-radius;
+		ul li {
+			.bar_green { background-color:#9dd53a; }
+			.bar_red { background-color:#f85032; }
+			.bar_grey { background-color:lightgrey; }
+		}
+	}
+}
+
+div.o_qti_metadatas .panel-body {
+	border-top:none;
+}
+
+/* onyx   */
+.onyx_iframe {
+	width: 100%;
+	height: 100%;
+	border: none;
+	min-height: 60em;
+}
+
+/* Instead of media print because Firefox doesn't take some rules in account */
+.o_qti_print div.o_qti_statistics { width:680px; }
+
+@media print {
+	div.o_qti_statistics {
+		width:680px;
+	}
+}

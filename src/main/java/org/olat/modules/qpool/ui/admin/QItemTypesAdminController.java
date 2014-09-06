@@ -105,8 +105,9 @@ public class QItemTypesAdminController extends FormBasicController {
 		columnsModel.addFlexiColumnModel(new StaticFlexiColumnModel("delete", Cols.deletable.ordinal(), "delete-type", delRenderer));
 
 		model = new QItemTypeDataModel(columnsModel);
-		tableEl = uifactory.addTableElement(ureq, getWindowControl(), "types", model, getTranslator(), formLayout);
+		tableEl = uifactory.addTableElement(getWindowControl(), "types", model, getTranslator(), formLayout);
 		tableEl.setRendererType(FlexiTableRendererType.classic);
+		tableEl.setCustomizeColumns(false);
 		
 		createType = uifactory.addFormLink("create.type", formLayout, Link.BUTTON);
 	}
@@ -147,7 +148,7 @@ public class QItemTypesAdminController extends FormBasicController {
 		} else if(source == confirmDeleteCtrl) {
 			if(DialogBoxUIFactory.isOkEvent(event) || DialogBoxUIFactory.isYesEvent(event)) {
 				QItemType type = (QItemType)confirmDeleteCtrl.getUserObject();
-				doDelete(ureq, type);
+				doDelete(type);
 			}
 		} else if(source == i18nItemEditCtr) {
 			if(event instanceof I18nItemChangedEvent) {
@@ -198,7 +199,7 @@ public class QItemTypesAdminController extends FormBasicController {
 		confirmDeleteCtrl.setUserObject(type);
 	}
 	
-	private void doDelete(UserRequest ureq, QItemType type) {
+	private void doDelete(QItemType type) {
 		if(qpoolService.delete(type)) {
 			reloadModel();
 			showInfo("item.type.deleted");

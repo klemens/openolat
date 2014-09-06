@@ -23,9 +23,11 @@ import java.util.ArrayList;
 import java.util.List;
 
 import org.olat.core.CoreSpringFactory;
-import org.olat.core.commons.services.commentAndRating.CommentAndRatingService;
-import org.olat.core.commons.services.commentAndRating.impl.ui.UserCommentsAndRatingsController;
+import org.olat.core.commons.services.commentAndRating.CommentAndRatingDefaultSecurityCallback;
+import org.olat.core.commons.services.commentAndRating.CommentAndRatingSecurityCallback;
+import org.olat.core.commons.services.commentAndRating.manager.UserCommentsDAO;
 import org.olat.core.commons.services.commentAndRating.model.UserCommentsCount;
+import org.olat.core.commons.services.commentAndRating.ui.UserCommentsAndRatingsController;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.Component;
 import org.olat.core.gui.components.link.Link;
@@ -66,7 +68,6 @@ public class EPTOCReadOnlyController extends BasicController {
 	private VelocityContainer vC;
 	private EPFrontendManager ePFMgr;
 	private List<UserCommentsCount> commentCounts;
-	private final CommentAndRatingService commentAndRatingService;
 	private UserCommentsAndRatingsController commentsAndRatingCtr;
 	private PortfolioStructure map;
 	private EPSecurityCallback secCallback;
@@ -80,9 +81,8 @@ public class EPTOCReadOnlyController extends BasicController {
 		this.secCallback = secCallback;
 		ePFMgr = (EPFrontendManager) CoreSpringFactory.getBean("epFrontendManager");
 
-		commentAndRatingService = (CommentAndRatingService) CoreSpringFactory.getBean(CommentAndRatingService.class);
-		commentAndRatingService.init(getIdentity(), map.getOlatResource(), null, false, ureq.getUserSession().getRoles().isGuestOnly());
-		commentCounts = commentAndRatingService.getUserCommentsManager().countCommentsWithSubPath();
+		commentCounts = CoreSpringFactory.getImpl(UserCommentsDAO.class).countCommentsWithSubPath(map.getOlatResource(), null);
+		 
 
 		vC = createVelocityContainer("toc");
 		// have a toggle to show with/without artefacts
@@ -102,7 +102,9 @@ public class EPTOCReadOnlyController extends BasicController {
 
 		if (secCallback.canCommentAndRate()) {
 			removeAsListenerAndDispose(commentsAndRatingCtr);
-			commentsAndRatingCtr = commentAndRatingService.createUserCommentsAndRatingControllerExpandable(ureq, getWindowControl());
+			boolean anonym = ureq.getUserSession().getRoles().isGuestOnly();
+			CommentAndRatingSecurityCallback callback = new CommentAndRatingDefaultSecurityCallback(getIdentity(), false, anonym);
+			commentsAndRatingCtr = new UserCommentsAndRatingsController(ureq, getWindowControl(), map.getOlatResource(), null, callback, true, true, true);
 			listenTo(commentsAndRatingCtr);
 			vC.put("commentCtrl", commentsAndRatingCtr.getInitialComponent());
 		}
@@ -131,7 +133,7 @@ public class EPTOCReadOnlyController extends BasicController {
 					String title = StringHelper.escapeHtml(artefact.getTitle());
 
 					Link iconLink = LinkFactory.createCustomLink("arte_" + key, LINK_CMD_OPEN_ARTEFACT, "", Link.NONTRANSLATED, vC, this);
-					iconLink.setCustomEnabledLinkCSS("b_small_icon b_open_icon");
+					iconLink.setIconRightCSS("o_icon o_icon_start");
 					iconLink.setUserObject(pStruct);
 
 					Link titleLink = LinkFactory.createCustomLink("arte_t_" + key, LINK_CMD_OPEN_ARTEFACT, title, Link.NONTRANSLATED, vC, this);
@@ -158,7 +160,7 @@ public class EPTOCReadOnlyController extends BasicController {
 				String title = StringHelper.escapeHtml(portfolioStructure.getTitle());
 
 				Link iconLink = LinkFactory.createCustomLink("portstruct" + key, LINK_CMD_OPEN_STRUCT, "", Link.NONTRANSLATED, vC, this);
-				iconLink.setCustomEnabledLinkCSS("b_small_icon b_open_icon");
+				iconLink.setIconRightCSS("o_icon o_icon_start");
 				iconLink.setUserObject(portfolioStructure);
 
 				Link titleLink = LinkFactory.createCustomLink("portstruct_t_" + key, LINK_CMD_OPEN_STRUCT, title, Link.NONTRANSLATED, vC, this);
@@ -170,7 +172,7 @@ public class EPTOCReadOnlyController extends BasicController {
 					String count = comments == null ? "0" : comments.getCount().toString();
 					String label = translate("commentLink", new String[] { count });
 					commentLink = LinkFactory.createCustomLink("commentLink" + key, LINK_CMD_OPEN_COMMENTS, label, Link.NONTRANSLATED, vC, this);
-					commentLink.setCustomEnabledLinkCSS("b_comments");
+					commentLink.setIconLeftCSS("o_icon o_icon_comments");
 					commentLink.setUserObject(portfolioStructure);
 				}
 

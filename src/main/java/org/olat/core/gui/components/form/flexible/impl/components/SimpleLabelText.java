@@ -27,10 +27,10 @@ package org.olat.core.gui.components.form.flexible.impl.components;
 
 import org.olat.core.gui.components.Component;
 import org.olat.core.gui.components.ComponentRenderer;
+import org.olat.core.gui.components.DefaultComponentRenderer;
 import org.olat.core.gui.components.form.flexible.impl.FormBaseComponentImpl;
 import org.olat.core.gui.render.RenderResult;
 import org.olat.core.gui.render.Renderer;
-import org.olat.core.gui.render.RenderingState;
 import org.olat.core.gui.render.StringOutput;
 import org.olat.core.gui.render.URLBuilder;
 import org.olat.core.gui.translator.Translator;
@@ -45,47 +45,26 @@ import org.olat.core.util.StringHelper;
  * @author patrickb
  */
 public class SimpleLabelText extends FormBaseComponentImpl {
-
+	private static final ComponentRenderer RENDERER = new LabelComponentRenderer();
+	
 	private final String text;
+	private boolean componentIsMandatory;
 
-	public SimpleLabelText(String name, String text) {
+	public SimpleLabelText(String name, String text, boolean mandatory) {
 		super(name);
 		this.text = text;
+		this.componentIsMandatory = mandatory;
+		// to minimize DOM tree we provide our own DOM ID (o_c12245)
+		this.setDomReplacementWrapperRequired(false);
 	}
 
-	private static final ComponentRenderer RENDERER = new ComponentRenderer() {
+	public boolean isComponentIsMandatory() {
+		return componentIsMandatory;
+	}
 
-		@Override
-		public void renderHeaderIncludes(Renderer renderer, StringOutput sb, Component source, URLBuilder ubu, Translator translator,
-				RenderingState rstate) {
-		// not used for label
-		}
-
-		@Override
-		public void renderBodyOnLoadJSFunctionCall(Renderer renderer, StringOutput sb, Component source, RenderingState rstate) {
-		// not used for label
-		}
-
-		@Override
-		public void render(Renderer renderer, StringOutput sb, Component source, URLBuilder ubu, Translator translator,
-				RenderResult renderResult, String[] args) {
-			SimpleLabelText stc = (SimpleLabelText) source;
-			if (!StringHelper.containsNonWhitespace(stc.text)) return;
-			
-			sb.append("<label");
-			// add the reference to form element for which this label stands. this is important for screen readers
-			if (args !=  null && args.length > 0) {
-				sb.append(" for=\"");
-				sb.append(args[0]);
-				sb.append("\"");
-			}
-			sb.append(">");
-			// add the label text
-			sb.append(stc.text);
-			sb.append("</label>");
-		}
-
-	};
+	public void setComponentIsMandatory(boolean componentIsMandatory) {
+		this.componentIsMandatory = componentIsMandatory;
+	}
 
 	/**
 	 * @see org.olat.core.gui.components.Component#getHTMLRendererSingleton()
@@ -94,5 +73,41 @@ public class SimpleLabelText extends FormBaseComponentImpl {
 	public ComponentRenderer getHTMLRendererSingleton() {
 		return RENDERER;
 	}
-
+	
+	private static class LabelComponentRenderer extends DefaultComponentRenderer {
+		@Override
+		public void render(Renderer renderer, StringOutput sb, Component source, URLBuilder ubu, Translator translator,
+				RenderResult renderResult, String[] args) {
+			SimpleLabelText stc = (SimpleLabelText) source;
+			String css = "control-label ";
+			String target = null;
+			if (args !=  null && args.length > 0) {
+				for (int i = 0; i < args.length; i++) {
+					String arg = args[i];
+					if (arg.startsWith("col-")) {
+						css += arg;
+					} else {
+						target = arg;
+					}
+				}
+			}
+	
+			sb.append("<label class='").append(css).append("' id='o_c").append(source.getDispatchID()).append("'");
+			// add the reference to form element for which this label stands. this is important for screen readers
+			if (target !=  null) {
+				sb.append(" for=\"");
+				sb.append(target);
+				sb.append("\"");
+			}
+			sb.append(">");
+			if (StringHelper.containsNonWhitespace(stc.text)) {
+				sb.append(stc.text);
+			}
+			if (stc.componentIsMandatory) {
+				String hover = stc.getTranslator().translate("form.mandatory.hover");
+				sb.append("<i class='o_icon o_icon_mandatory' title='").append(hover).append("'></i>");
+			}
+			sb.append("</label>");
+		}
+	}
 }

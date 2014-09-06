@@ -60,6 +60,7 @@ import org.olat.core.id.Identity;
 import org.olat.core.logging.OLog;
 import org.olat.core.logging.Tracing;
 import org.olat.core.util.FileUtils;
+import org.olat.core.util.Formatter;
 import org.olat.core.util.StringHelper;
 import org.olat.core.util.filter.FilterFactory;
 import org.olat.core.util.vfs.LocalFileImpl;
@@ -120,7 +121,7 @@ public class MetaInfoFileImpl extends DefaultHandler implements MetaInfo {
 		//
 	}
 
-	protected MetaInfoFileImpl(File metaFile) { 
+	public MetaInfoFileImpl(File metaFile) { 
 		this.metaFile = metaFile;
 		parseSAX(metaFile);
 	}
@@ -561,11 +562,16 @@ public class MetaInfoFileImpl extends DefaultHandler implements MetaInfo {
 	 * @see org.olat.core.commons.modules.bc.meta.MetaInfo#getAuthorIdentity()
 	 */
 	public Identity getAuthorIdentity() {
-		if (this.authorIdentKey == null) {
+		if (authorIdentKey == null) {
 			return null;
 		} else {
-			return BaseSecurityManager.getInstance().loadIdentityByKey(this.authorIdentKey);
+			return BaseSecurityManager.getInstance().loadIdentityByKey(authorIdentKey);
 		}
+	}
+
+	@Override
+	public boolean hasAuthorIdentity() {
+		return (authorIdentKey != null);
 	}
 
 	/**
@@ -608,7 +614,7 @@ public class MetaInfoFileImpl extends DefaultHandler implements MetaInfo {
 	/**
 	 * @return formatted representation of size of file
 	 */
-	public String getFormattedSize() { return StringHelper.formatMemory(getSize()); }
+	public String getFormattedSize() { return Formatter.formatBytes(getSize()); }
 
 	/* ------------------------- Setters ------------------------------ */
 	
@@ -799,15 +805,18 @@ public class MetaInfoFileImpl extends DefaultHandler implements MetaInfo {
 		return false;
 	}
 	
-	public VFSLeaf getThumbnail(int maxWidth, int maxHeight) {
+	public VFSLeaf getThumbnail(int maxWidth, int maxHeight, boolean fill) {
 		if(isDirectory()) return null;
-		Thumbnail thumbnailInfo =  getThumbnailInfo(maxWidth, maxHeight);
+		Thumbnail thumbnailInfo =  getThumbnailInfo(maxWidth, maxHeight, fill);
 		if(thumbnailInfo == null) {
 			return null;
 		}
 		return new LocalFileImpl(thumbnailInfo.getThumbnailFile());
 	}
 	
+	/**
+	 * Thumbnails are cleared and the XML file is written on the disk
+	 */
 	@Override
 	public void clearThumbnails() {
 		cannotGenerateThumbnail = false;
@@ -821,7 +830,7 @@ public class MetaInfoFileImpl extends DefaultHandler implements MetaInfo {
 		write();
 	}
 
-	private Thumbnail getThumbnailInfo(int maxWidth, int maxHeight) {
+	private Thumbnail getThumbnailInfo(int maxWidth, int maxHeight, boolean fill) {
 		for(Thumbnail thumbnail:thumbnails) {
 			if(maxHeight == thumbnail.getMaxHeight() && maxWidth == thumbnail.getMaxWidth()) {
 				if(thumbnail.exists()) {
@@ -837,7 +846,7 @@ public class MetaInfoFileImpl extends DefaultHandler implements MetaInfo {
 		String nameOnly = name.substring(0, name.length() - extension.length() - 1);
 		String uuid = UUID.randomUUID().toString();
 		String thumbnailExtension = preferedThumbnailType(extension);
-		File thumbnailFile = new File(metaLoc, nameOnly + "_" + uuid + "_" + maxHeight + "x" + maxWidth + "." + thumbnailExtension);
+		File thumbnailFile = new File(metaLoc, nameOnly + "_" + uuid + "_" + maxHeight + "x" + maxWidth + (fill ? "xfill" : "") + "." + thumbnailExtension);
 		
 		//generate thumbnail
 		long start = 0l;
@@ -854,7 +863,7 @@ public class MetaInfoFileImpl extends DefaultHandler implements MetaInfo {
 				}
 				log.info("Start thumbnail: " + thumbnailLeaf);
 				
-				FinalSize finalSize = thumbnailService.generateThumbnail(originLeaf, thumbnailLeaf, maxHeight, maxWidth);
+				FinalSize finalSize = thumbnailService.generateThumbnail(originLeaf, thumbnailLeaf, maxWidth, maxHeight, fill);
 				if(finalSize == null) {
 					return null;
 				} else {
@@ -863,6 +872,7 @@ public class MetaInfoFileImpl extends DefaultHandler implements MetaInfo {
 					thumbnail.setMaxWidth(maxWidth);
 					thumbnail.setFinalHeight(finalSize.getHeight());
 					thumbnail.setFinalWidth(finalSize.getWidth());
+					thumbnail.setFill(true);
 					thumbnail.setThumbnailFile(thumbnailFile);
 					thumbnails.add(thumbnail);
 					cannotGenerateThumbnail = false;
@@ -938,6 +948,7 @@ public class MetaInfoFileImpl extends DefaultHandler implements MetaInfo {
 			thumbnail.setMaxWidth(Integer.parseInt(attributes.getValue("maxWidth")));
 			thumbnail.setFinalHeight(Integer.parseInt(attributes.getValue("finalHeight")));
 			thumbnail.setFinalWidth(Integer.parseInt(attributes.getValue("finalWidth")));
+			thumbnail.setFill("true".equals(attributes.getValue("fill")));
 			thumbnails.add(thumbnail);
 		}
 	}
@@ -1029,6 +1040,7 @@ public class MetaInfoFileImpl extends DefaultHandler implements MetaInfo {
 		private int maxHeight;
 		private int finalWidth;
 		private int finalHeight;
+		private boolean fill = false;
 		private File thumbnailFile;
 		
 		public int getMaxWidth() {
@@ -1063,6 +1075,14 @@ public class MetaInfoFileImpl extends DefaultHandler implements MetaInfo {
 			this.finalHeight = finalHeight;
 		}
 		
+		public boolean isFill() {
+			return fill;
+		}
+
+		public void setFill(boolean fill) {
+			this.fill = fill;
+		}
+
 		public File getThumbnailFile() {
 			return thumbnailFile;
 		}

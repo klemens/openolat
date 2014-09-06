@@ -40,7 +40,7 @@ import org.olat.core.gui.control.DefaultController;
 import org.olat.core.gui.control.Event;
 import org.olat.core.gui.control.WindowControl;
 import org.olat.core.gui.control.generic.dtabs.Activateable2;
-import org.olat.core.gui.translator.PackageTranslator;
+import org.olat.core.gui.translator.Translator;
 import org.olat.core.id.context.ContextEntry;
 import org.olat.core.id.context.StateEntry;
 import org.olat.core.util.Util;
@@ -53,14 +53,13 @@ import org.olat.core.util.WebappHelper;
  */
 public class TabbedPaneController extends DefaultController implements ControllerEventListener, Activateable2 {
 
-	private static final String PACKAGE = Util.getPackageName(TabbedPaneController.class);
-	private static final String VELOCITY_ROOT = Util.getPackageVelocityRoot(PACKAGE);
+	private static final String VELOCITY_ROOT = Util.getPackageVelocityRoot(TabbedPaneController.class);
 	
 	private static final String NLS_ERROR_NOACCESS_TO_USER = "error.noaccess.to.user";
 	
 	private VelocityContainer myContent;
 	
-	private PackageTranslator translator;
+	private Translator translator;
 
 	// controllers used in tabbed pane
 	private TabbedPane userDeleteTabP;
@@ -78,7 +77,7 @@ public class TabbedPaneController extends DefaultController implements Controlle
 	public TabbedPaneController(UserRequest ureq, WindowControl wControl) {
 		super(wControl);
 	
-		translator = new PackageTranslator(PACKAGE, ureq.getLocale());
+		translator = Util.createPackageTranslator(TabbedPaneController.class, ureq.getLocale());
 
 		Boolean canDelete = BaseSecurityModule.USERMANAGER_CAN_DELETE_USER;
 		if ( canDelete.booleanValue() || ureq.getUserSession().getRoles().isOLATAdmin() ) {

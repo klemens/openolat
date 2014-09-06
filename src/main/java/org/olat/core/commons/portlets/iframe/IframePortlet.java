@@ -46,13 +46,13 @@ import org.olat.core.util.Util;
  */
 public class IframePortlet extends AbstractPortlet {
 	private IframePortletRunController runCtr;
-	private String cssWrapperClass = "b_portlet_iframe";
+	private String cssWrapperClass = "o_portlet_iframe";
 
 	/**
 	 * @see org.olat.gui.control.generic.portal.Portlet#getTitle()
 	 */
 	public String getTitle() {
-		String title = (String)getConfiguration().get("title_" + getTranslator().getLocale().toString());
+		String title = getConfiguration().get("title_" + getTranslator().getLocale().toString());
 		if (title == null) {
 			title = getTranslator().translate("iframe.title");
 		}
@@ -63,7 +63,7 @@ public class IframePortlet extends AbstractPortlet {
 	 * @see org.olat.gui.control.generic.portal.Portlet#getDescription()
 	 */
 	public String getDescription() {
-		String desc = (String)getConfiguration().get("description_" + getTranslator().getLocale().toString());
+		String desc = getConfiguration().get("description_" + getTranslator().getLocale().toString());
 		if (desc == null) {
 			desc = getTranslator().translate("iframe.description");
 		}
@@ -79,7 +79,7 @@ public class IframePortlet extends AbstractPortlet {
 		p.setConfiguration(configuration);
 		p.setTranslator(Util.createPackageTranslator(IframePortlet.class, ureq.getLocale()));
 		// override css class if configured
-		String cssClass = (String)configuration.get("cssWrapperClass");
+		String cssClass = configuration.get("cssWrapperClass");
 		if (cssClass != null) p.setCssWrapperClass(cssClass);
 		return p;
 	}

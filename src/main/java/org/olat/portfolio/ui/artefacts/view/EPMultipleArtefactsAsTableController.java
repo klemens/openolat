@@ -55,6 +55,7 @@ import org.olat.portfolio.model.structel.PortfolioStructure;
 import org.olat.portfolio.model.structel.PortfolioStructureMap;
 import org.olat.portfolio.model.structel.StructureStatusEnum;
 import org.olat.portfolio.ui.artefacts.collect.EPCollectStepForm04;
+import org.olat.portfolio.ui.artefacts.edit.EPReflexionWrapperController;
 import org.olat.portfolio.ui.filter.PortfolioFilterController;
 import org.olat.portfolio.ui.structel.EPStructureChangeEvent;
 
@@ -141,7 +142,7 @@ public class EPMultipleArtefactsAsTableController extends BasicController implem
 		descr = new DefaultColumnDescriptor("artefact.tags", 4, null, getLocale());
 		artefactListTblCtrl.addColumnDescriptor(false, descr);
 
-		descr = new CustomRenderColumnDescriptor("table.header.type", 5, null, ureq.getLocale(), ColumnDescriptor.ALIGNMENT_CENTER, new ArtefactTypeImageCellRenderer()){
+		descr = new CustomRenderColumnDescriptor("table.header.type", 5, null, ureq.getLocale(), ColumnDescriptor.ALIGNMENT_CENTER, new ArtefactTypeImageCellRenderer(getLocale())){
 			/**
 			 * @see org.olat.core.gui.components.table.DefaultColumnDescriptor#compareTo(int, int)
 			 */
@@ -159,7 +160,7 @@ public class EPMultipleArtefactsAsTableController extends BasicController implem
 		StaticColumnDescriptor staticDescr;
 		
 		if(!artefactChooseMode) {
-			if(mapClosed || !secCallback.canEditStructure()) { // change link-description in row, when map is closed or viewed by another person
+			if(mapClosed || !secCallback.canEditReflexion()) { // change link-description in row, when map is closed or viewed by another person
 				staticDescr = new StaticColumnDescriptor(CMD_REFLEXION, "table.header.reflexion", translate("table.header.view"));
 			} else {
 				staticDescr = new StaticColumnDescriptor(CMD_REFLEXION, "table.header.reflexion", translate("table.row.reflexion"));
@@ -227,7 +228,8 @@ public class EPMultipleArtefactsAsTableController extends BasicController implem
 				if(CMD_TITLE.equals(action)) {
 					popupArtefact(artefact, ureq);
 				} else if (CMD_REFLEXION.equals(action)){
-					EPUIFactory.getReflexionPopup(ureq, getWindowControl(), secCallback, artefact, struct);
+					EPReflexionWrapperController reflexionCtrl = new EPReflexionWrapperController(ureq, getWindowControl(), secCallback, artefact, struct);
+					listenTo(reflexionCtrl);
 				} else if (CMD_CHOOSE.equals(action)){
 					fireEvent(ureq, new EPArtefactChoosenEvent(artefact));
 				} else if (CMD_UNLINK.equals(action)){
@@ -274,7 +276,7 @@ public class EPMultipleArtefactsAsTableController extends BasicController implem
 			Long resId = ores.getResourceableId();
 			ArtefactTableDataModel model = (ArtefactTableDataModel)  artefactListTblCtrl.getTableDataModel();
 			for(int i=0; i< model.getRowCount(); i++) {
-				AbstractArtefact artefact = (AbstractArtefact)model.getObject(i);
+				AbstractArtefact artefact = model.getObject(i);
 				if(artefact.getKey().equals(resId)) {
 					int artefactsPerPage = artefactListTblCtrl.getPageSize();
 					int rest = (i % artefactsPerPage);

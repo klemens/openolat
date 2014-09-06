@@ -31,8 +31,8 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 
-import org.olat.NewControllerFactory;
 import org.olat.core.commons.persistence.DBFactory;
+import org.olat.core.commons.services.notifications.SubscriptionContext;
 import org.olat.core.configuration.AbstractOLATModule;
 import org.olat.core.configuration.PersistedProperties;
 import org.olat.core.helpers.Settings;
@@ -42,16 +42,15 @@ import org.olat.core.util.coordinate.CoordinatorManager;
 import org.olat.core.util.event.FrameworkStartedEvent;
 import org.olat.core.util.event.FrameworkStartupEventChannel;
 import org.olat.core.util.event.GenericEventListener;
-import org.olat.core.util.notifications.SubscriptionContext;
 import org.olat.core.util.resource.OresHelper;
 import org.olat.course.assessment.AssessmentManager;
 import org.olat.course.nodes.CourseNode;
 import org.olat.course.run.environment.CourseEnvironment;
-import org.olat.course.site.CourseSiteContextEntryControllerCreator;
 import org.olat.properties.Property;
 import org.olat.properties.PropertyManager;
 import org.olat.repository.RepositoryEntry;
 import org.olat.repository.RepositoryManager;
+import org.olat.repository.RepositoryService;
 import org.olat.resource.OLATResource;
 import org.olat.resource.OLATResourceManager;
 
@@ -79,7 +78,7 @@ public class CourseModule extends AbstractOLATModule {
 	private CourseFactory courseFactory;
 	private Map<String, String> logVisibilities;
 	private List<DeployableCourseExport> deployableCourseExports;
-	private RepositoryManager repositoryManager;
+	private RepositoryService repositoryService;
 	private OLATResourceManager olatResourceManager;
 	
 
@@ -87,11 +86,11 @@ public class CourseModule extends AbstractOLATModule {
 	/**
 	 * [used by spring]
 	 */
-	private CourseModule(CoordinatorManager coordinatorManager, PropertyManager propertyManager, CourseFactory courseFactory, RepositoryManager repositoryManager, OLATResourceManager olatResourceManager) {
-		this.coordinatorManager = coordinatorManager;
+	private CourseModule(CoordinatorManager coordinatorManager, PropertyManager propertyManager, CourseFactory courseFactory, RepositoryService repositoryService, OLATResourceManager olatResourceManager) {
+		CourseModule.coordinatorManager = coordinatorManager;
 		this.propertyManager = propertyManager;
 		this.courseFactory = courseFactory;
-		this.repositoryManager = repositoryManager;
+		this.repositoryService = repositoryService;
 		this.olatResourceManager = olatResourceManager;
 		coordinatorManager.getCoordinator().getEventBus().registerFor(this, null, FrameworkStartupEventChannel.getStartupEventChannel());
 	}
@@ -146,9 +145,6 @@ public class CourseModule extends AbstractOLATModule {
 		// skip all the expensive course demo setup and deployment when we are in junit mode.
 		if (Settings.isJUnitTest()) return;
 		
-		NewControllerFactory.getInstance().addContextEntryControllerCreator(RepositoryEntry.class.getSimpleName(),
-				new CourseSiteContextEntryControllerCreator());
-		
 		logInfo("Initializing the OpenOLAT course system");		
 		
 		// Cleanup, otherwise this subjects will have problems in normal OLAT
@@ -196,7 +192,7 @@ public class CourseModule extends AbstractOLATModule {
 				logWarn("Cannot deploy course from file: " + file.getAbsolutePath(),null);
 				return null;
 			}
-			re = courseFactory.deployCourseFromZIP(file, access);
+			re = CourseFactory.deployCourseFromZIP(file, null, access);
 			if (re != null) markAsDeployed(export, re);
 			return re;
 		}
@@ -282,7 +278,7 @@ public class CourseModule extends AbstractOLATModule {
 	private void deleteCourseAndProperty(Property prop, RepositoryEntry re) {
 		try {
 			propertyManager.deleteProperty(prop);
-			repositoryManager.deleteRepositoryEntryAndBasesecurity(re);
+			repositoryService.deleteRepositoryEntryAndBaseGroups(re);
 			CourseFactory.deleteCourse(re.getOlatResource());
 			OLATResource ores = olatResourceManager.findResourceable(re.getOlatResource());
 			olatResourceManager.deleteOLATResource(ores);

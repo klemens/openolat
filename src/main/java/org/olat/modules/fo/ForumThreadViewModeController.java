@@ -61,7 +61,7 @@ public class ForumThreadViewModeController extends FormBasicController {
 	 */
 	public ForumThreadViewModeController(UserRequest ureq, WindowControl control, String startingViewMode) {
 		super(ureq, control);
-		setFormStyle("o_forum_switch b_float_right");
+		setFormStyle("o_forum_switch");
 		this.startingViewMode = startingViewMode;
 		initForm(ureq);
 	}
@@ -91,7 +91,7 @@ public class ForumThreadViewModeController extends FormBasicController {
 		String[] viewValues = new String[] { translate("viewswitch.threadview"), translate("viewswitch.flatview"),
 				translate("viewswitch.messageview"), translate("viewswitch.marked"), translate("viewswitch.new") };
 		viewRadio = uifactory.addRadiosHorizontal("viewswitch.title", formLayout, viewKeys, viewValues);
-		viewRadio.addActionListener(listener, FormEvent.ONCLICK);
+		viewRadio.addActionListener(FormEvent.ONCLICK);
 		// preselect according to user-settings
 
 		if(startingViewMode == null) {

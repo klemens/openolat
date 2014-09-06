@@ -85,10 +85,7 @@ public class InstantMessagingMainController extends BasicController implements G
 	private IMBuddyListController rosterCtr;
 	private FloatingResizableDialogController rosterPanelCtr;
 	//status changes
-	private Panel statusPanel;
-	private Link statusChangerLink;
-	private IMTopNavStatusController statusChangerCtr;
-	private FloatingResizableDialogController statusChangerPanelCtr;
+	private final Link available, unavailable, dnd;
 	//chat list
 	private JSAndCSSComponent jsc;
 	private ChatManagerController chatMgrCtrl;
@@ -116,16 +113,21 @@ public class InstantMessagingMainController extends BasicController implements G
 		
 		Theme guiTheme = getWindowControl().getWindowBackOffice().getWindow().getGuiTheme();
 		String newMessageSoundURL = guiTheme.getBaseURI() + "/sounds/new_message.wav";
-		newMessageSoundURL = newMessageSoundURL.replace("/themes/" + guiTheme.getIdentifyer(), "/themes/openolat");
+		newMessageSoundURL = newMessageSoundURL.replace("/themes/" + guiTheme.getIdentifyer(), "/themes/light");
 		newMsgIcon.contextPut("newMessageSoundURL", newMessageSoundURL);
 		loadNotifications();
 
-		// status changer link
-		statusChangerLink = LinkFactory.createCustomLink("statusChanger", "cmd.status", "", Link.NONTRANSLATED, null, this);
-		statusChangerLink.registerForMousePositionEvent(true);
-		statusChangerLink.setTooltip(getTranslator().translate("im.status.change.long"));
+		// status changer links
+		available = LinkFactory.createLink("presence.available", main, this);
+		available.setIconLeftCSS("o_icon o_icon_status_available o_icon-fw");
+		available.setUserObject(Presence.available.name());
+		dnd = LinkFactory.createLink("presence.dnd", main, this);
+		dnd.setIconLeftCSS("o_icon o_icon_status_dnd o_icon-fw");
+		dnd.setUserObject(Presence.dnd.name());
+		unavailable = LinkFactory.createLink("presence.unavailable", main, this);
+		unavailable.setIconLeftCSS("o_icon o_icon_status_unavailable o_icon-fw");
+		unavailable.setUserObject(Presence.unavailable.name());
 		updateStatusCss(null);
-		main.put("statusChangerPanel", statusChangerLink);
 
 		// roster launcher (offline / online) link
 		InstantMessagingModule imModule = CoreSpringFactory.getImpl(InstantMessagingModule.class);
@@ -133,6 +135,7 @@ public class InstantMessagingMainController extends BasicController implements G
 			onlineOfflineCount = LinkFactory.createCustomLink("onlineOfflineCount", "cmd.roster", "", Link.NONTRANSLATED, main, this);
 			onlineOfflineCount.setTooltip(translate("im.roster.intro"));
 			onlineOfflineCount.registerForMousePositionEvent(true);
+			onlineOfflineCount.setCustomEnabledLinkCSS("badge");
 			updateBuddyStats();
 			main.put("buddiesSummaryPanel", onlineOfflineCount);
 			
@@ -142,8 +145,6 @@ public class InstantMessagingMainController extends BasicController implements G
 		main.put("newMsgPanel", newMsgIcon);
 		rosterPanel = new Panel("rosterPanel");
 		main.put("rosterPanel", rosterPanel);
-		statusPanel = new Panel("statusPanel");
-		main.put("statusPanel", statusPanel);
 		
 		//creates and manages the p2p chats
 		chatMgrCtrl = new ChatManagerController(ureq, wControl);
@@ -179,8 +180,9 @@ public class InstantMessagingMainController extends BasicController implements G
 	 */
 	@Override
 	public void event(UserRequest ureq, Component source, Event event) {
-		if (source == statusChangerLink) {			
-			doChangeStatus(ureq);
+		if (source == available || source == dnd || source == unavailable) {			
+			Link link = (Link) source;
+			doChangeStatus((String)link.getUserObject());
 		} else if (source == onlineOfflineCount) {
 			doOpenRoster(ureq);
 		} else if (source instanceof Link) {
@@ -201,24 +203,7 @@ public class InstantMessagingMainController extends BasicController implements G
 
 	@Override
 	protected void event(UserRequest ureq, Controller source, Event event) {
-		if (source == statusChangerPanelCtr) {
-			//closing the floating panel event
-			statusPanel.setContent(null);
-			removeAsListenerAndDispose(statusChangerCtr);
-			removeAsListenerAndDispose(statusChangerPanelCtr);
-			statusChangerCtr = null;
-			statusChangerPanelCtr = null;
-		} else if (source == statusChangerCtr) {
-			//update status
-			updateStatusCss(statusChangerCtr.getSelectedStatus());
-			// remove from UI
-			statusChangerPanelCtr.executeCloseCommand();
-			statusPanel.setContent(null);
-			removeAsListenerAndDispose(statusChangerCtr);
-			removeAsListenerAndDispose(statusChangerPanelCtr);
-			statusChangerCtr = null;
-			statusChangerPanelCtr = null;
-		} else if (source == rosterPanelCtr) {
+		if (source == rosterPanelCtr) {
 			//closing the floating panel event
 			updateBuddyStats();
 			removeAsListenerAndDispose(rosterCtr);
@@ -296,19 +281,10 @@ public class InstantMessagingMainController extends BasicController implements G
 		onlineOfflineCount.setDirty(false);		
 	}
 	
-	private void doChangeStatus(UserRequest ureq) {
-		removeAsListenerAndDispose(statusChangerCtr);
-		removeAsListenerAndDispose(statusChangerPanelCtr);
-		
-		statusChangerCtr = new IMTopNavStatusController(ureq, getWindowControl(), imStatus);
-		listenTo(statusChangerCtr);
-		
-		statusChangerPanelCtr = new FloatingResizableDialogController(ureq, getWindowControl(), statusChangerCtr.getInitialComponent(),
-				translate("im.status.change"), 210, 125, statusChangerLink.getOffsetX() - 130, statusChangerLink.getOffsetY() + 25,
-				null, null, false, false, true, "im_status");
-		listenTo(statusChangerPanelCtr);
-		statusPanel.setContent(statusChangerPanelCtr.getInitialComponent());
-		statusChangerLink.setDirty(false);
+	private void doChangeStatus(String status) {
+		imService.updateStatus(getIdentity(), status);
+		updateStatusCss(status);
+
 	}
 	
 	private void updateStatusCss(String status) {
@@ -321,8 +297,8 @@ public class InstantMessagingMainController extends BasicController implements G
 			imStatus = Presence.available.name();
 		  imService.updateStatus(getIdentity(), imStatus);
 		}
-		String cssClass = "o_instantmessaging_" + imStatus + "_icon";
-		statusChangerLink.setCustomEnabledLinkCSS("b_small_icon " + cssClass);
+		String cssClass = "o_icon o_icon_status_" + imStatus;
+		main.contextPut("statusClass", cssClass);
 	}
 	
 	private void processAssessmentEvent(AssessmentEvent event) {
@@ -370,11 +346,6 @@ public class InstantMessagingMainController extends BasicController implements G
 	}
 	
 	private void close() {
-		if(statusChangerPanelCtr != null) {
-			statusChangerPanelCtr.executeCloseCommand();
-			removeAsListenerAndDispose(statusChangerPanelCtr);
-			statusPanel.setContent(null);
-		}
 		if(rosterPanelCtr != null) {
 			rosterPanelCtr.executeCloseCommand();
 			removeAsListenerAndDispose(rosterPanelCtr);
@@ -412,7 +383,7 @@ public class InstantMessagingMainController extends BasicController implements G
 	private Link createShowNewMessageLink(Buddy buddy) {
 		Link link = LinkFactory.createCustomLink(buddy.getIdentityKey().toString(), ACTION_MSG, "", Link.NONTRANSLATED, newMsgIcon, this);
 		link.registerForMousePositionEvent(true);
-		link.setCustomEnabledLinkCSS("b_small_icon o_instantmessaging_new_msg_icon");
+		link.setIconLeftCSS("o_icon o_icon_message o_icon-lg");
 		String buddyName = StringHelper.escapeHtml(buddy.getName());
 		link.setTooltip(translate("im.new.message", new String[]{ buddyName }));
 		link.setUserObject(buddy);

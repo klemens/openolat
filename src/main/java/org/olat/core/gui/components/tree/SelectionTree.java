@@ -26,19 +26,12 @@
 
 package org.olat.core.gui.components.tree;
 
-import java.util.ArrayList;
-import java.util.Enumeration;
-import java.util.List;
-
-import org.olat.core.gui.GUIInterna;
 import org.olat.core.gui.UserRequest;
-import org.olat.core.gui.components.Component;
+import org.olat.core.gui.components.AbstractComponent;
 import org.olat.core.gui.components.ComponentRenderer;
 import org.olat.core.gui.components.form.Form;
-import org.olat.core.gui.translator.PackageTranslator;
 import org.olat.core.gui.translator.Translator;
 import org.olat.core.util.Util;
-import org.olat.core.util.tree.TreeHelper;
 
 /**
  * Description: <br> 
@@ -47,30 +40,23 @@ import org.olat.core.util.tree.TreeHelper;
  * 
  * @author Felix Jost
  */
-public class SelectionTree extends Component {
+public class SelectionTree extends AbstractComponent {
 	private static final ComponentRenderer RENDERER = new SelectionTreeRenderer();	
-	private static final String PACKAGE = Util.getPackageName(SelectionTree.class);
-	
 	
 	private TreeModel treeModel;
-	private String selectedNodeId = null; // selection of single select
-	private List<String> selectedNodeIds = null; // selection of multiselect
+	private String selectedNodeId; // selection of single select
 	private String formButtonKey;
 	private String actionCommand;
-	private boolean multiselect = false;
 	private boolean allowEmptySelection = false;
-	private boolean greyOutNonSelectableEntries = false;
 	private boolean showCancelButton = true;
-	private boolean showAltTextAsHoverOnTitle = false;	
 	private boolean escapeHtml = true;
 	private Object userObject;
 	
-
 	/**
 	 * @param name
 	 */
 	public SelectionTree(String name, Translator translator ) {
-		super(name, new PackageTranslator(PACKAGE, translator.getLocale(), translator));		
+		super(name, Util.createPackageTranslator(SelectionTree.class, translator.getLocale(), translator));		
 	}
 	
 	public Object getUserObject() {
@@ -81,40 +67,14 @@ public class SelectionTree extends Component {
 		this.userObject = userObject;
 	}
 
+	@Override
 	protected void doDispatchRequest(UserRequest ureq) {
 		selectedNodeId = null;
-		selectedNodeIds = new ArrayList<String>();
-		
-		
 		
 		int iMode = -1;//0 -> OK, 1 -> CANCEL
 		if (ureq.getParameter(Form.SUBMIT_IDENTIFICATION) != null) {
 			iMode = 0;
-			if(!multiselect){
-				if (GUIInterna.isLoadPerformanceMode()) {
-					String selPath = ureq.getParameter(SelectionTreeRenderer.ATTR_SELECTION);
-					TreeNode tn = TreeHelper.resolveTreeNode(selPath, getTreeModel());
-					selectedNodeId = tn.getIdent();
-				} else {
-					selectedNodeId = ureq.getParameter(SelectionTreeRenderer.ATTR_SELECTION);
-				}
-			} else {
-				Enumeration<String> parameterNames = ureq.getHttpReq().getParameterNames();
-				while (parameterNames.hasMoreElements()) {
-					String parameterName = (String) parameterNames.nextElement();
-					if (SelectionTreeRenderer.isMultiSelectParameter(parameterName)) {
-						String selNodeId = null;
-						if (GUIInterna.isLoadPerformanceMode()) {
-							String treePath = ureq.getParameter(parameterName);
-							TreeNode node = TreeHelper.resolveTreeNode(treePath, getTreeModel());
-							selNodeId = node.getIdent();
-						} else {
-							selNodeId = ureq.getParameter(parameterName);
-						}
-						selectedNodeIds.add(selNodeId);
-					}
-				}
-			}
+			selectedNodeId = ureq.getParameter(SelectionTreeRenderer.ATTR_SELECTION);
 		} else {
 			iMode = 1;
 		}
@@ -129,31 +89,11 @@ public class SelectionTree extends Component {
 	private void dispatchRequest(UserRequest ureq, int iMode) {
 		//test for recorder
 		if (iMode == 0) {
-			if (!multiselect) { // grab radio selection value
-				setDirty(true);			
-				fireEvent(ureq, new TreeEvent(actionCommand == null ? TreeEvent.COMMAND_TREENODE_CLICKED : actionCommand, selectedNodeId));
-			} else { // grab checkbox selection values
-				setDirty(true);				
-				fireEvent(ureq, new TreeEvent(actionCommand == null ? TreeEvent.COMMAND_TREENODES_SELECTED : actionCommand, selectedNodeIds));
-			}
+			setDirty(true);			
+			fireEvent(ureq, new TreeEvent(actionCommand == null ? TreeEvent.COMMAND_TREENODE_CLICKED : actionCommand, selectedNodeId));
 		} else {
 			fireEvent(ureq, TreeEvent.CANCELLED_TREEEVENT);
 		}
-	}
-
-	/**
-	 * Set wether to grey out non selectable entries in the tree.
-	 * @param b
-	 */
-	public void setGreyOutNonSelectableEntries(boolean b) {
-		this.greyOutNonSelectableEntries = b;
-	}
-	
-	/**
-	 * @return
-	 */
-	public boolean getGreyOutNonSelectableEntries() {
-		return greyOutNonSelectableEntries;
 	}
 	
 	/**
@@ -186,22 +126,6 @@ public class SelectionTree extends Component {
 	public void setTreeModel(TreeModel treeModel) {
 		setDirty(true);
 		this.treeModel = treeModel;
-	}
-
-	/**
-	 * If set to true, user may select more than one treenode.
-	 * 
-	 * @param b
-	 */
-	public void setMultiselect(boolean b) {
-		multiselect = b;
-	}
-
-	/**
-	 * @return
-	 */
-	public boolean isMultiselect() {
-		return multiselect;
 	}
 
 	/**
@@ -249,8 +173,6 @@ public class SelectionTree extends Component {
 	public boolean isShowCancelButton() {
 		return showCancelButton;
 	}
-
-	
 	
 	public boolean isAllowEmptySelection() {
 		return allowEmptySelection;
@@ -258,16 +180,6 @@ public class SelectionTree extends Component {
 
 	public void setAllowEmptySelection(boolean allowEmptySelection) {
 		this.allowEmptySelection = allowEmptySelection;
-	}
-
-
-	public boolean isShowAltTextAsHoverOnTitle() {
-		return showAltTextAsHoverOnTitle;
-	}
-
-
-	public void setShowAltTextAsHoverOnTitle(boolean showAltTextAsHoverOnTitle) {
-		this.showAltTextAsHoverOnTitle = showAltTextAsHoverOnTitle;
 	}
 	
 	/**
@@ -281,5 +193,4 @@ public class SelectionTree extends Component {
 	protected boolean isEscapeHtml() {
 		return escapeHtml;
 	}
-
 }

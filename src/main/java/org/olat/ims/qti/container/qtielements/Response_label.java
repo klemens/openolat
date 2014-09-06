@@ -71,73 +71,9 @@ public class Response_label extends GenericQTIElement {
 		if(renderClass == null) {
 			//we don't know what to do
 		} else if (renderClass.equals("choice")) {
-			// render multiple/single choice
-			buffer.append("<div class=\"o_qti_item_choice_option");
-			if (!wantBr(ri)) buffer.append("_flow");
-			buffer.append("\">");
-			
-			
-			Object o = ri.get(RenderInstructions.KEY_RENDER_AUTOENUM_LIST);
-			if (o != null) {
-					String[] s = o.toString().split(",");
-					o = ri.get(RenderInstructions.KEY_RENDER_AUTOENUM_IDX);
-					
-					int i = o == null ? 0 : Integer.valueOf(o.toString());
-					buffer.append("<div class=\"o_qti_item_choice_option_autoenum\">");
-					if (s.length > i) {
-						buffer.append("<span>").append(s[i]).append("</span>");
-						ri.put(RenderInstructions.KEY_RENDER_AUTOENUM_IDX, Integer.toString(i+1));
-					}
-					buffer.append("</div>");
-			}
-			
-			
-			Integer rCardinality = (Integer) ri.get(RenderInstructions.KEY_RESPONSE_RCARDINALITY);
-			if (rCardinality == null) throw new AssertException(
-					"Cardinality must be set previousely to call respnse_label.render for a render_choice class.");
-			
-			buffer.append("<div class=\"o_qti_item_choice_option_input\">");
-			if (rCardinality.intValue() == Response_lid.RCARDINALITY_SINGLE) {
-				
-				// single choice
-				buffer.append("<input id=\"QTI_").append(ri.get(RenderInstructions.KEY_ITEM_IDENT)).append(getQTIIdent()).append("\" type=\"radio\" class=\"b_radio\" name=\"");
-				buffer.append("qti").append(PARA).append(ri.get(RenderInstructions.KEY_ITEM_IDENT)).append(PARA).append(
-						ri.get(RenderInstructions.KEY_RESPONSE_IDENT)).append(PARA).append("choice");
-				buffer.append("\" value=\"").append(getQTIIdent());
-				if (iinput != null && !iinput.isEmpty()) {
-					String response = iinput.getSingle(responseIdent);
-					if (response.equals(getQTIIdent())) buffer.append("\" checked=\"checked");
-				}
-				buffer.append("\" onchange=\"return setFormDirty('ofo_iq_item')\" onclick=\"return setFormDirty('ofo_iq_item')\" />");
-				
-			} else if (rCardinality.intValue() == Response_lid.RCARDINALITY_MULTIPLE) {
-				// multiple choice
-				
-				buffer.append("<input id=\"QTI_").append(ri.get(RenderInstructions.KEY_ITEM_IDENT)).append(getQTIIdent()).append("\" type=\"checkbox\" class=\"b_checkbox\" name=\"");
-				appendParameterIdent(buffer, ri);
-				buffer.append("\" value=\"").append(getQTIIdent());
-				if (iinput != null) {
-					List<String> responses = iinput.getAsList(responseIdent);
-					if (responses != null && responses.contains(getQTIIdent())) buffer.append("\" checked=\"checked");
-				}
-				buffer.append("\" onchange=\"return setFormDirty('ofo_iq_item')\" onclick=\"return setFormDirty('ofo_iq_item')\" />");
-			}
-			buffer.append("</div>");
-			
-			
-			//support accessibility that plain HTML provides
-			buffer.append("<div class=\"o_qti_item_choice_option_value\">");
-			buffer.append("<label for=\"QTI_").append(ri.get(RenderInstructions.KEY_ITEM_IDENT)).append(getQTIIdent()).append("\">");
-			
-			super.render(buffer, ri);
-			
-			buffer.append("</label>");
-			buffer.append("</div>");
-			
-			buffer.append("</div>");
-
+			renderChoice(buffer, ri, iinput);
 		} else if (renderClass.equals("kprim")) {
-			buffer.append("<tr><td align=\"center\"><input id=\"QTI_").append(ri.get(RenderInstructions.KEY_ITEM_IDENT)).append(getQTIIdent()).append("\" type=\"radio\" class=\"b_radio\" name=\"");
+			buffer.append("<tr><td class='o_qti_item_kprim_input'><input id=\"QTI_").append(ri.get(RenderInstructions.KEY_ITEM_IDENT)).append(getQTIIdent()).append("\" type=\"radio\" class=\"radio\" name=\"");
 			appendParameterIdent(buffer, ri);
 			buffer.append("\" value=\"" + getQTIIdent() + ":correct");
 			if (iinput != null && !iinput.isEmpty()) {
@@ -145,7 +81,7 @@ public class Response_label extends GenericQTIElement {
 				if (responses != null && responses.contains(getQTIIdent() + ":correct")) buffer.append("\" checked=\"checked");
 			}
 			buffer.append("\" onchange=\"return setFormDirty('ofo_iq_item')\" onclick=\"return setFormDirty('ofo_iq_item')\"/>");
-			buffer.append("</td><td align=\"center\"><input id=\"QTI_").append(ri.get(RenderInstructions.KEY_ITEM_IDENT)).append(getQTIIdent()).append("\" type=\"radio\" class=\"b_radio\" name=\"");
+			buffer.append("</td><td class='o_qti_item_kprim_input'><input id=\"QTI_").append(ri.get(RenderInstructions.KEY_ITEM_IDENT)).append(getQTIIdent()).append("\" type=\"radio\" class=\"radio\" name=\"");
 			appendParameterIdent(buffer, ri);
 			buffer.append("\" value=\"" + getQTIIdent() + ":wrong");
 			if (iinput != null && !iinput.isEmpty()) {
@@ -169,7 +105,7 @@ public class Response_label extends GenericQTIElement {
 				// render as textarea
 				buffer.append("<textarea id=\"QTI_").append(getQTIIdent()).append("\" name=\"");
 				appendParameterIdent(buffer, ri);
-				buffer.append("\" rows=\"").append(rows).append("\" cols=\"").append(columns)
+				buffer.append("\" class='form-control' rows=\"").append(rows).append("\" cols=\"").append(columns)
 						.append("\" onchange=\"return setFormDirty('ofo_iq_item')\" onclick=\"return setFormDirty('ofo_iq_item')\">");
 				if (iinput != null && !iinput.isEmpty() && iinput.getSingle(responseIdent) != null) {
 					buffer.append(iinput.getSingle(getQTIIdent()));
@@ -178,16 +114,79 @@ public class Response_label extends GenericQTIElement {
 				
 			} else {
 				// render as input string
-				buffer.append("&nbsp;<input id=\"QTI_").append(getQTIIdent()).append("\" name=\"");
+				buffer.append("<span> </span><input id=\"QTI_").append(getQTIIdent()).append("\" name=\"");
 				appendParameterIdent(buffer, ri);
 				buffer.append("\" type=\"text\" size=\"").append(columns).append("\" maxlength=\"").append(maxlength);
 				if (iinput != null && !iinput.isEmpty() && iinput.getSingle(responseIdent) != null) {
 					buffer.append("\" value=\"").append(iinput.getSingle(getQTIIdent())); //TODO: LD: must this value be escapeHtml?					
 				}
-				buffer.append("\" onchange=\"return setFormDirty('ofo_iq_item')\" onclick=\"return setFormDirty('ofo_iq_item')\" />&nbsp;");
+				buffer.append("\" onchange=\"return setFormDirty('ofo_iq_item')\" onclick=\"return setFormDirty('ofo_iq_item')\" /><span> </span>");
 			}
 			addBr(ri, buffer);
 		}
+	}
+	
+	private void renderChoice(StringBuilder buffer, RenderInstructions ri, ItemInput iinput) {
+		String responseIdent = (String) ri.get(RenderInstructions.KEY_RESPONSE_IDENT);
+		// render multiple/single choice
+		buffer.append("<div class='form-group o_qti_item_choice_option");
+		if (!wantBr(ri)){
+			buffer.append("_flow");
+		}
+		buffer.append("'>");			
+					
+		Object o = ri.get(RenderInstructions.KEY_RENDER_AUTOENUM_LIST);
+		if (o != null) {
+			String[] s = o.toString().split(",");
+			o = ri.get(RenderInstructions.KEY_RENDER_AUTOENUM_IDX);
+				
+			int i = o == null ? 0 : Integer.valueOf(o.toString());
+			buffer.append("<div class=\"o_qti_item_choice_option_autoenum\">");
+			if (s.length > i) {
+				buffer.append("<span>").append(s[i]).append("</span>");
+				ri.put(RenderInstructions.KEY_RENDER_AUTOENUM_IDX, Integer.toString(i+1));
+			}
+			buffer.append("</div>");
+		}			
+					
+		Integer rCardinality = (Integer) ri.get(RenderInstructions.KEY_RESPONSE_RCARDINALITY);
+		if (rCardinality == null) {
+			throw new AssertException("Cardinality must be set previousely to call respnse_label.render for a render_choice class.");
+		}
+		
+		if (rCardinality.intValue() == Response_lid.RCARDINALITY_SINGLE) {
+			// single choice
+			
+			buffer.append("<div class='radio'>")
+			      .append("<label for=\"QTI_").append(ri.get(RenderInstructions.KEY_ITEM_IDENT)).append(getQTIIdent()).append("\">")
+			      .append("<input id=\"QTI_").append(ri.get(RenderInstructions.KEY_ITEM_IDENT)).append(getQTIIdent()).append("\" type='radio' name=\"")
+			      .append("qti").append(PARA).append(ri.get(RenderInstructions.KEY_ITEM_IDENT)).append(PARA)
+			      .append(ri.get(RenderInstructions.KEY_RESPONSE_IDENT)).append(PARA).append("choice")
+			      .append("\" value=\"").append(getQTIIdent());
+			if (iinput != null && !iinput.isEmpty()) {
+				String response = iinput.getSingle(responseIdent);
+				if (response.equals(getQTIIdent())) buffer.append("\" checked=\"checked");
+			}
+			buffer.append("\" onchange=\"return setFormDirty('ofo_iq_item')\" onclick=\"return setFormDirty('ofo_iq_item')\" />");
+			super.render(buffer, ri);
+			buffer.append("</label></div>");
+		} else if (rCardinality.intValue() == Response_lid.RCARDINALITY_MULTIPLE) {
+			// multiple choice
+			
+			buffer.append("<div class='checkbox'>")
+			      .append("<label for=\"QTI_").append(ri.get(RenderInstructions.KEY_ITEM_IDENT)).append(getQTIIdent()).append("\">")
+			      .append("<input id=\"QTI_").append(ri.get(RenderInstructions.KEY_ITEM_IDENT)).append(getQTIIdent()).append("\" type='checkbox' class='o_checkbox' name=\"");
+			appendParameterIdent(buffer, ri);
+			buffer.append("\" value=\"").append(getQTIIdent());
+			if (iinput != null) {
+				List<String> responses = iinput.getAsList(responseIdent);
+				if (responses != null && responses.contains(getQTIIdent())) buffer.append("\" checked=\"checked");
+			}
+			buffer.append("\" onchange=\"return setFormDirty('ofo_iq_item')\" onclick=\"return setFormDirty('ofo_iq_item')\" />");
+			super.render(buffer, ri);
+			buffer.append("</label></div>");
+		}
+		buffer.append("</div>");
 	}
 	
 	private void addBr (RenderInstructions ri, StringBuilder buffer) {

@@ -26,6 +26,7 @@ import junit.framework.Assert;
 
 import org.junit.Test;
 import org.olat.basesecurity.BaseSecurity;
+import org.olat.basesecurity.GroupRoles;
 import org.olat.core.commons.persistence.DB;
 import org.olat.core.gui.control.Event;
 import org.olat.core.id.Identity;
@@ -34,7 +35,7 @@ import org.olat.core.util.event.GenericEventListener;
 import org.olat.core.util.resource.OresHelper;
 import org.olat.group.BusinessGroup;
 import org.olat.group.BusinessGroupService;
-import org.olat.group.model.DisplayMembers;
+import org.olat.group.manager.BusinessGroupRelationDAO;
 import org.olat.instantMessaging.manager.InstantMessageDAO;
 import org.olat.instantMessaging.manager.InstantMessagePreferencesDAO;
 import org.olat.instantMessaging.manager.RosterDAO;
@@ -66,6 +67,8 @@ public class InstantMessageServiceTest extends OlatTestCase {
 	private BaseSecurity securityManager;
 	@Autowired
 	private BusinessGroupService businessGroupService;
+	@Autowired
+	private BusinessGroupRelationDAO businessGroupRelationDao;
 
 	@Test
 	public void should_service_present() {
@@ -127,10 +130,10 @@ public class InstantMessageServiceTest extends OlatTestCase {
 		Identity chatter1 = JunitTestHelper.createAndPersistIdentityAsUser("Chat-4-" + UUID.randomUUID().toString());
 		Identity chatter2 = JunitTestHelper.createAndPersistIdentityAsUser("Chat-5-" + UUID.randomUUID().toString());
 		BusinessGroup group = businessGroupService.createBusinessGroup(null, "Chat-1-", "testGetBuddyStats_mustBeEmpty", 0, 10, false, false, null);
-		securityManager.addIdentityToSecurityGroup(chatter1, group.getOwnerGroup());
-		securityManager.addIdentityToSecurityGroup(chatter2, group.getPartipiciantGroup());
+		businessGroupRelationDao.addRole(chatter1, group, GroupRoles.coach.name());
+		businessGroupRelationDao.addRole(chatter2, group, GroupRoles.participant.name());
 		dbInstance.commit();
-		businessGroupService.updateDisplayMembers(group, new DisplayMembers(false, false, false));
+		businessGroupService.updateDisplayMembers(group, false, false, false, false, false, false, false);
 		dbInstance.commitAndCloseSession();
 		
 		//check the buddies
@@ -149,10 +152,10 @@ public class InstantMessageServiceTest extends OlatTestCase {
 		Identity chatter1 = JunitTestHelper.createAndPersistIdentityAsUser("Chat-6-" + UUID.randomUUID().toString());
 		Identity chatter2 = JunitTestHelper.createAndPersistIdentityAsUser("Chat-7-" + UUID.randomUUID().toString());
 		BusinessGroup group = businessGroupService.createBusinessGroup(null, "Chat-2-", "testGetBuddyStats_visible", 0, 10, false, false, null);
-		securityManager.addIdentityToSecurityGroup(chatter1, group.getOwnerGroup());
-		securityManager.addIdentityToSecurityGroup(chatter2, group.getPartipiciantGroup());
+		businessGroupRelationDao.addRole(chatter1, group, GroupRoles.coach.name());
+		businessGroupRelationDao.addRole(chatter2, group, GroupRoles.participant.name());
 		dbInstance.commit();
-		businessGroupService.updateDisplayMembers(group, new DisplayMembers(true, true, false));
+		businessGroupService.updateDisplayMembers(group, true, true, false, false, false, false, false);
 		dbInstance.commitAndCloseSession();
 		
 		//check the buddies

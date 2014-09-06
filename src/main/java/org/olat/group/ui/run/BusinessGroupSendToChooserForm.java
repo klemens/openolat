@@ -27,11 +27,10 @@ package org.olat.group.ui.run;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.List;
-import java.util.Set;
 
-import org.olat.basesecurity.BaseSecurityManager;
-import org.olat.basesecurity.SecurityGroup;
+import org.olat.basesecurity.GroupRoles;
 import org.olat.core.CoreSpringFactory;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.form.flexible.FormItem;
@@ -49,18 +48,13 @@ import org.olat.core.id.User;
 import org.olat.core.util.ArrayHelper;
 import org.olat.group.BusinessGroup;
 import org.olat.group.BusinessGroupService;
-import org.olat.group.model.DisplayMembers;
 import org.olat.user.UserManager;
 import org.olat.user.propertyhandlers.UserPropertyHandler;
 
 /**
- * Description: <BR>
- * TODO: Class Description for BusinessGroupSendToChooserForm
- * <P>
  * 
  * @author patrick
  */
-
 public class BusinessGroupSendToChooserForm extends FormBasicController {
 
 	private BusinessGroup businessGroup;
@@ -97,6 +91,8 @@ public class BusinessGroupSendToChooserForm extends FormBasicController {
 	public final static String NLS_RADIO_NOTHING = "nothing";
 	public final static String NLS_RADIO_CHOOSE = "choose";
 	
+	private final BusinessGroupService businessGroupService;
+	
 	/**
 	 * @param name
 	 * @param translator
@@ -107,11 +103,11 @@ public class BusinessGroupSendToChooserForm extends FormBasicController {
 		this.businessGroup = businessGroup;
 		this.isAdmin = isAdmin;
 		
+		businessGroupService = CoreSpringFactory.getImpl(BusinessGroupService.class);
+		
 		// check 'members can see owners' and 'members can see participants' 
-		BusinessGroupService businessGroupService = CoreSpringFactory.getImpl(BusinessGroupService.class);
-		DisplayMembers displayMembers = businessGroupService.getDisplayMembers(businessGroup);
-		showChooseOwners  = displayMembers.isShowOwners();
-		showChoosePartips = displayMembers.isShowParticipants();
+		showChooseOwners  = businessGroup.isOwnersVisibleIntern();
+		showChoosePartips = businessGroup.isParticipantsVisibleIntern();
 		showWaitingList = isAdmin && businessGroup.getWaitingListEnabled().booleanValue();
 		
 		if (isMultiSelectionOwnerKeys())  {
@@ -129,7 +125,7 @@ public class BusinessGroupSendToChooserForm extends FormBasicController {
 			};
 
 			// Owner MultiSelection
-			SecurityGroup owners = businessGroup.getOwnerGroup();			
+			List<Identity> owners = businessGroupService.getMembers(businessGroup, GroupRoles.coach.name());
 			keysOwner = getMemberKeys(owners);
 			valuesOwner = getMemberValues(ureq, owners); 
 			ArrayHelper.sort(keysOwner, valuesOwner, false, true, false);
@@ -175,7 +171,7 @@ public class BusinessGroupSendToChooserForm extends FormBasicController {
 				};
 				
 				// Participant MultiSelection
-				SecurityGroup participants = businessGroup.getPartipiciantGroup();
+				List<Identity> participants = businessGroupService.getMembers(businessGroup, GroupRoles.participant.name());
 				keysPartips = getMemberKeys(participants);
 				valuesPartips = getMemberValues(ureq, participants); 
 				ArrayHelper.sort(keysPartips, valuesPartips, false, true, false);
@@ -214,7 +210,7 @@ public class BusinessGroupSendToChooserForm extends FormBasicController {
 				
 		if (showWaitingList) {
 		  // Waitings MultiSelection
-			SecurityGroup waitingList = businessGroup.getWaitingGroup();
+			List<Identity> waitingList = businessGroupService.getMembers(businessGroup, GroupRoles.waiting.name());
 			keysWaitings = getMemberKeys(waitingList);
 			valuesWaitings = getMemberValues(ureq, waitingList);			
 			ArrayHelper.sort(keysWaitings, valuesWaitings, false, true, false);
@@ -232,12 +228,10 @@ public class BusinessGroupSendToChooserForm extends FormBasicController {
 	 * @param ureq
 	 * @param securityGroup
 	 * @return
-	 * fxdiff: FXOLAT-227 get properties and order by user-properties-context.
 	 */
-	private String[] getMemberValues(UserRequest ureq, SecurityGroup securityGroup) {
+	private String[] getMemberValues(UserRequest ureq, List<Identity> membersList) {
 		String[] values = new String[0];		
-		List<UserPropertyHandler> propHandlers = UserManager.getInstance().getUserPropertyHandlersFor(this.getClass().getCanonicalName(), ureq.getUserSession().getRoles().isOLATAdmin());
-		List<Identity> membersList = BaseSecurityManager.getInstance().getIdentitiesOfSecurityGroup(securityGroup);		
+		List<UserPropertyHandler> propHandlers = UserManager.getInstance().getUserPropertyHandlersFor(this.getClass().getCanonicalName(), ureq.getUserSession().getRoles().isOLATAdmin());	
 		values = new String[membersList.size()];
 		for (int i = 0; i < membersList.size(); i++) {			
 			User currentUser = membersList.get(i).getUser();
@@ -258,9 +252,8 @@ public class BusinessGroupSendToChooserForm extends FormBasicController {
 	 * @param securityGroup
 	 * @return
 	 */
-	private String[] getMemberKeys(SecurityGroup securityGroup) {
-		String[] keys = new String[0];		
-		List<Identity> membersList = BaseSecurityManager.getInstance().getIdentitiesOfSecurityGroup(securityGroup);		
+	private String[] getMemberKeys(List<Identity> membersList ) {
+		String[] keys = new String[0];			
 		keys = new String[membersList.size()];
 		for (int i = 0; i < membersList.size(); i++) {
 			keys[i] = membersList.get(i).getKey().toString();			
@@ -396,7 +389,7 @@ public class BusinessGroupSendToChooserForm extends FormBasicController {
 		if (multiSelectionElements == null) {
 			return new ArrayList<Long>();
 		}
-		Set<String> selectedKeys = multiSelectionElements.getSelectedKeys();
+		Collection<String> selectedKeys = multiSelectionElements.getSelectedKeys();
 		List<Long> selectedKeysLong = new ArrayList<Long>();
 		for (String key : selectedKeys) {
 			selectedKeysLong.add(Long.parseLong(key.toString()));
@@ -421,24 +414,24 @@ public class BusinessGroupSendToChooserForm extends FormBasicController {
 		//if (!isRightGroup()) {
 			radioButtonOwner = uifactory.addRadiosVertical("radioButtonOwner", "sendtochooser.form.radio.owners", formLayout, radioKeysOwners, radioValuesOwners);
 			radioButtonOwner.select(NLS_RADIO_ALL, true);
-			radioButtonOwner.addActionListener(listener, FormEvent.ONCLICK);
+			radioButtonOwner.addActionListener(FormEvent.ONCLICK);
 			if ( (keysOwner != null) && (valuesOwner != null) ) {
-				multiSelectionOwnerKeys = uifactory.addCheckboxesVertical("multiSelectionOwnerKeys", "", formLayout, keysOwner, valuesOwner, null, 1);
+				multiSelectionOwnerKeys = uifactory.addCheckboxesVertical("multiSelectionOwnerKeys", "", formLayout, keysOwner, valuesOwner, 1);
 			}
 		//}
 		
 		radioButtonPartips = uifactory.addRadiosVertical("radioButtonPartip", "sendtochooser.form.radio.rightgroup", formLayout, radioKeysPartips, radioValuesPartips);
 		radioButtonPartips.select(NLS_RADIO_ALL, true);
-		radioButtonPartips.addActionListener(listener, FormEvent.ONCLICK);
+		radioButtonPartips.addActionListener(FormEvent.ONCLICK);
 		if ( (keysPartips != null) && (valuesPartips != null) ) {
-			multiSelectionPartipKeys = uifactory.addCheckboxesVertical("multiSelectionPartipKeys", "", formLayout, keysPartips, valuesPartips, null, 1);
+			multiSelectionPartipKeys = uifactory.addCheckboxesVertical("multiSelectionPartipKeys", "", formLayout, keysPartips, valuesPartips, 1);
 		} 
 			
 		radioButtonWaitings = uifactory.addRadiosVertical("radioButtonWaiting", "sendtochooser.form.radio.waitings", formLayout, radioKeysWaitings, radioValuesWaitings);
 		radioButtonWaitings.select(NLS_RADIO_NOTHING, true);
-		radioButtonWaitings.addActionListener(listener, FormEvent.ONCLICK);
+		radioButtonWaitings.addActionListener(FormEvent.ONCLICK);
 		if ( (keysWaitings != null) && (valuesWaitings != null) ) {
-			multiSelectionWaitingKeys = uifactory.addCheckboxesVertical("multiSelectionWaitingKeys", "", formLayout, keysWaitings, valuesWaitings, null, 1);
+			multiSelectionWaitingKeys = uifactory.addCheckboxesVertical("multiSelectionWaitingKeys", "", formLayout, keysWaitings, valuesWaitings, 1);
 		} 
 		
 		uifactory.addSpacerElement("space", formLayout, true);

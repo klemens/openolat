@@ -23,14 +23,13 @@ package org.olat.core.gui.components.form.flexible.impl.elements;
 import java.io.File;
 
 import org.apache.commons.lang.StringEscapeUtils;
-import org.olat.core.dispatcher.impl.StaticMediaDispatcher;
 import org.olat.core.gui.components.Component;
-import org.olat.core.gui.components.ComponentRenderer;
+import org.olat.core.gui.components.DefaultComponentRenderer;
 import org.olat.core.gui.components.form.flexible.elements.FileElement;
 import org.olat.core.gui.components.form.flexible.impl.FormJSHelper;
+import org.olat.core.gui.components.image.ImageFormItem;
 import org.olat.core.gui.render.RenderResult;
 import org.olat.core.gui.render.Renderer;
-import org.olat.core.gui.render.RenderingState;
 import org.olat.core.gui.render.StringOutput;
 import org.olat.core.gui.render.URLBuilder;
 import org.olat.core.gui.translator.Translator;
@@ -52,11 +51,12 @@ import org.olat.core.util.Util;
  * @author Florian Gnaegi, frentix GmbH, http://www.frentix.com
  */
 
-public class FileElementRenderer implements ComponentRenderer {
+public class FileElementRenderer extends DefaultComponentRenderer {
 
 	/* (non-Javadoc)
 	 * @see org.olat.core.gui.components.ComponentRenderer#render(org.olat.core.gui.render.Renderer, org.olat.core.gui.render.StringOutput, org.olat.core.gui.components.Component, org.olat.core.gui.render.URLBuilder, org.olat.core.gui.translator.Translator, org.olat.core.gui.render.RenderResult, java.lang.String[])
 	 */
+	@Override
 	public void render(Renderer renderer, StringOutput sb, Component source,
 			URLBuilder ubu, Translator translator, RenderResult renderResult,
 			String[] args) {
@@ -80,110 +80,67 @@ public class FileElementRenderer implements ComponentRenderer {
 		}
 
 		// Read-write view
-		if (source.isEnabled()) {
-			sb.append("<div class='b_fileinput'>");	
+		if (fileComp.isEnabled()) {
+			ImageFormItem previewCmp = fileElem.getPreviewFormItem();
+			if(previewCmp != null && previewCmp.isEnabled() && previewCmp.isVisible()) {
+				sb.append("<div class='o_filepreview'>");	
+				renderer.render(previewCmp.getComponent(), sb, args);
+				sb.append("</div>");
+			}
+			
+			sb.append("<div class='o_fileinput'>");	
 			// input.Browse is the real filebrowser, but set to be transparent. 
-			// the div.b_fileinput_fakechooser is layered below the input.Browse and represents the visual GUI. 
-			// Since input.Browse is layered above div.b_fileinput_fakechooser, all click events to go input.Browse
+			// the div.o_fakechooser is layered below the input.Browse and represents the visual GUI. 
+			// Since input.Browse is layered above div.o_fakechooser, all click events to go input.Browse
 			// See http://www.quirksmode.org/dom/inputfile.html
 			sb.append("<input type='file' name=\"");
 	 		sb.append(id); // name for form labeling
 	 		sb.append("\" id=\"");
 	 		sb.append(id); // id to make dirty button work
-	 		sb.append("\" class='b_fileinput_realchooser' ");
+	 		sb.append("\" class='form-control o_realchooser' ");
 	 		// Add on* event handlers
 	 		StringBuilder eventHandlers = FormJSHelper.getRawJSFor(fileElem.getRootForm(), id, fileElem.getAction());
 	 		int onChangePos = eventHandlers.indexOf("onchange=");
 	 		if (onChangePos != -1) {
 	 			// add file upload change handler
-	 			sb.append(eventHandlers.substring(0, onChangePos + 10));
-	 			sb.append("b_handleFileUploadFormChange(this, this.form.fake_").append(id).append(", this.form.upload);");
-	 			sb.append(eventHandlers.substring(onChangePos + 10, eventHandlers.length()));
+	 			sb.append(eventHandlers.substring(0, onChangePos + 10))
+	 			  .append("b_handleFileUploadFormChange(this, this.form.fake_").append(id).append(", this.form.upload);")
+	 			  .append(eventHandlers.substring(onChangePos + 10, eventHandlers.length()));
 	 		} else {
-	 			sb.append(eventHandlers);
-	 			sb.append(" onchange=\"b_handleFileUploadFormChange(this, this.form.fake_").append(id).append(", this.form.upload)\"");
+	 			sb.append(eventHandlers)
+	 			  .append(" onchange=\"b_handleFileUploadFormChange(this, this.form.fake_").append(id).append(", this.form.upload)\"");
 	 		}
-	 		// Add mime type restriction
-//TODO: This does unfortunately not work in the different browsers. Not even video/* does work properly in safari. 
-// We do not limit the selection here, check file type later on the server which is way more stable than this fancy "accept" attribute
-//	 		Set<String> mimeTypes = fileElem.getMimeTypeLimitations();
-//	 		if (mimeTypes.size() > 0 ) {
-//	 			sb.append(" accept=\"");
-//	 			Iterator iterator = mimeTypes.iterator();
-//	 			while (iterator.hasNext()) {
-//					String type = (String) iterator.next();
-//					sb.append(type);
-//					if (iterator.hasNext()) sb.append(",");
-//				}
-//	 			sb.append("\"");
-//	 		}
 	 		// Add pseudo focus marker on fake file chooser button
-	 		sb.append(" onfocus=\"this.form.fake_").append(id).append(".nextSibling.style.border = '1px dotted black';\"");
-	 		sb.append(" onblur=\"this.form.fake_").append(id).append(".nextSibling.style.border = '0';\"");
+	 		sb.append(" onfocus=\"this.form.fake_").append(id).append(".nextSibling.style.border = '1px dotted black';\"")
+	 		  .append(" onblur=\"this.form.fake_").append(id).append(".nextSibling.style.border = '0';\"");
 	 		// Add select text (hover)
-	 		sb.append(" title=\"").append(StringEscapeUtils.escapeHtml(trans.translate("file.element.select"))).append("\"/>");	
-			sb.append("<div class='b_fileinput_fakechooser'>");	
+	 		sb.append(" title=\"").append(StringEscapeUtils.escapeHtml(trans.translate("file.element.select"))).append("\" />");
 			// Add the visible but fake input field and a styled faked file chooser button
-			sb.append("<input name='fake_").append(id).append("' value=\"").append(StringEscapeUtils.escapeHtml(fileName)).append("\"/>");	
-			sb.append("<a href='#' class='b_with_small_icon_left b_fileinput_icon'><span>").append(trans.translate("file.element.select")).append("</span></a>");	
+			sb.append("<div class='o_fakechooser input-group'>");
+			sb.append("<input class='form-control' name='fake_").append(id).append("' value=\"").append(StringEscapeUtils.escapeHtml(fileName))
+			  .append("\" placeholder=\"").append(StringEscapeUtils.escapeHtml(trans.translate("file.element.select"))).append("\" />")
+			  .append("<span class='input-group-addon'><a href='javascript:;'><i class='o_icon o_icon_upload'> </i></a></span>");	
+			sb.append("</div></div>");	
 			// Add Max upload size
 			if (fileElem.getMaxUploadSizeKB() != FileElement.UPLOAD_UNLIMITED) {
-				String maxUpload = Formatter.roundToString((fileElem.getMaxUploadSizeKB()+0f) / 1024, 1);
-				sb.append("<span class='b_fileinput_maxsize'>(").append(trans.translate("file.element.select.maxsize", new String[]{maxUpload})).append(")</span>");	
+				String maxUpload = Formatter.formatBytes(fileElem.getMaxUploadSizeKB() * 1024);
+				sb.append("<div class='help-block o_maxsize'>(")
+				.append(trans.translate("file.element.select.maxsize", new String[]{maxUpload}))
+				.append(")</div>");	
 			}
-			sb.append("</div></div>");	
 			
-			// Add IE fix to deal with SSL and server timeouts
-			// See http://bugs.olat.org/jira/browse/OLAT-1299
-			sb.append("<!--[if lte IE 7]>");
-			sb.append("<iframe height='1px' style='visibility:hidden' src='");
-			StaticMediaDispatcher.renderStaticURI(sb, "workaround.html");
-			sb.append("'></iframe>");
-			sb.append("<![endif]-->");
-				
 			// Add set dirty form on change
-			sb.append(FormJSHelper.getJSStartWithVarDeclaration(fileComp.getFormDispatchId()));
-			/* deactivated due OLAT-3094 and OLAT-3040
-			if(te.hasFocus()){
-				sb.append(FormJSHelper.getFocusFor(teC.getFormDispatchId()));
-			}
-			 */
-			sb.append(FormJSHelper.getSetFlexiFormDirty(fileElem.getRootForm(), fileComp.getFormDispatchId()));
-			sb.append(FormJSHelper.getJSEnd());
-			
+			FormJSHelper.appendFlexiFormDirty(sb, fileElem.getRootForm(), fileComp.getFormDispatchId());
 		} else {
-			//
 			// Read only view
-			sb.append("<span id=\"");
-			sb.append(id);
-			sb.append("\" ");
-			sb.append(FormJSHelper.getRawJSFor(fileElem.getRootForm(), id, fileElem.getAction()));
-			sb.append(" >");
-			sb.append("<input disabled=\"disabled\" class=\"b_form_element_disabled\" size=\"");
-			sb.append("\" value=\"");
-			sb.append(StringEscapeUtils.escapeHtml(fileName));
-			sb.append("\" ");
-			sb.append("\" />");		
-			sb.append("</span>");
+			sb.append("<span id=\"").append(id).append("\" ")
+			  .append(FormJSHelper.getRawJSFor(fileElem.getRootForm(), id, fileElem.getAction()))
+			  .append(" >")
+			  .append("<input type='text' disabled=\"disabled\" class=\"form-control o_disabled\" size=\"")
+			  .append("\" value=\"")
+			  .append(StringEscapeUtils.escapeHtml(fileName)).append("\" ")
+			  .append("\" />")
+			  .append("</span>");
 		}
-
 	}
-
-	/* (non-Javadoc)
-	 * @see org.olat.core.gui.components.ComponentRenderer#renderBodyOnLoadJSFunctionCall(org.olat.core.gui.render.Renderer, org.olat.core.gui.render.StringOutput, org.olat.core.gui.components.Component, org.olat.core.gui.render.RenderingState)
-	 */
-	public void renderBodyOnLoadJSFunctionCall(Renderer renderer,
-			StringOutput sb, Component source, RenderingState rstate) {
-		// nothing to do
-	}
-
-	/* (non-Javadoc)
-	 * @see org.olat.core.gui.components.ComponentRenderer#renderHeaderIncludes(org.olat.core.gui.render.Renderer, org.olat.core.gui.render.StringOutput, org.olat.core.gui.components.Component, org.olat.core.gui.render.URLBuilder, org.olat.core.gui.translator.Translator, org.olat.core.gui.render.RenderingState)
-	 */
-	public void renderHeaderIncludes(Renderer renderer, StringOutput sb,
-			Component source, URLBuilder ubu, Translator translator,
-			RenderingState rstate) {
-		// nothing to do
-	}
-
 }

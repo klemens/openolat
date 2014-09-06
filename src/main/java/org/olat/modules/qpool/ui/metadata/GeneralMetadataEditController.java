@@ -51,6 +51,7 @@ import org.olat.modules.qpool.model.QuestionItemImpl;
 import org.olat.modules.qpool.ui.QuestionsController;
 import org.olat.modules.qpool.ui.admin.TaxonomyTreeModel;
 import org.olat.modules.qpool.ui.events.QItemEdited;
+import org.springframework.beans.factory.annotation.Autowired;
 /**
  * 
  * Initial date: 05.03.2013<br>
@@ -70,14 +71,14 @@ public class GeneralMetadataEditController extends FormBasicController {
 	private String taxonomicPath;
 	private TaxonomyLevel selectedTaxonomicPath;
 	private QuestionItem item;
-	private final QPoolService qpoolService;
+	@Autowired
+	private QPoolService qpoolService;
 	
 	public GeneralMetadataEditController(UserRequest ureq, WindowControl wControl, QuestionItem item) {
 		super(ureq, wControl);
 		setTranslator(Util.createPackageTranslator(QuestionsController.class, getLocale(), getTranslator()));
 		
 		this.item = item;
-		qpoolService = CoreSpringFactory.getImpl(QPoolService.class);
 		taxonomicPath = item.getTaxonomicPath();
 		
 		initForm(ureq);
@@ -146,8 +147,12 @@ public class GeneralMetadataEditController extends FormBasicController {
 			TreeEvent te = (TreeEvent) event;
 			if (te.getCommand().equals(TreeEvent.COMMAND_TREENODE_CLICKED)) {
 				GenericTreeNode node = (GenericTreeNode)selectPathCmp.getSelectedNode();
-				selectedTaxonomicPath = (TaxonomyLevel)node.getUserObject();
-				selectContextCont.contextPut("path", selectedTaxonomicPath.getMaterializedPathNames());
+				if(TaxonomyTreeModel.ROOT.equals(node.getUserObject())) {
+					//remove the level?
+				} else {
+					selectedTaxonomicPath = (TaxonomyLevel)node.getUserObject();
+					selectContextCont.contextPut("path", selectedTaxonomicPath.getMaterializedPathNames());
+				}
 			}
 			cmc.deactivate();
 			cleanUp();
@@ -175,18 +180,17 @@ public class GeneralMetadataEditController extends FormBasicController {
 	protected void formInnerEvent(UserRequest ureq, FormItem source, FormEvent event) {
 		if(source == selectContext) {
 			okButton.getComponent().setDirty(false);
-			doOpenSelection(ureq);
+			doOpenSelection();
 		}
 		super.formInnerEvent(ureq, source, event);
 	}
 	
-	private void doOpenSelection(UserRequest ureq) {
+	private void doOpenSelection() {
 		if(item instanceof QuestionItemImpl) {
 			QuestionItemImpl itemImpl = (QuestionItemImpl)item;
 			
 			selectPathCmp = new SelectionTree("taxPathSelection", getTranslator());
 			selectPathCmp.addListener(this);
-			selectPathCmp.setMultiselect(false);
 			selectPathCmp.setFormButtonKey("select");
 			selectPathCmp.setShowCancelButton(true);
 			TaxonomyTreeModel treeModel = new TaxonomyTreeModel("");

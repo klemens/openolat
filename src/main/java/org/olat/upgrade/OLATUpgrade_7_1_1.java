@@ -33,12 +33,9 @@ import org.olat.core.commons.persistence.DB;
 import org.olat.core.commons.persistence.DBFactory;
 import org.olat.core.commons.persistence.DBQuery;
 import org.olat.core.commons.services.commentAndRating.CommentAndRatingSecurityCallback;
-import org.olat.core.commons.services.commentAndRating.CommentAndRatingService;
-import org.olat.core.commons.services.commentAndRating.UserCommentsManager;
+import org.olat.core.commons.services.commentAndRating.manager.UserCommentsDAO;
 import org.olat.core.commons.services.commentAndRating.model.UserComment;
 import org.olat.core.id.Identity;
-import org.olat.group.BusinessGroup;
-import org.olat.group.context.BGContextImpl;
 import org.olat.portfolio.PortfolioModule;
 import org.olat.portfolio.manager.EPFrontendManager;
 import org.olat.portfolio.model.artefacts.AbstractArtefact;
@@ -48,8 +45,10 @@ import org.olat.portfolio.model.structel.EPStructuredMap;
 import org.olat.portfolio.model.structel.EPStructuredMapTemplate;
 import org.olat.portfolio.model.structel.ElementType;
 import org.olat.portfolio.model.structel.PortfolioStructure;
-import org.olat.repository.RepositoryEntry;
 import org.olat.resource.OLATResource;
+import org.olat.upgrade.model.BGContextImpl;
+import org.olat.upgrade.model.BusinessGroupUpgrade;
+import org.olat.upgrade.model.RepositoryEntryUpgrade;
 
 /**
  * Description:<br>
@@ -72,7 +71,7 @@ public class OLATUpgrade_7_1_1 extends OLATUpgrade {
 	private static final String VERSION = "OLAT_7.1.1";
 	private boolean portfolioCourseNodeEnabled;
 	private EPFrontendManager ePFMgr;
-	private CommentAndRatingService commentAndRatingService;
+	private UserCommentsDAO commentAndRatingService;
 	private PortfolioModule epfModule;
 	
 	
@@ -283,35 +282,24 @@ public class OLATUpgrade_7_1_1 extends OLATUpgrade {
 		// collect all comments out there
 		for (PortfolioStructure portfolioStructure : wrongStructs) {
 			if (!(portfolioStructure instanceof EPPage)) return; // no comments on StructureElements!
-			UserCommentsManager thisStructCommentRSMgr = getUserCommentsManager(portfolioStructure);
-			List<UserComment> oldComments = thisStructCommentRSMgr.getComments();
+			List<UserComment> oldComments = commentAndRatingService.getComments(portfolioStructure.getRootMap(), portfolioStructure.getKey().toString());
 			collectedComments.addAll(oldComments);
-			thisStructCommentRSMgr.deleteAllComments();
+			commentAndRatingService.deleteAllComments(portfolioStructure.getRootMap(), portfolioStructure.getKey().toString());
 		}
 		log.audit("       found " + collectedComments.size() + " comments for this structure, will be merged to new destination.");
 		
 		if (collectedComments.size() == 0) return;		
-		UserCommentsManager finalStructCommentRSMgr = getUserCommentsManager(finalStruct);
+
 		Identity ident = collectedComments.get(0).getCreator();
-		UserComment topComment = finalStructCommentRSMgr.createComment(ident, "The following comments were restored from a migration task to rescue lost data.");
+		UserComment topComment = commentAndRatingService.createComment(ident, finalStruct.getRootMap(), finalStruct.getKey().toString(), "The following comments were restored from a migration task to rescue lost data.");
 		// attach all to this info-comment
 		for (UserComment userComment : collectedComments) {			
-			UserComment attachedComment = finalStructCommentRSMgr.replyTo(topComment, userComment.getCreator(), userComment.getComment());
+			UserComment attachedComment = commentAndRatingService.replyTo(topComment, userComment.getCreator(), userComment.getComment());
 			// set original date
 			attachedComment.setCreationDate(userComment.getCreationDate());
-			finalStructCommentRSMgr.updateComment(attachedComment, attachedComment.getComment());
+			commentAndRatingService.updateComment(attachedComment, attachedComment.getComment());
 		}		
 	}
-	
-	private UserCommentsManager getUserCommentsManager(PortfolioStructure page){
-		commentAndRatingService = null;
-		commentAndRatingService = (CommentAndRatingService) CoreSpringFactory.getBean(CommentAndRatingService.class);
-		PortfolioStructure map = page.getRootMap();		
-		
-		commentAndRatingService.init(map, page.getKey().toString(), new FullCommentAndRatingSecCallback());		
-		return commentAndRatingService.getUserCommentsManager();
-	}
-
 	
 	private void mergeLinkedArtefactsToFinalStruct(PortfolioStructure finalStruct, List<PortfolioStructure> wrongStructs){
 		if (wrongStructs == null || wrongStructs.isEmpty()) return;
@@ -398,10 +386,10 @@ public class OLATUpgrade_7_1_1 extends OLATUpgrade {
 			log.audit("+-----------------------------------------------------------------------------+");
 
 			int counter = 0;
-			List<RepositoryEntry> entries;
+			List<RepositoryEntryUpgrade> entries;
 			do {
 				entries = queryEntries(counter);
-				for(RepositoryEntry entry:entries) {
+				for(RepositoryEntryUpgrade entry:entries) {
 					createRepoEntrySecurityGroups(entry);
 					migrateRepoEntrySecurityGroups(entry);
 				}
@@ -416,7 +404,7 @@ public class OLATUpgrade_7_1_1 extends OLATUpgrade {
 		}
 	}
 	
-	private void createRepoEntrySecurityGroups(RepositoryEntry entry) {
+	private void createRepoEntrySecurityGroups(RepositoryEntryUpgrade entry) {
 		BaseSecurity securityManager = BaseSecurityManager.getInstance();
 		
 		boolean save = false;
@@ -455,13 +443,13 @@ public class OLATUpgrade_7_1_1 extends OLATUpgrade {
 		}
 	}
 	
-	private void migrateRepoEntrySecurityGroups(RepositoryEntry entry) {
+	private void migrateRepoEntrySecurityGroups(RepositoryEntryUpgrade entry) {
 		BaseSecurity securityManager = BaseSecurityManager.getInstance();
 
 		List<BGContextImpl> contexts = findBGContextsForResource(entry.getOlatResource(), true, true);
 		for(BGContextImpl context:contexts) {
-			List<BusinessGroup> groups = getGroupsOfBGContext(context);
-			for(BusinessGroup group:groups) {
+			List<BusinessGroupUpgrade> groups = getGroupsOfBGContext(context);
+			for(BusinessGroupUpgrade group:groups) {
 				//migrate tutors
 				if(group.getOwnerGroup() != null) {
 					int count = 0;
@@ -500,23 +488,23 @@ public class OLATUpgrade_7_1_1 extends OLATUpgrade {
 		}
 	}
 	
-	private List<BusinessGroup> getGroupsOfBGContext(BGContextImpl bgContext) {
-		String q = "select bg from org.olat.group.BusinessGroupImpl bg where bg.groupContextKey = :contextKey";
+	private List<BusinessGroupUpgrade> getGroupsOfBGContext(BGContextImpl bgContext) {
+		String q = "select bg from org.olat.upgrade.model.BusinessGroupImpl bg where bg.groupContextKey = :contextKey";
 		DBQuery query = DBFactory.getInstance().createQuery(q);
 		query.setLong("contextKey", bgContext.getKey());
 		@SuppressWarnings("unchecked")
-		List<BusinessGroup> groups = query.list();
+		List<BusinessGroupUpgrade> groups = query.list();
 		return groups;
 	}
 	
-	public List<RepositoryEntry> queryEntries(int firstResult) {
+	public List<RepositoryEntryUpgrade> queryEntries(int firstResult) {
 		StringBuilder sb = new StringBuilder();
-		sb.append("select v from ").append(RepositoryEntry.class.getName()).append(" v inner join fetch v.olatResource as res order by v.key asc");
+		sb.append("select v from ").append(RepositoryEntryUpgrade.class.getName()).append(" v inner join fetch v.olatResource as res order by v.key asc");
 		DBQuery dbquery = DBFactory.getInstance().createQuery(sb.toString());
 		dbquery.setFirstResult(firstResult);
 		dbquery.setMaxResults(REPO_ENTRIES_BATCH_SIZE);
 		@SuppressWarnings("unchecked")
-		List<RepositoryEntry> entries = dbquery.list();
+		List<RepositoryEntryUpgrade> entries = dbquery.list();
 		return entries;
 	}
 	

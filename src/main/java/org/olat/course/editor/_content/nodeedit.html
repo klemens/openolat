@@ -1,22 +1,36 @@
-<fieldset class="b_clearfix">
-	<legend>$r.translate("nodeConfigForm.title")</legend>
-	$r.contextHelpWithWrapper("org.olat.course.editor","ced-des.html","help.hover.des")
-	<div class="b_floatbox">
-		<div class="b_small b_float_right">Id: $nodeId</div>
+<fieldset id="$r.getCId()" class="o_form form-horizontal" role="form">
+	<legend>
+		$r.contextHelpWithWrapper("org.olat.course.editor","ced-des.html","help.hover.des")
+		$r.translate("nodeConfigForm.title")</legend>
+	<div class="clearfix">
+		<div class="small pull-left">Id: $nodeId</div>
 	</div>
 	$r.render("nodeConfigForm")
 	
-	
-	#b_togglebox_start("o_course_node_links" $r.translate("nodeEdit.links"))
+	#o_togglebox_start("o_course_node_links" $r.translate("nodeEdit.links"))
 		<p>
 			$r.translate("nodeEdit.linksIntro")
 		</p>
-		$r.translate("nodeEdit.extLink"):
-		<pre>${extLink}</pre>
-		<br />
-		<br />
-		$r.translate("nodeEdit.intLink"):
-		<pre>${intLink}</pre>
-	#b_togglebox_end()
+		<div class="o_block">
+			$r.translate("nodeEdit.extLink"):
+			<div class="o_copy_code">
+				<a href="javascript:;" id="o_extlink"><i class="o_icon o_icon-lg o_icon-fw o_icon_qrcode"></i></a>
+				${extLink}
+			</div>
+		</div>
+		<div class="o_block">
+			$r.translate("nodeEdit.intLink"):
+			<div class="o_copy_code">
+				${intLink}
+			</div>
+		</div>
+	#o_togglebox_end()
 	
+	<script type="text/javascript">
+	/* <![CDATA[ */
+		jQuery(function() {
+			o_QRCodePopup('o_extlink', '$extlink', 'right');
+		});
+	/* ]]> */
+	</script>
 </fieldset>

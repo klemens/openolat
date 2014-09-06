@@ -167,14 +167,14 @@ public class MessageEditController extends FormBasicController {
 		// provide upload field
 		if (forumCallback.mayEditMessageAsModerator() || ((userIsMsgCreator) && (msgHasChildren == false))) {
 			fileUpload = uifactory.addFileElement("msg.upload", formLayout);
-			fileUpload.addActionListener(listener, FormEvent.ONCHANGE);
+			fileUpload.addActionListener(FormEvent.ONCHANGE);
 			fileUpload.setMaxUploadSizeKB((int) FolderConfig.getLimitULKB(), "attachments.too.big", new String[] { ((Long) (FolderConfig
 					.getLimitULKB() / 1024)).toString() });
 		}
 
 		// show stickyCheckBox only if moderator and message is threadtop
 		stickyCheckBox = uifactory.addCheckboxesHorizontal("stickyCheckBox", null, formLayout, new String[] { STICKY_SET_IDENTIFIER },
-				new String[] { translate("msg.sticky") }, new String[] { "" });
+				new String[] { translate("msg.sticky") });
 		Status msgStatus = Status.getStatus(message.getStatusCode());
 		if (msgStatus.isSticky()) stickyCheckBox.select(STICKY_SET_IDENTIFIER, true);
 		if (!(forumCallback.mayEditMessageAsModerator() && message.getParent() == null)) {
@@ -246,7 +246,6 @@ public class MessageEditController extends FormBasicController {
 			tmpLayout = (FormLayoutContainer) attachLayout;
 		}
 		tmpLayout.contextPut("attachments", attachments);
-		tmpLayout.contextPut("myself", this);
 
 		// add delete links for each attachment if user is allowed to see them
 		int attNr = 1;
@@ -261,13 +260,6 @@ public class MessageEditController extends FormBasicController {
 			tmpLink.setI18nKey("attachments.remove.string");
 			attNr++;
 		}
-	}
-
-	// TODO:RH:forum try to use a generic way to get fileIcon for VFSItem
-	public String renderFileIconCssClass(String filename) {
-		String filetype = filename.substring(filename.lastIndexOf(".") + 1);
-		if (filetype == null) return "b_filetype_file"; // default
-		return "b_filetype_" + filetype;
 	}
 
 	/**
@@ -321,8 +313,7 @@ public class MessageEditController extends FormBasicController {
 	 *      org.olat.core.gui.components.form.flexible.impl.FormEvent)
 	 */
 	@Override
-	protected void formInnerEvent(UserRequest ureq, FormItem source, @SuppressWarnings("unused")
-	FormEvent event) {
+	protected void formInnerEvent(UserRequest ureq, FormItem source, FormEvent event) {
 		if (source == fileUpload) {
 			if (fileUpload.isUploadSuccess()) {
 				String fileName = fileUpload.getUploadFileName();
@@ -355,7 +346,7 @@ public class MessageEditController extends FormBasicController {
 						showInfo("attachments.upload.successful", fileName);
 					}
 				} else {
-					fileUpload.setErrorKey("attachments.too.big", new String[] { ((Integer) (fileUpload.getMaxUploadSizeKB() / 1024)).toString() });
+					fileUpload.setErrorKey("attachments.too.big", new String[] { Long.toString((fileUpload.getMaxUploadSizeKB() / 1024)) });
 					fileUpload.getUploadFile().delete();
 					fileUpload.showError(true);
 				}

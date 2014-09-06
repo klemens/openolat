@@ -27,14 +27,16 @@ import java.util.List;
 import java.util.Map;
 
 import org.apache.commons.lang.StringEscapeUtils;
+import org.olat.NewControllerFactory;
 import org.olat.core.CoreSpringFactory;
 import org.olat.core.commons.controllers.navigation.Dated;
 import org.olat.core.commons.controllers.navigation.NavigationEvent;
 import org.olat.core.commons.controllers.navigation.YearNavigationController;
+import org.olat.core.commons.services.commentAndRating.CommentAndRatingDefaultSecurityCallback;
+import org.olat.core.commons.services.commentAndRating.CommentAndRatingSecurityCallback;
 import org.olat.core.commons.services.commentAndRating.CommentAndRatingService;
-import org.olat.core.commons.services.commentAndRating.impl.ui.UserCommentsAndRatingsController;
+import org.olat.core.commons.services.commentAndRating.ui.UserCommentsAndRatingsController;
 import org.olat.core.gui.UserRequest;
-import org.olat.core.gui.Windows;
 import org.olat.core.gui.components.Component;
 import org.olat.core.gui.components.date.DateComponentFactory;
 import org.olat.core.gui.components.form.flexible.elements.FileElement;
@@ -49,12 +51,9 @@ import org.olat.core.gui.control.WindowControl;
 import org.olat.core.gui.control.controller.BasicController;
 import org.olat.core.gui.control.generic.closablewrapper.CloseableModalController;
 import org.olat.core.gui.control.generic.dtabs.Activateable2;
-import org.olat.core.gui.control.generic.dtabs.DTab;
-import org.olat.core.gui.control.generic.dtabs.DTabs;
 import org.olat.core.gui.control.generic.modal.DialogBoxController;
 import org.olat.core.gui.control.generic.modal.DialogBoxUIFactory;
 import org.olat.core.id.Identity;
-import org.olat.core.id.OLATResourceable;
 import org.olat.core.id.context.BusinessControlFactory;
 import org.olat.core.id.context.ContextEntry;
 import org.olat.core.id.context.StateEntry;
@@ -69,9 +68,6 @@ import org.olat.modules.webFeed.models.Feed;
 import org.olat.modules.webFeed.models.Item;
 import org.olat.modules.webFeed.models.ItemPublishDateComparator;
 import org.olat.portfolio.EPUIFactory;
-import org.olat.user.HomePageConfigManager;
-import org.olat.user.HomePageConfigManagerImpl;
-import org.olat.user.UserInfoMainController;
 import org.olat.user.UserManager;
 import org.olat.util.logging.activity.LoggingResourceable;
 
@@ -161,11 +157,17 @@ public class ItemsController extends BasicController implements Activateable2 {
 		vcItems.contextPut("helper", helper);
 
 		olderItemsLink = LinkFactory.createLink("feed.older.items", vcItems, this);
-		olderItemsLink.setCustomEnabledLinkCSS("b_table_backward");
+		olderItemsLink.setCustomDisplayText("&laquo;");
+		olderItemsLink.setCustomEnabledLinkCSS("o_backward");
+		olderItemsLink.setTitle("feed.older.items");
+
 		newerItemsLink = LinkFactory.createLink("feed.newer.items", vcItems, this);
-		newerItemsLink.setCustomEnabledLinkCSS("b_table_forward");
+		newerItemsLink.setCustomEnabledLinkCSS("o_forward");
+		newerItemsLink.setCustomDisplayText("&raquo;");
+		newerItemsLink.setTitle("feed.newer.items");
+		
 		startpageLink = LinkFactory.createLink("feed.startpage", vcItems, this);
-		startpageLink.setCustomEnabledLinkCSS("b_table_first_page");
+		startpageLink.setCustomEnabledLinkCSS("o_first_page");
 
 		if (callback.mayEditItems() || callback.mayCreateItems()) {
 			createEditButtons(ureq, feed);
@@ -177,7 +179,7 @@ public class ItemsController extends BasicController implements Activateable2 {
 			createCommentsAndRatingsLinks(ureq, feed);
 		}
 		// Add date components
-		createDateComponents(ureq, feed);
+		createDateComponents(feed);
 
 		// The year/month navigation
 		List<Item> items = feed.getFilteredItems(callback, ureq.getIdentity());
@@ -269,9 +271,9 @@ public class ItemsController extends BasicController implements Activateable2 {
 				removeAsListenerAndDispose(commentsLinks.get(item));
 			}
 
-			CommentAndRatingService commentAndRatingService = (CommentAndRatingService) CoreSpringFactory.getBean(CommentAndRatingService.class);
-			commentAndRatingService.init(getIdentity(), feed, item.getGuid(), callback.mayEditMetadata(), ureq.getUserSession().getRoles().isGuestOnly());
-			UserCommentsAndRatingsController commentsAndRatingCtr = commentAndRatingService.createUserCommentsAndRatingControllerMinimized(ureq, getWindowControl());
+			boolean anonym = ureq.getUserSession().getRoles().isGuestOnly();
+			CommentAndRatingSecurityCallback secCallback = new CommentAndRatingDefaultSecurityCallback(getIdentity(), callback.mayEditMetadata(), anonym);
+			UserCommentsAndRatingsController commentsAndRatingCtr = new UserCommentsAndRatingsController(ureq, getWindowControl(), feed, item.getGuid(), secCallback, true, true, false);
 			commentsAndRatingCtr.addUserObject(item);
 			listenTo(commentsAndRatingCtr);
 			commentsLinks.put(item, commentsAndRatingCtr);
@@ -286,7 +288,7 @@ public class ItemsController extends BasicController implements Activateable2 {
 	 * @param ureq
 	 * @param feed
 	 */
-	private void createDateComponents(UserRequest ureq, Feed feed) {
+	private void createDateComponents(Feed feed) {
 		List<Item> items = feed.getItems();
 		if (items != null) {
 			for (Item item : items) {
@@ -314,7 +316,8 @@ public class ItemsController extends BasicController implements Activateable2 {
 	private void createItemLink(Item item) {
 		String guid = item.getGuid();
 		Link itemLink_more = LinkFactory.createCustomLink("link.to." + guid, "link.to." + guid, "feed.link.more", Link.LINK, vcItems, this);
-		itemLink_more.setCustomEnabledLinkCSS("b_link_forward");
+		itemLink_more.setIconRightCSS("o_icon o_icon_start");
+		itemLink_more.setCustomEnabledLinkCSS("o_link_forward");
 		itemLink_more.setUserObject(item);
 		
 		Link itemLink_title = LinkFactory.createCustomLink("titlelink.to." + guid, "titlelink.to." + guid, StringEscapeUtils.escapeHtml(item.getTitle()), Link.NONTRANSLATED, vcItems, this);
@@ -339,9 +342,9 @@ public class ItemsController extends BasicController implements Activateable2 {
 	private void createButtonsForItem(UserRequest ureq, Item item) {
 		String guid = item.getGuid();
 		Link editButton = LinkFactory.createCustomLink("feed.edit.item." + guid, "feed.edit.item." + guid, "feed.edit.item",
-				Link.BUTTON_XSMALL, vcItems, this);
+				Link.BUTTON_SMALL, vcItems, this);
 		editButton.setElementCssClass("o_sel_feed_item_edit");
-		Link deleteButton = LinkFactory.createCustomLink("delete." + guid, "delete." + guid, "delete", Link.BUTTON_XSMALL, vcItems, this);
+		Link deleteButton = LinkFactory.createCustomLink("delete." + guid, "delete." + guid, "delete", Link.BUTTON_SMALL, vcItems, this);
 		deleteButton.setElementCssClass("o_sel_feed_item_delete");
 
 		if(feedResource.isInternal() && getIdentity().getKey() != null && getIdentity().getKey().equals(item.getAuthorKey())) {
@@ -402,7 +405,7 @@ public class ItemsController extends BasicController implements Activateable2 {
 			// Create item and media containers 
 			feedManager.createItemContainer(feed, currentItem);
 			itemFormCtr = uiFactory.createItemFormController(ureq, getWindowControl(), currentItem, feed);
-			activateModalDialog(itemFormCtr);
+			activateModalDialog(itemFormCtr, uiFactory.getTranslator().translate("feed.edit.item"));
 
 		} else if (editButtons != null && editButtons.contains(source)) {
 			currentItem = (Item) ((Link) source).getUserObject();
@@ -413,7 +416,7 @@ public class ItemsController extends BasicController implements Activateable2 {
 					// reload to prevent stale object, then launch editor
 					currentItem = feedManager.getItem(feed, currentItem.getGuid());					
 					itemFormCtr = uiFactory.createItemFormController(ureq, getWindowControl(), currentItem, feed);
-					activateModalDialog(itemFormCtr);
+					activateModalDialog(itemFormCtr, uiFactory.getTranslator().translate("feed.edit.item"));
 				} else {
 					String fullName = userManager.getUserDisplayName(lock.getOwner());
 					showInfo("feed.item.is.being.edited.by", fullName);
@@ -455,7 +458,7 @@ public class ItemsController extends BasicController implements Activateable2 {
 			// Create item and media containers 
 			feedManager.createItemContainer(feed, currentItem);
 			itemFormCtr = uiFactory.createItemFormController(ureq, getWindowControl(), currentItem, feed);
-			activateModalDialog(itemFormCtr);
+			activateModalDialog(itemFormCtr, uiFactory.getTranslator().translate("feed.edit.item"));
 			// do logging
 			ThreadLocalUserActivityLogger.log(FeedLoggingAction.FEED_EDIT, getClass(), LoggingResourceable.wrap(feed));
 			
@@ -503,20 +506,8 @@ public class ItemsController extends BasicController implements Activateable2 {
 			Object userObject = userLink.getUserObject();
 			if (userObject instanceof Identity) {
 				Identity chosenIdentity = (Identity) userObject;
-				HomePageConfigManager hpcm = HomePageConfigManagerImpl.getInstance();
-				OLATResourceable ores = hpcm.loadConfigFor(chosenIdentity.getName());
-				DTabs dts = Windows.getWindows(ureq).getWindow(ureq).getDTabs();
-				// was brasato:: DTabs dts = getWindowControl().getDTabs();
-				DTab dt = dts.getDTab(ores);
-				if (dt == null) {
-					// does not yet exist -> create and add
-					dt = dts.createDTab(ores, chosenIdentity.getName());
-					if (dt == null) return;
-					UserInfoMainController uimc = new UserInfoMainController(ureq, dt.getWindowControl(), chosenIdentity);
-					dt.setController(uimc);
-					dts.addDTab(ureq, dt);
-				}
-				dts.activate(ureq, dt, null);
+				String bPath = "[HomePage:" + chosenIdentity.getKey() + "]";
+				NewControllerFactory.getInstance().launch(bPath, ureq, getWindowControl());
 			}
 		}
 		
@@ -735,9 +726,9 @@ public class ItemsController extends BasicController implements Activateable2 {
 	 * @param controller The <code>FormBasicController</code> to be displayed in
 	 *          the modal dialog.
 	 */
-	private void activateModalDialog(FormBasicController controller) {
+	private void activateModalDialog(FormBasicController controller, String title) {
 		listenTo(controller);
-		cmc = new CloseableModalController(getWindowControl(), translate("close"), controller.getInitialComponent());
+		cmc = new CloseableModalController(getWindowControl(), translate("close"), controller.getInitialComponent(), true, title);
 		listenTo(cmc);
 		cmc.activate();
 	}
@@ -760,7 +751,7 @@ public class ItemsController extends BasicController implements Activateable2 {
 			createCommentsAndRatingsLinks(ureq, feed);
 		}
 		// Add date components
-		createDateComponents(ureq, feed);
+		createDateComponents(feed);
 		vcItems.setDirty(true);
 	}
 

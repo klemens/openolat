@@ -31,7 +31,7 @@ import org.olat.core.gui.components.form.flexible.FormItemContainer;
 import org.olat.core.gui.components.form.flexible.elements.MultipleSelectionElement;
 import org.olat.core.gui.components.form.flexible.impl.Form;
 import org.olat.core.gui.components.form.flexible.impl.FormLayoutContainer;
-import org.olat.core.gui.components.form.flexible.impl.elements.table.CSSIconFlexiCellRenderer;
+import org.olat.core.gui.components.form.flexible.impl.elements.table.AbstractCSSIconFlexiCellRenderer;
 import org.olat.core.gui.components.form.flexible.impl.elements.table.DefaultFlexiColumnModel;
 import org.olat.core.gui.components.form.flexible.impl.elements.table.FlexiColumnModel;
 import org.olat.core.gui.components.form.flexible.impl.elements.table.FlexiTableColumnModel;
@@ -137,13 +137,13 @@ class ImportStep01 extends BasicStep {
 			if(!updateIdents.isEmpty()) {
 				String[] updateValues = new String[]{ translate("update.user") };
 				updateEl = uifactory
-						.addCheckboxesHorizontal("update.user", textContainer, new String[]{"on"}, updateValues, null);
+						.addCheckboxesHorizontal("update.user", textContainer, new String[]{"on"}, updateValues);
 				updateEl.select("on", true);
 				
 				if(canCreateOLATPassword) {
 					String[] theValues = new String[]{ translate("update.password") };
 					updatePasswordEl = uifactory
-							.addCheckboxesHorizontal("update.password", textContainer, new String[]{"on"}, theValues, null);
+							.addCheckboxesHorizontal("update.password", textContainer, new String[]{"on"}, theValues);
 				}
 			}
 
@@ -172,7 +172,7 @@ class ImportStep01 extends BasicStep {
 			}
 
 			FlexiTableDataModel<Identity> tableDataModel = new FlexiTableDataModelImpl<Identity>(new Model(idents, colPos), tableColumnModel);
-			uifactory.addTableElement(ureq, getWindowControl(), "newUsers", tableDataModel, formLayoutVertical);
+			uifactory.addTableElement(getWindowControl(), "newUsers", tableDataModel, formLayoutVertical);
 		}
 	}
 }
@@ -186,7 +186,7 @@ class ImportStep01 extends BasicStep {
  * Initial Date:  21.03.2008 <br>
  * @author gnaegi
  */
-class UserNewOldCustomFlexiCellRenderer extends CSSIconFlexiCellRenderer {
+class UserNewOldCustomFlexiCellRenderer extends AbstractCSSIconFlexiCellRenderer {
 
 	@Override
 	protected String getCellValue(Object cellValue) {
@@ -197,12 +197,12 @@ class UserNewOldCustomFlexiCellRenderer extends CSSIconFlexiCellRenderer {
 	protected String getCssClass(Object cellValue) {
 		if (cellValue instanceof Boolean) {
 			if (((Boolean) cellValue).booleanValue()) {
-				return "b_new_icon";
+				return "o_icon_new";
 			} else {
-				return "b_warn_icon";
+				return "o_icon_warn";
 			}
 		}
-		return "b_error_icon";
+		return "o_icon_error";
 	}
 
 	@Override

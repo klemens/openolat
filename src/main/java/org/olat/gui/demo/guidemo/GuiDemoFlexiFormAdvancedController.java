@@ -27,10 +27,8 @@ package org.olat.gui.demo.guidemo;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.form.flexible.FormItem;
 import org.olat.core.gui.components.form.flexible.FormItemContainer;
-import org.olat.core.gui.components.form.flexible.elements.DateChooser;
 import org.olat.core.gui.components.form.flexible.elements.FileElement;
 import org.olat.core.gui.components.form.flexible.elements.FormLink;
-import org.olat.core.gui.components.form.flexible.elements.MultipleSelectionElement;
 import org.olat.core.gui.components.form.flexible.elements.RichTextElement;
 import org.olat.core.gui.components.form.flexible.elements.SingleSelection;
 import org.olat.core.gui.components.form.flexible.elements.TextElement;
@@ -66,7 +64,7 @@ public class GuiDemoFlexiFormAdvancedController extends FormBasicController {
 	// For yes and no we'll use i18n keys and translate the values
 	private final static String[] yesOrNoKeys = new String[] { "advanced_form.yes", "advanced_form.no" };
 
-	private RichTextElement richTextElement, richTextElement2, disabledRichTextElement;
+	private RichTextElement richTextElement, disabledRichTextElement;
 	
 	public GuiDemoFlexiFormAdvancedController(UserRequest ureq, WindowControl wControl) {
 		super(ureq, wControl);
@@ -85,7 +83,6 @@ public class GuiDemoFlexiFormAdvancedController extends FormBasicController {
 	 * @see org.olat.core.gui.components.form.flexible.impl.FormBasicController#formOK(org.olat.core.gui.UserRequest)
 	 */
 	@Override
-	@SuppressWarnings("unused")
 	protected void formOK(UserRequest ureq) {		
 		showInfo("advanced_form.successfully_submitted", file.getUploadFileName());
 		// add your code here:
@@ -98,8 +95,6 @@ public class GuiDemoFlexiFormAdvancedController extends FormBasicController {
 	 *      org.olat.core.gui.control.Controller, org.olat.core.gui.UserRequest)
 	 */
 	@Override
-	@SuppressWarnings("unused")
-	// listener is never used because listener == this!
 	protected void initForm(FormItemContainer formLayout, Controller listener, UserRequest ureq) {
 		setFormTitle("guidemo_flexi_form_advanced");
 		setFormDescription("advanced_form.description");
@@ -129,9 +124,9 @@ public class GuiDemoFlexiFormAdvancedController extends FormBasicController {
 
 		// Add some rich text elements
 		richTextElement = uifactory.addRichTextElementForStringData("guidemo.form.richtext.simple", "guidemo.form.richtext.simple", "click <i>to</i> <b>edit</b>. This one has an event listener and an <b>external menu with auto hide</b>", -1, -1, false, null, null, formLayout, ureq.getUserSession(), getWindowControl());
-		//richTextElement.addActionListener(this, FormEvent.ONCHANGE);
+		//richTextElement.addActionListener(FormEvent.ONCHANGE);
 
-		richTextElement2 = uifactory.addRichTextElementForStringData("guidemo.form.richtext.simple2", null, "one <i>with</i> <b>height</b> and <span style='color:red'>no</span> event listener and an <b>internal</b> menu", 10, 40, true, null, null, formLayout, ureq.getUserSession(), getWindowControl());
+		uifactory.addRichTextElementForStringData("guidemo.form.richtext.simple2", null, "one <i>with</i> <b>height</b> and <span style='color:red'>no</span> event listener and an <b>internal</b> menu", 10, 40, true, null, null, formLayout, ureq.getUserSession(), getWindowControl());
 
 		disabledRichTextElement = uifactory.addRichTextElementForStringData("guidemo.form.richtext.simple3", "guidemo.form.richtext.simple", "this <i>is</i> <b>disabled</b>", -1, -1, false, null, null, formLayout, ureq.getUserSession(), getWindowControl());
 		disabledRichTextElement.setEnabled(false);
@@ -171,7 +166,7 @@ public class GuiDemoFlexiFormAdvancedController extends FormBasicController {
 	 */
 	private void addDateLinkAndFileItems(FormItemContainer form) {
 		// Date picker
-		final DateChooser date = uifactory.addDateChooser("dateChooser", "guidemo.form.date", null, form);
+		uifactory.addDateChooser("dateChooser", "guidemo.form.date", null, form);
 
 		// Link
 		final FormLink link = uifactory.addFormLink("link", form);
@@ -198,10 +193,10 @@ public class GuiDemoFlexiFormAdvancedController extends FormBasicController {
 		// As an example on how to use the formInnerEvent method we'll catch events
 		// on these radio buttons and therefore need to add the current controller
 		// to their listeners.
-		verticalRadioButtons.addActionListener(this, FormEvent.ONCLICK);
+		verticalRadioButtons.addActionListener(FormEvent.ONCLICK);
 
 		// checkboxes
-		final MultipleSelectionElement checkboxes = uifactory.addCheckboxesVertical("checkboxes", "advanced_form.checkboxes", form, keys, options, null, 1);
+		uifactory.addCheckboxesVertical("checkboxes", "advanced_form.checkboxes", form, keys, options, 1);
 
 		// Translate the keys to the yes and no option values
 		final String[] yesOrNoOptions = new String[yesOrNoKeys.length];
@@ -214,7 +209,7 @@ public class GuiDemoFlexiFormAdvancedController extends FormBasicController {
 				yesOrNoOptions);
 		// A default value is needed for show/hide rules
 		horizontalRadioButtons.select(yesOrNoKeys[0], true);
-		horizontalRadioButtons.addActionListener(this, FormEvent.ONCLICK); // Radios/Checkboxes need onclick because of IE bug OLAT-5753
+		horizontalRadioButtons.addActionListener(FormEvent.ONCLICK); // Radios/Checkboxes need onclick because of IE bug OLAT-5753
 	}
 
 	/**
@@ -251,7 +246,6 @@ public class GuiDemoFlexiFormAdvancedController extends FormBasicController {
 	 * @param source
 	 * @param event
 	 */
-	@SuppressWarnings("unused")
 	protected void formInnerEvent(UserRequest ureq, FormItem source, FormEvent event) {
 		if (source == verticalRadioButtons) {
 			if (event.wasTriggerdBy(FormEvent.ONCLICK)) {

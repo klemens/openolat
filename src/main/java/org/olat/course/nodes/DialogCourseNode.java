@@ -32,20 +32,19 @@ import java.util.Locale;
 import java.util.zip.ZipOutputStream;
 
 import org.olat.core.commons.modules.bc.vfs.OlatRootFolderImpl;
+import org.olat.core.commons.services.notifications.NotificationsManager;
+import org.olat.core.commons.services.notifications.SubscriptionContext;
 import org.olat.core.gui.UserRequest;
-import org.olat.core.gui.components.stack.StackedController;
+import org.olat.core.gui.components.stack.BreadcrumbPanel;
 import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.WindowControl;
 import org.olat.core.gui.control.generic.tabbable.TabbableController;
 import org.olat.core.util.Formatter;
 import org.olat.core.util.Util;
 import org.olat.core.util.ZipUtil;
-import org.olat.core.util.notifications.NotificationsManager;
-import org.olat.core.util.notifications.SubscriptionContext;
 import org.olat.core.util.vfs.LocalFolderImpl;
 import org.olat.core.util.vfs.VFSContainer;
 import org.olat.core.util.vfs.VFSItem;
-import org.olat.core.util.vfs.VFSLeaf;
 import org.olat.core.util.vfs.callbacks.FullAccessCallback;
 import org.olat.core.util.vfs.filters.VFSLeafFilter;
 import org.olat.course.CourseModule;
@@ -97,13 +96,12 @@ public class DialogCourseNode extends AbstractAccessableCourseNode {
 	 *      org.olat.course.run.userview.UserCourseEnvironment)
 	 */
 	@Override
-	public TabbableController createEditController(UserRequest ureq, WindowControl wControl, StackedController stackPanel, ICourse course, UserCourseEnvironment euce) {
+	public TabbableController createEditController(UserRequest ureq, WindowControl wControl, BreadcrumbPanel stackPanel, ICourse course, UserCourseEnvironment euce) {
 		updateModuleConfigDefaults(false);
 		DialogCourseNodeEditController childTabCntrllr = new DialogCourseNodeEditController(ureq, wControl, this,
 				course, euce);
 		CourseNode chosenNode = course.getEditorTreeModel().getCourseNode(euce.getCourseEditorEnv().getCurrentCourseNodeId());
-		return new NodeEditController(ureq, wControl, course.getEditorTreeModel(), course, chosenNode, course.getCourseEnvironment()
-				.getCourseGroupManager(), euce, childTabCntrllr);
+		return new NodeEditController(ureq, wControl, course.getEditorTreeModel(), course, chosenNode, euce, childTabCntrllr);
 	}
 
 	/**
@@ -229,7 +227,7 @@ public class DialogCourseNode extends AbstractAccessableCourseNode {
 	public void doArchiveElement(DialogElement element, File exportDirectory) {
 		VFSContainer forumContainer = getForumContainer(element.getForumKey());
 		//there is only one file (leave) in the top forum container 
-		VFSItem dialogFile = (VFSLeaf)forumContainer.getItems(new VFSLeafFilter()).get(0);
+		VFSItem dialogFile = forumContainer.getItems(new VFSLeafFilter()).get(0);
 		VFSContainer exportContainer = new LocalFolderImpl(exportDirectory);
 		
 		// append export timestamp to avoid overwriting previous export 
@@ -280,16 +278,7 @@ public class DialogCourseNode extends AbstractAccessableCourseNode {
 		fam.applyFormatter(ff, element.getForumKey(), null);
 	}
 
-	/**
-	 * @see org.olat.course.nodes.CourseNode#importNode(java.io.File,
-	 *      org.olat.course.ICourse, org.olat.core.gui.UserRequest,
-	 *      org.olat.core.gui.control.WindowControl)
-	 */
-	public Controller importNode(File importDirectory, ICourse course, boolean unattendedImport, UserRequest ureq, WindowControl wControl) {
-		// nothing to do in default implementation
-		return null;
-	}
-
+	@Override
 	protected void calcAccessAndVisibility(ConditionInterpreter ci, NodeEvaluation nodeEval) {
 		// evaluate the preconditions
 		boolean reader = (getPreConditionReader().getConditionExpression() == null ? true : ci.evaluateCondition(getPreConditionReader()));

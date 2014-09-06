@@ -34,8 +34,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 
-import org.olat.basesecurity.BaseSecurityManager;
-import org.olat.basesecurity.SecurityGroup;
+import org.olat.basesecurity.GroupRoles;
 import org.olat.commons.lifecycle.LifeCycleManager;
 import org.olat.core.commons.persistence.DBFactory;
 import org.olat.core.commons.persistence.DBQuery;
@@ -53,8 +52,10 @@ import org.olat.core.util.mail.MailTemplate;
 import org.olat.core.util.mail.MailerResult;
 import org.olat.properties.Property;
 import org.olat.properties.PropertyManager;
+import org.olat.repository.ErrorList;
 import org.olat.repository.RepositoryEntry;
 import org.olat.repository.RepositoryManager;
+import org.olat.repository.RepositoryService;
 import org.olat.repository.delete.SelectionController;
 import org.olat.repository.handlers.RepositoryHandler;
 import org.olat.repository.handlers.RepositoryHandlerFactory;
@@ -62,6 +63,8 @@ import org.olat.resource.OLATResourceManager;
 import org.olat.resource.references.ReferenceManager;
 import org.olat.user.UserDataDeletable;
 import org.olat.user.UserManager;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
 
 
 /**
@@ -72,6 +75,7 @@ import org.olat.user.UserManager;
  * Comment:  
  * 
  */
+@Service("repositoryDeletionManager")
 public class RepositoryDeletionManager extends BasicManager implements UserDataDeletable {
 
 	private static final String REPOSITORY_ARCHIVE_DIR = "archive_deleted_resources";
@@ -86,25 +90,18 @@ public class RepositoryDeletionManager extends BasicManager implements UserDataD
 
 	public static final String SEND_DELETE_EMAIL_ACTION = "sendDeleteEmail";
 	private static final String REPOSITORY_DELETED_ACTION = "respositoryEntryDeleted";
-	private DeletionModule deletionModule;
-	private MailManager mailManager;
-	
 
-	/**
-	 * [used by spring]
-	 * @param userDeletionManager
-	 */
-	private RepositoryDeletionManager(DeletionModule deletionModule) {
+	private final DeletionModule deletionModule;
+	
+	@Autowired
+	private MailManager mailManager;
+	@Autowired
+	private RepositoryService repositoryService;
+	
+	@Autowired
+	public RepositoryDeletionManager(DeletionModule deletionModule) {
 		this.deletionModule = deletionModule;
 		INSTANCE = this;
-	}
-	
-	/**
-	 * [used by Spring]
-	 * @param mailManager
-	 */
-	public void setMailManager(MailManager mailManager) {
-		this.mailManager = mailManager;
 	}
 
 	/**
@@ -127,19 +124,19 @@ public class RepositoryDeletionManager extends BasicManager implements UserDataD
 		// Remove as owner
 		List<RepositoryEntry> repoEntries = RepositoryManager.getInstance().queryByOwner(identity, new String[] {}/*no type limit*/);
 		for (Iterator<RepositoryEntry> iter = repoEntries.iterator(); iter.hasNext();) {
-			RepositoryEntry repositoryEntry = (RepositoryEntry) iter.next();
+			RepositoryEntry repositoryEntry = iter.next();
 			
-			BaseSecurityManager.getInstance().removeIdentityFromSecurityGroup(identity, repositoryEntry.getOwnerGroup());
-			if (BaseSecurityManager.getInstance().countIdentitiesOfSecurityGroup(repositoryEntry.getOwnerGroup()) == 0 ) {
+			repositoryService.removeRole(identity, repositoryEntry, GroupRoles.owner.name());
+			if (repositoryService.countMembers(repositoryEntry, GroupRoles.owner.name()) == 0 ) {
 				// This group has no owner anymore => add OLAT-Admin as owner
-				BaseSecurityManager.getInstance().addIdentityToSecurityGroup(deletionModule.getAdminUserIdentity(), repositoryEntry.getOwnerGroup());
+				repositoryService.addRole(deletionModule.getAdminUserIdentity(), repositoryEntry, GroupRoles.owner.name());
 				logInfo("Delete user-data, add Administrator-identity as owner of repositoryEntry=" + repositoryEntry.getDisplayname());
 			}
 		}
 		// Remove as initial author
 		repoEntries = RepositoryManager.getInstance().queryByInitialAuthor(identity.getName());
 		for (Iterator<RepositoryEntry> iter = repoEntries.iterator(); iter.hasNext();) {
-			RepositoryEntry repositoryEntry = (RepositoryEntry) iter.next();
+			RepositoryEntry repositoryEntry = iter.next();
 			repositoryEntry.setInitialAuthor(deletionModule.getAdminUserIdentity().getName());
 			logInfo("Delete user-data, add Administrator-identity as initial-author of repositoryEntry=" + repositoryEntry.getDisplayname());
 		}
@@ -202,11 +199,8 @@ public class RepositoryDeletionManager extends BasicManager implements UserDataD
 			RepositoryEntry repositoryEntry = iter.next();
 			
 			// Build owner group, list of identities
-			SecurityGroup ownerGroup = repositoryEntry.getOwnerGroup();
-			List<Identity> ownerIdentities;
-			if (ownerGroup != null) {
-				ownerIdentities = BaseSecurityManager.getInstance().getIdentitiesOfSecurityGroup(ownerGroup);
-			} else {
+			List<Identity> ownerIdentities = repositoryService.getMembers(repositoryEntry, GroupRoles.owner.name());
+			if(ownerIdentities.isEmpty()) {
 				logInfo("collectRepositoryEntriesForIdentities: ownerGroup is null, add adminUserIdentity as owner repositoryEntry=" + repositoryEntry.getDisplayname() + "  repositoryEntry.key=" + repositoryEntry.getKey());				
 				// Add admin user
 				ownerIdentities = new ArrayList<Identity>();
@@ -386,7 +380,10 @@ public class RepositoryDeletionManager extends BasicManager implements UserDataD
 			}
 			String archiveFileName = repositoryHandler.archive(ureq.getIdentity(), getArchivFilePath(), repositoryEntry);
 			logAudit("Repository-Deletion: archived repositoryEntry=" + repositoryEntry + " , archive-file-name=" + archiveFileName);
-			RepositoryManager.getInstance().deleteRepositoryEntryWithAllData( ureq, wControl, repositoryEntry );
+			ErrorList errors = repositoryService.delete(repositoryEntry, ureq.getIdentity(), ureq.getUserSession().getRoles(), ureq.getLocale());
+			if(errors.hasErrors()) {
+				wControl.setError(errors.getFirstError());
+			}
 			LifeCycleManager.createInstanceFor(repositoryEntry).deleteTimestampFor(SEND_DELETE_EMAIL_ACTION);
 			LifeCycleManager.createInstanceFor(repositoryEntry).markTimestampFor(REPOSITORY_DELETED_ACTION, createLifeCycleLogDataFor(repositoryEntry));
 			logAudit("Repository-Deletion: deleted repositoryEntry=" + repositoryEntry);
@@ -417,7 +414,7 @@ public class RepositoryDeletionManager extends BasicManager implements UserDataD
 		if (properties.size() == 0) {
 			return defaultValue;
 		} else {
-			return ((Property)properties.get(0)).getLongValue().intValue();
+			return properties.get(0).getLongValue().intValue();
 		}
 	}
 
@@ -427,7 +424,7 @@ public class RepositoryDeletionManager extends BasicManager implements UserDataD
 		if (properties.size() == 0) {
 			property = PropertyManager.getInstance().createPropertyInstance(null, null, null, PROPERTY_CATEGORY, propertyName, null,  new Long(value), null, null);
 		} else {
-			property = (Property)properties.get(0);
+			property = properties.get(0);
 			property.setLongValue( new Long(value) );
 		}
 		PropertyManager.getInstance().saveProperty(property);

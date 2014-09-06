@@ -138,12 +138,12 @@ public class ItemMetadataFormController extends FormBasicController {
 		item.setTitle(newTitle);
 		item.setObjectives(newObjectives); // trust authors, don't to XSS filtering
 		Question q = item.getQuestion();
-		if (layout != null) {
-			((ChoiceQuestion) q).setFlowLabelClass(layout.getSelectedKey() == "h" ? ChoiceQuestion.BLOCK : ChoiceQuestion.LIST);
+		if (layout != null && q instanceof ChoiceQuestion) {
+			((ChoiceQuestion) q).setFlowLabelClass("h".equals(layout.getSelectedKey()) ? ChoiceQuestion.BLOCK : ChoiceQuestion.LIST);
 		}
 		if (!isSurvey && !isRestrictedEditMode) {
 			q.setShuffle(shuffle.getSelected() == 0);
-			Control itemControl = (Control) item.getItemcontrols().get(0);
+			Control itemControl = item.getItemcontrols().get(0);
 			itemControl.setFeedback(itemControl.getFeedback() == Control.CTRL_UNDEF ? Control.CTRL_NO : itemControl.getFeedback());
 			itemControl.setHint(showHints.getSelected() == 0 ? Control.CTRL_YES : Control.CTRL_NO);
 			itemControl.setSolution(showSolution.getSelected() == 0 ? Control.CTRL_YES : Control.CTRL_NO);
@@ -207,7 +207,7 @@ public class ItemMetadataFormController extends FormBasicController {
 			String[] layoutValues = new String[] { translate("form.imd.layout.horizontal"), translate("form.imd.layout.vertical") };
 			//layout = uifactory.addDropdownSingleselect("form.imd.layout", formLayout, layoutKeys, layoutValues, null);
 			layout = uifactory.addRadiosHorizontal("layout", "form.imd.layout", formLayout, layoutKeys, layoutValues);
-			layout.select(((ChoiceQuestion) q).getFlowLabelClass() == ChoiceQuestion.BLOCK ? "h" : "v", true);
+			layout.select(((ChoiceQuestion) q).getFlowLabelClass().equals(ChoiceQuestion.BLOCK) ? "h" : "v", true);
 		}
 
 		if (!isSurvey && !isRestrictedEditMode) {
@@ -216,7 +216,7 @@ public class ItemMetadataFormController extends FormBasicController {
 
 			// Attempts
 			limitAttempts = uifactory.addRadiosHorizontal("form.imd.limittries", formLayout, yesnoKeys, yesnoValues);
-			limitAttempts.addActionListener(this, FormEvent.ONCLICK); // Radios/Checkboxes need onclick because of IE bug OLAT-5753
+			limitAttempts.addActionListener(FormEvent.ONCLICK); // Radios/Checkboxes need onclick because of IE bug OLAT-5753
 			attempts = uifactory.addIntegerElement("form.imd.tries", 0, formLayout);
 			attempts.setDisplaySize(3);
 			if (item.getMaxattempts() > 0) {
@@ -229,7 +229,7 @@ public class ItemMetadataFormController extends FormBasicController {
 
 			// Time Limit
 			limitTime = uifactory.addRadiosHorizontal("form.imd.limittime", formLayout, yesnoKeys, yesnoValues);
-			limitTime.addActionListener(this, FormEvent.ONCLICK); // Radios/Checkboxes need onclick because of IE bug OLAT-5753
+			limitTime.addActionListener(FormEvent.ONCLICK); // Radios/Checkboxes need onclick because of IE bug OLAT-5753
 			timeMin = uifactory.addIntegerElement("form.imd.time.min", 0, formLayout);
 			timeMin.setDisplaySize(3);
 			timeSec = uifactory.addIntegerElement("form.imd.time.sek", 0, formLayout);
@@ -253,9 +253,9 @@ public class ItemMetadataFormController extends FormBasicController {
 			}
 
 			// Hints
-			Control itemControl = (Control) item.getItemcontrols().get(0);
+			Control itemControl = item.getItemcontrols().get(0);
 			showHints = uifactory.addRadiosHorizontal("showHints", "form.imd.solutionhints.show", formLayout, yesnoKeys, yesnoValues);
-			showHints.addActionListener(this, FormEvent.ONCLICK); // Radios/Checkboxes need onclick because of IE bug OLAT-5753
+			showHints.addActionListener(FormEvent.ONCLICK); // Radios/Checkboxes need onclick because of IE bug OLAT-5753
 			
 			hint = uifactory.addRichTextElementForStringData("hint", "form.imd.solutionhints", item.getQuestion().getHintText(), 8, -1, 
 					true, qti.getBaseDir(), null, formLayout, ureq.getUserSession(), getWindowControl());
@@ -270,7 +270,7 @@ public class ItemMetadataFormController extends FormBasicController {
 
 			// Solution
 			showSolution = uifactory.addRadiosHorizontal("showSolution", "form.imd.correctsolution.show", formLayout, yesnoKeys, yesnoValues);
-			showSolution.addActionListener(this, FormEvent.ONCLICK); // Radios/Checkboxes need onclick because of IE bug OLAT-5753
+			showSolution.addActionListener(FormEvent.ONCLICK); // Radios/Checkboxes need onclick because of IE bug OLAT-5753
 			
 			boolean essay = (q.getType() == Question.TYPE_ESSAY);
 			String solLabel = essay ? "form.imd.correctsolution.word" : "form.imd.correctsolution";

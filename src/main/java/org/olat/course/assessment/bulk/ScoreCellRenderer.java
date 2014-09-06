@@ -21,6 +21,7 @@ package org.olat.course.assessment.bulk;
 
 import org.olat.core.gui.components.form.flexible.impl.elements.table.FlexiCellRenderer;
 import org.olat.core.gui.components.form.flexible.impl.elements.table.FlexiTableComponent;
+import org.olat.core.gui.render.Renderer;
 import org.olat.core.gui.render.StringOutput;
 import org.olat.core.gui.render.URLBuilder;
 import org.olat.core.gui.translator.Translator;
@@ -38,24 +39,24 @@ public class ScoreCellRenderer implements FlexiCellRenderer {
 	private final Float cutValue;
 	
 	public ScoreCellRenderer(BulkAssessmentSettings settings) {
-		this.cutValue = settings.getCut();
+		cutValue = settings.getCut();
 	}
 
 	@Override
-	public void render(StringOutput target, Object cellValue, int row,
-			FlexiTableComponent source, URLBuilder ubu, Translator translator) {
+	public void render(Renderer renderer, StringOutput target, Object cellValue,
+			int row, FlexiTableComponent source, URLBuilder ubu, Translator translator) {
 		
 		if(cellValue instanceof Float) {
 			Float score = (Float)cellValue;
 			if(cutValue == null) {
 				target.append(AssessmentHelper.getRoundedScore(score));
 			} else {
-				if(cutValue.compareTo(score) < 0) {
-					target.append("<span class='o_passed'>")
+				if(cutValue.compareTo(score) <= 0) {
+					target.append("<span class='o_state o_passed'> <i class='o_icon o_icon_passed'> </i> ")
 					      .append(AssessmentHelper.getRoundedScore(score))
 					      .append("</span>");
 				} else {
-					target.append("<span class='o_notpassed'>")
+					target.append("<span class='o_state o_failed'><i class='o_icon o_icon_failed'> </i> ")
 					      .append(AssessmentHelper.getRoundedScore(score))
 					      .append("</span>");
 				}

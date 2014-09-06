@@ -103,6 +103,7 @@ class UserBulkChangeStep01 extends BasicStep {
 		private SingleSelection setAdmin;
 		private MultipleSelectionElement chkStatus;
 		private SingleSelection setStatus;
+		private MultipleSelectionElement sendLoginDeniedEmail;
 
 		public UserBulkChangeStepForm01(UserRequest ureq, WindowControl control, Form rootForm, StepsRunContext runContext) {
 			super(ureq, control, rootForm, runContext, LAYOUT_VERTICAL, null);
@@ -146,6 +147,10 @@ class UserBulkChangeStep01 extends BasicStep {
 
 			if (chkStatus!=null && chkStatus.getSelectedKeys().contains("Status")) {
 				roleChangeMap.put("Status", setStatus.getSelectedKey());
+				// also check dependent send-email checkbox
+				if (sendLoginDeniedEmail!=null) {
+					roleChangeMap.put("sendLoginDeniedEmail", Boolean.toString(sendLoginDeniedEmail.isSelected(0)));					
+				}
 				validChange = true;
 			}
 
@@ -192,9 +197,9 @@ class UserBulkChangeStep01 extends BasicStep {
 
 			// usermanager:
 			if (isAdmin || isUserManager || iAmOlatAdmin) {
-				chkUserManager = uifactory.addCheckboxesVertical("Usermanager", "table.role.useradmin", innerFormLayout, new String[] { "Usermanager" }, new String[] { "" }, null, 1);
+				chkUserManager = uifactory.addCheckboxesVertical("Usermanager", "table.role.useradmin", innerFormLayout, new String[] { "Usermanager" }, new String[] { "" }, 1);
 				chkUserManager.select("Usermanager", false);
-				chkUserManager.addActionListener(listener, FormEvent.ONCLICK);
+				chkUserManager.addActionListener(FormEvent.ONCLICK);
 
 				setUserManager = uifactory.addDropdownSingleselect("setUserManager", null, innerFormLayout, addremove, addremoveTranslated, null);
 				setUserManager.setVisible(false);
@@ -206,9 +211,9 @@ class UserBulkChangeStep01 extends BasicStep {
 
 			// groupmanager
 			if (isAdmin || isGroupManager || iAmOlatAdmin) {
-				chkGroupManager = uifactory.addCheckboxesVertical("Groupmanager", "table.role.groupadmin", innerFormLayout, new String[] { "Groupmanager" }, new String[] { "" }, null, 1);
+				chkGroupManager = uifactory.addCheckboxesVertical("Groupmanager", "table.role.groupadmin", innerFormLayout, new String[] { "Groupmanager" }, new String[] { "" }, 1);
 				chkGroupManager.select("Groupmanager", false);
-				chkGroupManager.addActionListener(listener, FormEvent.ONCLICK);
+				chkGroupManager.addActionListener(FormEvent.ONCLICK);
 
 				setGroupManager = uifactory.addDropdownSingleselect("setGroupManager", null, innerFormLayout, addremove, addremoveTranslated, null);
 				setGroupManager.setVisible(false);
@@ -220,9 +225,9 @@ class UserBulkChangeStep01 extends BasicStep {
 
 			// author
 			if (isAdmin || isAuthor || iAmOlatAdmin) {
-				chkAuthor = uifactory.addCheckboxesVertical("Author", "table.role.author", innerFormLayout, new String[] { "Author" }, new String[] { "" }, null, 1);
+				chkAuthor = uifactory.addCheckboxesVertical("Author", "table.role.author", innerFormLayout, new String[] { "Author" }, new String[] { "" }, 1);
 				chkAuthor.select("Author", false);
-				chkAuthor.addActionListener(listener, FormEvent.ONCLICK);
+				chkAuthor.addActionListener(FormEvent.ONCLICK);
 
 				setAuthor = uifactory.addDropdownSingleselect("setAuthor", null, innerFormLayout, addremove, addremoveTranslated, null);
 				setAuthor.setVisible(false);
@@ -237,9 +242,9 @@ class UserBulkChangeStep01 extends BasicStep {
 			
 			// sysadmin
 			if (isAdmin || iAmOlatAdmin) {
-				chkAdmin = uifactory.addCheckboxesVertical("Admin", "table.role.admin", innerFormLayout, new String[] { "Admin" }, new String[] { "" }, null, 1);
+				chkAdmin = uifactory.addCheckboxesVertical("Admin", "table.role.admin", innerFormLayout, new String[] { "Admin" }, new String[] { "" }, 1);
 				chkAdmin.select("Admin", false);
-				chkAdmin.addActionListener(listener, FormEvent.ONCLICK);
+				chkAdmin.addActionListener(FormEvent.ONCLICK);
 
 				setAdmin = uifactory.addDropdownSingleselect("setAdmin",null, innerFormLayout, addremove, addremoveTranslated, null);
 				setAdmin.setVisible(false);
@@ -251,9 +256,9 @@ class UserBulkChangeStep01 extends BasicStep {
 
 			// status
 			if (isAdmin || iAmOlatAdmin) {
-				chkStatus = uifactory.addCheckboxesVertical("Status", "table.role.status", innerFormLayout, new String[] { "Status" }, new String[] { "" }, null, 1);
+				chkStatus = uifactory.addCheckboxesVertical("Status", "table.role.status", innerFormLayout, new String[] { "Status" }, new String[] { "" }, 1);
 				chkStatus.select("Status", false);
-				chkStatus.addActionListener(listener, FormEvent.ONCLICK);
+				chkStatus.addActionListener(FormEvent.ONCLICK);
 
 
 				// TODO: RH: pay attention: if status changes in Identity-statics this
@@ -267,10 +272,20 @@ class UserBulkChangeStep01 extends BasicStep {
 
 				setStatus = uifactory.addDropdownSingleselect("setStatus",null, innerFormLayout, statusKeys, statusValues, null);
 				setStatus.setVisible(false);
+				setStatus.addActionListener(FormEvent.ONCHANGE);
 				targets = new HashSet<FormItem>();
 				targets.add(setStatus);
 				RulesFactory.createHideRule(chkStatus, null, targets, innerFormLayout);
 				RulesFactory.createShowRule(chkStatus, "Status", targets, innerFormLayout);
+				
+				sendLoginDeniedEmail = uifactory.addCheckboxesHorizontal("rightsForm.sendLoginDeniedEmail", innerFormLayout, new String[]{"y"}, new String[]{translate("rightsForm.sendLoginDeniedEmail")});
+				sendLoginDeniedEmail.setLabel(null, null);
+				sendLoginDeniedEmail.setVisible(false);
+				RulesFactory.createHideRule(chkStatus, null, sendLoginDeniedEmail, innerFormLayout);
+				RulesFactory.createHideRule(setStatus, Integer.toString(Identity.STATUS_ACTIV), sendLoginDeniedEmail, innerFormLayout);
+				RulesFactory.createHideRule(setStatus, Integer.toString(Identity.STATUS_PERMANENT), sendLoginDeniedEmail, innerFormLayout);
+				RulesFactory.createShowRule(setStatus, Integer.toString(Identity.STATUS_LOGIN_DENIED), sendLoginDeniedEmail, innerFormLayout);
+
 			}
 
 		}

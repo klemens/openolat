@@ -25,7 +25,8 @@ import java.util.List;
 import java.util.Set;
 
 import org.olat.admin.restapi.RestapiAdminController;
-import org.olat.basesecurity.BaseSecurityManager;
+import org.olat.basesecurity.GroupRoles;
+import org.olat.core.CoreSpringFactory;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.form.flexible.FormItemContainer;
 import org.olat.core.gui.components.form.flexible.elements.MultipleSelectionElement;
@@ -46,6 +47,7 @@ import org.olat.core.util.StringHelper;
 import org.olat.core.util.Util;
 import org.olat.group.BusinessGroup;
 import org.olat.group.BusinessGroupManagedFlag;
+import org.olat.group.BusinessGroupService;
 
 /**
  * Implements a Business group creation dialog using FlexiForms.
@@ -103,6 +105,8 @@ public class BusinessGroupFormController extends FormBasicController {
 	/** The value for the autoCloseRanks checkbox. */
 	private final String[] autoCloseValues = new String[] { translate("create.form.enableAutoCloseRanks") };
 	
+	private final BusinessGroupService businessGroupService;
+	
 	/**
 	 * Creates this controller.
 	 * 
@@ -114,6 +118,7 @@ public class BusinessGroupFormController extends FormBasicController {
 	public BusinessGroupFormController(UserRequest ureq, WindowControl wControl, BusinessGroup businessGroup) {
 		super(ureq, wControl, FormBasicController.LAYOUT_DEFAULT);
 		this.businessGroup = businessGroup;
+		businessGroupService = CoreSpringFactory.getImpl(BusinessGroupService.class);
 		initForm(ureq);
 	}
 	
@@ -129,6 +134,7 @@ public class BusinessGroupFormController extends FormBasicController {
 		super(ureq, wControl, FormBasicController.LAYOUT_DEFAULT);
 		this.businessGroup = businessGroup;
 		this.bulkMode = bulkMode;
+		businessGroupService = CoreSpringFactory.getImpl(BusinessGroupService.class);
 		initForm(ureq); // depends on bulkMode flag
 	}
 	
@@ -137,6 +143,7 @@ public class BusinessGroupFormController extends FormBasicController {
 		this.businessGroup = businessGroup;
 		bulkMode = false;
 		embbeded = true;
+		businessGroupService = CoreSpringFactory.getImpl(BusinessGroupService.class);
 		initForm(ureq); // depends on bulkMode flag
 	}
 
@@ -155,6 +162,7 @@ public class BusinessGroupFormController extends FormBasicController {
 			businessGroupName.setNotLongerThanCheck(BusinessGroup.MAX_GROUP_NAME_LENGTH, "create.form.error.nameTooLong");
 			businessGroupName.setRegexMatchCheck(BusinessGroup.VALID_GROUPNAME_REGEXP, "create.form.error.illegalName");
 		}
+		businessGroupName.setElementCssClass("o_sel_group_edit_title");
 		businessGroupName.setMandatory(true);
 		businessGroupName.setEnabled(!BusinessGroupManagedFlag.isManaged(businessGroup, BusinessGroupManagedFlag.title));
 		
@@ -162,7 +170,7 @@ public class BusinessGroupFormController extends FormBasicController {
 
 		// Create the business group description input rich text element
 		businessGroupDescription = uifactory.addRichTextElementForStringDataMinimalistic("create.form.title.description",
-				"create.form.title.description", "", 10, -1, formLayout, ureq.getUserSession(), getWindowControl());
+				"create.form.title.description", "", 10, -1, formLayout, getWindowControl());
 		businessGroupDescription.setEnabled(!BusinessGroupManagedFlag.isManaged(businessGroup, BusinessGroupManagedFlag.description));
 
 		if(businessGroup != null && !bulkMode) {
@@ -186,16 +194,18 @@ public class BusinessGroupFormController extends FormBasicController {
 		businessGroupMinimumMembers = uifactory.addTextElement("create.form.title.min", "create.form.title.min", 5, "", formLayout);
 		businessGroupMinimumMembers.setDisplaySize(6);
 		businessGroupMinimumMembers.setVisible(false); // currently the minimum feature is not enabled
+		businessGroupMinimumMembers.setElementCssClass("o_sel_group_edit_min_members");
 
 		// Maximum members input
 		businessGroupMaximumMembers = uifactory.addTextElement("create.form.title.max", "create.form.title.max", 5, "", formLayout);
 		businessGroupMaximumMembers.setDisplaySize(6);
+		businessGroupMaximumMembers.setElementCssClass("o_sel_group_edit_max_members");
 
 		// Checkboxes
 		enableWaitingList = uifactory.addCheckboxesHorizontal("create.form.enableWaitinglist", null, formLayout, waitingListKeys,
-				waitingListValues, null);
+				waitingListValues);
 		enableAutoCloseRanks = uifactory.addCheckboxesHorizontal("create.form.enableAutoCloseRanks", null, formLayout, autoCloseKeys,
-				autoCloseValues, null);
+				autoCloseValues);
 
 		// Enable only if specification of min and max members is possible
 		businessGroupMinimumMembers.setVisible(false); // currently the minimum feature is not enabled
@@ -215,7 +225,7 @@ public class BusinessGroupFormController extends FormBasicController {
 			Integer minimumMembers = businessGroup.getMinParticipants();
 			Integer maximumMembers = businessGroup.getMaxParticipants();
 			businessGroupMinimumMembers.setValue(minimumMembers == null || minimumMembers.intValue() <= 0 ? "" : minimumMembers.toString());
-			businessGroupMaximumMembers.setValue(maximumMembers == null || maximumMembers.intValue() <= 0 ? "" : maximumMembers.toString());
+			businessGroupMaximumMembers.setValue(maximumMembers == null || maximumMembers.intValue() < 0 ? "" : maximumMembers.toString());
 			if (businessGroup.getWaitingListEnabled() != null) {
 				enableWaitingList.select("create.form.enableWaitinglist", businessGroup.getWaitingListEnabled());
 			}
@@ -255,7 +265,7 @@ public class BusinessGroupFormController extends FormBasicController {
 					// use translator from REST admin package to import managed flags context help strings
 					Translator managedTrans = Util.createPackageTranslator(RestapiAdminController.class, ureq.getLocale());
 					StringBuffer flagList = new StringBuffer();
-					flagList.append("<p class=\"b_important\">");
+					flagList.append("<p class=\"o_important\">");
 					flagList.append(translate("create.form.managedflags.intro"));
 					flagList.append("</div>");
 					flagList.append("<ul>");
@@ -344,8 +354,8 @@ public class BusinessGroupFormController extends FormBasicController {
 
 		// 3) Check auto close settings
 		boolean disableWaitingListOk = true;
-		if ((businessGroup != null) && (businessGroup.getWaitingGroup() != null)) {
-			int waitingPartipiciantSize = BaseSecurityManager.getInstance().countIdentitiesOfSecurityGroup(businessGroup.getWaitingGroup());
+		if (businessGroup != null) {
+			int waitingPartipiciantSize = businessGroupService.countMembers(businessGroup, GroupRoles.waiting.name());
 			if ((businessGroup.getWaitingListEnabled()).booleanValue() && !isWaitingListEnabled() && (waitingPartipiciantSize > 0)) {
 				enableAutoCloseRanks.setErrorKey("form.error.disableNonEmptyWaitingList", new String[] {});
 				disableWaitingListOk = false;

@@ -26,15 +26,16 @@
 package org.olat.core.gui.components.form.flexible.impl.elements.table;
 
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
-import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.Component;
 import org.olat.core.gui.components.ComponentCollection;
 import org.olat.core.gui.components.ComponentRenderer;
 import org.olat.core.gui.components.form.flexible.FormItem;
 import org.olat.core.gui.components.form.flexible.impl.FormBaseComponentImpl;
-import org.olat.core.gui.render.ValidationResult;
 import org.olat.core.gui.translator.Translator;
 
 /**
@@ -42,13 +43,12 @@ import org.olat.core.gui.translator.Translator;
  */
 public class FlexiTableComponent extends FormBaseComponentImpl implements ComponentCollection {
 
-	private ComponentRenderer DATATABLES_RENDERER = new FlexiDataTablesRenderer();
-	private ComponentRenderer CLASSIC_RENDERER = new FlexiTableClassicRenderer();
-	
+	private static final ComponentRenderer CLASSIC_RENDERER = new FlexiTableClassicRenderer();
+	private static final ComponentRenderer CUSTOM_RENDERER = new FlexiTableCustomRenderer();
 	
 	private FlexiTableElementImpl element;
+	private final Map<String,Component> components = new HashMap<>();
 	
-
 	public FlexiTableComponent(FlexiTableElementImpl element) {
 		super(element.getName());
 		this.element = element;
@@ -59,19 +59,8 @@ public class FlexiTableComponent extends FormBaseComponentImpl implements Compon
 		this.element = element;
 	}
 	
-	FlexiTableElementImpl getFlexiTableElement() {
+	public FlexiTableElementImpl getFlexiTableElement() {
 		return element;
-	}
-	
-	
-
-	@Override
-	public void validate(UserRequest ureq, ValidationResult vr) {
-		super.validate(ureq, vr);
-		if(element.getRendererType() == FlexiTableRendererType.dataTables) {
-			//inject javascript
-			vr.getJsAndCSSAdder().addRequiredStaticJsFile("js/jquery/datatables/jquery.dataTables.min.js");
-		}
 	}
 
 	@Override
@@ -80,7 +69,11 @@ public class FlexiTableComponent extends FormBaseComponentImpl implements Compon
 		if(item != null) {
 			return item.getComponent();
 		}
-		return null;
+		return components.get(name);
+	}
+	
+	public void put(String name, Component cmp) {
+		components.put(name, cmp);
 	}
 
 	@Override
@@ -89,7 +82,13 @@ public class FlexiTableComponent extends FormBaseComponentImpl implements Compon
 		for(FormItem item:element.getFormItems()) {
 			cmp.add(item.getComponent());
 		}
+		cmp.addAll(components.values());
 		return cmp;
+	}
+
+	@Override
+	public Map<String, Component> getComponentMap() {
+		return Collections.emptyMap();
 	}
 
 	/**
@@ -99,7 +98,7 @@ public class FlexiTableComponent extends FormBaseComponentImpl implements Compon
 	public ComponentRenderer getHTMLRendererSingleton() {
 		switch(element.getRendererType()) {
 			case classic: return CLASSIC_RENDERER;
-			case dataTables: return DATATABLES_RENDERER;
+			case custom: return CUSTOM_RENDERER;
 			default: return CLASSIC_RENDERER;
 		}
 	}

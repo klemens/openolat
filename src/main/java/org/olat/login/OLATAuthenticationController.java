@@ -28,7 +28,6 @@ package org.olat.login;
 import java.util.List;
 import java.util.Locale;
 
-import org.olat.basesecurity.AuthHelper;
 import org.olat.core.CoreSpringFactory;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.Component;
@@ -78,7 +77,6 @@ public class OLATAuthenticationController extends AuthenticationController imple
 
 	private Link pwLink;
 	private Link registerLink;
-	private Link anoLink;
 	
 	private final OLATAuthManager olatAuthenticationSpi;
 	
@@ -95,21 +93,15 @@ public class OLATAuthenticationController extends AuthenticationController imple
 		
 		if(UserModule.isPwdchangeallowed(null)) {
 			pwLink = LinkFactory.createLink("_olat_login_change_pwd", "menu.pw", loginComp, this);
-			pwLink.setCustomEnabledLinkCSS("o_login_pwd b_with_small_icon_left");
+			pwLink.setElementCssClass("o_login_pwd");
 		}
 		
 		if (CoreSpringFactory.getImpl(RegistrationModule.class).isSelfRegistrationEnabled()
 				&& CoreSpringFactory.getImpl(RegistrationModule.class).isSelfRegistrationLoginEnabled()) {
 			registerLink = LinkFactory.createLink("_olat_login_register", "menu.register", loginComp, this);
-			registerLink.setCustomEnabledLinkCSS("o_login_register b_with_small_icon_left");
+			registerLink.setElementCssClass("o_login_register");
+			registerLink.setTitle("menu.register.alt");
 		}
-		
-		if (LoginModule.isGuestLoginLinksEnabled()) {
-			anoLink = LinkFactory.createLink("_olat_login_guest", "menu.guest", loginComp, this);
-			anoLink.setCustomEnabledLinkCSS("o_login_guests b_with_small_icon_left");
-			anoLink.setEnabled(!AuthHelper.isLoginBlocked());
-		}
-		
 		
 		// prepare login form
 		loginForm = new OLATAuthentcationForm(ureq, winControl, "olat_login", getTranslator());
@@ -135,50 +127,41 @@ public class OLATAuthenticationController extends AuthenticationController imple
 	/**
 	 * @see org.olat.core.gui.control.DefaultController#event(org.olat.core.gui.UserRequest, org.olat.core.gui.components.Component, org.olat.core.gui.control.Event)
 	 */
+	@Override
 	public void event(UserRequest ureq, Component source, Event event) {
-		
 		if (source == registerLink) {
-			//fxdiff FXOLAT-113: business path in DMZ
 			openRegistration(ureq);
 		} else if (source == pwLink) {
-			//fxdiff FXOLAT-113: business path in DMZ
 			openChangePassword(ureq, null);
-		} else if (source == anoLink){
-			
-			int loginStatus = AuthHelper.doAnonymousLogin(ureq, ureq.getLocale());
-			if (loginStatus == AuthHelper.LOGIN_OK) {
-				return;
-			} else if (loginStatus == AuthHelper.LOGIN_NOTAVAILABLE){
-				showError("login.notavailable", null);
-			} else {
-				showError("login.error", WebappHelper.getMailConfig("mailReplyTo"));
-			}
 		}
 	}
-	//fxdiff FXOLAT-113: business path in DMZ
+	
 	protected RegistrationController openRegistration(UserRequest ureq) {
+		removeAsListenerAndDispose(cmc);
 		removeAsListenerAndDispose(subController);
+		
 		subController = new RegistrationController(ureq, getWindowControl());
 		listenTo(subController);
-		
-		removeAsListenerAndDispose(cmc);
 		cmc = new CloseableModalController(getWindowControl(), translate("close"), subController.getInitialComponent());
 		listenTo(cmc);
-
 		cmc.activate();
 		return (RegistrationController)subController;
 	}
-	//fxdiff FXOLAT-113: business path in DMZ
+	
 	protected void openChangePassword(UserRequest ureq, String initialEmail) {
 		// double-check if allowed first
-		if (!UserModule.isPwdchangeallowed(ureq.getIdentity())) throw new OLATSecurityException("chose password to be changed, but disallowed by config");
-		
+		if (!UserModule.isPwdchangeallowed(ureq.getIdentity())) {
+			throw new OLATSecurityException("chose password to be changed, but disallowed by config");
+		}
+
+		removeAsListenerAndDispose(cmc);
 		removeAsListenerAndDispose(subController);
-		subController = new PwChangeController(ureq, getWindowControl(), initialEmail);
+		
+		subController = new PwChangeController(ureq, getWindowControl(), initialEmail, true);
 		listenTo(subController);
 		
-		removeAsListenerAndDispose(cmc);
-		cmc = new CloseableModalController(getWindowControl(), translate("close"), subController.getInitialComponent());
+		String title = ((PwChangeController)subController).getWizardTitle();
+		cmc = new CloseableModalController(getWindowControl(), translate("close"), subController.getInitialComponent(), true, title);
 		listenTo(cmc);
 		
 		cmc.activate();
@@ -187,8 +170,8 @@ public class OLATAuthenticationController extends AuthenticationController imple
 	/**
 	 * @see org.olat.core.gui.control.DefaultController#event(org.olat.core.gui.UserRequest, org.olat.core.gui.control.Controller, org.olat.core.gui.control.Event)
 	 */
+	@Override
 	public void event(UserRequest ureq, Controller source, Event event) {
-		
 		if (source == loginForm && event == Event.DONE_EVENT) {
 			String login = loginForm.getLogin();
 			String pass = loginForm.getPass();	
@@ -240,20 +223,28 @@ public class OLATAuthenticationController extends AuthenticationController imple
 				// disclaimer acceptance not required		
 				authenticated(ureq, authenticatedIdentity);	
 			}
-		}
-		
-		if (source == disclaimerCtr) {
+		} else if (source == disclaimerCtr) {
 			cmc.deactivate();
 			if (event == Event.DONE_EVENT) {
 				// disclaimer accepted 
 				RegistrationManager.getInstance().setHasConfirmedDislaimer(authenticatedIdentity);
 				authenticated(ureq, authenticatedIdentity);
 			}
+		} else if(cmc == source) {
+			cleanUp();
+		} if (source == subController) {
+			if(event == Event.CANCELLED_EVENT) {
+				cmc.deactivate();
+				cleanUp();
+			}
 		}
-		
-		if (source == subController && event == Event.CANCELLED_EVENT) {
-			cmc.deactivate();
-		}
+	}
+	
+	private void cleanUp() {
+		removeAsListenerAndDispose(subController);
+		removeAsListenerAndDispose(cmc);
+		subController = null;
+		cmc = null;
 	}
 	
 	@Override

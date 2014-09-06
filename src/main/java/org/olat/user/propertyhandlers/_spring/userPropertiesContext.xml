@@ -4,9 +4,9 @@
 	xmlns:context="http://www.springframework.org/schema/context" 
 	xsi:schemaLocation="
   http://www.springframework.org/schema/beans 
-  http://www.springframework.org/schema/beans/spring-beans-3.0.xsd 
+  http://www.springframework.org/schema/beans/spring-beans.xsd 
   http://www.springframework.org/schema/context 
-  http://www.springframework.org/schema/context/spring-context-3.0.xsd">
+  http://www.springframework.org/schema/context/spring-context.xsd">
 
 	<!-- 
 		Configure the users properties, forms and tables 
@@ -14,6 +14,7 @@
 	<bean id="org.olat.user.UserPropertiesConfig" class="org.olat.user.propertyhandlers.UserPropertiesConfigImpl" init-method="init">
 		<property name="userPropertyHandlers">
 			<list>
+				<ref bean="userPropertyUserName" />
 				<ref bean="userPropertyFirstName" />
 				<ref bean="userPropertyLastName" />
 				<ref bean="userPropertyEmail" />
@@ -59,6 +60,7 @@
 						<property name="description" value="Users Profile-Form (Home->Settings)" />
 						<property name="propertyHandlers">
 							<list>
+								<ref bean="userPropertyUserName" />
 								<ref bean="userPropertyFirstName" />
 								<ref bean="userPropertyLastName" />
 								<ref bean="userPropertyEmail" />
@@ -89,6 +91,7 @@
 						</property>
 						<property name="mandatoryProperties">
 							<set>
+								<ref bean="userPropertyUserName" />
 								<ref bean="userPropertyFirstName" />
 								<ref bean="userPropertyLastName" />
 								<ref bean="userPropertyEmail" />
@@ -96,6 +99,7 @@
 						</property>
 						<property name="userViewReadOnlyProperties">
 							<set>
+								<ref bean="userPropertyUserName" />
 								<ref bean="userPropertyFirstName" />
 								<ref bean="userPropertyLastName" />
 								<ref bean="userPropertyInstitutionalName" />
@@ -246,6 +250,44 @@
 								<ref bean="userPropertyInstitutionalName" />
 								<ref bean="userPropertyInstitutionalUserIdentifier" />
 								<ref bean="userPropertyInstitutionalEmail" />
+							</list>
+						</property>
+					</bean>
+				</entry>
+				
+				<entry key="org.olat.course.nodes.cl.ui.CheckListAssessmentController">
+					<bean class="org.olat.user.propertyhandlers.UserPropertyUsageContext">
+						<property name="description" value="Table for check lists" />
+						<property name="propertyHandlers">
+							<list>
+								<ref bean="userPropertyFirstName" />
+								<ref bean="userPropertyLastName" />
+								<ref bean="userPropertyInstitutionalUserIdentifier" />
+							</list>
+						</property>
+						<property name="mandatoryProperties">
+							<set>
+								<ref bean="userPropertyFirstName" />
+								<ref bean="userPropertyLastName" />
+							</set>
+						</property>
+						<property name="adminViewOnlyProperties">
+							<set>
+								<ref bean="userPropertyInstitutionalUserIdentifier" />
+							</set>
+						</property>
+					</bean>
+				</entry>
+
+				<entry key="org.olat.ims.qti.export.QTIExportFormatterCSVType1">
+					<bean class="org.olat.user.propertyhandlers.UserPropertyUsageContext">
+						<property name="description" value="Columns in download file of QTI assessment results in courses" />
+						<property name="propertyHandlers">
+							<list>
+								<ref bean="userPropertyFirstName" />
+								<ref bean="userPropertyLastName" />
+								<ref bean="userPropertyUserName" />
+								<ref bean="userPropertyInstitutionalUserIdentifier" />
 							</list>
 						</property>
 					</bean>
@@ -850,7 +892,7 @@
 					</bean>
 				</entry>
 				
-				<!-- fxdiff: FXOLAT-227 user properties used for group-mail-function -->
+				<!-- User properties used for group-mail-function -->
 				<entry key="org.olat.group.ui.run.BusinessGroupSendToChooserForm">
 					<bean class="org.olat.user.propertyhandlers.UserPropertyUsageContext">
 						<property name="description" value=" " />
@@ -864,7 +906,7 @@
 				</entry>	
 				
 				
-				<!-- fxdiff: FXOLAT-93 user properties used in Businesscards (mitgleidersite) -->
+				<!-- User properties used in Businesscards (mitgleidersite) -->
 				<entry key="com.frentix.olat.user.UserBusinessCardController">
 					<bean class="org.olat.user.propertyhandlers.UserPropertyUsageContext">
 						<property name="description" value="BusinessCards in Membersite" />
@@ -880,7 +922,7 @@
 					</bean>
 				</entry>	
 				
-				<!-- fxdiff: FXOLAT-356 user properties used for the mail-footer line together with i18nkey: "footer.with.userdata" -->
+				<!-- User properties used for the mail-footer line together with i18nkey: "footer.with.userdata" -->
 				<entry key="org.olat.core.util.mail.MailHelper">
 					<bean class="org.olat.user.propertyhandlers.UserPropertyUsageContext">
 						<property name="description" value="Properties used for the mail footer for emails sent from this system. Configure i18nkey: 'footer.with.userdata' accordingly. " />
@@ -893,6 +935,42 @@
 						</property>						
 					</bean>
 				</entry>			
+
+				<!-- User properties used for the mail-notifications line together with i18nkey: "user.formatted" -->
+				<entry key="org.olat.core.commons.services.notifications.NotificationHelper">
+					<bean class="org.olat.user.propertyhandlers.UserPropertyUsageContext">
+						<property name="description" value="Properties used for the notification emails sent from this system. Configure i18nkey: 'user.formatted' accordingly. " />
+						<property name="propertyHandlers">
+							<list>
+								<ref bean="userPropertyFirstName" />
+								<ref bean="userPropertyLastName" />	
+							</list>
+						</property>						
+					</bean>
+				</entry>
+				
+				<entry key="org.olat.admin.landingpages.LandingPagesModule">
+					<bean class="org.olat.user.propertyhandlers.UserPropertyUsageContext">
+						<property name="description" value="Properties used in the administration of landing pages. " />
+						<property name="propertyHandlers">
+							<list>
+								<ref bean="userPropertyGender" />
+								<ref bean="userPropertyStreet" />
+								<ref bean="userPropertyExtendedAddress" />
+								<ref bean="userPropertyPoBox" />
+								<ref bean="userPropertyZipCode" />
+								<ref bean="userPropertyRegion" />
+								<ref bean="userPropertyCity" />
+								<ref bean="userPropertyCountry" />
+								<ref bean="userPropertyInstitutionalName" />
+								<ref bean="userPropertyInstitutionalUserIdentifier" />
+								<ref bean="userPropertyInstitutionalEmail" />
+								<ref bean="userPropertyOrgUnit" />
+								<ref bean="userPropertyStudySubject" />
+							</list>
+						</property>						
+					</bean>
+				</entry>
 				
 				<!--
 					Default configuration in case nothing else matches.

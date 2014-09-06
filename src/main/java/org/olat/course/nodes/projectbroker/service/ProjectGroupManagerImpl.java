@@ -29,10 +29,10 @@ import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 
-import org.olat.basesecurity.BaseSecurityManager;
+import org.olat.basesecurity.BaseSecurity;
+import org.olat.basesecurity.GroupRoles;
 import org.olat.basesecurity.SecurityGroup;
-import org.olat.core.CoreSpringFactory;
-import org.olat.core.commons.persistence.DBFactory;
+import org.olat.core.commons.persistence.DB;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.id.Identity;
 import org.olat.core.manager.BasicManager;
@@ -54,15 +54,28 @@ import org.olat.properties.Property;
 import org.olat.repository.RepositoryEntry;
 import org.olat.repository.RepositoryManager;
 import org.olat.resource.OLATResource;
-import org.olat.testutils.codepoints.server.Codepoint;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
 
 
 /**
  * 
  * @author guretzki
  */
-
+@Service
 public class ProjectGroupManagerImpl extends BasicManager implements ProjectGroupManager {
+	
+	@Autowired
+	private DB dbInstance;
+	@Autowired
+	private BaseSecurity securityManager;
+	@Autowired
+	private RepositoryManager repositoryManager;
+	@Autowired
+	private ProjectBrokerManager projectBrokerManager;
+	@Autowired
+	private BusinessGroupService businessGroupService;
+	
 	
 	//////////////////////
 	// ACCOUNT MANAGEMENT
@@ -78,7 +91,7 @@ public class ProjectGroupManagerImpl extends BasicManager implements ProjectGrou
 		} 
     logDebug("groupKey=" + groupKey);
     if (groupKey != null) {
-			accountManagerGroup = CoreSpringFactory.getImpl(BusinessGroupService.class).loadBusinessGroup(groupKey);
+			accountManagerGroup = businessGroupService.loadBusinessGroup(groupKey);
 			logDebug("load businessgroup=" + accountManagerGroup);
 			if (accountManagerGroup != null) {
 				return accountManagerGroup;
@@ -91,8 +104,7 @@ public class ProjectGroupManagerImpl extends BasicManager implements ProjectGrou
 			}
     } else {
 			logDebug("No group for project-broker exist => create a new one");
-			BusinessGroupService businessGroupService = CoreSpringFactory.getImpl(BusinessGroupService.class);
-			RepositoryEntry re = RepositoryManager.getInstance().lookupRepositoryEntry(cpm.getCourseResource(), false);
+			RepositoryEntry re = repositoryManager.lookupRepositoryEntry(cpm.getCourseResource(), false);
 			accountManagerGroup = businessGroupService.createBusinessGroup(identity, groupName, groupDescription, -1, -1, false, false, re);
 			int i = 2;
 			while (accountManagerGroup == null) {
@@ -118,7 +130,7 @@ public class ProjectGroupManagerImpl extends BasicManager implements ProjectGrou
   	Property accountManagerGroupProperty = cpm.findCourseNodeProperty(courseNode, null, null, ProjectBrokerCourseNode.CONF_ACCOUNTMANAGER_GROUP_KEY);
   	if (accountManagerGroupProperty != null) {
   	 	Long groupKey = accountManagerGroupProperty.getLongValue();
-  		BusinessGroup accountManagerGroup = CoreSpringFactory.getImpl(BusinessGroupService.class).loadBusinessGroup(groupKey);
+  		BusinessGroup accountManagerGroup = businessGroupService.loadBusinessGroup(groupKey);
   		if (accountManagerGroup != null) {
   			return isAccountManager(identity,  accountManagerGroup);
   		}
@@ -132,9 +144,9 @@ public class ProjectGroupManagerImpl extends BasicManager implements ProjectGrou
   	if (accountManagerGroupProperty != null) {
   		Long groupKey = accountManagerGroupProperty.getLongValue();
   		if (groupKey != null) {
-				BusinessGroup accountManagerGroup = CoreSpringFactory.getImpl(BusinessGroupService.class).loadBusinessGroup(groupKey);
+				BusinessGroup accountManagerGroup = businessGroupService.loadBusinessGroup(groupKey);
 				if (accountManagerGroup != null) {
-					BusinessGroupService bgs = CoreSpringFactory.getImpl(BusinessGroupService.class);
+					BusinessGroupService bgs = businessGroupService;
 					bgs.deleteBusinessGroup(accountManagerGroup);
 					logAudit("ProjectBroker: Deleted accountManagerGroup=" + accountManagerGroup);
 				} else {
@@ -152,7 +164,7 @@ public class ProjectGroupManagerImpl extends BasicManager implements ProjectGrou
 	public BusinessGroup updateAccountManagerGroupName(Identity ureqIdentity, String groupName, String groupDescription, BusinessGroup accountManagerGroup) {
 		// group could have been deleted, see FXOLAT-295
 		if (accountManagerGroup != null){
-			BusinessGroupService bgs = CoreSpringFactory.getImpl(BusinessGroupService.class);
+			BusinessGroupService bgs = businessGroupService;
 			BusinessGroup reloadedBusinessGroup = bgs.loadBusinessGroup(accountManagerGroup);
 			return bgs.updateBusinessGroup(ureqIdentity, reloadedBusinessGroup, groupName, groupDescription,
 					reloadedBusinessGroup.getExternalId(), reloadedBusinessGroup.getManagedFlagsString(),
@@ -168,9 +180,8 @@ public class ProjectGroupManagerImpl extends BasicManager implements ProjectGrou
 	public BusinessGroup createProjectGroupFor(Long projectBrokerId, Identity identity, String groupName, String groupDescription, Long courseId) {
 		//List<Project> projects = ProjectBrokerManagerFactory.getProjectBrokerManager().getProjectListBy(projectBrokerId);
 		
-		BusinessGroupService businessGroupService = CoreSpringFactory.getImpl(BusinessGroupService.class);
 		OLATResource resource = CourseFactory.loadCourse(courseId).getCourseEnvironment().getCourseGroupManager().getCourseResource();
-		RepositoryEntry re = RepositoryManager.getInstance().lookupRepositoryEntry(resource, false);
+		RepositoryEntry re = repositoryManager.lookupRepositoryEntry(resource, false);
 
 		//BGContext context = createGroupContext(CourseFactory.loadCourse(courseId));
 		logDebug("createProjectGroupFor groupName=" + groupName);
@@ -188,7 +199,7 @@ public class ProjectGroupManagerImpl extends BasicManager implements ProjectGrou
 	}
 	
 	public void deleteProjectGroupFor(Project project) {
-		BusinessGroupService bgs = CoreSpringFactory.getImpl(BusinessGroupService.class);
+		BusinessGroupService bgs = businessGroupService;
 		bgs.deleteBusinessGroup(project.getProjectGroup());
 	}
 	
@@ -199,7 +210,7 @@ public class ProjectGroupManagerImpl extends BasicManager implements ProjectGrou
 	 */
 	@Override
 	public BusinessGroup changeProjectGroupName(Identity ureqIdentity, BusinessGroup projectGroup, String groupName, String groupDescription, OLATResource courseResource) {
-		BusinessGroupService bgs = CoreSpringFactory.getImpl(BusinessGroupService.class);
+		BusinessGroupService bgs = businessGroupService;
 		BusinessGroup reloadedBusinessGroup = bgs.loadBusinessGroup(projectGroup);
 		return bgs.updateBusinessGroup(ureqIdentity, reloadedBusinessGroup, groupName, groupDescription,
 				reloadedBusinessGroup.getExternalId(), reloadedBusinessGroup.getManagedFlagsString(),
@@ -207,14 +218,13 @@ public class ProjectGroupManagerImpl extends BasicManager implements ProjectGrou
 	}
 
 	public List<Identity> addCandidates(final List<Identity> addIdentities, final Project project) {
-		Codepoint.codepoint(ProjectBrokerManagerImpl.class, "beforeDoInSync");
 	//TODO gsync
 		List<Identity> addedIdentities = CoordinatorManager.getInstance().getCoordinator().getSyncer().doInSync(project.getProjectGroup(), new SyncerCallback<List<Identity>>(){
 			public List<Identity> execute() {
 				List<Identity> addedIdentities = new ArrayList<Identity>();
 				for (Identity identity : addIdentities) {
-					if (!BaseSecurityManager.getInstance().isIdentityInSecurityGroup(identity, project.getCandidateGroup()) ) {
-						BaseSecurityManager.getInstance().addIdentityToSecurityGroup(identity, project.getCandidateGroup());
+					if (!securityManager.isIdentityInSecurityGroup(identity, project.getCandidateGroup()) ) {
+						securityManager.addIdentityToSecurityGroup(identity, project.getCandidateGroup());
 						addedIdentities.add(identity);
 						logAudit("ProjectBroker: Add user as candidate, identity=" + identity);
 					}
@@ -223,32 +233,29 @@ public class ProjectGroupManagerImpl extends BasicManager implements ProjectGrou
 				return addedIdentities;
 			}
 		});// end of doInSync
-		Codepoint.codepoint(ProjectBrokerManagerImpl.class, "afterDoInSync");
 		return addedIdentities;
 	}
 
 	public void removeCandidates(final List<Identity> addIdentities, final Project project) {
-		Codepoint.codepoint(ProjectBrokerManagerImpl.class, "beforeDoInSync");
 	//TODO gsync
 		CoordinatorManager.getInstance().getCoordinator().getSyncer().doInSync(project.getProjectGroup(), new SyncerCallback<Boolean>(){
 			public Boolean execute() {
-				Project reloadedProject = (Project) DBFactory.getInstance().loadObject(project, true);
+				Project reloadedProject = (Project) dbInstance.loadObject(project, true);
 				for (Identity identity : addIdentities) {
-					BaseSecurityManager.getInstance().removeIdentityFromSecurityGroup(identity, reloadedProject.getCandidateGroup());
+					securityManager.removeIdentityFromSecurityGroup(identity, reloadedProject.getCandidateGroup());
 					logAudit("ProjectBroker: Remove user as candidate, identity=" + identity);
 					// fireEvents ?
 				}
 				return Boolean.TRUE;
 			}
 		});// end of doInSync
-		Codepoint.codepoint(ProjectBrokerManagerImpl.class, "afterDoInSync");
 	}
 
+	@Override
 	public BusinessGroupAddResponse acceptCandidates(final List<Identity> identities, final Project project, final Identity actionIdentity, final boolean autoSignOut, final boolean isAcceptSelectionManually) {
-		Codepoint.codepoint(ProjectBrokerManagerImpl.class, "beforeDoInSync");
-		final Project reloadedProject = (Project) DBFactory.getInstance().loadObject(project, true);
+		final Project reloadedProject = (Project) dbInstance.loadObject(project, true);
 		final BusinessGroupAddResponse response = new BusinessGroupAddResponse();
-		final BusinessGroupService bgs = CoreSpringFactory.getImpl(BusinessGroupService.class);
+		final BusinessGroupService bgs = businessGroupService;
 		BusinessGroupAddResponse state = bgs.addParticipants(actionIdentity, null, identities, reloadedProject.getProjectGroup(), null);
 		response.getAddedIdentities().addAll(state.getAddedIdentities());
 		response.getIdentitiesAlreadyInGroup().addAll(state.getAddedIdentities());
@@ -256,8 +263,8 @@ public class ProjectGroupManagerImpl extends BasicManager implements ProjectGrou
 		Boolean result = CoordinatorManager.getInstance().getCoordinator().getSyncer().doInSync(project.getProjectGroup(), new SyncerCallback<Boolean>(){
 			public Boolean execute() {
 				for (final Identity identity : identities) {
-					if (!BaseSecurityManager.getInstance().isIdentityInSecurityGroup(identity, reloadedProject.getProjectGroup().getPartipiciantGroup())) {
-						BaseSecurityManager.getInstance().removeIdentityFromSecurityGroup(identity, reloadedProject.getCandidateGroup());
+					if (!bgs.hasRoles(identity, reloadedProject.getProjectGroup(), GroupRoles.participant.name())) {
+						securityManager.removeIdentityFromSecurityGroup(identity, reloadedProject.getCandidateGroup());
 						logAudit("ProjectBroker: Accept candidate, identity=" + identity + " project=" + reloadedProject);
 					}		
 				}
@@ -266,47 +273,45 @@ public class ProjectGroupManagerImpl extends BasicManager implements ProjectGrou
 		});// end of doInSync
 		
 		if (autoSignOut && result.booleanValue()) {
-			ProjectBrokerManagerFactory.getProjectBrokerManager().signOutFormAllCandidateList(response.getAddedIdentities(), reloadedProject.getProjectBroker().getKey());
+			projectBrokerManager.signOutFormAllCandidateList(response.getAddedIdentities(), reloadedProject.getProjectBroker().getKey());
 		}
 		if (isAcceptSelectionManually && (reloadedProject.getMaxMembers() != Project.MAX_MEMBERS_UNLIMITED) 
 				&& reloadedProject.getSelectedPlaces() >= reloadedProject.getMaxMembers()) {
-			ProjectBrokerManagerFactory.getProjectBrokerManager().setProjectState(reloadedProject, Project.STATE_ASSIGNED);
+			projectBrokerManager.setProjectState(reloadedProject, Project.STATE_ASSIGNED);
 			logInfo("ProjectBroker: Accept candidate, change project-state=" + Project.STATE_ASSIGNED);
 		}
-
-		Codepoint.codepoint(ProjectBrokerManagerImpl.class, "afterDoInSync");
 		return response;
 	}
 
 	@Override
 	public void sendGroupChangeEvent(Project project, Long courseResourceableId, Identity identity) {
 		ICourse course = CourseFactory.loadCourse(courseResourceableId);
-		RepositoryEntry ores = RepositoryManager.getInstance().lookupRepositoryEntry(course, true);
+		RepositoryEntry ores = repositoryManager.lookupRepositoryEntry(course, true);
 		MultiUserEvent modifiedEvent = new BusinessGroupModifiedEvent(BusinessGroupModifiedEvent.IDENTITY_ADDED_EVENT, project.getProjectGroup(), identity);
 		CoordinatorManager.getInstance().getCoordinator().getEventBus().fireEventToListenersOf(modifiedEvent, ores);
 	}
 
 	public boolean isProjectManager(Identity identity, Project project) {
-		return BaseSecurityManager.getInstance().isIdentityInSecurityGroup(identity, project.getProjectLeaderGroup());
+		return businessGroupService.hasRoles(identity, project.getProjectGroup(), GroupRoles.coach.name());
 	}
 
 	public boolean isProjectManagerOrAdministrator(UserRequest ureq, CourseEnvironment courseEnv, Project project) {	
-		return    ProjectBrokerManagerFactory.getProjectGroupManager().isProjectManager(ureq.getIdentity(), project)
+		return isProjectManager(ureq.getIdentity(), project)
 				   || courseEnv.getCourseGroupManager().isIdentityCourseAdministrator(ureq.getIdentity())
 	         || ureq.getUserSession().getRoles().isOLATAdmin();
 	}
 	
 	public boolean isProjectParticipant(Identity identity, Project project) {
-		return BaseSecurityManager.getInstance().isIdentityInSecurityGroup(identity, project.getProjectParticipantGroup());
+		return businessGroupService.hasRoles(identity, project.getProjectGroup(), GroupRoles.participant.name());
 	}
 
 	public boolean isProjectCandidate(Identity identity, Project project) {
-		return BaseSecurityManager.getInstance().isIdentityInSecurityGroup(identity, project.getCandidateGroup());
+		return securityManager.isIdentityInSecurityGroup(identity, project.getCandidateGroup());
 	}
 
 	@Override
 	public BusinessGroup setProjectGroupMaxMembers(Identity ureqIdentity, BusinessGroup projectGroup, int maxMembers ) {
-  	 BusinessGroupService bgs = CoreSpringFactory.getImpl(BusinessGroupService.class);
+  	 BusinessGroupService bgs = businessGroupService;
   	 BusinessGroup reloadedBusinessGroup = bgs.loadBusinessGroup(projectGroup);
   	 logDebug("ProjectGroup.name=" + reloadedBusinessGroup.getName() + " setMaxParticipants=" + maxMembers);
   	 return bgs.updateBusinessGroup(ureqIdentity, reloadedBusinessGroup, reloadedBusinessGroup.getName(), 
@@ -319,20 +324,20 @@ public class ProjectGroupManagerImpl extends BasicManager implements ProjectGrou
 	///////////////////
 
 	private boolean isAccountManager(Identity identity, BusinessGroup businessGroup) {
-		if ( (businessGroup == null) || (businessGroup.getPartipiciantGroup() == null) ) {
+		if (businessGroup == null) {
 			return false;
 		}
-		return    BaseSecurityManager.getInstance().isIdentityInSecurityGroup(identity, businessGroup.getPartipiciantGroup())
-				   || BaseSecurityManager.getInstance().isIdentityInSecurityGroup(identity, businessGroup.getOwnerGroup());
+		return businessGroupService.hasRoles(identity, businessGroup, GroupRoles.participant.name())
+				   || businessGroupService.hasRoles(identity, businessGroup, GroupRoles.coach.name());
 	}
 
 	@Override
 	public void acceptAllCandidates(Long projectBrokerId, Identity actionIdentity, boolean autoSignOut, boolean isAcceptSelectionManually) {
 		// loop over all project
-		List<Project> projectList = ProjectBrokerManagerFactory.getProjectBrokerManager().getProjectListBy(projectBrokerId);
+		List<Project> projectList = projectBrokerManager.getProjectListBy(projectBrokerId);
 		for (Iterator<Project> iterator = projectList.iterator(); iterator.hasNext();) {
 			Project project = iterator.next();
-			List<Identity> candidates = BaseSecurityManager.getInstance().getIdentitiesOfSecurityGroup(project.getCandidateGroup());
+			List<Identity> candidates = securityManager.getIdentitiesOfSecurityGroup(project.getCandidateGroup());
 			if (!candidates.isEmpty()) {
 				logAudit("ProjectBroker: Accept ALL candidates, project=" + project);
 				acceptCandidates(candidates, project, actionIdentity, autoSignOut, isAcceptSelectionManually);
@@ -343,10 +348,10 @@ public class ProjectGroupManagerImpl extends BasicManager implements ProjectGrou
 
 	@Override
 	public boolean hasProjectBrokerAnyCandidates(Long projectBrokerId) {
-		List<Project> projectList = ProjectBrokerManagerFactory.getProjectBrokerManager().getProjectListBy(projectBrokerId);
+		List<Project> projectList = projectBrokerManager.getProjectListBy(projectBrokerId);
 		for (Iterator<Project> iterator = projectList.iterator(); iterator.hasNext();) {
 			Project project = iterator.next();
-			List<Identity> candidates = BaseSecurityManager.getInstance().getIdentitiesOfSecurityGroup(project.getCandidateGroup());
+			List<Identity> candidates = securityManager.getIdentitiesOfSecurityGroup(project.getCandidateGroup());
 			if (!candidates.isEmpty()) {
 				return true;
 			}
@@ -356,7 +361,7 @@ public class ProjectGroupManagerImpl extends BasicManager implements ProjectGrou
 
 	@Override
 	public boolean isCandidateListEmpty(SecurityGroup candidateGroup) {
-		List<Identity> candidates = BaseSecurityManager.getInstance().getIdentitiesOfSecurityGroup(candidateGroup);
+		List<Identity> candidates = securityManager.getIdentitiesOfSecurityGroup(candidateGroup);
 		return candidates.isEmpty();
 	}
 

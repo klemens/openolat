@@ -4,7 +4,7 @@
 	<modelVersion>4.0.0</modelVersion>
 	<groupId>org.openolat</groupId>
 	<artifactId>openolat-lms</artifactId>
-	<version>9.3-SNAPSHOT</version>
+	<version>10.0-SNAPSHOT</version>
 	<packaging>war</packaging>
 	<name>OpenOLAT LMS</name>
 	<url>http://www.openolat.org</url>
@@ -64,13 +64,14 @@
 	<properties>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 		<targetJdk>1.7</targetJdk>
-		<org.springframework.version>3.2.4.RELEASE</org.springframework.version>
-		<org.hibernate.version>4.2.8.Final</org.hibernate.version>
+		<org.springframework.version>3.2.10.RELEASE</org.springframework.version>
+		<org.hibernate.version>4.3.6.Final</org.hibernate.version>
 		<com.sun.jersey.version>1.17.1</com.sun.jersey.version>
 		<jackson.version>1.9.2</jackson.version>
-		<org.mysql.version>5.1.26</org.mysql.version>
-		<org.postgresql.version>9.1-901.jdbc4</org.postgresql.version>
-		<org.infinispan.version>5.2.7.Final</org.infinispan.version>
+		<org.mysql.version>5.1.31</org.mysql.version>
+		<org.postgresql.version>9.3-1102-jdbc41</org.postgresql.version>
+		<org.infinispan.version>6.0.2.Final</org.infinispan.version>
+		<lucene.version>4.8.0</lucene.version>
 
 	    <!-- properties for testing and Q&A -->
 	    <!-- by default no tests are executed so far (April 2011). Use appropriate profiles and properties on the command line -->
@@ -125,6 +126,42 @@
 						<version>1.3.2</version>
 						<executions>
 							<execution>
+								<id>compressbootstrap</id>
+								<phase>process-resources</phase>
+								<goals>
+									<goal>compress</goal>
+								</goals>
+								<configuration>
+									<suffix>.min</suffix>
+									<force>true</force>
+									<encoding>UTF-8</encoding>
+									<nocompress>false</nocompress>
+									<outputDirectory>${basedir}/target/bootstrap</outputDirectory>
+									<sourceDirectory>${basedir}/src/main/webapp/static/bootstrap</sourceDirectory>
+									<excludeResources>true</excludeResources>
+									<aggregations>
+										<aggregation>
+											<output>${basedir}/target/bootstrap/bootstrap-openolat.min.js</output>
+											<removeIncluded>false</removeIncluded>
+											<includes>
+												<!-- <include>${basedir}/target/bootstrap/javascripts/bootstrap/affix.min.js</include> -->
+												<include>${basedir}/target/bootstrap/javascripts/bootstrap/alert.min.js</include>
+												<include>${basedir}/target/bootstrap/javascripts/bootstrap/button.min.js</include>
+												<!-- <include>${basedir}/target/bootstrap/javascripts/bootstrap/carousel.min.js</include> -->
+												<include>${basedir}/target/bootstrap/javascripts/bootstrap/collapse.min.js</include>
+												<include>${basedir}/target/bootstrap/javascripts/bootstrap/dropdown.min.js</include>
+												<include>${basedir}/target/bootstrap/javascripts/bootstrap/tab.min.js</include>
+												<include>${basedir}/target/bootstrap/javascripts/bootstrap/transition.min.js</include>
+												<!-- <include>${basedir}/target/bootstrap/javascripts/bootstrap/scrollspy.min.js</include>  -->
+												<include>${basedir}/target/bootstrap/javascripts/bootstrap/modal.min.js</include>
+												<include>${basedir}/target/bootstrap/javascripts/bootstrap/tooltip.min.js</include>
+												<include>${basedir}/target/bootstrap/javascripts/bootstrap/popover.min.js</include>
+											</includes>
+										</aggregation>
+									</aggregations>
+								</configuration>
+							</execution>
+							<execution>
 								<id>compressjs</id>
 								<phase>process-resources</phase>
 								<goals>
@@ -137,17 +174,22 @@
 									<nocompress>false</nocompress>
 									<outputDirectory>${basedir}/target/jquery</outputDirectory>
 									<sourceDirectory>${basedir}/src/main/webapp/static/js</sourceDirectory>
+									<excludeResources>true</excludeResources>
 									<aggregations>
 										<aggregation>
 											<output>${basedir}/src/main/webapp/static/js/js.plugins.min.js</output>
 											<removeIncluded>false</removeIncluded>
 											<includes>
-												<include>${basedir}/target/jquery/functions.min.js</include>
+												<include>${basedir}/target/jquery/jquery/periodic/jquery.periodic.min.js</include>
 												<include>${basedir}/target/jquery/jshashtable-2.1_src.min.js</include>
 												<include>${basedir}/target/jquery/jquery/openolat/jquery.oolog.min.js</include>
 												<include>${basedir}/target/jquery/jquery/openolat/jquery.translator.min.js</include>
-												<include>${basedir}/target/jquery/jquery/periodic/jquery.periodic.min.js</include>
+												<include>${basedir}/target/jquery/jquery/openolat/jquery.navbar.min.js</include>
+												<include>${basedir}/target/jquery/jquery/openolat/jquery.bgcarrousel.min.js</include>
 												<include>${basedir}/src/main/webapp/static/js/tinymce4/tinymce/jquery.tinymce.min.js</include>
+												<include>${basedir}/target/jquery/functions.min.js</include>
+												<include>${basedir}/target/jquery/jquery/transit/jquery.transit.min.js</include>
+												<include>${basedir}/target/bootstrap/bootstrap-openolat.min.js</include>
 											</includes>
 										</aggregation>
 										<aggregation>
@@ -178,6 +220,13 @@
 												<include>${basedir}/target/jquery/tinymce4/tinymce/plugins/quotespliter/plugin.min.js</include>
 											</includes>
 										</aggregation>
+										<aggregation>
+											<output>${basedir}/src/main/webapp/static/js/jquery/openolat/jquery.statistics.chart.min.js</output>
+											<removeIncluded>false</removeIncluded>
+											<includes>
+												<include>${basedir}/target/jquery/jquery/openolat/jquery.statistics.chart.min.js</include>
+											</includes>
+										</aggregation>
 									</aggregations>
 								</configuration>
 							</execution>
@@ -194,16 +243,16 @@
 									<nocompress>false</nocompress>
 									<outputDirectory>${basedir}/target/jquery</outputDirectory>
 									<sourceDirectory>${basedir}/src/main/webapp/static/js</sourceDirectory>
+									<excludeResources>true</excludeResources>
 									<aggregations>
 										<aggregation>
 											<output>${basedir}/src/main/webapp/static/js/js.plugins.min.css</output>
 											<removeIncluded>false</removeIncluded>
 											<includes>
-												<include>${basedir}/target/jquery/jquery/tagit/jquery.tagit.min.css</include>
-												<include>${basedir}/target/jquery/jquery/uilayout/layout-default-latest.min.css</include>
+												<include>${basedir}/target/jquery/jquery/tagsinput/bootstrap-tagsinput.min.css</include>
 												<include>${basedir}/target/jquery/jquery/fullcalendar/fullcalendar.min.css</include>
-												<include>${basedir}/src/main/webapp/static/js/jquery/datatables/css/jquery.dataTables.css</include>
-												<include>${basedir}/src/main/webapp/static/yaml/core/slim_base.css</include>
+												<include>${basedir}/target/jquery/jquery/cropper/cropper.min.css</include>
+												<include>${basedir}/target/jquery/jquery/ui/jquery-ui-1.10.4.custom.min.css</include>
 											</includes>
 										</aggregation>
 									</aggregations>
@@ -339,7 +388,7 @@
 					<version>${org.mysql.version}</version>
 				</dependency>
 				<dependency>
-					<groupId>postgresql</groupId>
+					<groupId>org.postgresql</groupId>
 					<artifactId>postgresql</artifactId>
 					<version>${org.postgresql.version}</version>
 				</dependency>
@@ -416,10 +465,6 @@
 						<configuration>
 							<webResources>
 								<resource>
-									<directory>src/main/webapp</directory>
-									<filtering>false</filtering>
-								</resource>
-								<resource>
 									<directory>src/main/webapp-tomcat</directory>
 									<filtering>false</filtering>
 								</resource>
@@ -431,8 +476,14 @@
 		</profile>
 
 		<profile>
-			<id>jbossas7</id>
+			<id>wildfly</id>
 			<dependencies>
+				<dependency>
+					<groupId>log4j</groupId>
+					<artifactId>log4j</artifactId>
+					<version>1.2.17</version>
+					<scope>provided</scope>
+				</dependency>
 				<dependency>
 					<groupId>javax.ws.rs</groupId>
 					<artifactId>jsr311-api</artifactId>
@@ -526,7 +577,7 @@
 					<scope>provided</scope>
 				</dependency>
 				<dependency>
-					<groupId>postgresql</groupId>
+					<groupId>org.postgresql</groupId>
 					<artifactId>postgresql</artifactId>
 					<version>${org.postgresql.version}</version>
 					<scope>provided</scope>
@@ -540,121 +591,7 @@
 						<configuration>
 							<webResources>
 								<resource>
-									<directory>src/main/webapp-jbossas7</directory>
-									<filtering>false</filtering>
-								</resource>
-								<resource>
-									<directory>src/main/webapp</directory>
-									<filtering>false</filtering>
-								</resource>
-							</webResources>
-						</configuration>
-					</plugin>
-				</plugins>
-			</build>
-		</profile>
-
-		<profile>
-			<id>gae</id>
-			<dependencies>
-				<dependency>
-					<groupId>dom4j</groupId>
-					<artifactId>dom4j</artifactId>
-					<version>1.6.1</version>
-				</dependency>
-				<dependency>
-					<groupId>org.hibernate</groupId>
-					<artifactId>hibernate-core</artifactId>
-					<version>${org.hibernate.version}</version>
-					<exclusions>
-						<exclusion>
-							<groupId>org.slf4j</groupId>
-							<artifactId>slf4j-log4j12</artifactId>
-						</exclusion>
-					</exclusions>
-				</dependency>
-				<dependency>
-					<groupId>org.hibernate</groupId>
-					<artifactId>hibernate-entitymanager</artifactId>
-					<version>${org.hibernate.version}</version>
-				</dependency>
-				<dependency>
-					<groupId>org.hibernate</groupId>
-					<artifactId>hibernate-infinispan</artifactId>
-					<version>${org.hibernate.version}</version>
-				</dependency>
-				<dependency>
-					<groupId>org.hibernate</groupId>
-					<artifactId>hibernate-c3p0</artifactId>
-					<version>${org.hibernate.version}</version>
-				</dependency>
-
-				<dependency>
-					<groupId>mysql</groupId>
-					<artifactId>mysql-connector-java</artifactId>
-					<version>${org.mysql.version}</version>
-				</dependency>
-				<dependency>
-					<groupId>postgresql</groupId>
-					<artifactId>postgresql</artifactId>
-					<version>${org.postgresql.version}</version>
-				</dependency>
-
-				<dependency>
-					<groupId>org.apache.activemq</groupId>
-					<artifactId>activemq-core</artifactId>
-					<version>5.3.2</version>
-					<exclusions>
-						<exclusion>
-							<groupId>backport-util-concurrent</groupId>
-							<artifactId>backport-util-concurrent</artifactId>
-						</exclusion>
-						<exclusion>
-							<groupId>javax.activation</groupId>
-							<artifactId>activation</artifactId>
-						</exclusion>
-						<!-- fxdiff: FXOLAT-243  clean up the dependencies of ActiveMQ -->
-						<exclusion>
-							<groupId>org.springframework.osgi</groupId>
-							<artifactId>spring-osgi-core</artifactId>
-						</exclusion>
-						<exclusion>
-							<groupId>org.apache.activemq</groupId>
-							<artifactId>kahadb</artifactId>
-						</exclusion>
-						<exclusion>
-							<groupId>org.osgi</groupId>
-							<artifactId>org.osgi.core</artifactId>
-						</exclusion>
-						<exclusion>
-							<groupId>org.apache.geronimo.specs</groupId>
-							<artifactId>geronimo-j2ee-management_1.0_spec</artifactId>
-						</exclusion>
-						<exclusion>
-							<groupId>commons-logging</groupId>
-							<artifactId>commons-logging-api</artifactId>
-						</exclusion>
-						<exclusion>
-							<groupId>commons-logging</groupId>
-							<artifactId>commons-logging</artifactId>
-						</exclusion>
-					</exclusions>
-				</dependency>
-			</dependencies>
-
-			<build>
-				<plugins>
-					<plugin>
-						<groupId>org.apache.maven.plugins</groupId>
-						<artifactId>maven-war-plugin</artifactId>
-						<configuration>
-							<webResources>
-								<resource>
-									<directory>src/main/webapp</directory>
-									<filtering>false</filtering>
-								</resource>
-								<resource>
-									<directory>src/main/webapp-gae</directory>
+									<directory>src/main/webapp-wildfly</directory>
 									<filtering>false</filtering>
 								</resource>
 							</webResources>
@@ -1180,12 +1117,7 @@
 								<arquillian.launch>tomcat-7-managed</arquillian.launch>
 							</systemProperties>
 							<testNGArtifactName>none:none</testNGArtifactName>
-							<!-- commented out because surefire plugin doesn't understand @Suite annotation of JUnit and openolat won't undeploy.
-							<includes>
-               					 <include>org/olat/test/Selenium2TestsJunit4.java</include>
-              				</includes>
-              				-->
-              				<test>**/Functional*Test.java</test>
+              				<test>org/olat/selenium/*Test.java</test>
 						</configuration>
 					</plugin>
 				</plugins>
@@ -1197,7 +1129,7 @@
 			<id>central</id>
 			<name>Maven Repository Switchboard</name>
 			<layout>default</layout>
-			<url>http://repo1.maven.org/maven2</url>
+			<url>http://central.maven.org/maven2</url>
 			<snapshots>
 				<enabled>false</enabled>
 			</snapshots>
@@ -1291,6 +1223,11 @@
 				<directory>src/main/java</directory>
 				<excludes>
 					<exclude>**/*.java</exclude>
+					<exclude>**/*.vsd</exclude>
+					<exclude>**/*.odg</exclude>
+					<exclude>**/*.odt</exclude>
+					<exclude>**/*.pdf</exclude>
+					<exclude>**/*.graffle</exclude>
 				</excludes>
 			</resource>
 			<resource>
@@ -1302,22 +1239,29 @@
 					<exclude>log4j.xml</exclude>
 				</excludes>
 			</resource>
+			<!--
+			<resource>
+				<directory>src/../</directory>
+				<includes>
+					<include>NOTICE.TXT</include>
+				</includes>
+			</resource>
+			-->
 		</resources>
-    <testResources>
-      <!-- Same comment as for src/main/java also applies to src/test/java -->
-      <testResource>
-        <directory>src/test/java</directory>
-        <excludes>
-          <exclude>**/*.java</exclude>
-        </excludes>
-      </testResource>
-      <testResource>
-        <directory>src/test/resources</directory>
-        <!-- when enabled resources will be searched and variables replaces with
-					values -->
-        <filtering>true</filtering>
-      </testResource>
-    </testResources>
+		<testResources>
+			<!-- Same comment as for src/main/java also applies to src/test/java -->
+			<testResource>
+				<directory>src/test/java</directory>
+				<excludes>
+					<exclude>**/*.java</exclude>
+				</excludes>
+			</testResource>
+			<testResource>
+				<directory>src/test/resources</directory>
+				<!-- when enabled resources will be searched and variables replaces with values -->
+				<filtering>true</filtering>
+			</testResource>
+		</testResources>
 		<plugins>
 			<plugin>
 				<groupId>org.openolat.mojo</groupId>
@@ -1334,6 +1278,26 @@
 				<configuration>
 					<shortRevisionLength>7</shortRevisionLength>
 				</configuration>
+			</plugin>
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-antrun-plugin</artifactId>
+				<version>1.7</version>
+				<executions>
+					<execution>
+						<id>copy-notices-txt</id>
+						<phase>compile</phase>
+						<goals>
+							<goal>run</goal>
+						</goals>
+						<configuration>
+							<target name="copy notice.tx to web project">
+								<copy file="${project.basedir}/NOTICE.TXT"
+									tofile="${project.build.outputDirectory}/NOTICE.TXT"/>
+							</target>
+						</configuration>
+					</execution>
+				</executions>
 			</plugin>
 		</plugins>
 		<pluginManagement>
@@ -1354,7 +1318,7 @@
 				<plugin>
 					<groupId>org.apache.maven.plugins</groupId>
 					<artifactId>maven-war-plugin</artifactId>
-					<version>2.2</version>
+					<version>2.4</version>
 					<configuration>
 						<attachClasses>true</attachClasses>
 						<directory>src/main/java</directory>
@@ -1369,6 +1333,13 @@
 								<Implementation-Build>${buildNumber}</Implementation-Build>
 							</manifestEntries>
 						</archive>
+						<excludes>**/*.pxm, **/*.psd, **/*.scss, **/*.sh, **/*.README</excludes>
+						<webResources>
+							<resource>
+								<directory>src/main/webapp</directory>
+								<filtering>false</filtering>
+							</resource>
+						</webResources>
 					</configuration>
 				</plugin>
 
@@ -1506,7 +1477,7 @@
 						<show>public</show>
 						<subpackages>
 							org.olat.restapi,org.olat.catalog.restapi,org.olat.modules.fo.restapi,
-							org.olat.notifications.restapi,org.olat.user.restapi,org.olat.course.nodes,
+							org.olat.core.commons.services.notifications.restapi,org.olat.user.restapi,org.olat.course.nodes,
 							org.olat.restapi.system
 					</subpackages>
 
@@ -1554,7 +1525,7 @@
 						<formatWadlFile>true</formatWadlFile>
 						<baseUri>http://www.example.com</baseUri>
 						<packagesResourceConfig>
-							<param>org.olat.restapi;org.olat.catalog.restapi;org.olat.notifications.restapi;org.olat.modules.fo.restapi;org.olat.user.restapi;org.olat.course.nodes</param>
+							<param>org.olat.restapi;org.olat.catalog.restapi;org.olat.core.commons.services.notifications.restapi;org.olat.modules.fo.restapi;org.olat.user.restapi;org.olat.course.nodes</param>
 						</packagesResourceConfig>
 						<wadlGenerators>
 							<wadlGeneratorDescription>
@@ -1635,12 +1606,6 @@
 
 	<!-- check with mvn dependency:tree to see what other dep. get downloaded -->
 	<dependencies>
-		<dependency>
-			<groupId>org.openolat.testutils</groupId>
-			<artifactId>codepoints-full</artifactId>
-			<version>1.0.3</version>
-			<scope>test</scope>
-		</dependency>
 		<dependency>
 			<groupId>org.apache.activemq</groupId>
 			<artifactId>activemq-core</artifactId>
@@ -1724,6 +1689,11 @@
 			<version>2.4</version>
 		</dependency>
 		<dependency>
+			<groupId>org.jcodec</groupId>
+			<artifactId>jcodec</artifactId>
+			<version>0.1.6-3</version>
+		</dependency>
+		<dependency>
 			<groupId>org.mnode.ical4j</groupId>
 			<artifactId>ical4j</artifactId>
 			<version>1.0.2</version>
@@ -1773,7 +1743,7 @@
 		<dependency>
 			<groupId>org.apache.pdfbox</groupId>
 			<artifactId>pdfbox</artifactId>
-			<version>1.8.3</version>
+			<version>1.8.5</version>
 			<exclusions>
 				<exclusion>
 					<groupId>commons-logging</groupId>
@@ -1923,7 +1893,7 @@
 		<dependency>
 			<groupId>commons-fileupload</groupId>
 			<artifactId>commons-fileupload</artifactId>
-			<version>1.2.2</version>
+			<version>1.3.1</version>
 		</dependency>
 		<dependency>
 			<groupId>net.sourceforge.nekohtml</groupId>
@@ -1991,11 +1961,6 @@
 			<groupId>commons-lang</groupId>
 			<artifactId>commons-lang</artifactId>
 			<version>2.6</version>
-		</dependency>
-		<dependency>
-			<groupId>org.openolat.testutils</groupId>
-			<artifactId>codepoints</artifactId>
-			<version>1.0.3</version>
 		</dependency>
 		<dependency>
 			<groupId>org.infinispan</groupId>
@@ -2079,12 +2044,7 @@
 		<dependency>
 			<groupId>com.thoughtworks.xstream</groupId>
 			<artifactId>xstream</artifactId>
-			<version>1.4.5</version>
-		</dependency>
-		<dependency>
-			<groupId>cos</groupId>
-			<artifactId>cos</artifactId>
-			<version>05Nov2002</version>
+			<version>1.4.7</version>
 		</dependency>
 		<dependency>
 			<groupId>xerces</groupId>
@@ -2126,27 +2086,27 @@
 		<dependency>
 			<groupId>org.apache.lucene</groupId>
 			<artifactId>lucene-core</artifactId>
-			<version>4.5.1</version>
+			<version>${lucene.version}</version>
 		</dependency>
 		<dependency>
 			<groupId>org.apache.lucene</groupId>
 			<artifactId>lucene-highlighter</artifactId>
-			<version>4.5.1</version>
+			<version>${lucene.version}</version>
 		</dependency>
 		<dependency>
 			<groupId>org.apache.lucene</groupId>
 			<artifactId>lucene-queryparser</artifactId>
-			<version>4.5.1</version>
+			<version>${lucene.version}</version>
 		</dependency>
 		<dependency>
 			<groupId>org.apache.lucene</groupId>
 			<artifactId>lucene-analyzers-common</artifactId>
-			<version>4.5.1</version>
+			<version>${lucene.version}</version>
 		</dependency>
 		<dependency>
 			<groupId>org.apache.lucene</groupId>
 			<artifactId>lucene-suggest</artifactId>
-			<version>4.5.1</version>
+			<version>${lucene.version}</version>
 		</dependency>
 
 		<!-- End lucene dependencies -->
@@ -2276,13 +2236,13 @@
 		<dependency>
 		    <groupId>io.undertow</groupId>
 		    <artifactId>undertow-core</artifactId>
-		    <version>1.0.0.Beta30</version>
+		    <version>1.0.9.Final</version>
 			<scope>test</scope>
 		</dependency>
 		<dependency>
 		    <groupId>io.undertow</groupId>
 		    <artifactId>undertow-servlet</artifactId>
-		    <version>1.0.0.Beta30</version>
+		    <version>1.0.9.Final</version>
 			<scope>test</scope>
 		</dependency>
 
@@ -2295,7 +2255,7 @@
 		<dependency>
         	<groupId>org.jboss.arquillian.container</groupId>
         	<artifactId>arquillian-tomcat-managed-7</artifactId>
-        	<version>1.0.0.CR5</version>
+        	<version>1.0.0.CR6</version>
         	<scope>test</scope>
       	</dependency>
 		<dependency>
@@ -2311,6 +2271,20 @@
 		<dependency>
 			<groupId>org.jboss.arquillian.extension</groupId>
 			<artifactId>arquillian-drone-selenium-server</artifactId>
+			<scope>test</scope>
+		</dependency>
+		<dependency>
+            <groupId>org.jboss.arquillian.extension</groupId>
+            <artifactId>arquillian-drone-webdriver-depchain</artifactId>
+            <version>1.3.0.Final</version>
+            <type>pom</type>
+            <scope>test</scope>
+        </dependency>
+		<dependency>
+			<groupId>org.jboss.arquillian.graphene</groupId>
+			<artifactId>graphene-webdriver</artifactId>
+			<version>2.0.3.Final</version>
+			<type>pom</type>
 			<scope>test</scope>
 		</dependency>
 		<dependency>
@@ -2343,14 +2317,14 @@
 			<dependency>
 				<groupId>org.jboss.arquillian</groupId>
 				<artifactId>arquillian-bom</artifactId>
-				<version>1.1.1.Final</version>
+				<version>1.1.4.Final</version>
 				<scope>import</scope>
 				<type>pom</type>
 			</dependency>
 			<dependency>
 				<groupId>org.jboss.arquillian.extension</groupId>
 				<artifactId>arquillian-drone-bom</artifactId>
-				<version>1.1.1.Final</version>
+				<version>1.3.0.Final</version>
 				<type>pom</type>
 				<scope>import</scope>
 			</dependency>
@@ -2375,17 +2349,15 @@
 				<version>2.9</version>
 			</plugin>
 			<!-- Javadoc -->
-
-
 			<!-- <reportSets> <reportSet> <reports> <report>javadoc</report> -->
 			<!-- Note: leave this line commented out if unit tests are not to be documented
 				<report>test-javadoc</report>report> -->
 			<!-- </reports> </reportSet> </reportSets> </plugin> -->
 			<plugin>
-        <groupId>org.apache.maven.plugins</groupId>
-        <artifactId>maven-jxr-plugin</artifactId>
-        <version>2.3</version>
-      </plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-jxr-plugin</artifactId>
+				<version>2.3</version>
+			</plugin>
 			<plugin>
 				<groupId>org.codehaus.mojo</groupId>
 				<artifactId>cobertura-maven-plugin</artifactId>

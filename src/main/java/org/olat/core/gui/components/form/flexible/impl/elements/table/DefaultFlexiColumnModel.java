@@ -34,6 +34,7 @@ package org.olat.core.gui.components.form.flexible.impl.elements.table;
 public class DefaultFlexiColumnModel implements FlexiColumnModel {
 
 	private String headerKey;
+	private String headerLabel;
 	private String columnKey;
 	private int columnIndex;
 
@@ -71,6 +72,11 @@ public class DefaultFlexiColumnModel implements FlexiColumnModel {
 	}
 
 	@Override
+	public boolean isAlwaysVisible() {
+		return false;
+	}
+
+	@Override
 	public String getAction() {
 		return null;
 	}
@@ -78,6 +84,15 @@ public class DefaultFlexiColumnModel implements FlexiColumnModel {
 	@Override
 	public String getHeaderKey() {
 		return headerKey;
+	}
+
+	@Override
+	public String getHeaderLabel() {
+		return headerLabel;
+	}
+
+	public void setHeaderLabel(String headerLabel) {
+		this.headerLabel = headerLabel;
 	}
 
 	@Override
@@ -97,6 +112,10 @@ public class DefaultFlexiColumnModel implements FlexiColumnModel {
 
 	public boolean isDefaultVisible() {
 		return defaultVisible;
+	}
+	
+	public void setDefaultVisible(boolean defaultVisible) {
+		this.defaultVisible = defaultVisible;
 	}
 
 	@Override

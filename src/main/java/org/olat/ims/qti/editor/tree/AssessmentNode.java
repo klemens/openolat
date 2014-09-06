@@ -31,7 +31,6 @@ import java.util.Map;
 
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.tabbedpane.TabbedPane;
-import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.WindowControl;
 import org.olat.core.gui.control.generic.tabbable.TabbableController;
 import org.olat.core.gui.translator.Translator;
@@ -141,7 +140,7 @@ public class AssessmentNode extends GenericQtiNode {
 	public Memento createMemento() {
 		// so far only TITLE and OBJECTIVES are stored in the memento
 		QtiNodeMemento qnm = new QtiNodeMemento();
-		Map qtiState = new HashMap();
+		Map<String,Object> qtiState = new HashMap<>();
 		qtiState.put("ID", assmnt.getIdent());
 		qtiState.put("TITLE", assmnt.getTitle());
 		qtiState.put("OBJECTIVES", assmnt.getObjectives());
@@ -157,7 +156,7 @@ public class AssessmentNode extends GenericQtiNode {
 		String retVal = null;
 		if (mem instanceof QtiNodeMemento) {
 			QtiNodeMemento qnm = (QtiNodeMemento) mem;
-			Map qtiState = qnm.getQtiState();
+			Map<String,Object> qtiState = qnm.getQtiState();
 			String oldTitle = (String) qtiState.get("TITLE");
 			String newTitle = assmnt.getTitle();
 			String titleChange = null;

@@ -49,7 +49,7 @@
 				<value>org.olat.modules.fo.restapi.MyForumsWebService</value>
 				<value>org.olat.modules.openmeetings.restapi.OpenMeetingsWebService</value>
 				<value>org.olat.catalog.restapi.CatalogWebService</value>
-				<value>org.olat.notifications.restapi.NotificationsWebService</value>
+				<value>org.olat.core.commons.services.notifications.restapi.NotificationsWebService</value>
 				<value>org.olat.registration.restapi.RegistrationWebService</value>
 				<value>org.olat.registration.restapi.ChangePasswordWebService</value>
 				<value>org.olat.commons.calendar.restapi.UserCalendarWebService</value>
@@ -76,9 +76,7 @@
 			they will get notified. The shortest interval is set to two hours. 	    	
 	    -->
 	    <property name="cronExpression" value="*/15 * * * * ?" />
-
-			<!-- OLAT-5093 start delay ensures there's no conflict with server startup and db not being ready yet -->
-	    <property name="startDelay" value="0" />
+	    <property name="startDelay" value="60000" />
 	</bean>
 	
 	<bean id="systemSamplerJob" class="org.springframework.scheduling.quartz.JobDetailBean">

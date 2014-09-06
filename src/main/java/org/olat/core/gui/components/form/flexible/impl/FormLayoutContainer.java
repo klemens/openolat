@@ -33,7 +33,6 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 
-import org.olat.core.gui.GUIInterna;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.Component;
 import org.olat.core.gui.components.form.flexible.FormItem;
@@ -41,12 +40,12 @@ import org.olat.core.gui.components.form.flexible.FormItemContainer;
 import org.olat.core.gui.components.form.flexible.FormItemDependencyRule;
 import org.olat.core.gui.components.form.flexible.FormLayouter;
 import org.olat.core.gui.components.form.flexible.FormMultipartItem;
-import org.olat.core.gui.components.form.flexible.elements.Submit;
 import org.olat.core.gui.components.velocity.VelocityContainer;
 import org.olat.core.gui.control.Disposable;
 import org.olat.core.gui.render.velocity.VelocityRenderDecorator;
 import org.olat.core.gui.translator.PackageTranslator;
 import org.olat.core.gui.translator.Translator;
+import org.olat.core.util.StringHelper;
 import org.olat.core.util.Util;
 import org.olat.core.util.ValidationStatus;
 
@@ -62,15 +61,19 @@ public class FormLayoutContainer extends FormItemImpl implements FormItemContain
 
 	private static final String VELOCITY_ROOT = Util.getPackageVelocityRoot(FormLayoutContainer.class);
 	private static final String LAYOUT_DEFAULT = VELOCITY_ROOT + "/form_default.html";
+	private static final String LAYOUT_DEFAULT_6_6 = VELOCITY_ROOT + "/form_default_6_6.html";
+	private static final String LAYOUT_DEFAULT_9_3 = VELOCITY_ROOT + "/form_default_9_3.html";
 	private static final String LAYOUT_HORIZONTAL = VELOCITY_ROOT + "/form_horizontal.html";
 	private static final String LAYOUT_VERTICAL = VELOCITY_ROOT + "/form_vertical.html";
-	private static final String LAYOUT_SELBOX = VELOCITY_ROOT + "/form_selbox.html";
+	private static final String LAYOUT_BAREBONE = VELOCITY_ROOT + "/form_barebone.html";
 	private static final String LAYOUT_BUTTONGROUP = VELOCITY_ROOT + "/form_buttongroup.html";
+	private static final String LAYOUT_INPUTGROUP = VELOCITY_ROOT + "/form_inputgroup.html";
+	private static final String LAYOUT_PANEL = VELOCITY_ROOT + "/form_panel.html";
 
 	/**
 	 * manage the form components of this form container
 	 */
-	protected VelocityContainer formLayoutContainer;
+	private VelocityContainer formLayoutContainer;
 	/**
 	 * formComponents and formComponentNames are managed together, change something here needs a change there.
 	 * formComponents contain the FormItem based on their name
@@ -78,9 +81,9 @@ public class FormLayoutContainer extends FormItemImpl implements FormItemContain
 	 * The addXXX method adds elements -> 
 	 * The register method register an element only -> used for setErrorComponent / setLabelComponent.
 	 */
-	protected Map<String,FormItem> formComponents;
-	protected List<String> formComponentsNames;
-	protected Map<String,FormItem> listeningOnlyFormComponents;
+	private Map<String,FormItem> formComponents;
+	private List<String> formComponentsNames;
+	private Map<String,FormItem> listeningOnlyFormComponents;
 	private boolean hasRootForm=false;
 	private Map<String, Map<String, FormItemDependencyRule>> dependencyRules;
 
@@ -113,9 +116,13 @@ public class FormLayoutContainer extends FormItemImpl implements FormItemContain
 	private FormLayoutContainer(String id, String name, Translator formTranslator, String page) {
 		super(id, name, false);
 		formLayoutContainer = new VelocityContainer(id == null ? null : id + "_VC", name, page, formTranslator, null);
+		if (page.equals(LAYOUT_DEFAULT) || page.equals(LAYOUT_VERTICAL) || page.equals(LAYOUT_HORIZONTAL) || page.equals(LAYOUT_BUTTONGROUP) || page.equals(LAYOUT_INPUTGROUP)) {
+			// optimize for lower DOM element count - provides its own DOM ID in velocity template
+			formLayoutContainer.setDomReplacementWrapperRequired(false);
+		}
 		translator = formTranslator;
 		// add the form decorator for the $f.hasError("ddd") etc.
-		formLayoutContainer.contextPut("f", new FormDecoratorImpl(this));
+		formLayoutContainer.contextPut("f", new FormDecorator(this));
 		// this container manages the form items, the GUI form item componentes are
 		// managed in the associated velocitycontainer
 		formComponentsNames = new ArrayList<String>(5);
@@ -181,15 +188,6 @@ public class FormLayoutContainer extends FormItemImpl implements FormItemContain
 		formComponentsNames.add(formCompName);
 		formComponents.put(formCompName, formComp);
 		
-		
-		if (GUIInterna.isLoadPerformanceMode()) {
-			// sort of "register" the new FormItem
-			// so that it will have a replayableID
-			getRootForm().getReplayableDispatchID(
-				formComp.getComponent()
-			);
-		}
-		
 		/*
 		 * add the gui representation
 		 */
@@ -197,12 +195,7 @@ public class FormLayoutContainer extends FormItemImpl implements FormItemContain
 		formLayoutContainer.put(formCompName + FormItem.ERRORC, formComp.getErrorC());
 		formLayoutContainer.put(formCompName + FormItem.EXAMPLEC, formComp.getExampleC());
 		formLayoutContainer.put(formCompName + FormItem.LABELC, formComp.getLabelC());
-		/*
-		 * recognize submits and register it for the IE enter-pressing
-		 */
-		if(formComp instanceof Submit){
-			getRootForm().registerSubmit(formComp);
-		}
+
 		// Check for multipart data, add upload limit to form
 		if (formComp instanceof FormMultipartItem) {
 			FormMultipartItem mpItem = (FormMultipartItem) formComp;
@@ -259,18 +252,10 @@ public class FormLayoutContainer extends FormItemImpl implements FormItemContain
 		String formCompName = formComp.getName();
 		// book keeping of FormComponent order
 		listeningOnlyFormComponents.put(formCompName, formComp);
-		
-		if (GUIInterna.isLoadPerformanceMode()) {
-			// sort of "register" the new FormItem
-			// so that it will have a replayableID
-			getRootForm().getReplayableDispatchID(
-				formComp.getComponent()
-			);
-		}
-		
 	}
-
-	public void remove(FormItem toBeRemoved){
+	
+	@Override
+	public void remove(FormItem toBeRemoved) {
 		String formCompName = toBeRemoved.getName();
 		remove(formCompName, toBeRemoved);
 	}
@@ -309,20 +294,12 @@ public class FormLayoutContainer extends FormItemImpl implements FormItemContain
 		formLayoutContainer.put(formCompName + FormItem.ERRORC, with.getErrorC());
 		formLayoutContainer.put(formCompName + FormItem.EXAMPLEC, with.getExampleC());
 		formLayoutContainer.put(formCompName + FormItem.LABELC, with.getLabelC());
-		/*
-		 * recognize submits and register it for the IE enter-pressing
-		 */
-		if(with instanceof Submit){
-			getRootForm().registerSubmit(with);
-		}
+
 		// Check for multipart data, add upload limit to form
 		if (with instanceof FormMultipartItem) {
 			FormMultipartItem mpItem = (FormMultipartItem) with;
 			getRootForm().setMultipartEnabled(true, mpItem.getMaxUploadSizeKB());
 		}
-		
-		
-		
 	}
 	
 	/**
@@ -402,6 +379,10 @@ public class FormLayoutContainer extends FormItemImpl implements FormItemContain
 
 	public Component getComponent(String name) {
 		return formLayoutContainer.getComponent(name);
+	}
+	
+	public boolean isDomReplacementWrapperRequired() {
+		return formLayoutContainer.isDomReplacementWrapperRequired();
 	}
 	
 	public String getId(String prefix) {
@@ -504,7 +485,7 @@ public class FormLayoutContainer extends FormItemImpl implements FormItemContain
 	}
 
 	/**
-	 * Create a default layout container with the standard label - element alignment.
+	 * Create a default layout container with the standard label - element alignment left.
 	 * 
 	 * @param name
 	 * @param formTranslator
@@ -514,6 +495,30 @@ public class FormLayoutContainer extends FormItemImpl implements FormItemContain
 		FormLayoutContainer tmp = new FormLayoutContainer(name, formTranslator, LAYOUT_DEFAULT);
 		return tmp;
 	}
+	
+	/**
+	 * This a variant of the default form layout but with a ration 6 to 6 for label and field.
+	 * @param name
+	 * @param formTranslator
+	 * @return
+	 */
+	public static FormLayoutContainer createDefaultFormLayout_6_6(String name, Translator formTranslator){
+		FormLayoutContainer tmp = new FormLayoutContainer(name, formTranslator, LAYOUT_DEFAULT_6_6);
+		return tmp;
+	}
+	
+	
+	/**
+	 * This a variant of the default form layout but with a ration 9 to 3 for label and field.
+	 * @param name
+	 * @param formTranslator
+	 * @return
+	 */
+	public static FormLayoutContainer createDefaultFormLayout_9_3(String name, Translator formTranslator){
+		FormLayoutContainer tmp = new FormLayoutContainer(name, formTranslator, LAYOUT_DEFAULT_9_3);
+		return tmp;
+	}
+	
 	
 	/**
 	 * Create a layout container that renders the form elements and its labels vertically. 
@@ -540,10 +545,33 @@ public class FormLayoutContainer extends FormItemImpl implements FormItemContain
 		FormLayoutContainer tmp = new FormLayoutContainer(name, formTranslator, LAYOUT_VERTICAL);
 		return tmp;
 	}
+	
+	/**
+	 * Create a layout container which only loop and render a list of components. There isn't
+	 * any warning, error, label rendering.
+	 * @param name
+	 * @param formTranslator
+	 * @return
+	 */
+	public static FormLayoutContainer createBareBoneFormLayout(String name, Translator formTranslator){
+		FormLayoutContainer tmp = new FormLayoutContainer(name, formTranslator, LAYOUT_BAREBONE);
+		return tmp;
+	}
+	
+	/**
+	 * Create a layout container based on the panel of bootstrap
+	 * @param name
+	 * @param formTranslator
+	 * @return
+	 */
+	public static FormLayoutContainer createPanelFormLayout(String name, Translator formTranslator){
+		FormLayoutContainer tmp = new FormLayoutContainer(name, formTranslator, LAYOUT_PANEL);
+		return tmp;
+	}
 
 	/**
 	 * Create a layout container that should be only used to render buttons using
-	 * a b_button_group css wrapper. Buttons are ususally rendered on one line
+	 * a o_button_group css wrapper. Buttons are ususally rendered on one line
 	 * without indent
 	 * 
 	 * @param name
@@ -556,12 +584,29 @@ public class FormLayoutContainer extends FormItemImpl implements FormItemContain
 	}
 
 	/**
-	 * workaround FIXME:pb
-     */
-	public static FormLayouter createSelbox(String name, Translator formTranslator) {
-		FormLayouter tmp = new FormLayoutContainer(name, formTranslator, LAYOUT_SELBOX);
+	 * Create a layout container that should be only used to render input groups. Input groups are 
+	 * form items that are decorated with some left or right sided add-on. The add-on can be either
+	 * a text (e.g. "@" to indicate an email address field) or an html i-tag with some OpenOLAT image
+	 * classes. Alternatively, a second component can be added to the layout container with the name
+	 * "leftAddOn" or "rightAddOn" to use the component as add-on (e.g. to implement a chooser link)
+	 * 
+	 * @param name The name of the form layout container
+	 * @param formTranslator the form translator
+	 * @param leftTextAddOn the left side add-on text or NULL if not used
+	 * @param rightTextAddOn the right side add-on text or NULL if not used
+	 * @return the form layout container
+	 */
+	public static FormLayoutContainer createInputGroupLayout(String name, Translator formTranslator, String leftTextAddOn, String rightTextAddOn) {
+		FormLayoutContainer tmp = new FormLayoutContainer(name, formTranslator, LAYOUT_INPUTGROUP);
+		if (StringHelper.containsNonWhitespace(leftTextAddOn)) {
+			tmp.contextPut("leftAddOn", leftTextAddOn);
+		}
+		if (StringHelper.containsNonWhitespace(rightTextAddOn)) {
+			tmp.contextPut("rightAddOn", rightTextAddOn);
+		}
 		return tmp;
 	}
+
 	
 	/**
 	 * 

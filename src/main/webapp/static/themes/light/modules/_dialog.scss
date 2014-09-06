@@ -1,0 +1,102 @@
+/* Info and other dialog boxes, displayed inline in content */
+.o_info, %o_info { 
+	@include o-make-message-box($o-box-info-bg, $o-box-info-color);
+}
+.o_note, %o_note { 
+	@include o-make-message-box($o-box-note-bg, $o-box-note-color);
+}
+.o_important, %o_important { 
+	@include o-make-message-box($o-box-important-bg, $o-box-important-color);
+}
+.o_success, %o_success { 
+	@include o-make-message-box($o-box-success-bg, $o-box-success-color);
+}
+.o_warning, %o_warning { 
+	@include o-make-message-box($o-box-warning-bg, $o-box-warning-color);
+}
+.o_error, %o_error { 
+	@include o-make-message-box($o-box-error-bg, $o-box-error-color);
+}
+
+
+/* Callout window (implemented with bootstrap popover, see CloseableCalloutWindowController for JS part */
+div.o_callout_overlay { 
+	position: fixed; 
+	top: 0; left: 0; 
+	width:100%; height:100%; 
+	zoom:1;  
+	background: #000; 
+	@include opacity(0);
+}
+
+/* Info messages appear on top of page and auto-disapear, alerts are modal and must be accepted manually */
+.o_alert_info {
+	position: fixed;
+	top: -100%;	
+	left: 0;
+	display: none;
+ 	z-index: 2000; /* modal is 1050 */
+ 	width: 100%;
+ 	text-align: center;
+ 	
+ 	.alert {
+		position: relative;
+		width: auto;
+		margin:0 auto;
+		text-align: left;
+		@include box-shadow(0px 1px 5px -1px rgba(0,0,0,.15));
+		
+		.o_icon_close {
+			float: right;
+			color: $gray-light;
+			&:hover {
+				color: $gray;			
+			}
+		}
+		@media (min-width: $screen-sm-min) {
+		  // Automatically set modal's width for larger viewports
+		    width: $modal-md;
+		}
+ 	}
+}
+
+/* Sticky info (admins can create stick-messages that will show for all users) */
+#o_msg_sticky, #o_msg_sticky_preview { 	
+	position: relative;
+	color: $state-danger-text;
+	background-color: $state-danger-bg; 
+	border: 1px solid $state-danger-border;
+	padding: $padding-large-vertical $padding-large-horizontal $padding-large-vertical $line-height-computed * 3;
+	min-height: $line-height-computed * 2;
+	
+	margin: -$navbar-margin-bottom 0 $navbar-margin-bottom 0;
+	
+	.o_icon_info_msg {
+		position: absolute;
+		left: floor($line-height-computed / 2);
+		top: floor($line-height-computed / 4);
+		font-size: $line-height-computed * 2;
+	}
+	
+}
+
+/* extend bootstrap modal classes for extra large modal views that should us entire available space, e.g. in wizards */
+.modal {
+	.o_modal_fullwidth {
+		@media (min-width: $screen-sm-min) {
+			width: 90%;
+		}
+		@media (min-width: $screen-md-min) {
+			width: 80%;
+		}
+	}
+	.modal-header h4 {
+		color: $o-dialog-header-color;
+	  	font-weight: $o-dialog-header-font-weight;
+		font-family: $headings-font-family;
+	  	line-height: $headings-line-height;
+	}
+}
+
+
+

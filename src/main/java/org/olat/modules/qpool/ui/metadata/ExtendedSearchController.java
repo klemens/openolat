@@ -30,6 +30,7 @@ import org.olat.core.gui.components.form.flexible.FormItemContainer;
 import org.olat.core.gui.components.form.flexible.elements.FormLink;
 import org.olat.core.gui.components.form.flexible.elements.SingleSelection;
 import org.olat.core.gui.components.form.flexible.elements.TextElement;
+import org.olat.core.gui.components.form.flexible.impl.Form;
 import org.olat.core.gui.components.form.flexible.impl.FormBasicController;
 import org.olat.core.gui.components.form.flexible.impl.FormEvent;
 import org.olat.core.gui.components.form.flexible.impl.FormLayoutContainer;
@@ -69,11 +70,12 @@ public class ExtendedSearchController extends FormBasicController implements Ext
 	
 	private final String prefsKey;
 	private ExtendedSearchPrefs prefs;
+	private boolean enabled = true;
 	
 	private final QPoolService qpoolService;
 
-	public ExtendedSearchController(UserRequest ureq, WindowControl wControl, String prefsKey) {
-		super(ureq, wControl, "extended_search");
+	public ExtendedSearchController(UserRequest ureq, WindowControl wControl, String prefsKey, Form mainForm) {
+		super(ureq, wControl, LAYOUT_CUSTOM, "extended_search", mainForm);
 		setTranslator(Util.createPackageTranslator(QuestionsController.class, getLocale(), getTranslator()));
 		
 		qpoolService = CoreSpringFactory.getImpl(QPoolService.class);
@@ -106,11 +108,24 @@ public class ExtendedSearchController extends FormBasicController implements Ext
 		buttonsCont.setRootForm(mainForm);
 		formLayout.add(buttonsCont);
 		searchButton = uifactory.addFormLink("search", buttonsCont, Link.BUTTON);
+		uifactory.addFormCancelButton("cancel", buttonsCont, ureq, getWindowControl());
+	}
+	
+	@Override
+	public void setEnabled(boolean enable) {
+		this.enabled = enable;
 	}
 
 	@Override
 	protected void formOK(UserRequest ureq) {
-		doSearch(ureq);
+		if(enabled) {
+			doSearch(ureq);
+		}
+	}
+
+	@Override
+	protected void formCancelled(UserRequest ureq) {
+		fireEvent(ureq, Event.CANCELLED_EVENT);
 	}
 
 	@Override
@@ -125,17 +140,18 @@ public class ExtendedSearchController extends FormBasicController implements Ext
 			}
 		} else if(source instanceof FormLink) {
 			FormLink button = (FormLink)source;
-			ConditionalQuery query = (ConditionalQuery)button.getUserObject();
 			if(button.getCmd().startsWith("add")) {
-				addParameter(ureq, query);
+				ConditionalQuery query = (ConditionalQuery)button.getUserObject();
+				addParameter(query);
 			} else if(button.getCmd().startsWith("remove")) {
-				removeParameter(ureq, query);
+				ConditionalQuery query = (ConditionalQuery)button.getUserObject();
+				removeParameter(query);
 			}
 		}
 		super.formInnerEvent(ureq, source, event);
 	}
 	
-	private void addParameter(UserRequest ureq, ConditionalQuery query) {
+	private void addParameter(ConditionalQuery query) {
 		int index = uiQueries.indexOf(query);
 		ConditionalQuery newQuery = new ConditionalQuery();
 		if(index < 0 || (index + 1) > uiQueries.size()) {
@@ -145,7 +161,7 @@ public class ExtendedSearchController extends FormBasicController implements Ext
 		}
 	}
 	
-	private void removeParameter(UserRequest ureq, ConditionalQuery query) {
+	private void removeParameter(ConditionalQuery query) {
 		if(uiQueries.size() > 1 && uiQueries.remove(query)) {
 			flc.setDirty(true);
 		}
@@ -215,14 +231,14 @@ public class ExtendedSearchController extends FormBasicController implements Ext
 				attrValues[i] = translate(attrKeys[i]);
 			}
 
-			attributeChoice = uifactory.addDropdownSingleselect("attr-" + id, flc, attrKeys, attrValues, null);
+			attributeChoice = uifactory.addDropdownSingleselect("attr-" + id, null, flc, attrKeys, attrValues, null);
 			attributeChoice.select(attrKeys[0], true);
 			if(pref == null) {
 				selectAttributeType(attrKeys[0], null);
 			} else {
 				selectAttributeType(pref.getAttribute(), pref.getValue());
 			}
-			attributeChoice.addActionListener(ExtendedSearchController.this, FormEvent.ONCHANGE);
+			attributeChoice.addActionListener(FormEvent.ONCHANGE);
 			attributeChoice.setUserObject(this);
 			flc.add(attributeChoice.getName(), attributeChoice);
 			addButton = uifactory.addFormLink("add-" + id, "add", null, flc, Link.BUTTON);

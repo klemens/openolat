@@ -48,6 +48,7 @@ import org.olat.core.id.OLATResourceable;
 import org.olat.core.logging.activity.ActionType;
 import org.olat.course.CourseFactory;
 import org.olat.course.ICourse;
+import org.olat.course.nodes.CheckListCourseNode;
 import org.olat.course.nodes.DialogCourseNode;
 import org.olat.course.nodes.FOCourseNode;
 import org.olat.course.nodes.ProjectBrokerCourseNode;
@@ -74,6 +75,7 @@ public class ArchiverMainController extends MainLayoutBasicController {
 	private static final String CMD_DIALOGS = "dialogs";
 	private static final String CMD_WIKIS = "wikis";
 	private static final String CMD_SCORM = "scorm";
+	private static final String CMD_CHECKLIST = "checklist";
 	
 	
 	private IArchiverCallback archiverCallback;
@@ -116,7 +118,7 @@ public class ArchiverMainController extends MainLayoutBasicController {
 		menuTree.setSelectedNodeId(tm.getRootNode().getIdent());
 		menuTree.addListener(this);
 				
-		columnLayoutCtr = new LayoutMain3ColsController(ureq, getWindowControl(), menuTree, null, main, "course" + ores.getResourceableId());
+		columnLayoutCtr = new LayoutMain3ColsController(ureq, getWindowControl(), menuTree, main, "course" + ores.getResourceableId());
 		listenTo(columnLayoutCtr); // cleanup on dispose
 		putInitialPanel(columnLayoutCtr.getInitialComponent());
 	}
@@ -224,11 +226,18 @@ public class ArchiverMainController extends MainLayoutBasicController {
 			gtn.setAltText(translate("menu.wikis.alt"));
 			root.addChild(gtn);
 		}
-		if (archiverCallback.mayArchiveWikis()) {
+		if (archiverCallback.mayArchiveScorm()) {
 			gtn = new GenericTreeNode();		
 			gtn.setTitle(translate("menu.scorm"));
 			gtn.setUserObject(CMD_SCORM);
 			gtn.setAltText(translate("menu.scorm.alt"));
+			root.addChild(gtn);
+		}
+		if (archiverCallback.mayArchiveChecklist()) {
+			gtn = new GenericTreeNode();		
+			gtn.setTitle(translate("menu.checklist"));
+			gtn.setUserObject(CMD_CHECKLIST);
+			gtn.setAltText(translate("menu.checklist.alt"));
 			root.addChild(gtn);
 		}
 		
@@ -288,6 +297,9 @@ public class ArchiverMainController extends MainLayoutBasicController {
 				main.setContent(contentCtr.getInitialComponent());
 			} else if (menuCommand.equals(CMD_SCORM)) {
 				contentCtr = new GenericArchiveController(ureq, getWindowControl(), ores, new ScormCourseNode());
+				main.setContent(contentCtr.getInitialComponent());
+			} else if (menuCommand.equals(CMD_CHECKLIST)) {
+				contentCtr = new GenericArchiveController(ureq, getWindowControl(), ores, new CheckListCourseNode());
 				main.setContent(contentCtr.getInitialComponent());
 			}
 			listenTo(contentCtr);

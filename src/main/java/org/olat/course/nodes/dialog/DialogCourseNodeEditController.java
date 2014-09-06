@@ -46,7 +46,7 @@ import org.olat.core.gui.control.ControllerEventListener;
 import org.olat.core.gui.control.Event;
 import org.olat.core.gui.control.WindowControl;
 import org.olat.core.gui.control.generic.tabbable.ActivateableTabbableDefaultController;
-import org.olat.core.gui.translator.PackageTranslator;
+import org.olat.core.gui.translator.Translator;
 import org.olat.core.logging.activity.CourseLoggingAction;
 import org.olat.core.logging.activity.ThreadLocalUserActivityLogger;
 import org.olat.core.util.Util;
@@ -56,7 +56,6 @@ import org.olat.course.assessment.AssessmentHelper;
 import org.olat.course.condition.Condition;
 import org.olat.course.condition.ConditionEditController;
 import org.olat.course.editor.NodeEditController;
-import org.olat.course.groupsandrights.CourseGroupManager;
 import org.olat.course.nodes.BCCourseNode;
 import org.olat.course.nodes.DialogCourseNode;
 import org.olat.course.run.userview.UserCourseEnvironment;
@@ -93,7 +92,7 @@ public class DialogCourseNodeEditController extends ActivateableTabbableDefaultC
 	private ICourse course;
 	private DialogConfigForm configForumLaunch;
 	private TableController tableCtr;
-	private PackageTranslator resourceTrans;
+	private Translator resourceTrans;
 	private FileUploadController fileUplCtr;
 	private DialogElement recentElement;
 	private TableGuiConfiguration tableConf;
@@ -106,7 +105,7 @@ public class DialogCourseNodeEditController extends ActivateableTabbableDefaultC
 		this.course = course;
 		this.courseNode = node;
 		
-		this.resourceTrans = new PackageTranslator(Util.getPackageName(DialogElementsTableModel.class), ureq.getLocale(), getTranslator());
+		resourceTrans = Util.createPackageTranslator(DialogElementsTableModel.class, ureq.getLocale(), getTranslator());
 		// set name of the folder we use
 		bcNode.setShortTitle(translate("dialog.folder.name"));
 
@@ -124,26 +123,25 @@ public class DialogCourseNodeEditController extends ActivateableTabbableDefaultC
 		// accessability config tab		
 		accessContent = this.createVelocityContainer("edit_access");
 
-		CourseGroupManager groupMgr = course.getCourseEnvironment().getCourseGroupManager();
 		CourseEditorTreeModel editorModel = course.getEditorTreeModel();
 		// Reader precondition
 		Condition readerCondition = courseNode.getPreConditionReader();
 		// TODO:gs:a getAssessableNodes ist der dialog node assessable oder nicht?
-		readerCondContr = new ConditionEditController(ureq, getWindowControl(), groupMgr, readerCondition, "readerConditionForm",
+		readerCondContr = new ConditionEditController(ureq, getWindowControl(), readerCondition,
 				AssessmentHelper.getAssessableNodes(editorModel, courseNode), userCourseEnv);		
-    this.listenTo(readerCondContr);
+		listenTo(readerCondContr);
 		accessContent.put("readerCondition", readerCondContr.getInitialComponent());
 
 		// Poster precondition
 		Condition posterCondition = courseNode.getPreConditionPoster();
-		posterCondContr = new ConditionEditController(ureq, getWindowControl(), groupMgr, posterCondition, "posterConditionForm",
+		posterCondContr = new ConditionEditController(ureq, getWindowControl(), posterCondition,
 				AssessmentHelper.getAssessableNodes(editorModel, courseNode), userCourseEnv);		
 		this.listenTo(posterCondContr);
 		accessContent.put("posterCondition", posterCondContr.getInitialComponent());
 
 		// Moderator precondition
 		Condition moderatorCondition = courseNode.getPreConditionModerator();
-		moderatorCondContr = new ConditionEditController(ureq, getWindowControl(), groupMgr, moderatorCondition, "moderatorConditionForm",
+		moderatorCondContr = new ConditionEditController(ureq, getWindowControl(), moderatorCondition,
 				AssessmentHelper.getAssessableNodes(editorModel, courseNode), userCourseEnv);
 		//FIXME:gs: why is firing needed here?
 		fireEvent(ureq, NodeEditController.NODECONFIG_CHANGED_EVENT);		
@@ -262,7 +260,7 @@ public class DialogCourseNodeEditController extends ActivateableTabbableDefaultC
 		listenTo(tableCtr);
 		
 		DialogPropertyElements elements = DialogElementsPropertyManager.getInstance().findDialogElements(this.course.getCourseEnvironment().getCoursePropertyManager(), courseNode);
-		List list = new ArrayList();
+		List<DialogElement> list = new ArrayList<>();
 		DialogElementsTableModel tableModel = new DialogElementsTableModel(getTranslator(), null, null);
 		if (elements != null) list = elements.getDialogPropertyElements();
 		tableModel.setEntries(list);

@@ -131,7 +131,7 @@ public class ChoiceQuestion extends Question implements QTIObject {
 						choice.setCorrect(true);
 					}
 				}
-
+				
 				// get type of multiple choice
 				if (instance.getType() == TYPE_MC) {
 					// if does not contain any ANDs, assume only one combination
@@ -139,17 +139,20 @@ public class ChoiceQuestion extends Question implements QTIObject {
 					if (resprocessingXML.selectNodes(".//setvar[@action='Add']").size() == 0) {
 						instance.setSingleCorrect(true);
 						Collection<Float> values = points.values();
-						if (values.size() > 0) instance.setSingleCorrectScore(((Float) (values.iterator().next())).floatValue());
+						if (values.size() > 0) instance.setSingleCorrectScore((values.iterator().next()).floatValue());
 					} else {
 						instance.setSingleCorrect(false);
 					}
+					QTIEditHelper.configureMinMaxScore(instance, (Element) resprocessingXML.selectSingleNode(".//decvar"));
 				} else if (instance.getType() == TYPE_SC) {
-					instance.setSingleCorrect(true);
+					QTIEditHelper.configureMinMaxScore(instance, (Element) resprocessingXML.selectSingleNode(".//decvar"));
 					Collection<Float> values = points.values();
 					if (values.size() > 0) {
-						instance.setSingleCorrectScore(((Float) (values.iterator().next())).floatValue());
+						instance.setSingleCorrect(true);
+						instance.setSingleCorrectScore((values.iterator().next()).floatValue());
 					} else {
 						instance.setSingleCorrect(false);
+						instance.setSingleCorrectScore(0f);
 					}
 				} else if (instance.getType() == TYPE_KPRIM) {
 					instance.setSingleCorrect(false);
@@ -174,10 +177,12 @@ public class ChoiceQuestion extends Question implements QTIObject {
 							choice.setPoints(maxValue / 4);
 						}
 					}
+					QTIEditHelper.configureMinMaxScore(instance, (Element) resprocessingXML.selectSingleNode(".//decvar"));
+				} else {
+					QTIEditHelper.configureMinMaxScore(instance, (Element) resprocessingXML.selectSingleNode(".//decvar"));
 				}
 
-				// set min/max score
-				QTIEditHelper.configureMinMaxScore(instance, (Element) resprocessingXML.selectSingleNode(".//decvar"));
+					
 			}
 		} catch (NullPointerException e) {
 			/*
@@ -620,8 +625,11 @@ public class ChoiceQuestion extends Question implements QTIObject {
 	 */
 	public void setFlowLabelClass(String string) {
 		// only allow Block or List as value, default is set to List
-		if (string != null && string.equals(BLOCK)) flowLabelClass = BLOCK;
-		else flowLabelClass = LIST;
+		if (string != null && string.equals(BLOCK)) {
+			flowLabelClass = BLOCK;
+		} else {
+			flowLabelClass = LIST;
+		}
 	}
 
 }

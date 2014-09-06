@@ -20,6 +20,7 @@
 
 package org.olat.core.util.i18n.ui;
 
+import java.util.Collection;
 import java.util.Locale;
 import java.util.Set;
 
@@ -99,13 +100,13 @@ class I18nConfigController extends FormBasicController {
 			defaultLangValues[i] = all;
 		}
 		ArrayHelper.sort(defaultlangKeys, defaultLangValues, false, true, false);
-		String[] defaultLangCssClasses = i18nMgr.createLanguageFlagsCssClasses(defaultlangKeys, "b_with_small_icon_left");
+		String[] defaultLangCssClasses = i18nMgr.createLanguageFlagsCssClasses(defaultlangKeys, "o_flag");
 		defaultLangSelection = uifactory.addDropdownSingleselect("configuration.defaultLangSelection", formLayout, defaultlangKeys,
 				defaultLangValues, defaultLangCssClasses);
-		defaultLangSelection.addActionListener(this, FormEvent.ONCHANGE);
+		defaultLangSelection.addActionListener(FormEvent.ONCHANGE);
 		// Enable the current default language
 		Locale defaultLocale = I18nModule.getDefaultLocale();
-		this.flc.contextPut("defaultLangKey", defaultLocale.toString());
+		flc.contextPut("defaultLangKey", defaultLocale.toString());
 		defaultLangSelection.select(defaultLocale.toString(), true);
 		//
 		// Add enabled languages checkboxes
@@ -120,18 +121,18 @@ class I18nConfigController extends FormBasicController {
 			// count translation status
 			int keyCount = i18nMgr.countI18nItems(i18nMgr.getLocaleOrNull(key), null, true);
 			if(keyCount > 0) {
-				all += "   <span class='b_translation_status'>" + (keyCount * 100 / referenceKeyCount) + "%</span>";
+				all += "   <span class='o_translation_status'>" + (keyCount * 100 / referenceKeyCount) + "%</span>";
 			} else {
-				all += "   <span class='b_translation_status'>0%</span>";
+				all += "   <span class='o_translation_status'>0%</span>";
 			}
 			availableValues[i] = all;
 		}
 		ArrayHelper.sort(availablelangKeys, availableValues, false, true, false);
-		String[] availableLangCssClasses = i18nMgr.createLanguageFlagsCssClasses(availablelangKeys, "b_with_small_icon_left");
+		String[] availableLangIconCss = i18nMgr.createLanguageFlagsCssClasses(availablelangKeys, "o_flag");
 		enabledLangSelection = uifactory.addCheckboxesVertical("configuration.enabledLangSelection", null, formLayout, availablelangKeys,
-				availableValues, availableLangCssClasses, 2);
+				availableValues, null, availableLangIconCss, 3);
 		enabledLangSelection.setEscapeHtml(false);
-		enabledLangSelection.addActionListener(this, FormEvent.ONCLICK); // Radios/Checkboxes need onclick because of IE bug OLAT-5753
+		enabledLangSelection.addActionListener(FormEvent.ONCLICK); // Radios/Checkboxes need onclick because of IE bug OLAT-5753
 		// Enable current enabled languages
 		for (String langKey : I18nModule.getEnabledLanguageKeys()) {
 			enabledLangSelection.select(langKey, true);
@@ -176,7 +177,7 @@ class I18nConfigController extends FormBasicController {
 		} else if (source == enabledLangSelection) {
 			// Get enabled values, make sure the default language is enabled and
 			// update the I18nModule
-			Set<String> enabledLangKeys = enabledLangSelection.getSelectedKeys();
+			Collection<String> enabledLangKeys = enabledLangSelection.getSelectedKeys();
 			Locale defaultLocale = I18nModule.getDefaultLocale();
 			// Check if default language is still enabled
 			if (!enabledLangKeys.contains(defaultLocale.toString())) {

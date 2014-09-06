@@ -385,7 +385,7 @@ public class ContactForm extends FormBasicController {
 		
 		tsubject = uifactory.addTextElement("tsubject", NLS_CONTACT_SUBJECT, 255, "", formLayout);
 		tsubject.setDisplaySize(emailCols);
-		tbody = uifactory.addRichTextElementForStringDataMinimalistic("tbody", NLS_CONTACT_BODY, "", 15, emailCols, formLayout, ureq.getUserSession(), getWindowControl());
+		tbody = uifactory.addRichTextElementForStringDataMinimalistic("tbody", NLS_CONTACT_BODY, "", 15, emailCols, formLayout, getWindowControl());
 		tbody.setEnabled(!readOnly);
 		
 		String VELOCITY_ROOT = Util.getPackageVelocityRoot(this.getClass());
@@ -395,11 +395,11 @@ public class ContactForm extends FormBasicController {
 		
 		attachmentEl = uifactory.addFileElement("file_upload_1", NLS_CONTACT_ATTACHMENT, formLayout);
 		attachmentEl.setLabel(NLS_CONTACT_ATTACHMENT, null);
-		attachmentEl.addActionListener(this, FormEvent.ONCHANGE);
+		attachmentEl.addActionListener(FormEvent.ONCHANGE);
 		attachmentEl.setExampleKey(NLS_CONTACT_ATTACHMENT_EXPL, new String[]{Integer.toString(contactAttachmentMaxSizeInMb)});
 		
 
-		tcpfrom = uifactory.addCheckboxesVertical("tcpfrom", "", formLayout, new String[]{"xx"}, new String[]{translate(NLS_CONTACT_SEND_CP_FROM)}, null, 1);
+		tcpfrom = uifactory.addCheckboxesVertical("tcpfrom", "", formLayout, new String[]{"xx"}, new String[]{translate(NLS_CONTACT_SEND_CP_FROM)}, 1);
 		
 		FormLayoutContainer buttonGroupLayout = FormLayoutContainer.createButtonLayout("buttonGroupLayout", getTranslator());
 		formLayout.add(buttonGroupLayout);

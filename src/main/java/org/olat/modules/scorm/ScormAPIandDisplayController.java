@@ -136,7 +136,7 @@ public class ScormAPIandDisplayController extends MainLayoutBasicController impl
 			scormAdapter.init(cpRoot, scormResourceIdStr, courseIdNodeId, FolderConfig.getCanonicalRoot(), username, fullname, lesson_mode, credit_mode, hashCode());
 		} catch (IOException e) {
 			showError("error.manifest.corrupted");
-			LayoutMain3ColsController ctr = new LayoutMain3ColsController(ureq, getWindowControl(), null, null, new Panel("empty"), "scorm" + scormResourceId);
+			LayoutMain3ColsController ctr = new LayoutMain3ColsController(ureq, getWindowControl(), null, new Panel("empty"), "scorm" + scormResourceId);
 			columnLayoutCtr = ctr;
 			putInitialPanel(columnLayoutCtr.getInitialComponent());
 			return;
@@ -180,17 +180,17 @@ public class ScormAPIandDisplayController extends MainLayoutBasicController impl
 		myContent.contextPut("frameId", SCORM_CONTENT_FRAME);
 		
 		//pre next navigation links
-		nextScoTop = LinkFactory.createCustomLink("nextScoTop", "nextsco", "", Link.NONTRANSLATED, myContent, this);
-		nextScoTop.setCustomEnabledLinkCSS("b_small_icon o_scorm_next_icon");
+		nextScoTop = LinkFactory.createCustomLink("nextScoTop", "nextsco", "", Link.NONTRANSLATED | Link.BUTTON, myContent, this);
+		nextScoTop.setIconLeftCSS("o_icon o_icon_next_page");
 		
-		previousScoTop = LinkFactory.createCustomLink("previousScoTop", "previoussco", "", Link.NONTRANSLATED, myContent, this);
-		previousScoTop.setCustomEnabledLinkCSS("b_small_icon o_scorm_previous_icon");
+		previousScoTop = LinkFactory.createCustomLink("previousScoTop", "previoussco", "", Link.NONTRANSLATED | Link.BUTTON, myContent, this);
+		previousScoTop.setIconLeftCSS("o_icon o_icon_previous_page");
 		
-		nextScoBottom = LinkFactory.createCustomLink("nextScoBottom", "nextsco", "", Link.NONTRANSLATED, myContent, this);
-		nextScoBottom.setCustomEnabledLinkCSS("b_small_icon o_scorm_next_icon");
+		nextScoBottom = LinkFactory.createCustomLink("nextScoBottom", "nextsco", "", Link.NONTRANSLATED | Link.BUTTON, myContent, this);
+		nextScoBottom.setIconLeftCSS("o_icon o_icon_next_page");
 		
-		previousScoBottom = LinkFactory.createCustomLink("previousScoBottom", "previoussco", "", Link.NONTRANSLATED, myContent, this);
-		previousScoBottom.setCustomEnabledLinkCSS("b_small_icon o_scorm_previous_icon");
+		previousScoBottom = LinkFactory.createCustomLink("previousScoBottom", "previoussco", "", Link.NONTRANSLATED | Link.BUTTON, myContent, this);
+		previousScoBottom.setIconLeftCSS("o_icon o_icon_previous_page");
 		
 		// show the buttons, default. use setter method to change default behaviour
 		myContent.contextPut("showNavButtons", Boolean.TRUE);
@@ -218,18 +218,18 @@ public class ScormAPIandDisplayController extends MainLayoutBasicController impl
 
 		if (activate) {
 			if (previewMode) {
-				LayoutMain3ColsPreviewController ctr = new LayoutMain3ColsPreviewController(ureq, getWindowControl(), (showMenu ? menuTree : null), null, myContent, "scorm" + scormResourceId);
+				LayoutMain3ColsPreviewController ctr = new LayoutMain3ColsPreviewController(ureq, getWindowControl(), (showMenu ? menuTree : null), myContent, "scorm" + scormResourceId);
 				if(fullWindow)
 					ctr.setAsFullscreen(ureq);
 				columnLayoutCtr = ctr;
 			} else {
-				LayoutMain3ColsBackController ctr = new LayoutMain3ColsBackController(ureq, getWindowControl(), (showMenu ? menuTree : null), null, myContent, "scorm" + scormResourceId);
+				LayoutMain3ColsBackController ctr = new LayoutMain3ColsBackController(ureq, getWindowControl(), (showMenu ? menuTree : null), myContent, "scorm" + scormResourceId);
 				if(fullWindow)
 					ctr.setAsFullscreen(ureq);
 				columnLayoutCtr = ctr;
 			}
 		} else {
-			LayoutMain3ColsController ctr = new LayoutMain3ColsController(ureq, getWindowControl(), (showMenu ? menuTree : null), null, myContent, "scorm" + scormResourceId);
+			LayoutMain3ColsController ctr = new LayoutMain3ColsController(ureq, getWindowControl(), (showMenu ? menuTree : null), myContent, "scorm" + scormResourceId);
 			columnLayoutCtr = ctr;			
 			putInitialPanel(columnLayoutCtr.getInitialComponent());
 		}
@@ -457,7 +457,7 @@ public class ScormAPIandDisplayController extends MainLayoutBasicController impl
 			String itemId = it.next();
 			GenericTreeNode tn = idToNode.get(itemId);
 			// change icon decorator
-			tn.setIconDecorator1CssClass("o_scorm_" + (String) itemsStat.get(itemId));
+			tn.setIconDecorator1CssClass("o_scorm_" + itemsStat.get(itemId));
 		}
 	}
 

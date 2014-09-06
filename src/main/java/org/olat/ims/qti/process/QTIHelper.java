@@ -27,6 +27,8 @@ package org.olat.ims.qti.process;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
@@ -414,7 +416,7 @@ public class QTIHelper {
 			log.debug("[" + debugEnabledTime + "] file size is " + pathToXml.getSize());
 		}
 		//Object[] tuple = (Object[]) (EHCacheManager.getInstance().get(ehCachLoadedQTIDocs, key));
-		Object[] tuple = (Object[]) (ehCachLoadedQTIDocs.get(key));
+		Object[] tuple = (ehCachLoadedQTIDocs.get(key));
 		
 		if (tuple != null && ((Long) tuple[0]).compareTo(lmf) == 0) {
 			// in cache and not modified
@@ -450,6 +452,15 @@ public class QTIHelper {
 		// we do not know if the receiver is destructive -> protect the cached entry
 		// return the uncached doc if it is not chached.
 		return (Document) ObjectCloner.deepCopy(doc);
+	}
+	
+	public static Document getDocument(Path xmlPath) {
+		try(InputStream in=Files.newInputStream(xmlPath)) {
+			XMLParser xmlParser = new XMLParser(new IMSEntityResolver());
+			return xmlParser.parse(in, false);
+		} catch(IOException e) {
+			return null;
+		}
 	}
 
 	/**

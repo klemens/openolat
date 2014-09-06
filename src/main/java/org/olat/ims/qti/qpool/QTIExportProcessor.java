@@ -254,7 +254,7 @@ public class QTIExportProcessor {
 	private String generateExportPath(Set<String> paths, VFSItem leaf) {
 		String filename = leaf.getName();
 		for(int count=0; paths.contains(filename) && count < 999 ; ) {
-			filename = VFSManager.appendNumberAtTheEndOfFilename(filename, count++);
+			filename = FileUtils.appendNumberAtTheEndOfFilename(filename, count++);
 		}
 		paths.add(filename);
 		return "media/" + filename;
@@ -380,7 +380,6 @@ public class QTIExportProcessor {
 	private void enrichWithMetadata(QuestionItemFull fullItem, Element item) {
 		Element qtimetadata = (Element)item.selectSingleNode("./itemmetadata/qtimetadata");
 		String path = fullItem.getTaxonomicPath();
-		System.out.println("enrichWithMetadata: " + qtimetadata + " " + path);
 	}
 	
 	private void addMetadataField(String label, String entry, Element qtimetadata) {

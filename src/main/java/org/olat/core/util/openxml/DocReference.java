@@ -21,7 +21,7 @@ package org.olat.core.util.openxml;
 
 import java.io.File;
 
-import org.olat.core.util.image.Size;
+import org.olat.core.commons.services.image.Size;
 
 /**
  * 

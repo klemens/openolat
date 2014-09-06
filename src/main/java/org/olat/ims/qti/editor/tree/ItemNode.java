@@ -64,7 +64,19 @@ public class ItemNode extends GenericQtiNode {
 	private QTIEditorPackage qtiPackage;
 	private TabbedPane myTabbedPane;
 	private static OLog log = Tracing.createLoggerFor(ItemNode.class);
-
+	
+	/**
+	 * 
+	 * @param theItem
+	 */
+	public ItemNode(Item theItem) {
+		super(theItem.getIdent().replace(":", ""));
+		item = theItem;
+		setMenuTitleAndAlt(item.getTitle());
+		setUserObject(item.getIdent());
+		
+	}
+	
 	/**
 	 * @param theItem
 	 * @param qtiPackage
@@ -74,28 +86,23 @@ public class ItemNode extends GenericQtiNode {
 		this.qtiPackage = qtiPackage;
 		setMenuTitleAndAlt(item.getTitle());
 		setUserObject(item.getIdent());
+	}
+	
+	@Override
+	public String getIconCssClass() {
 		if (item.isAlient()) {
-			setIconCssClass("o_mi_qtialientitem");
+			return "o_mi_qtialientitem";
 		} else {
 			int questionType = item.getQuestion().getType();
 			switch (questionType) {
-				case Question.TYPE_SC:
-					setIconCssClass("o_mi_qtisc");
-					break;
-				case Question.TYPE_MC:
-					setIconCssClass("o_mi_qtimc");
-					break;
-				case Question.TYPE_KPRIM:
-					setIconCssClass("o_mi_qtikprim");
-					break;
-				case Question.TYPE_FIB:
-					setIconCssClass("o_mi_qtifib");
-					break;
-				case Question.TYPE_ESSAY:
-					setIconCssClass("o_mi_qtiessay");
-					break;
+				case Question.TYPE_SC: return "o_mi_qtisc";
+				case Question.TYPE_MC: return "o_mi_qtimc";
+				case Question.TYPE_KPRIM: return "o_mi_qtikprim";
+				case Question.TYPE_FIB: return "o_mi_qtifib";
+				case Question.TYPE_ESSAY: return "o_mi_qtiessay";
 			}
 		}
+		return "";
 	}
 
 	/**
@@ -118,7 +125,7 @@ public class ItemNode extends GenericQtiNode {
 		if (myTabbedPane == null) {
 			try {
 				myTabbedPane = new TabbedPane("tabbedPane", ureq.getLocale());
-				TabbableController tabbCntrllr = new ItemNodeTabbedFormController(item, qtiPackage, ureq, wControl, trnsltr, editorMainController
+				TabbableController tabbCntrllr = new ItemNodeTabbedFormController(item, qtiPackage, ureq, wControl, editorMainController
 						.isRestrictedEdit());
 				tabbCntrllr.addTabs(myTabbedPane);
 				tabbCntrllr.addControllerListener(editorMainController);
@@ -172,7 +179,7 @@ public class ItemNode extends GenericQtiNode {
 
 		// Item metadata
 		QtiNodeMemento qnm = new QtiNodeMemento();
-		Map qtiState = new HashMap();
+		Map<String,Object> qtiState = new HashMap<>();
 		qtiState.put("ID", item.getIdent());
 		qtiState.put("TITLE", item.getTitle());
 		qtiState.put("OBJECTIVES", item.getObjectives());
@@ -210,7 +217,7 @@ public class ItemNode extends GenericQtiNode {
 		// feedback
 		qtiState.put("FEEDBACK.MASTERY", QTIEditHelper.getFeedbackMasteryText(item));
 		qtiState.put("FEEDBACK.FAIL", QTIEditHelper.getFeedbackFailText(item));
-		Control control = (Control) QTIEditHelper.getControl(item);
+		Control control = QTIEditHelper.getControl(item);
 		qtiState.put("FEEDBACK.ENABLED", control.getFeedback() == 1 ? Boolean.TRUE : Boolean.FALSE);
 		//
 		qnm.setQtiState(qtiState);
@@ -246,7 +253,7 @@ public class ItemNode extends GenericQtiNode {
 		String retVal = null;
 		if (mem instanceof QtiNodeMemento) {
 			QtiNodeMemento qnm = (QtiNodeMemento) mem;
-			Map qtiState = qnm.getQtiState();
+			Map<String,Object> qtiState = qnm.getQtiState();
 			//
 			String oldTitle = (String) qtiState.get("TITLE");
 			String newTitle = item.getTitle();
@@ -272,7 +279,7 @@ public class ItemNode extends GenericQtiNode {
 			String newFeedbackMastery = QTIEditHelper.getFeedbackMasteryText(item);
 			String oldFeedbackFail = (String) qtiState.get("FEEDBACK.FAIL");
 			String newFeedbackFail = QTIEditHelper.getFeedbackFailText(item);
-			Control control = (Control) QTIEditHelper.getControl(item);
+			Control control = QTIEditHelper.getControl(item);
 			Boolean oldHasFeedback = (Boolean) qtiState.get("FEEDBACK.ENABLED");
 			Boolean newHasFeedback = control != null ? new Boolean(control.getFeedback() == 1) : null;
 			//

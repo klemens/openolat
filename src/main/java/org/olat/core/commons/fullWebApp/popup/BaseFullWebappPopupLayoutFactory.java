@@ -25,8 +25,6 @@
 package org.olat.core.commons.fullWebApp.popup;
 
 import org.olat.core.gui.UserRequest;
-import org.olat.core.gui.control.Controller;
-import org.olat.core.gui.control.WindowControl;
 import org.olat.core.gui.control.creator.ControllerCreator;
 import org.olat.core.logging.AssertException;
 
@@ -58,31 +56,17 @@ public class BaseFullWebappPopupLayoutFactory {
 			UserRequest ureq, ControllerCreator controllerCreator) {
 		if (!ureq.getUserSession().isAuthenticated())
 			throw new AssertException("not authenticated!");
-		BaseFullWebappPopupLayout layoutCC = new BaseFullWebappMinimalLayoutControllerCreator(
-				controllerCreator);
+		BaseFullWebappPopupLayout layoutCC = new BaseFullWebappMinimalLayoutControllerCreator(controllerCreator);
 		return layoutCC;
 	}
 
-	
-	//fxdiff
 	public static BaseFullWebappPopupLayout createMinimalPopupLayout(ControllerCreator controllerCreator) {
 		BaseFullWebappPopupLayout layoutCC = new BaseFullWebappMinimalLayoutControllerCreator(controllerCreator);
 		return layoutCC;
 	}
 	
-	/**
-	 * Open a new Window which redirects somewhere else
-	 * @param ureq
-	 * @param redirectUrl
-	 * @return
-	 */
-	public static BaseFullWebappPopupLayout createRedirectingPopup(UserRequest ureq, final String redirectUrl){
-		ControllerCreator cc = new ControllerCreator() {
-			public Controller createController(UserRequest lureq, WindowControl lwControl) {
-				return new RedirectionDummyController(lureq, lwControl, redirectUrl);
-			}
-		};
-		return new BaseFullWebappMinimalLayoutControllerCreator(cc);
+	public static BaseFullWebappPopupLayout createPrintPopupLayout(ControllerCreator controllerCreator) {
+		BaseFullWebappPopupLayout layoutCC = new BaseFullWebappPrintLayoutControllerCreator(controllerCreator);
+		return layoutCC;
 	}
-	
 }

@@ -37,12 +37,14 @@ import org.olat.core.gui.WindowSettings;
 import org.olat.core.gui.Windows;
 import org.olat.core.gui.components.Component;
 import org.olat.core.gui.components.Window;
+import org.olat.core.gui.components.htmlheader.jscss.CustomCSS;
 import org.olat.core.gui.components.velocity.VelocityContainer;
 import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.DefaultChiefController;
 import org.olat.core.gui.control.Event;
 import org.olat.core.gui.control.WindowBackOffice;
 import org.olat.core.gui.control.info.WindowControlInfo;
+import org.olat.core.gui.control.navigation.SiteInstance;
 import org.olat.core.gui.translator.PackageTranslator;
 import org.olat.core.gui.translator.Translator;
 import org.olat.core.helpers.Settings;
@@ -68,7 +70,6 @@ import org.olat.core.util.i18n.I18nManager;
  */
 public class ExceptionWindowController extends DefaultChiefController {
 	private static final OLog log = Tracing.createLoggerFor(ExceptionWindowController.class);
-	private static final String PACKAGE = Util.getPackageName(ExceptionWindowController.class);
 	private static final String VELOCITY_ROOT = Util.getPackageVelocityRoot(ExceptionWindowController.class);
 
 	private VelocityContainer msg;
@@ -92,7 +93,7 @@ public class ExceptionWindowController extends DefaultChiefController {
 			i18nMgr.setMarkLocalizedStringsEnabled(ureq.getUserSession(), false);			
 		}
 
-		Translator trans = new PackageTranslator(PACKAGE, ureq.getLocale());
+		Translator trans = Util.createPackageTranslator(ExceptionWindowController.class, ureq.getLocale());
 		Formatter formatter = Formatter.getInstance(ureq.getLocale());
 		msg = new VelocityContainer("olatmain", VELOCITY_ROOT + "/exception_page.html", trans, this);
 
@@ -234,6 +235,31 @@ public class ExceptionWindowController extends DefaultChiefController {
 
 		w.setContentPane(msg);
 		setWindow(w);
+	}
+	
+	@Override
+	public void addBodyCssClass(String cssClass) {
+		//
+	}
+
+	@Override
+	public void removeBodyCssClass(String cssClass) {
+		//
+	}
+	
+	@Override
+	public void addCurrentCustomCSSToView(CustomCSS customCSS) {
+		//
+	}
+
+	@Override
+	public void removeCurrentCustomCSSFromView() {
+		//
+	}
+
+	@Override
+	public boolean hasStaticSite(Class<? extends SiteInstance> type){
+		return false;
 	}
 
 	/**

@@ -44,19 +44,18 @@ import javax.ws.rs.core.Response;
 import javax.ws.rs.core.Response.Status;
 
 import org.olat.admin.quota.QuotaConstants;
-import org.olat.basesecurity.BaseSecurity;
 import org.olat.basesecurity.BaseSecurityManager;
-import org.olat.basesecurity.SecurityGroup;
+import org.olat.basesecurity.GroupRoles;
 import org.olat.collaboration.CollaborationTools;
 import org.olat.collaboration.CollaborationToolsFactory;
 import org.olat.core.CoreSpringFactory;
 import org.olat.core.commons.modules.bc.vfs.OlatRootFolderImpl;
+import org.olat.core.commons.services.notifications.SubscriptionContext;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.id.Identity;
 import org.olat.core.logging.OLog;
 import org.olat.core.logging.Tracing;
 import org.olat.core.util.StringHelper;
-import org.olat.core.util.notifications.SubscriptionContext;
 import org.olat.core.util.vfs.Quota;
 import org.olat.core.util.vfs.QuotaManager;
 import org.olat.core.util.vfs.callbacks.VFSSecurityCallback;
@@ -65,7 +64,6 @@ import org.olat.core.util.vfs.restapi.VFSWebservice;
 import org.olat.group.BusinessGroup;
 import org.olat.group.BusinessGroupAddResponse;
 import org.olat.group.BusinessGroupService;
-import org.olat.group.model.DisplayMembers;
 import org.olat.group.model.SearchBusinessGroupParams;
 import org.olat.modules.fo.Forum;
 import org.olat.modules.fo.restapi.ForumWebService;
@@ -282,7 +280,7 @@ public class LearningGroupWebService {
 		}
 		
 		final BusinessGroupService bgs = CoreSpringFactory.getImpl(BusinessGroupService.class);
-		final BusinessGroup bg = bgs.loadBusinessGroup(groupKey);
+		BusinessGroup bg = bgs.loadBusinessGroup(groupKey);
 		if(bg == null) {
 			return Response.serverError().status(Status.NOT_FOUND).build();
 		}
@@ -304,26 +302,34 @@ public class LearningGroupWebService {
 			tools.setToolEnabled(tool, enable);
 		}
 		
-		DisplayMembers displayMembers = bgs.getDisplayMembers(bg);
+		boolean ownersIntern = bg.isOwnersVisibleIntern();
 		if(group.getOwnersVisible() != null) {
-			displayMembers.setShowOwners(group.getOwnersVisible().booleanValue());
+			ownersIntern = group.getOwnersVisible().booleanValue();
 		}
+		boolean participantsIntern = bg.isParticipantsVisibleIntern();
 		if(group.getParticipantsVisible() != null) {
-			displayMembers.setShowParticipants(group.getParticipantsVisible().booleanValue());
+			participantsIntern = group.getParticipantsVisible().booleanValue();
 		}
+		boolean waitingListIntern = bg.isWaitingListVisibleIntern();
 		if(group.getWaitingListVisible() != null) {
-			displayMembers.setShowWaitingList(group.getWaitingListVisible().booleanValue());
+			waitingListIntern = group.getWaitingListVisible().booleanValue();
 		}
+		boolean ownersPublic = bg.isOwnersVisiblePublic();
 		if(group.getOwnersPublic() != null) {
-			displayMembers.setOwnersPublic(group.getOwnersPublic().booleanValue());
+			ownersPublic = group.getOwnersPublic().booleanValue();
 		}
+		boolean participantsPublic = bg.isParticipantsVisiblePublic();
 		if(group.getParticipantsPublic() != null) {
-			displayMembers.setParticipantsPublic(group.getParticipantsPublic().booleanValue());
+			participantsPublic = group.getParticipantsPublic().booleanValue();
 		}
+		boolean waitingListPublic = bg.isWaitingListVisiblePublic();
 		if(group.getWaitingListPublic() != null) {
-			displayMembers.setWaitingListPublic(group.getWaitingListPublic().booleanValue());
+			waitingListPublic = group.getWaitingListPublic().booleanValue();
 		}
-		bgs.updateDisplayMembers(bg, displayMembers);
+		bg = bgs.updateDisplayMembers(bg,
+				ownersIntern, participantsIntern, waitingListIntern,
+				ownersPublic, participantsPublic, waitingListPublic,
+				bg.isDownloadMembersLists());
 		return Response.ok().build();
 	}
 	
@@ -502,13 +508,14 @@ public class LearningGroupWebService {
 			if(!bgs.isIdentityInBusinessGroup(identity, bg)) {
 				return Response.serverError().status(Status.UNAUTHORIZED).build();
 			}
-			DisplayMembers displayMembers = bgs.getDisplayMembers(bg);
-			if(!displayMembers.isShowOwners()) {
+			if(!bg.isOwnersVisibleIntern()) {
 				return Response.serverError().status(Status.UNAUTHORIZED).build();
 			}
 		}
 		
-		return getIdentityInGroup(bg.getOwnerGroup());
+		List<Identity> coaches = CoreSpringFactory.getImpl(BusinessGroupService.class)
+				.getMembers(bg, GroupRoles.coach.name());
+		return getIdentityInGroup(coaches);
 	}
 	
 	/**
@@ -537,24 +544,21 @@ public class LearningGroupWebService {
 			if(!bgs.isIdentityInBusinessGroup(identity, bg)) {
 				return Response.serverError().status(Status.UNAUTHORIZED).build();
 			}
-			DisplayMembers displayMembers = bgs.getDisplayMembers(bg);
-			if(!displayMembers.isShowParticipants()) {
+			if(!bg.isParticipantsVisibleIntern()) {
 				return Response.serverError().status(Status.UNAUTHORIZED).build();
 			}
 		}
-		
-		return getIdentityInGroup(bg.getPartipiciantGroup());
+
+		List<Identity> participants = CoreSpringFactory.getImpl(BusinessGroupService.class)
+				.getMembers(bg, GroupRoles.participant.name());
+		return getIdentityInGroup(participants);
 	}
 	
-	private Response getIdentityInGroup(SecurityGroup sg) {
-		BaseSecurity securityManager = BaseSecurityManager.getInstance();
-		List<Object[]> owners = securityManager.getIdentitiesAndDateOfSecurityGroup(sg);
-		
+	private Response getIdentityInGroup(List<Identity> identities) {
 		int count = 0;
-		UserVO[] ownerVOs = new UserVO[owners.size()];
-		for(int i=0; i<owners.size(); i++) {
-			Identity identity = (Identity)(owners.get(i))[0];
-			ownerVOs[count++] = UserVOFactory.get(identity);
+		UserVO[] ownerVOs = new UserVO[identities.size()];
+		for(int i=0; i<identities.size(); i++) {
+			ownerVOs[count++] = UserVOFactory.get(identities.get(i));
 		}
 		return Response.ok(ownerVOs).build();
 	}

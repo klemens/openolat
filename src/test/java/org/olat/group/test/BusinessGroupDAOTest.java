@@ -34,12 +34,11 @@ import junit.framework.Assert;
 
 import org.junit.Test;
 import org.olat.basesecurity.BaseSecurity;
+import org.olat.basesecurity.GroupRoles;
 import org.olat.core.commons.persistence.DB;
 import org.olat.core.commons.persistence.PersistenceHelper;
 import org.olat.core.commons.services.mark.MarkManager;
 import org.olat.core.id.Identity;
-import org.olat.core.logging.OLog;
-import org.olat.core.logging.Tracing;
 import org.olat.group.BusinessGroup;
 import org.olat.group.BusinessGroupLazy;
 import org.olat.group.BusinessGroupMembership;
@@ -47,12 +46,11 @@ import org.olat.group.BusinessGroupOrder;
 import org.olat.group.BusinessGroupShort;
 import org.olat.group.BusinessGroupView;
 import org.olat.group.manager.BusinessGroupDAO;
-import org.olat.group.manager.BusinessGroupPropertyDAO;
 import org.olat.group.manager.BusinessGroupRelationDAO;
 import org.olat.group.model.BusinessGroupMembershipViewImpl;
 import org.olat.group.model.SearchBusinessGroupParams;
-import org.olat.properties.Property;
 import org.olat.repository.RepositoryEntry;
+import org.olat.repository.manager.RepositoryEntryRelationDAO;
 import org.olat.resource.accesscontrol.ACService;
 import org.olat.resource.accesscontrol.model.Offer;
 import org.olat.test.JunitTestHelper;
@@ -65,18 +63,16 @@ import org.springframework.beans.factory.annotation.Autowired;
  */
 public class BusinessGroupDAOTest extends OlatTestCase {
 	
-	private OLog log = Tracing.createLoggerFor(BusinessGroupDAOTest.class);
-	
 	@Autowired
 	private BusinessGroupDAO businessGroupDao;
 	@Autowired
 	private BusinessGroupRelationDAO businessGroupRelationDao;
 	@Autowired
+	private RepositoryEntryRelationDAO repositoryEntryRelationDao;
+	@Autowired
 	private DB dbInstance;
 	@Autowired
 	private BaseSecurity securityManager;
-	@Autowired
-	private BusinessGroupPropertyDAO businessGroupPropertyManager;
 	@Autowired
 	private ACService acService;
 	@Autowired
@@ -98,9 +94,6 @@ public class BusinessGroupDAOTest extends OlatTestCase {
 		Assert.assertNotNull(group.getLastUsage());
 		Assert.assertNotNull(group.getCreationDate());
 		Assert.assertNotNull(group.getLastModified());
-		Assert.assertNotNull(group.getOwnerGroup());
-		Assert.assertNotNull(group.getPartipiciantGroup());
-		Assert.assertNotNull(group.getWaitingGroup());
 		Assert.assertNotNull(group.getResource());
 		Assert.assertEquals("gdao", group.getName());
 		Assert.assertEquals("gdao-desc", group.getDescription());
@@ -121,9 +114,6 @@ public class BusinessGroupDAOTest extends OlatTestCase {
 		Assert.assertNotNull(reloadedGroup.getLastUsage());
 		Assert.assertNotNull(reloadedGroup.getCreationDate());
 		Assert.assertNotNull(reloadedGroup.getLastModified());
-		Assert.assertNotNull(reloadedGroup.getOwnerGroup());
-		Assert.assertNotNull(reloadedGroup.getPartipiciantGroup());
-		Assert.assertNotNull(reloadedGroup.getWaitingGroup());
 		Assert.assertNotNull(group.getResource());
 		Assert.assertEquals("gdbo", reloadedGroup.getName());
 		Assert.assertEquals("gdbo-desc", reloadedGroup.getDescription());
@@ -147,9 +137,6 @@ public class BusinessGroupDAOTest extends OlatTestCase {
 		Assert.assertNotNull(reloadedGroup.getLastUsage());
 		Assert.assertNotNull(reloadedGroup.getCreationDate());
 		Assert.assertNotNull(reloadedGroup.getLastModified());
-		Assert.assertNotNull(reloadedGroup.getOwnerGroup());
-		Assert.assertNotNull(reloadedGroup.getPartipiciantGroup());
-		Assert.assertNotNull(reloadedGroup.getWaitingGroup());
 		Assert.assertEquals("gdco", reloadedGroup.getName());
 		Assert.assertEquals("gdco-desc", reloadedGroup.getDescription());
 		Assert.assertTrue(reloadedGroup.getWaitingListEnabled());
@@ -188,8 +175,7 @@ public class BusinessGroupDAOTest extends OlatTestCase {
 		BusinessGroup reloadedGroup = businessGroupDao.load(group.getKey());
 		//check if the owner is in the owner security group
 		Assert.assertNotNull(reloadedGroup);
-		Assert.assertNotNull(reloadedGroup.getOwnerGroup());
-		boolean isOwner = securityManager.isIdentityInSecurityGroup(owner, reloadedGroup.getOwnerGroup());
+		boolean isOwner = businessGroupRelationDao.hasRole(owner, reloadedGroup, GroupRoles.coach.name());
 		Assert.assertTrue(isOwner);
 	}
 	
@@ -316,7 +302,7 @@ public class BusinessGroupDAOTest extends OlatTestCase {
 		Assert.assertEquals(group, updatedGroup);
 		Assert.assertEquals("gdio-2-desc", updatedGroup.getDescription());
 		Assert.assertEquals(Boolean.FALSE, updatedGroup.getWaitingListEnabled());
-		Assert.assertTrue(updatedGroup == group);
+		Assert.assertTrue(updatedGroup.equals(group));
 		
 		dbInstance.commitAndCloseSession();
 		
@@ -326,31 +312,6 @@ public class BusinessGroupDAOTest extends OlatTestCase {
 		Assert.assertEquals(group, reloadedGroup);
 		Assert.assertEquals("gdio-2-desc", reloadedGroup.getDescription());
 		Assert.assertEquals(Boolean.FALSE, reloadedGroup.getWaitingListEnabled());
-	}
-	
-	@Test
-	public void findBusinessGroupBySecurityGroup() {
-		//create 2 groups
-		BusinessGroup group1 = businessGroupDao.createAndPersist(null, "gdjo", "gdjo-desc", -1, -1, false, false, false, false, false);
-		BusinessGroup group2 = businessGroupDao.createAndPersist(null, "gdko", "gdko-desc", -1, -1, false, false, false, false, false);
-		dbInstance.commitAndCloseSession();
-
-		//check find by owner group
-		BusinessGroup byOwnerGroup = businessGroupDao.findBusinessGroup(group1.getOwnerGroup());
-		Assert.assertNotNull(byOwnerGroup);
-		Assert.assertEquals(group1, byOwnerGroup);
-		Assert.assertNotSame(group2, byOwnerGroup);
-
-		//check find by participant group
-		BusinessGroup byParticipantGroup = businessGroupDao.findBusinessGroup(group1.getPartipiciantGroup());
-		Assert.assertNotNull(byParticipantGroup);
-		Assert.assertEquals(group1, byParticipantGroup);
-		
-		//check find by waiting group
-		BusinessGroup byWaitingGroup = businessGroupDao.findBusinessGroup(group2.getWaitingGroup());
-		Assert.assertNotNull(byWaitingGroup);
-		Assert.assertEquals(group2, byWaitingGroup);
-		Assert.assertNotSame(group1, byWaitingGroup);
 	}
 	
 	@Test
@@ -367,11 +328,11 @@ public class BusinessGroupDAOTest extends OlatTestCase {
 		dbInstance.commitAndCloseSession();
 		
 		//id1 -> group 1 and 2
-		securityManager.addIdentityToSecurityGroup(id1, group1.getWaitingGroup());
-		securityManager.addIdentityToSecurityGroup(id1, group2.getWaitingGroup());
+		businessGroupRelationDao.addRole(id1, group1, GroupRoles.waiting.name());
+		businessGroupRelationDao.addRole(id1, group2, GroupRoles.waiting.name());
 		//id2 -> group 1 and 3
-		securityManager.addIdentityToSecurityGroup(id2, group1.getWaitingGroup());
-		securityManager.addIdentityToSecurityGroup(id2, group3.getWaitingGroup());
+		businessGroupRelationDao.addRole(id2, group1, GroupRoles.waiting.name());
+		businessGroupRelationDao.addRole(id2, group3, GroupRoles.waiting.name());
 
 		//check:
 		//id1: group 1 and 2
@@ -394,12 +355,13 @@ public class BusinessGroupDAOTest extends OlatTestCase {
 	public void findBusinessGroupWithAuthorConnection() {
 		Identity author = JunitTestHelper.createAndPersistIdentityAsUser("bdao-5-" + UUID.randomUUID().toString());
 		RepositoryEntry re = JunitTestHelper.createAndPersistRepositoryEntry();
-		securityManager.addIdentityToSecurityGroup(author, re.getOwnerGroup());
+		repositoryEntryRelationDao.addRole(author, re, GroupRoles.owner.name());
+		
 		BusinessGroup group1 = businessGroupDao.createAndPersist(null, "gdlo", "gdlo-desc", 0, 5, true, false, false, false, false);
 		BusinessGroup group2 = businessGroupDao.createAndPersist(author, "gdmo", "gdmo-desc", 0, 5, true, false, false, false, false);
 		BusinessGroup group3 = businessGroupDao.createAndPersist(author, "gdmo", "gdmo-desc", 0, 5, true, false, false, false, false);
-		businessGroupRelationDao.addRelationToResource(group1, re.getOlatResource());
-		businessGroupRelationDao.addRelationToResource(group3, re.getOlatResource());
+		businessGroupRelationDao.addRelationToResource(group1, re);
+		businessGroupRelationDao.addRelationToResource(group3, re);
 		dbInstance.commitAndCloseSession();
 		
 		//check 
@@ -425,20 +387,17 @@ public class BusinessGroupDAOTest extends OlatTestCase {
 		dbInstance.commitAndCloseSession();
 		
 		//check the value
-		Property prop1 = businessGroupPropertyManager.findProperty(group1);
-		Assert.assertTrue(businessGroupPropertyManager.showOwners(prop1));
-		Assert.assertTrue(businessGroupPropertyManager.showPartips(prop1));
-		Assert.assertFalse(businessGroupPropertyManager.showWaitingList(prop1));
+		Assert.assertTrue(group1.isOwnersVisibleIntern());
+		Assert.assertTrue(group1.isParticipantsVisibleIntern());
+		Assert.assertFalse(group1.isWaitingListVisibleIntern());
 		
-		Property prop2 = businessGroupPropertyManager.findProperty(group2);
-		Assert.assertFalse(businessGroupPropertyManager.showOwners(prop2));
-		Assert.assertTrue(businessGroupPropertyManager.showPartips(prop2));
-		Assert.assertFalse(businessGroupPropertyManager.showWaitingList(prop2));
+		Assert.assertFalse(group2.isOwnersVisibleIntern());
+		Assert.assertTrue(group2.isParticipantsVisibleIntern());
+		Assert.assertFalse(group2.isWaitingListVisibleIntern());
 		
-		Property prop3 = businessGroupPropertyManager.findProperty(group3);
-		Assert.assertFalse(businessGroupPropertyManager.showOwners(prop3));
-		Assert.assertFalse(businessGroupPropertyManager.showPartips(prop3));
-		Assert.assertTrue(businessGroupPropertyManager.showWaitingList(prop3));
+		Assert.assertFalse(group3.isOwnersVisibleIntern());
+		Assert.assertFalse(group3.isParticipantsVisibleIntern());
+		Assert.assertTrue(group3.isWaitingListVisibleIntern());
 	}
 	
 	@Test
@@ -499,14 +458,14 @@ public class BusinessGroupDAOTest extends OlatTestCase {
 	
 	@Test
 	public void findBusinessGroupsByName() {
-		String name = UUID.randomUUID().toString();
-		BusinessGroup group1 = businessGroupDao.createAndPersist(null, name.toUpperCase(), "fingbg-1-desc", 0, 5, true, false, true, false, false);
-		BusinessGroup group2 = businessGroupDao.createAndPersist(null, name + "xxx", "fingbg-2-desc", 0, 5, true, false, true, false, false);
-		BusinessGroup group3 = businessGroupDao.createAndPersist(null, "yyy" + name.toUpperCase(), "fingbg-3-desc", 0, 5, true, false, true, false, false);
+		String marker = UUID.randomUUID().toString();
+		BusinessGroup group1 = businessGroupDao.createAndPersist(null, marker.toUpperCase(), "fingbg-1-desc", 0, 5, true, false, true, false, false);
+		BusinessGroup group2 = businessGroupDao.createAndPersist(null, marker + "xxx", "fingbg-2-desc", 0, 5, true, false, true, false, false);
+		BusinessGroup group3 = businessGroupDao.createAndPersist(null, "yyy" + marker.toUpperCase(), "fingbg-3-desc", 0, 5, true, false, true, false, false);
 		dbInstance.commitAndCloseSession();
 
 		SearchBusinessGroupParams params = new SearchBusinessGroupParams();
-		params.setName(name);
+		params.setName(marker);
 		List<BusinessGroup> groups = businessGroupDao.findBusinessGroups(params, null, 0, -1);
 		Assert.assertNotNull(groups);
 		Assert.assertEquals(2, groups.size() );
@@ -525,14 +484,14 @@ public class BusinessGroupDAOTest extends OlatTestCase {
 	
 	@Test
 	public void findBusinessGroupsByNameFuzzy() {
-		String name = UUID.randomUUID().toString();
-		BusinessGroup group1 = businessGroupDao.createAndPersist(null, name.toUpperCase(), "fingbg-1-desc", 0, 5, true, false, true, false, false);
-		BusinessGroup group2 = businessGroupDao.createAndPersist(null, name + "xxx", "fingbg-2-desc", 0, 5, true, false, true, false, false);
-		BusinessGroup group3 = businessGroupDao.createAndPersist(null, "yyy" + name.toUpperCase(), "fingbg-3-desc", 0, 5, true, false, true, false, false);
+		String marker = UUID.randomUUID().toString();
+		BusinessGroup group1 = businessGroupDao.createAndPersist(null, marker.toUpperCase(), "fingbg-1-desc", 0, 5, true, false, true, false, false);
+		BusinessGroup group2 = businessGroupDao.createAndPersist(null, marker + "xxx", "fingbg-2-desc", 0, 5, true, false, true, false, false);
+		BusinessGroup group3 = businessGroupDao.createAndPersist(null, "yyy" + marker.toUpperCase(), "fingbg-3-desc", 0, 5, true, false, true, false, false);
 		dbInstance.commitAndCloseSession();
 
 		SearchBusinessGroupParams params = new SearchBusinessGroupParams();
-		params.setName("*" + name + "*");
+		params.setName("*" + marker + "*");
 		List<BusinessGroup> groups = businessGroupDao.findBusinessGroups(params, null, 0, -1);
 		Assert.assertNotNull(groups);
 		Assert.assertEquals(3, groups.size() );
@@ -551,15 +510,15 @@ public class BusinessGroupDAOTest extends OlatTestCase {
 	
 	@Test
 	public void findBusinessGroupsByDescription() {
-		String name = UUID.randomUUID().toString();
-		BusinessGroup group1 = businessGroupDao.createAndPersist(null, "fingbg-1", name.toUpperCase() + "-desc", 0, 5, true, false, true, false, false);
-		BusinessGroup group2 = businessGroupDao.createAndPersist(null, "fingbg-2", "desc-" + name, 0, 5, true, false, true, false, false);
-		BusinessGroup group3 = businessGroupDao.createAndPersist(null, "fingbg-3", "desc-" + name + "-desc", 0, 5, true, false, true, false, false);
+		String marker = UUID.randomUUID().toString();
+		BusinessGroup group1 = businessGroupDao.createAndPersist(null, "fingbg-1", marker.toUpperCase() + "-desc", 0, 5, true, false, true, false, false);
+		BusinessGroup group2 = businessGroupDao.createAndPersist(null, "fingbg-2", "desc-" + marker, 0, 5, true, false, true, false, false);
+		BusinessGroup group3 = businessGroupDao.createAndPersist(null, "fingbg-3", "desc-" + marker + "-desc", 0, 5, true, false, true, false, false);
 		dbInstance.commitAndCloseSession();
 
 		//check find business group
 		SearchBusinessGroupParams params = new SearchBusinessGroupParams();
-		params.setDescription(name);
+		params.setDescription(marker);
 		List<BusinessGroup> groups = businessGroupDao.findBusinessGroups(params, null, 0, -1);
 		Assert.assertNotNull(groups);
 		Assert.assertEquals(1, groups.size() );
@@ -578,14 +537,14 @@ public class BusinessGroupDAOTest extends OlatTestCase {
 	
 	@Test
 	public void findBusinessGroupsByDescriptionFuzzy() {
-		String name = UUID.randomUUID().toString();
-		BusinessGroup group1 = businessGroupDao.createAndPersist(null, "fingbg-1", name + "-desc", 0, 5, true, false, true, false, false);
-		BusinessGroup group2 = businessGroupDao.createAndPersist(null, "fingbg-2", "desc-" + name.toUpperCase(), 0, 5, true, false, true, false, false);
-		BusinessGroup group3 = businessGroupDao.createAndPersist(null, "fingbg-3", "desc-" + name + "-desc", 0, 5, true, false, true, false, false);
+		String marker = UUID.randomUUID().toString();
+		BusinessGroup group1 = businessGroupDao.createAndPersist(null, "fingbg-1", marker + "-desc", 0, 5, true, false, true, false, false);
+		BusinessGroup group2 = businessGroupDao.createAndPersist(null, "fingbg-2", "desc-" + marker.toUpperCase(), 0, 5, true, false, true, false, false);
+		BusinessGroup group3 = businessGroupDao.createAndPersist(null, "fingbg-3", "desc-" + marker + "-desc", 0, 5, true, false, true, false, false);
 		dbInstance.commitAndCloseSession();
 
 		SearchBusinessGroupParams params = new SearchBusinessGroupParams();
-		params.setDescription("*" + name + "*");
+		params.setDescription("*" + marker + "*");
 		List<BusinessGroup> groups = businessGroupDao.findBusinessGroups(params, null, 0, -1);
 		Assert.assertNotNull(groups);
 		Assert.assertEquals(3, groups.size() );
@@ -604,14 +563,14 @@ public class BusinessGroupDAOTest extends OlatTestCase {
 	
 	@Test
 	public void findBusinessGroupsByNameOrDesc() {
-		String name = UUID.randomUUID().toString();
-		BusinessGroup group1 = businessGroupDao.createAndPersist(null, "fingbg-1", name.toUpperCase() + "-desc", 0, 5, true, false, true, false, false);
+		String marker = UUID.randomUUID().toString();
+		BusinessGroup group1 = businessGroupDao.createAndPersist(null, "fingbg-1", marker.toUpperCase() + "-desc", 0, 5, true, false, true, false, false);
 		BusinessGroup group2 = businessGroupDao.createAndPersist(null, "fingbg-2", "fingbg-2-desc", 0, 5, true, false, true, false, false);
-		BusinessGroup group3 = businessGroupDao.createAndPersist(null, name.toUpperCase() + "-xxx", "desc-fingb-desc", 0, 5, true, false, true, false, false);
+		BusinessGroup group3 = businessGroupDao.createAndPersist(null, marker.toUpperCase() + "-xxx", "desc-fingb-desc", 0, 5, true, false, true, false, false);
 		dbInstance.commitAndCloseSession();
 
 		SearchBusinessGroupParams params = new SearchBusinessGroupParams();
-		params.setNameOrDesc(name);
+		params.setNameOrDesc(marker);
 		List<BusinessGroup> groups = businessGroupDao.findBusinessGroups(params, null, 0, -1);
 		Assert.assertNotNull(groups);
 		Assert.assertEquals(2, groups.size() );
@@ -630,14 +589,14 @@ public class BusinessGroupDAOTest extends OlatTestCase {
 	
 	@Test
 	public void findBusinessGroupsByNameOrDescFuzzy() {
-		String name = UUID.randomUUID().toString();
-		BusinessGroup group1 = businessGroupDao.createAndPersist(null, "fingbg-1", name + "-desc", 0, 5, true, false, true, false, false);
-		BusinessGroup group2 = businessGroupDao.createAndPersist(null, "fingbg-2", "desc-" + name.toUpperCase(), 0, 5, true, false, true, false, false);
-		BusinessGroup group3 = businessGroupDao.createAndPersist(null, "fingbg-3", "desc-" + name + "-desc", 0, 5, true, false, true, false, false);
+		String marker = UUID.randomUUID().toString();
+		BusinessGroup group1 = businessGroupDao.createAndPersist(null, "fingbg-1", marker + "-desc", 0, 5, true, false, true, false, false);
+		BusinessGroup group2 = businessGroupDao.createAndPersist(null, "fingbg-2", "desc-" + marker.toUpperCase(), 0, 5, true, false, true, false, false);
+		BusinessGroup group3 = businessGroupDao.createAndPersist(null, "fingbg-3", "desc-" + marker + "-desc", 0, 5, true, false, true, false, false);
 		dbInstance.commitAndCloseSession();
 
 		SearchBusinessGroupParams params = new SearchBusinessGroupParams();
-		params.setNameOrDesc("*" + name + "*");
+		params.setNameOrDesc("*" + marker + "*");
 		List<BusinessGroup> groups = businessGroupDao.findBusinessGroups(params, null, 0, -1);
 		Assert.assertNotNull(groups);
 		Assert.assertEquals(3, groups.size() );
@@ -657,10 +616,10 @@ public class BusinessGroupDAOTest extends OlatTestCase {
 	@Test
 	public void findBusinessGroupsByOwner() {
 		//5 identities
-		String name = UUID.randomUUID().toString();
-		Identity id1 = JunitTestHelper.createAndPersistIdentityAsUser(name);
-		Identity id2 = JunitTestHelper.createAndPersistIdentityAsUser("ddao-2-" + name);
-		Identity id3 = JunitTestHelper.createAndPersistIdentityAsUser(name + "-ddao-3");
+		String marker = UUID.randomUUID().toString();
+		Identity id1 = JunitTestHelper.createAndPersistIdentityAsUser(marker);
+		Identity id2 = JunitTestHelper.createAndPersistIdentityAsUser("ddao-2-" + marker);
+		Identity id3 = JunitTestHelper.createAndPersistIdentityAsUser(marker + "-ddao-3");
 
 		BusinessGroup group1 = businessGroupDao.createAndPersist(id1, "fingbgown-1", "fingbgown-1-desc", 0, 5, true, false, true, false, false);
 		BusinessGroup group2 = businessGroupDao.createAndPersist(id2, "fingbgown-2", "fingbgown-2-desc", 0, 5, true, false, true, false, false);
@@ -668,7 +627,7 @@ public class BusinessGroupDAOTest extends OlatTestCase {
 		dbInstance.commitAndCloseSession();
 
 		SearchBusinessGroupParams params = new SearchBusinessGroupParams();
-		params.setOwnerName(name);
+		params.setOwnerName(marker);
 		List<BusinessGroup> groups = businessGroupDao.findBusinessGroups(params, null, 0, -1);
 		Assert.assertNotNull(groups);
 		Assert.assertEquals(2, groups.size() );
@@ -687,10 +646,10 @@ public class BusinessGroupDAOTest extends OlatTestCase {
 	
 	@Test
 	public void findBusinessGroupsByOwnerFuzzy() {
-		String name = UUID.randomUUID().toString();
-		Identity id1 = JunitTestHelper.createAndPersistIdentityAsUser(name);
-		Identity id2 = JunitTestHelper.createAndPersistIdentityAsUser("ddao-2-" + name.toUpperCase());
-		Identity id3 = JunitTestHelper.createAndPersistIdentityAsUser(name + "-ddao-3-");
+		String marker = UUID.randomUUID().toString();
+		Identity id1 = JunitTestHelper.createAndPersistIdentityAsUser(marker);
+		Identity id2 = JunitTestHelper.createAndPersistIdentityAsUser("ddao-2-" + marker.toUpperCase());
+		Identity id3 = JunitTestHelper.createAndPersistIdentityAsUser(marker + "-ddao-3-");
 		
 		BusinessGroup group1 = businessGroupDao.createAndPersist(id1, "fingbg-own-1-1", "fingbg-own-1-1-desc", 0, 5, true, false, true, false, false);
 		BusinessGroup group2 = businessGroupDao.createAndPersist(id2, "fingbg-own-1-2", "fingbg-own-1-2-desc", 0, 5, true, false, true, false, false);
@@ -698,7 +657,7 @@ public class BusinessGroupDAOTest extends OlatTestCase {
 		dbInstance.commitAndCloseSession();
 
 		SearchBusinessGroupParams params = new SearchBusinessGroupParams();
-		params.setOwnerName("*" + name + "*");
+		params.setOwnerName("*" + marker + "*");
 		List<BusinessGroup> groups = businessGroupDao.findBusinessGroups(params, null, 0, -1);
 		Assert.assertNotNull(groups);
 		Assert.assertEquals(3, groups.size() );
@@ -723,8 +682,8 @@ public class BusinessGroupDAOTest extends OlatTestCase {
 		BusinessGroup group3 = businessGroupDao.createAndPersist(null, "is-in-grp-3", "is-in-grp-3-desc", 0, 5, true, false, true, false, false);
 		dbInstance.commitAndCloseSession();
 
-		securityManager.addIdentityToSecurityGroup(id, group2.getPartipiciantGroup());
-		securityManager.addIdentityToSecurityGroup(id, group3.getWaitingGroup());
+		businessGroupRelationDao.addRole(id, group2, GroupRoles.participant.name());
+		businessGroupRelationDao.addRole(id, group3, GroupRoles.waiting.name());
 		dbInstance.commitAndCloseSession();
 
 		//check owner
@@ -795,6 +754,50 @@ public class BusinessGroupDAOTest extends OlatTestCase {
 		Assert.assertTrue(contains(allGroupViews, group3));
 	}
 	
+	@Test
+	public void findBusinessGroupsByRepositoryEntry() {
+		//create a repository entry with a relation to a group
+		Identity id = JunitTestHelper.createAndPersistIdentityAsUser("re-grp-1-" + UUID.randomUUID().toString());
+		RepositoryEntry re = JunitTestHelper.createAndPersistRepositoryEntry();
+		BusinessGroup group = businessGroupDao.createAndPersist(id, "grp-course-1", "grp-course-1-desc", 0, 5, true, false, true, false, false);
+	    businessGroupRelationDao.addRole(id, group, GroupRoles.participant.name());
+	    businessGroupRelationDao.addRelationToResource(group, re);
+		dbInstance.commitAndCloseSession();
+
+		//retrieve the group through its relation
+		SearchBusinessGroupParams params = new SearchBusinessGroupParams();
+		params.setIdentity(id);
+		params.setOwner(true);
+		params.setAttendee(true);
+		params.setWaiting(true);
+		List<BusinessGroupView> groupViews = businessGroupDao.findBusinessGroupViews(params, re, 0, -1);
+		Assert.assertNotNull(groupViews);
+		Assert.assertEquals(1, groupViews.size());
+		Assert.assertEquals(group.getKey(), groupViews.get(0).getKey());
+	}
+	
+	@Test
+	public void findBusinessGroupsByCourseTitle() {
+		//create a repository entry with a relation to a group
+		Identity id = JunitTestHelper.createAndPersistIdentityAsUser("re-grp-1-" + UUID.randomUUID().toString());
+		RepositoryEntry re = JunitTestHelper.createAndPersistRepositoryEntry();
+		BusinessGroup group = businessGroupDao.createAndPersist(id, "grp-course-1", "grp-course-1-desc", 0, 5, true, false, true, false, false);
+	    businessGroupRelationDao.addRole(id, group, GroupRoles.participant.name());
+	    businessGroupRelationDao.addRelationToResource(group, re);
+		dbInstance.commitAndCloseSession();
+
+		//retrieve the group through its relation
+		SearchBusinessGroupParams params = new SearchBusinessGroupParams();
+		params.setIdentity(id);
+		params.setOwner(true);
+		params.setAttendee(true);
+		params.setWaiting(true);
+		params.setCourseTitle(re.getDisplayname());
+		List<BusinessGroupView> groupViews = businessGroupDao.findBusinessGroupViews(params, null, 0, -1);
+		Assert.assertNotNull(groupViews);
+		Assert.assertEquals(1, groupViews.size());
+		Assert.assertEquals(group.getKey(), groupViews.get(0).getKey());
+	}
 	
 	@Test
 	public void findManagedGroups() {
@@ -928,7 +931,7 @@ public class BusinessGroupDAOTest extends OlatTestCase {
 		RepositoryEntry re = JunitTestHelper.createAndPersistRepositoryEntry();
 		BusinessGroup group1 = businessGroupDao.createAndPersist(owner, "rsrc-grp-1", "rsrc-grp-1-desc", 0, 5, true, false, true, false, false);
 		BusinessGroup group2 = businessGroupDao.createAndPersist(owner, "rsrc-grp-2", "rsrc-grp-2-desc", 0, 5, true, false, true, false, false);
-		businessGroupRelationDao.addRelationToResource(group1, re.getOlatResource());
+		businessGroupRelationDao.addRelationToResource(group1, re);
 		dbInstance.commitAndCloseSession();
 		
 		//check the search function with resources
@@ -1071,7 +1074,7 @@ public class BusinessGroupDAOTest extends OlatTestCase {
 		BusinessGroup group3 = businessGroupDao.createAndPersist(null, "is-in-grp-3", "is-in-grp-3-desc", 0, 5, true, false, true, false, false);
 		dbInstance.commitAndCloseSession();
 
-		securityManager.addIdentityToSecurityGroup(id, group2.getPartipiciantGroup());
+		businessGroupRelationDao.addRole(id, group2, GroupRoles.participant.name());
 		dbInstance.commitAndCloseSession();
 
 		//check
@@ -1091,8 +1094,8 @@ public class BusinessGroupDAOTest extends OlatTestCase {
 		Identity part2 = JunitTestHelper.createAndPersistIdentityAsUser("head-1-" + UUID.randomUUID().toString());
 		BusinessGroup groupWith1 = businessGroupDao.createAndPersist(owner, "headless-grp", "headless-grp-desc", 0, 5, true, false, true, false, false);
 		BusinessGroup groupWith3 = businessGroupDao.createAndPersist(owner, "headed-grp", "headed-grp-desc", 0, 5, true, false, true, false, false);
-		securityManager.addIdentityToSecurityGroup(part1, groupWith3.getPartipiciantGroup());
-		securityManager.addIdentityToSecurityGroup(part2, groupWith3.getPartipiciantGroup());
+		businessGroupRelationDao.addRole(part1, groupWith3, GroupRoles.participant.name());
+		businessGroupRelationDao.addRole(part2, groupWith3, GroupRoles.participant.name());
 		dbInstance.commitAndCloseSession();
 		
 		//check groups with more than 2 members
@@ -1182,8 +1185,8 @@ public class BusinessGroupDAOTest extends OlatTestCase {
 		BusinessGroup group3 = businessGroupDao.createAndPersist(null, "is-in-grp-3", "is-in-grp-3-desc", 0, 5, true, false, true, false, false);
 		dbInstance.commitAndCloseSession();
 
-		securityManager.addIdentityToSecurityGroup(id, group2.getPartipiciantGroup());
-		securityManager.addIdentityToSecurityGroup(id, group3.getWaitingGroup());
+		businessGroupRelationDao.addRole(id, group2, GroupRoles.participant.name());
+		businessGroupRelationDao.addRole(id, group3, GroupRoles.waiting.name());
 		dbInstance.commitAndCloseSession();
 		
 		List<BusinessGroup> groups = new ArrayList<BusinessGroup>();
@@ -1219,8 +1222,8 @@ public class BusinessGroupDAOTest extends OlatTestCase {
 		BusinessGroup group3 = businessGroupDao.createAndPersist(null, "is-in-grp-3", "is-in-grp-3-desc", 0, 5, true, false, true, false, false);
 		dbInstance.commitAndCloseSession();
 
-		securityManager.addIdentityToSecurityGroup(id, group2.getPartipiciantGroup());
-		securityManager.addIdentityToSecurityGroup(id, group3.getWaitingGroup());
+		businessGroupRelationDao.addRole(id, group2, GroupRoles.participant.name());
+		businessGroupRelationDao.addRole(id, group3, GroupRoles.waiting.name());
 		dbInstance.commitAndCloseSession();
 		
 		List<Long> groupKeys = new ArrayList<Long>();
@@ -1240,13 +1243,13 @@ public class BusinessGroupDAOTest extends OlatTestCase {
 			Assert.assertNotNull(membership.getIdentityKey());
 			Assert.assertNotNull(membership.getCreationDate());
 			Assert.assertNotNull(membership.getLastModified());
-			if(membership.getOwnerGroupKey() != null && group1.getKey().equals(membership.getOwnerGroupKey())) {
+			if(membership.getGroupKey() != null && group1.getKey().equals(membership.getGroupKey())) {
 				found++;
 			}
-			if(membership.getParticipantGroupKey() != null && group2.getKey().equals(membership.getParticipantGroupKey())) {
+			if(membership.getGroupKey() != null && group2.getKey().equals(membership.getGroupKey())) {
 				found++;
 			}
-			if(membership.getWaitingGroupKey() != null && group3.getKey().equals(membership.getWaitingGroupKey())) {
+			if(membership.getGroupKey() != null && group3.getKey().equals(membership.getGroupKey())) {
 				found++;
 			}
 		}
@@ -1262,10 +1265,10 @@ public class BusinessGroupDAOTest extends OlatTestCase {
 		BusinessGroup group3 = businessGroupDao.createAndPersist(null, "is-in-grp-rev-3", "is-in-grp-rev-3-desc", 0, 5, true, false, true, false, false);
 		dbInstance.commitAndCloseSession();
 
-		securityManager.addIdentityToSecurityGroup(id1, group2.getPartipiciantGroup());
-		securityManager.addIdentityToSecurityGroup(id1, group3.getWaitingGroup());
-		securityManager.addIdentityToSecurityGroup(id2, group2.getPartipiciantGroup());
-		securityManager.addIdentityToSecurityGroup(id2, group3.getPartipiciantGroup());
+		businessGroupRelationDao.addRole(id1, group2, GroupRoles.participant.name());
+		businessGroupRelationDao.addRole(id1, group3, GroupRoles.waiting.name());
+		businessGroupRelationDao.addRole(id2, group2, GroupRoles.participant.name());
+		businessGroupRelationDao.addRole(id2, group3, GroupRoles.participant.name());
 		dbInstance.commitAndCloseSession();
 		
 		List<BusinessGroup> groups = new ArrayList<BusinessGroup>();
@@ -1306,9 +1309,9 @@ public class BusinessGroupDAOTest extends OlatTestCase {
 				foundWait++;
 			}
 		}
-		Assert.assertEquals(2, foundOwn);
-		Assert.assertEquals(3, foundPart);
-		Assert.assertEquals(1, foundWait);
+		Assert.assertEquals("Owners", 2, foundOwn);
+		Assert.assertEquals("Participants", 3, foundPart);
+		Assert.assertEquals("Waiting", 1, foundWait);
 	}
 	
 	
@@ -1323,11 +1326,11 @@ public class BusinessGroupDAOTest extends OlatTestCase {
 		BusinessGroup group3 = businessGroupDao.createAndPersist(null, "is-in-grp-3", "is-in-grp-3-desc", 0, 5, true, false, true, false, false);
 		dbInstance.commitAndCloseSession();
 
-		securityManager.addIdentityToSecurityGroup(id1, group1.getPartipiciantGroup());
-		securityManager.addIdentityToSecurityGroup(id1, group3.getWaitingGroup());
-		securityManager.addIdentityToSecurityGroup(id2, group3.getOwnerGroup());
-		securityManager.addIdentityToSecurityGroup(id3, group2.getWaitingGroup());
-		securityManager.addIdentityToSecurityGroup(id3, group3.getPartipiciantGroup());
+		businessGroupRelationDao.addRole(id1, group1, GroupRoles.participant.name());
+		businessGroupRelationDao.addRole(id1, group3, GroupRoles.participant.name());
+		businessGroupRelationDao.addRole(id2, group3, GroupRoles.coach.name());
+		businessGroupRelationDao.addRole(id3, group2, GroupRoles.waiting.name());
+		businessGroupRelationDao.addRole(id3, group3, GroupRoles.participant.name());
 		dbInstance.commitAndCloseSession();
 		
 		List<Long> groupKeys = new ArrayList<Long>();

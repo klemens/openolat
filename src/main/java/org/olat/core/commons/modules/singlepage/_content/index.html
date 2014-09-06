@@ -1,11 +1,6 @@
-<div class="b_module_singlepage_wrapper">
-	<div class="b_clearfix">
+<div class="o_singlepage">
 	#if ($r.available("command.edit"))
-		$r.render("command.edit")
+		<div class="o_button_group o_button_group_right clearfix">$r.render("command.edit")</div>
 	#end
-	</div>
-	<div class="b_floatscrollbox b_clearfix">
-		$r.render("content")
-	</div>
+	<div class="o_content clearfix">$r.render("content")</div>
 </div>
-	

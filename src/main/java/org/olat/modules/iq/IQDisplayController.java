@@ -32,6 +32,7 @@ import java.util.Locale;
 import java.util.Set;
 
 import org.dom4j.Document;
+import org.olat.core.CoreSpringFactory;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.Component;
 import org.olat.core.gui.components.htmlheader.jscss.JSAndCSSComponent;
@@ -44,7 +45,6 @@ import org.olat.core.gui.control.DefaultController;
 import org.olat.core.gui.control.Event;
 import org.olat.core.gui.control.WindowControl;
 import org.olat.core.gui.control.generic.dtabs.Activateable2;
-import org.olat.core.gui.translator.PackageTranslator;
 import org.olat.core.gui.translator.Translator;
 import org.olat.core.id.Identity;
 import org.olat.core.id.OLATResourceable;
@@ -84,7 +84,6 @@ import org.olat.util.logging.activity.LoggingResourceable;
  */
 public class IQDisplayController extends DefaultController implements GenericEventListener, Activateable2, NavigatorDelegate {
 
-	private static final String PACKAGE = Util.getPackageName(IQDisplayController.class);
 	private static final String VELOCITY_ROOT = Util.getPackageVelocityRoot(IQDisplayController.class);
 
 	private static OLog log = Tracing.createLoggerFor(IQDisplayController.class);
@@ -183,13 +182,13 @@ public class IQDisplayController extends DefaultController implements GenericEve
 
 	private void init(IQSecurityCallback secCallback, UserRequest ureq) {
 		this.iqsec = secCallback;
-		this.translator = new PackageTranslator(PACKAGE, ureq.getLocale());
+		this.translator = Util.createPackageTranslator(IQDisplayController.class, ureq.getLocale());
 		this.ready = false;
 
 		retrieveListenerOres =  new IQRetrievedEvent(ureq.getIdentity(), callingResId, callingResDetail);
 		CoordinatorManager.getInstance().getCoordinator().getEventBus().registerFor(this, ureq.getIdentity(), retrieveListenerOres);
 
-		iqm = IQManager.getInstance();
+		iqm = CoreSpringFactory.getImpl(IQManager.class);
 
 		myContent = new VelocityContainer("olatmodiqrun", VELOCITY_ROOT + "/qti.html", translator, this);
 		
@@ -197,7 +196,7 @@ public class IQDisplayController extends DefaultController implements GenericEve
 		 Resolver autcompResolver = null;
 		if (resolver == null){
 			RepositoryEntry re = RepositoryManager.getInstance().lookupRepositoryEntryBySoftkey(repositorySoftkey, true);
-			 autcompResolver = new ImsRepositoryResolver(re.getKey());
+			autcompResolver = new ImsRepositoryResolver(re);
 		} else {
 			autcompResolver = this.resolver;
 		}
@@ -213,6 +212,7 @@ public class IQDisplayController extends DefaultController implements GenericEve
 			myContent.put("autoCompleteJsCss", autoCompleteJsCss);
 		}
 		closeButton = LinkFactory.createButton("close", myContent, this);
+		closeButton.setPrimary(true);
 		
 		qtiscoreprogress = new ProgressBar("qtiscoreprogress", 150, 0, 0, "");
 		myContent.put("qtiscoreprogress", qtiscoreprogress);

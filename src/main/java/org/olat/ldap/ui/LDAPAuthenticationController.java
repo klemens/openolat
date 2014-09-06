@@ -67,7 +67,6 @@ public class LDAPAuthenticationController extends AuthenticationController imple
 	
 	private VelocityContainer loginComp;
 	private Link pwLink;
-	private Link anoLink;
 	private Controller subController;
 	private OLATAuthentcationForm loginForm; 
 	private DisclaimerController disclaimerCtr;
@@ -88,11 +87,7 @@ public class LDAPAuthenticationController extends AuthenticationController imple
 		
 		if(UserModule.isPwdchangeallowed(null) && LDAPLoginModule.isPropagatePasswordChangedOnLdapServer()) {
 			pwLink = LinkFactory.createLink("_olat_login_change_pwd", "menu.pw", loginComp, this);
-			pwLink.setCustomEnabledLinkCSS("o_login_pwd  b_with_small_icon_left");
-		}
-		if (LoginModule.isGuestLoginLinksEnabled()) {
-			anoLink = LinkFactory.createLink("_olat_login_guest", "menu.guest", loginComp, this);
-			anoLink.setCustomEnabledLinkCSS("o_login_guests  b_with_small_icon_left");
+			pwLink.setElementCssClass("o_login_pwd");
 		}
 		
 		// Use the standard OLAT login form but with our LDAP translator
@@ -110,30 +105,27 @@ public class LDAPAuthenticationController extends AuthenticationController imple
 	}
 
 	
-@Override
-protected void event(UserRequest ureq, Component source, Event event) {
-	if (source == pwLink) {
-		openChangePassword(ureq, null);	//fxdiff FXOLAT-113: business path in DMZ
-	} else if (source == anoLink) {
-			if (AuthHelper.doAnonymousLogin(ureq, ureq.getLocale()) == AuthHelper.LOGIN_OK) return;
-			else showError("login.error", WebappHelper.getMailConfig("mailSupport"));
-		}
+	@Override
+	protected void event(UserRequest ureq, Component source, Event event) {
+		if (source == pwLink) {
+			openChangePassword(ureq, null);	//fxdiff FXOLAT-113: business path in DMZ
+		} 
 	}
-	//fxdiff FXOLAT-113: business path in DMZ
+	
 	protected void openChangePassword(UserRequest ureq, String initialEmail) {
 		// double-check if allowed first
-		if (!UserModule.isPwdchangeallowed(ureq.getIdentity()) || !LDAPLoginModule.isPropagatePasswordChangedOnLdapServer())
+		if (!UserModule.isPwdchangeallowed(ureq.getIdentity()) || !LDAPLoginModule.isPropagatePasswordChangedOnLdapServer()) {
 			throw new OLATSecurityException("chose password to be changed, but disallowed by config");
+		}
 
-		
-		removeAsListenerAndDispose(subController);
-		subController = new PwChangeController(ureq, getWindowControl(), initialEmail);
-		listenTo(subController);
-		
 		removeAsListenerAndDispose(cmc);
-		cmc = new CloseableModalController(getWindowControl(), translate("close"), subController.getInitialComponent());
-		listenTo(cmc);
+		removeAsListenerAndDispose(subController);
 		
+		subController = new PwChangeController(ureq, getWindowControl(), initialEmail, true);
+		listenTo(subController);
+		String title = ((PwChangeController)subController).getWizardTitle();
+		cmc = new CloseableModalController(getWindowControl(), translate("close"), subController.getInitialComponent(), true, title);
+		listenTo(cmc);
 		cmc.activate();
 	}
 	

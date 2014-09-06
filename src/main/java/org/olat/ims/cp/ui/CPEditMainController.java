@@ -30,13 +30,13 @@ import org.olat.core.commons.fullWebApp.LayoutMain3ColsController;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.Component;
 import org.olat.core.gui.components.panel.Panel;
+import org.olat.core.gui.components.stack.TooledStackedPanel;
 import org.olat.core.gui.components.tree.TreeEvent;
 import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.Event;
 import org.olat.core.gui.control.WindowControl;
-import org.olat.core.gui.control.controller.MainLayoutBasicController;
+import org.olat.core.gui.control.controller.BasicController;
 import org.olat.core.gui.control.generic.iframe.DeliveryOptions;
-import org.olat.core.gui.control.generic.layout.MainLayout3ColumnsController;
 import org.olat.core.id.OLATResourceable;
 import org.olat.core.util.coordinate.CoordinatorManager;
 import org.olat.core.util.coordinate.LockResult;
@@ -44,20 +44,21 @@ import org.olat.core.util.vfs.VFSContainer;
 import org.olat.ims.cp.CPManager;
 import org.olat.ims.cp.ContentPackage;
 import org.olat.modules.cp.CPUIFactory;
+import org.olat.repository.ui.RepositoryEntryRuntimeController.ToolbarAware;
 
 /**
  * The content packaging main edit controller.
  */
-public class CPEditMainController extends MainLayoutBasicController {
+public class CPEditMainController extends BasicController implements ToolbarAware {
 
-	private LayoutMain3ColsController columnLayoutCtr;
 	private CPContentController contentCtr;
 	private CPTreeController treeCtr;
 	private final ContentPackage cp;
 	private LockResult lock;
 	private DeliveryOptions deliveryOptions;
 
-	public CPEditMainController(UserRequest ureq, WindowControl wControl, VFSContainer cpContainer, OLATResourceable ores) {
+	public CPEditMainController(UserRequest ureq, WindowControl wControl,
+			VFSContainer cpContainer, OLATResourceable ores) {
 		super(ureq, wControl);
 
 		// acquire lock for resource
@@ -72,73 +73,46 @@ public class CPEditMainController extends MainLayoutBasicController {
 		String errorString = cp.getLastError();
 		if (errorString == null) {
 			if (lock.isSuccess()) {
-				initDefaultView(ureq, wControl);
+				treeCtr = new CPTreeController(ureq, wControl, cp);
+				listenTo(treeCtr);
+
+				contentCtr = new CPContentController(ureq, wControl, cp);
+				listenTo(contentCtr);
+				contentCtr.init(ureq);
+
+				// Make tree controller aware of contentCtr in order to display pages after import.
+				treeCtr.setContentController(contentCtr);
+
+				Controller columnLayoutCtr = new LayoutMain3ColsController(ureq, wControl, treeCtr.getInitialComponent(), contentCtr.getInitialComponent(), "cptestmain");
+				listenTo(columnLayoutCtr);
+				
+				putInitialPanel(columnLayoutCtr.getInitialComponent());
+
+				if (!cp.isOLATContentPackage()) {
+					showWarning("maincontroller.cp.created.with.third.party.editor");
+				}
 			} else {
 				showInfo("contentcontroller.no.lock");
-				displayCP(ureq, wControl, cpContainer);
+				Controller cpCtr = CPUIFactory.getInstance()
+						.createMainLayoutController(ureq, wControl, cpContainer, true, deliveryOptions);
+				putInitialPanel(cpCtr.getInitialComponent());
 			}
 		} else {
-			initErrorView(ureq, wControl, errorString);
 			showError("maincontroller.loaderror", errorString);
+			Controller columnLayoutCtr = new LayoutMain3ColsController(ureq, wControl, null, new Panel("errorPanel"), "cptestmain");
+			putInitialPanel(columnLayoutCtr.getInitialComponent());
 		}
 		logAudit("cp editor started. oresId: " + ores.getResourceableId(), null);
 	}
 
-	/**
-	 * Displays the cp without being able to modify it.
-	 * 
-	 * @param ureq
-	 * @param wControl
-	 * @param root
-	 */
-	private void displayCP(UserRequest ureq, WindowControl wControl, VFSContainer root) {
-		MainLayout3ColumnsController cpCtr = CPUIFactory.getInstance().createMainLayoutController(ureq, wControl, root, true, deliveryOptions);
-		putInitialPanel(cpCtr.getInitialComponent());
-	}
-
-	/**
-	 * initializes default controllers
-	 * 
-	 * @param ureq
-	 * @param wControl
-	 * @param cp
-	 */
-	private void initDefaultView(UserRequest ureq, WindowControl wControl) {
-		treeCtr = new CPTreeController(ureq, wControl, cp);
-		listenTo(treeCtr);
-
-		contentCtr = new CPContentController(ureq, wControl, cp);
-		listenTo(contentCtr);
-		contentCtr.init(ureq);
-
-		// Make tree controller aware of contentCtr in order to display pages after
-		// import.
-		treeCtr.setContentController(contentCtr);
-
-		columnLayoutCtr = new LayoutMain3ColsController(ureq, wControl, treeCtr.getInitialComponent(), null, contentCtr.getInitialComponent(),
-				"cptestmain");
-		columnLayoutCtr.addCssClassToMain("b_menu_toolbar");
-		listenTo(columnLayoutCtr); // auto dispose
-
-		this.putInitialPanel(columnLayoutCtr.getInitialComponent());
-
-		if (!cp.isOLATContentPackage()) {
-			showWarning("maincontroller.cp.created.with.third.party.editor");
+	@Override
+	public void initToolbar(TooledStackedPanel stackPanel) {
+		if(stackPanel != null && treeCtr != null) {
+			treeCtr.initToolbar(stackPanel);
 		}
-	}
-
-	/**
-	 * initializes a special view, where the user is informed about errors. (while
-	 * loading cp)
-	 * 
-	 * @param ureq
-	 * @param wControl
-	 * @param cp
-	 */
-	private void initErrorView(UserRequest ureq, WindowControl wControl, String errorString) {
-		Panel p = new Panel("errorPanel");
-		columnLayoutCtr = new LayoutMain3ColsController(ureq, wControl, null, null, p, "cptestmain");
-		this.putInitialPanel(columnLayoutCtr.getInitialComponent());
+		if(stackPanel != null && contentCtr != null) {
+			contentCtr.initToolbar(stackPanel);
+		}
 	}
 
 	@Override

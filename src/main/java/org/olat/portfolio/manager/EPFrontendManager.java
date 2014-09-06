@@ -28,10 +28,8 @@ import java.util.Map;
 import java.util.Set;
 
 import org.olat.basesecurity.BaseSecurity;
-import org.olat.basesecurity.Constants;
-import org.olat.basesecurity.IdentityShort;
-import org.olat.basesecurity.Policy;
-import org.olat.basesecurity.SecurityGroup;
+import org.olat.basesecurity.IdentityRef;
+import org.olat.basesecurity.manager.GroupDAO;
 import org.olat.core.commons.persistence.DB;
 import org.olat.core.commons.services.tagging.manager.TaggingManager;
 import org.olat.core.commons.services.tagging.model.Tag;
@@ -43,7 +41,6 @@ import org.olat.core.logging.AssertException;
 import org.olat.core.manager.BasicManager;
 import org.olat.core.util.StringHelper;
 import org.olat.core.util.coordinate.Coordinator;
-import org.olat.core.util.coordinate.CoordinatorManager;
 import org.olat.core.util.coordinate.SyncerCallback;
 import org.olat.core.util.vfs.VFSContainer;
 import org.olat.course.CourseFactory;
@@ -53,7 +50,6 @@ import org.olat.course.assessment.AssessmentNotificationsHandler;
 import org.olat.course.nodes.CourseNode;
 import org.olat.course.run.userview.UserCourseEnvironment;
 import org.olat.course.run.userview.UserCourseEnvironmentImpl;
-import org.olat.group.BusinessGroup;
 import org.olat.modules.webFeed.portfolio.LiveBlogArtefactHandler;
 import org.olat.portfolio.PortfolioModule;
 import org.olat.portfolio.model.EPFilterSettings;
@@ -73,6 +69,8 @@ import org.olat.search.model.ResultDocument;
 import org.olat.search.service.indexer.identity.PortfolioArtefactIndexer;
 import org.olat.search.service.searcher.SearchClient;
 import org.olat.user.UserManager;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
 
 /**
  * 
@@ -86,57 +84,35 @@ import org.olat.user.UserManager;
  * 
  * @author Roman Haag, roman.haag@frentix.com, http://www.frentix.com
  */
+@Service("epFrontendManager")
 public class EPFrontendManager extends BasicManager {
 
-	private final Coordinator coordinator;
-	private final BaseSecurity securityManager;
-	private final EPArtefactManager artefactManager;
-	private final EPStructureManager structureManager;
-	private final TaggingManager taggingManager;
-	private final AssessmentNotificationsHandler assessmentNotificationsHandler;
-	private final DB dbInstance;
+	@Autowired
+	private Coordinator coordinator;
+	@Autowired
+	private GroupDAO groupDao;
+	@Autowired
+	private BaseSecurity securityManager;
+	@Autowired
+	private EPArtefactManager artefactManager;
+	@Autowired
+	private EPStructureManager structureManager;
+	@Autowired
+	private TaggingManager taggingManager;
+	@Autowired
+	private AssessmentNotificationsHandler assessmentNotificationsHandler;
+	@Autowired
+	private DB dbInstance;
+	@Autowired
 	private SearchClient searchClient;
-	private final EPSettingsManager settingsManager; 
-	private final EPPolicyManager policyManager;
-	private final UserManager userManager;
+	@Autowired
+	private EPSettingsManager settingsManager; 
+	@Autowired
+	private EPPolicyManager policyManager;
+	@Autowired
+	private UserManager userManager;
+	@Autowired
 	private PortfolioModule portfolioModule;
-
-	/**
-	 * [for Spring]
-	 */
-	public EPFrontendManager(EPArtefactManager artefactManager, EPStructureManager structureManager, EPSettingsManager settingsManager,
-			EPPolicyManager policyManager, CoordinatorManager coordinatorManager, BaseSecurity securityManager, TaggingManager taggingManager,
-			DB dbInstance, AssessmentNotificationsHandler assessmentNotificationsHandler,
-			UserManager userManager) {
-		this.artefactManager = artefactManager;
-		this.structureManager = structureManager;
-		this.securityManager = securityManager;
-		this.coordinator = coordinatorManager.getCoordinator();
-		this.taggingManager = taggingManager;
-		this.assessmentNotificationsHandler = assessmentNotificationsHandler;
-		this.dbInstance = dbInstance;
-		this.settingsManager = settingsManager;
-		this.policyManager = policyManager;
-		this.userManager = userManager;
-	}
-	
-	
-	/**
-	 * [used by Spring]
-	 * @param searchClient
-	 */
-	public void setSearchClient(SearchClient searchClient) {
-		this.searchClient = searchClient;
-	}
-
-	/**
-	 * [used by Spring]
-	 * 
-	 * @param portfolioModule
-	 */
-	public void setPortfolioModule(PortfolioModule portfolioModule) {
-		this.portfolioModule = portfolioModule;
-	}
 	
 	/**
 	 * Create and persist an artefact of the given type
@@ -633,8 +609,6 @@ public class EPFrontendManager extends BasicManager {
 			OLATResourceable targetOres, String targetSubPath, final String targetBusinessPath, final Date deadline) {
 		// doInSync is here to check for nested doInSync exception in first place
 		final Identity author = identity;
-		// only remove synthetic access warnings
-		final EPStructureManager structMgr = structureManager;
 		final long tempKey = mapTemplate.getKey();
 		final OLATResourceable ores = targetOres;
 		final String subPath = targetSubPath;
@@ -642,15 +616,15 @@ public class EPFrontendManager extends BasicManager {
 		PortfolioStructureMap map = coordinator.getSyncer().doInSync(mapTemplate.getOlatResource(), new SyncerCallback<PortfolioStructureMap>() {
 			public PortfolioStructureMap execute() {
 				// OLAT-6274: reload template in the moment before copying it!
-				PortfolioStructureMap template = (PortfolioStructureMap) structMgr.loadPortfolioStructureByKey(tempKey);
+				PortfolioStructureMap template = (PortfolioStructureMap)structureManager.loadPortfolioStructureByKey(tempKey);
 				String title = template.getTitle();
 				String description = template.getDescription();
-				PortfolioStructureMap copy = structMgr.createPortfolioStructuredMap(template, author, title, description, 
+				PortfolioStructureMap copy = structureManager.createPortfolioStructuredMap(template, author, title, description, 
 						ores, subPath, targetBusinessPath);
 				if(copy instanceof EPStructuredMap) {
 					((EPStructuredMap)copy).setDeadLine(deadline);
 				}
-				structMgr.copyStructureRecursively(template, copy, true);
+				structureManager.copyStructureRecursively(template, copy, true);
 				return copy;
 			}
 		});
@@ -725,7 +699,7 @@ public class EPFrontendManager extends BasicManager {
 	 * @return
 	 */
 	public int countStructureElementsFromOthers(final Identity ident, final Identity chosenOwner, final ElementType... types) {
-		return   structureManager.countStructureElementsFromOthers(ident, chosenOwner, types);
+		return structureManager.countStructureElementsFromOthers(ident, chosenOwner, types);
 	}
 
 	/**
@@ -737,7 +711,8 @@ public class EPFrontendManager extends BasicManager {
 	 * @param type Limit maps to this or these types
 	 * @return
 	 */
-	public List<PortfolioStructure> getStructureElementsFromOthersWithoutPublic(Identity ident, Identity choosenOwner, ElementType... types){
+	public List<PortfolioStructure> getStructureElementsFromOthersWithoutPublic(IdentityRef ident, IdentityRef choosenOwner,
+			ElementType... types){
 		return structureManager.getStructureElementsFromOthersWithoutPublic(ident, choosenOwner, types);
 	}
 	
@@ -834,9 +809,8 @@ public class EPFrontendManager extends BasicManager {
 	 * @param description
 	 * @return
 	 */
-	public PortfolioStructureMap createAndPersistPortfolioDefaultMap(BusinessGroup group, String title,
-			String description) {
-		PortfolioStructureMap map = structureManager.createPortfolioDefaultMap(group, title, description);
+	public PortfolioStructureMap createAndPersistPortfolioDefaultMap(String title, String description) {
+		PortfolioStructureMap map = structureManager.createPortfolioDefaultMap(title, description);
 		structureManager.savePortfolioStructure(map);
 		return map;
 	}
@@ -1079,23 +1053,16 @@ public class EPFrontendManager extends BasicManager {
 	 * @param ores
 	 * @return
 	 */
-	public boolean isMapVisible(Identity identity, OLATResourceable ores) {
+	public boolean isMapVisible(IdentityRef identity, OLATResourceable ores) {
 		return structureManager.isMapVisible(identity, ores);
 	}
 	
 	public boolean isMapShared(PortfolioStructureMap map) {
-		OLATResource resource = map.getOlatResource();
-		return isMapShared(resource);
+		return isMapShared(map.getOlatResource());
 	}
 		
 	public boolean isMapShared(OLATResource resource) {
-		List<Policy> policies = securityManager.getPoliciesOfResource(resource, null);
-		for(Policy policy:policies) {
-			if(policy.getPermission().contains(Constants.PERMISSION_READ)) {
-				return true;
-			}
-		}
-		return false;
+		return policyManager.isMapShared(resource);
 	}
 	
 	/**
@@ -1111,8 +1078,8 @@ public class EPFrontendManager extends BasicManager {
 	 * @param map
 	 * @param policyWrappers
 	 */
-	public void updateMapPolicies(PortfolioStructureMap map, List<EPMapPolicy> policyWrappers) {
-		policyManager.updateMapPolicies(map, policyWrappers);
+	public PortfolioStructureMap updateMapPolicies(PortfolioStructureMap map, List<EPMapPolicy> policyWrappers) {
+		return policyManager.updateMapPolicies(map, policyWrappers);
 	}
 	
 	/**
@@ -1135,7 +1102,7 @@ public class EPFrontendManager extends BasicManager {
 		AssessmentManager am = course.getCourseEnvironment().getAssessmentManager();
 		CourseNode courseNode = course.getRunStructure().getNode(resource.getSubPath());
 		
-		List<Identity> owners = securityManager.getIdentitiesOfSecurityGroup(submittedMap.getOwnerGroup());
+		List<Identity> owners = policyManager.getOwners(submittedMap);
 		for(Identity owner:owners) {
 			if (courseNode != null) { // courseNode might have been deleted meanwhile
 				IdentityEnvironment ienv = new IdentityEnvironment(); 
@@ -1193,8 +1160,8 @@ public class EPFrontendManager extends BasicManager {
 	 * @param identity
 	 * @return The persisted structure
 	 */
-	public PortfolioStructureMap importPortfolioMapTemplate(PortfolioStructure root, Identity identity) {
-		return structureManager.importPortfolioMapTemplate(root, identity);
+	public PortfolioStructureMap importPortfolioMapTemplate(PortfolioStructure root, OLATResource resource) {
+		return structureManager.importPortfolioMapTemplate(root, resource);
 	}
 	
 	
@@ -1229,15 +1196,16 @@ public class EPFrontendManager extends BasicManager {
 	 * @return
 	 */
 	public String getAllOwnersAsString(PortfolioStructureMap map){
-		if(map.getOwnerGroup() == null) {
+		if(map.getGroups() == null) {
 			return null;
 		}
-		List<SecurityGroup> ownerGroups = Collections.singletonList(map.getOwnerGroup());
-		List<IdentityShort> ownerIdents = securityManager.getIdentitiesShortOfSecurityGroups(ownerGroups, 0, -1);
+		List<Identity> ownerIdents = policyManager.getOwners(map);
 		List<String> identNames = new ArrayList<String>();
-		for (IdentityShort identity : ownerIdents) {
-			String fullName = identity.getFirstName() + " " + identity.getLastName();
-			identNames.add(fullName);
+		for (Identity identity : ownerIdents) {
+			String fullName = userManager.getUserDisplayName(identity);
+			if(fullName != null) {
+				identNames.add(fullName);
+			}
 		}
 		return StringHelper.formatAsCSVString(identNames);
 	}
@@ -1249,10 +1217,10 @@ public class EPFrontendManager extends BasicManager {
 	 * @return
 	 */
 	public String getFirstOwnerAsString(PortfolioStructureMap map){
-		if(map.getOwnerGroup() == null) {
+		if(map.getGroups() == null) {
 			return "n/a";
 		}
-		List<Identity> ownerIdents = securityManager.getIdentitiesOfSecurityGroup(map.getOwnerGroup(), 0, 1);
+		List<Identity> ownerIdents = policyManager.getOwners(map);
 		if(ownerIdents.size() > 0){
 			Identity id = ownerIdents.get(0);
 			return userManager.getUserDisplayName(id);
@@ -1261,13 +1229,12 @@ public class EPFrontendManager extends BasicManager {
 	}
 	
 	public String getFirstOwnerAsString(EPMapShort map){
-		if(map.getOwnerGroup() == null) {
+		if(map.getGroups() == null) {
 			return "n/a";
 		}
-		List<SecurityGroup> secGroups = Collections.singletonList(map.getOwnerGroup());
-		List<IdentityShort> ownerIdents = securityManager.getIdentitiesShortOfSecurityGroups(secGroups, 0, 1);
+		List<Identity> ownerIdents = policyManager.getOwners(map);
 		if(ownerIdents.size() > 0){
-			IdentityShort id = ownerIdents.get(0);
+			Identity id = ownerIdents.get(0);
 			return userManager.getUserDisplayName(id);
 		}
 		return "n/a";
@@ -1280,25 +1247,14 @@ public class EPFrontendManager extends BasicManager {
 	 * @return
 	 */
 	public Identity getFirstOwnerIdentity(PortfolioStructureMap map){
-		if(map.getOwnerGroup() == null) {
+		if(map.getGroups() == null) {
 			return null;
 		}
-		List<Identity> ownerIdents = securityManager.getIdentitiesOfSecurityGroup(map.getOwnerGroup(), 0, 1);
+		List<Identity> ownerIdents = policyManager.getOwners(map);
 		if (ownerIdents.size() > 0) {
 			Identity id = ownerIdents.get(0);
 			return id;
 		}
 		return null;
 	}
-	
-	// not yet available
-	public void archivePortfolio() {}
-
-	// not yet available
-	public void exportPortfolio() {}
-
-	// not yet available
-	public void importPortfolio() {}
-
-
 }

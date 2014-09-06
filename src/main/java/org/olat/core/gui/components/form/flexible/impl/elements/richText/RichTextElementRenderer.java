@@ -24,10 +24,8 @@ import java.util.List;
 
 import org.apache.commons.lang.StringEscapeUtils;
 import org.olat.core.dispatcher.impl.StaticMediaDispatcher;
-import org.olat.core.gui.GUIInterna;
 import org.olat.core.gui.components.Component;
 import org.olat.core.gui.components.ComponentRenderer;
-import org.olat.core.gui.components.form.flexible.FormBaseComponentIdProvider;
 import org.olat.core.gui.components.form.flexible.impl.FormJSHelper;
 import org.olat.core.gui.render.RenderResult;
 import org.olat.core.gui.render.Renderer;
@@ -64,15 +62,9 @@ class RichTextElementRenderer implements ComponentRenderer {
 
 		RichTextElementComponent teC = (RichTextElementComponent) source;
 		RichTextElementImpl te = teC.getRichTextElementImpl();
-		int cols = teC.getCols();
 		int rows = teC.getRows();
 		// DOM ID used to identify the rich text element in the browser DOM
-		String domID;
-        if (GUIInterna.isLoadPerformanceMode()) {
-        	domID = FormBaseComponentIdProvider.DISPPREFIX+te.getRootForm().getReplayableDispatchID(teC);
-        } else {
-        	domID = teC.getFormDispatchId();
-        }
+		String domID = teC.getFormDispatchId();
 		
         // Use an empty string as default value
 		String value = te.getRawValue();
@@ -86,10 +78,7 @@ class RichTextElementRenderer implements ComponentRenderer {
 			sb.append(FormJSHelper.getRawJSFor(te.getRootForm(), domID, te.getAction()));
 			sb.append(" id=\"");
 			sb.append(domID);
-			sb.append("_disabled\" readonly class=\"b_form_element_disabled\" style=\"");
-			if (cols != -1) {
-				sb.append(" width:").append(cols).append("em;");
-			}
+			sb.append("_disabled\" readonly class='form-control-static o_disabled' style=\"");
 			if (rows != -1) {
 				sb.append(" min-height:").append(rows).append("em;");
 			}
@@ -97,12 +86,11 @@ class RichTextElementRenderer implements ComponentRenderer {
 			sb.append(Formatter.formatLatexFormulas(value));
 			sb.append("</div>");
 		} else if(teC.isUseTiny4()) {
-			renderTinyMCE_4(sb, domID, teC, ubu);
+			renderTinyMCE_4(sb, domID, teC, ubu, source.getTranslator());
 		}
 	}
-	
 
-	private void renderTinyMCE_4(StringOutput sb, String domID, RichTextElementComponent teC, URLBuilder ubu) {
+	private void renderTinyMCE_4(StringOutput sb, String domID, RichTextElementComponent teC, URLBuilder ubu, Translator translator) {
 		RichTextElementImpl te = teC.getRichTextElementImpl();
 		RichTextConfiguration config = te.getEditorConfiguration();
 		List<String> onInit = config.getOnInit();
@@ -111,7 +99,7 @@ class RichTextElementRenderer implements ComponentRenderer {
 		renderTextarea(sb, domID, teC);
 
 		StringOutput configurations = new StringOutput();
-		config.appendConfigToTinyJSArray_4(configurations);
+		config.appendConfigToTinyJSArray_4(configurations, translator);
 		
 		StringOutput baseUrl = new StringOutput();
 		StaticMediaDispatcher.renderStaticURI(baseUrl, "js/tinymce4/tinymce/tinymce.min.js", false);

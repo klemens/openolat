@@ -10,7 +10,7 @@
 	<import resource="classpath:/org/olat/user/propertyhandlers/_spring/userPropertriesHandlersContext.xml"/>
 
 <bean id="userModule" class="org.olat.user.UserModule" 
-	depends-on="org.olat.core.util.notifications.NotificationsManager, database, baseSecurityManager, triggerI18nModuleInit">
+	depends-on="notificationsManager, database, baseSecurityManager, triggerI18nModuleInit">
 <!-- default auth string -->
 <constructor-arg index="0" value="${default.auth.provider.identifier}" />
 <constructor-arg index="1" ref="userManager" />
@@ -287,9 +287,9 @@
 	
 	<bean id="userDeletionManager" class="org.olat.admin.user.delete.service.UserDeletionManager">
 		<constructor-arg index="0" ref="deletionModule" />
-		<constructor-arg index="1" ref="coordinatorManager" />
 		<property name="baseSecurityManager" ref="baseSecurityManager" />
 		<property name="mailManager" ref="mailManager"/>
+		<property name="groupDao" ref="groupDao"/>
 		<property name="keepUserLoginAfterDeletion" value="${keepUserLoginAfterDeletion}" />
 		<property name="keepUserEmailAfterDeletion" value="${keepUserEmailAfterDeletion}" />
 	</bean>

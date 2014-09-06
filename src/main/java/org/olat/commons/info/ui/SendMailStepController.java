@@ -20,8 +20,8 @@
 
 package org.olat.commons.info.ui;
 
+import java.util.Collection;
 import java.util.List;
-import java.util.Set;
 
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.form.flexible.FormItemContainer;
@@ -67,7 +67,7 @@ public class SendMailStepController extends StepFormBasicController {
 	protected void initForm(FormItemContainer formLayout, Controller listener, UserRequest ureq) {
 		setFormTitle("wizard.step1.title");
 		setFormDescription("wizard.step1.form_description");
-		sendSelection = uifactory.addCheckboxesVertical("wizard.step1.send_option", formLayout, sendOptionKeys, sendOptionValues, null, 1);
+		sendSelection = uifactory.addCheckboxesVertical("wizard.step1.send_option", formLayout, sendOptionKeys, sendOptionValues, 1);
 	}
 	
 	@Override
@@ -77,7 +77,7 @@ public class SendMailStepController extends StepFormBasicController {
 
 	@Override
 	protected void formOK(UserRequest ureq) {
-		Set<String> selectedOptions = sendSelection.getSelectedKeys();
+		Collection<String> selectedOptions = sendSelection.getSelectedKeys();
 		addToRunContext(WizardConstants.SEND_MAIL, selectedOptions);
 		fireEvent(ureq, StepsEvent.ACTIVATE_NEXT);
 	}

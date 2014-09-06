@@ -37,6 +37,7 @@ import org.olat.core.commons.modules.bc.FolderEvent;
 import org.olat.core.commons.modules.bc.FolderRunController;
 import org.olat.core.commons.modules.bc.vfs.OlatNamedContainerImpl;
 import org.olat.core.commons.modules.bc.vfs.OlatRootFolderImpl;
+import org.olat.core.commons.services.notifications.SubscriptionContext;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.Component;
 import org.olat.core.gui.components.link.Link;
@@ -52,7 +53,6 @@ import org.olat.core.gui.control.generic.modal.DialogBoxController;
 import org.olat.core.gui.control.generic.modal.DialogBoxUIFactory;
 import org.olat.core.gui.control.generic.tabbable.ActivateableTabbableDefaultController;
 import org.olat.core.gui.render.velocity.VelocityHelper;
-import org.olat.core.gui.translator.PackageTranslator;
 import org.olat.core.gui.translator.Translator;
 import org.olat.core.helpers.Settings;
 import org.olat.core.id.Identity;
@@ -68,7 +68,6 @@ import org.olat.core.util.mail.MailManager;
 import org.olat.core.util.mail.MailNotificationEditController;
 import org.olat.core.util.mail.MailTemplate;
 import org.olat.core.util.mail.MailerResult;
-import org.olat.core.util.notifications.SubscriptionContext;
 import org.olat.core.util.vfs.Quota;
 import org.olat.core.util.vfs.QuotaManager;
 import org.olat.core.util.vfs.callbacks.FullAccessWithQuotaCallback;
@@ -79,7 +78,6 @@ import org.olat.course.auditing.UserNodeAuditManager;
 import org.olat.course.condition.Condition;
 import org.olat.course.condition.ConditionEditController;
 import org.olat.course.editor.NodeEditController;
-import org.olat.course.groupsandrights.CourseGroupManager;
 import org.olat.course.nodes.TACourseNode;
 import org.olat.course.nodes.ms.MSCourseNodeEditController;
 import org.olat.course.nodes.ms.MSEditFormController;
@@ -156,7 +154,7 @@ public class TACourseNodeEditController extends ActivateableTabbableDefaultContr
 	 * @param groupMgr
 	 */
 	public TACourseNodeEditController(UserRequest ureq, WindowControl wControl, ICourse course, TACourseNode node,
-			CourseGroupManager groupMgr, UserCourseEnvironment euce) {
+			UserCourseEnvironment euce) {
 		super(ureq, wControl);
 		
 		mailManager = CoreSpringFactory.getImpl(MailManager.class);
@@ -165,20 +163,20 @@ public class TACourseNodeEditController extends ActivateableTabbableDefaultContr
 		//o_clusterOk by guido: save to hold reference to course inside editor
 		this.course = course;
 		this.config = node.getModuleConfiguration();
-		Translator newTranslator = new PackageTranslator(Util.getPackageName(TACourseNodeEditController.class), ureq.getLocale(), new PackageTranslator(Util
-				.getPackageName(MSCourseNodeEditController.class), ureq.getLocale()));
+		Translator newTranslator = Util.createPackageTranslator(TACourseNodeEditController.class, ureq.getLocale(),
+				Util.createPackageTranslator(MSCourseNodeEditController.class, ureq.getLocale()));
 		setTranslator(newTranslator);
 		
 		accessabilityVC = this.createVelocityContainer("edit");
 		// Task precondition
-		taskConditionC = new ConditionEditController(ureq, getWindowControl(), groupMgr, node.getConditionTask(), "taskConditionForm",
+		taskConditionC = new ConditionEditController(ureq, getWindowControl(), node.getConditionTask(),
 				AssessmentHelper.getAssessableNodes(course.getEditorTreeModel(), node), euce);		
 		this.listenTo(taskConditionC);
 		if (((Boolean) config.get(TACourseNode.CONF_TASK_ENABLED)).booleanValue()) accessabilityVC.put("taskCondition", taskConditionC
 				.getInitialComponent());
 
 		// DropBox precondition
-		dropConditionC = new ConditionEditController(ureq, getWindowControl(), groupMgr, node.getConditionDrop(), "dropConditionForm",
+		dropConditionC = new ConditionEditController(ureq, getWindowControl(), node.getConditionDrop(),
 				AssessmentHelper.getAssessableNodes(course.getEditorTreeModel(), node), euce);		
 		this.listenTo(dropConditionC);
 		Boolean hasDropboxValue = ((Boolean) config.get(TACourseNode.CONF_DROPBOX_ENABLED)!=null) ? (Boolean) config.get(TACourseNode.CONF_DROPBOX_ENABLED) : false;
@@ -193,25 +191,25 @@ public class TACourseNodeEditController extends ActivateableTabbableDefaultContr
 			returnboxCondition.setConditionId(TACourseNode.ACCESS_RETURNBOX);
 			node.setConditionReturnbox(returnboxCondition);			
 		}
-		returnboxConditionC = new ConditionEditController(ureq, getWindowControl(), groupMgr, returnboxCondition, "returnboxConditionForm",
+		returnboxConditionC = new ConditionEditController(ureq, getWindowControl(), returnboxCondition,
 				AssessmentHelper.getAssessableNodes(course.getEditorTreeModel(), node), euce);
-		this.listenTo(returnboxConditionC);
+		listenTo(returnboxConditionC);
 		Object returnBoxConf = config.get(TACourseNode.CONF_RETURNBOX_ENABLED);
 		//use the dropbox config if none specified for the return box
 		boolean returnBoxEnabled = (returnBoxConf !=null) ? ((Boolean) returnBoxConf).booleanValue() : hasDropboxValue;
 		if (returnBoxEnabled) accessabilityVC.put("returnboxCondition", returnboxConditionC.getInitialComponent());
 
 		// Scoring precondition
-		scoringConditionC = new ConditionEditController(ureq, getWindowControl(), groupMgr, node.getConditionScoring(), "scoringConditionForm",
+		scoringConditionC = new ConditionEditController(ureq, getWindowControl(), node.getConditionScoring(),
 				AssessmentHelper.getAssessableNodes(course.getEditorTreeModel(), node), euce);		
-		this.listenTo(scoringConditionC);
+		listenTo(scoringConditionC);
 		if (((Boolean) config.get(TACourseNode.CONF_SCORING_ENABLED)).booleanValue()) accessabilityVC.put("scoringCondition", scoringConditionC
 				.getInitialComponent());
 
 		// SolutionFolder precondition
-		solutionConditionC = new ConditionEditController(ureq, getWindowControl(), groupMgr, node.getConditionSolution(),
-				"solutionConditionForm", AssessmentHelper.getAssessableNodes(course.getEditorTreeModel(), node), euce);		
-		this.listenTo(solutionConditionC);
+		solutionConditionC = new ConditionEditController(ureq, getWindowControl(), node.getConditionSolution(),
+				AssessmentHelper.getAssessableNodes(course.getEditorTreeModel(), node), euce);		
+		listenTo(solutionConditionC);
     if (((Boolean) config.get(TACourseNode.CONF_SOLUTION_ENABLED)).booleanValue()) accessabilityVC.put("solutionCondition", solutionConditionC
     		.getInitialComponent());
 		
@@ -257,7 +255,7 @@ public class TACourseNodeEditController extends ActivateableTabbableDefaultContr
 		editScoring.contextPut("isOverwriting", new Boolean(false));
 		
 		// Solution-Tab		
-		solutionVC = this.createVelocityContainer("editSolutionFolder");
+		solutionVC = createVelocityContainer("editSolutionFolder");
 		vfButton = LinkFactory.createButton("link.solutionFolder", solutionVC, this);
 				
 	}
@@ -292,10 +290,9 @@ public class TACourseNodeEditController extends ActivateableTabbableDefaultContr
 			} else {				
 				// already assigned task => open dialog with warn
 				String[] args = new String[] { new Integer(assignedProps.size()).toString() };				
-				dialogBoxController = this.activateOkCancelDialog(ureq, "", getTranslator().translate("taskfolder.overwriting.confirm", args), dialogBoxController);
+				dialogBoxController = activateOkCancelDialog(ureq, "", getTranslator().translate("taskfolder.overwriting.confirm", args), dialogBoxController);
 			}
-		} else if (source == vfButton) {			
-			if (log.isDebug()) log.debug("Event for sampleVC");
+		} else if (source == vfButton) {
 			// switch to new dialog
 			OlatNamedContainerImpl namedContainer = TACourseNode.getNodeFolderContainer(node, course.getCourseEnvironment());
 			Quota quota = QuotaManager.getInstance().getCustomQuota(namedContainer.getRelPath());
@@ -303,14 +300,12 @@ public class TACourseNodeEditController extends ActivateableTabbableDefaultContr
 				Quota defQuota = QuotaManager.getInstance().getDefaultQuota(QuotaConstants.IDENTIFIER_DEFAULT_NODES);
 				quota = QuotaManager.getInstance().createQuota(namedContainer.getRelPath(), defQuota.getQuotaKB(), defQuota.getUlLimitKB());
 			}
-			VFSSecurityCallback secCallback = new FullAccessWithQuotaCallback(quota);
+			SubscriptionContext subContext = SolutionFileUploadNotificationHandler.getSubscriptionContext(course.getCourseEnvironment(), node);
+			VFSSecurityCallback secCallback = new FullAccessWithQuotaCallback(quota, subContext);
 			namedContainer.setLocalSecurityCallback(secCallback);
-			CloseableModalController cmc = new CloseableModalController(getWindowControl(), translate("close"),
-				new FolderRunController(namedContainer, false, ureq, getWindowControl()).getInitialComponent());
+			FolderRunController folderCtrl = new FolderRunController(namedContainer, false, ureq, getWindowControl());
+			CloseableModalController cmc = new CloseableModalController(getWindowControl(), translate("close"), folderCtrl.getInitialComponent());
 			cmc.activate();
-			
-			if (log.isDebug()) log.debug("Switch to sample folder dialog : DONE");
-			return;
 		} else if (source == editScoringConfigButton){
 			scoringController.setDisplayOnly(false);
 			editScoring.contextPut("isOverwriting", new Boolean(true));
@@ -449,7 +444,7 @@ public class TACourseNodeEditController extends ActivateableTabbableDefaultContr
 			  RepositoryEntry repositoryEntry = RepositoryManager.getInstance().lookupRepositoryEntry(course, true);
 			  String courseURL = Settings.getServerContextPathURI() + "/url/RepositoryEntry/" + repositoryEntry.getKey();
 			  MailTemplate mailTemplate = this.createTaskDeletedMailTemplate(urequest, course.getCourseTitle(), courseURL, deletedTaskFile);
-			  mailCtr = new MailNotificationEditController(getWindowControl(), urequest, mailTemplate, true, false);
+			  mailCtr = new MailNotificationEditController(getWindowControl(), urequest, mailTemplate, true, false, true);
 			  listenTo(mailCtr);
 			  cmc = new CloseableModalController(getWindowControl(), translate("close"), mailCtr.getInitialComponent());
 			  listenTo(cmc);			

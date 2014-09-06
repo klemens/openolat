@@ -28,6 +28,7 @@ import java.util.Set;
 import org.olat.basesecurity.BaseSecurity;
 import org.olat.basesecurity.BaseSecurityManager;
 import org.olat.basesecurity.BaseSecurityModule;
+import org.olat.basesecurity.GroupRoles;
 import org.olat.core.CoreSpringFactory;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.Component;
@@ -170,9 +171,9 @@ public class ChecklistManageCheckpointsController extends BasicController {
 		} else if(cgm.isIdentityCourseCoach(identity)) {
 			Set<Identity> identitiesInGroups = new HashSet<>();
 			for( BusinessGroup group : cgm.getAllBusinessGroups() ) {
-				if(securityManager.isIdentityInSecurityGroup(identity, group.getOwnerGroup())) {
+				if(businessGroupService.hasRoles(identity, group, GroupRoles.coach.name())) {
 					lstGroups.add(group);
-					identitiesInGroups.addAll(securityManager.getIdentitiesOfSecurityGroup(group.getPartipiciantGroup()));
+					identitiesInGroups.addAll(businessGroupService.getMembers(group, GroupRoles.participant.name()));
 				}
 			}
 			allIdentities.addAll(identitiesInGroups);
@@ -218,7 +219,7 @@ public class ChecklistManageCheckpointsController extends BasicController {
 		} else if(StringHelper.isLong(groupForm.getSelection())) {
 			Long groupKey = new Long(groupForm.getSelection());
 			BusinessGroup group = businessGroupService.loadBusinessGroup(groupKey);
-			lstIdents.addAll(securityManager.getIdentitiesOfSecurityGroup(group.getPartipiciantGroup()));
+			lstIdents.addAll(businessGroupService.getMembers(group, GroupRoles.participant.name()));
 		}
 		boolean isAdministrativeUser = securityModule.isUserAllowedAdminProps(ureq.getUserSession().getRoles());
 		List<UserPropertyHandler> userPropertyHandlers = userManager.getUserPropertyHandlersFor(USER_PROPS_ID, isAdministrativeUser);
@@ -226,7 +227,6 @@ public class ChecklistManageCheckpointsController extends BasicController {
 		// prepare table for run view
 		TableGuiConfiguration tableConfig = new TableGuiConfiguration();
 		tableConfig.setTableEmptyMessage(translate("cl.table.empty"));
-		tableConfig.setColumnMovingOffered(true);
 		tableConfig.setDownloadOffered(true);
 		tableConfig.setPreferencesOffered(true, "ExtendedManageTable");
 		
@@ -249,7 +249,9 @@ public class ChecklistManageCheckpointsController extends BasicController {
 		}
 
 		int j = 500;
-		for( Checkpoint checkpoint : checklist.getCheckpoints() ) {
+
+		List<Checkpoint> checkpointList = checklist.getCheckpointsSorted(ChecklistUIFactory.comparatorTitleAsc);
+		for( Checkpoint checkpoint : checkpointList ) {
 			String pointTitle = checkpoint.getTitle() == null ? "" : checkpoint.getTitle();
 			manageChecklistTable.addColumnDescriptor(new ChecklistMultiSelectColumnDescriptor(pointTitle, j++));
 			cols++;
@@ -258,18 +260,18 @@ public class ChecklistManageCheckpointsController extends BasicController {
 		cols++;
 		
 		manageChecklistTable.setMultiSelect(false);
-		manageTableData = new ChecklistManageTableDataModel(checklist, lstIdents, userPropertyHandlers, cols);
+		manageTableData = new ChecklistManageTableDataModel(checkpointList, lstIdents, userPropertyHandlers, cols);
 		manageChecklistTable.setTableDataModel(manageTableData);
 		
 		panel.setContent(manageChecklistTable.getInitialComponent());
 	}
 	
 	private void initEditTable(UserRequest ureq, Identity identity) {
-		editTableData = new ChecklistRunTableDataModel(this.checklist.getCheckpoints(), getTranslator());
+		List<Checkpoint> checkpoints = checklist.getCheckpoints();
+		editTableData = new ChecklistRunTableDataModel(checkpoints, getTranslator());
 		
 		TableGuiConfiguration tableConfig = new TableGuiConfiguration();
 		tableConfig.setTableEmptyMessage(translate("cl.table.empty"));
-		tableConfig.setColumnMovingOffered(true);
 		tableConfig.setDownloadOffered(true);
 		tableConfig.setPreferencesOffered(true, "ExtendedEditTable");
 		
@@ -285,8 +287,8 @@ public class ChecklistManageCheckpointsController extends BasicController {
 		editChecklistTable.addMultiSelectAction("cl.save.close", "save");
 		editChecklistTable.setTableDataModel(editTableData);
 		
-		for(int i = 0; i < this.checklist.getCheckpoints().size(); i++) {
-			Checkpoint checkpoint = (Checkpoint) editTableData.getObject(i);
+		for(int i = 0; i<checkpoints.size(); i++) {
+			Checkpoint checkpoint = editTableData.getObject(i);
 			boolean selected = checkpoint.getSelectionFor(identity).booleanValue();
 			editChecklistTable.setMultiSelectSelectedAt(i, selected);
 		}
@@ -300,7 +302,7 @@ public class ChecklistManageCheckpointsController extends BasicController {
 		ChecklistManager manager = ChecklistManager.getInstance();
 		int size = checklist.getCheckpoints().size();
 		for(int i = 0; i < size; i++) {
-			Checkpoint checkpoint = this.checklist.getCheckpoints().get(i);
+			Checkpoint checkpoint = checklist.getCheckpoints().get(i);
 			Boolean selected = checkpoint.getSelectionFor(identity);
 			if(selected.booleanValue() != selection.get(i)) {
 				checkpoint.setSelectionFor(identity, selection.get(i));
@@ -313,8 +315,10 @@ public class ChecklistManageCheckpointsController extends BasicController {
 		int cdcnt = manageTableData.getColumnCount();
 		int rcnt = manageTableData.getRowCount();
 		StringBuilder sb = new StringBuilder();
+		boolean isAdministrativeUser = securityModule.isUserAllowedAdminProps(ureq.getUserSession().getRoles());
+		List<UserPropertyHandler> userPropertyHandlers = userManager.getUserPropertyHandlersFor(USER_PROPS_ID, isAdministrativeUser);
 		// additional informations
-		sb.append(translate("cl.course.title")).append('\t').append(this.course.getCourseTitle());
+		sb.append(translate("cl.course.title")).append('\t').append(course.getCourseTitle());
 		sb.append('\n');
 		String listTitle = checklist.getTitle() == null ? "" : checklist.getTitle();
 		sb.append(translate("cl.title")).append('\t').append(listTitle);
@@ -328,7 +332,14 @@ public class ChecklistManageCheckpointsController extends BasicController {
 		}
 		sb.append('\n');
 		// checkpoint description
-		sb.append('\t');
+		if(isAdministrativeUser) {
+			sb.append('\t');
+		}
+		for (UserPropertyHandler userPropertyHandler : userPropertyHandlers) {
+			if (userPropertyHandler == null) continue;
+			sb.append('\t');
+		}
+
 		for (Checkpoint checkpoint : checklist.getCheckpoints()) {
 			sb.append('\t').append(checkpoint.getDescription());
 		}
@@ -472,7 +483,7 @@ class GroupChoiceForm extends FormBasicController {
 		}
 		
 		groupChoice = uifactory.addDropdownSingleselect("cl.choice.groups", "cl.choice.groups", mainLayout, keys, values, null);
-		groupChoice.addActionListener(this, FormEvent.ONCHANGE);
+		groupChoice.addActionListener(FormEvent.ONCHANGE);
 		groupChoice.select(CHOICE_ALL, true);
 		
 		exportButton = uifactory.addFormLink(EXPORT_TABLE, EXPORT_TABLE, null, mainLayout, Link.BUTTON);

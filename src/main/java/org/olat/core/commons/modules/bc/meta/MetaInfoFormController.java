@@ -46,6 +46,7 @@ import org.olat.core.gui.control.WindowControl;
 import org.olat.core.gui.control.generic.folder.FolderHelper;
 import org.olat.core.id.Roles;
 import org.olat.core.util.FileUtils;
+import org.olat.core.util.Formatter;
 import org.olat.core.util.StringHelper;
 import org.olat.core.util.vfs.OlatRelPathImpl;
 import org.olat.core.util.vfs.VFSConstants;
@@ -182,7 +183,9 @@ public class MetaInfoFormController extends FormBasicController {
 	 */
 	@Override
 	protected void initForm(FormItemContainer formLayout, Controller listener, UserRequest ureq) {
-		setFormTitle("mf.metadata.title");
+		if(isSubform) {
+			setFormTitle("mf.metadata.title");
+		}
 		setFormContextHelp(MetaInfoFormController.class.getPackage().getName(), "bc-metainfo.html", "chelp.bc-metainfo.hover");
 
 		// filename
@@ -197,27 +200,27 @@ public class MetaInfoFormController extends FormBasicController {
 		MetaInfo meta = item == null ? null : metaInfoFactory.createMetaInfoFor((OlatRelPathImpl)item);
 
 		// title
-		String titleVal = StringHelper.escapeHtml(meta != null ? meta.getTitle() : null);
+		String titleVal = (meta != null ? meta.getTitle() : null);
 		title = uifactory.addTextElement("title", "mf.title", -1, titleVal, formLayout);
 
 		// comment/description
-		String commentVal =  StringHelper.xssScan(meta != null ? meta.getComment() : null);
+		String commentVal = (meta != null ? meta.getComment() : null);
 		comment = uifactory.addTextAreaElement("comment", "mf.comment", -1, 3, 1, true, commentVal, formLayout);
 
 		// creator
-		String creatorVal = StringHelper.escapeHtml(meta != null ? meta.getCreator() : null);
+		String creatorVal = (meta != null ? meta.getCreator() : null);
 		creator = uifactory.addTextElement("creator", "mf.creator", -1, creatorVal, formLayout);
 
 		// publisher
-		String publisherVal = StringHelper.escapeHtml(meta != null ? meta.getPublisher() : null);
+		String publisherVal = (meta != null ? meta.getPublisher() : null);
 		publisher = uifactory.addTextElement("publisher", "mf.publisher", -1, publisherVal, formLayout);
 
 		// source/origin
-		String sourceVal = StringHelper.escapeHtml(meta != null ? meta.getSource() : null);
+		String sourceVal = (meta != null ? meta.getSource() : null);
 		source = uifactory.addTextElement("source", "mf.source", -1, sourceVal, formLayout);
 
 		// city
-		String cityVal = StringHelper.escapeHtml(meta != null ? meta.getCity() : null);
+		String cityVal = (meta != null ? meta.getCity() : null);
 		city = uifactory.addTextElement("city", "mf.city", -1, cityVal, formLayout);
 
 		// publish date
@@ -235,21 +238,21 @@ public class MetaInfoFormController extends FormBasicController {
 		publicationYear.setDisplaySize(4);
 
 		// number of pages
-		String pageVal = StringHelper.escapeHtml(meta != null ? meta.getPages() : null);
+		String pageVal = (meta != null ? meta.getPages() : null);
 		pages = uifactory.addTextElement("pages", "mf.pages", -1, pageVal, formLayout);
 
 		// language
-		String langVal = StringHelper.escapeHtml(meta != null ? meta.getLanguage() : null);
+		String langVal = (meta != null ? meta.getLanguage() : null);
 		language = uifactory.addTextElement("language", "mf.language", -1, langVal, formLayout);
 
 		// url/link
-		String urlVal = StringHelper.escapeHtml(meta != null ? meta.getUrl() : null);
+		String urlVal = (meta != null ? meta.getUrl() : null);
 		url = uifactory.addTextElement("url", "mf.url", -1, urlVal, formLayout);
 
 		/* static fields */
 		String sizeText, typeText;
 		if (item instanceof VFSLeaf) {
-			sizeText = StringHelper.formatMemory(((VFSLeaf) item).getSize());
+			sizeText = Formatter.formatBytes(((VFSLeaf) item).getSize());
 			typeText = FolderHelper.extractFileType(item.getName(), getLocale());
 		} else {
 			sizeText = "-";
@@ -269,7 +272,6 @@ public class MetaInfoFormController extends FormBasicController {
 
 		if (!hasMetadata(meta)) {
 			moreMetaDataLink = uifactory.addFormLink("mf.more.meta.link", formLayout, Link.LINK_CUSTOM_CSS);
-			moreMetaDataLink.setCustomEnabledLinkCSS("b_link_moreinfo");
 			setMetaFieldsVisible(false);
 		}
 

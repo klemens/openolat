@@ -1,0 +1,399 @@
+/*
+ * =================================================
+ *   
+ * OpenOLAT theme configuration file
+ *
+ * @author gnaegi,  www.frentix.com
+ * @date April 2014
+ *
+ * To create your own theme, please read themes.README!
+ * =================================================
+ * 
+ * Configure OpenOLAT and boostrap variables in this file. 
+ * All variables with the o- prefix are OpenOLAT specific variables, 
+ * the other variabels are from bootstrap. 
+ * 
+ * When you modify any variable here, make sure you run 
+ * the scrip src/main/webapp/static/themes/compiletheme.sh
+ * 
+ * See src/main/webapp/static/bootstrap/3.1.1/stylesheets/bootstrap/_variables.scss
+ * or http://getbootstrap.com/customize/#less-variables
+ * or http://getbootstrap.com/css/#less-variables
+ */
+ 
+/* ---- Bootstrap specific configurations ----
+	Add your custom font sizes and other bootstrap overrides here. 
+	Full spec here: http://getbootstrap.com/customize/
+*/
+
+/* 	Add standard bootstrap variables to the mix */
+@import "../../bootstrap/stylesheets/bootstrap/variables";
+
+/* ---- OpenOLAT specific configurations ---- */
+$o-images-path : "../light/images/" !default;
+
+/* Content styles used in iFrame e-learning content and in HTML editor */
+$o-content-font-family-base		: $font-family-base !default;
+$o-content-font-size-base		: $font-size-base !default;
+$o-content-line-height-base		: $line-height-base !default;
+$o-content-line-height-computed	: floor(($o-content-font-size-base * $o-content-line-height-base)) !default;
+$o-content-text-color			: $text-color !default;
+$o-content-body-bg				: $body-bg !default;
+$o-content-link-color			: $link-color !default;
+$o-content-link-hover-color		: $link-hover-color !default;
+$o-content-link-decoration		: underline !default;
+$o-content-header-base-color	: $brand-primary !default;
+$o-content-h1-color				: $o-content-header-base-color !default;
+$o-content-h2-color				: $o-content-header-base-color !default;
+$o-content-h3-color				: $o-content-header-base-color !default;
+$o-content-h4-color				: $o-content-header-base-color !default;
+$o-content-h5-color				: $o-content-header-base-color !default;
+$o-content-fieldset-legend-color: $text-color !default;
+$o-content-hr-color				: $hr-border !default;
+$o-content-table-border			: $gray-light !default;
+$o-content-table-header			: $gray-light !default;
+$o-content-dimmed-color			: $text-muted !default;
+$o-content-disabled-color		: $text-muted !default;
+$o-content-border-box-border	: $gray-light !default;
+$o-content-border-box-radius	: $border-radius-small !default;
+$o-content-border-box-padding	: 1em !default;
+$o-content-border-img-border	: $thumbnail-border !default;
+$o-content-border-img-radius	: $thumbnail-border-radius !default;
+$o-content-border-img-padding	: 3px !default;
+
+$o-font-size-xlarge				: ceil(($font-size-base * 1.7)) !default;  // ~24px
+$o-font-size-xsmall				: ceil(($font-size-base * 0.71)) !default; // ~10px
+$o-table-row-selected-color     : $state-success-bg !default;
+$o-table-header-color			: $text-color !default;
+$o-table-edit-border			: #f90;
+$o-table-edit-bg				: #fefbf6;
+
+
+/* The max width the header/navbar/main/footer can possibly have. */
+$o-page-width-max : 1324px !default;
+
+/* Main content area. The outer area is left and right outside the content area (only visible in large screen).  */
+$o-main-outer-bg 	: #fff !default;
+$o-main-inner-bg 	: #fff !default;
+$o-main-left-bg		: #fff !default;
+$o-main-center-bg	: inherit !default;
+$o-main-right-bg	: inherit !default;
+
+/* Page main navigation for sites, tabs and tools */
+$o-navbar-height					: $navbar-height !default;
+$o-navbar-z-index					: 4 !default;
+$o-navbar-margin-bottom				: $navbar-margin-bottom !default;
+$o-navbar-padding-horizontal		: $navbar-padding-horizontal !default;
+$o-navbar-padding-vertical			: $navbar-padding-vertical !default;
+$o-navbar-collapse-max-height		: $navbar-collapse-max-height !default;
+$o-navbar-border-color				: $navbar-default-border !default;
+$o-navbar-bg						: $navbar-default-bg !default;
+$o-navbar-color						: $navbar-default-color !default;
+$o-navbar-link-color				: $navbar-default-link-color !default;
+$o-navbar-link-hover-color			: $navbar-default-link-hover-color !default;
+$o-navbar-link-hover-bg 			: $navbar-default-link-hover-bg !default;
+$o-navbar-link-active-color 		: $navbar-default-link-active-color !default;
+$o-navbar-link-active-bg 			: $navbar-default-link-active-bg !default;
+$o-navbar-link-disabled-color 		: $navbar-default-link-disabled-color !default;
+$o-navbar-link-disabled-bg 			: $navbar-default-link-disabled-bg !default;
+$o-navbar-toggle-border-color		: $navbar-default-toggle-border-color !default;
+$o-navbar-toggle-border-radius		: $border-radius-base !default;
+$o-navbar-toggle-hover-bg			: $navbar-default-toggle-hover-bg !default;
+$o-navbar-toggle-icon-bar-bg		: $navbar-default-toggle-icon-bar-bg !default;
+$o-navbar-tab-close-color			: $brand-danger !default;
+$o-navbar-tab-close-hover-color		: darken($o-navbar-tab-close-color, 10%)!default;
+$o-navbar-tools-permanent-color		: $navbar-default-color !default;
+$o-navbar-login-color 				: $brand-warning !default;
+$o-navbar-logout-color				: $brand-danger !default;
+$o-navbar-brand-font-size			: $font-size-large !default;
+$o-navbar-brand-height				: $navbar-height !default;
+$o-navbar-brand-color				: $navbar-default-brand-color !default;
+$o-navbar-brand-hover-color			: $navbar-default-brand-hover-color !default;
+$o-navbar-brand-hover-bg			: $navbar-default-brand-hover-bg !default;
+
+/* inverse style
+$o-navbar-border-color				: $navbar-inverse-border ;
+$o-navbar-bg						: $navbar-inverse-bg ;
+$o-navbar-color						: $navbar-inverse-color ;
+$o-navbar-link-color				: $navbar-inverse-link-color ;
+$o-navbar-link-hover-color			: $navbar-inverse-link-hover-color ;
+$o-navbar-link-hover-bg 			: $navbar-inverse-link-hover-bg ;
+$o-navbar-link-active-color 		: $navbar-inverse-link-active-color ;
+$o-navbar-link-active-bg 			: $navbar-inverse-link-active-bg ;
+$o-navbar-link-disabled-color 		: $navbar-inverse-link-disabled-color ;
+$o-navbar-link-disabled-bg 			: $navbar-inverse-link-disabled-bg ;
+$o-navbar-tools-permanent-color		: $navbar-inverse-link-color;
+$o-navbar-toggle-border-color		: $navbar-inverse-toggle-border-color ;
+$o-navbar-toggle-hover-bg			: $navbar-inverse-toggle-hover-bg ;
+$o-navbar-toggle-icon-bar-bg		: $navbar-inverse-toggle-icon-bar-bg ;
+$o-navbar-brand-color				: $navbar-inverse-brand-color ;
+$o-navbar-brand-hover-color			: $navbar-inverse-brand-hover-color ;
+$o-navbar-brand-hover-bg			: $navbar-inverse-brand-hover-bg ;
+*/
+
+/* Right off-canvas menu, part of navbar */
+$o-offcanvas-width 					: 250px !default;
+$o-offcanvas-padding-horizontal		: $navbar-padding-horizontal !default;
+$o-offcanvas-padding-vertical		: $navbar-padding-vertical !default;
+$o-offcanvas-border 				: $navbar-inverse-border !default;
+$o-offcanvas-bg 					: $navbar-inverse-bg !default;
+$o-offcanvas-link-color				: $navbar-inverse-color!default;
+$o-offcanvas-link-hover-color 		: $navbar-inverse-link-hover-color!default;
+$o-offcanvas-link-hover-bg 			: $navbar-inverse-link-hover-bg!default;
+$o-offcanvas-link-active-color		: $navbar-inverse-link-active-color!default;
+$o-offcanvas-link-active-bg			: $navbar-inverse-link-active-bg!default;
+$o-offcanvas-logout-color			: $brand-danger !default;
+$o-offcanvas-logout-hover-color		: darken($o-offcanvas-logout-color,10%)!default;
+$o-offcanvas-dropdown-bg			: $o-offcanvas-bg !default;
+$o-offcanvas-dropdown-font-size		: $font-size-base !default;
+
+/* Page footer */
+$o-footer-font-size					: $font-size-small !default;
+$o-footer-line-height				: 16px !default;
+$o-footer-share-font-size			: $font-size-base !default;
+$o-footer-padding-top				: 10px !default;
+$o-footer-height 					: 70px !default;
+$o-footer-outer-bg 					: #f5f5f5 !default;
+$o-footer-inner-bg 					: #f5f5f5 !default;
+$o-footer-default-color 			: #999 !default;
+$o-footer-default-link-color 		: #999 !default;
+$o-footer-default-link-hover-color 	: #000 !default;
+$o-footer-position-absolute 		: true !default; 
+
+/* Toolbar in course, editor etc */
+$o-toolbar-bg-color				: $navbar-default-bg !default;
+$o-toolbar-border-color			: $navbar-default-border !default;
+$o-toolbar-border-radius		: $navbar-border-radius !default;
+$o-toolbar-link-color			: $navbar-default-link-color !default;
+$o-toolbar-link-hover-color		: $navbar-default-link-hover-color !default;
+$o-toolbar-link-disabled-color	: lighten($navbar-default-link-color, 20%) !default;
+$o-toolbar-link-active-color	: $link-color !default;
+$o-toolbar-link-active-bg		: transparent !default;
+$o-toolbar-dropdown-active-color: $link-color !default;
+$o-toolbar-dropdown-active-bg	: transparent !default;
+$o-toolbar-size-icon-md 		: ceil($font-size-base * 1.25) !default;
+$o-toolbar-size-text-md 		: ceil($font-size-base * 0.85) !default;
+$o-toolbar-size-caret-md 		: $font-size-base !default;
+$o-toolbar-size-icon-sm 		: ceil($font-size-base * 1.1) !default;
+$o-toolbar-size-text-sm 		: ceil($font-size-base * 0.75) !default;
+$o-toolbar-size-caret-sm 		: ceil($font-size-base * 0.85) !default;
+$o-toolbar-size-icon-xs 		: ceil($font-size-base * 1.4) !default;
+$o-toolbar-height-md			: 37px !default;
+$o-toolbar-height-sm			: 35px !default;
+$o-toolbar-height-xs			: 22px !default;
+$o-toolbar-margin-top			: -10px !default;
+$o-toolbar-margin-bottom		: $navbar-margin-bottom !default;
+$o-toolbar-tools-margin-top-md		: 8px !default;
+$o-toolbar-tools-margin-bottom-md	: 5px !default;
+$o-toolbar-tools-margin-top-sm		: 6px !default;
+$o-toolbar-tools-margin-bottom-sm	: 4px !default;
+$o-toolbar-tools-margin-top-xs		: 6px !default;
+$o-toolbar-tools-margin-bottom-xs	: 4px !default;
+$o-toolbar-close-color				: $brand-danger !default;
+$o-toolbar-breadcrumb-bg-color		: $panel-default-heading-bg !default;
+$o-toolbar-breadcrumb-font-size 	: ceil(($font-size-base * 0.75)) !default;
+$o-toolbar-breadcrumb-line-height	: floor(($o-toolbar-breadcrumb-font-size * $line-height-base)) !default;
+$o-toolbar-nav-link-color			: $o-toolbar-link-color !default; 
+$o-toolbar-nav-link-hover-color		: $o-toolbar-link-hover-color !default; 
+$o-toolbar-nav-link-disabled-color	: $o-toolbar-link-disabled-color !default; 
+$o-toolbar-nav-bg-color				: $gray-lighter !default;
+$o-toolbar-nav-border-color			: $btn-default-border !default; 
+$o-toolbar-nav-border-radius		: 4px !default; 
+$o-toolbar-nav-size-icon-md 		: ceil($font-size-base * 1.5) !default;
+$o-toolbar-nav-size-icon-sm 		: ceil($font-size-base * 1.25) !default;
+$o-toolbar-nav-size-icon-xs 		: ceil($font-size-base * 1.4) !default;
+
+/* Left side menu tree */
+$o-tree-bg						: none !default;
+$o-tree-border-color			: $list-group-border !default;
+$o-tree-border-radius			: $list-group-border-radius !default;
+$o-tree-link-color 				: $navbar-default-link-color !default;
+$o-tree-link-bg					: none !default;
+$o-tree-link-hover-color 		: $navbar-default-link-hover-color !default;
+$o-tree-link-hover-bg			: $navbar-default-bg !default;
+$o-tree-link-active-color 		: $link-color !default;
+$o-tree-link-active-bg			: none !default;
+$o-tree-link-active-hover-color : $link-hover-color !default;
+$o-tree-link-active-hover-bg	: $gray-lighter !default;
+$o-tree-link-active-font-weight	: bold !default;
+$o-tree-link-active-parent-color 			: $o-tree-link-color !default;
+$o-tree-link-active-parent-hover-color 		: $o-tree-link-hover-color !default;
+$o-tree-link-active-parent-font-weight		: $o-tree-link-active-font-weight !default;
+$o-tree-font-size				: $font-size-base !default;
+$o-tree-padding-vertical		: 10px !default;
+$o-tree-padding-horizontal_root_visible	: 10px !default;
+$o-tree-padding-horizontal_root_hidden	: 20px !default;
+$o-tree-padding-steps-px 		: 15px !default;
+$o-tree-padding-opener-left-px 	: 1px !default;
+
+/* Tabbed pane component */
+$o-tabbed-pane-padding			: ($padding-large-vertical * 2) 0 $padding-base-vertical 0;
+
+/* Auto completer input field */
+$o-autocomplete-width				: 400px !default;
+$o-autocomplete-font-size			: $font-size-base !default;
+$o-autocomplete-line-height			: $line-height-base !default;
+$o-autocomplete-border-radius		: $input-border-radius !default;
+$o-autocomplete-bg-color			: $input-bg !default;
+$o-autocomplete-color 				: $input-color !default;
+$o-autocomplete-suggestion-color 	: $btn-primary-color !default;
+$o-autocomplete-suggestion-bg-color	: $btn-primary-bg !default;
+
+/* Chart library configuration for visualized statistics */
+$o-d3chart-default 				: $brand-primary !default;
+$o-d3chart-light 				: lighten($brand-primary, 15%) !default;
+$o-d3chart-dark 				: darken($brand-primary, 15%) !default;
+
+/* Toggle sliders */
+$o-toggle-size					: 16px !default;
+$o-toggle-border-color			: $gray-light !default;
+$o-toggle-bg					: $gray-lighter !default;
+$o-toggle-off-color				: $gray-light !default;
+$o-toggle-on-color				: $brand-primary !default;
+$o-toggle-text-color			: $text-muted !default;
+
+/* Dirty button */
+$o-button-dirty-color			: $btn-warning-color !default;
+$o-button-dirty-bg				: $btn-warning-bg !default; 
+$o-button-dirty-border			: darken($o-button-dirty-bg	, 5%) !default;
+
+/* Login page */
+$o-login-header-color			: $brand-primary !default;
+$o-login-form-width				: 400px !default;
+$o-login-form-align				: right !default; 								/* left, center or right */
+$o-login-form-bg-img			: $o-images-path + "learn-bg.jpg" !default;  	/* image CC by Thomas Leuthard https://www.flickr.com/photos/thomasleuthard/8587724648/ */
+$o-login-btn-register-color		: $btn-info-color !default;
+$o-login-btn-register-bg		: $btn-info-bg !default;
+$o-login-btn-register-border	: darken($o-login-btn-register-bg, 5%) !default; 
+$o-login-infomessage-border		: transparent !default;
+$o-login-infomessage-radius		: $border-radius-base !default;
+$o-login-infomessage-bg			: rgba(255,255,255,.5) !default;
+$o-login-lead-color				: $text-color !default;
+$o-login-lead-header-color		: $o-content-header-base-color !default;
+
+/* Course and catalog site */
+$o-coursesite-rowelem-width-md 	: 180px !default;
+$o-coursesite-rowelem-height-md : 120px !default;
+$o-coursesite-rowelem-width-sm 	: 120px !default;
+$o-coursesite-rowelem-height-sm : 80px !default;
+$o-coursesite-rowelem-width-xs 	: 75px !default;
+$o-coursesite-rowelem-height-xs : 50px !default;
+$o-coursesite-rowelem-border 	: $brand-primary !default;
+$o-coursesite-catalog-space 	: $padding-large-vertical * 2 !default;
+$o-coursesite-catalog-space-sm 	: $padding-large-vertical !default;
+$o-coursesite-catalog-space-xs 	: $padding-xs-vertical !default;
+$o-coursesite-catalog-border 	: $brand-primary !default;
+$o-coursesite-meta-title-color	: $brand-primary !default;
+$o-coursesite-meta-author-color	: $state-success-text !default;
+$o-coursesite-start-color		: $btn-primary-color !default;
+$o-coursesite-start-bg			: $btn-primary-bg !default;
+$o-coursesite-start-border		: darken($o-coursesite-start-bg, 5%) !default;
+$o-coursesite-book-color		: $btn-warning-color !default;
+$o-coursesite-book-bg			: $btn-warning-bg !default;
+$o-coursesite-book-border		: darken($o-coursesite-book-bg, 5%) !default;
+$o-coursesite-details-color		: $btn-success-color !default;
+$o-coursesite-details-bg		: $btn-success-bg !default;
+$o-coursesite-details-border	: darken($o-coursesite-details-bg, 5%) !default;
+$o-coursesite-go-xs-color		: $o-coursesite-start-color !default; 
+$o-coursesite-go-xs-bg			: $o-coursesite-start-bg !default;
+
+/* Course editor and runtime */
+$o-course-show-icon-title		: false !default; 	// don't show icon in title - no info value
+$o-course-show-icon-toc			: true !default;	// show icons in menu - looks prettier
+$o-course-show-icon-menu		: true !default;	// show icons in menu - looks prettier
+$o-course-show-icon-editor-menu : true !default;	// show icons in menu - looks prettier
+$o-course-state-passed-color	: $state-success-text !default;
+$o-course-state-failed-color	: $state-danger-text !default;
+$o-course-state-unknown-color	: $state-warning-text !default;
+$o-course-node-published		: $state-success-text !default;
+$o-course-node-warning			: $state-warning-text !default;
+$o-course-node-locked			: $state-info-text !default;
+$o-course-node-error			: $state-danger-text !default;
+$o-course-node-deleted			: $badge-bg !default;
+
+
+
+
+/* Chat and other floating window */
+$o-dialog-window-bg				: #fefefe !default;
+$o-dialog-window-bar-bg			: #eee !default;
+$o-dialog-header-color			: $brand-primary !default;
+$o-dialog-header-font-weight	: $headings-font-weight !default;
+
+/* Instant messaging and chat */
+$o-im-chat-load-font-size		: $font-size-small !default;
+$o-im-chat-history-border		: $gray-lighter !default;
+$o-im-chat-message-bg			: #fff !default;
+$o-im-chat-message-bg-alt		: #F4F4F4 !default;
+$o-im-chat-message-border		: #eee !default;
+$o-im-chat-from-color			: $gray-light !default;
+$o-im-chat-from-font-size		: floor($font-size-base * 0.9) !default;
+$o-im-chat-date-color			: $text-muted !default;
+$o-im-chat-date-font-size		: floor($font-size-base * 0.7) !default;
+$o-im-chat-body-font-size		: floor($font-size-base * 0.9) !default;
+$o-im-groupchat-font-size		: floor($font-size-base * 0.9) !default;
+$o-im-groupchat-user-color 		: $text-color !default;
+$o-im-groupchat-vip-color 		: $state-success-text !default;
+$o-im-groupchat-anonymous-color : $state-info-text !default;
+$o-im-buddies-font-size			: floor($font-size-base * 0.9) !default;
+$o-im-buddies-link-color		: $link-color !default;
+$o-im-buddies-link-hover-color	: $link-hover-color !default;
+
+/* Forum module */
+$o-forum-quote-author-color 	: $text-muted !default;
+$o-forum-quote-padding			: $padding-large-vertical;
+$o-forum-quote-color 			: $gray !default;
+$o-forum-quote-font-size		: $font-size-small !default;
+$o-forum-attachment-font-size	: $font-size-small !default;
+
+/* Portlets site */
+$o-portlet-border				: $panel-default-border !default;
+$o-portlet-border-radius		: $panel-border-radius !default;
+$o-portlet-bg					: $panel-bg !default;
+$o-portlet-header-bg			: $panel-default-heading-bg !default;;
+$o-portlet-edit-border			: $panel-warning-border !default;
+$o-portlet-edit-bg				: $panel-warning-heading-bg !default;
+
+/* Full text search results */
+$o-search-context-color			: $state-success-text !default;
+$o-search-details-color			: $text-muted !default;
+$o-search-details-font-size		: $font-size-small !default;
+$o-search-details-bg			: #fff !default;
+$o-search-excerpt-color			: $gray !default;
+
+/* Message boxes */
+$o-box-margin					: 20px !default;
+$o-box-padding					: 20px !default;
+$o-box-border-left-size			: 3px !default;
+$o-box-info-bg					: $gray-lighter !default;
+$o-box-info-color				: $gray-light !default;
+$o-box-note-bg					: $state-info-bg !default;
+$o-box-note-color				: $state-info-text !default;
+$o-box-important-bg				: #FFF1A4 !default;
+$o-box-important-color			: #F4D000 !default;
+$o-box-success-bg				: $state-success-bg !default;
+$o-box-success-color			: $state-success-text !default;
+$o-box-warning-bg				: $state-warning-bg !default;
+$o-box-warning-color			: $state-warning-text !default;
+$o-box-error-bg					: $state-danger-bg !default;
+$o-box-error-color				: $state-danger-text !default;
+
+/* Context help buttons */
+$o-chelp-font-size				: 10px !default;
+$o-chelp-font-weight			: $btn-font-weight !default;
+$o-chelp-bg						: $btn-primary-bg !default;
+$o-chelp-color					: $btn-primary-color !default;
+$o-chelp-border					: $btn-primary-border !default;
+$o-chelp-border-radius			: 2px !default;
+
+/* Date component */
+$o-datecomp-border				: $gray !default;
+$o-datecomp-month-bg			: $brand-primary !default;
+$o-datecomp-month-color			: #fff !default;
+$o-datecomp-day-bg				: $body-bg !default;
+$o-datecomp-day-color			: $text-color !default;
+
+/* other configurations */
+$o-portrait-radius				: 50% !default;
+$o-portrait-border				: none !default;
+$o-bookmark-color				: #bc2d0c !default;

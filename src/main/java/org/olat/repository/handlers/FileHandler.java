@@ -26,26 +26,25 @@
 package org.olat.repository.handlers;
 
 import java.io.File;
-import java.util.List;
+import java.util.Locale;
 
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.WindowControl;
 import org.olat.core.gui.media.MediaResource;
-import org.olat.core.gui.translator.PackageTranslator;
 import org.olat.core.gui.translator.Translator;
 import org.olat.core.id.Identity;
 import org.olat.core.id.OLATResourceable;
+import org.olat.core.id.Roles;
 import org.olat.core.util.Util;
 import org.olat.core.util.ZipUtil;
 import org.olat.core.util.coordinate.CoordinatorManager;
 import org.olat.core.util.resource.OLATResourceableJustBeforeDeletedEvent;
+import org.olat.core.util.vfs.VFSContainer;
 import org.olat.fileresource.FileResourceManager;
+import org.olat.repository.ErrorList;
 import org.olat.repository.RepositoryEntry;
 import org.olat.repository.RepositoryManager;
-import org.olat.repository.controllers.AddFileResourceController;
-import org.olat.repository.controllers.IAddController;
-import org.olat.repository.controllers.RepositoryAddCallback;
 import org.olat.resource.references.ReferenceManager;
 
 /**
@@ -53,39 +52,29 @@ import org.olat.resource.references.ReferenceManager;
  *
  * @author Christian Guretzki
  */
-public abstract class FileHandler {
+public abstract class FileHandler implements RepositoryHandler {
 
-	private static final String PACKAGE = Util.getPackageName(RepositoryManager.class);
-	
-	/**
-	 * 
-	 */
 	public FileHandler() {
+		//
 	}
 
-
-	/**
-	 * @see org.olat.repository.handlers.RepositoryHandler#getAsMediaResource(org.olat.core.id.OLATResourceable
-	 */
+	@Override
 	public MediaResource getAsMediaResource(OLATResourceable res, boolean backwardsCompatible) {
 		return FileResourceManager.getInstance().getAsDownloadeableMediaResource(res);
 	}
 
-	/**
-	 * @see org.olat.repository.handlers.RepositoryHandler#getAddController(org.olat.repository.controllers.RepositoryAddCallback, java.lang.Object, org.olat.core.gui.UserRequest, org.olat.core.gui.control.WindowControl)
-	 */
-	public IAddController createAddController(RepositoryAddCallback callback, Object userObject, UserRequest ureq, WindowControl wControl) {
-		return new AddFileResourceController(callback, getSupportedTypes(), new String[] {"zip"}, ureq, wControl);
-	}
-
-	
+	@Override
 	public Controller createDetailsForm(UserRequest ureq, WindowControl wControl, OLATResourceable res) {
 		return FileResourceManager.getInstance().getDetailsForm(ureq, wControl, res);
 	}
+	
+	@Override
+	public VFSContainer getMediaContainer(RepositoryEntry repoEntry) {
+		return FileResourceManager.getInstance()
+				.getFileResourceMedia(repoEntry.getOlatResource());
+	}
 
-	/**
-	 * @see org.olat.repository.handlers.RepositoryHandler#cleanupOnDelete(org.olat.core.id.OLATResourceable org.olat.core.gui.UserRequest, org.olat.core.gui.control.WindowControl)
-	 */
+	@Override
 	public boolean cleanupOnDelete(OLATResourceable res) {
 		// notify all current users of this resource (content packaging file resource) that it will be deleted now.
 		CoordinatorManager.getInstance().getCoordinator().getEventBus().fireEventToListenersOf(new OLATResourceableJustBeforeDeletedEvent(res), res);
@@ -93,27 +82,19 @@ public abstract class FileHandler {
 		return true;
 	}
 
-	/**
-	 * @see org.olat.repository.handlers.RepositoryHandler#readyToDelete(org.olat.core.id.OLATResourceable org.olat.core.gui.UserRequest, org.olat.core.gui.control.WindowControl)
-	 */
-	public boolean readyToDelete(OLATResourceable res, UserRequest ureq, WindowControl wControl) {
-		String referencesSummary = ReferenceManager.getInstance().getReferencesToSummary(res, ureq.getLocale());
+	@Override
+	public boolean readyToDelete(OLATResourceable res, Identity identity, Roles roles, Locale locale, ErrorList errors) {
+		String referencesSummary = ReferenceManager.getInstance().getReferencesToSummary(res, locale);
 		if (referencesSummary != null) {
-			Translator translator = new PackageTranslator(PACKAGE, ureq.getLocale());
-			wControl.setError(translator.translate("details.delete.error.references",
+			Translator translator = Util.createPackageTranslator(RepositoryManager.class, locale);
+			errors.setError(translator.translate("details.delete.error.references",
 					new String[] { referencesSummary }));
 			return false;
 		}
 		return true;
 	}
-	
-	/**
-	 * @see org.olat.repository.handlers.RepositoryHandler#createCopy(org.olat.core.id.OLATResourceable org.olat.core.gui.UserRequest)
-	 */
-	public OLATResourceable createCopy(OLATResourceable res, UserRequest ureq) {
-		return FileResourceManager.getInstance().createCopy(res);
-	}
 
+	@Override
 	public String archive(Identity archiveOnBehalfOf, String archivFilePath, RepositoryEntry repoEntry) {
 		String exportFileName = getDeletedFilePrefix() + repoEntry.getOlatResource().getResourceableId() + ".zip";
 		String fullFilePath = archivFilePath + File.separator + exportFileName;
@@ -122,8 +103,5 @@ public abstract class FileHandler {
 		return exportFileName;
 	}
 	
-	abstract protected String getDeletedFilePrefix();
-
-	abstract protected List<String> getSupportedTypes();
-
+	protected abstract String getDeletedFilePrefix();
 }

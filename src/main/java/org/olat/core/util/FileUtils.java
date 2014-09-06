@@ -38,11 +38,17 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.nio.file.FileVisitResult;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.SimpleFileVisitor;
+import java.nio.file.attribute.BasicFileAttributes;
 import java.text.Normalizer;
 import java.util.Arrays;
 import java.util.Iterator;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
-import org.apache.commons.fileupload.MultipartStream.MalformedStreamException;
 import org.olat.core.logging.AssertException;
 import org.olat.core.logging.OLATRuntimeException;
 import org.olat.core.logging.OLog;
@@ -58,6 +64,8 @@ public class FileUtils {
 	private static final OLog log = Tracing.createLoggerFor(FileUtils.class);
 	
 	private static int buffSize = 32 * 1024;
+
+	private static final Pattern fileNamePattern = Pattern.compile("(.+)[.](\\w{3,4})");
 	
 	//windows: invalid characters for filenames: \ / : * ? " < > | 
 	//linux: invalid characters for file/folder names: /, but you have to escape certain chars, like ";$%&*"
@@ -497,15 +505,13 @@ public class FileUtils {
 					break;
 				} // hit eof
 			} // end while
-		} catch (MalformedStreamException e) {
-			throw new OLATRuntimeException("Could not read stream", e);
 		} catch (IOException e) {
 			// don't log as error - happens all the time (ClientAbortException)
 			if (log.isDebug()) log.debug("Could not copy stream::" + e.getMessage());
 			return false;
 		}
 		return true;
-	} // end copy
+	}
 
 	/**
 	 * Reads exactly <code>len</code> bytes from the input stream into the byte
@@ -536,6 +542,25 @@ public class FileUtils {
 		}
 		return totalBytesRead;
 	} // end readBlocking
+	
+	public static void deleteDirsAndFiles(Path path) throws IOException {
+		Files.walkFileTree(path, new SimpleFileVisitor<Path>() {
+			
+			@Override
+			public FileVisitResult visitFile(Path file, BasicFileAttributes attrs)
+			throws IOException {
+				Files.delete(file);
+				return FileVisitResult.CONTINUE;
+			}
+			
+			@Override
+			public FileVisitResult postVisitDirectory(Path dir, IOException exc)
+			throws IOException {
+				Files.delete(dir);
+				return FileVisitResult.CONTINUE;
+			}
+		});
+	}
 
 	/**
 	 * Get rid of ALL files and subdirectories in given directory, and all subdirs
@@ -902,7 +927,7 @@ public class FileUtils {
 	 * @param out BufferedOutputStream
 	 * @param wt What this I/O is about
 	 */
-	public static long cpio (BufferedInputStream in, BufferedOutputStream out, String wt) throws IOException {
+	public static long cpio (InputStream in, OutputStream out, String wt) throws IOException {
 		
 		byte[] buffer = new byte[BSIZE];
 
@@ -949,5 +974,43 @@ public class FileUtils {
 		} else {
 			return true;
 		}
+	}
+	
+	public static String rename(File f) {
+		String filename = f.getName();
+		String newName = filename;
+		File newFile = f;
+		for(int count=0; newFile.exists() && count < 999 ; ) {
+			count++;
+			newName = appendNumberAtTheEndOfFilename(filename, count);
+			newFile = new File(f.getParentFile(), newName);
+		}
+		if(!newFile.exists()) {
+			return newName;
+		}
+		return null;
+	}
+	
+	/**
+	 * Sticks together a new filename. If there's a match with a common filename
+	 * with extension, add the counter to the end of the filename before the
+	 * extension. Else just add the counter to the end of the name. E.g.:
+	 * hello.xml => hello1.xml where 1 is the counter
+	 * 
+	 * @param name
+	 * @param number
+	 * @return The new name with the counter added
+	 */
+	public static String appendNumberAtTheEndOfFilename(String name, int number) {
+		// Try to match the file to the pattern "[name].[extension]"
+		Matcher m = fileNamePattern.matcher(name);
+		StringBuffer newName = new StringBuffer();
+		if (m.matches()) {
+			newName.append(m.group(1)).append(number);
+			newName.append(".").append(m.group(2));
+		} else {
+			newName.append(name).append(number);
+		}
+		return newName.toString();
 	}
 }

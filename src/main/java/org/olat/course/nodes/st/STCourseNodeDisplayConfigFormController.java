@@ -94,7 +94,7 @@ public class STCourseNodeDisplayConfigFormController extends FormBasicController
 			CourseEditorTreeNode child = node.getCourseEditorTreeNodeChildAt(i);
 			selectedPeekviewChildKeys[i] = child.getIdent();
 			selectedPeekviewChildValues[i] = child.getTitle() + " (" + child.getIdent() + ")";
-			selectedPeekviewChildCssClasses[i] = child.getIconCssClass() + " b_with_small_icon_left";
+			selectedPeekviewChildCssClasses[i] = "o_icon " + child.getIconCssClass();
 		}
 		selectedPeekviewChildNodesConfig = config.getStringValue(STCourseNodeEditController.CONFIG_KEY_PEEKVIEW_CHILD_NODES, "");
 		// initialize the form now
@@ -132,7 +132,7 @@ public class STCourseNodeDisplayConfigFormController extends FormBasicController
 		String[] values_displayType = new String[] { translate("form.system"), translate("form.peekview"), translate("form.self"),
 				translate("form.delegate") };
 		displayTypeRadios = formFact.addRadiosVertical("selforsystemoverview", formLayout, keys_displayType, values_displayType);
-		displayTypeRadios.addActionListener(this, FormEvent.ONCLICK);
+		displayTypeRadios.addActionListener(FormEvent.ONCLICK);
 		if (displayConfig.equals(STCourseNodeEditController.CONFIG_VALUE_DISPLAY_FILE)) {
 			displayTypeRadios.select("file", true);
 		} else if (displayConfig.equals(STCourseNodeEditController.CONFIG_VALUE_DISPLAY_PEEKVIEW)) {
@@ -163,15 +163,15 @@ public class STCourseNodeDisplayConfigFormController extends FormBasicController
 			// selected to reflect meaningfull default configuration
 			preselectConfiguredOrMaxChildNodes();
 			// Add as listener for any changes
-			selectedPeekviewChildren.addActionListener(this, FormEvent.ONCLICK);
+			selectedPeekviewChildren.addActionListener(FormEvent.ONCLICK);
 		}
 		//
 		// Number of rows (only available in system or peekview type)
 		SpacerElement spacerCols = formFact.addSpacerElement("spacerCols", formLayout, true);
 		displayTwoColumns = formFact
-				.addCheckboxesVertical("displayTwoColumns", formLayout, new String[] { "on" }, new String[] { "" }, null, 1);
+				.addCheckboxesHorizontal("displayTwoColumns", formLayout, new String[] { "on" }, new String[] { "" });
 		displayTwoColumns.setLabel("displayTwoColumns", null);
-		displayTwoColumns.addActionListener(this, FormEvent.ONCLICK);
+		displayTwoColumns.addActionListener(FormEvent.ONCLICK);
 		if (columnsConfig == 2) {
 			displayTwoColumns.selectAll();
 		}

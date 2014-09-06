@@ -61,6 +61,7 @@ import org.junit.runners.Suite;
 	org.olat.core.util.StringHelperTest.class,
 	org.olat.core.util.FormatterTest.class,
 	org.olat.core.util.EncoderTest.class,
+	org.olat.core.util.SimpleHtmlParserTest.class,
 	org.olat.core.util.mail.manager.MailManagerTest.class,
 	org.olat.core.id.context.BusinessControlFactoryTest.class,
 	org.olat.core.id.context.HistoryManagerTest.class,
@@ -92,16 +93,24 @@ import org.junit.runners.Suite;
 	org.olat.group.test.BusinessGroupRelationDAOTest.class,//ok
 	org.olat.group.test.BusinessGroupConcurrentTest.class,//ok
 	org.olat.group.test.ContactDAOTest.class,//ok
+	org.olat.fileresource.FileResourceTest.class,//ok
 	org.olat.resource.lock.pessimistic.PLockTest.class,//ok
 	org.olat.resource.references.ReferenceManagerTest.class,//ok
 	org.olat.resource.OLATResourceManagerTest.class,//ok
+	org.olat.basesecurity.manager.GroupDAOTest.class,//ok
 	org.olat.basesecurity.SecurityManagerTest.class,//ok
 	org.olat.basesecurity.BaseSecurityTest.class,//ok
 	org.olat.basesecurity.BaseSecurityManagerTest.class,//ok
 	org.olat.user.UserManagerTest.class,//ok
 	org.olat.user.UserNameAndPasswordSyntaxCheckerWithRegexpTest.class,//ok
+	org.olat.repository.manager.RepositoryEntryDAOTest.class,//ok
+	org.olat.repository.manager.RepositoryEntryLifecycleDAOTest.class,//ok
+	org.olat.repository.manager.RepositoryEntryRelationDAOTest.class,//ok
+	org.olat.repository.manager.RepositoryServiceImplTest.class,//ok
+	org.olat.repository.manager.RepositoryEntryStatisticsDAOTest.class,//ok
+	org.olat.repository.manager.RepositoryEntryAuthorQueriesTest.class,//ok
+	org.olat.repository.manager.RepositoryEntryMyCourseQueriesTest.class,//ok
 	org.olat.repository.RepositoryManagerTest.class,//ok
-	org.olat.repository.RepositoryManagerConcurrentTest.class,//ok
 	org.olat.repository.RepositoryManagerQueryTest.class,//ok
 	org.olat.instantMessaging.InstantMessageDAOTest.class,//ok
 	org.olat.instantMessaging.InstantMessagePreferencesDAOTest.class,//ok
@@ -113,23 +122,30 @@ import org.junit.runners.Suite;
 	org.olat.course.config.CourseConfigManagerImplTest.class,//ok
 	org.olat.course.groupsandrights.CourseGroupManagementTest.class,//ok
 	org.olat.course.editor.PublishProcessTest.class,//ok
+	org.olat.course.CourseXStreamAliasesTest.class,//ok
+	org.olat.modules.iq.IQManagerTest.class,//ok
 	org.olat.modules.fo.ForumManagerTest.class,//fail
 	org.olat.modules.wiki.WikiUnitTest.class,//ok
 	org.olat.modules.wiki.versioning.diff.CookbookDiffTest.class,//ok
 	org.olat.modules.wiki.gui.components.wikiToHtml.FilterUtilTest.class,
-	//org.olat.modules.coach.CoachingManagerTest.class,//ok
+	org.olat.modules.coach.CoachingDAOTest.class,//ok
+	org.olat.modules.coach.CoachingServiceTest.class,//ok
 	org.olat.properties.PropertyTest.class,//ok
 	org.olat.search.service.document.file.FileDocumentFactoryTest.class,
 	org.olat.search.service.document.file.PDFDocumentTest.class,
 	org.olat.search.service.document.file.OfficeDocumentTest.class,
-	org.olat.notifications.NotificationsManagerTest.class,//fail
+	org.olat.core.commons.services.notifications.manager.NotificationsManagerTest.class,//fail
 	org.olat.registration.RegistrationManagerTest.class,//ok
 	org.olat.course.nodes.projectbroker.ProjectBrokerManagerTest.class,
 	org.olat.core.commons.persistence.DBTest.class,
 	org.olat.modules.ims.cp.CPManagerTest.class,
 	org.olat.modules.ims.qti.fileresource.FileResourceValidatorTest.class,
+	org.olat.ims.qti.QTIResultManagerTest.class,
 	org.olat.ims.qti.qpool.QTIImportProcessorTest.class,
 	org.olat.ims.qti.qpool.QTIExportProcessorTest.class,
+	org.olat.ims.qti.statistics.manager.QTIStatisticsManagerLargeTest.class,
+	org.olat.ims.qti.statistics.manager.QTIStatisticsManagerTest.class,
+	org.olat.ims.qti.statistics.manager.StatisticsTest.class,
 	org.olat.ims.lti.LTIManagerTest.class,
 	org.olat.modules.webFeed.FeedManagerImplTest.class,
 	org.olat.modules.qpool.manager.MetadataConverterHelperTest.class,
@@ -146,17 +162,18 @@ import org.junit.runners.Suite;
 	org.olat.core.commons.services.mark.MarksTest.class,
 //	org.olat.test.OlatJerseyTestCase.class, // NO TEST METHODS 
 	org.olat.test.SpringInitDestroyVerficationTest.class,
-	org.olat.course.statistic.TestLoggingVersionManagerImpl.class,
 	//org.olat.course.statistic.weekly.TestWeeklyStatisticManager_fillGaps.class, don't know what it tests
-	org.olat.core.commons.services.usercomments.UserCommentsTest.class,
-	org.olat.core.commons.services.usercomments.UserRatingsTest.class,
+	org.olat.core.commons.services.commentAndRating.UserCommentsTest.class,
+	org.olat.core.commons.services.commentAndRating.UserRatingsDAOTest.class,
 	org.olat.course.auditing.UserNodeAuditManagerTest.class,
 	org.olat.shibboleth.util.ShibbolethAttributeTest.class,
 	org.olat.core.CoreSpringFactoryTest.class,
 	org.olat.portfolio.PortfolioModuleTest.class,
 	org.olat.portfolio.EPArtefactManagerTest.class,
 	org.olat.portfolio.EPFrontendManagerTest.class,
-	org.olat.portfolio.EPStructureManagerTest.class,
+	org.olat.portfolio.manager.EPStructureManagerTest.class,
+	org.olat.portfolio.manager.EPPolicyManagerTest.class,
+	org.olat.portfolio.manager.InvitationDAOTest.class,
 	org.olat.portfolio.EPStructureToArtefactTest.class,
 	org.olat.portfolio.EPImportTest.class,
 	org.olat.modules.openmeetings.OpenMeetingsTest.class,

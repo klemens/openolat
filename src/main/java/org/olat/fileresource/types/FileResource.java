@@ -25,8 +25,23 @@
 
 package org.olat.fileresource.types;
 
+import java.io.File;
+import java.io.IOException;
+import java.nio.file.FileSystems;
+import java.nio.file.FileVisitResult;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.PathMatcher;
+import java.nio.file.Paths;
+import java.nio.file.SimpleFileVisitor;
+import java.nio.file.StandardCopyOption;
+import java.nio.file.attribute.BasicFileAttributes;
+
 import org.olat.core.id.OLATResourceable;
+import org.olat.core.logging.OLog;
+import org.olat.core.logging.Tracing;
 import org.olat.core.util.CodeHelper;
+import org.olat.core.util.StringHelper;
 
 /**
  * Initial Date:  Apr 8, 2004
@@ -34,33 +49,33 @@ import org.olat.core.util.CodeHelper;
  * @author Mike Stock
  */
 public class FileResource implements OLATResourceable {
+	
+	private static final OLog log = Tracing.createLoggerFor(FileResource.class);
 
 	/**
 	 * Generic file resource type identifier.
 	 */
 	public static final String GENERIC_TYPE_NAME = "FileResource.FILE";
-	private String typeName;
+	private final String typeName;
 	private Long typeId;
 	
-	/**
-	 * 
-	 */
 	public FileResource() {
 		typeName = GENERIC_TYPE_NAME;
 		typeId = new Long(CodeHelper.getForeverUniqueID());
 	}
-
-	 /**
-	 * User by subtypes to set appropriate ResourceableTypeName
-	 * @param newTypeName
-	 */
-	protected void setTypeName(String newTypeName) { typeName = newTypeName; }
+	
+	public FileResource(String typeName) {
+		this.typeName = typeName;
+		typeId = new Long(CodeHelper.getForeverUniqueID());
+	}
 
 	/**
 	 * Only used internally when switching subtypes.
 	 * @param newId
 	 */
-	public void overrideResourceableId(Long newId) { typeId = newId; }
+	public void overrideResourceableId(Long newId) {
+		typeId = newId;
+	}
 	
 	/**
 	 * @see org.olat.core.id.OLATResourceablegetResourceableTypeName()
@@ -75,5 +90,141 @@ public class FileResource implements OLATResourceable {
 	public Long getResourceableId() {
 		return typeId;
 	}
+	
 
+	
+	/**
+	 * This method open a new FileSystem for zip
+	 * @param file
+	 * @param filename
+	 * @return
+	 * @throws IOException
+	 */
+	public static Path getResource(File file, String filename)
+	throws IOException {
+		if(!StringHelper.containsNonWhitespace(filename)) {
+			filename = file.getName();
+		}
+		
+		Path fPath = null;
+		if(file.isDirectory()) {
+			fPath = file.toPath();
+		} else if(filename != null && filename.toLowerCase().endsWith(".zip")) {
+			//perhaps find root folder and return it
+			fPath = FileSystems.newFileSystem(file.toPath(), null).getPath("/");
+			RootSearcher rootSearcher = searchRootDirectory(fPath);
+			if(rootSearcher.foundRoot()) {
+				Path rootPath = rootSearcher.getRoot();
+				fPath = fPath.resolve(rootPath);
+			}
+		} else {
+			fPath = file.toPath();
+		}
+		return fPath;
+	}
+	
+	protected static  RootSearcher searchRootDirectory(Path fPath)
+	throws IOException {
+		RootSearcher rootSearcher = new RootSearcher();
+		Files.walkFileTree(fPath, rootSearcher);
+		return rootSearcher;
+	}
+	
+	public static boolean copyResource(File file, String filename, File targetDirectory) {
+		return copyResource(file, filename, targetDirectory, new YesMatcher());
+	}
+	
+	public static boolean copyResource(File file, String filename, File targetDirectory, PathMatcher filter) {
+		try {
+			Path path = getResource(file, filename);
+			if(path == null) {
+				return false;
+			}
+			
+			Path destDir = targetDirectory.toPath();
+			Files.walkFileTree(path, new CopyVisitor(path, destDir, filter));
+			return true;
+		} catch (IOException e) {
+			log.error("", e);
+			return false;
+		}
+	}
+
+	public static class RootSearcher extends SimpleFileVisitor<Path> {
+		
+		private Path root;
+		private Boolean rootFound;
+		
+		public Path getRoot() {
+			return root;
+		}
+		
+		public boolean foundRoot() {
+			return root != null && rootFound != null && rootFound.booleanValue();
+		}
+
+		@Override
+		public FileVisitResult visitFile(Path file, BasicFileAttributes attrs)
+		throws IOException {
+			Path tokenZero = file.getName(0);
+			if("__MACOSX".equals(tokenZero.toString()) || Files.isHidden(file)) {
+				//ignore
+			} else if(rootFound == null) {
+				if(Files.isRegularFile(file)) {
+					if(file.getNameCount() > 1) {
+						root = tokenZero;
+						rootFound = Boolean.TRUE;
+					} else {
+						rootFound = Boolean.FALSE;
+					}
+				}
+			} else if(rootFound.booleanValue() && !root.equals(tokenZero)) {
+				rootFound = Boolean.FALSE;
+		        return FileVisitResult.TERMINATE;
+			}
+	        return FileVisitResult.CONTINUE;
+		}
+	}
+	
+	public static class YesMatcher implements PathMatcher {
+		@Override
+		public boolean matches(Path path) {
+			return true;
+		}
+	}
+	
+	public static class CopyVisitor extends SimpleFileVisitor<Path> {
+
+		private final Path source;
+		private final Path destDir;
+		private final PathMatcher filter;
+		
+		public CopyVisitor(Path source, Path destDir, PathMatcher filter) {
+			this.source = source;
+			this.destDir = destDir;
+			this.filter = filter;
+		}
+		
+		@Override
+		public FileVisitResult visitFile(Path file, BasicFileAttributes attrs)
+	    throws IOException {
+			Path relativeFile = source.relativize(file);
+	        final Path destFile = Paths.get(destDir.toString(), relativeFile.toString());
+	        if(filter.matches(file)) {
+	        	Files.copy(file, destFile, StandardCopyOption.REPLACE_EXISTING);
+	        }
+	        return FileVisitResult.CONTINUE;
+		}
+	 
+		@Override
+		public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs)
+		throws IOException {
+			Path relativeDir = source.relativize(dir);
+	        final Path dirToCreate = Paths.get(destDir.toString(), relativeDir.toString());
+	        if(Files.notExists(dirToCreate)){
+	        	Files.createDirectory(dirToCreate);
+	        }
+	        return FileVisitResult.CONTINUE;
+		}
+	}
 }

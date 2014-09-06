@@ -94,10 +94,9 @@ public class GlossaryRegisterSettingsController extends FormBasicController {
 		setFormDescription("register.intro");
 		String[] regKeys = {"true"};
 		String[] regValues = {""};
-		String[] regCSS = new String[1];
 		
-		regOnOff = uifactory.addCheckboxesHorizontal("register.onoff", formLayout, regKeys, regValues, regCSS);
-		regOnOff.addActionListener(listener, FormEvent.ONCLICK);
+		regOnOff = uifactory.addCheckboxesHorizontal("register.onoff", formLayout, regKeys, regValues);
+		regOnOff.addActionListener(FormEvent.ONCLICK);
 		
 		Properties glossProps = GlossaryItemManager.getInstance().getGlossaryConfig(glossaryFolder);
 		String configuredStatus = glossProps.getProperty(GlossaryItemManager.REGISTER_ONOFF);

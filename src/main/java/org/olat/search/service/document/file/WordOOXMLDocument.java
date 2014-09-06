@@ -25,6 +25,7 @@ import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
 import org.apache.lucene.document.Document;
+import org.olat.core.gui.util.CSSHelper;
 import org.olat.core.logging.OLog;
 import org.olat.core.logging.Tracing;
 import org.olat.core.util.FileUtils;
@@ -59,7 +60,7 @@ public class WordOOXMLDocument extends FileDocument {
 		WordOOXMLDocument officeDocument = new WordOOXMLDocument();
 		officeDocument.init(leafResourceContext, leaf);
 		officeDocument.setFileType(WORD_FILE_TYPE);
-		officeDocument.setCssIcon("b_filetype_doc");
+		officeDocument.setCssIcon(CSSHelper.createFiletypeIconCssClassFor(leaf.getName()));
 
 		if (log.isDebug()) {
 			log.debug(officeDocument.toString());
@@ -102,6 +103,7 @@ public class WordOOXMLDocument extends FileDocument {
 		} catch (DocumentException e) {
 			throw e;
 		} catch (Exception e) {
+			e.printStackTrace();
 			throw new DocumentException(e.getMessage());
 		} finally {
 			FileUtils.closeSafely(zip);

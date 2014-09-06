@@ -19,6 +19,8 @@
  */
 package org.olat.core.gui.control.generic.closablewrapper;
 
+import java.util.List;
+
 import org.apache.commons.lang.StringEscapeUtils;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.Component;
@@ -28,10 +30,11 @@ import org.olat.core.gui.components.panel.Panel;
 import org.olat.core.gui.components.velocity.VelocityContainer;
 import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.Event;
+import org.olat.core.gui.control.WindowBackOffice;
 import org.olat.core.gui.control.WindowControl;
 import org.olat.core.gui.control.controller.BasicController;
-import org.olat.core.gui.control.winmgr.Command;
-import org.olat.core.gui.control.winmgr.JSCommand;
+import org.olat.core.gui.control.util.ZIndexWrapper;
+import org.olat.core.gui.render.ValidationResult;
 import org.olat.core.logging.OLATRuntimeException;
 
 /**
@@ -56,12 +59,10 @@ import org.olat.core.logging.OLATRuntimeException;
  * @author gnaegi
  */
 public class CloseableCalloutWindowController extends BasicController {
-	public static final Event CLOSE_WINDOW_EVENT = new Event(
-			"CLOSE_WINDOW_EVENT");
+	public static final Event CLOSE_WINDOW_EVENT = new Event("CLOSE_WINDOW_EVENT");
 
 	private VelocityContainer calloutVC;
 	private CloseableModalController cmc;
-	private boolean requiresJSCleanup = false;
 
 	/**
 	 * Constructor for a closable callout window controller. After calling the
@@ -95,18 +96,28 @@ public class CloseableCalloutWindowController extends BasicController {
 
 		boolean ajax = getWindowControl().getWindowBackOffice().getWindowManager().isAjaxEnabled();
 		if (ajax) {
-			calloutVC = createVelocityContainer("callout");
+			final Panel guiMsgPlace = new Panel("guimessage_place");
+			calloutVC = new VelocityContainer("closeablewrapper", velocity_root + "/callout.html", null, this) {
+				public void validate(UserRequest ureq, ValidationResult vr) {
+					super.validate(ureq, vr);
+					// just before rendering, we need to tell the windowbackoffice that we are a favorite for accepting gui-messages.
+					// the windowbackoffice doesn't know about guimessages, it is only a container that keeps them for one render cycle
+					WindowBackOffice wbo = getWindowControl().getWindowBackOffice();
+					List<ZIndexWrapper> zindexed = wbo.getGuiMessages();
+					zindexed.add(new ZIndexWrapper(guiMsgPlace, 20));
+				}
+			};
+			
 			calloutVC.put("calloutWindowContent", calloutWindowContent);
 			// Target link
 			setDOMTarget(targetDomID);
 			// Config options, see setter methods
 			calloutVC.contextPut("closable", Boolean.toString(closable));
-			calloutVC.contextPut("cssClasses", (cssClasses == null ? "b_small" : cssClasses));
+			calloutVC.contextPut("cssClasses", (cssClasses == null ? "small" : cssClasses));
 			if (title != null) {
 				String escapedTitle = StringEscapeUtils.escapeJavaScript(StringEscapeUtils.escapeHtml(title));
 				calloutVC.contextPut("title", escapedTitle);
 			}
-			
 			putInitialPanel(calloutVC);
 		} else {
 			// Fallback to old-school modal dialog
@@ -137,8 +148,7 @@ public class CloseableCalloutWindowController extends BasicController {
 	public CloseableCalloutWindowController(UserRequest ureq,
 			WindowControl wControl, Component calloutWindowContent,
 			Link targetLink, String title, boolean closable, String cssClasses) {
-		this(ureq, wControl, calloutWindowContent, "o_lnk"
-				+ targetLink.getDispatchID(), title, closable, cssClasses);
+		this(ureq, wControl, calloutWindowContent, "o_c" + targetLink.getDispatchID(), title, closable, cssClasses);
 	}
 
 	/**
@@ -236,9 +246,6 @@ public class CloseableCalloutWindowController extends BasicController {
 			cmc.dispose();
 			cmc = null;
 		}
-		if (requiresJSCleanup) {
-			cleanupJSCode();			
-		}
 	}
 
 	/**
@@ -275,7 +282,6 @@ public class CloseableCalloutWindowController extends BasicController {
 		} else {
 			// push to modal stack
 			getWindowControl().pushAsCallout(calloutVC, getDOMTarget());
-			requiresJSCleanup = true;
 		}
 	}
 
@@ -288,24 +294,8 @@ public class CloseableCalloutWindowController extends BasicController {
 			// Delegate if in non-ajax mode to modal window
 			cmc.deactivate();
 		} else {
-			cleanupJSCode();
 			// Remove component from stack
 			getWindowControl().pop();
 		}
-	}
-
-	/**
-	 * Cleanup the window and JS code on the browser side
-	 */
-	private void cleanupJSCode() {
-		// Cleanup any resources on the browser/DOM side
-		StringBuilder sb = new StringBuilder();
-		sb.append("jQuery(jQuery('#").append(getDOMTarget()).append("').each(function(index, el) {")
-		  .append("  try { jQuery(el).tooltip('destroy'); } catch(e) {}")
-		  .append("}));");
-		// JS command is sent via OLAT AJAX channel
-		Command command = new JSCommand(sb.toString());
-		getWindowControl().getWindowBackOffice().sendCommandTo(command);
-		requiresJSCleanup = false;
 	}
 }

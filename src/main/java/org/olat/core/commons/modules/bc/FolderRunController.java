@@ -43,13 +43,15 @@ import org.olat.core.commons.modules.bc.commands.FolderCommand;
 import org.olat.core.commons.modules.bc.commands.FolderCommandFactory;
 import org.olat.core.commons.modules.bc.commands.FolderCommandStatus;
 import org.olat.core.commons.modules.bc.components.FolderComponent;
+import org.olat.core.commons.services.notifications.PublisherData;
+import org.olat.core.commons.services.notifications.SubscriptionContext;
+import org.olat.core.commons.services.notifications.ui.ContextualSubscriptionController;
 import org.olat.core.commons.services.webdav.WebDAVModule;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.Component;
 import org.olat.core.gui.components.download.DisplayOrDownloadComponent;
 import org.olat.core.gui.components.link.Link;
 import org.olat.core.gui.components.link.LinkFactory;
-import org.olat.core.gui.components.tree.SelectionTree;
 import org.olat.core.gui.components.velocity.VelocityContainer;
 import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.Event;
@@ -67,9 +69,6 @@ import org.olat.core.logging.Tracing;
 import org.olat.core.logging.activity.CoreLoggingResourceable;
 import org.olat.core.logging.activity.ILoggingAction;
 import org.olat.core.logging.activity.ThreadLocalUserActivityLogger;
-import org.olat.core.util.notifications.ContextualSubscriptionController;
-import org.olat.core.util.notifications.PublisherData;
-import org.olat.core.util.notifications.SubscriptionContext;
 import org.olat.core.util.resource.OresHelper;
 import org.olat.core.util.vfs.OlatRelPathImpl;
 import org.olat.core.util.vfs.Quota;
@@ -82,6 +81,7 @@ import org.olat.core.util.vfs.filters.VFSItemFilter;
 import org.olat.search.SearchServiceUIFactory;
 import org.olat.search.SearchServiceUIFactory.DisplayOption;
 import org.olat.search.ui.SearchInputController;
+import org.olat.user.UserManager;
 
 /**
  * Description:<br>
@@ -101,7 +101,6 @@ public class FolderRunController extends BasicController implements Activateable
 
 	private VelocityContainer folderContainer;
 
-	private SelectionTree selTree;	
 	private SubscriptionContext subsContext;
 	private ContextualSubscriptionController csController;
 	
@@ -113,13 +112,14 @@ public class FolderRunController extends BasicController implements Activateable
 	private Link editQuotaButton;
 
 	/**
-	 * default Constructor, results in showing users personal folder
+	 * Default Constructor, results in showing users personal folder, used by Spring
 	 * 
 	 * @param ureq
 	 * @param wControl
 	 */
 	public FolderRunController(UserRequest ureq, WindowControl wControl) {
-		this(new BriefcaseWebDAVProvider().getContainer(ureq.getIdentity()), true, true, true, ureq, wControl);
+		this(new BriefcaseWebDAVMergeSource(ureq.getIdentity(), UserManager.getInstance().getUserDisplayName(ureq.getIdentity())),
+				true, true, true, ureq, wControl);
 		//set the resource URL to match the indexer ones
 		setResourceURL("[Identity:" + ureq.getIdentity().getKey() + "][userfolder:0]");
 	}
@@ -128,6 +128,7 @@ public class FolderRunController extends BasicController implements Activateable
 	 * Constructor for a folder controller without filter and custom link model for editor
 	 * @param rootContainer
 	 * @param displayWebDAVLink
+	 *            true: show the webDAV link; false: hide the webDAV link
 	 * @param ureq
 	 * @param wControl
 	 */
@@ -139,6 +140,13 @@ public class FolderRunController extends BasicController implements Activateable
 	 * Constructor for a folder controller without filter and custom link model for editor.
 	 * @param rootContainer
 	 * @param displayWebDAVLink
+	 *            true: show the webDAV link; false: hide the webDAV link
+	 * @param displaySearch
+	 *            true: display the search field; false: omit the search field.
+	 *            Note: for guest users the search is always omitted.
+	 * @param canMail
+	 * 			  true: allow sending document / link to document via email to other users
+	 *            false: don't use mail feature
 	 * @param ureq
 	 * @param wControl
 	 */
@@ -159,6 +167,9 @@ public class FolderRunController extends BasicController implements Activateable
 	 * @param displaySearch
 	 *            true: display the search field; false: omit the search field.
 	 *            Note: for guest users the search is always omitted.
+	 * @param canMail
+	 * 			  true: allow sending document / link to document via email to other users
+	 *            false: don't use mail feature
 	 * @param ureq
 	 *            The user request object
 	 * @param wControl
@@ -189,6 +200,9 @@ public class FolderRunController extends BasicController implements Activateable
 	 * @param displaySearch
 	 *            true: display the search field; false: omit the search field.
 	 *            Note: for guest users the search is always omitted.
+	 * @param canMail
+	 * 			  true: allow sending document / link to document via email to other users
+	 *            false: don't use mail feature
 	 * @param ureq
 	 *            The user request object
 	 * @param wControl
@@ -246,10 +260,6 @@ public class FolderRunController extends BasicController implements Activateable
 			}
 		}
 
-		selTree = new SelectionTree("seltree", getTranslator());
-		selTree.addListener(this);
-		folderContainer.put("seltree", selTree);
-
 		// jump to either the forum or the folder if the business-launch-path says so.
 		ContextEntry ce = bc.popLauncherContextEntry();
 		if ( ce != null ) { // a context path is left for me						
@@ -268,6 +278,15 @@ public class FolderRunController extends BasicController implements Activateable
 		    
 		enableDisableQuota(ureq);		
 		putInitialPanel(folderContainer);
+	}
+	
+	/**
+	 * Remove the subscription panel but let the subscription context active
+	 */
+	public void disableSubscriptionController() {
+		if(csController != null) {
+			folderContainer.remove(csController.getInitialComponent());
+		}
 	}
 	
 	public void setResourceURL(String resourceUrl) {
@@ -389,7 +408,9 @@ public class FolderRunController extends BasicController implements Activateable
 					// activate command's controller
 					listenTo(folderCommandController);
 					if (!folderCommand.runsModal()) {
-						cmc = new CloseableModalController(getWindowControl(), translate("close"), folderCommandController.getInitialComponent());
+						String title = folderCommand.getModalTitle();
+						cmc = new CloseableModalController(getWindowControl(), translate("close"),
+								folderCommandController.getInitialComponent(), true, title);
 						cmc.activate();						
 						listenTo(cmc);
 					}
@@ -429,17 +450,22 @@ public class FolderRunController extends BasicController implements Activateable
 	private void enableDisableQuota(UserRequest ureq) {
 		//prevent a timing condition if the user logout while a thumbnail is generated
 		if (ureq.getUserSession() == null || ureq.getUserSession().getRoles() == null) {
-			folderContainer.contextPut("editQuota", Boolean.FALSE);
 			return;
-		} else if (!ureq.getUserSession().getRoles().isOLATAdmin()) {
-			if (!ureq.getUserSession().getRoles().isInstitutionalResourceManager()) {
-				folderContainer.contextPut("editQuota", Boolean.FALSE);
-				return;
-			}
+		} 
+		
+		Boolean newEditQuota = Boolean.FALSE;
+		if (ureq.getUserSession().getRoles().isOLATAdmin() || ureq.getUserSession().getRoles().isInstitutionalResourceManager()) {
+			// Only sys admins or institutonal resource managers can have the quota button
+			Quota q = VFSManager.isTopLevelQuotaContainer(folderComponent.getCurrentContainer());
+			newEditQuota = (q == null)? Boolean.FALSE : Boolean.TRUE;
 		}
 
-		Quota q = VFSManager.isTopLevelQuotaContainer(folderComponent.getCurrentContainer());
-		folderContainer.contextPut("editQuota", (q == null)? Boolean.FALSE : Boolean.TRUE);
+		Boolean currentEditQuota = (Boolean) folderContainer.contextGet("editQuota");
+		// Update the container only if a new value is available or no value is set to 
+		// not make the component dirty after asynchronous thumbnail loading
+		if (currentEditQuota == null || !currentEditQuota.equals(newEditQuota)) {
+			folderContainer.contextPut("editQuota", newEditQuota);			
+		}
 	}
 	
 	/**

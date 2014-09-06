@@ -37,6 +37,7 @@ import java.util.List;
 import org.olat.admin.quota.QuotaConstants;
 import org.olat.basesecurity.BaseSecurityManager;
 import org.olat.basesecurity.Constants;
+import org.olat.basesecurity.GroupRoles;
 import org.olat.commons.calendar.CalendarManager;
 import org.olat.commons.calendar.CalendarManagerFactory;
 import org.olat.commons.calendar.ui.CalendarController;
@@ -46,6 +47,7 @@ import org.olat.core.CoreSpringFactory;
 import org.olat.core.commons.modules.bc.FolderRunController;
 import org.olat.core.commons.modules.bc.vfs.OlatNamedContainerImpl;
 import org.olat.core.commons.modules.bc.vfs.OlatRootFolderImpl;
+import org.olat.core.commons.services.notifications.SubscriptionContext;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.WindowControl;
@@ -65,7 +67,6 @@ import org.olat.core.util.coordinate.CoordinatorManager;
 import org.olat.core.util.coordinate.SyncerCallback;
 import org.olat.core.util.coordinate.SyncerExecutor;
 import org.olat.core.util.mail.ContactMessage;
-import org.olat.core.util.notifications.SubscriptionContext;
 import org.olat.core.util.vfs.LocalFolderImpl;
 import org.olat.core.util.vfs.Quota;
 import org.olat.core.util.vfs.QuotaManager;
@@ -107,8 +108,7 @@ import org.olat.portfolio.ui.structel.EPCreateMapController;
 import org.olat.properties.NarrowedPropertyManager;
 import org.olat.properties.Property;
 import org.olat.properties.PropertyManager;
-import org.olat.resource.OLATResource;
-import org.olat.testutils.codepoints.server.Codepoint;
+import org.olat.repository.RepositoryEntry;
 
 /**
  * Description:<BR>
@@ -252,7 +252,6 @@ public class CollaborationTools implements Serializable {
 	 */
 	public Controller createForumController(UserRequest ureq, WindowControl wControl, boolean isAdmin, boolean isGuestOnly,
 			final SubscriptionContext subsContext) {
-		Codepoint.codepoint(CollaborationTools.class, "createForumController-init");
 		
 		final boolean isAdm = isAdmin;
 		final boolean isGuest = isGuestOnly;
@@ -302,12 +301,9 @@ public class CollaborationTools implements Serializable {
 		// TODO: is there a nicer solution without setting an instance variable
 		//final List<Forum> forumHolder = new ArrayList<Forum>();
 		
-		Codepoint.codepoint(CollaborationTools.class, "pre_sync_enter");
 	//TODO gsync
 		Forum forum = coordinatorManager.getCoordinator().getSyncer().doInSync(ores, new SyncerCallback<Forum>(){
 			public Forum execute() {
-				
-				Codepoint.codepoint(CollaborationTools.class, "sync_enter");
 				
 				//was: synchronized (CollaborationTools.class) {
 				Forum aforum;
@@ -334,7 +330,6 @@ public class CollaborationTools implements Serializable {
 								+ ores.getResourceableTypeName() + "/" + ores.getResourceableId());
 					}
 				}
-				Codepoint.codepoint(CollaborationTools.class, "sync_exit");
 				return aforum;
 			}});
 		return forum;
@@ -375,7 +370,7 @@ public class CollaborationTools implements Serializable {
 
 		//fxdiff VCRP-8: collaboration tools folder access control
 		boolean writeAccess;
-		boolean isOwner = BaseSecurityManager.getInstance().isIdentityInSecurityGroup(identity, businessGroup.getOwnerGroup());
+		boolean isOwner = CoreSpringFactory.getImpl(BusinessGroupService.class).hasRoles(identity, businessGroup, GroupRoles.coach.name());
 		if (!(isAdmin || isOwner)) {
 				// check if participants have read/write access
 			int folderAccess = CollaborationTools.FOLDER_ACCESS_ALL;
@@ -407,12 +402,12 @@ public class CollaborationTools implements Serializable {
 		KalendarRenderWrapper calRenderWrapper = collaborationManager.getCalendar(businessGroup, ureq, isAdmin);
 	
 		// add linking
-		List<OLATResource> resources = CoreSpringFactory.getImpl(BusinessGroupService.class).findResources(Collections.singleton(businessGroup), 0, -1);
+		List<RepositoryEntry> repoEntries = CoreSpringFactory.getImpl(BusinessGroupService.class).findRepositoryEntries(Collections.singleton(businessGroup), 0, -1);
 		
-		List<ICourse> courses = new ArrayList<ICourse>(resources.size());
-		for (OLATResource resource:resources) {
-			if (resource.getResourceableTypeName().equals(CourseModule.getCourseTypeName())) {
-				ICourse course = CourseFactory.loadCourse(resource);
+		List<ICourse> courses = new ArrayList<ICourse>(repoEntries.size());
+		for (RepositoryEntry repoEntry:repoEntries) {
+			if (repoEntry.getOlatResource().getResourceableTypeName().equals(CourseModule.getCourseTypeName())) {
+				ICourse course = CourseFactory.loadCourse(repoEntry.getOlatResource());
 				courses.add(course);
 			}
 		}
@@ -436,7 +431,7 @@ public class CollaborationTools implements Serializable {
 	 * @return a contact form controller
 	 */
 	public ContactFormController createContactFormController(UserRequest ureq, WindowControl wControl, ContactMessage cmsg) {
-		ContactFormController cfc = new ContactFormController(ureq, wControl, true, true, false, false, cmsg);
+		ContactFormController cfc = new ContactFormController(ureq, wControl, true, false, false, cmsg);
 		return cfc;
 	}
 
@@ -501,7 +496,7 @@ public class CollaborationTools implements Serializable {
 				Property mapKeyProperty = npm.findProperty(null, null, PROP_CAT_BG_COLLABTOOLS, KEY_PORTFOLIO);
 				if (mapKeyProperty == null) {
 					// First call of portfolio-tool, create new map and save
-					aMap = ePFMgr.createAndPersistPortfolioDefaultMap(group, group.getName(), group.getDescription());					
+					aMap = ePFMgr.createAndPersistPortfolioDefaultMap(group.getName(), group.getDescription());					
 					Translator pT = Util.createPackageTranslator(EPCreateMapController.class, ureq.getLocale());					
 					// add a page, as each map should have at least one per default!
 					final String title = pT.translate("new.page.title");

@@ -24,22 +24,21 @@
 */
 package org.olat.course;
 
-import org.olat.ControllerFactory;
+import org.olat.NewControllerFactory;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.Component;
 import org.olat.core.gui.components.link.Link;
 import org.olat.core.gui.components.link.LinkFactory;
-import org.olat.core.gui.components.panel.Panel;
+import org.olat.core.gui.components.panel.StackedPanel;
 import org.olat.core.gui.components.velocity.VelocityContainer;
-import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.Event;
 import org.olat.core.gui.control.WindowControl;
 import org.olat.core.gui.control.controller.BasicController;
-import org.olat.core.gui.control.generic.dtabs.DTab;
-import org.olat.core.gui.control.generic.dtabs.DTabs;
 import org.olat.core.gui.control.generic.messages.MessageController;
 import org.olat.core.gui.control.generic.messages.MessageUIFactory;
 import org.olat.core.id.OLATResourceable;
+import org.olat.core.id.context.BusinessControlFactory;
+import org.olat.core.util.resource.OresHelper;
 import org.olat.repository.RepositoryEntry;
 import org.olat.resource.OLATResourceManager;
 
@@ -57,7 +56,7 @@ public class DisposedCourseRestartController extends BasicController {
 	private VelocityContainer initialContent;
 	private Link restartLink;
 	private RepositoryEntry courseRepositoryEntry;
-	private Panel panel;
+	private StackedPanel panel;
 
 	public DisposedCourseRestartController(UserRequest ureq, WindowControl wControl, RepositoryEntry courseRepositoryEntry) {
 		super(ureq, wControl);
@@ -83,34 +82,19 @@ public class DisposedCourseRestartController extends BasicController {
 	@Override
 	protected void event(UserRequest ureq, Component source, Event event) {
 		if (source == restartLink) {
-			DTabs dts = getWindowControl().getWindowBackOffice().getWindow().getDTabs();
 			OLATResourceable ores = OLATResourceManager.getInstance().findResourceable(
-					courseRepositoryEntry.getOlatResource().getResourceableId(), courseRepositoryEntry.getOlatResource().getResourceableTypeName());
-			if(ores==null) {
+					courseRepositoryEntry.getOlatResource().getResourceableId(),
+					courseRepositoryEntry.getOlatResource().getResourceableTypeName());
+			if(ores == null ) {
 				//course was deleted!				
-				MessageController msgController = MessageUIFactory.createInfoMessage(ureq, this.getWindowControl(), translate("course.deleted.title"), translate("course.deleted.text"));
-				panel.setContent(msgController.getInitialComponent());				
-				return;
+				MessageController msgController = MessageUIFactory.createInfoMessage(ureq, getWindowControl(), translate("course.deleted.title"), translate("course.deleted.text"));
+				panel.setContent(msgController.getInitialComponent());
+			} else {
+				OLATResourceable reOres = OresHelper.clone(courseRepositoryEntry);
+				WindowControl bwControl = BusinessControlFactory.getInstance().createBusinessWindowControl(getWindowControl(), reOres);
+				NewControllerFactory.getInstance().launch(ureq, bwControl);
+				dispose();
 			}
-			DTab dt = dts.getDTab(ores);
-			// remove and dispose "old course run"
-			dts.removeDTab(ureq, dt);//disposes also dt and controllers
-			/*
-			 * create new tab with "refreshed course run" and activate the course
-			 */
-			//fxdiff BAKS-7 Resume function
-			dt = dts.createDTab(ores, courseRepositoryEntry, courseRepositoryEntry.getDisplayname());
-			if (dt == null) return; // full tabs -> warning already set by
-															// dts.create...
-			Controller launchController = ControllerFactory.createLaunchController(ores, ureq, dt.getWindowControl(), true);
-			dt.setController(launchController);
-			dts.addDTab(ureq, dt);
-			dts.activate(ureq, dt, null);
-			/*
-			 * last but not least dispose myself - to clean up.
-			 */
-			dispose();
 		}
 	}
-
 }

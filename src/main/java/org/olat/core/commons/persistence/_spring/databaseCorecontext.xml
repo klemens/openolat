@@ -147,6 +147,9 @@
 					olat works only with level 2; the database must support level 2
 				-->
 				<prop key="hibernate.connection.isolation">2</prop>
+				<!-- The 2 options below are automatically reduced if not enough memory is available -->
+				<prop key="hibernate.query.plan_cache_max_size">2048</prop>
+				<prop key="hibernate.query.plan_parameter_metadata_max_size">128</prop>
 				<prop key="javax.persistence.lock.timeout">30000</prop>
 	        </props>
 		</constructor-arg> 
@@ -264,7 +267,7 @@
 	<!-- The mysql datasource checks upon startup whether the tables are of type InnoDB, if not it will not start. If you have an other type of transactional tables just switch back the spring config
 	to the normal  org.springframework.jdbc.datasource.DriverManagerDataSource and the check is gone.-->                  
 	<bean id="mysql_local_DataSource" class="org.olat.core.commons.persistence.InnoDBAwareDriverManagerDataSource" lazy-init="true" init-method="init">
-		<property name="driverClassName"><value>com.mysql.jdbc.Driver</value></property>
+		<property name="driverClassName" value="com.mysql.jdbc.Driver" />
 		<property name="url"><value>jdbc:mysql://${db.host}:${db.host.port}/${db.name}?useUnicode=true&amp;characterEncoding=UTF-8</value></property>
 		<property name="username" value="${db.user}" />
 		<property name="password" value="${db.pass}" />

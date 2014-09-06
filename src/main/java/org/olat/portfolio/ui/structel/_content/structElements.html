@@ -4,13 +4,13 @@
 	#set($addBtn = "addButton$velocityCount")
 	#set($artefacts = "artefacts$velocityCount")
 	#set($checkResults = "checkResults$velocityCount")
-	<div class="b_eportfolio_structure">
+	<div class="o_eportfolio_structure">
 	<h5>$r.escapeHtml($structEl.title)</h5>
 	#if($r.available($addBtn))
 		$r.render($addBtn)
 	#end
 	<p>$structEl.description</p>
-	<div class="b_clearfix"></div>
+	<div class="clearfix"></div>
 		#if($r.available($checkResults))
 			$r.render($checkResults)
 		#end

@@ -37,17 +37,23 @@ public interface FlexiColumnModel {
 	public static int ALIGNMENT_RIGHT = 2;
 	public static int ALIGNMENT_CENTER = 3;
 	
+
+	
 	public boolean isSortable();
 	
 	public void setSortable(boolean enable);
 	
 	public boolean isDefaultVisible();
 	
+	public boolean isAlwaysVisible();
+	
 	public String getSortKey();
 
 	public void setSortKey(String sortedKey);
 
 	public String getHeaderKey();
+	
+	public String getHeaderLabel();
 	
 	public String getColumnKey();
 	

@@ -34,22 +34,33 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 
+import javax.servlet.http.HttpServletRequest;
+
 import org.apache.commons.lang.StringEscapeUtils;
-import org.olat.ControllerFactory;
+import org.olat.NewControllerFactory;
 import org.olat.basesecurity.BaseSecurityModule;
 import org.olat.core.CoreSpringFactory;
 import org.olat.core.commons.modules.bc.FolderConfig;
+import org.olat.core.commons.modules.bc.meta.MetaInfo;
+import org.olat.core.commons.modules.bc.meta.tagged.MetaTagged;
 import org.olat.core.commons.modules.bc.vfs.OlatRootFolderImpl;
 import org.olat.core.commons.persistence.DBFactory;
 import org.olat.core.commons.persistence.PersistenceHelper;
 import org.olat.core.commons.services.mark.Mark;
 import org.olat.core.commons.services.mark.MarkResourceStat;
 import org.olat.core.commons.services.mark.MarkingService;
+import org.olat.core.commons.services.notifications.NotificationsManager;
+import org.olat.core.commons.services.notifications.PublisherData;
+import org.olat.core.commons.services.notifications.SubscriptionContext;
+import org.olat.core.commons.services.notifications.ui.ContextualSubscriptionController;
+import org.olat.core.dispatcher.mapper.Mapper;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.Component;
 import org.olat.core.gui.components.link.Link;
 import org.olat.core.gui.components.link.LinkFactory;
-import org.olat.core.gui.components.panel.Panel;
+import org.olat.core.gui.components.link.LinkPopupSettings;
+import org.olat.core.gui.components.panel.SimpleStackedPanel;
+import org.olat.core.gui.components.panel.StackedPanel;
 import org.olat.core.gui.components.table.BooleanColumnDescriptor;
 import org.olat.core.gui.components.table.ColumnDescriptor;
 import org.olat.core.gui.components.table.CustomCellRenderer;
@@ -71,6 +82,10 @@ import org.olat.core.gui.control.generic.closablewrapper.CloseableModalControlle
 import org.olat.core.gui.control.generic.dtabs.Activateable2;
 import org.olat.core.gui.control.generic.modal.DialogBoxController;
 import org.olat.core.gui.control.generic.modal.DialogBoxUIFactory;
+import org.olat.core.gui.media.MediaResource;
+import org.olat.core.gui.media.NotFoundMediaResource;
+import org.olat.core.gui.render.Renderer;
+import org.olat.core.gui.render.StringOutput;
 import org.olat.core.id.Identity;
 import org.olat.core.id.OLATResourceable;
 import org.olat.core.id.User;
@@ -88,10 +103,6 @@ import org.olat.core.util.Formatter;
 import org.olat.core.util.StringHelper;
 import org.olat.core.util.coordinate.CoordinatorManager;
 import org.olat.core.util.event.GenericEventListener;
-import org.olat.core.util.notifications.ContextualSubscriptionController;
-import org.olat.core.util.notifications.NotificationsManager;
-import org.olat.core.util.notifications.PublisherData;
-import org.olat.core.util.notifications.SubscriptionContext;
 import org.olat.core.util.resource.OresHelper;
 import org.olat.core.util.vfs.VFSContainer;
 import org.olat.core.util.vfs.VFSItem;
@@ -106,6 +117,7 @@ import org.olat.search.SearchServiceUIFactory.DisplayOption;
 import org.olat.user.DisplayPortraitController;
 import org.olat.user.UserManager;
 import org.olat.util.logging.activity.LoggingResourceable;
+import org.springframework.beans.factory.annotation.Autowired;
 
 /**
  * Description: <br>
@@ -145,7 +157,7 @@ public class ForumController extends BasicController implements GenericEventList
 
 	private Collator collator; 
 
-	private Panel forumPanel;
+	private StackedPanel forumPanel;
 
 	private VelocityContainer vcListTitles;
 	private VelocityContainer vcEditMessage;
@@ -184,6 +196,7 @@ public class ForumController extends BasicController implements GenericEventList
 	private ContextualSubscriptionController csc;
 
 	private MessageEditController msgEditCtr;
+	private CloseableModalController msgEditCmc;
 	private ForumThreadViewModeController viewSwitchCtr;
 	private Map<Long, Integer> msgDeepMap;
 	
@@ -193,8 +206,13 @@ public class ForumController extends BasicController implements GenericEventList
 	private Controller searchController;
 	
 	private final OLATResourceable forumOres;
-	private final BaseSecurityModule securityModule;
-	private final UserManager userManager;
+	
+	private final String thumbMapper;
+
+	@Autowired
+	private BaseSecurityModule securityModule;
+	@Autowired
+	private UserManager userManager;
 
 	/**
 	 * @param forum
@@ -206,10 +224,7 @@ public class ForumController extends BasicController implements GenericEventList
 		super(ureq, wControl);
 		this.forum = forum;
 		this.focallback = focallback;
-		securityModule = CoreSpringFactory.getImpl(BaseSecurityModule.class);
 		addLoggingResourceable(LoggingResourceable.wrap(forum));
-		
-		userManager = CoreSpringFactory.getImpl(UserManager.class);
 		
 		forumOres = OresHelper.createOLATResourceableInstance(Forum.class,forum.getKey());
 		f = Formatter.getInstance(ureq.getLocale());
@@ -220,19 +235,22 @@ public class ForumController extends BasicController implements GenericEventList
 		collator = Collator.getInstance(ureq.getLocale());
 		collator.setStrength(Collator.PRIMARY);
 
-		forumPanel = new Panel("forumPanel");
+		forumPanel = new SimpleStackedPanel("forumPanel");
 		forumPanel.addListener(this);
 
 		//create page
 		vcListTitles = createVelocityContainer("list_titles");
 		
 		msgCreateButton = LinkFactory.createButtonSmall("msg.create", vcListTitles, this);
+		msgCreateButton.setIconLeftCSS("o_icon o_icon-fw o_forum_status_thread_icon");
 		msgCreateButton.setElementCssClass("o_sel_forum_thread_new");
 		archiveForumButton = LinkFactory.createButtonSmall("archive.forum", vcListTitles, this);
+		archiveForumButton.setIconLeftCSS("o_icon o_icon-fw o_icon_archive_tool");
 		archiveForumButton.setElementCssClass("o_sel_forum_archive");
 		
 		if(securityModule.isUserAllowedAutoComplete(ureq.getUserSession().getRoles())) {
 			filterForUserButton = LinkFactory.createButtonSmall("filter", vcListTitles, this);
+			filterForUserButton.setIconLeftCSS("o_icon o_icon-fw o_icon_user");
 			filterForUserButton.setElementCssClass("o_sel_forum_filter");
 		}
 		
@@ -326,6 +344,47 @@ public class ForumController extends BasicController implements GenericEventList
 				if (isLogDebugEnabled()) logDebug("Invalid messageId=" , ores.getResourceableId().toString());
 			}
 		}
+		
+		// Mapper to display thumbnail images of file attachments
+		thumbMapper = registerCacheableMapper(ureq, "fo_att_" + forum.getKey(), new Mapper() {
+			@Override
+			public MediaResource handle(String relPath, HttpServletRequest request) {
+				String[] query = relPath.split("/"); // exptected path looks like this /messageId/attachmentUUID/filename
+				if (query.length == 4) {
+					try {
+						Long mId = Long.valueOf(Long.parseLong(query[1]));
+						Map<String, Object> map = null;
+						for (Map<String, Object> m : currentMessagesMap) {
+							// search for message in current message map
+							if (m.get("id").equals(mId)) {
+								map = m;
+								break;
+							}
+						}
+						if (map != null) {
+							ArrayList<VFSItem> attachments = (ArrayList<VFSItem>) map.get("attachments");
+							for (VFSItem vfsItem : attachments) {
+								MetaInfo meta = ((MetaTagged)vfsItem).getMetaInfo();
+								if (meta.getUUID().equals(query[2])) {
+									if (meta.isThumbnailAvailable()) {
+										VFSLeaf thumb = meta.getThumbnail(200, 200, false);
+										if(thumb != null) {
+											// Positive lookup, send as response
+											return new VFSMediaResource(thumb);
+										}
+									}
+									break;
+								}
+							}
+						}
+					} catch (NumberFormatException e) {
+						logDebug("Could not parse attachment path::" + relPath, null);
+					}
+				}
+				// In any error case, send not found
+				return new NotFoundMediaResource(request.getRequestURI());
+			}
+		});					
 
 		// Register for forum events
 		CoordinatorManager.getInstance().getCoordinator().getEventBus().registerFor(this, ureq.getIdentity(), forum);
@@ -391,13 +450,13 @@ public class ForumController extends BasicController implements GenericEventList
 		} else if (source == archiveThreadButton){
 			archiveThDiaCtr = activateYesNoDialog(ureq, null, translate("archive.thread.dialog"), archiveThDiaCtr);
 		} else if (source == closeThreadButton) {
-			closeThread(ureq, currentMsg, true);
+			closeThread(currentMsg, true);
 		} else if (source == openThreadButton) {
-			closeThread(ureq, currentMsg, false);
+			closeThread(currentMsg, false);
 		} else if (source == hideThreadButton) {
-			hideThread(ureq, currentMsg, true);
+			hideThread(currentMsg, true);
 		} else if (source == showThreadButton) {
-			hideThread(ureq, currentMsg, false);		
+			hideThread(currentMsg, false);		
 		}	else if (source == vcThreadView) {
 			if (cmd.startsWith("attachment_")) {
 				Map<String, Object> messageMap = getMessageMapFromCommand(ureq.getIdentity(), cmd);
@@ -429,6 +488,12 @@ public class ForumController extends BasicController implements GenericEventList
 					showSplitThreadView(ureq);
 				} else if (command.startsWith("move_")) {
 					showMoveMessageView(ureq);
+				} else if (command.startsWith("vc_")) {
+					Map<String, Object> map = currentMessagesMap.get((Integer)link.getUserObject());
+					DisplayPortraitController dpC = (DisplayPortraitController) map.get("portrait");
+					if (dpC != null) {
+						dpC.showUserInfo(ureq);
+					}
 				}
 			} else if (currentMsg != null) {
 				showInfo("header.cannoteditmessage");
@@ -473,7 +538,7 @@ public class ForumController extends BasicController implements GenericEventList
 				String actionid = te.getActionId();
 				if (actionid.equals(CMD_SHOWDETAIL)) {
 					int rowid = te.getRowId();
-					Message m = (Message) sttdmodel.getObjects().get(rowid);
+					Message m = sttdmodel.getObjects().get(rowid);
 					showThreadView(ureq, m, null);
 					ThreadLocalUserActivityLogger.log(ForumLoggingAction.FORUM_MESSAGE_READ, getClass(), LoggingResourceable.wrap(currentMsg));
 				}
@@ -483,7 +548,7 @@ public class ForumController extends BasicController implements GenericEventList
 				TableEvent te = (TableEvent) event;
 				String actionid = te.getActionId();
 				int rowid = te.getRowId();
-				Object[] msgWrapper = (Object[]) attdmodel.getObjects().get(rowid);
+				Object[] msgWrapper = attdmodel.getObjects().get(rowid);
 				int size = msgWrapper.length;
 				Message m = (Message) msgWrapper[size-1];		
 				if (actionid.equals(CMD_SHOWDETAIL)) {			
@@ -503,8 +568,12 @@ public class ForumController extends BasicController implements GenericEventList
 			TableEvent te = (TableEvent)event;
 			Message topMsg = threadList.get(te.getRowId());
 			moveMessage(ureq, topMsg);
+		} else if(source == msgEditCmc) {
+			removeAsListenerAndDispose(msgEditCmc);
+			removeAsListenerAndDispose(msgEditCtr);
+			msgEditCtr = null;
+			msgEditCmc = null;
 		}
-		
 		// events from messageEditor
 		else if (source == msgEditCtr){
 			//persist changed or new message
@@ -544,8 +613,10 @@ public class ForumController extends BasicController implements GenericEventList
 					showThreadView(ureq, currentMsg, null);
 				}
 			}
-			removeAsListenerAndDispose(msgEditCtr);
-			msgEditCtr = null;
+			if(msgEditCmc != null) {
+				msgEditCmc.deactivate();
+			}
+			cleanUp();
 		} else if (source == viewSwitchCtr){
 			if (event == Event.CHANGED_EVENT){
 				//viewmode has been switched, so change view:
@@ -560,6 +631,13 @@ public class ForumController extends BasicController implements GenericEventList
 				scrollToCurrentMessage();
 			}
 		}
+	}
+	
+	private void cleanUp() {
+		removeAsListenerAndDispose(msgEditCtr);
+		removeAsListenerAndDispose(msgEditCmc);
+		msgEditCmc = null;
+		msgEditCtr = null;
 	}
 	
 	/**
@@ -724,16 +802,18 @@ public class ForumController extends BasicController implements GenericEventList
 	}	
 	
 	private void showNewThreadView(UserRequest ureq) {
+		cleanUp();
 		// user has clicked on button 'open new thread'.
 		Message m = fm.createMessage();
-		
-		removeAsListenerAndDispose(msgEditCtr);
 		msgEditCtr = new MessageEditController(ureq, getWindowControl(), focallback, m, null);
 		listenTo(msgEditCtr);
-
-		forumPanel.setContent(msgEditCtr.getInitialComponent());
+		
+		String title = translate("msg.create");
+		msgEditCmc = new CloseableModalController(getWindowControl(), "close",
+				msgEditCtr.getInitialComponent(), true, title);
+		listenTo(msgEditCmc);
+		msgEditCmc.activate();
 	}
-	
 	
 	private void showEditMessageView(UserRequest ureq) {
 		// user has clicked on button 'edit'
@@ -743,11 +823,16 @@ public class ForumController extends BasicController implements GenericEventList
 			// user is forum-moderator -> may edit every message on every level
 			// or user is author of the current message and it has still no
 			// children
-			removeAsListenerAndDispose(msgEditCtr);
+			cleanUp();
+			
 			msgEditCtr = new MessageEditController(ureq, getWindowControl(), focallback, currentMsg, null);
 			listenTo(msgEditCtr);
-
-			forumPanel.setContent(msgEditCtr.getInitialComponent());
+			
+			String title = translate("msg.update");
+			msgEditCmc = new CloseableModalController(getWindowControl(), "close",
+					msgEditCtr.getInitialComponent(), true, title);
+			listenTo(msgEditCmc);
+			msgEditCmc.activate();
 		} else if ((userIsMsgCreator) && (children == true)) {
 			// user is author of the current message but it has already at least
 			// one child
@@ -803,23 +888,28 @@ public class ForumController extends BasicController implements GenericEventList
 				// load message to form as quotation				
 				StringBuilder quoteSB = new StringBuilder();
 				quoteSB.append(TINYMCE_EMPTYLINE_CODE);
-				quoteSB.append("<div class=\"b_quote_wrapper\"><div class=\"b_quote_author mceNonEditable\">");
+				quoteSB.append("<div class=\"o_quote_wrapper\"><div class=\"o_quote_author mceNonEditable\">");
 				String date = f.formatDateAndTime(currentMsg.getCreationDate());
 				User creator = currentMsg.getCreator().getUser();
 				String creatorName = creator.getProperty(UserConstants.FIRSTNAME, ureq.getLocale()) + " " + creator.getProperty(UserConstants.LASTNAME, ureq.getLocale());
 				quoteSB.append(getTranslator().translate("msg.quote.intro", new String[]{date, creatorName}));
-				quoteSB.append("</div><blockquote class=\"b_quote\">");
+				quoteSB.append("</div><blockquote class=\"o_quote\">");
 				quoteSB.append(currentMsg.getBody());
 				quoteSB.append("</blockquote></div>");
 				quoteSB.append(TINYMCE_EMPTYLINE_CODE);
 				quotedMessage.setBody(quoteSB.toString());
 			}
 			
-			removeAsListenerAndDispose(msgEditCtr);
+			cleanUp();
+			
 			msgEditCtr = new MessageEditController(ureq, getWindowControl(), focallback, currentMsg, quotedMessage);
-			listenTo(msgEditCtr);			
-
-			forumPanel.setContent(msgEditCtr.getInitialComponent());
+			listenTo(msgEditCtr);
+			
+			String title = quote ? translate("msg.quote") : translate("msg.reply");
+			msgEditCmc = new CloseableModalController(getWindowControl(), "close",
+					msgEditCtr.getInitialComponent(), true, title);
+			listenTo(msgEditCmc);
+			msgEditCmc.activate();
 		} else {
 			showInfo("may.not.reply.msg");
 		}
@@ -916,25 +1006,29 @@ public class ForumController extends BasicController implements GenericEventList
 		precalcMessageDeepness(threadMsgs);
 		// for simplicity no reuse of container, always create new one
 		vcThreadView = createVelocityContainer("threadview");
-		// to access the function renderFileIconCssClass(..) which is accessed in threadview.html using $myself.renderFileIconCssClass
-		vcThreadView.contextPut("myself", this);
 		
 		backLinkListTitles = LinkFactory.createCustomLink("backLinkLT", "back", "listalltitles", Link.LINK_BACK, vcThreadView, this);
 		archiveThreadButton = LinkFactory.createButtonSmall("archive.thread", vcThreadView, this);
+		archiveThreadButton.setIconLeftCSS("o_icon o_icon-fw o_icon_archive_tool");
+
 				
 		boolean isClosed = Status.getStatus(m.getStatusCode()).isClosed(); 
 		vcThreadView.contextPut("isClosed",isClosed);
 		if(!isClosed) {
 			closeThreadButton = LinkFactory.createButtonSmall("close.thread", vcThreadView, this);
+			closeThreadButton.setIconLeftCSS("o_icon o_icon-fw o_forum_status_closed_icon");
 		} else {
 			openThreadButton = LinkFactory.createButtonSmall("open.thread", vcThreadView, this);
+			openThreadButton.setIconLeftCSS("o_icon o_icon-fw o_forum_status_opened_icon");
 		}	
 		boolean isHidden = Status.getStatus(m.getStatusCode()).isHidden(); 
 		vcThreadView.contextPut("isHidden",isHidden);		
 		if(!isHidden) {
 			hideThreadButton = LinkFactory.createButtonSmall("hide.thread", vcThreadView, this);
+			hideThreadButton.setIconLeftCSS("o_icon o_icon-fw o_forum_status_hidden_icon");
 		} else {
 			showThreadButton = LinkFactory.createButtonSmall("show.thread", vcThreadView, this);
+			showThreadButton.setIconLeftCSS("o_icon o_icon-fw o_forum_status_visible_icon");
 		}	
 
 		//allow to set thread-viewmode prefs and get actual ones
@@ -1057,6 +1151,9 @@ public class ForumController extends BasicController implements GenericEventList
 			ThreadLocalUserActivityLogger.log(ForumLoggingAction.FORUM_THREAD_READ, getClass(), LoggingResourceable.wrap(m));
 		}
 		vcThreadView.contextPut("messages", currentMessagesMap);
+		
+		// Mapper to display thumbnail images of file attachments
+		vcThreadView.contextPut("thumbMapper", thumbMapper);
 		// add security callback
 		vcThreadView.contextPut("security", focallback);
 		vcThreadView.contextPut("mode", viewMode);
@@ -1105,8 +1202,6 @@ public class ForumController extends BasicController implements GenericEventList
 		Map<String, Object> map = new HashMap<String, Object>();
 		map.put("id", m.getKey());
 		
-		
-		
 		if (rms.contains(m.getKey())) {
 			// already read
 			map.put("newMessage", Boolean.FALSE);
@@ -1129,17 +1224,14 @@ public class ForumController extends BasicController implements GenericEventList
 		map.put("body", m.getBody());
 		map.put("date", f.formatDateAndTime(creationDate));
 		Identity creator = m.getCreator();
+		map.put("creator", creator.getKey());
 		map.put("firstname", Formatter.truncate(creator.getUser().getProperty(UserConstants.FIRSTNAME, ureq.getLocale()),18)); //keeps the first 15 chars
 		map.put("lastname", Formatter.truncate(creator.getUser().getProperty(UserConstants.LASTNAME, ureq.getLocale()),18));
-
-//		map.put("username", Formatter.truncate(creator.getName(),18));
-		
 		map.put("modified", f.formatDateAndTime(m.getLastModified()));
 		// message attachments
 		OlatRootFolderImpl msgContainer = fm.getMessageContainer(forum.getKey(), m.getKey());
 		map.put("messageContainer", msgContainer);
-		List<VFSItem> attachments = new ArrayList<VFSItem>(msgContainer.getItems(new VFSItemExcludePrefixFilter(MessageEditController.ATTACHMENT_EXCLUDE_PREFIXES)));
-//		List attachments = msgContainer.getItems();
+		final List<VFSItem> attachments = new ArrayList<VFSItem>(msgContainer.getItems(new VFSItemExcludePrefixFilter(MessageEditController.ATTACHMENT_EXCLUDE_PREFIXES)));				
 		map.put("attachments", attachments);
 		if (attachments == null || attachments.size() == 0) map.put("hasAttachments", Boolean.FALSE);
 		else map.put("hasAttachments", Boolean.TRUE);
@@ -1160,26 +1252,37 @@ public class ForumController extends BasicController implements GenericEventList
 		map.put("isThreadClosed", isThreadClosed);
 		if(!isGuestOnly(ureq)) {
 		  // add portrait to map for later disposal and key for rendering in velocity
-		  DisplayPortraitController portrait = new DisplayPortraitController(ureq, getWindowControl(), m.getCreator(), true, true);
+		  DisplayPortraitController portrait = new DisplayPortraitController(ureq, getWindowControl(), m.getCreator(), true, true, false, true);
 		  // add also to velocity
 		  map.put("portrait", portrait);
 		  String portraitComponentVCName = m.getKey().toString();
 		  map.put("portraitComponentVCName", portraitComponentVCName);
 		  vcContainer.put(portraitComponentVCName, portrait.getInitialComponent());
+		  // Add link with username that is clickable
+		  Link vcLink = LinkFactory.createCustomLink("vc_"+msgCount, "vc_"+msgCount, UserManager.getInstance().getUserDisplayName(creator), Link.LINK_CUSTOM_CSS + Link.NONTRANSLATED, vcThreadView, this);
+		  vcLink.setUserObject(msgCount);
+		  LinkPopupSettings settings = new LinkPopupSettings(800, 600, "_blank");
+		  vcLink.setPopup(settings);
 		}
 		allList.add(map);
 		/*
 		 * those Link objects are used! see event method and the instanceof Link part!
 		 * but reference won't be used!
 		 */
-		LinkFactory.createCustomLink("dl_"+msgCount, "dl_"+msgCount, "msg.delete", Link.BUTTON_SMALL, vcThreadView, this);
-		LinkFactory.createCustomLink("ed_"+msgCount, "ed_"+msgCount, "msg.update", Link.BUTTON_SMALL, vcThreadView, this);
-		LinkFactory.createCustomLink("rm_"+msgCount, "rm_"+msgCount, "msg.remove", Link.BUTTON_SMALL, vcThreadView, this);
-		LinkFactory.createCustomLink("up_"+msgCount, "up_"+msgCount, "msg.upload", Link.BUTTON_SMALL, vcThreadView, this);
-		LinkFactory.createCustomLink("qt_"+msgCount, "qt_"+msgCount, "msg.quote", Link.BUTTON_SMALL, vcThreadView, this);
-		LinkFactory.createCustomLink("rp_"+msgCount, "rp_"+msgCount, "msg.reply", Link.BUTTON_SMALL, vcThreadView, this);
-		LinkFactory.createCustomLink("split_"+msgCount, "split_"+msgCount, "msg.split", Link.BUTTON_SMALL, vcThreadView, this);
-		LinkFactory.createCustomLink("move_"+msgCount, "move_"+msgCount, "msg.move", Link.BUTTON_SMALL, vcThreadView, this);
+		Link dlLink = LinkFactory.createCustomLink("dl_"+msgCount, "dl_"+msgCount, "msg.delete", Link.BUTTON_SMALL, vcThreadView, this);
+		dlLink.setIconLeftCSS("o_icon o_icon-fw o_icon_delete_item");
+		Link edLink = LinkFactory.createCustomLink("ed_"+msgCount, "ed_"+msgCount, "msg.update", Link.BUTTON_SMALL, vcThreadView, this);
+		edLink.setIconLeftCSS("o_icon o_icon-fw o_icon_edit");
+
+		Link qtLink = LinkFactory.createCustomLink("qt_"+msgCount, "qt_"+msgCount, "msg.quote", Link.BUTTON_SMALL, vcThreadView, this);
+		qtLink.setIconLeftCSS("o_icon o_icon-fw o_icon_reply_with_quote");
+		Link rpLink = LinkFactory.createCustomLink("rp_"+msgCount, "rp_"+msgCount, "msg.reply", Link.BUTTON_SMALL, vcThreadView, this);
+		rpLink.setIconLeftCSS("o_icon o_icon-fw o_icon_reply");
+
+		Link splitLink = LinkFactory.createCustomLink("split_"+msgCount, "split_"+msgCount, "msg.split", Link.LINK, vcThreadView, this);
+		splitLink.setIconLeftCSS("o_icon o_icon-fw o_icon_split");
+		Link moveLink = LinkFactory.createCustomLink("move_"+msgCount, "move_"+msgCount, "msg.move", Link.LINK, vcThreadView, this);
+		moveLink.setIconLeftCSS("o_icon o_icon-fw o_icon_move");
 		
 		String subPath = m.getKey().toString();
 		Mark currentMark = marks.get(subPath);
@@ -1403,20 +1506,7 @@ public class ForumController extends BasicController implements GenericEventList
 		  ForumManager.getInstance().markAsRead(s, m);
 		}
 	}
-
 	
-	/** 
-	 * [used by velocity in vcThreadView.contextPut("myself", this);]
-	 * @param filename 
-	 * @return css class that has a background icon for the given filename
-	 */
-	public String renderFileIconCssClass(String filename) {
-		String filetype = filename.substring(filename.lastIndexOf(".")+1);
-		if (filetype == null) return "b_filetype_file"; // default
-		return "b_filetype_" + filetype;
-	}
-
-
 	protected void doDispose() {
 		disposeCurrentMessages();
 		CoordinatorManager.getInstance().getCoordinator().getEventBus().deregisterFor(this, forum);
@@ -1510,7 +1600,7 @@ public class ForumController extends BasicController implements GenericEventList
 	 * @param msg
 	 * @param closed
 	 */
-	private void closeThread(UserRequest ureq, Message msg, boolean closed) {	
+	private void closeThread(Message msg, boolean closed) {	
 		//if the input message is not the Threadtop get the Threadtop message
 		if(msg != null && msg.getThreadtop()!=null) {
 			msg = msg.getThreadtop();
@@ -1543,7 +1633,7 @@ public class ForumController extends BasicController implements GenericEventList
 	 * @param msg
 	 * @param hidden
 	 */
-	private void hideThread(UserRequest ureq, Message msg, boolean hidden) {		
+	private void hideThread(Message msg, boolean hidden) {		
     //if the input message is not the Threadtop get the Threadtop message
 		if(msg != null && msg.getThreadtop()!=null) {
 			msg = msg.getThreadtop();
@@ -1584,29 +1674,24 @@ public class ForumController extends BasicController implements GenericEventList
 	 * Initial Date:  09.07.2007 <br>
 	 * @author Lavinia Dumitrescu
 	 */
-	class StickyThreadCellRenderer extends CustomCssCellRenderer {
-
+	private static class StickyThreadCellRenderer implements CustomCellRenderer {
 		@Override
-		protected String getCssClass(Object val) {			
-			ForumHelper.MessageWrapper messageWrapper = (ForumHelper.MessageWrapper) val; 
-			if (messageWrapper.isSticky()) {			
-				return "o_forum_thread_sticky";
+		public void render(final StringOutput sb, final Renderer renderer, final Object val, final Locale locale, final int alignment, final String action) {
+			if(val instanceof ForumHelper.MessageWrapper) {
+				ForumHelper.MessageWrapper messageWrapper = (ForumHelper.MessageWrapper)val;
+				String content = messageWrapper.toString();
+				if (renderer == null) {
+					sb.append(content);
+				} else {
+					sb.append("<span class='");
+					if (messageWrapper.isSticky()) {			
+						sb.append("o_forum_thread_sticky");
+					}
+					sb.append("'>").append(content).append("</span>");			
+				}
 			}
-			return "";
 		}
-
-		@Override
-		protected String getCellValue(Object val) {			
-			ForumHelper.MessageWrapper messageWrapper = (ForumHelper.MessageWrapper) val;
-			return messageWrapper.toString();
-		}		
-
-		@Override
-		protected String getHoverText(Object val) {
-			return null;
 	}	
-	}	
-	
 	
 	/**
 	 * 
@@ -1663,18 +1748,19 @@ public class ForumController extends BasicController implements GenericEventList
    * Initial Date:  11.07.2007 <br>
    * @author Lavinia Dumitrescu
    */
-  private class StickyRenderColumnDescriptor extends CustomRenderColumnDescriptor {
+  private static class StickyRenderColumnDescriptor extends CustomRenderColumnDescriptor {
   	
   	public StickyRenderColumnDescriptor(String headerKey, int dataColumn, String action, Locale locale, int alignment,
   			CustomCellRenderer customCellRenderer) {
   		super(headerKey, dataColumn, action, locale, alignment,customCellRenderer);  		
   	}
   	
-  	/**
+  		/**
 		 * Delegates comparison to the <code>ForumHelper.compare</code>. In case the <code>ForumHelper.compare</code>
 		 * returns <code>ForumHelper.NOT_MY_JOB</code>, the comparison is executed by the superclass.
 		 * @see org.olat.core.gui.components.table.ColumnDescriptor#compareTo(int, int)
-		 */		
+		 */	
+  		@Override	
 		public int compareTo(int rowa, int rowb) {
 			ForumHelper.MessageWrapper a = (ForumHelper.MessageWrapper)getTable().getTableDataModel().getValueAt(rowa,getDataColumn());
 			ForumHelper.MessageWrapper b = (ForumHelper.MessageWrapper)getTable().getTableDataModel().getValueAt(rowb,getDataColumn());
@@ -1688,21 +1774,21 @@ public class ForumController extends BasicController implements GenericEventList
 		}				
   }
 	
-	class MessageIconRenderer extends CustomCssCellRenderer {
-		
+  public class MessageIconRenderer extends CustomCssCellRenderer {
+		@Override
 		protected String getHoverText(Object val) {
-			return ControllerFactory.translateResourceableTypeName((String)val, getLocale());
+			return NewControllerFactory.translateResourceableTypeName((String)val, getLocale());
 		}
-		
+
+		@Override
 		protected String getCellValue(Object val) {
 			return "";
 		}
 
+		@Override
 		protected String getCssClass(Object val) {
-			//val.toString()
 			// use small icon and create icon class for resource: o_FileResource-SHAREDFOLDER_icon
-			return "b_small_icon " + "o_forum_" + ((String) val) + "_icon";
+			return "o_icon o_forum_" + ((String)val) + "_icon";
 		}
 	}
-	
 }

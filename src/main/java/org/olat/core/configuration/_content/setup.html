@@ -2,18 +2,13 @@ Database Url: <span style=color:blue>$hibernateConnectionUrl</span>
 <br/>
 Userdata are stored under: <span style=color:blue>$userDataRoot</span>
 <hr/>
-<div>
-<a href="#" id="o_olat_propertiesOpener" class="b_togglebox_closed" onclick="b_togglebox('o_olat_properties', this); return false;"onkeypress="b_togglebox('o_olat_properties', this); return false;">
-Show olat.properties (System default values)</a> 
-<div id="o_olat_properties" class="b_togglebox" style="display: none">
-	<div class="b_togglebox_content">
-	<fieldset >
-	<legend>olat.properties</legend>
+<div class="panel panel-default">
+	<div class="panel-heading" data-toggle="collapse" data-target="#olatproperties">
+		<h3 class="panel-title">olat.properties</h3>
+	</div>
+	<ul id="olatproperties" class="panel-collapse collapse list-group">
 	#foreach($prop in $defaultProperties)
-		#if ($prop.getKey() == "delimiter")
-			<br/>
-		#else
-			<div>
+		<li class="list-group-item">
 			#if ($prop.isOverwritten())
 			#set ($overwriteValue = $r.escapeHtml($prop.getOverwriteValue()))
 				<span style="color:red" title="$overwriteValue">X</span>
@@ -33,29 +28,22 @@ Show olat.properties (System default values)</a>
 			#else
 				<span style=color:blue>$r.escapeHtml($prop.getValue())</span>
 			#end
-			</div>
-		#end
+		</li>
 	#end
-	</fieldset>
+	</ul>
+</div>
+<div class="panel panel-default">
+	<div class="panel-heading" data-toggle="collapse" data-target="#olatlocalproperties">
+		<h3 class="panel-title">olat.local.properties</h3>
 	</div>
-</div>
-</div>
-<hr/>
-<div>
-<a href="#" id="o_olat_local_propertiesOpener" class="b_togglebox_closed" onclick="b_togglebox('o_olat_local_properties', this); return false;"onkeypress="b_togglebox('o_olat_local_properties', this); return false;">
-Show olat.local.properties (Properties that overwrite the default Properties)</a> 
-<div id="o_olat_local_properties" class="b_togglebox" style="display: none">
-	<div class="b_togglebox_content">
-	<fieldset>
-	<legend>$overwritePropertiesLocation</legend>
-			<form action="#">
-<textarea rows="10" cols="20">
-#foreach($prop in $overwriteProperties)
-$prop.getKey()=$prop.getValue()
-#end
-</textarea>
-			</form>
-	</fieldset>
+	<div id="olatlocalproperties" class="panel-collapse collapse list-group" class="panel-body">
+		<code>$overwritePropertiesLocation</code>
+		<form class="form" action="#">
+			<textarea rows="50" cols="20" class="form-control">
+				#foreach($prop in $overwriteProperties)
+					$prop.getKey()=$prop.getValue()
+				#end
+			</textarea>
+		</form>
 	</div>
-</div>
 </div>

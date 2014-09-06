@@ -130,7 +130,7 @@ public class ENRunController extends BasicController implements GenericEventList
 		enrollableGroupKeys = (List<Long>)moduleConfig.get(ENCourseNode.CONFIG_GROUP_IDS);
 		if(enrollableGroupKeys == null) {
 			String groupNamesConfig = (String)moduleConfig.get(ENCourseNode.CONFIG_GROUPNAME);
-			enrollableGroupKeys = businessGroupService.toGroupKeys(groupNamesConfig, courseGroupManager.getCourseResource());
+			enrollableGroupKeys = businessGroupService.toGroupKeys(groupNamesConfig, courseGroupManager.getCourseEntry());
 		}
 
 		enrollableAreaKeys = (List<Long>)moduleConfig.get(ENCourseNode.CONFIG_AREA_IDS);
@@ -142,7 +142,7 @@ public class ENRunController extends BasicController implements GenericEventList
 		cancelEnrollEnabled = ((Boolean) moduleConfig.get(ENCourseNode.CONF_CANCEL_ENROLL_ENABLED)).booleanValue();
 
 		Identity identity = userCourseEnv.getIdentityEnvironment().getIdentity();
-		enrolledGroup = enrollmentManager.getBusinessGroupWhereEnrolled(identity, enrollableGroupKeys, enrollableAreaKeys, courseGroupManager.getCourseResource());
+		enrolledGroup = enrollmentManager.getBusinessGroupWhereEnrolled(identity, enrollableGroupKeys, enrollableAreaKeys, courseGroupManager.getCourseEntry());
 		waitingListGroup = enrollmentManager.getBusinessGroupWhereInWaitingList(identity, enrollableGroupKeys, enrollableAreaKeys);
 		registerGroupChangedEvents(enrollableGroupKeys, enrollableAreaKeys, ureq.getIdentity());
 		// Set correct view
@@ -285,7 +285,9 @@ public class ENRunController extends BasicController implements GenericEventList
 		listenTo(tableCtr);
 		
 		tableCtr.addColumnDescriptor(new DefaultColumnDescriptor("grouplist.table.name", 0, CMD_VISIT_CARD, getLocale()));
-		tableCtr.addColumnDescriptor(new DefaultColumnDescriptor("grouplist.table.desc", 1, null, getLocale()));
+		DefaultColumnDescriptor descCd = new DefaultColumnDescriptor("grouplist.table.desc", 1, null, getLocale());
+		descCd.setEscapeHtml(EscapeMode.antisamy);
+		tableCtr.addColumnDescriptor(descCd);
 		tableCtr.addColumnDescriptor(new DefaultColumnDescriptor("grouplist.table.partipiciant", 2, null, getLocale()));
 		tableCtr.addColumnDescriptor(hasAnyWaitingList,new DefaultColumnDescriptor("grouplist.table.waitingList", 3, null, getLocale()));
 		DefaultColumnDescriptor stateColdEsc = new DefaultColumnDescriptor("grouplist.table.state", 4, null, getLocale());
@@ -294,7 +296,7 @@ public class ENRunController extends BasicController implements GenericEventList
 		BooleanColumnDescriptor columnDesc = new BooleanColumnDescriptor("grouplist.table.enroll", 5, CMD_ENROLL_IN_GROUP,
 		  	translate(CMD_ENROLL_IN_GROUP), translate("grouplist.table.no_action"));
 		columnDesc.setSortingAllowed(false);
-	  tableCtr.addColumnDescriptor(columnDesc);
+		tableCtr.addColumnDescriptor(columnDesc);
  		tableCtr.addColumnDescriptor(new BooleanColumnDescriptor("grouplist.table.cancel_enroll", 6, CMD_ENROLLED_CANCEL,
 	  		  	translate(CMD_ENROLLED_CANCEL), translate("grouplist.table.no_action")));
  		return tableCtr;

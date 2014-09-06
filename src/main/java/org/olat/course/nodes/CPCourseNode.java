@@ -27,16 +27,18 @@ package org.olat.course.nodes;
 
 import java.io.File;
 import java.util.List;
+import java.util.Locale;
 
-import org.olat.basesecurity.BaseSecurityManager;
 import org.olat.core.gui.UserRequest;
-import org.olat.core.gui.components.stack.StackedController;
+import org.olat.core.gui.components.stack.BreadcrumbPanel;
 import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.WindowControl;
 import org.olat.core.gui.control.generic.iframe.DeliveryOptions;
 import org.olat.core.gui.control.generic.tabbable.TabbableController;
 import org.olat.core.id.Identity;
 import org.olat.core.id.OLATResourceable;
+import org.olat.core.logging.OLog;
+import org.olat.core.logging.Tracing;
 import org.olat.core.util.Util;
 import org.olat.core.util.resource.OresHelper;
 import org.olat.course.ICourse;
@@ -46,15 +48,17 @@ import org.olat.course.editor.NodeEditController;
 import org.olat.course.editor.StatusDescription;
 import org.olat.course.nodes.cp.CPEditController;
 import org.olat.course.nodes.cp.CPRunController;
-import org.olat.course.repository.ImportReferencesController;
 import org.olat.course.run.navigation.NodeRunConstructionResult;
 import org.olat.course.run.userview.NodeEvaluation;
 import org.olat.course.run.userview.UserCourseEnvironment;
+import org.olat.fileresource.types.ImsCPFileResource;
 import org.olat.ims.cp.CPManager;
 import org.olat.ims.cp.ui.CPPackageConfig;
 import org.olat.modules.ModuleConfiguration;
 import org.olat.repository.RepositoryEntry;
 import org.olat.repository.RepositoryEntryImportExport;
+import org.olat.repository.handlers.RepositoryHandler;
+import org.olat.repository.handlers.RepositoryHandlerFactory;
 
 /**
  * Description:<br>
@@ -79,12 +83,11 @@ public class CPCourseNode extends AbstractAccessableCourseNode {
 	 * @see org.olat.course.nodes.CourseNode#createEditController(org.olat.core.gui.UserRequest,
 	 *      org.olat.core.gui.control.WindowControl, org.olat.course.ICourse)
 	 */
-	public TabbableController createEditController(UserRequest ureq, WindowControl wControl, StackedController stackPanel, ICourse course, UserCourseEnvironment euce) {
+	public TabbableController createEditController(UserRequest ureq, WindowControl wControl, BreadcrumbPanel stackPanel, ICourse course, UserCourseEnvironment euce) {
 		updateModuleConfigDefaults(false);
 		CPEditController childTabCntrllr = new CPEditController(this, ureq, wControl, stackPanel, course, euce);
 		CourseNode chosenNode = course.getEditorTreeModel().getCourseNode(euce.getCourseEditorEnv().getCurrentCourseNodeId());
-		return new NodeEditController(ureq, wControl, course.getEditorTreeModel(), course, chosenNode, course.getCourseEnvironment()
-				.getCourseGroupManager(), euce, childTabCntrllr);
+		return new NodeEditController(ureq, wControl, course.getEditorTreeModel(), course, chosenNode, euce, childTabCntrllr);
 	}
 
 	/**
@@ -98,7 +101,7 @@ public class CPCourseNode extends AbstractAccessableCourseNode {
 		NodeRunConstructionResult ncr;
 		updateModuleConfigDefaults(false);
 		OLATResourceable ores = OresHelper.createOLATResourceableInstance(ICourse.class, userCourseEnv.getCourseEnvironment().getCourseResourceableId());
-		CPRunController cprunC = new CPRunController(getModuleConfiguration(), ureq, userCourseEnv, wControl, this, nodecmd, ores);
+		CPRunController cprunC = new CPRunController(getModuleConfiguration(), ureq, wControl, this, nodecmd, ores);
 		ncr = cprunC.createNodeRunConstructionResult(ureq);
 		return ncr;
 	}
@@ -179,14 +182,17 @@ public class CPCourseNode extends AbstractAccessableCourseNode {
 	 *          previous behaviour
 	 */
 	public void updateModuleConfigDefaults(boolean isNewNode) {
+		int CURRENTVERSION = 7;
 		ModuleConfiguration config = getModuleConfiguration();
 		if (isNewNode) {
 			// use defaults for new course building blocks
 			config.setBooleanEntry(NodeEditController.CONFIG_STARTPAGE, Boolean.FALSE.booleanValue());
 			config.setBooleanEntry(NodeEditController.CONFIG_COMPONENT_MENU, Boolean.TRUE.booleanValue());
-			//fxdiff VCRP-13: cp navigation
-			config.setBooleanEntry(CPEditController.CONFIG_SHOWNAVBUTTONS, Boolean.TRUE.booleanValue());
-			config.setConfigurationVersion(2);
+			// how to render files (include jquery etc)
+			DeliveryOptions nodeDeliveryOptions = DeliveryOptions.defaultWithGlossary();
+			nodeDeliveryOptions.setInherit(Boolean.TRUE);
+			config.set(CPEditController.CONFIG_DELIVERYOPTIONS, nodeDeliveryOptions);
+			config.setConfigurationVersion(CURRENTVERSION);
 		} else {
 			config.remove(NodeEditController.CONFIG_INTEGRATION);
 			if (config.getConfigurationVersion() < 2) {
@@ -205,58 +211,68 @@ public class CPCourseNode extends AbstractAccessableCourseNode {
 				config.set(NodeEditController.CONFIG_JS_ENCODING, NodeEditController.CONFIG_JS_ENCODING_AUTO);
 				config.setConfigurationVersion(3);
 			}
-			
-			if(config.getConfigurationVersion() < 4) {
-				config.setBooleanEntry(CPEditController.CONFIG_SHOWNAVBUTTONS, Boolean.TRUE.booleanValue());
-				config.setConfigurationVersion(4);
-			}
-			
-			if(config.getConfigurationVersion() < 5) {
+			// Version 5 was ineffective since the delivery options were not set. We have to redo this and
+			// save it as version 6
+			if(config.getConfigurationVersion() < 7) {
 				String contentEncoding = (String)config.get(NodeEditController.CONFIG_CONTENT_ENCODING);
+				if (contentEncoding != null && contentEncoding.equals("auto")) {
+					contentEncoding = null; // new style for auto
+				}
 				String jsEncoding = (String)config.get(NodeEditController.CONFIG_JS_ENCODING);
+				if (jsEncoding != null && jsEncoding.equals("auto")) {
+					jsEncoding = null; // new style for auto
+				}
 
+				
 				CPPackageConfig reConfig = null;
-				DeliveryOptions nodeDeliveryOptions = new DeliveryOptions();
-				RepositoryEntry re = getReferencedRepositoryEntry();
-				if(re != null) {
-					reConfig = CPManager.getInstance().getCPPackageConfig(re.getOlatResource());
-
-					//move the settings from the node to the repo
-					if(reConfig == null || reConfig.getDeliveryOptions() == null) {
+				DeliveryOptions nodeDeliveryOptions = (DeliveryOptions)config.get(CPEditController.CONFIG_DELIVERYOPTIONS);
+				if (nodeDeliveryOptions == null) {
+					// Update missing delivery options now, inherit from repo by default
+					nodeDeliveryOptions = DeliveryOptions.defaultWithGlossary();
+					nodeDeliveryOptions.setInherit(Boolean.TRUE);
+					
+					RepositoryEntry re = getReferencedRepositoryEntry();
+					// Check if delivery options are set for repo entry, if not create default
+					if(re != null) {
+						reConfig = CPManager.getInstance().getCPPackageConfig(re.getOlatResource());						
 						if(reConfig == null) {
 							reConfig = new CPPackageConfig();
 						}
-						reConfig.setDeliveryOptions(new DeliveryOptions());
-						nodeDeliveryOptions.setInherit(Boolean.TRUE);
-						nodeDeliveryOptions.setStandardMode(Boolean.TRUE);
-						reConfig.getDeliveryOptions().setStandardMode(Boolean.TRUE);
-						reConfig.getDeliveryOptions().setContentEncoding(contentEncoding);
-						reConfig.getDeliveryOptions().setJavascriptEncoding(jsEncoding);
-						CPManager.getInstance().setCPPackageConfig(re.getOlatResource(), reConfig);
-					} else {
 						DeliveryOptions repoDeliveryOptions = reConfig.getDeliveryOptions();
-						if(((contentEncoding == null && repoDeliveryOptions.getContentEncoding() == null) || (contentEncoding != null && contentEncoding.equals(repoDeliveryOptions.getContentEncoding())))
-							&& ((jsEncoding == null && repoDeliveryOptions.getJavascriptEncoding() == null) || (jsEncoding != null && jsEncoding.equals(repoDeliveryOptions.getJavascriptEncoding())))) {
-							nodeDeliveryOptions.setInherit(Boolean.TRUE);	
+						if (repoDeliveryOptions == null) {
+							// migrate existing config back to repo entry using the default as a base
+							repoDeliveryOptions = DeliveryOptions.defaultWithGlossary();
+							reConfig.setDeliveryOptions(repoDeliveryOptions);
+							repoDeliveryOptions.setContentEncoding(contentEncoding);
+							repoDeliveryOptions.setJavascriptEncoding(jsEncoding);						
+							CPManager.getInstance().setCPPackageConfig(re.getOlatResource(), reConfig);
 						} else {
-							nodeDeliveryOptions.setInherit(Boolean.FALSE);	
-							nodeDeliveryOptions.setContentEncoding(contentEncoding);
-							nodeDeliveryOptions.setJavascriptEncoding(jsEncoding);
+							// see if we have any different settings than the repo. if so, don't use inherit mode
+							if(contentEncoding != repoDeliveryOptions.getContentEncoding() || jsEncoding != repoDeliveryOptions.getJavascriptEncoding()) {
+								nodeDeliveryOptions.setInherit(Boolean.FALSE);	
+								nodeDeliveryOptions.setContentEncoding(contentEncoding);
+								nodeDeliveryOptions.setJavascriptEncoding(jsEncoding);
+							}
 						}
 					}
+					// remove old config parameters
+					config.remove(NodeEditController.CONFIG_CONTENT_ENCODING);
+					config.remove(NodeEditController.CONFIG_JS_ENCODING);
+					// replace with new delivery options
+					config.set(CPEditController.CONFIG_DELIVERYOPTIONS, nodeDeliveryOptions);
 				}
-				
-				config.setConfigurationVersion(5);
+				config.setConfigurationVersion(7);
 			}
 			
 			// else node is up-to-date - nothing to do
 		}
+		if (config.getConfigurationVersion() != CURRENTVERSION) {
+			OLog logger = Tracing.createLoggerFor(CPCourseNode.class);
+			logger.error("CP course node version not updated to lastest version::" + CURRENTVERSION + ", was::" + config.getConfigurationVersion() + ". Check the code, programming error.");
+		}
 	}
 
-	/**
-	 * @see org.olat.course.nodes.GenericCourseNode#exportNode(java.io.File,
-	 *      org.olat.course.ICourse)
-	 */
+	@Override
 	public void exportNode(File exportDirectory, ICourse course) {
 		RepositoryEntry re = CPEditController.getCPReference(getModuleConfiguration(), false);
 		if (re == null) return;
@@ -266,29 +282,18 @@ public class CPCourseNode extends AbstractAccessableCourseNode {
 		reie.exportDoExport();
 	}
 
-	/**
-	 * @see org.olat.course.nodes.GenericCourseNode#importNode(java.io.File,
-	 *      org.olat.course.ICourse, org.olat.core.gui.UserRequest,
-	 *      org.olat.core.gui.control.WindowControl)
-	 */
-	public Controller importNode(File importDirectory, ICourse course, boolean unattendedImport, UserRequest ureq, WindowControl wControl) {
-		File importSubdir = new File(importDirectory, getIdent());
-		RepositoryEntryImportExport rie = new RepositoryEntryImportExport(importSubdir);
-		if (!rie.anyExportedPropertiesAvailable()) return null;
-
-		// do import referenced repository entries
-		if (unattendedImport) {
-			Identity admin = BaseSecurityManager.getInstance().findIdentityByName("administrator");
-			ImportReferencesController.doImport(rie, this, ImportReferencesController.IMPORT_CP, true, admin);
-			return null;
-		} else {
-			return new ImportReferencesController(ureq, wControl, this, ImportReferencesController.IMPORT_CP, rie);
+	@Override
+	public void importNode(File importDirectory, ICourse course, Identity owner, Locale locale) {
+		RepositoryEntryImportExport rie = new RepositoryEntryImportExport(importDirectory, getIdent());
+		if(rie.anyExportedPropertiesAvailable()) {
+			RepositoryHandler handler = RepositoryHandlerFactory.getInstance().getRepositoryHandler(ImsCPFileResource.TYPE_NAME);
+			RepositoryEntry re = handler.importResource(owner, rie.getInitialAuthor(), rie.getDisplayName(),
+					rie.getDescription(), false, locale, rie.importGetExportedFile(), null);
+			CPEditController.setCPReference(re, getModuleConfiguration());
 		}
 	}
 
-	/**
-	 * @see org.olat.course.nodes.CourseNode#createInstanceForCopy()
-	 */
+	@Override
 	public CourseNode createInstanceForCopy() {
 		CourseNode copyInstance = super.createInstanceForCopy();
 		CPEditController.removeCPReference(copyInstance.getModuleConfiguration());

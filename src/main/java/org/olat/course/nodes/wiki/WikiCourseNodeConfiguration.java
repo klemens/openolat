@@ -25,17 +25,16 @@
 
 package org.olat.course.nodes.wiki;
 
-import java.util.List;
 import java.util.Locale;
 
 import org.olat.basesecurity.BaseSecurityModule;
 import org.olat.core.CoreSpringFactory;
-import org.olat.core.extensions.ExtensionResource;
 import org.olat.core.gui.translator.Translator;
 import org.olat.core.util.Util;
 import org.olat.course.nodes.AbstractCourseNodeConfiguration;
 import org.olat.course.nodes.CourseNode;
 import org.olat.course.nodes.CourseNodeConfiguration;
+import org.olat.course.nodes.CourseNodeGroup;
 import org.olat.course.nodes.WikiCourseNode;
 import org.olat.modules.wiki.Wiki;
 /**
@@ -44,12 +43,13 @@ import org.olat.modules.wiki.Wiki;
  * Configuration of the wiki course node
  * 
  */
-public class WikiCourseNodeConfiguration extends AbstractCourseNodeConfiguration implements CourseNodeConfiguration {
+public class WikiCourseNodeConfiguration extends AbstractCourseNodeConfiguration {
 	
 	private WikiCourseNodeConfiguration() {
 		super();
 	}
 
+	@Override
 	public CourseNode getInstance() {
 		return new WikiCourseNode();
 	}
@@ -59,55 +59,25 @@ public class WikiCourseNodeConfiguration extends AbstractCourseNodeConfiguration
 		return CoreSpringFactory.getImpl(BaseSecurityModule.class).isWikiEnabled() && super.isEnabled();
 	}
 
-	/**
-	 * @see org.olat.course.nodes.CourseNodeConfiguration#getLinkText(java.util.Locale)
-	 */
+	@Override
 	public String getLinkText(Locale locale) {
 		Translator fallback = Util.createPackageTranslator(CourseNodeConfiguration.class, locale);
 		Translator translator = Util.createPackageTranslator(this.getClass(), locale, fallback);
 		return translator.translate("title_wiki");
 	}
 
-	/**
-	 * @see org.olat.course.nodes.CourseNodeConfiguration#getCSSClass()
-	 */
+	@Override
 	public String getIconCSSClass() {
 		return Wiki.CSS_CLASS_WIKI_ICON;
 	}
 
-	/**
-	 * @see org.olat.course.nodes.CourseNodeConfiguration#getLinkCSSClass()
-	 */
-	public String getLinkCSSClass() {
-		return null;
-	}
-
+	@Override
 	public String getAlias() {
 		return WikiCourseNode.TYPE;
 	}
-
-	//
-	// OLATExtension interface implementations.
-	//
-
-	public String getName() {
-		return getAlias();
+	
+	@Override
+	public String getGroup() {
+		return CourseNodeGroup.collaboration.name();
 	}
-
-	/**
-	 * @see org.olat.core.extensions.OLATExtension#getExtensionResources()
-	 */
-	public List getExtensionResources() {
-		// no ressources, part of main css
-		return null;
-	}
-
-	/**
-	 * @see org.olat.core.extensions.OLATExtension#getExtensionCSS()
-	 */
-	public ExtensionResource getExtensionCSS() {
-		// no ressources, part of main css
-		return null;
-	}
-
 }

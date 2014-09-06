@@ -90,6 +90,11 @@ public class GlobalMapperRegistry implements Dispatcher {
 		pathToMapper.put(globalName, mapper);
 		return WebappHelper.getServletContextPath() + DispatcherModule.PATH_GLOBAL_MAPPED + globalName ;			
 	}
+	
+	public String register(String relPath, Mapper mapper) {
+		pathToMapper.put(relPath, mapper);
+		return WebappHelper.getServletContextPath() + DispatcherModule.PATH_GLOBAL_MAPPED + relPath ;			
+	}
 
 
 	/**
@@ -109,7 +114,7 @@ public class GlobalMapperRegistry implements Dispatcher {
 		
 		// smappath e.g. org.olat.demo.DemoController
 		String smappath = subInfo.substring(0, slashPos);
-		Mapper m = (Mapper)pathToMapper.get(smappath);
+		Mapper m = pathToMapper.get(smappath);
 
 		MediaResource mr;
 		if (m == null) { // not mapped

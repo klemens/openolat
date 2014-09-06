@@ -48,13 +48,15 @@ import org.olat.core.gui.control.generic.messages.MessageUIFactory;
 import org.olat.core.gui.control.generic.textmarker.GlossaryMarkupItemController;
 import org.olat.core.gui.translator.Translator;
 import org.olat.core.id.Identity;
+import org.olat.core.id.OLATResourceable;
 import org.olat.core.id.context.BusinessControlFactory;
 import org.olat.core.id.context.ContextEntry;
 import org.olat.core.util.prefs.Preferences;
+import org.olat.core.util.resource.OresHelper;
+import org.olat.course.CourseFactory;
 import org.olat.course.ICourse;
 import org.olat.course.config.CourseConfig;
 import org.olat.course.run.RunMainController;
-import org.olat.course.run.environment.CourseEnvironment;
 import org.olat.repository.RepositoryEntry;
 import org.olat.repository.RepositoryManager;
 import org.olat.user.HomePageConfig;
@@ -76,16 +78,16 @@ public class CourseGlossaryToolLinkController extends BasicController {
 	private VelocityContainer mainVC;
 	private Link onCommand, offCommand;
 	private String guiPrefsKey;
-	boolean allowGlossaryEditing;
-	private CourseEnvironment courseEnvir;
+	private boolean allowGlossaryEditing;
+	private OLATResourceable courseOres;
 	private GlossaryMarkupItemController glossMarkupItmCtr;
 
 	public CourseGlossaryToolLinkController(WindowControl wControl, UserRequest ureq, ICourse course, Translator translator,
-			boolean allowGlossaryEditing, CourseEnvironment courseEnvironment, GlossaryMarkupItemController glossMarkupItmCtr) {
+			boolean allowGlossaryEditing, GlossaryMarkupItemController glossMarkupItmCtr) {
 		super(ureq, wControl, translator);
 		setBasePackage(RunMainController.class);
+		this.courseOres = OresHelper.clone(course);
 		this.allowGlossaryEditing = allowGlossaryEditing;
-		courseEnvir = courseEnvironment;
 		guiPrefsKey = CourseGlossaryFactory.createGuiPrefsKey(course);
 
 		mainVC = createVelocityContainer("glossaryToolLink");
@@ -93,19 +95,19 @@ public class CourseGlossaryToolLinkController extends BasicController {
 		Preferences prefs = ureq.getUserSession().getGuiPreferences();
 		Boolean state = (Boolean) prefs.get(CourseGlossaryToolLinkController.class, guiPrefsKey);
 		if (state == null || !state.booleanValue()) {
-			onCommand = LinkFactory.createLink("command.glossary.on", mainVC, this);
-			onCommand.setTitle("command.glossary.on.alt");
-			onCommand.setCustomEnabledLinkCSS("b_toolbox_toggle");
+			onCommand = LinkFactory.createLink("command.glossary.on.alt", mainVC, this);
 		} else {
-			offCommand = LinkFactory.createLink("command.glossary.off", mainVC, this);
-			offCommand.setTitle("command.glossary.off.alt");
-			offCommand.setCustomEnabledLinkCSS("b_toolbox_toggle");
+			offCommand = LinkFactory.createLink("command.glossary.off.alt", mainVC, this);
 		}
 
 		// keep reference to textMarkerContainerCtr for later enabling/disabling
 		this.glossMarkupItmCtr = glossMarkupItmCtr;
 
 		putInitialPanel(mainVC);
+	}
+	
+	public void setAllowGlossaryEditing(boolean edit) {
+		this.allowGlossaryEditing = edit;
 	}
 
 	/**
@@ -122,9 +124,7 @@ public class CourseGlossaryToolLinkController extends BasicController {
 			prefs.save();
 			// update gui
 			mainVC.remove(onCommand);
-			offCommand = LinkFactory.createLink("command.glossary.off", mainVC, this);
-			offCommand.setTitle("command.glossary.off.alt");
-			offCommand.setCustomEnabledLinkCSS("b_toolbox_toggle");
+			offCommand = LinkFactory.createLink("command.glossary.off.alt", mainVC, this);
 			// notify textmarker controller
 			glossMarkupItmCtr.setTextMarkingEnabled(true);
 			fireEvent(ureq, new Event("glossaryOn"));
@@ -136,15 +136,14 @@ public class CourseGlossaryToolLinkController extends BasicController {
 			prefs.save();
 			// update gui
 			mainVC.remove(offCommand);
-			onCommand = LinkFactory.createLink("command.glossary.on", mainVC, this);
-			onCommand.setTitle("command.glossary.on.alt");
-			onCommand.setCustomEnabledLinkCSS("b_toolbox_toggle");
+			onCommand = LinkFactory.createLink("command.glossary.on.alt", mainVC, this);
 			// notify textmarker controller
 			glossMarkupItmCtr.setTextMarkingEnabled(false);
 			fireEvent(ureq, new Event("glossaryOff"));
 		} else if (source == mainVC && event.getCommand().equals("command.glossary")){
 			// start glossary in window
-			final CourseConfig cc = courseEnvir.getCourseConfig(); // do not cache cc, not save
+			ICourse course = CourseFactory.loadCourse(courseOres);
+			final CourseConfig cc = course.getCourseConfig(); // do not cache cc, not save
 			
 			// if glossary had been opened from LR as Tab before, warn user:
 			DTabs dts = Windows.getWindows(ureq).getWindow(ureq).getDTabs();
@@ -167,8 +166,7 @@ public class CourseGlossaryToolLinkController extends BasicController {
 							return MessageUIFactory.createInfoMessage(lureq, lwControl, null, text);
 						} else {
 							// use a one-column main layout
-							LayoutMain3ColsController layoutCtr = new LayoutMain3ColsController(lureq, lwControl, null, null, glossaryController
-									.getInitialComponent(), null);
+							LayoutMain3ColsController layoutCtr = new LayoutMain3ColsController(lureq, lwControl, glossaryController);
 						// dispose glossary on layout dispose
 							layoutCtr.addDisposableChildController(glossaryController); 
 							return layoutCtr;
@@ -197,8 +195,7 @@ public class CourseGlossaryToolLinkController extends BasicController {
 			ControllerCreator ctrlCreator = new ControllerCreator() {
 				public Controller createController(UserRequest lureq, WindowControl lwControl) {
 					HomePageDisplayController homePageCtrl = new HomePageDisplayController(lureq, lwControl, identity, homePageConfig);
-					LayoutMain3ColsController layoutCtr = new LayoutMain3ColsController(lureq, lwControl, null, null, homePageCtrl
-							.getInitialComponent(), null);
+					LayoutMain3ColsController layoutCtr = new LayoutMain3ColsController(lureq, lwControl, homePageCtrl);
 					// dispose glossary on layout dispose
 					layoutCtr.addDisposableChildController(homePageCtrl); 
 					return layoutCtr;

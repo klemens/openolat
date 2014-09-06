@@ -19,7 +19,10 @@
  */
 package org.olat.group.ui.homepage;
 
-import org.olat.admin.securitygroup.gui.GroupController;
+import org.olat.basesecurity.Group;
+import org.olat.basesecurity.GroupRoles;
+import org.olat.basesecurity.ui.GroupController;
+import org.olat.core.CoreSpringFactory;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.Component;
 import org.olat.core.gui.components.velocity.VelocityContainer;
@@ -27,7 +30,7 @@ import org.olat.core.gui.control.Event;
 import org.olat.core.gui.control.WindowControl;
 import org.olat.core.gui.control.controller.BasicController;
 import org.olat.group.BusinessGroup;
-import org.olat.group.model.DisplayMembers;
+import org.olat.group.BusinessGroupService;
 
 /**
  * 
@@ -40,23 +43,25 @@ public class GroupMembersDisplayController extends BasicController {
 
 	private final VelocityContainer content;
 
-	public GroupMembersDisplayController(UserRequest ureq, WindowControl wControl, BusinessGroup businessGroup, DisplayMembers members) {
+	public GroupMembersDisplayController(UserRequest ureq, WindowControl wControl, BusinessGroup businessGroup) {
 		super(ureq, wControl);
 		// display owners and participants
 		content = createVelocityContainer("groupmembersdisplay");
+		BusinessGroupService bgs = CoreSpringFactory.getImpl(BusinessGroupService.class);
+		Group group = bgs.getGroup(businessGroup);
 
-		if(members.isOwnersPublic()) {
-			GroupController groupOwnersController = new GroupController(ureq, wControl, false, true, false, false, false, false, businessGroup.getOwnerGroup());
+		if(businessGroup.isOwnersVisiblePublic()) {
+			GroupController groupOwnersController = new GroupController(ureq, wControl, false, true, false, false, false, false, group, GroupRoles.coach.name());
 			content.put("owners", groupOwnersController.getInitialComponent());
 			listenTo(groupOwnersController);
 		}
-		if(members.isParticipantsPublic()) {
-			GroupController groupParticipantsController = new GroupController(ureq, wControl, false, true, false, false, false, false, businessGroup.getPartipiciantGroup());
+		if(businessGroup.isParticipantsVisiblePublic()) {
+			GroupController groupParticipantsController = new GroupController(ureq, wControl, false, true, false, false, false, false, group, GroupRoles.participant.name());
 			content.put("participants", groupParticipantsController.getInitialComponent());
 			listenTo(groupParticipantsController);
 		}
-		if(members.isWaitingListPublic()) {
-			GroupController groupWaitingListController = new GroupController(ureq, wControl, false, true, false, false, false, false, businessGroup.getWaitingGroup());
+		if(businessGroup.isWaitingListVisiblePublic()) {
+			GroupController groupWaitingListController = new GroupController(ureq, wControl, false, true, false, false, false, false, group, GroupRoles.waiting.name());
 			content.put("waitingList", groupWaitingListController.getInitialComponent());
 			listenTo(groupWaitingListController);
 		}

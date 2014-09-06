@@ -38,11 +38,13 @@ import org.olat.core.gui.components.form.flexible.impl.elements.richText.plugins
 import org.olat.core.gui.control.Disposable;
 import org.olat.core.gui.render.StringOutput;
 import org.olat.core.gui.themes.Theme;
+import org.olat.core.gui.translator.Translator;
 import org.olat.core.helpers.Settings;
 import org.olat.core.logging.OLog;
 import org.olat.core.logging.Tracing;
 import org.olat.core.util.Formatter;
 import org.olat.core.util.UserSession;
+import org.olat.core.util.Util;
 import org.olat.core.util.WebappHelper;
 import org.olat.core.util.i18n.I18nManager;
 import org.olat.core.util.vfs.LocalFolderImpl;
@@ -76,7 +78,8 @@ public class RichTextConfiguration implements Disposable {
 	private static final String CONVERT_URLS = "convert_urls";
 	private static final String IMPORTCSS_APPEND = "importcss_append";
 	private static final String IMPORT_SELECTOR_CONVERTER = "importcss_selector_converter";
-	private static final String IMPORT_SELECTOR_CONVERTER_VALUE_REMOVE_EMOTICONS ="function(selector) { if (selector.indexOf('img.b_emoticons') != -1) {return false;} else { return this.convertSelectorToFormat(selector); }}";
+	private static final String IMPORT_SELECTOR_CONVERTER_VALUE_REMOVE_EMOTICONS ="function(selector) { if (selector.indexOf('img.b_emoticons') != -1 || selector.indexOf('img.o_emoticons') != -1) {return false;} else { return this.convertSelectorToFormat(selector); }}";
+	private static final String IMPORTCSS_SELECTOR_FILTER = "importcss_selector_filter";
 	private static final String IMPORTCSS_GROUPS = "importcss_groups";
 	private static final String IMPORTCSS_GROUPS_VALUE_MENU = "[{title: 'Paragraph', filter: /^(p)\\./},{title: 'Div', filter: /^(div|p)\\./},{title: 'Table', filter: /^(table|th|td|tr)\\./},{title: 'Url', filter: /^(a)\\./},{title: 'Style'}]";
 	private static final String HEIGHT = "height";
@@ -162,7 +165,7 @@ public class RichTextConfiguration implements Disposable {
 		setNonQuotedConfigValue(URLCONVERTER_CALLBACK, URLCONVERTER_CALLBACK_VALUE_BRASATO_URL_CONVERTER);
 		setNonQuotedConfigValue("allow_script_urls", "true");
 		// use modal windows, all OLAT workflows are implemented to work this way
-		setModalWindowsEnabled(true, true);
+		setModalWindowsEnabled(true);
 		// Start observing of diry richt text element and trigger calling of setFlexiFormDirty() method
 		// This check is initialized after the editor has fully loaded
 		addOnInitCallbackFunction(ONINIT_CALLBACK_VALUE_START_DIRTY_OBSERVER + "('" + rootFormDispatchId + "','" + domID + "')");
@@ -177,8 +180,8 @@ public class RichTextConfiguration implements Disposable {
 	 * @param externalToolbar
 	 * @param guiTheme
 	 */
-	public void setConfigProfileFormEditorMinimalistic(UserSession usess, Theme guiTheme) {
-		setConfigBasics(usess, guiTheme);
+	public void setConfigProfileFormEditorMinimalistic(Theme guiTheme) {
+		setConfigBasics(guiTheme);
 		// Add additional plugins
 		TinyMCECustomPluginFactory customPluginFactory = CoreSpringFactory.getImpl(TinyMCECustomPluginFactory.class);
 		List<TinyMCECustomPlugin> enabledCustomPlugins = customPluginFactory.getCustomPlugionsForProfile();
@@ -204,8 +207,9 @@ public class RichTextConfiguration implements Disposable {
 	 * @param baseContainer
 	 * @param customLinkTreeModel
 	 */
-	public void setConfigProfileFormEditor(boolean fullProfile, UserSession usess, Theme guiTheme, VFSContainer baseContainer, CustomLinkTreeModel customLinkTreeModel) {
-		setConfigBasics(usess, guiTheme);
+	public void setConfigProfileFormEditor(boolean fullProfile, UserSession usess, Theme guiTheme,
+			VFSContainer baseContainer, CustomLinkTreeModel customLinkTreeModel) {
+		setConfigBasics(guiTheme);
 
 		TinyMCECustomPluginFactory customPluginFactory = CoreSpringFactory.getImpl(TinyMCECustomPluginFactory.class);
 		List<TinyMCECustomPlugin> enabledCustomPlugins = customPluginFactory.getCustomPlugionsForProfile();
@@ -243,10 +247,10 @@ public class RichTextConfiguration implements Disposable {
 	 * @param customLinkTreeModel
 	 */
 	public void setConfigProfileFileEditor(UserSession usess, Theme guiTheme, VFSContainer baseContainer, String relFilePath, CustomLinkTreeModel customLinkTreeModel) {
-		setConfigBasics(usess, guiTheme);
+		setConfigBasics(guiTheme);
 		// Line 1
-		setFullscreenEnabled(true, false, 3);
-		setInsertDateTimeEnabled(true, usess.getLocale(), 3);
+		setFullscreenEnabled(true, false);
+		setInsertDateTimeEnabled(true, usess.getLocale());
 		// Plugins without buttons
 		setNoneditableContentEnabled(true, null);		
 		TinyMCECustomPluginFactory customPluginFactory = CoreSpringFactory.getImpl(TinyMCECustomPluginFactory.class);
@@ -277,7 +281,7 @@ public class RichTextConfiguration implements Disposable {
 	 * @param externalToolbar
 	 * @param guiTheme
 	 */
-	private void setConfigBasics(UserSession usess, Theme guiTheme) {
+	private void setConfigBasics(Theme guiTheme) {
 		// Use users current language
 		Locale loc = I18nManager.getInstance().getCurrentThreadLocale();
 		setLanguage(loc);
@@ -329,7 +333,7 @@ public class RichTextConfiguration implements Disposable {
 	 *            true: use inline popups; false: use browser window popup
 	 *            windows
 	 */
-	private void setModalWindowsEnabled(boolean modalWindowsEnabled, boolean inlinePopupsEnabled) {
+	private void setModalWindowsEnabled(boolean modalWindowsEnabled) {
 		// in both cases opt in, default values are set to non-inline windows that
 		// are not modal
 		if (modalWindowsEnabled) {
@@ -392,7 +396,7 @@ public class RichTextConfiguration implements Disposable {
 	 * @param row
 	 *            The row where to place the plugin buttons
 	 */	
-	private void setFullscreenEnabled(boolean fullScreenEnabled, boolean inNewWindowEnabled, int row) {
+	private void setFullscreenEnabled(boolean fullScreenEnabled, boolean inNewWindowEnabled) {
 		if (fullScreenEnabled) {
 			// enabled if needed, disabled by default
 			if (inNewWindowEnabled) setNonQuotedConfigValue(FULLSCREEN_NEW_WINDOW, VALUE_FALSE);
@@ -409,7 +413,7 @@ public class RichTextConfiguration implements Disposable {
 	 * @param row
 	 *            The row where to place the plugin buttons
 	 */
-	private void setInsertDateTimeEnabled(boolean insertDateTimeEnabled, Locale locale, int row) {
+	private void setInsertDateTimeEnabled(boolean insertDateTimeEnabled, Locale locale) {
 		if (insertDateTimeEnabled) {
 			// use date format defined in org.olat.core package
 			Formatter formatter = Formatter.getInstance(locale);
@@ -464,13 +468,13 @@ public class RichTextConfiguration implements Disposable {
 	 */
 	public void setContentCSSFromTheme(Theme theme) {
 		// Always use default content css, then add the one from the theme
-		if (theme.getIdentifyer().equals("openolat")) {
-			setContentCSS(theme.getBaseURI() + "all/content.css");			
+		if (theme.getIdentifyer().equals(Theme.DEFAULTTHEME)) {
+			setContentCSS(theme.getBaseURI() + "content.css");			
 		} else {
 			StringOutput cssFiles = new StringOutput();
-			StaticMediaDispatcher.renderStaticURI(cssFiles, "themes/openolat/all/content.css");
+			StaticMediaDispatcher.renderStaticURI(cssFiles, "themes/" + Theme.DEFAULTTHEME + "/content.css");
 			cssFiles.append(",");
-			cssFiles.append(theme.getBaseURI()).append("all/content.css");
+			cssFiles.append(theme.getBaseURI()).append("content.css");
 			setContentCSS(cssFiles.toString());
 		}
 	}
@@ -702,7 +706,7 @@ public class RichTextConfiguration implements Disposable {
 		return linkBrowserCustomTreeModel;
 	}
 
-	protected void appendConfigToTinyJSArray_4(StringOutput out) {
+	protected void appendConfigToTinyJSArray_4(StringOutput out, Translator translator) {
 		// Now add the quoted values
 		Map<String,String> copyValues = new HashMap<String,String>(quotedConfigValues);
 
@@ -722,6 +726,17 @@ public class RichTextConfiguration implements Disposable {
 			copyNonValues.put(IMPORT_SELECTOR_CONVERTER, IMPORT_SELECTOR_CONVERTER_VALUE_REMOVE_EMOTICONS);
 			// group imported css classes to paragraph, div, table and style menu
 			copyNonValues.put(IMPORTCSS_GROUPS, IMPORTCSS_GROUPS_VALUE_MENU);
+			// add css class filters if available to minimise classes the user sees
+			String selectorFilter = Settings.getHtmlEditorContentCssClassPrefixes();
+			if (selectorFilter != null) {
+				if (selectorFilter.startsWith("/") && selectorFilter.endsWith("/")) {
+					// a (multi) prefix filter witten as JS regexp pattern
+					copyNonValues.put(IMPORTCSS_SELECTOR_FILTER, selectorFilter);				
+				} else {
+					// a simple prefix filter without JS regexp syntax
+					copyValues.put(IMPORTCSS_SELECTOR_FILTER, selectorFilter);								
+				}				
+			}
 		}
 
  		//new with menu
@@ -731,11 +746,35 @@ public class RichTextConfiguration implements Disposable {
 		  .append("statusbar:true,\n")
 		  .append("menubar:").append(tinyConfig.hasMenu()).append(",\n");
  		
+ 		String leftAndClear = "Left and clear";
+ 		String rightAndClear = "Right and clear";
+ 		if(translator != null) {
+ 			translator = Util.createPackageTranslator(RichTextConfiguration.class, translator.getLocale(), translator);
+ 			leftAndClear = translator.translate("left.clear");
+ 			rightAndClear = translator.translate("right.clear");
+ 		}
+ 		
  		tinyMenuSb.append("image_class_list: [\n")
  		  .append("  {title: 'Left', value: 'b_float_left'},\n")
+ 		  .append("  {title: '").append(leftAndClear).append("', value: 'b_float_left_clear'},\n")
  		  .append("  {title: 'Center', value: 'b_centered'},\n")
  		  .append("  {title: 'Right', value: 'b_float_right'},\n")
+ 		  .append("  {title: '").append(rightAndClear).append("', value: 'b_float_right_clear'},\n")
+ 		  .append("  {title: 'Circle', value: 'b_circle'},\n")
+ 		  .append("  {title: 'Border', value: 'b_with_border'}\n")
  		  .append("],\n");
+ 		tinyMenuSb.append("link_class_list: [\n")
+		  .append("  {title: '', value: ''},\n")
+		  .append("  {title: 'Extern', value: 'b_link_extern'},\n")
+		  .append("  {title: 'Mail', value: 'b_link_mailto'},\n")
+		  .append("  {title: 'Forward', value: 'b_link_forward'}\n")
+		  .append("],\n");
+ 		tinyMenuSb.append("table_class_list: [\n")
+		  .append("  {title: 'Grid', value: 'b_grid'},\n")
+		  .append("  {title: 'Border', value: 'b_border'},\n")
+		  .append("  {title: 'Full', value: 'b_full'},\n")
+		  .append("  {title: 'Middle', value: 'b_middle'}\n")
+		  .append("],\n");
  		
 		if (tinyConfig.getTool1() != null) {
 			tinyMenuSb.append("toolbar1: '").append(tinyConfig.getTool1()).append("',\n");
