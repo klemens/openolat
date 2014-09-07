@@ -9,6 +9,7 @@ import org.olat.core.util.Util;
 import org.olat.course.nodes.AbstractCourseNodeConfiguration;
 import org.olat.course.nodes.CourseNode;
 import org.olat.course.nodes.CourseNodeConfiguration;
+import org.olat.course.nodes.CourseNodeGroup;
 
 public class BBautOLATCourseNodeConfiguration extends AbstractCourseNodeConfiguration implements CourseNodeConfiguration {
 
@@ -28,7 +29,7 @@ public class BBautOLATCourseNodeConfiguration extends AbstractCourseNodeConfigur
 	}
 
 	public String getIconCSSClass() {
-		return "o_iqsurv_icon";
+		return "o_iqtest_icon";
 	}
 
 	public String getLinkCSSClass() {
@@ -41,6 +42,11 @@ public class BBautOLATCourseNodeConfiguration extends AbstractCourseNodeConfigur
 
 	public String getName() {
 		return getAlias();
+	}
+
+	@Override
+	public String getGroup() {
+		return CourseNodeGroup.assessment.name();
 	}
 
 	public List getExtensionResources() {

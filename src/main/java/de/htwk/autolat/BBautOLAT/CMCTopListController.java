@@ -24,7 +24,6 @@ import de.htwk.autolat.tools.Scoring.ScoreObjectManagerImpl;
 public class CMCTopListController extends BasicController
 {
 	private VelocityContainer mainVC;
-	private Panel main;
 	private TableController topListTable;
 	
 	/**
@@ -59,15 +58,13 @@ public class CMCTopListController extends BasicController
     TableDataModel model = new TopListTableModel(scores, userID);
     topListTable.setTableDataModel(model);
 		
-		main = new Panel("showTopList");
 		mainVC = createVelocityContainer("CMCTopListController");		
 		createOutput(ureq);
-		main = this.putInitialPanel(mainVC);		
+		putInitialPanel(mainVC);
 	}
 	
 	private void createOutput(UserRequest ureq)
 	{
-		main.setContent(mainVC);
 		mainVC.put("topListTable", topListTable.getInitialComponent());
 	}
 

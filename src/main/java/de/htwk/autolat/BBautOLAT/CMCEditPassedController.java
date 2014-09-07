@@ -21,7 +21,6 @@ import de.htwk.autolat.TaskInstance.TaskInstance;
 public class CMCEditPassedController extends BasicController {
 	
 	private VelocityContainer mainVC;
-	private Panel main;
 	
 	private TaskInstance taskInstance;
 	private Student student;
@@ -38,10 +37,9 @@ public class CMCEditPassedController extends BasicController {
 		this.courseID = courseID;
 		this.courseNodeID = courseNodeID;
 		this.wControl = wControl;
-		main = new Panel("viewEditPassed");
 		mainVC = createVelocityContainer("CMCEditPassedController");
 		createOutput(ureq);
-		main = this.putInitialPanel(mainVC);
+		putInitialPanel(mainVC);
 	}
 
 	private void createOutput(UserRequest ureq) {
@@ -56,7 +54,6 @@ public class CMCEditPassedController extends BasicController {
 			editPassedForm.addControllerListener(this);
 		}
 		mainVC.put("editPassedForm", editPassedForm.getInitialComponent());
-		main.setContent(mainVC);
 	}
 
 	@Override

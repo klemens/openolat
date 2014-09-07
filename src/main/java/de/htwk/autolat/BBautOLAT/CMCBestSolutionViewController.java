@@ -18,6 +18,7 @@ import org.olat.core.gui.translator.Translator;
 
 import de.htwk.autolat.TaskInstance.TaskInstance;
 import de.htwk.autolat.TaskSolution.TaskSolution;
+import de.htwk.autolat.tools.StreamVFSLeaf;
 import de.htwk.autolat.tools.XMLParser.OutputObject;
 import de.htwk.autolat.tools.XMLParser.Picture;
 import de.htwk.autolat.tools.XMLParser.XMLParser;
@@ -25,20 +26,16 @@ import de.htwk.autolat.tools.XMLParser.XMLParser;
 
 public class CMCBestSolutionViewController extends BasicController{
 	private VelocityContainer mainvc;
-	private Panel main;
-	private TaskSolution taskSolution;
 	private TaskInstance taskInstance;
 
 	public CMCBestSolutionViewController(UserRequest ureq, WindowControl wControl, TaskSolution taskSolution, TaskInstance taskInstance) {
 		super(ureq, wControl);
-		this.taskSolution = taskSolution;
 		this.taskInstance = taskInstance;
-		main = new Panel("viewBestSolution");
 		mainvc = createVelocityContainer("CMCBestSolutionViewController");
 		
 		mainvc.contextPut("bestSolutionView", taskSolution.getSolutionText());
 		createOutput(ureq);
-		main = this.putInitialPanel(mainvc);
+		putInitialPanel(mainvc);
 	}
 
 	@Override
@@ -75,12 +72,8 @@ public class CMCBestSolutionViewController extends BasicController{
 					
 		for(Picture aPic : solutionPictureList)
 		{
-			DefaultMediaResource mediaResource = new DefaultMediaResource();
-			mediaResource.setInputStream(aPic.getDecodedPictureStream());
-			ImageComponent taskImage = new ImageComponent(aPic.getName());
-			taskImage.setMediaResource(mediaResource);			
-			// taskImage.setWidth(aPic.getWidth());
-			// taskImage.setHeight(aPic.getHeight());			
+			ImageComponent taskImage = new ImageComponent(ureq.getUserSession(), aPic.getName());
+			taskImage.setMedia(new StreamVFSLeaf(aPic.getName(), aPic.getBase64()), aPic.getMimeType());
 			mainvc.put(aPic.getName(), taskImage);
 		}
 		mainvc.contextPut("solutionPieces", solutionPieces);

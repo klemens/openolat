@@ -2,80 +2,41 @@ package de.htwk.autolat.BBautOLAT;
 
 import java.io.ByteArrayOutputStream;
 import java.io.File;
-import java.util.ArrayList;
-import java.util.Date;
 import java.util.List;
 import java.util.Locale;
 
-import org.olat.core.commons.modules.bc.FolderConfig;
 import org.olat.core.gui.UserRequest;
-import org.olat.core.gui.components.stack.StackedController;
+import org.olat.core.gui.components.stack.BreadcrumbPanel;
 import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.WindowControl;
-import org.olat.core.gui.control.generic.messages.MessageUIFactory;
 import org.olat.core.gui.control.generic.tabbable.TabbableController;
-import org.olat.core.gui.translator.Translator;
 import org.olat.core.id.Identity;
-import org.olat.core.id.OLATResourceable;
-import org.olat.core.util.FileUtils;
-import org.olat.core.util.Formatter;
+import org.olat.core.util.ExportUtil;
 import org.olat.core.util.Util;
 import org.olat.core.util.ValidationStatus;
-
-import org.olat.core.util.CodeHelper;
-import org.olat.core.util.ExportUtil;
 import org.olat.core.util.WebappHelper;
-
-import org.olat.core.util.nodes.INode;
-import org.olat.core.util.notifications.NotificationsManager;
-import org.olat.core.util.notifications.SubscriptionContext;
-import org.olat.core.util.vfs.LocalFolderImpl;
-import org.olat.core.util.vfs.VFSContainer;
-import org.olat.core.util.vfs.VFSLeaf;
-import org.olat.course.CourseModule;
 import org.olat.course.ICourse;
-import org.olat.course.assessment.AssessmentManager;
-import org.olat.course.condition.Condition;
-import org.olat.course.condition.interpreter.ConditionInterpreter;
 import org.olat.course.editor.CourseEditorEnv;
 import org.olat.course.editor.NodeEditController;
 import org.olat.course.editor.StatusDescription;
 import org.olat.course.nodes.AbstractAccessableCourseNode;
 import org.olat.course.nodes.AssessableCourseNode;
 import org.olat.course.nodes.CourseNode;
-import org.olat.course.nodes.GenericCourseNode;
 import org.olat.course.nodes.StatusDescriptionHelper;
-import org.olat.course.nodes.wiki.WikiEditController;
-import org.olat.course.nodes.wiki.WikiRunController;
-import org.olat.course.repository.ImportReferencesController;
 import org.olat.course.run.navigation.NodeRunConstructionResult;
 import org.olat.course.run.scoring.ScoreEvaluation;
 import org.olat.course.run.userview.NodeEvaluation;
 import org.olat.course.run.userview.UserCourseEnvironment;
-import org.olat.course.tree.CourseEditorTreeModel;
 import org.olat.modules.ModuleConfiguration;
-import org.olat.modules.wiki.WikiManager;
-import org.olat.modules.wiki.WikiToZipUtils;
 import org.olat.repository.RepositoryEntry;
-import org.olat.repository.RepositoryEntryImportExport;
-import org.olat.repository.RepositoryManager;
 
 import de.htwk.autolat.Configuration.Configuration;
-import de.htwk.autolat.Configuration.ConfigurationManager;
 import de.htwk.autolat.Configuration.ConfigurationManagerImpl;
-import de.htwk.autolat.LivingTaskInstance.LivingTaskInstanceImpl;
-import de.htwk.autolat.LivingTaskInstance.LivingTaskInstanceManagerImpl;
-import de.htwk.autolat.ServerConnection.ServerConnection;
-import de.htwk.autolat.ServerConnection.ServerConnectionManagerImpl;
 import de.htwk.autolat.Student.Student;
-import de.htwk.autolat.Student.StudentImpl;
 import de.htwk.autolat.Student.StudentManagerImpl;
-import de.htwk.autolat.TaskConfiguration.TaskConfiguration;
 import de.htwk.autolat.TaskConfiguration.TaskConfigurationManagerImpl;
 import de.htwk.autolat.TaskInstance.TaskInstance;
-import de.htwk.autolat.TaskModule.TaskModule;
 import de.htwk.autolat.TaskResult.TaskResult;
-import de.htwk.autolat.TaskSolution.TaskSolution;
 import de.htwk.autolat.TaskType.TaskTypeManagerImpl;
 import de.htwk.autolat.tools.ImportExport.AutOlatNodeExporter;
 import de.htwk.autolat.tools.ImportExport.AutOlatNodeImporter;
@@ -150,13 +111,12 @@ public class BBautOLATCourseNode extends AbstractAccessableCourseNode implements
 	
 	@Override
 	public TabbableController createEditController(UserRequest ureq,
-			WindowControl wControl, StackedController stackPanel,
+			WindowControl wControl, BreadcrumbPanel stackPanel,
 			ICourse course, UserCourseEnvironment euce) {
 		// TODO Auto-generated method stub
 		BBautOLATEditController childTabCntrllr = new BBautOLATEditController(getModuleConfiguration(), ureq, wControl, this, course, euce);
 		CourseNode chosenNode = course.getEditorTreeModel().getCourseNode(euce.getCourseEditorEnv().getCurrentCourseNodeId());
-		return new NodeEditController(ureq, wControl, course.getEditorTreeModel(), course, chosenNode, course.getCourseEnvironment()
-				.getCourseGroupManager(), euce, childTabCntrllr);
+		return new NodeEditController(ureq, wControl, course.getEditorTreeModel(), course, chosenNode, euce, childTabCntrllr);
 	}
 
 	/**
@@ -164,23 +124,10 @@ public class BBautOLATCourseNode extends AbstractAccessableCourseNode implements
 	 *      org.olat.core.gui.control.WindowControl, org.olat.course.ICourse)
 	 */
 	public TabbableController createEditController(UserRequest ureq, WindowControl wControl, ICourse course, UserCourseEnvironment euce) {
-		/*
-		Configuration conf = ConfigurationManagerImpl.getInstance().getConfigurationByCourseID(
-				course.getResourceableId(), Long.valueOf(getIdent())); 
-		ModuleConfiguration config = getModuleConfiguration();
-		
-		ServerConnection connection = ServerConnectionManagerImpl.getInstance().getRandomServerConnection();
-		if(connection != null) {
-			conf.setServerConnection(connection);
-			ConfigurationManagerImpl.getInstance().updateConfiguration(conf);
-			config.setBooleanEntry("ServerConnectionSet", true);
-		}
-		*/
 		
 		BBautOLATEditController childTabCntrllr = new BBautOLATEditController(getModuleConfiguration(), ureq, wControl, this, course, euce);
 		CourseNode chosenNode = course.getEditorTreeModel().getCourseNode(euce.getCourseEditorEnv().getCurrentCourseNodeId());
-		return new NodeEditController(ureq, wControl, course.getEditorTreeModel(), course, chosenNode, course.getCourseEnvironment()
-				.getCourseGroupManager(), euce, childTabCntrllr);
+		return new NodeEditController(ureq, wControl, course.getEditorTreeModel(), course, chosenNode, euce, childTabCntrllr);
 
 	}
 
@@ -196,7 +143,6 @@ public class BBautOLATCourseNode extends AbstractAccessableCourseNode implements
 
 	@Override
 	public Controller createPreviewController(UserRequest ureq, WindowControl wControl, UserCourseEnvironment userCourseEnv, NodeEvaluation ne) {
-		Long courseNodeID = Long.valueOf(getIdent());				
 		return new BBautOLATRunController(wControl, ureq, this, userCourseEnv, ne, true);
 	}
 	
@@ -444,7 +390,7 @@ public class BBautOLATCourseNode extends AbstractAccessableCourseNode implements
 	}
 	
 	@Override
-	public Controller importNode(File importDirectory, ICourse course, boolean unattendedImport, UserRequest ureq, WindowControl wControl)
+	public void importNode(File importDirectory, ICourse course, Identity identity, Locale locale)
 	{		
 		ModuleConfiguration config = getModuleConfiguration();
 		File importFile = new File(importDirectory, getExportFilename());
@@ -479,17 +425,13 @@ public class BBautOLATCourseNode extends AbstractAccessableCourseNode implements
 		} else {
 			// nothing there to import, leave the node as it is
 		}
-		
-		return null;
 	}
 
 	@Override
 	public Controller getDetailsEditController(UserRequest ureq,
-			WindowControl wControl, StackedController stackPanel,
+			WindowControl wControl, BreadcrumbPanel stackPanel,
 			UserCourseEnvironment userCourseEnvironment) {
 		// TODO Auto-generated method stub
 		return null;
 	}
-
-	
 }

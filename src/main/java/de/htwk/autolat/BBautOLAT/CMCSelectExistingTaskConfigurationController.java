@@ -51,7 +51,6 @@ import de.htwk.autolat.TaskType.TaskType;
  */
 public class CMCSelectExistingTaskConfigurationController extends BasicController {
 
-	private Panel main;
 	private VelocityContainer mainvc;
 	
 	protected EditTaskForm editTaskForm;
@@ -79,7 +78,7 @@ public class CMCSelectExistingTaskConfigurationController extends BasicControlle
 		position = 0;
 		
 		createOutput(ureq, control);		
-		main = putInitialPanel(mainvc);
+		putInitialPanel(mainvc);
 	}
 
 	private void createOutput(UserRequest ureq, WindowControl wControl) {
@@ -124,13 +123,11 @@ public class CMCSelectExistingTaskConfigurationController extends BasicControlle
 		if(comp == backward) {
 			if(position>0) position--;
 			createOutput(ureq, getWindowControl());
-			main.setContent(mainvc);
 		}
 
 		if(comp == forward) {
 			if(position<taskConfigList.size()-1) position++;
 			createOutput(ureq, getWindowControl());
-			main.setContent(mainvc);
 		}
 
 	}

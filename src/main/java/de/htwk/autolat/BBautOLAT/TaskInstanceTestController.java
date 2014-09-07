@@ -18,7 +18,6 @@ import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.Event;
 import org.olat.core.gui.control.WindowControl;
 import org.olat.core.gui.control.controller.BasicController;
-import org.olat.core.gui.media.DefaultMediaResource;
 import org.olat.core.gui.translator.PackageTranslator;
 import org.olat.core.id.Identity;
 import org.olat.core.util.Util;
@@ -33,6 +32,7 @@ import de.htwk.autolat.LivingTaskInstance.LivingTaskInstance;
 import de.htwk.autolat.TaskConfiguration.TaskConfiguration;
 import de.htwk.autolat.TaskInstance.TaskInstance;
 import de.htwk.autolat.TaskSolution.TaskSolution;
+import de.htwk.autolat.tools.StreamVFSLeaf;
 import de.htwk.autolat.tools.XMLParser.OutputObject;
 import de.htwk.autolat.tools.XMLParser.Picture;
 import de.htwk.autolat.tools.XMLParser.XMLParser;
@@ -387,12 +387,8 @@ public class TaskInstanceTestController extends BasicController
 		List<Picture> pictureList = parsedTask.getPictures();					
 		for(Picture aPic : pictureList)
 		{
-			DefaultMediaResource mediaResource = new DefaultMediaResource();
-			mediaResource.setInputStream(aPic.getDecodedPictureStream());
-			ImageComponent taskImage = new ImageComponent(aPic.getName());
-			taskImage.setMediaResource(mediaResource);			
-			// taskImage.setWidth(aPic.getWidth());
-			// taskImage.setHeight(aPic.getHeight());			
+			ImageComponent taskImage = new ImageComponent(ureq.getUserSession(), aPic.getName());
+			taskImage.setMedia(new StreamVFSLeaf(aPic.getName(), aPic.getBase64()), aPic.getMimeType());
 			testVC.put(aPic.getName(), taskImage);
 		}
 
@@ -435,12 +431,8 @@ public class TaskInstanceTestController extends BasicController
 			List<Picture> solutionPictureList = parsedTaskSolution.getPictures();				
 			for(Picture aPic : solutionPictureList)
 			{
-				DefaultMediaResource mediaResource = new DefaultMediaResource();
-				mediaResource.setInputStream(aPic.getDecodedPictureStream());
-				ImageComponent taskImage = new ImageComponent(aPic.getName());
-				taskImage.setMediaResource(mediaResource);			
-				// taskImage.setWidth(aPic.getWidth());
-				// taskImage.setHeight(aPic.getHeight());			
+				ImageComponent taskImage = new ImageComponent(ureq.getUserSession(), aPic.getName());
+				taskImage.setMedia(new StreamVFSLeaf(aPic.getName(), aPic.getBase64()), aPic.getMimeType());
 				testVC.put(aPic.getName(), taskImage);
 			}
 		} // end if(displaySolution)

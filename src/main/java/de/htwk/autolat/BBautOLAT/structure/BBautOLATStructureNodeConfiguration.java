@@ -30,6 +30,7 @@ import org.olat.core.util.Util;
 import org.olat.course.nodes.AbstractCourseNodeConfiguration;
 import org.olat.course.nodes.CourseNode;
 import org.olat.course.nodes.CourseNodeConfiguration;
+import org.olat.course.nodes.CourseNodeGroup;
 /**
  * 
  * Description:<br>
@@ -82,6 +83,11 @@ public class BBautOLATStructureNodeConfiguration extends AbstractCourseNodeConfi
 		return getAlias();
 	}
 
+	@Override
+	public String getGroup() {
+		return CourseNodeGroup.content.name();
+	}
+
 	/**
 	 * @see org.olat.core.extensions.OLATExtension#getExtensionResources()
 	 */
@@ -124,6 +130,5 @@ public class BBautOLATStructureNodeConfiguration extends AbstractCourseNodeConfi
 		
 		return true;
 	}
-
 
 }

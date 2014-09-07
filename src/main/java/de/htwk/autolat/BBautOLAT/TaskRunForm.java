@@ -178,14 +178,14 @@ public class TaskRunForm extends FormBasicController
 		if(showEvaluationPeriod)
 		{	
 			remark = uifactory.addRichTextElementForStringDataMinimalistic("remark", "label.form.task.remark",
-					remarkText, -1, -1, formLayout, ureq.getUserSession(), getWindowControl());
+					remarkText, -1, -1, formLayout, getWindowControl());
 			remark.setEnabled(false);
 
 			if(taskInstance!=null)
 			{
 				counter = uifactory.addRichTextElementForStringDataMinimalistic("counter", "label.form.task.counter", String.valueOf(taskInstance.getInstanceCounter()) +
 						(hasTaskModule && (taskInstance.getTaskModule().getMaxCount() != 0) ? " / " + taskInstance.getTaskModule().getMaxCount() : ""), -1,
-						-1, formLayout, ureq.getUserSession(), getWindowControl());
+						-1, formLayout, getWindowControl());
 				counter.setEnabled(false);			
 				if(hasTaskModule)
 				{
@@ -194,8 +194,7 @@ public class TaskRunForm extends FormBasicController
 							taskInstance.getLivingTaskInstance().getCreationDate());
 					if(taskModuleEndDate != null) {
 						timerestriction = uifactory.addRichTextElementForStringDataMinimalistic("timerestriction", "label.form.task.module.timerestriction",
-								new String(DateFormat.getInstance().format(taskModuleEndDate)), -1, -1, formLayout,
-								ureq.getUserSession(), getWindowControl());
+								new String(DateFormat.getInstance().format(taskModuleEndDate)), -1, -1, formLayout, getWindowControl());
 						timerestriction.setEnabled(false);
 					}
 				}

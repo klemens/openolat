@@ -115,7 +115,7 @@ public class BBautOLATSTDisplayConfigController extends FormBasicController {
 		String[] values_displayType = new String[] { translate("form.system"), translate("form.peekview"), translate("form.self"),
 				translate("form.delegate") };
 		displayTypeRadios = formFact.addRadiosVertical("selforsystemoverview", formLayout, keys_displayType, values_displayType);
-		displayTypeRadios.addActionListener(this, FormEvent.ONCLICK);
+		displayTypeRadios.addActionListener(FormEvent.ONCLICK);
 		if (displayConfig.equals(BBautOLATStructureNodeEditController.CONFIG_VALUE_DISPLAY_FILE)) {
 			displayTypeRadios.select("file", true);
 		} else if (displayConfig.equals(BBautOLATStructureNodeEditController.CONFIG_VALUE_DISPLAY_PEEKVIEW)) {
@@ -146,7 +146,7 @@ public class BBautOLATSTDisplayConfigController extends FormBasicController {
 			// selected to reflect meaningfull default configuration
 			preselectConfiguredOrMaxChildNodes();
 			// Add as listener for any changes
-			selectedPeekviewChildren.addActionListener(this, FormEvent.ONCLICK);
+			selectedPeekviewChildren.addActionListener(FormEvent.ONCLICK);
 		}
 		//
 		// Number of rows (only available in system or peekview type)
@@ -154,7 +154,7 @@ public class BBautOLATSTDisplayConfigController extends FormBasicController {
 		displayTwoColumns = formFact
 				.addCheckboxesVertical("displayTwoColumns", formLayout, new String[] { "on" }, new String[] { "" }, null, 1);
 		displayTwoColumns.setLabel("displayTwoColumns", null);
-		displayTwoColumns.addActionListener(this, FormEvent.ONCLICK);
+		displayTwoColumns.addActionListener(FormEvent.ONCLICK);
 		if (columnsConfig == 2) {
 			displayTwoColumns.selectAll();
 		}

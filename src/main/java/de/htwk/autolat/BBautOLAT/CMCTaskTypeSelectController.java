@@ -64,7 +64,6 @@ public class CMCTaskTypeSelectController extends BasicController {
 	private MenuTree typeTree;
 	private GenericTreeModel treeModel;
 	
-	private Panel main;
 	private VelocityContainer mainvc;
 
 	private long courseID;
@@ -84,7 +83,7 @@ public class CMCTaskTypeSelectController extends BasicController {
 
 		createTypeTree();
 	
-		main = this.putInitialPanel(mainvc);
+		putInitialPanel(mainvc);
 	}
 
 	/**
