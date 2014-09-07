@@ -3,7 +3,7 @@
 $r.contextHelpWithWrapper("de.htwk.autolat.BBautOLAT.structure","toplist-help.html","help.toplist")
 
 <div class="o_course_run">
-	<h3 class="b_with_small_icon_left o_st_icon">$!menuTitle</h3>
+	<h3 class="o_icon o_st_icon">$!menuTitle</h3>
 	<div class="o_course_run_displaytitle">$!displayTitle</div>
 	#if($hasObjectives)
 		$r.render("learningObjectives")
@@ -64,7 +64,7 @@ $r.contextHelpWithWrapper("de.htwk.autolat.BBautOLAT.structure","toplist-help.ht
 			<h5>
 				#set ($nodeconfig = $nodeFactory.getCourseNodeConfiguration($coursenode.getType()))
 				## scroll to position 0,0 first to fix jump which is expected by users and otherwhise does not happen in ajax mode (OLAT-3387)
-				<a href="$r.commandURIbg("${coursenode.getIdent()}")" $r.bgTarget() class="b_with_small_icon_left ${nodeconfig.getIconCSSClass()}" onclick="window.scrollTo(0,0);return true;">
+				<a href="$r.commandURIbg("${coursenode.getIdent()}")" $r.bgTarget() class="o_icon ${nodeconfig.getIconCSSClass()}" onclick="window.scrollTo(0,0);return true;">
 					$coursenode.getShortTitle()
 				</a>
 			</h5>

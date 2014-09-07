@@ -76,7 +76,7 @@ public class BBautOLATSTDisplayConfigController extends FormBasicController {
 			CourseEditorTreeNode child = node.getCourseEditorTreeNodeChildAt(i);
 			selectedPeekviewChildKeys[i] = child.getIdent();
 			selectedPeekviewChildValues[i] = child.getTitle() + " (" + child.getIdent() + ")";
-			selectedPeekviewChildCssClasses[i] = child.getIconCssClass() + " b_with_small_icon_left";
+			selectedPeekviewChildCssClasses[i] = child.getIconCssClass() + " o_icon";
 		}
 		selectedPeekviewChildNodesConfig = config.getStringValue(BBautOLATStructureNodeEditController.CONFIG_KEY_PEEKVIEW_CHILD_NODES, "");
 		// initialize the form now
