@@ -37,6 +37,8 @@ public interface SingleSelection extends SelectionElement {
 	 * @return
 	 */
 	public String getSelectedKey();
+	
+	public String getSelectedValue();
 
 	/**
 	 * @return
@@ -65,4 +67,9 @@ public interface SingleSelection extends SelectionElement {
 	 *            each key-value pair or NULL not not use special styling
 	 */
 	public void setKeysAndValues(String[] keys, String[] values,String[] cssClasses);
+	
+	public enum Layout {
+		vertical,
+		horizontal
+	}
 }

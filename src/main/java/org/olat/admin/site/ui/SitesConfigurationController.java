@@ -48,7 +48,6 @@ import org.olat.core.gui.control.navigation.SiteAlternativeControllerCreator;
 import org.olat.core.gui.control.navigation.SiteConfiguration;
 import org.olat.core.gui.control.navigation.SiteDefinition;
 import org.olat.core.gui.control.navigation.SiteDefinitions;
-import org.olat.core.gui.control.navigation.SiteInstance;
 import org.olat.core.gui.control.navigation.SiteSecurityCallback;
 import org.olat.core.gui.control.navigation.SiteViewSecurityCallback;
 import org.olat.core.util.StringHelper;
@@ -138,16 +137,18 @@ public class SitesConfigurationController extends FormBasicController {
 		}
 		columnsModel.addFlexiColumnModel(new DefaultFlexiColumnModel(false, SiteCols.defaultOrder.i18nKey(), SiteCols.defaultOrder.ordinal(), false, null));
 		columnsModel.addFlexiColumnModel(new StaticFlexiColumnModel("up", SiteCols.up.ordinal(), "up",
-				new StaticFlexiCellRenderer("&nbsp;&nbsp;", "up", "b_small_table_icon b_move_up_icon")));
+				new StaticFlexiCellRenderer("", "up", "o_icon_move_up o_icon-lg", translate("up"))));
 		columnsModel.addFlexiColumnModel(new StaticFlexiColumnModel("down", SiteCols.down.ordinal(), "down",
-				new StaticFlexiCellRenderer("&nbsp;&nbsp;", "down", "b_small_table_icon b_move_down_icon")));
+				new StaticFlexiCellRenderer("", "down", "o_icon_move_down o_icon-lg", translate("down"))));
 
 		model = new SiteDefModel(columnsModel);
 		
-		tableEl = uifactory.addTableElement(ureq, getWindowControl(), "sitesTable", model, getTranslator(), formLayout);
+		tableEl = uifactory.addTableElement(getWindowControl(), "sitesTable", model, getTranslator(), formLayout);
 		tableEl.setRendererType(FlexiTableRendererType.classic);
+		tableEl.setCustomizeColumns(true);
+		tableEl.setAndLoadPersistedPreferences(ureq, "sites-admin");
 		
-		reload(ureq);
+		reload();
 	}
 	
 	@Override
@@ -157,7 +158,7 @@ public class SitesConfigurationController extends FormBasicController {
 
 	@Override
 	protected void formInnerEvent(UserRequest ureq, FormItem source, FormEvent event) {
-	 if(source == tableEl) {
+		if(source == tableEl) {
 			if(event instanceof SelectionEvent) {
 				SelectionEvent se = (SelectionEvent)event;
 				if("up".equals(se.getCommand())) {
@@ -196,16 +197,12 @@ public class SitesConfigurationController extends FormBasicController {
 		//
 	}
 	
-	protected void reload(UserRequest ureq) {
+	protected void reload() {
 		List<SiteDefRow> configs = new ArrayList<SiteDefRow>();
 		for(Map.Entry<String, SiteDefinition> entryDef:siteDefs.entrySet()) {
 			String id = entryDef.getKey();
 			SiteDefinition siteDef = entryDef.getValue();
-			SiteInstance site = siteDef.createSite(ureq, getWindowControl());
-			String title = "-";
-			if(site != null) {
-				title = site.getNavElement().getTitle();
-			}
+			String title = translate(siteDef.getClass().getSimpleName());
 			SiteConfiguration config = sitesModule.getConfigurationSite(id);
 			SiteDefRow row = new SiteDefRow(siteDef, config, title, formLayout);
 			configs.add(row);
@@ -293,7 +290,11 @@ public class SitesConfigurationController extends FormBasicController {
 			String id = config.getId();
 			
 			secCallbackEl = uifactory.addDropdownSingleselect("site.security." + id, "site.security", formLayout, secKeys, secValues, null);
-			secCallbackEl.addActionListener(SitesConfigurationController.this, FormEvent.ONCHANGE);
+			if(siteDef.isFeatureEnabled()) {
+				secCallbackEl.addActionListener(FormEvent.ONCHANGE);
+			} else {
+				secCallbackEl.setEnabled(false);
+			}
 			secCallbackEl.setUserObject(this);
 			
 			boolean needAlt = false;
@@ -307,11 +308,15 @@ public class SitesConfigurationController extends FormBasicController {
 				}
 			}
 			
-			enableSiteEl = uifactory.addCheckboxesHorizontal("site.enable." + id, null, formLayout, new String[]{ "x" }, new String[]{ "" }, null);
-			enableSiteEl.addActionListener(SitesConfigurationController.this, FormEvent.ONCHANGE);
+			enableSiteEl = uifactory.addCheckboxesHorizontal("site.enable." + id, null, formLayout, new String[]{ "x" }, new String[]{ "" });
+			if(siteDef.isFeatureEnabled()) {
+				enableSiteEl.addActionListener(FormEvent.ONCHANGE);
+			} else {
+				enableSiteEl.setEnabled(false);
+			}
 			
 			altControllerEl = uifactory.addDropdownSingleselect("site.alternative." + id, "site.alternative", formLayout, altKeys, altValues, null);
-			altControllerEl.addActionListener(SitesConfigurationController.this, FormEvent.ONCHANGE);
+			altControllerEl.addActionListener(FormEvent.ONCHANGE);
 			altControllerEl.setVisible(needAlt);
 			if(StringHelper.containsNonWhitespace(config.getAlternativeControllerBeanId())) {
 				for(String altKey:altKeys) {
@@ -408,7 +413,9 @@ public class SitesConfigurationController extends FormBasicController {
 					return enableSiteEl;
 				}
 				case title: return def.getTitle();
-				case secCallback: return def.getSecurityCallbackEl();
+				case secCallback: {
+					return def.getSecurityCallbackEl();
+				}
 				case altController: return def.getAlternativeControllerEl();
 				case type: {
 					String type = def.getSiteDef().getClass().getSimpleName();

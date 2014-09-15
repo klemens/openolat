@@ -29,6 +29,8 @@ import org.olat.core.gui.control.Event;
  * @author gnaegi
  */
 public class RatingEvent extends Event {
+
+	private static final long serialVersionUID = -7584762233026409541L;
 	private static final String RATING_EVENT = "ratingEvent";
 	private float rating;
 

@@ -55,7 +55,7 @@ import com.thoughtworks.xstream.XStream;
 */
 public class LinksPortlet extends AbstractPortlet {
 	
-	private String cssWrapperClass = "o_pt_w_if";
+	private String cssWrapperClass = "o_portlet_links";
 	
 	protected static final String LANG_ALL = "*";
 	protected static final String LANG_DE = "de";
@@ -92,7 +92,7 @@ public class LinksPortlet extends AbstractPortlet {
 		p.setConfiguration(configuration);
 		p.setTranslator(Util.createPackageTranslator(LinksPortlet.class, ureq.getLocale()));
 		// override css class if configured
-		String cssClass = (String)configuration.get("cssWrapperClass");
+		String cssClass = configuration.get("cssWrapperClass");
 		if (cssClass != null) p.setCssWrapperClass(cssClass);
 		
 		return p;

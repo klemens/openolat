@@ -124,10 +124,6 @@ public class FloatingResizableDialogController extends BasicController {
 		wrapper.put("panelContent", content);
 		if (collabsibleContent != null) {
 			wrapper.put("collapsibleContent", collabsibleContent);
-			
-			String[] js = new String[]{"js/jquery/uilayout/jquery.layout-latest.min.js"};
-			JSAndCSSComponent jsAndCssComp = new JSAndCSSComponent("layouting", js, null);
-			wrapper.put("layout", jsAndCssComp);
 		}
 		
 		String escapedTitle = StringHelper.escapeHtml(title);
@@ -153,6 +149,10 @@ public class FloatingResizableDialogController extends BasicController {
 		}
 		
 		wrapper.contextPut("ajaxFlags", wControl.getWindowBackOffice().getGlobalSettings().getAjaxFlags());
+		
+		//add the dialog javascript
+		JSAndCSSComponent js = new JSAndCSSComponent("js", new String[] { "js/jquery/ui/jquery-ui-1.10.4.custom.dialog.min.js" }, null);
+		wrapper.put("jsAdder", js);
 		
 		putInitialPanel(wrapper);
 	}

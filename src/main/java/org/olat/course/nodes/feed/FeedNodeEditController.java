@@ -41,7 +41,6 @@ import org.olat.course.assessment.AssessmentHelper;
 import org.olat.course.condition.Condition;
 import org.olat.course.condition.ConditionEditController;
 import org.olat.course.editor.NodeEditController;
-import org.olat.course.groupsandrights.CourseGroupManager;
 import org.olat.course.nodes.AbstractFeedCourseNode;
 import org.olat.course.nodes.CourseNodeFactory;
 import org.olat.course.run.userview.UserCourseEnvironment;
@@ -119,26 +118,25 @@ public abstract class FeedNodeEditController extends ActivateableTabbableDefault
 		this.getClass().getSuperclass();
 		// Accessibility tab
 		accessVC = new VelocityContainer("accessVC", FeedNodeEditController.class, "access", getTranslator(), this);
-		CourseGroupManager groupMgr = course.getCourseEnvironment().getCourseGroupManager();
 		CourseEditorTreeModel editorModel = course.getEditorTreeModel();
 
 		// Moderator precondition
 		Condition moderatorCondition = node.getPreConditionModerator();
-		moderatroCtr = new ConditionEditController(ureq, getWindowControl(), groupMgr, moderatorCondition, "moderatorConditionForm",
+		moderatroCtr = new ConditionEditController(ureq, getWindowControl(), moderatorCondition,
 				AssessmentHelper.getAssessableNodes(editorModel, node), uce);
 		this.listenTo(moderatroCtr);
 		accessVC.put("moderatorCondition", moderatroCtr.getInitialComponent());
 
 		// Poster precondition
 		Condition posterCondition = node.getPreConditionPoster();
-		posterCtr = new ConditionEditController(ureq, getWindowControl(), groupMgr, posterCondition, "posterConditionForm", AssessmentHelper
+		posterCtr = new ConditionEditController(ureq, getWindowControl(), posterCondition, AssessmentHelper
 				.getAssessableNodes(editorModel, node), uce);
 		this.listenTo(posterCtr);
 		accessVC.put("posterCondition", posterCtr.getInitialComponent());
 
 		// Reader precondition
 		Condition readerCondition = node.getPreConditionReader();
-		readerCtr = new ConditionEditController(ureq, getWindowControl(), groupMgr, readerCondition, "readerConditionForm", AssessmentHelper
+		readerCtr = new ConditionEditController(ureq, getWindowControl(), readerCondition, AssessmentHelper
 				.getAssessableNodes(editorModel, node), uce);
 		this.listenTo(readerCtr);
 		accessVC.put("readerCondition", readerCtr.getInitialComponent());
@@ -168,7 +166,8 @@ public abstract class FeedNodeEditController extends ActivateableTabbableDefault
 				contentVC.contextPut(SHOW_PREVIEW_LINK, Boolean.TRUE);
 				previewLink = LinkFactory.createCustomLink(COMMAND_PREVIEW, COMMAND_PREVIEW, re.getDisplayname(), Link.NONTRANSLATED, contentVC,
 						this);
-				previewLink.setCustomEnabledLinkCSS("b_preview");
+				previewLink.setCustomEnabledLinkCSS("o_preview");
+				previewLink.setIconLeftCSS("o_icon o_icon-fw o_icon_preview");
 				previewLink.setTitle(getTranslator().translate(COMMAND_PREVIEW));
 
 			}
@@ -245,7 +244,7 @@ public abstract class FeedNodeEditController extends ActivateableTabbableDefault
 			}
 			
 		} else if (source == editLink) {
-			CourseNodeFactory.getInstance().launchReferencedRepoEntryEditor(ureq, node);
+			CourseNodeFactory.getInstance().launchReferencedRepoEntryEditor(ureq, getWindowControl(), node);
 		}
 
 	}
@@ -284,7 +283,8 @@ public abstract class FeedNodeEditController extends ActivateableTabbableDefault
 					contentVC.contextPut("showPreviewLink", Boolean.TRUE);
 					previewLink = LinkFactory.createCustomLink("command.preview", "command.preview", re.getDisplayname(), Link.NONTRANSLATED,
 							contentVC, this);
-					previewLink.setCustomEnabledLinkCSS("b_preview");
+					previewLink.setIconLeftCSS("o_icon o_icon-fw o_icon_preview");
+					previewLink.setCustomEnabledLinkCSS("o_preview");
 					previewLink.setTitle(getTranslator().translate("command.preview"));
 					// no securitycheck on feeds, editable by everybody
 					editLink = LinkFactory.createButtonSmall("edit", contentVC, this);

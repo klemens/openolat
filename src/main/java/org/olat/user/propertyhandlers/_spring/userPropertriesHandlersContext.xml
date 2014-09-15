@@ -3,12 +3,19 @@
 	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" 
 	xsi:schemaLocation="
   http://www.springframework.org/schema/beans 
-  http://www.springframework.org/schema/beans/spring-beans-3.1.xsd">
+  http://www.springframework.org/schema/beans/spring-beans.xsd">
   
 
 	<!-- 
 		Define all available user properties and its handlers 
 	-->
+	<bean id="userPropertyUserName" class="org.olat.user.propertyhandlers.UserNameReadOnlyPropertyHandler">
+		<property name="name" value="userName" />
+		<property name="group" value="account" />
+		<property name="deletable" value="false" />
+		<property name="authProvider" value="OLAT" /> <!--  could also be ldap, shibboleth, webdav, cal etc -->
+	</bean>
+
 	<bean id="userPropertyFirstName" class="org.olat.user.propertyhandlers.Generic127CharTextPropertyHandler">
 		<property name="name" value="firstName" />
 		<property name="group" value="account" />
@@ -170,6 +177,19 @@
 		<property name="group" value="account" />
 		<property name="deletable" value="true" />
 	</bean>
+	
+	<bean id="userPropertyTypeOfUser" class="org.olat.user.propertyhandlers.Generic127CharTextPropertyHandler">
+		<property name="name" value="typeOfUser" />
+		<property name="group" value="person" />
+		<property name="deletable" value="true" />
+	</bean>
+	
+	<bean id="userPropertySocialSecurityNumber" class="org.olat.user.propertyhandlers.Generic127CharTextPropertyHandler">
+		<property name="name" value="socialSecurityNumber" />
+		<property name="group" value="institute" />
+		<property name="deletable" value="true" />
+	</bean>
+	
 
 	<!--
 		define the properties for matching IdentityEnvironment user attributes to LoggingObject.setUserPropertiesXX. Those can be used for the usertracking context.

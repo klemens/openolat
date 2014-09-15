@@ -21,6 +21,7 @@ package org.olat.course.assessment.bulk;
 
 import org.olat.core.gui.components.form.flexible.impl.elements.table.FlexiCellRenderer;
 import org.olat.core.gui.components.form.flexible.impl.elements.table.FlexiTableComponent;
+import org.olat.core.gui.render.Renderer;
 import org.olat.core.gui.render.StringOutput;
 import org.olat.core.gui.render.URLBuilder;
 import org.olat.core.gui.translator.Translator;
@@ -40,8 +41,8 @@ public class CourseNodeRenderer implements FlexiCellRenderer {
 	private final boolean indentationEnabled = true;
 	
 	@Override
-	public void render(StringOutput sb, Object cellValue, int row,
-			FlexiTableComponent source, URLBuilder ubu, Translator translator) {
+	public void render(Renderer renderer, StringOutput sb, Object cellValue,
+			int row, FlexiTableComponent source, URLBuilder ubu, Translator translator) {
 		
 		int indent = 0;
 		CourseNode courseNode = null;
@@ -63,11 +64,11 @@ public class CourseNodeRenderer implements FlexiCellRenderer {
 				appendIndent(sb, indent);
 			}
 			
-			sb.append("<span class=\"b_with_small_icon_left ").append(cssClass);
+			sb.append("<i class='o_icon ").append(cssClass).append("'> </i> ").append("<span");
 			if (altText != null) {
-				sb.append("\" title= \"").append(StringHelper.escapeHtml(altText));
+				sb.append(" title= \"").append(StringHelper.escapeHtml(altText)).append("\"");
 			}
-			sb.append("\">").append(StringHelper.escapeHtml(title)).append("</span>");
+			sb.append(">").append(StringHelper.escapeHtml(title)).append("</span>");
 		}
 	}
 

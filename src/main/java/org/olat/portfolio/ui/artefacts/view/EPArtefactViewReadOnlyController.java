@@ -28,6 +28,7 @@ import org.olat.core.gui.components.Component;
 import org.olat.core.gui.components.link.Link;
 import org.olat.core.gui.components.link.LinkFactory;
 import org.olat.core.gui.components.velocity.VelocityContainer;
+import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.Event;
 import org.olat.core.gui.control.WindowControl;
 import org.olat.core.gui.control.controller.BasicController;
@@ -40,7 +41,9 @@ import org.olat.portfolio.EPSecurityCallback;
 import org.olat.portfolio.EPUIFactory;
 import org.olat.portfolio.manager.EPFrontendManager;
 import org.olat.portfolio.model.artefacts.AbstractArtefact;
+import org.olat.portfolio.model.structel.PortfolioStructure;
 import org.olat.user.UserManager;
+import org.springframework.beans.factory.annotation.Autowired;
 
 /**
  * Description:<br>
@@ -50,14 +53,18 @@ import org.olat.user.UserManager;
  * @author Roman Haag, roman.haag@frentix.com, http://www.frentix.com
  */
 public class EPArtefactViewReadOnlyController extends BasicController {
-
-	private VelocityContainer vC;
-	private EPFrontendManager ePFMgr;
+	
 	private Link detailsLink;
+	private VelocityContainer vC;
+	private EPArtefactViewOptionsLinkController optionsLinkCtrl;
+
 	private AbstractArtefact artefact;
 	private EPSecurityCallback secCallback;
-
-	protected EPArtefactViewReadOnlyController(UserRequest ureq, WindowControl wControl, AbstractArtefact artefact, EPSecurityCallback secCallback) {
+	@Autowired
+	private EPFrontendManager ePFMgr;
+	
+	protected EPArtefactViewReadOnlyController(UserRequest ureq, WindowControl wControl, AbstractArtefact artefact,
+			PortfolioStructure struct, EPSecurityCallback secCallback, boolean options) {
 		super(ureq, wControl);
 		this.artefact = artefact;
 		this.secCallback = secCallback;
@@ -73,17 +80,28 @@ public class EPArtefactViewReadOnlyController extends BasicController {
 		if (secCallback.canView()){
 			detailsLink = LinkFactory.createCustomLink("small.details.link", "open", "small.details.link", Link.LINK, vC, this);
 			detailsLink.setElementCssClass("o_sel_artefact_details");
+			detailsLink.setIconLeftCSS("o_icon o_icon_details");
 		}
 		
-		ePFMgr = CoreSpringFactory.getImpl(EPFrontendManager.class);
+		if(options) {
+			//add the optionsLink to the artefact
+			optionsLinkCtrl = new EPArtefactViewOptionsLinkController(ureq, getWindowControl(), artefact, secCallback, struct);
+			vC.put("option.link" , optionsLinkCtrl.getInitialComponent());
+			listenTo(optionsLinkCtrl);
+		}
+		
+		updateTags();
+		putInitialPanel(vC);	
+	}
+	
+	private void updateTags() {
 		List<String> tags = ePFMgr.getArtefactTags(artefact);
 		List<String> escapedTags = new ArrayList<String>(tags.size());
 		for(String tag:tags) {
 			escapedTags.add(StringHelper.escapeHtml(tag));
 		}
 		vC.contextPut("tags", StringHelper.formatAsCSVString(escapedTags));
-		
-		putInitialPanel(vC);	
+		vC.setDirty(true);
 	}
 
 	/**
@@ -96,6 +114,17 @@ public class EPArtefactViewReadOnlyController extends BasicController {
 			CloseableModalController artDetails = EPUIFactory.getAndActivatePopupArtefactController(artefact, ureq, getWindowControl(), title);
 			listenTo(artDetails);
 		} 
+	}
+
+	@Override
+	protected void event(UserRequest ureq, Controller source, Event event) {
+		if(optionsLinkCtrl == source) {
+			if(event == Event.CHANGED_EVENT) {
+				updateTags();
+			}
+		}
+		super.event(ureq, source, event);
+		fireEvent(ureq, event);
 	}
 
 	/**

@@ -29,13 +29,13 @@ import java.util.List;
 import org.apache.poi.util.IOUtils;
 import org.olat.core.commons.modules.bc.meta.MetaInfo;
 import org.olat.core.commons.modules.bc.meta.tagged.MetaTagged;
+import org.olat.core.commons.services.notifications.NotificationsManager;
+import org.olat.core.commons.services.notifications.SubscriptionContext;
 import org.olat.core.commons.services.webdav.servlets.WebResource;
 import org.olat.core.commons.services.webdav.servlets.WebResourceRoot;
 import org.olat.core.id.Identity;
 import org.olat.core.logging.OLog;
 import org.olat.core.logging.Tracing;
-import org.olat.core.util.notifications.NotificationsManager;
-import org.olat.core.util.notifications.SubscriptionContext;
 import org.olat.core.util.vfs.Quota;
 import org.olat.core.util.vfs.QuotaExceededException;
 import org.olat.core.util.vfs.VFSConstants;
@@ -208,7 +208,6 @@ public class VFSResourceRoot implements WebResourceRoot  {
 		}
 		
 		try {
-	        //FileUtils.copy(is, childLeaf.getOutputStream(false));
 	        copyVFS(childLeaf, is);
 		} catch (QuotaExceededException e) {
 			throw e;
@@ -217,19 +216,21 @@ public class VFSResourceRoot implements WebResourceRoot  {
 			return false;
 		}
 
-		VFSContainer folder = childLeaf.getParentContainer();
-		VFSSecurityCallback callback = folder.getLocalSecurityCallback();
-		if(callback != null && callback.getSubscriptionContext() != null) {
-			SubscriptionContext subContext = callback.getSubscriptionContext();
-			NotificationsManager.getInstance().markPublisherNews(subContext, null, true);
+		VFSContainer inheritingCont = VFSManager.findInheritingSecurityCallbackContainer(childLeaf.getParentContainer());
+		if(inheritingCont != null) {
+			VFSSecurityCallback callback = inheritingCont.getLocalSecurityCallback();
+			if(callback != null && callback.getSubscriptionContext() != null) {
+				SubscriptionContext subContext = callback.getSubscriptionContext();
+				NotificationsManager.getInstance().markPublisherNews(subContext, null, true);
+			}
 		}
 		
 		if(childLeaf instanceof MetaTagged && identity != null) {
 			MetaInfo infos = ((MetaTagged)childLeaf).getMetaInfo();
-			if(infos != null && infos.getAuthorIdentity() == null) {
+			if(infos != null && !infos.hasAuthorIdentity()) {
 				infos.setAuthor(identity);
 				infos.clearThumbnails();
-				infos.write();
+				//infos.write(); the clearThumbnails call write()
 			}
 		}
 		

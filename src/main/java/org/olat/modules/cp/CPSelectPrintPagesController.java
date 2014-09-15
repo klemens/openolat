@@ -73,7 +73,7 @@ public class CPSelectPrintPagesController extends FormBasicController {
 	
 	@Override
 	protected void initForm(FormItemContainer formLayout, Controller listener, UserRequest ureq) {
-		setFormTitle("print.node.list.title");
+		//setFormTitle("print.node.list.title");
 		setFormDescription("print.node.list.desc");
 		
 		if(formLayout instanceof FormLayoutContainer) {
@@ -94,13 +94,12 @@ public class CPSelectPrintPagesController extends FormBasicController {
 	}
 	
 	private void initTreeRec(int level, TreeNode node, FormLayoutContainer layoutcont) {
-		String[] cssClass = new String[]{"b_tree_l" + level};
 		String[] singleKey = new String[]{node.getIdent()};
 		String[] singleValue = new String[]{node.getTitle()};
-		MultipleSelectionElement nodeSelection = uifactory.addCheckboxesVertical("print.node.list." + nodeSelections.size(), layoutcont, singleKey, singleValue, cssClass, 1);
+		MultipleSelectionElement nodeSelection = uifactory.addCheckboxesVertical("print.node.list." + nodeSelections.size(), layoutcont, singleKey, singleValue, 1);
 		nodeSelection.setLabel("print.node.list", null);
 		nodeSelection.setUserObject(new SelectNodeObject(node, level));
-		nodeSelection.addActionListener(this, FormEvent.ONCLICK);
+		nodeSelection.addActionListener(FormEvent.ONCLICK);
 		nodeSelection.select(node.getIdent(), true); 		
 		nodeSelections.add(nodeSelection);
 		identToSelectionMap.put(node.getIdent(), nodeSelection);

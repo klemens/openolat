@@ -245,8 +245,7 @@ public class EpisodeFormController extends FormBasicController {
 	 */
 	@Override
 	protected void initForm(FormItemContainer formLayout, Controller listener, UserRequest ureq) {
-		this.setFormTitle("feed.edit.item");
-		this.setFormContextHelp(this.getClass().getPackage().getName(), "episode_form_help.html", "chelp.hover.episode");
+		setFormContextHelp(this.getClass().getPackage().getName(), "episode_form_help.html", "chelp.hover.episode");
 
 		title = uifactory.addTextElement("title", "feed.title.label", 256, episode.getTitle(), this.flc);
 		title.setMandatory(true);
@@ -263,7 +262,7 @@ public class EpisodeFormController extends FormBasicController {
 		file.setMandatory(true, "podcast.episode.mandatory");
 		File mediaFile = FeedManager.getInstance().getItemEnclosureFile(episode, podcast);
 		file.setInitialFile(mediaFile);
-		file.addActionListener(this, FormEvent.ONCHANGE);
+		file.addActionListener(FormEvent.ONCHANGE);
 		if(baseDir.getLocalSecurityCallback() != null && baseDir.getLocalSecurityCallback().getQuota() != null) {
 			Long uploadLimitKB = baseDir.getLocalSecurityCallback().getQuota().getUlLimitKB();
 			String supportAddr = WebappHelper.getMailConfig("mailQuota");

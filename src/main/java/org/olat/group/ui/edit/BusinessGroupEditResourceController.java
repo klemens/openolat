@@ -29,7 +29,6 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
-import org.olat.core.CoreSpringFactory;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.Component;
 import org.olat.core.gui.components.link.Link;
@@ -56,10 +55,12 @@ import org.olat.group.BusinessGroupManagedFlag;
 import org.olat.group.BusinessGroupService;
 import org.olat.repository.RepositoryEntry;
 import org.olat.repository.RepositoryEntryManagedFlag;
-import org.olat.repository.RepositoryTableModel;
+import org.olat.repository.RepositoryService;
 import org.olat.repository.controllers.ReferencableEntriesSearchController;
 import org.olat.repository.controllers.RepositoryEntryFilter;
 import org.olat.repository.controllers.RepositorySearchController.Can;
+import org.olat.repository.ui.RepositoryTableModel;
+import org.springframework.beans.factory.annotation.Autowired;
 
 /**
  * Description:<BR>
@@ -86,7 +87,8 @@ public class BusinessGroupEditResourceController extends BasicController impleme
 
 	private BusinessGroup group;
 	private final boolean managed;
-	private final BusinessGroupService businessGroupService;
+	@Autowired
+	private BusinessGroupService businessGroupService;
 
 	/**
 	 * Constructor for a business group edit controller
@@ -97,11 +99,11 @@ public class BusinessGroupEditResourceController extends BasicController impleme
 	 */
 	public BusinessGroupEditResourceController(UserRequest ureq, WindowControl wControl, BusinessGroup group) {
 		super(ureq, wControl);
-		businessGroupService = CoreSpringFactory.getImpl(BusinessGroupService.class);
+		
 		this.group = group;
 		managed = BusinessGroupManagedFlag.isManaged(group, BusinessGroupManagedFlag.resources);
 		
-		Translator resourceTrans = Util.createPackageTranslator(RepositoryTableModel.class, getLocale(), getTranslator());
+		Translator resourceTrans = Util.createPackageTranslator(RepositoryService.class, getLocale(), getTranslator());
 		TableGuiConfiguration tableConfig = new TableGuiConfiguration();
 		tableConfig.setTableEmptyMessage(translate("resources.noresources"));
 		resourcesCtr = new TableController(tableConfig, ureq, getWindowControl(), resourceTrans);
@@ -120,6 +122,7 @@ public class BusinessGroupEditResourceController extends BasicController impleme
 		
 		mainVC = createVelocityContainer("tab_bgResources");
 		addTabResourcesButton = LinkFactory.createButtonSmall("cmd.addresource", mainVC, this);
+		addTabResourcesButton.setIconLeftCSS("o_icon o_icon-fw o_icon_add");
 		addTabResourcesButton.setVisible(!managed);
 		mainVC.put("resources", resourcesCtr.getInitialComponent());
 		putInitialPanel(mainVC);

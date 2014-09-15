@@ -19,7 +19,7 @@
  */
 package org.olat.group.ui;
 
-import java.util.Set;
+import java.util.Collection;
 
 import org.olat.core.CoreSpringFactory;
 import org.olat.core.commons.services.taskexecutor.TaskExecutorManager;
@@ -84,23 +84,23 @@ public class BusinessGroupModuleAdminController extends FormBasicController impl
 				translate("user.allow.create"),
 				translate("author.allow.create")
 		};
-		allowEl = uifactory.addCheckboxesVertical("module.admin.allow.create", optionsContainer, onKeys, values, null, 1);
+		allowEl = uifactory.addCheckboxesVertical("module.admin.allow.create", optionsContainer, onKeys, values, 1);
 		allowEl.select("user", module.isUserAllowedCreate());
 		allowEl.select("author", module.isAuthorAllowedCreate());
-		allowEl.addActionListener(this, FormEvent.ONCHANGE);
+		allowEl.addActionListener(FormEvent.ONCHANGE);
 
 		FormLayoutContainer resourceAssignmentContainer = FormLayoutContainer.createDefaultFormLayout("resourceAssignment", getTranslator());
 		formLayout.add(resourceAssignmentContainer);
 		
 		String[] courseValues = new String[]{ translate("module.resource.courses.grant") };
-		assignCoursesEl = uifactory.addCheckboxesVertical("module.resource.courses", resourceAssignmentContainer, assignKeys, courseValues, null, 1);
+		assignCoursesEl = uifactory.addCheckboxesVertical("module.resource.courses", resourceAssignmentContainer, assignKeys, courseValues, 1);
 		assignCoursesEl.select(assignKeys[0], module.isGroupManagersAllowedToLinkCourses());
-		assignCoursesEl.addActionListener(this, FormEvent.ONCHANGE);
+		assignCoursesEl.addActionListener(FormEvent.ONCHANGE);
 		
 		String[] groupValues = new String[]{ translate("module.resource.groups.grant") };
-		assignGroupsEl = uifactory.addCheckboxesVertical("module.resource.groups", resourceAssignmentContainer, assignKeys, groupValues, null, 1);
+		assignGroupsEl = uifactory.addCheckboxesVertical("module.resource.groups", resourceAssignmentContainer, assignKeys, groupValues, 1);
 		assignGroupsEl.select(assignKeys[0], module.isResourceManagersAllowedToLinkGroups());
-		assignGroupsEl.addActionListener(this, FormEvent.ONCHANGE);
+		assignGroupsEl.addActionListener(FormEvent.ONCHANGE);
 		
 		FormLayoutContainer privacyOptionsContainer = FormLayoutContainer.createDefaultFormLayout("privacy_options", getTranslator());
 		formLayout.add(privacyOptionsContainer);
@@ -111,13 +111,13 @@ public class BusinessGroupModuleAdminController extends FormBasicController impl
 				translate("enrolment.email.groupmanagers"),
 				translate("enrolment.email.administrators")
 		};
-		enrolmentEl = uifactory.addCheckboxesVertical("mandatory.enrolment", privacyOptionsContainer, enrollmentKeys, enrollmentValues, null, 1);
+		enrolmentEl = uifactory.addCheckboxesVertical("mandatory.enrolment", privacyOptionsContainer, enrollmentKeys, enrollmentValues, 1);
 		enrolmentEl.select("users", "true".equals(module.getMandatoryEnrolmentEmailForUsers()));
 		enrolmentEl.select("authors", "true".equals(module.getMandatoryEnrolmentEmailForAuthors()));
 		enrolmentEl.select("usermanagers", "true".equals(module.getMandatoryEnrolmentEmailForUsermanagers()));
 		enrolmentEl.select("groupmanagers", "true".equals(module.getMandatoryEnrolmentEmailForGroupmanagers()));
 		enrolmentEl.select("administrators", "true".equals(module.getMandatoryEnrolmentEmailForAdministrators()));
-		enrolmentEl.addActionListener(this, FormEvent.ONCHANGE);
+		enrolmentEl.addActionListener(FormEvent.ONCHANGE);
 		
 		String[] membershipValues = new String[]{
 				translate("enrolment.email.users"),
@@ -126,13 +126,13 @@ public class BusinessGroupModuleAdminController extends FormBasicController impl
 				translate("enrolment.email.groupmanagers"),
 				translate("enrolment.email.administrators")
 		};
-		membershipEl = uifactory.addCheckboxesVertical("mandatory.membership", privacyOptionsContainer, enrollmentKeys, membershipValues, null, 1);
+		membershipEl = uifactory.addCheckboxesVertical("mandatory.membership", privacyOptionsContainer, enrollmentKeys, membershipValues, 1);
 		membershipEl.select("users", "true".equals(module.getAcceptMembershipForUsers()));
 		membershipEl.select("authors", "true".equals(module.getAcceptMembershipForAuthors()));
 		membershipEl.select("usermanagers", "true".equals(module.getAcceptMembershipForUsermanagers()));
 		membershipEl.select("groupmanagers", "true".equals(module.getAcceptMembershipForGroupmanagers()));
 		membershipEl.select("administrators", "true".equals(module.getAcceptMembershipForAdministrators()));
-		membershipEl.addActionListener(this, FormEvent.ONCHANGE);
+		membershipEl.addActionListener(FormEvent.ONCHANGE);
 
 		FormLayoutContainer dedupCont = FormLayoutContainer.createDefaultFormLayout("dedup", getTranslator());
 		formLayout.add(dedupCont);
@@ -207,14 +207,14 @@ public class BusinessGroupModuleAdminController extends FormBasicController impl
 			module.setUserAllowedCreate(allowEl.isSelected(0));
 			module.setAuthorAllowedCreate(allowEl.isSelected(1));
 		} else if(source == membershipEl) {
-			Set<String> membershipSelectedKeys = membershipEl.getSelectedKeys();
+			Collection<String> membershipSelectedKeys = membershipEl.getSelectedKeys();
 			module.setAcceptMembershipForUsers(membershipSelectedKeys.contains("users") ? "true" : "false");
 			module.setAcceptMembershipForAuthors(membershipSelectedKeys.contains("authors") ? "true" : "false");
 			module.setAcceptMembershipForUsermanagers(membershipSelectedKeys.contains("usermanagers") ? "true" : "false");
 			module.setAcceptMembershipForGroupmanagers(membershipSelectedKeys.contains("groupmanagers") ? "true" : "false");
 			module.setAcceptMembershipForAdministrators(membershipSelectedKeys.contains("administrators") ? "true" : "false");
 		} else if(source == enrolmentEl) {
-			Set<String> enrolmentSelectedKeys = enrolmentEl.getSelectedKeys();
+			Collection<String> enrolmentSelectedKeys = enrolmentEl.getSelectedKeys();
 			module.setMandatoryEnrolmentEmailForUsers(enrolmentSelectedKeys.contains("users") ? "true" : "false");
 			module.setMandatoryEnrolmentEmailForAuthors(enrolmentSelectedKeys.contains("authors") ? "true" : "false");
 			module.setMandatoryEnrolmentEmailForUsermanagers(enrolmentSelectedKeys.contains("usermanagers") ? "true" : "false");

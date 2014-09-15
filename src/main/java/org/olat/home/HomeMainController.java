@@ -21,41 +21,122 @@ package org.olat.home;
 
 import java.util.List;
 
+import org.olat.core.commons.fullWebApp.LayoutMain3ColsController;
+import org.olat.core.extensions.ExtManager;
+import org.olat.core.extensions.action.GenericActionExtension;
 import org.olat.core.gui.UserRequest;
+import org.olat.core.gui.components.Component;
+import org.olat.core.gui.components.panel.Panel;
+import org.olat.core.gui.components.stack.BreadcrumbPanelAware;
+import org.olat.core.gui.components.stack.BreadcrumbedStackedPanel;
 import org.olat.core.gui.control.Controller;
+import org.olat.core.gui.control.Event;
 import org.olat.core.gui.control.WindowControl;
+import org.olat.core.gui.control.controller.BasicController;
+import org.olat.core.gui.control.controller.MainLayoutBasicController;
 import org.olat.core.gui.control.generic.dtabs.Activateable2;
-import org.olat.core.gui.control.generic.layout.GenericMainController;
+import org.olat.core.id.OLATResourceable;
 import org.olat.core.id.context.ContextEntry;
 import org.olat.core.id.context.StateEntry;
+import org.olat.core.logging.activity.ThreadLocalUserActivityLogger;
+import org.olat.core.util.resource.OresHelper;
+import org.olat.util.logging.activity.LoggingResourceable;
 
 /**
- * <h3>Description:</h3> Creates a MainController, which is configurable by
- * olat_extensions
  * 
- * Initial Date: 06.05.2010 <br>
- * 
- * @author Roman Haag, roman.haag@frentix.com, www.frentix.com
+ * Initial date: 27.01.2014<br>
+ * @author srosse, stephane.rosse@frentix.com, http://www.frentix.com
+ *
  */
-public class HomeMainController extends GenericMainController implements Activateable2 {
+public class HomeMainController extends MainLayoutBasicController implements Activateable2 {
+
+	private BreadcrumbedStackedPanel stackPanel;
+	private LayoutMain3ColsController contentCtr;
 
 	public HomeMainController(UserRequest ureq, WindowControl wControl) {
 		super(ureq, wControl);
-		init(ureq);
-		addCssClassToMain("o_home");
-	}
 
-	/**
-	 * @see org.olat.core.gui.control.generic.layout.GenericMainController#handleOwnMenuTreeEvent(java.lang.Object,
-	 *      org.olat.core.gui.UserRequest)
-	 */
+		stackPanel = new BreadcrumbedStackedPanel("homeStackPanel", getTranslator(), this);
+		stackPanel.setInvisibleCrumb(2);
+		putInitialPanel(stackPanel);
+		
+		RootController root = new RootController(ureq, wControl);
+		listenTo(root);
+		stackPanel.pushController("main", root);
+	}
+	
 	@Override
-	protected Controller handleOwnMenuTreeEvent(Object uobject, UserRequest ureq) {
-		return null;
+	protected void doDispose() {
+		//
+	}
+	
+	@Override
+	protected void event(UserRequest ureq, Component source, Event event) {
+		//
 	}
 
 	@Override
 	public void activate(UserRequest ureq, List<ContextEntry> entries, StateEntry state) {
-		super.activate(ureq, entries, state);
+		if(entries == null || entries.isEmpty()) return;
+		
+		ContextEntry entry = entries.get(0);
+		String navKey = entry.getOLATResourceable().getResourceableTypeName();
+		if("HomeSite".equals(navKey)) {
+			entries = entries.subList(1, entries.size());
+			if(entries.size() > 0) {
+				entry = entries.get(0);
+				navKey = entry.getOLATResourceable().getResourceableTypeName();
+			}
+		}
+		
+		GenericActionExtension gAE = ExtManager.getInstance()
+				.getActionExtensioByNavigationKey(HomeMainController.class.getName(), navKey);
+		if (gAE != null) {
+			stackPanel.popUpToRootController(ureq);
+
+			Controller innerContentCtr = createController(gAE, ureq);
+			contentCtr = new LayoutMain3ColsController(ureq, getWindowControl(), innerContentCtr);
+			listenTo(contentCtr);
+			if (entries.size() >= 1) {
+				entries = entries.subList(1, entries.size());
+			}
+			if (innerContentCtr instanceof Activateable2) {
+				((Activateable2) innerContentCtr).activate(ureq, entries, entry.getTransientState());
+			}
+			stackPanel.pushController("content", contentCtr);
+		}
+	}
+	
+	protected Controller createController(GenericActionExtension ae, UserRequest ureq) {
+		WindowControl bwControl = getWindowControl();
+
+		// get our ores for the extension
+		OLATResourceable ores = OresHelper.createOLATResourceableInstance(ae.getNavigationKey(), 0L);
+		ThreadLocalUserActivityLogger.addLoggingResourceInfo(LoggingResourceable.wrapBusinessPath(ores));
+		bwControl = addToHistory(ureq, ores, null);
+
+		Controller ctrl = ae.createController(ureq, bwControl, null);
+		if(ctrl instanceof BreadcrumbPanelAware) {
+			((BreadcrumbPanelAware)ctrl).setBreadcrumbPanel(stackPanel);
+		}
+		return ctrl;
+	}
+	
+	public static class RootController extends BasicController {
+
+		public RootController(UserRequest ureq, WindowControl wControl) {
+			super(ureq, wControl);
+			putInitialPanel(new Panel("empty"));
+		}
+
+		@Override
+		protected void event(UserRequest ureq, Component source, Event event) {
+			//
+		}
+
+		@Override
+		protected void doDispose() {
+			//
+		}
 	}
 }

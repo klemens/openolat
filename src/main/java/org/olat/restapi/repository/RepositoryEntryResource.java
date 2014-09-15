@@ -53,7 +53,7 @@ import javax.ws.rs.core.Response.Status;
 
 import org.olat.admin.securitygroup.gui.IdentitiesAddEvent;
 import org.olat.basesecurity.BaseSecurity;
-import org.olat.basesecurity.SecurityGroup;
+import org.olat.basesecurity.GroupRoles;
 import org.olat.core.CoreSpringFactory;
 import org.olat.core.commons.modules.bc.FolderConfig;
 import org.olat.core.gui.UserRequest;
@@ -65,8 +65,10 @@ import org.olat.core.util.FileUtils;
 import org.olat.core.util.coordinate.LockResult;
 import org.olat.fileresource.FileResourceManager;
 import org.olat.fileresource.types.ImsCPFileResource;
+import org.olat.repository.ErrorList;
 import org.olat.repository.RepositoryEntry;
 import org.olat.repository.RepositoryManager;
+import org.olat.repository.RepositoryService;
 import org.olat.repository.handlers.RepositoryHandler;
 import org.olat.repository.handlers.RepositoryHandlerFactory;
 import org.olat.repository.manager.RepositoryEntryLifecycleDAO;
@@ -74,7 +76,6 @@ import org.olat.repository.model.RepositoryEntryLifecycle;
 import org.olat.resource.OLATResource;
 import org.olat.resource.OLATResourceManager;
 import org.olat.restapi.security.RestSecurityHelper;
-import org.olat.restapi.support.ErrorWindowControl;
 import org.olat.restapi.support.MultipartReader;
 import org.olat.restapi.support.ObjectFactory;
 import org.olat.restapi.support.vo.RepositoryEntryLifecycleVO;
@@ -101,10 +102,12 @@ public class RepositoryEntryResource {
   }
   
   private RepositoryManager repositoryManager;
+  private RepositoryService repositoryService;
   private BaseSecurity securityManager;
   
-  public RepositoryEntryResource(RepositoryManager repositoryManager, BaseSecurity securityManager) {
+  public RepositoryEntryResource(RepositoryManager repositoryManager, RepositoryService repositoryService, BaseSecurity securityManager) {
   	this.repositoryManager = repositoryManager;
+  	this.repositoryService = repositoryService;
   	this.securityManager = securityManager;
   }
 
@@ -172,7 +175,7 @@ public class RepositoryEntryResource {
 		} else if(!isAuthorEditor(repoEntry, request)) {
 			return Response.serverError().status(Status.UNAUTHORIZED).build();
 		}
-		return getIdentityInSecurityGroup(repoEntry.getOwnerGroup());
+		return getIdentityInSecurityGroup(repoEntry, GroupRoles.owner.name());
 	}
 	
 	/**
@@ -269,7 +272,7 @@ public class RepositoryEntryResource {
 		} else if(!isAuthorEditor(repoEntry, request)) {
 			return Response.serverError().status(Status.UNAUTHORIZED).build();
 		}
-		return getIdentityInSecurityGroup(repoEntry.getTutorGroup());
+		return getIdentityInSecurityGroup(repoEntry, GroupRoles.coach.name());
 	}
 	
 	/**
@@ -365,7 +368,7 @@ public class RepositoryEntryResource {
 		} else if(!isAuthorEditor(repoEntry, request)) {
 			return Response.serverError().status(Status.UNAUTHORIZED).build();
 		}
-		return getIdentityInSecurityGroup(repoEntry.getParticipantGroup());
+		return getIdentityInSecurityGroup(repoEntry, GroupRoles.participant.name());
 	}
 	
 	/**
@@ -473,7 +476,7 @@ public class RepositoryEntryResource {
     boolean isAuthor = RestSecurityHelper.isAuthor(request);
     boolean isOwner = repositoryManager.isOwnerOfRepositoryEntry(identity, re);
     if(!(isAuthor | isOwner)) return Response.serverError().status(Status.UNAUTHORIZED).build();
-    boolean canDownload = re.getCanDownload() && typeToDownload.supportsDownload(re);
+    boolean canDownload = re.getCanDownload() && typeToDownload.supportsDownload();
     if(!canDownload) return Response.serverError().status(Status.NOT_ACCEPTABLE).build();
 
     boolean isAlreadyLocked = typeToDownload.isLocked(ores);
@@ -483,7 +486,7 @@ public class RepositoryEntryResource {
       if(lockResult == null || (lockResult != null && lockResult.isSuccess() && !isAlreadyLocked)) {
         MediaResource mr = typeToDownload.getAsMediaResource(ores, false);
         if(mr != null) {
-        	repositoryManager.incrementDownloadCounter(re);
+        	repositoryService.incrementDownloadCounter(re);
           return Response.ok(mr.getInputStream()).cacheControl(cc).build(); // success
         } else return Response.serverError().status(Status.NO_CONTENT).build();
       } else return Response.serverError().status(Status.CONFLICT).build();
@@ -667,13 +670,16 @@ public class RepositoryEntryResource {
 			return Response.serverError().status(Status.UNAUTHORIZED).build();
 		}
 		UserRequest ureq = getUserRequest(request);
-		ErrorWindowControl error = new ErrorWindowControl();
-		repositoryManager.deleteRepositoryEntryWithAllData(ureq, error, re);
+		RepositoryService rs = CoreSpringFactory.getImpl(RepositoryService.class);
+		ErrorList errors = rs.delete(re, ureq.getIdentity(), ureq.getUserSession().getRoles(), ureq.getLocale());
+		if(errors.hasErrors()) {
+			return Response.serverError().status(500).build();
+		}
 		return Response.ok().build();
 	}
 	
-	private Response getIdentityInSecurityGroup(SecurityGroup sg) {
-		List<Identity> identities = securityManager.getIdentitiesOfSecurityGroup(sg);
+	private Response getIdentityInSecurityGroup(RepositoryEntry re, String role) {
+		List<Identity> identities = repositoryService.getMembers(re, role);
 		
 		int count = 0;
 		UserVO[] ownerVOs = new UserVO[identities.size()];

@@ -38,9 +38,12 @@ import org.apache.http.client.CookieStore;
 import org.apache.http.client.CredentialsProvider;
 import org.apache.http.client.methods.HttpDelete;
 import org.apache.http.client.methods.HttpGet;
+import org.apache.http.client.methods.HttpHead;
 import org.apache.http.client.methods.HttpOptions;
 import org.apache.http.client.methods.HttpPut;
 import org.apache.http.client.methods.HttpUriRequest;
+import org.apache.http.conn.ssl.SSLConnectionSocketFactory;
+import org.apache.http.conn.ssl.SSLContexts;
 import org.apache.http.entity.StringEntity;
 import org.apache.http.impl.client.BasicCookieStore;
 import org.apache.http.impl.client.BasicCredentialsProvider;
@@ -61,9 +64,9 @@ import org.apache.http.util.EntityUtils;
  */
 public class WebDAVConnection implements Closeable {
 	
-	private int port = WebDAVTestCase.PORT;
-	private String host = WebDAVTestCase.HOST;
-	private String protocol = WebDAVTestCase.PROTOCOL;
+	private final int port;
+	private final String host;
+	private final String protocol;
 	
 	private final BasicCookieStore cookieStore = new BasicCookieStore();
 	private final CredentialsProvider provider = new BasicCredentialsProvider();
@@ -71,9 +74,21 @@ public class WebDAVConnection implements Closeable {
 	private final CloseableHttpClient httpclient;
 
 	public WebDAVConnection() {
+		this(WebDAVTestCase.PROTOCOL, WebDAVTestCase.HOST, WebDAVTestCase.PORT);
+	}
+	
+	public WebDAVConnection(String protocol, String host, int port) {
+		this.protocol = protocol;
+		this.host = host;
+		this.port = port;
+		
+		SSLConnectionSocketFactory sslFactory
+			= new SSLConnectionSocketFactory(SSLContexts.createDefault(), SSLConnectionSocketFactory.ALLOW_ALL_HOSTNAME_VERIFIER);
+		
 		httpclient = HttpClientBuilder.create()
 				.setDefaultCookieStore(cookieStore)
 				.setDefaultCredentialsProvider(provider)
+				.setSSLSocketFactory(sslFactory)
 				.build();
 	}
 	
@@ -90,6 +105,13 @@ public class WebDAVConnection implements Closeable {
 	public HttpResponse execute(HttpUriRequest request)
 	throws IOException, URISyntaxException {
 		HttpResponse response = httpclient.execute(request);
+		return response;
+	}
+	
+	public HttpResponse head(URI uri) throws IOException, URISyntaxException {
+		HttpHead propfind = new HttpHead(uri);
+		HttpResponse response = execute(propfind);
+		Assert.assertEquals(200, response.getStatusLine().getStatusCode());
 		return response;
 	}
 	

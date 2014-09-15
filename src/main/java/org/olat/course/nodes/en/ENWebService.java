@@ -52,7 +52,7 @@ import org.olat.group.BusinessGroupService;
 import org.olat.group.BusinessGroupShort;
 import org.olat.modules.ModuleConfiguration;
 import org.olat.restapi.repository.course.AbstractCourseNodeWebService;
-import org.olat.restapi.repository.course.CourseWebService;
+import org.olat.restapi.repository.course.CoursesWebService;
 import org.olat.restapi.support.vo.GroupVO;
 
 /**
@@ -163,7 +163,7 @@ public class ENWebService extends AbstractCourseNodeWebService {
 		if(!isAuthor(httpRequest)) {
 			return Response.serverError().status(Status.UNAUTHORIZED).build();
 		}
-		ICourse course = CourseWebService.loadCourse(courseId);
+		ICourse course = CoursesWebService.loadCourse(courseId);
 		if(course == null) {
 			return Response.serverError().status(Status.NOT_FOUND).build();
 		} else if (!isAuthorEditor(course, httpRequest)) {
@@ -178,7 +178,7 @@ public class ENWebService extends AbstractCourseNodeWebService {
 		@SuppressWarnings("unchecked")
 		List<Long> groupKeys = (List<Long>)config.get(ENCourseNode.CONFIG_GROUP_IDS);
 		if(groupKeys == null && StringHelper.containsNonWhitespace(groupNames)) {
-			groupKeys = bgs.toGroupKeys(groupNames, course.getCourseEnvironment().getCourseGroupManager().getCourseResource()); 
+			groupKeys = bgs.toGroupKeys(groupNames, course.getCourseEnvironment().getCourseGroupManager().getCourseEntry()); 
 		}
 		
 		if(groupKeys == null || groupKeys.isEmpty()) {

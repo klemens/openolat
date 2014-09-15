@@ -1,37 +1,30 @@
-<div id="b_main" class="$mainCssClasses">
+<div id="o_main" class="$mainCssClasses row">
 #if($existsCol1 && $r.visible("col1"))
-	<div id="b_col1" class="split-pane" style="$!col1CustomCSSStyles">
-		<div id="b_col1_content" class="b_clearfix"> 
-			<a name="b_col1"></a>
-			<div class="b_floatbox">
-				$r.render("col1")	
-			</div>
+	<div id="o_main_left" style="$!col1CustomCSSStyles">
+		<div id="o_main_left_content" class="clearfix"> 
+			$r.render("col1")	
+		</div>
+		<div id="o_main_left_toggle" class="hidden-print">
+		  <span class="sr-only">Toggle content menu</span>
+		  <i class="o_icon o_icon_menuhandel"></i>
 		</div>
 	</div>
-	<div class="split-pane-divider" id="my-divider"></div>
 #end
 #if($existsCol2 && $r.visible("col2"))	
-	<div id="b_col2" class="split-pane" style="$!col2CustomCSSStyles">
-		<div id="b_col2_content" class="b_clearfix"> 
-			<a name="b_col2"></a>
-			<div class="b_floatbox">
-				$r.render("col2")
-			</div>
+	<div id="o_main_right" style="$!col2CustomCSSStyles">
+		<div id="o_main_right_content" class="clearfix"> 
+			$r.render("col2")
 		</div>
 	</div>
 #end
 #if($existsCol3 && $r.visible("col3"))	
-	<div id="b_col3" class="split-pane" style="$!col3CustomCSSStyles1 $!col3CustomCSSStyles2">
-		<div id="b_col3_content" class="b_clearfix">
-			## skip anchor: content
-			<a id="b_content" name="content"></a> 
-			<div id="b_col3_content_inner" class="b_floatscrollbox">
-				<a name="b_col3"></a>
+	<div id="o_main_center"> ## style="$!col3CustomCSSStyles1 $!col3CustomCSSStyles2">
+		<a id="o_content"></a> 
+		<div id="o_main_center_content" class="clearfix o_scrollblock">			          
+	       	<div id="o_main_center_content_inner">
 				$r.render("col3")		
 			</div>
 		</div>
-		## IE column clearing
-		<div id="b_ie_clearing">&nbsp;</div>
 	</div>
 #end
 </div>
@@ -39,58 +32,125 @@
 <script type="text/javascript">
 /* <![CDATA[ */
 jQuery().ready(function() {
-	OPOL.adjustHeight();
-	
 	// Main vertical splitter, anchored to the browser window
 #if($existsCol1 && $r.visible("col1"))
-	jQuery("#b_col1").resizable({
+	jQuery("#o_main_left").resizable({
         handles: 'e',
-        containment: '#b_main',
-	    grid: [1, 10000],
+        containment: '#o_main',
+	    grid: [o_info.emPxFactor, 10000],
 	    stop: function() {
-			var newEmWidth = Math.round(jQuery('#b_col1').width() / o_info.emPxFactor);
+	    	var leftCol = jQuery('#o_main_left');
+			var newEmWidth = Math.round(leftCol.width() / o_info.emPxFactor);
+			leftCol.width(newEmWidth + 'em');
 			jQuery.post('$r.commandURI("saveCol1Width")' + newEmWidth);
 	    }
-	}).bind( "resize", resize_right);
+	});
 
-	function resize_right(event, ui) {
-		if(ui == null) return;
-	    var width = ui.size.width;
-	    var leftWidth = jQuery("#b_col2").width();
-        var contWidth = jQuery('#b_main').width() - leftWidth;
-	    var middleWidth = jQuery("#b_col3").width();
-	    if(middleWidth > contWidth) {
-	    	jQuery('#b_col1').css('width', width);
-	    }
-	    jQuery('#b_col3').css('width', (contWidth - width));
-	    jQuery('#b_col3').css('margin-left', width);
+	## init offcanvas menu
+	//TODO fg: move to separate file
+	window.menuState = {
+		open : true,
+		docked : true			
 	};
+	
+	window.o_showMenu = function(duration) {
+		duration = (typeof duration === "undefined") ? 500 : duration;
+		if (!menuState.open) {
+			jQuery('#o_main_left_content').show();
+			var l = jQuery('#o_main_left');
+			l.transition({'x': '0', 'left': '0'}, duration, function() {
+				menuState.open = true;
+			});
+		} 
+	};
+	window.o_hideMenu = function(duration) {
+		duration = (typeof duration === "undefined") ? 500 : duration;
+		if (!menuState.docked && menuState.open) {
+			var l = jQuery('#o_main_left');
+			jQuery('#o_main_left_content').hide();
+			l.transition({'x': '-' + l.css('width'), 'left': '5px'}, duration, function() {
+				menuState.open = false;
+			});			
+		} 
+	};
+	window.o_undockMenu = function(duration) {
+		if (menuState.docked) {
+			var left = jQuery('#o_main_left');
+			var offset = 0;
+			try {	
+				offset = left.offset().top;
+				offset -= jQuery('#o_navbar_wrapper').outerHeight(false);
+			} catch (e) {}
+
+			jQuery('#o_main_left_toggle').show();
+			left.css({position: 'absolute'})
+				.addClass('o_offcanvas')
+				.transition({'y': '-' + offset}, duration, function() {
+					OPOL.adjustHeight();
+					// close menu when something happens on the screen
+					jQuery(document).on('click', '.o_tree_link', o_hideMenu);
+					menuState.docked = false;
+					o_hideMenu(duration);
+			});							
+		} 
+	};
+	window.o_dockMenu = function(duration) {
+		o_showMenu();
+		if (!menuState.docked) {
+			jQuery('#o_main_left').transition({'y': 0}, duration, function() {
+				jQuery('#o_main_left').css({position: 'relative'})
+					.removeClass('o_offcanvas');
+				OPOL.adjustHeight();
+				jQuery('#o_main_left_toggle').hide();
+				jQuery(document).off('click', '.o_tree_link', o_hideMenu);
+				menuState.docked = true;
+			})			
+		} 
+	};
+	window.o_responsiveMenu = function() {
+		if (jQuery(window).width() < 992 && !(jQuery.support.opacity == false)) {
+			// same breakpoint as bootstrap screen-md, opacity detect IE8
+			o_undockMenu(500);
+		} else {
+			o_dockMenu(500);
+		}
+	};
+
+	
+	// toggle menu on toggle events
+	jQuery('#o_main_left_toggle').on('click', function() {
+		if (menuState.open) {
+			o_hideMenu(500);
+		} else {
+			o_showMenu(500);
+		}
+	});
+	// recalculate menu when browser is resized
+	jQuery(document).on("oo.window.resize.after", o_responsiveMenu);
+	// do initialization now
+	if (jQuery(window).width() < 992 && !(jQuery.support.opacity == false)) {
+		// same breakpoint as bootstrap screen-md, opacity detect IE8
+		o_undockMenu(0);
+	}
+
 #end
 
 #if($existsCol2 && $r.visible("col2"))		
-	jQuery("#b_col3").resizable({
-        handles: 'e',
-        containment: '#b_main',
-	    grid: [1, 10000],
+	jQuery("#o_main_right").resizable({
+        handles: 'w',
+        containment: '#o_main',
+	    grid: [o_info.emPxFactor, 10000],
 	    stop: function() {
-			var newEmWidth = Math.round(jQuery('#b_col2').width() / o_info.emPxFactor);
+	    	var rightCol = jQuery('#o_main_right');
+			var newEmWidth = Math.round(rightCol.width() / o_info.emPxFactor);
+			rightCol.width(newEmWidth + 'em');
 			jQuery.post('$r.commandURI("saveCol2Width")' + newEmWidth);
 	    }
-	}).bind( "resize", resize_left);
-
-	function resize_left(event, ui) {
-			if(ui == null) return;
-	    var width = ui.size.width;
-	    var rightWidth = jQuery("#b_col1").width();
-        var contWidth = jQuery('#b_main').width() - rightWidth;
-	    if(width > contWidth) {
-	    	width = contWidth;
-	    	jQuery('#b_col3').css('width', width);
-	    }
-	    jQuery('#b_col2').css('width', (contWidth - width));
-	};
+	});
 #end
 });
+
+
 /* ]]> */
 </script>
 #end

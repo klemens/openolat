@@ -128,12 +128,15 @@ public class MembersOverviewController extends BasicController implements Activa
 		
 		boolean managed = RepositoryEntryManagedFlag.isManaged(repoEntry, RepositoryEntryManagedFlag.membersmanagement);
 		addMemberLink = LinkFactory.createButton("add.member", mainVC, this);
+		addMemberLink.setIconLeftCSS("o_icon o_icon-fw o_icon_add");
 		addMemberLink.setVisible(!managed);
 		mainVC.put("addMembers", addMemberLink);
 		importMemberLink = LinkFactory.createButton("import.member", mainVC, this);
+		importMemberLink.setIconLeftCSS("o_icon o_icon-fw o_icon_import");
 		importMemberLink.setVisible(!managed);
 		mainVC.put("importMembers", importMemberLink);
 		dedupLink = LinkFactory.createButton("dedup.members", mainVC, this);
+		dedupLink.setIconLeftCSS("o_icon o_icon-fw o_icon_cleanup");
 		dedupLink.setVisible(!managed);
 		mainVC.put("dedupMembers", dedupLink);
 		
@@ -232,6 +235,30 @@ public class MembersOverviewController extends BasicController implements Activa
 		removeAsListenerAndDispose(cmc);
 		dedupCtrl = null;
 		cmc = null;
+	}
+	
+	protected void reloadMembers() {
+		if(allMemberListCtrl != null) {
+			allMemberListCtrl.reloadModel();
+		}
+		if(ownersCtrl != null) {
+			ownersCtrl.reloadModel();
+		}
+		if(tutorsCtrl != null) {
+			tutorsCtrl.reloadModel();
+		}
+		if(participantsCtrl != null) {
+			participantsCtrl.reloadModel();
+		}
+		if(waitingCtrl != null) {
+			waitingCtrl.reloadModel();
+		}
+		if(selectedCtrl != null) {
+			selectedCtrl.reloadModel();
+		}
+		if(searchCtrl != null) {
+			searchCtrl.reloadModel();
+		}
 	}
 
 	private void doChooseMembers(UserRequest ureq) {

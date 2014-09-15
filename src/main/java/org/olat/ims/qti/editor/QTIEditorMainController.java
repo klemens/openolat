@@ -37,16 +37,18 @@ import java.util.Set;
 
 import org.olat.admin.quota.QuotaConstants;
 import org.olat.admin.quota.QuotaImpl;
-import org.olat.basesecurity.BaseSecurityManager;
-import org.olat.basesecurity.SecurityGroup;
+import org.olat.basesecurity.GroupRoles;
 import org.olat.core.CoreSpringFactory;
 import org.olat.core.commons.fullWebApp.LayoutMain3ColsController;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.Component;
+import org.olat.core.gui.components.dropdown.Dropdown;
 import org.olat.core.gui.components.htmlheader.jscss.JSAndCSSComponent;
 import org.olat.core.gui.components.link.Link;
 import org.olat.core.gui.components.link.LinkFactory;
 import org.olat.core.gui.components.panel.Panel;
+import org.olat.core.gui.components.stack.TooledStackedPanel;
+import org.olat.core.gui.components.stack.TooledStackedPanel.Align;
 import org.olat.core.gui.components.tree.MenuTree;
 import org.olat.core.gui.components.tree.SelectionTree;
 import org.olat.core.gui.components.tree.TreeEvent;
@@ -58,15 +60,15 @@ import org.olat.core.gui.control.VetoableCloseController;
 import org.olat.core.gui.control.WindowControl;
 import org.olat.core.gui.control.controller.MainLayoutBasicController;
 import org.olat.core.gui.control.generic.closablewrapper.CloseableModalController;
-import org.olat.core.gui.control.generic.dialog.DialogController;
+import org.olat.core.gui.control.generic.dtabs.Activateable2;
 import org.olat.core.gui.control.generic.modal.DialogBoxController;
 import org.olat.core.gui.control.generic.modal.DialogBoxUIFactory;
-import org.olat.core.gui.control.generic.tool.ToolController;
-import org.olat.core.gui.control.generic.tool.ToolFactory;
 import org.olat.core.gui.media.MediaResource;
 import org.olat.core.id.Identity;
 import org.olat.core.id.User;
 import org.olat.core.id.UserConstants;
+import org.olat.core.id.context.ContextEntry;
+import org.olat.core.id.context.StateEntry;
 import org.olat.core.logging.AssertException;
 import org.olat.core.util.CodeHelper;
 import org.olat.core.util.Formatter;
@@ -94,7 +96,6 @@ import org.olat.course.tree.TreePosition;
 import org.olat.fileresource.types.FileResource;
 import org.olat.ims.qti.QTIChangeLogMessage;
 import org.olat.ims.qti.QTIConstants;
-import org.olat.ims.qti.QTIResult;
 import org.olat.ims.qti.QTIResultManager;
 import org.olat.ims.qti.editor.beecom.objects.Assessment;
 import org.olat.ims.qti.editor.beecom.objects.ChoiceQuestion;
@@ -123,6 +124,7 @@ import org.olat.modules.qpool.ui.SelectItemController;
 import org.olat.modules.qpool.ui.events.QItemViewEvent;
 import org.olat.repository.RepositoryEntry;
 import org.olat.repository.RepositoryManager;
+import org.olat.repository.RepositoryService;
 import org.olat.resource.references.ReferenceImpl;
 import org.olat.user.UserManager;
 
@@ -145,7 +147,7 @@ import org.olat.user.UserManager;
  * 
  * @author mike
  */
-public class QTIEditorMainController extends MainLayoutBasicController implements VetoableCloseController {
+public class QTIEditorMainController extends MainLayoutBasicController implements Activateable2, VetoableCloseController {
 	/*
 	 * Toolbox Commands
 	 */
@@ -211,11 +213,15 @@ public class QTIEditorMainController extends MainLayoutBasicController implement
 
 	private QTIEditorPackageImpl qtiPackage;
 
-	private VelocityContainer main, exitVC, chngMsgFormVC, restrictedEditWarningVC;
-	private ToolController mainToolC;
+	private VelocityContainer main, exitVC, chngMsgFormVC;
 	private MenuTree menuTree;
 	private Panel mainPanel;
+	private TooledStackedPanel stackedPanel;
 	private LayoutMain3ColsController columnLayoutCtr;
+	
+	private Link previewLink, exportPoolLink, exportDocLink, closeLink;
+	private Link addPoolLink, addSectionLink, addSCLink, addMCLink, addFIBLink, addKPrimLink, addEssayLink;
+	private Link deleteLink, moveLink, copyLink;
 
 	private QTIEditorTreeModel menuTreeModel;
 	private DialogBoxController deleteDialog;
@@ -229,7 +235,7 @@ public class QTIEditorMainController extends MainLayoutBasicController implement
 	private String startedWithTitle;
 	private List<ReferenceImpl> referencees;
 	private ChangeMessageForm chngMsgFrom;
-	private DialogController proceedRestricedEditDialog;
+	private DialogBoxController proceedRestricedEditDialog;
 	private ContactMessage changeEmail;
 	private ContactFormController cfc;
 	private String changeLog = null;
@@ -257,9 +263,8 @@ public class QTIEditorMainController extends MainLayoutBasicController implement
 				CourseNode courseNode = course.getEditorTreeModel().getCourseNode(ref.getUserdata());
 				String repositorySoftKey = (String) courseNode.getModuleConfiguration().get(IQEditController.CONFIG_KEY_REPOSITORY_SOFTKEY);
 				Long repKey = RepositoryManager.getInstance().lookupRepositoryEntryBySoftkey(repositorySoftKey, true).getKey();
-				List<QTIResult> results = QTIResultManager.getInstance().selectResults(course.getResourceableId(), courseNode.getIdent(), repKey, 1);
 				restrictedEdit = ((CoordinatorManager.getInstance().getCoordinator().getLocker().isLocked(course, null))
-						|| (results != null && results.size() > 0)) ? true : false;
+						|| QTIResultManager.getInstance().countResults(course.getResourceableId(), courseNode.getIdent(), repKey) > 0) ? true : false;
 			}
 			if(restrictedEdit) {
 				break;
@@ -284,7 +289,7 @@ public class QTIEditorMainController extends MainLayoutBasicController implement
 			if (qtiPackage.getQTIDocument() == null) {
 				notEditable = true;				
 			} else if (qtiPackage.isResumed()) {
-				showInfo("info.resumed", null);
+				showInfo("info.resumed");
 			}
 			//
 			init(ureq); // initialize the gui
@@ -303,23 +308,21 @@ public class QTIEditorMainController extends MainLayoutBasicController implement
 		jsAndCss = new JSAndCSSComponent("qitjsandcss", new String[] { "js/openolat/qti.js" }, null);
 		main.put("qitjsandcss", jsAndCss);
 		
-		//
 		mainPanel = new Panel("p_qti_editor");
 		mainPanel.setContent(main);
-		//
+		
 		if(notEditable) {		
 			//test not editable
-			VelocityContainer notEditable = createVelocityContainer("notEditable");
-			notEditableButton = LinkFactory.createButton("ok", notEditable, this);
+			VelocityContainer notEditableVc = createVelocityContainer("notEditable");
+			notEditableButton = LinkFactory.createButton("ok", notEditableVc, this);
 			Panel panel = new Panel("notEditable");
-			panel.setContent(notEditable);
-			columnLayoutCtr = new LayoutMain3ColsController(ureq, getWindowControl(), null, null, panel, null);
+			panel.setContent(notEditableVc);
+			columnLayoutCtr = new LayoutMain3ColsController(ureq, getWindowControl(), null, panel, null);
 			putInitialPanel(columnLayoutCtr.getInitialComponent());
 			return;
 		}
-				
-		mainToolC = populateToolC(); // qtiPackage must be loaded previousely
-		listenTo(mainToolC);
+
+		stackedPanel = new TooledStackedPanel("qtiEditorStackedPanel", getTranslator(), this);
 		
 		// initialize the history
 		if (qtiPackage.isResumed() && qtiPackage.hasSerializedChangelog()) {
@@ -331,20 +334,6 @@ public class QTIEditorMainController extends MainLayoutBasicController implement
 			history = new HashMap<String, Memento>();
 		}
 
-		if (restrictedEdit) {
-			mainToolC.setEnabled(CMD_TOOLS_ADD_SECTION, false);
-			mainToolC.setEnabled(CMD_TOOLS_ADD_SINGLECHOICE, false);
-			mainToolC.setEnabled(CMD_TOOLS_ADD_MULTIPLECHOICE, false);
-			mainToolC.setEnabled(CMD_TOOLS_ADD_QPOOL, false);
-
-			mainToolC.setEnabled(CMD_TOOLS_ADD_FIB, false);
-			if (!qtiPackage.getQTIDocument().isSurvey()) mainToolC.setEnabled(CMD_TOOLS_ADD_KPRIM, false);
-			mainToolC.setEnabled(CMD_TOOLS_ADD_FREETEXT, false);
-		}
-		mainToolC.setEnabled(CMD_TOOLS_CHANGE_DELETE, false);
-		mainToolC.setEnabled(CMD_TOOLS_CHANGE_MOVE, false);
-		mainToolC.setEnabled(CMD_TOOLS_CHANGE_COPY, false);
-
 		// The menu tree model represents the structure of the qti document.
 		// All insert/move operations on the model are propagated to the structure
 		// by the node
@@ -355,34 +344,53 @@ public class QTIEditorMainController extends MainLayoutBasicController implement
 		menuTree.addListener(this);// listen to the tree
 		// remember the qtidoc title when we started this editor, to correctly name
 		// the history report
-		this.startedWithTitle = menuTree.getSelectedNode().getAltText();
+		startedWithTitle = menuTree.getSelectedNode().getAltText();
 		//
 		main.put("tabbedPane", menuTreeModel.getQtiRootNode().createEditTabbedPane(ureq, getWindowControl(), getTranslator(), this));
 		main.contextPut("qtititle", menuTreeModel.getQtiRootNode().getAltText());
 		main.contextPut("isRestrictedEdit", restrictedEdit ? Boolean.TRUE : Boolean.FALSE);
 		//
-		columnLayoutCtr = new LayoutMain3ColsController(ureq, getWindowControl(), menuTree, mainToolC.getInitialComponent(), mainPanel, "qtieditor" + qtiPackage.getRepresentingResourceable());
+		columnLayoutCtr = new LayoutMain3ColsController(ureq, getWindowControl(), menuTree, mainPanel, "qtieditor" + qtiPackage.getRepresentingResourceable());
 		listenTo(columnLayoutCtr);
+		stackedPanel.pushController("Editor", columnLayoutCtr);
+		populateToolC(); // qtiPackage must be loaded previousely
+		
 		// Add css background
 		if (restrictedEdit) {
+			addSectionLink.setEnabled(false);
+			addSCLink.setEnabled(false);
+			addMCLink.setEnabled(false);
+			addPoolLink.setEnabled(false);
+			addFIBLink.setEnabled(false);
+			if (!qtiPackage.getQTIDocument().isSurvey()) {
+				addKPrimLink.setEnabled(false);
+			}
+			addEssayLink.setEnabled(false);
+			
 			columnLayoutCtr.addCssClassToMain("o_editor_qti_correct");
 		} else {
 			columnLayoutCtr.addCssClassToMain("o_editor_qti");
 		}
-		putInitialPanel(columnLayoutCtr.getInitialComponent());
+
+		deleteLink.setEnabled(false);
+		moveLink.setEnabled(false);
+		copyLink.setEnabled(false);
+		
+		putInitialPanel(stackedPanel);
 		
 		if (restrictedEdit) {
-			restrictedEditWarningVC = createVelocityContainer("restrictedEditDialog");
-			proceedRestricedEditDialog = new DialogController(getWindowControl(), ureq.getLocale(), translate("yes"), translate("no"),translate("qti.restricted.edit.warning")+"<br/><br/>"+createReferenceesMsg(ureq), null, true, null);
-			listenTo(proceedRestricedEditDialog);
-			restrictedEditWarningVC.put("dialog", proceedRestricedEditDialog.getInitialComponent());
 			// we would like to us a modal dialog here, but this does not work! we
 			// can't push to stack because the outher workflows pushes us after the
 			// controller to the stack. Thus, if we used a modal dialog here the
 			// dialog would never show up. 
-			columnLayoutCtr.setCol3(restrictedEditWarningVC);
+			columnLayoutCtr.setCol3(new Panel("empty"));
 			columnLayoutCtr.hideCol1(true);
 			columnLayoutCtr.hideCol2(true);
+			
+			String text = translate("qti.restricted.edit.warning") + "<br/><br/>" + createReferenceesMsg(ureq);
+			proceedRestricedEditDialog = DialogBoxUIFactory.createYesNoDialog(ureq, getWindowControl(), null, text);
+			listenTo(proceedRestricedEditDialog);
+			proceedRestricedEditDialog.activate();
 		}
 	}
 	
@@ -403,6 +411,12 @@ public class QTIEditorMainController extends MainLayoutBasicController implement
 		main.contextPut("warningEssay", new Boolean(warningEssay));
 	}
 
+	@Override
+	public void activate(UserRequest ureq, List<ContextEntry> entries, StateEntry state) {
+		if(proceedRestricedEditDialog != null) {
+			proceedRestricedEditDialog.activate();
+		}
+	}
 
 	/**
 	 * @see org.olat.core.gui.control.DefaultController#event(org.olat.core.gui.UserRequest,
@@ -425,22 +439,22 @@ public class QTIEditorMainController extends MainLayoutBasicController implement
 				}
 				
 				// enable/disable delete and move
-				// if (!restrictedEdit) {
 				// only available in full edit mode
 				if (clickedNode instanceof AssessmentNode) {
-					mainToolC.setEnabled(CMD_TOOLS_CHANGE_DELETE, false);
-					mainToolC.setEnabled(CMD_TOOLS_CHANGE_MOVE, false);
-					mainToolC.setEnabled(CMD_TOOLS_CHANGE_COPY, false);
+					deleteLink.setEnabled(false);
+					moveLink.setEnabled(false);
+					copyLink.setEnabled(false);
+					stackedPanel.setDirty(true);
 				} else {
-					mainToolC.setEnabled(CMD_TOOLS_CHANGE_DELETE, true && !restrictedEdit);
-					mainToolC.setEnabled(CMD_TOOLS_CHANGE_MOVE, true && !restrictedEdit);
+					deleteLink.setEnabled(true && !restrictedEdit);
+					moveLink.setEnabled(true && !restrictedEdit);
 					if (clickedNode instanceof ItemNode) {
-						mainToolC.setEnabled(CMD_TOOLS_CHANGE_COPY, true && !restrictedEdit);
+						copyLink.setEnabled(true && !restrictedEdit);
 					} else {
-						mainToolC.setEnabled(CMD_TOOLS_CHANGE_COPY, false);
+						copyLink.setEnabled(false);
 					}
+					stackedPanel.setDirty(true);
 				}
-				// }
 			}
 		} else if (source == moveTree) { // catch move operations
 			cmc.deactivate();
@@ -535,6 +549,114 @@ public class QTIEditorMainController extends MainLayoutBasicController implement
 			
 		} else if (source == notEditableButton) {
 			fireEvent(ureq, Event.DONE_EVENT); // close editor
+		} else if (closeLink == source) { // exitVC hook:
+			// save package back to repository
+			exitVC = createVelocityContainer("exitDialog");
+			exitPanel = new Panel("exitPanel");
+			exitPanel.setContent(exitVC);
+			cmcExit = new CloseableModalController(getWindowControl(), translate("editor.preview.close"), exitPanel, true, translate("exit.header"));
+			cmcExit.activate();
+			listenTo(cmcExit);
+			return;
+			
+		} else if (previewLink == source) { // preview
+			previewController = CoreSpringFactory.getImpl(IQManager.class).createIQDisplayController(new QTIEditorResolver(qtiPackage),
+					qtiPackage.getQTIDocument().isSurvey() ? AssessmentInstance.QMD_ENTRY_TYPE_SURVEY : AssessmentInstance.QMD_ENTRY_TYPE_SELF,
+					new IQPreviewSecurityCallback(), ureq, getWindowControl());
+			if (previewController.isReady()) {
+				// in case previewController was unable to initialize, a message was
+				// set by displayController
+				// this is the case if no more attempts or security check was
+				// unsuccessfull
+				previewController.addControllerListener(this);
+				cmcPrieview = new CloseableModalController(getWindowControl(), translate("editor.preview.close"),
+						previewController.getInitialComponent());
+				cmcPrieview.activate();
+				listenTo(cmcPrieview);
+				
+			} else {
+				getWindowControl().setWarning(translate("error.preview"));
+			}
+		} else if (deleteLink == source) { // prepare delete
+			if(deleteDialog != null) return;//multi return in Firefox
+
+			GenericQtiNode clickedNode = menuTreeModel.getQtiNode(menuTree.getSelectedNodeId());
+			String msg = "";
+			if (clickedNode instanceof SectionNode) {
+				if (QTIEditHelper.countSections(qtiPackage.getQTIDocument().getAssessment()) == 1) {
+					// At least one section
+					getWindowControl().setError(translate("error.atleastonesection"));
+					return;
+				}
+				msg = translate("delete.section", clickedNode.getTitle());
+			} else if (clickedNode instanceof ItemNode) {
+				if (((SectionNode) clickedNode.getParent()).getChildCount() == 1) {
+					// At least one item
+					getWindowControl().setError(translate("error.atleastoneitem"));
+					return;
+				}
+				msg = translate("delete.item", clickedNode.getTitle());
+			}
+			deleteDialog = activateYesNoDialog(ureq, null, msg, deleteDialog);
+			deleteDialog.setUserObject(clickedNode);
+			return;
+		} else if (moveLink == source) {			
+		  //cannot move the last item
+			GenericQtiNode clickedNode = menuTreeModel.getQtiNode(menuTree.getSelectedNodeId());
+			if (clickedNode instanceof ItemNode && ((SectionNode) clickedNode.getParent()).getChildCount() == 1) {				
+				getWindowControl().setError(translate("error.move.atleastoneitem"));
+				return;
+			}
+			TreeNode selectedNode = menuTree.getSelectedNode();
+			moveTree = new SelectionTree("moveTree", getTranslator());
+			moveTree.setFormButtonKey("submit");
+			insertTreeModel = new InsertItemTreeModel(menuTreeModel,
+					(selectedNode instanceof SectionNode) ? InsertItemTreeModel.INSTANCE_ASSESSMENT : InsertItemTreeModel.INSTANCE_SECTION);
+			moveTree.setTreeModel(insertTreeModel);
+			moveTree.addListener(this);
+			cmc = new CloseableModalController(getWindowControl(),translate("close"), moveTree, true, translate("title.move"));
+			cmc.activate();
+			listenTo(cmc);
+			
+		} else if (copyLink == source) {
+			copyTree = new SelectionTree("copyTree", getTranslator());
+			copyTree.setFormButtonKey("submit");
+			insertTreeModel = new InsertItemTreeModel(menuTreeModel, InsertItemTreeModel.INSTANCE_SECTION);
+			copyTree.setTreeModel(insertTreeModel);
+			copyTree.addListener(this);
+			cmc = new CloseableModalController(getWindowControl(), translate("close"), copyTree, true, translate("title.copy"));
+			cmc.activate();
+			listenTo(cmc);
+			
+		} else if (addPoolLink == source) {
+			doSelectQItem(ureq);
+		} else if (exportPoolLink == source) {
+			doExportQItem();
+		} else if (exportDocLink == source) {
+			doExportDocx(ureq);
+		} else if (addSectionLink == source) {
+			Section newSection = QTIEditHelper.createSection(getTranslator());
+			Item newItem = QTIEditHelper.createSCItem(getTranslator());
+			newSection.getItems().add(newItem);
+			SectionNode scNode = new SectionNode(newSection, qtiPackage);
+			ItemNode itemNode = new ItemNode(newItem, qtiPackage);
+			scNode.addChild(itemNode);
+			doSelectInsertionPoint(CMD_TOOLS_ADD_SECTION, scNode);
+		} else if (addSCLink == source) {
+			ItemNode insertObject = new ItemNode(QTIEditHelper.createSCItem(getTranslator()), qtiPackage);
+			doSelectInsertionPoint(CMD_TOOLS_ADD_SINGLECHOICE, insertObject);
+		} else if (addMCLink == source) {
+			ItemNode insertObject = new ItemNode(QTIEditHelper.createMCItem(getTranslator()), qtiPackage);
+			doSelectInsertionPoint(CMD_TOOLS_ADD_MULTIPLECHOICE, insertObject);
+		} else if (addKPrimLink == source) {
+			ItemNode insertObject = new ItemNode(QTIEditHelper.createKPRIMItem(getTranslator()), qtiPackage);
+			doSelectInsertionPoint(CMD_TOOLS_ADD_KPRIM, insertObject);
+		} else if (addFIBLink == source) {
+			ItemNode insertObject = new ItemNode(QTIEditHelper.createFIBItem(getTranslator()), qtiPackage);
+			doSelectInsertionPoint(CMD_TOOLS_ADD_FIB, insertObject);
+		} else if (addEssayLink == source) {
+			ItemNode insertObject = new ItemNode(QTIEditHelper.createEssayItem(getTranslator()), qtiPackage);
+			doSelectInsertionPoint(CMD_TOOLS_ADD_FREETEXT, insertObject);
 		}
 	}
 
@@ -573,118 +695,7 @@ public class QTIEditorMainController extends MainLayoutBasicController implement
 	 *      org.olat.core.gui.control.Controller, org.olat.core.gui.control.Event)
 	 */
 	protected void event(UserRequest ureq, Controller source, Event event) {
-		if (source == mainToolC) {
-			String cmd = event.getCommand();
-			if (cmd.equals(CMD_TOOLS_CLOSE_EDITOR)) { // exitVC hook:
-				// save package back to repository
-				exitVC = createVelocityContainer("exitDialog");
-				exitPanel = new Panel("exitPanel");
-				exitPanel.setContent(exitVC);
-				cmcExit = new CloseableModalController(getWindowControl(), translate("editor.preview.close"), exitPanel);
-				cmcExit.activate();
-				listenTo(cmcExit);
-				return;
-				
-			} else if (cmd.equals(CMD_TOOLS_PREVIEW)) { // preview
-				previewController = IQManager.getInstance().createIQDisplayController(new QTIEditorResolver(qtiPackage),
-						qtiPackage.getQTIDocument().isSurvey() ? AssessmentInstance.QMD_ENTRY_TYPE_SURVEY : AssessmentInstance.QMD_ENTRY_TYPE_SELF,
-						new IQPreviewSecurityCallback(), ureq, getWindowControl());
-				if (previewController.isReady()) {
-					// in case previewController was unable to initialize, a message was
-					// set by displayController
-					// this is the case if no more attempts or security check was
-					// unsuccessfull
-					previewController.addControllerListener(this);
-					cmcPrieview = new CloseableModalController(getWindowControl(), translate("editor.preview.close"),
-							previewController.getInitialComponent());
-					cmcPrieview.activate();
-					listenTo(cmcPrieview);
-					
-				} else {
-					getWindowControl().setWarning(translate("error.preview"));
-				}
-			} else if (cmd.equals(CMD_TOOLS_CHANGE_DELETE)) { // prepare delete
-				if(deleteDialog != null) return;//multi return in Firefox
-
-				GenericQtiNode clickedNode = menuTreeModel.getQtiNode(menuTree.getSelectedNodeId());
-				String msg = "";
-				if (clickedNode instanceof SectionNode) {
-					if (QTIEditHelper.countSections(qtiPackage.getQTIDocument().getAssessment()) == 1) {
-						// At least one section
-						getWindowControl().setError(translate("error.atleastonesection"));
-						return;
-					}
-					msg = translate("delete.section", clickedNode.getTitle());
-				} else if (clickedNode instanceof ItemNode) {
-					if (((SectionNode) clickedNode.getParent()).getChildCount() == 1) {
-						// At least one item
-						getWindowControl().setError(translate("error.atleastoneitem"));
-						return;
-					}
-					msg = translate("delete.item", clickedNode.getTitle());
-				}
-				deleteDialog = activateYesNoDialog(ureq, null, msg, deleteDialog);
-				deleteDialog.setUserObject(clickedNode);
-				return;
-			} else if (cmd.equals(CMD_TOOLS_CHANGE_MOVE)) {			
-			  //cannot move the last item
-				GenericQtiNode clickedNode = menuTreeModel.getQtiNode(menuTree.getSelectedNodeId());
-				if (clickedNode instanceof ItemNode && ((SectionNode) clickedNode.getParent()).getChildCount() == 1) {				
-					getWindowControl().setError(translate("error.move.atleastoneitem"));
-					return;
-				}
-				TreeNode selectedNode = menuTree.getSelectedNode();
-				moveTree = new SelectionTree("moveTree", getTranslator());
-				moveTree.setFormButtonKey("submit");
-				insertTreeModel = new InsertItemTreeModel(menuTreeModel,
-						(selectedNode instanceof SectionNode) ? InsertItemTreeModel.INSTANCE_ASSESSMENT : InsertItemTreeModel.INSTANCE_SECTION);
-				moveTree.setTreeModel(insertTreeModel);
-				moveTree.addListener(this);
-				cmc = new CloseableModalController(getWindowControl(),translate("close"), moveTree, true, translate("title.move"));
-				cmc.activate();
-				listenTo(cmc);
-				
-			} else if (cmd.equals(CMD_TOOLS_CHANGE_COPY)) {
-				copyTree = new SelectionTree("copyTree", getTranslator());
-				copyTree.setFormButtonKey("submit");
-				insertTreeModel = new InsertItemTreeModel(menuTreeModel, InsertItemTreeModel.INSTANCE_SECTION);
-				copyTree.setTreeModel(insertTreeModel);
-				copyTree.addListener(this);
-				cmc = new CloseableModalController(getWindowControl(), translate("close"), copyTree, true, translate("title.copy"));
-				cmc.activate();
-				listenTo(cmc);
-				
-			} else if (CMD_TOOLS_ADD_QPOOL.equals(cmd)) {
-				doSelectQItem(ureq);
-			} else if (CMD_TOOLS_EXPORT_QPOOL.equals(cmd)) {
-				doExportQItem();
-			} else if (CMD_TOOLS_EXPORT_DOCX.equals(cmd)) {
-				doExportDocx(ureq);
-			} else if (cmd.startsWith(CMD_TOOLS_ADD_PREFIX)) { // add new object
-				// fetch new object
-				GenericQtiNode insertObject = null;
-				if (cmd.equals(CMD_TOOLS_ADD_SECTION)) {
-					Section newSection = QTIEditHelper.createSection(getTranslator());
-					Item newItem = QTIEditHelper.createSCItem(getTranslator());
-					newSection.getItems().add(newItem);
-					SectionNode scNode = new SectionNode(newSection, qtiPackage);
-					ItemNode itemNode = new ItemNode(newItem, qtiPackage);
-					scNode.addChild(itemNode);
-					insertObject = scNode;
-				} else if (cmd.equals(CMD_TOOLS_ADD_SINGLECHOICE)) {
-					insertObject = new ItemNode(QTIEditHelper.createSCItem(getTranslator()), qtiPackage);
-				} else if (cmd.equals(CMD_TOOLS_ADD_MULTIPLECHOICE)) {
-					insertObject = new ItemNode(QTIEditHelper.createMCItem(getTranslator()), qtiPackage);
-				} else if (cmd.equals(CMD_TOOLS_ADD_KPRIM)) {
-					insertObject = new ItemNode(QTIEditHelper.createKPRIMItem(getTranslator()), qtiPackage);
-				} else if (cmd.equals(CMD_TOOLS_ADD_FIB)) {
-					insertObject = new ItemNode(QTIEditHelper.createFIBItem(getTranslator()), qtiPackage);
-				} else if (cmd.equals(CMD_TOOLS_ADD_FREETEXT)) {
-					insertObject = new ItemNode(QTIEditHelper.createEssayItem(getTranslator()), qtiPackage);
-				}
-				doSelectInsertionPoint(cmd, insertObject);
-			}
-		} else if (source == deleteDialog) { // event from delete dialog
+		if (source == deleteDialog) { // event from delete dialog
 			if (DialogBoxUIFactory.isYesEvent(event)) { // yes, delete
 				GenericQtiNode clickedNode = (GenericQtiNode) deleteDialog.getUserObject();
 				doDelete(clickedNode);
@@ -734,7 +745,7 @@ public class QTIEditorMainController extends MainLayoutBasicController implement
 			}
 		} else if (source == proceedRestricedEditDialog) {
 			// restricted edit warning
-			if (event == DialogController.EVENT_FIRSTBUTTON) {
+			if(DialogBoxUIFactory.isYesEvent(event)) {
 				// remove dialog and continue with real content
 				columnLayoutCtr.setCol3(mainPanel);
 				columnLayoutCtr.hideCol1(false);
@@ -780,7 +791,7 @@ public class QTIEditorMainController extends MainLayoutBasicController implement
 					changeEmail.setBodyText(userMsg + "\n" + changeLog);
 				}// else nothing was added!
 				changeEmail.setSubject("Change log for " + startedWithTitle);
-				cfc = new ContactFormController(ureq, getWindowControl(), false, true, false, false, changeEmail);
+				cfc = new ContactFormController(ureq, getWindowControl(), true, false, false, changeEmail);
 				listenTo(cfc);
 				exitPanel.setContent(cfc.getInitialComponent());
 				return;
@@ -1047,36 +1058,64 @@ public class QTIEditorMainController extends MainLayoutBasicController implement
 			CoordinatorManager.getInstance().getCoordinator().getLocker().releaseLock(activeSessionLock);			
 		}
 	}
+	
+	private void populateToolC() {
+		//tools
+		Dropdown editTools = new Dropdown("editTools", "tools.tools.header", false, getTranslator());
+		editTools.setIconCSS("o_icon o_icon_tools");
+		stackedPanel.addTool(editTools, Align.left);
+		
+		editTools.addComponent(previewLink);
+		exportPoolLink = LinkFactory.createToolLink(CMD_TOOLS_EXPORT_QPOOL, translate("tools.export.qpool"), this, "o_mi_qpool_export");
+		exportPoolLink.setIconLeftCSS("o_icon o_icon_download");
+		editTools.addComponent(exportPoolLink);
+		exportDocLink = LinkFactory.createToolLink(CMD_TOOLS_EXPORT_DOCX, translate("tools.export.docx"), this, "o_mi_docx_export");
+		exportDocLink.setIconLeftCSS("o_icon o_icon_download");
+		editTools.addComponent(exportDocLink);
 
-	private ToolController populateToolC() {
-		ToolController tc = ToolFactory.createToolController(getWindowControl());
-		// tools
-		tc.addHeader(translate("tools.tools.header"));
-		tc.addLink(CMD_TOOLS_PREVIEW, translate("tools.tools.preview"), CMD_TOOLS_PREVIEW, "b_toolbox_preview");
-		tc.addLink(CMD_TOOLS_EXPORT_QPOOL, translate("tools.export.qpool"), CMD_TOOLS_EXPORT_QPOOL, "o_mi_qpool_export");
-		tc.addLink(CMD_TOOLS_EXPORT_DOCX, translate("tools.export.docx"), CMD_TOOLS_EXPORT_DOCX, "o_mi_docx_export");
-		tc.addLink(CMD_TOOLS_CLOSE_EDITOR, translate("tools.tools.closeeditor"), null, "b_toolbox_close");
-		// if (!restrictedEdit) {
-		tc.addHeader(translate("tools.add.header"));
-		// adds within the qti document level
-		tc.addLink(CMD_TOOLS_ADD_QPOOL, translate("tools.import.qpool"), CMD_TOOLS_ADD_QPOOL, "o_mi_qpool_import");
-		tc.addLink(CMD_TOOLS_ADD_SECTION, translate("tools.add.section"), CMD_TOOLS_ADD_SECTION, "o_mi_qtisection");
-		// adds within a section
-		tc.addLink(CMD_TOOLS_ADD_SINGLECHOICE, translate("tools.add.singlechoice"), CMD_TOOLS_ADD_SINGLECHOICE, "o_mi_qtisc");
-		tc.addLink(CMD_TOOLS_ADD_MULTIPLECHOICE, translate("tools.add.multiplechoice"), CMD_TOOLS_ADD_MULTIPLECHOICE, "o_mi_qtimc");
-		if (!qtiPackage.getQTIDocument().isSurvey()) tc.addLink(CMD_TOOLS_ADD_KPRIM, translate("tools.add.kprim"), CMD_TOOLS_ADD_KPRIM,
-				"o_mi_qtikprim");
-		tc.addLink(CMD_TOOLS_ADD_FIB, translate("tools.add.cloze"), CMD_TOOLS_ADD_FIB, "o_mi_qtifib");
-		tc.addLink(CMD_TOOLS_ADD_FREETEXT, translate("tools.add.freetext"), CMD_TOOLS_ADD_FREETEXT, "o_mi_qtiessay");
-		// change
-		tc.addHeader(translate("tools.change.header"));
-		// change actions
-		tc.addLink(CMD_TOOLS_CHANGE_DELETE, translate("tools.change.delete"), CMD_TOOLS_CHANGE_DELETE, "b_toolbox_delete");
-		tc.addLink(CMD_TOOLS_CHANGE_MOVE, translate("tools.change.move"), CMD_TOOLS_CHANGE_MOVE, "b_toolbox_move");
-		tc.addLink(CMD_TOOLS_CHANGE_COPY, translate("tools.change.copy"), CMD_TOOLS_CHANGE_COPY, "b_toolbox_copy");
-		// }
+		//add
+		Dropdown addItemTools = new Dropdown("editTools", "tools.add.header", false, getTranslator());
+		addItemTools.setIconCSS("o_icon o_icon-fw o_icon_add");
+		stackedPanel.addTool(addItemTools, Align.left);
 
-		return tc;
+		addPoolLink = LinkFactory.createToolLink(CMD_TOOLS_ADD_QPOOL, translate("tools.import.qpool"), this, "o_mi_qpool_import");
+		addItemTools.addComponent(addPoolLink);
+		addSectionLink = LinkFactory.createToolLink(CMD_TOOLS_ADD_SECTION, translate("tools.add.section"), this, "o_mi_qtisection");
+		addItemTools.addComponent(addSectionLink);
+		addSCLink = LinkFactory.createToolLink(CMD_TOOLS_ADD_SINGLECHOICE, translate("tools.add.singlechoice"), this, "o_mi_qtisc");
+		addItemTools.addComponent(addSCLink);
+		addMCLink = LinkFactory.createToolLink(CMD_TOOLS_ADD_MULTIPLECHOICE, translate("tools.add.multiplechoice"), this, "o_mi_qtimc");
+		addItemTools.addComponent(addMCLink);
+		if (!qtiPackage.getQTIDocument().isSurvey()) {
+			addKPrimLink = LinkFactory.createToolLink(CMD_TOOLS_ADD_KPRIM, translate("tools.add.kprim"), this, "o_mi_qtikprim");
+			addItemTools.addComponent(addKPrimLink);
+		}
+		addFIBLink = LinkFactory.createToolLink(CMD_TOOLS_ADD_FIB, translate("tools.add.cloze"), this, "o_mi_qtifib");
+		addItemTools.addComponent(addFIBLink);
+		addEssayLink = LinkFactory.createToolLink(CMD_TOOLS_ADD_FREETEXT, translate("tools.add.freetext"), this, "o_mi_qtiessay");
+		addItemTools.addComponent(addEssayLink);
+		
+		// delete / move / copy 
+		Dropdown customizeTools = new Dropdown("customizeTools", "tools.change.header", false, getTranslator());
+		customizeTools.setIconCSS("o_icon o_icon_customize");
+		stackedPanel.addTool(customizeTools, Align.left);
+		
+		deleteLink = LinkFactory.createToolLink(CMD_TOOLS_CHANGE_DELETE, translate("tools.change.delete"), this);
+		deleteLink.setIconLeftCSS("o_icon o_icon_delete_item");
+		customizeTools.addComponent(deleteLink);
+		moveLink = LinkFactory.createToolLink(CMD_TOOLS_CHANGE_MOVE, translate("tools.change.move"), this);
+		moveLink.setIconLeftCSS("o_icon o_icon_move");
+		customizeTools.addComponent(moveLink);
+		copyLink = LinkFactory.createToolLink(CMD_TOOLS_CHANGE_COPY, translate("tools.change.copy"), this);
+		copyLink.setIconLeftCSS("o_icon o_icon_copy");
+		customizeTools.addComponent(copyLink);
+		
+		previewLink = LinkFactory.createToolLink(CMD_TOOLS_PREVIEW, translate("tools.tools.preview"), this);
+		previewLink.setIconLeftCSS("o_icon o_icon-fw o_icon_preview");
+		stackedPanel.addTool(previewLink, Align.right);
+		closeLink = LinkFactory.createToolLink(CMD_TOOLS_CLOSE_EDITOR, translate("tools.tools.closeeditor"), this, "o_toolbox_close");
+		closeLink.setIconLeftCSS("o_icon o_icon_publish");
+		stackedPanel.addTool(closeLink, Align.right);
 	}
 
 	/**
@@ -1109,13 +1148,13 @@ public class QTIEditorMainController extends MainLayoutBasicController implement
 		changeEmail = new ContactMessage(ureq.getIdentity());
 
 		RepositoryManager rm = RepositoryManager.getInstance();
+		RepositoryService repositoryService = CoreSpringFactory.getImpl(RepositoryService.class);
 		// the owners of this qtiPkg
 		RepositoryEntry myEntry = rm.lookupRepositoryEntry(qtiPackage.getRepresentingResourceable(), false);
-		SecurityGroup qtiPkgOwners = myEntry.getOwnerGroup();
-
+		
 		// add qti resource owners as group
 		ContactList cl = new ContactList("qtiPkgOwners");
-		cl.addAllIdentites(BaseSecurityManager.getInstance().getIdentitiesOfSecurityGroup(qtiPkgOwners));
+		cl.addAllIdentites(repositoryService.getMembers(myEntry, GroupRoles.owner.name()));
 		changeEmail.addEmailTo(cl);
 
 		StringBuilder result = new StringBuilder();
@@ -1127,11 +1166,9 @@ public class QTIEditorMainController extends MainLayoutBasicController implement
 				ICourse course = CourseFactory.loadCourse(element.getSource().getResourceableId());
 
 				// the course owners
-
 				RepositoryEntry entry = rm.lookupRepositoryEntry(course, false);
 				String courseTitle = course.getCourseTitle();
-				SecurityGroup owners = entry.getOwnerGroup();
-				List<Identity> stakeHoldersIds = BaseSecurityManager.getInstance().getIdentitiesOfSecurityGroup(owners);
+				List<Identity> stakeHoldersIds = repositoryService.getMembers(entry, GroupRoles.owner.name());
 
 				// add stakeholders as group
 				cl = new ContactList(courseTitle);
@@ -1139,18 +1176,18 @@ public class QTIEditorMainController extends MainLayoutBasicController implement
 				changeEmail.addEmailTo(cl);
 
 				StringBuilder stakeHolders = new StringBuilder();
-				User user = ((Identity) stakeHoldersIds.get(0)).getUser();
+				User user = stakeHoldersIds.get(0).getUser();
 				Locale loc = ureq.getLocale();
 				stakeHolders.append(user.getProperty(UserConstants.FIRSTNAME, loc)).append(" ").append(user.getProperty(UserConstants.LASTNAME, loc));
 				for (int i = 1; i < stakeHoldersIds.size(); i++) {
-					user = ((Identity) stakeHoldersIds.get(i)).getUser();
+					user = stakeHoldersIds.get(i).getUser();
 					stakeHolders.append(", ").append(user.getProperty(UserConstants.FIRSTNAME, loc)).append(" ").append(user.getProperty(UserConstants.LASTNAME, loc));
 				}
 
 				CourseNode cn = course.getEditorTreeModel().getCourseNode(element.getUserdata());
 				String courseNodeTitle = cn.getShortTitle();
-				result.append(translate("qti.restricted.course", courseTitle));
-				result.append(translate("qti.restricted.node", courseNodeTitle));
+				result.append(translate("qti.restricted.course", StringHelper.escapeHtml(courseTitle)));
+				result.append(translate("qti.restricted.node", StringHelper.escapeHtml(courseNodeTitle)));
 				result.append(translate("qti.restricted.owners", stakeHolders.toString()));
 			}
 		}
@@ -1173,9 +1210,7 @@ public class QTIEditorMainController extends MainLayoutBasicController implement
 				 * sectionkey+"/"+itemkey+"/"+questionkey+"/"+responsekey
 				 */
 				String sectionKey = null;
-				String itemkey = null;
-				int pos = 0;
-				Map itemMap = new HashMap();
+				Map<String,String> itemMap = new HashMap<>();
 
 				public void visit(INode node) {
 					if (node instanceof AssessmentNode) {
@@ -1183,7 +1218,7 @@ public class QTIEditorMainController extends MainLayoutBasicController implement
 						String key = "null/null/null/null";
 						if (history.containsKey(key)) {
 							// some assessment top level data changed
-							Memento mem = (Memento) history.get(key);
+							Memento mem = history.get(key);
 							result.append("---+ Changes in test " + formatVariable(startedWithTitle) + ":");
 							result.append(an.createChangeMessage(mem));
 						}
@@ -1193,7 +1228,7 @@ public class QTIEditorMainController extends MainLayoutBasicController implement
 						String key = tmpKey + "/null/null/null";
 						if (history.containsKey(key)) {
 							// some section only data changed
-							Memento mem = (Memento) history.get(key);
+							Memento mem = history.get(key);
 							result.append("\n---++ Section " + formatVariable(sn.getAltText()) + " changes:");
 							result.append(sn.createChangeMessage(mem));
 						}
@@ -1230,7 +1265,7 @@ public class QTIEditorMainController extends MainLayoutBasicController implement
 									Response resp = iter.next();
 									if (history.containsKey(prefixKey + resp.getIdent())) {
 										// this response changed!
-										Memento tmpMem = (Memento) history.get(prefixKey + resp.getIdent());
+										Memento tmpMem = history.get(prefixKey + resp.getIdent());
 										if (respMem != null) {
 											respMem = respMem.getTimestamp() > tmpMem.getTimestamp() ? tmpMem : respMem;
 										} else {

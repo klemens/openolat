@@ -49,12 +49,12 @@ public abstract class AbstractSiteInstance implements SiteInstance {
 	public abstract NavElement getNavElement();
 
 	@Override
-	public final MainLayoutController createController(UserRequest ureq, WindowControl wControl) {
+	public final Controller createController(UserRequest ureq, WindowControl wControl) {
 		SiteDefinitions siteDefinitions = CoreSpringFactory.getImpl(SiteDefinitions.class);
 		SiteConfiguration config = siteDefinitions.getConfigurationSite(siteDef);
-		if(StringHelper.containsNonWhitespace(config.getSecurityCallbackBeanId())) {
+		if(config != null && StringHelper.containsNonWhitespace(config.getSecurityCallbackBeanId())) {
 			String secCallbackBeanId = config.getSecurityCallbackBeanId();
-			Object siteSecCallback = (SiteSecurityCallback)CoreSpringFactory.getBean(secCallbackBeanId);
+			Object siteSecCallback = CoreSpringFactory.getBean(secCallbackBeanId);
 			if (siteSecCallback instanceof SiteSecurityCallback
 					&& !((SiteSecurityCallback)siteSecCallback).isAllowedToLaunchSite(ureq)) {
 				return getAlternativeController(ureq, wControl, config);
@@ -63,7 +63,7 @@ public abstract class AbstractSiteInstance implements SiteInstance {
 		return createController(ureq, wControl, config);
 	}
 	
-	protected abstract MainLayoutController createController(UserRequest ureq, WindowControl wControl, SiteConfiguration config);
+	protected abstract Controller createController(UserRequest ureq, WindowControl wControl, SiteConfiguration config);
 	
 	protected MainLayoutController getAlternativeController(UserRequest ureq, WindowControl wControl, SiteConfiguration config) {
 		String altControllerId = config.getAlternativeControllerBeanId();
@@ -75,11 +75,11 @@ public abstract class AbstractSiteInstance implements SiteInstance {
 			if(ac instanceof MainLayoutController) {
 				c = (MainLayoutController)ac;
 			} else {
-				c = new LayoutMain3ColsController(ureq, wControl, null, null, ac.getInitialComponent(), null);
+				c = new LayoutMain3ColsController(ureq, wControl, ac);
 			}
 		} else {
 			Controller ctrl = new ForbiddenCourseSiteController(ureq, wControl);			
-			c = new LayoutMain3ColsController(ureq, wControl, null, null, ctrl.getInitialComponent(), null);
+			c = new LayoutMain3ColsController(ureq, wControl, ctrl);
 		}
 		return c;
 	}

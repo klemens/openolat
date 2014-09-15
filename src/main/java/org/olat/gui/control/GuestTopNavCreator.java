@@ -33,19 +33,8 @@ import org.olat.core.gui.control.creator.AutoCreator;
  */
 public class GuestTopNavCreator extends AutoCreator {
 
-	private boolean impressum;
-	
 	@Override
 	public Controller createController(UserRequest ureq, WindowControl wControl) {
-		return new OlatGuestTopNavController(ureq, wControl, impressum);
-	}
-
-
-	public boolean isImpressum() {
-		return impressum;
-	}
-
-	public void setImpressum(boolean impressum) {
-		this.impressum = impressum;
+		return new OlatGuestTopNavController(ureq, wControl);
 	}
 }

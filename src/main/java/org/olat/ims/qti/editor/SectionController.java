@@ -112,7 +112,7 @@ public class SectionController extends FormBasicController implements TabbableCo
 		//form.section.durationswitch
 		String[] yesnoValues = new String[] { translate("yes"), translate("no") };
 		limitTimeEl = uifactory.addRadiosHorizontal("form.section.durationswitch", formLayout, yesnoKeys, yesnoValues);
-		limitTimeEl.addActionListener(this, FormEvent.ONCHANGE);
+		limitTimeEl.addActionListener(FormEvent.ONCHANGE);
 		limitTimeEl.setEnabled(!restrictedEdit);
 		
 		timeMinEl = uifactory.addIntegerElement("form.imd.time.min", 0, formLayout);
@@ -134,7 +134,7 @@ public class SectionController extends FormBasicController implements TabbableCo
 		//ordering
 		boolean random = SelectionOrdering.RANDOM.equals(section.getSelection_ordering().getOrderType());
 		shuffleEl = uifactory.addRadiosHorizontal("shuffle", "form.imd.shuffle", formLayout, yesnoKeys, yesnoValues);
-		shuffleEl.addActionListener(this, FormEvent.ONCHANGE);
+		shuffleEl.addActionListener(FormEvent.ONCHANGE);
 		shuffleEl.setEnabled(!restrictedEdit);
 		if (random) {
 			shuffleEl.select(yesnoKeys[0], true);

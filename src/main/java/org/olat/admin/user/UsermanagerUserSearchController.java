@@ -61,7 +61,7 @@ import org.olat.core.gui.components.form.flexible.impl.FormBasicController;
 import org.olat.core.gui.components.form.flexible.impl.FormEvent;
 import org.olat.core.gui.components.link.Link;
 import org.olat.core.gui.components.link.LinkFactory;
-import org.olat.core.gui.components.panel.Panel;
+import org.olat.core.gui.components.panel.StackedPanel;
 import org.olat.core.gui.components.table.Table;
 import org.olat.core.gui.components.table.TableController;
 import org.olat.core.gui.components.table.TableEvent;
@@ -97,6 +97,7 @@ import org.olat.login.auth.AuthenticationProvider;
 import org.olat.modules.co.ContactFormController;
 import org.olat.user.UserInfoMainController;
 import org.olat.user.UserManager;
+import org.olat.user.propertyhandlers.EmailProperty;
 import org.olat.user.propertyhandlers.UserPropertyHandler;
 import org.olat.util.logging.activity.LoggingResourceable;
 
@@ -119,7 +120,7 @@ public class UsermanagerUserSearchController extends BasicController implements 
 	private static final String CMD_BULKEDIT = "bulkEditUsers";
 
 	private VelocityContainer userListVC, userSearchVC, mailVC;
-	private Panel panel;
+	private StackedPanel panel;
 
 	private UsermanagerUserSearchForm searchform;
 	private TableController tableCtr;
@@ -326,7 +327,7 @@ public class UsermanagerUserSearchController extends BasicController implements 
 		OLATResourceable ores = OresHelper.createOLATResourceableInstance("table", 0l);
 		ThreadLocalUserActivityLogger.addLoggingResourceInfo(LoggingResourceable.wrapBusinessPath(ores));
 		WindowControl bwControl = addToHistory(ureq, ores, null);
-		tableCtr = ExtendedIdentitiesTableControllerFactory.createController(tdm, ureq, bwControl, actionEnabled);
+		tableCtr = ExtendedIdentitiesTableControllerFactory.createController(tdm, ureq, bwControl);
 		listenTo(tableCtr);
 		
 		if (showEmailButton) {
@@ -347,6 +348,10 @@ public class UsermanagerUserSearchController extends BasicController implements 
 		BaseSecurity secMgr = BaseSecurityManager.getInstance();
 		// get user attributes from form
 		String login = searchform.getStringValue("login");
+		// when searching for deleted users, add wildcard to match with backup prefix
+		if (searchform.getStatus().equals(Identity.STATUS_DELETED)) {
+			login = "*" + login;
+		}
 		Integer status = null;
 
 		// get user fields from form
@@ -357,6 +362,10 @@ public class UsermanagerUserSearchController extends BasicController implements 
 			FormItem ui = searchform.getItem(userPropertyHandler.getName());
 			String uiValue = userPropertyHandler.getStringValue(ui);
 			if (StringHelper.containsNonWhitespace(uiValue)) {
+				// when searching for deleted users, add wildcard to match with backup prefix
+				if (userPropertyHandler instanceof EmailProperty && searchform.getStatus().equals(Identity.STATUS_DELETED)) {
+					uiValue = "*" + uiValue;
+				}
 				userPropertiesSearch.put(userPropertyHandler.getName(), uiValue);
 			}
 		}
@@ -527,7 +536,7 @@ public class UsermanagerUserSearchController extends BasicController implements 
 
 					// create contact form controller with ContactMessage
 					removeAsListenerAndDispose(contactCtr);
-					contactCtr = new ContactFormController(ureq, getWindowControl(), false, true, false, false, cmsg);
+					contactCtr = new ContactFormController(ureq, getWindowControl(), true, false, false, cmsg);
 					listenTo(contactCtr);
 
 					mailVC.put("mailform", contactCtr.getInitialComponent());
@@ -666,13 +675,15 @@ class UsermanagerUserSearchForm extends FormBasicController {
 				Integer.toString(Identity.STATUS_VISIBLE_LIMIT),
 				Integer.toString(Identity.STATUS_ACTIV),
 				Integer.toString(Identity.STATUS_PERMANENT),
-				Integer.toString(Identity.STATUS_LOGIN_DENIED)
+				Integer.toString(Identity.STATUS_LOGIN_DENIED),
+				Integer.toString(Identity.STATUS_DELETED)
 		};
 		statusValues = new String[] {
 				translate("rightsForm.status.any.visible"),
 				translate("rightsForm.status.activ"),
 				translate("rightsForm.status.permanent"),
-				translate("rightsForm.status.login_denied")
+				translate("rightsForm.status.login_denied"),
+				translate("rightsForm.status.deleted")
 		};
 		
 		// take all providers from the config file
@@ -847,17 +858,12 @@ class UsermanagerUserSearchForm extends FormBasicController {
 
 		uifactory.addSpacerElement("space1", formLayout, false);
 		roles = uifactory.addCheckboxesVertical(
-				"roles", "search.form.title.roles", formLayout, roleKeys, roleValues,
-				null, 1
-		);
-		
-		
+				"roles", "search.form.title.roles", formLayout, roleKeys, roleValues, 1);
+
 		uifactory.addSpacerElement("space2", formLayout, false);
 		auth = uifactory.addCheckboxesVertical(
 				"auth", "search.form.title.authentications",
-				formLayout, authKeys, authValues, null, 1
-		);
-		
+				formLayout, authKeys, authValues, 1);
 		
 		uifactory.addSpacerElement("space3", formLayout, false);
 		status = uifactory.addRadiosVertical(
@@ -882,7 +888,7 @@ class UsermanagerUserSearchForm extends FormBasicController {
 		// Don't use submit button, form should not be marked as dirty since this is
 		// not a configuration form but only a search form (OLAT-5626)
 		searchButton = uifactory.addFormLink("search", formLayout, Link.BUTTON);
-		searchButton.addActionListener(this, FormEvent.ONCLICK);
+		searchButton.addActionListener(FormEvent.ONCLICK);
 		
 	}
 	

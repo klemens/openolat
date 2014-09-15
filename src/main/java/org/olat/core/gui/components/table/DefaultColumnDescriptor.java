@@ -142,15 +142,15 @@ public class DefaultColumnDescriptor implements ColumnDescriptor {
 	private void renderString(StringOutput sb, String val) {
 		switch(escapeHtml) {
 			case none:
-				sb.append((String)val);
+				sb.append(val);
 				break;
 			case html:
-				StringHelper.escapeHtml(sb, (String)val);
+				StringHelper.escapeHtml(sb, val);
 				break;
 			case antisamy:
 				sb.append(new OWASPAntiSamyXSSFilter().filter(val));
 				break;
-			default : StringHelper.escapeHtml(sb, (String)val);
+			default : StringHelper.escapeHtml(sb, val);
 		}
 	}
 
@@ -179,12 +179,14 @@ public class DefaultColumnDescriptor implements ColumnDescriptor {
 		if(a instanceof Date && b instanceof Date) {
 			return compareDateAndTimestamps((Date)a, (Date)b);
 		}
-		if (a instanceof Comparable && b instanceof Comparable) {
-			return ((Comparable)a).compareTo((Comparable)b);
-		}
-		/*if (a instanceof Boolean && b instanceof Boolean) { // faster than string compare, boolean are comparable
+		if (a instanceof Boolean && b instanceof Boolean) {
+			// faster than string compare, boolean are comparable
 			return compareBooleans((Boolean)a, (Boolean)b);
-		}*/
+		}
+		if (a instanceof Comparable && a.getClass().equals(b.getClass())) {
+			//compare the same things
+			return ((Comparable)a).compareTo(b);
+		}
 		return a.toString().compareTo(b.toString());
 	}
 	
@@ -216,12 +218,12 @@ public class DefaultColumnDescriptor implements ColumnDescriptor {
 			} else {
 				Timestamp ta = (Timestamp)a;
 				Date aAsDate = new Date(ta.getTime());
-				return aAsDate.compareTo((Date)b);
+				return aAsDate.compareTo(b);
 			}
 		} else if (b instanceof Timestamp) {
 			Timestamp tb = (Timestamp)b;
 			Date bAsDate = new Date(tb.getTime());
-			return ((Date)a).compareTo(bAsDate);
+			return a.compareTo(bAsDate);
 		}
 		return a.compareTo(b);
 	}

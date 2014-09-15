@@ -23,7 +23,7 @@ package de.bps.course.nodes;
 import java.util.List;
 
 import org.olat.core.gui.UserRequest;
-import org.olat.core.gui.components.stack.StackedController;
+import org.olat.core.gui.components.stack.BreadcrumbPanel;
 import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.WindowControl;
 import org.olat.core.gui.control.generic.tabbable.TabbableController;
@@ -101,7 +101,7 @@ public class VCCourseNode extends AbstractAccessableCourseNode {
 	}
 
 	@Override
-	public TabbableController createEditController(UserRequest ureq, WindowControl wControl, StackedController stackPanel, ICourse course,
+	public TabbableController createEditController(UserRequest ureq, WindowControl wControl, BreadcrumbPanel stackPanel, ICourse course,
 			UserCourseEnvironment userCourseEnv) {
 		updateModuleConfigDefaults(false);
 		CourseNode chosenNode = course.getEditorTreeModel().getCourseNode(userCourseEnv.getCourseEditorEnv().getCurrentCourseNodeId());
@@ -125,8 +125,8 @@ public class VCCourseNode extends AbstractAccessableCourseNode {
 			childTabCntrllr = new NoProviderController(ureq, wControl);
 		}
 		
-		NodeEditController nodeEditCtr = new NodeEditController(ureq, wControl, course.getEditorTreeModel(), course, chosenNode, course.getCourseEnvironment()
-				.getCourseGroupManager(), userCourseEnv, childTabCntrllr);
+		NodeEditController nodeEditCtr = new NodeEditController(ureq, wControl, course.getEditorTreeModel(), course, chosenNode,
+				userCourseEnv, childTabCntrllr);
 		nodeEditCtr.addControllerListener(childTabCntrllr);
 		return nodeEditCtr;
 	}
@@ -147,7 +147,7 @@ public class VCCourseNode extends AbstractAccessableCourseNode {
 				if (re != null) {
 					moderator = rm.isOwnerOfRepositoryEntry(ureq.getIdentity(), re);
 					if(!moderator) {
-						moderator = rm.isInstitutionalRessourceManagerFor(re, ureq.getIdentity());
+						moderator = rm.isInstitutionalRessourceManagerFor(ureq.getIdentity(), ureq.getUserSession().getRoles(), re);
 					}
 				}
 			}

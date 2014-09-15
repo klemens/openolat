@@ -32,9 +32,10 @@ import java.util.List;
 import java.util.Locale;
 import java.util.zip.ZipOutputStream;
 
-import org.olat.basesecurity.BaseSecurityManager;
+import org.olat.core.commons.services.notifications.NotificationsManager;
+import org.olat.core.commons.services.notifications.SubscriptionContext;
 import org.olat.core.gui.UserRequest;
-import org.olat.core.gui.components.stack.StackedController;
+import org.olat.core.gui.components.stack.BreadcrumbPanel;
 import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.WindowControl;
 import org.olat.core.gui.control.generic.messages.MessageUIFactory;
@@ -46,8 +47,6 @@ import org.olat.core.logging.Tracing;
 import org.olat.core.util.Formatter;
 import org.olat.core.util.StringHelper;
 import org.olat.core.util.Util;
-import org.olat.core.util.notifications.NotificationsManager;
-import org.olat.core.util.notifications.SubscriptionContext;
 import org.olat.core.util.vfs.VFSContainer;
 import org.olat.course.ICourse;
 import org.olat.course.condition.Condition;
@@ -58,10 +57,10 @@ import org.olat.course.editor.StatusDescription;
 import org.olat.course.export.CourseEnvironmentMapper;
 import org.olat.course.nodes.wiki.WikiEditController;
 import org.olat.course.nodes.wiki.WikiRunController;
-import org.olat.course.repository.ImportReferencesController;
 import org.olat.course.run.navigation.NodeRunConstructionResult;
 import org.olat.course.run.userview.NodeEvaluation;
 import org.olat.course.run.userview.UserCourseEnvironment;
+import org.olat.fileresource.types.WikiResource;
 import org.olat.modules.ModuleConfiguration;
 import org.olat.modules.wiki.Wiki;
 import org.olat.modules.wiki.WikiManager;
@@ -69,6 +68,8 @@ import org.olat.modules.wiki.WikiToZipUtils;
 import org.olat.repository.RepositoryEntry;
 import org.olat.repository.RepositoryEntryImportExport;
 import org.olat.repository.RepositoryManager;
+import org.olat.repository.handlers.RepositoryHandler;
+import org.olat.repository.handlers.RepositoryHandlerFactory;
 
 /**
  * Description: <br>
@@ -112,36 +113,25 @@ public class WikiCourseNode extends AbstractAccessableCourseNode {
 		postExportCondition(preConditionEdit, envMapper, backwardsCompatible);
 	}
 
-	/**
-	 * @see org.olat.course.nodes.CourseNode#createEditController(org.olat.core.gui.UserRequest,
-	 *      org.olat.core.gui.control.WindowControl, org.olat.course.ICourse)
-	 */
-	public TabbableController createEditController(UserRequest ureq, WindowControl wControl, StackedController stackPanel, ICourse course,UserCourseEnvironment euce) {
+	@Override
+	public TabbableController createEditController(UserRequest ureq, WindowControl wControl, BreadcrumbPanel stackPanel, ICourse course,UserCourseEnvironment euce) {
 		WikiEditController childTabCntrllr = new WikiEditController(getModuleConfiguration(), ureq, wControl, this, course,euce);
 		CourseNode chosenNode = course.getEditorTreeModel().getCourseNode(euce.getCourseEditorEnv().getCurrentCourseNodeId());
-		return new NodeEditController(ureq, wControl, course.getEditorTreeModel(), course, chosenNode, course.getCourseEnvironment()
-				.getCourseGroupManager(), euce, childTabCntrllr);
+		return new NodeEditController(ureq, wControl, course.getEditorTreeModel(), course, chosenNode, euce, childTabCntrllr);
 
 	}
 
-	/**
-	 * @see org.olat.course.nodes.CourseNode#createNodeRunConstructionResult(org.olat.core.gui.UserRequest,
-	 *      org.olat.core.gui.control.WindowControl,
-	 *      org.olat.course.run.userview.UserCourseEnvironment,
-	 *      org.olat.course.run.userview.NodeEvaluation)
-	 */
+	@Override
 	public NodeRunConstructionResult createNodeRunConstructionResult(UserRequest ureq, WindowControl wControl, UserCourseEnvironment userCourseEnv, NodeEvaluation ne, String nodecmd) {
 		if(ne.isCapabilityAccessible("access")) {
 			WikiRunController wikiController = new WikiRunController(wControl, ureq, this, userCourseEnv.getCourseEnvironment(), ne);
-			return new NodeRunConstructionResult(wikiController);
+			return wikiController.createNodeRunConstructionResult();
 		}
 		Controller controller = MessageUIFactory.createInfoMessage(ureq, wControl, null, this.getNoAccessExplanation());
-		return new NodeRunConstructionResult(controller, null, null, null);
+		return new NodeRunConstructionResult(controller);
 	}
 
-	/**
-	 * @see org.olat.course.nodes.CourseNode#isConfigValid()
-	 */
+	@Override
 	public StatusDescription isConfigValid() {
 		/*
 		 * first check the one click cache
@@ -165,10 +155,7 @@ public class WikiCourseNode extends AbstractAccessableCourseNode {
 		return sd;
 	}
 
-
-	/**
-	 * @see org.olat.course.nodes.CourseNode#isConfigValid(org.olat.course.run.userview.UserCourseEnvironment)
-	 */
+	@Override
 	public StatusDescription[] isConfigValid(CourseEditorEnv cev) {
 		oneClickStatusCache = null;
 		//only here we know which translator to take for translating condition error messages
@@ -177,11 +164,8 @@ public class WikiCourseNode extends AbstractAccessableCourseNode {
 		oneClickStatusCache = StatusDescriptionHelper.sort(sds);
 		return oneClickStatusCache;
 	}
-	
-	
-	/**
-	 * @see org.olat.course.nodes.CourseNode#getReferencedRepositoryEntry()
-	 */
+
+	@Override
 	public RepositoryEntry getReferencedRepositoryEntry() {
 		//"false" because we do not want to be strict, but just indicate whether
 		// the reference still exists or not
@@ -189,17 +173,13 @@ public class WikiCourseNode extends AbstractAccessableCourseNode {
 		return entry;
 	}
 
-	/**
-	 * @see org.olat.course.nodes.CourseNode#needsReferenceToARepositoryEntry()
-	 */
+	@Override
 	public boolean needsReferenceToARepositoryEntry() {
 		//wiki is a repo entry
 		return true;
 	}
-	
-	/**
-	 * @see org.olat.course.nodes.GenericCourseNode#exportNode(File, ICourse)
-	 */
+
+	@Override
 	public void exportNode(File exportDirectory, ICourse course) {
 		RepositoryEntry re = WikiEditController.getWikiReference(getModuleConfiguration(), false);
 		if (re == null) return;
@@ -208,24 +188,15 @@ public class WikiCourseNode extends AbstractAccessableCourseNode {
 		RepositoryEntryImportExport reie = new RepositoryEntryImportExport(re, fExportDirectory);
 		reie.exportDoExport();
 	}
-	
-	
 
-	/**
-	 * @see org.olat.course.nodes.GenericCourseNode#importNode(File, ICourse, boolean, UserRequest, WindowControl)
-	 */
-	public Controller importNode(File importDirectory, ICourse course, boolean unattendedImport, UserRequest ureq, WindowControl wControl) {
-		File importSubdir = new File(importDirectory, getIdent());
-		RepositoryEntryImportExport rie = new RepositoryEntryImportExport(importSubdir);
-		if (!rie.anyExportedPropertiesAvailable()) return null;
-
-		// do import referenced repository entries
-		if (unattendedImport) {
-			Identity admin = BaseSecurityManager.getInstance().findIdentityByName("administrator");
-			ImportReferencesController.doImport(rie, this, ImportReferencesController.IMPORT_WIKI ,true, admin);
-			return null;
-		} else {
-			return new ImportReferencesController(ureq, wControl, this, ImportReferencesController.IMPORT_WIKI,rie);
+	@Override
+	public void importNode(File importDirectory, ICourse course, Identity owner, Locale locale) {
+		RepositoryEntryImportExport rie = new RepositoryEntryImportExport(importDirectory, getIdent());
+		if(rie.anyExportedPropertiesAvailable()) {
+			RepositoryHandler handler = RepositoryHandlerFactory.getInstance().getRepositoryHandler(WikiResource.TYPE_NAME);
+			RepositoryEntry re = handler.importResource(owner, rie.getInitialAuthor(), rie.getDisplayName(),
+				rie.getDescription(), false, locale, rie.importGetExportedFile(), null);
+			WikiEditController.setWikiRepoReference(re, getModuleConfiguration());
 		}
 	}
 
@@ -283,19 +254,19 @@ public class WikiCourseNode extends AbstractAccessableCourseNode {
 	 * 
 	 * @see org.olat.course.nodes.GenericCourseNode#calcAccessAndVisibility(org.olat.course.condition.interpreter.ConditionInterpreter, org.olat.course.run.userview.NodeEvaluation)
 	 */
+	@Override
 	protected void calcAccessAndVisibility(ConditionInterpreter ci, NodeEvaluation nodeEval) {
 	  super.calcAccessAndVisibility(ci, nodeEval);
 		
 	  boolean editor = (getPreConditionEdit().getConditionExpression() == null ? true : ci.evaluateCondition(getPreConditionEdit()));
 		nodeEval.putAccessStatus("editarticle", editor);		
 	}
-		
-	
+
+	@Override
 	public void cleanupOnDelete(ICourse course) {
 		// mark the subscription to this node as deleted
 		SubscriptionContext subsContext = WikiManager.createTechnicalSubscriptionContextForCourse(course.getCourseEnvironment(), this);
 		NotificationsManager.getInstance().delete(subsContext);
 	
 	}
-
 }

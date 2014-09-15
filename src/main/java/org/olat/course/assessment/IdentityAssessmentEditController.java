@@ -32,8 +32,8 @@ import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.Component;
 import org.olat.core.gui.components.link.Link;
 import org.olat.core.gui.components.link.LinkFactory;
-import org.olat.core.gui.components.panel.Panel;
-import org.olat.core.gui.components.stack.StackedController;
+import org.olat.core.gui.components.panel.StackedPanel;
+import org.olat.core.gui.components.stack.BreadcrumbPanel;
 import org.olat.core.gui.components.velocity.VelocityContainer;
 import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.Event;
@@ -70,16 +70,16 @@ import org.olat.course.run.userview.UserCourseEnvironment;
 public class IdentityAssessmentEditController extends BasicController {
 	
 	private boolean mayEdit;
-	private VelocityContainer identityOverviewVC;
-	private Panel main;
+	private final VelocityContainer identityAssessmentVC;
+	private StackedPanel main;
 	private AssessmentEditController assessmentEditCtr;
 	private IdentityAssessmentOverviewController assessmentOverviewCtr;
 	private UserCourseEnvironment assessedUserCourseEnvironment;
 	private Link backLink;
-	private final StackedController stackPanel;
+	private final BreadcrumbPanel stackPanel;
+	private final AssessedIdentityInfosController identityInfosCtrl;
 	
 	private OLATResourceable ores;
-	private final boolean headers;
 
 	/**
 	 * Constructor for the identity assessment overview controller
@@ -89,23 +89,30 @@ public class IdentityAssessmentEditController extends BasicController {
 	 * @param course
 	 * @param mayEdit true: user may edit the assessment, false: readonly view (user view)
 	 */
-	public IdentityAssessmentEditController(WindowControl wControl, UserRequest ureq, StackedController stackPanel,
+	public IdentityAssessmentEditController(WindowControl wControl, UserRequest ureq, BreadcrumbPanel stackPanel,
 			Identity assessedIdentity, ICourse course, boolean mayEdit) {
 		this(wControl, ureq, stackPanel, assessedIdentity, course, mayEdit, true); 
 	}
 		
-	public IdentityAssessmentEditController(WindowControl wControl, UserRequest ureq, StackedController stackPanel,
+	public IdentityAssessmentEditController(WindowControl wControl, UserRequest ureq, BreadcrumbPanel stackPanel,
 			Identity assessedIdentity, ICourse course, boolean mayEdit, boolean headers) {
 
 		super(ureq, wControl);
 		this.stackPanel = stackPanel;
 		this.mayEdit = mayEdit;
-		main = new Panel("main");
 		assessedUserCourseEnvironment = AssessmentHelper.createAndInitUserCourseEnvironment(assessedIdentity, course);
 		this.ores = OresHelper.clone(course);
-		this.headers = headers;
-		doIdentityAssessmentOverview(ureq, true);		
-		putInitialPanel(main);
+
+		identityAssessmentVC = createVelocityContainer("identityassessment");
+		if(headers) {
+			backLink = LinkFactory.createLinkBack(identityAssessmentVC, this);
+			identityAssessmentVC.contextPut("user", assessedIdentity.getUser());
+		}
+		main = putInitialPanel(identityAssessmentVC);
+		
+		identityInfosCtrl = new AssessedIdentityInfosController(ureq, wControl, assessedIdentity);
+		identityAssessmentVC.put("identityInfos", identityInfosCtrl.getInitialComponent());
+		doIdentityAssessmentOverview(ureq, true);
 		
 		BusinessControl bc = getWindowControl().getBusinessControl();
 		ContextEntry ce = bc.popLauncherContextEntry();
@@ -147,28 +154,22 @@ public class IdentityAssessmentEditController extends BasicController {
 			} else if (event.equals(Event.CHANGED_EVENT)) {
 				doIdentityAssessmentOverview(ureq, true);
 				fireEvent(ureq, Event.CHANGED_EVENT);
+			} else if (event.equals(Event.DONE_EVENT)) {
+				doIdentityAssessmentOverview(ureq, true);
+				fireEvent(ureq, Event.DONE_EVENT);
 			}
 		}
 	}
 
 	private void doIdentityAssessmentOverview(UserRequest ureq, boolean initTable) {
-		if (identityOverviewVC == null) {
-			identityOverviewVC = createVelocityContainer("identityoverview");
-			
-			if(headers) {
-				backLink = LinkFactory.createLinkBack(identityOverviewVC, this);
-				Identity assessedIdentity = assessedUserCourseEnvironment.getIdentityEnvironment().getIdentity();
-				identityOverviewVC.contextPut("user", assessedIdentity.getUser());
-			}
-		}
 		if (initTable) {
 			assessedUserCourseEnvironment.getScoreAccounting().evaluateAll();
 			assessmentOverviewCtr = new IdentityAssessmentOverviewController(ureq, getWindowControl(), 
 					assessedUserCourseEnvironment, mayEdit, false, true);			
 			listenTo(assessmentOverviewCtr);
-			identityOverviewVC.put("assessmentOverviewTable", assessmentOverviewCtr.getInitialComponent());
+			identityAssessmentVC.put("assessmentOverviewTable", assessmentOverviewCtr.getInitialComponent());
 		}
-		main.setContent(identityOverviewVC);
+		main.setContent(identityAssessmentVC);
 	}
 
 	
@@ -178,7 +179,7 @@ public class IdentityAssessmentEditController extends BasicController {
 			UserCourseInformationsManager userCourseInformationsManager = CoreSpringFactory.getImpl(UserCourseInformationsManager.class);
 			Date initialLaunchDate = userCourseInformationsManager.getInitialLaunchDate(ores.getResourceableId(),  assessedUserCourseEnvironment.getIdentityEnvironment().getIdentity());
 			AssessedIdentityWrapper assessedIdentityWrapper = AssessmentHelper.wrapIdentity(assessedUserCourseEnvironment, initialLaunchDate, courseNode);
-			assessmentEditCtr = new AssessmentEditController(ureq, getWindowControl(), stackPanel, course, courseNode, assessedIdentityWrapper);			
+			assessmentEditCtr = new AssessmentEditController(ureq, getWindowControl(), stackPanel, course, courseNode, assessedIdentityWrapper, true, false);			
 			listenTo(assessmentEditCtr);
 			main.setContent(assessmentEditCtr.getInitialComponent());
 		} else {

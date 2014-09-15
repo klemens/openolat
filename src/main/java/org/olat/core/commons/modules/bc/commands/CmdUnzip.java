@@ -35,6 +35,8 @@ import org.olat.core.commons.modules.bc.FolderConfig;
 import org.olat.core.commons.modules.bc.components.FolderComponent;
 import org.olat.core.commons.modules.bc.meta.MetaInfo;
 import org.olat.core.commons.modules.bc.meta.tagged.MetaTagged;
+import org.olat.core.commons.services.notifications.NotificationsManager;
+import org.olat.core.commons.services.notifications.SubscriptionContext;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.Component;
 import org.olat.core.gui.control.Controller;
@@ -53,6 +55,7 @@ import org.olat.core.util.vfs.VFSContainer;
 import org.olat.core.util.vfs.VFSItem;
 import org.olat.core.util.vfs.VFSLeaf;
 import org.olat.core.util.vfs.VFSManager;
+import org.olat.core.util.vfs.callbacks.VFSSecurityCallback;
 
 public class CmdUnzip extends BasicController implements FolderCommand {
 
@@ -64,7 +67,6 @@ public class CmdUnzip extends BasicController implements FolderCommand {
 	public CmdUnzip(UserRequest ureq, WindowControl wControl) {
 		super(ureq, wControl);
 	}
-	
 	
 	public Controller execute(FolderComponent folderComponent, UserRequest ureq, WindowControl wContr, Translator trans) {
 		this.translator = trans;
@@ -119,6 +121,17 @@ public class CmdUnzip extends BasicController implements FolderCommand {
 			if (fileNotExist) {
 				status = FolderCommandStatus.STATUS_FAILED;
 				getWindowControl().setError(translator.translate("FileDoesNotExist"));
+			}
+			
+			VFSContainer inheritingCont = VFSManager.findInheritingSecurityCallbackContainer(folderComponent.getRootContainer());
+			if(inheritingCont != null) {
+				VFSSecurityCallback secCallback = inheritingCont.getLocalSecurityCallback();
+				if(secCallback != null) {
+					SubscriptionContext subsContext = secCallback.getSubscriptionContext();
+					if (subsContext != null) {
+						NotificationsManager.getInstance().markPublisherNews(subsContext, ureq.getIdentity(), true);
+					}
+				}
 			}
 		} catch (IllegalArgumentException e) {
 			logError("Corrupted ZIP", e);
@@ -199,14 +212,22 @@ public class CmdUnzip extends BasicController implements FolderCommand {
 		}
 		return true;
 	}
-	
+
+	@Override
 	public int getStatus() {
 		return status;
 	}
 
+	@Override
 	public boolean runsModal() {
 		return false;
 	}
+	
+	@Override
+	public String getModalTitle() {
+		return null;
+	}
+
 
 	@Override
 	protected void doDispose() {

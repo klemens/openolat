@@ -25,11 +25,8 @@
 
 package org.olat.course.tree;
 
-import java.util.List;
-
 import org.olat.core.gui.components.tree.GenericTreeNode;
 import org.olat.core.util.nodes.INode;
-import org.olat.course.condition.interpreter.ConditionExpression;
 import org.olat.course.editor.StatusDescription;
 import org.olat.course.nodes.CourseNode;
 import org.olat.course.nodes.CourseNodeConfiguration;
@@ -107,58 +104,47 @@ public class CourseEditorTreeNode extends GenericTreeNode {
 	public void setAltText(String altText) {
 		throw new UnsupportedOperationException("alttext is given by associated coursenode's longtitle");
 	}
-
-	/**
-	 * @see org.olat.core.gui.components.tree.GenericTreeNode#setImageURI(java.lang.String)
-	 */
-	public void setImageURI(String imageURI) {
-		throw new UnsupportedOperationException("imageuri is calculated by associated coursenode's type");
-	}
-
+	
 	/**
 	 * @see org.olat.core.gui.components.tree.TreeNode#getCssClass()
 	 */
 	public String getCssClass() {
-		if (deleted) return "b_deleted";
+		if (deleted) {
+			return "o_deleted";
+		}
 		return null;
 	}
 
 	/**
 	 * @see org.olat.core.gui.components.tree.TreeNode#getIconCssClass()
 	 */
+	@Override
 	public String getIconCssClass() {
-		CourseNodeConfiguration cnConfig = CourseNodeFactory.getInstance().getCourseNodeConfigurationEvenForDisabledBB(cn.getType());
-		return cnConfig.getIconCSSClass();
+		if (getParent() == null) {
+			// Spacial case for root node
+			return "o_CourseModule_icon";
+		} else {
+			CourseNodeConfiguration cnConfig = CourseNodeFactory.getInstance().getCourseNodeConfigurationEvenForDisabledBB(cn.getType());
+			return cnConfig.getIconCSSClass();
+		}
 	}
 
-	/**
-	 * @see org.olat.core.gui.components.tree.TreeNode#getIconDecorator1CssClass()
-	 */
+	@Override
 	public String getIconDecorator1CssClass() {
-		// no decoration top-left
-		return null;
-	}
-
-	/**
-	 * @see org.olat.core.gui.components.tree.TreeNode#getIconDecorator2CssClass()
-	 */
-	public String getIconDecorator2CssClass() {
-		//top-right
-		
 		StatusDescription sd = cn.isConfigValid();
-		//this one is deleted
-		if (deleted) return "o_middel";
-		//errors!
-		if (sd.isError()) return "o_miderr";
-		//ready for publish
-		if (!sd.isError() && dirty) return "o_midpub";
-		//instead of >>if(hasPublishableChanges()) return "o_midpub";<< because
-		return null;
+		
+		String cssClass = null;
+		if (deleted) {
+			cssClass = "o_middel";
+		} else if (sd.isError()) {
+			cssClass = "o_miderr";
+		} else if (!sd.isError() && dirty) {
+			cssClass = "o_midpub";
+		}
+		return cssClass;
 	}
 
-	/**
-	 * @see org.olat.core.gui.components.tree.TreeNode#getIconDecorator3CssClass()
-	 */
+	@Override
 	public String getIconDecorator3CssClass() {
 		//do not show errors if marked for deletion
 		if(deleted) return null;
@@ -169,16 +155,16 @@ public class CourseEditorTreeNode extends GenericTreeNode {
 		return null;
 	}
 
-	/**
-	 * @see org.olat.core.gui.components.tree.TreeNode#getIconDecorator4CssClass()
-	 */
-	public String getIconDecorator4CssClass() {
+	@Override
+	public String getIconDecorator2CssClass() {
 		//do not show errors if marked for deletion
-		if(deleted) return null;
-		//
-		List<ConditionExpression> conditions = cn.getConditionExpressions();
-		if (conditions.size() > 0) return "o_midlock";
-		return null;
+		String cssClass = null;
+		if(deleted) {
+			cssClass = null;
+		} else if(cn.getConditionExpressions().size() > 0) {
+			cssClass = "o_midlock";
+		}
+		return cssClass;
 	}
 
 	/**
@@ -313,5 +299,4 @@ public class CourseEditorTreeNode extends GenericTreeNode {
 			}
 		}
 	}
-
 }

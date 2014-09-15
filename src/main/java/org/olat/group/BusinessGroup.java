@@ -27,7 +27,7 @@ package org.olat.group;
 
 import java.util.Date;
 
-import org.olat.basesecurity.SecurityGroup;
+import org.olat.basesecurity.Group;
 import org.olat.core.id.CreateInfo;
 import org.olat.core.id.ModifiedInfo;
 import org.olat.core.id.OLATResourceable;
@@ -49,11 +49,6 @@ public interface BusinessGroup extends BusinessGroupShort, Persistable, CreateIn
 	
 	/** the max length for the group name.*/
 	public static final int MAX_GROUP_NAME_LENGTH = 255;
-
-	/**
-	 * @return The group type identification
-	 */
-	public String getType();
 
 	/**
 	 * @return The group display name (not system unique)
@@ -114,32 +109,41 @@ public interface BusinessGroup extends BusinessGroupShort, Persistable, CreateIn
 	 * @return The associated resource
 	 */
 	public OLATResource getResource();
-
-	/**
-	 * The BusinessGroup has 1..n Owners acting as <i>administrators </i>.
-	 * 
-	 * @return the owners
-	 */
-	SecurityGroup getOwnerGroup();
-
-	/**
-	 * The BusinessGroup has 0..n Partipiciants.
-	 * 
-	 * @return the partipiciants
-	 */
-	SecurityGroup getPartipiciantGroup();
-
-	/**
-	 * The BusinessGroup has 0..n people in the waiting group.
-	 * 
-	 * @return the waiting group
-	 */
-	public SecurityGroup getWaitingGroup();
+	
+	public Group getBaseGroup();
 
 	/**
 	 * @return last usage of this group
 	 */
 	public Date getLastUsage();
+	
+	public boolean isOwnersVisibleIntern();
+
+	public void setOwnersVisibleIntern(boolean visible);
+
+	public boolean isParticipantsVisibleIntern();
+
+	public void setParticipantsVisibleIntern(boolean visible);
+
+	public boolean isWaitingListVisibleIntern();
+
+	public void setWaitingListVisibleIntern(boolean visible);
+
+	public boolean isOwnersVisiblePublic();
+
+	public void setOwnersVisiblePublic(boolean visible);
+
+	public boolean isParticipantsVisiblePublic();
+
+	public void setParticipantsVisiblePublic(boolean visible);
+
+	public boolean isWaitingListVisiblePublic();
+
+	public void setWaitingListVisiblePublic(boolean visible);
+
+	public boolean isDownloadMembersLists();
+
+	public void setDownloadMembersLists(boolean downloadMembersLists);
 
 	/**
 	 * @return the maximal number of participants
@@ -180,10 +184,4 @@ public interface BusinessGroup extends BusinessGroupShort, Persistable, CreateIn
 	 * @param waitinglistEnabled  true: enable waiting list.
 	 */	
 	public void setWaitingListEnabled(Boolean waitingListEnabled);
-
-	/**
-	 * @param waitingGroup  New waiting group.
-	 */	
-	public void setWaitingGroup(SecurityGroup waitingGroup);
-	
 }

@@ -156,7 +156,7 @@ public class SelectionController extends BasicController {
 				TableEvent te = (TableEvent) event;
 				if (te.getActionId().equals(ACTION_SINGLESELECT_CHOOSE)) {
 					int rowid = te.getRowId();
-					UserDeletionManager.getInstance().setIdentityAsActiv( (Identity) tdm.getObject(rowid) );
+					UserDeletionManager.getInstance().setIdentityAsActiv( tdm.getObject(rowid) );
 				}
 			} else if (event.getCommand().equals(Table.COMMAND_MULTISELECT)) {
 				TableMultiSelectEvent tmse = (TableMultiSelectEvent) event;
@@ -203,11 +203,12 @@ public class SelectionController extends BasicController {
 		if (identities.size() > 0) {
 			selectedIdentities = identities;
 			MailTemplate deleteMailTemplate = createMailTemplate(translate(KEY_EMAIL_SUBJECT), translate(KEY_EMAIL_BODY));
+			deleteMailTemplate.setCpfrom(Boolean.FALSE);
 			deleteMailTemplate.addToContext("lastloginduration",   Integer.toString(UserDeletionManager.getInstance().getLastLoginDuration() ));
 			deleteMailTemplate.addToContext("durationdeleteemail", Integer.toString(UserDeletionManager.getInstance().getDeleteEmailDuration() ));
 
 			removeAsListenerAndDispose(deleteUserMailCtr);
-			deleteUserMailCtr = new MailNotificationEditController(getWindowControl(), ureq, deleteMailTemplate, true, false);
+			deleteUserMailCtr = new MailNotificationEditController(getWindowControl(), ureq, deleteMailTemplate, true, false, false);
 			listenTo(deleteUserMailCtr);
 			
 			removeAsListenerAndDispose(cmc);

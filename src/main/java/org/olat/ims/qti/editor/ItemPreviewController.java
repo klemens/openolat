@@ -29,7 +29,7 @@ import org.dom4j.DocumentFactory;
 import org.dom4j.Element;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.Component;
-import org.olat.core.gui.components.panel.Panel;
+import org.olat.core.gui.components.panel.SimpleStackedPanel;
 import org.olat.core.gui.components.tabbedpane.TabbedPaneChangedEvent;
 import org.olat.core.gui.components.velocity.VelocityContainer;
 import org.olat.core.gui.control.ControllerEventListener;
@@ -37,6 +37,7 @@ import org.olat.core.gui.control.DefaultController;
 import org.olat.core.gui.control.Event;
 import org.olat.core.gui.control.WindowControl;
 import org.olat.core.gui.translator.Translator;
+import org.olat.core.helpers.Settings;
 import org.olat.core.logging.OLog;
 import org.olat.core.logging.Tracing;
 import org.olat.core.util.Formatter;
@@ -53,15 +54,11 @@ import org.olat.ims.qti.editor.beecom.objects.Item;
  */
 public class ItemPreviewController extends DefaultController implements ControllerEventListener {
 	private static final OLog log = Tracing.createLoggerFor(ItemPreviewController.class);
-	
-	/*
-	 * Logging, Velocity
-	 */
-	private static final String PACKAGE = Util.getPackageName(ItemPreviewController.class);
-	private static final String VC_ROOT = Util.getPackageVelocityRoot(PACKAGE);
+	private static final String VC_ROOT = Util.getPackageVelocityRoot(ItemPreviewController.class);
 
-	private Panel mainPanel;
 	private VelocityContainer main;
+	private SimpleStackedPanel mainPanel;
+	
 	private final Item item;
 	private final String mediaBaseUrl;
 	private RenderInstructions renderInstructions;
@@ -80,13 +77,16 @@ public class ItemPreviewController extends DefaultController implements Controll
 		this.item = item;
 		this.mediaBaseUrl = mediaBaseUrl;
 		renderInstructions = new RenderInstructions();
+		if(mediaBaseUrl != null && !mediaBaseUrl.startsWith("http")) {
+			mediaBaseUrl = Settings.createServerURI() + mediaBaseUrl;
+		}
 		renderInstructions.put(RenderInstructions.KEY_STATICS_PATH, mediaBaseUrl + "/");
 		renderInstructions.put(RenderInstructions.KEY_LOCALE, translator.getLocale());
 		renderInstructions.put(RenderInstructions.KEY_RENDER_TITLE, Boolean.TRUE);
 		
 		main = new VelocityContainer("vcItemPreview", VC_ROOT + "/tab_itemPreview.html", translator, this);
 		main.contextPut("itemPreview", getQuestionPreview(item));
-		mainPanel = new Panel("itemPreviewPanel");
+		mainPanel = new SimpleStackedPanel("itemPreviewPanel");
 		mainPanel.setContent(main);
 		setInitialComponent(mainPanel);
 	}
@@ -95,10 +95,13 @@ public class ItemPreviewController extends DefaultController implements Controll
 	 * @see org.olat.core.gui.control.DefaultController#event(org.olat.core.gui.UserRequest,
 	 *      org.olat.core.gui.components.Component, org.olat.core.gui.control.Event)
 	 */
+	@Override
 	public void event(UserRequest ureq, Component source, Event event) {
 		if (event instanceof TabbedPaneChangedEvent) {
 			TabbedPaneChangedEvent tpcEvent = (TabbedPaneChangedEvent) event;
-			if (tpcEvent.getNewComponent() == mainPanel) main.contextPut("itemPreview", getQuestionPreview(item));
+			if (tpcEvent.getNewComponent() == mainPanel) {
+				main.contextPut("itemPreview", getQuestionPreview(item));
+			}
 		}
 	}
 

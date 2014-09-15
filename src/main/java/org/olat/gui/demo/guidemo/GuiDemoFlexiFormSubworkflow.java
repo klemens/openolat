@@ -167,7 +167,6 @@ public class GuiDemoFlexiFormSubworkflow extends FormBasicController {
 		// Example3: Set a context help link
 		setFormContextHelp("org.olat.core.commons.modules.bc", "bc-webdav.html", "guidemo_flexi_form_withchooser.helphover");		
 		
-		final int defaultDisplaySize = 32;
 		final boolean inputMode = !personData.isReadOnly();
 		
 		firstName = uifactory.addTextElement("firstname", "guidemo.flexi.form.firstname", 256, personData.getFirstName(), formLayout);
@@ -193,7 +192,7 @@ public class GuiDemoFlexiFormSubworkflow extends FormBasicController {
 		institution = uifactory.addTextElement("institution", null, 256, personData.getInstitution(), horizontalLayout);
 		institution.setEnabled(false);
 		
-		choose = uifactory.addFormLink("choose", horizontalLayout,"b_form_genericchooser");
+		choose = uifactory.addFormLink("choose", horizontalLayout);
 		
 		if (inputMode) {
 			// submit only if in input mode
@@ -244,7 +243,7 @@ public class GuiDemoFlexiFormSubworkflow extends FormBasicController {
 				entrySelector.select(selection, true);
 			}
 			//on click do something -> see the formInnerEvent method
-			entrySelector.addActionListener(this, FormEvent.ONCLICK);
+			entrySelector.addActionListener(FormEvent.ONCLICK);
 			
 		}
 		

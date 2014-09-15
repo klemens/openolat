@@ -83,11 +83,6 @@ public class NodeConfigFormController extends FormBasicController {
 	private SingleSelection displayOptions;
 	
 	/**
-	 * Decides whether to show a <i>cancel</i> button.
-	 */
-	private boolean withCancel;
-	
-	/**
 	 * Initializes this controller.
 	 * 
 	 * @param ureq The user request.
@@ -95,9 +90,8 @@ public class NodeConfigFormController extends FormBasicController {
 	 * @param courseNode The course node this controller will access.
 	 * @param withCancel Decides whether to show a <i>cancel</i> button.
 	 */
-	public NodeConfigFormController(UserRequest ureq, WindowControl wControl, CourseNode courseNode, boolean withCancel) {
+	public NodeConfigFormController(UserRequest ureq, WindowControl wControl, CourseNode courseNode) {
 		super(ureq, wControl, FormBasicController.LAYOUT_DEFAULT);
-		this.withCancel = withCancel;
 		menuTitle = Formatter.truncate(courseNode.getShortTitle(), SHORT_TITLE_MAX_LENGTH);
 		displayTitle = courseNode.getLongTitle();
 		learningObjectives = courseNode.getLearningObjectives();
@@ -146,11 +140,13 @@ public class NodeConfigFormController extends FormBasicController {
 	protected void initForm(FormItemContainer formLayout, Controller listener, UserRequest ureq) {
 		// add the short title text input element
 		shortTitle = uifactory.addTextElement("nodeConfigForm.menutitle", "nodeConfigForm.menutitle", SHORT_TITLE_MAX_LENGTH, (menuTitle == null ? "": menuTitle), formLayout);
+		shortTitle.setElementCssClass("o_sel_node_editor_shorttitle");
 		shortTitle.setMandatory(true);
 		shortTitle.setCheckVisibleLength(true);
 		
 		// add the title input text element
 		title = uifactory.addTextElement("nodeConfigForm.displaytitle", "nodeConfigForm.displaytitle", 255, (displayTitle==null? "": displayTitle), formLayout);
+		title.setElementCssClass("o_sel_node_editor_title");
 		
 		// add the learning objectives rich text input element
 		objectives = uifactory.addRichTextElementForStringData("nodeConfigForm.learningobjectives", "nodeConfigForm.learningobjectives", (learningObjectives==null?"":learningObjectives), 10, -1, false, null, null, formLayout, ureq.getUserSession(), getWindowControl());
@@ -168,10 +164,8 @@ public class NodeConfigFormController extends FormBasicController {
 		// Create submit and cancel buttons
 		final FormLayoutContainer buttonLayout = FormLayoutContainer.createButtonLayout("buttonLayout", getTranslator());
 		formLayout.add(buttonLayout);
-		uifactory.addFormSubmitButton("nodeConfigForm.save", buttonLayout);
-		if (withCancel) {
-			uifactory.addFormCancelButton("search.form.cancel", buttonLayout, ureq, getWindowControl());
-		}
+		uifactory.addFormSubmitButton("nodeConfigForm.save", buttonLayout)
+			.setElementCssClass("o_sel_node_editor_submit");
 	}
 
 	

@@ -1,0 +1,28 @@
+<div class="o_comment_wrapper clearfix">
+	#if($r.available("avatarCtr"))
+		<div class="o_avatar">
+			$r.render("avatarCtr")
+		</div>
+	#end
+	#if ($r.available("deleteLink"))
+		$r.render("deleteLink")				
+	#end
+	#if ($r.available("replyLink"))
+		$r.render("replyLink")				
+	#end
+	<h5>
+		<span class="o_author">
+			$r.render("creator")
+		</span>
+		<small class="o_date">
+			$formatter.formatDateAndTime($comment.getCreationDate())
+		</small>
+	</h5>
+	<blockquote class="o_comment">
+		$comment.getComment()
+	</blockquote>
+	
+	#foreach($replyController in $replyControllers)
+		$r.render("$replyController.getViewCompName()")
+	#end
+</div>

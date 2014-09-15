@@ -48,16 +48,15 @@ import org.olat.instantMessaging.InstantMessage;
 @NamedQueries({
 	@NamedQuery(name="loadIMessageByKey",query="select msg from instantmessage msg  where msg.key=:key"),
 	@NamedQuery(name="loadIMessageByResource", query="select msg from instantmessage msg where msg.resourceId=:resid and msg.resourceTypeName=:resname order by msg.creationDate desc"),
-	@NamedQuery(name="loadIMessageByResourceAndDate", query="select msg from instantmessage msg where msg.resourceId=:resid and msg.resourceTypeName=:resname and msg.creationDate>=:from order by msg.creationDate desc"),
-	@NamedQuery(name="deleteIMessageByResource", query="delete from instantmessage msg where msg.resourceId=:resid and msg.resourceTypeName=:resname")
+	@NamedQuery(name="loadIMessageByResourceAndDate", query="select msg from instantmessage msg where msg.resourceId=:resid and msg.resourceTypeName=:resname and msg.creationDate>=:from order by msg.creationDate desc")
 })
 public class InstantMessageImpl implements InstantMessage, Persistable, CreateInfo {
 	
 	private static final long serialVersionUID = 1425964260797865080L;
 	
 	@Id
-  @GeneratedValue(generator = "system-uuid")
-  @GenericGenerator(name = "system-uuid", strategy = "hilo")
+	@GeneratedValue(generator = "system-uuid")
+	@GenericGenerator(name = "system-uuid", strategy = "hilo")
 	@Column(name="id", nullable=false, unique=true, insertable=true, updatable=false)
 	private Long key;
 	

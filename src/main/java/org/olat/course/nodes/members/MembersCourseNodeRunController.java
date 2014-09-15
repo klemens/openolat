@@ -29,6 +29,7 @@ import java.util.Set;
 
 import org.olat.NewControllerFactory;
 import org.olat.basesecurity.BaseSecurity;
+import org.olat.basesecurity.GroupRoles;
 import org.olat.core.CoreSpringFactory;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.form.flexible.FormItem;
@@ -56,7 +57,9 @@ import org.olat.course.run.userview.UserCourseEnvironment;
 import org.olat.modules.co.ContactFormController;
 import org.olat.repository.RepositoryEntry;
 import org.olat.repository.RepositoryManager;
+import org.olat.repository.RepositoryService;
 import org.olat.resource.OLATResource;
+import org.olat.user.UserAvatarMapper;
 import org.olat.user.DisplayPortraitManager;
 import org.olat.user.UserManager;
 
@@ -74,6 +77,7 @@ public class MembersCourseNodeRunController extends FormBasicController {
 	private final RepositoryManager rm ;
 	private final UserManager userManager;
 	private final BaseSecurity securityManager;
+	private final RepositoryService repositoryService;
 	private final UserCourseEnvironment userCourseEnv;
 	private final DisplayPortraitManager portraitManager;
 	private final String avatarBaseURL;
@@ -95,11 +99,12 @@ public class MembersCourseNodeRunController extends FormBasicController {
 		super(ureq, wControl, "members");
 
 		this.userCourseEnv = userCourseEnv;
-		avatarBaseURL = registerCacheableMapper(ureq, "avatars-members", new AvatarMapper());
+		avatarBaseURL = registerCacheableMapper(ureq, "avatars-members", new UserAvatarMapper(true));
 		
 		rm = RepositoryManager.getInstance();
 		userManager = CoreSpringFactory.getImpl(UserManager.class);
 		securityManager = CoreSpringFactory.getImpl(BaseSecurity.class);
+		repositoryService = CoreSpringFactory.getImpl(RepositoryService.class);
 		portraitManager = DisplayPortraitManager.getInstance();
 
 		initForm(ureq);
@@ -120,12 +125,12 @@ public class MembersCourseNodeRunController extends FormBasicController {
 		
 		boolean canEmail =  canEmail(owners, coaches);
 		if(canEmail) {
-			ownersEmailLink = uifactory.addFormLink("owners-email", "", null, formLayout, Link.NONTRANSLATED);
-			ownersEmailLink.setCustomEnabledLinkCSS("b_small_icon o_cmembers_mail");
-			coachesEmailLink = uifactory.addFormLink("coaches-email", "", null, formLayout, Link.NONTRANSLATED);
-			coachesEmailLink.setCustomEnabledLinkCSS("b_small_icon o_cmembers_mail");
-			participantsEmailLink = uifactory.addFormLink("participants-email", "", null, formLayout, Link.NONTRANSLATED);
-			participantsEmailLink.setCustomEnabledLinkCSS("b_small_icon o_cmembers_mail");
+			ownersEmailLink = uifactory.addFormLink("owners-email", "members.email.title", null, formLayout, Link.BUTTON_XSMALL);
+			ownersEmailLink.setIconLeftCSS("o_icon o_icon_mail");
+			coachesEmailLink = uifactory.addFormLink("coaches-email", "members.email.title", null, formLayout, Link.BUTTON_XSMALL);
+			coachesEmailLink.setIconLeftCSS("o_icon o_icon_mail");
+			participantsEmailLink = uifactory.addFormLink("participants-email", "members.email.title", null, formLayout, Link.BUTTON_XSMALL);
+			participantsEmailLink.setIconLeftCSS("o_icon o_icon_mail");
 			
 			formLayout.add("owners-email", ownersEmailLink);
 			formLayout.add("coaches-email", coachesEmailLink);
@@ -148,7 +153,7 @@ public class MembersCourseNodeRunController extends FormBasicController {
 	private List<Identity> getOwners() {
 		OLATResource resource = userCourseEnv.getCourseEnvironment().getCourseGroupManager().getCourseResource();
 		RepositoryEntry courseRepositoryEntry = rm.lookupRepositoryEntry(resource, true);
-		return securityManager.getIdentitiesOfSecurityGroup(courseRepositoryEntry.getOwnerGroup());
+		return repositoryService.getMembers(courseRepositoryEntry, GroupRoles.owner.name());
 	}
 	
 	private boolean canEmail(List<Identity> owners, List<Identity> coaches) {
@@ -193,9 +198,10 @@ public class MembersCourseNodeRunController extends FormBasicController {
 			memberLinks.add(idLink);
 			
 			if(withEmail) {
-				FormLink emailLink = uifactory.addFormLink("mail_" + identity.getKey(), fullname, null, formLayout, Link.NONTRANSLATED);
+				FormLink emailLink = uifactory.addFormLink("mail_" + identity.getKey(), "", null, formLayout, Link.NONTRANSLATED);
 				emailLink.setUserObject(member);
-				emailLink.setCustomEnabledLinkCSS("b_small_icon o_cmembers_mail");
+				emailLink.setIconLeftCSS("o_icon o_icon_mail o_icon-lg");
+				emailLink.setElementCssClass("o_mail");
 				formLayout.add(emailLink.getComponent().getComponentName(), emailLink);
 				emailLinks.add(emailLink);
 				member.setEmailLink(emailLink);
@@ -214,11 +220,11 @@ public class MembersCourseNodeRunController extends FormBasicController {
 		String portraitCssClass = null;
 		String gender = identity.getUser().getProperty(UserConstants.GENDER, Locale.ENGLISH);
 		if (gender.equalsIgnoreCase("male")) {
-			portraitCssClass = DisplayPortraitManager.DUMMY_MALE_SMALL_CSS_CLASS;
+			portraitCssClass = DisplayPortraitManager.DUMMY_MALE_BIG_CSS_CLASS;
 		} else if (gender.equalsIgnoreCase("female")) {
-			portraitCssClass = DisplayPortraitManager.DUMMY_FEMALE_SMALL_CSS_CLASS;
+			portraitCssClass = DisplayPortraitManager.DUMMY_FEMALE_BIG_CSS_CLASS;
 		} else {
-			portraitCssClass = DisplayPortraitManager.DUMMY_SMALL_CSS_CLASS;
+			portraitCssClass = DisplayPortraitManager.DUMMY_BIG_CSS_CLASS;
 		}
 		String fullname = userManager.getUserDisplayName(identity);
 		Member member = new Member(identity.getKey(), firstname, lastname, fullname, rsrc != null, portraitCssClass);
@@ -309,7 +315,7 @@ public class MembersCourseNodeRunController extends FormBasicController {
 			ContactMessage cmsg = new ContactMessage(ureq.getIdentity());
 			cmsg.addEmailTo(contactList);
 			
-			emailController = new ContactFormController(ureq, getWindowControl(), false, true, false, false, cmsg);
+			emailController = new ContactFormController(ureq, getWindowControl(), true, false, false, cmsg);
 			listenTo(emailController);
 			
 			removeAsListenerAndDispose(cmc);

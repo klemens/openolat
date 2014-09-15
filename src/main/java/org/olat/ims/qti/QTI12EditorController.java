@@ -27,9 +27,7 @@ import org.olat.core.gui.components.velocity.VelocityContainer;
 import org.olat.core.gui.control.Event;
 import org.olat.core.gui.control.WindowControl;
 import org.olat.core.gui.control.controller.BasicController;
-import org.olat.core.gui.translator.Translator;
 import org.olat.core.gui.util.SyntheticUserRequest;
-import org.olat.core.util.Util;
 import org.olat.core.util.event.GenericEventListener;
 import org.olat.core.util.vfs.VFSContainer;
 import org.olat.core.util.vfs.VFSContainerMapper;
@@ -40,6 +38,7 @@ import org.olat.ims.qti.editor.QTIEditorPackage;
 import org.olat.ims.qti.editor.beecom.objects.Item;
 import org.olat.ims.qti.editor.beecom.objects.QTIDocument;
 import org.olat.ims.qti.qpool.QTI12ItemEditorPackage;
+import org.olat.modules.qpool.QPoolItemEditorController;
 import org.olat.modules.qpool.QPoolService;
 import org.olat.modules.qpool.QuestionItem;
 import org.olat.modules.qpool.ui.events.QItemChangeEvent;
@@ -49,7 +48,7 @@ import org.olat.modules.qpool.ui.events.QItemChangeEvent;
  * @author srosse, stephane.rosse@frentix.com, http://www.frentix.com
  *
  */
-public class QTI12EditorController extends BasicController implements GenericEventListener {
+public class QTI12EditorController extends BasicController implements QPoolItemEditorController, GenericEventListener {
 	
 	private final TabbedPane mainPanel;
 	private final VelocityContainer mainVC;
@@ -72,12 +71,11 @@ public class QTI12EditorController extends BasicController implements GenericEve
 		} else {
 			Item item = QTIEditHelper.readItemXml(leaf);
 			if(item != null && !item.isAlient()) {
-				Translator translator = Util.createPackageTranslator(QTIEditorPackage.class, getLocale());
 				VFSContainer directory = qpoolService.getRootDirectory(qitem);
 				String mapperUrl = registerMapper(ureq, new VFSContainerMapper(directory));
 				QTIDocument doc = new QTIDocument();
 				QTIEditorPackage qtiPackage = new QTI12ItemEditorPackage(item, doc, mapperUrl, leaf, directory, this);
-				editorsCtrl = new ItemNodeTabbedFormController(item, qtiPackage, ureq, getWindowControl(), translator, false);
+				editorsCtrl = new ItemNodeTabbedFormController(item, qtiPackage, ureq, getWindowControl(), false);
 				editorsCtrl.addTabs(mainPanel);
 				listenTo(editorsCtrl);
 			}
@@ -87,6 +85,11 @@ public class QTI12EditorController extends BasicController implements GenericEve
 		putInitialPanel(mainVC);
 	}
 	
+	@Override
+	public QuestionItem getItem() {
+		return qitem;
+	}
+
 	@Override
 	protected void doDispose() {
 		//

@@ -1,13 +1,20 @@
 #if(!$inAssessment)
-<ul>
-	<li id="o_topnav_imclient_message">$r.render("newMsgPanel")</li>
-#if ($r.available("statusChangerPanel"))
-	<li id="o_topnav_imclient_status">$r.render("statusChangerPanel")</li>
-#end
-#if ($r.available("buddiesSummaryPanel"))
-	<li id="o_topnav_imclient_summary">$r.render("buddiesSummaryPanel")</li>
-#end
-</ul>
-$r.render("rosterPanel")
-$r.render("statusPanel")
+	$r.render("newMsgPanel")
+
+	<div id="o_im_status" class="dropdown">
+		<a href="#" class="o_undecorated dropdown-toggle" data-toggle="dropdown" title="$r.translate("im.status.change.long")">
+			<i class="$statusClass"></i>
+		</a>
+		<ul class="dropdown-menu dropdown-menu-right"> 
+			<li>$r.contextHelpWithWrapper("org.olat.instantMessaging.ui","instant-messenger.html","help.hover.im")</li>
+			<li>$r.render("presence.available")</li>
+			<li>$r.render("presence.dnd")</li>
+			<li>$r.render("presence.unavailable")</li>
+		</ul>
+	</div>
+
+	#if ($r.available("buddiesSummaryPanel"))
+		<div id="o_im_summary">$r.render("buddiesSummaryPanel")</div>
+	#end
+	$r.render("rosterPanel")
 #end

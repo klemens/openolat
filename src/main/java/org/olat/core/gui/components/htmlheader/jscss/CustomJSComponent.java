@@ -20,7 +20,7 @@
 package org.olat.core.gui.components.htmlheader.jscss;
 
 import org.olat.core.gui.UserRequest;
-import org.olat.core.gui.components.Component;
+import org.olat.core.gui.components.AbstractComponent;
 import org.olat.core.gui.components.ComponentRenderer;
 import org.olat.core.gui.control.JSAndCSSAdder;
 import org.olat.core.gui.render.ValidationResult;
@@ -44,7 +44,7 @@ import org.olat.core.gui.render.ValidationResult;
  * 
  * @author strentini, sergio.trentini@frentix.com, www.frentix.com
  */
-public class CustomJSComponent extends Component {
+public class CustomJSComponent extends AbstractComponent {
 
 	private final String[] jsFilePaths;
 
@@ -60,11 +60,7 @@ public class CustomJSComponent extends Component {
 		this.jsFilePaths = jsFilePaths;
 	}
 
-	/**
-	 * 
-	 * @see org.olat.core.gui.components.Component#validate(org.olat.core.gui.UserRequest,
-	 *      org.olat.core.gui.render.ValidationResult)
-	 */
+	@Override
 	public void validate(UserRequest ureq, ValidationResult vr) {
 		super.validate(ureq, vr);
 		JSAndCSSAdder jsadder = vr.getJsAndCSSAdder();
@@ -78,7 +74,6 @@ public class CustomJSComponent extends Component {
 	}
 
 	@Override
-	@SuppressWarnings("unused")
 	protected void doDispatchRequest(UserRequest ureq) {
 		// do nothing here
 	}
@@ -87,5 +82,4 @@ public class CustomJSComponent extends Component {
 	public ComponentRenderer getHTMLRendererSingleton() {
 		return RENDERER;
 	}
-
 }

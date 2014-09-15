@@ -47,6 +47,7 @@ import org.olat.core.gui.components.form.flexible.elements.TextElement;
 import org.olat.core.gui.components.form.flexible.impl.FormBasicController;
 import org.olat.core.gui.components.form.flexible.impl.FormEvent;
 import org.olat.core.gui.components.form.flexible.impl.FormLayoutContainer;
+import org.olat.core.gui.components.link.Link;
 import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.Event;
 import org.olat.core.gui.control.WindowControl;
@@ -321,14 +322,14 @@ public class KalendarEntryForm extends FormBasicController {
 		end.setMandatory(true);
 		end.setDate(event.getEnd());
 		
-		allDayEvent = uifactory.addCheckboxesVertical("allday", "cal.form.allday", formLayout, new String[]{"xx"}, new String[]{null}, null, 1);
+		allDayEvent = uifactory.addCheckboxesHorizontal("allday", "cal.form.allday", formLayout, new String[]{"xx"}, new String[]{null});
 		allDayEvent.select("xx", event.isAllDayEvent());
 		
 		chooseRecurrence = uifactory.addDropdownSingleselect("cal.form.recurrence", formLayout, keysRecurrence, valuesRecurrence, null);
 		String currentRecur = CalendarUtils.getRecurrence(event.getRecurrenceRule());
 		boolean rk = currentRecur != null && !currentRecur.equals("");
 		chooseRecurrence.select(rk ? currentRecur:RECURRENCE_NONE, true);
-		chooseRecurrence.addActionListener(this, FormEvent.ONCHANGE);
+		chooseRecurrence.addActionListener(FormEvent.ONCHANGE);
 		
 		recurrenceEnd = uifactory.addDateChooser("recurrence", "cal.form.recurrence.end", null, formLayout);
 		recurrenceEnd.setDisplaySize(21);
@@ -364,7 +365,7 @@ public class KalendarEntryForm extends FormBasicController {
 		formLayout.add(buttonLayout);
 		uifactory.addFormSubmitButton(SUBMIT_SINGLE, "cal.form.submitSingle", buttonLayout);
 		if (writeableCalendars.size() > 1) {
-			multi = uifactory.addFormLink("cal.form.submitMulti", buttonLayout, "b_button");
+			multi = uifactory.addFormLink("cal.form.submitMulti", buttonLayout, Link.BUTTON);
 		}
 		uifactory.addFormCancelButton("cancel", buttonLayout, ureq, getWindowControl());
 		
@@ -374,7 +375,7 @@ public class KalendarEntryForm extends FormBasicController {
 	}
 
 	@Override
-	protected void formInnerEvent (UserRequest ureq, FormItem source, FormEvent event) {
+	protected void formInnerEvent (UserRequest ureq, FormItem source, FormEvent e) {
 		if (source == chooseRecurrence) {
 			recurrenceEnd.setVisible(!chooseRecurrence.getSelectedKey().equals(RECURRENCE_NONE));
 		} else if (source == multi) {

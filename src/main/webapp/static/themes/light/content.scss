@@ -1,0 +1,53 @@
+@charset "UTF-8";
+
+/*
+ *  =================================================
+ *  
+ *   SaSS file for OpenOLAT content styles. This is 
+ *   included in iframes to nicely display content. 
+ *   
+ *   @author gnaegi, www.frentix.com
+ *   @date April 2014
+ *
+ *	 also read themes.README!
+ *  =================================================
+ */
+@import "license";
+
+/* 	
+	Configuration 
+*/
+@import "config";
+
+/* 
+	Bootstrap includes for base element styling 
+*/
+@import "../../bootstrap/stylesheets/bootstrap/mixins";
+@import "../../bootstrap/stylesheets/bootstrap/normalize";
+@import "../../bootstrap/stylesheets/bootstrap/print";
+
+@import "../../bootstrap/stylesheets/bootstrap/scaffolding"; 
+@import "../../bootstrap/stylesheets/bootstrap/type";
+
+/* 
+	Icon font includes. everyhting necessary to load the font and have the variables. 
+   	Use our own mixins to add the fonts to content styles 
+*/
+$fa-font-path		: "../../../font-awesome/fonts" !default;
+$fa-css-prefix		: "o_icon" !default;
+@import "../../../font-awesome/scss/variables";
+@import "../../../font-awesome/scss/path";
+@import "../../../font-awesome/scss/core";
+
+/* 
+	OpenOLAT includes 
+*/
+@import "modules/mixins";
+@import "modules/helpers";
+@import "modules/dialog";
+@import "modules/emoticons";
+
+// finally add the real content styles
+@import "modules/content";
+
+@import "modules/print";

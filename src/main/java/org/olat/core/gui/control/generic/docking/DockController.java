@@ -29,7 +29,7 @@ package org.olat.core.gui.control.generic.docking;
 import org.olat.core.commons.fullWebApp.LayoutMain3ColsController;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.Component;
-import org.olat.core.gui.components.panel.Panel;
+import org.olat.core.gui.components.panel.StackedPanel;
 import org.olat.core.gui.components.velocity.VelocityContainer;
 import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.Event;
@@ -49,7 +49,7 @@ public class DockController extends BasicController {
 	private static final String CMD_UNDOCK = "ud";
 
 	private VelocityContainer mainVC;
-	private Panel panel;
+	private StackedPanel panel;
 	private DockLayoutControllerCreatorCallback layoutCreator;
 	
 	Controller controller;
@@ -99,9 +99,7 @@ public class DockController extends BasicController {
 				ControllerCreator undockControllerCreator = new ControllerCreator() {
 					public Controller createController(UserRequest lureq,WindowControl lwControl) {
 						delegWControl.setDelegate(lwControl);
-						LayoutMain3ColsController layoutCtr = new LayoutMain3ColsController(lureq, delegWControl, null, null, controller.getInitialComponent(), null);
-						layoutCtr.addDisposableChildController(controller); // cleanup on layout controller dispose
-						return layoutCtr;
+						return new LayoutMain3ColsController(lureq, delegWControl, controller);
 					}
 				};
 				

@@ -80,7 +80,7 @@ public class ChecklistManager {
 		Checklist checklist;
 		try {
 			// load from db
-			checklist = (Checklist) DBFactory.getInstance().loadObject(Checklist.class, key);
+			checklist = DBFactory.getInstance().loadObject(Checklist.class, key);
 		} catch (Exception e) {
 			DBFactory.getInstance().closeSession();
 			// in case of error create new object as fallback
@@ -95,7 +95,12 @@ public class ChecklistManager {
 	 */
 	public Checklist saveChecklist(Checklist cl) {
 		cl.setLastModified(new Date());
-		return DBFactory.getInstance().getCurrentEntityManager().merge(cl);
+		if(cl.getKey() == null) {
+			DBFactory.getInstance().getCurrentEntityManager().persist(cl);
+		} else {
+			cl = DBFactory.getInstance().getCurrentEntityManager().merge(cl);
+		}
+		return cl;
 	}
 	
 	/**

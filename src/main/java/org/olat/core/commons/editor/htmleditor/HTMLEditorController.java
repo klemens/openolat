@@ -111,6 +111,7 @@ public class HTMLEditorController extends FormBasicController {
 	private boolean editorCheckEnabled = true; // default
 	private boolean versions = true;
 	private String fileToLargeError = null;
+	private Object userObject;
 
 	/**
 	 * Factory method to create a file based HTML editor instance that uses
@@ -184,6 +185,14 @@ public class HTMLEditorController extends FormBasicController {
 		initForm(ureq);
 	}
 	
+	public Object getUserObject() {
+		return userObject;
+	}
+
+	public void setUserObject(Object userObject) {
+		this.userObject = userObject;
+	}
+
 	/**
 	 * @see org.olat.core.gui.components.form.flexible.impl.FormBasicController#doDispose()
 	 */
@@ -240,11 +249,12 @@ public class HTMLEditorController extends FormBasicController {
 			//
 			// The buttons
 			save = uifactory.addFormLink("savebuttontext", formLayout, Link.BUTTON);
-			save.addActionListener(this, FormEvent.ONCLICK);
+
+			save.addActionListener(FormEvent.ONCLICK);
 			cancel = uifactory.addFormLink("cancel", formLayout, Link.BUTTON);
-			cancel.addActionListener(this, FormEvent.ONCLICK);
+			cancel.addActionListener(FormEvent.ONCLICK);
 			saveClose = uifactory.addFormLink("saveandclosebuttontext", formLayout, Link.BUTTON);
-			saveClose.addActionListener(this, FormEvent.ONCLICK);
+			saveClose.addActionListener(FormEvent.ONCLICK);
 			//
 			// Add some file metadata		
 			VelocityContainer vc = (VelocityContainer) formLayout.getComponent();

@@ -33,8 +33,9 @@ import java.util.Iterator;
 import java.util.List;
 
 import org.olat.core.gui.UserRequest;
-import org.olat.core.gui.components.Component;
+import org.olat.core.gui.components.AbstractComponent;
 import org.olat.core.gui.components.ComponentRenderer;
+import org.olat.core.gui.components.choice.ChoiceModel;
 import org.olat.core.gui.control.Event;
 import org.olat.core.gui.render.StringOutput;
 import org.olat.core.gui.render.StringOutputPool;
@@ -53,11 +54,11 @@ import org.olat.core.util.filter.FilterFactory;
  * 
  * @author Felix Jost
  */
-public class Table extends Component {
+public class Table extends AbstractComponent {
 	private static final int NO_ROW_SELECTED = -1;
 	private static final int DEFAULT_RESULTS_PER_PAGE = 20;
 	private static final int INITIAL_COLUMNSIZE = 5;
-	private OLog log = Tracing.createLoggerFor(this.getClass());
+	private static final OLog log = Tracing.createLoggerFor(Table.class);
 	private static final ComponentRenderer RENDERER = new TableRenderer();
 	
 	/**
@@ -86,14 +87,6 @@ public class Table extends Component {
 	 * Comment for <code>COMMAND_SORTBYCOLUMN</code>
 	 */
 	protected static final String COMMAND_SORTBYCOLUMN = "cid";
-	/**
-	 * Comment for <code>COMMAND_MOVECOLUMN_LEFT</code>
-	 */
-	protected static final String COMMAND_MOVECOLUMN_LEFT = "cl";
-	/**
-	 * Comment for <code>COMMAND_MOVECOLUMN_RIGHT</code>
-	 */
-	protected static final String COMMAND_MOVECOLUMN_RIGHT = "cr";
 	/**
 	 * Comment for <code>COMMAND_PAGEACTION</code>
 	 */
@@ -133,7 +126,6 @@ public class Table extends Component {
 	private boolean multiSelect = false;
 	private boolean selectedRowUnselectable = false;
 	private boolean sortingEnabled = true;
-	private boolean columnMovingOffered = true;
 	private boolean displayTableHeader = true;
 	private boolean pageingEnabled = true;
 	private Integer currentPageId;
@@ -334,10 +326,6 @@ public class Table extends Component {
 			// then fetch the internal command to be processed
 			if (formCmd.equals(COMMAND_SORTBYCOLUMN)) {
 				cmd = TableReplayableEvent.SORT;
-			} else if (formCmd.equals(COMMAND_MOVECOLUMN_RIGHT)) {
-				cmd = TableReplayableEvent.MOVE_R;
-			} else if (formCmd.equals(COMMAND_MOVECOLUMN_LEFT)) {
-				cmd = TableReplayableEvent.MOVE_L;
 			} else if (formCmd.equals(COMMAND_PAGEACTION)) {
 				cmd = TableReplayableEvent.PAGE_ACTION;
 			}
@@ -389,39 +377,9 @@ public class Table extends Component {
 
 			setDirty(true);
 			resort();
-		} else if (cmd == TableReplayableEvent.MOVE_R) { // move column right
-			int col = Integer.parseInt(value1);
-			int swapCol = (col + 1) % (getColumnCount());
-			ColumnDescriptor cdMove = getColumnDescriptor(col);
-			ColumnDescriptor cdSwap = getColumnDescriptor(swapCol);
-			columnOrder.set(col, cdSwap);
-			columnOrder.set(swapCol, cdMove);
-			if (col == sortColumn) { // if the moved column was sorted, update the
-				// sortedcolumn info
-				sortColumn = swapCol;
-			} else if (swapCol == sortColumn) {
-				sortColumn = col;
-			}
 
-			setDirty(true);
-		} else if (cmd == TableReplayableEvent.MOVE_L) { // move column left
-			int col = Integer.parseInt(value1);
-			int swapCol = (col - 1) % (getColumnCount());
-			ColumnDescriptor cdMove = getColumnDescriptor(col);
-			ColumnDescriptor cdSwap = getColumnDescriptor(swapCol);
-			columnOrder.set(col, cdSwap);
-			columnOrder.set(swapCol, cdMove);
-			if (col == sortColumn) { // if the moved column was sorted, update the
-				// sortedcolumn info
-				sortColumn = swapCol;
-			} else if (swapCol == sortColumn) {
-				sortColumn = col;
-			}
-			
-			setDirty(true);
-
+			fireEvent(ureq, new TableEvent(COMMAND_SORTBYCOLUMN, -1, COMMAND_SORTBYCOLUMN));
 		} else if (cmd == TableReplayableEvent.PAGE_ACTION) {
-
 
 			if (value1.equals(COMMAND_PAGEACTION_SHOWALL)) {
 				//updatePageing(null);	(see OLAT-1340)			
@@ -662,22 +620,6 @@ public class Table extends Component {
 	}
 
 	/**
-	 * @return true when columns can be moved left/right
-	 */
-	protected boolean isColumnMovingOffered() {
-		return columnMovingOffered;
-	}
-
-	/**
-	 * Set column moving configuration
-	 * 
-	 * @param columnMovingOffered
-	 */
-	protected void setColumnMovingOffered(final boolean columnMovingOffered) {
-		this.columnMovingOffered = columnMovingOffered;
-	}
-
-	/**
 	 * @return true: table will render header, false: table has no headers
 	 */
 	protected boolean isDisplayTableHeader() {
@@ -704,8 +646,8 @@ public class Table extends Component {
 	/**
 	 * @return a tabledatamodel for a choice
 	 */
-	protected TableDataModel createChoiceTableDataModel() {
-		return new ChoiceTableDataModel(this.isMultiSelect(), this.allCDs, this.columnOrder, this.getTranslator());
+	protected ChoiceModel createChoiceModel() {
+		return new ChoiceTableDataModel(isMultiSelect(), allCDs, columnOrder, getTranslator());
 	}
 
 	/**
@@ -743,7 +685,7 @@ public class Table extends Component {
 	public boolean isSortableColumnIn(final List<Integer> selRows) {
 		for (Iterator<Integer> itSelRows = selRows.iterator(); itSelRows.hasNext();) {
 			Integer posI = itSelRows.next();
-			ColumnDescriptor cd = (ColumnDescriptor) allCDs.get(posI.intValue());
+			ColumnDescriptor cd = allCDs.get(posI.intValue());
 			if (cd.isSortingAllowed()){
 				return true;
 			}
@@ -763,7 +705,7 @@ public class Table extends Component {
 			} else {
 				this.currentPageId = newPageId;
 				if(tableDataModel!=null) {
-					int maxPageNumber = (int)(tableDataModel.getRowCount()/getResultsPerPage());					
+					int maxPageNumber = (tableDataModel.getRowCount()/getResultsPerPage());					
 					if(tableDataModel.getRowCount()%getResultsPerPage() > 0) {
 						maxPageNumber++;	
 					}
@@ -973,7 +915,7 @@ public class Table extends Component {
 
 }
 
-class ChoiceTableDataModel extends BaseTableDataModelWithoutFilter {
+class ChoiceTableDataModel implements ChoiceModel {
 	
 	private boolean isMultiSelect;
 	private List<ColumnDescriptor> allCDs;
@@ -986,11 +928,8 @@ class ChoiceTableDataModel extends BaseTableDataModelWithoutFilter {
 		this.columnOrder = columnOrder;
 		this.translator = translator;
 	}
-	
-	public int getColumnCount() {
-		return 2;
-	}
 
+	@Override
 	public int getRowCount() {
 		// if this is a multiselect table, we do not want the checkboxes of
 		// the multiselect to be disabled. therefore we simply exclude the entire
@@ -1002,15 +941,24 @@ class ChoiceTableDataModel extends BaseTableDataModelWithoutFilter {
 		}
 	}
 
-	public Object getValueAt(final int row, final int col) {
-		ColumnDescriptor cd = allCDs.get(isMultiSelect? (row + 1): row);
-		switch (col) {
-			case 0: // on/off indicator; true if column is visible
-				return (columnOrder.contains(cd) ? Boolean.TRUE : Boolean.FALSE);
-			case 1: // name of columndescriptor
-				return cd.translateHeaderKey() ? translator.translate(cd.getHeaderKey()) : cd.getHeaderKey();
-			default:
-				return "ERROR";
-		}
+	@Override
+	public Boolean isEnabled(int row) {
+		ColumnDescriptor cd = getObject(row);
+		return columnOrder.contains(cd) ? Boolean.TRUE : Boolean.FALSE;
+	}
+
+	@Override
+	public String getLabel(int row) {
+		ColumnDescriptor cd = getObject(row);
+		return cd.translateHeaderKey() ? translator.translate(cd.getHeaderKey()) : cd.getHeaderKey();
+	}
+
+	@Override
+	public boolean isDisabled(int row) {
+		return false;
+	}
+	
+	public ColumnDescriptor getObject(int row) {
+		return allCDs.get(isMultiSelect? (row + 1): row);
 	}
 }

@@ -31,7 +31,6 @@ import org.olat.core.gui.components.velocity.VelocityContainer;
 import org.olat.core.gui.control.Event;
 import org.olat.core.gui.control.WindowControl;
 import org.olat.core.gui.control.controller.MainLayoutBasicController;
-import org.olat.core.logging.Tracing;
 import org.olat.core.util.Util;
 import org.olat.core.util.nodes.INode;
 
@@ -71,7 +70,7 @@ public class InviteeHomeMainController extends MainLayoutBasicController {
 		INode firstNode = tm.getRootNode().getChildAt(0);
 		olatMenuTree.setSelectedNodeId(firstNode.getIdent());
 
-		columnLayoutCtr = new LayoutMain3ColsController(ureq, getWindowControl(), olatMenuTree, null, welcome, null);
+		columnLayoutCtr = new LayoutMain3ColsController(ureq, getWindowControl(), olatMenuTree, welcome, null);
 		listenTo(columnLayoutCtr); // cleanup on dispose
 		// add background image to home site
 		columnLayoutCtr.addCssClassToMain("o_home");
@@ -94,7 +93,7 @@ public class InviteeHomeMainController extends MainLayoutBasicController {
 				}
 			}
 		} else {
-			Tracing.logWarn("Unhandled olatMenuTree event: " + event.getCommand(), InviteeHomeMainController.class);
+			logWarn("Unhandled olatMenuTree event: " + event.getCommand(), null);
 		}
 	}
 

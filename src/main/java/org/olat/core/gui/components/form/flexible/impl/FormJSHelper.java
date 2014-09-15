@@ -42,13 +42,8 @@ import org.olat.core.logging.OLATRuntimeException;
  * @author patrickb
  */
 public class FormJSHelper {
-	private static final String READONLYA = "<div class=\"b_form_disabled\">";
 
-	private static final String READONLYB = "</div>";
-
-	// EXTJS DEP
-	private static final String[] EXTJSACTIONS = { "dblclick", "click",
-			"change" };
+	private static final String[] EXTJSACTIONS = { "dblclick", "click", "change" };
 
 	/**
 	 * create for example an
@@ -119,12 +114,6 @@ public class FormJSHelper {
 		return sb.toString();
 	}
 
-	public static void appendReadOnly(String text, StringOutput sb) {
-		sb.append(READONLYA);
-		sb.append(text);
-		sb.append(READONLYB);
-	}
-
 	/**
 	 * 
 	 * @param sb
@@ -168,7 +157,7 @@ public class FormJSHelper {
 	}
 	
 	public static String getJSStartWithVarDeclaration(String id){
-		StringBuilder sb = new StringBuilder(120);
+		StringBuilder sb = new StringBuilder(150);
 		sb.append(" <script type=\"text/javascript\">\n /* <![CDATA[ */ \n");
 		// Execute code within an anonymous function (closure) to not leak
 		// variables to global scope (OLAT-5755)
@@ -192,23 +181,20 @@ public class FormJSHelper {
 		return "var "+id+" = jQuery('#"+id+"'); ";
 	}
 	
-	public static String getSetFlexiFormDirty(Form form, String id){
-		StringBuilder result = new StringBuilder();
-		result.append("jQuery('#").append(id).append("').on('change keypress',{formId:\"")
-			.append(form.getDispatchFieldId()).append("\"},setFlexiFormDirtyByListener);");
-		return result.toString();
+	// Execute code within an anonymous function (closure) to not leak
+	// variables to global scope (OLAT-5755)
+	public static StringOutput appendFlexiFormDirty(StringOutput sb, Form form, String id) {
+		sb.append("<script type=\"text/javascript\">\n /* <![CDATA[ */ \n")
+		  .append("(function() { jQuery('#").append(id).append("').on('change keypress',{formId:\"").append(form.getDispatchFieldId()).append("\"},setFlexiFormDirtyByListener);")
+		  .append("})();\n /* ]]> */ \n</script>");
+		return sb;
 	}
 	
-	public static String getSetFlexiFormDirtyForCheckbox(Form form, String id){
-		String result;
-		String prefix = id + ".on('";
-		// examples:
-		// o_fi400.on({'click',setFormDirty,this,{formId:"ofo_100"}});
-		// o_fi400.on({'change',setFormDirty,this,{formId:"ofo_100"}});
-		String postfix = "',setFlexiFormDirtyByListener,document,{formId:\"" + form.getDispatchFieldId() + "\"});";
-		result = prefix + "change" + postfix;
-		result += prefix + "mouseup" + postfix;
-		return result;
+	public static StringOutput appendFlexiFormDirtyForCheckbox(StringOutput sb, Form form, String formDispatchId) {
+		sb.append(" <script type=\"text/javascript\">\n /* <![CDATA[ */ \n")
+		  .append("(function() { jQuery('#").append(formDispatchId).append("').on('change mouseup', {formId:\"").append(form.getDispatchFieldId()).append("\"}, setFlexiFormDirtyByListener);")
+		  .append("})();\n /* ]]> */ \n</script>");
+		return sb;
 	}
 
 	public static String getFocusFor(String id){

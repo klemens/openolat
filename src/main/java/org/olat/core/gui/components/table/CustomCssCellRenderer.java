@@ -42,6 +42,7 @@ import org.olat.core.util.StringHelper;
  */
 public abstract class CustomCssCellRenderer implements CustomCellRenderer {
 
+	@Override
 	public void render(final StringOutput sb, final Renderer renderer, final Object val, final Locale locale, final int alignment, final String action) {
 		if (renderer == null) {
 			// render for export
@@ -55,27 +56,24 @@ public abstract class CustomCssCellRenderer implements CustomCellRenderer {
 				} else {
 					// remove helper css classes
 					if (value != null){
-						value = value.replace("b_small_icon", "").trim();
+						value = value.replace("o_icon", "").trim();
 					}
 				}
 			}
 			sb.append(value);
 		} else {
-			sb.append("<span class=\"");
+			sb.append("<i class=\"");
 			sb.append(getCssClass(val));
 			String hoverText = getHoverText(val);
 			if (StringHelper.containsNonWhitespace(hoverText)) {
 				sb.append("\" title=\"");
 				sb.append(StringEscapeUtils.escapeHtml(hoverText));
 			}
-			sb.append("\">");
-			sb.append(getCellValue(val));
-			sb.append("</span>");			
+			sb.append("\"> </i> ").append(getCellValue(val));			
 		}
-		
 	}
+	
 	protected abstract String getCssClass(Object val);
 	protected abstract String getCellValue(Object val);
 	protected abstract String getHoverText(Object val);
-	
 }

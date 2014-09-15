@@ -37,6 +37,8 @@ import org.olat.core.commons.editor.plaintexteditor.PlainTextEditorController;
 import org.olat.core.commons.modules.bc.components.FolderComponent;
 import org.olat.core.commons.modules.bc.components.ListRenderer;
 import org.olat.core.commons.modules.bc.version.VersionCommentController;
+import org.olat.core.commons.services.notifications.NotificationsManager;
+import org.olat.core.commons.services.notifications.SubscriptionContext;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.Component;
 import org.olat.core.gui.control.Controller;
@@ -52,12 +54,14 @@ import org.olat.core.util.vfs.VFSItem;
 import org.olat.core.util.vfs.VFSLeaf;
 import org.olat.core.util.vfs.VFSLockManager;
 import org.olat.core.util.vfs.VFSManager;
+import org.olat.core.util.vfs.callbacks.VFSSecurityCallback;
 import org.olat.core.util.vfs.util.ContainerAndFile;
 
 public class CmdEditContent extends BasicController implements FolderCommand {
 
 	private int status = FolderCommandStatus.STATUS_SUCCESS;
 	private VFSItem currentItem;
+	private FolderComponent folderComponent;
 	private Controller editorc;
 	private DialogBoxController lockedFiledCtr;
 
@@ -74,7 +78,7 @@ public class CmdEditContent extends BasicController implements FolderCommand {
 	 * @see org.olat.modules.bc.commands.FolderCommand#execute(org.olat.modules.bc.components.FolderComponent, org.olat.core.gui.UserRequest, org.olat.core.gui.control.WindowControl, org.olat.core.gui.translator.Translator)
 	 */
 	public Controller execute(FolderComponent folderComponent, UserRequest ureq, WindowControl wControl, Translator translator) {
-
+		this.folderComponent = folderComponent;
 		String pos = ureq.getParameter(ListRenderer.PARAM_CONTENTEDITID);
 		if (!StringHelper.containsNonWhitespace(pos)) {
 			// somehow parameter did not make it to us
@@ -86,7 +90,7 @@ public class CmdEditContent extends BasicController implements FolderCommand {
 		status = FolderCommandHelper.sanityCheck(wControl, folderComponent);
 		if(status == FolderCommandStatus.STATUS_SUCCESS) {
 			currentItem = folderComponent.getCurrentContainerChildren().get(Integer.parseInt(pos));
-			status = FolderCommandHelper.sanityCheck2(wControl, folderComponent, ureq, currentItem);
+			status = FolderCommandHelper.sanityCheck2(wControl, folderComponent, currentItem);
 		}
 		if(status == FolderCommandStatus.STATUS_FAILED) {
 			return null;
@@ -153,8 +157,21 @@ public class CmdEditContent extends BasicController implements FolderCommand {
 		return this;
 	}
 
-	public int getStatus() { return status; }
+	@Override
+	public int getStatus() {
+		return status;
+	}
+
+	@Override
+	public boolean runsModal() {
+		return false;
+	}
 	
+	@Override
+	public String getModalTitle() {
+		return null;
+	}
+
 	public String getFileName() {
 		return currentItem.getName();
 	}
@@ -179,7 +196,7 @@ public class CmdEditContent extends BasicController implements FolderCommand {
 					unlockDialogBox = new CloseableModalController(getWindowControl(), translate("ok"), unlockCtr.getInitialComponent());
 					unlockDialogBox.activate();
 				} else {
-					fireEvent(ureq, FOLDERCOMMAND_FINISHED);
+					notifyFinished(ureq);
 				}
 				// cleanup editor
 				removeAsListenerAndDispose(editorc);
@@ -202,6 +219,18 @@ public class CmdEditContent extends BasicController implements FolderCommand {
 		}
 	}
 	
+	private void notifyFinished(UserRequest ureq) {
+		VFSContainer container = VFSManager.findInheritingSecurityCallbackContainer(folderComponent.getRootContainer());
+		VFSSecurityCallback secCallback = container.getLocalSecurityCallback();
+		if(secCallback != null) {
+			SubscriptionContext subsContext = secCallback.getSubscriptionContext();
+			if (subsContext != null) {
+				NotificationsManager.getInstance().markPublisherNews(subsContext, ureq.getIdentity(), true);
+			}
+		}
+		fireEvent(ureq, FOLDERCOMMAND_FINISHED);
+	}
+	
 	private void cleanUpUnlockDialog() {
 		if(unlockDialogBox != null) {
 			unlockDialogBox.deactivate();
@@ -217,9 +246,4 @@ public class CmdEditContent extends BasicController implements FolderCommand {
 	protected void doDispose() {
 		// auto dispose by basic controller
 	}
-
-	public boolean runsModal() {
-		return false;
-	}
-
 }

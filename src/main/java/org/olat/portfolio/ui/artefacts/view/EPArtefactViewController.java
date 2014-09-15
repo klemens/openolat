@@ -26,12 +26,10 @@ package org.olat.portfolio.ui.artefacts.view;
 
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 
 import org.olat.NewControllerFactory;
-import org.olat.core.CoreSpringFactory;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.Component;
 import org.olat.core.gui.components.form.flexible.FormItem;
@@ -65,7 +63,9 @@ import org.olat.portfolio.model.structel.PortfolioStructure;
 import org.olat.portfolio.ui.artefacts.collect.EPCollectStepForm00;
 import org.olat.portfolio.ui.artefacts.collect.EPCollectStepForm03;
 import org.olat.portfolio.ui.artefacts.collect.EPReflexionChangeEvent;
+import org.olat.resource.OLATResource;
 import org.olat.util.logging.activity.LoggingResourceable;
+import org.springframework.beans.factory.annotation.Autowired;
 
 /**
  * Description:<br>
@@ -80,6 +80,7 @@ public class EPArtefactViewController extends FormBasicController {
 
 	private AbstractArtefact artefact;
 	private TextElement title;
+	@Autowired
 	private EPFrontendManager ePFMgr;
 	private FormLink deleteBtn;
 	private DialogBoxController delYesNoDialog;
@@ -89,6 +90,7 @@ public class EPArtefactViewController extends FormBasicController {
 	private TextBoxListElement tblE;
 	private boolean viewOnlyMode;
 	private boolean artefactInClosedMap;
+	@Autowired
 	private PortfolioModule portfolioModule;
 	private final boolean detailsLinkEnabled;
 	
@@ -102,8 +104,6 @@ public class EPArtefactViewController extends FormBasicController {
 
 	public EPArtefactViewController(UserRequest ureq, WindowControl wControl, AbstractArtefact artefact, Map<String, Boolean> artAttribConfig, boolean artefactChooseMode, boolean viewOnlyMode, boolean detailsLink) {
 		super(ureq, wControl, "singleArtefact");
-		ePFMgr = (EPFrontendManager) CoreSpringFactory.getBean("epFrontendManager");
-		portfolioModule = (PortfolioModule)CoreSpringFactory.getBean("portfolioModule");
 		
 		this.artefact = artefact;
 		this.artefactChooseMode = artefactChooseMode;
@@ -174,13 +174,13 @@ public class EPArtefactViewController extends FormBasicController {
 	@Override
 	protected void initForm(FormItemContainer formLayout, Controller listener, UserRequest ureq) {
 		if(detailsLinkEnabled && !artefactChooseMode) {
-			detailsLink = uifactory.addFormLink("details.link", formLayout, Link.LINK);
+			detailsLink = uifactory.addFormLink("details.link", formLayout, Link.BUTTON);
 			detailsLink.setElementCssClass("o_sel_artefact_details");
 		}
 
 		title = uifactory.addInlineTextElement("title", artefact.getTitle(), formLayout, this);
 		
-		flc.contextPut("cssClosed", artefactInClosedMap ? "b_artefact_closed" : "");
+		flc.contextPut("cssClosed", artefactInClosedMap ? "o_artefact_closed" : "");
 		flc.contextPut("viewOnly", viewOnlyMode);
 		
 		if (viewOnlyMode || artefactInClosedMap) title.setEnabled(false);
@@ -194,8 +194,6 @@ public class EPArtefactViewController extends FormBasicController {
 		if (viewOnlyMode || artefactInClosedMap) {
 			tblE.setEnabled(false);
 		} else {
-			flc.contextPut("tagclass", "b_tag_list");
-			//tblE.addActionListener(this, FormEvent.ONCHANGE);
 			Map<String, String> allUsersTags = ePFMgr.getUsersMostUsedTags(getIdentity(), -1);
 			tblE.setAutoCompleteContent(allUsersTags);
 		}
@@ -203,20 +201,16 @@ public class EPArtefactViewController extends FormBasicController {
 		// get maps wherein this artefact is linked and create links to them
 		List<PortfolioStructure> linkedMaps = ePFMgr.getReferencedMapsForArtefact(artefact);
 		if (linkedMaps != null && linkedMaps.size() != 0) {
-			StringBuilder buf = new StringBuilder();
-			for (Iterator<PortfolioStructure> iterator = linkedMaps.iterator(); iterator.hasNext();) {
-				PortfolioStructure ePMap = iterator.next();
-				if (viewOnlyMode || artefactChooseMode){
-					StringHelper.escapeHtml(ePMap.getTitle());
-					buf.append(", ");
-				} else {
-					buf.append("<a href=\"").append(createLinkToMap(ePMap)).append("\">");
-					StringHelper.escapeHtml(ePMap.getTitle());
-					buf.append("</a>, ");
-				}
+			List<FormLink> selectMapNames = new ArrayList<FormLink>(linkedMaps.size());
+			int count = 0;
+			for (PortfolioStructure ePMap : linkedMaps) {
+				String title = StringHelper.escapeHtml(ePMap.getTitle());
+				FormLink selectMap = uifactory.addFormLink("map-" + count++, "map", title, null, formLayout, Link.NONTRANSLATED);
+				selectMap.setUserObject(ePMap.getOlatResource());
+				selectMap.setEnabled(!viewOnlyMode && !artefactChooseMode);
+				selectMapNames.add(selectMap);
 			}
-			String mapLinks = buf.toString();
-			flc.contextPut("maps", mapLinks.substring(0, mapLinks.length() - 2));
+			flc.contextPut("maps", selectMapNames);
 		}
 
 		// build link to original source
@@ -226,8 +220,9 @@ public class EPArtefactViewController extends FormBasicController {
 		}
 		
 		// create a delete button
-		deleteBtn = uifactory.addFormLink("delete.artefact", formLayout, "b_with_small_icon_left b_delete_icon");
-		deleteBtn.addActionListener(this, FormEvent.ONCLICK);
+		deleteBtn = uifactory.addFormLink("delete.artefact", formLayout, Link.BUTTON);
+		deleteBtn.setIconLeftCSS("o_icon o_icon_delete");
+		deleteBtn.addActionListener(FormEvent.ONCLICK);
 		if (viewOnlyMode || artefactChooseMode || artefactInClosedMap) deleteBtn.setVisible(false);
 		
 		// let the artefact-handler paint what is special for this kind of artefact
@@ -247,7 +242,7 @@ public class EPArtefactViewController extends FormBasicController {
 				reflexion = "&nbsp; "; // show a link even if empty
 			}
 			reflexionBtn = uifactory.addFormLink("reflexionBtn", reflexion, null, formLayout, Link.NONTRANSLATED);
-			reflexionBtn.setCustomEnabledLinkCSS("b_inline_editable b_ep_nolink");
+			reflexionBtn.setIconLeftCSS("o_icon o_icon_inline_editable");
 			
 			String description = artefact.getDescription();
 			description = FilterFactory.getHtmlTagAndDescapingFilter().filter(description);
@@ -257,13 +252,13 @@ public class EPArtefactViewController extends FormBasicController {
 				description = "&nbsp; "; // show a link even if empty
 			}
 			descriptionBtn = uifactory.addFormLink("descriptionBtn", description, null, formLayout, Link.NONTRANSLATED);
-			descriptionBtn.setCustomEnabledLinkCSS("b_inline_editable b_ep_nolink");
+			descriptionBtn.setIconLeftCSS("o_icon o_icon_inline_editable");
 		}
 		
 		// if in artefactChooseMode, add an "choose this" button
 		if(artefactChooseMode) {
-			chooseBtn = uifactory.addFormLink("choose.artefact", formLayout);
-			chooseBtn.addActionListener(this, FormEvent.ONCLICK);
+			chooseBtn = uifactory.addFormLink("choose.artefact", formLayout, Link.BUTTON);
+			chooseBtn.addActionListener(FormEvent.ONCLICK);
 		}
 		
 		flc.contextPut("artefact", artefact);
@@ -276,13 +271,10 @@ public class EPArtefactViewController extends FormBasicController {
 		flc.contextPut("artAttribConfig", attribConfig);
 	}
 
-	private String createLinkToMap(PortfolioStructure ePMap) {
-		BusinessControlFactory bCF = BusinessControlFactory.getInstance();
-		ContextEntry mapCE = bCF.createContextEntry(ePMap.getOlatResource());
-		ArrayList<ContextEntry> cEList = new ArrayList<ContextEntry>();
-		cEList.add(mapCE);
-		String busLink = bCF.getAsURIString(cEList, true); 
-		return busLink;
+	private void doOpenLinkToMap(UserRequest ureq, OLATResource mapResource) {
+		String businessPath = "[" + mapResource.getResourceableTypeName() + ":"
+				+ mapResource.getResourceableId() + "]";
+		NewControllerFactory.getInstance().launch(businessPath, ureq, getWindowControl());
 	}
 
 	private String createLinkToArtefactSource(UserRequest ureq, String businessPath){
@@ -317,6 +309,12 @@ public class EPArtefactViewController extends FormBasicController {
 		} else if(source == tblE){
 			List<String> actualTags = tblE.getValueList();
 			ePFMgr.setArtefactTags(getIdentity(), artefact, actualTags);
+		} else if(source instanceof FormLink) {
+			FormLink link = (FormLink)source;
+			if("map".equals(link.getCmd())) {
+				OLATResource map = (OLATResource)link.getUserObject();
+				doOpenLinkToMap(ureq, map);
+			}
 		}
 	}
 	

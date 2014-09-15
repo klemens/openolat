@@ -37,7 +37,8 @@ import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.Component;
 import org.olat.core.gui.components.link.Link;
 import org.olat.core.gui.components.link.LinkFactory;
-import org.olat.core.gui.components.panel.Panel;
+import org.olat.core.gui.components.panel.SimpleStackedPanel;
+import org.olat.core.gui.components.panel.StackedPanel;
 import org.olat.core.gui.components.velocity.VelocityContainer;
 import org.olat.core.gui.control.Event;
 import org.olat.core.gui.control.WindowControl;
@@ -49,8 +50,10 @@ import org.olat.core.id.UserConstants;
 import org.olat.core.util.Encoder;
 import org.olat.core.util.SortedProperties;
 import org.olat.core.util.StringHelper;
+import org.olat.core.util.Util;
 import org.olat.course.groupsandrights.CourseGroupManager;
 import org.olat.course.nodes.BasicLTICourseNode;
+import org.olat.course.nodes.CourseNode;
 import org.olat.course.properties.CoursePropertyManager;
 import org.olat.course.run.environment.CourseEnvironment;
 import org.olat.course.run.scoring.ScoreEvaluation;
@@ -74,7 +77,7 @@ public class LTIRunController extends BasicController {
 	private static final String PROP_NAME_DATA_EXCHANGE_ACCEPTED = "LtiDataExchageAccepted";
 	
 	private Link startButton;
-	private final Panel mainPanel;
+	private final StackedPanel mainPanel;
 	private VelocityContainer run, startPage, acceptPage;
 	private BasicLTICourseNode courseNode;
 	private ModuleConfiguration config;
@@ -90,7 +93,7 @@ public class LTIRunController extends BasicController {
 	
 	public LTIRunController(WindowControl wControl, ModuleConfiguration config, UserRequest ureq, BasicLTICourseNode ltCourseNode,
 			CourseEnvironment courseEnv) {
-		super(ureq, wControl);
+		super(ureq, wControl, Util.createPackageTranslator(CourseNode.class, ureq.getLocale()));
 		this.courseNode = ltCourseNode;
 		this.config = config;
 		this.roles = ureq.getUserSession().getRoles();
@@ -118,7 +121,7 @@ public class LTIRunController extends BasicController {
 	 */
 	public LTIRunController(WindowControl wControl, ModuleConfiguration config, UserRequest ureq, BasicLTICourseNode ltCourseNode,
 			UserCourseEnvironment userCourseEnv) {
- 		super(ureq, wControl);
+ 		super(ureq, wControl, Util.createPackageTranslator(CourseNode.class, ureq.getLocale()));
 		this.courseNode = ltCourseNode;
 		this.config = config;
 		this.userCourseEnv = userCourseEnv;
@@ -128,7 +131,7 @@ public class LTIRunController extends BasicController {
 		String display = config.getStringValue(BasicLTICourseNode.CONFIG_DISPLAY, "iframe");
 		this.newWindow = "window".equals(display);
 
-		mainPanel = new Panel("ltiContainer");
+		mainPanel = new SimpleStackedPanel("ltiContainer");
 		putInitialPanel(mainPanel);
 		
 		// only run directly when user as already accepted to data exchange or no data has to be exchanged
@@ -177,6 +180,7 @@ public class LTIRunController extends BasicController {
 		acceptPage.contextPut("userData", userData);
 		acceptPage.contextPut("customUserData", customUserData);
 		acceptLink = LinkFactory.createButton("accept", acceptPage, this);
+		acceptLink.setPrimary(true);
 		mainPanel.setContent(acceptPage);
 	}
 	
@@ -251,14 +255,14 @@ public class LTIRunController extends BasicController {
 			Enumeration<Object> keys = userData.keys();
 			while (keys.hasMoreElements()) {
 				String key = (String) keys.nextElement();
-				data += userData.getProperty((String)key);				
+				data += userData.getProperty(key);				
 			}
 		}
 		if (customUserData != null && customUserData.size() > 0) {
 			Enumeration<Object> keys = customUserData.keys();
 			while (keys.hasMoreElements()) {
 				String key = (String) keys.nextElement();
-				data += customUserData.getProperty((String)key);				
+				data += customUserData.getProperty(key);				
 			}
 		}
 		if (data.length() > 0) {
@@ -291,6 +295,7 @@ public class LTIRunController extends BasicController {
 		startPage.contextPut("displayTitle", courseNode.getLongTitle());
 		
 		startButton = LinkFactory.createButton("start", startPage, this);
+		startButton.setPrimary(true);
 
 		Boolean assessable = config.getBooleanEntry(BasicLTICourseNode.CONFIG_KEY_HAS_SCORE_FIELD);
 		if(assessable != null && assessable.booleanValue()) {

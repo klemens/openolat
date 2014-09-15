@@ -80,9 +80,9 @@ public class PortfolioAdminController extends FormBasicController  {
 			FormLayoutContainer moduleFlc = FormLayoutContainer.createDefaultFormLayout("flc_module", getTranslator());
 			layoutContainer.add(moduleFlc);
 		
-			portfolioEnabled = uifactory.addCheckboxesHorizontal("portfolio.module.enabled", moduleFlc, enabledKeys, enabledValues, null);
+			portfolioEnabled = uifactory.addCheckboxesHorizontal("portfolio.module.enabled", moduleFlc, enabledKeys, enabledValues);
 			portfolioEnabled.select(enabledKeys[0], portfolioModule.isEnabled());
-			portfolioEnabled.addActionListener(listener, FormEvent.ONCHANGE);
+			portfolioEnabled.addActionListener(FormEvent.ONCHANGE);
 			
 			//handlers configuration
 			FormLayoutContainer handlersFlc = FormLayoutContainer.createDefaultFormLayout("flc_handlers", getTranslator());
@@ -93,23 +93,23 @@ public class PortfolioAdminController extends FormBasicController  {
 				Translator handlerTrans = handler.getHandlerTranslator(getTranslator());
 				handlersFlc.setTranslator(handlerTrans);
 				String handlerClass = PortfolioFilterController.HANDLER_PREFIX + handler.getClass().getSimpleName() + PortfolioFilterController.HANDLER_TITLE_SUFFIX;
-				MultipleSelectionElement handlerEnabled = uifactory.addCheckboxesHorizontal(handlerClass, handlersFlc, enabledKeys, enabledValues, null);
+				MultipleSelectionElement handlerEnabled = uifactory.addCheckboxesHorizontal(handlerClass, handlersFlc, enabledKeys, enabledValues);
 				handlerEnabled.select(enabledKeys[0], handler.isEnabled());
 				handlerEnabled.setUserObject(handler);
-				handlerEnabled.addActionListener(listener, FormEvent.ONCHANGE);
+				handlerEnabled.addActionListener(FormEvent.ONCHANGE);
 				handlersEnabled.add(handlerEnabled);
 			}
 			
 			// configure steps in artefact collection wizard
 			FormLayoutContainer wizardFlc = FormLayoutContainer.createDefaultFormLayout("flc_wizard", getTranslator());
 			layoutContainer.add(wizardFlc);	
-			copyrightStepCB = uifactory.addCheckboxesHorizontal("wizard.step.copyright", wizardFlc, enabledKeys, enabledValues, null);
+			copyrightStepCB = uifactory.addCheckboxesHorizontal("wizard.step.copyright", wizardFlc, enabledKeys, enabledValues);
 			copyrightStepCB.select(enabledKeys[0], portfolioModule.isCopyrightStepEnabled());
-			copyrightStepCB.addActionListener(listener, FormEvent.ONCHANGE);
+			copyrightStepCB.addActionListener(FormEvent.ONCHANGE);
 			
-			reflexionStepCB = uifactory.addCheckboxesHorizontal("wizard.step.reflexion", wizardFlc, enabledKeys, enabledValues, null);
+			reflexionStepCB = uifactory.addCheckboxesHorizontal("wizard.step.reflexion", wizardFlc, enabledKeys, enabledValues);
 			reflexionStepCB.select(enabledKeys[0], portfolioModule.isReflexionStepEnabled());
-			reflexionStepCB.addActionListener(listener, FormEvent.ONCHANGE);
+			reflexionStepCB.addActionListener(FormEvent.ONCHANGE);
 			
 			
 		}

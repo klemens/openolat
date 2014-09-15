@@ -22,6 +22,7 @@ package org.olat.ims.qti.qpool;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
+import java.math.BigDecimal;
 import java.net.URISyntaxException;
 import java.net.URL;
 import java.util.List;
@@ -30,6 +31,7 @@ import java.util.Locale;
 import junit.framework.Assert;
 
 import org.dom4j.Document;
+import org.dom4j.Element;
 import org.dom4j.Node;
 import org.jgroups.util.UUID;
 import org.junit.Before;
@@ -48,10 +50,11 @@ import org.olat.modules.qpool.QuestionItem;
 import org.olat.modules.qpool.QuestionItemFull;
 import org.olat.modules.qpool.QuestionStatus;
 import org.olat.modules.qpool.QuestionType;
-import org.olat.modules.qpool.manager.QPoolFileStorage;
 import org.olat.modules.qpool.manager.QEducationalContextDAO;
 import org.olat.modules.qpool.manager.QItemTypeDAO;
+import org.olat.modules.qpool.manager.QPoolFileStorage;
 import org.olat.modules.qpool.manager.QuestionItemDAO;
+import org.olat.modules.qpool.manager.TaxonomyLevelDAO;
 import org.olat.modules.qpool.model.QEducationalContext;
 import org.olat.modules.qpool.model.QItemType;
 import org.olat.modules.qpool.model.QuestionItemImpl;
@@ -78,6 +81,8 @@ public class QTIImportProcessorTest extends OlatTestCase {
 	@Autowired
 	private QuestionItemDAO questionItemDao;
 	@Autowired
+	private TaxonomyLevelDAO taxonomyLevelDao;
+	@Autowired
 	private QEducationalContextDAO qEduContextDao;
 	
 	@Before
@@ -99,8 +104,13 @@ public class QTIImportProcessorTest extends OlatTestCase {
 		File itemFile = new File(itemUrl.toURI());
 		
 		//get the document informations
-		QTIImportProcessor proc = new QTIImportProcessor(owner, Locale.ENGLISH, itemFile.getName(), itemFile, questionItemDao, qItemTypeDao, qEduContextDao, qpoolFileStorage);
-		DocInfos docInfos = proc.getDocInfos();
+		QTIImportProcessor proc = new QTIImportProcessor(owner, Locale.ENGLISH, itemFile.getName(), itemFile,
+				questionItemDao, qItemTypeDao, qEduContextDao, taxonomyLevelDao, qpoolFileStorage, dbInstance);
+		List<DocInfos> docInfoList = proc.getDocInfos();
+		Assert.assertNotNull(docInfoList);
+		Assert.assertEquals(1, docInfoList.size());
+		
+		DocInfos docInfos = docInfoList.get(0);
 		Assert.assertNotNull(docInfos);
 		Assert.assertNotNull(docInfos.getFilename());
 		Assert.assertNotNull(docInfos.getDocument());
@@ -115,7 +125,7 @@ public class QTIImportProcessorTest extends OlatTestCase {
 		QuestionItemImpl item = proc.processItem(docInfos, itemInfos.get(0));
 		Assert.assertNotNull(item);
 		dbInstance.commitAndCloseSession();
-		proc.processFiles(item, itemInfos.get(0));
+		proc.processFiles(item, itemInfos.get(0), null);
 		
 		//reload and check what is saved
 		QuestionItemFull reloadItem = questionItemDao.loadById(item.getKey());
@@ -149,7 +159,8 @@ public class QTIImportProcessorTest extends OlatTestCase {
 		File itemFile = new File(itemUrl.toURI());
 		
 		//get the document informations
-		QTIImportProcessor proc = new QTIImportProcessor(owner, Locale.ENGLISH, itemFile.getName(), itemFile, questionItemDao, qItemTypeDao, qEduContextDao, qpoolFileStorage);
+		QTIImportProcessor proc = new QTIImportProcessor(owner, Locale.ENGLISH, itemFile.getName(), itemFile,
+				questionItemDao, qItemTypeDao, qEduContextDao, taxonomyLevelDao, qpoolFileStorage, dbInstance);
 		List<QuestionItem> items = proc.process();
 		Assert.assertNotNull(items);
 		Assert.assertEquals(1, items.size());
@@ -182,8 +193,13 @@ public class QTIImportProcessorTest extends OlatTestCase {
 		File testFile = new File(testUrl.toURI());
 		
 		//get the document informations
-		QTIImportProcessor proc = new QTIImportProcessor(owner, Locale.ENGLISH, testFile.getName(), testFile, questionItemDao, qItemTypeDao, qEduContextDao, qpoolFileStorage);
-		DocInfos docInfos = proc.getDocInfos();
+		QTIImportProcessor proc = new QTIImportProcessor(owner, Locale.ENGLISH, testFile.getName(), testFile,
+				questionItemDao, qItemTypeDao, qEduContextDao, taxonomyLevelDao, qpoolFileStorage, dbInstance);
+		List<DocInfos> docInfoList = proc.getDocInfos();
+		Assert.assertNotNull(docInfoList);
+		Assert.assertEquals(1, docInfoList.size());
+		
+		DocInfos docInfos = docInfoList.get(0);
 		Assert.assertNotNull(docInfos);
 		Assert.assertNotNull(docInfos.getFilename());
 		Assert.assertNotNull(docInfos.getDocument());
@@ -202,7 +218,8 @@ public class QTIImportProcessorTest extends OlatTestCase {
 		File itemFile = new File(itemUrl.toURI());
 		
 		//get the document informations
-		QTIImportProcessor proc = new QTIImportProcessor(owner, Locale.ENGLISH, itemFile.getName(), itemFile, questionItemDao, qItemTypeDao, qEduContextDao, qpoolFileStorage);
+		QTIImportProcessor proc = new QTIImportProcessor(owner, Locale.ENGLISH, itemFile.getName(), itemFile,
+				questionItemDao, qItemTypeDao, qEduContextDao, taxonomyLevelDao, qpoolFileStorage, dbInstance);
 		List<QuestionItem> items = proc.process();
 		Assert.assertNotNull(items);
 		Assert.assertEquals(4, items.size());
@@ -264,7 +281,8 @@ public class QTIImportProcessorTest extends OlatTestCase {
 		File itemFile = new File(itemUrl.toURI());
 		
 		//get the document informations
-		QTIImportProcessor proc = new QTIImportProcessor(owner, Locale.ENGLISH, itemFile.getName(), itemFile, questionItemDao, qItemTypeDao, qEduContextDao, qpoolFileStorage);
+		QTIImportProcessor proc = new QTIImportProcessor(owner, Locale.ENGLISH, itemFile.getName(), itemFile,
+				questionItemDao, qItemTypeDao, qEduContextDao, taxonomyLevelDao, qpoolFileStorage, dbInstance);
 		List<QuestionItem> items = proc.process();
 		Assert.assertNotNull(items);
 		Assert.assertEquals(2, items.size());
@@ -310,7 +328,8 @@ public class QTIImportProcessorTest extends OlatTestCase {
 		File itemFile = new File(itemUrl.toURI());
 		
 		//get the document informations
-		QTIImportProcessor proc = new QTIImportProcessor(owner, Locale.ENGLISH, itemFile.getName(), itemFile, questionItemDao, qItemTypeDao, qEduContextDao, qpoolFileStorage);
+		QTIImportProcessor proc = new QTIImportProcessor(owner, Locale.ENGLISH, itemFile.getName(), itemFile,
+				questionItemDao, qItemTypeDao, qEduContextDao, taxonomyLevelDao, qpoolFileStorage, dbInstance);
 		List<QuestionItem> items = proc.process();
 		Assert.assertNotNull(items);
 		Assert.assertEquals(3, items.size());
@@ -357,13 +376,59 @@ public class QTIImportProcessorTest extends OlatTestCase {
 	}
 	
 	@Test
+	public void testImport_QTI12_multipleItems() throws IOException, URISyntaxException {
+		URL itemsUrl = QTIImportProcessorTest.class.getResource("multiple_items.zip");
+		Assert.assertNotNull(itemsUrl);
+		File itemFile = new File(itemsUrl.toURI());
+		
+		//get the document informations
+		QTIImportProcessor proc = new QTIImportProcessor(owner, Locale.ENGLISH, itemFile.getName(), itemFile,
+				questionItemDao, qItemTypeDao, qEduContextDao, taxonomyLevelDao, qpoolFileStorage, dbInstance);
+		List<QuestionItem> items = proc.process();
+		Assert.assertNotNull(items);
+		Assert.assertEquals(2, items.size());
+		dbInstance.commitAndCloseSession();
+		
+		//check the files
+		for(QuestionItem item:items) {
+			QuestionItemFull itemFull = (QuestionItemFull)item;
+			String dir = itemFull.getDirectory();
+			String file = itemFull.getRootFilename();
+			VFSContainer itemContainer = qpoolFileStorage.getContainer(dir);
+			Assert.assertNotNull(itemContainer);
+			VFSItem itemLeaf = itemContainer.resolve(file);
+			Assert.assertNotNull(itemLeaf);
+			Assert.assertTrue(itemLeaf instanceof VFSLeaf);
+			
+			//try to parse it
+			InputStream is = ((VFSLeaf)itemLeaf).getInputStream();
+			XMLParser xmlParser = new XMLParser(new IMSEntityResolver());
+			Document doc = xmlParser.parse(is, false);
+			Node itemNode = doc.selectSingleNode("questestinterop/item");
+			Assert.assertNotNull(itemNode);
+			
+			//check the attachments
+			if("Export (blue)".equals(itemFull.getTitle())) {
+				Assert.assertTrue(exists(itemFull, "media/blue.png"));
+				Assert.assertFalse(exists(itemFull, "media/purple.png"));
+			} else if("Export (purple)".equals(itemFull.getTitle())) {
+				Assert.assertFalse(exists(itemFull, "media/blue.png"));
+				Assert.assertTrue(exists(itemFull, "media/purple.png"));
+			} else {
+				Assert.fail();
+			}
+		}
+	}
+	
+	@Test
 	public void testImport_QTI12_metadata() throws IOException, URISyntaxException {
 		URL itemUrl = QTIImportProcessorTest.class.getResource("mchc_i_001.xml");
 		Assert.assertNotNull(itemUrl);
 		File itemFile = new File(itemUrl.toURI());
 		
 		//get the document informations
-		QTIImportProcessor proc = new QTIImportProcessor(owner, Locale.ENGLISH, itemFile.getName(), itemFile, questionItemDao, qItemTypeDao, qEduContextDao, qpoolFileStorage);
+		QTIImportProcessor proc = new QTIImportProcessor(owner, Locale.ENGLISH, itemFile.getName(), itemFile,
+				questionItemDao, qItemTypeDao, qEduContextDao, taxonomyLevelDao, qpoolFileStorage, dbInstance);
 		List<QuestionItem> items = proc.process();
 		Assert.assertNotNull(items);
 		Assert.assertEquals(1, items.size());
@@ -378,6 +443,77 @@ public class QTIImportProcessorTest extends OlatTestCase {
 		Assert.assertEquals("basic", level.getLevel());
 		//qmd_toolvendor
 		Assert.assertEquals("QTITools", item.getEditor());	
+	}
+	
+	@Test
+	public void testImport_QTI12_sidecarMetadata() throws IOException, URISyntaxException {
+		URL itemUrl = QTIImportProcessorTest.class.getResource("qitem_metadatas.zip");
+		Assert.assertNotNull(itemUrl);
+		File itemFile = new File(itemUrl.toURI());
+		
+		//get the document informations
+		QTIImportProcessor proc = new QTIImportProcessor(owner, Locale.ENGLISH, itemFile.getName(), itemFile,
+				questionItemDao, qItemTypeDao, qEduContextDao, taxonomyLevelDao, qpoolFileStorage, dbInstance);
+		List<QuestionItem> items = proc.process();
+		Assert.assertNotNull(items);
+		Assert.assertEquals(1, items.size());
+		dbInstance.commitAndCloseSession();
+
+		//reload and check metadata
+		QuestionItem item = questionItemDao.loadById(items.get(0).getKey());
+		Assert.assertEquals("Une information en plus", item.getAdditionalInformations());
+		Assert.assertEquals("formative", item.getAssessmentType());
+		Assert.assertEquals("large", item.getCoverage());
+		Assert.assertEquals(0, new BigDecimal("-0.1").compareTo(item.getDifferentiation()));
+		Assert.assertEquals(0, new BigDecimal("0.45").compareTo(item.getDifficulty()));
+		Assert.assertEquals("OpenOLAT", item.getEditor());
+		Assert.assertEquals("9.4", item.getEditorVersion());
+		QEducationalContext level = item.getEducationalContext();
+		Assert.assertNotNull(level);
+		Assert.assertEquals("University", level.getLevel());
+		Assert.assertEquals("P5DT4H3M2S", item.getEducationalLearningTime());
+		Assert.assertEquals("IMS QTI 1.2", item.getFormat());
+		Assert.assertEquals("6bae65ac-f333-40ba-bdd0-13b54d016d59", item.getMasterIdentifier());
+		Assert.assertFalse("6bae65ac-f333-40ba-bdd0-13b54d016d59".equals(item.getIdentifier()));
+		Assert.assertEquals("sc", item.getItemType());
+		Assert.assertEquals("1.01", item.getItemVersion());
+		Assert.assertEquals("question export import Pluton", item.getKeywords());
+		Assert.assertEquals("de", item.getLanguage());
+		Assert.assertEquals(1, item.getNumOfAnswerAlternatives());
+		Assert.assertNotNull(item.getQuestionStatus());
+		Assert.assertEquals("review", item.getQuestionStatus().name());
+		Assert.assertEquals(0, new BigDecimal("0.56").compareTo(item.getStdevDifficulty()));
+		Assert.assertEquals("/Physique/Astronomie/Astrophysique", item.getTaxonomicPath());
+		Assert.assertEquals("Une question sur Pluton", item.getTitle());
+		Assert.assertEquals(0, item.getUsage());
+	}
+	
+	@Test
+	public void testImport_QTI12_film() throws IOException, URISyntaxException {
+		URL itemUrl = QTIImportProcessorTest.class.getResource("sc_with_film.xml");
+		Assert.assertNotNull(itemUrl);
+		File itemFile = new File(itemUrl.toURI());
+		
+		//get the document informations
+		QTIImportProcessor proc = new QTIImportProcessor(owner, Locale.ENGLISH, itemFile.getName(), itemFile,
+				questionItemDao, qItemTypeDao, qEduContextDao, taxonomyLevelDao, qpoolFileStorage, dbInstance);
+		List<QuestionItem> items = proc.process();
+		Assert.assertNotNull(items);
+		
+		List<DocInfos> docInfoList = proc.getDocInfos();
+		Assert.assertNotNull(docInfoList);
+		Assert.assertEquals(1, docInfoList.size());
+		
+		DocInfos docInfos = docInfoList.get(0);
+		List<ItemInfos> itemInfos = proc.getItemList(docInfos);
+		Assert.assertNotNull(itemInfos);
+		Assert.assertEquals(1, itemInfos.size());
+		
+		Element el = itemInfos.get(0).getItemEl();
+		List<String> materials = proc.getMaterials(el);
+		Assert.assertNotNull(materials);
+		Assert.assertEquals(1, materials.size());
+		Assert.assertEquals("media/filmH264.mp4", materials.get(0));
 	}
 	
 	private boolean exists(QuestionItemFull itemFull, String path) {

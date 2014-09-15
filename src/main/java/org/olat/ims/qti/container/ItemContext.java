@@ -201,8 +201,8 @@ public class ItemContext implements Serializable {
 
 		// set up a list of children with their parents and the position of the
 		// child (in case several children have the same parent
-		List respList = new ArrayList(shusize);
-		List parentList = new ArrayList(shusize);
+		List<Element> respList = new ArrayList<>(shusize);
+		List<Element> parentList = new ArrayList<>(shusize);
 		int[] posList = new int[shusize];
 		int j = 0;
 
@@ -211,16 +211,16 @@ public class ItemContext implements Serializable {
 			Element parent = response.getParent();
 			int pos = parent.indexOf(response);
 			posList[j++] = pos;
-			respList.add(response.clone()); // need to use clones so they are not
+			respList.add((Element)response.clone()); // need to use clones so they are not
 			// attached anymore
 			parentList.add(parent);
 		}
 		Collections.shuffle(respList);
 		// put the children back to the parents
 		for (int i = 0; i < parentList.size(); i++) {
-			Element parent = (Element) parentList.get(i);
+			Element parent = parentList.get(i);
 			int pos = posList[i];
-			Element child = (Element) respList.get(i);
+			Element child = respList.get(i);
 			parent.elements().set(pos, child);
 		}
 		return shuffleItem;

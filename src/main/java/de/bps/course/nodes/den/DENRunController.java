@@ -22,15 +22,14 @@ package de.bps.course.nodes.den;
 import java.util.List;
 
 import org.olat.commons.calendar.model.KalendarEvent;
+import org.olat.core.commons.services.notifications.NotificationsManager;
+import org.olat.core.commons.services.notifications.PublisherData;
+import org.olat.core.commons.services.notifications.SubscriptionContext;
+import org.olat.core.commons.services.notifications.ui.ContextualSubscriptionController;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.Component;
-import org.olat.core.gui.components.form.flexible.FormItem;
-import org.olat.core.gui.components.form.flexible.FormItemContainer;
-import org.olat.core.gui.components.form.flexible.impl.FormBasicController;
-import org.olat.core.gui.components.form.flexible.impl.FormEvent;
-import org.olat.core.gui.components.form.flexible.impl.FormLayoutContainer;
-import org.olat.core.gui.components.form.flexible.impl.elements.FormLinkImpl;
 import org.olat.core.gui.components.link.Link;
+import org.olat.core.gui.components.link.LinkFactory;
 import org.olat.core.gui.components.table.Table;
 import org.olat.core.gui.components.table.TableController;
 import org.olat.core.gui.components.table.TableEvent;
@@ -43,10 +42,6 @@ import org.olat.core.gui.control.generic.closablewrapper.CloseableModalControlle
 import org.olat.core.id.OLATResourceable;
 import org.olat.core.util.Util;
 import org.olat.core.util.event.GenericEventListener;
-import org.olat.core.util.notifications.ContextualSubscriptionController;
-import org.olat.core.util.notifications.NotificationsManager;
-import org.olat.core.util.notifications.PublisherData;
-import org.olat.core.util.notifications.SubscriptionContext;
 import org.olat.core.util.resource.OresHelper;
 import org.olat.course.CourseFactory;
 import org.olat.course.ICourse;
@@ -71,7 +66,10 @@ public class DENRunController extends BasicController implements GenericEventLis
 	private DENRunTableDataModel runTableData;
 	private List<KalendarEvent> runTableDataList;
 	private TableController runDENTable;
-	private FormBasicController authorOptions;
+	private Link manageDatesBtn;
+	private Link enrollmentListBtn;
+
+	
 	private CloseableModalController manageDatesModalCntrll, listParticipantsModalCntrll;
 
 	private DENManager denManager;
@@ -99,7 +97,7 @@ public class DENRunController extends BasicController implements GenericEventLis
 		denManager = DENManager.getInstance();
 
 		//prepare table for run view
-		createOrUpdateDateTable(ureq, getWindowControl(), denCourseNode);
+		createOrUpdateDateTable(ureq, denCourseNode);
 		runDENTable = denManager.createRunDatesTable(ureq, wControl, getTranslator(), runTableData);
 		listenTo(runDENTable);
 		
@@ -119,10 +117,11 @@ public class DENRunController extends BasicController implements GenericEventLis
 				runVC.put("subscription", csc.getInitialComponent());
 			}
 			
-			authorOptions = new AuthorOptionsForm(ureq, getWindowControl());
-			authorOptions.addControllerListener(this);
+			manageDatesBtn = LinkFactory.createButton("config.dates", runVC, this);
+			manageDatesBtn.setIconLeftCSS("o_icon o_icon-fw o_icon_calendar");
+			enrollmentListBtn = LinkFactory.createButton("run.enrollment.list", runVC, this);
+			enrollmentListBtn.setIconLeftCSS("o_icon o_icon-fw o_icon_user");
 			runVC.contextPut("showAuthorBtns", Boolean.TRUE);
-			runVC.put("authorOptions", authorOptions.getInitialComponent());
 		} else {
 			runVC.contextPut("showAuthorBtns", Boolean.FALSE);
 		}
@@ -147,7 +146,7 @@ public class DENRunController extends BasicController implements GenericEventLis
 	 * @param denCourseNode
 	 * @param initialize
 	 */
-	private void createOrUpdateDateTable(UserRequest ureq, WindowControl wControl, DENCourseNode denCourseNode) {
+	private void createOrUpdateDateTable(UserRequest ureq, DENCourseNode denCourseNode) {
 		//prepare table for run view
 		runTableDataList = denManager.getDENEvents(ores.getResourceableId(), denCourseNode.getIdent());
 		runTableData = new DENRunTableDataModel(runTableDataList, ureq, denCourseNode, cancelEnrollEnabled, getTranslator());
@@ -160,10 +159,6 @@ public class DENRunController extends BasicController implements GenericEventLis
 		if(csc != null) {
 			removeAsListenerAndDispose(csc);
 			csc = null;
-		}
-		if(authorOptions != null) {
-			removeAsListenerAndDispose(authorOptions);
-			authorOptions = null;
 		}
 		if(runDENTable != null) {
 			removeAsListenerAndDispose(runDENTable);
@@ -185,7 +180,24 @@ public class DENRunController extends BasicController implements GenericEventLis
 
 	@Override
 	public void event(UserRequest ureq, Component source, Event event) {
-		//nothing to do
+		if(source == manageDatesBtn) {
+			//management of dates
+			removeAsListenerAndDispose(manageDatesModalCntrll);
+			DENManageDatesController datesCtr = new DENManageDatesController(ureq, getWindowControl(), ores, courseNode);
+			listenTo(datesCtr);
+			manageDatesModalCntrll = new CloseableModalController(getWindowControl(), "close", datesCtr.getInitialComponent(), true, translate("config.dates"));
+			manageDatesModalCntrll.activate();
+			listenTo(manageDatesModalCntrll);
+			
+		} else if(source == enrollmentListBtn) {
+			//list of participants
+			removeAsListenerAndDispose(listParticipantsModalCntrll);
+			DENManageParticipantsController partsCtr = new DENManageParticipantsController(ureq, getWindowControl(), ores, courseNode);
+			listenTo(partsCtr);
+			listParticipantsModalCntrll = new CloseableModalController(getWindowControl(), "close", partsCtr.getInitialComponent(), true, translate("dates.table.list"));
+			listParticipantsModalCntrll.activate();
+			listenTo(listParticipantsModalCntrll);
+		}
 	}
 
 	@Override
@@ -194,38 +206,24 @@ public class DENRunController extends BasicController implements GenericEventLis
 			//the link to enroll or cancel enrollment is clicked
 			if(event.getCommand().equals(Table.COMMANDLINK_ROWACTION_CLICKED)) {
 				TableEvent tableEvent = (TableEvent)event;
-				KalendarEvent calEvent = (KalendarEvent)runTableData.getObject(tableEvent.getRowId());
+				KalendarEvent calEvent = runTableData.getObject(tableEvent.getRowId());
 				if(tableEvent.getActionId().equals(DENRunTableDataModel.CMD_ENROLL_IN_DATE)) {
 					//do enroll
 					status = denManager.doEnroll(ureq.getIdentity(), calEvent, ores, courseNode);
 					if(!status.isEnrolled()) showError();
 				} else if(tableEvent.getActionId().equals(DENRunTableDataModel.CMD_ENROLLED_CANCEL)) {
 					//cancel enrollment
-					status = denManager.cancelEnroll(ureq.getIdentity(), calEvent, ores, courseNode);
+					status = denManager.cancelEnroll(ureq.getIdentity(), calEvent, ores);
 					if(!status.isCancelled()) showError();
 				}
-				createOrUpdateDateTable(ureq, getWindowControl(), courseNode);
+				createOrUpdateDateTable(ureq, courseNode);
 				runDENTable.setTableDataModel(runTableData);
 				fireEvent(ureq, Event.DONE_EVENT);
 				// inform subscription context about changes
 				NotificationsManager.getInstance().markPublisherNews(subsContext, ureq.getIdentity(), true);
 				// </OPAL-122>
 			}
-		} else if(authorOptions == source) {
-			if(event == AuthorOptionsForm.MANAGE_EVENT) {
-				//management of dates
-				DENManageDatesController datesCtr = new DENManageDatesController(ureq, getWindowControl(), ores, courseNode);
-				manageDatesModalCntrll = new CloseableModalController(getWindowControl(), "close", datesCtr.getInitialComponent(), true, translate("config.dates"));
-				manageDatesModalCntrll.addControllerListener(this);
-				manageDatesModalCntrll.activate();
-			} else if(event == AuthorOptionsForm.LIST_EVENT) {
-				//list of participants
-				DENManageParticipantsController partsCtr = new DENManageParticipantsController(ureq, getWindowControl(), ores, courseNode);
-				listParticipantsModalCntrll = new CloseableModalController(getWindowControl(), "close", partsCtr.getInitialComponent(), true, translate("dates.table.list"));
-				listParticipantsModalCntrll.addControllerListener(this);
-				listParticipantsModalCntrll.activate();
-			}
-		}
+		} 
 	}
 
 	private void showError() {
@@ -241,49 +239,6 @@ public class DENRunController extends BasicController implements GenericEventLis
 		} else if(DENStatus.ERROR_FULL.equals(message)) {
 			getWindowControl().setError(translate("enrollment.error.full"));
 		}
-	}
-
-}
-
-class AuthorOptionsForm extends FormBasicController {
-
-	public static final Event MANAGE_EVENT = new Event("manage");
-	public static final Event LIST_EVENT = new Event("list");
-
-	private FormLinkImpl manageDatesBtn, enrollmentListBtn;
-
-	public AuthorOptionsForm(UserRequest ureq, WindowControl wControl) {
-		super(ureq, wControl);
-		initForm(this.flc, this, ureq);
-	}
-
-	@Override
-	protected void initForm(FormItemContainer formLayout, Controller listener, UserRequest ureq) {
-		FormLayoutContainer horLayout = FormLayoutContainer.createHorizontalFormLayout("", getTranslator());
-		formLayout.add(horLayout);
-		manageDatesBtn = new FormLinkImpl("preferencesButton", MANAGE_EVENT.getCommand(), "config.dates", Link.BUTTON);
-		enrollmentListBtn = new FormLinkImpl("enrollmentListButton", LIST_EVENT.getCommand(), "run.enrollment.list", Link.BUTTON);
-		horLayout.add(manageDatesBtn);
-		horLayout.add(enrollmentListBtn);
-	}
-
-	@Override
-	protected void formInnerEvent(UserRequest ureq, FormItem source, FormEvent event) {
-		if(source == manageDatesBtn) {
-			fireEvent(ureq, AuthorOptionsForm.MANAGE_EVENT);
-		} else if(source == enrollmentListBtn) {
-			fireEvent(ureq, AuthorOptionsForm.LIST_EVENT);
-		}
-	}
-
-	@Override
-	protected void doDispose() {
-		//nothing to do
-	}
-
-	@Override
-	protected void formOK(UserRequest ureq) {
-		//nothing to do
 	}
 
 }

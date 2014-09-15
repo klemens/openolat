@@ -69,6 +69,11 @@ import org.apache.velocity.exception.ResourceNotFoundException;
 import org.apache.velocity.runtime.RuntimeConstants;
 import org.olat.core.commons.persistence.DB;
 import org.olat.core.commons.persistence.PersistentObject;
+import org.olat.core.commons.services.notifications.NotificationsManager;
+import org.olat.core.commons.services.notifications.Publisher;
+import org.olat.core.commons.services.notifications.PublisherData;
+import org.olat.core.commons.services.notifications.Subscriber;
+import org.olat.core.commons.services.notifications.SubscriptionContext;
 import org.olat.core.helpers.Settings;
 import org.olat.core.id.Identity;
 import org.olat.core.id.OLATResourceable;
@@ -95,11 +100,6 @@ import org.olat.core.util.mail.model.DBMailImpl;
 import org.olat.core.util.mail.model.DBMailLight;
 import org.olat.core.util.mail.model.DBMailLightImpl;
 import org.olat.core.util.mail.model.DBMailRecipient;
-import org.olat.core.util.notifications.NotificationsManager;
-import org.olat.core.util.notifications.Publisher;
-import org.olat.core.util.notifications.PublisherData;
-import org.olat.core.util.notifications.Subscriber;
-import org.olat.core.util.notifications.SubscriptionContext;
 import org.olat.core.util.vfs.FileStorage;
 import org.olat.core.util.vfs.VFSContainer;
 import org.olat.core.util.vfs.VFSItem;
@@ -426,6 +426,7 @@ public class MailManagerImpl extends BasicManager implements MailManager {
 	 */
 	@Override
 	public void delete(DBMailLight mail, Identity identity, boolean deleteMetaMail) {
+		if(mail == null) return;//already deleted
 		if(StringHelper.containsNonWhitespace(mail.getMetaId()) && deleteMetaMail) {
 			List<DBMailLight> mails = getEmailsByMetaId(mail.getMetaId());
 			for(DBMailLight childMail:mails) {
@@ -703,6 +704,8 @@ public class MailManagerImpl extends BasicManager implements MailManager {
 		String body = content.getBody();
 		boolean htmlContent =  isHtmlEmail(body);
 		if(htmlTemplate && !htmlContent) {
+			body = body.replace("&", "&amp;");
+			body = body.replace("<", "&lt;");
 			body = body.replace("\n", "<br />");
 		}
 		VelocityContext context = new VelocityContext();
@@ -1618,6 +1621,13 @@ public class MailManagerImpl extends BasicManager implements MailManager {
 					}
 				}
 				Transport.send(msg);
+			} else if(Settings.isDebuging() && result.getReturnCode() == MailerResult.OK) {
+				try {
+					logInfo("E-mail send: " + msg.getSubject());
+					logInfo("Content    : " + msg.getContent());
+				} catch (IOException e) {
+					logError("", e);
+				}
 			} else {
 				result.setReturnCode(MailerResult.MAILHOST_UNDEFINED);
 			}

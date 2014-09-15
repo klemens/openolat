@@ -32,27 +32,22 @@ import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
-import java.util.UUID;
 
 import javax.servlet.http.Cookie;
 import javax.servlet.http.HttpSession;
 
+import org.olat.basesecurity.manager.GroupDAO;
 import org.olat.commons.rss.RSSUtil;
 import org.olat.core.CoreSpringFactory;
-import org.olat.core.commons.chiefcontrollers.BaseChiefControllerCreator;
 import org.olat.core.commons.fullWebApp.BaseFullWebappController;
 import org.olat.core.commons.fullWebApp.BaseFullWebappControllerParts;
 import org.olat.core.commons.persistence.DBFactory;
 import org.olat.core.dispatcher.DispatcherModule;
-import org.olat.core.gui.GUIInterna;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.WindowManager;
 import org.olat.core.gui.Windows;
 import org.olat.core.gui.components.Window;
 import org.olat.core.gui.control.ChiefController;
-import org.olat.core.gui.control.Controller;
-import org.olat.core.gui.control.WindowControl;
-import org.olat.core.gui.control.creator.ControllerCreator;
 import org.olat.core.gui.media.RedirectMediaResource;
 import org.olat.core.gui.render.StringOutput;
 import org.olat.core.gui.render.URLBuilder;
@@ -70,10 +65,10 @@ import org.olat.core.util.UserSession;
 import org.olat.core.util.WebappHelper;
 import org.olat.core.util.i18n.I18nManager;
 import org.olat.core.util.i18n.I18nModule;
-import org.olat.core.util.prefs.Preferences;
 import org.olat.core.util.session.UserSessionManager;
 import org.olat.login.AuthBFWCParts;
 import org.olat.login.GuestBFWCParts;
+import org.olat.portfolio.manager.InvitationDAO;
 import org.olat.user.UserManager;
 import org.olat.util.logging.activity.LoggingResourceable;
 
@@ -86,7 +81,6 @@ public class AuthHelper {
 	/**
 	 * <code>LOGOUT_PAGE</code>
 	 */
-	public static final String LOGOUT_PAGE = "logout.html";
 	public  static final int LOGIN_OK = 0;
 	private static final int LOGIN_FAILED = 1;
 	private static final int LOGIN_DENIED = 2;
@@ -181,17 +175,10 @@ public class AuthHelper {
 	 */
 	private static ChiefController createGuestHome(UserRequest ureq) {
 		if (!ureq.getUserSession().isAuthenticated()) throw new AssertException("not authenticated!");
-
-		BaseChiefControllerCreator bbc = new BaseChiefControllerCreator();
-		bbc.setContentControllerCreator(/*this is later injected by spring*/new ControllerCreator() {
-			public Controller createController(UserRequest lureq, WindowControl lwControl) {
-				BaseFullWebappControllerParts guestSitesAndNav = new GuestBFWCParts();
-				return new BaseFullWebappController(lureq, lwControl, guestSitesAndNav );
-			}
-		});
-
-		ChiefController cc = bbc.createChiefController(ureq);
-		Windows.getWindows(ureq.getUserSession()).setAttribute("AUTHCHIEFCONTROLLER", cc);
+		
+		BaseFullWebappControllerParts guestSitesAndNav = new GuestBFWCParts();
+		ChiefController cc = new BaseFullWebappController(ureq, guestSitesAndNav);
+		Windows.getWindows(ureq.getUserSession()).setChiefController(cc);
 		log.debug("set session-attribute 'AUTHCHIEFCONTROLLER'");
 		return cc;
 	}
@@ -205,17 +192,10 @@ public class AuthHelper {
 	 */
 	public static ChiefController createAuthHome(UserRequest ureq) {
 		if (!ureq.getUserSession().isAuthenticated()) throw new AssertException("not authenticated!");
-
-		BaseChiefControllerCreator bbc = new BaseChiefControllerCreator();
-		bbc.setContentControllerCreator(/*this is later injected by spring*/new ControllerCreator() {
-			public Controller createController(UserRequest lureq, WindowControl lwControl) {
-				BaseFullWebappControllerParts authSitesAndNav = new AuthBFWCParts();
-				return new BaseFullWebappController(lureq, lwControl, authSitesAndNav );
-			}
-		});
-
-		ChiefController cc = bbc.createChiefController(ureq);
-		Windows.getWindows(ureq.getUserSession()).setAttribute("AUTHCHIEFCONTROLLER", cc);
+		
+		BaseFullWebappControllerParts authSitesAndNav = new AuthBFWCParts();
+		ChiefController cc = new BaseFullWebappController(ureq, authSitesAndNav);
+		Windows.getWindows(ureq.getUserSession()).setChiefController(cc);
 		log.debug("set session-attribute 'AUTHCHIEFCONTROLLER'");
 		return cc;
 	}
@@ -240,14 +220,16 @@ public class AuthHelper {
 	}
 	
 	public static int doInvitationLogin(String invitationToken, UserRequest ureq, Locale locale) {
-		boolean hasPolicies = BaseSecurityManager.getInstance().hasInvitationPolicies(invitationToken, new Date());
+		InvitationDAO invitationDao = CoreSpringFactory.getImpl(InvitationDAO.class);
+		boolean hasPolicies = invitationDao.hasInvitations(invitationToken, new Date());
 		if(!hasPolicies) {
 			return LOGIN_DENIED;
 		}
 		
 		UserManager um = UserManager.getInstance();
 		BaseSecurity securityManager = BaseSecurityManager.getInstance();
-		Invitation invitation = securityManager.findInvitation(invitationToken);
+		GroupDAO groupDao = CoreSpringFactory.getImpl(GroupDAO.class);
+		Invitation invitation = invitationDao.findInvitation(invitationToken);
 		if(invitation == null) {
 			return LOGIN_DENIED;
 		}
@@ -261,8 +243,8 @@ public class AuthHelper {
 				return LOGIN_DENIED;
 			} else {
 				//fxdiff FXOLAT-151: add eventually the identity to the security group
-				if(!securityManager.isIdentityInSecurityGroup(identity, invitation.getSecurityGroup())) {
-					securityManager.addIdentityToSecurityGroup(identity, invitation.getSecurityGroup());
+				if(!groupDao.hasRole(invitation.getBaseGroup(), identity, GroupRoles.invitee.name())) {
+					groupDao.addMembership(invitation.getBaseGroup(), identity, GroupRoles.invitee.name());
 					DBFactory.getInstance().commit();
 				}
 
@@ -281,13 +263,8 @@ public class AuthHelper {
 		} 
 		
 		//invitation ok -> create a temporary user
-		//TODO make an username beautifier???
-		String tempUsername = UUID.randomUUID().toString();
-		User user = UserManager.getInstance().createAndPersistUser(invitation.getFirstName(), invitation.getLastName(), invitation.getMail());
-		user.getPreferences().setLanguage(locale.toString());
-		Identity invited = securityManager.createAndPersistIdentity(tempUsername, user, null, null, null);
-		securityManager.addIdentityToSecurityGroup(invited, invitation.getSecurityGroup());
-		return doLogin(invited, BaseSecurityModule.getDefaultAuthProviderIdentifier(), ureq);
+		Identity invitee = invitationDao.createIdentityFrom(invitation, locale);
+		return doLogin(invitee, BaseSecurityModule.getDefaultAuthProviderIdentifier(), ureq);
 	}
 
 	/**
@@ -356,7 +333,7 @@ public class AuthHelper {
 	 * @param newUser unpersisted user
 	 * @return Identity
 	 */
-	public static Identity createAndPersistIdentityAndUser(String loginName, String pwd, User newUser) {
+	private static Identity createAndPersistIdentityAndUser(String loginName, String pwd, User newUser) {
 		Identity ident = null;
 		if (pwd == null) {
 			// when no password is used the provider must be set to null to not generate
@@ -380,10 +357,29 @@ public class AuthHelper {
 	 * @param newUser unpersisted users
 	 * @return Identity
 	 */
-	public static Identity createAndPersistIdentityAndUserWithUserGroup(String loginName, String pwd, User newUser) {
+	public static Identity createAndPersistIdentityAndUserWithUserGroup(String loginName, String pwd,  User newUser) {
 		Identity ident = createAndPersistIdentityAndUser(loginName, pwd, newUser);
 		// Add user to system users group
 		BaseSecurity securityManager = BaseSecurityManager.getInstance();
+		SecurityGroup olatuserGroup = securityManager.findSecurityGroupByName(Constants.GROUP_OLATUSERS);
+		securityManager.addIdentityToSecurityGroup(ident, olatuserGroup);
+		return ident;
+	}
+	
+	/**
+	 * Persists the given user, creates an identity for it and adds the user to
+	 * the users system group, create an authentication for an external provider
+	 * 
+	 * @param loginName
+	 * @param provider
+	 * @param authusername
+	 * @param newUser
+	 * @return
+	 */
+	public static Identity createAndPersistIdentityAndUserWithUserGroup(String loginName, String provider, String authusername, User newUser) {
+		BaseSecurity securityManager = BaseSecurityManager.getInstance();
+		Identity ident = securityManager.createAndPersistIdentityAndUser(loginName, newUser, provider, authusername, null);
+		// Add user to system users group
 		SecurityGroup olatuserGroup = securityManager.findSecurityGroupByName(Constants.GROUP_OLATUSERS);
 		securityManager.addIdentityToSecurityGroup(ident, olatuserGroup);
 		return ident;
@@ -458,23 +454,6 @@ public class AuthHelper {
 	 * @param ureq
 	 */
 	private static void setAjaxModeFor(UserRequest ureq) {
-		
-		if (GUIInterna.isLoadPerformanceMode()) {
-			Windows.getWindows(ureq).getWindowManager().setAjaxEnabled(false);
-			return;
-		}
-		
-		Preferences prefs = ureq.getUserSession().getGuiPreferences();
-		
-		Boolean web2aEnabled = (Boolean) prefs.get(WindowManager.class, "web2a-beta-on");
-		// first check for web2a mode which wants ajax off
-		if (web2aEnabled != null && web2aEnabled.booleanValue()) {
-			Windows.getWindows(ureq).getWindowManager().setForScreenReader(true);		
-			Windows.getWindows(ureq).getWindowManager().setAjaxEnabled(false);
-			return;
-		} 
-		
-		
 		Boolean ajaxOn = (Boolean) ureq.getUserSession().getGuiPreferences().get(WindowManager.class, "ajax-beta-on");
 		//if user does not have an gui preference it will be only enabled if globally on and browser is capable
 		if (ajaxOn != null) {

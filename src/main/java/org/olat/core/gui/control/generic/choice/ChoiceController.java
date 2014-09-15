@@ -26,8 +26,8 @@
 package org.olat.core.gui.control.generic.choice;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
-import java.util.Set;
 
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.form.flexible.FormItemContainer;
@@ -119,7 +119,6 @@ public class ChoiceController extends FormBasicController {
 	 *      org.olat.core.gui.control.Controller, org.olat.core.gui.UserRequest)
 	 */
 	@Override
-	@SuppressWarnings("unused")
 	protected void initForm(FormItemContainer formLayout, Controller listener, UserRequest ureq) {
 		
 		if(singleSelection && layoutVertical){
@@ -127,9 +126,9 @@ public class ChoiceController extends FormBasicController {
 		}else if(singleSelection && !layoutVertical){
 			entrySelector = uifactory.addRadiosHorizontal(selectionName, null, formLayout, keysIn, translatedKeys);
 		}else if(!singleSelection && layoutVertical){
-			entrySelector = uifactory.addCheckboxesVertical(selectionName, null, formLayout, keysIn, translatedKeys, null, 1);
+			entrySelector = uifactory.addCheckboxesVertical(selectionName, null, formLayout, keysIn, translatedKeys, 1);
 		}else if(!singleSelection && !layoutVertical){
-			entrySelector = uifactory.addCheckboxesHorizontal(selectionName, null, formLayout, keysIn, translatedKeys, null);
+			entrySelector = uifactory.addCheckboxesHorizontal(selectionName, null, formLayout, keysIn, translatedKeys);
 		}
 		
 		// add Submit
@@ -155,7 +154,7 @@ public class ChoiceController extends FormBasicController {
 		List<String> selected = new ArrayList<String>();
 		if (entrySelector instanceof MultipleSelectionElement) {
 			//sort the selected keys according with the keysIn order 
-			Set<String> selectedKeys = ((MultipleSelectionElement) entrySelector).getSelectedKeys(); 			
+			Collection<String> selectedKeys = ((MultipleSelectionElement) entrySelector).getSelectedKeys(); 			
 			int numKeys = keysIn.length;
 			for(int i=0; i<numKeys; i++) {
 				if(selectedKeys.contains(keysIn[i])) {

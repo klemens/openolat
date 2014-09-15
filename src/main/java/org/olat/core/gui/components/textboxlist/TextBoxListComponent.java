@@ -176,8 +176,6 @@ public abstract class TextBoxListComponent extends FormBaseComponentImpl {
 				currentItems.put(caption, itemValue);
 			}
 		}
-		
-		System.out.println(cmd + " :: " + cleanedItemValues);
 
 		if (logger.isDebug())
 			logger.debug("doDispatchRequest --> firing textBoxListEvent with current items: " + cleanedItemValues);
@@ -217,11 +215,14 @@ public abstract class TextBoxListComponent extends FormBaseComponentImpl {
 	 */
 	private String getAutoCompletionItemCaptionByValue(String itemValue) {
 		String autoCompletionItemCaption = "";
-		if (this.getAutoCompleteContent() == null)
+		Map<String,String> content = getAutoCompleteContent();
+		if (content == null) {
 			return autoCompletionItemCaption;
-		for (Entry<String, String> autoCompletionItemEntry : this.getAutoCompleteContent().entrySet()) {
-			if (autoCompletionItemEntry.getValue().equals(itemValue))
+		}
+		for (Entry<String, String> autoCompletionItemEntry : content.entrySet()) {
+			if (autoCompletionItemEntry.getValue().equals(itemValue)) {
 				autoCompletionItemCaption = autoCompletionItemEntry.getKey();
+			}
 		}
 		return autoCompletionItemCaption;
 	}
@@ -285,11 +286,11 @@ public abstract class TextBoxListComponent extends FormBaseComponentImpl {
 	public void validate(UserRequest ureq, ValidationResult vr) {
 		super.validate(ureq, vr);
 		JSAndCSSAdder jsa = vr.getJsAndCSSAdder();
-		//jsa.addRequiredJsFile(TextBoxListComponent.class, "js/multiselect.js");
-		jsa.addRequiredStaticJsFile("js/jquery/tagit/tag-it.min.js");
-
-		if (provider != null)
+		jsa.addRequiredStaticJsFile("js/jquery/tagsinput/bootstrap-tagsinput.min.js");
+		if (provider != null) {
+			jsa.addRequiredStaticJsFile("js/jquery/typeahead/typeahead.bundle.min.js");
 			setMapper(ureq);
+		}
 	}
 
 	/**
@@ -444,7 +445,9 @@ public abstract class TextBoxListComponent extends FormBaseComponentImpl {
 			List<String> filtered = new ArrayList<String>();
 			for(String item:content.keySet()) {
 				String antiItem = filter.filter(item);
-				filtered.add(StringHelper.escapeHtml(antiItem));
+				if(StringHelper.containsNonWhitespace(antiItem)) {
+					filtered.add(antiItem);
+				}
 			}
 			return StringUtils.join(filtered, ", ");
 		} else

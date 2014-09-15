@@ -193,12 +193,9 @@ class NewUserForm extends FormBasicController {
 		String[] langValues = StringHelper.getMapValuesAsStringArray(languages);
 		ArrayHelper.sort(langKeys, langValues, false, true, false);
 		// Build css classes for reference languages
-		String[] langCssClasses = I18nManager.getInstance().createLanguageFlagsCssClasses(langKeys, "b_with_small_icon_left");
-		languageSingleSelection = uifactory.addDropdownSingleselect("new.form.language", formLayout, langKeys, langValues, langCssClasses); 
-    // select default language in form
+		languageSingleSelection = uifactory.addDropdownSingleselect("new.form.language", formLayout, langKeys, langValues, null); 
+		// select default language in form
 		languageSingleSelection.select(I18nModule.getDefaultLocale().toString(), true);
-		
-    
 		
 		//add password fields!!!
 		if (showPasswordFields) {
@@ -207,9 +204,9 @@ class NewUserForm extends FormBasicController {
 			// checkBox: generate user with OLAT authentication or not
 			String[] authKeys = {"xx"};
 			String[] authValues = {translate("new.form.auth.true")};
-			authCheckbox = uifactory.addCheckboxesHorizontal("new.form.auth", formLayout, authKeys, authValues, null);
+			authCheckbox = uifactory.addCheckboxesHorizontal("new.form.auth", formLayout, authKeys, authValues);
 			authCheckbox.select("xx", showPasswordFields);
-			authCheckbox.addActionListener(this, FormEvent.ONCLICK);
+			authCheckbox.addActionListener(FormEvent.ONCLICK);
 
 			// if OLAT authentication is used, use the pwd below
 			psw1TextElement = uifactory.addPasswordElement(PASSWORD_NEW1, "new.form.password.new1", 255, "", formLayout);

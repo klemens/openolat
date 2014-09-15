@@ -19,7 +19,7 @@
  */
 package org.olat.portfolio.model.structel;
 
-import org.olat.basesecurity.SecurityGroup;
+import java.util.Set;
 
 /** 
  * Description:<br>
@@ -28,10 +28,10 @@ import org.olat.basesecurity.SecurityGroup;
  * Initial Date:  08.06.2010 <br>
  * @author rhaag
  */
-public interface PortfolioStructureMap extends PortfolioStructure {
+public interface PortfolioStructureMap extends PortfolioStructure, PortfolioStructureMapRef {
 	//marker interface
 	
-	public SecurityGroup getOwnerGroup();
+	public Set<EPStructureElementToGroupRelation> getGroups();
 	
 	public String getStatus();
 }

@@ -104,8 +104,8 @@ public class PoolsAdminController extends FormBasicController {
 		columnsModel.addFlexiColumnModel(new DefaultFlexiColumnModel(true, Cols.publicPool.i18nKey(), Cols.publicPool.ordinal(),
 				true, "publicPool", FlexiColumnModel.ALIGNMENT_LEFT,
 				new BooleanCellRenderer(
-						new CSSIconFlexiCellRenderer("o_public"),
-						new CSSIconFlexiCellRenderer("o_private"))
+						new CSSIconFlexiCellRenderer("o_icon_pool_public"),
+						new CSSIconFlexiCellRenderer("o_icon_pool_private"))
 		));
 		columnsModel.addFlexiColumnModel(new DefaultFlexiColumnModel(Cols.name.i18nKey(), Cols.name.ordinal(), true, "name"));
 		columnsModel.addFlexiColumnModel(new StaticFlexiColumnModel("edit", translate("edit"), "edit-pool"));
@@ -113,7 +113,8 @@ public class PoolsAdminController extends FormBasicController {
 		columnsModel.addFlexiColumnModel(new StaticFlexiColumnModel("delete", translate("delete"), "delete-pool"));
 
 		model = new PoolDataModel(columnsModel, getTranslator());
-		poolTable = uifactory.addTableElement(ureq, getWindowControl(), "pools", model, getTranslator(), formLayout);
+		poolTable = uifactory.addTableElement(getWindowControl(), "pools", model, getTranslator(), formLayout);
+		poolTable.setCustomizeColumns(false);
 		
 		poolTable.setRendererType(FlexiTableRendererType.classic);
 		reloadModel();

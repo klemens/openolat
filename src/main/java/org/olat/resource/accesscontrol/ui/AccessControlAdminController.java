@@ -20,7 +20,7 @@
  */
 package org.olat.resource.accesscontrol.ui;
 
-import java.util.Set;
+import java.util.Collection;
 
 import org.olat.core.CoreSpringFactory;
 import org.olat.core.gui.UserRequest;
@@ -86,21 +86,21 @@ public class AccessControlAdminController extends FormBasicController {
 		setFormTitle("admin.title");
 		setFormDescription("admin.desc");
 
-		enabled = uifactory.addCheckboxesHorizontal("ac.enabled", formLayout, keys, values, null);
+		enabled = uifactory.addCheckboxesHorizontal("ac.enabled", formLayout, keys, values);
 		enabled.select(keys[0], acModule.isEnabled());
 		
 		uifactory.addSpacerElement("spaceman", formLayout, false);
 		
-		methods = uifactory.addCheckboxesVertical("ac.methods", formLayout, methodKeys, methodValues, null, 1);
+		methods = uifactory.addCheckboxesVertical("ac.methods", formLayout, methodKeys, methodValues, 1);
 		methods.select("free.method", acModule.isFreeEnabled());
 		methods.select("token.method", acModule.isTokenEnabled());
 		methods.select("paypal.method", acModule.isPaypalEnabled());
 		methods.setEnabled(acModule.isEnabled());
-		methods.addActionListener(this, FormEvent.ONCHANGE);
+		methods.addActionListener(FormEvent.ONCHANGE);
 		
 		uifactory.addSpacerElement("itgirl", formLayout, false);
 		
-		homeEnabled = uifactory.addCheckboxesHorizontal("ac.home.enabled", formLayout, keys, values, null);
+		homeEnabled = uifactory.addCheckboxesHorizontal("ac.home.enabled", formLayout, keys, values);
 		homeEnabled.select(keys[0], acModule.isPaypalEnabled() || acModule.isHomeOverviewEnabled());
 		
 		final FormLayoutContainer buttonGroupLayout = FormLayoutContainer.createButtonLayout("buttonLayout", getTranslator());
@@ -112,7 +112,7 @@ public class AccessControlAdminController extends FormBasicController {
 	}
 	
 	public void update() {
-		Set<String> selectedMethods = methods.getSelectedKeys();
+		Collection<String> selectedMethods = methods.getSelectedKeys();
 		if(selectedMethods.contains("paypal.method")) {
 			homeEnabled.select(keys[0], true);
 			homeEnabled.setEnabled(false);
@@ -138,7 +138,7 @@ public class AccessControlAdminController extends FormBasicController {
 		boolean on = !enabled.getSelectedKeys().isEmpty();
 		acModule.setEnabled(on);
 		
-		Set<String> selectedMethods = methods.getSelectedKeys();
+		Collection<String> selectedMethods = methods.getSelectedKeys();
 		acModule.setFreeEnabled(selectedMethods.contains("free.method"));
 		acModule.setTokenEnabled(selectedMethods.contains("token.method"));
 		boolean paypalEnabled = selectedMethods.contains("paypal.method");

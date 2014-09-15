@@ -51,6 +51,16 @@ public class StaticFlexiColumnModel extends AbstractFlexiColumnModel {
 		super(headerKey, columnIndex, FlexiColumnModel.ALIGNMENT_LEFT, renderer);
 		this.action = action;
 	}
+	
+	public StaticFlexiColumnModel(String headerKey, int columnIndex, String action, boolean sortable, String sortedKey, FlexiCellRenderer renderer) {
+		super(headerKey, columnIndex, FlexiColumnModel.ALIGNMENT_LEFT, sortable, sortedKey, renderer);
+		this.action = action;
+	}
+
+	@Override
+	public boolean isAlwaysVisible() {
+		return true;
+	}
 
 	@Override
 	public String getAction() {

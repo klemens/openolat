@@ -39,6 +39,14 @@ import org.olat.ims.qti.editor.QTIEditorMainController;
  * @author patrick
  */
 public abstract class GenericQtiNode extends GenericMementoTreeNode implements IQtiNode {
+	
+	public GenericQtiNode() {
+		//
+	}
+	
+	public GenericQtiNode(String ident) {
+		super(ident);
+	}
 
 	/**
 	 * @see org.olat.ims.qti.editor.tree.IQtiNode#createEditTabbedPane(org.olat.core.gui.UserRequest,

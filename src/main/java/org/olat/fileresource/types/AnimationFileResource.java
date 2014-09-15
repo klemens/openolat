@@ -39,16 +39,20 @@ public class AnimationFileResource extends FileResource {
 	 */
 	public static final String TYPE_NAME = "FileResource.ANIM";
 
-	/**
-	 * Default constructor.
-	 */
-	public AnimationFileResource() { super.setTypeName(TYPE_NAME); }
+	public AnimationFileResource() {
+		super(TYPE_NAME);
+	}
 	
 	/**
 	 * @param f
 	 * @return true if is of type
 	 */
 	public static boolean validate(File f) {
-		return f.getName().toLowerCase().endsWith(".swf");
+		return validate(f.getName());
+	}
+	
+	public static boolean validate(String filename) {
+		String f = filename.toLowerCase();
+		return f.endsWith(".swf");
 	}
 }

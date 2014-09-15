@@ -29,7 +29,6 @@ import org.apache.commons.lang.StringUtils;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.form.flexible.FormItem;
 import org.olat.core.gui.components.form.flexible.FormItemContainer;
-import org.olat.core.gui.components.form.flexible.FormUIFactory;
 import org.olat.core.gui.components.form.flexible.elements.FormLink;
 import org.olat.core.gui.components.form.flexible.elements.MultipleSelectionElement;
 import org.olat.core.gui.components.form.flexible.elements.SingleSelection;
@@ -80,8 +79,7 @@ public class TranslationToolI18nItemEditCrumbController extends CrumbFormBasicCo
 	private FormLink previousLink, saveLink, saveNextLink, nextLink, annotationAddLink;
 	private ProgressBar progressBarBundle, progressBarKey;
 
-	private static final String KEYS_ENABLED = "enabled";
-	private static final String KEYS_EMPTY = "";
+	private static final String[] KEYS_ENABLED = new String[]{ "enabled" };
 	// true when the overlay files are edited and not the language files itself
 	private boolean customizingMode = false;
 	
@@ -137,7 +135,7 @@ public class TranslationToolI18nItemEditCrumbController extends CrumbFormBasicCo
 	public void initialzeI18nitemAsCurrentItem(UserRequest ureq, I18nItem toBeActivatedItem) {
 		// find item in list
 		for (int i = 0; i < i18nItems.size(); i++) {
-			I18nItem item = (I18nItem) i18nItems.get(i);
+			I18nItem item = i18nItems.get(i);
 			if (item.equals(toBeActivatedItem)) {
 				currentItemPosition = i;
 				currentItem = i18nItems.get(currentItemPosition);
@@ -160,8 +158,6 @@ public class TranslationToolI18nItemEditCrumbController extends CrumbFormBasicCo
 	 */
 	@Override
 	protected void initForm(FormItemContainer formLayout, Controller listener, UserRequest ureq) {
-		FormUIFactory formFactory = FormUIFactory.getInstance();
-		I18nManager i18nMgr = I18nManager.getInstance();
 		Preferences guiPrefs = ureq.getUserSession().getGuiPreferences();
 		flc.contextPut("referenceLanguageKey", referenceLocale.toString());
 		flc.contextPut("referenceLanguage", i18nMgr.getLanguageTranslated(referenceLocale.toString(), false));
@@ -178,26 +174,31 @@ public class TranslationToolI18nItemEditCrumbController extends CrumbFormBasicCo
 		}
 		String[] bundlesListArray = ArrayHelper.toArray(bundlesList);
 		String[] keysListArray = ArrayHelper.toArray(keysList);
-		bundlesSelection = formFactory.addDropdownSingleselect("bundlesSelection", this.flc, bundlesListArray, bundlesListArray, null);
-		bundlesSelection.addActionListener(this, FormEvent.ONCHANGE);
+		bundlesSelection = uifactory.addDropdownSingleselect("bundlesSelection", this.flc, bundlesListArray, bundlesListArray, null);
+		bundlesSelection.setDomReplacementWrapperRequired(false);
+		bundlesSelection.addActionListener(FormEvent.ONCHANGE);
 		bundlesSelection.select(currentItem.getBundleName(), true);
-		keysSelection = formFactory.addDropdownSingleselect("keysSelection", this.flc, keysListArray, keysListArray, null);
-		keysSelection.addActionListener(this, FormEvent.ONCHANGE);
+		keysSelection = uifactory.addDropdownSingleselect("keysSelection", this.flc, keysListArray, keysListArray, null);
+		keysSelection.setDomReplacementWrapperRequired(false);
+		keysSelection.addActionListener(FormEvent.ONCHANGE);
 		keysSelection.select(currentItem.getKey(), true);
 		// Add reference box
-		referenceArea = formFactory.addTextAreaElement("referenceArea", "edit.referenceArea", -1, 1, -1, true, null, this.flc);
+		referenceArea = uifactory.addTextAreaElement("referenceArea", "edit.referenceArea", -1, 1, -1, true, null, this.flc);
 		referenceArea.setEnabled(false); // read only
 		// Add compare box
 		Boolean compareEnabledPrefs = (Boolean) guiPrefs.get(I18nModule.class, I18nModule.GUI_PREFS_COMPARE_LANG_ENABLED, Boolean.FALSE);
-		compareArea = formFactory.addTextAreaElement("compareArea", "edit.compareArea", -1, 1, -1, true, null, this.flc);
+		compareArea = uifactory.addTextAreaElement("compareArea", "edit.compareArea", -1, 1, -1, true, null, this.flc);
 		compareArea.setEnabled(false); // read only
 		compareArea.setVisible(compareEnabledPrefs.booleanValue());
-		compareSwitch = formFactory.addCheckboxesHorizontal("compareSwitch", null, this.flc, new String[] { KEYS_ENABLED },
-				new String[] { KEYS_EMPTY }, null);//i18nLabel set to null -> disabled label
-		compareSwitch.select(KEYS_ENABLED, compareEnabledPrefs.booleanValue());
-		compareSwitch.addActionListener(listener, FormEvent.ONCLICK);
+		
+		String[] compareSwitchValues = new String[]{ translate("generic.enable") };
+		compareSwitch = uifactory.addCheckboxesVertical("compareSwitch", null, flc, KEYS_ENABLED, compareSwitchValues, 1);
+		compareSwitch.setDomReplacementWrapperRequired(false);
+		compareSwitch.select(KEYS_ENABLED[0], compareEnabledPrefs.booleanValue());
+		compareSwitch.addActionListener(FormEvent.ONCLICK);
 		formLayout.add(compareSwitch);
-		this.flc.contextPut("compareSwitchEnabled", compareEnabledPrefs);
+		flc.contextPut("compareSwitchEnabled", compareEnabledPrefs);
+		
 		// Add compare language selection
 		Set<String> availableLangKeys = I18nModule.getAvailableLanguageKeys();
 		String[] comparelangKeys = ArrayHelper.toArray(availableLangKeys);
@@ -211,39 +212,39 @@ public class TranslationToolI18nItemEditCrumbController extends CrumbFormBasicCo
 		}
 		ArrayHelper.sort(comparelangKeys, compareLangValues, false, true, false);
 		// Build css classes for comparison languages
-		String[] compareLangCssClasses = i18nMgr.createLanguageFlagsCssClasses(comparelangKeys, "b_with_small_icon_left");
 		String comparePrefs = (String) guiPrefs.get(I18nModule.class, I18nModule.GUI_PREFS_PREFERRED_COMPARE_LANG, I18nModule
 				.getDefaultLocale().toString());
 		compareLocale = i18nMgr.getLocaleOrNull(comparePrefs);
 		if (compareLocale == null) compareLocale = I18nModule.getDefaultLocale();
-		compareLangSelection = formFactory.addDropdownSingleselect("compareLangSelection", this.flc, comparelangKeys, compareLangValues,
-				compareLangCssClasses);
+		compareLangSelection = uifactory.addDropdownSingleselect("compareLangSelection", flc, comparelangKeys, compareLangValues, null);
+		compareLangSelection.setDomReplacementWrapperRequired(false);
 		compareLangSelection.select(i18nMgr.getLocaleKey(compareLocale), true);
-		this.flc.contextPut("compareLanguageKey", i18nMgr.getLocaleKey(compareLocale));
-		compareLangSelection.addActionListener(this, FormEvent.ONCHANGE);
+		flc.contextPut("compareLanguageKey", i18nMgr.getLocaleKey(compareLocale));
+		compareLangSelection.addActionListener(FormEvent.ONCHANGE);
 		compareLangSelection.setEnabled(compareEnabledPrefs.booleanValue());
+		
 		// Add target box
-		this.flc.contextPut("targetLanguageKey", i18nMgr.getLocaleKey(currentItem.getLocale()));
-		this.flc.contextPut("targetLanguage", i18nMgr.getLanguageTranslated(i18nMgr.getLocaleKey(currentItem.getLocale()), false));			
-		targetArea = formFactory.addTextAreaElement("targetArea", "edit.targetArea", -1, 1, -1, true, null, this.flc);
+		flc.contextPut("targetLanguageKey", i18nMgr.getLocaleKey(currentItem.getLocale()));
+		flc.contextPut("targetLanguage", i18nMgr.getLanguageTranslated(i18nMgr.getLocaleKey(currentItem.getLocale()), false));			
+		targetArea = uifactory.addTextAreaElement("targetArea", "edit.targetArea", -1, 5, -1, true, null, flc);
 		// Add annotation box
-		annotationArea = formFactory.addTextAreaElement("annotationArea", "edit.annotationArea", -1, 1, -1, true, null, this.flc);
+		annotationArea = uifactory.addTextAreaElement("annotationArea", "edit.annotationArea", -1, 1, -1, true, null, flc);
 		// Add progress bar
 		// init with values
-		progressBarBundle = new ProgressBar("progressBarBundle", 200, 1, bundlesList.size(), translate("generic.bundles"));
+		progressBarBundle = new ProgressBar("progressBarBundle", 300, 1, bundlesList.size(), translate("generic.bundles"));
 		progressBarBundle.setPercentagesEnabled(false);
-		this.flc.put("progressBarBundle", progressBarBundle);
-		progressBarKey = new ProgressBar("progressBarKey", 200, 1, keysList.size(), translate("generic.keys"));
+		flc.put("progressBarBundle", progressBarBundle);
+		progressBarKey = new ProgressBar("progressBarKey", 300, 1, keysList.size(), translate("generic.keys"));
 		progressBarKey.setPercentagesEnabled(false);
-		this.flc.put("progressBarKey", progressBarKey);
+		flc.put("progressBarKey", progressBarKey);
 		// Add navigation buttons
-		previousLink = new FormLinkImpl("previousLink", "previousLink", "edit.button.previous", Link.BUTTON);
-		formLayout.add(previousLink);
-		saveLink = new FormLinkImpl("saveLink", "saveLink", "edit.button.save", Link.BUTTON);
-		formLayout.add(saveLink);
-		saveNextLink = new FormLinkImpl("saveNextLink", "saveNextLink", "edit.button.saveNext", Link.BUTTON);
+		previousLink = uifactory.addFormLink("previousLink", "edit.button.previous", null, formLayout, Link.BUTTON);
+		previousLink.setIconLeftCSS("o_icon o_icon_previous_page");
+		saveLink = uifactory.addFormLink("saveLink", "edit.button.save", null, formLayout, Link.BUTTON);
+		saveNextLink = uifactory.addFormLink("saveNextLink", "edit.button.saveNext", null, formLayout, Link.BUTTON);
 		formLayout.add(saveNextLink);
-		nextLink = new FormLinkImpl("nextLink", "nextLink", "edit.button.next", Link.BUTTON);
+		nextLink = uifactory.addFormLink("nextLink", "edit.button.next", null, formLayout, Link.BUTTON);
+		nextLink.setIconRightCSS("o_icon o_icon_next_page");
 		formLayout.add(nextLink);
 		// init values from item
 		initOrUpdateCurrentItem(ureq);
@@ -267,7 +268,6 @@ public class TranslationToolI18nItemEditCrumbController extends CrumbFormBasicCo
 	}
 
 	private void initOrUpdateCurrentItem(UserRequest ureq) {
-		I18nManager i18nMgr = I18nManager.getInstance();
 		// Set keys (must call before setting new currentItemPosition bundle name!
 		if (bundlesSelection.getSelectedKey().equals(currentItem.getBundleName())) {
 			// still in same bundle, just select the currentItemPosition key
@@ -311,7 +311,6 @@ public class TranslationToolI18nItemEditCrumbController extends CrumbFormBasicCo
 	private void updateCompareArea(UserRequest ureq) {
 		Preferences guiPrefs = ureq.getUserSession().getGuiPreferences();
 		if (compareSwitch.isSelected(0)) {
-			I18nManager i18nMgr = I18nManager.getInstance();
 			// Add target value
 			String compareValue = i18nMgr.getLocalizedString(currentItem.getBundleName(), currentItem.getKey(), null, compareLocale, customizingMode, false,
 					false, false, 0);
@@ -363,7 +362,6 @@ public class TranslationToolI18nItemEditCrumbController extends CrumbFormBasicCo
 	}
 
 	private void doSaveCurrentItem(UserRequest ureq) {
-		I18nManager i18nMgr = I18nManager.getInstance();
 		// update annotation if dirty
 		String newAnnotation = annotationArea.getValue();
 		if (!StringHelper.containsNonWhitespace(newAnnotation)) newAnnotation = null;

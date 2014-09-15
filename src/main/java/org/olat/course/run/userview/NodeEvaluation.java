@@ -53,10 +53,10 @@ public class NodeEvaluation extends GenericNode {
 
 	private static final long serialVersionUID = -5576947730073187682L;
 	
-	private CourseNode courseNode;
-	private GenericTreeNode gtn = null;
+	private final CourseNode courseNode;
+	private GenericTreeNode gtn;
 
-	private Map<String, Boolean> accesses = new HashMap<String, Boolean>(4);
+	private final Map<String, Boolean> accesses = new HashMap<String, Boolean>(4);
 
 	private boolean visible = false;
 	private boolean atLeastOneAccessible = false;
@@ -77,7 +77,7 @@ public class NodeEvaluation extends GenericNode {
 
 	public boolean isCapabilityAccessible(String capabilityName) {
 		if(accesses.get(capabilityName)!=null) {
-		  return ((Boolean) accesses.get(capabilityName)).booleanValue();
+		  return accesses.get(capabilityName).booleanValue();
 		}
 		return false;
 	}
@@ -121,13 +121,19 @@ public class NodeEvaluation extends GenericNode {
 
 		// if the coursenode is visible, build a treenode
 		if (isVisible()) {
-			gtn = new GenericTreeNode();
+			gtn = new GenericTreeNode(courseNode.getIdent());
 			gtn.setTitle(courseNode.getShortTitle());
 			gtn.setAltText(courseNode.getLongTitle());
 			String type = courseNode.getType();
 			CourseNodeConfiguration cnConfig = CourseNodeFactory.getInstance().getCourseNodeConfigurationEvenForDisabledBB(type);
 			if(cnConfig != null) {
-				String nodeCssClass = cnConfig.getIconCSSClass();
+				String nodeCssClass = null;
+				if (courseNode.getParent() == null) {
+					// Spacial case for root node
+					nodeCssClass = "o_CourseModule_icon";
+				} else {
+					nodeCssClass = cnConfig.getIconCSSClass();					
+				}
 				gtn.setIconCssClass(nodeCssClass);
 			}
 			gtn.setUserObject(this); // the current NodeEval is set into the treenode

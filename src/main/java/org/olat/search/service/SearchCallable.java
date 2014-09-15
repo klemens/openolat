@@ -68,6 +68,7 @@ class SearchCallable implements Callable<SearchResults> {
 	
 	@Override
 	public SearchResults call() throws ParseException {
+		IndexSearcher searcher = null;
 		try {
 			boolean debug = log.isDebug();
 			
@@ -77,7 +78,7 @@ class SearchCallable implements Callable<SearchResults> {
 			}
 			
 			if(debug) log.debug("queryString=" + queryString);
-			IndexSearcher searcher = searchService.getIndexSearcher();
+			searcher = searchService.getIndexSearcher();
 			BooleanQuery query = searchService.createQuery(queryString, condQueries);
 			if(debug) log.debug("query=" + query);
 			
@@ -90,7 +91,8 @@ class SearchCallable implements Callable<SearchResults> {
 			SearchResultsImpl searchResult = new SearchResultsImpl(searchService.getMainIndexer(), searcher, docs, query, searchService.getAnalyzer(), identity, roles, firstResult, maxResults, doHighlighting, false);
 			searchResult.setQueryTime(queryTime);
 			searchResult.setNumberOfIndexDocuments(docs.totalHits);
-
+			if(debug) log.debug("found=" + docs.totalHits);
+			
 			return searchResult;
 		} catch(ParseException pex) {
 			throw pex;
@@ -98,6 +100,7 @@ class SearchCallable implements Callable<SearchResults> {
 			log.error("", naex);
 			return null;
 		} finally {
+			searchService.releaseIndexSearcher(searcher);
 			DBFactory.getInstance().commitAndCloseSession();
 		}
 	}

@@ -34,12 +34,14 @@ import org.olat.core.gui.components.Component;
 import org.olat.core.gui.components.link.Link;
 import org.olat.core.gui.components.link.LinkFactory;
 import org.olat.core.gui.components.panel.Panel;
+import org.olat.core.gui.components.panel.StackedPanel;
+import org.olat.core.gui.components.panel.SimpleStackedPanel;
 import org.olat.core.gui.components.velocity.VelocityContainer;
 import org.olat.core.gui.control.Controller;
-import org.olat.core.gui.control.creator.ControllerCreator;
 import org.olat.core.gui.control.Event;
 import org.olat.core.gui.control.WindowControl;
 import org.olat.core.gui.control.controller.BasicController;
+import org.olat.core.gui.control.creator.ControllerCreator;
 import org.olat.core.gui.control.generic.spacesaver.ShrinkController;
 import org.olat.core.gui.dev.controller.SourceViewController;
 
@@ -58,7 +60,7 @@ public class GuiDemoFlexiFormMainController extends BasicController {
 	private Map<String, ControllerCreator> demos = new HashMap<String, ControllerCreator>();
 	List<String> demolinknames;
 	private Controller demoController;
-	private Panel contentP;
+	private StackedPanel contentP;
 	private VelocityContainer content_sourceVC;
 	private Panel sourceP;
 	{
@@ -118,7 +120,7 @@ public class GuiDemoFlexiFormMainController extends BasicController {
 		mainVC.contextPut("demolinknames", demolinknames);
 
 		// all democontroller content goes in this panel
-		contentP = new Panel("content");
+		contentP = new SimpleStackedPanel("content");
 		content_sourceVC = createVelocityContainer("content_source");
 		mainVC.put("democontent", contentP);
 		//
@@ -129,7 +131,7 @@ public class GuiDemoFlexiFormMainController extends BasicController {
 		
 		sourceP = new Panel("sourceP");
 		VelocityContainer sourceVC = createVelocityContainer(firstDemo);
-		ShrinkController sc = new ShrinkController(ureq, getWindowControl(), false, sourceVC, "toggle source");
+		ShrinkController sc = new ShrinkController(false, sourceVC, "toggle source");
 		sourceP.setContent(sc.getInitialComponent());
 
 		content_sourceVC.put("content", mainVC);
@@ -165,7 +167,7 @@ public class GuiDemoFlexiFormMainController extends BasicController {
 				ControllerCreator cc = demos.get(uob);
 				//update source
 				VelocityContainer sourceVC = createVelocityContainer(uob);
-				ShrinkController sc = new ShrinkController(ureq, getWindowControl(), false, sourceVC, "toggle source");
+				ShrinkController sc = new ShrinkController(false, sourceVC, "toggle source");
 				sourceP.setContent(sc.getInitialComponent());
 				
 				//cleanup former democontroller

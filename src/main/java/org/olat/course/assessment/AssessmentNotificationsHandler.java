@@ -28,15 +28,26 @@ package org.olat.course.assessment;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 
-import org.olat.basesecurity.BaseSecurity;
 import org.olat.basesecurity.BaseSecurityManager;
 import org.olat.basesecurity.Constants;
+import org.olat.basesecurity.GroupRoles;
+import org.olat.core.CoreSpringFactory;
 import org.olat.core.commons.persistence.PersistenceHelper;
+import org.olat.core.commons.services.notifications.NotificationHelper;
+import org.olat.core.commons.services.notifications.NotificationsHandler;
+import org.olat.core.commons.services.notifications.NotificationsManager;
+import org.olat.core.commons.services.notifications.Publisher;
+import org.olat.core.commons.services.notifications.PublisherData;
+import org.olat.core.commons.services.notifications.Subscriber;
+import org.olat.core.commons.services.notifications.SubscriptionContext;
+import org.olat.core.commons.services.notifications.SubscriptionInfo;
+import org.olat.core.commons.services.notifications.manager.NotificationsUpgradeHelper;
+import org.olat.core.commons.services.notifications.model.SubscriptionListItem;
+import org.olat.core.commons.services.notifications.model.TitleItem;
 import org.olat.core.gui.translator.Translator;
 import org.olat.core.id.Identity;
 import org.olat.core.id.context.BusinessControlFactory;
@@ -45,16 +56,6 @@ import org.olat.core.logging.OLog;
 import org.olat.core.logging.Tracing;
 import org.olat.core.util.Util;
 import org.olat.core.util.nodes.INode;
-import org.olat.core.util.notifications.NotificationHelper;
-import org.olat.core.util.notifications.NotificationsHandler;
-import org.olat.core.util.notifications.NotificationsManager;
-import org.olat.core.util.notifications.Publisher;
-import org.olat.core.util.notifications.PublisherData;
-import org.olat.core.util.notifications.Subscriber;
-import org.olat.core.util.notifications.SubscriptionContext;
-import org.olat.core.util.notifications.SubscriptionInfo;
-import org.olat.core.util.notifications.items.SubscriptionListItem;
-import org.olat.core.util.notifications.items.TitleItem;
 import org.olat.course.CourseFactory;
 import org.olat.course.CourseModule;
 import org.olat.course.ICourse;
@@ -69,8 +70,8 @@ import org.olat.course.nodes.ScormCourseNode;
 import org.olat.course.properties.CoursePropertyManager;
 import org.olat.course.run.environment.CourseEnvironment;
 import org.olat.group.BusinessGroup;
+import org.olat.group.BusinessGroupService;
 import org.olat.modules.scorm.assessment.ScormAssessmentManager;
-import org.olat.notifications.NotificationsUpgradeHelper;
 import org.olat.properties.Property;
 import org.olat.repository.RepositoryManager;
 
@@ -298,7 +299,7 @@ public class AssessmentNotificationsHandler implements NotificationsHandler {
 	}
 
 	/**
-	 * @see org.olat.notifications.NotificationsHandler#createSubscriptionInfo(org.olat.notifications.Subscriber,
+	 * @see org.olat.core.commons.services.notifications.NotificationsHandler#createSubscriptionInfo(org.olat.core.commons.services.notifications.Subscriber,
 	 *      java.util.Locale, java.util.Date)
 	 */
 	public SubscriptionInfo createSubscriptionInfo(final Subscriber subscriber, Locale locale, Date compareDate) {
@@ -330,11 +331,9 @@ public class AssessmentNotificationsHandler implements NotificationsHandler {
 					if (!hasFullAccess) {
 						// initialize list of users, only when user has not full access
 						List<BusinessGroup> coachedGroups = cgm.getOwnedBusinessGroups(identity);
-						BaseSecurity securityManager = BaseSecurityManager.getInstance();
-						for (Iterator<BusinessGroup> iter = coachedGroups.iterator(); iter.hasNext();) {
-							BusinessGroup group = iter.next();
-							coachedUsers.addAll(securityManager.getIdentitiesOfSecurityGroup(group.getPartipiciantGroup()));
-						}
+						BusinessGroupService businessGroupService = CoreSpringFactory.getImpl(BusinessGroupService.class);
+						List<Identity> coachedIdentites = businessGroupService.getMembers(coachedGroups, GroupRoles.participant.name());
+						coachedUsers.addAll(coachedIdentites);
 					}
 
 					List<AssessableCourseNode> testNodes = getCourseTestNodes(course);

@@ -140,10 +140,10 @@ public class EnrollmentEditForm extends FormBasicController {
 		keys = new String[] { "ison" };
 		values = new String[] { "" };
 
-		accessLimit = uifactory.addCheckboxesVertical("accessLimit", formLayout, keys, values, null, 1);
+		accessLimit = uifactory.addCheckboxesVertical("accessLimit", formLayout, keys, values, 1);
 		accessLimit.setLabel("en.accesscheckbox", null);
 		accessLimit.select("ison", courseConfig.getEnableAccessLimit());
-		accessLimit.addActionListener(this, FormEvent.ONCLICK);
+		accessLimit.addActionListener(FormEvent.ONCLICK);
 
 		keys = new String[elements.size()];
 		values = new String[elements.size()];
@@ -154,7 +154,7 @@ public class EnrollmentEditForm extends FormBasicController {
 			values[i] = elements.get(i);
 		}
 
-		courseElements = uifactory.addCheckboxesVertical("courseElements", formLayout, keys, values, null, 1);
+		courseElements = uifactory.addCheckboxesVertical("courseElements", formLayout, keys, values, 1);
 		courseElements.setLabel("en.selectelements", null);
 
 		if (!accessLimit.isSelected(0)) courseElements.setVisible(false);
@@ -174,11 +174,8 @@ public class EnrollmentEditForm extends FormBasicController {
 		}
 
 		// rules to hide / unhide
-		Set<FormItem> targets = new HashSet<FormItem>() {
-			{
-				add(courseElements);
-			}
-		};
+		Set<FormItem> targets = new HashSet<FormItem>();
+		targets.add(courseElements);
 		RulesFactory.createHideRule(accessLimit, null, targets, formLayout);
 		RulesFactory.createShowRule(accessLimit, "ison", targets, formLayout);
 

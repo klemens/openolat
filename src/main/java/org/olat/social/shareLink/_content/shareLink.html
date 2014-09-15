@@ -2,68 +2,89 @@
 <script type="text/javascript">
 /* <![CDATA[ */
     ## Called from Window.java to update the businesspath
-	function b_shareActiveSocialUrl() {
-		jQuery('#b_mail').attr('href','mailto:?subject=' + b_shareSocialTitle() + '&body=' + b_shareSocialUrl());
+	function o_shareActiveSocialUrl() {
+		jQuery('#o_mail').attr('href','mailto:?subject=' + o_shareSocialTitle() + '&body=' + o_shareSocialUrl());
 	}
 	## Helper methods for buttons below
-	function b_shareSocialUrl() {
+	function o_shareSocialUrl() {
 		if(o_info.businessPath && o_info.businessPath.length > 0) return o_info.businessPath;
 		return '$baseURL';
 	} 
-	function b_shareSocialTitle() { return document.title; }
+	function o_shareSocialTitle() {
+		return document.title;
+	}
+	function o_shareCallout() {
+		return '<p><input id="callout_share_link_in" type="text" name="cl_share_link" value="' + o_shareSocialUrl() + '" size="64" /></p>';
+	}
 /* ]]> */
 </script>
 
 
-<div id="b_share">
-#foreach ($link in $shareLinks)
-	#if ($link == "twitter")
-		<a id="b_twitter" href="#" target="_blank" title="$r.translateInAttribute("share.twitter")" onclick="window.open('http://twitter.com/share?url='+b_shareSocialUrl()+'&text='+b_shareSocialTitle());return false;"></a>
-	#elseif ($link == "facebook")
-		<a id="b_facebook" href="#" target="_blank" title="$r.translateInAttribute("share.facebook")" onclick="window.open('http://www.facebook.com/sharer.php?u='+b_shareSocialUrl()+'&t='+b_shareSocialTitle());return false;"></a>
-	#elseif ($link == "google")
-		<a id="b_google" href="#" target="_blank" title="$r.translateInAttribute("share.google")" onclick="window.open('https://www.google.com/bookmarks/mark?op=add&bkmk='+b_shareSocialUrl()+'&title='+b_shareSocialTitle());return false;"></a>
-	#elseif ($link == "delicious")
-		<a id="b_delicious" href="#" target="_blank" title="$r.translateInAttribute("share.delicious")" onclick="window.open('http://www.delicious.com/save?url='+b_shareSocialUrl()+'&title='+b_shareSocialTitle());return false;"></a>
-	#elseif ($link == "digg")
-		<a id="b_digg" href="#" title="$r.translateInAttribute("share.digg")" onclick="window.open('http://digg.com/submit?url='+b_shareSocialUrl()+'&title='+b_shareSocialTitle());return false;"></a>
-	#elseif ($link == "mail")	
-		<a id="b_mail" href="mailto:?body=$baseURL" title="$r.translateInAttribute("share.mail")"></a>
-	#elseif ($link == "link")	
-		<a id="b_link" href="#" onclick="javascript:b_shareSocialLink();"></a>
+<div id="o_share">
+#set($shareBPLink = $shareLinks.contains("link"))
+#set($hasShareLinks = $shareBPLink && $shareLinks.size() > 1)
+
+#if ($hasShareLinks)
+	<a id="o_share_social" href="javascript:;" title="$r.translateInAttribute("share.social")">
+		<i class="o_icon o_icon_share_social o_icon-lg"></i>
+	</a>
+	<div id="o_share_social_wrapper" class="hide"><div id="o_share_social_container">
+	#foreach ($link in $shareLinks)
+		#if ($link == "twitter")
+			<a id="o_twitter" href="#" target="_blank" title="$r.translateInAttribute("share.twitter")" onclick="window.open('http://twitter.com/share?url='+o_shareSocialUrl()+'&amp;text='+o_shareSocialTitle());return false;">
+				<i class="o_icon o_icon_twitter o_icon-lg"></i>
+			</a>
+		#elseif ($link == "facebook")
+			<a id="o_facebook" href="#" target="_blank" title="$r.translateInAttribute("share.facebook")" onclick="window.open('http://www.facebook.com/sharer.php?u='+o_shareSocialUrl()+'&amp;t='+o_shareSocialTitle());return false;">
+				<i class="o_icon o_icon_facebook o_icon-lg"></i>
+			</a>
+		#elseif ($link == "google")
+			<a id="o_google" href="#" target="_blank" title="$r.translateInAttribute("share.google")" onclick="window.open('https://www.google.com/bookmarks/mark?op=add&amp;bkmk='+o_shareSocialUrl()+'&amp;title='+o_shareSocialTitle());return false;">
+				<i class="o_icon o_icon_google o_icon-lg"></i>
+			</a>
+		#elseif ($link == "delicious")
+			<a id="o_delicious" href="#" target="_blank" title="$r.translateInAttribute("share.delicious")" onclick="window.open('http://www.delicious.com/save?url='+o_shareSocialUrl()+'&amp;title='+o_shareSocialTitle());return false;">
+				<i class="o_icon o_icon_delicious o_icon-lg"></i>
+			</a>
+		#elseif ($link == "digg")
+			<a id="o_digg" href="#" title="$r.translateInAttribute("share.digg")" onclick="window.open('http://digg.com/submit?url='+o_shareSocialUrl()+'&amp;title='+o_shareSocialTitle());return false;">		
+				<i class="o_icon o_icon_digg o_icon-lg"></i>
+			</a>
+		#elseif ($link == "mail")	
+			<a id="o_mail" href="mailto:?body=$baseURL" title="$r.translateInAttribute("share.mail")">
+				<i class="o_icon o_icon_mailto o_icon-lg"></i>
+			</a>
+		#end
+	#end
+	</div></div>
+	<script type="text/javascript">
+	/* <![CDATA[ */
+		jQuery(function() {
+			o_shareLinkPopup('o_share_social', jQuery('#o_share_social_wrapper').html());
+		});
+	/* ]]> */
+	</script>
+#end		
+	#if ($shareBPLink)	
+		<a id="o_link" href="javascript:;" title="$r.translateInAttribute("share.link")">
+			<i class="o_icon o_icon_link o_icon-lg"></i>
+		</a>
+		<a id="o_qrcode" href="javascript:;" title="$r.translateInAttribute("share.qrcode")">
+			<i class="o_icon o_icon_qrcode o_icon-lg"></i>
+		</a>
 		<script type="text/javascript">
 		/* <![CDATA[ */
-			function b_shareSocialLink() {
-				var callout = '';
-				callout += '<div id="b_callout_sharesociallink" class="b_callout_area b_clearfix" style="z-index:101;"><div class="b_floatscrollbox"><a name="b_modal"></a><div class="b_callout"><div class="b_callout_top_left_arrow"></div><div class="b_callout_top_left_arrow-border"></div>';
-				callout += '<div id="callout_layer_sharesociallink" class="b_callout_content"><div id="callout_layer_content_sharesociallink">';
-				callout += '<p><span>$r.translate("share.link")</span>:<br/><input id="callout_share_link_in" type="text" name="cl_share_link" size="64" value="' + b_shareSocialUrl() + '" /></p>';
-				callout += '</div></div></div></div></div><div id="b_callout_overlay_sharesociallink" class="b_callout_overlay" style="z-index:100;"></div>';
-			
-				jQuery('body').append(callout);
-				jQuery('#callout_layer_sharesociallink').each(function(index, el) {
-					jQuery(el).parents('div.b_callout_area').next('div.b_callout_overlay').each(function(index2, el2) {
-						jQuery(el2).click(function() {
-							jQuery('#b_callout_overlay_sharesociallink').remove();
-							jQuery('#b_callout_sharesociallink').remove();
-						});
-					});
-				});
-				
-				jQuery('#b_callout_sharesociallink').each(function(index, el) {
-					var targetEl = jQuery('#b_link');
-					var targetOffset = targetEl.offset();
-					if(targetOffset) {
-						var callout = jQuery(el);
-						callout.offset({
-							top: (targetOffset.top + targetEl.height() + 15) ,
-							left: (targetOffset.left - 23)
-						}).css('zindex', 105);
-					}
-				});
-			}
+			jQuery(function() {
+				o_shareLinkPopup('o_link', o_shareCallout);
+				o_QRCodePopup('o_qrcode', o_shareSocialUrl);
+			});
 		/* ]]> */
 		</script>
 	#end
-#end
+	## always show the 'set as landing page' button
+	#if ($isUser)
+	<a id="o_landingpage" href="$r.commandURIbg("setLandingPage")" $r.bgTarget() title="$r.translateInAttribute("landingpage.set.current")">
+		<i class="o_icon o_icon_landingpage o_icon-lg"></i>
+	</a>
+	#end
 </div>
