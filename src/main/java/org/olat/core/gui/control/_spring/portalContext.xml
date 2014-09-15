@@ -12,7 +12,7 @@
 	 -->
 	
 	<!-- Portlet factory -->
-	<bean id="portletfactory" class="org.olat.core.gui.control.generic.portal.PortletFactory" />
+	<bean id="portletfactory" class="org.olat.core.gui.control.generic.portal.PortletFactory" init-method="init"/>
 	
 	<!-- Portlets  -->
 	<bean id="SystemEvents" class="org.olat.core.commons.portlets.iframe.IframePortlet" scope="prototype">
@@ -38,7 +38,7 @@
 				<!-- absolute path on to the same file on the local filesystem         -->
 				<entry key="editFilePath" value="${portlet.sysinfo.filepath}" />
 				<entry key="height" value="250" />
-				<entry key="cssWrapperClass" value="b_portlet_sysinfo" />
+				<entry key="cssWrapperClass" value="o_portlet_sysinfo" />
 			</map>
 		</property>
 	</bean>
@@ -58,7 +58,7 @@
 		<property name="name" value="Notes" />
 		<property name="enabled" value="${portlet.notes.enabled}" />
 	</bean>
-	<bean id="Notifications" class="org.olat.notifications.NotificationsPortlet" scope="prototype">
+	<bean id="Notifications" class="org.olat.core.commons.services.notifications.ui.NotificationsPortlet" scope="prototype">
 		<property name="name" value="Notifications" />
 		<property name="enabled" value="${portlet.notifications.enabled}" />
 	</bean>

@@ -38,7 +38,7 @@ import org.olat.core.id.OLATResourceable;
 import org.olat.resource.OLATResource;
 import org.olat.resource.OLATResourceImpl;
 import org.olat.resource.OLATResourceManager;
-import org.olat.resource.accesscontrol.manager.ACOfferManager;
+import org.olat.resource.accesscontrol.manager.ACOfferDAO;
 import org.olat.resource.accesscontrol.model.Offer;
 import org.olat.resource.accesscontrol.model.OfferImpl;
 import org.olat.test.OlatTestCase;
@@ -59,7 +59,7 @@ public class ACOfferManagerTest extends OlatTestCase {
 	private DB dbInstance;
 	
 	@Autowired
-	private ACOfferManager acOfferManager;
+	private ACOfferDAO acOfferManager;
 	
 	@Autowired
 	private ACService acService;
@@ -174,7 +174,7 @@ public class ACOfferManagerTest extends OlatTestCase {
 		dbInstance.commitAndCloseSession();
 		
 		//delete the resource
-		testOres = (OLATResource)dbInstance.loadObject(OLATResourceImpl.class, testOres.getKey());
+		testOres = dbInstance.loadObject(OLATResourceImpl.class, testOres.getKey());
 		dbInstance.deleteObject(testOres);
 		
 		dbInstance.commitAndCloseSession();
@@ -255,7 +255,7 @@ public class ACOfferManagerTest extends OlatTestCase {
 		dbInstance.commitAndCloseSession();
 		
 		//delete resource of offer 2
-		testOres2 = (OLATResource)dbInstance.loadObject(OLATResourceImpl.class, testOres2.getKey());
+		testOres2 = dbInstance.loadObject(OLATResourceImpl.class, testOres2.getKey());
 		dbInstance.deleteObject(testOres2);
 		
 		//filter by resources

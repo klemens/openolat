@@ -15,11 +15,7 @@ public class PictureFactory {
 	}
 	
 	public Picture getPicture(Picture pic) {
-		pic.setName(getName(pic.getMIMEString().hashCode()));
+		pic.setName("image" + Math.round(pic.getBase64().hashCode() * Math.random()) + "." + pic.getType());
 		return pic;
-	}
-
-	private String getName(int hash) {
-		return "image"+Math.round(hash*Math.random());
 	}
 }

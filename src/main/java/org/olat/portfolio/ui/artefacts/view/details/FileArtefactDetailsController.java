@@ -88,7 +88,7 @@ public class FileArtefactDetailsController extends BasicController {
 		if (file != null && file instanceof VFSLeaf) {
 			initFileView(file, ureq);
 		} else if (!readOnlyMode){
-			initUploadView(ureq);			
+			initUploadView();			
 		}
 	}
 	
@@ -103,7 +103,7 @@ public class FileArtefactDetailsController extends BasicController {
 			vC.contextPut("meta", meta);
 			// show a preview thumbnail if possible
 			if (meta.isThumbnailAvailable()) {
-				VFSLeaf thumb = meta.getThumbnail(200, 200);
+				VFSLeaf thumb = meta.getThumbnail(200, 200, false);
 				if(thumb != null) {
 					mr = new VFSMediaResource(thumb);
 				}
@@ -127,7 +127,7 @@ public class FileArtefactDetailsController extends BasicController {
 		viewPanel.setContent(vC);
 	}
 	
-	private void initUploadView(UserRequest ureq){
+	private void initUploadView(){
 		vC = createVelocityContainer("fileDetailsUpload");
 		uploadLink = LinkFactory.createLink("upload.link", vC, this);
 		viewPanel.setContent(vC);

@@ -26,18 +26,15 @@
 
 package org.olat.core.gui.render;
 
-import java.util.Iterator;
-import java.util.Map;
-
 import org.olat.core.dispatcher.impl.StaticMediaDispatcher;
-import org.olat.core.gui.GUIInterna;
 import org.olat.core.gui.GlobalSettings;
 import org.olat.core.gui.components.Component;
+import org.olat.core.gui.components.ComponentCollection;
 import org.olat.core.gui.components.ComponentRenderer;
-import org.olat.core.gui.components.Container;
 import org.olat.core.gui.components.velocity.VelocityContainer;
 import org.olat.core.gui.render.intercept.InterceptHandlerInstance;
 import org.olat.core.gui.translator.Translator;
+import org.olat.core.helpers.Settings;
 import org.olat.core.logging.AssertException;
 import org.olat.core.util.WebappHelper;
 
@@ -46,11 +43,11 @@ import org.olat.core.util.WebappHelper;
  */
 public class Renderer {
 
-	private URLBuilder urlBuilder;
-	private Translator translator;
-	private Container renderContainer;
-	private RenderResult renderResult;
-	private GlobalSettings globalSettings;
+	private final URLBuilder urlBuilder;
+	private final Translator translator;
+	private final ComponentCollection renderContainer;
+	private final RenderResult renderResult;
+	private final GlobalSettings globalSettings;
 
 	/**
 	 * @param renderContainer is used as a starting node for searching a component
@@ -60,12 +57,12 @@ public class Renderer {
 	 * @param globalSettings
 	 * @return an instance of the renderer
 	 */
-	public static Renderer getInstance(Container renderContainer, Translator translator, URLBuilder ubu, RenderResult renderResult,
+	public static Renderer getInstance(ComponentCollection renderContainer, Translator translator, URLBuilder ubu, RenderResult renderResult,
 			GlobalSettings globalSettings) {
 		return new Renderer(renderContainer, translator, ubu, renderResult, globalSettings);
 	}
 
-	private Renderer(Container renderContainer, Translator translator, URLBuilder ubu, RenderResult renderResult,
+	private Renderer(ComponentCollection renderContainer, Translator translator, URLBuilder ubu, RenderResult renderResult,
 			GlobalSettings globalSettings) {
 		this.renderContainer = renderContainer;
 		this.translator = translator;
@@ -201,7 +198,8 @@ public class Renderer {
 		// wrap with div's so javascript can replace this component by doing a document.getElementById(cid).innerHTML and so on.
 		boolean domReplaceable = source.isDomReplaceable();
 		boolean useSpan = source.getSpanAsDomReplaceable();
-		boolean forceDebugDivs = gset.isIdDivsForced();
+		boolean domReplacementWrapperRequired = source.isDomReplacementWrapperRequired();
+		boolean forceDebugDivs = gset.isIdDivsForced();		
 
 		if (source.isVisible()) {
 			int lev = renderResult.getNestedLevel();
@@ -210,40 +208,21 @@ public class Renderer {
 			
 			// for ajax mode: render surrounding divs or spans as a positional
 			// identifier for dom replacement
-			if (domReplaceable && (ajaxon || forceDebugDivs)) {
+			if (domReplaceable && domReplacementWrapperRequired && (ajaxon || forceDebugDivs)) {
 				if (useSpan) {
-					sb.append("<span id=\"o_c").append(source.getDispatchID()).append("\">");
+					sb.append("<span id='o_c").append(source.getDispatchID());
 				} else {
-					sb.append("<div id=\"o_c").append(source.getDispatchID()).append("\">");
+					sb.append("<div id='o_c").append(source.getDispatchID());
 				}
+				if(Settings.isDebuging()) {
+					//sb.append("' title='").append(source.getComponentName());
+				}
+				sb.append("'>");
 			}			
 			
 			ComponentRenderer cr = findComponentRenderer(source);
 			URLBuilder cubu = urlBuilder.createCopyFor(source);
-			
-			// OLAT-1973
-			if (GUIInterna.isLoadPerformanceMode()) {
-				StringBuilder pathsb = new StringBuilder();
-				Component cc = source;
-				Container ccpar = cc.getParent();
-				while (ccpar != null) { // omit content pane
-					// find out name under which cc was registered in its parent - that is the relevant name, not the name of the component itself
-					Map<String,Component> namedChildren = ccpar.getComponentMap();
-					for (Iterator<String> it_chd = namedChildren.keySet().iterator(); it_chd.hasNext();) {
-						String chdName = it_chd.next();
-						Component chd = ccpar.getComponent(chdName);
-						if (chd == cc) {
-							// found -> append name
-							pathsb.append(chdName).append('!');
-							break;
-						}
-					}
-					cc = ccpar;
-					ccpar = cc.getParent();
-				}
-				cubu.setComponentPath(pathsb.toString());
-			}
-			
+
 			renderResult.incNestedLevel();
 	
 			// ---- for gui debug mode, direct the rendering to a special componentrenderer 
@@ -254,6 +233,9 @@ public class Renderer {
 			
 			try {
 				int preRenderLength = sb.length();
+				if(cr == null) {
+					System.out.println(cr);
+				}
 				cr.render(this, sb, source, cubu, componentTranslator, renderResult, args);
 				if (preRenderLength == sb.length()) {
 					// Add bugfix for IE min-height on empty div problem: min-height does
@@ -272,7 +254,7 @@ public class Renderer {
 			
 			// close div for the javascript dom replacement
 			
-			if (ajaxon && domReplaceable) {
+			if (ajaxon && domReplaceable && domReplacementWrapperRequired) {
 				if(useSpan){
 					sb.append("</span>");
 				} else{
@@ -299,8 +281,7 @@ public class Renderer {
 	}
 
 	private ComponentRenderer findComponentRenderer(Component toRender) {
-		ComponentRenderer cr = globalSettings.getComponentRendererFor(toRender);
-		return cr;
+		return toRender.getHTMLRendererSingleton();
 	}
 	
 	/**

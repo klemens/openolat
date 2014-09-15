@@ -194,7 +194,7 @@ class UserBulkChangeStep00 extends BasicStep {
 
 		@Override
 		protected boolean validateFormLogic(UserRequest ureq) {
-			Boolean validChange = false;
+			boolean validChange = true;
 			UserManager um = UserManager.getInstance();
 
 			// loop through and check if any checkbox has been selected
@@ -255,7 +255,7 @@ class UserBulkChangeStep00 extends BasicStep {
 				i++;
 			} // for
 
-			addToRunContext("validChange", validChange);
+			addToRunContext("validChange", new Boolean(validChange));
 			return true;
 		}
 
@@ -282,9 +282,9 @@ class UserBulkChangeStep00 extends BasicStep {
 			// add input field for password
 			Boolean canChangePwd = BaseSecurityModule.USERMANAGER_CAN_MODIFY_PWD;
 			if (canChangePwd.booleanValue() || isOLATAdmin) {
-				checkbox = uifactory.addCheckboxesVertical("checkboxPWD", "form.name.pwd", innerFormLayout, new String[] { "changePWD" }, new String[] { "" }, null, 1);
+				checkbox = uifactory.addCheckboxesVertical("checkboxPWD", "form.name.pwd", innerFormLayout, new String[] { "changePWD" }, new String[] { "" }, 1);
 				checkbox.select("changePWD", false);
-				checkbox.addActionListener(listener, FormEvent.ONCLICK);
+				checkbox.addActionListener(FormEvent.ONCLICK);
 				formitem = uifactory.addTextElement(UserBulkChangeManager.PWD_IDENTIFYER, "password", 127, null, innerFormLayout);
 				TextElement formEl = (TextElement) formitem;
 				formEl.setDisplaySize(35);
@@ -310,9 +310,9 @@ class UserBulkChangeStep00 extends BasicStep {
 				languageValues[p] = locdescs.get(key);
 				p++;
 			}
-			checkbox = uifactory.addCheckboxesVertical("checkboxLang", "form.name.language", innerFormLayout, new String[] { "changeLang" }, new String[] { "" }, null, 1);
+			checkbox = uifactory.addCheckboxesVertical("checkboxLang", "form.name.language", innerFormLayout, new String[] { "changeLang" }, new String[] { "" }, 1);
 			checkbox.select("changeLang", false);
-			checkbox.addActionListener(listener, FormEvent.ONCLICK);
+			checkbox.addActionListener(FormEvent.ONCLICK);
 			formitem = uifactory.addDropdownSingleselect(UserBulkChangeManager.LANG_IDENTIFYER, innerFormLayout, languageKeys, languageValues, null);
 			formitem.setLabel(null, null);
 			targets = new HashSet<FormItem>();
@@ -333,9 +333,10 @@ class UserBulkChangeStep00 extends BasicStep {
 				if(!(userPropertyHandler instanceof GenericUnique127CharTextPropertyHandler)) {
 					userPropertyHandlers.add(userPropertyHandler);
 
-					checkbox = uifactory.addCheckboxesVertical("checkbox" + i, "form.name." + userPropertyHandler.getName(), innerFormLayout, new String[] { "change" + userPropertyHandler.getName() }, new String[] { "" }, null, 1);
+					checkbox = uifactory.addCheckboxesVertical("checkbox" + i, "form.name." + userPropertyHandler.getName(), innerFormLayout,
+							new String[] { "change" + userPropertyHandler.getName() }, new String[] { "" }, 1);
 					checkbox.select("change" + userPropertyHandler.getName(), false);
-					checkbox.addActionListener(listener, FormEvent.ONCLICK);
+					checkbox.addActionListener(FormEvent.ONCLICK);
 	
 					formitem = userPropertyHandler.addFormItem(getLocale(), null, usageIdentifyer, isAdministrativeUser, innerFormLayout);
 					formitem.setLabel(null, null);

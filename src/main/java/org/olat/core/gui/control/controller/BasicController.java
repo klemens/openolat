@@ -34,7 +34,8 @@ import org.olat.core.dispatcher.mapper.Mapper;
 import org.olat.core.dispatcher.mapper.MapperService;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.Component;
-import org.olat.core.gui.components.panel.Panel;
+import org.olat.core.gui.components.panel.SimpleStackedPanel;
+import org.olat.core.gui.components.panel.StackedPanel;
 import org.olat.core.gui.components.velocity.VelocityContainer;
 import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.DefaultController;
@@ -48,6 +49,7 @@ import org.olat.core.id.Identity;
 import org.olat.core.logging.AssertException;
 import org.olat.core.logging.OLog;
 import org.olat.core.logging.Tracing;
+import org.olat.core.util.UserSession;
 import org.olat.core.util.Util;
 
 /**
@@ -146,8 +148,9 @@ public abstract class BasicController extends DefaultController {
 	 */
 	protected Controller listenTo(Controller controller) {
 		controller.addControllerListener(this);
-		if (childControllers == null)
+		if (childControllers == null) {
 			childControllers = new ArrayList<Controller>(4);
+		}
 		/*
 		 * REVIEW:pb this is for quality and will be re-enabled after the OLAT
 		 * 6.0.0 Release if(childControllers.contains(controller)){ throw new
@@ -171,20 +174,12 @@ public abstract class BasicController extends DefaultController {
 	 */
 
 	protected void removeAsListenerAndDispose(Controller controller) {
-		if (controller == null)
-			return;
-		/*
-		 * REVIEW:pb this is for quality and will be re-enabled after the OLAT
-		 * 6.0.0 Release if(childControllers == null){ throw new
-		 * AssertException("the controller you want to remove was not added via
-		 * listenTo(..) method"+controller.getClass().getCanonicalName()); }
-		 * if(!childControllers.contains(controller)){ throw new
-		 * AssertException("the controller you want to remove does not or no
-		 * longer reside here, this a workflow bug:
-		 * "+controller.getClass().getCanonicalName()); }
-		 */
-		childControllers.remove(controller);
-		controller.dispose();
+		if (controller != null) {
+			if(childControllers != null) {
+				childControllers.remove(controller);
+			}
+			controller.dispose();
+		}
 	}
 
 	/**
@@ -229,12 +224,13 @@ public abstract class BasicController extends DefaultController {
 		if (mappers == null) {
 			mappers = new ArrayList<Mapper>(2);
 		}
-		String mapperBaseURL; 
+		String mapperBaseURL;
+		UserSession usess = ureq == null ? null : ureq.getUserSession();
 		if (cacheableMapperID == null) {
 			// use non cacheable as fallback
-			mapperBaseURL =  CoreSpringFactory.getImpl(MapperService.class).register(ureq.getUserSession(), m);			
+			mapperBaseURL =  CoreSpringFactory.getImpl(MapperService.class).register(usess, m);			
 		} else {
-			mapperBaseURL =  CoreSpringFactory.getImpl(MapperService.class).register(ureq.getUserSession(), cacheableMapperID, m, expirationTime);
+			mapperBaseURL =  CoreSpringFactory.getImpl(MapperService.class).register(usess, cacheableMapperID, m, expirationTime);
 		}
 		// registration was successful, add to our mapper list
 		mappers.add(m);
@@ -267,15 +263,20 @@ public abstract class BasicController extends DefaultController {
 				+ ".html", translator, this);
 	}
 
-	protected Panel putInitialPanel(Component initialContent) {
-		Panel p = new Panel("mainPanel");
-		p.setContent(initialContent);
-		super.setInitialComponent(p);
-		return p;
+	protected StackedPanel putInitialPanel(Component initialContent) {
+		if(initialContent instanceof StackedPanel) {
+			super.setInitialComponent(initialContent);
+			return (StackedPanel)initialContent;
+		} else {
+			StackedPanel p = new SimpleStackedPanel("mainBasicPanel");
+			p.setContent(initialContent);
+			super.setInitialComponent(p);
+			return p;
+		}
 	}
 
-	protected void setInitialComponent(@SuppressWarnings("unused")
-	Component initialComponent) {
+	@Override
+	protected void setInitialComponent(Component initialComponent) {
 		throw new AssertException("please use method putInitialPanel!");
 	}
 
@@ -444,6 +445,22 @@ public abstract class BasicController extends DefaultController {
 	protected void showInfo(String key, String arg) {
 		getWindowControl().setInfo(
 				getTranslator().translate(key, new String[] { arg }));
+	}
+	
+	/**
+	 * convenience method to inform the user. this will call
+	 * 
+	 * <pre>
+	 * getWindowControl().setInfo(getTranslator().translate(key, args));
+	 * </pre>
+	 * 
+	 * @param key
+	 *            the key to use (in the LocalStrings_curlanguage file of your
+	 *            controller)
+	 * @param args
+	 */
+	protected void showInfo(String key, String[] args) {
+		getWindowControl().setInfo(getTranslator().translate(key, args));
 	}
 
 	/**

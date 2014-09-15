@@ -124,7 +124,6 @@ public class ChecklistDisplayController extends BasicController {
 		
 		TableGuiConfiguration tableConfig = new TableGuiConfiguration();
 		tableConfig.setTableEmptyMessage(translate("cl.table.empty"));
-		tableConfig.setColumnMovingOffered(true);
 		
 		removeAsListenerAndDispose(runChecklistTable);
 		runChecklistTable = new TableController(tableConfig, ureq, getWindowControl(), getTranslator());
@@ -138,7 +137,7 @@ public class ChecklistDisplayController extends BasicController {
 		runChecklistTable.setTableDataModel(runTableData);
 		
 		for(int i = 0; i < visibleCheckpoints.size(); i++) {
-			Checkpoint checkpoint = (Checkpoint) runTableData.getObject(i);
+			Checkpoint checkpoint = runTableData.getObject(i);
 			boolean selected = checkpoint.getSelectionFor(ureq.getIdentity()).booleanValue();
 			runChecklistTable.setMultiSelectSelectedAt(i, selected);
 			if(checkpoint.getMode().equals(CheckpointMode.MODE_LOCKED) ||

@@ -23,8 +23,9 @@ import java.util.ArrayList;
 import java.util.List;
 
 import org.olat.core.gui.UserRequest;
-import org.olat.core.gui.components.Component;
+import org.olat.core.gui.components.AbstractComponent;
 import org.olat.core.gui.components.ComponentRenderer;
+import org.olat.core.gui.components.form.flexible.impl.Form;
 import org.olat.core.gui.components.velocity.VelocityContainer;
 import org.olat.core.gui.control.Event;
 import org.olat.core.logging.AssertException;
@@ -43,7 +44,7 @@ import org.olat.core.logging.Tracing;
  * Initial Date:  31.10.2008 <br>
  * @author gnaegi
  */
-public class RatingComponent extends Component {
+public class RatingComponent extends AbstractComponent {
 	private static final OLog log = Tracing.createLoggerFor(RatingComponent.class);
 	private static final ComponentRenderer RENDERER = new RatingRenderer();
 	private List<String> ratingLabels;
@@ -56,6 +57,7 @@ public class RatingComponent extends Component {
 	private boolean allowUserInput;
 	private String cssClass;
 	private float currentRating;
+	private Form form;
 
 	/**
 	 * Create a rating component with no title and a default explanation and hover
@@ -68,7 +70,11 @@ public class RatingComponent extends Component {
 	 * @param allowUserInput
 	 */
 	public RatingComponent(String name, float currentRating, int maxRating, boolean allowUserInput) {
-		super(name);
+		this(null, name, currentRating, maxRating, allowUserInput, null);
+	}
+		
+	public RatingComponent(String id, String name, float currentRating, int maxRating, boolean allowUserInput, Form form) {
+		super(id, name);
 		if (currentRating > maxRating) 
 			throw new AssertException("Current rating set to higher value::" + currentRating + " than the maxRating::" + maxRating);
 		this.allowUserInput = allowUserInput;
@@ -86,7 +92,7 @@ public class RatingComponent extends Component {
 		else this.explanation = null;
 		this.translateExplanation = true;
 		this.showRatingAsText = false;
-		
+		this.form = form;
 	}
 
 	/**
@@ -94,14 +100,11 @@ public class RatingComponent extends Component {
 	 */
 	protected void doDispatchRequest(UserRequest ureq) {
 		setDirty(true);
-		String cmd = ureq.getParameter(VelocityContainer.COMMAND_ID);		
-		if(log.isDebug()){
-			log.debug("***RATING_CLICKED*** dispatchID::" + ureq.getComponentID() + " rating::" + cmd);
-		}
+		String cmd = ureq.getParameter(VelocityContainer.COMMAND_ID);
 		try {
-			float rating = Float.parseFloat(cmd);			
+			float rating = Float.parseFloat(cmd);
 			// update GUI
-			this.setCurrentRating(rating);
+			setCurrentRating(rating);
 			// notify listeners
 			Event event = new RatingEvent(rating);
 			fireEvent(ureq, event);
@@ -117,11 +120,13 @@ public class RatingComponent extends Component {
 		return RENDERER;
 	}
 
-	
 	//
 	// Various getter and setter methods
 	//
-	
+	Form getForm() {
+		return form;
+	}
+
 	// only package scope, used by renderer
 	List<String> getRatingLabel() {
 		return ratingLabels;
@@ -139,7 +144,7 @@ public class RatingComponent extends Component {
 			throw new AssertException("Can not set rating at position::" + position + " in rating array of size::" + ratingLabels.size() + " in component::" + getComponentName());
 		}
 		this.ratingLabels.set(position, ratingLabel);
-		this.setDirty(true);
+		setDirty(true);
 	}
 
 	public boolean isTranslateRatingLabels() {
@@ -156,7 +161,7 @@ public class RatingComponent extends Component {
 
 	public void setTitle(String title) {
 		this.title = title;
-		this.setDirty(true);
+		setDirty(true);
 	}
 
 	public boolean isTranslateTitle() {
@@ -173,7 +178,7 @@ public class RatingComponent extends Component {
 
 	public void setExplanation(String explanation) {
 		this.explanation = explanation;
-		this.setDirty(true);
+		setDirty(true);
 	}
 
 	public boolean isTranslateExplanation() {
@@ -198,7 +203,7 @@ public class RatingComponent extends Component {
 
 	public void setAllowUserInput(boolean allowUserInput) {
 		this.allowUserInput = allowUserInput;
-		this.setDirty(true);
+		setDirty(true);
 	}
 
 	public int getRatingSteps() {
@@ -220,7 +225,7 @@ public class RatingComponent extends Component {
 
 	public void setCurrentRating(float currentRating) {
 		this.currentRating = currentRating;
-		this.setDirty(true);
+		setDirty(true);
 	}
 
 }

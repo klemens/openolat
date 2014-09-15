@@ -32,15 +32,14 @@ import java.util.List;
 import org.junit.Before;
 import org.junit.Test;
 import org.olat.basesecurity.BaseSecurity;
-import org.olat.basesecurity.Constants;
 import org.olat.basesecurity.Invitation;
-import org.olat.basesecurity.SecurityGroup;
 import org.olat.core.commons.persistence.DB;
 import org.olat.core.id.Identity;
 import org.olat.portfolio.manager.EPFrontendManager;
 import org.olat.portfolio.manager.EPMapPolicy;
 import org.olat.portfolio.manager.EPMapPolicy.Type;
 import org.olat.portfolio.manager.EPStructureManager;
+import org.olat.portfolio.manager.InvitationDAO;
 import org.olat.portfolio.model.artefacts.AbstractArtefact;
 import org.olat.portfolio.model.structel.EPDefaultMap;
 import org.olat.portfolio.model.structel.EPPage;
@@ -52,6 +51,7 @@ import org.olat.portfolio.model.structel.PortfolioStructureMap;
 import org.olat.portfolio.model.structel.StructureStatusEnum;
 import org.olat.repository.RepositoryEntry;
 import org.olat.repository.RepositoryManager;
+import org.olat.repository.RepositoryService;
 import org.olat.resource.OLATResource;
 import org.olat.resource.OLATResourceManager;
 import org.olat.test.JunitTestHelper;
@@ -90,10 +90,13 @@ public class EPFrontendManagerTest extends OlatTestCase {
 	
 	@Autowired
 	private BaseSecurity securityManager;
+	@Autowired
+	private InvitationDAO invitationDao;
 	
 	@Autowired
 	private RepositoryManager repositoryManager;
-	
+	@Autowired
+	private RepositoryService repositoryService;
 	@Autowired
 	private OLATResourceManager resourceManager;
 	
@@ -330,7 +333,7 @@ public class EPFrontendManagerTest extends OlatTestCase {
 		epFrontendManager.setArtefactTag(ident2, artefact, "Tchao");
 		dbInstance.commitAndCloseSession();
 		
-		List<String> tags = (List<String>) epFrontendManager.getArtefactTags(artefact);
+		List<String> tags = epFrontendManager.getArtefactTags(artefact);
 		assertNotNull(tags);
 		assertEquals(2, tags.size());
 		assertTrue(tags.get(0).equals("Hello") || tags.get(1).equals("Hello"));
@@ -464,26 +467,7 @@ public class EPFrontendManagerTest extends OlatTestCase {
 		OLATResource resource = epStructureManager.createPortfolioMapTemplateResource();
 		
 		//create a repository entry
-		RepositoryEntry addedEntry = repositoryManager.createRepositoryEntryInstance(ident1.getName());
-
-		addedEntry.setCanDownload(false);
-		addedEntry.setCanLaunch(true);
-		addedEntry.setDisplayname("test repo");
-		addedEntry.setResourcename("-");
-		addedEntry.setAccess(RepositoryEntry.ACC_OWNERS);
-	
-		// Set the resource on the repository entry and save the entry.
-		OLATResource ores = resourceManager.findOrPersistResourceable(resource);
-		addedEntry.setOlatResource(ores);
-	
-		// create security group
-		SecurityGroup newGroup = securityManager.createAndPersistSecurityGroup();
-		securityManager.createAndPersistPolicy(newGroup, Constants.PERMISSION_ACCESS, newGroup);
-		securityManager.createAndPersistPolicy(newGroup, Constants.PERMISSION_HASROLE, EPStructureManager.ORES_MAPOWNER);
-		securityManager.addIdentityToSecurityGroup(ident1, newGroup);
-		addedEntry.setOwnerGroup(newGroup);
-	
-		repositoryManager.saveRepositoryEntry(addedEntry);
+		RepositoryEntry addedEntry = repositoryService.create(ident1, null, "-", "test repo", "desc repo", resource, RepositoryEntry.ACC_OWNERS);
 		dbInstance.commitAndCloseSession();
 		
 		//create the template owned by ident1
@@ -612,7 +596,7 @@ public class EPFrontendManagerTest extends OlatTestCase {
 		policies.add(userPolicy);
 		
 		//invitation
-		Invitation invitation = securityManager.createAndPersistInvitation();
+		Invitation invitation = invitationDao.createAndPersistInvitation();
 		invitation.setFirstName("John");
 		invitation.setLastName("Doe");
 		invitation.setMail("john@doe.ch");
@@ -647,7 +631,7 @@ public class EPFrontendManagerTest extends OlatTestCase {
 		//save a list of policies
 		List<EPMapPolicy> policies = new ArrayList<EPMapPolicy>();
 		//invitation
-		Invitation invitation = securityManager.createAndPersistInvitation();
+		Invitation invitation = invitationDao.createAndPersistInvitation();
 		invitation.setFirstName("John");
 		invitation.setLastName("Doe");
 		invitation.setMail("john2@doe.ch");
@@ -655,7 +639,7 @@ public class EPFrontendManagerTest extends OlatTestCase {
 		invitationPolicy.setType(Type.invitation);
 		invitationPolicy.setInvitation(invitation);
 		policies.add(invitationPolicy);
-		epFrontendManager.updateMapPolicies(map, policies);
+		map = epFrontendManager.updateMapPolicies(map, policies);
 		dbInstance.commitAndCloseSession();
 		
 		//remove the policy

@@ -1,57 +1,40 @@
-<div class="b_wizard #if($elementCssClass) $elementCssClass #end">
-	<div class="b_wizard_header_wrapper">
-		<div class="b_wizard_header">
-			<div class="b_wizard_header_title">
-				<strong>
-					$wizardTitle
-				</strong>
-				$r.render("closeIcon")
-			</div>
-		</div>
+<div class="o_wizard modal show in"><div class="modal-dialog modal-lg o_modal_fullwidth #if($elementCssClass) $elementCssClass #end"><div class="modal-content">
+	<div class="modal-header">
+		<div class="pull-right">$r.render("closeIcon")</div>
+		<h4>$wizardTitle</h4>
 	</div>
-
-	<div class="b_wizard_steps_wrapper">
-		<div class="b_wizard_steps_content b_clearfix">
-			<!-- workflow / wizard steps -->
-			<div class="b_wizard_steps_list b_float_left">
-				<ol>
-				#foreach($item in $stepLinks)
-					<li class="	#if($currentStepPos == $velocityCount) b_wizard_steps_current #end	#if(!${item.isEnabled()}) b_enabled #end ">
-						$r.render(${item})
-					</li>
-				#end
-				</ol>
-			</div>
+	<div class="modal-body">
+		<div class="wizard clearfix">
+			<ul class="steps">
+			#foreach($item in $stepLinks)
+				<li class="	#if($currentStepPos == $velocityCount) active #end	#if(!${item.isEnabled()}) o_enabled #end ">
+					$r.render(${item})<span class="chevron"></span>
+				</li>
+			#end
+			</ul>
+		</div>	
 			
-			<!-- wizard step content -->
-			<div class="b_wizard_steps_current">
-				<div class="b_wizard_steps_current_inner">
-					<div class="b_wizard_steps_current_content b_clearfix">
-						<div class="b_floatscrollbox">
-							$r.render("FFO_CURRENTSTEPPAGE")
-						</div>
+		<!-- wizard step content -->
+		<div class="o_wizard_steps_current">
+			<div class="o_wizard_steps_current_inner">
+				<div class="o_wizard_steps_current_content clearfix">
+					<div class="o_floatscrollbox">
+						$r.render("FFO_CURRENTSTEPPAGE")
 					</div>
-					<div style="clear:both; height: 1px">&nbsp;</div>	   	
 				</div>
-			</div>
-		</div>
-	</div>	
-
-	
-	<!-- bottom navigation -->
-	<div class="b_wizard_footer_wrapper">
-		<div class="b_wizard_footer">
-			<div class="b_button_group">
-				$r.render("back")
-				$r.render("next")
-				$r.render("finish")
-				$r.render("cancel")
+				<div style="clear:both; height: 1px">&nbsp;</div>	   	
 			</div>
 		</div>
 	</div>
-</div>
-
+	<!-- bottom navigation -->
+	<div class="modal-footer">
+		$r.render("back")
+		$r.render("next")
+		$r.render("finish")
+		$r.render("cancel")
+	</div>
+</div></div></div><div class="modal-backdrop in"></div>
 ## always show top of modal dialog when on long pages
 <script type="text/javascript">
-	jQuery('#b_body').scrollTop(0);
+	o_scrollToElement('#o_top');
 </script>

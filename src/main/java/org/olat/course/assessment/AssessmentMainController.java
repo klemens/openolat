@@ -34,20 +34,22 @@ import java.util.concurrent.ConcurrentHashMap;
 
 import org.apache.commons.lang.StringEscapeUtils;
 import org.olat.admin.user.UserTableDataModel;
-import org.olat.basesecurity.BaseSecurity;
 import org.olat.basesecurity.BaseSecurityManager;
 import org.olat.basesecurity.BaseSecurityModule;
-import org.olat.basesecurity.SecurityGroup;
+import org.olat.basesecurity.Group;
+import org.olat.basesecurity.GroupRoles;
 import org.olat.core.CoreSpringFactory;
 import org.olat.core.commons.fullWebApp.LayoutMain3ColsController;
 import org.olat.core.commons.persistence.DBFactory;
 import org.olat.core.gui.ShortName;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.Component;
+import org.olat.core.gui.components.EscapeMode;
 import org.olat.core.gui.components.link.Link;
 import org.olat.core.gui.components.link.LinkFactory;
 import org.olat.core.gui.components.panel.Panel;
-import org.olat.core.gui.components.stack.StackedController;
+import org.olat.core.gui.components.stack.BreadcrumbPanelAware;
+import org.olat.core.gui.components.stack.TooledStackedPanel;
 import org.olat.core.gui.components.table.ColumnDescriptor;
 import org.olat.core.gui.components.table.CustomRenderColumnDescriptor;
 import org.olat.core.gui.components.table.DefaultColumnDescriptor;
@@ -103,8 +105,10 @@ import org.olat.course.run.environment.CourseEnvironment;
 import org.olat.course.run.userview.UserCourseEnvironment;
 import org.olat.course.run.userview.UserCourseEnvironmentImpl;
 import org.olat.group.BusinessGroup;
+import org.olat.group.BusinessGroupService;
 import org.olat.repository.RepositoryEntry;
 import org.olat.repository.RepositoryManager;
+import org.olat.repository.RepositoryService;
 import org.olat.user.UserManager;
 
 import de.bps.onyx.plugin.OnyxModule;
@@ -189,6 +193,7 @@ public class AssessmentMainController extends MainLayoutBasicController implemen
 	private String onyxReporterBackLocation;
 	
 	private boolean isAdministrativeUser;
+	private boolean mayViewAllUsersAssessments = false;
 	private Translator propertyHandlerTranslator;
 	
 	private boolean isFiltering = true;
@@ -197,10 +202,14 @@ public class AssessmentMainController extends MainLayoutBasicController implemen
 	
 	private EfficiencyStatementAssessmentController esac;
 	private BulkAssessmentOverviewController bulkAssOverviewCtrl;
-	private final StackedController stackPanel;
+	private final TooledStackedPanel stackPanel;
 
+	private RepositoryEntry re;
 	private OLATResourceable ores;
+	
 	private final OnyxModule onyxModule;
+	private final RepositoryService repositoryService;
+	private final BusinessGroupService businessGroupService;
 	
 	/**
 	 * Constructor for the assessment tool controller. 
@@ -209,10 +218,13 @@ public class AssessmentMainController extends MainLayoutBasicController implemen
 	 * @param course
 	 * @param assessmentCallback
 	 */
-	public AssessmentMainController(UserRequest ureq, WindowControl wControl, StackedController stackPanel, OLATResourceable ores, IAssessmentCallback assessmentCallback) {
+	public AssessmentMainController(UserRequest ureq, WindowControl wControl, TooledStackedPanel stackPanel,
+			OLATResourceable ores, IAssessmentCallback assessmentCallback) {
 		super(ureq, wControl);	
 		
 		onyxModule = CoreSpringFactory.getImpl(OnyxModule.class);
+		businessGroupService = CoreSpringFactory.getImpl(BusinessGroupService.class);
+		repositoryService = CoreSpringFactory.getImpl(RepositoryService.class);
 		
 		getUserActivityLogger().setStickyActionType(ActionType.admin);
 		this.stackPanel = stackPanel;
@@ -221,7 +233,7 @@ public class AssessmentMainController extends MainLayoutBasicController implemen
 		localUserCourseEnvironmentCache = new ConcurrentHashMap<Long, UserCourseEnvironment>();
 		initialLaunchDates = new ConcurrentHashMap<Long,Date>();
 		
-    //use the PropertyHandlerTranslator	as tableCtr translator
+		//use the PropertyHandlerTranslator	as tableCtr translator
 		propertyHandlerTranslator = UserManager.getInstance().getPropertyHandlerTranslator(getTranslator());
 		
 		Roles roles = ureq.getUserSession().getRoles();
@@ -265,6 +277,7 @@ public class AssessmentMainController extends MainLayoutBasicController implemen
 			allUsersButton = LinkFactory.createButtonSmall("cmd.all.users", groupChoose, this);
 			groupChoose.contextPut("isFiltering", Boolean.TRUE);
 			backLinkGC = LinkFactory.createLinkBack(groupChoose, this);
+			backLinkGC.setIconLeftCSS("o_icon o_icon_back");
 	
 			userChoose = createVelocityContainer("userchoose");
 
@@ -272,17 +285,19 @@ public class AssessmentMainController extends MainLayoutBasicController implemen
 			filterCourseNodesButton  = LinkFactory.createButtonSmall("cmd.filterCourseNodes", userChoose, this);
 			userChoose.contextPut("isFiltering", Boolean.TRUE);
 			backLinkUC = LinkFactory.createLinkBack(userChoose, this);
+			backLinkUC.setIconLeftCSS("o_icon o_icon_back");
 			
 			onyxReporterVC = createVelocityContainer("onyxreporter");
 			backLinkOR = LinkFactory.createLinkBack(onyxReporterVC, this);
+			backLinkOR.setIconLeftCSS("o_icon o_icon_back");
 
 			nodeChoose = createVelocityContainer("nodechoose");
 
 			// Initialize all groups that the user is allowed to coach
 			coachedGroups = getAllowedGroupsFromGroupmanagement(ureq.getIdentity());
 			
-			RepositoryEntry re = RepositoryManager.getInstance().lookupRepositoryEntry(ores, true);
-			repoTutor = BaseSecurityManager.getInstance().isIdentityInSecurityGroup(getIdentity(), re.getTutorGroup());
+			re = RepositoryManager.getInstance().lookupRepositoryEntry(ores, true);
+			repoTutor = repositoryService.hasRole(getIdentity(), re, GroupRoles.coach.name());
 
 			// preload the assessment cache to speed up everything as background thread
 			// the thread will terminate when finished
@@ -303,7 +318,7 @@ public class AssessmentMainController extends MainLayoutBasicController implemen
 
 		// Start on index page
 		main.setContent(index);
-		LayoutMain3ColsController columLayoutCtr = new LayoutMain3ColsController(ureq, getWindowControl(), menuTree, null, main, "course" + course.getResourceableId());
+		LayoutMain3ColsController columLayoutCtr = new LayoutMain3ColsController(ureq, getWindowControl(), menuTree, main, "course" + course.getResourceableId());
 		listenTo(columLayoutCtr); // cleanup on dispose
 		putInitialPanel(columLayoutCtr.getInitialComponent());
 		
@@ -551,7 +566,7 @@ public class AssessmentMainController extends MainLayoutBasicController implemen
 			}
 		}
 		else if (source == assessmentEditController) {
-			if (event.equals(Event.CHANGED_EVENT)) {
+			if (event.equals(Event.CHANGED_EVENT) || event.equals(Event.DONE_EVENT)) {
 				// refresh identity in list model
 				if (userListCtr != null 
 						&& userListCtr.getTableDataModel() instanceof AssessedIdentitiesTableDataModel) {
@@ -560,8 +575,8 @@ public class AssessmentMainController extends MainLayoutBasicController implemen
 					if (aiwList.contains(this.assessedIdentityWrapper)) {
 						ICourse course = CourseFactory.loadCourse(ores);
 						aiwList.remove(this.assessedIdentityWrapper);
-						this.assessedIdentityWrapper = AssessmentHelper.wrapIdentity(this.assessedIdentityWrapper.getIdentity(),
-						this.localUserCourseEnvironmentCache, initialLaunchDates, course, currentCourseNode);
+						assessedIdentityWrapper = AssessmentHelper.wrapIdentity(assessedIdentityWrapper.getIdentity(),
+						localUserCourseEnvironmentCache, initialLaunchDates, course, currentCourseNode);
 						aiwList.add(this.assessedIdentityWrapper);
 						userListCtr.modelChanged();
 					}
@@ -648,8 +663,7 @@ public class AssessmentMainController extends MainLayoutBasicController implemen
 	 * @return List of participant identities from this group
 	 */
 	private List<Identity> getGroupIdentitiesFromGroupmanagement(BusinessGroup selectedGroup) {
-		SecurityGroup selectedSecurityGroup = selectedGroup.getPartipiciantGroup();
-		return BaseSecurityManager.getInstance().getIdentitiesOfSecurityGroup(selectedSecurityGroup);
+		return  businessGroupService.getMembers(selectedGroup, GroupRoles.participant.name()); 
 	}
 
 	/**
@@ -658,31 +672,36 @@ public class AssessmentMainController extends MainLayoutBasicController implemen
 	 * @return List of identities
 	 */
 	private List<Identity> getAllAssessableIdentities() {
-		List<SecurityGroup> secGroups = new ArrayList<SecurityGroup>();
-		for (BusinessGroup group: coachedGroups) {
-			secGroups.add(group.getPartipiciantGroup());
-		}
 
-		//fxdiff VCRP-1,2: access control of resources
+		List<Identity> participants = businessGroupService.getMembers(coachedGroups, GroupRoles.participant.name());
 		if((repoTutor && coachedGroups.isEmpty()) || (callback.mayAssessAllUsers() || callback.mayViewAllUsersAssessments())) {
-			RepositoryEntry re = RepositoryManager.getInstance().lookupRepositoryEntry(ores, false);
-			if(re.getParticipantGroup() != null) {
-				secGroups.add(re.getParticipantGroup());
-			}
+			List<Identity> courseParticipants = repositoryService.getMembers(re, GroupRoles.participant.name());
+			participants.addAll(courseParticipants);
 		}
 
-		BaseSecurity secMgr = BaseSecurityManager.getInstance();
-		List<Identity> usersList = secMgr.getIdentitiesOfSecurityGroups(secGroups);
-
-		if(callback.mayViewAllUsersAssessments() && usersList.size() < 500) {
+		if(callback.mayViewAllUsersAssessments() && participants.size() < 500) {
+			mayViewAllUsersAssessments = true;
 			ICourse course = CourseFactory.loadCourse(ores);
 			CoursePropertyManager pm = course.getCourseEnvironment().getCoursePropertyManager();
-			List<Identity> assessedRsers = pm.getAllIdentitiesWithCourseAssessmentData(usersList);
-			usersList.addAll(assessedRsers);
+			List<Identity> assessedRsers = pm.getAllIdentitiesWithCourseAssessmentData(participants);
+			participants.addAll(assessedRsers);
 		}
-		return usersList;
+		return participants;
 	}
-
+	
+	private void fillAlternativeToAssessableIdentityList(AssessmentToolOptions options) {
+		List<Group> baseGroups = new ArrayList<>();
+		if((repoTutor && coachedGroups.isEmpty()) || (callback.mayAssessAllUsers() || callback.mayViewAllUsersAssessments())) {
+			baseGroups.add(repositoryService.getDefaultGroup(re));
+		}
+		if(coachedGroups.size() > 0) {
+			for(BusinessGroup coachedGroup:coachedGroups) {
+				baseGroups.add(coachedGroup.getBaseGroup());
+			}
+		}
+		options.setAlternativeToIdentities(baseGroups, mayViewAllUsersAssessments);
+	}
+	
 	/**
 	 * @param identity
 	 * @return List of all course groups if identity is course admin, else groups that 
@@ -715,7 +734,7 @@ public class AssessmentMainController extends MainLayoutBasicController implemen
 			setContent(identityAssessmentController.getInitialComponent());
 		} else {
 			removeAsListenerAndDispose(assessmentEditController);
-			assessmentEditController = new AssessmentEditController(ureq, getWindowControl(), stackPanel, course, currentCourseNode, assessedIdentityWrapper);
+			assessmentEditController = new AssessmentEditController(ureq, getWindowControl(), stackPanel, course, currentCourseNode, assessedIdentityWrapper, true, false);
 			listenTo(assessmentEditController);
 			main.setContent(assessmentEditController.getInitialComponent());
 		}
@@ -729,12 +748,13 @@ public class AssessmentMainController extends MainLayoutBasicController implemen
 		removeAsListenerAndDispose(groupListCtr);
 		TableGuiConfiguration tableConfig = new TableGuiConfiguration();
 		tableConfig.setTableEmptyMessage(translate("groupchoose.nogroups"));
-		//fxdiff VCRP-4: assessment overview with max score
 		tableConfig.setPreferencesOffered(true, "assessmentGroupList");
 		groupListCtr = new TableController(tableConfig, ureq, getWindowControl(), getTranslator());
 		listenTo(groupListCtr);
 		groupListCtr.addColumnDescriptor(new DefaultColumnDescriptor("table.group.name", 0, CMD_CHOOSE_GROUP, ureq.getLocale()));
-		groupListCtr.addColumnDescriptor(new DefaultColumnDescriptor("table.group.desc", 1, null, ureq.getLocale()));
+		DefaultColumnDescriptor desc = new DefaultColumnDescriptor("table.group.desc", 1, null, ureq.getLocale());
+		desc.setEscapeHtml(EscapeMode.antisamy);
+		groupListCtr.addColumnDescriptor(desc);
 
 		// loop over all groups to filter depending on condition
 		List<BusinessGroup> currentGroups = new ArrayList<BusinessGroup>();
@@ -763,7 +783,6 @@ public class AssessmentMainController extends MainLayoutBasicController implemen
 
 	private void doUserChooseWithData(UserRequest ureq, List<Identity> identities, BusinessGroup group, AssessableCourseNode courseNode) {
 		ICourse course = CourseFactory.loadCourse(ores);
-		//fxdiff FXOLAT-108: improve results table of tests
 		if (mode == MODE_GROUPFOCUS || mode == MODE_USERFOCUS) {
 			nodeFilters = getNodeFilters(course.getRunStructure().getRootNode(), group);
 		}		
@@ -774,7 +793,6 @@ public class AssessmentMainController extends MainLayoutBasicController implemen
 		if(mode == MODE_USERFOCUS) {
 			tableConfig.setPreferencesOffered(true, "assessmentSimpleUserList");
 		} else if(mode == MODE_GROUPFOCUS){
-			//fxdiff VCRP-4: assessment overview with max score
 			tableConfig.setPreferencesOffered(true, "assessmentGroupUsersNode");
 		} else if (mode == MODE_NODEFOCUS) {
 			tableConfig.setPreferencesOffered(true, "assessmentUserNodeList");
@@ -815,16 +833,20 @@ public class AssessmentMainController extends MainLayoutBasicController implemen
 			AssessmentToolOptions options = new AssessmentToolOptions();
 			if(group == null) {
 				options.setIdentities(identities);
+				fillAlternativeToAssessableIdentityList(options);
 			} else {
 				options.setGroup(group);
 			}
-			List<Controller> tools = courseNode.createAssessmentTools(ureq, getWindowControl(), courseEnv, options);
+			List<Controller> tools = courseNode.createAssessmentTools(ureq, getWindowControl(), stackPanel, courseEnv, options);
 			int count = 0;
 			for(Controller tool:tools) {
 				listenTo(tool);
 				String toolCmpName = "ctrl_" + (count++);
 				userChoose.put(toolCmpName, tool.getInitialComponent());
 				toolCmpNames.add(toolCmpName);
+				if(tool instanceof BreadcrumbPanelAware) {
+					((BreadcrumbPanelAware)tool).setBreadcrumbPanel(stackPanel);
+				}
 			}
 		}
 		userChoose.contextPut("toolCmpNames", toolCmpNames);
@@ -869,7 +891,6 @@ public class AssessmentMainController extends MainLayoutBasicController implemen
 		TableGuiConfiguration tableConfig = new TableGuiConfiguration();
 		tableConfig.setTableEmptyMessage(translate("nodesoverview.nonodes"));
 		tableConfig.setDownloadOffered(false);
-		tableConfig.setColumnMovingOffered(false);
 		//fxdiff VCRP-4: assessment overview with max score
 		tableConfig.setSortingEnabled(true);
 		tableConfig.setDisplayTableHeader(true);
@@ -1077,8 +1098,7 @@ public class AssessmentMainController extends MainLayoutBasicController implemen
 		if ( (courseNode == null) || ( group == null ) ) {
 			return true;
 		}
-		BaseSecurity secMgr = BaseSecurityManager.getInstance();
-		List<Identity> identities = secMgr.getIdentitiesOfSecurityGroup(group.getPartipiciantGroup(), 0, 1);		
+		List<Identity> identities = businessGroupService.getMembers(group, GroupRoles.participant.name());		
 		if (identities.isEmpty()) {
 			// group has no participant, can not evalute  
 			return false;
@@ -1095,7 +1115,7 @@ public class AssessmentMainController extends MainLayoutBasicController implemen
 		boolean allConditionAreValid = true;
 		// loop over all conditions, all must be true
 		for (Iterator<ConditionExpression> iter = listOfConditionExpressions.iterator(); iter.hasNext();) {
-			ConditionExpression conditionExpression = (ConditionExpression) iter.next();
+			ConditionExpression conditionExpression = iter.next();
 			logDebug("conditionExpression=" + conditionExpression, null);
 			logDebug("conditionExpression.getId()=" + conditionExpression.getId(), null);
 			Condition condition = new Condition();

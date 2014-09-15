@@ -27,7 +27,6 @@ import java.util.regex.Pattern;
 
 import javax.servlet.http.HttpServletRequest;
 
-import org.olat.core.commons.chiefcontrollers.BaseChiefController;
 import org.olat.core.dispatcher.impl.StaticMediaDispatcher;
 import org.olat.core.dispatcher.mapper.Mapper;
 import org.olat.core.gui.media.MediaResource;
@@ -381,10 +380,8 @@ public class IFrameDeliveryMapper implements Mapper, Serializable {
 		// jsMath brute force approach to render latex formulas: add library if
 		// a jsmath class is found in the code and the library is not already in
 		// the header of the page
-		if (BaseChiefController.isJsMathEnabled()) {
-			if ((page.indexOf("class=\"math\"") != -1 || page.indexOf("class='math'") != -1) && (origHTMLHead == null || origHTMLHead.indexOf("jsMath/easy/load.js") == -1)) {
-				sb.appendJsMath();		
-			}			
+		if ((page.indexOf("class=\"math\"") != -1 || page.indexOf("class='math'") != -1) && (origHTMLHead == null || origHTMLHead.indexOf("jsMath/easy/load.js") == -1)) {
+			sb.appendJsMath();		
 		}
 
 		// add some custom header things like js code or css
@@ -553,7 +550,7 @@ public class IFrameDeliveryMapper implements Mapper, Serializable {
 		private void appendOpenolatCss() {
 			if(ooCssLoaded) return;
 			
-			append("<link href=\"").append(themeBaseUri).append("all/content.css\" rel=\"stylesheet\" type=\"text/css\" ");
+			append("<link href=\"").append(themeBaseUri).append("content.css\" rel=\"stylesheet\" type=\"text/css\" ");
 			if (docType != null && docType.indexOf("XHTML") > 0) append("/"); // close tag only when xhtml to validate
 			append(">\n");
 			ooCssLoaded = true;
@@ -562,11 +559,24 @@ public class IFrameDeliveryMapper implements Mapper, Serializable {
 		public void appendJQuery() {
 			if(jqueryLoaded) return;
 			
-			appendStaticJs("js/jquery/jquery-1.9.1.min.js");
+			appendJQuery2Cond();
 			appendStaticJs("js/jshashtable-2.1_src.js");
-			appendStaticJs("js/jquery/ui/jquery-ui-1.10.2.custom.min.js");
-		  appendStaticCss("js/jquery/ui/jquery-ui-1.10.2.custom.min.css", "jqueryuicss");
-		  jqueryLoaded = true;
+			appendStaticJs("js/jquery/ui/jquery-ui-1.10.4.custom.min.js");
+			appendStaticCss("js/jquery/ui/jquery-ui-1.10.4.custom.min.css", "jqueryuicss");
+			jqueryLoaded = true;
+		}
+		
+		public void appendJQuery2Cond() {
+			append("<!--[if lt IE 9]>");
+			append("<script type=\"text/javascript\" src=\"");
+			StaticMediaDispatcher.renderStaticURI(this, "js/jquery/jquery-1.9.1.min.js");
+			append("\")'></script>");
+			append("<![endif]-->");
+			append("<!--[if gte IE 9]><!-->");
+			append("<script type=\"text/javascript\" src=\"");
+			StaticMediaDispatcher.renderStaticURI(this, "js/jquery/jquery-2.1.0.min.js");
+			append("\")'></script>");
+			append("<!--<![endif]-->");
 		}
 
 		public void appendPrototype() {

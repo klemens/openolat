@@ -1,0 +1,15 @@
+/* charts (crispEdges) */
+.d3chart {
+	.bar { shape-rendering: crispEdges; }
+	.bar_default_light { fill: $o-d3chart-light; }
+	.bar_default { fill: $o-d3chart-default; }
+	.bar_default_dark { fill: $o-d3chart-dark; }
+
+	.axis { font: 12px sans-serif; }
+
+	.axis path, .axis line {
+		fill: none;
+		stroke: #000;
+		shape-rendering: crispEdges;
+	}
+}

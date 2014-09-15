@@ -43,9 +43,9 @@ import org.olat.collaboration.CollaborationTools;
 import org.olat.collaboration.CollaborationToolsFactory;
 import org.olat.core.CoreSpringFactory;
 import org.olat.core.commons.modules.bc.vfs.OlatRootFolderImpl;
+import org.olat.core.commons.services.notifications.SubscriptionContext;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.id.Identity;
-import org.olat.core.util.notifications.SubscriptionContext;
 import org.olat.core.util.vfs.Quota;
 import org.olat.core.util.vfs.QuotaManager;
 import org.olat.core.util.vfs.restapi.VFSWebServiceSecurityCallback;
@@ -56,6 +56,7 @@ import org.olat.group.model.SearchBusinessGroupParams;
 import org.olat.modules.fo.Forum;
 import org.olat.modules.fo.restapi.ForumWebService;
 import org.olat.repository.RepositoryEntry;
+import org.olat.repository.RepositoryEntryRef;
 import org.olat.repository.RepositoryManager;
 import org.olat.resource.OLATResource;
 import org.olat.restapi.group.LearningGroupWebService;
@@ -77,9 +78,11 @@ public class CourseGroupWebService {
 	private static final String VERSION = "1.0";
 	
 	private final OLATResource course;
+	private final RepositoryEntryRef courseEntryRef;
 	
-	public CourseGroupWebService(OLATResource ores) {
+	public CourseGroupWebService(RepositoryEntryRef courseEntryRef, OLATResource ores) {
 		this.course = ores;
+		this.courseEntryRef = courseEntryRef;
 	}
 	
 	/**
@@ -171,10 +174,10 @@ public class CourseGroupWebService {
 	 */
 	@GET
 	@Produces({MediaType.APPLICATION_XML, MediaType.APPLICATION_JSON})
-	public Response getGroupList(@Context HttpServletRequest request) {
+	public Response getGroupList() {
     BusinessGroupService bgs = CoreSpringFactory.getImpl(BusinessGroupService.class);
 		SearchBusinessGroupParams params = new SearchBusinessGroupParams();
-		List<BusinessGroup> groups = bgs.findBusinessGroups(params, course, 0, -1);
+		List<BusinessGroup> groups = bgs.findBusinessGroups(params, courseEntryRef, 0, -1);
 			
 		int count = 0;
 		GroupVO[] vos = new GroupVO[groups.size()];

@@ -19,7 +19,6 @@
  */
 package org.olat.core.commons.fullWebApp;
 
-import org.olat.core.commons.chiefcontrollers.BaseChiefController;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.Windows;
 import org.olat.core.gui.components.Component;
@@ -30,6 +29,7 @@ import org.olat.core.gui.control.ChiefController;
 import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.Event;
 import org.olat.core.gui.control.WindowControl;
+import org.olat.core.gui.control.ScreenMode.Mode;
 import org.olat.core.gui.control.controller.MainLayoutBasicController;
 import org.olat.core.gui.control.generic.layout.MainLayout3ColumnsController;
 
@@ -52,7 +52,7 @@ public class LayoutMain3ColsPreviewController extends MainLayoutBasicController 
 	private Link backLink;
 	private boolean fullScreen = false;
 	
-	private BaseChiefController thebaseChief;
+	private ChiefController thebaseChief;
 	
 	/**
 	 * Constructor for creating a 3 col based menu on the main area
@@ -64,15 +64,15 @@ public class LayoutMain3ColsPreviewController extends MainLayoutBasicController 
 	 * @param layoutConfigKey identificator for this layout to persist the users column width settings
 	 */
 	public LayoutMain3ColsPreviewController(UserRequest ureq, WindowControl wControl, 
-			Component col1, Component col2, Component col3, String layoutConfigKey) {
+			Component col1, Component col3, String layoutConfigKey) {
 		super(ureq, wControl);
 		
 		// create a wrapper velocity container that contains the back link and normal main layout
 		previewVC = createVelocityContainer("main_preview");		
 		
 		// create layout and add it to main view
-		layoutCtr = new LayoutMain3ColsController(ureq, wControl, col1, col2, col3, layoutConfigKey);
-		layoutCtr.addCssClassToMain("b_preview");
+		layoutCtr = new LayoutMain3ColsController(ureq, wControl, col1, col3, layoutConfigKey);
+		layoutCtr.addCssClassToMain("o_preview");
 		listenTo(layoutCtr);		
 		previewVC.put("3collayout", layoutCtr.getInitialComponent());
 		
@@ -107,18 +107,15 @@ public class LayoutMain3ColsPreviewController extends MainLayoutBasicController 
 	 * Activate this preview workflow
 	 */
 	public void activate() {
-		if(fullScreen)
-			getWindowControl().pushAsModalDialog(previewVC);
-		else
-			getWindowControl().pushToMainArea(previewVC);
+		getWindowControl().pushToMainArea(previewVC);
 	}
 	
-	//fxdiff FXOLAT-116: SCORM improvements
+	
 	public void setAsFullscreen(UserRequest ureq) {
-		ChiefController cc = (ChiefController) Windows.getWindows(ureq).getAttribute("AUTHCHIEFCONTROLLER");
-		if (cc instanceof BaseChiefController) {
-			thebaseChief = (BaseChiefController) cc;
-			thebaseChief.addBodyCssClass("b_full_screen");
+		ChiefController cc = Windows.getWindows(ureq).getChiefController();
+		if (cc != null) {
+			thebaseChief = cc;
+			thebaseChief.getScreenMode().setMode(Mode.full);
 		}
 		fullScreen = true;
 	}
@@ -128,9 +125,8 @@ public class LayoutMain3ColsPreviewController extends MainLayoutBasicController 
 	 */
 	public void deactivate() {
 		getWindowControl().pop();
-		// fxdiff FXOLAT-116: SCORM improvements
 		if (fullScreen) {
-			thebaseChief.removeBodyCssClass("b_full_screen");
+			thebaseChief.getScreenMode().setMode(Mode.standard);
 		}
 	}
 

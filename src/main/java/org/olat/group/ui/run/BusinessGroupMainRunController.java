@@ -25,20 +25,21 @@
 
 package org.olat.group.ui.run;
 
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
 import org.olat.NewControllerFactory;
-import org.olat.admin.securitygroup.gui.GroupController;
 import org.olat.basesecurity.BaseSecurity;
-import org.olat.basesecurity.BaseSecurityManager;
 import org.olat.basesecurity.BaseSecurityModule;
-import org.olat.basesecurity.Constants;
-import org.olat.basesecurity.SecurityGroup;
+import org.olat.basesecurity.Group;
+import org.olat.basesecurity.GroupRoles;
+import org.olat.basesecurity.ui.GroupController;
 import org.olat.collaboration.CollaborationTools;
 import org.olat.collaboration.CollaborationToolsFactory;
 import org.olat.core.CoreSpringFactory;
 import org.olat.core.commons.fullWebApp.LayoutMain3ColsController;
+import org.olat.core.commons.services.notifications.SubscriptionContext;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.Component;
 import org.olat.core.gui.components.panel.Panel;
@@ -74,7 +75,6 @@ import org.olat.core.util.event.EventBus;
 import org.olat.core.util.event.GenericEventListener;
 import org.olat.core.util.mail.ContactList;
 import org.olat.core.util.mail.ContactMessage;
-import org.olat.core.util.notifications.SubscriptionContext;
 import org.olat.core.util.resource.OLATResourceableJustBeforeDeletedEvent;
 import org.olat.core.util.resource.OresHelper;
 import org.olat.course.nodes.iq.AssessmentEvent;
@@ -82,7 +82,6 @@ import org.olat.group.BusinessGroup;
 import org.olat.group.BusinessGroupMembership;
 import org.olat.group.BusinessGroupService;
 import org.olat.group.GroupLoggingAction;
-import org.olat.group.model.DisplayMembers;
 import org.olat.group.ui.BGControllerFactory;
 import org.olat.group.ui.edit.BusinessGroupEditController;
 import org.olat.group.ui.edit.BusinessGroupModifiedEvent;
@@ -94,7 +93,8 @@ import org.olat.modules.openmeetings.OpenMeetingsModule;
 import org.olat.modules.wiki.WikiManager;
 import org.olat.portfolio.PortfolioModule;
 import org.olat.repository.RepositoryEntry;
-import org.olat.repository.RepositoryTableModel;
+import org.olat.repository.RepositoryService;
+import org.olat.repository.ui.RepositoryTableModel;
 import org.olat.resource.OLATResource;
 import org.olat.resource.accesscontrol.ACService;
 import org.olat.resource.accesscontrol.ACUIFactory;
@@ -102,6 +102,7 @@ import org.olat.resource.accesscontrol.AccessControlModule;
 import org.olat.resource.accesscontrol.AccessResult;
 import org.olat.resource.accesscontrol.ui.AccessEvent;
 import org.olat.util.logging.activity.LoggingResourceable;
+import org.springframework.beans.factory.annotation.Autowired;
 
 
 /**
@@ -195,19 +196,20 @@ public class BusinessGroupMainRunController extends MainLayoutBasicController im
 
 	private boolean isAdmin;
 
-	private final ACService acService;
-	private final BaseSecurity securityManager;
-	private final BusinessGroupService businessGroupService;
+	@Autowired
+	private ACService acService;
+	@Autowired
+	private BaseSecurity securityManager;
+	@Autowired
+	private BusinessGroupService businessGroupService;
 	private EventBus singleUserEventBus;
 	private String adminNodeId; // reference to admin menu item
 
 	// not null indicates tool is enabled
 	private GenericTreeNode nodeFolder, nodeForum, nodeWiki, nodeCal, nodePortfolio, nodeOpenMeetings;
-	//fxdiff BAKS-7 Resume function
 	private GenericTreeNode nodeContact, nodeGroupOwners, nodeResources, nodeInformation, nodeAdmin;
 	private boolean groupRunDisabled;
 	private OLATResourceable assessmentEventOres;
-	//fxdiff VCRP-1,2: access control of resources
 	private Controller accessController;
 	
 	private boolean needActivation;
@@ -232,14 +234,11 @@ public class BusinessGroupMainRunController extends MainLayoutBasicController im
 		 * on the group for a very short time. If this is not possible, then the
 		 * lastUsage is already up to date within one-day-precision.
 		 */
-		securityManager = CoreSpringFactory.getImpl(BaseSecurity.class);
-		businessGroupService = CoreSpringFactory.getImpl(BusinessGroupService.class);
 		businessGroup = businessGroupService.setLastUsageFor(getIdentity(), bGroup);
-		acService = CoreSpringFactory.getImpl(ACService.class);
 		if(businessGroup == null) {
 			VelocityContainer vc = createVelocityContainer("deleted");
 			vc.contextPut("name", bGroup.getName());
-			columnLayoutCtr = new LayoutMain3ColsController(ureq, getWindowControl(), null, null, vc, "grouprun");
+			columnLayoutCtr = new LayoutMain3ColsController(ureq, getWindowControl(), null, vc, "grouprun");
 			listenTo(columnLayoutCtr); // cleanup on dispose
 			putInitialPanel(columnLayoutCtr.getInitialComponent());
 			chatAvailable = false;
@@ -259,13 +258,13 @@ public class BusinessGroupMainRunController extends MainLayoutBasicController im
 		chatAvailable = isChatAvailable();
 		isAdmin = ureq.getUserSession().getRoles().isOLATAdmin()
 				|| ureq.getUserSession().getRoles().isGroupManager()
-				|| securityManager.isIdentityPermittedOnResourceable(getIdentity(), Constants.PERMISSION_ACCESS, businessGroup);
+				|| businessGroupService.isIdentityInBusinessGroup(getIdentity(), businessGroup.getKey(), true, false, null);
 
 		// Initialize translator:
 		// package translator with default group fallback translators and type
 		// translator
 		setTranslator(Util.createPackageTranslator(BGControllerFactory.class, getLocale(), getTranslator()));
-		resourceTrans = Util.createPackageTranslator(RepositoryTableModel.class, getLocale(), getTranslator());
+		resourceTrans = Util.createPackageTranslator(RepositoryService.class, getLocale(), getTranslator());
 
 		// main component layed out in panel
 		main = createVelocityContainer("bgrun");
@@ -279,7 +278,7 @@ public class BusinessGroupMainRunController extends MainLayoutBasicController im
 		bgTree.setTreeModel(trMdl);
 		bgTree.addListener(this);
 		//
-		columnLayoutCtr = new LayoutMain3ColsController(ureq, getWindowControl(), bgTree, null, mainPanel, "grouprun");
+		columnLayoutCtr = new LayoutMain3ColsController(ureq, getWindowControl(), bgTree, mainPanel, "grouprun");
 		listenTo(columnLayoutCtr); // cleanup on dispose
 		
 		//
@@ -292,7 +291,7 @@ public class BusinessGroupMainRunController extends MainLayoutBasicController im
 		//must be created beforehand
 		Panel empty = new Panel("empty");//empty panel set as "menu" and "tool"
 		Controller disposedBusinessGroup = new DisposedBusinessGroup(ureq, getWindowControl());
-		LayoutMain3ColsController disposedController = new LayoutMain3ColsController(ureq, getWindowControl(), empty, empty, disposedBusinessGroup.getInitialComponent(), "disposed grouprun");
+		LayoutMain3ColsController disposedController = new LayoutMain3ColsController(ureq, getWindowControl(), empty, disposedBusinessGroup.getInitialComponent(), "disposed grouprun");
 		disposedController.addDisposableChildController(disposedBusinessGroup);
 		setDisposedMsgController(disposedController);
 
@@ -340,7 +339,7 @@ public class BusinessGroupMainRunController extends MainLayoutBasicController im
 	private Component getOnWaitingListMessage(UserRequest ureq, BusinessGroup group) {
 		VelocityContainer vc = createVelocityContainer("waiting");
 		vc.contextPut("name", group.getName());
-		columnLayoutCtr = new LayoutMain3ColsController(ureq, getWindowControl(), null, null, vc, "grouprun");
+		columnLayoutCtr = new LayoutMain3ColsController(ureq, getWindowControl(), null, vc, "grouprun");
 		listenTo(columnLayoutCtr); // cleanup on dispose
 		return columnLayoutCtr.getInitialComponent();
 	}
@@ -410,7 +409,7 @@ public class BusinessGroupMainRunController extends MainLayoutBasicController im
 				if (RepositoryTableModel.TABLE_ACTION_SELECT_ENTRY.equals(actionid)
 						|| RepositoryTableModel.TABLE_ACTION_SELECT_LINK.equals(actionid)) {
 
-					RepositoryEntry currentRepoEntry = (RepositoryEntry)repoTableModel.getObject(rowid);
+					RepositoryEntry currentRepoEntry = repoTableModel.getObject(rowid);
 					OLATResource ores = currentRepoEntry.getOlatResource();
 					if (ores == null) throw new AssertException("repoEntry had no olatresource, repoKey = " + currentRepoEntry.getKey());
 					addLoggingResourceable(LoggingResourceable.wrap(ores, OlatResourceableType.genRepoEntry));
@@ -472,8 +471,6 @@ public class BusinessGroupMainRunController extends MainLayoutBasicController im
 	 * @return a contact form controller for this group
 	 */
 	private ContactFormController createContactFormController(UserRequest ureq) {
-		BaseSecurity scrtMngr = BaseSecurityManager.getInstance();
-
 		ContactMessage cmsg = new ContactMessage(ureq.getIdentity());
 		// two named ContactLists, the new way using the contact form
 		// the same name as in the checkboxes are taken as contactlist names
@@ -483,16 +480,14 @@ public class BusinessGroupMainRunController extends MainLayoutBasicController im
 
 		if (sendToChooserForm.ownerChecked().equals(BusinessGroupSendToChooserForm.NLS_RADIO_ALL)) {
 			ownerCntctLst = new ContactList(translate("sendtochooser.form.radio.owners.all"));
-			SecurityGroup owners = businessGroup.getOwnerGroup();
-			List<Identity> ownerList = scrtMngr.getIdentitiesOfSecurityGroup(owners);
+			List<Identity> ownerList = businessGroupService.getMembers(businessGroup, GroupRoles.coach.name());
 			ownerCntctLst.addAllIdentites(ownerList);
 			cmsg.addEmailTo(ownerCntctLst);
 		} else {
 			if (sendToChooserForm.ownerChecked().equals(BusinessGroupSendToChooserForm.NLS_RADIO_CHOOSE)) {
 				ownerCntctLst = new ContactList(translate("sendtochooser.form.radio.owners.choose"));
-				SecurityGroup owners = businessGroup.getOwnerGroup();
-				List<Identity> ownerList = scrtMngr.getIdentitiesOfSecurityGroup(owners);
-				List<Identity> changeableOwnerList = scrtMngr.getIdentitiesOfSecurityGroup(owners);
+				List<Identity> ownerList = businessGroupService.getMembers(businessGroup, GroupRoles.coach.name());
+				List<Identity> changeableOwnerList = new ArrayList<>(ownerList);
 				for (Identity identity : ownerList) {
 					boolean keyIsSelected = false;
 					for (Long key : sendToChooserForm.getSelectedOwnerKeys()) {
@@ -513,16 +508,14 @@ public class BusinessGroupMainRunController extends MainLayoutBasicController im
 		if (sendToChooserForm != null) {
 			if  (sendToChooserForm.participantChecked().equals(BusinessGroupSendToChooserForm.NLS_RADIO_ALL)) {
 				partipCntctLst  = new ContactList(translate("sendtochooser.form.radio.partip.all"));
-				SecurityGroup participants = businessGroup.getPartipiciantGroup();
-				List<Identity> participantsList = scrtMngr.getIdentitiesOfSecurityGroup(participants);
+				List<Identity> participantsList = businessGroupService.getMembers(businessGroup, GroupRoles.participant.name());
 				partipCntctLst.addAllIdentites(participantsList);
 				cmsg.addEmailTo(partipCntctLst);
 			} else {
 				if (sendToChooserForm.participantChecked().equals(BusinessGroupSendToChooserForm.NLS_RADIO_CHOOSE)) {
 					partipCntctLst  = new ContactList(translate("sendtochooser.form.radio.partip.choose"));
-					SecurityGroup participants = businessGroup.getPartipiciantGroup();
-					List<Identity> participantsList = scrtMngr.getIdentitiesOfSecurityGroup(participants);
-					List<Identity> changeableParticipantsList = scrtMngr.getIdentitiesOfSecurityGroup(participants);
+					List<Identity> participantsList = businessGroupService.getMembers(businessGroup, GroupRoles.participant.name());
+					List<Identity> changeableParticipantsList = new ArrayList<>(participantsList);
 					for (Identity identity : participantsList) {
 						boolean keyIsSelected = false;
 						for (Long key : sendToChooserForm.getSelectedPartipKeys()) {
@@ -544,16 +537,14 @@ public class BusinessGroupMainRunController extends MainLayoutBasicController im
 		if (sendToChooserForm != null && isAdmin && businessGroup.getWaitingListEnabled().booleanValue()) {
 			if (sendToChooserForm.waitingListChecked().equals(BusinessGroupSendToChooserForm.NLS_RADIO_ALL)) {
 				waitingListContactList = new ContactList(translate("sendtochooser.form.radio.waitings.all"));
-				SecurityGroup waitingList = businessGroup.getWaitingGroup();
-				List<Identity> waitingListIdentities = scrtMngr.getIdentitiesOfSecurityGroup(waitingList);
+				List<Identity> waitingListIdentities = businessGroupService.getMembers(businessGroup, GroupRoles.waiting.name());
 				waitingListContactList.addAllIdentites(waitingListIdentities);
 				cmsg.addEmailTo(waitingListContactList);
 			} else {
 				if (sendToChooserForm.waitingListChecked().equals(BusinessGroupSendToChooserForm.NLS_RADIO_CHOOSE)) {
 					waitingListContactList = new ContactList(translate("sendtochooser.form.radio.waitings.choose"));
-					SecurityGroup waitingList = businessGroup.getWaitingGroup();
-					List<Identity> waitingListIdentities = scrtMngr.getIdentitiesOfSecurityGroup(waitingList);
-					List<Identity> changeableWaitingListIdentities = scrtMngr.getIdentitiesOfSecurityGroup(waitingList);
+					List<Identity> waitingListIdentities = businessGroupService.getMembers(businessGroup, GroupRoles.waiting.name());
+					List<Identity> changeableWaitingListIdentities = new ArrayList<>(waitingListIdentities);
 					for (Identity indentity : waitingListIdentities) {
 						boolean keyIsSelected = false;
 						for (Long key : sendToChooserForm.getSelectedWaitingKeys()) {
@@ -737,11 +728,11 @@ public class BusinessGroupMainRunController extends MainLayoutBasicController im
 	private void doShowMembers(UserRequest ureq) {
 		VelocityContainer membersVc = createVelocityContainer("ownersandmembers");
 		// 1. show owners if configured with Owners
-		DisplayMembers displayMembers = businessGroupService.getDisplayMembers(businessGroup);
-		boolean downloadAllowed = displayMembers.isDownloadLists();
-		if (displayMembers.isShowOwners()) {
+		boolean downloadAllowed = businessGroup.isDownloadMembersLists();
+		Group group = businessGroupService.getGroup(businessGroup);
+		if (businessGroup.isOwnersVisibleIntern()) {
 			removeAsListenerAndDispose(gownersC);
-			gownersC = new GroupController(ureq, getWindowControl(), false, true, true, false, downloadAllowed, false, businessGroup.getOwnerGroup());
+			gownersC = new GroupController(ureq, getWindowControl(), false, true, true, false, downloadAllowed, false, group, GroupRoles.coach.name());
 			listenTo(gownersC);
 			membersVc.put("owners", gownersC.getInitialComponent());
 			membersVc.contextPut("showOwnerGroups", Boolean.TRUE);
@@ -749,9 +740,9 @@ public class BusinessGroupMainRunController extends MainLayoutBasicController im
 			membersVc.contextPut("showOwnerGroups", Boolean.FALSE);
 		}
 		// 2. show participants if configured with Participants
-		if (displayMembers.isShowParticipants()) {
+		if (businessGroup.isParticipantsVisibleIntern()) {
 			removeAsListenerAndDispose(gparticipantsC);
-			gparticipantsC = new GroupController(ureq, getWindowControl(), false, true, false, false, downloadAllowed, false, businessGroup.getPartipiciantGroup());
+			gparticipantsC = new GroupController(ureq, getWindowControl(), false, true, false, false, downloadAllowed, false, group, GroupRoles.participant.name());
 			listenTo(gparticipantsC);
 			
 			membersVc.put("participants", gparticipantsC.getInitialComponent());
@@ -761,9 +752,9 @@ public class BusinessGroupMainRunController extends MainLayoutBasicController im
 		}
 		// 3. show waiting-list if configured 
 		membersVc.contextPut("hasWaitingList", new Boolean(businessGroup.getWaitingListEnabled()) );
-		if (displayMembers.isShowWaitingList()) {
+		if (businessGroup.isWaitingListVisibleIntern()) {
 			removeAsListenerAndDispose(waitingListController);
-			waitingListController = new GroupController(ureq, getWindowControl(), false, true, false, false, downloadAllowed, false, businessGroup.getWaitingGroup());
+			waitingListController = new GroupController(ureq, getWindowControl(), false, true, false, false, downloadAllowed, false, group, GroupRoles.waiting.name());
 			listenTo(waitingListController);
 			membersVc.put("waitingList", waitingListController.getInitialComponent());
 			membersVc.contextPut("showWaitingList", Boolean.TRUE);
@@ -989,7 +980,7 @@ public class BusinessGroupMainRunController extends MainLayoutBasicController im
 		root.setTitle(businessGroup.getName());
 		root.setUserObject(ACTIVITY_MENUSELECT_OVERVIEW);
 		root.setAltText(translate("menutree.top.alt") + " " + businessGroup.getName());
-		root.setIconCssClass("b_group_icon");
+		root.setIconCssClass("o_icon o_icon_group");
 		gtm.setRootNode(root);
 		
 		CollaborationTools collabTools = CollaborationToolsFactory.getInstance().getOrCreateCollaborationTools(this.businessGroup);
@@ -999,7 +990,7 @@ public class BusinessGroupMainRunController extends MainLayoutBasicController im
 			gtnChild.setTitle(translate("menutree.news"));
 			gtnChild.setUserObject(ACTIVITY_MENUSELECT_INFORMATION);
 			gtnChild.setAltText(translate("menutree.news.alt"));
-			gtnChild.setIconCssClass("o_news_icon");
+			gtnChild.setIconCssClass("o_icon_news");
 			root.addChild(gtnChild);
 			//fxdiff BAKS-7 Resume function
 			nodeInformation = gtnChild;
@@ -1021,21 +1012,20 @@ public class BusinessGroupMainRunController extends MainLayoutBasicController im
 			gtnChild.setTitle(translate("menutree.resources"));
 			gtnChild.setUserObject(ACTIVITY_MENUSELECT_SHOW_RESOURCES);
 			gtnChild.setAltText(translate("menutree.resources.alt"));
-			gtnChild.setIconCssClass("o_course_icon");
+			gtnChild.setIconCssClass("o_CourseModule_icon");
 			root.addChild(gtnChild);
 			//fxdiff BAKS-7 Resume function
 			nodeResources = gtnChild;
 		}
 
-		DisplayMembers displayMembers = businessGroupService.getDisplayMembers(businessGroup);
-		if (displayMembers.isShowOwners() || displayMembers.isShowParticipants()) {
+		if (businessGroup.isOwnersVisibleIntern() || businessGroup.isParticipantsVisibleIntern()) {
 			// either owners or participants, or both are visible
 			// otherwise the node is not visible
 			gtnChild = new GenericTreeNode();
 			gtnChild.setTitle(translate("menutree.members"));
 			gtnChild.setUserObject(ACTIVITY_MENUSELECT_MEMBERSLIST);
 			gtnChild.setAltText(translate("menutree.members.alt"));
-			gtnChild.setIconCssClass("b_group_icon");
+			gtnChild.setIconCssClass("o_icon_group");
 			root.addChild(gtnChild);
 			//fxdiff BAKS-7 Resume function
 			nodeGroupOwners = gtnChild;
@@ -1078,7 +1068,8 @@ public class BusinessGroupMainRunController extends MainLayoutBasicController im
 			gtnChild.setTitle(translate("menutree.chat"));
 			gtnChild.setUserObject(ACTIVITY_MENUSELECT_CHAT);
 			gtnChild.setAltText(translate("menutree.chat.alt"));
-			gtnChild.setIconCssClass("o_chat_icon");
+			gtnChild.setIconCssClass("o_icon_chat");
+			gtnChild.setCssClass("o_sel_group_chat");
 			root.addChild(gtnChild);
 		}
 
@@ -1121,13 +1112,11 @@ public class BusinessGroupMainRunController extends MainLayoutBasicController im
 			gtnChild.setUserObject(ACTIVITY_MENUSELECT_ADMINISTRATION);
 			gtnChild.setIdent(ACTIVITY_MENUSELECT_ADMINISTRATION);
 			gtnChild.setAltText(translate("menutree.administration.alt"));
-			gtnChild.setIconCssClass("o_admin_icon");
+			gtnChild.setIconCssClass("o_icon_settings");
 			root.addChild(gtnChild);
 			adminNodeId = gtnChild.getIdent();
-			//fxdiff BAKS-7 Resume function
 			nodeAdmin = gtnChild;
 
-			//fxdiff VCRP-1,2: access control of resources
 			AccessControlModule acModule = (AccessControlModule)CoreSpringFactory.getBean("acModule");
 			if(acModule.isEnabled() && acService.isResourceAccessControled(businessGroup.getResource(), null)) {
 				gtnChild = new GenericTreeNode();
@@ -1135,7 +1124,7 @@ public class BusinessGroupMainRunController extends MainLayoutBasicController im
 				gtnChild.setUserObject(ACTIVITY_MENUSELECT_AC);
 				gtnChild.setIdent(ACTIVITY_MENUSELECT_AC);
 				gtnChild.setAltText(translate("menutree.ac.alt"));
-				gtnChild.setIconCssClass("b_order_icon");
+				gtnChild.setIconCssClass("o_icon_booking");
 				root.addChild(gtnChild);
 			}
 		}

@@ -22,6 +22,7 @@ package org.olat.search.ui;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Date;
 import java.util.HashSet;
 import java.util.List;
@@ -131,7 +132,7 @@ public class AdvancedSearchInputController extends FormBasicController {
 			documentTypeKeys[j] = documentType.getKey();
 			documentTypeValues[j++] = documentType.getValue();
 		}
-		documentTypeQuery = uifactory.addCheckboxesHorizontal("doc_type", "form.search.label.documenttype", formLayout, documentTypeKeys, documentTypeValues, null);
+		documentTypeQuery = uifactory.addCheckboxesHorizontal("doc_type", "form.search.label.documenttype", formLayout, documentTypeKeys, documentTypeValues);
 		
 		//metadatas
 		SearchMetadataFieldsProvider metadataProvider = (SearchMetadataFieldsProvider) CoreSpringFactory.getBean("SearchMetadataFieldsProvider");
@@ -275,7 +276,7 @@ public class AdvancedSearchInputController extends FormBasicController {
 	}
 	
 	private void buildDocumentTypeQuery(List<String> queries) {
-		Set<String> selectDocTypes = documentTypeQuery.getSelectedKeys();
+		Collection<String> selectDocTypes = documentTypeQuery.getSelectedKeys();
 		if(selectDocTypes.size() == documentInfos.size() || selectDocTypes.isEmpty()) {
 			//all selected -> no constraints of the type
 			return;
@@ -340,7 +341,7 @@ public class AdvancedSearchInputController extends FormBasicController {
 			props.remove("mtdt");
 		}
 		
-		Set<String> selectedKeys = documentTypeQuery.getSelectedKeys();
+		Collection<String> selectedKeys = documentTypeQuery.getSelectedKeys();
 		StringBuilder sb = new StringBuilder();
 		for(String selectedKey:selectedKeys) {
 			sb.append(selectedKey).append('|');

@@ -26,7 +26,7 @@ import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.Component;
 import org.olat.core.gui.components.link.Link;
 import org.olat.core.gui.components.link.LinkFactory;
-import org.olat.core.gui.components.panel.Panel;
+import org.olat.core.gui.components.panel.StackedPanel;
 import org.olat.core.gui.components.velocity.VelocityContainer;
 import org.olat.core.gui.control.Event;
 import org.olat.core.gui.control.WindowControl;
@@ -55,7 +55,7 @@ public class YearNavigationController extends BasicController {
 	private YearNavigationModel model;
 	private Link next, previous, yearLink;
 	private VelocityContainer mainVC;
-	private Panel mainPanel;
+	private StackedPanel mainPanel;
 	private List<Link> monthLinks;
 	private List<? extends Dated> allObjects;
 	private boolean showAll = true;
@@ -80,7 +80,7 @@ public class YearNavigationController extends BasicController {
 		Year year = model.getCurrentYear();
 		if (year != null) {
 			yearLink = LinkFactory.createLink("yearLink", mainVC, this);
-			yearLink.setCustomEnabledLinkCSS("b_year");
+			yearLink.setCustomEnabledLinkCSS("o_year");
 			yearLink.setCustomDisplayText(year.getName());
 			yearLink.setUserObject(year);
 			mainVC.contextPut("year", year);
@@ -88,7 +88,7 @@ public class YearNavigationController extends BasicController {
 			monthLinks = new ArrayList<Link>();
 			for (Month month : year.getMonths()) {
 				Link monthLink = LinkFactory.createLink("month_" + month.getName(), mainVC, this);
-				monthLink.setCustomEnabledLinkCSS("b_month");
+				monthLink.setCustomEnabledLinkCSS("o_month");
 				monthLink.setCustomDisplayText(model.getMonthName(month));
 				monthLink.setUserObject(month);
 				monthLinks.add(monthLink);
@@ -119,7 +119,7 @@ public class YearNavigationController extends BasicController {
 			Year year = (Year) yearLink.getUserObject();
 			Event navEvent = new NavigationEvent(year.getItems());
 			fireEvent(ureq, navEvent);
-			yearLink.setCustomEnabledLinkCSS("b_year b_selected");
+			yearLink.setCustomEnabledLinkCSS("o_year o_selected");
 
 		} else if (source == previous) {
 			model.previous();
@@ -127,7 +127,7 @@ public class YearNavigationController extends BasicController {
 			Year year = (Year) yearLink.getUserObject();
 			Event navEvent = new NavigationEvent(year.getItems());
 			fireEvent(ureq, navEvent);
-			yearLink.setCustomEnabledLinkCSS("b_year b_selected");
+			yearLink.setCustomEnabledLinkCSS("o_year o_selected");
 
 		} else if (source == yearLink) {
 			// Click on year toggles between year filter and show all filter
@@ -136,16 +136,16 @@ public class YearNavigationController extends BasicController {
 				Event navEvent = new NavigationEvent(year.getItems());
 				fireEvent(ureq, navEvent);
 				// update GUI
-				yearLink.setCustomEnabledLinkCSS("b_year b_selected");
+				yearLink.setCustomEnabledLinkCSS("o_year o_selected");
 				for (Link monthLink : monthLinks) {
-					monthLink.setCustomEnabledLinkCSS("b_month");
+					monthLink.setCustomEnabledLinkCSS("o_month");
 				}
 				showAll = false;				
 			} else {
 				Event navEvent = new NavigationEvent(allObjects);
 				fireEvent(ureq, navEvent);
 				// update GUI
-				yearLink.setCustomEnabledLinkCSS("b_year");
+				yearLink.setCustomEnabledLinkCSS("o_year");
 				showAll = true;
 			}
 
@@ -155,11 +155,11 @@ public class YearNavigationController extends BasicController {
 			Event navEvent = new NavigationEvent(month.getItems());
 			fireEvent(ureq, navEvent);
 			// update GUI
-			yearLink.setCustomEnabledLinkCSS("b_year");
+			yearLink.setCustomEnabledLinkCSS("o_year");
 			for (Link link : monthLinks) {
-				link.setCustomEnabledLinkCSS("b_month");
+				link.setCustomEnabledLinkCSS("o_month");
 			}
-			monthLink.setCustomEnabledLinkCSS("b_month b_selected");
+			monthLink.setCustomEnabledLinkCSS("o_month o_selected");
 		}
 	}
 
@@ -176,13 +176,11 @@ public class YearNavigationController extends BasicController {
 		// links in the velcity page.
 		mainVC = createVelocityContainer("yearnavigation");
 		next = LinkFactory.createCustomLink("navi.forward", "navi.forward", null, Link.NONTRANSLATED, mainVC, this);
-		next.setCustomEnabledLinkCSS("b_small_icon b_forward_icon b_float_right");
-		next.setCustomDisabledLinkCSS("b_small_icon b_forward_icon b_float_right"); // b_disabled added by link component
+		next.setIconLeftCSS("o_icon o_icon_next_page");
 		next.setTooltip(translate("navi.forward"));
 		//
 		previous = LinkFactory.createCustomLink("navi.backward", "navi.backward", null, Link.NONTRANSLATED, mainVC, this);
-		previous.setCustomEnabledLinkCSS("b_small_icon b_backward_icon b_float_left");
-		previous.setCustomDisabledLinkCSS("b_small_icon b_backward_icon b_float_left");
+		previous.setIconLeftCSS("o_icon o_icon_previous_page");
 		previous.setTooltip(translate("navi.backward"));
 		//
 		if (mainPanel == null) {

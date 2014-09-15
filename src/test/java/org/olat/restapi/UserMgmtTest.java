@@ -64,6 +64,7 @@ import org.junit.Before;
 import org.junit.Test;
 import org.olat.basesecurity.BaseSecurity;
 import org.olat.basesecurity.BaseSecurityManager;
+import org.olat.basesecurity.GroupRoles;
 import org.olat.collaboration.CollaborationTools;
 import org.olat.collaboration.CollaborationToolsFactory;
 import org.olat.core.commons.modules.bc.FolderConfig;
@@ -73,6 +74,7 @@ import org.olat.core.commons.persistence.DB;
 import org.olat.core.id.Identity;
 import org.olat.core.id.OLATResourceable;
 import org.olat.core.id.Roles;
+import org.olat.core.id.UserConstants;
 import org.olat.core.util.nodes.INode;
 import org.olat.core.util.resource.OresHelper;
 import org.olat.core.util.tree.TreeVisitor;
@@ -87,6 +89,7 @@ import org.olat.course.nodes.BCCourseNode;
 import org.olat.course.nodes.FOCourseNode;
 import org.olat.group.BusinessGroup;
 import org.olat.group.BusinessGroupService;
+import org.olat.group.manager.BusinessGroupRelationDAO;
 import org.olat.modules.fo.Forum;
 import org.olat.modules.fo.ForumManager;
 import org.olat.modules.fo.Message;
@@ -94,6 +97,7 @@ import org.olat.modules.fo.restapi.ForumVO;
 import org.olat.modules.fo.restapi.ForumVOes;
 import org.olat.modules.fo.restapi.MessageVOes;
 import org.olat.repository.RepositoryEntry;
+import org.olat.repository.RepositoryService;
 import org.olat.resource.OLATResource;
 import org.olat.resource.OLATResourceManager;
 import org.olat.restapi.support.vo.ErrorVO;
@@ -136,11 +140,15 @@ public class UserMgmtTest extends OlatJerseyTestCase {
 
 	
 	@Autowired
-	DB dbInstance;
+	private DB dbInstance;
+	@Autowired
+	private BusinessGroupRelationDAO businessGroupRelationDao;
 	@Autowired
 	private BusinessGroupService businessGroupService;
 	@Autowired
 	private BaseSecurity securityManager;
+	@Autowired
+	private RepositoryService repositoryService;
 	@Autowired
 	private UserManager userManager;
 	
@@ -182,9 +190,7 @@ public class UserMgmtTest extends OlatJerseyTestCase {
 		dbInstance.saveObject(course);
 		dbInstance.intermediateCommit();
 		
-		//create learn group
-    BaseSecurity secm = BaseSecurityManager.getInstance();
-		
+		//create learn group	
     // 1) context one: learning groups
     RepositoryEntry c1 = JunitTestHelper.createAndPersistRepositoryEntry();
     // create groups without waiting list
@@ -192,11 +198,11 @@ public class UserMgmtTest extends OlatJerseyTestCase {
     g1 = businessGroupService.createBusinessGroup(null, "user-rest-g1", null, g1externalId, "all", 0, 10, false, false, c1);
     g2 = businessGroupService.createBusinessGroup(null, "user-rest-g2", null, 0, 10, false, false, c1);
     // members g1
-    secm.addIdentityToSecurityGroup(id1, g1.getOwnerGroup());
-    secm.addIdentityToSecurityGroup(id2, g1.getPartipiciantGroup());
+    businessGroupRelationDao.addRole(id1, g1, GroupRoles.coach.name());
+    businessGroupRelationDao.addRole(id2, g1, GroupRoles.participant.name());
     // members g2
-    secm.addIdentityToSecurityGroup(id2, g2.getOwnerGroup());
-    secm.addIdentityToSecurityGroup(id1, g2.getPartipiciantGroup());
+    businessGroupRelationDao.addRole(id2, g2, GroupRoles.coach.name());
+    businessGroupRelationDao.addRole(id1, g2, GroupRoles.participant.name());
 
     // 2) context two: right groups
     RepositoryEntry c2 = JunitTestHelper.createAndPersistRepositoryEntry();
@@ -204,9 +210,9 @@ public class UserMgmtTest extends OlatJerseyTestCase {
     g3ExternalId = UUID.randomUUID().toString();
     g3 = businessGroupService.createBusinessGroup(null, "user-rest-g3", null, g3ExternalId, "all", -1, -1, false, false, c2);
     g4 = businessGroupService.createBusinessGroup(null, "user-rest-g4", null, -1, -1, false, false, c2);
-    // members
-    secm.addIdentityToSecurityGroup(id1, g3.getPartipiciantGroup());
-    secm.addIdentityToSecurityGroup(id2, g4.getPartipiciantGroup());
+		// members
+		businessGroupRelationDao.addRole(id1, g3, GroupRoles.participant.name());
+		businessGroupRelationDao.addRole(id2, g4, GroupRoles.participant.name());
 		dbInstance.closeSession();
 		
 		//add some collaboration tools
@@ -235,11 +241,10 @@ public class UserMgmtTest extends OlatJerseyTestCase {
 		dbInstance.commitAndCloseSession();
 		
 		//prepare some courses
-		RepositoryEntry entry = JunitTestHelper.deployDemoCourse();
-		if(entry.getParticipantGroup() == null) {
-			assertTrue(false);
-		} else if (!secm.isIdentityInSecurityGroup(id1, entry.getParticipantGroup())){
-	    secm.addIdentityToSecurityGroup(id1, entry.getParticipantGroup());
+		Identity author = JunitTestHelper.createAndPersistIdentityAsUser("auth-" + UUID.randomUUID().toString());
+		RepositoryEntry entry = JunitTestHelper.deployDemoCourse(author);
+		if (!repositoryService.hasRole(id1, entry, GroupRoles.participant.name())){
+			repositoryService.addRole(id1, entry, GroupRoles.participant.name());
 		}
 		
 		demoCourse = CourseFactory.loadCourse(entry.getOlatResource());
@@ -250,10 +255,10 @@ public class UserMgmtTest extends OlatJerseyTestCase {
 					if(demoForumNode == null) {
 						demoForumNode = (FOCourseNode)node;
 						Forum courseForum = demoForumNode.loadOrCreateForum(demoCourse.getCourseEnvironment());
-						Message m1 = ForumManager.getInstance().createMessage();
-						m1.setTitle("Thread-1");
-						m1.setBody("Body of Thread-1");
-						ForumManager.getInstance().addTopMessage(id1, courseForum, m1);
+						Message message1 = ForumManager.getInstance().createMessage();
+						message1.setTitle("Thread-1");
+						message1.setBody("Body of Thread-1");
+						ForumManager.getInstance().addTopMessage(id1, courseForum, message1);
 					}	
 				} else if (node instanceof BCCourseNode) {
 					if(demoBCCourseNode == null) {
@@ -548,6 +553,42 @@ public class UserMgmtTest extends OlatJerseyTestCase {
 		assertEquals("Female", savedIdent.getUser().getProperty("gender", Locale.ENGLISH));
 		assertEquals("39847592", savedIdent.getUser().getProperty("telPrivate", Locale.ENGLISH));
 		assertEquals("12/12/09", savedIdent.getUser().getProperty("birthDay", Locale.ENGLISH));
+		conn.shutdown();
+	}
+	
+	/**
+	 * Test the trim of email
+	 */
+	@Test
+	public void testCreateUser_emailWithTrailingSpace() throws IOException, URISyntaxException {
+		RestConnection conn = new RestConnection();
+		assertTrue(conn.login("administrator", "openolat"));
+		
+		UserVO vo = new UserVO();
+		String username = UUID.randomUUID().toString();
+		vo.setLogin(username);
+		vo.setFirstName("John");
+		vo.setLastName("Smith");
+		vo.setEmail(username + "@frentix.com ");
+		vo.putProperty("gender", "male");//male or female
+
+
+		URI request = UriBuilder.fromUri(getContextURI()).path("users").build();
+		HttpPut method = conn.createPut(request, MediaType.APPLICATION_JSON, true);
+		conn.addJsonEntity(method, vo);
+		method.addHeader("Accept-Language", "en");
+		
+		HttpResponse response = conn.execute(method);
+		assertTrue(response.getStatusLine().getStatusCode() == 200 || response.getStatusLine().getStatusCode() == 201);
+		UserVO savedVo = conn.parse(response, UserVO.class);
+		Identity savedIdent = BaseSecurityManager.getInstance().findIdentityByName(username);
+
+		assertNotNull(savedVo);
+		assertNotNull(savedIdent);
+		assertEquals(savedVo.getKey(), savedIdent.getKey());
+		assertEquals(savedVo.getLogin(), savedIdent.getName());
+		assertEquals(username + "@frentix.com", savedIdent.getUser().getProperty(UserConstants.EMAIL, null));
+
 		conn.shutdown();
 	}
 	

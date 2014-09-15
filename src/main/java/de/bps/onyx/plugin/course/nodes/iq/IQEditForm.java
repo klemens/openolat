@@ -180,7 +180,7 @@ public class IQEditForm extends FormBasicController {
 	@Override
 	protected void initForm(FormItemContainer formLayout, Controller listener, UserRequest ureq) {
 
-		limitAttempts = uifactory.addCheckboxesVertical("limitAttempts", "qti.form.limit.attempts", formLayout, new String[] { "xx" }, new String[] { null }, null, 1);
+		limitAttempts = uifactory.addCheckboxesVertical("limitAttempts", "qti.form.limit.attempts", formLayout, new String[] { "xx" }, new String[] { null }, 1);
 
 		Integer confAttempts = (Integer) modConfig.get(IQEditController.CONFIG_KEY_ATTEMPTS);
 		if (confAttempts == null) {
@@ -191,12 +191,12 @@ public class IQEditForm extends FormBasicController {
 		attempts.setMinValueCheck(1, null);
 		attempts.setMaxValueCheck(20, null);
 
-		uifactory.addSpacerElement("s1", formLayout, true);
-
 		// Only assessments have a limitation on number of attempts
 		if (isAssessment) {
+			uifactory.addSpacerElement("s1", formLayout, true);
+			
 			limitAttempts.select("xx", confAttempts > 0);
-			limitAttempts.addActionListener(this, FormEvent.ONCLICK);
+			limitAttempts.addActionListener(FormEvent.ONCLICK);
 		} else {
 			limitAttempts.select("xx", false);
 			limitAttempts.setVisible(false);
@@ -209,8 +209,8 @@ public class IQEditForm extends FormBasicController {
 		String[] valuesShowSolution = new String[]{""};
 		//Surveys do not have a solution
 		if(!isSurvey){
-			allowShowSolutionBox = uifactory.addCheckboxesVertical("allowShowSolution", "qti.form.allowShowSolution", formLayout, allowShowSolution, valuesShowSolution, null, 1);
-			allowShowSolutionBox.addActionListener(this, FormEvent.ONCLICK);
+			allowShowSolutionBox = uifactory.addCheckboxesVertical("allowShowSolution", "qti.form.allowShowSolution", formLayout, allowShowSolution, valuesShowSolution, 1);
+			allowShowSolutionBox.addActionListener(FormEvent.ONCLICK);
 			if(confAllowShowSolution!=null){
 				allowShowSolutionBox.select(ALLOW, confAllowShowSolution);
 			} else if (isSelfTest){
@@ -222,9 +222,9 @@ public class IQEditForm extends FormBasicController {
 		Boolean confAllowSuspension = (Boolean) modConfig.get(IQEditController.CONFIG_KEY_ALLOW_SUSPENSION_ALLOWED);
 		String[] allowSuspension = new String[] { ALLOW };
 		String[] valuesSuspesion = new String[] { "" };
-		allowSuspensionBox = uifactory.addCheckboxesVertical("allowSuspension", "qti.form.allowSuspension", formLayout, allowSuspension,
-				valuesSuspesion, null, 1);
-		allowSuspensionBox.addActionListener(this, FormEvent.ONCLICK);
+		allowSuspensionBox = uifactory.addCheckboxesHorizontal("allowSuspension", "qti.form.allowSuspension", formLayout, allowSuspension,
+				valuesSuspesion);
+		allowSuspensionBox.addActionListener(FormEvent.ONCLICK);
 		if (confAllowSuspension != null) {
 			allowSuspensionBox.select(ALLOW, confAllowSuspension);
 		} else if (isSelfTest) {
@@ -287,9 +287,9 @@ public class IQEditForm extends FormBasicController {
 		boolean confEnableShowResultOnHomePage = (showResultOnHomePage != null) ? showResultOnHomePage.booleanValue() : false;
 		confEnableShowResultOnHomePage = !noSummary && confEnableShowResultOnHomePage;
 		showResultsOnHomePage = uifactory.addCheckboxesVertical("qti_enableResultsOnHomePage", "qti.form.results.onhomepage", formLayout, new String[] { "xx" },
-				new String[] { null }, null, 1);
+				new String[] { null }, 1);
 		showResultsOnHomePage.select("xx", confEnableShowResultOnHomePage);
-		showResultsOnHomePage.addActionListener(this, FormEvent.ONCLICK);
+		showResultsOnHomePage.addActionListener(FormEvent.ONCLICK);
 		showResultsOnHomePage.setVisible(!isSurvey);
 
 		Boolean showResultsActive = (Boolean) modConfig.get(IQEditController.CONFIG_KEY_DATE_DEPENDENT_RESULTS);
@@ -299,10 +299,10 @@ public class IQEditForm extends FormBasicController {
 		}
 
 		showResultsDateDependentButton = uifactory.addCheckboxesVertical("qti_showresult", "qti.form.show.results", formLayout, new String[] { "xx" },
-				new String[] { null }, null, 1);
+				new String[] { null }, 1);
 		if (isAssessment || isSelfTest) {
 			showResultsDateDependentButton.select("xx", showResultsDateDependent);
-			showResultsDateDependentButton.addActionListener(this, FormEvent.ONCLICK);
+			showResultsDateDependentButton.addActionListener(FormEvent.ONCLICK);
 		} else {
 			showResultsDateDependentButton.setEnabled(false);
 		}

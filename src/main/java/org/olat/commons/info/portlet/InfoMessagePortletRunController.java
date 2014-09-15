@@ -30,6 +30,9 @@ import java.util.Locale;
 import org.olat.NewControllerFactory;
 import org.olat.commons.info.manager.InfoMessageFrontendManager;
 import org.olat.commons.info.model.InfoMessage;
+import org.olat.core.commons.services.notifications.NotificationsManager;
+import org.olat.core.commons.services.notifications.SubscriptionInfo;
+import org.olat.core.commons.services.notifications.model.SubscriptionListItem;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.Component;
 import org.olat.core.gui.components.Window;
@@ -58,9 +61,7 @@ import org.olat.core.util.Formatter;
 import org.olat.core.util.StringHelper;
 import org.olat.core.util.coordinate.CoordinatorManager;
 import org.olat.core.util.event.GenericEventListener;
-import org.olat.core.util.notifications.NotificationsManager;
-import org.olat.core.util.notifications.SubscriptionInfo;
-import org.olat.core.util.notifications.items.SubscriptionListItem;
+import org.olat.core.util.filter.FilterFactory;
 
 /**
  * 
@@ -85,11 +86,12 @@ public class InfoMessagePortletRunController extends AbstractPortletRunControlle
 		
 		portletVC =  createVelocityContainer("infosPortlet");
 		showAllLink = LinkFactory.createLink("portlet.showall", portletVC, this);
+		showAllLink.setIconRightCSS("o_icon o_icon_start");
 
 		TableGuiConfiguration tableConfig = new TableGuiConfiguration();
 		tableConfig.setTableEmptyMessage(translate("portlet.no_messages"));
 		tableConfig.setDisplayTableHeader(false);
-		tableConfig.setCustomCssClass("b_portlet_table");
+		tableConfig.setCustomCssClass("o_portlet_table");
 		tableConfig.setDisplayRowCount(false);
 		tableConfig.setPageingEnabled(false);
 		tableConfig.setDownloadOffered(false);
@@ -255,11 +257,16 @@ public class InfoMessagePortletRunController extends AbstractPortletRunControlle
 				title = StringHelper.escapeHtml(title);
 				int key = info.hashCode();
 				StringBuilder tipSb = null;
-				boolean tooltip = StringHelper.containsNonWhitespace(item.getDescriptionTooltip());
+				String tip = item.getDescriptionTooltip();
+				boolean tooltip = StringHelper.containsNonWhitespace(tip);
 				if(tooltip) {
 					tipSb = new StringBuilder();
-					tipSb.append("<b>").append(title).append(":</b>").append("<br/>")
-						.append(Formatter.escWithBR(Formatter.truncate(item.getDescriptionTooltip(), 256)));
+					if(StringHelper.isHtml(tip)) {
+						tip = FilterFactory.getHtmlTagAndDescapingFilter().filter(tip);
+					}
+					tip = Formatter.escWithBR(Formatter.truncate(tip, 256)).toString();
+					
+					tipSb.append("<b>").append(title).append(":</b>").append("<br/>").append(tip);
 					sb.append("<span id='o_sel_info_msg_title_").append(key).append("'>");
 				} else {
 					sb.append("<span>");
@@ -279,8 +286,8 @@ public class InfoMessagePortletRunController extends AbstractPortletRunControlle
 				  sb.append("<script type='text/javascript'>/* <![CDATA[ */")
 				    .append("jQuery(function() {")
 					  .append("  jQuery('#o_sel_info_msg_title_").append(key).append(",#o_sel_info_msg_link_").append(key).append("').tooltip({")
-					  .append("	  items: 'a,span',")
-					  .append("   content: function(){ return jQuery('#o_sel_info_tooltip_").append(key).append("').html(); }")
+					  .append("	  html: true,")
+					  .append("   title: function(){ return jQuery('#o_sel_info_tooltip_").append(key).append("').html(); }")
 					  .append("  });")
 					  .append("});")
 					  .append("/* ]]> */</script>");

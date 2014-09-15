@@ -34,7 +34,7 @@ import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.Event;
 import org.olat.core.gui.control.WindowControl;
 import org.olat.core.gui.control.controller.BasicController;
-import org.olat.core.gui.control.generic.closablewrapper.CloseableCalloutWindowController;
+import org.olat.core.gui.control.generic.closablewrapper.CloseableModalController;
 import org.olat.core.gui.control.generic.modal.DialogBoxController;
 import org.olat.core.gui.control.generic.modal.DialogBoxUIFactory;
 import org.olat.core.id.UserConstants;
@@ -54,7 +54,7 @@ public class LinksPortletRunController extends BasicController {
 	private Link editButton;
 	private Panel viewPanel;
 	private LinksPortletEditController editorCtrl;
-	private CloseableCalloutWindowController linkEditorCalloutCtr;
+	private CloseableModalController cmc;
 	private Link backLink;
 	private DialogBoxController delLinkCtrl;
 	
@@ -67,6 +67,7 @@ public class LinksPortletRunController extends BasicController {
 		//edit link
 		if (ureq.getUserSession().getRoles().isOLATAdmin()){
 			editButton = LinkFactory.createButtonXSmall("editor.button", portletVC, this);
+			editButton.setIconLeftCSS("o_icon o_icon-fw o_icon_edit");
 		}
 
 		viewPanel = new Panel("view");
@@ -112,7 +113,7 @@ public class LinksPortletRunController extends BasicController {
 		}
 		
 		if (sb.length() > 0) {
-			String portletContent = "<ul>" + sb.toString() + "</ul>";
+			String portletContent = "<ul class='list-unstyled'>" + sb.toString() + "</ul>";
 			portletVC.contextPut("content", portletContent);
 		} else {
 			portletVC.contextPut("content", translate("no.content.found"));
@@ -147,7 +148,7 @@ public class LinksPortletRunController extends BasicController {
 	 * @param StringBuffer to append
 	 */
 	private void appendContent(PortletLink link, StringBuffer sb) {
-		sb.append("<li>" + buildContentLine(link.getTitle(), link.getUrl(), link.getDescription(), link.getTarget(), link.getLanguage()) + "</li>");
+		sb.append("<li>" + buildContentLine(link.getTitle(), link.getUrl(), link.getDescription(), link.getTarget()) + "</li>");
 	}
 	
 	/**
@@ -159,7 +160,7 @@ public class LinksPortletRunController extends BasicController {
 	 * @param String lang
 	 * @return
 	 */
-	private String buildContentLine(String title, String URL, String descr, String target, String lang) {
+	private String buildContentLine(String title, String URL, String descr, String target) {
 		StringBuffer sb = new StringBuffer();
 		sb.append("<a href=\"");
 		sb.append(URL);
@@ -192,7 +193,7 @@ public class LinksPortletRunController extends BasicController {
 				String identifier = linkName.substring(LINKID.length());
 				PortletLink portLink = LinksPortlet.getLinkByIdentifier(identifier);
 				if (portLink != null) {
-					popupLinkEditor(ureq, portLink, link);
+					popupLinkEditor(ureq, portLink);
 				} else {
 					showError("error.link.not.found");
 				}
@@ -203,7 +204,7 @@ public class LinksPortletRunController extends BasicController {
 				String institution = link.getCommand().substring(LINKADD.length());
 				PortletInstitution inst = LinksPortlet.getContent().get(institution);
 				newLink.setInstitution(inst);
-				popupLinkEditor(ureq, newLink, link);
+				popupLinkEditor(ureq, newLink);
 			} else if (linkName.contains(LINKDEL)){
 				String identifier = linkName.substring(LINKDEL.length());
 				PortletLink portLink = LinksPortlet.getLinkByIdentifier(identifier);
@@ -213,23 +214,23 @@ public class LinksPortletRunController extends BasicController {
 		}
 	}
 	
-	private void popupLinkEditor(UserRequest ureq, PortletLink portLink, Link glueLink) {
+	private void popupLinkEditor(UserRequest ureq, PortletLink portLink) {
 		String title = translate("link.editor.title");				
 		removeAsListenerAndDispose(editorCtrl);
 		editorCtrl = new LinksPortletEditController(ureq, getWindowControl(), portLink);
 		listenTo(editorCtrl);
 		
-		removeAsListenerAndDispose(linkEditorCalloutCtr);
-		linkEditorCalloutCtr = new CloseableCalloutWindowController(ureq, getWindowControl(), editorCtrl.getInitialComponent(), glueLink, title, true, null);
-		listenTo(linkEditorCalloutCtr);
-		linkEditorCalloutCtr.activate();
+		removeAsListenerAndDispose(cmc);
+		cmc = new CloseableModalController(getWindowControl(), translate("close"), editorCtrl.getInitialComponent(),  true, title);
+		listenTo(cmc);
+		cmc.activate();
 	}
 
 	@Override
 	protected void event(UserRequest ureq, Controller source, Event event) {
 		if (source == editorCtrl && event == Event.DONE_EVENT) {
 			LinksPortlet.reInit(ureq);
-			linkEditorCalloutCtr.deactivate();
+			cmc.deactivate();
 			buildEditorPanel();
 		} else if (source == delLinkCtrl && DialogBoxUIFactory.isYesEvent(event) ){
 			LinksPortlet.removeLink( (PortletLink) delLinkCtrl.getUserObject() );
@@ -277,7 +278,10 @@ public class LinksPortletRunController extends BasicController {
 			editorVC.contextPut("allInstWithLinkIds", allInstWithLinkIds);
 		}
 		
-		backLink = LinkFactory.createLinkBack(editorVC, this);		
+		backLink = LinkFactory.createButtonXSmall("back", editorVC, this);		
+		backLink.setIconLeftCSS("o_icon o_icon-fw o_icon_edit");
+		backLink.setPrimary(true);
+
 		viewPanel.setContent(editorVC);
 	}
 

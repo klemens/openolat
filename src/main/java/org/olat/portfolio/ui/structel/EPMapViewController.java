@@ -21,7 +21,6 @@ package org.olat.portfolio.ui.structel;
 
 import java.util.List;
 
-import org.olat.core.CoreSpringFactory;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.Component;
 import org.olat.core.gui.components.link.Link;
@@ -62,6 +61,7 @@ import org.olat.repository.RepositoryEntry;
 import org.olat.repository.RepositoryManager;
 import org.olat.user.DisplayPortraitController;
 import org.olat.util.logging.activity.LoggingResourceable;
+import org.springframework.beans.factory.annotation.Autowired;
 
 /**
  * Description:<br>
@@ -73,20 +73,27 @@ import org.olat.util.logging.activity.LoggingResourceable;
  * @author Roman Haag, roman.haag@frentix.com, http://www.frentix.com
  */
 public class EPMapViewController extends BasicController implements Activateable2 {
+
+	private Link editButton, backLink, submitAssessLink;
+	private final VelocityContainer mainVc;
 	
-	private PortfolioStructureMap map;
-	private final EPFrontendManager ePFMgr;
 	private EPMultiplePageController pageCtrl;
-	private Link editButton;
-	private Link backLink;
-	private Link submitAssessLink;
 	private EPStructureTreeAndDetailsEditController editCtrl;
 	private DialogBoxController confirmationSubmissionCtr;
 	private final boolean back;
+	private boolean editInToolbar = false;
+	
+	private EditMode editMode = EditMode.view;
+	private PortfolioStructureMap map;
 	private EPSecurityCallback secCallback;
 	private LockResult lockEntry;
 	
-	private final VelocityContainer mainVc;
+	@Autowired
+	private EPFrontendManager ePFMgr;
+	@Autowired
+	private RepositoryManager repositoryManager;
+	@Autowired
+	private CoordinatorManager coordinatorManager;
 
 	public EPMapViewController(UserRequest ureq, WindowControl control, PortfolioStructureMap initialMap, boolean back,
 			boolean preview, EPSecurityCallback secCallback) {
@@ -96,8 +103,6 @@ public class EPMapViewController extends BasicController implements Activateable
 		this.secCallback = secCallback;
 		
 		mainVc = createVelocityContainer("mapview");
-
-		ePFMgr = (EPFrontendManager) CoreSpringFactory.getBean("epFrontendManager");
 		
 		// if this is a structured map (assigned from a template) do a sync first
 		if (map instanceof EPStructuredMap && (map.getStatus() == null || !map.getStatus().equals(StructureStatusEnum.CLOSED) )){
@@ -107,7 +112,7 @@ public class EPMapViewController extends BasicController implements Activateable
 		}
 		
 		if(EPSecurityCallbackFactory.isLockNeeded(secCallback)) {
-			lockEntry = CoordinatorManager.getInstance().getCoordinator().getLocker().acquireLock(initialMap, ureq.getIdentity(), "mmp");
+			lockEntry = coordinatorManager.getCoordinator().getLocker().acquireLock(initialMap, ureq.getIdentity(), "mmp");
 			if(!lockEntry.isSuccess()) {
 				this.secCallback = EPSecurityCallbackFactory.updateAfterFailedLock(secCallback);
 				showWarning("map.already.edited");
@@ -125,7 +130,16 @@ public class EPMapViewController extends BasicController implements Activateable
 		initForm(ureq);
 		putInitialPanel(mainVc);
 	}
-
+	
+	public boolean canEditStructure() {
+		return secCallback.canEditStructure();
+	}
+	
+	public void delegateEditButton() {
+		if(editButton != null) {
+			editButton.setVisible(false);
+		}
+	}
 
 	protected void initForm(UserRequest ureq) {
 		Identity ownerIdentity = ePFMgr.getFirstOwnerIdentity(map);
@@ -137,16 +151,19 @@ public class EPMapViewController extends BasicController implements Activateable
 		mainVc.contextPut("map", map);
 		mainVc.contextPut("style", ePFMgr.getValidStyleName(map));
 		
-		Boolean editMode = editButton == null ? Boolean.FALSE : (Boolean)editButton.getUserObject();
 		mainVc.remove(mainVc.getComponent("map.editButton"));
 		if(secCallback.canEditStructure()) {
 			editButton = LinkFactory.createButton("map.editButton", mainVc, this);
-			if(Boolean.FALSE.equals(editMode)) {
+			editButton.setElementCssClass("o_sel_ep_edit_map");
+			editButton.setIconLeftCSS("o_icon o_icon-fw o_icon_edit");
+			if(editMode == EditMode.view) {
 				editButton.setCustomDisplayText(translate("map.editButton.on"));
 			} else {
 				editButton.setCustomDisplayText(translate("map.editButton.off"));
 			}
-			editButton.setUserObject(editMode);
+			if(editInToolbar) {
+				mainVc.remove(mainVc.getComponent("map.editButton"));
+			}
 		} 
 		if(back) {
 			backLink = LinkFactory.createLinkBack(mainVc, this);
@@ -158,7 +175,7 @@ public class EPMapViewController extends BasicController implements Activateable
 		
 		if(map instanceof EPStructuredMap) {
 			EPTargetResource resource = ((EPStructuredMap)map).getTargetResource();
-			RepositoryEntry repoEntry = RepositoryManager.getInstance().lookupRepositoryEntry(resource.getOLATResourceable(), false);
+			RepositoryEntry repoEntry = repositoryManager.lookupRepositoryEntry(resource.getOLATResourceable(), false);
 			if(repoEntry != null) {
 				mainVc.contextPut("courseName", StringHelper.escapeHtml(repoEntry.getDisplayname()));
 				String url = Settings.getServerContextPathURI();
@@ -195,29 +212,9 @@ public class EPMapViewController extends BasicController implements Activateable
 	 * @see org.olat.core.gui.components.form.flexible.impl.FormBasicController#formInnerEvent(org.olat.core.gui.UserRequest, org.olat.core.gui.components.form.flexible.FormItem, org.olat.core.gui.components.form.flexible.impl.FormEvent)
 	 */
 	@Override
-	protected void event(UserRequest ureq, Component source, Event event) {
+	public void event(UserRequest ureq, Component source, Event event) {
 		if (source == editButton){
-			removeAsListenerAndDispose(editCtrl);
-			if (Boolean.FALSE.equals(editButton.getUserObject())){
-				PortfolioStructure selectedPage = null;
-				if(pageCtrl != null) {
-					selectedPage = pageCtrl.getSelectedPage();
-				}
-				initOrUpdateEditMode(ureq, selectedPage);
-			} else {
-				mainVc.remove(editCtrl.getInitialComponent());
-				PortfolioStructure currentEditedStructure = editCtrl.getSelectedStructure();
-				initForm(ureq);
-				editButton.setUserObject(Boolean.FALSE);
-				editButton.setCustomDisplayText(translate("map.editButton.on"));
-				if(currentEditedStructure != null && pageCtrl != null) {
-					EPPage page = getSelectedPage(currentEditedStructure);
-					if(page != null) {
-						pageCtrl.selectPage(ureq, page);
-						addToHistory(ureq, page, null);
-					}
-				}
-			}
+			toogleEditMode(ureq);
 		} else if(source == backLink) {
 			fireEvent(ureq, new EPMapEvent(EPStructureEvent.CLOSE, map));
 		} else if(source == submitAssessLink) {
@@ -227,6 +224,45 @@ public class EPMapViewController extends BasicController implements Activateable
 				showWarning("map.cannot.submit.nomore.coursenode");
 			}
 		} 
+	}
+	
+	private void toogleEditMode(UserRequest ureq) {
+		removeAsListenerAndDispose(editCtrl);
+		if (editMode == EditMode.view){
+			edit(ureq);
+		} else {
+			view(ureq);
+		}
+	}
+	
+	public void view(UserRequest ureq) {
+		PortfolioStructure currentEditedStructure = null;
+		if(editCtrl != null) {
+			removeAsListenerAndDispose(editCtrl);
+			mainVc.remove(editCtrl.getInitialComponent());
+			currentEditedStructure = editCtrl.getSelectedStructure();
+		}
+		initForm(ureq);
+		editMode = EditMode.view;
+		editButton.setCustomDisplayText(translate("map.editButton.on"));
+		if(currentEditedStructure != null && pageCtrl != null) {
+			EPPage page = getSelectedPage(currentEditedStructure);
+			if(page != null) {
+				pageCtrl.selectPage(ureq, page);
+				addToHistory(ureq, page, null);
+			}
+		}
+	}
+	
+	public void edit(UserRequest ureq) {
+		if(canEditStructure()) {
+			removeAsListenerAndDispose(editCtrl);
+			PortfolioStructure selectedPage = null;
+			if(pageCtrl != null) {
+				selectedPage = pageCtrl.getSelectedPage();
+			}
+			initOrUpdateEditMode(ureq, selectedPage);
+		}
 	}
 	
 	@Override
@@ -276,7 +312,7 @@ public class EPMapViewController extends BasicController implements Activateable
 			String[] stats = ePFMgr.getRestrictionStatisticsOfMap(map);
 			String text = translate("map.submit.assess.restriction.error.description") + "<br/>" +  translate("map.submit.assess.restriction.error.hint", stats);
 			confirmationSubmissionCtr = activateYesNoDialog(ureq, title, text, confirmationSubmissionCtr);
-			confirmationSubmissionCtr.setCssClass("b_warning_icon");
+			confirmationSubmissionCtr.setCssClass("o_icon_warn");
 		}
 	}
 
@@ -337,8 +373,13 @@ public class EPMapViewController extends BasicController implements Activateable
 	@Override
 	protected void doDispose() {
 		if(lockEntry != null) {
-			CoordinatorManager.getInstance().getCoordinator().getLocker().releaseLock(lockEntry);
+			coordinatorManager.getCoordinator().getLocker().releaseLock(lockEntry);
 			lockEntry = null;
 		}
+	}
+	
+	private enum EditMode {
+		view,
+		editor
 	}
 }

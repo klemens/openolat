@@ -94,8 +94,8 @@ public class CourseSiteAdminController extends FormBasicController {
 	protected void initForm(FormItemContainer formLayout, Controller listener, UserRequest ureq) {
 		setFormTitle("admin.menu.title");
 
-		enableToolbar = uifactory.addCheckboxesHorizontal("site.enable.toolbar", "site.enable.toolbar", formLayout, new String[]{ "x" }, new String[]{ "" }, null);
-		enableToolbar.addActionListener(this, FormEvent.ONCHANGE);
+		enableToolbar = uifactory.addCheckboxesHorizontal("site.enable.toolbar", "site.enable.toolbar", formLayout, new String[]{ "x" }, new String[]{ "" });
+		enableToolbar.addActionListener(FormEvent.ONCHANGE);
 		if(siteConfiguration.isToolbar()) {
 			enableToolbar.select("x", true);
 		}
@@ -141,13 +141,15 @@ public class CourseSiteAdminController extends FormBasicController {
 
 		model.setObjects(configs);
 		
-		tableEl = uifactory.addTableElement(ureq, getWindowControl(), "languageTable", model, getTranslator(), tableLayout);
+		tableEl = uifactory.addTableElement(getWindowControl(), "languageTable", model, getTranslator(), tableLayout);
 		tableEl.setRendererType(FlexiTableRendererType.classic);
 		tableEl.setCustomizeColumns(true);
+		tableEl.setAndLoadPersistedPreferences(ureq, "course-site-admin");
 
 		FormLayoutContainer buttonsLayout = FormLayoutContainer.createButtonLayout("buttons", getTranslator());
 		formLayout.add(buttonsLayout);
 		okButton = uifactory.addFormLink("save", "save", null, buttonsLayout, Link.BUTTON);
+		okButton.setCustomEnabledLinkCSS("btn btn-primary");
 		//uifactory.addFormSubmitButton("save", "save", formLayout);
 	}
 	
@@ -181,7 +183,7 @@ public class CourseSiteAdminController extends FormBasicController {
 	@Override
 	protected void formInnerEvent(UserRequest ureq, FormItem source, FormEvent event) {
 		if(source == enableToolbar) {
-			okButton.setCustomEnabledLinkCSS("b_button b_button_dirty");
+			okButton.setCustomEnabledLinkCSS("btn btn-primary o_button_dirty");
 		} else if(source == tableEl) {
 			if(event instanceof SelectionEvent) {
 				SelectionEvent se = (SelectionEvent)event;
@@ -189,12 +191,12 @@ public class CourseSiteAdminController extends FormBasicController {
 					LanguageConfigurationRow row = model.getObject(se.getIndex());
 					doReset(row);
 					okButton.getComponent().setDirty(true);
-					okButton.setCustomEnabledLinkCSS("b_button b_button_dirty");
+					okButton.setCustomEnabledLinkCSS("btn btn-primary o_button_dirty");
 				} else if("select".equals(se.getCommand())) {
 					LanguageConfigurationRow row = model.getObject(se.getIndex());
 					doSelecCourse(ureq, row);
 					okButton.getComponent().setDirty(true);
-					okButton.setCustomEnabledLinkCSS("b_button b_button_dirty");
+					okButton.setCustomEnabledLinkCSS("btn btn-primary o_button_dirty");
 				} else if("openre".equals(se.getCommand())) {
 					LanguageConfigurationRow row = model.getObject(se.getIndex());
 					RepositoryEntry re = row.getRepositoryEntry();
@@ -204,7 +206,7 @@ public class CourseSiteAdminController extends FormBasicController {
 				}
 			}
 		} else if(source == okButton) {
-			okButton.setCustomEnabledLinkCSS("b_button");
+			okButton.setCustomEnabledLinkCSS("btn btn-primary");
 			fireEvent(ureq, Event.CHANGED_EVENT);
 		}
 	}
@@ -262,7 +264,7 @@ public class CourseSiteAdminController extends FormBasicController {
 					null, 32, configuration.getTitle(), formLayout);
 			formLayout.add("site.flexi.title.hook." + language, titleEl);
 			defLangEl = uifactory.addCheckboxesHorizontal("site.def." + language, null,
-					formLayout, new String[]{ "x"}, new String[]{ "" }, null);
+					formLayout, new String[]{ "x"}, new String[]{ "" });
 			
 			if(configuration.isDefaultConfiguration()) {
 				defLangEl.select("x", true);

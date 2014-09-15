@@ -19,11 +19,11 @@
  */
 package org.olat.course.site;
 
-import java.util.Locale;
-
+import org.olat.core.CoreSpringFactory;
 import org.olat.core.gui.UserRequest;
+import org.olat.core.gui.components.stack.TooledStackedPanel;
+import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.WindowControl;
-import org.olat.core.gui.control.controller.BasicController;
 import org.olat.core.gui.control.generic.layout.MainLayoutController;
 import org.olat.core.gui.control.navigation.AbstractSiteInstance;
 import org.olat.core.gui.control.navigation.DefaultNavElement;
@@ -36,14 +36,17 @@ import org.olat.core.id.context.StateSite;
 import org.olat.course.CourseFactory;
 import org.olat.course.ICourse;
 import org.olat.course.nodes.CourseNode;
+import org.olat.course.run.CourseRuntimeController;
 import org.olat.course.run.RunMainController;
 import org.olat.course.run.navigation.NavigationHandler;
 import org.olat.course.run.userview.NodeEvaluation;
 import org.olat.course.run.userview.TreeEvaluation;
 import org.olat.course.run.userview.UserCourseEnvironmentImpl;
-import org.olat.course.site.ui.DisposedCourseSiteRestartController;
 import org.olat.repository.RepositoryEntry;
 import org.olat.repository.RepositoryManager;
+import org.olat.repository.RepositoryService;
+import org.olat.repository.model.RepositoryEntrySecurity;
+import org.olat.repository.ui.RepositoryEntryRuntimeController.RuntimeControllerCreator;
 
 /**
  * 
@@ -72,7 +75,7 @@ public class CourseSite extends AbstractSiteInstance {
 	 * @param alternativeControllerIfNotLaunchable
 	 * @param titleKeyPrefix
 	 */
-	public CourseSite(SiteDefinition siteDef, Locale loc, String repositorySoftKey, boolean showToolController,
+	public CourseSite(SiteDefinition siteDef, String repositorySoftKey, boolean showToolController,
 			SiteSecurityCallback siteSecCallback, String titleKeyPrefix, String navIconCssClass) {
 		super(siteDef);
 		this.repositorySoftKey = repositorySoftKey;
@@ -93,6 +96,7 @@ public class CourseSite extends AbstractSiteInstance {
 	@Override
 	protected MainLayoutController createController(UserRequest ureq, WindowControl wControl, SiteConfiguration config) {
 		RepositoryManager rm = RepositoryManager.getInstance();
+		RepositoryService rs = CoreSpringFactory.getImpl(RepositoryService.class);
 		RepositoryEntry entry = rm.lookupRepositoryEntryBySoftkey(repositorySoftKey, false);
 		if(entry == null) {
 			return getAlternativeController(ureq, wControl, config);
@@ -101,10 +105,10 @@ public class CourseSite extends AbstractSiteInstance {
 		MainLayoutController c;
 		ICourse course = CourseFactory.loadCourse(entry.getOlatResource());
 
-		// course-launch-state depending course-settings 
-		boolean isAllowedToLaunch = rm.isAllowedToLaunch(ureq, entry);
+		// course-launch-state depending course-settings
+		RepositoryEntrySecurity reSecurity = rm.isAllowed(ureq, entry);
+		boolean isAllowedToLaunch = reSecurity.canLaunch();
 		boolean hasAccess = false;
-		
 		if (isAllowedToLaunch) {
 			// either check with securityCallback or use access-settings from course-nodes
 			if (siteSecCallback != null) {
@@ -120,18 +124,30 @@ public class CourseSite extends AbstractSiteInstance {
 			}
 		}
 		
+		
 		// load course (admins always see content) or alternative controller if course is not launchable
 		if (hasAccess || ureq.getUserSession().getRoles().isOLATAdmin()) {
-			rm.incrementLaunchCounter(entry); 
+			rs.incrementLaunchCounter(entry); 
 			// build up the context path for linked course
-			WindowControl bwControl = BusinessControlFactory.getInstance().createBusinessWindowControl(ureq, entry, new StateSite(this), wControl, true) ;	
+			WindowControl bwControl = BusinessControlFactory.getInstance().createBusinessWindowControl(ureq, entry, new StateSite(this), wControl, true);	
+			CourseRuntimeController runCtr = new CourseRuntimeController(ureq, bwControl, entry, reSecurity,
+				new RuntimeControllerCreator() {
+					@Override
+					public Controller create(UserRequest uureq, WindowControl wwControl,
+							TooledStackedPanel toolbarPanel, RepositoryEntry re, RepositoryEntrySecurity security) {
+						return new RunMainController(uureq, wwControl, toolbarPanel,
+								CourseFactory.loadCourse(re.getOlatResource()), re, security);
+					}
+				}, false, true);
 			
-			c = new RunMainController(ureq, bwControl, course, entry, false, true);
-			BasicController disposeMsgController = new DisposedCourseSiteRestartController(ureq, wControl, entry);
-			((RunMainController) c).setDisposedMsgController(disposeMsgController);
+			// Configure run controller
+			// a: don't show close link, is opened as site not tab
+			runCtr.setCourseCloseEnabled(false);
+			// b: don't show toolbar
 			if (!showToolController) {
-				((RunMainController) c).disableToolController(true);
+				runCtr.setToolControllerEnabled(false);
 			}
+			c = runCtr;
 		} else {
 			// access restricted (not in group / author) -> show controller
 			// defined in olat_extensions (type autoCreator)

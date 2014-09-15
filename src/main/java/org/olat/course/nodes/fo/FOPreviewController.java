@@ -31,10 +31,8 @@ import org.olat.core.gui.components.velocity.VelocityContainer;
 import org.olat.core.gui.control.DefaultController;
 import org.olat.core.gui.control.Event;
 import org.olat.core.gui.control.WindowControl;
-import org.olat.core.gui.translator.PackageTranslator;
 import org.olat.core.gui.translator.Translator;
 import org.olat.core.util.Util;
-import org.olat.course.nodes.FOCourseNode;
 import org.olat.course.run.userview.NodeEvaluation;
 
 /**
@@ -43,7 +41,6 @@ import org.olat.course.run.userview.NodeEvaluation;
  * @author Mike Stock
  */
 public class FOPreviewController extends DefaultController {
-	private static final String PACKAGE = Util.getPackageName(FOPreviewController.class);
 	private static final String VELOCITY_ROOT = Util.getPackageVelocityRoot(FOPreviewController.class);
 
 	private Translator trans;
@@ -55,8 +52,9 @@ public class FOPreviewController extends DefaultController {
 	 * @param node
 	 * @param ne
 	 */
-	public FOPreviewController(UserRequest ureq, WindowControl wControl, FOCourseNode node, NodeEvaluation ne) { super(wControl);
-		trans = new PackageTranslator(PACKAGE, ureq.getLocale());
+	public FOPreviewController(UserRequest ureq, WindowControl wControl, NodeEvaluation ne) {
+		super(wControl);
+		trans = Util.createPackageTranslator(FOPreviewController.class, ureq.getLocale());
 		previewVC = new VelocityContainer("foPreviewVC", VELOCITY_ROOT + "/preview.html", trans, this);
 		previewVC.contextPut("canRead", Boolean.valueOf(ne.isCapabilityAccessible("reader")));
 		previewVC.contextPut("canPost", Boolean.valueOf(ne.isCapabilityAccessible("poster")));

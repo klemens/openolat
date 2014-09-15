@@ -34,6 +34,17 @@ import org.olat.basesecurity.BaseSecurityManager;
 import org.olat.core.commons.modules.bc.FileInfo;
 import org.olat.core.commons.modules.bc.FolderManager;
 import org.olat.core.commons.modules.bc.meta.MetaInfo;
+import org.olat.core.commons.services.notifications.NotificationHelper;
+import org.olat.core.commons.services.notifications.NotificationsManager;
+import org.olat.core.commons.services.notifications.Publisher;
+import org.olat.core.commons.services.notifications.PublisherData;
+import org.olat.core.commons.services.notifications.Subscriber;
+import org.olat.core.commons.services.notifications.SubscriptionContext;
+import org.olat.core.commons.services.notifications.SubscriptionInfo;
+import org.olat.core.commons.services.notifications.manager.NotificationsUpgradeHelper;
+import org.olat.core.commons.services.notifications.model.SubscriptionListItem;
+import org.olat.core.commons.services.notifications.model.TitleItem;
+import org.olat.core.commons.services.notifications.ui.ContextualSubscriptionController;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.control.WindowControl;
 import org.olat.core.gui.translator.Translator;
@@ -42,18 +53,7 @@ import org.olat.core.id.context.BusinessControlFactory;
 import org.olat.core.logging.LogDelegator;
 import org.olat.core.logging.OLog;
 import org.olat.core.util.Util;
-import org.olat.core.util.notifications.ContextualSubscriptionController;
-import org.olat.core.util.notifications.NotificationHelper;
-import org.olat.core.util.notifications.NotificationsManager;
-import org.olat.core.util.notifications.Publisher;
-import org.olat.core.util.notifications.PublisherData;
-import org.olat.core.util.notifications.Subscriber;
-import org.olat.core.util.notifications.SubscriptionContext;
-import org.olat.core.util.notifications.SubscriptionInfo;
-import org.olat.core.util.notifications.items.SubscriptionListItem;
-import org.olat.core.util.notifications.items.TitleItem;
 import org.olat.core.util.resource.OresHelper;
-import org.olat.notifications.NotificationsUpgradeHelper;
 import org.olat.repository.RepositoryManager;
 
 /**
@@ -64,7 +64,7 @@ public abstract class AbstractTaskNotificationHandler extends LogDelegator {
 
 	
 	/**
-	 * @see org.olat.notifications.NotificationsHandler#createSubscriptionInfo(org.olat.notifications.Subscriber,
+	 * @see org.olat.core.commons.services.notifications.NotificationsHandler#createSubscriptionInfo(org.olat.core.commons.services.notifications.Subscriber,
 	 *      java.util.Locale, java.util.Date)
 	 */
 	public SubscriptionInfo createSubscriptionInfo(Subscriber subscriber, Locale locale, Date compareDate) {
@@ -96,7 +96,7 @@ public abstract class AbstractTaskNotificationHandler extends LogDelegator {
 							MetaInfo metaInfo = fi.getMetaInfo();
 							String filePath = fi.getRelPath();
 							if(isLogDebugEnabled()) logDebug("filePath=", filePath);
-							String fullUserName = getUserNameFromFilePath(filePath);
+							String fullUserName = getUserNameFromFilePath(metaInfo, filePath);
 							
 							Date modDate = fi.getLastModified();
 							String desc = translator.translate(getNotificationEntryKey(), new String[] { filePath, fullUserName });
@@ -126,26 +126,25 @@ public abstract class AbstractTaskNotificationHandler extends LogDelegator {
 	 * @param filePath E.g. '/username/abgabe.txt'
 	 * @return 'firstname lastname'
 	 */
-	protected String getUserNameFromFilePath(String filePath) {
+	protected String getUserNameFromFilePath(MetaInfo info, String filePath) {
 		// remove first '/'
 		try {
+			if(info != null) {
+				Identity identity = info.getAuthorIdentity();
+				return NotificationHelper.getFormatedName(identity);
+			}
+
 			String path = filePath.substring(1);
 			if (path.indexOf("/") != -1) {
 				String userName = path.substring(0,path.indexOf("/"));
 				Identity identity = BaseSecurityManager.getInstance().findIdentityByName(userName);
-				String fullName = NotificationHelper.getFormatedName(identity);
-				return fullName;
-			} else {
-				return "";
+				return NotificationHelper.getFormatedName(identity);
 			}
+			return "";
 		} catch (Exception e) {
 			logWarn("Can not extract user from path=" + filePath, null);
 			return "";
 		}
-	}
-
-	public AbstractTaskNotificationHandler() {
-		super();
 	}
 
 	private boolean checkPublisher(Publisher p) {

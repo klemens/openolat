@@ -85,7 +85,6 @@ public class GuiDemoFlexiFormHideUnhide extends FormBasicController{
 	 * @see org.olat.core.gui.components.form.flexible.impl.FormBasicController#doDispose(boolean)
 	 */
 	@Override
-	@SuppressWarnings("unused")
 	protected void doDispose() {
 	// TODO Auto-generated method stub
 
@@ -95,7 +94,6 @@ public class GuiDemoFlexiFormHideUnhide extends FormBasicController{
 	 * @see org.olat.core.gui.components.form.flexible.impl.FormBasicController#formOK(org.olat.core.gui.UserRequest)
 	 */
 	@Override
-	@SuppressWarnings("unused")
 	protected void formOK(UserRequest ureq) {
 		// this method is called if the form has validated
 		// which means that all form items are filled without error
@@ -119,18 +117,17 @@ public class GuiDemoFlexiFormHideUnhide extends FormBasicController{
 	 * @see org.olat.core.gui.components.form.flexible.impl.FormBasicController#initForm(org.olat.core.gui.components.form.flexible.FormItemContainer, org.olat.core.gui.control.Controller, org.olat.core.gui.UserRequest)
 	 */
 	@Override
-	@SuppressWarnings("unused")
 	protected void initForm(FormItemContainer formLayout, Controller listener, UserRequest ureq) {
 		setFormTitle("guidemo_flexi_form_hideunhide");
-		final int defaultDisplaySize = 32;
+
 		final boolean inputMode = !personData.isReadOnly();
 		/*
 		 * hide unhide chooser
 		 */		
-		checkbox = uifactory.addCheckboxesVertical("checkbox", "guidemo.flexi.form.show", formLayout, new String[] { "ison" }, new String[] { "" }, null, 1);
+		checkbox = uifactory.addCheckboxesVertical("checkbox", "guidemo.flexi.form.show", formLayout, new String[] { "ison" }, new String[] { "" }, 1);
 		checkbox.select("ison", true);
 		// register for on click event to hide/disable other elements
-		checkbox.addActionListener(listener, FormEvent.ONCLICK);
+		checkbox.addActionListener(FormEvent.ONCLICK);
 		//rule to hide/unhide is defined at the end
 		
 		firstName = uifactory.addTextElement("firstname", "guidemo.flexi.form.firstname", 256, personData.getFirstName(), formLayout);

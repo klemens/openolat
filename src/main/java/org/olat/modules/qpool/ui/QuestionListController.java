@@ -19,8 +19,10 @@
  */
 package org.olat.modules.qpool.ui;
 
+import java.util.Collections;
 import java.util.List;
 
+import org.olat.NewControllerFactory;
 import org.olat.core.CoreSpringFactory;
 import org.olat.core.commons.fullWebApp.LayoutMain3ColsController;
 import org.olat.core.gui.UserRequest;
@@ -29,8 +31,8 @@ import org.olat.core.gui.components.form.flexible.FormItemContainer;
 import org.olat.core.gui.components.form.flexible.elements.FormLink;
 import org.olat.core.gui.components.form.flexible.impl.FormEvent;
 import org.olat.core.gui.components.link.Link;
-import org.olat.core.gui.components.stack.StackedController;
-import org.olat.core.gui.components.stack.StackedControllerAware;
+import org.olat.core.gui.components.stack.BreadcrumbPanel;
+import org.olat.core.gui.components.stack.BreadcrumbPanelAware;
 import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.Event;
 import org.olat.core.gui.control.WindowControl;
@@ -44,6 +46,8 @@ import org.olat.core.gui.control.generic.wizard.StepsMainRunController;
 import org.olat.core.gui.control.generic.wizard.StepsRunContext;
 import org.olat.core.gui.media.MediaResource;
 import org.olat.core.id.Identity;
+import org.olat.core.id.context.BusinessControlFactory;
+import org.olat.core.util.resource.OresHelper;
 import org.olat.group.BusinessGroup;
 import org.olat.group.model.BusinessGroupSelectionEvent;
 import org.olat.group.ui.main.SelectBusinessGroupController;
@@ -53,7 +57,7 @@ import org.olat.ims.qti.qpool.QTIQPoolServiceProvider;
 import org.olat.modules.qpool.ExportFormatOptions;
 import org.olat.modules.qpool.Pool;
 import org.olat.modules.qpool.QItemFactory;
-import org.olat.modules.qpool.QPoolService;
+import org.olat.modules.qpool.QPoolItemEditorController;
 import org.olat.modules.qpool.QuestionItem;
 import org.olat.modules.qpool.QuestionItemCollection;
 import org.olat.modules.qpool.QuestionItemShort;
@@ -71,10 +75,12 @@ import org.olat.repository.RepositoryEntry;
 import org.olat.repository.RepositoryManager;
 import org.olat.repository.controllers.EntryChangedEvent;
 import org.olat.repository.controllers.ReferencableEntriesSearchController;
-import org.olat.repository.controllers.RepositoryAddController;
-import org.olat.repository.controllers.RepositoryDetailsController;
 import org.olat.repository.controllers.RepositorySearchController.Can;
+import org.olat.repository.handlers.RepositoryHandler;
+import org.olat.repository.handlers.RepositoryHandlerFactory;
+import org.olat.repository.ui.author.CreateRepositoryEntryController;
 import org.olat.search.service.indexer.LifeFullIndexer;
+import org.springframework.beans.factory.annotation.Autowired;
 
 /**
  * 
@@ -84,17 +90,15 @@ import org.olat.search.service.indexer.LifeFullIndexer;
  * Initial date: 22.01.2013<br>
  * @author srosse, stephane.rosse@frentix.com, http://www.frentix.com
  */
-public class QuestionListController extends AbstractItemListController implements StackedControllerAware {
+public class QuestionListController extends AbstractItemListController implements BreadcrumbPanelAware {
 
 	private FormLink list, exportItem, shareItem, removeItem, newItem, copyItem, deleteItem, authorItem, importItem, bulkChange;
-	
-	
-	private StackedController stackPanel;
 
-	private Controller newItemCtrl;
+	private BreadcrumbPanel stackPanel;
 	private RenameController renameCtrl;
 	private CloseableModalController cmc;
 	private CloseableModalController cmcNewItem;
+	private QPoolItemEditorController newItemCtrl;
 	private DialogBoxController confirmCopyBox;
 	private DialogBoxController confirmDeleteBox;
 	private DialogBoxController confirmRemoveBox;
@@ -109,7 +113,7 @@ public class QuestionListController extends AbstractItemListController implement
 	private ImportController importItemCtrl;
 	private CollectionTargetController listTargetCtrl;
 	private ShareTargetController shareTargetCtrl;
-	private RepositoryAddController addController;
+	private CreateRepositoryEntryController addController;
 	private QuestionItemDetailsController currentDetailsCtrl;
 	private LayoutMain3ColsController currentMainDetailsCtrl;
 	private MetadataBulkChangeController bulkChangeCtrl;
@@ -119,21 +123,20 @@ public class QuestionListController extends AbstractItemListController implement
 	private ReferencableEntriesSearchController importTestCtrl;
 	
 	private QuestionItemCollection itemCollection;
-	
-	private final QPoolService qpoolService;
-	private final LifeFullIndexer lifeFullIndexer;
-	private final RepositoryManager repositoryManager;
+
+	@Autowired
+	private LifeFullIndexer lifeFullIndexer;
+	@Autowired
+	private RepositoryManager repositoryManager;
+	@Autowired
+	private RepositoryHandlerFactory repositoryHandlerFactory;
 	
 	public QuestionListController(UserRequest ureq, WindowControl wControl, QuestionItemsSource source, String key) {
 		super(ureq, wControl, source, key);
-
-		qpoolService = CoreSpringFactory.getImpl(QPoolService.class);
-		lifeFullIndexer = CoreSpringFactory.getImpl(LifeFullIndexer.class);
-		repositoryManager = CoreSpringFactory.getImpl(RepositoryManager.class);
 	}
 
 	@Override
-	protected void initButtons(FormItemContainer formLayout) {
+	protected void initButtons(UserRequest ureq, FormItemContainer formLayout) {
 		list = uifactory.addFormLink("list", formLayout, Link.BUTTON);
 		exportItem = uifactory.addFormLink("export.item", formLayout, Link.BUTTON);
 		shareItem = uifactory.addFormLink("share.item", formLayout, Link.BUTTON);
@@ -160,7 +163,7 @@ public class QuestionListController extends AbstractItemListController implement
 	}
 
 	@Override
-	public void setStackedController(StackedController stackPanel) {
+	public void setBreadcrumbPanel(BreadcrumbPanel stackPanel) {
 		this.stackPanel = stackPanel;
 	}
 
@@ -294,7 +297,7 @@ public class QuestionListController extends AbstractItemListController implement
 			}
 		} else if(source == createCollectionCtrl) {
 			if(Event.DONE_EVENT == event) {
-				List<QuestionItemShort> items = (List<QuestionItemShort>)createCollectionCtrl.getUserObject();
+				List<QuestionItemShort> items = createCollectionCtrl.getUserObject();
 				String collectionName = createCollectionCtrl.getName();
 				doCreateCollection(ureq, collectionName, items);
 			}
@@ -399,6 +402,10 @@ public class QuestionListController extends AbstractItemListController implement
 			}
 		} else if(source == cmcNewItem) {
 			showInfo("create.success");
+			if(newItemCtrl.getItem() != null && newItemCtrl.getItem().getKey() != null) {
+				List<QuestionItem> newItems = Collections.singletonList(newItemCtrl.getItem());
+				getSource().postImport(newItems);
+			}
 			getItemsTable().reset();
 			QPoolEvent qce = new QPoolEvent(QPoolEvent.ITEM_CREATED);
 			fireEvent(ureq, qce);
@@ -555,7 +562,7 @@ public class QuestionListController extends AbstractItemListController implement
 	
 	protected void doList(UserRequest ureq) {
 		String title = translate("filter.view");
-		removeAsListenerAndDispose(shareTargetCtrl);
+		removeAsListenerAndDispose(listTargetCtrl);
 		listTargetCtrl = new CollectionTargetController(ureq, getWindowControl(), itemCollection != null);
 		listenTo(listTargetCtrl);
 		
@@ -599,7 +606,7 @@ public class QuestionListController extends AbstractItemListController implement
 		Step start = new Export_1_TypeStep(ureq, items);
 		StepRunnerCallback finish = new StepRunnerCallback() {
 			@Override
-			public Step execute(UserRequest ureq, WindowControl wControl, StepsRunContext runContext) {
+			public Step execute(UserRequest uureq, WindowControl wControl, StepsRunContext runContext) {
 				return StepsMainRunController.DONE_MODIFIED;
 			}
 		};
@@ -633,8 +640,10 @@ public class QuestionListController extends AbstractItemListController implement
 		removeAsListenerAndDispose(cmc);
 		removeAsListenerAndDispose(addController);
 		
-		addController = new RepositoryAddController(ureq, getWindowControl(), "a.nte");
-		addController.setUserObject(new QItemList(items));
+		String type = TestFileResource.TYPE_NAME;
+		RepositoryHandler handler = repositoryHandlerFactory.getRepositoryHandler(type);
+		addController = new CreateRepositoryEntryController(ureq, getWindowControl(), handler);
+		addController.setCreateObject(new QItemList(items));
 		listenTo(addController);
 		cmc = new CloseableModalController(getWindowControl(), translate("close"), addController.getInitialComponent());
 		listenTo(cmc);
@@ -644,8 +653,9 @@ public class QuestionListController extends AbstractItemListController implement
 	private void doExportToRepositoryEntry(UserRequest ureq, Long repoEntryKey) {
 		RepositoryEntry re = repositoryManager.lookupRepositoryEntry(repoEntryKey, false);
 		if(re != null) {
-			//open editor
-			RepositoryDetailsController.doEdit(ureq, re);
+			WindowControl wControl = BusinessControlFactory.getInstance()
+					.createBusinessWindowControl(getWindowControl(), re, OresHelper.createOLATResourceableType("Editor"));
+			NewControllerFactory.getInstance().launch(ureq, wControl);
 		}
 	}
 	
@@ -660,7 +670,7 @@ public class QuestionListController extends AbstractItemListController implement
 		Step start = new ImportAuthor_1_ChooseMemberStep(ureq, items);
 		StepRunnerCallback finish = new StepRunnerCallback() {
 			@Override
-			public Step execute(UserRequest ureq, WindowControl wControl, StepsRunContext runContext) {
+			public Step execute(UserRequest uureq, WindowControl wControl, StepsRunContext runContext) {
 				addAuthors(runContext);
 				return StepsMainRunController.DONE_MODIFIED;
 			}
@@ -794,6 +804,7 @@ public class QuestionListController extends AbstractItemListController implement
 		listenTo(cmc);	
 	}
 	
+	@Override
 	protected void doSelect(UserRequest ureq, ItemRow row) {
 		QuestionItem item = qpoolService.loadItemById(row.getKey());
 		doSelect(ureq, item, row.isEditable());
@@ -804,7 +815,7 @@ public class QuestionListController extends AbstractItemListController implement
 		removeAsListenerAndDispose(currentMainDetailsCtrl);
 		
 		currentDetailsCtrl = new QuestionItemDetailsController(ureq, getWindowControl(), item, editable, getSource().isDeleteEnabled());
-		currentDetailsCtrl.setStackedController(stackPanel);
+		currentDetailsCtrl.setBreadcrumbPanel(stackPanel);
 		listenTo(currentDetailsCtrl);
 		currentMainDetailsCtrl = new LayoutMain3ColsController(ureq, getWindowControl(), currentDetailsCtrl);
 		listenTo(currentMainDetailsCtrl);

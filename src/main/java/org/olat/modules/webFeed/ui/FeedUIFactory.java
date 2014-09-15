@@ -35,8 +35,6 @@ import org.olat.course.run.userview.UserCourseEnvironment;
 import org.olat.modules.webFeed.FeedSecurityCallback;
 import org.olat.modules.webFeed.models.Feed;
 import org.olat.modules.webFeed.models.Item;
-import org.olat.repository.controllers.IAddController;
-import org.olat.repository.controllers.RepositoryAddCallback;
 
 /**
  * Abstract Factory Pattern for the user interface of different feed types.
@@ -66,22 +64,20 @@ public abstract class FeedUIFactory {
 	public abstract VelocityContainer createRightColumnVelocityContainer(BasicController controller);
 
 	/* used for course node */
-	public FeedMainController createMainController(OLATResourceable ores, UserRequest ureq, WindowControl wControl, FeedSecurityCallback callback,
+	public final FeedMainController createMainController(OLATResourceable ores, UserRequest ureq, WindowControl wControl, FeedSecurityCallback callback,
 			Long courseId, String nodeId) {
 		return new FeedMainController(ores, ureq, wControl, courseId, nodeId, this, callback, null);
 	}
 
-	public FeedMainController createMainController(OLATResourceable ores, UserRequest ureq, WindowControl wControl, FeedSecurityCallback callback) {
+	public final FeedMainController createMainController(OLATResourceable ores, UserRequest ureq, WindowControl wControl, FeedSecurityCallback callback) {
 		return new FeedMainController(ores, ureq, wControl, null, null, this, callback, null);
 	}
 	
 	// with specific FeedItemDisplayConfig
-	public FeedMainController createMainController(final OLATResourceable ores, final UserRequest ureq, final WindowControl wControl, final FeedSecurityCallback callback, FeedItemDisplayConfig displayConfig) {
+	public final FeedMainController createMainController(final OLATResourceable ores, final UserRequest ureq, final WindowControl wControl, final FeedSecurityCallback callback, FeedItemDisplayConfig displayConfig) {
 		return new FeedMainController(ores, ureq, wControl, null, null, this, callback, displayConfig);
 	}
-	
-	public abstract IAddController createAddController(RepositoryAddCallback addCallback, UserRequest ureq, WindowControl wControl);
-	
+
 	public abstract FormBasicController createItemFormController(UserRequest ureq, WindowControl wControl, Item item, Feed feed);
 
 	public abstract TabbableController createNodeEditController(AbstractFeedCourseNode courseNode, ICourse course, UserCourseEnvironment uce, UserRequest ureq,

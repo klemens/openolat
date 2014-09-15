@@ -22,7 +22,6 @@ package org.olat.portfolio.ui.structel;
 import java.util.ArrayList;
 import java.util.List;
 
-import org.olat.core.CoreSpringFactory;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.Component;
 import org.olat.core.gui.components.link.Link;
@@ -46,6 +45,7 @@ import org.olat.portfolio.model.structel.EPPage;
 import org.olat.portfolio.model.structel.PortfolioStructure;
 import org.olat.portfolio.ui.structel.view.EPChangelogController;
 import org.olat.portfolio.ui.structel.view.EPTOCReadOnlyController;
+import org.springframework.beans.factory.annotation.Autowired;
 
 /**
  * Description:<br>
@@ -63,10 +63,10 @@ public class EPMultiplePageController extends BasicController implements Activat
 	private Controller currentActivePageCtrl;
 	private EPTOCReadOnlyController tocPageCtrl;
 	private EPChangelogController changelogPageCtrl;
-	private int previousPage;
 	private final VelocityContainer vC;
 	private final EPSecurityCallback secCallback;
-	private final EPFrontendManager ePFMgr;
+	@Autowired
+	private EPFrontendManager ePFMgr;
 
 	private Link tocLink; // the first tab, link to TOC
 	private Link changelogLink; // the last tab, link to Changelog
@@ -79,8 +79,7 @@ public class EPMultiplePageController extends BasicController implements Activat
 		this.pageList = pageList;
 		this.pageListByKeys = new ArrayList<Long>(pageList.size());
 		this.secCallback = secCallback;
-		ePFMgr = CoreSpringFactory.getImpl(EPFrontendManager.class);
-
+		
 		vC = createVelocityContainer("multiPages");
 
 		init(ureq);
@@ -104,10 +103,12 @@ public class EPMultiplePageController extends BasicController implements Activat
 
 			// create toc link
 			tocLink = LinkFactory.createLink("toc", vC, this);
+			tocLink.setDomReplacementWrapperRequired(false);
 			tocLink.setUserObject(PAGENUM_TOC);
 
 			// create changelog link
 			changelogLink = LinkFactory.createLink("changelog", vC, this);
+			changelogLink.setDomReplacementWrapperRequired(false);
 			changelogLink.setUserObject(PAGENUM_CL);
 
 			int i = 1;
@@ -118,6 +119,7 @@ public class EPMultiplePageController extends BasicController implements Activat
 				String shortPageTitle = Formatter.truncate(pageTitle, 20);
 				Link pageLink = LinkFactory
 						.createCustomLink("pageLink" + i, "pageLink" + i, shortPageTitle, Link.LINK + Link.NONTRANSLATED, vC, this);
+				pageLink.setDomReplacementWrapperRequired(false);
 				pageLink.setUserObject(i - 1);
 				pageLink.setTooltip(pageTitle);
 				pageLinkList.add(pageLink);
@@ -177,16 +179,6 @@ public class EPMultiplePageController extends BasicController implements Activat
 	private void setCurrentPageAfterInit(int pageNum) {
 		vC.put("pageCtrl", currentActivePageCtrl.getInitialComponent());
 		vC.contextPut("actualPage", pageNum + 1);
-
-		// disable actual page itself
-		Link actLink = (Link) vC.getComponent("pageLink" + String.valueOf((pageNum + 1)));
-		if (actLink != null)
-			actLink.setEnabled(false);
-		// enable previous page
-		Link prevLink = (Link) vC.getComponent("pageLink" + String.valueOf((previousPage)));
-		if (prevLink != null)
-			prevLink.setEnabled(true);
-		previousPage = pageNum + 1;
 	}
 
 	/**
@@ -203,10 +195,9 @@ public class EPMultiplePageController extends BasicController implements Activat
 		} else {
 			tocPageCtrl.refreshTOC(ureq);
 		}
-		currentActivePageCtrl = tocPageCtrl;
-		// disable toc-link
-		disableLink_TOC(true);
 		disableLINK_LC(false);
+		disableLink_TOC(true);
+		currentActivePageCtrl = tocPageCtrl;
 		addToHistory(ureq, OresHelper.createOLATResourceableType("TOC"), null);
 	}
 
@@ -219,7 +210,7 @@ public class EPMultiplePageController extends BasicController implements Activat
 			changelogPageCtrl = instantiateCLController(ureq);
 			listenTo(changelogPageCtrl);
 		} else {
-			changelogPageCtrl.refreshNewsList(ureq);
+			changelogPageCtrl.refreshNewsList();
 		}
 		currentActivePageCtrl = changelogPageCtrl;
 		disableLink_TOC(false);
@@ -257,13 +248,11 @@ public class EPMultiplePageController extends BasicController implements Activat
 	}
 
 	private void disableLink_TOC(boolean disable) {
-		tocLink.setEnabled(!disable);
-		vC.contextPut("toc_disabled", disable);
+		vC.contextPut("toc_enabled", disable);
 	}
 
 	private void disableLINK_LC(boolean disable) {
-		changelogLink.setEnabled(!disable);
-		vC.contextPut("changelog_disabled", disable);
+		vC.contextPut("changelog_enabled", disable);
 	}
 
 	@Override

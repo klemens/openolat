@@ -29,12 +29,10 @@ import java.util.Date;
 import java.util.List;
 import java.util.Locale;
 
-import org.olat.ControllerFactory;
-import org.olat.core.CoreSpringFactory;
+import org.olat.NewControllerFactory;
 import org.olat.core.commons.fullWebApp.LayoutMain3ColsController;
 import org.olat.core.commons.fullWebApp.popup.BaseFullWebappPopupLayoutFactory;
 import org.olat.core.gui.UserRequest;
-import org.olat.core.gui.Windows;
 import org.olat.core.gui.components.Component;
 import org.olat.core.gui.components.table.BooleanColumnDescriptor;
 import org.olat.core.gui.components.table.ColumnDescriptor;
@@ -51,14 +49,12 @@ import org.olat.core.gui.control.Event;
 import org.olat.core.gui.control.WindowControl;
 import org.olat.core.gui.control.controller.BasicController;
 import org.olat.core.gui.control.creator.ControllerCreator;
-import org.olat.core.gui.control.generic.dtabs.DTab;
-import org.olat.core.gui.control.generic.dtabs.DTabs;
 import org.olat.core.gui.control.generic.modal.DialogBoxController;
 import org.olat.core.gui.control.generic.modal.DialogBoxUIFactory;
 import org.olat.core.gui.control.generic.popup.PopupBrowserWindow;
 import org.olat.core.gui.render.Renderer;
 import org.olat.core.gui.render.StringOutput;
-import org.olat.core.id.OLATResourceable;
+import org.olat.core.id.context.BusinessControlFactory;
 import org.olat.core.util.vfs.VFSContainer;
 import org.olat.course.assessment.model.UserEfficiencyStatementLight;
 import org.olat.course.assessment.portfolio.EfficiencyStatementArtefact;
@@ -68,6 +64,7 @@ import org.olat.portfolio.model.artefacts.AbstractArtefact;
 import org.olat.portfolio.ui.artefacts.collect.ArtefactWizzardStepsController;
 import org.olat.repository.RepositoryEntry;
 import org.olat.repository.RepositoryManager;
+import org.springframework.beans.factory.annotation.Autowired;
 
 /**
  * Description:<br>
@@ -87,7 +84,10 @@ public class EfficiencyStatementsListController extends BasicController {
 	private DialogBoxController confirmDeleteCtr;
 	private UserEfficiencyStatementLight efficiencyStatement;
 	private Controller ePFCollCtrl;
+	@Autowired
 	private PortfolioModule portfolioModule;
+	@Autowired
+	private EfficiencyStatementManager esm;
 	
 	/**
 	 * Constructor
@@ -109,14 +109,12 @@ public class EfficiencyStatementsListController extends BasicController {
 		tableCtr.addColumnDescriptor(new StaticColumnDescriptor(CMD_LAUNCH_COURSE, "table.header.launchcourse", translate("table.action.launchcourse")));
 		tableCtr.addColumnDescriptor(new StaticColumnDescriptor(CMD_DELETE, "table.header.delete", translate("table.action.delete")));
 
-		portfolioModule = (PortfolioModule) CoreSpringFactory.getBean("portfolioModule");
 		EPArtefactHandler<?> artHandler = portfolioModule.getArtefactHandler(EfficiencyStatementArtefact.ARTEFACT_TYPE);
 		if(portfolioModule.isEnabled() && artHandler != null && artHandler.isEnabled()) {
 			tableCtr.addColumnDescriptor(new CustomRenderColumnDescriptor("table.header.artefact", 5, CMD_ARTEFACT, ureq.getLocale(), ColumnDescriptor.ALIGNMENT_CENTER, new AsArtefactCellRenderer()));
 		}
 		listenTo(tableCtr);
 		
-		EfficiencyStatementManager esm = EfficiencyStatementManager.getInstance();
 		List<UserEfficiencyStatementLight> efficiencyStatementsList = esm.findEfficiencyStatementsLight(ureq.getIdentity());
 		efficiencyStatementsListModel = new EfficiencyStatementsListModel(efficiencyStatementsList);
 		tableCtr.setTableDataModel(efficiencyStatementsListModel);
@@ -146,7 +144,7 @@ public class EfficiencyStatementsListController extends BasicController {
 					ControllerCreator ctrlCreator = new ControllerCreator() {
 						public Controller createController(UserRequest lureq, WindowControl lwControl) {
 							EfficiencyStatementController efficiencyCtrl = new EfficiencyStatementController(lwControl, lureq, efficiencyStatement.getCourseRepoKey());
-							return new LayoutMain3ColsController(lureq, getWindowControl(), null, null, efficiencyCtrl.getInitialComponent(), null);
+							return new LayoutMain3ColsController(lureq, getWindowControl(), efficiencyCtrl);
 						}					
 					};
 					//wrap the content controller into a full header layout
@@ -163,21 +161,8 @@ public class EfficiencyStatementsListController extends BasicController {
 					} else if (!rm.isAllowedToLaunch(ureq, re)) {
 						showWarning("efficiencyStatements.course.noaccess");
 					} else {
-						OLATResourceable ores = re.getOlatResource();
-						//was brasato:: DTabs dts = getWindowControl().getDTabs();
-						DTabs dts = Windows.getWindows(ureq).getWindow(ureq).getDTabs();
-						DTab dt = dts.getDTab(ores);
-						if (dt == null) {
-							// does not yet exist -> create and add
-							//fxdiff BAKS-7 Resume function
-							dt = dts.createDTab(ores, re, efficiencyStatement.getShortTitle());
-							if (dt == null) return;
-							Controller launchController = ControllerFactory.createLaunchController(ores, ureq, dt.getWindowControl(), true);
-							dt.setController(launchController);
-							dts.addDTab(ureq, dt);
-						}
-						dts.activate(ureq, dt, null);  // null: do not activate to a certain view
-
+						WindowControl bwControl = BusinessControlFactory.getInstance().createBusinessWindowControl(getWindowControl(), re);
+						NewControllerFactory.getInstance().launch(ureq, bwControl);
 					}
 				} else if (actionid.equals(CMD_DELETE)) {					
 					// show confirmation dialog
@@ -234,9 +219,9 @@ public class EfficiencyStatementsListController extends BasicController {
 		 */
 		@Override
 		public void render(StringOutput sb, Renderer renderer, Object val, Locale locale, int alignment, String action) {
-			sb.append("<span class=\"b_eportfolio_add_again\" title=\"")
+			sb.append("<i class='o_icon o_icon-lg o_icon_eportfolio_add'> </i> <span title=\"")
 				.append(translate("table.add.as.artefact"))
-				.append("\" style=\"background-repeat: no-repeat; background-position: center center; padding: 2px 8px;\">&nbsp;</span>");
+				.append("\"> </span>");
 		}
 	}
 }

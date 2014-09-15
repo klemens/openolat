@@ -24,7 +24,6 @@ import java.util.List;
 
 import org.olat.NewControllerFactory;
 import org.olat.basesecurity.BaseSecurityModule;
-import org.olat.core.CoreSpringFactory;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.form.flexible.FormItem;
 import org.olat.core.gui.components.form.flexible.FormItemContainer;
@@ -33,6 +32,7 @@ import org.olat.core.gui.components.form.flexible.elements.StaticTextElement;
 import org.olat.core.gui.components.form.flexible.impl.FormBasicController;
 import org.olat.core.gui.components.form.flexible.impl.FormEvent;
 import org.olat.core.gui.components.form.flexible.impl.FormLayoutContainer;
+import org.olat.core.gui.components.link.Link;
 import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.WindowControl;
 import org.olat.core.id.Identity;
@@ -45,6 +45,7 @@ import org.olat.repository.RepositoryEntry;
 import org.olat.user.DisplayPortraitController;
 import org.olat.user.UserManager;
 import org.olat.user.propertyhandlers.UserPropertyHandler;
+import org.springframework.beans.factory.annotation.Autowired;
 
 /**
  * 
@@ -59,24 +60,23 @@ public class MemberInfoController extends FormBasicController {
 	private Long repoEntryKey;
 	private UserCourseInformations courseInfos;
 	
-	private final UserManager userManager;
-	private final BaseSecurityModule securityModule;
-	private final UserCourseInformationsManager efficiencyStatementManager;
+	@Autowired
+	private UserManager userManager;
+	@Autowired
+	private BaseSecurityModule securityModule;
+	@Autowired
+	private UserCourseInformationsManager userCourseInfosMgr;
 	
 	public MemberInfoController(UserRequest ureq, WindowControl wControl, Identity identity,
 			RepositoryEntry repoEntry) {
 		super(ureq, wControl, "info_member");
 		setTranslator(Util.createPackageTranslator(UserPropertyHandler.class, ureq.getLocale(), getTranslator()));
 
-		userManager = CoreSpringFactory.getImpl(UserManager.class);
-		securityModule = CoreSpringFactory.getImpl(BaseSecurityModule.class);
-		efficiencyStatementManager = CoreSpringFactory.getImpl(UserCourseInformationsManager.class);
-	
 		this.identity = identity;
 		
 		if(repoEntry != null){
 			repoEntryKey = repoEntry.getKey();
-			courseInfos = efficiencyStatementManager.getUserCourseInformations(repoEntry.getOlatResource().getResourceableId(), identity);
+			courseInfos = userCourseInfosMgr.getUserCourseInformations(repoEntry.getOlatResource().getResourceableId(), identity);
 		}
 		initForm(ureq);
 	}
@@ -93,7 +93,7 @@ public class MemberInfoController extends FormBasicController {
 		}
 		
 		//user properties
-		FormLayoutContainer userPropertiesContainer = FormLayoutContainer.createDefaultFormLayout("userProperties", getTranslator());
+		FormLayoutContainer userPropertiesContainer = FormLayoutContainer.createDefaultFormLayout_6_6("userProperties", getTranslator());
 		formLayout.add("userProperties", userPropertiesContainer);
 		
 		List<UserPropertyHandler> userPropertyHandlers = userManager.getUserPropertyHandlersFor(getClass().getCanonicalName(), false);
@@ -110,7 +110,7 @@ public class MemberInfoController extends FormBasicController {
 		}
 
 		//course informations
-		FormLayoutContainer courseInfosContainer = FormLayoutContainer.createDefaultFormLayout("courseInfos", getTranslator());
+		FormLayoutContainer courseInfosContainer = FormLayoutContainer.createDefaultFormLayout_9_3("courseInfos", getTranslator());
 		formLayout.add("courseInfos", courseInfosContainer);
 		membershipCreationEl = uifactory.addStaticTextElement("firstTime", "course.membership.creation", "", courseInfosContainer);
 		
@@ -132,13 +132,16 @@ public class MemberInfoController extends FormBasicController {
 		}
 		
 		//links
-		homeLink = uifactory.addFormLink("home", formLayout, "b_link_left_icon b_link_to_home");
+		homeLink = uifactory.addFormLink("home", formLayout, Link.BUTTON);
+		homeLink.setIconLeftCSS("o_icon o_icon_home");
 		formLayout.add("home", homeLink);
-		contactLink = uifactory.addFormLink("contact", formLayout, "b_link_left_icon b_link_mail");
+		contactLink = uifactory.addFormLink("contact", formLayout, Link.BUTTON);
+		contactLink.setIconLeftCSS("o_icon o_icon_mail");
 		formLayout.add("contact", contactLink);
 		
 		if(repoEntryKey != null) {
-			assessmentLink = uifactory.addFormLink("assessment", formLayout, "b_link_left_icon b_link_assessment");
+			assessmentLink = uifactory.addFormLink("assessment", formLayout, Link.BUTTON);
+			assessmentLink.setIconLeftCSS("o_icon o_icon_certificate");
 			formLayout.add("assessment", assessmentLink);
 		}
 	}

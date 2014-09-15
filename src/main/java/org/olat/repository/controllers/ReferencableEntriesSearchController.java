@@ -32,6 +32,7 @@ import java.util.List;
 import org.olat.core.CoreSpringFactory;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.Component;
+import org.olat.core.gui.components.dropdown.Dropdown;
 import org.olat.core.gui.components.link.Link;
 import org.olat.core.gui.components.link.LinkFactory;
 import org.olat.core.gui.components.segmentedview.SegmentViewComponent;
@@ -56,10 +57,15 @@ import org.olat.ims.qti.fileresource.TestFileResource;
 import org.olat.portfolio.EPTemplateMapResource;
 import org.olat.repository.RepositoryEntry;
 import org.olat.repository.RepositoryManager;
-import org.olat.repository.RepositoryTableModel;
+import org.olat.repository.RepositoryService;
 import org.olat.repository.controllers.RepositorySearchController.Can;
 import org.olat.repository.handlers.RepositoryHandler;
 import org.olat.repository.handlers.RepositoryHandlerFactory;
+import org.olat.repository.model.RepositoryEntrySecurity;
+import org.olat.repository.ui.RepositoryTableModel;
+import org.olat.repository.ui.author.CreateRepositoryEntryController;
+import org.olat.repository.ui.author.ImportRepositoryEntryController;
+import org.springframework.beans.factory.annotation.Autowired;
 
 /**
  * 
@@ -80,8 +86,6 @@ public class ReferencableEntriesSearchController extends BasicController {
 	private static final String CMD_ADMIN_SEARCH_ENTRIES = "cmd.adminSearchEntries";
 	private static final String CMD_ALL_ENTRIES = "cmd.allEntries";
 	private static final String CMD_MY_ENTRIES = "cmd.myEntries";
-  private static final String ACTION_CREATE = "create";
-	private static final String ACTION_IMPORT = "import";
 
 	private VelocityContainer mainVC;
 	private RepositorySearchController searchCtr;
@@ -91,8 +95,12 @@ public class ReferencableEntriesSearchController extends BasicController {
 
 	private SegmentViewComponent segmentView;
 	private Link myEntriesLink, allEntriesLink, searchEntriesLink, adminEntriesLink;
-	private Link createRessourceButton, importRessourceButton;
-	private RepositoryAddController addController;
+	private Link importRessourceButton;
+	private Component createRessourceCmp;
+	private List<Link> createRessourceButtons;
+	
+	private CreateRepositoryEntryController createController;
+	private ImportRepositoryEntryController importController;
 	private CloseableModalController cmc;
 	
 	private RepositoryEntry selectedRepositoryEntry;
@@ -103,10 +111,14 @@ public class ReferencableEntriesSearchController extends BasicController {
 	private final Can canBe;
 	
 	private Object userObject;
+	
+	@Autowired
+	private RepositoryManager repositoryManager;
+	@Autowired
+	private RepositoryHandlerFactory repositoryHandlerFactory;
 
 	public ReferencableEntriesSearchController(WindowControl wControl, UserRequest ureq, String limitType, String commandLabel) {
-		this(wControl, ureq, new String[]{limitType}, null, commandLabel, true, true, true, false, false, Can.referenceable);
-		setBasePackage(RepositoryManager.class);
+		this(wControl, ureq, new String[]{ limitType }, null, commandLabel, true, true, true, false, false, Can.referenceable);
 	}
 	
 	public ReferencableEntriesSearchController(WindowControl wControl, UserRequest ureq, String[] limitTypes, String commandLabel) {
@@ -128,11 +140,11 @@ public class ReferencableEntriesSearchController extends BasicController {
 		this.canImport = canImport;
 		this.canCreate = canCreate;
 		this.limitTypes = limitTypes;
-		setBasePackage(RepositoryManager.class);
+		setBasePackage(RepositoryService.class);
 		mainVC = createVelocityContainer("referencableSearch");
 		
 		if(limitTypes != null && limitTypes.length == 1 && limitTypes[0] != null) {
-			mainVC.contextPut("titleCss", "b_with_small_icon_left o_" + limitTypes[0] + "_icon");
+			mainVC.contextPut("titleCss", "o_icon o_" + limitTypes[0] + "_icon");
 		}
 
 		// add repo search controller
@@ -141,8 +153,21 @@ public class ReferencableEntriesSearchController extends BasicController {
 		
 		// do instantiate buttons
 		if (canCreate && isCreateButtonVisible()) {
-			createRessourceButton = LinkFactory.createButtonSmall("cmd.create.ressource", mainVC, this);
-			createRessourceButton.setElementCssClass("o_sel_repo_popup_create_resource");
+			if(limitTypes != null && limitTypes.length == 1) {
+				Link createButton = LinkFactory.createButtonSmall("cmd.create.ressource", mainVC, this);
+				createButton.setElementCssClass("o_sel_repo_popup_create_resource");
+				RepositoryHandler handler = repositoryHandlerFactory.getRepositoryHandler(limitTypes[0]);
+				createButton.setUserObject(handler);
+				createRessourceCmp = createButton;
+			} else if(limitTypes != null && limitTypes.length > 1) {
+				Dropdown dropdown = new Dropdown("cmd.create.ressource", "cmd.create.ressource", false, getTranslator());
+				for(String limitType:limitTypes) {
+					RepositoryHandler handler = repositoryHandlerFactory.getRepositoryHandler(limitType);
+					Link createLink = LinkFactory.createLink(handler.getSupportedType(), getTranslator(), this);
+					dropdown.addComponent(createLink);
+				}
+				createRessourceCmp = dropdown;
+			}
 		}
 		if (canImport && isImportButtonVisible()) {
 			importRessourceButton = LinkFactory.createButtonSmall("cmd.import.ressource", mainVC, this);
@@ -183,13 +208,13 @@ public class ReferencableEntriesSearchController extends BasicController {
 
 	/**
 	 * Admin. search allow group managers to search all courses
-	 * @param limitTypes
+	 * @param limitingTypes
 	 * @param ureq
 	 * @return
 	 */
-	private boolean isAdminSearchVisible(String[] limitTypes, UserRequest ureq) {
+	private boolean isAdminSearchVisible(String[] limitingTypes, UserRequest ureq) {
 		Roles roles = ureq.getUserSession().getRoles();
-		return limitTypes != null && limitTypes.length == 1 && "CourseModule".equals(limitTypes[0])
+		return limitingTypes != null && limitingTypes.length == 1 && "CourseModule".equals(limitingTypes[0])
 				&& (roles.isOLATAdmin() ||
 						(roles.isInstitutionalResourceManager() && roles.isGroupManager()) ||
 						(roles.isGroupManager()
@@ -246,78 +271,6 @@ public class ReferencableEntriesSearchController extends BasicController {
 	}
 
 	/**
-	 * get action like 'new test'
-	 * @param type 
-	 * @return
-	 */
-	private String getAction(String type) {
-		String action = new String();
-		List<String> limitTypeList = Arrays.asList(limitTypes);
-		if(limitTypeList.contains(TestFileResource.TYPE_NAME)) {
-			// it's a test
-			if (type.equals(ACTION_CREATE)) {
-				action = RepositoryAddController.ACTION_NEW_TEST;
-			} else if (type.equals(ACTION_IMPORT)) {
-				action = RepositoryAddController.ACTION_ADD_TEST;
-			}
-		} else if (limitTypeList.contains(TestFileResource.TYPE_NAME)) {
-			// it's a self test
-			if (type.equals(ACTION_CREATE)) {
-				action = RepositoryAddController.ACTION_NEW_TEST;
-			} else if (type.equals(ACTION_IMPORT)) {
-				action = RepositoryAddController.ACTION_ADD_TEST;
-			}
-		} else if (limitTypeList.contains(WikiResource.TYPE_NAME)) {
-			// it's a wiki
-			if (type.equals(ACTION_CREATE)) {
-				action = RepositoryAddController.ACTION_NEW_WIKI;
-			} else if (type.equals(ACTION_IMPORT)) {
-				action = RepositoryAddController.ACTION_ADD_WIKI;
-			}
-		} else if (limitTypeList.contains(ImsCPFileResource.TYPE_NAME)) {
-			// it's a CP
-			if (type.equals(ACTION_CREATE)) {
-				action = RepositoryAddController.ACTION_NEW_CP;
-			} else if (type.equals(ACTION_IMPORT)) {
-				action = RepositoryAddController.ACTION_ADD_CP;
-			}
-		}	else if (limitTypeList.contains(BlogFileResource.TYPE_NAME)) {
-			// it's a Blog
-			if (type.equals(ACTION_CREATE)) {
-				action = RepositoryAddController.ACTION_NEW_BLOG;
-			} else if (type.equals(ACTION_IMPORT)) {
-				action = RepositoryAddController.ACTION_ADD_BLOG;
-			}
-		} else if (limitTypeList.contains(PodcastFileResource.TYPE_NAME)) {
-			// it's a Podcast
-			if (type.equals(ACTION_CREATE)) {
-				action = RepositoryAddController.ACTION_NEW_PODCAST;
-			} else if (type.equals(ACTION_IMPORT)) {
-				action = RepositoryAddController.ACTION_ADD_PODCAST;
-			}
-		} else if (limitTypeList.contains(SurveyFileResource.TYPE_NAME)) {
-			// it's a survey
-			if (type.equals(ACTION_CREATE)) {
-				action = RepositoryAddController.ACTION_NEW_SURVEY;
-			} else if (type.equals(ACTION_IMPORT)) {
-				action = RepositoryAddController.ACTION_ADD_SURVEY;
-			}
-		}	else if (limitTypeList.contains(EPTemplateMapResource.TYPE_NAME)) {
-			// it's a portfolio tempate
-			if (type.equals(ACTION_CREATE)) {
-				action = RepositoryAddController.ACTION_NEW_PORTFOLIO;
-			}
-		}	
-		if (type.equals(ACTION_IMPORT)) {
-			if (limitTypeList.contains(ScormCPFileResource.TYPE_NAME)) {
-				// it's a scorm CP
-				action = RepositoryAddController.ACTION_ADD_SCORM;
-			}
-		}
-		return action;
-	}
-
-	/**
 	 * @return Returns the selectedEntry.
 	 */
 	public RepositoryEntry getSelectedEntry() {
@@ -334,11 +287,7 @@ public class ReferencableEntriesSearchController extends BasicController {
 		return selectedRepositoryEntries;
 	}
 
-	/**
-	 * @see org.olat.core.gui.control.DefaultController#event(org.olat.core.gui.UserRequest,
-	 *      org.olat.core.gui.components.Component,
-	 *      org.olat.core.gui.control.Event)
-	 */
+	@Override
 	public void event(UserRequest ureq, Component source, Event event) {
 		if(source == segmentView) {
 			if(event instanceof SegmentViewEvent) {
@@ -364,38 +313,39 @@ public class ReferencableEntriesSearchController extends BasicController {
 				} else if (clickedLink == adminEntriesLink) {
 					searchCtr.displayAdminSearchForm();
 				}
+				mainVC.setDirty(true);
 			}
-		} else if(source == createRessourceButton) {
-			removeAsListenerAndDispose(addController);
-			addController = new RepositoryAddController(ureq, getWindowControl(), getAction(ACTION_CREATE));
-			listenTo(addController);
-			
+		} else if(source == createRessourceCmp ||
+				(createRessourceButtons != null && createRessourceButtons.contains(source))) {
 			removeAsListenerAndDispose(cmc);
-			cmc = new CloseableModalController(getWindowControl(), translate("close"), addController.getInitialComponent(),
-					true, addController.getTitle());
+			removeAsListenerAndDispose(createController);
+			RepositoryHandler handler = (RepositoryHandler)((Link)source).getUserObject();
+			createController = new CreateRepositoryEntryController(ureq, getWindowControl(), handler);
+			listenTo(createController);
+			
+			String title = translate(handler.getCreateLabelI18nKey());
+			cmc = new CloseableModalController(getWindowControl(), translate("close"),
+					createController.getInitialComponent(), true, title);
+			cmc.setCustomWindowCSS("o_sel_author_create_popup");
 			listenTo(cmc);
 			
 			cmc.activate();
 		} else if (source == importRessourceButton) {
 			
-			removeAsListenerAndDispose(addController);
-			addController = new RepositoryAddController(ureq, getWindowControl(), getAction(ACTION_IMPORT));
-			listenTo(addController);
+			removeAsListenerAndDispose(importController);
+			importController = new ImportRepositoryEntryController(ureq, getWindowControl());
+			listenTo(importController);
 			
 			removeAsListenerAndDispose(cmc);
-			cmc = new CloseableModalController(getWindowControl(), translate("close"), addController.getInitialComponent(),
-					true, addController.getTitle());
+			cmc = new CloseableModalController(getWindowControl(), translate("close"), importController.getInitialComponent(),
+					true, "");
 			listenTo(cmc);
 			
 			cmc.activate();
 		}
 	}
 
-
-	/**
-	 * @see org.olat.core.gui.control.DefaultController#event(org.olat.core.gui.UserRequest,
-	 *      org.olat.core.gui.control.Controller, org.olat.core.gui.control.Event)
-	 */
+	@Override
 	public void event(UserRequest ureq, Controller source, Event event) {
 		String cmd = event.getCommand();
 		if (source == searchCtr) {
@@ -403,16 +353,17 @@ public class ReferencableEntriesSearchController extends BasicController {
 				// user selected entry to get a preview
 				selectedRepositoryEntry = searchCtr.getSelectedEntry();
 				RepositoryEntry repositoryEntry = searchCtr.getSelectedEntry();
-				RepositoryHandler typeToLaunch = RepositoryHandlerFactory.getInstance().getRepositoryHandler(repositoryEntry);
+				RepositoryHandler typeToLaunch = repositoryHandlerFactory.getRepositoryHandler(repositoryEntry);
 				if (typeToLaunch == null) {
 					StringBuilder sb = new StringBuilder(translate("error.launch"));
 					sb.append(": No launcher for repository entry: ");
 					sb.append(repositoryEntry.getKey());
-					throw new OLATRuntimeException(RepositoryDetailsController.class, sb.toString(), null);
+					throw new OLATRuntimeException(ReferencableEntriesSearchController.class, sb.toString(), null);
 				}
 				// do skip the increment launch counter, this is only a preview!
 				removeAsListenerAndDispose(previewCtr);
-				previewCtr = typeToLaunch.createLaunchController(repositoryEntry, ureq, getWindowControl());
+				RepositoryEntrySecurity reSecurity = repositoryManager.isAllowed(ureq, repositoryEntry);
+				previewCtr = typeToLaunch.createLaunchController(repositoryEntry, reSecurity, ureq, getWindowControl());
 				listenTo(previewCtr);
 				
 				removeAsListenerAndDispose(previewModalCtr);
@@ -435,22 +386,34 @@ public class ReferencableEntriesSearchController extends BasicController {
 				fireEvent(ureq, EVENT_REPOSITORY_ENTRIES_SELECTED);
 			}
 			//initLinks();
-		}  else if (source == addController) { 
-				if (event.equals(Event.DONE_EVENT)) {
-					cmc.deactivate();
-					
-					selectedRepositoryEntry = addController.getAddedEntry();
-					fireEvent(ureq, EVENT_REPOSITORY_ENTRY_SELECTED);
-					// info message
-					String message = translate("message.entry.selected", new String[] {addController.getAddedEntry().getDisplayname(),addController.getAddedEntry().getResourcename()});
-					getWindowControl().setInfo(message);
-				} else if (event.equals(Event.CANCELLED_EVENT)) {
-					cmc.deactivate();
-					
-				} else if (event.equals(Event.FAILED_EVENT)) {
-					showError("add.failed");
-				}
-			
+		} else if (source == createController) { 
+			if (event.equals(Event.DONE_EVENT)) {
+				cmc.deactivate();
+				
+				selectedRepositoryEntry = createController.getAddedEntry();
+				fireEvent(ureq, EVENT_REPOSITORY_ENTRY_SELECTED);
+				// info message
+				String message = translate("message.entry.selected", new String[] { selectedRepositoryEntry.getDisplayname(), selectedRepositoryEntry.getResourcename()});
+				getWindowControl().setInfo(message);
+			} else if (event.equals(Event.CANCELLED_EVENT)) {
+				cmc.deactivate();
+			} else if (event.equals(Event.FAILED_EVENT)) {
+				showError("add.failed");
+			}
+		} else if (source == importController) { 
+			if (event.equals(Event.DONE_EVENT)) {
+				cmc.deactivate();
+				
+				selectedRepositoryEntry = importController.getImportedEntry();
+				fireEvent(ureq, EVENT_REPOSITORY_ENTRY_SELECTED);
+				// info message
+				String message = translate("message.entry.selected", new String[] { selectedRepositoryEntry.getDisplayname(), selectedRepositoryEntry.getResourcename()});
+				getWindowControl().setInfo(message);
+			} else if (event.equals(Event.CANCELLED_EVENT)) {
+				cmc.deactivate();
+			} else if (event.equals(Event.FAILED_EVENT)) {
+				showError("add.failed");
+			}
 		}
 	}
 	

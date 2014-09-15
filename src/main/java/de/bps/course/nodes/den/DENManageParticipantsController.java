@@ -33,7 +33,8 @@ import org.olat.commons.calendar.model.KalendarEvent;
 import org.olat.core.CoreSpringFactory;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.Component;
-import org.olat.core.gui.components.form.flexible.impl.components.SimpleText;
+import org.olat.core.gui.components.link.Link;
+import org.olat.core.gui.components.link.LinkFactory;
 import org.olat.core.gui.components.table.Table;
 import org.olat.core.gui.components.table.TableController;
 import org.olat.core.gui.components.table.TableEvent;
@@ -75,7 +76,7 @@ public class DENManageParticipantsController extends BasicController {
 	private VelocityContainer participantsVC;
 	private DENParticipantsTableDataModel participantsTableData;
 	private TableController tableManageParticipants;
-	private DENManageParticipantsForm formManageParticipants;
+	private Link addParticipantButton;
 	private UserSearchController userSearchCntrl;
 	private CloseableModalController userSearchCMC;
 	private KalendarEvent selectedEvent;
@@ -119,10 +120,6 @@ public class DENManageParticipantsController extends BasicController {
 			removeAsListenerAndDispose(tableManageParticipants);
 			tableManageParticipants = null;
 		}
-		if(formManageParticipants != null) {
-			removeAsListenerAndDispose(formManageParticipants);
-			formManageParticipants = null;
-		}
 	}
 	
 	@Override
@@ -132,7 +129,7 @@ public class DENManageParticipantsController extends BasicController {
 				TableEvent tableEvent = (TableEvent)event;
 				//open window for choosen date to manage the enrolled users or manually add
 				if(tableEvent.getActionId().equals(DENListTableDataModel.CHANGE_ACTION)) {
-					selectedEvent = (KalendarEvent)listTableData.getObject(tableEvent.getRowId());
+					selectedEvent = listTableData.getObject(tableEvent.getRowId());
 					List<Identity> participants = denManager.getEventParticipants(selectedEvent);
 					participantsTableData = new DENParticipantsTableDataModel(participants);
 					
@@ -140,18 +137,13 @@ public class DENManageParticipantsController extends BasicController {
 					tableManageParticipants = denManager.createParticipantsTable(ureq, getWindowControl(), getTranslator(), participantsTableData);
 					listenTo(tableManageParticipants);
 					
-					removeAsListenerAndDispose(formManageParticipants);
-					formManageParticipants = new DENManageParticipantsForm(ureq, getWindowControl());
-					listenTo(formManageParticipants);
-					
 					participantsVC = createVelocityContainer("participants");
-					SimpleText dateTitle = new SimpleText("dateTitle", translate("dates.table.subject") + ": " + selectedEvent.getSubject());
 					DateFormat df = new SimpleDateFormat();
-					SimpleText dateTimeframe = new SimpleText("dateTimeframe", translate("dates.table.date") + ": " + df.format(selectedEvent.getBegin()) + " - " + df.format(selectedEvent.getEnd()));
-					participantsVC.put("dateTitle", dateTitle);
-					participantsVC.put("dateTimeframe", dateTimeframe);
+					participantsVC.contextPut("dateTitle", selectedEvent.getSubject());
+					participantsVC.contextPut("dateTimeframe", df.format(selectedEvent.getBegin()) + " - " + df.format(selectedEvent.getEnd()));
 					participantsVC.put("participantsTable", tableManageParticipants.getInitialComponent());
-					participantsVC.put("addParticipants", formManageParticipants.getInitialComponent());
+					
+					addParticipantButton = LinkFactory.createButton("participants.add", participantsVC, this);
 					
 					removeAsListenerAndDispose(manageParticipantsModalCntrl);
 					manageParticipantsModalCntrl = new CloseableModalController(getWindowControl(), "close", participantsVC, true, translate("dates.table.participant.manage"));
@@ -177,17 +169,6 @@ public class DENManageParticipantsController extends BasicController {
 					showWarning("participants.message.empty");
 				}
 			}
-		} else if(source == formManageParticipants && event == DENManageParticipantsForm.ADD_PARTICIPANTS) {
-			//open user search controller to manually add users in date
-			removeAsListenerAndDispose(userSearchCntrl);
-			userSearchCntrl = new UserSearchController(ureq, getWindowControl(), true, true);
-			listenTo(userSearchCntrl);
-			
-			removeAsListenerAndDispose(userSearchCMC);
-			userSearchCMC = new CloseableModalController(getWindowControl(), "close", userSearchCntrl.getInitialComponent());
-			listenTo(userSearchCMC);
-			
-			userSearchCMC.activate();
 		} else if(source == userSearchCntrl) {
 			if(event == Event.CANCELLED_EVENT) {
 				userSearchCMC.deactivate();
@@ -229,7 +210,7 @@ public class DENManageParticipantsController extends BasicController {
 				//delete single user from event
 				if(tableEvent.getActionId().equals(DENParticipantsTableDataModel.REMOVE_ACTION)) {
 					Identity identity = participantsTableData.getEntryAt(tableEvent.getRowId());
-					status = denManager.cancelEnroll(identity, selectedEvent, ores, courseNode);
+					status = denManager.cancelEnroll(identity, selectedEvent, ores);
 					if(!status.isCancelled()) showError();
 					//send notification mail
 					else {
@@ -286,7 +267,18 @@ public class DENManageParticipantsController extends BasicController {
 	
 	@Override
 	public void event(UserRequest ureq, Component source, Event event) {
-		// nothing to do
+		if(source == addParticipantButton) {
+			//open user search controller to manually add users in date
+			removeAsListenerAndDispose(userSearchCntrl);
+			userSearchCntrl = new UserSearchController(ureq, getWindowControl(), true, true);
+			listenTo(userSearchCntrl);
+			
+			removeAsListenerAndDispose(userSearchCMC);
+			userSearchCMC = new CloseableModalController(getWindowControl(), "close", userSearchCntrl.getInitialComponent());
+			listenTo(userSearchCMC);
+			
+			userSearchCMC.activate();
+		}
 	}
 	
 	private void showError() {
@@ -315,14 +307,11 @@ public class DENManageParticipantsController extends BasicController {
 		MailTemplate mailTempl = denManager.getAddedMailTemplate(ureq, subjectStr, getTranslator());
 		removeAsListenerAndDispose(addedNotificationCtr);
 
-		addedNotificationCtr = new MailNotificationEditController(getWindowControl(), ureq, mailTempl, false, false);
+		addedNotificationCtr = new MailNotificationEditController(getWindowControl(), ureq, mailTempl, false, false, true);
 		listenTo(addedNotificationCtr);
 		
-		VelocityContainer sendNotificationVC = createVelocityContainer("sendnotification");
-		sendNotificationVC.put("notificationForm", addedNotificationCtr.getInitialComponent());
-		
 		removeAsListenerAndDispose(notificationCmc);
-		notificationCmc = new CloseableModalController(getWindowControl(), "close", sendNotificationVC);
+		notificationCmc = new CloseableModalController(getWindowControl(), "close", addedNotificationCtr.getInitialComponent());
 		listenTo(notificationCmc);
 		
 		notificationCmc.activate();
@@ -331,13 +320,11 @@ public class DENManageParticipantsController extends BasicController {
 	private void createRemovedNotificationMail(UserRequest ureq, String subjectStr) {
 		MailTemplate mailTempl = denManager.getRemovedMailTemplate(ureq, subjectStr, getTranslator());
 		removeAsListenerAndDispose(addedNotificationCtr);
-		addedNotificationCtr = new MailNotificationEditController(getWindowControl(), ureq, mailTempl, false, false);
+		addedNotificationCtr = new MailNotificationEditController(getWindowControl(), ureq, mailTempl, false, false, true);
 		listenTo(addedNotificationCtr);
 		
-		VelocityContainer sendNotificationVC = createVelocityContainer("sendnotification");
-		sendNotificationVC.put("notificationForm", addedNotificationCtr.getInitialComponent());
 		removeAsListenerAndDispose(notificationCmc);
-		notificationCmc = new CloseableModalController(getWindowControl(), "close", sendNotificationVC);
+		notificationCmc = new CloseableModalController(getWindowControl(), "close", addedNotificationCtr.getInitialComponent());
 		listenTo(notificationCmc);
 		
 		notificationCmc.activate();
@@ -351,7 +338,7 @@ public class DENManageParticipantsController extends BasicController {
 		cmsg.addEmailTo(contactList);
 		
 		removeAsListenerAndDispose(contactCtr);
-		contactCtr = new ContactFormController(ureq, getWindowControl(), false, false, false, false, cmsg);
+		contactCtr = new ContactFormController(ureq, getWindowControl(), false, false, false, cmsg);
 		listenTo(contactCtr);
 		
 		sendMessageVC.contextPut("title", translate("participants.message"));

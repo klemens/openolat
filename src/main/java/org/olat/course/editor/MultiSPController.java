@@ -102,7 +102,6 @@ public class MultiSPController extends FormBasicController {
 	
 	@Override
 	protected void initForm(FormItemContainer formLayout, Controller listener, UserRequest ureq) {
-		setFormTitle("multi.sps.title");
 		setFormDescription("multi.sps.desc");
 		
 		if(formLayout instanceof FormLayoutContainer) {
@@ -130,12 +129,12 @@ public class MultiSPController extends FormBasicController {
 	
 		String[] singleKey = new String[]{ node.getId() };
 		String[] singleValue = new String[]{ node.getName() };
-		String[] css = new String[]{ "b_with_small_icon_left " + node.getIconCssClass() };
-		MultipleSelectionElement nodeSelection = uifactory.addCheckboxesVertical("print.node.list." + nodeSelections.size(), layoutcont, singleKey, singleValue, css, 1);
+		String[] iconCSS = new String[]{ "o_icon o_icon-fw " + node.getIconCssClass() };
+		MultipleSelectionElement nodeSelection = uifactory.addCheckboxesVertical("print.node.list." + nodeSelections.size(), layoutcont, singleKey, singleValue, iconCSS, 1);
 		nodeSelection.setLabel("multi.sps.file", null);
 		
 		nodeSelection.setUserObject(node);
-		nodeSelection.addActionListener(this, FormEvent.ONCLICK);
+		nodeSelection.addActionListener(FormEvent.ONCLICK);
 		nodeSelections.add(nodeSelection);
 		identToSelectionMap.put(node.getId(), nodeSelection);
 		layoutcont.add(nodeSelection.getComponent().getComponentName(), nodeSelection);
@@ -296,7 +295,7 @@ public class MultiSPController extends FormBasicController {
 		}
 	}
 
-	public class SelectNodeObject {
+	public static class SelectNodeObject {
 		private final int indentation;
 		private final VFSItem item;
 		private final String id;
@@ -330,13 +329,14 @@ public class MultiSPController extends FormBasicController {
 		
 		public String getIconCssClass() {
 			if(item instanceof VFSContainer) {
-				return "b_filetype_folder";
+				return "o_filetype_folder";
 			}
 			return CSSHelper.createFiletypeIconCssClassFor(item.getName());
 		}
 	}
 	
-	public class MultiFileEvents extends Event {
+	public static class MultiFileEvents extends Event {
+		private static final long serialVersionUID = -5564537741338183501L;
 		private final String currentPath;
 		private final VFSContainer currentContainer;
 		private final List<String> selectedFiles;
@@ -361,7 +361,7 @@ public class MultiSPController extends FormBasicController {
 		}
 	}
 	
-	public class MultiSPVFSItemFilter	implements VFSItemFilter {
+	public class MultiSPVFSItemFilter implements VFSItemFilter {
 		@Override
 		public boolean accept(VFSItem vfsItem) {
 			String name = vfsItem.getName();

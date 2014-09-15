@@ -52,7 +52,10 @@ import org.olat.core.id.UserConstants;
 import org.olat.core.logging.AssertException;
 import org.olat.core.logging.OLog;
 import org.olat.core.logging.Tracing;
+import org.olat.core.util.filter.impl.NekoHTMLFilter;
 import org.olat.core.util.filter.impl.OWASPAntiSamyXSSFilter;
+
+import com.thoughtworks.xstream.core.util.Base64Encoder;
 
 /**
  * enclosing_type Description: <br>
@@ -67,6 +70,8 @@ public class StringHelper {
 	private static final NumberFormat numFormatter;
 	private static final String WHITESPACE_REGEXP = "^\\s*$";
 	private static final Pattern WHITESPACE_PATTERN = Pattern.compile(WHITESPACE_REGEXP);
+	
+	private static final int LONG_MAX_LENGTH = Long.toString(Long.MAX_VALUE).length();
 	
 	/**
 	 * regex for not allowing
@@ -171,18 +176,6 @@ public class StringHelper {
 	}
 
 	/**
-	 * @param mem
-	 * @return formatted memory
-	 */
-	public static String formatMemory(long mem) {
-		long kb = mem / 1024;
-		long mb = kb / 1024;
-		if (mb > 0) return mb + " MB";
-		else if (kb > 0) return kb + " KB";
-		else return mem + " B";
-	}
-
-	/**
 	 * @param f
 	 * @param fractionDigits
 	 * @return formatted float
@@ -210,6 +203,37 @@ public class StringHelper {
 		}
 		return encodedURL;
 	}
+	
+	/**
+	 * Encode the string into a Base64 string.
+	 * 
+	 * @param unencoded The string to encode
+	 * @return The encoded string
+	 */
+	public static String encodeBase64(String unencoded) {
+		return new Base64Encoder().encode(unencoded.getBytes());
+	}
+	
+	/**
+	 * Encode the string into a Base64 string.
+	 * 
+	 * @param unencoded The bytes to encode
+	 * @return The encoded string
+	 */
+	public static String encodeBase64(byte[] unencoded) {
+		return new Base64Encoder().encode(unencoded);
+	}
+	
+	/**
+	 * Decode a Base 64 string.
+	 * 
+	 * @param encoded The string to decode
+	 * @return The decoded string
+	 */
+	public static String decodeBase64(String encoded) {
+		byte[] decoded = new Base64Encoder().decode(encoded);
+		return new String(decoded);
+	}
 
 	/**
 	 * Converts all keys of a hash map to a string array.
@@ -218,7 +242,7 @@ public class StringHelper {
 	 * @return The string array containing all keys for this map
 	 */
 	public static String[] getMapKeysAsStringArray(Map<String,?> m) {
-		return (String[]) m.keySet().toArray(new String[m.size()]);
+		return m.keySet().toArray(new String[m.size()]);
 	}
 
 	/**
@@ -228,7 +252,7 @@ public class StringHelper {
 	 * @return The string array containing all values for this map
 	 */
 	public static String[] getMapValuesAsStringArray(Map<?,String> m) {
-		return (String[]) m.values().toArray(new String[m.size()]);
+		return m.values().toArray(new String[m.size()]);
 	}
 
 	/**
@@ -261,10 +285,16 @@ public class StringHelper {
 		return !matcher.find();
 	}
 	
+	/**
+	 * Check if the string contains some HTML tags
+	 * @param s
+	 * @return
+	 */
 	public static boolean isHtml(String s) {
 		if (s == null) return false;
-
-		return s.contains("<html") || s.contains("<body") || s.contains("<p") || s.contains("<span");
+		
+		String filtered = new NekoHTMLFilter().filter(s, false);
+		return !filtered.equals(s);
 	}
 
 	/**
@@ -384,15 +414,25 @@ public class StringHelper {
 		return FileUtils.normalizeFilename(s);
 	}
 	
+	/**
+	 * The method do only a precheck if the string can be a number. It's goal
+	 * is to prevent to generate hunderds of exceptions in a loop by using
+	 * the Long.parseLong() method (exceptions is time and CPU intensive).
+	 * 
+	 * return True if the string can be a digit (there is not boundaries check)
+	 */
 	public static boolean isLong(String string) {
 		if(string == null || string.length() == 0) {
 			return false;
 		}
 		int stop = string.startsWith("-") ? 1 : 0;
+		if(string.length() > LONG_MAX_LENGTH + stop) {
+			return false;
+		}
 		char[] charArr = string.toCharArray();
 		for(int i=charArr.length; i-->stop; ) {
 			char ch = charArr[i];
-			if(ch < 47 || ch > 58) {
+			if(ch < 48 || ch > 57) {
 				return false;
 			}
 		}

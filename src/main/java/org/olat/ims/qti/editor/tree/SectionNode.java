@@ -51,6 +51,15 @@ public class SectionNode extends GenericQtiNode {
 	private QTIEditorPackage qtiPackage;
 	private TabbedPane myTabbedPane;
 	private SectionController sectionCtrl;
+	
+	
+	public SectionNode(Section theSection) {
+		super(theSection.getIdent());
+		section = theSection;
+		setMenuTitleAndAlt(section.getTitle());
+		setUserObject(section.getIdent());
+		setIconCssClass("o_mi_qtisection");
+	}
 
 	/**
 	 * @param theSection
@@ -129,7 +138,7 @@ public class SectionNode extends GenericQtiNode {
 	public Memento createMemento() {
 		//so far only TITLE and OBJECTIVES are stored in the memento
 		QtiNodeMemento qnm = new  QtiNodeMemento();
-		Map qtiState = new HashMap();
+		Map<String,Object> qtiState = new HashMap<>();
 		qtiState.put("ID",section.getIdent());
 		qtiState.put("TITLE",section.getTitle());
 		qtiState.put("OBJECTIVES",section.getObjectives());
@@ -146,7 +155,7 @@ public class SectionNode extends GenericQtiNode {
 		String retVal = null;
 		if(mem instanceof QtiNodeMemento){
 			QtiNodeMemento qnm = (QtiNodeMemento)mem;
-			Map qtiState = qnm.getQtiState();
+			Map<String,Object> qtiState = qnm.getQtiState();
 			String oldTitle = (String)qtiState.get("TITLE");
 			String newTitle = section.getTitle();
 			String titleChange = null;

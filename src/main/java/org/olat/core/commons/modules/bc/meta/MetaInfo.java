@@ -89,6 +89,8 @@ public interface MetaInfo {
 	 * @return The identity of the initial author.
 	 */
 	public Identity getAuthorIdentity();
+	
+	public boolean hasAuthorIdentity();
 
 	/**
 	 * Corresponds to DublinCore:description
@@ -198,8 +200,20 @@ public interface MetaInfo {
 	
 	public boolean isThumbnailAvailable();
 	
-	public VFSLeaf getThumbnail(int maxWidth, int maxHeight);
+	/**
+	 * The 
+	 * 
+	 * 
+	 * @param maxWidth
+	 * @param maxHeight
+	 * @param fill True if you want to fill the surface defined above (overflow are cut)
+	 * @return
+	 */
+	public VFSLeaf getThumbnail(int maxWidth, int maxHeight, boolean fill);
 	
+	/**
+	 * Thumbnails are cleared and the metadata file is written on the disk
+	 */
 	public void clearThumbnails();
 
 	/**

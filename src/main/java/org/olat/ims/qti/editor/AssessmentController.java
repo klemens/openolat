@@ -67,7 +67,7 @@ public class AssessmentController extends TabbableDefaultController implements C
 		this.assessment = assessment;
 		this.qtiPackage = qtiPackage;
 				
-		main = this.createVelocityContainer("tab_assess");
+		main = createVelocityContainer("tab_assess");
 		main.contextPut("assessment", assessment);
 		// fix missing selection ordering, new feature introduced in 9.3.3
 		if (assessment.getSelection_ordering() == null) {
@@ -131,7 +131,7 @@ public class AssessmentController extends TabbableDefaultController implements C
 					main.contextPut("order_type", assessment.getSelection_ordering().getOrderType());
 					main.contextPut("selection_number", String.valueOf(assessment.getSelection_ordering().getSelectionNumber()));
 					
-					Control tmpControl = (Control) QTIEditHelper.getControl(assessment);
+					Control tmpControl = QTIEditHelper.getControl(assessment);
 					boolean oldInheritControls = assessment.isInheritControls();
 					boolean newInheritControls = ureq.getParameter("inheritswitch").equals("Yes");
 					assessment.setInheritControls(newInheritControls);

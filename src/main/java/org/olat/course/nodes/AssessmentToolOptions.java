@@ -21,6 +21,7 @@ package org.olat.course.nodes;
 
 import java.util.List;
 
+import org.olat.basesecurity.Group;
 import org.olat.core.id.Identity;
 import org.olat.group.BusinessGroup;
 
@@ -34,6 +35,7 @@ public class AssessmentToolOptions {
 	
 	private BusinessGroup group;
 	private List<Identity> identities;
+	private AlternativeToIdentities alternativeToIdentities;
 	
 	public BusinessGroup getGroup() {
 		return group;
@@ -49,5 +51,36 @@ public class AssessmentToolOptions {
 	
 	public void setIdentities(List<Identity> identities) {
 		this.identities = identities;
+	}
+	
+	public AlternativeToIdentities getAlternativeToIdentities() {
+		return alternativeToIdentities;
+	}
+	
+	public void setAlternativeToIdentities(List<Group> groups, boolean mayViewAllUsersAssessments) {
+		alternativeToIdentities = new AlternativeToIdentities();
+		alternativeToIdentities.setGroups(groups);
+		alternativeToIdentities.setMayViewAllUsersAssessments(mayViewAllUsersAssessments);
+	}
+	
+	public static class AlternativeToIdentities {
+		private List<Group> groups;
+		private boolean mayViewAllUsersAssessments;
+
+		public List<Group> getGroups() {
+			return groups;
+		}
+		
+		public void setGroups(List<Group> groups) {
+			this.groups = groups;
+		}
+		
+		public boolean isMayViewAllUsersAssessments() {
+			return mayViewAllUsersAssessments;
+		}
+		
+		public void setMayViewAllUsersAssessments(boolean mayViewAllUsersAssessments) {
+			this.mayViewAllUsersAssessments = mayViewAllUsersAssessments;
+		}	
 	}
 }

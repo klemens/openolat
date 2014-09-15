@@ -20,7 +20,7 @@
 package org.olat.core.gui.components.download;
 
 import org.olat.core.gui.UserRequest;
-import org.olat.core.gui.components.Component;
+import org.olat.core.gui.components.AbstractComponent;
 import org.olat.core.gui.components.ComponentRenderer;
 import org.olat.core.gui.media.MediaResource;
 import org.olat.core.util.vfs.VFSLeaf;
@@ -36,7 +36,7 @@ import org.olat.core.util.vfs.VFSMediaResource;
  * 
  * @author gnaegi
  */
-public class DownloadComponent extends Component {
+public class DownloadComponent extends AbstractComponent {
 	private static final ComponentRenderer RENDERER = new DownloadComponentRenderer();
 	private MediaResource mediaResource;
 	private String linkText;
@@ -58,6 +58,7 @@ public class DownloadComponent extends Component {
 	public DownloadComponent(String name, MediaResource downloadItem) {
 		super(name);
 		this.mediaResource = downloadItem;
+		this.setDomReplacementWrapperRequired(false); // we provide our own DOM replacement ID
 	}
 
 	/**
@@ -72,7 +73,7 @@ public class DownloadComponent extends Component {
 	 * @param linkToolTip
 	 *            an optional tool tip (hover text over link)
 	 * @param linkCssIconClass
-	 *            an optional css icon class. Note that b_with_small_icon_left
+	 *            an optional css icon class. Note that o_icon
 	 *            will be added when this argument is used. Use the render
 	 *            argument when you want to provide additional CSS classes.
 	 */
@@ -152,7 +153,7 @@ public class DownloadComponent extends Component {
 	/**
 	 * @param linkCssIconClass
 	 *            The link icon css class or NULL if no css should be used. Note
-	 *            that b_with_small_icon_left will be added when this argument
+	 *            that o_icon will be added when this argument
 	 *            is used. Use the render argument when you want to provide
 	 *            additional CSS classes.
 	 */
@@ -194,7 +195,7 @@ public class DownloadComponent extends Component {
 	private static String getCssIconClass(String fileName) {
 		int typePos = fileName.lastIndexOf(".");
 		if (typePos > 0) {
-			return "b_filetype_" + fileName.substring(typePos + 1);
+			return "o_filetype_" + fileName.substring(typePos + 1);
 		}
 		return null;
 	}

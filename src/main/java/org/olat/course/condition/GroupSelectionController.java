@@ -25,18 +25,15 @@
 package org.olat.course.condition;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
-import java.util.Set;
 
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.form.flexible.FormItemContainer;
+import org.olat.core.gui.components.form.flexible.elements.FormLink;
 import org.olat.core.gui.components.form.flexible.elements.MultipleSelectionElement;
-import org.olat.core.gui.components.form.flexible.elements.Reset;
-import org.olat.core.gui.components.form.flexible.elements.Submit;
 import org.olat.core.gui.components.form.flexible.impl.FormBasicController;
-import org.olat.core.gui.components.form.flexible.impl.elements.FormLinkImpl;
-import org.olat.core.gui.components.form.flexible.impl.elements.FormReset;
-import org.olat.core.gui.components.form.flexible.impl.elements.FormSubmit;
+import org.olat.core.gui.components.link.Link;
 import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.Event;
 import org.olat.core.gui.control.WindowControl;
@@ -59,7 +56,7 @@ import org.olat.repository.RepositoryManager;
 public class GroupSelectionController extends FormBasicController {
 
 	private MultipleSelectionElement entrySelector;
-	private FormLinkImpl createNew;
+	private FormLink createNew;
 	private CourseGroupManager courseGrpMngr;
 	private NewBGController groupCreateCntrllr;
 	private CloseableModalController cmc;
@@ -68,8 +65,8 @@ public class GroupSelectionController extends FormBasicController {
 	private String[] groupKeys;
 	private boolean createEnable;
 
-	public GroupSelectionController(UserRequest ureq, WindowControl wControl, String title,
-			boolean allowCreate, CourseGroupManager courseGrpMngr, List<Long> selectionKeys) {
+	public GroupSelectionController(UserRequest ureq, WindowControl wControl, boolean allowCreate,
+			CourseGroupManager courseGrpMngr, List<Long> selectionKeys) {
 		super(ureq, wControl, "group_or_area_selection");
 		this.courseGrpMngr = courseGrpMngr;
 
@@ -122,7 +119,7 @@ public class GroupSelectionController extends FormBasicController {
 			if (event == Event.DONE_EVENT) {
 				loadNamesAndKeys();
 				// select new value
-				entrySelector.setKeysAndValues(groupKeys, groupNames, null);
+				entrySelector.setKeysAndValues(groupKeys, groupNames);
 				entrySelector.select(groupCreateCntrllr.getCreatedGroup().getKey().toString(), true);
 				
 				//inform condition config easy about new groups -> which informs further
@@ -143,20 +140,12 @@ public class GroupSelectionController extends FormBasicController {
 	protected void initForm(FormItemContainer formLayout, Controller listener, UserRequest ureq) {
 		if(createEnable) {
 			// easy creation only possible if a default group context available
-			createNew = new FormLinkImpl("create");
-			//is a button
-			createNew.setCustomEnabledLinkCSS("b_button");
-			createNew.setCustomDisabledLinkCSS("b_button b_disabled");
-			// create new group/area on the right side
-			formLayout.add(createNew);
+			createNew = uifactory.addFormLink("create", formLayout, Link.BUTTON);
 		}
 
-		entrySelector = uifactory.addCheckboxesVertical("entries",  null, formLayout, groupKeys, groupNames, null, 1);
-		// submitCancel after checkboxes
-		Submit subm = new FormSubmit("subm", "apply");
-		Reset reset = new FormReset("reset", "cancel");
-		formLayout.add(subm);
-		formLayout.add(reset);
+		entrySelector = uifactory.addCheckboxesVertical("entries",  null, formLayout, groupKeys, groupNames, 1);
+		uifactory.addFormSubmitButton("subm", "apply", formLayout);
+		uifactory.addFormCancelButton("cancel", formLayout, ureq, getWindowControl());
 	}
 
 	@Override
@@ -169,7 +158,7 @@ public class GroupSelectionController extends FormBasicController {
 		fireEvent(ureq, Event.CANCELLED_EVENT);
 	}
 
-	public Set<String> getSelectedEntries() {
+	public Collection<String> getSelectedEntries() {
 		return entrySelector.getSelectedKeys();
 	}
 	
@@ -184,7 +173,7 @@ public class GroupSelectionController extends FormBasicController {
 	}
 	
 	public List<Long> getSelectedKeys() {
-		Set<String> selectedKeys = entrySelector.getSelectedKeys();
+		Collection<String> selectedKeys = entrySelector.getSelectedKeys();
 		List<Long> groupKeys = new ArrayList<Long>();
 		for(String selectedKey:selectedKeys) {
 			groupKeys.add(new Long(selectedKey));

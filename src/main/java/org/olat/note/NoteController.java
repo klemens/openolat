@@ -45,6 +45,7 @@ import org.olat.core.util.event.EventBus;
 import org.olat.core.util.event.GenericEventListener;
 import org.olat.core.util.resource.OLATResourceableJustBeforeDeletedEvent;
 import org.olat.core.util.resource.OresHelper;
+import org.springframework.beans.factory.annotation.Autowired;
 
 /**
  * Initial Date: Dec 9, 2004
@@ -58,12 +59,14 @@ import org.olat.core.util.resource.OresHelper;
  */
 public class NoteController extends FormBasicController implements GenericEventListener {
 
-	private NoteManager nm;
 	private Note n;
 	private EventBus sec;
 	private RichTextElement noteField;
 	private FormLink editButton;
 	private FormSubmit submitButton;
+	
+	@Autowired
+	private NoteManager nm;
 
 	/**
 	 * @param ureq
@@ -98,8 +101,7 @@ public class NoteController extends FormBasicController implements GenericEventL
 
 	private void init(UserRequest ureq, String resourceTypeName, Long resourceTypeId, String noteTitle) {
 		Identity owner = ureq.getIdentity();
-		this.nm = NoteManager.getInstance();
-		this.n = nm.loadNoteOrCreateInRAM(owner, resourceTypeName, resourceTypeId);
+		n = nm.loadNoteOrCreateInRAM(owner, resourceTypeName, resourceTypeId);
 		n.setNoteTitle(noteTitle);
 
 		// register for local event (for the same user), is used to dispose
@@ -121,15 +123,16 @@ public class NoteController extends FormBasicController implements GenericEventL
 
 		// we don't use FormUIFactory.addFormSubmitButton(...) here since that would cause the following custom CSS setting to get ignored.
 		editButton = new FormLinkImpl("edit", "edit", "edit", Link.BUTTON_SMALL);
-		editButton.setCustomEnabledLinkCSS("b_float_right b_button b_small");
+		editButton.setCustomEnabledLinkCSS("pull-right btn btn-default");
+		editButton.setIconLeftCSS("o_icon o_icon-fw o_icon_edit");
 		formLayout.add(editButton);
 		
 		noteField = uifactory.addRichTextElementForStringData("noteField", null, n.getNoteText(), 20, -1, false, null, null, formLayout, ureq.getUserSession(), getWindowControl());
 		noteField.setEnabled(false);
 		noteField.setMaxLength(4000);
 
-		this.submitButton = uifactory.addFormSubmitButton("submit", formLayout);
-		this.submitButton.setVisible(false);
+		submitButton = uifactory.addFormSubmitButton("submit", formLayout);
+		submitButton.setVisible(false);
 	}
 
 	private void createOrUpdateNote(String content) {
@@ -182,7 +185,6 @@ public class NoteController extends FormBasicController implements GenericEventL
 	}
 
 	@Override
-	@SuppressWarnings("unused")
 	protected void formOK(UserRequest ureq) {
 		// if the user clicked on the submit button...
 		String text = noteField.getValue();
@@ -201,7 +203,6 @@ public class NoteController extends FormBasicController implements GenericEventL
 	 *      org.olat.core.gui.components.form.flexible.impl.FormEvent)
 	 */
 	@Override
-	@SuppressWarnings("unused")
 	protected void formInnerEvent(UserRequest ureq, FormItem source, FormEvent event) {
 		// persisting: see formOK
 		

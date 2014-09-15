@@ -34,7 +34,6 @@ import org.olat.group.BusinessGroup;
 import org.olat.group.BusinessGroupService;
 import org.olat.group.area.BGArea;
 import org.olat.group.area.BGAreaManager;
-import org.olat.group.model.DisplayMembers;
 import org.olat.group.model.SearchBusinessGroupParams;
 import org.olat.repository.RepositoryEntry;
 import org.olat.test.JunitTestHelper;
@@ -72,14 +71,14 @@ public class BusinessGroupImportExportTest extends OlatTestCase {
 		dbInstance.commitAndCloseSession();	
 		
 		//check if all three groups are imported
-		List<BusinessGroup> groups = businessGroupService.findBusinessGroups(null, resource.getOlatResource(), 0, -1);
+		List<BusinessGroup> groups = businessGroupService.findBusinessGroups(null, resource, 0, -1);
 		Assert.assertNotNull(groups);
 		Assert.assertEquals(3, groups.size());
 		
 		//get first group (members true, true, false) (no collaboration tools)
 		SearchBusinessGroupParams params = new SearchBusinessGroupParams();
 		params.setExactName("Export group 1");
-		List<BusinessGroup> group1List = businessGroupService.findBusinessGroups(params, resource.getOlatResource(), 0, -1);
+		List<BusinessGroup> group1List = businessGroupService.findBusinessGroups(params, resource, 0, -1);
 		Assert.assertNotNull(group1List);
 		Assert.assertEquals(1, group1List.size());
 		//check settings of the first group
@@ -89,10 +88,9 @@ public class BusinessGroupImportExportTest extends OlatTestCase {
 		Assert.assertFalse(group1.getAutoCloseRanksEnabled().booleanValue());
 		Assert.assertFalse(group1.getWaitingListEnabled().booleanValue());
 		//check display members settings
-		DisplayMembers displayMembersGroup1 = businessGroupService.getDisplayMembers(group1);
-		Assert.assertTrue(displayMembersGroup1.isShowOwners());
-		Assert.assertTrue(displayMembersGroup1.isShowParticipants());
-		Assert.assertFalse(displayMembersGroup1.isShowWaitingList());
+		Assert.assertTrue(group1.isOwnersVisibleIntern());
+		Assert.assertTrue(group1.isParticipantsVisibleIntern());
+		Assert.assertFalse(group1.isWaitingListVisibleIntern());
 		//check collaboration tools
 		CollaborationTools toolGroup1 = CollaborationToolsFactory.getInstance().getCollaborationToolsIfExists(group1);
 		Assert.assertNotNull(toolGroup1);
@@ -107,7 +105,7 @@ public class BusinessGroupImportExportTest extends OlatTestCase {
 
 		//get third group (members true, true, true) (all collaboration tools)
 		params.setExactName("Export group 3");
-		List<BusinessGroup> group3List = businessGroupService.findBusinessGroups(params, resource.getOlatResource(), 0, -1);
+		List<BusinessGroup> group3List = businessGroupService.findBusinessGroups(params, resource, 0, -1);
 		Assert.assertNotNull(group3List);
 		Assert.assertEquals(1, group3List.size());
 		//check settings of the first group
@@ -118,10 +116,9 @@ public class BusinessGroupImportExportTest extends OlatTestCase {
 		Assert.assertTrue(group3.getWaitingListEnabled().booleanValue());
 		Assert.assertEquals(new Integer(25), group3.getMaxParticipants());
 		//check display members settings
-		DisplayMembers displayMembersGroup3 = businessGroupService.getDisplayMembers(group3);
-		Assert.assertTrue(displayMembersGroup3.isShowOwners());
-		Assert.assertTrue(displayMembersGroup3.isShowParticipants());
-		Assert.assertTrue(displayMembersGroup3.isShowWaitingList());
+		Assert.assertTrue(group3.isOwnersVisibleIntern());
+		Assert.assertTrue(group3.isParticipantsVisibleIntern());
+		Assert.assertTrue(group3.isWaitingListVisibleIntern());
 		//check collaboration tools
 		CollaborationTools toolGroup3 = CollaborationToolsFactory.getInstance().getCollaborationToolsIfExists(group3);
 		Assert.assertNotNull(toolGroup3);
@@ -146,7 +143,7 @@ public class BusinessGroupImportExportTest extends OlatTestCase {
 		dbInstance.commitAndCloseSession();
 		
 		//check if all three groups are imported
-		List<BusinessGroup> groups = businessGroupService.findBusinessGroups(null, resource.getOlatResource(), 0, -1);
+		List<BusinessGroup> groups = businessGroupService.findBusinessGroups(null, resource, 0, -1);
 		Assert.assertNotNull(groups);
 		Assert.assertEquals(3, groups.size());
 		

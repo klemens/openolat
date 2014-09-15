@@ -29,7 +29,7 @@ import org.olat.core.commons.fullWebApp.LayoutMain3ColsController;
 import org.olat.core.commons.fullWebApp.popup.BaseFullWebappPopupLayoutFactory;
 import org.olat.core.commons.modules.singlepage.SinglePageController;
 import org.olat.core.gui.UserRequest;
-import org.olat.core.gui.components.stack.StackedController;
+import org.olat.core.gui.components.stack.BreadcrumbPanel;
 import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.WindowControl;
 import org.olat.core.gui.control.creator.ControllerCreator;
@@ -56,7 +56,6 @@ import org.olat.course.groupsandrights.CourseRights;
 import org.olat.course.nodes.AbstractAccessableCourseNode;
 import org.olat.course.nodes.AssessableCourseNode;
 import org.olat.course.nodes.CourseNode;
-import org.olat.course.nodes.STCourseNode;
 import org.olat.course.nodes.StatusDescriptionHelper;
 import org.olat.course.run.navigation.NodeRunConstructionResult;
 import org.olat.course.run.scoring.ScoreCalculator;
@@ -109,8 +108,7 @@ public class BBautOLATStructureNode extends AbstractAccessableCourseNode impleme
 		childTabCntrllr = new BBautOLATStructureNodeEditController(ureq, wControl, this, course.getCourseFolderContainer(), 
 				course.getCourseEnvironment().getCourseGroupManager(), course.getEditorTreeModel(), euce);
 		CourseNode chosenNode = course.getEditorTreeModel().getCourseNode(euce.getCourseEditorEnv().getCurrentCourseNodeId());
-		return new NodeEditController(ureq, wControl, course.getEditorTreeModel(), course, chosenNode, course.getCourseEnvironment()
-				.getCourseGroupManager(), euce, childTabCntrllr);
+		return new NodeEditController(ureq, wControl, course.getEditorTreeModel(), course, chosenNode, euce, childTabCntrllr);
 	}
 
 	/**
@@ -132,8 +130,7 @@ public class BBautOLATStructureNode extends AbstractAccessableCourseNode impleme
 			// we need to do exactly the same task
 			Boolean allowRelativeLinks = getModuleConfiguration().getBooleanEntry(BBautOLATStructureNodeEditController.CONFIG_KEY_ALLOW_RELATIVE_LINKS);
 			OLATResourceable ores = OresHelper.createOLATResourceableInstance(CourseModule.class, userCourseEnv.getCourseEnvironment().getCourseResourceableId());
-			SinglePageController spCtr = new SinglePageController(ureq, wControl, userCourseEnv.getCourseEnvironment().getCourseFolderContainer(), relPath, null, allowRelativeLinks
-					.booleanValue(), ores, null);
+			SinglePageController spCtr = new SinglePageController(ureq, wControl, userCourseEnv.getCourseEnvironment().getCourseFolderContainer(), relPath, allowRelativeLinks.booleanValue(), ores, null);
 			// check if user is allowed to edit the page in the run view
 			CourseGroupManager cgm = userCourseEnv.getCourseEnvironment().getCourseGroupManager();
 			boolean hasEditRights = (cgm.isIdentityCourseAdministrator(ureq.getIdentity()) || cgm.hasRight(ureq.getIdentity(),
@@ -526,7 +523,7 @@ public class BBautOLATStructureNode extends AbstractAccessableCourseNode impleme
 
 	@Override
 	public Controller getDetailsEditController(UserRequest ureq,
-			WindowControl wControl, StackedController stackPanel,
+			WindowControl wControl, BreadcrumbPanel stackPanel,
 			UserCourseEnvironment userCourseEnvironment) {
 		// TODO Auto-generated method stub
 		throw new OLATRuntimeException(BBautOLATStructureNode.class, "Details controler not available in ST nodes", null);
@@ -535,7 +532,7 @@ public class BBautOLATStructureNode extends AbstractAccessableCourseNode impleme
 
 	@Override
 	public TabbableController createEditController(UserRequest ureq,
-			WindowControl wControl, StackedController stackPanel,
+			WindowControl wControl, BreadcrumbPanel stackPanel,
 			ICourse course, UserCourseEnvironment euce) { 
 		// TODO Auto-generated method stub
 		updateModuleConfigDefaults(false);
@@ -544,8 +541,7 @@ public class BBautOLATStructureNode extends AbstractAccessableCourseNode impleme
 		childTabCntrllr = new BBautOLATStructureNodeEditController(ureq, wControl, this, course.getCourseFolderContainer(), 
 				course.getCourseEnvironment().getCourseGroupManager(), course.getEditorTreeModel(), euce);
 		CourseNode chosenNode = course.getEditorTreeModel().getCourseNode(euce.getCourseEditorEnv().getCurrentCourseNodeId());
-		return new NodeEditController(ureq, wControl, course.getEditorTreeModel(), course, chosenNode, course.getCourseEnvironment()
-				.getCourseGroupManager(), euce, childTabCntrllr);
+		return new NodeEditController(ureq, wControl, course.getEditorTreeModel(), course, chosenNode, euce, childTabCntrllr);
 	}
 
 }

@@ -106,7 +106,7 @@ class PublishStepCatalog extends BasicStep {
 		return new PublishStepCatalogForm(ureq, wControl, form, stepsRunContext, courseEnv, rootNode);
 	}
 	
-	class PublishStepCatalogForm extends StepFormBasicController {
+	static class PublishStepCatalogForm extends StepFormBasicController {
 		
 		private FormLink addToCatalog;
 		private SingleSelection catalogBox;
@@ -153,7 +153,7 @@ class PublishStepCatalog extends BasicStep {
 					translate("no")
 				};
 			catalogBox = uifactory.addDropdownSingleselect("catalogBox", "publish.catalog.box", fc, keys, values, null);
-			catalogBox.addActionListener(this, FormEvent.ONCHANGE);
+			catalogBox.addActionListener(FormEvent.ONCHANGE);
 			if(!StringHelper.containsNonWhitespace(value)) {
 				value = "yes";
 			}

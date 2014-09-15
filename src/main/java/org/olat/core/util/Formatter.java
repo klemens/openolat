@@ -42,7 +42,6 @@ import java.util.StringTokenizer;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import org.olat.core.commons.chiefcontrollers.BaseChiefController;
 import org.olat.core.dispatcher.impl.StaticMediaDispatcher;
 import org.olat.core.gui.render.StringOutput;
 import org.olat.core.helpers.Settings;
@@ -57,7 +56,7 @@ public class Formatter {
 
 	private static final DateFormat formatterDatetimeFilesystem = new SimpleDateFormat("yyyy-MM-dd'T'HH-mm-ss_SSS");
 	private static final DateFormat formatDateTime = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss");
-	
+
 	private static final Map<Locale,Formatter> localToFormatterMap = new HashMap<Locale,Formatter>();
 	
 	private final Locale locale;
@@ -242,23 +241,36 @@ public class Formatter {
 	}
 	
 	/**
+	 * Format the given bytes to human readable format
+	 * @param bytes the byte count
+	 * @return human readable formatted bytes
+	 */
+	public static String formatBytes(long bytes) {
+	    int unit = 1000;
+	    if (bytes < unit) return bytes + " B";
+	    int exp = (int) (Math.log(bytes) / Math.log(unit));
+	    String pre = "kMGTPE".charAt(exp-1) + "";
+	    return String.format("%.1f %sB", bytes / Math.pow(unit, exp), pre);
+	}	
+	/**
 	 * Escape " with \" in strings
 	 * @param source
 	 * @return escaped string
 	 */
 	public static StringBuilder escapeDoubleQuotes(String source) {
-		if (source == null) return null;
 		StringBuilder sb = new StringBuilder(300);
-		int len = source.length();
-		char[] cs = source.toCharArray();
-		for (int i = 0; i < len; i++) {
-			char c = cs[i];
-			switch (c) {
-				case '"':
-					sb.append("&quot;");
-					break;
-				default:
-					sb.append(c);
+		if (source != null) {
+			int len = source.length();
+			char[] cs = source.toCharArray();
+			for (int i = 0; i < len; i++) {
+				char c = cs[i];
+				switch (c) {
+					case '"':
+						sb.append("&quot;");
+						break;
+					default:
+						sb.append(c);
+				}
 			}
 		}
 		return sb;
@@ -489,7 +501,7 @@ public class Formatter {
 	public static String formatLatexFormulas(String htmlFragment) {
 		if (htmlFragment == null) return "";
 		// optimize, reduce jsmath calls on client
-		if (BaseChiefController.isJsMathEnabled() && (htmlFragment.contains("class='math'") || htmlFragment.contains("class=\"math\""))) {
+		if ((htmlFragment.contains("class='math'") || htmlFragment.contains("class=\"math\""))) {
 			// add math wrapper
 			String domid = "mw_" + CodeHelper.getRAMUniqueID();
 			String elem = htmlFragment.contains("<div") ? "div" : "span";
@@ -539,16 +551,21 @@ public class Formatter {
 			sb.append(url);
 			sb.append("\"");
 			if (url.startsWith("mailto")) {
-				sb.append(" target=\"_blank\" class=\"b_link_mailto\"");				
+				sb.append(" target=\"_blank\"");				
 			}
 			// OpenOLAT URL's are opened in same window, all other URL's in separate window
 			else if (!url.startsWith(Settings.getServerContextPathURI())) {
-				sb.append(" target=\"_blank\" class=\"b_link_extern\"");				
-			}
-			else {
-				sb.append(" class=\"b_link_forward\"");				
+				sb.append(" target=\"_blank\"");				
 			}
 			sb.append(">");
+			if (url.startsWith("mailto")) {
+				sb.append("<i class='o_icon o_icon_mail'> </i> ");					
+			} else if (!url.startsWith(Settings.getServerContextPathURI())) {
+				sb.append("<i class='o_icon o_icon_link_extern'> </i> ");				
+			} else {
+				sb.append("<i class='o_icon o_icon_star'> </i> ");
+			}
+			
 			sb.append(url);
 			sb.append("</a>");
 		}
@@ -588,29 +605,29 @@ public class Formatter {
 		
 		Matcher matcher;
 		matcher = confusedPattern.matcher(textFragment);
-		textFragment= matcher.replaceAll("<img src='" + emptyGifUrl + "' class='b_emoticons_confused' />");
+		textFragment= matcher.replaceAll("<img src='" + emptyGifUrl + "' class='o_emoticons_confused' />");
 		matcher = coolPattern.matcher(textFragment);
-		textFragment= matcher.replaceAll("<img src='" + emptyGifUrl + "' class='b_emoticons_cool' />");
+		textFragment= matcher.replaceAll("<img src='" + emptyGifUrl + "' class='o_emoticons_cool' />");
 		matcher = angryPattern.matcher(textFragment);
-		textFragment= matcher.replaceAll("<img src='" + emptyGifUrl + "' class='b_emoticons_angry' />");
+		textFragment= matcher.replaceAll("<img src='" + emptyGifUrl + "' class='o_emoticons_angry' />");
 		matcher = grinPattern.matcher(textFragment);
-		textFragment= matcher.replaceAll("<img src='" + emptyGifUrl + "' class='b_emoticons_grin' />");
+		textFragment= matcher.replaceAll("<img src='" + emptyGifUrl + "' class='o_emoticons_grin' />");
 		matcher = kissPattern.matcher(textFragment);
-		textFragment= matcher.replaceAll("<img src='" + emptyGifUrl + "' class='b_emoticons_kiss' />");
+		textFragment= matcher.replaceAll("<img src='" + emptyGifUrl + "' class='o_emoticons_kiss' />");
 		matcher = ohohPattern.matcher(textFragment);
-		textFragment= matcher.replaceAll("<img src='" + emptyGifUrl + "' class='b_emoticons_ohoh' />");
+		textFragment= matcher.replaceAll("<img src='" + emptyGifUrl + "' class='o_emoticons_ohoh' />");
 		matcher = angelPattern.matcher(textFragment); // must be before smile pattern
-		textFragment= matcher.replaceAll("<img src='" + emptyGifUrl + "' class='b_emoticons_angel' />");
+		textFragment= matcher.replaceAll("<img src='" + emptyGifUrl + "' class='o_emoticons_angel' />");
 		matcher = smilePattern.matcher(textFragment); 
-		textFragment= matcher.replaceAll("<img src='" + emptyGifUrl + "' class='b_emoticons_smile' />");
+		textFragment= matcher.replaceAll("<img src='" + emptyGifUrl + "' class='o_emoticons_smile' />");
 		matcher = sadPattern.matcher(textFragment);
-		textFragment= matcher.replaceAll("<img src='" + emptyGifUrl + "' class='b_emoticons_sad' />");
+		textFragment= matcher.replaceAll("<img src='" + emptyGifUrl + "' class='o_emoticons_sad' />");
 		matcher = tonguePattern.matcher(textFragment); 
-		textFragment= matcher.replaceAll("<img src='" + emptyGifUrl + "' class='b_emoticons_tongue' />");
+		textFragment= matcher.replaceAll("<img src='" + emptyGifUrl + "' class='o_emoticons_tongue' />");
 		matcher = upPattern.matcher(textFragment); 
-		textFragment= matcher.replaceAll("<img src='" + emptyGifUrl + "' class='b_emoticons_up' />");
+		textFragment= matcher.replaceAll("<img src='" + emptyGifUrl + "' class='o_emoticons_up' />");
 		matcher = downPattern.matcher(textFragment); 
-		textFragment= matcher.replaceAll("<img src='" + emptyGifUrl + "' class='b_emoticons_down' />");
+		textFragment= matcher.replaceAll("<img src='" + emptyGifUrl + "' class='o_emoticons_down' />");
 				
 		return textFragment;
 	}

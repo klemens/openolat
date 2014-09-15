@@ -26,13 +26,16 @@
 package org.olat.course.nodes.projectbroker;
 
 import org.olat.admin.quota.QuotaConstants;
-import org.olat.admin.securitygroup.gui.GroupController;
 import org.olat.admin.securitygroup.gui.IdentitiesAddEvent;
 import org.olat.admin.securitygroup.gui.IdentitiesRemoveEvent;
+import org.olat.basesecurity.Group;
+import org.olat.basesecurity.GroupRoles;
+import org.olat.basesecurity.ui.GroupController;
 import org.olat.core.CoreSpringFactory;
 import org.olat.core.commons.modules.bc.FolderRunController;
 import org.olat.core.commons.modules.bc.vfs.OlatNamedContainerImpl;
 import org.olat.core.commons.modules.bc.vfs.OlatRootFolderImpl;
+import org.olat.core.commons.services.notifications.SubscriptionContext;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.Component;
 import org.olat.core.gui.components.link.Link;
@@ -47,11 +50,9 @@ import org.olat.core.gui.control.generic.closablewrapper.CloseableModalControlle
 import org.olat.core.gui.control.generic.modal.DialogBoxController;
 import org.olat.core.gui.control.generic.modal.DialogBoxUIFactory;
 import org.olat.core.gui.control.generic.tabbable.ActivateableTabbableDefaultController;
-import org.olat.core.gui.translator.PackageTranslator;
 import org.olat.core.gui.translator.Translator;
 import org.olat.core.util.Util;
 import org.olat.core.util.mail.MailTemplate;
-import org.olat.core.util.notifications.SubscriptionContext;
 import org.olat.core.util.vfs.Quota;
 import org.olat.core.util.vfs.QuotaManager;
 import org.olat.core.util.vfs.callbacks.VFSSecurityCallback;
@@ -61,14 +62,14 @@ import org.olat.course.assessment.AssessmentHelper;
 import org.olat.course.auditing.UserNodeAuditManager;
 import org.olat.course.condition.ConditionEditController;
 import org.olat.course.editor.NodeEditController;
-import org.olat.course.groupsandrights.CourseGroupManager;
 import org.olat.course.nodes.ProjectBrokerCourseNode;
 import org.olat.course.nodes.TACourseNode;
 import org.olat.course.nodes.ms.MSCourseNodeEditController;
 import org.olat.course.nodes.ms.MSEditFormController;
 import org.olat.course.nodes.projectbroker.datamodel.ProjectBroker;
-import org.olat.course.nodes.projectbroker.service.ProjectBrokerManagerFactory;
+import org.olat.course.nodes.projectbroker.service.ProjectBrokerManager;
 import org.olat.course.nodes.projectbroker.service.ProjectBrokerModuleConfiguration;
+import org.olat.course.nodes.projectbroker.service.ProjectGroupManager;
 import org.olat.course.nodes.ta.DropboxForm;
 import org.olat.course.properties.CoursePropertyManager;
 import org.olat.course.run.userview.UserCourseEnvironment;
@@ -107,7 +108,7 @@ public class ProjectBrokerCourseEditorController extends ActivateableTabbableDef
 	private VelocityContainer accessabilityVC, optionsFormVC, accountManagementFormVC;
 	private VelocityContainer editModules, editDropbox, editScoring;
 	private TabbedPane myTabbedPane;
-	private int  dropboxTabPosition, scoringTabPosition;
+	private int dropboxTabPosition;
 	private ModulesFormController modulesForm;
 	private DropboxForm dropboxForm;
 	private MSEditFormController scoringController;
@@ -129,6 +130,8 @@ public class ProjectBrokerCourseEditorController extends ActivateableTabbableDef
 	private Long projectBrokerId;
 	
 	private final BusinessGroupService businessGroupService;
+	private final ProjectBrokerManager projectBrokerManager;
+	private final ProjectGroupManager projectGroupManager;
 	
 	/**
 	 * @param ureq
@@ -138,34 +141,36 @@ public class ProjectBrokerCourseEditorController extends ActivateableTabbableDef
 	 * @param groupMgr
 	 */
 	protected ProjectBrokerCourseEditorController(UserRequest ureq, WindowControl wControl, ICourse course, ProjectBrokerCourseNode node,
-			CourseGroupManager groupMgr, UserCourseEnvironment euce) {
+			UserCourseEnvironment euce) {
 		super(ureq, wControl);
 		
 		businessGroupService = CoreSpringFactory.getImpl(BusinessGroupService.class);
+		projectBrokerManager = CoreSpringFactory.getImpl(ProjectBrokerManager.class);
+		projectGroupManager = CoreSpringFactory.getImpl(ProjectGroupManager.class);
 
 		this.node = node;
 		//o_clusterOk by guido: save to hold reference to course inside editor
 		this.courseId = course.getResourceableId();
 		this.config = node.getModuleConfiguration();
 		projectBrokerModuleConfiguration	= new ProjectBrokerModuleConfiguration(node.getModuleConfiguration());
-		Translator fallbackTranslator = new PackageTranslator(Util.getPackageName(DropboxForm.class), ureq.getLocale(), new PackageTranslator(Util.getPackageName(MSCourseNodeEditController.class), ureq.getLocale()));
-		Translator myTranslator = new PackageTranslator( Util.getPackageName(ProjectBrokerCourseEditorController.class), ureq.getLocale(),	fallbackTranslator);
+		Translator fallbackTranslator = Util.createPackageTranslator(DropboxForm.class, ureq.getLocale(), Util.createPackageTranslator(MSCourseNodeEditController.class, ureq.getLocale()));
+		Translator myTranslator = Util.createPackageTranslator(ProjectBrokerCourseEditorController.class, ureq.getLocale(),	fallbackTranslator);
 		setTranslator(myTranslator);
 
 		// check if a project-broker exists
 		CoursePropertyManager cpm = course.getCourseEnvironment().getCoursePropertyManager();
-		projectBrokerId = ProjectBrokerManagerFactory.getProjectBrokerManager().getProjectBrokerId(cpm, node);
+		projectBrokerId = projectBrokerManager.getProjectBrokerId(cpm, node);
 		if (projectBrokerId == null) {
 			// no project-broker exist => create a new one, happens only once
-			ProjectBroker projectBroker = ProjectBrokerManagerFactory.getProjectBrokerManager().createAndSaveProjectBroker();
+			ProjectBroker projectBroker = projectBrokerManager.createAndSaveProjectBroker();
 			projectBrokerId = projectBroker.getKey();
-			ProjectBrokerManagerFactory.getProjectBrokerManager().saveProjectBrokerId(projectBrokerId, cpm, node);
+			projectBrokerManager.saveProjectBrokerId(projectBrokerId, cpm, node);
 		} 
 	
 		// Access
 		accessabilityVC = this.createVelocityContainer("edit_condition");
 		// ProjectBroker precondition
-		projectBrokerConditionController = new ConditionEditController(ureq, getWindowControl(), groupMgr, node.getConditionProjectBroker(), "projectBrokerConditionForm",
+		projectBrokerConditionController = new ConditionEditController(ureq, getWindowControl(), node.getConditionProjectBroker(),
 				AssessmentHelper.getAssessableNodes(course.getEditorTreeModel(), node), euce);		
 		this.listenTo(projectBrokerConditionController);
 		accessabilityVC.put("projectBrokerCondition", projectBrokerConditionController.getInitialComponent());
@@ -187,9 +192,10 @@ public class ProjectBrokerCourseEditorController extends ActivateableTabbableDef
     accountManagementFormVC = this.createVelocityContainer("account_management");
     String groupName = translate("account.manager.groupname", node.getShortTitle());
     String groupDescription = translate("account.manager.groupdescription", node.getShortTitle());
-    accountManagerGroup = ProjectBrokerManagerFactory.getProjectGroupManager().getAccountManagerGroupFor(cpm, node, course, groupName, groupDescription, ureq.getIdentity());
+    accountManagerGroup = projectGroupManager.getAccountManagerGroupFor(cpm, node, course, groupName, groupDescription, ureq.getIdentity());
     if (accountManagerGroup != null) {
-    	accountManagerGroupController = new GroupController(ureq, getWindowControl(), true, false, true, false, true, false, accountManagerGroup.getPartipiciantGroup());
+    	Group group = businessGroupService.getGroup(accountManagerGroup);
+    	accountManagerGroupController = new GroupController(ureq, getWindowControl(), true, false, true, false, true, false, group, GroupRoles.participant.name());
 			listenTo(accountManagerGroupController);
 			// add mail templates used when adding and removing users
 			MailTemplate ownerAddUserMailTempl = BGMailHelper.createAddParticipantMailTemplate(accountManagerGroup, ureq.getIdentity());
@@ -200,7 +206,7 @@ public class ProjectBrokerCourseEditorController extends ActivateableTabbableDef
     }
     
 		// Modules config		
-    editModules = this.createVelocityContainer("editModules");
+		editModules = createVelocityContainer("editModules");
 		modulesForm = new ModulesFormController(ureq, wControl, config);
 		listenTo(modulesForm);
 		
@@ -319,7 +325,7 @@ public class ProjectBrokerCourseEditorController extends ActivateableTabbableDef
 				projectBrokerModuleConfiguration.setNbrParticipantsPerTopic(optionsForm.getNnbrOfAttendees());
 				if (projectBrokerModuleConfiguration.isAcceptSelectionManually() && !optionsForm.getSelectionAccept()) {
 					// change 'Accept manually' to 'Accept automatically' => enroll all candidates
-					ProjectBrokerManagerFactory.getProjectGroupManager().acceptAllCandidates(projectBrokerId, urequest.getIdentity(), projectBrokerModuleConfiguration.isAutoSignOut(), optionsForm.getSelectionAccept());
+					projectGroupManager.acceptAllCandidates(projectBrokerId, urequest.getIdentity(), projectBrokerModuleConfiguration.isAutoSignOut(), optionsForm.getSelectionAccept());
 				}
 				projectBrokerModuleConfiguration.setAcceptSelectionManaually(optionsForm.getSelectionAccept());
 				projectBrokerModuleConfiguration.setSelectionAutoSignOut(optionsForm.getSelectionAutoSignOut());
@@ -335,7 +341,7 @@ public class ProjectBrokerCourseEditorController extends ActivateableTabbableDef
 			getLogger().debug("NODECONFIG_CHANGED_node.shortTitle=" + node.getShortTitle());
 	    	String groupName = translate("account.manager.groupname", node.getShortTitle());
 	    	String groupDescription = translate("account.manager.groupdescription", node.getShortTitle());
-	    	accountManagerGroup = ProjectBrokerManagerFactory.getProjectGroupManager().updateAccountManagerGroupName(getIdentity(), groupName, groupDescription, accountManagerGroup);
+	    	accountManagerGroup = projectGroupManager.updateAccountManagerGroupName(getIdentity(), groupName, groupDescription, accountManagerGroup);
 		} else if (source == dropboxForm) {
 				if (event == Event.CANCELLED_EVENT) {
 					return;

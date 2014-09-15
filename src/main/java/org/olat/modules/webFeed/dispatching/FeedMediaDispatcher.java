@@ -20,7 +20,6 @@
 package org.olat.modules.webFeed.dispatching;
 
 import java.io.IOException;
-import java.util.Date;
 import java.util.Hashtable;
 
 import javax.servlet.http.HttpServletRequest;
@@ -43,6 +42,8 @@ import org.olat.core.logging.LogDelegator;
 import org.olat.core.logging.OLog;
 import org.olat.core.logging.Tracing;
 import org.olat.core.util.WebappHelper;
+import org.olat.core.util.vfs.VFSLeaf;
+import org.olat.core.util.vfs.VFSMediaResource;
 import org.olat.course.CourseFactory;
 import org.olat.course.CourseModule;
 import org.olat.course.ICourse;
@@ -166,19 +167,16 @@ public class FeedMediaDispatcher extends LogDelegator implements Dispatcher {
 		if (path.isFeedType()) {
 			// Only create feed if modified. Send not modified response else.
 			Identity identity = getIdentity(path.getIdentityKey());
-			long lastResponseMs = request.getDateHeader("If-Modified-Since");
-			Date lastResponse = null;
-			if (lastResponseMs != -1) {
-				lastResponse = new Date(lastResponseMs);
-			}
+			long sinceModifiedMillis = request.getDateHeader("If-Modified-Since");
+			
 			Feed feedLight = manager.getFeed(feed);
-			Date lastModified = null;
+			long lastModifiedMillis = -1;
 			if (feedLight != null) {
-				lastModified = feedLight.getLastModified();
+				lastModifiedMillis = feedLight.getLastModified().getTime();
 			}
-			if (lastResponse != null && lastResponse.before(lastModified)) {
+			if (sinceModifiedMillis >= (lastModifiedMillis / 1000L) * 1000L) {
 				// Send not modified response
-				response.setDateHeader("last-modified", lastModified.getTime());
+				response.setDateHeader("last-modified", lastModifiedMillis);
 				try {
 					response.sendError(HttpServletResponse.SC_NOT_MODIFIED);
 					return;
@@ -193,7 +191,10 @@ public class FeedMediaDispatcher extends LogDelegator implements Dispatcher {
 		} else if (path.isItemType()) {
 			resource = manager.createItemMediaFile(feed, path.getItemId(), path.getItemFileName());
 		} else if (path.isIconType()) {
-			resource = manager.createFeedMediaFile(feed, path.getIconFileName());
+			VFSLeaf resourceFile = manager.createFeedMediaFile(feed, path.getIconFileName());
+			if(resourceFile != null) {
+				resource = new VFSMediaResource(resourceFile);
+			}
 		}
 		// Eventually deliver the requested resource
 		ServletUtil.serveResource(request, response, resource);

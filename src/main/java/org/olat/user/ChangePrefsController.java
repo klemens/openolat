@@ -31,10 +31,13 @@ import org.olat.core.CoreSpringFactory;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.WindowManager;
 import org.olat.core.gui.components.Component;
+import org.olat.core.gui.components.form.flexible.FormItem;
 import org.olat.core.gui.components.form.flexible.FormItemContainer;
 import org.olat.core.gui.components.form.flexible.elements.MultipleSelectionElement;
 import org.olat.core.gui.components.form.flexible.elements.SingleSelection;
+import org.olat.core.gui.components.form.flexible.elements.TextElement;
 import org.olat.core.gui.components.form.flexible.impl.FormBasicController;
+import org.olat.core.gui.components.form.flexible.impl.FormEvent;
 import org.olat.core.gui.components.form.flexible.impl.FormLayoutContainer;
 import org.olat.core.gui.components.velocity.VelocityContainer;
 import org.olat.core.gui.control.Controller;
@@ -54,6 +57,7 @@ import org.olat.core.util.prefs.Preferences;
 import org.olat.core.util.prefs.PreferencesFactory;
 import org.olat.core.util.session.UserSessionManager;
 import org.olat.properties.PropertyManager;
+import org.springframework.beans.factory.annotation.Autowired;
 
 
 /**
@@ -66,11 +70,11 @@ import org.olat.properties.PropertyManager;
  */
 
 public class ChangePrefsController extends BasicController {
-
 	
 	private VelocityContainer myContent;
 	private Controller generalPrefsCtr;
 	private Controller specialPrefsCtr;
+	private Controller toolsPrefsCtr;
 	private Controller resetCtr;
 	
 	/**
@@ -91,12 +95,15 @@ public class ChangePrefsController extends BasicController {
 		specialPrefsCtr = new SpecialPrefsForm(ureq, wControl, changeableIdentity);
 		listenTo(specialPrefsCtr);
 		
-		// fxdiff FXOLAT-149
 		resetCtr = new UserPrefsResetForm(ureq, wControl, changeableIdentity);
 		listenTo(resetCtr);
 		
+		toolsPrefsCtr = new ToolsPrefsController(ureq, wControl, changeableIdentity);
+		listenTo(toolsPrefsCtr);
+		
 		myContent.put("general", generalPrefsCtr.getInitialComponent());
 		myContent.put("special", specialPrefsCtr.getInitialComponent());
+		myContent.put("tools", toolsPrefsCtr.getInitialComponent());
 		myContent.put("reset", resetCtr.getInitialComponent());
 		
 		putInitialPanel(myContent);
@@ -107,6 +114,7 @@ public class ChangePrefsController extends BasicController {
 	 *      org.olat.core.gui.components.Component,
 	 *      org.olat.core.gui.control.Event)
 	 */
+	@Override
 	public void event(UserRequest ureq, Component source, Event event) {
 		if (source == myContent) {
 			if (event.getCommand().equals("exeBack")) {
@@ -114,7 +122,8 @@ public class ChangePrefsController extends BasicController {
 			}
 		} 
 	}
-
+	
+	@Override
 	public void event(UserRequest ureq, Controller source, Event event) {
 		if (source == generalPrefsCtr) {
 			if (event == Event.DONE_EVENT) {
@@ -129,6 +138,7 @@ public class ChangePrefsController extends BasicController {
 	/**
 	 * @see org.olat.core.gui.control.DefaultController#doDispose(boolean)
 	 */
+	@Override
 	protected void doDispose() {
 		//
 	}
@@ -152,9 +162,9 @@ class SpecialPrefsForm extends FormBasicController {
 	private Identity tobeChangedIdentity;
 	private Preferences prefs;
 	private MultipleSelectionElement prefsElement;
-	//fxdiff BAKS-7 Resume function
 	private SingleSelection resumeElement;
 	private SingleSelection backElement;
+	private TextElement landingPageEl;
 	private String[] keys, values;
 	private boolean useAjaxCheckbox = false;
 	private String[] resumeKeys, resumeValues;
@@ -162,11 +172,13 @@ class SpecialPrefsForm extends FormBasicController {
 	private String[] yesNoKeys;
 	private String[] yesNoValues;
 
-	private final UserSessionManager sessionManager;
+	@Autowired
+	private HistoryModule historyModule;
+	@Autowired
+	private UserSessionManager sessionManager;
 	
 	public SpecialPrefsForm(final UserRequest ureq, final WindowControl wControl, final Identity changeableIdentity) {
 		super(ureq, wControl);
-		sessionManager = CoreSpringFactory.getImpl(UserSessionManager.class);
 		tobeChangedIdentity = changeableIdentity;
 		
 		// OLAT-6429 load GUI prefs from user session for myself, load it from factory for other users (as user manager)
@@ -179,18 +191,12 @@ class SpecialPrefsForm extends FormBasicController {
 		useAjaxCheckbox = ureq.getUserSession().getRoles().isUserManager();
 		// initialize checkbox keys depending on useAjaxCheckbox flag
 		if (useAjaxCheckbox) {
-			keys = new String[]{"ajax", "web2a"}; 
+			keys = new String[]{"ajax"}; 
 			values = new String[] {
 					translate("ajaxon.label"),
-					translate("accessibility.web2aMode.label")
 			};			
-		} else {
-			keys = new String[]{"web2a"}; 
-			values = new String[] {
-					translate("accessibility.web2aMode.label")
-			};
 		}
-		//fxdiff BAKS-7 Resume function
+		
 		resumeKeys = new String[]{"none", "auto", "ondemand"}; 
 		resumeValues = new String[] {
 				translate("resume.none"),
@@ -217,15 +223,16 @@ class SpecialPrefsForm extends FormBasicController {
 		if (useAjaxCheckbox) {
 			prefs.put(WindowManager.class, "ajax-beta-on", prefsElement.getSelectedKeys().contains("ajax"));
 		}
-		prefs.put(WindowManager.class, "web2a-beta-on", prefsElement.getSelectedKeys().contains("web2a"));
 		
-		//fxdiff BAKS-7 Resume function
 		if(resumeElement != null) {
 			prefs.put(WindowManager.class, "resume-prefs", resumeElement.getSelectedKey());
 		}
 		if(backElement != null) {
 			prefs.put(WindowManager.class, "back-enabled", backElement.isSelected(0));
 		}
+		String landingPage = landingPageEl.isVisible() ? landingPageEl.getValue() : "";
+		prefs.put(WindowManager.class, "landing-page", landingPage);
+		
 		if (ureq.getIdentity().equalsByPersistableKey(tobeChangedIdentity)) {
 			showInfo("preferences.successful");
 		}
@@ -235,24 +242,38 @@ class SpecialPrefsForm extends FormBasicController {
 	}
 	
 	@Override
+	protected void formInnerEvent(UserRequest ureq, FormItem source, FormEvent event) {
+		if(resumeElement == source) {
+			if(resumeElement.isOneSelected()) {
+				landingPageEl.setVisible(!resumeElement.getSelectedKey().equals("auto"));
+			}
+		}
+		super.formInnerEvent(ureq, source, event);
+	}
+
+	@Override
 	protected void formCancelled(UserRequest ureq) {
 		update();
 	}
 	
 	@Override
 	protected void initForm(FormItemContainer formLayout, Controller listener, UserRequest ureq) {
-		
 		setFormTitle("title.prefs.special");
 		setFormContextHelp(this.getClass().getPackage().getName(), "home-prefs-special.html", "help.hover.home.prefs.special");
 		
-		prefsElement = uifactory.addCheckboxesVertical("prefs", "title.prefs.accessibility", formLayout, keys, values, null, 1);
-		prefsElement.setElementCssClass("o_sel_home_settings_accessibility");
-		//fxdiff BAKS-7 Resume function
-		HistoryModule historyModule = (HistoryModule)CoreSpringFactory.getBean("historyModule");
+		if(keys != null) {
+			prefsElement = uifactory.addCheckboxesHorizontal("prefs", "title.prefs.accessibility", formLayout, keys, values);
+			prefsElement.setElementCssClass("o_sel_home_settings_accessibility");
+		}
+
 		if(historyModule.isResumeEnabled()) {
 			resumeElement = uifactory.addRadiosVertical("resume", "resume.label", formLayout, resumeKeys, resumeValues);
 			resumeElement.setElementCssClass("o_sel_home_settings_resume");
+			resumeElement.addActionListener(FormEvent.ONCHANGE);
 		}
+		
+		landingPageEl = uifactory.addTextElement("landingpages", "landing.pages", 256, "", formLayout);
+		
 		if(historyModule.isBackEnabled()) {
 			backElement = uifactory.addRadiosVertical("back-enabling", "back.label", formLayout, yesNoKeys, yesNoValues);
 			backElement.setElementCssClass("o_sel_home_settings_back_enabling");
@@ -267,25 +288,26 @@ class SpecialPrefsForm extends FormBasicController {
 	}
 
 	private void update() {
-		Boolean web2a = (Boolean) prefs.get(WindowManager.class, "web2a-beta-on");
 		Boolean ajax  = (Boolean) prefs.get(WindowManager.class, "ajax-beta-on");
 		if (useAjaxCheckbox) {
 			prefsElement.select("ajax", ajax == null ? true: ajax.booleanValue());
 		}
-		prefsElement.select("web2a", web2a == null ? false: web2a.booleanValue());
-		//fxdiff BAKS-7 Resume function
+		boolean landingPageVisible = true;
 		if(resumeElement != null) {
 			String resumePrefs = (String)prefs.get(WindowManager.class, "resume-prefs");
 			if(StringHelper.containsNonWhitespace(resumePrefs)) {
 				resumeElement.select(resumePrefs, true);
 			} else {
-				HistoryModule historyModule = (HistoryModule)CoreSpringFactory.getBean("historyModule");
 				String defaultSetting = historyModule.getResumeDefaultSetting();
 				try {
 					resumeElement.select(defaultSetting, true);
 				} catch (Exception e) {
 					logError("Unavailable setting for resume function: " + defaultSetting, e);
 				}
+			}
+			
+			if(resumeElement.isOneSelected()) {
+				landingPageVisible = !resumeElement.getSelectedKey().equals("auto");
 			}
 		}
 		if(backElement != null) {
@@ -295,12 +317,15 @@ class SpecialPrefsForm extends FormBasicController {
 				selected = (be.booleanValue() ?  "yes" : "no");
 			}
 			else {
-				HistoryModule historyModule = (HistoryModule)CoreSpringFactory.getBean("historyModule");
 				selected = (historyModule.isBackDefaultSetting() ?  "yes" : "no");
 			}
 
 			backElement.select(selected, true);
 		}
+
+		String landingPage = (String)prefs.get(WindowManager.class, "landing-page");
+		landingPageEl.setValue(landingPage);
+		landingPageEl.setVisible(landingPageVisible);
 	}
 	
 	@Override
@@ -310,7 +335,6 @@ class SpecialPrefsForm extends FormBasicController {
 	
 }
 
-// fxdiff FXOLAT-149 
 /**
  * Controller to reset the users GUI prefs and other preferences
  */
@@ -337,7 +361,7 @@ class UserPrefsResetForm extends FormBasicController {
 		keys = new String[]{"guiprefs", "sysprefs", "resume"};
 		values = new String[] {translate("reset.elements.guiprefs"), translate("reset.elements.sysprefs"), translate("reset.elements.resume")};
 		
-		resetElements = uifactory.addCheckboxesVertical("prefs", "reset.elements", formLayout, keys, values, null, 1);
+		resetElements = uifactory.addCheckboxesVertical("prefs", "reset.elements", formLayout, keys, values, 1);
 		resetElements.setElementCssClass("o_sel_home_settings_reset_sysprefs");
 		
 		final FormLayoutContainer buttonLayout = FormLayoutContainer.createButtonLayout("button_layout", getTranslator());

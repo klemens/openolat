@@ -20,13 +20,13 @@
 package org.olat.portfolio.ui.filter;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
 
-import org.olat.core.CoreSpringFactory;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.form.flexible.FormItem;
 import org.olat.core.gui.components.form.flexible.FormItemContainer;
@@ -37,6 +37,7 @@ import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.Event;
 import org.olat.core.gui.control.WindowControl;
 import org.olat.portfolio.manager.EPFrontendManager;
+import org.springframework.beans.factory.annotation.Autowired;
 
 /**
  * Description:<br>
@@ -49,13 +50,12 @@ import org.olat.portfolio.manager.EPFrontendManager;
 public class EPArtefactTagSelectionController extends FormBasicController {
 
 	private List<String> selectedTagsList;
+	@Autowired
 	private EPFrontendManager ePFMgr;
 	private MultipleSelectionElementImpl chkBox;
 
 	public EPArtefactTagSelectionController(UserRequest ureq, WindowControl wControl, List<String> selectedTagsList) {
 		super(ureq, wControl, FormBasicController.LAYOUT_VERTICAL);
-
-		ePFMgr = (EPFrontendManager) CoreSpringFactory.getBean("epFrontendManager");
 		this.selectedTagsList = selectedTagsList;
 		initForm(ureq);		
 	}
@@ -65,9 +65,7 @@ public class EPArtefactTagSelectionController extends FormBasicController {
 	 */
 	@Override
 	protected void initForm(FormItemContainer formLayout, Controller listener, UserRequest ureq) {
-//		setFormTitle("filter.tag.title");
 		setFormDescription("filter.tag.intro");
-		setFormStyle("b_eportfolio_tag_selector");
 		
 		Map<String, String> allUserTags = ePFMgr.getUsersMostUsedTags(getIdentity(), -1);
 		LinkedList<Entry<String, String>> sortEntrySet = new LinkedList<Entry<String, String>>(allUserTags.entrySet());
@@ -80,13 +78,13 @@ public class EPArtefactTagSelectionController extends FormBasicController {
 			values[i] = tag; 
 			i++;
 		}
-		chkBox = (MultipleSelectionElementImpl) uifactory.addCheckboxesVertical("tag", null, formLayout, keys, values, null, 2);
+		chkBox = (MultipleSelectionElementImpl) uifactory.addCheckboxesVertical("tag", null, formLayout, keys, values, 2);
 		
 		if (selectedTagsList != null) {
 			String[] selectedKeys = selectedTagsList.toArray(new String[0]);
 			chkBox.setSelectedValues(selectedKeys);
 		}
-		chkBox.addActionListener(this, FormEvent.ONCHANGE);
+		chkBox.addActionListener(FormEvent.ONCHANGE);
 		uifactory.addFormSubmitButton("filter.type.submit", formLayout);
 	}
 
@@ -96,7 +94,7 @@ public class EPArtefactTagSelectionController extends FormBasicController {
 	@Override
 	protected void formInnerEvent(UserRequest ureq, FormItem source, FormEvent event) {
 		if (selectedTagsList == null) selectedTagsList = new ArrayList<String>();
-		Set<String> selectedKeys = chkBox.getSelectedKeys();
+		Collection<String> selectedKeys = chkBox.getSelectedKeys();
 		Set<String> allKeys = chkBox.getKeys();
 		for (String actTag : allKeys) {
 			boolean selected = selectedKeys.contains(actTag);

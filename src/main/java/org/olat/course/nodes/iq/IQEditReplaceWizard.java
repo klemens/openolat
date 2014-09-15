@@ -276,7 +276,7 @@ public class IQEditReplaceWizard extends WizardController {
 		};
 		
 		removeAsListenerAndDispose(mailCtr);
-		mailCtr = new MailNotificationEditController(getWindowControl(), ureq, mailTempl, false, false);
+		mailCtr = new MailNotificationEditController(getWindowControl(), ureq, mailTempl, false, false, true);
 		listenTo(mailCtr);
 	
 		vcStep3 = createVelocityContainer("replacewizard_step3");
@@ -295,7 +295,7 @@ public class IQEditReplaceWizard extends WizardController {
 		Map<Class<?>, QTIExportItemFormatConfig> itConfigs = new HashMap<Class<?>, QTIExportItemFormatConfig>();
   	
 		for (Iterator<QTIItemObject> iter = qtiItemObjectList.iterator(); iter.hasNext();) {
-			QTIItemObject item = (QTIItemObject) iter.next();
+			QTIItemObject item = iter.next();
 			if (item.getItemIdent().startsWith(ItemParser.ITEM_PREFIX_SCQ)){
 				if (itConfigs.get(QTIExportSCQItemFormatConfig.class) == null){
 					QTIExportSCQItemFormatConfig confSCQ = new QTIExportSCQItemFormatConfig(true, false, false, false);

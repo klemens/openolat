@@ -29,6 +29,8 @@ package org.olat.core.commons.modules.bc.commands;
 import org.olat.core.commons.modules.bc.FileUploadController;
 import org.olat.core.commons.modules.bc.FolderEvent;
 import org.olat.core.commons.modules.bc.components.FolderComponent;
+import org.olat.core.commons.services.notifications.NotificationsManager;
+import org.olat.core.commons.services.notifications.SubscriptionContext;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.Component;
 import org.olat.core.gui.components.form.flexible.impl.elements.FileElementImpl;
@@ -42,8 +44,6 @@ import org.olat.core.gui.translator.Translator;
 import org.olat.core.logging.AssertException;
 import org.olat.core.util.Util;
 import org.olat.core.util.WebappHelper;
-import org.olat.core.util.notifications.NotificationsManager;
-import org.olat.core.util.notifications.SubscriptionContext;
 import org.olat.core.util.vfs.Quota;
 import org.olat.core.util.vfs.QuotaManager;
 import org.olat.core.util.vfs.VFSConstants;
@@ -117,7 +117,7 @@ public class CmdUpload extends BasicController implements FolderCommand {
 		// Calculate quota and limits
 		long actualUsage = 0;
 		quotaKB = Quota.UNLIMITED;
-		uploadLimitKB = (int)Quota.UNLIMITED;
+		uploadLimitKB = Quota.UNLIMITED;
 		
 		inheritingContainer = VFSManager.findInheritingSecurityCallbackContainer(currentContainer);
 		if (inheritingContainer != null) {
@@ -143,7 +143,8 @@ public class CmdUpload extends BasicController implements FolderCommand {
 		else remainingQuotaKB = (int) quotaKB - (int) actualUsage;
 		removeAsListenerAndDispose(fileUploadCtr);
 
-		fileUploadCtr = new FileUploadController(getWindowControl(), currentContainer, ureq, uploadLimitKB, remainingQuotaKB, null, true, showMetadata, true, showCancel);
+		fileUploadCtr = new FileUploadController(getWindowControl(), currentContainer, ureq, uploadLimitKB, remainingQuotaKB, null,
+				true, showMetadata, true, showCancel, true);
 		listenTo(fileUploadCtr);
 		mainVC.put("fileUploadCtr", fileUploadCtr.getInitialComponent());
 		mainVC.contextPut("showFieldset", Boolean.TRUE);
@@ -163,7 +164,7 @@ public class CmdUpload extends BasicController implements FolderCommand {
 	public void refreshActualFolderUsage(){
 		long actualUsage = 0;
 		quotaKB = Quota.UNLIMITED;
-		uploadLimitKB = (int)Quota.UNLIMITED;
+		uploadLimitKB = Quota.UNLIMITED;
 		
 		inheritingContainer = VFSManager.findInheritingSecurityCallbackContainer(currentContainer);
 		if (inheritingContainer != null) {
@@ -189,12 +190,20 @@ public class CmdUpload extends BasicController implements FolderCommand {
 		}
 	}
 
+	@Override
+	public int getStatus() {
+		return status;
+	}
+	@Override
+	public boolean runsModal() {
+		return false;
+	}
 	
-	/**
-	 * @return
-	 */
-	public int getStatus() { return status; }
-	
+	@Override
+	public String getModalTitle() {
+		return translate("ul.quote");
+	}
+
 	public void event(UserRequest ureq, Component source, Event event) {
 		// no events to catch
 	}
@@ -242,19 +251,14 @@ public class CmdUpload extends BasicController implements FolderCommand {
 	 * @return
 	 */
 	public String getFileName(){
-			return this.uploadFileName;
+		return uploadFileName;
 	}
 	
 	public Boolean fileWasOverwritten(){
-		return this.overwritten;
+		return overwritten;
 	}
 	
 	protected void doDispose() {
 		// nothing to dispose
 	}
-
-	public boolean runsModal() {
-		return false;
-	}
-
 }

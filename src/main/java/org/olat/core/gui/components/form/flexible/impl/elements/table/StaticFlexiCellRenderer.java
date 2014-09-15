@@ -20,9 +20,11 @@
 package org.olat.core.gui.components.form.flexible.impl.elements.table;
 
 
+import org.apache.commons.lang.StringEscapeUtils;
 import org.olat.core.gui.components.form.flexible.impl.Form;
 import org.olat.core.gui.components.form.flexible.impl.FormJSHelper;
 import org.olat.core.gui.components.form.flexible.impl.NameValuePair;
+import org.olat.core.gui.render.Renderer;
 import org.olat.core.gui.render.StringOutput;
 import org.olat.core.gui.render.URLBuilder;
 import org.olat.core.gui.translator.Translator;
@@ -38,17 +40,19 @@ public class StaticFlexiCellRenderer implements FlexiCellRenderer {
 
 	private String label;
 	private String action;
-	private String cssClass;
+	private String iconCSS;
+	private String linkTitle; 
 	private FlexiCellRenderer labelDelegate;
 	
 	public StaticFlexiCellRenderer(String label, String action) {
-		this(label, action, null);
+		this(label, action, null, null);
 	}
 	
-	public StaticFlexiCellRenderer(String label, String action, String cssClass) {
+	public StaticFlexiCellRenderer(String label, String action, String iconCSS, String linkTitle) {
 		this.label = label;
 		this.action = action;
-		this.cssClass = cssClass;
+		this.iconCSS = iconCSS;
+		this.linkTitle = linkTitle;
 	}
 	
 	public StaticFlexiCellRenderer(String action, FlexiCellRenderer labelDelegate) {
@@ -59,35 +63,38 @@ public class StaticFlexiCellRenderer implements FlexiCellRenderer {
   /**
    * 
    * @param target
-   * @param cellValue
-   * @param translator
+ * @param cellValue
+ * @param translator
    */	
 	@Override
-	public void render(StringOutput target, Object cellValue, int row, FlexiTableComponent source,
-			URLBuilder ubu, Translator translator) {
+	public void render(Renderer renderer, StringOutput target, Object cellValue, int row,
+			FlexiTableComponent source, URLBuilder ubu, Translator translator) {
 		
-		String action = getAction();
-		if(StringHelper.containsNonWhitespace(action)) {
+		String cellAction = getAction();
+		if(StringHelper.containsNonWhitespace(cellAction)) {
 			FlexiTableElementImpl ftE = source.getFlexiTableElement();
 			String id = source.getFormDispatchId();
 			Form rootForm = ftE.getRootForm();
-			NameValuePair pair = new NameValuePair(action, Integer.toString(row));
+			NameValuePair pair = new NameValuePair(cellAction, Integer.toString(row));
 			String jsCode = FormJSHelper.getXHRFnCallFor(rootForm, id, 1, pair);
 			target.append("<a href=\"javascript:").append(jsCode).append("\"");
-			if(StringHelper.containsNonWhitespace(cssClass)) {
-				target.append(" class=\"").append(cssClass).append("\"");
+			if(StringHelper.containsNonWhitespace(linkTitle)) {
+				target.append(" title=\"").append(StringEscapeUtils.escapeHtml(linkTitle)).append("\"");
 			}
 			target.append(">");
+			if(StringHelper.containsNonWhitespace(iconCSS)) {
+				target.append("<i class=\"o_icon ").append(iconCSS).append("\">&nbsp;</i>");
+			}
 			if(labelDelegate == null) {
 				target.append(getLabel());
 			} else {
-				labelDelegate.render(target, cellValue, row, source, ubu, translator);
+				labelDelegate.render(renderer, target, cellValue, row, source, ubu, translator);
 			}
 			target.append("</a>");
-		}	else if(labelDelegate == null) {
+		} else if(labelDelegate == null) {
 			target.append(getLabel());
 		} else {
-			labelDelegate.render(target, cellValue, row, source, ubu, translator);
+			labelDelegate.render(renderer, target, cellValue, row, source, ubu, translator);
 		}
 	}
 	

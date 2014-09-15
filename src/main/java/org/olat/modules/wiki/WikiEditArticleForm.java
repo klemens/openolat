@@ -28,10 +28,12 @@ package org.olat.modules.wiki;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.form.flexible.FormItem;
 import org.olat.core.gui.components.form.flexible.FormItemContainer;
+import org.olat.core.gui.components.form.flexible.elements.FormLink;
 import org.olat.core.gui.components.form.flexible.elements.TextElement;
 import org.olat.core.gui.components.form.flexible.impl.FormBasicController;
 import org.olat.core.gui.components.form.flexible.impl.FormEvent;
 import org.olat.core.gui.components.form.flexible.impl.FormLayoutContainer;
+import org.olat.core.gui.components.form.flexible.impl.elements.FormSubmit;
 import org.olat.core.gui.components.link.Link;
 import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.Event;
@@ -52,9 +54,14 @@ public class WikiEditArticleForm extends FormBasicController {
 	private TextElement updateComment;
 	private WikiPage page;
 	
-	public WikiEditArticleForm(UserRequest ureq, WindowControl wControl, WikiPage page) {
-		super(ureq, wControl);
+
+	private final WikiSecurityCallback securityCallback;
+	
+	public WikiEditArticleForm(UserRequest ureq, WindowControl wControl, WikiPage page,
+			WikiSecurityCallback securityCallback) {
+		super(ureq, wControl, FormBasicController.LAYOUT_VERTICAL);
 		this.page = page;
+		this.securityCallback = securityCallback;
 		initForm(ureq);
 	}
 
@@ -98,6 +105,8 @@ public class WikiEditArticleForm extends FormBasicController {
 	protected void initForm(FormItemContainer formLayout, Controller listener, UserRequest ureq) {
 		
 		wikiContent = uifactory.addTextAreaElement("wikiContentElement", 20, 110, page.getContent() , formLayout);
+		wikiContent.setElementCssClass("o_sel_wiki_content");
+		wikiContent.setLabel(null, null);
 		wikiContent.preventValueTrim(true);//OO-31 prevent trimming, so first line can be with inset (wiki pre-formatted)
 
 		updateComment = uifactory.addTextElement("wikiUpdateComment", null, 40, "", formLayout);
@@ -105,8 +114,13 @@ public class WikiEditArticleForm extends FormBasicController {
 		// Button layout
 		final FormLayoutContainer buttonLayout = FormLayoutContainer.createButtonLayout("button_layout", getTranslator());
 		formLayout.add(buttonLayout);
-		uifactory.addFormSubmitButton("save", buttonLayout);
-		uifactory.addFormLink("save.and.close", buttonLayout, Link.BUTTON);
+		FormSubmit submit = uifactory.addFormSubmitButton("save", buttonLayout);
+		submit.setElementCssClass("o_sel_wiki_save");
+		FormLink saveAndClose =uifactory.addFormLink("save.and.close", buttonLayout, Link.BUTTON);
+		saveAndClose.setElementCssClass("o_sel_wiki_save_and_close");
+		if(getIdentity().getKey().equals(Long.valueOf(page.getInitalAuthor())) || securityCallback.mayEditWikiMenu()) {
+			uifactory.addFormLink("delete.page", buttonLayout, Link.BUTTON);
+		}
 		uifactory.addFormLink("preview", buttonLayout, Link.BUTTON);
 		uifactory.addFormCancelButton("cancel", buttonLayout, ureq, getWindowControl());
 	}

@@ -19,7 +19,7 @@
  */
 package org.olat.admin.privacy;
 
-import java.util.Set;
+import java.util.Collection;
 
 import org.olat.basesecurity.BaseSecurityModule;
 import org.olat.core.CoreSpringFactory;
@@ -71,32 +71,32 @@ public class PrivacyAdminController extends FormBasicController {
 				translate("admin.props.groupmanagers"),
 				translate("admin.props.administrators")
 		};
-		adminPropsEl = uifactory.addCheckboxesVertical("admin.props", propsCont, adminPropKeys, adminPropValues, null, 1);
+		adminPropsEl = uifactory.addCheckboxesVertical("admin.props", propsCont, adminPropKeys, adminPropValues, 1);
 		adminPropsEl.select("users", "enabled".equals(module.getUserSearchAdminPropsForUsers()));
 		adminPropsEl.select("authors", "enabled".equals(module.getUserSearchAdminPropsForAuthors()));
 		adminPropsEl.select("usermanagers", "enabled".equals(module.getUserSearchAdminPropsForUsermanagers()));
 		adminPropsEl.select("groupmanagers", "enabled".equals(module.getUserSearchAdminPropsForGroupmanagers()));
 		adminPropsEl.select("administrators", "enabled".equals(module.getUserSearchAdminPropsForAdministrators()));
-		adminPropsEl.addActionListener(this, FormEvent.ONCHANGE);
+		adminPropsEl.addActionListener(FormEvent.ONCHANGE);
 		
 		uifactory.addSpacerElement("admin.space.1", propsCont, true);
 
-		lastloginEl = uifactory.addCheckboxesVertical("last.login", propsCont, adminPropKeys, adminPropValues, null, 1);
+		lastloginEl = uifactory.addCheckboxesVertical("last.login", propsCont, adminPropKeys, adminPropValues, 1);
 		lastloginEl.select("users", "enabled".equals(module.getUserLastLoginVisibleForUsers()));
 		lastloginEl.select("authors", "enabled".equals(module.getUserLastLoginVisibleForAuthors()));
 		lastloginEl.select("usermanagers", "enabled".equals(module.getUserLastLoginVisibleForUsermanagers()));
 		lastloginEl.select("groupmanagers", "enabled".equals(module.getUserLastLoginVisibleForGroupmanagers()));
 		lastloginEl.select("administrators", "enabled".equals(module.getUserLastLoginVisibleForAdministrators()));
-		lastloginEl.addActionListener(this, FormEvent.ONCHANGE);
+		lastloginEl.addActionListener(FormEvent.ONCHANGE);
 		
 		FormLayoutContainer tuCont = FormLayoutContainer.createDefaultFormLayout("tu", getTranslator());
 		formLayout.add(tuCont);
 		tuCont.setFormTitle(translate("tunnel.title"));
 		tuCont.setFormDescription(translate("tunnel.desc"));
 		
-		tunnelEl = uifactory.addCheckboxesHorizontal("tunnel.cbb", tuCont, onKeys, new String[]{""}, null);
+		tunnelEl = uifactory.addCheckboxesHorizontal("tunnel.cbb", tuCont, onKeys, new String[]{""});
 		tunnelEl.select("on", "enabled".equals(module.getUserInfosTunnelCourseBuildingBlock()));
-		tunnelEl.addActionListener(this, FormEvent.ONCHANGE);
+		tunnelEl.addActionListener(FormEvent.ONCHANGE);
 	}
 	
 	@Override
@@ -107,21 +107,21 @@ public class PrivacyAdminController extends FormBasicController {
 	@Override
 	protected void formInnerEvent(UserRequest ureq, FormItem source, FormEvent event) {
 		if(source == adminPropsEl) {
-			Set<String> selectedKeys = adminPropsEl.getSelectedKeys();
+			Collection<String> selectedKeys = adminPropsEl.getSelectedKeys();
 			module.setUserSearchAdminPropsForUsers(selectedKeys.contains("users") ? "enabled" : "disabled");
 			module.setUserSearchAdminPropsForAuthors(selectedKeys.contains("authors") ? "enabled" : "disabled");
 			module.setUserSearchAdminPropsForUsermanagers(selectedKeys.contains("usermanagers") ? "enabled" : "disabled");
 			module.setUserSearchAdminPropsForGroupmanagers(selectedKeys.contains("groupmanagers") ? "enabled" : "disabled");
 			module.setUserSearchAdminPropsForAdministrators(selectedKeys.contains("administrators") ? "enabled" : "disabled");
 		} else if(source == lastloginEl) {
-			Set<String> selectedKeys = lastloginEl.getSelectedKeys();
+			Collection<String> selectedKeys = lastloginEl.getSelectedKeys();
 			module.setUserLastLoginVisibleForUsers(selectedKeys.contains("users") ? "enabled" : "disabled");
 			module.setUserLastLoginVisibleForAuthors(selectedKeys.contains("authors") ? "enabled" : "disabled");
 			module.setUserLastLoginVisibleForUsermanagers(selectedKeys.contains("usermanagers") ? "enabled" : "disabled");
 			module.setUserLastLoginVisibleForGroupmanagers(selectedKeys.contains("groupmanagers") ? "enabled" : "disabled");
 			module.setUserLastLoginVisibleForAdministrators(selectedKeys.contains("administrators") ? "enabled" : "disabled");
 		} else if (source == tunnelEl) {
-			Set<String> selectedKeys = tunnelEl.getSelectedKeys();
+			Collection<String> selectedKeys = tunnelEl.getSelectedKeys();
 			module.setUserInfosTunnelCourseBuildingBlock(selectedKeys.contains("on") ? "enabled" : "disabled");
 		}
 	}

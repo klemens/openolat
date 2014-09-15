@@ -33,21 +33,21 @@ import java.util.Collection;
 import java.util.HashSet;
 import java.util.Set;
 
-import org.olat.core.gui.GUIInterna;
 import org.olat.core.gui.UserRequest;
-import org.olat.core.gui.components.Component;
+import org.olat.core.gui.components.AbstractComponent;
 import org.olat.core.gui.components.ComponentRenderer;
 import org.olat.core.gui.control.Controller;
+import org.olat.core.gui.control.JSAndCSSAdder;
+import org.olat.core.gui.render.ValidationResult;
 import org.olat.core.util.StringHelper;
 import org.olat.core.util.nodes.INode;
-import org.olat.core.util.tree.TreeHelper;
 
 /**
  * Description: <br>
  * 
  * @author Felix Jost
  */
-public class MenuTree extends Component {
+public class MenuTree extends AbstractComponent {
 	private static final ComponentRenderer RENDERER = new MenuTreeRenderer();
 
 	/**
@@ -108,7 +108,6 @@ public class MenuTree extends Component {
 	private boolean expandSelectedNode = true;
 	private boolean rootVisible = true;
 	private boolean unselectNodes;
-	private String dndFeedbackUri;
 	private String dndAcceptJSMethod = "treeAcceptDrop_notWithChildren";
 
 	private boolean dirtyForUser = false;
@@ -137,21 +136,22 @@ public class MenuTree extends Component {
 		this(id, name);
 		addListener(eventListener);
 	}
+	
+	
+
+	@Override
+	public void validate(UserRequest ureq, ValidationResult vr) {
+		super.validate(ureq, vr);
+		
+		JSAndCSSAdder jsa = vr.getJsAndCSSAdder();
+		jsa.addRequiredStaticJsFile("js/jquery/ui/jquery-ui-1.10.4.custom.dnd.min.js");
+	}
 
 	/**
 	 * @see org.olat.core.gui.components.Component#dispatchRequest(org.olat.core.gui.UserRequest)
 	 */
 	@Override
 	protected void doDispatchRequest(UserRequest ureq) {
-		if (GUIInterna.isLoadPerformanceMode()) {
-			String compPath = ureq.getParameter("en");
-			TreeNode selTreeNode = TreeHelper.resolveTreeNode(compPath, getTreeModel());
-			selectedNodeId = selTreeNode.getIdent();
-			handleClick(ureq, "", selectedNodeId);
-			return;
-		}
-		
-		//fxdiff VCRP-9: drag and drop in menu tree
 		String cmd = ureq.getParameter(COMMAND_ID);
 		String nodeId = ureq.getParameter(NODE_IDENT);
 		if(COMMAND_TREENODE_CLICKED.equals(cmd)) {
@@ -193,7 +193,6 @@ public class MenuTree extends Component {
 	}
 	
 	// -- recorder methods
-	//fxdiff VCRP-9: drag and drop in menu tree
 	private void handleDropped(UserRequest ureq, String droppedNodeId, String targetNodeId, boolean sibling, boolean atTheEnd) {
 		TreeDropEvent te = new TreeDropEvent(COMMAND_TREENODE_DROP, droppedNodeId, targetNodeId, !sibling, atTheEnd);
 		fireEvent(ureq, te);
@@ -343,10 +342,6 @@ public class MenuTree extends Component {
 			openNodeIds = new HashSet<String>(nodeIds);
 		}
 		setDirty(true);
-	}
-	
-	String getDndFeedbackUri() {
-		return dndFeedbackUri;
 	}
 
 	/**

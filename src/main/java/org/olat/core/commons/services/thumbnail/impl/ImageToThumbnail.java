@@ -25,10 +25,10 @@ import java.util.List;
 
 import javax.imageio.ImageIO;
 
+import org.olat.core.commons.services.image.ImageService;
+import org.olat.core.commons.services.image.Size;
 import org.olat.core.commons.services.thumbnail.FinalSize;
 import org.olat.core.commons.services.thumbnail.ThumbnailSPI;
-import org.olat.core.util.ImageHelper;
-import org.olat.core.util.image.Size;
 import org.olat.core.util.vfs.VFSLeaf;
 
 /**
@@ -44,13 +44,13 @@ public class ImageToThumbnail implements ThumbnailSPI {
 	
 	private final List<String> extensions = new ArrayList<String>();
 	
-	private ImageHelper imageHelper;
+	private ImageService imageHelper;
 	
 	/**
 	 * [used by Spring]
 	 * @param imageHelper
 	 */
-	public void setImageHelper(ImageHelper imageHelper) {
+	public void setImageHelper(ImageService imageHelper) {
 		this.imageHelper = imageHelper;
 	}
 
@@ -68,8 +68,8 @@ public class ImageToThumbnail implements ThumbnailSPI {
 	}
 
 	@Override
-	public FinalSize generateThumbnail(VFSLeaf file, VFSLeaf thumbnailFile, int maxWidth, int maxHeight) {
-		Size finalSize = imageHelper.scaleImage(file, thumbnailFile, maxWidth, maxHeight);
+	public FinalSize generateThumbnail(VFSLeaf file, VFSLeaf thumbnailFile, int maxWidth, int maxHeight, boolean fill) {
+		Size finalSize = imageHelper.scaleImage(file, thumbnailFile, maxWidth, maxHeight, fill);
 		if(finalSize != null) {
 			return new FinalSize(finalSize.getWidth(), finalSize.getHeight());
 		}

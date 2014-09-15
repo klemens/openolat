@@ -38,13 +38,11 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 import java.util.zip.ZipOutputStream;
 
 import org.apache.poi.util.IOUtils;
-import org.olat.basesecurity.BaseSecurity;
-import org.olat.basesecurity.BaseSecurityManager;
-import org.olat.basesecurity.Constants;
-import org.olat.basesecurity.SecurityGroup;
+import org.olat.admin.quota.QuotaConstants;
 import org.olat.commons.calendar.CalendarManager;
 import org.olat.commons.calendar.CalendarManagerFactory;
 import org.olat.commons.calendar.notification.CalendarNotificationManager;
@@ -54,17 +52,20 @@ import org.olat.core.commons.fullWebApp.LayoutMain3ColsController;
 import org.olat.core.commons.modules.bc.FolderConfig;
 import org.olat.core.commons.modules.bc.vfs.OlatRootFolderImpl;
 import org.olat.core.commons.persistence.DBFactory;
+import org.olat.core.commons.services.notifications.NotificationsManager;
+import org.olat.core.commons.services.notifications.Publisher;
+import org.olat.core.commons.services.notifications.SubscriptionContext;
 import org.olat.core.commons.services.taskexecutor.TaskExecutorManager;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.htmlheader.jscss.CustomCSS;
-import org.olat.core.gui.components.stack.StackedController;
+import org.olat.core.gui.components.stack.TooledStackedPanel;
 import org.olat.core.gui.components.tree.TreeNode;
 import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.WindowControl;
-import org.olat.core.gui.control.generic.layout.MainLayoutController;
 import org.olat.core.gui.translator.Translator;
 import org.olat.core.id.Identity;
 import org.olat.core.id.OLATResourceable;
+import org.olat.core.id.Roles;
 import org.olat.core.id.context.BusinessControlFactory;
 import org.olat.core.id.context.ContextEntry;
 import org.olat.core.logging.AssertException;
@@ -84,27 +85,26 @@ import org.olat.core.util.WebappHelper;
 import org.olat.core.util.ZipUtil;
 import org.olat.core.util.cache.CacheWrapper;
 import org.olat.core.util.coordinate.CoordinatorManager;
-import org.olat.core.util.coordinate.SyncerCallback;
 import org.olat.core.util.coordinate.SyncerExecutor;
 import org.olat.core.util.event.MultiUserEvent;
 import org.olat.core.util.nodes.INode;
-import org.olat.core.util.notifications.NotificationsManager;
-import org.olat.core.util.notifications.Publisher;
-import org.olat.core.util.notifications.SubscriptionContext;
 import org.olat.core.util.resource.OresHelper;
 import org.olat.core.util.tree.TreeVisitor;
 import org.olat.core.util.tree.Visitor;
+import org.olat.core.util.vfs.Quota;
+import org.olat.core.util.vfs.QuotaManager;
 import org.olat.core.util.vfs.VFSConstants;
 import org.olat.core.util.vfs.VFSContainer;
+import org.olat.core.util.vfs.VFSManager;
 import org.olat.core.util.vfs.VFSStatus;
 import org.olat.core.util.xml.XStreamHelper;
 import org.olat.course.archiver.ScoreAccountingHelper;
-import org.olat.course.assessment.manager.UserCourseInformationsManager;
 import org.olat.course.config.CourseConfig;
 import org.olat.course.config.CourseConfigManagerImpl;
 import org.olat.course.config.ui.courselayout.CourseLayoutHelper;
 import org.olat.course.editor.EditorMainController;
 import org.olat.course.editor.PublishProcess;
+import org.olat.course.editor.PublishSetInformations;
 import org.olat.course.editor.StatusDescription;
 import org.olat.course.groupsandrights.CourseGroupManager;
 import org.olat.course.groupsandrights.PersistingCourseGroupManager;
@@ -115,8 +115,6 @@ import org.olat.course.nodes.STCourseNode;
 import org.olat.course.nodes.TACourseNode;
 import org.olat.course.properties.CoursePropertyManager;
 import org.olat.course.properties.PersistingCoursePropertyManager;
-import org.olat.course.repository.ImportGlossaryReferencesController;
-import org.olat.course.repository.ImportSharedfolderReferencesController;
 import org.olat.course.run.RunMainController;
 import org.olat.course.run.environment.CourseEnvironment;
 import org.olat.course.statistic.AsyncExportManager;
@@ -126,16 +124,16 @@ import org.olat.course.tree.PublishTreeModel;
 import org.olat.group.BusinessGroup;
 import org.olat.instantMessaging.InstantMessagingService;
 import org.olat.instantMessaging.manager.ChatLogHelper;
-import org.olat.modules.glossary.GlossaryManager;
-import org.olat.modules.sharedfolder.SharedFolderManager;
 import org.olat.repository.RepositoryEntry;
 import org.olat.repository.RepositoryEntryImportExport;
 import org.olat.repository.RepositoryManager;
+import org.olat.repository.RepositoryService;
+import org.olat.repository.handlers.RepositoryHandler;
+import org.olat.repository.handlers.RepositoryHandlerFactory;
+import org.olat.repository.model.RepositoryEntrySecurity;
 import org.olat.resource.OLATResource;
-import org.olat.resource.OLATResourceManager;
 import org.olat.resource.references.ReferenceImpl;
 import org.olat.resource.references.ReferenceManager;
-import org.olat.testutils.codepoints.server.Codepoint;
 import org.olat.user.UserManager;
 import org.olat.util.logging.activity.LoggingResourceable;
 
@@ -152,56 +150,26 @@ import org.olat.util.logging.activity.LoggingResourceable;
 public class CourseFactory extends BasicManager {
 		
 	private static CacheWrapper<Long,PersistingCourseImpl> loadedCourses;
-	private static ConcurrentHashMap<Long, ModifyCourseEvent> modifyCourseEvents = new ConcurrentHashMap<Long, ModifyCourseEvent>();
+	private static ConcurrentMap<Long, ModifyCourseEvent> modifyCourseEvents = new ConcurrentHashMap<Long, ModifyCourseEvent>();
 
 	public static final String COURSE_EDITOR_LOCK = "courseEditLock";
   //this is the lock that must be aquired at course editing, copy course, export course, configure course.
 	private static Map<Long,PersistingCourseImpl> courseEditSessionMap = new ConcurrentHashMap<Long,PersistingCourseImpl>();
-	private static OLog log = Tracing.createLoggerFor(CourseFactory.class);
+	private static final OLog log = Tracing.createLoggerFor(CourseFactory.class);
 	private static RepositoryManager repositoryManager;
-	private static OLATResourceManager olatResourceManager;
-	private static BaseSecurity securityManager;
 	private static ReferenceManager referenceManager;
-	private static GlossaryManager glossaryManager;
+	private static RepositoryService repositoryService;
 	
 	
 	/**
 	 * [used by spring]
 	 */
-	private CourseFactory(CoordinatorManager coordinatorManager, RepositoryManager repositoryManager, OLATResourceManager olatResourceManager, 
-			BaseSecurity securityManager, ReferenceManager referenceManager, GlossaryManager glossaryManager) {
+	private CourseFactory(CoordinatorManager coordinatorManager, RepositoryManager repositoryManager,
+			RepositoryService repositoryService, ReferenceManager referenceManager) {
 		loadedCourses = coordinatorManager.getCoordinator().getCacher().getCache(CourseFactory.class.getSimpleName(), "courses");
 		CourseFactory.repositoryManager = repositoryManager;
-		CourseFactory.olatResourceManager = olatResourceManager;
-		CourseFactory.securityManager = securityManager;
 		CourseFactory.referenceManager = referenceManager;
-		CourseFactory.glossaryManager = glossaryManager;
-	}
-	
-	/**
-	 * Create a run controller for the given course resourceable
-	 * 
-	 * @param ureq
-	 * @param wControl
-	 * @param re
-	 * @param initialViewIdentifier if null the default view will be started,
-	 *          otherwise a controllerfactory type dependant view will be
-	 *          activated (subscription subtype)
-	 * @return run controller for the given course resourceable
-	 */
-	public static MainLayoutController createLaunchController(UserRequest ureq, WindowControl wControl, final RepositoryEntry re) {
-		ICourse course = loadCourse(re.getOlatResource());
-		boolean isDebug = log.isDebug();
-		long startT = 0;
-		if(isDebug){
-			startT = System.currentTimeMillis();
-		}
-		MainLayoutController launchC = new RunMainController(ureq, wControl, course, re, true, true);
-		if(isDebug){
-			log.debug("Runview for [["+course.getCourseTitle()+"]] took [ms]"+(System.currentTimeMillis() - startT));
-		}
-		
-		return launchC;
+		CourseFactory.repositoryService = repositoryService;
 	}
 
 	/**
@@ -213,11 +181,15 @@ public class CourseFactory extends BasicManager {
 	 * @return editor controller for the given course resourceable; if the editor
 	 *         is already locked, it returns a controller with a lock message
 	 */
-	public static Controller createEditorController(UserRequest ureq, WindowControl wControl, StackedController stack,
-			OLATResourceable olatResource, CourseNode selectedNode) {
+	public static EditorMainController createEditorController(UserRequest ureq, WindowControl wControl,
+			TooledStackedPanel toolbar, OLATResourceable olatResource, CourseNode selectedNode) {
 		ICourse course = loadCourse(olatResource);
-		EditorMainController emc = new EditorMainController(ureq, wControl, course, stack, selectedNode);
-		if (!emc.getLockEntry().isSuccess()) {
+		EditorMainController emc = new EditorMainController(ureq, wControl, toolbar, course, selectedNode);
+		if (emc.getLockEntry() == null) {
+			Translator translator = Util.createPackageTranslator(RunMainController.class, ureq.getLocale());
+			wControl.setWarning(translator.translate("error.editoralreadylocked", new String[] { "?" }));
+			return null;
+		} else if(!emc.getLockEntry().isSuccess()) {
 			// get i18n from the course runmaincontroller to say that this editor is
 			// already locked by another person
 
@@ -245,7 +217,7 @@ public class CourseFactory extends BasicManager {
 	public static ICourse createEmptyCourse(OLATResourceable ores, String shortTitle, String longTitle, String learningObjectives) {
 		PersistingCourseImpl newCourse = new PersistingCourseImpl(ores.getResourceableId());
 		// Put new course in course cache    
-		putCourseInCache(newCourse.getResourceableId() ,newCourse);
+		loadedCourses.put(newCourse.getResourceableId() ,newCourse);
 		
 		Structure initialStructure = new Structure();
 		CourseNode runRootNode = new STCourseNode();
@@ -274,33 +246,20 @@ public class CourseFactory extends BasicManager {
 	 */
 	public static ICourse loadCourse(final Long resourceableId) {
 		if (resourceableId == null) throw new AssertException("No resourceable ID found.");
-		PersistingCourseImpl course = getCourseFromCache(resourceableId);
+		PersistingCourseImpl course = loadedCourses.get(resourceableId);
 		if (course == null) {
 			// o_clusterOK by:ld - load and put in cache in doInSync block to ensure
 			// that no invalidate cache event was missed
-			if (log.isDebug()) log.debug("try to load course with resourceableId=" + resourceableId);
-			OLATResourceable courseResourceable = OresHelper.createOLATResourceableInstance(PersistingCourseImpl.class, resourceableId);
-			course = CoordinatorManager.getInstance().getCoordinator().getSyncer().doInSync(courseResourceable, new SyncerCallback<PersistingCourseImpl>() {
-				public PersistingCourseImpl execute() {
-					PersistingCourseImpl theCourse = null;
-					theCourse = getCourseFromCache(resourceableId);
-					if (theCourse == null) {
-						long startTime = 0;
-						long endTime = 0;
-						if (log.isDebug()) startTime = System.currentTimeMillis();
-						theCourse = new PersistingCourseImpl(resourceableId);
-						theCourse.load();
-						if (log.isDebug()) endTime = System.currentTimeMillis();
-						putCourseInCache(resourceableId, theCourse);
-						long diff = 0;
-						if (log.isDebug()) diff = Long.valueOf(endTime - startTime);
-						if (log.isDebug()) 	log.debug("[[" + resourceableId + "[[" + diff + "[[" + theCourse.getCourseTitle());
-					}
-					return theCourse;
-				}
-			});
+			PersistingCourseImpl theCourse = new PersistingCourseImpl(resourceableId);
+			theCourse.load();
+			
+			PersistingCourseImpl cachedCourse = loadedCourses.putIfAbsent(resourceableId, theCourse);
+			if(cachedCourse != null) {
+				course = cachedCourse;
+			} else {
+				course = theCourse;
+			}
 		}
-
 		return course;
 	}
 
@@ -313,25 +272,6 @@ public class CourseFactory extends BasicManager {
 	public static ICourse loadCourse(OLATResourceable olatResource) {
 		Long resourceableId = olatResource.getResourceableId();
 		return loadCourse(resourceableId);
-	}
-
-	/**
-	 * 
-	 * @param resourceableId
-	 * @return the PersistingCourseImpl instance for the input key.
-	 */
-	static PersistingCourseImpl getCourseFromCache(Long resourceableId) {	//o_clusterOK by:ld    
-		return loadedCourses.get(resourceableId);
-	}
-
-	/**
-	 * Puts silent.
-	 * @param resourceableId
-	 * @param course
-	 */
-	static void putCourseInCache(Long resourceableId, PersistingCourseImpl course) { //o_clusterOK by:ld    
-		loadedCourses.put(resourceableId, course);
-		log.debug("putCourseInCache ");
 	}
 			
 	/**
@@ -359,14 +299,14 @@ public class CourseFactory extends BasicManager {
 	 * 
 	 * @param res
 	 */
-	public static void deleteCourse(OLATResourceable res) {
+	public static void deleteCourse(OLATResource res) {
 		final long start = System.currentTimeMillis();
 		log.info("deleteCourse: starting to delete course. res="+res);
 
 		// find all references to course
 		List<ReferenceImpl> refs = referenceManager.getReferences(res);
 		for (Iterator<ReferenceImpl> iter = refs.iterator(); iter.hasNext();) {
-			ReferenceImpl ref = (ReferenceImpl) iter.next();
+			ReferenceImpl ref = iter.next();
 			referenceManager.delete(ref);
 		}
 		
@@ -397,10 +337,8 @@ public class CourseFactory extends BasicManager {
 			CourseConfigManagerImpl.getInstance().deleteConfigOf(course);
 		}
 		
-		//clean up tasks
-		OLATResource resource = course.getCourseEnvironment().getCourseGroupManager().getCourseResource();
-		CoreSpringFactory.getImpl(TaskExecutorManager.class).delete(resource);
-		
+		CoreSpringFactory.getImpl(TaskExecutorManager.class).delete(res);
+
 		// delete course group- and rightmanagement
 		CourseGroupManager courseGroupManager = PersistingCourseGroupManager.getInstance(res);
 		courseGroupManager.deleteCourseGroupmanagement();
@@ -475,11 +413,8 @@ public class CourseFactory extends BasicManager {
 	 * @param ureq
 	 * @return copy of the course.
 	 */
-	public static OLATResourceable copyCourse(OLATResourceable sourceRes, UserRequest ureq) {
-		
-		PersistingCourseImpl sourceCourse = (PersistingCourseImpl) loadCourse(sourceRes);
-
-		OLATResourceable targetRes = OLATResourceManager.getInstance().createOLATResourceInstance(CourseModule.class);
+	public static OLATResourceable copyCourse(OLATResourceable sourceRes, OLATResource targetRes) {
+		PersistingCourseImpl sourceCourse = (PersistingCourseImpl)loadCourse(sourceRes);
 		PersistingCourseImpl targetCourse = new PersistingCourseImpl(targetRes.getResourceableId());
 		File fTargetCourseBasePath = targetCourse.getCourseBaseContainer().getBasefile();
 		
@@ -492,8 +427,6 @@ public class CourseFactory extends BasicManager {
 			targetCourse.saveRunStructure();
 			targetCourse.setEditorTreeModel((CourseEditorTreeModel) XStreamHelper.xstreamClone(sourceCourse.getEditorTreeModel()));
 			targetCourse.saveEditorTreeModel();
-			
-			Codepoint.codepoint(CourseFactory.class, "copyCourseAfterSaveTreeModel");
 
 			// copy course folder
 			File fSourceCourseFolder = sourceCourse.getIsolatedCourseFolder().getBasefile();
@@ -519,6 +452,17 @@ public class CourseFactory extends BasicManager {
 				referenceManager.addReference(targetCourse, ref.getTarget(), ref.getUserdata());
 				if(count % 20 == 0) {
 					DBFactory.getInstance(false).intermediateCommit();
+				}
+			}
+			
+			// set quotas
+			Quota sourceQuota = VFSManager.isTopLevelQuotaContainer(sourceCourse.getCourseFolderContainer());
+			Quota targetQuota = VFSManager.isTopLevelQuotaContainer(targetCourse.getCourseFolderContainer());
+			if (sourceQuota != null && targetQuota != null) {
+				QuotaManager qm = QuotaManager.getInstance();
+				if (sourceQuota.getQuotaKB() != qm.getDefaultQuota(QuotaConstants.IDENTIFIER_DEFAULT_COURSE).getQuotaKB()) {
+					targetQuota = qm.createQuota(targetQuota.getPath(), sourceQuota.getQuotaKB(), sourceQuota.getUlLimitKB());
+					qm.setCustomQuotaKB(targetQuota);
 				}
 			}
 		}
@@ -574,7 +518,7 @@ public class CourseFactory extends BasicManager {
 				CourseConfig cc = CourseConfigManagerImpl.getInstance().loadConfigFor(newCourse);								
 				//newCourse is not in cache yet, so we cannot call setCourseConfig()
 				newCourse.setCourseConfig(cc);
-				putCourseInCache(newCourse.getResourceableId(), newCourse);						
+				loadedCourses.put(newCourse.getResourceableId(), newCourse);						
 				return newCourse;
 			} catch (AssertException ae) {
 				// ok failed, cleanup below
@@ -594,161 +538,32 @@ public class CourseFactory extends BasicManager {
 	 * 
 	 * @param exportedCourseZIPFile
 	 */
-	public static RepositoryEntry deployCourseFromZIP(File exportedCourseZIPFile, int access) {
-		return deployCourseFromZIP(exportedCourseZIPFile, "administrator", null, access);
-	}
-	
-	public static RepositoryEntry deployCourseFromZIP(File exportedCourseZIPFile, String initialAuthor, String softKey, int access) {
-		// create the course instance
-		OLATResource newCourseResource = olatResourceManager.createOLATResourceInstance(CourseModule.class);
-		ICourse course = CourseFactory.importCourseFromZip(newCourseResource, exportedCourseZIPFile);
-		// course is now also in course cache!
-		if (course == null) {
-			log.error("Error deploying course from ZIP: " + exportedCourseZIPFile.getAbsolutePath());
-			return null;
-		}
-		File courseExportData = course.getCourseExportDataDir().getBasefile();
-		// get the export data directory
-		// create the repository entry
-		RepositoryEntry re = repositoryManager.createRepositoryEntryInstance("administrator");
-		RepositoryEntryImportExport importExport = new RepositoryEntryImportExport(courseExportData);
+	public static RepositoryEntry deployCourseFromZIP(File exportedCourseZIPFile, String softKey, int access) {
+
+		RepositoryEntryImportExport importExport = new RepositoryEntryImportExport(exportedCourseZIPFile);
 		if(!StringHelper.containsNonWhitespace(softKey)) {
 			softKey = importExport.getSoftkey();
 		}
 		RepositoryEntry existingEntry = repositoryManager.lookupRepositoryEntryBySoftkey(softKey, false);
 		if (existingEntry != null) {
 			log.info("RepositoryEntry with softkey " + softKey + " already exists. Course will not be deployed.");
-			//seem to be a problem
-			UserCourseInformationsManager userCourseInformationsManager = CoreSpringFactory.getImpl(UserCourseInformationsManager.class);
-			userCourseInformationsManager.deleteUserCourseInformations(existingEntry);
-			CourseFactory.deleteCourse(newCourseResource);
 			return existingEntry;
 		}
-		// ok, continue import
-		newCourseResource = olatResourceManager.findOrPersistResourceable(newCourseResource);
-		re.setOlatResource(newCourseResource);
+		
+		
+		RepositoryHandler courseHandler = RepositoryHandlerFactory.getInstance().getRepositoryHandler(CourseModule.getCourseTypeName());
+		RepositoryEntry re = courseHandler.importResource(null, importExport.getInitialAuthor(), importExport.getDisplayName(), importExport.getDescription(),
+				true, Locale.ENGLISH, exportedCourseZIPFile, exportedCourseZIPFile.getName());
+		
 		re.setSoftkey(softKey);
-		re.setInitialAuthor(importExport.getInitialAuthor());
-		re.setDisplayname(importExport.getDisplayName());
-		re.setResourcename(importExport.getResourceName());
-		re.setDescription(importExport.getDescription());
-		re.setCanLaunch(true);
-		
-		// set access configuration
 		re.setAccess(access);
-
-		// create security group
-		SecurityGroup ownerGroup = securityManager.createAndPersistSecurityGroup();
-		// member of this group may modify member's membership
-		securityManager.createAndPersistPolicy(ownerGroup, Constants.PERMISSION_ACCESS, ownerGroup);
-		// members of this group are always authors also
-		securityManager.createAndPersistPolicy(ownerGroup, Constants.PERMISSION_HASROLE, Constants.ORESOURCE_AUTHOR);
-		securityManager.addIdentityToSecurityGroup(securityManager.findIdentityByName("administrator"), ownerGroup);
-		re.setOwnerGroup(ownerGroup);
-		// save the repository entry
-		repositoryManager.saveRepositoryEntry(re);
-		// Create course admin policy for owner group of repository entry
-		// -> All owners of repository entries are course admins
-		securityManager.createAndPersistPolicy(re.getOwnerGroup(), Constants.PERMISSION_ADMIN, re.getOlatResource());
+		repositoryService.update(re);
 		
-		//fxdiff VCRP-1,2: access control of resources
-		// create security group for tutors / coaches
-		SecurityGroup tutorGroup = securityManager.createAndPersistSecurityGroup();
-		// member of this group may modify member's membership
-		securityManager.createAndPersistPolicy(tutorGroup, Constants.PERMISSION_ACCESS, re.getOlatResource());
-		securityManager.createAndPersistPolicy(tutorGroup, Constants.PERMISSION_COACH, re.getOlatResource());
-		// members of this group are always tutors also
-		securityManager.createAndPersistPolicy(tutorGroup, Constants.PERMISSION_HASROLE, Constants.ORESOURCE_TUTOR);
-		re.setTutorGroup(tutorGroup);
-	
-		// create security group for participants
-		SecurityGroup participantGroup = securityManager.createAndPersistSecurityGroup();
-		// member of this group may modify member's membership
-		securityManager.createAndPersistPolicy(participantGroup, Constants.PERMISSION_ACCESS, re.getOlatResource());
-		securityManager.createAndPersistPolicy(participantGroup, Constants.PERMISSION_PARTI, re.getOlatResource());
-		// members of this group are always participants also
-		securityManager.createAndPersistPolicy(participantGroup, Constants.PERMISSION_HASROLE, Constants.ORESOURCE_PARTICIPANT);
-		re.setParticipantGroup(participantGroup);
-		
-		//import groups
-		course = openCourseEditSession(course.getResourceableId());
-		// create group management
-		CourseGroupManager cgm = course.getCourseEnvironment().getCourseGroupManager();
-		// import groups
-		cgm.importCourseBusinessGroups(courseExportData);
-		
-		// deploy any referenced repository entries of the editor structure. This will also
-		// include any references in the run structure, since any node in the runstructure is also
-		// present in the editor structure.
-		deployReferencedRepositoryEntries(courseExportData, course,
-				(CourseEditorTreeNode)course.getEditorTreeModel().getRootNode());
-		// register any references in the run structure. The referenced entries have been 
-		// previousely deplyed (as part of the editor structure deployment process - see above method call)
-		registerReferences(course, course.getRunStructure().getRootNode());
-		// import shared folder references
-		deployReferencedSharedFolders(courseExportData, course);
-		// import glossary references
-		deployReferencedGlossary(courseExportData, course);
-		closeCourseEditSession(course.getResourceableId(), true);
-		// cleanup export data
-		FileUtils.deleteDirsAndFiles(courseExportData, true, true);
-		log.info("Successfully deployed course " + re.getDisplayname() + " from ZIP: " + exportedCourseZIPFile.getAbsolutePath());
+		ICourse course = CourseFactory.loadCourse(re.getOlatResource());
+		CourseFactory.publishCourse(course, RepositoryEntry.ACC_USERS, false,  null, Locale.ENGLISH);
 		return re;
 	}
-	
-	
-	/**
-	 * Unattended deploy any referenced repository entries.
-	 * 
-	 * @param importDirectory
-	 * @param course
-	 * @param currentNode
-	 */
-	private static void deployReferencedRepositoryEntries(File importDirectory, ICourse course, CourseEditorTreeNode currentNode) {
-		for (int i = 0; i < currentNode.getChildCount(); i++) {
-			CourseEditorTreeNode childNode = (CourseEditorTreeNode)currentNode.getChildAt(i);
-			childNode.getCourseNode().importNode(importDirectory, course, true, null, null);
-			deployReferencedRepositoryEntries(importDirectory, course, childNode);
-		}
-	}
-	
-	/**
-	 * Register any referenced repository entries.
-	 * @param course
-	 * @param currentNode
-	 */
-	private static void registerReferences(ICourse course, CourseNode currentNode) {
-		for (int i = 0; i < currentNode.getChildCount(); i++) {
-			CourseNode childNode = (CourseNode)currentNode.getChildAt(i);
-			if (childNode.needsReferenceToARepositoryEntry()) {
-				referenceManager.addReference(course,
-					childNode.getReferencedRepositoryEntry().getOlatResource(), childNode.getIdent());
-			}
-			registerReferences(course, childNode);
-		}
-	}
-	
-	private static void deployReferencedSharedFolders(File importDirectory, ICourse course) {
-		CourseConfig cc = course.getCourseEnvironment().getCourseConfig();
-		if (!cc.hasCustomSharedFolder()) return;
-		RepositoryEntryImportExport importExport = SharedFolderManager.getInstance()
-			.getRepositoryImportExport(importDirectory);
-		Identity owner = BaseSecurityManager.getInstance().findIdentityByName("administrator");
-		ImportSharedfolderReferencesController.doImport(importExport, course, false, owner);
-	}
 
-	/**
-	 * Deploy referenced glossaries using the administrator account as owner
-	 * @param importDirectory
-	 * @param course
-	 */
-	private static void deployReferencedGlossary(File importDirectory, ICourse course) {
-		CourseConfig cc = course.getCourseEnvironment().getCourseConfig();
-		if (!cc.hasGlossary()) return;
-		RepositoryEntryImportExport importExport = glossaryManager.getRepositoryImportExport(importDirectory);
-		Identity owner = securityManager.findIdentityByName("administrator");
-		ImportGlossaryReferencesController.doImport(importExport, course, false, owner);
-	}
 	
 	/**
 	 * Publish the course with some standard options
@@ -769,14 +584,15 @@ public class CourseFactory extends BasicManager {
 		 //RepositoryEntry.ACC_OWNERS_AUTHORS //only owners and authors can the see course
 		 //RepositoryEntry.ACC_USERS_GUESTS // users and guests can see the course
 		 //fxdiff VCRP-1,2: access control of resources
-		 publishProcess.changeGeneralAccess(null, newAccess, membersOnly);
+		 publishProcess.changeGeneralAccess(identity, newAccess, membersOnly);
 		 
 		 if (publishTreeModel.hasPublishableChanges()) {
 			 List<String>nodeToPublish = new ArrayList<String>();
 			 visitPublishModel(publishTreeModel.getRootNode(), publishTreeModel, nodeToPublish);
 
 			 publishProcess.createPublishSetFor(nodeToPublish);
-			 StatusDescription[] status = publishProcess.testPublishSet(locale);
+			 PublishSetInformations set = publishProcess.testPublishSet(locale);
+			 StatusDescription[] status = set.getWarnings();
 			 //publish not possible when there are errors
 			 for(int i = 0; i < status.length; i++) {
 				 if(status[i].isError()) {
@@ -795,19 +611,6 @@ public class CourseFactory extends BasicManager {
 			 }
 		 }
 	}
-	
-	/**
-	 * Get a details form for a given course resourceable
-	 * 
-	 * @param res
-	 * @param ureq
-	 * @return details component displaying details of the course.
-	 */
-	public static Controller getDetailsForm(UserRequest ureq, WindowControl wControl, OLATResourceable res) {
-		// course does not provide a details component, this is somehow hardcoded in the
-		// RepositoryDetailsController
-		return null;
-	}
 
 	/**
 	 * Create a user locale dependent help-course run controller
@@ -820,6 +623,7 @@ public class CourseFactory extends BasicManager {
 		// Find repository entry for this course
 		String helpCourseSoftKey = CourseModule.getHelpCourseSoftKey();
 		RepositoryManager rm = RepositoryManager.getInstance();
+		RepositoryService rs = CoreSpringFactory.getImpl(RepositoryService.class);
 		RepositoryEntry entry = null;
 		if (StringHelper.containsNonWhitespace(helpCourseSoftKey)) {
 			entry = rm.lookupRepositoryEntryBySoftkey(helpCourseSoftKey, false);
@@ -828,18 +632,18 @@ public class CourseFactory extends BasicManager {
 			Translator translator = Util.createPackageTranslator(CourseFactory.class, ureq.getLocale());
 			wControl.setError(translator.translate("error.helpcourse.not.configured"));
 			// create empty main controller
-			LayoutMain3ColsController emptyCtr = new LayoutMain3ColsController(ureq, wControl, null, null, null, null);
+			LayoutMain3ColsController emptyCtr = new LayoutMain3ColsController(ureq, wControl, null, null, null);
 			return emptyCtr;
 		} else {
 			// Increment launch counter
-			rm.incrementLaunchCounter(entry);
+			rs.incrementLaunchCounter(entry);
 			OLATResource ores = entry.getOlatResource();
 			ICourse course = loadCourse(ores);
 			
 			ContextEntry ce = BusinessControlFactory.getInstance().createContextEntry(entry);
 			WindowControl bwControl = BusinessControlFactory.getInstance().createBusinessWindowControl(ce, wControl);	
-			
-			RunMainController launchC = new RunMainController(ureq, bwControl, course, entry, false, false);
+			RepositoryEntrySecurity reSecurity = new RepositoryEntrySecurity(false, false, false, false, false, false, false, true);
+			RunMainController launchC = new RunMainController(ureq, bwControl, null, course, entry, reSecurity);
 			return launchC;			
 		}		
 	}
@@ -853,13 +657,13 @@ public class CourseFactory extends BasicManager {
 	 * @param locale
 	 * @param identity
 	 */
-	public static void archiveCourse(OLATResourceable res, String charset, Locale locale, Identity identity) {
+	public static void archiveCourse(OLATResourceable res, String charset, Locale locale, Identity identity, Roles roles) {
 		RepositoryEntry courseRe = RepositoryManager.getInstance().lookupRepositoryEntry(res, false);
 		PersistingCourseImpl course = (PersistingCourseImpl) loadCourse(res);
 		File exportDirectory = CourseFactory.getOrCreateDataExportDirectory(identity, course.getCourseTitle());
-		boolean isOLATAdmin = BaseSecurityManager.getInstance().isIdentityPermittedOnResourceable(identity, Constants.PERMISSION_HASROLE, Constants.ORESOURCE_ADMIN);
+		boolean isOLATAdmin = roles.isOLATAdmin();
 		boolean isOresOwner = RepositoryManager.getInstance().isOwnerOfRepositoryEntry(identity, courseRe);
-		boolean isOresInstitutionalManager = RepositoryManager.getInstance().isInstitutionalRessourceManagerFor(courseRe, identity);
+		boolean isOresInstitutionalManager = RepositoryManager.getInstance().isInstitutionalRessourceManagerFor(identity, roles, courseRe);
 		archiveCourse(identity, course, charset, locale, exportDirectory, isOLATAdmin, isOresOwner, isOresInstitutionalManager);
 	}
 		
@@ -1001,13 +805,13 @@ public class CourseFactory extends BasicManager {
 				public void execute() {
 					final PersistingCourseImpl course = getCourseEditSession(resourceableId);
 					if(course!=null && course.isReadAndWrite()) {
-		        course.initHasAssessableNodes();
-		        course.saveRunStructure();
-		        course.saveEditorTreeModel();
+						course.initHasAssessableNodes();
+						course.saveRunStructure();
+						course.saveEditorTreeModel();
 		        
-		        //clear modifyCourseEvents at publish, since the updateCourseInCache is called anyway
-		        modifyCourseEvents.remove(resourceableId);
-		        updateCourseInCache(resourceableId, course);		        
+						//clear modifyCourseEvents at publish, since the updateCourseInCache is called anyway
+						modifyCourseEvents.remove(resourceableId);
+						updateCourseInCache(resourceableId, course);		        
 					} else if(!course.isReadAndWrite()) {
 						throw new AssertException("Cannot saveCourse because theCourse is readOnly! You have to open an courseEditSession first!");
 					}
@@ -1062,10 +866,6 @@ public class CourseFactory extends BasicManager {
 		//close courseEditSession if not already closed
 		closeCourseEditSession(resourceableId, false);
 	}
-	
-	public static Controller createDisposedCourseRestartController(UserRequest ureq, WindowControl wControl, RepositoryEntry re) {
-		return new DisposedCourseRestartController(ureq, wControl, re);
-	}
 
 	/**
 	 * Create a custom css object for the course layout. This can then be set on a
@@ -1116,9 +916,8 @@ public class CourseFactory extends BasicManager {
 				public void execute() {
 					PersistingCourseImpl course = getCourseEditSession(resourceableId);
 					if(course!=null) {
-					  course.setCourseConfig(cc);
-		    	    
-		        updateCourseInCache(resourceableId, course);
+						course.setCourseConfig(cc);
+						updateCourseInCache(resourceableId, course);
 					}
 				}
 			});
@@ -1148,6 +947,10 @@ public class CourseFactory extends BasicManager {
 			log.debug("getCourseEditSession - put course in courseEditSessionMap: " + resourceableId);
 		}	
 		return course;
+	}
+	
+	public static boolean isCourseEditSessionOpen(Long resourceableId) {
+		return courseEditSessionMap.containsKey(resourceableId);
 	}
 	
 	/**

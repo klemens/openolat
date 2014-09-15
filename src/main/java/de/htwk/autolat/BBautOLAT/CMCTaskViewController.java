@@ -25,7 +25,6 @@ import de.htwk.autolat.tools.XMLParser.XMLParser;
 
 public class CMCTaskViewController extends BasicController{
 	private VelocityContainer testVC;
-	private Panel main;
 	private TaskInstance taskInstance;
 	private TaskSolution taskSolution;
 	private TaskInstanceTestController testCon;
@@ -35,10 +34,9 @@ public class CMCTaskViewController extends BasicController{
 		this.taskInstance = taskInstance;
 		this.taskSolution = taskSolution;
 
-		main = new Panel("viewTask");
 		testVC = createVelocityContainer("CMCTaskViewController");
 		createOutput(ureq, wControl, courseID, courseNodeID);
-		main = this.putInitialPanel(testVC);
+		putInitialPanel(testVC);
 	}
 	
 	private void createOutput(UserRequest ureq, WindowControl wControl, long courseID, long courseNodeID){

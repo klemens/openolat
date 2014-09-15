@@ -32,17 +32,22 @@ import java.util.Map;
 import java.util.Set;
 
 import org.olat.basesecurity.BaseSecurity;
+import org.olat.basesecurity.GroupRoles;
 import org.olat.core.commons.persistence.DB;
 import org.olat.core.id.Identity;
 import org.olat.core.id.Roles;
-import org.olat.core.manager.BasicManager;
+import org.olat.core.logging.OLog;
+import org.olat.core.logging.Tracing;
 import org.olat.group.BusinessGroup;
 import org.olat.group.BusinessGroupService;
 import org.olat.group.manager.BusinessGroupDAO;
+import org.olat.group.manager.BusinessGroupRelationDAO;
 import org.olat.group.model.EnrollState;
 import org.olat.repository.RepositoryEntry;
 import org.olat.repository.RepositoryEntryShort;
 import org.olat.repository.RepositoryManager;
+import org.olat.repository.RepositoryService;
+import org.olat.repository.manager.RepositoryEntryRelationDAO;
 import org.olat.repository.model.RepositoryEntryShortImpl;
 import org.olat.resource.OLATResource;
 import org.olat.resource.OLATResourceManager;
@@ -75,7 +80,9 @@ import org.springframework.stereotype.Service;
  * @author srosse, stephane.rosse@frentix.com, http://www.frentix.com
  */
 @Service("acService")
-public class ACFrontendManager extends BasicManager implements ACService {
+public class ACFrontendManager implements ACService {
+	
+	private static final OLog log = Tracing.createLoggerFor(ACFrontendManager.class);
 	
 	@Autowired
 	private DB dbInstance;
@@ -84,22 +91,27 @@ public class ACFrontendManager extends BasicManager implements ACService {
 	@Autowired
 	private RepositoryManager repositoryManager;
 	@Autowired
+	private RepositoryService repositoryService;
+	@Autowired
 	private AccessControlModule accessModule;
 	@Autowired
-	private ACOfferManager accessManager;
+	private ACOfferDAO accessManager;
 	@Autowired
-	private ACMethodManager methodManager;
+	private ACMethodDAO methodManager;
 	@Autowired
-	private ACOrderManager orderManager;
+	private ACOrderDAO orderManager;
 	@Autowired
 	private ACReservationDAO reservationDao;
 	@Autowired
-	private ACTransactionManager transactionManager;
+	private ACTransactionDAO transactionManager;
 	@Autowired
 	private BusinessGroupDAO businessGroupDao;
 	@Autowired
+	private BusinessGroupRelationDAO businessGroupRelationDao;
+	@Autowired
+	private RepositoryEntryRelationDAO repositoryEntryRelationDao;
+	@Autowired
 	private BusinessGroupService businessGroupService;
-	
 
 	/**
 	 * The rule to access the repository entry:<br/>
@@ -109,14 +121,21 @@ public class ACFrontendManager extends BasicManager implements ACService {
 	 * -Participants have access to the resource<br/>
 	 * @param entry
 	 * @param forId
+	 * @param knowMember give it if already know as a member
 	 * @return
 	 */
-	public AccessResult isAccessible(RepositoryEntry entry, Identity forId, boolean allowNonInteractiveAccess) {
+	@Override
+	public AccessResult isAccessible(RepositoryEntry entry, Identity forId, Boolean knowMember, boolean allowNonInteractiveAccess) {
 		if(!accessModule.isEnabled()) {
 			return new AccessResult(true);
 		}
 		
-		boolean member = repositoryManager.isMember(forId, entry);
+		boolean member;
+		if(knowMember == null) {
+			member = repositoryService.isMember(forId, entry);
+		} else {
+			member = knowMember.booleanValue();
+		}
 		if(member) {
 			return new AccessResult(true);
 		}
@@ -131,6 +150,16 @@ public class ACFrontendManager extends BasicManager implements ACService {
 			}	
 		}
 		return isAccessible(forId, offers, allowNonInteractiveAccess);
+	}
+	
+	@Override
+	public AccessResult isAccessible(RepositoryEntry entry, Identity forId, boolean allowNonInteractiveAccess) {
+		if(!accessModule.isEnabled()) {
+			return new AccessResult(true);
+		}
+		
+		boolean member = repositoryService.isMember(forId, entry);
+		return isAccessible(entry, forId, new Boolean(member), allowNonInteractiveAccess);
 	}
 	
 	/**
@@ -158,16 +187,12 @@ public class ACFrontendManager extends BasicManager implements ACService {
 			return new AccessResult(true);
 		}
 
-		boolean tutor = securityManager.isIdentityInSecurityGroup(forId, group.getOwnerGroup());
-		if(tutor) {
+		List<String> roles = businessGroupRelationDao.getRoles(forId, group);
+		if(roles.contains(GroupRoles.coach.name())) {
 			return new AccessResult(true);
 		}
-		
-		if(group.getPartipiciantGroup() != null) {
-			boolean participant = securityManager.isIdentityInSecurityGroup(forId, group.getPartipiciantGroup());
-			if(participant) {
-				return new AccessResult(true);
-			}
+		if(roles.contains(GroupRoles.participant.name())) {
+			return new AccessResult(true);
 		}
 		
 		OLATResource resource = OLATResourceManager.getInstance().findResourceable(group);
@@ -217,6 +242,25 @@ public class ACFrontendManager extends BasicManager implements ACService {
 			OLATResource ores = entry.getOlatResource();
 			resourceKeys.add(ores.getKey());
 			resourceTypes.add(ores.getResourceableTypeName());
+		}
+		
+		String resourceType = null;
+		if(resourceTypes.size() == 1) {
+			resourceType = resourceTypes.iterator().next();
+		}
+		List<OLATResourceAccess> resourceWithOffers = methodManager.getAccessMethodForResources(resourceKeys, resourceType, "BusinessGroup", true, new Date());
+		return resourceWithOffers;
+	}
+	
+	public List<OLATResourceAccess> filterResourceWithAC(List<OLATResource> resources) {
+		if(resources == null || resources.isEmpty()) {
+			return Collections.emptyList();
+		}
+		Set<String> resourceTypes = new HashSet<String>();
+		List<Long> resourceKeys = new ArrayList<Long>();
+		for(OLATResource resource:resources) {
+			resourceKeys.add(resource.getKey());
+			resourceTypes.add(resource.getResourceableTypeName());
 		}
 		
 		String resourceType = null;
@@ -295,13 +339,13 @@ public class ACFrontendManager extends BasicManager implements ACService {
 	@Override
 	public AccessResult accessResource(Identity identity, OfferAccess link, Object argument) {
 		if(link == null || link.getOffer() == null || link.getMethod() == null) {
-			logAudit("Access refused (no offer) to: " + link + " for " + identity);
+			log.audit("Access refused (no offer) to: " + link + " for " + identity);
 			return new AccessResult(false);
 		}
 		
 		AccessMethodHandler handler = accessModule.getAccessMethodHandler(link.getMethod().getType());
 		if(handler == null) {
-			logAudit("Access refused (no handler method) to: " + link + " for " + identity);
+			log.audit("Access refused (no handler method) to: " + link + " for " + identity);
 			return new AccessResult(false);
 		}
 		
@@ -310,13 +354,13 @@ public class ACFrontendManager extends BasicManager implements ACService {
 				Order order = orderManager.saveOneClick(identity, link);
 				AccessTransaction transaction = transactionManager.createTransaction(order, order.getParts().get(0), link.getMethod());
 				transactionManager.save(transaction);
-				logAudit("Access granted to: " + link + " for " + identity);
+				log.audit("Access granted to: " + link + " for " + identity);
 				return new AccessResult(true);
 			} else {
-				logAudit("Access error to: " + link + " for " + identity);
+				log.audit("Access error to: " + link + " for " + identity);
 			}
 		} else {
-			logAudit("Access refused to: " + link + " for " + identity);
+			log.audit("Access refused to: " + link + " for " + identity);
 		}
 		return new AccessResult(false);
 	}
@@ -380,7 +424,7 @@ public class ACFrontendManager extends BasicManager implements ACService {
 					reserved = true;
 				}
 				
-				int currentCount = securityManager.countIdentitiesOfSecurityGroup(reloadedGroup.getPartipiciantGroup());
+				int currentCount = businessGroupService.countMembers(reloadedGroup, GroupRoles.participant.name());
 				int reservations = reservationDao.countReservations(resource);
 				if(currentCount + reservations < reloadedGroup.getMaxParticipants().intValue()) {
 					reservationDao.createReservation(identity, offer.getMethod().getType(), null, resource);
@@ -399,7 +443,7 @@ public class ACFrontendManager extends BasicManager implements ACService {
 		Date oneHourTimeout = cal.getTime();
 		List<ResourceReservation> oldReservations = reservationDao.loadExpiredReservation(oneHourTimeout);
 		for(ResourceReservation reservation:oldReservations) {
-			logAudit("Remove reservation:" + reservation);
+			log.audit("Remove reservation:" + reservation);
 			reservationDao.deleteReservation(reservation);
 		}
 	}
@@ -420,8 +464,8 @@ public class ACFrontendManager extends BasicManager implements ACService {
 		if("CourseModule".equals(resourceType)) {
 			RepositoryEntry entry = repositoryManager.lookupRepositoryEntry(resource, false);
 			if(entry != null) {
-				if(!securityManager.isIdentityInSecurityGroup(identity, entry.getParticipantGroup())) {
-					securityManager.addIdentityToSecurityGroup(identity, entry.getParticipantGroup());
+				if(!repositoryEntryRelationDao.hasRole(identity, entry, GroupRoles.participant.name())) {
+					repositoryEntryRelationDao.addRole(identity, entry, GroupRoles.participant.name());
 				}
 				return true;
 			}
@@ -451,16 +495,16 @@ public class ACFrontendManager extends BasicManager implements ACService {
 		if("CourseModule".equals(resourceType)) {
 			RepositoryEntry entry = repositoryManager.lookupRepositoryEntry(resource, false);
 			if(entry != null) {
-				if(securityManager.isIdentityInSecurityGroup(identity, entry.getParticipantGroup())) {
-					securityManager.removeIdentityFromSecurityGroup(identity, entry.getParticipantGroup());
+				if(repositoryEntryRelationDao.hasRole(identity, entry, GroupRoles.participant.name())) {
+					repositoryEntryRelationDao.removeRole(identity, entry, GroupRoles.participant.name());
 				}
 				return true;
 			}
 		} else if("BusinessGroup".equals(resourceType)) {
 			BusinessGroup group = businessGroupService.loadBusinessGroup(resource);
 			if(group != null) {
-				if(securityManager.isIdentityInSecurityGroup(identity, group.getPartipiciantGroup())) {
-					securityManager.removeIdentityFromSecurityGroup(identity, group.getPartipiciantGroup());
+				if(businessGroupService.hasRoles(identity, group, GroupRoles.participant.name())) {
+					businessGroupRelationDao.removeRole(identity, group, GroupRoles.participant.name());
 				}
 				return true;
 			}

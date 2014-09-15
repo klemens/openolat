@@ -49,8 +49,8 @@ import org.olat.core.util.event.GenericEventListener;
 import org.olat.repository.RepositoryEntry;
 import org.olat.repository.RepositoryEntryLight;
 import org.olat.repository.RepositoryEntryOrder;
-import org.olat.repository.RepositoryEntryTypeColumnDescriptor;
 import org.olat.repository.RepositoryManager;
+import org.olat.repository.ui.RepositoryEntryTypeColumnDescriptor;
 
 
 /**
@@ -88,11 +88,12 @@ public class RepositoryPortletRunController extends AbstractPortletRunController
 		sortingTermsList.add(SortingCriteria.ALPHABETICAL_SORTING);				
 		VelocityContainer repoEntriesVC = this.createVelocityContainer("repositoryPortlet");
 		showAllLink = LinkFactory.createLink("repositoryPortlet.showAll", repoEntriesVC, this);
+		showAllLink.setIconRightCSS("o_icon o_icon_start");
 			
 		TableGuiConfiguration tableConfig = new TableGuiConfiguration();
 		tableConfig.setTableEmptyMessage(trans.translate("repositoryPortlet.noentry"));
 		tableConfig.setDisplayTableHeader(false);
-		tableConfig.setCustomCssClass("b_portlet_table");
+		tableConfig.setCustomCssClass("o_portlet_table");
 		tableConfig.setDisplayRowCount(false);
 		tableConfig.setPageingEnabled(false);
 		tableConfig.setDownloadOffered(false);
@@ -113,10 +114,10 @@ public class RepositoryPortletRunController extends AbstractPortletRunController
 		putInitialPanel(repoEntriesVC);
 	}
 	
-	private List<RepositoryEntryLight> getAllEntries(SortingCriteria sortingCriteria) {
-		int maxResults = sortingCriteria == null ? -1 : sortingCriteria.getMaxEntries();
+	private List<RepositoryEntryLight> getAllEntries(SortingCriteria criteria) {
+		int maxResults = criteria == null ? -1 : criteria.getMaxEntries();
 		RepositoryEntryOrder orderBy = RepositoryEntryOrder.nameAsc;
-		if(sortingCriteria != null && !sortingCriteria.isAscending()) {
+		if(criteria != null && !criteria.isAscending()) {
 			orderBy = RepositoryEntryOrder.nameDesc;
 		}
 		
@@ -157,10 +158,11 @@ public class RepositoryPortletRunController extends AbstractPortletRunController
 		}
 		return convertedList;
 	}
-	
-	protected void reloadModel(SortingCriteria sortingCriteria) {
-		if (sortingCriteria.getSortingType() == SortingCriteria.AUTO_SORTING) {
-			List<RepositoryEntryLight> items = getAllEntries(sortingCriteria);
+
+	@Override
+	protected void reloadModel(SortingCriteria criteria) {
+		if (criteria.getSortingType() == SortingCriteria.AUTO_SORTING) {
+			List<RepositoryEntryLight> items = getAllEntries(criteria);
 			List<PortletEntry<RepositoryEntryLight>> entries = convertShortRepositoryEntriesToPortletEntryList(items);
 			repoEntryListModel = new RepositoryPortletTableDataModel(entries, getLocale());
 			tableCtr.setTableDataModel(repoEntryListModel);
@@ -168,7 +170,8 @@ public class RepositoryPortletRunController extends AbstractPortletRunController
 			reloadModel(getPersistentManuallySortedItems());
 		}
 	}
-	
+
+	@Override
 	protected void reloadModel(List<PortletEntry<RepositoryEntryLight>> sortedItems) {						
 		repoEntryListModel = new RepositoryPortletTableDataModel(sortedItems, getLocale());
 		tableCtr.setTableDataModel(repoEntryListModel);
@@ -179,10 +182,16 @@ public class RepositoryPortletRunController extends AbstractPortletRunController
 	 * @see org.olat.core.gui.control.DefaultController#event(org.olat.core.gui.UserRequest,
 	 *      org.olat.core.gui.components.Component, org.olat.core.gui.control.Event)
 	 */
+	@Override
 	public void event(UserRequest ureq, Component source, Event event) {
 		if (source == showAllLink){
-			String target = studentView ? "search.mycourses.student" : "search.mycourses.teacher";
-			NewControllerFactory.getInstance().launch("[RepositorySite:0][" + target + ":0]", ureq, getWindowControl());
+			String target;
+			if(studentView) {
+				target = "[MyCoursesSite:0][My:0]";
+			} else {
+				target = "[RepositorySite:0][My:0]";
+			}
+			NewControllerFactory.getInstance().launch(target, ureq, getWindowControl());
 		} 
 	}
 
@@ -190,6 +199,7 @@ public class RepositoryPortletRunController extends AbstractPortletRunController
 	 * @see org.olat.core.gui.control.ControllerEventListener#dispatchEvent(org.olat.core.gui.UserRequest,
 	 *      org.olat.core.gui.control.Controller, org.olat.core.gui.control.Event)
 	 */
+	@Override
 	public void event(UserRequest ureq, Controller source, Event event) {
 		super.event(ureq, source, event);
 		if (source == tableCtr) {
@@ -205,6 +215,7 @@ public class RepositoryPortletRunController extends AbstractPortletRunController
 		}	
 	}
 
+	@Override
 	public void event(Event event) {
 		//
 	}
@@ -251,17 +262,18 @@ public class RepositoryPortletRunController extends AbstractPortletRunController
 	 * Comparator implementation used for sorting BusinessGroup entries according with the
 	 * input sortingCriteria.
 	 * <p>
-	 * @param sortingCriteria
+	 * @param criteria
 	 * @return a Comparator for the input sortingCriteria
 	 */
-  protected Comparator<RepositoryEntryLight> getComparator(final SortingCriteria sortingCriteria) {
+	@Override
+	protected Comparator<RepositoryEntryLight> getComparator(final SortingCriteria criteria) {
 		return new Comparator<RepositoryEntryLight>(){			
 			public int compare(final RepositoryEntryLight repoEntry1, final RepositoryEntryLight repoEntry2) {
 				int comparisonResult = 0;
-			  if(sortingCriteria.getSortingTerm()==SortingCriteria.ALPHABETICAL_SORTING) {			  	
+			  if(criteria.getSortingTerm()==SortingCriteria.ALPHABETICAL_SORTING) {			  	
 			  	comparisonResult = collator.compare(repoEntry1.getDisplayname(), repoEntry2.getDisplayname());			  		  	
 			  }
-			  if(!sortingCriteria.isAscending()) {
+			  if(!criteria.isAscending()) {
 			  	//if not isAscending return (-comparisonResult)			  	
 			  	return -comparisonResult;
 			  }

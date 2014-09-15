@@ -26,7 +26,6 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
 
-import org.olat.core.CoreSpringFactory;
 import org.olat.core.commons.persistence.PersistenceHelper;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.EscapeMode;
@@ -36,6 +35,7 @@ import org.olat.core.gui.components.form.flexible.elements.FlexiTableElement;
 import org.olat.core.gui.components.form.flexible.elements.FormLink;
 import org.olat.core.gui.components.form.flexible.elements.MultipleSelectionElement;
 import org.olat.core.gui.components.form.flexible.elements.TextElement;
+import org.olat.core.gui.components.form.flexible.elements.MultipleSelectionElement.Layout;
 import org.olat.core.gui.components.form.flexible.impl.Form;
 import org.olat.core.gui.components.form.flexible.impl.FormEvent;
 import org.olat.core.gui.components.form.flexible.impl.FormLayoutContainer;
@@ -64,6 +64,7 @@ import org.olat.group.model.AddToGroupsEvent;
 import org.olat.group.model.BGRepositoryEntryRelation;
 import org.olat.group.model.SearchBusinessGroupParams;
 import org.olat.group.ui.BusinessGroupFormController;
+import org.springframework.beans.factory.annotation.Autowired;
 
 /**
  * Description:<br>
@@ -87,13 +88,12 @@ public class GroupSearchController extends StepFormBasicController {
 	private GroupTableDataModel tableDataModel;
 	
 	private String lastSearchValue;
-	
-	private final BusinessGroupService businessGroupService;
+	@Autowired
+	private BusinessGroupService businessGroupService;
 
 	// constructor to be used like a normal FormBasicController
 	public GroupSearchController(UserRequest ureq, WindowControl wControl) {
 		super(ureq, wControl, LAYOUT_VERTICAL);
-		businessGroupService = CoreSpringFactory.getImpl(BusinessGroupService.class);
 		Translator pT = Util.createPackageTranslator(BusinessGroupFormController.class, ureq.getLocale(), getTranslator());
 		flc.setTranslator(pT);
 		initForm(ureq);
@@ -102,7 +102,6 @@ public class GroupSearchController extends StepFormBasicController {
 	// constructor for use in steps-wizzard
 	public GroupSearchController(UserRequest ureq, WindowControl wControl, Form form, StepsRunContext stepsRunContext) {
 		super(ureq, wControl, form, stepsRunContext, LAYOUT_VERTICAL, "resulttable");
-		businessGroupService = CoreSpringFactory.getImpl(BusinessGroupService.class);
 		Translator pT = Util.createPackageTranslator(BusinessGroupFormController.class, ureq.getLocale(), getTranslator());
 		flc.setTranslator(pT);
 		initForm(ureq);
@@ -142,7 +141,8 @@ public class GroupSearchController extends StepFormBasicController {
 		tableColumnModel.addFlexiColumnModel(new DefaultFlexiColumnModel(Cols.participant.i18n(), Cols.participant.ordinal()));
 		
 		tableDataModel = new GroupTableDataModel(Collections.<GroupWrapper>emptyList(), tableColumnModel);
-		table = uifactory.addTableElement(ureq, getWindowControl(), "groupList", tableDataModel, tableCont);
+		table = uifactory.addTableElement(getWindowControl(), "groupList", tableDataModel, tableCont);
+		table.setCustomizeColumns(false);
 		tableCont.add("groupList", table);
 		
 		if (!isUsedInStepWizzard()) {
@@ -155,7 +155,7 @@ public class GroupSearchController extends StepFormBasicController {
 	 */
 	@Override
 	protected void formOK(UserRequest ureq) {
-		doSearchGroups(ureq);
+		doSearchGroups();
 	}
 	
 	@Override
@@ -171,7 +171,7 @@ public class GroupSearchController extends StepFormBasicController {
 	@Override
 	protected void formInnerEvent(UserRequest ureq, FormItem source, FormEvent event) {
 		if (source == searchButton || source == searchLink || source == search) {
-			doSearchGroups(ureq);
+			doSearchGroups();
 		} else if(source == saveLink) {
 			if(validateFormLogic(ureq)) {
 				doSave(ureq);
@@ -181,9 +181,9 @@ public class GroupSearchController extends StepFormBasicController {
 		}
 	}
 	
-	private void doSearchGroups(UserRequest ureq) {
+	private void doSearchGroups() {
 		String searchValue = search.getValue();
-		doSearchGroups(searchValue, ureq);
+		doSearchGroups(searchValue);
 		lastSearchValue = searchValue;
 	}
 
@@ -194,7 +194,7 @@ public class GroupSearchController extends StepFormBasicController {
 	 * @param searchValue
 	 * @param ureq
 	 */
-	private void doSearchGroups(String searchValue, UserRequest ureq) {	
+	private void doSearchGroups(String searchValue) {	
 		if (StringHelper.containsNonWhitespace(searchValue)) {
 			SearchBusinessGroupParams param1s = new SearchBusinessGroupParams();
 			param1s.setNameOrDesc(searchValue);
@@ -250,8 +250,8 @@ public class GroupSearchController extends StepFormBasicController {
 	}
 	
 	private MultipleSelectionElement createSelection(String name) {
-		MultipleSelectionElement selection = new MultipleSelectionElementImpl(name, MultipleSelectionElementImpl.createVerticalLayout("checkbox",1));
-		selection.setKeysAndValues(new String[]{"on"}, new String[]{""}, null);
+		MultipleSelectionElement selection = new MultipleSelectionElementImpl(name, Layout.vertical);
+		selection.setKeysAndValues(new String[]{"on"}, new String[]{""});
 		tableCont.add(name, selection);
 		return selection;
 	}
@@ -267,7 +267,7 @@ public class GroupSearchController extends StepFormBasicController {
 				|| (lastSearchValue != null && !lastSearchValue.equals(searchValue))) {
 			// User pressed enter in input field to search for groups, no group
 			// selected yet. Just search for groups that matches for this input
-			doSearchGroups(searchValue, ureq);
+			doSearchGroups(searchValue);
 			lastSearchValue = searchValue;
 			return false;
 		}

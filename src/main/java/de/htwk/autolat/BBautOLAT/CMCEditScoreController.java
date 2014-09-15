@@ -17,7 +17,6 @@ import de.htwk.autolat.TaskInstance.TaskInstance;
 public class CMCEditScoreController extends BasicController {
 	
 	private VelocityContainer mainVC;
-	private Panel main;
 	private TaskInstance taskInstance;
 	private Student student;
 	private long courseNodeID;
@@ -34,10 +33,9 @@ public class CMCEditScoreController extends BasicController {
 		this.courseNodeID = courseNodeID;
 		this.wControl = wControl;
 		
-		main = new Panel("viewEditScore");
 		mainVC = createVelocityContainer("CMCEditScoreController");
 		createOutput(ureq);
-		main = this.putInitialPanel(mainVC);
+		putInitialPanel(mainVC);
 	}
 
 	private void createOutput(UserRequest ureq) {
@@ -49,7 +47,6 @@ public class CMCEditScoreController extends BasicController {
 		editScoreForm.addControllerListener(this);
 
 		mainVC.put("editScoreForm", editScoreForm.getInitialComponent());
-		main.setContent(mainVC);		
 	}
 
 	@Override

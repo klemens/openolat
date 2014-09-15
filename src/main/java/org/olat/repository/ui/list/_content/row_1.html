@@ -1,0 +1,104 @@
+<div #if($row.selected) class="o_selected" #end>
+	<div class="o_visual">
+		<a href="javascript:${f.ffXHREvent("select_row","$row.key")}">
+		#if($row.isThumbnailAvailable())
+			<img src="${row.getThumbnailRelPath()}" />
+		#else
+			<div class="o_visual_not_available"></div>
+		#end
+		</a>	
+	</div>
+	<div class="o_meta">
+		<div class="o_go_xs visible-xs">
+			<i class=" o_icon o_icon_start o_icon-lg"></i>
+		</div>
+		<h4 class="o_title">$r.render($row.getSelectLinkName())
+			#if ($row.getExternalRef())
+				<small>$row.getExternalRef()</small>
+			#end
+		</h4>
+		#if($row.authors)
+			<div class="o_author"><span class="text-muted">$r.translate("course.made.by")</span> $row.authors</div>
+		#end
+		#if($row.lifecycle || $row.lifecycleSoftKey || $row.lifecycleStart || $row.lifecycleEnd)
+			<div class="o_lifecycle #if ($row.isActive()) o_active #end">
+				<i class="o_icon o_icon_lifecycle"></i>
+				#if($row.lifecycle) $row.lifecycle #end
+				#if($row.lifecycleSoftKey) $row.lifecycleSoftKey #end
+				#if($row.lifecycleStart) $r.formatDate($row.lifecycleStart) #end
+				#if($row.lifecycleEnd) - $r.formatDate($row.lifecycleEnd) #end
+			</div>
+		#end
+		<div class="o_desc">
+			$row.shortenedDescription
+		</div>
+		#if($row.markLinkName)
+		<div class="o_bookmark">$r.render($row.markLinkName)</div>
+		#end
+	</div>
+	<div class="o_access container">
+		#if($r.get("ac_$row.key"))
+			#foreach($ac_type in $r.get("ac_$row.key"))
+				#if($ac_type.price && $ac_type.price.length() > 0)
+					<span class="o_nowrap"><i class='o_icon $ac_type.type o_icon-lg'></i> $ac_type.price</span>
+				#else
+					<i class='o_icon $ac_type.type o_icon-lg'></i>
+				#end
+			#end
+		#end
+
+		#if($row.isMember() || $row.getVisit() > 0)
+			#if($row.passed || $row.failed)
+			<div class="row">
+				#if($row.passed)
+					$r.translate("passed.true")
+				#elseif($row.failed)
+					$r.translate("passed.false")
+				#end
+			</div>
+			#end
+		
+			#if($row.score) 
+			<div class="o_score row">
+				$row.score 
+				<span class="o_label">
+					$r.translate("details.label.score")
+				</span>
+			</div> 
+			#end			
+		#end
+		
+		#if($row.accessTypes && !$row.isMember())
+		<div class="o_bookings row">
+			<div class="o_label">
+				$r.translate("details.orders"):
+			</div>
+			<div class="o_methods">
+				<ul class="list-inline">
+				#foreach($type in $row.accessTypes)
+					<li title="$r.escapeHtml("$type.displayName")"><i class="o_icon $type.type o_icon-lg"></i>#if($type.price && $type.price.length() > 0) ($type.price)#end</li>
+				#end
+				</ul>
+			</div>							
+		</div> 
+		#end
+		
+		#if($row.ratingFormItemName || $row.commentsLinkName)
+		<div class="o_social o_ratings_and_comments row">
+			#if($row.ratingFormItemName)
+			<div class="o_rating_wrapper">
+				$r.render($row.ratingFormItemName)
+			</div>
+			#end
+			#if($row.commentsLinkName)
+				$r.render($row.commentsLinkName)
+			#end
+		</div>
+		#end
+		
+		$r.render($row.getDetailsLinkName())
+		#if($row.getStartLinkName())
+			$r.render($row.getStartLinkName())
+		#end
+	</div>	
+</div>

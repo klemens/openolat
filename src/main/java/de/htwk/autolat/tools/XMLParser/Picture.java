@@ -1,11 +1,8 @@
 package de.htwk.autolat.tools.XMLParser;
 
-
 import java.io.ByteArrayInputStream;
 import java.io.InputStream;
 import java.io.UnsupportedEncodingException;
-import java.lang.reflect.Array;
-import java.util.Collection;
 
 import javax.mail.MessagingException;
 import javax.mail.internet.MimeUtility;
@@ -14,11 +11,9 @@ public class Picture {
 	
 	public final String TYPE_PNG = "png";
 	public final String TYPE_JPG = "jpg"; 
-	
-	
-	
+
 	private String type;
-	private String pic;
+	private String base64;
 	private String alt;
 	private double width;
 	private double height;
@@ -26,13 +21,10 @@ public class Picture {
 	
 	private String name;
 	
-	public Picture() {
-	// TODO Auto-generated constructor stub
-	}
-	public Picture(String type, String pic, String alt, double width, double height, String unit) {
+	public Picture(String type, String base64, String alt, double width, double height, String unit) {
 		setHeight(height);
 		setAlt(alt);
-		setPic(pic);
+		setBase64(base64);
 		setType(type);
 		setUnit(unit);
 		setWidth(width);
@@ -46,42 +38,28 @@ public class Picture {
 			System.err.println(" [Error] Illegal type");
 		}
 	}
+
+	public String getMimeType() {
+		if(type.equals(TYPE_JPG)) {
+			return "image/jpeg";
+		} else if(type.equals(TYPE_PNG)) {
+			return "image/png";
+		}
+		return "application/octet-stream";
+	}
+
+	public void setBase64(String pic) {
+		this.base64 = pic;
+	}
 	
-	public void setPic(String pic) {
-		this.pic = pic;
+	public String getBase64() {
+		return base64;
 	}
 	
 	public String getType() {
 		return type;
 	}
 	
-	public String getMIMEString() {
-		return pic;
-	}
-	
-	public InputStream getDecodedPictureStream()
-	{
-		InputStream inputStream = null, pictureStream = null;
-		
-		try
-		{
-			inputStream = new ByteArrayInputStream(getMIMEString().getBytes("UTF-8"));
-		} 
-		catch (UnsupportedEncodingException e)
-		{
-      e.printStackTrace();
-		}
-		
-		//TODO: Is base64 always the right MIME type?		
-		try {
-			pictureStream = MimeUtility.decode(inputStream, "base64");
-		} catch (MessagingException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}
-		
-		return pictureStream;
-	}
 	public void setAlt(String alt) {
 		this.alt = alt;
 	}

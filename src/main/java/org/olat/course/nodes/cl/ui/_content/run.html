@@ -1,0 +1,124 @@
+#if($hasScoreField || $hasPassedField)
+	<div class="panel panel-default o_personal">
+	  	<div class="panel-heading">
+	  		<h4 class="panel-title">$r.translate("personal.title")</h4>
+	  	</div>
+		<table class="table">
+		<tbody>
+			#if ($hasScoreField)
+			<tr class="o_score_config_min">
+				<th>$r.translate("score.min")</th>
+				<td>$scoreMin</td>
+			</tr>
+			<tr class="o_score_config_max">
+				<th>$r.translate("score.max")</th>
+				<td>$scoreMax</td>
+			</tr>
+			<tr class="o_score">
+				<th>$r.translate("score.yourscore")</th>
+				<td>
+				#if($score)		
+					$score
+				#else
+					<div class="o_noinfo">$r.translate("score.noscore")</div>
+				#end				
+				</td> 
+			</tr>
+			#end 
+			
+			#if ($hasPassedField)
+			#if ($passedCutValue)
+			<tr class="o_cutval">
+				<th>$r.translate("passed.cut")</th>
+				<td>$passedCutValue</td>
+			</tr>
+			#end
+			<tr class="o_state #if ($hasPassedValue && $passed) o_passed #elseif($hasPassedValue && !$passed) o_failed #else o_unknown #end">
+				<th>$r.translate("passed.yourpassed")</th>
+				<td>
+				#if($hasPassedValue && $passed)	
+					<i class="o_icon o_icon_passed"></i> 
+					$r.translate("passed.yes")
+				#elseif($hasPassedValue && !$passed)		
+					<i class="o_icon o_icon_failed"></i> 
+					$r.translate("passed.no")
+				#else
+					<div class="o_noinfo">$r.translate("passed.nopassed")</div>
+				#end
+				</td>
+			</tr>
+			#end
+		</tbody>
+		</table>				
+	</div>
+#end
+
+#if ($comment)		
+	<div class="panel panel-default o_comment">
+	  	<div class="panel-heading" data-toggle="collapse" data-target="#collapseComment">
+	  		<h4 class="panel-title">$r.translate("comment.title")</h4>
+	  	</div>
+		<div id="collapseComment" class="panel-collapse collapse in"><div class="panel-body">
+			$comment
+  		</div></div>
+	</div>
+#end
+
+
+#if($infoTextUser)
+	<div class="panel panel-default o_disclaimer">
+	  	<div class="panel-heading" data-toggle="collapse" data-target="#collapseDisclaimer">
+	  		<h4 class="panel-title">$r.translate("info.title")</h4>
+	  	</div>
+		<div id="collapseDisclaimer" class="panel-collapse collapse in"><div class="panel-body">
+			$r.formatLatexFormulas($infoTextUser)
+  		</div></div>
+	</div>
+#end
+
+#if($dueDate)
+	<div class="panel panel-default o_duedate #if($afterDueDate) o_duedate_passed #end">
+	  	<div class="panel-heading" data-toggle="collapse" data-target="#collapseDuedate">
+	  		<h4 class="panel-title">$r.translate("config.due.date")</h4>
+	  	</div>
+		<div id="collapseDuedate" class="panel-collapse collapse in"><div class="panel-body">
+			<p>
+				$r.translate("run.due.date.desc")
+			</p>
+			<p class="#if($afterDueDate) o_failed #else o_passed #end">
+				<i class="o_icon o_icon_calendar o_icon-fw"></i>
+				$r.translate("run.due.date", $r.formatDateAndTime($dueDate))
+			</p>
+  		</div></div>
+	</div>
+#end
+
+<div class="o_cl o_block_large">
+	<div class="o_cl_header hidden-xs row">
+		<div class="col-sm-3"><h4>$r.translate("run.mark")</h4></div>
+		<div class="col-sm-6"><h4>$r.translate("run.info")</h4></div>
+	</div>
+	<hr class="hidden-xs" />
+	#foreach($checkbox in $checkboxList)
+		<div class="o_cl_line row clearfix #if($velocityCount %2 == 0) o_even #else o_odd #end">
+			<div class="col-xs-12 col-sm-3">
+				$r.render($checkbox.checkboxElName)
+			</div>
+			<div class="col-xs-12 col-sm-9">
+				<h4 class="o_cl_title">
+					$checkbox.title 
+					#if($withScore && $checkbox.pointsAvailable) 
+					<small>$r.translate("box.points.info", $checkbox.points)</small>
+					#end
+				</h4>
+				#if($checkbox.description)
+					<div class="o_cl_desc">$checkbox.description</div>
+				#end
+				#if($checkbox.checkbox.filename)
+					<div class="o_cl_file">$r.render($checkbox.downloadName)</div>
+				#end
+			</div>
+		</div>
+	#end
+</div>
+

@@ -102,14 +102,13 @@ public class DialogConfigForm extends FormBasicController {
 	
 		if (config == null) throw new AssertException("module configuration is null!");
 		
-		select = uifactory.addCheckboxesVertical(
+		select = uifactory.addCheckboxesHorizontal(
 				"forumAsPopup", "selection.forumAsPopup.label",
-				formLayout, new String[]{"xx"}, new String[]{null}, null, 1
-		);
+				formLayout, new String[]{"xx"}, new String[]{null});
 		
 		String selectConfig = (String) config.get(DialogConfigForm.DIALOG_CONFIG_INTEGRATION);
 		select.select ("xx", selectConfig == CONFIG_INTEGRATION_VALUE_POPUP);
-		select.addActionListener(this, FormEvent.ONCLICK);
+		select.addActionListener(FormEvent.ONCLICK);
 	}
 
 	@Override

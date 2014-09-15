@@ -28,11 +28,16 @@ package org.olat.core.gui.render.velocity;
 
 import java.io.Closeable;
 import java.io.IOException;
+import java.io.InputStream;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
+import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang.StringEscapeUtils;
 import org.olat.core.commons.contextHelp.ContextHelpModule;
 import org.olat.core.gui.components.Component;
@@ -43,18 +48,26 @@ import org.olat.core.gui.render.StringOutput;
 import org.olat.core.gui.render.StringOutputPool;
 import org.olat.core.gui.translator.PackageTranslator;
 import org.olat.core.gui.translator.Translator;
+import org.olat.core.gui.util.CSSHelper;
 import org.olat.core.helpers.Settings;
+import org.olat.core.logging.OLog;
+import org.olat.core.logging.Tracing;
+import org.olat.core.util.ArrayHelper;
 import org.olat.core.util.Formatter;
 import org.olat.core.util.StringHelper;
 import org.olat.core.util.filter.Filter;
 import org.olat.core.util.filter.FilterFactory;
 import org.olat.core.util.filter.impl.OWASPAntiSamyXSSFilter;
 import org.olat.core.util.i18n.I18nManager;
+import org.olat.core.util.i18n.I18nModule;
+import org.olat.login.LoginAuthprovidersController;
 
 /**
  * @author Felix Jost
  */
-public class VelocityRenderDecorator implements Closeable{
+public class VelocityRenderDecorator implements Closeable {
+	private static final OLog log = Tracing.createLoggerFor(VelocityRenderDecorator.class);
+	
 	public static final String PARAM_CHELP_BUNDLE = "chelpbundle";
 	private VelocityContainer vc;
 	private Renderer renderer;
@@ -110,7 +123,7 @@ public class VelocityRenderDecorator implements Closeable{
 	public String getUuid() {
 		return UUID.randomUUID().toString().replace("-", "");
 	}
-	
+
 	/**
 	 * 
 	 * @param command
@@ -291,7 +304,7 @@ public class VelocityRenderDecorator implements Closeable{
 	}
 
 	/**
-	 * used to position help icon inside div-class b_contexthelp_wrapper
+	 * used to position help icon inside div-class o_chelp_wrapper
 	 * @param packageName
 	 * @param pageName
 	 * @param hoverTextKey
@@ -300,9 +313,9 @@ public class VelocityRenderDecorator implements Closeable{
 	public StringOutput contextHelpWithWrapper(String packageName, String pageName, String hoverTextKey) {
 		StringOutput sb = new StringOutput(100);
 		if (ContextHelpModule.isContextHelpEnabled()) {
-			sb.append("<div class=\"b_contexthelp_wrapper\">");
+			sb.append("<span class=\"o_chelp_wrapper\">");
 			sb.append(contextHelp(packageName, pageName, hoverTextKey));
-			sb.append("</div>");
+			sb.append("</span>");
 		}
 		return sb;
 	}
@@ -320,15 +333,35 @@ public class VelocityRenderDecorator implements Closeable{
 			if (hooverText != null) {
 				hooverText = StringEscapeUtils.escapeHtml(hooverText);
 			}
-			String langCode = renderer.getTranslator().getLocale().toString();
-			sb.append("<a href=\"javascript:contextHelpWindow('");
-			Renderer.renderNormalURI(sb, "help/");
-			sb.append(langCode).append("/").append(packageName).append("/").append(pageName);
-			sb.append("')\" title=\"").append(hooverText).append("\" class=\"b_contexthelp\"></a>");
+			sb.append("<a href=\"javascript:");
+			sb.append(contextHelpJSCommand(packageName, pageName));
+			sb.append("\" title=\"").append(hooverText).append("\" class=\"o_chelp\"><i class='o_icon o_icon_help'></i> ");
+			sb.append(renderer.getTranslator().translate("help"));
+			sb.append("</a>");
 		}
 		return sb;
 	}
 
+	/**
+	 * Create a js command to open a specific context help page
+	 * @param packageName
+	 * @param pageName
+	 * @return
+	 */
+	public StringOutput contextHelpJSCommand(String packageName, String pageName) {
+		StringOutput sb = new StringOutput(100);
+		if (ContextHelpModule.isContextHelpEnabled()) {
+			String langCode = renderer.getTranslator().getLocale().toString();
+			sb.append("contextHelpWindow('");
+			Renderer.renderNormalURI(sb, "help/");
+			sb.append(langCode).append("/").append(packageName).append("/").append(pageName);
+			sb.append("')");
+		}
+		return sb;
+	}
+	
+	
+	
 	/**
 	 * Create a link that can be used within a context help page to link to
 	 * another context help page from the same package.
@@ -622,6 +655,16 @@ public class VelocityRenderDecorator implements Closeable{
 		Component source = renderer.findComponent(componentName);
 		return (source != null && source.isVisible());
 	}
+	
+	/**
+	 * Return the component
+	 * @param componentName
+	 * @return
+	 */
+	public Component getComponent(String componentName) {
+		Component source = renderer.findComponent(componentName);
+		return source;
+	}
 
 	/**
 	 * returns an object from the context of velocity
@@ -643,6 +686,10 @@ public class VelocityRenderDecorator implements Closeable{
 		return f.formatDateAndTime(date);
 	}
 
+	public String formatBytes(long bytes) {
+		return Formatter.formatBytes(bytes);
+	}
+	
 
 	/**
 	 * Wrapp given html code with a wrapper an add code to transform latex
@@ -681,10 +728,85 @@ public class VelocityRenderDecorator implements Closeable{
 	}
 	
 	/**
+	 * Get the icon css class that represents the filetype based on the file name
+	 * @param filename 
+	 * @return The css class for the file or a default css class
+	 */
+	public static String getFiletypeIconCss(String filename) {
+		return CSSHelper.createFiletypeIconCssClassFor(filename);
+	}
+	
+	/**
 	 * Returns true when debug mode is configured, false otherwhise
 	 * @return
 	 */
 	public boolean isDebuging() {
 		return Settings.isDebuging();
+	}
+	
+	/**
+	 * To inject licenses (the NOTICE.TXT) in the help
+	 * @return
+	 */
+	public String getLicences() {
+		String licenses = "Not found";
+		InputStream licensesStream = LoginAuthprovidersController.class.getResourceAsStream("../../../NOTICE.TXT");
+		if(licensesStream != null) {
+			try {
+				licenses = IOUtils.toString(licensesStream);
+			} catch (IOException e) {
+				log.error("", e);
+			} finally {
+				IOUtils.closeQuietly(licensesStream);
+			}
+		}
+		return licenses;
+	}
+	
+	public String getVersion() {
+		return Settings.getVersion();
+	}
+	
+	public Languages getLanguages() {
+		I18nManager i18nMgr = I18nManager.getInstance();
+		Set<String> enabledKeysSet = I18nModule.getEnabledLanguageKeys();
+		Map<String, String> langNames = new HashMap<String, String>();
+		Map<String, String> langTranslators = new HashMap<String, String>();
+		String[] enabledKeys = ArrayHelper.toArray(enabledKeysSet);
+		String[] names = new String[enabledKeys.length];
+		for (int i = 0; i < enabledKeys.length; i++) {
+			String key = enabledKeys[i];
+			String langName = i18nMgr.getLanguageInEnglish(key, I18nModule.isOverlayEnabled());
+			langNames.put(key, langName);
+			names[i] = langName;
+			String author = i18nMgr.getLanguageAuthor(key);
+			langTranslators.put(key, author);
+		}
+		ArrayHelper.sort(enabledKeys, names, true, true, true);
+		return new Languages(enabledKeys, langNames, langTranslators);
+	}
+	
+	public static class Languages {
+		private final String[] enabledKeys;
+		private final Map<String, String> langNames;
+		private final Map<String, String> langTranslators;
+		
+		public Languages(String[] enabledKeys, Map<String, String> langNames, Map<String, String> langTranslators) {
+			this.enabledKeys = enabledKeys;
+			this.langNames = langNames;
+			this.langTranslators = langTranslators;
+		}
+
+		public String[] getEnabledKeys() {
+			return enabledKeys;
+		}
+
+		public Map<String, String> getLangNames() {
+			return langNames;
+		}
+
+		public Map<String, String> getLangTranslators() {
+			return langTranslators;
+		}
 	}
 }

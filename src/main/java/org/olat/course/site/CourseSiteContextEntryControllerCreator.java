@@ -22,20 +22,30 @@ package org.olat.course.site;
 import java.util.List;
 
 import org.olat.core.CoreSpringFactory;
+import org.olat.core.commons.fullWebApp.LayoutMain3ColsController;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.WindowControl;
+import org.olat.core.gui.control.generic.layout.MainLayoutController;
+import org.olat.core.gui.control.generic.messages.MessageUIFactory;
 import org.olat.core.gui.control.navigation.SiteDefinition;
 import org.olat.core.gui.control.navigation.SiteDefinitions;
+import org.olat.core.gui.translator.Translator;
 import org.olat.core.id.OLATResourceable;
+import org.olat.core.id.context.BusinessControlFactory;
 import org.olat.core.id.context.ContextEntry;
 import org.olat.core.id.context.ContextEntryControllerCreator;
 import org.olat.core.id.context.DefaultContextEntryControllerCreator;
+import org.olat.core.logging.AssertException;
+import org.olat.core.util.Util;
 import org.olat.course.site.model.CourseSiteConfiguration;
 import org.olat.course.site.model.LanguageConfiguration;
 import org.olat.repository.RepositoryEntry;
 import org.olat.repository.RepositoryManager;
-import org.olat.repository.RepositoyUIFactory;
+import org.olat.repository.RepositoryService;
+import org.olat.repository.handlers.RepositoryHandler;
+import org.olat.repository.handlers.RepositoryHandlerFactory;
+import org.olat.repository.model.RepositoryEntrySecurity;
 
 /**
  * <h3>Description:</h3>
@@ -63,10 +73,54 @@ public class CourseSiteContextEntryControllerCreator extends DefaultContextEntry
 	 *      org.olat.core.gui.control.WindowControl)
 	 */
 	@Override
-	public Controller createController(ContextEntry ce, UserRequest ureq, WindowControl wControl) {
-		RepositoryEntry re = getRepositoryEntry(ce);
-		Controller ctrl = RepositoyUIFactory.createLaunchController(re, ureq, wControl);
-		return ctrl;
+	public Controller createController(List<ContextEntry> ces, UserRequest ureq, WindowControl wControl) {
+		RepositoryEntry re = getRepositoryEntry(ureq, ces.get(0));
+		return createLaunchController(re, ureq, wControl);
+	}
+	
+	/**
+	 * Create a launch controller used to launch the given repo entry.
+	 * @param re
+	 * @param initialViewIdentifier if null the default view will be started, otherwise a controllerfactory type dependant view will be activated (subscription subtype)
+	 * @param ureq
+	 * @param wControl
+	 * @return null if no entry was found, a no access message controller if not allowed to launch or the launch 
+	 * controller if successful.
+	 */
+	private Controller createLaunchController(RepositoryEntry re, UserRequest ureq, WindowControl wControl) {
+		if (re == null) return null;
+		RepositoryManager rm = RepositoryManager.getInstance();
+		RepositoryEntrySecurity reSecurity = rm.isAllowed(ureq, re);
+		if (!reSecurity.canLaunch()) {
+			Translator trans = Util.createPackageTranslator(RepositoryService.class, ureq.getLocale());
+			String text = trans.translate("launch.noaccess");
+			Controller c = MessageUIFactory.createInfoMessage(ureq, wControl, null, text);
+			
+			// use on column layout
+			LayoutMain3ColsController layoutCtr = new LayoutMain3ColsController(ureq, wControl, c);
+			layoutCtr.addDisposableChildController(c); // dispose content on layout dispose
+			return layoutCtr;
+		}
+
+		RepositoryService rs = CoreSpringFactory.getImpl(RepositoryService.class);
+		rs.incrementLaunchCounter(re);
+		RepositoryHandler handler = RepositoryHandlerFactory.getInstance().getRepositoryHandler(re);
+	
+		WindowControl bwControl;
+		OLATResourceable businessOres = re;
+		ContextEntry ce = BusinessControlFactory.getInstance().createContextEntry(businessOres);
+		//OLAT-5944: check if the current context entry is not already the repository entry to avoid duplicate in the business path
+		if(ce.equals(wControl.getBusinessControl().getCurrentContextEntry())) {
+			bwControl = wControl;
+		} else {
+			bwControl = BusinessControlFactory.getInstance().createBusinessWindowControl(ce, wControl);
+		}
+		
+		MainLayoutController ctrl = handler.createLaunchController(re, reSecurity, ureq, bwControl);
+		if (ctrl == null) {
+			throw new AssertException("could not create controller for repositoryEntry "+re); 
+		}
+		return ctrl;	
 	}
 
 	/**
@@ -74,7 +128,7 @@ public class CourseSiteContextEntryControllerCreator extends DefaultContextEntry
 	 */
 	@Override
 	public String getTabName(ContextEntry ce, UserRequest ureq) {
-		RepositoryEntry re = getRepositoryEntry(ce);
+		RepositoryEntry re = getRepositoryEntry(ureq, ce);
 		CourseSiteDef siteDef = getCourseSite(ureq, re);
 		if(siteDef != null) {
 			return "Hello";
@@ -86,8 +140,8 @@ public class CourseSiteContextEntryControllerCreator extends DefaultContextEntry
 	 * @see org.olat.core.id.context.ContextEntryControllerCreator#getSiteClassName(org.olat.core.id.context.ContextEntry)
 	 */
 	@Override
-	public String getSiteClassName(ContextEntry ce, UserRequest ureq) {
-		RepositoryEntry re = getRepositoryEntry(ce);
+	public String getSiteClassName(List<ContextEntry> ces, UserRequest ureq) {
+		RepositoryEntry re = getRepositoryEntry(ureq, ces.get(0));
 		CourseSiteDef siteDef = getCourseSite(ureq, re);
 		if(siteDef != null) {
 			return siteDef.getClass().getName().replace("Def", "");
@@ -97,7 +151,7 @@ public class CourseSiteContextEntryControllerCreator extends DefaultContextEntry
 	
 	@Override
 	public boolean validateContextEntryAndShowError(ContextEntry ce, UserRequest ureq, WindowControl wControl) {
-		return getRepositoryEntry(ce) != null;
+		return getRepositoryEntry(ureq, ce) != null;
 	}
 
 	private SiteDefinitions getSitesDefinitions() {
@@ -127,14 +181,43 @@ public class CourseSiteContextEntryControllerCreator extends DefaultContextEntry
 		return null;
 	}
 	
-	private RepositoryEntry getRepositoryEntry(ContextEntry ce) {
+	private RepositoryEntry getRepositoryEntry(UserRequest ureq, ContextEntry ce) {
 		if(repoEntry == null) {
 			if(ce.getOLATResourceable() instanceof RepositoryEntry) {
 				repoEntry = (RepositoryEntry)ce.getOLATResourceable();
 			} else {
 				OLATResourceable ores = ce.getOLATResourceable();
-				RepositoryManager rm = RepositoryManager.getInstance();
-				repoEntry = rm.lookupRepositoryEntry(ores.getResourceableId());
+				if("CourseSite".equals(ores.getResourceableTypeName())) {
+					int id = ores.getResourceableId().intValue();
+					CourseSiteDef courseSiteDef = null;
+					List<SiteDefinition> siteDefList = getSitesDefinitions().getSiteDefList();
+					if(id == 2) {
+						for(SiteDefinition siteDef:siteDefList) {
+							if(siteDef instanceof CourseSiteDef2) {
+								courseSiteDef = (CourseSiteDef)siteDef;
+							}
+						}
+					} else if(id == 1) {
+						for(SiteDefinition siteDef:siteDefList) {
+							if(siteDef instanceof CourseSiteDef) {
+								courseSiteDef = (CourseSiteDef)siteDef;
+							}
+						}
+					}
+					
+					if(courseSiteDef != null) {
+						CourseSiteConfiguration config = courseSiteDef.getCourseSiteconfiguration();
+						LanguageConfiguration langConfig = courseSiteDef.getLanguageConfiguration(ureq, config);
+						if(langConfig != null) {
+							String softKey = langConfig.getRepoSoftKey();
+							RepositoryManager rm = RepositoryManager.getInstance();
+							repoEntry = rm.lookupRepositoryEntryBySoftkey(softKey, false);
+						}
+					}
+				} else {
+					RepositoryManager rm = RepositoryManager.getInstance();
+					repoEntry = rm.lookupRepositoryEntry(ores.getResourceableId());
+				}
 			}
 		}
 		return repoEntry;

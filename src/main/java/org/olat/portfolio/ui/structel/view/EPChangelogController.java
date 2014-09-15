@@ -24,6 +24,10 @@ import java.util.Date;
 import java.util.List;
 
 import org.olat.core.CoreSpringFactory;
+import org.olat.core.commons.services.notifications.PublisherData;
+import org.olat.core.commons.services.notifications.SubscriptionContext;
+import org.olat.core.commons.services.notifications.model.SubscriptionListItem;
+import org.olat.core.commons.services.notifications.ui.ContextualSubscriptionController;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.form.flexible.FormItem;
 import org.olat.core.gui.components.form.flexible.FormItemContainer;
@@ -37,10 +41,6 @@ import org.olat.core.gui.control.WindowControl;
 import org.olat.core.logging.OLog;
 import org.olat.core.logging.Tracing;
 import org.olat.core.util.Formatter;
-import org.olat.core.util.notifications.ContextualSubscriptionController;
-import org.olat.core.util.notifications.PublisherData;
-import org.olat.core.util.notifications.SubscriptionContext;
-import org.olat.core.util.notifications.items.SubscriptionListItem;
 import org.olat.portfolio.manager.EPFrontendManager;
 import org.olat.portfolio.manager.EPNotificationsHandler;
 import org.olat.portfolio.manager.EPNotificationsHelper;
@@ -99,10 +99,10 @@ public class EPChangelogController extends FormBasicController {
 		/* the datechooser */
 		dateChooser = uifactory.addDateChooser("dateChooser", "news.since", null, formLayout);
 		dateChooser.setDate(new Date());
-		dateChooser.addActionListener(this, FormEvent.ONCHANGE);
+		dateChooser.addActionListener(FormEvent.ONCHANGE);
 
 		/* display the changelog */
-		updateChangelogDisplay(ureq);
+		updateChangelogDisplay();
 	}
 
 	/**
@@ -113,7 +113,7 @@ public class EPChangelogController extends FormBasicController {
 	@Override
 	protected void formInnerEvent(UserRequest ureq, FormItem source, FormEvent event) {
 		if (source == dateChooser && !dateChooser.hasError()) {
-			updateChangelogDisplay(ureq);
+			updateChangelogDisplay();
 		} else if (source instanceof FormLink) {
 			fireEvent(ureq, new EPMapKeyEvent(EPStructureEvent.SELECT, getKeyFromFormLink((FormLink) source)));
 		}
@@ -143,10 +143,10 @@ public class EPChangelogController extends FormBasicController {
 	 * update the changelog-list according to selected date. this method is
 	 * invoked on initForm and again when user changes date in dateChooser
 	 */
-	private void updateChangelogDisplay(UserRequest ureq) {
+	private void updateChangelogDisplay() {
 		// init the helper;
 		String path = getWindowControl().getBusinessControl().getAsString();
-		EPNotificationsHelper helper = new EPNotificationsHelper(path, getLocale(), ureq.getIdentity());
+		EPNotificationsHelper helper = new EPNotificationsHelper(path, getLocale());
 
 		// get the date from the dateChooser component
 		Date compareDate = dateChooser.getDate();
@@ -232,7 +232,7 @@ public class EPChangelogController extends FormBasicController {
 		}
 	}
 
-	public void refreshNewsList(UserRequest ureq) {
-		updateChangelogDisplay(ureq);
+	public void refreshNewsList() {
+		updateChangelogDisplay();
 	}
 }

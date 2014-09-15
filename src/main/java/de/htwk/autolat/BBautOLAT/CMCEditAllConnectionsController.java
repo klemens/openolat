@@ -68,7 +68,6 @@ public class CMCEditAllConnectionsController extends BasicController {
 	
 	private static final String PACKAGE = Util.getPackageName(CMCEditAllConnectionsController.class);
 	
-	private Panel main;
 	private VelocityContainer mainvc;
 	
 	/**
@@ -80,11 +79,10 @@ public class CMCEditAllConnectionsController extends BasicController {
 		
 		this.setTranslator(new PackageTranslator(PACKAGE, getLocale()));
 		
-		main = new Panel("editAllConnections");
 		mainvc = this.createVelocityContainer("CMCeditAllConnectionsController");
 		initConnectionListCtr(ureq);
 		updateConnectionListCtr(ServerConnectionManagerImpl.getInstance().getAllServerConnections());
-		main = putInitialPanel(mainvc);
+		putInitialPanel(mainvc);
 	}
 	
 	private void initConnectionListCtr(UserRequest ureq) {

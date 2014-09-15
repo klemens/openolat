@@ -34,7 +34,7 @@ import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.Component;
 import org.olat.core.gui.components.link.Link;
 import org.olat.core.gui.components.link.LinkFactory;
-import org.olat.core.gui.components.stack.StackedController;
+import org.olat.core.gui.components.stack.BreadcrumbPanel;
 import org.olat.core.gui.components.velocity.VelocityContainer;
 import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.Event;
@@ -83,7 +83,10 @@ public class AssessmentEditController extends BasicController {
 	private Link hideLogButton;
 	private Link showLogButton;
 	private LockResult lockEntry;
+	private final BreadcrumbPanel stackPanel;
 	private DialogBoxController alreadyLockedDialogController;
+	
+	private final boolean showCourseNodeDetails;
 
 	/**
 	 * Constructor for the identity assessment edit controller
@@ -93,12 +96,17 @@ public class AssessmentEditController extends BasicController {
 	 * @param course
 	 * @param courseNode The assessable course node
 	 * @param assessedIdentityWrapper The wrapped assessed identity
+	 * @param showCourseNodeDetails show the details controller if one available
 	 */
-	public AssessmentEditController(UserRequest ureq, WindowControl wControl, StackedController stackPanel, ICourse course, AssessableCourseNode courseNode,
-			AssessedIdentityWrapper assessedIdentityWrapper) {
+	public AssessmentEditController(UserRequest ureq, WindowControl wControl, BreadcrumbPanel stackPanel,
+			ICourse course, AssessableCourseNode courseNode, AssessedIdentityWrapper assessedIdentityWrapper,
+			boolean showCourseNodeDetails, boolean saveAndCloseButton) {
 		super(ureq, wControl);
 		this.assessedIdentityWrapper = assessedIdentityWrapper;
 		this.courseNode = courseNode;
+		this.showCourseNodeDetails = showCourseNodeDetails;
+		this.stackPanel = stackPanel;
+		
 		addLoggingResourceable(LoggingResourceable.wrap(course));
 		addLoggingResourceable(LoggingResourceable.wrap(courseNode));
 
@@ -126,7 +134,7 @@ public class AssessmentEditController extends BasicController {
 			infoCoach = Formatter.formatLatexFormulas(infoCoach);
 			detailView.contextPut("infoCoach", infoCoach);
 			// Add the assessment details form
-			assessmentForm = new AssessmentForm(ureq, wControl, courseNode, assessedIdentityWrapper);
+			assessmentForm = new AssessmentForm(ureq, wControl, courseNode, assessedIdentityWrapper, saveAndCloseButton);
 			listenTo(assessmentForm);
 			
 			detailView.put("assessmentform", assessmentForm.getInitialComponent());
@@ -135,7 +143,7 @@ public class AssessmentEditController extends BasicController {
 			String nodeLog = courseNode.getUserLog(uce);
 			detailView.contextPut("log", nodeLog);
 			// Add the users details controller
-			if (courseNode.hasDetails()) {
+			if (courseNode.hasDetails() && showCourseNodeDetails) {
 				detailView.contextPut("hasDetails", Boolean.TRUE);
 				detailsEditController = courseNode.getDetailsEditController(ureq, wControl, stackPanel, uce);
 				listenTo(detailsEditController);
@@ -160,6 +168,9 @@ public class AssessmentEditController extends BasicController {
 			});
 			detailView.contextPut("participantGroups", participantGroups);
 			detailView.contextPut("noParticipantGroups", (participantGroups.size() > 0 ? Boolean.FALSE : Boolean.TRUE));
+			detailView.contextPut("identityInfosVisible", Boolean.TRUE);
+			detailView.contextPut("courseNodeInfosVisible", Boolean.TRUE);
+			detailView.contextPut("titleVisible", Boolean.TRUE);
 
 			putInitialPanel(detailView);
 		}else{
@@ -170,6 +181,25 @@ public class AssessmentEditController extends BasicController {
 			//no initial component set -> empty behind dialog box!
 		}
 	}
+	
+	public void setIdentityInfos(boolean visible) {
+		if(detailView != null) {
+			detailView.contextPut("identityInfosVisible", new Boolean(visible));
+		}
+	}
+	
+	public void setCourseNodeInfos(boolean visible) {
+		if(detailView != null) {
+			detailView.contextPut("courseNodeInfosVisible", new Boolean(visible));
+		}
+	}
+	
+	public void setTitleInfos(boolean visible) {
+		if(detailView != null) {
+			detailView.contextPut("titleVisible", new Boolean(visible));
+		}
+	}
+	
 
 	/**
 	 * @see org.olat.core.gui.control.DefaultController#event(org.olat.core.gui.UserRequest,
@@ -196,16 +226,20 @@ public class AssessmentEditController extends BasicController {
 			if (event == Event.CANCELLED_EVENT) {
 				releaseEditorLock();
 				fireEvent(ureq, Event.CANCELLED_EVENT);
+			} else if (event == Event.CHANGED_EVENT) {
+				//do nothing
+				doUpdateAssessmentData(ureq.getIdentity());
 			} else if (event == Event.DONE_EVENT) {
 				releaseEditorLock();
 				doUpdateAssessmentData(ureq.getIdentity());
-				fireEvent(ureq, Event.CHANGED_EVENT);
+				fireEvent(ureq, Event.DONE_EVENT);
 			}
 		} else if (source == detailsEditController) {
 			//fxdiff FXOLAT-108: reset SCORM test
 			if(event == Event.CHANGED_EVENT) {
-				doUpdateAssessmentData(ureq.getIdentity());
-				fireEvent(ureq, Event.CHANGED_EVENT);
+				assessmentForm.reloadData();
+			} else if(event == Event.DONE_EVENT) {
+				fireEvent(ureq, Event.DONE_EVENT);
 			}
 		} else if (source == alreadyLockedDialogController) {
 			if (event == Event.CANCELLED_EVENT || DialogBoxUIFactory.isOkEvent(event)) {
@@ -228,10 +262,9 @@ public class AssessmentEditController extends BasicController {
 		ScoreEvaluation scoreEval = null;
 		Float newScore = null;
 		Boolean newPassed = null;
-		//String userName = userCourseEnvironment.getIdentityEnvironment().getIdentity().getName();
-
+		
 		if (assessmentForm.isHasAttempts() && assessmentForm.isAttemptsDirty()) {
-			this.courseNode.updateUserAttempts(new Integer(assessmentForm.getAttempts()), userCourseEnvironment, coachIdentity);
+			courseNode.updateUserAttempts(new Integer(assessmentForm.getAttempts()), userCourseEnvironment, coachIdentity);
 		}
 
 		if (assessmentForm.isHasScore() && assessmentForm.isScoreDirty()) {
@@ -260,7 +293,7 @@ public class AssessmentEditController extends BasicController {
 		}
 		// Update score,passed properties in db
 		scoreEval = new ScoreEvaluation(newScore, newPassed);
-		this.courseNode.updateUserScoreEvaluation(scoreEval, userCourseEnvironment, coachIdentity, false);
+		courseNode.updateUserScoreEvaluation(scoreEval, userCourseEnvironment, coachIdentity, false);
 
 		if (assessmentForm.isHasComment() && assessmentForm.isUserCommentDirty()) {
 			String newComment = assessmentForm.getUserComment().getValue();
@@ -271,11 +304,25 @@ public class AssessmentEditController extends BasicController {
 		if (assessmentForm.isCoachCommentDirty()) {
 			String newCoachComment = assessmentForm.getCoachComment().getValue();
 			// Update properties in db
-			this.courseNode.updateUserCoachComment(newCoachComment, userCourseEnvironment);
+			courseNode.updateUserCoachComment(newCoachComment, userCourseEnvironment);
 		}
 		
 		// Refresh score view
-		userCourseEnvironment.getScoreAccounting().scoreInfoChanged(this.courseNode, scoreEval);
+		userCourseEnvironment.getScoreAccounting().scoreInfoChanged(courseNode, scoreEval);
+	}
+	
+	public void reloadData(UserRequest ureq) {
+		UserCourseEnvironment uce = assessedIdentityWrapper.getUserCourseEnvironment();
+		//refresh the cache in ScoreAccounting
+		uce.getScoreAccounting().evaluateAll();
+		
+		if (courseNode.hasDetails() && detailsEditController != null && showCourseNodeDetails) {
+			removeAsListenerAndDispose(detailsEditController);
+			detailsEditController = courseNode.getDetailsEditController(ureq, getWindowControl(), stackPanel, uce);
+			listenTo(detailsEditController);
+			detailView.put("detailsController", detailsEditController.getInitialComponent());
+		}
+		assessmentForm.reloadData();
 	}
 
 	/**

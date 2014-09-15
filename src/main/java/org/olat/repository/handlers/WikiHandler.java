@@ -29,22 +29,25 @@ import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
-import java.util.ArrayList;
-import java.util.Iterator;
 import java.util.List;
+import java.util.Locale;
 
 import org.olat.basesecurity.BaseSecurityModule;
 import org.olat.core.CoreSpringFactory;
-import org.olat.core.commons.fullWebApp.LayoutMain3ColsController;
+import org.olat.core.commons.persistence.DBFactory;
+import org.olat.core.commons.services.notifications.NotificationsManager;
+import org.olat.core.commons.services.notifications.SubscriptionContext;
 import org.olat.core.gui.UserRequest;
+import org.olat.core.gui.components.stack.TooledStackedPanel;
 import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.WindowControl;
-import org.olat.core.gui.control.generic.dtabs.Activateable2;
 import org.olat.core.gui.control.generic.layout.MainLayoutController;
+import org.olat.core.gui.control.generic.wizard.StepsMainRunController;
 import org.olat.core.gui.media.MediaResource;
 import org.olat.core.gui.translator.Translator;
 import org.olat.core.id.Identity;
 import org.olat.core.id.OLATResourceable;
+import org.olat.core.id.Roles;
 import org.olat.core.id.context.BusinessControl;
 import org.olat.core.id.context.ContextEntry;
 import org.olat.core.logging.AssertException;
@@ -54,15 +57,15 @@ import org.olat.core.util.FileUtils;
 import org.olat.core.util.Util;
 import org.olat.core.util.coordinate.CoordinatorManager;
 import org.olat.core.util.coordinate.LockResult;
-import org.olat.core.util.notifications.NotificationsManager;
-import org.olat.core.util.notifications.SubscriptionContext;
 import org.olat.core.util.resource.OLATResourceableJustBeforeDeletedEvent;
 import org.olat.core.util.vfs.VFSContainer;
 import org.olat.core.util.vfs.VFSItem;
 import org.olat.core.util.vfs.VFSLeaf;
+import org.olat.core.util.vfs.VFSManager;
 import org.olat.core.util.vfs.VFSMediaResource;
 import org.olat.core.util.vfs.filters.VFSItemSuffixFilter;
 import org.olat.fileresource.FileResourceManager;
+import org.olat.fileresource.types.ResourceEvaluation;
 import org.olat.fileresource.types.WikiResource;
 import org.olat.modules.wiki.Wiki;
 import org.olat.modules.wiki.WikiContainer;
@@ -71,15 +74,16 @@ import org.olat.modules.wiki.WikiPage;
 import org.olat.modules.wiki.WikiSecurityCallback;
 import org.olat.modules.wiki.WikiSecurityCallbackImpl;
 import org.olat.modules.wiki.WikiToZipUtils;
+import org.olat.repository.ErrorList;
 import org.olat.repository.RepositoryEntry;
 import org.olat.repository.RepositoryManager;
-import org.olat.repository.RepositoyUIFactory;
-import org.olat.repository.controllers.AddFileResourceController;
-import org.olat.repository.controllers.IAddController;
-import org.olat.repository.controllers.RepositoryAddCallback;
-import org.olat.repository.controllers.WizardCloseResourceController;
+import org.olat.repository.RepositoryService;
+import org.olat.repository.model.RepositoryEntrySecurity;
+import org.olat.repository.ui.RepositoryEntryRuntimeController;
+import org.olat.repository.ui.RepositoryEntryRuntimeController.RuntimeControllerCreator;
+import org.olat.repository.ui.RepositoyUIFactory;
 import org.olat.resource.OLATResource;
-import org.olat.resource.accesscontrol.ui.RepositoryMainAccessControllerWrapper;
+import org.olat.resource.OLATResourceManager;
 import org.olat.resource.references.ReferenceManager;
 
 
@@ -95,80 +99,135 @@ public class WikiHandler implements RepositoryHandler {
 	
 	private static final OLog log = Tracing.createLoggerFor(WikiHandler.class);
 
-	private static final boolean LAUNCHEABLE = true;
-	private static final boolean DOWNLOADEABLE = true;
-	private static final boolean EDITABLE = false;
-	private static final boolean WIZARD_SUPPORT = false;
-	private static final List<String> supportedTypes;
-
-	/**
-	 * Comment for <code>PROCESS_CREATENEW</code>
-	 */
-	public static final String PROCESS_CREATENEW = "cn";
-	public static final String PROCESS_UPLOAD = "pu";
-
-	public WikiHandler() {
-		//
+	@Override
+	public boolean isCreate() {
+		return true;
 	}
 	
-
-	static { // initialize supported types
-		supportedTypes = new ArrayList<String>(1);
-		supportedTypes.add(WikiResource.TYPE_NAME);
-	}
-
-	public List<String> getSupportedTypes() {
-		return supportedTypes;
-	}
-
-	/**
-	 * @see org.olat.repository.handlers.RepositoryHandler#supportsDownload()
-	 */
-	public boolean supportsDownload(RepositoryEntry repoEntry) {
-		return DOWNLOADEABLE;
-	}
-
-	/**
-	 * @see org.olat.repository.handlers.RepositoryHandler#supportsLaunch()
-	 */
-	public boolean supportsLaunch(RepositoryEntry repoEntry) {
-		return LAUNCHEABLE;
-	}
-
-	/**
-	 * @see org.olat.repository.handlers.RepositoryHandler#supportsEdit()
-	 */
-	public boolean supportsEdit(RepositoryEntry repoEntry) {
-		return EDITABLE;
+	@Override
+	public String getCreateLabelI18nKey() {
+		return "new.wiki";
 	}
 	
-	/**
-	 * @see org.olat.repository.handlers.RepositoryHandler#supportsWizard(org.olat.repository.RepositoryEntry)
-	 */
-	public boolean supportsWizard(RepositoryEntry repoEntry) { return WIZARD_SUPPORT; }
+	@Override
+	public RepositoryEntry createResource(Identity initialAuthor, String displayname, String description, Object createObject, Locale locale) {
+		RepositoryService repositoryService = CoreSpringFactory.getImpl(RepositoryService.class);
+		WikiResource wikiResource = WikiManager.getInstance().createWiki();
+		OLATResource resource = OLATResourceManager.getInstance().findOrPersistResourceable(wikiResource);
+		RepositoryEntry re = repositoryService.create(initialAuthor, null,
+				WikiManager.WIKI_RESOURCE_FOLDER_NAME, displayname, description, resource, RepositoryEntry.ACC_OWNERS);
+		DBFactory.getInstance().commit();
+		return re;
+	}
 	
-	/**
-	 * @see org.olat.repository.handlers.RepositoryHandler#getCreateWizardController(org.olat.core.id.OLATResourceable, org.olat.core.gui.UserRequest, org.olat.core.gui.control.WindowControl)
-	 */
-	public Controller createWizardController(OLATResourceable res, UserRequest ureq, WindowControl wControl) {
+	@Override
+	public boolean isPostCreateWizardAvailable() {
+		return false;
+	}
+
+	@Override
+	public ResourceEvaluation acceptImport(File file, String filename) {
+		return WikiResource.validate(file, filename);
+	}
+	
+	@Override
+	public RepositoryEntry importResource(Identity initialAuthor, String initialAuthorAlt, String displayname, String description,
+			boolean withReferences, Locale locale, File file, String filename) {
+		WikiResource wikiResource = new WikiResource();
+		OLATResource resource = OLATResourceManager.getInstance().findOrPersistResourceable(wikiResource);
+		File rootDirectory = WikiManager.getInstance().getWikiRootContainer(resource).getBasefile();
+		WikiManager.getInstance().importWiki(file, filename, rootDirectory);
+		RepositoryEntry re = CoreSpringFactory.getImpl(RepositoryService.class)
+			.create(initialAuthor, null, WikiManager.WIKI_RESOURCE_FOLDER_NAME, displayname, description, resource, RepositoryEntry.ACC_OWNERS);
+		DBFactory.getInstance().commit();
+		return re;
+	}
+	
+	@Override
+	public RepositoryEntry copy(RepositoryEntry source, RepositoryEntry target) {
+		final OLATResource sourceResource = source.getOlatResource();
+		final OLATResource targetResource = target.getOlatResource();
+		final FileResourceManager frm = FileResourceManager.getInstance();
+		
+		VFSContainer sourceWikiContainer = WikiManager.getInstance().getWikiContainer(sourceResource, WikiManager.WIKI_RESOURCE_FOLDER_NAME);
+		if(sourceWikiContainer == null) {
+			//if the wiki container is null, let the WikiManager to create one
+			WikiManager.getInstance().getOrLoadWiki(sourceResource);
+			sourceWikiContainer = WikiManager.getInstance().getWikiContainer(sourceResource, WikiManager.WIKI_RESOURCE_FOLDER_NAME);
+		}
+		
+		VFSContainer targetRootContainer = frm.getFileResourceRootImpl(targetResource);
+		VFSContainer targetWikiContainer = VFSManager.getOrCreateContainer(targetRootContainer, WikiManager.WIKI_RESOURCE_FOLDER_NAME);
+		VFSManager.copyContent(sourceWikiContainer, targetWikiContainer);
+		
+		VFSContainer sourceRootContainer = sourceWikiContainer.getParentContainer();
+		
+		//create versions folder
+		targetRootContainer.createChildContainer(WikiManager.VERSION_FOLDER_NAME);
+		
+		//create media folders and copy it
+		VFSContainer targetMediaContainer = VFSManager.getOrCreateContainer(targetRootContainer, WikiContainer.MEDIA_FOLDER_NAME); 
+		VFSItem sourceMediaItem = sourceRootContainer.resolve(WikiContainer.MEDIA_FOLDER_NAME);
+		if(sourceMediaItem instanceof VFSContainer) {
+			VFSContainer sourceMediaContainer = (VFSContainer)sourceMediaItem;
+			VFSManager.copyContent(sourceMediaContainer, targetMediaContainer);
+		}
+
+		//reset properties files to default values
+		String[] filteredSuffix = new String[]{ WikiManager.WIKI_PROPERTIES_SUFFIX };
+		List<VFSItem> items = targetWikiContainer.getItems(new VFSItemSuffixFilter(filteredSuffix));
+		for (VFSItem item: items) {
+			if(item instanceof VFSLeaf) {
+				VFSLeaf leaf = (VFSLeaf)item;
+				WikiPage page = Wiki.assignPropertiesToPage(leaf);
+				//reset the copied pages to a the default values
+				page.resetCopiedPage();
+				WikiManager.getInstance().updateWikiPageProperties(targetResource, page);
+			}
+		}
+		
+		return target;
+	}
+
+	@Override
+	public String getSupportedType() {
+		return WikiResource.TYPE_NAME;
+	}
+
+	@Override
+	public boolean supportsDownload() {
+		return true;
+	}
+
+	@Override
+	public boolean supportsLaunch() {
+		return true;
+	}
+
+	@Override
+	public EditionSupport supportsEdit(OLATResourceable resource) {
+		return EditionSupport.embedded;
+	}
+	
+	@Override
+	public VFSContainer getMediaContainer(RepositoryEntry repoEntry) {
+		return FileResourceManager.getInstance()
+				.getFileResourceMedia(repoEntry.getOlatResource());
+	}
+
+	@Override
+	public StepsMainRunController createWizardController(OLATResourceable res, UserRequest ureq, WindowControl wControl) {
 		throw new AssertException("Trying to get wizard where no creation wizard is provided for this type.");
 	}
 
-	/**
-	 * @see org.olat.repository.handlers.RepositoryHandler#getLaunchController(org.olat.resource.OLATResourceable,
-	 *      java.lang.String, org.olat.core.gui.UserRequest,
-	 *      org.olat.core.gui.control.WindowControl)
-	 */
 	@Override
-	public MainLayoutController createLaunchController(RepositoryEntry re, UserRequest ureq, WindowControl wControl) {
+	public MainLayoutController createLaunchController(RepositoryEntry re, RepositoryEntrySecurity reSecurity, UserRequest ureq, WindowControl wControl) {
 		// first handle special case: disabled wiki for security (XSS Attacks) reasons
 		BaseSecurityModule securityModule = CoreSpringFactory.getImpl(BaseSecurityModule.class); 
 		if (!securityModule.isWikiEnabled()) {
 			return RepositoyUIFactory.createRepoEntryDisabledDueToSecurityMessageController(ureq, wControl);
 		}
-		// proceed with standard case
-		Controller controller = null;
-		
+
 		//check role
 		boolean isOLatAdmin = ureq.getUserSession().getRoles().isOLATAdmin();
 		boolean isGuestOnly = ureq.getUserSession().getRoles().isGuestOnly();
@@ -176,49 +235,41 @@ public class WikiHandler implements RepositoryHandler {
 		if (isOLatAdmin) {
 			isResourceOwner = true;
 		} else {
-			RepositoryManager repoMgr = RepositoryManager.getInstance();
-			isResourceOwner = repoMgr.isOwnerOfRepositoryEntry(ureq.getIdentity(), re);
+			isResourceOwner = reSecurity.isOwner();
 		}
 		
 		OLATResource res = re.getOlatResource();
 		BusinessControl bc = wControl.getBusinessControl();
-		ContextEntry ce = bc.popLauncherContextEntry();
+		final ContextEntry ce = bc.popLauncherContextEntry();
 		SubscriptionContext subsContext = new SubscriptionContext(res, WikiManager.WIKI_RESOURCE_FOLDER_NAME);
-		WikiSecurityCallback callback = new WikiSecurityCallbackImpl(null, isOLatAdmin, isGuestOnly, false, isResourceOwner, subsContext);
-		
-		if ( ce != null ) { //jump to a certain context
-			OLATResourceable ores = ce.getOLATResourceable();
-			String typeName = ores.getResourceableTypeName();
-			String page = typeName.substring("page=".length());
-			controller = WikiManager.getInstance().createWikiMainControllerDisposeOnOres(ureq, wControl, res, callback, page);
-		} else {
-			controller = WikiManager.getInstance().createWikiMainControllerDisposeOnOres(ureq, wControl, res, callback, null);
-		}
-		// use on column layout
-		LayoutMain3ColsController layoutCtr = new LayoutMain3ColsController(ureq, wControl, null, null, controller.getInitialComponent(), null);
-		layoutCtr.addDisposableChildController(controller); // dispose content on layout dispose
-		if(controller instanceof Activateable2) {
-			layoutCtr.addActivateableDelegate((Activateable2)controller);
-		}
-		
-		RepositoryMainAccessControllerWrapper wrapper = new RepositoryMainAccessControllerWrapper(ureq, wControl, re, layoutCtr);	
-		return wrapper;
+		final WikiSecurityCallback callback = new WikiSecurityCallbackImpl(null, isOLatAdmin, isGuestOnly, false, isResourceOwner, subsContext);
+
+		RepositoryEntryRuntimeController runtime = new RepositoryEntryRuntimeController(ureq, wControl, re, reSecurity,
+			new RuntimeControllerCreator() {
+				@Override
+				public Controller create(UserRequest uureq, WindowControl wwControl, TooledStackedPanel toolbarPanel, RepositoryEntry entry, RepositoryEntrySecurity security) {
+					Controller controller;
+					if ( ce != null ) { //jump to a certain context
+						OLATResourceable ores = ce.getOLATResourceable();
+						String typeName = ores.getResourceableTypeName();
+						String page = typeName.substring("page=".length());
+						controller = WikiManager.getInstance().createWikiMainControllerDisposeOnOres(uureq, wwControl, entry.getOlatResource(), callback, page);
+					} else {
+						controller = WikiManager.getInstance().createWikiMainControllerDisposeOnOres(uureq, wwControl, entry.getOlatResource(), callback, null);
+					}
+					
+					return controller;
+				}
+			});
+
+		return runtime;
 	}
 
-	/**
-	 * @see org.olat.repository.handlers.RepositoryHandler#getEditorController(org.olat.resource.OLATResourceable,
-	 *      org.olat.core.gui.UserRequest,
-	 *      org.olat.core.gui.control.WindowControl)
-	 */
 	@Override
-	public Controller createEditorController(RepositoryEntry re, UserRequest ureq, WindowControl wControl) {
-		//edit is always part of a wiki
+	public Controller createEditorController(RepositoryEntry re, UserRequest ureq, WindowControl wControl, TooledStackedPanel toolbar) {
 		return null;
 	}
 
-	/**
-	 * @see org.olat.repository.handlers.RepositoryHandler#getAsMediaResource(org.olat.resource.OLATResourceable)
-	 */
 	@Override
 	public MediaResource getAsMediaResource(OLATResourceable res, boolean backwardsCompatible) {
 		VFSContainer rootContainer = FileResourceManager.getInstance().getFileResourceRootImpl(res);
@@ -226,11 +277,7 @@ public class WikiHandler implements RepositoryHandler {
 		return new VFSMediaResource(wikiZip);
 	}
 
-	/**
-	 * @see org.olat.repository.handlers.RepositoryHandler#cleanupOnDelete(org.olat.resource.OLATResourceable,
-	 *      org.olat.core.gui.UserRequest,
-	 *      org.olat.core.gui.control.WindowControl)
-	 */
+	@Override
 	public boolean cleanupOnDelete(OLATResourceable res) {
 		CoordinatorManager.getInstance().getCoordinator().getEventBus().fireEventToListenersOf(new OLATResourceableJustBeforeDeletedEvent(res), res);
 		//delete also notifications
@@ -239,78 +286,25 @@ public class WikiHandler implements RepositoryHandler {
 		return true;
 	}
 
-	/**
-	 * @see org.olat.repository.handlers.RepositoryHandler#readyToDelete(org.olat.resource.OLATResourceable,
-	 *      org.olat.core.gui.UserRequest,
-	 *      org.olat.core.gui.control.WindowControl)
-	 */
-	public boolean readyToDelete(OLATResourceable res, UserRequest ureq, WindowControl wControl) {
+	@Override
+	public boolean readyToDelete(OLATResourceable res, Identity identity, Roles roles, Locale locale, ErrorList errors) {
 		ReferenceManager refM = ReferenceManager.getInstance();
-		String referencesSummary = refM.getReferencesToSummary(res, ureq.getLocale());
+		String referencesSummary = refM.getReferencesToSummary(res, locale);
 		if (referencesSummary != null) {
-			Translator translator = Util.createPackageTranslator(RepositoryManager.class, ureq.getLocale());
-			wControl.setError(translator.translate("details.delete.error.references",
+			Translator translator = Util.createPackageTranslator(RepositoryManager.class, locale);
+			errors.setError(translator.translate("details.delete.error.references",
 					new String[] { referencesSummary }));
 			return false;
 		}
 		return true;
 	}
 
-	/**
-	 * @see org.olat.repository.handlers.RepositoryHandler#createCopy(org.olat.resource.OLATResourceable,
-	 *      org.olat.core.gui.UserRequest)
-	 */
-	public OLATResourceable createCopy(OLATResourceable res, UserRequest ureq) {
-		FileResourceManager frm = FileResourceManager.getInstance();
-		VFSContainer wikiContainer = WikiManager.getInstance().getWikiContainer(res, WikiManager.WIKI_RESOURCE_FOLDER_NAME);
-		if(wikiContainer==null) {
-			//if the wiki container is null, let the WikiManager to create one
-			WikiManager.getInstance().getOrLoadWiki(res);
-		}
-		OLATResourceable copy = frm.createCopy(res, WikiManager.WIKI_RESOURCE_FOLDER_NAME);
-		VFSContainer rootContainer = frm.getFileResourceRootImpl(copy);
-		//create folders
-		VFSContainer newMediaCont = rootContainer.createChildContainer(WikiContainer.MEDIA_FOLDER_NAME); 
-		rootContainer.createChildContainer(WikiManager.VERSION_FOLDER_NAME);
-		//copy media files to folders
-		VFSContainer origRootContainer = frm.getFileResourceRootImpl(res);
-		VFSContainer origMediaCont = (VFSContainer)origRootContainer.resolve(WikiContainer.MEDIA_FOLDER_NAME);
-		List<VFSItem> mediaFiles = origMediaCont.getItems();
-		for (Iterator<VFSItem> iter = mediaFiles.iterator(); iter.hasNext();) {
-			VFSLeaf element = (VFSLeaf) iter.next();
-			newMediaCont.copyFrom(element);
-		}
-
-		//reset properties files to default values
-		VFSContainer wikiCont = (VFSContainer)rootContainer.resolve(WikiManager.WIKI_RESOURCE_FOLDER_NAME);
-		List<VFSItem> leafs = wikiCont.getItems(new VFSItemSuffixFilter(new String[]{WikiManager.WIKI_PROPERTIES_SUFFIX}));
-		for (Iterator<VFSItem> iter = leafs.iterator(); iter.hasNext();) {
-			VFSLeaf leaf = (VFSLeaf) iter.next();
-			WikiPage page = Wiki.assignPropertiesToPage(leaf);
-			//reset the copied pages to a the default values
-			page.resetCopiedPage();
-			WikiManager.getInstance().updateWikiPageProperties(copy, page);
-		}
-		
-		return copy;
-	}
-
-	/**
-	 * @see org.olat.repository.handlers.RepositoryHandler#getAddController(org.olat.repository.controllers.RepositoryAddCallback,
-	 *      java.lang.Object, org.olat.core.gui.UserRequest,
-	 *      org.olat.core.gui.control.WindowControl)
-	 */
-	public IAddController createAddController(RepositoryAddCallback callback, Object userObject, UserRequest ureq, WindowControl wControl) {
-		if (userObject == null || userObject.equals(WikiHandler.PROCESS_UPLOAD))
-			return new AddFileResourceController(callback, supportedTypes, new String[] {"zip"}, ureq, wControl);
-		else
-			return new WikiCreateController(callback, ureq, wControl);
-	}
-
+	@Override
 	public Controller createDetailsForm( UserRequest ureq, WindowControl wControl, OLATResourceable res) {
 		return FileResourceManager.getInstance().getDetailsForm(ureq, wControl, res);
 	}
 
+	@Override
 	public String archive(Identity archiveOnBehalfOf, String archivFilePath, RepositoryEntry repoEntry) {
 		VFSContainer rootContainer = FileResourceManager.getInstance().getFileResourceRootImpl(repoEntry.getOlatResource());
 		VFSLeaf wikiZip = WikiToZipUtils.getWikiAsZip(rootContainer);
@@ -331,34 +325,20 @@ public class WikiHandler implements RepositoryHandler {
 		}
 		return exportFileName;
 	}
-	
-	/**
-	 * 
-	 * @see org.olat.repository.handlers.RepositoryHandler#acquireLock(org.olat.core.id.OLATResourceable, org.olat.core.id.Identity)
-	 */
+
+	@Override
 	public LockResult acquireLock(OLATResourceable ores, Identity identity) {
     //nothing to do
 		return null;
 	}
-	
-	/**
-	 * 
-	 * @see org.olat.repository.handlers.RepositoryHandler#releaseLock(org.olat.core.util.coordinate.LockResult)
-	 */
+
+	@Override
 	public void releaseLock(LockResult lockResult) {
 		//nothing to do since nothing locked
 	}
-	
-	/**
-	 * 
-	 * @see org.olat.repository.handlers.RepositoryHandler#isLocked(org.olat.core.id.OLATResourceable)
-	 */
+
+	@Override
 	public boolean isLocked(OLATResourceable ores) {
 		return false;
 	}
-	
-	public WizardCloseResourceController createCloseResourceController(UserRequest ureq, WindowControl wControl, RepositoryEntry repositoryEntry) {
-		throw new AssertException("not implemented");
-	}
-	
 }

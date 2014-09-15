@@ -1,13 +1,13 @@
-<div class="b_legacy_wizard">
-	<div class="b_clearfix">
-		$r.render("wic")
+<div class="o_legacy_wizard">
+	$r.render("wic")
+	#if($wizardTitle)	
 		<h4>$wizardTitle</h4>
-	</div>
+	#end
 	<fieldset>
 		<legend>$r.translate("wizard.step") $currentStep/$steps: $title</legend>
 		$r.render("component")
 	</fieldset>
-	<div class="b_button_group">
+	<div class="o_button_group">
 		#if($lastStep)
 			$r.render("finish")
 		#else

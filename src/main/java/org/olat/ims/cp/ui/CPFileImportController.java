@@ -24,8 +24,8 @@
 */
 package org.olat.ims.cp.ui;
 
+import java.util.Collection;
 import java.util.LinkedList;
-import java.util.Set;
 
 import org.olat.core.commons.modules.bc.FileUploadController;
 import org.olat.core.gui.UserRequest;
@@ -41,7 +41,7 @@ import org.olat.core.gui.components.link.Link;
 import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.Event;
 import org.olat.core.gui.control.WindowControl;
-import org.olat.core.gui.translator.PackageTranslator;
+import org.olat.core.util.Util;
 import org.olat.core.util.ZipUtil;
 import org.olat.core.util.vfs.LocalFileImpl;
 import org.olat.core.util.vfs.VFSContainer;
@@ -86,7 +86,7 @@ public class CPFileImportController extends FormBasicController {
 		this.currentPage = currentPage;
 		
 		//need a translation from FileUploadController (avoiding key-duplicates)
-		setTranslator(new PackageTranslator(FileUploadController.class.getPackage().getName(), getLocale(), getTranslator()));
+		setTranslator(Util.createPackageTranslator(FileUploadController.class, getLocale(), getTranslator()));
 		
 		initForm(ureq);
 	}
@@ -116,7 +116,7 @@ public class CPFileImportController extends FormBasicController {
 
 		file = uifactory.addFileElement("file", this.flc);
 		file.setLabel("cpfileuploadcontroller.import.text", null);
-		file.addActionListener(this, FormEvent.ONCHANGE);
+		file.addActionListener(FormEvent.ONCHANGE);
 		
 		Long uploadLimitKb = getUploadLimitKb();
 		if(uploadLimitKb != null) {
@@ -127,7 +127,7 @@ public class CPFileImportController extends FormBasicController {
 		// checkboxes
 		String[] keys = { "htm", "pdf", "doc", "xls", "ppt", ALL };
 		String[] values = { "HTML", "PDF", "Word", "Excel", "PowerPoint", translate("cpfileuploadcontroller.form.all.types") };
-		checkboxes = uifactory.addCheckboxesVertical("checkboxes", "cpfileuploadcontroller.form.file.types", this.flc, keys, values, null, 1);
+		checkboxes = uifactory.addCheckboxesVertical("checkboxes", "cpfileuploadcontroller.form.file.types", this.flc, keys, values, 1);
 		checkboxes.setVisible(false);
 
 		// Submit and cancel buttons
@@ -222,7 +222,7 @@ public class CPFileImportController extends FormBasicController {
 		// Upload any files in case they are referenced to.
 
 		// Get the file types that should be added as items in the menu tree
-		Set<String> menuItemTypes = checkboxes.getSelectedKeys();
+		Collection<String> menuItemTypes = checkboxes.getSelectedKeys();
 		if (menuItemTypes.contains("htm")) menuItemTypes.add("html");
 
 		// If item is the root node and it doesn't contain any items to be added,
@@ -260,7 +260,7 @@ public class CPFileImportController extends FormBasicController {
 	 * @param menuItemTypes
 	 * @return true if there is a leaf inside container that should be added
 	 */
-	private boolean containsItemsToAdd(VFSContainer container, Set<String> menuItemTypes) {
+	private boolean containsItemsToAdd(VFSContainer container, Collection<String> menuItemTypes) {
 		LinkedList<VFSItem> queue = new LinkedList<VFSItem>();
 		// enqueue root node
 		queue.add(container);
@@ -286,7 +286,7 @@ public class CPFileImportController extends FormBasicController {
 	 * @param menuItemTypes
 	 * @return true if the item is to be added to the tree
 	 */
-	private boolean isToBeAdded(VFSLeaf item, Set<String> menuItemTypes) {
+	private boolean isToBeAdded(VFSLeaf item, Collection<String> menuItemTypes) {
 		String extension = null;
 		if (!menuItemTypes.contains(ALL)) {
 			String name = item.getName();

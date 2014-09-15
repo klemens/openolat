@@ -29,7 +29,7 @@ package org.olat.core.commons.controllers.linkchooser;
 import org.olat.core.CoreSpringFactory;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.Component;
-import org.olat.core.gui.components.panel.Panel;
+import org.olat.core.gui.components.panel.StackedPanel;
 import org.olat.core.gui.components.tabbedpane.TabbedPane;
 import org.olat.core.gui.components.velocity.VelocityContainer;
 import org.olat.core.gui.control.Controller;
@@ -48,7 +48,7 @@ import org.olat.core.util.vfs.VFSContainer;
 public class LinkChooserController extends BasicController {
 
 	private VelocityContainer tabbedPaneViewVC, closeVC;
-	private Panel mainPanel;
+	private StackedPanel mainPanel;
 
 	private TabbedPane linkChooserTabbedPane;
 	private FileLinkChooserController fileLinkChooserController;
@@ -124,6 +124,12 @@ public class LinkChooserController extends BasicController {
 				closeVC.contextPut("isJsUrl", Boolean.TRUE);
 			}
 			closeVC.contextPut("imagepath", url);
+			if(urlChoosenEvent.getWidth() > 0) {
+				closeVC.contextPut("width", Integer.toString(urlChoosenEvent.getWidth()));
+			}
+			if(urlChoosenEvent.getHeight() > 0) {
+				closeVC.contextPut("height", Integer.toString(urlChoosenEvent.getHeight()));
+			}
 			mainPanel.setContent(closeVC);
 			
 		} else if (event == Event.CANCELLED_EVENT) {

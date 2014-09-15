@@ -25,6 +25,7 @@
 package org.olat.core.util.i18n.ui;
 
 import java.io.File;
+import java.util.Collection;
 import java.util.Set;
 
 import org.olat.core.gui.UserRequest;
@@ -83,8 +84,7 @@ class I18nConfigSubExportLangController extends FormBasicController {
 	 *      org.olat.core.gui.control.Controller, org.olat.core.gui.UserRequest)
 	 */
 	@Override
-	protected void initForm(FormItemContainer formLayout, @SuppressWarnings("unused") Controller listener,
-			@SuppressWarnings("unused") UserRequest ureq) {
+	protected void initForm(FormItemContainer formLayout, Controller listener, UserRequest ureq) {
 		I18nManager i18nMgr = I18nManager.getInstance();
 		// A title, displayed in fieldset
 		setFormTitle("configuration.management.package.export.title");
@@ -102,10 +102,10 @@ class I18nConfigSubExportLangController extends FormBasicController {
 			availableValues[i] = all;
 		}
 		ArrayHelper.sort(availableKeys, availableValues, false, true, false);
-		String[] availableLangCssClasses = i18nMgr.createLanguageFlagsCssClasses(availableKeys, "b_with_small_icon_left");
+		String[] availableLangCssClasses = i18nMgr.createLanguageFlagsCssClasses(availableKeys, "o_flag");
 		exportLangSelection = uifactory.addCheckboxesVertical("configuration.exportLangSelection", null, formLayout, availableKeys,
-				availableValues, availableLangCssClasses, 2);
-		exportLangSelection.addActionListener(this, FormEvent.ONCLICK);
+				availableValues, availableLangCssClasses, null, 1);
+		exportLangSelection.addActionListener(FormEvent.ONCLICK);
 		// Add cancel and submit in button group layout
 		FormLayoutContainer buttonGroupLayout = FormLayoutContainer.createButtonLayout("buttonGroupLayout", getTranslator());
 		formLayout.add(buttonGroupLayout);
@@ -119,7 +119,7 @@ class I18nConfigSubExportLangController extends FormBasicController {
 	 */
 	@Override
 	protected void formOK(UserRequest ureq) {
-		Set<String> toExport = exportLangSelection.getSelectedKeys();
+		Collection<String> toExport = exportLangSelection.getSelectedKeys();
 		logDebug("Following languages selected for export::" + toExport.toString(), null);
 		if (toExport.size() == 0) {
 			// should not happen since button disabled

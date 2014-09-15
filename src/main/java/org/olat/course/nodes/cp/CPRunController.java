@@ -53,7 +53,6 @@ import org.olat.course.editor.NodeEditController;
 import org.olat.course.nodes.CPCourseNode;
 import org.olat.course.nodes.TitledWrapperHelper;
 import org.olat.course.run.navigation.NodeRunConstructionResult;
-import org.olat.course.run.userview.UserCourseEnvironment;
 import org.olat.fileresource.FileResourceManager;
 import org.olat.ims.cp.CPManager;
 import org.olat.ims.cp.ui.CPPackageConfig;
@@ -102,7 +101,7 @@ public class CPRunController extends BasicController implements ControllerEventL
 	 * @param wControl
 	 * @param cpNode
 	 */
-	public CPRunController(ModuleConfiguration config, UserRequest ureq, UserCourseEnvironment userCourseEnv, WindowControl wControl, CPCourseNode cpNode, String nodecmd, OLATResourceable course) {
+	public CPRunController(ModuleConfiguration config, UserRequest ureq, WindowControl wControl, CPCourseNode cpNode, String nodecmd, OLATResourceable course) {
 		super(ureq, wControl);
 		this.nodecmd = nodecmd;
 		this.courseResource = OresHelper.clone(course);
@@ -162,7 +161,7 @@ public class CPRunController extends BasicController implements ControllerEventL
 	}
 	
 	@Override
-	//fxdiff BAKS-7 Resume function
+	// Resume function
 	public void activate(UserRequest ureq, List<ContextEntry> entries, StateEntry state) {
 		if(entries == null || entries.isEmpty()) return;
 		
@@ -202,11 +201,10 @@ public class CPRunController extends BasicController implements ControllerEventL
 		if ( (nodecmd != null) && !nodecmd.equals("") ) {
  		  activateFirstPage = false; 
 		}
-		//fxdiff VCRP-13: cp navigation
-		boolean navButtons = isNavButtonConfigured();
-		cpDispC = CPUIFactory.getInstance().createContentOnlyCPDisplayController(ureq, getWindowControl(), new LocalFolderImpl(cpRoot), activateFirstPage, navButtons, deliveryOptions, nodecmd, courseResource);
-		cpDispC.setContentEncoding(getContentEncoding());
-		cpDispC.setJSEncoding(getJSEncoding());
+		cpDispC = CPUIFactory.getInstance().createContentOnlyCPDisplayController(ureq, getWindowControl(), new LocalFolderImpl(cpRoot),
+				activateFirstPage, false, deliveryOptions, nodecmd, courseResource);
+		cpDispC.setContentEncoding(deliveryOptions.getContentEncoding());
+		cpDispC.setJSEncoding(deliveryOptions.getJavascriptEncoding());
 		cpDispC.addControllerListener(this);
 
 		main.setContent(cpDispC.getInitialComponent());
@@ -233,28 +231,6 @@ public class CPRunController extends BasicController implements ControllerEventL
 		return (config.getBooleanEntry(NodeEditController.CONFIG_COMPONENT_MENU).booleanValue());
 	}
 	
-	//fxdiff VCRP-13: cp navigation
-	private boolean isNavButtonConfigured() {
-		Boolean navButton = config.getBooleanEntry(CPEditController.CONFIG_SHOWNAVBUTTONS);
-		return navButton == null ? true : navButton.booleanValue();
-	}
-	
-	private String getContentEncoding() {
-		String encoding = (String)config.get(NodeEditController.CONFIG_CONTENT_ENCODING);
-		if(!encoding.equals(NodeEditController.CONFIG_CONTENT_ENCODING_AUTO)) {
-			return encoding;
-		}
-		return null;
-	}
-	
-	private String getJSEncoding() {
-		String encoding = (String)config.get(NodeEditController.CONFIG_JS_ENCODING);
-		if(!encoding.equals(NodeEditController.CONFIG_JS_ENCODING_AUTO)) {
-			return encoding;
-		}
-		return null;
-	}
-
 	/**
 	 * @see org.olat.core.gui.control.DefaultController#doDispose(boolean)
 	 */

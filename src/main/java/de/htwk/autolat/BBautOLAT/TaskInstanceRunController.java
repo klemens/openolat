@@ -44,6 +44,7 @@ import de.htwk.autolat.TaskModule.TaskModuleManagerImpl;
 import de.htwk.autolat.TaskResult.TaskResult;
 import de.htwk.autolat.TaskResult.TaskResultManagerImpl;
 import de.htwk.autolat.TaskSolution.TaskSolution;
+import de.htwk.autolat.tools.StreamVFSLeaf;
 import de.htwk.autolat.tools.Scoring.ScoreObject;
 import de.htwk.autolat.tools.Scoring.ScoreObjectManagerImpl;
 import de.htwk.autolat.tools.XMLParser.OutputObject;
@@ -679,14 +680,8 @@ public class TaskInstanceRunController extends BasicController
 						
 		for(Picture aPic : pictureList)
 		{
-			DefaultMediaResource mediaResource = new DefaultMediaResource();
-			mediaResource.setInputStream(aPic.getDecodedPictureStream());
-			ImageComponent taskImage = new ImageComponent(aPic.getName());
-			taskImage.setMediaResource(mediaResource);			
-					
-			// set double to int or long
-			// taskImage.setWidth(aPic.getWidth());
-			// taskImage.setHeight(aPic.getHeight());			
+			ImageComponent taskImage = new ImageComponent(ureq.getUserSession(), aPic.getName());
+			taskImage.setMedia(new StreamVFSLeaf(aPic.getName(), aPic.getBase64()), aPic.getMimeType());
 			runVC.put(aPic.getName(), taskImage);
 		}
 
@@ -770,12 +765,8 @@ public class TaskInstanceRunController extends BasicController
 						
 			for(Picture aPic : solutionPictureList)
 			{
-				DefaultMediaResource mediaResource = new DefaultMediaResource();
-				mediaResource.setInputStream(aPic.getDecodedPictureStream());
-				ImageComponent taskImage = new ImageComponent(aPic.getName());
-				taskImage.setMediaResource(mediaResource);
-				// taskImage.setWidth(aPic.getWidth());
-				// taskImage.setHeight(aPic.getHeight());			
+				ImageComponent taskImage = new ImageComponent(ureq.getUserSession(), aPic.getName());
+				taskImage.setMedia(new StreamVFSLeaf(aPic.getName(), aPic.getBase64()), aPic.getMimeType());
 				runVC.put(aPic.getName(), taskImage);
 			}
 			runVC.contextPut("solutionPieces", solutionPieces);
