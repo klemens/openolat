@@ -112,8 +112,9 @@ public class SearchServiceImpl implements SearchService, GenericEventListener {
 			AbstractOlatDocument.TITLE_FIELD_NAME, AbstractOlatDocument.DESCRIPTION_FIELD_NAME,
 			AbstractOlatDocument.CONTENT_FIELD_NAME, AbstractOlatDocument.AUTHOR_FIELD_NAME,
 			AbstractOlatDocument.DOCUMENTTYPE_FIELD_NAME, AbstractOlatDocument.FILETYPE_FIELD_NAME,
-			QItemDocument.TAXONOMIC_PATH_FIELD, QItemDocument.IDENTIFIER_FIELD,
-			QItemDocument.MASTER_IDENTIFIER_FIELD, QItemDocument.KEYWORDS_FIELD,
+			QItemDocument.TAXONOMIC_PATH_FIELD, QItemDocument.TAXONOMIC_FIELD, 
+			QItemDocument.IDENTIFIER_FIELD, QItemDocument.MASTER_IDENTIFIER_FIELD,
+			QItemDocument.KEYWORDS_FIELD,
 			QItemDocument.COVERAGE_FIELD, QItemDocument.ADD_INFOS_FIELD,
 			QItemDocument.LANGUAGE_FIELD, QItemDocument.EDU_CONTEXT_FIELD,
 			QItemDocument.ITEM_TYPE_FIELD, QItemDocument.ASSESSMENT_TYPE_FIELD,
@@ -227,6 +228,17 @@ public class SearchServiceImpl implements SearchService, GenericEventListener {
 		log.info("init DONE");
 	}
 	
+	@Override
+	public boolean refresh() {
+		try {
+			createIndexSearcherManager();
+			return indexSearcherRefMgr != null;
+		} catch (Exception e) {
+			log.error("", e);
+			return false;
+		}
+	}
+
 	private void createIndexSearcherManager() {
 		try {
 			if(indexSearcherRefMgr == null) {
@@ -402,10 +414,12 @@ public class SearchServiceImpl implements SearchService, GenericEventListener {
 	}
 	
 	protected void releaseIndexSearcher(IndexSearcher s) {
-		try {
-			indexSearcherRefMgr.release(s);
-		} catch (IOException e) {
-			log.error("Error while releasing index searcher", e);
+		if(indexSearcherRefMgr != null) {
+			try {
+				indexSearcherRefMgr.release(s);
+			} catch (IOException e) {
+				log.error("Error while releasing index searcher", e);
+			}
 		}
 	}
 	

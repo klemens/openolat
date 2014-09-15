@@ -38,7 +38,9 @@ import org.olat.basesecurity.BaseSecurity;
 import org.olat.basesecurity.Constants;
 import org.olat.basesecurity.GroupRoles;
 import org.olat.basesecurity.SecurityGroup;
+import org.olat.basesecurity.SecurityGroupMembershipImpl;
 import org.olat.core.commons.modules.bc.FolderConfig;
+import org.olat.core.commons.modules.bc.meta.MetaInfo;
 import org.olat.core.commons.persistence.DB;
 import org.olat.core.commons.persistence.PersistenceHelper;
 import org.olat.core.commons.services.image.ImageService;
@@ -461,6 +463,20 @@ public class CatalogManager extends BasicManager implements UserDataDeletable, I
 				.getResultList();
 	}
 	
+	public boolean isOwner(Identity identity) {
+		StringBuilder sb = new StringBuilder();
+		sb.append("select count(cei.key) from ").append(CatalogEntryImpl.class.getName()).append(" as cei ")
+		  .append(" where exists (select sgmsi.key from ").append(SecurityGroupMembershipImpl.class.getName()).append(" as sgmsi ")
+		  .append("   where  cei.ownerGroup=sgmsi.securityGroup and sgmsi.identity.key=:identityKey")
+		  .append(" )");
+
+		Number count = dbInstance.getCurrentEntityManager()
+				.createQuery(sb.toString(), Number.class)
+				.setParameter("identityKey", identity.getKey())
+				.getSingleResult();
+		return count == null ? false : count.intValue() > 0;
+	}
+	
 	public List<Identity> getOwnersOfParentLine(CatalogEntry entry) {
 		List<CatalogEntry> parentLine = getCategoryParentLine(entry);
 		List<SecurityGroup> secGroups = new ArrayList<SecurityGroup>();
@@ -676,6 +692,9 @@ public class CatalogManager extends BasicManager implements UserDataDeletable, I
 	public void deleteImage(CatalogEntryRef entry) {
 		VFSLeaf imgFile =  getImage(entry);
 		if (imgFile != null) {
+			if(imgFile instanceof MetaInfo) {
+				((MetaInfo)imgFile).clearThumbnails();
+			}
 			imgFile.delete();
 		}
 	}
@@ -683,6 +702,9 @@ public class CatalogManager extends BasicManager implements UserDataDeletable, I
 	public boolean setImage(VFSLeaf newImageFile, CatalogEntryRef re) {
 		VFSLeaf currentImage = getImage(re);
 		if(currentImage != null) {
+			if(currentImage instanceof MetaInfo) {
+				((MetaInfo)currentImage).clearThumbnails();
+			}
 			currentImage.delete();
 		}
 		
