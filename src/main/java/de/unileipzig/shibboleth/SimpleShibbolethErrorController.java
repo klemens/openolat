@@ -5,9 +5,11 @@ import org.olat.core.gui.WindowSettings;
 import org.olat.core.gui.Windows;
 import org.olat.core.gui.components.Component;
 import org.olat.core.gui.components.Window;
+import org.olat.core.gui.components.htmlheader.jscss.CustomCSS;
 import org.olat.core.gui.components.velocity.VelocityContainer;
 import org.olat.core.gui.control.DefaultChiefController;
 import org.olat.core.gui.control.Event;
+import org.olat.core.gui.control.navigation.SiteInstance;
 import org.olat.core.util.WebappHelper;
 
 /**
@@ -25,7 +27,7 @@ public class SimpleShibbolethErrorController extends DefaultChiefController {
 		Window window = Windows.getWindows(ureq).getWindowManager().createWindowBackOffice("shibbolethError", this, new WindowSettings()).getWindow();
 
 		VelocityContainer mainVC = new VelocityContainer("shibbolethError", SimpleShibbolethErrorController.class, "errorWindow", null, this);
-		mainVC.contextPut("cssURL", window.getGuiTheme().getBaseURI() + "layout.css");
+		mainVC.contextPut("cssURL", window.getGuiTheme().getBaseURI() + "theme.css");
 		mainVC.contextPut("backLink", WebappHelper.getServletContextPath());
 		mainVC.contextPut("message", message);
 		if(detail != null) {
@@ -44,5 +46,30 @@ public class SimpleShibbolethErrorController extends DefaultChiefController {
 	@Override
 	protected void doDispose() {
 		// nothing to dispose
+	}
+
+	@Override
+	public void addBodyCssClass(String cssClass) {
+		// not supported
+	}
+
+	@Override
+	public void removeBodyCssClass(String cssClass) {
+		// not supported
+	}
+
+	@Override
+	public void addCurrentCustomCSSToView(CustomCSS customCSS) {
+		// not supported
+	}
+
+	@Override
+	public void removeCurrentCustomCSSFromView() {
+		// not supported
+	}
+
+	@Override
+	public boolean hasStaticSite(Class<? extends SiteInstance> type) {
+		return false;
 	}
 }
