@@ -6,7 +6,7 @@
 </head>
 <body style="background: none;">
     <div style="margin: auto; width: 50em; padding: 2em;">
-        <div class="b_important">
+        <div class="o_error">
             <h2>Shibboleth error</h2>
             <p>$message</p>
             #if($detail)
@@ -14,9 +14,7 @@
 			<p class="b_note">$detail</p>
 			#end
         </div>
-        <div class="b_button_group">
-            <a class="b_button" href="$backLink"><span>Login</span></a>
-        </div>
+        <a class="btn btn-default" href="$backLink"><span>Back to Login</span></a>
     </div>
 </body>
 </html>

@@ -26,6 +26,7 @@ public class SimpleShibbolethLoginFormController extends AuthenticationControlle
 		mainVC = new VelocityContainer("simpleShibbolethLoginFormController", getClass(), "loginForm", getTranslator(), this);
 		
 		redirectButton = LinkFactory.createButton("simpleShibboleth.redirectButton", mainVC, this);
+		redirectButton.setPrimary(true);
 		
 		putInitialPanel(mainVC);
 	}
