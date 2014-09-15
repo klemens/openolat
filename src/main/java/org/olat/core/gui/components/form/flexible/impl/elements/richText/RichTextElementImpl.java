@@ -20,14 +20,12 @@
 
 package org.olat.core.gui.components.form.flexible.impl.elements.richText;
 
-import org.olat.core.gui.GUIInterna;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.Component;
 import org.olat.core.gui.components.form.flexible.elements.RichTextElement;
 import org.olat.core.gui.components.form.flexible.impl.Form;
 import org.olat.core.gui.components.form.flexible.impl.FormEvent;
 import org.olat.core.gui.components.form.flexible.impl.elements.AbstractTextElement;
-import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.Disposable;
 import org.olat.core.gui.control.WindowBackOffice;
 import org.olat.core.gui.control.winmgr.JSCommand;
@@ -52,42 +50,9 @@ public class RichTextElementImpl extends AbstractTextElement implements
 		RichTextElement, Disposable {
 	
 	private static final OLog log = Tracing.createLoggerFor(RichTextElementImpl.class);
-	protected RichTextElementComponent component;
+	private final RichTextElementComponent component;
 	private RichTextConfiguration configuration;
 	private WindowBackOffice windowBackOffice;
-
-	/**
-	 * @see org.olat.core.gui.components.form.flexible.impl.elements.AbstractTextElement#getValue()
-	 * The returned value is XSS save and
-	 * does not contain executable JavaScript code. If you want to get the raw
-	 * user data use the getRawValue() method.
-	 */
-	@Override
-	public String getValue() {
-		String val = getRawValue();
-		Filter xssFilter = FilterFactory.getXSSFilter(val.length() + 1);
-		return xssFilter.filter(val);
-	}
-	
-	@Override
-	public String getValue(Filter filter) {
-		String val = getRawValue();
-		return filter.filter(val);
-	}
-
-	/**
-	 * This apply a filter to remove some buggy conditional comment
-	 * of Word
-	 * 
-	 * @see org.olat.core.gui.components.form.flexible.elements.RichTextElement#getRawValue()
-	 */
-	@Override
-	public String getRawValue() {
-		if(value != null) {
-			value = value.replace("<!--[endif] -->", "<![endif]-->");
-		}
-		return value;
-	}
 	
 	/**
 	 * Constructor for specialized TextElements, i.e. IntegerElementImpl.
@@ -128,17 +93,47 @@ public class RichTextElementImpl extends AbstractTextElement implements
 		component = new RichTextElementComponent(this, rows, cols);
 		// configure tiny (must be after component initialization)
 		// init editor on our form element
-		if (GUIInterna.isLoadPerformanceMode()) {
-			configuration = new RichTextConfiguration(
-				DISPPREFIX+rootForm.getReplayableDispatchID(getComponent()),
-				rootForm.getDispatchFieldId()
-			);
-		} else {
-			configuration = new RichTextConfiguration(
-				getFormDispatchId(),
-				rootForm.getDispatchFieldId()
-			);
+		configuration = new RichTextConfiguration(
+			getFormDispatchId(),
+			rootForm.getDispatchFieldId());
+	}
+	
+	/**
+	 * @see org.olat.core.gui.components.form.flexible.impl.elements.AbstractTextElement#getValue()
+	 * The returned value is XSS save and
+	 * does not contain executable JavaScript code. If you want to get the raw
+	 * user data use the getRawValue() method.
+	 */
+	@Override
+	public String getValue() {
+		String val = getRawValue();
+		Filter xssFilter = FilterFactory.getXSSFilter(val.length() + 1);
+		return xssFilter.filter(val);
+	}
+	
+	@Override
+	public String getValue(Filter filter) {
+		String val = getRawValue();
+		return filter.filter(val);
+	}
+	
+	@Override
+	public void setDomReplacementWrapperRequired(boolean required) {
+		component.setDomReplacementWrapperRequired(required);
+	}
+
+	/**
+	 * This apply a filter to remove some buggy conditional comment
+	 * of Word
+	 * 
+	 * @see org.olat.core.gui.components.form.flexible.elements.RichTextElement#getRawValue()
+	 */
+	@Override
+	public String getRawValue() {
+		if(value != null) {
+			value = value.replace("<!--[endif] -->", "<![endif]-->");
 		}
+		return value;
 	}
 
 	/**
@@ -202,8 +197,8 @@ public class RichTextElementImpl extends AbstractTextElement implements
 	 * @see org.olat.core.gui.components.form.flexible.impl.FormItemImpl#addActionListener(org.olat.core.gui.control.Controller, int)
 	 */
 	@Override
-	public void addActionListener(Controller listener, int action) {
-		super.addActionListener(listener, action);
+	public void addActionListener(int action) {
+		super.addActionListener(action);
 		if (action == FormEvent.ONCHANGE && Settings.isDebuging()) {
 			log.warn("Do not use the onChange event in Textfields / TextAreas as this has often unwanted side effects. " +
 					"As the onchange event is only tiggered when you click outside a field or navigate with the tab to the next element " +
@@ -211,7 +206,4 @@ public class RichTextElementImpl extends AbstractTextElement implements
 					"the submit button first the onchange event will be triggered and you have to click twice to submit the data. ");
 		}
 	}
-	
-	
-
 }

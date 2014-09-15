@@ -49,6 +49,7 @@ import org.olat.core.util.event.EventBus;
 import org.olat.core.util.event.GenericEventListener;
 import org.olat.core.util.resource.OLATResourceableJustBeforeDeletedEvent;
 import org.olat.core.util.resource.OresHelper;
+import org.springframework.beans.factory.annotation.Autowired;
 
 
 /**
@@ -61,7 +62,6 @@ public class NoteListController extends BasicController implements GenericEventL
 
 	private NoteListTableDataModel nLModel;
 	private Note chosenN = null;
-	private NoteManager nm = NoteManager.getInstance();
 
 	private TableController tableC;
 	private DialogBoxController deleteDialogCtr;
@@ -70,6 +70,9 @@ public class NoteListController extends BasicController implements GenericEventL
 	private Identity cOwner;
 	private Locale locale;
 	private CloseableModalController cmc;
+	
+	@Autowired
+	private NoteManager nm;
 
 	/**
 	 * @param ureq
@@ -101,7 +104,7 @@ public class NoteListController extends BasicController implements GenericEventL
 	 * @see org.olat.core.gui.control.DefaultController#event(org.olat.core.gui.UserRequest,
 	 *      org.olat.core.gui.components.Component, org.olat.core.gui.control.Event)
 	 */
-	@SuppressWarnings("unused")
+	@Override
 	public void event(UserRequest ureq, Component source, Event event) {
 	// no events to catch
 	}
@@ -110,6 +113,7 @@ public class NoteListController extends BasicController implements GenericEventL
 	 * @see org.olat.core.gui.control.DefaultController#event(org.olat.core.gui.UserRequest,
 	 *      org.olat.core.gui.control.Controller, org.olat.core.gui.control.Event)
 	 */
+	@Override
 	public void event(UserRequest ureq, Controller source, Event event) {
 		// if row has been clicked
 		if (source == tableC) {
@@ -117,7 +121,7 @@ public class NoteListController extends BasicController implements GenericEventL
 				TableEvent te = (TableEvent) event;
 				String actionid = te.getActionId();
 				int rowid = te.getRowId();
-				this.chosenN = (Note) nLModel.getObject(rowid);
+				this.chosenN = nLModel.getObject(rowid);
 				if (actionid.equals("choose")) {
 					
 					removeAsListenerAndDispose(nc);

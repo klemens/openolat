@@ -25,6 +25,7 @@
 
 package org.olat.course.nodes.projectbroker;
 
+import org.olat.core.CoreSpringFactory;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.form.flexible.FormItem;
 import org.olat.core.gui.components.form.flexible.FormItemContainer;
@@ -36,8 +37,8 @@ import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.Event;
 import org.olat.core.gui.control.WindowControl;
 import org.olat.course.editor.NodeEditController;
-import org.olat.course.nodes.projectbroker.service.ProjectBrokerManagerFactory;
 import org.olat.course.nodes.projectbroker.service.ProjectBrokerModuleConfiguration;
+import org.olat.course.nodes.projectbroker.service.ProjectGroupManager;
 
 /**
  * 
@@ -57,6 +58,7 @@ public class OptionsFormController extends FormBasicController {
 	private final static String[] values = new String[] { "" };
 	private static final int NBR_PARTICIPANTS_DEFAULT = 1;
 	
+	private final ProjectGroupManager projectGroupManager;
 	/**
 	 * Modules selection form.
 	 * @param name
@@ -66,6 +68,7 @@ public class OptionsFormController extends FormBasicController {
 		super(ureq, wControl);
 		this.config = config;
 		this.projectBrokerId = projectBrokerId;
+		projectGroupManager = CoreSpringFactory.getImpl(ProjectGroupManager.class);
 		initForm(this.flc, this, ureq);
 	}
 
@@ -84,30 +87,30 @@ public class OptionsFormController extends FormBasicController {
 		
 		//create form elements
 		int nbrOfParticipantsValue = config.getNbrParticipantsPerTopic();
-		selectionLimitedAttendees = uifactory.addCheckboxesHorizontal("form.options.number.of.topics.per.participant", formLayout, keys, values,null);
+		selectionLimitedAttendees = uifactory.addCheckboxesHorizontal("form.options.number.of.topics.per.participant", formLayout, keys, values);
 		nbrOfAttendees = uifactory.addIntegerElement("form.options.number.of.participants.per.topic_nbr", nbrOfParticipantsValue, formLayout);
 		nbrOfAttendees.setMinValueCheck(0, null);
 		nbrOfAttendees.setDisplaySize(3);
-		nbrOfAttendees.addActionListener(listener, FormEvent.ONCHANGE);
+		nbrOfAttendees.addActionListener(FormEvent.ONCHANGE);
 		if (nbrOfParticipantsValue == ProjectBrokerModuleConfiguration.NBR_PARTICIPANTS_UNLIMITED) {
 			nbrOfAttendees.setVisible(false);
 			selectionLimitedAttendees.select(keys[0], false);
 		} else {
 			selectionLimitedAttendees.select(keys[0], true);
 		}
-		selectionLimitedAttendees.addActionListener(listener, FormEvent.ONCLICK);
+		selectionLimitedAttendees.addActionListener(FormEvent.ONCLICK);
 		
 		final Boolean selectionAcceptValue = config.isAcceptSelectionManually();
-		selectionAccept = uifactory.addCheckboxesVertical("form.options.selection.accept", formLayout, keys, values, null, 1);
+		selectionAccept = uifactory.addCheckboxesHorizontal("form.options.selection.accept", formLayout, keys, values);
 		selectionAccept.select(keys[0], selectionAcceptValue);
-		selectionAccept.addActionListener(this, FormEvent.ONCLICK);
+		selectionAccept.addActionListener(FormEvent.ONCLICK);
 
 		final Boolean autoSignOut = config.isAutoSignOut();
-		selectionAutoSignOut = uifactory.addCheckboxesVertical("form.options.auto.sign.out", formLayout, keys, values, null, 1);
+		selectionAutoSignOut = uifactory.addCheckboxesHorizontal("form.options.auto.sign.out", formLayout, keys, values);
 		selectionAutoSignOut.select(keys[0], autoSignOut);
 		// enable auto-sign-out only when 'accept-selection' is enabled
 		selectionAutoSignOut.setVisible(selectionAcceptValue);
-		selectionAutoSignOut.addActionListener(this, FormEvent.ONCLICK);
+		selectionAutoSignOut.addActionListener(FormEvent.ONCLICK);
 		
 		uifactory.addFormSubmitButton("save", formLayout);
 	}
@@ -122,7 +125,7 @@ public class OptionsFormController extends FormBasicController {
 	protected void formInnerEvent(UserRequest ureq, FormItem source, FormEvent event) {
 		if (source == selectionAccept) {
 			selectionAutoSignOut.setVisible(selectionAccept.isSelected(0));
-			if (!selectionAccept.isSelected(0) && ProjectBrokerManagerFactory.getProjectGroupManager().hasProjectBrokerAnyCandidates(projectBrokerId)) {
+			if (!selectionAccept.isSelected(0) && projectGroupManager.hasProjectBrokerAnyCandidates(projectBrokerId)) {
 				this.showInfo("info.all.candidates.will.be.accepted.automatically");
 			}
 		} else if (source == selectionLimitedAttendees) {

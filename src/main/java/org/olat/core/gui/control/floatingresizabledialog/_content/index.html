@@ -1,13 +1,21 @@
-<div id="${panelName}" class="${panelName} ${cssClass}">
+<div id="${panelName}" class="${panelName} ${cssClass}" style="display:none;">
 	#if ($r.available("collapsibleContent"))
-		<div id="${panelName}-east" class="pane ui-layout-east">
-			$r.render("collapsibleContent")
+		<div class="container-fluid">
+			<div class="row">
+				<div class="col-sm-8">
+					$r.render("panelContent")
+				</div>
+				<div class="col-sm-4">
+					$r.render("collapsibleContent")
+				</div>
+			</div>
 		</div>
-	#end
-	<div id="${panelName}-center" class="pane ui-layout-center">
+	#else
 		$r.render("panelContent")
-	</div>
+	#end
 </div>
+## make sur the script is loaded if the floating window is triggered by an other user
+<script type="text/javascript" src='$r.staticLink("js/jquery/ui/jquery-ui-1.10.4.custom.dialog.min.js")'></script>
 <script type="text/javascript">
 /* <![CDATA[ */ 
 	jQuery(function() {
@@ -57,10 +65,7 @@
 					tweak_${panelName}(win);
 				} catch (Exception) { /**/ }
 			}
-		})#if($r.available("collapsibleContent")).layout({
-			center: { size: '66%' },
-			east: { size: '33%' }
-		})#end;
+		});
 		
 		//override the default z-index of jQuery UI dialog
 		jQuery('#${panelName}').dialog("widget").css('z-index', 10000);

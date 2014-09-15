@@ -1,51 +1,55 @@
-<div class="b_clearfix">	
-#if($r.available("map.editButton"))
-		<div class="b_float_right b_eportfolio_edit_link">	
-			$r.render("map.editButton")
-		</div>
-#end
-
-#if($r.available("backLink"))
-	$r.render("backLink")
-#end
+#if($r.available("backLink") || $r.visible("map.editButton"))
+<div class="o_toolbar" role="toolbar">
+	<div class="container-fluid">
+	#if($r.available("backLink"))
+		<ul class="o_tools o_tools_left list-unstyled">
+			<li><div class="btn-group">$r.render("backLink")</div></li>
+		</ul>
+	#end	
+	#if($r.available("map.editButton"))
+		<ul class="o_tools o_tools_right list-unstyled">
+			<li>$r.render("map.editButton")</li>
+		</ul>
+	#end
+	</div>
 </div>
+#end
 
-<div class="b_eportfolio_map $!style">
-	<div class="b_ep_relative"> ## needed for positioning
-		<div class="b_map_header">
-		<div class="b_struct_edit_btn">
+<div class="o_eportfolio_map o_map-$!style">
+	<div class="o_ep_relative"> ## needed for positioning
+		<div class="o_map_header">
+		<div class="o_struct_edit_btn pull-right">
 			#if(!$r.available("editor") && $r.available("addButton"))
-				<div class="b_eportfolio_add_link">$r.render("addButton")</div>
+				<div class="o_eportfolio_add_link">$r.render("addButton")</div>
 			#end
 			#if($r.available("map.submit.assess"))
-				<div class="b_struct_submit_assess_btn">$r.render("map.submit.assess")</div>
+				<div class="o_struct_submit_assess_btn">$r.render("map.submit.assess")</div>
 			#end
 			#if($closed) 
-				<div class="b_artefact_closed"><span title=" $r.translate("map.is.closed.hint") ">&nbsp;&nbsp;&nbsp;&nbsp;</span></div>
+				<div><i class="o_icon o_artefact_closed" title=" $r.translate("map.is.closed.hint") "> </i></div>
 			#end
-			<br/>
 		</div>
-		<h4>$r.escapeHtml($map.title)</h4>
-		<div style="clear: right;"></div>
+		<h1>$r.escapeHtml($map.title)</h1>
 	
 		#if(!$r.available("editor"))
-			<div class="b_eportfolio_mapdescr">$map.description</div>
-			#if($r.available("ownerportrait"))
-				<div class="b_eportfolio_mapowner">$r.translate("map.owners","") $r.render("ownerportrait")</div>
+			#if($map.description)
+			<div class="o_eportfolio_mapdescr">$map.description</div>
 			#end
-			<div class="b_clearfix"></div>
-		
+			#if($r.available("ownerportrait"))
+				<div class="o_eportfolio_mapowner">$r.translate("map.owners","") $r.render("ownerportrait")</div>
+			#end
+
 			## show av. artefacts here...
 			#if ($r.available("artefactTable")) $r.render("artefactTable") #end
 		
-		</div> ## end b_map_header
+		</div> ## end o_map_header
 		
 			## multiple page(s) contains instances of page-ctrl
 			#if ($r.available("pagesCtrl")) $r.render("pagesCtrl") #end	
 			
 			
 		#else
-		</div> ## end b_map_header
+		</div> ## end o_map_header
 			$r.render("editor")
 		#end
 	</div>

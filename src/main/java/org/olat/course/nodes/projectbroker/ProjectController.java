@@ -25,6 +25,7 @@
 
 package org.olat.course.nodes.projectbroker;
 
+import org.olat.core.CoreSpringFactory;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.Component;
 import org.olat.core.gui.components.link.Link;
@@ -35,10 +36,10 @@ import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.Event;
 import org.olat.core.gui.control.WindowControl;
 import org.olat.core.gui.control.controller.BasicController;
+import org.olat.course.nodes.CourseNode;
 import org.olat.course.nodes.projectbroker.datamodel.Project;
-import org.olat.course.nodes.projectbroker.service.ProjectBrokerManagerFactory;
 import org.olat.course.nodes.projectbroker.service.ProjectBrokerModuleConfiguration;
-import org.olat.course.run.userview.NodeEvaluation;
+import org.olat.course.nodes.projectbroker.service.ProjectGroupManager;
 import org.olat.course.run.userview.UserCourseEnvironment;
 
 /**
@@ -61,8 +62,7 @@ public class ProjectController extends BasicController {
 
 	private Link backLink;
 
-//	private InlineEditDetailsFormController inlineEditDetailsFormController;
-
+	private ProjectGroupManager projectGroupManager;
 
 	/**
 	 * @param ureq
@@ -71,28 +71,29 @@ public class ProjectController extends BasicController {
 	 * @param ne
 	 * @param previewMode
 	 */
-	public ProjectController(UserRequest ureq, WindowControl wControl, UserCourseEnvironment userCourseEnv, NodeEvaluation ne, Project project, 
-			                     boolean newCreatedProject, ProjectBrokerModuleConfiguration projectBrokerModuleConfiguration) { 
+	public ProjectController(UserRequest ureq, WindowControl wControl,
+			UserCourseEnvironment userCourseEnv, CourseNode courseNode, Project project, 
+			boolean newCreatedProject, ProjectBrokerModuleConfiguration projectBrokerModuleConfiguration) { 
 		super(ureq, wControl);
+		
+		projectGroupManager = CoreSpringFactory.getImpl(ProjectGroupManager.class);
 			
 		contentVC = createVelocityContainer("project");
-		contentVC.contextPut("menuTitle", ne.getCourseNode().getShortTitle());
+		contentVC.contextPut("menuTitle", courseNode.getShortTitle());
 
 		if (!newCreatedProject) {
 			backLink = LinkFactory.createLinkBack(contentVC, this);
 		}
 		myTabbedPane = new TabbedPane("projectTabbedPane", ureq.getLocale());		
-		detailsController = new ProjectDetailsPanelController(ureq, wControl, project, newCreatedProject, userCourseEnv.getCourseEnvironment(), ne.getCourseNode(), projectBrokerModuleConfiguration);
+		detailsController = new ProjectDetailsPanelController(ureq, wControl, project, newCreatedProject, userCourseEnv.getCourseEnvironment(), courseNode, projectBrokerModuleConfiguration);
 		detailsController.addControllerListener(this);
 		myTabbedPane.addTab(translate("tab.project.details"), detailsController.getInitialComponent());
-		projectFolderController = new ProjectFolderController( ureq, wControl, userCourseEnv, ne, false, project);
+		projectFolderController = new ProjectFolderController( ureq, wControl, userCourseEnv, courseNode, false, project);
 		myTabbedPane.addTab(translate("tab.project.folder"), projectFolderController.getInitialComponent());
-		if ( ProjectBrokerManagerFactory.getProjectGroupManager().isProjectManagerOrAdministrator(ureq, userCourseEnv.getCourseEnvironment(), project) ) {
+		if ( projectGroupManager.isProjectManagerOrAdministrator(ureq, userCourseEnv.getCourseEnvironment(), project) ) {
 			projectGroupController = new ProjectGroupController(ureq, wControl, project, projectBrokerModuleConfiguration);
 			myTabbedPane.addTab(translate("tab.project.members"), projectGroupController.getInitialComponent());
 		}
-//		inlineEditDetailsFormController = new InlineEditDetailsFormController(ureq, wControl, project, newCreatedProject, userCourseEnv.getCourseEnvironment(), ne.getCourseNode(), projectBrokerModuleConfiguration);
-//		myTabbedPane.addTab(translate("tab.project.details.inline"), inlineEditDetailsFormController.getInitialComponent());
 		contentVC.put("projectTabbedPane", myTabbedPane);
 		putInitialPanel(contentVC);
 	}

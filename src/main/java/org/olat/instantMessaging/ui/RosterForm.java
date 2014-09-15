@@ -31,7 +31,6 @@ import org.olat.core.gui.components.form.flexible.impl.FormLayoutContainer;
 import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.Event;
 import org.olat.core.gui.control.WindowControl;
-import org.olat.core.util.StringHelper;
 import org.olat.user.UserManager;
 
 /**
@@ -66,19 +65,21 @@ public class RosterForm extends FormBasicController {
 	protected void initForm(FormItemContainer formLayout, Controller listener, UserRequest ureq) {
 		// for simplicity we initialize the form even when the anonymous mode is disabled
 		// and just hide the form elements in the GUI
-		String[] theValues = new String[]{ StringHelper.escapeHtml(fullName), translate("anonymous") };
-		toggle = uifactory.addRadiosVertical("toggle", "toogle.anonymous", formLayout, anonKeys, theValues);
+		String[] theValues = new String[]{ translate("yes"), translate("no") };
+		toggle = uifactory.addRadiosHorizontal("toggle", "toogle.anonymous", formLayout, anonKeys, theValues);
+		toggle.setLabel("anonymous",null);
 
 		if(defaultAnonym) {
 			toggle.select("anon", true);
 		} else {
 			toggle.select("name", true);
 		}
-		toggle.addActionListener(this, FormEvent.ONCLICK);
+		toggle.addActionListener(FormEvent.ONCLICK);
 
 		String nickName = generateNickname();
 		nickNameEl = uifactory.addTextElement("nickname", "", 20, nickName, formLayout);
 		nickNameEl.setDisplaySize(18);
+		nickNameEl.setVisible(defaultAnonym);
 		if(formLayout instanceof FormLayoutContainer) {
 			FormLayoutContainer layoutCont = (FormLayoutContainer)formLayout;
 			layoutCont.contextPut("roster", buddyList);
@@ -114,6 +115,7 @@ public class RosterForm extends FormBasicController {
 	@Override
 	protected void formInnerEvent(UserRequest ureq, FormItem source, FormEvent event) {
 		fireEvent(ureq, Event.CHANGED_EVENT);
+		nickNameEl.setVisible(isUseNickName());
 	}
 	
 	protected String getNickName() {

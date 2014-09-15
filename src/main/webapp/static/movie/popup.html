@@ -3,12 +3,7 @@
 <html xmlns="http://www.w3.org/1999/xhtml" xmlns:ext="http://extjs.com/docs" xml:lang="en" lang="en">
 <head>
 <meta http-equiv="Content-type" content="text/html; charset=utf-8" />
-<meta http-equiv="cache-control" content="no-cache" />
-<meta http-equiv="pragma" content="no-cache" />
-<meta http-equiv="expires" content="0" />
  <!-- IE cache -->
-<meta http-equiv="pragma-directive" content="no-cache" />
-<meta http-equiv="cache-directive" content="no-cache" />
 <title>Timemarker</title>
 <!-- use default layout css here, no fancy layouting -->
 <link rel="StyleSheet" href="../themes/openolat/layout.css" type="text/css" media="screen" />
@@ -72,7 +67,7 @@
 		if(displayname == "null" || displayname == null) displayname = "";
 		if(displayduration == "null" || displayduration == null) displayduration = "";
 		if (displayname != "" || displayduration != "") {
-			doc.write("<h3 class='b_with_small_icon_left b_filetype_mov'>");
+			doc.write("<h3><i class='o_icon o_filetype_mov'> </i> ");
 			if (displayname != "") {
 				doc.write(displayname);
 				if (displayduration != "") {
@@ -127,8 +122,8 @@
 </script>
 </head>
 	
-<body class="b_timemarker">
-	<div id="b_timemarker">
+<body class="o_timemarker">
+	<div id="o_timemarker">
 		<!--	
 			callback to call the o_playButtonTag in iframe... 
 			see http://developer.apple.com/documentation/QuickTime/Conceptual/QTScripting_JavaScript/bQTScripting_JavaScri_Document/chapter_1000_section_4.html  

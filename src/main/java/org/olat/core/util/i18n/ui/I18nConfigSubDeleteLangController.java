@@ -24,6 +24,7 @@
 */
 package org.olat.core.util.i18n.ui;
 
+import java.util.Collection;
 import java.util.Set;
 
 import org.olat.core.gui.UserRequest;
@@ -86,8 +87,7 @@ class I18nConfigSubDeleteLangController extends FormBasicController {
 	 *      org.olat.core.gui.control.Controller, org.olat.core.gui.UserRequest)
 	 */
 	@Override
-	protected void initForm(FormItemContainer formLayout, @SuppressWarnings("unused") Controller listener,
-			@SuppressWarnings("unused") UserRequest ureq) {
+	protected void initForm(FormItemContainer formLayout, Controller listener,UserRequest ureq) {
 		I18nManager i18nMgr = I18nManager.getInstance();
 		// A title, displayed in fieldset
 		setFormTitle("configuration.management.delete.title");
@@ -105,10 +105,9 @@ class I18nConfigSubDeleteLangController extends FormBasicController {
 			availableValues[i] = all;
 		}
 		ArrayHelper.sort(deletableKeys, availableValues, false, true, false);
-		String[] availableLangCssClasses = i18nMgr.createLanguageFlagsCssClasses(deletableKeys, "b_with_small_icon_left");
 		deleteLangSelection = uifactory.addCheckboxesVertical("configuration.deleteLangSelection", null, formLayout, deletableKeys,
-				availableValues, availableLangCssClasses, 2);
-		deleteLangSelection.addActionListener(this, FormEvent.ONCLICK);
+				availableValues, null, null, 2);
+		deleteLangSelection.addActionListener(FormEvent.ONCLICK);
 		// Add cancel and submit in button group layout
 		FormLayoutContainer buttonGroupLayout = FormLayoutContainer.createButtonLayout("buttonGroupLayout", getTranslator());
 		formLayout.add(buttonGroupLayout);
@@ -122,7 +121,7 @@ class I18nConfigSubDeleteLangController extends FormBasicController {
 	 */
 	@Override
 	protected void formOK(UserRequest ureq) {
-		Set<String> toDelete = deleteLangSelection.getSelectedKeys();
+		Collection<String> toDelete = deleteLangSelection.getSelectedKeys();
 		if (toDelete.size() == 0) {
 			// should not happen since button disabled
 			return;

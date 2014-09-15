@@ -27,19 +27,16 @@ package org.olat.core.gui.components.form.flexible.impl;
 
 import java.util.List;
 
-import org.olat.core.gui.GUIInterna;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.Component;
 import org.olat.core.gui.components.form.flexible.FormBaseComponentIdProvider;
 import org.olat.core.gui.components.form.flexible.FormItem;
-import org.olat.core.gui.components.form.flexible.FormItemContainer;
 import org.olat.core.gui.components.form.flexible.FormLayouter;
 import org.olat.core.gui.components.form.flexible.elements.InlineElement;
 import org.olat.core.gui.components.form.flexible.impl.components.SimpleExampleText;
 import org.olat.core.gui.components.form.flexible.impl.components.SimpleFormErrorText;
 import org.olat.core.gui.components.form.flexible.impl.components.SimpleLabelText;
 import org.olat.core.gui.components.panel.Panel;
-import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.translator.Translator;
 import org.olat.core.helpers.Settings;
 import org.olat.core.logging.AssertException;
@@ -206,7 +203,8 @@ public abstract class FormItemImpl implements FormItem, InlineElement {
 			}
 		}
 		if(labelKey != null) {
-			labelC = new SimpleLabelText(labelKey, labelTrsl);
+			labelC = new SimpleLabelText(labelKey, labelTrsl, componentIsMandatory);
+			labelC.setTranslator(translator);
 			labelPanel.setContent(labelC);
 		}
 		if(errorKey != null) {
@@ -236,45 +234,20 @@ public abstract class FormItemImpl implements FormItem, InlineElement {
 	}
 	
 	public void setLabel(String label, String[] params, boolean translate) {
-		if (label == null) {
-			hasLabel = false;
-		}
-		hasLabel = true;
+		hasLabel = (label != null);
 		translateLabel = translate;
 		labelKey = label;
 		labelParams = params;
 		// set label may be called before the translator is available
 		if (getTranslator() != null && labelKey != null) {
-			labelC = new SimpleLabelText(label, getLabelText());
+			labelC = new SimpleLabelText(label, getLabelText(), componentIsMandatory);
+			labelC.setTranslator(getTranslator());
 			labelPanel.setContent(labelC);
 		} else if(label == null) {
 			labelC = null;
 			labelPanel.setContent(labelC);
 		}
 	}
-
-
-	/**
-	 * 
-	 * @param labelComponent
-	 * @param container
-	 * @return this
-	 */
-	public FormItem setLabelComponent(FormItem labelComponent, FormItemContainer container) {
-		if(labelComponent == null){
-			throw new AssertException("do not clear error by setting null, instead use showLabel(false).");
-		}
-		
-		hasLabel = true;
-		//initialize root form of form item
-		FormLayoutContainer flc = (FormLayoutContainer)container;//TODO:pb: fix this hierarchy mismatch
-		flc.register(labelComponent);//errorFormItem must be part of the composite chain, that it gets dispatched
-		
-		labelC = labelComponent.getComponent();
-		labelPanel.setContent(labelC);
-		return this;
-	}
-	
 	
 	public void setFocus(boolean hasFocus){
 		this.hasFocus  = hasFocus;
@@ -290,6 +263,9 @@ public abstract class FormItemImpl implements FormItem, InlineElement {
 
 	public void setMandatory(boolean isMandatory) {
 		componentIsMandatory = isMandatory;
+		if(labelC instanceof SimpleLabelText) {
+			((SimpleLabelText)labelC).setComponentIsMandatory(isMandatory);
+		}
 	}
 
 	/**
@@ -464,34 +440,12 @@ public abstract class FormItemImpl implements FormItem, InlineElement {
 	/**
 	 * @see org.olat.core.gui.components.form.flexible.FormItem#addActionListenerFor(org.olat.core.gui.control.Controller, int)
 	 */
-	public void addActionListener(Controller listener, int action) {
-		/*
-		 * for simplicity only one action and listener per item (at the moment)
-		 */
+	@Override
+	public void addActionListener(int action) {
 		this.action = action;
-		//for (int i = 0; i < FormEvent.ON_DOTDOTDOT.length; i++) {
-			//if(action - FormEvent.ON_DOTDOTDOT[i] == 0){
-				//String key = String.valueOf(FormEvent.ON_DOTDOTDOT[i]);
-				//if(actionListeners.containsKey(key)){
-					//List listeners = (List)actionListeners.get(key);
-					//if(!listeners.contains(listener)){
-						//listeners.add(listener);
-					//}
-				//}else{
-					//String key = String.valueOf(this.action);
-					//List listeners = new ArrayList(1);
-					//actionListeners.put(key, listeners);
-				//}
-			//}
-			//
-			//action = action - FormEvent.ON_DOTDOTDOT[i];
-		//}
 	}
-	
-	/*public List getActionListenersFor(int event){
-		return (List)actionListeners.get(String.valueOf(event));
-	}*/
 
+	@Override
 	public int getAction() {
 		return action;
 	}
@@ -520,8 +474,7 @@ public abstract class FormItemImpl implements FormItem, InlineElement {
 			return;
 		}
 		//before/ after pattern
-		int action = getRootForm().getAction();
-		switch (action) {
+		switch (getRootForm().getAction()) {
 			case FormEvent.ONCLICK:
 				getRootForm().fireFormEvent(ureq, new FormEvent("ONCLICK", this, FormEvent.ONCLICK));
 				break;
@@ -560,13 +513,9 @@ public abstract class FormItemImpl implements FormItem, InlineElement {
 
 		if(comp instanceof FormBaseComponentIdProvider){
 			return ((FormBaseComponentIdProvider)comp).getFormDispatchId();
-		}else{
+		} else {
 			//do the same as the FormBaseComponentIdProvider would do
-			if(GUIInterna.isLoadPerformanceMode()) {
-				return DISPPREFIX+getRootForm().getReplayableDispatchID(comp);
-			} else {
-				return DISPPREFIX+comp.getDispatchID();
-			}
+			return DISPPREFIX+comp.getDispatchID();
 		}
 	}
 

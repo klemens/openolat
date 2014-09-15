@@ -22,16 +22,16 @@ package org.olat.modules.qpool.ui;
 import java.util.Collections;
 import java.util.List;
 
-import org.olat.core.CoreSpringFactory;
 import org.olat.core.commons.fullWebApp.LayoutMain3ColsController;
-import org.olat.core.commons.services.commentAndRating.CommentAndRatingService;
-import org.olat.core.commons.services.commentAndRating.impl.ui.UserCommentsAndRatingsController;
+import org.olat.core.commons.services.commentAndRating.CommentAndRatingDefaultSecurityCallback;
+import org.olat.core.commons.services.commentAndRating.CommentAndRatingSecurityCallback;
+import org.olat.core.commons.services.commentAndRating.ui.UserCommentsAndRatingsController;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.Component;
 import org.olat.core.gui.components.link.Link;
 import org.olat.core.gui.components.link.LinkFactory;
-import org.olat.core.gui.components.stack.StackedController;
-import org.olat.core.gui.components.stack.StackedControllerAware;
+import org.olat.core.gui.components.stack.BreadcrumbPanel;
+import org.olat.core.gui.components.stack.BreadcrumbPanelAware;
 import org.olat.core.gui.components.velocity.VelocityContainer;
 import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.Event;
@@ -53,6 +53,7 @@ import org.olat.modules.qpool.manager.ExportQItemResource;
 import org.olat.modules.qpool.ui.events.QItemEvent;
 import org.olat.modules.qpool.ui.events.QPoolEvent;
 import org.olat.modules.qpool.ui.metadata.MetadatasController;
+import org.springframework.beans.factory.annotation.Autowired;
 
 /**
  * 
@@ -60,7 +61,7 @@ import org.olat.modules.qpool.ui.metadata.MetadatasController;
  * @author srosse, stephane.rosse@frentix.com, http://www.frentix.com
  *
  */
-public class QuestionItemDetailsController extends BasicController implements StackedControllerAware {
+public class QuestionItemDetailsController extends BasicController implements BreadcrumbPanelAware {
 	
 	private Link editItem, nextItem, previousItem;
 	private Link deleteItem, shareItem, exportItem, copyItem;
@@ -73,18 +74,16 @@ public class QuestionItemDetailsController extends BasicController implements St
 	private SelectBusinessGroupController selectGroupCtrl;
 	private final MetadatasController metadatasCtrl;
 	private final UserCommentsAndRatingsController commentsAndRatingCtr;
-	private StackedController stackPanel;
+	private BreadcrumbPanel stackPanel;
 
 	private final boolean canEditContent;
-	
-	private final QuestionPoolModule poolModule;
-	private final QPoolService qpoolService;
+	@Autowired
+	private QuestionPoolModule poolModule;
+	@Autowired
+	private QPoolService qpoolService;
 	
 	public QuestionItemDetailsController(UserRequest ureq, WindowControl wControl, QuestionItem item, boolean editable, boolean deletable) {
 		super(ureq, wControl);
-
-		poolModule = CoreSpringFactory.getImpl(QuestionPoolModule.class);
-		qpoolService = CoreSpringFactory.getImpl(QPoolService.class);
 		
 		QPoolSPI spi = setPreviewController(ureq, item);
 		boolean canEdit = editable || qpoolService.isAuthor(item, getIdentity());
@@ -95,20 +94,19 @@ public class QuestionItemDetailsController extends BasicController implements St
 		Roles roles = ureq.getUserSession().getRoles();
 		boolean moderator = roles.isOLATAdmin();
 		boolean anonymous = roles.isGuestOnly() || roles.isInvitee();
-		CommentAndRatingService commentAndRatingService = CoreSpringFactory.getImpl(CommentAndRatingService.class);
-		commentAndRatingService.init(getIdentity(), item, null, moderator, anonymous);
-		commentsAndRatingCtr = commentAndRatingService.createUserCommentsAndRatingControllerExpandable(ureq, getWindowControl());
+		CommentAndRatingSecurityCallback secCallback = new CommentAndRatingDefaultSecurityCallback(getIdentity(), moderator, anonymous);
+		commentsAndRatingCtr = new UserCommentsAndRatingsController(ureq, getWindowControl(), item, null, secCallback, true, true, true);
 		listenTo(commentsAndRatingCtr);
 
 		mainVC = createVelocityContainer("item_details");
 		if(canEditContent) {
 			editItem = LinkFactory.createButton("edit", mainVC, this);
-			editItem.setCustomEnabledLinkCSS("b_link_left_icon b_link_edit");
+			editItem.setIconLeftCSS("o_icon o_icon_edit");
 		}
 		nextItem = LinkFactory.createButton("next", mainVC, this);
-		nextItem.setCustomEnabledLinkCSS("b_link_left_icon b_move_right_icon");
+		nextItem.setIconRightCSS("o_icon o_icon_move_right");
 		previousItem = LinkFactory.createButton("previous", mainVC, this);
-		previousItem.setCustomEnabledLinkCSS("b_link_left_icon b_move_left_icon");
+		previousItem.setIconLeftCSS("o_icon o_icon_move_left");
 		
 		shareItem = LinkFactory.createButton("share.item", mainVC, this);
 		copyItem = LinkFactory.createButton("copy", mainVC, this);
@@ -147,7 +145,7 @@ public class QuestionItemDetailsController extends BasicController implements St
 	}
 
 	@Override
-	public void setStackedController(StackedController stackPanel) {
+	public void setBreadcrumbPanel(BreadcrumbPanel stackPanel) {
 		this.stackPanel = stackPanel;
 	}
 

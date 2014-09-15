@@ -1,57 +1,68 @@
-<div class="o_login">
-	<h3>$r.translate("login.header")</h3>
-	#if ($infomsg)
-		<div class="o_infomessage_wrapper">
-			<div class="o_infomessage">
-				<div class="o_infomessage_inner">
-					<div class="b_floatscrollbox">
-						$infomsg
-					</div>
-				</div>
-			</div>
-		</div>
-	#end
-	
-	#if ($infomsgNode)
-		<div class="o_infomessage_wrapper">
-			<div class="o_infomessage">
-				<div class="o_infomessage_inner">
-					<div class="b_floatscrollbox">
-						$infomsgNode
-					</div>
-				</div>
-			</div>
-		</div>
-	#end
-	#if($loginBlocked)
-		<div class="b_warning">
-			$r.translate("login.blocked.forAll")
-		</div>
-	#end
-	#if($browserWarningOn)
-		<div class="b_warning">
-			$r.translate("login.browserswitch")
-		</div>
-	#end
-	
-	
-	#if ($logincustommsg)
-	 <div class="b_logincustommsg">$logincustommsg</div>
-	#end
-	
-	$r.render("loginComp")
-	
+<div class="o_login clearfix">
+	<div class="o_login_intro">
+		<h1>$r.translate("login.header")</h1>
+		#if ($logincustommsg)
+		 <div class="lead">$logincustommsg</div>
+		#end
+	</div>
 
-	#if (!$providerSet.isEmpty())
-		<div class="o_login_providers">
-			<h4>$r.translate("login.altprovider")</h4>
-			<ul>
-			#foreach ($authProvider in $providerSet)
-				<li>$authProvider.getDescription($locale) <a href="$r.commandURI("login")?lp=$authProvider.getName()">$authProvider.getLinktext($locale)</a></li>
-			#end
-			</ul>
-		</div>
+	#if ($infomsg || $infomsgNode || $loginBlocked || $browserWarningOn)
+	<div class="o_login_messages">
+		#if ($infomsg)
+			<div class="o_infomessage_wrapper o_block_large o_scrollblock">
+				$infomsg
+			</div>
+		#end
+		
+		#if ($infomsgNode)
+			<div class="o_infomessage_wrapper o_block_large o_scrollblock">
+				$infomsgNode
+			</div>
+		#end
+		#if($loginBlocked)
+			<div class="o_login_blocked o_warning">
+				$r.translate("login.blocked.forAll")
+			</div>
+		#end
+		#if($browserWarningOn)
+			<div class="o_login_browser o_warning">
+				$r.translate("login.browserswitch")
+			</div>
+		#end
+	</div>
 	#end
+
+	<div class="o_login_box_wrapper">
+		<div class="o_login_box">
+			#if ($r.available("menu.guest") || $providerSet.size() > 1)
+			<div class="o_login_providers">
+				<div class="btn-group btn-group-lg btn-group-justified">
+				#foreach ($authProvider in $providerSet)
+						<a href="$r.commandURI("login")?lp=$authProvider.getName()" title="$r.escapeHtml("$authProvider.getDescription($locale)")" class="btn btn-default #if ($currentProvider == $authProvider.getName()) btn-primary #end ">
+							<i class="o_icon o_icon-2x $authProvider.getIconCssClass()"></i>
+							<span>$authProvider.getLinktext($locale)</span>
+						</a>
+				#end
+				#if ($r.available("menu.guest"))
+					$r.render("menu.guest")
+				#end
+				</div>
+			</div>
+			#end
+			<div class="o_login_provider">
+				$r.render("loginComp")
+			</div>
+		</div>	
+	</div>	
+
+	#if ($loginfootermsg)
+	<div class="o_login_footer_wrapper">
+		<div class="o_login_footer">
+			$loginfootermsg
+		</div>
+	</div>
+	#end
+
 </div>
 
 

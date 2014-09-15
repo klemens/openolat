@@ -62,11 +62,13 @@ import org.olat.core.id.OLATResourceable;
 import org.olat.course.CourseModule;
 import org.olat.repository.RepositoryEntry;
 import org.olat.repository.RepositoryManager;
+import org.olat.repository.RepositoryService;
 import org.olat.resource.OLATResource;
 import org.olat.resource.OLATResourceManager;
 import org.olat.test.JunitTestHelper;
 import org.olat.test.OlatJerseyTestCase;
 import org.olat.user.restapi.UserVO;
+import org.springframework.beans.factory.annotation.Autowired;
 
 /**
  * 
@@ -78,6 +80,9 @@ import org.olat.user.restapi.UserVO;
  * @author srosse, stephane.rosse@frentix.com
  */
 public class CatalogTest extends OlatJerseyTestCase {
+	
+	@Autowired
+	private RepositoryService repositoryService;
 	
 	private Identity admin, id1;
 	private CatalogEntry root1, entry1, entry2, subEntry11, subEntry12;
@@ -96,7 +101,7 @@ public class CatalogTest extends OlatJerseyTestCase {
 
 		//create a catalog
 		CatalogManager catalogManager = CatalogManager.getInstance();
-		root1 = (CatalogEntry)catalogManager.getRootCatalogEntries().get(0);
+		root1 = catalogManager.getRootCatalogEntries().get(0);
 		
 		entry1 = catalogManager.createCatalogEntry();
 		entry1.setType(CatalogEntry.TYPE_NODE);
@@ -698,9 +703,7 @@ public class CatalogTest extends OlatJerseyTestCase {
 		
 		RepositoryEntry d = RepositoryManager.getInstance().lookupRepositoryEntry(resourceable, false);
 		if(d == null) {
-			d = RepositoryManager.getInstance().createRepositoryEntryInstance("Stéphane Rossé", name, "Repo entry");
-			d.setOlatResource(r);
-			d.setDisplayname(name);
+			d = repositoryService.create("Rei Ayanami", "-", name, "Repo entry", r);
 			DBFactory.getInstance().saveObject(d);
 		}
 		DBFactory.getInstance().intermediateCommit();

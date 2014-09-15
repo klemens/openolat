@@ -34,6 +34,6 @@ package org.olat.core.gui.components.form.flexible;
 
 public interface FormMultipartItem extends FormItem {
 	
-	public int getMaxUploadSizeKB();
+	public long getMaxUploadSizeKB();
 	
 }

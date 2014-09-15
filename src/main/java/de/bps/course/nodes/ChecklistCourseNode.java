@@ -29,10 +29,11 @@ import java.util.zip.ZipOutputStream;
 
 import org.apache.commons.io.IOUtils;
 import org.olat.core.gui.UserRequest;
-import org.olat.core.gui.components.stack.StackedController;
+import org.olat.core.gui.components.stack.BreadcrumbPanel;
 import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.WindowControl;
 import org.olat.core.gui.control.generic.tabbable.TabbableController;
+import org.olat.core.id.Identity;
 import org.olat.core.logging.OLog;
 import org.olat.core.logging.Tracing;
 import org.olat.core.util.ExportUtil;
@@ -178,13 +179,12 @@ public class ChecklistCourseNode extends AbstractAccessableCourseNode {
 	}
 
 	@Override
-	public TabbableController createEditController(UserRequest ureq, WindowControl wControl, StackedController stackPanel, ICourse course, UserCourseEnvironment euce) {
+	public TabbableController createEditController(UserRequest ureq, WindowControl wControl, BreadcrumbPanel stackPanel, ICourse course, UserCourseEnvironment euce) {
 		CourseNode chosenNode = course.getEditorTreeModel().getCourseNode(euce.getCourseEditorEnv().getCurrentCourseNodeId());
 		ChecklistEditController editController = new ChecklistEditController(ureq, wControl, this, course, euce);
 		getModuleConfiguration().set(CONF_COURSE_ID, course.getResourceableId());
 		getModuleConfiguration().set(CONF_COURSE_NODE_ID, chosenNode.getIdent());
-		NodeEditController nodeEditController = new NodeEditController(ureq, wControl, course.getEditorTreeModel(), course, chosenNode, course.getCourseEnvironment()
-				.getCourseGroupManager(), euce, editController);
+		NodeEditController nodeEditController = new NodeEditController(ureq, wControl, course.getEditorTreeModel(), course, chosenNode, euce, editController);
 		nodeEditController.addControllerListener(editController);
 		return nodeEditController;
 	}
@@ -295,14 +295,14 @@ public class ChecklistCourseNode extends AbstractAccessableCourseNode {
 	}
 	
 	@Override
-	public Controller importNode(File importDirectory, ICourse course, boolean unattendedImport, UserRequest ureq, WindowControl wControl) {
+	public void importNode(File importDirectory, ICourse course, Identity owner, Locale locale) {
 		CoursePropertyManager cpm = course.getCourseEnvironment().getCoursePropertyManager();
 		if(getChecklistKey(cpm) != null) deleteChecklistKeyConf(cpm);
 		
 		File importFile = new File(importDirectory, getExportFilename());
 		String importContent = FileUtils.load(importFile, WebappHelper.getDefaultCharset());
 		if(importContent == null || importContent.isEmpty()) {
-			return null;
+			return;
 		}
 		
 		XStream xstream = XStreamHelper.createXStreamInstance();
@@ -311,8 +311,6 @@ public class ChecklistCourseNode extends AbstractAccessableCourseNode {
 			checklist = ChecklistManager.getInstance().copyChecklist(checklist);
 			setChecklistKey(cpm, checklist.getKey());
 		}
-		
-		return null;
 	}
 	
 	@Override

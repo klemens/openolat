@@ -29,7 +29,6 @@ import java.util.Map;
 
 import javax.persistence.TypedQuery;
 
-import org.olat.basesecurity.SecurityGroupMembershipImpl;
 import org.olat.core.commons.persistence.DB;
 import org.olat.course.assessment.AssessmentManager;
 import org.olat.ims.qti.QTIResultManager;
@@ -70,9 +69,9 @@ public class QTIStatisticsManagerImpl implements QTIStatisticsManager {
 		  .append("   where r2set.identityKey=rset.identityKey and r2set.olatResource=rset.olatResource and r2set.olatResourceDetail=rset.olatResourceDetail")
 		  .append(" )");
 		
-		if(searchParams.getLimitToSecGroups() != null && searchParams.getLimitToSecGroups().size() > 0) {
-			sb.append(" and rset.identityKey in ( select secMembership.identity.key from ").append(SecurityGroupMembershipImpl.class.getName()).append(" secMembership ")
-			  .append("   where secMembership.securityGroup in (:secGroups)")
+		if(searchParams.getLimitToGroups() != null && searchParams.getLimitToGroups().size() > 0) {
+			sb.append(" and rset.identityKey in ( select membership.identity.key from bgroupmember membership ")
+			  .append("   where membership.group in (:baseGroups)")
 			  .append(" )");
 		}
 		
@@ -88,8 +87,8 @@ public class QTIStatisticsManagerImpl implements QTIStatisticsManager {
 	private void decorateRSetQuery(TypedQuery<?> query, QTIStatisticSearchParams searchParams) {
 		query.setParameter("resourceId", searchParams.getResourceableId())
 		     .setParameter("resSubPath", searchParams.getResSubPath());
-		if(searchParams.getLimitToSecGroups() != null && searchParams.getLimitToSecGroups().size() > 0) {
-			query.setParameter("secGroups", searchParams.getLimitToSecGroups());
+		if(searchParams.getLimitToGroups() != null && searchParams.getLimitToGroups().size() > 0) {
+			query.setParameter("baseGroups", searchParams.getLimitToGroups());
 		}
 	}
 
@@ -302,7 +301,7 @@ public class QTIStatisticsManagerImpl implements QTIStatisticsManager {
 
 		double averageScore = totalScore / totalResults;
 		//difficulty (p-value)
-		double difficulty = numOfCorrectAnswers / totalResults;
+		double difficulty = numOfCorrectAnswers / (double)totalResults;
 		double averageDuration = totalDuration / totalResults;
 		
 		StatisticsItem stats = new StatisticsItem();

@@ -20,19 +20,11 @@
 package org.olat.course.nodes;
 
 import java.io.File;
-import java.util.Date;
 import java.util.Locale;
 
-import org.olat.basesecurity.BaseSecurityManager;
 import org.olat.core.gui.UserRequest;
-import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.WindowControl;
 import org.olat.core.id.Identity;
-import org.olat.core.id.OLATResourceable;
-import org.olat.core.util.Formatter;
-import org.olat.core.util.vfs.LocalFolderImpl;
-import org.olat.core.util.vfs.VFSContainer;
-import org.olat.core.util.vfs.VFSLeaf;
 import org.olat.course.ICourse;
 import org.olat.course.condition.Condition;
 import org.olat.course.condition.interpreter.ConditionInterpreter;
@@ -40,7 +32,7 @@ import org.olat.course.editor.CourseEditorEnv;
 import org.olat.course.editor.NodeEditController;
 import org.olat.course.editor.StatusDescription;
 import org.olat.course.export.CourseEnvironmentMapper;
-import org.olat.course.repository.ImportReferencesController;
+import org.olat.course.nodes.feed.FeedNodeEditController;
 import org.olat.course.run.navigation.NodeRunConstructionResult;
 import org.olat.course.run.userview.NodeEvaluation;
 import org.olat.course.run.userview.UserCourseEnvironment;
@@ -49,6 +41,7 @@ import org.olat.modules.webFeed.managers.FeedManager;
 import org.olat.repository.RepositoryEntry;
 import org.olat.repository.RepositoryEntryImportExport;
 import org.olat.repository.RepositoryManager;
+import org.olat.repository.handlers.RepositoryHandler;
 
 /**
  * The podcast course node.
@@ -214,10 +207,6 @@ public abstract class AbstractFeedCourseNode extends GenericCourseNode {
 		this.preConditionReader = preConditionReader;
 	}
 
-	/**
-	 * @see org.olat.course.nodes.GenericCourseNode#calcAccessAndVisibility(org.olat.course.condition.interpreter.ConditionInterpreter,
-	 *      org.olat.course.run.userview.NodeEvaluation)
-	 */
 	@Override
 	protected void calcAccessAndVisibility(ConditionInterpreter ci, NodeEvaluation nodeEval) {
 		// evaluate the preconditions
@@ -234,10 +223,7 @@ public abstract class AbstractFeedCourseNode extends GenericCourseNode {
 		nodeEval.setVisible(visible);
 	}
 
-	/**
-	 * @see org.olat.course.nodes.GenericCourseNode#exportNode(java.io.File,
-	 *      org.olat.course.ICourse)
-	 */
+	@Override
 	public void exportNode(File exportDirectory, ICourse course) {
 		RepositoryEntry re = getReferencedRepositoryEntry();
 		if (re == null) return;
@@ -250,49 +236,12 @@ public abstract class AbstractFeedCourseNode extends GenericCourseNode {
 		reie.exportDoExport();
 	}
 
-	/**
-	 * @see org.olat.course.nodes.GenericCourseNode#importNode(java.io.File,
-	 *      org.olat.course.ICourse, org.olat.core.gui.UserRequest,
-	 *      org.olat.core.gui.control.WindowControl)
-	 */
-	public Controller importNode(File importDirectory, ICourse course, boolean unattendedImport, UserRequest ureq, WindowControl wControl,
-			int importType) {
-		File importSubdir = new File(importDirectory, getIdent());
-		RepositoryEntryImportExport rie = new RepositoryEntryImportExport(importSubdir);
-		if (!rie.anyExportedPropertiesAvailable()) return null;
-
-		// do import referenced repository entries
-		if (unattendedImport) {
-			Identity admin = BaseSecurityManager.getInstance().findIdentityByName("administrator");
-			ImportReferencesController.doImport(rie, this, importType, true, admin);
-			return null;
-		} else {
-			return new ImportReferencesController(ureq, wControl, this, importType, rie);
-		}
-	}
-
-	/**
-	 * @see org.olat.course.nodes.GenericCourseNode#archiveNodeData(java.util.Locale,
-	 *      org.olat.course.ICourse, java.io.File, java.lang.String)
-	 */
-	public void archiveNodeData(Locale locale, ICourse course, File exportDirectory, String charset, String type) {
-		VFSContainer exportContainer = new LocalFolderImpl(exportDirectory);
-		VFSContainer exportDir = (VFSContainer) exportContainer.resolve(type);
-		if (exportDir == null) {
-			exportDir = exportContainer.createChildContainer(type);
-		}
-		String exportDirName = getShortTitle() + "_" + Formatter.formatDatetimeFilesystemSave(new Date(System.currentTimeMillis()));
-		VFSContainer destination = exportDir.createChildContainer(exportDirName);
-		String repoRef = (String) getModuleConfiguration().get(CONFIG_KEY_REPOSITORY_SOFTKEY);
-		if (repoRef != null) {
-			OLATResourceable ores = RepositoryManager.getInstance().lookupRepositoryEntryBySoftkey(repoRef, true).getOlatResource();
-			
-			VFSContainer container = FeedManager.getInstance().getFeedContainer(ores);
-			if (container != null) {
-				VFSLeaf archive = FeedManager.getInstance().getFeedArchive(ores);
-				destination.copyFrom(archive);
-			}
-			// FIXME:FG:6.3 Archive user comments as soon as implemented.			
+	public void importNode(RepositoryHandler handler, File importDirectory, Identity owner, Locale locale) {
+		RepositoryEntryImportExport rie = new RepositoryEntryImportExport(importDirectory, getIdent());
+		if (rie.anyExportedPropertiesAvailable()) {
+			RepositoryEntry re = handler.importResource(owner, rie.getInitialAuthor(), rie.getDisplayName(),
+				rie.getDescription(), false, locale, rie.importGetExportedFile(), null);
+			FeedNodeEditController.setReference(re, getModuleConfiguration());
 		}
 	}
 }

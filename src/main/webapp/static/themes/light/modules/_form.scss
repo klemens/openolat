@@ -1,0 +1,134 @@
+.o_form{
+	.o_desc {
+		@extend %o_note;
+	}
+	.o_warning {
+		@extend %o_warning;
+	}
+	.o_info {
+		@extend %o_info;	
+	}
+
+	.o_icon_mandatory {
+		position: relative;
+		right: 0;
+		line-height: inherit;
+		margin-left: 0.25em;
+	}
+	
+	.o_error {
+		margin-top: 1px;
+		margin-bottom: 0;
+		padding: 10px;
+	}	
+	
+	hr.o_spacer_noline {
+		border-top: 1px solid transparent;
+	}
+	
+	/* date chooser */
+	.o_date  {
+		position: relative;
+		padding-right: $input-height-base;
+	}
+	
+	.o_date.form-inline .form-group  {
+		margin-left: 0;
+	}
+	
+	input.o_date_ms {
+		width: 3em;
+	}
+	
+	.o_date.form-inline .o_date_ms.form-group {
+		margin-left: 25px;
+	}
+	
+	.input-group.o_date_picker {
+		width: 16em;
+	}
+	
+	/* file chooser */
+	.o_filepreview {
+		img {
+			@extend .img-thumbnail;
+		}
+		margin-bottom: floor($line-height-computed / 2);
+	}
+	.o_fileinput {
+		cursor: pointer;
+		position: relative;
+		/* the fake chooser is what the user sees. this is on layer 1, only for display */
+		.o_fakechooser {
+			position: relative;
+			z-index: 1; 		
+		}
+		/* real file chooser is transparent but on layer 2, click events trigger realchooser, not fakechooser */
+		.o_realchooser { 
+			position: absolute; 
+			top: 0; left: 0;
+			z-index: 2; 
+			@include opacity(0); /* this is the magic: visually don't show the input element, but nevertheless catch click events */
+		}	
+	}
+}
+
+/* choice element */
+.o_choice_checkrow,
+.o_choice_textrow {
+	vertical-align: text-top;
+	padding-bottom: 2px;
+}
+.o_choice_textrow {
+	padding-left: 1em;
+}
+.o_togglecheck a {
+	white-space: nowrap;
+}
+
+.o_catalog {
+	.o_catalog_delete_img {
+		position: relative; 
+		top: -0.5em;
+	}
+}
+
+.o_button_dirty {
+	@include button-variant($o-button-dirty-color, $o-button-dirty-bg, $o-button-dirty-border);
+}
+
+/* TOGGLE SLIDERS */
+.o_button_toggle {
+	border: 1px solid $o-toggle-border-color;
+	@include border-top-radius($o-toggle-size/2 + 1px);
+	@include border-bottom-radius($o-toggle-size/2 + 1px);
+	background: $o-toggle-bg;
+	display: inline-block;
+	height: $o-toggle-size + 2px;
+	line-height: $o-toggle-size;
+	font-size: $o-toggle-size;
+	text-align: left;
+	padding: 0 0.5em 0 0;
+	margin: 0;
+	@extend %o_undecorated;
+	
+	i {
+		color: $o-toggle-off-color;
+		text-shadow: 1px 0 2px rgba(0,0,0,.25);		
+	}	
+	span {
+		line-height: $o-toggle-size;
+		vertical-align: top;		
+		font-size: 60%;
+		color: $o-toggle-text-color;
+		text-transform: uppercase;
+	}
+	&.o_on {
+		text-align: right;
+		padding: 0 0 0 0.5em;
+		i {
+			color: $o-toggle-on-color;
+			text-shadow: -1px 0 2px rgba(0,0,0,.25);
+		}	
+	}
+}

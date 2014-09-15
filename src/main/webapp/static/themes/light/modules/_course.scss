@@ -1,0 +1,141 @@
+.badge {
+	/* badge color */
+	&.o_midpub { background-color: $o-course-node-published; }
+	&.o_midwarn { background-color: $o-course-node-warning; }
+	&.o_midlock { background-color: $o-course-node-locked;}
+	&.o_miderr { background-color: $o-course-node-error;}
+	&.o_middel { background-color: $o-course-node-deleted;}
+}
+.o_course_editor_legend .badge {
+	font-size: 80%;
+	&:before {
+		content: none;
+	}
+}
+
+/* score info status classes */
+.o_passed {
+	color: $o-course-state-passed-color;
+	font-weight: bold;
+	a:hover {
+	    color: darken($o-course-state-passed-color, 10%);
+	}					
+	th {
+		color: $text-color		
+	}
+}
+.o_failed {
+	color: $o-course-state-failed-color;
+	font-weight: bold;
+	a:hover {
+	    color: darken($o-course-state-unknown-color, 10%);
+	}				
+	th {
+		color: $text-color		
+	}
+}		
+.o_unknown {
+	color: $state-warning-text;
+	font-weight: bold;
+	a:hover {
+	    color: darken($o-course-state-unknown-color, 10%);
+	}				
+	th {
+		color: $text-color		
+	}
+}		
+.o_noinfo {
+	color: $text-muted;
+}		
+
+/* general course run classes */
+.o_course_run {
+	.o_toc {
+		.o_entry {
+			@extend %o_small;
+			@extend %o_block;
+			.o_shorttitle {
+				border-bottom: 1px solid $gray-light;
+			}
+			.o_displaytitle {
+				margin-top: $padding-small-vertical;
+				color: $text-muted;	
+			}
+			.o_objectives {
+				margin-top: $padding-large-vertical;
+				font-style: italic; 
+			}
+		}
+		@if not $o-course-show-icon-toc {
+			// hide icons in peekview title
+			.o_shorttitle > h4 > a > i{
+				display: none;
+			}
+		}
+	}	
+	.o_no_scoreinfo {
+		@extend %o_important;
+	}	
+	.o_statusinfo {
+		@extend %o_note;
+	}
+	
+	@if not $o-course-show-icon-title {
+		// hide icons in title, too much fuzz
+		&.o_titled_wrapper > h2 i{
+			display: none;
+		}
+	}
+}
+
+@if not $o-course-show-icon-menu {
+	// hide icons in menu
+	.o_tree.o_course_menu .o_tree_link > i {
+		display: none;
+	}
+}
+
+/* structure course element */
+.o_st_peekview {
+	ul {
+		li {
+			margin-bottom: 0.5em;
+		}
+	}
+}
+
+/* checklist course element */
+.o_cl_line {
+	margin-bottom: $padding-large-vertical;
+	padding-bottom: $padding-small-vertical;
+	&.o_even {
+		background-color: $table-bg-accent;
+	}
+}
+
+/* statistics */
+.o_course_stats .o_desc {
+	@extend %o_note
+}
+
+/* member list course element */
+.o_cmembers {
+	.o_cmember {
+		margin: $padding-base-horizontal 0;
+		.o_portrait {
+			margin-right: $padding-large-vertical;		
+			img {
+				width: 50px;
+				height: 50px;
+			}
+		}
+		.o_cmember_info_wrapper {
+			line-height: 50px;
+			.o_mail {
+				margin-left: $padding-base-vertical;					
+			}
+		}
+	}
+}
+
+

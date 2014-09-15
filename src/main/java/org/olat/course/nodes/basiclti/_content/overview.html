@@ -1,47 +1,52 @@
 #if ($isassessable)	
-	<div class="o_course_run_scoreinfo">
-		<h4>$r.translate("score.title")</h4>		
-		<table>
-			<tbody>
-				<tr>
-					<td>			
-						$r.translate("attempts.yourattempts"): 
-					</td>
-					<td>
-						$attempts
-					</td>
-				</tr>
 	#if($attempts > 0)
-		#if ($score)
-				<tr>
-					<td>			
-						$r.translate("score.yourscore"): 
-					</td>
-					<td>
-						$score
-					</td>
-				</tr>
-		#end
-				<tr>
-					<td>			
-						$r.translate("passed.yourpassed"): 
-					</td>
-					<td>
-						#if($hasPassedValue && $passed == true)		
-							<span class="o_passed">$r.translate("passed.yes")</span>
-						#elseif($hasPassedValue && $passed == false)		
-							<span class="o_notpassed">$r.translate("passed.no")</span>
-						#end
-					</td>
-				</tr>	
-			</tbody>
-		</table>
-	#else
-			</tbody>
-		</table>
-
-		<div class="o_course_run_scoreinfo_noinfo">$r.translate("score.noscoreinfoyet")</div>
-	#end
+	<div class="panel panel-default o_personal">
+	  	<div class="panel-heading">
+	  		<h4 class="panel-title">$r.translate("personal.title")</h4>
+	  	</div>
+		<table class="table">
+		<tbody>
+			<tr class="o_attempts">
+				<th>$r.translate("attempts.yourattempts")</th>
+				<td>
+					$attempts
+				</td> 
+			</tr> 
+			
+			#if ($hasScore)
+			<tr class="o_score">
+				<th>$r.translate("score.yourscore")</th>
+				<td>
+					$score
+				</td> 
+			</tr> 
+			#end					
+			
+			#if ($hasPassed)
+			<tr class="o_state #if ($hasPassedValue && $passed) o_passed #elseif($hasPassedValue && !$passed) o_failed #else o_unknown #end">
+				<th>$r.translate("passed.yourpassed")</th>
+				<td>
+				#if($hasPassedValue && $passed)	
+					<i class="o_icon o_icon_passed"></i> 
+					$r.translate("passed.yes")
+				#elseif($hasPassedValue && !$passed)		
+					<i class="o_icon o_icon_failed"></i> 
+					$r.translate("passed.no")
+				#else
+					$r.translateWithPackage("org.olat.course.nodes.st", "passed.noinfo")
+				#end
+				</td>
+			</tr>
+			#end		
+		</tbody>
+		</table>				
 	</div>
+	#else 
+		<div class="o_no_scoreinfo">
+			$r.translate("score.noscoreinfoyet")
+		</div>
+	#end
 #end
-$r.render("start")
+<div class="o_button_group">
+	$r.render("start")
+</div>

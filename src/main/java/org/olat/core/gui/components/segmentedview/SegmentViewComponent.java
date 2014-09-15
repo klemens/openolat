@@ -26,14 +26,16 @@ import java.util.List;
 import java.util.Set;
 
 import org.olat.core.gui.UserRequest;
+import org.olat.core.gui.components.AbstractComponent;
 import org.olat.core.gui.components.Component;
 import org.olat.core.gui.components.ComponentRenderer;
 import org.olat.core.gui.components.link.Link;
 import org.olat.core.gui.components.velocity.VelocityContainer;
 import org.olat.core.gui.control.Event;
 
-public class SegmentViewComponent extends Component  {
+public class SegmentViewComponent extends AbstractComponent  {
 	
+	private boolean reselect;
 	private boolean allowNoSelection;
 	private boolean allowMultipleSelection;
 	
@@ -62,6 +64,19 @@ public class SegmentViewComponent extends Component  {
 		this.allowNoSelection = allowNoSelection;
 	}
 
+	public boolean isReselect() {
+		return reselect;
+	}
+
+	/**
+	 * If a segment is selectable and clicked, send
+	 * a select event. Default is false.
+	 * @param reselect
+	 */
+	public void setReselect(boolean reselect) {
+		this.reselect = reselect;
+	}
+
 	public boolean isEmpty() {
 		return segments.isEmpty();
 	}
@@ -82,7 +97,12 @@ public class SegmentViewComponent extends Component  {
 		setDirty(true);
 	}
 	
-	public void addSegment(Component link, boolean selected) {
+	public void addSegment(Link link, boolean selected) {
+		if(selected) {
+			link.setCustomEnabledLinkCSS("btn btn-primary");
+		} else {
+			link.setCustomEnabledLinkCSS("btn btn-default");
+		}
 		segments.add(link);
 		if(selected) {
 			selectedSegments.add(link);
@@ -120,8 +140,10 @@ public class SegmentViewComponent extends Component  {
 	
 	public void select(Component component) {
 		if(segments.contains(component)) {
-			selectedSegments.clear();
-			selectedSegments.add(component);
+			if(!isAllowMultipleSelection()) {
+				deselectAllSegments();
+			}
+			selectSegment(component);
 			setDirty(true);
 		}
 	}
@@ -138,13 +160,15 @@ public class SegmentViewComponent extends Component  {
 					if(isAllowNoSelection() || selectedSegments.size() > 1) {
 						e = new SegmentViewEvent(SegmentViewEvent.DESELECTION_EVENT, segment.getComponentName(), count);
 						selectedSegments.remove(segment);
+					} else if(isReselect()) {
+						e = new SegmentViewEvent(SegmentViewEvent.SELECTION_EVENT, segment.getComponentName(), count);
 					}
 				} else {
 					if(!isAllowMultipleSelection()) {
-						selectedSegments.clear();
+						deselectAllSegments();
 					}
 					e = new SegmentViewEvent(SegmentViewEvent.SELECTION_EVENT, segment.getComponentName(), count);
-					selectedSegments.add(segment);
+					selectSegment(segment);
 				}
 				break;
 			}
@@ -155,6 +179,22 @@ public class SegmentViewComponent extends Component  {
 			setDirty(true);
 			fireEvent(ureq, e);
 		}
+	}
+	
+	private void selectSegment(Component segment) {
+		if(segment instanceof Link) {
+			((Link)segment).setCustomEnabledLinkCSS("btn btn-primary");
+		}
+		selectedSegments.add(segment);
+	}
+	
+	private void deselectAllSegments() {
+		for(Component segment:selectedSegments) {
+			if(segment instanceof Link) {
+				((Link)segment).setCustomEnabledLinkCSS("btn btn-default");
+			}
+		}
+		selectedSegments.clear();
 	}
 
 	@Override

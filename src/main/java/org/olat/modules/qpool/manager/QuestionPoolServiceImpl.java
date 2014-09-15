@@ -81,6 +81,8 @@ public class QuestionPoolServiceImpl implements QPoolService {
 	
 	private static final OLog log = Tracing.createLoggerFor(QuestionPoolServiceImpl.class);
 	
+	private static final int MAX_NUMBER_DOCS = 990;
+	
 	@Autowired
 	private DB dbInstance;
 	@Autowired
@@ -366,14 +368,23 @@ public class QuestionPoolServiceImpl implements QPoolService {
 			return;//nothing to do
 		}
 		
+		List<Long> keys = new ArrayList<>(items.size());
 		for(QuestionItemShort item:items) {
 			poolDao.addItemToPool(item, pools, editable);
+			keys.add(item.getKey());
 		}
+		lifeIndexer.indexDocument(QItemDocument.TYPE, keys);
 	}
 
 	@Override
 	public void removeItemsInPool(List<QuestionItemShort> items, Pool pool) {
 		poolDao.removeFromPool(items, pool);
+		
+		List<Long> keys = new ArrayList<>(items.size());
+		for(QuestionItemShort item:items) {
+			keys.add(item.getKey());
+		}
+		lifeIndexer.indexDocument(QItemDocument.TYPE, keys);
 	}
 
 	@Override
@@ -411,16 +422,13 @@ public class QuestionPoolServiceImpl implements QPoolService {
 				}
 				condQueries.add("pool:" + searchParams.getPoolKey());
 				List<Long> results = searchClient.doSearch(queryString, condQueries,
-						searchParams.getIdentity(), searchParams.getRoles(), firstResult, 10000, orderBy);
+						searchParams.getIdentity(), searchParams.getRoles(), 0, MAX_NUMBER_DOCS);
 
-				int initialResultsSize = results.size();
 				if(results.isEmpty()) {
 					return new DefaultResultInfos<QuestionItemView>();
-				} else if(results.size() > maxResults) {
-					results = results.subList(0, Math.min(results.size(), maxResults * 2));
 				}
-				List<QuestionItemView> items = poolDao.getItemsOfPool(searchParams, results, 0, maxResults, orderBy);
-				return new DefaultResultInfos<QuestionItemView>(firstResult + items.size(), firstResult + initialResultsSize, items);
+				List<QuestionItemView> items = poolDao.getItemsOfPool(searchParams, results, firstResult, maxResults, orderBy);
+				return new DefaultResultInfos<QuestionItemView>(firstResult + items.size(), results.size(), items);
 			} catch (Exception e) {
 				log.error("", e);
 			}
@@ -442,16 +450,13 @@ public class QuestionPoolServiceImpl implements QPoolService {
 				}
 				condQueries.add(QItemDocument.OWNER_FIELD + ":" + author.getKey());
 				List<Long> results = searchClient.doSearch(queryString, condQueries,
-						searchParams.getIdentity(), searchParams.getRoles(), firstResult, 10000, orderBy);
+						searchParams.getIdentity(), searchParams.getRoles(), 0, MAX_NUMBER_DOCS);
 
-				int initialResultsSize = results.size();
 				if(results.isEmpty()) {
 					return new DefaultResultInfos<QuestionItemView>();
-				} else if(results.size() > maxResults) {
-					results = results.subList(0, Math.min(results.size(), maxResults * 2));
 				}
 				List<QuestionItemView> items = questionItemDao.getItemsByAuthor(searchParams, results, firstResult, maxResults, orderBy);
-				return new DefaultResultInfos<QuestionItemView>(firstResult + items.size(), firstResult + initialResultsSize, items);
+				return new DefaultResultInfos<QuestionItemView>(firstResult + items.size(), results.size(), items);
 			} catch (Exception e) {
 				log.error("", e);
 			}
@@ -485,13 +490,13 @@ public class QuestionPoolServiceImpl implements QPoolService {
 				}
 				condQueries.add(getDbKeyConditionalQuery(favoritKeys));
 				List<Long> results = searchClient.doSearch(queryString, condQueries,
-						searchParams.getIdentity(), searchParams.getRoles(), firstResult, maxResults * 5, orderBy);
+						searchParams.getIdentity(), searchParams.getRoles(), 0, MAX_NUMBER_DOCS);
 
 				if(results.isEmpty()) {
 					return new DefaultResultInfos<QuestionItemView>();
 				}
 				List<QuestionItemView> items = questionItemDao.getFavoritItems(searchParams, results, firstResult, maxResults, orderBy);
-				return new DefaultResultInfos<QuestionItemView>(firstResult + items.size(), firstResult + results.size(), items);
+				return new DefaultResultInfos<QuestionItemView>(firstResult + items.size(), results.size(), items);
 			} catch (Exception e) {
 				log.error("", e);
 			}
@@ -556,16 +561,12 @@ public class QuestionPoolServiceImpl implements QPoolService {
 				}
 				condQueries.add(QItemDocument.SHARE_FIELD + ":" + resource.getKey());
 				List<Long> results = searchClient.doSearch(queryString, condQueries,
-						searchParams.getIdentity(), searchParams.getRoles(), firstResult, maxResults * 5, orderBy);
-
-				int initialResultsSize = results.size();
+						searchParams.getIdentity(), searchParams.getRoles(), 0, MAX_NUMBER_DOCS);
 				if(results.isEmpty()) {
 					return new DefaultResultInfos<QuestionItemView>();
-				} else if(results.size() > maxResults) {
-					results = results.subList(0, Math.min(results.size(), maxResults * 2));
 				}
 				List<QuestionItemView> items = questionItemDao.getSharedItemByResource(searchParams.getIdentity(), resource, results, firstResult, maxResults);
-				return new DefaultResultInfos<QuestionItemView>(firstResult + items.size(), firstResult + initialResultsSize, items);
+				return new DefaultResultInfos<QuestionItemView>(firstResult + items.size(), results.size(), items);
 			} catch (Exception e) {
 				log.error("", e);
 			}
@@ -584,9 +585,12 @@ public class QuestionPoolServiceImpl implements QPoolService {
 	@Override
 	public QuestionItemCollection createCollection(Identity owner, String collectionName, List<QuestionItemShort> initialItems) {
 		QuestionItemCollection coll = collectionDao.createCollection(collectionName, owner);
+		List<Long> keys = new ArrayList<>(initialItems.size());
 		for(QuestionItemShort item:initialItems) {
 			collectionDao.addItemToCollection(item.getKey(), Collections.singletonList(coll));
+			keys.add(item.getKey());
 		}
+		lifeIndexer.indexDocument(QItemDocument.TYPE, keys);
 		return coll;
 	}
 
@@ -602,9 +606,12 @@ public class QuestionPoolServiceImpl implements QPoolService {
 
 	@Override
 	public void addItemToCollection(List<? extends QuestionItemShort> items, List<QuestionItemCollection> collections) {
+		List<Long> keys = new ArrayList<>(items.size());
 		for(QuestionItemShort item:items) {
 			collectionDao.addItemToCollection(item.getKey(), collections);
+			keys.add(item.getKey());
 		}
+		lifeIndexer.indexDocument(QItemDocument.TYPE, keys);
 	}
 
 	@Override
@@ -635,14 +642,14 @@ public class QuestionPoolServiceImpl implements QPoolService {
 					condQueries.addAll(searchParams.getCondQueries());
 				}
 				condQueries.add(getDbKeyConditionalQuery(content));
-				List<Long> results = searchClient.doSearch(queryString, condQueries, searchParams.getIdentity(), searchParams.getRoles(),
-						firstResult, maxResults * 5, orderBy);
+				List<Long> results = searchClient.doSearch(queryString, condQueries,
+						searchParams.getIdentity(), searchParams.getRoles(), 0, MAX_NUMBER_DOCS);
 
 				if(results.isEmpty()) {
 					return new DefaultResultInfos<QuestionItemView>();
 				}
 				List<QuestionItemView> items = collectionDao.getItemsOfCollection(searchParams.getIdentity(), collection, results, firstResult, maxResults, orderBy);
-				return new DefaultResultInfos<QuestionItemView>(firstResult + items.size(), firstResult + results.size(), items);
+				return new DefaultResultInfos<QuestionItemView>(firstResult + items.size(), results.size(), items);
 			} catch (Exception e) {
 				log.error("", e);
 			}

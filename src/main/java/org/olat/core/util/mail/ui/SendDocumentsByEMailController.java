@@ -60,6 +60,7 @@ import org.olat.core.id.UserConstants;
 import org.olat.core.id.context.BusinessControlFactory;
 import org.olat.core.id.context.ContextEntry;
 import org.olat.core.util.CodeHelper;
+import org.olat.core.util.Formatter;
 import org.olat.core.util.StringHelper;
 import org.olat.core.util.Util;
 import org.olat.core.util.mail.MailBundle;
@@ -119,9 +120,8 @@ public class SendDocumentsByEMailController extends FormBasicController implemen
 
 	@Override
 	protected void initForm(FormItemContainer formLayout, Controller listener, UserRequest ureq) {
-		setFormTitle("send.mail.title");
 		setFormDescription("send.mail.description");
-		setFormStyle("b_send_documents");
+		setFormStyle("o_send_documents");
 
 		int emailCols = 25;
 
@@ -132,7 +132,8 @@ public class SendDocumentsByEMailController extends FormBasicController implemen
 		userListBox.contextPut("tos", toValues);
 		formLayout.add(userListBox);
 
-		addEmailLink = uifactory.addFormLink("add.email", userListBox,"b_form_userchooser");
+		addEmailLink = uifactory.addFormLink("add.email", userListBox);
+		addEmailLink.setIconLeftCSS("o_icon o_icon_add");
 
 		subjectElement = uifactory.addTextElement("tsubject", "send.mail.subject", 255, "", formLayout);
 
@@ -157,12 +158,19 @@ public class SendDocumentsByEMailController extends FormBasicController implemen
 		//
 	}
 
+	@Override
 	public int getStatus() {
 		return status;
 	}
 
+	@Override
 	public boolean runsModal() {
 		return false;
+	}
+
+	@Override
+	public String getModalTitle() {
+		return translate("send.mail.title");
 	}
 
 	public Controller execute(FolderComponent folderComponent, UserRequest ureq, WindowControl wControl, Translator translator) {
@@ -319,7 +327,7 @@ public class SendDocumentsByEMailController extends FormBasicController implemen
 			if (StringHelper.containsNonWhitespace(author)) {
 				appendMetadata("mf.author", author, sb);
 			}
-			String size = StringHelper.formatMemory(file.getSize());
+			String size = Formatter.formatBytes(file.getSize());
 			appendMetadata("mf.size", size, sb);
 			long lastModifiedDate = infos.getLastModified();
 			if (lastModifiedDate > 0) {
@@ -474,9 +482,9 @@ public class SendDocumentsByEMailController extends FormBasicController implemen
 	}
 	
 	private void addIdentity(Identity identity) {
-		FormLink rmLink = uifactory.addFormLink("rm-" + CodeHelper.getForeverUniqueID(), "&nbsp;", null, userListBox, Link.NONTRANSLATED + Link.LINK);
+		FormLink rmLink = uifactory.addFormLink("rm-" + CodeHelper.getForeverUniqueID(), " ", null, userListBox, Link.NONTRANSLATED + Link.LINK);
 		IdentityWrapper wrapper = new IdentityWrapper(identity, rmLink);
-		rmLink.setCustomEnabledLinkCSS("b_link_left_icon b_remove_icon");
+		rmLink.setIconLeftCSS("o_icon o_icon_remove");
 		rmLink.setUserObject(wrapper);
 		toValues.add(wrapper);
 		userListBox.setDirty(true);

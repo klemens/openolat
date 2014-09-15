@@ -32,6 +32,7 @@ import java.util.Set;
 
 import org.olat.basesecurity.BaseSecurity;
 import org.olat.basesecurity.BaseSecurityModule;
+import org.olat.basesecurity.GroupRoles;
 import org.olat.basesecurity.SearchIdentityParams;
 import org.olat.core.CoreSpringFactory;
 import org.olat.core.commons.persistence.DBFactory;
@@ -56,6 +57,7 @@ import org.olat.core.gui.control.generic.closablewrapper.CloseableModalControlle
 import org.olat.core.gui.control.generic.dtabs.Activateable2;
 import org.olat.core.gui.control.generic.modal.DialogBoxController;
 import org.olat.core.gui.control.generic.modal.DialogBoxUIFactory;
+import org.olat.core.gui.translator.Translator;
 import org.olat.core.id.Identity;
 import org.olat.core.id.Roles;
 import org.olat.core.id.context.ContextEntry;
@@ -84,6 +86,7 @@ import org.olat.modules.co.ContactFormController;
 import org.olat.repository.RepositoryEntry;
 import org.olat.repository.RepositoryEntryManagedFlag;
 import org.olat.repository.RepositoryManager;
+import org.olat.repository.RepositoryService;
 import org.olat.repository.model.RepositoryEntryMembership;
 import org.olat.repository.model.RepositoryEntryPermissionChangeEvent;
 import org.olat.resource.OLATResource;
@@ -128,6 +131,7 @@ public abstract class AbstractMemberListController extends BasicController imple
 	
 	private final BaseSecurity securityManager;
 	private final BaseSecurityModule securityModule;
+	private final RepositoryService repositoryService;
 	private final RepositoryManager repositoryManager;
 	private final BusinessGroupService businessGroupService;
 	private final BusinessGroupModule groupModule;
@@ -141,17 +145,17 @@ public abstract class AbstractMemberListController extends BasicController imple
 	
 	public AbstractMemberListController(UserRequest ureq, WindowControl wControl, RepositoryEntry repoEntry,
 			String page) {
-		this(ureq, wControl, repoEntry, null, page);
+		this(ureq, wControl, repoEntry, null, page, Util.createPackageTranslator(AbstractMemberListController.class, ureq.getLocale()));
 	}
 	
 	public AbstractMemberListController(UserRequest ureq, WindowControl wControl, BusinessGroup group,
 			String page) {
-		this(ureq, wControl, null, group, page);
+		this(ureq, wControl, null, group, page, Util.createPackageTranslator(AbstractMemberListController.class, ureq.getLocale()));
 	}
 	
-	private AbstractMemberListController(UserRequest ureq, WindowControl wControl, RepositoryEntry repoEntry, BusinessGroup group,
-			String page) {
-		super(ureq, wControl, Util.createPackageTranslator(UserPropertyHandler.class, ureq.getLocale()));
+	protected AbstractMemberListController(UserRequest ureq, WindowControl wControl, RepositoryEntry repoEntry, BusinessGroup group,
+			String page, Translator translator) {
+		super(ureq, wControl, Util.createPackageTranslator(UserPropertyHandler.class, ureq.getLocale(), translator));
 		
 		this.businessGroup = group;
 		this.repoEntry = repoEntry;
@@ -160,6 +164,7 @@ public abstract class AbstractMemberListController extends BasicController imple
 		securityManager = CoreSpringFactory.getImpl(BaseSecurity.class);
 		securityModule = CoreSpringFactory.getImpl(BaseSecurityModule.class);
 		repositoryManager = CoreSpringFactory.getImpl(RepositoryManager.class);
+		repositoryService = CoreSpringFactory.getImpl(RepositoryService.class);
 		businessGroupService = CoreSpringFactory.getImpl(BusinessGroupService.class);
 		groupModule = CoreSpringFactory.getImpl(BusinessGroupModule.class);
 		acService = CoreSpringFactory.getImpl(ACService.class);
@@ -190,7 +195,7 @@ public abstract class AbstractMemberListController extends BasicController imple
 		memberListCtr.setTableDataModel(memberListModel);
 		memberListCtr.setMultiSelect(true);
 		if(!globallyManaged) {
-			memberListCtr.addMultiSelectAction("table.header.edit", TABLE_ACTION_EDIT);
+			memberListCtr.addMultiSelectAction("edit.members", TABLE_ACTION_EDIT);
 		}
 		memberListCtr.addMultiSelectAction("table.header.mail", TABLE_ACTION_MAIL);
 		if(!globallyManaged) {
@@ -211,7 +216,7 @@ public abstract class AbstractMemberListController extends BasicController imple
 			boolean managedEntry = RepositoryEntryManagedFlag.isManaged(repoEntry, RepositoryEntryManagedFlag.membersmanagement);
 			managed &= managedEntry;
 			
-			List<BusinessGroup> groups = businessGroupService.findBusinessGroups(null, repoEntry.getOlatResource(), 0, -1);
+			List<BusinessGroup> groups = businessGroupService.findBusinessGroups(null, repoEntry, 0, -1);
 			for(BusinessGroup group:groups) {
 				managed &= BusinessGroupManagedFlag.isManaged(group, BusinessGroupManagedFlag.membersmanagement);
 			}
@@ -302,7 +307,7 @@ public abstract class AbstractMemberListController extends BasicController imple
 				} else if(TABLE_ACTION_REMOVE.equals(actionid)) {
 					confirmDelete(ureq, Collections.singletonList(member));
 				} else if(TABLE_ACTION_GRADUATE.equals(actionid)) {
-					doGraduate(ureq, Collections.singletonList(member));
+					doGraduate(Collections.singletonList(member));
 				} else if(TABLE_ACTION_IM.equals(actionid)) {
 					doIm(ureq, member);
 				}
@@ -317,7 +322,7 @@ public abstract class AbstractMemberListController extends BasicController imple
 				} else if(TABLE_ACTION_MAIL.equals(te.getAction())) {
 					doSendMail(ureq, selectedItems);
 				} else if(TABLE_ACTION_GRADUATE.equals(te.getAction())) {
-					doGraduate(ureq, selectedItems);
+					doGraduate(selectedItems);
 				}
 			}
 		} else if (source == leaveDialogBox) {
@@ -375,8 +380,8 @@ public abstract class AbstractMemberListController extends BasicController imple
 	
 	protected void confirmDelete(UserRequest ureq, List<MemberView> members) {
 		int numOfOwners =
-				repoEntry == null ? securityManager.countIdentitiesOfSecurityGroup(businessGroup.getOwnerGroup())
-				: securityManager.countIdentitiesOfSecurityGroup(repoEntry.getOwnerGroup());
+				repoEntry == null ? businessGroupService.countMembers(businessGroup, GroupRoles.coach.name())
+				: repositoryService.countMembers(repoEntry, GroupRoles.owner.name());
 		
 		int numOfRemovedOwner = 0;
 		List<Long> identityKeys = new ArrayList<Long>();
@@ -505,7 +510,7 @@ public abstract class AbstractMemberListController extends BasicController imple
 		contactList.addAllIdentites(identities);
 		contactMessage.addEmailTo(contactList);
 		
-		contactCtrl = new ContactFormController(ureq, getWindowControl(), false, true, false, false, contactMessage);
+		contactCtrl = new ContactFormController(ureq, getWindowControl(), true, false, false, contactMessage);
 		listenTo(contactCtrl);
 
 		cmc = new CloseableModalController(getWindowControl(), translate("close"), contactCtrl.getInitialComponent(),
@@ -514,7 +519,7 @@ public abstract class AbstractMemberListController extends BasicController imple
 		listenTo(cmc);
 	}
 	
-	protected void doGraduate(UserRequest ureq, List<MemberView> members) {
+	protected void doGraduate(List<MemberView> members) {
 		if(businessGroup != null) {
 			List<Long> identityKeys = getMemberKeys(members);
 			List<Identity> identitiesToGraduate = securityManager.loadIdentityByKeys(identityKeys);
@@ -544,6 +549,7 @@ public abstract class AbstractMemberListController extends BasicController imple
 		//course membership
 		boolean managedMembersRepo = 
 				RepositoryEntryManagedFlag.isManaged(repoEntry, RepositoryEntryManagedFlag.membersmanagement);
+		
 		List<RepositoryEntryMembership> repoMemberships =
 				repoEntry == null ? Collections.<RepositoryEntryMembership>emptyList()
 				: repositoryManager.getRepositoryEntryMembership(repoEntry);
@@ -551,7 +557,7 @@ public abstract class AbstractMemberListController extends BasicController imple
 		//groups membership
 		List<BusinessGroup> groups = 
 				repoEntry == null ? Collections.singletonList(businessGroup)
-				: businessGroupService.findBusinessGroups(null, repoEntry.getOlatResource(), 0, -1);
+				: businessGroupService.findBusinessGroups(null, repoEntry, 0, -1);
 				
 		List<Long> groupKeys = new ArrayList<Long>();
 		Map<Long,BusinessGroupShort> keyToGroupMap = new HashMap<Long,BusinessGroupShort>();
@@ -671,13 +677,13 @@ public abstract class AbstractMemberListController extends BasicController imple
 				memberView.setFirstTime(membership.getCreationDate());
 				memberView.setLastTime(membership.getLastModified());
 				memberView.getMembership().setManagedMembersRepo(managedMembersRepo);
-				if(membership.getOwnerRepoKey() != null) {
+				if(membership.isOwner()) {
 					memberView.getMembership().setRepoOwner(true);
 				}
-				if(membership.getTutorRepoKey() != null) {
+				if(membership.isCoach()) {
 					memberView.getMembership().setRepoTutor(true);
 				}
-				if(membership.getParticipantRepoKey() != null) {
+				if(membership.isParticipant()) {
 					memberView.getMembership().setRepoParticipant(true);
 				}
 			}

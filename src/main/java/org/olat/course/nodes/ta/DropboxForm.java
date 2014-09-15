@@ -113,9 +113,9 @@ public class DropboxForm extends FormBasicController {
 		
 		Boolean enableMail = (Boolean)config.get(TACourseNode.CONF_DROPBOX_ENABLEMAIL);
 		confirmation.setMandatory(enableMail);
-		enablemail = uifactory.addCheckboxesVertical("enablemail", "form.dropbox.enablemail", formLayout, new String[]{"xx"}, new String[]{null}, null, 1);
+		enablemail = uifactory.addCheckboxesHorizontal("enablemail", "form.dropbox.enablemail", formLayout, new String[]{"xx"}, new String[]{null});
 		enablemail.select("xx", enableMail != null ? enableMail.booleanValue() : true);
-		enablemail.addActionListener(this, FormEvent.ONCLICK);
+		enablemail.addActionListener(FormEvent.ONCLICK);
 	
 		uifactory.addFormSubmitButton("submit", formLayout);
 	}

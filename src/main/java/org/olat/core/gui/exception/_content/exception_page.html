@@ -1,14 +1,19 @@
-<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
-   "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
-<html xmlns="http://www.w3.org/1999/xhtml" xmlns:ext="http://extjs.com/docs" xml:lang="$r.getLanguageCode()" lang="$r.getLanguageCode()">
+<!DOCTYPE html>
+<html lang="$r.getLanguageCode()">
 <head>
+<meta name="description" content="$r.translate("meta.description")" />
+<meta name="keywords" content="$r.translate("meta.keywords")" /> 
+<meta name="dcterms.creator" content="OpenOLAT - http://www.openolat.org" />
+<meta name="dcterms.subject" content="OpenOLAT - infinite learning - Your Open Source Learning Management System" />
+<meta name="dcterms.contributor" content="see http://www.openolat.org" />
+<meta name="dcterms.date" content="2010-03-16" />
+<meta name="dcterms.type" content="Interactive Resource" />
+<meta name="dcterms.identifier" content="http://www.openolat.org" />
+<meta name="dcterms.rights" content="http://www.openolat.org" />
+## hide toolbar on ios with minimal-ui
+<meta name="viewport" content="minimal-ui, width=device-width, initial-scale=1">
 <meta http-equiv="Content-type" content="text/html; charset=utf-8" />
-<meta http-equiv="cache-control" content="no-cache" />
-<meta http-equiv="pragma" content="no-cache" />
-<meta http-equiv="expires" content="0" />
 ## <!-- IE cache -->
-<meta http-equiv="pragma-directive" content="no-cache" />
-<meta http-equiv="cache-directive" content="no-cache" />
 <script type="text/javascript">
 /* <![CDATA[ */
 #if($enforceTopFrame)
@@ -17,26 +22,59 @@ if (top!=self){top.location=self.location+"?o_winrndo=1";}
 var o_info = new Object();
 /* ]]> */
 </script>
-## Basic JS libraries for DOM manipulation and visual effects
-<script type="text/javascript" src="$r.staticLink("js/modernizr/modernizr.js")"></script>
 ## jQuery libraries
+<!--[if lt IE 9]>
 <script type="text/javascript" src='$r.staticLink("js/jquery/jquery-1.9.1.min.js")'></script>
-<script>
+<![endif]-->
+<!--[if gte IE 9]><!-->
+<script type="text/javascript" src='$r.staticLink("js/jquery/jquery-2.1.0.min.js")'></script>
+<!--<![endif]-->
+
+## HTML5 Shim and Respond.js IE8 support of HTML5 elements and media queries - required by bootstrap
+<!--[if lt IE 9]>
+	<script src="https://oss.maxcdn.com/libs/html5shiv/3.7.0/html5shiv.js"></script>
+	<script src="https://oss.maxcdn.com/libs/respond.js/1.4.2/respond.min.js"></script>
+<![endif]-->
+#if ($r.available("guidebug"))
+	## Are compressed as js/js.plugins.min.js in non-debug mode
+	<script type="text/javascript" src='$r.staticLink("js/jquery/periodic/jquery.periodic.js")'></script>
+	<script type="text/javascript" src='$r.staticLink("js/jshashtable-2.1_src.js")'></script>
+	<script type="text/javascript" src='$r.staticLink("js/jquery/openolat/jquery.oolog.js")'></script>
+	<script type="text/javascript" src='$r.staticLink("js/jquery/openolat/jquery.translator.js")'></script>
+	<script type="text/javascript" src='$r.staticLink("js/jquery/openolat/jquery.navbar.js")'></script>
+	<script type="text/javascript" src='$r.staticLink("js/tinymce4/tinymce/jquery.tinymce.min.js")'></script>
+	<script type="text/javascript" src='$r.staticLink("js/functions.js")'></script>
+	<script type="text/javascript" src='$r.staticLink("js/jquery/transit/jquery.transit.js")'></script>
+	## Bootstrap js
+	##<script type="text/javascript" src='$r.staticLink("bootstrap/javascripts/bootstrap/affix.js")'></script>
+	<script type="text/javascript" src='$r.staticLink("bootstrap/javascripts/bootstrap/alert.js")'></script>
+	<script type="text/javascript" src='$r.staticLink("bootstrap/javascripts/bootstrap/button.js")'></script>
+	##<script type="text/javascript" src='$r.staticLink("bootstrap/javascripts/bootstrap/carousel.js")'></script>
+	<script type="text/javascript" src='$r.staticLink("bootstrap/javascripts/bootstrap/collapse.js")'></script>
+	<script type="text/javascript" src='$r.staticLink("bootstrap/javascripts/bootstrap/dropdown.js")'></script>
+	<script type="text/javascript" src='$r.staticLink("bootstrap/javascripts/bootstrap/tab.js")'></script>
+	<script type="text/javascript" src='$r.staticLink("bootstrap/javascripts/bootstrap/transition.js")'></script>
+	##<script type="text/javascript" src='$r.staticLink("bootstrap/javascripts/bootstrap/scrollspy.js")'></script>
+	<script type="text/javascript" src='$r.staticLink("bootstrap/javascripts/bootstrap/modal.js")'></script>
+	<script type="text/javascript" src='$r.staticLink("bootstrap/javascripts/bootstrap/tooltip.js")'></script>
+	<script type="text/javascript" src='$r.staticLink("bootstrap/javascripts/bootstrap/popover.js")'></script>
+#else
+	<script type="text/javascript" src='$r.staticLink("js/js.plugins.min.js")'></script>
+#end
+
+<script type="text/javascript">
 /* <![CDATA[ */ 
-     jQuery.noConflict();
+  jQuery.noConflict();
 /* ]]> */
 </script>
-## OLAT libraries
-<script type="text/javascript" src="$r.staticLink("js/functions.js")"></script>
-##
-## LAYOUT
 
+## LAYOUT
 ## 1) Dynamic component CSS included by components
 $r.render("jsCssRawHtmlHeader", "pre-theme")
 ## 2) CSS theme inclusion and favicons
 <link rel="icon" href="${theme.getBaseURI()}favicon.ico" type="image/x-icon" /> 
 <link rel="shortcut icon" href="${theme.getBaseURI()}favicon.ico" type="image/x-icon" /> 
-<link id="b_theme_css" href="${theme.getBaseURI()}layout.css" rel="stylesheet" type="text/css" />
+<link id="o_theme_css" href="${theme.getBaseURI()}theme.css" rel="stylesheet" type="text/css" />
 ## 3) IE specific bugfixes for current theme
 <!--[if lte IE 7]>
 <link href="${theme.getBaseURI()}patches.css" rel="stylesheet" type="text/css" />
@@ -44,7 +82,9 @@ $r.render("jsCssRawHtmlHeader", "pre-theme")
 ## 4) Dynamic overriding of CSS rules
 $r.render("jsCssRawHtmlHeader", "post-theme")
 ## 5) Add user font size
-<style id="b_fontSize_css" type="text/css">#b_page_margins{font-size:${globalSettings.getFontSize()}%}</style>
+#if (${globalSettings.getFontSize()} != "100")
+<style id="o_fontSize_css" type="text/css">#o_body{zoom:${globalSettings.getFontSize()}%; -moz-transform: scale(${globalSettings.getFontSize()}%)}</style>
+#end
 
 ## deprecated - include any raw header
 $r.renderHeaderIncludes()
@@ -53,103 +93,117 @@ $r.renderHeaderIncludes()
 <title>$r.translate("page.appname") - $r.translate("error.header")</title>
 </head>
 
-<body>
-<div id="b_page_margins"><div id="b_page">
-	<a name="b_top"></a>
-	<div id="b_header">
-		<div id="b_logo"></div>
-		<div id="b_topnav"></div>
+<body id="o_body" class="o_exception">
+
+<div id="o_beta_logo"></div>
+
+## ---- START #o_header ---
+<div id="o_header_wrapper"> 
+	<div id="o_header_container" class="o_container_offcanvas container-fluid"> 
+		<div id="o_logo"></div>
+		<div id="o_right_logo"></div>		
 	</div>
-	<div id="b_nav">
-		<a name="b_navigation"></a>
-		<div id="b_nav_main">
-			<ul>
-				<li class="b_nav_site b_exception">
-					<div> ## div used for site icon
-						<a href="#"><span>$r.translate("error.header")</span></a>
-					</div>
-				</li>	
+</div>
+## ---- END #o_header ---	
+
+## ---- START #o_navbar ---
+<div id="o_offcanvas_right" class="o_navbar o_navbar-offcanvas" role="navigation">
+	<a href="#" class="o_offcanvas_close" title="$r.translate("close")"><i class='o_icon o_icon_close o_icon-lg'></i></a>
+	<div id="o_offcanvas_right_container" class="o_navbar-collapse">
+	</div>
+</div>
+<a id='o_top' name="o_top"></a>
+<div id="o_navbar_wrapper" class="o_navbar" role="navigation">
+	<div id="o_navbar_container" class="o_container_offcanvas container-fluid">
+		<a class="o_navbar-brand" href="#"></a>
+		<div class="o_collapse o_navbar-collapse">
+			<ul class="o_navbar_sites nav o_navbar-nav">
+				<li></li>
 			</ul>
-		</div>
+		</div>		
 	</div>
-	<div id="b_main" class="b_hideboth b_exception">
-		<div id="b_col3">
-			<div id="b_col3_content" class="b_clearfix">
-				<a id="b_content" name="content"></a> 
-				<div id="b_col3_content_inner" class="b_floatscrollbox">
-## START ERROR AREA
-
-<div class="b_important">
-	$r.translate('error.message1') <a href="mailto:${supportaddress}" class="b_link_mailto">${supportaddress}</a> $r.translate('error.message2'):
 </div>
-<div class="b_note">
-	$r.translate('error.errnum') <strong>$errnum</strong>
-	<br />
-	$r.translate('error.time') <strong>$time</strong>
-	<br />
-	$r.translate('error.addinfo') <strong>$detailedmessage</strong>
-	<br />
-	$r.translate('error.businesspath.previous') <strong>#if($!prevbusinesspath) $prevbusinesspath #else $r.translate('error.businesspath.unkown') #end </strong>
-	<br />
-	$r.translate('error.businesspath') <strong>#if($!lastbusinesspath) $lastbusinesspath #else $r.translate('error.businesspath.unkown') #end </strong>
+## ---- END #o_navbar ---
+
+
+## ------ START #o_page -----
+<div id="o_main_wrapper">
+	<div id="o_main_container" class="o_container_offcanvas container-fluid">
 	
-	#if($!knownissuelink)
-	<br />
-	Known Issue: <strong>$knownissuelink</strong>
-	#end
-	
-</div>
+		## BEGIN ERROR AREA	
+		<div id="o_main" class="o_exception">
+			<div class="jumbotron">
+			
+  				<h1>$r.translate("error.header")</h1>
+				<img src="$r.staticLink("images/transparent.gif")" class="o_visual img-rounded pull-right" alt="$r.translateInAttribute("error.header")" />
+  				<p>
+	  				$r.translate('error.message1') <a href="mailto:${supportaddress}" class="o_link_mailto">${supportaddress}</a> $r.translate('error.message2')	
+	  			</p>
+	  			
+	  			<p>
+					$r.translate('error.report.tell')
+				</p>
+	  			
+				<form method="get" name="reportform" action="$r.relLink('')error/" id="ofo_366191">
+					<div class="o_button_group">		
+						#if ($allowBackButton)
+							<a class="btn btn-default" href="javascript:history.back()">
+								<i class="o_icon o_icon_back"></i> 
+								<span>$r.translate("error.back")</span>
+							</a>
+						#end
+						<button type="submit" name="olat_fosm" value="$r.translateInAttribute('send.report')" class="btn btn-default btn-danger">
+							<i class="o_icon o_icon_mail"></i> 
+							<span>$r.translateInAttribute('send.report')</span>
+						</button>				
+						<a class="btn btn-default" href="$r.relLink('')">
+							<i class="o_icon o_icon_login"></i> 
+							<span>Login</span>
+						</a>
+					</div>
 
-<div class="b_button_group">		
-	#if ($allowBackButton)
-		<a class="b_button" href="javascript:history.back()"><span>$r.translate("error.back")</span></a>
-	#end
-	<a class="b_button" href="$r.relLink('')"><span>Login</span></a>
-</div>
+					<input type="hidden" name="username" value="$username" />
+					<input type="hidden" name="fx_errnum" value="${errnum}" />
+					<textarea rows="15" name="textarea" class="form-control">
+$r.translate('error.errnum') ${errnum} 
+$r.translate('error.businesspath.previous') #if($!prevbusinesspath) $prevbusinesspath #else $r.translate('error.businesspath.unkown') #{end}
 
-<div class="b_note ">
-	<h5 class="b_with_small_icon_left b_exception_mailform_icon">$r.translate('error.report')</h5>
-	<p class="b_with_small_icon_left">
-		$r.translate('error.report.tell')
-	</p>
+$r.translate('error.businesspath') #if($!lastbusinesspath) $lastbusinesspath #else $r.translate('error.businesspath.unkown') #{end}
+#if($!knownissuelink)
 
-	<div class="b_with_small_icon_left">
-		<form method="get" name="reportform" action="$r.relLink('')error/" id="ofo_366191">
-			<input type="hidden" name="username" value="$username" />
-			<input type="hidden" name="fx_errnum" value="${errnum}" />
-			<textarea cols="70" rows="15" name="textarea" >$r.translate('error.errnum') ${errnum}&#10;$r.translate('error.businesspath.previous') #if($!prevbusinesspath) $prevbusinesspath #else $r.translate('error.businesspath.unkown') #{end}&#10;$r.translate('error.businesspath') #if($!lastbusinesspath) $lastbusinesspath #else $r.translate('error.businesspath.unkown') #{end}&#10;$r.translate('error.time') ${time}&#10;---------------------------------------------
-			</textarea>
-			<div class="b_button_group">
-				<input type="submit" name="olat_fosm" value="$r.translateInAttribute('send.report')" class="b_button b_button_preferred" />
-				<input type="reset" value="$r.translateInAttribute('cancel')" class="b_button" />
+Known Issue: $knownissuelink
+#end
+
+$r.translate('error.time') ${time}
+---------------------------------------------
+					</textarea>	  							
+				</form>
 			</div>
-		</form>
-	</div>
-</div>
-
-<p />
-<a href="#" onclick="jQuery('#b_stacktrace').slideToggle(300)" class="b_with_small_icon_left b_exception_stacktrace_icon">$r.translate("error.technical")</a>
-<div id="b_stacktrace" #if(!$debug) style="display: none;" #end class="b_floatscrollbox"><div>
-<pre>
-$listenerInfo
-$stacktrace
-</pre>
-</div></div>
-
-
-
-## END ERROR AREA				
+			
+			<div class="o_box">
+				#o_togglebox_start("o_stacktrace" $r.translate("error.technical"))
+				<div class="o_copy_code">
+					$listenerInfo
+					$stacktrace
 				</div>
+				#o_togglebox_end()
 			</div>
-			## IE column clearing
-			<div id="b_ie_clearing">&nbsp;</div>
+			
 		</div>
+		## END ERROR AREA				
+		
+		<a id="o_toplink" href="#o_top" onclick="o_scrollToElement('#o_top');" title="$r.translateInAttribute("top.alt")">
+			<i class="o_icon o_icon_top"></i> 
+			$r.translate("top")
+		</a>	
 	</div>
-	<a id="b_toplink" href="#b_top" title="$r.translateInAttribute("top.alt")">$r.translate("top")</a>	
-	
-</div><!--  end b_page -->
-	<div id="b_footer" class="b_clearfix">
-			<div class="b_floatbox"></div>
-	</div><!--  end footer -->
-	</div><!--  end page_margins -->
+## END #o_main -----
+
+## ----- START footer ----------
+<div id="o_footer_wrapper">
+	<div id="o_footer_container" class="o_container_offcanvas container-fluid">
+	</div>
+</div>
+## ---- END footer ---
+
 </body>

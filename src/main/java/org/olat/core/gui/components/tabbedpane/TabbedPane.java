@@ -72,6 +72,7 @@ public class TabbedPane extends Container implements Activateable2 {
 	public TabbedPane(String name, Locale locale) {
 		super(name);
 		compTrans = Util.createPackageTranslator(this.getClass(), locale);		
+		setDomReplacementWrapperRequired(false);// we provide our own DOM replacement ID
 	}
 
 	/**
@@ -177,7 +178,7 @@ public class TabbedPane extends Container implements Activateable2 {
 	 * @return
 	 */
 	protected Component getTabAt(int position) {
-		return (Component) tabbedPanes.get(position);
+		return tabbedPanes.get(position);
 	}
 
 	/**
@@ -185,7 +186,7 @@ public class TabbedPane extends Container implements Activateable2 {
 	 * @return
 	 */
 	protected String getDisplayNameAt(int position) {
-		return (String) displayNames.get(position);
+		return displayNames.get(position);
 	}
 
 	/**
@@ -225,7 +226,7 @@ public class TabbedPane extends Container implements Activateable2 {
 	}
 
 	/**
-	 * @see org.olat.core.gui.components.Container#getExtendedDebugInfo()
+	 * @see org.olat.core.gui.components.Component#getExtendedDebugInfo()
 	 */
 	public String getExtendedDebugInfo() {
 		return "selectedPane:" + selectedPane;

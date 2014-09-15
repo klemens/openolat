@@ -46,8 +46,8 @@ import org.hibernate.LockMode;
 import org.hibernate.Query;
 import org.hibernate.type.Type;
 import org.olat.core.logging.DBRuntimeException;
+import org.olat.core.logging.OLog;
 import org.olat.core.logging.Tracing;
-import org.olat.testutils.codepoints.server.Codepoint;
 /**
  * A <b>DBQueryImpl</b> is a wrapper around a Hibernate Query object.
  * 
@@ -55,6 +55,8 @@ import org.olat.testutils.codepoints.server.Codepoint;
  *
  */
 public class DBQueryImpl implements DBQuery {
+	
+	private static final OLog log = Tracing.createLoggerFor(DBQueryImpl.class);
 
 	private Query query = null;
 
@@ -116,16 +118,15 @@ public class DBQueryImpl implements DBQuery {
 	 * @see org.olat.core.commons.persistence.DBQuery#list()
 	 */
 	public List list() {
-		Codepoint.codepoint(getClass(), "list-entry");
 		final long startTime = System.currentTimeMillis();
 		try{
-			boolean doLog = Tracing.isDebugEnabled(DBQueryImpl.class);
+			boolean doLog = log.isDebug();
 			long start = 0;
 			if (doLog) start = System.currentTimeMillis();
 			List li = query.list();
 			if (doLog) {
 				long time = (System.currentTimeMillis() - start);
-				Tracing.logDebug("list dbquery (time "+time+") query "+getQueryString(), DBQueryImpl.class);
+				log.debug("list dbquery (time "+time+") query "+getQueryString());
 			}
 			String queryString = query.getQueryString().trim();
 			String queryStringToLowerCase = queryString.toLowerCase();
@@ -178,8 +179,6 @@ public class DBQueryImpl implements DBQuery {
 		catch (HibernateException he) {
 			String msg ="Error in list()" ; 
 			throw new DBRuntimeException(msg, he);
-		} finally {
-			Codepoint.codepoint(getClass(), "list-exit", query);
 		}
 	}
 
@@ -226,15 +225,6 @@ public class DBQueryImpl implements DBQuery {
 			throw new DBRuntimeException("Iterate failed. ", e);
 		}
 	}
-
-	/*public ScrollableResults scroll() {
-		try {
-			return query.scroll();
-		}
-		catch (HibernateException e) {
-			throw new DBRuntimeException("Scroll failed. ", e);
-		}
-	}*/
 
 	/**
 	 * @see org.olat.core.commons.persistence.DBQuery#setBigDecimal(int, java.math.BigDecimal)

@@ -35,10 +35,10 @@ import org.olat.core.CoreSpringFactory;
 import org.olat.core.commons.fullWebApp.LayoutMain3ColsController;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.Component;
-import org.olat.core.gui.components.htmlsite.HtmlStaticPageComponent;
 import org.olat.core.gui.components.link.Link;
 import org.olat.core.gui.components.link.LinkFactory;
 import org.olat.core.gui.components.panel.Panel;
+import org.olat.core.gui.components.panel.StackedPanel;
 import org.olat.core.gui.components.velocity.VelocityContainer;
 import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.Event;
@@ -57,11 +57,13 @@ import org.olat.core.logging.activity.ThreadLocalUserActivityLogger;
 import org.olat.core.util.Formatter;
 import org.olat.core.util.StringHelper;
 import org.olat.core.util.UserSession;
+import org.olat.core.util.Util;
 import org.olat.core.util.event.EventBus;
 import org.olat.core.util.event.GenericEventListener;
 import org.olat.core.util.resource.OresHelper;
 import org.olat.core.util.vfs.VFSContainer;
 import org.olat.course.CourseFactory;
+import org.olat.course.DisposedCourseRestartController;
 import org.olat.course.ICourse;
 import org.olat.course.assessment.AssessmentHelper;
 import org.olat.course.assessment.AssessmentManager;
@@ -117,7 +119,7 @@ public class IQRunController extends BasicController implements GenericEventList
 
 	private IFrameDisplayController iFrameCtr;
 
-	private Panel mainPanel;
+	private StackedPanel mainPanel;
 	
 	private boolean assessmentStopped = true; //default: true
 	private EventBus singleUserEventCenter;
@@ -138,7 +140,7 @@ public class IQRunController extends BasicController implements GenericEventList
 	 * @param testCourseNode
 	 */
 	IQRunController(UserCourseEnvironment userCourseEnv, ModuleConfiguration moduleConfiguration, IQSecurityCallback secCallback, UserRequest ureq, WindowControl wControl, IQTESTCourseNode testCourseNode) {
-		super(ureq, wControl);
+		super(ureq, wControl, Util.createPackageTranslator(CourseNode.class, ureq.getLocale()));
 		
 		this.modConfig = moduleConfiguration;
 		this.secCallback = secCallback;
@@ -229,7 +231,7 @@ public class IQRunController extends BasicController implements GenericEventList
 	 * @param selftestCourseNode
 	 */
 	IQRunController(UserCourseEnvironment userCourseEnv, ModuleConfiguration moduleConfiguration, IQSecurityCallback secCallback, UserRequest ureq, WindowControl wControl, IQSELFCourseNode selftestCourseNode) {
-		super(ureq, wControl);
+		super(ureq, wControl, Util.createPackageTranslator(CourseNode.class, ureq.getLocale()));
 		
 		this.modConfig = moduleConfiguration;
 		this.secCallback = secCallback;
@@ -270,7 +272,7 @@ public class IQRunController extends BasicController implements GenericEventList
 	 * @param surveyCourseNode
 	 */
 	IQRunController(UserCourseEnvironment userCourseEnv, ModuleConfiguration moduleConfiguration, IQSecurityCallback secCallback, UserRequest ureq, WindowControl wControl, IQSURVCourseNode surveyCourseNode) {
-		super(ureq, wControl);
+		super(ureq, wControl, Util.createPackageTranslator(CourseNode.class, ureq.getLocale()));
 		
 		this.modConfig = moduleConfiguration;
 		this.secCallback = secCallback;
@@ -306,6 +308,7 @@ public class IQRunController extends BasicController implements GenericEventList
 	
 	private void init(UserRequest ureq) {
 		startButton = LinkFactory.createButton("start", myContent, this);
+		startButton.setPrimary(true);
 		// fetch disclaimer file
 		String sDisclaimer = (String)modConfig.get(IQEditController.CONFIG_KEY_DISCLAIMER);
 		if (sDisclaimer != null) {
@@ -319,19 +322,11 @@ public class IQRunController extends BasicController implements GenericEventList
 					showWarning("disclaimer.file.invalid", sDisclaimer);
 				} else {
 					//screenreader do not like iframes, display inline
-					if (getWindowControl().getWindowBackOffice().getWindowManager().isForScreenReader()) {
-						HtmlStaticPageComponent disclaimerComp = new HtmlStaticPageComponent("disc", baseContainer);
-						myContent.put("disc", disclaimerComp);
-						disclaimerComp.setCurrentURI(sDisclaimer);
-						myContent.contextPut("hasDisc", Boolean.TRUE);
-					} else {
-						iFrameCtr = new IFrameDisplayController(ureq, getWindowControl(), baseContainer);
-						listenTo(iFrameCtr);//dispose automatically
-						myContent.put("disc", iFrameCtr.getInitialComponent());
-						iFrameCtr.setCurrentURI(sDisclaimer);
-						myContent.contextPut("hasDisc", Boolean.TRUE);
-					}
-
+					iFrameCtr = new IFrameDisplayController(ureq, getWindowControl(), baseContainer);
+					listenTo(iFrameCtr);//dispose automatically
+					myContent.put("disc", iFrameCtr.getInitialComponent());
+					iFrameCtr.setCurrentURI(sDisclaimer);
+					myContent.contextPut("hasDisc", Boolean.TRUE);
 				}
 			}
 		}
@@ -404,7 +399,7 @@ public class IQRunController extends BasicController implements GenericEventList
 				} else  if (displayController.isReady()) {
 					// in case displayController was unable to initialize, a message was set by displayController
 					// this is the case if no more attempts or security check was unsuccessfull
-					displayContainerController = new LayoutMain3ColsController(ureq, getWindowControl(), null, null, displayController.getInitialComponent(), null);
+					displayContainerController = new LayoutMain3ColsController(ureq, getWindowControl(), displayController);
 					listenTo(displayContainerController); // autodispose
 
 					
@@ -413,12 +408,12 @@ public class IQRunController extends BasicController implements GenericEventList
 					ICourse course = CourseFactory.loadCourse(callingResId);
 					RepositoryEntry courseRepositoryEntry = RepositoryManager.getInstance().lookupRepositoryEntry(course, true);
 					Panel empty = new Panel("empty");//empty panel set as "menu" and "tool"
-					Controller courseCloser = CourseFactory.createDisposedCourseRestartController(ureq, getWindowControl(), courseRepositoryEntry);
-					Controller disposedRestartController = new LayoutMain3ColsController(ureq, getWindowControl(), empty, empty, courseCloser.getInitialComponent(), "disposed course whily in iqRun" + callingResId);
+					Controller courseCloser = new DisposedCourseRestartController(ureq, getWindowControl(), courseRepositoryEntry);
+					Controller disposedRestartController = new LayoutMain3ColsController(ureq, getWindowControl(), empty, courseCloser.getInitialComponent(), "disposed course whily in iqRun" + callingResId);
 					displayContainerController.setDisposedMessageController(disposedRestartController);
 					
-					final Boolean fullWindow = (Boolean)modConfig.getBooleanSafe(IQEditController.CONFIG_FULLWINDOW, true);
-					if(fullWindow.booleanValue()) {
+					final boolean fullWindow = modConfig.getBooleanSafe(IQEditController.CONFIG_FULLWINDOW, true);
+					if(fullWindow) {
 						displayContainerController.setAsFullscreen(ureq);
 					}
 					displayContainerController.activate();
@@ -685,7 +680,6 @@ public class IQRunController extends BasicController implements GenericEventList
 	}
 
 	@Override
-	//fxdiff BAKS-7 Resume function
 	public void activate(UserRequest ureq, List<ContextEntry> entries, StateEntry state) {
 		if(entries == null || entries.isEmpty()) return;
 		
@@ -693,7 +687,7 @@ public class IQRunController extends BasicController implements GenericEventList
 		if("test".equals(ce.getOLATResourceable().getResourceableTypeName())) {
 			Long resourceId = ce.getOLATResourceable().getResourceableId();
 			if(resourceId != null && resourceId.longValue() >= 0) {
-				event(ureq, startButton, Event.CHANGED_EVENT);
+				//event(ureq, startButton, Event.CHANGED_EVENT);
 			}
 		}
 	}

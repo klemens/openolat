@@ -179,10 +179,16 @@ public class XSSFilterTest {
 	}
 	
 	@Test
-	public void test_links(){
-		testsToRun = 2;
+	public void test_link() {
+		testsToRun = 1;
 		t("<a href=\"blibla.html\" alt=\"blub\" target=\"_blank\">new window link</A>", "<a alt=\"blub\" href=\"blibla.html\" target=\"_blank\">new window link</a>");
-		t("<a target=\"_blank\" href=\"http://www.frentix.com\" onclick=\"javascript:alert('hallo');\" title=\"a good link\" class=\"b_link_extern\">a complicated link</a>","<a class=\"b_link_extern\" href=\"http://www.frentix.com\" target=\"_blank\" title=\"a good link\">a complicated link</a>");
+	}
+	
+	@Test
+	public void test_link_complexer(){
+		testsToRun = 1;
+		t("<a class=\"o_icon_link_extern\" target=\"_blank\" href=\"http://www.frentix.com\" onclick=\"javascript:alert('hallo');\" title=\"a good link\">a complicated link</a>",
+				"<a class=\"o_icon_link_extern\" href=\"http://www.frentix.com\" target=\"_blank\" title=\"a good link\">a complicated link</a>");
 	}
 
 	@Test
@@ -229,7 +235,7 @@ public class XSSFilterTest {
 	public void test_tiny_tables(){
 		testsToRun = 2;
 	//tables
-		t("<table border=\"1\" style=\"width: 268px; height: 81px;\" class=\"b_table\">\n<caption>bliblablue</caption>\n<tbody>\n<tr>\n<td>\n<p>adsfadsf</p>\n</td>\n<td>asdf</td>\n</tr>\n<tr>\n<td>asf</td>\n<td>\n<p>asdf</p>\n</td>\n</tr>\n</tbody>\n</table>", "<table border=\"1\" class=\"b_table\" style=\"width: 268.0px;height: 81.0px;\">\n<caption>bliblablue</caption>\n<tbody>\n<tr>\n<td>\n<p>adsfadsf</p>\n</td>\n<td>asdf</td>\n</tr>\n<tr>\n<td>asf</td>\n<td>\n<p>asdf</p>\n</td>\n</tr>\n</tbody>\n</table>");
+		t("<table border=\"1\" style=\"width: 268px; height: 81px;\" class=\"table\">\n<caption>bliblablue</caption>\n<tbody>\n<tr>\n<td>\n<p>adsfadsf</p>\n</td>\n<td>asdf</td>\n</tr>\n<tr>\n<td>asf</td>\n<td>\n<p>asdf</p>\n</td>\n</tr>\n</tbody>\n</table>", "<table border=\"1\" class=\"table\" style=\"width: 268.0px;height: 81.0px;\">\n<caption>bliblablue</caption>\n<tbody>\n<tr>\n<td>\n<p>adsfadsf</p>\n</td>\n<td>asdf</td>\n</tr>\n<tr>\n<td>asf</td>\n<td>\n<p>asdf</p>\n</td>\n</tr>\n</tbody>\n</table>");
 		t("<tr style=\"background-color: rgb(46, 147, 209);\">\n<td style=\"border: 1px solid rgb(240, 68, 14);\">asf</td>\n<td>\n<p>asdf</p>\n</td>\n</tr>","\nasf\n\n<p>asdf</p>\n");
 	}
 	
@@ -248,6 +254,12 @@ public class XSSFilterTest {
 		t("<span title=\"a%20%3C%20b%20%3E%20c%20%3C%20/b%20%3E\">&nbsp;</span>","<span title=\"a%20%3C%20b%20%3E%20c%20%3C%20/b%20%3E\">&nbsp;</span>");
 		// should be saved with entities not with < etc...
 //		t("<span title=\"a>b\">&nbsp;</span>", "<span title=\"a&gt;b\">&nbsp;</span>");
+	}
+	
+	@Test
+	public void test_font_awesome() {
+		// for now i tags must have at least a space to not b removed
+		t("<i class=\"o_icon o_icon_dev\"> </i> ", "<i class=\"o_icon o_icon_dev\"> </i> ");
 	}
 	
 	@Test

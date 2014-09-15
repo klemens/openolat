@@ -34,9 +34,9 @@ import java.util.Set;
 import javax.persistence.EntityManager;
 import javax.persistence.TypedQuery;
 
+import org.olat.basesecurity.Group;
 import org.olat.basesecurity.IdentityImpl;
-import org.olat.basesecurity.SecurityGroup;
-import org.olat.basesecurity.SecurityGroupMembershipImpl;
+import org.olat.basesecurity.model.GroupMembershipImpl;
 import org.olat.core.commons.modules.bc.FolderConfig;
 import org.olat.core.commons.modules.bc.vfs.OlatRootFolderImpl;
 import org.olat.core.commons.persistence.DB;
@@ -53,6 +53,9 @@ import org.olat.course.nodes.cl.model.CheckboxList;
 import org.olat.course.nodes.cl.model.DBCheck;
 import org.olat.course.nodes.cl.model.DBCheckbox;
 import org.olat.course.run.environment.CourseEnvironment;
+import org.olat.group.BusinessGroup;
+import org.olat.modules.vitero.model.GroupRole;
+import org.olat.repository.RepositoryEntry;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -438,7 +441,7 @@ public class CheckboxManagerImpl implements CheckboxManager {
 	}
 
 	@Override
-	public List<AssessmentData> getAssessmentDatas(OLATResourceable ores, String resSubPath, List<SecurityGroup> secGroups) {
+	public List<AssessmentData> getAssessmentDatas(OLATResourceable ores, String resSubPath, RepositoryEntry re, List<BusinessGroup> businessGroups) {
 		StringBuilder sb = new StringBuilder();
 		sb.append("select check from clcheck check")
 		  .append(" inner join fetch check.checkbox box")
@@ -447,9 +450,9 @@ public class CheckboxManagerImpl implements CheckboxManager {
 		if(StringHelper.containsNonWhitespace(resSubPath)) {
 			sb.append(" and box.resSubPath=:resSubPath");
 		}
-		if(secGroups != null && secGroups.size() > 0) {
-			sb.append(" and check.identity.key in ( select secMembership.identity.key from ").append(SecurityGroupMembershipImpl.class.getName()).append(" secMembership ")
-			  .append("   where secMembership.securityGroup in (:secGroups)")
+		if(businessGroups != null && businessGroups.size() > 0) {
+			sb.append(" and check.identity.key in ( select membership.identity.key from ").append(GroupMembershipImpl.class.getName()).append(" membership ")
+			  .append("   where membership.group in (:baseGroups) and membership.role='").append(GroupRole.participant).append("'")
 			  .append(" )");
 		}
 		
@@ -460,9 +463,14 @@ public class CheckboxManagerImpl implements CheckboxManager {
 		if(StringHelper.containsNonWhitespace(resSubPath)) {
 			query.setParameter("resSubPath", resSubPath);
 		}
-		if(secGroups != null && secGroups.size() > 0) {
-			query.setParameter("secGroups", secGroups);
+		if(businessGroups != null && businessGroups.size() > 0) {
+			List<Group> groups = new ArrayList<>(businessGroups.size());
+			for(BusinessGroup businessGroup:businessGroups) {
+				groups.add(businessGroup.getBaseGroup());
+			}
+			query.setParameter("baseGroups", groups);
 		}
+		//TODO group exists student where i'm coach?
 		
 		List<DBCheck> checks = query.getResultList();
 		Map<Long, AssessmentData> identToBox = new HashMap<Long,AssessmentData>();

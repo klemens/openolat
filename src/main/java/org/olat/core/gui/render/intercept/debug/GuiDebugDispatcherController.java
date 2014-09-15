@@ -38,7 +38,7 @@ import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.Component;
 import org.olat.core.gui.components.ComponentRenderer;
 import org.olat.core.gui.components.delegating.DelegatingComponent;
-import org.olat.core.gui.components.panel.Panel;
+import org.olat.core.gui.components.panel.StackedPanel;
 import org.olat.core.gui.components.velocity.VelocityContainer;
 import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.Event;
@@ -73,7 +73,7 @@ public class GuiDebugDispatcherController extends BasicController implements Int
 	private DelegatingComponent dc;
 	private Map<String, Component> idToComponent = new HashMap<String, Component>();
 	private PlainTextEditorController vcEditorController;
-	private Panel mainP;
+	private StackedPanel mainP;
 
 	/**
 	 * @param ureq
@@ -187,35 +187,13 @@ public class GuiDebugDispatcherController extends BasicController implements Int
 					String cnameShort = cname.substring(cname.lastIndexOf('.') + 1);
 					// header before component
 
-					sb.append("<div class=\"oocgrid_d1\">");
-					sb
-							.append(""
-									+ "<div>"
-									+ "  <span id=\"o_guidebugst"
-									+ did
-									+ "\" onmouseover=\"o_debu_show(this.parentNode.parentNode, jQuery('#o_guidebugtt"
-									+ did
-									+ "'))\" "
-									+
-									// " onmouseout=\"o_debu_hide(this.parentNode.parentNode,
-									// $('o_guidebugtt"+did+"'))\" "+
-									">"
-									+ source.getComponentName()
-									+ " ("
-									+ cnameShort
-									+ ")"
-									+ "&nbsp;&nbsp;&nbsp;"
-									+ "</span>"
-									+ "</div>"
-									+ "<div style=\"position:relative\">"
-									+ "	<div id=\"o_guidebugtt"
-									+ did
-									+ "\" style=\"position:absolute; top:0px; left:24px; height:auto; width:auto; display:none; padding:5px; border: 1px solid black; margin: 0px; z-index:999; font-size:11px; background-color: #BBF;\" "+
-									// does not work as it should?  " onmouseout=\"o_debu_hide($('o_guidebugst"+did+"'),$('o_guidebugtt"+did+"'))\" "+
-									">");
-
-					sb.append("Info: <b>").append(source.getComponentName()).append("</b> ("+cnameShort+") id:"+
-							String.valueOf(source.getDispatchID()+"&nbsp; level:"+lev));
+					sb.append("<div class='o_dev_w'>");
+					sb.append("<div class='o_dev_h'><span id='o_guidebugst").append(did).append("' onmouseover=\"o_debu_show(this.parentNode.parentNode, jQuery('#o_guidebugtt").append(did).append("'))\">");
+					sb.append(source.getComponentName()).append(" (").append(cnameShort).append(")");
+					sb.append("</span></div>");
+					sb.append("<div class='o_dev_c'><div id='o_guidebugtt").append(did).append("' class='o_dev_i'>");
+					sb.append("Info: <b>").append(source.getComponentName()).append("</b> ("+cnameShort+") id:");
+					sb.append(String.valueOf(source.getDispatchID())).append("&nbsp; level:").append(lev);
 
 					// offer velocity editor if appropriate.
 					// todo: let component provide component-specific editors
@@ -261,7 +239,7 @@ public class GuiDebugDispatcherController extends BasicController implements Int
 					sb.append("</div>");
 							
 					// add original component
-					sb.append(sbOrig);
+					sb.append(sbOrig); 
 					sb.append("</div></div>");
 				} else {
 					// e.g. when the render process take place before the delegating

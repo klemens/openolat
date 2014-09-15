@@ -85,7 +85,7 @@ class ToolControllerImpl extends DefaultController implements ToolController {
 	 */
 	public void addHeader(String text, String ident) {
 		// use default value
-		entries.add(new ToolEntry(ident, text, "b_toolbox_head_default"));
+		entries.add(new ToolEntry(ident, text, "o_toolbox_head_default"));
 	}
 
 	/**
@@ -124,7 +124,7 @@ class ToolControllerImpl extends DefaultController implements ToolController {
 			myLinks.add(linkCmp);
 			addComponent(linkCmp, ident);
 		}
-		else if (cssClass.equals("b_toolbox_close")){
+		else if (cssClass.equals("o_toolbox_close")){
 			Link linkCmp = LinkFactory.createCustomLink(linkCmpName, action, text, Link.TOOLENTRY_CLOSE + Link.NONTRANSLATED, null, this);
 			if(markAsDownloadLink){
 				LinkFactory.markDownloadLink(linkCmp);
@@ -195,7 +195,7 @@ class ToolControllerImpl extends DefaultController implements ToolController {
 
 	private int getToolEntryPosition(String ident) {
 		for (int i = 0; i < entries.size(); i++) {
-			ToolEntry entry = (ToolEntry) entries.get(i);
+			ToolEntry entry = entries.get(i);
 			String entryIdent = entry.getIdent();
 			if (entryIdent != null && entryIdent.equals(ident)) return i;
 		}
@@ -214,7 +214,7 @@ class ToolControllerImpl extends DefaultController implements ToolController {
 			boolean isInBox = false;
 			int entCnt = entries.size();
 			for (int i = 0; i < entCnt; i++) {
-				ToolEntry entry = (ToolEntry) entries.get(i);
+				ToolEntry entry = entries.get(i);
 				String entryAction = entry.getAction();
 				if (entryAction != null && entryAction.equals(action)) {
 					isInBox = true;
@@ -243,7 +243,7 @@ class ToolControllerImpl extends DefaultController implements ToolController {
 	public void setEnabled(String ident, boolean enabled) {
 		int pos = getToolEntryPosition(ident);
 		if (pos == -1) throw new AssertException("Trying to enable/disable a ToolEntry that does not exist.");
-		ToolEntry entry = (ToolEntry) entries.get(pos);
+		ToolEntry entry = entries.get(pos);
 		boolean wasEnabled = entry.isEnabled();
 		entry.setEnabled(enabled);
 

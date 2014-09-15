@@ -26,23 +26,44 @@
 package org.olat.repository;
 
 import java.util.Date;
+import java.util.Set;
 
+import javax.persistence.CascadeType;
+import javax.persistence.Column;
+import javax.persistence.Entity;
+import javax.persistence.FetchType;
+import javax.persistence.GeneratedValue;
+import javax.persistence.Id;
+import javax.persistence.JoinColumn;
+import javax.persistence.ManyToOne;
+import javax.persistence.OneToMany;
+import javax.persistence.Table;
+import javax.persistence.Temporal;
+import javax.persistence.TemporalType;
+import javax.persistence.Version;
+
+import org.hibernate.annotations.GenericGenerator;
 import org.olat.basesecurity.IdentityImpl;
-import org.olat.basesecurity.SecurityGroup;
-import org.olat.core.commons.persistence.PersistentObject;
+import org.olat.core.id.CreateInfo;
 import org.olat.core.id.ModifiedInfo;
 import org.olat.core.id.OLATResourceable;
+import org.olat.core.id.Persistable;
 import org.olat.core.logging.AssertException;
 import org.olat.core.util.CodeHelper;
 import org.olat.core.util.Formatter;
 import org.olat.core.util.resource.OresHelper;
 import org.olat.repository.model.RepositoryEntryLifecycle;
+import org.olat.repository.model.RepositoryEntryStatistics;
+import org.olat.repository.model.RepositoryEntryToGroupRelation;
 import org.olat.resource.OLATResource;
+import org.olat.resource.OLATResourceImpl;
 
 /**
  *Represents a repository entry.
  */
-public class RepositoryEntry extends PersistentObject implements ModifiedInfo, OLATResourceable {
+@Entity(name="repositoryentry")
+@Table(name="o_repositoryentry")
+public class RepositoryEntry implements CreateInfo, Persistable , RepositoryEntryRef, ModifiedInfo, OLATResourceable {
 
 	private static final long serialVersionUID = 5319576295875289054L;
 	// IMPORTANT: Keep relation ACC_OWNERS < ACC_OWNERS_AUTHORS < ACC_USERS < ACC_USERS_GUESTS
@@ -63,52 +84,107 @@ public class RepositoryEntry extends PersistentObject implements ModifiedInfo, O
 	 */
 	public static final int ACC_USERS_GUESTS = 4; // no limits
 	
-	//fxdiff VCRP-1,2: access control of resources
 	public static final String MEMBERS_ONLY =  "membersonly";
 	
-	private String softkey; // mandatory
-	private OLATResource olatResource; // mandatory
-	private SecurityGroup ownerGroup; // mandatory
-	//fxdiff VCRP-1,2: access control of resources
-	private SecurityGroup tutorGroup;
-	private SecurityGroup participantGroup;
-	private String resourcename; // mandatory
-	private String displayname; // mandatory
-	private String description; // mandatory
-	private String initialAuthor; // mandatory // login of the author of the first version
+	@Id
+	@GeneratedValue(generator = "system-uuid")
+	@GenericGenerator(name = "system-uuid", strategy = "hilo")
+	@Column(name="repositoryentry_id", nullable=false, unique=true, insertable=true, updatable=false)
+	private Long key;
+	@Version
+	private int version = 0;
+
+	@Temporal(TemporalType.TIMESTAMP)
+	@Column(name="creationdate", nullable=false, insertable=true, updatable=false)
+	private Date creationDate;
+	@Temporal(TemporalType.TIMESTAMP)
+	@Column(name="lastmodified", nullable=false, insertable=true, updatable=true)
+	private Date lastModified;
+
+	@Column(name="softkey", nullable=false, insertable=true, updatable=true)
+	private String softkey;
 	
+	@ManyToOne(targetEntity=OLATResourceImpl.class,fetch=FetchType.LAZY, optional=false)
+	@JoinColumn(name="fk_olatresource", nullable=false, insertable=true, updatable=false)
+	private OLATResource olatResource;
+	
+	@OneToMany(targetEntity=RepositoryEntryToGroupRelation.class, fetch=FetchType.LAZY,
+			orphanRemoval=true, cascade={CascadeType.PERSIST, CascadeType.REMOVE})
+	@JoinColumn(name="fk_entry_id")
+	private Set<RepositoryEntryToGroupRelation> groups;
+	
+	@Column(name="resourcename", nullable=false, insertable=true, updatable=true)
+	private String resourcename; // mandatory
+	@Column(name="displayname", nullable=false, insertable=true, updatable=true)
+	private String displayname; // mandatory
+	@Column(name="description", nullable=true, insertable=true, updatable=true)
+	private String description; // mandatory
+	@Column(name="initialauthor", nullable=false, insertable=true, updatable=true)
+	private String initialAuthor; // mandatory // login of the author of the first version
+	@Column(name="authors", nullable=true, insertable=true, updatable=true)
+	private String authors;
+
+	@Column(name="mainlanguage", nullable=true, insertable=true, updatable=true)
+	private String mainLanguage;
+	@Column(name="objectives", nullable=true, insertable=true, updatable=true)
+	private String objectives;
+	@Column(name="requirements", nullable=true, insertable=true, updatable=true)
+	private String requirements;
+	@Column(name="credits", nullable=true, insertable=true, updatable=true)
+	private String credits;
+	@Column(name="expenditureofwork", nullable=true, insertable=true, updatable=true)
+	private String expenditureOfWork;
+	
+	@Column(name="external_id", nullable=true, insertable=true, updatable=true)
 	private String externalId;
+	@Column(name="external_ref", nullable=true, insertable=true, updatable=true)
 	private String externalRef;
+	@Column(name="managed_flags", nullable=true, insertable=true, updatable=true)
 	private String managedFlagsString;
+	
+	@ManyToOne(targetEntity=RepositoryEntryLifecycle.class,fetch=FetchType.LAZY, optional=true)
+	@JoinColumn(name="fk_lifecycle", nullable=true, insertable=true, updatable=true)
 	private RepositoryEntryLifecycle lifecycle;
 	
+	@ManyToOne(targetEntity=RepositoryEntryStatistics.class,fetch=FetchType.LAZY, optional=false, cascade={CascadeType.PERSIST, CascadeType.REMOVE})
+	@JoinColumn(name="fk_stats", nullable=false, insertable=true, updatable=false)
+	private RepositoryEntryStatistics statistics;
+
+	@Column(name="accesscode", nullable=false, insertable=true, updatable=true)
 	private int access;
+	@Column(name="cancopy", nullable=false, insertable=true, updatable=true)
 	private boolean canCopy;
+	@Column(name="canreference", nullable=false, insertable=true, updatable=true)
 	private boolean canReference;
+	@Column(name="canlaunch", nullable=false, insertable=true, updatable=true)
 	private boolean canLaunch;
+	@Column(name="candownload", nullable=false, insertable=true, updatable=true)
 	private boolean canDownload;
-	private boolean membersOnly;//fxdiff VCRP-1,2: access control of resources
+	@Column(name="membersonly", nullable=false, insertable=true, updatable=true)
+	private boolean membersOnly;
+	@Column(name="statuscode", nullable=false, insertable=true, updatable=true)
 	private int statusCode;
-	//private List<MetaDataElement> metaDataElements;
-	private long launchCounter;
-	private long downloadCounter;
-	private Date lastUsage;
-	private int version;
-	private Date lastModified;
-	
-	@Override
-	public String toString() {
-		return super.toString()+" [resourcename="+resourcename+", version="+version+", description="+description+"]";
-	}
+
 	
 	/**
 	 * Default constructor.
 	 */
-	RepositoryEntry() {
+	public RepositoryEntry() {
 		softkey = CodeHelper.getGlobalForeverUniqueID();
-		//metaDataElements = new ArrayList<MetaDataElement>();
 		access = ACC_OWNERS;
 	}
+
+	@Override
+	public Long getKey() {
+		return key;
+	}
+
+	@Override
+	public Date getCreationDate() {
+		return creationDate;
+	}
+
+
 
 	/**
 	 * @return The softkey associated with this repository entry.
@@ -122,8 +198,9 @@ public class RepositoryEntry extends PersistentObject implements ModifiedInfo, O
 	 * @param softkey
 	 */
 	public void setSoftkey(String softkey) {
-		if (softkey.length() > 30)
+		if (softkey.length() > 36) {
 			throw new AssertException("Trying to set a softkey which is too long...");
+		}
 		this.softkey = softkey;
 	}
 	
@@ -141,6 +218,46 @@ public class RepositoryEntry extends PersistentObject implements ModifiedInfo, O
 		this.description = description;
 	}
 	
+	public String getMainLanguage() {
+		return mainLanguage;
+	}
+
+	public void setMainLanguage(String mainLanguage) {
+		this.mainLanguage = mainLanguage;
+	}
+
+	public String getObjectives() {
+		return objectives;
+	}
+
+	public void setObjectives(String objectives) {
+		this.objectives = objectives;
+	}
+
+	public String getRequirements() {
+		return requirements;
+	}
+
+	public void setRequirements(String requirements) {
+		this.requirements = requirements;
+	}
+
+	public String getCredits() {
+		return credits;
+	}
+
+	public void setCredits(String credits) {
+		this.credits = credits;
+	}
+
+	public String getExpenditureOfWork() {
+		return expenditureOfWork;
+	}
+
+	public void setExpenditureOfWork(String expenditureOfWork) {
+		this.expenditureOfWork = expenditureOfWork;
+	}
+
 	/**
 	 * @return description as HTML snippet
 	 */
@@ -164,18 +281,15 @@ public class RepositoryEntry extends PersistentObject implements ModifiedInfo, O
 			throw new AssertException("initialAuthor is limited to "+IdentityImpl.NAME_MAXLENGTH+" characters.");
 		this.initialAuthor = initialAuthor;
 	}
-	/**
-	 * @return Returns the metaDataElements.
-	 *//*
-	public List<MetaDataElement> getMetaDataElements() {
-		return metaDataElements;
-	}*/
-	/**
-	 * @param metaDataElements The metaDataElements to set.
-	 *//*
-	public void setMetaDataElements(List<MetaDataElement> metaDataElements) {
-		this.metaDataElements = metaDataElements;
-	}*/
+
+	public String getAuthors() {
+		return authors;
+	}
+
+	public void setAuthors(String authors) {
+		this.authors = authors;
+	}
+
 	/**
 	 * @return Returns the statusCode.
 	 */
@@ -216,52 +330,13 @@ public class RepositoryEntry extends PersistentObject implements ModifiedInfo, O
 	public void setOlatResource(OLATResource olatResource) {
 		this.olatResource = olatResource;
 	}
-	
-	/**
-	 * @return Grou of owners of this repo entry.
-	 */
-	public SecurityGroup getOwnerGroup() {
-		return ownerGroup;
-	}
-	
-	/**
-	 * Set the group of owners of this repo entry.
-	 * @param ownerGroup
-	 */
-	public void setOwnerGroup(SecurityGroup ownerGroup) {
-		this.ownerGroup = ownerGroup;
-	}
-	
-	/**
-	 * @return The group for tutors
-	 */
-	//fxdiff VCRP-1,2: access control of resources
-	public SecurityGroup getTutorGroup() {
-		return tutorGroup;
+
+	public Set<RepositoryEntryToGroupRelation> getGroups() {
+		return groups;
 	}
 
-	/**
-	 * Set the group for tutors
-	 * @param tutorGroup
-	 */
-	public void setTutorGroup(SecurityGroup tutorGroup) {
-		this.tutorGroup = tutorGroup;
-	}
-
-	/**
-	 * @return The group of participants
-	 */
-	//fxdiff VCRP-1,2: access control of resources
-	public SecurityGroup getParticipantGroup() {
-		return participantGroup;
-	}
-
-	/**
-	 * Set the group of participants
-	 * @param participantGroup
-	 */
-	public void setParticipantGroup(SecurityGroup participantGroup) {
-		this.participantGroup = participantGroup;
+	public void setGroups(Set<RepositoryEntryToGroupRelation> groups) {
+		this.groups = groups;
 	}
 
 	/**
@@ -350,34 +425,6 @@ public class RepositoryEntry extends PersistentObject implements ModifiedInfo, O
 	public void setMembersOnly(boolean membersOnly) {
 		this.membersOnly = membersOnly;
 	}
-
-	/**
-	 * @return Download count for this repo entry.
-	 */
-	public long getDownloadCounter() {
-		return downloadCounter;
-	}
-
-	/**
-	 * @return Launch count for this repo entry.
-	 */
-	public long getLaunchCounter() {
-		return launchCounter;
-	}
-
-	/**
-	 * @param l
-	 */
-	public void setDownloadCounter(long l) {
-		downloadCounter = l;
-	}
-
-	/**
-	 * @param l
-	 */
-	public void setLaunchCounter(long l) {
-		launchCounter = l;
-	}
 	
 	/**
 	 * @return Returns the displayname.
@@ -431,6 +478,14 @@ public class RepositoryEntry extends PersistentObject implements ModifiedInfo, O
 		this.lifecycle = lifecycle;
 	}
 
+	public RepositoryEntryStatistics getStatistics() {
+		return statistics;
+	}
+
+	public void setStatistics(RepositoryEntryStatistics statistics) {
+		this.statistics = statistics;
+	}
+
 	/**
 	 * @see org.olat.core.id.OLATResourceablegetResourceableTypeName()
 	 */
@@ -441,20 +496,8 @@ public class RepositoryEntry extends PersistentObject implements ModifiedInfo, O
 	/**
 	 * @see org.olat.core.id.OLATResourceablegetResourceableId()
 	 */
-	public Long getResourceableId() { return getKey(); }
-
-	/**
-	 * @return Returns the lastUsage.
-	 */
-	public Date getLastUsage() {
-		return lastUsage;
-	}
-
-	/**
-	 * @param lastUsage The lastUsage to set.
-	 */
-	public void setLastUsage(Date lastUsage) {
-		this.lastUsage = lastUsage;
+	public Long getResourceableId() {
+		return getKey();
 	}
 
 	public int getVersion() {
@@ -481,6 +524,10 @@ public class RepositoryEntry extends PersistentObject implements ModifiedInfo, O
 		this.lastModified = date;
 	}
 	
+	public void setCreationDate(Date date) {
+		this.creationDate = date;
+	}
+	
 	
 	@Override
 	public int hashCode() {
@@ -497,5 +544,15 @@ public class RepositoryEntry extends PersistentObject implements ModifiedInfo, O
 			return getKey() != null && getKey().equals(re.getKey());
 		}
 		return false;
+	}
+	
+	@Override
+	public boolean equalsByPersistableKey(Persistable persistable) {
+		return equals(persistable);
+	}
+
+	@Override
+	public String toString() {
+		return super.toString()+" [resourcename="+resourcename+", version="+version+", description="+description+"]";
 	}
 }

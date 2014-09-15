@@ -35,7 +35,6 @@ import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.Component;
 import org.olat.core.gui.components.link.Link;
 import org.olat.core.gui.components.link.LinkFactory;
-import org.olat.core.gui.components.panel.Panel;
 import org.olat.core.gui.components.velocity.VelocityContainer;
 import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.Event;
@@ -60,7 +59,6 @@ public class IframePortletRunController extends BasicController {
 	
 	private OLog log = Tracing.createLoggerFor(this.getClass());
 	
-	private Panel panel;
 	private VelocityContainer iframeVC;
 	private Link editLink;
 	private Controller editorCtr;
@@ -68,40 +66,40 @@ public class IframePortletRunController extends BasicController {
 	private VFSContainer rootDir;
 	private CloseableModalController cmc;
 
-	protected IframePortletRunController(UserRequest ureq, WindowControl wControl, Map configuration) {
+	protected IframePortletRunController(UserRequest ureq, WindowControl wControl, Map<String,String> configuration) {
 		super(ureq, wControl);
 				
-		this.iframeVC = this.createVelocityContainer("iframePortlet");
+		iframeVC = createVelocityContainer("iframePortlet");
 	
 		// uri is mandatory
-		String uri = (String)configuration.get("uri");
+		String uri = configuration.get("uri");
 		/*
 		 * temp fix for wrong config
 		 */
-		if(uri != null && uri.startsWith("$")){
+		if(uri != null && uri.startsWith("$")) {
 			uri = null;
 			iframeVC.contextPut("ENABLED", Boolean.FALSE);
-		}else{
+		} else {
 			iframeVC.contextPut("ENABLED", Boolean.TRUE);
 		}
 		if (uri == null) log.warn("Missing argument 'uri' in iframeportlet configuration"); 
-		this.iframeVC.contextPut("uri", uri);
+		iframeVC.contextPut("uri", uri);
 	
 		// height of iframe is mandatory
-		String height = (String)configuration.get("height");
+		String height = configuration.get("height");
 		if (height == null) log.warn("Missing argument 'height' in iframeportlet configuration"); 
-		this.iframeVC.contextPut("height", height);
+		iframeVC.contextPut("height", height);
 
 		// target attribute of iframe, should be unique on page
-		String id = (String)configuration.get("id");
-		this.iframeVC.contextPut("name", id);
+		String id = configuration.get("id");
+		iframeVC.contextPut("name", id);
 
 		// edit Link only for administrators
 		if (ureq.getUserSession().getRoles().isOLATAdmin()) {
-			String editFilePath = (String)configuration.get("editFilePath");
+			String editFilePath = configuration.get("editFilePath");
 			boolean editLinkEnabled = false;
 			if (StringHelper.containsNonWhitespace(editFilePath)) {
-				editLinkEnabled = initEditButton(ureq, editFilePath);
+				editLinkEnabled = initEditButton(editFilePath);
 			} else {
 				// ignore missing argument
 				// editLinkEnabled false in this case
@@ -111,7 +109,7 @@ public class IframePortletRunController extends BasicController {
 			editLink.setEnabled(editLinkEnabled);//edit link always there, but disabled if something went wrong
 		}		
 		
-		panel = this.putInitialPanel(this.iframeVC);
+		putInitialPanel(iframeVC);
 	}
 	
 	/**
@@ -121,7 +119,7 @@ public class IframePortletRunController extends BasicController {
 	 * @param ureq
 	 * @param editFilePath
 	 */
-	public boolean initEditButton(UserRequest ureq, String editFilePath) {
+	private boolean initEditButton(String editFilePath) {
 		if(editFilePath == null){
 			log.warn("initEditButton: editFilePath was null");
 			return false;
@@ -166,6 +164,7 @@ public class IframePortletRunController extends BasicController {
 	/**
 	 * @see org.olat.core.gui.control.DefaultController#event(org.olat.core.gui.UserRequest, org.olat.core.gui.components.Component, org.olat.core.gui.control.Event)
 	 */
+	@Override
 	public void event(UserRequest ureq, Component source, Event event) {
 		if (source == editLink) {
 			// start up editor controller as modal dialog
@@ -179,7 +178,7 @@ public class IframePortletRunController extends BasicController {
 		}
 	}
 
-	
+	@Override
 	public void event(UserRequest ureq, Controller source, Event event) {
 		if (source == editorCtr) {
 			if (event == Event.CANCELLED_EVENT || event == Event.DONE_EVENT) {
@@ -194,8 +193,8 @@ public class IframePortletRunController extends BasicController {
 	/**
 	 * @see org.olat.core.gui.control.DefaultController#doDispose(boolean)
 	 */
+	@Override
 	protected void doDispose() {
     // editorCtr is registerd with listenTo and gets disposed in BasicController		
 	}
-
 }

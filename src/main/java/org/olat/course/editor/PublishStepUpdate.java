@@ -19,6 +19,7 @@
  */
 package org.olat.course.editor;
 
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.Iterator;
 import java.util.List;
@@ -36,13 +37,9 @@ import org.olat.core.gui.control.generic.wizard.StepFormBasicController;
 import org.olat.core.gui.control.generic.wizard.StepFormController;
 import org.olat.core.gui.control.generic.wizard.StepsEvent;
 import org.olat.core.gui.control.generic.wizard.StepsRunContext;
-import org.olat.course.ICourse;
 import org.olat.course.nodes.CourseNode;
 import org.olat.course.nodes.CourseNodeConfiguration;
 import org.olat.course.nodes.CourseNodeFactory;
-import org.olat.course.run.environment.CourseEnvironment;
-
-import edu.emory.mathcs.backport.java.util.Collections;
 
 /**
  * 
@@ -53,14 +50,10 @@ import edu.emory.mathcs.backport.java.util.Collections;
 class PublishStepUpdate extends BasicStep {
 	
 	private final PrevNextFinishConfig prevNextConfig;
-	private final CourseEnvironment courseEnv;
-	private final CourseNode rootNode;
 	
-	public PublishStepUpdate(UserRequest ureq, ICourse course, boolean hasPublishableChanges) {
+	public PublishStepUpdate(UserRequest ureq, boolean hasPublishableChanges) {
 		super(ureq);
 
-		this.courseEnv = null;//course.getCourseEnvironment();
-		this.rootNode = null;//course.getRunStructure().getRootNode();
 		setI18nTitleAndDescr("publish.step.update.title", null);
 		
 		if(hasPublishableChanges) {
@@ -79,15 +72,14 @@ class PublishStepUpdate extends BasicStep {
 
 	@Override
 	public StepFormController getStepController(UserRequest ureq, WindowControl wControl, StepsRunContext runContext, Form form) {
-		return new PublishStepUpdateForm(ureq, wControl, form, runContext, courseEnv, rootNode);
+		return new PublishStepUpdateForm(ureq, wControl, form, runContext);
 	}
 	
 	static class PublishStepUpdateForm extends StepFormBasicController {
 		
 		private final CourseNodeFactory courseNodeFactory;
 		
-		public PublishStepUpdateForm(UserRequest ureq, WindowControl wControl, Form rootForm, StepsRunContext runContext,
-				CourseEnvironment courseEnv, CourseNode rootNode) {
+		public PublishStepUpdateForm(UserRequest ureq, WindowControl wControl, Form rootForm, StepsRunContext runContext) {
 			super(ureq, wControl, rootForm, runContext, LAYOUT_CUSTOM, "publish_update");
 			
 			courseNodeFactory = CoreSpringFactory.getImpl(CourseNodeFactory.class);
@@ -116,7 +108,7 @@ class PublishStepUpdate extends BasicStep {
 					CourseNodeConfiguration config = courseNodeFactory.getCourseNodeConfiguration(courseNode.getType());	
 					String cssClass = config.getIconCSSClass();
 					String nodeName = courseNode.getShortName();
-					notes.append("<div class='b_with_small_icon_left ").append(cssClass).append("'><b>").append(nodeName).append("</b></div><ul>");
+					notes.append("<i class='o_icon o_icon-fw ").append(cssClass).append("'> </i> <b>").append(nodeName).append("</b><ul>");
 					for ( ;currentDesc != null && currentDesc.getDescriptionForUnit().equals(nodeId); currentDesc = (it.hasNext() ? it.next() : null)) {
 						notes.append("<li>").append(currentDesc.getShortDescription(ureq.getLocale())).append("</li>");
 					}

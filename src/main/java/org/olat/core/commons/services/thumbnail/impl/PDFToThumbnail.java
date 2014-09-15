@@ -23,11 +23,11 @@ package org.olat.core.commons.services.thumbnail.impl;
 import java.util.Collections;
 import java.util.List;
 
+import org.olat.core.commons.services.image.ImageService;
+import org.olat.core.commons.services.image.Size;
 import org.olat.core.commons.services.thumbnail.CannotGenerateThumbnailException;
 import org.olat.core.commons.services.thumbnail.FinalSize;
 import org.olat.core.commons.services.thumbnail.ThumbnailSPI;
-import org.olat.core.util.ImageHelper;
-import org.olat.core.util.image.Size;
 import org.olat.core.util.vfs.VFSLeaf;
 
 /**
@@ -43,13 +43,13 @@ public class PDFToThumbnail implements ThumbnailSPI {
 
 	private List<String> extensions = Collections.singletonList("pdf");
 	
-	private ImageHelper imageHelper;
+	private ImageService imageHelper;
 	
 	/**
 	 * [used by Spring]
 	 * @param imageHelper
 	 */
-	public void setImageHelper(ImageHelper imageHelper) {
+	public void setImageHelper(ImageService imageHelper) {
 		this.imageHelper = imageHelper;
 	}
 
@@ -59,8 +59,9 @@ public class PDFToThumbnail implements ThumbnailSPI {
 	}
 
 	@Override
-	public FinalSize generateThumbnail(VFSLeaf pdfFile, VFSLeaf thumbnailFile, int maxWidth, int maxHeight) throws CannotGenerateThumbnailException {
-		Size size = imageHelper.thumbnailPDF(pdfFile, thumbnailFile, maxWidth, maxHeight);
+	public FinalSize generateThumbnail(VFSLeaf pdfFile, VFSLeaf thumbnailFile, int maxWidth, int maxHeight, boolean fill)
+			throws CannotGenerateThumbnailException {
+		Size size = imageHelper.thumbnailPDF(pdfFile, thumbnailFile, maxWidth, maxHeight, fill);
 		if(size != null) {
 			return new FinalSize(size.getWidth(), size.getHeight());
 		}

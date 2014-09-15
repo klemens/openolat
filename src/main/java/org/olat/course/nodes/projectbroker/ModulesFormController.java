@@ -66,24 +66,24 @@ public class ModulesFormController extends FormBasicController {
 		
 		//create form elements
 		final Boolean dropboxEnabled = (Boolean)config.get(ProjectBrokerCourseNode.CONF_DROPBOX_ENABLED);
-		selectionDropbox = uifactory.addCheckboxesVertical("dropbox", "form.modules.dropbox", formLayout, keys, values, null, 1);
+		selectionDropbox = uifactory.addCheckboxesHorizontal("dropbox", "form.modules.dropbox", formLayout, keys, values);
 		selectionDropbox.select(keys[0], dropboxEnabled);
-		selectionDropbox.addActionListener(this, FormEvent.ONCLICK);
+		selectionDropbox.addActionListener(FormEvent.ONCLICK);
 
 // TODO:cg 28.01.2010 no assessment-tool in V1.0   		
 //		final Boolean scoringEnabled = (Boolean)config.get(ProjectBrokerCourseNode.CONF_SCORING_ENABLED);
 //		selectionScoring = uifactory.addCheckboxesVertical("scoring", "form.modules.scoring", formLayout, keys, values, null, 1);
 //		selectionScoring.select(keys[0], scoringEnabled);
-//		selectionScoring.addActionListener(this, FormEvent.ONCLICK);
+//		selectionScoring.addActionListener(FormEvent.ONCLICK);
 //		selectionScoring.setVisible(false);// not available yet
 
 		Boolean returnboxEnabled = (Boolean)config.get(ProjectBrokerCourseNode.CONF_RETURNBOX_ENABLED);
 		if (returnboxEnabled == null) {
 			returnboxEnabled = Boolean.TRUE;
 		}
-		selectionReturnbox = uifactory.addCheckboxesVertical("returnbox", "form.modules.returnbox", formLayout, keys, values, null, 1);
+		selectionReturnbox = uifactory.addCheckboxesHorizontal("returnbox", "form.modules.returnbox", formLayout, keys, values);
 		selectionReturnbox.select(keys[0], returnboxEnabled);
-		selectionReturnbox.addActionListener(this, FormEvent.ONCLICK);
+		selectionReturnbox.addActionListener(FormEvent.ONCLICK);
 	}
 	
 	@Override

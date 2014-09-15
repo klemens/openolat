@@ -29,7 +29,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 
-import org.olat.core.CoreSpringFactory;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.form.flexible.FormItem;
 import org.olat.core.gui.components.form.flexible.FormItemContainer;
@@ -46,12 +45,13 @@ import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.Event;
 import org.olat.core.gui.control.WindowControl;
 import org.olat.core.gui.control.generic.closablewrapper.CloseableCalloutWindowController;
-import org.olat.core.gui.translator.PackageTranslator;
+import org.olat.core.gui.translator.Translator;
 import org.olat.core.util.StringHelper;
 import org.olat.portfolio.EPArtefactHandler;
 import org.olat.portfolio.PortfolioModule;
 import org.olat.portfolio.manager.EPFrontendManager;
 import org.olat.portfolio.model.EPFilterSettings;
+import org.springframework.beans.factory.annotation.Autowired;
 
 /**
  * Description:<br>
@@ -77,10 +77,12 @@ public class PortfolioFilterController extends FormBasicController {
 	private FormLayoutContainer tagFlc;
 	private FormLayoutContainer typeFlc;
 	private FormLayoutContainer dateFlc;
+	@Autowired
 	private EPFrontendManager ePFMgr;
+	@Autowired
+	private PortfolioModule portfolioModule;
 	private List<String> selectedTagsList;
 	private ArrayList<FormToggle> tagCmpList;
-	private PortfolioModule portfolioModule;
 	private List<String> selectedTypeList;
 	private ArrayList<FormToggle> typeCmpList;
 	private EPArtefactTypeSelectionController moreTypesCtlr;
@@ -100,8 +102,6 @@ public class PortfolioFilterController extends FormBasicController {
 
 	public PortfolioFilterController(UserRequest ureq, WindowControl wControl, EPFilterSettings filterSettings) {
 		super(ureq, wControl);
-		ePFMgr = (EPFrontendManager) CoreSpringFactory.getBean("epFrontendManager");
-		portfolioModule = (PortfolioModule) CoreSpringFactory.getBean("portfolioModule");
 		if (filterSettings == null){
 			this.filterSettings = new EPFilterSettings();
 		} else {
@@ -129,14 +129,13 @@ public class PortfolioFilterController extends FormBasicController {
 	 */
 	@Override
 	protected void initForm(FormItemContainer formLayout, Controller listener, UserRequest ureq) {
-		initOrUpdateForm(formLayout, listener, ureq);
+		initOrUpdateForm(formLayout);
 	}
 
-	@SuppressWarnings("unused")
-	protected void initOrUpdateForm(FormItemContainer formLayout, Controller listener, UserRequest ureq) {
+	protected void initOrUpdateForm(FormItemContainer formLayout) {
 		// filter by tag
 		if(formLayout.getFormComponent("tagLayout") == null) {
-			tagFlc = FormLayoutContainer.createCustomFormLayout("tagLayout", getTranslator(), this.velocity_root + "/filter-tags.html");
+			tagFlc = FormLayoutContainer.createCustomFormLayout("tagLayout", getTranslator(), velocity_root + "/filter-tags.html");
 			formLayout.add(tagFlc);
 			initTagFlc();
 		} else {
@@ -145,7 +144,7 @@ public class PortfolioFilterController extends FormBasicController {
 
 		// filter by type
 		if(formLayout.getFormComponent("typeLayout") == null) {
-			typeFlc = FormLayoutContainer.createCustomFormLayout("typeLayout", getTranslator(), this.velocity_root + "/filter-types.html");
+			typeFlc = FormLayoutContainer.createCustomFormLayout("typeLayout", getTranslator(), velocity_root + "/filter-types.html");
 			formLayout.add(typeFlc);		
 			initOrUpdateTypeFlc(DEFAULT_TYPE_AMOUNT);
 		} else {
@@ -159,9 +158,9 @@ public class PortfolioFilterController extends FormBasicController {
 			formLayout.add(dateFlc);
 			dateFlc.setLabel("filter.by.date", null);
 			dateStart = uifactory.addDateChooser("filter.date.start", null, dateFlc);
-			dateStart.addActionListener(this, FormEvent.ONCHANGE);
+			dateStart.addActionListener(FormEvent.ONCHANGE);
 			dateEnd = uifactory.addDateChooser("filter.date.end", null, dateFlc);
-			dateEnd.addActionListener(listener, FormEvent.ONCHANGE);
+			dateEnd.addActionListener(FormEvent.ONCHANGE);
 			dateStart.clearError();
 			dateEnd.clearError();
 		}
@@ -178,7 +177,7 @@ public class PortfolioFilterController extends FormBasicController {
 		String searchText = filterSettings.getTextFilter();
 		if(formLayout.getFormComponent("search") == null) {
 			searchFld = uifactory.addTextElement("search", "filter.search", 20, searchText, formLayout);
-			searchFld.addActionListener(listener, FormEvent.ONCHANGE);
+			searchFld.addActionListener(FormEvent.ONCHANGE);
 		} else {
 			searchFld.setValue(searchText);
 		}
@@ -192,12 +191,13 @@ public class PortfolioFilterController extends FormBasicController {
 		initFilterList(formLayout);
 		//filter save
 		if(formLayout.getFormComponent("filterSaveLayout") == null) {
-			filterFlc = FormLayoutContainer.createHorizontalFormLayout("filterSaveLayout", getTranslator());
+			String page = this.velocity_root + "/filter_search.html";
+			filterFlc = FormLayoutContainer.createCustomFormLayout("filterSaveLayout", getTranslator(), page);
 			formLayout.add(filterFlc);
 			filterFlc.setLabel("filter.save", null);
 			filterName = uifactory.addTextElement("filter.save.name", null, 30, filterSettings.getFilterName(), filterFlc);
-			filterSave = uifactory.addFormLink("filter.save.link", "filter.save.new", null, filterFlc, Link.BUTTON_XSMALL);
-			filterDel = uifactory.addFormLink("filter.del.link", "filter.del.link", null, filterFlc, Link.BUTTON_XSMALL);
+			filterSave = uifactory.addFormLink("filter.save.link", "filter.save.new", null, filterFlc, Link.BUTTON);
+			filterDel = uifactory.addFormLink("filter.del.link", "filter.del.link", null, filterFlc, Link.BUTTON);
 		} else {
 			filterName.setValue(filterSettings.getFilterName());
 		}
@@ -206,12 +206,12 @@ public class PortfolioFilterController extends FormBasicController {
 		toggleSaveUpdateFilterButtons(isExistingFilter);
 	}
 	
-	private void updateUI(UserRequest ureq, EPFilterSettings newSettings) {
+	private void updateUI(EPFilterSettings newSettings) {
 		filterSettings = newSettings;
 		selectedTagsList = new ArrayList<String>(filterSettings.getTagFilter());
 		selectedTypeList = new ArrayList<String>(filterSettings.getTypeFilter());
 		
-		initOrUpdateForm(flc, this, ureq);
+		initOrUpdateForm(flc);
 		flc.setDirty(true);
 	}
 	
@@ -246,7 +246,7 @@ public class PortfolioFilterController extends FormBasicController {
 		if (!nonEmptyFilters.isEmpty()) {
 			if(formLayout.getFormComponent("filter.select") == null) {
 				filterSel = uifactory.addDropdownSingleselect("filter.select", formLayout, theKeys, theValues, null);
-				filterSel.addActionListener(this, FormEvent.ONCHANGE);
+				filterSel.addActionListener(FormEvent.ONCHANGE);
 			} else {
 				filterSel.setKeysAndValues(theKeys, theValues, null);
 				filterSel.setVisible(true);
@@ -340,7 +340,7 @@ public class PortfolioFilterController extends FormBasicController {
 			String handlerClass = PortfolioFilterController.HANDLER_PREFIX + handler.getClass().getSimpleName() + HANDLER_TITLE_SUFFIX;
 			FormToggle link = (FormToggle) typeFlc.getFormComponent(handlerClass);
 			if (link==null) {
-				PackageTranslator handlerTrans = handler.getHandlerTranslator(getTranslator());
+				Translator handlerTrans = handler.getHandlerTranslator(getTranslator());
 				typeFlc.setTranslator(handlerTrans);
 				link = uifactory.addToggleButton(handlerClass, null, typeFlc, null, null);
 				link.setUserObject(handler.getType());
@@ -513,7 +513,7 @@ public class PortfolioFilterController extends FormBasicController {
 				ePFMgr.setSavedFilterSettings(getIdentity(), filterList);
 				toggleSaveUpdateFilterButtons(true);
 				showInfo("filter.saved", filterSettings.getFilterName());
-				updateUI(ureq, filterSettings);
+				updateUI(filterSettings);
 			}
 		} else if (source == filterDel){
 			if (filterDel.getUserObject() != null) {
@@ -522,7 +522,7 @@ public class PortfolioFilterController extends FormBasicController {
 				filterName.setValue("");
 				toggleSaveUpdateFilterButtons(false);
 				showInfo("filter.deleted");
-				updateUI(ureq, new EPFilterSettings());
+				updateUI(new EPFilterSettings());
 			}
 		} else if (source == filterName){
 			String oldFilterName = filterSettings.getFilterName();
@@ -536,12 +536,12 @@ public class PortfolioFilterController extends FormBasicController {
 				int filterIndex = filterSel.getSelected();
 				if(filterIndex == 0) {
 					EPFilterSettings newSettings = new EPFilterSettings();
-					updateUI(ureq, newSettings);
+					updateUI(newSettings);
 					fireEvent(ureq, new PortfolioFilterChangeEvent(newSettings));
 				} else if(filterIndex > 0 && filterIndex - 1 < nonEmptyFilters.size()) {
 					EPFilterSettings newSettings = nonEmptyFilters.get(filterIndex - 1);
 					if(!filterSettings.getFilterId().equals(newSettings.getFilterId())) {
-						updateUI(ureq, newSettings);
+						updateUI(newSettings);
 						fireEvent(ureq, new PortfolioFilterChangeEvent(newSettings));
 					}
 				}

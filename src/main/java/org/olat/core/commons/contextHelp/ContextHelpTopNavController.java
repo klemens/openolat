@@ -111,12 +111,11 @@ public class ContextHelpTopNavController extends FormBasicController {
 		}
 		ArrayHelper.sort(targetlangKeys, targetLangValues, false, true, false);
 		// Build css classes for reference languages
-		String[] targetLangCssClasses = i18nMgr.createLanguageFlagsCssClasses(targetlangKeys, "b_with_small_icon_left");
-		langSelection = uifactory.addDropdownSingleselect("contexthelp.langSelection", formLayout, targetlangKeys, targetLangValues, targetLangCssClasses);
-		langSelection.addActionListener(this, FormEvent.ONCHANGE);						
+		langSelection = uifactory.addDropdownSingleselect("contexthelp.langSelection", formLayout, targetlangKeys, targetLangValues, null);
+		langSelection.addActionListener(FormEvent.ONCHANGE);						
 		// Preselect language from URL
 		langSelection.select(getLocale().toString(), true);
-		this.flc.contextPut("lang", getLocale().toString());
+		flc.contextPut("lang", getLocale().toString());
 		// Add window close link
 		closeLink = FormUIFactory.getInstance().addFormLink("header.topnav.close", this.flc);
 	}

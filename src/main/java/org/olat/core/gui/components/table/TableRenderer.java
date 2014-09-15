@@ -30,11 +30,10 @@ import java.util.List;
 
 import org.apache.commons.lang.StringEscapeUtils;
 import org.olat.core.gui.components.Component;
-import org.olat.core.gui.components.ComponentRenderer;
+import org.olat.core.gui.components.DefaultComponentRenderer;
 import org.olat.core.gui.control.winmgr.AJAXFlags;
 import org.olat.core.gui.render.RenderResult;
 import org.olat.core.gui.render.Renderer;
-import org.olat.core.gui.render.RenderingState;
 import org.olat.core.gui.render.StringOutput;
 import org.olat.core.gui.render.URLBuilder;
 import org.olat.core.gui.translator.Translator;
@@ -47,33 +46,24 @@ import org.olat.core.logging.Tracing;
  * 
  * @author Felix Jost
  */
-public class TableRenderer implements ComponentRenderer {
+public class TableRenderer extends DefaultComponentRenderer {
 
 	private static final String CLOSE_HTML_BRACE = "\">";
-	private static final String OPEN_DIV_CLASS_B_TABLE_PAGE = "<div class=\"b_table_page\">";
 	private static final String CLOSE_DIV = "</div>";
-	private static final String SINGLEQUOTE_CLOSEBRACE_OPEN_TITLE = "');\" title=\"";
-	private static final String B_LAST_CHILD = " b_last_child";
-	private static final String B_FIRST_CHILD = " b_first_child";
-	private static final String A_HREF_JAVA_SCRIPT_TABLE_FORM_INJECT_COMMAND_AND_SUBMIT = "<a href=\"JavaScript:tableFormInjectCommandAndSubmit('";
+	private static final String A_CLASS = "<a class=\"";
+	private static final String HREF_JAVA_SCRIPT_TABLE_FORM_INJECT_COMMAND_AND_SUBMIT = "\" href=\"JavaScript:tableFormInjectCommandAndSubmit('";
 	private static final String CLOSE_HREF = "</a>";
 	private static final String CLOSE_AND_O2CLICK = "');\" onclick=\"return o2cl();\">";
 	private static final String SINGLE_COMMA_SINGLE = "', '";
 	private static final String A_HREF = "<a href=\"";
 	protected static final String TABLE_MULTISELECT_GROUP = "tb_ms";
-	private OLog log = Tracing.createLoggerFor(this.getClass());
-
-	/**
-	 * Constructor for TableRenderer. There must be an empty contructor for the Class.forName() call
-	 */
-	public TableRenderer() {
-		super();
-	}
+	private static final OLog log = Tracing.createLoggerFor(TableRenderer.class);
 
 	/**
 	 * @see org.olat.core.gui.render.ui.ComponentRenderer#render(org.olat.core.gui.render.Renderer, org.olat.core.gui.render.StringOutput, org.olat.core.gui.components.Component,
 	 *      org.olat.core.gui.render.URLBuilder, org.olat.core.gui.translator.Translator, org.olat.core.gui.render.RenderResult, java.lang.String[])
 	 */
+	@Override
 	public void render(final Renderer renderer, final StringOutput target, final Component source, final URLBuilder ubu, final Translator translator, final RenderResult renderResult,
 			final String[] args) {
 		long start = 0;
@@ -85,13 +75,8 @@ public class TableRenderer implements ComponentRenderer {
 
 		boolean iframePostEnabled = renderer.getGlobalSettings().getAjaxFlags().isIframePostEnabled();
 
-		String formName = renderMultiselectForm(target, source, ubu, iframePostEnabled);
-		// starting real table table
-		target.append("<div class=\"b_overflowscrollbox\" id=\"b_overflowscrollbox_").append(table.hashCode()).append("\"><table id=\"b_table").append(table.hashCode()).append(CLOSE_HTML_BRACE);
-
 		int rows = table.getRowCount();
 		int cols = table.getColumnCount();
-		boolean asc = table.isSortAscending();
 		boolean selRowUnSelectable = table.isSelectedRowUnselectable();
 		// the really selected rowid (from the tabledatamodel)
 		int selRowId = table.getSelectedRowId();
@@ -115,13 +100,23 @@ public class TableRenderer implements ComponentRenderer {
 			usePageing = false;
 		}
 
-		appendHeaderLinks(target, translator, table, formName, cols, asc);
+		// Render table wrapper and table
+		String formName = renderMultiselectForm(target, source, ubu, iframePostEnabled);
+		target.append("<div class=\"o_table_wrapper\" id=\"o_table_wrapper_").append(table.hashCode()).append("\">")
+		      .append("<table id=\"o_table").append(table.hashCode()).append("\" class=\"o_table table table-striped table-condensed table-hover").append(CLOSE_HTML_BRACE);		
+		appendHeaderLinks(target, translator, table, formName, cols);
 		appendDataRows(renderer, target, ubu, table, iframePostEnabled, cols, selRowUnSelectable, selRowId, startRowId, endRowId);
+		target.append("</table><div class='o_table_footer'>");
 		appendSelectDeselectAllButtons(target, translator, table, formName, rows, resultsPerPage);
 		appendTablePageing(target, translator, table, formName, rows, resultsPerPage, currentPageId, usePageing);
 		appendMultiselectFormActions(target, translator, table);
-		appendViewportResizeJsFix(target, source, rows, usePageing);
+		target.append("</div></div>");
+		// lastly close multiselect
+	    target.append("</form>");
 
+
+		appendViewportResizeJsFix(target, source, rows, usePageing);
+		
 		if (log.isDebug()) {
 			long duration = System.currentTimeMillis() - start;
 			log.debug("Perf-Test: render takes " + duration);
@@ -136,7 +131,7 @@ public class TableRenderer implements ComponentRenderer {
 		// Comment CDATA section to make it work with prototype's stripScripts method !
 		if (!usePageing && rows > 1000) {
 			target.append("<script type=\"text/javascript\">/* <![CDATA[ */\n ");
-			target.append("jQuery(function() { jQuery('#b_overflowscrollbox_").append(source.hashCode()).append("').height(b_viewportHeight()/3*2);});");
+			target.append("jQuery(function() { jQuery('#o_table_wrapper").append(source.hashCode()).append("').height(o_viewportHeight()/3*2);});");
 			target.append("/* ]]> */\n</script>");
 		}
 	}
@@ -149,7 +144,7 @@ public class TableRenderer implements ComponentRenderer {
 					null);
 		}
 
-		target.append("<div class=\"b_table_buttons\">");
+		target.append("<div class=\"o_table_buttons\">");
 		for (TableMultiSelect action: multiSelectActions) {
 
 			String multiSelectActionIdentifer = action.getAction();
@@ -161,15 +156,13 @@ public class TableRenderer implements ComponentRenderer {
 			}
 
 			target.append("<input type=\"submit\" name=\"").append(multiSelectActionIdentifer)
-			      .append("\" value=\"").append(value).append("\" class=\"b_button\" />");
+			      .append("\" value=\"").append(value).append("\" class=\"btn btn-default\" />");
 		}
 		target.append(CLOSE_DIV);
 		// add hidden action command placeholders to the form. these will be manipulated when
 		// the user clicks on a regular link within the table to e.g. re-sort the columns.
 		target.append("<input type=\"hidden\" name=\"cmd\" value=\"\" />")
-		      .append("<input type=\"hidden\" name=\"param\" value=\"\" />")
-		// close multiselect form
-		      .append("</form>");
+		      .append("<input type=\"hidden\" name=\"param\" value=\"\" />");
 	}
 
 	private void appendTablePageing(final StringOutput target, final Translator translator, final Table table, final String formName, final int rows, int resultsPerPage, final Integer currentPageId,
@@ -178,84 +171,94 @@ public class TableRenderer implements ComponentRenderer {
 			int pageid = currentPageId.intValue();
 			// paging bug OLAT-935 part missing second page, or missing last page due rounding issues.
 			int maxpageid = (int) Math.ceil(((double) rows / (double) resultsPerPage));
-			target.append(OPEN_DIV_CLASS_B_TABLE_PAGE);
+			target.append("<div class='o_table_pagination'><ul class='pagination'>");
 
-			appendTablePageingBackLink(target, translator, formName, pageid);
+			appendTablePageingBackLink(target, formName, pageid);
 			addPageNumberLinks(target, formName, pageid, maxpageid);
-			appendTablePageingNextLink(target, translator, formName, rows, resultsPerPage, pageid);
+			appendTablePageingNextLink(target, formName, rows, resultsPerPage, pageid);
 			appendTablePageingShowallLink(target, translator, table, formName);
 
-			target.append(CLOSE_DIV);
+			target.append("</ul></div>");
 
 		}
 	}
 
 	private void appendTablePageingShowallLink(final StringOutput target, final Translator translator, final Table table, final String formName) {
 		if (table.isShowAllLinkEnabled()) {
-			target.append("</div><div class=\"b_table_page_all\">");
-			target.append(A_HREF_JAVA_SCRIPT_TABLE_FORM_INJECT_COMMAND_AND_SUBMIT);
-			target.append(formName).append(SINGLE_COMMA_SINGLE + Table.COMMAND_PAGEACTION + SINGLE_COMMA_SINGLE).append(Table.COMMAND_PAGEACTION_SHOWALL).append(CLOSE_AND_O2CLICK);
-			target.append("[").append(translator.translate("table.showall")).append("]</a>");
+			target.append("<li>");
+			target.append(A_CLASS).append(HREF_JAVA_SCRIPT_TABLE_FORM_INJECT_COMMAND_AND_SUBMIT);
+			target.append(formName).append(SINGLE_COMMA_SINGLE).append(Table.COMMAND_PAGEACTION).append(SINGLE_COMMA_SINGLE).append(Table.COMMAND_PAGEACTION_SHOWALL).append(CLOSE_AND_O2CLICK);
+			target.append(translator.translate("table.showall")).append("</a></li>");
 		}
 	}
 
-	private void appendTablePageingNextLink(final StringOutput target, final Translator translator, final String formName, final int rows, int resultsPerPage, int pageid) {
-		if ((pageid * resultsPerPage) < rows) {
-			target.append("<a class=\"b_table_forward\" href=\"JavaScript:tableFormInjectCommandAndSubmit('");
-			target.append(formName).append(SINGLE_COMMA_SINGLE + Table.COMMAND_PAGEACTION + SINGLE_COMMA_SINGLE).append(Table.COMMAND_PAGEACTION_FORWARD).append(CLOSE_AND_O2CLICK);
-			target.append(translator.translate("table.forward")).append(CLOSE_HREF);
-		}
+	private void appendTablePageingNextLink(StringOutput target, String formName, int rows, int resultsPerPage, int pageid) {
+		boolean enabled = ((pageid * resultsPerPage) < rows);
+		target.append("<li").append(" class='disabled'", !enabled).append("><a href=\"");
+		if(enabled) {
+			target.append("JavaScript:tableFormInjectCommandAndSubmit('")
+			      .append(formName).append(SINGLE_COMMA_SINGLE).append(Table.COMMAND_PAGEACTION).append(SINGLE_COMMA_SINGLE)
+			      .append(Table.COMMAND_PAGEACTION_FORWARD).append(CLOSE_AND_O2CLICK);
+		} else {
+			target.append("#\">");
+		}		
+		target.append("&raquo;").append("</a></li>");
 	}
 
-	private void appendTablePageingBackLink(final StringOutput target, final Translator translator, final String formName, int pageid) {
-		if (pageid > 1) {
-			target.append("<a class=\"b_table_backward\" href=\"JavaScript:tableFormInjectCommandAndSubmit('");
-			target.append(formName).append(SINGLE_COMMA_SINGLE + Table.COMMAND_PAGEACTION + SINGLE_COMMA_SINGLE).append(Table.COMMAND_PAGEACTION_BACKWARD).append(CLOSE_AND_O2CLICK);
-			target.append(translator.translate("table.backward")).append(CLOSE_HREF);
+	private void appendTablePageingBackLink(StringOutput target, String formName, int pageid) {
+		boolean enabled = pageid > 1;
+		target.append("<li").append(" class='disabled'", !enabled).append("><a href=\"");
+		if(enabled) {
+			target.append("JavaScript:tableFormInjectCommandAndSubmit('")
+			      .append(formName).append(SINGLE_COMMA_SINGLE).append(Table.COMMAND_PAGEACTION).append(SINGLE_COMMA_SINGLE)
+			      .append(Table.COMMAND_PAGEACTION_BACKWARD).append(CLOSE_AND_O2CLICK);
+		} else {
+			target.append("#\">");
 		}
+		target.append("&laquo;").append(CLOSE_HREF);
 	}
 
 	private void appendSelectDeselectAllButtons(final StringOutput target, final Translator translator, Table table, String formName, int rows, int resultsPerPage) {
 		if (table.isMultiSelect()) {
-			target.append("<div class=\"b_togglecheck\">");
-			target.append("<a href=\"#\" onclick=\"javascript:b_table_toggleCheck('" + formName + "', true)\">");
-			target.append("<input type=\"checkbox\" checked=\"checked\" disabled=\"disabled\" />");
+			target.append("<div class='o_table_checkall input-sm'>");
+			target.append("<label class='checkbox-inline'>");
+			target.append("<a href='#' onclick=\"javascript:o_table_toggleCheck('").append(formName).append("', true)\">");
+			target.append("<input type='checkbox' checked='checked' disabled='disabled' />");
 			target.append(translator.translate("checkall"));
-			target.append("</a> <a href=\"#\" onclick=\"javascript:b_table_toggleCheck('" + formName + "', false)\">");
-			target.append("<input type=\"checkbox\" disabled=\"disabled\" />");
+			target.append("</a></label>");
+			target.append("<label class='checkbox-inline'><a href=\"#\" onclick=\"javascript:o_table_toggleCheck('").append(formName).append("', false)\">");
+			target.append("<input type='checkbox' disabled='disabled' />");
 			target.append(translator.translate("uncheckall"));
-			target.append("</a></div>");
+			target.append("</a></label>");
+			target.append("</div>");
 		}
 
 		if (table.isShowAllSelected() && (rows > resultsPerPage)) {
-			target.append(OPEN_DIV_CLASS_B_TABLE_PAGE);
-			target.append(A_HREF_JAVA_SCRIPT_TABLE_FORM_INJECT_COMMAND_AND_SUBMIT);
-			target.append(formName).append(SINGLE_COMMA_SINGLE + Table.COMMAND_PAGEACTION).append(SINGLE_COMMA_SINGLE + Table.COMMAND_SHOW_PAGES + CLOSE_AND_O2CLICK);
-			target.append("[").append(translator.translate("table.showpages")).append("]</a>");
-			target.append(CLOSE_DIV);
+			target.append("<div class='o_table_pagination'><ul class='pagination'><li>");
+			target.append(A_CLASS).append("btn btn-sm btn-default").append(HREF_JAVA_SCRIPT_TABLE_FORM_INJECT_COMMAND_AND_SUBMIT);			
+			target.append(formName).append(SINGLE_COMMA_SINGLE).append(Table.COMMAND_PAGEACTION).append(SINGLE_COMMA_SINGLE).append(Table.COMMAND_SHOW_PAGES).append(CLOSE_AND_O2CLICK);
+			target.append(translator.translate("table.showpages")).append("</a>");
+			target.append("</li><ul></div>");
 		}
 	}
 
 	private void appendDataRows(final Renderer renderer, final StringOutput target, final URLBuilder ubu, Table table, boolean iframePostEnabled, int cols, boolean selRowUnSelectable, int selRowId,
 			int startRowId, int endRowId) {
-		String cssClass;
 		target.append("<tbody>");
 		long startRowLoop = 0;
 		if (log.isDebug()) {
 			startRowLoop = System.currentTimeMillis();
 		}
-		int lastVisibleRowId = endRowId - 1;
 		for (int i = startRowId; i < endRowId; i++) {
+			String cssClass = "";
 			// the position of the selected row in the tabledatamodel
 			int currentPosInModel = table.getSortedRow(i);
 			boolean isMark = selRowUnSelectable && (selRowId == currentPosInModel);
 
-			cssClass = defineCssClassDependingOnRow(startRowId, lastVisibleRowId, i);
-			// VCRP-16
 			TableDataModel<?> model = table.getTableDataModel();
 			if (model instanceof TableDataModelWithMarkableRows) {
-				TableDataModelWithMarkableRows markableModel = (TableDataModelWithMarkableRows) model;
-				String rowCss = markableModel.getRowCssClass(i);
+				TableDataModelWithMarkableRows<?> markableModel = (TableDataModelWithMarkableRows<?>) model;
+				String rowCss = markableModel.getRowCssClass(currentPosInModel);
 				if (rowCss != null) {
 					cssClass += " " + rowCss;
 				}
@@ -271,7 +274,7 @@ public class TableRenderer implements ComponentRenderer {
 		}
 
 		// end of table table
-		target.append("</tbody></table></div>");
+		target.append("</tbody>");
 	}
 
 	private void appendSingleDataRow(final Renderer renderer, final StringOutput target, final URLBuilder ubu, Table table, final boolean iframePostEnabled, final int cols, final int i,
@@ -280,22 +283,12 @@ public class TableRenderer implements ComponentRenderer {
 		for (int j = 0; j < cols; j++) {
 			ColumnDescriptor cd = table.getColumnDescriptor(j);
 			int alignment = cd.getAlignment();
-			cssClass = (alignment == ColumnDescriptor.ALIGNMENT_LEFT ? "b_align_normal" : (alignment == ColumnDescriptor.ALIGNMENT_RIGHT ? "b_align_inverse" : "b_align_center"));
-			// add css class for first and last column to support older browsers
-			if (j == 0) {
-				cssClass += B_FIRST_CHILD;
-			}
-			if (j == cols - 1) {
-				cssClass += B_LAST_CHILD;
-			}
+			cssClass = (alignment == ColumnDescriptor.ALIGNMENT_LEFT ? "text-left" : (alignment == ColumnDescriptor.ALIGNMENT_RIGHT ? "text-right" : "text-center"));
 			target.append("<td class=\"").append(cssClass);
 			if (isMark) {
-				target.append(" b_table_marked");
+				target.append(" o_table_marked");
 			}
 			target.append(CLOSE_HTML_BRACE);
-			if (j == 0) {
-				target.append("<a name=\"b_table\"></a>"); // add once for accessabillitykey
-			}
 			String action = cd.getAction(i);
 			if (action != null) {
 				StringOutput so = new StringOutput(100);
@@ -350,84 +343,31 @@ public class TableRenderer implements ComponentRenderer {
 		target.append(CLOSE_HREF);
 	}
 
-	private String defineCssClassDependingOnRow(int startRowId, int lastVisibleRowId, int i) {
-		String cssClass;
-		// use alternating css class
-		if (i % 2 == 0) {
-			cssClass = "";
-		} else {
-			cssClass = "b_table_odd";
-		}
-		// add css class for first and last column to support older browsers
-		if (i == startRowId) {
-			cssClass += B_FIRST_CHILD;
-		}
-		if (i == lastVisibleRowId) {
-			cssClass += B_LAST_CHILD;
-		}
-		return cssClass;
-	}
-
-	private void appendHeaderLinks(final StringOutput target, final Translator translator, Table table, String formName, int cols, boolean asc) {
-		if (table.isDisplayTableHeader()) {
-			target.append("<thead><tr>");
-
-			ColumnDescriptor sortedCD = table.getCurrentlySortedColumnDescriptor();
-			for (int i = 0; i < cols; i++) {
-				ColumnDescriptor cd = table.getColumnDescriptor(i);
-				String header;
-				if (cd.translateHeaderKey()) {
-					header = translator.translate(cd.getHeaderKey());
-				} else {
-					header = cd.getHeaderKey();
-				}
-
-				target.append("<th class=\"");
-				// add css class for first and last column to support older browsers
-				if (i == 0) {
-					target.append(B_FIRST_CHILD);
-				}
-				if (i == cols - 1) {
-					target.append(B_LAST_CHILD);
-				}
-				target.append(CLOSE_HTML_BRACE);
-
-				// add 'move column left' link (if we are not at the leftmost position)
-				if (i != 0 && table.isColumnMovingOffered()) {
-					target.append(A_HREF_JAVA_SCRIPT_TABLE_FORM_INJECT_COMMAND_AND_SUBMIT);
-					target.append(formName).append(SINGLE_COMMA_SINGLE + Table.COMMAND_MOVECOLUMN_LEFT + SINGLE_COMMA_SINGLE).append(i).append("');\" class=\"b_table_move_left\" title=\"");
-					target.append(StringEscapeUtils.escapeHtml(translator.translate("row.move.left"))).append("\">&laquo;</a> ");
-				}
-				// header either a link or not
-				if (table.isSortingEnabled() && cd.isSortingAllowed()) {
-					target.append(A_HREF_JAVA_SCRIPT_TABLE_FORM_INJECT_COMMAND_AND_SUBMIT);
-					target.append(formName).append(SINGLE_COMMA_SINGLE + Table.COMMAND_SORTBYCOLUMN + SINGLE_COMMA_SINGLE).append(i).append(SINGLEQUOTE_CLOSEBRACE_OPEN_TITLE);
-					target.append(StringEscapeUtils.escapeHtml(translator.translate("row.sort"))).append(CLOSE_HTML_BRACE);
-					target.append(header);
-					target.append(CLOSE_HREF);
-				} else {
-					target.append(header);
-				}
-				// mark currently sorted row special
-				if (table.isSortingEnabled() && cd == sortedCD) {
-					target.append(A_HREF_JAVA_SCRIPT_TABLE_FORM_INJECT_COMMAND_AND_SUBMIT);
-					target.append(formName).append(SINGLE_COMMA_SINGLE + Table.COMMAND_SORTBYCOLUMN + SINGLE_COMMA_SINGLE).append(i).append(SINGLEQUOTE_CLOSEBRACE_OPEN_TITLE);
-					target.append(StringEscapeUtils.escapeHtml(translator.translate("row.sort.invert"))).append("\">&nbsp;");
-					target.append((asc ? "&darr;" : "&uarr;"));
-					target.append(CLOSE_HREF);
-				}
-
-				// add 'move column right' link (if we are not at the rightmost
-				// position)
-				if (i != cols - 1 && table.isColumnMovingOffered()) {
-					target.append(A_HREF_JAVA_SCRIPT_TABLE_FORM_INJECT_COMMAND_AND_SUBMIT);
-					target.append(formName).append(SINGLE_COMMA_SINGLE + Table.COMMAND_MOVECOLUMN_RIGHT + SINGLE_COMMA_SINGLE).append(i).append("');\" class=\"b_table_move_right\" title=\"");
-					target.append(StringEscapeUtils.escapeHtml(translator.translate("row.move.right"))).append("\">&raquo;</a>");
-				}
-				target.append("</th>");
+	private void appendHeaderLinks(final StringOutput target, final Translator translator, Table table, String formName, int cols) {
+		if (!table.isDisplayTableHeader()) return;
+		target.append("<thead><tr>");
+		for (int i = 0; i < cols; i++) {
+			ColumnDescriptor cd = table.getColumnDescriptor(i);
+			String header;
+			if (cd.translateHeaderKey()) {
+				header = translator.translate(cd.getHeaderKey());
+			} else {
+				header = cd.getHeaderKey();
 			}
-			target.append("</tr></thead>");
+
+			target.append("<th>");
+			// header either a link or not
+			if (table.isSortingEnabled() && cd.isSortingAllowed()) {
+				target.append("<a class='o_orderby' href=\"javascript:tableFormInjectCommandAndSubmit('")
+				      .append(formName).append("','").append(Table.COMMAND_SORTBYCOLUMN).append("','").append(i).append("');\">")
+				      .append(header)
+				      .append(CLOSE_HREF);
+			} else {
+				target.append(header);
+			}
+			target.append("</th>");
 		}
+		target.append("</tr></thead>");
 	}
 
 	private String renderMultiselectForm(final StringOutput target, final Component source, final URLBuilder ubu, final boolean iframePostEnabled) {
@@ -491,13 +431,10 @@ public class TableRenderer implements ComponentRenderer {
 	}
 
 	private void appendPagenNumberLink(StringOutput target, String formName, int pageid, int i) {
-		target.append("<a ");
-		if (pageid == i) {
-			target.append(" class=\"b_table_page_active\"");
-		}
-		target.append(" href=\"JavaScript:tableFormInjectCommandAndSubmit('");
-		target.append(formName).append(SINGLE_COMMA_SINGLE + Table.COMMAND_PAGEACTION + SINGLE_COMMA_SINGLE).append(i).append("');\">");
-		target.append(i).append(CLOSE_HREF);
+		target.append("<li").append(" class='active'", pageid == i).append("><a ")
+		      .append(" href=\"JavaScript:tableFormInjectCommandAndSubmit('")
+		      .append(formName).append(SINGLE_COMMA_SINGLE + Table.COMMAND_PAGEACTION + SINGLE_COMMA_SINGLE).append(i).append("');\">")
+		      .append(i).append("</a></li>");
 	}
 
 	private int adaptStepsizeIfNeeded(final int pageid, final int maxStepSize, final int stepSize, final int i) {
@@ -515,21 +452,4 @@ public class TableRenderer implements ComponentRenderer {
 			appendPagenNumberLink(target, formName, pageid, i);
 		}
 	}
-
-	/**
-	 * @see org.olat.core.gui.render.ui.ComponentRenderer#renderHeaderIncludes(org.olat.core.gui.render.Renderer, org.olat.core.gui.render.StringOutput, org.olat.core.gui.components.Component,
-	 *      org.olat.core.gui.render.URLBuilder, org.olat.core.gui.translator.Translator)
-	 */
-	public void renderHeaderIncludes(Renderer renderer, StringOutput sb, Component source, URLBuilder ubu, Translator translator, RenderingState rstate) {
-		//
-	}
-
-	/**
-	 * @see org.olat.core.gui.render.ui.ComponentRenderer#renderBodyOnLoadJSFunctionCall(org.olat.core.gui.render.Renderer, org.olat.core.gui.render.StringOutput,
-	 *      org.olat.core.gui.components.Component)
-	 */
-	public void renderBodyOnLoadJSFunctionCall(Renderer renderer, StringOutput sb, Component source, RenderingState rstate) {
-		//
-	}
-
 }

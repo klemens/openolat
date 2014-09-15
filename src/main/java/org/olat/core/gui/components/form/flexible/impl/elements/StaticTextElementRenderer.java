@@ -26,11 +26,10 @@
 package org.olat.core.gui.components.form.flexible.impl.elements;
 
 import org.olat.core.gui.components.Component;
-import org.olat.core.gui.components.ComponentRenderer;
+import org.olat.core.gui.components.DefaultComponentRenderer;
 import org.olat.core.gui.components.form.flexible.impl.FormJSHelper;
 import org.olat.core.gui.render.RenderResult;
 import org.olat.core.gui.render.Renderer;
-import org.olat.core.gui.render.RenderingState;
 import org.olat.core.gui.render.StringOutput;
 import org.olat.core.gui.render.URLBuilder;
 import org.olat.core.gui.translator.Translator;
@@ -44,7 +43,7 @@ import org.olat.core.util.StringHelper;
  * Initial Date:  02.02.2007 <br>
  * @author patrickb
  */
-class StaticTextElementRenderer implements ComponentRenderer {
+class StaticTextElementRenderer extends DefaultComponentRenderer {
 
 	/**
 	 * @see org.olat.core.gui.components.ComponentRenderer#render(org.olat.core.gui.render.Renderer, org.olat.core.gui.render.StringOutput, org.olat.core.gui.components.Component, org.olat.core.gui.render.URLBuilder, org.olat.core.gui.translator.Translator, org.olat.core.gui.render.RenderResult, java.lang.String[])
@@ -56,26 +55,12 @@ class StaticTextElementRenderer implements ComponentRenderer {
 		String id = steC.getFormDispatchId();
 		String value = steC.getValue();
 		
-		sb.append("<span id=\"").append(id).append("\" ")
-		  .append(FormJSHelper.getRawJSFor(steC.getRootForm(), id, steC.getAction()));
+		sb.append("<p id=\"").append(id).append("\" ");
+		sb.append(FormJSHelper.getRawJSFor(steC.getRootForm(), id, steC.getAction()));
+		sb.append(" class='form-control-static ");
 		if(StringHelper.containsNonWhitespace(steC.getElementCssClass())) {
-			sb.append("class=\"").append(steC.getElementCssClass()).append("\"");
+			sb.append(steC.getElementCssClass());
 		}
-		sb.append(">").append(value).append("</span>");
-	}
-
-	/**
-	 * @see org.olat.core.gui.components.ComponentRenderer#renderBodyOnLoadJSFunctionCall(org.olat.core.gui.render.Renderer, org.olat.core.gui.render.StringOutput, org.olat.core.gui.components.Component, org.olat.core.gui.render.RenderingState)
-	 */
-	public void renderBodyOnLoadJSFunctionCall(Renderer renderer, StringOutput sb, Component source, RenderingState rstate) {
-		//
-	}
-
-	/**
-	 * @see org.olat.core.gui.components.ComponentRenderer#renderHeaderIncludes(org.olat.core.gui.render.Renderer, org.olat.core.gui.render.StringOutput, org.olat.core.gui.components.Component, org.olat.core.gui.render.URLBuilder, org.olat.core.gui.translator.Translator, org.olat.core.gui.render.RenderingState)
-	 */
-	public void renderHeaderIncludes(Renderer renderer, StringOutput sb, Component source, URLBuilder ubu, Translator translator,
-			RenderingState rstate) {
-		//
+		sb.append("'>").append(value).append("</p>");
 	}
 }

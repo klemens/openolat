@@ -1,0 +1,480 @@
+#o_navbar_wrapper {
+	z-index: $o-navbar-z-index;
+	border-top: 1px solid $o-navbar-border-color;
+	box-shadow: inset 0 1px 0 rgba(255,255,255,.1);
+
+	#o_navbar_container {
+		position: relative;
+	}		
+}
+		
+.o_navbar {
+	position: relative;
+	min-height: $o-navbar-height; // Ensure a navbar always shows (e.g., without a .navbar-brand in collapsed mode)
+	margin-bottom: $o-navbar-margin-bottom;
+	border: 1px solid $o-navbar-border-color;	
+	background-color: $o-navbar-bg;
+	
+	// Prevent floats from breaking the navbar
+	@include clearfix();
+
+	.o_navbar_tabs {
+		li a {
+			padding-right: $grid-gutter-width;
+		}
+		.o_navbar_tab_close {
+			position: absolute;
+			top: floor($grid-gutter-width / 2); 
+			right:0.5em;
+			padding: 0;
+			width: 1em; height: 1em;
+			i {
+				&:before { color: $o-navbar-tab-close-color; }
+			}
+			&:hover { 
+				i:before { color: $o-navbar-tab-close-hover-color; }
+			}
+		}
+	}
+	
+	.o_custom_navbar-brand {
+		background-position: 5px 0;
+		background-repeat: no-repeat;
+		height: 50px;
+		width: 120px;
+	}
+	
+	#o_navbar_langchooser {
+		color: $o-navbar-tools-permanent-color;
+		padding: floor($grid-gutter-width / 4) floor($grid-gutter-width / 2);
+		form span + div {
+			display: inline;
+		}
+	}
+	#o_navbar_tools_permanent {
+		#o_navbar_print, #o_navbar_impress, #o_navbar_help {
+			a {
+				color: $o-navbar-tools-permanent-color;
+				padding-right: 0;		
+			}
+		}
+		#o_navbar_login a {
+			color: $o-navbar-login-color;
+		}	
+	}
+	#o_navbar_tools_personal {
+		.o_navbar_tool a {
+			padding-right: 5px;
+		}
+		#o_navbar_my_menu {
+			.dropdown-toggle {
+				padding-left: floor($grid-gutter-width / 2) + 30px;
+			}
+			.o_portrait {
+				position: absolute;
+				left: floor($grid-gutter-width / 4);
+				top: floor(30px - $line-height-computed);
+			}
+		}
+		.o_logout {
+			color: $o-navbar-logout-color;
+		}
+	}
+	
+	&.o_navbar-offcanvas {
+		.o_navbar_tab_close {
+			top: 10px; 
+			right: 10px; // Win8 issue with overlapping scrollbar
+		}
+		.o_navbar_tool {
+			display: none;
+		}	
+		#o_navbar_my_menu {
+			a {
+				color: $o-offcanvas-link-color;
+				&:hover,
+				&:focus {
+					color: $o-offcanvas-link-hover-color;
+					background-color: $o-offcanvas-link-hover-bg;
+				}
+				&.o_logout {
+					color: $o-offcanvas-logout-color;
+					&:hover,
+					&:focus {
+						color: $o-offcanvas-logout-hover-color;
+					}
+				}
+				
+			}
+			/* override dropdown styles */
+			.dropdown-header {
+				padding-left: $o-navbar-padding-horizontal;	
+			}
+			.dropdown-toggle {
+				display: none;
+			}
+			.dropdown-menu {
+				box-shadow: none;
+				position: relative;
+				top: 0;
+				left: 0;
+				display: block;
+				float: none;
+				background-color: $o-offcanvas-dropdown-bg;
+				color: $o-offcanvas-link-color;
+				font-size: $o-offcanvas-dropdown-font-size;
+
+			 	.divider {
+				   background: none;
+			  	}
+			}
+		}
+		.o_navbar-nav {
+   			a {
+   				color: $o-offcanvas-link-color;
+   				text-shadow: none;
+      			&:hover,
+      			&:focus {
+        			background-color: $o-offcanvas-link-hover-bg;
+        			color: $o-offcanvas-link-hover-color;
+      			}
+    		}
+   			.active a {
+      			&,
+      			&:hover,
+      			&:focus {
+        			background-color: $o-offcanvas-link-active-bg;
+        			color: $o-offcanvas-link-active-color;
+      			}
+    		}
+  			.o_navbar-link {
+    			color: $o-offcanvas-link-color;
+    			&:hover {
+      				color: $o-offcanvas-link-hover-color;
+    			}
+  			}
+  			// Dropdowns get custom display when collapsed
+  			.open .dropdown-menu {
+    			> li > a {
+      				color: $o-navbar-link-color;
+      				&:hover,
+	      			&:focus {
+        				color: $o-navbar-link-hover-color;
+        				background-color: $o-navbar-link-hover-bg;
+      				}
+    			}
+    			> .active > a {
+      				&,
+      				&:hover,
+      				&:focus {
+        				color: $o-navbar-link-active-color;
+        				background-color: $o-navbar-link-active-bg;
+      				}
+    			}
+    			> .disabled > a {
+      				&,
+      				&:hover,
+      				&:focus {
+        				color: $o-navbar-link-disabled-color;
+        				background-color: $o-navbar-link-disabled-bg;
+        			}
+      			}
+    		}
+  		}
+	}
+}
+
+/* hide texts for some topnav icons, but not in on login screen */
+#o_navbar_print, #o_navbar_impress, #o_navbar_help, #o_navbar_search_opener {
+	a span {
+		display: none;
+	}
+}
+body.o_dmz {
+	#o_navbar_print, #o_navbar_impress, #o_navbar_help, #o_navbar_search_opener {
+		a span {
+			display: inline;
+		}	
+	}
+}
+
+
+//
+// Navbars
+// --------------------------------------------------
+
+
+// Wrapper and base class
+//
+// Provide a static navbar from which we expand to create full-width, fixed, and
+// other navbar variations.
+
+// Navbar collapse (body)
+//
+// Group your o_navbar content into this for easy collapsing and expanding across
+// various device sizes. By default, this content is collapsed when <768px, but
+// will expand past that for a horizontal display.
+//
+// To start (on mobile devices) the o_navbar links, forms, and buttons are stacked
+// vertically and include a `max-height` to overflow in case you have too much
+// content for the user's viewport.
+
+.o_navbar-collapse {
+	max-height: $o-navbar-collapse-max-height;
+	overflow-x: visible;
+	padding-right: $o-navbar-padding-horizontal;
+	padding-left:  $o-navbar-padding-horizontal;
+	@include clearfix();
+	-webkit-overflow-scrolling: touch;
+	
+	&.o_collapse {
+		display: block !important;
+		height: auto !important;
+		padding-bottom: 0; // Override default setting
+		overflow: visible !important;
+	}
+}
+
+.o_navbar-offcanvas .o_navbar-collapse {
+	width: auto;
+	box-shadow: none;
+	margin-top: floor($line-height-computed / 2);
+    margin-right: -$o-navbar-padding-horizontal;
+    margin-left:  -$o-navbar-padding-horizontal;
+}
+
+// Brand/project name
+.o_navbar-brand {
+  	/* put your brand logo and link here, use theme.js to change the href */
+  	float: left;  
+  	font-size: $o-navbar-brand-font-size;
+  	line-height: $line-height-computed;
+  	height: $o-navbar-brand-height;
+  	color: $o-navbar-brand-color;
+	&:hover,
+  	&:focus {
+    	text-decoration: none;
+      	color: $o-navbar-brand-hover-color;
+      	background-color: $o-navbar-brand-hover-bg;
+  	}
+}
+
+
+// Navbar toggle
+//
+// Custom button for toggling the `.o_navbar-collapse`, powered by the collapse
+// JavaScript plugin.
+
+.o_navbar-toggle {
+  	position: relative;
+  	margin-right: $o-navbar-padding-horizontal;
+  	margin-left: $o-navbar-padding-horizontal;
+  	padding: 9px 10px;
+  	@include navbar-vertical-align(34px);
+  
+  	border: 1px solid $o-navbar-toggle-border-color;
+  	border-radius: $o-navbar-toggle-border-radius;
+    background-color: transparent;
+ 	background-image: none; // Reset unusual Firefox-on-Android default style; see https://github.com/necolas/normalize.css/issues/214
+
+  	&:hover,
+  	&:focus {
+  		outline: none;
+      	background-color: $o-navbar-toggle-hover-bg;
+    }
+
+ 	// Bars
+  	.icon-bar {
+    	display: block;
+    	width: 22px;
+    	height: 2px;
+    	border-radius: 1px;
+  		background-color: $o-navbar-toggle-icon-bar-bg;
+  	}
+  	.icon-bar + .icon-bar {
+    	margin-top: 4px;
+  	}
+}
+#o_navbar_left-toggle {
+	float: left;
+}
+#o_navbar_right-toggle {
+	float: right;
+}
+
+// Navbar nav links
+//
+// Builds on top of the `.nav` components with its own modifier class to make
+// the nav the full height of the horizontal nav (above 768px).
+
+// Add a class to ensure links outside the o_navbar nav are colored correctly.
+.o_navbar-link {
+	color: $o-navbar-link-color;
+    &:hover {
+    	color: $o-navbar-link-hover-color;
+   }
+}  
+
+.o_navbar-nav {
+	margin: ($o-navbar-padding-vertical / 2) (-$o-navbar-padding-horizontal);
+
+  	> li > a {
+    	padding-top:    10px;
+    	padding-bottom: 10px;
+    	line-height: $line-height-computed;
+	    color: $o-navbar-link-color;
+
+	    &:hover,
+	    &:focus {
+	      	color: $o-navbar-link-hover-color;
+	     	background-color: $o-navbar-link-hover-bg;
+	    }
+  	}
+
+    > .active > a {
+   		&,
+      	&:hover,
+      	&:focus {
+        	color: $o-navbar-link-active-color;
+        	background-color: $o-navbar-link-active-bg;
+      	}
+    }
+    > .disabled > a {
+      	&,
+      	&:hover,
+      	&:focus {
+        	color: $o-navbar-link-disabled-color;
+        	background-color: $o-navbar-link-disabled-bg;
+      	}
+    }    
+    // Remove background color from open dropdown
+    > .open > a {
+      	&,
+      	&:hover,
+      	&:focus {
+        	background-color: $o-navbar-link-active-bg;
+        	color: $o-navbar-link-active-color;
+      	}
+    }
+
+}
+
+.o_collapse .o_navbar-nav {
+    float: left;
+    margin: 0;
+
+    > li {
+    	float: left;
+      		> a {
+        		padding-top:    $o-navbar-padding-vertical;
+        		padding-bottom: $o-navbar-padding-vertical;
+      	}
+    }
+
+    &.o_navbar-right:last-child {
+      	margin-right: -$o-navbar-padding-horizontal;
+    }
+}
+
+
+// Component alignment
+//
+// Repurpose the pull utilities as their own o_navbar utilities to avoid specificity
+// issues with parents and chaining. Only do this when the o_navbar is uncollapsed
+// though so that o_navbar contents properly stack and align in mobile.
+.o_collapse.o_navbar-collapse {
+ 	.o_navbar-left {
+    	float: left !important;
+  	}
+  	.o_navbar-right {
+    	float: right !important;
+  	}
+}
+
+// Navbar form
+//
+// Extension of the `.form-inline` with some extra flavor for optimum display in
+// our o_navbars.
+.o_navbar-form {
+  	margin-left: -$o-navbar-padding-horizontal;
+  	margin-right: -$o-navbar-padding-horizontal;
+  	padding: 10px $o-navbar-padding-horizontal;
+  	border-top: 1px solid $o-navbar-border-color;
+  	border-bottom: 1px solid $o-navbar-border-color;
+  	$shadow: inset 0 1px 0 rgba(255,255,255,.1), 0 1px 0 rgba(255,255,255,.1);
+  	@include box-shadow($shadow);
+
+  	// Mixin behavior for optimum display
+  	@extend .form-inline;
+
+  	.form-group {
+    	@media (max-width: $grid-float-breakpoint-max) {
+    	  	margin-bottom: 5px;
+    	}
+  	}
+
+  	// Vertically center in expanded, horizontal o_navbar
+  	@include navbar-vertical-align($input-height-base);
+}
+
+.o_collapse .o_navbar-form {
+  // Undo 100% width for pull classes
+    width: auto;
+    border: 0;
+    margin-left: 0;
+    margin-right: 0;
+    padding-top: 0;
+    padding-bottom: 0;
+    @include box-shadow(none);
+
+    // Outdent the form if last child to line up with content down the page
+    &.o_navbar-right:last-child {
+      margin-right: -$o-navbar-padding-horizontal;
+    }
+
+}
+
+// Dropdown menus
+
+// Menu position and menu carets
+.o_navbar-nav > li > .dropdown-menu {
+  margin-top: 0;
+  @include border-top-radius(0);
+}
+// Menu position and menu caret support for dropups via extra dropup class
+.o_navbar-fixed-bottom .o_navbar-nav > li > .dropdown-menu {
+  @include border-bottom-radius(0);
+}
+
+
+// Buttons in navbars
+//
+// Vertically center a button within a o_navbar (when *not* in a form).
+.o_navbar-btn {
+  @include navbar-vertical-align($input-height-base);
+
+  &.btn-sm {
+    @include navbar-vertical-align($input-height-small);
+  }
+  &.btn-xs {
+    @include navbar-vertical-align(22);
+  }
+}
+
+// Text in o_navbars
+//
+// Add a class to make any element properly align itself vertically within the o_navbars.
+.o_navbar-text {
+	@include navbar-vertical-align($line-height-computed);
+    color: $o-navbar-color;
+}
+.o_collapse .o_navbar-text {
+    float: left;
+    margin-left: $o-navbar-padding-horizontal;
+    margin-right: $o-navbar-padding-horizontal;
+
+    // Outdent the form if last child to line up with content down the page
+    &.o_navbar-right:last-child {
+      margin-right: 0;
+    }
+}

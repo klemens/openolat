@@ -1,0 +1,151 @@
+/*
+ * Overwrite jquery ui dialog and datepicket
+ */
+ 
+.ui-widget {
+	font-family: $font-family-base;
+	font-size: 100%;
+}
+
+.ui-widget-header {
+	border-top: none;
+	border-left: none;
+	border-right: none;
+	border-bottom:1px solid #eee;
+	
+	background: #fff;
+	font-weight: bold;
+}
+
+.ui-icon, .ui-widget-content .ui-icon, .ui-widget-header .ui-icon,
+.ui-state-default .ui-icon, .ui-state-hover .ui-icon, .ui-state-focus .ui-icon,
+.ui-state-active .ui-icon, .ui-state-highlight .ui-icon, .ui-state-error .ui-icon,
+.ui-state-error-text .ui-icon {
+	background: none;
+	background-image: none;
+}
+
+.ui-dialog {
+	@include box-shadow(0px 1px 8px -1px rgba(0,0,0,.35));
+	background-color: $o-dialog-window-bg;
+	
+	.ui-widget-header {
+		.ui-dialog-title {
+			color: $o-dialog-header-color;
+		  	font-weight: $o-dialog-header-font-weight;
+			font-family: $headings-font-family;
+		  	line-height: $headings-line-height;
+		}
+		.ui-dialog-titlebar-close:before {
+			content: $fa-var-times !important;
+		}
+		
+		.ui-dialog-titlebar-close {
+			display: inline-block;
+			font-family: FontAwesome;
+			font-style: normal;
+			font-weight: normal;
+			font-size: 120%;
+			-webkit-font-smoothing: antialiased;
+			-moz-osx-font-smoothing: grayscale;
+		}
+		
+		.ui-button.ui-corner-all {
+			border: none !important;
+			background: #fff !important;
+		}
+	}
+
+	.ui-widget-content {
+		border-color: #fff;
+		padding: 5px;
+	}
+	
+	.ui-dialog-titlebar {
+		padding: 4px 30px 4px 7px;
+		margin: -2px -2px 0 -2px;
+		background-color: $o-dialog-window-bar-bg;
+	}
+}
+
+.ui-dialog.ui-corner-all {
+	border-radius: $alert-border-radius;
+}
+
+.ui-dialog.ui-widget-content {
+	border: 1px solid transparent;
+}
+
+.ui-dialog.o_modal-ui div.ui-dialog-buttonpane {
+	display:none;
+}
+
+/*
+ * datepicker
+ */
+ 
+.ui-datepicker {
+	z-index: 2000 ! important;
+	@include box-shadow(0px 1px 5px -1px rgba(0,0,0,.15));
+	
+	.ui-widget-header {
+		.ui-corner-all, .ui-datepicker-next.ui-corner-all {
+			border: none !important;
+			background: #fff !important;
+		}
+
+		.ui-icon.ui-icon-circle-triangle-e:before {
+			content: $fa-var-arrow-right;
+			font-weight: normal;
+			color: black;
+		}
+		.ui-icon.ui-icon-circle-triangle-w:before {
+			content: $fa-var-arrow-left;
+			font-weight: normal;
+			color: black;
+		}
+		
+		.ui-icon.ui-icon-circle-triangle-e, .ui-icon.ui-icon-circle-triangle-w {
+			font-family: 'FontAwesome';
+			display:inline-block;
+			background-image:none;
+			background-position:0 0;
+			font-weight: normal;
+			text-indent:0;
+			color: white;
+		}
+		
+		.ui-datepicker .ui-datepicker-prev-hover, .ui-datepicker .ui-datepicker-next-hover {
+			top: 2px;
+		}
+	}
+	
+	.ui-state-default {
+		background: #eee;
+	}
+	
+	.ui-state-highlight, .ui-widget-content .ui-state-highlight {
+		border: 1px solid $btn-primary-border;
+		background: $btn-primary-bg;
+		color: $btn-primary-color;
+	}
+}
+
+.ui-datepicker.ui-corner-all {
+	border-radius: $alert-border-radius;
+}
+
+.ui-datepicker.ui-widget-content {
+	border: 1px solid transparent;
+}
+
+// override the label in _forms.scss of bootstrap
+label.mce-label {
+  	display: inline;
+	max-width: 150px;
+	margin-bottom: 0;
+	font-weight: normal;
+}
+
+
+

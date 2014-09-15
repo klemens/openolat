@@ -26,7 +26,6 @@ import org.olat.core.gui.components.form.flexible.elements.FormLink;
 import org.olat.core.gui.components.form.flexible.elements.StaticTextElement;
 import org.olat.core.gui.components.form.flexible.impl.FormBasicController;
 import org.olat.core.gui.components.form.flexible.impl.FormEvent;
-import org.olat.core.gui.components.form.flexible.impl.FormLayoutContainer;
 import org.olat.core.gui.components.link.Link;
 import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.WindowControl;
@@ -64,14 +63,11 @@ public class LifecycleMetadataController extends FormBasicController  {
 		setFormContextHelp("org.olat.modules.qpool.ui.metadata", "lifecycle.html", "help.hover.lifecycle");
 		if(edit) {
 			editLink = uifactory.addFormLink("edit", "edit", null, formLayout, Link.BUTTON_XSMALL);
-			editLink.setCustomEnabledLinkCSS("b_link_left_icon b_link_edit b_small");
+			editLink.setIconLeftCSS("o_icon o_icon-fw o_icon_edit");
 		}
 		
-		FormLayoutContainer metaCont = FormLayoutContainer.createDefaultFormLayout("metadatas", getTranslator());
-		formLayout.add("metadatas", metaCont);
-		
-		versionEl = uifactory.addStaticTextElement("lifecycle.version", "", metaCont);
-		statusEl = uifactory.addStaticTextElement("lifecycle.status", "", metaCont);
+		versionEl = uifactory.addStaticTextElement("lifecycle.version", "", formLayout);
+		statusEl = uifactory.addStaticTextElement("lifecycle.status", "", formLayout);
 	}
 	
 	public void setItem(QuestionItem item) {

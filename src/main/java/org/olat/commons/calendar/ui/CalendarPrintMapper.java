@@ -98,11 +98,6 @@ public class CalendarPrintMapper implements Mapper {
 		  .append("Calendar")
 		  .append("</title>")
 		  .append("<meta http-equiv='Content-type' content='text/html; charset=utf-8' />")
-		  .append("<meta http-equiv='cache-control' content='no-cache' />")
-		  .append("<meta http-equiv='pragma' content='no-cache' />")
-		  .append("<meta http-equiv='expires' content='0' />")
-		  .append("<meta http-equiv='pragma-directive' content='no-cache' />")
-		  .append("<meta http-equiv='cache-directive' content='no-cache' />")
 		  .append("<link href='").append(themeBaseUri).append("all/content.css' rel='stylesheet' type='text/css' />\n")
 		  .append("<link href='").append(themeBaseUri).append("layout.css' rel='stylesheet' type='text/css' />\n")
 		  .append("</head><body class='o_cal_print' onload='window.focus();window.print()'>");
@@ -160,7 +155,7 @@ public class CalendarPrintMapper implements Mapper {
 			</ul>
 		</li>
 	</ul>
-	<div class="b_clearfix">&nbsp;</div>
+	<div class="clearfix">&nbsp;</div>
 </div>
 	*/
 	
@@ -188,7 +183,7 @@ public class CalendarPrintMapper implements Mapper {
 		}
 		renderDay(sb, currentDate, eventByDayList);
 
-		sb.append("</ul></fieldset><div class='b_clearfix'>&nbsp;</div></div>");
+		sb.append("</ul></fieldset><div class='clearfix'>&nbsp;</div></div>");
 	}
 	
 	private void renderDay(StringBuilder sb, Date date, List<KalendarEventRenderWrapper> eventList) {

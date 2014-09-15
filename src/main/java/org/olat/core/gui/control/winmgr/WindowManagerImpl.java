@@ -27,29 +27,19 @@
 package org.olat.core.gui.control.winmgr;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 import org.olat.core.CoreSpringFactory;
-import org.olat.core.commons.chiefcontrollers.BaseChiefController;
 import org.olat.core.gui.GlobalSettings;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.WindowManager;
 import org.olat.core.gui.WindowSettings;
-import org.olat.core.gui.components.Component;
-import org.olat.core.gui.components.ComponentRenderer;
-import org.olat.core.gui.components.velocity.VelocityContainer;
-import org.olat.core.gui.components.velocity.VelocityContainerRenderer;
 import org.olat.core.gui.control.ChiefController;
-import org.olat.core.gui.control.ContentableChiefController;
 import org.olat.core.gui.control.WindowBackOffice;
 import org.olat.core.gui.control.creator.ControllerCreator;
 import org.olat.core.gui.control.generic.popup.PopupBrowserWindow;
 import org.olat.core.gui.control.generic.popup.PopupBrowserWindowController;
 import org.olat.core.gui.control.generic.popup.PopupBrowserWindowControllerCreator;
-import org.olat.core.gui.render.intercept.InterceptHandler;
-import org.olat.core.gui.render.intercept.InterceptHandlerInstance;
 import org.olat.core.helpers.Settings;
 import org.olat.core.manager.BasicManager;
 
@@ -62,109 +52,45 @@ public class WindowManagerImpl extends BasicManager implements WindowManager {
 	
 	private List<WindowBackOfficeImpl> wbos = new ArrayList<WindowBackOfficeImpl>();
 	
-	// experimental!
-	
 	private GlobalSettings globalSettings;
 	private boolean ajaxEnabled = false;
 	
-	private boolean forScreenReader = false;
 	private boolean showDebugInfo = false;
 	private boolean idDivsForced = false;
 
-	
 	private int fontSize = 100; // default width
 
 	private int wboId = 0;
-	
-	private InterceptHandler screenreader_interceptHandler = null;
-	
-	private Map<Class<? extends Component>,ComponentRenderer> screenReaderRenderers = new HashMap<>();
 
 	private PopupBrowserWindowControllerCreator pbwcc;
 	
 	public WindowManagerImpl() {
-		
-		this.pbwcc = (PopupBrowserWindowControllerCreator) 
+		pbwcc = (PopupBrowserWindowControllerCreator) 
 			CoreSpringFactory.getBean(PopupBrowserWindowControllerCreator.class);
-		
-		
-		
+
 		final AJAXFlags aflags = new AJAXFlags(this);
 		globalSettings = new GlobalSettings() {
-
+			@Override
 			public int getFontSize() {
 				return WindowManagerImpl.this.getFontSize();
 			}
-
+			@Override
 			public AJAXFlags getAjaxFlags() {
 				return aflags;
 			}
-			
-			public ComponentRenderer getComponentRendererFor(Component source) {
-				return WindowManagerImpl.this.getComponentRendererFor(source);
-			}
-
+			@Override
 			public boolean isIdDivsForced() {
 				return WindowManagerImpl.this.isIdDivsForced();
 			}
 		};
-			
-		// add special classes for screenreader rendering
-		//FIXME:FG: add support for multiple renderers (screenreader / iphone)
-		// 1) move to a config file
-		// 2) don't hardcode the theme (allow also iphone theme)
-		// 3) check which special renderer are really needed
-		//screenReaderRenderers.put(MenuTree.class, new MenuTreeScreenreaderRenderer());
-		screenReaderRenderers.put(VelocityContainer.class, new VelocityContainerRenderer("screenreader"));	
-		//screenReaderRenderers.put(TabbedPane.class, new TabbedPaneScreenreaderRenderer());
 	}
-	
-	public void setForScreenReader(boolean forScreenReader) {
-		this.forScreenReader = forScreenReader;
-		if (forScreenReader) {
-			screenreader_interceptHandler = new InterceptHandler() {
 
-				public InterceptHandlerInstance createInterceptHandlerInstance() {
-					return new ScreenReaderHandlerInstance();		
-				}};
-		} else {
-			screenreader_interceptHandler = null;
-		}
-	}
-	
-
-	
-	
-	
-	/**
-	 * @param source
-	 * @return
-	 */
-	protected ComponentRenderer getComponentRendererFor(Component source) {
-		ComponentRenderer compRenderer;
-		// to do: let "source - renderer pairs" be configured via spring for each mode like
-		// default, accessibility, printing
-		if (isForScreenReader()) {
-			ComponentRenderer cr = screenReaderRenderers.get(source.getClass());
-			if (cr != null) {
-				compRenderer = cr;
-			} else {
-				compRenderer = source.getHTMLRendererSingleton();
-			}
-		} else {
-			compRenderer = source.getHTMLRendererSingleton();
-		}
-		return compRenderer;
-	}
-	
-	/* (non-Javadoc)
-	 * @see org.olat.core.gui.WindowManager#getGlobalSettings()
-	 */
+	@Override
 	public GlobalSettings getGlobalSettings() {
 		return globalSettings;
 	}
 	
-	
+	@Override
 	public void setAjaxWanted(UserRequest ureq, boolean enabled) {
 		boolean globalOk = Settings.isAjaxGloballyOn();
 		boolean browserOk = !Settings.isBrowserAjaxBlacklisted(ureq);
@@ -175,6 +101,7 @@ public class WindowManagerImpl extends BasicManager implements WindowManager {
 	/**
 	 * @return Returns the ajaxEnabled.
 	 */
+	@Override
 	public boolean isAjaxEnabled() {
 		return ajaxEnabled;
 	}
@@ -186,16 +113,15 @@ public class WindowManagerImpl extends BasicManager implements WindowManager {
 	 * sets the ajax on/off flag, -ignoring the browser-
 	 * @param enabled if true, ajax is on, renderers can render their links to post to the background frame and so on
 	 */
+	@Override
 	public void setAjaxEnabled(boolean enabled) {
 		this.ajaxEnabled  = enabled;
 		for (WindowBackOfficeImpl wboImpl : wbos) {
 			wboImpl.setAjaxEnabled(enabled);
 		}			
 	}
-	
-	/* (non-Javadoc)
-	 * @see org.olat.core.gui.WindowManager#setHighLightingEnabled(boolean)
-	 */
+
+	@Override
 	public void setHighLightingEnabled(boolean enabled) {
 		for (WindowBackOfficeImpl wboImpl : wbos) {
 			wboImpl.setHighLightingEnabled(enabled);
@@ -222,73 +148,52 @@ public class WindowManagerImpl extends BasicManager implements WindowManager {
 		return fontSize;
 	}
 
+	@Override
 	public void setFontSize(int fontSize) {
-		
 		this.fontSize = fontSize;
-	}
-
-	public boolean isForScreenReader() {
-		return forScreenReader;
 	}
 
 	/* (non-Javadoc)
 	 * @see org.olat.core.gui.WindowManager#createWindowBackOffice(java.lang.String, org.olat.core.gui.control.ChiefController)
 	 */
+	@Override
 	public WindowBackOffice createWindowBackOffice(String windowName, ChiefController owner, WindowSettings settings) {
 		WindowBackOfficeImpl wbo = new WindowBackOfficeImpl(this, windowName, owner, wboId++, settings);
 		wbos.add(wbo);
 		return wbo;
 	}
 
-	/**
-	 * 
-	 */
+	@Override
 	public void dispose() {
 		for (WindowBackOfficeImpl wboImpl : wbos) {
 			wboImpl.dispose();
 		}		
 	}
 
-	protected InterceptHandler getScreenreader_interceptHandler() {
-		return screenreader_interceptHandler;
-	}
-
 	protected boolean isShowDebugInfo() {
 		return showDebugInfo;
-	}
-	
-	/* (non-Javadoc)
-	 * @see org.olat.core.gui.WindowManager#createContentableChiefController(org.olat.core.gui.UserRequest)
-	 */
-	public ContentableChiefController createContentableChiefController(UserRequest ureq) {
-		return new BaseChiefController(ureq);
 	}
 	
 	/**
 	 * 
 	 * @see org.olat.core.gui.WindowManager#createNewPopupBrowserWindowFor(org.olat.core.gui.UserRequest, org.olat.core.gui.control.creator.ControllerCreator, boolean)
 	 */
+	@Override
 	public PopupBrowserWindow createNewPopupBrowserWindowFor(UserRequest ureq, ControllerCreator contentControllerCreator) {
-		BaseChiefController cc = new BaseChiefController(ureq);
-		cc.addBodyCssClass("b_body_popup");
 		//supports the open(ureq) method
-		PopupBrowserWindowController sbasec = pbwcc.createNewPopupBrowserController(ureq, cc.getWindowControl(), contentControllerCreator);
-		//the content controller for the popupwindow is generated and set
-		//at the moment the open method is called!!
-		cc.setContentController(true, sbasec);
-		return sbasec;
+		PopupBrowserWindowController cc = pbwcc.createNewPopupBrowserController(ureq, contentControllerCreator);
+		cc.addBodyCssClass("o_body_popup");
+		return cc;
 	}
 	
-	//fxdiff
+	@Override
 	public PopupBrowserWindow createNewUnauthenticatedPopupWindowFor(UserRequest ureq, ControllerCreator contentControllerCreator) {
-		BaseChiefController cc = new BaseChiefController(ureq);
-		cc.addBodyCssClass("b_body_popup");
 		//supports the open(ureq) method
-		PopupBrowserWindowController sbasec = pbwcc.createNewUnauthenticatedPopupWindowController(ureq, cc.getWindowControl(), contentControllerCreator);
+		PopupBrowserWindowController cc = pbwcc.createNewUnauthenticatedPopupWindowController(ureq, contentControllerCreator);
 		//the content controller for the popupwindow is generated and set
 		//at the moment the open method is called!!
-		cc.setContentController(true, sbasec);
-		return sbasec;
+		cc.addBodyCssClass("o_body_popup");
+		return cc;
 	}
 	
 	
@@ -306,6 +211,4 @@ public class WindowManagerImpl extends BasicManager implements WindowManager {
 	public boolean isIdDivsForced() {
 		return idDivsForced;
 	}
-
-	
 }

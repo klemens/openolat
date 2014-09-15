@@ -33,6 +33,7 @@ import org.olat.core.commons.services.notifications.SubscriptionContext;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.Component;
 import org.olat.core.gui.components.panel.Panel;
+import org.olat.core.gui.components.tree.TreeModel;
 import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.Event;
 import org.olat.core.gui.control.WindowControl;
@@ -50,6 +51,7 @@ import org.olat.course.CourseFactory;
 import org.olat.course.nodes.TitledWrapperHelper;
 import org.olat.course.nodes.WikiCourseNode;
 import org.olat.course.run.environment.CourseEnvironment;
+import org.olat.course.run.navigation.NodeRunConstructionResult;
 import org.olat.course.run.userview.NodeEvaluation;
 import org.olat.modules.ModuleConfiguration;
 import org.olat.modules.wiki.Wiki;
@@ -69,26 +71,17 @@ import org.olat.util.logging.activity.LoggingResourceable;
  */
 public class WikiRunController extends BasicController implements Activateable2 {
 	
-	private Panel main;
-	
 	private CourseEnvironment courseEnv;
 	private WikiMainController wikiCtr;
 	private ModuleConfiguration config;
 	private CloneController cloneCtr;
 	
-	/**
-	 * 
-	 * @param wControl
-	 * @param ureq
-	 * @param wikiCourseNode
-	 * @param cenv
-	 */
-	public WikiRunController(WindowControl wControl, UserRequest ureq, WikiCourseNode wikiCourseNode, CourseEnvironment cenv, NodeEvaluation ne) {
+
+	public WikiRunController(WindowControl wControl, UserRequest ureq, WikiCourseNode wikiCourseNode,
+			CourseEnvironment cenv, NodeEvaluation ne) {
 		super(ureq, wControl);
 		this.courseEnv = cenv;
-		
 		this.config = wikiCourseNode.getModuleConfiguration();
-		main = new Panel("wikirunmain");
 		addLoggingResourceable(LoggingResourceable.wrap(wikiCourseNode));
 		
 		//get repository entry in "strict" mode
@@ -122,18 +115,17 @@ public class WikiRunController extends BasicController implements Activateable2 
 			wikiCtr = WikiManager.getInstance().createWikiMainController(ureq, wControl, re.getOlatResource(), callback, null);
 		}
 		listenTo(wikiCtr);
-		
+
 		Controller wrappedCtr = TitledWrapperHelper.getWrapper(ureq, wControl, wikiCtr, wikiCourseNode, Wiki.CSS_CLASS_WIKI_ICON);
 		
 		CloneLayoutControllerCreatorCallback clccc = new CloneLayoutControllerCreatorCallback() {
-			public ControllerCreator createLayoutControllerCreator(UserRequest ureq, final ControllerCreator contentControllerCreator) {
-				return BaseFullWebappPopupLayoutFactory.createAuthMinimalPopupLayout(ureq, new ControllerCreator() {
+			public ControllerCreator createLayoutControllerCreator(UserRequest uureq, final ControllerCreator contentControllerCreator) {
+				return BaseFullWebappPopupLayoutFactory.createAuthMinimalPopupLayout(uureq, new ControllerCreator() {
 					@SuppressWarnings("synthetic-access")
 					public Controller createController(UserRequest lureq, WindowControl lwControl) {
 						// wrapp in column layout, popup window needs a layout controller
 						Controller ctr = contentControllerCreator.createController(lureq, lwControl);
-						LayoutMain3ColsController layoutCtr = new LayoutMain3ColsController(lureq, lwControl, null, null, ctr.getInitialComponent(),
-								null);
+						LayoutMain3ColsController layoutCtr = new LayoutMain3ColsController(lureq, lwControl, ctr);
 						layoutCtr.setCustomCSS(CourseFactory.getCustomCourseCss(lureq.getUserSession(), courseEnv));
 						layoutCtr.addDisposableChildController(ctr);
 						return layoutCtr;
@@ -145,13 +137,13 @@ public class WikiRunController extends BasicController implements Activateable2 
 		if (wrappedCtr instanceof CloneableController) {
 			cloneCtr = new CloneController(ureq, getWindowControl(), (CloneableController)wrappedCtr, clccc);
 			listenTo(cloneCtr);
-			main.setContent(cloneCtr.getInitialComponent());
-			putInitialPanel(main);
+			putInitialPanel(cloneCtr.getInitialComponent());
+		} else {
+			putInitialPanel(new Panel("uups.no.clone.controller"));			
 		}
 	}
 
 	@Override
-	//fxdiff BAKS-7 Resume function
 	public void activate(UserRequest ureq, List<ContextEntry> entries, StateEntry state) {
 		if(entries == null || entries.isEmpty()) return;
 		wikiCtr.activate(ureq, entries, state);
@@ -173,11 +165,15 @@ public class WikiRunController extends BasicController implements Activateable2 
 	}
 
 	/**
-	 * @see org.olat.core.gui.//content = new VelocityContainer("wikirun", VELOCITY_ROOT + "/run.html", translator, this);
-		control.DefaultController#doDispose(boolean)
+	 * @see org.olat.core.gui.control.DefaultController#doDispose(boolean)
 	 */
 	protected void doDispose() {
 		//
 	}
-
+	
+	public NodeRunConstructionResult createNodeRunConstructionResult() {
+		TreeModel wikiTreeModel = wikiCtr.getAndUseExternalTree();
+		String selNodeId = wikiTreeModel.getRootNode().getChildAt(0).getIdent();
+		return new NodeRunConstructionResult(this, wikiTreeModel, selNodeId, wikiCtr);
+	}
 }

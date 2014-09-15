@@ -27,10 +27,10 @@ package org.olat.course.nodes;
 
 import java.io.File;
 import java.util.List;
+import java.util.Locale;
 
-import org.olat.basesecurity.BaseSecurityManager;
 import org.olat.core.gui.UserRequest;
-import org.olat.core.gui.components.stack.StackedController;
+import org.olat.core.gui.components.stack.BreadcrumbPanel;
 import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.WindowControl;
 import org.olat.core.gui.control.generic.iframe.DeliveryOptions;
@@ -48,15 +48,17 @@ import org.olat.course.editor.NodeEditController;
 import org.olat.course.editor.StatusDescription;
 import org.olat.course.nodes.cp.CPEditController;
 import org.olat.course.nodes.cp.CPRunController;
-import org.olat.course.repository.ImportReferencesController;
 import org.olat.course.run.navigation.NodeRunConstructionResult;
 import org.olat.course.run.userview.NodeEvaluation;
 import org.olat.course.run.userview.UserCourseEnvironment;
+import org.olat.fileresource.types.ImsCPFileResource;
 import org.olat.ims.cp.CPManager;
 import org.olat.ims.cp.ui.CPPackageConfig;
 import org.olat.modules.ModuleConfiguration;
 import org.olat.repository.RepositoryEntry;
 import org.olat.repository.RepositoryEntryImportExport;
+import org.olat.repository.handlers.RepositoryHandler;
+import org.olat.repository.handlers.RepositoryHandlerFactory;
 
 /**
  * Description:<br>
@@ -81,12 +83,11 @@ public class CPCourseNode extends AbstractAccessableCourseNode {
 	 * @see org.olat.course.nodes.CourseNode#createEditController(org.olat.core.gui.UserRequest,
 	 *      org.olat.core.gui.control.WindowControl, org.olat.course.ICourse)
 	 */
-	public TabbableController createEditController(UserRequest ureq, WindowControl wControl, StackedController stackPanel, ICourse course, UserCourseEnvironment euce) {
+	public TabbableController createEditController(UserRequest ureq, WindowControl wControl, BreadcrumbPanel stackPanel, ICourse course, UserCourseEnvironment euce) {
 		updateModuleConfigDefaults(false);
 		CPEditController childTabCntrllr = new CPEditController(this, ureq, wControl, stackPanel, course, euce);
 		CourseNode chosenNode = course.getEditorTreeModel().getCourseNode(euce.getCourseEditorEnv().getCurrentCourseNodeId());
-		return new NodeEditController(ureq, wControl, course.getEditorTreeModel(), course, chosenNode, course.getCourseEnvironment()
-				.getCourseGroupManager(), euce, childTabCntrllr);
+		return new NodeEditController(ureq, wControl, course.getEditorTreeModel(), course, chosenNode, euce, childTabCntrllr);
 	}
 
 	/**
@@ -100,7 +101,7 @@ public class CPCourseNode extends AbstractAccessableCourseNode {
 		NodeRunConstructionResult ncr;
 		updateModuleConfigDefaults(false);
 		OLATResourceable ores = OresHelper.createOLATResourceableInstance(ICourse.class, userCourseEnv.getCourseEnvironment().getCourseResourceableId());
-		CPRunController cprunC = new CPRunController(getModuleConfiguration(), ureq, userCourseEnv, wControl, this, nodecmd, ores);
+		CPRunController cprunC = new CPRunController(getModuleConfiguration(), ureq, wControl, this, nodecmd, ores);
 		ncr = cprunC.createNodeRunConstructionResult(ureq);
 		return ncr;
 	}
@@ -187,8 +188,6 @@ public class CPCourseNode extends AbstractAccessableCourseNode {
 			// use defaults for new course building blocks
 			config.setBooleanEntry(NodeEditController.CONFIG_STARTPAGE, Boolean.FALSE.booleanValue());
 			config.setBooleanEntry(NodeEditController.CONFIG_COMPONENT_MENU, Boolean.TRUE.booleanValue());
-			// cp navigation
-			config.setBooleanEntry(CPEditController.CONFIG_SHOWNAVBUTTONS, Boolean.TRUE.booleanValue());
 			// how to render files (include jquery etc)
 			DeliveryOptions nodeDeliveryOptions = DeliveryOptions.defaultWithGlossary();
 			nodeDeliveryOptions.setInherit(Boolean.TRUE);
@@ -211,11 +210,6 @@ public class CPCourseNode extends AbstractAccessableCourseNode {
 				config.set(NodeEditController.CONFIG_CONTENT_ENCODING, NodeEditController.CONFIG_CONTENT_ENCODING_AUTO);
 				config.set(NodeEditController.CONFIG_JS_ENCODING, NodeEditController.CONFIG_JS_ENCODING_AUTO);
 				config.setConfigurationVersion(3);
-			}
-			
-			if(config.getConfigurationVersion() < 4) {
-				config.setBooleanEntry(CPEditController.CONFIG_SHOWNAVBUTTONS, Boolean.TRUE.booleanValue());
-				config.setConfigurationVersion(4);
 			}
 			// Version 5 was ineffective since the delivery options were not set. We have to redo this and
 			// save it as version 6
@@ -278,10 +272,7 @@ public class CPCourseNode extends AbstractAccessableCourseNode {
 		}
 	}
 
-	/**
-	 * @see org.olat.course.nodes.GenericCourseNode#exportNode(java.io.File,
-	 *      org.olat.course.ICourse)
-	 */
+	@Override
 	public void exportNode(File exportDirectory, ICourse course) {
 		RepositoryEntry re = CPEditController.getCPReference(getModuleConfiguration(), false);
 		if (re == null) return;
@@ -291,29 +282,18 @@ public class CPCourseNode extends AbstractAccessableCourseNode {
 		reie.exportDoExport();
 	}
 
-	/**
-	 * @see org.olat.course.nodes.GenericCourseNode#importNode(java.io.File,
-	 *      org.olat.course.ICourse, org.olat.core.gui.UserRequest,
-	 *      org.olat.core.gui.control.WindowControl)
-	 */
-	public Controller importNode(File importDirectory, ICourse course, boolean unattendedImport, UserRequest ureq, WindowControl wControl) {
-		File importSubdir = new File(importDirectory, getIdent());
-		RepositoryEntryImportExport rie = new RepositoryEntryImportExport(importSubdir);
-		if (!rie.anyExportedPropertiesAvailable()) return null;
-
-		// do import referenced repository entries
-		if (unattendedImport) {
-			Identity admin = BaseSecurityManager.getInstance().findIdentityByName("administrator");
-			ImportReferencesController.doImport(rie, this, ImportReferencesController.IMPORT_CP, true, admin);
-			return null;
-		} else {
-			return new ImportReferencesController(ureq, wControl, this, ImportReferencesController.IMPORT_CP, rie);
+	@Override
+	public void importNode(File importDirectory, ICourse course, Identity owner, Locale locale) {
+		RepositoryEntryImportExport rie = new RepositoryEntryImportExport(importDirectory, getIdent());
+		if(rie.anyExportedPropertiesAvailable()) {
+			RepositoryHandler handler = RepositoryHandlerFactory.getInstance().getRepositoryHandler(ImsCPFileResource.TYPE_NAME);
+			RepositoryEntry re = handler.importResource(owner, rie.getInitialAuthor(), rie.getDisplayName(),
+					rie.getDescription(), false, locale, rie.importGetExportedFile(), null);
+			CPEditController.setCPReference(re, getModuleConfiguration());
 		}
 	}
 
-	/**
-	 * @see org.olat.course.nodes.CourseNode#createInstanceForCopy()
-	 */
+	@Override
 	public CourseNode createInstanceForCopy() {
 		CourseNode copyInstance = super.createInstanceForCopy();
 		CPEditController.removeCPReference(copyInstance.getModuleConfiguration());

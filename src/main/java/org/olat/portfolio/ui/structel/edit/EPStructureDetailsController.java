@@ -41,8 +41,9 @@ import org.olat.core.gui.components.form.flexible.impl.FormLayoutContainer;
 import org.olat.core.gui.components.link.Link;
 import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.WindowControl;
-import org.olat.core.gui.translator.PackageTranslator;
+import org.olat.core.gui.translator.Translator;
 import org.olat.core.util.StringHelper;
+import org.olat.core.util.Util;
 import org.olat.portfolio.EPArtefactHandler;
 import org.olat.portfolio.PortfolioModule;
 import org.olat.portfolio.manager.EPFrontendManager;
@@ -85,8 +86,8 @@ public class EPStructureDetailsController extends FormBasicController {
 	public EPStructureDetailsController(final UserRequest ureq, final WindowControl wControl, final Form rootForm, final PortfolioStructure rootStructure) {
 		super(ureq, wControl, FormBasicController.LAYOUT_DEFAULT, null, rootForm);
 
-		final PackageTranslator pt = new PackageTranslator(EPMapViewController.class.getPackage().getName(), ureq.getLocale(), getTranslator());
-		this.flc.setTranslator(pt);
+		final Translator pt = Util.createPackageTranslator(EPMapViewController.class, ureq.getLocale(), getTranslator());
+		flc.setTranslator(pt);
 		ePFMgr = (EPFrontendManager) CoreSpringFactory.getBean("epFrontendManager");
 		portfolioModule = (PortfolioModule) CoreSpringFactory.getBean("portfolioModule");
 		this.rootStructure = rootStructure;
@@ -139,7 +140,7 @@ public class EPStructureDetailsController extends FormBasicController {
 			formLayout.remove("struct.description");
 		}
 		descriptionEl = uifactory.addRichTextElementForStringDataMinimalistic("struct.description", "struct.description", editStructure.getDescription(), -1, -1,
-				formLayout, ureq.getUserSession(), getWindowControl());
+				formLayout, getWindowControl());
 		descriptionEl.setMaxLength(2047);
 		descriptionEl.setNotLongerThanCheck(2047, "map.description.too.long");
 
@@ -155,8 +156,8 @@ public class EPStructureDetailsController extends FormBasicController {
 		}
 		// show restrictions only for templates and on page/structure-level, as artefacts are not linkable on maps itself
 		if (editStructure instanceof EPStructureElement && rootStructure instanceof EPStructuredMapTemplate && editStructure.getRoot() != null) {
-			final FormLayoutContainer collectContainer = FormLayoutContainer.createCustomFormLayout("collect.restriction", getTranslator(), velocity_root
-					+ "/restrictions.html");
+			final FormLayoutContainer collectContainer = FormLayoutContainer
+					.createCustomFormLayout("collect.restriction", getTranslator(), velocity_root + "/restrictions.html");
 			collectContainer.setRootForm(mainForm);
 			collectContainer.setLabel("collect.restriction", null);
 			formLayout.add(collectContainer);
@@ -195,6 +196,7 @@ public class EPStructureDetailsController extends FormBasicController {
 
 				final SingleSelection restrictionElement = uifactory.addDropdownSingleselect("collect.restriction.restriction." + count, "", collectContainer,
 						restrictionKeys, restrictionValues, null);
+				restrictionElement.setDomReplacementWrapperRequired(false);
 				restrictionElement.setMandatory(true);
 				if (restriction != null && StringHelper.containsNonWhitespace(restriction.getRestriction())) {
 					restrictionElement.select(restriction.getRestriction(), true);
@@ -203,6 +205,7 @@ public class EPStructureDetailsController extends FormBasicController {
 
 				final SingleSelection restrictToArtefactElement = uifactory.addDropdownSingleselect("collect.restriction.artefacts." + count, "", collectContainer,
 						artefactKeys, artefactValues, null);
+				restrictToArtefactElement.setDomReplacementWrapperRequired(false);
 				restrictToArtefactElement.setMandatory(true);
 				if (restriction != null && StringHelper.containsNonWhitespace(restriction.getArtefactType())) {
 					restrictToArtefactElement.select(restriction.getArtefactType(), true);
@@ -213,6 +216,7 @@ public class EPStructureDetailsController extends FormBasicController {
 					amountStr = Integer.toString(restriction.getAmount());
 				}
 				final TextElement amountElement = uifactory.addTextElement("collect.restriction.amount." + count, "", 2, amountStr, collectContainer);
+				amountElement.setDomReplacementWrapperRequired(false);
 				amountElement.setDisplaySize(3);
 				
 				StaticTextElement errorElement = uifactory.addStaticTextElement("collect.restriction.error." + count, "", collectContainer);
@@ -225,9 +229,11 @@ public class EPStructureDetailsController extends FormBasicController {
 
 				final FormLink addLink = uifactory.addFormLink("collect.restriction.add." + count, "collect.restriction.add", "collect.restriction.add",
 						collectContainer, Link.BUTTON_SMALL);
+				addLink.setDomReplacementWrapperRequired(false);
 				addLink.setUserObject(restriction);
 				final FormLink delLink = uifactory.addFormLink("collect.restriction.del." + count, "collect.restriction.delete", "collect.restriction.delete",
 						collectContainer, Link.BUTTON_SMALL);
+				delLink.setDomReplacementWrapperRequired(false);
 				delLink.setUserObject(restriction);
 
 				counts.add(Integer.toString(count));

@@ -39,17 +39,20 @@ public class PowerpointFileResource extends FileResource {
 	 */
 	public static final String TYPE_NAME = "FileResource.PPT";
 
-	/**
-	 * Standard constructor.
-	 */
-	public PowerpointFileResource() { super.setTypeName(TYPE_NAME); }
+	public PowerpointFileResource() {
+		super(TYPE_NAME);
+	}
 	
 	/**
 	 * @param f
 	 * @return True if is of type.
 	 */
 	public static boolean validate(File f) {
-		String filename_ = f.getName().toLowerCase();
-		return filename_.endsWith(".ppt") || filename_.endsWith(".pps");
+		return validate(f.getName());
+	}
+	
+	public static boolean validate(String filename) {
+		String f = filename.toLowerCase();
+		return f.endsWith(".ppt") || f.endsWith(".pps") || f.endsWith(".pptx") || f.endsWith(".ppsx");
 	}
 }

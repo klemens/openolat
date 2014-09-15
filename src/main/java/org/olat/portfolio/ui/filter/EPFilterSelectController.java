@@ -23,7 +23,6 @@ import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 
-import org.olat.core.CoreSpringFactory;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.form.flexible.FormItem;
 import org.olat.core.gui.components.form.flexible.FormItemContainer;
@@ -36,6 +35,7 @@ import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.WindowControl;
 import org.olat.portfolio.manager.EPFrontendManager;
 import org.olat.portfolio.model.EPFilterSettings;
+import org.springframework.beans.factory.annotation.Autowired;
 
 /**
  * Description:<br>
@@ -47,6 +47,7 @@ import org.olat.portfolio.model.EPFilterSettings;
  */
 public class EPFilterSelectController extends FormBasicController {
 
+	@Autowired
 	private EPFrontendManager ePFMgr;
 	private FormLink adaptBtn;
 	private SingleSelection filterSel;
@@ -56,12 +57,9 @@ public class EPFilterSelectController extends FormBasicController {
 	public EPFilterSelectController(UserRequest ureq, WindowControl wControl, String presetFilterID) {
 		super(ureq, wControl);
 		this.presetFilterID = presetFilterID;
-		ePFMgr = (EPFrontendManager) CoreSpringFactory.getBean("epFrontendManager");		
 		
 		initForm(ureq);
 	}
-	
-	
 
 	/**
 	 * @see org.olat.core.gui.components.form.flexible.impl.FormBasicController#initForm(org.olat.core.gui.components.form.flexible.FormItemContainer, org.olat.core.gui.control.Controller, org.olat.core.gui.UserRequest)
@@ -94,14 +92,14 @@ public class EPFilterSelectController extends FormBasicController {
 		}
 		// don't show anything if no filter exists
 		if (!nonEmptyFilters.isEmpty()) {
-			String page = this.velocity_root + "/filter_select.html";
+			String page = velocity_root + "/filter_select.html";
 			FormLayoutContainer selection = FormLayoutContainer.createCustomFormLayout("filter_selection", getTranslator(), page);
 			selection.setRootForm(mainForm);
 			selection.setLabel("filter.select", null);
 			formLayout.add(selection);
 			
 			filterSel = uifactory.addDropdownSingleselect("filter.select", selection, theKeys, theValues, null);
-			filterSel.addActionListener(this, FormEvent.ONCHANGE);
+			filterSel.addActionListener(FormEvent.ONCHANGE);
 			filterSel.select(presetFilterIndex, true);
 			adaptBtn = uifactory.addFormLink("filter.adapt", selection);
 			adaptBtn.setVisible(!presetFilterIndex.equals("0"));

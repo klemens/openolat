@@ -37,6 +37,10 @@ public interface EPSecurityCallback {
 	
 	public boolean canEditStructure();
 	
+	public boolean canEditReflexion();
+	
+	public boolean canEditTags();
+	
 	public boolean canShareMap();
 	
 	public boolean canAddArtefact();

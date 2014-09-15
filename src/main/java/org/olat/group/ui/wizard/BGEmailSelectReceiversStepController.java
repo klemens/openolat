@@ -19,7 +19,7 @@
  */
 package org.olat.group.ui.wizard;
 
-import java.util.Set;
+import java.util.Collection;
 
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.form.flexible.FormItemContainer;
@@ -53,7 +53,7 @@ public class BGEmailSelectReceiversStepController extends StepFormBasicControlle
 				translate("email.select.receiver.tutor"),
 				translate("email.select.receiver.participant")
 		};
-		receiversEl = uifactory.addCheckboxesVertical("select.receivers", "email.select.receivers", formLayout, receiverKeys, receiverValues, null, 1);
+		receiversEl = uifactory.addCheckboxesVertical("select.receivers", "email.select.receivers", formLayout, receiverKeys, receiverValues, 1);
 		receiversEl.select(receiverKeys[0], true);
 		receiversEl.select(receiverKeys[1], true);
 	}
@@ -70,7 +70,7 @@ public class BGEmailSelectReceiversStepController extends StepFormBasicControlle
 
 	@Override
 	protected void formOK(UserRequest ureq) {
-		Set<String> selectedKeys = receiversEl.getSelectedKeys();
+		Collection<String> selectedKeys = receiversEl.getSelectedKeys();
 		addToRunContext("tutors", new Boolean(selectedKeys.contains("tutors")));
 		addToRunContext("participants", new Boolean(selectedKeys.contains("participants")));
 		fireEvent(ureq, StepsEvent.ACTIVATE_NEXT);

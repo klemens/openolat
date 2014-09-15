@@ -33,7 +33,7 @@ import java.util.Locale;
 import java.util.zip.ZipOutputStream;
 
 import org.olat.core.gui.UserRequest;
-import org.olat.core.gui.components.stack.StackedController;
+import org.olat.core.gui.components.stack.BreadcrumbPanel;
 import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.WindowControl;
 import org.olat.core.gui.control.generic.messages.MessageUIFactory;
@@ -73,6 +73,7 @@ import org.olat.modules.ModuleConfiguration;
  * @author BPS (<a href="http://www.bps-system.de/">BPS Bildungsportal Sachsen GmbH</a>)
  */
 public abstract class GenericCourseNode extends GenericNode implements CourseNode {
+	
 	private static final long serialVersionUID = -1093400247219150363L;
 	private String type, shortTitle, longTitle, learningObjectives, displayOption;
 	private ModuleConfiguration moduleConfiguration;
@@ -103,7 +104,7 @@ public abstract class GenericCourseNode extends GenericNode implements CourseNod
 	 *      ATTENTION:
 	 *      all course nodes must call updateModuleConfigDefaults(false) here
 	 */
-	public abstract TabbableController createEditController(UserRequest ureq, WindowControl wControl, StackedController stackPanel, ICourse course,
+	public abstract TabbableController createEditController(UserRequest ureq, WindowControl wControl, BreadcrumbPanel stackPanel, ICourse course,
 			UserCourseEnvironment euce);
 
 	/**
@@ -395,7 +396,7 @@ public abstract class GenericCourseNode extends GenericNode implements CourseNod
 	 * @see org.olat.course.nodes.CourseNode#exportNode(java.io.File,
 	 *      org.olat.course.ICourse)
 	 */
-	//implemented by specialized node
+	@Override
 	public void exportNode(File exportDirectory, ICourse course) {
 	// nothing to do in default implementation
 	}
@@ -406,9 +407,9 @@ public abstract class GenericCourseNode extends GenericNode implements CourseNod
 	 *      org.olat.course.ICourse, org.olat.core.gui.UserRequest,
 	 *      org.olat.core.gui.control.WindowControl)
 	 */
-	public Controller importNode(File importDirectory, ICourse course, boolean unattendedImport, UserRequest ureq, WindowControl wControl) {
+	@Override
+	public void importNode(File importDirectory, ICourse course, Identity owner, Locale locale) {
 		// nothing to do in default implementation
-		return null;
 	}
 
 	@Override

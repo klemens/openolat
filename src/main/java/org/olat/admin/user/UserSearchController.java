@@ -36,7 +36,8 @@ import org.olat.core.gui.components.Component;
 import org.olat.core.gui.components.form.flexible.FormItem;
 import org.olat.core.gui.components.link.Link;
 import org.olat.core.gui.components.link.LinkFactory;
-import org.olat.core.gui.components.panel.Panel;
+import org.olat.core.gui.components.panel.StackedPanel;
+import org.olat.core.gui.components.panel.SimpleStackedPanel;
 import org.olat.core.gui.components.table.StaticColumnDescriptor;
 import org.olat.core.gui.components.table.Table;
 import org.olat.core.gui.components.table.TableController;
@@ -51,7 +52,6 @@ import org.olat.core.gui.control.controller.BasicController;
 import org.olat.core.gui.control.generic.ajax.autocompletion.AutoCompleterController;
 import org.olat.core.gui.control.generic.ajax.autocompletion.EntriesChosenEvent;
 import org.olat.core.gui.control.generic.ajax.autocompletion.ListProvider;
-import org.olat.core.gui.translator.PackageTranslator;
 import org.olat.core.gui.translator.Translator;
 import org.olat.core.id.Identity;
 import org.olat.core.id.Roles;
@@ -100,7 +100,7 @@ public class UserSearchController extends BasicController {
 	private static final String ACTION_MULTISELECT_CHOOSE = "msc";
 	
 	private VelocityContainer myContent;
-	private Panel searchPanel;
+	private StackedPanel searchPanel;
 	private UserSearchForm searchform;
 	private TableController tableCtr;
 	private TableGuiConfiguration tableConfig;
@@ -166,11 +166,11 @@ public class UserSearchController extends BasicController {
 		this.actionKeyChoose = ACTION_KEY_CHOOSE;
 		securityModule = CoreSpringFactory.getImpl(BaseSecurityModule.class);
 	  // Needs PACKAGE and VELOCITY_ROOT because DeletableUserSearchController extends UserSearchController and re-use translations
-		Translator pT = UserManager.getInstance().getPropertyHandlerTranslator( new PackageTranslator(PACKAGE, ureq.getLocale()) );	
+		Translator pT = UserManager.getInstance().getPropertyHandlerTranslator(Util.createPackageTranslator(UserSearchController.class, ureq.getLocale()) );	
 		myContent = new VelocityContainer("olatusersearch", VELOCITY_ROOT + "/usersearch.html", pT, this);
 		backLink = LinkFactory.createButton("btn.back", myContent, this);
 		
-		searchPanel = new Panel("usersearchPanel");
+		searchPanel = new SimpleStackedPanel("usersearchPanel");
 		searchPanel.addListener(this);
 		myContent.put("usersearchPanel", searchPanel);
 
@@ -233,7 +233,7 @@ public class UserSearchController extends BasicController {
 				TableEvent te = (TableEvent) event;
 				if (te.getActionId().equals(ACTION_SINGLESELECT_CHOOSE)) {
 					int rowid = te.getRowId();
-					Identity foundIdentity = (Identity)tdm.getObject(rowid);
+					Identity foundIdentity = tdm.getObject(rowid);
 					foundIdentities.add(foundIdentity);
 					// Tell parentController that a subject has been found
 					fireEvent(ureq, new SingleIdentityChosenEvent(foundIdentity));

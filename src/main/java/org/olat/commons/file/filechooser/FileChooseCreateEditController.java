@@ -52,7 +52,8 @@ import org.olat.core.gui.components.form.flexible.impl.FormEvent;
 import org.olat.core.gui.components.form.flexible.impl.elements.FormSubmit;
 import org.olat.core.gui.components.link.Link;
 import org.olat.core.gui.components.link.LinkFactory;
-import org.olat.core.gui.components.panel.Panel;
+import org.olat.core.gui.components.panel.StackedPanel;
+import org.olat.core.gui.components.panel.SimpleStackedPanel;
 import org.olat.core.gui.components.velocity.VelocityContainer;
 import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.Event;
@@ -198,7 +199,8 @@ public class FileChooseCreateEditController extends BasicController{
 		changeFileButtonTwo.setElementCssClass("o_sel_filechooser_create");
 		previewLink = LinkFactory.createCustomLink("command.preview", "command.preview", getTranslator().translate(NLS_FOLDER_DISPLAYNAME) + chosenFile, Link.NONTRANSLATED, myContent, this);
 		previewLink.setElementCssClass("o_sel_filechooser_preview");
-		previewLink.setCustomEnabledLinkCSS("b_preview");
+		previewLink.setIconLeftCSS("o_icon o_icon-fw o_icon_preview");
+		previewLink.setCustomEnabledLinkCSS("o_preview");
 		previewLink.setTitle(getTranslator().translate("command.preview"));
 		
 		this.fileChooser = createVelocityContainer("filechoosecreateedit");
@@ -224,7 +226,7 @@ public class FileChooseCreateEditController extends BasicController{
 		cmdUpload.execute(folderComponent, ureq, getTranslator(), true);		
 		cmdUpload.hideFieldset();
 		listenTo(cmdUpload);
-		Panel mainPanel = new Panel("upl");
+		StackedPanel mainPanel = new SimpleStackedPanel("upl");
 		Component uploadComp = cmdUpload.getInitialComponent();
 		if (uploadComp != null)	{
 			mainPanel.pushContent(uploadComp);
@@ -395,8 +397,8 @@ public class FileChooseCreateEditController extends BasicController{
 
 		if (source == previewLink){
 			removeAsListenerAndDispose(previewLayoutCtr);
-			SinglePageController previewController = new SinglePageController(ureq, getWindowControl(), rootContainer, chosenFile, null, allowRelativeLinks);
-			previewLayoutCtr = new LayoutMain3ColsPreviewController(ureq, getWindowControl(), null, null, previewController.getInitialComponent(), null);
+			SinglePageController previewController = new SinglePageController(ureq, getWindowControl(), rootContainer, chosenFile, allowRelativeLinks);
+			previewLayoutCtr = new LayoutMain3ColsPreviewController(ureq, getWindowControl(), null, previewController.getInitialComponent(), null);
 			previewLayoutCtr.addDisposableChildController(previewController);
 			previewLayoutCtr.activate();
 			listenTo(previewLayoutCtr);
@@ -559,8 +561,8 @@ public class FileChooseCreateEditController extends BasicController{
 		//TODO if not standard, remove reference to HTML pages
 	}
 	
-	protected Controller createWysiwygController(UserRequest ureq, WindowControl windowControl, VFSContainer rootContainer, String chosenFile) {
-	  return WysiwygFactory.createWysiwygController(ureq, windowControl, rootContainer, chosenFile, true, true);
+	protected Controller createWysiwygController(UserRequest ureq, WindowControl windowControl, VFSContainer fileContainer, String fileToEdit) {
+	  return WysiwygFactory.createWysiwygController(ureq, windowControl, fileContainer, fileToEdit, true, true);
 	}
 	
 	/**
@@ -718,9 +720,9 @@ class AllowRelativeLinksForm extends FormBasicController {
 
 	@Override
 	protected void initForm(FormItemContainer formLayout, Controller listener, UserRequest ureq) {
-		allowRelativeLinks = uifactory.addCheckboxesVertical("allowRelativeLinks", "allowRelativeLinks", formLayout, new String[] {"xx"}, new String[] {null}, null, 1);
+		allowRelativeLinks = uifactory.addCheckboxesHorizontal("allowRelativeLinks", "allowRelativeLinks", formLayout, new String[] {"xx"}, new String[] {null});
 		allowRelativeLinks.select("xx", isOn);
-		allowRelativeLinks.addActionListener(this, FormEvent.ONCLICK);
+		allowRelativeLinks.addActionListener(FormEvent.ONCLICK);
 	}
 
 	@Override

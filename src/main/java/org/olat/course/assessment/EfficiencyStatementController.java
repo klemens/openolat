@@ -151,7 +151,7 @@ public class EfficiencyStatementController extends BasicController {
 		
 		if(courseRepoKey != null && links) {
 			courseLink = LinkFactory.createButton("course.link", userDataVC, this);
-			courseLink.setCustomEnabledLinkCSS("b_link_left_icon b_link_course");
+			courseLink.setIconLeftCSS("o_icon o_CourseModule_icon");
 			userDataVC.put("course.link", courseLink);
 		}
 		
@@ -165,19 +165,19 @@ public class EfficiencyStatementController extends BasicController {
 
 		if(!getIdentity().equals(statementOwner) && links) {
 			homeLink = LinkFactory.createButton("home.link", userDataVC, this);
-			homeLink.setCustomEnabledLinkCSS("b_link_left_icon b_link_to_home");
+			homeLink.setIconLeftCSS("o_icon o_icon_home");
 			userDataVC.put("home.link", homeLink);
 			
 			contactLink = LinkFactory.createButton("contact.link", userDataVC, this);
-			contactLink.setCustomEnabledLinkCSS("b_link_left_icon b_link_mail");
+			contactLink.setIconLeftCSS("o_icon o_icon_mail");
 			userDataVC.put("contact.link", contactLink);
 		}
 
 		if(group != null) {
-			userDataVC.contextPut("groupName", group.getName());
+			userDataVC.contextPut("groupName", StringHelper.escapeHtml(group.getName()));
 			if(links) {
 				groupLink = LinkFactory.createButton("group.link", userDataVC, this);
-				groupLink.setCustomEnabledLinkCSS("b_link_left_icon b_link_group");
+				groupLink.setIconLeftCSS("o_icon o_icon_group");
 				userDataVC.put("group.link", groupLink);
 			}
 		}
@@ -193,7 +193,7 @@ public class EfficiencyStatementController extends BasicController {
 				EPArtefactHandler<?> artHandler = portfolioModule.getArtefactHandler(EfficiencyStatementArtefact.ARTEFACT_TYPE);
 				if(portfolioModule.isEnabled() && artHandler != null && artHandler.isEnabled()) {
 					collectArtefactLink = LinkFactory.createCustomLink("collectArtefactLink", "collectartefact", "", Link.NONTRANSLATED, userDataVC, this);
-					collectArtefactLink.setCustomEnabledLinkCSS("b_eportfolio_add_again");
+					collectArtefactLink.setIconLeftCSS("o_icon o_icon-lg o_icon_eportfolio_add");
 				}
 			}
 		} else {
@@ -210,7 +210,7 @@ public class EfficiencyStatementController extends BasicController {
 	/**
 	 * @see org.olat.core.gui.control.DefaultController#event(org.olat.core.gui.UserRequest, org.olat.core.gui.components.Component, org.olat.core.gui.control.Event)
 	 */
-	@SuppressWarnings("unused")
+	@Override
 	public void event(UserRequest ureq, Component source, Event event) {
 		if(source.equals(collectArtefactLink)){
 			popupArtefactCollector(ureq);
@@ -248,7 +248,7 @@ public class EfficiencyStatementController extends BasicController {
 		ContactList contactList = new ContactList("to");
 		contactList.add(statementOwner);
 		cmsg.addEmailTo(contactList);
-		contactCtrl = new ContactFormController(ureq, getWindowControl(), true, true, false, false, cmsg);
+		contactCtrl = new ContactFormController(ureq, getWindowControl(), true, false, false, cmsg);
 		listenTo(contactCtrl);
 		cmc = new CloseableModalController(getWindowControl(), translate("close"), contactCtrl.getInitialComponent());
 		cmc.activate();

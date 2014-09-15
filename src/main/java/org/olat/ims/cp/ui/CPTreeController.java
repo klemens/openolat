@@ -36,6 +36,8 @@ import org.olat.core.gui.components.Component;
 import org.olat.core.gui.components.form.flexible.impl.FormBasicController;
 import org.olat.core.gui.components.link.Link;
 import org.olat.core.gui.components.link.LinkFactory;
+import org.olat.core.gui.components.stack.TooledStackedPanel;
+import org.olat.core.gui.components.stack.TooledStackedPanel.Align;
 import org.olat.core.gui.components.tree.MenuTree;
 import org.olat.core.gui.components.tree.TreeDropEvent;
 import org.olat.core.gui.components.tree.TreeEvent;
@@ -101,36 +103,35 @@ public class CPTreeController extends BasicController {
 		treeCtr.setExpandSelectedNode(false);
 		treeCtr.addListener(this);
 
-		setLinks();
 		contentVC.put("cptreecontroller.tree", treeCtr);
 		contentVC.contextPut("treeId", treeCtr.getDispatchID());
 		putInitialPanel(contentVC);
 	}
 
-	private void setLinks() {
-		importLink = LinkFactory.createCustomLink("cptreecontroller.importlink", "cptreecontroller.importlink", null, Link.NONTRANSLATED,
-				contentVC, this);
-		importLink.setCustomEnabledLinkCSS("o_cpeditor_import");
+	void initToolbar(TooledStackedPanel toolbar) {
+		importLink = LinkFactory.createToolLink("cptreecontroller.importlink", "cptreecontroller.importlink",
+				translate("cptreecontroller.importlink_title"), this);
 		importLink.setTooltip(translate("cptreecontroller.importlink_title"));
-		importLink.setTitle(translate("cptreecontroller.importlink_title"));
+		importLink.setIconLeftCSS("o_icon o_icon-lg o_icon_import");
+		toolbar.addTool(importLink, Align.left);
 
-		newLink = LinkFactory.createCustomLink("cptreecontroller.newlink", "cptreecontroller.newlink", null, Link.NONTRANSLATED, contentVC,
-				this);
-		newLink.setCustomEnabledLinkCSS("o_cpeditor_new");
+		newLink = LinkFactory.createToolLink("cptreecontroller.newlink", "cptreecontroller.newlink",
+				translate("cptreecontroller.newlink_title"), this);
 		newLink.setTooltip(translate("cptreecontroller.newlink_title"));
-		newLink.setTitle(translate("cptreecontroller.newlink_title"));
+		newLink.setIconLeftCSS("o_icon o_icon-lg o_icon_add");
+		toolbar.addTool(newLink, Align.left);
 
-		copyLink = LinkFactory.createCustomLink("cptreecontroller.copylink", "cptreecontroller.copylink", null, Link.NONTRANSLATED, contentVC,
-				this);
+		copyLink = LinkFactory.createToolLink("cptreecontroller.copylink", "cptreecontroller.copylink",
+				translate("cptreecontroller.copylink_title"), this);
 		copyLink.setTooltip(translate("cptreecontroller.copylink_title"));
-		copyLink.setTitle(translate("cptreecontroller.copylink_title"));
-		copyLink.setCustomEnabledLinkCSS("o_cpeditor_copy");
+		copyLink.setIconLeftCSS("o_icon o_icon-lg o_icon_copy");
+		toolbar.addTool(copyLink, Align.left);
 
-		deleteLink = LinkFactory.createCustomLink("cptreecontroller.deletelink", "cptreecontroller.deletelink", null, Link.NONTRANSLATED,
-				contentVC, this);
+		deleteLink = LinkFactory.createToolLink("cptreecontroller.deletelink", "cptreecontroller.deletelink",
+				translate("cptreecontroller.deletelink_title"), this);
 		deleteLink.setTooltip(translate("cptreecontroller.deletelink_title"));
-		deleteLink.setTitle(translate("cptreecontroller.deletelink_title"));
-		deleteLink.setCustomEnabledLinkCSS("o_cpeditor_delete");
+		deleteLink.setIconLeftCSS("o_icon o_icon-lg o_icon_delete_item");
+		toolbar.addTool(deleteLink, Align.left);
 	}
 
 	/**
@@ -161,7 +162,7 @@ public class CPTreeController extends BasicController {
 			// no page selected
 		} else {
 			CPManager cpMgm = CPManager.getInstance();
-			treeModel.removePath(identifier);
+			treeModel.removePath();
 			cpMgm.removeElement(cp, identifier, deleteResource);
 			cpMgm.writeToFile(cp);
 			updateTree();
@@ -352,7 +353,7 @@ public class CPTreeController extends BasicController {
 				fireEvent(ureq, new TreeEvent(TreeEvent.COMMAND_TREENODE_CLICKED, selectedNodeID));
 			} else if(event instanceof TreeDropEvent) {
 				TreeDropEvent te = (TreeDropEvent)event;
-				doDrop(ureq, te.getDroppedNodeId(), te.getTargetNodeId(), te.isAsChild(), te.isAtTheEnd());
+				doDrop(ureq, te.getDroppedNodeId(), te.getTargetNodeId(), te.isAsChild());
 			}
 		}
 	}
@@ -410,7 +411,7 @@ public class CPTreeController extends BasicController {
 		}
 	}
 	
-	private void doDrop(UserRequest ureq, String droppedNodeId, String targetNodeId, boolean asChild, boolean atTheEnd) {
+	private void doDrop(UserRequest ureq, String droppedNodeId, String targetNodeId, boolean asChild) {
 		TreeNode droppedNode = treeModel.getNodeById(droppedNodeId);
 		TreeNode targetNode = treeModel.getNodeById(targetNodeId);
 

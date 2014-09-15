@@ -23,7 +23,6 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
-import org.olat.core.CoreSpringFactory;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.Component;
 import org.olat.core.gui.components.panel.Panel;
@@ -40,6 +39,7 @@ import org.olat.portfolio.EPSecurityCallback;
 import org.olat.portfolio.PortfolioModule;
 import org.olat.portfolio.model.artefacts.AbstractArtefact;
 import org.olat.portfolio.model.structel.PortfolioStructure;
+import org.springframework.beans.factory.annotation.Autowired;
 
 /**
  * Description:<br>
@@ -53,6 +53,7 @@ import org.olat.portfolio.model.structel.PortfolioStructure;
 public class EPMultipleArtefactSmallReadOnlyPreviewController extends BasicController implements EPMultiArtefactsController {
 
 	private List<AbstractArtefact> artefacts;
+	@Autowired
 	private PortfolioModule portfolioModule;
 	private ArrayList<Controller> artefactCtrls;
 	private ArrayList<Controller> optionLinkCtrls;
@@ -66,7 +67,6 @@ public class EPMultipleArtefactSmallReadOnlyPreviewController extends BasicContr
 		this.struct = struct;
 		this.secCallback = secCallback;
 		vC = createVelocityContainer("smallMultiArtefactPreview");
-		portfolioModule = (PortfolioModule) CoreSpringFactory.getBean("portfolioModule");
 		
 		init(ureq);
 		putInitialPanel(vC);
@@ -87,8 +87,15 @@ public class EPMultipleArtefactSmallReadOnlyPreviewController extends BasicContr
 			boolean special = artHandler.isProvidingSpecialMapViewController();
 			if (special) {
 				artCtrl = artHandler.getSpecialMapViewController(ureq, getWindowControl(), artefact);
+				if(artCtrl != null) { 
+					//add the optionsLink to the artefact
+					EPArtefactViewOptionsLinkController optionsLinkCtrl = new EPArtefactViewOptionsLinkController(ureq, getWindowControl(), artefact, secCallback, struct);
+					vC.put("optionsLink"+i,optionsLinkCtrl.getInitialComponent());
+					listenTo(optionsLinkCtrl);
+					optionLinkCtrls.add(optionsLinkCtrl);
+				}
 			} else {
-				artCtrl = new EPArtefactViewReadOnlyController(ureq, getWindowControl(), artefact, secCallback);
+				artCtrl = new EPArtefactViewReadOnlyController(ureq, getWindowControl(), artefact, struct, secCallback, true);
 			}
 			if (artCtrl != null){
 				artefactCtrls.add(artCtrl);
@@ -117,13 +124,6 @@ public class EPMultipleArtefactSmallReadOnlyPreviewController extends BasicContr
 				if(special) {//need a flag in a lopp for the velociy template
 					vC.put("specialartCtrl" + i, artefactCtrlComponent);
 				}
-
-				//add the optionsLink to the artefact
-				EPArtefactViewOptionsLinkController optionsLinkCtrl = new EPArtefactViewOptionsLinkController(ureq, getWindowControl(), artefact, secCallback, struct);
-				vC.put("optionsLink"+i,optionsLinkCtrl.getInitialComponent());
-				listenTo(optionsLinkCtrl);
-				optionLinkCtrls.add(optionsLinkCtrl);
-				
 				i++;
 			}
 		}

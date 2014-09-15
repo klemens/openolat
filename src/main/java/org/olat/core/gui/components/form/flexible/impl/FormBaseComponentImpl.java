@@ -25,9 +25,8 @@
 */
 package org.olat.core.gui.components.form.flexible.impl;
 
-import org.olat.core.gui.GUIInterna;
 import org.olat.core.gui.UserRequest;
-import org.olat.core.gui.components.Component;
+import org.olat.core.gui.components.AbstractComponent;
 import org.olat.core.gui.components.form.flexible.FormBaseComponentIdProvider;
 import org.olat.core.gui.translator.Translator;
 import org.olat.core.logging.AssertException;
@@ -41,7 +40,7 @@ import org.olat.core.logging.AssertException;
  * Initial Date:  11.01.2007 <br>
  * @author patrickb
  */
-public abstract class FormBaseComponentImpl extends Component implements FormBaseComponentIdProvider{	
+public abstract class FormBaseComponentImpl extends AbstractComponent implements FormBaseComponentIdProvider{	
 
 	public FormBaseComponentImpl(String name) {
 		super(name);
@@ -59,17 +58,8 @@ public abstract class FormBaseComponentImpl extends Component implements FormBas
 		super(id, name, translator);
 	}
 	
-	private long replayDispatchId;
-	protected void setReplayableDispatchID(long id) {
-		replayDispatchId = id;
-	}
-	
 	public String getFormDispatchId(){		
-		if(GUIInterna.isLoadPerformanceMode()){
-			return DISPPREFIX+replayDispatchId;
-		}else{
-			return DISPPREFIX+super.getDispatchID();
-		}
+		return DISPPREFIX+super.getDispatchID();
 	}
 
 	@Override
@@ -79,5 +69,4 @@ public abstract class FormBaseComponentImpl extends Component implements FormBas
 		//form elements dispatch id.
 		throw new AssertException("The form element <"+getComponentName()+"> with id <"+getFormDispatchId()+"> should not be dispatched by GUI framework:");
 	}
-	
 }

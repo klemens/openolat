@@ -92,11 +92,11 @@ public class ModulesForm extends FormBasicController {
 		setFormTitle("form.modules.title");
 		setFormContextHelp("org.olat.course.nodes.ta","ced-ta-select.html","help.hover.ta-module");
 		
-		task = uifactory.addCheckboxesVertical("task", "form.modules.task", formLayout, new String[]{"xx"}, new String[]{""}, null, 1);
-		dropbox = uifactory.addCheckboxesVertical("dropbox", "form.modules.dropbox", formLayout, new String[]{"xx"}, new String[]{""}, null, 1);
-		returnbox = uifactory.addCheckboxesVertical("returnbox", "form.modules.returnbox", formLayout, new String[]{"xx"}, new String[]{""}, null, 1);
-		scoring = uifactory.addCheckboxesVertical("scoring", "form.modules.scoring", formLayout, new String[]{"xx"}, new String[]{""}, null, 1);
-		solution = uifactory.addCheckboxesVertical("solution", "form.modules.sample", formLayout, new String[]{"xx"}, new String[]{""}, null, 1);
+		task = uifactory.addCheckboxesHorizontal("task", "form.modules.task", formLayout, new String[]{"xx"}, new String[]{""});
+		dropbox = uifactory.addCheckboxesHorizontal("dropbox", "form.modules.dropbox", formLayout, new String[]{"xx"}, new String[]{""});
+		returnbox = uifactory.addCheckboxesHorizontal("returnbox", "form.modules.returnbox", formLayout, new String[]{"xx"}, new String[]{""});
+		scoring = uifactory.addCheckboxesHorizontal("scoring", "form.modules.scoring", formLayout, new String[]{"xx"}, new String[]{""});
+		solution = uifactory.addCheckboxesHorizontal("solution", "form.modules.sample", formLayout, new String[]{"xx"}, new String[]{""});
 	
 		Boolean cv;
 		
@@ -115,11 +115,11 @@ public class ModulesForm extends FormBasicController {
 		cv = (Boolean)config.get(TACourseNode.CONF_SOLUTION_ENABLED);
 		solution.select("xx", cv == null ? false : cv.booleanValue());
 		
-		task.addActionListener(this, FormEvent.ONCLICK);
-		dropbox.addActionListener(this, FormEvent.ONCLICK);
-		returnbox.addActionListener(this, FormEvent.ONCLICK);
-		scoring.addActionListener(this, FormEvent.ONCLICK);
-		solution.addActionListener(this, FormEvent.ONCLICK);
+		task.addActionListener(FormEvent.ONCLICK);
+		dropbox.addActionListener(FormEvent.ONCLICK);
+		returnbox.addActionListener(FormEvent.ONCLICK);
+		scoring.addActionListener(FormEvent.ONCLICK);
+		solution.addActionListener(FormEvent.ONCLICK);
 	}
 
 	@Override

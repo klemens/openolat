@@ -22,10 +22,13 @@ package org.olat.course.nodes;
 import java.util.List;
 
 import org.olat.core.gui.UserRequest;
-import org.olat.core.gui.components.stack.StackedController;
+import org.olat.core.gui.components.stack.BreadcrumbPanel;
 import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.WindowControl;
+import org.olat.core.gui.control.generic.messages.MessageUIFactory;
 import org.olat.core.gui.control.generic.tabbable.TabbableController;
+import org.olat.core.gui.translator.Translator;
+import org.olat.core.id.Roles;
 import org.olat.core.util.Util;
 import org.olat.course.ICourse;
 import org.olat.course.editor.CourseEditorEnv;
@@ -85,19 +88,27 @@ public class MembersCourseNode extends AbstractAccessableCourseNode {
 	}
 
 	@Override
-	public TabbableController createEditController(UserRequest ureq, WindowControl wControl, StackedController stackPanel, ICourse course, UserCourseEnvironment euce) {
+	public TabbableController createEditController(UserRequest ureq, WindowControl wControl, BreadcrumbPanel stackPanel, ICourse course, UserCourseEnvironment euce) {
 		MembersCourseNodeEditController childTabCntrllr = new MembersCourseNodeEditController(ureq, wControl);
 		CourseNode chosenNode = course.getEditorTreeModel().getCourseNode(euce.getCourseEditorEnv().getCurrentCourseNodeId());
-		return new NodeEditController(ureq, wControl, course.getEditorTreeModel(), course, chosenNode, course.getCourseEnvironment()
-				.getCourseGroupManager(), euce, childTabCntrllr);
+		return new NodeEditController(ureq, wControl, course.getEditorTreeModel(), course, chosenNode, euce, childTabCntrllr);
 	}
 
 	@Override
 	public NodeRunConstructionResult createNodeRunConstructionResult(UserRequest ureq, WindowControl wControl,
 			UserCourseEnvironment userCourseEnv, NodeEvaluation ne, String nodecmd) {
-		
-		MembersCourseNodeRunController infoCtrl = new MembersCourseNodeRunController(ureq, wControl, userCourseEnv);
-		Controller titledCtrl = TitledWrapperHelper.getWrapper(ureq, wControl, infoCtrl, this, "o_cmembers_icon");
+
+		Controller controller;
+		Roles roles = ureq.getUserSession().getRoles();
+		if (roles.isGuestOnly()) {
+			Translator trans = Util.createPackageTranslator(CourseNode.class, ureq.getLocale());
+			String title = trans.translate("guestnoaccess.title");
+			String message = trans.translate("guestnoaccess.message");
+			controller = MessageUIFactory.createInfoMessage(ureq, wControl, title, message);
+		} else {
+			controller = new MembersCourseNodeRunController(ureq, wControl, userCourseEnv);
+		}
+		Controller titledCtrl = TitledWrapperHelper.getWrapper(ureq, wControl, controller, this, "o_cmembers_icon");
 		return new NodeRunConstructionResult(titledCtrl);
 	}
 }

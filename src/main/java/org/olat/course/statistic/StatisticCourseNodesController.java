@@ -22,10 +22,12 @@ package org.olat.course.statistic;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.olat.basesecurity.Group;
 import org.olat.core.commons.fullWebApp.LayoutMain3ColsController;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.Component;
 import org.olat.core.gui.components.panel.Panel;
+import org.olat.core.gui.components.stack.TooledStackedPanel;
 import org.olat.core.gui.components.tree.GenericTreeModel;
 import org.olat.core.gui.components.tree.GenericTreeNode;
 import org.olat.core.gui.components.tree.MenuTree;
@@ -48,9 +50,7 @@ import org.olat.course.ICourse;
 import org.olat.course.nodes.CourseNode;
 import org.olat.course.run.userview.UserCourseEnvironment;
 import org.olat.course.run.userview.UserCourseEnvironmentImpl;
-import org.olat.group.BusinessGroup;
 import org.olat.ims.qti.statistics.QTIType;
-import org.olat.repository.RepositoryEntry;
 
 /**
  * 
@@ -59,27 +59,27 @@ import org.olat.repository.RepositoryEntry;
  */
 public class StatisticCourseNodesController extends BasicController implements Activateable2 {
 	private final MenuTree courseTree;
+	private final TooledStackedPanel stackPanel;
 	private final LayoutMain3ColsController layoutCtr;
 	private Controller currentCtrl;
 	
 	private final QTIType[] types;
 	private final StatisticResourceOption options;
 	
-	public StatisticCourseNodesController(UserRequest ureq, WindowControl wControl,
-			RepositoryEntry courseRe, UserCourseEnvironment userCourseEnv, QTIType ... types) {
+	public StatisticCourseNodesController(UserRequest ureq, WindowControl wControl, TooledStackedPanel stackPanel,
+			UserCourseEnvironment userCourseEnv, QTIType ... types) {
 		super(ureq, wControl);
 
 		this.types = types;
+		this.stackPanel = stackPanel;
 		options = new StatisticResourceOption();
 		
 		boolean admin = userCourseEnv.isAdmin();
 		boolean coach = userCourseEnv.isCoach();
 		if(coach && !admin) {
 			UserCourseEnvironmentImpl userCourseEnvImpl = (UserCourseEnvironmentImpl)userCourseEnv;
-			List<BusinessGroup> coachedGroups = userCourseEnvImpl.getCoachedGroups();
+			List<Group> coachedGroups = userCourseEnvImpl.getCoachedBaseGroups(true, true);
 			if(coachedGroups == null || coachedGroups.isEmpty()) {
-				options.setParticipantsCourse(courseRe);
-			} else {
 				options.setParticipantsGroups(coachedGroups);
 			}
 		}
@@ -90,7 +90,7 @@ public class StatisticCourseNodesController extends BasicController implements A
 		courseTree.addListener(this);
 		
 		Panel empty = new Panel("splashScreen");
-		layoutCtr = new LayoutMain3ColsController(ureq, wControl, courseTree, null, empty, null);
+		layoutCtr = new LayoutMain3ColsController(ureq, wControl, courseTree, empty, null);
 		listenTo(layoutCtr);
 		putInitialPanel(layoutCtr.getInitialComponent());
 
@@ -178,10 +178,10 @@ public class StatisticCourseNodesController extends BasicController implements A
 		WindowControl swControl = addToHistory(ureq, OresHelper.createOLATResourceableInstance(selectedNode.getIdent(), 0l), null);
 		if(selectedNode instanceof StatisticResourceNode) {
 			StatisticResourceNode node = (StatisticResourceNode)selectedNode;
-			currentCtrl = node.getResult().getController(ureq, swControl, node);
+			currentCtrl = node.getResult().getController(ureq, swControl, stackPanel, node);
 		} else {
 			StatisticResourceNode node = getStatisticNodeInParentLine(selectedNode);
-			currentCtrl = node.getResult().getController(ureq, swControl, selectedNode);
+			currentCtrl = node.getResult().getController(ureq, swControl, stackPanel, selectedNode);
 		}
 		
 		if(currentCtrl != null) {

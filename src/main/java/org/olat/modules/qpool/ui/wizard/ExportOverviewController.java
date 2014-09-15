@@ -75,13 +75,13 @@ public class ExportOverviewController extends StepFormBasicController {
 		columnsModel.addFlexiColumnModel(new DefaultFlexiColumnModel(true, "exportable", Cols.exportable.ordinal(),
 				false, null, FlexiColumnModel.ALIGNMENT_LEFT,
 				new BooleanCellRenderer(
-						new CSSIconFlexiCellRenderer("o_exportable"),
-						new CSSIconFlexiCellRenderer("o_unexportable"))
+						new CSSIconFlexiCellRenderer("o_icon_accept"),
+						new CSSIconFlexiCellRenderer("o_icon_failed"))
 		));
 		columnsModel.addFlexiColumnModel(new DefaultFlexiColumnModel("general.title", Cols.title.ordinal()));
 		columnsModel.addFlexiColumnModel(new DefaultFlexiColumnModel("technical.format", Cols.format.ordinal()));
 		itemsModel = new QItemDataModel(columnsModel, format);
-		uifactory.addTableElement(ureq, getWindowControl(), "shares", itemsModel, getTranslator(), formLayout);
+		uifactory.addTableElement(getWindowControl(), "shares", itemsModel, getTranslator(), formLayout);
 	}
 
 	@Override

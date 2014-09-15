@@ -87,7 +87,7 @@ public class DeletStep01 extends BasicStep {
 	private final class DeletStepForm01 extends StepFormBasicController {
 		private FormLayoutContainer textContainer;
 		boolean hasIdentitesToDelete;
-		private FlexiTableDataModel tableDataModel;
+		private FlexiTableDataModel<List<String>> tableDataModel;
 		private List<Identity> identitiesToDelete;
 
 		public DeletStepForm01(UserRequest ureq, WindowControl control, Form rootForm, StepsRunContext runContext) {
@@ -109,7 +109,7 @@ public class DeletStep01 extends BasicStep {
 		}
 
 		@Override
-		protected void initForm(FormItemContainer formLayout, Controller listener, @SuppressWarnings("unused") UserRequest ureq) {
+		protected void initForm(FormItemContainer formLayout, Controller listener, UserRequest ureq) {
 			hasIdentitesToDelete = (Boolean) getFromRunContext("hasIdentitiesToDelete");
 			textContainer = FormLayoutContainer.createCustomFormLayout("index", getTranslator(), this.velocity_root + "/delet_step01.html");
 			formLayout.add(textContainer);
@@ -126,7 +126,7 @@ public class DeletStep01 extends BasicStep {
 
 			identitiesToDelete = (List<Identity>) getFromRunContext("identitiesToDelete");
 			for (Identity identityToDelete : identitiesToDelete) {
-				List rowData = new ArrayList();
+				List<String> rowData = new ArrayList<>();
 				rowData.add(identityToDelete.getName());
 				for (String property : reqProberty) {
 					rowData.add(identityToDelete.getUser().getProperty(property, null));
@@ -146,8 +146,8 @@ public class DeletStep01 extends BasicStep {
 				}
 			}
 
-			tableDataModel = new FlexiTableDataModelImpl(new IdentityFlexiTableModel(mergedDataChanges, colPos + 1), tableColumnModel);
-			uifactory.addTableElement(ureq, getWindowControl(), "newUsers", tableDataModel, formLayout);
+			tableDataModel = new FlexiTableDataModelImpl<List<String>>(new IdentityFlexiTableModel(mergedDataChanges, colPos + 1), tableColumnModel);
+			uifactory.addTableElement(getWindowControl(), "newUsers", tableDataModel, formLayout);
 		}
 
 	}

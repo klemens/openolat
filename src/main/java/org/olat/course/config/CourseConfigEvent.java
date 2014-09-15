@@ -36,24 +36,31 @@ import org.olat.core.util.event.MultiUserEvent;
  * @author Lavinia Dumitrescu
  */
 public class CourseConfigEvent extends MultiUserEvent {
+
+	private static final long serialVersionUID = 7362131099407009869L;
+
+	private final Long resourceableId;
+	private final CourseConfigType type;
 	
-	public static final String EFFICIENCY_STATEMENT_TYPE = "efficiency";
-	public static final String CALENDAR_TYPE = "calendar";
-	public static final String LAYOUT_TYPE = "css";
-	
-  private final Long ResourceableId;
-	
-	/**
-	 * The command should be one of the above defined: EFFICIENCY_STATEMENT_TYPE, CALENDAR_TYPE, LAYOUT_TYPE, etc.
-	 * @param command
-	 */
-	public CourseConfigEvent(String command, Long resourceableId) {
-		super(command);	
-		this.ResourceableId = resourceableId;
+	public CourseConfigEvent(CourseConfigType type, Long resourceableId) {
+		super(type.name());	
+		this.type = type;
+		this.resourceableId = resourceableId;
 	}
 
 	public Long getResourceableId() {
-		return ResourceableId;
+		return resourceableId;
 	}
-
+	
+	public CourseConfigType getType() {
+		return type;
+	}
+	
+	public static enum CourseConfigType {
+		efficiencyStatement,
+		calendar,
+		chat,
+		glossary,
+		layout
+	}
 }

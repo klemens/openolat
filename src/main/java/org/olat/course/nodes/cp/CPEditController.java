@@ -37,7 +37,7 @@ import org.olat.core.gui.components.form.flexible.impl.FormBasicController;
 import org.olat.core.gui.components.link.Link;
 import org.olat.core.gui.components.link.LinkFactory;
 import org.olat.core.gui.components.panel.Panel;
-import org.olat.core.gui.components.stack.StackedController;
+import org.olat.core.gui.components.stack.BreadcrumbPanel;
 import org.olat.core.gui.components.tabbedpane.TabbedPane;
 import org.olat.core.gui.components.velocity.VelocityContainer;
 import org.olat.core.gui.control.Controller;
@@ -49,6 +49,7 @@ import org.olat.core.gui.control.generic.iframe.DeliveryOptions;
 import org.olat.core.gui.control.generic.iframe.DeliveryOptionsConfigurationController;
 import org.olat.core.gui.control.generic.tabbable.ActivateableTabbableDefaultController;
 import org.olat.core.id.Identity;
+import org.olat.core.id.Roles;
 import org.olat.core.logging.AssertException;
 import org.olat.core.util.vfs.LocalFolderImpl;
 import org.olat.course.ICourse;
@@ -83,8 +84,6 @@ public class CPEditController extends ActivateableTabbableDefaultController impl
 	private static final String PANE_TAB_DELIVERYOPTIONS = "pane.tab.deliveryOptions";
 	private static final String CONFIG_KEY_REPOSITORY_SOFTKEY = "reporef";
 	private static final String VC_CHOSENCP = "chosencp";
-	//fxdiff VCRP-13: cp navigation
-	public static final String CONFIG_SHOWNAVBUTTONS = "shownavbuttons";
 	public static final String CONFIG_DELIVERYOPTIONS = "deliveryOptions";
   
 	// NLS support:	
@@ -117,7 +116,7 @@ public class CPEditController extends ActivateableTabbableDefaultController impl
 
 	private Controller previewCtr;
 	private CloseableModalController cmc;
-	private final StackedController stackPanel;
+	private final BreadcrumbPanel stackPanel;
 
 	/**
 	 * @param cpNode
@@ -125,7 +124,7 @@ public class CPEditController extends ActivateableTabbableDefaultController impl
 	 * @param wControl
 	 * @param course
 	 */
-	public CPEditController(CPCourseNode cpNode, UserRequest ureq, WindowControl wControl, StackedController stackPanel, ICourse course, UserCourseEnvironment euce) {
+	public CPEditController(CPCourseNode cpNode, UserRequest ureq, WindowControl wControl, BreadcrumbPanel stackPanel, ICourse course, UserCourseEnvironment euce) {
 		super(ureq, wControl);
 		this.cpNode = cpNode;
 		this.config = cpNode.getModuleConfiguration();
@@ -149,12 +148,12 @@ public class CPEditController extends ActivateableTabbableDefaultController impl
 				cpConfigurationVc.contextPut("showPreviewButton", Boolean.FALSE);
 				cpConfigurationVc.contextPut(VC_CHOSENCP, translate("no.cp.chosen"));
 			} else {
-				if (isEditable(ureq.getIdentity(), re)) {
+				if (isEditable(ureq.getIdentity(), ureq.getUserSession().getRoles(), re)) {
 					editLink = LinkFactory.createButtonSmall("edit", cpConfigurationVc, this);
 				}
 				cpConfigurationVc.contextPut("showPreviewButton", Boolean.TRUE);
 				previewLink = LinkFactory.createCustomLink("command.preview", "command.preview", re.getDisplayname(), Link.NONTRANSLATED, cpConfigurationVc, this);
-				previewLink.setCustomEnabledLinkCSS("b_preview");
+				previewLink.setIconLeftCSS("o_icon o_icon-fw o_icon_preview");
 				previewLink.setTitle(getTranslator().translate("command.preview"));
 				
 				CPPackageConfig cpConfig = CPManager.getInstance().getCPPackageConfig(re.getOlatResource());
@@ -167,19 +166,15 @@ public class CPEditController extends ActivateableTabbableDefaultController impl
 		}
 		
 		Boolean cpMenu = config.getBooleanEntry(NodeEditController.CONFIG_COMPONENT_MENU);
-		//fxdiff VCRP-13: cp navigation
-		Boolean cpNavButtons = config.getBooleanEntry(CPEditController.CONFIG_SHOWNAVBUTTONS);
-		String contentEncoding = (String)config.get(NodeEditController.CONFIG_CONTENT_ENCODING);
-		String jsEncoding = (String)config.get(NodeEditController.CONFIG_JS_ENCODING);
-		cpMenuForm = new CompMenuForm(ureq, wControl, cpMenu, cpNavButtons, contentEncoding, jsEncoding);
+		cpMenuForm = new CompMenuForm(ureq, wControl, cpMenu);
 		listenTo(cpMenuForm);
 		
 		cpConfigurationVc.put("cpMenuForm", cpMenuForm.getInitialComponent());
 
 		// Accessibility precondition
 		Condition accessCondition = cpNode.getPreConditionAccess();
-		accessibilityCondContr = new ConditionEditController(ureq, getWindowControl(), course.getCourseEnvironment().getCourseGroupManager(),
-				accessCondition, "accessabilityConditionForm", AssessmentHelper.getAssessableNodes(course.getEditorTreeModel(), cpNode), euce);		
+		accessibilityCondContr = new ConditionEditController(ureq, getWindowControl(),
+				accessCondition, AssessmentHelper.getAssessableNodes(course.getEditorTreeModel(), cpNode), euce);		
 		listenTo(accessibilityCondContr);
 
 		DeliveryOptions deliveryOptions = (DeliveryOptions)config.get(CPEditController.CONFIG_DELIVERYOPTIONS);
@@ -225,7 +220,7 @@ public class CPEditController extends ActivateableTabbableDefaultController impl
 				stackPanel.pushController(translate("preview.cp"), previewCtr);
 			}
 		} else if (source == editLink) {
-			CourseNodeFactory.getInstance().launchReferencedRepoEntryEditor(ureq, cpNode);
+			CourseNodeFactory.getInstance().launchReferencedRepoEntryEditor(ureq, getWindowControl(), cpNode);
 		}
 	}
 
@@ -244,14 +239,14 @@ public class CPEditController extends ActivateableTabbableDefaultController impl
 					setCPReference(re, config);
 					cpConfigurationVc.contextPut("showPreviewButton", Boolean.TRUE);
 					previewLink = LinkFactory.createCustomLink("command.preview", "command.preview", re.getDisplayname(), Link.NONTRANSLATED, cpConfigurationVc, this);
-					previewLink.setCustomEnabledLinkCSS("b_preview");
+					previewLink.setCustomEnabledLinkCSS("o_preview");
 					previewLink.setTitle(getTranslator().translate("command.preview"));
 					// remove existing edit link, add new one if user is allowed to edit this CP
 					if (editLink != null) {
 						cpConfigurationVc.remove(editLink);
 						editLink = null;
 					}
-					if (isEditable(urequest.getIdentity(), re)) {
+					if (isEditable(urequest.getIdentity(), urequest.getUserSession().getRoles(), re)) {
 						editLink = LinkFactory.createButtonSmall("edit", cpConfigurationVc, this);
 					}
 					// fire event so the updated config is saved by the editormaincontroller
@@ -273,8 +268,6 @@ public class CPEditController extends ActivateableTabbableDefaultController impl
 		} else if (source == cpMenuForm) {
 			if (event == Event.DONE_EVENT) {
 				config.setBooleanEntry(NodeEditController.CONFIG_COMPONENT_MENU, cpMenuForm.isCpMenu());
-				//fxdiff VCRP-13: cp navigation
-				config.setBooleanEntry(CPEditController.CONFIG_SHOWNAVBUTTONS, cpMenuForm.isCpNavButtons());
 				fireEvent(urequest, NodeEditController.NODECONFIG_CHANGED_EVENT);
 			}
 		} else if (source == deliveryOptionsCtrl) {
@@ -290,10 +283,10 @@ public class CPEditController extends ActivateableTabbableDefaultController impl
 	 * @param repository entry
 	 * @return
 	 */
-	private boolean isEditable(Identity identity, RepositoryEntry re) {
+	private boolean isEditable(Identity identity, Roles roles, RepositoryEntry re) {
 		return (BaseSecurityManager.getInstance().isIdentityPermittedOnResourceable(identity, Constants.PERMISSION_HASROLE, Constants.ORESOURCE_ADMIN)
 				|| RepositoryManager.getInstance().isOwnerOfRepositoryEntry(identity, re) 
-				|| RepositoryManager.getInstance().isInstitutionalRessourceManagerFor(re, identity));
+				|| RepositoryManager.getInstance().isInstitutionalRessourceManagerFor(identity, roles, re));
 	}
 
 	/**
@@ -386,32 +379,18 @@ class CompMenuForm extends FormBasicController {
 	 * 
 	 * @author Lars Eberle (<a href="http://www.bps-system.de/">BPS Bildungsportal Sachsen GmbH</a>)
 	 */
-
-	// NLS support:
-	private static final String NLS_DISPLAY_CONFIG_COMPMENU = "display.config.compMenu";
-	private static final String NLS_DISPLAY_CONFIG_COMP_NEXT_PREVIOUS = "display.config.compNextPrevious";
-
 	private SelectionElement cpMenu;
-	private SelectionElement cpNavButtons;
 
 	private boolean compMenuConfig;
-	private boolean compNavButtonsConfig;
 
-	
-	CompMenuForm(UserRequest ureq, WindowControl wControl, Boolean compMenuConfig, Boolean compNavButtons, String contentEncoding, String jsEncoding) {
+	CompMenuForm(UserRequest ureq, WindowControl wControl, Boolean compMenuConfig) {
 		super(ureq, wControl);
 		compMenuConfig = compMenuConfig == null ? true:compMenuConfig.booleanValue();
-		//fxdiff VCRP-13: cp navigation
-		compNavButtonsConfig = compNavButtons == null ? true:compNavButtons.booleanValue();
 		initForm(ureq);
 	}
 
 	public boolean isCpMenu() {
 		return cpMenu.isSelected(0);
-	}
-	
-	public boolean isCpNavButtons() {
-		return cpNavButtons.isSelected(0);
 	}
 	
 	@Override
@@ -421,12 +400,9 @@ class CompMenuForm extends FormBasicController {
 
 	@Override
 	protected void initForm(FormItemContainer formLayout, Controller listener, UserRequest ureq) {	
-		cpMenu = uifactory.addCheckboxesVertical("cpMenu", NLS_DISPLAY_CONFIG_COMPMENU, formLayout, new String[]{"xx"}, new String[]{null}, null, 1);
+		cpMenu = uifactory.addCheckboxesHorizontal("cpMenu", "display.config.compMenu", formLayout, new String[]{"xx"}, new String[]{null});
 		cpMenu.select("xx",compMenuConfig);
-		
-		cpNavButtons = uifactory.addCheckboxesVertical("cpNextPrevious", NLS_DISPLAY_CONFIG_COMP_NEXT_PREVIOUS, formLayout, new String[]{"xx"}, new String[]{null}, null, 1);
-		cpNavButtons.select("xx",compNavButtonsConfig);
-		
+
 		uifactory.addFormSubmitButton("submit", formLayout);
 	}
 

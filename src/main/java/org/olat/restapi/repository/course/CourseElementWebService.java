@@ -1360,8 +1360,8 @@ public class CourseElementWebService extends AbstractCourseNodeWebService {
 	@Produces({MediaType.APPLICATION_XML, MediaType.APPLICATION_JSON})
 	public Response attachTaskFile(@PathParam("courseId") Long courseId, @PathParam("nodeId") String nodeId,
 			@Context HttpServletRequest request) {
-		ICourse course = CoursesWebService.loadCourse(courseId);
-		CourseNode node = getParentNode(course, nodeId);
+			ICourse course = CoursesWebService.loadCourse(courseId);
+	CourseNode node = getParentNode(course, nodeId);
 		if(course == null) {
 			return Response.serverError().status(Status.NOT_FOUND).build();
 		}
@@ -1592,7 +1592,7 @@ public class CourseElementWebService extends AbstractCourseNodeWebService {
 		
 		TaskConfigVO config = new TaskConfigVO();
 		ICourse course = CoursesWebService.loadCourse(courseId);
-		CourseNode courseNode = (TACourseNode) getParentNode(course, nodeId);
+		CourseNode courseNode = getParentNode(course, nodeId);
 		ModuleConfiguration moduleConfig = courseNode.getModuleConfiguration();
 		//build configuration with fallback to default values
 		Boolean isAssignmentEnabled = (Boolean)moduleConfig.get(TACourseNode.CONF_TASK_ENABLED);

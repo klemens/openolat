@@ -26,7 +26,7 @@ package org.olat.core.gui.components.form.flexible.elements;
 
 import org.olat.core.gui.components.form.flexible.FormItem;
 
-public interface FormLink extends FormItem{
+public interface FormLink extends FormItem {
 	
 	public String getCmd();
 
@@ -40,6 +40,27 @@ public interface FormLink extends FormItem{
 	 * @param customDisabledLinkCSS
 	 */
 	public void setCustomDisabledLinkCSS(String customDisabledLinkCSS);
+
+	/**
+	 * Set the icon class for the left sided icon
+	 * @param iconCSS
+	 */
+	public void setIconLeftCSS(String iconCSS);
+
+	/**
+	 * Set the icon class for the right sided icon
+	 * @param iconCSS
+	 */
+	public void setIconRightCSS(String iconCSS);
+
+	/**
+	 * Set the title used as hover text on link
+	 * @param linkTitle
+	 */
+	public void setTitle(String linkTitle);
+
+
+	public void setDomReplacementWrapperRequired(boolean required);
 	
 	/**
 	 * @return The i18n key for the link text
@@ -51,5 +72,21 @@ public interface FormLink extends FormItem{
 	 * @param i18n
 	 */
 	public void setI18nKey(String i18n);
+
+	/**
+	 * Set the i18n key for the link title or the translated title, depending on display mode
+	 * @param i18nKey
+	 */
+	public void setLinkTitle(String i18nKey);
+
+	/**
+	 * @param true: set link to active state (only render issue); false set to not active (default)
+	 */
+	public void setActive(boolean isActive);
+
+	/**
+	 * @param true: link is rendered as a primary link; false: rendered as secondary link
+	 */
+	public void setPrimary(boolean isPrimary);
 
 }

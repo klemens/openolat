@@ -86,8 +86,8 @@ public class BGConfigToolsStepController extends StepFormBasicController {
 			String[] values = new String[]{ translate("collabtools.named." + k) };
 			
 			String i18n = first ? "config.tools.desc" : null;
-			MultipleSelectionElement selectEl = uifactory.addCheckboxesHorizontal(k, i18n, formLayout, keys, values, null);
-			selectEl.addActionListener(this, FormEvent.ONCHANGE);
+			MultipleSelectionElement selectEl = uifactory.addCheckboxesHorizontal(k, i18n, formLayout, keys, values);
+			selectEl.addActionListener(FormEvent.ONCHANGE);
 			toolList.add(selectEl);
 			
 			ToolConfig config = new ToolConfig(k);
@@ -98,7 +98,7 @@ public class BGConfigToolsStepController extends StepFormBasicController {
 			config.configContainer.setRootForm(mainForm);
 			formLayout.add(config.configContainer);
 			config.enableEl = uifactory.addRadiosHorizontal("config.enable." + k, null, config.configContainer, enableKeys, enableValues);
-			config.enableEl.addActionListener(this, FormEvent.ONCHANGE);
+			config.enableEl.addActionListener(FormEvent.ONCHANGE);
 			config.enableEl.select("off", true);
 			enableList.add(config.enableEl);
 			config.enableEl.setUserObject(config);
@@ -116,7 +116,7 @@ public class BGConfigToolsStepController extends StepFormBasicController {
 				//add quota configuration for admin only
 				if(ureq.getUserSession().getRoles().isOLATAdmin()) {
 					Quota quota = quotaManager.createQuota(null, null, null);
-					config.quotaCtrl = new BGConfigQuotaController(ureq, getWindowControl(), quota);
+					config.quotaCtrl = new BGConfigQuotaController(ureq, getWindowControl(), quota, mainForm);
 					config.configContainer.add("quota", config.quotaCtrl.getInitialFormItem());
 					config.quotaCtrl.getInitialFormItem().setVisible(false);
 				}
@@ -168,7 +168,9 @@ public class BGConfigToolsStepController extends StepFormBasicController {
 					configuration.setFolderAccess(config.folderCtrl.getFolderAccess());
 					//only admin are allowed to configure quota
 					if(ureq.getUserSession().getRoles().isOLATAdmin() && config.quotaCtrl != null) {
-						Quota quota = quotaManager.createQuota(null, config.quotaCtrl.getQuotaKB(), config.quotaCtrl.getULLimit());
+						Long quotaKB = config.quotaCtrl.getQuotaKB();
+						Long ulLimit = config.quotaCtrl.getULLimit();
+						Quota quota = quotaManager.createQuota(null, quotaKB, ulLimit);
 						configuration.setQuota(quota);
 					}
 				}

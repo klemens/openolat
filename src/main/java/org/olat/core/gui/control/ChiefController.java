@@ -27,6 +27,8 @@
 package org.olat.core.gui.control;
 
 import org.olat.core.gui.components.Window;
+import org.olat.core.gui.control.navigation.SiteInstance;
+import org.olat.core.gui.components.htmlheader.jscss.CustomCSS;
 /**
  * Description: <br>
  * 
@@ -42,5 +44,41 @@ public interface ChiefController extends Controller {
 	 * @return the windowcontrol
 	 */
 	public WindowControl getWindowControl();
+	
+	public ScreenMode getScreenMode();
+	
+	public boolean wishReload(boolean erase);
+	
+	/**
+	 * Set a class to the &lt;body&gt;
+	 * @param cssClass
+	 */
+	public void addBodyCssClass(String cssClass);
 
+	/**
+	 * Remove the class
+	 * @param cssClass
+	 */
+	public void removeBodyCssClass(String cssClass);
+	
+	/**
+	 * Add manually the custom CSS with an special timing to the view.
+	 * Don't forget to set the custom CSS in your main controller too. The
+	 * custom CSS is removed and readded at every tab/site changes.
+	 * 
+	 * @param customCSS
+	 */
+	public void addCurrentCustomCSSToView(CustomCSS customCSS);
+	
+	/**
+	 * 
+	 */
+	public void removeCurrentCustomCSSFromView();
+	
+	/**
+	 * Check if the static site of a specific type is available
+	 * @param type
+	 * @return
+	 */
+	public boolean hasStaticSite(Class<? extends SiteInstance> type);
 }

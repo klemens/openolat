@@ -39,6 +39,7 @@ import org.olat.core.gui.components.form.flexible.elements.FormLink;
 import org.olat.core.gui.components.form.flexible.elements.FormToggle;
 import org.olat.core.gui.components.form.flexible.elements.IntegerElement;
 import org.olat.core.gui.components.form.flexible.elements.MultipleSelectionElement;
+import org.olat.core.gui.components.form.flexible.elements.MultipleSelectionElement.Layout;
 import org.olat.core.gui.components.form.flexible.elements.RichTextElement;
 import org.olat.core.gui.components.form.flexible.elements.SingleSelection;
 import org.olat.core.gui.components.form.flexible.elements.SpacerElement;
@@ -50,16 +51,17 @@ import org.olat.core.gui.components.form.flexible.impl.FormEvent;
 import org.olat.core.gui.components.form.flexible.impl.FormItemImpl;
 import org.olat.core.gui.components.form.flexible.impl.components.SimpleExampleText;
 import org.olat.core.gui.components.form.flexible.impl.components.SimpleFormErrorText;
-import org.olat.core.gui.components.form.flexible.impl.components.SimpleLabelText;
 import org.olat.core.gui.components.form.flexible.impl.elements.FileElementImpl;
 import org.olat.core.gui.components.form.flexible.impl.elements.FormCancel;
 import org.olat.core.gui.components.form.flexible.impl.elements.FormLinkImpl;
+import org.olat.core.gui.components.form.flexible.impl.elements.FormReset;
 import org.olat.core.gui.components.form.flexible.impl.elements.FormSubmit;
 import org.olat.core.gui.components.form.flexible.impl.elements.FormToggleImpl;
 import org.olat.core.gui.components.form.flexible.impl.elements.IntegerElementImpl;
 import org.olat.core.gui.components.form.flexible.impl.elements.JSDateChooser;
-import org.olat.core.gui.components.form.flexible.impl.elements.MultiSelectionTree;
+import org.olat.core.gui.components.form.flexible.impl.elements.MultiSelectionTreeImpl;
 import org.olat.core.gui.components.form.flexible.impl.elements.MultipleSelectionElementImpl;
+import org.olat.core.gui.components.form.flexible.impl.elements.SelectboxSelectionImpl;
 import org.olat.core.gui.components.form.flexible.impl.elements.SingleSelectionImpl;
 import org.olat.core.gui.components.form.flexible.impl.elements.SpacerElementImpl;
 import org.olat.core.gui.components.form.flexible.impl.elements.StaticTextElementImpl;
@@ -71,7 +73,9 @@ import org.olat.core.gui.components.form.flexible.impl.elements.table.FlexiTable
 import org.olat.core.gui.components.form.flexible.impl.elements.table.FlexiTableElementImpl;
 import org.olat.core.gui.components.link.Link;
 import org.olat.core.gui.components.tree.TreeModel;
+import org.olat.core.gui.control.WindowBackOffice;
 import org.olat.core.gui.control.WindowControl;
+import org.olat.core.gui.themes.Theme;
 import org.olat.core.gui.translator.Translator;
 import org.olat.core.util.StringHelper;
 import org.olat.core.util.UserSession;
@@ -191,11 +195,10 @@ public class FormUIFactory {
 	 * @param layouter
 	 * @param keys
 	 * @param values
-	 * @param cssClasses
 	 * @return
 	 */
-	public MultipleSelectionElement addCheckboxesHorizontal(String name, FormItemContainer formLayout, String[] keys, String values[], String[] cssClasses) {
-		return addCheckboxesHorizontal(name, name, formLayout, keys, values, cssClasses);
+	public MultipleSelectionElement addCheckboxesHorizontal(String name, FormItemContainer formLayout, String[] keys, String values[]) {
+		return addCheckboxesHorizontal(name, name, formLayout, keys, values);
 	}
 	
 	/**
@@ -206,12 +209,11 @@ public class FormUIFactory {
 	 * @param formLayout
 	 * @param keys
 	 * @param values
-	 * @param cssClasses
 	 * @return
 	 */
-	public MultipleSelectionElement addCheckboxesHorizontal(String name, String i18nLabel, FormItemContainer formLayout, String[] keys, String values[], String[] cssClasses) {
-		MultipleSelectionElement mse = new MultipleSelectionElementImpl(name, MultipleSelectionElementImpl.createHorizontalLayout(name));
-		mse.setKeysAndValues(keys, values, cssClasses);
+	public MultipleSelectionElement addCheckboxesHorizontal(String name, String i18nLabel, FormItemContainer formLayout, String[] keys, String values[]) {
+		MultipleSelectionElement mse = new MultipleSelectionElementImpl(name);
+		mse.setKeysAndValues(keys, values);
 		setLabelIfNotNull(i18nLabel, mse);
 		formLayout.add(mse);
 		return mse;
@@ -230,8 +232,27 @@ public class FormUIFactory {
 	 * @param columns Currently 1 and 2 columns are supported
 	 * @return
 	 */
-	public MultipleSelectionElement addCheckboxesVertical(String name, FormItemContainer formLayout, String[] keys, String values[], String[] cssClasses, int columns) {
-		return addCheckboxesVertical(name, name, formLayout, keys, values, cssClasses, columns);
+	public MultipleSelectionElement addCheckboxesVertical(String name, FormItemContainer formLayout, String[] keys, String values[], int columns) {
+		return addCheckboxesVertical(name, name, formLayout, keys, values, null, null, columns);
+	}
+	
+	/**
+	 * 
+	 * See above
+	 * @param name
+	 * @param formLayout
+	 * @param keys
+	 * @param values
+	 * @param iconLeftCSS Icon placed with an &lt;i&gt; tag
+	 * @param columns
+	 * @return
+	 */
+	public MultipleSelectionElement addCheckboxesVertical(String name, FormItemContainer formLayout, String[] keys, String values[], String[] iconLeftCSS, int columns) {
+		return addCheckboxesVertical(name, name, formLayout, keys, values, null, iconLeftCSS, columns);
+	}
+	
+	public MultipleSelectionElement addCheckboxesVertical(String name, String i18nLabel, FormItemContainer formLayout, String[] keys, String values[], int columns) {
+		return addCheckboxesVertical(name, i18nLabel, formLayout, keys, values, null, null, columns);
 	}
 		
 	/**
@@ -245,66 +266,26 @@ public class FormUIFactory {
 	 * @param columns
 	 * @return
 	 */
-	public MultipleSelectionElement addCheckboxesVertical(String name, String i18nLabel, FormItemContainer formLayout, String[] keys, String values[], String[] cssClasses, int columns) {
-		MultipleSelectionElement mse = new MultipleSelectionElementImpl(name, MultipleSelectionElementImpl.createVerticalLayout(name, columns));
-		mse.setKeysAndValues(keys, values, cssClasses);
+	public MultipleSelectionElement addCheckboxesVertical(String name, String i18nLabel, FormItemContainer formLayout,
+			String[] keys, String values[], String[] cssClasses, String[] iconLeftCSS, int columns) {
+		MultipleSelectionElement mse = new MultipleSelectionElementImpl(name, Layout.vertical, columns);
+		mse.setKeysAndValues(keys, values, cssClasses, iconLeftCSS);
 		setLabelIfNotNull(i18nLabel, mse);
 		formLayout.add(mse);
 		return mse;
-	}
-	
-	/**
-	 * Create a multiple selection element as a drop-down
-	 * This method uses the name to set the i18nkey of the label.
-	 * <p>
-	 * If no label is desired use the {@link FormUIFactory#addDropdownMultiselect(String, String, FormItemContainer)} with <code>null</code> as i18nLabel.
-	 * @param name
-	 * @param formLayout
-	 * @return
-	 */
-	public MultipleSelectionElement addDropdownMultiselect(String name, FormItemContainer formLayout) {
-		return addDropdownMultiselect(name, name, formLayout);
-	}
-	
-	/**
-	 * 
-	 * @param name
-	 * @param i18nLabel
-	 * @param formLayout
-	 * @return
-	 */
-	public MultipleSelectionElement addDropdownMultiselect(String name, String i18nLabel, FormItemContainer formLayout) {
-		MultipleSelectionElement mse = new MultipleSelectionElementImpl(name, MultipleSelectionElementImpl.createSelectboxLayouter(name));
-		setLabelIfNotNull(i18nLabel, mse);
-		formLayout.add(mse);
-		return mse;
-	}
-	
-	/**
-	 * Create a multiple selection element as a tree.
-	 * This method uses the name to set the i18nkey of the label.
-	 * <p>
-	 * If no label is desired use the {@link FormUIFactory#addDropdownMultiselect(String, String, FormItemContainer)} with <code>null</code> as i18nLabel.
-	 * @param name
-	 * @param formLayout
-	 * @param treemodel
-	 * @return
-	 */
-	public MultipleSelectionElement addTreeMultiselect(String name, FormItemContainer formLayout, TreeModel treemodel, INodeFilter selectableFilter){
-		return addTreeMultiselect(name, name, formLayout, treemodel, selectableFilter);
 	}
 
 	/**
 	 * Create a multiple selection element as a tree.
 	 * @param name
-	 * @param i18nLabel
+	 * @param i18nLabel Can be null
 	 * @param formLayout
 	 * @param treemodel
 	 * @param selectableFilter
 	 * @return
 	 */
 	public MultipleSelectionElement addTreeMultiselect(String name, String i18nLabel, FormItemContainer formLayout, TreeModel treemodel, INodeFilter selectableFilter){
-		MultipleSelectionElement mse = new MultiSelectionTree(name, treemodel, selectableFilter);
+		MultipleSelectionElement mse = new MultiSelectionTreeImpl(name, treemodel, selectableFilter);
 		setLabelIfNotNull(i18nLabel, mse);
 		formLayout.add(mse);
 		return mse;
@@ -337,7 +318,7 @@ public class FormUIFactory {
 	 * @return
 	 */
 	public SingleSelection addRadiosHorizontal(final String name, final String i18nLabel, FormItemContainer formLayout, final String[] theKeys, final String[] theValues) {
-		SingleSelection ss = new SingleSelectionImpl(name, name, SingleSelectionImpl.createHorizontalLayout(null, name));
+		SingleSelection ss = new SingleSelectionImpl(name, name, SingleSelection.Layout.horizontal);
 		ss.setKeysAndValues(theKeys, theValues, null);
 		setLabelIfNotNull(i18nLabel, ss);
 		formLayout.add(ss);
@@ -372,7 +353,7 @@ public class FormUIFactory {
 	 * @return
 	 */
 	public SingleSelection addRadiosVertical(final String name, final String i18nLabel, FormItemContainer formLayout, final String[] theKeys, final String[] theValues) {
-		SingleSelection ss = new SingleSelectionImpl(name, name, SingleSelectionImpl.createVerticalLayout(null, name));
+		SingleSelection ss = new SingleSelectionImpl(name, name,  SingleSelection.Layout.vertical);
 		ss.setKeysAndValues(theKeys, theValues, null);
 		setLabelIfNotNull(i18nLabel, ss);
 		formLayout.add(ss);
@@ -422,7 +403,7 @@ public class FormUIFactory {
 	 * @return
 	 */
 	public SingleSelection addDropdownSingleselect(final String id, final String name, final String i18nLabel, FormItemContainer formLayout, final String[] theKeys, final String[] theValues, final String[] theCssClasses) {
-		SingleSelection ss = new SingleSelectionImpl(id, name, SingleSelectionImpl.createSelectboxLayouter(id, name));
+		SingleSelection ss = new SelectboxSelectionImpl(id, name);
 		ss.setKeysAndValues(theKeys, theValues, theCssClasses);
 		setLabelIfNotNull(i18nLabel, ss);
 		formLayout.add(ss);
@@ -461,20 +442,11 @@ public class FormUIFactory {
 	
 	public TextElement addInlineTextElement(String name, String value, FormItemContainer formLayout, FormBasicController listener) {
 		TextElement ie = new TextElementImpl(null, name, value, TextElementImpl.HTML_INPUT_TYPE_TEXT, true);
-		ie.addActionListener(listener, FormEvent.ONCLICK);
+		ie.addActionListener(FormEvent.ONCLICK);
 		if(listener != null){
 			formLayout.add(ie);
 		}
 		return ie;
-	}
-	
-	public IntegerElement addInlineIntegerElement(String name, int initVal, FormItemContainer formLayout, FormBasicController listener){
-		IntegerElement iie = new IntegerElementImpl(name, initVal, true);
-		iie.addActionListener(listener, FormEvent.ONCLICK);
-		if(listener != null){
-			formLayout.add(iie);
-		}
-		return iie;
 	}
 	
 	/**
@@ -487,7 +459,7 @@ public class FormUIFactory {
 	public SpacerElement addSpacerElement(String name, FormItemContainer formLayout, boolean onlySpaceAndNoLine) {
 		SpacerElement spacer = new SpacerElementImpl(name);
 		if (onlySpaceAndNoLine) {
-			spacer.setSpacerCssClass("b_form_spacer_noline");
+			spacer.setSpacerCssClass("o_spacer_noline");
 		}
 		formLayout.add(spacer);
 		return spacer;
@@ -691,12 +663,12 @@ public class FormUIFactory {
 	 * @return The rich text element instance
 	 */
 	public RichTextElement addRichTextElementForStringDataMinimalistic(String name, final String i18nLabel, String initialHTMLValue, final int rows,
-			final int cols, FormItemContainer formLayout, UserSession usess, WindowControl wControl) {
+			final int cols, FormItemContainer formLayout, WindowControl wControl) {
 		// Create richt text element with bare bone configuration
 		RichTextElement rte = new RichTextElementImpl(name, initialHTMLValue, rows, cols, formLayout.getRootForm(), wControl.getWindowBackOffice());
 		setLabelIfNotNull(i18nLabel, rte);
 		// Now configure editor
-		rte.getEditorConfiguration().setConfigProfileFormEditorMinimalistic(usess, wControl.getWindowBackOffice().getWindow().getGuiTheme());			
+		rte.getEditorConfiguration().setConfigProfileFormEditorMinimalistic(wControl.getWindowBackOffice().getWindow().getGuiTheme());			
 		// Add to form and finish
 		formLayout.add(rte);
 		return rte;
@@ -741,14 +713,16 @@ public class FormUIFactory {
 	 *            the current window controller
 	 * @return The rich text element instance
 	 */
-	public RichTextElement addRichTextElementForStringData(String name, final String i18nLabel, String initialHTMLValue, final int rows,
-			final int cols, boolean fullProfile, VFSContainer baseContainer, CustomLinkTreeModel customLinkTreeModel,
+	public RichTextElement addRichTextElementForStringData(String name, String i18nLabel, String initialHTMLValue, int rows,
+			int cols, boolean fullProfile, VFSContainer baseContainer, CustomLinkTreeModel customLinkTreeModel,
 			FormItemContainer formLayout, UserSession usess, WindowControl wControl) {
 		// Create richt text element with bare bone configuration
-		RichTextElement rte = new RichTextElementImpl(name, initialHTMLValue, rows, cols, formLayout.getRootForm(), wControl.getWindowBackOffice());
+		WindowBackOffice backoffice = wControl.getWindowBackOffice();
+		RichTextElement rte = new RichTextElementImpl(name, initialHTMLValue, rows, cols, formLayout.getRootForm(), backoffice);
 		setLabelIfNotNull(i18nLabel, rte);
 		// Now configure editor
-		rte.getEditorConfiguration().setConfigProfileFormEditor(fullProfile, usess, wControl.getWindowBackOffice().getWindow().getGuiTheme(), baseContainer, customLinkTreeModel);			
+		Theme theme = backoffice.getWindow().getGuiTheme();
+		rte.getEditorConfiguration().setConfigProfileFormEditor(fullProfile, usess, theme, baseContainer, customLinkTreeModel);			
 		// Add to form and finish
 		formLayout.add(rte);
 		return rte;
@@ -807,38 +781,6 @@ public class FormUIFactory {
 		// Add to form and finish
 		formLayout.add(rte);
 		return rte;
-	}	
-	
-	public FormItem createSimpleLabelText(final String name, final String translatedText){
-		FormItem wrapper = new FormItemImpl(name) {
-			SimpleLabelText mySimpleLabelTextC = new SimpleLabelText(name, translatedText);
-			
-			@Override
-			public void validate(List<ValidationStatus> validationResults) {
-			 // nothing to do 
-			}
-		
-			@Override
-			protected void rootFormAvailable() {
-			 // nothing to do
-			}
-		
-			@Override
-			public void reset() {
-			 // nothing to do
-			}
-		
-			@Override
-			protected Component getFormItemComponent() {
-				return mySimpleLabelTextC;
-			}
-		
-			@Override
-			public void evalFormRequest(UserRequest ureq) {
-			 // nothing to do
-			}
-		};
-		return wrapper;
 	}
 	
 	/**
@@ -889,23 +831,23 @@ public class FormUIFactory {
 	 * @param formLayout
 	 * @return
 	 */
-	public FlexiTableElement addTableElement(UserRequest ureq, WindowControl wControl, String name, FlexiTableDataModel<?> tableModel,
+	public FlexiTableElement addTableElement(WindowControl wControl, String name, FlexiTableDataModel<?> tableModel,
 			FormItemContainer formLayout) {
-		FlexiTableElementImpl fte = new FlexiTableElementImpl(ureq, wControl, name,tableModel);
+		FlexiTableElementImpl fte = new FlexiTableElementImpl(wControl, name,tableModel);
 		formLayout.add(fte);
 		return fte;
 	}
 	
-	public FlexiTableElement addTableElement(UserRequest ureq, WindowControl wControl, String name, FlexiTableDataModel<?> tableModel,
+	public FlexiTableElement addTableElement(WindowControl wControl, String name, FlexiTableDataModel<?> tableModel,
 			Translator translator, FormItemContainer formLayout) {
-		FlexiTableElementImpl fte = new FlexiTableElementImpl(ureq, wControl, name, translator, tableModel);
+		FlexiTableElementImpl fte = new FlexiTableElementImpl(wControl, name, translator, tableModel);
 		formLayout.add(fte);
 		return fte;
 	}
 	
-	public FlexiTableElement addTableElement(UserRequest ureq, WindowControl wControl, String name, FlexiTableDataModel<?> tableModel,
-			int pageSize, Translator translator, FormItemContainer formLayout) {
-		FlexiTableElementImpl fte = new FlexiTableElementImpl(ureq, wControl, name, translator, tableModel, pageSize);
+	public FlexiTableElement addTableElement(WindowControl wControl, String name, FlexiTableDataModel<?> tableModel,
+			int pageSize, boolean loadOnInit, Translator translator, FormItemContainer formLayout) {
+		FlexiTableElementImpl fte = new FlexiTableElementImpl(wControl, name, translator, tableModel, pageSize, loadOnInit);
 		formLayout.add(fte);
 		return fte;
 	}
@@ -1085,6 +1027,12 @@ public class FormUIFactory {
 	 */
 	public FormSubmit addFormSubmitButton(String id, String name, String i18nKey, FormItemContainer formLayout) {
 		FormSubmit subm = new FormSubmit(id, name, i18nKey);
+		formLayout.add(subm);
+		return subm;
+	}
+	
+	public FormReset addFormResetButton(String name, String i18nKey, FormItemContainer formLayout) {
+		FormReset subm = new FormReset(name, i18nKey);
 		formLayout.add(subm);
 		return subm;
 	}

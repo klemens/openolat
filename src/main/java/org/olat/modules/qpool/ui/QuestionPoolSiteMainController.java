@@ -23,8 +23,8 @@ import java.util.List;
 
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.Component;
-import org.olat.core.gui.components.stack.StackedController;
-import org.olat.core.gui.components.stack.StackedControllerImpl;
+import org.olat.core.gui.components.stack.BreadcrumbPanel;
+import org.olat.core.gui.components.stack.BreadcrumbedStackedPanel;
 import org.olat.core.gui.control.Event;
 import org.olat.core.gui.control.WindowControl;
 import org.olat.core.gui.control.controller.MainLayoutBasicController;
@@ -40,19 +40,17 @@ import org.olat.core.id.context.StateEntry;
  */
 public class QuestionPoolSiteMainController extends MainLayoutBasicController implements Activateable2 {
 
-	private final StackedController stackPanel;
-	private final QuestionPoolMainEditorController catalogCtrl;
+	private final QuestionPoolMainEditorController qpoolMainController;
 	
 	public QuestionPoolSiteMainController(UserRequest ureq, WindowControl wControl) {
 		super(ureq, wControl);
 
-		catalogCtrl = new QuestionPoolMainEditorController(ureq, wControl);
-		listenTo(catalogCtrl);
-		stackPanel = new StackedControllerImpl(getWindowControl(), getTranslator(), "o_catalog_breadcrumbs");
-		listenTo(stackPanel);
-		putInitialPanel(stackPanel.getInitialComponent());
-		stackPanel.pushController("Katalog", catalogCtrl);
-		catalogCtrl.setStackedController(stackPanel);
+		qpoolMainController = new QuestionPoolMainEditorController(ureq, wControl);
+		listenTo(qpoolMainController);
+		BreadcrumbPanel stackPanel = new BreadcrumbedStackedPanel("qpoolStackPanel", getTranslator(), this);
+		putInitialPanel(stackPanel);
+		stackPanel.pushController(translate("topnav.qpool"), qpoolMainController);
+		qpoolMainController.setBreadcrumbPanel(stackPanel);
 	}
 	
 	@Override
@@ -67,6 +65,6 @@ public class QuestionPoolSiteMainController extends MainLayoutBasicController im
 
 	@Override
 	public void activate(UserRequest ureq, List<ContextEntry> entries, StateEntry state) {
-		catalogCtrl.activate(ureq, entries, state);
+		qpoolMainController.activate(ureq, entries, state);
 	}
 }

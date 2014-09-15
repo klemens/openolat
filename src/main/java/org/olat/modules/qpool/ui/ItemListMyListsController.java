@@ -80,7 +80,7 @@ public class ItemListMyListsController extends AbstractItemListController {
         }
 
         myListEl = uifactory.addDropdownSingleselect("source.selector", "my.list", formLayout, myListKeys, myListValues, null);
-        myListEl.addActionListener(this, FormEvent.ONCHANGE);
+        myListEl.addActionListener(FormEvent.ONCHANGE);
         if(numOfCollections > 0) {
             myListEl.select(myListKeys[0], true);
 

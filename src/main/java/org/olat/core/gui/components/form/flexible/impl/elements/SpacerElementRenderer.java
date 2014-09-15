@@ -53,7 +53,7 @@ public class SpacerElementRenderer implements ComponentRenderer {
 		SpacerElementComponent comp = (SpacerElementComponent) source;
 		SpacerElement spacer = comp.getSpacerElement();
 		
-		sb.append("<hr class=\"b_form_spacer ");
+		sb.append("<hr class=\"o_spacer ");
 		// add layout css if available
 		if (args != null && args.length > 0) {
 			sb.append(args[0]);			
@@ -64,7 +64,7 @@ public class SpacerElementRenderer implements ComponentRenderer {
 			sb.append(" ");
 			sb.append(customCSS);
 		}
-		sb.append("\"/>");
+		sb.append("\" />");
 
 	}
 

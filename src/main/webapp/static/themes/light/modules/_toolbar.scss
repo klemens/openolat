@@ -1,0 +1,285 @@
+
+.o_toolbar {
+	position: relative;
+  	margin-bottom: $o-toolbar-margin-bottom;
+	margin-top: $o-toolbar-margin-top; 	// don't waste so much space with a toolbar
+  	@include clearfix();
+
+	border: 1px solid $o-toolbar-border-color;
+ 	@media (min-width: $grid-float-breakpoint) {
+    	@include border-top-radius($o-toolbar-border-radius);
+    	@include border-bottom-radius($o-toolbar-border-radius);
+    }
+
+	.o_breadcrumb {
+	  	@include clearfix();
+		.breadcrumb {
+			margin-bottom: 0;
+			padding: 5px 9px;
+			font-size: $o-toolbar-breadcrumb-font-size;
+			line-height: $o-toolbar-breadcrumb-line-height;
+	    	border-radius: 0; // reset from default breadcrumb style
+			background: $o-toolbar-breadcrumb-bg-color;
+	    	@include border-top-radius($o-toolbar-border-radius); // don't hide background
+
+			.o_breadcrumb_close {
+				float: right;
+				position: relative;
+				margin: 0 0 0 15px;
+				vertical-align: middle;
+				a {
+					line-height: $o-toolbar-breadcrumb-line-height;
+					color: $o-toolbar-close-color;
+					&:hover {
+						color: darken($o-toolbar-close-color, 15%);
+					}
+					i {
+						font-size: floor($o-toolbar-breadcrumb-font-size * 1.5);
+					}
+					span {
+						display: none;
+					}
+				}
+				&:before {
+					content: none;
+				}
+			}
+		}
+	}
+	
+	.o_tools_container {
+		text-align: center;
+	  	min-height: $o-toolbar-height-md; // Ensure a navbar always shows (e.g., without a .navbar-brand in collapsed mode)
+	  	position: realtive;
+	  	@include clearfix();
+
+	  	background-color: $o-toolbar-bg-color;
+    	@include border-bottom-radius($o-toolbar-border-radius); // don't hide background
+		border-top: 1px solid $o-toolbar-border-color;
+		@media (max-width: $screen-sm-max) { 
+			min-height: $o-toolbar-height-sm;
+		}
+		@media (max-width: $screen-xs-max) { 
+			min-height: $o-toolbar-height-xs;
+			text-align: left;
+		}
+
+		a {
+			// Following rules copied from .navbar-link;
+	   	 	color: $o-toolbar-link-color;
+	    	&:hover { 
+	      		color: $o-toolbar-link-hover-color;
+	    	}
+	    	@extend %o_undecorated;
+	    	display: inline-block;
+	    	
+	    	&.o_disabled {
+		    	color: $o-toolbar-link-disabled-color !important;
+		    	&:hover {
+		      		color: $o-toolbar-link-disabled-color !important;
+		    	}
+	    	}
+			&.active {
+				color: $o-toolbar-link-active-color;
+				background-color: $o-toolbar-link-active-bg;
+			}
+	    }
+	    .dropdown-menu {
+			a {
+				// override rule from above
+		    	display: block;
+		    	&.active {
+		    		color: $o-toolbar-dropdown-active-color;
+					background-color: $o-toolbar-dropdown-active-bg;
+		    	}
+		    }
+	    }
+	}
+	
+	.o_tools {
+		margin-top: $o-toolbar-tools-margin-top-md;
+		margin-bottom: $o-toolbar-tools-margin-bottom-md;
+	}
+
+	.o_tool, .o_text {
+		position: relative;
+		margin: 0 10px;	
+		a, .o_disabled {
+			i {
+				font-size: $o-toolbar-size-icon-md;
+			}
+			span {
+				display: block;
+				font-size: $o-toolbar-size-text-md;
+				&.badge {
+					position: absolute;
+					right: 50%;
+					top: $o-toolbar-size-text-md * -1.5;
+					margin-right:-$o-toolbar-size-text-md;
+					font-size: floor($o-toolbar-size-icon-md * 0.75);
+				}
+			}
+			@media (min-width: $screen-xs-max) and (max-width: $screen-sm-max) { 
+				i {
+					font-size: $o-toolbar-size-icon-sm;
+				}
+				span {
+					font-size: $o-toolbar-size-text-sm;
+					&.badge {
+						top: $o-toolbar-size-text-sm * -1.5;
+						margin-right:-$o-toolbar-size-text-sm;
+						font-size: floor($o-toolbar-size-icon-sm * 0.75);
+					}
+				}
+			}
+			@media (max-width: $screen-xs-max) { 
+				i {
+					font-size: $o-toolbar-size-icon-xs;
+				}
+				span {
+					display: none;
+					&.badge {
+						display: block;
+						position: relative;
+						top: 0;
+						left: 0;
+					}
+				}
+			}
+		}
+		/* context help button */
+		.o_chelp {
+			position: relative;
+			top: -1em;
+			vertical-align: top;
+		}
+	}
+	
+	.o_tool_next, .o_tool_previous {
+		padding: 0;
+		margin-top: floor($o-toolbar-nav-size-icon-md / 4);
+		border: 1px solid $o-toolbar-nav-border-color;
+		background-color: $o-toolbar-nav-bg-color;
+		a {
+			color: $o-toolbar-nav-link-color;
+			&:hover {
+				color: $o-toolbar-nav-link-hover-color;			
+			}
+
+			&.o_disabled {
+		    	color: $o-toolbar-nav-link-disabled-color !important;
+		    	&:hover {
+		      		color: $o-toolbar-nav-link-disabled-color !important;
+		    	}
+	    	}
+			
+		}
+		i {
+			font-size: $o-toolbar-nav-size-icon-md;
+		}
+		@media (min-width: $screen-xs-max) and (max-width: $screen-sm-max) { 
+			margin-top: floor($o-toolbar-nav-size-icon-sm / 4);
+			i {
+				font-size: $o-toolbar-nav-size-icon-sm;
+			}
+		}
+		@media (max-width: $screen-xs-max) { 
+			margin-top: 0;
+			i {
+				font-size: $o-toolbar-nav-size-icon-xs;
+			}
+		}
+	}
+	.o_tool_previous {
+		margin-left: 10px;
+		@include border-left-radius($o-toolbar-nav-border-radius);
+		border-right: 0;
+	}
+	.o_tool_next {
+		@include border-right-radius($o-toolbar-nav-border-radius);
+	}
+	
+				
+	.o_tool_dropdown {
+		position: relative;
+		a.dropdown-toggle {
+			i {
+				font-size: $o-toolbar-size-icon-md;
+			}
+			span {
+				display: block;
+				font-size: $o-toolbar-size-text-md;
+			}
+			.o_icon_caret {
+				position: absolute;
+				right: 50%;
+				top: floor($o-toolbar-size-icon-md / 4);
+				margin-right: floor($o-toolbar-size-icon-md * -1.1);
+				font-size: $o-toolbar-size-caret-md;
+			}
+			@media (min-width: $screen-xs-max) and (max-width: $screen-sm-max) { 
+				i {
+					font-size: $o-toolbar-size-icon-sm;
+				}
+				span, .o_icon_caret {
+					font-size: $o-toolbar-size-text-sm;
+				}
+				.o_icon_caret {
+					top: floor($o-toolbar-size-icon-sm / 4);
+					margin-right: floor($o-toolbar-size-icon-sm * -1.1);	
+					font-size: $o-toolbar-size-caret-sm;				
+				}
+			}
+			@media (max-width: $screen-xs-max) { 
+				i {
+					font-size: $o-toolbar-size-icon-xs;
+				}
+				span, .o_icon_caret {
+					display: none;
+				}
+			}				
+		}
+		.dropdown-menu {
+			text-align: left;
+		}
+	}	
+	
+	.o_tools_left {
+		float: left;
+	}
+	.o_tools_right {
+		float: right;
+	}
+	.o_tools_right_edge {
+		// at the right edge of the toolbar, even on small screens
+		float: right;
+	}
+	.o_tools_center {
+		// default
+	}
+	
+	@media (max-width: $screen-sm-max) { 
+		.o_tools {
+			margin-top: $o-toolbar-tools-margin-top-sm;
+			margin-bottom: $o-toolbar-tools-margin-bottom-sm;
+		}
+		.o_tool span {
+			max-width: 10em;
+			@include text-overflow();	
+		}
+	}
+	@media (max-width: $screen-xs-max) { 
+		.o_tools {
+			margin-top: $o-toolbar-tools-margin-top-xs;
+			margin-bottom: $o-toolbar-tools-margin-bottom-xs;
+			.o_chelp {
+				top: 0;
+				vertical-align: top;
+			}
+		}
+		.o_tools_right, .o_tools_right, .o_tools_center {
+			float: left;
+		}		
+	}
+	
+}

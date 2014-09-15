@@ -62,7 +62,7 @@ public class DisplayMemberSwitchForm extends FormBasicController {
 	 * @param hasOwners
 	 */
 	public DisplayMemberSwitchForm(UserRequest ureq, WindowControl wControl, boolean hasOwners, boolean hasPartips, boolean hasWaitingList) {
-		super(ureq, wControl);
+		super(ureq, wControl, LAYOUT_DEFAULT_6_6);
 		this.hasOwners = hasOwners;
 		this.hasPartips = hasPartips;
 		this.hasWaitingList = hasWaitingList;
@@ -100,7 +100,9 @@ public class DisplayMemberSwitchForm extends FormBasicController {
 	
 	public void setDisplayMembers(BusinessGroup group) {
 		showOwners.select("show_owners", group.isOwnersVisibleIntern());
+		showOwners.setElementCssClass("o_sel_group_show_owners");
 		showPartips.select("show_participants", group.isParticipantsVisibleIntern());
+		showPartips.setElementCssClass("o_sel_group_show_participants");
 		showWaitingList.select("show_waiting_list", group.isWaitingListVisibleIntern());
 		openOwners.select("open_owners", group.isOwnersVisiblePublic());
 		openPartips.select("open_participants", group.isParticipantsVisiblePublic());
@@ -141,29 +143,29 @@ public class DisplayMemberSwitchForm extends FormBasicController {
 	
 	@Override
 	protected void initForm(FormItemContainer formLayout, Controller listener, UserRequest ureq) {
-		showOwners = uifactory.addCheckboxesVertical("ShowOwners", "chkBox.show.owners", formLayout, new String[]{"show_owners"}, new String[]{""}, null, 1);
+		showOwners = uifactory.addCheckboxesHorizontal("ShowOwners", "chkBox.show.owners", formLayout, new String[]{"show_owners"}, new String[]{""});
 		showOwners.setVisible(hasOwners);
-		showPartips = uifactory.addCheckboxesVertical("ShowPartips", "chkBox.show.partips", formLayout, new String[]{"show_participants"}, new String[]{""}, null, 1);
+		showPartips = uifactory.addCheckboxesHorizontal("ShowPartips", "chkBox.show.partips", formLayout, new String[]{"show_participants"}, new String[]{""});
 		showPartips.setVisible(hasPartips);
-		showWaitingList = uifactory.addCheckboxesVertical("ShowWaitingList", "chkBox.show.waitingList", formLayout, new String[]{"show_waiting_list"}, new String[]{""}, null, 1);
+		showWaitingList = uifactory.addCheckboxesHorizontal("ShowWaitingList", "chkBox.show.waitingList", formLayout, new String[]{"show_waiting_list"}, new String[]{""});
 		showWaitingList.setVisible(hasWaitingList);
 
-		openOwners = uifactory.addCheckboxesVertical("OpenOwners", "chkBox.open.owners", formLayout, new String[]{"open_owners"}, new String[]{""}, null, 1);
+		openOwners = uifactory.addCheckboxesHorizontal("OpenOwners", "chkBox.open.owners", formLayout, new String[]{"open_owners"}, new String[]{""});
 		openOwners.setVisible(hasOwners);
-		openPartips = uifactory.addCheckboxesVertical("OpenPartips", "chkBox.open.partips", formLayout, new String[]{"open_participants"}, new String[]{""}, null, 1);
+		openPartips = uifactory.addCheckboxesHorizontal("OpenPartips", "chkBox.open.partips", formLayout, new String[]{"open_participants"}, new String[]{""});
 		openPartips.setVisible(hasPartips);
-		openWaitingList = uifactory.addCheckboxesVertical("OpenWaitingList", "chkBox.open.waitingList", formLayout, new String[]{"open_waiting_list"}, new String[]{""}, null, 1);
+		openWaitingList = uifactory.addCheckboxesHorizontal("OpenWaitingList", "chkBox.open.waitingList", formLayout, new String[]{"open_waiting_list"}, new String[]{""});
 		openWaitingList.setVisible(hasWaitingList);
 
-		downloadList = uifactory.addCheckboxesVertical("DownloadList", "chkBox.open.downloadList", formLayout, new String[]{"download_list"}, new String[]{""}, null, 1);
+		downloadList = uifactory.addCheckboxesHorizontal("DownloadList", "chkBox.open.downloadList", formLayout, new String[]{"download_list"}, new String[]{""});
 
-		showOwners.addActionListener(this, FormEvent.ONCLICK);
-		showPartips.addActionListener(this, FormEvent.ONCLICK);
-		showWaitingList.addActionListener(this, FormEvent.ONCLICK);
-		openOwners.addActionListener(this, FormEvent.ONCLICK);
-		openPartips.addActionListener(this, FormEvent.ONCLICK);
-		openWaitingList.addActionListener(this, FormEvent.ONCLICK);
-		downloadList.addActionListener(this, FormEvent.ONCLICK);
+		showOwners.addActionListener(FormEvent.ONCLICK);
+		showPartips.addActionListener(FormEvent.ONCLICK);
+		showWaitingList.addActionListener(FormEvent.ONCLICK);
+		openOwners.addActionListener(FormEvent.ONCLICK);
+		openPartips.addActionListener(FormEvent.ONCLICK);
+		openWaitingList.addActionListener(FormEvent.ONCLICK);
+		downloadList.addActionListener(FormEvent.ONCLICK);
 	}
 
 	@Override

@@ -40,7 +40,7 @@ import org.olat.core.gui.media.RedirectMediaResource;
 
 /**
  * Description:<br>
- * TODO: patrickb Class Description for OlatMinimalTopNavController
+ * Minimal top novaigation
  * 
  * <P>
  * Initial Date:  15.02.2008 <br>
@@ -48,14 +48,14 @@ import org.olat.core.gui.media.RedirectMediaResource;
  */
 public class OlatMinimalTopNavController extends BasicController {
 
-	private VelocityContainer topNavVC;
-	private Link closeLink;
+	private final Link closeLink;
 
 	public OlatMinimalTopNavController(UserRequest ureq, WindowControl wControl) {
 		super(ureq, wControl);
-		topNavVC = createVelocityContainer("topnavminimal");
-		closeLink = LinkFactory.createLink("topnav.close", topNavVC, this);
-		putInitialPanel(topNavVC);
+		VelocityContainer vc = createVelocityContainer("topnavminimal");
+		vc.setDomReplacementWrapperRequired(false);
+		closeLink = LinkFactory.createLink("topnav.close", vc, this);
+		putInitialPanel(vc);
 	}
 
 	/**
@@ -63,8 +63,7 @@ public class OlatMinimalTopNavController extends BasicController {
 	 */
 	@Override
 	protected void doDispose() {
-	// TODO Auto-generated method stub
-
+		//
 	}
 
 	/**
@@ -81,7 +80,5 @@ public class OlatMinimalTopNavController extends BasicController {
 			Windows.getWindows(ureq).deregisterWindow(w);
 			wbo.dispose();			
 		}
-
 	}
-
 }

@@ -36,11 +36,12 @@ import org.olat.core.commons.modules.bc.vfs.OlatRootFolderImpl;
 import org.olat.core.commons.services.notifications.NotificationsManager;
 import org.olat.core.commons.services.notifications.SubscriptionContext;
 import org.olat.core.gui.UserRequest;
-import org.olat.core.gui.components.stack.StackedController;
+import org.olat.core.gui.components.stack.BreadcrumbPanel;
 import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.WindowControl;
 import org.olat.core.gui.control.generic.tabbable.TabbableController;
 import org.olat.core.gui.translator.PackageTranslator;
+import org.olat.core.id.Identity;
 import org.olat.core.id.IdentityEnvironment;
 import org.olat.core.util.FileUtils;
 import org.olat.core.util.StringHelper;
@@ -99,11 +100,10 @@ public class BCCourseNode extends AbstractAccessableCourseNode {
 	 *      org.olat.core.gui.control.WindowControl, org.olat.course.ICourse)
 	 */
 	@Override
-	public TabbableController createEditController(UserRequest ureq, WindowControl wControl, StackedController stackPanel, ICourse course, UserCourseEnvironment euce) {
+	public TabbableController createEditController(UserRequest ureq, WindowControl wControl, BreadcrumbPanel stackPanel, ICourse course, UserCourseEnvironment euce) {
 		BCCourseNodeEditController childTabCntrllr = new BCCourseNodeEditController(this, course, ureq, wControl, euce);
 		CourseNode chosenNode = course.getEditorTreeModel().getCourseNode(euce.getCourseEditorEnv().getCurrentCourseNodeId());
-		return new NodeEditController(ureq, wControl, course.getEditorTreeModel(), course, chosenNode, course.getCourseEnvironment()
-				.getCourseGroupManager(), euce, childTabCntrllr);
+		return new NodeEditController(ureq, wControl, course.getEditorTreeModel(), course, chosenNode, euce, childTabCntrllr);
 	}
 
 	/**
@@ -114,7 +114,7 @@ public class BCCourseNode extends AbstractAccessableCourseNode {
 	 */
 	public NodeRunConstructionResult createNodeRunConstructionResult(UserRequest ureq, WindowControl wControl,
 			UserCourseEnvironment userCourseEnv, NodeEvaluation ne, String nodecmd) {
-		BCCourseNodeRunController bcCtrl = new BCCourseNodeRunController(ne, userCourseEnv.getCourseEnvironment(), ureq, wControl);
+		BCCourseNodeRunController bcCtrl = new BCCourseNodeRunController(ureq, wControl, userCourseEnv.getCourseEnvironment(), this, ne);
 		if (StringHelper.containsNonWhitespace(nodecmd)) {
 			bcCtrl.activatePath(ureq, nodecmd);			
 		}
@@ -133,10 +133,10 @@ public class BCCourseNode extends AbstractAccessableCourseNode {
 			NodeEvaluation ne) {
 		if (ne.isAtLeastOneAccessible()) {
 			// Create a folder peekview controller that shows the latest two entries		
-			String path = getFoldernodePathRelToFolderBase(userCourseEnv.getCourseEnvironment(), ne.getCourseNode());
+			String path = getFoldernodePathRelToFolderBase(userCourseEnv.getCourseEnvironment(), this);
 			OlatRootFolderImpl rootFolder = new OlatRootFolderImpl(path, null);
 			rootFolder.setDefaultItemFilter(new SystemItemFilter());
-			Controller peekViewController = new BCPeekviewController(ureq, wControl, rootFolder, ne.getCourseNode().getIdent(), 4);
+			Controller peekViewController = new BCPeekviewController(ureq, wControl, rootFolder, getIdent(), 4);
 			return peekViewController;			
 		} else {
 			// use standard peekview
@@ -197,10 +197,7 @@ public class BCCourseNode extends AbstractAccessableCourseNode {
 		return container;
 	}
 
-	/**
-	 * @see org.olat.course.nodes.GenericCourseNode#exportNode(java.io.File,
-	 *      org.olat.course.ICourse)
-	 */
+	@Override
 	public void exportNode(File exportDirectory, ICourse course) {
 		// this is the node folder, a folder with the node's ID, so we can just copy
 		// the contents over to the export folder
@@ -210,12 +207,8 @@ public class BCCourseNode extends AbstractAccessableCourseNode {
 		FileUtils.copyDirContentsToDir(fFolderNodeData, fNodeExportDir, false, "export course node");
 	}
 
-	/**
-	 * @see org.olat.course.nodes.GenericCourseNode#importNode(java.io.File,
-	 *      org.olat.course.ICourse, org.olat.core.gui.UserRequest,
-	 *      org.olat.core.gui.control.WindowControl)
-	 */
-	public Controller importNode(File importDirectory, ICourse course, boolean unattendedImport, UserRequest ureq, WindowControl wControl) {
+	@Override
+	public void importNode(File importDirectory, ICourse course, Identity owner, Locale locale) {
 		// the export has copies the files under the node's ID
 		File fFolderNodeData = new File(importDirectory, this.getIdent());
 		// the whole folder can be moved back to the root direcotry of foldernodes
@@ -223,7 +216,6 @@ public class BCCourseNode extends AbstractAccessableCourseNode {
 		File fFolderNodeDir = new File(FolderConfig.getCanonicalRoot() + getFoldernodePathRelToFolderBase(course.getCourseEnvironment(), this));
 		fFolderNodeDir.mkdirs();
 		FileUtils.copyDirContentsToDir(fFolderNodeData, fFolderNodeDir, true, "import course node");
-		return null;
 	}
 
 	/**

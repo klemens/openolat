@@ -47,7 +47,9 @@ public class ImportSourcesController extends BasicController {
 		
 		VelocityContainer mainVC = createVelocityContainer("import_sources");
 		importRepository = LinkFactory.createLink("import.repository", mainVC, this);
+		importRepository.setIconLeftCSS("o_icon o_icon-fw o_FileResource-TEST_icon");
 		importFile = LinkFactory.createLink("import.file", mainVC, this);
+		importFile.setIconLeftCSS("o_icon o_icon-fw o_filetype_file");
 		putInitialPanel(mainVC);
 	}
 

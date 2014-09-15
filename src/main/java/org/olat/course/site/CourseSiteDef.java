@@ -28,6 +28,7 @@ import org.olat.core.gui.control.navigation.SiteDefinition;
 import org.olat.core.gui.control.navigation.SiteDefinitions;
 import org.olat.core.gui.control.navigation.SiteInstance;
 import org.olat.core.gui.control.navigation.SiteSecurityCallback;
+import org.olat.core.util.StringHelper;
 import org.olat.course.site.model.CourseSiteConfiguration;
 import org.olat.course.site.model.LanguageConfiguration;
 
@@ -67,10 +68,13 @@ public class CourseSiteDef extends AbstractSiteDefinition implements SiteDefinit
 
 	@Override
 	public SiteInstance createSite(UserRequest ureq, WindowControl wControl, SiteConfiguration config) {
-		if(ureq.getUserSession().getRoles().isInvitee()) {
-			return null;
+		if(StringHelper.containsNonWhitespace(config.getSecurityCallbackBeanId())) {
+			return createSite(ureq, getCourseSiteconfiguration(), config);
+		} else if(!ureq.getUserSession().getRoles().isInvitee()) {
+			// only for registered users and guests
+			return createSite(ureq, getCourseSiteconfiguration(), config);
 		}
-		return createSite(ureq, getCourseSiteconfiguration(), config);
+		return null;
 	}
 	
 	protected CourseSiteConfiguration getCourseSiteconfiguration() {
@@ -98,16 +102,16 @@ public class CourseSiteDef extends AbstractSiteDefinition implements SiteDefinit
 			return null;
 		}
 		String icon = courseConfig.getNavIconCssClass();
-		return createCourseSiteInstance(ureq, langConfig, showToolController, siteSecCallback, icon);
+		return createCourseSiteInstance(langConfig, showToolController, siteSecCallback, icon);
 	}
 	
 	/**
 	 * Warning: there is no check against null.
 	 * It's only to return the right type, CourseSie or CourseSite2.
 	 */
-	protected CourseSite createCourseSiteInstance(UserRequest ureq, LanguageConfiguration langConfig,
+	protected CourseSite createCourseSiteInstance(LanguageConfiguration langConfig,
 			boolean showToolController, SiteSecurityCallback siteSecCallback, String icon) {
-		return new CourseSite(this, ureq.getLocale(), langConfig.getRepoSoftKey(), showToolController,
+		return new CourseSite(this, langConfig.getRepoSoftKey(), showToolController,
 				siteSecCallback, langConfig.getTitle(), icon);
 	}
 	

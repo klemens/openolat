@@ -40,6 +40,7 @@ import org.olat.basesecurity.BaseSecurity;
 import org.olat.basesecurity.BaseSecurityManager;
 import org.olat.basesecurity.IdentityImpl;
 import org.olat.basesecurity.SecurityGroup;
+import org.olat.basesecurity.manager.GroupDAO;
 import org.olat.commons.calendar.CalendarManagerFactory;
 import org.olat.commons.lifecycle.LifeCycleManager;
 import org.olat.core.CoreSpringFactory;
@@ -52,7 +53,6 @@ import org.olat.core.id.UserConstants;
 import org.olat.core.manager.BasicManager;
 import org.olat.core.util.StringHelper;
 import org.olat.core.util.Util;
-import org.olat.core.util.coordinate.CoordinatorManager;
 import org.olat.core.util.i18n.I18nManager;
 import org.olat.core.util.mail.MailBundle;
 import org.olat.core.util.mail.MailManager;
@@ -96,16 +96,15 @@ public class UserDeletionManager extends BasicManager {
 	// Flag used in user-delete to indicate that all deletable managers are initialized
 	private boolean managersInitialized = false;
 	private DeletionModule deletionModule;
-	private CoordinatorManager coordinatorManager;
 	private BaseSecurity securityManager;
 	private MailManager mailManager;
+	private GroupDAO groupDao;
 
 	/**
 	 * [used by spring]
 	 */
-	private UserDeletionManager(DeletionModule deletionModule, CoordinatorManager coordinatorManager) {
+	private UserDeletionManager(DeletionModule deletionModule) {
 		this.deletionModule = deletionModule;
-		this.coordinatorManager = coordinatorManager;
 		INSTANCE = this;
 	}
 
@@ -124,6 +123,14 @@ public class UserDeletionManager extends BasicManager {
 	 */
 	public void setMailManager(MailManager mailManager) {
 		this.mailManager = mailManager;
+	}
+	
+	/**
+	 * [used by Spring]
+	 * @param groupDao
+	 */
+	public void setGroupDao(GroupDAO groupDao) {
+		this.groupDao = groupDao;
 	}
 
 
@@ -307,7 +314,9 @@ public class UserDeletionManager extends BasicManager {
 			securityManager.removeIdentityFromSecurityGroup(identity, secGroup);
 			logInfo("Removing user=" + identity + " from security group="  + secGroup.toString());
 		}
-		
+		//remove identity from groups
+		groupDao.removeMemberships(identity);
+
 		// fxdiff: FXOLAT-44 delete emails still in change-workflow
 		RegistrationManager rm = RegistrationManager.getInstance();
 		String key = identity.getUser().getProperty("emchangeKey", null);
@@ -422,7 +431,7 @@ public class UserDeletionManager extends BasicManager {
 		if (properties.size() == 0) {
 			property = PropertyManager.getInstance().createPropertyInstance(null, null, null, PROPERTY_CATEGORY, propertyName, null,  new Long(value), null, null);
 		} else {
-			property = (Property)properties.get(0);
+			property = properties.get(0);
 			property.setLongValue( new Long(value) );
 		}
 		PropertyManager.getInstance().saveProperty(property);

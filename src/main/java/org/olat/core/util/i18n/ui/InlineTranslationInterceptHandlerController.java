@@ -29,7 +29,7 @@ import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.Component;
 import org.olat.core.gui.components.ComponentRenderer;
 import org.olat.core.gui.components.delegating.DelegatingComponent;
-import org.olat.core.gui.components.panel.Panel;
+import org.olat.core.gui.components.panel.StackedPanel;
 import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.Event;
 import org.olat.core.gui.control.WindowControl;
@@ -65,7 +65,7 @@ import org.olat.core.util.prefs.Preferences;
  * @author gnaegi
  */
 public class InlineTranslationInterceptHandlerController extends BasicController implements InterceptHandlerInstance, InterceptHandler {
-	private static final String SPAN_TRANSLATION_I18NITEM_OPEN = "<span class=\"b_translation_i18nitem\">";
+	private static final String SPAN_TRANSLATION_I18NITEM_OPEN = "<span class=\"o_translation_i18nitem\">";
 	private static final String SPAN_CLOSE = "</span>";
 	private static final String BODY_TAG = "<body";
 	private static final String ARG_BUNDLE = "bundle";
@@ -76,7 +76,7 @@ public class InlineTranslationInterceptHandlerController extends BasicController
 	private DelegatingComponent delegatingComponent;
 	private TranslationToolI18nItemEditCrumbController i18nItemEditCtr;
 	private CloseableModalController cmc;
-	private Panel mainP;
+	private StackedPanel mainP;
 
 	// patterns to detect localized strings with identifyers
 	private static final String decoratedTranslatedPattern = "(" + I18nManager.IDENT_PREFIX + "(.*?)" + I18nManager.IDENT_START_POSTFIX
@@ -133,6 +133,7 @@ public class InlineTranslationInterceptHandlerController extends BasicController
 
 	public ComponentRenderer createInterceptComponentRenderer(final ComponentRenderer originalRenderer) {
 		return new ComponentRenderer() {
+			@Override
 			public void render(Renderer renderer, StringOutput sb, Component source, URLBuilder ubu, Translator translator,
 					RenderResult renderResult, String[] args) {
 				// ------------- show translator keys
@@ -164,6 +165,7 @@ public class InlineTranslationInterceptHandlerController extends BasicController
 			 *      org.olat.core.gui.translator.Translator,
 			 *      org.olat.core.gui.render.RenderingState)
 			 */
+			@Override
 			public void renderHeaderIncludes(Renderer renderer, StringOutput sb, Component source, URLBuilder ubu, Translator translator,
 					RenderingState rstate) {
 				originalRenderer.renderHeaderIncludes(renderer, sb, source, ubu, translator, rstate);
@@ -175,6 +177,7 @@ public class InlineTranslationInterceptHandlerController extends BasicController
 			 *      org.olat.core.gui.components.Component,
 			 *      org.olat.core.gui.render.RenderingState)
 			 */
+			@Override
 			public void renderBodyOnLoadJSFunctionCall(Renderer renderer, StringOutput sb, Component source, RenderingState rstate) {
 				originalRenderer.renderBodyOnLoadJSFunctionCall(renderer, sb, source, rstate);
 			}
@@ -244,7 +247,8 @@ public class InlineTranslationInterceptHandlerController extends BasicController
 	 * @see org.olat.core.gui.control.DefaultController#event(org.olat.core.gui.UserRequest,
 	 *      org.olat.core.gui.control.Controller, org.olat.core.gui.control.Event)
 	 */
-	protected void event(UserRequest ureq, Controller source, @SuppressWarnings("unused") Event event) {
+	@Override
+	protected void event(UserRequest ureq, Controller source, Event event) {
 		if (source == cmc) {
 			// user closed dialog, go back to inline translation mode
 			I18nManager.getInstance().setMarkLocalizedStringsEnabled(ureq.getUserSession(), true);
@@ -317,7 +321,7 @@ public class InlineTranslationInterceptHandlerController extends BasicController
 					foundPos = false;
 				} else {
 					// check if link is visible, skip other links
-					int skipPos = stringWithMarkup.indexOf("b_skip", wrapperOpen);
+					int skipPos = stringWithMarkup.indexOf("o_skip", wrapperOpen);
 					if (skipPos > -1 && skipPos < wrapperClose) {
 						stringWithMarkup = replaceItemWithoutHTMLMarkup(stringWithMarkup, startSPos, startEPos, endSPos, endEPos);
 						continue;
@@ -451,7 +455,7 @@ public class InlineTranslationInterceptHandlerController extends BasicController
 	 */
 	public static void buildInlineTranslationLink(String[] arguments, StringOutput link, Translator inlineTrans,
 			URLBuilder inlineTranslationURLBuilder) {
-			link.append("<a class=\"b_translation_i18nitem_launcher\" style=\"display:none\" href=\"");
+			link.append("<a class='o_translation_i18nitem_launcher' style='display:none' href=\"");
 			inlineTranslationURLBuilder.buildURI(link, new String[] { ARG_BUNDLE, ARG_KEY, ARG_IDENT }, arguments);
 			link.append("\" title=\"");
 			String combinedKey = arguments[0] + ":" + arguments[1];
@@ -460,7 +464,7 @@ public class InlineTranslationInterceptHandlerController extends BasicController
 			} else {
 				link.append(StringEscapeUtils.escapeHtml(inlineTrans.translate("inline.customize.translate", new String[] { combinedKey })));			
 			}
-			link.append("\"></a>");			
+			link.append("\"><i class='o_icon o_icon_translation_item'> </i></a>");			
 	}
 
 }

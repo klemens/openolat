@@ -32,10 +32,9 @@ import java.util.List;
 import java.util.Locale;
 import java.util.zip.ZipOutputStream;
 
-import org.olat.basesecurity.BaseSecurityManager;
-import org.olat.basesecurity.SecurityGroup;
 import org.olat.core.gui.UserRequest;
-import org.olat.core.gui.components.stack.StackedController;
+import org.olat.core.gui.components.stack.BreadcrumbPanel;
+import org.olat.core.gui.components.stack.TooledStackedPanel;
 import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.WindowControl;
 import org.olat.core.gui.control.generic.tabbable.TabbableController;
@@ -55,18 +54,17 @@ import org.olat.course.nodes.iq.IQEditController;
 import org.olat.course.nodes.iq.IQRunController;
 import org.olat.course.nodes.iq.IQUIFactory;
 import org.olat.course.properties.CoursePropertyManager;
-import org.olat.course.repository.ImportReferencesController;
 import org.olat.course.run.environment.CourseEnvironment;
 import org.olat.course.run.navigation.NodeRunConstructionResult;
 import org.olat.course.run.userview.NodeEvaluation;
 import org.olat.course.run.userview.UserCourseEnvironment;
 import org.olat.course.statistic.StatisticResourceOption;
 import org.olat.course.statistic.StatisticResourceResult;
-import org.olat.group.BusinessGroup;
 import org.olat.ims.qti.QTIResultManager;
 import org.olat.ims.qti.export.QTIExportFormatter;
 import org.olat.ims.qti.export.QTIExportFormatterCSVType3;
 import org.olat.ims.qti.export.QTIExportManager;
+import org.olat.ims.qti.fileresource.SurveyFileResource;
 import org.olat.ims.qti.process.AssessmentInstance;
 import org.olat.ims.qti.statistics.QTIStatisticResourceResult;
 import org.olat.ims.qti.statistics.QTIStatisticSearchParams;
@@ -76,6 +74,8 @@ import org.olat.modules.ModuleConfiguration;
 import org.olat.repository.RepositoryEntry;
 import org.olat.repository.RepositoryEntryImportExport;
 import org.olat.repository.RepositoryManager;
+import org.olat.repository.handlers.RepositoryHandler;
+import org.olat.repository.handlers.RepositoryHandlerFactory;
 
 /**
  * Initial Date: Feb 9, 2004
@@ -87,7 +87,6 @@ public class IQSURVCourseNode extends AbstractAccessableCourseNode implements QT
 	private static final long serialVersionUID = 1672009454920536416L;
 	private static final OLog log = Tracing.createLoggerFor(IQSURVCourseNode.class);
 
-	private static final String PACKAGE = Util.getPackageName(IQSURVCourseNode.class);
 	private static final String TYPE = "iqsurv";
 	/** category that is used to persist the node properties */
 	public static final String PROPERTY_CATEGORY = "iqsu";
@@ -105,11 +104,10 @@ public class IQSURVCourseNode extends AbstractAccessableCourseNode implements QT
 	 *      org.olat.core.gui.control.WindowControl, org.olat.course.ICourse)
 	 */
 	@Override
-	public TabbableController createEditController(UserRequest ureq, WindowControl wControl, StackedController stackPanel, ICourse course, UserCourseEnvironment euce) {
+	public TabbableController createEditController(UserRequest ureq, WindowControl wControl, BreadcrumbPanel stackPanel, ICourse course, UserCourseEnvironment euce) {
 		TabbableController childTabCntrllr = IQUIFactory.createIQSurveyEditController(ureq, wControl, stackPanel, course, this, course.getCourseEnvironment().getCourseGroupManager(), euce);
 		CourseNode chosenNode = course.getEditorTreeModel().getCourseNode(euce.getCourseEditorEnv().getCurrentCourseNodeId());
-		return new NodeEditController(ureq, wControl, course.getEditorTreeModel(), course, chosenNode, course.getCourseEnvironment()
-				.getCourseGroupManager(), euce, childTabCntrllr);
+		return new NodeEditController(ureq, wControl, course.getEditorTreeModel(), course, chosenNode, euce, childTabCntrllr);
 	}
 
 	/**
@@ -120,16 +118,16 @@ public class IQSURVCourseNode extends AbstractAccessableCourseNode implements QT
 	 */
 	public NodeRunConstructionResult createNodeRunConstructionResult(UserRequest ureq, WindowControl wControl,
 			UserCourseEnvironment userCourseEnv, NodeEvaluation ne, String nodecmd) {
-		Controller controller = IQUIFactory.createIQSurveyRunController(ureq, wControl, userCourseEnv, ne, this);
+		Controller controller = IQUIFactory.createIQSurveyRunController(ureq, wControl, userCourseEnv, this);
 		Controller ctrl = TitledWrapperHelper.getWrapper(ureq, wControl, controller, this, "o_iqsurv_icon");
 		return new NodeRunConstructionResult(ctrl);
 	}
 	
 	@Override
-	public List<Controller> createAssessmentTools(UserRequest ureq, WindowControl wControl,
+	public List<Controller> createAssessmentTools(UserRequest ureq, WindowControl wControl, TooledStackedPanel stackPanel,
 			CourseEnvironment courseEnv, AssessmentToolOptions options) {
 		List<Controller> tools = new ArrayList<>();
-		tools.add(new QTI12StatisticsToolController(ureq, wControl, courseEnv, options, this));
+		tools.add(new QTI12StatisticsToolController(ureq, wControl, stackPanel, courseEnv, options, this));
 		return tools;
 	}
 
@@ -140,19 +138,8 @@ public class IQSURVCourseNode extends AbstractAccessableCourseNode implements QT
 		
 		Long courseId = userCourseEnv.getCourseEnvironment().getCourseResourceableId();
 		OLATResourceable courseOres = OresHelper.createOLATResourceableInstance("CourseModule", courseId);
-		
-		List<SecurityGroup> limitMemberships = new ArrayList<>();
-		if(options.getParticipantsCourse() != null) {
-			limitMemberships.add(options.getParticipantsCourse().getParticipantGroup());
-		}
-		if(options.getParticipantsGroups() != null && !options.getParticipantsGroups().isEmpty()) {
-			for(BusinessGroup group:options.getParticipantsGroups()) {
-				limitMemberships.add(group.getPartipiciantGroup());
-			}
-		}
-		
 		QTIStatisticSearchParams searchParams = new QTIStatisticSearchParams(courseOres.getResourceableId(), getIdent());
-		searchParams.setLimitToSecGroups(limitMemberships);
+		searchParams.setLimitToGroups(options.getParticipantsGroups());
 
 		QTIStatisticResourceResult result = new QTIStatisticResourceResult(courseOres, this, searchParams);
 		return result;
@@ -284,10 +271,7 @@ public class IQSURVCourseNode extends AbstractAccessableCourseNode implements QT
 		}
 	}
 
-	/**
-	 * @see org.olat.course.nodes.GenericCourseNode#exportNode(java.io.File,
-	 *      org.olat.course.ICourse)
-	 */
+	@Override
 	public void exportNode(File exportDirectory, ICourse course) {
 		String repositorySoftKey = (String) getModuleConfiguration().get(IQEditController.CONFIG_KEY_REPOSITORY_SOFTKEY);
 		if (repositorySoftKey == null) return; // nothing to export
@@ -304,30 +288,18 @@ public class IQSURVCourseNode extends AbstractAccessableCourseNode implements QT
 		reie.exportDoExport();
 	}
 
-	/**
-	 * @see org.olat.course.nodes.GenericCourseNode#importNode(java.io.File,
-	 *      org.olat.course.ICourse, org.olat.core.gui.UserRequest,
-	 *      org.olat.core.gui.control.WindowControl)
-	 */
-	public Controller importNode(File importDirectory, ICourse course, boolean unattendedImport, UserRequest ureq, WindowControl wControl) {
-		File importSubdir = new File(importDirectory, getIdent());
-		RepositoryEntryImportExport rie = new RepositoryEntryImportExport(importSubdir);
-		if (!rie.anyExportedPropertiesAvailable()) return null;
-
-		// do import referenced repository entries
-		if (unattendedImport) {
-			Identity admin = BaseSecurityManager.getInstance().findIdentityByName("administrator");
-			ImportReferencesController.doImport(rie, this, ImportReferencesController.IMPORT_SURVEY,
-				true, admin);
-			return null;
-		} else {
-			return new ImportReferencesController(ureq, wControl, this, ImportReferencesController.IMPORT_SURVEY, rie);
+	@Override
+	public void importNode(File importDirectory, ICourse course, Identity owner, Locale locale) {
+		RepositoryEntryImportExport rie = new RepositoryEntryImportExport(importDirectory, getIdent());
+		if(rie.anyExportedPropertiesAvailable()) {
+			RepositoryHandler handler = RepositoryHandlerFactory.getInstance().getRepositoryHandler(SurveyFileResource.TYPE_NAME);
+			RepositoryEntry re = handler.importResource(owner, rie.getInitialAuthor(), rie.getDisplayName(),
+				rie.getDescription(), false, locale, rie.importGetExportedFile(), null);
+			IQEditController.setIQReference(re, getModuleConfiguration());
 		}
 	}
 
-	/**
-	 * @see org.olat.course.nodes.CourseNode#createInstanceForCopy()
-	 */
+	@Override
 	public CourseNode createInstanceForCopy() {
 		CourseNode copyInstance = super.createInstanceForCopy();
 		IQEditController.removeIQReference(copyInstance.getModuleConfiguration());
