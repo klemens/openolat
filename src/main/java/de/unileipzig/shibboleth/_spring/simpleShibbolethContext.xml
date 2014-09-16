@@ -27,7 +27,7 @@
 		<constructor-arg index="1" value="de.unileipzig.shibboleth.SimpleShibbolethLoginFormController"/>
 		<constructor-arg index="2" value="${simpleShibboleth.enable:false}"/>
 		<constructor-arg index="3" value="${simpleShibboleth.default:false}"/>
-		<constructor-arg index="4" value="o_icon_provider_shibboleth"/>
+		<constructor-arg index="4" value="o_icon_user_vip"/>
 	</bean>
 	
 	<bean class="org.springframework.beans.factory.config.MethodInvokingFactoryBean">
