@@ -28,7 +28,11 @@ public class SimpleShibbolethErrorController extends DefaultChiefController {
 
 		VelocityContainer mainVC = new VelocityContainer("shibbolethError", SimpleShibbolethErrorController.class, "errorWindow", null, this);
 		mainVC.contextPut("cssURL", window.getGuiTheme().getBaseURI() + "theme.css");
-		mainVC.contextPut("backLink", WebappHelper.getServletContextPath());
+		String backlink = WebappHelper.getServletContextPath();
+		if(backlink.isEmpty()) {
+			backlink = "/";
+		}
+		mainVC.contextPut("backLink", backlink);
 		mainVC.contextPut("message", message);
 		if(detail != null) {
 			mainVC.contextPut("", detail);
