@@ -24,12 +24,14 @@ import java.util.ArrayList;
 import java.util.List;
 
 import org.dom4j.Element;
+import org.jgroups.util.UUID;
 import org.olat.core.util.StringHelper;
 import org.olat.modules.qpool.QuestionItemFull;
 import org.olat.modules.qpool.QuestionStatus;
 import org.olat.modules.qpool.TaxonomyLevel;
 import org.olat.modules.qpool.manager.QEducationalContextDAO;
 import org.olat.modules.qpool.manager.QItemTypeDAO;
+import org.olat.modules.qpool.manager.QLicenseDAO;
 import org.olat.modules.qpool.manager.TaxonomyLevelDAO;
 import org.olat.modules.qpool.model.QEducationalContext;
 import org.olat.modules.qpool.model.QItemType;
@@ -38,31 +40,44 @@ import org.olat.modules.qpool.model.QuestionItemImpl;
 
 /**
  * 
+ * This is an helper class to convert metadata, retrieve specific type
+ * of metadatas...
+ * 
  * Initial date: 10.09.2014<br>
  * @author srosse, stephane.rosse@frentix.com, http://www.frentix.com
  *
  */
-class QTIMetadata {
+class QTIMetadataConverter {
 	
 	private Element qtimetadata;
-	
+
+	private QLicenseDAO licenseDao;
 	private QItemTypeDAO itemTypeDao;
 	private TaxonomyLevelDAO taxonomyLevelDao;
 	private QEducationalContextDAO educationalContextDao;
 	
-	QTIMetadata(Element qtimetadata) {
+	QTIMetadataConverter(Element qtimetadata) {
 		this.qtimetadata = qtimetadata;
 	}
 	
-	QTIMetadata(Element qtimetadata, QItemTypeDAO itemTypeDao,
+	QTIMetadataConverter(Element qtimetadata, QItemTypeDAO itemTypeDao, QLicenseDAO licenseDao,
 			TaxonomyLevelDAO taxonomyLevelDao, QEducationalContextDAO educationalContextDao) {
 		this.qtimetadata = qtimetadata;
+		this.licenseDao = licenseDao;
 		this.itemTypeDao = itemTypeDao;
 		this.taxonomyLevelDao = taxonomyLevelDao;
 		this.educationalContextDao = educationalContextDao;
 	}
 	
-	private QItemType toType(String itemType) {
+	QTIMetadataConverter(QItemTypeDAO itemTypeDao, QLicenseDAO licenseDao,
+			TaxonomyLevelDAO taxonomyLevelDao, QEducationalContextDAO educationalContextDao) {
+		this.licenseDao = licenseDao;
+		this.itemTypeDao = itemTypeDao;
+		this.taxonomyLevelDao = taxonomyLevelDao;
+		this.educationalContextDao = educationalContextDao;
+	}
+	
+	public QItemType toType(String itemType) {
 		QItemType type = itemTypeDao.loadByType(itemType);
 		if(type == null) {
 			type = itemTypeDao.create(itemType, true);
@@ -70,11 +85,19 @@ class QTIMetadata {
 		return type;
 	}
 	
-	private QLicense toLicense(String str) {
-		return null;
+	public QLicense toLicense(String license) {
+		QLicense qLicense = null;
+		if(StringHelper.containsNonWhitespace(license)) {
+			qLicense = licenseDao.searchLicense(license);
+			if(qLicense == null) {
+				String key = "perso-" + UUID.randomUUID().toString();
+				qLicense = licenseDao.create(key, license, false);
+			}
+		}
+		return qLicense;
 	}
 	
-	private TaxonomyLevel toTaxonomy(String str) {
+	public TaxonomyLevel toTaxonomy(String str) {
 		String[] path = str.split("/");
 		List<String> cleanedPath = new ArrayList<>(path.length);
 		for(String segment:path) {
@@ -96,7 +119,7 @@ class QTIMetadata {
 		return lowerLevel;
 	}
 	
-	private QEducationalContext toEducationalContext(String txt) {
+	public QEducationalContext toEducationalContext(String txt) {
 		QEducationalContext context = educationalContextDao.loadByLevel(txt);
 		if(context == null) {
 			context = educationalContextDao.create(txt, true);
@@ -105,7 +128,7 @@ class QTIMetadata {
 	}
 	
 	protected void toQuestion(QuestionItemImpl fullItem) {
-		String addInfos = this.getMetadataEntry("additional_informations");
+		String addInfos = getMetadataEntry("additional_informations");
 		if(StringHelper.containsNonWhitespace(addInfos)) {
 			fullItem.setAdditionalInformations(addInfos);
 		}
@@ -223,39 +246,39 @@ class QTIMetadata {
 		addMetadataField("oo_usage", fullItem.getUsage(), qtimetadata);
 	}
 	
-	private void addMetadataField(String label, int entry, Element qtimetadata) {
+	private void addMetadataField(String label, int entry, Element metadata) {
 		if(entry >=  0) {
-			addMetadataField(label, Integer.toString(entry), qtimetadata);
+			addMetadataField(label, Integer.toString(entry), metadata);
 		}
 	}
 	
-	private void addMetadataField(String label, QLicense entry, Element qtimetadata) {
+	private void addMetadataField(String label, QLicense entry, Element metadata) {
 		if(entry != null) {
-			addMetadataField(label, entry.getLicenseText(), qtimetadata);
+			addMetadataField(label, entry.getLicenseText(), metadata);
 		}
 	}
 	
-	private void addMetadataField(String label, QEducationalContext entry, Element qtimetadata) {
+	private void addMetadataField(String label, QEducationalContext entry, Element metadata) {
 		if(entry != null) {
-			addMetadataField(label, entry.getLevel(), qtimetadata);
+			addMetadataField(label, entry.getLevel(), metadata);
 		}
 	}
 	
-	private void addMetadataField(String label, QuestionStatus entry, Element qtimetadata) {
+	private void addMetadataField(String label, QuestionStatus entry, Element metadata) {
 		if(entry != null) {
-			addMetadataField(label, entry.name(), qtimetadata);
+			addMetadataField(label, entry.name(), metadata);
 		}
 	}
 	
-	private void addMetadataField(String label, BigDecimal entry, Element qtimetadata) {
+	private void addMetadataField(String label, BigDecimal entry, Element metadata) {
 		if(entry != null) {
-			addMetadataField(label, entry.toPlainString(), qtimetadata);
+			addMetadataField(label, entry.toPlainString(), metadata);
 		}
 	}
 	
-	private void addMetadataField(String label, String entry, Element qtimetadata) {
+	private void addMetadataField(String label, String entry, Element metadata) {
 		if(entry != null) {
-			Element qtimetadatafield = qtimetadata.addElement("qtimetadatafield");
+			Element qtimetadatafield = metadata.addElement("qtimetadatafield");
 			qtimetadatafield.addElement("fieldlabel").setText(label);
 			qtimetadatafield.addElement("fieldentry").setText(entry);
 		}

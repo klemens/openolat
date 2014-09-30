@@ -43,6 +43,7 @@ import org.olat.core.commons.fullWebApp.LayoutMain3ColsController;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.Component;
 import org.olat.core.gui.components.dropdown.Dropdown;
+import org.olat.core.gui.components.dropdown.Dropdown.Spacer;
 import org.olat.core.gui.components.htmlheader.jscss.JSAndCSSComponent;
 import org.olat.core.gui.components.link.Link;
 import org.olat.core.gui.components.link.LinkFactory;
@@ -63,6 +64,10 @@ import org.olat.core.gui.control.generic.closablewrapper.CloseableModalControlle
 import org.olat.core.gui.control.generic.dtabs.Activateable2;
 import org.olat.core.gui.control.generic.modal.DialogBoxController;
 import org.olat.core.gui.control.generic.modal.DialogBoxUIFactory;
+import org.olat.core.gui.control.generic.wizard.Step;
+import org.olat.core.gui.control.generic.wizard.StepRunnerCallback;
+import org.olat.core.gui.control.generic.wizard.StepsMainRunController;
+import org.olat.core.gui.control.generic.wizard.StepsRunContext;
 import org.olat.core.gui.media.MediaResource;
 import org.olat.core.id.Identity;
 import org.olat.core.id.User;
@@ -115,6 +120,9 @@ import org.olat.ims.qti.export.QTIWordExport;
 import org.olat.ims.qti.process.AssessmentInstance;
 import org.olat.ims.qti.process.QTIEditorResolver;
 import org.olat.ims.qti.qpool.QTIQPoolServiceProvider;
+import org.olat.ims.qti.questionimport.ItemAndMetadata;
+import org.olat.ims.qti.questionimport.ItemsPackage;
+import org.olat.ims.qti.questionimport.QImport_1_InputStep;
 import org.olat.modules.co.ContactFormController;
 import org.olat.modules.iq.IQDisplayController;
 import org.olat.modules.iq.IQManager;
@@ -166,6 +174,7 @@ public class QTIEditorMainController extends MainLayoutBasicController implement
 	private static final String CMD_TOOLS_ADD_QPOOL = "cmd.import.qpool";
 	private static final String CMD_TOOLS_EXPORT_QPOOL = "cmd.export.qpool";
 	private static final String CMD_TOOLS_EXPORT_DOCX = "cmd.export.docx";
+	private static final String CMD_TOOLS_IMPORT_TABLE = "cmd.import.xls";
 
 	private static final String CMD_EXIT_SAVE = "exit.save";
 	private static final String CMD_EXIT_DISCARD = "exit.discard";
@@ -219,7 +228,7 @@ public class QTIEditorMainController extends MainLayoutBasicController implement
 	private TooledStackedPanel stackedPanel;
 	private LayoutMain3ColsController columnLayoutCtr;
 	
-	private Link previewLink, exportPoolLink, exportDocLink, closeLink;
+	private Link previewLink, exportPoolLink, exportDocLink, importTableLink, closeLink;
 	private Link addPoolLink, addSectionLink, addSCLink, addMCLink, addFIBLink, addKPrimLink, addEssayLink;
 	private Link deleteLink, moveLink, copyLink;
 
@@ -246,6 +255,7 @@ public class QTIEditorMainController extends MainLayoutBasicController implement
 	private LockResult activeSessionLock;
 	private Link notEditableButton; 
 	private Set<String> deletableMediaFiles;
+	private StepsMainRunController importTableWizard;
 
 	private final UserManager userManager;
 	private final QTIQPoolServiceProvider qtiQpoolServiceProvider;
@@ -634,6 +644,8 @@ public class QTIEditorMainController extends MainLayoutBasicController implement
 			doExportQItem();
 		} else if (exportDocLink == source) {
 			doExportDocx(ureq);
+		} else if (importTableLink == source) {
+			doImportTable(ureq);
 		} else if (addSectionLink == source) {
 			Section newSection = QTIEditHelper.createSection(getTranslator());
 			Item newItem = QTIEditHelper.createSCItem(getTranslator());
@@ -810,14 +822,23 @@ public class QTIEditorMainController extends MainLayoutBasicController implement
 				List<QuestionItemView> items = e.getItemList();
 				doSelectInsertionPoint(CMD_TOOLS_ADD_QPOOL, items);
 			}
+		} else if(source == importTableWizard) {
+			ItemsPackage importPackage = (ItemsPackage)importTableWizard.getRunContext().get("importPackage");
+			getWindowControl().pop();
+			cleanUp();
+			if(event == Event.DONE_EVENT || event == Event.CHANGED_EVENT) {
+				doSelectInsertionPoint(CMD_TOOLS_ADD_QPOOL, importPackage);
+			}
 		}
 	}
 	
 	private void cleanUp() {
 		removeAsListenerAndDispose(cmc);
 		removeAsListenerAndDispose(selectQItemCtrl);
+		removeAsListenerAndDispose(importTableWizard);
 		cmc = null;
 		selectQItemCtrl = null;
+		importTableWizard = null;
 	}
 	
 	private void doSelectInsertionPoint(String cmd, Object userObj) {
@@ -856,10 +877,14 @@ public class QTIEditorMainController extends MainLayoutBasicController implement
 				GenericQtiNode insertNode = doConvertItemToQtiNode(item);
 				doInsert(parentTargetNode, insertNode, position++);
 			}
-		}
-		
-		if(parentTargetNode instanceof SectionNode) {
-			
+		} else if(toInsert instanceof ItemsPackage) {
+			ItemsPackage itemsToImport = (ItemsPackage)toInsert;
+			List<ItemAndMetadata> items = itemsToImport.getItems();
+			int pos = tp.getChildpos();
+			for(ItemAndMetadata item:items) {
+				GenericQtiNode insertNode = new ItemNode(item.getItem(), qtiPackage);
+				doInsert(parentTargetNode, insertNode, pos++);
+			}
 		}
 
 		event(ureq, menuTree, new Event(MenuTree.COMMAND_TREENODE_CLICKED));
@@ -1004,7 +1029,7 @@ public class QTIEditorMainController extends MainLayoutBasicController implement
 			ItemNode itemNode = (ItemNode)selectedNode;
 			QTIObject qtiObject = itemNode.getUnderlyingQTIObject();
 			if(qtiObject instanceof Item) {
-				Item item = (Item)qtiObject;
+				ItemAndMetadata item = new ItemAndMetadata((Item)qtiObject);
 				VFSContainer editorContainer = qtiPackage.getBaseDir();
 				qtiQpoolServiceProvider.importBeecomItem(getIdentity(), item, editorContainer, getLocale());
 				showInfo("export.qpool.successful", "1");
@@ -1041,11 +1066,31 @@ public class QTIEditorMainController extends MainLayoutBasicController implement
 		if(section.getItems() != null) {
 			VFSContainer editorContainer = qtiPackage.getBaseDir();
 			for(Item item:section.getItems()) {
-				qtiQpoolServiceProvider.importBeecomItem(getIdentity(), item, editorContainer, getLocale());
+				ItemAndMetadata itemAndMetadata = new ItemAndMetadata(item);
+				qtiQpoolServiceProvider.importBeecomItem(getIdentity(), itemAndMetadata, editorContainer, getLocale());
 			}
 			return section.getItems().size();
 		}
 		return 0;
+	}
+	
+	private void doImportTable(UserRequest ureq) {
+		removeAsListenerAndDispose(importTableWizard);
+
+		final ItemsPackage importPackage = new ItemsPackage();
+		Step start = new QImport_1_InputStep(ureq, importPackage);
+		StepRunnerCallback finish = new StepRunnerCallback() {
+			@Override
+			public Step execute(UserRequest uureq, WindowControl wControl, StepsRunContext runContext) {
+				runContext.put("importPackage", importPackage);
+				return StepsMainRunController.DONE_MODIFIED;
+			}
+		};
+		
+		importTableWizard = new StepsMainRunController(ureq, getWindowControl(), start, finish, null,
+				translate("tools.import.table"), "o_mi_table_import_wizard");
+		listenTo(importTableWizard);
+		getWindowControl().pushAsModalDialog(importTableWizard.getInitialComponent());
 	}
 
 	/**
@@ -1061,25 +1106,23 @@ public class QTIEditorMainController extends MainLayoutBasicController implement
 	
 	private void populateToolC() {
 		//tools
-		Dropdown editTools = new Dropdown("editTools", "tools.tools.header", false, getTranslator());
-		editTools.setIconCSS("o_icon o_icon_tools");
-		stackedPanel.addTool(editTools, Align.left);
+		Dropdown exportTools = new Dropdown("exportTools", "tools.export.header", false, getTranslator());
+		exportTools.setIconCSS("o_icon o_icon_export");
+		stackedPanel.addTool(exportTools, Align.left);
 		
-		editTools.addComponent(previewLink);
+		exportTools.addComponent(previewLink);
 		exportPoolLink = LinkFactory.createToolLink(CMD_TOOLS_EXPORT_QPOOL, translate("tools.export.qpool"), this, "o_mi_qpool_export");
 		exportPoolLink.setIconLeftCSS("o_icon o_icon_download");
-		editTools.addComponent(exportPoolLink);
+		exportTools.addComponent(exportPoolLink);
 		exportDocLink = LinkFactory.createToolLink(CMD_TOOLS_EXPORT_DOCX, translate("tools.export.docx"), this, "o_mi_docx_export");
 		exportDocLink.setIconLeftCSS("o_icon o_icon_download");
-		editTools.addComponent(exportDocLink);
+		exportTools.addComponent(exportDocLink);
 
 		//add
 		Dropdown addItemTools = new Dropdown("editTools", "tools.add.header", false, getTranslator());
 		addItemTools.setIconCSS("o_icon o_icon-fw o_icon_add");
 		stackedPanel.addTool(addItemTools, Align.left);
-
-		addPoolLink = LinkFactory.createToolLink(CMD_TOOLS_ADD_QPOOL, translate("tools.import.qpool"), this, "o_mi_qpool_import");
-		addItemTools.addComponent(addPoolLink);
+		
 		addSectionLink = LinkFactory.createToolLink(CMD_TOOLS_ADD_SECTION, translate("tools.add.section"), this, "o_mi_qtisection");
 		addItemTools.addComponent(addSectionLink);
 		addSCLink = LinkFactory.createToolLink(CMD_TOOLS_ADD_SINGLECHOICE, translate("tools.add.singlechoice"), this, "o_mi_qtisc");
@@ -1094,6 +1137,14 @@ public class QTIEditorMainController extends MainLayoutBasicController implement
 		addItemTools.addComponent(addFIBLink);
 		addEssayLink = LinkFactory.createToolLink(CMD_TOOLS_ADD_FREETEXT, translate("tools.add.freetext"), this, "o_mi_qtiessay");
 		addItemTools.addComponent(addEssayLink);
+
+		addItemTools.addComponent(new Spacer(""));
+		addPoolLink = LinkFactory.createToolLink(CMD_TOOLS_ADD_QPOOL, translate("tools.import.qpool"), this, "o_mi_qpool_import");
+		addItemTools.addComponent(addPoolLink);
+
+		importTableLink = LinkFactory.createToolLink(CMD_TOOLS_IMPORT_TABLE, translate("tools.import.table"), this, "o_mi_table_import");
+		importTableLink.setIconLeftCSS("o_icon o_icon_table o_icon-fw");
+		addItemTools.addComponent(importTableLink);
 		
 		// delete / move / copy 
 		Dropdown customizeTools = new Dropdown("customizeTools", "tools.change.header", false, getTranslator());
