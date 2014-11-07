@@ -1,6 +1,16 @@
 <div class="o_login_form">
-<fieldset>
+<fieldset id="shibbolethLoginForm">
+<style scoped="scoped">
+#shibbolethLoginForm fieldset > div.form-group {
+	margin-bottom: 0;
+}
+#shibbolethLoginForm div.input-group > span.input-group-addon:nth-last-of-type(1) {
+	padding: 0 0 0 0.7em;
+	border: none;
+	background-color: transparent;
+}
+</style>
 <legend>$r.translate("simpleShibboleth.heading")</legend>
-<div style="text-align: center; margin-bottom: 1em;">$r.render("simpleShibboleth.redirectButton")</div>
+$r.render("simpleShibboleth.ipSelection")
 </fieldset>
 </div>
