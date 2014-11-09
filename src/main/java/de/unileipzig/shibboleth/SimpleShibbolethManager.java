@@ -3,11 +3,19 @@ package de.unileipzig.shibboleth;
 import java.util.ArrayList;
 import java.util.List;
 
+import javax.ws.rs.core.UriBuilder;
+
+import org.olat.core.helpers.Settings;
 import org.springframework.beans.factory.annotation.Value;
 
 public class SimpleShibbolethManager {
 	@Value("${simpleShibboleth.dispatcherPath:/shib/}")
 	private String dispatcherPath;
+
+	@Value("${simpleShibboleth.sessionInitiatorPath:/Shibboleth.sso/Login}")
+	private String sessionInitiatorPath;
+
+	private List<IdentityProvider> identityProviders = new ArrayList<IdentityProvider>();
 
 	protected SimpleShibbolethManager() {
 		_beanInstance = this;
@@ -18,6 +26,37 @@ public class SimpleShibbolethManager {
 	 */
 	public String getDispatcherPath() {
 		return dispatcherPath;
+	}
+
+	/**
+	 * Return a list of the names of all identity providers
+	 */
+	public List<String> getAvailableIdentityProviders() {
+		List<String> result = new ArrayList<String>();
+		for(IdentityProvider ip : identityProviders) {
+			result.add(ip.name);
+		}
+		return result;
+	}
+
+	/**
+	 * Create a url that contains the sp session initiator,
+	 * the ip and the return url (build using the dispatcher path).
+	 * This can be used to redirect the user to his login page.
+	 */
+	public String getLoginUrl(String identityProviderName) {
+		String returnPath = Settings.getServerContextPathURI() + getDispatcherPath();
+		String ipPath = null;
+		for(IdentityProvider ip : identityProviders) {
+			if(ip.name.equals(identityProviderName)) {
+				ipPath = ip.url;
+			}
+		}
+		if(ipPath == null) throw new IllegalArgumentException("given ip '" + identityProviderName + "' was not found");
+
+		return UriBuilder.fromUri(sessionInitiatorPath)
+						 .queryParam("entityID", ipPath)
+						 .queryParam("target", returnPath).build().toString();
 	}
 
 	/**

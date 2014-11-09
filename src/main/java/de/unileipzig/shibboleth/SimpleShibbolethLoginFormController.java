@@ -9,7 +9,6 @@ import org.olat.core.gui.components.velocity.VelocityContainer;
 import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.Event;
 import org.olat.core.gui.control.WindowControl;
-import org.olat.core.util.WebappHelper;
 import org.olat.login.auth.AuthenticationController;
 
 public class SimpleShibbolethLoginFormController extends AuthenticationController {
@@ -22,7 +21,7 @@ public class SimpleShibbolethLoginFormController extends AuthenticationControlle
 		
 		mainVC = new VelocityContainer("simpleShibbolethLoginFormController", getClass(), "loginForm", getTranslator(), this);
 		
-		ipSelection = new IdentityProviderSelectionForm(ureq, wControl, "", getTranslator(), new String[]{ "Universität" });
+		ipSelection = new IdentityProviderSelectionForm(ureq, wControl, "", getTranslator(), SimpleShibbolethManager.getInstance().getAvailableIdentityProviders().toArray(new String[0]));
 		listenTo(ipSelection);
 		mainVC.put("simpleShibboleth.ipSelection", ipSelection.getInitialComponent());
 		
@@ -36,7 +35,8 @@ public class SimpleShibbolethLoginFormController extends AuthenticationControlle
 	@Override
 	public void event(UserRequest ureq, Controller source, Event event) {
 		if(source == ipSelection && event == Event.DONE_EVENT) {
-			DispatcherModule.redirectTo(ureq.getHttpResp(), WebappHelper.getServletContextPath() + "/" + SimpleShibbolethManager.getInstance().getDispatcherPath() + "/");
+			String loginUri = SimpleShibbolethManager.getInstance().getLoginUrl(ipSelection.getIdentityProvider());
+			DispatcherModule.redirectTo(ureq.getHttpResp(), loginUri);
 		}
 	}
 

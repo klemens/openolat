@@ -70,6 +70,9 @@ simpleShibboleth.migrateUsers=false
 
 # generate email from username when no email given by shibboleth
 simpleShibboleth.emailTemplate=%s@student.my.uni
+
+# url of the session initiator of the service provider
+simpleShibboleth.sessionInitiatorPath=/Shibboleth.sso/Login
 ```
 
 To control the mapping between Shibboleth and OpenOLAT attributes, see the
