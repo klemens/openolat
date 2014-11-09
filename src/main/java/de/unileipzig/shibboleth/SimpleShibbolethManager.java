@@ -3,7 +3,7 @@ package de.unileipzig.shibboleth;
 import org.springframework.beans.factory.annotation.Value;
 
 public class SimpleShibbolethManager {
-	@Value("${simpleShibboleth.path:shibDefault}")
+	@Value("${simpleShibboleth.dispatcherPath:/shib/}")
 	private String dispatcherPath;
 
 	protected SimpleShibbolethManager() {

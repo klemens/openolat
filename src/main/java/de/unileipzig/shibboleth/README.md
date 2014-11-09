@@ -47,7 +47,7 @@ Add the following entry to the property map `authenticaionProviders`:
 Add the following entry to the property map `dispatchers` (or replace the
 existing `/shib/` if you want to use this url):
 ```
-<entry key="/${simpleShibboleth.path:shib}/">
+<entry key="${simpleShibboleth.dispatcherPath:/shib/}">
         <ref bean="simpleShibbolethDispatcher" />
 </entry>
 ```
@@ -62,8 +62,8 @@ this library. (You must set simpleShibboleth.enable to true to use it!)
 simpleShibboleth.enable=true
 simpleShibboleth.default=true
 
-# customize the url used for shib authentication (without slashes)
-simpleShibboleth.path=shiburl
+# path of the dispatcher, relative to the OO context (where the login happens after shibboleth authentication)
+simpleShibboleth.dispatcherPath=/shib/
 
 # migrate existing users by matching username
 simpleShibboleth.migrateUsers=false
