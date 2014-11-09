@@ -4,6 +4,8 @@
 	xsi:schemaLocation="http://www.springframework.org/schema/beans 
   						http://www.springframework.org/schema/beans/spring-beans-3.0.xsd">
 	
+	<bean id="simpleShibbolethManager" class="de.unileipzig.shibboleth.SimpleShibbolethManager"></bean>
+
 	<bean id="simpleShibbolethDispatcher" class="de.unileipzig.shibboleth.SimpleShibbolethDispatcher">
 		<property name="mapping">
 			<props>
@@ -29,10 +31,5 @@
 		<constructor-arg index="3" value="${simpleShibboleth.default:false}"/>
 		<constructor-arg index="4" value="o_icon_provider_shibboleth"/>
 	</bean>
-	
-	<bean class="org.springframework.beans.factory.config.MethodInvokingFactoryBean">
-        <property name="staticMethod" value="de.unileipzig.shibboleth.SimpleShibbolethLoginFormController.setPath"/>
-        <property name="arguments" value="${simpleShibboleth.path:shib}" />
-    </bean>
-	
+
 </beans>

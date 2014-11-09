@@ -16,8 +16,6 @@ public class SimpleShibbolethLoginFormController extends AuthenticationControlle
 	
 	private VelocityContainer mainVC;
 	private IdentityProviderSelectionForm ipSelection;
-	
-	private static String path;
 
 	public SimpleShibbolethLoginFormController(UserRequest ureq, WindowControl wControl) {
 		super(ureq, wControl);
@@ -38,7 +36,7 @@ public class SimpleShibbolethLoginFormController extends AuthenticationControlle
 	@Override
 	public void event(UserRequest ureq, Controller source, Event event) {
 		if(source == ipSelection && event == Event.DONE_EVENT) {
-			DispatcherModule.redirectTo(ureq.getHttpResp(), WebappHelper.getServletContextPath() + "/" + path + "/");
+			DispatcherModule.redirectTo(ureq.getHttpResp(), WebappHelper.getServletContextPath() + "/" + SimpleShibbolethManager.getInstance().getDispatcherPath() + "/");
 		}
 	}
 
@@ -50,9 +48,5 @@ public class SimpleShibbolethLoginFormController extends AuthenticationControlle
 	@Override
 	protected void doDispose() {
 		removeAsListenerAndDispose(ipSelection);
-	}
-	
-	public static void setPath(String newPath) {
-		path = newPath;
 	}
 }
