@@ -58,7 +58,7 @@ public class SimpleShibbolethDispatcher implements Dispatcher {
 		
 		if(!manager.isEnabled()) {
 			log.error("shibboleth login attempted although not enabled");
-			showError(ureq, "Shibboleth is not enabled, please contact admin.", null);
+			showError(ureq, "Shibboleth is not enabled.", null);
 			return;
 		}
 
@@ -66,7 +66,7 @@ public class SimpleShibbolethDispatcher implements Dispatcher {
 		IdentityProvider identityProvider = manager.findIdentityProvider(request);
 		if(identityProvider == null) {
 			log.error("no matching identity provider could be found for this request");
-			showError(ureq, "No identity provider is configured for your request, please contact admin.", null);
+			showError(ureq, "No identity provider is configured for your request.", null);
 			return;
 		}
 
@@ -84,8 +84,8 @@ public class SimpleShibbolethDispatcher implements Dispatcher {
 		
 		// check if username present
 		if(userAttributes.getProperty(Attribute.Type.USERNAME.toString(), "").isEmpty()) {
-			log.error("shibboleth login failed: no username was supplied by shibboleth, check your configuration");
-			showError(ureq, "Could not transfer username correctly, please try again!", null);
+			log.error("no username was supplied by shibboleth, check your configuration");
+			showError(ureq, "Your username was not transferred correctly, please try again!", null);
 			return;
 		}
 		String username = userAttributes.getProperty(Attribute.Type.USERNAME.toString());
@@ -115,7 +115,7 @@ public class SimpleShibbolethDispatcher implements Dispatcher {
 					}
 				} else {
 					log.error("existing user '" + username + "' but no migration path found");
-					showError(ureq, "Your username already exists, but no valid migration path could be found; please contact admin.", null);
+					showError(ureq, "Your username already exists, but no valid migration path could be found.", "Username: " + username);
 					return;
 				}
 			}

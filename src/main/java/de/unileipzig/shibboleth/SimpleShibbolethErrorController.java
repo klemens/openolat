@@ -1,5 +1,8 @@
 package de.unileipzig.shibboleth;
 
+import java.io.UnsupportedEncodingException;
+import java.net.URLEncoder;
+
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.WindowSettings;
 import org.olat.core.gui.Windows;
@@ -35,8 +38,13 @@ public class SimpleShibbolethErrorController extends DefaultChiefController {
 		mainVC.contextPut("backLink", backlink);
 		mainVC.contextPut("message", message);
 		if(detail != null) {
-			mainVC.contextPut("", detail);
+			mainVC.contextPut("detail", detail);
 		}
+		try {
+			// UrlEncoder encodes spaces as +, so we have to replace it back (URIBuilder does not support opaque URI with query)
+			String body = URLEncoder.encode("\n\n" + message + "\n" + (detail == null ? "" : detail), "UTF-8").replace("+", "%20");
+			mainVC.contextPut("mailto", WebappHelper.getMailConfig("mailError") + "?subject=Shibboleth%20error&body=" + body);
+		} catch (UnsupportedEncodingException e) {}
 
 		window.setContentPane(mainVC);
 		setWindow(window);
