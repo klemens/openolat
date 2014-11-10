@@ -65,12 +65,6 @@ simpleShibboleth.default=true
 # path of the dispatcher, relative to the OO context (where the login happens after shibboleth authentication)
 simpleShibboleth.dispatcherPath=/shib/
 
-# migrate existing users by matching username
-simpleShibboleth.migrateUsers=false
-
-# generate email from username when no email given by shibboleth
-simpleShibboleth.emailTemplate=%s@student.my.uni
-
 # url of the session initiator of the service provider
 simpleShibboleth.sessionInitiatorPath=/Shibboleth.sso/Login
 ```

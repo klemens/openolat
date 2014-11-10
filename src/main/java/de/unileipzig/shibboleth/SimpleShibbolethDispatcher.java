@@ -25,6 +25,11 @@ import org.olat.core.logging.OLog;
 import org.olat.core.logging.Tracing;
 import org.olat.registration.RegistrationManager;
 import org.olat.user.UserManager;
+import org.springframework.beans.factory.annotation.Autowired;
+
+import de.unileipzig.shibboleth.SimpleShibbolethManager.Affiliation;
+import de.unileipzig.shibboleth.SimpleShibbolethManager.Attribute;
+import de.unileipzig.shibboleth.SimpleShibbolethManager.IdentityProvider;
 
 /**
  * Simple dispatcher that logs the user in (and creates it if not existent).
@@ -37,43 +42,10 @@ public class SimpleShibbolethDispatcher implements Dispatcher {
 	 * Identifier as authentication provider
 	 */
 	public static final String PROVIDER_SSHIB = "SplShib";
-	
-	/**
-	 * Mapping of Shibboleth attribute names (keys) to openolat user properties (values).
-	 * Use the following values: (set by spring)
-	 * <dl>
-	 * <dt>username <b>(required)</b></dt>
-	 *   <dd>The unique username of the user</dd>
-	 * <dt>firstname</dt>
-	 *   <dd>The first name of the user</dd>
-	 * <dt>lastname</dt>
-	 *   <dd>The last name of the user</dd>
-	 * <dt>email</dt>
-	 *   <dd>The institutional email of the user</dd>
-	 * <dt>identifier</dt>
-	 *   <dd>The institutional identifier of the user</dd>
-	 * <dt>subject</dt>
-	 *   <dd>The institutional subject of the user</dd>
-	 * </dl>
-	 */
-	private Properties mapping;
-	
-	/**
-	 * If login using shibboleth is enabled
-	 */
-	private boolean enabled;
-	
-	/**
-	 * If migration of existing users is enabled
-	 */
-	private boolean migrate;
-	
-	/**
-	 * The template used to generate an email from the username
-	 * (using String.format with the username string being the only parameter)
-	 */
-	private String emailTemplate;
-	
+
+	@Autowired
+	private SimpleShibbolethManager manager;
+
 	private OLog log;
 	
 	@Override
@@ -84,22 +56,39 @@ public class SimpleShibbolethDispatcher implements Dispatcher {
 		if(log == null)
 			log = Tracing.createLoggerFor(this.getClass());
 		
-		if(!enabled) {
+		if(!manager.isEnabled()) {
 			log.error("shibboleth login attempted although not enabled");
 			showError(ureq, "Shibboleth is not enabled, please contact admin.", null);
 			return;
 		}
+
+		// first, we have to find the identity provider the user came from
+		IdentityProvider identityProvider = manager.findIdentityProvider(request);
+		if(identityProvider == null) {
+			log.error("no matching identity provider could be found for this request");
+			showError(ureq, "No identity provider is configured for your request, please contact admin.", null);
+			return;
+		}
+
+		// next we have to check if the user's affiliation is allowed to log in
+		String affiliationString = (String) request.getAttribute(identityProvider.affiliationKey);
+		Affiliation affiliation = manager.findAffiliation(affiliationString, identityProvider);
+		if(affiliation == null) {
+			log.error("no matching affiliation found in " + identityProvider.scope + " for: " + affiliationString);
+			showError(ureq, "You are not allowed to login with your affiliation.", "Your affiliation is: " + affiliationString);
+			return;
+		}
 		
-		// parse http headers
-		Properties userAttributes = parseAttributes(request);
+		// get shibboleth attributes from request
+		Properties userAttributes = parseAttributes(request, identityProvider);
 		
 		// check if username present
-		if(userAttributes.getProperty("username", "").isEmpty()) {
+		if(userAttributes.getProperty(Attribute.Type.USERNAME.toString(), "").isEmpty()) {
 			log.error("shibboleth login failed: no username was supplied by shibboleth, check your configuration");
 			showError(ureq, "Could not transfer username correctly, please try again!", null);
 			return;
 		}
-		String username = userAttributes.getProperty("username");
+		String username = userAttributes.getProperty(Attribute.Type.USERNAME.toString());
 		
 		// find shibboleth authentication
 		Authentication auth = BaseSecurityManager.getInstance().findAuthenticationByAuthusername(username, PROVIDER_SSHIB);
@@ -110,14 +99,14 @@ public class SimpleShibbolethDispatcher implements Dispatcher {
 			if(identity == null) {
 				// register user
 				log.info("first login of user '" + username + "' using shibboleth");
-				Identity newUser = registerUser(username, userAttributes);
+				Identity newUser = registerUser(username, userAttributes, affiliation);
 				if(!loginUser(newUser, ureq)) {
 					showError(ureq, "Login failed", null);
 					return;
 				}
 			} else {
-				// migrate user to shibboleth authentication
-				if(migrate) {
+				// try to find a migration path
+				if(manager.canMigrate(username, identityProvider)) {
 					log.info("migrating user '" +  username + "' to shibboleth auth and logging in");
 					migrateUser(identity, username);
 					if(!loginUser(identity, ureq)) {
@@ -125,8 +114,8 @@ public class SimpleShibbolethDispatcher implements Dispatcher {
 						return;
 					}
 				} else {
-					log.error("existing username '" + username + "' but migration to shibboleth not enabled");
-					showError(ureq, "Your username already exists, but migration to shibboleth is disabled.", null);
+					log.error("existing user '" + username + "' but no migration path found");
+					showError(ureq, "Your username already exists, but no valid migration path could be found; please contact admin.", null);
 					return;
 				}
 			}
@@ -167,25 +156,30 @@ public class SimpleShibbolethDispatcher implements Dispatcher {
 	/**
 	 * Registers the new user and fills in the supplied properties
 	 */
-	private Identity registerUser(String username, Properties userAttributes) {
+	private Identity registerUser(String username, Properties userAttributes, Affiliation affiliation) {
 		BaseSecurity secMgr = BaseSecurityManager.getInstance();
 
 		// if no names are present, user empty names
-		String firstName = userAttributes.getProperty("firstname", "");
-		String lastName = userAttributes.getProperty("lastname", "");
-		// if no email is present, generate one from username
-		String email = userAttributes.getProperty("email", String.format(emailTemplate, username));
+		String firstName = userAttributes.getProperty(Attribute.Type.FIRST_NAME.toString(), "");
+		String lastName = userAttributes.getProperty(Attribute.Type.LAST_NAME.toString(), "");
+		String email = userAttributes.getProperty(Attribute.Type.EMAIL.toString(), "");
+		// if no email is present, try to generate one from username
+		if(email.isEmpty() && !affiliation.emailTemplate.isEmpty()) {
+			email = affiliation.emailTemplate.replace("{" + Attribute.Type.FIRST_NAME + "}", firstName)
+											 .replace("{" + Attribute.Type.LAST_NAME + "}", lastName)
+											 .replace("{" + Attribute.Type.USERNAME + "}", username);
+		}
 		
 		// create user
 		User user = UserManager.getInstance().createUser(firstName, lastName, email);
 		
 		// apply the user attributes of present
 		user.setProperty(UserConstants.INSTITUTIONALEMAIL, email);
-		if(userAttributes.containsKey("identifier")) {
-			user.setProperty(UserConstants.INSTITUTIONALUSERIDENTIFIER, userAttributes.getProperty("identifier"));
+		if(userAttributes.containsKey(Attribute.Type.IDENTIFIER.toString())) {
+			user.setProperty(UserConstants.INSTITUTIONALUSERIDENTIFIER, userAttributes.getProperty(Attribute.Type.IDENTIFIER.toString()));
 		}
-		if(userAttributes.containsKey("subject")) {
-			user.setProperty(UserConstants.STUDYSUBJECT, userAttributes.getProperty("subject"));
+		if(userAttributes.containsKey(Attribute.Type.STUDY_SUBJECT.toString())) {
+			user.setProperty(UserConstants.STUDYSUBJECT, userAttributes.getProperty(Attribute.Type.STUDY_SUBJECT.toString()));
 		}
 		
 		// persist user
@@ -208,21 +202,18 @@ public class SimpleShibbolethDispatcher implements Dispatcher {
 	private void migrateUser(Identity identity, String username) {
 		// create additional authentication method for user
 		BaseSecurityManager.getInstance().createAndPersistAuthentication(identity, PROVIDER_SSHIB, username, null, null);
-		
-		// TODO here we could update the user attributes with shibboleth attributes
 	}
 	
 	/**
 	 * Find the supplied username (and other properties) form JavaEE request
 	 */
-	private Properties parseAttributes(HttpServletRequest request) {
+	private Properties parseAttributes(HttpServletRequest request, IdentityProvider identityProvider) {
 		Properties userAttributes = new Properties();
 
-		for(String propShib : mapping.stringPropertyNames()) {
-			String value = (String) request.getAttribute(propShib);
-			
+		for(Attribute attribute : identityProvider.attributes) {
+			String value = (String) request.getAttribute(attribute.name);
 			if(value != null) {
-				userAttributes.setProperty(mapping.getProperty(propShib), value);
+				userAttributes.setProperty(attribute.type.toString(), value);
 			}
 		}
 		
@@ -235,33 +226,5 @@ public class SimpleShibbolethDispatcher implements Dispatcher {
 	private void showError(UserRequest ureq, String message, String detail) {
 		ChiefController controller = new SimpleShibbolethErrorController(ureq, message, detail);
 		controller.getWindow().dispatchRequest(ureq, true);
-	}
-
-	/**
-	 * Spring setters and getters
-	 */
-	public void setMapping(Properties mapping) {
-		this.mapping = mapping;
-	}
-	public Properties getMapping() {
-		return mapping;
-	}
-	public void setEnabled(boolean enabled) {
-		this.enabled = enabled;
-	}
-	public boolean getEnabled() {
-		return enabled;
-	}
-	public void setMigrate(boolean migrate) {
-		this.migrate = migrate;
-	}
-	public boolean getMigrate() {
-		return migrate;
-	}
-	public void setEmailTemplate(String emailTemplate) {
-		this.emailTemplate = emailTemplate;
-	}
-	public String getEmailTemplate() {
-		return emailTemplate;
 	}
 }
