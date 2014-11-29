@@ -75,7 +75,7 @@ var BLoader = {
 			if (window.execScript) window.execScript(jsString); // IE style
 			else window.eval(jsString);
 		} catch(e){
-			if(console) console.log(contextDesc, 'cannot execute js', jsString);
+			if(window.console) console.log(contextDesc, 'cannot execute js', jsString);
 			if (o_info.debug) { // add webbrowser console log
 				o_logerr('BLoader::executeGlobalJS: Error when executing JS code in contextDesc::' + contextDesc + ' error::"'+showerror(e)+' for: '+escape(jsString));
 			}
@@ -139,7 +139,7 @@ var BLoader = {
 				}
 			}
 		} catch(e){
-			if(console)  console.log(e);
+			if(window.console)  console.log(e);
 			if (o_info.debug) { // add webbrowser console log
 				o_logerr('BLoader::loadCSS: Error when loading CSS from URL::' + cssURL);
 			}
@@ -206,7 +206,7 @@ var BFormatter = {
 	// process element with given dom id using jsmath
 	formatLatexFormulas : function(domId) {
 		try {
-			if (jsMath) { // only when js math available
+			if (window.jsMath) { // only when js math available
 				if (jsMath.loaded && jsMath.tex2math && jsMath.tex2math.loaded) {
 					jsMath.Process();
 				} else { // not yet loaded (autoload), load first
@@ -218,7 +218,7 @@ var BFormatter = {
 				}
 			}
 		} catch(e) {
-			if (console) console.log("error in BFormatter.formatLatexFormulas: ", e);
+			if (window.console) console.log("error in BFormatter.formatLatexFormulas: ", e);
 		}
 	}
 };
@@ -256,7 +256,7 @@ function o_getMainWin() {
 		if (o_info.debug) { // add webbrowser console log
 			o_logerr('Exception while getting main window. rror::"'+showerror(e));
 		}
-		if (console) { // add ajax logger
+		if (window.console) { // add ajax logger
 			console.log('Exception while getting main window. rror::"'+showerror(e), "functions.js");
 			console.log(e);
 		}	
@@ -523,8 +523,8 @@ function o_ainvoke(r) {
 											newc.get(0).innerHTML = hdrco;
 										}
 									} catch(e) {
-										if(console) console.log(e);
-										if(console) console.log('Fragment',hdrco);
+										if(window.console) console.log(e);
+										if(window.console) console.log('Fragment',hdrco);
 									}
 									b_changedDomEl.push(newcId);
 								}
@@ -689,7 +689,7 @@ function showAjaxBusy() {
 				// fix modal conflic with modal dialogs, make ajax busy appear always above modal dialogs
 				jQuery('body > .modal-backdrop').css({'z-index' : 1200});
 			} catch (e) {
-				if(console) console.log(e);
+				if(window.console) console.log(e);
 			}
 		}
 	}, 700);
@@ -701,7 +701,7 @@ function removeAjaxBusy() {
 		jQuery('#o_body').removeClass('o_ajax_busy');
 		jQuery('#o_ajax_busy').modal('hide');
 	} catch (e) {
-		if(console) console.log(e);
+		if(window.console) console.log(e);
 	}
 }
 
@@ -891,7 +891,7 @@ OPOL.adjustHeight = function() {
 			jQuery('#o_main_center').css({'min-height' : contentHeight + "px"});
 		}
 	} catch (e) {
-		if(console)	console.log(e);			
+		if(window.console)	console.log(e);			
 	}
 };
 /* Register to resize event and fire an event when the resize is finished */
@@ -909,9 +909,13 @@ jQuery().ready(OPOL.adjustHeight);
 
 
 function o_scrollToElement(elem) {
-	jQuery('html, body').animate({
-		scrollTop: jQuery(elem).offset().top
-	}, 333);
+	try {
+		jQuery('html, body').animate({
+			scrollTop : jQuery(elem).offset().top
+		}, 333);
+	} catch (e) {
+		//console.log(e);
+	}
 }
 
 function o_popover(id, contentId, loc) {
@@ -942,7 +946,7 @@ function o_shareLinkPopup(id, text, loc) {
     	html: true,
     	trigger: 'click',
     	container: 'body',
-    	content: text,
+    	content: text
 	}).on('shown.bs.popover', function () {
 		var clickListener = function (e) {	
 			if (jQuery(e.target).data('toggle') !== 'popover' && jQuery(e.target).parents('.popover.in').length === 0) { 
@@ -1135,7 +1139,7 @@ function o_ffXHREvent(formNam, dispIdField, dispId, eventIdField, eventInt) {
 			o_ainvoke(data);
 		},
 		error: function(jqXHR, textStatus, errorThrown) {
-			if(console) console.log('Error status', textStatus);
+			if(window.console) console.log('Error status', textStatus);
 		}
 	})
 }
@@ -1182,18 +1186,17 @@ function showInfoBox(title, content){
     // Callback to remove after reading
     var cleanup = function() {
     	jQuery('#' + uuid)
-    		.transition({top : '-100%'}, function() {
+    		.transition({top : '-100%'}, 333, function() {
     			jQuery('#' + uuid).remove();
     		});    	
     };
     // Show info box now
-    jQuery('#' + uuid).show();
-	o_scrollToElement('#o_top');
-    
+    jQuery('#' + uuid).show().transition({ top: 0 }, 333);
     // Visually remove message box immediately when user clicks on it
     jQuery('#' + uuid).click(function(e) {
     	cleanup();
     });
+	o_scrollToElement('#o_top');
 	
     // Help GC, prevent cyclic reference from on-click closure
     title = null;

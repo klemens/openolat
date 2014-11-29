@@ -291,15 +291,16 @@ public class CheckListAssessmentController extends FormBasicController implement
 		if(courseTutor || courseAdmin) {
 			List<RepositoryEntryMembership> repoMemberships = repositoryManager.getRepositoryEntryMembership(re);
 			for(RepositoryEntryMembership repoMembership:repoMemberships) {
-				if(repoMembership.isParticipant()) continue;
-				missingIdentityKeys.add(repoMembership.getIdentityKey());
+				if(repoMembership.isParticipant()) {
+					missingIdentityKeys.add(repoMembership.getIdentityKey());
+				}
 			}
 		}
 
 		List<BusinessGroup> coachedGroups = courseAdmin ?
 				userCourseEnv.getCourseEnvironment().getCourseGroupManager().getAllBusinessGroups()
 				: env.getCoachedGroups();
-		List<AssessmentData> dataList = checkboxManager.getAssessmentDatas(courseOres, courseNode.getIdent(), courseTutor ? re : null, coachedGroups);
+		List<AssessmentData> dataList = checkboxManager.getAssessmentDatas(courseOres, courseNode.getIdent(), courseTutor || courseAdmin ? re : null, coachedGroups);
 		List<CheckListAssessmentRow> boxList = getAssessmentDataViews(dataList, checkboxColl);
 		Map<Long,CheckListAssessmentRow> identityToView = new HashMap<>();
 		for(CheckListAssessmentRow box:boxList) {

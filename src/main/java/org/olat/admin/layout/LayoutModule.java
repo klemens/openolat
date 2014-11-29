@@ -49,6 +49,7 @@ public class LayoutModule extends AbstractSpringModule  {
 
 	private static final String LOGO_FILENAME = "logo.filename";
 	private static final String LOGO_ALT = "logo.alt";
+	private static final String LOGO_LINK_TYPE = "logo.link.type";
 	private static final String LOGO_URI = "logo.uri";
 	private static final String FOOTER_URI = "footer.uri";
 	private static final String FOOTER_LINE = "footer.line";
@@ -57,6 +58,8 @@ public class LayoutModule extends AbstractSpringModule  {
 	private String logoFilename;
 	@Value("${logo.alt:}")
 	private String logoAlt;
+	@Value("${logo.link.type:}")
+	private String logoLinkType;
 	@Value("${logo.uri:}")
 	private String logoLinkUri;
 	@Value("${footer.line:}")
@@ -78,23 +81,39 @@ public class LayoutModule extends AbstractSpringModule  {
 		String filenameObj = getStringPropertyValue(LOGO_FILENAME, true);
 		if(StringHelper.containsNonWhitespace(filenameObj)) {
 			logoFilename = filenameObj;
+		} else {
+			logoFilename = null;
 		}
 		String logoAltObj = getStringPropertyValue(LOGO_ALT, true);
 		if(StringHelper.containsNonWhitespace(logoAltObj)) {
 			logoAlt = logoAltObj;
+		} else {
+			logoAlt = null;
+		}
+		String logoLinkTypeObj = getStringPropertyValue(LOGO_LINK_TYPE, true);
+		if(StringHelper.containsNonWhitespace(logoLinkTypeObj)) {
+			logoLinkType = logoLinkTypeObj;
+		} else {
+			logoLinkType = null;
 		}
 		String logoUriObj = getStringPropertyValue(LOGO_URI, true);
 		if(StringHelper.containsNonWhitespace(logoUriObj)) {
 			logoLinkUri = logoUriObj;
+		} else {
+			logoLinkUri = null;
 		}
 		
 		String footerUriObj = getStringPropertyValue(FOOTER_URI, true);
 		if(StringHelper.containsNonWhitespace(footerUriObj)) {
 			footerLinkUri = footerUriObj;
+		} else {
+			footerLinkUri = null;
 		}
 		String footerLineObj = getStringPropertyValue(FOOTER_LINE, true);
 		if(StringHelper.containsNonWhitespace(footerLineObj)) {
 			footerLine = footerLineObj;
+		} else {
+			footerLine = null;
 		}
 	}
 
@@ -159,7 +178,17 @@ public class LayoutModule extends AbstractSpringModule  {
 	}
 	
 	public void setLogoAlt(String alt){
+		this.logoAlt = alt;
 		setStringProperty(LOGO_ALT, alt, true);
+	}
+
+	public String getLogoLinkType() {
+		return logoLinkType;
+	}
+
+	public void setLogoLinkType(String type) {
+		this.logoLinkType = type;
+		setStringProperty(LOGO_LINK_TYPE, type, true);
 	}
 
 	public String getLogoLinkUri() {
@@ -167,6 +196,7 @@ public class LayoutModule extends AbstractSpringModule  {
 	}
 
 	public void setLogoLinkUri(String uri){
+		this.logoLinkUri = uri;
 		setStringProperty(LOGO_URI, uri, true);
 	}
 	
@@ -175,6 +205,7 @@ public class LayoutModule extends AbstractSpringModule  {
 	}
 	
 	public void setFooterLinkUri(String uri) {
+		this.footerLinkUri = uri;
 		setStringProperty(FOOTER_URI, uri, true);
 	}
 	
@@ -183,6 +214,7 @@ public class LayoutModule extends AbstractSpringModule  {
 	}
 	
 	public void setFooterLine(String line) {
+		this.footerLine = line;
 		setStringProperty(FOOTER_LINE, line, true);
 	}
 }

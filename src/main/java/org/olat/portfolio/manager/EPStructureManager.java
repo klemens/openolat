@@ -41,6 +41,7 @@ import org.olat.basesecurity.SecurityGroupMembershipImpl;
 import org.olat.basesecurity.manager.GroupDAO;
 import org.olat.core.CoreSpringFactory;
 import org.olat.core.commons.persistence.DB;
+import org.olat.core.commons.persistence.DBFactory;
 import org.olat.core.commons.persistence.DBQuery;
 import org.olat.core.commons.persistence.PersistentObject;
 import org.olat.core.commons.services.commentAndRating.CommentAndRatingService;
@@ -961,21 +962,16 @@ public class EPStructureManager extends BasicManager {
 			return;//nothing to delete
 		}
 
-		//already delete in removeStructureRecursively: deletePortfolioMapTemplateRecursively((EPStructureElement)map);
-		removeStructureRecursively(map);
-		//already delete in removeStructureRecursively: dbInstance.deleteObject(map);
-	}
-	
-	/*private void deletePortfolioMapTemplateRecursively(EPStructureElement element) {
-		element.getInternalArtefacts().clear();
-		element.setRoot(null);
-		element.setRootMap(null);
-		List<EPStructureToStructureLink> links = element.getInternalChildren();
-		for(EPStructureToStructureLink subLink:links) {
-			deletePortfolioMapTemplateRecursively((EPStructureElement)subLink.getChild());
+		if(map instanceof EPAbstractMap) {
+			//owner group has its constraints shared beetwen the repository entry and the template
+			((EPAbstractMap)map).getGroups().clear();
+			map = DBFactory.getInstance().getCurrentEntityManager().merge(map);
 		}
-		links.clear();
-	}*/
+		
+		removeStructureRecursively(map);
+		
+		dbInstance.commit();
+	}
 	
 	public void removeStructureRecursively(PortfolioStructure struct){
 		List<PortfolioStructure> children = loadStructureChildren(struct); 
@@ -1014,7 +1010,7 @@ public class EPStructureManager extends BasicManager {
 		
 		// remove structure itself
 		struct = (EPStructureElement) dbInstance.loadObject((EPStructureElement)struct);
-		dbInstance.deleteObject(struct);		
+		dbInstance.deleteObject(struct);
 		if (struct instanceof EPAbstractMap){
 			removeBaseGroup((EPAbstractMap)struct);
 		}
@@ -1026,10 +1022,11 @@ public class EPStructureManager extends BasicManager {
 		Set<EPStructureElementToGroupRelation> relations = map.getGroups();
 		if (relations != null) {
 			for(EPStructureElementToGroupRelation relation:relations) {
+				Group group = relation.getGroup();
 				if(relation.isDefaultGroup()) {
-					groupDao.removeGroup(relation.getGroup());
+					groupDao.removeMemberships(group);
+					groupDao.removeGroup(group);
 				}
-				dbInstance.getCurrentEntityManager().remove(relation);
 			}
 		}
 	}
