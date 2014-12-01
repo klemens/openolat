@@ -28,27 +28,22 @@ package org.olat.core.commons.modules.singlepage;
 
 import org.olat.core.commons.controllers.linkchooser.CustomLinkTreeModel;
 import org.olat.core.commons.editor.htmleditor.WysiwygFactory;
-import org.olat.core.dispatcher.mapper.Mapper;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.Component;
-import org.olat.core.gui.components.htmlsite.ExternalSiteEvent;
-import org.olat.core.gui.components.htmlsite.HtmlStaticPageComponent;
-import org.olat.core.gui.components.htmlsite.NewInlineUriEvent;
 import org.olat.core.gui.components.htmlsite.OlatCmdEvent;
 import org.olat.core.gui.components.link.Link;
 import org.olat.core.gui.components.link.LinkFactory;
-import org.olat.core.gui.components.panel.Panel;
+import org.olat.core.gui.components.panel.SimpleStackedPanel;
+import org.olat.core.gui.components.panel.StackedPanel;
 import org.olat.core.gui.components.velocity.VelocityContainer;
 import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.Event;
 import org.olat.core.gui.control.WindowControl;
 import org.olat.core.gui.control.controller.BasicController;
 import org.olat.core.gui.control.generic.clone.CloneableController;
-import org.olat.core.gui.control.generic.closablewrapper.CloseableModalController;
 import org.olat.core.gui.control.generic.iframe.DeliveryOptions;
 import org.olat.core.gui.control.generic.iframe.IFrameDisplayController;
 import org.olat.core.gui.control.generic.iframe.NewIframeUriEvent;
-import org.olat.core.gui.media.RedirectMediaResource;
 import org.olat.core.id.OLATResourceable;
 import org.olat.core.id.context.BusinessControl;
 import org.olat.core.id.context.ContextEntry;
@@ -59,8 +54,6 @@ import org.olat.core.logging.activity.CourseLoggingAction;
 import org.olat.core.logging.activity.ThreadLocalUserActivityLogger;
 import org.olat.core.util.Formatter;
 import org.olat.core.util.vfs.VFSContainer;
-import org.olat.core.util.vfs.VFSContainerMapper;
-import org.olat.core.util.vfs.VFSManager;
 
 /**
  * Description:<BR>
@@ -76,36 +69,26 @@ import org.olat.core.util.vfs.VFSManager;
  */
 public class SinglePageController extends BasicController implements CloneableController {
 
-	private OLog log = Tracing.createLoggerFor(this.getClass());
+	private static final OLog log = Tracing.createLoggerFor(SinglePageController.class);
 	
 	private static final String GOTO_NID = "GOTO_NID: ";
-	
 	private static final String COMMAND_EDIT = "command.edit";
-	
-	private HtmlStaticPageComponent cpc;
-	private VelocityContainer myContent;
-	
-	
-	// mapper for the external site
-	private String amapPath;
-	private DeliveryOptions deliveryOptions;
-	private IFrameDisplayController idc;
+
+	private Link editLink;
+	private final StackedPanel mainPanel;
+	private Controller htmlEditorController;
+	private final IFrameDisplayController idc;
+	private final VelocityContainer myContent;
+	private CustomLinkTreeModel customLinkTreeModel;
+
+	private final DeliveryOptions deliveryOptions;
 	
 	private String g_curURI;
-	
 	// save constructor args to remember if we open a site in a new window
 	private String g_fileName;
-	private boolean g_inIframe;
 	private boolean g_allowRelativeLinks;
 	private VFSContainer g_rootContainer;
-	
 	private VFSContainer g_new_rootContainer;
-	
-	private Controller htmlEditorController;
-	private Link editLink;
-	private CustomLinkTreeModel customLinkTreeModel;
-	private CloseableModalController cmc;
-
 	
 	/**
 	 * 
@@ -118,10 +101,10 @@ public class SinglePageController extends BasicController implements CloneableCo
 	 * @param allowRelativeLinks
 	 * @param showHomeLink
 	 */
-	public SinglePageController(UserRequest ureq, WindowControl wControl, VFSContainer rootContainer, String fileName, String currentUri,
+	public SinglePageController(UserRequest ureq, WindowControl wControl, VFSContainer rootContainer, String fileName,
 			boolean allowRelativeLinks) {
 		//default behavior is to show the home link in a single page
-		this(ureq, wControl, rootContainer, fileName, currentUri, allowRelativeLinks, null, null);
+		this(ureq, wControl, rootContainer, fileName, allowRelativeLinks, null, null);
 	}
 
 	 /**
@@ -145,18 +128,17 @@ public class SinglePageController extends BasicController implements CloneableCo
 	  * 
 	  * 
 	  */
-	public SinglePageController(UserRequest ureq, WindowControl wControl, VFSContainer rootContainer, String fileName, String currentUri,
+	public SinglePageController(UserRequest ureq, WindowControl wControl, VFSContainer rootContainer, String fileName,
 			boolean allowRelativeLinks, OLATResourceable contextResourcable, DeliveryOptions config) {
 		super(ureq, wControl);
 		
-		Panel mainP = new Panel("iframemain");
+		SimpleStackedPanel mainP = new SimpleStackedPanel("iframemain");
 		myContent = createVelocityContainer("index");
 		
 		// remember values in case of later cloning
 		// g_fileName : initial file name given (no root correction), e.g. bla.html or f/g/blu.html
 		// always use non-iframe mode for screenreaders
 		this.deliveryOptions = config;
-		this.g_inIframe = !getWindowControl().getWindowBackOffice().getWindowManager().isForScreenReader();
 		this.g_allowRelativeLinks = allowRelativeLinks;
 		this.g_fileName = fileName;
 		this.g_rootContainer = rootContainer;
@@ -179,7 +161,6 @@ public class SinglePageController extends BasicController implements CloneableCo
 			if  (path.length() > 0) {
 			  log.debug("direct navigation to container-path=" + path);
 			  jumpIn = true;
-			  currentUri = path;
 			  startURI = path;
 			}
 		}
@@ -193,12 +174,12 @@ public class SinglePageController extends BasicController implements CloneableCo
 				String root = startURI.substring(0,sla);
 				startURI = startURI.substring(sla+1);
 				VFSContainer newroot = (VFSContainer)rootContainer.resolve(root);
-				this.g_new_rootContainer = newroot;
+				g_new_rootContainer = newroot;
 			} else {
-				this.g_new_rootContainer = rootContainer;				
+				g_new_rootContainer = rootContainer;				
 			}
 		} else {
-			this.g_new_rootContainer = rootContainer;
+			g_new_rootContainer = rootContainer;
 		}
 		setCurURI(startURI);
 		
@@ -207,39 +188,14 @@ public class SinglePageController extends BasicController implements CloneableCo
 		// g_new_rootContainer : the given rootcontainer or adjusted in case when relativelinks are not allowed		
 		
 		// Display in iframe when
-		// a) configured as to be displayed in iframe and not in braille mode
-		// b) page is a direct jump in (unclear why not in this case, code was like that)
-		// c) when page type can not be inline rendered (e.g. when page is a pdf file)
-		if (g_inIframe || jumpIn || !HtmlStaticPageComponent.isFileTypeSupported(startURI)) {
-			idc = new IFrameDisplayController(ureq, getWindowControl(), g_new_rootContainer, contextResourcable, deliveryOptions);
-			listenTo(idc);
+		idc = new IFrameDisplayController(ureq, getWindowControl(), g_new_rootContainer, contextResourcable, deliveryOptions);
+		listenTo(idc);
 			
-			idc.setCurrentURI(startURI);
-			myContent.put("content", idc.getInitialComponent());
-		} else {	
-			// in inline mode
-			// create single page root file now and start component for display dispathing
-			cpc = new HtmlStaticPageComponent("content", g_new_rootContainer);
-			cpc.addListener(this);
-			myContent.put("content", cpc);
-
-			if (currentUri != null) {
-				if (currentUri.charAt(0) == '/') {
-					//strip beginning slash
-					currentUri = currentUri.substring(1);
-				}
-				setCurURI(currentUri);
-				cpc.setCurrentURI(currentUri);
-			} else {
-				// no bookmarked uri given
-				setCurURI(startURI);
-				cpc.setCurrentURI(startURI);
-			}			
-		}	
-					
+		idc.setCurrentURI(startURI);
+		myContent.put("content", idc.getInitialComponent());
+		
 		mainP.setContent(myContent);
-		//setInitialComponent(mainP);
-		putInitialPanel(mainP);
+		mainPanel = putInitialPanel(mainP);
 	}
 
 	/**
@@ -248,8 +204,9 @@ public class SinglePageController extends BasicController implements CloneableCo
 	 */
 	public void allowPageEditing() {
 		editLink = LinkFactory.createCustomLink(COMMAND_EDIT, COMMAND_EDIT, "", Link.NONTRANSLATED, myContent, this);
-		editLink.setCustomEnabledLinkCSS("b_content_edit");
-		editLink.setTooltip(translate(COMMAND_EDIT));
+		editLink.setElementCssClass("o_edit");
+		editLink.setIconLeftCSS("o_icon o_icon_edit_file o_icon-lg");
+		editLink.setTitle(translate(COMMAND_EDIT));
 	}
 	
 	public void setAllowDownload(boolean allow) {
@@ -263,11 +220,10 @@ public class SinglePageController extends BasicController implements CloneableCo
 	/**
 	 * @see org.olat.core.gui.control.DefaultController#event(org.olat.core.gui.UserRequest, org.olat.core.gui.control.Controller, org.olat.core.gui.control.Event)
 	 */
+	@Override
 	public void event(UserRequest ureq, Controller source, Event event) {
 		if (source == idc) {
 			if (event instanceof OlatCmdEvent) {
-				//TODO:gs legacy code???
-				//FIXME:fj:b move to other place (whole class) since single page controller could be used generically
 		    OlatCmdEvent oce = (OlatCmdEvent) event;
 		    String nodeId = oce.getSubcommand();
 		    ThreadLocalUserActivityLogger.log(CourseLoggingAction.COURSE_BROWSE_GOTO_NODE, getClass(),
@@ -282,76 +238,23 @@ public class SinglePageController extends BasicController implements CloneableCo
 				// log this uri change
 				ThreadLocalUserActivityLogger.log(CourseLoggingAction.NODE_SINGLEPAGE_GET_FILE, getClass(),
 						CoreLoggingResourceable.wrapSpUri(newUri));
-
 			}
 		} else if (source == htmlEditorController) {
-			
-			cmc.deactivate();
-			
-			if (g_inIframe) {
-				idc.setCurrentURI(g_curURI);
-			} else {	
-				cpc.setCurrentURI(g_curURI);
-			}	
-			
-		} else if (source == cpc) {
-			if (event instanceof OlatCmdEvent) {
-		    OlatCmdEvent oce = (OlatCmdEvent) event;
-		    String nodeId = oce.getSubcommand();
-		    ThreadLocalUserActivityLogger.log(CourseLoggingAction.COURSE_BROWSE_GOTO_NODE, getClass(),
-		    		CoreLoggingResourceable.wrapSpUri(GOTO_NID+nodeId));
-				// refire to listening controllers
-				fireEvent(ureq, event);
-			}
-			else if (event instanceof NewInlineUriEvent) {
-				// adapt path if needed and refire to listening controllers
-				String opath = ((NewInlineUriEvent)event).getNewUri();
-				setCurURI(opath);
-				fireEvent(ureq, event);
-				
-		    NewInlineUriEvent iue = (NewInlineUriEvent) event;
-		    String newUri = iue.getNewUri();
-		    ThreadLocalUserActivityLogger.log(CourseLoggingAction.NODE_SINGLEPAGE_GET_FILE, getClass(),
-		    		CoreLoggingResourceable.wrapSpUri(newUri));
-			}
-			else if (event instanceof ExternalSiteEvent) {
-				ExternalSiteEvent ese = (ExternalSiteEvent)event;
-				String startUri = ese.getStartUri();
-				final VFSContainer finalRootContainer = g_new_rootContainer;
-				
-				if (amapPath == null) {
-					Mapper mapper = new VFSContainerMapper(finalRootContainer);
-					// Register mapper as cacheable
-					String mapperID = VFSManager.getRealPath(finalRootContainer);
-					if (mapperID == null) {
-						// Can't cache mapper, no cacheable context available
-						amapPath  = registerMapper(ureq, mapper);
-					} else {
-						// Add classname to the file path to remove conflicts with other
-						// usages of the same file path
-						mapperID = this.getClass().getSimpleName() + ":" + mapperID;
-						amapPath  = registerCacheableMapper(ureq, mapperID, mapper);				
-					}
-				}
-				ese.setResultingMediaResource(new RedirectMediaResource(amapPath+"/"+startUri));
-				ese.accept();
-			}
-			
-		} 
+			idc.setCurrentURI(g_curURI);
+			mainPanel.setContent(myContent);
+		}
 	}
 	
 	/** 
 	 * @see org.olat.core.gui.control.DefaultController#event(org.olat.core.gui.UserRequest, org.olat.core.gui.components.Component, org.olat.core.gui.control.Event)
 	 */
+	@Override
 	public void event(UserRequest ureq, Component source, Event event) {
-		if (source == editLink) {
-			if (event.getCommand().equals(COMMAND_EDIT)) {
-				if (g_curURI == null || g_new_rootContainer.resolve(g_curURI) == null) {
+		if (source == editLink && event.getCommand().equals(COMMAND_EDIT)) {
+			removeAsListenerAndDispose(htmlEditorController);
+			if (g_curURI == null || g_new_rootContainer == null || g_new_rootContainer.resolve(g_curURI) == null) {
 					showError("error.pagenotfound");
-					return;
-				}
-				
-				removeAsListenerAndDispose(htmlEditorController);
+			} else {
 				if (customLinkTreeModel == null) {
 					htmlEditorController = WysiwygFactory.createWysiwygController(ureq, getWindowControl(), g_new_rootContainer, g_curURI, true, true);
 				} else {
@@ -359,12 +262,7 @@ public class SinglePageController extends BasicController implements CloneableCo
 							g_curURI, true, customLinkTreeModel);
 				}
 				listenTo(htmlEditorController);
-				
-				removeAsListenerAndDispose(cmc);
-				cmc = new CloseableModalController(getWindowControl(), translate("close"), htmlEditorController.getInitialComponent());
-				listenTo(cmc);
-				
-				cmc.activate();
+				mainPanel.setContent(htmlEditorController.getInitialComponent());
 			}
 		}
 	}
@@ -373,10 +271,10 @@ public class SinglePageController extends BasicController implements CloneableCo
 		this.g_curURI = uri;
 	}
 	
-	
 	/** 
 	 * @see org.olat.core.gui.control.DefaultController#doDispose(boolean)
 	 */
+	@Override
 	protected void doDispose() {
 		// NOTE: do not deregister this mapper here: the url pointing to this mapper is opened in a new browser window
 		// and the user will expect to be able to browse beyond the lifetime of this originating controller here.
@@ -396,8 +294,9 @@ public class SinglePageController extends BasicController implements CloneableCo
 	/**
 	 * @see org.olat.core.gui.control.generic.clone.CloneableController#cloneController(org.olat.core.gui.UserRequest, org.olat.core.gui.control.WindowControl)
 	 */
+	@Override
 	public Controller cloneController(UserRequest ureq, WindowControl control) {
-		return new SinglePageController(ureq, control, g_rootContainer, g_fileName, g_curURI, g_allowRelativeLinks, null, deliveryOptions);
+		return new SinglePageController(ureq, control, g_rootContainer, g_fileName, g_allowRelativeLinks, null, deliveryOptions);
 	}
 
 	/**
@@ -441,9 +340,6 @@ public class SinglePageController extends BasicController implements CloneableCo
 			} else {
 				idc.setCustomHeaderContent("<style type='text/css'>body {" + cssRule + "}</style>");								
 			}
-		} else {
-			cpc.setWrapperCssStyle(cssRule);
 		}
-		
 	}
 }

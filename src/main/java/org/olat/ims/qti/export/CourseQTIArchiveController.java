@@ -69,7 +69,7 @@ public class CourseQTIArchiveController extends BasicController {
 	
 	private TableController nodeListCtr;
 	
-	private Controller qawc;
+	private QTIArchiveWizardController qawc;
 	private CloseableModalController cmc;
 	private OLATResourceable ores;
 	
@@ -116,7 +116,8 @@ public class CourseQTIArchiveController extends BasicController {
 			qawc = new QTIArchiveWizardController(true, ureq, nodesTableObjectArrayList, course, getWindowControl());
 		}
 		listenTo(qawc);
-		cmc = new CloseableModalController(getWindowControl(), translate("close"), qawc.getInitialComponent());
+		String title = qawc.getAndRemoveWizardTitle();
+		cmc = new CloseableModalController(getWindowControl(), translate("close"), qawc.getInitialComponent(), true, title);
 		cmc.activate();
 	}
 	
@@ -142,7 +143,6 @@ public class CourseQTIArchiveController extends BasicController {
 		TableGuiConfiguration tableConfig = new TableGuiConfiguration();
 		tableConfig.setTableEmptyMessage(translate("nodesoverview.nonodes"));
 		tableConfig.setDownloadOffered(false);
-		tableConfig.setColumnMovingOffered(false);
 		tableConfig.setSortingEnabled(false);
 		tableConfig.setDisplayTableHeader(true);
 		tableConfig.setDisplayRowCount(false);

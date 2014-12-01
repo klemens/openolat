@@ -195,7 +195,7 @@ public class IQManager implements UserDataDeletable {
 				Controller contentCtr = MessageUIFactory.createInfoMessage(ureq, getWindowControl(), translate("status.currently.locked.title"), translate("status.currently.locked"));
 				listenTo(contentCtr); // auto dispose later
 				Component resComp = contentCtr.getInitialComponent();
-				LayoutMain3ColsController columnLayoutCtr = new LayoutMain3ColsController(ureq, getWindowControl(), empty, empty, resComp, /*do not save no prefs*/null);
+				LayoutMain3ColsController columnLayoutCtr = new LayoutMain3ColsController(ureq, getWindowControl(), empty, resComp, /*do not save no prefs*/null);
 				listenTo(columnLayoutCtr); // auto dispose later
 				putInitialPanel(columnLayoutCtr.getInitialComponent());
 			}
@@ -266,9 +266,9 @@ public class IQManager implements UserDataDeletable {
 	 */
 	public ItemsInput getItemsInput(UserRequest ureq) {
 		ItemsInput result = new ItemsInput();
-		Enumeration params = ureq.getHttpReq().getParameterNames();
+		Enumeration<String> params = ureq.getHttpReq().getParameterNames();
 		while (params.hasMoreElements()) {
-			String paramKey = (String) params.nextElement();
+			String paramKey = params.nextElement();
 			StringTokenizer st = new StringTokenizer(paramKey, "§", false);
 			String value = ureq.getParameter(paramKey);
 			if (st.countTokens() == 4) {

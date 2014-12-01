@@ -32,6 +32,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import org.olat.core.CoreSpringFactory;
 import org.olat.core.extensions.action.GenericActionExtension;
@@ -153,13 +154,15 @@ public class ExtManager extends LogDelegator {
 
 		int count_disabled = 0;
 		int count_duplid = 0;
-		int count_duplnavkey = 0;
+		AtomicInteger count_duplnavkey = new AtomicInteger(0);
+		
+		boolean debug = isLogDebugEnabled();
 		
 		// first build ordered list
 		for (Extension extension : extensionValues) {
-			if (!extension.isEnabled()){
+			if (!extension.isEnabled()) {
 				count_disabled++;
-				logWarn("* Disabled Extension got loaded :: " + extension + ".  Check yourself that you don't use it or that extension returns null for getExtensionFor() when disabled, resp. overwrite isEnabled().",null);
+				logInfo("* Disabled Extension got loaded :: " + extension + ".  Check that you don't use it or that extension returns null for getExtensionFor() when disabled, resp. overwrite isEnabled().",null);
 			}
 			int orderKey = extension.getOrder();
 			
@@ -172,7 +175,7 @@ public class ExtManager extends LogDelegator {
 			}
 			if (orderKeys.containsKey(orderKey)) {
 				Extension occupant = orderKeys.get(orderKey);
-				logDebug("Extension-Configuration Problem: Dublicate order-value ("+extension.getOrder()+") for extension=" + extension + ", orderKey already occupied by "+occupant,null);
+				if(debug) logDebug("Extension-Configuration Problem: Dublicate order-value ("+extension.getOrder()+") for extension=" + extension + ", orderKey already occupied by "+occupant,null);
 			} else {
 				orderKeys.put(orderKey, extension);
 			}
@@ -190,26 +193,35 @@ public class ExtManager extends LogDelegator {
 						List<String>extensionPoints = gAE.getExtensionPoints();
 						for(String extensionPoint:extensionPoints) {
 							ExtensionPointKeyPair key = new ExtensionPointKeyPair(extensionPoint, gAE.getNavigationKey());
-							if (navKeyGAExtensionlookup.containsKey(key)) {
-								count_duplnavkey++;
-								logInfo(
-									"Devel-Info :: duplicate navigation-key for extension :: " + gAE.getNavigationKey() + " [ [" + idExtensionlookup.get(uid)
-									+ "]  and [" + extension + "] ]", null);
-							} else {
-									navKeyGAExtensionlookup.put(key, gAE);
+							append(key, gAE, count_duplnavkey);
+							List<String> alternativeNavigationKeys = gAE.getAlternativeNavigationKeys();
+							if(alternativeNavigationKeys != null && alternativeNavigationKeys.size() > 0) {
+								for(String alternativeNavigationKey:alternativeNavigationKeys) {
+									ExtensionPointKeyPair altKey = new ExtensionPointKeyPair(extensionPoint, alternativeNavigationKey);
+									append(altKey, gAE, count_duplnavkey);
+								}
 							}
 						}
 					}
 				}
 			}
-			logDebug("Created unique-id "+uid+" for extension:: "+extension);
+			if(debug) logDebug("Created unique-id "+uid+" for extension:: "+extension);
 		}
 		logInfo("Devel-Info :: initExtensions done. :: "+count_disabled+" disabled Extensions, "+count_duplid+" extensions with duplicate ids, "+count_duplnavkey+ " extensions with duplicate navigationKeys");
 		Collections.sort(extensionsList);
 		return extensionsList;
 	}
 	
-	private class ExtensionPointKeyPair {
+	private void append(ExtensionPointKeyPair key, GenericActionExtension gAE, AtomicInteger countDuplicate) {
+		if (navKeyGAExtensionlookup.containsKey(key)) {
+			logInfo("Devel-Info :: duplicate navigation-key for extension :: " + key.navigationKey, null);
+			countDuplicate.incrementAndGet();
+		} else {
+			navKeyGAExtensionlookup.put(key, gAE);
+		}
+	}
+	
+	private static class ExtensionPointKeyPair {
 		private String extensionPoint;
 		private String navigationKey;
 		

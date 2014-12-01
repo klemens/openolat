@@ -125,7 +125,7 @@ public class ItemNode extends GenericQtiNode {
 		if (myTabbedPane == null) {
 			try {
 				myTabbedPane = new TabbedPane("tabbedPane", ureq.getLocale());
-				TabbableController tabbCntrllr = new ItemNodeTabbedFormController(item, qtiPackage, ureq, wControl, trnsltr, editorMainController
+				TabbableController tabbCntrllr = new ItemNodeTabbedFormController(item, qtiPackage, ureq, wControl, editorMainController
 						.isRestrictedEdit());
 				tabbCntrllr.addTabs(myTabbedPane);
 				tabbCntrllr.addControllerListener(editorMainController);
@@ -179,7 +179,7 @@ public class ItemNode extends GenericQtiNode {
 
 		// Item metadata
 		QtiNodeMemento qnm = new QtiNodeMemento();
-		Map qtiState = new HashMap();
+		Map<String,Object> qtiState = new HashMap<>();
 		qtiState.put("ID", item.getIdent());
 		qtiState.put("TITLE", item.getTitle());
 		qtiState.put("OBJECTIVES", item.getObjectives());
@@ -217,7 +217,7 @@ public class ItemNode extends GenericQtiNode {
 		// feedback
 		qtiState.put("FEEDBACK.MASTERY", QTIEditHelper.getFeedbackMasteryText(item));
 		qtiState.put("FEEDBACK.FAIL", QTIEditHelper.getFeedbackFailText(item));
-		Control control = (Control) QTIEditHelper.getControl(item);
+		Control control = QTIEditHelper.getControl(item);
 		qtiState.put("FEEDBACK.ENABLED", control.getFeedback() == 1 ? Boolean.TRUE : Boolean.FALSE);
 		//
 		qnm.setQtiState(qtiState);
@@ -253,7 +253,7 @@ public class ItemNode extends GenericQtiNode {
 		String retVal = null;
 		if (mem instanceof QtiNodeMemento) {
 			QtiNodeMemento qnm = (QtiNodeMemento) mem;
-			Map qtiState = qnm.getQtiState();
+			Map<String,Object> qtiState = qnm.getQtiState();
 			//
 			String oldTitle = (String) qtiState.get("TITLE");
 			String newTitle = item.getTitle();
@@ -279,7 +279,7 @@ public class ItemNode extends GenericQtiNode {
 			String newFeedbackMastery = QTIEditHelper.getFeedbackMasteryText(item);
 			String oldFeedbackFail = (String) qtiState.get("FEEDBACK.FAIL");
 			String newFeedbackFail = QTIEditHelper.getFeedbackFailText(item);
-			Control control = (Control) QTIEditHelper.getControl(item);
+			Control control = QTIEditHelper.getControl(item);
 			Boolean oldHasFeedback = (Boolean) qtiState.get("FEEDBACK.ENABLED");
 			Boolean newHasFeedback = control != null ? new Boolean(control.getFeedback() == 1) : null;
 			//

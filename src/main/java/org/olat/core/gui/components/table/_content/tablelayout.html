@@ -1,75 +1,67 @@
-<div class="b_table_wrapper $!tableConfig.getCustomCssClass() b_floatscrollbox">
-#if ($hasTableSearch && !$tableEmpty)
-  <div>
-  $r.render("tableSearch")
-  </div>
-#end
-
-#if ($hasFilters && $filters.size() > 0)
-	<div class="b_table_filter">
-		<form name="tablefilter" action="">
-			<label for="filter">$filterTitle</label>
-			<select name="filter" size="1" onchange="{tf = document.tablefilter; tf.action=tf.filter.value; if(o2cl()){tf.submit();}}">
-				#if ($useNoFilterOption)
-					<option value="$r.commandURI("cmd.filter.nofilter")">$noFilterOption</option>
-				#end
-				#foreach ($filter in $filters)
-					#if ($filter == $selectedFilterValue)
-						#set ($selected="selected")
-					#else
-						#set ($selected="")
-					#end
-					#set ($filterPosition = $velocityCount - 1)
-					<option $selected value="$r.commandURI("cmd.filter.${filterPosition}")">$r.escapeHtml($filter.getShortName())</option>
-				#end
-			</select>
-		</form>
-	</div>
-	<div class="b_clearfix"><br/></div>
-#end
-
+<div class="o_table_layout $!tableConfig.getCustomCssClass() o_scrollbox">
 #if ($tableEmpty)
-	<div class="b_table_empty">$tableEmptyMessage</div>
+	<div class="o_table_empty o_info">$tableEmptyMessage</div>
 #else
-	<div class="b_clearfix">
-		<div class="b_floatbox">
+	#if(($hasTableSearch && !$tableEmpty) || $tableConfig.isDisplayRowCount() || ($hasFilters && $filters.size() > 0) || $hasSorters || $tableConfig.isPreferencesOffered() || $tableConfig.isDownloadOffered())
+	<div class="row clearfix o_table_toolbar">
+		<div class="col-sm-6 col-xs-12">
+			#if ($hasTableSearch && !$tableEmpty)
+			  $r.render("tableSearch")
+			#end
+		</div>
+		<div class="col-sm-3 col-xs-4 o_table_row_count">
 		#if ($tableConfig.isDisplayRowCount())
-			<div class="b_table_count">
-			    #if ($isFiltered)
-			    	$numberFilteredElements
-			    	$r.translate("table.filtered.of")
-			    	$r.render("link.numberOfElements")
-			    	#if ($numberOfElements == "1")
-			    		$r.translate("table.entry")
-			    	#else
-			    		$r.translate("table.entries.dative")
-			    	#end
-			    	#if ($numberFilteredElements == "1")
-						$r.translate("table.filtered.include.sing")
-					#else
-						$r.translate("table.filtered.include.plur")
-					#end			    	
-			    	`$filter`			    	
-			    #else
-					$numberOfElements
-					#if ($numberOfElements == "1")
-						$r.translate("table.entry")
-					#else
-						$r.translate("table.entries")
-					#end
-				#end
-			</div>
-		#end
-		#if ($tableConfig.isPreferencesOffered())
-			$r.render("prefLink")
-		#end
-		
-		#if ($tableConfig.isDownloadOffered())	
-			$r.render("downloadLink")
+			$numberOfElements
+			#if ($numberOfElements == "1")
+				$r.translate("table.entry")
+			#else
+				$r.translate("table.entries")
+			#end
 		#end
 		</div>
+		<div class="col-sm-3 col-xs-8"><div class="pull-right"><div class="o_table_tools">
+			#if ($hasFilters && $filters.size() > 0)
+			<div class="btn-group">	
+				<button type='button' class='btn btn-default dropdown-toggle' data-toggle='dropdown'>
+					<i class='o_icon o_icon-lg o_icon_filter'> </i>
+					<b class="caret"></b>
+				</button>
+				<ul class="dropdown-menu dropdown-menu-right" role="menu">
+					#if ($useNoFilterOption)
+						<li><a href="$r.commandURI("cmd.filter.nofilter")">$noFilterOption</a></li>
+					#end
+					#foreach ($filter in $filters)
+						<li>
+							#set ($filterPosition = $velocityCount - 1)
+							<a href="$r.commandURI("cmd.filter.${filterPosition}")">
+							#if ($filter == $selectedFilterValue)
+								
+							<i class="o_icon o_icon_check o_icon-fw"> </i>
+							#end
+							$r.escapeHtml($filter.getShortName())</a>
+						</li>
+					#end
+				</ul>
+			</div>
+			#end
+			#if ($hasSorters)
+				$r.render("tableSort")
+			#end
+			#if ($tableConfig.isPreferencesOffered())
+				$r.render("prefLink")
+			#end
+			#if ($tableConfig.isDownloadOffered())	
+				$r.render("downloadLink")
+			#end
+		</div>
+		#if($selectedFilterValue && $selectedFilterValue.shortName && !($selectedFilterValue.shortName == "") && !($selectedFilterValue.shortName == "-"))
+		<div class="o_table_tools_indications">
+			<i class='o_icon o_icon_filter o_icon-lg'> </i> $selectedFilterValue.shortName
+		</div>
+		#end
+		</div></div>
 	</div>
-	<div class="b_clearfix"></div>
+	#end
 	$r.render("table", $tableConfig.getCssPrefix())
 #end
 </div>

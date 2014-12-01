@@ -43,11 +43,11 @@ import javax.xml.parsers.DocumentBuilderFactory;
 
 import org.apache.commons.io.IOUtils;
 import org.cyberneko.html.parsers.SAXParser;
+import org.olat.core.commons.services.image.ImageUtils;
+import org.olat.core.commons.services.image.Size;
 import org.olat.core.logging.OLog;
 import org.olat.core.logging.Tracing;
 import org.olat.core.util.StringHelper;
-import org.olat.core.util.image.ImageUtils;
-import org.olat.core.util.image.Size;
 import org.olat.core.util.vfs.LocalFileImpl;
 import org.olat.core.util.vfs.VFSContainer;
 import org.olat.core.util.vfs.VFSItem;
@@ -228,8 +228,7 @@ public class OpenXMLDocument {
 		margins.setAttribute("w:gutter", "0");
 		
 		if(StringHelper.containsNonWhitespace(documentHeader)) {
-			try {
-				InputStream headerIn = OpenXMLDocument.class.getResourceAsStream("_resources/header.xml");
+			try(InputStream headerIn = OpenXMLDocument.class.getResourceAsStream("_resources/header.xml")) {
 				String headerTemplate = IOUtils.toString(headerIn);
 				String header = headerTemplate.replace("[oodocumentitlte]", documentHeader);
 

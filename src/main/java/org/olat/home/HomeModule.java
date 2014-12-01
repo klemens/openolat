@@ -23,7 +23,6 @@ package org.olat.home;
 import org.olat.NewControllerFactory;
 import org.olat.core.configuration.AbstractOLATModule;
 import org.olat.core.configuration.PersistedProperties;
-import org.olat.core.id.context.SiteContextEntryControllerCreator;
 import org.olat.home.controllerCreators.GuestHomeCEControllerCreator;
 
 /**
@@ -40,11 +39,9 @@ public class HomeModule extends AbstractOLATModule {
 	@Override
 	public void init() {
 		NewControllerFactory.getInstance().addContextEntryControllerCreator(HomeSite.class.getSimpleName(),
-				new SiteContextEntryControllerCreator(HomeSite.class));
-		
+				new HomeSiteContextEntryControllerCreator());
 		NewControllerFactory.getInstance().addContextEntryControllerCreator("Guest",
 				new GuestHomeCEControllerCreator());
-		
 	}
 
 	@Override

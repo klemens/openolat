@@ -21,6 +21,7 @@
 package org.olat.core.util.i18n.ui;
 
 import java.io.File;
+import java.util.Collection;
 import java.util.HashSet;
 import java.util.Set;
 
@@ -67,8 +68,7 @@ class I18nConfigSubImportLangController extends FormBasicController {
 	}
 
 	@Override
-	protected void initForm(FormItemContainer formLayout, @SuppressWarnings("unused") Controller listener,
-			@SuppressWarnings("unused") UserRequest ureq) {
+	protected void initForm(FormItemContainer formLayout, Controller listener, UserRequest ureq) {
 		// A title, displayed in fieldset
 		setFormTitle("configuration.management.package.import.title");
 		if (I18nModule.isTransToolEnabled()) {
@@ -88,11 +88,11 @@ class I18nConfigSubImportLangController extends FormBasicController {
 		mimeTypes.add("application/x-jar");
 		mimeTypes.add("application/x-java-jar");
 		importFile.limitToMimeType(mimeTypes, "configuration.management.package.import.file.error.type", null);
-		importFile.addActionListener(this, FormEvent.ONCHANGE); // trigger auto-upload		
+		importFile.addActionListener(FormEvent.ONCHANGE); // trigger auto-upload		
 		//
 		// Add checkboxes for the found languages - hide so far
 		String[] langKeys = new String[]{};
-		importKeys = uifactory.addCheckboxesVertical("configuration.management.package.import.select", this.flc, langKeys, langKeys, null, 1);
+		importKeys = uifactory.addCheckboxesVertical("configuration.management.package.import.select", flc, langKeys, langKeys, 1);
 		importKeys.setVisible(false);
 		//
 		// Add cancel and submit in button group layout
@@ -105,7 +105,7 @@ class I18nConfigSubImportLangController extends FormBasicController {
 	@Override
 	protected void formOK(UserRequest ureq) {
 		if (importKeys.isVisible() && importKeys.getSelectedKeys().size() > 0) {
-			Set<String> importLangKeys = importKeys.getSelectedKeys();			
+			Collection<String> importLangKeys = importKeys.getSelectedKeys();			
 			Set<String> alreadyInstalledLangs = new HashSet<String>();
 			for (String langKey : importLangKeys) {
 				if (I18nModule.getAvailableLanguageKeys().contains(langKey)) {
@@ -161,7 +161,7 @@ class I18nConfigSubImportLangController extends FormBasicController {
 				//
 				// enable language key selection
 				String[] langKeys = ArrayHelper.toArray(importLangKeys);
-				importKeys.setKeysAndValues(langKeys, langKeys, null);
+				importKeys.setKeysAndValues(langKeys, langKeys);
 				importKeys.selectAll();
 				importKeys.setVisible(true);
 				// In language adaption mode the import is done as a package - can't deselect anything

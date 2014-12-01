@@ -30,8 +30,8 @@ import org.olat.core.commons.services.mark.MarkManager;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.Component;
 import org.olat.core.gui.components.panel.Panel;
-import org.olat.core.gui.components.stack.StackedController;
-import org.olat.core.gui.components.stack.StackedControllerAware;
+import org.olat.core.gui.components.stack.BreadcrumbPanel;
+import org.olat.core.gui.components.stack.BreadcrumbPanelAware;
 import org.olat.core.gui.components.tree.GenericTreeNode;
 import org.olat.core.gui.components.tree.MenuTree;
 import org.olat.core.gui.components.tree.TreeDropEvent;
@@ -79,14 +79,14 @@ import org.olat.modules.qpool.ui.events.QPoolEvent;
  * @author srosse, stephane.rosse@frentix.com, http://www.frentix.com
  *
  */
-public class QuestionPoolMainEditorController extends BasicController implements Activateable2, StackedControllerAware {
+public class QuestionPoolMainEditorController extends BasicController implements Activateable2, BreadcrumbPanelAware {
 
 	public static final OLATResourceable QITEM_MARKED = OresHelper.createOLATResourceableType("QItemMark");
 	
 	private final MenuTree menuTree;
 	private GenericTreeNode sharesNode, myNode, myOwnNode;
 	private final Panel content;
-	private StackedController stackPanel;
+	private BreadcrumbPanel stackPanel;
 
 	private QuestionsController currentCtrl;
 	private QuestionsController myQuestionsCtrl;
@@ -132,18 +132,18 @@ public class QuestionPoolMainEditorController extends BasicController implements
 		menuTree.setOpenNodeIds(openNodeIds);
 		
 		content = new Panel("list");
-		columnLayoutCtr = new LayoutMain3ColsController(ureq, getWindowControl(), menuTree, null, content, "qpool");
+		columnLayoutCtr = new LayoutMain3ColsController(ureq, getWindowControl(), menuTree, content, "qpool");
 		
 		doSelectPresentation(ureq);
 		putInitialPanel(columnLayoutCtr.getInitialComponent());
 	}
 
 	@Override
-	public void setStackedController(StackedController stackPanel) {
+	public void setBreadcrumbPanel(BreadcrumbPanel stackPanel) {
 		this.stackPanel = stackPanel;
-		if(myQuestionsCtrl != null) myQuestionsCtrl.setStackedController(stackPanel);
-		if(markedQuestionsCtrl != null) markedQuestionsCtrl.setStackedController(stackPanel);
-		if(currentCtrl != null) currentCtrl.setStackedController(stackPanel);
+		if(myQuestionsCtrl != null) myQuestionsCtrl.setBreadcrumbPanel(stackPanel);
+		if(markedQuestionsCtrl != null) markedQuestionsCtrl.setBreadcrumbPanel(stackPanel);
+		if(currentCtrl != null) currentCtrl.setBreadcrumbPanel(stackPanel);
 	}
 
 	@Override
@@ -387,7 +387,7 @@ public class QuestionPoolMainEditorController extends BasicController implements
 		if(myQuestionsCtrl == null) {
 			WindowControl swControl = addToHistory(ureq, OresHelper.createOLATResourceableType("My"), null);
 			myQuestionsCtrl = new QuestionsController(ureq, swControl, source, "my");
-			myQuestionsCtrl.setStackedController(stackPanel);
+			myQuestionsCtrl.setBreadcrumbPanel(stackPanel);
 			listenTo(myQuestionsCtrl);
 		} else {
 			myQuestionsCtrl.updateSource(ureq, source);
@@ -401,7 +401,7 @@ public class QuestionPoolMainEditorController extends BasicController implements
 		if(markedQuestionsCtrl == null) {
 			WindowControl swControl = addToHistory(ureq, OresHelper.createOLATResourceableType("Marked"), null);
 			markedQuestionsCtrl = new QuestionsController(ureq, swControl, source, "favorit");
-			markedQuestionsCtrl.setStackedController(stackPanel);
+			markedQuestionsCtrl.setBreadcrumbPanel(stackPanel);
 			listenTo(markedQuestionsCtrl);
 		} else {
 			markedQuestionsCtrl.updateSource(ureq, source);
@@ -412,15 +412,14 @@ public class QuestionPoolMainEditorController extends BasicController implements
 	
 	private void doSelectPool(UserRequest ureq, Pool pool, TreeNode node, List<ContextEntry> entries, StateEntry state) {
 		ControlledTreeNode cNode = (ControlledTreeNode)node;
-		Roles roles = ureq.getUserSession().getRoles();
 		QuestionsController selectedPoolCtrl = cNode.getController();
 
 		DefaultItemsSource source = new PoolItemsSource(getIdentity(), roles, pool);
-		source.setRemoveEnabled(isShareAdmin(roles, pool));
+		source.setRemoveEnabled(isShareAdmin(pool));
 		if(selectedPoolCtrl == null) {
 			WindowControl swControl = addToHistory(ureq, pool, null);
 			selectedPoolCtrl = new QuestionsController(ureq, swControl, source, "poll-" + pool.getKey());
-			selectedPoolCtrl.setStackedController(stackPanel);
+			selectedPoolCtrl.setBreadcrumbPanel(stackPanel);
 			listenTo(selectedPoolCtrl);
 			cNode.setController(selectedPoolCtrl);
 		} else {
@@ -436,7 +435,7 @@ public class QuestionPoolMainEditorController extends BasicController implements
 	 * @param pool
 	 * @return
 	 */
-	private boolean isShareAdmin(Roles roles, Pool pool) {
+	private boolean isShareAdmin(Pool pool) {
 		return roles != null && (roles.isOLATAdmin() || roles.isPoolAdmin() || pool.isPublicPool()
 				|| qpoolService.isOwner(getIdentity(), pool));
 	}
@@ -444,14 +443,13 @@ public class QuestionPoolMainEditorController extends BasicController implements
 	private void doSelectGroup(UserRequest ureq, BusinessGroup group, TreeNode node, List<ContextEntry> entries, StateEntry state) {
 		ControlledTreeNode cNode = (ControlledTreeNode)node;
 		QuestionsController sharedItemsCtrl = cNode.getController();
-		Roles roles = ureq.getUserSession().getRoles();
-		boolean shareAdmin = isShareAdmin(roles, group);
+		boolean shareAdmin = isShareAdmin(group);
 		SharedItemsSource source = new SharedItemsSource(group, getIdentity(), roles, shareAdmin);
 
 		if(sharedItemsCtrl == null) {
 			WindowControl swControl = addToHistory(ureq, group, null);
 			sharedItemsCtrl = new QuestionsController(ureq, swControl, source, "share-" + group.getKey());
-			sharedItemsCtrl.setStackedController(stackPanel);
+			sharedItemsCtrl.setBreadcrumbPanel(stackPanel);
 			listenTo(sharedItemsCtrl);
 			cNode.setController(sharedItemsCtrl);
 		} else {
@@ -461,7 +459,7 @@ public class QuestionPoolMainEditorController extends BasicController implements
 		setContent(ureq, sharedItemsCtrl, entries, state);
 	}
 	
-	private boolean isShareAdmin(Roles roles, BusinessGroup group) {
+	private boolean isShareAdmin(BusinessGroup group) {
 		return roles != null && (roles.isOLATAdmin() || roles.isPoolAdmin()
 				|| businessGroupService.isIdentityInBusinessGroup(getIdentity(), group.getKey(), true, false, null));
 	}
@@ -475,7 +473,7 @@ public class QuestionPoolMainEditorController extends BasicController implements
 			WindowControl swControl = addToHistory(ureq, coll, null);
 			collItemsCtrl = new QuestionsController(ureq, swControl, source, "coll-" + coll.getKey());
 			collItemsCtrl.setQuestionItemCollection(coll);
-			collItemsCtrl.setStackedController(stackPanel);
+			collItemsCtrl.setBreadcrumbPanel(stackPanel);
 			listenTo(collItemsCtrl);
 			cNode.setController(collItemsCtrl);
 		} else {
@@ -520,14 +518,14 @@ public class QuestionPoolMainEditorController extends BasicController implements
 		List<Pool> pools = qpoolService.getPools(getIdentity(), roles);
 		for(Pool pool:pools) {
 			GenericTreeNode node = new ControlledTreeNode(pool.getName(), pool);
-			node.setIconCssClass("o_sel_qpool_pool");
+			node.setIconCssClass("o_icon_pool_pool o_sel_qpool_pool");
 			parentNode.addChild(node);
 		}
 
 		List<BusinessGroup> groups = qpoolService.getResourcesWithSharedItems(getIdentity());
 		for(BusinessGroup group:groups) {
 			GenericTreeNode node = new ControlledTreeNode(group.getName(), group);
-			node.setIconCssClass("o_sel_qpool_share");
+			node.setIconCssClass("o_icon_pool_share o_sel_qpool_share");
 			parentNode.addChild(node);
 		}
 	}
@@ -562,17 +560,17 @@ public class QuestionPoolMainEditorController extends BasicController implements
 		parentNode.removeAllChildren();
 		
 		myOwnNode = new GenericTreeNode(translate("menu.database.my"), "My");
-		myOwnNode.setIconCssClass("o_sel_qpool_my_items");
+		myOwnNode.setIconCssClass("o_icon_pool_my_items o_sel_qpool_my_items");
 		parentNode.addChild(myOwnNode);
 		
 		GenericTreeNode node = new GenericTreeNode(translate("menu.database.favorit"), "Marked");
-		node.setIconCssClass("o_sel_qpool_favorits");
+		node.setIconCssClass("o_icon_pool_favorits o_sel_qpool_favorits");
 		parentNode.addChild(node);
 		
 		List<QuestionItemCollection> collections = qpoolService.getCollections(getIdentity());
 		for(QuestionItemCollection coll: collections) {
 			node = new ControlledTreeNode(coll.getName(), coll);
-			node.setIconCssClass("o_sel_qpool_collection");
+			node.setIconCssClass("o_icon_pool_collection o_sel_qpool_collection");
 			parentNode.addChild(node);
 		}
 	}

@@ -42,16 +42,13 @@ import org.olat.login.DmzBFWCParts;
  */
 public class DMZPWChangeContentControllerCreator implements ControllerCreator {
 
-	/**
-	 * @see org.olat.core.gui.control.creator.ControllerCreator#createController(org.olat.core.gui.UserRequest, org.olat.core.gui.control.WindowControl)
-	 */
+	@Override
 	public Controller createController(UserRequest lureq, WindowControl lwControl) {
 		DmzBFWCParts dmzSitesAndNav = new DmzBFWCParts();
 		dmzSitesAndNav.showTopNav(false);
 		AutoCreator contentControllerCreator = new AutoCreator();
 		contentControllerCreator.setClassName(PwChangeController.class.getName());
 		dmzSitesAndNav.setContentControllerCreator(contentControllerCreator);
-		return new BaseFullWebappController(lureq, lwControl, dmzSitesAndNav );
+		return new BaseFullWebappController(lureq, dmzSitesAndNav);
 	}
-
 }

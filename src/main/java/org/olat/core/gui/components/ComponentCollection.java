@@ -19,13 +19,14 @@
  */
 package org.olat.core.gui.components;
 
+
 /**
  * 
  * Initial date: 06.02.2013<br>
  * @author srosse, stephane.rosse@frentix.com, http://www.frentix.com
  *
  */
-public interface ComponentCollection {
+public interface ComponentCollection extends Component {
 	
 	public Component getComponent(String name);
 	

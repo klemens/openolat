@@ -49,7 +49,6 @@ import org.olat.core.gui.components.form.flexible.impl.FormEvent;
 import org.olat.core.gui.components.form.flexible.impl.FormLayoutContainer;
 import org.olat.core.gui.components.form.flexible.impl.elements.FormLinkImpl;
 import org.olat.core.gui.components.form.flexible.impl.elements.JSDateChooser;
-import org.olat.core.gui.components.form.flexible.impl.elements.SingleSelectionImpl;
 import org.olat.core.gui.components.form.flexible.impl.rules.RulesFactory;
 import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.Event;
@@ -98,7 +97,6 @@ public class ConditionConfigEasyController extends FormBasicController implement
 	private JSDateChooser toDate;
 	private FormItemContainer dateSubContainer, groupSubContainer, assessSubContainer;
 	private FormLayoutContainer areaChooseSubContainer,  groupChooseSubContainer;
-	private FormLayoutContainer assessNodesListContainer;
 	private MultipleSelectionElement dateSwitch;
 	private StaticTextElement easyGroupList;
 	private FormLink chooseGroupsLink;
@@ -156,7 +154,7 @@ public class ConditionConfigEasyController extends FormBasicController implement
 	 * @param nodeIdentList
 	 * @param euce
 	 */
-	public ConditionConfigEasyController(UserRequest ureq, WindowControl wControl, Condition cond, String title,  String formName,
+	public ConditionConfigEasyController(UserRequest ureq, WindowControl wControl, Condition cond,
 			List<CourseNode> nodeIdentList, CourseEditorEnv env) {
 		super(ureq, wControl, "easycondedit");
 		
@@ -331,7 +329,7 @@ public class ConditionConfigEasyController extends FormBasicController implement
 			removeAsListenerAndDispose(groupChooseC);
 			
 			List<Long> groupKeys = getKeys(easyGroupList);
-			groupChooseC = new GroupSelectionController(ureq, getWindowControl(), "group", true,
+			groupChooseC = new GroupSelectionController(ureq, getWindowControl(), true,
 					courseEditorEnv.getCourseGroupManager(), groupKeys);
 			listenTo(groupChooseC);
 
@@ -355,7 +353,7 @@ public class ConditionConfigEasyController extends FormBasicController implement
 			removeAsListenerAndDispose(cmc);
 			removeAsListenerAndDispose(areaChooseC);
 			
-			areaChooseC = new AreaSelectionController(ureq, getWindowControl(), "area", true,
+			areaChooseC = new AreaSelectionController(ureq, getWindowControl(), true,
 					courseEditorEnv.getCourseGroupManager(), getKeys(easyAreaList));
 			listenTo(areaChooseC);
 			
@@ -540,14 +538,14 @@ public class ConditionConfigEasyController extends FormBasicController implement
 			// foop d fbg,dfbg,f ,gfbirst check two error cases of a selection
 			// no node selected or a deleted node selected
 			if (nodePassed.getSelectedKey().equals(NO_NODE_SELECTED_IDENTIFYER)) {				
-				assessNodesListContainer.setErrorKey("form.easy.error.nodePassed", null);
+				nodePassed.setErrorKey("form.easy.error.nodePassed", null);
 				retVal = false;
 			} else if (nodePassed.getSelectedKey().equals(DELETED_NODE_IDENTIFYER)) {
-				assessNodesListContainer.setErrorKey("form.easy.error.nodeDeleted", null);
+				nodePassed.setErrorKey("form.easy.error.nodeDeleted", null);
 				retVal = false;
 			} else {
 				//clear nodepassed error
-				assessNodesListContainer.clearError();
+				nodePassed.clearError();
 				//retVal stays
 			}
 		}
@@ -600,7 +598,7 @@ public class ConditionConfigEasyController extends FormBasicController implement
 					// FIXING LINK ONLY IF A DEFAULTCONTEXT EXISTS
 					fixGroupError = new FormLinkImpl("error.fix", "create");
 					// link
-					fixGroupError.setCustomEnabledLinkCSS("b_button");
+					fixGroupError.setCustomEnabledLinkCSS("btn btn-default");
 					errorGroupItemLayout.add(fixGroupError);
 
 					fixGroupError.setErrorKey(labelKey, params);
@@ -655,7 +653,7 @@ public class ConditionConfigEasyController extends FormBasicController implement
 					// FXINGIN LINK ONLY IF DEFAULT CONTEXT EXISTS
 					fixAreaError = new FormLinkImpl("error.fix", "create");// erstellen
 					// link
-					fixAreaError.setCustomEnabledLinkCSS("b_button");
+					fixAreaError.setCustomEnabledLinkCSS("btn btn-default");
 					errorAreaItemLayout.add(fixAreaError);
 
 					fixAreaError.setErrorKey(labelKey, params);
@@ -714,18 +712,18 @@ public class ConditionConfigEasyController extends FormBasicController implement
 	@Override
 	protected void initForm(FormItemContainer formLayout, Controller listener, UserRequest ureq) {
 	
-		addCoachExclusive(formLayout, listener);
-		addFromToDateChooser(formLayout, listener);
-		addEasyGroupAreaChoosers(formLayout, listener);
-		addAssessmentSwitch(formLayout, listener);
+		addCoachExclusive(formLayout);
+		addFromToDateChooser(formLayout);
+		addEasyGroupAreaChoosers(formLayout);
+		addAssessmentSwitch(formLayout);
 		//
 		if(ShibbolethModule.isEnableShibbolethLogins()){
-			addAttributeSwitch(formLayout, listener, ureq);
+			addAttributeSwitch(formLayout, ureq);
 		}
 		flc.contextPut("shibbolethEnabled", new Boolean(ShibbolethModule.isEnableShibbolethLogins()));
-		//
-		addApplyRulesForTutorsToo(formLayout, listener);
-		//
+		
+		addApplyRulesForTutorsToo(formLayout);
+		
 		// add rules
 		addRules(formLayout);
 		
@@ -734,22 +732,23 @@ public class ConditionConfigEasyController extends FormBasicController implement
 		validateGroupFields();
 	}
 
-	private void addAttributeSwitch(FormItemContainer formLayout, Controller listener, UserRequest ureq) {
+	private void addAttributeSwitch(FormItemContainer formLayout, UserRequest ureq) {
 		/*
 		 * yes / no chooser defines if learner do not see the building block at all
 		 */
-		attributeSwitch = uifactory.addCheckboxesVertical("attributeSwitch", "form.easy.attributeSwitch", formLayout, new String[] { "ison" }, new String[] { "" }, null, 1);
-		attributeSwitch.select("ison", validatedCondition.getAttributeConditions()!=null);
+		String[] values = new String[]{ translate("form.easy.attributeSwitch") };
+		attributeSwitch = uifactory.addCheckboxesHorizontal("attributeSwitch", null, formLayout, new String[] { "ison" }, values);
+		attributeSwitch.select("ison", validatedCondition.getAttributeConditions() != null);
 		// register for on click event to hide/disable other elements
-		attributeSwitch.addActionListener(listener, FormEvent.ONCLICK);
+		attributeSwitch.addActionListener(FormEvent.ONCLICK);
 		// rules are later added
 
 		// add attribute connector: AND or OR
-		final String[] attributebconnectorValues = new String[] { getTranslator().translate("form.easy.attributebconnector.and"),getTranslator().translate("form.easy.attributebconnector.or") };
+		final String[] attributebconnectorValues = new String[] { translate("form.easy.attributebconnector.and"), translate("form.easy.attributebconnector.or") };
 		attributeBconnector = uifactory.addRadiosHorizontal("attributeBconnector", "form.easy.attributebconnector", formLayout, new String[] { BCON_VAL_AND, BCON_VAL_OR }, attributebconnectorValues);
 		if(validatedCondition.isConditionsConnectorIsAND()){
 			attributeBconnector.select(BCON_VAL_AND, true);
-		}else{
+		} else {
 			attributeBconnector.select(BCON_VAL_OR, true);
 		}
 		
@@ -760,7 +759,7 @@ public class ConditionConfigEasyController extends FormBasicController implement
 		listenTo(attribteRowAdderSubform);
 		flc.put("attribteRowAdderSubform", attribteRowAdderSubform.getInitialComponent());
 		if (validatedCondition.getAttributeConditions() != null && validatedCondition.getAttributeConditions().size() > 0) {
-			this.attribteRowAdderSubform.setAttributeConditions(validatedCondition.getAttributeConditions());
+			attribteRowAdderSubform.setAttributeConditions(validatedCondition.getAttributeConditions());
 		}
 	}
 	
@@ -770,9 +769,9 @@ public class ConditionConfigEasyController extends FormBasicController implement
 	 */
 	private boolean isDateGroupAssessmentOAttributeSwitchOn() {
 		return dateSwitch.getSelectedKeys().size() == 1 
-		|| groupSwitch.getSelectedKeys().size() == 1 
-		|| assessmentSwitch.getSelectedKeys().size() == 1
-		||(attributeSwitch!=null && attributeSwitch.getSelectedKeys().size()==1);
+				|| groupSwitch.getSelectedKeys().size() == 1 
+				|| assessmentSwitch.getSelectedKeys().size() == 1
+				||(attributeSwitch!=null && attributeSwitch.getSelectedKeys().size()==1);
 	}
 	
 	/**
@@ -1074,16 +1073,16 @@ public class ConditionConfigEasyController extends FormBasicController implement
 	 * @param formLayout
 	 * @param listener
 	 */
-	private void addCoachExclusive(FormItemContainer formLayout, Controller listener) {
+	private void addCoachExclusive(FormItemContainer formLayout) {
 		/*
 		 * yes / no chooser defines if learner do not see the building block at all
 		 */
-		coachExclusive = uifactory.addCheckboxesHorizontal("coachExclusive", null, formLayout, new String[] { "ison" }, new String[] { translate("form.easy.coachExclusive") }, null);
+		coachExclusive = uifactory.addCheckboxesHorizontal("coachExclusive", null, formLayout, new String[] { "ison" }, new String[] { translate("form.easy.coachExclusive") });
 		boolean coachesAndAdminsInitValue = validatedCondition.isEasyModeCoachesAndAdmins();
 		coachExclusive.select("ison", coachesAndAdminsInitValue);
 		
 		// register for on click event to hide/disable other elements
-		coachExclusive.addActionListener(listener, FormEvent.ONCLICK);
+		coachExclusive.addActionListener(FormEvent.ONCLICK);
 		// rules are later added
 	}
 
@@ -1091,12 +1090,12 @@ public class ConditionConfigEasyController extends FormBasicController implement
 	 * @param formLayout
 	 * @param listener
 	 */
-	private void addApplyRulesForTutorsToo(FormItemContainer formLayout, Controller listener) {
+	private void addApplyRulesForTutorsToo(FormItemContainer formLayout) {
 		
 		/*
 		 * yes / no chooser defines if learner do not see the building block at all
 		 */
-		applyRulesForCoach = uifactory.addCheckboxesHorizontal("applyRulesForCoach", null, formLayout, new String[] { "ison" }, new String[] { translate("form.easy.applyRulesForCoach") }, null);
+		applyRulesForCoach = uifactory.addCheckboxesHorizontal("applyRulesForCoach", null, formLayout, new String[] { "ison" }, new String[] { translate("form.easy.applyRulesForCoach") });
 		if(isDateGroupAssessmentOAttributeSwitchOn()) {
 			applyRulesForCoach.setVisible(true);
 		} else {
@@ -1118,11 +1117,11 @@ public class ConditionConfigEasyController extends FormBasicController implement
 	 * @param formLayout
 	 * @param listener
 	 */
-	private void addFromToDateChooser(FormItemContainer formLayout, Controller listener) {
+	private void addFromToDateChooser(FormItemContainer formLayout) {
 		/*
 		 * yes / no switch if a date.time constraint is defined
 		 */
-		dateSubContainer = (FormItemContainer) FormLayoutContainer.createDefaultFormLayout("dateSubContainer", getTranslator());
+		dateSubContainer = FormLayoutContainer.createDefaultFormLayout("dateSubContainer", getTranslator());
 		formLayout.add(dateSubContainer);
 
 		fromDate = new JSDateChooser("fromDate", getLocale());
@@ -1141,22 +1140,22 @@ public class ConditionConfigEasyController extends FormBasicController implement
 		toDate.setDisplaySize(toDate.getExampleDateString().length());
 		dateSubContainer.add(toDate);
 
-		dateSwitch = uifactory.addCheckboxesHorizontal("dateSwitch", null, formLayout, new String[] { "ison" }, new String[] { translate("form.easy.dateSwitch") }, null);
+		dateSwitch = uifactory.addCheckboxesHorizontal("dateSwitch", null, formLayout, new String[] { "ison" }, new String[] { translate("form.easy.dateSwitch") });
 		if (fromDate.getDate() != null || toDate.getDate() != null) {
 			dateSwitch.select("ison", true);
 		} else {
 			dateSwitch.select("ison", false);
 		}
-		dateSwitch.addActionListener(listener, FormEvent.ONCLICK);
+		dateSwitch.addActionListener(FormEvent.ONCLICK);
 	}
 
 	/**
 	 * @param formLayout
 	 * @param listener
 	 */
-	private void addEasyGroupAreaChoosers(FormItemContainer formLayout, Controller listener) {
+	private void addEasyGroupAreaChoosers(FormItemContainer formLayout) {
 
-		groupSubContainer = FormLayoutContainer.createDefaultFormLayout("groupSubContainer", getTranslator());
+		groupSubContainer = FormLayoutContainer.createBareBoneFormLayout("groupSubContainer", getTranslator());
 		formLayout.add(groupSubContainer);
 
 		List<Long> groupKeyList = validatedCondition.getEasyModeGroupAccessIdList();
@@ -1164,43 +1163,41 @@ public class ConditionConfigEasyController extends FormBasicController implement
 		List<Long> areaKeyList  = validatedCondition.getEasyModeGroupAreaAccessIdList();
 		String areaInitVal = getAreaNames(areaKeyList);
 
-		groupSwitch = uifactory.addCheckboxesHorizontal("groupSwitch", null, formLayout, new String[] { "ison" }, new String[] { translate("form.easy.groupSwitch") }, null);
+		groupSwitch = uifactory.addCheckboxesHorizontal("groupSwitch", null, formLayout, new String[] { "ison" }, new String[] { translate("form.easy.groupSwitch") });
 		// initialize selection
 		if (!groupKeyList.isEmpty() || !areaKeyList.isEmpty()) {
 			groupSwitch.select("ison", true);
 		} else {
 			groupSwitch.select("ison", false);
 		}
-		groupSwitch.addActionListener(listener, FormEvent.ONCLICK);
+		groupSwitch.addActionListener(FormEvent.ONCLICK);
 		
 		//groups
-		groupChooseSubContainer = FormLayoutContainer.createHorizontalFormLayout("groupChooseSubContainer", getTranslator());
-		groupChooseSubContainer.setLabel("form.easy.group", null);
+		groupChooseSubContainer = FormLayoutContainer.createDefaultFormLayout("groupChooseSubContainer", getTranslator());
 		groupSubContainer.add(groupChooseSubContainer);		
 
-		easyGroupList = uifactory.addStaticTextElement("groupList", null, groupInitVal, groupChooseSubContainer);
+		easyGroupList = uifactory.addStaticTextElement("groupList", "form.easy.group", groupInitVal, groupChooseSubContainer);
 		easyGroupList.setUserObject(groupKeyList);
 
-		chooseGroupsLink = uifactory.addFormLink("choose", groupChooseSubContainer,"b_form_groupchooser");
-		createGroupsLink = uifactory.addFormLink("create", groupChooseSubContainer,"b_form_groupchooser");	
+		chooseGroupsLink = uifactory.addFormLink("choose", groupChooseSubContainer, "o_form_groupchooser");
+		createGroupsLink = uifactory.addFormLink("create", groupChooseSubContainer, "o_form_groupchooser");	
 		
 		//areas
-		areaChooseSubContainer = FormLayoutContainer.createHorizontalFormLayout("areaChooseSubContainer", getTranslator());
-		areaChooseSubContainer.setLabel("form.easy.area", null);
+		areaChooseSubContainer = FormLayoutContainer.createDefaultFormLayout("areaChooseSubContainer", getTranslator());
 		groupSubContainer.add(areaChooseSubContainer);		
 
-		easyAreaList = uifactory.addStaticTextElement("groupList", null, areaInitVal, areaChooseSubContainer);
+		easyAreaList = uifactory.addStaticTextElement("groupList", "form.easy.area", areaInitVal, areaChooseSubContainer);
 		easyAreaList.setUserObject(areaKeyList);
 		
-		chooseAreasLink = uifactory.addFormLink("choose", areaChooseSubContainer,"b_form_groupchooser");
-		createAreasLink = uifactory.addFormLink("create", areaChooseSubContainer,"b_form_groupchooser");
+		chooseAreasLink = uifactory.addFormLink("choose", areaChooseSubContainer, "o_form_groupchooser");
+		createAreasLink = uifactory.addFormLink("create", areaChooseSubContainer, "o_form_groupchooser");
 		
 		updateGroupsAndAreasCheck();
 	}
 
-	private void addAssessmentSwitch(FormItemContainer formLayout, Controller listener) {
+	private void addAssessmentSwitch(FormItemContainer formLayout) {
 
-		assessSubContainer = (FormItemContainer) FormLayoutContainer.createDefaultFormLayout("assessSubContainer", getTranslator());
+		assessSubContainer = FormLayoutContainer.createDefaultFormLayout("assessSubContainer", getTranslator());
 		formLayout.add(assessSubContainer);
 
 		Translator translator = getTranslator();
@@ -1213,8 +1210,8 @@ public class ConditionConfigEasyController extends FormBasicController implement
 		String cutInitStrValue = validatedCondition.getEasyModeCutValue();
 		int cutInitValue = 0;
 		
-		assessmentSwitch = uifactory.addCheckboxesHorizontal("assessmentSwitch", null, formLayout, new String[] { "ison" }, new String[] { translate("form.easy.assessmentSwitch") }, null);
-		assessmentSwitch.addActionListener(listener, FormEvent.ONCLICK);
+		assessmentSwitch = uifactory.addCheckboxesHorizontal("assessmentSwitch", null, formLayout, new String[] { "ison" }, new String[] { translate("form.easy.assessmentSwitch") });
+		assessmentSwitch.addActionListener(FormEvent.ONCLICK);
 		
 
 		boolean selectedNodeIsInList = false;
@@ -1225,7 +1222,7 @@ public class ConditionConfigEasyController extends FormBasicController implement
 			keysList.add(NO_NODE_SELECTED_IDENTIFYER);
 			valuesList.add("- " + translator.translate("form.easy.nodePassed.select") + " -");
 			for (int i = 0; i < nodeIdentList.size(); i++) {
-				CourseNode courseNode = (CourseNode) nodeIdentList.get(i);
+				CourseNode courseNode = nodeIdentList.get(i);
 				keysList.add(courseNode.getIdent());
 				valuesList.add(courseNode.getShortName() + " (Id:" + courseNode.getIdent() + ")");
 				if (courseNode.getIdent().equals(nodePassedInitVal)) selectedNodeIsInList = true;
@@ -1247,17 +1244,7 @@ public class ConditionConfigEasyController extends FormBasicController implement
 		final String[] nodePassedValues = new String[valuesList.size()];
 		valuesList.toArray(nodePassedValues);
 
-		// list of assessable nodes is wrapped in a layout container for proper rendering
-		assessNodesListContainer = (FormLayoutContainer)FormLayoutContainer.createSelbox("assNodesListContainer", getTranslator());
-		assessNodesListContainer.setLabel("form.easy.nodePassed", null);
-		assessSubContainer.add(assessNodesListContainer);
-		nodePassed = new SingleSelectionImpl(null, "nodePassed", assessNodesListContainer) {
-			{
-				keys = nodePassedKeys;
-				values = nodePassedValues;
-			}
-		};
-		
+		nodePassed = uifactory.addDropdownSingleselect("nodePassed", "form.easy.nodePassed", assessSubContainer, nodePassedKeys, nodePassedValues, null);
 		if (nodePassedInitVal != null) {
 			if (selectedNodeIsInList) {
 				nodePassed.select(nodePassedInitVal, true);
@@ -1267,16 +1254,11 @@ public class ConditionConfigEasyController extends FormBasicController implement
 		} else {
 			nodePassed.select(NO_NODE_SELECTED_IDENTIFYER, true);
 		}
-		assessNodesListContainer.add(nodePassed);
 		
-		assessmentTypeSwitch = new SingleSelectionImpl(null, "assessmentTypeSwitch", SingleSelectionImpl.createVerticalLayout(null, "yingyang")) {
-			{
-				keys = assessmentSwitchKeys;
-				values = assessmentSwitchValues;
-			}
-		};
+		assessmentTypeSwitch = uifactory.addRadiosVertical("assessmentTypeSwitch", null, assessSubContainer,
+				assessmentSwitchKeys, assessmentSwitchValues);
 		assessmentTypeSwitch.setLabel("form.easy.assessmentSwitch.type", null);
-		assessmentTypeSwitch.addActionListener(listener, FormEvent.ONCLICK);
+		assessmentTypeSwitch.addActionListener(FormEvent.ONCLICK);
 
 		if (nodePassedInitVal != null) {
 			// has a node configured
@@ -1294,7 +1276,6 @@ public class ConditionConfigEasyController extends FormBasicController implement
 			assessmentTypeSwitch.setVisible(false);
 			assessmentTypeSwitch.select(NODEPASSED_VAL_PASSED, true);
 		}
-		assessSubContainer.add(assessmentTypeSwitch);
 		
 		cutValue = uifactory.addIntegerElement("cutval", "form.easy.cutValue", cutInitValue, assessSubContainer);
 		cutValue.setDisplaySize(3);
@@ -1318,8 +1299,9 @@ public class ConditionConfigEasyController extends FormBasicController implement
 	 */
 	private void updateGroupsAndAreasCheck() {
 		OLATResource courseResource = courseEditorEnv.getCourseGroupManager().getCourseResource();
+		RepositoryEntry courseEntry = courseEditorEnv.getCourseGroupManager().getCourseEntry();
 		boolean hasAreas = areaManager.countBGAreasInContext(courseResource) > 0;
-		boolean hasGroups = businessGroupService.countBusinessGroups(null, courseResource) > 0;
+		boolean hasGroups = businessGroupService.countBusinessGroups(null, courseEntry) > 0;
 		
 		createGroupsLink.setVisible(!hasGroups && !managedGroup);
 		chooseGroupsLink.setVisible(!createGroupsLink.isVisible());

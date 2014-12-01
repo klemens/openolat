@@ -39,23 +39,24 @@ public class MovieFileResource extends FileResource {
 	 */
 	public static final String TYPE_NAME = "FileResource.MOVIE";
 
-	/**
-	 * Standard constructor.
-	 */
-	public MovieFileResource() { super.setTypeName(TYPE_NAME); }
+	public MovieFileResource() {
+		super(TYPE_NAME);
+	}
 	
 	/**
 	 * @param f
 	 * @return True if is of type.
 	 */
 	public static boolean validate(File f) {
-		String filename_ = f.getName().toLowerCase();
-		return filename_.endsWith(".avi") ||
-		filename_.endsWith(".mpeg") ||
-		filename_.endsWith(".mpg") ||
-		filename_.endsWith(".qt") ||
-		filename_.endsWith(".rm") ||
-		filename_.endsWith(".ram") ||
-		filename_.endsWith(".avi");
+		return validate(f.getName());
+	}
+	
+	public static boolean validate(String filename) {
+		String f = filename.toLowerCase();
+		return f.endsWith(".avi") || f.endsWith(".mpeg") ||
+				f.endsWith(".mpg") || f.endsWith(".qt") ||
+				f.endsWith(".rm") || f.endsWith(".ram") ||
+				f.endsWith(".mp4") || f.endsWith(".m4v") ||
+				f.endsWith(".mov");
 	}
 }

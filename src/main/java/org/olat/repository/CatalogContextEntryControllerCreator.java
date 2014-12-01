@@ -20,12 +20,14 @@
 
 package org.olat.repository;
 
+import java.util.List;
+
 import org.olat.core.gui.UserRequest;
-import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.WindowControl;
 import org.olat.core.id.context.ContextEntry;
 import org.olat.core.id.context.ContextEntryControllerCreator;
 import org.olat.core.id.context.DefaultContextEntryControllerCreator;
+import org.olat.repository.site.CatalogSite;
 import org.olat.repository.site.RepositorySite;
 
 /**
@@ -36,30 +38,29 @@ import org.olat.repository.site.RepositorySite;
  * @author srosse, stephane.rosse@frentix.com
  */
 public class CatalogContextEntryControllerCreator extends DefaultContextEntryControllerCreator {
+	
+	private final RepositoryModule repositoryModule;
+	
+	public CatalogContextEntryControllerCreator(RepositoryModule repositoryModule) {
+		this.repositoryModule = repositoryModule;
+	}
 
 	@Override
 	public ContextEntryControllerCreator clone() {
 		return this;
 	}
-	
-	@Override
-	public Controller createController(ContextEntry ce, UserRequest ureq, WindowControl wControl) {
-		return null;
-	}
 
 	@Override
-	public String getSiteClassName(ContextEntry ce, UserRequest ureq) {
-		return RepositorySite.class.getName();
-	}
-
-	@Override
-	public String getTabName(ContextEntry ce, UserRequest ureq) {
-		return null;
+	public String getSiteClassName(List<ContextEntry> ces, UserRequest ureq) {
+		if(repositoryModule.isCatalogSiteEnabled()) {
+			return CatalogSite.class.getName();
+		} else {
+			return RepositorySite.class.getName();
+		}
 	}
 
 	@Override
 	public boolean validateContextEntryAndShowError(ContextEntry ce, UserRequest ureq, WindowControl wControl) {
-		return true;
+		return repositoryModule.isCatalogEnabled();
 	}
-
 }

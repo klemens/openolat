@@ -38,7 +38,6 @@ import org.olat.core.commons.modules.bc.vfs.OlatRootFolderImpl;
 import org.olat.core.commons.services.notifications.SubscriptionContext;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.Component;
-import org.olat.core.gui.components.htmlsite.HtmlStaticPageComponent;
 import org.olat.core.gui.components.link.Link;
 import org.olat.core.gui.components.link.LinkFactory;
 import org.olat.core.gui.components.velocity.VelocityContainer;
@@ -51,6 +50,7 @@ import org.olat.core.gui.control.generic.iframe.IFrameDisplayController;
 import org.olat.core.gui.control.generic.modal.DialogBoxController;
 import org.olat.core.gui.control.generic.modal.DialogBoxUIFactory;
 import org.olat.core.gui.media.FileMediaResource;
+import org.olat.core.gui.util.CSSHelper;
 import org.olat.core.id.Identity;
 import org.olat.core.id.OLATResourceable;
 import org.olat.core.id.UserConstants;
@@ -66,7 +66,6 @@ import org.olat.core.util.mail.MailContextImpl;
 import org.olat.core.util.mail.MailManager;
 import org.olat.core.util.mail.MailerResult;
 import org.olat.core.util.resource.OresHelper;
-import org.olat.core.util.vfs.LocalFolderImpl;
 import org.olat.core.util.vfs.Quota;
 import org.olat.core.util.vfs.QuotaManager;
 import org.olat.core.util.vfs.callbacks.VFSSecurityCallback;
@@ -193,6 +192,7 @@ public class DropboxScoringViewController extends BasicController {
 		assignedTask = TaskController.getAssignedTask(assessedIdentity, userCourseEnv.getCourseEnvironment(), node);
 		if (assignedTask != null) {
 			myContent.contextPut("assignedtask", assignedTask);
+			myContent.contextPut("taskIcon", CSSHelper.createFiletypeIconCssClassFor(assignedTask));
 			if (!(assignedTask.toLowerCase().endsWith(".html") || assignedTask.toLowerCase().endsWith(".htm") || assignedTask.toLowerCase().endsWith(".txt"))){
 				taskLaunchButton.setTarget("_blank");
 			}
@@ -217,33 +217,16 @@ public class DropboxScoringViewController extends BasicController {
 			File fTaskfolder = new File(FolderConfig.getCanonicalRoot()
 				+ TACourseNode.getTaskFolderPathRelToFolderRoot(userCourseEnv.getCourseEnvironment(), node));
 			if (assignedTask.toLowerCase().endsWith(".html") || assignedTask.toLowerCase().endsWith(".htm") || assignedTask.toLowerCase().endsWith(".txt")) {
-
-				if (getWindowControl().getWindowBackOffice().getWindowManager().isForScreenReader()) {
-					// render content for screenreaders always inline
-					HtmlStaticPageComponent cpc = new HtmlStaticPageComponent("cpc", new LocalFolderImpl(fTaskfolder));
-					cpc.setCurrentURI(assignedTask);
-					
-					removeAsListenerAndDispose(cmc);
-					cmc = new CloseableModalController(getWindowControl(), translate("close"), cpc);
-					listenTo(cmc);
-					
-					cmc.activate();
-				} else {
-					
-					// render content for other users always in iframe
-					removeAsListenerAndDispose(iFrameCtr);
-					iFrameCtr = new IFrameDisplayController(ureq, getWindowControl(), fTaskfolder);
-					listenTo(iFrameCtr);
-					
-					iFrameCtr.setCurrentURI(assignedTask);				
-					
-					removeAsListenerAndDispose(cmc);
-					cmc = new CloseableModalController(getWindowControl(), translate("close"), iFrameCtr.getInitialComponent());
-					listenTo(cmc);
-
-					cmc.activate();
-				}
-
+				// render content for other users always in iframe
+				removeAsListenerAndDispose(iFrameCtr);
+				iFrameCtr = new IFrameDisplayController(ureq, getWindowControl(), fTaskfolder);
+				listenTo(iFrameCtr);
+				iFrameCtr.setCurrentURI(assignedTask);				
+				
+				removeAsListenerAndDispose(cmc);
+				cmc = new CloseableModalController(getWindowControl(), translate("close"), iFrameCtr.getInitialComponent());
+				listenTo(cmc);
+				cmc.activate();
 			} else {
 				ureq.getDispatchResult().setResultingMediaResource(new FileMediaResource(new File(fTaskfolder, assignedTask)));
 			}
@@ -313,7 +296,7 @@ public class DropboxScoringViewController extends BasicController {
 		} else if (source == dialogBoxController) {
 			if (DialogBoxUIFactory.isYesEvent(event) && assignedTask!=null) {
 				//cancel task assignment, and show "no task assigned to user"				
-				removeAssignedTask(userCourseEnv, userCourseEnv.getIdentityEnvironment().getIdentity(), assignedTask);			
+				removeAssignedTask(userCourseEnv, userCourseEnv.getIdentityEnvironment().getIdentity());			
 				//update UI
 				myContent.contextPut("assignedtask", null);
 			}
@@ -325,18 +308,18 @@ public class DropboxScoringViewController extends BasicController {
 	 * @param identity
 	 * @param task
 	 */
-	private void removeAssignedTask(UserCourseEnvironment courseEnv, Identity identity, String task) {
+	private void removeAssignedTask(UserCourseEnvironment courseEnv, Identity identity) {
 		CoursePropertyManager cpm = courseEnv.getCourseEnvironment().getCoursePropertyManager();
 		List<Property> properties = cpm.findCourseNodeProperties(node, identity, null, TaskController.PROP_ASSIGNED);
 		if(properties!=null && properties.size()>0) {
-		  Property propety = (Property)properties.get(0);
+		  Property propety = properties.get(0);
 		  cpm.deleteProperty(propety);
 		  assignedTask = null;
 		}
 	  //removed sampled  				
 		properties = cpm.findCourseNodeProperties(node, null, null, TaskController.PROP_SAMPLED);
 		if(properties!=null && properties.size()>0) {
-		  Property propety = (Property)properties.get(0);
+		  Property propety = properties.get(0);
 		  cpm.deleteProperty(propety);		  
 		}		
 	}

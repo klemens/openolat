@@ -25,6 +25,7 @@
 
 package org.olat.modules.cp;
 
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.UnsupportedEncodingException;
@@ -43,6 +44,7 @@ import org.olat.core.gui.components.tree.GenericTreeModel;
 import org.olat.core.gui.components.tree.GenericTreeNode;
 import org.olat.core.gui.components.tree.TreeNode;
 import org.olat.core.logging.AssertException;
+import org.olat.core.util.Encoder;
 import org.olat.core.util.vfs.VFSLeaf;
 import org.olat.core.util.xml.XMLParser;
 import org.olat.ims.resources.IMSEntityResolver;
@@ -59,13 +61,25 @@ public class CPManifestTreeModel extends GenericTreeModel {
 	private final Map<String,TreeNode> hrefToTreeNode = new HashMap<String,TreeNode>();
 	private Map<String,String> resources; // keys: resource att 'identifier'; values: resource att 'href'
 	private final List<TreeNode> treeNodes = new ArrayList<TreeNode>();
+	private final String identPrefix;
 
 	/**
 	 * Constructor of the content packaging tree model
 	 * @param manifest the imsmanifest.xml file
 	 */
-	CPManifestTreeModel(VFSLeaf manifest) throws IOException {
+	CPManifestTreeModel(VFSLeaf manifest, String identPrefix) throws IOException {
+		this.identPrefix = identPrefix;
 		Document doc = loadDocument(manifest);
+		initDocument(doc);
+	}
+	
+	CPManifestTreeModel(String manifest,  String identPrefix) throws IOException {
+		this.identPrefix = identPrefix;
+		Document doc = loadDocument(manifest);
+		initDocument(doc);
+	}
+	
+	private void initDocument(Document doc) {
 		// get all organization elements. need to set namespace
 		rootElement = doc.getRootElement();
 		String nsuri = rootElement.getNamespace().getURI();
@@ -111,12 +125,10 @@ public class CPManifestTreeModel extends GenericTreeModel {
 		return hrefToTreeNode.get(href);
 	}
 	
-	//fxdiff VCRP-13: cp navigation
 	public List<TreeNode> getFlattedTree() {
 		return new ArrayList<TreeNode>(treeNodes);
 	}
 	
-	//fxdiff VCRP-13: cp navigation
 	public TreeNode getNextNodeWithContent(TreeNode node) {
 		if(node == null) return null;
 		int index = treeNodes.indexOf(node);
@@ -157,12 +169,41 @@ public class CPManifestTreeModel extends GenericTreeModel {
 		gtn.setTitle(title);
 		
 		if (item.getName().equals("organization")) {
+			// Add first level item for organization
 			gtn.setIconCssClass("o_cp_org");
 			gtn.setAccessible(false);
+
+			// Special case check: CP with only one page: hide the page and show it directly under the organization element
+			@SuppressWarnings("unchecked")
+			List<Element> chds = item.elements("item");
+			if (chds.size() == 1) {
+				// check 1: only one child
+				Element childitem = chds.get(0);
+				@SuppressWarnings("unchecked")
+				List<Element> grandChds = childitem.elements("item");
+				if (grandChds.size() == 0) {
+					// check 2: no grand children
+					String identifierref = childitem.attributeValue("identifierref");
+					String href = resources.get(identifierref);
+					if (href != null) {
+						// check 3: a resource is attached to the child
+						// = success, we have a CP with only one page. Use this page and exit
+						XPath meta = rootElement.createXPath("//ns:resource[@identifier='" + identifierref + "']");
+						meta.setNamespaceURIs(nsuris);
+						gtn.setAccessible(true);
+						gtn.setUserObject(href);
+						hrefToTreeNode.put(href, gtn);
+						return gtn;
+					} 
+				}				
+			}
 		} else if (item.getName().equals("item")) {
 			gtn.setIconCssClass("o_cp_item");
 			//set resolved file path directly
 			String identifierref = item.attributeValue("identifierref");
+			if(identifierref != null) {
+				gtn.setIdent("cp" + Encoder.md5hash(identPrefix + identifierref));
+			}
 			XPath meta = rootElement.createXPath("//ns:resource[@identifier='" + identifierref + "']");
 			meta.setNamespaceURIs(nsuris);
 			String href = resources.get(identifierref);
@@ -170,8 +211,9 @@ public class CPManifestTreeModel extends GenericTreeModel {
 				gtn.setUserObject(href);
 				// allow lookup of a treenode given a href so we can quickly adjust the menu if the user clicks on hyperlinks within the text
 				hrefToTreeNode.put(href, gtn);
-			} 
-			else gtn.setAccessible(false);
+			} else {
+				gtn.setAccessible(false);
+			}
 		}
 		
 		@SuppressWarnings("unchecked")
@@ -197,6 +239,25 @@ public class CPManifestTreeModel extends GenericTreeModel {
 			throw e;
 		} catch(Exception e) {
 			throw new IOException("could not read and parse from file " + documentF, e);
+		}
+		finally {
+			IOUtils.closeQuietly(in);
+		}
+		return doc;
+	}
+	
+	private Document loadDocument(String documentStr) throws IOException {
+		InputStream in = null;
+		Document doc = null;
+		try {
+			in = new ByteArrayInputStream(documentStr.getBytes());
+			XMLParser xmlParser = new XMLParser(new IMSEntityResolver());
+			doc = xmlParser.parse(in, false);
+			in.close();
+		} catch (IOException e) {
+			throw e;
+		} catch(Exception e) {
+			throw new IOException("could not read and parse from string " + documentStr, e);
 		}
 		finally {
 			IOUtils.closeQuietly(in);

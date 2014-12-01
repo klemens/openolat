@@ -2,7 +2,9 @@
 ##needs to be delayed otherwise IE6 will crash in non ajax mode
 <script type="text/javascript">
 /* <![CDATA[ */
-	setTimeout(function(){ showMessageBox("info", "$r.translate("info.header")", "$r.get("guiMessage").renderInfo()"); }, 100);
+	setTimeout(function(){
+		showInfoBox("$r.translate("info.header")", "$r.get("guiMessage").renderInfo()");
+	}, 100);
 /* ]]> */
 </script>
 #end
@@ -14,7 +16,7 @@
 		var dialog = showMessageBox("warn", "$r.translate("warn.header")",  "$r.get("guiMessage").renderWarn()");
 		setTimeout(function(){
 			try {
-				jQuery(dialog).dialog('destroy').remove();
+				jQuery(dialog).modal('hide');
 			} catch(e) {
 				//possible if the user has closed the window
 			}

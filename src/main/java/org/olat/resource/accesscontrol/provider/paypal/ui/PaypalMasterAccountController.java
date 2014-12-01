@@ -133,8 +133,8 @@ public class PaypalMasterAccountController extends FormBasicController {
 				currencyEl.select("", true);
 			}
 			
-			vatEnabledEl = uifactory.addCheckboxesHorizontal("vat.enabled", "vat.enabled", formLayout, vatKeys, vatValues, null);
-			vatEnabledEl.addActionListener(this, FormEvent.ONCHANGE);
+			vatEnabledEl = uifactory.addCheckboxesHorizontal("vat.enabled", "vat.enabled", formLayout, vatKeys, vatValues);
+			vatEnabledEl.addActionListener(FormEvent.ONCHANGE);
 			if(acModule.isVatEnabled()) {
 				vatEnabledEl.select(vatKeys[0], true);
 			}

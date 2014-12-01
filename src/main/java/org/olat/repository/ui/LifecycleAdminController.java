@@ -93,8 +93,9 @@ public class LifecycleAdminController extends FormBasicController {
 		columnsModel.addFlexiColumnModel(new StaticFlexiColumnModel("edit", translate(LCCols.edit.i18nKey()), "edit-lifecycle"));
 
 		model = new LifecycleDataModel(columnsModel);
-		tableEl = uifactory.addTableElement(ureq, getWindowControl(), "cycles", model, getTranslator(), formLayout);
+		tableEl = uifactory.addTableElement(getWindowControl(), "cycles", model, getTranslator(), formLayout);
 		tableEl.setRendererType(FlexiTableRendererType.classic);
+		tableEl.setCustomizeColumns(false);
 		
 		createLifeCycle = uifactory.addFormLink("create.lifecycle", formLayout, Link.BUTTON);
 	}
@@ -139,7 +140,7 @@ public class LifecycleAdminController extends FormBasicController {
 		} else if(source == confirmDeleteCtrl) {
 			if(DialogBoxUIFactory.isOkEvent(event) || DialogBoxUIFactory.isYesEvent(event)) {
 				RepositoryEntryLifecycle lifecycle = (RepositoryEntryLifecycle)confirmDeleteCtrl.getUserObject();
-				doDelete(ureq, lifecycle);
+				doDelete(lifecycle);
 			}
 		} else if(source == cmc) {
 			cleanUp();
@@ -167,7 +168,7 @@ public class LifecycleAdminController extends FormBasicController {
 		confirmDeleteCtrl.setUserObject(lifecycle);
 	}
 	
-	private void doDelete(UserRequest ureq, RepositoryEntryLifecycle lifecycle) {
+	private void doDelete(RepositoryEntryLifecycle lifecycle) {
 		reLifecycleDao.deleteLifecycle(lifecycle);
 		reloadModel();
 	}

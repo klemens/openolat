@@ -23,20 +23,18 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
-import org.olat.basesecurity.SecurityGroup;
+import org.olat.basesecurity.Group;
 import org.olat.core.commons.fullWebApp.LayoutMain3ColsController;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.Component;
 import org.olat.core.gui.components.link.Link;
 import org.olat.core.gui.components.link.LinkFactory;
 import org.olat.core.gui.components.panel.Panel;
-import org.olat.core.gui.components.stack.StackedController;
-import org.olat.core.gui.components.stack.StackedControllerAware;
+import org.olat.core.gui.components.stack.TooledStackedPanel;
 import org.olat.core.gui.components.tree.GenericTreeModel;
 import org.olat.core.gui.components.tree.MenuTree;
 import org.olat.core.gui.components.tree.TreeEvent;
 import org.olat.core.gui.components.tree.TreeNode;
-import org.olat.core.gui.components.velocity.VelocityContainer;
 import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.Event;
 import org.olat.core.gui.control.WindowControl;
@@ -61,12 +59,12 @@ import org.olat.resource.OLATResource;
  * @author srosse, stephane.rosse@frentix.com, http://www.frentix.com
  *
  */
-public class QTI12StatisticsToolController extends BasicController implements StackedControllerAware, Activateable2 {
+public class QTI12StatisticsToolController extends BasicController implements Activateable2 {
 
 	private MenuTree courseTree;
 	private final Link statsButton;
 	private Controller currentCtrl;
-	private StackedController stackPanel;
+	private final TooledStackedPanel stackPanel;
 	private LayoutMain3ColsController layoutCtr;
 
 	private final ArchiveOptions options;
@@ -76,9 +74,11 @@ public class QTI12StatisticsToolController extends BasicController implements St
 
 	private final QTIStatisticSearchParams searchParams;
 	
-	public QTI12StatisticsToolController(UserRequest ureq, WindowControl wControl, CourseEnvironment courseEnv,
+	public QTI12StatisticsToolController(UserRequest ureq, WindowControl wControl, 
+			TooledStackedPanel stackPanel, CourseEnvironment courseEnv,
 			AssessmentToolOptions asOptions, QTICourseNode courseNode) {
 		super(ureq, wControl);
+		this.stackPanel = stackPanel;
 		this.options = new ArchiveOptions();
 		this.options.setGroup(asOptions.getGroup());
 		this.options.setIdentities(asOptions.getIdentities());
@@ -87,22 +87,18 @@ public class QTI12StatisticsToolController extends BasicController implements St
 		
 		searchParams = new QTIStatisticSearchParams(courseRes.getResourceableId(), courseNode.getIdent());
 		if(asOptions.getGroup() != null) {
-			List<SecurityGroup> secGroups = Collections.singletonList(asOptions.getGroup().getPartipiciantGroup());
-			searchParams.setLimitToSecGroups(secGroups);
+			List<Group> bGroups = Collections.singletonList(asOptions.getGroup().getBaseGroup());
+			searchParams.setLimitToGroups(bGroups);
 		} else if(asOptions.getAlternativeToIdentities() != null) {
 			AlternativeToIdentities alt = asOptions.getAlternativeToIdentities();
 			searchParams.setMayViewAllUsersAssessments(alt.isMayViewAllUsersAssessments());
-			searchParams.setLimitToSecGroups(alt.getSecGroups());
+			searchParams.setLimitToGroups(alt.getGroups());
 		}
 		
-		VelocityContainer mainVC = createVelocityContainer("stats_button");
-		statsButton = LinkFactory.createButton("menu.title", mainVC, this);
-		putInitialPanel(mainVC);
-	}
-	
-	@Override
-	public void setStackedController(StackedController stackPanel) {
-		this.stackPanel = stackPanel;
+		statsButton = LinkFactory.createButton("menu.title", null, this);
+		statsButton.setTranslator(getTranslator());
+		putInitialPanel(statsButton);
+		getInitialComponent().setSpanAsDomReplaceable(true); // override to wrap panel as span to not break link layout 
 	}
 
 	@Override
@@ -146,7 +142,7 @@ public class QTI12StatisticsToolController extends BasicController implements St
 	private void doSelectNode(UserRequest ureq, TreeNode selectedNode) {
 		removeAsListenerAndDispose(currentCtrl);
 		WindowControl swControl = addToHistory(ureq, OresHelper.createOLATResourceableInstance(selectedNode.getIdent(), 0l), null);
-		currentCtrl = result.getController(ureq, swControl, selectedNode);
+		currentCtrl = result.getController(ureq, swControl, stackPanel, selectedNode);
 		if(currentCtrl != null) {
 			listenTo(currentCtrl);
 			layoutCtr.setCol3(currentCtrl.getInitialComponent());
@@ -177,7 +173,7 @@ public class QTI12StatisticsToolController extends BasicController implements St
 		courseTree.setTreeModel(treeModel);
 		courseTree.addListener(this);
 		
-		layoutCtr = new LayoutMain3ColsController(ureq, wControl, courseTree, null, new Panel("empty"), null);
+		layoutCtr = new LayoutMain3ColsController(ureq, wControl, courseTree, new Panel("empty"), null);
 		stackPanel.pushController("Stats", layoutCtr);
 	}
 }

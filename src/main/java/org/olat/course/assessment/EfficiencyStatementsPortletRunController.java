@@ -57,6 +57,7 @@ import org.olat.core.gui.translator.Translator;
 import org.olat.core.id.Identity;
 import org.olat.core.id.context.BusinessControl;
 import org.olat.core.id.context.BusinessControlFactory;
+import org.olat.core.util.StringHelper;
 import org.olat.core.util.event.GenericEventListener;
 import org.olat.course.CourseModule;
 import org.olat.course.assessment.model.UserEfficiencyStatementLight;
@@ -96,11 +97,12 @@ public class EfficiencyStatementsPortletRunController extends AbstractPortletRun
 		this.efficiencyStatementsVC = this.createVelocityContainer("efficiencyStatementsPortlet");
 		
 		showAllLink = LinkFactory.createLink("efficiencyStatementsPortlet.showAll", efficiencyStatementsVC, this);		
+		showAllLink.setIconRightCSS("o_icon o_icon_start");
 		
 		TableGuiConfiguration tableConfig = new TableGuiConfiguration();
 		tableConfig.setTableEmptyMessage(trans.translate("efficiencyStatementsPortlet.nostatements"));
 		tableConfig.setDisplayTableHeader(false);
-		tableConfig.setCustomCssClass("b_portlet_table");
+		tableConfig.setCustomCssClass("o_portlet_table");
 		tableConfig.setDisplayRowCount(false);
 		tableConfig.setPageingEnabled(false);
 		tableConfig.setDownloadOffered(false);
@@ -142,7 +144,9 @@ public class EfficiencyStatementsPortletRunController extends AbstractPortletRun
   private List<PortletEntry<UserEfficiencyStatementLight>> convertEfficiencyStatementToPortletEntryList(List<UserEfficiencyStatementLight> items) {
 		List<PortletEntry<UserEfficiencyStatementLight>> convertedList = new ArrayList<PortletEntry<UserEfficiencyStatementLight>>();
 		for(UserEfficiencyStatementLight item:items) {
-			convertedList.add(new EfficiencyStatementPortletEntry(item));
+			if(StringHelper.containsNonWhitespace(item.getShortTitle())) {
+				convertedList.add(new EfficiencyStatementPortletEntry(item));
+			}
 		}
 		return convertedList;
 	}
@@ -151,20 +155,19 @@ public class EfficiencyStatementsPortletRunController extends AbstractPortletRun
 	 * 
 	 * @see org.olat.core.gui.control.generic.portal.AbstractPortletRunController#reloadModel(org.olat.core.gui.UserRequest, org.olat.core.gui.control.generic.portal.SortingCriteria)
 	 */
-  protected void reloadModel(SortingCriteria sortingCriteria) {
-  	if (sortingCriteria.getSortingType() == SortingCriteria.AUTO_SORTING) {
-  		EfficiencyStatementManager esm = EfficiencyStatementManager.getInstance();
-  		List<UserEfficiencyStatementLight> efficiencyStatementsList = esm.findEfficiencyStatementsLight(getIdentity());
+	protected void reloadModel(SortingCriteria sortingCriteria) {
+		if (sortingCriteria.getSortingType() == SortingCriteria.AUTO_SORTING) {
+			EfficiencyStatementManager esm = EfficiencyStatementManager.getInstance();
+			List<UserEfficiencyStatementLight> efficiencyStatementsList = esm.findEfficiencyStatementsLight(getIdentity());
 
-  		efficiencyStatementsList = getSortedList(efficiencyStatementsList, sortingCriteria);  		
-  		List<PortletEntry<UserEfficiencyStatementLight>> entries = convertEfficiencyStatementToPortletEntryList(efficiencyStatementsList);
-  		efficiencyStatementsListModel = new EfficiencyStatementsTableDataModel(entries,2);
-  		tableCtr.setTableDataModel(efficiencyStatementsListModel);
-  		tableCtr.setTableDataModel(efficiencyStatementsListModel);
+			efficiencyStatementsList = getSortedList(efficiencyStatementsList, sortingCriteria);  		
+			List<PortletEntry<UserEfficiencyStatementLight>> entries = convertEfficiencyStatementToPortletEntryList(efficiencyStatementsList);
+			efficiencyStatementsListModel = new EfficiencyStatementsTableDataModel(entries,2);
+			tableCtr.setTableDataModel(efficiencyStatementsListModel);
 		} else {
-			reloadModel(this.getPersistentManuallySortedItems());
+			reloadModel(getPersistentManuallySortedItems());
 		}
-  }
+	}
 	
   /**
    * 
@@ -207,7 +210,7 @@ public class EfficiencyStatementsPortletRunController extends AbstractPortletRun
 					ControllerCreator ctrlCreator = new ControllerCreator() {
 						public Controller createController(UserRequest lureq, WindowControl lwControl) {
 							EfficiencyStatementController efficiencyCtrl = new EfficiencyStatementController(lwControl, lureq, efficiencyStatement.getCourseRepoKey());
-							return new LayoutMain3ColsController(lureq, getWindowControl(), null, null, efficiencyCtrl.getInitialComponent(), null);
+							return new LayoutMain3ColsController(lureq, getWindowControl(), efficiencyCtrl);
 						}					
 					};
 					//wrap the content controller into a full header layout
@@ -287,17 +290,22 @@ public class EfficiencyStatementsPortletRunController extends AbstractPortletRun
 		return new Comparator<UserEfficiencyStatementLight>(){			
 			public int compare(final UserEfficiencyStatementLight s1, final UserEfficiencyStatementLight s2) {	
 				int comparisonResult = 0;
-			  if(sortingCriteria.getSortingTerm()==SortingCriteria.ALPHABETICAL_SORTING) {			  	
-			  	comparisonResult = collator.compare(s1.getShortTitle(), s2.getShortTitle());			  		  	
-			  } else if(sortingCriteria.getSortingTerm()==SortingCriteria.DATE_SORTING) {
-			  	comparisonResult = s1.getLastModified().compareTo(s2.getLastModified());
-			  } 
-			  if(!sortingCriteria.isAscending()) {
-			  	//if not isAscending return (-comparisonResult)			  	
-			  	return -comparisonResult;
-			  }
-			  return comparisonResult;
-			}};
+				if(sortingCriteria.getSortingTerm()==SortingCriteria.ALPHABETICAL_SORTING) {			  	
+					String st1 = s1.getShortTitle();
+					String st2 = s2.getShortTitle();
+					if(st2 == null) return -1;
+					if(st1 == null) return 1;
+					comparisonResult = collator.compare(st1, st2);			  		  	
+				} else if(sortingCriteria.getSortingTerm()==SortingCriteria.DATE_SORTING) {
+					comparisonResult = s1.getLastModified().compareTo(s2.getLastModified());
+				} 
+				if(!sortingCriteria.isAscending()) {
+					//if not isAscending return (-comparisonResult)			  	
+					return -comparisonResult;
+				}
+				return comparisonResult;
+			}
+		};
 	}
   
   /**
@@ -330,7 +338,7 @@ public class EfficiencyStatementsPortletRunController extends AbstractPortletRun
   	}
   	
   	public UserEfficiencyStatementLight getEfficiencyStatementAt(int row) {
-  		return (UserEfficiencyStatementLight)getObject(row).getValue();
+  		return getObject(row).getValue();
   	}
   }
   
@@ -356,7 +364,7 @@ public class EfficiencyStatementsPortletRunController extends AbstractPortletRun
 		 */
 		public final Object getValueAt(int row, int col) {			
 			PortletEntry<UserEfficiencyStatementLight> entry = getObject(row);
-			UserEfficiencyStatementLight statement = (UserEfficiencyStatementLight)entry.getValue();
+			UserEfficiencyStatementLight statement = entry.getValue();
 			switch (col) {
 				case 0:					
 					return statement.getShortTitle();

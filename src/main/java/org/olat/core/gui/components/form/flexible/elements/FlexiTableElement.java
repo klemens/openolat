@@ -25,12 +25,17 @@
 */ 
 package org.olat.core.gui.components.form.flexible.elements;
 
+import java.util.List;
 import java.util.Set;
 
+import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.form.flexible.FormItem;
 import org.olat.core.gui.components.form.flexible.impl.elements.table.ExtendedFlexiTableSearchController;
 import org.olat.core.gui.components.form.flexible.impl.elements.table.FlexiColumnModel;
+import org.olat.core.gui.components.form.flexible.impl.elements.table.FlexiTableComponent;
+import org.olat.core.gui.components.form.flexible.impl.elements.table.FlexiTableComponentDelegate;
 import org.olat.core.gui.components.form.flexible.impl.elements.table.FlexiTableRendererType;
+import org.olat.core.gui.components.velocity.VelocityContainer;
 
 /**
  * 
@@ -38,6 +43,14 @@ import org.olat.core.gui.components.form.flexible.impl.elements.table.FlexiTable
 public interface FlexiTableElement extends FormItem {
 
 	public static final String ROM_SELECT_EVENT = "rSelect";
+	
+	@Override
+	public FlexiTableComponent getComponent();
+	
+	
+	public FlexiTableStateEntry getStateEntry();
+	
+	public void setStateEntry(UserRequest ureq, FlexiTableStateEntry state);
 	
 	/**
 	 * @return the type of renderer used by  this table
@@ -49,6 +62,26 @@ public interface FlexiTableElement extends FormItem {
 	 * @param rendererType
 	 */
 	public void setRendererType(FlexiTableRendererType rendererType);
+	
+	/**
+	 * Set the renderer available
+	 * @param rendererType
+	 */
+	public void setAvailableRendererTypes(FlexiTableRendererType... rendererType);
+	
+	/**
+	 * Set the row renderer used by the custom renderer type.
+	 * @param renderer
+	 * @param componentDelegate
+	 */
+	public void setRowRenderer(VelocityContainer renderer, FlexiTableComponentDelegate componentDelegate);
+	
+	/**
+	 * Set the details renderer used by the classic renderer type.
+	 * @param rowRenderer
+	 * @param componentDelegate
+	 */
+	public void setDetailsRenderer(VelocityContainer rowRenderer, FlexiTableComponentDelegate componentDelegate);
 
 	/**
 	 * @return True if muli selection is enabled
@@ -73,6 +106,14 @@ public interface FlexiTableElement extends FormItem {
 	public void setCustomizeColumns(boolean customizeColumns);
 	
 	/**
+	 * Set the id of the preferences saved on the database.
+	 * 
+	 * @param ureq
+	 * @param id
+	 */
+	public void setAndLoadPersistedPreferences(UserRequest ureq, String id);
+	
+	/**
 	 * @return The CSS selector used to calculate the height of the table
 	 * (datatables variant only)
 	 */
@@ -89,13 +130,22 @@ public interface FlexiTableElement extends FormItem {
 	 * 
 	 * @return
 	 */
-	public int getColumnLabelForDragAndDrop();
+	public int getColumnIndexForDragAndDropLabel();
+	
+	/**
+	 * Show the num of rows, or not
+	 * 
+	 * @param enable
+	 */
+	public void setNumOfRowsEnabled(boolean enable);
 
 	/**
+	 * Setting a value enable the drag and drop on this table. Drag and drop
+	 * is only implemented for the classic voew.
 	 * 
 	 * @param columnLabelForDragAndDrop
 	 */
-	public void setColumnLabelForDragAndDrop(int columnLabelForDragAndDrop);
+	public void setColumnIndexForDragAndDropLabel(int columnLabelForDragAndDrop);
 	
 	/**
 	 * @return true if the links select all / unselect all are enabled
@@ -107,12 +157,6 @@ public interface FlexiTableElement extends FormItem {
 	 * @param enable
 	 */
 	public void setSelectAllEnable(boolean enable);
-	
-	/**
-	 * All rows are selected
-	 * @return
-	 */
-	public boolean isAllSelectedIndex();
 	
 	/**
 	 * Set all selecteds rows
@@ -156,11 +200,18 @@ public interface FlexiTableElement extends FormItem {
 	public String getSelectedFilterValue();
 	
 	/**
-	 * Set the values for the filter and will enable it.
+	 * Set the values for the filter and it will enable it.
 	 * @param keys
 	 * @param values
 	 */
-	public void setFilterKeysAndValues(String labelI18nKey, String[] keys, String[] values);
+	public void setFilters(String label, List<FlexiTableFilter> filters);
+	
+	/**
+	 * 
+	 * @param label
+	 * @param sorts
+	 */
+	public void setSortSettings(FlexiTableSortOptions options);
 	
 	/**
 	 * Enable export
@@ -170,6 +221,10 @@ public interface FlexiTableElement extends FormItem {
 	
 	public void setExportEnabled(boolean enabled);
 	
+	/**
+	 *
+	 * @return True if the table is in editing mode
+	 */
 	public boolean isEditMode();
 
 	/**
@@ -186,12 +241,34 @@ public interface FlexiTableElement extends FormItem {
 	 * 
 	 * @param callout
 	 */
-	public void setExtendedSearchCallout(ExtendedFlexiTableSearchController callout);
+	public void setExtendedSearch(ExtendedFlexiTableSearchController controller);
+	
+	
+	public boolean isExtendedSearchExpanded();
+	
+	/**
+	 * Open the extended search
+	 */
+	public void expandExtendedSearch(UserRequest ureq);
 	
 	/**
 	 * Close the extended search callout if open
 	 */
-	public void closeExtendedSearch();
+	public void collapseExtendedSearch();
+	
+	/**
+	 * Is the details view visible for this particular row?
+	 */
+	public boolean isDetailsExpended(int row);
+	
+	/**
+	 * 
+	 */
+	public void expandDetails(int row);
+	
+	public void collapseDetails(int row);
+	
+	public void collapseAllDetails();
 	
 	/**
 	 * Return the page size
@@ -201,8 +278,28 @@ public interface FlexiTableElement extends FormItem {
 	
 	public void setPageSize(int pageSize);
 	
+	public int getPage();
+	
 	public void setPage(int page);
+	
+	public void quickSearch(UserRequest ureq, String search);
+	
+	public void sort(String sortKey, boolean asc);
 	
 	public void reloadData();
 	
+	public void deselectAll();
+
+	/**
+	 * Set the message displayed when the table is empty and the table header
+	 * and table options such as search, sort etc are hidden. If null (default)
+	 * the empty table is shown.
+	 * 
+	 * @param i18key
+	 */
+	public void setEmtpyTableMessageKey(String i18key);
+	/**
+	 * @return The i18n key for the message to be displayed when the table is empty or NULL when no message should be displayed.
+	 */
+	public String getEmtpyTableMessageKey();
 }

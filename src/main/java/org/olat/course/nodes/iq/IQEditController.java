@@ -45,7 +45,7 @@ import org.olat.core.gui.components.Component;
 import org.olat.core.gui.components.link.Link;
 import org.olat.core.gui.components.link.LinkFactory;
 import org.olat.core.gui.components.panel.Panel;
-import org.olat.core.gui.components.stack.StackedController;
+import org.olat.core.gui.components.stack.BreadcrumbPanel;
 import org.olat.core.gui.components.tabbedpane.TabbedPane;
 import org.olat.core.gui.components.velocity.VelocityContainer;
 import org.olat.core.gui.control.Controller;
@@ -55,6 +55,7 @@ import org.olat.core.gui.control.WindowControl;
 import org.olat.core.gui.control.generic.closablewrapper.CloseableModalController;
 import org.olat.core.gui.control.generic.tabbable.ActivateableTabbableDefaultController;
 import org.olat.core.id.Identity;
+import org.olat.core.id.Roles;
 import org.olat.core.logging.AssertException;
 import org.olat.core.logging.OLog;
 import org.olat.core.logging.Tracing;
@@ -71,7 +72,6 @@ import org.olat.course.assessment.AssessmentHelper;
 import org.olat.course.condition.Condition;
 import org.olat.course.condition.ConditionEditController;
 import org.olat.course.editor.NodeEditController;
-import org.olat.course.groupsandrights.CourseGroupManager;
 import org.olat.course.nodes.AbstractAccessableCourseNode;
 import org.olat.course.nodes.CourseNodeFactory;
 import org.olat.course.nodes.IQSELFCourseNode;
@@ -218,7 +218,7 @@ public class IQEditController extends ActivateableTabbableDefaultController impl
 	private Controller previewLayoutCtr;
 	private CloseableModalController cmc;
 	private Link editTestButton;
-	private final StackedController stackPanel;
+	private final BreadcrumbPanel stackPanel;
 	
 	private final IQManager iqManager;
 
@@ -232,7 +232,7 @@ public class IQEditController extends ActivateableTabbableDefaultController impl
 	 * @param groupMgr
 	 * @param euce
 	 */
-	IQEditController(UserRequest ureq, WindowControl wControl, StackedController stackPanel, ICourse course, IQTESTCourseNode courseNode, CourseGroupManager groupMgr, UserCourseEnvironment euce) {
+	IQEditController(UserRequest ureq, WindowControl wControl, BreadcrumbPanel stackPanel, ICourse course, IQTESTCourseNode courseNode, UserCourseEnvironment euce) {
 		super(ureq, wControl);
 		this.stackPanel = stackPanel;
 		this.moduleConfiguration = courseNode.getModuleConfiguration();
@@ -254,7 +254,7 @@ public class IQEditController extends ActivateableTabbableDefaultController impl
 		if(moduleConfiguration.get(CONFIG_KEY_RENDERMENUOPTION) == null)
 			moduleConfiguration.set(CONFIG_KEY_RENDERMENUOPTION, Boolean.FALSE);
 		
-		init(ureq, groupMgr, wControl);
+		init(ureq, wControl);
 		myContent.contextPut("repEntryTitle", translate("choosenfile.test"));
 		myContent.contextPut("type", type);
 	}
@@ -269,7 +269,7 @@ public class IQEditController extends ActivateableTabbableDefaultController impl
 	 * @param groupMgr
 	 * @param euce
 	 */
-	 IQEditController(UserRequest ureq, WindowControl wControl, StackedController stackPanel, ICourse course, IQSELFCourseNode courseNode, CourseGroupManager groupMgr, UserCourseEnvironment euce) {
+	 IQEditController(UserRequest ureq, WindowControl wControl, BreadcrumbPanel stackPanel, ICourse course, IQSELFCourseNode courseNode , UserCourseEnvironment euce) {
 		super(ureq, wControl);
 		this.stackPanel = stackPanel;
 		this.moduleConfiguration = courseNode.getModuleConfiguration();
@@ -286,7 +286,7 @@ public class IQEditController extends ActivateableTabbableDefaultController impl
 		if (moduleConfiguration.get(CONFIG_KEY_ENABLESUSPEND) == null)
 			moduleConfiguration.set(CONFIG_KEY_ENABLESUSPEND, Boolean.TRUE);
 
-		init(ureq, groupMgr, wControl);
+		init(ureq, wControl);
 		myContent.contextPut("repEntryTitle", translate("choosenfile.self"));
 		myContent.contextPut("type", type);
 	}
@@ -301,7 +301,7 @@ public class IQEditController extends ActivateableTabbableDefaultController impl
 	 * @param groupMgr
 	 * @param euce
 	 */
-	 IQEditController(UserRequest ureq, WindowControl wControl, StackedController stackPanel, ICourse course, IQSURVCourseNode courseNode, CourseGroupManager groupMgr, UserCourseEnvironment euce) {
+	 IQEditController(UserRequest ureq, WindowControl wControl, BreadcrumbPanel stackPanel, ICourse course, IQSURVCourseNode courseNode, UserCourseEnvironment euce) {
 		super(ureq, wControl);
 		this.stackPanel = stackPanel;
 		this.moduleConfiguration = courseNode.getModuleConfiguration();
@@ -321,13 +321,13 @@ public class IQEditController extends ActivateableTabbableDefaultController impl
 			moduleConfiguration.setBooleanEntry(CONFIG_KEY_ALLOW_RELATIVE_LINKS,false);
 		}
 		
-		init(ureq, groupMgr, wControl);
+		init(ureq, wControl);
 		myContent.contextPut("repEntryTitle", translate("choosenfile.surv"));
 		myContent.contextPut("type", type);
 		chooseTestButton.setCustomDisplayText(translate("command.createSurvey"));
 	}
 
-	private void init(UserRequest ureq, CourseGroupManager groupMgr, WindowControl wControl) {		
+	private void init(UserRequest ureq, WindowControl wControl) {		
 		main = new Panel("iqeditpanel");
 		
 		myContent = createVelocityContainer("edit");		
@@ -353,7 +353,7 @@ public class IQEditController extends ActivateableTabbableDefaultController impl
 			if(isOnyx) {
 				setOnyxVariables(re);
 			} else {
-				if (isEditable(ureq.getIdentity(), re)) {
+				if (isEditable(ureq.getIdentity(), ureq.getUserSession().getRoles(), re)) {
 					editTestButton = LinkFactory.createButtonSmall("command.editRepFile", myContent, this);
 				}
 				myContent.contextPut("showOutcomes", Boolean.FALSE);
@@ -363,7 +363,8 @@ public class IQEditController extends ActivateableTabbableDefaultController impl
 			}
 
 			previewLink = LinkFactory.createCustomLink("command.preview", "command.preview", re.getDisplayname(), Link.NONTRANSLATED, myContent, this);
-			previewLink.setCustomEnabledLinkCSS("b_preview");
+			previewLink.setIconLeftCSS("o_icon o_icon-fw o_icon_preview");
+			previewLink.setCustomEnabledLinkCSS("o_preview");
 			previewLink.setTitle(getTranslator().translate("command.preview"));
 		}
 
@@ -383,7 +384,7 @@ public class IQEditController extends ActivateableTabbableDefaultController impl
 		myContent.put("filechoosecreateedit", fcContent);
 		
 		Condition accessCondition = courseNode.getPreConditionAccess();
-		accessibilityCondContr = new ConditionEditController(ureq, getWindowControl(), groupMgr, accessCondition, "accessabilityConditionForm",
+		accessibilityCondContr = new ConditionEditController(ureq, getWindowControl(), accessCondition,
 				AssessmentHelper.getAssessableNodes(course.getEditorTreeModel(), courseNode),euce);		
 		listenTo(accessibilityCondContr);
 
@@ -426,7 +427,7 @@ public class IQEditController extends ActivateableTabbableDefaultController impl
 	 * @param repository entry
 	 * @return
 	 */
-	private boolean isEditable(Identity identity, RepositoryEntry re) {
+	private boolean isEditable(Identity identity, Roles roles, RepositoryEntry re) {
 		boolean isOnyx = OnyxModule.isOnyxTest(re.getOlatResource());
 		if (isOnyx) {
 			return false;
@@ -434,7 +435,7 @@ public class IQEditController extends ActivateableTabbableDefaultController impl
 
 		return (BaseSecurityManager.getInstance().isIdentityPermittedOnResourceable(identity, Constants.PERMISSION_HASROLE, Constants.ORESOURCE_ADMIN)
 				|| RepositoryManager.getInstance().isOwnerOfRepositoryEntry(identity, re)
-				|| RepositoryManager.getInstance().isInstitutionalRessourceManagerFor(re, identity));
+				|| RepositoryManager.getInstance().isInstitutionalRessourceManagerFor(identity, roles, re));
 	}
 
 	/**
@@ -455,7 +456,7 @@ public class IQEditController extends ActivateableTabbableDefaultController impl
 					//not found
 				} else {
 					RepositoryHandler typeToEdit = RepositoryHandlerFactory.getInstance().getRepositoryHandler(re);
-					correctQTIcontroller = typeToEdit.createEditorController(re, ureq, getWindowControl());
+					correctQTIcontroller = typeToEdit.createEditorController(re, ureq, getWindowControl(), null);
 					getWindowControl().pushToMainArea(correctQTIcontroller.getInitialComponent());					
 					listenTo(correctQTIcontroller);
 				}
@@ -479,8 +480,7 @@ public class IQEditController extends ActivateableTabbableDefaultController impl
 			listenTo(searchController);
 			cmc = new CloseableModalController(getWindowControl(), translate("close"), searchController.getInitialComponent(), true, translate("command.chooseRepFile"));
 			cmc.activate();
-		}
-		else if (source == changeTestButton) {//change associated test
+		} else if (source == changeTestButton) {//change associated test
 			if(type.equals(AssessmentInstance.QMD_ENTRY_TYPE_SELF)) {//selftest
 				String[] types = new String[]{TestFileResource.TYPE_NAME};
 				searchController = new ReferencableEntriesSearchController(getWindowControl(), ureq, types, translate("command.chooseTest"));
@@ -493,11 +493,12 @@ public class IQEditController extends ActivateableTabbableDefaultController impl
 				} else {//survey
 					types = new String[]{SurveyFileResource.TYPE_NAME};
 				}
-				//look if there are PASSED entries in changelog
-				//if yes create archive of results and all users can be notified about the changed test configuration
-				String repositorySoftKey = (String) courseNode.getModuleConfiguration().get(IQEditController.CONFIG_KEY_REPOSITORY_SOFTKEY);
-				Long repKey = RepositoryManager.getInstance().lookupRepositoryEntryBySoftkey(repositorySoftKey, true).getKey();
+				
 				RepositoryEntry re = courseNode.getReferencedRepositoryEntry();
+				if(re == null) {
+					showError("error.test.undefined.long", courseNode.getShortTitle());
+					return;
+				}
 				
 				if (moduleConfiguration.get(CONFIG_KEY_TYPE_QTI) == null) {
 					updateQtiType(re);
@@ -512,7 +513,7 @@ public class IQEditController extends ActivateableTabbableDefaultController impl
 							onyxSuccess = surveyDir.listFiles().length;
 						}
 					} else {
-						onyxSuccess = QTIResultManager.getInstance().countResults(course.getResourceableId(), courseNode.getIdent(), repKey);
+						onyxSuccess = QTIResultManager.getInstance().countResults(course.getResourceableId(), courseNode.getIdent(), re.getKey());
 					}
 				}
 				if (moduleConfiguration.get(CONFIG_KEY_TYPE_QTI) != null
@@ -520,9 +521,10 @@ public class IQEditController extends ActivateableTabbableDefaultController impl
 						&& onyxSuccess > 0) {
 					replaceWizard = new IQEditReplaceWizard(ureq, getWindowControl(), course, courseNode, types, learners, null, onyxSuccess, true);
 					replaceWizard.addControllerListener(this);
-					cmc = new CloseableModalController(getWindowControl(), translate("close"), replaceWizard.getInitialComponent());
+					String title = replaceWizard.getAndRemoveWizardTitle();
+					cmc = new CloseableModalController(getWindowControl(), translate("close"), replaceWizard.getInitialComponent(), true, title);
 				} else {
-					List<QTIResult> results = QTIResultManager.getInstance().selectResults(course.getResourceableId(), courseNode.getIdent(), repKey, null, 1);
+					List<QTIResult> results = QTIResultManager.getInstance().selectResults(course.getResourceableId(), courseNode.getIdent(), re.getKey(), null, 1);
 					// test was passed from an user
 					boolean passed = (results != null && results.size() > 0) ? true : false;
 					// test was started and not passed
@@ -555,7 +557,7 @@ public class IQEditController extends ActivateableTabbableDefaultController impl
 			cmc.activate();
 		}
 		else if (source == editTestButton) {
-			CourseNodeFactory.getInstance().launchReferencedRepoEntryEditor(ureq, courseNode);
+			CourseNodeFactory.getInstance().launchReferencedRepoEntryEditor(ureq, getWindowControl(), courseNode);
 		}
 	}
 
@@ -738,7 +740,8 @@ public class IQEditController extends ActivateableTabbableDefaultController impl
 
 				setIQReference(re, moduleConfiguration);
 				previewLink = LinkFactory.createCustomLink("command.preview", "command.preview", re.getDisplayname(), Link.NONTRANSLATED, myContent, this);
-				previewLink.setCustomEnabledLinkCSS("b_preview");
+				previewLink.setIconLeftCSS("o_icon o_icon-fw o_icon_preview");
+				previewLink.setCustomEnabledLinkCSS("o_preview");
 				previewLink.setTitle(getTranslator().translate("command.preview"));
 				myContent.contextPut("dontRenderRepositoryButton", new Boolean(true));
 				// If of type test, get min, max, cut - put in module config and push
@@ -760,7 +763,7 @@ public class IQEditController extends ActivateableTabbableDefaultController impl
 						myContent.contextPut(CONFIG_KEY_MAXSCORE, moduleConfiguration.get(CONFIG_KEY_MAXSCORE));
 						myContent.contextPut(CONFIG_KEY_CUTVALUE, moduleConfiguration.get(CONFIG_KEY_CUTVALUE));
 					}
-					if (isEditable(urequest.getIdentity(), re)) {
+					if (isEditable(urequest.getIdentity(), urequest.getUserSession().getRoles(), re)) {
 						editTestButton = LinkFactory.createButtonSmall("command.editRepFile", myContent, this);
 					}
 				}

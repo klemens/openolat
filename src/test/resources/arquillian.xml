@@ -16,19 +16,12 @@
 			<!-- debugging arguments for javaVm: -Xrunjdwp:transport=dt_socket,address=8787,server=y,suspend=y -->
         </configuration>
     </container>
-    
-	<extension qualifier="selenium">
-		<property name="browserCapabilities">firefox</property>
-		<!-- Path for Firefox if needed
-		<property name="capabilityWebdriverFirefoxBin">/Applications/Firefox.app/Contents/MacOS/firefox-bin</property>
-        -->
-        <!-- Not all tests pass with Chrome (issue with file upload)
-        <property name="browser">*googlechrome</property>
-        -->
-    </extension>
-
-	<extension qualifier="student">
-		<property name="browserCapabilities">firefox</property>
-		<property name="count">100</property>
+   
+	<extension qualifier="webdriver">
+		<property name="browser">firefox</property>
+		<!-- 
+		<property name="dimensions">800x600</property>
+		 -->
 	</extension>
+
 </arquillian>

@@ -29,11 +29,14 @@ import org.olat.core.CoreSpringFactory;
 import org.olat.core.commons.persistence.DefaultResultInfos;
 import org.olat.core.commons.persistence.ResultInfos;
 import org.olat.core.commons.persistence.SortKey;
+import org.olat.core.commons.services.mark.Mark;
 import org.olat.core.commons.services.mark.MarkManager;
 import org.olat.core.gui.UserRequest;
+import org.olat.core.gui.components.Component;
 import org.olat.core.gui.components.form.flexible.FormItem;
 import org.olat.core.gui.components.form.flexible.FormItemContainer;
 import org.olat.core.gui.components.form.flexible.elements.FlexiTableElement;
+import org.olat.core.gui.components.form.flexible.elements.FlexiTableSortOptions;
 import org.olat.core.gui.components.form.flexible.elements.FormLink;
 import org.olat.core.gui.components.form.flexible.impl.FormBasicController;
 import org.olat.core.gui.components.form.flexible.impl.FormEvent;
@@ -42,12 +45,13 @@ import org.olat.core.gui.components.form.flexible.impl.elements.table.CSSIconFle
 import org.olat.core.gui.components.form.flexible.impl.elements.table.DefaultFlexiColumnModel;
 import org.olat.core.gui.components.form.flexible.impl.elements.table.FlexiColumnModel;
 import org.olat.core.gui.components.form.flexible.impl.elements.table.FlexiTableColumnModel;
+import org.olat.core.gui.components.form.flexible.impl.elements.table.FlexiTableComponentDelegate;
 import org.olat.core.gui.components.form.flexible.impl.elements.table.FlexiTableDataModelFactory;
 import org.olat.core.gui.components.form.flexible.impl.elements.table.FlexiTableDataSourceDelegate;
-import org.olat.core.gui.components.form.flexible.impl.elements.table.FlexiTableRendererType;
 import org.olat.core.gui.components.form.flexible.impl.elements.table.SelectionEvent;
 import org.olat.core.gui.components.form.flexible.impl.elements.table.StaticFlexiColumnModel;
 import org.olat.core.gui.components.link.Link;
+import org.olat.core.gui.components.velocity.VelocityContainer;
 import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.Event;
 import org.olat.core.gui.control.WindowControl;
@@ -58,6 +62,7 @@ import org.olat.modules.qpool.QPoolService;
 import org.olat.modules.qpool.QuestionItem;
 import org.olat.modules.qpool.QuestionItemShort;
 import org.olat.modules.qpool.QuestionItemView;
+import org.olat.modules.qpool.QuestionItemView.OrderBy;
 import org.olat.modules.qpool.ui.QuestionItemDataModel.Cols;
 import org.olat.modules.qpool.ui.events.QItemMarkedEvent;
 import org.olat.modules.qpool.ui.events.QItemViewEvent;
@@ -69,33 +74,43 @@ import org.olat.modules.qpool.ui.metadata.ExtendedSearchController;
  * @author srosse, stephane.rosse@frentix.com, http://www.frentix.com
  */
 public abstract class AbstractItemListController extends FormBasicController
-	implements GenericEventListener, FlexiTableDataSourceDelegate<ItemRow> {
+	implements GenericEventListener, FlexiTableDataSourceDelegate<ItemRow>, FlexiTableComponentDelegate {
 
 	private FlexiTableElement itemsTable;
 	private QuestionItemDataModel model;
 	
+	private final String prefsKey;
 	private ExtendedSearchController extendedSearchCtrl;
+	private QuestionItemSummaryController summaryCtrl;
+	private QuestionItemPreviewController previewCtrl;
 	
 	private final MarkManager markManager;
 	protected final QPoolService qpoolService;
 	
 	private EventBus eventBus;
-	private QuestionItemsSource source;
+	private QuestionItemsSource itemsSource;
 	
 	public AbstractItemListController(UserRequest ureq, WindowControl wControl, QuestionItemsSource source, String key) {
 		super(ureq, wControl, "item_list");
 
-		this.source = source;
+		this.prefsKey = key;
+		this.itemsSource = source;
 		markManager = CoreSpringFactory.getImpl(MarkManager.class);
 		qpoolService = CoreSpringFactory.getImpl(QPoolService.class);
 
 		eventBus = ureq.getUserSession().getSingleUserEventCenter();
 		eventBus.registerFor(this, getIdentity(), QuestionPoolMainEditorController.QITEM_MARKED);
 		
-		extendedSearchCtrl = new ExtendedSearchController(ureq, getWindowControl(), key);
+		extendedSearchCtrl = new ExtendedSearchController(ureq, getWindowControl(), key, mainForm);
+		extendedSearchCtrl.setEnabled(false);
 		listenTo(extendedSearchCtrl);
 		
 		initForm(ureq);
+		
+		summaryCtrl = new QuestionItemSummaryController(ureq, getWindowControl(), mainForm);
+		listenTo(summaryCtrl);
+		previewCtrl = new QuestionItemPreviewController(ureq, getWindowControl());
+		listenTo(previewCtrl);
 	}
 
 	@Override
@@ -107,51 +122,64 @@ public abstract class AbstractItemListController extends FormBasicController
 	protected void initForm(FormItemContainer formLayout, Controller listener, UserRequest ureq) {
 		//add the table
 		FlexiTableColumnModel columnsModel = FlexiTableDataModelFactory.createFlexiTableColumnModel();
-		columnsModel.addFlexiColumnModel(new DefaultFlexiColumnModel(Cols.mark.i18nKey(), Cols.mark.ordinal(), true, "marked"));
+		columnsModel.addFlexiColumnModel(new StaticFlexiColumnModel("quickview", "<i class='o_icon o_icon_quickview'> </i>", "quick-view"));
+		columnsModel.addFlexiColumnModel(new DefaultFlexiColumnModel(Cols.mark.i18nKey(), Cols.mark.ordinal(), true, OrderBy.marks.name()));
 		columnsModel.addFlexiColumnModel(new DefaultFlexiColumnModel(true, Cols.editable.i18nKey(), Cols.editable.ordinal(),
 				false, null, FlexiColumnModel.ALIGNMENT_LEFT,
 				new BooleanCellRenderer(
-						new CSSIconFlexiCellRenderer("o_readwrite"),
-						new CSSIconFlexiCellRenderer("o_readonly"))
+						new CSSIconFlexiCellRenderer("o_icon_readwrite"),
+						new CSSIconFlexiCellRenderer("o_icon_readonly"))
 		));
-		columnsModel.addFlexiColumnModel(new DefaultFlexiColumnModel(false, Cols.key.i18nKey(), Cols.key.ordinal(), true, "key"));
-		columnsModel.addFlexiColumnModel(new DefaultFlexiColumnModel(false, Cols.identifier.i18nKey(), Cols.identifier.ordinal(), true, "identifier"));
-		columnsModel.addFlexiColumnModel(new DefaultFlexiColumnModel(Cols.title.i18nKey(), Cols.title.ordinal(), true, "title"));
-		columnsModel.addFlexiColumnModel(new DefaultFlexiColumnModel(false, Cols.creationDate.i18nKey(), Cols.creationDate.ordinal(), true, "creationDate"));
-		columnsModel.addFlexiColumnModel(new DefaultFlexiColumnModel(false, Cols.lastModified.i18nKey(), Cols.lastModified.ordinal(), true, "lastModified"));
-		columnsModel.addFlexiColumnModel(new DefaultFlexiColumnModel(false, Cols.keywords.i18nKey(), Cols.keywords.ordinal(), true, "keywords"));
-		columnsModel.addFlexiColumnModel(new DefaultFlexiColumnModel(false, Cols.coverage.i18nKey(), Cols.coverage.ordinal(), true, "coverage"));
-		columnsModel.addFlexiColumnModel(new DefaultFlexiColumnModel(false, Cols.additionalInfos.i18nKey(), Cols.additionalInfos.ordinal(), true, "additionalInformations"));
-		columnsModel.addFlexiColumnModel(new DefaultFlexiColumnModel(Cols.taxnonomyLevel.i18nKey(), Cols.taxnonomyLevel.ordinal(), true, "taxonomyLevel"));
-		columnsModel.addFlexiColumnModel(new DefaultFlexiColumnModel(false, Cols.difficulty.i18nKey(), Cols.difficulty.ordinal(), true, "difficulty"));
-		columnsModel.addFlexiColumnModel(new DefaultFlexiColumnModel(false, Cols.stdevDifficulty.i18nKey(), Cols.stdevDifficulty.ordinal(), true, "stdevDifficulty"));
-		columnsModel.addFlexiColumnModel(new DefaultFlexiColumnModel(false, Cols.differentiation.i18nKey(), Cols.differentiation.ordinal(), true, "differentiation"));
-		columnsModel.addFlexiColumnModel(new DefaultFlexiColumnModel(false, Cols.numOfAnswerAlternatives.i18nKey(), Cols.numOfAnswerAlternatives.ordinal(), true, "numOfAnswerAlternatives"));
-		columnsModel.addFlexiColumnModel(new DefaultFlexiColumnModel(false, Cols.usage.i18nKey(), Cols.usage.ordinal(), true, "usage"));
-		columnsModel.addFlexiColumnModel(new DefaultFlexiColumnModel(Cols.type.i18nKey(), Cols.type.ordinal(), true, "itemType"));
-		columnsModel.addFlexiColumnModel(new DefaultFlexiColumnModel(Cols.format.i18nKey(), Cols.format.ordinal(), true, "format"));
-		columnsModel.addFlexiColumnModel(new DefaultFlexiColumnModel(Cols.rating.i18nKey(), Cols.rating.ordinal(), true, "rating"));
-		columnsModel.addFlexiColumnModel(new DefaultFlexiColumnModel(false, Cols.itemVersion.i18nKey(), Cols.itemVersion.ordinal(), true, "itemVersion"));
-		columnsModel.addFlexiColumnModel(new DefaultFlexiColumnModel(Cols.status.i18nKey(), Cols.status.ordinal(), true, "status"));
+		columnsModel.addFlexiColumnModel(new DefaultFlexiColumnModel(false, Cols.key.i18nKey(), Cols.key.ordinal(), true, OrderBy.key.name()));
+		columnsModel.addFlexiColumnModel(new DefaultFlexiColumnModel(false, Cols.identifier.i18nKey(), Cols.identifier.ordinal(), true, OrderBy.identifier.name()));
+		columnsModel.addFlexiColumnModel(new DefaultFlexiColumnModel(Cols.title.i18nKey(), Cols.title.ordinal(), true, OrderBy.title.name()));
+		columnsModel.addFlexiColumnModel(new DefaultFlexiColumnModel(false, Cols.creationDate.i18nKey(), Cols.creationDate.ordinal(), true, OrderBy.creationDate.name()));
+		columnsModel.addFlexiColumnModel(new DefaultFlexiColumnModel(false, Cols.lastModified.i18nKey(), Cols.lastModified.ordinal(), true, OrderBy.lastModified.name()));
+		columnsModel.addFlexiColumnModel(new DefaultFlexiColumnModel(false, Cols.keywords.i18nKey(), Cols.keywords.ordinal(), true, OrderBy.keywords.name()));
+		columnsModel.addFlexiColumnModel(new DefaultFlexiColumnModel(false, Cols.coverage.i18nKey(), Cols.coverage.ordinal(), true, OrderBy.coverage.name()));
+		columnsModel.addFlexiColumnModel(new DefaultFlexiColumnModel(false, Cols.additionalInfos.i18nKey(), Cols.additionalInfos.ordinal(), true,  OrderBy.additionalInformations.name()));
+		columnsModel.addFlexiColumnModel(new DefaultFlexiColumnModel(Cols.taxnonomyLevel.i18nKey(), Cols.taxnonomyLevel.ordinal(), true, OrderBy.taxonomyLevel.name()));
+		columnsModel.addFlexiColumnModel(new DefaultFlexiColumnModel(false, Cols.difficulty.i18nKey(), Cols.difficulty.ordinal(), true, OrderBy.difficulty.name()));
+		columnsModel.addFlexiColumnModel(new DefaultFlexiColumnModel(false, Cols.stdevDifficulty.i18nKey(), Cols.stdevDifficulty.ordinal(), true, OrderBy.stdevDifficulty.name()));
+		columnsModel.addFlexiColumnModel(new DefaultFlexiColumnModel(false, Cols.differentiation.i18nKey(), Cols.differentiation.ordinal(), true, OrderBy.differentiation.name()));
+		columnsModel.addFlexiColumnModel(new DefaultFlexiColumnModel(false, Cols.numOfAnswerAlternatives.i18nKey(), Cols.numOfAnswerAlternatives.ordinal(), true, OrderBy.numOfAnswerAlternatives.name()));
+		columnsModel.addFlexiColumnModel(new DefaultFlexiColumnModel(false, Cols.usage.i18nKey(), Cols.usage.ordinal(), true, OrderBy.usage.name()));
+		columnsModel.addFlexiColumnModel(new DefaultFlexiColumnModel(Cols.type.i18nKey(), Cols.type.ordinal(), true, OrderBy.itemType.name()));
+		columnsModel.addFlexiColumnModel(new DefaultFlexiColumnModel(Cols.format.i18nKey(), Cols.format.ordinal(), true, OrderBy.format.name()));
+		columnsModel.addFlexiColumnModel(new DefaultFlexiColumnModel(Cols.rating.i18nKey(), Cols.rating.ordinal(), true, OrderBy.rating.name()));
+		columnsModel.addFlexiColumnModel(new DefaultFlexiColumnModel(false, Cols.itemVersion.i18nKey(), Cols.itemVersion.ordinal(), true, OrderBy.itemVersion.name()));
+		columnsModel.addFlexiColumnModel(new DefaultFlexiColumnModel(Cols.status.i18nKey(), Cols.status.ordinal(), true, OrderBy.status.name()));
 		columnsModel.addFlexiColumnModel(new StaticFlexiColumnModel("details", translate("details"), "select-item"));
 		
 		model = new QuestionItemDataModel(columnsModel, this, getTranslator());
-		itemsTable = uifactory.addTableElement(ureq, getWindowControl(), "items", model, 50, getTranslator(), formLayout);
-		itemsTable.setWrapperSelector("#qitems");
+		itemsTable = uifactory.addTableElement(getWindowControl(), "items", model, 50, true, getTranslator(), formLayout);
+		itemsTable.setWrapperSelector("qitems");
 		itemsTable.setSelectAllEnable(true);
 		itemsTable.setMultiSelect(true);
 		itemsTable.setSearchEnabled(true);
-		itemsTable.setExtendedSearchCallout(extendedSearchCtrl);
-		itemsTable.setRendererType(FlexiTableRendererType.dataTables);
-		itemsTable.setColumnLabelForDragAndDrop(Cols.title.ordinal());
+		itemsTable.setSortSettings(new FlexiTableSortOptions(true));
+		itemsTable.setExtendedSearch(extendedSearchCtrl);
+		itemsTable.setColumnIndexForDragAndDropLabel(Cols.title.ordinal());
+		itemsTable.setAndLoadPersistedPreferences(ureq, "qpool-list-" + prefsKey);
+		
+		VelocityContainer detailsVC = createVelocityContainer("item_list_details");
+		itemsTable.setDetailsRenderer(detailsVC, this);
 
 		initButtons(ureq, formLayout);
 	}
 	
 	protected abstract void initButtons(UserRequest ureq, FormItemContainer formLayout);
 
-    protected void setSource(QuestionItemsSource source) {
-        this.source = source;
+    @Override
+	public Iterable<Component> getComponents(int rowIndex, Object rowObject) {
+    	List<Component> components = new ArrayList<>(2);
+    	components.add(summaryCtrl.getInitialComponent());
+    	components.add(previewCtrl.getInitialComponent());
+		return components;
+	}
+
+	protected void setSource(QuestionItemsSource source) {
+        this.itemsSource = source;
     }
 	
 	protected FlexiTableElement getItemsTable() {
@@ -171,20 +199,17 @@ public abstract class AbstractItemListController extends FormBasicController
 	}
 	
 	public QuestionItemsSource getSource() {
-		return source;
+		return itemsSource;
 	}
 	
 	public void updateSource(QuestionItemsSource source) {
-		this.source = source;
+		this.itemsSource = source;
 		model.clear();
 		itemsTable.reset();
 	}
 
 	@Override
 	protected void event(UserRequest ureq, Controller source, Event event) {
-		if(source == extendedSearchCtrl) {
-			itemsTable.closeExtendedSearch();
-		}
 		super.event(ureq, source, event);
 	}
 
@@ -208,6 +233,21 @@ public abstract class AbstractItemListController extends FormBasicController
 					if(row != null) {
 						doSelect(ureq, row);
 					}
+				} else if("quick-view".equals(se.getCommand())) {
+					int rowIndex = se.getIndex();
+					if(rowIndex >= 0) {
+						if(itemsTable.isDetailsExpended(rowIndex)) {
+							itemsTable.collapseDetails(rowIndex);
+						} else {
+							itemsTable.collapseAllDetails();
+							itemsTable.expandDetails(rowIndex);
+
+							ItemRow row = getModel().getObject(rowIndex);
+					    	QuestionItem item = qpoolService.loadItemById(row.getKey());
+							summaryCtrl.updateItem(item, false);
+					    	previewCtrl.updateItem(ureq, item);
+						}
+					}
 				}
 			}
 		} else if(source instanceof FormLink) {
@@ -218,9 +258,9 @@ public abstract class AbstractItemListController extends FormBasicController
 			} else if("mark".equals(link.getCmd())) {
 				ItemRow row = (ItemRow)link.getUserObject();
 				if(doMark(row)) {
-					link.setCustomEnabledLinkCSS("b_mark_set");
+					link.setIconLeftCSS(Mark.MARK_CSS_LARGE);
 				} else {
-					link.setCustomEnabledLinkCSS("b_mark_not_set");
+					link.setIconLeftCSS(Mark.MARK_ADD_CSS_LARGE);
 				}
 				link.getComponent().setDirty(true);
 			}
@@ -324,7 +364,7 @@ public abstract class AbstractItemListController extends FormBasicController
 
 	@Override
 	public int getRowCount() {
-		return source.getNumOfItems();
+		return itemsSource.getNumOfItems();
 	}
 
 	@Override
@@ -334,7 +374,7 @@ public abstract class AbstractItemListController extends FormBasicController
 			itemToReload.add(row.getKey());
 		}
 
-		List<QuestionItemView> reloadedItems = source.getItems(itemToReload);
+		List<QuestionItemView> reloadedItems = itemsSource.getItems(itemToReload);
 		List<ItemRow> reloadedRows = new ArrayList<ItemRow>(reloadedItems.size());
 		for(QuestionItemView item:reloadedItems) {
 			ItemRow reloadedRow = forgeRow(item);
@@ -345,7 +385,7 @@ public abstract class AbstractItemListController extends FormBasicController
 
 	@Override
 	public ResultInfos<ItemRow> getRows(String query, List<String> condQueries, int firstResult, int maxResults, SortKey... orderBy) {
-		ResultInfos<QuestionItemView> items = source.getItems(query, condQueries, firstResult, maxResults, orderBy);
+		ResultInfos<QuestionItemView> items = itemsSource.getItems(query, condQueries, firstResult, maxResults, orderBy);
 		List<ItemRow> rows = new ArrayList<ItemRow>(items.getObjects().size());
 		for(QuestionItemView item:items.getObjects()) {
 			ItemRow row = forgeRow(item);
@@ -357,8 +397,8 @@ public abstract class AbstractItemListController extends FormBasicController
 	protected ItemRow forgeRow(QuestionItemView item) {
 		boolean marked = item.isMarked();
 		ItemRow row = new ItemRow(item);
-		FormLink markLink = uifactory.addFormLink("mark_" + row.getKey(), "mark", "&nbsp;&nbsp;&nbsp;&nbsp;", null, null, Link.NONTRANSLATED);
-		markLink.setCustomEnabledLinkCSS(marked ? "b_mark_set" : "b_mark_not_set");
+		FormLink markLink = uifactory.addFormLink("mark_" + row.getKey(), "mark", "&nbsp;", null, null, Link.NONTRANSLATED);
+		markLink.setIconLeftCSS(marked ? Mark.MARK_CSS_LARGE : Mark.MARK_ADD_CSS_LARGE);
 		markLink.setUserObject(row);
 		row.setMarkLink(markLink);
 		return row;

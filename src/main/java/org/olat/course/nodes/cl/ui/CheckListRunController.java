@@ -40,7 +40,7 @@ import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.ControllerEventListener;
 import org.olat.core.gui.control.WindowControl;
 import org.olat.core.gui.control.generic.dtabs.Activateable2;
-import org.olat.core.gui.control.generic.folder.FolderHelper;
+import org.olat.core.gui.util.CSSHelper;
 import org.olat.core.id.OLATResourceable;
 import org.olat.core.id.context.ContextEntry;
 import org.olat.core.id.context.StateEntry;
@@ -49,6 +49,7 @@ import org.olat.core.logging.activity.StringResourceableType;
 import org.olat.core.logging.activity.ThreadLocalUserActivityLogger;
 import org.olat.core.util.Formatter;
 import org.olat.core.util.StringHelper;
+import org.olat.core.util.Util;
 import org.olat.core.util.vfs.VFSContainer;
 import org.olat.core.util.vfs.VFSItem;
 import org.olat.core.util.vfs.VFSLeaf;
@@ -56,6 +57,7 @@ import org.olat.core.util.vfs.VFSMediaResource;
 import org.olat.course.assessment.AssessmentHelper;
 import org.olat.course.auditing.UserNodeAuditManager;
 import org.olat.course.nodes.CheckListCourseNode;
+import org.olat.course.nodes.CourseNode;
 import org.olat.course.nodes.MSCourseNode;
 import org.olat.course.nodes.cl.CheckboxManager;
 import org.olat.course.nodes.cl.model.Checkbox;
@@ -99,7 +101,7 @@ public class CheckListRunController extends FormBasicController implements Contr
 	 */
 	public CheckListRunController(UserRequest ureq, WindowControl wControl, UserCourseEnvironment userCourseEnv,
 			OLATResourceable courseOres, CheckListCourseNode courseNode) {
-		super(ureq, wControl, "run");
+		super(ureq, wControl, "run", Util.createPackageTranslator(CourseNode.class, ureq.getLocale()));
 		
 		this.courseNode = courseNode;
 		this.courseOres = courseOres;
@@ -200,18 +202,17 @@ public class CheckListRunController extends FormBasicController implements Contr
 		
 		String boxId = "box_" + checkbox.getCheckboxId();
 		MultipleSelectionElement el = uifactory
-				.addCheckboxesHorizontal(boxId, null, formLayout, onKeys, values, null);
+				.addCheckboxesHorizontal(boxId, null, formLayout, onKeys, values);
 		el.setEnabled(canCheck && !readOnly);
-		el.addActionListener(this, FormEvent.ONCHANGE);
+		el.addActionListener(FormEvent.ONCHANGE);
 
 		FormLink downloadLink = null;
 		if(StringHelper.containsNonWhitespace(checkbox.getFilename())) {
 			String filename = checkbox.getFilename();
 			String name = "file_" + checkbox.getCheckboxId();
 			downloadLink = uifactory.addFormLink(name, "download", filename, null, formLayout, Link.LINK | Link.NONTRANSLATED);
-			String type = FolderHelper.extractFileType(filename, getLocale());
-			if (!FolderHelper.isKnownFileType(type)) { type = "file"; }
-			downloadLink.setElementCssClass("b_with_small_icon_left b_filetype_" + type);
+			String css = CSSHelper.createFiletypeIconCssClassFor(filename);
+			downloadLink.setIconLeftCSS("o_icon o_icon-fw " + css);
 			((Link)downloadLink.getComponent()).setTarget("_blank");
 		}
 		
@@ -277,21 +278,26 @@ public class CheckListRunController extends FormBasicController implements Contr
 		} else {
 			theOne = wrapper.getDbCheckbox();
 		}
-
-		Float score;
-		if(checked) {
-			score = wrapper.getCheckbox().getPoints();
+		
+		if(theOne == null) {
+			//only warning because this happen in course preview
+			logWarn("A checkbox is missing: " + courseOres + " / " + courseNode.getIdent(), null);
 		} else {
-			score = 0f;
+			Float score;
+			if(checked) {
+				score = wrapper.getCheckbox().getPoints();
+			} else {
+				score = 0f;
+			}
+			checkboxManager.check(theOne, getIdentity(), score, new Boolean(checked));
+			//make sure all results is on the database before calculating some scores
+			//manager commit already DBFactory.getInstance().commit();
+			
+			courseNode.updateScoreEvaluation(userCourseEnv, getIdentity());
+			
+			Checkbox checkbox = wrapper.getCheckbox();
+			logUpdateCheck(checkbox.getCheckboxId(), checkbox.getTitle());
 		}
-		checkboxManager.check(theOne, getIdentity(), score, new Boolean(checked));
-		//make sure all results is on the database before calculating some scores
-		//manager commit already DBFactory.getInstance().commit();
-		
-		courseNode.updateScoreEvaluation(userCourseEnv, getIdentity());
-		
-		Checkbox checkbox = wrapper.getCheckbox();
-		logUpdateCheck(checkbox.getCheckboxId(), checkbox.getTitle());
 		
 		exposeUserDataToVC(flc);
 	}

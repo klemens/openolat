@@ -79,24 +79,21 @@ public class RightsMetadataController extends FormBasicController  {
 		setFormContextHelp("org.olat.modules.qpool.ui.metadata", "rights.html", "help.hover.rights");
 		if(edit) {
 			editLink = uifactory.addFormLink("edit", "edit", null, formLayout, Link.BUTTON_XSMALL);
-			editLink.setCustomEnabledLinkCSS("b_link_left_icon b_link_edit b_small");
+			editLink.setIconLeftCSS("o_icon o_icon-fw o_icon_edit");
 		}
-		
-		FormLayoutContainer metaCont = FormLayoutContainer.createDefaultFormLayout("metadatas", getTranslator());
-		formLayout.add("metadatas", metaCont);
 		
 		String authorListPage = velocity_root + "/author_list.html";
 		authorCont = FormLayoutContainer.createCustomFormLayout("owners", getTranslator(), authorListPage);
 		authorCont.setLabel("rights.owners", null);
-		metaCont.add(authorCont);
+		formLayout.add(authorCont);
 		authorCont.setRootForm(mainForm);
 		
 		String[] keys = new String[]{ "on" };
 		String[] values = new String[]{ "" };
-		copyrightEl = uifactory.addCheckboxesHorizontal("rights.copyright", "rights.copyright", metaCont, keys, values, null);
+		copyrightEl = uifactory.addCheckboxesHorizontal("rights.copyright", "rights.copyright", formLayout, keys, values);
 		copyrightEl.setEnabled(false);
 	
-		descriptionEl = uifactory.addStaticTextElement("rights.description", "", metaCont);
+		descriptionEl = uifactory.addStaticTextElement("rights.description", "", formLayout);
 	}
 	
 	public void setItem(QuestionItem item) {

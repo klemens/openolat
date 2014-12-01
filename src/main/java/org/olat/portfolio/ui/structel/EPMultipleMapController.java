@@ -29,7 +29,7 @@ import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.Component;
 import org.olat.core.gui.components.link.Link;
 import org.olat.core.gui.components.link.LinkFactory;
-import org.olat.core.gui.components.panel.Panel;
+import org.olat.core.gui.components.panel.StackedPanel;
 import org.olat.core.gui.components.velocity.VelocityContainer;
 import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.Event;
@@ -90,7 +90,7 @@ public class EPMultipleMapController extends BasicController implements Activate
 	private EPMapViewController mapViewCtrl;
 	private EPShareListController shareListController;
 	private CloseableModalController shareBox;
-	private Panel myPanel;
+	private StackedPanel myPanel;
 	
 	private final EPMapRunViewOption option;
 	private final Identity mapOwner;
@@ -204,7 +204,7 @@ public class EPMultipleMapController extends BasicController implements Activate
 			
 			if(currentPageNum < pageCount){
 				forwardLink = LinkFactory.createCustomLink("forwardLink", "pagingFWD", "table.forward", Link.LINK, vC, this);
-				forwardLink.setCustomEnabledLinkCSS("b_map_page_forward");
+				forwardLink.setIconRightCSS("o_icon o_icon_next_page");
 			}
 		}
 
@@ -228,7 +228,8 @@ public class EPMultipleMapController extends BasicController implements Activate
 				Link vLink = LinkFactory.createCustomLink(VIEW_LINK_PREFIX + i, "viewMap" + map.getResourceableId(), "view.map",
 						Link.LINK, vC, this);
 				vLink.setUserObject(map);
-				vLink.setCustomEnabledLinkCSS("b_with_small_icon_right b_open_icon");
+				vLink.setElementCssClass("o_sel_ep_open_map");
+				vLink.setIconRightCSS("o_icon o_icon-fw o_icon_start");
 				
 				//can always try to delete your own map, but exercise only if the course was deleted
 				vC.remove(vC.getComponent(DELETE_LINK_PREFIX + i)); // remove as update could require hiding it
@@ -242,13 +243,13 @@ public class EPMultipleMapController extends BasicController implements Activate
 				
 				if (addDeleteLink) {
 					final Link dLink = LinkFactory.createCustomLink(DELETE_LINK_PREFIX + i, "delMap" + map.getResourceableId(), "delete.map", Link.LINK, vC, this);
-					dLink.setCustomEnabledLinkCSS("b_with_small_icon_left b_delete_icon");
+					dLink.setIconLeftCSS("o_icon o_icon-fw o_icon_delete_item");
 					dLink.setUserObject(map);
 				}
 				
 				Link cLink = LinkFactory.createCustomLink(COPY_LINK_PREFIX + i, "copyMap" + map.getResourceableId(), "copy.map",
 						Link.LINK, vC, this);
-				cLink.setCustomEnabledLinkCSS("b_with_small_icon_left b_copy_icon");
+				cLink.setIconLeftCSS("o_icon o_icon_copy");
 				cLink.setUserObject(map);
 				// its not allowed to copy maps from a portfolio-task
 				if (map instanceof EPStructuredMap) {
@@ -259,7 +260,7 @@ public class EPMultipleMapController extends BasicController implements Activate
 				if(myMaps && secCallback.canShareMap()) {
 					Link shareLink = LinkFactory.createCustomLink(SHARE_LINK_PREFIX + i, "shareMap" + map.getResourceableId(), "map.share",
 							Link.LINK, vC, this);
-					shareLink.setCustomEnabledLinkCSS("b_with_small_icon_left b_share_icon");
+					shareLink.setIconLeftCSS("o_icon o_icon-fw o_icon_share");
 					shareLink.setUserObject(map);
 					boolean shared = ePFMgr.isMapShared(map);
 					if(shared || (map instanceof EPStructuredMap && ((EPStructuredMap)map).getTargetResource() != null)) {
@@ -420,7 +421,7 @@ public class EPMultipleMapController extends BasicController implements Activate
 		listenTo(shareListController);
 
 		String title = translate("map.share");
-		shareBox = new CloseableModalController(getWindowControl(), title, shareListController.getInitialComponent());
+		shareBox = new CloseableModalController(getWindowControl(), "close", shareListController.getInitialComponent(), true, title);
 		//shareBox.setInitialWindowSize(800, 600);
 		listenTo(shareBox);
 		shareBox.activate();

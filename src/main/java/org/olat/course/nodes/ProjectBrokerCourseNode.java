@@ -40,7 +40,8 @@ import org.olat.core.commons.modules.bc.FolderConfig;
 import org.olat.core.commons.modules.bc.vfs.OlatRootFolderImpl;
 import org.olat.core.commons.services.taskexecutor.TaskExecutorManager;
 import org.olat.core.gui.UserRequest;
-import org.olat.core.gui.components.stack.StackedController;
+import org.olat.core.gui.components.stack.BreadcrumbPanel;
+import org.olat.core.gui.components.stack.TooledStackedPanel;
 import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.WindowControl;
 import org.olat.core.gui.control.generic.messages.MessageUIFactory;
@@ -74,14 +75,13 @@ import org.olat.course.editor.CourseEditorEnv;
 import org.olat.course.editor.NodeEditController;
 import org.olat.course.editor.StatusDescription;
 import org.olat.course.export.CourseEnvironmentMapper;
-import org.olat.course.groupsandrights.CourseGroupManager;
 import org.olat.course.nodes.ms.MSEditFormController;
 import org.olat.course.nodes.projectbroker.ProjectBrokerControllerFactory;
 import org.olat.course.nodes.projectbroker.ProjectBrokerCourseEditorController;
 import org.olat.course.nodes.projectbroker.ProjectListController;
 import org.olat.course.nodes.projectbroker.datamodel.ProjectBroker;
 import org.olat.course.nodes.projectbroker.service.ProjectBrokerExportGenerator;
-import org.olat.course.nodes.projectbroker.service.ProjectBrokerManagerFactory;
+import org.olat.course.nodes.projectbroker.service.ProjectBrokerManager;
 import org.olat.course.nodes.ta.DropboxController;
 import org.olat.course.nodes.ta.ReturnboxController;
 import org.olat.course.nodes.ta.TaskController;
@@ -168,12 +168,11 @@ public class ProjectBrokerCourseNode extends GenericCourseNode implements Assess
 	 *      org.olat.core.gui.control.WindowControl, org.olat.course.ICourse)
 	 */
 	@Override
-	public TabbableController createEditController(UserRequest ureq, WindowControl wControl, StackedController stackPanel, ICourse course, UserCourseEnvironment euce) {
+	public TabbableController createEditController(UserRequest ureq, WindowControl wControl, BreadcrumbPanel stackPanel, ICourse course, UserCourseEnvironment euce) {
 		updateModuleConfigDefaults(false);
 		ProjectBrokerCourseEditorController childTabCntrllr = ProjectBrokerControllerFactory.createCourseEditController(ureq, wControl, course, euce, this );
 		CourseNode chosenNode = course.getEditorTreeModel().getCourseNode(euce.getCourseEditorEnv().getCurrentCourseNodeId());
-		CourseGroupManager groupMgr = course.getCourseEnvironment().getCourseGroupManager();
-		NodeEditController editController = new NodeEditController(ureq, wControl, course.getEditorTreeModel(), course, chosenNode, groupMgr, euce, childTabCntrllr);
+		NodeEditController editController = new NodeEditController(ureq, wControl, course.getEditorTreeModel(), course, chosenNode, euce, childTabCntrllr);
 		editController.addControllerListener(childTabCntrllr);
 		return editController;
 	}
@@ -209,7 +208,7 @@ public class ProjectBrokerCourseNode extends GenericCourseNode implements Assess
 					Tracing.createLoggerFor(this.getClass()).warn("Could not create message ID from given nodemcd::" + nodecmd, e);
 				}
 			}
-			controller = ProjectBrokerControllerFactory.createRunController(ureq, wControl,userCourseEnv, ne);
+			controller = ProjectBrokerControllerFactory.createRunController(ureq, wControl,userCourseEnv, this);
 		}
 		Controller wrapperCtrl = TitledWrapperHelper.getWrapper(ureq, wControl, controller, this, "o_projectbroker_icon");
 		return new NodeRunConstructionResult(wrapperCtrl);
@@ -223,7 +222,7 @@ public class ProjectBrokerCourseNode extends GenericCourseNode implements Assess
 	 */
 	@Override
 	public Controller createPreviewController(UserRequest ureq, WindowControl wControl, UserCourseEnvironment userCourseEnv, NodeEvaluation ne) {
-		return ProjectBrokerControllerFactory.createPreviewController(ureq, wControl,userCourseEnv, ne);
+		return ProjectBrokerControllerFactory.createPreviewController(ureq, wControl,userCourseEnv, this);
 	}
 
 	/**
@@ -236,7 +235,7 @@ public class ProjectBrokerCourseNode extends GenericCourseNode implements Assess
 	public Controller createPeekViewRunController(UserRequest ureq, WindowControl wControl, UserCourseEnvironment userCourseEnv,
 			NodeEvaluation ne) {
 		if (ne.isAtLeastOneAccessible()) {
-			Controller peekViewController = ProjectBrokerControllerFactory.createPeekViewRunController(ureq, wControl,userCourseEnv, ne);
+			Controller peekViewController = ProjectBrokerControllerFactory.createPeekViewRunController(ureq, wControl, userCourseEnv, this);
 			return peekViewController;			
 		} else {
 			// use standard peekview
@@ -347,7 +346,8 @@ public class ProjectBrokerCourseNode extends GenericCourseNode implements Assess
 	@Override
 	public void cleanupOnDelete(ICourse course) {
 		CoursePropertyManager cpm = course.getCourseEnvironment().getCoursePropertyManager();
-		Long projectBrokerId = ProjectBrokerManagerFactory.getProjectBrokerManager().getProjectBrokerId(cpm, this);
+		ProjectBrokerManager projectBrokerManager = CoreSpringFactory.getImpl(ProjectBrokerManager.class);
+		Long projectBrokerId = projectBrokerManager.getProjectBrokerId(cpm, this);
 		File fDropBox = new File(FolderConfig.getCanonicalRoot() + DropboxController.getDropboxPathRelToFolderRoot(course.getCourseEnvironment(), this));
 		if (fDropBox.exists()) {
 			FileUtils.deleteDirsAndFiles(fDropBox, true, true);
@@ -356,13 +356,13 @@ public class ProjectBrokerCourseNode extends GenericCourseNode implements Assess
 		if (fReturnBox.exists()) {
 			FileUtils.deleteDirsAndFiles(fReturnBox, true, true);
 		}
-		File attachmentDir = new File(FolderConfig.getCanonicalRoot() + ProjectBrokerManagerFactory.getProjectBrokerManager().getAttachmentBasePathRelToFolderRoot(course.getCourseEnvironment(), this));
+		File attachmentDir = new File(FolderConfig.getCanonicalRoot() + projectBrokerManager.getAttachmentBasePathRelToFolderRoot(course.getCourseEnvironment(), this));
 		if (attachmentDir.exists()) {
 			FileUtils.deleteDirsAndFiles(attachmentDir, true, true);
 		}
 		// Delete project-broker, projects and project-groups
 		if (projectBrokerId != null) {
-			ProjectBrokerManagerFactory.getProjectBrokerManager().deleteProjectBroker(projectBrokerId, course.getCourseEnvironment(), this);
+			projectBrokerManager.deleteProjectBroker(projectBrokerId, course.getCourseEnvironment(), this);
 		}
 		// Delete all properties...
 		cpm.deleteNodeProperties(this, null);
@@ -662,14 +662,15 @@ public class ProjectBrokerCourseNode extends GenericCourseNode implements Assess
 	 *      org.olat.core.gui.control.WindowControl,
 	 *      org.olat.course.run.userview.UserCourseEnvironment)
 	 */
-	public Controller getDetailsEditController(UserRequest ureq, WindowControl wControl, StackedController stackPanel, UserCourseEnvironment userCourseEnvironment) {
+	public Controller getDetailsEditController(UserRequest ureq, WindowControl wControl, BreadcrumbPanel stackPanel, UserCourseEnvironment userCourseEnvironment) {
 		// prepare file component
 		throw new AssertException("ProjectBroker does not support AssessmentTool");
 	}
 
 	/** Factory method to launch course element assessment tools. limitToGroup is optional to skip he the group choose step */
 	@Override
-	public List<Controller> createAssessmentTools(UserRequest ureq, WindowControl wControl, CourseEnvironment courseEnv, AssessmentToolOptions options) {
+	public List<Controller> createAssessmentTools(UserRequest ureq, WindowControl wControl, TooledStackedPanel stackPanel,
+			CourseEnvironment courseEnv, AssessmentToolOptions options) {
 		List<Controller> tools = new ArrayList<>(1);
 		tools.add(new BulkAssessmentToolController(ureq, wControl, courseEnv, this));
 		return tools;
@@ -683,36 +684,27 @@ public class ProjectBrokerCourseNode extends GenericCourseNode implements Assess
 		CoursePropertyManager propMgr = userCourseEnvironment.getCourseEnvironment().getCoursePropertyManager();
 		List<Property> samples = propMgr.findCourseNodeProperties(this, identity, null, TaskController.PROP_ASSIGNED);
 		if (samples.size() == 0) return null; // no sample assigned yet
-		return ((Property) samples.get(0)).getStringValue();
+		return samples.get(0).getStringValue();
 	}
 
-	/**
-	 * @see org.olat.course.nodes.AssessableCourseNode#getDetailsListViewHeaderKey()
-	 */
+	@Override
 	public String getDetailsListViewHeaderKey() {
 		return "table.header.details.ta";
 	}
 
-	/**
-	 * @see org.olat.course.nodes.AssessableCourseNode#hasDetails()
-	 */
+	@Override
 	public boolean hasDetails() {
 		Boolean hasDropbox = (Boolean) getModuleConfiguration().get(CONF_DROPBOX_ENABLED);
 		if (hasDropbox == null) hasDropbox = Boolean.FALSE;
 		return  hasDropbox.booleanValue();
 	}
 
-	/**
-	 * @see org.olat.course.nodes.GenericCourseNode#importNode(java.io.File,
-	 *      org.olat.course.ICourse, org.olat.core.gui.UserRequest,
-	 *      org.olat.core.gui.control.WindowControl)
-	 */
 	@Override
-	public Controller importNode(File importDirectory, ICourse course, boolean unattendedImport, UserRequest ureq, WindowControl wControl) {
-		ProjectBroker projectBroker = ProjectBrokerManagerFactory.getProjectBrokerManager().createAndSaveProjectBroker();
+	public void importNode(File importDirectory, ICourse course, Identity owner, Locale locale) {
+		ProjectBrokerManager projectBrokerManager = CoreSpringFactory.getImpl(ProjectBrokerManager.class);
+		ProjectBroker projectBroker = projectBrokerManager.createAndSaveProjectBroker();
 		CoursePropertyManager cpm = course.getCourseEnvironment().getCoursePropertyManager();
-		ProjectBrokerManagerFactory.getProjectBrokerManager().saveProjectBrokerId(projectBroker.getKey(), cpm, this);
-		return null;
+		projectBrokerManager.saveProjectBrokerId(projectBroker.getKey(), cpm, this);
 	}
 	
 	@Override

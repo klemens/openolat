@@ -157,7 +157,6 @@ public class BusinessGroupTableModelWithType extends DefaultTableDataModel<BGTab
 	}
 	
 	@Override
-	//fxdiff VCRP-1,2: access control of resources
 	public Object createCopyWithEmptyList() {
 		return new BusinessGroupTableModelWithType(trans, columnCount);
 	}
@@ -193,7 +192,7 @@ public class BusinessGroupTableModelWithType extends DefaultTableDataModel<BGTab
 		if(bgKey == null) return;
 		
 		for(int i=objects.size(); i-->0; ) {
-			BGTableItem wrapped = (BGTableItem)objects.get(i);
+			BGTableItem wrapped = objects.get(i);
 			if(bgKey.equals(wrapped.getBusinessGroupKey())) {
 				objects.remove(i);
 				return;

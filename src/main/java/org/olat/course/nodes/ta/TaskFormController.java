@@ -103,7 +103,7 @@ public class TaskFormController extends FormBasicController {
 	protected void initForm(FormItemContainer formLayout, Controller listener, UserRequest ureq) {
 		// add the "optional message for users" rich text input element
 		optionalText = uifactory.addRichTextElementForStringDataMinimalistic("form.task.text", "form.task.text", (String)config
-				.get(TACourseNode.CONF_TASK_TEXT), 10, -1, formLayout, ureq.getUserSession(), getWindowControl());
+				.get(TACourseNode.CONF_TASK_TEXT), 10, -1, formLayout, getWindowControl());
 
 		// add the task type radio buttons
 		String taskType = (String) this.config.get(TACourseNode.CONF_TASK_TYPE);
@@ -115,7 +115,7 @@ public class TaskFormController extends FormBasicController {
 		} else {
 			this.type.select(TaskController.TYPE_MANUAL, true);
 		}
-		this.type.addActionListener(this, FormEvent.ONCLICK);
+		this.type.addActionListener(FormEvent.ONCLICK);
 
 		// add the preview radio buttons
 		Boolean taskPreview = Boolean.valueOf(false);// per default no preview
@@ -131,7 +131,7 @@ public class TaskFormController extends FormBasicController {
 		} else {
 			this.preview.select(TaskController.WITHOUT_PREVIEW, true);
 		}
-		this.preview.addActionListener(this, FormEvent.ONCLICK);
+		this.preview.addActionListener(FormEvent.ONCLICK);
 		
 	  // add the deselect radio buttons
 		Boolean taskDeselect = Boolean.valueOf(false);// per default no deselect possible

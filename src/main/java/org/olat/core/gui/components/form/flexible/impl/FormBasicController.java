@@ -33,7 +33,7 @@ import org.olat.core.gui.components.form.flexible.FormItem;
 import org.olat.core.gui.components.form.flexible.FormItemContainer;
 import org.olat.core.gui.components.form.flexible.FormUIFactory;
 import org.olat.core.gui.components.form.flexible.elements.InlineElement;
-import org.olat.core.gui.components.panel.Panel;
+import org.olat.core.gui.components.panel.StackedPanel;
 import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.Disposable;
 import org.olat.core.gui.control.Event;
@@ -71,16 +71,21 @@ import org.olat.core.logging.activity.ThreadLocalUserActivityLoggerInstaller;
  */
 public abstract class FormBasicController extends BasicController {
 
+	
 	public static final int LAYOUT_DEFAULT = 0;
 	public static final int LAYOUT_HORIZONTAL = 1;
 	public static final int LAYOUT_VERTICAL = 2;
 	public static final int LAYOUT_CUSTOM = 3;
+	public static final int LAYOUT_BAREBONE = 4;
+	public static final int LAYOUT_PANEL = 5;
+	public static final int LAYOUT_DEFAULT_6_6 = 6;
+	public static final int LAYOUT_DEFAULT_9_3 = 6;
 
 	protected FormLayoutContainer flc;
 
 	protected Form mainForm;
 
-	protected Panel initialPanel;
+	protected StackedPanel initialPanel;
 
 	protected FormUIFactory uifactory = FormUIFactory.getInstance();
 	
@@ -148,6 +153,22 @@ public abstract class FormBasicController extends BasicController {
 			flc = FormLayoutContainer.createVerticalFormLayout("ffo_vertical", getTranslator());		
 			mainForm = Form.create(mainFormId, "ffo_main_vertical", flc, this);
 
+		} else if (layout == LAYOUT_BAREBONE) {
+			// init with bare bone layout
+			flc = FormLayoutContainer.createBareBoneFormLayout("ffo_barebone", getTranslator());		
+			mainForm = Form.create(mainFormId, "ffo_main_barebone", flc, this);
+			
+		} else if (layout == LAYOUT_PANEL) {
+			// init with panel layout
+			flc = FormLayoutContainer.createPanelFormLayout("ffo_panel", getTranslator());		
+			mainForm = Form.create(mainFormId, "ffo_main_panel", flc, this);
+		} else if (layout == LAYOUT_DEFAULT_6_6) {
+			flc = FormLayoutContainer.createDefaultFormLayout_6_6("ffo_default_6_6", getTranslator());
+			mainForm = Form.create(mainFormId, "ffo_main_default_6_6", flc, this);
+		} else if (layout == LAYOUT_DEFAULT_9_3) {
+			// init with panel layout
+			flc = FormLayoutContainer.createDefaultFormLayout_9_3("ffo_default_9_3", getTranslator());		
+			mainForm = Form.create(mainFormId, "ffo_main_default_9_3", flc, this);
 		} else if (layout == LAYOUT_CUSTOM) {
 			throw new AssertException("Use another constructor to work with a custom layout!");
 
@@ -169,6 +190,22 @@ public abstract class FormBasicController extends BasicController {
 			// init with vertical layout
 			flc = FormLayoutContainer.createVerticalFormLayout("ffo_vertical", getTranslator());		
 
+		} else if (layout == LAYOUT_BAREBONE) {
+			// init with vertical layout
+			flc = FormLayoutContainer.createBareBoneFormLayout("ffo_barebone", getTranslator());		
+
+		} else if (layout == LAYOUT_PANEL) {
+			// init with panel layout
+			flc = FormLayoutContainer.createPanelFormLayout("ffo_panel", getTranslator());		
+
+		} else if (layout == LAYOUT_DEFAULT_6_6) {
+			// init with default layout
+			flc = FormLayoutContainer.createDefaultFormLayout_6_6("ffo_panel", getTranslator());
+		
+		} else if (layout == LAYOUT_DEFAULT_9_3) {
+			// init with default layout
+			flc = FormLayoutContainer.createDefaultFormLayout_9_3("ffo_panel", getTranslator());
+		
 		} else if (layout == LAYOUT_CUSTOM && customLayoutPageName != null) {
 			// init with provided layout
 			String vc_pageName = velocity_root + "/" + customLayoutPageName + ".html";
@@ -194,10 +231,24 @@ public abstract class FormBasicController extends BasicController {
 	protected void constructorInit(String mainFormId, String pageName) {
 		String ffo_pagename = null;
 		if (pageName != null) {
-			// init with provided layout
-			String vc_pageName = velocity_root + "/" + pageName + ".html";
-			ffo_pagename = "ffo_" + pageName;
-			flc = FormLayoutContainer.createCustomFormLayout(ffo_pagename, getTranslator(), vc_pageName);
+			if(pageName.endsWith(".html")) {
+				// init with provided layout
+				ffo_pagename = "ffo_" + pageName.replace("/", "_");
+				flc = FormLayoutContainer.createCustomFormLayout(ffo_pagename, getTranslator(), pageName);
+			} else if(pageName.equals("form_horizontal")) {
+					// init with provided layout
+					ffo_pagename = "ffo_" + pageName.replace("/", "_");					
+					flc = FormLayoutContainer.createHorizontalFormLayout(ffo_pagename, getTranslator());
+			} else if(pageName.equals("form_vertical")) {
+				// init with provided layout
+				ffo_pagename = "ffo_" + pageName.replace("/", "_");
+				flc = FormLayoutContainer.createVerticalFormLayout(ffo_pagename, getTranslator());
+			} else {
+				// init with provided layout
+				String vc_pageName = velocity_root + "/" + pageName + ".html";
+				ffo_pagename = "ffo_" + pageName;
+				flc = FormLayoutContainer.createCustomFormLayout(ffo_pagename, getTranslator(), vc_pageName);
+			}
 		} else {
 			// init with default layout
 			ffo_pagename="ffo_default";
@@ -314,30 +365,30 @@ public abstract class FormBasicController extends BasicController {
 				// Set container dirty to remove potentially rendered error messages. Do
 				// this before calling formOK() to let formOK override the dirtiness
 				// flag
-				this.flc.setDirty(true);
+				flc.setDirty(true);
 				formOK(ureq);
 			} else if (event == org.olat.core.gui.components.form.Form.EVNT_VALIDATION_NEXT) {
 				// Set container dirty to remove potentially rendered error messages. Do
 				// this before calling formOK() to let formOK override the dirtiness
 				// flag
-				this.flc.setDirty(true);
+				flc.setDirty(true);
 				formNext(ureq);
 			} else if (event == org.olat.core.gui.components.form.Form.EVNT_VALIDATION_FINISH) {
 				// Set container dirty to remove potentially rendered error messages. Do
 				// this before calling formOK() to let formOK override the dirtiness
 				// flag
-				this.flc.setDirty(true);
+				flc.setDirty(true);
 				formFinish(ureq);
 			} else if (event == org.olat.core.gui.components.form.Form.EVNT_VALIDATION_NOK) {
 				// Set container dirty to rendered error messages. Do this before calling
 				// formNOK() to let formNOK override the dirtiness flag
-				this.flc.setDirty(true);
+				flc.setDirty(true);
 				formNOK(ureq);
 			} else if (event == FormEvent.RESET) {
 				// Set container dirty to render everything from scratch, remove error
 				// messages. Do this before calling
 				// formResetted() to let formResetted override the dirtiness flag
-				this.flc.setDirty(true);
+				flc.setDirty(true);
 				formResetted(ureq);
 			} else if (event instanceof FormEvent) {
 				FormEvent fe = (FormEvent) event;
@@ -366,6 +417,9 @@ public abstract class FormBasicController extends BasicController {
 		// check for InlineElments remove as the tag library has been replaced
 		if(fiSrc instanceof InlineElement){
 			if(!((InlineElement) fiSrc).isInlineEditingElement()){ //OO-137
+				//the container need to be redrawn because every form item element
+				//is made of severals components. If a form item is set to invisible
+				//the layout which glue the different components stay visible
 				flc.setDirty(true);
 			}
 		}
@@ -379,9 +433,9 @@ public abstract class FormBasicController extends BasicController {
 	 */
 	protected void setFormTitle(String i18nKey) {
 		if (i18nKey == null) {
-			this.flc.contextRemove("off_title");
+			flc.contextRemove("off_title");
 		} else {
-			this.flc.contextPut("off_title", getTranslator().translate(i18nKey));			
+			flc.contextPut("off_title", getTranslator().translate(i18nKey));			
 		}
 	}
 	/**
@@ -393,9 +447,21 @@ public abstract class FormBasicController extends BasicController {
 	 */
 	protected void setFormTitle(String i18nKey, String[] args) {
 		if (i18nKey == null) {
-			this.flc.contextRemove("off_title");
+			flc.contextRemove("off_title");
 		} else {
-			this.flc.contextPut("off_title", getTranslator().translate(i18nKey, args));
+			flc.contextPut("off_title", getTranslator().translate(i18nKey, args));
+		}
+	}
+	
+	/**
+	 * Set an optional icon by giving the necessary css classes
+	 * @param iconCss 
+	 */
+	protected void setFormTitleIconCss(String iconCss) {
+		if (iconCss == null) {
+			flc.contextRemove("off_icon");
+		} else {
+			flc.contextPut("off_icon", iconCss);
 		}
 	}
 
@@ -407,9 +473,9 @@ public abstract class FormBasicController extends BasicController {
 	 */
 	protected void setFormDescription(String i18nKey) {
 		if (i18nKey == null) {
-			this.flc.contextRemove("off_desc");
+			flc.contextRemove("off_desc");
 		} else {
-			this.flc.contextPut("off_desc", getTranslator().translate(i18nKey));
+			flc.contextPut("off_desc", getTranslator().translate(i18nKey));
 		}
 	}
 
@@ -422,9 +488,9 @@ public abstract class FormBasicController extends BasicController {
 	 */
 	protected void setFormDescription(String i18nKey, String[] args) {
 		if (i18nKey == null) {
-			this.flc.contextRemove("off_desc");
+			flc.contextRemove("off_desc");
 		} else {
-			this.flc.contextPut("off_desc", getTranslator().translate(i18nKey, args));
+			flc.contextPut("off_desc", getTranslator().translate(i18nKey, args));
 		}
 	}
 
@@ -437,9 +503,9 @@ public abstract class FormBasicController extends BasicController {
 	 */
 	protected void setFormWarning (String i18nKey, String[] args) {
 		if (i18nKey == null) {
-			this.flc.contextRemove("off_warn");
+			flc.contextRemove("off_warn");
 		} else {
-			this.flc.contextPut("off_warn", getTranslator().translate(i18nKey, args));
+			flc.contextPut("off_warn", getTranslator().translate(i18nKey, args));
 		}
 	}
 	
@@ -452,9 +518,9 @@ public abstract class FormBasicController extends BasicController {
 	protected void setFormWarning (String i18nKey) {
 		this.flc.contextRemove("off_info");
 		if (i18nKey == null) {
-			this.flc.contextRemove("off_warn");
+			flc.contextRemove("off_warn");
 		} else {
-			this.flc.contextPut("off_warn", getTranslator().translate(i18nKey));
+			flc.contextPut("off_warn", getTranslator().translate(i18nKey));
 		}
 	}
 	
@@ -465,11 +531,11 @@ public abstract class FormBasicController extends BasicController {
 	 */
 	
 	public void setFormInfo (String i18nKey) {
-		this.flc.contextRemove("off_warn");
+		flc.contextRemove("off_warn");
 		if (i18nKey == null) {
-			this.flc.contextRemove("off_info");
+			flc.contextRemove("off_info");
 		} else {
-			this.flc.contextPut("off_info", getTranslator().translate(i18nKey));
+			flc.contextPut("off_info", getTranslator().translate(i18nKey));
 		}
 	}
 	
@@ -480,11 +546,11 @@ public abstract class FormBasicController extends BasicController {
 	 */
 	
 	protected void setFormInfo (String i18nKey, String args) {
-		this.flc.contextRemove("off_warn");
+		flc.contextRemove("off_warn");
 		if (i18nKey == null) {
-			this.flc.contextRemove("off_info");
+			flc.contextRemove("off_info");
 		} else {
-			this.flc.contextPut("off_info", getTranslator().translate(i18nKey, new String[]{args}));
+			flc.contextPut("off_info", getTranslator().translate(i18nKey, new String[]{args}));
 		}
 	}
 	
@@ -499,11 +565,11 @@ public abstract class FormBasicController extends BasicController {
 	 */
 	protected void setFormContextHelp(String packageName, String pageName, String hoverTextKey) {
 		if (packageName == null) {
-			this.flc.contextRemove("off_chelp_package");
+			flc.contextRemove("off_chelp_package");
 		} else {
-			this.flc.contextPut("off_chelp_package", packageName);
-			this.flc.contextPut("off_chelp_page", pageName);
-			this.flc.contextPut("off_chelp_hover", hoverTextKey);
+			flc.contextPut("off_chelp_package", packageName);
+			flc.contextPut("off_chelp_page", pageName);
+			flc.contextPut("off_chelp_hover", hoverTextKey);
 		}
 	}
 	
@@ -515,19 +581,16 @@ public abstract class FormBasicController extends BasicController {
 	 */
 	protected void setFormStyle(String cssClassName){
 		if (cssClassName == null){
-			this.flc.contextRemove("off_css_class");
+			flc.contextRemove("off_css_class");
 		} else {
-			this.flc.contextPut("off_css_class", cssClassName);
+			flc.contextPut("off_css_class", cssClassName);
 		}
 	}
-	
-	
+
+	@Override
 	protected void setTranslator(Translator translator) {
 		super.setTranslator(translator);
 		flc.setTranslator(translator);
-		// TODO: translator-fix: mainform is missing the new translator!!
-//		((FormWrapperContainer)mainForm.getInitialComponent()).setTranslator(translator);
-//		mainForm.getFormLayout().setTranslator(translator);
 	}
 
 	/**
@@ -535,7 +598,6 @@ public abstract class FormBasicController extends BasicController {
 	 * @return
 	 */
 	protected boolean validateFormLogic(UserRequest ureq) {
-		// TODO Auto-generated method stub
 		return true;
 	}
 
@@ -565,6 +627,4 @@ public abstract class FormBasicController extends BasicController {
 			}
 		}, getUserActivityLogger());
 	}
-	
-
 }

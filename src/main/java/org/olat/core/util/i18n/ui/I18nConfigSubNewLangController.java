@@ -91,13 +91,12 @@ class I18nConfigSubNewLangController extends FormBasicController {
 	 *      org.olat.core.gui.control.Controller, org.olat.core.gui.UserRequest)
 	 */
 	@Override
-	protected void initForm(FormItemContainer formLayout, @SuppressWarnings("unused") Controller listener,
-			@SuppressWarnings("unused") UserRequest ureq) {
+	protected void initForm(FormItemContainer formLayout, Controller listener, UserRequest ureq) {
 		// New language elements:
 		// A title, displayed in fieldset
 		setFormTitle("configuration.management.create.title");
-		String[] args = new String[] { "<a href='http://www.ics.uci.edu/pub/ietf/http/related/iso639.txt' class='b_link_extern' target='_blank'>ISO639</a>",
-				"<a href='http://www.chemie.fu-berlin.de/diverse/doc/ISO_3166.html' class='b_link_extern' target='_blank'>ISO3166</a>" };
+		String[] args = new String[] { "<a href='http://www.ics.uci.edu/pub/ietf/http/related/iso639.txt' target='_blank'><i class='o_icon o_icon_link_extern'> </i> ISO639</a>",
+				"<a href='http://www.chemie.fu-berlin.de/diverse/doc/ISO_3166.html' target='_blank'><i class='o_icon o_icon_link_extern'> </i> ISO3166</a>" };
 		setFormDescription("configuration.management.create.description", args);
 		//
 		// a) the language code
@@ -107,13 +106,13 @@ class I18nConfigSubNewLangController extends FormBasicController {
 		newLanguage.setMandatory(true);
 		newLanguage.setRegexMatchCheck("[a-z]{2}", "configuration.management.create.language.error");
 		newLanguage.setDisplaySize(2);
-		newLanguage.addActionListener(this, FormEvent.ONCHANGE);
+		newLanguage.addActionListener(FormEvent.ONCHANGE);
 		// b) the country code
 		newCountry = uifactory.addTextElement("configuration.management.create.country", "configuration.management.create.country", 2, "",
 				formLayout);
 		newCountry.setExampleKey("configuration.management.create.country.example", null);
 		newCountry.setRegexMatchCheck("[A-Z]{0,2}", "configuration.management.create.country.error");
-		newCountry.addActionListener(this, FormEvent.ONCHANGE);
+		newCountry.addActionListener(FormEvent.ONCHANGE);
 		newCountry.setDisplaySize(2);
 		// c) the variant, only available when country code is filled out
 		newVariant = uifactory.addTextElement("configuration.management.create.variant", "configuration.management.create.variant", 50, "",

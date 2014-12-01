@@ -1,0 +1,293 @@
+<div class="o_repo_details">
+	<div class="o_lead clearfix">					
+		<h1>
+			<i class="o_icon $cssClass o_icon-lg"></i>
+			$r.escapeHtml($v.displayname)
+			#if($v.getExternalRef())
+				<small>$v.getExternalRef()</small>
+			#end
+		</h1>
+		#if($r.available("thumbnail"))
+		<div class="o_media">
+			$r.render("thumbnail")
+		</div>
+		#end
+		#if($description && $description.length() > 0)
+		<div class="o_desc">
+			$description
+		</div>
+		#end
+	</div>
+
+	<div class="row">
+		<div class="col-xs-12 col-sm-5 col-md-4 pull-right"><div class="row">		
+			<div class="col-xs-6 col-sm-12 o_subcolumn">
+				<div class="o_overview">
+					<h3>$r.translate("details.overview")</h3>
+					#if($v.lifecycle || $v.lifecycle.softKey || $row.lifecycle.start || $row.lifecycle.end)
+					<div title="$r.translateInAttribute("cif.dates")">
+						<i class="o_icon o_icon_lifecycle"></i> 
+						#if($!v.lifecycle.private && $v.lifecycle.softKey) $v.lifecycle.softKey #end
+						#if($v.lifecycle.validFrom) $r.formatDate($v.lifecycle.validFrom) #end
+						#if($v.lifecycle.validTo) - $r.formatDate($v.lifecycle.validTo) #end
+					</div>
+					#end
+					#if($v.expenditureOfWork)
+					<div title="$r.translateInAttribute("details.expenditureOfWork.desc")">
+						<i class="o_icon o_icon_expenditure"></i>  
+						$r.escapeHtml($v.expenditureOfWork)
+					</div>
+					#end
+					#if($v.mainLanguage)
+					<div title="$r.translateInAttribute("cif.mainLanguage")">
+						<i class="o_icon o_icon_language"></i> 
+						$r.escapeHtml($v.mainLanguage)
+					</div>
+					#end
+				</div>
+				
+				#if($r.available("rating") || $r.available("comments"))
+				<div class="o_social o_block">
+					<h4>$r.translate("ratings")</h4>
+					#if($r.available("rating")) $r.render("rating") #end
+					#if($r.available("comments")) $r.render("comments") #end
+				</div>
+				#end
+				
+				#if($v.authors)
+				<div class="o_authors o_block">
+					<h4>$r.translate("cif.authors")</h4>
+					$r.escapeHtml($v.authors)
+				</div>
+				#end
+				
+				#if($categories && $categories.size() > 0)
+				<div class="o_categories o_block">
+					<h4>$r.translate("cif.categories")</h4>
+					<ul class="list-unstyled">
+					#foreach($category in $categories)
+						<li>$r.render($category)</li>
+					#end
+					</ul>
+				</div>
+				#end
+				
+				#if($ac)
+				<div class="o_bookings o_block">
+					<h4>$r.translate("details.orders")</h4>
+					<ul class="list-unstyled">
+					#foreach($ac_type in $ac)
+						<li>
+							<i class='o_icon $ac_type.type o_icon-fw'></i>  
+							$ac_type.displayName
+							#if($ac_type.price && $ac_type.price.length() > 0) ($ac_type.price)#end
+						</li>
+					#end
+					</ul>
+				</div>
+				#end	
+				#if($r.available("start"))
+					$r.render("start")
+				#end
+			</div>
+
+			#if(!$guestOnly)
+			<div class="col-xs-6 col-sm-12 o_subcolumn">
+				<div class="o_personal">
+					<h3>$r.translate("details.personal")</h3>
+					<table class="table"><tbody>
+						#if($passed || $failed)
+						<tr class="o_state #if($passed) o_passed #else o_failed #end">
+							<th>$r.translate("details.label.status")</th>
+							<td>
+							#if($passed)
+								<i class="o_icon o_icon_passed"></i>
+								$r.translate("passed.true")
+							#elseif($failed)
+								<i class="o_icon o_icon_failed"></i>
+								$r.translate("passed.false")
+							#end
+							</td>
+						</tr>
+						#end
+					
+						#if($score) 
+						<tr class="o_score">
+							<th>$r.translate("details.label.score")</th>
+							<td>$score</td> 
+						</tr> 
+						#end			
+		
+						#if($recentLaunch)
+						<tr class="o_recent">					
+							<th>$r.translate("cif.lastusage"):</th>
+							<td>$r.formatDateAndTime($recentLaunch)
+						</tr>
+						#end
+						#if($r.available("mark"))
+						<tr class="o_bookmark">					
+							<th>$r.translate("details.bookmark.label"):</th>
+							<td>$r.render("mark")</td>
+						</tr>
+						#end
+						#if($groups && $groups.size() > 0)
+						<tr class="o_groups">					
+							<th>$r.translate("cif.groups")</th>
+							<td>
+								<ul class="list-unstyled">
+								#foreach($group in $groups)
+									<li>$r.render($group)</li>
+								#end
+								</ul>
+							</td>
+						</tr>
+						#end
+					</tbody>
+					</table>
+				</div>
+			</div>
+			#end
+		</div></div>		
+
+		## START LEFT COLUMN		
+		<div class="col-xs-12 col-sm-7 col-md-8">
+			#if($objectives)
+				<div class="o_objectives clearfix">
+					<h3>$r.translate("cif.objectives")</h3>
+					$objectives
+				</div>
+			#end		
+			#if($requirements)
+				<div class="o_requirements clearfix">
+					<h3>$r.translate("cif.requirements")</h3>
+					$requirements
+				</div>
+			#end
+			#if($credits)
+				<div class="o_credits clearfix">
+					<h3>$r.translate("cif.credits")</h3>
+					$credits
+				</div>
+			#end
+			
+			<div class="panel panel-default">
+				<div class="panel-heading" data-toggle="collapse" data-target="#collapseInfo">
+			    	<h3 class="panel-title">
+						#if ($isGuestAllowed)
+							$r.contextHelpWithWrapper("org.olat.repository","rep-meta-guest.html","help.hover.rep.detail")
+						#else
+							$r.contextHelpWithWrapper("org.olat.repository","rep-meta-learner.html","help.hover.rep.detail")
+						#end
+						$r.translate("details.entryinfoheader")
+			    	</h3>
+				</div>
+				<div id="collapseInfo" class="panel-collapse collapse in">
+					<table class="table table-condensed table-striped"><tbody>
+						<tr><th>$r.translate("cif.id")</th><td>$v.getKey()</td></tr>
+						#if ($roles.isOLATAdmin())		
+						<tr><th>$r.translate("cif.ores_id")</th><td>$v.getOlatResource().getResourceableId()</td></tr>
+						<tr><th>$r.translate("cif.softkey")</th><td>$v.getSoftkey()</td></tr>
+						#end
+						#if($v.getExternalId())
+						<tr><th>$r.translate("cif.externalid")</th><td>$v.getExternalId()</td></tr>
+						#end
+						#if($v.getExternalRef())
+						<tr><th>$r.translate("cif.externalref")</th><td>$v.getExternalRef()</td></tr>
+						#end
+						<tr><th>$r.translate("orderby.creationDate")</th><td>$r.formatDateAndTime($v.getCreationDate())</td></tr>
+						<tr><th>$r.translate("orderby.lastModified")</th><td>$r.formatDateAndTime($v.getLastModified())</td></tr>
+						
+						#if ($isEntryAuthor || $roles.isOLATAdmin() || $roles.isAuthor() || $roles.isInstitutionalResourceManager())		
+						<tr><th>$r.translate("cif.access")</th><td>$accessI18n</td></tr>
+						<tr><th>$r.translate("cif.initialAuthor")</th><td>$v.getInitialAuthor()</td></tr>
+						<tr>
+							<th>$r.translate("cif.owners")</th>
+							<td><ul class="list-unstyled">
+								#foreach($authorlinkname in $authorlinknames)
+									<li>$r.render($authorlinkname)</li>
+								#end
+							</ul></td>
+						</tr>
+						#end
+					</tbody></table>
+					<div class="panel-body">
+						<h5>$r.translate("details.extlinkheader")</h5>
+						<div class="o_copy_code">
+							<a href="javascript:;" id="o_extlink"><i class="o_icon o_icon-lg o_icon-fw o_icon_qrcode"></i></a>
+							$extlink
+							<script type="text/javascript">
+							/* <![CDATA[ */
+								jQuery(function() {
+									o_QRCodePopup('o_extlink', '$extlink', 'right');
+								});
+							/* ]]> */
+							</script>
+						</div>
+						#if ($isGuestAllowed)
+						<div class="o_copy_code">
+							<a href="javascript:;" id="o_extlink2"><i class="o_icon o_icon-lg o_icon-fw o_icon_qrcode"></i></a>
+							${extlink}?guest=true&amp;lang=${userlang}
+							<script type="text/javascript">
+							/* <![CDATA[ */
+								jQuery(function() {
+									o_QRCodePopup('o_extlink2', '${extlink}?guest=true&amp;lang=${userlang}', 'right');
+								});
+							/* ]]> */
+							</script>
+						</div>
+						#end
+					</div>
+				</div>
+			</div>
+
+			#if ($referenceDetails)
+			<div class="panel panel-default">
+				<div class="panel-heading" data-toggle="collapse" data-target="#collapseUsage">
+			    	<h3 class="panel-title">
+						$r.contextHelpWithWrapper("org.olat.repository",'rep-meta-info-reference.html','help.hover.rep.detail')
+						$r.translate("details.referenceinfoheader")
+			    	</h3>
+				</div>
+				<div id="collapseUsage" class="panel-collapse collapse in">
+					<table class="table table-condensed table-striped"><tbody>
+						<tr>
+							<th>$r.translate("details.referenceinfo")</th>
+							<td>$referenceDetails</td>
+						</tr>
+						<tr><th>$r.translate("cif.lastusage")</th><td>$r.formatDateAndTime($v.getStatistics().getLastUsage())</td></tr>
+						<tr><th>$r.translate("cif.usedbycnt")</th><td>$numUsers</td></tr>
+						<tr><th>$r.translate("cif.launched")</th><td>#if ($v.getStatistics().getLaunchCounter()) $v.getStatistics().getLaunchCounter() #else 0 #end</td></tr>
+						<tr><th>$r.translate("cif.downloaded")</th><td>#if ($v.getStatistics().getDowloadCounter()) $v.getStatistics().getDowloadCounter() #else 0 #end</td></tr>
+					</tbody></table>
+				</div>
+			</div>
+			#end
+
+			#if ($v.getManagedFlags().size() > 0)
+			<div class="panel panel-default">
+				<div class="panel-heading" data-toggle="collapse" data-target="#collapseManaged">
+			    	<h3 class="panel-title">
+						$r.contextHelpWithWrapper("org.olat.admin.restapi","managed.html","help.hover.managed")
+						$r.translate("cif.managedflags")
+			    	</h3>
+				</div>
+				<div id="collapseManaged" class="panel-collapse collapse in">
+					<div class="panel-body">
+						$r.translate("managed.resource.intro")
+					</div>
+					<div class="panel-body">
+						<ul>
+						#foreach ($flag in $v.getManagedFlags())
+							<li>$r.translate("managed.flags.course.${flag}")</li>
+						#end
+						</ul>
+					</div>
+				</div>
+			</div>
+			#end
+
+		</div>
+		## END LEFT COLUMN		
+		
+	</div>
+</div>

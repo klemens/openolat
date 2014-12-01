@@ -89,7 +89,7 @@ public class ItemListMySharesController extends AbstractItemListController {
         }
 
         myShareEl = uifactory.addDropdownSingleselect("source.selector", "my.list", formLayout,  myShareKeys, myShareValues, null);
-        myShareEl.addActionListener(this, FormEvent.ONCHANGE);
+        myShareEl.addActionListener(FormEvent.ONCHANGE);
 		if(myPools.isEmpty() && myGroups.isEmpty()) {
 			myShareEl.setEnabled(false);
 		} else {

@@ -142,6 +142,7 @@ public class TableController extends BasicController {
 	private boolean tablePrefsInitialized = false;
 	private CloseableCalloutWindowController cmc;
 	private Controller tableSearchController;
+	private TableSort tableSort;
 
 	private Link resetLink;
 	
@@ -194,10 +195,10 @@ public class TableController extends BasicController {
 		setFilters(filters, activeFilter);
 		
 		if (noFilterOption != null) {
-			this.contentVc.contextPut("noFilterOption", noFilterOption);
-			this.contentVc.contextPut(VC_VAR_USE_NO_FILTER_OPTION, Boolean.TRUE);
+			contentVc.contextPut("noFilterOption", noFilterOption);
+			contentVc.contextPut(VC_VAR_USE_NO_FILTER_OPTION, Boolean.TRUE);
 		} else {
-			this.contentVc.contextPut(VC_VAR_USE_NO_FILTER_OPTION, Boolean.FALSE);
+			contentVc.contextPut(VC_VAR_USE_NO_FILTER_OPTION, Boolean.FALSE);
 		}
 		
 		if (enableTableSearch) {
@@ -235,7 +236,6 @@ public class TableController extends BasicController {
 
 		// propagate table specific configuration to table,
 		// rest of configuration is handled by this controller
-		table.setColumnMovingOffered(tableConfig.isColumnMovingOffered());
 		table.setDisplayTableHeader(tableConfig.isDisplayTableHeader());
 		table.setSelectedRowUnselectable(tableConfig.isSelectedRowUnselectable());
 		table.setSortingEnabled(tableConfig.isSortingEnabled());
@@ -252,7 +252,7 @@ public class TableController extends BasicController {
 		// fetch prefs (which were loaded at login time
 		String preferencesKey = tableConfig.getPreferencesKey();
 		if (tableConfig.isPreferencesOffered() && preferencesKey != null) {
-			this.prefs = (TablePrefs) ureq.getUserSession().getGuiPreferences().get(TableController.class, preferencesKey);
+			prefs = (TablePrefs) ureq.getUserSession().getGuiPreferences().get(TableController.class, preferencesKey);
 		}
 
 		// empty table message
@@ -264,14 +264,22 @@ public class TableController extends BasicController {
 
 		contentVc.contextPut("tableConfig", tableConfig);
 		contentVc.contextPut(VC_VAR_HAS_TABLE_SEARCH, Boolean.FALSE);
+		
+		//sorters
+		contentVc.contextPut("hasSorters", new Boolean(tableConfig.isSortingEnabled()));
+		tableSort = new TableSort("tableSort", table);
+		contentVc.put("tableSort", tableSort);
+		
+		
 
 		//preference + download links
-		preferenceLink = LinkFactory.createCustomLink("prefLink", "cmd.changecols", "", Link.NONTRANSLATED, contentVc, this);
-		preferenceLink.setCustomEnabledLinkCSS("b_table_prefs");
+		preferenceLink = LinkFactory.createCustomLink("prefLink", "cmd.changecols", "", Link.BUTTON | Link.NONTRANSLATED, contentVc, this);
+		preferenceLink.setIconLeftCSS("o_icon o_icon_customize");
 		preferenceLink.setTooltip(translate("command.changecols"));
-		downloadLink = LinkFactory.createCustomLink("downloadLink", "cmd.download", "", Link.NONTRANSLATED, contentVc, this);
+		
+		downloadLink = LinkFactory.createCustomLink("downloadLink", "cmd.download", "", Link.BUTTON | Link.NONTRANSLATED, contentVc, this);
 		downloadLink.setTooltip(translate("table.export.title"));
-		downloadLink.setCustomEnabledLinkCSS("b_table_download");
+		downloadLink.setIconLeftCSS("o_icon o_icon_download");
 		
 		putInitialPanel(contentVc);
 	}
@@ -302,10 +310,11 @@ public class TableController extends BasicController {
 	 */
 	public void event(final UserRequest ureq, final Component source, final Event event) {
 		if (source == table) {
-			boolean aPageingCommand = event.getCommand().equalsIgnoreCase(Table.COMMAND_SHOW_PAGES);
-			aPageingCommand = aPageingCommand || event.getCommand().equalsIgnoreCase(Table.COMMAND_PAGEACTION_SHOWALL);
-			
-			if (!aPageingCommand) {
+			String cmd = event.getCommand();
+			if(cmd.equalsIgnoreCase(Table.COMMAND_SORTBYCOLUMN)) {
+				tableSort.setDirty(true);
+			} else if (!cmd.equalsIgnoreCase(Table.COMMAND_SHOW_PAGES)
+					&& !cmd.equalsIgnoreCase(Table.COMMAND_PAGEACTION_SHOWALL)) {
 				// forward to table controller listener
 				fireEvent(ureq, event);
 			}
@@ -324,13 +333,16 @@ public class TableController extends BasicController {
 		} else if (source == colsChoice) {
 			if (event == Choice.EVNT_VALIDATION_OK) {
 				//sideeffect on table and prefs
-				applyAndcheckChangedColumnsChoice(ureq);
+				applyAndcheckChangedColumnsChoice(ureq, colsChoice.getSelectedRows());
+			} else if (event == Choice.EVNT_FORM_RESETED) {
+				//sideeffect on table and prefs
+				applyAndcheckChangedColumnsChoice(ureq, colsChoice.getAllRows());
 			} else { // cancelled
 				cmc.deactivate();
 			}
 		} else if (source == resetLink) {
-			this.table.setSearchString(null);
-			this.modelChanged();
+			table.setSearchString(null);
+			modelChanged();
 		}
 	}
 
@@ -354,8 +366,7 @@ public class TableController extends BasicController {
 		}
 	}
 
-	private void applyAndcheckChangedColumnsChoice(final UserRequest ureq) {
-		List<Integer> selRows = colsChoice.getSelectedRows();
+	private void applyAndcheckChangedColumnsChoice(final UserRequest ureq, List<Integer> selRows) {
 		if (selRows.size() == 0) {
 			showError("error.selectatleastonecolumn");
 		} else {
@@ -380,10 +391,13 @@ public class TableController extends BasicController {
 
 	private Choice getColumnListAndTheirVisibility() {
 		Choice choice = new Choice("colchoice", getTranslator());
-		choice.setTableDataModel(table.createChoiceTableDataModel());
+		choice.setModel(table.createChoiceModel());
 		choice.addListener(this);
+		choice.setEscapeHtml(false);
 		choice.setCancelKey("cancel");
+		choice.setResetKey("reset");
 		choice.setSubmitKey("save");
+		choice.setElementCssClass("o_table_config");
 		return choice;
 	}
 
@@ -495,15 +509,15 @@ public class TableController extends BasicController {
 		table.modelChanged();
 		TableDataModel tableModel = table.getTableDataModel();
 		if (tableModel != null) {
-			this.contentVc.contextPut("tableEmpty", tableModel.getRowCount() == 0 ? Boolean.TRUE : Boolean.FALSE);
-			this.contentVc.contextPut("numberOfElements", String.valueOf(table.getUnfilteredRowCount()));
+			contentVc.contextPut("tableEmpty", tableModel.getRowCount() == 0 ? Boolean.TRUE : Boolean.FALSE);
+			contentVc.contextPut("numberOfElements", String.valueOf(table.getUnfilteredRowCount()));
 			if (table.isTableFiltered()) {
-				this.contentVc.contextPut("numberFilteredElements", String.valueOf(table.getRowCount()));
-				this.contentVc.contextPut(VC_VAR_IS_FILTERED, Boolean.TRUE); 
-				this.contentVc.contextPut("filter", table.getSearchString());
+				contentVc.contextPut("numberFilteredElements", String.valueOf(table.getRowCount()));
+				contentVc.contextPut(VC_VAR_IS_FILTERED, Boolean.TRUE); 
+				contentVc.contextPut("filter", table.getSearchString());
 				resetLink = LinkFactory.createCustomLink(LINK_NUMBER_OF_ELEMENTS, LINK_NUMBER_OF_ELEMENTS, String.valueOf(table.getUnfilteredRowCount()), Link.NONTRANSLATED, contentVc, this);
 			} else {
-				this.contentVc.contextPut(VC_VAR_IS_FILTERED, Boolean.FALSE); 
+				contentVc.contextPut(VC_VAR_IS_FILTERED, Boolean.FALSE); 
 			}
 		}
 		// else do nothing. The table might have no table data model during
@@ -642,6 +656,7 @@ public class TableController extends BasicController {
 				&& table.getColumnDescriptor(sortColumn).isSortingAllowed()) {
 			table.setSortColumn(sortColumn, isSortAscending);
 			table.resort();
+			tableSort.setDirty(true);
 		}
 	}
 	
@@ -650,6 +665,7 @@ public class TableController extends BasicController {
 			if(sortColumn == table.getColumnDescriptor(i)) {
 				table.setSortColumn(i, isSortAscending);
 				table.resort();
+				tableSort.setDirty(true);
 			}
 		}
 	}

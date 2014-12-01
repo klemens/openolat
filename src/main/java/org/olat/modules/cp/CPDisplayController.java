@@ -92,9 +92,7 @@ public class CPDisplayController extends BasicController implements Activateable
 	private HtmlStaticPageComponent cpComponent;
 	private IFrameDisplayController cpContentCtr;
 	private SearchInputController searchCtrl;
-	private Link nextLink;
-	private Link previousLink;
-	//fxdiff VCRP-14: print cp
+	private Link nextLink, previousLink;
 	private Link printLink;
 	private String mapperBaseURL;
 	private CPPrintMapper printMapper;
@@ -106,15 +104,18 @@ public class CPDisplayController extends BasicController implements Activateable
 	 * @param ureq
 	 * @param cpRoot
 	 * @param showMenu
+	 * @param showNavigation Show the next/previous link
 	 * @param activateFirstPage
+	 * @param identPrefix In a course, set a unique prefix per node, if someone set 2x the same CPs in the course, the node identifiers
+	 * of the CP elements must be different but predictable
 	 */
-	CPDisplayController(UserRequest ureq, WindowControl wControl, VFSContainer rootContainer, boolean showMenu, boolean showNavigation,
-			boolean activateFirstPage, boolean showPrint, DeliveryOptions deliveryOptions, String initialUri, OLATResourceable ores) {
+	public CPDisplayController(UserRequest ureq, WindowControl wControl, VFSContainer rootContainer, boolean showMenu, boolean showNavigation,
+			boolean activateFirstPage, boolean showPrint, DeliveryOptions deliveryOptions, String initialUri, OLATResourceable ores, String identPrefix) {
 		super(ureq, wControl);
 		this.rootContainer = rootContainer;
 
 		// wrapper velocity container for page content
-		this.myContent = createVelocityContainer("cpcontent");
+		myContent = createVelocityContainer("cpcontent");
 		// the cp component, added to the velocity
 		
 		if(!ureq.getUserSession().getRoles().isGuestOnly()) {
@@ -127,16 +128,11 @@ public class CPDisplayController extends BasicController implements Activateable
 		//TODO:gs:a
 		//may add an additional config for disabling, enabling IFrame style or not in CP mode
 		//but always disable IFrame display when in screenreader mode (no matter whether style gets ugly)
-		if (getWindowControl().getWindowBackOffice().getWindowManager().isForScreenReader()) {
-			cpComponent = new HtmlStaticPageComponent("", rootContainer);
-			cpComponent.addListener(this);
-			myContent.put("cpContent", cpComponent);
-		} else {
-			cpContentCtr = new IFrameDisplayController(ureq, getWindowControl(),rootContainer, null, ores, deliveryOptions);
-			cpContentCtr.setAllowDownload(true);
-			listenTo(cpContentCtr);
-			myContent.put("cpContent", cpContentCtr.getInitialComponent());
-		}
+		cpContentCtr = new IFrameDisplayController(ureq, getWindowControl(),rootContainer, null, ores, deliveryOptions);
+		cpContentCtr.setAllowDownload(true);
+		listenTo(cpContentCtr);
+		myContent.put("cpContent", cpContentCtr.getInitialComponent());
+		myContent.contextPut("isIframeDelivered", Boolean.TRUE);
 
 		// even if we do not show the menu, we need to build parse the manifest and
 		// find the first node to display at startup
@@ -147,7 +143,7 @@ public class CPDisplayController extends BasicController implements Activateable
 		}
 		// initialize tree model in any case
 		try {
-			ctm = new CPManifestTreeModel((VFSLeaf) mani);
+			ctm = new CPManifestTreeModel((VFSLeaf) mani, identPrefix);
 		} catch (IOException e) {
 			showError("error.manifest.corrupted");
 			return;
@@ -160,12 +156,12 @@ public class CPDisplayController extends BasicController implements Activateable
 			cpTree.addListener(this);
 		}
 		
-		//fxdiff VCRP-14: print cp
 		if(showPrint) {
-			printLink = LinkFactory.createLink("print", myContent, this);
-			printLink.setCustomEnabledLinkCSS("b_small_icon o_cp_print_icon");
-			printLink.setCustomDisplayText("Print");
-			printLink.setTooltip("print");
+			printLink = LinkFactory.createCustomLink("print", "print", null, Link.LINK + Link.NONTRANSLATED, myContent, this);
+			printLink.setCustomDisplayText("");
+			printLink.setIconLeftCSS("o_icon o_icon-fw o_icon_print o_icon-lg");
+			printLink.setCustomEnabledLinkCSS("o_print");
+			printLink.setTitle(translate("print.node"));
 			
 			String themeBaseUri = wControl.getWindowBackOffice().getWindow().getGuiTheme().getBaseURI();
 			printMapper = new CPPrintMapper(ctm, rootContainer, themeBaseUri);
@@ -173,18 +169,21 @@ public class CPDisplayController extends BasicController implements Activateable
 			printMapper.setBaseUri(mapperBaseURL);
 		}
 		
-		//fxdiff VCRP-13: cp navigation
-		if(showNavigation) {
-			nextLink = LinkFactory.createLink("next", myContent, this);
-			nextLink.setCustomEnabledLinkCSS("b_small_icon o_cp_next_icon");
-			nextLink.setCustomDisplayText("&nbsp;&nbsp;");
-			nextLink.setTooltip("next");
-			previousLink = LinkFactory.createLink("previous", myContent, this);
-			previousLink.setCustomEnabledLinkCSS("b_small_icon o_cp_previous_icon");
-			previousLink.setCustomDisplayText("&nbsp;&nbsp;");
-			previousLink.setTooltip("next");
-		  myContent.put("next", nextLink);
-		  myContent.put("previous", previousLink);
+		if(showNavigation && ctm.getRootNode().getChildCount() > 0) {
+			nextLink = LinkFactory.createCustomLink("next", "next", null, Link.LINK + Link.NONTRANSLATED, myContent, this);
+			nextLink.setCustomDisplayText("");
+			nextLink.setIconLeftCSS("o_icon o_icon-fw o_icon_next o_icon-lg");
+			nextLink.setCustomEnabledLinkCSS("o_next");
+			nextLink.setTitle(translate("next"));
+			
+			previousLink = LinkFactory.createCustomLink("previous", "previous", null, Link.LINK + Link.NONTRANSLATED, myContent, this);
+			previousLink.setCustomDisplayText("");
+			previousLink.setIconLeftCSS("o_icon o_icon-fw o_icon_previous o_icon-lg");
+			previousLink.setCustomEnabledLinkCSS("o_previous");
+			previousLink.setTitle(translate("previous"));
+			
+			myContent.put("next", nextLink);
+			myContent.put("previous", previousLink);
 		}
 
 		LoggingResourceable nodeInfo = null;
@@ -209,13 +208,10 @@ public class CPDisplayController extends BasicController implements Activateable
 				selNodeId = node.getIdent();
 
 				nodeInfo = LoggingResourceable.wrapCpNode(nodeUri);
-				//fxdiff VCRP-13: cp navigation
 				updateNextPreviousLink(node);
-				//fxdiff BAKS-7 Resume function
 				if(node.getUserObject() != null) {
 					String identifierRes = (String)node.getUserObject();
-					Long id = Long.parseLong(node.getIdent());
-					OLATResourceable pOres = OresHelper.createOLATResourceableInstanceWithoutCheck("path=" + identifierRes, id);
+					OLATResourceable pOres = OresHelper.createOLATResourceableInstanceWithoutCheck("path=" + identifierRes, 0l);
 					addToHistory(ureq, pOres, null);
 				}
 			}
@@ -232,9 +228,7 @@ public class CPDisplayController extends BasicController implements Activateable
 				} else {
 					selNodeId = newNode.getIdent();
 				}
-				//fxdiff VCRP-13: cp navigation
 				updateNextPreviousLink(newNode);
-				//fxdiff BAKS-7 Resume function
 				if(newNode.getUserObject() != null) {
 					String identifierRes = (String)newNode.getUserObject();
 					Long id = Long.parseLong(newNode.getIdent());
@@ -261,7 +255,6 @@ public class CPDisplayController extends BasicController implements Activateable
 		if(cpContentCtr != null) {
 			cpContentCtr.setContentEncoding(encoding);
 		}
-		//fxdiff VCRP-14: print cp
 		if(printMapper != null) {
 			printMapper.setContentEncoding(encoding);
 		}
@@ -271,7 +264,6 @@ public class CPDisplayController extends BasicController implements Activateable
 		if(cpContentCtr != null) {
 			cpContentCtr.setJSEncoding(encoding);
 		}
-		//fxdiff VCRP-14: print cp
 		if(printMapper != null) {
 			printMapper.setJSEncoding(encoding);
 		}
@@ -281,7 +273,7 @@ public class CPDisplayController extends BasicController implements Activateable
 	 * @return The menu component for this content packaging. The Controller must
 	 *         be initialized properly to use this method
 	 */
-	Component getMenuComponent() {
+	public Component getMenuComponent() {
 		return cpTree;
 	}
 
@@ -411,7 +403,6 @@ public class CPDisplayController extends BasicController implements Activateable
 		ThreadLocalUserActivityLogger.log(CourseLoggingAction.CP_GET_FILE, getClass(), LoggingResourceable.wrapCpNode(newUri));
 	}
 	
-	//fxdiff VCRP-13: cp navigation
 	public void selectTreeNode(UserRequest ureq, TreeNode newNode) {
 		if (newNode != null) { // user clicked on a link which is listed in the
 			// toc
@@ -426,7 +417,6 @@ public class CPDisplayController extends BasicController implements Activateable
 		}
 	}
 	
-	//fxdiff VCRP-13: cp navigation
 	private void updateNextPreviousLink(TreeNode currentNode) {
 		if(nextLink != null) {
 			TreeNode nextNode = ctm.getNextNodeWithContent(currentNode);
@@ -459,9 +449,7 @@ public class CPDisplayController extends BasicController implements Activateable
 	
 	public void switchToPage(UserRequest ureq, TreeNode tn) {
 		String identifierRes = (String) tn.getUserObject();
-		//fxdiff BAKS-7 Resume function
-		Long id = Long.parseLong(tn.getIdent());
-		OLATResourceable ores = OresHelper.createOLATResourceableInstanceWithoutCheck("path=" + identifierRes, id);
+		OLATResourceable ores = OresHelper.createOLATResourceableInstanceWithoutCheck("path=" + identifierRes, 0l);
 		addToHistory(ureq, ores, null);
 		
 		// security check

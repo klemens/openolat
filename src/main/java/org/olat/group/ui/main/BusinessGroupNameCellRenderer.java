@@ -19,7 +19,15 @@
  */
 package org.olat.group.ui.main;
 
-import org.olat.core.gui.components.table.CustomCssCellRenderer;
+import java.util.Locale;
+
+import org.olat.core.gui.components.form.flexible.impl.elements.table.FlexiCellRenderer;
+import org.olat.core.gui.components.form.flexible.impl.elements.table.FlexiTableComponent;
+import org.olat.core.gui.components.table.CustomCellRenderer;
+import org.olat.core.gui.render.Renderer;
+import org.olat.core.gui.render.StringOutput;
+import org.olat.core.gui.render.URLBuilder;
+import org.olat.core.gui.translator.Translator;
 import org.olat.core.util.StringHelper;
 import org.olat.group.BusinessGroupShort;
 
@@ -29,35 +37,33 @@ import org.olat.group.BusinessGroupShort;
  * 
  * @author srosse, stephane.rosse@frentix.com, http://www.frentix.com
  */
-public class BusinessGroupNameCellRenderer extends CustomCssCellRenderer {
+public class BusinessGroupNameCellRenderer implements CustomCellRenderer, FlexiCellRenderer {
 
-	private static final String cssClass = "b_small_table_icon b_group_icon";
-	private static final String managedCssClass = "b_small_table_icon b_group_icon b_managed_icon";
-	
-	public BusinessGroupNameCellRenderer() {
-		//
-	}
-	
 	@Override
-	protected String getCssClass(Object val) {
-		if(val instanceof BusinessGroupShort) {
-			BusinessGroupShort group = (BusinessGroupShort)val;
-			return group.getManagedFlags().length == 0 ? cssClass : managedCssClass;
+	public void render(Renderer renderer, StringOutput sb, Object cellValue,
+			int row, FlexiTableComponent source, URLBuilder ubu, Translator translator) {
+		if(cellValue instanceof BusinessGroupShort) {
+			render(sb, (BusinessGroupShort)cellValue, renderer);
 		}
-		return cssClass;
 	}
-
+	
 	@Override
-	protected String getCellValue(Object val) {
+	public void render(StringOutput sb, Renderer renderer, Object val, Locale locale,
+			int alignment, String action) {
 		if(val instanceof BusinessGroupShort) {
-			BusinessGroupShort group = (BusinessGroupShort)val;
-			return group.getName() == null ? "" : StringHelper.escapeHtml(group.getName());
+			render(sb, (BusinessGroupShort)val, renderer);		
 		}
-		return val == null ? "" : val.toString();
 	}
-
-	@Override
-	protected String getHoverText(Object val) {
-		return "";
+	
+	private void render(StringOutput sb, BusinessGroupShort group, Renderer renderer) {
+		if(renderer != null) {
+			sb.append("<i class='o_icon o_icon_group'> </i> ");
+			if(group.getManagedFlags() != null && group.getManagedFlags().length > 0) {
+				sb.append("<i class='o_icon o_icon_managed'> </i> ");
+			}
+			sb.append(StringHelper.escapeHtml(group.getName()));
+		} else {
+			sb.append(group.getName());
+		}
 	}
 }

@@ -27,7 +27,8 @@ package org.olat.course.run.glossary;
 
 import java.util.Properties;
 
-import org.olat.basesecurity.BaseSecurityManager;
+import org.olat.basesecurity.GroupRoles;
+import org.olat.core.CoreSpringFactory;
 import org.olat.core.commons.modules.glossary.GlossaryItemManager;
 import org.olat.core.commons.modules.glossary.GlossaryMainController;
 import org.olat.core.commons.modules.glossary.GlossarySecurityCallback;
@@ -36,12 +37,13 @@ import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.Component;
 import org.olat.core.gui.control.WindowControl;
 import org.olat.core.gui.control.generic.textmarker.GlossaryMarkupItemController;
+import org.olat.core.id.OLATResourceable;
 import org.olat.core.util.vfs.VFSContainer;
-import org.olat.course.ICourse;
 import org.olat.course.config.CourseConfig;
 import org.olat.modules.glossary.GlossaryManager;
 import org.olat.repository.RepositoryEntry;
 import org.olat.repository.RepositoryManager;
+import org.olat.repository.RepositoryService;
 
 /**
  * 
@@ -86,7 +88,7 @@ public class CourseGlossaryFactory {
 	 * @param course
 	 * @return
 	 */
-	public static String createGuiPrefsKey(ICourse course) {
+	public static String createGuiPrefsKey(OLATResourceable course) {
 		return "glossary.enabled.course." + course.getResourceableId();
 	}
 
@@ -111,7 +113,9 @@ public class CourseGlossaryFactory {
 				// seems to be removed
 				return null;
 			}
-			boolean owner = BaseSecurityManager.getInstance().isIdentityInSecurityGroup(lureq.getIdentity(), repoEntry.getOwnerGroup());
+
+			RepositoryService repositoryService = CoreSpringFactory.getImpl(RepositoryService.class);
+			boolean owner = repositoryService.hasRole(lureq.getIdentity(), repoEntry, GroupRoles.owner.name());
 			VFSContainer glossaryFolder = GlossaryManager.getInstance().getGlossaryRootFolder(repoEntry.getOlatResource());
 			Properties glossProps = GlossaryItemManager.getInstance().getGlossaryConfig(glossaryFolder);
 			boolean editUsersEnabled =  "true".equals(glossProps.getProperty(GlossaryItemManager.EDIT_USERS));

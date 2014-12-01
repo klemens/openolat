@@ -31,9 +31,7 @@ import java.util.Locale;
 import java.util.UUID;
 
 import org.apache.velocity.VelocityContext;
-import org.olat.basesecurity.BaseSecurityManager;
-import org.olat.basesecurity.SecurityGroup;
-import org.olat.core.CoreSpringFactory;
+import org.olat.basesecurity.GroupRoles;
 import org.olat.core.gui.translator.Translator;
 import org.olat.core.id.Identity;
 import org.olat.core.id.UserConstants;
@@ -53,13 +51,15 @@ import org.olat.course.run.environment.CourseEnvironment;
 import org.olat.group.BusinessGroup;
 import org.olat.group.BusinessGroupService;
 import org.olat.properties.Property;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
 
 
 /**
  * 
  * @author guretzki
  */
-
+@Service
 public class ProjectBrokerMailerImpl implements ProjectBrokerMailer {
 	private static final String KEY_ENROLLED_EMAIL_TO_PARTICIPANT_SUBJECT = "mail.enrolled.to.participant.subject";
 	private static final String KEY_ENROLLED_EMAIL_TO_PARTICIPANT_BODY    = "mail.enrolled.to.participant.body";
@@ -91,6 +91,10 @@ public class ProjectBrokerMailerImpl implements ProjectBrokerMailer {
 	private static final String KEY_REMOVE_PARTICIPANT_EMAIL_BODY    = "mail.remove.participant.body";
 	
 	private OLog log = Tracing.createLoggerFor(this.getClass()); 
+	@Autowired
+	private MailManager mailManager;
+	@Autowired
+	private BusinessGroupService businessGroupService;
 	
 	
 	// For Enrollment 
@@ -101,7 +105,9 @@ public class ProjectBrokerMailerImpl implements ProjectBrokerMailer {
 	}
 
 	public MailerResult sendEnrolledEmailToManager(Identity enrolledIdentity, Project project, Translator pT) {
-		return sendEmailToGroup(project.getProjectLeaderGroup(), enrolledIdentity, project, 
+		List<Identity> coaches = businessGroupService
+				.getMembers(project.getProjectGroup(), GroupRoles.coach.name());
+		return sendEmailToGroup(coaches, enrolledIdentity, project, 
 				                    pT.translate(KEY_ENROLLED_EMAIL_TO_MANAGER_SUBJECT), 
 				                    pT.translate(KEY_ENROLLED_EMAIL_TO_MANAGER_BODY), pT.getLocale());
 	}
@@ -114,26 +120,34 @@ public class ProjectBrokerMailerImpl implements ProjectBrokerMailer {
 	}
 
 	public MailerResult sendCancelEnrollmentEmailToManager(Identity enrolledIdentity, Project project, Translator pT) {
-		return sendEmailToGroup(project.getProjectLeaderGroup(), enrolledIdentity, project, 
+		List<Identity> coaches = businessGroupService
+				.getMembers(project.getProjectGroup(), GroupRoles.coach.name());
+		return sendEmailToGroup(coaches, enrolledIdentity, project, 
         pT.translate(KEY_CANCEL_ENROLLMENT_EMAIL_TO_MANAGER_SUBJECT), 
         pT.translate(KEY_CANCEL_ENROLLMENT_EMAIL_TO_MANAGER_BODY), pT.getLocale());
 	}
 
 	// Project change
 	public MailerResult sendProjectChangedEmailToParticipants(Identity changer, Project project, Translator pT) {
-		return sendEmailProjectChanged(project.getProjectParticipantGroup(), changer, project, 
-        pT.translate(KEY_PROJECT_CHANGED_EMAIL_TO_PARTICIPANT_SUBJECT), 
-        pT.translate(KEY_PROJECT_CHANGED_EMAIL_TO_PARTICIPANT_BODY), pT.getLocale());
+		List<Identity> participants = businessGroupService
+				.getMembers(project.getProjectGroup(), GroupRoles.participant.name());
+		return sendEmailProjectChanged(participants, changer, project, 
+				pT.translate(KEY_PROJECT_CHANGED_EMAIL_TO_PARTICIPANT_SUBJECT), 
+				pT.translate(KEY_PROJECT_CHANGED_EMAIL_TO_PARTICIPANT_BODY), pT.getLocale());
 	}
 
 	public MailerResult sendProjectDeletedEmailToParticipants(Identity changer, Project project, Translator pT) {
-		return sendEmailProjectChanged(project.getProjectParticipantGroup(), changer, project, 
-        pT.translate(KEY_PROJECT_DELETED_EMAIL_TO_PARTICIPANT_SUBJECT), 
-        pT.translate(KEY_PROJECT_DELETED_EMAIL_TO_PARTICIPANT_BODY), pT.getLocale());
+		List<Identity> participants = businessGroupService
+			.getMembers(project.getProjectGroup(), GroupRoles.participant.name());
+		return sendEmailProjectChanged(participants, changer, project, 
+				pT.translate(KEY_PROJECT_DELETED_EMAIL_TO_PARTICIPANT_SUBJECT), 
+				pT.translate(KEY_PROJECT_DELETED_EMAIL_TO_PARTICIPANT_BODY), pT.getLocale());
 	}
 	
 	public MailerResult sendProjectDeletedEmailToManager(Identity changer, Project project, Translator pT) {
-		return sendEmailProjectChanged(project.getProjectLeaderGroup(), changer, project, 
+		List<Identity> coaches = businessGroupService
+				.getMembers(project.getProjectGroup(), GroupRoles.coach.name());
+		return sendEmailProjectChanged(coaches, changer, project, 
         pT.translate(KEY_PROJECT_DELETED_EMAIL_TO_PARTICIPANT_SUBJECT), 
         pT.translate(KEY_PROJECT_DELETED_EMAIL_TO_PARTICIPANT_BODY), pT.getLocale());
 	}
@@ -146,8 +160,10 @@ public class ProjectBrokerMailerImpl implements ProjectBrokerMailer {
 			groupKey = accountManagerGroupProperty.getLongValue();
 		} 
 		if (groupKey != null) {
-			BusinessGroup		accountManagerGroup = CoreSpringFactory.getImpl(BusinessGroupService.class).loadBusinessGroup(groupKey);
-			return sendEmailProjectChanged(accountManagerGroup.getPartipiciantGroup(), changer, project, 
+			BusinessGroup accountManagerGroup = businessGroupService.loadBusinessGroup(groupKey);
+			List<Identity> participants = businessGroupService
+					.getMembers(accountManagerGroup, GroupRoles.participant.name());
+			return sendEmailProjectChanged(participants, changer, project, 
 	        pT.translate(KEY_PROJECT_DELETED_EMAIL_TO_PARTICIPANT_SUBJECT), 
 	        pT.translate(KEY_PROJECT_DELETED_EMAIL_TO_PARTICIPANT_BODY), pT.getLocale());
     }
@@ -182,20 +198,19 @@ public class ProjectBrokerMailerImpl implements ProjectBrokerMailer {
 		MailTemplate enrolledMailTemplate = createMailTemplate(project, enrolledIdentity, subject, body, locale );
 		MailContext context = new MailContextImpl(project.getProjectBroker(), null, null);
 		MailerResult result = new MailerResult();
-		MailBundle bundle = CoreSpringFactory.getImpl(MailManager.class).makeMailBundle(context, enrolledIdentity, enrolledMailTemplate, null, null, result);
+		MailBundle bundle = mailManager.makeMailBundle(context, enrolledIdentity, enrolledMailTemplate, null, null, result);
 		if(bundle != null) {
-			CoreSpringFactory.getImpl(MailManager.class).sendMessage(bundle);
+			mailManager.sendMessage(bundle);
 		}
 		log.audit("ProjectBroker: sendEmail to identity.name=" + enrolledIdentity.getName() + " , mailerResult.returnCode=" + result.getReturnCode());
 		return result;
 	}
 
-	private MailerResult sendEmailToGroup(SecurityGroup group, Identity enrolledIdentity, Project project, String subject, String body, Locale locale) {
+	private MailerResult sendEmailToGroup(List<Identity> group, Identity enrolledIdentity, Project project, String subject, String body, Locale locale) {
 		MailTemplate enrolledMailTemplate = this.createMailTemplate(project, enrolledIdentity, subject, body, locale );
 		// loop over all project manger
-		List<Identity> projectManagerList = BaseSecurityManager.getInstance().getIdentitiesOfSecurityGroup(group);
 		StringBuilder identityNames = new StringBuilder();
-		for (Identity identity : projectManagerList) {
+		for (Identity identity : group) {
 			if (identityNames.length()>0) identityNames.append(",");
 			identityNames.append(identity.getName());
 		}
@@ -203,25 +218,24 @@ public class ProjectBrokerMailerImpl implements ProjectBrokerMailer {
 		String metaId = UUID.randomUUID().toString().replace("-", "");
 		
 		MailerResult result = new MailerResult();
-		MailBundle[] bundles = CoreSpringFactory.getImpl(MailManager.class).makeMailBundles(context, projectManagerList, enrolledMailTemplate, null, metaId, result);
-		result.append(CoreSpringFactory.getImpl(MailManager.class).sendMessage(bundles));
+		MailBundle[] bundles = mailManager.makeMailBundles(context, group, enrolledMailTemplate, null, metaId, result);
+		result.append(mailManager.sendMessage(bundles));
 		log.audit("ProjectBroker: sendEmailToGroup: identities=" + identityNames.toString() + " , mailerResult.returnCode=" + result.getReturnCode());
 		return result;
 	}
 
-	private MailerResult sendEmailProjectChanged(SecurityGroup group, Identity changer, Project project, String subject, String body, Locale locale) {
+	private MailerResult sendEmailProjectChanged(List<Identity> group, Identity changer, Project project, String subject, String body, Locale locale) {
 		MailTemplate enrolledMailTemplate = this.createProjectChangeMailTemplate(project, changer, subject, body, locale );
 		// loop over all project manger
-		List<Identity> projectManagerList = BaseSecurityManager.getInstance().getIdentitiesOfSecurityGroup(group);
 		StringBuilder identityNames = new StringBuilder();
-		for (Identity identity : projectManagerList) {
+		for (Identity identity : group) {
 			if (identityNames.length()>0) identityNames.append(",");
 			identityNames.append(identity.getName());
 		}
 		MailContext context = new MailContextImpl(project.getProjectBroker(), null, null);
 		MailerResult result = new MailerResult();
-		MailBundle[] bundles = CoreSpringFactory.getImpl(MailManager.class).makeMailBundles(context, projectManagerList, enrolledMailTemplate, null, null, result);
-		result.append(CoreSpringFactory.getImpl(MailManager.class).sendMessage(bundles));
+		MailBundle[] bundles = mailManager.makeMailBundles(context, group, enrolledMailTemplate, null, null, result);
+		result.append(mailManager.sendMessage(bundles));
 		log.audit("ProjectBroker: sendEmailToGroup: identities=" + identityNames.toString() + " , mailerResult.returnCode=" + result.getReturnCode());
 		return result;
 	}

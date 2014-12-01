@@ -35,6 +35,7 @@ import org.olat.core.gui.render.RenderingState;
 import org.olat.core.gui.render.StringOutput;
 import org.olat.core.gui.render.URLBuilder;
 import org.olat.core.gui.translator.Translator;
+import org.olat.core.util.StringHelper;
 
 /**
  * Description:<br>
@@ -68,10 +69,19 @@ class FormButtonRenderer implements ComponentRenderer {
 			sb.append(" disabled=\"disabled\" ");
 		}
 		sb.append(FormJSHelper.getRawJSFor(fs.getRootForm(), id, fs.getAction()));
-		sb.append(" class=\"b_button ");
+		sb.append(" class=\"btn");
+		if (fsC.getIsSubmitAndValidate()) {
+			sb.append(" btn-primary");			
+		} else {
+			sb.append(" btn-default");						
+		}
 		if(!source.isEnabled()){
-			sb.append(" b_disabled ");
-		}		
+			sb.append(" o_disabled ");
+		}
+		if(StringHelper.containsNonWhitespace(fs.getElementCssClass())) {
+			sb.append(" ").append(fs.getElementCssClass());
+		}
+		
 		sb.append("\"><span>");
 		sb.append(fs.getTranslated());
 		sb.append("</span></button>");

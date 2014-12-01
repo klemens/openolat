@@ -32,8 +32,8 @@ import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.Component;
 import org.olat.core.gui.components.link.Link;
 import org.olat.core.gui.components.link.LinkFactory;
-import org.olat.core.gui.components.panel.Panel;
-import org.olat.core.gui.components.stack.StackedController;
+import org.olat.core.gui.components.panel.StackedPanel;
+import org.olat.core.gui.components.stack.BreadcrumbPanel;
 import org.olat.core.gui.components.velocity.VelocityContainer;
 import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.Event;
@@ -71,12 +71,12 @@ public class IdentityAssessmentEditController extends BasicController {
 	
 	private boolean mayEdit;
 	private final VelocityContainer identityAssessmentVC;
-	private Panel main;
+	private StackedPanel main;
 	private AssessmentEditController assessmentEditCtr;
 	private IdentityAssessmentOverviewController assessmentOverviewCtr;
 	private UserCourseEnvironment assessedUserCourseEnvironment;
 	private Link backLink;
-	private final StackedController stackPanel;
+	private final BreadcrumbPanel stackPanel;
 	private final AssessedIdentityInfosController identityInfosCtrl;
 	
 	private OLATResourceable ores;
@@ -89,12 +89,12 @@ public class IdentityAssessmentEditController extends BasicController {
 	 * @param course
 	 * @param mayEdit true: user may edit the assessment, false: readonly view (user view)
 	 */
-	public IdentityAssessmentEditController(WindowControl wControl, UserRequest ureq, StackedController stackPanel,
+	public IdentityAssessmentEditController(WindowControl wControl, UserRequest ureq, BreadcrumbPanel stackPanel,
 			Identity assessedIdentity, ICourse course, boolean mayEdit) {
 		this(wControl, ureq, stackPanel, assessedIdentity, course, mayEdit, true); 
 	}
 		
-	public IdentityAssessmentEditController(WindowControl wControl, UserRequest ureq, StackedController stackPanel,
+	public IdentityAssessmentEditController(WindowControl wControl, UserRequest ureq, BreadcrumbPanel stackPanel,
 			Identity assessedIdentity, ICourse course, boolean mayEdit, boolean headers) {
 
 		super(ureq, wControl);

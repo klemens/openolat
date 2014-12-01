@@ -20,18 +20,19 @@
 package org.olat.group.ui.main;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.Date;
 import java.util.List;
-import java.util.Set;
 import java.util.UUID;
 
-import org.olat.core.CoreSpringFactory;
 import org.olat.core.commons.persistence.PersistenceHelper;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.EscapeMode;
 import org.olat.core.gui.components.form.flexible.FormItemContainer;
+import org.olat.core.gui.components.form.flexible.elements.FlexiTableElement;
 import org.olat.core.gui.components.form.flexible.elements.MultipleSelectionElement;
+import org.olat.core.gui.components.form.flexible.elements.MultipleSelectionElement.Layout;
 import org.olat.core.gui.components.form.flexible.impl.Form;
 import org.olat.core.gui.components.form.flexible.impl.FormBasicController;
 import org.olat.core.gui.components.form.flexible.impl.FormLayoutContainer;
@@ -59,9 +60,10 @@ import org.olat.group.model.BusinessGroupMembershipChange;
 import org.olat.group.model.SearchBusinessGroupParams;
 import org.olat.repository.RepositoryEntry;
 import org.olat.repository.RepositoryEntryManagedFlag;
+import org.olat.repository.RepositoryEntryRef;
 import org.olat.repository.RepositoryManager;
 import org.olat.repository.model.RepositoryEntryMembership;
-import org.olat.resource.OLATResource;
+import org.springframework.beans.factory.annotation.Autowired;
 
 /**
  * 
@@ -82,8 +84,10 @@ public class EditMembershipController extends FormBasicController {
 	
 	private final BusinessGroup businessGroup;
 	private final RepositoryEntry repoEntry;
-	private final RepositoryManager repositoryManager;
-	private final BusinessGroupService businessGroupService;
+	@Autowired
+	private RepositoryManager repositoryManager;
+	@Autowired
+	private BusinessGroupService businessGroupService;
 	
 	private static final String[] keys = new String[] { "ison" };
 	private static final String[] values = new String[] {""};
@@ -96,8 +100,6 @@ public class EditMembershipController extends FormBasicController {
 		this.repoEntry = repoEntry;
 		this.businessGroup = businessGroup;
 		this.withButtons = true;
-		repositoryManager = CoreSpringFactory.getImpl(RepositoryManager.class);
-		businessGroupService = CoreSpringFactory.getImpl(BusinessGroupService.class);
 		
 		memberships = repositoryManager.getRepositoryEntryMembership(repoEntry, member);
 		initForm(ureq);
@@ -132,8 +134,6 @@ public class EditMembershipController extends FormBasicController {
 		this.repoEntry = repoEntry;
 		this.businessGroup = businessGroup;
 		this.withButtons = true;
-		repositoryManager = CoreSpringFactory.getImpl(RepositoryManager.class);
-		businessGroupService = CoreSpringFactory.getImpl(BusinessGroupService.class);
 		
 		memberships = Collections.emptyList();
 
@@ -150,8 +150,6 @@ public class EditMembershipController extends FormBasicController {
 		this.repoEntry = repoEntry;
 		this.businessGroup = businessGroup;
 		this.withButtons = false;
-		repositoryManager = CoreSpringFactory.getImpl(RepositoryManager.class);
-		businessGroupService = CoreSpringFactory.getImpl(BusinessGroupService.class);
 		
 		memberships = Collections.emptyList();
 
@@ -160,12 +158,12 @@ public class EditMembershipController extends FormBasicController {
 	}
 	
 	private void loadModel(Identity member) {
-		OLATResource resource = null;
+		RepositoryEntryRef resource = null;
 		SearchBusinessGroupParams params = new SearchBusinessGroupParams();
 		if(repoEntry == null) {
 			params.setGroupKeys(Collections.singletonList(businessGroup.getKey()));
 		} else {
-			resource = repoEntry.getOlatResource();
+			resource = repoEntry;
 		}
 		List<BusinessGroupView> groups = businessGroupService.findBusinessGroupViews(params, resource, 0, -1);
 	
@@ -204,8 +202,8 @@ public class EditMembershipController extends FormBasicController {
 	
 	private MultipleSelectionElement createSelection(boolean selected, boolean enabled) {
 		String name = "cb" + UUID.randomUUID().toString().replace("-", "");
-		MultipleSelectionElement selection = new MultipleSelectionElementImpl(name, MultipleSelectionElementImpl.createVerticalLayout("checkbox",1));
-		selection.setKeysAndValues(keys, values, null);
+		MultipleSelectionElement selection = new MultipleSelectionElementImpl(name, Layout.horizontal);
+		selection.setKeysAndValues(keys, values);
 		flc.add(name, selection);
 		selection.select(keys[0], selected);
 		selection.setEnabled(enabled);
@@ -228,7 +226,7 @@ public class EditMembershipController extends FormBasicController {
 					translate("role.repo.owner"), translate("role.repo.tutor"), translate("role.repo.participant")
 			};
 			boolean managed = RepositoryEntryManagedFlag.isManaged(repoEntry, RepositoryEntryManagedFlag.membersmanagement);
-			repoRightsEl = uifactory.addCheckboxesVertical("repoRights", formLayout, repoRightsKeys, repoValues, null, 1);
+			repoRightsEl = uifactory.addCheckboxesVertical("repoRights", formLayout, repoRightsKeys, repoValues, 1);
 			repoRightsEl.setEnabled(!managed);
 			if(member != null) {
 				RepoPermission repoPermission = PermissionHelper.getPermission(repoEntry, member, memberships);
@@ -250,7 +248,8 @@ public class EditMembershipController extends FormBasicController {
 		tableColumnModel.addFlexiColumnModel(new DefaultFlexiColumnModel("table.header.waitingList", 6));
 		
 		tableDataModel = new EditMemberTableDataModel(Collections.<MemberOption>emptyList(), tableColumnModel);
-		uifactory.addTableElement(ureq, getWindowControl(), "groupList", tableDataModel, formLayout);
+		FlexiTableElement tableEl = uifactory.addTableElement(getWindowControl(), "groupList", tableDataModel, formLayout);
+		tableEl.setCustomizeColumns(false);
 		
 		if(withButtons) {
 			FormLayoutContainer buttonLayout = FormLayoutContainer.createButtonLayout("buttonLayout", getTranslator());
@@ -292,7 +291,7 @@ public class EditMembershipController extends FormBasicController {
 		
 		RepoPermission repoPermission = PermissionHelper.getPermission(repoEntry, member, memberships);
 
-		Set<String>	selectRepoRights = repoRightsEl.getSelectedKeys();
+		Collection<String>	selectRepoRights = repoRightsEl.getSelectedKeys();
 		boolean repoOwner = selectRepoRights.contains("owner");
 		e.setRepoOwner(repoOwner == repoPermission.isOwner() ? null : new Boolean(repoOwner));
 		boolean repoTutor = selectRepoRights.contains("tutor");

@@ -27,10 +27,11 @@
 package org.olat.core.gui.components.link;
 
 import org.olat.core.gui.UserRequest;
-import org.olat.core.gui.components.Component;
+import org.olat.core.gui.components.AbstractComponent;
+import org.olat.core.gui.components.ComponentEventListener;
 import org.olat.core.gui.components.ComponentRenderer;
+import org.olat.core.gui.components.badge.Badge;
 import org.olat.core.gui.components.velocity.VelocityContainer;
-import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.Event;
 import org.olat.core.logging.AssertException;
 import org.olat.core.logging.OLog;
@@ -44,7 +45,7 @@ import org.olat.core.logging.Tracing;
  * 
  * @author Alexander Schneider, Patrick Brunner
  */
-public class Link extends Component {
+public class Link extends AbstractComponent {
 	private static final OLog log = Tracing.createLoggerFor(Link.class);
 	//single renderer for all users, lazy creation upon first object creation of this class.
 	private static final ComponentRenderer RENDERER = new LinkRenderer();
@@ -57,13 +58,15 @@ public class Link extends Component {
 	public static final int BUTTON_XSMALL = 1;
 	public static final int BUTTON_SMALL = 2;
 	public static final int BUTTON = 3;
-	public static final int LINK_BACK = 4;
-	public static final int LINK = 5;
+	public static final int BUTTON_LARGE = 4;
+	
+	public static final int LINK_BACK = 5;
+	public static final int LINK = 6;
 	/**
 	 * to be refactored later into own components
 	 */
-	public static final int TOOLENTRY_DEFAULT = 6;
-	public static final int TOOLENTRY_CLOSE = 7;
+	public static final int TOOLENTRY_DEFAULT = 7;
+	public static final int TOOLENTRY_CLOSE = 8;
 		
 	/**
 	 * can be added to one of the following:
@@ -75,6 +78,7 @@ public class Link extends Component {
 	private String command;
 	private int presentation;
 	private int presentationBeforeCustomCSS;
+	private boolean primary;
 	private String i18n;
 	private String title;
 	private String elementId;
@@ -82,15 +86,18 @@ public class Link extends Component {
 	private String customDisplayText;
 	private String customEnabledLinkCSS;
 	private String customDisabledLinkCSS;
+	private String iconLeftCSS;
+	private String iconRightCSS;
 	private String target;
 	private String modURI;
 	private Object internalAttachedObj;
 	private Object userObject;
 	private String accessKey;
+	private boolean active = false;
 	private boolean ajaxEnabled = true;
-	boolean registerForMousePositionEvent = false;
-	MouseEvent mouseEvent;
-	String javascriptHandlerFunction;
+	private boolean registerForMousePositionEvent = false;
+	private MouseEvent mouseEvent;
+	private String javascriptHandlerFunction;
 	//x y coordinates of the mouse position when clicked the link, works only if enabled by registerForMousePositionEvent(true)
 	private int offsetX = 0;
 	private int offsetY = 0;
@@ -98,6 +105,8 @@ public class Link extends Component {
 	private boolean hasTooltip;
 	private boolean suppressDirtyFormWarning = false;
 	private boolean isDownloadLink = false;
+	private Badge badge;
+	private LinkPopupSettings popup;
 
 	/**
 	 * 
@@ -107,7 +116,7 @@ public class Link extends Component {
 	 * @param presentation
 	 * @param title
 	 */
-	protected Link(String name, String command, String i18n, int presentation, VelocityContainer vc, Controller listeningController) {
+	protected Link(String name, String command, String i18n, int presentation, VelocityContainer vc, ComponentEventListener listeningController) {
 		this(null, name, command, i18n, presentation, vc, listeningController);
 	}
 	
@@ -121,7 +130,7 @@ public class Link extends Component {
 	 * @param vc
 	 * @param listeningController
 	 */
-	protected Link(String id, String name, String command, String i18n, int presentation, VelocityContainer vc, Controller listeningController) {
+	protected Link(String id, String name, String command, String i18n, int presentation, VelocityContainer vc, ComponentEventListener listeningController) {
 		this(id, name, command, i18n, presentation, null);
 		if (listeningController == null) throw new AssertException("please provide a listening controller, listeningController is null at the moment");
 		addListener(listeningController);
@@ -153,10 +162,12 @@ public class Link extends Component {
 					+ " component: " + getComponentName() 
 					+ " dispatchId: " + getDispatchID());
 		}
-		setElementId("o_lnk"+getDispatchID());
 		// use span wrappers - if the custom layout needs div wrappers this flag has
 		// to be set manually
 		setSpanAsDomReplaceable(true);
+		// Directly use the dispatch ID for DOM replacement to minimize DOM tree
+		setElementId("o_c" + getDispatchID());
+		setDomReplacementWrapperRequired(false);
 	}
 	
 	/**
@@ -203,6 +214,47 @@ public class Link extends Component {
 		return i18n;
 	}
 
+	public boolean isPrimary() {
+		return primary;
+	}
+	
+	public void setPrimary(boolean isPrimary) {
+		primary = isPrimary;
+	}
+	
+	public boolean isPopup() {
+		return popup != null;
+	}
+
+	public void setPopup(boolean popup) {
+		if(popup) {
+			this.popup = new LinkPopupSettings();
+		} else {
+			this.popup = null;
+		}
+	}
+	
+	public LinkPopupSettings getPopup() {
+		return popup;
+	}
+	
+	public void setPopup(LinkPopupSettings popup) {
+		this.popup = popup;
+	}
+	
+	public Badge getBadge() {
+		return badge;
+	}
+	
+	public void setBadge(String message, Badge.Level level) {
+		if(badge == null) {
+			badge = new Badge(getComponentName() + "_BADGE");
+		}
+		badge.setMessage(message);
+		badge.setLevel(level);
+		setDirty(true);
+	}
+
 	public int getPresentation() {
 		return presentation;
 	}
@@ -223,6 +275,18 @@ public class Link extends Component {
 		return internalAttachedObj;
 	}
 	
+	MouseEvent getMouseEvent() {
+		return mouseEvent;
+	}
+
+	String getJavascriptHandlerFunction() {
+		return javascriptHandlerFunction;
+	}
+
+	boolean isRegisterForMousePositionEvent() {
+		return registerForMousePositionEvent;
+	}
+
 	/**
 	 * Set an link title which gets displayed when hovering over the link.
 	 * <br>
@@ -528,6 +592,54 @@ public class Link extends Component {
 	}
 	boolean getStartsDownload(){
 		return isDownloadLink;
+	}
+
+	/**
+	 * @param iconCSS The CSS classes used as icons in the i element on the left hand side of the link text
+	 */
+	public void setIconLeftCSS(String iconCSS) {
+		this.iconLeftCSS = iconCSS;
+		setDirty(true);
+	}
+	
+	/**
+	 * @return The icon CSS classes or NULL 
+	 */
+	public String getIconLeftCSS() {
+		return iconLeftCSS;
+	}
+
+	/**
+	 * @param iconCSS The CSS classes used as icons in the i element on the right hand side of the link text
+	 */
+	public void setIconRightCSS(String iconCSS) {
+		this.iconRightCSS = iconCSS;
+		setDirty(true);
+	}
+	
+	/**
+	 * @return The icon CSS classes or NULL 
+	 */
+	public String getIconRightCSS() {
+		return iconRightCSS;
+	}
+
+	/**
+	 * Compare also with isEnabled();
+	 * @return true if the link is active (only a rendering issue); false if link not active
+	 */
+	public boolean isActive() {
+		return active;
+	}
+	
+	/**
+	 * Compare also with setEnabled)=
+	 * @param isActive true: the link is currently active (only a rendering issue); false: the link is not active right now
+	 */
+	public void setActive(boolean isActive) {
+		if (active == isActive) return;
+		active = isActive;
+		setDirty(true);
 	}
 
 	

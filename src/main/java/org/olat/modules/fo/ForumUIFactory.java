@@ -61,7 +61,7 @@ public class ForumUIFactory {
 			public Controller createController(UserRequest lureq, WindowControl lwControl) {
 				Controller forumWrapperController = getTitledForumController(lureq, lwControl, forum,  forumCallback, titleInfo);
 				// use on column layout
-				LayoutMain3ColsController layoutCtr = new LayoutMain3ColsController(lureq, lwControl, null, null, forumWrapperController.getInitialComponent(), null);
+				LayoutMain3ColsController layoutCtr = new LayoutMain3ColsController(lureq, lwControl, forumWrapperController);
 				layoutCtr.addDisposableChildController(forumWrapperController); // dispose content on layout dispose
 				return layoutCtr;
 			}					
@@ -84,8 +84,8 @@ public class ForumUIFactory {
 		ForumController popupFoCtr = new ForumController(forum, forumCallback, ureq, wControl);												
 		TitledWrapperController forumWrapperController = new TitledWrapperController(ureq, wControl, popupFoCtr, "o_course_run", titleInfo);
 		// Set CSS values to default forum icons if no values are set in the title info
-		if (!StringHelper.containsNonWhitespace(titleInfo.getCssClass())) {
-			forumWrapperController.setTitleCssClass(" b_with_small_icon_left " + ForumHelper.CSS_ICON_CLASS_FORUM + " ");
+		if (!StringHelper.containsNonWhitespace(titleInfo.getIconCssClass())) {
+			forumWrapperController.setIconCssClass(ForumHelper.CSS_ICON_CLASS_FORUM);
 		}
 		return forumWrapperController;							
 	}

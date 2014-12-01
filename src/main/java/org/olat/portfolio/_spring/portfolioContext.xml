@@ -1,57 +1,15 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <beans xmlns="http://www.springframework.org/schema/beans"
 	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-	xsi:schemaLocation="http://www.springframework.org/schema/beans 
-                        http://www.springframework.org/schema/beans/spring-beans-3.0.xsd">
+	xmlns:context="http://www.springframework.org/schema/context"
+	xsi:schemaLocation="
+  http://www.springframework.org/schema/beans 
+  http://www.springframework.org/schema/beans/spring-beans.xsd
+  http://www.springframework.org/schema/context 
+  http://www.springframework.org/schema/context/spring-context.xsd">
+  
+	<context:component-scan base-package="org.olat.portfolio" />
 
-	<!-- E-PORTFOLIO CONFIGURATION -->
-	<!-- ========================= -->
-	
-	<bean id="portfolioModule" class="org.olat.portfolio.PortfolioModule">
-		<property name="persistedProperties">
-	  	<bean class="org.olat.core.configuration.PersistedProperties" scope="prototype" init-method="init" destroy-method="destroy" 
-	  		depends-on="coordinatorManager,org.olat.core.util.WebappHelper">
-	    	<constructor-arg index="0" ref="coordinatorManager"/>
-	    	<constructor-arg index="1" ref="portfolioModule" />
-	  	</bean>
-		</property>
-		<!-- those handlers are not connected to an olat-module, therefore need to be loaded and registered here. -->
-		<property name="artefactHandlers">
-			<list>
-				<ref bean="forumArtefactHandler"/>
-				<ref bean="wikiArtefactHandler"/>
-				<ref bean="efficiencyStatementArtefact"/>
-				<ref bean="fileArtefactHandler"/>
-				<ref bean="textArtefactHandler"/>
-				<!-- hide everywhere as long as its not used 
-				<ref bean="structureElementArtefactHandler"/> -->
-				<ref bean="liveBlogArtefactHandler"/>
-				<ref bean="blogArtefactHandler"/>
-			</list>
-		</property>
-	</bean>
-	
-	<!-- default configuration -->
-	<bean  class="org.springframework.beans.factory.config.MethodInvokingFactoryBean">
-		<property name="targetObject" ref="portfolioModule" />
-		<property name="targetMethod" value="init" />
-		<property name="arguments">
-			<value>
-				portfolio.enabled=true
-				<!--
-				set the names of available styles for portfolio-maps, this can be selected by user. translation is done with "org.olat.portfolio.ui.structel:map.style.<value>"
-				it needs also the style definitions in brasato.css , where the names are class names. the dropdown on a map can be styled with "<value>_icon".
-				-->
-				portfolio.map.styles=${portfolio.map.styles}
-				portfolio.offer.public.map.list=${portfolio.offer.public.map.list}
-				<!-- 
-				handler.org.olat.modules.fo.portfolio.ForumArtefactHandler=true
-				handler.org.olat.portfolio.model.artefacts.FileArtefactHandler=true
-				 -->
-			</value>
-		</property>
-	</bean>
-	
 	<!-- Portfolio admin. panel -->
 	<bean class="org.olat.core.extensions.action.GenericActionExtension" init-method="initExtensionPoints">
 		<property name="order" value="7205" />
@@ -82,48 +40,6 @@
 	<!-- Portfolio map view for invitee -->
 	<bean class="org.olat.portfolio.EPMapOnInvitationExtension"/>
 
-	<bean name="epArtefactManager" class="org.olat.portfolio.manager.EPArtefactManager">
-		<property name="dbInstance" ref="database"/>
-		<property name="portfolioModule" ref="portfolioModule"/>
-		<property name="taggingManager" ref="taggingManager"/>
-	</bean>
-	
-	<bean name="epStructureManager" class="org.olat.portfolio.manager.EPStructureManager">
-		<property name="resourceManager" ref="resourceManager"/>
-		<property name="repositoryManager" ref="repositoryManager"/>
-		<property name="dbInstance" ref="database"/>
-		<property name="baseSecurity" ref="baseSecurityManager"/>
-	</bean>
-	
-	<bean name="epSettingsManager" class="org.olat.portfolio.manager.EPSettingsManager" />
-	
-	<bean name="epPolicyManager" class="org.olat.portfolio.manager.EPPolicyManager">
-		<constructor-arg index="0" ref="baseSecurityManager" />
-		<constructor-arg index="1" ref="businessGroupService" />
-	</bean>
-	
-		<!--   define notifications handler -->
-	<bean id="epNotificationManager" class="org.olat.portfolio.manager.EPNotificationManager">
-		<property name="dbInstance" ref="database"/>
-		<property name="userManager" ref="userManager"/>
-	</bean>
-
-	<bean name="epFrontendManager" class="org.olat.portfolio.manager.EPFrontendManager">
-		<constructor-arg index="0" ref="epArtefactManager" />
-		<constructor-arg index="1" ref="epStructureManager" />
-		<constructor-arg index="2" ref="epSettingsManager" />
-		<constructor-arg index="3" ref="epPolicyManager" />
-		<constructor-arg index="4" ref="coordinatorManager" />
-		<constructor-arg index="5" ref="baseSecurityManager" />
-		<constructor-arg index="6" ref="taggingManager" />
-		<constructor-arg index="7" ref="database" />
-		<constructor-arg index="8" ref="org.olat.course.assessment.AssessmentNotificationsHandler" />
-		<constructor-arg index="9" ref="userManager" />
-		<property name="searchClient" ref="searchClient"/>
-		<property name="portfolioModule" ref="portfolioModule"/>
-	</bean>
-	
-	
 	
 	<bean name="forumArtefactHandler" class="org.olat.modules.fo.portfolio.ForumArtefactHandler"/>
 	
@@ -135,7 +51,9 @@
 	
 	<bean name="textArtefactHandler" class="org.olat.portfolio.model.artefacts.EPTextArtefactHandler"/>
 	
+	<!-- 
 	<bean name="structureElementArtefactHandler" class="org.olat.portfolio.model.artefacts.EPStructureElementArtefactHandler"/>
+	-->
 	
 	<bean name="liveBlogArtefactHandler" class="org.olat.modules.webFeed.portfolio.LiveBlogArtefactHandler"/>
 	
@@ -143,8 +61,7 @@
 	
 	
 	<!--   define notifications handler -->
-	<bean id="org.olat.portfolio.manager.EPNotificationsHandler" class="org.olat.portfolio.manager.EPNotificationsHandler">
-	</bean>
+	<bean id="org.olat.portfolio.manager.EPNotificationsHandler" class="org.olat.portfolio.manager.EPNotificationsHandler" />
 
 	<!-- wrapper for add-link in folder -->
 	<bean name="folderCMDAddToEPortfolio" class="org.olat.core.gui.control.creator.AutoCreator" >
@@ -180,12 +97,48 @@
 		<property name="jobClass" value="org.olat.core.commons.services.scheduler.DummyJob" />
 	</bean>
 	
+	<bean id="invitationCleanupTrigger" class="org.springframework.scheduling.quartz.CronTriggerBean">
+		<property name="jobDetail" ref="invitationCleanupJob.${cluster.singleton.services}" />
+		 <!-- adjust cron style syntax for your notification needs 
+		  	"0 10 0 * *"  e.g. 10 minutes after midnight
+		  	
+		  	A "Cron-Expression" is a string comprised of 6 or 7 fields separated by white space. The 6 mandatory and 1 optional fields are as follows:
+			Field Name 	  	Allowed Values 	  	Allowed Special Characters
+			Seconds 	  	0-59 	  			, - * /
+			Minutes 	  	0-59 	  			, - * /
+			Hours 	  		0-23 	  			, - * /
+			Day-of-month 	1-31 	  			, - * ? / L W C
+			Month 	  		1-12 or JAN-DEC 	, - * /
+			Day-of-Week 	1-7 or SUN-SAT 	  	, - * ? / L C #
+			Year (Optional)	empty, 1970-2099 	, - * /
+		
+			As of OLAT 6.3 it's best to let the cronjob run every two hours since users can now choose how often 
+			they will get notified. The shortest interval is set to two hours. 	    	
+		-->
+		<property name="cronExpression" value="0 2 */12 * * ?" />
+		<property name="startDelay" value="150000" />
+	</bean>
+
+	<bean id="invitationCleanupJob.enabled" class="org.springframework.scheduling.quartz.JobDetailBean" lazy-init="true">
+		<property name="jobClass" value="org.olat.portfolio.manager.InvitationCleanupJob" />
+	</bean>
+	<!-- dummy bean -->
+	<bean id="invitationCleanupJob.disabled" class="org.springframework.scheduling.quartz.JobDetailBean"  lazy-init="true">
+		<property name="jobClass" value="org.olat.core.commons.services.scheduler.DummyJob" />
+	</bean>
 	
-	<!--  hook into minimalHome menu-tree -->
-	<!--   the EP-MENU  (parent) -->
-	<bean class="org.olat.core.extensions.action.GenericActionExtension" name="home.menupoint.ep" init-method="initExtensionPoints">
+	<!--  hook to the personal menu -->
+	<bean class="org.olat.portfolio.PortfolioExtension" name="personal.tool.ep" init-method="initExtensionPoints" >
+		<property name="order" value="301" />
+		<property name="navigationKey" value="Portfolio" />
+		<property name="enabled" value="${minimalhome.ext.portfolio}"></property>
+		<property name="iconCssClass" value="o_icon o_icon-fw o_ep_icon" />
+		<property name="actionController">
+			<bean class="org.olat.core.gui.control.creator.AutoCreator" scope="prototype">
+				<property name="className" value="org.olat.portfolio.ui.EPOverviewController"/>
+			</bean>
+		</property>
 		<property name="securityCallbackClassName" value="org.olat.core.extensions.security.UserOnlyExtensionSecurityCallback" />
-		<property name="nodeIdentifierIfParent" value="portfolioParent" />
 		<property name="translationPackage" value="org.olat.portfolio.ui" />
 		<property name="i18nActionKey" value="eportfolio.menu.title" />
 		<property name="i18nDescriptionKey" value="eportfolio.menu.title.alt" />
@@ -194,95 +147,5 @@
 				<value>org.olat.home.HomeMainController</value>
 			</list>
 		</property>
-	</bean>	 
-	
-	<!--  the "my artefacts" menu -->
-	<bean class="org.olat.core.extensions.action.GenericActionExtension" name="home.menupoint.ep.pool" init-method="initExtensionPoints" >
-		<property name="order" value="301" />
-		<property name="navigationKey" value="EPArtefacts" />
-		<property name="actionController">	
-			<bean class=" org.olat.core.gui.control.creator.FactoryControllerCreator" scope="prototype">
-				<property name="factoryName" value="org.olat.portfolio.EPUIFactory"/>
-				<property name="factoryMethod" value="createPortfolioPoolController"/>
-			</bean>
-		</property>
-		<property name="securityCallbackClassName" value="org.olat.core.extensions.security.UserOnlyExtensionSecurityCallback" />
-		<property name="translationPackage" value="org.olat.portfolio.ui" />
-		<property name="i18nActionKey" value="myartefacts.menu.title"/>
-		<property name="i18nDescriptionKey" value="myartefacts.menu.title.alt"/>
-		<property name="parentTreeNodeIdentifier" value="portfolioParent" /> 
-		<property name="extensionPoints">
-			<list>	
-				<value>org.olat.home.HomeMainController</value>		
-			</list>
-		</property>
 	</bean>
-	
-	<!--  the "my maps" menu -->
-	<bean class="org.olat.core.extensions.action.GenericActionExtension" name="home.menupoint.ep.maps" init-method="initExtensionPoints" >
-		<property name="order" value="302" />
-		<property name="navigationKey" value="EPMaps" />
-		<property name="actionController">	
-			<bean class=" org.olat.core.gui.control.creator.FactoryControllerCreator" scope="prototype">
-				<property name="factoryName" value="org.olat.portfolio.EPUIFactory"/>
-				<property name="factoryMethod" value="createPortfolioMapsController"/>
-			</bean>
-		</property>
-		<property name="securityCallbackClassName" value="org.olat.core.extensions.security.UserOnlyExtensionSecurityCallback" />
-		<property name="translationPackage" value="org.olat.portfolio.ui" />
-		<property name="i18nActionKey" value="mymaps.menu.title"/>
-		<property name="i18nDescriptionKey" value="mymaps.menu.title.alt"/>
-		<property name="parentTreeNodeIdentifier" value="portfolioParent" /> 
-		<property name="extensionPoints">
-			<list>	
-				<value>org.olat.home.HomeMainController</value>		
-			</list>
-		</property>
-	</bean>
-	
-	<!--  the "my portfolioaufgaben" menu -->
-	<bean class="org.olat.core.extensions.action.GenericActionExtension" name="home.menupoint.ep.structuredmaps" init-method="initExtensionPoints" >
-		<property name="order" value="303" />
-		<property name="navigationKey" value="EPStructuredMaps" />
-		<property name="actionController">	
-			<bean class=" org.olat.core.gui.control.creator.FactoryControllerCreator" scope="prototype">
-				<property name="factoryName" value="org.olat.portfolio.EPUIFactory"/>
-				<property name="factoryMethod" value="createPortfolioStructuredMapsController"/>
-			</bean>
-		</property>
-		<property name="securityCallbackClassName" value="org.olat.core.extensions.security.UserOnlyExtensionSecurityCallback" />
-		<property name="translationPackage" value="org.olat.portfolio.ui" />
-		<property name="i18nActionKey" value="mystructuredmaps.menu.title"/>
-		<property name="i18nDescriptionKey" value="mystructuredmaps.menu.title.alt"/>
-		<property name="parentTreeNodeIdentifier" value="portfolioParent" /> 
-		<property name="extensionPoints">
-			<list>	
-				<value>org.olat.home.HomeMainController</value>		
-			</list>
-		</property>
-	</bean>
-	
-	<!--  the "shared maps" menu -->
-	<bean class="org.olat.core.extensions.action.GenericActionExtension" name="home.menupoint.ep.sharedmaps" init-method="initExtensionPoints" >
-		<property name="order" value="304" />
-		<property name="actionController">	
-			<bean class=" org.olat.core.gui.control.creator.FactoryControllerCreator" scope="prototype">
-				<property name="factoryName" value="org.olat.portfolio.EPUIFactory"/>
-				<property name="factoryMethod" value="createPortfolioMapsFromOthersController"/>
-			</bean>
-		</property>
-		<property name="navigationKey" value="EPSharedMaps" />
-		<property name="securityCallbackClassName" value="org.olat.core.extensions.security.UserOnlyExtensionSecurityCallback" />
-		<property name="translationPackage" value="org.olat.portfolio.ui" />
-		<property name="i18nActionKey" value="othermaps.menu.title"/>
-		<property name="i18nDescriptionKey" value="othermaps.menu.title.alt"/>
-		<property name="parentTreeNodeIdentifier" value="portfolioParent" /> 
-		<property name="extensionPoints">
-			<list>	
-				<value>org.olat.home.HomeMainController</value>		
-			</list>
-		</property>
-	</bean>
-	
-	
 </beans>

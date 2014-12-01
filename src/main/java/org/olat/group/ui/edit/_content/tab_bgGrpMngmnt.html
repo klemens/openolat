@@ -1,22 +1,23 @@
 <fieldset>
-  	<legend>$r.translate("fieldset.legend.displaymembers")</legend>
-	$r.contextHelpWithWrapper("org.olat.group.ui.edit","grp-member.html","help.hover.bgGrpMngmnt")
+  	<legend>
+  		$r.contextHelpWithWrapper("org.olat.group.ui.edit","grp-member.html","help.hover.bgGrpMngmnt")
+  		$r.translate("fieldset.legend.displaymembers")</legend>
   	$r.render("displayMembers")
 </fieldset>
 <fieldset>
-	<legend>$r.translate("group.edit.tab.members")</legend>
-	<div style="position: relative;">
-		<div class="o_buttons_box_right" style="top: 0em;">
-			#if($r.available("addMembers"))
-				$r.render("addMembers")
-			#end
-			#if($r.available("importMembers"))
-				$r.render("importMembers")
-			#end
-		</div>
-		
+	<legend>
 		$r.contextHelpWithWrapper("org.olat.group.ui.edit","grp-memberOwner.html","help.hover.bgGrpMngmntOwner")
-		$r.render("members")
+		$r.translate("group.edit.tab.members")</legend>
+	<div class="o_button_group o_button_group_right">
+		#if($r.available("addMembers") && $r.available("importMembers"))<div class="btn-group">#end
+		#if($r.available("addMembers"))
+			$r.render("addMembers")
+		#end
+		#if($r.available("importMembers"))
+			$r.render("importMembers")
+		#end
+		#if($r.available("addMembers") && $r.available("importMembers"))</div>#end
 	</div>
+	$r.render("members")
 </fieldset>
 

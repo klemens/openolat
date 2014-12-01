@@ -28,9 +28,7 @@
 		*** header part, e.g. for a logo       ***
 		******************************************
 	-->
-	<bean id="fullWebApp.HeaderControllerCreator" class="org.olat.core.gui.control.creator.AutoCreator" >
-		<property name="className" value="org.olat.core.commons.fullWebApp.EmptyHeaderController"/>
-	</bean>
+	<bean id="fullWebApp.HeaderControllerCreator" class="org.olat.core.gui.control.creator.AutoCreator" />
 	 
 	<!--
 		******************************************
@@ -39,18 +37,13 @@
 		******************************************
 	-->
 	<!-- DMZ -->
-	<bean id="fullWebApp.DMZTopNavControllerCreator" class="org.olat.gui.control.DmzTopNavCreator">
-		<property name="impressum" value="${topnav.impressum}"/>
-	</bean>
+	<bean id="fullWebApp.DMZTopNavControllerCreator" class="org.olat.gui.control.DmzTopNavCreator" />
 	
 	<!-- Guest -->
-	<bean id="fullWebApp.GuestTopNavControllerCreator" class="org.olat.gui.control.GuestTopNavCreator">
-		<property name="impressum" value="${topnav.impressum}"/>
-	</bean>
+	<bean id="fullWebApp.GuestTopNavControllerCreator" class="org.olat.gui.control.GuestTopNavCreator" />
 
 	<!-- Authenticated -->
-	<bean id="fullWebApp.TopNavControllerCreator" class="org.olat.gui.control.TopNavCreator" >
-		<property name="impressum" value="${topnav.impressum}"/>
+	<bean id="fullWebApp.TopNavControllerCreator" class="org.olat.gui.control.TopNavCreator">
 		<property name="search" value="${topnav.search}" />
 	</bean>
 
@@ -61,12 +54,12 @@
 		******************************************
 	-->
 	<!-- DMZ -->
-  <bean  id="fullWebApp.DMZFooterControllerCreator" class="org.olat.core.gui.control.creator.AutoCreator">
+	<bean  id="fullWebApp.DMZFooterControllerCreator" class="org.olat.core.gui.control.creator.AutoCreator">
 		<property name="className" value="org.olat.gui.control.OlatFooterController"/>
 	</bean>
 	
 	<!-- Guest -->
-  <bean  id="fullWebApp.GuestFooterControllerCreator" class="org.olat.core.gui.control.creator.AutoCreator">
+	<bean  id="fullWebApp.GuestFooterControllerCreator" class="org.olat.core.gui.control.creator.AutoCreator">
 		<property name="className" value="org.olat.gui.control.OlatFooterController"/>
 	</bean>
 	
@@ -84,19 +77,14 @@
 	<bean id="fullWebApp.MinimalTopNavControllerCreator" class="org.olat.core.gui.control.creator.AutoCreator">
 		<property name="className" value="org.olat.gui.control.OlatMinimalTopNavController"/>
 	</bean>
-	<!--
-	<bean id="fullWebApp.MinimalTopNavControllerCreator" class="org.olat.core.gui.control.creator.AutoCreator">
-		<property name="className" value="org.olat.core.commons.fullWebApp.DefaultMinimalTopNavController" />
-	</bean> -->
+
 	<!--
 		******************************************
 		*** Configure the controller in the    ***
 		*** header part, in context help       ***
 		******************************************
 	-->
-	<bean id="fullWebApp.ContextHelpHeaderControllerCreator" class="org.olat.core.gui.control.creator.AutoCreator">
-		<property name="className" value="org.olat.core.commons.fullWebApp.EmptyHeaderController"/>
-	</bean> 		
+	<bean id="fullWebApp.ContextHelpHeaderControllerCreator" class="org.olat.core.gui.control.creator.AutoCreator"/> 		
 	<!--
 		******************************************
 		*** Configure the controller in the    ***
@@ -113,7 +101,7 @@
 		******************************************
 	-->
 	<bean id="fullWebApp.ContextHelpFooterControllerCreator" class="org.olat.core.gui.control.creator.AutoCreator" >
-		<property name="className" value="org.olat.core.commons.fullWebApp.DefaultFooterController"/>
+		<property name="className" value="org.olat.gui.control.OlatFooterController"/>
 	</bean>
 
 </beans>

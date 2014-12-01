@@ -25,13 +25,27 @@
 
 package org.olat.repository.handlers;
 
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import org.olat.core.CoreSpringFactory;
 import org.olat.core.id.OLATResourceable;
 import org.olat.core.logging.AssertException;
+import org.olat.fileresource.types.AnimationFileResource;
+import org.olat.fileresource.types.DocFileResource;
+import org.olat.fileresource.types.FileResource;
+import org.olat.fileresource.types.ImageFileResource;
+import org.olat.fileresource.types.MovieFileResource;
+import org.olat.fileresource.types.PdfFileResource;
+import org.olat.fileresource.types.PowerpointFileResource;
+import org.olat.fileresource.types.SoundFileResource;
+import org.olat.fileresource.types.XlsFileResource;
 import org.olat.repository.RepositoryEntry;
+import org.springframework.stereotype.Service;
 
 import de.unileipzig.xman.exam.ExamHandler;
 
@@ -43,45 +57,54 @@ import de.unileipzig.xman.exam.ExamHandler;
  * Comment:  
  * 
  */
+@Service
 public class RepositoryHandlerFactory {
 
-	private static RepositoryHandlerFactory INSTANCE;
 	private static Map<String, RepositoryHandler> handlerMap;
-	
-	/**
-	 * 
-	 */
-	private RepositoryHandlerFactory() {
-		// singleton
-	}
-
+	private static List<OrderedRepositoryHandler> handlerList;
 	static {
-		INSTANCE = new RepositoryHandlerFactory();
-		handlerMap = new HashMap<String, RepositoryHandler>(10);
+		handlerMap = new HashMap<String, RepositoryHandler>(21);
+		handlerList = new ArrayList<OrderedRepositoryHandler>(21);
 
-		registerHandler(new WebDocumentHandler());
-		registerHandler(new ImsCPHandler());
-		registerHandler(new SCORMCPHandler());
-		registerHandler(new CourseHandler());
-		registerHandler(new SharedFolderHandler());
-		registerHandler(new WikiHandler());
-		registerHandler(new PodcastHandler());
-		registerHandler(new BlogHandler());
-		registerHandler(new GlossaryHandler());
-		registerHandler(new PortfolioHandler());
-		registerHandler(new ExamHandler());
+		// 0-9 Most important resources = 0-9
+		registerHandler(new CourseHandler(), 0);
+		registerHandler(new ExamHandler(), 1);
+		// 10-19 Assessment modules
+		// 20-29 Content modules
+		registerHandler(new SCORMCPHandler(), 20);
+		registerHandler(new ImsCPHandler(), 21);
+		registerHandler(new WikiHandler(), 22);
+		// 30-39 Interactive modules
+		registerHandler(new PodcastHandler(), 31);
+		registerHandler(new BlogHandler(), 32);
+		// 40-49 Supporting resources
+		registerHandler(new SharedFolderHandler(), 40);
+		registerHandler(new GlossaryHandler(), 41);
+		registerHandler(new PortfolioHandler(), 42);
+		
+		registerHandler(new WebDocumentHandler(DocFileResource.TYPE_NAME), 10001);
+		registerHandler(new WebDocumentHandler(XlsFileResource.TYPE_NAME), 10002);
+		registerHandler(new WebDocumentHandler(PowerpointFileResource.TYPE_NAME), 10003);
+		registerHandler(new WebDocumentHandler(PdfFileResource.TYPE_NAME), 10010);
+		registerHandler(new WebDocumentHandler(ImageFileResource.TYPE_NAME), 10011);
+		registerHandler(new WebDocumentHandler(SoundFileResource.TYPE_NAME), 10020);
+		registerHandler(new WebDocumentHandler(MovieFileResource.TYPE_NAME), 10021);
+		registerHandler(new WebDocumentHandler(AnimationFileResource.TYPE_NAME), 10022);
+		registerHandler(new WebDocumentHandler(FileResource.GENERIC_TYPE_NAME), 10100);
 	}
 
-	public static void registerHandler(RepositoryHandler handler) {
-		for (String type : handler.getSupportedTypes()) {
-			handlerMap.put(type, handler);
+	public static void registerHandler(RepositoryHandler handler, int order) {
+		handlerMap.put(handler.getSupportedType(), handler);
+		OrderedRepositoryHandler oHandler = new OrderedRepositoryHandler(handler, order);
+		if(handlerList.contains(oHandler)) {
+			handlerList.remove(oHandler);
 		}
+		handlerList.add(oHandler);
 	}
 	
-	/**
-	 * @return Singleton.
-	 */
-	public static RepositoryHandlerFactory getInstance() {	return INSTANCE; }
+	public static RepositoryHandlerFactory getInstance() {
+		return CoreSpringFactory.getImpl(RepositoryHandlerFactory.class);
+	}
 	
 	/**
 	 * Get the repository handler for this repository entry.
@@ -103,11 +126,57 @@ public class RepositoryHandlerFactory {
 		return handlerMap.get(resourceableTypeName);
 	}
 	
+	public List<OrderedRepositoryHandler> getOrderRepositoryHandlers() {
+		List<OrderedRepositoryHandler> ordered = new ArrayList<>(handlerList);
+		Collections.sort(ordered);
+		return ordered;
+	}
+	
 	/**
 	 * Get a set of types this factory supports.
 	 * @return Set of supported types.
 	 */
-	public static Set<String> getSupportedTypes() {
+	public Set<String> getSupportedTypes() {
 		return handlerMap.keySet();
+	}
+	
+	public static class OrderedRepositoryHandler implements Comparable<OrderedRepositoryHandler> {
+		private final int order;
+		private final RepositoryHandler handler;
+		
+		public OrderedRepositoryHandler(RepositoryHandler handler, int order) {
+			this.handler = handler;
+			this.order = order;
+		}
+
+		public int getOrder() {
+			return order;
+		}
+
+		public RepositoryHandler getHandler() {
+			return handler;
+		}
+
+		@Override
+		public int compareTo(OrderedRepositoryHandler o) {
+			return order - o.order;
+		}
+
+		@Override
+		public int hashCode() {
+			return handler.getSupportedType().hashCode();
+		}
+
+		@Override
+		public boolean equals(Object obj) {
+			if(this == obj) {
+				return true;
+			}
+			if(obj instanceof OrderedRepositoryHandler) {
+				OrderedRepositoryHandler oh = (OrderedRepositoryHandler)obj;
+				return handler.getSupportedType().equals(oh.getHandler().getSupportedType());
+			}
+			return false;
+		}
 	}
 }

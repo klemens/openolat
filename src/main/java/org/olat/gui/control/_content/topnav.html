@@ -1,42 +1,63 @@
-<ul>
-#if($r.available("topnav.impressum"))
-	<li>
-		$r.render("topnav.impressum")
-	</li>
-#end
-#if ($r.available("groupchatcontroller"))
-	<li id="o_topnav_imgroupclient">
-		$r.render("groupchatcontroller")
-	</li>
-#end
-#if ($r.available("imclient"))
-	<li id="o_topnav_imclient">
-		$r.render("imclient")
-	</li>
-#end
-#if (!$inAssessment && $r.available("search_input"))
-	<li id="o_topnav_search">
-		$r.render("search_input")
-	</li>
-#end
-	<li id="o_topnav_printview">
-		<a href="javascript:b_doPrint();" title="$r.translateInAttribute("topnav.printview.alt")" >$r.translate("topnav.printview")</a>
-	</li>
-#if ($r.available("topnav.help"))
-	<li id="o_topnav_help">
-		$r.render("topnav.help")
-	</li>
-#end
-#if (!$isGuest)
-	<li id="o_topnav_logout">
-		## make logout link very basic without onClick handler in case javaScript is broken it is still possible to log out
-		## except for the onolatunload() method which must be executed to correctly finish SCORM modules (OLAT-6255)
-		## must be on one line to work with inline translation tool
-		<a id="b_logout" href="$r.commandURI("logout")" title="$r.translateInAttribute("topnav.logout.alt")" onclick="if (window.olatonunload) {olatonunload();}"><span class="b_logout_icon">$r.translate("topnav.logout")</span></a>
-	</li>
-#else
-	<li id="o_topnav_login">
-		$r.render("topnav.login")
-	</li>
-#end
-</ul>
+<div id="$r.getCId()" class="o_navbar_tools">
+	<ul id="o_navbar_tools_personal" class="nav o_navbar-nav o_navbar-right">
+	#foreach($personalTool in $toolSet)
+		 <li class="o_navbar_tool">$r.render($personalTool)</li>
+	#end
+	#if (!$isGuest && !$isInvitee)
+		<li id="o_navbar_my_menu" class="dropdown o_portrait">
+			<a id="o_sel_navbar_my_menu_caret" href="#" class="dropdown-toggle" data-toggle="dropdown">
+				$r.render("portrait")
+				$myMenuLabel
+				<b class="caret"></b>
+			</a>	
+			$r.render("myMenu")
+		</li>
+	#elseif(!$isInvitee)
+		<li id="o_navbar_login">
+			$r.render("topnav.login")
+		</li>
+	#end
+	</ul>
+	
+	<ul id="o_navbar_tools_permanent" class="nav o_navbar-nav o_navbar-right">
+	#if($impressumInfos.top)
+		<li id="o_navbar_impress">
+			$r.render("topnav.impressum")
+		</li>
+	#end
+	#if($r.available("topnav.help"))
+		<li id="o_navbar_help">
+			$r.render("topnav.help")
+		</li>
+	#end
+	<li id="o_navbar_print">
+		<a href="javascript:o_doPrint();" title="$r.translateInAttribute("topnav.printview.alt")" >
+			<i class="o_icon o_icon_print o_icon-lg"></i>
+			<span>$r.translate("topnav.printview")</span>
+		</a>
+	</li>	
+	#if (!$inAssessment && $r.available("search_input"))
+		<li id="o_navbar_search_opener" class="dropdown">
+			<a href="#" class="dropdown-toggle" data-toggle="dropdown" title="$r.translate("search")">
+				<i class="o_icon o_icon_search o_icon-lg"></i>
+				<span>$r.translate("topnav.search")</span>
+			</a>
+			<ul class="dropdown-menu dropdown-menu-right">          
+				<li id="o_navbar_search" class="o_navbar-form">
+					$r.render("search_input")
+				</li>
+			</ul>
+		</li>
+	#end
+	#if ($r.available("groupchatcontroller"))
+		<li id="o_navbar_imgroupclient">
+			$r.render("groupchatcontroller")
+		</li>
+	#end
+	#if ($r.available("imclient"))
+		<li id="o_navbar_imclient" class="clearfix">
+			$r.render("imclient")
+		</li>
+	#end
+	</ul>
+</div>

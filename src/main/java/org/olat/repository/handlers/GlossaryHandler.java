@@ -25,47 +25,54 @@
 */
 package org.olat.repository.handlers;
 
-import java.util.ArrayList;
-import java.util.List;
+import java.io.File;
+import java.util.Locale;
 import java.util.Properties;
 
-import org.olat.basesecurity.BaseSecurityManager;
+import org.olat.core.CoreSpringFactory;
 import org.olat.core.commons.fullWebApp.LayoutMain3ColsController;
 import org.olat.core.commons.modules.glossary.GlossaryItemManager;
 import org.olat.core.commons.modules.glossary.GlossaryMainController;
+import org.olat.core.commons.modules.glossary.GlossaryRuntimeController;
 import org.olat.core.commons.modules.glossary.GlossarySecurityCallback;
 import org.olat.core.commons.modules.glossary.GlossarySecurityCallbackImpl;
+import org.olat.core.commons.persistence.DBFactory;
 import org.olat.core.gui.UserRequest;
+import org.olat.core.gui.components.stack.TooledStackedPanel;
 import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.WindowControl;
 import org.olat.core.gui.control.generic.layout.MainLayoutController;
+import org.olat.core.gui.control.generic.wizard.StepsMainRunController;
 import org.olat.core.gui.media.MediaResource;
-import org.olat.core.gui.translator.PackageTranslator;
 import org.olat.core.gui.translator.Translator;
 import org.olat.core.id.Identity;
 import org.olat.core.id.OLATResourceable;
+import org.olat.core.id.Roles;
 import org.olat.core.logging.AssertException;
+import org.olat.core.util.FileUtils;
 import org.olat.core.util.Util;
 import org.olat.core.util.coordinate.CoordinatorManager;
 import org.olat.core.util.coordinate.LockResult;
 import org.olat.core.util.resource.OLATResourceableJustBeforeDeletedEvent;
 import org.olat.core.util.vfs.VFSContainer;
+import org.olat.fileresource.FileResourceManager;
+import org.olat.fileresource.types.FileResource;
 import org.olat.fileresource.types.GlossaryResource;
-import org.olat.modules.glossary.CreateNewGlossaryController;
+import org.olat.fileresource.types.ResourceEvaluation;
 import org.olat.modules.glossary.GlossaryManager;
+import org.olat.repository.ErrorList;
 import org.olat.repository.RepositoryEntry;
 import org.olat.repository.RepositoryManager;
-import org.olat.repository.controllers.AddFileResourceController;
-import org.olat.repository.controllers.IAddController;
-import org.olat.repository.controllers.RepositoryAddCallback;
-import org.olat.repository.controllers.WizardCloseResourceController;
-import org.olat.resource.accesscontrol.ui.RepositoryMainAccessControllerWrapper;
+import org.olat.repository.RepositoryService;
+import org.olat.repository.model.RepositoryEntrySecurity;
+import org.olat.repository.ui.RepositoryEntryRuntimeController.RuntimeControllerCreator;
+import org.olat.resource.OLATResource;
+import org.olat.resource.OLATResourceManager;
 import org.olat.resource.references.ReferenceManager;
 
 
 /**
  * Description:<br>
- * TODO: fg
  * 
  * <P>
  * Initial Date: Dec 04 2006 <br>
@@ -73,114 +80,132 @@ import org.olat.resource.references.ReferenceManager;
  */
 public class GlossaryHandler implements RepositoryHandler {
 
-	private static final String PACKAGE = Util.getPackageName(RepositoryManager.class);
-
-	private static final boolean LAUNCHEABLE = true;
-	private static final boolean DOWNLOADEABLE = true;
-	private static final boolean EDITABLE = true;
-	private static final boolean WIZARD_SUPPORT = false;
-	private static final List<String> supportedTypes;
 	
 	public static final String PROCESS_CREATENEW = "cn";
 	public static final String PROCESS_UPLOAD = "pu";
 
-	/**
-	 * Default constructor.
-	 */
-	public GlossaryHandler() {
-		super();
-	}
-
-	static { // initialize supported types
-		supportedTypes = new ArrayList<String>(1);
-		supportedTypes.add(GlossaryResource.TYPE_NAME);
-	}
-
-	/**
-	 * @see org.olat.repository.handlers.RepositoryHandler#getSupportedTypes()
-	 */
-	public List<String> getSupportedTypes() {
-		return supportedTypes;
-	}
-
-	/**
-	 * @see org.olat.repository.handlers.RepositoryHandler#supportsLaunch()
-	 */
-	public boolean supportsLaunch(RepositoryEntry repoEntry) {
-		return LAUNCHEABLE;
-	}
-
-	/**
-	 * @see org.olat.repository.handlers.RepositoryHandler#supportsDownload()
-	 */
-	public boolean supportsDownload(RepositoryEntry repoEntry) {
-		return DOWNLOADEABLE;
-	}
-
-	/**
-	 * @see org.olat.repository.handlers.RepositoryHandler#supportsEdit()
-	 */
-	public boolean supportsEdit(RepositoryEntry repoEntry) {
-		return EDITABLE;
+	@Override
+	public boolean isCreate() {
+		return true;
 	}
 	
-	/**
-	 * @see org.olat.repository.handlers.RepositoryHandler#supportsWizard(org.olat.repository.RepositoryEntry)
-	 */
-	public boolean supportsWizard(RepositoryEntry repoEntry) { return WIZARD_SUPPORT; }
+	@Override
+	public RepositoryEntry createResource(Identity initialAuthor, String displayname, String description, Object createObject, Locale locale) {
+		RepositoryService repositoryService = CoreSpringFactory.getImpl(RepositoryService.class);
+		GlossaryResource glossaryResource = GlossaryManager.getInstance().createGlossary();
+		OLATResource resource = OLATResourceManager.getInstance().findOrPersistResourceable(glossaryResource);
+		RepositoryEntry re = repositoryService.create(initialAuthor, null, "", displayname, description, resource, RepositoryEntry.ACC_OWNERS);
+		DBFactory.getInstance().commit();
+		return re;
+	}
 	
-	/**
-	 * @see org.olat.repository.handlers.RepositoryHandler#getCreateWizardController(org.olat.core.id.OLATResourceable, org.olat.core.gui.UserRequest, org.olat.core.gui.control.WindowControl)
-	 */
-	public Controller createWizardController(OLATResourceable res, UserRequest ureq, WindowControl wControl) {
+	@Override
+	public String getCreateLabelI18nKey() {
+		return "new.glossary";
+	}
+	
+	@Override
+	public boolean isPostCreateWizardAvailable() {
+		return false;
+	}
+
+	@Override
+	public ResourceEvaluation acceptImport(File file, String filename) {
+		return GlossaryResource.evaluate(file, filename);
+	}
+	
+	@Override
+	public RepositoryEntry importResource(Identity initialAuthor, String initialAuthorAlt, String displayname, String description,
+			boolean withReferences, Locale locale, File file, String filename) {
+		RepositoryService repositoryService = CoreSpringFactory.getImpl(RepositoryService.class);
+		GlossaryResource glossaryResource = GlossaryManager.getInstance().createGlossary();
+		OLATResource resource = OLATResourceManager.getInstance().findOrPersistResourceable(glossaryResource);
+		//copy resources
+		File glossyPath = GlossaryManager.getInstance().getGlossaryRootFolder(glossaryResource).getBasefile();
+		FileResource.copyResource(file, filename, glossyPath);
+		RepositoryEntry re = repositoryService.create(initialAuthor, null, "", displayname, description, resource, RepositoryEntry.ACC_OWNERS);
+		DBFactory.getInstance().commit();
+		return re;
+	}
+	
+	@Override
+	public RepositoryEntry copy(RepositoryEntry source, RepositoryEntry target) {
+		OLATResource sourceResource = source.getOlatResource();
+		OLATResource targetResource = target.getOlatResource();
+		File sourceFileroot = FileResourceManager.getInstance().getFileResourceRootImpl(sourceResource).getBasefile();
+		File targetFileroot = FileResourceManager.getInstance().getFileResourceRootImpl(targetResource).getBasefile();
+		FileUtils.copyDirContentsToDir(sourceFileroot, targetFileroot, false, "copy");
+		return target;
+	}
+
+	@Override
+	public String getSupportedType() {
+		return GlossaryResource.TYPE_NAME;
+	}
+
+	@Override
+	public boolean supportsLaunch() {
+		return true;
+	}
+
+	@Override
+	public boolean supportsDownload() {
+		return true;
+	}
+
+	@Override
+	public EditionSupport supportsEdit(OLATResourceable resource) {
+		return EditionSupport.embedded;
+	}
+	
+	@Override
+	public VFSContainer getMediaContainer(RepositoryEntry repoEntry) {
+		return FileResourceManager.getInstance()
+				.getFileResourceMedia(repoEntry.getOlatResource());
+	}
+
+	@Override
+	public StepsMainRunController createWizardController(OLATResourceable res, UserRequest ureq, WindowControl wControl) {
 		throw new AssertException("Trying to get wizard where no creation wizard is provided for this type.");
 	}
 
 	/**
-	 * @param res
-	 * @param initialViewIdentifier
 	 * @param ureq
 	 * @param wControl
+	 * @param res
+	 * @param initialViewIdentifier
 	 * @return Controller
 	 */
 	@Override
-	public MainLayoutController createLaunchController(RepositoryEntry re, UserRequest ureq, WindowControl wControl) {
-		VFSContainer glossaryFolder = GlossaryManager.getInstance().getGlossaryRootFolder(re.getOlatResource());
+	public MainLayoutController createLaunchController(RepositoryEntry re, RepositoryEntrySecurity reSecurity, UserRequest ureq, WindowControl wControl) {
+		return new GlossaryRuntimeController(ureq, wControl, re, reSecurity,
+			new RuntimeControllerCreator() {
+				@Override
+				public Controller create(UserRequest uureq, WindowControl wwControl, TooledStackedPanel toolbarPanel, RepositoryEntry entry, RepositoryEntrySecurity security) {
+					VFSContainer glossaryFolder = GlossaryManager.getInstance().getGlossaryRootFolder(entry.getOlatResource());
 
-		Properties glossProps = GlossaryItemManager.getInstance().getGlossaryConfig(glossaryFolder);
-		boolean editableByUser = "true".equals(glossProps.getProperty(GlossaryItemManager.EDIT_USERS));
-		boolean owner = BaseSecurityManager.getInstance().isIdentityInSecurityGroup(ureq.getIdentity(), re.getOwnerGroup());
-		
-		GlossarySecurityCallback secCallback;
-		if (ureq.getUserSession().getRoles().isGuestOnly()) {
-			secCallback = new GlossarySecurityCallbackImpl();				
-		} else {
-			secCallback = new GlossarySecurityCallbackImpl(false, owner, editableByUser, ureq.getIdentity().getKey());
-		}
-		GlossaryMainController gctr = new GlossaryMainController(wControl, ureq, glossaryFolder, re.getOlatResource(), secCallback, false);
-		// use on column layout
-		LayoutMain3ColsController layoutCtr = new LayoutMain3ColsController(ureq, wControl, null, null, gctr.getInitialComponent(), null);
-		layoutCtr.addDisposableChildController(gctr); // dispose content on layout dispose
-		
-		//fxdiff VCRP-1: access control of learn resources
-		RepositoryMainAccessControllerWrapper wrapper = new RepositoryMainAccessControllerWrapper(ureq, wControl, re, layoutCtr);
-		return wrapper;
+					Properties glossProps = GlossaryItemManager.getInstance().getGlossaryConfig(glossaryFolder);
+					boolean editableByUser = "true".equals(glossProps.getProperty(GlossaryItemManager.EDIT_USERS));
+					boolean owner = security.isOwner();
+					
+					GlossarySecurityCallback secCallback;
+					if (uureq.getUserSession().getRoles().isGuestOnly()) {
+						secCallback = new GlossarySecurityCallbackImpl();				
+					} else {
+						secCallback = new GlossarySecurityCallbackImpl(false, owner, editableByUser, uureq.getIdentity().getKey());
+					}
+					return new GlossaryMainController(wwControl, uureq, glossaryFolder, entry.getOlatResource(), secCallback, false);	
+				}
+			});
 	}
 
-	/**
-	 * @see org.olat.repository.handlers.RepositoryHandler#getAsMediaResource(org.olat.core.id.OLATResourceable
-	 */
 	@Override
 	public MediaResource getAsMediaResource(OLATResourceable res, boolean backwardsCompatible) {
 		return GlossaryManager.getInstance().getAsMediaResource(res);
 	}
 
-	/**
-	 * @see org.olat.repository.handlers.RepositoryHandler#getEditorController(org.olat.core.id.OLATResourceable
-	 *      org.olat.core.gui.UserRequest, org.olat.core.gui.control.WindowControl)
-	 */
 	@Override
-	public Controller createEditorController(RepositoryEntry re, UserRequest ureq, WindowControl wControl) {
+	public Controller createEditorController(RepositoryEntry re, UserRequest ureq, WindowControl wControl, TooledStackedPanel toolbar) {
 		VFSContainer glossaryFolder = GlossaryManager.getInstance().getGlossaryRootFolder(re.getOlatResource());
 
 		Properties glossProps = GlossaryItemManager.getInstance().getGlossaryConfig(glossaryFolder);
@@ -193,34 +218,12 @@ public class GlossaryHandler implements RepositoryHandler {
 		}
 		GlossaryMainController gctr = new GlossaryMainController(wControl, ureq, glossaryFolder, re.getOlatResource(), secCallback, false);
 		// use on column layout
-		LayoutMain3ColsController layoutCtr = new LayoutMain3ColsController(ureq, wControl, null, null, gctr.getInitialComponent(), null);
+		LayoutMain3ColsController layoutCtr = new LayoutMain3ColsController(ureq, wControl, gctr);
 		layoutCtr.addDisposableChildController(gctr); // dispose content on layout dispose
 		return layoutCtr;
 	}
 
-	/**
-	 * @see org.olat.repository.handlers.RepositoryHandler#getAddController(org.olat.repository.controllers.RepositoryAddCallback,
-	 *      java.lang.Object, org.olat.core.gui.UserRequest,
-	 *      org.olat.core.gui.control.WindowControl)
-	 */
-	public IAddController createAddController(RepositoryAddCallback callback, Object userObject, UserRequest ureq, WindowControl wControl) {
-		if (userObject == null)
-			// assume add
-			return new AddFileResourceController(callback, supportedTypes, new String[] {"zip"}, ureq, wControl);
-		else
-			// assume create
-			return new CreateNewGlossaryController(callback, ureq, wControl);
-	}
-
-	
-	public Controller createDetailsForm(UserRequest ureq, WindowControl wControl, OLATResourceable res) {
-		return null;
-	}
-
-	/**
-	 * @see org.olat.repository.handlers.RepositoryHandler#cleanupOnDelete(org.olat.core.id.OLATResourceable
-	 *      org.olat.core.gui.UserRequest, org.olat.core.gui.control.WindowControl)
-	 */
+	@Override
 	public boolean cleanupOnDelete(OLATResourceable res) {
 		// FIXME fg
 		// do not need to notify all current users of this resource, since the only
@@ -232,59 +235,36 @@ public class GlossaryHandler implements RepositoryHandler {
 		return true;
 	}
 
-	/**
-	 * @see org.olat.repository.handlers.RepositoryHandler#readyToDelete(org.olat.core.id.OLATResourceable
-	 *      org.olat.core.gui.UserRequest, org.olat.core.gui.control.WindowControl)
-	 */
-	public boolean readyToDelete(OLATResourceable res, UserRequest ureq, WindowControl wControl) {
+	@Override
+	public boolean readyToDelete(OLATResourceable res, Identity identity, Roles roles, Locale locale, ErrorList errors) {
 		ReferenceManager refM = ReferenceManager.getInstance();
-		String referencesSummary = refM.getReferencesToSummary(res, ureq.getLocale());
+		String referencesSummary = refM.getReferencesToSummary(res, locale);
 		if (referencesSummary != null) {
-			Translator translator = new PackageTranslator(PACKAGE, ureq.getLocale());
-			wControl.setError(translator.translate("details.delete.error.references", new String[] { referencesSummary }));
+			Translator translator = Util.createPackageTranslator(RepositoryManager.class, locale);
+			errors.setError(translator.translate("details.delete.error.references", new String[] { referencesSummary }));
 			return false;
 		}
 		return true;
 	}
 
-	/**
-	 * @see org.olat.repository.handlers.RepositoryHandler#createCopy(org.olat.core.id.OLATResourceable
-	 *      org.olat.core.gui.UserRequest)
-	 */
-	public OLATResourceable createCopy(OLATResourceable res, UserRequest ureq) {
-		return GlossaryManager.getInstance().createCopy(res, ureq);
-	}
-
+	@Override
 	public String archive(Identity archiveOnBehalfOf, String archivFilePath, RepositoryEntry repoEntry) {
 		return GlossaryManager.getInstance().archive(archivFilePath, repoEntry);
 	}
-	
-	/**
-	 * 
-	 * @see org.olat.repository.handlers.RepositoryHandler#acquireLock(org.olat.core.id.OLATResourceable, org.olat.core.id.Identity)
-	 */
+
+	@Override
 	public LockResult acquireLock(OLATResourceable ores, Identity identity) {
     //nothing to do
 		return null;
 	}
-	
-	/**
-	 * 
-	 * @see org.olat.repository.handlers.RepositoryHandler#releaseLock(org.olat.core.util.coordinate.LockResult)
-	 */
+
+	@Override
 	public void releaseLock(LockResult lockResult) {
 		//nothing to do since nothing locked
 	}
-	
-	/**
-	 * 
-	 * @see org.olat.repository.handlers.RepositoryHandler#isLocked(org.olat.core.id.OLATResourceable)
-	 */
+
+	@Override
 	public boolean isLocked(OLATResourceable ores) {
 		return false;
-	}
-
-	public WizardCloseResourceController createCloseResourceController(UserRequest ureq, WindowControl wControl, RepositoryEntry repositoryEntry) {
-		throw new AssertException("not implemented");
 	}
 }

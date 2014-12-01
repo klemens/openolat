@@ -35,6 +35,7 @@ import java.util.Map.Entry;
 import java.util.Set;
 
 import org.olat.core.CoreSpringFactory;
+import org.olat.core.commons.services.image.ImageService;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.form.flexible.FormItem;
 import org.olat.core.gui.components.form.flexible.FormItemContainer;
@@ -49,17 +50,22 @@ import org.olat.core.gui.components.link.Link;
 import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.Event;
 import org.olat.core.gui.control.WindowControl;
-import org.olat.core.gui.translator.PackageTranslator;
+import org.olat.core.gui.translator.Translator;
+import org.olat.core.id.OLATResourceable;
 import org.olat.core.logging.AssertException;
 import org.olat.core.util.ArrayHelper;
 import org.olat.core.util.FileUtils;
-import org.olat.core.util.ImageHelper;
+import org.olat.core.util.Util;
+import org.olat.core.util.coordinate.CoordinatorManager;
 import org.olat.core.util.vfs.VFSContainer;
 import org.olat.core.util.vfs.VFSItem;
 import org.olat.core.util.vfs.VFSLeaf;
-import org.olat.core.util.vfs.VFSMediaResource;
 import org.olat.core.util.vfs.filters.VFSItemSuffixFilter;
+import org.olat.course.CourseFactory;
+import org.olat.course.ICourse;
 import org.olat.course.config.CourseConfig;
+import org.olat.course.config.CourseConfigEvent;
+import org.olat.course.config.CourseConfigEvent.CourseConfigType;
 import org.olat.course.config.ui.courselayout.attribs.AbstractLayoutAttribute;
 import org.olat.course.config.ui.courselayout.attribs.PreviewLA;
 import org.olat.course.config.ui.courselayout.attribs.SpecialAttributeFormItemHandler;
@@ -76,13 +82,12 @@ import org.olat.course.run.environment.CourseEnvironment;
  */
 public class CourseLayoutGeneratorController extends FormBasicController {
 
-	private static final String ELEMENT_ATTRIBUTE_DELIM = "::";
+	private static final String ELEMENT_ATTRIBUTE_DELIM = "__";
 	private static final String PREVIEW_IMAGE_NAME = "preview.png";
-	private CourseConfig courseConfig;
+
 	private SingleSelection styleSel;
 	private FileElement logoUpl;
 	private FormLayoutContainer previewImgFlc;
-	private CourseEnvironment courseEnvironment;
 	private FormLayoutContainer styleFlc;
 	private CustomConfigManager customCMgr;
 	private LinkedHashMap<String, Map<String, FormItem>> guiWrapper;
@@ -91,18 +96,23 @@ public class CourseLayoutGeneratorController extends FormBasicController {
 	private FormLink logoDel;
 	private boolean elWithErrorExists = false;
 	private final boolean editable;
+	
+	private final OLATResourceable courseOres;
+	private CourseConfig courseConfig;
+	private CourseEnvironment courseEnvironment;
 
-	public CourseLayoutGeneratorController(UserRequest ureq, WindowControl wControl, CourseConfig courseConfig,
+	public CourseLayoutGeneratorController(UserRequest ureq, WindowControl wControl, OLATResourceable courseOres, CourseConfig courseConfig,
 			CourseEnvironment courseEnvironment, boolean editable) {
 		super(ureq, wControl);
 		
 		this.editable = editable;
+		this.courseOres = courseOres;
 		this.courseConfig = courseConfig;
 		this.courseEnvironment = courseEnvironment;
 		customCMgr = (CustomConfigManager) CoreSpringFactory.getBean("courseConfigManager");
 		// stack the translator to get attribs/elements
-		PackageTranslator pt = new PackageTranslator(AbstractLayoutAttribute.class.getPackage().getName(), ureq.getLocale(), getTranslator());
-		pt = new PackageTranslator(AbstractLayoutElement.class.getPackage().getName(), ureq.getLocale(), pt);
+		Translator pt = Util.createPackageTranslator(AbstractLayoutAttribute.class, ureq.getLocale(), getTranslator());
+		pt = Util.createPackageTranslator(AbstractLayoutElement.class, ureq.getLocale(), pt);
 		setTranslator(pt);
 		persistedCustomConfig = customCMgr.getCustomConfig(courseEnvironment);
 		initForm(ureq);
@@ -178,7 +188,7 @@ public class CourseLayoutGeneratorController extends FormBasicController {
 		String[] theCssClasses = ArrayHelper.toArray(csss);
 		
 		styleSel = uifactory.addDropdownSingleselect("course.layout.selector", formLayout, theKeys, theValues, theCssClasses);
-		styleSel.addActionListener(this, FormEvent.ONCHANGE);
+		styleSel.addActionListener(FormEvent.ONCHANGE);
 		styleSel.setEnabled(editable);
 		if (keys.contains(actualCSSSettings)){
 			styleSel.select(actualCSSSettings, true);
@@ -189,17 +199,17 @@ public class CourseLayoutGeneratorController extends FormBasicController {
 		previewImgFlc = FormLayoutContainer.createCustomFormLayout("preview.image", getTranslator(), velocity_root + "/image.html");
 		formLayout.add(previewImgFlc);
 		previewImgFlc.setLabel("preview.image.label", null);		
-		refreshPreviewImage(actualCSSSettings);		
+		refreshPreviewImage(ureq, actualCSSSettings);		
 		
 		logoImgFlc = FormLayoutContainer.createCustomFormLayout("logo.image", getTranslator(), velocity_root + "/image.html");
 		formLayout.add(logoImgFlc);
 		logoImgFlc.setLabel("logo.image.label", null);		
-		refreshLogoImage();	
+		refreshLogoImage(ureq);	
 		
 		// offer upload for 2nd logo
 		if(editable) {
 			logoUpl = uifactory.addFileElement("upload.second.logo", formLayout);
-			logoUpl.addActionListener(this, FormEvent.ONCHANGE);
+			logoUpl.addActionListener(FormEvent.ONCHANGE);
 			Set<String> mimeTypes = new HashSet<String>();
 			mimeTypes.add("image/*");
 			logoUpl.limitToMimeType(mimeTypes, "logo.file.type.error", null);
@@ -229,7 +239,7 @@ public class CourseLayoutGeneratorController extends FormBasicController {
 			} else {
 				enableDisableCustom(false);
 			}
-			refreshPreviewImage(selection); // in any case!
+			refreshPreviewImage(ureq, selection); // in any case!
 		} else if (source == logoUpl && event.wasTriggerdBy(FormEvent.ONCHANGE)) {
 			if (logoUpl.isUploadSuccess()) {
 				File newFile = logoUpl.getUploadFile();
@@ -244,7 +254,7 @@ public class CourseLayoutGeneratorController extends FormBasicController {
 				if (processUploadedImage(newFile)){
 					logoUpl.reset();
 					showInfo("logo.upload.success");
-					refreshLogoImage();
+					refreshLogoImage(ureq);
 				} else {
 					showError("logo.upload.error");
 				}
@@ -255,7 +265,7 @@ public class CourseLayoutGeneratorController extends FormBasicController {
 		} else if (source == logoDel){
 			VFSItem logo = (VFSItem) logoDel.getUserObject();
 			logo.delete();
-			refreshLogoImage();
+			refreshLogoImage(ureq);
 		}
 	}
 	
@@ -271,11 +281,13 @@ public class CourseLayoutGeneratorController extends FormBasicController {
 	private boolean processUploadedImage(File image){
 		int height = 0;
 		int width = 0;
-		String size[] = customCMgr.getImageSize(image);
+		int[] size = customCMgr.getImageSize(image);
 		if (size != null) {
-			width = Integer.parseInt(size[0]);
-			height = Integer.parseInt(size[1]);
-		} else return false;
+			width = size[0];
+			height = size[1];
+		} else {
+			return false;
+		}
 		// target file:
 		String fileType = logoUpl.getUploadFileName().substring(logoUpl.getUploadFileName().lastIndexOf("."));
 		VFSContainer base = (VFSContainer) courseEnvironment.getCourseBaseContainer().resolve(CourseLayoutHelper.LAYOUT_COURSE_SUBFOLDER);
@@ -293,7 +305,7 @@ public class CourseLayoutGeneratorController extends FormBasicController {
 		if (height > maxHeight || width > maxWidth){
 			// scale image
 			try {
-				ImageHelper helper = CourseLayoutHelper.getImageHelperToUse();
+				ImageService helper = CourseLayoutHelper.getImageHelperToUse();
 				String extension = FileUtils.getFileSuffix(logoUpl.getUploadFileName());
 				helper.scaleImage(image, extension, targetFile, maxWidth, maxHeight);
 			} catch (Exception e) {
@@ -320,16 +332,15 @@ public class CourseLayoutGeneratorController extends FormBasicController {
 	}
 	
 
-	private void refreshPreviewImage(String template) {
+	private void refreshPreviewImage(UserRequest ureq, String template) {
 		VFSContainer baseFolder = CourseLayoutHelper.getThemeBaseFolder(courseEnvironment, template);
 		if (baseFolder != null) {
 			VFSItem preview = baseFolder.resolve("/" + PREVIEW_IMAGE_NAME);
-			if (preview != null) {
-				ImageComponent image = new ImageComponent("preview");
+			if (preview instanceof VFSLeaf) {
+				ImageComponent image = new ImageComponent(ureq.getUserSession(), "preview");
 				previewImgFlc.setVisible(true);
 				previewImgFlc.put("preview", image);
-				VFSMediaResource prevImage = new VFSMediaResource((VFSLeaf) preview);
-				image.setMediaResource(prevImage);
+				image.setMedia((VFSLeaf) preview);
 				image.setMaxWithAndHeightToFitWithin(300, 300);
 				return;
 			}
@@ -338,15 +349,14 @@ public class CourseLayoutGeneratorController extends FormBasicController {
 		previewImgFlc.remove(previewImgFlc.getComponent("preview"));
 	}
 	
-	private void refreshLogoImage(){
+	private void refreshLogoImage(UserRequest ureq){
 		VFSContainer baseFolder = CourseLayoutHelper.getThemeBaseFolder(courseEnvironment, CourseLayoutHelper.CONFIG_KEY_CUSTOM);
 		VFSItem logo = customCMgr.getLogoItem(baseFolder);
-		if (logo != null) {
-			ImageComponent image = new ImageComponent("preview");
+		if (logo instanceof VFSLeaf) {
+			ImageComponent image = new ImageComponent(ureq.getUserSession(), "preview");
 			logoImgFlc.setVisible(true);
 			logoImgFlc.put("preview", image);
-			VFSMediaResource prevImage = new VFSMediaResource((VFSLeaf) logo);
-			image.setMediaResource(prevImage);
+			image.setMedia((VFSLeaf)logo);
 			image.setMaxWithAndHeightToFitWithin(300, 300);
 			logoDel = uifactory.addFormLink("logo.delete", logoImgFlc, Link.BUTTON_XSMALL);
 			logoDel.setUserObject(logo);
@@ -363,6 +373,10 @@ public class CourseLayoutGeneratorController extends FormBasicController {
 	@Override
 	protected void formOK(UserRequest ureq) {
 		String selection = styleSel.getSelectedKey();
+		
+		ICourse course = CourseFactory.openCourseEditSession(courseOres.getResourceableId());
+		courseEnvironment = course.getCourseEnvironment();
+		courseConfig = courseEnvironment.getCourseConfig();
 		courseConfig.setCssLayoutRef(selection);
 		
 		if(CourseLayoutHelper.CONFIG_KEY_CUSTOM.equals(selection)){
@@ -371,6 +385,12 @@ public class CourseLayoutGeneratorController extends FormBasicController {
 			persistedCustomConfig = customConfig;
 			if (!elWithErrorExists) prepareStyleEditor(customConfig);
 		}
+		
+		CourseFactory.setCourseConfig(course.getResourceableId(), courseConfig);
+		CourseFactory.closeCourseEditSession(course.getResourceableId(), true);
+		
+		CoordinatorManager.getInstance().getCoordinator().getEventBus()
+    		.fireEventToListenersOf(new CourseConfigEvent(CourseConfigType.layout, course.getResourceableId()), course);
 		
 		// inform course-settings-dialog about changes:
 		fireEvent(ureq, Event.CHANGED_EVENT);
@@ -430,7 +450,7 @@ public class CourseLayoutGeneratorController extends FormBasicController {
 			for (AbstractLayoutAttribute attrib : attributes) {
 				String compName = elementType + ELEMENT_ATTRIBUTE_DELIM + attrib.getLayoutAttributeTypeName();
 				FormItem fi = attrib.getFormItem(compName, styleFlc);
-				fi.addActionListener(this, FormEvent.ONCHANGE);
+				fi.addActionListener(FormEvent.ONCHANGE);
 				elAttribGui.put(attrib.getLayoutAttributeTypeName(), fi);
 			}			
 			guiWrapper.put(elementType, elAttribGui);			

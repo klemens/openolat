@@ -37,7 +37,7 @@ import org.olat.core.gui.control.WindowControl;
  */
 public class WebDAVAdminController extends FormBasicController {
 	
-	private MultipleSelectionElement enableModuleEl, enableLinkEl, enableDigestEl;
+	private MultipleSelectionElement enableModuleEl, enableLinkEl, enableDigestEl, enableTermsFoldersEl;
 	private final WebDAVModule webDAVModule;
 	
 	public WebDAVAdminController(UserRequest ureq, WindowControl wControl) {
@@ -56,19 +56,28 @@ public class WebDAVAdminController extends FormBasicController {
 
 		boolean enabled = webDAVModule.isEnabled();
 		String[] values = new String[] { getTranslator().translate("webdav.on") };
-		enableModuleEl = uifactory.addCheckboxesHorizontal("webdavModule", "webdav.module", formLayout, new String[]{"xx"}, values, null);
+		enableModuleEl = uifactory.addCheckboxesHorizontal("webdavModule", "webdav.module", formLayout, new String[]{"xx"}, values);
 		enableModuleEl.select("xx", enabled);
-		enableModuleEl.addActionListener(this, FormEvent.ONCHANGE);
+		enableModuleEl.addActionListener(FormEvent.ONCHANGE);
 		
-		enableLinkEl = uifactory.addCheckboxesHorizontal("webdavLink", "webdav.link", formLayout, new String[]{"xx"}, values, null);
+		enableLinkEl = uifactory.addCheckboxesHorizontal("webdavLink", "webdav.link", formLayout, new String[]{"xx"}, values);
 		enableLinkEl.select("xx", webDAVModule.isLinkEnabled());
-		enableLinkEl.addActionListener(this, FormEvent.ONCHANGE);
+		enableLinkEl.addActionListener(FormEvent.ONCHANGE);
 		enableLinkEl.setEnabled(enabled);
 		
-		enableDigestEl = uifactory.addCheckboxesHorizontal("webdavDigest", "webdav.digest", formLayout, new String[]{"xx"}, values, null);
+		enableDigestEl = uifactory.addCheckboxesHorizontal("webdavDigest", "webdav.digest", formLayout, new String[]{"xx"}, values);
 		enableDigestEl.select("xx", webDAVModule.isDigestAuthenticationEnabled());
-		enableDigestEl.addActionListener(this, FormEvent.ONCHANGE);
+		enableDigestEl.addActionListener(FormEvent.ONCHANGE);
 		enableDigestEl.setEnabled(enabled);
+		
+		uifactory.addSpacerElement("spacer1", formLayout, false);
+		
+		enableTermsFoldersEl = uifactory.addCheckboxesHorizontal("webdavTermsFolders", "webdav.termsfolders", formLayout, new String[]{"xx"}, values);
+		enableTermsFoldersEl.select("xx", webDAVModule.isTermsFoldersEnabled());
+		enableTermsFoldersEl.addActionListener(FormEvent.ONCHANGE);
+		enableTermsFoldersEl.setEnabled(enabled);
+		
+		
 	}
 
 	@Override
@@ -83,12 +92,16 @@ public class WebDAVAdminController extends FormBasicController {
 			webDAVModule.setEnabled(enabled);
 			enableLinkEl.setEnabled(enabled);
 			enableDigestEl.setEnabled(enabled);
+			enableTermsFoldersEl.setEnabled(enabled);
 		} else if(source == enableLinkEl) {
 			boolean enabled = enableLinkEl.isAtLeastSelected(1);
 			webDAVModule.setLinkEnabled(enabled);
 		} else if(source == enableDigestEl) {
 			boolean enabled = enableDigestEl.isAtLeastSelected(1);
 			webDAVModule.setDigestAuthenticationEnabled(enabled);
+		} else if(source == enableTermsFoldersEl) {
+			boolean enabled = enableTermsFoldersEl.isAtLeastSelected(1);
+			webDAVModule.setTermsFoldersEnabled(enabled);
 		}
 		super.formInnerEvent(ureq, source, event);
 	}

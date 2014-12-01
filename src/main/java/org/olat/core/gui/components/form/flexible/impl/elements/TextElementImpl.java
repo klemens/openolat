@@ -35,7 +35,6 @@ import org.olat.core.gui.components.form.flexible.FormBaseComponentIdProvider;
 import org.olat.core.gui.components.form.flexible.elements.InlineTextElement;
 import org.olat.core.gui.components.form.flexible.impl.FormEvent;
 import org.olat.core.gui.components.form.flexible.impl.FormJSHelper;
-import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.render.RenderResult;
 import org.olat.core.gui.render.Renderer;
 import org.olat.core.gui.render.RenderingState;
@@ -69,7 +68,7 @@ public class TextElementImpl extends AbstractTextElement implements InlineTextEl
 	
 	//inline stuff
 	protected String transientValue;//last submitted value, which may be good or wrong
-	OLog log = Tracing.createLoggerFor(this.getClass());
+	private static final OLog log = Tracing.createLoggerFor(TextElementImpl.class);
 	
 	/**
 	 * @param id A fix identifier for state-less behavior, must be unique or null
@@ -100,7 +99,7 @@ public class TextElementImpl extends AbstractTextElement implements InlineTextEl
 		if(asInline){
 			initInlineEditing(predefinedValue);
 		}else{
-			this.component = new TextElementComponent(id, this);
+			component = new TextElementComponent(id, this);
 		}
 	}
 	
@@ -112,7 +111,7 @@ public class TextElementImpl extends AbstractTextElement implements InlineTextEl
 	protected TextElementImpl(String id, String name){
 		//if you change something here, please see if other constructors need a change too.
 		super(name);
-		this.component = new TextElementComponent(id, this);
+		component = new TextElementComponent(id, this);
 	}
 	
 	/**
@@ -131,14 +130,12 @@ public class TextElementImpl extends AbstractTextElement implements InlineTextEl
 			throw new AssertException(htmlInputType + " html input type not supported!");
 		}
 		
-		if(asInlineEditingElement){
+		if(asInlineEditingElement) {
 			initInlineEditing(predefinedValue);
-		}else{
+		} else {
 			// init the standard element component
-			this.component = new TextElementComponent(id, this);
+			component = new TextElementComponent(id, this);
 		}
-		
-		
 	}
 
 	private void initInlineEditing(String predefinedValue) {
@@ -176,21 +173,12 @@ public class TextElementImpl extends AbstractTextElement implements InlineTextEl
 			}
 			//the html safe value
 			htmlVal.append(StringEscapeUtils.escapeHtml(tmpVal));
-			
-			
-			
-			
+
 			if (!itei.isEnabled()) {
 				// RO view and not clickable
 				String id = aiec.getFormDispatchId();
-
-				sb.append("<span id=\"");
-				sb.append(id);
-				sb.append("\" ");
-				sb.append(" >");
-				sb.append(htmlVal); //
-				sb.append("</span>");
-
+				sb.append("<span id=\"").append(id).append("\" ")
+				  .append(" >").append(htmlVal).append("</span>");
 			} else {
 				//
 				// Editable view
@@ -225,14 +213,10 @@ public class TextElementImpl extends AbstractTextElement implements InlineTextEl
 				} else {
 					// RO<->RW view which can be clicked 
 					String id = aiec.getFormDispatchId();
-
-					sb.append("<span id=\"");
-					sb.append(id);
-					sb.append("\" class=\"b_inline_editable\" ");
-					sb.append(FormJSHelper.getRawJSFor(itei.getRootForm(), id, itei.getAction()));
-					sb.append(" >");
-					sb.append(htmlVal); //
-					sb.append("</span>");
+					sb.append(htmlVal)
+					  .append(" <i id='").append(id).append("' class='o_icon o_icon_inline_editable' ")
+					  .append(FormJSHelper.getRawJSFor(itei.getRootForm(), id, itei.getAction()))
+					  .append(" > </i>");
 				}
 				
 			}//endif 
@@ -248,13 +232,13 @@ public class TextElementImpl extends AbstractTextElement implements InlineTextEl
 	@Override
 	public void evalFormRequest(UserRequest ureq) {
 		if(isInlineEditingElement()){
-			evalFormRequestInline(ureq);
+			//evalFormRequestInline(ureq);
 		}else {
-			evalFormRequestStandard(ureq);		
+			evalFormRequestStandard();		
 		}
 	}
 
-	private void evalFormRequestStandard(UserRequest ureq){
+	private void evalFormRequestStandard() {
 		String paramId = String.valueOf(component.getFormDispatchId());
 		String value = getRootForm().getRequestParameter(paramId);
 		if (value != null) {
@@ -263,11 +247,8 @@ public class TextElementImpl extends AbstractTextElement implements InlineTextEl
 			component.setDirty(true);
 		}		
 	}
-	
-	private void evalFormRequestInline(UserRequest ureq){
-		// not used yet
-	}
-	
+
+	@Override
 	protected void dispatchFormRequest(UserRequest ureq) {
 		if(isInlineEditingElement()){
 			dispatchFormRequestInline(ureq);
@@ -314,13 +295,21 @@ public class TextElementImpl extends AbstractTextElement implements InlineTextEl
 		getInlineEditingComponent().setDirty(true);
 	}
 
+	@Override
 	protected Component getFormItemComponent() {
 		return component;
 	}
 
 	protected String getHtmlInputType() {
 		return htmlInputType;
-	}	
+	}
+
+	@Override
+	public void setDomReplacementWrapperRequired(boolean required) {
+		if(component != null) {
+			component.setDomReplacementWrapperRequired(required);
+		}
+	}
 	
 	@Override
 	public void setTranslator(Translator translator) {
@@ -337,8 +326,8 @@ public class TextElementImpl extends AbstractTextElement implements InlineTextEl
 	 * TODO: add an onkeypress listener which will post do background instead, this could then also be used for an autocomplete textfield
 	 */
 	@Override
-	public void addActionListener(Controller listener, int action) {
-		super.addActionListener(listener, action);
+	public void addActionListener(int action) {
+		super.addActionListener(action);
 		if (action == FormEvent.ONCHANGE && Settings.isDebuging()) {
 			log.warn("Do not use the onChange event in Textfields / TextAreas as this has often unwanted side effects. " +
 					"As the onchange event is only tiggered when you click outside a field or navigate with the tab to the next element " +

@@ -126,7 +126,7 @@ public class PersistingCourseImpl implements ICourse, OLATResourceable, Serializ
 		// prepare filesystem and set course base path and course folder paths
 		prepareFilesystem();
 		courseConfig = CourseConfigManagerImpl.getInstance().loadConfigFor(this); // load or init defaults
-		courseEnvironment = new CourseEnvironmentImpl(this);		
+		courseEnvironment = new CourseEnvironmentImpl(this);
 	}
 	
 
@@ -155,7 +155,7 @@ public class PersistingCourseImpl implements ICourse, OLATResourceable, Serializ
 	public OlatRootFolderImpl getCourseExportDataDir() {
 		OlatRootFolderImpl vfsExportDir = (OlatRootFolderImpl)getCourseBaseContainer().resolve(ICourse.EXPORTED_DATA_FOLDERNAME);
 		if (vfsExportDir == null) {
-			vfsExportDir = (OlatRootFolderImpl)getCourseBaseContainer().createChildContainer(ICourse.EXPORTED_DATA_FOLDERNAME);
+			vfsExportDir = getCourseBaseContainer().createChildContainer(ICourse.EXPORTED_DATA_FOLDERNAME);
 		}
 		return vfsExportDir;
 	}

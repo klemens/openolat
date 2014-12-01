@@ -233,18 +233,7 @@ public class SiteDefinitions extends AbstractOLATModule {
 							config.setId(id);
 							config.setEnabled(siteDef.isEnabled());
 							config.setOrder(siteDef.getOrder());
-							
-							String securityCallbackBeanId = "defaultSiteSecurityCallback";
-							if("olatsites_useradmin".equals(id)) {
-								securityCallbackBeanId = "restrictToUserManagerSiteSecurityCallback";
-							} else if("olatsites_admin".equals(id)) {
-								securityCallbackBeanId = "adminSiteSecurityCallback";
-							} else if("olatsites_groups".equals(id) || "olatsites_home".equals(id)) {
-								securityCallbackBeanId = "registredSiteSecurityCallback";
-							} else if("olatsites_qpool".equals(id)) {
-								securityCallbackBeanId = "restrictToAuthorSiteSecurityCallback";
-							}
-							config.setSecurityCallbackBeanId(securityCallbackBeanId);	
+							config.setSecurityCallbackBeanId(siteDef.getDefaultSiteSecurityCallbackBeanId());
 						}
 						siteConfigMap.put(config.getId(), config);
 					}
@@ -260,13 +249,15 @@ public class SiteDefinitions extends AbstractOLATModule {
 		for(Map.Entry<String,SiteDefinition> siteDefEntry:allDefList.entrySet()) {
 			String id = siteDefEntry.getKey();
 			SiteDefinition siteDef = siteDefEntry.getValue();
-			if(siteConfigMap.containsKey(id)) {
-				SiteConfiguration config = siteConfigMap.get(id);
-				if(config.isEnabled()) {
-					enabledOrderedSites.add(new SiteDefinitionOrder(siteDef, config));
+			if(siteDef.isFeatureEnabled()) {
+				if(siteConfigMap.containsKey(id)) {
+					SiteConfiguration config = siteConfigMap.get(id);
+					if(config.isEnabled()) {
+						enabledOrderedSites.add(new SiteDefinitionOrder(siteDef, config));
+					}
+				} else if(siteDef.isEnabled()) {
+					enabledOrderedSites.add(new SiteDefinitionOrder(siteDef));
 				}
-			} else if(siteDef.isEnabled()) {
-				enabledOrderedSites.add(new SiteDefinitionOrder(siteDef));
 			}
 		}
 		Collections.sort(enabledOrderedSites, new SiteDefinitionOrderComparator());

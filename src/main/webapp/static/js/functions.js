@@ -75,7 +75,7 @@ var BLoader = {
 			if (window.execScript) window.execScript(jsString); // IE style
 			else window.eval(jsString);
 		} catch(e){
-			if(console) console.log(contextDesc, 'cannot execute js', jsString);
+			if(window.console) console.log(contextDesc, 'cannot execute js', jsString);
 			if (o_info.debug) { // add webbrowser console log
 				o_logerr('BLoader::executeGlobalJS: Error when executing JS code in contextDesc::' + contextDesc + ' error::"'+showerror(e)+' for: '+escape(jsString));
 			}
@@ -111,7 +111,7 @@ var BLoader = {
 						}
 					}
 					// add theme position, theme has to move one down
-					if (sh.id == 'b_theme_css') pos = i;
+					if (sh.id == 'o_theme_css') pos = i;
 				}
 				if (cnt > 1 && o_info.debug) o_logwarn("BLoader::loadCSS: apply styles: num of stylesheets found was not 0 or 1:"+cnt);
 				if (loadAfterTheme) {
@@ -132,14 +132,14 @@ var BLoader = {
 					//var newSt = new Element('link', {rel : 'stylesheet', id : linkid, href : 'data:text/css,'+escape(styles) });
 					var newSt = jQuery('<link id="' + linkid + '" rel="stylesheet" type="text/css" href="' + cssURL+ '">');
 					if (loadAfterTheme) {
-						newSt.insertBefore(jQuery('#b_fontSize_css'));
+						newSt.insertBefore(jQuery('#o_fontSize_css'));
 					} else {
-						newSt.insertBefore(jQuery('#b_theme_css'));
+						newSt.insertBefore(jQuery('#o_theme_css'));
 					}
 				}
 			}
 		} catch(e){
-			if(console)  console.log(e);
+			if(window.console)  console.log(e);
 			if (o_info.debug) { // add webbrowser console log
 				o_logerr('BLoader::loadCSS: Error when loading CSS from URL::' + cssURL);
 			}
@@ -206,7 +206,7 @@ var BFormatter = {
 	// process element with given dom id using jsmath
 	formatLatexFormulas : function(domId) {
 		try {
-			if (jsMath) { // only when js math available
+			if (window.jsMath) { // only when js math available
 				if (jsMath.loaded && jsMath.tex2math && jsMath.tex2math.loaded) {
 					jsMath.Process();
 				} else { // not yet loaded (autoload), load first
@@ -218,7 +218,7 @@ var BFormatter = {
 				}
 			}
 		} catch(e) {
-			if (console) console.log("error in BFormatter.formatLatexFormulas: ", e);
+			if (window.console) console.log("error in BFormatter.formatLatexFormulas: ", e);
 		}
 	}
 };
@@ -234,9 +234,9 @@ function o_init() {
 	}	
 }
 
-function b_initEmPxFactor() {
+function o_initEmPxFactor() {
 	// read px value for 1 em from hidden div
-	o_info.emPxFactor = jQuery('#b_width_1em').width();
+	o_info.emPxFactor = jQuery('#o_width_1em').width();
 	if (o_info.emPxFactor == 0 || o_info.emPxFactor == 'undefined') {
 		o_info.emPxFactor = 12; // default value for all strange settings
 		if(jQuery(document).ooLog().isDebugEnabled()) jQuery(document).ooLog('debug','Could not read with of element b_width_1em, set o_info.emPxFactor to 12', "functions.js");
@@ -256,7 +256,7 @@ function o_getMainWin() {
 		if (o_info.debug) { // add webbrowser console log
 			o_logerr('Exception while getting main window. rror::"'+showerror(e));
 		}
-		if (console) { // add ajax logger
+		if (window.console) { // add ajax logger
 			console.log('Exception while getting main window. rror::"'+showerror(e), "functions.js");
 			console.log(e);
 		}	
@@ -291,6 +291,18 @@ function o2cl() {
 		var doreq = (o2c==0 || confirm(o_info.dirty_form));
 		if (doreq) o_beforeserver();
 		return doreq;
+	}
+}
+//for tree and Firefox
+function o2cl_secure() {
+	try {
+		if(o2cl()) {
+			return true;
+		} else {
+			return false;
+		}
+	} catch(e){
+		return false
 	}
 }
 
@@ -404,6 +416,7 @@ if(!Array.prototype.indexOf) {
 // b_AddOnDomReplacementFinishedCallback is used to add callback methods that are executed after
 // the DOM replacement has occured. Note that when not in AJAX mode, those methods will not be 
 // executed. Use this callback to execute some JS code to cleanup eventhandlers or alike
+//DEPRECATED: listen to event "oo.dom.replacement.after"
 var b_onDomReplacementFinished_callbacks=new Array();//array holding js callback methods that should be executed after the next ajax call
 function b_AddOnDomReplacementFinishedCallback(funct) {
 	var debug = jQuery(document).ooLog().isDebugEnabled();
@@ -421,6 +434,7 @@ var b_changedDomEl=new Array();
 
 //same as above, but with a filter to prevent adding a funct. more than once
 //funct then has to be an array("identifier", funct) 
+// DEPRECATED: listen to event "oo.dom.replacement.after"
 function b_AddOnDomReplacementFinishedUniqueCallback(funct) {
 	if (funct.constructor == Array){
 		if(jQuery(document).ooLog().isDebugEnabled()) jQuery(document).ooLog('debug',"add: its an ARRAY! ", "functions.js ADD"); 
@@ -436,6 +450,7 @@ function b_AddOnDomReplacementFinishedUniqueCallback(funct) {
 // main interpreter for ajax mode
 var o_debug_trid = 0;
 function o_ainvoke(r) {
+
 	// commands
 	if(r == undefined) {
 		return;
@@ -444,6 +459,9 @@ function o_ainvoke(r) {
 	o_info.inainvoke = true;
 	var cmdcnt = r["cmdcnt"];
 	if (cmdcnt > 0) {
+		// let everybody know dom replacement has finished
+		jQuery(document).trigger("oo.dom.replacement.before");
+
 		//fxdiff FXOLAT-310 
 		b_changedDomEl = new Array();
 		
@@ -469,6 +487,7 @@ function o_ainvoke(r) {
 							var c1 = ca[j];
 							var ciid = c1["cid"]; // component id
 							var civis = c1["cidvis"];// component visibility
+							var withWrapper = c1["cw"]; // component has a wrapper element, replace only inner content
 							var hfrag = c1["hfrag"]; // html fragment of component
 							var jsol = c1["jsol"]; // javascript on load
 							var hdr = c1["hdr"]; // header
@@ -485,7 +504,7 @@ function o_ainvoke(r) {
 								newcId = "o_fi"+ciid;
 								newc = jQuery('#' + newcId);
 								replaceElement = true;
-							} 
+							}
 							if (newc != null) {
 								if(civis) { // needed only for ie 6/7 bug where an empty div requires space on screen
 									newc.css('display','');//.style.display="";//reset?
@@ -493,7 +512,8 @@ function o_ainvoke(r) {
 									newc.css('display','none'); //newc.style.display="none";
 								}
 								
-								if(replaceElement) {
+								if(replaceElement || !withWrapper) {
+									// replace entire DOM element 
 									newc.replaceWith(hdrco);	
 								} else {
 									try{
@@ -503,8 +523,8 @@ function o_ainvoke(r) {
 											newc.get(0).innerHTML = hdrco;
 										}
 									} catch(e) {
-										if(console) console.log(e);
-										if(console) console.log('Fragment',hdrco);
+										if(window.console) console.log(e);
+										if(window.console) console.log('Fragment',hdrco);
 									}
 									b_changedDomEl.push(newcId);
 								}
@@ -590,6 +610,8 @@ function o_ainvoke(r) {
 				if(jQuery(document).ooLog().isDebugEnabled()) jQuery(document).ooLog('debug',"Error in o_ainvoke(), could not find window??", "functions.js");
 			}		
 		}
+
+		// BEGIN DEPRECATED DOM REPLACEMENT CALLBACK: new style below
 		// execute onDomReplacementFinished callback functions
 		var stacklength = b_onDomReplacementFinished_callbacks.length;
 		if (b_onDomReplacementFinished_callbacks.toSource && jQuery(document).ooLog().isDebugEnabled()) { 
@@ -626,10 +648,11 @@ function o_ainvoke(r) {
 			if(jQuery(document).ooLog().isDebugEnabled())
 				jQuery(document).ooLog('debug',"Stacksize after timeout: " + b_onDomReplacementFinished_callbacks.length, "functions.js");
 		}
-		// all rendering finished, adjust height on menu and content
-		OPOL.adjustHeight();
+		// END DEPRECATED DOM REPLACEMENT CALLBACK: new style on next line
+		
+		// let everybody know dom replacement has finished
+		jQuery(document).trigger("oo.dom.replacement.after");
 	}
-	
 	o_info.inainvoke = false;
 	
 /* minimalistic debugger / profiler	
@@ -639,7 +662,6 @@ function o_ainvoke(r) {
 	BDebugger.logManagedOLATObjects();
 */
 }
-
 /**
  * Method to remove the ajax-busy stuff and let the user click links again. This
  * should only be called from the ajax iframe onload method to make sure the UI
@@ -662,26 +684,24 @@ function showAjaxBusy() {
 		if (o_info.linkbusy) {
 			// try/catch because can fail in full page refresh situation when called before DOM is ready
 			try {
-				jQuery('#b_ajax_busy').each(function(index, el) {
-					jQuery(el).addClass('b_ajax_busy');
-					jQuery('#b_body').addClass('b_ajax_busy');
-				});
+				jQuery('#o_body').addClass('o_ajax_busy');
+				jQuery('#o_ajax_busy').modal({show: true, backdrop: 'static', keyboard: 'false'});
+				// fix modal conflic with modal dialogs, make ajax busy appear always above modal dialogs
+				jQuery('body > .modal-backdrop').css({'z-index' : 1200});
 			} catch (e) {
-				if(console) console.log(e);
+				if(window.console) console.log(e);
 			}
 		}
-	}, 500);
+	}, 700);
 }
 
 function removeAjaxBusy() {
 	// try/catch because can fail in full page refresh situation when called before page DOM is ready
 	try {
-		jQuery('#b_ajax_busy').each(function(index, el) {
-			jQuery(el).removeClass('b_ajax_busy');
-			jQuery('#b_body').removeClass('b_ajax_busy');
-		});
+		jQuery('#o_body').removeClass('o_ajax_busy');
+		jQuery('#o_ajax_busy').modal('hide');
 	} catch (e) {
-		if(console) console.log(e);
+		if(window.console) console.log(e);
 	}
 }
 
@@ -700,7 +720,7 @@ function setFormDirty(formId) {
 			mySubmit = myForm.olat_fosm;
 		}
 		// set dirty css class
-		if(mySubmit) mySubmit.className ="b_button b_button_dirty";
+		if(mySubmit) mySubmit.className ="btn o_button_dirty";
 	} else if(jQuery(document).ooLog().isDebugEnabled()) {
 		jQuery(document).ooLog('debug',"Error in setFormDirty, myForm was null for formId=" + formId, "functions.js");
 	}
@@ -713,7 +733,6 @@ function contextHelpWindow(URI) {
 	helpWindow.focus();
 }
 
-//TODO: for 5.3 add popup capability to link and table
 function o_openPopUp(url, windowname, width, height, menubar) {
 	// generic window popup function
 	attributes = "height=" + height + ", width=" + width + ", resizable=yes, scrollbars=yes, left=100, top=100, ";
@@ -724,15 +743,9 @@ function o_openPopUp(url, windowname, width, height, menubar) {
 	}
 	var win = window.open(url, windowname, attributes);
 	win.focus();
-}
-
-function b_togglebox(domid, toggler) {
-	// toggle the domid element and switch the toggler classes
-	jQuery('#'+domid).slideToggle(400, function() {
-		var togglerEl = jQuery(toggler);
-		togglerEl.toggleClass('b_togglebox_closed');
-		togglerEl.toggleClass('b_togglebox_opened');
-	});
+	if (o_info.linkbusy) {
+		o_afterserver();
+	}
 }
 
 function b_handleFileUploadFormChange(fileInputElement, fakeInputElement, saveButton) {
@@ -753,7 +766,7 @@ function b_handleFileUploadFormChange(fileInputElement, fakeInputElement, saveBu
 	fakeInputElement.value=fileName;
 	// mark save button as dirty
 	if (saveButton) {
-		saveButton.className='b_button b_button_dirty'
+		saveButton.className='o_button_dirty'
 	}
 	// set focus to next element if available
 	var elements = fileInputElement.form.elements;
@@ -798,7 +811,7 @@ function o_openUriInMainWindow(uri) {
 	}
 }
 
-function b_viewportHeight() {
+function o_viewportHeight() {
 	// based on prototype library
 	var prototypeViewPortHeight = jQuery(document).height()
 	if (prototypeViewPortHeight > 0) {
@@ -823,9 +836,9 @@ OPOL.getMainColumnsMaxHeight =  function(){
 	mainInnerHeight = 0,
 	mainHeight = 0,
 	mainDomElement,
-	col1DomElement = jQuery('#b_col1_content'),
-	col2DomElement = jQuery('#b_col2_content'),
-	col3DomElement = jQuery('#b_col3_content');
+	col1DomElement = jQuery('#o_main_left_content'),
+	col2DomElement = jQuery('#o_main_right_content'),
+	col3DomElement = jQuery('#o_main_center_content');
 	
 	if (col1DomElement != 'undefined' && col1DomElement != null) {
 		col1Height = col1DomElement.outerHeight(true);
@@ -844,7 +857,7 @@ OPOL.getMainColumnsMaxHeight =  function(){
 	} 
 	
 	// fallback, try to get height of main container
-	mainDomElement = jQuery('#b_main');
+	mainDomElement = jQuery('#o_main');
 	if (mainDomElement != 'undefined' && mainDomElement != null) { 
 		mainHeight = mainDomElement.height();
 	}
@@ -852,52 +865,149 @@ OPOL.getMainColumnsMaxHeight =  function(){
 		return mainDomElement;
 	} 
 	// fallback to viewport height	
-	return b_viewportHeight();
+	return o_viewportHeight();
 };
 
 OPOL.adjustHeight = function() {
-	// Adjust the height of col1 2 and 3 based on the max column height. Takes 
-	// into account the padding/border/margin. 
+	// Adjust the height of col1 2 and 3 based on the max column height. 
 	// This is necessary to implement layouts where the three columns have different
 	// backgounds and to enlarge the menu and content area to always show the whole 
-	// content
+	// content. It is also required by the left menu offcanvas feature.
 	try {
-		var col1HeightDiff = 0,
-		col2HeightDiff = 0,
-		col1DomElement = jQuery('#b_col1_content'),
-		col2DomElement = jQuery('#b_col2_content');
+		var contentHeight = 0;
+		col1 = jQuery('#o_main_left_content').outerHeight(true);
+		col2 = jQuery('#o_main_right_content').outerHeight(true);
+		col3 = jQuery('#o_main_center_content').outerHeight(true);
 
-		// First calculate the outher fluff (padding, border, margin) and reset height
-		if (col1DomElement != 'undefined' && col1DomElement != null){
-			col1HeightDiff = col1DomElement.outerHeight(true) - col1DomElement.height();
-			col1DomElement.height('auto');			
-		}
-		if (col2DomElement != 'undefined' && col2DomElement != null){
-			col2HeightDiff = col2DomElement.outerHeight(true) - col2DomElement.height();
-			col2DomElement.height('auto');
-		}
-		
+		contentHeight = Math.max(col1, col2, col3);
 		// Assign new col height
-		var contentHeight = OPOL.getMainColumnsMaxHeight();
-		if (col1DomElement != 'undefined' && col1DomElement != null){
-			col1DomElement.height(contentHeight-col1HeightDiff);
+		if (col1 != null){
+			jQuery('#o_main_left').css({'min-height' : contentHeight + "px"});
 		}
-		if (col2DomElement != 'undefined' && col2DomElement != null){
-			col2DomElement.height(contentHeight-col2HeightDiff);
+		if (col2 != null){
+			jQuery('#o_main_right').css({'min-height' : contentHeight + "px"});
+		}
+		if (col3 != null){
+			jQuery('#o_main_center').css({'min-height' : contentHeight + "px"});
 		}
 	} catch (e) {
-		if(console)	console.log(e);			
+		if(window.console)	console.log(e);			
 	}
 };
+/* Register to resize event and fire an event when the resize is finished */
+jQuery(window).resize(function() {
+	clearTimeout(o_info.resizeId);
+	o_info.resizeId = setTimeout(function() {
+		jQuery(document).trigger("oo.window.resize.after");
+	}, 500);
+});
 
-  
+// execute after each DOM replacement cycle and on initial document load
+jQuery(document).on("oo.window.resize.after", OPOL.adjustHeight);
+jQuery(document).on("oo.dom.replacement.after", OPOL.adjustHeight);
+jQuery().ready(OPOL.adjustHeight);
+
+
+function o_scrollToElement(elem) {
+	try {
+		jQuery('html, body').animate({
+			scrollTop : jQuery(elem).offset().top
+		}, 333);
+	} catch (e) {
+		//console.log(e);
+	}
+}
+
+function o_popover(id, contentId, loc) {
+	if(typeof(loc)==='undefined') loc = 'bottom';
+
+	jQuery('#' + id).popover({
+    	placement : loc,
+    	html: true,
+    	trigger: 'click',
+    	container: 'body',
+    	content: function() { return jQuery('#' + contentId).clone().html(); }
+	}).on('shown.bs.popover', function () {
+		var clickListener = function (e) {
+			jQuery('#' + id).popover('hide');
+			jQuery('body').unbind('click', clickListener);
+		};
+		setTimeout(function() {
+			jQuery('body').on('click', clickListener);
+		},5);
+	});
+}
+
+function o_shareLinkPopup(id, text, loc) {
+	if(typeof(loc)==='undefined') loc = 'top';
+	var elem = jQuery('#' + id);
+	elem.popover({
+    	placement : loc,
+    	html: true,
+    	trigger: 'click',
+    	container: 'body',
+    	content: text
+	}).on('shown.bs.popover', function () {
+		var clickListener = function (e) {	
+			if (jQuery(e.target).data('toggle') !== 'popover' && jQuery(e.target).parents('.popover.in').length === 0) { 
+				jQuery('#' + id).popover('hide');
+				jQuery('body').unbind('click', clickListener);
+			}
+		};
+		setTimeout(function() {
+			jQuery('body').on('click', clickListener);
+		}, 5);
+	});
+	// make mouse over link text work again
+	elem.attr('title',elem.attr('data-original-title'));
+}
+
+function o_QRCodePopup(id, text, loc) {	
+	if(typeof(loc)==='undefined') loc = 'top';
+	var elem = jQuery('#' + id);
+	elem.popover({
+    	placement : loc,
+    	html: true,
+    	trigger: 'click',
+    	container: 'body',
+    	content: '<div id="' + id + '_pop" class="o_qrcode"></div>'
+	 }).on('shown.bs.popover', function () {
+		 o_info.qr = o_QRCode(id + '_pop', (jQuery.isFunction(text) ? text() : text));
+		 var clickListener = function (e) {
+			 if (jQuery(e.target).data('toggle') !== 'popover' && jQuery(e.target).parents('.popover.in').length === 0) { 
+				 jQuery("#" + id).popover('hide');
+				 jQuery('body').unbind('click', clickListener);
+			 }
+		};
+		setTimeout(function() {
+			jQuery('body').on('click', clickListener);
+		}, 5);
+	 }).on('hidden.bs.popover', function () {
+		 try {
+			 o_info.qr.clear();
+			 delete o_info.qr;			 
+		 } catch(e) {}
+	});
+	// make mouse over link text work again
+	elem.attr('title',elem.attr('data-original-title'));
+}
+function o_QRCode(id, text) {
+	// dynamically load qr code library
+	try {
+		 BLoader.loadJS(o_info.o_baseURI + "/js/jquery/qrcodejs/qrcode.min.js", 'utf8', true);
+		 return new QRCode(document.getElementById(id), text);
+	} catch(e) {
+		return null;
+	}
+}
+
 function b_resizeIframeToMainMaxHeight(iframeId) {
 	// adjust the given iframe to use as much height as possible
 	// (fg)
 	var theIframe = jQuery('#' + iframeId);
 	if (theIframe != 'undefined' && theIframe != null) {
 		var colsHeight = OPOL.getMainColumnsMaxHeight() - 110;
-		var potentialHeight = b_viewportHeight() - 100;// remove some padding etc.
+		var potentialHeight = o_viewportHeight() - 100;// remove some padding etc.
 		potentialHeight = potentialHeight - theIframe.offset().top;
 		var elem = jQuery('#b_footer');
 		if (elem != 'undefined' && elem != null) potentialHeight = potentialHeight - elem.outerHeight(true);
@@ -913,7 +1023,7 @@ function o_debu_show(cn, tt) {
 	if (o_debu_oldcn){
 		o_debu_hide(o_debu_oldcn, o_debu_oldtt);
 	}
-	jQuery(cn).css('border','3px solid #00F').css('margin','0px').css('background-color','#FCFCB8');
+	jQuery(cn).addClass('o_dev_m');
 	jQuery(tt).show();
 
 	o_debu_oldtt = tt;
@@ -922,7 +1032,7 @@ function o_debu_show(cn, tt) {
 
 function o_debu_hide(cn, tt) {
 	jQuery(tt).hide();
-	jQuery(cn).css('border','1px dotted black').css('margin','2px').css('background-color','');
+	jQuery(cn).removeClass('o_dev_m');
 }
 
 function o_dbg_mark(elid) {
@@ -1019,17 +1129,17 @@ function o_ffXHREvent(formNam, dispIdField, dispId, eventIdField, eventInt) {
 		}
 	}
 	
-	
 	var targetUrl = jQuery('#' + formNam).attr("action");
 	jQuery.ajax(targetUrl,{
 		type:'GET',
 		data: data,
+		cache: false,
 		dataType: 'json',
 		success: function(data, textStatus, jqXHR) {
 			o_ainvoke(data);
 		},
 		error: function(jqXHR, textStatus, errorThrown) {
-			if(console) console.log('Error status', textStatus);
+			if(window.console) console.log('Error status', textStatus);
 		}
 	})
 }
@@ -1048,7 +1158,7 @@ function setFlexiFormDirty(formId){
 	jQuery('#'+formId).each(function() {
 		var submitId = jQuery(this).data('FlexiSubmit');
 		if(submitId != null) {
-			jQuery('#'+submitId).addClass('b_button b_button_dirty');
+			jQuery('#'+submitId).addClass('btn o_button_dirty');
 			o2c=1;
 		}
 	});
@@ -1066,55 +1176,72 @@ function o_ffRegisterSubmit(formId, submElmId){
 function showInfoBox(title, content){
 	// Factory method to create message box
 	var uuid = Math.floor(Math.random() * 0x10000 /* 65536 */).toString(16);
-	var info = '<div id="' + uuid + '" class="b_msg-div msg" style="display:none;"><div class="b_msg_info_content b_msg_info_winicon o_sel_info_message"><h3>'
-		 + title + '</h3>' + content + '<br/><br/></div></div>';
-    var msgCt = jQuery('#b_page').prepend(info);
-    // Hide message automatically
+	var info = '<div id="' + uuid
+	     + '" class="o_alert_info "><div class="alert alert-info clearfix o_sel_info_message"><i class="o_icon o_icon_close"></i><h3><i class="o_icon o_icon_info"></i> '
+		 + title + '</h3><p>' + content + '</p></div></div>';
+    var msgCt = jQuery('#o_messages').prepend(info);
+    // Hide message automatically based on content length
     var time = (content.length > 150) ? 8000 : ((content.length > 70) ? 6000 : 4000);
-    jQuery('#' + uuid).slideDown(300).delay(time).slideUp(300);
+
+    // Callback to remove after reading
+    var cleanup = function() {
+    	jQuery('#' + uuid)
+    		.transition({top : '-100%'}, 333, function() {
+    			jQuery('#' + uuid).remove();
+    		});    	
+    };
+    // Show info box now
+    jQuery('#' + uuid).show().transition({ top: 0 }, 333);
     // Visually remove message box immediately when user clicks on it
-    // The ghost event from above is triggered anyway. 
     jQuery('#' + uuid).click(function(e) {
-    	jQuery('#' + uuid).remove();
+    	cleanup();
     });
+	o_scrollToElement('#o_top');
 	
-    // Help GC, prevent cyclic reference from on-click closure (OLAT-5755)
+    // Help GC, prevent cyclic reference from on-click closure
     title = null;
     content = null;
     msgCt = null;
     time = null;
+    
+    setTimeout(function(){
+		try {
+			cleanup();
+		} catch(e) {
+			//possible if the user has closed the window
+		}
+	}, 8000);
 }
 /*
 * renders an message box which the user has to click away
 * The last parameter buttonCallback is optional. if a callback js 
 * function is given it will be execute when the user clicks ok or closes the message box
 */
-function showMessageBox(type, title, message, buttonCallback){
+function showMessageBox(type, title, message, buttonCallback) {
 	if(type == 'info'){
 		showInfoBox(title, message);
 		return null;
 	} else {
-		var prefix;
+		var content = '<div id="myFunctionalModal" class="modal fade" role="dialog"><div class="modal-dialog"><div class="modal-content">';
+		content += '<div class="modal-header"><button type="button" class="close" data-dismiss="modal" aria-hidden="true">&times;</button>';
+        content += '<h4 class="modal-title">' + title + '</h4></div>';	
+		content += '<div class="modal-body alert ';
 		if("warn" == type) {
-			prefix = '<div><div class="b_msg_info_content b_msg_warn_winicon">';
+			content += 'alert-warning';
 		} else if("error" == type) {
-			prefix = '<div><div class="b_msg_info_content b_msg_error_winicon">';
+			content += 'alert-danger';
 		} else {
-			prefix = '<div><div>';
+			content += 'alert-info';
 		}
-		return jQuery(prefix + '<p>' + message + '</p></div></div>').dialog({
-			modal: true,
-			title: title,
-			resizable:false,
-			close: function(event, ui) {
-				try {
-					jQuery(this).dialog('destroy').remove()
-				} catch(e) {
-					//possible if the user has closed the window
-				}
-			}
-		}).dialog('open').dialog("widget").css('z-index', 11000);
-		
+		content += '"><p>' + message + '</p></div></div></div></div>';
+		jQuery('#myFunctionalModal').remove();
+		jQuery('body').append(content);
+		               
+		var msg = jQuery('#myFunctionalModal').modal('show').on('hidden.bs.modal', function (e) {
+			jQuery('#myFunctionalModal').remove();
+		});
+		o_scrollToElement('#o_top');
+		return msg;
 	}
 }
 
@@ -1130,7 +1257,7 @@ function tableFormInjectCommandAndSubmit(formName, cmd, param) {
 /*
  * For standard tables
  */
-function b_table_toggleCheck(ref, checked) {
+function o_table_toggleCheck(ref, checked) {
 	var tb_checkboxes = document.forms[ref].elements["tb_ms"];
 	len = tb_checkboxes.length;
 	if (typeof(len) == 'undefined') {
@@ -1148,11 +1275,11 @@ function b_table_toggleCheck(ref, checked) {
  * For menu tree
  */
 function onTreeStartDrag(event, ui) {
-	jQuery(event.target).addClass('b_dd_proxy');
+	jQuery(event.target).addClass('o_dnd_proxy');
 }
 
 function onTreeStopDrag(event, ui) {
-	jQuery(event.target).removeClass('b_dd_proxy');
+	jQuery(event.target).removeClass('o_dnd_proxy');
 }
 
 function onTreeDrop(event, ui) {
@@ -1262,13 +1389,13 @@ function treeNode_portfolioType(el) {
 function treeNode_portfolioTypes(nodeEl) {
 	if(nodeEl.find === undefined) {
 		return null;
-	} else if(nodeEl.find(".b_ep_struct_icon").length > 0 || nodeEl.hasClass('b_ep_struct_icon')) {
+	} else if(nodeEl.find(".o_ep_icon_struct").length > 0 || nodeEl.hasClass('o_ep_icon_struct')) {
 		return "struct";
-	} else if(nodeEl.find(".b_ep_page_icon").length > 0 || nodeEl.hasClass('b_ep_page_icon')) {
+	} else if(nodeEl.find(".o_ep_icon_page").length > 0 || nodeEl.hasClass('o_ep_icon_page')) {
 		return "page";
-	} else if(nodeEl.find(".b_ep_map_icon").length > 0 || nodeEl.hasClass('b_ep_map_icon')) {
+	} else if(nodeEl.find(".o_ep_icon_map").length > 0 || nodeEl.hasClass('o_ep_icon_map')) {
 		return "map";
-	} else if(nodeEl.find(".b_ep_artefact").length > 0 || nodeEl.hasClass('b_ep_artefact')) {
+	} else if(nodeEl.find(".o_ep_artefact").length > 0 || nodeEl.hasClass('o_ep_artefact')) {
 		return "artefact";
 	}
 	return null;
@@ -1286,7 +1413,7 @@ function treeNode_isDragNode(elId) {
 /*
  * For checkbox
  */
-function b_choice_toggleCheck(ref, checked) {
+function o_choice_toggleCheck(ref, checked) {
 	var checkboxes = document.forms[ref].elements;
 	len = checkboxes.length;
 	if (typeof(len) == 'undefined') {
@@ -1295,7 +1422,7 @@ function b_choice_toggleCheck(ref, checked) {
 	else {
 		var i;
 		for (i=0; i < len; i++) {
-			if (checkboxes[i].type == 'checkbox' && checkboxes[i].getAttribute('class') == 'b_checkbox') {
+			if (checkboxes[i].type == 'checkbox' && checkboxes[i].getAttribute('class') == 'o_checkbox') {
 				checkboxes[i].checked=checked;
 			}
 		}
@@ -1336,9 +1463,9 @@ function b_briefcase_toggleCheck(ref, checked) {
 /*
  * print command, prints iframes when available
  */
-function b_doPrint() {
+function o_doPrint() {
 	// When we have an iframe, issue print command on iframe directly
-	var iframes =  jQuery('div.b_iframe_wrapper iframe');
+	var iframes =  jQuery('div.o_iframedisplay iframe');
 	if (iframes.length > 0) {
 		try {
 			var iframe = iframes[0];
@@ -1380,16 +1507,16 @@ function b_doPrint() {
  */ 
 function b_attach_i18n_inline_editing() {
 	// Add hover handler to display inline edit links
-	jQuery('span.b_translation_i18nitem').hover(function() {
+	jQuery('span.o_translation_i18nitem').hover(function() {
 		jQuery(this.firstChild).show();
 		if(jQuery(document).ooLog().isDebugEnabled()) jQuery(document).ooLog('debug',"Entered i18nitem::" + this.firstChild, "functions.js:b_attach_i18n_inline_editing()");
 	},function(){
-		jQuery('a.b_translation_i18nitem_launcher').hide();
+		jQuery('a.o_translation_i18nitem_launcher').hide();
 		if(jQuery(document).ooLog().isDebugEnabled()) jQuery(document).ooLog('debug',"Leaving i18nitem::" + this, "functions.js:b_attach_i18n_inline_editing()");
 	});
 	// Add highlight effect on link to show which element is affected by this link
-	jQuery('a.b_translation_i18nitem_launcher').hover(function() {	
-		var parent = jQuery(this).parent('span.b_translation_i18nitem')
+	jQuery('a.o_translation_i18nitem_launcher').hover(function() {	
+		var parent = jQuery(this).parent('span.o_translation_i18nitem')
 		parent.effect("highlight");
 	});
 	// Add to on ajax ready callback for next execution

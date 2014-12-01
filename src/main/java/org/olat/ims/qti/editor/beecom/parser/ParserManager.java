@@ -31,7 +31,6 @@ import java.util.Map;
 import java.util.Properties;
 import java.util.concurrent.ConcurrentHashMap;
 
-import org.apache.commons.io.IOUtils;
 import org.dom4j.Document;
 import org.dom4j.Element;
 import org.olat.core.logging.OLATRuntimeException;
@@ -53,9 +52,7 @@ public class ParserManager implements IParser {
 
 	private void init() {
 		if(parserMap.isEmpty()) {
-			InputStream in = null;
-			try {
-				in = this.getClass().getClassLoader().getResourceAsStream(PROPERTIES_FILENAME);
+			try(InputStream in = this.getClass().getClassLoader().getResourceAsStream(PROPERTIES_FILENAME)) {
 				Properties prop = new Properties();
 				prop.load(in);
 				for(Enumeration<Object> enumeration = prop.keys(); enumeration.hasMoreElements(); ) {
@@ -65,8 +62,6 @@ public class ParserManager implements IParser {
 				}
 			} catch (Exception e) {
 				log.error("Could not load qtiparser.properties", e);
-			} finally {
-				IOUtils.closeQuietly(in);
 			}
 		}
 	}

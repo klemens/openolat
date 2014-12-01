@@ -24,17 +24,18 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
 
-import org.olat.core.commons.chiefcontrollers.BaseChiefController;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.WindowSettings;
 import org.olat.core.gui.Windows;
 import org.olat.core.gui.components.Component;
+import org.olat.core.gui.components.htmlheader.jscss.JSAndCSSComponent;
 import org.olat.core.gui.components.panel.Panel;
 import org.olat.core.gui.components.velocity.VelocityContainer;
 import org.olat.core.gui.control.ChiefController;
 import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.Event;
 import org.olat.core.gui.control.WindowControl;
+import org.olat.core.gui.control.ScreenMode.Mode;
 import org.olat.core.gui.control.controller.MainLayoutBasicController;
 import org.olat.core.gui.control.generic.dtabs.Activateable2;
 import org.olat.core.gui.control.generic.layout.MainLayout3ColumnsController;
@@ -80,7 +81,7 @@ public class LayoutMain3ColsController extends MainLayoutBasicController impleme
 	private Panel panel1, panel2, panel3;
 	private Activateable2 activateableDelegate2;	//fxdiff BAKS-7 Resume function
 	private boolean fullScreen = false;
-	private BaseChiefController thebaseChief;
+	private ChiefController thebaseChief;
 
 	
 	
@@ -98,6 +99,23 @@ public class LayoutMain3ColsController extends MainLayoutBasicController impleme
 		}
 	}
 	
+	
+	/**
+	 * Constructor for creating a 3 col based menu on the main area. This
+	 * constructor uses the default column width configuration
+	 * 
+	 * @param ureq
+	 * @param wControl
+	 * @param col1 usually the left column
+	 * @param col2 usually the right column
+	 * @param col3 usually the content column
+	 * @param layoutConfigKey identificator for this layout to persist the users
+	 *          column width settings
+	 */
+	public LayoutMain3ColsController(UserRequest ureq, WindowControl wControl, Component col1, Component col3,
+			String layoutConfigKey) {
+		this(ureq,wControl, col1, null, col3, layoutConfigKey, null);
+	}
 	
 	/**
 	 * Constructor for creating a 3 col based menu on the main area. This
@@ -155,9 +173,16 @@ public class LayoutMain3ColsController extends MainLayoutBasicController impleme
 		layoutMainVC.put("col2", panel2);
 		setCol2(col2);
 
+
 		panel3 = new Panel("panel3");
 		layoutMainVC.put("col3", panel3);
 		setCol3(col3);
+		
+		if(col1 != null || col2 != null) {
+			//jquery-ui-1.10.4.custom.resize.min.js
+			JSAndCSSComponent js = new JSAndCSSComponent("js", new String[] { "js/jquery/ui/jquery-ui-1.10.4.custom.resize.min.js" }, null);
+			layoutMainVC.put("js", js);
+		}
 
 		putInitialPanel(layoutMainVC);
 	}
@@ -167,37 +192,32 @@ public class LayoutMain3ColsController extends MainLayoutBasicController impleme
 	}
 	
 	public void setAsFullscreen(UserRequest ureq) {
-		ChiefController cc = (ChiefController) Windows.getWindows(ureq).getAttribute("AUTHCHIEFCONTROLLER");
-		if (cc instanceof BaseChiefController) {
-			thebaseChief = (BaseChiefController) cc;
-			thebaseChief.addBodyCssClass("b_full_screen");
+		ChiefController cc = Windows.getWindows(ureq).getChiefController();
+		if (cc != null) {
+			thebaseChief = cc;
+			thebaseChief.getScreenMode().setMode(Mode.full);
 		} else {
-			Windows.getWindows(ureq).setAttribute("FULL_SCREEN", Boolean.TRUE);
+			Windows.getWindows(ureq).setFullScreen(Boolean.TRUE);
 		}
 		fullScreen = true;
 	}
 	
 	public void activate() {
-		if(fullScreen)
-			getWindowControl().pushAsModalDialog(layoutMainVC);
-		else
-			getWindowControl().pushToMainArea(layoutMainVC);
+		getWindowControl().pushToMainArea(layoutMainVC);
 	}
 	
 	public void deactivate(UserRequest ureq) {
 		getWindowControl().pop();
-		// fxdiff FXOLAT-116: SCORM improvements
 		if (fullScreen) {
 			if(thebaseChief != null) {
-				thebaseChief.removeBodyCssClass("b_full_screen");
+				thebaseChief.getScreenMode().setMode(Mode.standard);
 			} else if (ureq != null){
-				ChiefController cc = (ChiefController) Windows.getWindows(ureq).getAttribute("AUTHCHIEFCONTROLLER");
-				if (cc instanceof BaseChiefController) {
-					thebaseChief = (BaseChiefController) cc;
-					thebaseChief.removeBodyCssClass("b_full_screen");
+				ChiefController cc = Windows.getWindows(ureq).getChiefController();
+				if (cc != null) {
+					thebaseChief = cc;
+					thebaseChief.getScreenMode().setMode(Mode.standard);
 				}
 			}
-			
 		}
 	}
 
@@ -239,7 +259,7 @@ public class LayoutMain3ColsController extends MainLayoutBasicController impleme
 	}
 
 	/**
-	 * Add a css class to the #b_main wrapper div, e.g. for special background
+	 * Add a css class to the #o_main wrapper div, e.g. for special background
 	 * formatting
 	 * 
 	 * @param cssClass
@@ -247,7 +267,7 @@ public class LayoutMain3ColsController extends MainLayoutBasicController impleme
 	public void addCssClassToMain(String cssClass) {
 		if (mainCssClasses.contains(cssClass)) {
 			// do nothing and report as error to console, but no GUI error for user
-			getLogger().error("Tried to add CSS class::" + cssClass + " to #b_main but CSS class was already added");
+			getLogger().error("Tried to add CSS class::" + cssClass + " to #o_main but CSS class was already added");
 		} else {
 			mainCssClasses.add(cssClass);
 			// add new CSS classes for main container
@@ -257,7 +277,7 @@ public class LayoutMain3ColsController extends MainLayoutBasicController impleme
 	}
 
 	/**
-	 * Remove a CSS class from the #b_main wrapper div
+	 * Remove a CSS class from the #o_main wrapper div
 	 * 
 	 * @param cssClass
 	 */
@@ -269,7 +289,7 @@ public class LayoutMain3ColsController extends MainLayoutBasicController impleme
 			layoutMainVC.contextPut("mainCssClasses", mainCss);
 		} else {
 			// do nothing and report as error to console, but no GUI error for user
-			getLogger().error("Tried to remove CSS class::" + cssClass + " from #b_main but CSS class was not there");
+			getLogger().error("Tried to remove CSS class::" + cssClass + " from #o_main but CSS class was not there");
 		}
 	}
 
@@ -302,7 +322,6 @@ public class LayoutMain3ColsController extends MainLayoutBasicController impleme
 				localLayoutConfig.setCol1WidthEM(parsedWidth);
 				saveGuiPrefs(ureq, localLayoutConfig);
 				layoutMainVC.contextPut("col1CustomCSSStyles", "width: " + localLayoutConfig.getCol1WidthEM() + "em;");
-				layoutMainVC.contextPut("col3CustomCSSStyles1", "margin-left: " + localLayoutConfig.getCol1WidthEM() + "em;");
 				// don't refresh view in ajax mode!
 				layoutMainVC.setDirty(false);
 				
@@ -310,7 +329,6 @@ public class LayoutMain3ColsController extends MainLayoutBasicController impleme
 				localLayoutConfig.setCol2WidthEM(parsedWidth);
 				saveGuiPrefs(ureq, localLayoutConfig);
 				layoutMainVC.contextPut("col2CustomCSSStyles", "width: " + localLayoutConfig.getCol2WidthEM() + "em;");
-				layoutMainVC.contextPut("col3CustomCSSStyles2", "margin-right: " + localLayoutConfig.getCol2WidthEM() + "em;");
 				// don't refresh view in ajax mode!
 				layoutMainVC.setDirty(false);
 			}
@@ -378,13 +396,13 @@ public class LayoutMain3ColsController extends MainLayoutBasicController impleme
 			if (columns[column - 1] == null) {
 				return;
 			} else {
-				mainCssClasses.add("b_hidecol" + column);
+				mainCssClasses.add("o_hidecol" + column);
 			}
 		} else {
 			if (columns[column - 1] == null) {
 				return;
 			} else {
-				mainCssClasses.remove("b_hidecol" + column);
+				mainCssClasses.remove("o_hidecol" + column);
 			}
 		}
 		// add new CSS classes for main container
@@ -441,7 +459,7 @@ public class LayoutMain3ColsController extends MainLayoutBasicController impleme
 		// remove old component from velocity first
 		if (oldComp == null) {
 			// css class to indicate if a column is hidden or shown
-			mainCssClasses.remove("b_hidecol" + column);
+			mainCssClasses.remove("o_hidecol" + column);
 		} else {
 			layoutMainVC.remove(oldComp);
 		}
@@ -450,7 +468,7 @@ public class LayoutMain3ColsController extends MainLayoutBasicController impleme
 		if (newComponent == null) {
 			// tell YAML layout via css class on main container to not display this
 			// column: this will adjust margin of col3 in normal setups
-			mainCssClasses.add("b_hidecol" + column);
+			mainCssClasses.add("o_hidecol" + column);
 			layoutMainVC.contextPut("existsCol" + column, Boolean.FALSE);
 		} else {
 			layoutMainVC.contextPut("existsCol" + column, Boolean.TRUE);
@@ -465,7 +483,7 @@ public class LayoutMain3ColsController extends MainLayoutBasicController impleme
 	}
 
 	/**
-	 * Helper to generate the CSS classes that are set on the #b_main container to
+	 * Helper to generate the CSS classes that are set on the #o_main container to
 	 * correctly render the column width and margins according to the YAML spec
 	 * 
 	 * @param classes

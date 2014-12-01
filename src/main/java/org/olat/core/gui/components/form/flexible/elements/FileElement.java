@@ -25,6 +25,7 @@ import java.io.InputStream;
 import java.util.Set;
 
 import org.olat.core.gui.components.form.flexible.FormMultipartItem;
+import org.olat.core.util.UserSession;
 import org.olat.core.util.vfs.VFSContainer;
 import org.olat.core.util.vfs.VFSLeaf;
 
@@ -70,7 +71,7 @@ public interface FileElement extends FormMultipartItem {
 	 * @param i18nArgs
 	 *            optional arguments for thei18nErrKey
 	 */
-	public void setMaxUploadSizeKB(int maxFileSizeKB, String i18nErrKey, String[] i18nArgs);
+	public void setMaxUploadSizeKB(long maxFileSizeKB, String i18nErrKey, String[] i18nArgs);
 
 	/**
 	 * Set a mime type limitation on which files are allowed in the upload
@@ -83,6 +84,15 @@ public interface FileElement extends FormMultipartItem {
 	 *            optional arguments for thei18nErrKey
 	 */
 	public void limitToMimeType(Set<String> mimeTypes, String i18nErrKey, String[] i18nArgs);
+	
+	/**
+	 * Preview is possible only for images.
+	 * 
+	 * @param enable
+	 */
+	public void setPreview(UserSession usess, boolean enable);
+	
+	public void setCropSelectionEnabled(boolean enable);
 
 	/**
 	 * Get the set of the mime types limitation
@@ -175,5 +185,13 @@ public interface FileElement extends FormMultipartItem {
 	 * @return A reference of the new leaf file or NULL if the file could not be created
 	 */
 	public VFSLeaf moveUploadFileTo(VFSContainer destinationContainer);
+	
+	/**
+	 * Crop the image if there is one and a crop selection.
+	 * @param destinationContainer
+	 * @param crop
+	 * @return
+	 */
+	public VFSLeaf moveUploadFileTo(VFSContainer destinationContainer, boolean crop);
 	
 }

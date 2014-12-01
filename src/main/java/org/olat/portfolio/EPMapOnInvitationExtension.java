@@ -19,6 +19,8 @@
  */
 package org.olat.portfolio;
 
+import java.util.List;
+
 import org.olat.NewControllerFactory;
 import org.olat.core.CoreSpringFactory;
 import org.olat.core.commons.fullWebApp.LayoutMain3ColsController;
@@ -49,49 +51,49 @@ public class EPMapOnInvitationExtension {
 	
 	private static class MapOnInvitationContextEntryControllerCreator extends DefaultContextEntryControllerCreator {
 
+		private PortfolioStructureMap map;
+		
 		@Override
 		public ContextEntryControllerCreator clone() {
-			return this;
+			return new MapOnInvitationContextEntryControllerCreator();
 		}
 
 		@Override
-		public Controller createController(ContextEntry ce, UserRequest ureq, WindowControl wControl) {
-			//fxdiff FXOLAT-151: better check invitation
+		public Controller createController(List<ContextEntry> ces, UserRequest ureq, WindowControl wControl) {
 			if(!ureq.getUserSession().getRoles().isInvitee()) {
 				return null;
 			}
 			
-			PortfolioStructureMap map = getMapFromContext(ce);
+			PortfolioStructureMap structureMap = getMapFromContext(ces.get(0));
 			EPSecurityCallback secCallback = new EPSecurityCallbackImpl(false, true);
-			Controller epCtr = EPUIFactory.createMapViewController(ureq, wControl, map, secCallback);
+			Controller epCtr = EPUIFactory.createMapViewController(ureq, wControl, structureMap, secCallback);
 			
-			LayoutMain3ColsController layoutCtr = new LayoutMain3ColsController(ureq, wControl, null, null, epCtr.getInitialComponent(), null);
+			LayoutMain3ColsController layoutCtr = new LayoutMain3ColsController(ureq, wControl, epCtr);
 			layoutCtr.addDisposableChildController(epCtr);
 			return layoutCtr;
 		}
 
 		@Override
 		public String getTabName(ContextEntry ce, UserRequest ureq) {
-			PortfolioStructureMap map = getMapFromContext(ce);
-			return map.getTitle();
-		}
-
-		@Override
-		public String getSiteClassName(ContextEntry ce, UserRequest ureq) {
+			PortfolioStructureMap structureMap = getMapFromContext(ce);
+			if(structureMap != null) {
+				return structureMap.getTitle();
+			}
 			return null;
 		}
 
 		@Override
 		public boolean validateContextEntryAndShowError(ContextEntry ce, UserRequest ureq, WindowControl wControl) {
-			//fxdiff FXOLAT-151: better check invitation
 			if(!ureq.getUserSession().getRoles().isInvitee()) {
 				return false;
 			}
 			
-			final EPFrontendManager ePFMgr = (EPFrontendManager) CoreSpringFactory.getBean("epFrontendManager");
-			PortfolioStructureMap map = getMapFromContext(ce);
-			if (map == null) return false;
-			boolean visible = ePFMgr.isMapVisible(ureq.getIdentity(), map.getOlatResource());
+			final EPFrontendManager ePFMgr = CoreSpringFactory.getImpl(EPFrontendManager.class);
+			PortfolioStructureMap structureMap = getMapFromContext(ce);
+			if (structureMap == null) {
+				return false;
+			}
+			boolean visible = ePFMgr.isMapVisible(ureq.getIdentity(), structureMap.getOlatResource());
 			return visible;
 		}
 		
@@ -100,11 +102,12 @@ public class EPMapOnInvitationExtension {
 		 * @return the loaded map or null if not found
 		 */
 		private PortfolioStructureMap getMapFromContext(final ContextEntry ce) {
-			final Long mapKey = ce.getOLATResourceable().getResourceableId();
-			final EPFrontendManager ePFMgr = (EPFrontendManager) CoreSpringFactory.getBean("epFrontendManager");
-			final PortfolioStructureMap map = (PortfolioStructureMap) ePFMgr.loadPortfolioStructureByKey(mapKey);
+			if(map == null) {
+				Long mapKey = ce.getOLATResourceable().getResourceableId();
+				EPFrontendManager ePFMgr = CoreSpringFactory.getImpl(EPFrontendManager.class);
+				map = (PortfolioStructureMap)ePFMgr.loadPortfolioStructureByKey(mapKey);
+			}
 			return map;
 		}
-		
 	}
 }

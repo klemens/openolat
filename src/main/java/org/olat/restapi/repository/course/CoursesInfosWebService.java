@@ -63,7 +63,7 @@ import org.olat.modules.fo.restapi.ForumCourseNodeWebService;
 import org.olat.modules.fo.restapi.ForumVO;
 import org.olat.repository.RepositoryEntry;
 import org.olat.repository.RepositoryManager;
-import org.olat.repository.SearchRepositoryEntryParameters;
+import org.olat.repository.model.SearchRepositoryEntryParameters;
 import org.olat.resource.accesscontrol.ACService;
 import org.olat.resource.accesscontrol.AccessResult;
 import org.olat.restapi.support.MediaTypeVariants;
@@ -109,7 +109,7 @@ public class CoursesInfosWebService {
 		Identity identity = getIdentity(httpRequest);
 		SearchRepositoryEntryParameters params = new SearchRepositoryEntryParameters(identity, roles, CourseModule.getCourseTypeName());
 		if(MediaTypeVariants.isPaged(httpRequest, request)) {
-			int totalCount = rm.countGenericANDQueryWithRolesRestriction(params, true);
+			int totalCount = rm.countGenericANDQueryWithRolesRestriction(params);
 			List<RepositoryEntry> repoEntries = rm.genericANDQueryWithRolesRestriction(params, start, limit, true);
 			List<CourseInfoVO> infos = new ArrayList<CourseInfoVO>();
 
@@ -142,14 +142,13 @@ public class CoursesInfosWebService {
 	 * @response.representation.200.example {@link org.olat.restapi.support.vo.Examples#SAMPLE_COURSEINFOVO}
 	 * @param courseId The course id
 	 * @param httpRequest The HTTP request
-	 * @param request The REST request
 	 * @return
 	 */
 	@GET
 	@Path("{courseId}")
 	@Produces({MediaType.APPLICATION_XML, MediaType.APPLICATION_JSON})
 	public Response getCourseInfo(@PathParam("courseId") Long courseId,
-			@Context HttpServletRequest httpRequest, @Context Request request) {
+			@Context HttpServletRequest httpRequest) {
 		
 		Roles roles = getRoles(httpRequest);
 		Identity identity = getIdentity(httpRequest);

@@ -40,7 +40,6 @@ import org.apache.poi.util.IOUtils;
 import org.olat.basesecurity.BaseSecurityManager;
 import org.olat.catalog.CatalogEntry;
 import org.olat.catalog.CatalogManager;
-import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.translator.Translator;
 import org.olat.core.id.Identity;
 import org.olat.core.id.OLATResourceable;
@@ -74,6 +73,7 @@ import org.olat.properties.Property;
 import org.olat.repository.RepositoryEntry;
 import org.olat.repository.RepositoryManager;
 import org.olat.repository.controllers.EntryChangedEvent;
+import org.olat.repository.controllers.EntryChangedEvent.Change;
 import org.olat.resource.references.ReferenceImpl;
 import org.olat.resource.references.ReferenceManager;
 import org.olat.user.UserManager;
@@ -119,7 +119,7 @@ public class PublishProcess {
 		//o_clusterOK yb guido: it save to hold a reference to the course inside the editor
 		this.course = course;
 		this.editorTreeModel = cetm;
-		publishTreeModel = new PublishTreeModel(editorTreeModel, course.getRunStructure(), null);
+		publishTreeModel = new PublishTreeModel(editorTreeModel, course.getRunStructure());
 		repositoryEntry = RepositoryManager.getInstance().lookupRepositoryEntry(course, false);
 		translator = Util.createPackageTranslator(PublishProcess.class, locale);
 	}
@@ -407,7 +407,7 @@ public class PublishProcess {
 		/*
 		 * broadcast PRE PUBLISH event that a publish will take place
 		 */
-		PublishEvent beforePublish = new PublishEvent(editorTreeModel.getLatestPublishTimestamp(), course, PublishEvent.EVENT_IDENTIFIER);
+		PublishEvent beforePublish = new PublishEvent(course, identity);
 		beforePublish.setDeletedCourseNodeIds(deletedCourseNodeIds);
 		beforePublish.setInsertedCourseNodeIds(insertedCourseNodeIds);
 		beforePublish.setModifiedCourseNodeIds(modifiedCourseNodeIds);
@@ -494,7 +494,7 @@ public class PublishProcess {
 		/*
 		 * broadcast event
 		 */
-		PublishEvent publishEvent = new PublishEvent(pubtimestamp, course, PublishEvent.EVENT_IDENTIFIER);
+		PublishEvent publishEvent = new PublishEvent(course, identity);
 		publishEvent.setDeletedCourseNodeIds(deletedCourseNodeIds);
 		publishEvent.setInsertedCourseNodeIds(insertedCourseNodeIds);
 		publishEvent.setModifiedCourseNodeIds(modifiedCourseNodeIds);
@@ -505,7 +505,6 @@ public class PublishProcess {
 		/*
 		 * END NEW STYLE PUBLISH
 		 */
-
 	}
 	
 	public void applyUpdateSet(Identity identity, Locale locale) {
@@ -672,7 +671,7 @@ public class PublishProcess {
 		CourseEditorTreeModel cetm = course.getEditorTreeModel();
 		for (int i = 0; i < nodeIdsToPublish.size(); i++) {
 			msg.append("<li>");
-			String nodeId = (String) nodeIdsToPublish.get(i);
+			String nodeId = nodeIdsToPublish.get(i);
 			CourseEditorTreeNode cetn = (CourseEditorTreeNode) cetm.getNodeById(nodeId);
 			CourseNode cn = cetm.getCourseNode(nodeId);
 			msg.append(cn.getShortTitle());
@@ -701,10 +700,9 @@ public class PublishProcess {
 		return publishTreeModel;
 	}
 
-	//fxdiff VCRP-1,2: access control of resources
-	public void changeGeneralAccess(UserRequest ureq, int access, boolean membersOnly){
+	public void changeGeneralAccess(Identity author, int access, boolean membersOnly){
 		RepositoryManager.getInstance().setAccess(repositoryEntry, access, membersOnly);
-		MultiUserEvent modifiedEvent = new EntryChangedEvent(repositoryEntry, EntryChangedEvent.MODIFIED_AT_PUBLISH);
+		MultiUserEvent modifiedEvent = new EntryChangedEvent(repositoryEntry, author, Change.modifiedAtPublish);
 		CoordinatorManager.getInstance().getCoordinator().getEventBus().fireEventToListenersOf(modifiedEvent, repositoryEntry);
 	}
 	

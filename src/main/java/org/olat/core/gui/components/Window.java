@@ -39,8 +39,8 @@ import org.json.JSONException;
 import org.json.JSONObject;
 import org.olat.core.CoreSpringFactory;
 import org.olat.core.commons.persistence.DBFactory;
+import org.olat.core.dispatcher.DispatcherModule;
 import org.olat.core.dispatcher.mapper.MapperService;
-import org.olat.core.gui.GUIInterna;
 import org.olat.core.gui.GlobalSettings;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.Windows;
@@ -86,16 +86,16 @@ import org.olat.core.logging.Tracing;
 import org.olat.core.util.StringHelper;
 import org.olat.core.util.component.ComponentTraverser;
 import org.olat.core.util.component.ComponentVisitor;
-import org.olat.testutils.codepoints.server.Codepoint;
 
 /**
  * Description: <br>
  * 
  * @author Felix Jost
  */
-public class Window extends Container {
+public class Window extends AbstractComponent {
 	
 	private static final OLog log = Tracing.createLoggerFor(Window.class);
+	private static final DispatchResult NO_DISPATCHRESULT = new DispatchResult(false, false, false);
 	
 	private static final String LOG_SEPARATOR = "^$^";
 	/**
@@ -138,7 +138,7 @@ public class Window extends Container {
 	public static final Event ABOUT_TO_DISPATCH = new Event("about_to_dispatch");
 	
 	private String uriPrefix;
-	private Container contentPane;
+	private ComponentCollection contentPane;
 	private String latestTimestamp;
 	private AsyncMediaResponsible asyncMediaResponsible;
 	private String instanceId;
@@ -201,7 +201,7 @@ public class Window extends Container {
 	/**
 	 * @return Container
 	 */
-	public Container getContentPane() {
+	public ComponentCollection getContentPane() {
 		return contentPane;
 	}
 
@@ -210,7 +210,7 @@ public class Window extends Container {
 	 * 
 	 * @param contentPane The contentPane to set
 	 */
-	public void setContentPane(Container contentPane) {
+	public void setContentPane(ComponentCollection contentPane) {
 		this.contentPane = contentPane;
 	}
 
@@ -218,7 +218,7 @@ public class Window extends Container {
 	 * @see org.olat.core.gui.components.Container#getComponent(java.lang.String)
 	 */
 	public Component getComponent(String name) {
-		throw new AssertException("please use getContentPane()");
+		throw new AssertException("please use getContentPane(): " + name);
 	}
 
 	/**
@@ -292,7 +292,6 @@ public class Window extends Container {
 			
 			GlobalSettings gsettings = wbackofficeImpl.getGlobalSettings();
 			boolean bgEnab = gsettings.getAjaxFlags().isIframePostEnabled();
-			//System.out.println("in window:");
 			// -------------------------
 			// ----- ajax mode ---------
 			// -------------------------
@@ -310,7 +309,9 @@ public class Window extends Container {
 						//--> boolean inlineAfterBackForward = false;
 						// FIXME:fj:b avoid double traversal to find component again below					
 						String s_compID = ureq.getComponentID();
-						if (s_compID == null) throw new AssertException("no component id found in req:" + ureq.toString());
+						if (s_compID == null) {
+							throw new AssertException("no component id found in req:" + ureq.toString());
+						}
 						// throws NumberFormatException if not a number
 						//long compID = Long.parseLong(s_compID); 
 						List<Component> foundPath = new ArrayList<Component>(10);
@@ -333,10 +334,12 @@ public class Window extends Container {
 						// 2.) collect dirty components (top-down, return from sub-path when first dirty node met)
 						// 3.) return to sender...
 						boolean didDispatch = false;
+						boolean forceReload = false;
 						if (validForDispatching) {
 							DispatchResult dispatchResult = doDispatchToComponent(ureq, null);  // FIXME:fj:c enable time stats for ajax-mode
 							didDispatch = dispatchResult.isDispatch();
 							incTimestamp = dispatchResult.isIncTimestamp();
+							forceReload = dispatchResult.isForceReload();
 							if (isDebugLog) {
 								long durationAfterDoDispatchToComponent = System.currentTimeMillis() - debug_start;
 								log.debug("Perf-Test: Window durationAfterDoDispatchToComponent=" + durationAfterDoDispatchToComponent);
@@ -346,7 +349,12 @@ public class Window extends Container {
 						MediaResource mmr = null;
 						//REVIEW:PB: this will be the code allowing back forward navigation
 						//-----> if (didDispatch || inlineAfterBackForward) {
-						if (didDispatch || !validForDispatching) {
+						if (forceReload) {
+							//force RELOAD with a redirect to itself
+							String reRenderUri = buildURIFor(this, timestampID, null);
+							Command rmrcom = CommandFactory.createParentRedirectTo(reRenderUri);
+							wbackofficeImpl.sendCommandTo(rmrcom);
+						} else if (didDispatch || !validForDispatching) {
 							if (validForDispatching) {
 								Window ww = ureq.getDispatchResult().getResultingWindow();
 								if (ww != null) {
@@ -373,7 +381,7 @@ public class Window extends Container {
 									fireEvent(ureq, OLDTIMESTAMPCALL);
 								}
 								
-								Container top = getContentPane();
+								ComponentCollection top = getContentPane();
 								// always validate here, since we are never in the case of just rerendering (we are in the bg iframe)
 								ValidatingVisitor vv = new ValidatingVisitor(gsettings, jsAndCssAdder);
 								ComponentTraverser ct = new ComponentTraverser(vv, top, false);
@@ -555,7 +563,6 @@ public class Window extends Container {
 				// [POST: !renderOnly && timestampID != null]
 				// if we had a inline rendering at least once (latestTimestamp is
 				// set), then check for an old timestamp
-				//System.out.println("dispatch normal: compid:"+ureq.getComponentID()+" win-ts:"+ureq.getTimestampID()+" comp-ts:"+ureq.getComponentTimestamp());
 				if (latestTimestamp != null && !timestampID.equals(latestTimestamp)) {
 					// this is not a link from the latest rendering, but from a previous
 					// one, since it has a wrong timestamp parameter -> check for
@@ -605,9 +612,11 @@ public class Window extends Container {
 				debugMsg.append("sync_bdisp:").append(syncIntroDiff).append(LOG_SEPARATOR);
 			}
 			
+			boolean forceReload = false;
 			if (dispatch) {
 				DispatchResult dispatchResult = doDispatchToComponent(ureq, debugMsg);
 				boolean didDispatch = dispatchResult.isDispatch();
+				forceReload = dispatchResult.isForceReload();
 				incTimestamp = dispatchResult.isIncTimestamp();
 				if (isDebugLog) {
 					long dstop = System.currentTimeMillis();
@@ -661,11 +670,16 @@ public class Window extends Container {
 					return;
 				}
 			}
-
-			if (inline) {
+			
+			if(forceReload) {
+				//force RELOAD with a redirect to itself (http redirect because we are in non-Ajax mode)
+				String reRenderUri = buildURIFor(this, timestampID, null);
+				String url = reRenderUri;
+				DispatcherModule.redirectTo(response, url);
+			} else if (inline) {
 					// do inline rendering.
 					
-					Container top = getContentPane();
+					ComponentCollection top = getContentPane();
 					// validate prior to rendering, but only if the timestamp was not null
 					// /
 					// the component just got dispatched
@@ -743,6 +757,11 @@ public class Window extends Container {
 						if (renderResult.getRenderException() != null) {
 							throw new OLATRuntimeException(Window.class, renderResult.getLogMsg(), renderResult.getRenderException());
 						}
+						
+						//to check HTML by reload
+						//System.out.println();
+						//System.out.println(result.toString());
+						//System.out.println();
 		
 						// after rendering we know if some component awaits further async
 						// calls
@@ -809,7 +828,6 @@ public class Window extends Container {
 		this.customCSS = customCSS;
 	}
 	
-	//fxdiff FXOLAT-119: update business path
 	public Command handleBusinessPath(UserRequest ureq) {
 		HistoryPoint p = ureq.getUserSession().getLastHistoryPoint();
 		if(p != null && StringHelper.containsNonWhitespace(p.getBusinessPath())) {
@@ -817,7 +835,7 @@ public class Window extends Container {
 			List<ContextEntry> ces = p.getEntries();
 			String url = BusinessControlFactory.getInstance().getAsURIString(ces, true);
 			sb.append("try { o_info.businessPath='").append(url).append("';");
-			sb.append("b_shareActiveSocialUrl(); } catch(e) { }");
+			sb.append("o_shareActiveSocialUrl(); } catch(e) { }");
 			return new JSCommand(sb.toString());
 		}
 		return null;
@@ -857,7 +875,9 @@ public class Window extends Container {
 			ComponentVisitor dirtyV = new ComponentVisitor() {
 				public boolean visit(Component comp, UserRequest ureq) {
 					boolean visitChildren = false;
-					if (!comp.isVisible()) {
+					if(comp == null) {
+						log.warn("Ooops, a component is null");
+					} else if (!comp.isVisible()) {
 						// a component just made -visible- still needs to be collected (detected by checking dirty flag)
 						if (comp.isDirty()) {
 							dirties.add(comp);
@@ -982,6 +1002,7 @@ public class Window extends Container {
 							}						
 							
 							jo.put("cid", cid);
+							jo.put("cw", toRender.isDomReplacementWrapperRequired());
 							jo.put("cidvis", toRender.isVisible());
 							jo.put("hfrag", StringOutputPool.freePop(result));
 							jo.put("jsol", StringOutputPool.freePop(jsol));
@@ -1060,73 +1081,28 @@ public class Window extends Container {
 	 */
 	private DispatchResult doDispatchToComponent(UserRequest ureq, StringBuilder debugMsg) {
 		String s_compID = ureq.getComponentID();
-		if (s_compID == null) return new DispatchResult(false, false); //throw new AssertException("no component id found in req:" + ureq.toString());
-		
-		
-		Component target;
-		List<Component> foundPath = new ArrayList<Component>(10);
-		
-		// OLAT-1973
-		if (GUIInterna.isLoadPerformanceMode()) {
-			String compPath = ureq.getParameter("e");
-			Component cur = getContentPane();
-			String[] res = compPath.split("!");
-			boolean correctFullPath = true;
-			for (int i = res.length -1; i >= 0 && correctFullPath; i--) {
-				String cname = res[i];	
-				ComponentCollection co = (ComponentCollection) cur; // we did not record the leaf, so we know it's a container
-				Component c = co.getComponent(cname);
-				if (c == null) {
-					correctFullPath = false;
-					//throw new AssertException("cannot find: "+compPath);
-				} else {
-					foundPath.add(c);
-					cur = c;
-				}
-			}
-			// if we could not find our component following the full path, also search the component in the full component tree.
-			// the reason is that simply adding a panel or such around a component should not break existing (jmeter)-functional-tests.
-			// 
-			// As long as we find only one component with a child with the name we search, we are ok and assume this new component to be the
-			// same from a gui-side meaning, even if it is in a different parent hierarchy.
-			// If more than one match is found (which should occur very rarely when developers choose meaningful names for components 
-			// to be put into containers), we cannot determine which component was meant and must throw an exception - the functional test 
-			// will break and needs to be improved/adjusted to the new layout.
-			// if no match is found, we could not find the component at all and must raise an exception also.
-			// 
-			if (correctFullPath) {
-				// cur is now the component to dispatch
-				target = cur;
-			} else {
-				String childName = res[0]; // Pre: all paths have at least one entry	
-				List<Component> founds = findComponentsWithChildName(childName, getContentPane());
-				int foundsCnt = founds.size();
-				if (foundsCnt == 1) {
-					// unique -> high probability that the recorded link is still the same
-					target = founds.get(0);
-				} else if (foundsCnt == 0) {
-					throw new AssertException("cannot find: "+compPath);
-				} else { // >1 -> ambiguous, two possible targets
-					throw new AssertException("cannot find: "+compPath);
-				}
-			}			
-		} else {
-			target = ComponentHelper.findDescendantOrSelfByID(getContentPane(), s_compID, foundPath);			
+		if (s_compID == null) {
+			return NO_DISPATCHRESULT;
 		}
-		
+
+		List<Component> foundPath = new ArrayList<Component>(10);
+		// OLAT-1973
+		Component target = ComponentHelper.findDescendantOrSelfByID(getContentPane(), s_compID, foundPath);
 		if (target == null) {
 			// there was a component id given, but no matching target could be found
 			fireEvent(ureq, COMPONENTNOTFOUND);
-			return new DispatchResult(false, false);
+			return NO_DISPATCHRESULT;
 			// do not dispatch; which means just rerender later; good if
 			// the
 			// gui tree was changed by another thread in the meantime.
 			// do not throw an exception here, because this can happen if the gui
 			// tree was changed by another thread in the meantime
 		}
-		if (!target.isVisible()) { throw new OLATRuntimeException(Window.class, "target with name: '" + target.getComponentName()
-				+ "', was invisible, but called to dispatch", null); }
-		boolean toDispatch = true; //TODO:fj:c is foundpath needed for something else than the enabled-check. if no -> one boolean is enough
+		if (!target.isVisible()) {
+			throw new OLATRuntimeException(Window.class, "target with name: '" + target.getComponentName() + "', was invisible, but called to dispatch", null);
+		}
+		
+		boolean toDispatch = true;
 		boolean incTimestamp = false;
 		for (Iterator<Component> iter = foundPath.iterator(); iter.hasNext();) {
 			Component curComp = iter.next();
@@ -1135,10 +1111,10 @@ public class Window extends Container {
 				break;
 			}
 		}
+		
 		if (toDispatch) {
 			latestDispatchComponentInfo = target.getComponentName() + " :" + target.getExtendedDebugInfo();
 			latestDispatchedComp = target;
-			Codepoint.setThreadLocalLogDetails(latestDispatchComponentInfo);
 			
 			// dispatch
 			wbackofficeImpl.fireCycleEvent(Window.ABOUT_TO_DISPATCH);
@@ -1147,9 +1123,7 @@ public class Window extends Container {
 			List<Component> ancestors = ComponentHelper.findAncestorsOrSelfByID(getContentPane(), target);
 			for(Component ancestor:ancestors) {
 				incTimestamp |= ancestor.isSilentlyDynamicalCmp();
-				//System.out.println("Ancestor -> " + ancestor.getComponentName() + " :: " + ancestor);
 			}
-			//System.out.println("Target -> " + highDynamical + " :: " + target);
 
 			// after dispatching, commit (docu)
 			DBFactory.getInstance().commit();
@@ -1157,43 +1131,9 @@ public class Window extends Container {
 			// add the new URL to the browser history, but not if the klick resulted in a new browser window (a href .. target=...) or in a download (excel or such)
 			wbackofficeImpl.fireCycleEvent(END_OF_DISPATCH_CYCLE);
 			
-			
 			// if loglevel is set accordingly, collect anonymous controller usage statistics.
 			if (debugMsg != null) {
-				Controller c = target.getLatestDispatchedController();
-				if (c != null) {
-					WindowControl wCo = null;
-					try {
-						wCo = c.getWindowControlForDebug();
-					} catch (Exception e) {
-						// getWindowControl throw an Assertion if wControl = null
-					}
-					if (wCo != null) {
-						String coInfo = "";
-						WindowControlInfo wci = wCo.getWindowControlInfo();
-						while (wci != null) {
-							String cName = wci.getControllerClassName();
-							coInfo = cName + ":" + coInfo;  
-							wci = wci.getParentWindowControlInfo();
-						}
-						
-						BusinessControl bc = wCo.getBusinessControl();
-						String businessPath = bc == null? "n/a":bc.getAsString();
-						String compName = target.getComponentName();
-						String msg = "wci:"+coInfo+"%%"+compName+"%%"+businessPath+"%%";
-						// allowed for debugging, dispatching is already over
-						Event ev = target.getAndClearLatestFiredEvent();
-						if (ev != null) {
-							msg += ev.getClass().getName()+":"+ev.getCommand()+"%%";
-						}
-						String targetInfo = target.getExtendedDebugInfo();
-						msg += targetInfo+"%%";
-						debugMsg.append(msg).append(LOG_SEPARATOR);
-						//Tracing.logDebug(msg, WindowStats.class);
-					} else {
-						// no windowcontrol -> ignore						
-					}
-				} // else: a component with -no- controller as listener, makes no sense in 99.99% of the cases; ignore in those rare cases
+				appendDispatchDebugInfos(target, debugMsg);
 			} else { 
 				// no debug level, consume the left over event (for minor memory reasons)
 				target.getAndClearLatestFiredEvent();
@@ -1201,9 +1141,49 @@ public class Window extends Container {
 			
 			// we do not want to keep a reference which could be old.
 			// in case we do not reach the next line because of an exception in dispatch(), we clear the value in the exceptionwindowcontroller's error handling			
-			latestDispatchedComp = null; 
+			latestDispatchedComp = null;
 		}
-		return new DispatchResult(toDispatch, incTimestamp);
+		
+		ChiefController chief = Windows.getWindows(ureq).getChiefController();
+		boolean reload = chief == null ? false : chief.wishReload(true);
+		return new DispatchResult(toDispatch, incTimestamp, reload);
+	}
+	
+	private void appendDispatchDebugInfos(Component target, StringBuilder debugMsg) {
+		Controller c = target.getLatestDispatchedController();
+		if (c != null) {
+			WindowControl wCo = null;
+			try {
+				wCo = c.getWindowControlForDebug();
+			} catch (Exception e) {
+				// getWindowControl throw an Assertion if wControl = null
+			}
+			if (wCo != null) {
+				String coInfo = "";
+				WindowControlInfo wci = wCo.getWindowControlInfo();
+				while (wci != null) {
+					String cName = wci.getControllerClassName();
+					coInfo = cName + ":" + coInfo;  
+					wci = wci.getParentWindowControlInfo();
+				}
+				
+				BusinessControl bc = wCo.getBusinessControl();
+				String businessPath = bc == null? "n/a":bc.getAsString();
+				String compName = target.getComponentName();
+				String msg = "wci:"+coInfo+"%%"+compName+"%%"+businessPath+"%%";
+				// allowed for debugging, dispatching is already over
+				Event ev = target.getAndClearLatestFiredEvent();
+				if (ev != null) {
+					msg += ev.getClass().getName()+":"+ev.getCommand()+"%%";
+				}
+				String targetInfo = target.getExtendedDebugInfo();
+				msg += targetInfo+"%%";
+				debugMsg.append(msg).append(LOG_SEPARATOR);
+				//Tracing.logDebug(msg, WindowStats.class);
+			} else {
+				// no windowcontrol -> ignore						
+			}
+		} // else: a component with -no- controller as listener, makes no sense in 99.99% of the cases; ignore in those rare cases
 	}
 	
 	private List<Component> findComponentsWithChildName(final String childName, Component searchRoot) {
@@ -1294,14 +1274,20 @@ public class Window extends Container {
 class DispatchResult {
 	private final boolean dispatch;
 	private final boolean incTimestamp;
+	private final boolean forceReload;
 	
-	public DispatchResult(boolean dispatch, boolean incTimestamp) {
+	public DispatchResult(boolean dispatch, boolean incTimestamp, boolean forceReload) {
 		this.dispatch = dispatch;
 		this.incTimestamp = incTimestamp;
+		this.forceReload = forceReload;
 	}
 
 	public boolean isDispatch() {
 		return dispatch;
+	}
+
+	public boolean isForceReload() {
+		return forceReload;
 	}
 
 	public boolean isIncTimestamp() {

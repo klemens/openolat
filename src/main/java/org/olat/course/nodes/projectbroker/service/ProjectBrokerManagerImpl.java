@@ -35,11 +35,11 @@ import java.util.List;
 import java.util.StringTokenizer;
 
 import org.hibernate.type.StandardBasicTypes;
-import org.hibernate.type.Type;
-import org.olat.basesecurity.BaseSecurityManager;
+import org.olat.basesecurity.BaseSecurity;
+import org.olat.basesecurity.GroupRoles;
 import org.olat.basesecurity.SecurityGroup;
 import org.olat.core.commons.modules.bc.vfs.OlatRootFolderImpl;
-import org.olat.core.commons.persistence.DBFactory;
+import org.olat.core.commons.persistence.DB;
 import org.olat.core.id.Identity;
 import org.olat.core.id.OLATResourceable;
 import org.olat.core.manager.BasicManager;
@@ -65,16 +65,30 @@ import org.olat.course.nodes.projectbroker.datamodel.ProjectImpl;
 import org.olat.course.properties.CoursePropertyManager;
 import org.olat.course.run.environment.CourseEnvironment;
 import org.olat.group.BusinessGroup;
+import org.olat.group.BusinessGroupService;
+import org.olat.group.manager.BusinessGroupRelationDAO;
 import org.olat.properties.Property;
-import org.olat.testutils.codepoints.server.Codepoint;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
 
 
 /**
  * 
  * @author guretzki
  */
-
+@Service
 public class ProjectBrokerManagerImpl extends BasicManager implements ProjectBrokerManager {
+	
+	@Autowired
+	private DB dbInstance;
+	@Autowired
+	private BaseSecurity securityManager;
+	@Autowired
+	private ProjectGroupManager projectGroupManager;
+	@Autowired
+	private BusinessGroupService businessGroupService;
+	@Autowired
+	private BusinessGroupRelationDAO businessGroupRelationDao;
 
 	private static final String ATTACHEMENT_DIR_NAME = "projectbroker_attach";
 	private CacheWrapper<String,ProjectBroker> projectCache;
@@ -113,7 +127,7 @@ public class ProjectBrokerManagerImpl extends BasicManager implements ProjectBro
 
 	public ProjectBroker createAndSaveProjectBroker() {
 		ProjectBroker projectBroker = new ProjectBrokerImpl();
-		DBFactory.getInstance().saveObject(projectBroker);
+		dbInstance.saveObject(projectBroker);
 		return projectBroker;
 	}
 
@@ -122,7 +136,7 @@ public class ProjectBrokerManagerImpl extends BasicManager implements ProjectBro
 		final Project project = new ProjectImpl(title, description, projectGroup, getProjectBroker(projectBrokerId));
 		CoordinatorManager.getInstance().getCoordinator().getSyncer().doInSync( projectBrokerOres, new SyncerExecutor() {
 			public void execute() {
-				DBFactory.getInstance().saveObject(project);
+				dbInstance.saveObject(project);
 				ProjectBroker projectBroker = getOrLoadProjectBoker(projectBrokerId);
 				if(!projectBroker.getProjects().contains(project)) {
 					projectBroker.getProjects().add(project);
@@ -134,8 +148,8 @@ public class ProjectBrokerManagerImpl extends BasicManager implements ProjectBro
 	}
 
 	public int getSelectedPlaces(Project project) {
-		return BaseSecurityManager.getInstance().countIdentitiesOfSecurityGroup(project.getProjectParticipantGroup()) +
-		       BaseSecurityManager.getInstance().countIdentitiesOfSecurityGroup(project.getCandidateGroup());
+		return businessGroupService.countMembers(project.getProjectGroup(), GroupRoles.participant.name()) +
+		       securityManager.countIdentitiesOfSecurityGroup(project.getCandidateGroup());
 	}
 
 
@@ -150,32 +164,32 @@ public class ProjectBrokerManagerImpl extends BasicManager implements ProjectBro
 	}
 	
 	public boolean existsProject(Long projectKey) {
-		return DBFactory.getInstance().findObject(ProjectImpl.class, projectKey) != null;
+		return dbInstance.findObject(ProjectImpl.class, projectKey) != null;
 	}
 
 	public boolean enrollProjectParticipant(final Identity identity, final Project project, final ProjectBrokerModuleConfiguration moduleConfig, final int nbrSelectedProjects, final boolean isParticipantInAnyProject) {
 		OLATResourceable projectOres = OresHelper.createOLATResourceableInstance(Project.class, project.getKey());
 		logDebug("enrollProjectParticipant: start identity=" + identity + "  project=" + project);
-		Codepoint.codepoint(ProjectBrokerManagerImpl.class, "beforeDoInSync");
 		Boolean result = CoordinatorManager.getInstance().getCoordinator().getSyncer().doInSync(projectOres, new SyncerCallback<Boolean>(){
 			public Boolean execute() {
 				if ( existsProject( project.getKey() ) ) {
 					// For cluster-safe : reload project object here another node might have changed this in the meantime
-					Project reloadedProject = (Project) DBFactory.getInstance().loadObject(project, true);					
+					Project reloadedProject = (Project) dbInstance.loadObject(project, true);					
 					logDebug("enrollProjectParticipant: project.getMaxMembers()=" + reloadedProject.getMaxMembers());
 					logDebug("enrollProjectParticipant: project.getSelectedPlaces()=" + reloadedProject.getSelectedPlaces());
-					if ( ProjectBrokerManagerFactory.getProjectBrokerManager().canBeProjectSelectedBy(identity, reloadedProject, moduleConfig, nbrSelectedProjects, isParticipantInAnyProject) ) {				
+					if (canBeProjectSelectedBy(identity, reloadedProject, moduleConfig, nbrSelectedProjects, isParticipantInAnyProject) ) {				
+						
 						if (moduleConfig.isAcceptSelectionManually() ) {
-							BaseSecurityManager.getInstance().addIdentityToSecurityGroup(identity, reloadedProject.getCandidateGroup());
+							securityManager.addIdentityToSecurityGroup(identity, reloadedProject.getCandidateGroup());
 							logAudit("ProjectBroker: Add as candidate identity=" + identity + " to project=" + reloadedProject);
 							if (isLogDebugEnabled()) {
 								logDebug("ProjectBroker: Add as candidate reloadedProject=" + reloadedProject + "  CandidateGroup=" + reloadedProject.getCandidateGroup() );
 							}
 						} else {
-							BaseSecurityManager.getInstance().addIdentityToSecurityGroup(identity, reloadedProject.getProjectParticipantGroup());
+							businessGroupRelationDao.addRole(identity, reloadedProject.getProjectGroup(), GroupRoles.participant.name());
 							logAudit("ProjectBroker: Add as participant identity=" + identity + " to project=" + reloadedProject);
 							if (isLogDebugEnabled()) {
-								logDebug("ProjectBroker: Add as participant reloadedProject=" + reloadedProject + "  ParticipantGroup=" + reloadedProject.getProjectParticipantGroup() );
+								logDebug("ProjectBroker: Add as participant reloadedProject=" + reloadedProject + "  ParticipantGroup=" + reloadedProject.getProjectGroup() );
 							}
 							if ( (reloadedProject.getMaxMembers() != Project.MAX_MEMBERS_UNLIMITED) && (reloadedProject.getSelectedPlaces() >= reloadedProject.getMaxMembers()) ) {
 								reloadedProject.setState(Project.STATE_ASSIGNED);
@@ -193,25 +207,23 @@ public class ProjectBrokerManagerImpl extends BasicManager implements ProjectBro
 				}
 			}				
 		});// end of doInSync
-		Codepoint.codepoint(ProjectBrokerManagerImpl.class, "afterDoInSync");
 		return result.booleanValue();
 	}
 
 	public boolean cancelProjectEnrollmentOf(final Identity identity, final Project project, final ProjectBrokerModuleConfiguration moduleConfig) {
 		OLATResourceable projectOres = OresHelper.createOLATResourceableInstance(Project.class, project.getKey());
-		Codepoint.codepoint(ProjectBrokerManagerImpl.class, "beforeDoInSync");
 		Boolean result = CoordinatorManager.getInstance().getCoordinator().getSyncer().doInSync(projectOres, new SyncerCallback<Boolean>(){
 			public Boolean execute() {
 				if ( existsProject( project.getKey() ) ) {
 					// For cluster-safe : reload project object here another node might have changed this in the meantime
-					Project reloadedProject = (Project) DBFactory.getInstance().loadObject(project, true);					
+					Project reloadedProject = (Project) dbInstance.loadObject(project, true);					
 					// User can only cancel enrollment, when state is 'NOT_ASSIGNED'
 					if (canBeCancelEnrollmentBy(identity, project, moduleConfig)) {
-						BaseSecurityManager.getInstance().removeIdentityFromSecurityGroup(identity, reloadedProject.getProjectParticipantGroup());
-						BaseSecurityManager.getInstance().removeIdentityFromSecurityGroup(identity, reloadedProject.getCandidateGroup());
+						businessGroupRelationDao.removeRole(identity, reloadedProject.getProjectGroup(), GroupRoles.participant.name());
+						securityManager.removeIdentityFromSecurityGroup(identity, reloadedProject.getCandidateGroup());
 						logAudit("ProjectBroker: Remove (as participant or waitinglist) identity=" + identity + " from project=" + project);
 						if (isLogDebugEnabled()) {
-							logDebug("ProjectBroker: Remove as participant reloadedProject=" + reloadedProject + "  ParticipantGroup=" + reloadedProject.getProjectParticipantGroup() + "  CandidateGroup=" + reloadedProject.getCandidateGroup());
+							logDebug("ProjectBroker: Remove as participant reloadedProject=" + reloadedProject + "  ParticipantGroup=" + reloadedProject.getProjectGroup() + "  CandidateGroup=" + reloadedProject.getCandidateGroup());
 						}
 						if ( (reloadedProject.getMaxMembers() != Project.MAX_MEMBERS_UNLIMITED) && (reloadedProject.getSelectedPlaces() < reloadedProject.getMaxMembers()) ) {
 							reloadedProject.setState(Project.STATE_NOT_ASSIGNED);
@@ -227,7 +239,6 @@ public class ProjectBrokerManagerImpl extends BasicManager implements ProjectBro
 				}					
 			}				
 		});// end of doInSync
-		Codepoint.codepoint(ProjectBrokerManagerImpl.class, "afterDoInSync");
 		return  result.booleanValue();
 	}
 
@@ -242,7 +253,7 @@ public class ProjectBrokerManagerImpl extends BasicManager implements ProjectBro
 		OLATResourceable projectBrokerOres = OresHelper.createOLATResourceableInstance(this.getClass(),projectBrokerId);
 		CoordinatorManager.getInstance().getCoordinator().getSyncer().doInSync( projectBrokerOres, new SyncerExecutor() {
 			public void execute() {
-				Project reloadedProject = (Project) DBFactory.getInstance().loadObject(project, true);
+				Project reloadedProject = (Project) dbInstance.loadObject(project, true);
 				// delete first candidate-group, project-group will be deleted after deleting project
 				SecurityGroup candidateGroup = reloadedProject.getCandidateGroup();
 				if ( (courseEnv != null) && (cNode != null) ) {
@@ -250,16 +261,16 @@ public class ProjectBrokerManagerImpl extends BasicManager implements ProjectBro
 					deleteAllDropboxFilesOfProject(reloadedProject, courseEnv, cNode);
 					deleteAllReturnboxFilesOfProject(reloadedProject, courseEnv, cNode);
 				}
-				DBFactory.getInstance().deleteObject(reloadedProject);
+				dbInstance.deleteObject(reloadedProject);
 				logInfo("deleteSecurityGroup(project.getCandidateGroup())=" + candidateGroup.getKey());
-				BaseSecurityManager.getInstance().deleteSecurityGroup(candidateGroup);
+				securityManager.deleteSecurityGroup(candidateGroup);
 				// invalide with removing from cache
 				projectCache.remove(projectBrokerId.toString());
 			}
 		});
 		if (deleteGroup) {
 			logDebug("start deleteProjectGroupFor project=" + project);
-			ProjectBrokerManagerFactory.getProjectGroupManager().deleteProjectGroupFor(project);
+			projectGroupManager.deleteProjectGroupFor(project);
 		}
 		logDebug("DONE deleteProjectGroupFor project=" + project);
 	}
@@ -268,8 +279,8 @@ public class ProjectBrokerManagerImpl extends BasicManager implements ProjectBro
 		int selectedCounter = 0;
 		for (Iterator<Project> iterator = projectList.iterator(); iterator.hasNext();) {
 			Project project = iterator.next();
-			if (BaseSecurityManager.getInstance().isIdentityInSecurityGroup(identity, project.getProjectParticipantGroup()) ||
-					BaseSecurityManager.getInstance().isIdentityInSecurityGroup(identity, project.getCandidateGroup()) ) {
+			if (businessGroupService.hasRoles(identity, project.getProjectGroup(), GroupRoles.participant.name()) ||
+					securityManager.isIdentityInSecurityGroup(identity, project.getCandidateGroup()) ) {
 				selectedCounter++;
 			}
 		}
@@ -283,21 +294,21 @@ public class ProjectBrokerManagerImpl extends BasicManager implements ProjectBro
 	public boolean canBeProjectSelectedBy(Identity identity, Project project,  ProjectBrokerModuleConfiguration moduleConfig, int nbrSelectedProjects, boolean isParticipantInAnyProject) {
 		logDebug("canBeSelectedBy: identity=" + identity + "  project=" + project);
 		// 1. check if already enrolled
-		if (   ProjectBrokerManagerFactory.getProjectGroupManager().isProjectParticipant(identity, project) 
-				|| ProjectBrokerManagerFactory.getProjectGroupManager().isProjectCandidate(identity, project)) {
+		if (   projectGroupManager.isProjectParticipant(identity, project) 
+				|| projectGroupManager.isProjectCandidate(identity, project)) {
 			logDebug("canBeSelectedBy: return false because identity is already enrolled");
 			return false;
 		}
 		// 2. check number of max project members
-		int projectMembers = BaseSecurityManager.getInstance().countIdentitiesOfSecurityGroup(project.getProjectParticipantGroup()) +
-		                     BaseSecurityManager.getInstance().countIdentitiesOfSecurityGroup(project.getCandidateGroup());
+		int projectMembers = businessGroupService.countMembers(project.getProjectGroup(), GroupRoles.participant.name()) +
+		                     securityManager.countIdentitiesOfSecurityGroup(project.getCandidateGroup());
 		if ( (project.getMaxMembers() != Project.MAX_MEMBERS_UNLIMITED) && (projectMembers >= project.getMaxMembers()) ) {
 			logDebug("canBeSelectedBy: return false because projectMembers >= getMaxMembers()");
 			return false;
 		}
 		// 3. number of selected topic per user
 		int nbrOfParticipantsPerTopicValue = moduleConfig.getNbrParticipantsPerTopic();
-		if ( (nbrOfParticipantsPerTopicValue != moduleConfig.NBR_PARTICIPANTS_UNLIMITED) &&
+		if ( (nbrOfParticipantsPerTopicValue != ProjectBrokerModuleConfiguration.NBR_PARTICIPANTS_UNLIMITED) &&
 				 (nbrSelectedProjects >= nbrOfParticipantsPerTopicValue) ) {
 			logDebug("canBeSelectedBy: return false because number of selected topic per user is " + nbrOfParticipantsPerTopicValue);
 			return false;
@@ -331,10 +342,10 @@ public class ProjectBrokerManagerImpl extends BasicManager implements ProjectBro
 		}
 		if (moduleConfig.isAcceptSelectionManually()) {
 		  // could only cancel enrollment, when projectleader did not accept yet
-			return ProjectBrokerManagerFactory.getProjectGroupManager().isProjectCandidate(identity, project) && !project.getState().equals(Project.STATE_ASSIGNED);
+			return projectGroupManager.isProjectCandidate(identity, project) && !project.getState().equals(Project.STATE_ASSIGNED);
 		} else {
 		  // could always cancel enrollment
-			return ProjectBrokerManagerFactory.getProjectGroupManager().isProjectParticipant(identity, project); 
+			return projectGroupManager.isProjectParticipant(identity, project); 
 		}
 	}
 	
@@ -348,7 +359,7 @@ public class ProjectBrokerManagerImpl extends BasicManager implements ProjectBro
 					// loop over all identities
 					for (Iterator<Identity> iterator2 = chosenIdentities.iterator(); iterator2.hasNext();) {
 						Identity identity = iterator2.next();
-						BaseSecurityManager.getInstance().removeIdentityFromSecurityGroup(identity, project.getCandidateGroup());
+						securityManager.removeIdentityFromSecurityGroup(identity, project.getCandidateGroup());
 						logAudit("ProjectBroker: AutoSignOut: identity=" + identity + " from project=" + project);
 					}
 				}
@@ -359,12 +370,12 @@ public class ProjectBrokerManagerImpl extends BasicManager implements ProjectBro
 	public String getStateFor(Project project, Identity identity, ProjectBrokerModuleConfiguration moduleConfig) {
 		if (moduleConfig.isAcceptSelectionManually() ) {
 			// Accept manually : unterscheiden Betreuer | Teilnehmer
-			if (ProjectBrokerManagerFactory.getProjectGroupManager().isProjectManager(identity, project)) {
+			if (projectGroupManager.isProjectManager(identity, project)) {
 				// State Betreuer   : Teilnehmer prüfen | Teilnemher akzeptiert
 				if (project.getState().equals(Project.STATE_ASSIGNED)) {
 					return Project.STATE_ASSIGNED_ACCOUNT_MANAGER;
 				} else {
-					if (BaseSecurityManager.getInstance().countIdentitiesOfSecurityGroup(project.getCandidateGroup()) > 0) {
+					if (securityManager.countIdentitiesOfSecurityGroup(project.getCandidateGroup()) > 0) {
 						return Project.STATE_NOT_ASSIGNED_ACCOUNT_MANAGER;
 					} else {
 						return Project.STATE_NOT_ASSIGNED_ACCOUNT_MANAGER_NO_CANDIDATE;
@@ -372,9 +383,9 @@ public class ProjectBrokerManagerImpl extends BasicManager implements ProjectBro
 				}
 			} else {
 				// State Teilnehmer :  prov. eingeschrieben | definitiv eingeschrieben | belegt | frei
-				if (ProjectBrokerManagerFactory.getProjectGroupManager().isProjectParticipant(identity, project)) {
+				if (projectGroupManager.isProjectParticipant(identity, project)) {
 					return Project.STATE_FINAL_ENROLLED;
-				} else if (ProjectBrokerManagerFactory.getProjectGroupManager().isProjectCandidate(identity, project)){
+				} else if (projectGroupManager.isProjectCandidate(identity, project)){
 					return Project.STATE_PROV_ENROLLED;
 				} else {
 				  if (   ((project.getMaxMembers() != Project.MAX_MEMBERS_UNLIMITED) && (project.getSelectedPlaces() >= project.getMaxMembers())) 
@@ -387,7 +398,7 @@ public class ProjectBrokerManagerImpl extends BasicManager implements ProjectBro
 			}
 		} else {
 			// Accept automatically => State : frei | belegt | eingeschrieben
-			if (ProjectBrokerManagerFactory.getProjectGroupManager().isProjectParticipant(identity, project)) {
+			if (projectGroupManager.isProjectParticipant(identity, project)) {
 				return Project.STATE_ENROLLED;
 			} else {
 			  if ( (project.getMaxMembers() != Project.MAX_MEMBERS_UNLIMITED) && (project.getSelectedPlaces() >= project.getMaxMembers()) ) {
@@ -411,9 +422,9 @@ public class ProjectBrokerManagerImpl extends BasicManager implements ProjectBro
 			logAudit("ProjectBroker: Deleted project=" + project );
 		}
 		logDebug("All projects are deleted for ProjectBroker=" + projectBroker);
-		ProjectBrokerManagerFactory.getProjectGroupManager().deleteAccountManagerGroup(courseEnvironment.getCoursePropertyManager(), courseNode);
-		ProjectBroker reloadedProjectBroker = (ProjectBroker) DBFactory.getInstance().loadObject(projectBroker, true);		
-		DBFactory.getInstance().deleteObject(reloadedProjectBroker);
+		projectGroupManager.deleteAccountManagerGroup(courseEnvironment.getCoursePropertyManager(), courseNode);
+		ProjectBroker reloadedProjectBroker = (ProjectBroker) dbInstance.loadObject(projectBroker, true);		
+		dbInstance.deleteObject(reloadedProjectBroker);
 		// invalide with removing from cache
 		projectCache.remove(projectBrokerId.toString());
 		logAudit("ProjectBroker: Deleted ProjectBroker=" + projectBroker);
@@ -495,14 +506,14 @@ public class ProjectBrokerManagerImpl extends BasicManager implements ProjectBro
 	///////////////////
 	private ProjectBroker getOrLoadProjectBoker(final Long projectBrokerId) {
 		// 1. check if alreday a projectBroker is in the cache
-		ProjectBroker projectBroker = (ProjectBroker)projectCache.get(projectBrokerId.toString());
+		ProjectBroker projectBroker = projectCache.get(projectBrokerId.toString());
 		if (projectBroker == null) {
 			logDebug("find no projectBroker in the cache => create a new one projectBrokerId=" + projectBrokerId);
 			StringBuilder sb = new StringBuilder();
 			sb.append("select distinct project from ").append(ProjectImpl.class.getName()).append(" as project ")
 			  .append(" where project.projectBroker.key=:projectBrokerKey");
 
-			List<Project> projectList = DBFactory.getInstance().getCurrentEntityManager().createQuery(sb.toString(), Project.class)
+			List<Project> projectList = dbInstance.getCurrentEntityManager().createQuery(sb.toString(), Project.class)
 					.setParameter("projectBrokerKey", projectBrokerId)
 					.getResultList();
 			projectBroker = getProjectBroker(projectBrokerId);
@@ -513,7 +524,7 @@ public class ProjectBrokerManagerImpl extends BasicManager implements ProjectBro
 	}
 
 	public ProjectBroker getProjectBroker(Long projectBrokerId) {
-		return (ProjectBroker) DBFactory.getInstance().loadObject(ProjectBrokerImpl.class, projectBrokerId);
+		return dbInstance.loadObject(ProjectBrokerImpl.class, projectBrokerId);
 	}
 
 	private boolean isEnrollmentDateOk(Project project, ProjectBrokerModuleConfiguration moduleConfig) {
@@ -547,7 +558,7 @@ public class ProjectBrokerManagerImpl extends BasicManager implements ProjectBro
 	public boolean isParticipantInAnyProject(Identity identity, List<Project> projectList) {
 		for (Iterator<Project> iterator = projectList.iterator(); iterator.hasNext();) {
 			Project project = iterator.next();
-			if ( BaseSecurityManager.getInstance().isIdentityInSecurityGroup(identity, project.getProjectParticipantGroup()) ) {
+			if (businessGroupService.hasRoles(identity, project.getProjectGroup(), GroupRoles.participant.name()) ) {
 				return true;
 			}
 		}
@@ -556,7 +567,7 @@ public class ProjectBrokerManagerImpl extends BasicManager implements ProjectBro
 
 	@SuppressWarnings("unchecked")
 	public List<Project> getProjectsWith(BusinessGroup group) {
-		List<Project> projectList = DBFactory.getInstance().find(
+		List<Project> projectList = dbInstance.find(
 				"select project from org.olat.course.nodes.projectbroker.datamodel.ProjectImpl as project" +
 				" where project.projectGroup.key = ?", group.getKey(),	StandardBasicTypes.LONG);
 		return projectList;
@@ -569,7 +580,7 @@ public class ProjectBrokerManagerImpl extends BasicManager implements ProjectBro
 		CoordinatorManager.getInstance().getCoordinator().getSyncer().doInSync( projectBrokerOres, new SyncerExecutor() {
 			public void execute() {
 				// For cluster-safe : reload project object here another node might have changed this in the meantime
-				Project reloadedProject = (Project) DBFactory.getInstance().loadObject(project, true);		
+				Project reloadedProject = (Project) dbInstance.loadObject(project, true);		
 				reloadedProject.setState(state);
 				updateProjectAndInvalidateCache(reloadedProject);
 			}
@@ -592,12 +603,14 @@ public class ProjectBrokerManagerImpl extends BasicManager implements ProjectBro
 	}
 
 	public boolean existProjectName(Long projectBrokerId, String newProjectTitle) {
-		List<Project> projectList = DBFactory.getInstance().find(
-				"select project from org.olat.course.nodes.projectbroker.datamodel.ProjectImpl as project" +
-				" where project.projectBroker = ? and project.title = ?", 
-				new Object[] { projectBrokerId, newProjectTitle }, new Type[] { StandardBasicTypes.LONG, StandardBasicTypes.STRING });
-		logDebug("existProjectName projectList.size=" + projectList.size());
-		return !projectList.isEmpty();
+		StringBuilder sb = new StringBuilder();
+		sb.append("select count(project.key) from ").append(ProjectImpl.class.getName()).append(" as project")
+		  .append(" where project.projectBroker.key=:projectBrokerId and project.title=:title");
+		
+		Number count = dbInstance.getCurrentEntityManager().createQuery(sb.toString(), Number.class)
+			.setParameter("projectBrokerId", projectBrokerId).setParameter("title", newProjectTitle)
+			.getSingleResult();
+		return count == null ? false : count.intValue() > 0;
 	}
 
 	@Override
@@ -607,7 +620,7 @@ public class ProjectBrokerManagerImpl extends BasicManager implements ProjectBro
 		//TODO: for better performance should be done with sql query instead of a loop
 		for (Iterator<Project> iterator = allProjects.iterator(); iterator.hasNext();) {
 			Project project = iterator.next();
-			if (BaseSecurityManager.getInstance().isIdentityInSecurityGroup(identity, project.getProjectParticipantGroup()) ) {
+			if (businessGroupService.hasRoles(identity, project.getProjectGroup(), GroupRoles.participant.name()) ) {
 				myProjects.add(project);
 			}
 		}
@@ -616,7 +629,7 @@ public class ProjectBrokerManagerImpl extends BasicManager implements ProjectBro
 
 	@Override
 	public Project getProject(Long resourceableId) {
-		return (Project)DBFactory.getInstance().findObject(ProjectImpl.class, resourceableId);
+		return dbInstance.findObject(ProjectImpl.class, resourceableId);
 	}
 
 	@Override
@@ -626,7 +639,8 @@ public class ProjectBrokerManagerImpl extends BasicManager implements ProjectBro
 		//TODO: for better performance should be done with sql query instead of a loop
 		for (Iterator<Project> iterator = allProjects.iterator(); iterator.hasNext();) {
 			Project project = iterator.next();
-			if (BaseSecurityManager.getInstance().isIdentityInSecurityGroup(identity, project.getProjectLeaderGroup()) ) {
+			if (businessGroupService
+					.hasRoles(identity, project.getProjectGroup(), GroupRoles.coach.name())) {
 				myProjects.add(project);
 			}
 		}
@@ -636,7 +650,7 @@ public class ProjectBrokerManagerImpl extends BasicManager implements ProjectBro
 	private void updateProjectAndInvalidateCache(final Project project) {
 		// avoid hibernate exception : object with same identifier already exist in session.
 		// reload object from db, because project is a detached object but could be already in hibernate session
-		Project reloadedProject = (Project) DBFactory.getInstance().loadObject(project, true);
+		Project reloadedProject = (Project) dbInstance.loadObject(project, true);
 		// set all value on reloadedProject with values from updated project
 		reloadedProject.setTitle(project.getTitle());
 		reloadedProject.setState(project.getState());
@@ -650,7 +664,7 @@ public class ProjectBrokerManagerImpl extends BasicManager implements ProjectBro
 			reloadedProject.setCustomFieldValue(index, project.getCustomFieldValue(index));
 		}
 		reloadedProject.setAttachedFileName(project.getAttachmentFileName());
-		DBFactory.getInstance().updateObject(reloadedProject);
+		dbInstance.updateObject(reloadedProject);
 		// invalide with removing from cache
 		projectCache.remove(project.getProjectBroker().getKey().toString());
 	}

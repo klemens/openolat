@@ -62,7 +62,7 @@ public class CmdServeThumbnailResource implements FolderCommand {
 		if(vfsfile instanceof MetaTagged) {
 			MetaInfo info = ((MetaTagged)vfsfile).getMetaInfo();
 			if(info != null && info.isThumbnailAvailable()) {
-				VFSLeaf thumbnail = info.getThumbnail(200, 200);
+				VFSLeaf thumbnail = info.getThumbnail(200, 200, false);
 				if(thumbnail != null) {
 					mr = new VFSMediaResource(thumbnail);
 				}
@@ -76,9 +76,18 @@ public class CmdServeThumbnailResource implements FolderCommand {
 		return null;
 	}
 
-	public int getStatus() { return status; }
+	@Override
+	public int getStatus() {
+		return status;
+	}
 
+	@Override
 	public boolean runsModal() {
 		return false;
+	}
+
+	@Override
+	public String getModalTitle() {
+		return null;
 	}
 }

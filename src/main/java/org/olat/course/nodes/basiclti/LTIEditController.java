@@ -30,7 +30,7 @@ import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.Component;
 import org.olat.core.gui.components.link.Link;
 import org.olat.core.gui.components.link.LinkFactory;
-import org.olat.core.gui.components.stack.StackedController;
+import org.olat.core.gui.components.stack.BreadcrumbPanel;
 import org.olat.core.gui.components.tabbedpane.TabbedPane;
 import org.olat.core.gui.components.velocity.VelocityContainer;
 import org.olat.core.gui.control.Controller;
@@ -43,7 +43,6 @@ import org.olat.course.assessment.AssessmentHelper;
 import org.olat.course.condition.Condition;
 import org.olat.course.condition.ConditionEditController;
 import org.olat.course.editor.NodeEditController;
-import org.olat.course.groupsandrights.CourseGroupManager;
 import org.olat.course.nodes.BasicLTICourseNode;
 import org.olat.course.run.environment.CourseEnvironment;
 import org.olat.course.run.userview.UserCourseEnvironment;
@@ -77,7 +76,7 @@ public class LTIEditController extends ActivateableTabbableDefaultController imp
 	private Controller previewLayoutCtr;
 	private Link previewButton;
 	private Controller previewLtiCtr;
-	private final StackedController stackPanel;
+	private final BreadcrumbPanel stackPanel;
 
 	/**
 	 * Constructor for tunneling editor controller 
@@ -88,7 +87,7 @@ public class LTIEditController extends ActivateableTabbableDefaultController imp
 	 * @param course
 	 */
 	public LTIEditController(ModuleConfiguration config, UserRequest ureq, WindowControl wControl, 
-			StackedController stackPanel, BasicLTICourseNode ltCourseNode, ICourse course, UserCourseEnvironment euce) {
+			BreadcrumbPanel stackPanel, BasicLTICourseNode ltCourseNode, ICourse course, UserCourseEnvironment euce) {
 		super(ureq, wControl);
 		
 		this.config = config;
@@ -96,19 +95,19 @@ public class LTIEditController extends ActivateableTabbableDefaultController imp
 		this.editCourseEnv = course.getCourseEnvironment();
 		this.stackPanel = stackPanel;
 		
-		myContent = this.createVelocityContainer("edit");
+		myContent = createVelocityContainer("edit");
 		previewButton = LinkFactory.createButtonSmall("command.preview", myContent, this);
+		previewButton.setIconLeftCSS("o_icon o_icon_preview");
 		
 		ltConfigForm = new LTIConfigForm(ureq, wControl, config);
 		listenTo(ltConfigForm);
 		
 		myContent.put("ltConfigForm", ltConfigForm.getInitialComponent());
 
-		CourseGroupManager groupMgr = course.getCourseEnvironment().getCourseGroupManager();
 		CourseEditorTreeModel editorModel = course.getEditorTreeModel();
 		//Accessibility precondition
 		Condition accessCondition = courseNode.getPreConditionAccess();
-		accessibilityCondContr = new ConditionEditController(ureq, getWindowControl(), groupMgr, accessCondition, "accessabilityConditionForm",
+		accessibilityCondContr = new ConditionEditController(ureq, getWindowControl(), accessCondition,
 				AssessmentHelper.getAssessableNodes(editorModel, ltCourseNode), euce);		
     this.listenTo(accessibilityCondContr);
 

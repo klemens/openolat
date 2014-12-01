@@ -12,6 +12,7 @@
 # ./compiletheme.sh /path/to/your/custom/themedir		# compile all themes in the given directory
 #
 ####
+export SASS_PATH=.
 
 # Configuration
 STYLE=compressed
@@ -21,7 +22,7 @@ STYLE=compressed
 searchThemes () {
 	if [ ! -z $1  ];
 	then
-	    if [ -f $1/layout.scss  ];
+	    if [ -f $1/theme.scss  ];
 	    then
 	    	doCompile $1
 	    elif [ -d $1  ];
@@ -34,14 +35,32 @@ searchThemes () {
 	fi
 }
 
+# Helper method to split files with too many selectors for ie <= 9
+ie9ify () {
+	css="$TARGET/theme.css"
+	[ -e $css  ] && { printf "ie9ify $TARGET:\n  "; blessc --no-imports $css "$TARGET/theme_ie_completions.css"; rm "$TARGET/theme_ie_completions-blessed1.css"; }
+	echo "  done"
+}
+
 # Helper method to compile the theme
 doCompile () {
-	echo "Compiling SASS: $1 $STYLE"
+	TARGET=$1
+	if [ $1 = "."  ];
+	then
+		TARGET="light"
+	fi
+	echo "Compiling SASS: $TARGET $STYLE"
 	sass --version
-	sass --style $STYLE --update $1:$1 --load-path openolat openolat/all openolat/all/modules openolat/print openolat/mobile
+	sass --style $STYLE --no-cache --update $TARGET:$TARGET --load-path light light/modules
+	echo "sass --style $STYLE --update $TARGET:$TARGET --load-path light light/modules"
+	[ $bless -eq 0 ] && ie9ify $TARGET
 	echo "done"
 }
 
+# check for blessc command needed for ie9 optimizations
+command -v blessc >/dev/null 2>&1
+bless=$?
+[ $bless -ne 0 ] && echo >&2 "Install blessc to optimize css for ie <= 9 (npm install -g bless)"
 
 # Add themes to compile from given path
 doCompile ".";

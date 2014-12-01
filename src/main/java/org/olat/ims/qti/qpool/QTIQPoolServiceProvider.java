@@ -58,7 +58,9 @@ import org.olat.ims.qti.editor.QTIEditorPackageImpl;
 import org.olat.ims.qti.editor.beecom.objects.Item;
 import org.olat.ims.qti.editor.beecom.objects.Section;
 import org.olat.ims.qti.editor.beecom.parser.ParserManager;
+import org.olat.ims.qti.fileresource.TestFileResource;
 import org.olat.ims.qti.qpool.QTI12ItemFactory.Type;
+import org.olat.ims.qti.questionimport.ItemAndMetadata;
 import org.olat.ims.resources.IMSEntityResolver;
 import org.olat.modules.qpool.ExportFormatOptions;
 import org.olat.modules.qpool.ExportFormatOptions.Outcome;
@@ -69,8 +71,10 @@ import org.olat.modules.qpool.QuestionItemFull;
 import org.olat.modules.qpool.QuestionItemShort;
 import org.olat.modules.qpool.manager.QEducationalContextDAO;
 import org.olat.modules.qpool.manager.QItemTypeDAO;
+import org.olat.modules.qpool.manager.QLicenseDAO;
 import org.olat.modules.qpool.manager.QPoolFileStorage;
 import org.olat.modules.qpool.manager.QuestionItemDAO;
+import org.olat.modules.qpool.manager.TaxonomyLevelDAO;
 import org.olat.modules.qpool.model.DefaultExportFormat;
 import org.olat.modules.qpool.model.QuestionItemImpl;
 import org.olat.repository.RepositoryEntry;
@@ -98,18 +102,22 @@ public class QTIQPoolServiceProvider implements QPoolSPI {
 	@Autowired
 	private QPoolFileStorage qpoolFileStorage;
 	@Autowired
+	private QLicenseDAO qLicenseDao;
+	@Autowired
 	private QItemTypeDAO qItemTypeDao;
 	@Autowired
 	private QuestionItemDAO questionItemDao;
 	@Autowired
 	private QEducationalContextDAO qEduContextDao;
+	@Autowired
+	private TaxonomyLevelDAO taxonomyLevelDao;
 	
 	private static final List<ExportFormatOptions> formats = new ArrayList<ExportFormatOptions>(2);
 	static {
 		formats.add(DefaultExportFormat.ZIP_EXPORT_FORMAT);
 		formats.add(DefaultExportFormat.DOCX_EXPORT_FORMAT);
 		formats.add(new DefaultExportFormat(QTIConstants.QTI_12_FORMAT, Outcome.download, null));
-		formats.add(new DefaultExportFormat(QTIConstants.QTI_12_FORMAT, Outcome.repository, "a.nte"));
+		formats.add(new DefaultExportFormat(QTIConstants.QTI_12_FORMAT, Outcome.repository, TestFileResource.TYPE_NAME));
 	}
 	
 	
@@ -185,7 +193,7 @@ public class QTIQPoolServiceProvider implements QPoolSPI {
 	@Override
 	public List<QuestionItem> importItems(Identity owner, Locale defaultLocale, String filename, File file) {
 		QTIImportProcessor processor = new QTIImportProcessor(owner, defaultLocale, filename, file,
-				questionItemDao, qItemTypeDao, qEduContextDao, qpoolFileStorage);
+				questionItemDao, qItemTypeDao, qEduContextDao, taxonomyLevelDao, qLicenseDao, qpoolFileStorage, dbInstance);
 		return processor.process();
 	}
 	
@@ -215,11 +223,11 @@ public class QTIQPoolServiceProvider implements QPoolSPI {
 		item.setTitle(title);
 		
 		QTIImportProcessor processor = new QTIImportProcessor(owner, defaultLocale,
-				questionItemDao, qItemTypeDao, qEduContextDao, qpoolFileStorage);
+				questionItemDao, qItemTypeDao, qEduContextDao, taxonomyLevelDao, qLicenseDao, qpoolFileStorage, dbInstance);
 		
 		Document doc = QTIEditHelper.itemToXml(item);
 		Element itemEl = (Element)doc.selectSingleNode("questestinterop/item");
-		QuestionItemImpl qitem = processor.processItem(itemEl, "", null, "OpenOLAT", Settings.getVersion());
+		QuestionItemImpl qitem = processor.processItem(itemEl, "", null, "OpenOLAT", Settings.getVersion(), null, null);
 		//save to file System
 		VFSContainer baseDir = qpoolFileStorage.getContainer(qitem.getDirectory());
 		VFSLeaf leaf = baseDir.createChildLeaf(qitem.getRootFilename());
@@ -227,12 +235,13 @@ public class QTIQPoolServiceProvider implements QPoolSPI {
 		return qitem;
 	}
 	
-	public void importBeecomItem(Identity owner, Item item, VFSContainer sourceDir, Locale defaultLocale) {
+	public QuestionItemImpl importBeecomItem(Identity owner, ItemAndMetadata itemAndMetadata, VFSContainer sourceDir, Locale defaultLocale) {
 		QTIImportProcessor processor = new QTIImportProcessor(owner, defaultLocale,
-				questionItemDao, qItemTypeDao, qEduContextDao, qpoolFileStorage);
+				questionItemDao, qItemTypeDao, qEduContextDao, taxonomyLevelDao, qLicenseDao, qpoolFileStorage, dbInstance);
 		
 		String editor = null;
 		String editorVersion = null;
+		Item item = itemAndMetadata.getItem();
 		if(!item.isAlient()) {
 			editor = "OpenOLAT";
 			editorVersion = Settings.getVersion();
@@ -240,21 +249,38 @@ public class QTIQPoolServiceProvider implements QPoolSPI {
 		
 		Document doc = QTIEditHelper.itemToXml(item);
 		Element itemEl = (Element)doc.selectSingleNode("questestinterop/item");
-		QuestionItemImpl qitem = processor.processItem(itemEl, "", null, editor, editorVersion);
+		QuestionItemImpl qitem = processor.processItem(itemEl, "", null, editor, editorVersion, null, itemAndMetadata);
 		//save to file System
 		VFSContainer baseDir = qpoolFileStorage.getContainer(qitem.getDirectory());
 		VFSLeaf leaf = baseDir.createChildLeaf(qitem.getRootFilename());
 		QTIEditHelper.serialiazeDoc(doc, leaf);
 		//process materials
-		List<String> materials = processor.getMaterials(itemEl);
-		//copy materials
-		for(String material:materials) {
-			VFSItem sourceItem = sourceDir.resolve(material);
-			if(sourceItem instanceof VFSLeaf) {
-				VFSLeaf targetItem = baseDir.createChildLeaf(material);
-				VFSManager.copyContent((VFSLeaf)sourceItem, targetItem);
+		
+		if(sourceDir != null) {
+			List<String> materials = processor.getMaterials(itemEl);
+			//copy materials
+			for(String material:materials) {
+				VFSItem sourceItem = sourceDir.resolve(material);
+				if(sourceItem instanceof VFSLeaf) {
+					VFSLeaf targetItem = baseDir.createChildLeaf(material);
+					VFSManager.copyContent((VFSLeaf)sourceItem, targetItem);
+				}
 			}
 		}
+		return qitem;
+	}
+	
+	public List<QuestionItem> importBeecomItem(Identity owner, List<ItemAndMetadata> items, Locale defaultLocale) {
+		int count = 0;
+		List<QuestionItem> qItems = new ArrayList<>(items.size());
+		for(ItemAndMetadata item:items) {
+			QuestionItem qItem = importBeecomItem(owner, item, null, defaultLocale);
+			qItems.add(qItem);
+			if(++count % 10 == 0) {
+				dbInstance.commitAndCloseSession();
+			}
+		}
+		return qItems;
 	}
 	
 	public void exportToEditorPackage(QTIEditorPackageImpl editorPackage, List<QuestionItemShort> items, boolean newTest) {
@@ -263,7 +289,7 @@ public class QTIQPoolServiceProvider implements QPoolSPI {
 		List<QuestionItemFull> fullItems = questionItemDao.loadByIds(itemKeys);
 		
 		
-		Section section = (Section)editorPackage.getQTIDocument().getAssessment().getSections().get(0);
+		Section section = editorPackage.getQTIDocument().getAssessment().getSections().get(0);
 		if(newTest) {
 			//remove autogenerated question
 			section.getItems().clear();
@@ -325,9 +351,9 @@ public class QTIQPoolServiceProvider implements QPoolSPI {
 		QTIExportProcessor processor = new QTIExportProcessor(qpoolFileStorage);
 		QuestionItemFull fullItem = questionItemDao.loadById(qitem.getKey());
 		Element itemEl = processor.exportToQTIEditor(fullItem, editorContainer);
-	  Item exportedItem = (Item)new ParserManager().parse(itemEl);
-	  exportedItem.setIdent(QTIEditHelper.generateNewIdent(exportedItem.getIdent()));
-	  return exportedItem;
+		Item exportedItem = (Item)new ParserManager().parse(itemEl);
+		exportedItem.setIdent(QTIEditHelper.generateNewIdent(exportedItem.getIdent()));
+		return exportedItem;
 	}
 
 	@Override

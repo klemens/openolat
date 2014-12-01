@@ -20,7 +20,6 @@
 
 package org.olat.course.nodes.portfolio;
 
-import org.olat.core.CoreSpringFactory;
 import org.olat.core.commons.fullWebApp.LayoutMain3ColsController;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.form.flexible.FormItem;
@@ -31,7 +30,7 @@ import org.olat.core.gui.components.form.flexible.impl.FormBasicController;
 import org.olat.core.gui.components.form.flexible.impl.FormEvent;
 import org.olat.core.gui.components.form.flexible.impl.FormLayoutContainer;
 import org.olat.core.gui.components.link.Link;
-import org.olat.core.gui.components.stack.StackedController;
+import org.olat.core.gui.components.stack.BreadcrumbPanel;
 import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.Event;
 import org.olat.core.gui.control.WindowControl;
@@ -52,6 +51,7 @@ import org.olat.portfolio.manager.EPStructureManager;
 import org.olat.portfolio.model.structel.PortfolioStructureMap;
 import org.olat.repository.RepositoryEntry;
 import org.olat.repository.controllers.ReferencableEntriesSearchController;
+import org.springframework.beans.factory.annotation.Autowired;
 
 /**
  * 
@@ -63,8 +63,10 @@ import org.olat.repository.controllers.ReferencableEntriesSearchController;
  * @author srosse, stephane.rosse@frentix.com, http://www.frentix.com
  */
 public class PortfolioConfigForm extends FormBasicController {
-	private final EPFrontendManager ePFMgr;
-	private final EPStructureManager eSTMgr;
+	@Autowired
+	private EPFrontendManager ePFMgr;
+	@Autowired
+	private EPStructureManager eSTMgr;
 	private final ModuleConfiguration config;
 
 	private boolean inUse;
@@ -84,16 +86,14 @@ public class PortfolioConfigForm extends FormBasicController {
 	private Controller columnLayoutCtr;
 	private boolean isDirty;
 	private final PortfolioCourseNode courseNode;
-	private final StackedController stackPanel;
+	private final BreadcrumbPanel stackPanel;
 	
-	public PortfolioConfigForm(UserRequest ureq, WindowControl wControl, StackedController stackPanel, ICourse course, PortfolioCourseNode courseNode) {
+	public PortfolioConfigForm(UserRequest ureq, WindowControl wControl, BreadcrumbPanel stackPanel,
+			ICourse course, PortfolioCourseNode courseNode) {
 		super(ureq, wControl);
 		this.courseNode = courseNode;
 		this.config = courseNode.getModuleConfiguration();
 		this.stackPanel = stackPanel;
-
-		ePFMgr = (EPFrontendManager) CoreSpringFactory.getBean("epFrontendManager");
-		eSTMgr = (EPStructureManager) CoreSpringFactory.getBean("epStructureManager");
 		
 		mapEntry = courseNode.getReferencedRepositoryEntry();
 		if(mapEntry != null) {
@@ -118,7 +118,8 @@ public class PortfolioConfigForm extends FormBasicController {
 		mapNameElement.setVisible(map == null);
 		
 		previewMapLink = uifactory.addFormLink("preview", "selected.map", "selected.map", formLayout, Link.LINK);
-		previewMapLink.setCustomEnabledLinkCSS("b_preview");
+		previewMapLink.setCustomEnabledLinkCSS("o_preview");
+		previewMapLink.setIconLeftCSS("o_icon o_icon-fw o_icon_preview");
 		((Link)previewMapLink.getComponent()).setCustomDisplayText(name);
 		previewMapLink.setVisible(map != null);
 		previewMapLink.setElementCssClass("o_sel_preview_map");
@@ -179,13 +180,13 @@ public class PortfolioConfigForm extends FormBasicController {
 			removeAsListenerAndDispose(cmc);
 			cmc = new CloseableModalController(getWindowControl(), translate("close"), searchController.getInitialComponent(), true, translate("select.map"));
 			listenTo(cmc);
-		if (isDirty) {
-			showWarning("form.dirty");
-			return;
-		}
+			if (isDirty) {
+				showWarning("form.dirty");
+				return;
+			}
 			cmc.activate();
-		}	else if (source == editMapLink) {
-			CourseNodeFactory.getInstance().launchReferencedRepoEntryEditor(ureq, courseNode);
+		} else if (source == editMapLink) {
+			CourseNodeFactory.getInstance().launchReferencedRepoEntryEditor(ureq, getWindowControl(), courseNode);
 		} else if (source == previewMapLink) {
 			EPSecurityCallback secCallback = new EPSecurityCallbackImpl(false, true);
 
@@ -195,7 +196,7 @@ public class PortfolioConfigForm extends FormBasicController {
 			}
 			previewCtr = EPUIFactory.createPortfolioStructureMapPreviewController(ureq, getWindowControl(), map, secCallback);
 			listenTo(previewCtr);
-			LayoutMain3ColsController ctr = new LayoutMain3ColsController(ureq, getWindowControl(), null, null, previewCtr.getInitialComponent(), "portfolio" + map.getKey());
+			LayoutMain3ColsController ctr = new LayoutMain3ColsController(ureq, getWindowControl(), previewCtr);
 			columnLayoutCtr = ctr;
 			stackPanel.pushController(translate("preview.map"), columnLayoutCtr);
 			listenTo(columnLayoutCtr);
@@ -217,15 +218,21 @@ public class PortfolioConfigForm extends FormBasicController {
 					map = (PortfolioStructureMap)eSTMgr.loadPortfolioStructure(mapEntry.getOlatResource());
 					fireEvent(ureq, Event.DONE_EVENT);
 				}
-				String name = map == null ? "" : map.getTitle();
+				String name = map == null ? translate("error.noreference.short", courseNode.getShortTitle()) : map.getTitle();
 				mapNameElement.setValue(name);
+				mapNameElement.setVisible(map == null);
+				
+				previewMapLink.setVisible(map != null);
+				((Link)previewMapLink.getComponent()).setCustomDisplayText(name);
+				((Link)previewMapLink.getComponent()).setDirty(true);
+				
 				chooseMapLink.setVisible(map == null);
 				changeMapLink.setVisible(map != null);
 				editMapLink.setVisible(map != null);
 				
 				mapNameElement.setVisible(map == null);
-				previewMapLink.setVisible(map != null);
-				((Link)previewMapLink.getComponent()).setCustomDisplayText(name);
+				
+				flc.setDirty(true);
 			}
 		}
 	}
