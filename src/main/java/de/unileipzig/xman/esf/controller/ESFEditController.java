@@ -132,7 +132,6 @@ public class ESFEditController extends MainLayoutBasicController {
 
 		TableGuiConfiguration commentTableConfig = new TableGuiConfiguration();
 		commentTableConfig.setMultiSelect(true);
-		commentTableConfig.setColumnMovingOffered(true);
 		commentTableConfig.setDownloadOffered(true);
 		commentTableConfig.setPageingEnabled(true);
 		commentTableConfig.setTableEmptyMessage(translate("ESFEditController.comment.emptyTableMessage"));
@@ -160,7 +159,6 @@ public class ESFEditController extends MainLayoutBasicController {
 		// at the moment multiselection is not needed
 		TableGuiConfiguration protocolTableConfig = new TableGuiConfiguration();
 		// protocolTableConfig.setMultiSelect(true);
-		protocolTableConfig.setColumnMovingOffered(true);
 		protocolTableConfig.setDownloadOffered(true);
 		protocolTableConfig.setPageingEnabled(true);
 		protocolTableConfig.setTableEmptyMessage(translate("ESFEditController.protocol.emptyTableMessage"));

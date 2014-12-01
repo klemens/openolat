@@ -79,7 +79,6 @@ public class ExamStudentController extends BasicController {
 		subscriptionTableModel = new AppointmentStudentTableModel(exam, esf, ureq.getLocale());
 		
 		TableGuiConfiguration tableGuiConfiguration = new TableGuiConfiguration();
-		tableGuiConfiguration.setColumnMovingOffered(false);
 		tableGuiConfiguration.setDownloadOffered(false);
 		tableGuiConfiguration.setTableEmptyMessage(translate("ExamEditorController.appointmentTable.empty"));
 		subscriptionTable = new TableController(tableGuiConfiguration, ureq, wControl, getTranslator());

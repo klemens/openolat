@@ -34,28 +34,9 @@ public class ExamDBManager {
 	 * @return the new created exam
 	 */
 	public Exam createExam() {
-		
 		return new ExamImpl();
 	}
-	
-	/**
-	 * Persists the given exam in the database.
-	 * It also creates a OLATResource belonging to the exam.
-	 * @param exam - the exam, which is to be saved
-	 */
-	public void saveExam(Exam newExam) {
-		
-		newExam.setLastModified(new Date());
-		DBFactory.getInstance().saveObject(newExam);
-		Tracing.createLoggerFor(ExamDBManager.class).info("New exam with id " + newExam.getKey() + " was created.");
-		
-		//newExam = (Exam)DBFactory.getInstance().loadObject(newExam);
-				
-		OLATResourceManager rm = OLATResourceManager.getInstance();
-		OLATResource ores = rm.createOLATResourceInstance(newExam);
-		rm.saveOLATResource(ores);
-	}
-	
+
 	/**
 	 * Updates an existing exam.
 	 * @param exam - the exam, which is to be updated

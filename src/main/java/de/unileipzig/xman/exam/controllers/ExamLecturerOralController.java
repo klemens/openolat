@@ -18,7 +18,7 @@ import org.olat.core.gui.components.Component;
 import org.olat.core.gui.components.form.Form;
 import org.olat.core.gui.components.link.Link;
 import org.olat.core.gui.components.link.LinkFactory;
-import org.olat.core.gui.components.stack.StackedController;
+import org.olat.core.gui.components.stack.BreadcrumbedStackedPanel;
 import org.olat.core.gui.components.stack.PopEvent;
 import org.olat.core.gui.components.table.TableController;
 import org.olat.core.gui.components.table.TableEvent;
@@ -91,7 +91,7 @@ public class ExamLecturerOralController extends BasicController {
 	 * @param exam The oral exam to manage
 	 * @throws InvalidParameterException
 	 */
-	protected ExamLecturerOralController(UserRequest ureq, WindowControl wControl, StackedController stack, Exam exam) {
+	protected ExamLecturerOralController(UserRequest ureq, WindowControl wControl, BreadcrumbedStackedPanel stack, Exam exam) {
 		super(ureq, wControl);
 		
 		if(!exam.getIsOral())
@@ -100,7 +100,7 @@ public class ExamLecturerOralController extends BasicController {
 		setTranslator(Util.createPackageTranslator(Exam.class, ureq.getLocale()));
 		this.exam = exam;
 		
-		listenTo(stack); // listen for pop events
+		stack.addListener(this); // listen for pop events
 		
 		mainVC = new VelocityContainer("examStudentView", Exam.class, "examLecturerOralView", getTranslator(), this);
 
@@ -130,7 +130,6 @@ public class ExamLecturerOralController extends BasicController {
 		appointmentTableModel = new AppointmentLecturerOralTableModel(exam, ureq.getLocale());
 		
 		TableGuiConfiguration tableGuiConfiguration = new TableGuiConfiguration();
-		tableGuiConfiguration.setColumnMovingOffered(true);
 		tableGuiConfiguration.setDownloadOffered(true);
 		tableGuiConfiguration.setTableEmptyMessage(translate("ExamEditorController.appointmentTable.empty"));
 		tableGuiConfiguration.setMultiSelect(true);

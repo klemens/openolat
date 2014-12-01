@@ -15,8 +15,8 @@ import org.olat.core.gui.components.Component;
 import org.olat.core.gui.components.form.Form;
 import org.olat.core.gui.components.link.Link;
 import org.olat.core.gui.components.link.LinkFactory;
+import org.olat.core.gui.components.panel.StackedPanel;
 import org.olat.core.gui.components.stack.PopEvent;
-import org.olat.core.gui.components.stack.StackedController;
 import org.olat.core.gui.components.table.TableController;
 import org.olat.core.gui.components.table.TableEvent;
 import org.olat.core.gui.components.table.TableGuiConfiguration;
@@ -40,7 +40,6 @@ import org.olat.user.HomePageConfigManagerImpl;
 import org.olat.user.UserInfoMainController;
 
 import uk.ac.reload.dweezil.gui.UIFactory;
-
 import de.unileipzig.xman.admin.mail.MailManager;
 import de.unileipzig.xman.admin.mail.form.MailForm;
 import de.unileipzig.xman.appointment.Appointment;
@@ -92,7 +91,7 @@ public class ExamLecturerWrittenController extends BasicController {
 	 * @param exam The written exam to manage
 	 * @throws InvalidParameterException
 	 */
-	protected ExamLecturerWrittenController(UserRequest ureq, WindowControl wControl, StackedController stack, Exam exam) {
+	protected ExamLecturerWrittenController(UserRequest ureq, WindowControl wControl, StackedPanel stack, Exam exam) {
 		super(ureq, wControl);
 		
 		if(exam.getIsOral())
@@ -101,7 +100,7 @@ public class ExamLecturerWrittenController extends BasicController {
 		setTranslator(Util.createPackageTranslator(Exam.class, ureq.getLocale()));
 		this.exam = exam;
 		
-		listenTo(stack); // listen for pop events
+		stack.addListener(this); // listen for pop events
 		
 		mainVC = new VelocityContainer("examStudentView", Exam.class, "examLecturerWrittenView", getTranslator(), this);
 
@@ -137,7 +136,6 @@ public class ExamLecturerWrittenController extends BasicController {
 		protocolTableModel = new ProtocolLecturerWrittenModel(exam, ureq.getLocale());
 		
 		TableGuiConfiguration tableGuiConfiguration = new TableGuiConfiguration();
-		tableGuiConfiguration.setColumnMovingOffered(true);
 		tableGuiConfiguration.setDownloadOffered(true);
 		tableGuiConfiguration.setTableEmptyMessage(translate("ExamLecturerWrittenController.protocolTable.empty"));
 		tableGuiConfiguration.setMultiSelect(true);

@@ -29,7 +29,7 @@ public class EditDescriptionForm extends FormBasicController {
 
 	@Override
 	protected void initForm(FormItemContainer formLayout, Controller listener, UserRequest ureq) {
-		descriptionEditor = uifactory.addRichTextElementForStringDataMinimalistic("comments", "EditDescriptionForm.description", comments, 10, -1, formLayout, ureq.getUserSession(), getWindowControl());
+		descriptionEditor = uifactory.addRichTextElementForStringDataMinimalistic("comments", "EditDescriptionForm.description", comments, 10, -1, formLayout, getWindowControl());
 
 		uifactory.addFormSubmitButton("save", "saveButton", formLayout);
 	}

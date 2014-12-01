@@ -183,7 +183,6 @@ public class ExamEditorController extends BasicController {
 		vcApp.contextPut("enableAppLink", enableAppLink);
 		TableGuiConfiguration tgc = new TableGuiConfiguration();
 		tgc.setMultiSelect(true);
-		tgc.setColumnMovingOffered(true);
 		tgc.setDownloadOffered(true);
 		tgc.setTableEmptyMessage(translate("ExamEditorController.appointmentTable.empty"));
 		appTableCtr = new TableController(tgc, ureq, getWindowControl(), getTranslator());

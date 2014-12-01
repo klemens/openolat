@@ -1,15 +1,13 @@
 package de.unileipzig.xman.exam.controllers;
 
 import java.util.Calendar;
-import java.util.Date;
 
 import org.olat.NewControllerFactory;
 import org.olat.core.commons.fullWebApp.LayoutMain3ColsController;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.Component;
 import org.olat.core.gui.components.stack.PopEvent;
-import org.olat.core.gui.components.stack.StackedControllerImpl;
-import org.olat.core.gui.components.velocity.VelocityContainer;
+import org.olat.core.gui.components.stack.TooledStackedPanel;
 import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.Event;
 import org.olat.core.gui.control.WindowControl;
@@ -38,7 +36,7 @@ public class ExamMainController extends MainLayoutBasicController {
 	
 	private Exam exam;
 	private View view;
-	private StackedControllerImpl cstack;
+	private TooledStackedPanel toolbarStack;
 	private ToolController toolController;
 	private boolean inEditor;
 
@@ -82,12 +80,8 @@ public class ExamMainController extends MainLayoutBasicController {
 	 * Init method so we can throw an exception from only one constructor
 	 */
 	private void init(UserRequest ureq) {
-		this.cstack = new StackedControllerImpl(getWindowControl(), getTranslator(), "o_exam_breadcumbs");
-		listenTo(cstack);
-		
-		VelocityContainer mainVC = new VelocityContainer("examMain", Util.getPackageVelocityRoot(Exam.class) + "/examMain.html", getTranslator(), this);
-		mainVC.put("stackedController", cstack.getInitialComponent());
-		putInitialPanel(cstack.getInitialComponent());
+		toolbarStack = new TooledStackedPanel("examStackPanel", getTranslator(), this);
+		putInitialPanel(toolbarStack);
 		
 		//Copy the repo name to the exam if necessary (not set after creation)
 		String newExamName = ExamDBManager.getInstance().getExamName(exam);
@@ -114,16 +108,16 @@ public class ExamMainController extends MainLayoutBasicController {
 		String name = exam.getName() + " (" + (exam.getIsOral() ? translate("oral") : translate("written")) + ")";
 		if(view == View.STUDENT) {
 			Controller examController = new ExamStudentController(ureq, getWindowControl(), exam);
-			cstack.pushController(name, new LayoutMain3ColsController(ureq, getWindowControl(), null, null, examController.getInitialComponent(), "examMain"));
+			toolbarStack.pushController(name, new LayoutMain3ColsController(ureq, getWindowControl(), null, null, examController.getInitialComponent(), "examMain"));
 		} else if(view == View.LECTURER) {
 			Controller examController;
 			if(exam.getIsOral()) {
-				examController = new ExamLecturerOralController(ureq, getWindowControl(), cstack, exam);
+				examController = new ExamLecturerOralController(ureq, getWindowControl(), toolbarStack, exam);
 			} else {
-				examController = new ExamLecturerWrittenController(ureq, getWindowControl(), cstack, exam);
+				examController = new ExamLecturerWrittenController(ureq, getWindowControl(), toolbarStack, exam);
 			}
 			buildToolController();
-			cstack.pushController(name, new LayoutMain3ColsController(ureq, getWindowControl(), null,
+			toolbarStack.pushController(name, new LayoutMain3ColsController(ureq, getWindowControl(), null,
 														toolController.getInitialComponent(), examController.getInitialComponent(), "examMain"));
 		} else if(view == View.OTHER) {
 			getWindowControl().setError("Don't have access!!");
@@ -154,14 +148,20 @@ public class ExamMainController extends MainLayoutBasicController {
 		}
 		
 		OLATResourceable res = OLATResourceManager.getInstance().findResourceable(exam.getResourceableId(), exam.getResourceableTypeName());
-		cstack.pushController(translate("examEditor_html.header"), new ExamEditorController(ureq, getWindowControl(), res));
+		toolbarStack.pushController(translate("examEditor_html.header"), new ExamEditorController(ureq, getWindowControl(), res));
 		inEditor = true;
 	}
 	
 	@Override
 	protected void event(UserRequest ureq, Component source, Event event) {
-		// TODO Auto-generated method stub
-		
+		 if(source == toolbarStack) {
+			if(event instanceof PopEvent) {
+				PopEvent popEvent = (PopEvent) event;
+				if(popEvent.getController() instanceof ExamEditorController) {
+					inEditor = false;
+				}
+			}
+		}
 	}
 	
 	@Override
@@ -180,20 +180,13 @@ public class ExamMainController extends MainLayoutBasicController {
 				String businessPath = "[RepositorySite:0][RepositoryEntry:" + reKey + "]";
 				NewControllerFactory.getInstance().launch(businessPath, ureq, getWindowControl());
 			}
-		} else if(source == cstack) {
-			if(event instanceof PopEvent) {
-				PopEvent popEvent = (PopEvent) event;
-				if(popEvent.getController() instanceof ExamEditorController) {
-					inEditor = false;
-				}
-			}
 		}
 	}
 
 	@Override
 	protected void doDispose() {
-		if(inEditor)
-			cstack.popController(); // disposes the editor controller and thus releases the lock
-		removeAsListenerAndDispose(cstack);
+		if(inEditor) {
+			toolbarStack.popContent(); // disposes the editor controller and thus releases the lock
+		}
 	}
 }

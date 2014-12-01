@@ -140,7 +140,6 @@ public class ExamAdminESFController extends BasicController {
 
 		TableGuiConfiguration esfTableConfig = new TableGuiConfiguration();
 		esfTableConfig.setMultiSelect(true);
-		esfTableConfig.setColumnMovingOffered(true);
 		esfTableConfig.setDownloadOffered(true);
 		esfTableConfig.setPageingEnabled(true);
 		esfTableConfig.setTableEmptyMessage(translator.translate("ExamAdminESFController.emptyTableMessage"));
@@ -398,8 +397,7 @@ public class ExamAdminESFController extends BasicController {
 
 			contactMsg.addEmailTo(emailList);
 
-			contactFormController = new ContactFormController(ureq,
-					getWindowControl(), true, true, false, false, contactMsg);
+			contactFormController = new ContactFormController(ureq, getWindowControl(), true, false, false, contactMsg);
 			listenTo(contactFormController);
 
 			sendMailCtr = new CloseableModalController(getWindowControl(),
