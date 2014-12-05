@@ -14,6 +14,7 @@ import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.Event;
 import org.olat.core.gui.control.WindowControl;
 import org.olat.core.gui.control.controller.MainLayoutBasicController;
+import org.olat.core.gui.control.generic.dtabs.Activateable2;
 import org.olat.core.gui.control.generic.dtabs.DTab;
 import org.olat.core.gui.control.generic.dtabs.DTabs;
 import org.olat.core.id.OLATResourceable;
@@ -28,7 +29,7 @@ import de.unileipzig.xman.exam.AlreadyLockedException;
 import de.unileipzig.xman.exam.Exam;
 import de.unileipzig.xman.exam.ExamDBManager;
 
-public class ExamMainController extends MainLayoutBasicController {
+public class ExamMainController extends MainLayoutBasicController implements Activateable2 {
 	
 	static public enum View {
 		STUDENT,	// normal oo user
@@ -184,6 +185,23 @@ public class ExamMainController extends MainLayoutBasicController {
 	@Override
 	protected void event(UserRequest ureq, Controller source, Event event) {
 		// no controller events
+	}
+
+	@Override
+	public void activate(UserRequest ureq, List<ContextEntry> entries, StateEntry state) {
+		if(entries != null && entries.size() > 0) {
+			String action = entries.get(0).getOLATResourceable().getResourceableTypeName();
+
+			if("Editor".equals(action)) {
+				try {
+					pushEditor(ureq);
+				} catch(AlreadyLockedException e) {
+					getWindowControl().setInfo(translate("ExamEditorController.alreadyLocked", new String[] { e.getName() }));
+				}
+			} else if("Infos".equals(action)) {
+				pushDetails(ureq);
+			}
+		}
 	}
 
 	@Override
