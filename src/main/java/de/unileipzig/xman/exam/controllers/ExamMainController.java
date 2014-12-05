@@ -1,24 +1,27 @@
 package de.unileipzig.xman.exam.controllers;
 
 import java.util.Calendar;
+import java.util.List;
 
-import org.olat.NewControllerFactory;
-import org.olat.core.commons.fullWebApp.LayoutMain3ColsController;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.Component;
+import org.olat.core.gui.components.link.Link;
+import org.olat.core.gui.components.link.LinkFactory;
 import org.olat.core.gui.components.stack.PopEvent;
 import org.olat.core.gui.components.stack.TooledStackedPanel;
+import org.olat.core.gui.components.stack.TooledStackedPanel.Align;
 import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.Event;
 import org.olat.core.gui.control.WindowControl;
 import org.olat.core.gui.control.controller.MainLayoutBasicController;
 import org.olat.core.gui.control.generic.dtabs.DTab;
 import org.olat.core.gui.control.generic.dtabs.DTabs;
-import org.olat.core.gui.control.generic.tool.ToolController;
-import org.olat.core.gui.control.generic.tool.ToolFactory;
 import org.olat.core.id.OLATResourceable;
+import org.olat.core.id.context.ContextEntry;
+import org.olat.core.id.context.StateEntry;
 import org.olat.core.util.Util;
-import org.olat.repository.RepositoryManager;
+import org.olat.repository.RepositoryEntry;
+import org.olat.repository.ui.list.RepositoryEntryDetailsController;
 import org.olat.resource.OLATResourceManager;
 
 import de.unileipzig.xman.exam.AlreadyLockedException;
@@ -33,13 +36,11 @@ public class ExamMainController extends MainLayoutBasicController {
 		OTHER 		// guests
 	}
 	
-	static private String TOOL_EDIT_EXAM = "edit";
-	static private String TOOL_OPEN_COURSECONFIG = "courseconfig";
-	
 	private Exam exam;
 	private View view;
 	private TooledStackedPanel toolbarStack;
-	private ToolController toolController;
+	private Link editorLink;
+	private Link detailsLink;
 	private boolean inEditor;
 
 	/**
@@ -106,7 +107,7 @@ public class ExamMainController extends MainLayoutBasicController {
 		String name = exam.getName() + " (" + (exam.getIsOral() ? translate("oral") : translate("written")) + ")";
 		if(view == View.STUDENT) {
 			Controller examController = new ExamStudentController(ureq, getWindowControl(), exam);
-			toolbarStack.pushController(name, new LayoutMain3ColsController(ureq, getWindowControl(), null, null, examController.getInitialComponent(), "examMain"));
+			toolbarStack.pushController(name, examController);
 		} else if(view == View.LECTURER) {
 			Controller examController;
 			if(exam.getIsOral()) {
@@ -116,34 +117,28 @@ public class ExamMainController extends MainLayoutBasicController {
 			}
 			toolbarStack.setInvisibleCrumb(0); // Show the toolbar also on the top level
 			toolbarStack.addListener(examController); // notify controllers of PopEvent so that they can refresh the exam
-			buildToolController();
-			toolbarStack.pushController(name, new LayoutMain3ColsController(ureq, getWindowControl(), null,
-														toolController.getInitialComponent(), examController.getInitialComponent(), "examMain"));
+			toolbarStack.pushController(name, examController);
+			buildToolbar();
 		} else if(view == View.OTHER) {
 			getWindowControl().setError("Don't have access!!");
 			return;
 		}
 	}
 	
-	private void buildToolController() {
-		if(toolController != null) {
-			removeAsListenerAndDispose(toolController);
-			toolController = null;
-		}
+	private void buildToolbar() {
+		editorLink = LinkFactory.createToolLink("editor", translate("ExamMainController.tool.editExam"), this, "o_icon_courseeditor");
+		toolbarStack.addTool(editorLink, Align.left);
 		
-		toolController = ToolFactory.createToolController(getWindowControl());
-		listenTo(toolController);
-		
-		toolController.addHeader(translate("ExamMainController.tool.header"));
-		toolController.addLink(TOOL_EDIT_EXAM, translate("ExamMainController.tool.editExam"));
-
-		toolController.addHeader(translate("ExamMainController.tool.header.general"));
-		toolController.addLink(TOOL_OPEN_COURSECONFIG, translate("ExamMainController.tool.courseconfig"));
+		detailsLink = LinkFactory.createToolLink("details", translate("ExamMainController.tool.info"), this, "o_icon_details");
+		toolbarStack.addTool(detailsLink);
 	}
-	
+
 	private void pushEditor(UserRequest ureq) throws AlreadyLockedException {
 		if(ExamDBManager.getInstance().isClosed(exam)) {
 			showInfo("ExamMainController.info.closed");
+			return;
+		}
+		if(inEditor) {
 			return;
 		}
 		
@@ -151,7 +146,12 @@ public class ExamMainController extends MainLayoutBasicController {
 		toolbarStack.pushController(translate("examEditor_html.header"), new ExamEditorController(ureq, getWindowControl(), res));
 		inEditor = true;
 	}
-	
+
+	private void pushDetails(UserRequest ureq) {
+		RepositoryEntry re = ExamDBManager.getInstance().findRepositoryEntryOfExam(exam);
+		toolbarStack.pushController(translate("ExamMainController.stack.infopage"), new RepositoryEntryDetailsController(ureq, getWindowControl(), re));
+	}
+
 	@Override
 	protected void event(UserRequest ureq, Component source, Event event) {
 		 if(source == toolbarStack) {
@@ -170,26 +170,20 @@ public class ExamMainController extends MainLayoutBasicController {
 					}
 				}
 			}
+		} else if (source == editorLink) {
+			try {
+				pushEditor(ureq);
+			} catch(AlreadyLockedException e) {
+				getWindowControl().setInfo(translate("ExamEditorController.alreadyLocked", new String[] { e.getName() }));
+			}
+		} else if(source == detailsLink) {
+			pushDetails(ureq);
 		}
 	}
 	
 	@Override
 	protected void event(UserRequest ureq, Controller source, Event event) {
-		if(source == toolController) {
-			if(event.getCommand().equals(TOOL_EDIT_EXAM)) {
-				try {
-					pushEditor(ureq);
-				} catch(AlreadyLockedException e) {
-					getWindowControl().setInfo(translate("ExamEditorController.alreadyLocked", new String[] { e.getName() }));
-				}
-			} else if(event.getCommand().equals(TOOL_OPEN_COURSECONFIG)) {
-				OLATResourceable ores = OLATResourceManager.getInstance().findResourceable(exam.getResourceableId(), Exam.ORES_TYPE_NAME);
-				Long reKey = RepositoryManager.getInstance().lookupRepositoryEntryKey(ores, true);
-				
-				String businessPath = "[RepositorySite:0][RepositoryEntry:" + reKey + "]";
-				NewControllerFactory.getInstance().launch(businessPath, ureq, getWindowControl());
-			}
-		}
+		// no controller events
 	}
 
 	@Override
