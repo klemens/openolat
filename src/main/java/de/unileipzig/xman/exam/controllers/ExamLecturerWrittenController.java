@@ -15,7 +15,6 @@ import org.olat.core.gui.components.Component;
 import org.olat.core.gui.components.form.Form;
 import org.olat.core.gui.components.link.Link;
 import org.olat.core.gui.components.link.LinkFactory;
-import org.olat.core.gui.components.panel.StackedPanel;
 import org.olat.core.gui.components.stack.PopEvent;
 import org.olat.core.gui.components.table.TableController;
 import org.olat.core.gui.components.table.TableEvent;
@@ -39,7 +38,6 @@ import org.olat.core.util.Util;
 import org.olat.user.HomePageConfigManagerImpl;
 import org.olat.user.UserInfoMainController;
 
-import uk.ac.reload.dweezil.gui.UIFactory;
 import de.unileipzig.xman.admin.mail.MailManager;
 import de.unileipzig.xman.admin.mail.form.MailForm;
 import de.unileipzig.xman.appointment.Appointment;
@@ -91,7 +89,7 @@ public class ExamLecturerWrittenController extends BasicController {
 	 * @param exam The written exam to manage
 	 * @throws InvalidParameterException
 	 */
-	protected ExamLecturerWrittenController(UserRequest ureq, WindowControl wControl, StackedPanel stack, Exam exam) {
+	protected ExamLecturerWrittenController(UserRequest ureq, WindowControl wControl, Exam exam) {
 		super(ureq, wControl);
 		
 		if(exam.getIsOral())
@@ -99,8 +97,6 @@ public class ExamLecturerWrittenController extends BasicController {
 		
 		setTranslator(Util.createPackageTranslator(Exam.class, ureq.getLocale()));
 		this.exam = exam;
-		
-		stack.addListener(this); // listen for pop events
 		
 		mainVC = new VelocityContainer("examStudentView", Exam.class, "examLecturerWrittenView", getTranslator(), this);
 
@@ -157,14 +153,6 @@ public class ExamLecturerWrittenController extends BasicController {
 		if(ExamDBManager.getInstance().isClosed(exam)) {
 			showInfo("ExamMainController.info.closed");
 			return;
-		}
-
-		if(event instanceof PopEvent) {
-			// reload exam
-			exam = ExamDBManager.getInstance().findExamByID(exam.getKey());
-			// complete rebuild
-			init(ureq, getWindowControl());
-			examDetailsController.updateExam(exam);
 		}
 		
 		if(source == protocolTable) {
@@ -569,6 +557,12 @@ public class ExamLecturerWrittenController extends BasicController {
 			
 			cmc = new CloseableModalController(this.getWindowControl(), translate("close"), userSearchController.getInitialComponent());
 			cmc.activate();
+		} else if(event instanceof PopEvent) {
+			// reload exam
+			exam = ExamDBManager.getInstance().findExamByID(exam.getKey());
+			// complete rebuild
+			init(ureq, getWindowControl());
+			examDetailsController.updateExam(exam);
 		}
 	}
 

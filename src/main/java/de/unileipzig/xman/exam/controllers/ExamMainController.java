@@ -107,10 +107,11 @@ public class ExamMainController extends MainLayoutBasicController {
 		} else if(view == View.LECTURER) {
 			Controller examController;
 			if(exam.getIsOral()) {
-				examController = new ExamLecturerOralController(ureq, getWindowControl(), toolbarStack, exam);
+				examController = new ExamLecturerOralController(ureq, getWindowControl(), exam);
 			} else {
-				examController = new ExamLecturerWrittenController(ureq, getWindowControl(), toolbarStack, exam);
+				examController = new ExamLecturerWrittenController(ureq, getWindowControl(), exam);
 			}
+			toolbarStack.addListener(examController); // notify controllers of PopEvent so that they can refresh the exam
 			buildToolController();
 			toolbarStack.pushController(name, new LayoutMain3ColsController(ureq, getWindowControl(), null,
 														toolController.getInitialComponent(), examController.getInitialComponent(), "examMain"));

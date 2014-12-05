@@ -7,8 +7,6 @@ import java.util.Calendar;
 import java.util.List;
 import java.util.Locale;
 
-import javax.persistence.LockModeType;
-
 import org.olat.admin.user.UserSearchController;
 import org.olat.basesecurity.events.SingleIdentityChosenEvent;
 import org.olat.core.commons.persistence.DBFactory;
@@ -18,7 +16,6 @@ import org.olat.core.gui.components.Component;
 import org.olat.core.gui.components.form.Form;
 import org.olat.core.gui.components.link.Link;
 import org.olat.core.gui.components.link.LinkFactory;
-import org.olat.core.gui.components.stack.BreadcrumbedStackedPanel;
 import org.olat.core.gui.components.stack.PopEvent;
 import org.olat.core.gui.components.table.TableController;
 import org.olat.core.gui.components.table.TableEvent;
@@ -37,7 +34,6 @@ import org.olat.core.id.Identity;
 import org.olat.core.id.OLATResourceable;
 import org.olat.core.id.UserConstants;
 import org.olat.core.id.context.BusinessControlFactory;
-import org.olat.core.util.Formatter;
 import org.olat.core.util.Util;
 import org.olat.user.HomePageConfigManagerImpl;
 import org.olat.user.UserInfoMainController;
@@ -91,7 +87,7 @@ public class ExamLecturerOralController extends BasicController {
 	 * @param exam The oral exam to manage
 	 * @throws InvalidParameterException
 	 */
-	protected ExamLecturerOralController(UserRequest ureq, WindowControl wControl, BreadcrumbedStackedPanel stack, Exam exam) {
+	protected ExamLecturerOralController(UserRequest ureq, WindowControl wControl, Exam exam) {
 		super(ureq, wControl);
 		
 		if(!exam.getIsOral())
@@ -99,8 +95,6 @@ public class ExamLecturerOralController extends BasicController {
 		
 		setTranslator(Util.createPackageTranslator(Exam.class, ureq.getLocale()));
 		this.exam = exam;
-		
-		stack.addListener(this); // listen for pop events
 		
 		mainVC = new VelocityContainer("examStudentView", Exam.class, "examLecturerOralView", getTranslator(), this);
 
@@ -151,14 +145,6 @@ public class ExamLecturerOralController extends BasicController {
 		if(ExamDBManager.getInstance().isClosed(exam)) {
 			showInfo("ExamMainController.info.closed");
 			return;
-		}
-
-		if(event instanceof PopEvent) {
-			// reload exam
-			exam = ExamDBManager.getInstance().findExamByID(exam.getKey());
-			// complete rebuild
-			init(ureq, getWindowControl());
-			examDetailsController.updateExam(exam);
 		}
 		
 		if(source == appointmentTable) {
@@ -594,6 +580,12 @@ public class ExamLecturerOralController extends BasicController {
 			// update view
 			appointmentTableModel.update();
 			appointmentTable.modelChanged();
+		} else if(event instanceof PopEvent) {
+			// reload exam
+			exam = ExamDBManager.getInstance().findExamByID(exam.getKey());
+			// complete rebuild
+			init(ureq, getWindowControl());
+			examDetailsController.updateExam(exam);
 		}
 	}
 
