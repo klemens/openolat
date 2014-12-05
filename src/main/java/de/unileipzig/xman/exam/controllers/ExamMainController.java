@@ -12,6 +12,8 @@ import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.Event;
 import org.olat.core.gui.control.WindowControl;
 import org.olat.core.gui.control.controller.MainLayoutBasicController;
+import org.olat.core.gui.control.generic.dtabs.DTab;
+import org.olat.core.gui.control.generic.dtabs.DTabs;
 import org.olat.core.gui.control.generic.tool.ToolController;
 import org.olat.core.gui.control.generic.tool.ToolFactory;
 import org.olat.core.id.OLATResourceable;
@@ -81,6 +83,7 @@ public class ExamMainController extends MainLayoutBasicController {
 	 */
 	private void init(UserRequest ureq) {
 		toolbarStack = new TooledStackedPanel("examStackPanel", getTranslator(), this);
+		toolbarStack.setShowCloseLink(true, true);
 		putInitialPanel(toolbarStack);
 		
 		// initialize exam registration dates
@@ -111,6 +114,7 @@ public class ExamMainController extends MainLayoutBasicController {
 			} else {
 				examController = new ExamLecturerWrittenController(ureq, getWindowControl(), exam);
 			}
+			toolbarStack.setInvisibleCrumb(0); // Show the toolbar also on the top level
 			toolbarStack.addListener(examController); // notify controllers of PopEvent so that they can refresh the exam
 			buildToolController();
 			toolbarStack.pushController(name, new LayoutMain3ColsController(ureq, getWindowControl(), null,
@@ -155,6 +159,15 @@ public class ExamMainController extends MainLayoutBasicController {
 				PopEvent popEvent = (PopEvent) event;
 				if(popEvent.getController() instanceof ExamEditorController) {
 					inEditor = false;
+				}
+			} else if(event == Event.CLOSE_EVENT) {
+				// close the tab we are in
+				DTabs tabs = getWindowControl().getWindowBackOffice().getWindow().getDTabs();
+				if (tabs != null) {
+					DTab tab = tabs.getDTab(ExamDBManager.getInstance().findRepositoryEntryOfExam(exam).getOlatResource());
+					if (tab != null) {
+						tabs.removeDTab(ureq, tab);
+					}
 				}
 			}
 		}
