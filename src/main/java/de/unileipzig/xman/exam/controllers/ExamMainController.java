@@ -83,11 +83,6 @@ public class ExamMainController extends MainLayoutBasicController {
 		toolbarStack = new TooledStackedPanel("examStackPanel", getTranslator(), this);
 		putInitialPanel(toolbarStack);
 		
-		//Copy the repo name to the exam if necessary (not set after creation)
-		String newExamName = ExamDBManager.getInstance().getExamName(exam);
-		if (!newExamName.equals(exam.getName())) {
-			exam.setName(newExamName);
-		}
 		// initialize exam registration dates
 		if(exam.getRegStartDate() == null) {
 			Calendar date = Calendar.getInstance();

@@ -82,7 +82,9 @@ public class ExamHandler implements RepositoryHandler {
 	@Override
 	public RepositoryEntry createResource(Identity initialAuthor, String displayname, String description, Object createObject, Locale locale) {
 		Exam exam = ExamDBManager.getInstance().createExam();
+		exam.setName(displayname);
 		exam.setIdentity(initialAuthor);
+		exam.setComments(description);
 		ExamDBManager.getInstance().saveExam(exam);
 		OLATResource resource = OLATResourceManager.getInstance().findOrPersistResourceable(exam);
 		RepositoryEntry re = CoreSpringFactory.getImpl(RepositoryService.class).create(initialAuthor, null, "", displayname, description, resource, RepositoryEntry.ACC_OWNERS);
