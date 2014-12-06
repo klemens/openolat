@@ -17,6 +17,8 @@ import org.olat.core.gui.control.controller.MainLayoutBasicController;
 import org.olat.core.gui.control.generic.dtabs.Activateable2;
 import org.olat.core.gui.control.generic.dtabs.DTab;
 import org.olat.core.gui.control.generic.dtabs.DTabs;
+import org.olat.core.gui.control.generic.modal.DialogBoxController;
+import org.olat.core.gui.control.generic.modal.DialogBoxUIFactory;
 import org.olat.core.id.OLATResourceable;
 import org.olat.core.id.context.ContextEntry;
 import org.olat.core.id.context.StateEntry;
@@ -25,9 +27,12 @@ import org.olat.repository.RepositoryEntry;
 import org.olat.repository.ui.list.RepositoryEntryDetailsController;
 import org.olat.resource.OLATResourceManager;
 
+import de.unileipzig.xman.appointment.AppointmentManager;
 import de.unileipzig.xman.exam.AlreadyLockedException;
 import de.unileipzig.xman.exam.Exam;
 import de.unileipzig.xman.exam.ExamDBManager;
+import de.unileipzig.xman.exam.components.SelectDropdown;
+import de.unileipzig.xman.protocol.ProtocolManager;
 
 public class ExamMainController extends MainLayoutBasicController implements Activateable2 {
 	
@@ -42,6 +47,9 @@ public class ExamMainController extends MainLayoutBasicController implements Act
 	private TooledStackedPanel toolbarStack;
 	private Link editorLink;
 	private Link detailsLink;
+	private SelectDropdown examType;
+	private DialogBoxController changeToOralDialog;
+	private DialogBoxController changeToWrittenDialog;
 	private boolean inEditor;
 
 	/**
@@ -63,7 +71,9 @@ public class ExamMainController extends MainLayoutBasicController implements Act
 		this.exam = exam;
 		this.view = view;
 		
+		toolbarStack = new TooledStackedPanel("examStackPanel", getTranslator(), this);
 		init(ureq);
+		putInitialPanel(toolbarStack);
 	}
 	
 	public ExamMainController(UserRequest ureq, WindowControl wControl, Exam exam, View view, boolean launchEditor) throws AlreadyLockedException {
@@ -73,7 +83,9 @@ public class ExamMainController extends MainLayoutBasicController implements Act
 		this.exam = exam;
 		this.view = view;
 		
+		toolbarStack = new TooledStackedPanel("examStackPanel", getTranslator(), this);
 		init(ureq);
+		putInitialPanel(toolbarStack);
 		
 		if(launchEditor) {
 			pushEditor(ureq); // can throw AlreadyLockedException
@@ -84,9 +96,7 @@ public class ExamMainController extends MainLayoutBasicController implements Act
 	 * Init method so we can throw an exception from only one constructor
 	 */
 	private void init(UserRequest ureq) {
-		toolbarStack = new TooledStackedPanel("examStackPanel", getTranslator(), this);
 		toolbarStack.setShowCloseLink(true, true);
-		putInitialPanel(toolbarStack);
 		
 		// initialize exam registration dates
 		if(exam.getRegStartDate() == null) {
@@ -108,7 +118,7 @@ public class ExamMainController extends MainLayoutBasicController implements Act
 		String name = exam.getName() + " (" + (exam.getIsOral() ? translate("oral") : translate("written")) + ")";
 		if(view == View.STUDENT) {
 			Controller examController = new ExamStudentController(ureq, getWindowControl(), exam);
-			toolbarStack.pushController(name, examController);
+			toolbarStack.rootController(name, examController);
 		} else if(view == View.LECTURER) {
 			Controller examController;
 			if(exam.getIsOral()) {
@@ -118,7 +128,7 @@ public class ExamMainController extends MainLayoutBasicController implements Act
 			}
 			toolbarStack.setInvisibleCrumb(0); // Show the toolbar also on the top level
 			toolbarStack.addListener(examController); // notify controllers of PopEvent so that they can refresh the exam
-			toolbarStack.pushController(name, examController);
+			toolbarStack.rootController(name, examController);
 			buildToolbar();
 		} else if(view == View.OTHER) {
 			getWindowControl().setError("Don't have access!!");
@@ -128,10 +138,20 @@ public class ExamMainController extends MainLayoutBasicController implements Act
 	
 	private void buildToolbar() {
 		editorLink = LinkFactory.createToolLink("editor", translate("ExamMainController.tool.editExam"), this, "o_icon_courseeditor");
-		toolbarStack.addTool(editorLink, Align.left);
+		toolbarStack.addTool(editorLink);
 		
 		detailsLink = LinkFactory.createToolLink("details", translate("ExamMainController.tool.info"), this, "o_icon_details");
 		toolbarStack.addTool(detailsLink);
+
+		examType = new SelectDropdown("examType",
+				new String[] {"written", "oral"},
+				new String[] {"ExamMainController.tool.examType.written", "ExamMainController.tool.examType.oral"},
+				new String[] {"o_icon_exam_written", "o_icon_exam_oral"}, getTranslator());
+		if(exam.getIsOral()) {
+			examType.select("oral");
+		}
+		examType.addListener(this);
+		toolbarStack.addTool(examType, Align.left);
 	}
 
 	private void pushEditor(UserRequest ureq) throws AlreadyLockedException {
@@ -179,12 +199,42 @@ public class ExamMainController extends MainLayoutBasicController implements Act
 			}
 		} else if(source == detailsLink) {
 			pushDetails(ureq);
+		} else if(source == examType) {
+			if(ExamDBManager.getInstance().isClosed(exam)) {
+				showInfo("ExamMainController.info.closed");
+				return;
+			}
+			if(ProtocolManager.getInstance().findAllProtocolsByExam(exam).size() > 0) {
+				showError("ExamMainController.error.studentsSubscribed");
+				return;
+			}
+
+			String newType = event.getCommand();
+			if(newType.equals("oral")) {
+				if(exam.getIsOral()) {
+					return;
+				}
+				changeToOralDialog = activateOkCancelDialog(ureq, translate("ExamMainController.dialog.examType.title"), translate("ExamMainController.dialog.examType.oral"), changeToOralDialog);
+			} else if(newType.equals("written")) {
+				if(!exam.getIsOral()) {
+					return;
+				}
+				changeToWrittenDialog = activateOkCancelDialog(ureq, translate("ExamMainController.dialog.examType.title"), translate("ExamMainController.dialog.examType.written"), changeToWrittenDialog);
+			}
 		}
 	}
 	
 	@Override
 	protected void event(UserRequest ureq, Controller source, Event event) {
-		// no controller events
+		if(source == changeToOralDialog) {
+			if(DialogBoxUIFactory.isOkEvent(event)) {
+				changeExamType(ureq, true);
+			}
+		} else if(source == changeToWrittenDialog) {
+			if(DialogBoxUIFactory.isOkEvent(event)) {
+				changeExamType(ureq, false);
+			}
+		}
 	}
 
 	@Override
@@ -204,8 +254,24 @@ public class ExamMainController extends MainLayoutBasicController implements Act
 		}
 	}
 
+	private void changeExamType(UserRequest ureq, boolean oral) {
+		if(ProtocolManager.getInstance().findAllProtocolsByExam(exam).size() > 0) {
+			showError("ExamMainController.error.studentsSubscribed");
+			return;
+		}
+
+		AppointmentManager.getInstance().deleteAllAppointmentsByExam(exam);
+		exam = ExamDBManager.getInstance().findExamByID(exam.getKey());
+		exam.setIsOral(oral);
+
+		// rebuild the site (stack is cleared automatically by rootController)
+		init(ureq);
+	}
+
 	@Override
 	protected void doDispose() {
+		removeAsListenerAndDispose(changeToOralDialog);
+		removeAsListenerAndDispose(changeToWrittenDialog);
 		if(inEditor) {
 			toolbarStack.popContent(); // disposes the editor controller and thus releases the lock
 		}
