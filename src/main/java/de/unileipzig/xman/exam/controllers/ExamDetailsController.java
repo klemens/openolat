@@ -51,6 +51,7 @@ public class ExamDetailsController extends BasicController {
 	private void init() {
 		baseVC.contextPut("examName", exam.getName());
 		baseVC.contextPut("examType", translate(exam.getIsOral() ? "oral" : "written"));
+		baseVC.contextPut("examTypeCssClass", exam.getIsOral() ? "o_icon_exam_oral" : "o_icon_exam_written");
 		baseVC.contextPut("earmarkedEnabled", exam.getEarmarkedEnabled());
 		baseVC.contextPut("multiSubscriptionEnabled", exam.getIsMultiSubscription());
 

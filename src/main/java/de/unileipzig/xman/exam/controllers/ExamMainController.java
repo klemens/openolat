@@ -115,10 +115,9 @@ public class ExamMainController extends MainLayoutBasicController implements Act
 			exam.setSignOffDate(date.getTime());
 		}
 		
-		String name = exam.getName() + " (" + (exam.getIsOral() ? translate("oral") : translate("written")) + ")";
 		if(view == View.STUDENT) {
 			Controller examController = new ExamStudentController(ureq, getWindowControl(), exam);
-			toolbarStack.rootController(name, examController);
+			toolbarStack.rootController(exam.getName(), examController);
 		} else if(view == View.LECTURER) {
 			Controller examController;
 			if(exam.getIsOral()) {
@@ -128,7 +127,7 @@ public class ExamMainController extends MainLayoutBasicController implements Act
 			}
 			toolbarStack.setInvisibleCrumb(0); // Show the toolbar also on the top level
 			toolbarStack.addListener(examController); // notify controllers of PopEvent so that they can refresh the exam
-			toolbarStack.rootController(name, examController);
+			toolbarStack.rootController(exam.getName(), examController);
 			buildToolbar();
 		} else if(view == View.OTHER) {
 			getWindowControl().setError("Don't have access!!");
