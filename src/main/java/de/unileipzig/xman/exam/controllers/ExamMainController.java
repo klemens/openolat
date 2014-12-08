@@ -285,6 +285,9 @@ public class ExamMainController extends MainLayoutBasicController implements Act
 		AppointmentManager.getInstance().deleteAllAppointmentsByExam(exam);
 		Exam newExam = ExamDBManager.getInstance().findExamByID(exam.getKey());
 		newExam.setIsOral(oral);
+		if(!oral) {
+			newExam.setIsMultiSubscription(false);
+		}
 		updateExam(ureq, newExam);
 	}
 
