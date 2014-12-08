@@ -24,6 +24,7 @@ import org.olat.core.id.context.ContextEntry;
 import org.olat.core.id.context.StateEntry;
 import org.olat.core.util.Util;
 import org.olat.repository.RepositoryEntry;
+import org.olat.repository.RepositoryManager;
 import org.olat.repository.ui.list.RepositoryEntryDetailsController;
 import org.olat.resource.OLATResourceManager;
 
@@ -50,6 +51,7 @@ public class ExamMainController extends MainLayoutBasicController implements Act
 	private Link editorLink;
 	private Link detailsLink;
 	private SelectDropdown examType;
+	private SelectDropdown publicationStatus;
 	private DialogBoxController changeToOralDialog;
 	private DialogBoxController changeToWrittenDialog;
 	private boolean inEditor;
@@ -153,6 +155,17 @@ public class ExamMainController extends MainLayoutBasicController implements Act
 		}
 		examType.addListener(this);
 		toolbarStack.addTool(examType, Align.left);
+
+		publicationStatus = new SelectDropdown("publicationStatus",
+				new String[] {"private", "public"},
+				new String[] {"ExamMainController.tool.publicationStatus.private", "ExamMainController.tool.publicationStatus.public"},
+				new String[] {"o_icon_exam_private", "o_icon_exam_public"}, getTranslator());
+		publicationStatus.addListener(this);
+		RepositoryEntry re = ExamDBManager.getInstance().findRepositoryEntryOfExam(exam);
+		if(re.getAccess() >= RepositoryEntry.ACC_USERS) {
+			publicationStatus.select("public");
+		}
+		toolbarStack.addTool(publicationStatus, Align.left);
 	}
 
 	private void pushEditor(UserRequest ureq) throws AlreadyLockedException {
@@ -225,6 +238,17 @@ public class ExamMainController extends MainLayoutBasicController implements Act
 				}
 				changeToWrittenDialog = activateOkCancelDialog(ureq, translate("ExamMainController.dialog.examType.title"), translate("ExamMainController.dialog.examType.written"), changeToWrittenDialog);
 			}
+		} else if(source == publicationStatus) {
+			String access = event.getCommand();
+			RepositoryEntry re = ExamDBManager.getInstance().findRepositoryEntryOfExam(exam);
+
+			if("private".equals(access)) {
+				RepositoryManager.getInstance().setAccess(re, RepositoryEntry.ACC_OWNERS, false);
+			} else if("public".equals(access)) {
+				RepositoryManager.getInstance().setAccess(re, RepositoryEntry.ACC_USERS, false);
+			}
+
+			updateExam(ureq, exam);
 		}
 	}
 	
