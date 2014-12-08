@@ -9,18 +9,19 @@
 <fieldset id="examDetailsView1">
 	<style type="text/css" scoped>
 		/* use id for backward compatible scoping */
-		#examDetailsView1 table {
-			display: inline-block;
-			-moz-box-sizing: border-box;
-			box-sizing: border-box;
-			width: 49.5%; /* because for some browsers 50% + 50% != 100% */
-		}
 		#examDetailsView1 th {
 			text-align: left;
 			font-weight: bold;
 		}
 		#examDetailsView1 td {
 			padding-left: 1em;
+		}
+		#examDetailsView1 .row {
+			padding-bottom: 1em;
+		}
+		#examDetailsView1 legend i {
+			cursor: default;
+			margin-left: 0.4em;
 		}
 		#examDetailsView1 .status {
 			display: inline-block;
@@ -45,33 +46,40 @@
 			box-shadow: #F50 0 0 2px;
 		}
 	</style>
-	<legend>$examName <i title="$examType" class="o_icon $examTypeCssClass" style="cursor: default; margin-left: 0.3em;"></i></legend>
-	<table>
-		<tr>
-			<th><div class="status $registrationStatus"></div> $r.translate("examDetailsView_html.registration"):</th>
-			<td>$registationPhase $registrationMessage</td>
-		</tr>
-		<tr>
-			<th><div class="status $unregistrationStatus"></div> $r.translate("examDetailsView_html.unregistration"):</th>
-			<td>$unregistrationPhase $unregistrationMessage</td>
-		</tr>
-	</table><table>
-		<tr>
-			<th>$r.translate("examDetailsView_html.earmarkedEnabled"):</th>
-			<td><input type="checkbox" disabled #if($earmarkedEnabled) checked #end /></td>
-		</tr>
-		<tr>
-			<th>$r.translate("examDetailsView_html.multiSubscriptionEnabled"):</th>
-			<td><input type="checkbox" disabled #if($multiSubscriptionEnabled) checked #end /></td>
-		</tr>
-	</table>
+	<legend>$examName<i title="$examType" class="o_icon $examTypeCssClass"></i></legend>
+	<div class="row">
+		<div class="col-md-6">
+			<table>
+				<tr>
+					<th><i class="status $registrationStatus"></i> $r.translate("examDetailsView_html.registration"):</th>
+					<td>$registationPhase $registrationMessage</td>
+				</tr>
+				<tr>
+					<th><i class="status $unregistrationStatus"></i> $r.translate("examDetailsView_html.unregistration"):</th>
+					<td>$unregistrationPhase $unregistrationMessage</td>
+				</tr>
+			</table>
+		</div>
+		<div class="col-md-6">
+			<table>
+				<tr>
+					<th>$r.translate("examDetailsView_html.earmarkedEnabled"):</th>
+					<td><input type="checkbox" disabled #if($earmarkedEnabled) checked #end /></td>
+				</tr>
+				<tr>
+					<th>$r.translate("examDetailsView_html.multiSubscriptionEnabled"):</th>
+					<td><input type="checkbox" disabled #if($multiSubscriptionEnabled) checked #end /></td>
+				</tr>
+			</table>
+		</div>
+	</div>
 </fieldset>
 
 #if ($showExamDescription)
 <!-- exam description -->
 <fieldset>
 	<legend>$r.translate("examDetailsView_html.description")</legend>
-	<div style="margin-bottom: 1em;">
+	<div style="margin-bottom: 2em;">
 	$examDescription
 	</div>
 </fieldset>
