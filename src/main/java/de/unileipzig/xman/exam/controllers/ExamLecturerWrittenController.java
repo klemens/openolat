@@ -99,7 +99,7 @@ public class ExamLecturerWrittenController extends BasicController implements Ex
 		
 		mainVC = new VelocityContainer("examStudentView", Exam.class, "examLecturerWrittenView", getTranslator(), this);
 
-		examDetailsController = new ExamDetailsController(ureq, wControl, getTranslator(), exam);
+		examDetailsController = new ExamDetailsController(ureq, wControl, getTranslator(), exam, true);
 		mainVC.put("examDetails", examDetailsController.getInitialComponent());
 
 		init(ureq);

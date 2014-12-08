@@ -3,6 +3,7 @@ package de.unileipzig.xman.exam.controllers;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 
+import org.olat.catalog.CatalogManager;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.Component;
 import org.olat.core.gui.components.form.Form;
@@ -15,8 +16,10 @@ import org.olat.core.gui.control.Event;
 import org.olat.core.gui.control.WindowControl;
 import org.olat.core.gui.control.controller.BasicController;
 import org.olat.core.gui.translator.Translator;
+import org.olat.repository.RepositoryEntry;
 
 import de.unileipzig.xman.exam.Exam;
+import de.unileipzig.xman.exam.ExamDBManager;
 
 /**
  * This controller displays details about an exam in a two column table.
@@ -27,6 +30,7 @@ import de.unileipzig.xman.exam.Exam;
  */
 public class ExamDetailsController extends BasicController implements ExamController {
 	Exam exam;
+	private boolean showWarnings;
 
 	private VelocityContainer baseVC;
 
@@ -34,11 +38,12 @@ public class ExamDetailsController extends BasicController implements ExamContro
 	private static final String STATUS_STARTED = "started";
 	private static final String STATUS_ENDED = "ended";
 
-	public ExamDetailsController(final UserRequest ureq, WindowControl wControl, final Translator translator, Exam exam) {
+	public ExamDetailsController(final UserRequest ureq, WindowControl wControl, final Translator translator, Exam exam, boolean showWarnings) {
 		super(ureq, wControl);
 
 		setTranslator(translator);
 		this.exam = exam;
+		this.showWarnings = showWarnings;
 
 		baseVC = new VelocityContainer("examDetails", Exam.class, "examDetailsView", translator, this);
 
@@ -60,6 +65,16 @@ public class ExamDetailsController extends BasicController implements ExamContro
 		} else {
 			baseVC.contextPut("showExamDescription", true);
 			baseVC.contextPut("examDescription", exam.getComments());
+		}
+
+		if(showWarnings) {
+			RepositoryEntry re = ExamDBManager.getInstance().findRepositoryEntryOfExam(exam);
+
+			// private warning
+			baseVC.contextPut("showPrivateWarning", re.getAccess() < RepositoryEntry.ACC_USERS);
+
+			// catalog warning
+			baseVC.contextPut("showCatalogWarning", CatalogManager.getInstance().getCatalogEntriesReferencing(re).size() == 0);
 		}
 
 		SimpleDateFormat format = new SimpleDateFormat("dd.MM.yyyy HH:mm", getLocale());

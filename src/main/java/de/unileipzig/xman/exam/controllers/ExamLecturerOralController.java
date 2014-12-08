@@ -97,7 +97,7 @@ public class ExamLecturerOralController extends BasicController implements ExamC
 		
 		mainVC = new VelocityContainer("examStudentView", Exam.class, "examLecturerOralView", getTranslator(), this);
 
-		examDetailsController = new ExamDetailsController(ureq, wControl, getTranslator(), exam);
+		examDetailsController = new ExamDetailsController(ureq, wControl, getTranslator(), exam, true);
 		mainVC.put("examDetails", examDetailsController.getInitialComponent());
 
 		init(ureq);

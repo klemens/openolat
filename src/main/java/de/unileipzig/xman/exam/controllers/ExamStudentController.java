@@ -54,7 +54,7 @@ public class ExamStudentController extends BasicController implements ExamContro
 		
 		mainVC = new VelocityContainer("examStudentView", Exam.class, "examStudentView", getTranslator(), this);
 
-		examDetailsController = new ExamDetailsController(ureq, wControl, getTranslator(), exam);
+		examDetailsController = new ExamDetailsController(ureq, wControl, getTranslator(), exam, false);
 		mainVC.put("examDetails", examDetailsController.getInitialComponent());
 
 		init(ureq);

@@ -1,3 +1,10 @@
+<!-- warnings when not public or no catalog entry -->
+#if ($showPrivateWarning)
+<div class="o_warning">$r.translate("examDetailsView_html.warning.private")</div>
+#elseif ($showCatalogWarning)
+<div class="o_warning">$r.translate("examDetailsView_html.warning.catalog")</div>
+#end
+
 <!-- details about the exam -->
 <fieldset id="examDetailsView1">
 	<style type="text/css" scoped>
