@@ -3,10 +3,16 @@ package de.unileipzig.xman.exam.components;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.Component;
 import org.olat.core.gui.components.ComponentEventListener;
+import org.olat.core.gui.components.ComponentRenderer;
+import org.olat.core.gui.components.DefaultComponentRenderer;
 import org.olat.core.gui.components.dropdown.Dropdown;
 import org.olat.core.gui.components.link.Link;
 import org.olat.core.gui.components.link.LinkFactory;
 import org.olat.core.gui.control.Event;
+import org.olat.core.gui.render.RenderResult;
+import org.olat.core.gui.render.Renderer;
+import org.olat.core.gui.render.StringOutput;
+import org.olat.core.gui.render.URLBuilder;
 import org.olat.core.gui.translator.Translator;
 
 /**
@@ -73,6 +79,36 @@ public class SelectDropdown extends Dropdown implements ComponentEventListener {
 			}
 		}
 		throw new IllegalArgumentException("Link with given name does not exist");
+	}
+
+	@Override
+	public void setEnabled(boolean enabled) {
+		super.setEnabled(enabled);
+
+		if(enabled) {
+			select(0);
+		} else {
+			for(Link link : links) {
+				link.setEnabled(false);
+			}
+		}
+	}
+
+	@Override
+	public ComponentRenderer getHTMLRendererSingleton() {
+		if(isEnabled()) {
+			return super.getHTMLRendererSingleton();
+		} else {
+			return new DefaultComponentRenderer() {
+				@Override
+				public void render(Renderer renderer, StringOutput sb, Component source, URLBuilder ubu, Translator translator, RenderResult renderResult, String[] args) {
+					StringOutput sb2 = new StringOutput();
+					SelectDropdown.super.getHTMLRendererSingleton().render(renderer, sb2, source, ubu, translator, renderResult, args);
+					// o_disabled provides the disabled look and the removal of data-toggle='dropdown' disabled the dropdown menu
+					sb.append(sb2.toString().replaceFirst("class='", "class='o_disabled ").replaceFirst("data-toggle='dropdown'", ""));
+				}
+			};
+		}
 	}
 
 	@Override
