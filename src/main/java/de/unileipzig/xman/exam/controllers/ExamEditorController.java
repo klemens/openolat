@@ -57,7 +57,6 @@ import de.unileipzig.xman.appointment.Appointment;
 import de.unileipzig.xman.appointment.AppointmentManager;
 import de.unileipzig.xman.appointment.tables.AppointmentTableModel;
 import de.unileipzig.xman.calendar.CalendarManager;
-import de.unileipzig.xman.catalog.controller.ExamCatalogController;
 import de.unileipzig.xman.exam.Exam;
 import de.unileipzig.xman.exam.ExamDBManager;
 import de.unileipzig.xman.exam.ExamHandler;
@@ -201,11 +200,6 @@ public class ExamEditorController extends BasicController {
 
 		vcApp.put("appointmentTable", appTableCtr.getInitialComponent());
 		tabbedPane.addTab(translate("ExamEditorController.tabbedPane.appointments"), vcApp);
-
-		ExamCatalogController ecc = new ExamCatalogController(ureq, this
-				.getWindowControl(), exam);
-		tabbedPane.addTab(translate("ExamCatalogController.catalog"), ecc
-						.getInitialComponent());
 	}
 
 	/**

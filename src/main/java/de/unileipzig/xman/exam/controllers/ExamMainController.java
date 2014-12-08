@@ -25,6 +25,7 @@ import org.olat.core.id.context.StateEntry;
 import org.olat.core.util.Util;
 import org.olat.repository.RepositoryEntry;
 import org.olat.repository.RepositoryManager;
+import org.olat.repository.ui.author.CatalogSettingsController;
 import org.olat.repository.ui.list.RepositoryEntryDetailsController;
 import org.olat.resource.OLATResourceManager;
 
@@ -49,6 +50,7 @@ public class ExamMainController extends MainLayoutBasicController implements Act
 	private ExamController examController;
 	private TooledStackedPanel toolbarStack;
 	private Link editorLink;
+	private Link catalogLink;
 	private Link detailsLink;
 	private SelectDropdown examType;
 	private SelectDropdown publicationStatus;
@@ -142,7 +144,10 @@ public class ExamMainController extends MainLayoutBasicController implements Act
 
 		editorLink = LinkFactory.createToolLink("editor", translate("ExamMainController.tool.editExam"), this, "o_icon_courseeditor");
 		toolbarStack.addTool(editorLink);
-		
+
+		catalogLink = LinkFactory.createToolLink("catalog", translate("ExamMainController.tool.catalog"), this, "o_icon_catalog");
+		toolbarStack.addTool(catalogLink);
+
 		detailsLink = LinkFactory.createToolLink("details", translate("ExamMainController.tool.info"), this, "o_icon_details");
 		toolbarStack.addTool(detailsLink);
 
@@ -187,6 +192,12 @@ public class ExamMainController extends MainLayoutBasicController implements Act
 		toolbarStack.pushController(translate("ExamMainController.stack.infopage"), new RepositoryEntryDetailsController(ureq, getWindowControl(), re));
 	}
 
+	private void pushCatalog(UserRequest ureq) {
+		RepositoryEntry re = ExamDBManager.getInstance().findRepositoryEntryOfExam(exam);
+		CatalogSettingsController catalogController = new CatalogSettingsController(ureq, getWindowControl(), toolbarStack, re);
+		catalogController.initToolbar();
+	}
+
 	@Override
 	protected void event(UserRequest ureq, Component source, Event event) {
 		 if(source == toolbarStack) {
@@ -214,6 +225,8 @@ public class ExamMainController extends MainLayoutBasicController implements Act
 			} catch(AlreadyLockedException e) {
 				getWindowControl().setInfo(translate("ExamEditorController.alreadyLocked", new String[] { e.getName() }));
 			}
+		} else if(source == catalogLink) {
+			pushCatalog(ureq);
 		} else if(source == detailsLink) {
 			pushDetails(ureq);
 		} else if(source == examType) {
@@ -294,6 +307,8 @@ public class ExamMainController extends MainLayoutBasicController implements Act
 				} catch(AlreadyLockedException e) {
 					getWindowControl().setInfo(translate("ExamEditorController.alreadyLocked", new String[] { e.getName() }));
 				}
+			} else if("Catalog".equals(action)) {
+				pushCatalog(ureq);
 			} else if("Infos".equals(action)) {
 				pushDetails(ureq);
 			}
