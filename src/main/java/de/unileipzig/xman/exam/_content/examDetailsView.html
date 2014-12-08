@@ -4,6 +4,9 @@
 #elseif ($showCatalogWarning)
 <div class="o_warning">$r.translate("examDetailsView_html.warning.catalog")</div>
 #end
+#if ($showClosedInfo)
+<div class="o_info">$r.translate("ExamMainController.info.closed")</div>
+#end
 
 <!-- details about the exam -->
 <fieldset id="examDetailsView1">

@@ -67,6 +67,11 @@ public class ExamDetailsController extends BasicController implements ExamContro
 			baseVC.contextPut("examDescription", exam.getComments());
 		}
 
+		if(ExamDBManager.getInstance().isClosed(exam)) {
+			showWarnings = false;
+			baseVC.contextPut("showClosedInfo", true);
+		}
+
 		if(showWarnings) {
 			RepositoryEntry re = ExamDBManager.getInstance().findRepositoryEntryOfExam(exam);
 
@@ -75,6 +80,10 @@ public class ExamDetailsController extends BasicController implements ExamContro
 
 			// catalog warning
 			baseVC.contextPut("showCatalogWarning", CatalogManager.getInstance().getCatalogEntriesReferencing(re).size() == 0);
+		} else {
+			baseVC.contextPut("showPrivateWarning", false);
+			baseVC.contextPut("showCatalogWarning", false);
+
 		}
 
 		SimpleDateFormat format = new SimpleDateFormat("dd.MM.yyyy HH:mm", getLocale());
