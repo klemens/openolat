@@ -23,6 +23,7 @@ import org.olat.core.util.Util;
 
 import de.unileipzig.xman.esf.ElectronicStudentFile;
 import de.unileipzig.xman.esf.ElectronicStudentFileManager;
+import de.unileipzig.xman.esf.controller.ESFLaunchController;
 import de.unileipzig.xman.studyPath.StudyPathManager;
 
 public class ESFCreateForm extends FormBasicController {
@@ -35,14 +36,17 @@ public class ESFCreateForm extends FormBasicController {
 	private String userStudyPath;
 	private User user;
 
+	private String action;
+
 	/**
 	 * 
 	 * @param name
 	 * @param translator
 	 */
-	public ESFCreateForm(UserRequest ureq, WindowControl wControl, String name, Translator translator, User user) {
+	public ESFCreateForm(UserRequest ureq, WindowControl wControl, String name, Translator translator, User user, String action) {
 		super(ureq, wControl);
 		this.user = user;
+		this.action = action;
 		setTranslator(Util.createPackageTranslator(ElectronicStudentFile.class, ureq.getLocale()));
 		initForm(ureq);
 	}
@@ -73,10 +77,6 @@ public class ESFCreateForm extends FormBasicController {
 		// initialize email with user@studserv.uni-leipzig.de
 		if(emailAddress.isEmpty())
 			emailAddress.setValue(ureq.getIdentity().getName() + "@studserv.uni-leipzig.de");
-		if(!emailAddress.isEmpty()) {
-			// student may not change already set mail
-			emailAddress.setEnabled(false);
-		}
 		
 		List<String> studyPathKeys = StudyPathManager.getInstance().getAllStudyPathsAsString();
 		List<String> studyPathValues = new ArrayList<String>(studyPathKeys);
@@ -91,8 +91,11 @@ public class ESFCreateForm extends FormBasicController {
 			studyPath.select(userStudyPath, true);
 		}
 
-		// submit key
-		uifactory.addFormSubmitButton("save", "ESFCreateController.esfCreateForm.submit", formLayout);
+		if(action.equals(ESFLaunchController.CHANGE_ESF)) {
+			uifactory.addFormSubmitButton("save", "ESFCreateController.esfCreateForm.change", formLayout);
+		} else {
+			uifactory.addFormSubmitButton("save", "ESFCreateController.esfCreateForm.submit", formLayout);
+		}
 	}
 
 	/**
@@ -167,7 +170,7 @@ public class ESFCreateForm extends FormBasicController {
 	public boolean isValidEmailAddress() {
 		String address = this.getInstitutionalEmail();
 
-		Pattern p = Pattern.compile("[a-z]{3}[0-9]{2}[a-z]{3}@studserv.uni-leipzig.de");
+		Pattern p = Pattern.compile(".+@studserv\\.uni-leipzig\\.de");
 		Matcher m = p.matcher(address);
 		return m.matches();
 	}
