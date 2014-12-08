@@ -35,6 +35,7 @@ import de.unileipzig.xman.exam.Exam;
 import de.unileipzig.xman.exam.ExamDBManager;
 import de.unileipzig.xman.exam.components.SelectDropdown;
 import de.unileipzig.xman.protocol.ProtocolManager;
+import de.unileipzig.xman.protocol.archived.ArchivedProtocolManager;
 
 public class ExamMainController extends MainLayoutBasicController implements Activateable2, ExamController {
 	
@@ -52,10 +53,12 @@ public class ExamMainController extends MainLayoutBasicController implements Act
 	private Link editorLink;
 	private Link catalogLink;
 	private Link detailsLink;
+	private Link archiveLink;
 	private SelectDropdown examType;
 	private SelectDropdown publicationStatus;
 	private DialogBoxController changeToOralDialog;
 	private DialogBoxController changeToWrittenDialog;
+	private DialogBoxController archiveDialog;
 	private boolean inEditor;
 
 	/**
@@ -171,6 +174,15 @@ public class ExamMainController extends MainLayoutBasicController implements Act
 			publicationStatus.select("public");
 		}
 		toolbarStack.addTool(publicationStatus, Align.left);
+
+		archiveLink = LinkFactory.createToolLink("archive", translate("ExamMainController.tool.archive"), this, "o_icon_exam_archive");
+		toolbarStack.addTool(archiveLink, Align.right);
+
+		if(ExamDBManager.getInstance().isClosed(exam)) {
+			editorLink.setEnabled(false);
+			archiveLink.setEnabled(false);
+			examType.setEnabled(false);
+		}
 	}
 
 	private void pushEditor(UserRequest ureq) throws AlreadyLockedException {
@@ -251,6 +263,12 @@ public class ExamMainController extends MainLayoutBasicController implements Act
 				}
 				changeToWrittenDialog = activateOkCancelDialog(ureq, translate("ExamMainController.dialog.examType.title"), translate("ExamMainController.dialog.examType.written"), changeToWrittenDialog);
 			}
+		} else if(source == archiveLink) {
+			if(ExamDBManager.getInstance().isClosed(exam)) {
+				return;
+			}
+
+			archiveDialog = activateOkCancelDialog(ureq, translate("ExamMainController.dialog.archiveExam.title"), translate("ExamMainController.dialog.archiveExam"), archiveDialog);
 		} else if(source == publicationStatus) {
 			String access = event.getCommand();
 			RepositoryEntry re = ExamDBManager.getInstance().findRepositoryEntryOfExam(exam);
@@ -274,6 +292,15 @@ public class ExamMainController extends MainLayoutBasicController implements Act
 		} else if(source == changeToWrittenDialog) {
 			if(DialogBoxUIFactory.isOkEvent(event)) {
 				changeExamType(ureq, false);
+			}
+		} else if(source == archiveDialog) {
+			if(DialogBoxUIFactory.isOkEvent(event)) {
+				// close exam
+				ExamDBManager.getInstance().close(exam);
+				// archive the protocols of the exam
+				ArchivedProtocolManager.getInstance().archiveProtocols(exam);
+
+				updateExam(ureq, exam);
 			}
 		}
 	}
@@ -334,6 +361,7 @@ public class ExamMainController extends MainLayoutBasicController implements Act
 	protected void doDispose() {
 		removeAsListenerAndDispose(changeToOralDialog);
 		removeAsListenerAndDispose(changeToWrittenDialog);
+		removeAsListenerAndDispose(archiveDialog);
 		if(inEditor) {
 			toolbarStack.popContent(); // disposes the editor controller and thus releases the lock
 		}

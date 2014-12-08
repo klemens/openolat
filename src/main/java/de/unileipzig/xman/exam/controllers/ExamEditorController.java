@@ -98,9 +98,6 @@ public class ExamEditorController extends BasicController {
 	private CloseableModalController cmc;
 	private RepositoryEntry repoEntry;
 	
-	private Link archiveExamLink;
-	private DialogBoxController archiveExamOkCancelDialog;
-
 	/**
 	 * creates the controller for the exam editor
 	 * 
@@ -136,8 +133,6 @@ public class ExamEditorController extends BasicController {
 			mainPanel = new Panel("examEditorPanel");
 			mainPanel.setContent(vcMain);
 			
-			archiveExamLink = LinkFactory.createButton("ExamEditorController.link.archiveExam", vcMain, this);
-
 			layoutCtr = new LayoutMain3ColsController(ureq, wControl, null, null, mainPanel, "examEditorCtrLayoutKey");
 
 			putInitialPanel(layoutCtr.getInitialComponent());
@@ -209,7 +204,6 @@ public class ExamEditorController extends BasicController {
 		if(lockResult != null) {
 			CoordinatorManager.getInstance().getCoordinator().getLocker().releaseLock(lockResult);
 		}
-		removeAsListenerAndDispose(archiveExamOkCancelDialog);
 	}
 
 	/**
@@ -230,8 +224,6 @@ public class ExamEditorController extends BasicController {
 			cmc = new CloseableModalController(this.getWindowControl(),
 					translate("close"), vcEditApp);
 			cmc.activate();
-		} else if(source == archiveExamLink) {
-			archiveExamOkCancelDialog = activateOkCancelDialog(ureq, translate("ExamEditorController.link.archiveExam"), translate("ExamEditorController.link.archiveExam.warning"), archiveExamOkCancelDialog);
 		}
 	}
 
@@ -395,34 +387,6 @@ public class ExamEditorController extends BasicController {
 					);
 				}
 			}
-		} else if(source == archiveExamOkCancelDialog) {
-            if(DialogBoxUIFactory.isOkEvent(event)) {
-            	// close exam
-				ExamDBManager.getInstance().close(exam);
-				
-				// archive the protocols of the exam
-				for(Protocol protocol : ProtocolManager.getInstance().findAllProtocolsByExam(exam)) {
-					Appointment appointment = protocol.getAppointment();
-					
-					ArchivedProtocol archivedProtocol = new ArchivedProtocol();
-					archivedProtocol.setIdentifier(protocol.getIdentity().getUser().getProperty(UserConstants.INSTITUTIONALUSERIDENTIFIER, null));
-					archivedProtocol.setName(exam.getName());
-					archivedProtocol.setDate(appointment.getDate());
-					archivedProtocol.setLocation(appointment.getPlace() != null ? appointment.getPlace() : "");
-					archivedProtocol.setComment(protocol.getComments() != null ? protocol.getComments() : "");
-					archivedProtocol.setResult(protocol.getGrade() != null ? protocol.getGrade() : "");
-					archivedProtocol.setStudyPath(protocol.getStudyPath() != null ? protocol.getStudyPath() : "");
-					
-					ArchivedProtocolManager.getInstance().save(archivedProtocol);
-				}
-				
-				// and close tab, because the editor does not make sense anymore
-				OLATResourceable ores = OLATResourceManager.getInstance().findResourceable(exam.getResourceableId(), Exam.ORES_TYPE_NAME);
-				DTabs dts = Windows.getWindows(ureq).getWindow(ureq).getDTabs();
-				DTab dt = dts.getDTab(ores);
-				if(dt == null) return;
-				dts.removeDTab(ureq, dt);
-            }
 		}
 	}
 }
