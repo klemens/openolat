@@ -110,7 +110,9 @@ public class ExamHandler implements RepositoryHandler {
 		} else {
 			launchController = new ExamMainController(ureq, wControl, exam, ExamMainController.View.OTHER);
 		}
-		
+
+		CoreSpringFactory.getImpl(RepositoryService.class).incrementLaunchCounter(re);
+
 		return launchController;
 	}
 
