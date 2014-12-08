@@ -350,6 +350,10 @@ public class FlexiTableElementImpl extends FormItemImpl implements FlexiTableEle
 	@Override
 	public void setFilters(String name, List<FlexiTableFilter> filters) {
 		this.filters = new ArrayList<>(filters);
+		// (xman) apply the filter
+		if(name != null && !name.isEmpty()) {
+			doFilter(name);
+		}
 	}
 	
 	public boolean isSortEnabled() {

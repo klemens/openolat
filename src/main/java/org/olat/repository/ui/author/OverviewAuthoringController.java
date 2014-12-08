@@ -197,6 +197,7 @@ public class OverviewAuthoringController extends BasicController implements Acti
 		ThreadLocalUserActivityLogger.addLoggingResourceInfo(LoggingResourceable.wrapBusinessPath(ores));
 		WindowControl bwControl = BusinessControlFactory.getInstance().createBusinessWindowControl(ores, null, getWindowControl());
 		myEntriesCtrl = new AuthorListController(ureq, bwControl, "search.my", searchParams, false);
+		myEntriesCtrl.filter("Exam"); // (xman) only show exams by default
 		listenTo(myEntriesCtrl);
 
 		addToHistory(ureq, myEntriesCtrl);

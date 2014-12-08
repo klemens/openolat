@@ -299,6 +299,13 @@ public class AuthorListController extends FormBasicController implements Activat
 			addOwnersButton = uifactory.addFormLink("tools.add.owners", formLayout, Link.BUTTON);
 		}
 	}
+
+	/**
+	 * Filter by type (xman)
+	 */
+	public void filter(String type) {
+		tableEl.setFilters(type, getFilters());
+	}
 	
 	private List<FlexiTableFilter> getFilters() {
 		List<OrderedRepositoryHandler> supportedHandlers = repositoryHandlerFactory.getOrderRepositoryHandlers();
