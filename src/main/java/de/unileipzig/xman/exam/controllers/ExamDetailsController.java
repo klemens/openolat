@@ -25,7 +25,7 @@ import de.unileipzig.xman.exam.Exam;
  * unregistration-phase (including status icons and remaining days) and
  * the status of earmarking and multi-subscription.
  */
-public class ExamDetailsController extends BasicController {
+public class ExamDetailsController extends BasicController implements ExamController {
 	Exam exam;
 
 	private VelocityContainer baseVC;
@@ -102,7 +102,7 @@ public class ExamDetailsController extends BasicController {
 	/**
 	 * Update the exam. This makes the controller redraw the view
 	 */
-	public void updateExam(Exam exam) {
+	public void updateExam(UserRequest ureq, Exam exam) {
 		this.exam = exam;
 		init();
 		updateTime(new Date());

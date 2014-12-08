@@ -34,7 +34,7 @@ import de.unileipzig.xman.exam.ExamDBManager;
 import de.unileipzig.xman.exam.components.SelectDropdown;
 import de.unileipzig.xman.protocol.ProtocolManager;
 
-public class ExamMainController extends MainLayoutBasicController implements Activateable2 {
+public class ExamMainController extends MainLayoutBasicController implements Activateable2, ExamController {
 	
 	static public enum View {
 		STUDENT,	// normal oo user
@@ -44,6 +44,8 @@ public class ExamMainController extends MainLayoutBasicController implements Act
 	
 	private Exam exam;
 	private View view;
+
+	private ExamController examController;
 	private TooledStackedPanel toolbarStack;
 	private Link editorLink;
 	private Link detailsLink;
@@ -116,17 +118,15 @@ public class ExamMainController extends MainLayoutBasicController implements Act
 		}
 		
 		if(view == View.STUDENT) {
-			Controller examController = new ExamStudentController(ureq, getWindowControl(), exam);
+			examController = new ExamStudentController(ureq, getWindowControl(), exam);
 			toolbarStack.rootController(exam.getName(), examController);
 		} else if(view == View.LECTURER) {
-			Controller examController;
 			if(exam.getIsOral()) {
 				examController = new ExamLecturerOralController(ureq, getWindowControl(), exam);
 			} else {
 				examController = new ExamLecturerWrittenController(ureq, getWindowControl(), exam);
 			}
 			toolbarStack.setInvisibleCrumb(0); // Show the toolbar also on the top level
-			toolbarStack.addListener(examController); // notify controllers of PopEvent so that they can refresh the exam
 			toolbarStack.rootController(exam.getName(), examController);
 			buildToolbar();
 		} else if(view == View.OTHER) {
@@ -136,6 +136,8 @@ public class ExamMainController extends MainLayoutBasicController implements Act
 	}
 	
 	private void buildToolbar() {
+		toolbarStack.removeAllTools();
+
 		editorLink = LinkFactory.createToolLink("editor", translate("ExamMainController.tool.editExam"), this, "o_icon_courseeditor");
 		toolbarStack.addTool(editorLink);
 		
@@ -180,6 +182,9 @@ public class ExamMainController extends MainLayoutBasicController implements Act
 				if(popEvent.getController() instanceof ExamEditorController) {
 					inEditor = false;
 				}
+				// reload exam
+				exam = ExamDBManager.getInstance().findExamByID(exam.getKey());
+				updateExam(ureq, exam);
 			} else if(event == Event.CLOSE_EVENT) {
 				// close the tab we are in
 				DTabs tabs = getWindowControl().getWindowBackOffice().getWindow().getDTabs();
@@ -237,6 +242,24 @@ public class ExamMainController extends MainLayoutBasicController implements Act
 	}
 
 	@Override
+	public void updateExam(UserRequest ureq, Exam newExam) {
+		if(exam.getIsOral() != newExam.getIsOral() || exam.getName() != newExam.getName()) {
+			exam = newExam;
+
+			// total rebuild necessary (controllers are disposed during stack unwind)
+			init(ureq);
+		} else {
+			exam = newExam;
+			if(examController != null) {
+				examController.updateExam(ureq, exam);
+			}
+			if(view == View.LECTURER) {
+				buildToolbar();
+			}
+		}
+	}
+
+	@Override
 	public void activate(UserRequest ureq, List<ContextEntry> entries, StateEntry state) {
 		if(entries != null && entries.size() > 0) {
 			String action = entries.get(0).getOLATResourceable().getResourceableTypeName();
@@ -260,11 +283,9 @@ public class ExamMainController extends MainLayoutBasicController implements Act
 		}
 
 		AppointmentManager.getInstance().deleteAllAppointmentsByExam(exam);
-		exam = ExamDBManager.getInstance().findExamByID(exam.getKey());
-		exam.setIsOral(oral);
-
-		// rebuild the site (stack is cleared automatically by rootController)
-		init(ureq);
+		Exam newExam = ExamDBManager.getInstance().findExamByID(exam.getKey());
+		newExam.setIsOral(oral);
+		updateExam(ureq, newExam);
 	}
 
 	@Override

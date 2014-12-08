@@ -16,7 +16,6 @@ import org.olat.core.gui.components.Component;
 import org.olat.core.gui.components.form.Form;
 import org.olat.core.gui.components.link.Link;
 import org.olat.core.gui.components.link.LinkFactory;
-import org.olat.core.gui.components.stack.PopEvent;
 import org.olat.core.gui.components.table.TableController;
 import org.olat.core.gui.components.table.TableEvent;
 import org.olat.core.gui.components.table.TableGuiConfiguration;
@@ -53,7 +52,7 @@ import de.unileipzig.xman.exam.forms.EditMarkForm;
 import de.unileipzig.xman.protocol.Protocol;
 import de.unileipzig.xman.protocol.ProtocolManager;
 
-public class ExamLecturerOralController extends BasicController {
+public class ExamLecturerOralController extends BasicController implements ExamController {
 	
 	private Exam exam;
 	private VelocityContainer mainVC;
@@ -101,24 +100,24 @@ public class ExamLecturerOralController extends BasicController {
 		examDetailsController = new ExamDetailsController(ureq, wControl, getTranslator(), exam);
 		mainVC.put("examDetails", examDetailsController.getInitialComponent());
 
-		init(ureq, wControl);
+		init(ureq);
 
 		putInitialPanel(mainVC);
 	}
 	
-	private void init(UserRequest ureq, WindowControl wControl) {
+	private void init(UserRequest ureq) {
 		if(AppointmentManager.getInstance().findAllAppointmentsByExamId(exam.getKey()).size() > 0) {
 			mainVC.contextPut("showAppointmentTable", true);
 			
 			refreshTableButton = LinkFactory.createButton("ExamLecturerWrittenController.refreshTable", mainVC, this);
 			
-			buildAppointmentTable(ureq, wControl);
+			buildAppointmentTable(ureq);
 		} else {
 			mainVC.contextPut("showAppointmentTable", false);
 		}
 	}
 	
-	private void buildAppointmentTable(UserRequest ureq, WindowControl wControl) {
+	private void buildAppointmentTable(UserRequest ureq) {
 		removeAsListenerAndDispose(appointmentTable);
 		
 		appointmentTableModel = new AppointmentLecturerOralTableModel(exam, ureq.getLocale());
@@ -128,7 +127,7 @@ public class ExamLecturerOralController extends BasicController {
 		tableGuiConfiguration.setTableEmptyMessage(translate("ExamEditorController.appointmentTable.empty"));
 		tableGuiConfiguration.setMultiSelect(true);
 		tableGuiConfiguration.setPreferencesOffered(true, "ExamLecturerOralController.appointmentTable");
-		appointmentTable = new TableController(tableGuiConfiguration, ureq, wControl, getTranslator());
+		appointmentTable = new TableController(tableGuiConfiguration, ureq, getWindowControl(), getTranslator());
 		
 		appointmentTableModel.createColumns(appointmentTable);
 		appointmentTable.setTableDataModel(appointmentTableModel);
@@ -580,13 +579,14 @@ public class ExamLecturerOralController extends BasicController {
 			// update view
 			appointmentTableModel.update();
 			appointmentTable.modelChanged();
-		} else if(event instanceof PopEvent) {
-			// reload exam
-			exam = ExamDBManager.getInstance().findExamByID(exam.getKey());
-			// complete rebuild
-			init(ureq, getWindowControl());
-			examDetailsController.updateExam(exam);
 		}
+	}
+
+	@Override
+	public void updateExam(UserRequest ureq, Exam newExam) {
+		this.exam = newExam;
+		init(ureq);
+		examDetailsController.updateExam(ureq, newExam);
 	}
 
 	@Override
