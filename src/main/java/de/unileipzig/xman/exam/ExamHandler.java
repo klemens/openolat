@@ -75,7 +75,6 @@ public class ExamHandler implements RepositoryHandler {
 
 	@Override
 	public boolean supportsDownload() {
-		// TODO not yet implemented
 		return false;
 	}
 
@@ -133,23 +132,7 @@ public class ExamHandler implements RepositoryHandler {
 	@Override
 	public RepositoryEntry copy(RepositoryEntry source, RepositoryEntry target) {
 		// TODO: currently not implemented
-
-		//old code:
-//		Exam oldExam = ExamDBManager.getInstance().findExamByID(res.getResourceableId());
-//		Exam newExam = new ExamImpl();
-//
-//		newExam.setComments(oldExam.getComments());
-//		newExam.setEarmarkedEnabled(oldExam.getEarmarkedEnabled());
-//		newExam.setIsOral(oldExam.getIsOral());
-//		newExam.setIsMultiSubscription(oldExam.getIsMultiSubscription());
-//		newExam.setName(oldExam.getName());
-//		newExam.setIdentity(ureq.getIdentity()); // set authorship to the copying user
-//
-//		ExamDBManager.getInstance().saveExam(newExam);
-//
-//		return ExamDBManager.getInstance().findExamByID(newExam.getKey());
-
-		return null;
+		throw new UnsupportedOperationException("Copying exams is not supported currently");
 	}
 
 	@Override
@@ -170,7 +153,6 @@ public class ExamHandler implements RepositoryHandler {
 
 	@Override
 	public ResourceEvaluation acceptImport(File file, String filename) {
-		// TODO import not yet supported
 		return new ResourceEvaluation(false);
 	}
 
@@ -187,7 +169,7 @@ public class ExamHandler implements RepositoryHandler {
 
 	@Override
 	public boolean cleanupOnDelete(OLATResourceable res) {
-		// TODO is this method really needed?
+		// TODO currently not needed as deletion is disabled
 		CoordinatorManager.getInstance().getCoordinator().getEventBus().fireEventToListenersOf(new OLATResourceableJustBeforeDeletedEvent(res), res);
 
 		// delete OLATResource
@@ -232,7 +214,7 @@ public class ExamHandler implements RepositoryHandler {
 
 	@Override
 	public VFSContainer getMediaContainer(RepositoryEntry repoEntry) {
-		// TODO media not yet supported
+		// media not supported
 		return null;
 	}
 
