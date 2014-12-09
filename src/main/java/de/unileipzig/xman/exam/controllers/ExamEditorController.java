@@ -310,6 +310,10 @@ public class ExamEditorController extends BasicController {
 				exam.setComments(editDescriptionForm.getDescription());
 				exam.setName(editDescriptionForm.getName());
 
+				RepositoryEntry re = ExamDBManager.getInstance().findRepositoryEntryOfExam(exam);
+				re.setDisplayname(exam.getName());
+				re.setDescription(exam.getComments());
+
 				DBFactory.getInstance().commitAndCloseSession();
 			}
 		} else if (source == editRegForm) {
