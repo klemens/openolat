@@ -126,7 +126,7 @@ public class SimpleShibbolethDispatcher implements Dispatcher {
 					}
 				} else {
 					log.error("existing username '" + username + "' but migration to shibboleth not enabled");
-					showError(ureq, "Your username does already exists, but migration to shibboleth is disabled.", null);
+					showError(ureq, "Your username already exists, but migration to shibboleth is disabled.", null);
 					return;
 				}
 			}
