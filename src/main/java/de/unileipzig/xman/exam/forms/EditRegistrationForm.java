@@ -53,7 +53,7 @@ public class EditRegistrationForm extends FormBasicController {
 		signOffEdit.setDateChooserTimeEnabled(true);
 
 		booleanAttributes = uifactory.addCheckboxesVertical("boolOptions", null, formLayout, new String[] {EARMARKED, MULTI_SUBSCRIPTION},
-				new String[] {translate("EditRegistrationForm.earmarkedButton"), translate("EditRegistrationForm.multiSubscriptionButton")}, null, 1);
+				new String[] {translate("EditRegistrationForm.earmarkedButton"), translate("EditRegistrationForm.multiSubscriptionButton")}, 1);
 		booleanAttributes.select(EARMARKED, exam.getEarmarkedEnabled());
 		booleanAttributes.select(MULTI_SUBSCRIPTION, exam.getIsMultiSubscription());
 		// only configurable for oral exams

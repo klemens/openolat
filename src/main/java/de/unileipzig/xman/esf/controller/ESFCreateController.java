@@ -37,8 +37,6 @@ import de.unileipzig.xman.esf.form.ESFCreateForm;
  */
 public class ESFCreateController extends BasicController {
 
-	private static final String VELOCITY_ROOT = Util.getPackageVelocityRoot(ElectronicStudentFile.class);
-
 	public static final String CHANGE_EVENT = "esf_changend";
 	public static final String VALIDATE_EVENT = "esf_validated";
 
@@ -46,23 +44,17 @@ public class ESFCreateController extends BasicController {
 	private String action;
 	private User user;
 
-	private VelocityContainer vcMain;
-
-	public ESFCreateController(UserRequest ureq, WindowControl wControl, Translator translator, User user, String title, String action) {
+	public ESFCreateController(UserRequest ureq, WindowControl wControl, Translator translator, User user, String action) {
 		super(ureq, wControl);
 		
 		this.user = user;
 		this.action = action;
 		setTranslator(translator);
 
-		vcMain = new VelocityContainer("esfCreate", VELOCITY_ROOT + "/esf-create.html", translator, this);
-		vcMain.contextPut("title", title);
-
-		esfCreateForm = new ESFCreateForm(ureq, wControl, "esfCreateForm", translator, user);
+		esfCreateForm = new ESFCreateForm(ureq, wControl, "esfCreateForm", translator, user, action);
 		listenTo(esfCreateForm);
-		vcMain.put("esfCreateForm", esfCreateForm.getInitialComponent());
 
-		putInitialPanel(vcMain);
+		putInitialPanel(esfCreateForm.getInitialComponent());
 	}
 
 	@Override
@@ -140,6 +132,7 @@ public class ESFCreateController extends BasicController {
 		updateUser.setProperty(UserConstants.LASTNAME, esfCreateForm.getLastName());
 		updateUser.setProperty(UserConstants.INSTITUTIONALUSERIDENTIFIER, esfCreateForm.getInstitutionalIdentifier());
 		updateUser.setProperty(UserConstants.INSTITUTIONALEMAIL, esfCreateForm.getInstitutionalEmail());
+		updateUser.setProperty(UserConstants.EMAIL, esfCreateForm.getInstitutionalEmail());
 		updateUser.setProperty(UserConstants.STUDYSUBJECT, esfCreateForm.getStudyPath());
 		
 		// save changes

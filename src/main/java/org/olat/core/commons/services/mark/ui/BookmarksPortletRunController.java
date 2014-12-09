@@ -34,7 +34,6 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 
-import org.olat.ControllerFactory;
 import org.olat.NewControllerFactory;
 import org.olat.core.CoreSpringFactory;
 import org.olat.core.commons.services.mark.Mark;
@@ -58,10 +57,10 @@ import org.olat.core.gui.control.generic.portal.PortletDefaultTableDataModel;
 import org.olat.core.gui.control.generic.portal.PortletEntry;
 import org.olat.core.gui.control.generic.portal.PortletToolSortingControllerImpl;
 import org.olat.core.gui.control.generic.portal.SortingCriteria;
-import org.olat.core.gui.translator.PackageTranslator;
 import org.olat.core.gui.translator.Translator;
 import org.olat.core.id.context.BusinessControl;
 import org.olat.core.id.context.BusinessControlFactory;
+import org.olat.core.util.Util;
 import org.olat.core.util.filter.FilterFactory;
 import org.olat.repository.RepositoryEntry;
 import org.olat.repository.RepositoryEntryStatus;
@@ -104,11 +103,12 @@ public class BookmarksPortletRunController extends AbstractPortletRunController<
 		
 		bookmarksVC = createVelocityContainer("bookmarksPortlet");
 		showAllLink = LinkFactory.createLink("bookmarksPortlet.showAll", bookmarksVC, this);
+		showAllLink.setIconRightCSS("o_icon o_icon_start");
 				
 		TableGuiConfiguration tableConfig = new TableGuiConfiguration();
 		tableConfig.setTableEmptyMessage(trans.translate("bookmarksPortlet.nobookmarks"));
 		tableConfig.setDisplayTableHeader(false);
-		tableConfig.setCustomCssClass("b_portlet_table");
+		tableConfig.setCustomCssClass("o_portlet_table");
 		tableConfig.setDisplayRowCount(false);
 		tableConfig.setPageingEnabled(false);
 		tableConfig.setDownloadOffered(false);
@@ -212,7 +212,7 @@ public class BookmarksPortletRunController extends AbstractPortletRunController<
 	public void event(UserRequest ureq, Component source, Event event) {		
 		if (source == showAllLink){
 			// activate homes tab in top navigation and active bookmarks menu item
-			String resourceUrl = "[HomeSite:" + ureq.getIdentity().getKey() + "][bookmarks:0]";
+			String resourceUrl = "[MyCoursesSite:0][Favorits:0]";
 			BusinessControl bc = BusinessControlFactory.getInstance().createFromString(resourceUrl);
 			WindowControl bwControl = BusinessControlFactory.getInstance().createBusinessWindowControl(bc, getWindowControl());
 			NewControllerFactory.getInstance().launch(ureq, bwControl);
@@ -323,7 +323,7 @@ public class BookmarksPortletRunController extends AbstractPortletRunController<
 				return name;
 			case 1:
 				String resType = bookmark.getDisplayrestype();
-				return ControllerFactory.translateResourceableTypeName(resType, locale);
+				return NewControllerFactory.translateResourceableTypeName(resType, locale);
 			default:
 				return "ERROR";
 			}
@@ -336,7 +336,7 @@ public class BookmarksPortletRunController extends AbstractPortletRunController<
 		private String getBookmarkTitle(Bookmark bookmark) {
 			String title = bookmark.getTitle();
 			if (RepositoryManager.getInstance().createRepositoryEntryStatus(bookmark.getStatusCode()).isClosed()) {
-				PackageTranslator pT = new PackageTranslator(RepositoryEntryStatus.class.getPackage().getName(), locale);
+				Translator pT = Util.createPackageTranslator(RepositoryEntryStatus.class, locale);
 				title = "[" + pT.translate("title.prefix.closed") + "] ".concat(title);
 			}
 			return title;
@@ -379,7 +379,7 @@ public class BookmarksPortletRunController extends AbstractPortletRunController<
 					return (desc == null ? "n/a" : FilterFactory.getHtmlTagsFilter().filter(desc));
 				case 2:
 					String resType = bm.getDisplayrestype();
-					return (resType == null ? "n/a" : ControllerFactory.translateResourceableTypeName(resType, locale));
+					return (resType == null ? "n/a" : NewControllerFactory.translateResourceableTypeName(resType, locale));
 				case 3:
 					Date date = bm.getCreationDate();
 					//return DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT, getTranslator().getLocale()).format(date);

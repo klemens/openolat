@@ -22,6 +22,7 @@ package org.olat.search.service.indexer;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 import javax.jms.ConnectionFactory;
@@ -54,6 +55,7 @@ import org.apache.lucene.store.FSDirectory;
 import org.olat.core.commons.persistence.DBFactory;
 import org.olat.core.logging.OLog;
 import org.olat.core.logging.Tracing;
+import org.olat.core.util.coordinate.CoordinatorManager;
 import org.olat.search.SearchModule;
 import org.olat.search.SearchService;
 import org.olat.search.model.AbstractOlatDocument;
@@ -78,6 +80,7 @@ public class JmsIndexer implements MessageListener, LifeFullIndexer {
 	private QueueConnection connection;
 	
 	private SearchService searchService;
+	private CoordinatorManager coordinatorManager;
 
 	private String permanentIndexPath;
 	private DirectoryReader reader;
@@ -88,10 +91,11 @@ public class JmsIndexer implements MessageListener, LifeFullIndexer {
 	
 	private List<LifeIndexer> indexers = new ArrayList<LifeIndexer>();
 	
-	public JmsIndexer(SearchModule searchModuleConfig) {
+	public JmsIndexer(SearchModule searchModuleConfig, CoordinatorManager coordinatorManager) {
 		indexingNode = searchModuleConfig.isSearchServiceEnabled();
 		ramBufferSizeMB = searchModuleConfig.getRAMBufferSizeMB();
 		permanentIndexPath = searchModuleConfig.getFullPermanentIndexPath();
+		this.coordinatorManager = coordinatorManager;
 	}
 
 	public Queue getJmsQueue() {
@@ -172,8 +176,12 @@ public class JmsIndexer implements MessageListener, LifeFullIndexer {
 			File tempIndexDir = new File(permanentIndexPath);
 			Directory indexPath = FSDirectory.open(tempIndexDir);
 			if(indexingNode) {
-				permanentIndexWriter = new IndexWriterHolder (indexPath, this);
-				permanentIndexWriter.ensureIndexExists();
+				permanentIndexWriter = new IndexWriterHolder(indexPath, this);
+				boolean created = permanentIndexWriter.ensureIndexExists();
+				if(created) {
+					IndexerEvent event = new IndexerEvent(IndexerEvent.INDEX_CREATED);
+					coordinatorManager.getCoordinator().getEventBus().fireEventToListenersOf(event, IndexerEvent.INDEX_ORES);
+				}
 			}
 			reader = DirectoryReader.open(indexPath);
 		} catch (IOException e) {
@@ -257,11 +265,11 @@ public class JmsIndexer implements MessageListener, LifeFullIndexer {
 	}
 
 	@Override
-	public void deleteDocument(String type, Long key) {
+	public void indexDocument(String type, List<Long> keyList) {
 		QueueSender sender;
 		QueueSession session;
 		try {
-			JmsIndexWork workUnit = new JmsIndexWork(JmsIndexWork.DELETE, type, key);
+			JmsIndexWork workUnit = new JmsIndexWork(JmsIndexWork.INDEX, type, keyList);
 			session = connection.createQueueSession(false, QueueSession.AUTO_ACKNOWLEDGE );
 			ObjectMessage message = session.createObjectMessage();
 			message.setObject(workUnit);
@@ -272,6 +280,11 @@ public class JmsIndexer implements MessageListener, LifeFullIndexer {
 		} catch (JMSException e) {
 			log.error("", e );
 		}
+	}
+
+	@Override
+	public void deleteDocument(String type, Long key) {
+		indexDocument(type, Collections.singletonList(key));
 	}
 
 	@Override
@@ -297,9 +310,9 @@ public class JmsIndexer implements MessageListener, LifeFullIndexer {
 	private void doIndex(JmsIndexWork workUnit) {
 		if(searchService instanceof SearchServiceImpl) {
 			String type = workUnit.getIndexType();
-			List<LifeIndexer> indexers = getIndexerByType(type);
-			for(LifeIndexer indexer:indexers) {
-				indexer.indexDocument(workUnit.getKey(), this);
+			List<LifeIndexer> lifeIndexers = getIndexerByType(type);
+			for(LifeIndexer indexer:lifeIndexers) {
+				indexer.indexDocument(workUnit.getKeyList(), this);
 			}
 		}
 	}
@@ -307,9 +320,13 @@ public class JmsIndexer implements MessageListener, LifeFullIndexer {
 	private void doDelete(JmsIndexWork workUnit) {
 		if(searchService instanceof SearchServiceImpl) {
 			String type = workUnit.getIndexType();
-			List<LifeIndexer> indexers = getIndexerByType(type);
-			for(LifeIndexer indexer:indexers) {
-				indexer.deleteDocument(workUnit.getKey(), this);
+			List<LifeIndexer> lifeIndexers = getIndexerByType(type);
+			for(LifeIndexer indexer:lifeIndexers) {
+				if(workUnit.getKeyList() != null && workUnit.getKeyList().size() > 0) {
+					for(Long key:workUnit.getKeyList()) {
+						indexer.deleteDocument(key, this);
+					}
+				}
 			}
 		}
 	}
@@ -352,22 +369,26 @@ public class JmsIndexer implements MessageListener, LifeFullIndexer {
 	 * @param document
 	 */
 	@Override
-	public void addDocument(Document document) {
-		if(document == null) return;//nothing to do
+	public void addDocuments(List<Document> documents) {
+		if(documents == null || documents.isEmpty()) return;//nothing to do
 		
 		IndexWriter writer = null;
 		try {
-			String resourceUrl = document.get(AbstractOlatDocument.RESOURCEURL_FIELD_NAME);
-			Term uuidTerm = new Term(AbstractOlatDocument.RESOURCEURL_FIELD_NAME, resourceUrl);
-
-			DirectoryReader reader = getReader();
-			IndexSearcher searcher = new IndexSearcher(reader);
-			TopDocs hits = searcher.search(new TermQuery(uuidTerm), 10);
+			DirectoryReader currentReader = getReader();
+			IndexSearcher searcher = new IndexSearcher(currentReader);
 			writer = permanentIndexWriter.getAndLock();
-			if(hits.totalHits > 0) {
-				writer.updateDocument(uuidTerm, document);
-			} else {
-				writer.addDocument(document);
+			
+			for(Document document:documents) {
+				if(document != null) {
+					String resourceUrl = document.get(AbstractOlatDocument.RESOURCEURL_FIELD_NAME);
+					Term uuidTerm = new Term(AbstractOlatDocument.RESOURCEURL_FIELD_NAME, resourceUrl);
+					TopDocs hits = searcher.search(new TermQuery(uuidTerm), 10);
+					if(hits.totalHits > 0) {
+						writer.updateDocument(uuidTerm, document);
+					} else {
+						writer.addDocument(document);
+					}
+				}
 			}
 		} catch (IOException e) {
 			log.error("", e);
@@ -381,8 +402,8 @@ public class JmsIndexer implements MessageListener, LifeFullIndexer {
 		try {
 			String resourceUrl = document.get(AbstractOlatDocument.RESOURCEURL_FIELD_NAME);
 			Term uuidTerm = new Term(AbstractOlatDocument.RESOURCEURL_FIELD_NAME, resourceUrl);
-			DirectoryReader reader = getReader();
-			IndexSearcher searcher = new IndexSearcher(reader);
+			DirectoryReader currentReader = getReader();
+			IndexSearcher searcher = new IndexSearcher(currentReader);
 			TopDocs hits = searcher.search(new TermQuery(uuidTerm), 10);
 			if(hits.totalHits > 0) {
 				writer.updateDocument(uuidTerm, document);

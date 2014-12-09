@@ -33,7 +33,6 @@ import java.util.List;
 import java.util.Locale;
 
 import org.apache.commons.lang.StringEscapeUtils;
-import org.olat.ControllerFactory;
 import org.olat.NewControllerFactory;
 import org.olat.core.commons.fullWebApp.LayoutMain3ColsController;
 import org.olat.core.commons.fullWebApp.popup.BaseFullWebappPopupLayoutFactory;
@@ -66,6 +65,7 @@ import org.olat.core.id.context.BusinessControlFactory;
 import org.olat.core.util.coordinate.CoordinatorManager;
 import org.olat.core.util.event.GenericEventListener;
 import org.olat.core.util.resource.OresHelper;
+import org.springframework.beans.factory.annotation.Autowired;
 
 /**
  * Description:<br>
@@ -85,6 +85,9 @@ public class NotesPortletRunController extends AbstractPortletRunController<Note
 	private Link showAllLink;
 	private final OLATResourceable eventBusThisIdentityOres;
 	
+	@Autowired
+	private NoteManager nm;
+	
 	/**
 	 * Constructor
 	 * @param ureq
@@ -100,11 +103,12 @@ public class NotesPortletRunController extends AbstractPortletRunController<Note
 		
 		this.notesVC = this.createVelocityContainer("notesPortlet");
 		showAllLink = LinkFactory.createLink("notesPortlet.showAll", notesVC, this);
+		showAllLink.setIconRightCSS("o_icon o_icon_start");
 			
 		TableGuiConfiguration tableConfig = new TableGuiConfiguration();
 		tableConfig.setTableEmptyMessage(trans.translate("notesPortlet.nonotes"));
 		tableConfig.setDisplayTableHeader(false);
-		tableConfig.setCustomCssClass("b_portlet_table");
+		tableConfig.setCustomCssClass("o_portlet_table");
 		tableConfig.setDisplayRowCount(false);
 		tableConfig.setPageingEnabled(false);
 		tableConfig.setDownloadOffered(false);
@@ -136,7 +140,6 @@ public class NotesPortletRunController extends AbstractPortletRunController<Note
 	 * @return
 	 */
 	private List<PortletEntry<Note>> getAllPortletEntries() {
-		NoteManager nm = NoteManager.getInstance();
 		List<Note> noteList = nm.listUserNotes(cOwner);
 		return convertNoteToPortletEntryList(noteList);		
 	}
@@ -159,13 +162,10 @@ public class NotesPortletRunController extends AbstractPortletRunController<Note
 	 * 
 	 * @see org.olat.core.gui.control.generic.portal.AbstractPortletRunController#reloadModel(org.olat.core.gui.UserRequest, org.olat.core.gui.control.generic.portal.SortingCriteria)
 	 */
-	protected void reloadModel(SortingCriteria sortingCriteria) {
-		if (sortingCriteria.getSortingType() == SortingCriteria.AUTO_SORTING) {
-			NoteManager nm = NoteManager.getInstance();
+	protected void reloadModel(SortingCriteria sortCriteria) {
+		if (sortCriteria.getSortingType() == SortingCriteria.AUTO_SORTING) {
 			List<Note> noteList = nm.listUserNotes(cOwner);
-			
-			noteList = getSortedList(noteList, sortingCriteria );
-			
+			noteList = getSortedList(noteList, sortCriteria );
 			List<PortletEntry<Note>> entries = convertNoteToPortletEntryList(noteList);
 			notesListModel = new NoteSortingTableDataModel(entries, getLocale());
 			tableCtr.setTableDataModel(notesListModel);
@@ -226,7 +226,7 @@ public class NotesPortletRunController extends AbstractPortletRunController<Note
 						public Controller createController(UserRequest lureq, WindowControl lwControl) {
 							Controller nc = new NoteController(lureq, lwControl, note);
 							// use on column layout
-							LayoutMain3ColsController layoutCtr = new LayoutMain3ColsController(lureq, lwControl, null, null, nc.getInitialComponent(), null);
+							LayoutMain3ColsController layoutCtr = new LayoutMain3ColsController(lureq, lwControl, nc);
 							layoutCtr.addDisposableChildController(nc); // dispose content on layout dispose
 							return layoutCtr;
 						}					
@@ -287,16 +287,16 @@ public class NotesPortletRunController extends AbstractPortletRunController<Note
 	 * 
 	 * @see org.olat.core.gui.control.generic.portal.AbstractPortletRunController#getComparator(org.olat.core.gui.control.generic.portal.SortingCriteria)
 	 */
-	protected Comparator<Note> getComparator(final SortingCriteria sortingCriteria) {
+	protected Comparator<Note> getComparator(final SortingCriteria criteria) {
 		return new Comparator<Note>(){			
 			public int compare(final Note note1, final Note note2) {	
 				int comparisonResult = 0;
-			  if(sortingCriteria.getSortingTerm()==SortingCriteria.ALPHABETICAL_SORTING) {			  	
+			  if(criteria.getSortingTerm()==SortingCriteria.ALPHABETICAL_SORTING) {			  	
 			  	comparisonResult = collator.compare(StringEscapeUtils.escapeHtml(note1.getNoteTitle()).toString(), StringEscapeUtils.escapeHtml(note2.getNoteTitle()).toString());			  		  	
-			  } else if(sortingCriteria.getSortingTerm()==SortingCriteria.DATE_SORTING) {
+			  } else if(criteria.getSortingTerm()==SortingCriteria.DATE_SORTING) {
 			  	comparisonResult = note1.getLastModified().compareTo(note2.getLastModified());
 			  } 
-			  if(!sortingCriteria.isAscending()) {
+			  if(!criteria.isAscending()) {
 			  	//if not isAscending return (-comparisonResult)			  	
 			  	return -comparisonResult;
 			  }
@@ -319,10 +319,8 @@ public class NotesPortletRunController extends AbstractPortletRunController<Note
 			super(objects, 2);
 			this.locale = locale;
 		}
-		
-		/**
-		 * @see org.olat.core.gui.components.table.TableDataModel#getValueAt(int, int)
-		 */
+
+		@Override
 		public final Object getValueAt(int row, int col) {				
 			Note note = getObject(row).getValue();
 			switch (col) {
@@ -330,7 +328,7 @@ public class NotesPortletRunController extends AbstractPortletRunController<Note
 					return note.getNoteTitle();
 				case 1:								
 					String resType = note.getResourceTypeName();
-					return (resType == null ? "n/a" : ControllerFactory.translateResourceableTypeName(resType, locale));
+					return (resType == null ? "n/a" : NewControllerFactory.translateResourceableTypeName(resType, locale));
 				default:
 					return "error";
 			}

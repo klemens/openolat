@@ -38,7 +38,7 @@ import org.olat.core.dispatcher.Dispatcher;
 import org.olat.core.dispatcher.DispatcherModule;
 import org.olat.core.dispatcher.mapper.GlobalMapperRegistry;
 import org.olat.core.dispatcher.mapper.MapperDispatcher;
-import org.olat.core.gui.GUIInterna;
+import org.olat.core.extensions.ExtManager;
 import org.olat.core.helpers.Settings;
 import org.olat.core.logging.OLog;
 import org.olat.core.logging.Tracing;
@@ -66,7 +66,7 @@ public class OpenOLATServlet extends HttpServlet {
     
 	private String legacyContext;
 	
-	private DispatcherModule dispatcher;
+	private DispatcherModule dispatcherModule;
 	private SessionStatsManager sessionStatsManager;
 	private RequestBasedLogLevelManager requestBasedLogLevelManager;
 	
@@ -97,9 +97,9 @@ public class OpenOLATServlet extends HttpServlet {
 		FrameworkStartupEventChannel.fireEvent();
 		log.info("FrameworkStartupEvent processed by alle listeners. Webapp has started.");
 		sessionStatsManager = CoreSpringFactory.getImpl(SessionStatsManager.class);
-		dispatcher = CoreSpringFactory.getImpl(DispatcherModule.class);
+		dispatcherModule = CoreSpringFactory.getImpl(DispatcherModule.class);
 		
-		dispatchers = new HashMap<String, Dispatcher>(dispatcher.getDispatchers());
+		dispatchers = new HashMap<String, Dispatcher>(dispatcherModule.getDispatchers());
 		dispatchers.put(DispatcherModule.PATH_MAPPED, new MapperDispatcher());
 		dispatchers.put(DispatcherModule.PATH_GLOBAL_MAPPED,  GlobalMapperRegistry.getInstance());
 		
@@ -117,14 +117,16 @@ public class OpenOLATServlet extends HttpServlet {
 				legacyContext += "/";
 			}
 		}
+		
+		//preload extensions
+		ExtManager.getInstance().getExtensions();
 	}
 
 	@Override
 	protected void service(HttpServletRequest req, HttpServletResponse resp)
 	throws ServletException, IOException {
 		//log.info(req.getMethod() + " :: " + req.getPathInfo());
-		
-		GUIInterna.begin(req);
+
 		Tracing.setUreq(req);
 		ThreadLocalUserActivityLoggerInstaller.initUserActivityLogger(req);
 		WorkThreadInformations.set("Serve request: " + req.getRequestURI());
@@ -164,7 +166,6 @@ public class OpenOLATServlet extends HttpServlet {
 			ThreadLocalUserActivityLoggerInstaller.resetUserActivityLogger();
 			I18nManager.remove18nInfoFromThread();
 			Tracing.setUreq(null);
-			GUIInterna.end(req);
 			//let it at the end
 			DBFactory.getInstance().commitAndCloseSession();
 		}
@@ -272,7 +273,19 @@ public class OpenOLATServlet extends HttpServlet {
 				String dmzUri = WebappHelper.getServletContextPath() + DispatcherModule.getPathDefault();
 				response.sendRedirect(dmzUri);
 			} else {
-				response.sendError(HttpServletResponse.SC_NOT_FOUND);
+				String uri = request.getRequestURI();
+				if(uri != null && uri.contains("/raw/_noversion_/")) {
+					//cut and redirect
+					int index = uri.indexOf("/raw/_noversion_/");
+					if(index > 0) {
+						String redirectUri = Settings.getServerContextPathURI() + uri.substring(index, uri.length());
+						response.sendRedirect(redirectUri);
+					} else {
+						response.sendError(HttpServletResponse.SC_NOT_FOUND);
+					}
+				} else {
+					response.sendError(HttpServletResponse.SC_NOT_FOUND);
+				}
 			}
 		}
 	}

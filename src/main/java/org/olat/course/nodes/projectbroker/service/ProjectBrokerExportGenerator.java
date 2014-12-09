@@ -29,8 +29,8 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
 
-import org.olat.basesecurity.BaseSecurityManager;
-import org.olat.core.gui.translator.PackageTranslator;
+import org.olat.basesecurity.GroupRoles;
+import org.olat.core.CoreSpringFactory;
 import org.olat.core.gui.translator.Translator;
 import org.olat.core.id.Identity;
 import org.olat.core.id.UserConstants;
@@ -39,18 +39,17 @@ import org.olat.core.logging.Tracing;
 import org.olat.core.util.Util;
 import org.olat.course.ICourse;
 import org.olat.course.nodes.CourseNode;
-import org.olat.course.nodes.projectbroker.ProjectListController;
 import org.olat.course.nodes.projectbroker.datamodel.CustomField;
 import org.olat.course.nodes.projectbroker.datamodel.Project;
 import org.olat.course.nodes.projectbroker.datamodel.ProjectEvent;
 import org.olat.course.properties.CoursePropertyManager;
+import org.olat.group.BusinessGroupService;
 
 /**
  * @author Christian Guretzki
  */
 public class ProjectBrokerExportGenerator {
 	private static OLog log = Tracing.createLoggerFor(ProjectBrokerExportGenerator.class);
-  private static final String PACKAGE = Util.getPackageName(ProjectListController.class);
   
   private static final String END_OF_LINE = "\t\n";
   private static final String TABLE_DELIMITER = "\t";
@@ -67,15 +66,17 @@ public class ProjectBrokerExportGenerator {
 	 * @return String
 	 */
 	public static String createCourseResultsOverviewTable(CourseNode courseNode, ICourse course, Locale locale) {
-	  Translator translator = new PackageTranslator(PACKAGE, locale);
+	  Translator translator = Util.createPackageTranslator(ProjectBrokerExportGenerator.class, locale);
 		StringBuilder table = new StringBuilder();
 		ProjectBrokerModuleConfiguration moduleConfig = new ProjectBrokerModuleConfiguration(courseNode.getModuleConfiguration());
+		
+		ProjectBrokerManager projectBrokerManager = CoreSpringFactory.getImpl(ProjectBrokerManager.class);
 
 		// load project-list
 		CoursePropertyManager cpm = course.getCourseEnvironment().getCoursePropertyManager();
-		Long projectBrokerId = ProjectBrokerManagerFactory.getProjectBrokerManager().getProjectBrokerId(cpm, courseNode);
+		Long projectBrokerId = projectBrokerManager.getProjectBrokerId(cpm, courseNode);
 		if (projectBrokerId != null) {
-			List<Project> projects = ProjectBrokerManagerFactory.getProjectBrokerManager().getProjectListBy(projectBrokerId);				
+			List<Project> projects = projectBrokerManager.getProjectListBy(projectBrokerId);				
 			// build table-header
 			table.append( createHeaderLine(translator, moduleConfig)) ;			
 			// loop over all projects
@@ -113,9 +114,8 @@ public class ProjectBrokerExportGenerator {
 		line.append(t.translate(project.getState()));
 		line.append(TABLE_DELIMITER);
 		// loop over customfileds
-		int customFieldIndex = 0;
-		for (CustomField customField : moduleConfig.getCustomFields()) {
-			String value = project.getCustomFieldValue(customFieldIndex++);
+		for (int customFieldIndex=0; customFieldIndex<moduleConfig.getCustomFields().size(); customFieldIndex++) {
+			String value = project.getCustomFieldValue(customFieldIndex);
 			line.append(value);
 			line.append(TABLE_DELIMITER);
 		}
@@ -144,7 +144,9 @@ public class ProjectBrokerExportGenerator {
 		
 		StringBuilder participants = new StringBuilder();
 		boolean firstParticipants = true;
-		for (Identity identity : BaseSecurityManager.getInstance().getIdentitiesOfSecurityGroup(project.getProjectParticipantGroup()) ) {
+		List<Identity> participantList = CoreSpringFactory.getImpl(BusinessGroupService.class)
+				.getMembers(project.getProjectGroup(), GroupRoles.participant.name());
+		for (Identity identity : participantList) {
 			if (!firstParticipants) {
 				participants.append(" , ");
 			}

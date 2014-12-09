@@ -5,6 +5,7 @@ import java.util.List;
 
 import org.olat.core.commons.persistence.DBFactory;
 import org.olat.core.id.OLATResourceable;
+import org.olat.core.logging.OLog;
 import org.olat.core.logging.Tracing;
 import org.olat.repository.RepositoryEntry;
 import org.olat.repository.RepositoryEntryStatus;
@@ -17,6 +18,7 @@ import de.unileipzig.xman.exam.Exam;
 public class ExamDBManager {
 	
 	private static ExamDBManager INSTANCE = null;
+	private OLog log = Tracing.createLoggerFor(getClass());
 
 	private ExamDBManager() {
 		// singleton
@@ -34,28 +36,14 @@ public class ExamDBManager {
 	 * @return the new created exam
 	 */
 	public Exam createExam() {
-		
 		return new ExamImpl();
 	}
-	
-	/**
-	 * Persists the given exam in the database.
-	 * It also creates a OLATResource belonging to the exam.
-	 * @param exam - the exam, which is to be saved
-	 */
-	public void saveExam(Exam newExam) {
-		
-		newExam.setLastModified(new Date());
-		DBFactory.getInstance().saveObject(newExam);
-		Tracing.createLoggerFor(ExamDBManager.class).info("New exam with id " + newExam.getKey() + " was created.");
-		
-		//newExam = (Exam)DBFactory.getInstance().loadObject(newExam);
-				
-		OLATResourceManager rm = OLATResourceManager.getInstance();
-		OLATResource ores = rm.createOLATResourceInstance(newExam);
-		rm.saveOLATResource(ores);
+
+	public void saveExam(Exam exam) {
+		DBFactory.getInstance().saveObject(exam);
+		log.info("New exam '" + exam.getName() + "' created");
 	}
-	
+
 	/**
 	 * Updates an existing exam.
 	 * @param exam - the exam, which is to be updated
@@ -63,7 +51,7 @@ public class ExamDBManager {
 	public void updateExam(Exam exam) {
 		
 		DBFactory.getInstance().updateObject(exam);
-		Tracing.createLoggerFor(ExamDBManager.class).info("Exam with the id: " + exam.getKey() + "was updated");
+		log.info("Exam with the id: " + exam.getKey() + "was updated");
 	}
 	
 	/**
@@ -77,7 +65,7 @@ public class ExamDBManager {
 		if ( deleteExam != null ) {
 			
 			DBFactory.getInstance().deleteObject(deleteExam);
-			Tracing.createLoggerFor(ExamDBManager.class).info("The exam with id " + deleteExam.getKey() + " was deleted.");
+			log.info("The exam with id " + deleteExam.getKey() + " was deleted.");
 		}
 		
 	}
@@ -104,7 +92,7 @@ public class ExamDBManager {
 		List examList = DBFactory.getInstance().find(query);
 		if ( examList.size() > 0 ) return (Exam)examList.get(0);
 		else {
-			Tracing.createLoggerFor(ExamDBManager.class).info("No exam with id " + id + " could be found!");
+			log.info("No exam with id " + id + " could be found!");
 			return null;
 		}
 	}

@@ -1,0 +1,54 @@
+@charset "UTF-8";
+
+/*
+*  =================================================
+*  
+*   Rules for OpenOLAT print layout. Mostly to hide things in print view. 
+*   
+*   @author gnaegi,  www.frentix.com
+*   @date April 2014
+*
+*  =================================================
+*/
+
+@media print {
+
+	/* don't print URL's on href, ugly bootstrap default */
+	a[href]:after {
+    	content: "";
+  	}
+
+	/* Hide general elements */
+	#o_header_wrapper,
+	#o_offcanvas_right,
+	#o_navbar_wrapper,
+	#o_footer_wrapper,
+	#o_toplink,
+	#o_main_left, 
+	#o_main_right,
+	#o_main_toolbar,
+	#jsMath_PrintWarning,
+	.o_noti,
+	.o_opener,
+	.o_hide,
+	.o_noprint { 
+		display: none !important;
+	} 
+
+	/* Page breaks */	
+	.o_print_break_avoid {
+		page-break-inside : avoid;
+	}
+	.o_print_break_before {
+		page-break-before: always;
+	}
+
+	/* Hide backgrounds */	
+	body.o_dmz {
+		background: white !important;
+	}
+
+}
+
+
+

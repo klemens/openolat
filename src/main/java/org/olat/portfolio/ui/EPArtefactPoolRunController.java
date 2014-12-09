@@ -21,7 +21,6 @@ package org.olat.portfolio.ui;
 
 import java.util.List;
 
-import org.olat.core.CoreSpringFactory;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.Component;
 import org.olat.core.gui.components.link.Link;
@@ -57,6 +56,7 @@ import org.olat.portfolio.ui.filter.EPFilterSelectController;
 import org.olat.portfolio.ui.filter.PortfolioFilterChangeEvent;
 import org.olat.portfolio.ui.filter.PortfolioFilterController;
 import org.olat.portfolio.ui.filter.PortfolioFilterEditEvent;
+import org.springframework.beans.factory.annotation.Autowired;
 
 /**
  * Presents an overview of all artefacts of an user. 
@@ -68,20 +68,22 @@ import org.olat.portfolio.ui.filter.PortfolioFilterEditEvent;
 public class EPArtefactPoolRunController extends BasicController implements Activateable2 {
 
 	private VelocityContainer vC;
-	private EPFrontendManager ePFMgr;
 	private EPFilterSettings filterSettings = new EPFilterSettings();
 	private EPAddArtefactController addArtefactCtrl;
 	private boolean artefactChooseMode;
 	private SegmentViewComponent segmentView;
-	private Link artefactsLink;
-	private Link browseLink;
-	private Link searchLink;
+	private Link artefactsLink, browseLink, searchLink;
 	private Controller filterSelectCtrl;
 	private Filter previousFilterMode;
 	private EPViewModeController viewModeCtrl;
 	private EPMultiArtefactsController artCtrl;
 	private String previousViewMode;
 	private List<AbstractArtefact> previousArtefactsList;
+	
+	@Autowired
+	private EPFrontendManager ePFMgr;
+	@Autowired
+	private PortfolioModule portfolioModule;
 	
 	private PortfolioStructure preSelectedStruct;
 
@@ -94,10 +96,10 @@ public class EPArtefactPoolRunController extends BasicController implements Acti
 		this.artefactChooseMode = artefactChooseMode;
 		Component viewComp = new Panel("empty");
 		Component filterPanel = new Panel("filter");
-		PortfolioModule portfolioModule = (PortfolioModule) CoreSpringFactory.getBean("portfolioModule");
-		ePFMgr = (EPFrontendManager) CoreSpringFactory.getBean("epFrontendManager");
+
 		if (portfolioModule.isEnabled()) {
 			init(ureq);
+			initViewModeController(ureq);
 			viewComp = vC;
 			vC.put("filterPanel", filterPanel);
 			
@@ -107,7 +109,6 @@ public class EPArtefactPoolRunController extends BasicController implements Acti
 				initTPFilterView(ureq);
 			}
 
-			initViewModeController(ureq);
 			putInitialPanel(viewComp);
 		} else {
 			putInitialPanel(new Panel("empty"));
@@ -168,6 +169,7 @@ public class EPArtefactPoolRunController extends BasicController implements Acti
 
 	private void setSegmentContent(Controller ctrl){
 		vC.put("segmentContent", ctrl.getInitialComponent());
+		vC.setDirty(true);
 	}
 
 	private void initTPAllView(UserRequest ureq) {
@@ -185,11 +187,14 @@ public class EPArtefactPoolRunController extends BasicController implements Acti
 		if (previousViewMode != null && !previousViewMode.equals(userPrefsMode)) {
 			removeAsListenerAndDispose(artCtrl);
 		}
+
 		if (userPrefsMode != null && userPrefsMode.equals(EPViewModeController.VIEWMODE_TABLE)){
 			EPSecurityCallback secCallback = new EPSecurityCallbackImpl(true, true);
 			artCtrl = new EPMultipleArtefactsAsTableController(ureq, getWindowControl(), artefacts, null, artefactChooseMode, secCallback);
+			viewModeCtrl.selectTable();
 		} else {
-			artCtrl = new EPMultipleArtefactPreviewController(ureq, getWindowControl(), artefacts, artefactChooseMode);			
+			artCtrl = new EPMultipleArtefactPreviewController(ureq, getWindowControl(), artefacts, artefactChooseMode);
+			viewModeCtrl.selectDetails();
 		}
 		previousViewMode = userPrefsMode;
 		listenTo(artCtrl);

@@ -19,7 +19,6 @@
  */
 package org.olat.portfolio.ui.artefacts.view;
 
-import org.olat.core.CoreSpringFactory;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.Component;
 import org.olat.core.gui.components.link.Link;
@@ -32,12 +31,14 @@ import org.olat.core.gui.control.controller.BasicController;
 import org.olat.core.gui.control.generic.closablewrapper.CloseableCalloutWindowController;
 import org.olat.core.gui.control.generic.closablewrapper.CloseableModalController;
 import org.olat.portfolio.EPSecurityCallback;
-import org.olat.portfolio.EPUIFactory;
 import org.olat.portfolio.manager.EPFrontendManager;
 import org.olat.portfolio.model.artefacts.AbstractArtefact;
 import org.olat.portfolio.model.structel.PortfolioStructure;
 import org.olat.portfolio.ui.artefacts.collect.EPCollectStepForm04;
+import org.olat.portfolio.ui.artefacts.edit.EPReflexionWrapperController;
+import org.olat.portfolio.ui.artefacts.edit.EPTagsController;
 import org.olat.portfolio.ui.structel.EPStructureChangeEvent;
+import org.springframework.beans.factory.annotation.Autowired;
 
 /**
  * Description: Displays the options-Link for an artefact. handles displaying of the callout and its links 
@@ -49,21 +50,20 @@ import org.olat.portfolio.ui.structel.EPStructureChangeEvent;
  */
 public class EPArtefactViewOptionsLinkController extends BasicController {
 
-	
 	private final AbstractArtefact artefact;
 	private PortfolioStructure struct;
 	private final EPSecurityCallback secCallback;
 	private final VelocityContainer vC;
-	private final EPFrontendManager ePFMgr;
+	@Autowired
+	private EPFrontendManager ePFMgr;
 	
 	//controllers
 	private EPCollectStepForm04 moveTreeCtrl;
 	private CloseableModalController moveTreeBox;
-	private Controller reflexionCtrl;
+	private Controller tagsCtrl;
+	private EPReflexionWrapperController reflexionCtrl;
 	private CloseableCalloutWindowController artefactOptionCalloutCtrl;
 	
-	
-
 	// the link that triggers the callout
 	private Link optionLink;
 
@@ -71,7 +71,7 @@ public class EPArtefactViewOptionsLinkController extends BasicController {
 	private Link unlinkLink;
 	private Link moveLink;
 	private Link reflexionLink;
-	
+	private Link tagsLink;
 	
 	public EPArtefactViewOptionsLinkController(final UserRequest ureq, final WindowControl wControl, final AbstractArtefact artefact,
 			final EPSecurityCallback secCallback, final PortfolioStructure struct){
@@ -80,16 +80,14 @@ public class EPArtefactViewOptionsLinkController extends BasicController {
 		this.struct = struct;
 		this.secCallback = secCallback;
 		
-		ePFMgr = (EPFrontendManager) CoreSpringFactory.getBean("epFrontendManager");
 		vC = createVelocityContainer("optionsLink");
 		
-		optionLink = LinkFactory.createCustomLink("option.link", "option", "&nbsp;&nbsp;", Link.NONTRANSLATED, vC, this);
-		optionLink.setCustomEnabledLinkCSS("b_ep_options");
+		optionLink = LinkFactory.createCustomLink("option.link", "option", " ", Link.NONTRANSLATED, vC, this);
+		optionLink.setIconLeftCSS("o_icon o_icon_actions");
 		optionLink.setTooltip(translate("option.link"));
 		
-		putInitialPanel(vC);
+		putInitialPanel(optionLink);
 	}
-	
 	
 	@Override
 	protected void event(UserRequest ureq, Component source, Event event) {
@@ -104,8 +102,12 @@ public class EPArtefactViewOptionsLinkController extends BasicController {
 			showMoveTree(ureq);
 		} else if (source == reflexionLink) {
 			closeArtefactOptionsCallout();
-			reflexionCtrl = EPUIFactory.getReflexionPopup(ureq, getWindowControl(), secCallback, artefact, struct);
+			reflexionCtrl = new EPReflexionWrapperController(ureq, getWindowControl(), secCallback, artefact, struct);
 			listenTo(reflexionCtrl);
+		} else if (source == tagsLink) {
+			closeArtefactOptionsCallout();
+			tagsCtrl = new EPTagsController(ureq, getWindowControl(), secCallback, artefact, struct);
+			listenTo(tagsCtrl);
 		}
 	}
 	
@@ -122,6 +124,11 @@ public class EPArtefactViewOptionsLinkController extends BasicController {
 		} else if (source == artefactOptionCalloutCtrl) {
 			removeAsListenerAndDispose(artefactOptionCalloutCtrl);
 			artefactOptionCalloutCtrl = null;
+		} else if (source == tagsCtrl) {
+			if(event == Event.DONE_EVENT) {
+				fireEvent(ureq, Event.CHANGED_EVENT);
+			}
+			removeAsListenerAndDispose(tagsCtrl);
 		}
 		fireEvent(ureq, event);
 	}
@@ -139,7 +146,6 @@ public class EPArtefactViewOptionsLinkController extends BasicController {
 		listenTo(moveTreeBox);
 		moveTreeBox.activate();
 	}
-	
 	
 	/**
 	 * closes the callout
@@ -161,10 +167,14 @@ public class EPArtefactViewOptionsLinkController extends BasicController {
 		if (secCallback.canRemoveArtefactFromStruct()){
 			unlinkLink = LinkFactory.createCustomLink("unlink.link", "remove", "remove.from.map", Link.LINK, artOptVC, this);
 		}		
-		if (secCallback.canAddArtefact() && secCallback.canRemoveArtefactFromStruct() && secCallback.isOwner()){ // isOwner: don't show move in group maps!
+		if (secCallback.canAddArtefact() && secCallback.canRemoveArtefactFromStruct() && secCallback.isOwner()) { // isOwner: don't show move in group maps!
 			moveLink = LinkFactory.createCustomLink("move.link", "move", "artefact.options.move", Link.LINK, artOptVC, this);
 		}
 		reflexionLink = LinkFactory.createCustomLink("reflexion.link", "reflexion", "table.header.reflexion", Link.LINK, artOptVC, this);
+		if(secCallback.canEditTags()) {
+			tagsLink = LinkFactory.createCustomLink("tags.link", "tags", "artefact.tags", Link.LINK, artOptVC, this);
+		}
+		
 		String title = translate("option.link");
 		removeAsListenerAndDispose(artefactOptionCalloutCtrl);
 		artefactOptionCalloutCtrl = new CloseableCalloutWindowController(ureq, getWindowControl(), artOptVC, optionLink, title, true, null);
@@ -172,10 +182,8 @@ public class EPArtefactViewOptionsLinkController extends BasicController {
 		artefactOptionCalloutCtrl.activate();
 	}
 	
-
 	@Override
 	protected void doDispose() {
 		closeArtefactOptionsCallout();
 	}
-
 }

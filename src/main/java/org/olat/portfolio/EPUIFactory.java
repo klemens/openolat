@@ -26,17 +26,13 @@ import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.WindowControl;
 import org.olat.core.gui.control.generic.closablewrapper.CloseableModalController;
-import org.olat.core.id.Identity;
 import org.olat.core.id.OLATResourceable;
 import org.olat.portfolio.model.artefacts.AbstractArtefact;
 import org.olat.portfolio.model.structel.PortfolioStructure;
 import org.olat.portfolio.model.structel.PortfolioStructureMap;
 import org.olat.portfolio.ui.EPArtefactPoolRunController;
-import org.olat.portfolio.ui.EPMapRunController;
-import org.olat.portfolio.ui.EPMapRunViewOption;
 import org.olat.portfolio.ui.PortfolioAdminController;
 import org.olat.portfolio.ui.artefacts.collect.ArtefactWizzardStepsController;
-import org.olat.portfolio.ui.artefacts.edit.EPReflexionWrapperController;
 import org.olat.portfolio.ui.artefacts.view.EPArtefactViewController;
 import org.olat.portfolio.ui.artefacts.view.EPMultiArtefactsController;
 import org.olat.portfolio.ui.artefacts.view.EPMultipleArtefactSmallReadOnlyPreviewController;
@@ -77,46 +73,6 @@ public class EPUIFactory {
 	public static Controller createPortfolioAdminController(UserRequest ureq, WindowControl wControl) {
 		return new PortfolioAdminController(ureq, wControl);
 	}
-
-	/**
-	 * get a controller with all user maps (without structureds map or templates)
-	 * @param ureq
-	 * @param wControl
-	 * @return
-	 */
-	public static Controller createPortfolioMapsController(UserRequest ureq, WindowControl wControl) {
-		return new EPMapRunController(ureq, wControl, true, EPMapRunViewOption.MY_DEFAULTS_MAPS, null);
-	}
-	
-	/**
-	 * Get a controller with all maps I can see from other users,
-	 * @param ureq
-	 * @param wControl
-	 * @return
-	 */
-	public static Controller createPortfolioMapsFromOthersController(UserRequest ureq, WindowControl wControl) {
-		return new EPMapRunController(ureq, wControl, false, EPMapRunViewOption.OTHERS_MAPS, null);
-	}
-	
-	/**
-	 * Get a controller with all maps I can see from other users,
-	 * @param ureq
-	 * @param wControl
-	 * @return
-	 */
-	public static Controller createPortfolioMapsVisibleToOthersController(UserRequest ureq, WindowControl wControl, Identity choosenOwner) {
-		return new EPMapRunController(ureq, wControl, false, EPMapRunViewOption.OTHER_MAPS, choosenOwner);
-	}
-	
-	/**
-	 * Get a controller with all user structured maps (but not templates)
-	 * @param ureq
-	 * @param wControl
-	 * @return
-	 */
-	public static Controller createPortfolioStructuredMapsController(UserRequest ureq, WindowControl wControl) {
-		return new EPMapRunController(ureq, wControl, false, EPMapRunViewOption.MY_EXERCISES_MAPS, null);
-	}
 	
 	public static Controller createPortfolioStructureMapController(UserRequest ureq, WindowControl wControl, PortfolioStructureMap map,
 			EPSecurityCallback secCallback) {
@@ -148,8 +104,7 @@ public class EPUIFactory {
 		PortfolioModule portfolioModule = (PortfolioModule) CoreSpringFactory.getBean("portfolioModule");
 		EPArtefactHandler<?> handler = portfolioModule.getArtefactHandler(ores.getResourceableTypeName());
 		if (portfolioModule.isEnabled() && handler != null && handler.isEnabled()) {
-			ArtefactWizzardStepsController artWizzCtrl = new ArtefactWizzardStepsController(ureq, wControl, ores, businessPath);
-			return artWizzCtrl;
+			return new ArtefactWizzardStepsController(ureq, wControl, ores, businessPath);
 		}
 		return null;
 	}
@@ -192,19 +147,4 @@ public class EPUIFactory {
 		}
 		return null;
 	}
-	
-	/**
-	 * get the correct reflexion popup depending on permissions and mode as also context
-	 * @param ureq
-	 * @param wControl
-	 * @param secCallback
-	 * @param artefact
-	 * @param struct - might be null -> means not linked to a structure
-	 * @return
-	 */
-	public static Controller getReflexionPopup(UserRequest ureq, WindowControl wControl, EPSecurityCallback secCallback, AbstractArtefact artefact, PortfolioStructure struct){
-		return new EPReflexionWrapperController(ureq, wControl, secCallback, artefact, struct);
-	}
-
-
 }

@@ -34,8 +34,7 @@ import javax.persistence.EntityManager;
 import javax.persistence.Query;
 import javax.persistence.TypedQuery;
 
-import org.olat.basesecurity.SecurityGroup;
-import org.olat.basesecurity.SecurityGroupMembershipImpl;
+import org.olat.basesecurity.Group;
 import org.olat.core.commons.persistence.DB;
 import org.olat.core.id.Identity;
 import org.olat.core.id.UserConstants;
@@ -133,7 +132,7 @@ public class QTIResultManager implements UserDataDeletable {
 	 * @return List of QTIResult objects
 	 */
 	public List<QTIResult> selectResults(Long olatResource, String olatResourceDetail, Long repositoryRef,
-			List<SecurityGroup> limitToSecGroups, int type) {
+			List<Group> limitToSecGroups, int type) {
 		StringBuilder sb = new StringBuilder();
 		sb.append("select res from ").append(QTIResult.class.getName()).append(" as res ")
 		  .append(" inner join res.resultSet as rset")
@@ -141,14 +140,14 @@ public class QTIResultManager implements UserDataDeletable {
 		  .append(" inner join ident.user as usr")
 		  .append(" where rset.olatResource=:resId and rset.olatResourceDetail=:resSubPath and rset.repositoryRef=:repoKey");
 		if(limitToSecGroups != null && limitToSecGroups.size() > 0) {
-			sb.append(" and rset.identity.key in ( select secMembership.identity.key from ").append(SecurityGroupMembershipImpl.class.getName()).append(" secMembership ")
-			  .append("   where secMembership.securityGroup in (:secGroups)")
+			sb.append(" and rset.identity.key in ( select membership.identity.key from bgroupmember membership ")
+			  .append("   where membership.group in (:baseGroups)")
 			  .append(" )");
 		}
 		
 		if(type == 1 || type == 2) {
 			 // 1 -> iqtest, 2 -> iqself
-		    sb.append(" order by usr.properties['").append(UserConstants.LASTNAME).append("'] , rset.assessmentID, res.itemIdent");
+		    sb.append(" order by usr.userProperties['").append(UserConstants.LASTNAME).append("'] , rset.assessmentID, res.itemIdent");
 		} else {
 			//3 -> iqsurv: the alphabetical assortment above could destroy the anonymization
 		    // if names and quantity of the persons is well-known
@@ -161,7 +160,7 @@ public class QTIResultManager implements UserDataDeletable {
 				.setParameter("repoKey", repositoryRef);
 		
 		if(limitToSecGroups != null && limitToSecGroups.size() > 0) {
-			query.setParameter("secGroups", limitToSecGroups);
+			query.setParameter("baseGroups", limitToSecGroups);
 		}
 		
 		return query.getResultList();
@@ -181,7 +180,6 @@ public class QTIResultManager implements UserDataDeletable {
 		  .append(" inner join rset.identity as ident")
 		  .append(" inner join ident.user as usr")
 		  .append(" where rset.olatResource=:resId and rset.olatResourceDetail=:resSubPath and rset.repositoryRef=:repoKey");
-
 
 		Number count = dbInstance.getCurrentEntityManager().createQuery(sb.toString(), Number.class)
 				.setParameter("resId", olatResource)

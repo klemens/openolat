@@ -36,7 +36,7 @@ import org.olat.core.gui.translator.Translator;
  * 
  * @author Felix Jost
  */
-public abstract class Container extends Component implements ComponentCollection {
+public abstract class Container extends AbstractComponent implements ComponentCollection {
 	private Map<String, Component> components = new HashMap<String, Component>(5);
 
 	/**
@@ -97,6 +97,7 @@ public abstract class Container extends Component implements ComponentCollection
 	 * @param name
 	 * @return
 	 */
+	@Override
 	public Component getComponent(String name) {
 		return components.get(name);
 	}
@@ -110,10 +111,6 @@ public abstract class Container extends Component implements ComponentCollection
 		return components.values();
 	}
 	
-	public Map<String,Component> getComponentMap() {
-		return components;
-	}
-	
 	public void clear() {
 		components.clear();
 	}
@@ -125,6 +122,7 @@ public abstract class Container extends Component implements ComponentCollection
 	/**
 	 * @see org.olat.core.gui.components.Component#getExtendedDebugInfo()
 	 */
+	@Override
 	public String getExtendedDebugInfo() {
 		return "";
 	}

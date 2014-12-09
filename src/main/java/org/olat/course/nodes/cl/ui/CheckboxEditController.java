@@ -136,9 +136,9 @@ public class CheckboxEditController extends FormBasicController {
 		
 		String[] onKeys = new String[] { "on" };
 		String[] onValues = new String[] { translate("award.point.on") };
-		awardPointEl = uifactory.addCheckboxesHorizontal("points", formLayout, onKeys, onValues, null);
+		awardPointEl = uifactory.addCheckboxesHorizontal("points", formLayout, onKeys, onValues);
 		awardPointEl.setVisible(withScore);
-		awardPointEl.addActionListener(this, FormEvent.ONCHANGE);
+		awardPointEl.addActionListener(FormEvent.ONCHANGE);
 		if(checkbox.getPoints() != null) {
 			awardPointEl.select(onKeys[0], true);
 		}
@@ -149,10 +149,10 @@ public class CheckboxEditController extends FormBasicController {
 		
 		String desc = checkbox.getDescription();
 		descriptionEl = uifactory.addRichTextElementForStringDataMinimalistic("description", "description", desc, 5, -1, formLayout,
-				ureq.getUserSession(), getWindowControl());
+				getWindowControl());
 
 		fileEl = uifactory.addFileElement("file", formLayout);
-		fileEl.addActionListener(this, FormEvent.ONCHANGE);
+		fileEl.addActionListener(FormEvent.ONCHANGE);
 
 		String template = velocity_root + "/delete_file.html";
 		deleteFileCont = FormLayoutContainer.createCustomFormLayout("delete", getTranslator(), template);

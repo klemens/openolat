@@ -1,28 +1,24 @@
  #if ($esf_available)
 
 <!-- personal informations like name email etc. -->
-<div style="overflow: hidden; margin-bottom: 1em; padding: 1em;">
-	<p style="float: right;">$r.render("ESFLaunchController.tool.change")</p>
-	<table style="float: left;">
-		<tr>
-			<td><b>$r.translate("esf-launch_html.name"):</b></td>
-			<td style="padding-left: 1em;">$firstName $lastName</td>
-		</tr>
-		<tr>
-			<td><b>$r.translate("esf-launch_html.studyPath"):</b></td>
-			<td style="padding-left: 1em;">$studyPath</td>
-		</tr>
-	</table>
-	<table style="float: left; margin-left: 3em;">
-		<tr>
-			<td><b>$r.translate("esf-launch_html.institutionalIdentifier"):</b></td>
-			<td style="padding-left: 1em;">$institutionalIdentifier</td>
-		</tr>
-		<tr>
-			<td><b>$r.translate("esf-launch_html.email"):</b></td>
-			<td style="padding-left: 1em;">$email</td>
-		</tr>
-	</table>
+<div class="row" style="margin-bottom: 0.5em;">
+	<div class="col-md-2 col-md-push-10" style="text-align:right;h">$r.render("ESFLaunchController.tool.change")</div>
+	<div class="col-md-5 col-md-pull-2">
+		<dl class="dl-horizontal">
+			<dt style="text-align:left;">$r.translate("esf-launch_html.name"):</dt>
+			<dd>$firstName $lastName</dd>
+			<dt style="text-align:left;">$r.translate("esf-launch_html.studyPath"):</dt>
+			<dd>$studyPath</dd>
+		</dl>
+	</div>
+	<div class="col-md-5 col-md-pull-2">
+		<dl class="dl-horizontal">
+			<dt style="text-align:left;">$r.translate("esf-launch_html.institutionalIdentifier"):</dt>
+			<dd>$institutionalIdentifier</dd>
+			<dt style="text-align:left;">$r.translate("esf-launch_html.email"):</dt>
+			<dd>$email</dd>
+		</dl>
+	</div>
 </div>
 
 <!-- exam protocols -->

@@ -27,6 +27,7 @@ package org.olat.course.editor;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.olat.core.CoreSpringFactory;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.form.flexible.FormItemContainer;
 import org.olat.core.gui.components.form.flexible.elements.SingleSelection;
@@ -36,6 +37,7 @@ import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.WindowControl;
 import org.olat.core.gui.control.generic.wizard.BasicStep;
 import org.olat.core.gui.control.generic.wizard.PrevNextFinishConfig;
+import org.olat.core.gui.control.generic.wizard.Step;
 import org.olat.core.gui.control.generic.wizard.StepFormBasicController;
 import org.olat.core.gui.control.generic.wizard.StepFormController;
 import org.olat.core.gui.control.generic.wizard.StepsEvent;
@@ -44,12 +46,13 @@ import org.olat.core.gui.translator.Translator;
 import org.olat.core.util.Util;
 import org.olat.course.ICourse;
 import org.olat.login.LoginModule;
-import org.olat.repository.PropPupForm;
 import org.olat.repository.RepositoryEntry;
+import org.olat.repository.RepositoryModule;
+import org.olat.repository.RepositoryService;
 
 /**
  * Description:<br>
- * TODO: patrickb Class Description for PublishStep01
+ * Select the BARG level
  * 
  * <P>
  * Initial Date:  21.01.2008 <br>
@@ -58,19 +61,25 @@ import org.olat.repository.RepositoryEntry;
 class PublishStep01 extends BasicStep {
 
 	private PrevNextFinishConfig prevNextConfig;
-	private boolean hasPublishableChanges;
 
 	public PublishStep01(UserRequest ureq, ICourse course, boolean hasPublishableChanges, boolean hasCatalog) {
 		super(ureq);
 		setI18nTitleAndDescr("publish.access.header", null);
 		
-		//VCRP-3: add catalog entry in publish wizard
-		this.hasPublishableChanges = hasPublishableChanges;
-		setNextStep(new PublishStepCatalog(ureq, course, hasPublishableChanges));
-		if(hasCatalog){
+		RepositoryModule repositoryModule = CoreSpringFactory.getImpl(RepositoryModule.class);
+		if(repositoryModule.isCatalogEnabled()) {
+			setNextStep(new PublishStepCatalog(ureq, course, hasPublishableChanges));
+			if(hasCatalog) {
+				prevNextConfig = PrevNextFinishConfig.BACK_NEXT_FINISH;
+			} else {
+				prevNextConfig = PrevNextFinishConfig.BACK_NEXT;
+			}
+		} else if(hasPublishableChanges) {
+			setNextStep(new PublishStep00a(ureq));
 			prevNextConfig = PrevNextFinishConfig.BACK_NEXT_FINISH;
-		}else{
-			prevNextConfig = PrevNextFinishConfig.BACK_NEXT;
+		} else {
+			setNextStep(Step.NOSTEP);
+			prevNextConfig = PrevNextFinishConfig.BACK_FINISH;
 		}
 	}
 
@@ -88,7 +97,7 @@ class PublishStep01 extends BasicStep {
 	 */
 	@Override
 	public StepFormController getStepController(UserRequest ureq, WindowControl wControl, StepsRunContext stepsRunContext, Form form) {
-		return new PublishStep01AccessForm(ureq, wControl, form, stepsRunContext, hasPublishableChanges);
+		return new PublishStep01AccessForm(ureq, wControl, form, stepsRunContext);
 	}
 
 	class PublishStep01AccessForm extends StepFormBasicController {
@@ -96,7 +105,7 @@ class PublishStep01 extends BasicStep {
 		private SingleSelection accessSelbox;
 		private String selectedAccess;
 
-		PublishStep01AccessForm(UserRequest ureq, WindowControl control, Form rootForm, StepsRunContext runContext, boolean hasPublishableChanges2) {
+		PublishStep01AccessForm(UserRequest ureq, WindowControl control, Form rootForm, StepsRunContext runContext) {
 			super(ureq, control, rootForm, runContext, LAYOUT_VERTICAL, null);
 			selectedAccess = (String) getFromRunContext("selectedCourseAccess");
 			initForm(ureq);
@@ -120,10 +129,12 @@ class PublishStep01 extends BasicStep {
 
 		@Override
 		protected void initForm(FormItemContainer formLayout, Controller listener, UserRequest ureq) {
-			Translator pt = Util.createPackageTranslator(PropPupForm.class, getLocale(), getTranslator());
+			Translator pt = Util.createPackageTranslator(RepositoryService.class, getLocale(), getTranslator());
 			
-			FormItemContainer fic = FormLayoutContainer.createCustomFormLayout("access", pt, this.velocity_root+"/publish_courseaccess.html");
+			FormLayoutContainer fic = FormLayoutContainer.createCustomFormLayout("access", pt, velocity_root + "/publish_courseaccess.html");
 			formLayout.add(fic);
+			RepositoryModule repositoryModule = CoreSpringFactory.getImpl(RepositoryModule.class);
+			fic.contextPut("catalogEnabled", repositoryModule.isCatalogEnabled());
 
 			List<String> keyList = new ArrayList<String>();
 			keyList.add(Integer.toString(RepositoryEntry.ACC_OWNERS));
@@ -147,6 +158,7 @@ class PublishStep01 extends BasicStep {
 
 			//use the addDropDownSingleselect method with null as label i18n - key, because there is no label to set. OLAT-3682
 			accessSelbox = uifactory.addDropdownSingleselect("accessBox",null, fic, keys, values, null);
+			accessSelbox.setElementCssClass("o_sel_course_publish_access");
 			if(!LoginModule.isGuestLoginLinksEnabled() && "4".equals(selectedAccess)) {//no guest but BARG
 				accessSelbox.select("3", true);//-> set BAR-
 			} else {

@@ -53,7 +53,6 @@ import org.olat.course.editor.NodeEditController;
 import org.olat.course.nodes.CPCourseNode;
 import org.olat.course.nodes.TitledWrapperHelper;
 import org.olat.course.run.navigation.NodeRunConstructionResult;
-import org.olat.course.run.userview.UserCourseEnvironment;
 import org.olat.fileresource.FileResourceManager;
 import org.olat.ims.cp.CPManager;
 import org.olat.ims.cp.ui.CPPackageConfig;
@@ -102,7 +101,7 @@ public class CPRunController extends BasicController implements ControllerEventL
 	 * @param wControl
 	 * @param cpNode
 	 */
-	public CPRunController(ModuleConfiguration config, UserRequest ureq, UserCourseEnvironment userCourseEnv, WindowControl wControl, CPCourseNode cpNode, String nodecmd, OLATResourceable course) {
+	public CPRunController(ModuleConfiguration config, UserRequest ureq, WindowControl wControl, CPCourseNode cpNode, String nodecmd, OLATResourceable course) {
 		super(ureq, wControl);
 		this.nodecmd = nodecmd;
 		this.courseResource = OresHelper.clone(course);
@@ -138,6 +137,7 @@ public class CPRunController extends BasicController implements ControllerEventL
 	 * @see org.olat.core.gui.control.DefaultController#event(org.olat.core.gui.UserRequest,
 	 *      org.olat.core.gui.components.Component, org.olat.core.gui.control.Event)
 	 */
+	@Override
 	public void event(UserRequest ureq, Component source, Event event) {
 		if (source == showCPButton) { // those must be links
 			fireEvent(ureq, Event.CHANGED_EVENT);
@@ -149,6 +149,7 @@ public class CPRunController extends BasicController implements ControllerEventL
 	 * @see org.olat.core.gui.control.DefaultController#event(org.olat.core.gui.UserRequest,
 	 *      org.olat.core.gui.control.Controller, org.olat.core.gui.control.Event)
 	 */
+	@Override
 	public void event(UserRequest ureq, Controller source, Event event) {
 		if (source == null) { // external source (from the course at this time being)
 			if (event instanceof TreeEvent) {
@@ -162,7 +163,6 @@ public class CPRunController extends BasicController implements ControllerEventL
 	}
 	
 	@Override
-	// Resume function
 	public void activate(UserRequest ureq, List<ContextEntry> entries, StateEntry state) {
 		if(entries == null || entries.isEmpty()) return;
 		
@@ -202,9 +202,8 @@ public class CPRunController extends BasicController implements ControllerEventL
 		if ( (nodecmd != null) && !nodecmd.equals("") ) {
  		  activateFirstPage = false; 
 		}
-		//fxdiff VCRP-13: cp navigation
-		boolean navButtons = isNavButtonConfigured();
-		cpDispC = CPUIFactory.getInstance().createContentOnlyCPDisplayController(ureq, getWindowControl(), new LocalFolderImpl(cpRoot), activateFirstPage, navButtons, deliveryOptions, nodecmd, courseResource);
+		cpDispC = CPUIFactory.getInstance().createContentOnlyCPDisplayController(ureq, getWindowControl(), new LocalFolderImpl(cpRoot),
+				activateFirstPage, false, deliveryOptions, nodecmd, courseResource, cpNode.getIdent());
 		cpDispC.setContentEncoding(deliveryOptions.getContentEncoding());
 		cpDispC.setJSEncoding(deliveryOptions.getJavascriptEncoding());
 		cpDispC.addControllerListener(this);
@@ -232,18 +231,11 @@ public class CPRunController extends BasicController implements ControllerEventL
 	private boolean isExternalMenuConfigured() {
 		return (config.getBooleanEntry(NodeEditController.CONFIG_COMPONENT_MENU).booleanValue());
 	}
-
-	/**
-	 * @return true: show next-previous buttons; false: hide next-previous buttons
-	 */
-	private boolean isNavButtonConfigured() {
-		Boolean navButton = config.getBooleanEntry(CPEditController.CONFIG_SHOWNAVBUTTONS);
-		return navButton == null ? true : navButton.booleanValue();
-	}
 	
 	/**
 	 * @see org.olat.core.gui.control.DefaultController#doDispose(boolean)
 	 */
+	@Override
 	protected void doDispose() {
 		if (cpDispC != null) {
 			cpDispC.dispose();

@@ -1,15 +1,23 @@
-<ul>
-#if($r.available("topnav.impressum"))
-	<li>
-		$r.render("topnav.impressum")
-	</li>
-#end
-#if($r.available("topnav.help"))
-	<li id="o_topnav_help">
-		$r.render("topnav.help")
-	</li>
-#end
-	<li id="o_topnav_login">
-		$r.render("topnav.login")
-	</li>
-</ul>
+<div id="$r.getCId()" class="o_navbar_tools">
+	<ul id="o_navbar_tools_permanent" class="nav o_navbar-nav o_navbar-right">
+		#if($impressumInfos.top)
+		<li id="o_navbar_impress">
+			$r.render("topnav.impressum")
+		</li>
+		#end
+		<li id="o_navbar_print">
+			<a href="javascript:o_doPrint();" title="$r.translateInAttribute("topnav.printview.alt")" >
+				<i class="o_icon o_icon_print o_icon-lg">&nbsp;</i>
+				<span>$r.translate("topnav.printview")</span>
+			</a>
+		</li>	
+		#if($r.available("topnav.help"))
+		<li id="o_navbar_help">
+			$r.render("topnav.help")
+		</li>
+		#end
+		<li id="o_navbar_login">
+			$r.render("topnav.login")
+		</li>
+	</ul>
+</div>

@@ -19,7 +19,8 @@
  */
 package org.olat.portfolio.model.structel;
 
-import org.olat.basesecurity.SecurityGroup;
+import java.util.Set;
+
 import org.olat.core.commons.persistence.PersistentObject;
 import org.olat.resource.OLATResource;
 
@@ -29,19 +30,15 @@ import org.olat.resource.OLATResource;
  * 
  * @author srosse, stephane.rosse@frentix.com, http://www.frentix.com
  */
-public class EPMapShort extends PersistentObject {
+public class EPMapShort extends PersistentObject implements PortfolioStructureMapRef {
 
 	private static final long serialVersionUID = 3093838342982364478L;
 	
 	private String title;
 	private Long sourceMapKey;
 	private OLATResource olatResource;
-	private SecurityGroup ownerGroup;
+	private Set<EPStructureElementToGroupRelation> groups;
 	
-	public EPMapShort() {
-		//
-	}
-
 	
 	public Long getSourceMapKey() {
 		return sourceMapKey;
@@ -67,12 +64,12 @@ public class EPMapShort extends PersistentObject {
 		this.olatResource = olatResource;
 	}
 
-	public SecurityGroup getOwnerGroup() {
-		return ownerGroup;
+	public Set<EPStructureElementToGroupRelation> getGroups() {
+		return groups;
 	}
 
-	public void setOwnerGroup(SecurityGroup ownerGroup) {
-		this.ownerGroup = ownerGroup;
+	public void setGroups(Set<EPStructureElementToGroupRelation> groups) {
+		this.groups = groups;
 	}
 	
 	@Override

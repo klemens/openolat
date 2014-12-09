@@ -68,10 +68,9 @@ public class EPCreateMapController extends FormBasicController {
 
 		String description = "";
 		descEl = uifactory.addRichTextElementForStringDataMinimalistic("map.description", "map.description", description, 7, -1,
-				formLayout, ureq.getUserSession(), getWindowControl());
+				formLayout, getWindowControl());
 		descEl.setNotLongerThanCheck(2047, "map.description.too.long");
 
-		uifactory.addSpacerElement("spacer", formLayout, true);
 		uifactory.addFormSubmitButton("save.and.open.map", formLayout);
 	}
 	

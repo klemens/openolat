@@ -32,10 +32,12 @@ import junit.framework.Assert;
 
 import org.junit.Test;
 import org.olat.basesecurity.BaseSecurity;
-import org.olat.basesecurity.SecurityGroup;
+import org.olat.basesecurity.Group;
+import org.olat.basesecurity.GroupRoles;
 import org.olat.core.commons.persistence.DB;
 import org.olat.core.id.Identity;
 import org.olat.repository.RepositoryEntry;
+import org.olat.repository.manager.RepositoryEntryRelationDAO;
 import org.olat.test.JunitTestHelper;
 import org.olat.test.OlatTestCase;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -52,6 +54,8 @@ public class QTIResultManagerTest extends OlatTestCase {
 	private DB dbInstance;
 	@Autowired
 	private QTIResultManager qtiResultManager;
+	@Autowired
+	private RepositoryEntryRelationDAO repositoryEntryRelationDao;
 	@Autowired
 	private BaseSecurity securityManager;
 	
@@ -184,7 +188,7 @@ public class QTIResultManagerTest extends OlatTestCase {
 	public void selectResults_limitToSecurityGroup() {
 		RepositoryEntry re = createRepository();
 		Identity id1 = JunitTestHelper.createAndPersistIdentityAsRndUser("qti-result-mgr-16");
-		securityManager.addIdentityToSecurityGroup(id1, re.getParticipantGroup());
+		repositoryEntryRelationDao.addRole(id1, re, GroupRoles.participant.name());
 		Identity id2 = JunitTestHelper.createAndPersistIdentityAsRndUser("qti-result-mgr-17");
 		dbInstance.commit();
 
@@ -202,7 +206,7 @@ public class QTIResultManagerTest extends OlatTestCase {
 		QTIResult result1_1c = createResult(itemIdent2, "Tschuss", set1_1b);
 		dbInstance.commitAndCloseSession();
 		
-		List<SecurityGroup> secGroups = Collections.singletonList(re.getParticipantGroup());
+		List<Group> secGroups = Collections.singletonList(repositoryEntryRelationDao.getDefaultGroup(re));
 		List<QTIResult> resultsType1 =  qtiResultManager.selectResults(re.getOlatResource().getResourceableId(), resSubPath, re.getKey(), secGroups, 1);
 		Assert.assertNotNull(resultsType1);
 		Assert.assertEquals(3, resultsType1.size());

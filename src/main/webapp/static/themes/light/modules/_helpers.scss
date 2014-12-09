@@ -1,0 +1,182 @@
+/* ------------------------------------------------------------- */
+/* block and wrapper styles mainling for spacing and positioning */
+/* ------------------------------------------------------------- */
+
+/* a block of content that should have margins like a paragraph */
+.o_block_bottom, %o_block_bottom {
+	margin-bottom: 1em;
+}
+.o_block_top, %o_block_top {
+	margin-top: 1em;
+}
+.o_block, %o_block {
+	@extend %o_block_top;
+	@extend %o_block_bottom;
+}
+.o_block_large_bottom, %o_block_large_bottom {
+	margin-bottom: 2em;
+}
+.o_block_large_top, %o_block_large_top {
+	margin-top: 2em;
+}
+.o_block_large, %o_block_large {
+	@extend %o_block_large_top;
+	@extend %o_block_large_bottom;
+}
+
+/* overflowing content that should have scrollbar when content overflows available space */
+.o_scrollblock, %o_scrollblock {
+	/* this must stay on "auto", change to "hidden" and the everything goes to hell */
+	overflow-x: auto;  
+	overflow-y: hidden;
+	/* allow scrolling of wrapped iframe on mobile devices */
+    -ms-overflow-style: -ms-autohiding-scrollbar;
+    -webkit-overflow-scrolling: touch;	
+}
+
+/* block for multiple buttons, center aligned (default) and right aligned when in header wrapper */
+.o_button_group {
+	@extend %o_block;
+	text-align: center;
+	a, input, button, .btn-group {
+		margin-right: 5px;		
+		margin-bottom: 0.5em;		
+		&:last-child {
+			margin-right: 0;		
+		}
+	}
+	.btn-group {
+		a, input, button {
+			margin-right: 0;		
+			margin-bottom: 0;		
+		}	
+	}	
+	.dropdown-menu {
+		text-align: left;	
+	}
+}
+/* use together with o_button_group to have buttons left or right aligned */
+.o_button_group_left {
+	text-align: left;
+}
+.o_button_group_right {
+	text-align: right;
+}
+.o_button_group_top {
+	margin-top: 0;
+}
+/* use as wrapper when buttons should be right aligned next to a title */
+.o_header_with_buttons {
+	@include clearfix();
+	@extend %o_block_bottom;
+	h1, h3, h4 {
+		display: inline-block;
+	}
+	.o_button_group {
+		/* same as h3 and h4 */
+		margin-top: ($line-height-computed / 2);
+		margin-bottom: 0;
+		float: right;
+	}
+}
+
+.panel-heading.o_header_with_buttons {
+	margin-bottom: 0;
+}
+
+/* ---------------------------------------------------------- */
+/* general content styles for fonts, links and other elements */
+/* ---------------------------------------------------------- */
+
+/* font sizes */
+.o_xsmall, %o_xsmall {
+	font-size: $font-size-small;
+}
+.o_small, %o_small {
+	font-size: $font-size-small;
+}
+.o_large, %o_large {
+	font-size: $font-size-large;
+}
+.o_xlarge, %o_xlarge {
+	font-size: $font-size-large;
+}
+
+/* disabled elements */
+.o_disabled, %o_disabled {
+	color: $o-content-disabled-color !important;
+	&:hover{
+		color: $o-content-disabled-color !important;
+	}
+	@extend %o_undecorated;
+	cursor: default;
+}
+/* dimmed text */
+.o_dimmed, %o_dimmed { 
+	@include opacity(.4);
+}
+/* selected text */
+.o_selected, %o_selected { 
+	font-weight: bold; 
+}	
+/* deleted text */
+.o_deleted, %o_deleted { 
+	text-decoration: line-through;
+}	
+/* clickable elements that should indicate this with a cursor change */
+.o_clickable, %o_clickable {
+	cursor: pointer;
+}
+
+/* colors (used in repo and else where) //FIXME: FG refactor to something meaningfull*/
+.o_ochre { color: #c8a959; }
+.o_blue { color: #12223F; }
+
+
+/* add to links that should not be decorated (system links) */ 
+.o_undecorated, %o_undecorated {
+	&:hover,&:focus {
+		text-decoration: none;
+	}
+}
+
+/* link or other copy&paste code blocks that might be to long for the screen (creates a scrollbar) */
+.o_copy_code, %o_copy_code {
+	overflow-x: auto;  
+	overflow-y: auto;
+  	font-family: $font-family-monospace;
+  	padding: 2px 4px;
+  	font-size: 90%;
+  	color: $code-color;
+ 	background-color: $code-bg;
+  	white-space: nowrap;
+  	border-radius: $border-radius-base;
+}
+
+/* text that should be on one line, e.g. in tables */
+.o_nowrap, %o_nowrap {
+	white-space: nowrap;
+}	
+
+/* titles with subtitles */
+.o_titled_wrapper {
+	.o_content {
+		margin-top: $padding-large-vertical * 2;	
+	}
+}
+
+/* media classes for video and image component */
+.o_video, %o_video {
+	@include img-responsive(inline-block);
+}
+.o_image, %o_image {
+	@include img-responsive(inline-block);
+}
+
+/* Hyphenated text */
+.o_with_hyphens, %o_with_hyphens {	
+	-webkit-hyphens: auto;
+	-moz-hyphens: auto;
+	-ms-hyphens: auto;
+	hyphens: auto;
+}	

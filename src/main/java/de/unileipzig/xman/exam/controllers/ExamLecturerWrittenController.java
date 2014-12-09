@@ -15,8 +15,6 @@ import org.olat.core.gui.components.Component;
 import org.olat.core.gui.components.form.Form;
 import org.olat.core.gui.components.link.Link;
 import org.olat.core.gui.components.link.LinkFactory;
-import org.olat.core.gui.components.stack.PopEvent;
-import org.olat.core.gui.components.stack.StackedController;
 import org.olat.core.gui.components.table.TableController;
 import org.olat.core.gui.components.table.TableEvent;
 import org.olat.core.gui.components.table.TableGuiConfiguration;
@@ -39,8 +37,6 @@ import org.olat.core.util.Util;
 import org.olat.user.HomePageConfigManagerImpl;
 import org.olat.user.UserInfoMainController;
 
-import uk.ac.reload.dweezil.gui.UIFactory;
-
 import de.unileipzig.xman.admin.mail.MailManager;
 import de.unileipzig.xman.admin.mail.form.MailForm;
 import de.unileipzig.xman.appointment.Appointment;
@@ -57,7 +53,7 @@ import de.unileipzig.xman.protocol.Protocol;
 import de.unileipzig.xman.protocol.ProtocolManager;
 import de.unileipzig.xman.protocol.tables.ProtocolLecturerWrittenModel;
 
-public class ExamLecturerWrittenController extends BasicController {
+public class ExamLecturerWrittenController extends BasicController implements ExamController {
 	
 	private Exam exam;
 	private VelocityContainer mainVC;
@@ -92,7 +88,7 @@ public class ExamLecturerWrittenController extends BasicController {
 	 * @param exam The written exam to manage
 	 * @throws InvalidParameterException
 	 */
-	protected ExamLecturerWrittenController(UserRequest ureq, WindowControl wControl, StackedController stack, Exam exam) {
+	protected ExamLecturerWrittenController(UserRequest ureq, WindowControl wControl, Exam exam) {
 		super(ureq, wControl);
 		
 		if(exam.getIsOral())
@@ -101,19 +97,17 @@ public class ExamLecturerWrittenController extends BasicController {
 		setTranslator(Util.createPackageTranslator(Exam.class, ureq.getLocale()));
 		this.exam = exam;
 		
-		listenTo(stack); // listen for pop events
-		
 		mainVC = new VelocityContainer("examStudentView", Exam.class, "examLecturerWrittenView", getTranslator(), this);
 
-		examDetailsController = new ExamDetailsController(ureq, wControl, getTranslator(), exam);
+		examDetailsController = new ExamDetailsController(ureq, wControl, getTranslator(), exam, true);
 		mainVC.put("examDetails", examDetailsController.getInitialComponent());
 
-		init(ureq, wControl);
+		init(ureq);
 
 		putInitialPanel(mainVC);
 	}
 	
-	private void init(UserRequest ureq, WindowControl wControl) {
+	private void init(UserRequest ureq) {
 		List<Appointment> apps = AppointmentManager.getInstance().findAllAppointmentsByExamId(exam.getKey());
 		if(apps.size() == 1) {
 			mainVC.contextPut("showProtocolTable", true);
@@ -125,24 +119,23 @@ public class ExamLecturerWrittenController extends BasicController {
 			userAddButton = LinkFactory.createButton("ExamLecturerWrittenController.userAddButton", mainVC, this);
 			refreshTableButton = LinkFactory.createButton("ExamLecturerWrittenController.refreshTable", mainVC, this);
 			
-			buildProtocolTable(ureq, wControl);
+			buildProtocolTable(ureq);
 		} else {
 			mainVC.contextPut("showProtocolTable", false);
 		}
 	}
 	
-	private void buildProtocolTable(UserRequest ureq, WindowControl wControl) {
+	private void buildProtocolTable(UserRequest ureq) {
 		removeAsListenerAndDispose(protocolTable);
 		
 		protocolTableModel = new ProtocolLecturerWrittenModel(exam, ureq.getLocale());
 		
 		TableGuiConfiguration tableGuiConfiguration = new TableGuiConfiguration();
-		tableGuiConfiguration.setColumnMovingOffered(true);
 		tableGuiConfiguration.setDownloadOffered(true);
 		tableGuiConfiguration.setTableEmptyMessage(translate("ExamLecturerWrittenController.protocolTable.empty"));
 		tableGuiConfiguration.setMultiSelect(true);
 		tableGuiConfiguration.setPreferencesOffered(true, "ExamLecturerWrittenController.appointmentTable");
-		protocolTable = new TableController(tableGuiConfiguration, ureq, wControl, getTranslator());
+		protocolTable = new TableController(tableGuiConfiguration, ureq, getWindowControl(), getTranslator());
 		
 		protocolTableModel.createColumns(protocolTable);
 		protocolTable.setTableDataModel(protocolTableModel);
@@ -159,14 +152,6 @@ public class ExamLecturerWrittenController extends BasicController {
 		if(ExamDBManager.getInstance().isClosed(exam)) {
 			showInfo("ExamMainController.info.closed");
 			return;
-		}
-
-		if(event instanceof PopEvent) {
-			// reload exam
-			exam = ExamDBManager.getInstance().findExamByID(exam.getKey());
-			// complete rebuild
-			init(ureq, getWindowControl());
-			examDetailsController.updateExam(exam);
 		}
 		
 		if(source == protocolTable) {
@@ -572,6 +557,13 @@ public class ExamLecturerWrittenController extends BasicController {
 			cmc = new CloseableModalController(this.getWindowControl(), translate("close"), userSearchController.getInitialComponent());
 			cmc.activate();
 		}
+	}
+
+	@Override
+	public void updateExam(UserRequest ureq, Exam newExam) {
+		this.exam = newExam;
+		init(ureq);
+		examDetailsController.updateExam(ureq, newExam);
 	}
 
 	@Override

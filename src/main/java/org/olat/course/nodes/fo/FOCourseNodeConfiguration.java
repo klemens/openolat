@@ -25,15 +25,14 @@
 
 package org.olat.course.nodes.fo;
 
-import java.util.List;
 import java.util.Locale;
 
-import org.olat.core.extensions.ExtensionResource;
 import org.olat.core.gui.translator.Translator;
 import org.olat.core.util.Util;
 import org.olat.course.nodes.AbstractCourseNodeConfiguration;
 import org.olat.course.nodes.CourseNode;
 import org.olat.course.nodes.CourseNodeConfiguration;
+import org.olat.course.nodes.CourseNodeGroup;
 import org.olat.course.nodes.FOCourseNode;
 
 /**
@@ -44,72 +43,36 @@ import org.olat.course.nodes.FOCourseNode;
  * 
  * @author guido
  */
-public class FOCourseNodeConfiguration extends AbstractCourseNodeConfiguration implements CourseNodeConfiguration {
+public class FOCourseNodeConfiguration extends AbstractCourseNodeConfiguration {
 	
 	private FOCourseNodeConfiguration() {
 		super();
 	}
 
+	@Override
 	public CourseNode getInstance() {
 		return new FOCourseNode();
 	}
 
-	/**
-	 * @see org.olat.course.nodes.CourseNodeConfiguration#getLinkText(java.util.Locale)
-	 */
+	@Override
 	public String getLinkText(Locale locale) {
 		Translator fallback = Util.createPackageTranslator(CourseNodeConfiguration.class, locale);
 		Translator translator = Util.createPackageTranslator(this.getClass(), locale, fallback);
 		return translator.translate("title_fo");
 	}
 
-	/**
-	 * @see org.olat.course.nodes.CourseNodeConfiguration#getCSSClass()
-	 */
+	@Override
 	public String getIconCSSClass() {
 		return "o_fo_icon";
 	}
 
-	/**
-	 * @see org.olat.course.nodes.CourseNodeConfiguration#getLinkCSSClass()
-	 */
-	public String getLinkCSSClass() {
-		return null;
-	}
-
+	@Override
 	public String getAlias() {
 		return "fo";
 	}
-
-	//
-	// OLATExtension interface implementations.
-	//
-
-	public String getName() {
-		return getAlias();
+	
+	@Override
+	public String getGroup() {
+		return CourseNodeGroup.collaboration.name();
 	}
-
-	/**
-	 * @see org.olat.core.extensions.OLATExtension#getExtensionResources()
-	 */
-	public List getExtensionResources() {
-		// no ressources, part of main css
-		return null;
-	}
-
-	/**
-	 * @see org.olat.core.extensions.OLATExtension#getExtensionCSS()
-	 */
-	public ExtensionResource getExtensionCSS() {
-		// no ressources, part of main css
-		return null;
-	}
-
-	/**
-	 * @see org.olat.core.extensions.OLATExtension#setURLBuilder(org.olat.core.gui.render.URLBuilder)
-	 */
-	public void setExtensionResourcesBaseURI(String ubi) {
-	// no need for the URLBuilder
-	}
-
 }

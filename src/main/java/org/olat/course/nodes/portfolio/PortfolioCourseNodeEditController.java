@@ -22,7 +22,7 @@ package org.olat.course.nodes.portfolio;
 
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.Component;
-import org.olat.core.gui.components.stack.StackedController;
+import org.olat.core.gui.components.stack.BreadcrumbPanel;
 import org.olat.core.gui.components.tabbedpane.TabbedPane;
 import org.olat.core.gui.components.velocity.VelocityContainer;
 import org.olat.core.gui.control.Controller;
@@ -36,7 +36,6 @@ import org.olat.course.auditing.UserNodeAuditManager;
 import org.olat.course.condition.Condition;
 import org.olat.course.condition.ConditionEditController;
 import org.olat.course.editor.NodeEditController;
-import org.olat.course.groupsandrights.CourseGroupManager;
 import org.olat.course.nodes.PortfolioCourseNode;
 import org.olat.course.nodes.ms.MSEditFormController;
 import org.olat.course.run.userview.UserCourseEnvironment;
@@ -73,7 +72,7 @@ public class PortfolioCourseNodeEditController extends ActivateableTabbableDefau
 	private ConditionEditController accessibilityCondContr;
 	private PortfolioCourseNode courseNode;
 	
-	public PortfolioCourseNodeEditController(UserRequest ureq, WindowControl wControl, StackedController stackPanel, ICourse course, PortfolioCourseNode node,
+	public PortfolioCourseNodeEditController(UserRequest ureq, WindowControl wControl, BreadcrumbPanel stackPanel, ICourse course, PortfolioCourseNode node,
 			ModuleConfiguration config, UserCourseEnvironment euce) {
 		super(ureq, wControl);
 		this.config = config;
@@ -92,11 +91,10 @@ public class PortfolioCourseNodeEditController extends ActivateableTabbableDefau
 		configContent.put("textForm", textForm.getInitialComponent());
 
 		//Accessibility precondition
-		CourseGroupManager groupMgr = course.getCourseEnvironment().getCourseGroupManager();
 		CourseEditorTreeModel editorModel = course.getEditorTreeModel();
 		Condition accessCondition = node.getPreConditionAccess();
-		accessibilityCondContr = new ConditionEditController(ureq, getWindowControl(), groupMgr, accessCondition,
-				"accessabilityConditionForm", AssessmentHelper.getAssessableNodes(editorModel, node), euce);		
+		accessibilityCondContr = new ConditionEditController(ureq, getWindowControl(), accessCondition,
+				AssessmentHelper.getAssessableNodes(editorModel, node), euce);		
 		listenTo(accessibilityCondContr);
 		
 	// if there is already user data available, make for read only

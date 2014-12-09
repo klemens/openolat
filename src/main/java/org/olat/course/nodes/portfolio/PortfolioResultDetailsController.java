@@ -36,7 +36,7 @@ import org.olat.core.gui.components.form.flexible.impl.FormBasicController;
 import org.olat.core.gui.components.form.flexible.impl.FormEvent;
 import org.olat.core.gui.components.form.flexible.impl.FormLayoutContainer;
 import org.olat.core.gui.components.link.Link;
-import org.olat.core.gui.components.stack.StackedController;
+import org.olat.core.gui.components.stack.BreadcrumbPanel;
 import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.Event;
 import org.olat.core.gui.control.WindowControl;
@@ -74,9 +74,9 @@ public class PortfolioResultDetailsController extends FormBasicController {
 	
 	private DeadlineController deadlineCtr;
 	private CloseableCalloutWindowController deadlineCalloutCtr;
-	private final StackedController stackPanel;
+	private final BreadcrumbPanel stackPanel;
 	
-	public PortfolioResultDetailsController(UserRequest ureq, WindowControl wControl, StackedController stackPanel, PortfolioCourseNode courseNode,
+	public PortfolioResultDetailsController(UserRequest ureq, WindowControl wControl, BreadcrumbPanel stackPanel, PortfolioCourseNode courseNode,
 			UserCourseEnvironment userCourseEnv) {
 		super(ureq, wControl);
 
@@ -187,7 +187,7 @@ public class PortfolioResultDetailsController extends FormBasicController {
 		Controller viewCtr = EPUIFactory.createPortfolioStructureMapController(ureq, getWindowControl(), map, secCallback);
 		listenTo(viewCtr);
 		if(stackPanel == null) {
-			LayoutMain3ColsBackController ctr = new LayoutMain3ColsBackController(ureq, getWindowControl(), null, null, viewCtr.getInitialComponent(), "portfolio" + map.getKey());
+			LayoutMain3ColsBackController ctr = new LayoutMain3ColsBackController(ureq, getWindowControl(), null, viewCtr.getInitialComponent(), "portfolio" + map.getKey());
 			ctr.activate();
 		} else {
 			LayoutMain3ColsController ctr = new LayoutMain3ColsController(ureq, getWindowControl(), viewCtr);
@@ -229,7 +229,7 @@ public class PortfolioResultDetailsController extends FormBasicController {
 		removeAsListenerAndDispose(deadlineCalloutCtr);
 		FormLink changeDeadlineLink = mapToElements.get(map).changeDeadlineLink;
 		deadlineCalloutCtr = new CloseableCalloutWindowController(ureq, getWindowControl(), deadlineCtr.getInitialComponent(),
-				changeDeadlineLink, title, true, "b_eportfolio_deadline_callout");
+				changeDeadlineLink, title, true, "o_ep_deadline_callout");
 		listenTo(deadlineCalloutCtr);
 		deadlineCalloutCtr.activate();
 	}

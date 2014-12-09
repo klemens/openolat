@@ -21,7 +21,6 @@ package org.olat.modules.webFeed.ui;
 
 import java.util.List;
 
-import org.olat.core.CoreSpringFactory;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.Component;
 import org.olat.core.gui.components.form.flexible.elements.FileElement;
@@ -50,6 +49,7 @@ import org.olat.modules.webFeed.models.Feed;
 import org.olat.modules.webFeed.models.Item;
 import org.olat.user.UserManager;
 import org.olat.util.logging.activity.LoggingResourceable;
+import org.springframework.beans.factory.annotation.Autowired;
 
 /**
  * This is the main feed layout controller. It handles everything from adding
@@ -62,7 +62,6 @@ import org.olat.util.logging.activity.LoggingResourceable;
  */
 public class FeedMainController extends BasicController implements Activateable2, GenericEventListener {
 
-	private static final FeedManager feedManager = FeedManager.getInstance();
 	private Feed feed;
 	private Link editFeedButton;
 	private CloseableModalController cmc;
@@ -77,7 +76,10 @@ public class FeedMainController extends BasicController implements Activateable2
 	// needed for comparison
 	private String oldFeedUrl;
 	
-	private final UserManager userManager;
+	@Autowired
+	private UserManager userManager;
+	@Autowired
+	private FeedManager feedManager;
 	
 	/**
 	 * Constructor for learning resource (not course nodes)
@@ -107,15 +109,28 @@ public class FeedMainController extends BasicController implements Activateable2
 		super(ureq, wControl);
 		this.uiFactory = uiFactory;
 		this.callback = callback;
-		userManager = CoreSpringFactory.getImpl(UserManager.class);
 		setTranslator(uiFactory.getTranslator());
 		feed = feedManager.getFeed(ores);
-		String authorFullname = userManager.getUserDisplayName(feed.getAuthor());
-		helper = new FeedViewHelper(feed, getIdentity(), authorFullname, uiFactory.getTranslator(), courseId, nodeId, callback);
-		CoordinatorManager.getInstance().getCoordinator().getEventBus().registerFor(this, ureq.getIdentity(), feed);
-		display(ureq, wControl, displayConfig);
-		// do logging
-		ThreadLocalUserActivityLogger.log(FeedLoggingAction.FEED_READ, getClass(), LoggingResourceable.wrap(feed));
+		if(feed == null) {
+			vcMain = createVelocityContainer("feed_error");
+			vcMain.contextPut("errorMessage", translate("feed.error"));
+			putInitialPanel(vcMain);
+		} else {
+			String authorFullname = userManager.getUserDisplayName(feed.getAuthor());
+			helper = new FeedViewHelper(feed, getIdentity(), authorFullname, uiFactory.getTranslator(), courseId, nodeId, callback);
+			CoordinatorManager.getInstance().getCoordinator().getEventBus().registerFor(this, ureq.getIdentity(), feed);
+			display(ureq, wControl, displayConfig);
+			// do logging
+			ThreadLocalUserActivityLogger.log(FeedLoggingAction.FEED_READ, getClass(), LoggingResourceable.wrap(feed));
+		}
+	}
+
+	@Override
+	protected void doDispose() {
+		feedManager.releaseLock(lock);
+		if(feed != null) {
+			CoordinatorManager.getInstance().getCoordinator().getEventBus().deregisterFor(this, feed);
+		}
 	}
 
 	/**
@@ -156,16 +171,7 @@ public class FeedMainController extends BasicController implements Activateable2
 		listenTo(itemsCtr);
 		vcMain.put("items", itemsCtr.getInitialComponent());
 
-		this.putInitialPanel(vcMain);
-	}
-
-	/**
-	 * @see org.olat.core.gui.control.DefaultController#doDispose()
-	 */
-	@Override
-	protected void doDispose() {
-		feedManager.releaseLock(lock);
-		CoordinatorManager.getInstance().getCoordinator().getEventBus().deregisterFor(this, feed);
+		putInitialPanel(vcMain);
 	}
 
 	/**
@@ -186,7 +192,7 @@ public class FeedMainController extends BasicController implements Activateable2
 					oldFeedUrl = feed.getExternalFeedUrl();
 				} 
 				feedFormCtr = new FeedFormController(ureq, getWindowControl(), feed, uiFactory);
-				activateModalDialog(feedFormCtr);
+				activateModalDialog(feedFormCtr, uiFactory.getTranslator().translate("feed.edit"));
 			} else {
 				String fullName = userManager.getUserDisplayName(lock.getOwner());
 				showInfo("feed.is.being.edited.by", fullName);
@@ -278,7 +284,7 @@ public class FeedMainController extends BasicController implements Activateable2
 		} else if (source == itemsCtr && event.equals(ItemsController.HANDLE_NEW_EXTERNAL_FEED_DIALOG_EVENT)) {
 			oldFeedUrl = feed.getExternalFeedUrl();			
 			feedFormCtr = new FeedFormController(ureq, getWindowControl(), feed, uiFactory);
-			activateModalDialog(feedFormCtr);
+			activateModalDialog(feedFormCtr, uiFactory.getTranslator().translate("feed.edit"));
 		} else if (source == itemsCtr && event.equals(ItemsController.FEED_INFO_IS_DIRTY_EVENT)) {
 			vcInfo.setDirty(true);
 		}
@@ -288,9 +294,9 @@ public class FeedMainController extends BasicController implements Activateable2
 	 * @param controller The <code>FormBasicController</code> to be displayed in
 	 *          the modal dialog.
 	 */
-	private void activateModalDialog(FormBasicController controller) {
+	private void activateModalDialog(FormBasicController controller, String title) {
 		listenTo(controller);
-		cmc = new CloseableModalController(getWindowControl(), translate("close"), controller.getInitialComponent());
+		cmc = new CloseableModalController(getWindowControl(), translate("close"), controller.getInitialComponent(), true, title);
 		listenTo(cmc);
 		cmc.activate();
 	}

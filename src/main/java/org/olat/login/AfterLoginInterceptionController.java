@@ -39,6 +39,7 @@ import org.olat.core.gui.control.generic.closablewrapper.CloseableModalControlle
 import org.olat.core.gui.control.generic.wizard.WizardInfoController;
 import org.olat.properties.Property;
 import org.olat.properties.PropertyManager;
+import org.springframework.beans.factory.annotation.Autowired;
 
 /**
  * Description: Presents running once controllers to the user right after login.
@@ -74,18 +75,24 @@ public class AfterLoginInterceptionController extends BasicController {
 	protected static final String ORDER_KEY = "order";
 	
 	private static final String PROPERTY_CAT = "afterLogin";
+	
+	@Autowired
+	private AfterLoginInterceptionManager aLIM;
 
 	public AfterLoginInterceptionController(UserRequest ureq, WindowControl wControl) {
 		super(ureq, wControl);
 		vC = createVelocityContainer("afterlogin");
 		actualPanel = new Panel("actualPanel");
-		AfterLoginInterceptionManager aLIM = AfterLoginInterceptionManager.getInstance();
 		if (!aLIM.containsAnyController()) {
+			dispose();
 			return;		
 		}
 		
 		List<Map<String, Object>> aftctrlsTmp = aLIM.getAfterLoginControllerList();
 		aftctrls = (List<Map<String, Object>>) ((ArrayList<Map<String, Object>>) aftctrlsTmp).clone();
+		// sort controllers according to config
+		aftctrls = AfterLoginInterceptionManager.sortControllerListByOrder(aftctrls);
+		
 		// load all UserProps concerning afterlogin/runOnce workflow => only 1
 		// db-call for all props
 		pm = PropertyManager.getInstance();
@@ -141,11 +148,9 @@ public class AfterLoginInterceptionController extends BasicController {
 		
 		if (aftctrls.isEmpty()) {
 			fireEvent(ureq, Event.DONE_EVENT);
+			dispose();
 			return;
 		}
-
-		// sort controllers according to config
-		aftctrls = AfterLoginInterceptionManager.sortControllerListByOrder(aftctrls);
 		
 		wiz = new WizardInfoController(ureq, aftctrls.size());
 		vC.put("wizard", wiz.getInitialComponent());
@@ -153,7 +158,7 @@ public class AfterLoginInterceptionController extends BasicController {
 		listenTo(wiz);
 
 		// get first Ctrl into Wizard
-		putControllerToPanel(ureq, wControl, 0);
+		putControllerToPanel(0);
 		vC.put("actualPanel", actualPanel);
 
 		cmc = new CloseableModalController(getWindowControl(), translate("close"), vC, true, translate("runonce.title"), false);	
@@ -201,7 +206,7 @@ public class AfterLoginInterceptionController extends BasicController {
 	 * @param wControl
 	 * @param ctrNr
 	 */
-	private void putControllerToPanel(UserRequest ureq, WindowControl wControl, int ctrNr) {
+	private void putControllerToPanel(int ctrNr) {
 		if (aftctrls.get(ctrNr) == null) return;
 		actualCtrNr = ctrNr;
 		wiz.setCurStep(ctrNr + 1);
@@ -277,7 +282,7 @@ public class AfterLoginInterceptionController extends BasicController {
 	 */
 	private void activateNextOrCloseModal(UserRequest ureq){
 		if ((actualCtrNr + 1) < aftctrls.size()) {
-			putControllerToPanel(ureq, getWindowControl(), actualCtrNr + 1);
+			putControllerToPanel(actualCtrNr + 1);
 		} else {
 			removeAsListenerAndDispose(actCtrl);
 			cmc.deactivate();

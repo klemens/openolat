@@ -334,7 +334,7 @@ public class QTIExportFormatterCSVType2 extends QTIExportFormatter {
 				sb.append(sep);
 
 				if (responseLabelMaterials != null) {
-					String s = (String) responseLabelMaterials.get(i);
+					String s = responseLabelMaterials.get(i);
 					s = StringEscapeUtils.unescapeHtml(s);
 					if (tagless) {
 						s = s.replaceAll("\\<.*?\\>", "");

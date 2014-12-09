@@ -83,20 +83,21 @@ public class PortletToolSortingControllerImpl<T> extends BasicController
 		
 		this.sortedItems = sortedItems;
 		//this.callerTranslator = callerTranslator;
-		mainVC = this.createVelocityContainer("portletTools");
+		mainVC = createVelocityContainer("portletTools");
+		mainVC.setDomReplacementWrapperRequired(false);
 						
 		manualSorting = LinkFactory.createCustomLink("manual.sorting.config", "manual.sorting.config", null, Link.NONTRANSLATED, mainVC, this);
 		manualSorting.setTooltip(translate("manual.sorting.config"));
-		manualSorting.setCustomEnabledLinkCSS("b_portlet_edit_sort_manual");
-		manualSorting.setCustomDisabledLinkCSS("b_portlet_edit_sort_manual_disabled");
+		manualSorting.setIconLeftCSS("o_icon o_icon-lg o_icon-fw o_icon_list");
+		manualSorting.setElementCssClass("o_portlet_edit_sort_manual");
 		if(tableDataModel.getObjects().isEmpty()) {
 			manualSorting.setEnabled(false);
 		}
 				
 		autoSorting = LinkFactory.createCustomLink("auto.sorting.config", "auto.sorting.config", null, Link.NONTRANSLATED, mainVC, this);
 		autoSorting.setTooltip(translate("auto.sorting.config"));
-		autoSorting.setCustomEnabledLinkCSS("b_portlet_edit_sort_auto");
-		autoSorting.setCustomDisabledLinkCSS("b_portlet_edit_sort_auto_disabled");
+		autoSorting.setIconLeftCSS("o_icon o_icon-lg o_icon-fw o_icon_sort");
+		autoSorting.setElementCssClass("o_portlet_edit_sort_auto");
 		
 		putInitialPanel(mainVC);
 		

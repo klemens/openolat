@@ -222,6 +222,20 @@ public class BusinessControlFactory {
 		return wc;
 	}
 	
+	public WindowControl createBusinessWindowControl(WindowControl origWControl, OLATResourceable... ores) {
+		List<ContextEntry> ces;
+		if(ores != null && ores.length > 0) {
+			ces = new ArrayList<ContextEntry>(ores.length);
+			for(OLATResourceable o:ores) {
+				ces.add(createContextEntry(o));
+			}
+		} else {
+			ces = Collections.emptyList();
+		}
+		BusinessControl bc = createFromContextEntries(ces);
+		return createBusinessWindowControl(bc, origWControl);
+	}
+	
 	public BusinessControl getEmptyBusinessControl() {
 		// immutable, so therefore we can reuse it
 		return EMPTY;
@@ -248,8 +262,24 @@ public class BusinessControlFactory {
 		}
 		return createFromContextEntries(ces);
 	}
+	
+	public BusinessControl createFromPoint(HistoryPoint point) {
+		final List<ContextEntry> ces = point.getEntries();
+		if (ces.isEmpty() || ces.get(0) == null) {
+			log.warn("OLAT-4103, OLAT-4047, empty or invalid business controll string. list is empty. string is " + point.getBusinessPath(), new Exception("stacktrace"));
+		}
+		return createFromContextEntries(ces);
+	}
 
-	//fxdiff BAKS-7 Resume function
+	public List<ContextEntry> cloneContextEntries(final List<ContextEntry> ces) {
+		final List<ContextEntry> clones = new ArrayList<ContextEntry>(ces.size());
+		for(ContextEntry ce:ces) {
+			OLATResourceable clone = OresHelper.clone(ce.getOLATResourceable());
+			clones.add(new MyContextEntry(clone));
+		}
+		return clones;
+	}
+
 	public BusinessControl createFromContextEntries(final List<ContextEntry> ces) {
 		ContextEntry rootEntry = null;
 		if (ces.isEmpty() || ((rootEntry = ces.get(0))==null)) {
@@ -487,12 +517,10 @@ public class BusinessControlFactory {
 			return null;
 		}
 		
-		try {
-			BusinessControlFactory bCF = BusinessControlFactory.getInstance(); 
-			List<ContextEntry> ceList = bCF.createCEListFromString(bPathString);
+		try { 
+			List<ContextEntry> ceList = createCEListFromString(bPathString);
 			String busPath = getBusinessPathAsURIFromCEList(ceList); 
-			
-			return WebappHelper.getServletContextPath() +"/url/"+busPath;
+			return WebappHelper.getServletContextPath() + "/url/" + busPath;
 		} catch(Exception e) {
 			log.error("Error with business path: " + bPathString, e);
 			return null;

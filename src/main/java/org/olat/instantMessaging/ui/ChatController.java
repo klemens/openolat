@@ -34,12 +34,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.LinkedBlockingDeque;
 
-import javax.servlet.http.HttpServletRequest;
-
 import org.olat.basesecurity.BaseSecurityManager;
 import org.olat.basesecurity.IdentityShort;
 import org.olat.core.CoreSpringFactory;
-import org.olat.core.dispatcher.mapper.Mapper;
+import org.olat.core.dispatcher.mapper.MapperService;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.Component;
 import org.olat.core.gui.components.htmlheader.jscss.JSAndCSSComponent;
@@ -51,7 +49,6 @@ import org.olat.core.gui.control.Event;
 import org.olat.core.gui.control.WindowControl;
 import org.olat.core.gui.control.controller.BasicController;
 import org.olat.core.gui.control.floatingresizabledialog.FloatingResizableDialogController;
-import org.olat.core.gui.media.MediaResource;
 import org.olat.core.id.OLATResourceable;
 import org.olat.core.util.Formatter;
 import org.olat.core.util.StringHelper;
@@ -63,7 +60,9 @@ import org.olat.instantMessaging.InstantMessagingModule;
 import org.olat.instantMessaging.InstantMessagingService;
 import org.olat.instantMessaging.model.Buddy;
 import org.olat.user.DisplayPortraitManager;
+import org.olat.user.UserAvatarMapper;
 import org.olat.user.UserManager;
+import org.springframework.beans.factory.annotation.Autowired;
 
 /**
  * Description:<br />
@@ -80,7 +79,7 @@ public class ChatController extends BasicController implements GenericEventListe
 	private final VelocityContainer mainVC;
 	private final VelocityContainer chatMsgFieldContent;
 
-	private Map<Long,String> avatarKeyCache = new HashMap<Long,String>();
+	private Map<Long,Long> avatarKeyCache = new HashMap<Long,Long>();
 	private Deque<ChatMessage> messageHistory = new LinkedBlockingDeque<>();
 
 	private Link refresh, todayLink, lastWeek, lastMonth;
@@ -91,19 +90,24 @@ public class ChatController extends BasicController implements GenericEventListe
 	private List<String> allChats;
 	private final Formatter formatter;
 
-	private final boolean vip;
+	private final boolean highlightVip;
 	private final OLATResourceable ores;
 	private final Roster buddyList;
 	private final Long privateReceiverKey;
 	
-	private final UserManager userManager;
-	private final InstantMessagingService imService;
-	private final DisplayPortraitManager portraitManager;
+	@Autowired
+	private UserManager userManager;
+	@Autowired
+	private MapperService mapperService;
+	@Autowired
+	private InstantMessagingService imService;
+	@Autowired
+	private DisplayPortraitManager portraitManager;
 	
 	private final String avatarBaseURL;
 
 	protected ChatController(UserRequest ureq, WindowControl wControl, OLATResourceable ores, String roomName,
-			Long privateReceiverKey, boolean vip, int width, int height, int offsetX, int offsetY) {
+			Long privateReceiverKey, boolean highlightVip, int width, int height, int offsetX, int offsetY) {
 		super(ureq, wControl);
 		userManager = CoreSpringFactory.getImpl(UserManager.class);
 		imService = CoreSpringFactory.getImpl(InstantMessagingService.class);
@@ -111,12 +115,11 @@ public class ChatController extends BasicController implements GenericEventListe
 		formatter = Formatter.getInstance(getLocale());
 		this.ores = ores;
 		this.privateReceiverKey = privateReceiverKey;
-		this.vip = vip;
+		this.highlightVip = highlightVip;
 		setToday();
 
-		avatarBaseURL = registerCacheableMapper(ureq, "avatars-members", new AvatarMapper());
+		avatarBaseURL = mapperService.register(null, "avatars-members", new UserAvatarMapper(false));
 		
-		//allChats = ureq.getUserSession().getChats();
 		allChats = new ArrayList<String>();
 		allChats.add(Integer.toString(hashCode()));
 		
@@ -154,10 +157,10 @@ public class ChatController extends BasicController implements GenericEventListe
 			rosterCtrl = new RosterForm(ureq, getWindowControl(), buddyList, defaultAnonym, offerAnonymMode);
 			listenTo(rosterCtrl);
 			String nickName = rosterCtrl.getNickName();
-			imService.listenChat(getIdentity(), getOlatResourceable(), nickName, defaultAnonym, vip, this);
+			imService.listenChat(getIdentity(), getOlatResourceable(), nickName, defaultAnonym, highlightVip, this);
 		} else {
 			buddyList = null;
-			imService.listenChat(getIdentity(), getOlatResourceable(), null, defaultAnonym, vip, this);
+			imService.listenChat(getIdentity(), getOlatResourceable(), null, defaultAnonym, highlightVip, this);
 		}
 
 		chatPanelCtr = new FloatingResizableDialogController(ureq, getWindowControl(), mainVC,
@@ -165,7 +168,7 @@ public class ChatController extends BasicController implements GenericEventListe
 				rosterCtrl == null ? null : rosterCtrl.getInitialComponent(),
 				translate("groupchat.roster"), true, false, true, String.valueOf(hashCode()));
 		listenTo(chatPanelCtr);
-		chatPanelCtr.setElementCSSClass("o_instantmessaging_chat_dialog");
+		chatPanelCtr.setElementCSSClass("o_im_chat_dialog");
 		
 		String pn = chatPanelCtr.getPanelName();
 		
@@ -183,13 +186,13 @@ public class ChatController extends BasicController implements GenericEventListe
 		chatMsgFieldContent.contextPut("id", hashCode());
 		mainVC.put("chatMsgFieldPanel", chatMsgFieldContent);
 		
-		refresh = LinkFactory.createCustomLink("refresh", "cmd.refresh", "", Link.NONTRANSLATED, mainVC, this);
-		refresh.setCustomEnabledLinkCSS("b_small_icoureq.getUserSession().getSingleUserEventCenter().n sendMessageFormo_instantmessaging_refresh_icon");
+		refresh = LinkFactory.createCustomLink("refresh", "cmd.refresh", " ", Link.NONTRANSLATED, mainVC, this);
+		refresh.setIconLeftCSS("o_icon o_icon_refresh o_icon-lg");
 		refresh.setTitle("im.refresh");
 		
-		todayLink = LinkFactory.createLink("im.today", mainVC, this);
-		lastWeek = LinkFactory.createLink("im.lastweek", mainVC, this);
-		lastMonth = LinkFactory.createLink("im.lastmonth", mainVC, this);
+		todayLink = LinkFactory.createButton("im.today", mainVC, this);
+		lastWeek = LinkFactory.createButton("im.lastweek", mainVC, this);
+		lastMonth = LinkFactory.createButton("im.lastmonth", mainVC, this);
 
 		putInitialPanel(chatPanelCtr.getInitialComponent());
 		if(rosterCtrl != null) {
@@ -286,7 +289,7 @@ public class ChatController extends BasicController implements GenericEventListe
 	}
 	
 	private void doSendPresence(String nickName, boolean anonym) {
-		imService.sendPresence(getIdentity(), nickName, anonym, vip, getOlatResourceable());	
+		imService.sendPresence(getIdentity(), nickName, anonym, highlightVip, getOlatResourceable());	
 	}
 	
 	private InstantMessage doSendMessage(String text) {
@@ -364,15 +367,16 @@ public class ChatController extends BasicController implements GenericEventListe
 		chatMsgFieldContent.contextPut("focus", new Boolean(focus));
 	}
 	
-	private String getAvatarKey(Long identityKey) {
-		String avatarKey = avatarKeyCache.get(identityKey);
+	private Long getAvatarKey(Long identityKey) {
+		Long avatarKey = avatarKeyCache.get(identityKey);
 		if(avatarKey == null && buddyList != null) {
 			Buddy buddy = buddyList.get(identityKey);
 			if(buddy != null) {
-				avatarKey = buddy.getUsername();
 				// check if avatar image exists at all
-				if (portraitManager.getSmallPortraitResource(avatarKey)  == null) {
-					avatarKey = ":NA:";
+				if (portraitManager.getSmallPortraitResource(buddy.getIdentityKey())  != null) {
+					avatarKey = buddy.getIdentityKey();
+				} else {
+					avatarKey = Long.valueOf(-1);
 				}
 				avatarKeyCache.put(identityKey, avatarKey);
 			}
@@ -380,17 +384,18 @@ public class ChatController extends BasicController implements GenericEventListe
 		if(avatarKey == null) {
 			IdentityShort id = BaseSecurityManager.getInstance().loadIdentityShortByKey(identityKey);
 			if(id != null) {
-				avatarKey = id.getName();
 				// check if avatar image exists at all
-				if (portraitManager.getSmallPortraitResource(avatarKey)  == null) {
-					avatarKey = ":NA:";
+				if (portraitManager.getSmallPortraitResource(id.getKey())  != null) {
+					avatarKey = id.getKey();
+				} else {
+					avatarKey = Long.valueOf(-1);
 				}				
 				avatarKeyCache.put(identityKey, avatarKey);
 			}
 		}
 		if (avatarKey == null) {
 			// use not-available when still not set to something
-			avatarKey = ":NA:";
+			avatarKey = Long.valueOf(-1);
 		}
 		return avatarKey;
 	}
@@ -416,24 +421,6 @@ public class ChatController extends BasicController implements GenericEventListe
 				entry.setName(name);
 			}
 			rosterCtrl.updateModel();
-		}
-	}
-	
-	public class AvatarMapper implements Mapper {
-		@Override
-		public MediaResource handle(String relPath, HttpServletRequest request) {
-			if(relPath != null && relPath.endsWith("/avatar.jpg")) {
-				if(relPath.startsWith("/")) {
-					relPath = relPath.substring(1, relPath.length());
-				}
-				
-				int endKeyIndex = relPath.indexOf('/');
-				if(endKeyIndex > 0) {
-					String username = relPath.substring(0, endKeyIndex);
-					return portraitManager.getSmallPortraitResource(username);
-				}
-			}
-			return null;
 		}
 	}
 }

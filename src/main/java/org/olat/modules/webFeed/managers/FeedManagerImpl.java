@@ -22,8 +22,11 @@ package org.olat.modules.webFeed.managers;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.io.InputStream;
 import java.net.MalformedURLException;
 import java.net.URL;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
@@ -34,6 +37,7 @@ import org.olat.core.CoreSpringFactory;
 import org.olat.core.commons.modules.bc.vfs.OlatRootFolderImpl;
 import org.olat.core.commons.persistence.PersistenceHelper;
 import org.olat.core.commons.services.commentAndRating.CommentAndRatingService;
+import org.olat.core.commons.services.image.ImageService;
 import org.olat.core.gui.components.form.flexible.elements.FileElement;
 import org.olat.core.gui.media.MediaResource;
 import org.olat.core.id.Identity;
@@ -42,8 +46,8 @@ import org.olat.core.logging.AssertException;
 import org.olat.core.logging.OLog;
 import org.olat.core.util.CodeHelper;
 import org.olat.core.util.Encoder;
+import org.olat.core.util.FileUtils;
 import org.olat.core.util.Formatter;
-import org.olat.core.util.ImageHelper;
 import org.olat.core.util.StringHelper;
 import org.olat.core.util.ZipUtil;
 import org.olat.core.util.cache.CacheWrapper;
@@ -103,7 +107,7 @@ public class FeedManagerImpl extends FeedManager {
 	private Coordinator coordinator;
 	private OLATResourceManager resourceManager;
 	private FileResourceManager fileResourceManager;
-	private ImageHelper imageHelper;
+	private ImageService imageHelper;
 	
 	private final XStream xstream;
 	
@@ -132,7 +136,7 @@ public class FeedManagerImpl extends FeedManager {
 	 * [used by Spring]
 	 * @param imageHelper
 	 */
-	public void setImageHelper(ImageHelper imageHelper) {
+	public void setImageHelper(ImageService imageHelper) {
 		this.imageHelper = imageHelper;
 	}
 
@@ -209,11 +213,7 @@ public class FeedManagerImpl extends FeedManager {
 		fileResourceManager.deleteFileResource(feed);
 		// Delete comments and ratings
 		CommentAndRatingService commentAndRatingService = CoreSpringFactory.getImpl(CommentAndRatingService.class);
-		if (commentAndRatingService != null) {				
-			commentAndRatingService.init(null, feed, null, true, false);
-			commentAndRatingService.deleteAllIgnoringSubPath();
-		}
-		// 
+		commentAndRatingService.deleteAllIgnoringSubPath(feed);
 		feed = null;
 	}
 
@@ -235,7 +235,7 @@ public class FeedManagerImpl extends FeedManager {
 	 */
 	private Feed getFeed(OLATResourceable ores, boolean inSync) {
 		// Attempt to fetch the feed from the cache
-		Feed myFeed = (Feed) initFeedCache().get(ores.getResourceableId().toString());
+		Feed myFeed = initFeedCache().get(ores.getResourceableId().toString());
 		if (myFeed == null) {
 			// Load the feed from file and put it to the cache
 			VFSContainer feedContainer = getFeedContainer(ores);
@@ -384,6 +384,16 @@ public class FeedManagerImpl extends FeedManager {
 			log.error("Feed xml-file could not be found on file system. Feed container: " + feedContainer);
 		}
 		return myFeed;
+	}
+	
+	public Feed readFeedFile(Path feedPath) {
+		Feed feed = null;
+		try (InputStream in = Files.newInputStream(feedPath)) {
+			feed = (Feed)XStreamHelper.readObject(xstream, in);
+		} catch(IOException e) {
+			log.error("", e);
+		}
+		return feed;
 	}
 
 	/**
@@ -615,11 +625,7 @@ public class FeedManagerImpl extends FeedManager {
 				
 				// Delete comments and ratings
 				CommentAndRatingService commentAndRatingService = CoreSpringFactory.getImpl(CommentAndRatingService.class);
-				if (commentAndRatingService != null) {				
-					commentAndRatingService.init(null, feed, item.getGuid(), true, false);
-					commentAndRatingService.deleteAll();
-				}
-				// 
+				commentAndRatingService.deleteAll(feed, item.getGuid());
 				return reloadedFeed;
 			}
 		});
@@ -1033,14 +1039,14 @@ public class FeedManagerImpl extends FeedManager {
 	 *      java.lang.String, java.lang.String)
 	 */
 	@Override
-	public MediaResource createFeedMediaFile(OLATResourceable feed, String fileName) {
-		VFSMediaResource mediaResource = null;
+	public VFSLeaf createFeedMediaFile(OLATResourceable feed, String fileName) {
+		VFSLeaf mediaResource = null;
 		// Brute force method for fast delivery
 		try {
 			VFSItem item = getFeedMediaContainer(feed);
 			item = item.resolve(fileName);
 			if(item instanceof VFSLeaf) {
-				mediaResource = new VFSMediaResource((VFSLeaf)item);
+				mediaResource = (VFSLeaf)item;
 			}
 		} catch (NullPointerException e) {
 			log.debug("Media resource could not be created from file: ", fileName);
@@ -1125,24 +1131,23 @@ public class FeedManagerImpl extends FeedManager {
 		return new ValidatedURL(url, ValidatedURL.State.MALFORMED);
 	}
 
-	/**
-	 * @see org.olat.modules.webFeed.managers.FeedManager#copy(org.olat.core.id.OLATResourceable)
-	 */
 	@Override
-	public OLATResourceable copy(OLATResourceable feed) {
-		FileResourceManager manager = FileResourceManager.getInstance();
-		OLATResourceable copyResource = manager.createCopy(feed, getFeedKind(feed)); 
-		// Adjust resource ID in copy to new resource ID, bypass any caches, read
-		// and write directly
-		VFSContainer copyContainer = getFeedContainer(copyResource);
-		VFSLeaf leaf = (VFSLeaf) copyContainer.resolve(FEED_FILE_NAME);
+	public boolean copy(OLATResource sourceResource, OLATResource targetResource) {
+		File sourceFileroot = FileResourceManager.getInstance().getFileResourceRootImpl(sourceResource).getBasefile();
+		File sourceBlogRoot = new File(sourceFileroot, FeedManager.getInstance().getFeedKind(sourceResource));
+		
+		File targetFileroot = FileResourceManager.getInstance().getFileResourceRootImpl(targetResource).getBasefile();
+		FileUtils.copyFileToDir(sourceBlogRoot, targetFileroot, "add file resource");
+		
+		VFSContainer copyContainer = FeedManager.getInstance().getFeedContainer(targetResource);
+		VFSLeaf leaf = (VFSLeaf) copyContainer.resolve(FeedManager.FEED_FILE_NAME);
 		if (leaf != null) {
 			Feed copyFeed = (Feed) XStreamHelper.readObject(xstream, leaf.getInputStream());
-			copyFeed.setId(copyResource.getResourceableId());
+			copyFeed.setId(targetResource.getResourceableId());
 			XStreamHelper.writeObject(xstream, leaf, copyFeed);
 		}
-		//
-		return copyResource;
+		
+		return true;
 	}
 
 	/**
@@ -1278,7 +1283,7 @@ public class FeedManagerImpl extends FeedManager {
 			VFSLeaf imageLeaf = image.moveUploadFileTo(getFeedMediaContainer(feed));
 			// Resize to same dimension box as with repo meta image
 			VFSLeaf tmp = getFeedMediaContainer(feed).createChildLeaf("" + CodeHelper.getRAMUniqueID());
-			imageHelper.scaleImage(imageLeaf, tmp, PICTUREWIDTH,PICTUREWIDTH);
+			imageHelper.scaleImage(imageLeaf, tmp, PICTUREWIDTH,PICTUREWIDTH, false);
 			imageLeaf.delete();
 			imageLeaf = tmp;
 			// Make file system save

@@ -1,14 +1,19 @@
-<div class="o_feed_peekview $wrapperCssClass b_clearfix">
+#if($errorMessage)
+	<div class="o_error">$errorMessage</div>
+#end
+<div class="o_feed_peekview $wrapperCssClass clearfix">
 #foreach( $post in $items ) 	
-	<div class="o_feed_peekview_item">
+	<div class="o_item">
 		<h5>
 			$r.render("nodeLink_${post.getGuid()}")
+			<small class="o_nowrap">
+				$r.escapeHtml($!post.getAuthor()) ($formatter.formatDateAndTime($post.getPublishDate()))
+			</small>
 		</h5>
-		<div class="o_peekview_author">
-			$r.escapeHtml($!post.getAuthor()) ($formatter.formatDateAndTime($post.getPublishDate()))
-		</div>
 		$!helper.getItemDescriptionForBrowser($post)
 	</div>
 #end
+#if($r.available("peekview.allItemsLink"))
 	$r.render("peekview.allItemsLink")
+#end
 </div>

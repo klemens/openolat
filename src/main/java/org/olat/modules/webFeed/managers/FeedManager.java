@@ -20,6 +20,7 @@
 package org.olat.modules.webFeed.managers;
 
 import java.io.File;
+import java.nio.file.Path;
 import java.util.List;
 
 import org.olat.core.commons.modules.bc.vfs.OlatRootFolderImpl;
@@ -38,6 +39,7 @@ import org.olat.fileresource.types.BlogFileResource;
 import org.olat.fileresource.types.PodcastFileResource;
 import org.olat.modules.webFeed.models.Feed;
 import org.olat.modules.webFeed.models.Item;
+import org.olat.resource.OLATResource;
 
 /**
  * The <code>FeedManager</code> singleton is responsible for dealing with feed
@@ -53,9 +55,9 @@ public abstract class FeedManager extends BasicManager {
 	protected static FeedManager INSTANCE;
 
 	public static final String ITEMS_DIR = "items";
-	protected static final String FEED_FILE_NAME = "feed.xml";
-	protected static final String ITEM_FILE_NAME = "item.xml";
-	protected static final String MEDIA_DIR = "media";
+	public static final String FEED_FILE_NAME = "feed.xml";
+	public static final String ITEM_FILE_NAME = "item.xml";
+	public static final String MEDIA_DIR = "media";
 	public static final String RSS_FEED_NAME = "feed.rss";
 	public static final String RESOURCE_NAME = "feed";
 
@@ -98,11 +100,11 @@ public abstract class FeedManager extends BasicManager {
 	public abstract void delete(OLATResourceable feed);
 
 	/**
-	 * Copies a given feed resourcable
+	 * Copies a given feed resourceable
 	 * 
 	 * @param feed
 	 */
-	public abstract OLATResourceable copy(OLATResourceable feed);
+	public abstract boolean copy(OLATResource source, OLATResource target);
 
 	/**
 	 * Adds the given <code>Item</code> to the <code>Feed</code>.
@@ -191,7 +193,7 @@ public abstract class FeedManager extends BasicManager {
 	 * @param fileName
 	 * @return The media file of the feed
 	 */
-	public abstract MediaResource createFeedMediaFile(OLATResourceable feed, String fileName);
+	public abstract VFSLeaf createFeedMediaFile(OLATResourceable feed, String fileName);
 
 	/**
 	 * Returns the base URI of the feed including user identity key and token if
@@ -356,6 +358,8 @@ public abstract class FeedManager extends BasicManager {
 	public abstract VFSContainer createItemContainer(Feed feed, Item currentItem);
 
 	public abstract Feed readFeedFile(VFSContainer root);
+	
+	public abstract Feed readFeedFile(Path feedPath);
 
 	public abstract Item loadItem(VFSItem itemContainer);
 

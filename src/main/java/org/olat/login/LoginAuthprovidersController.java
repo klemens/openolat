@@ -37,16 +37,13 @@ import org.olat.basesecurity.AuthHelper;
 import org.olat.basesecurity.BaseSecurityModule;
 import org.olat.core.CoreSpringFactory;
 import org.olat.core.commons.fullWebApp.BaseFullWebappController;
-import org.olat.core.commons.fullWebApp.LayoutMain3ColsController;
 import org.olat.core.dispatcher.DispatcherModule;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.Component;
-import org.olat.core.gui.components.panel.Panel;
-import org.olat.core.gui.components.tree.GenericTreeModel;
-import org.olat.core.gui.components.tree.GenericTreeNode;
-import org.olat.core.gui.components.tree.MenuTree;
-import org.olat.core.gui.components.tree.TreeModel;
-import org.olat.core.gui.components.tree.TreeNode;
+import org.olat.core.gui.components.link.Link;
+import org.olat.core.gui.components.link.LinkFactory;
+import org.olat.core.gui.components.panel.MainPanel;
+import org.olat.core.gui.components.panel.StackedPanel;
 import org.olat.core.gui.components.velocity.VelocityContainer;
 import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.Event;
@@ -63,7 +60,6 @@ import org.olat.core.util.Util;
 import org.olat.core.util.WebappHelper;
 import org.olat.core.util.i18n.I18nManager;
 import org.olat.core.util.i18n.I18nModule;
-import org.olat.core.util.nodes.INode;
 import org.olat.login.auth.AuthenticationEvent;
 import org.olat.login.auth.AuthenticationProvider;
 
@@ -77,30 +73,19 @@ import org.olat.login.auth.AuthenticationProvider;
  */
 public class LoginAuthprovidersController extends MainLayoutBasicController implements Activateable2 {
 
-
 	private static final String ACTION_LOGIN = "login";
 	public  static final String ATTR_LOGIN_PROVIDER = "lp";
-	private static final String ACTION_COOKIES = "cookies";
-	private static final String ACTION_ABOUT = "about";
-	private static final String ACTION_ACCESSIBILITY = "accessibility";
-	private static final String ACTION_BROWSERCHECK = "check";
-	private static final String ACTION_GUEST = "guest";
 
 	private VelocityContainer content;
 	private Controller authController;
 	private final List<Controller> authControllers = new ArrayList<Controller>();
-	private Panel dmzPanel;
-	private GenericTreeNode checkNode;
-	private GenericTreeNode accessibilityNode;
-	private GenericTreeNode aboutNode;
-	private MenuTree olatMenuTree;
-	private LayoutMain3ColsController columnLayoutCtr;
+	private Link anoLink;
+	private StackedPanel dmzPanel;
 	
-
 	public LoginAuthprovidersController(UserRequest ureq, WindowControl wControl) {
 		// Use fallback translator from full webapp package to translate accessibility stuff
 		super(ureq, wControl, Util.createPackageTranslator(BaseFullWebappController.class, ureq.getLocale()));
-		//
+		
 		if(ureq.getUserSession().getEntry("error.change.email") != null) {
 			wControl.setError(ureq.getUserSession().getEntry("error.change.email").toString());
 			ureq.getUserSession().removeEntryFromNonClearedStore("error.change.email");
@@ -110,43 +95,24 @@ public class LoginAuthprovidersController extends MainLayoutBasicController impl
 			ureq.getUserSession().removeEntryFromNonClearedStore("error.change.email.time");
 		}
 		
-		dmzPanel = new Panel("content");
+		MainPanel panel = new MainPanel("content");
+		panel.setCssClass("o_loginscreen");
 		content = initLoginContent(ureq, null);
-		dmzPanel.pushContent(content);
-
-		// DMZ navigation
-		olatMenuTree = new MenuTree("dmz_menu", "olatMenuTree");				
-		TreeModel tm = buildTreeModel(); 
-		olatMenuTree.setTreeModel(tm);
-		olatMenuTree.setSelectedNodeId(tm.getRootNode().getIdent());
-		olatMenuTree.setRootVisible(false);
-		olatMenuTree.addListener(this);
-
-		// Activate correct position in menu
-		INode firstChild = tm.getRootNode().getChildAt(0);
-		olatMenuTree.setSelectedNodeId(firstChild.getIdent());
-
-		columnLayoutCtr = new LayoutMain3ColsController(ureq, getWindowControl(), olatMenuTree, null, dmzPanel, "useradminmain");
-		columnLayoutCtr.addCssClassToMain("o_loginscreen");
-		listenTo(columnLayoutCtr); // for later autodisposing
-		putInitialPanel(columnLayoutCtr.getInitialComponent());
+		panel.pushContent(content);
+		dmzPanel = putInitialPanel(panel);
 	}
 
 	@Override
-	//fxdiff FXOLAT-113: business path in DMZ
 	public void activate(UserRequest ureq, List<ContextEntry> entries, StateEntry state) {
 		if(entries == null || entries.isEmpty()) return;
 		
 		String type = entries.get(0).getOLATResourceable().getResourceableTypeName();
 		if("browsercheck".equals(type)) {
 			showBrowserCheckPage(ureq);
-			olatMenuTree.setSelectedNodeId(checkNode.getIdent());
 		} else if ("accessibility".equals(type)) {
 			showAccessibilityPage();
-			olatMenuTree.setSelectedNodeId(accessibilityNode.getIdent());
 		} else if ("about".equals(type)) {
 			showAboutPage();
-			olatMenuTree.setSelectedNodeId(aboutNode.getIdent());
 		} else if ("registration".equals(type)) {
 			// make sure the OLAT authentication controller is activated as only this one can handle registration requests
 			AuthenticationProvider OLATProvider = LoginModule.getAuthenticationProvider(BaseSecurityModule.getDefaultAuthProviderIdentifier());
@@ -190,6 +156,7 @@ public class LoginAuthprovidersController extends MainLayoutBasicController impl
 		authController = authProvider.createController(ureq, getWindowControl());
 		listenTo(authController);
 		contentBorn.put("loginComp", authController.getInitialComponent());
+		contentBorn.contextPut("currentProvider", authProvider.getName());		
 		Collection<AuthenticationProvider> providers = LoginModule.getAuthenticationProviders();
 		List<AuthenticationProvider> providerSet = new ArrayList<AuthenticationProvider>(providers.size());
 		int count = 0;
@@ -206,7 +173,6 @@ public class LoginAuthprovidersController extends MainLayoutBasicController impl
 				}
 			}
 		}
-		providerSet.remove(authProvider); // remove active authProvider from list of alternate authProviders
 		contentBorn.contextPut("providerSet", providerSet);
 		contentBorn.contextPut("locale", ureq.getLocale());
 
@@ -227,11 +193,25 @@ public class LoginAuthprovidersController extends MainLayoutBasicController impl
 		if(!StringUtils.isBlank(customMsg)) {
 			contentBorn.contextPut("logincustommsg",customMsg);
 		}
+		// add additional login footer message for custom content
+		String footerMsg = translate("login.customfootermsg");
+		if(!StringUtils.isBlank(footerMsg)) {
+			contentBorn.contextPut("loginfootermsg",footerMsg);
+		}
 		
 		//login is blocked?
 		if(AuthHelper.isLoginBlocked()) {
 			contentBorn.contextPut("loginBlocked", Boolean.TRUE);
 		}
+
+		// guest link
+		if (LoginModule.isGuestLoginLinksEnabled()) {
+			anoLink = LinkFactory.createButton("menu.guest", contentBorn, this);
+			anoLink.setIconLeftCSS("o_icon o_icon-2x o_icon_provider_guest");
+			anoLink.setTitle("menu.guest.alt");
+			anoLink.setEnabled(!AuthHelper.isLoginBlocked());
+		}
+
 		
 		return contentBorn;
 	}
@@ -249,33 +229,18 @@ public class LoginAuthprovidersController extends MainLayoutBasicController impl
 	 */
 	@Override
 	protected void event(UserRequest ureq, Component source, Event event) {
-		if (source == olatMenuTree) {
-			if (event.getCommand().equals(MenuTree.COMMAND_TREENODE_CLICKED)) { // process menu commands
-				TreeNode selTreeNode = olatMenuTree.getSelectedNode();
-				String cmd = (String) selTreeNode.getUserObject();
-				//
-				dmzPanel.popContent();
-				if (cmd.equals(ACTION_LOGIN)) {
-					content = initLoginContent(ureq, LoginModule.getDefaultProviderName());
-					dmzPanel.pushContent(content);
-				} else if (cmd.equals(ACTION_GUEST)) {
-					int loginStatus = AuthHelper.doAnonymousLogin(ureq, ureq.getLocale());
-					if (loginStatus == AuthHelper.LOGIN_OK) {
-						return;
-					} else if (loginStatus == AuthHelper.LOGIN_NOTAVAILABLE){
-						getWindowControl().setError(translate("login.notavailable", WebappHelper.getMailConfig("mailSupport")));
-					} else {
-						getWindowControl().setError(translate("login.error", WebappHelper.getMailConfig("mailSupport")));
-					}
-				} else if (cmd.equals(ACTION_BROWSERCHECK)) {
-					showBrowserCheckPage(ureq);//fxdiff FXOLAT-113: business path in DMZ
-				} else if (cmd.equals(ACTION_COOKIES)) {
-					dmzPanel.pushContent(createVelocityContainer("cookies"));
-				} else if (cmd.equals(ACTION_ABOUT)) {
-					showAboutPage();//fxdiff FXOLAT-113: business path in DMZ
-				} else if (cmd.equals(ACTION_ACCESSIBILITY)) {
-					showAccessibilityPage();//fxdiff FXOLAT-113: business path in DMZ
-				}
+		 if (source == anoLink) {
+			if (LoginModule.isGuestLoginLinksEnabled()) {				
+				int loginStatus = AuthHelper.doAnonymousLogin(ureq, ureq.getLocale());
+				if (loginStatus == AuthHelper.LOGIN_OK) {
+					return;
+				} else if (loginStatus == AuthHelper.LOGIN_NOTAVAILABLE){
+					DispatcherModule.redirectToServiceNotAvailable( ureq.getHttpResp() );
+				} else {
+					getWindowControl().setError(translate("login.error", WebappHelper.getMailConfig("mailSupport")));
+				}	
+			} else {
+				DispatcherModule.redirectToServiceNotAvailable( ureq.getHttpResp() );
 			}
 		} else if (event.getCommand().equals(ACTION_LOGIN)) { 
 			// show traditional login page
@@ -284,20 +249,19 @@ public class LoginAuthprovidersController extends MainLayoutBasicController impl
 			dmzPanel.pushContent(content);
 		}
 	}
-	//fxdiff FXOLAT-113: business path in DMZ
+
 	protected void showAccessibilityPage() {
 		VelocityContainer accessibilityVC = createVelocityContainer("accessibility");
 		dmzPanel.pushContent(accessibilityVC);
 	}
-	//fxdiff FXOLAT-113: business path in DMZ
+
 	protected void showBrowserCheckPage(UserRequest ureq) {
 		VelocityContainer browserCheck = createVelocityContainer("browsercheck");
 		browserCheck.contextPut("isBrowserAjaxReady", Boolean.valueOf(!Settings.isBrowserAjaxBlacklisted(ureq)));
 		dmzPanel.pushContent(browserCheck);
 	}
-	//fxdiff FXOLAT-113: business path in DMZ
+
 	protected void showAboutPage() {
-	//fxdiff FXOLAT-139
 		VelocityContainer aboutVC = createVelocityContainer("about");
 		// Add version info and licenses
 		aboutVC.contextPut("version", Settings.getFullVersionInfo());
@@ -343,51 +307,5 @@ public class LoginAuthprovidersController extends MainLayoutBasicController impl
 			}
 		
 		}
-	}
-
-	private TreeModel buildTreeModel() {
-		GenericTreeNode root, gtn;
-		
-		GenericTreeModel gtm = new GenericTreeModel();
-		root = new GenericTreeNode("dmz_login");
-		root.setTitle(translate("menu.root"));
-		root.setUserObject(ACTION_LOGIN);
-		root.setAltText(translate("menu.root.alt"));
-		gtm.setRootNode(root);
-		
-		gtn = new GenericTreeNode("login_item");
-		gtn.setTitle(translate("menu.login"));
-		gtn.setUserObject(ACTION_LOGIN);
-		gtn.setAltText(translate("menu.login.alt"));
-		root.addChild(gtn);
-		root.setDelegate(gtn);		
-
-		if (LoginModule.isGuestLoginLinksEnabled() && !AuthHelper.isLoginBlocked()) {
-			gtn = new GenericTreeNode("guest_item");		
-			gtn.setTitle(translate("menu.guest"));
-			gtn.setUserObject(ACTION_GUEST);
-			gtn.setAltText(translate("menu.guest.alt"));
-			root.addChild(gtn);
-		}
-		
-		gtn = checkNode = new GenericTreeNode("check_item");//fxdiff FXOLAT-113: business path in DMZ
-		gtn.setTitle(translate("menu.check"));
-		gtn.setUserObject(ACTION_BROWSERCHECK);
-		gtn.setAltText(translate("menu.check.alt"));
-		root.addChild(gtn);
-
-		gtn = accessibilityNode = new GenericTreeNode("accessiblity_item");//fxdiff FXOLAT-113: business path in DMZ
-		gtn.setTitle(translate("menu.accessibility"));
-		gtn.setUserObject(ACTION_ACCESSIBILITY);
-		gtn.setAltText(translate("menu.accessibility.alt"));
-		root.addChild(gtn);
-
-		gtn = aboutNode = new GenericTreeNode("about_item");//fxdiff FXOLAT-113: business path in DMZ
-		gtn.setTitle(translate("menu.about"));
-		gtn.setUserObject(ACTION_ABOUT);
-		gtn.setAltText(translate("menu.about.alt"));
-		root.addChild(gtn);
-
-		return gtm;
 	}
 }

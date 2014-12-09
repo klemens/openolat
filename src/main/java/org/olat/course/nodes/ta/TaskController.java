@@ -50,6 +50,7 @@ import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.Event;
 import org.olat.core.gui.control.WindowControl;
 import org.olat.core.gui.control.controller.BasicController;
+import org.olat.core.gui.util.CSSHelper;
 import org.olat.core.id.Identity;
 import org.olat.core.logging.AssertException;
 import org.olat.core.logging.OLog;
@@ -143,7 +144,7 @@ public class TaskController extends BasicController {
 		
 		myContent = createVelocityContainer("taskAssigned");
 		
-		taskLaunchButton = LinkFactory.createButtonSmall("task.launch", myContent, this);
+		taskLaunchButton = LinkFactory.createButtonXSmall("task.launch", myContent, this);
 		taskLaunchButton.setTarget("_blank");
 		taskLaunchButton.setAjaxEnabled(false); // opened in new window
 		
@@ -269,7 +270,7 @@ public class TaskController extends BasicController {
 					}
 				} else if (ta.getActionId().equals(TaskController.ACTION_DESELECT)) {
 					if(assignedTask!=null) {
-						this.removeAssignedTask(ureq.getIdentity(), assignedTask);
+						removeAssignedTask(ureq.getIdentity());
 						List<String> availableTasks = compileAvailableTasks();
 						taskTableModel.setObjects(availableTasks);
 						tableCtr.modelChanged();
@@ -294,6 +295,7 @@ public class TaskController extends BasicController {
 		myContent.put("task.launch", taskLaunchButton);
 		myContent.contextPut(VC_ASSIGNEDTASK, assignedTask);
 		myContent.contextPut(VC_ASSIGNEDTASK_NEWWINDOW,Boolean.TRUE);
+		myContent.contextPut("taskIcon", CSSHelper.createFiletypeIconCssClassFor(assignedTask));
 		panel.setContent(myContent);
 	}
 	
@@ -323,7 +325,7 @@ public class TaskController extends BasicController {
 		}
 		if (availableTasks.size() == 0)	return null; // no more task available
 		
-		String task = (String)availableTasks.get((new Random()).nextInt(availableTasks.size()));
+		String task = availableTasks.get((new Random()).nextInt(availableTasks.size()));
 		setAssignedTask(identity, task); // assignes the file to this identity
 		if (!samplingWithReplacement)
 			markTaskAsSampled(task); // remove the file from available files
@@ -333,7 +335,7 @@ public class TaskController extends BasicController {
 	public static String getAssignedTask(Identity identity, CourseEnvironment courseEnv, CourseNode node) {
 		List<Property> samples = courseEnv.getCoursePropertyManager().findCourseNodeProperties(node, identity, null, PROP_ASSIGNED);
 		if (samples.size() == 0) return null; // no sample assigned yet
-		return ((Property)samples.get(0)).getStringValue();
+		return samples.get(0).getStringValue();
 	}
 
 	private void setAssignedTask(Identity identity, String task) {
@@ -347,7 +349,7 @@ public class TaskController extends BasicController {
 	 * @param identity
 	 * @param task
 	 */
-	private void removeAssignedTask(Identity identity, String task) {
+	private void removeAssignedTask(Identity identity) {
 		CoursePropertyManager cpm = courseEnv.getCoursePropertyManager();
 		//remove assigned
 		List<Property> properties = cpm.findCourseNodeProperties(node, identity, null, PROP_ASSIGNED);
@@ -359,7 +361,7 @@ public class TaskController extends BasicController {
 		//removed sampled  				
 		properties = courseEnv.getCoursePropertyManager().findCourseNodeProperties(node, null, null, PROP_SAMPLED);
 		if(properties!=null && properties.size()>0) {
-		  Property propety = (Property)properties.get(0);
+		  Property propety = properties.get(0);
 		  cpm.deleteProperty(propety);		  
 		}		
 	}
@@ -400,7 +402,7 @@ public class TaskController extends BasicController {
 		List<Property> samples = courseEnv.getCoursePropertyManager()
 			.findCourseNodeProperties(node, null, null, PROP_SAMPLED);
 		for (Iterator<Property> iter = samples.iterator(); iter.hasNext();) {
-			Property sample = (Property) iter.next();
+			Property sample = iter.next();
 			sampledTasks.add(sample.getStringValue());
 		}
 		return sampledTasks;
@@ -491,7 +493,7 @@ public class TaskController extends BasicController {
 
 		@Override
 		public Object getValueAt(int row, int col) {
-			String taskTitle = (String)objects.get(row);
+			String taskTitle = objects.get(row);
 			if (col == 0) {					
 					return taskTitle;
 			} else if (col == 1) {

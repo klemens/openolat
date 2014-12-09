@@ -1,10 +1,11 @@
-<div class="b_clearfix">
+<div class="clearfix">
 	$r.render("identityInfos")
 </div>
-<div class="b_clearfix">
-	$r.render("segments") <br/>	
-		
+<div class="clearfix">
+	$r.render("segments")	
 	#if($r.available("segmentCmp"))
+	<div class="o_segments_content">
 		$r.render("segmentCmp")
+	</div>
 	#end
 </div>

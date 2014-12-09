@@ -25,86 +25,45 @@
 
 package org.olat.course.nodes.projectbroker;
 
-import java.util.List;
 import java.util.Locale;
 
-import org.olat.core.extensions.ExtensionResource;
 import org.olat.core.gui.translator.Translator;
 import org.olat.core.util.Util;
 import org.olat.course.nodes.AbstractCourseNodeConfiguration;
 import org.olat.course.nodes.CourseNode;
 import org.olat.course.nodes.CourseNodeConfiguration;
+import org.olat.course.nodes.CourseNodeGroup;
 import org.olat.course.nodes.ProjectBrokerCourseNode;
 
 /**
  * @author guretzki
  */
-public class ProjectBrokerNodeConfiguration extends AbstractCourseNodeConfiguration implements CourseNodeConfiguration {
-	
-	public ProjectBrokerNodeConfiguration() {
-		super();
-	}
+public class ProjectBrokerNodeConfiguration extends AbstractCourseNodeConfiguration {
 
+	@Override
 	public CourseNode getInstance() {
 		return new ProjectBrokerCourseNode();
 	}
 
-	/**
-	 * @see org.olat.course.nodes.CourseNodeConfiguration#getLinkText(java.util.Locale)
-	 */
+	@Override
 	public String getLinkText(Locale locale) {
 		Translator fallback = Util.createPackageTranslator(CourseNodeConfiguration.class, locale);
 		Translator translator = Util.createPackageTranslator(this.getClass(), locale, fallback);
 		return translator.translate("title_projectbroker");
 	}
 
-	/**
-	 * @see org.olat.course.nodes.CourseNodeConfiguration#getCSSClass()
-	 */
+	@Override
 	public String getIconCSSClass() {
 		return "o_projectbroker_icon";
 	}
 
-	/**
-	 * @see org.olat.course.nodes.CourseNodeConfiguration#getLinkCSSClass()
-	 */
-	public String getLinkCSSClass() {
-		return null;
-	}
-
+	@Override
 	public String getAlias() {
 		return "projectbroker";
 	}
-
-	//
-	// OLATExtension interface implementations.
-	//
-
-	public String getName() {
-		return getAlias();
+	
+	@Override
+	public String getGroup() {
+		return CourseNodeGroup.other.name();
 	}
-
-	/**
-	 * @see org.olat.core.extensions.OLATExtension#getExtensionResources()
-	 */
-	public List getExtensionResources() {
-		// no ressources, part of main css
-		return null;
-	}
-
-	/**
-	 * @see org.olat.core.extensions.OLATExtension#getExtensionCSS()
-	 */
-	public ExtensionResource getExtensionCSS() {
-		// no ressources, part of main css
-		return null;
-	}
-
-	/**
-	 * @see org.olat.core.extensions.OLATExtension#setURLBuilder(org.olat.core.gui.render.URLBuilder)
-	 */
-	public void setExtensionResourcesBaseURI(String ubi) {
-	// no need for the URLBuilder
-	}
-
 }

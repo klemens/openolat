@@ -29,6 +29,7 @@ import org.olat.basesecurity.SecurityGroup;
 import org.olat.core.id.CreateInfo;
 import org.olat.core.id.OLATResourceable;
 import org.olat.core.id.Persistable;
+import org.olat.repository.CatalogEntryRef;
 import org.olat.repository.RepositoryEntry;
 
 /**
@@ -42,7 +43,7 @@ import org.olat.repository.RepositoryEntry;
  * 
  * @author Felix Jost
  */
-public interface CatalogEntry extends CreateInfo, Persistable, OLATResourceable {
+public interface CatalogEntry extends CatalogEntryRef, CreateInfo, Persistable, OLATResourceable {
 	/**
 	 * define a catalog entry as a node <code>TYPE_NODE</code>
 	 */
@@ -57,56 +58,56 @@ public interface CatalogEntry extends CreateInfo, Persistable, OLATResourceable 
 	 * 
 	 * @return String
 	 */
-	public abstract String getDescription();
+	public String getDescription();
 
 	/**
 	 * setter
 	 * 
 	 * @param description
 	 */
-	public abstract void setDescription(String description);
+	public void setDescription(String description);
 
 	/**
 	 * getter
 	 * 
 	 * @return String
 	 */
-	public abstract String getName();
+	public String getName();
 
 	/**
 	 * setter
 	 * 
 	 * @param name
 	 */
-	public abstract void setName(String name);
+	public void setName(String name);
 
 	/**
 	 * getter
 	 * 
 	 * @return RepositoryEntry
 	 */
-	public abstract RepositoryEntry getRepositoryEntry();
+	public RepositoryEntry getRepositoryEntry();
 
 	/**
 	 * setter
 	 * 
 	 * @param repositoryEntry
 	 */
-	public abstract void setRepositoryEntry(RepositoryEntry repositoryEntry);
+	public void setRepositoryEntry(RepositoryEntry repositoryEntry);
 
 	/**
 	 * getter
 	 * 
 	 * @return SecurityGroup
 	 */
-	public abstract SecurityGroup getOwnerGroup();
+	public SecurityGroup getOwnerGroup();
 
 	/**
 	 * getter
 	 * 
 	 * @param ownerGroup
 	 */
-	public abstract void setOwnerGroup(SecurityGroup ownerGroup);
+	public void setOwnerGroup(SecurityGroup ownerGroup);
 
 	/**
 	 * getter
@@ -115,7 +116,7 @@ public interface CatalogEntry extends CreateInfo, Persistable, OLATResourceable 
 	 * @see CatalogEntry#TYPE_NODE
 	 * @return int
 	 */
-	public abstract int getType();
+	public int getType();
 
 	/**
 	 * setter
@@ -124,21 +125,21 @@ public interface CatalogEntry extends CreateInfo, Persistable, OLATResourceable 
 	 * @see CatalogEntry#TYPE_NODE
 	 * @param type
 	 */
-	public abstract void setType(int type);
+	public void setType(int type);
 
 	/**
 	 * getter for an external URL pointer of ths catalogentry
 	 * 
 	 * @return String
 	 */
-	public abstract String getExternalURL();
+	public String getExternalURL();
 
 	/**
 	 * setter for an external URL pointer of ths catalogentry
 	 * 
 	 * @param externalURL
 	 */
-	public abstract void setExternalURL(String externalURL);
+	public void setExternalURL(String externalURL);
 
 	/**
 	 * parent node of this catalog entry

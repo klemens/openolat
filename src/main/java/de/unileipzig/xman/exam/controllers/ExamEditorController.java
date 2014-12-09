@@ -7,6 +7,7 @@ import java.util.List;
 import java.util.Locale;
 
 import org.olat.core.commons.fullWebApp.LayoutMain3ColsController;
+import org.olat.core.commons.persistence.DBFactory;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.Windows;
 import org.olat.core.gui.components.Component;
@@ -57,7 +58,6 @@ import de.unileipzig.xman.appointment.Appointment;
 import de.unileipzig.xman.appointment.AppointmentManager;
 import de.unileipzig.xman.appointment.tables.AppointmentTableModel;
 import de.unileipzig.xman.calendar.CalendarManager;
-import de.unileipzig.xman.catalog.controller.ExamCatalogController;
 import de.unileipzig.xman.exam.Exam;
 import de.unileipzig.xman.exam.ExamDBManager;
 import de.unileipzig.xman.exam.ExamHandler;
@@ -99,9 +99,6 @@ public class ExamEditorController extends BasicController {
 	private CloseableModalController cmc;
 	private RepositoryEntry repoEntry;
 	
-	private Link archiveExamLink;
-	private DialogBoxController archiveExamOkCancelDialog;
-
 	/**
 	 * creates the controller for the exam editor
 	 * 
@@ -137,8 +134,6 @@ public class ExamEditorController extends BasicController {
 			mainPanel = new Panel("examEditorPanel");
 			mainPanel.setContent(vcMain);
 			
-			archiveExamLink = LinkFactory.createButton("ExamEditorController.link.archiveExam", vcMain, this);
-
 			layoutCtr = new LayoutMain3ColsController(ureq, wControl, null, null, mainPanel, "examEditorCtrLayoutKey");
 
 			putInitialPanel(layoutCtr.getInitialComponent());
@@ -161,7 +156,7 @@ public class ExamEditorController extends BasicController {
 		tabbedPane.addListener(this);
 		vcMain.put("tabbedPane", tabbedPane);
 
-		editDescriptionForm = new EditDescriptionForm(ureq, this.getWindowControl(), exam.getComments());
+		editDescriptionForm = new EditDescriptionForm(ureq, this.getWindowControl(), exam.getName(), exam.getComments());
 		editDescriptionForm.addControllerListener(this);
 		tabbedPane.addTab(translate("ExamEditorController.tabbedPane.comments"),
 				editDescriptionForm.getInitialComponent());
@@ -183,7 +178,6 @@ public class ExamEditorController extends BasicController {
 		vcApp.contextPut("enableAppLink", enableAppLink);
 		TableGuiConfiguration tgc = new TableGuiConfiguration();
 		tgc.setMultiSelect(true);
-		tgc.setColumnMovingOffered(true);
 		tgc.setDownloadOffered(true);
 		tgc.setTableEmptyMessage(translate("ExamEditorController.appointmentTable.empty"));
 		appTableCtr = new TableController(tgc, ureq, getWindowControl(), getTranslator());
@@ -202,11 +196,6 @@ public class ExamEditorController extends BasicController {
 
 		vcApp.put("appointmentTable", appTableCtr.getInitialComponent());
 		tabbedPane.addTab(translate("ExamEditorController.tabbedPane.appointments"), vcApp);
-
-		ExamCatalogController ecc = new ExamCatalogController(ureq, this
-				.getWindowControl(), exam);
-		tabbedPane.addTab(translate("ExamCatalogController.catalog"), ecc
-						.getInitialComponent());
 	}
 
 	/**
@@ -216,7 +205,6 @@ public class ExamEditorController extends BasicController {
 		if(lockResult != null) {
 			CoordinatorManager.getInstance().getCoordinator().getLocker().releaseLock(lockResult);
 		}
-		removeAsListenerAndDispose(archiveExamOkCancelDialog);
 	}
 
 	/**
@@ -237,8 +225,6 @@ public class ExamEditorController extends BasicController {
 			cmc = new CloseableModalController(this.getWindowControl(),
 					translate("close"), vcEditApp);
 			cmc.activate();
-		} else if(source == archiveExamLink) {
-			archiveExamOkCancelDialog = activateOkCancelDialog(ureq, translate("ExamEditorController.link.archiveExam"), translate("ExamEditorController.link.archiveExam.warning"), archiveExamOkCancelDialog);
 		}
 	}
 
@@ -315,12 +301,20 @@ public class ExamEditorController extends BasicController {
 				}
 			}
 		} else if (source == editDescriptionForm) {
-
 			if (event == Form.EVNT_VALIDATION_OK) {
+				if(!editDescriptionForm.getName().equals(exam.getName())) {
+					showInfo("ExamEditorController.nameChange");
+				}
 
 				exam = ExamDBManager.getInstance().findExamByID(exam.getKey());
 				exam.setComments(editDescriptionForm.getDescription());
-				ExamDBManager.getInstance().updateExam(exam);
+				exam.setName(editDescriptionForm.getName());
+
+				RepositoryEntry re = ExamDBManager.getInstance().findRepositoryEntryOfExam(exam);
+				re.setDisplayname(exam.getName());
+				re.setDescription(exam.getComments());
+
+				DBFactory.getInstance().commitAndCloseSession();
 			}
 		} else if (source == editRegForm) {
 
@@ -402,34 +396,6 @@ public class ExamEditorController extends BasicController {
 					);
 				}
 			}
-		} else if(source == archiveExamOkCancelDialog) {
-            if(DialogBoxUIFactory.isOkEvent(event)) {
-            	// close exam
-				ExamDBManager.getInstance().close(exam);
-				
-				// archive the protocols of the exam
-				for(Protocol protocol : ProtocolManager.getInstance().findAllProtocolsByExam(exam)) {
-					Appointment appointment = protocol.getAppointment();
-					
-					ArchivedProtocol archivedProtocol = new ArchivedProtocol();
-					archivedProtocol.setIdentifier(protocol.getIdentity().getUser().getProperty(UserConstants.INSTITUTIONALUSERIDENTIFIER, null));
-					archivedProtocol.setName(exam.getName());
-					archivedProtocol.setDate(appointment.getDate());
-					archivedProtocol.setLocation(appointment.getPlace() != null ? appointment.getPlace() : "");
-					archivedProtocol.setComment(protocol.getComments() != null ? protocol.getComments() : "");
-					archivedProtocol.setResult(protocol.getGrade() != null ? protocol.getGrade() : "");
-					archivedProtocol.setStudyPath(protocol.getStudyPath() != null ? protocol.getStudyPath() : "");
-					
-					ArchivedProtocolManager.getInstance().save(archivedProtocol);
-				}
-				
-				// and close tab, because the editor does not make sense anymore
-				OLATResourceable ores = OLATResourceManager.getInstance().findResourceable(exam.getResourceableId(), Exam.ORES_TYPE_NAME);
-				DTabs dts = Windows.getWindows(ureq).getWindow(ureq).getDTabs();
-				DTab dt = dts.getDTab(ores);
-				if(dt == null) return;
-				dts.removeDTab(ureq, dt);
-            }
 		}
 	}
 }

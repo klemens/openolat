@@ -36,6 +36,7 @@ import java.util.Map;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.Windows;
 import org.olat.core.gui.components.Component;
+import org.olat.core.gui.components.ComponentCollection;
 import org.olat.core.gui.components.Container;
 import org.olat.core.gui.components.Window;
 import org.olat.core.gui.components.link.Link;
@@ -77,7 +78,6 @@ public class DevelopmentController extends BasicController {
 	private Link web10Link;
 	private Link web20Link;
 	private Link web20hlLink;
-	private Link web21Link;
 	
 	private Link showJson;
 	private Link showComponentTree;
@@ -115,12 +115,17 @@ public class DevelopmentController extends BasicController {
 		// a special case here: these link must work in regular mode (normal uri with full screen refresh (as 
 		// opposed to partial page refresh )in order to switch modes correctly.
 		// (grouping only needed for coloring)
-		modes.add(web10Link = LinkFactory.deAjaxify(LinkFactory.createButtonSmall("web10", myContent, this)));
-		modes.add(web20Link = LinkFactory.deAjaxify(LinkFactory.createButtonSmall("web20", myContent, this)));
-		modes.add(web20hlLink = LinkFactory.deAjaxify(LinkFactory.createButtonSmall("web20hl", myContent, this)));
-		modes.add(web21Link = LinkFactory.deAjaxify(LinkFactory.createButtonSmall("web21", myContent, this)));	
-		modes.add(debugLink = LinkFactory.deAjaxify(LinkFactory.createButtonSmall("debug", myContent, this)));		
-		modes.add(showJson = LinkFactory.deAjaxify(LinkFactory.createButtonSmall("showJson", myContent, this)));
+		modes.add(web10Link = LinkFactory.deAjaxify(LinkFactory.createLink("web10", myContent, this)));
+		modes.add(web20Link = LinkFactory.deAjaxify(LinkFactory.createLink("web20", myContent, this)));
+		modes.add(web20hlLink = LinkFactory.deAjaxify(LinkFactory.createLink("web20hl", myContent, this)));
+		modes.add(debugLink = LinkFactory.deAjaxify(LinkFactory.createLink("debug", myContent, this)));		
+		modes.add(showJson = LinkFactory.deAjaxify(LinkFactory.createLink("showJson", myContent, this)));
+		if (winMgrImpl.isAjaxEnabled()) {
+			chosenMode = web20Link;			
+		} else {			
+			chosenMode = web10Link;			
+		}
+		updateUI();
 		
 		// commands
 		showComponentTree = LinkFactory.deAjaxify(LinkFactory.createButton("showComponentTree", myContent, this));
@@ -141,7 +146,8 @@ public class DevelopmentController extends BasicController {
 		Component protectedMainPanel = DebugHelper.createDebugProtectedWrapper(mainpanel);
 		
 		devToolLink = LinkFactory.createCustomLink("devTool", "devTool", "", Link.NONTRANSLATED, myContent, this);
-		devToolLink.setCustomEnabledLinkCSS("b_dev o_noprint");
+		devToolLink.setIconLeftCSS("o_icon o_icon_dev o_icon-fw");
+		devToolLink.setCustomEnabledLinkCSS("o_dev hidden-print");
 		devToolLink.setTitle(translate("devTool"));
 		spacesaverController = new ExpColController(ureq, getWindowControl(), false, protectedMainPanel, devToolLink);
 		
@@ -186,7 +192,6 @@ public class DevelopmentController extends BasicController {
 			// choose regular mode
 			winMgrImpl.setShowDebugInfo(false);
 			winMgrImpl.setAjaxEnabled(false);
-			winMgrImpl.setForScreenReader(false);
 			winMgrImpl.setHighLightingEnabled(false);
 			winMgrImpl.setShowJSON(false);
 			winMgrImpl.setIdDivsForced(false);
@@ -196,7 +201,6 @@ public class DevelopmentController extends BasicController {
 			// enable ajax / generic-dom-replacement GDR mode
 			winMgrImpl.setShowDebugInfo(false);
 			winMgrImpl.setAjaxEnabled(true);
-			winMgrImpl.setForScreenReader(false);
 			winMgrImpl.setHighLightingEnabled(false);
 			winMgrImpl.setShowJSON(false);
 			winMgrImpl.setIdDivsForced(false);
@@ -206,31 +210,16 @@ public class DevelopmentController extends BasicController {
 			// ajax mode with highlighting
 			winMgrImpl.setShowDebugInfo(false);
 			winMgrImpl.setAjaxEnabled(true);
-			winMgrImpl.setForScreenReader(false);
 			winMgrImpl.setHighLightingEnabled(true);
 			winMgrImpl.setShowJSON(false);
 			//brasato:: setIdDivsForced is removed!! check if it works
 			winMgrImpl.setIdDivsForced(false);
 			chosenMode = web20hlLink;
 			updateUI();
-		} else if (source == web21Link) {
-			// enable screenreader support:
-			// - different html templates where appropriate.
-			// - different Component-renderers where appropriate.
-			// - mark changed components with jump-marker and allow usage of accesskey
-			winMgrImpl.setShowDebugInfo(false);
-			winMgrImpl.setAjaxEnabled(false);
-			winMgrImpl.setForScreenReader(true);
-			winMgrImpl.setHighLightingEnabled(false);
-			winMgrImpl.setShowJSON(false);
-			winMgrImpl.setIdDivsForced(false);
-			chosenMode = web21Link;
-			updateUI();
 		} else if (source == debugLink) {
 			// debug mode requires web 1.0 mode at the moment
 			winMgrImpl.setShowDebugInfo(true);
 			winMgrImpl.setAjaxEnabled(false);
-			winMgrImpl.setForScreenReader(false);
 			winMgrImpl.setHighLightingEnabled(false);
 			winMgrImpl.setShowJSON(false);
 			winMgrImpl.setIdDivsForced(false);
@@ -249,7 +238,6 @@ public class DevelopmentController extends BasicController {
 		} else if (source == showJson) {
 			winMgrImpl.setShowDebugInfo(false);
 			winMgrImpl.setAjaxEnabled(true);
-			winMgrImpl.setForScreenReader(false);
 			winMgrImpl.setHighLightingEnabled(true);
 			winMgrImpl.setShowJSON(true);
 			winMgrImpl.setIdDivsForced(false);
@@ -282,19 +270,15 @@ public class DevelopmentController extends BasicController {
 	private void updateComponentTree() {
 		Window win = wboImpl.getWindow();
 		StringOutput sb = new StringOutput();
-		renderDebugInfo(win.getContentPane(), sb, true);
+		renderDebugInfo(win.getContentPane(), sb);
 		myContent.contextPut("compdump", sb.toString());
 	}
 	
 	private void updateUI() {
 		// update mode.
 		for (Link li : modes) {
-			li.setCustomEnabledLinkCSS("b_button b_small");
-			li.setEnabled(true);
+			myContent.contextPut(li.getComponentName() + "Active", (li == chosenMode ? Boolean.TRUE : Boolean.FALSE));
 		}
-		//(chosenMode.setCustomEnabledLinkCSS("o_main_button_sel");
-		chosenMode.setEnabled(false);
-		chosenMode.setCustomDisabledLinkCSS("b_button b_small");
 		myContent.contextPut("compdump", "");
 		
 	}
@@ -312,7 +296,7 @@ public class DevelopmentController extends BasicController {
 	 * used by velocityrenderdecorator
 	 * @param target
 	 */
-	private void renderDebugInfo(Component root, StringOutput target, boolean showDebugInfo) {
+	private void renderDebugInfo(Component root, StringOutput target) {
 		target.append("<div>");
 		int cnt = cntTree(root);
 		int size = DefaultController.getControllerCount();
@@ -397,24 +381,12 @@ public class DevelopmentController extends BasicController {
 	
 	private int cntTree(Component current) {
 		int cnt = 1;
-		if (current instanceof Container) {
-			Container co = (Container) current;
+		if (current instanceof ComponentCollection) {
+			ComponentCollection co = (ComponentCollection) current;
 			for (Component child:co.getComponents()) {
 				cnt += cntTree(child);
 			}
 		}
 		return cnt;
-	}
-}
-
-class ControllerInfo {
-	private List<Component> listeningTo;
-	
-	ControllerInfo(Controller controller) {
-		listeningTo = new ArrayList<Component>();
-	}
-	
-	void addListeningComponent(Component listener) {
-		listeningTo.add(listener);
 	}
 }

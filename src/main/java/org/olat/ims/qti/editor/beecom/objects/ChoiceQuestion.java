@@ -139,7 +139,7 @@ public class ChoiceQuestion extends Question implements QTIObject {
 					if (resprocessingXML.selectNodes(".//setvar[@action='Add']").size() == 0) {
 						instance.setSingleCorrect(true);
 						Collection<Float> values = points.values();
-						if (values.size() > 0) instance.setSingleCorrectScore(((Float) (values.iterator().next())).floatValue());
+						if (values.size() > 0) instance.setSingleCorrectScore((values.iterator().next()).floatValue());
 					} else {
 						instance.setSingleCorrect(false);
 					}
@@ -149,7 +149,7 @@ public class ChoiceQuestion extends Question implements QTIObject {
 					Collection<Float> values = points.values();
 					if (values.size() > 0) {
 						instance.setSingleCorrect(true);
-						instance.setSingleCorrectScore(((Float) (values.iterator().next())).floatValue());
+						instance.setSingleCorrectScore((values.iterator().next()).floatValue());
 					} else {
 						instance.setSingleCorrect(false);
 						instance.setSingleCorrectScore(0f);
@@ -625,8 +625,11 @@ public class ChoiceQuestion extends Question implements QTIObject {
 	 */
 	public void setFlowLabelClass(String string) {
 		// only allow Block or List as value, default is set to List
-		if (string != null && string.equals(BLOCK)) flowLabelClass = BLOCK;
-		else flowLabelClass = LIST;
+		if (string != null && string.equals(BLOCK)) {
+			flowLabelClass = BLOCK;
+		} else {
+			flowLabelClass = LIST;
+		}
 	}
 
 }

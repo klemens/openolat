@@ -43,6 +43,7 @@ import org.olat.core.commons.persistence.DB;
 import org.olat.core.commons.persistence.DBFactory;
 import org.olat.core.gui.components.form.ValidationError;
 import org.olat.core.gui.translator.Translator;
+import org.olat.core.helpers.Settings;
 import org.olat.core.id.Identity;
 import org.olat.core.id.Preferences;
 import org.olat.core.id.User;
@@ -61,6 +62,7 @@ import org.olat.group.BusinessGroupService;
 import org.olat.group.model.BusinessGroupMembershipChange;
 import org.olat.login.auth.OLATAuthManager;
 import org.olat.user.UserManager;
+import org.olat.user.propertyhandlers.GenderPropertyHandler;
 import org.olat.user.propertyhandlers.UserPropertyHandler;
 
 /**
@@ -219,7 +221,7 @@ public class UserBulkChangeManager extends BasicManager {
 								: (status == Identity.STATUS_LOGIN_DENIED ? "login_denied"
 										: (status == Identity.STATUS_DELETED ? "deleted"
 												: "unknown"))));
-				if(status == Identity.STATUS_LOGIN_DENIED) {
+				if(oldStatus != status && status == Identity.STATUS_LOGIN_DENIED && Boolean.parseBoolean(roleChangeMap.get("sendLoginDeniedEmail"))) {
 					sendLoginDeniedEmail(identity);
 				}
 				identity = secMgr.saveIdentityStatus(identity, status);
@@ -269,22 +271,43 @@ public class UserBulkChangeManager extends BasicManager {
 	}
 	
 	public void sendLoginDeniedEmail(Identity identity) {
+		String lang = identity.getUser().getPreferences().getLanguage();
+		Locale locale = I18nManager.getInstance().getLocaleOrDefault(lang);
+		Translator translator = Util.createPackageTranslator(SystemRolesAndRightsController.class, locale);
+
+		String gender = "";
+		UserPropertyHandler handler = UserManager.getInstance().getUserPropertiesConfig().getPropertyHandler(UserConstants.GENDER);
+		if(handler instanceof GenderPropertyHandler) {
+			String internalGender = ((GenderPropertyHandler)handler).getInternalValue(identity.getUser());
+			if(StringHelper.containsNonWhitespace(internalGender)) {
+				Translator userPropTrans = UserManager.getInstance().getUserPropertiesConfig().getTranslator(translator);
+				gender = userPropTrans.translate("form.name.gender.salutation." + internalGender);
+			}
+		}
+
 		String[] args = new String[] {
 				identity.getName(),//0: changed users username
 				identity.getUser().getProperty(UserConstants.EMAIL, null),// 1: changed users email address
 				UserManager.getInstance().getUserDisplayName(identity.getUser()),// 2: Name (first and last name) of user who changed the password
 				WebappHelper.getMailConfig("mailSupport"), //3: configured support email address
+				identity.getUser().getProperty(UserConstants.LASTNAME, null), //4 last name
+				getServerURI(), //5 url system
+				gender //6 Mr. Mrs.
 		};
 		
-		String lang = identity.getUser().getPreferences().getLanguage();
-		Locale locale = I18nManager.getInstance().getLocaleOrDefault(lang);
-		Translator translator = Util.createPackageTranslator(SystemRolesAndRightsController.class, locale);
-
 		MailBundle bundle = new MailBundle();
 		bundle.setToId(identity);
 		bundle.setContent(translator.translate("mailtemplate.login.denied.subject", args),
 			translator.translate("mailtemplate.login.denied.body", args));
 		CoreSpringFactory.getImpl(MailManager.class).sendExternMessage(bundle, null);
+	}
+	
+	private String getServerURI() {
+		String uri = Settings.getSecureServerContextPathURI();
+		if(StringHelper.containsNonWhitespace(uri)) {
+			return uri;
+		}
+		return Settings.getInsecureServerContextPathURI();
 	}
 
 	public String evaluateValueWithUserContext(String valToEval, Context vcContext) {

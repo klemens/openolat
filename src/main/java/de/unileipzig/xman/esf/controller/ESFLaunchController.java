@@ -296,14 +296,14 @@ public class ESFLaunchController extends BasicController {
 	 */
 	protected void event(UserRequest ureq, Component source, Event event) {
 		if(source == linkChangeEsf) {
-			esfController = new ESFCreateController(ureq, getWindowControl(), getTranslator(), user, translate("ESFCreateForm.title"), CHANGE_ESF);
+			esfController = new ESFCreateController(ureq, getWindowControl(), getTranslator(), user, CHANGE_ESF);
 			esfController.addControllerListener(this);
 
 			cmc = new CloseableModalController(getWindowControl(), translate("close"), esfController.getInitialComponent());
 			listenTo(cmc);
 			cmc.activate();
 		} else if(source == linkCreateEsf) {
-			esfController = new ESFCreateController(ureq, getWindowControl(), getTranslator(), user, translate("ESFCreateForm.title"), CREATE_ESF);
+			esfController = new ESFCreateController(ureq, getWindowControl(), getTranslator(), user, CREATE_ESF);
 			esfController.addControllerListener(this);
 
 			cmc = new CloseableModalController(getWindowControl(), translate("close"), esfController.getInitialComponent());

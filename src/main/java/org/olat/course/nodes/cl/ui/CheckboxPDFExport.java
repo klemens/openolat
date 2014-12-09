@@ -257,7 +257,8 @@ public class CheckboxPDFExport extends PdfDocument implements MediaResource {
     	return headers;
 	}
     
-	public int drawTable(String[] headers, String[][] content, int offset, float maxHeaderSize, float nameMaxSize, float fontSize, float cellMargin)
+	public int drawTable(String[] headers, String[][] content, int offset,
+			float maxHeaderSize, float nameMaxSize, float fontSize, float cellMargin)
 	throws IOException {
 	
 		float tableWidth = width;
@@ -274,7 +275,7 @@ public class CheckboxPDFExport extends PdfDocument implements MediaResource {
 		int rows = end - offset;
 		
 		float tableHeight = (rowHeight * rows) + headerHeight;
-		float colWidth = (tableWidth - (100 + nameMaxSize)) / (float) (cols - 2.0f);
+		float colWidth = (tableWidth - (100 + nameMaxSize)) / (cols - 2.0f);
 
 		// draw the rows
 		float y = currentY;
@@ -324,6 +325,7 @@ public class CheckboxPDFExport extends PdfDocument implements MediaResource {
 
 		currentY -= headerHeight;
 
+		//draw the content
 		textx = marginLeftRight + cellMargin;
 		texty = currentY - 15;
 		for (int i=offset; i<end; i++) {
@@ -339,7 +341,7 @@ public class CheckboxPDFExport extends PdfDocument implements MediaResource {
 					currentContentStream.drawString(text);
 					currentContentStream.endText();
 				}
-				textx += (j==0 ? 100 : colWidth);
+				textx += (j==0 ? nameMaxSize : colWidth);
 			}
 			texty -= rowHeight;
 			textx = marginLeftRight + cellMargin;

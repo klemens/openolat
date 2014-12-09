@@ -48,10 +48,9 @@ import javax.ws.rs.core.Response.Status;
 
 import org.olat.basesecurity.BaseSecurity;
 import org.olat.basesecurity.BaseSecurityManager;
-import org.olat.basesecurity.SecurityGroup;
+import org.olat.basesecurity.GroupRoles;
 import org.olat.core.CoreSpringFactory;
 import org.olat.core.commons.persistence.DBFactory;
-import org.olat.core.commons.persistence.DBQuery;
 import org.olat.core.id.Identity;
 import org.olat.core.id.IdentityEnvironment;
 import org.olat.core.logging.OLog;
@@ -69,6 +68,7 @@ import org.olat.course.run.scoring.ScoreEvaluation;
 import org.olat.course.run.userview.UserCourseEnvironment;
 import org.olat.course.run.userview.UserCourseEnvironmentImpl;
 import org.olat.group.BusinessGroup;
+import org.olat.group.BusinessGroupService;
 import org.olat.ims.qti.QTIResultSet;
 import org.olat.ims.qti.container.AssessmentContext;
 import org.olat.ims.qti.container.HttpItemInput;
@@ -86,6 +86,7 @@ import org.olat.modules.iq.IQManager;
 import org.olat.properties.Property;
 import org.olat.repository.RepositoryEntry;
 import org.olat.repository.RepositoryManager;
+import org.olat.repository.RepositoryService;
 import org.olat.restapi.security.RestSecurityHelper;
 import org.olat.restapi.support.vo.AssessableResultsVO;
 
@@ -568,46 +569,44 @@ public class CourseAssessmentWebService {
 			.append(" p.resourceTypeName = :restypename and p.resourceTypeId = :restypeid")
 			.append(" and p.name = '").append(AssessmentManager.SCORE).append("'")
 			.append(" and p.identity = :id");
-		DBQuery query = DBFactory.getInstance().createQuery(sb.toString());
-		query.setString("restypename", course.getResourceableTypeName());
-		query.setLong("restypeid", course.getResourceableId().longValue());
-		query.setEntity("id", assessedIdentity);
-		List<Date> properties = query.list();
+		List<Date> properties = DBFactory.getInstance().getCurrentEntityManager()
+				.createQuery(sb.toString(), Date.class)
+				.setParameter("restypename", course.getResourceableTypeName())
+				.setParameter("restypeid", course.getResourceableId().longValue())
+				.setParameter("id", assessedIdentity)
+				.getResultList();
 		if(!properties.isEmpty()) {
 			return properties.get(0);
 		}
 		return null;
 	}
 
-	//fxdiff VCRP-1,2: access control of resources
 	private List<Identity> loadUsers(ICourse course) {
-		List<Identity> identites = new ArrayList<Identity>();
-		BaseSecurity securityManager = BaseSecurityManager.getInstance();
+		List<Identity> identities = new ArrayList<Identity>();
 		List<BusinessGroup> groups = course.getCourseEnvironment().getCourseGroupManager().getAllBusinessGroups();
 
 		Set<Long> check = new HashSet<Long>();
-		for(BusinessGroup group:groups) {
-			SecurityGroup participants = group.getPartipiciantGroup();
-			List<Identity> ids = securityManager.getIdentitiesOfSecurityGroup(participants);
-			for(Identity id:ids) {
-				if(!check.contains(id.getKey())) {
-					identites.add(id);
-					check.add(id.getKey());
-				}
+		BusinessGroupService businessGroupService = CoreSpringFactory.getImpl(BusinessGroupService.class);
+		List<Identity> participants = businessGroupService.getMembers(groups, GroupRoles.participant.name());
+		for(Identity participant:participants) {
+			if(!check.contains(participant.getKey())) {
+				identities.add(participant);
+				check.add(participant.getKey());
 			}
 		}
-		//fxdiff VCRP-1,2: access control of resources
+		
+		RepositoryService repositoryService = CoreSpringFactory.getImpl(RepositoryService.class);
 		RepositoryEntry re = RepositoryManager.getInstance().lookupRepositoryEntry(course, false);
-		if(re != null && re.getParticipantGroup() != null) {
-			List<Identity> ids = securityManager.getIdentitiesOfSecurityGroup(re.getParticipantGroup());
+		if(re != null) {
+			List<Identity> ids = repositoryService.getMembers(re, GroupRoles.participant.name());
 			for(Identity id:ids) {
 				if(!check.contains(id.getKey())) {
-					identites.add(id);
+					identities.add(id);
 					check.add(id.getKey());
 				}
 			}
 		}
 
-		return identites;
+		return identities;
 	}
 }

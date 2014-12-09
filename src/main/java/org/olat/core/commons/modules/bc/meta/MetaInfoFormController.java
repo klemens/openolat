@@ -46,6 +46,7 @@ import org.olat.core.gui.control.WindowControl;
 import org.olat.core.gui.control.generic.folder.FolderHelper;
 import org.olat.core.id.Roles;
 import org.olat.core.util.FileUtils;
+import org.olat.core.util.Formatter;
 import org.olat.core.util.StringHelper;
 import org.olat.core.util.vfs.OlatRelPathImpl;
 import org.olat.core.util.vfs.VFSConstants;
@@ -182,7 +183,9 @@ public class MetaInfoFormController extends FormBasicController {
 	 */
 	@Override
 	protected void initForm(FormItemContainer formLayout, Controller listener, UserRequest ureq) {
-		setFormTitle("mf.metadata.title");
+		if(isSubform) {
+			setFormTitle("mf.metadata.title");
+		}
 		setFormContextHelp(MetaInfoFormController.class.getPackage().getName(), "bc-metainfo.html", "chelp.bc-metainfo.hover");
 
 		// filename
@@ -249,7 +252,7 @@ public class MetaInfoFormController extends FormBasicController {
 		/* static fields */
 		String sizeText, typeText;
 		if (item instanceof VFSLeaf) {
-			sizeText = StringHelper.formatMemory(((VFSLeaf) item).getSize());
+			sizeText = Formatter.formatBytes(((VFSLeaf) item).getSize());
 			typeText = FolderHelper.extractFileType(item.getName(), getLocale());
 		} else {
 			sizeText = "-";
@@ -269,7 +272,6 @@ public class MetaInfoFormController extends FormBasicController {
 
 		if (!hasMetadata(meta)) {
 			moreMetaDataLink = uifactory.addFormLink("mf.more.meta.link", formLayout, Link.LINK_CUSTOM_CSS);
-			moreMetaDataLink.setCustomEnabledLinkCSS("b_link_moreinfo");
 			setMetaFieldsVisible(false);
 		}
 

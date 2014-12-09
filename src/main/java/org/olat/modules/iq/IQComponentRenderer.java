@@ -26,7 +26,6 @@
 package org.olat.modules.iq;
 
 import java.util.Date;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
 
@@ -220,43 +219,37 @@ public class IQComponentRenderer implements ComponentRenderer {
 				}
 			}
 			
-			sb.append("<div class=\"b_subcolumns\">");
-			sb.append("<div class=\"b_c33l\">");
+			sb.append("<div class=\"row\">");
+			sb.append("<div class='o_button_group'>");
 			
-			sb.append("<input class=\"b_button\" type=\"submit\" name=\"olat_fosm\" value=\"");
+			sb.append("<input class=\"btn btn-primary\" type=\"submit\" name=\"olat_fosm\" value=\"");
 			if (ai.isSectionPage())
 				sb.append(StringEscapeUtils.escapeHtml(translator.translate("submitMultiAnswers")));
 			else
 				sb.append(StringEscapeUtils.escapeHtml(translator.translate("submitSingleAnswer")));
 			sb.append("\"");
 			if (!displayForm) sb.append(" style=\"display: none;\"");
-			sb.append(" />");
-			
-			sb.append("</div><div class=\"b_c66r\">");
+			sb.append(" />")
+			  .append("</div><div class='col-md-10'>");
 
 			if (memo && memoId != null) {
-				sb.append("<div class=\"o_qti_item_note_box_title\">");
-				sb.append(translator.translate("qti.memofield"));
 				sb.append("<div class=\"o_qti_item_note_box\">");
-				sb.append("<textarea id=\"o_qti_item_note\" rows=\"2\" spellcheck=\"false\" onchange=\"memo('");
+				sb.append("<label class=\"control-label\" for=\"o_qti_item_note\">").append(translator.translate("qti.memofield")).append("</label>");
+				sb.append("<textarea id=\"o_qti_item_note\" class=\"form-control\" rows=\"4\" spellcheck=\"false\" onchange=\"memo('");
 				sb.append(memoId);
 				sb.append("', this.value);\" onkeyup=\"resize(this);\" onmouseup=\"resize(this);\"");
 				if (isDefaultMemo) {
 					sb.append(" onfocus=\"clrMemo(this);\"");
 				}
-				sb.append(">");
-				sb.append(memoTx);
-				sb.append("</textarea>");
-				sb.append("</div>");
-				sb.append("</div>");
+				sb.append(">")
+				  .append(memoTx)
+				  .append("</textarea>")
+				  .append("</div>");
 			}
 			
-			sb.append("</div>");
-			
-			sb.append("</form>");
-			
-			
-			sb.append("</div>");
+			sb.append("</div>")//end memo
+			  .append("</div>")//end row
+			  .append("</form>");
 		}
 		
 		if (status == QTIConstants.ASSESSMENT_FINISHED) {
@@ -269,11 +262,11 @@ public class IQComponentRenderer implements ComponentRenderer {
 					renderFeedback(info, sb, ai, translator);
 					
 					//add the next button
-					sb.append("<a class=\"b_button\" onclick=\"return o2cl()\" href=\"");
+					sb.append("<a class=\"btn btn-primary\" onclick=\"return o2cl()\" href=\"");
 					ubu.buildURI(sb, new String[] { VelocityContainer.COMMAND_ID }, new String[] { "sitsec" });
 					String title = translator.translate("next"); 
 					sb.append("\" title=\"" + StringEscapeUtils.escapeHtml(title) + "\">");
-					sb.append("<span>").append(title).append("</title>");
+					sb.append("<span>").append(title).append("</span>");
 					sb.append("</a>");
 				}
 			}
@@ -306,11 +299,8 @@ public class IQComponentRenderer implements ComponentRenderer {
 		long sSec = millis / 1000;
 		long sMin = sSec / 60;
 		sSec = sSec - (sMin * 60);
-		StringOutput sb = new StringOutput();
-		sb.append(sMin);
-		sb.append("'&nbsp;");
-		sb.append(sSec);
-		sb.append("\"");
+		StringBuilder sb = new StringBuilder();
+		sb.append(sMin).append("'&nbsp;").append(sSec).append("\"");
 		return sb.toString();
 	}
 	
@@ -359,21 +349,21 @@ public class IQComponentRenderer implements ComponentRenderer {
 			sb.append("<td></td>"); // no time limit symbol
 			// add lock image
 			sb.append("<td>");
-			sb.append("<div class=\"b_small_icon o_qti_closed_icon\" title=\"");
+			sb.append("<div class='o_qti_closed_icon' title=\"");
 			sb.append(StringEscapeUtils.escapeHtml(r.getTranslator().translate("itemclosed")));
-			sb.append("\"></div>");
+			sb.append("\"><i class='o_icon o_icon_locked'> </i></div>");
 			sb.append("</td>");
 		} else if (info) {
 			// max duration info
 			sb.append("<td>");
 			if (maxdur != -1) {
-					sb.append("<div class=\"b_small_icon o_qti_timelimit_icon\" title=\"");
+					sb.append("<div class='o_qti_timelimit_icon' title=\"");
 					if (!itc.isStarted()) {
 						sb.append(StringEscapeUtils.escapeHtml(r.getTranslator().translate("timelimit.initial", new String[] {getFormattedLimit(maxdur)})));
 					} else  {
 						sb.append(StringEscapeUtils.escapeHtml(r.getTranslator().translate("timelimit.running", new String[] {fdue})));
 					}
-					sb.append("\" ></div>");
+					sb.append("\" ><i class='o_icon o_icon_timelimit'> </i></div>");
 			}
 			sb.append("</td>");
 			
@@ -382,9 +372,9 @@ public class IQComponentRenderer implements ComponentRenderer {
 			int maxa = itc.getMaxAttempts();
 			int attempts = itc.getTimesAnswered();
 			if (maxa != -1) { // only limited times of answers
-				sb.append("<div class=\"b_small_icon o_qti_attemptslimit_icon\" title=\"");
+				sb.append("<div class='o_qti_attemptslimit_icon' title=\"");
 				sb.append(StringEscapeUtils.escapeHtml(r.getTranslator().translate("attemptsleft", new String[] {"" + (maxa - attempts)})));
-				sb.append("\" ></div>");
+				sb.append("\" ><i class='o_icon o_icon_attempt_limit'> </i></div>");
 			}
 			sb.append("</td>");
 		}
@@ -403,8 +393,7 @@ public class IQComponentRenderer implements ComponentRenderer {
 		sb.append(ai.isMarked(itc.getIdent()) ? m : n);
 		sb.append("\">");
 		sb.append(t);
-		sb.append("</div>");
-		sb.append("</td>");
+		sb.append(" </div></td>");
 		
 		return sb;
 	}
@@ -455,19 +444,19 @@ public class IQComponentRenderer implements ComponentRenderer {
 		
 		sb.append("<td>");
 		if (!sc.isOpen()) {
-			sb.append("<div class=\"b_small_icon o_qti_closed_icon\" title=\"");
+			sb.append("<div class='o_qti_closed_icon' title=\"");
 			sb.append(StringEscapeUtils.escapeHtml(r.getTranslator().translate("itemclosed")));
-			sb.append("\"></div>");
+			sb.append("\"><i class='o_icon o_icon_locked'> </i></div>");
 		} else {
 			// max duration info
 			if (maxdur != -1) {
-					sb.append("<div class=\"b_small_icon o_qti_timelimit_icon\" title=\"");
+					sb.append("<div class='o_qti_timelimit_icon' title=\"");
 					if (!sc.isStarted()) {
 						sb.append(StringEscapeUtils.escapeHtml(r.getTranslator().translate("timelimit.initial", new String[] {getFormattedLimit(maxdur)})));
 					} else  {
 						sb.append(StringEscapeUtils.escapeHtml(r.getTranslator().translate("timelimit.running", new String[] {fdue})));
 					}
-					sb.append("\" ></div>");
+					sb.append("\" ><i class='o_icon o_icon_timelimit'> </i></div>");
 			}
 		}
 		sb.append("</td>");
@@ -530,13 +519,12 @@ public class IQComponentRenderer implements ComponentRenderer {
 
 	private void displayItems(StringOutput sb, Renderer renderer, URLBuilder ubu, SectionContext sc, AssessmentInstance ai) {
 		// display the whole current section on one page
-		List items = sc.getItemContextsToRender();
-		for (Iterator iter= items.iterator(); iter.hasNext();) {
-			ItemContext itc	= (ItemContext) iter.next();
+		List<ItemContext> items = sc.getItemContextsToRender();
+		for (ItemContext itc:items) {
 			if (itc.isOpen()) {
 			  displayItem(sb, renderer, ubu, itc, ai);
 			} else {
-				displayItemClosed(sb,renderer,itc);
+				displayItemClosed(sb,renderer);
 			}
 		}
 	}
@@ -547,9 +535,9 @@ public class IQComponentRenderer implements ComponentRenderer {
 	 * @param renderer
 	 * @param itc
 	 */
-	private void displayItemClosed(StringOutput sb, Renderer renderer,ItemContext itc) {
+	private void displayItemClosed(StringOutput sb, Renderer renderer) {
 		StringBuilder buffer = new StringBuilder(100);		
-		buffer.append("<div class=\"b_warning\"><strong>").append(renderer.getTranslator().translate("couldNotDisplayItem")).append("</strong></div>");
+		buffer.append("<div class=\"o_warning\"><strong>").append(renderer.getTranslator().translate("couldNotDisplayItem")).append("</strong></div>");
 		sb.append(buffer);
 	}
 	
@@ -594,14 +582,14 @@ public class IQComponentRenderer implements ComponentRenderer {
 		// show button to navigate to the first question of the current section			
 		IQMenuDisplayConf menuDisplayConfig = comp.getMenuDisplayConf();
 		if (!menuDisplayConfig.isEnabledMenu() && menuDisplayConfig.isItemPageSequence()) {
-			sb.append("<a class=\"b_button\" onclick=\"return o2cl()\" href=\"");
+			sb.append("<a class=\"btn btn-default\" onclick=\"return o2cl()\" href=\"");
 			ubu.buildURI(sb, new String[] { VelocityContainer.COMMAND_ID }, new String[] { "git" });
 			AssessmentContext ac = ai.getAssessmentContext();
 			int sectionPos = ac.getCurrentSectionContextPos();
 			sb.append("?itid=" + 0 + "&seid=" + sectionPos);
 			String title = translator.translate("next"); 
 			sb.append("\" title=\"" + StringEscapeUtils.escapeHtml(title) + "\">");
-			sb.append("<span>").append(title).append("</title>");
+			sb.append("<span>").append(title).append("</span>");
 			sb.append("</a>");
 		}		
 	}
@@ -619,7 +607,7 @@ public class IQComponentRenderer implements ComponentRenderer {
 		//if Menu not visible, or if visible but not selectable show button to navigate to the first section panel			
 		IQMenuDisplayConf menuDisplayConfig = comp.getMenuDisplayConf();
 		if (!menuDisplayConfig.isEnabledMenu()) {
-			sb.append("<a class=\"b_button\" onclick=\"return o2cl()\" href=\"");
+			sb.append("<a class=\"btn btn-default\" onclick=\"return o2cl()\" href=\"");
 			ubu.buildURI(sb, new String[] { VelocityContainer.COMMAND_ID }, new String[] { "gse" });
 			sb.append("?seid=" + 0);				
 			String title = translator.translate("next"); 

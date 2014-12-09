@@ -42,7 +42,7 @@ import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.Component;
 import org.olat.core.gui.components.link.Link;
 import org.olat.core.gui.components.link.LinkFactory;
-import org.olat.core.gui.components.panel.Panel;
+import org.olat.core.gui.components.panel.StackedPanel;
 import org.olat.core.gui.components.tabbedpane.TabbedPane;
 import org.olat.core.gui.components.tabbedpane.TabbedPaneChangedEvent;
 import org.olat.core.gui.components.velocity.VelocityContainer;
@@ -62,7 +62,7 @@ public class KalendarEntryDetailsController extends BasicController {
 	private Collection<KalendarRenderWrapper> availableCalendars;
 	private boolean isNew, isReadOnly;
 	private KalendarEvent kalendarEvent;
-	private Panel mainPanel;
+	private StackedPanel mainPanel;
 	private VelocityContainer mainVC, eventVC, linkVC;
 	private TabbedPane pane;
 	private KalendarEntryForm eventForm;
@@ -83,15 +83,13 @@ public class KalendarEntryDetailsController extends BasicController {
 		this.availableCalendars = availableCalendars;
 		this.kalendarEvent = kalendarEvent;
 		this.isNew = isNew;
-		//setTranslator(new PackageTranslator(CalendarManager.class.getPackage().getName(), getLocale()));
-		//mainVC = new VelocityContainer("calEditMain", VELOCITY_ROOT + "/calEditMain.html", getTranslator(), this);
+		
 		mainVC = createVelocityContainer ("calEditMain");
 		mainVC.contextPut("caller", caller);
 		pane = new TabbedPane("pane", getLocale());
 		pane.addListener(this);
 		mainVC.put("pane", pane);
 		
-		//eventVC = new VelocityContainer("calEditDetails", VELOCITY_ROOT + "/calEditDetails.html", getTranslator(), this);
 		eventVC = createVelocityContainer("calEditDetails");
 		deleteButton = LinkFactory.createButton("cal.edit.delete", eventVC, this);
 		eventVC.contextPut("caller", caller);
@@ -220,7 +218,7 @@ public class KalendarEntryDetailsController extends BasicController {
 				if (eventForm.isMulti()) {
 					// offer to copy event to multiple calendars.
 					removeAsListenerAndDispose(copyEventToCalendarController);
-					copyEventToCalendarController = new CopyEventToCalendarController(kalendarEvent, availableCalendars, getTranslator(), getWindowControl());
+					copyEventToCalendarController = new CopyEventToCalendarController(ureq, getWindowControl(), kalendarEvent, availableCalendars);
 					listenTo(copyEventToCalendarController);
 					//copyEventToCalendarController.addControllerListener(this);
 					mainPanel.setContent(copyEventToCalendarController.getInitialComponent());

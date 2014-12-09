@@ -32,13 +32,16 @@ import java.util.zip.ZipOutputStream;
 
 import org.olat.core.CoreSpringFactory;
 import org.olat.core.gui.UserRequest;
-import org.olat.core.gui.components.stack.StackedController;
+import org.olat.core.gui.components.stack.BreadcrumbPanel;
 import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.WindowControl;
+import org.olat.core.gui.control.generic.messages.MessageUIFactory;
 import org.olat.core.gui.control.generic.tabbable.TabbableController;
+import org.olat.core.gui.translator.Translator;
 import org.olat.core.id.Identity;
 import org.olat.core.id.IdentityEnvironment;
 import org.olat.core.id.OLATResourceable;
+import org.olat.core.id.Roles;
 import org.olat.core.logging.OLATRuntimeException;
 import org.olat.core.util.FileUtils;
 import org.olat.core.util.Formatter;
@@ -111,13 +114,12 @@ public class CheckListCourseNode extends AbstractAccessableCourseNode implements
 	 *      org.olat.core.gui.control.WindowControl, org.olat.course.ICourse)
 	 */
 	@Override
-	public TabbableController createEditController(UserRequest ureq, WindowControl wControl, StackedController stackPanel, ICourse course, UserCourseEnvironment euce) {
+	public TabbableController createEditController(UserRequest ureq, WindowControl wControl, BreadcrumbPanel stackPanel, ICourse course, UserCourseEnvironment euce) {
 		updateModuleConfigDefaults(false);
 		// only the precondition "access" can be configured till now
 		CheckListEditController childTabCntrllr = new CheckListEditController(this, ureq, wControl, course, euce);
 		CourseNode chosenNode = course.getEditorTreeModel().getCourseNode(euce.getCourseEditorEnv().getCurrentCourseNodeId());
-		return new NodeEditController(ureq, wControl, course.getEditorTreeModel(), course, chosenNode, course.getCourseEnvironment()
-				.getCourseGroupManager(), euce, childTabCntrllr);
+		return new NodeEditController(ureq, wControl, course.getEditorTreeModel(), course, chosenNode, euce, childTabCntrllr);
 	}
 
 	/**
@@ -130,14 +132,21 @@ public class CheckListCourseNode extends AbstractAccessableCourseNode implements
 	public NodeRunConstructionResult createNodeRunConstructionResult(UserRequest ureq, WindowControl wControl,
 			final UserCourseEnvironment userCourseEnv, NodeEvaluation ne, String nodecmd) {
 		updateModuleConfigDefaults(false);
-		
+
 		Controller ctrl;
 		OLATResourceable ores = OresHelper.createOLATResourceableInstance("CourseModule", userCourseEnv.getCourseEnvironment().getCourseResourceableId());
-		if(userCourseEnv.isCoach() || userCourseEnv.isAdmin()) {
+		Roles roles = ureq.getUserSession().getRoles();
+		if (roles.isGuestOnly()) {
+			Translator trans = Util.createPackageTranslator(CheckListCourseNode.class, ureq.getLocale());
+			String title = trans.translate("guestnoaccess.title");
+			String message = trans.translate("guestnoaccess.message");
+			ctrl = MessageUIFactory.createInfoMessage(ureq, wControl, title, message);
+		} else if(userCourseEnv.isCoach() || userCourseEnv.isAdmin()) {
 			ctrl = new CheckListRunForCoachController(ureq, wControl, userCourseEnv, ores, this);
 		} else {
 			ctrl = new CheckListRunController(ureq, wControl, userCourseEnv, ores, this);
 		}
+
 		Controller cont = TitledWrapperHelper.getWrapper(ureq, wControl, ctrl, this, ICON_CSS_CLASS);
 		return new NodeRunConstructionResult(cont);
 	}
@@ -424,7 +433,7 @@ public class CheckListCourseNode extends AbstractAccessableCourseNode implements
 	 */
 	@Override
 	public Controller getDetailsEditController(UserRequest ureq, WindowControl wControl,
-			StackedController stackPanel, UserCourseEnvironment userCourseEnv) {
+			BreadcrumbPanel stackPanel, UserCourseEnvironment userCourseEnv) {
 		Identity assessedIdentity = userCourseEnv.getIdentityEnvironment().getIdentity();
 		Long resId = userCourseEnv.getCourseEnvironment().getCourseResourceableId();
 		OLATResourceable courseOres = OresHelper.createOLATResourceableInstance("CourseModule", resId);
@@ -478,7 +487,7 @@ public class CheckListCourseNode extends AbstractAccessableCourseNode implements
 						} else {
 							usedNames.add(checkbox.getTitle());
 						}
-						ZipUtil.addToZip((VFSLeaf)item, path, exportStream);
+						ZipUtil.addToZip(item, path, exportStream);
 					}
 				}
 			}
@@ -506,9 +515,7 @@ public class CheckListCourseNode extends AbstractAccessableCourseNode implements
 	}
 
 	@Override
-	public Controller importNode(File importDirectory, ICourse course, boolean unattendedImport,
-			UserRequest ureq, WindowControl wControl) {
-		
+	public void importNode(File importDirectory, ICourse course, Identity owner, Locale locale) {
 		CheckboxManager checkboxManager = CoreSpringFactory.getImpl(CheckboxManager.class);
 		ModuleConfiguration config = getModuleConfiguration();
 		CheckboxList list = (CheckboxList)config.get(CONFIG_KEY_CHECKBOX);
@@ -525,7 +532,6 @@ public class CheckListCourseNode extends AbstractAccessableCourseNode implements
 				}
 			}
 		}
-		return null;
 	}
 
 	@Override

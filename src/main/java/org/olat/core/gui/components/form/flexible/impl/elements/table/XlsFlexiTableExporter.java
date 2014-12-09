@@ -84,15 +84,18 @@ public class XlsFlexiTableExporter implements FlexiTableExporter {
 			for (int c = 0; c<numOfColumns; c++) {
 				FlexiColumnModel cd = columns.get(c);
 				Cell cell = dataRow.createCell(c);
-				Object value = dataModel.getValueAt(r, cd.getColumnIndex());
-				renderCell(cell, value, r, ftC, cd, translator);
+				int colIndex = cd.getColumnIndex();
+				if(colIndex >= 0) {
+					Object value = dataModel.getValueAt(r, colIndex);
+					renderCell(cell, value, r, ftC, cd, translator);
+				}
 			}
 		}
 	}
 	
 	protected void renderCell(Cell cell,Object value, int row, FlexiTableComponent ftC, FlexiColumnModel cd, Translator translator) {
 		StringOutput so = StringOutputPool.allocStringBuilder(1000);
-		cd.getCellRenderer().render(so, value, row, ftC, ubu, translator);
+		cd.getCellRenderer().render(null, so, value, row, ftC, ubu, translator);
 
 		String cellValue = StringOutputPool.freePop(so);
 		cellValue = StringHelper.stripLineBreaks(cellValue);

@@ -16,6 +16,7 @@ import java.util.TimeZone;
 
 import org.olat.core.CoreSpringFactory;
 import org.olat.core.commons.persistence.DB;
+import org.olat.core.id.UserConstants;
 import org.olat.core.logging.OLog;
 import org.olat.core.logging.Tracing;
 import org.olat.core.manager.BasicManager;
@@ -27,6 +28,11 @@ import com.thoughtworks.xstream.annotations.XStreamAlias;
 import com.thoughtworks.xstream.annotations.XStreamImplicit;
 import com.thoughtworks.xstream.converters.ConversionException;
 import com.thoughtworks.xstream.converters.SingleValueConverter;
+
+import de.unileipzig.xman.appointment.Appointment;
+import de.unileipzig.xman.exam.Exam;
+import de.unileipzig.xman.protocol.Protocol;
+import de.unileipzig.xman.protocol.ProtocolManager;
 
 public class ArchivedProtocolManager extends BasicManager {
 	@Autowired
@@ -105,6 +111,28 @@ public class ArchivedProtocolManager extends BasicManager {
 			.createNamedQuery("deleteArchivedProtocolsByStudent")
 			.setParameter("studentId", studentId)
 			.executeUpdate();
+	}
+
+	/**
+	 * Archives the given exam by creating a ArchivedProtocol for each protocol.
+	 * This should be used together with closing the exam.
+	 * @param exam The exam to archive the protocols of
+	 */
+	public void archiveProtocols(Exam exam) {
+		for(Protocol protocol : ProtocolManager.getInstance().findAllProtocolsByExam(exam)) {
+			Appointment appointment = protocol.getAppointment();
+
+			ArchivedProtocol archivedProtocol = new ArchivedProtocol();
+			archivedProtocol.setIdentifier(protocol.getIdentity().getUser().getProperty(UserConstants.INSTITUTIONALUSERIDENTIFIER, null));
+			archivedProtocol.setName(exam.getName());
+			archivedProtocol.setDate(appointment.getDate());
+			archivedProtocol.setLocation(appointment.getPlace() != null ? appointment.getPlace() : "");
+			archivedProtocol.setComment(protocol.getComments() != null ? protocol.getComments() : "");
+			archivedProtocol.setResult(protocol.getGrade() != null ? protocol.getGrade() : "");
+			archivedProtocol.setStudyPath(protocol.getStudyPath() != null ? protocol.getStudyPath() : "");
+
+			save(archivedProtocol);
+		}
 	}
 
 	/**

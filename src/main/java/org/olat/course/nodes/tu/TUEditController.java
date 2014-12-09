@@ -30,7 +30,7 @@ import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.Component;
 import org.olat.core.gui.components.link.Link;
 import org.olat.core.gui.components.link.LinkFactory;
-import org.olat.core.gui.components.stack.StackedController;
+import org.olat.core.gui.components.stack.BreadcrumbPanel;
 import org.olat.core.gui.components.tabbedpane.TabbedPane;
 import org.olat.core.gui.components.velocity.VelocityContainer;
 import org.olat.core.gui.control.Controller;
@@ -43,7 +43,6 @@ import org.olat.course.assessment.AssessmentHelper;
 import org.olat.course.condition.Condition;
 import org.olat.course.condition.ConditionEditController;
 import org.olat.course.editor.NodeEditController;
-import org.olat.course.groupsandrights.CourseGroupManager;
 import org.olat.course.nodes.TUCourseNode;
 import org.olat.course.run.preview.PreviewConfigHelper;
 import org.olat.course.run.userview.UserCourseEnvironment;
@@ -69,7 +68,7 @@ public class TUEditController extends ActivateableTabbableDefaultController impl
 
 	private ModuleConfiguration config;	
 	private VelocityContainer myContent;
-	private final StackedController stackPanel;
+	private final BreadcrumbPanel stackPanel;
 
 	private TUConfigForm tuConfigForm;	
 	private TUCourseNode courseNode;
@@ -88,7 +87,7 @@ public class TUEditController extends ActivateableTabbableDefaultController impl
 	 * @param tuCourseNode The current single page course node
 	 * @param course
 	 */
-	public TUEditController(ModuleConfiguration config, UserRequest ureq, WindowControl wControl, StackedController stackPanel,
+	public TUEditController(ModuleConfiguration config, UserRequest ureq, WindowControl wControl, BreadcrumbPanel stackPanel,
 			TUCourseNode tuCourseNode, ICourse course, UserCourseEnvironment euce) {
 		super(ureq, wControl);
 		
@@ -97,20 +96,20 @@ public class TUEditController extends ActivateableTabbableDefaultController impl
 		this.course = course;
 		this.stackPanel = stackPanel;
 		
-		myContent = this.createVelocityContainer("edit");
+		myContent = createVelocityContainer("edit");
 		previewButton = LinkFactory.createButtonSmall("command.preview", myContent, this);
+		previewButton.setIconLeftCSS("o_icon o_icon-fw o_icon_preview");
 		
-		tuConfigForm = new TUConfigForm(ureq, wControl, config, false);
+		tuConfigForm = new TUConfigForm(ureq, wControl, config);
 		listenTo(tuConfigForm);
 		myContent.put("tuConfigForm", tuConfigForm.getInitialComponent());
 
-		CourseGroupManager groupMgr = course.getCourseEnvironment().getCourseGroupManager();
 		CourseEditorTreeModel editorModel = course.getEditorTreeModel();
 		//Accessibility precondition
 		Condition accessCondition = courseNode.getPreConditionAccess();
-		accessibilityCondContr = new ConditionEditController(ureq, getWindowControl(), groupMgr, accessCondition, "accessabilityConditionForm",
+		accessibilityCondContr = new ConditionEditController(ureq, getWindowControl(), accessCondition,
 				AssessmentHelper.getAssessableNodes(editorModel, tuCourseNode), euce);		
-    this.listenTo(accessibilityCondContr);
+		listenTo(accessibilityCondContr);
 
 		// Enable preview button only if node configuration is valid
 		if (!(tuCourseNode.isConfigValid().isError())) myContent.contextPut("showPreviewButton", Boolean.TRUE);

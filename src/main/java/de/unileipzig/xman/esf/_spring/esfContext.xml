@@ -8,27 +8,8 @@
   http://www.springframework.org/schema/context 
   http://www.springframework.org/schema/context/spring-context-3.0.xsd">
   
-<!-- this extension will show up in the menu tree of the home screen after login -->
-<bean class="org.olat.core.extensions.action.GenericActionExtension" init-method="initExtensionPoints">
-	<!-- where in the menu tree should the link show up. Small values go further up. -->
-	<property name="order" value="1" />
-	<property name="enabled" value="true" />
-	<property name="actionController">
-		<bean class="org.olat.core.gui.control.creator.AutoCreator" scope="prototype">
-			<property name="className" value="de.unileipzig.xman.esf.controller.ESFLaunchController"/>
-		</bean>
-	</property>
-	<property name="securityCallbackClassName" value="de.unileipzig.xman.esf.StudentOnlyExtensionSecurityCallback" />
-	<property name="translationPackage" value="de.unileipzig.xman.esf" />
-	<property name="i18nActionKey" value="esf.action"/>
-	<property name="i18nDescriptionKey" value="esf.description"/>
-	<property name="extensionPoints">
-		<list>
-			<!-- display the starting action link in the menu tree of the home main controller. -->
-			<value>org.olat.home.HomeMainController</value>		
-		</list>
-	</property>
-</bean>
+<!-- show esf in separate tab -->
+<bean id="olatsites_esf" class="de.unileipzig.xman.esf.site.ElectronicStudentFileSiteDefinition" scope="prototype" />
 
 <!-- Init the Manager via Spring so that it can register to user delete events -->
 <bean class="de.unileipzig.xman.esf.ElectronicStudentFileManager">

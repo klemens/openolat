@@ -93,7 +93,8 @@ public class InfoConfigForm extends FormBasicController {
 			durationSelection.select("30", true);
 		}
 
-		lengthSelection = uifactory.addDropdownSingleselect("pane.tab.infos_config.max_shown", showLayout, maxLengthValues, maxLengthValues, null);
+		lengthSelection = uifactory.addDropdownSingleselect("pane.tab.infos_config.max_shown", null, showLayout, maxLengthValues, maxLengthValues, null);
+
 		lengthSelection.setLabel("pane.tab.infos_config.max", null);
 		String lengthStr = (String)config.get(InfoCourseNodeConfiguration.CONFIG_LENGTH);
 		if(StringHelper.containsNonWhitespace(lengthStr)) {
@@ -102,7 +103,7 @@ public class InfoConfigForm extends FormBasicController {
 			lengthSelection.select("5", true);
 		}
 		
-		autoSubscribeSelection = uifactory.addCheckboxesHorizontal("auto_subscribe", formLayout, autoSubscribeKeys, autoSubscribeValues, null);
+		autoSubscribeSelection = uifactory.addCheckboxesHorizontal("auto_subscribe", formLayout, autoSubscribeKeys, autoSubscribeValues);
 		String autoSubscribeStr = (String)config.get(InfoCourseNodeConfiguration.CONFIG_AUTOSUBSCRIBE);
 		if("on".equals(autoSubscribeStr) || !StringHelper.containsNonWhitespace(autoSubscribeStr)) {
 			autoSubscribeSelection.select("on", true);

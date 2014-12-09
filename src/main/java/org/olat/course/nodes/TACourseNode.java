@@ -44,7 +44,8 @@ import org.olat.core.commons.modules.bc.vfs.OlatNamedContainerImpl;
 import org.olat.core.commons.modules.bc.vfs.OlatRootFolderImpl;
 import org.olat.core.commons.services.taskexecutor.TaskExecutorManager;
 import org.olat.core.gui.UserRequest;
-import org.olat.core.gui.components.stack.StackedController;
+import org.olat.core.gui.components.stack.BreadcrumbPanel;
+import org.olat.core.gui.components.stack.TooledStackedPanel;
 import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.WindowControl;
 import org.olat.core.gui.control.generic.messages.MessageUIFactory;
@@ -76,7 +77,6 @@ import org.olat.course.editor.CourseEditorEnv;
 import org.olat.course.editor.NodeEditController;
 import org.olat.course.editor.StatusDescription;
 import org.olat.course.export.CourseEnvironmentMapper;
-import org.olat.course.groupsandrights.CourseGroupManager;
 import org.olat.course.nodes.ms.MSEditFormController;
 import org.olat.course.nodes.ta.BulkDownloadToolController;
 import org.olat.course.nodes.ta.DropboxController;
@@ -188,12 +188,11 @@ public class TACourseNode extends GenericCourseNode implements AssessableCourseN
 	 *      org.olat.core.gui.control.WindowControl, org.olat.course.ICourse)
 	 */
 	@Override
-	public TabbableController createEditController(UserRequest ureq, WindowControl wControl, StackedController stackPanel, ICourse course, UserCourseEnvironment euce) {
+	public TabbableController createEditController(UserRequest ureq, WindowControl wControl, BreadcrumbPanel stackPanel, ICourse course, UserCourseEnvironment euce) {
 		updateModuleConfigDefaults(false);
-		TACourseNodeEditController childTabCntrllr = new TACourseNodeEditController(ureq, wControl, course, this, course.getCourseEnvironment().getCourseGroupManager(), euce);
+		TACourseNodeEditController childTabCntrllr = new TACourseNodeEditController(ureq, wControl, course, this, euce);
 		CourseNode chosenNode = course.getEditorTreeModel().getCourseNode(euce.getCourseEditorEnv().getCurrentCourseNodeId());
-		CourseGroupManager groupMgr = course.getCourseEnvironment().getCourseGroupManager();
-		return new NodeEditController(ureq, wControl, course.getEditorTreeModel(), course, chosenNode, groupMgr, euce, childTabCntrllr);
+		return new NodeEditController(ureq, wControl, course.getEditorTreeModel(), course, chosenNode, euce, childTabCntrllr);
 	}
 
 	/**
@@ -215,7 +214,7 @@ public class TACourseNode extends GenericCourseNode implements AssessableCourseN
 			String message = trans.translate(NLS_GUESTNOACCESS_MESSAGE);
 			controller = MessageUIFactory.createInfoMessage(ureq, wControl, title, message);
 		} else {
-			controller = new TACourseNodeRunController(ureq, wControl, userCourseEnv, ne, false);
+			controller = new TACourseNodeRunController(ureq, wControl, userCourseEnv, this, ne, false);
 		}
 		Controller ctrl = TitledWrapperHelper.getWrapper(ureq, wControl, controller, this, "o_ta_icon");
 		return new NodeRunConstructionResult(ctrl);
@@ -229,7 +228,7 @@ public class TACourseNode extends GenericCourseNode implements AssessableCourseN
 	 */
 	@Override
 	public Controller createPreviewController(UserRequest ureq, WindowControl wControl, UserCourseEnvironment userCourseEnv, NodeEvaluation ne) {
-		return new TACourseNodeRunController(ureq, wControl, userCourseEnv, ne, true);
+		return new TACourseNodeRunController(ureq, wControl, userCourseEnv, this, ne, true);
 	}
 
 	/**
@@ -696,14 +695,17 @@ public class TACourseNode extends GenericCourseNode implements AssessableCourseN
 	 *      org.olat.course.run.userview.UserCourseEnvironment)
 	 */
 	@Override
-	public Controller getDetailsEditController(UserRequest ureq, WindowControl wControl, StackedController stackPanel, UserCourseEnvironment userCourseEnvironment) {
+	public Controller getDetailsEditController(UserRequest ureq, WindowControl wControl, BreadcrumbPanel stackPanel, UserCourseEnvironment userCourseEnvironment) {
 		// prepare file component
 		return new DropboxScoringViewController(ureq, wControl, this, userCourseEnvironment);
 	}
 
-	/** Factory method to launch course element assessment tools. limitToGroup is optional to skip he the group choose step */
+	/**
+	 * Factory method to launch course element assessment tools. limitToGroup is optional to skip he the group choose step
+	 */
 	@Override
-	public List<Controller> createAssessmentTools(UserRequest ureq, WindowControl wControl, CourseEnvironment courseEnv, AssessmentToolOptions options) {
+	public List<Controller> createAssessmentTools(UserRequest ureq, WindowControl wControl, TooledStackedPanel stackPanel,
+			CourseEnvironment courseEnv, AssessmentToolOptions options) {
 		List<Controller> tools = new ArrayList<Controller>(1);
 		tools.add(new BulkAssessmentToolController(ureq, wControl, courseEnv, this));
 		tools.add(new BulkDownloadToolController(ureq, wControl, courseEnv, options, this));
@@ -719,7 +721,7 @@ public class TACourseNode extends GenericCourseNode implements AssessableCourseN
 		CoursePropertyManager propMgr = userCourseEnvironment.getCourseEnvironment().getCoursePropertyManager();
 		List<Property> samples = propMgr.findCourseNodeProperties(this, identity, null, TaskController.PROP_ASSIGNED);
 		if (samples.size() == 0) return null; // no sample assigned yet
-		return ((Property) samples.get(0)).getStringValue();
+		return samples.get(0).getStringValue();
 	}
 
 	/**
@@ -769,7 +771,7 @@ public class TACourseNode extends GenericCourseNode implements AssessableCourseN
 	 *      org.olat.core.gui.control.WindowControl)
 	 */
 	@Override
-	public Controller importNode(File importDirectory, ICourse course, boolean unattendedImport, UserRequest ureq, WindowControl wControl) {
+	public void importNode(File importDirectory, ICourse course, Identity owner, Locale locale) {
 		//import tasks
 		File fNodeImportDir = new File(importDirectory, getIdent());
 		File fTaskfolderDir = new File(FolderConfig.getCanonicalRoot() + getTaskFolderPathRelToFolderRoot(course, this));
@@ -779,7 +781,6 @@ public class TACourseNode extends GenericCourseNode implements AssessableCourseN
 		fSolutionDir.mkdirs();
 		File fSolImportDir = new File(new File(importDirectory, "solutions"), getIdent());
 		FileUtils.copyDirContentsToDir(fSolImportDir, fSolutionDir, false, "import task course node solutions");
-		return null;
 	}
 
 	@Override

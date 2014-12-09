@@ -52,6 +52,7 @@ public class LinkRenderer extends DefaultComponentRenderer {
 	private static Pattern singleQuote = Pattern.compile("\'");
 	private static Pattern doubleQutoe = Pattern.compile("\"");
 
+	@Override
 	public void render(Renderer renderer, StringOutput sb, Component source, URLBuilder ubu, Translator translator,
 			RenderResult renderResult, String[] args) {
 		Link link = (Link) source;
@@ -78,20 +79,29 @@ public class LinkRenderer extends DefaultComponentRenderer {
 		StringBuilder cssSb = new StringBuilder("");
 		cssSb.append("class=\"");
 		if (!link.isEnabled()) {
-			cssSb.append(" b_disabled ");
+			cssSb.append(" o_disabled ");
+		}
+		if (link.isActive()) {
+			cssSb.append(" active ");
 		}
 		if (presentation == Link.BUTTON_XSMALL) {
-			cssSb.append("b_button b_xsmall");
+			cssSb.append("btn btn-xs ");
+			cssSb.append(link.isPrimary() ? "btn-primary" : "btn-default");
 		} else if (presentation == Link.BUTTON_SMALL) {
-			cssSb.append("b_button b_small");
+			cssSb.append("btn btn-sm ");
+			cssSb.append(link.isPrimary() ? "btn-primary" : "btn-default");
 		} else if (presentation == Link.BUTTON) {
-			cssSb.append("b_button");
+			cssSb.append("btn ");
+			cssSb.append(link.isPrimary() ? "btn-primary" : "btn-default");
+		} else if (presentation == Link.BUTTON_LARGE) {
+			cssSb.append("btn btn-lg ");
+			cssSb.append(link.isPrimary() ? "btn-primary" : "btn-default");
 		} else if (presentation == Link.LINK_BACK) {
-			cssSb.append("b_link_back");
+			cssSb.append("o_link_back");
 		} else if (presentation == Link.TOOLENTRY_DEFAULT) {
-			cssSb.append("b_toolbox_link");
+			cssSb.append("o_toolbox_link");
 		} else if (presentation == Link.TOOLENTRY_CLOSE) {
-			cssSb.append("b_toolbox_close");
+			cssSb.append("o_toolbox_close");
 		} else if (presentation == Link.LINK_CUSTOM_CSS) {
 			String customCss = ( link.isEnabled() ? link.getCustomEnabledLinkCSS() : link.getCustomDisabledLinkCSS() );
 			cssSb.append( customCss == null ? "" : customCss );
@@ -105,7 +115,7 @@ public class LinkRenderer extends DefaultComponentRenderer {
 			// only set a target on an enabled link, target in span makes no sense
 			if (link.getTarget() != null){
 				cssSb.append(" target=\""+ link.getTarget() +"\"");
-			}	else if (iframePostEnabled && link.isEnabled() && !flexiformlink) {
+			} else if (iframePostEnabled && link.isEnabled() && !flexiformlink) {
 				//flexi form link is excluded because the form post goes to the
 				//iframe
 				StringOutput so = new StringOutput();
@@ -130,15 +140,17 @@ public class LinkRenderer extends DefaultComponentRenderer {
 		extJsSb.append(" = jQuery('#").append(elementId).append("');");
 
 		boolean hasExtJsSb = false;
+		boolean inForm = isInForm(args);
 
 		String i18n = link.getI18n();
 		String title = link.getTitle();
 		String customDisplayText = link.getCustomDisplayText();
+		
 
 		// a form link can not have tooltips at the moment
 		// tooltip sets its own id into the <a> tag.
 		if (link.isEnabled()) {
-			sb.append("<a ");
+			sb.append("<p class='form-control-static'>", inForm).append("<a ");
 			// add layouting
 			sb.append(cssSb);
 			
@@ -159,6 +171,14 @@ public class LinkRenderer extends DefaultComponentRenderer {
 				sb.append("href=\"javascript:");
 				sb.append(FormJSHelper.getJSFnCallFor(theForm, elementId, 1));
 				sb.append("\" ");
+			} else if(link.isPopup()) {
+				StringOutput href = new StringOutput();
+				LinkPopupSettings popup = link.getPopup();
+				ubu.buildURI(href, new String[] { VelocityContainer.COMMAND_ID }, new String[] { command },
+						link.getModURI(), AJAXFlags.MODE_NORMAL);
+				sb.append("href=\"#\" onclick=\"o_openPopUp('").append(href).append("','")
+				  .append(popup.getTarget()).append("',").append(popup.getWidth())
+				  .append(",").append(popup.getHeight()).append("); return false;\" ");
 			} else {
 				sb.append("href=\"");
 				ubu.buildURI(sb, new String[] { VelocityContainer.COMMAND_ID }, new String[] { command },
@@ -184,14 +204,14 @@ public class LinkRenderer extends DefaultComponentRenderer {
 					} else {
 						text = translator.translate(title);
 					}
-					text = StringEscapeUtils.escapeJavaScript(text);
-					sb.append(" title=\"\"");
-					extJsSb.append(elementId).append(".tooltip({content:function(){ return \"").append(text).append("\";}});");
-					hasExtJsSb = true;
+					//text = StringEscapeUtils.escapeJavaScript(text);
+					sb.append(" title=\"").append(StringEscapeUtils.escapeHtml(text)).append("\"");
+					//extJsSb.append(elementId).append(".tooltip({ html:true, container:'body', title:function(){ return \"").append(text).append("\";}});");
+					//hasExtJsSb = true;
 				}
 			}
 
-			if (/* !link.isEnabledForLongTransaction && */!flexiformlink) {
+			if (/* !link.isEnabledForLongTransaction && */!flexiformlink && (!link.isPopup()  || link.getTarget() != null)) {
 				// clash with onclick ... FIXME:pb/as find better solution to solve this
 				// problem.
 				String clickCmd = (link.isSuppressDirtyFormWarning() ? "o2c=0;return o2cl();" : "return o2cl();");
@@ -202,7 +222,15 @@ public class LinkRenderer extends DefaultComponentRenderer {
 				sb.append(">");
 			}
 			
-			sb.append("<span> "); // inner wrapper for layouting
+			// CSS icon
+			if (link.getIconLeftCSS() != null) {
+				sb.append("<i class='").append(link.getIconLeftCSS()).append("'");
+				sb.append("></i> "); // one space needed
+			} else if (presentation == Link.LINK_BACK) {
+				sb.append("<i class='o_icon o_icon_back'></i> "); // one space needed				
+			}
+			
+			sb.append("<span>"); // inner wrapper for layouting
 			if (customDisplayText != null) {
 				//link is nontranslated but has custom text
 				sb.append(customDisplayText);
@@ -221,9 +249,21 @@ public class LinkRenderer extends DefaultComponentRenderer {
 					sb.append(translator.translate(i18n));
 				}
 			}
-			sb.append("</span></a>");
+			sb.append("</span>");
+			
+			// CSS icon
+			if (link.getIconRightCSS() != null) {
+				sb.append(" <i class='").append(link.getIconRightCSS()).append("'"); // one space needed
+				sb.append("></i> "); 
+			}
+			
+			if(link.getBadge() != null) {
+				renderer.render(link.getBadge(), sb, args);
+			}
+			sb.append("</a>").append("</p>", inForm);
+			
 			//on click() is part of prototype.js
-			if(link.registerForMousePositionEvent) {
+			if(link.isRegisterForMousePositionEvent()) {
 				extJsSb.append("jQuery('#"+elementId+"').click(function(event) {")
 				       .append(" jQuery('#" + elementId + "').each(function(index, el) {;")
 				       .append("  var href = jQuery(el).attr('href');")
@@ -236,8 +276,8 @@ public class LinkRenderer extends DefaultComponentRenderer {
 			 * this binds the event to the function call as argument, usefull if event is needed
 			 * Event.observe("id", "click", functionName.bindAsEventListener(this));
 			 */
-			if(link.javascriptHandlerFunction != null) {
-				extJsSb.append("  jQuery('#"+elementId+"').on('"+link.mouseEvent+"', "+link.javascriptHandlerFunction+");");
+			if(link.getJavascriptHandlerFunction() != null) {
+				extJsSb.append("  jQuery('#"+elementId+"').on('"+link.getMouseEvent()+"', "+link.getJavascriptHandlerFunction()+");");
 				hasExtJsSb = true;
 			}	
 		} else {
@@ -251,7 +291,9 @@ public class LinkRenderer extends DefaultComponentRenderer {
 			} else {
 				text = translator.translate(i18n);
 			}
-			sb.append("<span ");
+			sb.append("<a ");
+			if (elementId != null) sb.append(" id=\"").append(elementId).append("\" ");
+			
 			String description = link.getTextReasonForDisabling();
 			// fallback to title
 			if (description == null) description = link.getTitle();
@@ -262,7 +304,23 @@ public class LinkRenderer extends DefaultComponentRenderer {
 				description = mdq.replaceAll("\\\\\"");
 				sb.append(" title=\"").append(description).append("\" ");
 			}
-			sb.append(cssSb).append(">").append(text).append("</span>");
+			sb.append(cssSb).append(" href='#' onclick='return false;'>");
+
+			// CSS icon
+			if (link.getIconLeftCSS() != null) {
+				sb.append("<i class='").append(link.getIconLeftCSS()).append("'");
+				sb.append("></i> "); // one space needed
+			}			
+
+			sb.append("<span>").append(text).append("</span>");
+			
+			// CSS icon
+			if (link.getIconRightCSS() != null) {
+				sb.append(" <i class='").append(link.getIconRightCSS()).append("'"); // one space needed
+				sb.append("></i> "); 
+			}			
+
+			sb.append("</a>");
 		}
 		if(link.getStartsDownload() || link.getTarget() != null){
 			//if the link starts a download -> the o_afterserver is not called in
@@ -278,10 +336,21 @@ public class LinkRenderer extends DefaultComponentRenderer {
 		//now append all gathered javascript stuff if any
 		if(hasExtJsSb){
 			// Execute anonymous function (closure) now (OLAT-5755)
-
 			extJsSb.append("})();");
 			extJsSb.append("\n/* ]]> */\n</script>");
 			sb.append(extJsSb);
 		}
+	}
+	
+	private boolean isInForm(String[] args) {
+		boolean embedded = false;
+		if(args != null && args.length > 0) {
+			for(String arg:args) {
+				if("form".equals(arg)) {
+					embedded = true;
+				}
+			}
+		}
+		return embedded;
 	}
 }

@@ -20,7 +20,7 @@
 package org.olat.core.gui.components.chart;
 
 import org.olat.core.gui.UserRequest;
-import org.olat.core.gui.components.Component;
+import org.olat.core.gui.components.AbstractComponent;
 import org.olat.core.gui.components.ComponentRenderer;
 import org.olat.core.gui.components.DefaultComponentRenderer;
 import org.olat.core.gui.render.ValidationResult;
@@ -32,7 +32,7 @@ import org.olat.core.gui.render.ValidationResult;
  * @author srosse, stephane.rosse@frentix.com, http://www.frentix.com
  *
  */
-public class DefaultD3Component extends Component {
+public class DefaultD3Component extends AbstractComponent {
 	
 	private static final ComponentRenderer EMPTY_RENDERER = new DefaultComponentRenderer();
 	

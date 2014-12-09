@@ -25,11 +25,9 @@
 
 package org.olat.course.nodes.wiki;
 
-import java.util.List;
-
+import org.olat.NewControllerFactory;
 import org.olat.core.commons.services.notifications.SubscriptionContext;
 import org.olat.core.gui.UserRequest;
-import org.olat.core.gui.Windows;
 import org.olat.core.gui.components.Component;
 import org.olat.core.gui.components.link.Link;
 import org.olat.core.gui.components.link.LinkFactory;
@@ -41,20 +39,14 @@ import org.olat.core.gui.control.ControllerEventListener;
 import org.olat.core.gui.control.Event;
 import org.olat.core.gui.control.WindowControl;
 import org.olat.core.gui.control.generic.closablewrapper.CloseableModalController;
-import org.olat.core.gui.control.generic.dtabs.DTab;
-import org.olat.core.gui.control.generic.dtabs.DTabs;
 import org.olat.core.gui.control.generic.tabbable.ActivateableTabbableDefaultController;
 import org.olat.core.id.Identity;
-import org.olat.core.id.OLATResourceable;
-import org.olat.core.id.context.BusinessControlFactory;
-import org.olat.core.id.context.ContextEntry;
 import org.olat.core.logging.AssertException;
 import org.olat.course.ICourse;
 import org.olat.course.assessment.AssessmentHelper;
 import org.olat.course.condition.Condition;
 import org.olat.course.condition.ConditionEditController;
 import org.olat.course.editor.NodeEditController;
-import org.olat.course.groupsandrights.CourseGroupManager;
 import org.olat.course.nodes.WikiCourseNode;
 import org.olat.course.run.environment.CourseEnvironment;
 import org.olat.course.run.userview.UserCourseEnvironment;
@@ -68,9 +60,6 @@ import org.olat.modules.wiki.WikiSecurityCallbackImpl;
 import org.olat.repository.RepositoryEntry;
 import org.olat.repository.RepositoryManager;
 import org.olat.repository.controllers.ReferencableEntriesSearchController;
-import org.olat.repository.controllers.RepositoryDetailsController;
-import org.olat.repository.handlers.RepositoryHandler;
-import org.olat.repository.handlers.RepositoryHandlerFactory;
 
 /**
  * Description: <BR/>Edit controller for single page course nodes <P/> Initial
@@ -131,20 +120,19 @@ public class WikiEditController extends ActivateableTabbableDefaultController im
 		changeButton.setElementCssClass("o_sel_wiki_choose_repofile");
 				
 		editAccessVc = this.createVelocityContainer("edit_access");
-		CourseGroupManager groupMgr = course.getCourseEnvironment().getCourseGroupManager();
 		CourseEditorTreeModel editorModel = course.getEditorTreeModel();
 		// Accessibility precondition
 		Condition accessCondition = wikiCourseNode.getPreConditionAccess();
-		accessCondContr = new ConditionEditController(ureq, getWindowControl(), groupMgr, accessCondition, "accessConditionForm",
+		accessCondContr = new ConditionEditController(ureq, getWindowControl(), accessCondition,
 				AssessmentHelper.getAssessableNodes(editorModel, wikiCourseNode), euce);		
-		this.listenTo(accessCondContr);
+		listenTo(accessCondContr);
 		editAccessVc.put("readerCondition", accessCondContr.getInitialComponent());
 		
 		//wiki read / write preconditions
 		Condition editCondition = wikiCourseNode.getPreConditionEdit();
-		editCondContr = new ConditionEditController(ureq, getWindowControl(), groupMgr, editCondition, "editConditionForm", AssessmentHelper
+		editCondContr = new ConditionEditController(ureq, getWindowControl(), editCondition, AssessmentHelper
 				.getAssessableNodes(editorModel, wikiCourseNode), euce);		
-		this.listenTo(editCondContr);
+		listenTo(editCondContr);
 		editAccessVc.put("editCondition", editCondContr.getInitialComponent());
 		
 
@@ -163,7 +151,8 @@ public class WikiEditController extends ActivateableTabbableDefaultController im
 				editLink = LinkFactory.createButtonSmall("edit", content, this);
 				content.contextPut("showPreviewLink", Boolean.TRUE);
 				previewLink = LinkFactory.createCustomLink("command.preview", "command.preview", re.getDisplayname(), Link.NONTRANSLATED, content, this);
-				previewLink.setCustomEnabledLinkCSS("b_preview");
+				previewLink.setIconLeftCSS("o_icon o_icon-fw o_icon_preview");
+				previewLink.setCustomEnabledLinkCSS("o_preview");
 				previewLink.setTitle(getTranslator().translate("command.preview"));
 			}
 		} else {
@@ -214,32 +203,9 @@ public class WikiEditController extends ActivateableTabbableDefaultController im
 				// do nothing
 				return;
 			}
-			RepositoryHandler typeToEdit = RepositoryHandlerFactory.getInstance().getRepositoryHandler(repositoryEntry);
-			// Open editor in new tab
-			OLATResourceable ores = repositoryEntry.getOlatResource();
-			DTabs dts = Windows.getWindows(ureq).getWindow(ureq).getDTabs();
-			DTab dt = dts.getDTab(ores);
-			if (dt == null) {
-				// does not yet exist -> create and add
-				//fxdiff BAKS-7 Resume function
-				dt = dts.createDTab(ores, repositoryEntry, repositoryEntry.getDisplayname());
-				if (dt == null){
-					//null means DTabs are full -> warning is shown
-					return;
-				}
-				//user activity logger is set by course factory
-				Controller editorController = typeToEdit.createLaunchController(repositoryEntry, ureq, dt.getWindowControl());
-				if(editorController == null){
-					//editor could not be created -> warning is shown
-					return;
-				}
-				dt.setController(editorController);
-				dts.addDTab(ureq, dt);
-			}
-			List<ContextEntry> entries = BusinessControlFactory.getInstance().createCEListFromResourceType(RepositoryDetailsController.ACTIVATE_EDITOR);
-			dts.activate(ureq, dt, entries);
+			String bPath = "[RepositoryEntry:" + repositoryEntry.getKey() + "][Editor:0]";
+			NewControllerFactory.getInstance().launch(bPath, ureq, getWindowControl());
 		}
-
 	}
 
 	/**
@@ -256,7 +222,8 @@ public class WikiEditController extends ActivateableTabbableDefaultController im
 					setWikiRepoReference(re, moduleConfiguration);
 					content.contextPut("showPreviewLink", Boolean.TRUE);
 					previewLink = LinkFactory.createCustomLink("command.preview", "command.preview", re.getDisplayname(), Link.NONTRANSLATED, content, this);
-					previewLink.setCustomEnabledLinkCSS("b_preview");
+					previewLink.setIconLeftCSS("o_icon o_icon-fw o_icon_preview");
+					previewLink.setCustomEnabledLinkCSS("o_preview");
 					previewLink.setTitle(getTranslator().translate("command.preview"));
 					// no securitycheck on wiki, editable by everybody
 					editLink = LinkFactory.createButtonSmall("edit", content, this);

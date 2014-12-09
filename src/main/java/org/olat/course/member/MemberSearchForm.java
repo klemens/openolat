@@ -19,10 +19,10 @@
  */
 package org.olat.course.member;
 
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 
 import org.olat.core.CoreSpringFactory;
 import org.olat.core.gui.UserRequest;
@@ -107,7 +107,7 @@ public class MemberSearchForm extends FormBasicController {
 		for(int i=roleKeys.length; i-->0; ) {
 			roleValues[i] = translate("search." + roleKeys[i]);
 		}
-		rolesEl = uifactory.addCheckboxesHorizontal("roles", "search.roles", rightContainer, roleKeys, roleValues, null);
+		rolesEl = uifactory.addCheckboxesHorizontal("roles", "search.roles", rightContainer, roleKeys, roleValues);
 		for(String roleKey: roleKeys) {
 			rolesEl.select(roleKey, true);
 		}
@@ -119,7 +119,7 @@ public class MemberSearchForm extends FormBasicController {
 		originEl = uifactory.addRadiosHorizontal("openBg", "search.origin", rightContainer, originKeys, openValues);
 		originEl.select("all", true);
 
-		FormLayoutContainer buttonLayout = FormLayoutContainer.createButtonLayout("button_layout", getTranslator());
+		FormLayoutContainer buttonLayout = FormLayoutContainer.createDefaultFormLayout("button_layout", getTranslator());
 		formLayout.add(buttonLayout);
 		uifactory.addFormSubmitButton("search", "search", buttonLayout);
 	}
@@ -133,7 +133,7 @@ public class MemberSearchForm extends FormBasicController {
 	protected void formOK(UserRequest ureq) {
 		SearchMembersParams params = new SearchMembersParams();
 		//roles
-		Set<String> selectedKeys = rolesEl.getSelectedKeys();
+		Collection<String> selectedKeys = rolesEl.getSelectedKeys();
 		params.setRepoOwners(selectedKeys.contains("owner"));
 		params.setRepoTutors(selectedKeys.contains("tutor"));
 		params.setGroupTutors(selectedKeys.contains("tutor"));

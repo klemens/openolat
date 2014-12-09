@@ -33,7 +33,7 @@ import de.unileipzig.xman.exam.ExamDBManager;
 import de.unileipzig.xman.protocol.Protocol;
 import de.unileipzig.xman.protocol.ProtocolManager;
 
-public class ExamStudentController extends BasicController {
+public class ExamStudentController extends BasicController implements ExamController {
 	
 	private Exam exam;
 	private ElectronicStudentFile esf;
@@ -54,35 +54,34 @@ public class ExamStudentController extends BasicController {
 		
 		mainVC = new VelocityContainer("examStudentView", Exam.class, "examStudentView", getTranslator(), this);
 
-		examDetailsController = new ExamDetailsController(ureq, wControl, getTranslator(), exam);
+		examDetailsController = new ExamDetailsController(ureq, wControl, getTranslator(), exam, false);
 		mainVC.put("examDetails", examDetailsController.getInitialComponent());
 
-		init(ureq, wControl);
+		init(ureq);
 
 		putInitialPanel(mainVC);
 	}
 	
-	private void init(UserRequest ureq, WindowControl wControl) {
+	private void init(UserRequest ureq) {
 		esf = ElectronicStudentFileManager.getInstance().retrieveESFByIdentity(ureq.getIdentity());
 		
 		if(esf != null) {
 			mainVC.contextPut("showSubscriptionTable", true);
-			buildAppointmentTable(ureq, wControl);
+			buildAppointmentTable(ureq);
 		} else {
 			mainVC.contextPut("showSubscriptionTable", false);
 		}
 	}
 	
-	private void buildAppointmentTable(UserRequest ureq, WindowControl wControl) {
+	private void buildAppointmentTable(UserRequest ureq) {
 		removeAsListenerAndDispose(subscriptionTable);
 		
 		subscriptionTableModel = new AppointmentStudentTableModel(exam, esf, ureq.getLocale());
 		
 		TableGuiConfiguration tableGuiConfiguration = new TableGuiConfiguration();
-		tableGuiConfiguration.setColumnMovingOffered(false);
 		tableGuiConfiguration.setDownloadOffered(false);
 		tableGuiConfiguration.setTableEmptyMessage(translate("ExamEditorController.appointmentTable.empty"));
-		subscriptionTable = new TableController(tableGuiConfiguration, ureq, wControl, getTranslator());
+		subscriptionTable = new TableController(tableGuiConfiguration, ureq, getWindowControl(), getTranslator());
 		
 		subscriptionTableModel.createColumns(subscriptionTable);
 		subscriptionTable.setTableDataModel(subscriptionTableModel);
@@ -216,6 +215,13 @@ public class ExamStudentController extends BasicController {
 				subscriptionTable.modelChanged();
 			}
 		}
+	}
+
+	@Override
+	public void updateExam(UserRequest ureq, Exam newExam) {
+		this.exam = newExam;
+		init(ureq);
+		examDetailsController.updateExam(ureq, newExam);
 	}
 
 	@Override

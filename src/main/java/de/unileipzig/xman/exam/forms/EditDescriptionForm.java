@@ -4,6 +4,7 @@ import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.form.Form;
 import org.olat.core.gui.components.form.flexible.FormItemContainer;
 import org.olat.core.gui.components.form.flexible.elements.RichTextElement;
+import org.olat.core.gui.components.form.flexible.elements.TextElement;
 import org.olat.core.gui.components.form.flexible.impl.FormBasicController;
 import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.WindowControl;
@@ -14,14 +15,17 @@ import de.unileipzig.xman.exam.Exam;
 public class EditDescriptionForm extends FormBasicController {
 
 	private String comments;
+	private String name;
 
+	private TextElement nameEditor;
 	private RichTextElement descriptionEditor;
 
-	public EditDescriptionForm(UserRequest ureq, WindowControl wControl, String comments) {
+	public EditDescriptionForm(UserRequest ureq, WindowControl wControl, String name, String comments) {
 		super(ureq, wControl);
 		
 		setTranslator(Util.createPackageTranslator(Exam.class, ureq.getLocale()));
 		
+		this.name = name;
 		this.comments = comments;
 		
 		initForm(ureq);
@@ -29,9 +33,17 @@ public class EditDescriptionForm extends FormBasicController {
 
 	@Override
 	protected void initForm(FormItemContainer formLayout, Controller listener, UserRequest ureq) {
-		descriptionEditor = uifactory.addRichTextElementForStringDataMinimalistic("comments", "EditDescriptionForm.description", comments, 10, -1, formLayout, ureq.getUserSession(), getWindowControl());
+		nameEditor = uifactory.addTextElement("name", "EditDescriptionForm.name", 50, name, formLayout);
+		nameEditor.setMandatory(true);
+		nameEditor.setNotEmptyCheck("EditDescriptionForm.name.empty");
+
+		descriptionEditor = uifactory.addRichTextElementForStringDataMinimalistic("comments", "EditDescriptionForm.description", comments, 10, -1, formLayout, getWindowControl());
 
 		uifactory.addFormSubmitButton("save", "saveButton", formLayout);
+	}
+
+	public String getName() {
+		return nameEditor.getValue();
 	}
 
 	/**

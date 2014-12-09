@@ -41,13 +41,12 @@ import org.olat.core.gui.components.link.Link;
 import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.Event;
 import org.olat.core.gui.control.WindowControl;
-import org.olat.core.gui.media.MediaResource;
 import org.olat.core.util.Formatter;
 import org.olat.core.util.Util;
 import org.olat.core.util.WebappHelper;
 import org.olat.core.util.vfs.LocalFileImpl;
 import org.olat.core.util.vfs.Quota;
-import org.olat.core.util.vfs.VFSMediaResource;
+import org.olat.core.util.vfs.VFSLeaf;
 import org.olat.modules.webFeed.managers.FeedManager;
 import org.olat.modules.webFeed.managers.ValidatedURL;
 import org.olat.modules.webFeed.models.Feed;
@@ -115,7 +114,7 @@ class FeedFormController extends FormBasicController {
 		
 		feed.setLastModified(new Date());
 		// The image is retrieved by the main controller
-		this.fireEvent(ureq, Event.CHANGED_EVENT);
+		fireEvent(ureq, Event.CHANGED_EVENT);
 	}
 
 	/**
@@ -137,8 +136,7 @@ class FeedFormController extends FormBasicController {
 					unsetImage();
 				} else {
 					file.clearError();
-					MediaResource newResource = new VFSMediaResource(new LocalFileImpl(newFile));
-					setImage(newResource);
+					setImage(new LocalFileImpl(newFile));
 				}	
 			}
 		} else if (source == deleteImageLink && event.wasTriggerdBy(FormEvent.ONCLICK)) {
@@ -217,13 +215,13 @@ class FeedFormController extends FormBasicController {
 	 * 
 	 * @param newResource
 	 */
-	private void setImage(MediaResource newResource) {
+	private void setImage(VFSLeaf newResource) {
 		if(newResource == null) {
 			unsetImage();
 			return;
 		}
 		
-		image.setMediaResource(newResource);
+		image.setMedia(newResource);
 		image.setMaxWithAndHeightToFitWithin(150, 150);
 		imageContainer.setVisible(true);
 		// This is needed. ImageContainer is not displayed otherwise.
@@ -239,7 +237,7 @@ class FeedFormController extends FormBasicController {
 		imageContainer.setVisible(false);
 		file.reset();
 		file.getComponent().setDirty(true);
-		image.setMediaResource(null);
+		image.setMedia((File)null);
 		imageDeleted = true;
 		file.setLabel("feed.file.label", null);
 	}
@@ -250,9 +248,6 @@ class FeedFormController extends FormBasicController {
 	 */
 	@Override
 	protected void initForm(FormItemContainer formLayout, Controller listener, UserRequest ureq) {
-		this.setFormTitle("feed.edit");
-		// this.setFormContextHelp(packageName, pageName, hoverTextKey);
-
 		// title might be longer from external source
 		String saveTitle = PersistenceHelper.truncateStringDbSave(feed.getTitle(), 256, true);
 		title = uifactory.addTextElement("title", "feed.title.label", 256, saveTitle, this.flc);
@@ -260,7 +255,7 @@ class FeedFormController extends FormBasicController {
 		title.setNotEmptyCheck("feed.form.field.is_mandatory");
 
 		description = uifactory.addRichTextElementForStringDataMinimalistic("description", "feed.form.description", feed
-				.getDescription(), 5, -1, formLayout, ureq.getUserSession(), getWindowControl());
+				.getDescription(), 5, -1, formLayout, getWindowControl());
 		description.setMandatory(true);
 		description.setMaxLength(4000);
 		description.setNotEmptyCheck("feed.form.field.is_mandatory");
@@ -274,14 +269,14 @@ class FeedFormController extends FormBasicController {
 		flc.add(imageContainer);
 		// Add a delete link and an image component to the image container.
 		deleteImageLink = uifactory.addFormLink("feed.image.delete", imageContainer);
-		image = new ImageComponent("icon");
+		image = new ImageComponent(ureq.getUserSession(), "icon");
 		imageContainer.put("image", image);
 
 		file = uifactory.addFileElement("feed.file.label", this.flc);
-		file.addActionListener(this, FormEvent.ONCHANGE);
+		file.addActionListener(FormEvent.ONCHANGE);
 
 		if (feed.getImageName() != null) {
-			MediaResource imageResource = FeedManager.getInstance().createFeedMediaFile(feed, feed.getImageName());
+			VFSLeaf imageResource = FeedManager.getInstance().createFeedMediaFile(feed, feed.getImageName());
 			setImage(imageResource);
 		} else {
 			// No image -> hide the image container

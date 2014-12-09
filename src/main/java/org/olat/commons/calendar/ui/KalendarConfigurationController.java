@@ -43,17 +43,14 @@ import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.Event;
 import org.olat.core.gui.control.WindowControl;
 import org.olat.core.gui.control.controller.BasicController;
-import org.olat.core.gui.control.generic.closablewrapper.CloseableCalloutWindowController;
 import org.olat.core.gui.control.generic.closablewrapper.CloseableModalController;
 import org.olat.core.gui.control.generic.modal.DialogBoxController;
 import org.olat.core.gui.control.generic.modal.DialogBoxUIFactory;
-import org.olat.core.gui.translator.PackageTranslator;
 import org.olat.core.util.Util;
 import org.olat.course.run.calendar.CourseCalendarSubscription;
 
 public class KalendarConfigurationController extends BasicController {
 
-	private static final String PACKAGE = Util.getPackageName(CalendarManager.class);
 	private static final String VELOCITY_ROOT = Util.getPackageVelocityRoot(CalendarManager.class);
 
 	private static final Object CMD_ADD = "add";
@@ -71,7 +68,6 @@ public class KalendarConfigurationController extends BasicController {
 	private CalendarColorChooserController colorChooser;
 	private KalendarRenderWrapper lastCalendarWrapper;
 	private CloseableModalController cmc;
-	private CloseableCalloutWindowController ccwc;
 	private String currentCalendarID;
 	private CalendarExportController exportController;
 	private DialogBoxController confirmRemoveDialog;
@@ -79,9 +75,9 @@ public class KalendarConfigurationController extends BasicController {
 	
 	private List<String> subscriptionIds;
 
-	public KalendarConfigurationController(List<KalendarRenderWrapper> calendars, UserRequest ureq, WindowControl wControl, boolean insideManager, boolean canUnsubscribe) {
+	public KalendarConfigurationController(List<KalendarRenderWrapper> calendars, UserRequest ureq, WindowControl wControl, boolean insideManager) {
 		super(ureq, wControl);
-		setTranslator(new PackageTranslator(PACKAGE, ureq.getLocale()));
+		setTranslator(Util.createPackageTranslator(CalendarManager.class, ureq.getLocale()));
 		
 		configVC = new VelocityContainer("calEdit", VELOCITY_ROOT + "/calConfig.html", getTranslator(), this);
 		setCalendars(ureq, calendars);
@@ -132,12 +128,12 @@ public class KalendarConfigurationController extends BasicController {
 				String calendarID = ureq.getParameter(PARAM_ID);
 				lastCalendarWrapper = findKalendarRenderWrapper(calendarID);
 				removeAsListenerAndDispose(colorChooser);
-				colorChooser = new CalendarColorChooserController(getLocale(), getWindowControl(), lastCalendarWrapper.getKalendarConfig().getCss());
+				colorChooser = new CalendarColorChooserController(ureq, getWindowControl(), lastCalendarWrapper.getKalendarConfig().getCss());
 				listenTo(colorChooser);
-				removeAsListenerAndDispose(ccwc);
-				ccwc = new CloseableCalloutWindowController(ureq, getWindowControl(),  colorChooser.getInitialComponent(), "colorchooser_"+calendarID, translate("cal.color.title"), false, null);
-				listenTo(ccwc);
-				ccwc.activate();
+				removeAsListenerAndDispose(cmc);
+				cmc = new CloseableModalController(getWindowControl(), translate("close"),  colorChooser.getInitialComponent(), false, translate("cal.color.title"));
+				listenTo(cmc);
+				cmc.activate();
 			} else if (command.equals(CMD_ICAL_FEED)) {
 				String calendarID = ureq.getParameter(PARAM_ID);
 				KalendarRenderWrapper calendarWrapper = findKalendarRenderWrapper(calendarID);
@@ -172,9 +168,10 @@ public class KalendarConfigurationController extends BasicController {
 		}
 	}
 
+	@Override
 	public void event(UserRequest ureq, Controller source, Event event) {
 		if (source == colorChooser) {
-			ccwc.deactivate();
+			cmc.deactivate();
 			if (event == Event.DONE_EVENT) {
 				String choosenColor = colorChooser.getChoosenColor();
 				KalendarConfig config = lastCalendarWrapper.getKalendarConfig();

@@ -27,6 +27,7 @@ package org.olat.course.nodes.projectbroker;
 
 import java.util.Date;
 
+import org.olat.core.CoreSpringFactory;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.Component;
 import org.olat.core.gui.components.velocity.VelocityContainer;
@@ -34,16 +35,16 @@ import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.Event;
 import org.olat.core.gui.control.WindowControl;
 import org.olat.core.gui.control.controller.BasicController;
+import org.olat.course.nodes.CourseNode;
 import org.olat.course.nodes.ProjectBrokerCourseNode;
 import org.olat.course.nodes.ms.MSCourseNodeRunController;
 import org.olat.course.nodes.projectbroker.datamodel.Project;
 import org.olat.course.nodes.projectbroker.datamodel.Project.EventType;
 import org.olat.course.nodes.projectbroker.datamodel.ProjectEvent;
-import org.olat.course.nodes.projectbroker.service.ProjectBrokerManagerFactory;
 import org.olat.course.nodes.projectbroker.service.ProjectBrokerModuleConfiguration;
+import org.olat.course.nodes.projectbroker.service.ProjectGroupManager;
 import org.olat.course.nodes.ta.DropboxController;
 import org.olat.course.nodes.ta.ReturnboxController;
-import org.olat.course.run.userview.NodeEvaluation;
 import org.olat.course.run.userview.UserCourseEnvironment;
 import org.olat.modules.ModuleConfiguration;
 
@@ -65,6 +66,7 @@ public class ProjectFolderController extends BasicController {
 	private ReturnboxController returnboxController;
 	private MSCourseNodeRunController scoringController;
 
+	private final ProjectGroupManager projectGroupManager;
 	/**
 	 * @param ureq
 	 * @param wControl
@@ -72,36 +74,32 @@ public class ProjectFolderController extends BasicController {
 	 * @param ne
 	 * @param previewMode
 	 */
-	public ProjectFolderController(UserRequest ureq, WindowControl wControl, UserCourseEnvironment userCourseEnv, NodeEvaluation ne, boolean previewMode, Project project) { 
+	public ProjectFolderController(UserRequest ureq, WindowControl wControl, UserCourseEnvironment userCourseEnv, CourseNode courseNode, boolean previewMode, Project project) { 
 		super(ureq, wControl);
-		this.config = ne.getCourseNode().getModuleConfiguration();
-		ProjectBrokerModuleConfiguration moduleConfig = new ProjectBrokerModuleConfiguration(ne.getCourseNode().getModuleConfiguration());
+		config = courseNode.getModuleConfiguration();
+		projectGroupManager = CoreSpringFactory.getImpl(ProjectGroupManager.class);
+		
+		ProjectBrokerModuleConfiguration moduleConfig = new ProjectBrokerModuleConfiguration(config);
 		
 		content = createVelocityContainer("folder");
 		
-		if (   ProjectBrokerManagerFactory.getProjectGroupManager().isProjectParticipant(ureq.getIdentity(), project)
-			  || ProjectBrokerManagerFactory.getProjectGroupManager().isProjectManagerOrAdministrator(ureq, userCourseEnv.getCourseEnvironment(), project) ) {
+		if (   projectGroupManager.isProjectParticipant(ureq.getIdentity(), project)
+			  || projectGroupManager.isProjectManagerOrAdministrator(ureq, userCourseEnv.getCourseEnvironment(), project) ) {
 			content.contextPut("isParticipant", true);
 			readConfig(config);
-			// modify hasTask/hasDropbox/hasScoring according to accessability
-// TODO:cg 27.01.2010 ProjectBroker does not support assessement-tool in first version			
-//			if (hasScoring){
-//				hasScoring = ne.isCapabilityAccessible("scoring");
-//			}
-			// no call 'ne.isCapabilityAccessible(ProjectBrokerCourseNode.ACCESS_DROPBOX);' because no dropbox/returnbox conditions
 			if (!hasDropbox && !hasReturnbox ) {
 				// nothing to show => Show text message no folder
 				content.contextPut("noFolder", Boolean.TRUE);
 			} else {
 				getLogger().debug("isDropboxAccessible(project, moduleConfig)=" + isDropboxAccessible(project, moduleConfig));
-				if (ProjectBrokerManagerFactory.getProjectGroupManager().isProjectManager(ureq.getIdentity(), project)) {
-					dropboxEditController = new ProjectBrokerDropboxScoringViewController(project, ureq, wControl, ne.getCourseNode(), userCourseEnv); 
+				if (projectGroupManager.isProjectManager(ureq.getIdentity(), project)) {
+					dropboxEditController = new ProjectBrokerDropboxScoringViewController(project, ureq, wControl, courseNode, userCourseEnv); 
 					content.put("dropboxController", dropboxEditController.getInitialComponent());
 					content.contextPut("hasDropbox", Boolean.TRUE);
 				} else {
 					if (hasDropbox) {
 						if (isDropboxAccessible(project, moduleConfig)) {
-							dropboxController = new ProjectBrokerDropboxController(ureq, wControl, config, ne.getCourseNode(), userCourseEnv, previewMode, project, moduleConfig);
+							dropboxController = new ProjectBrokerDropboxController(ureq, wControl, config, courseNode, userCourseEnv, previewMode, project, moduleConfig);
 							content.put("dropboxController", dropboxController.getInitialComponent());
 							content.contextPut("hasDropbox", Boolean.TRUE);
 						} else {
@@ -110,32 +108,18 @@ public class ProjectFolderController extends BasicController {
 						}
 					}
 					if (hasReturnbox) {
-						if (!ProjectBrokerManagerFactory.getProjectGroupManager().isProjectManager(ureq.getIdentity(), project)) {
-							returnboxController = new ProjectBrokerReturnboxController(ureq, wControl, ne.getCourseNode(), userCourseEnv, previewMode,project);
+						if (!projectGroupManager.isProjectManager(ureq.getIdentity(), project)) {
+							returnboxController = new ProjectBrokerReturnboxController(ureq, wControl, courseNode, userCourseEnv, previewMode,project);
 							content.put("returnboxController", returnboxController.getInitialComponent());
 							content.contextPut("hasReturnbox", Boolean.TRUE);
 						}
 					}		
 				}
-			// TODO:cg 27.01.2010 ProjectBroker does not support assessement-tool in first version				
-//				if (hasScoring && !previewMode) {
-//					scoringController = new MSCourseNodeRunController(ureq, getWindowControl(), userCourseEnv, (AssessableCourseNode) ne.getCourseNode(), false);
-//					content.put("scoringController", scoringController.getInitialComponent());
-//					content.contextPut("hasScoring", Boolean.TRUE);
-//				}
+
 			}
 			// push title 
-			content.contextPut("menuTitle", ne.getCourseNode().getShortTitle());
-			content.contextPut("displayTitle", ne.getCourseNode().getLongTitle());
-	
-			// learning objectives, only visible on intro page: Adding learning objectives
-// TODO: cg 28.01.2010 : no Leaning objective	for project-broker
-//			String learningObj = ne.getCourseNode().getLearningObjectives();
-//			if (learningObj != null) {
-//				Component learningObjectives = ObjectivesHelper.createLearningObjectivesComponent(learningObj, ureq);
-//				content.put("learningObjectives", learningObjectives);
-//				content.contextPut("hasObjectives", learningObj); // dummy value, just an exists operator					
-//			}
+			content.contextPut("menuTitle", courseNode.getShortTitle());
+			content.contextPut("displayTitle", courseNode.getLongTitle());
 		} else {
 			content.contextPut("isParticipant", false);
 		}

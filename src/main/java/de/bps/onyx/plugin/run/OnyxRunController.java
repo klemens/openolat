@@ -38,7 +38,6 @@ import org.olat.core.gui.components.form.flexible.FormUIFactory;
 import org.olat.core.gui.components.form.flexible.elements.FormLink;
 import org.olat.core.gui.components.form.flexible.impl.FormBasicController;
 import org.olat.core.gui.components.form.flexible.impl.FormEvent;
-import org.olat.core.gui.components.htmlsite.HtmlStaticPageComponent;
 import org.olat.core.gui.components.link.Link;
 import org.olat.core.gui.components.link.LinkFactory;
 import org.olat.core.gui.components.velocity.VelocityContainer;
@@ -55,6 +54,7 @@ import org.olat.core.logging.Tracing;
 import org.olat.core.util.CodeHelper;
 import org.olat.core.util.Formatter;
 import org.olat.core.util.StringHelper;
+import org.olat.core.util.Util;
 import org.olat.core.util.vfs.VFSContainer;
 import org.olat.course.CourseFactory;
 import org.olat.course.ICourse;
@@ -71,7 +71,6 @@ import org.olat.course.run.userview.UserCourseEnvironment;
 import org.olat.fileresource.FileResourceManager;
 import org.olat.ims.qti.QTIResultSet;
 import org.olat.modules.ModuleConfiguration;
-import org.olat.modules.iq.IQSecurityCallback;
 import org.olat.repository.RepositoryEntry;
 
 import de.bps.onyx.plugin.OnyxModule;
@@ -150,9 +149,9 @@ public class OnyxRunController extends BasicController {
 	 * @param wControl
 	 * @param testCourseNode
 	 */
-	public OnyxRunController(UserCourseEnvironment userCourseEnv, ModuleConfiguration moduleConfiguration, IQSecurityCallback secCallback, UserRequest ureq,
-			WindowControl wControl, QTICourseNode courseNode) {
-		super(ureq, wControl);
+	public OnyxRunController(UserCourseEnvironment userCourseEnv, ModuleConfiguration moduleConfiguration,
+			UserRequest ureq, WindowControl wControl, QTICourseNode courseNode) {
+		super(ureq, wControl, Util.createPackageTranslator(CourseNode.class, ureq.getLocale()));
 
 		this.modConfig = moduleConfiguration;
 		this.userCourseEnv = userCourseEnv;
@@ -380,19 +379,11 @@ public class OnyxRunController extends BasicController {
 			if (baseContainer == null || baseContainer.resolve(sDisclaimer) == null) {
 				showWarning("disclaimer.file.invalid", sDisclaimer);
 			} else {
-				// screenreader do not like iframes, display inline
-				if (getWindowControl().getWindowBackOffice().getWindowManager().isForScreenReader()) {
-					HtmlStaticPageComponent disclaimerComp = new HtmlStaticPageComponent("disc", baseContainer);
-					vc.put("disc", disclaimerComp);
-					disclaimerComp.setCurrentURI(sDisclaimer);
-					vc.contextPut("hasDisc", Boolean.TRUE);
-				} else {
-					iFrameCtr = new IFrameDisplayController(ureq, getWindowControl(), baseContainer);
-					listenTo(iFrameCtr);// dispose automatically
-					vc.put("disc", iFrameCtr.getInitialComponent());
-					iFrameCtr.setCurrentURI(sDisclaimer);
-					vc.contextPut("hasDisc", Boolean.TRUE);
-				}
+				iFrameCtr = new IFrameDisplayController(ureq, getWindowControl(), baseContainer);
+				listenTo(iFrameCtr);// dispose automatically
+				vc.put("disc", iFrameCtr.getInitialComponent());
+				iFrameCtr.setCurrentURI(sDisclaimer);
+				vc.contextPut("hasDisc", Boolean.TRUE);
 			}
 		}
 	}
@@ -799,7 +790,7 @@ public class OnyxRunController extends BasicController {
 		private final static String RESUME_LABEL = "resume";
 
 		public StartButtonForm(UserRequest ureq, WindowControl wControl, boolean resumeSuspended) {
-			super(ureq, wControl);
+			super(ureq, wControl, LAYOUT_BAREBONE);
 			this.resumeSuspended = resumeSuspended;
 			initForm(ureq);
 		}
@@ -811,21 +802,19 @@ public class OnyxRunController extends BasicController {
 
 		@Override
 		protected void initForm(FormItemContainer formLayout, Controller listener, UserRequest ureq) {
-
 			startButton = FormUIFactory.getInstance().addFormLink(START_LABEL, resumeSuspended ? RESUME_LABEL : START_LABEL, null, flc, Link.BUTTON);
-			// ((Link) startButton.getComponent()).setContextMenuAllowed(false);
-			startButton.addActionListener(OnyxRunController.this, FormEvent.ONCLICK);
+			startButton.setPrimary(true);
+			startButton.addActionListener(FormEvent.ONCLICK);
 		}
 
 		@Override
 		protected void formOK(UserRequest ureq) {
-			// TODO Auto-generated method stub
-
+			//
 		}
 
 		@Override
 		protected void doDispose() {
-			// TODO Auto-generated method stub
+			//
 		}
 
 		@Override

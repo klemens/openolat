@@ -35,11 +35,13 @@ import java.util.concurrent.atomic.AtomicInteger;
 import org.olat.core.CoreSpringFactory;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.Component;
-import org.olat.core.gui.components.panel.Panel;
+import org.olat.core.gui.components.panel.StackedPanel;
+import org.olat.core.gui.components.panel.SimpleStackedPanel;
 import org.olat.core.gui.components.velocity.VelocityContainer;
 import org.olat.core.gui.translator.Translator;
 import org.olat.core.id.OLATResourceable;
 import org.olat.core.id.context.BusinessControlFactory;
+import org.olat.core.id.context.ContextEntry;
 import org.olat.core.id.context.StateEntry;
 import org.olat.core.logging.AssertException;
 import org.olat.core.logging.OLog;
@@ -60,7 +62,7 @@ import org.olat.core.util.session.UserSessionManager;
  */
 public abstract class DefaultController implements Controller, ControllerEventListener {
 	private static final String DEFAULTDISPOSED_PAGE = "defaultdisposed";
-	private OLog log = Tracing.createLoggerFor(DefaultController.class);
+	private static final OLog log = Tracing.createLoggerFor(DefaultController.class);
 	// for memory watch only.
 	private static AtomicInteger controllerCnt = new AtomicInteger(0);
 	private final Object DISPOSE_LOCK = new Object();
@@ -68,12 +70,12 @@ public abstract class DefaultController implements Controller, ControllerEventLi
 	private List<ControllerEventListener> listeners;
 	private Component initialComponent;
 	private boolean disposed = false;
-	private Panel wrapperPanel;
-	private final IUserActivityLogger userActivityLogger;
+	private StackedPanel wrapperPanel;
+	private IUserActivityLogger userActivityLogger;
 	
 	private WindowControl newWControl;
 	
-	private Controller disposedMessageController = null;
+	private Controller disposedMessageController;
 	private Locale locale;
 	
 	/**
@@ -102,6 +104,7 @@ public abstract class DefaultController implements Controller, ControllerEventLi
 	 */
 	protected DefaultController(WindowControl wControl) {
 		controllerCnt.incrementAndGet();
+		CoreSpringFactory.autowireObject(this);
 		
 		// set the ThreadLocalUserActivityLogger
 		this.userActivityLogger = UserActivityLoggerImpl.setupLoggerForController(wControl);
@@ -145,10 +148,8 @@ public abstract class DefaultController implements Controller, ControllerEventLi
 		}
 		return newWControl;
 	}
-	
-	/**
-	 * 
-	 */
+
+	@Override
 	public WindowControl getWindowControlForDebug() {
 		return getWindowControl();
 	}
@@ -156,13 +157,14 @@ public abstract class DefaultController implements Controller, ControllerEventLi
 	/**
 	 * @see org.olat.core.gui.control.Controller#addControllerListener(org.olat.core.gui.control.ControllerEventListener)
 	 */
+	@Override
 	public void addControllerListener(ControllerEventListener el) {
 		if (listeners == null) {
 			listeners = new ArrayList<ControllerEventListener>();
 		}
-		if (listeners.contains(el)) throw new AssertException("controllerEventListener '" + el.toString()
-				+ "' was already added to controller '" + toString());
-		listeners.add(el);
+		if (!listeners.contains(el)) {
+			listeners.add(el);
+		}
 	}
 
 	// brasato:: prio c : clean up classes using this - does not make sense really
@@ -301,10 +303,10 @@ public abstract class DefaultController implements Controller, ControllerEventLi
 		// we also take care that no event is deliverd to implementors of this
 		// abstract class after this controller has been disposed
 		
-		if (initialComponent instanceof Panel) {
-			wrapperPanel = (Panel) initialComponent;
+		if (initialComponent instanceof StackedPanel) {
+			wrapperPanel = (StackedPanel) initialComponent;
 		} else {
-			wrapperPanel = new Panel("autowrapper of controller " + this.getClass().getName());
+			wrapperPanel = new SimpleStackedPanel("autowrapper of controller " + this.getClass().getName());
 			wrapperPanel.setContent(initialComponent);
 		}
 		this.initialComponent = wrapperPanel;
@@ -484,6 +486,14 @@ public abstract class DefaultController implements Controller, ControllerEventLi
 	
 	protected WindowControl addToHistory(UserRequest ureq, OLATResourceable ores, StateEntry stateEntry, WindowControl wControl, boolean addToHistory) {
 		return BusinessControlFactory.getInstance().createBusinessWindowControl(ureq, ores, stateEntry, wControl, addToHistory);
+	}
+	
+	protected WindowControl addToHistory(UserRequest ureq, StateEntry stateEntry) {
+		ContextEntry currentEntry = getWindowControl().getBusinessControl().getCurrentContextEntry();
+		if(currentEntry != null) {
+			currentEntry.setTransientState(stateEntry);
+		}
+		return addToHistory(ureq, this);
 	}
 	
 	protected void removeHistory(UserRequest ureq) {

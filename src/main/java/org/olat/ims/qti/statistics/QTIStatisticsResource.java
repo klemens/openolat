@@ -29,7 +29,7 @@ import java.util.Map;
 
 import javax.servlet.http.HttpServletResponse;
 
-import org.olat.basesecurity.SecurityGroup;
+import org.olat.basesecurity.Group;
 import org.olat.core.gui.media.MediaResource;
 import org.olat.core.logging.OLATRuntimeException;
 import org.olat.core.logging.OLog;
@@ -138,11 +138,11 @@ public class QTIStatisticsResource implements MediaResource {
 			QTIResultManager qrm = QTIResultManager.getInstance();
 			
 			QTIStatisticSearchParams params = resourceResult.getSearchParams();
-			List<SecurityGroup> limitToSecGroups = params.isMayViewAllUsersAssessments()
-					? null : params.getLimitToSecGroups();
+			List<Group> limitToGroups = params.isMayViewAllUsersAssessments()
+					? null : params.getLimitToGroups();
 
 			List<QTIResult> results = qrm.selectResults(resourceResult.getCourseOres().getResourceableId(),
-					courseNode.getIdent(), qtiRepoEntryKey, limitToSecGroups, exportType);
+					courseNode.getIdent(), qtiRepoEntryKey, limitToGroups, exportType);
 			
 			QTIExportManager.getInstance().exportResults(formatter, results, itemList, hres.getOutputStream());
 		} catch (Exception e) {

@@ -25,20 +25,25 @@
 
 package org.olat.repository.handlers;
 
-import java.util.List;
+import java.io.File;
+import java.util.Locale;
 
 import org.olat.core.gui.UserRequest;
+import org.olat.core.gui.components.stack.TooledStackedPanel;
 import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.WindowControl;
 import org.olat.core.gui.control.generic.layout.MainLayoutController;
+import org.olat.core.gui.control.generic.wizard.StepsMainRunController;
 import org.olat.core.gui.media.MediaResource;
 import org.olat.core.id.Identity;
 import org.olat.core.id.OLATResourceable;
+import org.olat.core.id.Roles;
 import org.olat.core.util.coordinate.LockResult;
+import org.olat.core.util.vfs.VFSContainer;
+import org.olat.fileresource.types.ResourceEvaluation;
+import org.olat.repository.ErrorList;
 import org.olat.repository.RepositoryEntry;
-import org.olat.repository.controllers.IAddController;
-import org.olat.repository.controllers.RepositoryAddCallback;
-import org.olat.repository.controllers.WizardCloseResourceController;
+import org.olat.repository.model.RepositoryEntrySecurity;
 
 
 /**
@@ -54,50 +59,102 @@ public interface RepositoryHandler {
 	/**
 	 * @return Return the typeNames of OLATResourceable this Handler can handle.
 	 */
-	public List<String> getSupportedTypes();
+	public String getSupportedType();
+	
+	/**
+	 * This resource support creation within OpenOLAT.
+	 * @return
+	 */
+	public boolean isCreate();
+	
+	public String getCreateLabelI18nKey();
+	
+	public RepositoryEntry createResource(Identity initialAuthor, String displayname, String description, Object createObject, Locale locale);
+	
+	/**
+	 * Typically for course wizard
+	 * @return
+	 */
+	public boolean isPostCreateWizardAvailable();
+	
+	/**
+	 * 
+	 * @param file
+	 * @param filename
+	 * @return
+	 */
+	public ResourceEvaluation acceptImport(File file, String filename);
+	
+	/**
+	 * 
+	 * @param initialAuthor
+	 * @param initialAuthorAlt TODO
+	 * @param displayname
+	 * @param description
+	 * @param withReferences if true import references
+	 * @param locale
+	 * @param file
+	 * @param filename
+	 * @return
+	 */
+	public RepositoryEntry importResource(Identity initialAuthor, String initialAuthorAlt, String displayname,
+			String description, boolean withReferences, Locale locale, File file, String filename);	
+
+	/**
+	 * 
+	 * @param source
+	 * @param target
+	 * @return
+	 */
+	public RepositoryEntry copy(RepositoryEntry source, RepositoryEntry target);
+	
+	
 	
 	/**
 	 * @return true if this handler supports donwloading Resourceables of its type.
 	 */
-	public boolean supportsDownload(RepositoryEntry repoEntry);
+	public boolean supportsDownload();
 	
 	/**
 	 * @return true if this handler supports launching Resourceables of its type.
 	 */
-	public boolean supportsLaunch(RepositoryEntry repoEntry);
+	public boolean supportsLaunch();
 
 	/**
 	 * @return true if this handler supports an editor for Resourceables of its type.
 	 */
-	public boolean supportsEdit(RepositoryEntry repoEntry);
+	public EditionSupport supportsEdit(OLATResourceable resource);
 	
 	/**
+	 * Return the container where image and files can be saved for the description field.
+	 * the folder MUST be under the root folder has its name "media".
 	 * @param repoEntry
-	 * @return true when this RepositoryHandler supports and can create a wizard for creating some initial content. 
-     This only has an effect when supportsEditor returns true.
+	 * @return
 	 */
-	public boolean supportsWizard(RepositoryEntry repoEntry);
+	public VFSContainer getMediaContainer(RepositoryEntry repoEntry);
 
 	/**
 	 * Called if a user launches a Resourceable that this handler can handle.
-	 * @param res
-	 * @param initialViewIdentifier if null the default view will be started, otherwise a controllerfactory type dependant view will be activated (subscription subtype)
+	 * @param reSecurity TODO
 	 * @param ureq
 	 * @param wControl
+	 * @param res
+	 * @param initialViewIdentifier if null the default view will be started, otherwise a controllerfactory type dependant view will be activated (subscription subtype)
 	 * @return Controller able to launch resourceable.
 	 */
-	public MainLayoutController createLaunchController(RepositoryEntry re, UserRequest ureq, WindowControl wControl);
+	public MainLayoutController createLaunchController(RepositoryEntry re, RepositoryEntrySecurity reSecurity, UserRequest ureq, WindowControl wControl);
 	
 	/**
 	 * Called if a user wants to edit a Resourceable that this handler can provide an editor for. 
 	 * (it is given here that this method 
 	 * can only be called when the current user is either olat admin or in the owning group of this resource
-	 * @param res
 	 * @param ureq
 	 * @param wControl
+	 * @param toolbar TODO
+	 * @param res
 	 * @return Controler able to edit resourceable.
 	 */
-	public Controller createEditorController(RepositoryEntry re, UserRequest ureq, WindowControl wControl);
+	public Controller createEditorController(RepositoryEntry re, UserRequest ureq, WindowControl wControl, TooledStackedPanel toolbar);
 	
 	/**
 	 * Called if a user wants to create a Resourceable via wizard.
@@ -106,16 +163,7 @@ public interface RepositoryHandler {
 	 * @param wControl
 	 * @return Controller that guides trough the creation workflow via wizard.
 	 */
-	public Controller createWizardController(OLATResourceable res, UserRequest ureq, WindowControl wControl);
-
-	/**
-	 * 
-	 * @param ureq
-	 * @param wControl
-	 * @param repositoryEntry
-	 * @return
-	 */
-	public WizardCloseResourceController createCloseResourceController(UserRequest ureq, WindowControl wControl, RepositoryEntry repositoryEntry);
+	public StepsMainRunController createWizardController(OLATResourceable res, UserRequest ureq, WindowControl wControl);
 	
 	/**
 	 * Called if a user downloads a Resourceable that this handler can handle.
@@ -140,52 +188,14 @@ public interface RepositoryHandler {
 	 * from the repository. Return status wether to proceed with the delete action. If
 	 * this method returns false, the entry will not be deleted.
 	 * @param res
-	 * @param ureq
-	 * @param wControl
+	 * @param identity
+	 * @param roles
+	 * @param locale
+	 * @param errors
 	 * @return true if ressource is ready to delete, false if not.
 	 */
-	public boolean readyToDelete(OLATResourceable res, UserRequest ureq, WindowControl wControl);
-
-	/**
-	 * Create a copy of the given resourceable.
-	 * @param res
-	 * @param ureq
-	 * @return Copy of given resourceable.
-	 */
-	public OLATResourceable createCopy(OLATResourceable res, UserRequest ureq);
+	public boolean readyToDelete(OLATResourceable res, Identity identity, Roles roles, Locale locale, ErrorList errors);
 	
-	/**
-	 * Called the repository wants to add a new resourceable of this handler's type.
-	 * Do any task necessary, set all fields of the provided RepositoryAddCallback and
-	 * call callback.finished() upon success, or callback.canceled() / callback.failed().
-	 * The latter two will not create any repository entries. If you cancel or fail,
-	 * do any cleanup work yourself. RepositoryHandler.delete() will not be called since
-	 * (as outlined above) the repository does not create any entry at all.
-	 * If callback.finished(), the user then enters repository details data. If the user
-	 * finishes, AddController.finishTransaction() will be called. Do any final work now,
-	 * since after this, the repository entry will be persisted. If the user aborts,
-	 * AddController.abortTransaction() will be called. Do any cleanup work - no repository
-	 * entry will be created in this state.
-	 * The OLATResourceable set in the callback does not necessarily have to be persited.
-	 * 
-	 * @param callback
-	 * @param userObject
-	 * @param ureq
-	 * @param wControl
-	 * @return Controller implementing Add workflow.
-	 */
-	public IAddController createAddController(RepositoryAddCallback callback, Object userObject, UserRequest ureq, WindowControl wControl);
-	
-	/**
-	 * If a handler likes to provied any details on a resourceable in the repository's details
-	 * view, he may do so by providing a component that renders the details.
-	 * 
-	 * @param ureq
-	 * @param wControl
-	 * @param res
-	 * @return Controller displaying details or null, if no details are available.
-	 */
-	public Controller createDetailsForm(UserRequest ureq, WindowControl wControl, OLATResourceable res);
 
 	public String archive(Identity archiveOnBehalfOf, String archivFilePath, RepositoryEntry repoEntry);
 	

@@ -204,14 +204,10 @@ class RichTextElementComponent extends FormBaseComponentImpl {
 					// in media or image mode, internal links make no sense here
 					myLinkChooserController = new LinkChooserController(lureq, lwControl, baseContainer, uploadRelPath, suffixes, fileName, null);						
 				}
-				LayoutMain3ColsController layoutCtr = new LayoutMain3ColsController(lureq, lwControl, null, null, myLinkChooserController.getInitialComponent(), null);
-				layoutCtr.addDisposableChildController(myLinkChooserController); // cleanup on layout controller dispose
-				return layoutCtr;
+				return new LayoutMain3ColsController(lureq, lwControl, myLinkChooserController);
 			}
 		};
 		PopupBrowserWindow pbw = Windows.getWindows(ureq).getWindowManager().createNewPopupBrowserWindowFor(ureq, linkChooserControllerCreator);
 		pbw.open(ureq);
-		//
 	}
-
 }

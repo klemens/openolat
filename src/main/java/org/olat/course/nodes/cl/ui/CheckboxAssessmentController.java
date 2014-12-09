@@ -177,7 +177,7 @@ public class CheckboxAssessmentController extends FormBasicController {
 		formLayout.add(selectCont);
 		
 		checkboxEl = uifactory.addDropdownSingleselect("checkbox", "select.checkbox", selectCont, keys, values, null);
-		checkboxEl.addActionListener(this, FormEvent.ONCHANGE);
+		checkboxEl.addActionListener(FormEvent.ONCHANGE);
 		checkboxEl.select(keys[0], true);
 		
 		Checkbox box = checkboxList.getList().get(currentCheckboxIndex);
@@ -205,8 +205,9 @@ public class CheckboxAssessmentController extends FormBasicController {
 			TextElement pointEl = uifactory.addTextElement(name + "point", null, 5, pointVal, formLayout);
 			pointEl.setDisplaySize(5);
 			
-			MultipleSelectionElement checkEl = uifactory.addCheckboxesHorizontal(name + "check", formLayout, onKeys, onValues, null);
-			checkEl.addActionListener(this, FormEvent.ONCHANGE);
+			MultipleSelectionElement checkEl = uifactory.addCheckboxesVertical(name + "check", formLayout, onKeys, onValues, 1);
+			checkEl.setDomReplacementWrapperRequired(false);
+			checkEl.addActionListener(FormEvent.ONCHANGE);
 			checkEl.setUserObject(row);
 			if(checked != null && checked.length > currentCheckboxIndex
 					&& checked[currentCheckboxIndex] != null && checked[currentCheckboxIndex].booleanValue()) {
@@ -220,8 +221,10 @@ public class CheckboxAssessmentController extends FormBasicController {
 		}
 
 		model = new CheckboxAssessmentDataModel(boxRows, columnsModel);
-		table = uifactory.addTableElement(ureq, getWindowControl(), "checkbox-list", model, getTranslator(), formLayout);
+		table = uifactory.addTableElement(getWindowControl(), "checkbox-list", model, getTranslator(), formLayout);
+		table.setCustomizeColumns(true);
 		table.setEditMode(true);
+		table.setAndLoadPersistedPreferences(ureq, "checkbox-assessment");
 
 		FormLayoutContainer buttonsCont = FormLayoutContainer.createButtonLayout("buttons", getTranslator());
 		formLayout.add(buttonsCont);

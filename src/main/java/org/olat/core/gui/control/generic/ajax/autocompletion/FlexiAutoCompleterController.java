@@ -38,6 +38,7 @@ import org.olat.core.gui.components.form.flexible.FormItemContainer;
 import org.olat.core.gui.components.form.flexible.impl.Form;
 import org.olat.core.gui.components.form.flexible.impl.FormBasicController;
 import org.olat.core.gui.components.form.flexible.impl.FormLayoutContainer;
+import org.olat.core.gui.components.htmlheader.jscss.CustomJSFormItem;
 import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.Event;
 import org.olat.core.gui.control.WindowControl;
@@ -63,7 +64,7 @@ import org.olat.core.gui.control.winmgr.JSCommand;
 public class FlexiAutoCompleterController extends FormBasicController {
 
 	protected static final String COMMAND_SELECT = "select";
-	protected static final String JSNAME_INPUTFIELD = "b_autocomplete_input";
+	protected static final String JSNAME_INPUTFIELD = "o_autocomplete_input";
 	protected static final String JSNAME_DATASTORE = "autocompleterDatastore";
 	protected static final String JSNAME_COMBOBOX = "autocompleterCombobox";
 	protected static final String AUTOCOMPLETER_NO_RESULT = "AUTOCOMPLETER_NO_RESULT";
@@ -146,6 +147,10 @@ public class FlexiAutoCompleterController extends FormBasicController {
 	protected void setupAutoCompleter(UserRequest ureq, FormLayoutContainer layoutCont, String noresults, boolean showDisplayKey, int inputWidth, int minChars, String label) {
 		String noResults = (noresults == null ? translate("autocomplete.noresults") : noresults);
 		// Configure displaying parameters
+		
+		layoutCont.add("typeahead", new CustomJSFormItem("typeahead", new String[] {
+				"js/jquery/typeahead/typeahead.bundle.min.js"
+		}));
 	
 		if (label != null) {
 			layoutCont.contextPut("autocompleter_label", label);

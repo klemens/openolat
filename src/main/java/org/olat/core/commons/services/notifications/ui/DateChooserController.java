@@ -24,7 +24,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
-import org.olat.ControllerFactory;
+import org.olat.NewControllerFactory;
 import org.olat.core.commons.services.notifications.Subscriber;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.form.flexible.FormItem;
@@ -83,10 +83,10 @@ public class DateChooserController extends FormBasicController {
 		//FIXME: Can't use time format for now, only date format due to bug OLAT-4736
 		// dateChooser.setDateChooserTimeEnabled(true);
 		dateChooser.setDate(initDate);
-		dateChooser.addActionListener(this, FormEvent.ONCHANGE);
+		dateChooser.addActionListener(FormEvent.ONCHANGE);
 		
 		typeSelection = uifactory.addDropdownSingleselect("news.type", "news.type", formLayout, typeKeys, typeValues, null);
-		typeSelection.addActionListener(this, FormEvent.ONCHANGE);
+		typeSelection.addActionListener(FormEvent.ONCHANGE);
 		typeSelection.select("all", true);
 		
 		//link = uifactory.addFormLink("news.since.link", formLayout);
@@ -176,7 +176,7 @@ public class DateChooserController extends FormBasicController {
 		
 		int count = 1;
 		for(String type:types) {
-			String typeName = ControllerFactory.translateResourceableTypeName(type, getLocale());
+			String typeName = NewControllerFactory.translateResourceableTypeName(type, getLocale());
 			typeKeys[count] = type;
 			typeValues[count++] = typeName;
 		}

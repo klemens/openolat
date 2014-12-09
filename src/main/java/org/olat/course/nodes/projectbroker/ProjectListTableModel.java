@@ -29,7 +29,8 @@ import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 
-import org.olat.basesecurity.BaseSecurityManager;
+import org.olat.basesecurity.GroupRoles;
+import org.olat.core.CoreSpringFactory;
 import org.olat.core.gui.components.table.DefaultTableDataModel;
 import org.olat.core.gui.translator.Translator;
 import org.olat.core.id.Identity;
@@ -37,15 +38,16 @@ import org.olat.core.logging.OLog;
 import org.olat.core.logging.Tracing;
 import org.olat.course.nodes.projectbroker.datamodel.CustomField;
 import org.olat.course.nodes.projectbroker.datamodel.Project;
-import org.olat.course.nodes.projectbroker.service.ProjectBrokerManagerFactory;
+import org.olat.course.nodes.projectbroker.service.ProjectBrokerManager;
 import org.olat.course.nodes.projectbroker.service.ProjectBrokerModuleConfiguration;
+import org.olat.group.BusinessGroupService;
 
 /**
  * 
  * @author guretzki
  */
 
-public class ProjectListTableModel extends DefaultTableDataModel {
+public class ProjectListTableModel extends DefaultTableDataModel<Project> {
 	private static final int COLUMN_COUNT = 6;
 	private Identity identity;
 	private Translator translator;
@@ -58,12 +60,13 @@ public class ProjectListTableModel extends DefaultTableDataModel {
 	// Array with numbers of the customfields [0...MAX_NBR_CUSTOMFIELDS] which are enabled for table-view 
 	private int[] enabledCustomFieldNumbers;
 	
-	private OLog log = Tracing.createLoggerFor(this.getClass());
-
+	private static final OLog log = Tracing.createLoggerFor(ProjectListTableModel.class);
+	private final ProjectBrokerManager projectBrokerManager;
+	
 	/**
 	 * @param owned list of projects 
 	 */
-	public ProjectListTableModel(List owned, Identity identity, Translator translator, ProjectBrokerModuleConfiguration moduleConfig, 
+	public ProjectListTableModel(List<Project> owned, Identity identity, Translator translator, ProjectBrokerModuleConfiguration moduleConfig, 
 			                         int numberOfCustomFieldInTable, int numberOfEventInTable, int nbrSelectedProjects, boolean isParticipantInAnyProject) {
 		super(owned);
 		this.identity = identity;
@@ -75,6 +78,7 @@ public class ProjectListTableModel extends DefaultTableDataModel {
 		this.enabledEventList = getEnabledEvents(moduleConfig);
 		this.isParticipantInAnyProject = isParticipantInAnyProject;
 		this.enabledCustomFieldNumbers = new int[numberOfCustomFieldInTable];
+		projectBrokerManager = CoreSpringFactory.getImpl(ProjectBrokerManager.class);
 		// loop over all custom fields
 		int index = 0;
 		int customFiledIndex = 0;
@@ -98,26 +102,27 @@ public class ProjectListTableModel extends DefaultTableDataModel {
 	 * @see org.olat.core.gui.components.table.TableDataModel#getValueAt(int, int)
 	 */
 	public Object getValueAt(int row, int col) {
-		Project project = (Project) objects.get(row);
+		Project project = objects.get(row);
 		if (col == 0) {
 			log.debug("project=" + project); // debug-output only once for each project
 			String name = project.getTitle();
 			return name;
 		} else if (col == 1) {
 			// get identity_date list sorted by AddedDate
-		  List<Object[]> identities = BaseSecurityManager.getInstance().getIdentitiesAndDateOfSecurityGroup(project.getProjectLeaderGroup(), true);
+		  List<Identity> identities = CoreSpringFactory.getImpl(BusinessGroupService.class)
+					.getMembers(project.getProjectGroup(), GroupRoles.coach.name());
 			if (identities.isEmpty()) {
 				return "-";
 			} else {
 				// return all proj-leaders
-				ArrayList<Identity> allIdents = new ArrayList<Identity>();
-				for (Object[] idobj : identities) {
-					allIdents.add((Identity)idobj[0]);
+				List<Identity> allIdents = new ArrayList<Identity>();
+				for (Identity idobj : identities) {
+					allIdents.add(idobj);
 				}
 				return allIdents;
 			}
 		} else if (col == (numberOfCustomFieldInTable + numberOfEventInTable + 2)) {
-			return ProjectBrokerManagerFactory.getProjectBrokerManager().getStateFor(project,identity,moduleConfig);
+			return projectBrokerManager.getStateFor(project,identity,moduleConfig);
 		} else if (col == (numberOfCustomFieldInTable + numberOfEventInTable + 3)) {
 			StringBuilder buf = new StringBuilder();
 			buf.append(project.getSelectedPlaces());
@@ -129,9 +134,9 @@ public class ProjectListTableModel extends DefaultTableDataModel {
 			}
 			return buf.toString();
 		}	else if (col == (numberOfCustomFieldInTable + numberOfEventInTable + 4)) { // enroll
-			return ProjectBrokerManagerFactory.getProjectBrokerManager().canBeProjectSelectedBy(identity, project, moduleConfig, nbrSelectedProjects, isParticipantInAnyProject);
+			return projectBrokerManager.canBeProjectSelectedBy(identity, project, moduleConfig, nbrSelectedProjects, isParticipantInAnyProject);
 		} else if (col == (numberOfCustomFieldInTable + numberOfEventInTable + 5)) { // cancel enrollment
-			return ProjectBrokerManagerFactory.getProjectBrokerManager().canBeCancelEnrollmentBy(identity,project,moduleConfig);
+			return projectBrokerManager.canBeCancelEnrollmentBy(identity,project,moduleConfig);
 		} else if ( (col == 2) && (numberOfCustomFieldInTable > 0) ) {
 			return project.getCustomFieldValue(enabledCustomFieldNumbers[0]);
 		} else if ( (col == 3) && (numberOfCustomFieldInTable > 1) ) {
@@ -166,7 +171,7 @@ public class ProjectListTableModel extends DefaultTableDataModel {
 	/**
 	 * @param owned
 	 */
-	public void setEntries(List owned) {
+	public void setEntries(List<Project> owned) {
 		this.objects = owned;
 	}
 
@@ -175,11 +180,11 @@ public class ProjectListTableModel extends DefaultTableDataModel {
 	 * @return the project at the given row
 	 */
 	public Project getProjectAt(int row) {
-		return (Project) objects.get(row);
+		return objects.get(row);
 	}
 
 	public Object createCopyWithEmptyList() {
-		ProjectListTableModel copy = new ProjectListTableModel(new ArrayList(), identity, translator, moduleConfig, numberOfCustomFieldInTable, numberOfEventInTable, nbrSelectedProjects, isParticipantInAnyProject);
+		ProjectListTableModel copy = new ProjectListTableModel(new ArrayList<Project>(), identity, translator, moduleConfig, numberOfCustomFieldInTable, numberOfEventInTable, nbrSelectedProjects, isParticipantInAnyProject);
 		return copy;
 	}
 

@@ -146,7 +146,6 @@ public class QTIArchiveWizardController extends BasicController {
 		TableGuiConfiguration tableConfig = new TableGuiConfiguration();
 		tableConfig.setTableEmptyMessage(getTranslator().translate("nodesoverview.nonodes"));
 		tableConfig.setDownloadOffered(false);
-		tableConfig.setColumnMovingOffered(false);
 		tableConfig.setSortingEnabled(false);
 		tableConfig.setDisplayTableHeader(true);
 		tableConfig.setDisplayRowCount(false);
@@ -172,6 +171,10 @@ public class QTIArchiveWizardController extends BasicController {
 		wc.setNextWizardStep(getTranslator().translate("wizard.nodechoose.howto"), nodeChooseVC);
 		main.setContent(wc.getInitialComponent());
 		putInitialPanel(main);
+	}
+	
+	public String getAndRemoveWizardTitle() {
+		return wc.getAndRemoveWizardTitle();
 	}
 
 	public void event(UserRequest ureq, Component source, Event event) {

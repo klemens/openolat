@@ -7,8 +7,6 @@ import java.util.Calendar;
 import java.util.List;
 import java.util.Locale;
 
-import javax.persistence.LockModeType;
-
 import org.olat.admin.user.UserSearchController;
 import org.olat.basesecurity.events.SingleIdentityChosenEvent;
 import org.olat.core.commons.persistence.DBFactory;
@@ -18,8 +16,6 @@ import org.olat.core.gui.components.Component;
 import org.olat.core.gui.components.form.Form;
 import org.olat.core.gui.components.link.Link;
 import org.olat.core.gui.components.link.LinkFactory;
-import org.olat.core.gui.components.stack.StackedController;
-import org.olat.core.gui.components.stack.PopEvent;
 import org.olat.core.gui.components.table.TableController;
 import org.olat.core.gui.components.table.TableEvent;
 import org.olat.core.gui.components.table.TableGuiConfiguration;
@@ -37,7 +33,6 @@ import org.olat.core.id.Identity;
 import org.olat.core.id.OLATResourceable;
 import org.olat.core.id.UserConstants;
 import org.olat.core.id.context.BusinessControlFactory;
-import org.olat.core.util.Formatter;
 import org.olat.core.util.Util;
 import org.olat.user.HomePageConfigManagerImpl;
 import org.olat.user.UserInfoMainController;
@@ -57,7 +52,7 @@ import de.unileipzig.xman.exam.forms.EditMarkForm;
 import de.unileipzig.xman.protocol.Protocol;
 import de.unileipzig.xman.protocol.ProtocolManager;
 
-public class ExamLecturerOralController extends BasicController {
+public class ExamLecturerOralController extends BasicController implements ExamController {
 	
 	private Exam exam;
 	private VelocityContainer mainVC;
@@ -91,7 +86,7 @@ public class ExamLecturerOralController extends BasicController {
 	 * @param exam The oral exam to manage
 	 * @throws InvalidParameterException
 	 */
-	protected ExamLecturerOralController(UserRequest ureq, WindowControl wControl, StackedController stack, Exam exam) {
+	protected ExamLecturerOralController(UserRequest ureq, WindowControl wControl, Exam exam) {
 		super(ureq, wControl);
 		
 		if(!exam.getIsOral())
@@ -100,42 +95,39 @@ public class ExamLecturerOralController extends BasicController {
 		setTranslator(Util.createPackageTranslator(Exam.class, ureq.getLocale()));
 		this.exam = exam;
 		
-		listenTo(stack); // listen for pop events
-		
 		mainVC = new VelocityContainer("examStudentView", Exam.class, "examLecturerOralView", getTranslator(), this);
 
-		examDetailsController = new ExamDetailsController(ureq, wControl, getTranslator(), exam);
+		examDetailsController = new ExamDetailsController(ureq, wControl, getTranslator(), exam, true);
 		mainVC.put("examDetails", examDetailsController.getInitialComponent());
 
-		init(ureq, wControl);
+		init(ureq);
 
 		putInitialPanel(mainVC);
 	}
 	
-	private void init(UserRequest ureq, WindowControl wControl) {
+	private void init(UserRequest ureq) {
 		if(AppointmentManager.getInstance().findAllAppointmentsByExamId(exam.getKey()).size() > 0) {
 			mainVC.contextPut("showAppointmentTable", true);
 			
 			refreshTableButton = LinkFactory.createButton("ExamLecturerWrittenController.refreshTable", mainVC, this);
 			
-			buildAppointmentTable(ureq, wControl);
+			buildAppointmentTable(ureq);
 		} else {
 			mainVC.contextPut("showAppointmentTable", false);
 		}
 	}
 	
-	private void buildAppointmentTable(UserRequest ureq, WindowControl wControl) {
+	private void buildAppointmentTable(UserRequest ureq) {
 		removeAsListenerAndDispose(appointmentTable);
 		
 		appointmentTableModel = new AppointmentLecturerOralTableModel(exam, ureq.getLocale());
 		
 		TableGuiConfiguration tableGuiConfiguration = new TableGuiConfiguration();
-		tableGuiConfiguration.setColumnMovingOffered(true);
 		tableGuiConfiguration.setDownloadOffered(true);
 		tableGuiConfiguration.setTableEmptyMessage(translate("ExamEditorController.appointmentTable.empty"));
 		tableGuiConfiguration.setMultiSelect(true);
 		tableGuiConfiguration.setPreferencesOffered(true, "ExamLecturerOralController.appointmentTable");
-		appointmentTable = new TableController(tableGuiConfiguration, ureq, wControl, getTranslator());
+		appointmentTable = new TableController(tableGuiConfiguration, ureq, getWindowControl(), getTranslator());
 		
 		appointmentTableModel.createColumns(appointmentTable);
 		appointmentTable.setTableDataModel(appointmentTableModel);
@@ -152,14 +144,6 @@ public class ExamLecturerOralController extends BasicController {
 		if(ExamDBManager.getInstance().isClosed(exam)) {
 			showInfo("ExamMainController.info.closed");
 			return;
-		}
-
-		if(event instanceof PopEvent) {
-			// reload exam
-			exam = ExamDBManager.getInstance().findExamByID(exam.getKey());
-			// complete rebuild
-			init(ureq, getWindowControl());
-			examDetailsController.updateExam(exam);
 		}
 		
 		if(source == appointmentTable) {
@@ -596,6 +580,13 @@ public class ExamLecturerOralController extends BasicController {
 			appointmentTableModel.update();
 			appointmentTable.modelChanged();
 		}
+	}
+
+	@Override
+	public void updateExam(UserRequest ureq, Exam newExam) {
+		this.exam = newExam;
+		init(ureq);
+		examDetailsController.updateExam(ureq, newExam);
 	}
 
 	@Override

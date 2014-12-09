@@ -141,7 +141,7 @@ public class UserAdminMainController extends MainLayoutBasicController implement
 		content = new Panel("content");
 		content.setContent(contentCtr.getInitialComponent());
 
-		columnLayoutCtr = new LayoutMain3ColsController(ureq, getWindowControl(), olatMenuTree, null, content, "useradminmain");
+		columnLayoutCtr = new LayoutMain3ColsController(ureq, getWindowControl(), olatMenuTree, content, "useradminmain");
 		columnLayoutCtr.addCssClassToMain("o_useradmin");
 		
 		listenTo(columnLayoutCtr); // auto dispose later
@@ -397,6 +397,14 @@ public class UserAdminMainController extends MainLayoutBasicController implement
 			SecurityGroup[] secGroup = {BaseSecurityManager.getInstance().findSecurityGroupByName(Constants.GROUP_ANONYMOUS)};
 			//fxdiff BAKS-7 Resume function
 			contentCtr = new UsermanagerUserSearchController(ureq, bwControl,secGroup, null, null, null, null, Identity.STATUS_VISIBLE_LIMIT, true);
+			addToHistory(ureq, bwControl);
+			listenTo(contentCtr);
+			return contentCtr.getInitialComponent();
+		}
+		else if (uobject.equals("userswithoutgroup")) {
+			activatePaneInDetailView = "edit.withoutgroup";
+			List<Identity> usersWithoutGroup = BaseSecurityManager.getInstance().findIdentitiesWithoutBusinessGroup(Identity.STATUS_VISIBLE_LIMIT);
+			contentCtr = new UsermanagerUserSearchController(ureq, bwControl, usersWithoutGroup, null, true, true);
 			addToHistory(ureq, bwControl);
 			listenTo(contentCtr);
 			return contentCtr.getInitialComponent();
@@ -683,6 +691,12 @@ public class UserAdminMainController extends MainLayoutBasicController implement
 		gtn3.setUserObject("menuqueries");
 		gtn3.setAltText(translator.translate("menu.menuqueries.alt"));
 		admin.addChild(gtn3);
+		
+		gtnChild = new GenericTreeNode();		
+		gtnChild.setTitle(translator.translate("menu.userswithoutgroup"));
+		gtnChild.setUserObject("userswithoutgroup");
+		gtnChild.setAltText(translator.translate("menu.userswithoutgroup.alt"));
+		gtn3.addChild(gtnChild);
 		
 		gtnChild = new GenericTreeNode();		
 		gtnChild.setTitle(translator.translate("menu.created.lastweek"));

@@ -27,11 +27,10 @@ package org.olat.core.gui.components.form.flexible.impl.elements;
 
 import org.apache.commons.lang.StringEscapeUtils;
 import org.olat.core.gui.components.Component;
-import org.olat.core.gui.components.ComponentRenderer;
+import org.olat.core.gui.components.DefaultComponentRenderer;
 import org.olat.core.gui.components.form.flexible.impl.FormJSHelper;
 import org.olat.core.gui.render.RenderResult;
 import org.olat.core.gui.render.Renderer;
-import org.olat.core.gui.render.RenderingState;
 import org.olat.core.gui.render.StringOutput;
 import org.olat.core.gui.render.URLBuilder;
 import org.olat.core.gui.translator.Translator;
@@ -44,7 +43,7 @@ import org.olat.core.gui.translator.Translator;
  * 
  * @author patrickb
  */
-class TextElementRenderer implements ComponentRenderer {
+class TextElementRenderer extends DefaultComponentRenderer {
 
 	/**
 	 * @see org.olat.core.gui.components.ComponentRenderer#render(org.olat.core.gui.render.Renderer,
@@ -54,15 +53,13 @@ class TextElementRenderer implements ComponentRenderer {
 	 *      org.olat.core.gui.translator.Translator,
 	 *      org.olat.core.gui.render.RenderResult, java.lang.String[])
 	 */
-	@SuppressWarnings("unused")
+	@Override
 	public void render(Renderer renderer, StringOutput sb, Component source, URLBuilder ubu, Translator translator,
 			RenderResult renderResult, String[] args) {
-		//
+
 		TextElementComponent teC = (TextElementComponent) source;
 		TextElementImpl te = teC.getTextElementImpl();
-
 		String id = teC.getFormDispatchId();
-		//
 
 		String value = te.getValue();
 		if(value == null){
@@ -70,85 +67,38 @@ class TextElementRenderer implements ComponentRenderer {
 		}
 		StringBuilder htmlVal = new StringBuilder();
 		htmlVal.append(StringEscapeUtils.escapeHtml(value));
-		if (!source.isEnabled()) {
-			//read only view
-			sb.append("<span id=\"");
-			sb.append(id);
-			sb.append("\" ");
-			sb.append(FormJSHelper.getRawJSFor(te.getRootForm(), id, te.getAction()));
-			sb.append("title=\"");
-			sb.append(htmlVal); //the uncutted value in tooltip
-			sb.append("\" "); 
-			sb.append(" >");
-			// use the longer from display size or real value length
-			int size = (te.displaySize > value.length() ? te.displaySize : value.length());
-			sb.append("<input type=\"").append(te.getHtmlInputType());
-			sb.append("\" disabled=\"disabled\" class=\"b_form_element_disabled\" size=\"");
-			sb.append(size);
-			sb.append("\" value=\"");		
-			sb.append(htmlVal);
-			sb.append("\" />");		
-			sb.append("</span>");
-	
-		} else {
+		if (source.isEnabled()) {
 			//read write view			
-			sb.append("<input type=\"").append(te.getHtmlInputType()).append("\" id=\"");			
-			sb.append(id);
-			sb.append("\" name=\"");
-			sb.append(id);
-			sb.append("\" size=\"");
-			sb.append(te.displaySize);
+			sb.append("<input type=\"").append(te.getHtmlInputType()).append("\" id=\"").append(id)
+			  .append("\" name=\"").append(id)
+			  .append("\" class='form-control' size=\"").append(te.displaySize);
 			if(te.maxlength > -1){
 				sb.append("\" maxlength=\"");
 				sb.append(te.maxlength);
 			}
-			sb.append("\" value=\"");
-			sb.append(htmlVal);
-			sb.append("\" ");
-			sb.append(FormJSHelper.getRawJSFor(te.getRootForm(), id, te.getAction()));
-			sb.append(" />");
-		}
-		
-
-		if(source.isEnabled()){
-			//add set dirty form only if enabled
-			sb.append(FormJSHelper.getJSStartWithVarDeclaration(teC.getFormDispatchId()));
-			/* deactivated due OLAT-3094 and OLAT-3040
-			if(te.hasFocus()){
-				sb.append(FormJSHelper.getFocusFor(teC.getFormDispatchId()));
+			sb.append("\" value=\"").append(htmlVal).append("\" ")
+			  .append(FormJSHelper.getRawJSFor(te.getRootForm(), id, te.getAction()));
+			
+			if (te.hasPlaceholder()) {
+				sb.append(" placeholder=\"").append(te.getPlaceholder()).append("\"");
 			}
-			*/
-			sb.append(FormJSHelper.getSetFlexiFormDirty(te.getRootForm(), teC.getFormDispatchId()));
-			sb.append(FormJSHelper.getJSEnd());
+			sb.append(" />");
+			
+			//add set dirty form only if enabled
+			FormJSHelper.appendFlexiFormDirty(sb, te.getRootForm(), teC.getFormDispatchId());	
+		} else {
+			//read only view
+			sb.append("<span id=\"").append(id).append("\" ")
+			  .append(FormJSHelper.getRawJSFor(te.getRootForm(), id, te.getAction()))
+			  .append("title=\"").append(htmlVal) //the uncutted value in tooltip
+			  .append("\" ").append(" >");
+			// use the longer from display size or real value length
+			int size = (te.displaySize > value.length() ? te.displaySize : value.length());
+			sb.append("<input type=\"").append(te.getHtmlInputType())
+			  .append("\" disabled=\"disabled\" class=\"form-control o_disabled\" size=\"")
+			  .append(size)
+			  .append("\" value=\"").append(htmlVal).append("\" />")
+			  .append("</span>");
 		}
-
 	}
-
-	/**
-	 * @see org.olat.core.gui.components.ComponentRenderer#renderBodyOnLoadJSFunctionCall(org.olat.core.gui.render.Renderer,
-	 *      org.olat.core.gui.render.StringOutput,
-	 *      org.olat.core.gui.components.Component,
-	 *      org.olat.core.gui.render.RenderingState)
-	 */
-	@SuppressWarnings("unused")
-	public void renderBodyOnLoadJSFunctionCall(Renderer renderer, StringOutput sb, Component source, RenderingState rstate) {
-	// TODO Auto-generated method stub
-
-	}
-
-	/**
-	 * @see org.olat.core.gui.components.ComponentRenderer#renderHeaderIncludes(org.olat.core.gui.render.Renderer,
-	 *      org.olat.core.gui.render.StringOutput,
-	 *      org.olat.core.gui.components.Component,
-	 *      org.olat.core.gui.render.URLBuilder,
-	 *      org.olat.core.gui.translator.Translator,
-	 *      org.olat.core.gui.render.RenderingState)
-	 */
-	@SuppressWarnings("unused")
-	public void renderHeaderIncludes(Renderer renderer, StringOutput sb, Component source, URLBuilder ubu, Translator translator,
-			RenderingState rstate) {
-	// TODO Auto-generated method stub
-
-	}
-
 }

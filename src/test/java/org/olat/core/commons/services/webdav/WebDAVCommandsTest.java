@@ -44,6 +44,7 @@ import org.apache.http.util.EntityUtils;
 import org.apache.poi.util.IOUtils;
 import org.junit.Test;
 import org.olat.basesecurity.BaseSecurity;
+import org.olat.basesecurity.GroupRoles;
 import org.olat.core.commons.modules.bc.FolderConfig;
 import org.olat.core.commons.modules.bc.vfs.OlatRootFolderImpl;
 import org.olat.core.commons.persistence.DB;
@@ -58,6 +59,7 @@ import org.olat.core.util.vfs.lock.LockInfo;
 import org.olat.course.CourseFactory;
 import org.olat.course.ICourse;
 import org.olat.repository.RepositoryEntry;
+import org.olat.repository.RepositoryService;
 import org.olat.restapi.CoursePublishTest;
 import org.olat.test.JunitTestHelper;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -75,6 +77,8 @@ public class WebDAVCommandsTest extends WebDAVTestCase {
 	private DB dbInstance;
 	@Autowired
 	private BaseSecurity securityManager;
+	@Autowired
+	private RepositoryService repositoryService;
 	@Autowired
 	private VFSLockManager lockManager;
 	
@@ -289,10 +293,10 @@ public class WebDAVCommandsTest extends WebDAVTestCase {
 		//author check course folder
 		URI courseUri = conn.getBaseURI().path("webdav").path("coursefolders").build();
 		String publicXml = conn.propfind(courseUri, 2);
-		Assert.assertTrue(publicXml.indexOf("<D:href>/webdav/coursefolders/Kurs/_courseelementdata/</D:href>") > 0);
+		Assert.assertTrue(publicXml.indexOf("<D:href>/webdav/coursefolders/other/Kurs/_courseelementdata/</D:href>") > 0);
 
 		//PUT in the folder
-		URI putUri = UriBuilder.fromUri(courseUri).path("Kurs").path("test.txt").build();
+		URI putUri = UriBuilder.fromUri(courseUri).path("other").path("Kurs").path("test.txt").build();
 		HttpPut put = conn.createPut(putUri);
 		InputStream dataStream = WebDAVCommandsTest.class.getResourceAsStream("text.txt");
 		InputStreamEntity entity = new InputStreamEntity(dataStream, -1);
@@ -394,14 +398,14 @@ public class WebDAVCommandsTest extends WebDAVTestCase {
 		//author check course folder
 		URI courseUri = authorConn.getBaseURI().path("webdav").path("coursefolders").build();
 		String publicXml = authorConn.propfind(courseUri, 2);
-		Assert.assertTrue(publicXml.indexOf("<D:href>/webdav/coursefolders/Kurs/_courseelementdata/</D:href>") > 0);
+		Assert.assertTrue(publicXml.indexOf("<D:href>/webdav/coursefolders/other/Kurs/_courseelementdata/</D:href>") > 0);
 
 		//coauthor check course folder
 		String assistantPublicXml = assistantConn.propfind(courseUri, 2);
-		Assert.assertTrue(assistantPublicXml.indexOf("<D:href>/webdav/coursefolders/Kurs/_courseelementdata/</D:href>") > 0);
+		Assert.assertTrue(assistantPublicXml.indexOf("<D:href>/webdav/coursefolders/other/Kurs/_courseelementdata/</D:href>") > 0);
 
 		//PUT a file to lock
-		URI putUri = UriBuilder.fromUri(courseUri).path("Kurs").path("test.txt").build();
+		URI putUri = UriBuilder.fromUri(courseUri).path("other").path("Kurs").path("test.txt").build();
 		HttpPut put = authorConn.createPut(putUri);
 		InputStream dataStream = WebDAVCommandsTest.class.getResourceAsStream("text.txt");
 		InputStreamEntity entity = new InputStreamEntity(dataStream, -1);
@@ -460,7 +464,7 @@ public class WebDAVCommandsTest extends WebDAVTestCase {
 		WebDAVConnection conn = new WebDAVConnection();
 		conn.setCredentials(author.getName(), "A6B7C8");
 		
-		URI toLockUri = conn.getBaseURI().path("webdav").path("coursefolders").path("Kurs").path("tolock.txt").build();
+		URI toLockUri = conn.getBaseURI().path("webdav").path("coursefolders").path("other").path("Kurs").path("tolock.txt").build();
 		String propfindXml = conn.propfind(toLockUri, 2);
 
 		Assert.assertTrue(propfindXml.indexOf("<D:lockscope><D:exclusive/></D:lockscope>") > 0);//not really a test
@@ -599,10 +603,10 @@ public class WebDAVCommandsTest extends WebDAVTestCase {
 		Assert.assertNotNull(courseWithForumsUrl);
 		File courseWithForums = new File(courseWithForumsUrl.toURI());
 		String softKey = UUID.randomUUID().toString().replace("-", "").substring(0, 30);
-		RepositoryEntry re = CourseFactory.deployCourseFromZIP(courseWithForums, author.getName(), softKey, 4);	
-		securityManager.addIdentityToSecurityGroup(author, re.getOwnerGroup());
+		RepositoryEntry re = CourseFactory.deployCourseFromZIP(courseWithForums, softKey, 4);	
+		repositoryService.addRole(author, re, GroupRoles.owner.name());
 		if(coAuthor != null) {
-			securityManager.addIdentityToSecurityGroup(coAuthor, re.getOwnerGroup());
+			repositoryService.addRole(coAuthor, re, GroupRoles.owner.name());
 		}
 		
 		dbInstance.commitAndCloseSession();

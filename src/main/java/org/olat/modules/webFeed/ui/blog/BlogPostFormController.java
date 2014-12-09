@@ -151,11 +151,11 @@ public class BlogPostFormController extends FormBasicController {
 	 */
 	@Override
 	protected void initForm(FormItemContainer formLayout, Controller listener, UserRequest ureq) {
-		setFormTitle("feed.edit.item");
 		setFormContextHelp(this.getClass().getPackage().getName(), "post_form_help.html", "chelp.hover.form");
 		formLayout.setElementCssClass("o_sel_blog_form");
 
-		title = uifactory.addTextElement("title", "feed.title.label", 256, post.getTitle(), this.flc);
+		title = uifactory.addTextElement("title", "feed.title.label", 256, post.getTitle(), flc);
+		title.setElementCssClass("o_sel_blog_title");
 		title.setMandatory(true);
 		title.setNotEmptyCheck("feed.form.field.is_mandatory");
 
@@ -194,7 +194,7 @@ public class BlogPostFormController extends FormBasicController {
 
 		uifactory.addFormSubmitButton("feed.publish", buttonLayout);
 		draftLink = uifactory.addFormLink("feed.save.as.draft", buttonLayout, Link.BUTTON);
-		draftLink.addActionListener(this, FormEvent.ONCLICK);
+		draftLink.addActionListener(FormEvent.ONCLICK);
 		uifactory.addFormCancelButton("cancel", buttonLayout, ureq, getWindowControl());
 	}
 }

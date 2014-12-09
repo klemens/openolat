@@ -90,9 +90,9 @@ public class CollectionListController extends FormBasicController {
 		columnsModel.addFlexiColumnModel(new StaticFlexiColumnModel("select", translate("select"), "select-coll"));
 		
 		model = new CollectionsDataModel(colls, columnsModel);
-		collectionsTable = uifactory.addTableElement(ureq, getWindowControl(), "collections", model, getTranslator(), formLayout);
+		collectionsTable = uifactory.addTableElement(getWindowControl(), "collections", model, getTranslator(), formLayout);
 		collectionsTable.setMultiSelect(true);
-		collectionsTable.setRendererType(FlexiTableRendererType.dataTables);
+		collectionsTable.setRendererType(FlexiTableRendererType.classic);
 		
 		FormLayoutContainer buttonsCont = FormLayoutContainer.createButtonLayout("buttons", getTranslator());
 		buttonsCont.setRootForm(mainForm);

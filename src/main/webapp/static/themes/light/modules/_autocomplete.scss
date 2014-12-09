@@ -1,0 +1,31 @@
+.tt-input {
+	width: $o-autocomplete-width;
+}
+
+.tt-dropdown-menu {
+  	width: $o-autocomplete-width;
+  	margin-top: $padding-base-vertical;
+  	padding: 0 0 0;
+  	color: $o-autocomplete-color;
+  	background-color: $o-autocomplete-bg-color;
+  	/* same border style as in bootstrap form */
+  	border: 1px solid $input-border-focus;
+  	@include border-top-radius($o-autocomplete-border-radius);
+  	@include border-bottom-radius($o-autocomplete-border-radius);
+    @include box-shadow(0 0 8px rgba(red($input-border-focus), green($input-border-focus), blue($input-border-focus), .6));
+}
+
+.tt-suggestion {
+  	padding: $padding-base-vertical $padding-base-horizontal;
+  	font-size: $o-autocomplete-font-size;
+  	line-height: $o-autocomplete-line-height;
+}
+
+.tt-suggestion.tt-cursor {
+  	color: $o-autocomplete-suggestion-color;
+  	background-color: $o-autocomplete-suggestion-bg-color;
+}
+
+.tt-suggestion p {
+  	margin: 0;
+}

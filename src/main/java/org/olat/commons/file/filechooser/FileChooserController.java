@@ -38,7 +38,7 @@ import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.Component;
 import org.olat.core.gui.components.link.Link;
 import org.olat.core.gui.components.link.LinkFactory;
-import org.olat.core.gui.components.panel.Panel;
+import org.olat.core.gui.components.panel.StackedPanel;
 import org.olat.core.gui.components.velocity.VelocityContainer;
 import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.Event;
@@ -100,7 +100,7 @@ public class FileChooserController extends BasicController {
 	private Link cancelButton;
 	
 	private FileUploadController fileUploadCtr;
-	private Panel panel;
+	private StackedPanel panel;
 	private File uploadDir;
 	private VFSContainer uploadContainer;
 
@@ -181,7 +181,7 @@ public class FileChooserController extends BasicController {
 					if (selectedFolder == 0) { // personal folder
 						selectedContainer = PersonalFolderManager.getInstance().getContainer(ureq.getIdentity());
 					} else { // process other folders
-						selectedContainer = (VFSContainer)containerRefs.get(selectedFolder - 1);
+						selectedContainer = containerRefs.get(selectedFolder - 1);
 					}
 					initializeSelectionTree(ureq, selectedContainer);
 					main.setPage(VELOCITY_ROOT + "/selectfile.html");
@@ -197,7 +197,8 @@ public class FileChooserController extends BasicController {
 		} else if (source == uploadButton){
 			// Delegate upload process to file upload controller
 			removeAsListenerAndDispose(fileUploadCtr);
-			fileUploadCtr = new FileUploadController(getWindowControl(), uploadContainer, ureq,  uploadLimitKB, Quota.UNLIMITED, null, false);
+			fileUploadCtr = new FileUploadController(getWindowControl(), uploadContainer, ureq,  uploadLimitKB, Quota.UNLIMITED, null,
+					false, false, true, true, false);
 			listenTo(fileUploadCtr);
 			panel.setContent(fileUploadCtr.getInitialComponent());
 			

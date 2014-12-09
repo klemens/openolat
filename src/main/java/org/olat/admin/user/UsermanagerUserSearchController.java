@@ -61,7 +61,7 @@ import org.olat.core.gui.components.form.flexible.impl.FormBasicController;
 import org.olat.core.gui.components.form.flexible.impl.FormEvent;
 import org.olat.core.gui.components.link.Link;
 import org.olat.core.gui.components.link.LinkFactory;
-import org.olat.core.gui.components.panel.Panel;
+import org.olat.core.gui.components.panel.StackedPanel;
 import org.olat.core.gui.components.table.Table;
 import org.olat.core.gui.components.table.TableController;
 import org.olat.core.gui.components.table.TableEvent;
@@ -120,7 +120,7 @@ public class UsermanagerUserSearchController extends BasicController implements 
 	private static final String CMD_BULKEDIT = "bulkEditUsers";
 
 	private VelocityContainer userListVC, userSearchVC, mailVC;
-	private Panel panel;
+	private StackedPanel panel;
 
 	private UsermanagerUserSearchForm searchform;
 	private TableController tableCtr;
@@ -327,7 +327,7 @@ public class UsermanagerUserSearchController extends BasicController implements 
 		OLATResourceable ores = OresHelper.createOLATResourceableInstance("table", 0l);
 		ThreadLocalUserActivityLogger.addLoggingResourceInfo(LoggingResourceable.wrapBusinessPath(ores));
 		WindowControl bwControl = addToHistory(ureq, ores, null);
-		tableCtr = ExtendedIdentitiesTableControllerFactory.createController(tdm, ureq, bwControl, actionEnabled);
+		tableCtr = ExtendedIdentitiesTableControllerFactory.createController(tdm, ureq, bwControl);
 		listenTo(tableCtr);
 		
 		if (showEmailButton) {
@@ -536,7 +536,7 @@ public class UsermanagerUserSearchController extends BasicController implements 
 
 					// create contact form controller with ContactMessage
 					removeAsListenerAndDispose(contactCtr);
-					contactCtr = new ContactFormController(ureq, getWindowControl(), false, true, false, false, cmsg);
+					contactCtr = new ContactFormController(ureq, getWindowControl(), true, false, false, cmsg);
 					listenTo(contactCtr);
 
 					mailVC.put("mailform", contactCtr.getInitialComponent());
@@ -858,17 +858,12 @@ class UsermanagerUserSearchForm extends FormBasicController {
 
 		uifactory.addSpacerElement("space1", formLayout, false);
 		roles = uifactory.addCheckboxesVertical(
-				"roles", "search.form.title.roles", formLayout, roleKeys, roleValues,
-				null, 1
-		);
-		
-		
+				"roles", "search.form.title.roles", formLayout, roleKeys, roleValues, 1);
+
 		uifactory.addSpacerElement("space2", formLayout, false);
 		auth = uifactory.addCheckboxesVertical(
 				"auth", "search.form.title.authentications",
-				formLayout, authKeys, authValues, null, 1
-		);
-		
+				formLayout, authKeys, authValues, 1);
 		
 		uifactory.addSpacerElement("space3", formLayout, false);
 		status = uifactory.addRadiosVertical(
@@ -893,7 +888,7 @@ class UsermanagerUserSearchForm extends FormBasicController {
 		// Don't use submit button, form should not be marked as dirty since this is
 		// not a configuration form but only a search form (OLAT-5626)
 		searchButton = uifactory.addFormLink("search", formLayout, Link.BUTTON);
-		searchButton.addActionListener(this, FormEvent.ONCLICK);
+		searchButton.addActionListener(FormEvent.ONCLICK);
 		
 	}
 	

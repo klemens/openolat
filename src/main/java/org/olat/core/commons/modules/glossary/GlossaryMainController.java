@@ -113,6 +113,7 @@ public class GlossaryMainController extends BasicController implements Activatea
 		glistVC.contextPut("userAllowToEditEnabled", new Boolean(glossarySecCallback.isUserAllowToEditEnabled()));
 		
 		addButton = LinkFactory.createButtonSmall("cmd.add", glistVC, this);
+		addButton.setIconLeftCSS("o_icon o_icon_add o_icon-fw");
 		initEditView(ureq, glossarySecCallback.canAdd());
 
 		updateRegisterAndGlossaryItems();
@@ -257,18 +258,11 @@ public class GlossaryMainController extends BasicController implements Activatea
 				updateRegisterAndGlossaryItems();
 			}
 		}
-
 	}
 
 	@Override
 	public void activate(UserRequest ureq, List<ContextEntry> entries, StateEntry state) {
-		if(entries == null || entries.isEmpty()) return;
-		
-		String viewIdentifier = entries.get(0).getOLATResourceable().getResourceableTypeName();
-		if (viewIdentifier != null){
-			boolean allowEdit = Boolean.parseBoolean(viewIdentifier);
-			initEditView(ureq, allowEdit);
-		}
+		//
 	}
 
 	private void updateRegisterAndGlossaryItems(){
@@ -302,12 +296,14 @@ public class GlossaryMainController extends BasicController implements Activatea
 		for (GlossaryItem gi : gIList) {
 			boolean canEdit = glossarySecCallback.canEdit(gi);
 			if(canEdit) {
-				Link tmpEditButton = LinkFactory.createCustomLink(CMD_EDIT + linkNum, CMD_EDIT + linkNum, "cmd.edit", Link.BUTTON_SMALL, glistVC,
+				Link tmpEditButton = LinkFactory.createCustomLink(CMD_EDIT + linkNum, CMD_EDIT + linkNum, "cmd.edit", Link.BUTTON_XSMALL, glistVC,
 					this);
+				tmpEditButton.setIconLeftCSS("o_icon o_icon_edit o_icon-fw");
 				tmpEditButton.setUserObject(gi);
-				Link tmpDelButton = LinkFactory.createCustomLink(CMD_DELETE + linkNum, CMD_DELETE + linkNum, "cmd.delete", Link.BUTTON_SMALL,
+				Link tmpDelButton = LinkFactory.createCustomLink(CMD_DELETE + linkNum, CMD_DELETE + linkNum, "cmd.delete", Link.BUTTON_XSMALL,
 					glistVC, this);
 				tmpDelButton.setUserObject(gi);
+				tmpDelButton.setIconLeftCSS("o_icon o_icon_delete_item o_icon-fw");
 			}
 			
 			GlossaryItemWrapper wrapper = new GlossaryItemWrapper(gi, linkNum);
@@ -334,8 +330,8 @@ public class GlossaryMainController extends BasicController implements Activatea
 	 * @param allowGlossaryEditing
 	 */
 	private void initEditView(UserRequest ureq, boolean allowGlossaryEditing) {
-
-		glistVC.contextPut("editModeEnabled", Boolean.valueOf(allowGlossaryEditing));
+		Boolean editModeEnabled = Boolean.valueOf(allowGlossaryEditing);
+		glistVC.contextPut("editModeEnabled", editModeEnabled);
 		if (allowGlossaryEditing) {
 			// try to get lock for this glossary
 			lockEntry = CoordinatorManager.getInstance().getCoordinator().getLocker().acquireLock(resourceable, ureq.getIdentity(), "GlossaryEdit");

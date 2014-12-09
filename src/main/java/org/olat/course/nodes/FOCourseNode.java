@@ -34,7 +34,7 @@ import java.util.zip.ZipOutputStream;
 import org.olat.core.commons.services.notifications.NotificationsManager;
 import org.olat.core.commons.services.notifications.SubscriptionContext;
 import org.olat.core.gui.UserRequest;
-import org.olat.core.gui.components.stack.StackedController;
+import org.olat.core.gui.components.stack.BreadcrumbPanel;
 import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.WindowControl;
 import org.olat.core.gui.control.generic.tabbable.TabbableController;
@@ -76,7 +76,6 @@ import org.olat.modules.fo.archiver.ForumArchiveManager;
 import org.olat.modules.fo.archiver.formatters.ForumStreamedRTFFormatter;
 import org.olat.properties.Property;
 import org.olat.repository.RepositoryEntry;
-import org.olat.testutils.codepoints.server.Codepoint;
 
 /**
  * Initial Date: Feb 9, 2004
@@ -111,12 +110,11 @@ public class FOCourseNode extends AbstractAccessableCourseNode {
 	 *      org.olat.core.gui.control.WindowControl, org.olat.course.ICourse)
 	 */
 	@Override
-	public TabbableController createEditController(UserRequest ureq, WindowControl wControl, StackedController stackPanel, ICourse course, UserCourseEnvironment euce) {
+	public TabbableController createEditController(UserRequest ureq, WindowControl wControl, BreadcrumbPanel stackPanel, ICourse course, UserCourseEnvironment euce) {
 		updateModuleConfigDefaults(false);
 		FOCourseNodeEditController childTabCntrllr = new FOCourseNodeEditController(ureq, wControl, this, course, euce);
 		CourseNode chosenNode = course.getEditorTreeModel().getCourseNode(euce.getCourseEditorEnv().getCurrentCourseNodeId());
-		return new NodeEditController(ureq, wControl, course.getEditorTreeModel(), course, chosenNode, course.getCourseEnvironment()
-				.getCourseGroupManager(), euce, childTabCntrllr);
+		return new NodeEditController(ureq, wControl, course.getEditorTreeModel(), course, chosenNode, euce, childTabCntrllr);
 	}
 
 	/**
@@ -163,8 +161,7 @@ public class FOCourseNode extends AbstractAccessableCourseNode {
 		final CoursePropertyManager cpm = courseEnv.getCoursePropertyManager();
 		final CourseNode thisCourseNode = this;
 		Forum theForum = null;
-		
-		Codepoint.codepoint(FOCourseNode.class, "findCourseNodeProperty");	
+			
 		Property forumKeyProp = cpm.findCourseNodeProperty(thisCourseNode, null, null, FORUM_KEY);
 		//System.out.println("System.out.println - findCourseNodeProperty");
 		if(forumKeyProp!=null) {
@@ -177,15 +174,11 @@ public class FOCourseNode extends AbstractAccessableCourseNode {
 		} else {
       //creates resourceable from FOCourseNode.class and the current node id as key
 			OLATResourceable courseNodeResourceable = OresHelper.createOLATResourceableInstance(FOCourseNode.class, new Long(this.getIdent()));
-			Codepoint.codepoint(FOCourseNode.class, "beforeDoInSync");		
-			//System.out.println("System.out.println - beforeDoInSync");
       //o_clusterOK by:ld 
 		  theForum = CoordinatorManager.getInstance().getCoordinator().getSyncer().doInSync(courseNodeResourceable, new SyncerCallback<Forum>(){
 			  public Forum execute() {
 			  Forum forum = null;
-			  Long forumKey;						  
-			  Codepoint.codepoint(FOCourseNode.class,"doInSync");
-			  //System.out.println("Codepoint - doInSync");
+			  Long forumKey;
 			  Property forumKeyProperty = cpm.findCourseNodeProperty(thisCourseNode, null, null, FORUM_KEY);			  
 			  if (forumKeyProperty == null) {
 				  // First call of forum, create new forum and save forum key as property			  	
@@ -233,7 +226,7 @@ public class FOCourseNode extends AbstractAccessableCourseNode {
 	 *      org.olat.course.run.userview.NodeEvaluation)
 	 */
 	public Controller createPreviewController(UserRequest ureq, WindowControl wControl, UserCourseEnvironment userCourseEnv, NodeEvaluation ne) {
-		return new FOPreviewController(ureq, wControl, this, ne);
+		return new FOPreviewController(ureq, wControl, ne);
 	}
 	
 	/**
@@ -248,7 +241,7 @@ public class FOCourseNode extends AbstractAccessableCourseNode {
 		if (ne.isAtLeastOneAccessible()) {
 			// Create a forum peekview controller that shows the latest two messages		
 			Forum theForum = loadOrCreateForum(userCourseEnv.getCourseEnvironment());
-			Controller peekViewController = new FOPeekviewController(ureq, wControl, theForum, ne.getCourseNode().getIdent(), 2);
+			Controller peekViewController = new FOPeekviewController(ureq, wControl, theForum, getIdent(), 2);
 			return peekViewController;			
 		} else {
 			// use standard peekview

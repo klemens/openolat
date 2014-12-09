@@ -1,0 +1,12 @@
+html {
+	position: relative;
+	min-height: 100%;
+}
+body {
+	/* body not relative, content must be relative to HTML! */
+	min-height: 100%;
+	
+	@if $o-footer-position-absolute == true {
+		margin-bottom: $o-footer-height + $o-footer-margin-top;
+	}
+}

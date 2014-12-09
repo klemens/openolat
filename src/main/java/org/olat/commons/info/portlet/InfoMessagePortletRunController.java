@@ -86,11 +86,12 @@ public class InfoMessagePortletRunController extends AbstractPortletRunControlle
 		
 		portletVC =  createVelocityContainer("infosPortlet");
 		showAllLink = LinkFactory.createLink("portlet.showall", portletVC, this);
+		showAllLink.setIconRightCSS("o_icon o_icon_start");
 
 		TableGuiConfiguration tableConfig = new TableGuiConfiguration();
 		tableConfig.setTableEmptyMessage(translate("portlet.no_messages"));
 		tableConfig.setDisplayTableHeader(false);
-		tableConfig.setCustomCssClass("b_portlet_table");
+		tableConfig.setCustomCssClass("o_portlet_table");
 		tableConfig.setDisplayRowCount(false);
 		tableConfig.setPageingEnabled(false);
 		tableConfig.setDownloadOffered(false);
@@ -285,8 +286,8 @@ public class InfoMessagePortletRunController extends AbstractPortletRunControlle
 				  sb.append("<script type='text/javascript'>/* <![CDATA[ */")
 				    .append("jQuery(function() {")
 					  .append("  jQuery('#o_sel_info_msg_title_").append(key).append(",#o_sel_info_msg_link_").append(key).append("').tooltip({")
-					  .append("	  items: 'a,span',")
-					  .append("   content: function(){ return jQuery('#o_sel_info_tooltip_").append(key).append("').html(); }")
+					  .append("	  html: true,")
+					  .append("   title: function(){ return jQuery('#o_sel_info_tooltip_").append(key).append("').html(); }")
 					  .append("  });")
 					  .append("});")
 					  .append("/* ]]> */</script>");

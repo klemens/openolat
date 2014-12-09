@@ -19,27 +19,29 @@
  */
 package org.olat.restapi.system;
 
+import java.util.Calendar;
 import java.util.List;
 import java.util.Set;
 
-import javax.servlet.http.HttpServletRequest;
 import javax.ws.rs.GET;
 import javax.ws.rs.Path;
 import javax.ws.rs.Produces;
-import javax.ws.rs.core.Context;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 
 import org.olat.admin.sysinfo.manager.SessionStatsManager;
 import org.olat.admin.sysinfo.model.SessionsStats;
 import org.olat.basesecurity.BaseSecurity;
+import org.olat.basesecurity.Constants;
 import org.olat.core.CoreSpringFactory;
+import org.olat.core.id.Identity;
 import org.olat.core.util.SessionInfo;
 import org.olat.core.util.UserSession;
 import org.olat.core.util.WorkThreadInformations;
 import org.olat.core.util.session.UserSessionManager;
 import org.olat.course.CourseModule;
 import org.olat.group.BusinessGroupService;
+import org.olat.portfolio.manager.InvitationDAO;
 import org.olat.repository.RepositoryEntry;
 import org.olat.repository.RepositoryManager;
 import org.olat.restapi.system.vo.OpenOLATStatisticsVO;
@@ -71,8 +73,8 @@ public class OpenOLATStatisticsWebService implements Sampler {
 	public Response getStatistics() {
 		OpenOLATStatisticsVO stats = new OpenOLATStatisticsVO();
 		stats.setSessions(getSessionsVO());
-		stats.setUserStatistics(getUserStatistics());
-		stats.setRepositoryStatistics(getRepositoryStatistics());
+		stats.setUserStatistics(getUserStatisticsVO());
+		stats.setRepositoryStatistics(getRepositoryStatisticsVO());
 		stats.setIndexerStatistics(indexerWebService.getIndexerStatistics());
 		return Response.ok(stats).build();
 	}
@@ -90,8 +92,8 @@ public class OpenOLATStatisticsWebService implements Sampler {
 	@GET
 	@Path("users")
 	@Produces({MediaType.APPLICATION_XML, MediaType.APPLICATION_JSON})
-	public Response getUserStatistics(@Context HttpServletRequest request) {
-		UserStatisticsVO stats = getUserStatistics();
+	public Response getUserStatistics() {
+		UserStatisticsVO stats = getUserStatisticsVO();
 		return Response.ok(stats).build();
 	}
 	
@@ -108,8 +110,8 @@ public class OpenOLATStatisticsWebService implements Sampler {
 	@GET
 	@Path("repository")
 	@Produces({MediaType.APPLICATION_XML, MediaType.APPLICATION_JSON})
-	public Response getRepositoryStatistics(@Context HttpServletRequest request) {
-		RepositoryStatisticsVO stats = getRepositoryStatistics();
+	public Response getRepositoryStatistics() {
+		RepositoryStatisticsVO stats = getRepositoryStatisticsVO();
 		return Response.ok(stats).build();
 	}
 	
@@ -124,7 +126,7 @@ public class OpenOLATStatisticsWebService implements Sampler {
 	 * @return The statistics about the indexer
 	 */
 	@Path("indexer")
-	public IndexerWebService getIndexerStatistics(@Context HttpServletRequest request) {
+	public IndexerWebService getIndexerStatistics() {
 		return indexerWebService;
 	}
 
@@ -141,7 +143,7 @@ public class OpenOLATStatisticsWebService implements Sampler {
 	@GET
 	@Path("sessions")
 	@Produces({MediaType.APPLICATION_XML, MediaType.APPLICATION_JSON})
-	public Response getSessions(@Context HttpServletRequest request) {
+	public Response getSessions() {
 		SessionsVO vo = getSessionsVO();
 		return Response.ok(vo).build();
 	}
@@ -159,25 +161,65 @@ public class OpenOLATStatisticsWebService implements Sampler {
 	@GET
 	@Path("tasks")
 	@Produces({MediaType.APPLICATION_XML, MediaType.APPLICATION_JSON})
-	public Response getTasks(@Context HttpServletRequest request) {
+	public Response getTasks() {
 		TasksVO vo = getTasksVO();
 		return Response.ok(vo).build();
 	}
 	
-	private UserStatisticsVO getUserStatistics() {
+	private UserStatisticsVO getUserStatisticsVO() {
 		UserStatisticsVO stats = new UserStatisticsVO();
-		
 		BaseSecurity securityManager = CoreSpringFactory.getImpl(BaseSecurity.class);
+
+		// activeUserCount="88" // registered and activated identities, same as in GUI
+		long countActiveUsers = securityManager.countIdentitiesByPowerSearch(null, null, false, null, null, null, null, null, null, null, Constants.USERSTATUS_ACTIVE);
+		stats.setActiveUserCount(countActiveUsers);
+		
+		// active last week
+		Calendar lastDay = Calendar.getInstance();
+		lastDay.add(Calendar.DATE, -1);
+		long activeUserCountDay = securityManager.countUniqueUserLoginsSince(lastDay.getTime());
+		stats.setActiveUserCountLastDay(activeUserCountDay);
+		
+		// active last week
+		Calendar lastWeek = Calendar.getInstance();
+		lastWeek.add(Calendar.DATE, -7);
+		long activeUserCountWeek = securityManager.countUniqueUserLoginsSince(lastWeek.getTime());
+		stats.setActiveUserCountLastWeek(activeUserCountWeek);
+		
+		// active last month
+		Calendar lastMonth = Calendar.getInstance();
+		lastMonth.add(Calendar.MONTH, -1);
+		long activeUserCountMonth = securityManager.countUniqueUserLoginsSince(lastMonth.getTime());
+		stats.setActiveUserCountLastMonth(activeUserCountMonth);
+		
+		// active last 6 month
+		Calendar last6Month = Calendar.getInstance();
+		last6Month.add(Calendar.MONTH, -6);
+		long activeUserCount6Month = securityManager.countUniqueUserLoginsSince(last6Month.getTime());
+		stats.setActiveUserCountLast6Month(activeUserCount6Month);
+
+		// externalUserCount="12" // EP invite identities, later maybe also used in courses for MOOCS, external experts etc)
+		long invitationsCount = CoreSpringFactory.getImpl(InvitationDAO.class).countInvitations();
+		stats.setExternalUserCount(invitationsCount);
+		
+		// blockedUserCount="0" // identities in login blocked state
+		long blockedUserCount = securityManager.countIdentitiesByPowerSearch(null, null, true, null, null, null, null, null, null, null, Identity.STATUS_LOGIN_DENIED);	
+		stats.setBlockedUserCount(blockedUserCount);
+		// deletedUserCount="943" // deleted identities
+		long deletedUserCount = securityManager.countIdentitiesByPowerSearch(null, null, true, null, null, null, null, null, null, null, Identity.STATUS_DELETED);	
+		stats.setDeletedUserCount(deletedUserCount);
+		
+		// totalUserCount="1043" // Sum of all above
 		long countUsers = securityManager.countIdentitiesByPowerSearch(null, null, false, null, null, null, null, null, null, null, null);
 		stats.setTotalUserCount(countUsers);
-		
+
 		BusinessGroupService bgs = CoreSpringFactory.getImpl(BusinessGroupService.class);
 		long countGroups = bgs.countBusinessGroups(null, null);
 		stats.setTotalGroupCount(countGroups);
 		return stats;
 	}
 	
-	private RepositoryStatisticsVO getRepositoryStatistics() {
+	private RepositoryStatisticsVO getRepositoryStatisticsVO() {
 		RepositoryStatisticsVO stats = new RepositoryStatisticsVO();
 		RepositoryManager repoMgr = CoreSpringFactory.getImpl(RepositoryManager.class);
 		int allCourses = repoMgr.countByTypeLimitAccess(CourseModule.ORES_TYPE_COURSE, RepositoryEntry.ACC_OWNERS);

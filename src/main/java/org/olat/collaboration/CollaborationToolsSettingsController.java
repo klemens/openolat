@@ -25,8 +25,8 @@
 package org.olat.collaboration;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
-import java.util.Set;
 
 import org.olat.commons.calendar.CalendarManager;
 import org.olat.commons.calendar.ui.events.KalendarModifiedEvent;
@@ -172,7 +172,7 @@ public class CollaborationToolsSettingsController extends BasicController {
 		
 		if (source == cots && event.getCommand().equals("ONCHANGE")) {
 			
-			Set<String> set = cots.getSelected();
+			Collection<String> set = cots.getSelected();
 			for (int i = 0; i < availableTools.length; i++) {
 				// usually one should check which one changed but here
 				// it is okay to set all of them because ctsm has a cache
@@ -312,13 +312,12 @@ class ChoiceOfToolsForm extends FormBasicController {
 		ms = uifactory.addCheckboxesVertical(
 				"selection", formLayout, 
 				theKeys.toArray(new String[theKeys.size()]),
-				theValues.toArray(new String[theValues.size()]),
-				null, 1
-		);
+				theValues.toArray(new String[theValues.size()]), 1);
+		ms.setElementCssClass("o_sel_collab_tools");
 		for (int i=0; i<availableTools.length; i++) {
 			ms.select(""+i, cts.isToolEnabled(availableTools[i]));
 		}
-		ms.addActionListener(listener, FormEvent.ONCLICK);
+		ms.addActionListener(FormEvent.ONCLICK);
 	}
 	
 	@Override
@@ -328,7 +327,7 @@ class ChoiceOfToolsForm extends FormBasicController {
 		}
 	}
 	
-	protected Set<String> getSelected() {
+	protected Collection<String> getSelected() {
 		return ms.getSelectedKeys();
 	}
 	

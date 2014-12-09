@@ -27,11 +27,10 @@ package org.olat.core.gui.components.form.flexible.impl.elements;
 
 import org.apache.commons.lang.StringEscapeUtils;
 import org.olat.core.gui.components.Component;
-import org.olat.core.gui.components.ComponentRenderer;
+import org.olat.core.gui.components.DefaultComponentRenderer;
 import org.olat.core.gui.components.form.flexible.impl.FormJSHelper;
 import org.olat.core.gui.render.RenderResult;
 import org.olat.core.gui.render.Renderer;
-import org.olat.core.gui.render.RenderingState;
 import org.olat.core.gui.render.StringOutput;
 import org.olat.core.gui.render.URLBuilder;
 import org.olat.core.gui.translator.Translator;
@@ -44,7 +43,7 @@ import org.olat.core.gui.translator.Translator;
  * 
  * @author rhaag
  */
-class TextAreaElementRenderer implements ComponentRenderer {
+class TextAreaElementRenderer extends DefaultComponentRenderer {
 
 	/**
 	 * @see org.olat.core.gui.components.ComponentRenderer#render(org.olat.core.gui.render.Renderer,
@@ -54,7 +53,7 @@ class TextAreaElementRenderer implements ComponentRenderer {
 	 *      org.olat.core.gui.translator.Translator,
 	 *      org.olat.core.gui.render.RenderResult, java.lang.String[])
 	 */
-	@SuppressWarnings("unused")
+	@Override
 	public void render(Renderer renderer, StringOutput sb, Component source, URLBuilder ubu, Translator translator,
 			RenderResult renderResult, String[] args) {
 		//
@@ -83,31 +82,20 @@ class TextAreaElementRenderer implements ComponentRenderer {
 		//
 		if (!source.isEnabled()) {
 			//read only view
-			sb.append("<span id=\"");
-			sb.append(id);
-			sb.append("\" ");
-			sb.append(FormJSHelper.getRawJSFor(te.getRootForm(), id, te.getAction()));
-			sb.append("title=\"");
-			sb.append(value); //the uncutted value in tooltip
-			sb.append("\" "); 
-			sb.append(" >");
-			sb.append("<textarea id=\"");
-			sb.append(id);
-			sb.append("_disabled\" readonly class=\"b_form_element_disabled\"");
+			sb.append("<span id=\"").append(id).append("\" ")
+			  .append(FormJSHelper.getRawJSFor(te.getRootForm(), id, te.getAction()))
+			  .append(" ><textarea id=\"")
+			  .append(id)
+			  .append("_disabled\" readonly='readonly' class='form-control o_form_element_disabled'");
 			if (teC.getCols() != -1) {
-				sb.append(" cols=\"");
-				sb.append(teC.getCols());
-				sb.append("\"");
+				sb.append(" cols='").append(teC.getCols()).append("'");
 			}
 			if (rows != -1) {
-				sb.append(" rows=\"");		
-				sb.append(rows);
-				sb.append("\"");
+				sb.append(" rows='").append(rows).append("'");
 			}
-			sb.append(">");
-			sb.append(value);
-			sb.append("</textarea>");
-			sb.append("</span>");
+			sb.append(">")
+			  .append(value)
+			  .append("</textarea></span>");
 	
 		} else {
 			//read write view
@@ -115,19 +103,15 @@ class TextAreaElementRenderer implements ComponentRenderer {
 			sb.append(id);
 			sb.append("\" name=\"");
 			sb.append(id);
-			sb.append("\"");
+			sb.append("\" class='form-control'");
 			if (teC.getCols() != -1) {
-				sb.append(" cols=\"");
-				sb.append(teC.getCols());
-				sb.append("\"");
+				sb.append(" cols=\"").append(teC.getCols()).append("\"");
 			} 
 			if (teC.isAutoHeightEnabled()){
 				sb.append(" onkeyup='try{var iter=0; while ( this.scrollHeight>this.offsetHeight && iter < 99){ iter++; this.rows = this.rows + 1}} catch(e){}'");				
 			}
 			if (rows != -1) {
-				sb.append(" rows=\"");		
-				sb.append(rows);
-				sb.append("\"");
+				sb.append(" rows=\"").append(rows).append("\"");
 			}
 			sb.append(FormJSHelper.getRawJSFor(te.getRootForm(), id, te.getAction()));
 			sb.append(" >");
@@ -147,46 +131,9 @@ class TextAreaElementRenderer implements ComponentRenderer {
 			sb.append("');while (obj.scrollHeight>obj.offsetHeight && iter < 99){ iter++; obj.rows = obj.rows + 1}} catch(e){}});</script>");
 		}
 		
-
 		if(source.isEnabled()){
 			//add set dirty form only if enabled
-			sb.append(FormJSHelper.getJSStartWithVarDeclaration(teC.getFormDispatchId()));
-			/* deactivated due OLAT-3094 and OLAT-3040
-			if(te.hasFocus()){
-				sb.append(FormJSHelper.getFocusFor(teC.getFormDispatchId()));
-			}
-			*/
-			sb.append(FormJSHelper.getSetFlexiFormDirty(te.getRootForm(), teC.getFormDispatchId()));
-			sb.append(FormJSHelper.getJSEnd());
+			FormJSHelper.appendFlexiFormDirty(sb, te.getRootForm(), teC.getFormDispatchId());
 		}
-
 	}
-
-	/**
-	 * @see org.olat.core.gui.components.ComponentRenderer#renderBodyOnLoadJSFunctionCall(org.olat.core.gui.render.Renderer,
-	 *      org.olat.core.gui.render.StringOutput,
-	 *      org.olat.core.gui.components.Component,
-	 *      org.olat.core.gui.render.RenderingState)
-	 */
-	@SuppressWarnings("unused")
-	public void renderBodyOnLoadJSFunctionCall(Renderer renderer, StringOutput sb, Component source, RenderingState rstate) {
-	// TODO Auto-generated method stub
-
-	}
-
-	/**
-	 * @see org.olat.core.gui.components.ComponentRenderer#renderHeaderIncludes(org.olat.core.gui.render.Renderer,
-	 *      org.olat.core.gui.render.StringOutput,
-	 *      org.olat.core.gui.components.Component,
-	 *      org.olat.core.gui.render.URLBuilder,
-	 *      org.olat.core.gui.translator.Translator,
-	 *      org.olat.core.gui.render.RenderingState)
-	 */
-	@SuppressWarnings("unused")
-	public void renderHeaderIncludes(Renderer renderer, StringOutput sb, Component source, URLBuilder ubu, Translator translator,
-			RenderingState rstate) {
-	// TODO Auto-generated method stub
-
-	}
-
 }

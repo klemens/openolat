@@ -34,6 +34,7 @@ import java.util.Set;
 import javax.servlet.http.HttpServletRequest;
 
 import org.olat.basesecurity.BaseSecurityManager;
+import org.olat.core.commons.persistence.DBFactory;
 import org.olat.core.dispatcher.mapper.Mapper;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.form.ValidationError;
@@ -129,6 +130,8 @@ class ImportStep00 extends BasicStep {
 
 		@Override
 		protected void formOK(UserRequest ureq) {
+			String inp = textAreaElement.getValue();
+			addToRunContext("inp", inp);
 			addToRunContext("idents", idents);
 			addToRunContext("newIdents", newIdents);
 			addToRunContext("updateIdents", updateIdents);
@@ -144,7 +147,13 @@ class ImportStep00 extends BasicStep {
 
 		@Override
 		protected boolean validateFormLogic(UserRequest ureq) {
+			Object validatedInp = getFromRunContext("inp");
 			String inp = textAreaElement.getValue();
+			if(validatedInp != null && validatedInp.equals(inp)) {
+				//already validated
+				return true;
+			}
+
 			String defaultlang = I18nModule.getDefaultLocale().toString();
 			List<String> importedEmails = new ArrayList<String>();
 
@@ -167,6 +176,11 @@ class ImportStep00 extends BasicStep {
 			Set<String> languages = I18nModule.getEnabledLanguageKeys();
 			String[] lines = inp.split("\r?\n");
 			for (int i = 0; i < lines.length; i++) {
+				if(i % 25 == 0) {
+					DBFactory.getInstance().commitAndCloseSession();
+				}
+				
+				
 				String line = lines[i];
 				if (line.equals("")) continue;
 				
@@ -413,7 +427,6 @@ class ImportStep00 extends BasicStep {
 					setTranslator(UserManager.getInstance().getPropertyHandlerTranslator(getTranslator()));
 					String headerLine = translate("table.user.login") + " *";
 					String dataLine = "demo";
-					UserManager um = UserManager.getInstance();
 					if (canCreateOLATPassword) {
 						headerLine += "\t" + translate("table.user.pwd");
 						dataLine += "\t" + "olat4you";
@@ -441,5 +454,4 @@ class ImportStep00 extends BasicStep {
 		}
 
 	}
-
 }

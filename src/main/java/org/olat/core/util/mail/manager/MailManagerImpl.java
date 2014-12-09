@@ -426,6 +426,7 @@ public class MailManagerImpl extends BasicManager implements MailManager {
 	 */
 	@Override
 	public void delete(DBMailLight mail, Identity identity, boolean deleteMetaMail) {
+		if(mail == null) return;//already deleted
 		if(StringHelper.containsNonWhitespace(mail.getMetaId()) && deleteMetaMail) {
 			List<DBMailLight> mails = getEmailsByMetaId(mail.getMetaId());
 			for(DBMailLight childMail:mails) {
@@ -594,14 +595,10 @@ public class MailManagerImpl extends BasicManager implements MailManager {
 		File baseFolder = new File(WebappHelper.getUserDataRoot(), MAIL_TEMPLATE_FOLDER);	
 		File template = new File(baseFolder, "mail_template.html");
 		if(template.exists()) {
-			InputStream in = null;
-			try {
-				in = new FileInputStream(template);
+			try(InputStream in = new FileInputStream(template)) {
 				return IOUtils.toString(in);
 			} catch (IOException e) {
 				logError("", e);
-			} finally {
-				IOUtils.closeQuietly(in);
 			}
 		}
 		return getDefaultMailTemplate();
@@ -628,8 +625,7 @@ public class MailManagerImpl extends BasicManager implements MailManager {
 
 	@Override
 	public String getDefaultMailTemplate() {
-		try {
-			InputStream in = MailModule.class.getResourceAsStream("_content/mail_template.html");
+		try(InputStream in = MailModule.class.getResourceAsStream("_content/mail_template.html")) {
 			return IOUtils.toString(in);
 		} catch (IOException e) {
 			logError("Cannot read the default mail template", e);
@@ -703,6 +699,8 @@ public class MailManagerImpl extends BasicManager implements MailManager {
 		String body = content.getBody();
 		boolean htmlContent =  isHtmlEmail(body);
 		if(htmlTemplate && !htmlContent) {
+			body = body.replace("&", "&amp;");
+			body = body.replace("<", "&lt;");
 			body = body.replace("\n", "<br />");
 		}
 		VelocityContext context = new VelocityContext();

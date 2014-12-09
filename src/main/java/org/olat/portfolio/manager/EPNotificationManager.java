@@ -36,29 +36,16 @@ import org.olat.portfolio.model.notification.EPNotification;
 import org.olat.portfolio.model.notification.EPRatingNotification;
 import org.olat.portfolio.model.notification.EPStructureElementNotification;
 import org.olat.user.UserManager;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
 
-
-
+@Service("epNotificationManager")
 public class EPNotificationManager {
 
+	@Autowired
 	private DB dbInstance;
+	@Autowired
 	private UserManager userManager;
-	
-	/**
-	 * [used by Spring]
-	 * @param db
-	 */
-	public void setDbInstance(DB db) {
-		this.dbInstance = db;
-	}
-	
-	/**
-	 * [used by Spring]
-	 * @param userManager
-	 */
-	public void setUserManager(UserManager userManager) {
-		this.userManager = userManager;
-	}
 
 	public List<SubscriptionListItem> getPageSubscriptionListItem(Long mapKey, String rootBusinessPath, Date compareDate, Translator translator) {
 		List<EPStructureElementNotification> notifications = getPageNotifications(mapKey, compareDate);
@@ -69,7 +56,7 @@ public class EPNotificationManager {
 			if ("page".equals(notification.getType())) {
 				String bPath = rootBusinessPath + "[EPPage:" + notification.getPageKey() + "]";
 				String linkUrl = BusinessControlFactory.getInstance().getURLFromBusinessPathString(bPath);
-				item = new SubscriptionListItem(translator.translate("li.newpage", title), linkUrl, bPath, notification.getCreationDate(), "b_ep_page_icon");
+				item = new SubscriptionListItem(translator.translate("li.newpage", title), linkUrl, bPath, notification.getCreationDate(), "o_ep_icon_page");
 				item.setUserObject(notification.getPageKey());
 			} else {
 				String bPath = rootBusinessPath;
@@ -77,7 +64,7 @@ public class EPNotificationManager {
 					bPath = rootBusinessPath + "[EPPage:" + notification.getPageKey() + "]";
 				}
 				String linkUrl = BusinessControlFactory.getInstance().getURLFromBusinessPathString(bPath);
-				item = new SubscriptionListItem(translator.translate("li.newstruct", title), linkUrl, bPath, notification.getCreationDate(), "b_ep_struct_icon");
+				item = new SubscriptionListItem(translator.translate("li.newstruct", title), linkUrl, bPath, notification.getCreationDate(), "o_ep_icon_struct");
 				item.setUserObject(notification.getPageKey());
 			}
 			if(item != null) {
@@ -101,7 +88,7 @@ public class EPNotificationManager {
 
 			String bPath = rootBusinessPath + "[EPPage:" + pageKey + "]";
 			String linkUrl = BusinessControlFactory.getInstance().getURLFromBusinessPathString(bPath);
-			SubscriptionListItem item = new SubscriptionListItem(translator.translate("li.newartefact", title), linkUrl, bPath, link.getCreationDate(), "b_eportfolio_link");
+			SubscriptionListItem item = new SubscriptionListItem(translator.translate("li.newartefact", title), linkUrl, bPath, link.getCreationDate(), "o_icon_eportfolio_link");
 			item.setUserObject(pageKey);
 			items.add(item);
 		}
@@ -118,20 +105,20 @@ public class EPNotificationManager {
 				String linkUrl = BusinessControlFactory.getInstance().getURLFromBusinessPathString(rootBusinessPath);
 				if (rating.getLastModified() != null) {
 					// there is a modified date, also add this as a listitem
-					items.add(new SubscriptionListItem(translator.translate("li.changerating", title), linkUrl, rootBusinessPath, rating.getLastModified(), "b_star_icon"));
+					items.add(new SubscriptionListItem(translator.translate("li.changerating", title), linkUrl, rootBusinessPath, rating.getLastModified(), "o_icon_rating_on"));
 				}
-				items.add(new SubscriptionListItem(translator.translate("li.newrating", title), linkUrl, rootBusinessPath, rating.getCreationDate(), "b_star_icon"));
+				items.add(new SubscriptionListItem(translator.translate("li.newrating", title), linkUrl, rootBusinessPath, rating.getCreationDate(), "o_icon_rating_on"));
 			} else {
 				String bPath = rootBusinessPath + "[EPPage:" + rating.getPageKey() + "]";
 				String linkUrl = BusinessControlFactory.getInstance().getURLFromBusinessPathString(bPath);
 				String[] title = new String[] { rating.getTitle(), userManager.getUserDisplayName(rating.getAuthor()) };
 				if (rating.getLastModified() != null) {
 					// there is a modified date, also add this as a listitem
-					SubscriptionListItem item = new SubscriptionListItem(translator.translate("li.changerating", title ), linkUrl, bPath, rating.getLastModified(), "b_star_icon");
+					SubscriptionListItem item = new SubscriptionListItem(translator.translate("li.changerating", title ), linkUrl, bPath, rating.getLastModified(), "o_icon_rating_on");
 					item.setUserObject(rating.getPageKey());
 					items.add(item);
 				}
-				SubscriptionListItem item = new SubscriptionListItem(translator.translate("li.newrating", title), linkUrl, bPath, rating.getCreationDate(), "b_star_icon");
+				SubscriptionListItem item = new SubscriptionListItem(translator.translate("li.newrating", title), linkUrl, bPath, rating.getCreationDate(), "o_icon_rating_on");
 				item.setUserObject(rating.getPageKey());
 				items.add(item);
 			}
@@ -148,12 +135,12 @@ public class EPNotificationManager {
 			if(comment.getPageKey() == null) {
 				String[] title = new String[] { comment.getMapTitle(), userManager.getUserDisplayName(comment.getAuthor()) };
 				String linkUrl = BusinessControlFactory.getInstance().getURLFromBusinessPathString(rootBusinessPath);
-				item = new SubscriptionListItem(translator.translate("li.newcomment", title), linkUrl, rootBusinessPath, comment.getCreationDate(), "b_info_icon");
+				item = new SubscriptionListItem(translator.translate("li.newcomment", title), linkUrl, rootBusinessPath, comment.getCreationDate(), "o_info_icon");
 			} else {
 				String bPath = rootBusinessPath + "[EPPage:" + comment.getPageKey() + "]";
 				String linkUrl = BusinessControlFactory.getInstance().getURLFromBusinessPathString(bPath);
 				String[] title = new String[] { comment.getTitle(), userManager.getUserDisplayName(comment.getAuthor()) };
-				item = new SubscriptionListItem(translator.translate("li.newcomment", title), linkUrl, bPath, comment.getCreationDate(), "b_info_icon");
+				item = new SubscriptionListItem(translator.translate("li.newcomment", title), linkUrl, bPath, comment.getCreationDate(), "o_info_icon");
 				item.setUserObject(comment.getPageKey());
 			}
 			items.add(item);

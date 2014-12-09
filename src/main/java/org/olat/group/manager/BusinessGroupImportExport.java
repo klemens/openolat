@@ -47,30 +47,30 @@ import org.olat.group.model.BGAreaReference;
 import org.olat.group.model.BusinessGroupEnvironment;
 import org.olat.group.model.BusinessGroupReference;
 import org.olat.repository.RepositoryEntry;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Service;
 
 /**
  * 
  * 
  * @author srosse, stephane.rosse@frentix.com, http://www.frentix.com
  */
-@Service("businessGroupImportExport")
 public class BusinessGroupImportExport {
 	
-	private final OLog log = Tracing.createLoggerFor(BusinessGroupImportExport.class);
+	private static final OLog log = Tracing.createLoggerFor(BusinessGroupImportExport.class);
 
-	private GroupXStream xstream = new GroupXStream();
+	private final GroupXStream xstream = new GroupXStream();
+
+	private final DB dbInstance;
+	private final BGAreaManager areaManager;
+	private final BusinessGroupService businessGroupService;
+	private final BusinessGroupModule groupModule;
 	
-	@Autowired
-	private DB dbInstance;
-	@Autowired
-	private BGAreaManager areaManager;
-	@Autowired
-	private BusinessGroupService businessGroupService;
-	@Autowired
-	private BusinessGroupModule groupModule;
-	
+	protected BusinessGroupImportExport(DB dbInstance, BGAreaManager areaManager,
+			BusinessGroupService businessGroupService, BusinessGroupModule groupModule) {
+		this.dbInstance = dbInstance;
+		this.areaManager = areaManager;
+		this.businessGroupService = businessGroupService;
+		this.groupModule = groupModule;
+	}
 	
 	public void exportGroups(List<BusinessGroup> groups, List<BGArea> areas, File fExportFile,
 			BusinessGroupEnvironment env, boolean runtimeDatas, boolean backwardsCompatible) {
@@ -294,7 +294,6 @@ public class BusinessGroupImportExport {
 					Long calendarAccess = group.calendarAccess;
 					ct.saveCalendarAccess(calendarAccess);
 				}
-				//fxdiff VCRP-8: collaboration tools folder access control
 				if(group.folderAccess != null) {
 				  ct.saveFolderAccess(group.folderAccess);				  
 				}
@@ -304,16 +303,17 @@ public class BusinessGroupImportExport {
 
 				// get memberships
 				List<String> memberships = group.areaRelations;
-				if(memberships != null) {
-					for (String membership : memberships) {
+				if(memberships != null && memberships.size() > 0) {
+					Set<String> uniqueMemberships = new HashSet<>(memberships);
+					for (String membership : uniqueMemberships) {
 						BGArea area = areaManager.findBGArea(membership, re.getOlatResource());
-						if (area == null) {
-							throw new AssertException("Group-Area-Relationship in export, but area was not created during import.");
+						if (area != null) {
+							areaManager.addBGToBGArea(newGroup, area);
+						} else {
+							log.error("Area not found", null);
 						}
-						areaManager.addBGToBGArea(newGroup, area);
 					}
 				}
-
 				
 				boolean download = groupModule.isUserListDownloadDefaultAllowed();
 				newGroup = businessGroupService.updateDisplayMembers(newGroup, showOwners, showParticipants, showWaitingList, false, false, false, download);

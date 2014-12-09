@@ -3,6 +3,7 @@ package de.unileipzig.xman.exam.controllers;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 
+import org.olat.catalog.CatalogManager;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.Component;
 import org.olat.core.gui.components.form.Form;
@@ -15,8 +16,10 @@ import org.olat.core.gui.control.Event;
 import org.olat.core.gui.control.WindowControl;
 import org.olat.core.gui.control.controller.BasicController;
 import org.olat.core.gui.translator.Translator;
+import org.olat.repository.RepositoryEntry;
 
 import de.unileipzig.xman.exam.Exam;
+import de.unileipzig.xman.exam.ExamDBManager;
 
 /**
  * This controller displays details about an exam in a two column table.
@@ -25,8 +28,9 @@ import de.unileipzig.xman.exam.Exam;
  * unregistration-phase (including status icons and remaining days) and
  * the status of earmarking and multi-subscription.
  */
-public class ExamDetailsController extends BasicController {
+public class ExamDetailsController extends BasicController implements ExamController {
 	Exam exam;
+	private boolean showWarnings;
 
 	private VelocityContainer baseVC;
 
@@ -34,11 +38,12 @@ public class ExamDetailsController extends BasicController {
 	private static final String STATUS_STARTED = "started";
 	private static final String STATUS_ENDED = "ended";
 
-	public ExamDetailsController(final UserRequest ureq, WindowControl wControl, final Translator translator, Exam exam) {
+	public ExamDetailsController(final UserRequest ureq, WindowControl wControl, final Translator translator, Exam exam, boolean showWarnings) {
 		super(ureq, wControl);
 
 		setTranslator(translator);
 		this.exam = exam;
+		this.showWarnings = showWarnings;
 
 		baseVC = new VelocityContainer("examDetails", Exam.class, "examDetailsView", translator, this);
 
@@ -51,6 +56,7 @@ public class ExamDetailsController extends BasicController {
 	private void init() {
 		baseVC.contextPut("examName", exam.getName());
 		baseVC.contextPut("examType", translate(exam.getIsOral() ? "oral" : "written"));
+		baseVC.contextPut("examTypeCssClass", exam.getIsOral() ? "o_icon_exam_oral" : "o_icon_exam_written");
 		baseVC.contextPut("earmarkedEnabled", exam.getEarmarkedEnabled());
 		baseVC.contextPut("multiSubscriptionEnabled", exam.getIsMultiSubscription());
 
@@ -59,6 +65,25 @@ public class ExamDetailsController extends BasicController {
 		} else {
 			baseVC.contextPut("showExamDescription", true);
 			baseVC.contextPut("examDescription", exam.getComments());
+		}
+
+		if(ExamDBManager.getInstance().isClosed(exam)) {
+			showWarnings = false;
+			baseVC.contextPut("showClosedInfo", true);
+		}
+
+		if(showWarnings) {
+			RepositoryEntry re = ExamDBManager.getInstance().findRepositoryEntryOfExam(exam);
+
+			// private warning
+			baseVC.contextPut("showPrivateWarning", re.getAccess() < RepositoryEntry.ACC_USERS);
+
+			// catalog warning
+			baseVC.contextPut("showCatalogWarning", CatalogManager.getInstance().getCatalogEntriesReferencing(re).size() == 0);
+		} else {
+			baseVC.contextPut("showPrivateWarning", false);
+			baseVC.contextPut("showCatalogWarning", false);
+
 		}
 
 		SimpleDateFormat format = new SimpleDateFormat("dd.MM.yyyy HH:mm", getLocale());
@@ -101,7 +126,7 @@ public class ExamDetailsController extends BasicController {
 	/**
 	 * Update the exam. This makes the controller redraw the view
 	 */
-	public void updateExam(Exam exam) {
+	public void updateExam(UserRequest ureq, Exam exam) {
 		this.exam = exam;
 		init();
 		updateTime(new Date());

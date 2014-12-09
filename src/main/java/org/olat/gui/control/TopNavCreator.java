@@ -19,16 +19,21 @@
  */
 package org.olat.gui.control;
 
+import org.olat.core.CoreSpringFactory;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.WindowControl;
 import org.olat.core.gui.control.creator.AutoCreator;
+import org.olat.core.id.Identity;
+import org.olat.repository.RepositoryEntry;
+import org.olat.repository.RepositoryManager;
+import org.olat.repository.RepositoryService;
 
 /**
  * 
  * <h3>Description:</h3>
  * AutoCreator for the FrentixTopNavController which allow to configure
- * an impressum or not, annd the search or not
+ * an impressum or not, and the search or not
  * 
  * <p>
  * Initial Date:  25 nov. 2010 <br>
@@ -36,21 +41,14 @@ import org.olat.core.gui.control.creator.AutoCreator;
  */
 public class TopNavCreator extends AutoCreator {
 	
-	private boolean impressum;
 	private boolean search;
-	
+	private String internalSiteSoftKey;
+	private boolean searchOnlyHasInternalSiteMember;
 	
 	@Override
 	public Controller createController(UserRequest ureq, WindowControl wControl) {
-		return new OlatTopNavController(ureq, wControl, impressum, search);
-	}
-	
-	public boolean isImpressum() {
-		return impressum;
-	}
-
-	public void setImpressum(boolean impressum) {
-		this.impressum = impressum;
+		boolean canSearch = canSearch(ureq.getIdentity());
+		return new OlatTopNavController(ureq, wControl, canSearch);
 	}
 
 	public boolean isSearch() {
@@ -59,5 +57,35 @@ public class TopNavCreator extends AutoCreator {
 
 	public void setSearch(boolean search) {
 		this.search = search;
+	}
+	
+	public String getInternalSiteSoftKey() {
+		return internalSiteSoftKey;
+	}
+
+	public void setInternalSiteSoftKey(String internalSiteSoftKey) {
+		this.internalSiteSoftKey = internalSiteSoftKey;
+	}
+
+	public boolean isSearchOnlyHasInternalSiteMember() {
+		return searchOnlyHasInternalSiteMember;
+	}
+
+	public void setSearchOnlyHasInternalSiteMember(
+			boolean searchOnlyHasInternalSiteMember) {
+		this.searchOnlyHasInternalSiteMember = searchOnlyHasInternalSiteMember;
+	}
+
+	public boolean canSearch(Identity identity) {
+		boolean canSearch = search;
+		if(isSearchOnlyHasInternalSiteMember()) {
+			String softKey = getInternalSiteSoftKey();
+			RepositoryEntry repoEntry = RepositoryManager.getInstance().lookupRepositoryEntryBySoftkey(softKey, false);
+			if(repoEntry != null) {
+				RepositoryService contextManager = CoreSpringFactory.getImpl(RepositoryService.class);
+				canSearch = contextManager.isMember(identity, repoEntry);
+			}
+		}
+		return canSearch;
 	}
 }

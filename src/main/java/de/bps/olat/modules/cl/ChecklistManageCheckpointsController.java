@@ -28,6 +28,7 @@ import java.util.Set;
 import org.olat.basesecurity.BaseSecurity;
 import org.olat.basesecurity.BaseSecurityManager;
 import org.olat.basesecurity.BaseSecurityModule;
+import org.olat.basesecurity.GroupRoles;
 import org.olat.core.CoreSpringFactory;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.Component;
@@ -170,9 +171,9 @@ public class ChecklistManageCheckpointsController extends BasicController {
 		} else if(cgm.isIdentityCourseCoach(identity)) {
 			Set<Identity> identitiesInGroups = new HashSet<>();
 			for( BusinessGroup group : cgm.getAllBusinessGroups() ) {
-				if(securityManager.isIdentityInSecurityGroup(identity, group.getOwnerGroup())) {
+				if(businessGroupService.hasRoles(identity, group, GroupRoles.coach.name())) {
 					lstGroups.add(group);
-					identitiesInGroups.addAll(securityManager.getIdentitiesOfSecurityGroup(group.getPartipiciantGroup()));
+					identitiesInGroups.addAll(businessGroupService.getMembers(group, GroupRoles.participant.name()));
 				}
 			}
 			allIdentities.addAll(identitiesInGroups);
@@ -218,7 +219,7 @@ public class ChecklistManageCheckpointsController extends BasicController {
 		} else if(StringHelper.isLong(groupForm.getSelection())) {
 			Long groupKey = new Long(groupForm.getSelection());
 			BusinessGroup group = businessGroupService.loadBusinessGroup(groupKey);
-			lstIdents.addAll(securityManager.getIdentitiesOfSecurityGroup(group.getPartipiciantGroup()));
+			lstIdents.addAll(businessGroupService.getMembers(group, GroupRoles.participant.name()));
 		}
 		boolean isAdministrativeUser = securityModule.isUserAllowedAdminProps(ureq.getUserSession().getRoles());
 		List<UserPropertyHandler> userPropertyHandlers = userManager.getUserPropertyHandlersFor(USER_PROPS_ID, isAdministrativeUser);
@@ -226,7 +227,6 @@ public class ChecklistManageCheckpointsController extends BasicController {
 		// prepare table for run view
 		TableGuiConfiguration tableConfig = new TableGuiConfiguration();
 		tableConfig.setTableEmptyMessage(translate("cl.table.empty"));
-		tableConfig.setColumnMovingOffered(true);
 		tableConfig.setDownloadOffered(true);
 		tableConfig.setPreferencesOffered(true, "ExtendedManageTable");
 		
@@ -272,7 +272,6 @@ public class ChecklistManageCheckpointsController extends BasicController {
 		
 		TableGuiConfiguration tableConfig = new TableGuiConfiguration();
 		tableConfig.setTableEmptyMessage(translate("cl.table.empty"));
-		tableConfig.setColumnMovingOffered(true);
 		tableConfig.setDownloadOffered(true);
 		tableConfig.setPreferencesOffered(true, "ExtendedEditTable");
 		
@@ -484,7 +483,7 @@ class GroupChoiceForm extends FormBasicController {
 		}
 		
 		groupChoice = uifactory.addDropdownSingleselect("cl.choice.groups", "cl.choice.groups", mainLayout, keys, values, null);
-		groupChoice.addActionListener(this, FormEvent.ONCHANGE);
+		groupChoice.addActionListener(FormEvent.ONCHANGE);
 		groupChoice.select(CHOICE_ALL, true);
 		
 		exportButton = uifactory.addFormLink(EXPORT_TABLE, EXPORT_TABLE, null, mainLayout, Link.BUTTON);
