@@ -7,6 +7,7 @@ import java.util.List;
 import java.util.Locale;
 
 import org.olat.core.commons.fullWebApp.LayoutMain3ColsController;
+import org.olat.core.commons.persistence.DBFactory;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.Windows;
 import org.olat.core.gui.components.Component;
@@ -155,7 +156,7 @@ public class ExamEditorController extends BasicController {
 		tabbedPane.addListener(this);
 		vcMain.put("tabbedPane", tabbedPane);
 
-		editDescriptionForm = new EditDescriptionForm(ureq, this.getWindowControl(), exam.getComments());
+		editDescriptionForm = new EditDescriptionForm(ureq, this.getWindowControl(), exam.getName(), exam.getComments());
 		editDescriptionForm.addControllerListener(this);
 		tabbedPane.addTab(translate("ExamEditorController.tabbedPane.comments"),
 				editDescriptionForm.getInitialComponent());
@@ -300,12 +301,16 @@ public class ExamEditorController extends BasicController {
 				}
 			}
 		} else if (source == editDescriptionForm) {
-
 			if (event == Form.EVNT_VALIDATION_OK) {
+				if(!editDescriptionForm.getName().equals(exam.getName())) {
+					showInfo("ExamEditorController.nameChange");
+				}
 
 				exam = ExamDBManager.getInstance().findExamByID(exam.getKey());
 				exam.setComments(editDescriptionForm.getDescription());
-				ExamDBManager.getInstance().updateExam(exam);
+				exam.setName(editDescriptionForm.getName());
+
+				DBFactory.getInstance().commitAndCloseSession();
 			}
 		} else if (source == editRegForm) {
 
