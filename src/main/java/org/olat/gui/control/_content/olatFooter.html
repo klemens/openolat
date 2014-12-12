@@ -1,8 +1,10 @@
 <div id="o_footer_user" class="clearfix">
 	#if ($loggedIn)
 		<span id="o_username">$r.translate("footer.logged.in.as", ["$username"])</span>
+	#else
+		<a href="https://www.flickr.com/photos/apbuse/8748144960">Image by Anthony P Buce (CC-BY, edited)</a>
 	#end 
-	<span id="o_counter">($r.render("userCounter") $r.translate("other.users.online"))</span>
+	<!--<span id="o_counter">($r.render("userCounter") $r.translate("other.users.online"))</span>-->
 	#if($r.available("shareLink"))
 		$r.render("shareLink")
 	#end 
