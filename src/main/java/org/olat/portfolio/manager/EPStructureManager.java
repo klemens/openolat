@@ -960,24 +960,11 @@ public class EPStructureManager extends BasicManager {
 		if(map == null) {
 			return;//nothing to delete
 		}
-
-		//already delete in removeStructureRecursively: deletePortfolioMapTemplateRecursively((EPStructureElement)map);
 		removeStructureRecursively(map);
-		//already delete in removeStructureRecursively: dbInstance.deleteObject(map);
+		dbInstance.commit();
 	}
 	
-	/*private void deletePortfolioMapTemplateRecursively(EPStructureElement element) {
-		element.getInternalArtefacts().clear();
-		element.setRoot(null);
-		element.setRootMap(null);
-		List<EPStructureToStructureLink> links = element.getInternalChildren();
-		for(EPStructureToStructureLink subLink:links) {
-			deletePortfolioMapTemplateRecursively((EPStructureElement)subLink.getChild());
-		}
-		links.clear();
-	}*/
-	
-	public void removeStructureRecursively(PortfolioStructure struct){
+	public void removeStructureRecursively(PortfolioStructure struct) {
 		List<PortfolioStructure> children = loadStructureChildren(struct); 
 		for (PortfolioStructure childstruct : children) {
 			removeStructureRecursively(childstruct);
@@ -997,9 +984,8 @@ public class EPStructureManager extends BasicManager {
 		struct.getCollectRestrictions().clear();
 		
 		// remove sharings
-		if (struct instanceof EPAbstractMap){
-			List<EPMapPolicy> noMorePol = new ArrayList<EPMapPolicy>();
-			policyManager.updateMapPolicies((PortfolioStructureMap) struct, noMorePol);
+		if (struct instanceof EPAbstractMap) {
+			((EPAbstractMap)struct).getGroups().clear();
 		}
 		
 		// remove comments and ratings
@@ -1014,22 +1000,27 @@ public class EPStructureManager extends BasicManager {
 		
 		// remove structure itself
 		struct = (EPStructureElement) dbInstance.loadObject((EPStructureElement)struct);
-		dbInstance.deleteObject(struct);		
+		dbInstance.deleteObject(struct);
 		if (struct instanceof EPAbstractMap){
 			removeBaseGroup((EPAbstractMap)struct);
 		}
 		
-		resourceManager.deleteOLATResourceable(struct);
+		//EPStructuredMapTemplates are linked to a repository entry
+		//which need the resource
+		if(!(struct instanceof EPStructuredMapTemplate)) {
+			resourceManager.deleteOLATResourceable(struct);
+		}
 	}
 	
 	private void removeBaseGroup(EPAbstractMap map) {
 		Set<EPStructureElementToGroupRelation> relations = map.getGroups();
 		if (relations != null) {
 			for(EPStructureElementToGroupRelation relation:relations) {
+				Group group = relation.getGroup();
 				if(relation.isDefaultGroup()) {
-					groupDao.removeGroup(relation.getGroup());
+					groupDao.removeMemberships(group);
+					groupDao.removeGroup(group);
 				}
-				dbInstance.getCurrentEntityManager().remove(relation);
 			}
 		}
 	}

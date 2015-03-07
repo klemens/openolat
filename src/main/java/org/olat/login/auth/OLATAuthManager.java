@@ -64,6 +64,7 @@ import org.olat.registration.RegistrationManager;
 import org.olat.registration.TemporaryKey;
 import org.olat.user.UserManager;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
 
 import com.thoughtworks.xstream.XStream;
 
@@ -75,6 +76,7 @@ import com.thoughtworks.xstream.XStream;
  * Initial Date:  26.09.2007 <br>
  * @author Felix Jost, http://www.goodsolutions.ch
  */
+@Service("olatAuthenticationSpi")
 public class OLATAuthManager extends BasicManager implements AuthenticationSPI {
 	
 	private static OLog log = Tracing.createLoggerFor(OLATAuthenticationController.class);
@@ -87,6 +89,10 @@ public class OLATAuthManager extends BasicManager implements AuthenticationSPI {
 	private MailManager mailManager;
 	@Autowired
 	private WebDAVAuthManager webDAVAuthManager;
+	@Autowired
+	private LoginModule loginModule;
+	@Autowired
+	private LDAPLoginModule ldapLoginModule;
 	
 	/**
 	 * 
@@ -100,14 +106,14 @@ public class OLATAuthManager extends BasicManager implements AuthenticationSPI {
 		Authentication authentication;	
 		if (ident == null) {
 			// check for email instead of username if ident is null
-			if(LoginModule.allowLoginUsingEmail()) {
+			if(loginModule.isAllowLoginUsingEmail()) {
 				if (MailHelper.isValidEmailAddress(login)){
-	  	 	 	ident = userManager.findIdentityByEmail(login);
-	  	 	 	// check for email changed with verification workflow
+					ident = userManager.findIdentityByEmail(login);
+					// check for email changed with verification workflow
 					if (ident == null) {
 						ident = findIdentInChangingEmailWorkflow(login);
 					}
-	  	 	}
+				}
 			} 
 			
 			if(ident == null) {
@@ -128,7 +134,7 @@ public class OLATAuthManager extends BasicManager implements AuthenticationSPI {
 		if (securityManager.checkCredentials(authentication, password))	{
 			Algorithm algorithm = Algorithm.find(authentication.getAlgorithm());
 			if(Algorithm.md5.equals(algorithm)) {
-				Algorithm defAlgorithm = LoginModule.getDefaultHashAlgorithm();
+				Algorithm defAlgorithm = loginModule.getDefaultHashAlgorithm();
 				authentication = securityManager.updateCredentials(authentication, password, defAlgorithm);
 			}
 			Identity identity = authentication.getIdentity();
@@ -190,14 +196,14 @@ public class OLATAuthManager extends BasicManager implements AuthenticationSPI {
 		
 		Authentication ldapAuth = securityManager.findAuthentication(identity, LDAPAuthenticationController.PROVIDER_LDAP);
 		if(ldapAuth != null) {
-			if(LDAPLoginModule.isPropagatePasswordChangedOnLdapServer()) {
+			if(ldapLoginModule.isPropagatePasswordChangedOnLdapServer()) {
 				LDAPError ldapError = new LDAPError();
 				LDAPLoginManager ldapLoginManager = (LDAPLoginManager) CoreSpringFactory.getBean("org.olat.ldap.LDAPLoginManager");
 				ldapLoginManager.changePassword(identity, newPwd, ldapError);
 				log.audit(doer.getName() + " change the password on the LDAP server for identity: " + identity.getName());
 				allOk = ldapError.isEmpty();
 
-				if(allOk && LDAPLoginModule.isCacheLDAPPwdAsOLATPwdOnLogin()) {
+				if(allOk && ldapLoginModule.isCacheLDAPPwdAsOLATPwdOnLogin()) {
 					allOk &= changeOlatPassword(doer, identity, newPwd);
 				}
 			}
@@ -238,10 +244,10 @@ public class OLATAuthManager extends BasicManager implements AuthenticationSPI {
 	public boolean changeOlatPassword(Identity doer, Identity identity, String newPwd) {
 		Authentication auth = securityManager.findAuthentication(identity, "OLAT");
 		if (auth == null) { // create new authentication for provider OLAT
-			auth = securityManager.createAndPersistAuthentication(identity, "OLAT", identity.getName(), newPwd, LoginModule.getDefaultHashAlgorithm());
+			auth = securityManager.createAndPersistAuthentication(identity, "OLAT", identity.getName(), newPwd, loginModule.getDefaultHashAlgorithm());
 			log.audit(doer.getName() + " created new authenticatin for identity: " + identity.getName());
 		} else {
-			auth = securityManager.updateCredentials(auth, newPwd, LoginModule.getDefaultHashAlgorithm());
+			auth = securityManager.updateCredentials(auth, newPwd, loginModule.getDefaultHashAlgorithm());
 			log.audit(doer.getName() + " set new password for identity: " + identity.getName());
 		}
 		

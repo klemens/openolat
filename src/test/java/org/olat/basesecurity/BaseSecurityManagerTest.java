@@ -60,24 +60,26 @@ public class BaseSecurityManagerTest extends OlatTestCase {
 	@Autowired
 	private UserManager userManager;
 	@Autowired
+	private LoginModule loginModule;
+	@Autowired
 	private BaseSecurity securityManager;
 	
 	
 	@Test
 	public void testCreateIdentity() {
-		String name = "createid-" + UUID.randomUUID().toString();
-		User user = userManager.createUser("first" + name, "last" + name, name + "@frentix.com");
-		Identity identity = securityManager.createAndPersistIdentityAndUser(name, user, BaseSecurityModule.getDefaultAuthProviderIdentifier(), name, "secret");
+		String username = "createid-" + UUID.randomUUID().toString();
+		User user = userManager.createUser("first" + username, "last" + username, username + "@frentix.com");
+		Identity identity = securityManager.createAndPersistIdentityAndUser(username, null, user, BaseSecurityModule.getDefaultAuthProviderIdentifier(), username, "secret");
 		dbInstance.commitAndCloseSession();
 		
 		Assert.assertNotNull(identity);
 		Assert.assertNotNull(identity.getKey());
-		Assert.assertEquals(name, identity.getName());
+		Assert.assertEquals(username, identity.getName());
 		Assert.assertNotNull(identity.getUser());
 		Assert.assertEquals(user, identity.getUser());
-		Assert.assertEquals("first" + name, identity.getUser().getProperty(UserConstants.FIRSTNAME, null));
-		Assert.assertEquals("last" + name, identity.getUser().getProperty(UserConstants.LASTNAME, null));
-		Assert.assertEquals(name + "@frentix.com", identity.getUser().getProperty(UserConstants.EMAIL, null));
+		Assert.assertEquals("first" + username, identity.getUser().getProperty(UserConstants.FIRSTNAME, null));
+		Assert.assertEquals("last" + username, identity.getUser().getProperty(UserConstants.LASTNAME, null));
+		Assert.assertEquals(username + "@frentix.com", identity.getUser().getProperty(UserConstants.EMAIL, null));
 	}
 	
 	/**
@@ -85,11 +87,11 @@ public class BaseSecurityManagerTest extends OlatTestCase {
 	 */
 	@Test
 	public void testCreateUpdateIdentity() {
-		String name = "update-id-" + UUID.randomUUID().toString();
-		User user = userManager.createUser("first" + name, "last" + name, name + "@frentix.com");
+		String username = "update-id-" + UUID.randomUUID().toString();
+		User user = userManager.createUser("first" + username, "last" + username, username + "@frentix.com");
 		user.setProperty(UserConstants.COUNTRY, "");
 		user.setProperty(UserConstants.CITY, "Basel");
-		Identity identity = securityManager.createAndPersistIdentityAndUser(name, user, BaseSecurityModule.getDefaultAuthProviderIdentifier(), name, "secret");
+		Identity identity = securityManager.createAndPersistIdentityAndUser(username, null, user, BaseSecurityModule.getDefaultAuthProviderIdentifier(), username, "secret");
 		dbInstance.commitAndCloseSession();
 		
 		//reload and update
@@ -103,8 +105,8 @@ public class BaseSecurityManagerTest extends OlatTestCase {
 		//reload and check
 		Identity identitySecond = securityManager.loadIdentityByKey(identity.getKey());
 		Assert.assertEquals("firstname", identitySecond.getUser().getProperty(UserConstants.FIRSTNAME, null));
-		Assert.assertEquals("last" + name, identitySecond.getUser().getProperty(UserConstants.LASTNAME, null));
-		Assert.assertEquals(name + "@frentix.com", identitySecond.getUser().getProperty(UserConstants.EMAIL, null));
+		Assert.assertEquals("last" + username, identitySecond.getUser().getProperty(UserConstants.LASTNAME, null));
+		Assert.assertEquals(username + "@frentix.com", identitySecond.getUser().getProperty(UserConstants.EMAIL, null));
 		Assert.assertEquals("CH", identitySecond.getUser().getProperty(UserConstants.COUNTRY, null));
 		Assert.assertEquals("Lausanne", identitySecond.getUser().getProperty(UserConstants.CITY, null));
 	}
@@ -156,16 +158,16 @@ public class BaseSecurityManagerTest extends OlatTestCase {
 	@Test
 	public void testFindIdentityByName() {
 		//create a user it
-		String name = "find-me-" + UUID.randomUUID().toString();
-		Identity id = JunitTestHelper.createAndPersistIdentityAsUser(name);
+		String username = "find-me-" + UUID.randomUUID().toString();
+		Identity id = JunitTestHelper.createAndPersistIdentityAsUser(username);
 		Assert.assertNotNull(id);
-		Assert.assertEquals(name, id.getName());
+		Assert.assertEquals(username, id.getName());
 		dbInstance.commitAndCloseSession();
 		
 		//find it
-		Identity foundId = securityManager.findIdentityByName(name);
+		Identity foundId = securityManager.findIdentityByName(username);
 		Assert.assertNotNull(foundId);
-		Assert.assertEquals(name, foundId.getName());
+		Assert.assertEquals(username, foundId.getName());
 		Assert.assertEquals(id, foundId);
 	}
 	
@@ -210,11 +212,11 @@ public class BaseSecurityManagerTest extends OlatTestCase {
 	
 	@Test
 	public void testCreateNamedGroup() {
-		String name = UUID.randomUUID().toString().replace("-", "").substring(0, 16);
-		SecurityGroup ng = securityManager.createAndPersistNamedSecurityGroup(name);
+		String username = UUID.randomUUID().toString().replace("-", "").substring(0, 16);
+		SecurityGroup ng = securityManager.createAndPersistNamedSecurityGroup(username);
 		dbInstance.commitAndCloseSession();
 		
-		SecurityGroup sgFound = securityManager.findSecurityGroupByName(name);
+		SecurityGroup sgFound = securityManager.findSecurityGroupByName(username);
 		Assert.assertNotNull(sgFound);
 		Assert.assertEquals(sgFound.getKey(), ng.getKey());
 	}
@@ -491,6 +493,37 @@ public class BaseSecurityManagerTest extends OlatTestCase {
 		Assert.assertEquals(1, ids.size());
 		Assert.assertEquals(id, ids.get(0));
 	}
+	
+	@Test
+	public void testGetIdentityByPowerSearch_managed() {
+		String login = "pow-6-" + UUID.randomUUID();
+		String externalId = UUID.randomUUID().toString();
+		Identity id = JunitTestHelper.createAndPersistIdentityAsUser(login);
+		dbInstance.commitAndCloseSession();
+		securityManager.setExternalId(id, externalId);
+		dbInstance.commitAndCloseSession();
+		
+		//search managed
+		SearchIdentityParams params = new SearchIdentityParams();
+		params.setManaged(Boolean.TRUE);
+		List<Identity> managedIds = securityManager.getIdentitiesByPowerSearch(params, 0, -1);
+		Assert.assertNotNull(managedIds);
+		Assert.assertFalse(managedIds.isEmpty());
+		Assert.assertTrue(managedIds.contains(id));
+		for(Identity managedId:managedIds) {
+			Assert.assertNotNull(managedId.getExternalId());
+		}
+		
+		//search not managed
+		params.setManaged(Boolean.FALSE);
+		List<Identity> naturalIds = securityManager.getIdentitiesByPowerSearch(params, 0, -1);
+		Assert.assertNotNull(naturalIds);
+		Assert.assertFalse(naturalIds.contains(id));
+		for(Identity naturalId:naturalIds) {
+			Assert.assertNull(naturalId.getExternalId());
+		}
+	}
+	
 	
 	@Test
 	public void testGetIdentitiesByPowerSearchWithGroups() {
@@ -777,7 +810,7 @@ public class BaseSecurityManagerTest extends OlatTestCase {
 		
 		Authentication auth = securityManager.findAuthentication(ident, "OLAT");
 		String credentials = auth.getCredential();
-		Authentication updatedAuth = securityManager.updateCredentials(auth, "secret", LoginModule.getDefaultHashAlgorithm());
+		Authentication updatedAuth = securityManager.updateCredentials(auth, "secret", loginModule.getDefaultHashAlgorithm());
 		Assert.assertNotNull(auth);
 		Assert.assertNotNull(updatedAuth);
 		Assert.assertEquals(auth, updatedAuth);
@@ -786,7 +819,7 @@ public class BaseSecurityManagerTest extends OlatTestCase {
 		
 		Authentication auth2 = securityManager.findAuthentication(ident, "OLAT");
 		String credentials2 = auth2.getCredential();
-		Authentication notUpdatedAuth = securityManager.updateCredentials(auth2, "secret", LoginModule.getDefaultHashAlgorithm());
+		Authentication notUpdatedAuth = securityManager.updateCredentials(auth2, "secret", loginModule.getDefaultHashAlgorithm());
 		Assert.assertNotNull(auth2);
 		Assert.assertNotNull(notUpdatedAuth);
 		Assert.assertSame(auth2, notUpdatedAuth);

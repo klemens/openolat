@@ -3,31 +3,9 @@ var BPlayer = {
 		BPlayer.insertHTML5Player(address,domId,width,height,start,duration,provider,streamer,autostart,repeat,controlbar,poster);
 	},
 	
-	playSound : function(soundUrl, domId) {
-		jQuery.getScript(BPlayer.playerJsUrl(), function() {
-			if(!jwplayer.utils.isIE()) {
-				var playerUrl = BPlayer.playerUrl();
-				var args = {
-					file:soundUrl,
-					start:0,
-					autostart:true,
-					repeat:'none',
-					controlbar:'none',
-					controls: false,
-					width: '1px',
-					height: '1px',
-					icons:false,
-					showicons:false,
-					flashplayer:playerUrl
-				};
-				jwplayer(domId).setup(args);
-			}
-		});
-	},
-
-	insertHTML5Player : function (address,domId,width,height,start,duration,provider,streamer,autostart,repeat,controlbar,poster) {
+	insertHTML5Player : function (address, domId, width, height, start, duration, provider, streamer, autostart, repeat, controlbar, poster) {
 		var videoUrl = address
-		if(address.indexOf('://') < 0 && (address.indexOf('/secstatic/qtieditor/') >= 0 || address.indexOf('/secstatic/qti/') >= 0)) {
+		if(address.indexOf('://') < 0 && (address.indexOf('/raw/static/') == 0 || address.indexOf('/secstatic/qtieditor/') >= 0 || address.indexOf('/secstatic/qti/') >= 0)) {
 			videoUrl = address;
 		} else if(address.indexOf('://') < 0 && ((provider != "rtmp" && provider != "http") ||
 				((provider == "rtmp" || provider == "http") && (streamer == undefined || streamer.length == 0)))) {
@@ -48,54 +26,218 @@ var BPlayer = {
 			flashplayer:playerUrl
 		};
 		
-		if(provider != undefined) {
+		if(typeof provider != 'undefined') {
 			args.provider = provider;
 		}
 		if(provider == "rtmp" || provider == "http") {
 			args.streamer = streamer;
 		}
-		if(start != undefined) {
+		if(typeof start != 'undefined') {
 			var startInSec = BPlayer.convertInSeconds(start);
 			if(startInSec > 0) {
 				args.start = startInSec;
 			}
 		}
-		if(duration != undefined) {
+		if(typeof duration != 'undefined') {
 			var durationInSec = BPlayer.convertInSeconds(duration);
 			if(durationInSec > 0) {
 				args.duration = durationInSec;
 			}
 		}
-		if(autostart) {
+		if(typeof autostart != 'undefined' && autostart) {
 			args.autostart = true;
 		}
-		if(repeat) {
+		if(typeof repeat != 'undefined' && repeat) {
 			args.repeat = "single";
 		}
-		if(controlbar != undefined && !controlbar) {
+		if(typeof controlbar != 'undefined' && !controlbar) {
 			args.controlbar = "none";
 		}
-		if(poster) {
+		if(typeof poster != 'undefined') {
 			args.image = poster;
 		}
-		
-		var realDomId;
-		if(BPlayer.isIE8() && domId != 'prev_container' && jQuery('#' + domId).is("span")) {
-			var spanEl = jQuery('#' + domId);
-			var width = spanEl.width();
-			var height = spanEl.height();
-			var videoParent = jQuery(spanEl).parent('p');
-			var newContainer = jQuery('<div id="' + domId + '_replacer" class="olatFlashMovieViewer" style="display:block;border:solid 1px #000; width:' + width + 'px; height:' + height + 'px;">Hello world</div>');
-			newContainer.insertAfter(videoParent);
-			spanEl.remove();
-			realDomId = domId + '_replacer';
+
+		var mediaElementBaseUrl = BPlayer.mediaElementBaseUrl();
+		if(BPlayer.needJWPlayerFallback(args)) {
+			if(BPlayer.isIE8() && domId != 'prev_container' && jQuery('#' + domId).is("span")) {
+				alert('This is video is not supported on Internet Explorer 8. Sorry for the inconvenience');
+			} else {
+				jQuery.getScript(BPlayer.playerJsUrl(), function() {
+					jwplayer(domId).setup(args);
+				});
+			}
 		} else {
-			realDomId = domId;
+			if(jQuery('#mediaelementplayercss').length == 0) {
+				jQuery('<link>')
+				  .appendTo('head')
+				  .attr({id : 'mediaelementplayercss', type : 'text/css', rel : 'stylesheet'})
+				  .attr('href', mediaElementBaseUrl + 'mediaelementplayer.min.css');
+			}
+
+			if(typeof jQuery('body').mediaelementplayer != 'undefined') {
+				BPlayer.insertHTML5MediaElementPlayerWorker(domId, args);
+			} else {
+				jQuery.ajax({
+						dataType: 'script',
+						cache: true,
+						async: false,//prevent 2x load of the mediaelement.js which is deadly
+						url: mediaElementBaseUrl + 'mediaelement-and-player.min.js'
+					}).done(function() {
+					BPlayer.insertHTML5MediaElementPlayerWorker(domId, args);
+				});
+			}
 		}
-		
-		jQuery.getScript(BPlayer.playerJsUrl(), function() {
-			jwplayer(domId).setup(args);
-		});
+	},
+	
+	needJWPlayerFallback : function(config) {
+		if(config.provider == 'rtmp') {
+			if(config.file.match(/(.*)\/((flv|mp4|mp3):.*)/)) {
+				return false;
+			} else {
+				return true;
+			}
+		}
+		return false;
+	},
+	
+	insertHTML5MediaElementPlayerWorker: function(domId, config) {
+		var mediaElementBaseUrl = BPlayer.mediaElementBaseUrl();
+		var meConfig = {
+			loop: config.repeat,
+			pluginPath: mediaElementBaseUrl,
+			flashName: 'flashmediaelement.swf',
+			silverlightName: 'silverlightmediaelement.xap',
+			success: function(mediaElement, originalNode, player) {
+				if(config.autostart) {
+					try {
+						player.load();
+						player.play();
+					} catch(e) {
+						if(window.console) console.log(e);
+					}
+				}
+				mediaElement.addEventListener('loadeddata', function() {
+                    if(config.start) {
+						try {
+							player.setCurrentTime(config.start);
+						} catch(e) {
+							if(window.console) console.log(e);
+						}
+					}
+                });
+			}
+		};
+
+		var mimeType = null;
+		var extension = config.file.split('.').pop().toLowerCase();
+		if(config.provider == 'sound') {
+			if(extension == 'mp3') {
+				mimeType = "audio/mp3";
+			} else if(extension == 'aac') {
+				mimeType = "audio/aac";
+				meConfig.pluginVars = 'isvideo=true';
+			} else if(extension == 'm4a') {
+				mimeType = "audio/m4a";
+			}
+		} else if(config.provider == 'youtube') {
+			mimeType = "video/youtube";
+		} else if(config.provider == 'rtmp') {
+			meConfig.flashStreamer = config.streamer;
+			mimeType = "video/rtmp";
+		} else if(config.provider == "http") {
+			config.enablePseudoStreaming = true;
+			if(extension == 'flv') {
+				mimeType = "video/flv";
+			} else {
+				mimeType = "video/mp4";
+			}
+		} else {
+			if(extension == 'flv') {
+				mimeType = "video/flv";
+			} else if(extension == 'f4v') {
+				mimeType = "video/flv";
+			} else if(extension == 'mp4') {
+				mimeType = "video/mp4";
+			} else if(extension == 'm4v') {
+				mimeType = "video/m4v";
+			} else if(extension == 'm3u8') {
+				mimeType = "application/x-mpegURL";
+			} else if(extension == 'aac') {
+				mimeType = "audio/aac";
+				config.provider = "sound";
+				meConfig.pluginVars = 'isvideo=true';
+			} else if(extension == 'mp3') {
+				mimeType = "audio/mp3";
+				config.provider = "sound";
+			} else if(extension == 'm4a') {
+				mimeType = "audio/m4a";
+				config.provider = "sound";
+			} else if(config.file.indexOf('vimeo.com') > -1) {
+				mimeType = "video/vimeo";
+			} else if(config.file.indexOf('youtube.com') > -1 || config.file.indexOf('youtube.be')) {
+				mimeType = "video/youtube";
+			} else {
+				alert('Something go badly wrong!' + config.provider + "  " + extension);
+			}
+		}
+
+		var content;
+		var mediaDomId = domId + '_oo' + Math.floor(Math.random() * 1000000) + 'vid';
+		var objectDomId = domId + '_oo' + Math.floor(Math.random() * 1000000) + 'obj';
+		if(config.provider == "sound") {
+			if(config.height) {
+				meConfig.audioHeight = config.height;
+			}
+			if(config.width) {
+				meConfig.audioWidth = config.width;
+			}
+			content = "<audio id='" + mediaDomId + "' controls='controls'";
+			if(typeof config.repeat != 'undefined' && config.repeat) {
+				content += " loop='loop'";
+			}
+			content += " type='" +mimeType + "' src='" + config.file + "'></audio>";
+		} else {
+			//controls are mandatory for Safari at least
+			content = "<video id='" + mediaDomId + "' controls='controls' preload='none'";
+			if(typeof config.repeat != 'undefined' && config.repeat) {
+				content += " loop='loop'";
+			}
+			var objContent = "<object id='" + objectDomId + "' type='application/x-shockwave-flash'";
+			if(typeof config.height != 'undefined') {
+				content += " height='" + config.height + "'";
+				objContent += " height='" + config.height + "'";
+				meConfig.videoHeight = config.height;
+			}
+			if(typeof config.width != 'undefined') {
+				content += " width='" + config.width + "'";
+				objContent += " width='" + config.width + "'";
+				meConfig.videoWidth = config.width;
+			}
+			if(typeof config.image != 'undefined') {
+				content += " poster='" + config.image + "'";
+			}
+			content += "><source type='" +mimeType + "' src='" + config.file + "' />";
+			
+			content += objContent + " data='" + mediaElementBaseUrl + "flashmediaelement.swf'>";
+			content += "<param name='movie' value='" + mediaElementBaseUrl + "flashmediaelement.swf' />";
+			content += "<param name='flashvars' value='controls=true";
+			if(typeof config.streamer != 'undefined') {
+				content += "&amp;streamer=" + config.streamer;
+			}
+			content += "&amp;file=" + config.file + "' /></object></video>";
+		}
+
+		jQuery('#' + domId).html(content);
+		jQuery('#' + mediaDomId).mediaelementplayer(meConfig);
+	},
+	
+	mediaElementBaseUrl: function() {
+		var playerUrl = BPlayer.findBaseUrl(window);
+		if(playerUrl == null) {
+			playerUrl = "/olat/raw/_noversion_/";
+		}
+		playerUrl += "movie/";
+		return playerUrl;
 	},
 	
 	isIE8: function() {
@@ -128,11 +270,11 @@ var BPlayer = {
 	},
 	
 	convertInSeconds: function (time) {
-		if(time == null || typeof(time) == undefined) return 0;//default
+		if(typeof time == 'undefined' || time == null) return 0;//default
 		if(!time.length) return time;//already a number
 		if(time.length == 0) return 0;
 		if(time.indexOf('.') > 0){
-					time = time.substring(0, time.indexOf('.'));
+			time = time.substring(0, time.indexOf('.'));
 		}
 	
 		var sepIndex = time.lastIndexOf(':');
@@ -140,7 +282,7 @@ var BPlayer = {
 			var chunkSec = time.substring(sepIndex+1,time.length);
 			var timeInSec = parseInt(chunkSec);
 			time = time.substring(0,sepIndex);
-		
+
 			sepIndex = time.lastIndexOf(':');
 			if(sepIndex > 0) {
 				var chunkMin = time.substring(sepIndex+1,time.length);

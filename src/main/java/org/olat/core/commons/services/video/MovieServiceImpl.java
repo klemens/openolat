@@ -22,7 +22,6 @@ package org.olat.core.commons.services.video;
 import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.FileInputStream;
-import java.io.IOException;
 import java.io.InputStream;
 import java.io.RandomAccessFile;
 import java.nio.channels.FileChannel;
@@ -30,7 +29,6 @@ import java.util.ArrayList;
 import java.util.List;
 
 import org.jcodec.api.FrameGrab;
-import org.jcodec.api.JCodecException;
 import org.jcodec.common.FileChannelWrapper;
 import org.jcodec.containers.mp4.demuxer.MP4Demuxer;
 import org.olat.core.commons.services.image.Size;
@@ -43,6 +41,7 @@ import org.olat.core.logging.OLog;
 import org.olat.core.logging.Tracing;
 import org.olat.core.util.vfs.LocalFileImpl;
 import org.olat.core.util.vfs.VFSLeaf;
+import org.olat.ims.cp.ui.VFSCPNamedItem;
 import org.springframework.stereotype.Service;
 
 /**
@@ -70,7 +69,17 @@ public class MovieServiceImpl implements MovieService, ThumbnailSPI {
 
 	@Override
 	public Size getSize(VFSLeaf media, String suffix) {
-		File file = ((LocalFileImpl)media).getBasefile();
+		File file = null;
+		if(media instanceof VFSCPNamedItem) {
+			media = ((VFSCPNamedItem)media).getDelegate();
+		}
+		if(media instanceof LocalFileImpl) {
+			file = ((LocalFileImpl)media).getBasefile();
+		}
+		if(file == null) {
+			return null;
+		}
+
 		if(suffix.equals("mp4") || suffix.equals("m4v")) {
 			try(RandomAccessFile accessFile = new RandomAccessFile(file, "r")) {
 				FileChannel ch = accessFile.getChannel();
@@ -80,7 +89,7 @@ public class MovieServiceImpl implements MovieService, ThumbnailSPI {
 				int w = size.getWidth();
 				int h = size.getHeight();
 				return new Size(w, h, false);
-			} catch (IOException e) {
+			} catch (Exception | AssertionError e) {
 				log.error("Cannot extract size of: " + media, e);
 			}
 		} else if(suffix.equals("flv")) {
@@ -96,6 +105,7 @@ public class MovieServiceImpl implements MovieService, ThumbnailSPI {
 				log.error("Cannot extract size of: " + media, e);
 			}
 		}
+
 		return null;
 	}
 
@@ -112,7 +122,9 @@ public class MovieServiceImpl implements MovieService, ThumbnailSPI {
 				if(ImageHelperImpl.writeTo(frame, scaledImage, scaledSize, "jpeg")) {
 					size = new FinalSize(scaledSize.getWidth(), scaledSize.getHeight());
 				}
-			} catch (IOException | JCodecException e) {
+			//NullPointerException can be thrown if the jcodec cannot handle the codec of the movie
+			//ArrayIndexOutOfBoundsException
+			} catch (Exception | AssertionError e) {
 				log.error("", e);
 			}
 		}

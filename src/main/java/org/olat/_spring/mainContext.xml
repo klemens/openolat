@@ -22,7 +22,6 @@
 	<import resource="classpath:/org/olat/admin/_spring/adminContext.xml"/>
 
 	<import resource="classpath:/org/olat/basesecurity/_spring/baseSecurityContext.xml"/>
-	<import resource="classpath:/org/olat/catalog/_spring/catalogContext.xml"/>
 	<import resource="classpath:/org/olat/collaboration/_spring/collaborationToolsContext.xml"/>
 	<import resource="classpath:/org/olat/commons/calendar/_spring/calendarContext.xml"/>
 	<import resource="classpath:/org/olat/commons/info/_spring/infoMessageContext.xml"/>
@@ -34,6 +33,7 @@
 	<import resource="classpath:/org/olat/group/_spring/businessGroupContext.xml"/>
 	<import resource="classpath:/org/olat/gui/demo/_spring/guiDemoContext.xml"/>
 	<import resource="classpath:/org/olat/home/_spring/homeContext.xml"/>
+	<import resource="classpath:/org/olat/gui/control/_spring/navContext.xml"/>
 	<import resource="classpath:/org/olat/ims/_spring/imsContext.xml"/>
 	<import resource="classpath:/org/olat/instantMessaging/_spring/instantMessagingContext.xml"/>
 	<import resource="classpath:/org/olat/ldap/_spring/ldapContext.xml"/>

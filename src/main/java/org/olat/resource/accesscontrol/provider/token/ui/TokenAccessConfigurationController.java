@@ -22,14 +22,17 @@ package org.olat.resource.accesscontrol.provider.token.ui;
 
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.form.flexible.FormItemContainer;
+import org.olat.core.gui.components.form.flexible.elements.DateChooser;
 import org.olat.core.gui.components.form.flexible.elements.TextElement;
-import org.olat.core.gui.components.form.flexible.impl.Form;
 import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.WindowControl;
+import org.olat.core.util.Util;
 import org.olat.resource.accesscontrol.model.AccessMethod;
-import org.olat.resource.accesscontrol.model.OfferImpl;
+import org.olat.resource.accesscontrol.model.Offer;
 import org.olat.resource.accesscontrol.model.OfferAccess;
+import org.olat.resource.accesscontrol.model.OfferImpl;
 import org.olat.resource.accesscontrol.ui.AbstractConfigurationMethodController;
+import org.olat.resource.accesscontrol.ui.AccessConfigurationController;
 
 /**
  * 
@@ -42,19 +45,15 @@ import org.olat.resource.accesscontrol.ui.AbstractConfigurationMethodController;
  */
 public class TokenAccessConfigurationController extends AbstractConfigurationMethodController {
 
-	private TextElement descEl;
-	private TextElement tokenEl;
+	private TextElement descEl, tokenEl;
+	private DateChooser dateFrom, dateTo;
 	private final OfferAccess link;
 	
-	public TokenAccessConfigurationController(UserRequest ureq, WindowControl wControl, OfferAccess link) {
-		super(ureq, wControl);
+	public TokenAccessConfigurationController(UserRequest ureq, WindowControl wControl, OfferAccess link, boolean edit) {
+		super(ureq, wControl, edit);
 		this.link = link;
-		initForm(ureq);
-	}
-
-	public TokenAccessConfigurationController(UserRequest ureq, WindowControl wControl, OfferAccess link, Form form) {
-		super(ureq, wControl, LAYOUT_DEFAULT, null, form);
-		this.link = link;
+		setTranslator(Util.createPackageTranslator(AccessConfigurationController.class, getLocale(), getTranslator()));
+		
 		initForm(ureq);
 	}
 
@@ -62,7 +61,11 @@ public class TokenAccessConfigurationController extends AbstractConfigurationMet
 	protected void initForm(FormItemContainer formLayout, Controller listener, UserRequest ureq) {
 		formLayout.setElementCssClass("o_sel_accesscontrol_token_form");
 		
-		descEl = uifactory.addTextAreaElement("offer-desc", "offer.description", 2000, 6, 80, false, null, formLayout);
+		String desc = null;
+		if(link.getOffer() != null) {
+			desc = link.getOffer().getDescription();
+		}
+		descEl = uifactory.addTextAreaElement("offer-desc", "offer.description", 2000, 6, 80, false, desc, formLayout);
 		descEl.setElementCssClass("o_sel_accesscontrol_description");
 		
 		String token = "";
@@ -72,6 +75,9 @@ public class TokenAccessConfigurationController extends AbstractConfigurationMet
 		tokenEl = uifactory.addTextElement("token", "accesscontrol.token", 255, token, formLayout);
 		tokenEl.setElementCssClass("o_sel_accesscontrol_token");
 		
+		dateFrom = uifactory.addDateChooser("from_" + link.getKey(), "from", link.getValidFrom(), formLayout);
+		dateTo = uifactory.addDateChooser("to_" + link.getKey(), "to", link.getValidTo(), formLayout);
+
 		super.initForm(formLayout, listener, ureq);
 	}
 	
@@ -82,10 +88,15 @@ public class TokenAccessConfigurationController extends AbstractConfigurationMet
 
 	@Override
 	public OfferAccess commitChanges() {
-		if(link.getOffer() instanceof OfferImpl) {
-			((OfferImpl)link.getOffer()).setToken(tokenEl.getValue());
+		Offer offer = link.getOffer();
+		if(offer instanceof OfferImpl) {
+			((OfferImpl)offer).setToken(tokenEl.getValue());
 		}
-		link.getOffer().setDescription(descEl.getValue());
+		offer.setDescription(descEl.getValue());
+		offer.setValidFrom(dateFrom.getDate());
+		offer.setValidTo(dateTo.getDate());
+		link.setValidFrom(dateFrom.getDate());
+		link.setValidTo(dateTo.getDate());
 		return link;
 	}
 

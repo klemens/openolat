@@ -22,6 +22,7 @@ package org.olat.restapi.support.vo;
 
 import java.util.Calendar;
 
+import org.olat.repository.CatalogEntry;
 import org.olat.restapi.support.ObjectFactory;
 
 
@@ -62,9 +63,14 @@ public class Examples {
 	
 	public static final FileVO SAMPLE_FILE = new FileVO();
 	
+	public static final FileMetadataVO SAMPLE_FILE_METADATA = new FileMetadataVO();
+	
 	public static final FolderVO SAMPLE_FOLDERVO = new FolderVO();
 	public static final FolderVOes SAMPLE_FOLDERVOes = new FolderVOes();
-  
+	
+	public static final CatalogEntryVO SAMPLE_CATALOGENTRYVO = new CatalogEntryVO();
+	public static final CatalogEntryVOes SAMPLE_CATALOGENTRYVOes = new CatalogEntryVOes();
+
   static {
   	SAMPLE_GROUPVO.setKey(123467l);
   	SAMPLE_GROUPVO.setName("My group");
@@ -152,6 +158,12 @@ public class Examples {
   	SAMPLE_FILE.setRel("rel");
   	SAMPLE_FILE.setSize(8200l);
   	SAMPLE_FILE.setTitle("portrait.jpg");
+  	
+  	SAMPLE_FILE_METADATA.setFileName("portrait.jpg");
+  	SAMPLE_FILE_METADATA.setHref("http://www.openolat.org/");
+  	SAMPLE_FILE_METADATA.setLastModified(8945783984l);
+  	SAMPLE_FILE_METADATA.setMimeType("image/jpg");
+  	SAMPLE_FILE_METADATA.setSize(37638l);
 
   	SAMPLE_FOLDERVO.setCourseKey(375397l);
   	SAMPLE_FOLDERVO.setCourseNodeId("438950850389");
@@ -160,5 +172,13 @@ public class Examples {
   	
   	SAMPLE_FOLDERVOes.setFolders(new FolderVO[]{SAMPLE_FOLDERVO});
   	SAMPLE_FOLDERVOes.setTotalCount(1);
+  	
+  	SAMPLE_CATALOGENTRYVO.setKey(new Long(478l));
+	SAMPLE_CATALOGENTRYVO.setName("Category");
+	SAMPLE_CATALOGENTRYVO.setDescription("Description of the category");
+	SAMPLE_CATALOGENTRYVO.setType(CatalogEntry.TYPE_NODE);
+	
+	SAMPLE_CATALOGENTRYVOes.setCatalogEntries(new CatalogEntryVO[]{SAMPLE_CATALOGENTRYVO});
+	SAMPLE_CATALOGENTRYVOes.setTotalCount(0);
   }
 }

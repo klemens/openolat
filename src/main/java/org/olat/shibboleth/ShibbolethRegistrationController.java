@@ -331,7 +331,11 @@ public class ShibbolethRegistrationController extends DefaultController implemen
 						email = ShibbolethHelper.getFirstValueOf(ShibbolethModule.getEMail(), shibbolethAttributesMap);
 					}
 
-					User user = UserManager.getInstance().findUserByEmail(email);
+					User user = null;
+					Identity id = UserManager.getInstance().findIdentityByEmail(email);
+					if (id != null) {
+						user = id.getUser();
+					}
 					
 					if (user != null) {
 						// error, email already exists. should actually not happen if OLAT Authenticator has
@@ -351,7 +355,7 @@ public class ShibbolethRegistrationController extends DefaultController implemen
 						user.setProperty(UserConstants.INSTITUTIONALEMAIL, institutionalEmail);
 					}
 					user.setProperty(UserConstants.INSTITUTIONALUSERIDENTIFIER, shibbolethAttributesMap.get(ShibbolethModule.getInstitutionalUserIdentifier()));
-					identity = secMgr.createAndPersistIdentityAndUser(choosenLogin, user, ShibbolethDispatcher.PROVIDER_SHIB, shibbolethUniqueID);
+					identity = secMgr.createAndPersistIdentityAndUser(choosenLogin, null, user, ShibbolethDispatcher.PROVIDER_SHIB, shibbolethUniqueID);
 					SecurityGroup olatUserGroup = secMgr.findSecurityGroupByName(Constants.GROUP_OLATUSERS);
 					secMgr.addIdentityToSecurityGroup(identity, olatUserGroup);
 					// tell system that this user did accept the disclaimer

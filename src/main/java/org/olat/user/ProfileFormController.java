@@ -112,6 +112,17 @@ public class ProfileFormController extends FormBasicController {
 	private HomePageConfigManager hpcm;
 	@Autowired
 	private DisplayPortraitManager dps;
+	
+	/**
+	 * Create this controller with the request's identity as none administrative
+	 * user. This constructor can be use in after login interceptor.
+	 * 
+	 * @param ureq
+	 * @param wControl
+	 */
+	public ProfileFormController(UserRequest ureq, WindowControl wControl) {
+		this(ureq, wControl, ureq.getIdentity(), false);
+	}
 
 	/**
 	 * Creates this controller.
@@ -365,11 +376,18 @@ public class ProfileFormController extends FormBasicController {
 				dps.deletePortrait(identityToModify);
 				deletePortrait.setVisible(false);
 				portraitUpload.setInitialFile(null);
+				notifyPortraitChanged();
 			}
 			flc.setDirty(true);
 		}
 
 		super.formInnerEvent(ureq, source, event);
+	}
+	
+	private void notifyPortraitChanged() {
+		ProfileEvent newPortraitEvent = new ProfileEvent("changed-portrait", identityToModify.getKey());
+		OLATResourceable ores = OresHelper.createOLATResourceableInstance("portrait", getIdentity().getKey());
+		CoordinatorManager.getInstance().getCoordinator().getEventBus().fireEventToListenersOf(newPortraitEvent, ores);
 	}
 
 	@Override
@@ -384,8 +402,10 @@ public class ProfileFormController extends FormBasicController {
 		}
 		
 		File uploadedImage = portraitUpload.getUploadFile();
+		String uploadedFilename = portraitUpload.getUploadFileName();
 		if(uploadedImage != null) {
-			dps.setPortrait(uploadedImage, identityToModify.getName());
+			dps.setPortrait(uploadedImage, uploadedFilename, identityToModify.getName());
+			notifyPortraitChanged();
 		}
 		
 		// Store the "about me" text.
@@ -489,7 +509,11 @@ public class ProfileFormController extends FormBasicController {
 		cal.add(Calendar.DAY_OF_WEEK, ChangeEMailController.TIME_OUT);
 		String time = DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT, ureq.getLocale()).format(cal.getTime());
 		// create body and subject for email
-		body = translate("email.change.body", new String[] { serverpath + "/dmz/emchange/index.html?key=" + tk.getRegistrationKey() + "&lang=" + ureq.getLocale().getLanguage(), time, currentEmail, changedEmail })
+		String link = serverpath + "/dmz/emchange/index.html?key=" + tk.getRegistrationKey() + "&lang=" + ureq.getLocale().getLanguage();
+		if(Settings.isDebuging()) {
+			logInfo(link, null);
+		}
+		body = translate("email.change.body", new String[] { link, time, currentEmail, changedEmail })
 				+ SEPARATOR + translate("email.change.wherefrom", new String[] { serverpath, today, ip });
 		subject = translate("email.change.subject");
 		// send email

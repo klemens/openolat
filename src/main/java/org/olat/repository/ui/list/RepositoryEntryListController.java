@@ -64,12 +64,15 @@ import org.olat.core.gui.control.generic.closablewrapper.CloseableModalControlle
 import org.olat.core.gui.control.generic.dtabs.Activateable2;
 import org.olat.core.gui.translator.Translator;
 import org.olat.core.id.OLATResourceable;
+import org.olat.core.id.context.BusinessControlFactory;
 import org.olat.core.id.context.ContextEntry;
 import org.olat.core.id.context.StateEntry;
+import org.olat.core.logging.activity.ThreadLocalUserActivityLogger;
 import org.olat.core.util.StringHelper;
 import org.olat.core.util.Util;
 import org.olat.core.util.resource.OresHelper;
 import org.olat.course.CorruptedCourseException;
+import org.olat.repository.RepositoryEntry;
 import org.olat.repository.RepositoryManager;
 import org.olat.repository.RepositoryModule;
 import org.olat.repository.model.SearchMyRepositoryEntryViewParams;
@@ -77,6 +80,7 @@ import org.olat.repository.model.SearchMyRepositoryEntryViewParams.Filter;
 import org.olat.repository.model.SearchMyRepositoryEntryViewParams.OrderBy;
 import org.olat.repository.ui.RepositoryEntryImageMapper;
 import org.olat.repository.ui.list.RepositoryEntryDataModel.Cols;
+import org.olat.util.logging.activity.LoggingResourceable;
 import org.springframework.beans.factory.annotation.Autowired;
 
 /**
@@ -126,6 +130,9 @@ public class RepositoryEntryListController extends FormBasicController
 		this.stackPanel = stackPanel;
 		this.withSearch = withSearch;
 		guestOnly = ureq.getUserSession().getRoles().isGuestOnly();
+
+		OLATResourceable ores = OresHelper.createOLATResourceableType("MyCoursesSite");
+		ThreadLocalUserActivityLogger.addLoggingResourceInfo(LoggingResourceable.wrapBusinessPath(ores));
 		
 		this.searchParams = searchParams;
 		dataSource = new DefaultRepositoryEntryDataSource(searchParams, this);
@@ -157,6 +164,12 @@ public class RepositoryEntryListController extends FormBasicController
 
 		columnsModel.addFlexiColumnModel(new DefaultFlexiColumnModel(Cols.displayName.i18nKey(), Cols.select.ordinal(),
 				true, OrderBy.displayname.name()));
+		if(repositoryModule.isManagedRepositoryEntries()) {
+			columnsModel.addFlexiColumnModel(new DefaultFlexiColumnModel(false, Cols.externalId.i18nKey(), Cols.externalId.ordinal(),
+				true, OrderBy.externalId.name()));
+		}
+		columnsModel.addFlexiColumnModel(new DefaultFlexiColumnModel(false, Cols.externalRef.i18nKey(), Cols.externalRef.ordinal(),
+				true, OrderBy.externalRef.name()));
 		columnsModel.addFlexiColumnModel(new DefaultFlexiColumnModel(Cols.lifecycleLabel.i18nKey(), Cols.lifecycleLabel.ordinal(),
 				true, OrderBy.lifecycleLabel.name()));
 		columnsModel.addFlexiColumnModel(new DefaultFlexiColumnModel(Cols.lifecycleSoftkey.i18nKey(), Cols.lifecycleSoftkey.ordinal(),
@@ -233,7 +246,7 @@ public class RepositoryEntryListController extends FormBasicController
 		}
 		
 		FlexiTableSortOptions options = new FlexiTableSortOptions(sorters);
-		options.setDefaultOrderBy(new SortKey(OrderBy.automatic.name(), true));
+		options.setDefaultOrderBy(new SortKey(OrderBy.title.name(), true));
 		tableElement.setSortSettings(options);
 	}
 
@@ -286,14 +299,14 @@ public class RepositoryEntryListController extends FormBasicController
 				row.setMarked(marked);
 			} else if ("start".equals(cmd)){
 				RepositoryEntryRow row = (RepositoryEntryRow)link.getUserObject();
-				doOpen(ureq, row);
+				doOpen(ureq, row, null);
 			} else if ("details".equals(cmd)){
 				RepositoryEntryRow row = (RepositoryEntryRow)link.getUserObject();
 				doOpenDetails(ureq, row);
 			} else if ("select".equals(cmd)) {
 				RepositoryEntryRow row = (RepositoryEntryRow)link.getUserObject();
 				if (row.isMember()) {
-					doOpen(ureq, row);					
+					doOpen(ureq, row, null);					
 				} else {
 					doOpenDetails(ureq, row);
 				}
@@ -308,7 +321,7 @@ public class RepositoryEntryListController extends FormBasicController
 				RepositoryEntryRow row = model.getObject(se.getIndex());
 				if("select".equals(cmd)) {
 					if (row.isMember()) {
-						doOpen(ureq, row);					
+						doOpen(ureq, row, null);					
 					} else {
 						doOpenDetails(ureq, row);
 					}
@@ -355,9 +368,9 @@ public class RepositoryEntryListController extends FormBasicController
 						Long rowKey = new Long(rowKeyStr);
 						List<RepositoryEntryRow> rows = model.getObjects();
 						for(RepositoryEntryRow row:rows) {
-							if(row.getKey().equals(rowKey)) {
+							if(row != null && row.getKey().equals(rowKey)) {
 								if (row.isMember()) {
-									doOpen(ureq, row);					
+									doOpen(ureq, row, null);					
 								} else {
 									doOpenDetails(ureq, row);
 								}
@@ -417,6 +430,11 @@ public class RepositoryEntryListController extends FormBasicController
 				searchParams.setAuthor(null);
 				searchParams.setText(null);
 			}
+		} else if(detailsCtrl == source) {
+			if(event instanceof LeavingEvent) {
+				stackPanel.popUpToController(this);
+				tableEl.reset();
+			}
 		}
 		super.event(ureq, source, event);
 	}
@@ -461,9 +479,12 @@ public class RepositoryEntryListController extends FormBasicController
 		userRatingsDao.updateRating(getIdentity(), ores, null, Math.round(rating));
 	}
 	
-	protected void doOpen(UserRequest ureq, RepositoryEntryRow row) {
+	protected void doOpen(UserRequest ureq, RepositoryEntryRow row, String subPath) {
 		try {
 			String businessPath = "[RepositoryEntry:" + row.getKey() + "]";
+			if (subPath != null) {
+				businessPath += subPath;
+			}
 			NewControllerFactory.getInstance().launch(businessPath, ureq, getWindowControl());
 		} catch (CorruptedCourseException e) {
 			logError("Course corrupted: " + row.getKey() + " (" + row.getOLATResourceable().getResourceableId() + ")", e);
@@ -472,13 +493,21 @@ public class RepositoryEntryListController extends FormBasicController
 	}
 	
 	protected void doOpenDetails(UserRequest ureq, RepositoryEntryRow row) {
-		removeAsListenerAndDispose(detailsCtrl);
-		
-		detailsCtrl = new RepositoryEntryDetailsController(ureq, getWindowControl(), row);
-		listenTo(detailsCtrl);
-		
-		String displayName = row.getDisplayName();
-		stackPanel.pushController(displayName, detailsCtrl);
+		// to be more consistent: course members see info page within the course, non-course members see it outside the course
+		if (row.isMember()) {
+			doOpen(ureq, row, "[Infos:0]");
+		} else {
+			removeAsListenerAndDispose(detailsCtrl);
+			
+			OLATResourceable ores = OresHelper.createOLATResourceableInstance("Infos", 0l);
+			WindowControl bwControl = BusinessControlFactory.getInstance().createBusinessWindowControl(ores, null, getWindowControl());
+			detailsCtrl = new RepositoryEntryDetailsController(ureq, bwControl, row);
+			listenTo(detailsCtrl);
+			addToHistory(ureq, detailsCtrl);
+			
+			String displayName = row.getDisplayName();
+			stackPanel.pushController(displayName, detailsCtrl);			
+		}
 	}
 	
 	protected void doOpenComments(UserRequest ureq, RepositoryEntryRow row) {
@@ -519,7 +548,7 @@ public class RepositoryEntryListController extends FormBasicController
 	
 	@Override
 	public void forgeSelectLink(RepositoryEntryRow row) {
-		String displayName = row.getDisplayName();
+		String displayName = StringHelper.escapeHtml(row.getDisplayName());
 		FormLink selectLink = uifactory.addFormLink("select_" + row.getKey(), "select", displayName, null, null, Link.NONTRANSLATED);
 		selectLink.setUserObject(row);
 		row.setSelectLink(selectLink);
@@ -530,10 +559,15 @@ public class RepositoryEntryListController extends FormBasicController
 		String label;
 		boolean isStart = true;
 		if(!row.isMembersOnly() && row.getAccessTypes() != null && !row.getAccessTypes().isEmpty() && !row.isMember()) {
-			label = "book";
-			isStart = false;
 			if(guestOnly) {
-				return;
+				if(row.getAccess() == RepositoryEntry.ACC_USERS_GUESTS) {
+					label = "start";
+				} else {
+					return;
+				}
+			} else {
+				label = "book";
+				isStart = false;
 			}
 		} else {
 			label = "start";

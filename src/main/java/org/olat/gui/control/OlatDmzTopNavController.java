@@ -29,6 +29,9 @@ import org.olat.core.commons.contextHelp.ContextHelpModule;
 import org.olat.core.commons.controllers.impressum.ImpressumDmzMainController;
 import org.olat.core.commons.controllers.impressum.ImpressumInformations;
 import org.olat.core.commons.controllers.impressum.ImpressumModule;
+import org.olat.core.commons.fullWebApp.LockableController;
+import org.olat.core.commons.services.help.HelpLinkSPI;
+import org.olat.core.commons.services.help.HelpModule;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.Windows;
 import org.olat.core.gui.components.Component;
@@ -41,9 +44,10 @@ import org.olat.core.gui.control.WindowControl;
 import org.olat.core.gui.control.controller.BasicController;
 import org.olat.core.gui.control.creator.ControllerCreator;
 import org.olat.core.gui.control.generic.popup.PopupBrowserWindow;
+import org.olat.core.id.OLATResourceable;
 import org.springframework.beans.factory.annotation.Autowired;
 
-public class OlatDmzTopNavController extends BasicController {
+public class OlatDmzTopNavController extends BasicController implements LockableController {
 	
 	private static final Boolean contextHelpEnabled = Boolean.valueOf(ContextHelpModule.isContextHelpEnabled());
 	private Link impressumLink;
@@ -51,6 +55,8 @@ public class OlatDmzTopNavController extends BasicController {
 
 	@Autowired
 	private ImpressumModule impressumModule;
+	@Autowired
+	private HelpModule helpModule;
 	
 	public OlatDmzTopNavController(UserRequest ureq, WindowControl wControl) {
 		super(ureq, wControl);
@@ -65,18 +71,31 @@ public class OlatDmzTopNavController extends BasicController {
 		impressumLink.setAjaxEnabled(false);
 		impressumLink.setTarget("_blank");
 
-		
 		// help on login page
 		vc.contextPut("isContextHelpEnabled", contextHelpEnabled);
+		if (helpModule.isHelpEnabled()) {
+			HelpLinkSPI provider = helpModule.getHelpProvider();
+			Component helpLink = provider.getHelpPageLink(ureq, translate("help.manual"), translate("help.manual"), "o_icon o_icon-wf o_icon_manual", null, "Login page");
+			vc.put("topnav.help", helpLink);
+		}
 
 		//choosing language 
 		languageChooserC = new LanguageChooserController(getWindowControl(), ureq, "_top_nav_dmz_lang_chooser");
 		//DOKU:pb:2008-01 listenTo(languageChooserC); not necessary as LanguageChooser sends a MultiUserEvent
 		//which is catched by the BaseFullWebappController. This one is then 
-		//responsible to recreate the GUI with the new Locale 
-		//
+		//responsible to recreate the GUI with the new Locale
 		vc.put("languageChooser", languageChooserC.getInitialComponent());
 		putInitialPanel(vc);		
+	}
+
+	@Override
+	public void lockResource(OLATResourceable resource) {
+		//
+	}
+
+	@Override
+	public void unlockResource() {
+		//
 	}
 
 	@Override
@@ -93,6 +112,7 @@ public class OlatDmzTopNavController extends BasicController {
 		}
 	}
 
+	@Override
 	protected void doDispose() {
 		if (languageChooserC != null) {
 			languageChooserC.dispose();

@@ -28,6 +28,7 @@ import java.util.Set;
 import java.util.zip.ZipOutputStream;
 
 import org.olat.basesecurity.BaseSecurity;
+import org.olat.basesecurity.IdentityRef;
 import org.olat.basesecurity.SecurityGroup;
 import org.olat.core.commons.persistence.DB;
 import org.olat.core.commons.persistence.DefaultResultInfos;
@@ -87,6 +88,8 @@ public class QuestionPoolServiceImpl implements QPoolService {
 	private DB dbInstance;
 	@Autowired
 	private PoolDAO poolDao;
+	@Autowired
+	private QItemQueriesDAO itemQueriesDao;
 	@Autowired
 	private CollectionDAO collectionDao;
 	@Autowired
@@ -318,6 +321,11 @@ public class QuestionPoolServiceImpl implements QPoolService {
 		}
 		return poolDao.getPools(identity, 0, -1);
 	}
+	
+	@Override
+	public boolean isMemberOfPrivatePools(IdentityRef identity) {
+		return poolDao.isMemberOfPrivatePools(identity);
+	}
 
 	@Override
 	public List<QuestionItem2Pool> getPoolInfosByItem(QuestionItemShort item) {
@@ -390,11 +398,11 @@ public class QuestionPoolServiceImpl implements QPoolService {
 	@Override
 	public int countItems(SearchQuestionItemParams searchParams) {
 		if(searchParams.isFavoritOnly()) {
-			return questionItemDao.countFavoritItems(searchParams);
+			return itemQueriesDao.countFavoritItems(searchParams);
 		} else if(searchParams.getPoolKey() != null) {
 			return poolDao.countItemsInPool(searchParams);
 		} else if(searchParams.getAuthor() != null) {
-			return questionItemDao.countItemsByAuthor(searchParams);
+			return itemQueriesDao.countItemsByAuthor(searchParams);
 		}
 		return 0;
 	}
@@ -427,14 +435,14 @@ public class QuestionPoolServiceImpl implements QPoolService {
 				if(results.isEmpty()) {
 					return new DefaultResultInfos<QuestionItemView>();
 				}
-				List<QuestionItemView> items = poolDao.getItemsOfPool(searchParams, results, firstResult, maxResults, orderBy);
+				List<QuestionItemView> items = itemQueriesDao.getItemsOfPool(searchParams, results, firstResult, maxResults, orderBy);
 				return new DefaultResultInfos<QuestionItemView>(firstResult + items.size(), results.size(), items);
 			} catch (Exception e) {
 				log.error("", e);
 			}
 			return new DefaultResultInfos<QuestionItemView>();
 		} else {
-			List<QuestionItemView> items = poolDao.getItemsOfPool(searchParams, searchParams.getItemKeys(), firstResult, maxResults, orderBy);
+			List<QuestionItemView> items = itemQueriesDao.getItemsOfPool(searchParams, searchParams.getItemKeys(), firstResult, maxResults, orderBy);
 			return new DefaultResultInfos<QuestionItemView>(firstResult + items.size(), -1, items);
 		}
 	}
@@ -455,14 +463,14 @@ public class QuestionPoolServiceImpl implements QPoolService {
 				if(results.isEmpty()) {
 					return new DefaultResultInfos<QuestionItemView>();
 				}
-				List<QuestionItemView> items = questionItemDao.getItemsByAuthor(searchParams, results, firstResult, maxResults, orderBy);
+				List<QuestionItemView> items = itemQueriesDao.getItemsByAuthor(searchParams, results, firstResult, maxResults, orderBy);
 				return new DefaultResultInfos<QuestionItemView>(firstResult + items.size(), results.size(), items);
 			} catch (Exception e) {
 				log.error("", e);
 			}
 			return new DefaultResultInfos<QuestionItemView>();
 		} else {
-			List<QuestionItemView> items = questionItemDao.getItemsByAuthor(searchParams, searchParams.getItemKeys(), firstResult, maxResults, orderBy);
+			List<QuestionItemView> items = itemQueriesDao.getItemsByAuthor(searchParams, searchParams.getItemKeys(), firstResult, maxResults, orderBy);
 			return new DefaultResultInfos<QuestionItemView>(firstResult + items.size(), -1, items);
 		}
 	}
@@ -495,14 +503,14 @@ public class QuestionPoolServiceImpl implements QPoolService {
 				if(results.isEmpty()) {
 					return new DefaultResultInfos<QuestionItemView>();
 				}
-				List<QuestionItemView> items = questionItemDao.getFavoritItems(searchParams, results, firstResult, maxResults, orderBy);
+				List<QuestionItemView> items = itemQueriesDao.getFavoritItems(searchParams, results, firstResult, maxResults, orderBy);
 				return new DefaultResultInfos<QuestionItemView>(firstResult + items.size(), results.size(), items);
 			} catch (Exception e) {
 				log.error("", e);
 			}
 			return new DefaultResultInfos<QuestionItemView>();
 		} else {
-			List<QuestionItemView> items = questionItemDao.getFavoritItems(searchParams, searchParams.getItemKeys(), firstResult, maxResults, orderBy);
+			List<QuestionItemView> items = itemQueriesDao.getFavoritItems(searchParams, searchParams.getItemKeys(), firstResult, maxResults, orderBy);
 			return new DefaultResultInfos<QuestionItemView>(firstResult + items.size(), -1, items);
 		}
 	}
@@ -565,14 +573,14 @@ public class QuestionPoolServiceImpl implements QPoolService {
 				if(results.isEmpty()) {
 					return new DefaultResultInfos<QuestionItemView>();
 				}
-				List<QuestionItemView> items = questionItemDao.getSharedItemByResource(searchParams.getIdentity(), resource, results, firstResult, maxResults);
+				List<QuestionItemView> items = itemQueriesDao.getSharedItemByResource(searchParams.getIdentity(), resource, results, firstResult, maxResults);
 				return new DefaultResultInfos<QuestionItemView>(firstResult + items.size(), results.size(), items);
 			} catch (Exception e) {
 				log.error("", e);
 			}
 			return new DefaultResultInfos<QuestionItemView>();
 		} else {
-			List<QuestionItemView> items = questionItemDao.getSharedItemByResource(searchParams.getIdentity(), resource, null, firstResult, maxResults, orderBy);
+			List<QuestionItemView> items = itemQueriesDao.getSharedItemByResource(searchParams.getIdentity(), resource, null, firstResult, maxResults, orderBy);
 			return new DefaultResultInfos<QuestionItemView>(firstResult + items.size(), -1, items);
 		}
 	}
@@ -648,14 +656,14 @@ public class QuestionPoolServiceImpl implements QPoolService {
 				if(results.isEmpty()) {
 					return new DefaultResultInfos<QuestionItemView>();
 				}
-				List<QuestionItemView> items = collectionDao.getItemsOfCollection(searchParams.getIdentity(), collection, results, firstResult, maxResults, orderBy);
+				List<QuestionItemView> items = itemQueriesDao.getItemsOfCollection(searchParams.getIdentity(), collection, results, firstResult, maxResults, orderBy);
 				return new DefaultResultInfos<QuestionItemView>(firstResult + items.size(), results.size(), items);
 			} catch (Exception e) {
 				log.error("", e);
 			}
 			return new DefaultResultInfos<QuestionItemView>();
 		} else {
-			List<QuestionItemView> items = collectionDao.getItemsOfCollection(searchParams.getIdentity(), collection, searchParams.getItemKeys(), firstResult, maxResults, orderBy);
+			List<QuestionItemView> items = itemQueriesDao.getItemsOfCollection(searchParams.getIdentity(), collection, searchParams.getItemKeys(), firstResult, maxResults, orderBy);
 			return new DefaultResultInfos<QuestionItemView>(firstResult + items.size(), -1, items);
 		}
 	}
@@ -745,6 +753,11 @@ public class QuestionPoolServiceImpl implements QPoolService {
 	@Override
 	public QLicense getLicense(String licenseKey) {
 		return qpoolLicenseDao.loadByLicenseKey(licenseKey);
+	}
+
+	@Override
+	public QLicense updateLicense(QLicense license) {
+		return qpoolLicenseDao.update(license);
 	}
 
 	@Override

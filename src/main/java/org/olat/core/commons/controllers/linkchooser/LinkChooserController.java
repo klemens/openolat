@@ -69,7 +69,8 @@ public class LinkChooserController extends BasicController {
 	 *          tree model. The internal-link chooser tab won't be shown when the
 	 *          internalLinkTreeModel is null.
 	 */
-	public LinkChooserController(UserRequest ureq, WindowControl wControl, VFSContainer rootDir, String uploadRelPath, String[] suffixes, String fileName,
+	public LinkChooserController(UserRequest ureq, WindowControl wControl, VFSContainer rootDir,
+			String uploadRelPath, String absolutPath, String[] suffixes, String fileName,
 			CustomLinkTreeModel customLinkTreeModel) {
 		super(ureq, wControl);
 		
@@ -78,7 +79,7 @@ public class LinkChooserController extends BasicController {
 		linkChooserTabbedPane = new TabbedPane("linkChooserTabbedPane", ureq.getLocale());
 		tabbedPaneViewVC.put("linkChooserTabbedPane", linkChooserTabbedPane);
 
-		fileLinkChooserController = new FileLinkChooserController(ureq, wControl, rootDir, uploadRelPath, suffixes, fileName);		
+		fileLinkChooserController = new FileLinkChooserController(ureq, wControl, rootDir, uploadRelPath, absolutPath, suffixes, fileName);		
 		listenTo(fileLinkChooserController);
 		linkChooserTabbedPane.addTab(translate("linkchooser.tabbedpane.label.filechooser"), fileLinkChooserController.getInitialComponent());
 		
@@ -90,9 +91,9 @@ public class LinkChooserController extends BasicController {
 		
 		// try to add custom media chooser from spring configuration. 
 		// This one will be added as additional tab.
-		if (CoreSpringFactory.containsBean(CustomMediaChooserController.class.getName())) {
-			CustomMediaChooserController customMediaChooserFactory = (CustomMediaChooserController) CoreSpringFactory.getBean(CustomMediaChooserController.class.getName());
-			customMediaChooserCtr = customMediaChooserFactory.getInstance(ureq, wControl, rootDir, suffixes, fileName); 
+		if (CoreSpringFactory.containsBean(CustomMediaChooserFactory.class.getName())) {
+			CustomMediaChooserFactory customMediaChooserFactory = (CustomMediaChooserFactory) CoreSpringFactory.getBean(CustomMediaChooserFactory.class.getName());
+			customMediaChooserCtr = customMediaChooserFactory.getInstance(ureq, wControl); 
 			if (customMediaChooserCtr != null) {
 				listenTo(customMediaChooserCtr);
 				linkChooserTabbedPane.addTab(customMediaChooserCtr.getTabbedPaneTitle(), customMediaChooserCtr.getInitialComponent());				

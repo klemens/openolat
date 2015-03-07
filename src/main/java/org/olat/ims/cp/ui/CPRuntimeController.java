@@ -26,6 +26,7 @@ import org.olat.core.gui.components.dropdown.Dropdown;
 import org.olat.core.gui.components.dropdown.Dropdown.Spacer;
 import org.olat.core.gui.components.link.Link;
 import org.olat.core.gui.components.link.LinkFactory;
+import org.olat.core.gui.components.stack.PopEvent;
 import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.ControllerEventListener;
 import org.olat.core.gui.control.Event;
@@ -64,8 +65,8 @@ public class CPRuntimeController extends RepositoryEntryRuntimeController {
 	}
 
 	@Override
-	protected void initToolbar(Dropdown toolsDropdown, Dropdown settingsDropdown) {
-		super.initToolbar(toolsDropdown, settingsDropdown);
+	protected void initSettingsTools(Dropdown settingsDropdown) {
+		super.initSettingsTools(settingsDropdown);
 		if (reSecurity.isEntryAdmin()) {
 			settingsDropdown.addComponent(new Spacer(""));
 			
@@ -88,6 +89,16 @@ public class CPRuntimeController extends RepositoryEntryRuntimeController {
 		} else if(deliveryOptionsLink == source) {
 			doLayout(ureq);
 		} else {
+			if(source == toolbarPanel) {
+				if(event instanceof PopEvent) {
+					PopEvent popEvent = (PopEvent)event;
+					if(currentToolCtr == editorCtrl && editorCtrl == popEvent.getController()) {
+						launchContent(ureq, reSecurity);
+						initToolbar();
+					}
+					setActiveTool(null);
+				}
+			}
 			super.event(ureq, source, event);
 		}
 	}

@@ -462,7 +462,7 @@ public abstract class AbstractMemberListController extends BasicController imple
 		MailPackage mailing = new MailPackage(sendMail);
 		if(repoEntry != null) {
 			List<RepositoryEntryPermissionChangeEvent> changes = Collections.singletonList((RepositoryEntryPermissionChangeEvent)e);
-			repositoryManager.updateRepositoryEntryMembership(getIdentity(), ureq.getUserSession().getRoles(), repoEntry, changes, mailing);
+			repositoryManager.updateRepositoryEntryMemberships(getIdentity(), ureq.getUserSession().getRoles(), repoEntry, changes, mailing);
 		}
 
 		businessGroupService.updateMemberships(getIdentity(), e.getGroupChanges(), mailing);
@@ -475,7 +475,7 @@ public abstract class AbstractMemberListController extends BasicController imple
 		MailPackage mailing = new MailPackage(sendMail);
 		if(repoEntry != null) {
 			List<RepositoryEntryPermissionChangeEvent> repoChanges = changes.generateRepositoryChanges(members);
-			repositoryManager.updateRepositoryEntryMembership(getIdentity(), ureq.getUserSession().getRoles(), repoEntry, repoChanges, mailing);
+			repositoryManager.updateRepositoryEntryMemberships(getIdentity(), ureq.getUserSession().getRoles(), repoEntry, repoChanges, mailing);
 		}
 
 		//commit all changes to the group memberships
@@ -525,6 +525,38 @@ public abstract class AbstractMemberListController extends BasicController imple
 			List<Identity> identitiesToGraduate = securityManager.loadIdentityByKeys(identityKeys);
 			businessGroupService.moveIdentityFromWaitingListToParticipant(getIdentity(), identitiesToGraduate,
 					businessGroup, null);
+		} else {
+			Map<Long, BusinessGroup> groupsMap = new HashMap<>();
+			Map<BusinessGroup, List<Identity>> graduatesMap = new HashMap<>();
+			for(MemberView member:members) {
+				List<BusinessGroupShort> groups = member.getGroups();
+				if(groups != null && groups.size() > 0) {
+					Identity memberIdentity = securityManager.loadIdentityByKey(member.getIdentityKey());
+					for(BusinessGroupShort group:groups) {
+						if(businessGroupService.hasRoles(memberIdentity, group, GroupRoles.waiting.name())) {
+							BusinessGroup fullGroup = groupsMap.get(group.getKey());
+							if(fullGroup == null) {
+								fullGroup = businessGroupService.loadBusinessGroup(group.getKey());
+								groupsMap.put(group.getKey(), fullGroup);
+							}
+							
+							List<Identity> identitiesToGraduate = graduatesMap.get(fullGroup);
+							if(identitiesToGraduate == null) {
+								 identitiesToGraduate = new ArrayList<>();
+								 graduatesMap.put(fullGroup, identitiesToGraduate);
+							}
+							identitiesToGraduate.add(memberIdentity);
+						}
+					}
+				}
+			}
+			
+			for(Map.Entry<BusinessGroup, List<Identity>> entry:graduatesMap.entrySet()) {
+				BusinessGroup fullGroup = entry.getKey();
+				List<Identity> identitiesToGraduate = entry.getValue();
+				businessGroupService.moveIdentityFromWaitingListToParticipant(getIdentity(), identitiesToGraduate,
+						fullGroup, null);
+			}
 		}
 		reloadModel();
 	}

@@ -21,6 +21,8 @@ package org.olat.modules.coach.ui;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 
 import org.olat.NewControllerFactory;
 import org.olat.core.gui.UserRequest;
@@ -32,7 +34,6 @@ import org.olat.core.gui.components.table.ColumnDescriptor;
 import org.olat.core.gui.components.table.CustomRenderColumnDescriptor;
 import org.olat.core.gui.components.table.DefaultColumnDescriptor;
 import org.olat.core.gui.components.table.TableController;
-import org.olat.core.gui.components.table.TableDataModel;
 import org.olat.core.gui.components.table.TableEvent;
 import org.olat.core.gui.components.table.TableGuiConfiguration;
 import org.olat.core.gui.components.text.TextComponent;
@@ -49,12 +50,19 @@ import org.olat.core.id.context.BusinessControlFactory;
 import org.olat.core.id.context.ContextEntry;
 import org.olat.core.id.context.StateEntry;
 import org.olat.core.util.StringHelper;
+import org.olat.core.util.coordinate.CoordinatorManager;
+import org.olat.core.util.event.GenericEventListener;
 import org.olat.core.util.resource.OresHelper;
+import org.olat.course.certificate.CertificateEvent;
+import org.olat.course.certificate.CertificateLight;
+import org.olat.course.certificate.CertificatesManager;
+import org.olat.course.certificate.ui.DownloadCertificateCellRenderer;
 import org.olat.group.BusinessGroup;
 import org.olat.group.BusinessGroupService;
 import org.olat.modules.coach.CoachingService;
 import org.olat.modules.coach.model.EfficiencyStatementEntry;
 import org.olat.modules.coach.model.GroupStatEntry;
+import org.olat.modules.coach.model.IdentityResourceKey;
 import org.olat.modules.coach.ui.EfficiencyStatementEntryTableDataModel.Columns;
 import org.olat.modules.coach.ui.ToolbarController.Position;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -69,7 +77,7 @@ import org.springframework.beans.factory.annotation.Autowired;
  *
  * @author srosse, stephane.rosse@frentix.com, http://www.frentix.com
  */
-public class GroupController extends BasicController implements Activateable2 {
+public class GroupController extends BasicController implements Activateable2, GenericEventListener {
 	
 	private final Link backLink, next, previous;
 	private final Link nextGroup, previousGroup;
@@ -78,6 +86,7 @@ public class GroupController extends BasicController implements Activateable2 {
 	private final TableController tableCtr;
 	private final VelocityContainer mainVC;
 	private final VelocityContainer groupDetailsVC;
+	private EfficiencyStatementEntryTableDataModel model;
 
 	private final ToolbarController toolbar;
 	private EfficiencyStatementDetailsController statementCtrl;
@@ -90,6 +99,8 @@ public class GroupController extends BasicController implements Activateable2 {
 	private CoachingService coachingService;
 	@Autowired
 	private BusinessGroupService groupManager;
+	@Autowired
+	private CertificatesManager certificatesManager;
 	
 	public GroupController(UserRequest ureq, WindowControl wControl, GroupStatEntry groupStatistic, int index, int numOfGroups) {
 		super(ureq, wControl);
@@ -107,6 +118,8 @@ public class GroupController extends BasicController implements Activateable2 {
 		tableCtr.addColumnDescriptor(new BooleanColumnDescriptor("table.header.passed", Columns.passed.ordinal(), translate("passed.true"), translate("passed.false")));
 		tableCtr.addColumnDescriptor(new CustomRenderColumnDescriptor("table.header.score", Columns.score.ordinal(),"select", getLocale(),
 				ColumnDescriptor.ALIGNMENT_RIGHT, new ScoreCellRenderer()));
+		tableCtr.addColumnDescriptor(new CustomRenderColumnDescriptor("table.header.certificate", Columns.certificate.ordinal(), null, getLocale(),
+				ColumnDescriptor.ALIGNMENT_LEFT, new DownloadCertificateCellRenderer()));
 		tableCtr.addColumnDescriptor(new DefaultColumnDescriptor("table.header.lastScoreDate", Columns.lastModification.ordinal(), "select", getLocale()));
 		listenTo(tableCtr);
 
@@ -164,6 +177,31 @@ public class GroupController extends BasicController implements Activateable2 {
 
 		setDetailsToolbarVisible(false);
 		putInitialPanel(mainVC);
+
+		CoordinatorManager.getInstance().getCoordinator().getEventBus()
+			.registerFor(this, getIdentity(), CertificatesManager.ORES_CERTIFICATE_EVENT);
+	}
+	
+	@Override
+	protected void doDispose() {
+		CoordinatorManager.getInstance().getCoordinator().getEventBus()
+			.deregisterFor(this, CertificatesManager.ORES_CERTIFICATE_EVENT);
+	}
+
+	@Override
+	public void event(Event event) {
+		if(event instanceof CertificateEvent) {
+			CertificateEvent ce = (CertificateEvent)event;
+			IdentityResourceKey key = new IdentityResourceKey(ce.getOwnerKey(), ce.getResourceKey());
+			if(model.contains(key)) {
+				updateCertificate(ce.getCertificateKey());
+			}
+		}
+	}
+	
+	private void updateCertificate(Long certificateKey) {
+		CertificateLight certificate = certificatesManager.getCertificateLightById(certificateKey);
+		model.putCertificate(certificate);
 	}
 	
 	public GroupStatEntry getEntry() {
@@ -172,7 +210,14 @@ public class GroupController extends BasicController implements Activateable2 {
 	
 	private List<EfficiencyStatementEntry> loadModel() {
 		List<EfficiencyStatementEntry> allGroup = coachingService.getGroup(group);
-		TableDataModel<EfficiencyStatementEntry> model = new EfficiencyStatementEntryTableDataModel(allGroup);
+		
+		List<CertificateLight> certificates = certificatesManager.getLastCertificates(group);
+		ConcurrentMap<IdentityResourceKey, CertificateLight> certificateMap = new ConcurrentHashMap<>();
+		for(CertificateLight certificate:certificates) {
+			IdentityResourceKey key = new IdentityResourceKey(certificate.getIdentityKey(), certificate.getOlatResourceKey());
+			certificateMap.put(key, certificate);
+		}
+		model = new EfficiencyStatementEntryTableDataModel(allGroup, certificateMap);
 		tableCtr.setTableDataModel(model);
 		return allGroup;
 	}
@@ -182,11 +227,6 @@ public class GroupController extends BasicController implements Activateable2 {
 			loadModel();
 			hasChanged = false;
 		}
-	}
-
-	@Override
-	protected void doDispose() {
-		//
 	}
 
 	@Override
@@ -209,8 +249,8 @@ public class GroupController extends BasicController implements Activateable2 {
 			if(event instanceof TableEvent) {
 				TableEvent e = (TableEvent) event;
 				if("select".equals(e.getActionId())) {
-					EfficiencyStatementEntry entry = (EfficiencyStatementEntry)tableCtr.getTableDataModel().getObject(e.getRowId());
-					selectDetails(ureq, entry);
+					EfficiencyStatementEntry row = (EfficiencyStatementEntry)tableCtr.getTableDataModel().getObject(e.getRowId());
+					selectDetails(ureq, row);
 				}
 			}
 		} else if (source == toolbar) {
@@ -244,9 +284,9 @@ public class GroupController extends BasicController implements Activateable2 {
 		if("Identity".equals(ores.getResourceableTypeName())) {
 			Long identityKey = ores.getResourceableId();
 			for(int i=tableCtr.getRowCount(); i-->0; ) {
-				EfficiencyStatementEntry entry = (EfficiencyStatementEntry)tableCtr.getTableDataModel().getObject(i);
-				if(identityKey.equals(entry.getStudentKey())) {
-					selectDetails(ureq, entry);
+				EfficiencyStatementEntry row = (EfficiencyStatementEntry)tableCtr.getTableDataModel().getObject(i);
+				if(identityKey.equals(row.getStudentKey())) {
+					selectDetails(ureq, row);
 					statementCtrl.activate(ureq, entries.subList(1, entries.size()), ce.getTransientState());
 					break;
 				}
@@ -300,18 +340,18 @@ public class GroupController extends BasicController implements Activateable2 {
 		addToHistory(ureq);
 	}
 	
-	private void selectDetails(UserRequest ureq, EfficiencyStatementEntry entry) {
+	private void selectDetails(UserRequest ureq, EfficiencyStatementEntry statementEntry) {
 		removeAsListenerAndDispose(statementCtrl);
 		
-		OLATResourceable ores = OresHelper.createOLATResourceableInstance(Identity.class, entry.getStudentKey());
+		OLATResourceable ores = OresHelper.createOLATResourceableInstance(Identity.class, statementEntry.getStudentKey());
 		WindowControl bwControl = addToHistory(ureq, ores, null);
-		statementCtrl = new EfficiencyStatementDetailsController(ureq, bwControl, entry, group);
+		statementCtrl = new EfficiencyStatementDetailsController(ureq, bwControl, statementEntry);
 		listenTo(statementCtrl);
 		mainVC.put("efficiencyDetails", statementCtrl.getInitialComponent());
 		
-		int index = tableCtr.getIndexOfSortedObject(entry) + 1;
+		int index = tableCtr.getIndexOfSortedObject(statementEntry) + 1;
 		String details = translate("students.details", new String[]{
-				entry.getStudentFullName(), String.valueOf(index), String.valueOf(tableCtr.getRowCount())
+				StringHelper.escapeHtml(statementEntry.getStudentFullName()), String.valueOf(index), String.valueOf(tableCtr.getRowCount())
 		});
 		detailsCmp.setText(details);
 		setDetailsToolbarVisible(true);

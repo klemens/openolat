@@ -28,8 +28,12 @@ import java.util.UUID;
 import junit.framework.Assert;
 
 import org.junit.Test;
+import org.olat.basesecurity.GroupRoles;
 import org.olat.core.commons.persistence.DB;
 import org.olat.core.id.Identity;
+import org.olat.group.BusinessGroup;
+import org.olat.group.manager.BusinessGroupDAO;
+import org.olat.group.manager.BusinessGroupRelationDAO;
 import org.olat.ims.qti.QTIConstants;
 import org.olat.modules.qpool.Pool;
 import org.olat.modules.qpool.QuestionItem;
@@ -43,10 +47,9 @@ import org.olat.test.JunitTestHelper;
 import org.olat.test.OlatTestCase;
 import org.springframework.beans.factory.annotation.Autowired;
 
-
 /**
  * 
- * Initial date: 21.01.2013<br>
+ * Initial date: 12.09.2014<br>
  * @author srosse, stephane.rosse@frentix.com, http://www.frentix.com
  *
  */
@@ -59,7 +62,15 @@ public class PoolDAOTest extends OlatTestCase {
 	@Autowired
 	private QItemTypeDAO qItemTypeDao;
 	@Autowired
+	private QuestionItemDAO questionDao;
+	@Autowired
+	private QItemQueriesDAO qItemQueriesDao;
+	@Autowired
 	private QuestionItemDAO questionItemDao;
+	@Autowired
+	private BusinessGroupDAO businessGroupDao;
+	@Autowired
+	private BusinessGroupRelationDAO businessGroupRelationDao;
 	
 	@Test
 	public void createPool() {
@@ -83,11 +94,11 @@ public class PoolDAOTest extends OlatTestCase {
 	@Test
 	public void getPoolsAndGetNumOfPools() {
 		//create a pool
-		String name = "NGC-" + UUID.randomUUID().toString();
-		Pool pool = poolDao.createPool(null, name, true);
+		String poolName = "NGC-" + UUID.randomUUID().toString();
+		Pool pool = poolDao.createPool(null, poolName, true);
 		Assert.assertNotNull(pool);
 		Assert.assertNotNull(pool.getKey());
-		Assert.assertEquals(name, pool.getName());
+		Assert.assertEquals(poolName, pool.getName());
 		Assert.assertTrue(pool.isPublicPool());
 		dbInstance.commitAndCloseSession();
 		
@@ -101,7 +112,7 @@ public class PoolDAOTest extends OlatTestCase {
 		//retrieve our pool
 		boolean foundIt = false;
 		for(Pool retrievedPool:pools) {
-			if(name.equals(retrievedPool.getName())) {
+			if(poolName.equals(retrievedPool.getName())) {
 				foundIt = true;
 			}
 		}
@@ -126,10 +137,59 @@ public class PoolDAOTest extends OlatTestCase {
 	}
 	
 	@Test
+	public void isMemberOfPrivatePools_poolOnly() {
+		Identity id = JunitTestHelper.createAndPersistIdentityAsUser("Pool-owner-" + UUID.randomUUID().toString());
+		Pool pool = poolDao.createPool(id, "NGC owned", false);
+		Assert.assertNotNull(pool);
+		dbInstance.commitAndCloseSession();
+		
+		boolean isMember = poolDao.isMemberOfPrivatePools(id);
+		Assert.assertTrue(isMember);
+	}
+	
+	@Test
+	public void isMemberOfPrivatePools_groupOnly() {
+		Identity owner = JunitTestHelper.createAndPersistIdentityAsUser("Group-owner-" + UUID.randomUUID().toString());
+		Identity participant = JunitTestHelper.createAndPersistIdentityAsUser("Group-participant-" + UUID.randomUUID().toString());
+		//create a group to share 2 items
+		QItemType mcType = qItemTypeDao.loadByType(QuestionType.MC.name());
+		BusinessGroup group = businessGroupDao.createAndPersist(owner, "gdao", "gdao-desc", -1, -1, false, false, false, false, false);
+		QuestionItem item = questionDao.createAndPersist(owner, "Shared-Item-1", QTIConstants.QTI_12_FORMAT, Locale.ENGLISH.getLanguage(), null, null, null, mcType);
+		questionDao.share(item, group.getResource());
+
+		businessGroupRelationDao.addRole(participant, group, GroupRoles.participant.name());
+		dbInstance.commitAndCloseSession();
+		Assert.assertNotNull(item);
+		Assert.assertNotNull(group);
+
+		//retrieve them
+		boolean isOwnerMember = poolDao.isMemberOfPrivatePools(owner);
+		Assert.assertTrue(isOwnerMember);
+		boolean isParticipantMember = poolDao.isMemberOfPrivatePools(participant);
+		Assert.assertTrue(isParticipantMember);
+	}
+	
+	@Test
+	public void isMemberOfPrivatePools_negativeTest() {
+		Identity owner = JunitTestHelper.createAndPersistIdentityAsUser("Pool-owner-" + UUID.randomUUID().toString());
+		Identity somebody = JunitTestHelper.createAndPersistIdentityAsUser("Somebody-" + UUID.randomUUID().toString());
+		//pool
+		Pool pool = poolDao.createPool(owner, "NGC owned", false);
+		Assert.assertNotNull(pool);
+		//group without item
+		BusinessGroup group = businessGroupDao.createAndPersist(owner, "gdao", "gdao-desc", -1, -1, false, false, false, false, false);
+		businessGroupRelationDao.addRole(somebody, group, GroupRoles.participant.name());
+		dbInstance.commitAndCloseSession();
+		
+		boolean isMember = poolDao.isMemberOfPrivatePools(somebody);
+		Assert.assertFalse(isMember);
+	}
+	
+	@Test
 	public void addItemToPool() {
 		//create a pool
-		String name = "NGC-" + UUID.randomUUID().toString();
-		Pool pool = poolDao.createPool(null, name, true);
+		String poolName = "NGC-" + UUID.randomUUID().toString();
+		Pool pool = poolDao.createPool(null, poolName, true);
 		Assert.assertNotNull(pool);
 		QItemType mcType = qItemTypeDao.loadByType(QuestionType.MC.name());
 		QuestionItem item = questionItemDao.createAndPersist(null, "Galaxy", QTIConstants.QTI_12_FORMAT, Locale.ENGLISH.getLanguage(), null, null, null, mcType);
@@ -144,8 +204,8 @@ public class PoolDAOTest extends OlatTestCase {
 	@Test
 	public void removeItemFromPool() {
 		//create a pool
-		String name = "NGC-" + UUID.randomUUID().toString();
-		Pool pool = poolDao.createPool(null, name, true);
+		String poolName = "NGC-" + UUID.randomUUID().toString();
+		Pool pool = poolDao.createPool(null, poolName, true);
 		Assert.assertNotNull(pool);
 		QItemType mcType = qItemTypeDao.loadByType(QuestionType.MC.name());
 		QuestionItem item = questionItemDao.createAndPersist(null, "Galaxy", QTIConstants.QTI_12_FORMAT, Locale.ENGLISH.getLanguage(), null, null, null, mcType);
@@ -216,9 +276,9 @@ public class PoolDAOTest extends OlatTestCase {
 		Assert.assertEquals(1, numOfStayingItems_2);
 		
 		//check content
-		List<QuestionItemView> items_1 = poolDao.getItemsOfPool(params1, null, 0, -1);
+		List<QuestionItemView> items_1 = qItemQueriesDao.getItemsOfPool(params1, null, 0, -1);
 		Assert.assertEquals(2, items_1.size());
-		List<QuestionItemView> items_2 = poolDao.getItemsOfPool(params2, null, 0, -1);
+		List<QuestionItemView> items_2 = qItemQueriesDao.getItemsOfPool(params2, null, 0, -1);
 		Assert.assertEquals(1, items_2.size());
 		Assert.assertEquals(item2.getKey(), items_2.get(0).getKey());
 		
@@ -228,35 +288,11 @@ public class PoolDAOTest extends OlatTestCase {
 	}
 	
 	@Test
-	public void getItemsOfPool() {
-		Identity id = JunitTestHelper.createAndPersistIdentityAsUser("Poolman-" + UUID.randomUUID().toString());
-		//create a pool
-		String name = "NGC-" + UUID.randomUUID().toString();
-		Pool pool = poolDao.createPool(null, name, true);
-		QItemType mcType = qItemTypeDao.loadByType(QuestionType.MC.name());
-		QuestionItem item = questionItemDao.createAndPersist(id, "Galaxy", QTIConstants.QTI_12_FORMAT, Locale.ENGLISH.getLanguage(), null, null, null, mcType);
-		poolDao.addItemToPool(item, Collections.singletonList(pool), false);
-		dbInstance.commitAndCloseSession();
-
-		SearchQuestionItemParams params = new SearchQuestionItemParams(id, null);
-		params.setPoolKey(pool.getKey());
-		
-		//retrieve
-		List<QuestionItemView> items = poolDao.getItemsOfPool(params, null, 0 , -1);
-		Assert.assertNotNull(items);
-		Assert.assertEquals(1, items.size());
-		Assert.assertTrue(items.get(0).getKey().equals(item.getKey()));
-		//count
-		int numOfItems = poolDao.countItemsInPool(params);
-		Assert.assertEquals(1, numOfItems);
-	}
-	
-	@Test
 	public void getPoolInfos_byItem() {
 		//create a pool
-		String name = "NGC-" + UUID.randomUUID().toString();
-		Pool pool1 = poolDao.createPool(null, name, true);
-		Pool pool2 = poolDao.createPool(null, name, true);
+		String poolName = "NGC-" + UUID.randomUUID().toString();
+		Pool pool1 = poolDao.createPool(null, poolName, true);
+		Pool pool2 = poolDao.createPool(null, poolName, true);
 		QItemType mcType = qItemTypeDao.loadByType(QuestionType.MC.name());
 		QuestionItem item = questionItemDao.createAndPersist(null, "Galaxy", QTIConstants.QTI_12_FORMAT, Locale.ENGLISH.getLanguage(), null, null, null, mcType);
 		List<Pool> pools = new ArrayList<Pool>(2);
@@ -274,9 +310,9 @@ public class PoolDAOTest extends OlatTestCase {
 	@Test
 	public void getPools_ofItem() {
 		//create a pool
-		String name = "NGC-" + UUID.randomUUID().toString();
-		Pool pool1 = poolDao.createPool(null, name, true);
-		Pool pool2 = poolDao.createPool(null, name + "-b", true);
+		String poolName = "NGC-" + UUID.randomUUID().toString();
+		Pool pool1 = poolDao.createPool(null, poolName, true);
+		Pool pool2 = poolDao.createPool(null, poolName + "-b", true);
 		QItemType mcType = qItemTypeDao.loadByType(QuestionType.MC.name());
 		QuestionItem item = questionItemDao.createAndPersist(null, "Galaxy", QTIConstants.QTI_12_FORMAT, Locale.ENGLISH.getLanguage(), null, null, null, mcType);
 		poolDao.addItemToPool(item, Collections.singletonList(pool1), false);
@@ -295,8 +331,8 @@ public class PoolDAOTest extends OlatTestCase {
 	public void removeItemFromPools() {
 		Identity id = JunitTestHelper.createAndPersistIdentityAsUser("Poolman-" + UUID.randomUUID().toString());
 		//create a pool with an item
-		String name = "NGC-" + UUID.randomUUID().toString();
-		Pool pool = poolDao.createPool(null, name, true);
+		String poolName = "NGC-" + UUID.randomUUID().toString();
+		Pool pool = poolDao.createPool(null, poolName, true);
 		QItemType mcType = qItemTypeDao.loadByType(QuestionType.MC.name());
 		QuestionItem item = questionItemDao.createAndPersist(id, "Galaxy", QTIConstants.QTI_12_FORMAT, Locale.ENGLISH.getLanguage(), null, null, null, mcType);
 		poolDao.addItemToPool(item, Collections.singletonList(pool), false);
@@ -307,7 +343,7 @@ public class PoolDAOTest extends OlatTestCase {
 		params.setPoolKey(pool.getKey());
 		
 		//check the pool and remove the items
-		List<QuestionItemView> items = poolDao.getItemsOfPool(params, null, 0 , -1);
+		List<QuestionItemView> items = qItemQueriesDao.getItemsOfPool(params, null, 0 , -1);
 		Assert.assertEquals(1, items.size());
 		List<QuestionItemShort> toDelete = Collections.<QuestionItemShort>singletonList(items.get(0));
 		int count = poolDao.removeFromPools(toDelete);
@@ -315,7 +351,7 @@ public class PoolDAOTest extends OlatTestCase {
 		dbInstance.commitAndCloseSession();
 		
 		//check if the pool is empty
-		List<QuestionItemView> emptyItems = poolDao.getItemsOfPool(params, null, 0 , -1);
+		List<QuestionItemView> emptyItems = qItemQueriesDao.getItemsOfPool(params, null, 0 , -1);
 		Assert.assertTrue(emptyItems.isEmpty());
 	}
 }
