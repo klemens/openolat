@@ -184,9 +184,9 @@ public class OutputObject {
 	
 	public String toString() {
 		if(this.space == null) {
-			return buildString("<div>");
+			return buildString("<div class=\"autolat\">");
 		}
-		return buildString("<div style=\" margin-left: " + space.getWidth() + space.getUnit() + "; magin-top: " + space.getHeight() + space.getUnit() + "\">" );
+		return buildString("<div class=\"autolat\" style=\" margin-left: " + space.getWidth() + space.getUnit() + "; magin-top: " + space.getHeight() + space.getUnit() + "\">" );
 	}
 	
 	private String buildString(String output) {

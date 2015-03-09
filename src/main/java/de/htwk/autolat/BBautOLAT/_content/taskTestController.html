@@ -57,9 +57,7 @@
 	<legend>$r.translate("label.controller.task.evaluation.title")</legend>
 	#foreach($piece in $solutionPieces)
 		#if($r.available("$piece"))		  	
-			<table><tr>
-			<td style="border: 1px solid #acaaaa; padding:0px">$r.render("$piece")</td>	
-			</tr></table>		
+			$r.render("$piece")
 		#else
 			$piece
 		#end

@@ -12,13 +12,13 @@ public class Above extends OutputObject {
 			return "";
 		}
 		if(this.space == null) {
-			return buildString("<div>");
+			return buildString();
 		}
-		return buildString("<div style=\" margin-left: " + space.getWidth() + space.getUnit() + "; magin-top: " + space.getHeight() + space.getUnit() + "\">" );
-
+		return "<div style=\" margin-left: " + space.getWidth() + space.getUnit() + "; magin-top: " + space.getHeight() + space.getUnit() + "\">" + buildString() + "</div>";
 	}
 	
-	private String buildString(String output) {
+	private String buildString() {
+		String output = "";
 		for(int i = 0; i < elements.size(); i++) {
 			//Fallunterscheidungen
 			//Link
@@ -35,30 +35,21 @@ public class Above extends OutputObject {
 			}
 			//Pre
 			if(elements.get(i) instanceof Pre) {
-				output += "<p>";
 				output += ((Pre)elements.get(i)).toString();
-				output += "</p>";
 			}
 			if(elements.get(i) instanceof Above) {
-				output += "<p>";
 				output += ((Above)elements.get(i)).toString();
-				output += "</p>";
 			}
 			if(elements.get(i) instanceof Beside) {
-				output += "<p>";
 				output += ((Beside)elements.get(i)).toString();
-				output += "</p>";
 			}
 			if(elements.get(i) instanceof Itemize) {
-				output += "<p>";
 				output += ((Itemize)elements.get(i)).toString();
-				output += "</p>";
 			}
 			if(elements.get(i) instanceof Figure) {
 				output += ((Figure)elements.get(i)).toString();
 			}
 		}
-		output += "</div>";
 		return output;
 	}
 }
