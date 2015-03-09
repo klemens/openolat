@@ -21,6 +21,7 @@ package org.olat.repository.ui.author;
 
 import java.io.File;
 import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.List;
 
 import org.olat.NewControllerFactory;
@@ -61,6 +62,7 @@ import org.springframework.beans.factory.annotation.Autowired;
  */
 public class ImportRepositoryEntryController extends FormBasicController {
 	
+	private String[] limitTypes;
 	private RepositoryEntry importedEntry;
 	private List<ResourceHandler> handlerForUploadedResources;
 	
@@ -85,6 +87,14 @@ public class ImportRepositoryEntryController extends FormBasicController {
 		
 		initForm(ureq);
 	}
+	
+	public ImportRepositoryEntryController(UserRequest ureq, WindowControl wControl, String[] limitTypes) {
+		super(ureq, wControl);
+		setTranslator(Util.createPackageTranslator(RepositoryManager.class, getLocale(), getTranslator()));
+		this.limitTypes = limitTypes;
+		
+		initForm(ureq);
+	}
 
 	@Override
 	protected void initForm(FormItemContainer formLayout, Controller listener, UserRequest ureq) {
@@ -106,6 +116,7 @@ public class ImportRepositoryEntryController extends FormBasicController {
 		displaynameEl.setDisplaySize(30);
 		displaynameEl.setMandatory(true);
 		displaynameEl.setVisible(false);
+		displaynameEl.setElementCssClass("o_sel_author_imported_name");
 
 		String[] refValues = new String[]{ translate("references.expl") };
 		referencesEl = uifactory.addCheckboxesHorizontal("references", "references", formLayout, refKeys, refValues);
@@ -162,10 +173,37 @@ public class ImportRepositoryEntryController extends FormBasicController {
 		} else {
 			displaynameEl.clearError();
 		}
+		
+		allOk &= validLimitationOnType(handlerForUploadedResources);
 
 		return allOk & handlerForUploadedResources != null
 				& handlerForUploadedResources.size() > 0
 				& super.validateFormLogic(ureq);
+	}
+	
+	private boolean validLimitationOnType(List<ResourceHandler> handlers) {
+		boolean allOk = true;
+		
+		if(limitTypes != null && handlers != null) {
+			for(Iterator<ResourceHandler> handlerIt=handlers.iterator(); handlerIt.hasNext(); ) {
+				boolean match = false;
+				ResourceHandler handler = handlerIt.next();
+				for(String limitType:limitTypes) {
+					if(limitType.equals(handler.getHandler().getSupportedType())) {
+						match = true;
+					}
+				}
+				if(!match) {
+					handlerIt.remove();
+				}
+			}
+			if(handlers.isEmpty()) {
+				allOk = false;
+				uploadFileEl.setErrorKey("add.failed", new String[] {});
+			}
+		}
+		
+		return allOk;
 	}
 	
 	private void doImport() {
@@ -199,18 +237,26 @@ public class ImportRepositoryEntryController extends FormBasicController {
 
 	private void doAnalyseUpload() {
 		File uploadedFile = uploadFileEl.getUploadFile();
-		String uploadedFilename = uploadFileEl.getUploadFileName();
-		
-		List<ResourceHandler> handlers = new ArrayList<>(3);
-		for(String type:repositoryHandlerFactory.getSupportedTypes()) {
-			RepositoryHandler handler = repositoryHandlerFactory.getRepositoryHandler(type);
-			ResourceEvaluation eval = handler.acceptImport(uploadedFile, uploadedFilename);
-			if(eval != null && eval.isValid()) {
-				handlers.add(new ResourceHandler(handler, eval));
+		if(uploadedFile == null) {//OO-1320
+			typeEl.setVisible(false);
+			selectType.setVisible(false);
+			uploadFileEl.reset();
+			importButton.setEnabled(false);
+		} else {
+			String uploadedFilename = uploadFileEl.getUploadFileName();
+			
+			List<ResourceHandler> handlers = new ArrayList<>(3);
+			for(String type:repositoryHandlerFactory.getSupportedTypes()) {
+				RepositoryHandler handler = repositoryHandlerFactory.getRepositoryHandler(type);
+				ResourceEvaluation eval = handler.acceptImport(uploadedFile, uploadedFilename);
+				if(eval != null && eval.isValid()) {
+					handlers.add(new ResourceHandler(handler, eval));
+				}
 			}
-		}
 
-		updateResourceInfos(handlers);
+			updateResourceInfos(handlers);
+			validLimitationOnType(handlers);
+		}
 	}
 	
 	private void updateResourceInfos(List<ResourceHandler> handlers) {

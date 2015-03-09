@@ -333,7 +333,8 @@ public class FormLayoutContainer extends FormItemImpl implements FormItemContain
 		}
 	}
 	
-	protected Component getFormItemComponent() {
+	@Override
+	public VelocityContainer getFormItemComponent() {
 		return formLayoutContainer;
 	}
 	
@@ -395,6 +396,18 @@ public class FormLayoutContainer extends FormItemImpl implements FormItemContain
 	 */
 	public void setFormTitle(String title) {
 		formLayoutContainer.contextPut("off_title", title);
+	}
+	
+	/**
+	 * Set an icon to thte title
+	 * @param iconCss
+	 */
+	public void setFormTitleIconCss(String iconCss) {
+		if (iconCss == null) {
+			formLayoutContainer.contextRemove("off_icon");
+		} else {
+			formLayoutContainer.contextPut("off_icon", iconCss);
+		}
 	}
 	
 	/**

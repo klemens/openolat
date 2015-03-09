@@ -25,6 +25,7 @@
 package org.olat.admin.user.imp;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
@@ -33,6 +34,8 @@ import java.util.Set;
 
 import javax.servlet.http.HttpServletRequest;
 
+import org.olat.basesecurity.Authentication;
+import org.olat.basesecurity.BaseSecurity;
 import org.olat.basesecurity.BaseSecurityManager;
 import org.olat.core.commons.persistence.DBFactory;
 import org.olat.core.dispatcher.mapper.Mapper;
@@ -59,9 +62,11 @@ import org.olat.core.util.i18n.I18nManager;
 import org.olat.core.util.i18n.I18nModule;
 import org.olat.registration.RegistrationManager;
 import org.olat.registration.TemporaryKey;
+import org.olat.shibboleth.ShibbolethDispatcher;
 import org.olat.shibboleth.ShibbolethModule;
 import org.olat.user.UserManager;
 import org.olat.user.propertyhandlers.UserPropertyHandler;
+import org.springframework.beans.factory.annotation.Autowired;
 
 import com.thoughtworks.xstream.XStream;
 
@@ -114,12 +119,14 @@ class ImportStep00 extends BasicStep {
 		private List<TransientIdentity> newIdents;
 		private List<UserPropertyHandler> userPropertyHandlers;
 
-		private final UserManager um;
+		@Autowired
+		private UserManager um;
+		@Autowired
+		private BaseSecurity securityManager;
 
 		public ImportStepForm00(UserRequest ureq, WindowControl control, Form rootForm, StepsRunContext runContext) {
 			super(ureq, control, rootForm, runContext, LAYOUT_VERTICAL, null);
 			flc.setTranslator(getTranslator());
-			um = UserManager.getInstance();
 			initForm(ureq);
 		}
 
@@ -173,7 +180,7 @@ class ImportStep00 extends BasicStep {
 			// org.olat.admin.user.imp.UserImportController
 			// are required and have to be submitted in the right order
 			// - pwd can be enabled / disabled by configuration
-			Set<String> languages = I18nModule.getEnabledLanguageKeys();
+			Collection<String> languages = I18nModule.getEnabledLanguageKeys();
 			String[] lines = inp.split("\r?\n");
 			for (int i = 0; i < lines.length; i++) {
 				if(i % 25 == 0) {
@@ -212,9 +219,17 @@ class ImportStep00 extends BasicStep {
 					if (parts.length > columnId) {
 						pwd = parts[columnId].trim();
 						if (StringHelper.containsNonWhitespace(pwd)) {
-							if(pwd.startsWith(UserImportController.SHIBBOLETH_MARKER)
-									&& ShibbolethModule.isEnableShibbolethLogins()) {
-								//something to check?
+							if(pwd.startsWith(UserImportController.SHIBBOLETH_MARKER) && ShibbolethModule.isEnableShibbolethLogins()) {
+								String authusername = pwd.substring(UserImportController.SHIBBOLETH_MARKER.length());
+								Authentication auth = securityManager.findAuthenticationByAuthusername(authusername, ShibbolethDispatcher.PROVIDER_SHIB);
+								if(auth != null) {
+									String authLogin = auth.getIdentity().getName();
+									if(!login.equals(authLogin)) {
+										textAreaElement.setErrorKey("error.shibbolet.name.inuse", new String[] { String.valueOf(i + 1), authusername });
+										importDataError = true;
+										break;
+									}
+								}
 							} else if (!UserManager.getInstance().syntaxCheckOlatPassword(pwd)) {
 								textAreaElement.setErrorKey("error.pwd", new String[] { String.valueOf(i + 1), pwd });
 								importDataError = true;
@@ -396,7 +411,6 @@ class ImportStep00 extends BasicStep {
 
 			// get mandatory user-properties and set as text
 			setTranslator(UserManager.getInstance().getPropertyHandlerTranslator(getTranslator()));
-			UserManager um = UserManager.getInstance();
 			UserPropertyHandler userPropertyHandler;
 			String mandatoryProperties = "";
 			for (int i = 0; i < userPropertyHandlers.size(); i++) {
@@ -427,7 +441,6 @@ class ImportStep00 extends BasicStep {
 					setTranslator(UserManager.getInstance().getPropertyHandlerTranslator(getTranslator()));
 					String headerLine = translate("table.user.login") + " *";
 					String dataLine = "demo";
-					UserManager um = UserManager.getInstance();
 					if (canCreateOLATPassword) {
 						headerLine += "\t" + translate("table.user.pwd");
 						dataLine += "\t" + "olat4you";

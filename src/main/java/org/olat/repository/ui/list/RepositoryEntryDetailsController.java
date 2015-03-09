@@ -25,8 +25,9 @@ import java.util.List;
 import java.util.Map;
 
 import org.olat.NewControllerFactory;
-import org.olat.catalog.CatalogEntry;
-import org.olat.catalog.CatalogManager;
+import org.olat.admin.restapi.RestapiAdminController;
+import org.olat.basesecurity.GroupRoles;
+import org.olat.core.commons.persistence.DBFactory;
 import org.olat.core.commons.services.commentAndRating.CommentAndRatingDefaultSecurityCallback;
 import org.olat.core.commons.services.commentAndRating.CommentAndRatingSecurityCallback;
 import org.olat.core.commons.services.commentAndRating.manager.UserRatingsDAO;
@@ -48,14 +49,19 @@ import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.Event;
 import org.olat.core.gui.control.WindowControl;
 import org.olat.core.gui.control.generic.closablewrapper.CloseableModalController;
+import org.olat.core.gui.control.generic.modal.DialogBoxController;
+import org.olat.core.gui.control.generic.modal.DialogBoxUIFactory;
 import org.olat.core.helpers.Settings;
 import org.olat.core.id.OLATResourceable;
 import org.olat.core.id.Roles;
+import org.olat.core.logging.activity.ThreadLocalUserActivityLogger;
 import org.olat.core.util.Formatter;
 import org.olat.core.util.StringHelper;
 import org.olat.core.util.Util;
 import org.olat.core.util.coordinate.CoordinatorManager;
 import org.olat.core.util.filter.FilterFactory;
+import org.olat.core.util.mail.MailPackage;
+import org.olat.core.util.mail.MailerResult;
 import org.olat.core.util.resource.OresHelper;
 import org.olat.core.util.vfs.VFSContainer;
 import org.olat.core.util.vfs.VFSContainerMapper;
@@ -69,12 +75,17 @@ import org.olat.course.run.RunMainController;
 import org.olat.group.BusinessGroup;
 import org.olat.group.BusinessGroupService;
 import org.olat.group.model.SearchBusinessGroupParams;
+import org.olat.login.LoginModule;
+import org.olat.repository.CatalogEntry;
+import org.olat.repository.LeavingStatusList;
 import org.olat.repository.RepositoryEntry;
 import org.olat.repository.RepositoryEntryRef;
+import org.olat.repository.RepositoryManager;
 import org.olat.repository.RepositoryModule;
 import org.olat.repository.RepositoryService;
 import org.olat.repository.handlers.RepositoryHandler;
 import org.olat.repository.handlers.RepositoryHandlerFactory;
+import org.olat.repository.manager.CatalogManager;
 import org.olat.repository.model.RepositoryEntryStatistics;
 import org.olat.repository.ui.PriceMethod;
 import org.olat.repository.ui.RepositoyUIFactory;
@@ -88,6 +99,7 @@ import org.olat.resource.accesscontrol.model.Price;
 import org.olat.resource.accesscontrol.ui.PriceFormat;
 import org.olat.resource.references.ReferenceManager;
 import org.olat.user.UserManager;
+import org.olat.util.logging.activity.LoggingResourceable;
 import org.springframework.beans.factory.annotation.Autowired;
 
 /**
@@ -98,16 +110,19 @@ import org.springframework.beans.factory.annotation.Autowired;
  */
 public class RepositoryEntryDetailsController extends FormBasicController {
 	
-	protected FormLink markLink, commentsLink, startLink;
+	protected FormLink markLink, commentsLink, startLink, leaveLink;
 	private RatingWithAverageFormItem ratingEl;
 	
 	private CloseableModalController cmc;
+	private DialogBoxController leaveDialogBox;
 	private UserCommentsController commentsCtrl;
 	
 	protected RepositoryEntry entry;
 	protected RepositoryEntryRow row;
 	private Integer index;
 
+	@Autowired
+	private LoginModule loginModule;
 	@Autowired
 	protected UserRatingsDAO userRatingsDao;
 	@Autowired
@@ -122,6 +137,8 @@ public class RepositoryEntryDetailsController extends FormBasicController {
 	protected CatalogManager catalogManager;
 	@Autowired
 	protected RepositoryModule repositoryModule;
+	@Autowired
+	protected RepositoryManager repositoryManager;
 	@Autowired
 	protected RepositoryService repositoryService;
 	@Autowired
@@ -139,31 +156,32 @@ public class RepositoryEntryDetailsController extends FormBasicController {
 	private final boolean guestOnly;
 	
 	public RepositoryEntryDetailsController(UserRequest ureq, WindowControl wControl, RepositoryEntryRow row) {
-		super(ureq, wControl, Util.getPackageVelocityRoot(RepositoryEntryDetailsController.class) + "/details.html");
-		setTranslator(Util.createPackageTranslator(RepositoryService.class, getLocale(), getTranslator()));
-
+		this(ureq, wControl);
 		this.row = row;
 		entry = repositoryService.loadByKey(row.getKey());
-		guestOnly = ureq.getUserSession().getRoles().isGuestOnly();
 		initForm(ureq);
 	}
 	
 	public RepositoryEntryDetailsController(UserRequest ureq, WindowControl wControl, RepositoryEntryRef ref) {
-		super(ureq, wControl, Util.getPackageVelocityRoot(RepositoryEntryDetailsController.class) + "/details.html");
-		setTranslator(Util.createPackageTranslator(RepositoryService.class, getLocale(), getTranslator()));
-
+		this(ureq, wControl);
 		entry = repositoryService.loadByKey(ref.getKey());
-		guestOnly = ureq.getUserSession().getRoles().isGuestOnly();
 		initForm(ureq);
 	}
 	
 	public RepositoryEntryDetailsController(UserRequest ureq, WindowControl wControl, RepositoryEntry entry) {
+		this(ureq, wControl);
+		this.entry = entry;
+		initForm(ureq);
+	}
+	
+	private RepositoryEntryDetailsController(UserRequest ureq, WindowControl wControl) {
 		super(ureq, wControl, Util.getPackageVelocityRoot(RepositoryEntryDetailsController.class) + "/details.html");
 		setTranslator(Util.createPackageTranslator(RepositoryService.class, getLocale(), getTranslator()));
-
-		this.entry = entry;
+		setTranslator(Util.createPackageTranslator(RestapiAdminController.class, getLocale(), getTranslator()));
 		guestOnly = ureq.getUserSession().getRoles().isGuestOnly();
-		initForm(ureq);
+
+		OLATResourceable ores = OresHelper.createOLATResourceableType("MyCoursesSite");
+		ThreadLocalUserActivityLogger.addLoggingResourceInfo(LoggingResourceable.wrapBusinessPath(ores));
 	}
 	
 	public Integer getIndex() {
@@ -230,8 +248,9 @@ public class RepositoryEntryDetailsController extends FormBasicController {
 				List<String> categoriesLink = new ArrayList<>(categories.size());
 				for(CatalogEntry category:categories) {
 					String id = "cat_" + ++cmpcount;
-					String title = category.getParent().getName();
+					String title = StringHelper.escapeHtml(category.getParent().getName());
 					FormLink catLink = uifactory.addFormLink(id, "category", title, null, layoutCont, Link.LINK | Link.NONTRANSLATED);
+					catLink.setIconLeftCSS("o_icon o_icon-fw o_icon_catalog");
 					catLink.setUserObject(category.getKey());
 					categoriesLink.add(id);
 				}
@@ -278,9 +297,12 @@ public class RepositoryEntryDetailsController extends FormBasicController {
 			}
 			
 			//load memberships
-			boolean isMember = repositoryService.isMember(getIdentity(), entry);
+			List<String> memberRoles = repositoryService.getRoles(getIdentity(), entry);
             List<Long> authorKeys = repositoryService.getAuthors(entry);
             boolean isAuthor = false;
+            boolean isMember = memberRoles.contains(GroupRoles.owner.name())
+            		|| memberRoles.contains(GroupRoles.coach.name())
+            		|| memberRoles.contains(GroupRoles.participant.name());
 			if (isMember) {
 				isAuthor = authorKeys.contains(getIdentity().getKey());
 				layoutCont.contextPut("isEntryAuthor", new Boolean(isAuthor));
@@ -289,12 +311,16 @@ public class RepositoryEntryDetailsController extends FormBasicController {
             Roles roles = ureq.getUserSession().getRoles();
 			layoutCont.contextPut("roles", roles);
 
+			if(memberRoles.contains(GroupRoles.participant.name()) && repositoryService.isParticipantAllowedToLeave(entry)) {
+				leaveLink = uifactory.addFormLink("sign.out", "leave", "sign.out", null, formLayout, Link.LINK);
+				leaveLink.setIconLeftCSS("o_icon o_icon_sign_out");
+			}
+
 			//access control
 			String accessI18n = null;
 			List<PriceMethod> types = new ArrayList<PriceMethod>();
 			if (entry.isMembersOnly()) {
-				// members only always show lock icon
-				types.add(new PriceMethod("", "o_ac_membersonly_icon", translate("cif.access.membersonly.short")));
+				// members only
 				if(isMember) {
 					String linkText = translate("start.with.type", translate(entry.getOlatResource().getResourceableTypeName()));
 					startLink = uifactory.addFormLink("start", "start", linkText, null, layoutCont, Link.BUTTON + Link.NONTRANSLATED);
@@ -320,15 +346,24 @@ public class RepositoryEntryDetailsController extends FormBasicController {
 						String displayName = amh.getMethodName(getLocale());
 						types.add(new PriceMethod(price, type, displayName));
 					}
-					String linkText = translate("book.with.type", translate(entry.getOlatResource().getResourceableTypeName()));
+					String linkText = guestOnly ? translate("start.with.type", translate(entry.getOlatResource().getResourceableTypeName())) 
+							: translate("book.with.type", translate(entry.getOlatResource().getResourceableTypeName()));
 					startLink = uifactory.addFormLink("start", "start", linkText, null, layoutCont, Link.BUTTON + Link.NONTRANSLATED);
 					startLink.setCustomEnabledLinkCSS("btn btn-success"); // custom style
 					startLink.setElementCssClass("o_book btn-block");
-					startLink.setVisible(!guestOnly);
+					if(guestOnly) {
+						if(entry.getAccess() == RepositoryEntry.ACC_USERS_GUESTS) {
+							startLink.setVisible(true);
+						} else {
+							startLink.setVisible(false);
+						}
+					} else {
+						startLink.setVisible(true);
+					}
 				} else {
 					String linkText = translate("start.with.type", translate(entry.getOlatResource().getResourceableTypeName()));
 					startLink = uifactory.addFormLink("start", "start", linkText, null, layoutCont, Link.BUTTON + Link.NONTRANSLATED);
-					startLink.setEnabled(false);
+					//startLink.setEnabled(false);
 					startLink.setElementCssClass("o_start btn-block");
 					startLink.setVisible(!guestOnly);
 				}
@@ -361,7 +396,9 @@ public class RepositoryEntryDetailsController extends FormBasicController {
 				List<String> groupLinkNames = new ArrayList<>(groups.size());
 				for(BusinessGroup group:groups) {
 					String groupLinkName = "grp_" + ++cmpcount;
-					FormLink link = uifactory.addFormLink(groupLinkName, "group", group.getName(), null, layoutCont, Link.LINK | Link.NONTRANSLATED);
+					String groupName = StringHelper.escapeHtml(group.getName());
+					FormLink link = uifactory.addFormLink(groupLinkName, "group", groupName, null, layoutCont, Link.LINK | Link.NONTRANSLATED);
+					link.setIconLeftCSS("o_icon o_icon-fw o_icon_group");
 					link.setUserObject(group.getKey());
 					groupLinkNames.add(groupLinkName);
 				}
@@ -418,7 +455,9 @@ public class RepositoryEntryDetailsController extends FormBasicController {
             // Link to bookmark entry
             String url = Settings.getServerContextPathURI() + "/url/RepositoryEntry/" + entry.getKey();
             layoutCont.contextPut("extlink", url);
-            layoutCont.contextPut("isGuestAllowed", (entry.getAccess() >= RepositoryEntry.ACC_USERS_GUESTS ? Boolean.TRUE : Boolean.FALSE));
+            Boolean guestAllowed = (entry.getAccess() >= RepositoryEntry.ACC_USERS_GUESTS && loginModule.isGuestLoginLinksEnabled())
+            		? Boolean.TRUE : Boolean.FALSE;
+            layoutCont.contextPut("isGuestAllowed", guestAllowed);
 
             //Owners
             List<String> authorLinkNames = new ArrayList<String>(authorKeys.size());
@@ -426,7 +465,7 @@ public class RepositoryEntryDetailsController extends FormBasicController {
     		int counter = 0;
     		for(Map.Entry<Long, String> author:authorNames.entrySet()) {
     			Long authorKey = author.getKey();
-    			String authorName = author.getValue();
+    			String authorName = StringHelper.escapeHtml(author.getValue());
     			
 	    		FormLink authorLink = uifactory.addFormLink("owner-" + ++counter, "owner", authorName, null, formLayout, Link.NONTRANSLATED | Link.LINK);
 	    		authorLink.setUserObject(authorKey);
@@ -459,6 +498,11 @@ public class RepositoryEntryDetailsController extends FormBasicController {
 				updateComments(commentsCtrl.getNumOfComments());
 			}
 			cleanUp();
+		} else if(leaveDialogBox == source) {
+			if (DialogBoxUIFactory.isYesEvent(event) || DialogBoxUIFactory.isOkEvent(event)) {
+				doLeave();
+				fireEvent(ureq, new LeavingEvent());
+			}
 		}
 		super.event(ureq, source, event);
 	}
@@ -500,12 +544,40 @@ public class RepositoryEntryDetailsController extends FormBasicController {
 			} else if("owner".equals(cmd)) {
 				Long ownerKey = (Long)link.getUserObject();
 				doOpenVisitCard(ureq, ownerKey);
+			} else if("leave".equals(cmd)) {
+				doConfirmLeave(ureq);
 			}
 		} else if(ratingEl == source && event instanceof RatingFormEvent) {
 			RatingFormEvent ratingEvent = (RatingFormEvent)event;
 			doRating(ratingEvent.getRating());
 		}
 		super.formInnerEvent(ureq, source, event);
+	}
+	
+	protected void doConfirmLeave(UserRequest ureq) {
+		String reName = StringHelper.escapeHtml(entry.getDisplayname());
+		String title = translate("sign.out");
+		String text = translate("sign.out.dialog.text", reName);
+		leaveDialogBox = activateYesNoDialog(ureq, title, text, leaveDialogBox);
+	}
+	
+	protected void doLeave() {
+		MailerResult result = new MailerResult();
+		MailPackage reMailing = new MailPackage(result, getWindowControl().getBusinessControl().getAsString(), true);
+		LeavingStatusList status = new LeavingStatusList();
+		//leave course
+		repositoryManager.leave(getIdentity(), entry, status, reMailing);
+		//leave groups
+		businessGroupService.leave(getIdentity(), entry, status, reMailing);
+		DBFactory.getInstance().commit();//make sur all changes are committed
+		
+		if(status.isWarningManagedGroup() || status.isWarningManagedCourse()) {
+			showWarning("sign.out.warning.managed");
+		} else if(status.isWarningGroupWithMultipleResources()) {
+			showWarning("sign.out.warning.mutiple.resources");
+		} else {
+			showInfo("sign.out.success", new String[]{ entry.getDisplayname() });
+		}
 	}
 	
 	protected void doStart(UserRequest ureq) {

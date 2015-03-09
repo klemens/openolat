@@ -158,6 +158,7 @@ public class ObjectFactory {
 		vo.setSoftkey(entry.getSoftkey());
 		vo.setResourcename(entry.getResourcename());
 		vo.setDisplayname(entry.getDisplayname());
+		vo.setAuthors(entry.getAuthors());
 		vo.setResourceableId(entry.getResourceableId());
 		vo.setResourceableTypeName(entry.getResourceableTypeName());
 		OLATResource resource = entry.getOlatResource();
@@ -200,6 +201,11 @@ public class ObjectFactory {
 	public static CourseConfigVO getConfig(ICourse course) {
 		CourseConfigVO vo = new CourseConfigVO();
 		CourseConfig config = course.getCourseEnvironment().getCourseConfig();
+		vo.setCalendar(new Boolean(config.isCalendarEnabled()));
+		vo.setChat(new Boolean(config.isChatEnabled()));
+		vo.setCssLayoutRef(config.getCssLayoutRef());
+		vo.setEfficencyStatement(new Boolean(config.isEfficencyStatementEnabled()));
+		vo.setGlossarySoftkey(config.getGlossarySoftKey());
 		vo.setSharedFolderSoftKey(config.getSharedFolderSoftkey());
 		return vo;
 	}

@@ -37,7 +37,7 @@ import javax.mail.internet.InternetAddress;
 import javax.mail.internet.MimeMessage;
 
 import org.hibernate.type.StandardBasicTypes;
-import org.olat.basesecurity.AuthHelper;
+import org.olat.basesecurity.BaseSecurity;
 import org.olat.core.CoreSpringFactory;
 import org.olat.core.commons.persistence.DB;
 import org.olat.core.commons.persistence.DBFactory;
@@ -72,8 +72,11 @@ public class RegistrationManager extends BasicManager {
 	
 	private RegistrationModule registrationModule;
 	private MailManager mailManager;
+	private BaseSecurity securityManager;
+	private static RegistrationManager INSTANCE;
 
 	private RegistrationManager() {
+		INSTANCE = this;
 		// singleton
 	}
 
@@ -81,7 +84,7 @@ public class RegistrationManager extends BasicManager {
 	 * @return Manager instance.
 	 */
 	public static RegistrationManager getInstance() {
-		return new RegistrationManager();
+		return INSTANCE;
 	}
 	
 	/**
@@ -100,6 +103,14 @@ public class RegistrationManager extends BasicManager {
 		this.registrationModule = registrationModule;
 	}
 	
+	/**
+	 * [used by Spring]
+	 * @param securityManager
+	 */
+	public void setSecurityManager(BaseSecurity securityManager) {
+		this.securityManager = securityManager;
+	}
+
 	public boolean validateEmailUsername(String email) {
 		List<String> whiteList = registrationModule.getDomainList();
 		if(whiteList.isEmpty()) {
@@ -172,7 +183,7 @@ public class RegistrationManager extends BasicManager {
 	 * @return the newly created subject or null
 	 */
 	public Identity createNewUserAndIdentityFromTemporaryKey(String login, String pwd, User myUser, TemporaryKeyImpl tk) {
-		Identity identity = AuthHelper.createAndPersistIdentityAndUserWithUserGroup(login, pwd, myUser);
+		Identity identity = securityManager.createAndPersistIdentityAndUserWithDefaultProviderAndUserGroup(login, null, pwd, myUser);
 		if (identity == null) return null;
 		deleteTemporaryKey(tk);
 		return identity;

@@ -50,7 +50,11 @@ public interface RepositoryService {
 	public RepositoryEntry create(String initialAuthor, String resourceName,
 			String displayname, String description, OLATResource resource);
 	
+	public RepositoryEntry copy(RepositoryEntry sourceEntry, Identity author, String displayname);
+	
 	public RepositoryEntry loadByKey(Long key);
+	
+	public RepositoryEntry loadByResourceKey(Long key);
 	
 	public VFSLeaf getIntroductionImage(RepositoryEntry re);
 
@@ -97,10 +101,24 @@ public interface RepositoryService {
 	public int countMembers(RepositoryEntryRef re, String... roles);
 	
 	/**
+	 * @param re The repository entry
+	 * @return True if the configuration allowed user to leave the entry right now
+	 */
+	public boolean isParticipantAllowedToLeave(RepositoryEntry re);
+	
+	/**
 	 * Return the primary keys of the authors
 	 */
 	public List<Long> getAuthors(RepositoryEntryRef re);
 	
+	/**
+	 * Get the members of the repository entry (the method doesn't
+	 * follow the business groups).
+	 * 
+	 * @param re
+	 * @param roles
+	 * @return
+	 */
 	public List<Identity> getMembers(RepositoryEntryRef re, String... roles);
 	
 	public List<String> getRoles(Identity identity, RepositoryEntryRef re);
@@ -111,7 +129,7 @@ public interface RepositoryService {
 	
 	public void removeRole(Identity identity, RepositoryEntry re, String role);
 	
-	public void removeMembers(RepositoryEntry re);
+	public void removeMembers(RepositoryEntry re, String... roles);
 	
 	public List<RepositoryEntry> searchByIdAndRefs(String id);
 	
@@ -129,5 +147,4 @@ public interface RepositoryService {
 	public int countAuthorView(SearchAuthorRepositoryEntryViewParams params);
 	
 	public List<RepositoryEntryAuthorView> searchAuthorView(SearchAuthorRepositoryEntryViewParams params, int firstResult, int maxResults);
-
 }

@@ -201,7 +201,8 @@ public class UserSettingsTest {
 			.openMySettings()
 			.openPreferences()
 			.setResume(ResumeOption.none);
-	
+		OOGraphene.waitAndCloseBlueMessageWindow(browser);
+		
 		//logout
 		userTools.logout();
 		
@@ -299,7 +300,7 @@ public class UserSettingsTest {
 		String newPassword = UUID.randomUUID().toString();
 		UserPasswordPage password = UserPasswordPage.getUserPasswordPage(browser);
 		password.setNewPassword(user.getPassword(), newPassword);
-		
+
 		userTools.logout();
 		
 		loginPage

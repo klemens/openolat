@@ -23,7 +23,6 @@ import java.util.Collections;
 import java.util.List;
 
 import org.olat.basesecurity.BaseSecurity;
-import org.olat.core.CoreSpringFactory;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.Component;
 import org.olat.core.gui.components.link.Link;
@@ -40,16 +39,17 @@ import org.olat.core.gui.control.generic.dtabs.Activateable2;
 import org.olat.core.id.Identity;
 import org.olat.core.id.context.ContextEntry;
 import org.olat.core.id.context.StateEntry;
+import org.olat.course.CorruptedCourseException;
 import org.olat.course.CourseFactory;
 import org.olat.course.ICourse;
 import org.olat.course.assessment.EfficiencyStatement;
-import org.olat.course.assessment.EfficiencyStatementController;
 import org.olat.course.assessment.EfficiencyStatementManager;
 import org.olat.course.assessment.IdentityAssessmentEditController;
 import org.olat.course.assessment.UserEfficiencyStatement;
-import org.olat.group.BusinessGroup;
+import org.olat.course.certificate.ui.CertificateAndEfficiencyStatementController;
 import org.olat.modules.coach.model.EfficiencyStatementEntry;
 import org.olat.repository.RepositoryEntry;
+import org.springframework.beans.factory.annotation.Autowired;
 
 /**
  * 
@@ -63,52 +63,51 @@ import org.olat.repository.RepositoryEntry;
 public class EfficiencyStatementDetailsController extends BasicController implements Activateable2 {
 	
 	private final VelocityContainer mainVC;
-	private final SegmentViewComponent segmentView;
-	private final Link efficiencyStatementLink, assessmentLink;
+	private SegmentViewComponent segmentView;
+	private Link assessmentLink,  efficiencyStatementLink;
 	
 	private boolean hasChanged;
 	private EfficiencyStatementEntry statementEntry;
-	private EfficiencyStatementController statementCtrl;
+	private CertificateAndEfficiencyStatementController statementCtrl;
 	private IdentityAssessmentEditController assessmentCtrl;
 	
 	private final Identity assessedIdentity;
 	
-	private final BusinessGroup group;
-	private final BaseSecurity securityManager;
-	private final EfficiencyStatementManager efficiencyStatementManager;
+	@Autowired
+	private BaseSecurity securityManager;
+	@Autowired
+	private EfficiencyStatementManager efficiencyStatementManager;
 	
 	public EfficiencyStatementDetailsController(UserRequest ureq, WindowControl wControl,
-			EfficiencyStatementEntry statementEntry, BusinessGroup group) {
+			EfficiencyStatementEntry statementEntry) {
 		super(ureq, wControl);
-		
-		efficiencyStatementManager = EfficiencyStatementManager.getInstance();
-		securityManager = CoreSpringFactory.getImpl(BaseSecurity.class);
 
 		mainVC = createVelocityContainer("efficiency_details");
-		this.group = group;
 		this.statementEntry = statementEntry;
-
-		segmentView = SegmentViewFactory.createSegmentView("segments", mainVC, this);
-		efficiencyStatementLink = LinkFactory.createLink("details.statement", mainVC, this);
-		segmentView.addSegment(efficiencyStatementLink, true);
-		
-		assessmentLink = LinkFactory.createLink("details.assessment", mainVC, this);
-		segmentView.addSegment(assessmentLink, false);
 
 		RepositoryEntry entry = statementEntry.getCourse();
 		assessedIdentity = securityManager.loadIdentityByKey(statementEntry.getStudentKey());
 		statementCtrl = createEfficiencyStatementController(ureq);
 		listenTo(statementCtrl);
+		mainVC.put("segmentCmp", statementCtrl.getInitialComponent());
 		
-		if(entry == null) {
-			assessmentLink.setEnabled(false);
-		} else {
-			ICourse course = CourseFactory.loadCourse(entry.getOlatResource());
-			assessmentCtrl = new IdentityAssessmentEditController(wControl, ureq, null, assessedIdentity, course, true, false);
-			listenTo(assessmentCtrl);
+		if(entry != null) {
+			try {
+				ICourse course = CourseFactory.loadCourse(entry.getOlatResource());
+				assessmentCtrl = new IdentityAssessmentEditController(wControl, ureq, null, assessedIdentity, course, true, false);
+				listenTo(assessmentCtrl);
+				
+				segmentView = SegmentViewFactory.createSegmentView("segments", mainVC, this);
+				efficiencyStatementLink = LinkFactory.createLink("details.statement", mainVC, this);
+				segmentView.addSegment(efficiencyStatementLink, true);
+				
+				assessmentLink = LinkFactory.createLink("details.assessment", mainVC, this);
+				segmentView.addSegment(assessmentLink, false);
+			} catch(CorruptedCourseException e) {
+				logError("", e);
+			}
 		}
 
-		mainVC.put("segmentCmp", statementCtrl.getInitialComponent());
 		putInitialPanel(mainVC);
 	}
 	
@@ -118,6 +117,11 @@ public class EfficiencyStatementDetailsController extends BasicController implem
 	
 	@Override
 	protected void doDispose() {
+		//
+	}
+	
+	@Override
+	public void activate(UserRequest ureq, List<ContextEntry> entries, StateEntry state) {
 		//
 	}
 
@@ -139,7 +143,7 @@ public class EfficiencyStatementDetailsController extends BasicController implem
 	protected void event(UserRequest ureq, Component source, Event event) {
 		if(source == segmentView && event instanceof SegmentViewEvent) {
 			SegmentViewEvent sve = (SegmentViewEvent)event;
-			if(efficiencyStatementLink.getComponentName().equals(sve.getComponentName())) {
+			if(efficiencyStatementLink != null && efficiencyStatementLink.getComponentName().equals(sve.getComponentName())) {
 				if(hasChanged) {
 					//reload
 					removeAsListenerAndDispose(statementCtrl);
@@ -148,29 +152,23 @@ public class EfficiencyStatementDetailsController extends BasicController implem
 					hasChanged = false;
 				}
 				mainVC.put("segmentCmp", statementCtrl.getInitialComponent());
-			} else if(assessmentLink.getComponentName().equals(sve.getComponentName())) {
+			} else if(assessmentLink != null && assessmentLink.getComponentName().equals(sve.getComponentName())) {
 				mainVC.put("segmentCmp", assessmentCtrl.getInitialComponent());
 			}
 		}
 	}
-
-	@Override
-	public void activate(UserRequest ureq, List<ContextEntry> entries, StateEntry state) {
-		//
-	}
 	
-	private EfficiencyStatementController createEfficiencyStatementController(UserRequest ureq) {
+	private CertificateAndEfficiencyStatementController createEfficiencyStatementController(UserRequest ureq) {
 		RepositoryEntry entry = statementEntry.getCourse();
 		UserEfficiencyStatement statement = statementEntry.getUserEfficencyStatement();
 		EfficiencyStatement efficiencyStatement = null;
 		if(statement != null) {
-			efficiencyStatement = EfficiencyStatementManager.getInstance().getUserEfficiencyStatement(statement.getCourseRepoKey(), assessedIdentity);
+			efficiencyStatement = EfficiencyStatementManager.getInstance().getUserEfficiencyStatementByCourseRepoKey(statement.getCourseRepoKey(), assessedIdentity);
 		}
-		return new EfficiencyStatementController(getWindowControl(), ureq, assessedIdentity, group, entry, efficiencyStatement, true);
+		return new CertificateAndEfficiencyStatementController(getWindowControl(), ureq, assessedIdentity, null, entry.getOlatResource().getKey(), entry, efficiencyStatement, true);
 	}
 	
 	private void efficiencyStatementChanged() {
-		Identity assessedIdentity = securityManager.loadIdentityByKey(statementEntry.getStudentKey());
 		List<Identity> assessedIdentityList = Collections.singletonList(assessedIdentity);
 		RepositoryEntry re = statementEntry.getCourse();
 		efficiencyStatementManager.updateEfficiencyStatements(re.getOlatResource(), assessedIdentityList);

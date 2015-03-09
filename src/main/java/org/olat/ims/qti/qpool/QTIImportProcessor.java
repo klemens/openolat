@@ -65,17 +65,22 @@ import org.olat.core.util.vfs.VFSLeaf;
 import org.olat.core.util.xml.XMLParser;
 import org.olat.ims.qti.QTIConstants;
 import org.olat.ims.qti.editor.beecom.objects.QTIDocument;
+import org.olat.ims.qti.editor.beecom.objects.Question;
 import org.olat.ims.qti.editor.beecom.parser.ItemParser;
+import org.olat.ims.qti.questionimport.ItemAndMetadata;
 import org.olat.ims.resources.IMSEntityResolver;
 import org.olat.modules.qpool.QuestionItem;
 import org.olat.modules.qpool.QuestionType;
+import org.olat.modules.qpool.TaxonomyLevel;
 import org.olat.modules.qpool.manager.QEducationalContextDAO;
 import org.olat.modules.qpool.manager.QItemTypeDAO;
+import org.olat.modules.qpool.manager.QLicenseDAO;
 import org.olat.modules.qpool.manager.QPoolFileStorage;
 import org.olat.modules.qpool.manager.QuestionItemDAO;
 import org.olat.modules.qpool.manager.TaxonomyLevelDAO;
 import org.olat.modules.qpool.model.QEducationalContext;
 import org.olat.modules.qpool.model.QItemType;
+import org.olat.modules.qpool.model.QLicense;
 import org.olat.modules.qpool.model.QuestionItemImpl;
 import org.xml.sax.Attributes;
 import org.xml.sax.InputSource;
@@ -101,6 +106,7 @@ class QTIImportProcessor {
 	private final File importedFile;
 
 	private final DB dbInstance;
+	private final QLicenseDAO qLicenseDao;
 	private final QItemTypeDAO qItemTypeDao;
 	private final QPoolFileStorage qpoolFileStorage;
 	private final QuestionItemDAO questionItemDao;
@@ -109,19 +115,22 @@ class QTIImportProcessor {
 	
 	public QTIImportProcessor(Identity owner, Locale defaultLocale, QuestionItemDAO questionItemDao,
 			QItemTypeDAO qItemTypeDao, QEducationalContextDAO qEduContextDao,
-			TaxonomyLevelDAO taxonomyLevelDao, QPoolFileStorage qpoolFileStorage, DB dbInstance) {
+			TaxonomyLevelDAO taxonomyLevelDao, QLicenseDAO qLicenseDao, QPoolFileStorage qpoolFileStorage,
+			DB dbInstance) {
 		this(owner, defaultLocale, null, null, questionItemDao, qItemTypeDao, qEduContextDao,
-				taxonomyLevelDao, qpoolFileStorage, dbInstance);
+				taxonomyLevelDao, qLicenseDao, qpoolFileStorage, dbInstance);
 	}
 
 	public QTIImportProcessor(Identity owner, Locale defaultLocale, String importedFilename, File importedFile,
 			QuestionItemDAO questionItemDao, QItemTypeDAO qItemTypeDao, QEducationalContextDAO qEduContextDao,
-			TaxonomyLevelDAO taxonomyLevelDao, QPoolFileStorage qpoolFileStorage, DB dbInstance) {
+			TaxonomyLevelDAO taxonomyLevelDao, QLicenseDAO qLicenseDao, QPoolFileStorage qpoolFileStorage,
+			DB dbInstance) {
 		this.owner = owner;
 		this.dbInstance = dbInstance;
 		this.defaultLocale = defaultLocale;
 		this.importedFilename = importedFilename;
 		this.importedFile = importedFile;
+		this.qLicenseDao = qLicenseDao;
 		this.qItemTypeDao = qItemTypeDao;
 		this.questionItemDao = questionItemDao;
 		this.qEduContextDao = qEduContextDao;
@@ -151,7 +160,7 @@ class QTIImportProcessor {
 		if(docInfos.doc != null) {
 			List<ItemInfos> itemInfos = getItemList(docInfos);
 			for(ItemInfos itemInfo:itemInfos) {
-				QuestionItemImpl qItem = processItem(docInfos, itemInfo);
+				QuestionItemImpl qItem = processItem(docInfos, itemInfo, null);
 				if(qItem != null) {
 					processFiles(qItem, itemInfo, docInfos);
 					qItem = questionItemDao.merge(qItem);
@@ -183,18 +192,18 @@ class QTIImportProcessor {
 		return itemElements;
 	}
 	
-	protected QuestionItemImpl processItem(DocInfos docInfos, ItemInfos itemInfos) {
+	protected QuestionItemImpl processItem(DocInfos docInfos, ItemInfos itemInfos, ItemAndMetadata metadata) {
 		Element itemEl = itemInfos.getItemEl();
 		String comment = itemInfos.getComment();
 		String originalFilename = null;
 		if(itemInfos.isOriginalItem()) {
 			originalFilename = docInfos.filename;
 		}
-		return processItem(itemEl, comment, originalFilename, null, null, docInfos);
+		return processItem(itemEl, comment, originalFilename, null, null, docInfos, metadata);
 	}
 	
 	protected QuestionItemImpl processItem(Element itemEl, String comment, String originalItemFilename,
-			String editor, String editorVersion, DocInfos docInfos) {
+			String editor, String editorVersion, DocInfos docInfos, ItemAndMetadata metadata) {
 		//filename
 		String filename;
 		String ident = getAttributeValue(itemEl, "ident");
@@ -238,8 +247,92 @@ class QTIImportProcessor {
 		if(docInfos != null) {
 			processSidecarMetadata(poolItem, docInfos);
 		}
+		if(metadata != null) {
+			processItemMetadata(poolItem, metadata);
+		}
 		questionItemDao.persist(owner, poolItem);
 		return poolItem;
+	}
+	
+	private void processItemMetadata(QuestionItemImpl poolItem, ItemAndMetadata metadata) {
+		//non heuristic set of question type
+		int questionType = metadata.getQuestionType();
+		if(questionType >= 0) {
+			String typeStr;
+			switch(questionType) {
+				case Question.TYPE_MC: typeStr = QuestionType.MC.name(); break;
+				case Question.TYPE_SC: typeStr = QuestionType.SC.name(); break;
+				case Question.TYPE_FIB: typeStr = QuestionType.FIB.name(); break;
+				case Question.TYPE_ESSAY: typeStr = QuestionType.ESSAY.name(); break;
+				default: typeStr = null;
+			}
+			if(typeStr != null) {
+				QItemType type = qItemTypeDao.loadByType(typeStr);
+				if(type != null) {
+					poolItem.setType(type);
+				}
+			}
+		}
+		
+		String coverage = metadata.getCoverage();
+		if(StringHelper.containsNonWhitespace(coverage)) {
+			poolItem.setCoverage(coverage);
+		}
+		
+		String language = metadata.getLanguage();
+		if(StringHelper.containsNonWhitespace(language)) {
+			poolItem.setLanguage(language);
+		}
+		
+		String keywords = metadata.getKeywords();
+		if(StringHelper.containsNonWhitespace(keywords)) {
+			poolItem.setKeywords(keywords);
+		}
+		
+		String taxonomyPath = metadata.getTaxonomyPath();
+		if(StringHelper.containsNonWhitespace(taxonomyPath)) {
+			QTIMetadataConverter converter = new QTIMetadataConverter(qItemTypeDao, qLicenseDao, taxonomyLevelDao, qEduContextDao);
+			TaxonomyLevel taxonomyLevel = converter.toTaxonomy(taxonomyPath);
+			poolItem.setTaxonomyLevel(taxonomyLevel);
+		}
+		
+		String level = metadata.getLevel();
+		if(StringHelper.containsNonWhitespace(level)) {
+			QTIMetadataConverter converter = new QTIMetadataConverter(qItemTypeDao, qLicenseDao, taxonomyLevelDao, qEduContextDao);
+			QEducationalContext educationalContext = converter.toEducationalContext(level);
+			poolItem.setEducationalContext(educationalContext);
+		}
+		
+		String time = metadata.getTypicalLearningTime();
+		if(StringHelper.containsNonWhitespace(time)) {
+			poolItem.setEducationalLearningTime(time);
+		}
+		
+		String editor = metadata.getEditor();
+		if(StringHelper.containsNonWhitespace(editor)) {
+			poolItem.setEditor(editor);
+		}
+		
+		String editorVersion = metadata.getEditorVersion();
+		if(StringHelper.containsNonWhitespace(editorVersion)) {
+			poolItem.setEditorVersion(editorVersion);
+		}
+		
+		int numOfAnswerAlternatives = metadata.getNumOfAnswerAlternatives();
+		if(numOfAnswerAlternatives > 0) {
+			poolItem.setNumOfAnswerAlternatives(numOfAnswerAlternatives);
+		}
+		
+		poolItem.setDifficulty(metadata.getDifficulty());
+		poolItem.setDifferentiation(metadata.getDifferentiation());
+		poolItem.setStdevDifficulty(metadata.getStdevDifficulty());
+		
+		String license = metadata.getLicense();
+		if(StringHelper.containsNonWhitespace(license)) {
+			QTIMetadataConverter converter = new QTIMetadataConverter(qItemTypeDao, qLicenseDao, taxonomyLevelDao, qEduContextDao);
+			QLicense qLicense = converter.toLicense(license);
+			poolItem.setLicense(qLicense);
+		}
 	}
 	
 	private void processItemMetadata(QuestionItemImpl poolItem, Element itemEl) {
@@ -543,15 +636,16 @@ class QTIImportProcessor {
 	}
 	
 	private boolean processSidecarMetadata(QuestionItemImpl item, DocInfos docInfos) {
+		InputStream metadataIn = null;
 		try {
 			Path path = docInfos.root;
-			if(path != null) {
+			if(path != null && path.getFileName() != null) {
 				Path metadata = path.resolve(path.getFileName().toString() + "_metadata.xml");
-				InputStream metadataIn = Files.newInputStream(metadata);
+				metadataIn = Files.newInputStream(metadata);
 				SAXReader reader = new SAXReader();
 		        Document document = reader.read(metadataIn);
 		        Element rootElement = document.getRootElement();
-		        QTIMetadata enricher = new QTIMetadata(rootElement, qItemTypeDao, taxonomyLevelDao, qEduContextDao);
+		        QTIMetadataConverter enricher = new QTIMetadataConverter(rootElement, qItemTypeDao, qLicenseDao, taxonomyLevelDao, qEduContextDao);
 		        enricher.toQuestion(item);
 			}
 	        return true;
@@ -561,6 +655,8 @@ class QTIImportProcessor {
 		} catch (Exception e) {
 			log.error("", e);
 			return false;
+		} finally {
+			IOUtils.closeQuietly(metadataIn);
 		}
 	}
 	

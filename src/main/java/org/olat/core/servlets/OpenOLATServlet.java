@@ -269,9 +269,10 @@ public class OpenOLATServlet extends HttpServlet {
 			dispatcher.execute(request, response);
 		} else {
 			//root -> redirect to dmz
-			if("/".equals(dispatcherName) || "/dmz".equals(dispatcherName)) {
-				String dmzUri = WebappHelper.getServletContextPath() + DispatcherModule.getPathDefault();
-				response.sendRedirect(dmzUri);
+			if("/".equals(dispatcherName)) {
+				redirectToDmz(response);
+			} else if("/dmz".equals(dispatcherName)) {
+				redirectToDmz(response);
 			} else {
 				String uri = request.getRequestURI();
 				if(uri != null && uri.contains("/raw/_noversion_/")) {
@@ -288,5 +289,11 @@ public class OpenOLATServlet extends HttpServlet {
 				}
 			}
 		}
+	}
+	
+	private void redirectToDmz(HttpServletResponse response)
+	throws IOException {
+		String dmzUri = WebappHelper.getServletContextPath() + DispatcherModule.getPathDefault();
+		response.sendRedirect(dmzUri);
 	}
 }

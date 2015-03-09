@@ -56,7 +56,7 @@
 				<property name="className" value="org.olat.core.commons.controllers.impressum.ImpressumAdminController"/>
 			</bean>
 		</property>
-		<property name="navigationKey" value="layout" />
+		<property name="navigationKey" value="impressum" />
 		<property name="translationPackage" value="org.olat.core.commons.controllers.impressum"/>
 		<property name="i18nActionKey" value="menu.impressum"/>
 		<property name="i18nDescriptionKey" value="menu.impressum.alt"/>
@@ -64,6 +64,20 @@
 		<property name="extensionPoints">
 			<list>	
 				<value>org.olat.admin.SystemAdminMainController</value>		
+			</list>
+		</property>
+	</bean>
+	
+	<bean class="org.olat.core.commons.controllers.impressum.ImpressumUserToolExtension" init-method="initExtensionPoints">
+		<property name="order" value="119" />
+		<property name="impressumModule" ref="impressumModule" />
+		<property name="navigationKey" value="impressum" />
+		<property name="translationPackage" value="org.olat.core.commons.controllers.impressum" />
+		<property name="i18nActionKey" value="menu.impressum"/>
+		<property name="i18nDescriptionKey" value="menu.impressum"/>
+		<property name="extensionPoints">
+			<list>	
+				<value>org.olat.home.HomeMainController</value>
 			</list>
 		</property>
 	</bean>

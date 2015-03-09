@@ -87,8 +87,12 @@ public class BusinessControlFactory {
 			}
 
 			@Override
-			//fxdiff BAKS-7 Resume function
 			public List<ContextEntry> getEntries() {
+				return Collections.<ContextEntry>emptyList();
+			}
+			
+			@Override
+			public List<ContextEntry> getEntriesDownTheControls() {
 				return Collections.<ContextEntry>emptyList();
 			}
 
@@ -271,7 +275,15 @@ public class BusinessControlFactory {
 		return createFromContextEntries(ces);
 	}
 
-	//fxdiff BAKS-7 Resume function
+	public List<ContextEntry> cloneContextEntries(final List<ContextEntry> ces) {
+		final List<ContextEntry> clones = new ArrayList<ContextEntry>(ces.size());
+		for(ContextEntry ce:ces) {
+			OLATResourceable clone = OresHelper.clone(ce.getOLATResourceable());
+			clones.add(new MyContextEntry(clone));
+		}
+		return clones;
+	}
+
 	public BusinessControl createFromContextEntries(final List<ContextEntry> ces) {
 		ContextEntry rootEntry = null;
 		if (ces.isEmpty() || ((rootEntry = ces.get(0))==null)) {
@@ -281,27 +293,41 @@ public class BusinessControlFactory {
 		//Root businessControl with RootContextEntry which must be defined (i.e. not null)
 		BusinessControl bc = new StackedBusinessControl(rootEntry, null) {
 
+			@Override
 			public ContextEntry popLauncherContextEntry() {
 				return popInternalLaucherContextEntry();
 			}
 
+			@Override
 			ContextEntry popInternalLaucherContextEntry(){
 				if (ces.size() == 0) return null;
 				ContextEntry ce = ces.remove(0);
 				return ce;
 			}
 			
-			
+			@Override
+			public List<ContextEntry> getEntriesDownTheControls() {
+				List<ContextEntry> allEntries = new ArrayList<>();
+				List<ContextEntry> entries = super.getEntries();
+				if(entries != null) {
+					allEntries.addAll(entries);
+				}
+				if(ces != null) {
+					allEntries.addAll(ces);
+				}
+				return allEntries;
+			}
+
+			@Override
 			public void dropLauncherEntries() {
 				ces.clear();
 			}
 
+			@Override
 			public boolean hasContextEntry() {
 				return ces.size() > 0;
 			}
 		};
-		
-
 		return bc;
 	}
 	

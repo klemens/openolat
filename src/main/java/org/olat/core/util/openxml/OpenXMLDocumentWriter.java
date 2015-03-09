@@ -23,6 +23,8 @@ import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.nio.charset.Charset;
+import java.util.Collection;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 
@@ -30,9 +32,11 @@ import org.apache.commons.io.IOUtils;
 import org.olat.core.logging.OLog;
 import org.olat.core.logging.Tracing;
 import org.olat.core.util.openxml.OpenXMLDocument.HeaderReference;
+import org.olat.core.util.openxml.OpenXMLDocument.ListParagraph;
 import org.w3c.dom.DOMException;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
+import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
 
 /**
@@ -100,6 +104,12 @@ public class OpenXMLDocumentWriter {
 		//word/media
 		appendMedias(out, document);
 		
+		//word/numbering
+		ZipEntry numberingDocument = new ZipEntry("word/numbering.xml");
+		out.putNextEntry(numberingDocument);
+		appendNumbering(out, document);
+		out.closeEntry();
+		
 		//word/document.xml
 		ZipEntry wordDocument = new ZipEntry("word/document.xml");
 		out.putNextEntry(wordDocument);
@@ -110,7 +120,7 @@ public class OpenXMLDocumentWriter {
 		for(HeaderReference headerRef:document.getHeaders()) {
 			ZipEntry headerDocument = new ZipEntry("word/" + headerRef.getFilename());
 			out.putNextEntry(headerDocument);
-			IOUtils.write(headerRef.getHeader(), out);
+			IOUtils.write(headerRef.getHeader(), out, Charset.forName("UTF-8"));
 			out.closeEntry();
 		}
 
@@ -124,20 +134,43 @@ public class OpenXMLDocumentWriter {
 	protected void appendMedias(ZipOutputStream out, OpenXMLDocument document)
 	throws IOException {
 		for(DocReference img:document.getImages()) {
-			FileInputStream in = new FileInputStream(img.getFile());
-			ZipEntry wordDocument = new ZipEntry("word/media/" + img.getFile().getName());
-			out.putNextEntry(wordDocument);
-
-			IOUtils.copy(in, out);
-			OpenXMLUtils.writeTo(document.getDocument(), out, false);
-			out.closeEntry();
+			try(FileInputStream in = new FileInputStream(img.getFile())) {
+				ZipEntry wordDocument = new ZipEntry("word/media/" + img.getFilename());
+				out.putNextEntry(wordDocument);
+	
+				IOUtils.copy(in, out);
+				OpenXMLUtils.writeTo(document.getDocument(), out, false);
+				out.closeEntry();
+			} catch(Exception e) {
+				log.error("", e);
+			}
+		}
+	}
+	
+	private void appendNumbering(ZipOutputStream out, OpenXMLDocument document) {
+		try(InputStream in = OpenXMLDocumentWriter.class.getResourceAsStream("_resources/numbering.xml")) {
+			Collection<ListParagraph> numberingList = document.getNumbering();
+			if(numberingList != null && numberingList.size() > 0) {
+				Document numberingDoc = OpenXMLUtils.createDocument(in);
+				NodeList numberingElList = numberingDoc.getElementsByTagName("w:numbering");
+				Node numberingEl = numberingElList.item(0);
+				for(ListParagraph numberingItem : numberingList) {
+					Element abstractEl = document.createAbstractNumbering(numberingItem, numberingDoc);
+					numberingEl.appendChild(abstractEl);
+					Element numEl = document.createNumbering(numberingItem, numberingDoc);
+					numberingEl.appendChild(numEl);
+				}
+				OpenXMLUtils.writeTo(numberingDoc, out, false);
+			} else {
+				IOUtils.copy(in, out);
+			}
+		} catch (IOException e) {
+			log.error("", e);
 		}
 	}
 	
 	private void appendPredefinedStyles(ZipOutputStream out, OpenXMLStyles styles) {
-		InputStream in = null;
-		try {
-			in = OpenXMLDocumentWriter.class.getResourceAsStream("_resources/styles.xml");
+		try(InputStream in = OpenXMLDocumentWriter.class.getResourceAsStream("_resources/styles.xml")) {
 			if(styles != null) {
 				Document stylesDoc = OpenXMLUtils.createDocument(in);
 				NodeList stylesElList = stylesDoc.getElementsByTagName("w:styles");
@@ -151,20 +184,19 @@ public class OpenXMLDocumentWriter {
 			}
 		} catch (IOException e) {
 			log.error("", e);
-		} finally {
-			IOUtils.closeQuietly(in);
 		}
 	}
 	
 	/*
 <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
-  <Relationship Id="rId3" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/settings" Target="settings.xml"/>
-  <Relationship Id="rId4" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/webSettings" Target="webSettings.xml"/>
-  <Relationship Id="rId5" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/fontTable" Target="fontTable.xml"/>
-  <Relationship Id="rId6" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/theme" Target="theme/theme1.xml"/>
+  <Relationship Id="rId4" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/settings" Target="settings.xml"/>
+  <Relationship Id="rId5" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/webSettings" Target="webSettings.xml"/>
+  <Relationship Id="rId6" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/fontTable" Target="fontTable.xml"/>
+  <Relationship Id="rId7" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/theme" Target="theme/theme1.xml"/>
   <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>
   <Relationship Id="rId2" Type="http://schemas.microsoft.com/office/2007/relationships/stylesWithEffects" Target="stylesWithEffects.xml"/>
+  <Relationship Id="rId3" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/numbering" Target="numbering.xml" />
 </Relationships>
 	 */
 	protected void createDocumentRelationships(OutputStream out, OpenXMLDocument document) {
@@ -175,11 +207,13 @@ public class OpenXMLDocumentWriter {
 
 			addRelationship("rId1", "http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles",
 					"styles.xml", relationshipsEl, doc);
+			addRelationship("rId2", "http://schemas.openxmlformats.org/officeDocument/2006/relationships/numbering",
+					"numbering.xml", relationshipsEl, doc);
 			
 			if(document != null) {
 				for(DocReference docRef:document.getImages()) {
 					addRelationship(docRef.getId(), "http://schemas.openxmlformats.org/officeDocument/2006/relationships/image",
-							"media/" + docRef.getFile().getName(), relationshipsEl, doc);
+							"media/" + docRef.getFilename(), relationshipsEl, doc);
 				}
 				
 				for(HeaderReference headerRef:document.getHeaders()) {
@@ -315,6 +349,7 @@ public class OpenXMLDocumentWriter {
 		createContentTypesOverride("/docProps/core.xml", CT_CORE_PROPERTIES, typesEl, doc);
 		createContentTypesOverride("/word/document.xml", CT_WORD_DOCUMENT, typesEl, doc);
 		createContentTypesOverride("/word/styles.xml", CT_STYLES, typesEl, doc);
+		createContentTypesOverride("/word/numbering.xml", CT_NUMBERING, typesEl, doc);
 		
 		for(HeaderReference headerRef:document.getHeaders()) {
 			createContentTypesOverride("/word/" + headerRef.getFilename(), CT_HEADER, typesEl, doc);

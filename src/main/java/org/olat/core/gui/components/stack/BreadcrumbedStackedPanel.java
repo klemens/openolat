@@ -34,7 +34,9 @@ import org.olat.core.gui.components.velocity.VelocityContainer;
 import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.Event;
 import org.olat.core.gui.control.VetoableCloseController;
+import org.olat.core.gui.control.WindowControl;
 import org.olat.core.gui.translator.Translator;
+import org.olat.core.id.context.BusinessControlFactory;
 import org.olat.core.logging.AssertException;
 import org.olat.core.logging.OLog;
 import org.olat.core.logging.Tracing;
@@ -175,19 +177,38 @@ public class BreadcrumbedStackedPanel extends Panel implements StackedPanel, Bre
 			Controller controllerToPop = getControllerToPop(source);
 			//part of a hack for QTI editor
 			if(controllerToPop instanceof VetoableCloseController
-					&& !((VetoableCloseController)controllerToPop).requestForClose()) {
+					&& !((VetoableCloseController)controllerToPop).requestForClose(ureq)) {
 				// not my problem anymore, I have done what I can
 				fireEvent(ureq, new VetoPopEvent());
 				return;
 			}
 			Controller popedCtrl = popController(source);
 			if(popedCtrl != null) {
+				Controller last = getLastController();
+				if(last != null) {
+					addToHistory(ureq, last);
+				}
 				fireEvent(ureq, new PopEvent(popedCtrl));
 			} else if(stack.indexOf(source) == 0) {
 				fireEvent(ureq, new RootEvent());
 				
 			}
 		}
+	}
+	
+	private void addToHistory(UserRequest ureq, Controller controller) {
+		WindowControl wControl = controller.getWindowControlForDebug();
+		BusinessControlFactory.getInstance().addToHistory(ureq, wControl);
+	}
+	
+	private Controller getLastController() {
+		Controller controller = null;
+		if(stack.size() > 0) {
+			Link lastPath = stack.get(stack.size() - 1);
+			BreadCrumb crumb = (BreadCrumb)lastPath.getUserObject();
+			controller = crumb.getController();
+		}
+		return controller;
 	}
 
 	@Override

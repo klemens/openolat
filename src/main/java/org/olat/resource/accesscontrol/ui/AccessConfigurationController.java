@@ -41,10 +41,10 @@ import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.Event;
 import org.olat.core.gui.control.WindowControl;
 import org.olat.core.gui.control.generic.closablewrapper.CloseableModalController;
+import org.olat.core.util.Formatter;
 import org.olat.core.util.StringHelper;
 import org.olat.resource.OLATResource;
 import org.olat.resource.accesscontrol.ACService;
-import org.olat.resource.accesscontrol.ACUIFactory;
 import org.olat.resource.accesscontrol.AccessControlModule;
 import org.olat.resource.accesscontrol.method.AccessMethodHandler;
 import org.olat.resource.accesscontrol.model.AccessMethod;
@@ -70,7 +70,7 @@ public class AccessConfigurationController extends FormBasicController {
 
 	private CloseableModalController cmc;
 	private FormLayoutContainer confControllerContainer;
-	private AbstractConfigurationMethodController newMethodCtrl;
+	private AbstractConfigurationMethodController newMethodCtrl, editMethodCtrl;
 	
 	private final List<AccessInfo> confControllers = new ArrayList<AccessInfo>();
 	
@@ -78,6 +78,8 @@ public class AccessConfigurationController extends FormBasicController {
 	private final boolean emptyConfigGrantsFullAccess;
 	private boolean allowPaymentMethod;
 	private final boolean editable;
+	
+	private final Formatter formatter;
 	
 	@Autowired
 	private ACService acService;
@@ -87,13 +89,14 @@ public class AccessConfigurationController extends FormBasicController {
 	public AccessConfigurationController(UserRequest ureq, WindowControl wControl, OLATResource resource,
 			String displayName, boolean allowPaymentMethod, boolean editable) {
 		super(ureq, wControl, "access_configuration");
-		
+
 		this.resource = resource;
 		this.displayName = displayName;
 		this.allowPaymentMethod = allowPaymentMethod;
 		embbed = false;
 		this.editable = editable;
 		emptyConfigGrantsFullAccess = true; 
+		formatter = Formatter.getInstance(getLocale());
 		
 		initForm(ureq);
 	}
@@ -108,6 +111,7 @@ public class AccessConfigurationController extends FormBasicController {
 		this.allowPaymentMethod = allowPaymentMethod;
 		embbed = true;
 		emptyConfigGrantsFullAccess = false;
+		formatter = Formatter.getInstance(getLocale());
 		
 		initForm(ureq);
 	}
@@ -147,7 +151,6 @@ public class AccessConfigurationController extends FormBasicController {
 		
 		if(!embbed) {
 			setFormTitle("accesscontrol.title");
-			setFormDescription("accesscontrol.desc");
 			setFormContextHelp(AccessConfigurationController.class.getPackage().getName(), "accesscontrol.html", "chelp.accesscontrol.hover");
 			
 			if(editable) {
@@ -200,18 +203,30 @@ public class AccessConfigurationController extends FormBasicController {
 				fireEvent(ureq, Event.CHANGED_EVENT);
 			}
 			cmc.deactivate();
-			removeAsListenerAndDispose(newMethodCtrl);
-			removeAsListenerAndDispose(cmc);
-			newMethodCtrl = null;
-			cmc = null;
+			cleanUp();
+		} else if(editMethodCtrl == source) {
+			if(event.equals(Event.DONE_EVENT)) {
+				OfferAccess newLink = editMethodCtrl.commitChanges();
+				newLink = acService.saveOfferAccess(newLink);
+				replace(newLink);
+				fireEvent(ureq, Event.CHANGED_EVENT);
+			}
+			cmc.deactivate();
+			cleanUp();
 		} else if (cmc == source) {
-			removeAsListenerAndDispose(newMethodCtrl);
-			removeAsListenerAndDispose(cmc);
-			newMethodCtrl = null;
-			cmc = null;
+			cleanUp();
 		} else {
 			super.event(ureq, source, event);
 		}
+	}
+	
+	private void cleanUp() {
+		removeAsListenerAndDispose(editMethodCtrl);
+		removeAsListenerAndDispose(newMethodCtrl);
+		removeAsListenerAndDispose(cmc);
+		editMethodCtrl = null;
+		newMethodCtrl = null;
+		cmc = null;
 	}
 
 	@Override
@@ -219,10 +234,17 @@ public class AccessConfigurationController extends FormBasicController {
 		if(addMethods.contains(source)) {
 			AccessMethod method = (AccessMethod)source.getUserObject();
 			addMethod(ureq, method);
-		} else if (source.getName().startsWith("del_")) {
-			AccessInfo infos = (AccessInfo)source.getUserObject();
-			acService.deleteOffer(infos.getLink().getOffer());
-			confControllers.remove(infos);
+		} else if (source instanceof FormLink) {
+			FormLink button = (FormLink)source;
+			String cmd = button.getCmd();
+			if("delete".equals(cmd)) {
+				AccessInfo infos = (AccessInfo)source.getUserObject();
+				acService.deleteOffer(infos.getLink().getOffer());
+				confControllers.remove(infos);
+			} else if("edit".equals(cmd)) {
+				AccessInfo infos = (AccessInfo)source.getUserObject();
+				editMethod(ureq, infos);
+			}
 		}
 		super.formInnerEvent(ureq, source, event);
 	}
@@ -249,7 +271,6 @@ public class AccessConfigurationController extends FormBasicController {
 			
 			links.add(info.getLink());
 		}
-		acService.saveOfferAccess(links);
 	}
 	
 	protected void loadConfigurations() {
@@ -262,28 +283,56 @@ public class AccessConfigurationController extends FormBasicController {
 		}
 	}
 	
+	protected void replace(OfferAccess link) {
+		boolean updated = false;
+		for(AccessInfo confController:confControllers) {
+			if(confController.getLink().equals(link)) {
+				confController.setLink(link);
+				updated = true;
+			}
+		}
+		
+		if(!updated) {
+			addConfiguration(link);
+		} else {
+			confControllerContainer.setDirty(true);
+		}
+	}
+	
 	protected void addConfiguration(OfferAccess link) {
 		AccessMethodHandler handler = acModule.getAccessMethodHandler(link.getMethod().getType());
 		AccessInfo infos = new AccessInfo(handler.getMethodName(getLocale()), handler.isPaymentMethod(), null, link);
 		confControllers.add(infos);
-
-		DateChooser dateFrom = uifactory.addDateChooser("from_" + link.getKey(), "from", null, confControllerContainer);
-		dateFrom.setUserObject(infos);
-		dateFrom.setEnabled(editable);
-		dateFrom.setDate(link.getValidFrom());
-		confControllerContainer.add(dateFrom.getName(), dateFrom);
-		
-		DateChooser dateTo = uifactory.addDateChooser("to_" + link.getKey(), "to", null, confControllerContainer);
-		dateTo.setEnabled(editable);
-		dateTo.setUserObject(infos);
-		dateTo.setDate(link.getValidTo());
-		confControllerContainer.add(dateTo.getName(), dateTo);
 		
 		if(editable) {
-			FormLink delLink = uifactory.addFormLink("del_" + link.getKey(), "delete", null, confControllerContainer, Link.BUTTON_SMALL);
+			FormLink editLink = uifactory.addFormLink("edit_" + link.getKey(), "edit", "edit", null, confControllerContainer, Link.BUTTON_SMALL);
+			editLink.setUserObject(infos);
+			editLink.setIconLeftCSS("o_icon o_icon-fw o_icon_edit");
+			confControllerContainer.add(editLink.getName(), editLink);
+			
+			FormLink delLink = uifactory.addFormLink("del_" + link.getKey(), "delete", "delete", null, confControllerContainer, Link.BUTTON_SMALL);
 			delLink.setUserObject(infos);
 			delLink.setIconLeftCSS("o_icon o_icon-fw o_icon_delete_item");
 			confControllerContainer.add(delLink.getName(), delLink);
+		}
+	}
+	
+	private void editMethod(UserRequest ureq, AccessInfo infos) {
+		OfferAccess link = infos.getLink();
+		
+		removeAsListenerAndDispose(editMethodCtrl);
+		AccessMethodHandler handler = acModule.getAccessMethodHandler(link.getMethod().getType());
+		if (handler != null) {
+			editMethodCtrl = handler.editConfigurationController(ureq, getWindowControl(), link);
+		}
+		
+		if(editMethodCtrl != null) {
+			listenTo(editMethodCtrl);
+
+			String title = handler.getMethodName(getLocale());
+			cmc = new CloseableModalController(getWindowControl(), translate("close"), editMethodCtrl.getInitialComponent(), true, title);
+			cmc.activate();
+			listenTo(cmc);
 		}
 	}
 	
@@ -292,13 +341,14 @@ public class AccessConfigurationController extends FormBasicController {
 		OfferAccess link = acService.createOfferAccess(offer, method);
 		
 		removeAsListenerAndDispose(newMethodCtrl);
-		newMethodCtrl = ACUIFactory.createAccessConfigurationController(ureq, getWindowControl(), link);
+		AccessMethodHandler handler = acModule.getAccessMethodHandler(link.getMethod().getType());
+		if (handler != null) {
+			newMethodCtrl = handler.createConfigurationController(ureq, getWindowControl(), link);
+		}
 		if(newMethodCtrl != null) {
 			listenTo(newMethodCtrl);
 
-			AccessMethodHandler handler = acModule.getAccessMethodHandler(method.getType());
 			String title = handler.getMethodName(getLocale());
-		
 			cmc = new CloseableModalController(getWindowControl(), translate("close"), newMethodCtrl.getInitialComponent(), true, title);
 			cmc.activate();
 			listenTo(cmc);
@@ -311,6 +361,7 @@ public class AccessConfigurationController extends FormBasicController {
 	public class AccessInfo {
 		private String name;
 		private String infos;
+		private String dates;
 		private OfferAccess link;
 		private final boolean paymentMethod;
 		
@@ -331,6 +382,21 @@ public class AccessConfigurationController extends FormBasicController {
 		
 		public boolean isPaymentMethod() {
 			return paymentMethod;
+		}
+
+		public String getDates() {
+			if(dates == null && link.getOffer() != null) {
+				Date from = link.getValidFrom();
+				Date to = link.getValidTo();
+				if(from != null && to != null) {
+					dates = translate("ac.fromto.label", new String[]{ formatter.formatDate(from), formatter.formatDate(to) });
+				} else if(from != null) {
+					dates = translate("ac.from.label", new String[]{ formatter.formatDate(from) });
+				} else if(to != null) {
+					dates = translate("ac.to.label", new String[]{ formatter.formatDate(to) });
+				}
+			}
+			return dates;
 		}
 
 		public String getInfos() {
@@ -367,6 +433,7 @@ public class AccessConfigurationController extends FormBasicController {
 
 		public void setLink(OfferAccess link) {
 			this.link = link;
+			this.dates = null;
 		}
 	}
 }

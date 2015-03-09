@@ -19,10 +19,11 @@
  */
 package org.olat.admin.user.tools.ui;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 
-import org.olat.admin.user.tools.UserTool;
+import org.olat.admin.user.tools.UserToolExtension;
 import org.olat.admin.user.tools.UserToolsModule;
 import org.olat.core.extensions.ExtManager;
 import org.olat.core.gui.UserRequest;
@@ -43,7 +44,7 @@ import org.springframework.beans.factory.annotation.Autowired;
  */
 public class UserToolsAdminController extends FormBasicController {
 	
-	private final List<UserTool> userTools;
+	private final List<UserToolExtension> userTools;
 	
 	private MultipleSelectionElement availableEl, presetEl;
 	
@@ -55,7 +56,7 @@ public class UserToolsAdminController extends FormBasicController {
 	public UserToolsAdminController(UserRequest ureq, WindowControl wControl) {
 		super(ureq, wControl);
 		
-		userTools = userToolsModule.getAllUserTools(ureq);
+		userTools = userToolsModule.getAllUserToolExtensions(ureq);
 		initForm(ureq);
 	}
 
@@ -69,32 +70,40 @@ public class UserToolsAdminController extends FormBasicController {
 		String[] toolKeys = new String[numOfTools];
 		String[] toolValues = new String[numOfTools];
 		for(int i=0; i<numOfTools; i++) {
-			UserTool userTool = userTools.get(i);
-			toolKeys[i] = userTool.getKey();
-			toolValues[i] = userTool.getLabel();
+			UserToolExtension userTool = userTools.get(i);
+			toolKeys[i] = userTool.getUniqueExtensionID();
+			toolValues[i] = userTool.getLabel(getLocale());
 		}
 
 		availableEl = uifactory.addCheckboxesVertical("available.tools", "available.tools", formLayout, toolKeys, toolValues, 1);
 		availableEl.addActionListener(FormEvent.ONCHANGE);
-		
-		if(userToolsModule.isUserToolsDisabled()) {
-			availableEl.setEnabled(false);
+
+		Set<String> availableTools = userToolsModule.getAvailableUserToolSet();
+		if(availableTools.isEmpty()) {
+			for(String toolKey:toolKeys) {
+				availableEl.select(toolKey, true);
+			}
 		} else {
-			Set<String> tools = userToolsModule.getAvailableUserToolSet();
-			if(tools.isEmpty()) {
-				for(String toolKey:toolKeys) {
+			for(String toolKey:toolKeys) {
+				if(availableTools.contains(toolKey)) {
 					availableEl.select(toolKey, true);
-				}
-			} else {
-				for(String toolKey:toolKeys) {
-					if(tools.contains(toolKey)) {
-						availableEl.select(toolKey, true);
-					}
 				}
 			}
 		}
-
-		presetEl = uifactory.addCheckboxesVertical("preset.tools", "preset.tools", formLayout, toolKeys, toolValues, 1);
+		
+		List<String> presetToolKeyList = new ArrayList<>(numOfTools);
+		List<String> presetToolValueList = new ArrayList<>(numOfTools);
+		for(int i=0; i<numOfTools; i++) {
+			UserToolExtension userTool = userTools.get(i);
+			if(!userTool.isShortCutOnly()) {
+				presetToolKeyList.add(userTool.getUniqueExtensionID());
+				presetToolValueList.add(userTool.getLabel(getLocale()));
+			}
+		}
+		
+		String[] presetToolKeys = presetToolKeyList.toArray(new String[presetToolKeyList.size()]);
+		String[] presetToolValues = presetToolValueList.toArray(new String[presetToolValueList.size()]);
+		presetEl = uifactory.addCheckboxesVertical("preset.tools", "preset.tools", formLayout, presetToolKeys, presetToolValues, 1);
 		presetEl.addActionListener(FormEvent.ONCHANGE);
 		
 		if(userToolsModule.isUserToolsDisabled()) {
@@ -102,14 +111,13 @@ public class UserToolsAdminController extends FormBasicController {
 		} else {
 			Set<String> tools = userToolsModule.getDefaultPresetOfUserToolSet();
 			if(tools.size() > 0) {
-				for(String toolKey:toolKeys) {
+				for(String toolKey:presetToolKeys) {
 					if(tools.contains(toolKey)) {
 						presetEl.select(toolKey, true);
 					}
 				}
 			}
 		}
-		
 	}
 	
 	@Override
@@ -122,6 +130,11 @@ public class UserToolsAdminController extends FormBasicController {
 		if(availableEl == source) {
 			//update defaultSet;
 			doPersist();
+			if(availableEl.isAtLeastSelected(1)) {
+				presetEl.setEnabled(true);
+			} else {
+				presetEl.setEnabled(false);
+			}
 		} else if(presetEl == source) {
 			doPersist();
 		}

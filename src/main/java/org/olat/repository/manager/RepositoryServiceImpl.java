@@ -20,6 +20,7 @@
 package org.olat.repository.manager;
 
 import java.io.File;
+import java.util.Calendar;
 import java.util.Date;
 import java.util.HashSet;
 import java.util.List;
@@ -31,7 +32,6 @@ import org.olat.basesecurity.Group;
 import org.olat.basesecurity.GroupRoles;
 import org.olat.basesecurity.IdentityRef;
 import org.olat.basesecurity.manager.GroupDAO;
-import org.olat.catalog.CatalogManager;
 import org.olat.core.CoreSpringFactory;
 import org.olat.core.commons.modules.bc.FolderConfig;
 import org.olat.core.commons.persistence.DB;
@@ -41,6 +41,9 @@ import org.olat.core.id.OLATResourceable;
 import org.olat.core.id.Roles;
 import org.olat.core.logging.OLog;
 import org.olat.core.logging.Tracing;
+import org.olat.core.logging.activity.LearningResourceLoggingAction;
+import org.olat.core.logging.activity.OlatResourceableType;
+import org.olat.core.logging.activity.ThreadLocalUserActivityLogger;
 import org.olat.core.util.CodeHelper;
 import org.olat.core.util.StringHelper;
 import org.olat.core.util.resource.OresHelper;
@@ -49,15 +52,19 @@ import org.olat.core.util.vfs.VFSContainer;
 import org.olat.core.util.vfs.VFSItem;
 import org.olat.core.util.vfs.VFSLeaf;
 import org.olat.course.assessment.manager.UserCourseInformationsManager;
+import org.olat.course.certificate.CertificatesManager;
 import org.olat.repository.ErrorList;
 import org.olat.repository.RepositoryEntry;
 import org.olat.repository.RepositoryEntryAuthorView;
+import org.olat.repository.RepositoryEntryAllowToLeaveOptions;
 import org.olat.repository.RepositoryEntryMyView;
 import org.olat.repository.RepositoryEntryRef;
 import org.olat.repository.RepositoryEntryRelationType;
+import org.olat.repository.RepositoryManager;
 import org.olat.repository.RepositoryService;
 import org.olat.repository.handlers.RepositoryHandler;
 import org.olat.repository.handlers.RepositoryHandlerFactory;
+import org.olat.repository.model.RepositoryEntryLifecycle;
 import org.olat.repository.model.RepositoryEntryStatistics;
 import org.olat.repository.model.RepositoryEntryToGroupRelation;
 import org.olat.repository.model.SearchAuthorRepositoryEntryViewParams;
@@ -66,6 +73,7 @@ import org.olat.resource.OLATResource;
 import org.olat.resource.OLATResourceManager;
 import org.olat.search.service.document.RepositoryEntryDocument;
 import org.olat.search.service.indexer.LifeFullIndexer;
+import org.olat.util.logging.activity.LoggingResourceable;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -85,6 +93,8 @@ public class RepositoryServiceImpl implements RepositoryService {
 	@Autowired
 	private GroupDAO groupDao;
 	@Autowired
+	private CatalogManager catalogManager;
+	@Autowired
 	private BaseSecurity securityManager;
 	@Autowired
 	private RepositoryEntryDAO repositoryEntryDAO;
@@ -100,6 +110,8 @@ public class RepositoryServiceImpl implements RepositoryService {
 	private RepositoryHandlerFactory repositoryHandlerFactory;
 	@Autowired
 	private OLATResourceManager resourceManager;
+	@Autowired
+	private CertificatesManager certificatesManager;
 	@Autowired
 	private UserCourseInformationsManager userCourseInformationsManager;
 
@@ -140,6 +152,7 @@ public class RepositoryServiceImpl implements RepositoryService {
 		re.setDisplayname(displayname);
 		re.setResourcename(StringHelper.containsNonWhitespace(resourceName) ? resourceName : "-");
 		re.setDescription(description == null ? "" : description);
+		re.setAllowToLeaveOption(RepositoryEntryAllowToLeaveOptions.atAnyTime);
 		if(resource == null) {
 			OLATResourceable ores = OresHelper.createOLATResourceableInstance("RepositoryEntry", CodeHelper.getForeverUniqueID());
 			resource = resourceManager.createAndPersistOLATResourceInstance(ores);
@@ -180,6 +193,37 @@ public class RepositoryServiceImpl implements RepositoryService {
 	}
 
 	@Override
+	public RepositoryEntry copy(RepositoryEntry sourceEntry, Identity author, String displayname) {
+		OLATResource sourceResource = sourceEntry.getOlatResource();
+		OLATResource copyResource = resourceManager.createOLATResourceInstance(sourceResource.getResourceableTypeName());
+		RepositoryEntry copyEntry = create(author, null, sourceEntry.getResourcename(), displayname,
+				sourceEntry.getDescription(), copyResource, RepositoryEntry.ACC_OWNERS);
+		
+		//copy all fields
+		copyEntry.setAuthors(sourceEntry.getAuthors());
+		copyEntry.setCredits(sourceEntry.getCredits());
+		copyEntry.setExpenditureOfWork(sourceEntry.getExpenditureOfWork());
+		copyEntry.setMainLanguage(sourceEntry.getMainLanguage());
+		copyEntry.setObjectives(sourceEntry.getObjectives());
+		copyEntry.setRequirements(sourceEntry.getRequirements());
+		copyEntry = dbInstance.getCurrentEntityManager().merge(copyEntry);
+	
+		RepositoryHandler handler = RepositoryHandlerFactory.getInstance().getRepositoryHandler(sourceEntry);
+		copyEntry = handler.copy(sourceEntry, copyEntry);
+		
+		
+		//copy the image
+		RepositoryManager.getInstance().copyImage(sourceEntry, copyEntry);
+
+		ThreadLocalUserActivityLogger.log(LearningResourceLoggingAction.LEARNING_RESOURCE_CREATE, getClass(),
+				LoggingResourceable.wrap(copyEntry, OlatResourceableType.genRepoEntry));
+		
+		
+		lifeIndexer.indexDocument(RepositoryEntryDocument.TYPE, copyEntry.getKey());
+		return copyEntry;
+	}
+
+	@Override
 	public RepositoryEntry update(RepositoryEntry re) {
 		re.setLastModified(new Date());
 		RepositoryEntry mergedRe = dbInstance.getCurrentEntityManager().merge(re);
@@ -192,7 +236,12 @@ public class RepositoryServiceImpl implements RepositoryService {
 	public RepositoryEntry loadByKey(Long key) {
 		return repositoryEntryDAO.loadByKey(key);
 	}
-	
+
+	@Override
+	public RepositoryEntry loadByResourceKey(Long resourceKey) {
+		return repositoryEntryDAO.loadByResourceKey(resourceKey);
+	}
+
 	@Override
 	public VFSLeaf getIntroductionImage(RepositoryEntry re) {
 		VFSContainer repositoryHome = new LocalFolderImpl(new File(FolderConfig.getCanonicalRepositoryHome()));
@@ -226,6 +275,7 @@ public class RepositoryServiceImpl implements RepositoryService {
 		return null;
 	}
 	
+	@Override
 	public ErrorList delete(RepositoryEntry entry, Identity identity, Roles roles, Locale locale) {
 		ErrorList errors = new ErrorList();
 		
@@ -242,18 +292,17 @@ public class RepositoryServiceImpl implements RepositoryService {
 			return errors;
 		}
 
-		// start transaction
-		// delete entry picture
-		
 		userCourseInformationsManager.deleteUserCourseInformations(entry);
+		certificatesManager.deleteRepositoryEntry(entry);
 		
 		// delete all bookmarks referencing deleted entry
 		CoreSpringFactory.getImpl(MarkManager.class).deleteMarks(entry);
 		// delete all catalog entries referencing deleted entry
-		CatalogManager.getInstance().resourceableDeleted(entry);
+		catalogManager.resourceableDeleted(entry);
 		
 		//delete all policies
 		securityManager.deletePolicies(resource);
+		dbInstance.commit();
 		
 		// inform handler to do any cleanup work... handler must delete the
 		// referenced resourceable a swell.
@@ -276,13 +325,20 @@ public class RepositoryServiceImpl implements RepositoryService {
 	public void deleteRepositoryEntryAndBaseGroups(RepositoryEntry entry) {
 		RepositoryEntry reloadedEntry = dbInstance.getCurrentEntityManager()
 				.getReference(RepositoryEntry.class, entry.getKey());
-		
+		Long resourceKey = reloadedEntry.getOlatResource().getKey();
+
 		Group defaultGroup = reToGroupDao.getDefaultGroup(reloadedEntry);
 		groupDao.removeMemberships(defaultGroup);
 		reToGroupDao.removeRelations(reloadedEntry);
 		dbInstance.commit();
 		dbInstance.getCurrentEntityManager().remove(reloadedEntry);
 		groupDao.removeGroup(defaultGroup);
+		dbInstance.commit();
+		
+		OLATResource reloadedResource = resourceManager.findResourceById(resourceKey);
+		if(reloadedResource != null) {
+			dbInstance.getCurrentEntityManager().remove(reloadedResource);
+		}
 		dbInstance.commit();
 	}
 
@@ -326,6 +382,35 @@ public class RepositoryServiceImpl implements RepositoryService {
 	}
 
 	@Override
+	public boolean isParticipantAllowedToLeave(RepositoryEntry re) {
+		boolean allowed = false;
+		RepositoryEntryAllowToLeaveOptions setting = re.getAllowToLeaveOption();
+		if(setting == RepositoryEntryAllowToLeaveOptions.atAnyTime) {
+			allowed = true;
+		} else if(setting == RepositoryEntryAllowToLeaveOptions.afterEndDate) {
+			RepositoryEntryLifecycle lifecycle = re.getLifecycle();
+			if(lifecycle == null || lifecycle.getValidTo() == null) {
+				allowed = false;
+			} else {
+				Calendar cal = Calendar.getInstance();
+				cal.set(Calendar.HOUR, 0);
+				cal.set(Calendar.MINUTE, 0);
+				cal.set(Calendar.SECOND, 0);
+				cal.set(Calendar.MILLISECOND, 0);
+				Date now = cal.getTime();
+				if(now.compareTo(lifecycle.getValidTo()) >= 0) {
+					allowed = true;
+				} else {
+					allowed = false;
+				}
+			}
+		} else {
+			allowed = false;
+		}
+		return allowed;
+	}
+
+	@Override
 	public boolean isMember(IdentityRef identity, RepositoryEntryRef entry) {
 		return reToGroupDao.isMember(identity, entry);
 	}
@@ -362,8 +447,13 @@ public class RepositoryServiceImpl implements RepositoryService {
 	}
 
 	@Override
-	public void removeMembers(RepositoryEntry re) {
-		// TODO Auto-generated method stub
+	public void removeMembers(RepositoryEntry re, String... roles) {
+		if(roles == null || roles.length == 0) return;
+		for(String role:roles) {
+			if(role != null) {
+				reToGroupDao.removeRole(re, role);
+			}
+		}
 	}
 
 	@Override

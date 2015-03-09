@@ -26,6 +26,10 @@
 		border-top: 1px solid transparent;
 	}
 	
+	.form-group.o_omit_margin {
+		margin-bottom: 0;
+	}
+	
 	/* date chooser */
 	.o_date  {
 		position: relative;
@@ -41,6 +45,14 @@
 	}
 	
 	.o_date.form-inline .o_date_ms.form-group {
+		margin-left: 25px;
+	}
+	
+	.has-feedback .o_date.form-inline .form-control.o_date_ms {
+		padding-right: 0;
+	}
+	
+	.o_form_element.form-inline .o_form_element.form-group {
 		margin-left: 25px;
 	}
 	

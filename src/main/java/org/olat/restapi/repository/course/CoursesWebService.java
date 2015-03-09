@@ -26,6 +26,7 @@ import static org.olat.restapi.security.RestSecurityHelper.isAuthor;
 
 import java.io.File;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
@@ -66,6 +67,8 @@ import org.olat.course.config.CourseConfig;
 import org.olat.course.nodes.CourseNode;
 import org.olat.course.tree.CourseEditorTreeNode;
 import org.olat.repository.RepositoryEntry;
+import org.olat.repository.RepositoryEntryAllowToLeaveOptions;
+import org.olat.repository.RepositoryEntryManagedFlag;
 import org.olat.repository.RepositoryManager;
 import org.olat.repository.RepositoryService;
 import org.olat.repository.handlers.RepositoryHandler;
@@ -132,8 +135,9 @@ public class CoursesWebService {
 	@Produces({MediaType.APPLICATION_XML, MediaType.APPLICATION_JSON})
 	public Response getCourseList(@QueryParam("start") @DefaultValue("0") Integer start,
 			@QueryParam("limit") @DefaultValue("25") Integer limit,
-			@QueryParam("managed") Boolean managed, @QueryParam("externalId") String externalId,
-			@QueryParam("externalRef") String externalRef,
+			@QueryParam("managed") Boolean managed,
+			@QueryParam("externalId") String externalId, @QueryParam("externalRef") String externalRef,
+			@QueryParam("repositoryEntryKey") String repositoryEntryKey,
 			@Context HttpServletRequest httpRequest, @Context Request request) {
 		RepositoryManager rm = RepositoryManager.getInstance();
 
@@ -141,11 +145,19 @@ public class CoursesWebService {
 		Identity identity = getIdentity(httpRequest);
 		SearchRepositoryEntryParameters params = new SearchRepositoryEntryParameters(identity, roles, CourseModule.getCourseTypeName());
 		params.setManaged(managed);
+		
 		if(StringHelper.containsNonWhitespace(externalId)) {
 			params.setExternalId(externalId);
 		}
 		if(StringHelper.containsNonWhitespace(externalRef)) {
 			params.setExternalRef(externalRef);
+		}
+		if(StringHelper.containsNonWhitespace(repositoryEntryKey) && StringHelper.isLong(repositoryEntryKey)) {
+			try {
+				params.setRepositoryEntryKeys(Collections.singletonList(new Long(repositoryEntryKey)));
+			} catch (NumberFormatException e) {
+				log.error("Cannot parse the following repository entry key: " + repositoryEntryKey);
+			}
 		}
 
 		if(MediaTypeVariants.isPaged(httpRequest, request)) {
@@ -274,7 +286,6 @@ public class CoursesWebService {
 	 * 
 	 * 
 	 * @param request
-	 * @param access
 	 * @return
 	 */
 	@POST
@@ -435,6 +446,8 @@ public class CoursesWebService {
 			} else {
 				preparedEntry.setAccess(access);
 			}
+			preparedEntry.setAllowToLeaveOption(src.getAllowToLeaveOption());
+
 			repositoryService.update(preparedEntry);
 			
 			// copy image if available
@@ -511,6 +524,11 @@ public class CoursesWebService {
 		addedEntry.setExternalId(externalId);
 		addedEntry.setExternalRef(externalRef);
 		addedEntry.setManagedFlagsString(managedFlags);
+		if(RepositoryEntryManagedFlag.isManaged(addedEntry, RepositoryEntryManagedFlag.membersmanagement)) {
+			addedEntry.setAllowToLeaveOption(RepositoryEntryAllowToLeaveOptions.never);
+		} else {
+			addedEntry.setAllowToLeaveOption(RepositoryEntryAllowToLeaveOptions.atAnyTime);//default
+		}
 		return addedEntry;//!!!no update at this point
 	}
 	
@@ -538,6 +556,22 @@ public class CoursesWebService {
 			if(StringHelper.containsNonWhitespace(courseConfigVO.getSharedFolderSoftKey())) {
 				courseConfig.setSharedFolderSoftkey(courseConfigVO.getSharedFolderSoftKey());
 			}
+			if(courseConfigVO.getCalendar() != null) {
+				courseConfig.setCalendarEnabled(courseConfigVO.getCalendar().booleanValue());
+			}
+			if(courseConfigVO.getChat() != null) {
+				courseConfig.setChatIsEnabled(courseConfigVO.getChat().booleanValue());
+			}
+			if(courseConfigVO.getEfficencyStatement() != null) {
+				courseConfig.setEfficencyStatementIsEnabled(courseConfigVO.getEfficencyStatement().booleanValue());
+			}
+			if(StringHelper.containsNonWhitespace(courseConfigVO.getCssLayoutRef())) {
+				courseConfig.setCssLayoutRef(courseConfigVO.getCssLayoutRef());
+			}
+			if(StringHelper.containsNonWhitespace(courseConfigVO.getGlossarySoftkey())) {
+				courseConfig.setGlossarySoftKey(courseConfigVO.getGlossarySoftkey());
+			}
+			CourseFactory.setCourseConfig(course.getResourceableId(), courseConfig);
 		}
 
 		CourseFactory.saveCourse(course.getResourceableId());

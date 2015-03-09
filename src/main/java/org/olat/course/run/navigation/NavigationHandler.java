@@ -36,6 +36,7 @@ import java.util.Set;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.tree.GenericTreeModel;
 import org.olat.core.gui.components.tree.GenericTreeNode;
+import org.olat.core.gui.components.tree.MenuTree;
 import org.olat.core.gui.components.tree.TreeEvent;
 import org.olat.core.gui.components.tree.TreeModel;
 import org.olat.core.gui.components.tree.TreeNode;
@@ -44,6 +45,7 @@ import org.olat.core.gui.control.ControllerEventListener;
 import org.olat.core.gui.control.Disposable;
 import org.olat.core.gui.control.WindowControl;
 import org.olat.core.gui.control.generic.messages.MessageUIFactory;
+import org.olat.core.gui.control.generic.title.TitledWrapperController;
 import org.olat.core.gui.translator.Translator;
 import org.olat.core.id.OLATResourceable;
 import org.olat.core.id.context.BusinessControlFactory;
@@ -68,6 +70,7 @@ import org.olat.course.nodes.STCourseNode;
 import org.olat.course.nodes.cp.CPRunController;
 import org.olat.course.run.userview.NodeEvaluation;
 import org.olat.course.run.userview.TreeEvaluation;
+import org.olat.course.run.userview.TreeFilter;
 import org.olat.course.run.userview.UserCourseEnvironment;
 import org.olat.util.logging.activity.LoggingResourceable;
 
@@ -88,6 +91,7 @@ public class NavigationHandler implements Disposable {
 	private final boolean previewMode;
 	
 	private String selectedCourseNodeId;
+	private TreeFilter filter;
 	private Set<String> openCourseNodeIds = new HashSet<String>();
 	private List<String> openTreeNodeIds = new ArrayList<String>();
 	private Map<String,SubTree> externalTreeModels = new HashMap<String,SubTree>();
@@ -96,9 +100,10 @@ public class NavigationHandler implements Disposable {
 	 * @param userCourseEnv
 	 * @param previewMode
 	 */
-	public NavigationHandler(UserCourseEnvironment userCourseEnv, boolean previewMode) {
+	public NavigationHandler(UserCourseEnvironment userCourseEnv, TreeFilter filter, boolean previewMode) {
 		this.userCourseEnv = userCourseEnv;
 		this.previewMode = previewMode;
+		this.filter = filter;
 	}
 
 	/**
@@ -141,7 +146,7 @@ public class NavigationHandler implements Disposable {
 		String treeNodeId = treeEvent.getNodeId();
 		TreeNode selTN = treeModel.getNodeById(treeNodeId);
 		if (selTN == null) {
-			throw new AssertException("no treenode found:" + treeNodeId);
+			selTN = treeModel.getRootNode();
 		}
 
 		// check if appropriate for subtreemodelhandler
@@ -186,6 +191,10 @@ public class NavigationHandler implements Disposable {
 				internCourseNode = prevEval.getCourseNode();
 				SubTree subTree = externalTreeModels.get(internCourseNode.getIdent());
 				subtreemodelListener = subTree.getTreeModelListener();
+				
+				if (currentNodeController instanceof TitledWrapperController) {
+					currentNodeController = ((TitledWrapperController)currentNodeController).getContentController();
+				}
 				if(subtreemodelListener != currentNodeController) {
 					if(subtreemodelListener instanceof CPRunController) {
 						nrcr =  ((CPRunController)subtreemodelListener).createNodeRunConstructionResult(ureq);
@@ -205,12 +214,17 @@ public class NavigationHandler implements Disposable {
 
 			boolean dispatch = true;
 			if(userObject instanceof String) {
-				if(TreeEvent.COMMAND_TREENODE_OPEN.equals(treeEvent.getSubCommand())) {
+				if(MenuTree.COMMAND_TREENODE_CLICKED.equals(treeEvent.getCommand()) && treeEvent.getSubCommand() == null) {
+					openCourseNodeIds.add((String)userObject);
+					openTreeNodeIds.add((String)userObject);
+				} else if(TreeEvent.COMMAND_TREENODE_OPEN.equals(treeEvent.getSubCommand())) {
 					openCourseNodeIds.add((String)userObject);
 					openTreeNodeIds.add((String)userObject);
 					dispatch = false;
 				} else if(TreeEvent.COMMAND_TREENODE_CLOSE.equals(treeEvent.getSubCommand())) {
 					removeChildrenFromOpenNodes(selTN);
+					openCourseNodeIds.remove(userObject);
+					openTreeNodeIds.remove(userObject);
 					dispatch = false;
 				}
 			}
@@ -255,7 +269,7 @@ public class NavigationHandler implements Disposable {
 		TreeEvaluation treeEval = new TreeEvaluation();
 		GenericTreeModel treeModel = new GenericTreeModel();
 		CourseNode rootCn = userCourseEnv.getCourseEnvironment().getRunStructure().getRootNode();
-		NodeEvaluation rootNodeEval = rootCn.eval(userCourseEnv.getConditionInterpreter(), treeEval);
+		NodeEvaluation rootNodeEval = rootCn.eval(userCourseEnv.getConditionInterpreter(), treeEval, filter);
 		TreeNode treeRoot = rootNodeEval.getTreeNode();
 		treeModel.setRootNode(treeRoot);
 		
@@ -301,7 +315,7 @@ public class NavigationHandler implements Disposable {
 		TreeEvaluation treeEval = new TreeEvaluation();
 		GenericTreeModel treeModel = new GenericTreeModel();
 		CourseNode rootCn = userCourseEnv.getCourseEnvironment().getRunStructure().getRootNode();
-		NodeEvaluation rootNodeEval = rootCn.eval(userCourseEnv.getConditionInterpreter(), treeEval);
+		NodeEvaluation rootNodeEval = rootCn.eval(userCourseEnv.getConditionInterpreter(), treeEval, filter);
 		TreeNode treeRoot = rootNodeEval.getTreeNode();
 		treeModel.setRootNode(treeRoot);
 
@@ -384,9 +398,11 @@ public class NavigationHandler implements Disposable {
 						child = courseNode.getChildAt(i);
 						if (child instanceof CourseNode) {
 							CourseNode cn = (CourseNode) child;
-							NodeEvaluation cnEval = cn.eval(userCourseEnv.getConditionInterpreter(), treeEval);
-							if (cnEval.isVisible()) return this.doEvaluateJumpTo(ureq, wControl, cn, listeningController, nodecmd, nodeSubCmd,
+							NodeEvaluation cnEval = cn.eval(userCourseEnv.getConditionInterpreter(), treeEval, filter);
+							if (cnEval.isVisible()) {
+								return doEvaluateJumpTo(ureq, wControl, cn, listeningController, nodecmd, nodeSubCmd,
 									currentNodeController);
+							}
 						}
 					}
 				}
@@ -415,8 +431,12 @@ public class NavigationHandler implements Disposable {
 						GenericTreeModel subTreeModel = (GenericTreeModel)ncr.getSubTreeModel();
 						externalTreeModels.put(courseNode.getIdent(), new SubTree(ncr.getRunController(), subTreeModel, subtreemodelListener));
 						if(!newSelectedNodeId.equals(ncr.getSelectedTreeNodeId())) {
-							TreeNode selectedNode = subTreeModel.getNodeById(ncr.getSelectedTreeNodeId());
-							openCourseNodeIds.add((String)selectedNode.getUserObject());
+							if(ncr.getSelectedTreeNodeId() != null) {
+								TreeNode selectedNode = subTreeModel.getNodeById(ncr.getSelectedTreeNodeId());
+								if(selectedNode != null && selectedNode.getUserObject() instanceof String) {
+									openCourseNodeIds.add((String)selectedNode.getUserObject());
+								}
+							}
 						}
 					}
 				}
@@ -437,6 +457,12 @@ public class NavigationHandler implements Disposable {
 					//add the selected node to the open one, if not, strange behaviour
 					selectedCourseNodeId = courseNode.getIdent();
 					openCourseNodeIds.add(selectedCourseNodeId);
+					if(ncr != null) {
+						String subNodeId = ncr.getSelectedTreeNodeId();
+						if(subNodeId != null) {
+							openCourseNodeIds.add(subNodeId);
+						}
+					}
 				}
 				
 				openTreeNodeIds = convertToTreeNodeIds(treeEval, openCourseNodeIds);

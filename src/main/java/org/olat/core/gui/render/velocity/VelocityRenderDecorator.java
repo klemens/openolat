@@ -29,12 +29,12 @@ package org.olat.core.gui.render.velocity;
 import java.io.Closeable;
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.Collection;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.Set;
 import java.util.UUID;
 
 import org.apache.commons.io.IOUtils;
@@ -53,6 +53,7 @@ import org.olat.core.helpers.Settings;
 import org.olat.core.logging.OLog;
 import org.olat.core.logging.Tracing;
 import org.olat.core.util.ArrayHelper;
+import org.olat.core.util.CodeHelper;
 import org.olat.core.util.Formatter;
 import org.olat.core.util.StringHelper;
 import org.olat.core.util.filter.Filter;
@@ -108,6 +109,10 @@ public class VelocityRenderDecorator implements Closeable {
 		StringOutput sb = StringOutputPool.allocStringBuilder(24);
 		sb.append("o_s").append(prefix).append(vc.getDispatchID());
 		return StringOutputPool.freePop(sb);
+	}
+	
+	public String getUniqueId() {
+		return Long.toString(CodeHelper.getRAMUniqueID());
 	}
 
 	/**
@@ -676,6 +681,10 @@ public class VelocityRenderDecorator implements Closeable {
 		return vc.getContext().get(key);
 	}
 	
+	public boolean absent(String key) {
+		return !vc.getContext().containsKey(key);
+	}
+	
 	public String formatDate(Date date){
 		Formatter f = Formatter.getInstance(renderer.getTranslator().getLocale());
 		return f.formatDate(date);
@@ -769,7 +778,7 @@ public class VelocityRenderDecorator implements Closeable {
 	
 	public Languages getLanguages() {
 		I18nManager i18nMgr = I18nManager.getInstance();
-		Set<String> enabledKeysSet = I18nModule.getEnabledLanguageKeys();
+		Collection<String> enabledKeysSet = I18nModule.getEnabledLanguageKeys();
 		Map<String, String> langNames = new HashMap<String, String>();
 		Map<String, String> langTranslators = new HashMap<String, String>();
 		String[] enabledKeys = ArrayHelper.toArray(enabledKeysSet);

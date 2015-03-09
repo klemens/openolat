@@ -93,7 +93,7 @@ public class GroupsAndRightsController extends FormBasicController {
 
 		List<BGRightsOption> groupRights = loadModel();
 		tableDataModel = new GroupsAndRightsDataModel(groupRights, tableColumnModel);
-		uifactory.addTableElement(getWindowControl(), "rightList", tableDataModel, formLayout);
+		uifactory.addTableElement(getWindowControl(), "rightList", tableDataModel, getTranslator(), formLayout);
 		
 		FormLayoutContainer buttonsLayout = FormLayoutContainer.createButtonLayout("buttons", getTranslator());
 		buttonsLayout.setRootForm(mainForm);
@@ -148,7 +148,7 @@ public class GroupsAndRightsController extends FormBasicController {
 	
 	private MultipleSelectionElement createSelection(boolean selected) {
 		String name = "cb" + UUID.randomUUID().toString().replace("-", "");
-		MultipleSelectionElement selection = new MultipleSelectionElementImpl(name, Layout.vertical);
+		MultipleSelectionElement selection = new MultipleSelectionElementImpl(name, Layout.horizontal);
 		selection.setKeysAndValues(keys, values);
 		flc.add(name, selection);
 		selection.select(keys[0], selected);

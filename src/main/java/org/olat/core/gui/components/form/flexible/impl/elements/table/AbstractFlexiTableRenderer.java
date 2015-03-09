@@ -320,8 +320,8 @@ public abstract class AbstractFlexiTableRenderer extends DefaultComponentRendere
 			sb.append("</div></div>");
 		}
 		
-		if(ftE.getPageSize() > 0) {
-			renderPagesLinks(sb, ftC);
+		if(ftE.getDefaultPageSize() > 0) {
+			renderPagesLinks(sb, ftC, translator);
 		}
 	}
 	
@@ -353,52 +353,105 @@ public abstract class AbstractFlexiTableRenderer extends DefaultComponentRendere
 			int row, URLBuilder ubu, Translator translator, RenderResult renderResult);
 
 
-	private void renderPagesLinks(StringOutput sb, FlexiTableComponent ftC) {
+	private void renderPagesLinks(StringOutput sb, FlexiTableComponent ftC, Translator translator) {
 		FlexiTableElementImpl ftE = ftC.getFlexiTableElement();
 		int pageSize = ftE.getPageSize();
 		FlexiTableDataModel<?> dataModel = ftE.getTableDataModel();
 		int rows = dataModel.getRowCount();
-		
-		if(pageSize > 0 && rows > pageSize) {
-			sb.append("<ul class='pagination'>");
 
+		if (rows > 20) {
+			renderPageSize(sb, ftC, translator);
+		}
+
+		sb.append("<ul class='pagination'>");
+		if(pageSize > 0 && rows > pageSize) {
 			int page = ftE.getPage();
 			int maxPage = (int)Math.ceil(((double) rows / (double) pageSize));
-	
 			renderPageBackLink(sb, ftC, page);
 			renderPageNumberLinks(sb, ftC, page, maxPage);
 			renderPageNextLink(sb, ftC, page, maxPage);
-
-			sb.append("</ul>");
 		}
+		sb.append("</ul>");
+	}
+	
+	private void renderPageSize(StringOutput sb, FlexiTableComponent ftC, Translator translator) {
+		FlexiTableElementImpl ftE = ftC.getFlexiTableElement();
+		FlexiTableDataModel<?> dataModel = ftE.getTableDataModel();
+		
+		Form theForm = ftE.getRootForm();
+		String dispatchId = ftE.getFormDispatchId();
+		
+		int pageSize = ftE.getPageSize();
+		int firstRow = ftE.getFirstRow();
+		int maxRows = ftE.getMaxRows();
+		int rows = dataModel.getRowCount();
+		int lastRow = Math.min(rows, firstRow + maxRows);
+		
+		sb.append("<div class='o_table_rows_infos'>");
+		sb.append(translator.translate("page.size.a", new String[] {
+				Integer.toString(firstRow + 1),//for humans
+				Integer.toString(lastRow),
+				Integer.toString(rows)
+		  }))
+		  .append(" ");
+		
+		sb.append("<div class='btn-group dropup'><button type='button' class='btn btn-default dropdown-toggle' data-toggle='dropdown' aria-expanded='false'>")
+	      .append(" <span>");
+		if(pageSize < 0) {
+			sb.append(translator.translate("show.all"));
+		} else {
+			sb.append(Integer.toString(pageSize));
+		}
+		
+		sb.append("</span> <span class='caret'></span></button>")
+	      .append("<ul class='dropdown-menu' role='menu'>");
+		
+		int[] sizes = new int[]{ 20, 50, 100, 250 };
+		for(int size:sizes) {
+			sb.append("<li><a href=\"javascript:")
+			  .append(FormJSHelper.getXHRFnCallFor(theForm, dispatchId, 1,
+					  new NameValuePair("pagesize", Integer.toString(size))))
+			  .append("\"  onclick=\"return o2cl();\">").append(Integer.toString(size)).append("</a></li>");
+		}
+		
+		if(ftE.isShowAllRowsEnabled()) {
+			sb.append("<li><a href=\"javascript:")
+			  .append(FormJSHelper.getXHRFnCallFor(theForm, dispatchId, 1,
+					  new NameValuePair("pagesize", "all")))
+			  .append("\" onclick=\"return o2cl();\">").append(translator.translate("show.all")).append("</a></li>");
+		}
+		  
+		sb.append("</ul></div>")
+		  .append(" ").append(translator.translate("page.size.b"))
+		  .append("</div> ");
 	}
 	
 	private void renderPageBackLink(StringOutput sb, FlexiTableComponent ftC, int page) {
 		boolean disabled = (page <= 0);
 		FlexiTableElementImpl ftE = ftC.getFlexiTableElement();
 		Form theForm = ftE.getRootForm();
-		sb.append("<li").append(" class='disabled'", disabled).append("><a href='");
+		sb.append("<li").append(" class='disabled'", disabled).append("><a href=\"");
 		if(disabled) {
 			sb.append("#");
 		} else {
 			sb.append("javascript:")
 			  .append(FormJSHelper.getXHRFnCallFor(theForm, ftC.getFormDispatchId(), 1, new NameValuePair("page", Integer.toString(page - 1))));
 		}
-		sb.append("'>").append("&laquo;").append("</a></li>");
+		sb.append("\">").append("&laquo;").append("</a></li>");
 	}
 	
 	private void renderPageNextLink(StringOutput sb, FlexiTableComponent ftC, int page, int maxPage) {
 		boolean disabled = (page >= maxPage);
 		FlexiTableElementImpl ftE = ftC.getFlexiTableElement();
 		Form theForm = ftE.getRootForm();
-		sb.append("<li ").append(" class='disabled'", disabled).append("><a href='");
+		sb.append("<li ").append(" class='disabled'", disabled).append("><a href=\"");
 		if(disabled) {
 			sb.append("#");
 		} else {
 			sb.append("javascript:")
 			  .append(FormJSHelper.getXHRFnCallFor(theForm, ftC.getFormDispatchId(), 1, new NameValuePair("page", Integer.toString(page + 1)))); 
 		}
-		sb.append("'>").append("&raquo;").append("</li></a>");
+		sb.append("\">").append("&raquo;").append("</li></a>");
 	}
 	
 	private void renderPageNumberLinks(StringOutput sb, FlexiTableComponent ftC, int page, int maxPage) {

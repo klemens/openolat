@@ -26,6 +26,7 @@ import org.olat.NewControllerFactory;
 import org.olat.core.CoreSpringFactory;
 import org.olat.core.commons.fullWebApp.LayoutMain3ColsController;
 import org.olat.core.gui.UserRequest;
+import org.olat.core.gui.components.Component;
 import org.olat.core.gui.components.form.flexible.FormItem;
 import org.olat.core.gui.components.form.flexible.FormItemContainer;
 import org.olat.core.gui.components.form.flexible.elements.FormLink;
@@ -33,6 +34,7 @@ import org.olat.core.gui.components.form.flexible.impl.FormEvent;
 import org.olat.core.gui.components.link.Link;
 import org.olat.core.gui.components.stack.BreadcrumbPanel;
 import org.olat.core.gui.components.stack.BreadcrumbPanelAware;
+import org.olat.core.gui.components.stack.PopEvent;
 import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.Event;
 import org.olat.core.gui.control.WindowControl;
@@ -54,6 +56,9 @@ import org.olat.group.ui.main.SelectBusinessGroupController;
 import org.olat.ims.qti.fileresource.SurveyFileResource;
 import org.olat.ims.qti.fileresource.TestFileResource;
 import org.olat.ims.qti.qpool.QTIQPoolServiceProvider;
+import org.olat.ims.qti.questionimport.ItemAndMetadata;
+import org.olat.ims.qti.questionimport.ItemsPackage;
+import org.olat.ims.qti.questionimport.QImport_1_InputStep;
 import org.olat.modules.qpool.ExportFormatOptions;
 import org.olat.modules.qpool.Pool;
 import org.olat.modules.qpool.QItemFactory;
@@ -65,6 +70,7 @@ import org.olat.modules.qpool.model.QItemDocument;
 import org.olat.modules.qpool.model.QItemList;
 import org.olat.modules.qpool.ui.events.QItemChangeEvent;
 import org.olat.modules.qpool.ui.events.QItemCreationCmdEvent;
+import org.olat.modules.qpool.ui.events.QItemEdited;
 import org.olat.modules.qpool.ui.events.QItemEvent;
 import org.olat.modules.qpool.ui.events.QPoolEvent;
 import org.olat.modules.qpool.ui.events.QPoolSelectionEvent;
@@ -110,6 +116,7 @@ public class QuestionListController extends AbstractItemListController implement
 	private CollectionListController chooseCollectionCtrl;
 	private StepsMainRunController exportWizard;
 	private StepsMainRunController importAuthorsWizard;
+	private StepsMainRunController excelImportWizard;
 	private ImportController importItemCtrl;
 	private CollectionTargetController listTargetCtrl;
 	private ShareTargetController shareTargetCtrl;
@@ -123,6 +130,8 @@ public class QuestionListController extends AbstractItemListController implement
 	private ReferencableEntriesSearchController importTestCtrl;
 	
 	private QuestionItemCollection itemCollection;
+	
+	private boolean itemCollectionDirty = false;
 
 	@Autowired
 	private LifeFullIndexer lifeFullIndexer;
@@ -165,6 +174,9 @@ public class QuestionListController extends AbstractItemListController implement
 	@Override
 	public void setBreadcrumbPanel(BreadcrumbPanel stackPanel) {
 		this.stackPanel = stackPanel;
+		if(stackPanel != null) {
+			stackPanel.addListener(this);
+		}
 	}
 
 	@Override
@@ -227,6 +239,22 @@ public class QuestionListController extends AbstractItemListController implement
 	}
 
 	@Override
+	public void event(UserRequest ureq, Component source, Event event) {
+		if(source == stackPanel) {
+			if(itemCollectionDirty && event instanceof PopEvent) {
+				PopEvent pe = (PopEvent)event;
+				Controller mainCtrl = pe.getController();
+				if(mainCtrl != null && mainCtrl.isControllerListeningTo(this)) {
+					reloadData();
+					itemCollectionDirty = false;
+				}
+			}
+		} else {
+			super.event(ureq, source, event);
+		}
+	}
+
+	@Override
 	protected void event(UserRequest ureq, Controller source, Event event) {
 		if(source == shareTargetCtrl) {
 			List<QuestionItemShort> items = getSelectedShortItems(false);
@@ -255,6 +283,8 @@ public class QuestionListController extends AbstractItemListController implement
 				doOpenFileImport(ureq);
 			} else if(ImportSourcesController.IMPORT_REPO.equals(event.getCommand())) {
 				doOpenRepositoryImport(ureq);
+			} else if(ImportSourcesController.IMPORT_EXCEL.equals(event.getCommand())) {
+				doOpenExcelImport(ureq);
 			}
 		} else if(source == newItemOptionsCtrl) {
 			cmc.deactivate();
@@ -327,6 +357,12 @@ public class QuestionListController extends AbstractItemListController implement
 					doExecuteExport(ureq, runContext);
 				}
 			}
+		} else if(source == excelImportWizard) {
+			if(event == Event.CANCELLED_EVENT || event == Event.DONE_EVENT || event == Event.CHANGED_EVENT) {
+				getWindowControl().pop();
+				removeAsListenerAndDispose(excelImportWizard);
+				excelImportWizard = null;
+			}
 		} else if(source == importAuthorsWizard) {
 			if(event == Event.CANCELLED_EVENT || event == Event.DONE_EVENT || event == Event.CHANGED_EVENT) {
 				getWindowControl().pop();
@@ -382,6 +418,8 @@ public class QuestionListController extends AbstractItemListController implement
 				} else if("next".equals(qce.getCommand())) {
 					doNext(ureq, qce.getItem());
 				}
+			} else if(event instanceof QItemEdited) {
+				itemCollectionDirty = true;
 			} else if (event instanceof QPoolEvent) {
 				QPoolEvent qce = (QPoolEvent)event;
 				if(QPoolEvent.ITEM_DELETED.equals(qce.getCommand())) {
@@ -558,6 +596,32 @@ public class QuestionListController extends AbstractItemListController implement
 		cmc.setContextHelp(ureq, "org.olat.modules.qpool.ui", "import-repo.html", "help.hover.importrepo");
 		cmc.activate();
 		listenTo(cmc);
+	}
+	
+	private void doOpenExcelImport(UserRequest ureq) {
+		removeAsListenerAndDispose(excelImportWizard);
+		
+		final ItemsPackage importPackage = new ItemsPackage();
+		Step start = new QImport_1_InputStep(ureq, importPackage);
+		StepRunnerCallback finish = new StepRunnerCallback() {
+			@Override
+			public Step execute(UserRequest uureq, WindowControl wControl, StepsRunContext runContext) {
+				List<ItemAndMetadata> itemsToImport = importPackage.getItems();
+				QTIQPoolServiceProvider spi
+					= (QTIQPoolServiceProvider)CoreSpringFactory.getBean("qtiPoolServiceProvider");
+				List<QuestionItem> importItems = spi.importBeecomItem(getIdentity(), itemsToImport, getLocale());
+				int postImported = getSource().postImport(importItems);
+				if(postImported > 0) {
+					getItemsTable().reset();
+				}
+				return StepsMainRunController.DONE_MODIFIED;
+			}
+		};
+		
+		excelImportWizard = new StepsMainRunController(ureq, getWindowControl(), start, finish, null,
+				translate("import.excellike"), "o_sel_qpool_excel_import_wizard");
+		listenTo(excelImportWizard);
+		getWindowControl().pushAsModalDialog(excelImportWizard.getInitialComponent());
 	}
 	
 	protected void doList(UserRequest ureq) {

@@ -69,6 +69,7 @@ import org.olat.core.id.Identity;
 import org.olat.core.id.OLATResourceable;
 import org.olat.core.id.Roles;
 import org.olat.core.id.UserConstants;
+import org.olat.core.util.StringHelper;
 import org.olat.course.CourseFactory;
 import org.olat.course.ICourse;
 import org.olat.course.nodes.CheckListCourseNode;
@@ -230,7 +231,7 @@ public class CheckListAssessmentController extends FormBasicController implement
 			int colIndex = CheckListAssessmentDataModel.CHECKBOX_OFFSET + j++;
 			String colName = "checkbox_" + colIndex;
 			DefaultFlexiColumnModel column = new DefaultFlexiColumnModel(true, colName, colIndex, true, colName);
-			column.setHeaderLabel(box.getTitle());
+			column.setHeaderLabel(StringHelper.escapeHtml(box.getTitle()));
 			columnsModel.addFlexiColumnModel(column);
 		}
 
@@ -249,7 +250,8 @@ public class CheckListAssessmentController extends FormBasicController implement
 			filters.add(new FlexiTableFilter(translate("filter.all"), "all"));
 			for(int k=0; k<coachedGroups.size(); k++) {
 				BusinessGroup group = coachedGroups.get(k);
-				filters.add(new FlexiTableFilter(group.getName(), group.getKey().toString()));
+				String groupName = StringHelper.escapeHtml(group.getName());
+				filters.add(new FlexiTableFilter(groupName, group.getKey().toString()));
 			}
 			table.setFilters("participants", filters);
 		}
@@ -291,15 +293,16 @@ public class CheckListAssessmentController extends FormBasicController implement
 		if(courseTutor || courseAdmin) {
 			List<RepositoryEntryMembership> repoMemberships = repositoryManager.getRepositoryEntryMembership(re);
 			for(RepositoryEntryMembership repoMembership:repoMemberships) {
-				if(repoMembership.isParticipant()) continue;
-				missingIdentityKeys.add(repoMembership.getIdentityKey());
+				if(repoMembership.isParticipant()) {
+					missingIdentityKeys.add(repoMembership.getIdentityKey());
+				}
 			}
 		}
 
 		List<BusinessGroup> coachedGroups = courseAdmin ?
 				userCourseEnv.getCourseEnvironment().getCourseGroupManager().getAllBusinessGroups()
 				: env.getCoachedGroups();
-		List<AssessmentData> dataList = checkboxManager.getAssessmentDatas(courseOres, courseNode.getIdent(), courseTutor ? re : null, coachedGroups);
+		List<AssessmentData> dataList = checkboxManager.getAssessmentDatas(courseOres, courseNode.getIdent(), courseTutor || courseAdmin ? re : null, coachedGroups);
 		List<CheckListAssessmentRow> boxList = getAssessmentDataViews(dataList, checkboxColl);
 		Map<Long,CheckListAssessmentRow> identityToView = new HashMap<>();
 		for(CheckListAssessmentRow box:boxList) {

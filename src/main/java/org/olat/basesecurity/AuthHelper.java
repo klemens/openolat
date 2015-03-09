@@ -27,17 +27,18 @@ package org.olat.basesecurity;
 
 import java.net.InetAddress;
 import java.net.UnknownHostException;
+import java.util.Collection;
+import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.Set;
 
 import javax.servlet.http.Cookie;
 import javax.servlet.http.HttpSession;
 
 import org.olat.basesecurity.manager.GroupDAO;
-import org.olat.commons.rss.RSSUtil;
 import org.olat.core.CoreSpringFactory;
 import org.olat.core.commons.fullWebApp.BaseFullWebappController;
 import org.olat.core.commons.fullWebApp.BaseFullWebappControllerParts;
@@ -53,7 +54,6 @@ import org.olat.core.gui.render.StringOutput;
 import org.olat.core.gui.render.URLBuilder;
 import org.olat.core.id.Identity;
 import org.olat.core.id.Roles;
-import org.olat.core.id.User;
 import org.olat.core.id.UserConstants;
 import org.olat.core.logging.AssertException;
 import org.olat.core.logging.OLog;
@@ -66,6 +66,10 @@ import org.olat.core.util.WebappHelper;
 import org.olat.core.util.i18n.I18nManager;
 import org.olat.core.util.i18n.I18nModule;
 import org.olat.core.util.session.UserSessionManager;
+import org.olat.course.assessment.AssessmentMode;
+import org.olat.course.assessment.AssessmentModeManager;
+import org.olat.course.assessment.AssessmentModule;
+import org.olat.course.assessment.model.TransientAssessmentMode;
 import org.olat.login.AuthBFWCParts;
 import org.olat.login.GuestBFWCParts;
 import org.olat.portfolio.manager.InvitationDAO;
@@ -210,7 +214,7 @@ public class AuthHelper {
 	 * @return true if login was successful, false otherwise
 	 */
 	public static int doAnonymousLogin(UserRequest ureq, Locale locale) {
-		Set<String> supportedLanguages = I18nModule.getEnabledLanguageKeys();
+		Collection<String> supportedLanguages = I18nModule.getEnabledLanguageKeys();
 		if ( locale == null || ! supportedLanguages.contains(locale.toString()) ) {
 			locale = I18nModule.getDefaultLocale();
 		} 
@@ -257,7 +261,7 @@ public class AuthHelper {
 			}
 		}
 		
-		Set<String> supportedLanguages = I18nModule.getEnabledLanguageKeys();
+		Collection<String> supportedLanguages = I18nModule.getEnabledLanguageKeys();
 		if ( locale == null || ! supportedLanguages.contains(locale.toString()) ) {
 			locale = I18nModule.getDefaultLocale();
 		} 
@@ -304,15 +308,26 @@ public class AuthHelper {
 			return LOGIN_NOTAVAILABLE;
 		}
 		
-		// set authprovider
-		//usess.getIdentityEnvironment().setAuthProvider(authProvider);
+		//need to block the all things for assessment?
+		if(usess.getRoles() != null && usess.getRoles().isOLATAdmin()) {
+			usess.setAssessmentModes(Collections.<TransientAssessmentMode>emptyList());
+		} else {
+			AssessmentModule assessmentModule = CoreSpringFactory.getImpl(AssessmentModule.class);
+			if(assessmentModule.isAssessmentModeEnabled()) {
+				AssessmentModeManager assessmentManager = CoreSpringFactory.getImpl(AssessmentModeManager.class);
+				List<AssessmentMode> modes = assessmentManager.getAssessmentModeFor(identity);
+				if(modes.isEmpty()) {
+					usess.setAssessmentModes(Collections.<TransientAssessmentMode>emptyList());
+				} else {
+					usess.setAssessmentModes(TransientAssessmentMode.create(modes));
+				}
+			}
+		}
 		
 		//set the language
 		usess.setLocale( I18nManager.getInstance().getLocaleOrDefault(identity.getUser().getPreferences().getLanguage()) );
 		// update fontsize in users session globalsettings
 		Windows.getWindows(ureq).getWindowManager().setFontSize(Integer.parseInt(identity.getUser().getPreferences().getFontsize() ));		
-		// put users personal rss token into session
-		RSSUtil.putPersonalRssTokenInSession(ureq);
 		// calculate session info and attach it to the user session
 		setSessionInfoFor(identity, authProvider, ureq, rest);
 		//confirm signedOn
@@ -325,67 +340,6 @@ public class AuthHelper {
 	}
 
 	/**
-	 * Persists the given user and creates an identity for it
-	 * 
-	 * @param loginName
-	 * @param pwd null: no OLAT authentication is generated. If not null, the password will be 
-	 * encrypted and and an OLAT authentication is generated.
-	 * @param newUser unpersisted user
-	 * @return Identity
-	 */
-	private static Identity createAndPersistIdentityAndUser(String loginName, String pwd, User newUser) {
-		Identity ident = null;
-		if (pwd == null) {
-			// when no password is used the provider must be set to null to not generate
-			// an OLAT authentication token. See method doku.
-			ident = BaseSecurityManager.getInstance().createAndPersistIdentityAndUser(loginName, newUser, null, null);
- 		} else {
-			ident = BaseSecurityManager.getInstance().createAndPersistIdentityAndUser(loginName, newUser,
-			BaseSecurityModule.getDefaultAuthProviderIdentifier(), loginName, pwd);
-		}
-		// TODO: Tracing message
-		return ident;
-	}
-
-	/**
-	 * Persists the given user, creates an identity for it and adds the user to
-	 * the users system group
-	 * 
-	 * @param loginName
-	 * @param pwd null: no OLAT authentication is generated. If not null, the password will be 
-	 * encrypted and and an OLAT authentication is generated.
-	 * @param newUser unpersisted users
-	 * @return Identity
-	 */
-	public static Identity createAndPersistIdentityAndUserWithUserGroup(String loginName, String pwd,  User newUser) {
-		Identity ident = createAndPersistIdentityAndUser(loginName, pwd, newUser);
-		// Add user to system users group
-		BaseSecurity securityManager = BaseSecurityManager.getInstance();
-		SecurityGroup olatuserGroup = securityManager.findSecurityGroupByName(Constants.GROUP_OLATUSERS);
-		securityManager.addIdentityToSecurityGroup(ident, olatuserGroup);
-		return ident;
-	}
-	
-	/**
-	 * Persists the given user, creates an identity for it and adds the user to
-	 * the users system group, create an authentication for an external provider
-	 * 
-	 * @param loginName
-	 * @param provider
-	 * @param authusername
-	 * @param newUser
-	 * @return
-	 */
-	public static Identity createAndPersistIdentityAndUserWithUserGroup(String loginName, String provider, String authusername, User newUser) {
-		BaseSecurity securityManager = BaseSecurityManager.getInstance();
-		Identity ident = securityManager.createAndPersistIdentityAndUser(loginName, newUser, provider, authusername, null);
-		// Add user to system users group
-		SecurityGroup olatuserGroup = securityManager.findSecurityGroupByName(Constants.GROUP_OLATUSERS);
-		securityManager.addIdentityToSecurityGroup(ident, olatuserGroup);
-		return ident;
-	}
-
-	/**
 	 * This is a convenience method to log out. IMPORTANT: This method initiates a
 	 * redirect and RETURN. Make sure you return the call hierarchy gracefully.
 	 * Most of all, don't touch HttpServletRequest or the Session after you call
@@ -394,14 +348,16 @@ public class AuthHelper {
 	 * @param ureq
 	 */
 	public static void doLogout(UserRequest ureq) {
-		//clear session settings of replayable urls / load performance mode 
-		//XX:GUIInterna.setLoadPerformanceMode(null);
-		Boolean wasGuest = ureq.getUserSession().getRoles().isGuestOnly();
+		if(ureq == null) return;
+
+		boolean wasGuest = false;
+		UserSession usess = ureq.getUserSession();
+		if(usess != null && usess.getRoles() != null) {
+			wasGuest = ureq.getUserSession().getRoles().isGuestOnly();
+		}
+		
 		String lang = I18nManager.getInstance().getLocaleKey(ureq.getLocale());
 		HttpSession session = ureq.getHttpReq().getSession(false);
-		//session.removeAttribute(SessionListener.SESSIONLISTENER_KEY);
-		//TODO: i assume tomcat, after s.invalidate(), lets the GC do the work
-		// if not, then do a s.removeAttribute....
 		// next line fires a valueunbound event to UserSession, which does some
 		// stuff on logout
 		if (session != null) {

@@ -126,7 +126,7 @@ public class JunitTestHelper {
 		SecurityGroup group = securityManager.findSecurityGroupByName(Constants.GROUP_OLATUSERS);
 		if (group == null) group = securityManager.createAndPersistNamedSecurityGroup(Constants.GROUP_OLATUSERS);
 		User user = UserManager.getInstance().createUser("first" + login, "last" + login, login + "@" + maildomain);
-		identity = securityManager.createAndPersistIdentityAndUser(login, user, BaseSecurityModule.getDefaultAuthProviderIdentifier(), login, PWD);
+		identity = securityManager.createAndPersistIdentityAndUser(login, null, user, BaseSecurityModule.getDefaultAuthProviderIdentifier(), login, PWD);
 		securityManager.addIdentityToSecurityGroup(identity, group);
 		return identity;
 	}
@@ -143,7 +143,7 @@ public class JunitTestHelper {
 		SecurityGroup group = securityManager.findSecurityGroupByName(Constants.GROUP_AUTHORS);
 		if (group == null) group = securityManager.createAndPersistNamedSecurityGroup(Constants.GROUP_AUTHORS);
 		User user = UserManager.getInstance().createUser("first" + login, "last" + login, login + "@" + maildomain);
-		identity = securityManager.createAndPersistIdentityAndUser(login, user, BaseSecurityModule.getDefaultAuthProviderIdentifier(), login, PWD);
+		identity = securityManager.createAndPersistIdentityAndUser(login, null, user, BaseSecurityModule.getDefaultAuthProviderIdentifier(), login, PWD);
 		securityManager.addIdentityToSecurityGroup(identity, group);
 		return identity;
 	}
@@ -160,7 +160,7 @@ public class JunitTestHelper {
 		SecurityGroup group = securityManager.findSecurityGroupByName(Constants.GROUP_ADMIN);
 		if (group == null) group = securityManager.createAndPersistNamedSecurityGroup(Constants.GROUP_ADMIN);
 		User user = UserManager.getInstance().createUser("first" + login, "last" + login, login + "@" + maildomain);
-		identity = securityManager.createAndPersistIdentityAndUser(login, user, BaseSecurityModule.getDefaultAuthProviderIdentifier(), login, PWD);
+		identity = securityManager.createAndPersistIdentityAndUser(login, null, user, BaseSecurityModule.getDefaultAuthProviderIdentifier(), login, PWD);
 		securityManager.addIdentityToSecurityGroup(identity, group);
 		return identity;
 	}
@@ -206,6 +206,32 @@ public class JunitTestHelper {
 		RepositoryEntry re = null;
 		try {
 			URL courseUrl = JunitTestHelper.class.getResource("file_resources/Demo-Kurs-7.1.zip");
+			File courseFile = new File(courseUrl.toURI());
+			
+			RepositoryHandler courseHandler = RepositoryHandlerFactory.getInstance()
+					.getRepositoryHandler(CourseModule.getCourseTypeName());
+			re = courseHandler.importResource(initialAuthor, null, displayname, description, true, Locale.ENGLISH, courseFile, null);
+			
+			ICourse course = CourseFactory.loadCourse(re.getOlatResource());
+			CourseFactory.publishCourse(course, RepositoryEntry.ACC_USERS, false,  initialAuthor, Locale.ENGLISH);
+		} catch (Exception e) {
+			log.error("", e);
+		}
+		return re;
+	}
+	
+	/**
+	 * Deploy a course with only a single page.
+	 * @param initialAuthor
+	 * @return
+	 */
+	public static RepositoryEntry deployBasicCourse(Identity initialAuthor) {		
+		String displayname = "Basic course (" + CodeHelper.getForeverUniqueID() + ")";
+		String description = "A course with only a single page";
+
+		RepositoryEntry re = null;
+		try {
+			URL courseUrl = JunitTestHelper.class.getResource("file_resources/Basic_course.zip");
 			File courseFile = new File(courseUrl.toURI());
 			
 			RepositoryHandler courseHandler = RepositoryHandlerFactory.getInstance()
