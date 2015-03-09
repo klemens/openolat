@@ -15,7 +15,7 @@
 		<constructor-arg index="1" value="org.olat.login.OLATAuthenticationController"/>
 		<constructor-arg index="2" value="${olatprovider.enable}"/>
 		<constructor-arg index="3" value="${olatprovider.default}"/>
-		<constructor-arg index="4" value="o_icon_provider_olat"/>
+		<constructor-arg index="4" value="o_icon_institution"/>
 	</bean>
 
 	<bean id="ShibUZHAuthenticationProvider" class="org.olat.login.auth.AuthenticationProvider" >
