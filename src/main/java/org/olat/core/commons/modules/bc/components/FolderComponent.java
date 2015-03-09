@@ -43,7 +43,6 @@ import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.AbstractComponent;
 import org.olat.core.gui.components.ComponentRenderer;
 import org.olat.core.gui.control.Event;
-import org.olat.core.gui.control.generic.folder.FolderHelper;
 import org.olat.core.gui.translator.Translator;
 import org.olat.core.id.IdentityEnvironment;
 import org.olat.core.logging.activity.CoreLoggingResourceable;
@@ -52,7 +51,6 @@ import org.olat.core.util.Util;
 import org.olat.core.util.vfs.VFSContainer;
 import org.olat.core.util.vfs.VFSItem;
 import org.olat.core.util.vfs.VFSLeaf;
-import org.olat.core.util.vfs.VFSManager;
 import org.olat.core.util.vfs.filters.VFSItemExcludePrefixFilter;
 import org.olat.core.util.vfs.filters.VFSItemFilter;
 import org.olat.core.util.vfs.version.Versionable;
@@ -67,7 +65,6 @@ public class FolderComponent extends AbstractComponent {
 	public static final String SORT_NAME = "name";
 	public static final String SORT_SIZE = "size";
 	public static final String SORT_DATE = "date";
-	public static final String SORT_TYPE = "type";
 	public static final String SORT_REV = "revision";
 	public static final String SORT_LOCK = "lock";
 	
@@ -268,24 +265,6 @@ public class FolderComponent extends AbstractComponent {
 						else				 return ((leaf1.getSize() < leaf2.getSize()) ?  1 : -1);
 				}
 			};
-		} else if (col.equals(SORT_TYPE)) {																							// sort after file type, folders always on top
-			comparator = new Comparator<VFSItem>() {
-				public int compare(VFSItem o1, VFSItem o2) {
-					String type1 = FolderHelper.extractFileType(o1.getName(), translator.getLocale());
-					String type2 = FolderHelper.extractFileType(o2.getName(), translator.getLocale());
-					if (o1 instanceof VFSLeaf) {
-						if (!FolderHelper.isKnownFileType(type1)) type1 = translator.translate("UnknownFile"); 
-					} else {
-						type1 = (sortAsc) ? "" : "ZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZ";		// it's a folder
-					}
-					if (o2 instanceof VFSLeaf) {
-						if (!FolderHelper.isKnownFileType(type2)) type2 = translator.translate("UnknownFile"); 
-					} else {
-						type2 = (sortAsc) ? "" : "ZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZ";		// it's a folder
-					}
-					return (sortAsc) ? collator.compare(type1, type2) : collator.compare(type2, type1);
-				}
-			};
 		} else if (col.equals(SORT_REV)) {																							// sort after revision number, folders always on top
 			comparator = new Comparator<VFSItem>() {
 				public int compare(VFSItem o1, VFSItem o2) {
@@ -349,7 +328,7 @@ public class FolderComponent extends AbstractComponent {
 	public void updateChildren() {
 		setDirty(true);
 		//check if the container is still up-to-date, if not -> return to root
-		if(!VFSManager.exists(currentContainer)) {
+		if(!currentContainer.exists()) {
 			currentContainer = rootContainer;
 			currentContainerPath = "/";
 		}

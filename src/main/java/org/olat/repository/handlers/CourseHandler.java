@@ -81,6 +81,7 @@ import org.olat.course.CourseModule;
 import org.olat.course.ICourse;
 import org.olat.course.PersistingCourseImpl;
 import org.olat.course.Structure;
+import org.olat.course.assessment.AssessmentMode;
 import org.olat.course.config.CourseConfig;
 import org.olat.course.export.CourseEnvironmentMapper;
 import org.olat.course.groupsandrights.CourseGroupManager;
@@ -193,7 +194,7 @@ public class CourseHandler implements RepositoryHandler {
 				}
 			}
 			eval.setValid(visitor.isValid());
-		} catch (IOException e) {
+		} catch (IOException | IllegalArgumentException e) {
 			log.error("", e);
 		}
 		return eval;
@@ -414,11 +415,6 @@ public class CourseHandler implements RepositoryHandler {
 	public boolean supportsDownload() {
 		return true;
 	}
-
-	@Override
-	public boolean supportsLaunch() {
-		return true;
-	}
 	
 	@Override
 	public EditionSupport supportsEdit(OLATResourceable resource) {
@@ -430,9 +426,10 @@ public class CourseHandler implements RepositoryHandler {
 		return new CourseRuntimeController(ureq, wControl, re, reSecurity,
 				new RuntimeControllerCreator() {
 					@Override
-					public Controller create(UserRequest uureq, WindowControl wwControl, TooledStackedPanel toolbarPanel, RepositoryEntry entry, RepositoryEntrySecurity security) {
+					public Controller create(UserRequest uureq, WindowControl wwControl, TooledStackedPanel toolbarPanel,
+							RepositoryEntry entry, RepositoryEntrySecurity security, AssessmentMode assessmentMode) {
 						ICourse course = CourseFactory.loadCourse(entry.getOlatResource());
-						return new RunMainController(uureq, wwControl, toolbarPanel, course, entry, security);
+						return new RunMainController(uureq, wwControl, toolbarPanel, course, entry, security, assessmentMode);
 					}
 			}, true, true);
 	}
@@ -492,11 +489,6 @@ public class CourseHandler implements RepositoryHandler {
 		Step start  = new CcStep00(ureq, courseConfig, repoEntry);
 		StepsMainRunController ccSMRC = new StepsMainRunController(ureq, wControl, start, finishCallback, null, cceTranslator.translate("coursecreation.title"), "o_sel_course_create_wizard");
 		return ccSMRC;
-	}
-
-	@Override
-	public Controller createDetailsForm(UserRequest ureq, WindowControl wControl, OLATResourceable res) {
-		return null;
 	}
 
 	@Override

@@ -30,7 +30,6 @@ import javax.persistence.TypedQuery;
 
 import org.olat.basesecurity.GroupRoles;
 import org.olat.basesecurity.IdentityImpl;
-import org.olat.catalog.CatalogEntryImpl;
 import org.olat.core.commons.persistence.DB;
 import org.olat.core.commons.persistence.PersistenceHelper;
 import org.olat.core.commons.services.mark.impl.MarkImpl;
@@ -46,6 +45,7 @@ import org.olat.course.assessment.model.UserEfficiencyStatementLight;
 import org.olat.repository.RepositoryEntry;
 import org.olat.repository.RepositoryEntryMyView;
 import org.olat.repository.RepositoryModule;
+import org.olat.repository.model.CatalogEntryImpl;
 import org.olat.repository.model.RepositoryEntryMyCourseImpl;
 import org.olat.repository.model.RepositoryEntryStatistics;
 import org.olat.repository.model.SearchMyRepositoryEntryViewParams;
@@ -267,16 +267,35 @@ public class RepositoryEntryMyCourseQueries {
 		String refs = null;
 		if(StringHelper.containsNonWhitespace(params.getIdAndRefs())) {
 			refs = params.getIdAndRefs();
+			sb.append(" and (v.externalId=:ref or v.externalRef=:ref or v.softkey=:ref");
 			if(StringHelper.isLong(refs)) {
 				try {
 					id = Long.parseLong(refs);
+					sb.append(" or v.key=:vKey or res.resId=:vKey");
 				} catch (NumberFormatException e) {
 					//
 				}
 			}
-			sb.append(" and (v.externalId=:ref or v.externalRef=:ref or v.softkey=:ref");
-			if(id != null) {
-				sb.append(" or v.key=:vKey or res.resId=:vKey)");
+			sb.append(")");	
+		}
+		
+		//alt id, refs and title
+		Long quickId = null;
+		String quickRefs = null;
+		String quickText = null;
+		if(StringHelper.containsNonWhitespace(params.getIdRefsAndTitle())) {
+			quickRefs = params.getIdRefsAndTitle();
+			quickText = PersistenceHelper.makeFuzzyQueryString(quickRefs);
+			
+			sb.append(" and (v.externalId=:quickRef or v.externalRef=:quickRef or v.softkey=:quickRef or ");
+			PersistenceHelper.appendFuzzyLike(sb, "v.displayname", "quickText", dbInstance.getDbVendor());
+			if(StringHelper.isLong(quickRefs)) {
+				try {
+					quickId = Long.parseLong(quickRefs);
+					sb.append(" or v.key=:quickVKey or res.resId=:quickVKey");
+				} catch (NumberFormatException e) {
+					//
+				}
 			}
 			sb.append(")");	
 		}
@@ -304,6 +323,16 @@ public class RepositoryEntryMyCourseQueries {
 		}
 		if(refs != null) {
 			dbQuery.setParameter("ref", refs);
+		}
+		if(quickId != null) {
+			dbQuery.setParameter("quickVKey", quickId);
+		}
+		if(quickRefs != null) {
+			dbQuery.setParameter("quickRef", quickRefs);
+		}
+		if(quickText != null) {
+			dbQuery.setParameter("quickText", quickText);
+			
 		}
 		if(StringHelper.containsNonWhitespace(text)) {
 			dbQuery.setParameter("displaytext", text);
@@ -490,6 +519,14 @@ public class RepositoryEntryMyCourseQueries {
 					break;
 				case displayname:
 					sb.append(" order by lower(v.displayname)");
+					appendAsc(sb, asc);	
+					break;
+				case externalRef:
+					sb.append(" order by lower(v.externalRef)");
+					appendAsc(sb, asc);	
+					break;
+				case externalId:
+					sb.append(" order by lower(v.externalId)");
 					appendAsc(sb, asc);	
 					break;
 				case lifecycleLabel:

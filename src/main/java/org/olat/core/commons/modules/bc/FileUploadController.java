@@ -51,6 +51,7 @@ import org.olat.core.gui.components.form.flexible.FormItemContainer;
 import org.olat.core.gui.components.form.flexible.elements.FileElement;
 import org.olat.core.gui.components.form.flexible.elements.MultipleSelectionElement;
 import org.olat.core.gui.components.form.flexible.elements.StaticTextElement;
+import org.olat.core.gui.components.form.flexible.elements.TextElement;
 import org.olat.core.gui.components.form.flexible.impl.Form;
 import org.olat.core.gui.components.form.flexible.impl.FormBasicController;
 import org.olat.core.gui.components.form.flexible.impl.FormLayoutContainer;
@@ -70,7 +71,6 @@ import org.olat.core.util.Formatter;
 import org.olat.core.util.StringHelper;
 import org.olat.core.util.WebappHelper;
 import org.olat.core.util.vfs.LocalImpl;
-import org.olat.core.util.vfs.VFSConstants;
 import org.olat.core.util.vfs.VFSContainer;
 import org.olat.core.util.vfs.VFSItem;
 import org.olat.core.util.vfs.VFSLeaf;
@@ -138,8 +138,13 @@ public class FileUploadController extends FormBasicController {
 	private boolean showCancel = true; // default is to show cancel button
 	
 	private static Pattern imageExtPattern = Pattern.compile("\\b.(jpg|jpeg|png)\\b");
+	private static final Pattern validSubPathPattern = Pattern.compile("[\\p{Alnum}-_\\./]*");		
 	
 	private final VFSLockManager vfsLockManager;
+
+
+	private String subfolderPath;
+	private TextElement targetSubPath ;
 	
 	/**
 	 * @param wControl
@@ -164,14 +169,22 @@ public class FileUploadController extends FormBasicController {
 	
 	public FileUploadController(WindowControl wControl, VFSContainer curContainer, UserRequest ureq, long upLimitKB, long remainingQuotKB,
 			Set<String> mimeTypesRestriction, boolean showTargetPath, boolean showMetadata, boolean resizeImg, boolean showCancel, boolean showTitle) {
+		this(wControl,curContainer,  ureq,  upLimitKB,  remainingQuotKB,
+				mimeTypesRestriction,  showTargetPath,  showMetadata,  resizeImg,  showCancel,  showTitle,null);
+	}
+	
+	public FileUploadController(WindowControl wControl, VFSContainer curContainer, UserRequest ureq, long upLimitKB, long remainingQuotKB,
+			Set<String> mimeTypesRestriction, boolean showTargetPath, boolean showMetadata, boolean resizeImg, boolean showCancel, boolean showTitle, String subfolderPath) {
 		super(ureq, wControl, "file_upload");
 		vfsLockManager = CoreSpringFactory.getImpl(VFSLockManager.class);
-		setVariables(curContainer, upLimitKB, remainingQuotKB, mimeTypesRestriction, showTargetPath, showMetadata, resizeImg, showCancel, showTitle);
+		setVariables(curContainer, upLimitKB, remainingQuotKB, mimeTypesRestriction, showTargetPath, showMetadata, resizeImg, showCancel, showTitle, subfolderPath);
 		initForm(ureq);
 	}
 	
+	
+	
 	private void setVariables(VFSContainer curContainer, long upLimitKB, long remainingQuotKB, Set<String> mimeTypesRestriction, boolean showTargetPath,
-			boolean showMetadata, boolean resizeImg, boolean showCancel, boolean showTitle) {
+			boolean showMetadata, boolean resizeImg, boolean showCancel, boolean showTitle, String subfolderPath) {
 		this.currentContainer = curContainer;
 		this.fileInfoMBean = (FilesInfoMBean) CoreSpringFactory.getBean(FilesInfoMBean.class.getCanonicalName());
 		this.mimeTypes = mimeTypesRestriction;
@@ -186,6 +199,7 @@ public class FileUploadController extends FormBasicController {
 		this.resizeImg = resizeImg;
 		this.showMetadata = showMetadata;
 		this.showCancel = showCancel;
+		this.subfolderPath = subfolderPath;
 	}
 	
 	@Override
@@ -208,6 +222,32 @@ public class FileUploadController extends FormBasicController {
 		formLayout.add(fileUpload);
 		flc.contextPut("resizeImg", resizeImg);
 
+		// Add path element
+		if (showTargetPath) {			
+			String path = "/ " + uploadVFSContainer.getName();
+			VFSContainer container = uploadVFSContainer.getParentContainer();
+			while (container != null) {
+				path = "/ " + container.getName() + " " + path;
+				container = container.getParentContainer();
+			}
+			
+			pathEl = uifactory.addStaticTextElement("ul.target", path,fileUpload);
+			
+			if (subfolderPath != null) {
+				targetSubPath = uifactory.addInlineTextElement("ul.target.child", subfolderPath, fileUpload, this);	
+				targetSubPath.setLabel("ul.target.child", null);
+			}
+		}
+
+		
+		fileEl = uifactory.addFileElement("fileEl", "ul.file", fileUpload);
+		
+		setMaxUploadSizeKB((uploadLimitKB < remainingQuotKB ? uploadLimitKB : remainingQuotKB));
+		fileEl.setMandatory(true, "NoFileChoosen");
+		if (mimeTypes != null && mimeTypes.size() > 0) {
+			fileEl.limitToMimeType(mimeTypes, "WrongMimeType", new String[]{mimeTypes.toString()});					
+		}
+
 		if(resizeImg) {
 			FormLayoutContainer resizeCont;
 			if (showMetadata) {
@@ -224,29 +264,12 @@ public class FileUploadController extends FormBasicController {
 			resizeEl.select("resize", true);
 		}
 		
-		fileEl = uifactory.addFileElement("fileEl", "ul.file", fileUpload);
-		setMaxUploadSizeKB(uploadLimitKB);
-		fileEl.setMandatory(true, "NoFileChoosen");
-		if (mimeTypes != null && mimeTypes.size() > 0) {
-			fileEl.limitToMimeType(mimeTypes, "WrongMimeType", new String[]{mimeTypes.toString()});					
-		}
-		
 		// Check remaining quota
 		if (remainingQuotKB == 0) {
 			fileEl.setEnabled(false);
 			getWindowControl().setError(translate("QuotaExceeded"));
 		}
 		
-		// Add path element
-		if (showTargetPath) {			
-			String path = "/ " + uploadVFSContainer.getName();
-			VFSContainer container = uploadVFSContainer.getParentContainer();
-			while (container != null) {
-				path = "/ " + container.getName() + " " + path;
-				container = container.getParentContainer();
-			}
-			pathEl = uifactory.addStaticTextElement("ul.target", path,fileUpload);
-		}
 		
 		if (showMetadata) {
 			metaDataCtr = new MetaInfoFormController(ureq, getWindowControl(),
@@ -274,6 +297,7 @@ public class FileUploadController extends FormBasicController {
 
 	@Override
 	protected void formOK(UserRequest ureq) {
+		if(targetSubPath != null) setUploadRelPath(targetSubPath.getValue());
 		if ( fileEl.isUploadSuccess()) {
 			// check for available space
 			if (remainingQuotKB != -1) {
@@ -291,7 +315,7 @@ public class FileUploadController extends FormBasicController {
 				String extension = FileUtils.getFileSuffix(fileName);
 				File imageScaled = new File(uploadedFile.getParentFile(), "scaled_" + uploadedFile.getName() + "." + extension);
 				ImageService imageHelper = CoreSpringFactory.getImpl(ImageService.class);
-				if(imageHelper.scaleImage(uploadedFile, extension, imageScaled, 1280, 1280) != null) {
+				if(imageHelper.scaleImage(uploadedFile, extension, imageScaled, 1280, 1280, false) != null) {
 					//problem happen, special GIF's (see bug http://bugs.sun.com/bugdatabase/view_bug.do?bug_id=6358674)
 					//don't try to scale if not all ok 
 					uploadedFile = imageScaled;
@@ -655,8 +679,8 @@ public class FileUploadController extends FormBasicController {
 	/**
 	 * Internal helper to finish the upload and add metadata
 	 */
-	private void finishSuccessfullUpload(String fileName, UserRequest ureq) {
-		VFSItem item = currentContainer.resolve(fileName);
+	private void finishSuccessfullUpload(String filePath, UserRequest ureq) {
+		VFSItem item = currentContainer.resolve(filePath);
 		if (item instanceof OlatRootFileImpl) {
 			OlatRootFileImpl relPathItem = (OlatRootFileImpl) item;
 			// create meta data
@@ -668,10 +692,10 @@ public class FileUploadController extends FormBasicController {
 			meta.clearThumbnails();//if overwrite an older file
 			meta.write();
 		}
-		ThreadLocalUserActivityLogger.log(FolderLoggingAction.FILE_UPLOADED, getClass(), CoreLoggingResourceable.wrapUploadFile(fileName));
+		ThreadLocalUserActivityLogger.log(FolderLoggingAction.FILE_UPLOADED, getClass(), CoreLoggingResourceable.wrapUploadFile(filePath));
 
 		// Notify listeners about upload
-		fireEvent(ureq, new FolderEvent(FolderEvent.UPLOAD_EVENT, fileName));
+		fireEvent(ureq, new FolderEvent(FolderEvent.UPLOAD_EVENT, item));
 	}
 
 	/**
@@ -680,6 +704,13 @@ public class FileUploadController extends FormBasicController {
 	@Override
 	protected void doDispose() {
 		// 
+	}
+
+	/**
+	 * @return The uploaded file or NULL if nothing uploaded
+	 */
+	public VFSLeaf getUploadedFile(){
+		return newFile;
 	}
 
 	/**
@@ -733,30 +764,14 @@ public class FileUploadController extends FormBasicController {
 	 */
 	public void setUploadRelPath(String uploadRelPath) {
 		this.uploadRelPath = uploadRelPath;
-		// resolve upload dir from rel upload path
-		if (uploadRelPath == null) {
-			// reset to current base container
+		// Set upload directory from path
+		uploadVFSContainer = VFSManager.resolveOrCreateContainerFromPath(currentContainer, uploadRelPath);
+		if (uploadVFSContainer == null) {
+			logError("Can not create upload rel path::" + uploadRelPath + ", fall back to current container", null);
 			uploadVFSContainer = currentContainer;
-		} else {
-			// try to resolve given rel path from current container
-			VFSItem uploadDir = currentContainer.resolve(uploadRelPath);
-			if (uploadDir != null) {
-				// make sure this is really a container and not a file!
-				if (uploadDir instanceof VFSContainer) {
-					uploadVFSContainer = (VFSContainer) uploadDir;
-				} else {
-					// fallback to current base 
-					uploadVFSContainer = currentContainer;
-				}
-			} else {
-				// does not yet exist - create subdir
-				if (VFSConstants.YES.equals(currentContainer.canWrite())) {
-					uploadVFSContainer = currentContainer.createChildContainer(uploadRelPath);
-				}
-			}			
 		}
 		
-		// update the destination path in the GUI
+		// Update the destination path in the GUI
 		if (showTargetPath) {			
 			String path = "/ " + currentContainer.getName() + (uploadRelPath == null ? "" : " / " + uploadRelPath);
 			VFSContainer container = currentContainer.getParentContainer();
@@ -774,6 +789,54 @@ public class FileUploadController extends FormBasicController {
 
 	@Override
 	protected boolean validateFormLogic(UserRequest ureq) {
+		// Check sub path
+		if (targetSubPath != null) {
+			String subPath = targetSubPath.getValue();
+			if (subPath != null) {
+				// Cleanup first
+				subPath = subPath.toLowerCase().trim();
+				if (!validSubPathPattern.matcher(subPath).matches()) {
+					targetSubPath.setErrorKey("subpath.error.characters", null);
+					return false;
+				} else {
+					// Fix mess with slashes and dots
+					// reduce doubled slashes with single slash
+					subPath = subPath.replaceAll("\\.*\\/+\\.*", "\\/");
+					// do it a second time to catch the double slashes created by previous replacement
+					subPath = subPath.replaceAll("\\/+", "\\/");
+					// remove slash at end
+					if (subPath.endsWith("/")) {
+						subPath = subPath.substring(0, subPath.length()-1);
+					}
+					// single slash means no sub-directory
+					if (subPath.length() == 1 && subPath.startsWith("/")) {
+						subPath = "";
+					}				
+					// fix missing slash at start
+					if (subPath.length() > 0 && !subPath.startsWith("/")) {
+						subPath = "/" + subPath;
+					}
+					// update in GUI so user sees how we optimized
+					targetSubPath.setValue(subPath);
+				}
+				// Now check if this path does not already exist
+				if (StringHelper.containsNonWhitespace(subPath)){
+					// Try to resolve given rel path from current container
+					VFSItem uploadDir = currentContainer.resolve(subPath);
+					if (uploadDir != null) {
+						// already exists. this is fine, as long as it is a directory and not a file
+						if (!(uploadDir instanceof VFSContainer)) {
+							// error
+							targetSubPath.setErrorKey("subpath.error.dir.is.file", new String[] {subPath});
+							return false;
+						}
+					}
+				}
+				targetSubPath.clearError();
+			}
+		}
+		
+		// Check file name
 		String fileName = fileEl.getUploadFileName();
 		if (!StringHelper.containsNonWhitespace(fileName)) {
 			fileEl.setErrorKey("NoFileChosen", null);

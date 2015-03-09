@@ -22,17 +22,17 @@ package org.olat.admin.user.tools;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Locale;
 import java.util.Set;
 
 import org.olat.core.configuration.AbstractSpringModule;
 import org.olat.core.extensions.ExtManager;
 import org.olat.core.extensions.Extension;
 import org.olat.core.extensions.ExtensionElement;
-import org.olat.core.extensions.action.GenericActionExtension;
 import org.olat.core.gui.UserRequest;
+import org.olat.core.gui.WindowManager;
 import org.olat.core.util.StringHelper;
 import org.olat.core.util.coordinate.CoordinatorManager;
+import org.olat.core.util.prefs.Preferences;
 import org.olat.home.HomeMainController;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -78,17 +78,63 @@ public class UserToolsModule extends AbstractSpringModule {
 		init();
 	}
 	
-	public List<UserTool> getAllUserTools(UserRequest ureq) {
-		List<UserTool> userTools = new ArrayList<>();
-		
-		Locale locale = ureq.getLocale();
+	public String getUserTools(Preferences prefs) {
+		String selectedToolV2s = (String)prefs.get(WindowManager.class, "user-tools-v2");
+		if(!StringHelper.containsNonWhitespace(selectedToolV2s)) {
+			String selectedTools = (String)prefs.get(WindowManager.class, "user-tools");
+			if(StringHelper.containsNonWhitespace(selectedTools)) {
+				//upgrade
+				
+				StringBuilder selectedToolSb = new StringBuilder(selectedTools);
+				String[] newPresets = new String[]{
+						"org.olat.home.HomeMainController:org.olat.gui.control.PrintUserToolExtension",
+						"org.olat.home.HomeMainController:org.olat.gui.control.HelpUserToolExtension",
+						"org.olat.home.HomeMainController:org.olat.instantMessaging.ui.ImpressumMainController"
+				};
+				
+				for(String newPreset:newPresets) {
+					if(selectedToolSb.indexOf(newPreset) < 0) {
+						if(selectedToolSb.length() > 0) selectedToolSb.append(",");
+						selectedToolSb.append(newPreset);
+					}
+				}
+				prefs.put(WindowManager.class, "user-tools-v2", selectedToolSb.toString());
+				prefs.save();
+				selectedToolV2s = selectedToolSb.toString();
+			}
+		}
+		return selectedToolV2s;
+	}
+	
+	public void setUserTools(Preferences prefs, String settings) {
+		prefs.put(WindowManager.class, "user-tools-v2", settings);
+		prefs.save();
+	}
+	
+	public List<UserToolExtension> getUserToolExtensions(UserRequest ureq) {
+		List<UserToolExtension> tools = new ArrayList<>();
+		if(!isUserToolsDisabled()) {
+			List<UserToolExtension> extensions = getAllUserToolExtensions(ureq);
+			Set<String> availableToolSet = getAvailableUserToolSet();
+			for(UserToolExtension extension:extensions) {
+				if(extension.isEnabled() &&
+						(availableToolSet.isEmpty() || availableToolSet.contains(extension.getUniqueExtensionID()))) {
+					tools.add(extension);
+				}
+			}
+		}
+		return tools;
+	}
+	
+	public List<UserToolExtension> getAllUserToolExtensions(UserRequest ureq) {
+		List<UserToolExtension> userTools = new ArrayList<>();
 		for (Extension anExt : extManager.getExtensions()) {
-			ExtensionElement ae = anExt.getExtensionFor(HomeMainController.class.getName(), ureq);
-			if (ae != null && ae instanceof GenericActionExtension) {
-				if(anExt.isEnabled()){
-					GenericActionExtension gAe = (GenericActionExtension) ae;
-					userTools.add(new UserTool(gAe, locale));
-				}	
+			if(anExt.isEnabled()){
+				ExtensionElement ae = anExt.getExtensionFor(HomeMainController.class.getName(), ureq);
+				if (ae != null && ae instanceof UserToolExtension) {
+					UserToolExtension gAe = (UserToolExtension) ae;
+					userTools.add(gAe);
+				}
 			}
 		}
 		
@@ -112,10 +158,21 @@ public class UserToolsModule extends AbstractSpringModule {
 		if(StringHelper.containsNonWhitespace(availableUserTools)) {
 			String[] tools = availableUserTools.split(",");
 			for(String tool:tools) {
-				toolSet.add(tool);
+				toolSet.add(stripToolKey(tool));
 			}
 		}
 		return toolSet;
+	}
+	
+	public static String stripToolKey(String uniqueExtensionId) {
+		String toolKey = uniqueExtensionId;
+		if(toolKey.startsWith("org.olat.home.HomeMainController")) {
+			int nextIndex = toolKey.indexOf(":", "org.olat.home.HomeMainController".length() + 2);
+			if(nextIndex > 0) {
+				toolKey = toolKey.substring(0, nextIndex);
+			}
+		}
+		return toolKey;
 	}
 
 	public void setAvailableUserTools(String tools) {
@@ -132,7 +189,7 @@ public class UserToolsModule extends AbstractSpringModule {
 		if(StringHelper.containsNonWhitespace(defaultPresetOfUserTools)) {
 			String[] tools = defaultPresetOfUserTools.split(",");
 			for(String tool:tools) {
-				toolSet.add(tool);
+				toolSet.add(stripToolKey(tool));
 			}
 		}
 		return toolSet;

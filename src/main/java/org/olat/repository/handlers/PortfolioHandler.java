@@ -33,6 +33,7 @@ import org.olat.core.gui.control.WindowControl;
 import org.olat.core.gui.control.generic.layout.MainLayoutController;
 import org.olat.core.gui.control.generic.wizard.StepsMainRunController;
 import org.olat.core.gui.media.MediaResource;
+import org.olat.core.gui.media.StreamedMediaResource;
 import org.olat.core.gui.translator.Translator;
 import org.olat.core.id.Identity;
 import org.olat.core.id.OLATResourceable;
@@ -44,6 +45,7 @@ import org.olat.core.util.Util;
 import org.olat.core.util.coordinate.CoordinatorManager;
 import org.olat.core.util.coordinate.LockResult;
 import org.olat.core.util.vfs.VFSContainer;
+import org.olat.course.assessment.AssessmentMode;
 import org.olat.fileresource.FileResourceManager;
 import org.olat.fileresource.types.ResourceEvaluation;
 import org.olat.portfolio.EPSecurityCallback;
@@ -52,7 +54,6 @@ import org.olat.portfolio.EPTemplateMapResource;
 import org.olat.portfolio.manager.EPFrontendManager;
 import org.olat.portfolio.manager.EPStructureManager;
 import org.olat.portfolio.manager.EPXStreamHandler;
-import org.olat.portfolio.model.structel.EPAbstractMap;
 import org.olat.portfolio.model.structel.EPStructuredMapTemplate;
 import org.olat.portfolio.model.structel.PortfolioStructure;
 import org.olat.portfolio.model.structel.PortfolioStructureMap;
@@ -67,8 +68,6 @@ import org.olat.repository.model.RepositoryEntrySecurity;
 import org.olat.repository.ui.RepositoryEntryRuntimeController.RuntimeControllerCreator;
 import org.olat.resource.OLATResource;
 import org.olat.resource.references.ReferenceManager;
-
-import de.bps.onyx.plugin.StreamMediaResource;
 
 /**
  * 
@@ -162,11 +161,6 @@ public class PortfolioHandler implements RepositoryHandler {
 	}
 
 	@Override
-	public boolean supportsLaunch() {
-		return true;
-	}
-
-	@Override
 	public String archive(Identity archiveOnBehalfOf, String archivFilePath, RepositoryEntry repoEntry) {
 		// Apperantly, this method is used for backing up any user related content
 		// (comments etc.) on deletion. Up to now, this doesn't exist in blogs.
@@ -181,30 +175,28 @@ public class PortfolioHandler implements RepositoryHandler {
 
 	@Override
 	public boolean readyToDelete(OLATResourceable res, Identity identity, Roles roles, Locale locale, ErrorList errors) {
-		EPFrontendManager ePFMgr = (EPFrontendManager) CoreSpringFactory.getBean("epFrontendManager");
+		EPFrontendManager ePFMgr = CoreSpringFactory.getImpl(EPFrontendManager.class);
 		PortfolioStructure map = ePFMgr.loadPortfolioStructure(res);
-		if(map != null) {
-			//owner group has its constraints shared beetwen the repository entry and the template
-			((EPAbstractMap)map).setGroups(null);
-		}
 		if(map instanceof EPStructuredMapTemplate) {
 			EPStructuredMapTemplate exercise = (EPStructuredMapTemplate)map;
-			if (ePFMgr.isTemplateInUse(exercise, null, null, null)) return false;
+			if (ePFMgr.isTemplateInUse(exercise, null, null, null)) {
+				return false;
+			}
 		}
+
 		ReferenceManager refM = ReferenceManager.getInstance();
 		String referencesSummary = refM.getReferencesToSummary(res, locale);
 		if (referencesSummary != null) {
 			Translator translator = Util.createPackageTranslator(RepositoryManager.class, locale);
 			errors.setError(translator.translate("details.delete.error.references", new String[] { referencesSummary }));
 			return false;
-		}		
+		}
 		return true;
 	}
 
 	@Override
 	public boolean cleanupOnDelete(OLATResourceable res) {
-		EPFrontendManager ePFMgr = (EPFrontendManager) CoreSpringFactory.getBean("epFrontendManager");
-		ePFMgr.deletePortfolioMapTemplate(res);
+		CoreSpringFactory.getImpl(EPFrontendManager.class).deletePortfolioMapTemplate(res);
 		return true;
 	}
 
@@ -216,20 +208,15 @@ public class PortfolioHandler implements RepositoryHandler {
 	public MediaResource getAsMediaResource(OLATResourceable res, boolean backwardsCompatible) {
 		MediaResource mr = null;
 
-		EPFrontendManager ePFMgr = (EPFrontendManager)CoreSpringFactory.getBean("epFrontendManager");
+		EPFrontendManager ePFMgr = CoreSpringFactory.getImpl(EPFrontendManager.class);
 		PortfolioStructure structure = ePFMgr.loadPortfolioStructure(res);
 		try {
 			InputStream inOut = EPXStreamHandler.toStream(structure);
-			mr = new StreamMediaResource(inOut, null, 0l, 0l);
+			mr = new StreamedMediaResource(inOut, null, null, null);
 		} catch (IOException e) {
 			log.error("Cannot export this map: " + structure, e);
 		}
 		return mr;
-	}
-
-	@Override
-	public Controller createDetailsForm(UserRequest ureq, WindowControl wControl, OLATResourceable res) {
-		return null;
 	}
 
 	@Override
@@ -242,7 +229,8 @@ public class PortfolioHandler implements RepositoryHandler {
 		return new EPTemplateRuntimeController(ureq, wControl, re, reSecurity,
 			new RuntimeControllerCreator() {
 				@Override
-				public Controller create(UserRequest uureq, WindowControl wwControl, TooledStackedPanel toolbarPanel, RepositoryEntry entry, RepositoryEntrySecurity security) {
+				public Controller create(UserRequest uureq, WindowControl wwControl, TooledStackedPanel toolbarPanel,
+						RepositoryEntry entry, RepositoryEntrySecurity security, AssessmentMode assessmentMode) {
 					EPFrontendManager ePFMgr = CoreSpringFactory.getImpl(EPFrontendManager.class);
 					PortfolioStructureMap map = (PortfolioStructureMap)ePFMgr.loadPortfolioStructure(entry.getOlatResource());
 					EPSecurityCallback secCallback = EPSecurityCallbackFactory.getSecurityCallback(uureq, map, ePFMgr);

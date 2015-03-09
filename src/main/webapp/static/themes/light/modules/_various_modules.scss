@@ -72,19 +72,29 @@ a.o_chelp {
 	}
 }
 
-.o_dropdown {
+/* drop down menus made with OO modal dialog and not bootstrap dropdown */
+ul.o_dropdown {
+	/* revert padding from popover */
+	margin: -5px -14px;
 	.divider {
     	@include nav-divider($dropdown-divider-bg);
   	}
   	
   	> li > a {
     	display: block;
-		padding: 3px 0;
+		padding: 5px 14px;
 		clear: both;
 		font-weight: normal;
 		line-height: $line-height-base;
 		color: $dropdown-link-color;
+		background: $dropdown-bg;
 		white-space: nowrap; // prevent links from randomly breaking onto new lines
+		&:hover,
+		&:focus {
+			text-decoration: none;
+		    color: $dropdown-link-hover-color;
+		    background-color: $dropdown-link-hover-bg;
+		}
 	}
 }
 
@@ -105,16 +115,40 @@ a.o_chelp {
 }
 .o_bc_meta, .tooltip {
 	@extend %o_small;
+	h5, .o_author, .o_comment {
+		color: #fff;
+		margin: 5px 0;
+	}
 	.o_thumbnail{
 		width:200px; 
 		height:200px;
+		background-color: #fff;
+		margin: 0 -5px; /* remove ugly border */
 	}
 }
 
 /* HTML editor */
 .o_htmleditor {
-	.o_lastmodified {
-		color: $text-muted;	
+	.o_metadata {
+		/* match tinymce style */
+		border: 1px solid #999;
+		border-top-left-radius: 3px;
+		border-top-right-radius: 3px;
+		border-bottom: 0;
+		background: #eee;
+		position: relative;
+		top: 1px;
+		padding: 5px;
+
+		#o_filename {
+			float: left;
+		}
+		.o_lastmodified {
+			float: right;
+			color: $text-muted;	
+			@extend %o_small;
+			line-height: $line-height-base;
+		}
 	}
 	#o_save {
 		margin-top: 10px;
@@ -278,6 +312,15 @@ a.o_chelp {
 	}
 }
 
+/* Efficiency statement and certificates */
+ul.o_certificates li {
+	padding: 5px 0;
+	
+	a.o_sel_certificate_delete {
+		padding-left: 2em;
+	}
+}
+
 
 /* Calendar */
 .o_cal_toptoolbar {
@@ -305,8 +348,15 @@ a.o_chelp {
 		a {	
 			margin-right: 1.5em;
 		}
-		form {
-			margin-top: $padding-base-vertical;	
+		.form-group {
+			margin-bottom: $padding-small-vertical;
+		}
+		.form-control {
+			border: 0;
+			background: none;
+			padding: 0;
+			height: auto;
+			@include box-shadow(none);
 		}
 	}
 	.o_blog_posts {
@@ -324,7 +374,38 @@ a.o_chelp {
 			}
 		}
 	}
+	.o_content {
+		@include clearfix();
+	}
 }
+
+/* Glossary */
+.o_glossary {
+	.o_register {
+		text-align: center;
+	}
+	.o_meta {
+		font-size: 90%;
+		color: $text-muted;
+		font-style: italic;
+	}
+	dl {
+		dt {
+			&:first-letter { 
+    			font-size: ceil(($font-size-base * 1.5));;
+    		}
+			small {
+				color: $text-muted;
+			}
+		}
+	}
+}
+
+.o_tm_glossary { border-bottom: 1px dotted #666699 !important; }
+.o_tm_yellow { background-color: #FFFF66; }
+.o_tm_blue { background-color: #33FFFF; }
+.o_tm_red { background-color: #FF3333; }
+.o_tm_green { background-color: #99FF00; }
 
 /* Segmented view wrapper */
 .o_segments_content {

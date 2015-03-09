@@ -114,11 +114,6 @@ public interface RepositoryHandler {
 	 * @return true if this handler supports donwloading Resourceables of its type.
 	 */
 	public boolean supportsDownload();
-	
-	/**
-	 * @return true if this handler supports launching Resourceables of its type.
-	 */
-	public boolean supportsLaunch();
 
 	/**
 	 * @return true if this handler supports an editor for Resourceables of its type.
@@ -189,23 +184,13 @@ public interface RepositoryHandler {
 	 * this method returns false, the entry will not be deleted.
 	 * @param res
 	 * @param identity
-	 * @param roles TODO
-	 * @param locale TODO
+	 * @param roles
+	 * @param locale
 	 * @param errors
 	 * @return true if ressource is ready to delete, false if not.
 	 */
 	public boolean readyToDelete(OLATResourceable res, Identity identity, Roles roles, Locale locale, ErrorList errors);
 	
-	/**
-	 * If a handler likes to provied any details on a resourceable in the repository's details
-	 * view, he may do so by providing a component that renders the details.
-	 * 
-	 * @param ureq
-	 * @param wControl
-	 * @param res
-	 * @return Controller displaying details or null, if no details are available.
-	 */
-	public Controller createDetailsForm(UserRequest ureq, WindowControl wControl, OLATResourceable res);
 
 	public String archive(Identity archiveOnBehalfOf, String archivFilePath, RepositoryEntry repoEntry);
 	

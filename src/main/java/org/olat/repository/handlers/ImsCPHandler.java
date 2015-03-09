@@ -41,6 +41,7 @@ import org.olat.core.gui.control.generic.iframe.DeliveryOptions;
 import org.olat.core.gui.control.generic.layout.MainLayout3ColumnsController;
 import org.olat.core.gui.control.generic.layout.MainLayoutController;
 import org.olat.core.gui.control.generic.wizard.StepsMainRunController;
+import org.olat.core.gui.media.MediaResource;
 import org.olat.core.gui.translator.Translator;
 import org.olat.core.id.Identity;
 import org.olat.core.id.OLATResourceable;
@@ -53,7 +54,9 @@ import org.olat.core.util.vfs.Quota;
 import org.olat.core.util.vfs.QuotaManager;
 import org.olat.core.util.vfs.callbacks.FullAccessWithQuotaCallback;
 import org.olat.core.util.vfs.callbacks.VFSSecurityCallback;
+import org.olat.course.assessment.AssessmentMode;
 import org.olat.fileresource.FileResourceManager;
+import org.olat.fileresource.ZippedDirectoryMediaResource;
 import org.olat.fileresource.types.FileResource;
 import org.olat.fileresource.types.ImsCPFileResource;
 import org.olat.fileresource.types.ResourceEvaluation;
@@ -65,6 +68,7 @@ import org.olat.ims.cp.ui.CPRuntimeController;
 import org.olat.modules.cp.CPDisplayController;
 import org.olat.modules.cp.CPOfflineReadableManager;
 import org.olat.repository.RepositoryEntry;
+import org.olat.repository.RepositoryManager;
 import org.olat.repository.RepositoryService;
 import org.olat.repository.model.RepositoryEntrySecurity;
 import org.olat.repository.ui.RepositoryEntryRuntimeController.RuntimeControllerCreator;
@@ -156,13 +160,16 @@ public class ImsCPHandler extends FileHandler {
 	}
 
 	@Override
-	public String getSupportedType() {
-		return ImsCPFileResource.TYPE_NAME;
+	public MediaResource getAsMediaResource(OLATResourceable res, boolean backwardsCompatible) {
+		File unzippedDir = FileResourceManager.getInstance().unzipFileResource(res);
+		String displayName = CoreSpringFactory.getImpl(RepositoryManager.class)
+				.lookupDisplayNameByOLATResourceableId(res.getResourceableId());
+		return new ZippedDirectoryMediaResource(displayName, unzippedDir);
 	}
 
 	@Override
-	public boolean supportsLaunch() {
-		return true;
+	public String getSupportedType() {
+		return ImsCPFileResource.TYPE_NAME;
 	}
 
 	@Override
@@ -187,46 +194,20 @@ public class ImsCPHandler extends FileHandler {
 		final LocalFolderImpl vfsWrapper = new LocalFolderImpl(cpRoot);
 		CPPackageConfig packageConfig = CPManager.getInstance().getCPPackageConfig(res);
 		final DeliveryOptions deliveryOptions = (packageConfig == null ? null : packageConfig.getDeliveryOptions());
-		
-		// jump to either the forum or the folder if the business-launch-path says so.
-		/*
-		BusinessControl bc = wControl.getBusinessControl();
-		ContextEntry ce = bc.popLauncherContextEntry();
-		MainLayoutController layoutCtr;
-		if ( ce != null ) { // a context path is left for me
-			log.debug("businesscontrol (for further jumps) would be:"+bc);
-			OLATResourceable ores = ce.getOLATResourceable();
-			log.debug("OLATResourceable=" + ores);
-			String typeName = ores.getResourceableTypeName();
-			// typeName format: 'path=/test1/test2/readme.txt'
-			// First remove prefix 'path='
-			String path = typeName.substring("path=".length());
-			if  (path.length() > 0) {
-			  log.debug("direct navigation to container-path=" + path);
-			  layoutCtr = CPUIFactory.getInstance().createMainLayoutResourceableListeningWrapperController(res, ureq, wControl, vfsWrapper, true, false, deliveryOptions, path);
-			} else {
-				layoutCtr = CPUIFactory.getInstance().createMainLayoutResourceableListeningWrapperController(res, ureq, wControl, vfsWrapper, deliveryOptions);
-			}
-		} else {
-			layoutCtr = CPUIFactory.getInstance().createMainLayoutResourceableListeningWrapperController(res, ureq, wControl, vfsWrapper, deliveryOptions);
-		}
-		*/
-		
-		CPRuntimeController runtime = new CPRuntimeController(ureq, wControl, re, reSecurity,
+		return new CPRuntimeController(ureq, wControl, re, reSecurity,
 				new RuntimeControllerCreator() {
 					@Override
-					public Controller create(UserRequest uureq, WindowControl wwControl, TooledStackedPanel toolbarPanel, RepositoryEntry entry, RepositoryEntrySecurity security) {
+					public Controller create(UserRequest uureq, WindowControl wwControl, TooledStackedPanel toolbarPanel,
+							RepositoryEntry entry, RepositoryEntrySecurity security, AssessmentMode assessmentMode) {
 						boolean activateFirstPage = true;
 						String initialUri = null;
 						
-						CPDisplayController cpCtr = new CPDisplayController(uureq, wwControl, vfsWrapper, true, true, activateFirstPage, true, deliveryOptions, initialUri, entry.getOlatResource());
+						CPDisplayController cpCtr = new CPDisplayController(uureq, wwControl, vfsWrapper, true, true, activateFirstPage, true, deliveryOptions, initialUri, entry.getOlatResource(), "");
 						MainLayout3ColumnsController ctr = new LayoutMain3ColsController(uureq, wwControl, cpCtr.getMenuComponent(), cpCtr.getInitialComponent(), vfsWrapper.getName());
 						ctr.addDisposableChildController(cpCtr);
 						return ctr;
 					}
 			});
-
-		return runtime;
 	}
 
 	@Override

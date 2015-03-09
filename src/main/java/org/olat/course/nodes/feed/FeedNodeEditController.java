@@ -35,6 +35,7 @@ import org.olat.core.gui.control.WindowControl;
 import org.olat.core.gui.control.generic.closablewrapper.CloseableModalController;
 import org.olat.core.gui.control.generic.tabbable.ActivateableTabbableDefaultController;
 import org.olat.core.gui.translator.Translator;
+import org.olat.core.util.StringHelper;
 import org.olat.core.util.Util;
 import org.olat.course.ICourse;
 import org.olat.course.assessment.AssessmentHelper;
@@ -164,7 +165,8 @@ public abstract class FeedNodeEditController extends ActivateableTabbableDefault
 				// no securitycheck on feeds, editable by everybody
 				editLink = LinkFactory.createButtonSmall("edit", contentVC, this);
 				contentVC.contextPut(SHOW_PREVIEW_LINK, Boolean.TRUE);
-				previewLink = LinkFactory.createCustomLink(COMMAND_PREVIEW, COMMAND_PREVIEW, re.getDisplayname(), Link.NONTRANSLATED, contentVC,
+				String displayname = StringHelper.escapeHtml(re.getDisplayname());
+				previewLink = LinkFactory.createCustomLink(COMMAND_PREVIEW, COMMAND_PREVIEW, displayname, Link.NONTRANSLATED, contentVC,
 						this);
 				previewLink.setCustomEnabledLinkCSS("o_preview");
 				previewLink.setIconLeftCSS("o_icon o_icon-fw o_icon_preview");
@@ -214,16 +216,11 @@ public abstract class FeedNodeEditController extends ActivateableTabbableDefault
 		}
 	}
 
-	/**
-	 * @see org.olat.core.gui.control.DefaultController#event(org.olat.core.gui.UserRequest,
-	 *      org.olat.core.gui.components.Component,
-	 *      org.olat.core.gui.control.Event)
-	 */
 	@Override
 	protected void event(UserRequest ureq, Component source, Event event) {
 		if (source == chooseButton || source == changeButton) {
 			searchController = new ReferencableEntriesSearchController(getWindowControl(), ureq, resourceTypeName, translate(BUTTON_CHOOSE_FEED));
-			this.listenTo(searchController);
+			listenTo(searchController);
 			cmc = new CloseableModalController(getWindowControl(), translate("close"), searchController.getInitialComponent(), true,
 					translate(BUTTON_CREATE_FEED));
 			cmc.activate();
@@ -232,27 +229,30 @@ public abstract class FeedNodeEditController extends ActivateableTabbableDefault
 			RepositoryEntry re = node.getReferencedRepositoryEntry();
 			if (re == null) {
 				// The repository entry has been deleted meanwhile.
-				this.showError("error.repoentrymissing");
+				showError("error.repoentrymissing");
 			} else {
 				FeedSecurityCallback callback = new FeedPreviewSecurityCallback();
 				feedController = uiFactory.createMainController(re.getOlatResource(), ureq, getWindowControl(), callback, course
 						.getResourceableId(), node.getIdent());
 				cmcFeedCtr = new CloseableModalController(getWindowControl(), translate("command.close"), feedController.getInitialComponent());
-				this.listenTo(cmcFeedCtr);
-				// cmcFeedCtr.insertHeaderCss();
+				listenTo(cmcFeedCtr);
 				cmcFeedCtr.activate();
 			}
 			
 		} else if (source == editLink) {
-			CourseNodeFactory.getInstance().launchReferencedRepoEntryEditor(ureq, getWindowControl(), node);
+			boolean launched = CourseNodeFactory.getInstance().launchReferencedRepoEntryEditor(ureq, getWindowControl(), node);
+			if(!launched) {
+				RepositoryEntry re = node.getReferencedRepositoryEntry();
+				if (re == null) {
+					showError("error.repoentrymissing");
+				} else {
+					showError("error.wrongtype");	
+				}
+			}
 		}
-
 	}
 
-	/**
-	 * @see org.olat.core.gui.control.DefaultController#event(org.olat.core.gui.UserRequest,
-	 *      org.olat.core.gui.control.Controller, org.olat.core.gui.control.Event)
-	 */
+	@Override
 	public void event(UserRequest urequest, Controller source, Event event) {
 		if (source == moderatroCtr) {
 			if (event == Event.CHANGED_EVENT) {
@@ -281,7 +281,8 @@ public abstract class FeedNodeEditController extends ActivateableTabbableDefault
 					config.set(AbstractFeedCourseNode.CONFIG_KEY_REPOSITORY_SOFTKEY, re.getSoftkey());
 
 					contentVC.contextPut("showPreviewLink", Boolean.TRUE);
-					previewLink = LinkFactory.createCustomLink("command.preview", "command.preview", re.getDisplayname(), Link.NONTRANSLATED,
+					String displayname = StringHelper.escapeHtml(re.getDisplayname());
+					previewLink = LinkFactory.createCustomLink("command.preview", "command.preview", displayname, Link.NONTRANSLATED,
 							contentVC, this);
 					previewLink.setIconLeftCSS("o_icon o_icon-fw o_icon_preview");
 					previewLink.setCustomEnabledLinkCSS("o_preview");

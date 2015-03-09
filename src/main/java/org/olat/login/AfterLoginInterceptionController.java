@@ -39,6 +39,7 @@ import org.olat.core.gui.control.generic.closablewrapper.CloseableModalControlle
 import org.olat.core.gui.control.generic.wizard.WizardInfoController;
 import org.olat.properties.Property;
 import org.olat.properties.PropertyManager;
+import org.springframework.beans.factory.annotation.Autowired;
 
 /**
  * Description: Presents running once controllers to the user right after login.
@@ -63,7 +64,6 @@ public class AfterLoginInterceptionController extends BasicController {
 	private List<Map<String, Object>> aftctrls;
 	private int actualCtrNr;
 	private List<Property> ctrlPropList;
-	private PropertyManager pm;
 	private boolean actualForceUser;
 	// must match with keys in XML
 	private static final String CONTROLLER_KEY = "controller";
@@ -74,12 +74,16 @@ public class AfterLoginInterceptionController extends BasicController {
 	protected static final String ORDER_KEY = "order";
 	
 	private static final String PROPERTY_CAT = "afterLogin";
+	
+	@Autowired
+	private PropertyManager pm;
+	@Autowired
+	private AfterLoginInterceptionManager aLIM;
 
 	public AfterLoginInterceptionController(UserRequest ureq, WindowControl wControl) {
 		super(ureq, wControl);
 		vC = createVelocityContainer("afterlogin");
 		actualPanel = new Panel("actualPanel");
-		AfterLoginInterceptionManager aLIM = AfterLoginInterceptionManager.getInstance();
 		if (!aLIM.containsAnyController()) {
 			dispose();
 			return;		
@@ -87,9 +91,11 @@ public class AfterLoginInterceptionController extends BasicController {
 		
 		List<Map<String, Object>> aftctrlsTmp = aLIM.getAfterLoginControllerList();
 		aftctrls = (List<Map<String, Object>>) ((ArrayList<Map<String, Object>>) aftctrlsTmp).clone();
+		// sort controllers according to config
+		aftctrls = AfterLoginInterceptionManager.sortControllerListByOrder(aftctrls);
+		
 		// load all UserProps concerning afterlogin/runOnce workflow => only 1
 		// db-call for all props
-		pm = PropertyManager.getInstance();
 		ctrlPropList = pm.listProperties(ureq.getIdentity(), null, null, null, PROPERTY_CAT, null);
 
 		// loop over possible controllers and check if user already did it before configured timeout
@@ -145,9 +151,6 @@ public class AfterLoginInterceptionController extends BasicController {
 			dispose();
 			return;
 		}
-
-		// sort controllers according to config
-		aftctrls = AfterLoginInterceptionManager.sortControllerListByOrder(aftctrls);
 		
 		wiz = new WizardInfoController(ureq, aftctrls.size());
 		vC.put("wizard", wiz.getInitialComponent());

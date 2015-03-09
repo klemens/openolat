@@ -41,6 +41,7 @@ import org.olat.core.gui.render.StringOutput;
 import org.olat.core.gui.render.URLBuilder;
 import org.olat.core.gui.translator.Translator;
 import org.olat.core.util.Formatter;
+import org.olat.core.util.StringHelper;
 import org.olat.ims.qti.QTIConstants;
 import org.olat.ims.qti.container.AssessmentContext;
 import org.olat.ims.qti.container.ItemContext;
@@ -230,13 +231,12 @@ public class IQComponentRenderer implements ComponentRenderer {
 			sb.append("\"");
 			if (!displayForm) sb.append(" style=\"display: none;\"");
 			sb.append(" />")
-			  .append("</div><div class='col-md-8'>");
+			  .append("</div><div class='col-md-10'>");
 
 			if (memo && memoId != null) {
-				sb.append("<div class=\"o_qti_item_note_box_title\">");
-				sb.append(translator.translate("qti.memofield"));
 				sb.append("<div class=\"o_qti_item_note_box\">");
-				sb.append("<textarea id=\"o_qti_item_note\" rows=\"2\" spellcheck=\"false\" onchange=\"memo('");
+				sb.append("<label class=\"control-label\" for=\"o_qti_item_note\">").append(translator.translate("qti.memofield")).append("</label>");
+				sb.append("<textarea id=\"o_qti_item_note\" class=\"form-control\" rows=\"4\" spellcheck=\"false\" onchange=\"memo('");
 				sb.append(memoId);
 				sb.append("', this.value);\" onkeyup=\"resize(this);\" onmouseup=\"resize(this);\"");
 				if (isDefaultMemo) {
@@ -245,7 +245,6 @@ public class IQComponentRenderer implements ComponentRenderer {
 				sb.append(">")
 				  .append(memoTx)
 				  .append("</textarea>")
-				  .append("</div>")
 				  .append("</div>");
 			}
 			
@@ -311,8 +310,8 @@ public class IQComponentRenderer implements ComponentRenderer {
 		StringOutput sb = new StringOutput();
 
 		sb.append("<td>");
-		String title = itc.getEl_item().attributeValue("title", "no title");
-		String titleShort = Formatter.truncate(title, 27);
+		String title = StringHelper.escapeHtml(itc.getEl_item().attributeValue("title", "no title"));
+		String titleShort = StringHelper.escapeHtml(Formatter.truncate(title, 27));
 		long maxdur = itc.getDurationLimit();
 		long start = itc.getTimeOfStart();
 		long due = start + maxdur;
@@ -333,7 +332,7 @@ public class IQComponentRenderer implements ComponentRenderer {
 			sb.append("<a onclick=\"return o2cl();\" href=\"");
 			ubu.buildURI(sb, new String[] { VelocityContainer.COMMAND_ID }, new String[] { "git" });
 			sb.append("?itid="	+ itemPos	+ "&seid=" + sectionPos);
-			sb.append("\" title=\"" + StringEscapeUtils.escapeHtml(title) + "\">");
+			sb.append("\" class=\"o_sel_qti_menu_item\" title=\"" + StringEscapeUtils.escapeHtml(title) + "\">");
 		}
 		
 		sb.append("<b>" + (sectionPos + 1) + "." + (itemPos + 1) + ".</b>&nbsp;");	
@@ -395,8 +394,7 @@ public class IQComponentRenderer implements ComponentRenderer {
 		sb.append(ai.isMarked(itc.getIdent()) ? m : n);
 		sb.append("\">");
 		sb.append(t);
-		sb.append("</div>");
-		sb.append("</td>");
+		sb.append(" </div></td>");
 		
 		return sb;
 	}
@@ -407,7 +405,7 @@ public class IQComponentRenderer implements ComponentRenderer {
 
 		// section link
 		sb.append("<td>");
-		String title = Formatter.truncate(sc.getTitle(), 30);
+		String title = StringHelper.escapeHtml(Formatter.truncate(sc.getTitle(), 30));
 		long maxdur = sc.getDurationLimit();
 		long start = sc.getTimeOfStart();
 		long due = start + maxdur;
@@ -482,7 +480,7 @@ public class IQComponentRenderer implements ComponentRenderer {
 
 		sb.append("<div id=\"o_qti_menu\">");
 		sb.append("<h4>");
-		sb.append(ac.getTitle());
+		sb.append(StringHelper.escapeHtml(ac.getTitle()));
 		sb.append("</h4>");
 
 		sb.append("<table border=0 width=\"100%\">");

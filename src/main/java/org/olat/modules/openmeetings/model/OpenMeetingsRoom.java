@@ -34,6 +34,7 @@ public class OpenMeetingsRoom {
 	private long type;
 	private long size;
 	private boolean moderated;
+	private boolean audioOnly;
 	private boolean recordingAllowed;
 	private boolean closed;
 	
@@ -97,12 +98,16 @@ public class OpenMeetingsRoom {
 		this.moderated = moderated;
 	}
 	
-	public boolean isRecordingAllowed() {
-		return recordingAllowed;
+	public boolean isAudioOnly() {
+		return audioOnly;
 	}
 	
-	public void setRecordingAllowed(boolean recordingAllowed) {
-		this.recordingAllowed = recordingAllowed;
+	public void setAudioOnly(boolean audioOnly) {
+		this.audioOnly = audioOnly;
+	}
+
+	public boolean isRecordingAllowed() {
+		return recordingAllowed;
 	}
 
 	public OpenMeetingsRoomReference getReference() {

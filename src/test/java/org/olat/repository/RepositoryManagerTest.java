@@ -209,16 +209,22 @@ public class RepositoryManagerTest extends OlatTestCase {
 	@Test
 	public void queryByEditor() {
 		//create a repository entry with an owner
-		Identity id = JunitTestHelper.createAndPersistIdentityAsUser("re-owner-la-" + UUID.randomUUID().toString());
+		Identity owner = JunitTestHelper.createAndPersistIdentityAsUser("re-owner-la-" + UUID.randomUUID().toString());
+		Identity participant = JunitTestHelper.createAndPersistIdentityAsUser("re-participant-la-" + UUID.randomUUID().toString());
 		RepositoryEntry re = JunitTestHelper.createAndPersistRepositoryEntry();
 		dbInstance.commitAndCloseSession();
-		repositoryEntryRelationDao.addRole(id, re, GroupRoles.owner.name());
+		repositoryEntryRelationDao.addRole(owner, re, GroupRoles.owner.name());
+		repositoryEntryRelationDao.addRole(participant, re, GroupRoles.participant.name());
 		dbInstance.commitAndCloseSession();
 		
-		List<RepositoryEntry> entries = repositoryManager.queryByEditor(id);
+		List<RepositoryEntry> entries = repositoryManager.queryByEditor(owner);
 		Assert.assertNotNull(entries);
 		Assert.assertEquals(1, entries.size());
 		Assert.assertTrue(entries.contains(re));
+		
+		List<RepositoryEntry> partEntries = repositoryManager.queryByEditor(participant);
+		Assert.assertNotNull(partEntries);
+		Assert.assertEquals(0, partEntries.size());
 	}
 	
 	@Test
@@ -270,7 +276,7 @@ public class RepositoryManagerTest extends OlatTestCase {
 		repositoryEntryRelationDao.addRole(id, re, GroupRoles.participant.name());
 		dbInstance.commitAndCloseSession();
 
-		List<RepositoryEntry> entries = repositoryManager.getLearningResourcesAsStudent(id, 0, -1, RepositoryEntryOrder.nameAsc);
+		List<RepositoryEntry> entries = repositoryManager.getLearningResourcesAsStudent(id, null, 0, -1, RepositoryEntryOrder.nameAsc);
 		Assert.assertNotNull(entries);
 		Assert.assertFalse(entries.isEmpty());
 		Assert.assertTrue(entries.contains(re));
@@ -292,7 +298,7 @@ public class RepositoryManagerTest extends OlatTestCase {
 	    businessGroupRelationDao.addRole(id, group, GroupRoles.participant.name());
 		dbInstance.commitAndCloseSession();
 
-		List<RepositoryEntry> entries = repositoryManager.getLearningResourcesAsStudent(id, 0, -1);
+		List<RepositoryEntry> entries = repositoryManager.getLearningResourcesAsStudent(id, null, 0, -1);
 		Assert.assertNotNull(entries);
 		Assert.assertFalse(entries.isEmpty());
 		Assert.assertTrue(entries.contains(re));
@@ -304,6 +310,41 @@ public class RepositoryManagerTest extends OlatTestCase {
 				Assert.assertTrue(entry.getAccess() >= RepositoryEntry.ACC_USERS);
 			}
 		}
+	}
+
+	@Test
+	public void getLearningResourcesAsBookmark() {
+		Identity owner = JunitTestHelper.createAndPersistIdentityAsRndUser("webdav-courses-1");
+		Identity participant = JunitTestHelper.createAndPersistIdentityAsRndUser("webdav-courses-2");
+		RepositoryEntry course = JunitTestHelper.deployBasicCourse(owner);
+		markManager.setMark(course, participant, null, "[RepositoryEntry:" + course.getKey() + "]");
+		dbInstance.commitAndCloseSession();
+		
+		//participant bookmarks
+		Roles roles = new Roles(false, false, false, false, false, false, false);
+		List<RepositoryEntry> courses = repositoryManager.getLearningResourcesAsBookmark(participant, roles, "CourseModule", 0, -1);
+		Assert.assertNotNull(courses);
+		Assert.assertEquals(1, courses.size());
+	}
+	
+	/**
+	 * Check that the method return only courses within the permissions of the user.
+	 */
+	@Test
+	public void getLearningResourcesAsBookmark_noPermissions() {
+		Identity owner = JunitTestHelper.createAndPersistIdentityAsRndUser("webdav-courses-1");
+		Identity participant = JunitTestHelper.createAndPersistIdentityAsRndUser("webdav-courses-2");
+		RepositoryEntry course = JunitTestHelper.deployBasicCourse(owner);
+		markManager.setMark(course, participant, null, "[RepositoryEntry:" + course.getKey() + "]");
+		dbInstance.commitAndCloseSession();
+		repositoryManager.setAccess(course, RepositoryEntry.ACC_OWNERS, false);
+		dbInstance.commitAndCloseSession();
+		
+		//participant bookmarks
+		Roles roles = new Roles(false, false, false, false, false, false, false);
+		List<RepositoryEntry> courses = repositoryManager.getLearningResourcesAsBookmark(participant, roles, "CourseModule", 0, -1);
+		Assert.assertNotNull(courses);
+		Assert.assertEquals(0, courses.size());
 	}
 	
 	@Test
@@ -1064,15 +1105,29 @@ public class RepositoryManagerTest extends OlatTestCase {
 		
 		String newName = "Brand new name";
 		String newDesc = "Brand new description";
-		re = repositoryManager.setDescriptionAndName(re, newName, newDesc);
+		String newAuthors = "Me and only me";
+		String newExternalId = "Brand - ext";
+		String newExternalRef = "Brand - ref";
+		String newManagedFlags = RepositoryEntryManagedFlag.access.name();
+		
+		RepositoryEntryLifecycle newCycle
+			= lifecycleDao.create("New cycle 1", "New cycle soft 1", false, new Date(), new Date());
+		
+		re = repositoryManager.setDescriptionAndName(re, newName, newDesc, newAuthors, newExternalId, newExternalRef, newManagedFlags, newCycle);
 		Assert.assertNotNull(re);
 		
 		dbInstance.commitAndCloseSession();
 		
 		RepositoryEntry reloaded = repositoryManager.lookupRepositoryEntry(re.getKey());
 		Assert.assertNotNull(reloaded);
+		Assert.assertEquals("Me and only me", reloaded.getAuthors());
 		Assert.assertEquals("Brand new name", reloaded.getDisplayname());
 		Assert.assertEquals("Brand new description", reloaded.getDescription());
+		Assert.assertEquals("Brand - ext", reloaded.getExternalId());
+		Assert.assertEquals("Brand - ref", reloaded.getExternalRef());
+		Assert.assertEquals(RepositoryEntryManagedFlag.access.name(), reloaded.getManagedFlagsString());
+		Assert.assertNotNull(reloaded.getLifecycle());
+		Assert.assertEquals(newCycle, reloaded.getLifecycle());
 	}
 	
 	@Test
@@ -1098,7 +1153,103 @@ public class RepositoryManagerTest extends OlatTestCase {
 		Assert.assertEquals(publicCycle, reloaded.getLifecycle());
 	}
 
+	@Test
+	public void setAllowToLeaveOption() {
+		RepositoryEntry re = JunitTestHelper.createAndPersistRepositoryEntry();
+		dbInstance.commitAndCloseSession();
+		Assert.assertNotNull(re);
+		
+		RepositoryEntry updatedRe = repositoryManager.setLeaveSetting(re, RepositoryEntryAllowToLeaveOptions.never);
+		dbInstance.commitAndCloseSession();
+		Assert.assertNotNull(updatedRe);
+		Assert.assertEquals(re, updatedRe);
+		Assert.assertEquals(RepositoryEntryAllowToLeaveOptions.never, updatedRe.getAllowToLeaveOption());
+	}
 	
+	@Test
+	public void isParticipantAllowedToLeave() {
+		RepositoryEntry re = JunitTestHelper.createAndPersistRepositoryEntry();
+		dbInstance.commitAndCloseSession();
+		re = repositoryManager.setLeaveSetting(re, RepositoryEntryAllowToLeaveOptions.never);
+		dbInstance.commitAndCloseSession();
+		
+		Assert.assertFalse(repositoryService.isParticipantAllowedToLeave(re));
+	}
+	
+	@Test
+	public void leave_simpleRepositoryEnty() {
+		Identity participant = JunitTestHelper.createAndPersistIdentityAsRndUser("leave-re-1");
+		Identity coach = JunitTestHelper.createAndPersistIdentityAsRndUser("leave-re-2");
+		Identity owner = JunitTestHelper.createAndPersistIdentityAsRndUser("leave-re-3");
+		RepositoryEntry re = JunitTestHelper.createAndPersistRepositoryEntry();
+		repositoryEntryRelationDao.addRole(participant, re, GroupRoles.participant.name());
+		repositoryEntryRelationDao.addRole(coach, re, GroupRoles.coach.name());
+		repositoryEntryRelationDao.addRole(owner, re, GroupRoles.owner.name());
+		dbInstance.commitAndCloseSession();
+		
+		//participant leave
+		LeavingStatusList status = new LeavingStatusList();
+		repositoryManager.leave(participant, re, status, null);
+		dbInstance.commit();
+		Assert.assertFalse(repositoryService.isMember(participant, re));
+		
+		//coach and owner can't leave
+		repositoryManager.leave(coach, re, status, null);
+		dbInstance.commit();
+		Assert.assertTrue(repositoryService.isMember(coach, re));
+		repositoryManager.leave(owner, re, status, null);
+		dbInstance.commit();
+		Assert.assertTrue(repositoryService.isMember(owner, re));
+	}
+	
+	@Test
+	public void leave_withGroups() {
+		//create 2 entries and 2 groups
+		Identity participant = JunitTestHelper.createAndPersistIdentityAsRndUser("leave-re-4");
+		Identity owner = JunitTestHelper.createAndPersistIdentityAsRndUser("leave-re-5");
+		
+		//entry 1 is linked to the 2 groups
+		RepositoryEntry re1 = JunitTestHelper.createAndPersistRepositoryEntry();
+		repositoryEntryRelationDao.addRole(participant, re1, GroupRoles.participant.name());
+		repositoryEntryRelationDao.addRole(owner, re1, GroupRoles.owner.name());
+		
+		//entry 2 is only linked to group 2
+		RepositoryEntry re2 = JunitTestHelper.createAndPersistRepositoryEntry();
+		
+		BusinessGroup group1 = businessGroupService.createBusinessGroup(owner, "leaving-group-1", "tg", null, null, false, false, re1);
+	    businessGroupRelationDao.addRole(participant, group1, GroupRoles.participant.name());
+		
+	    BusinessGroup group2 = businessGroupService.createBusinessGroup(owner, "leaving-group-2", "tg", null, null, false, false, re1);
+	    businessGroupRelationDao.addRole(participant, group2, GroupRoles.participant.name());
+	    businessGroupRelationDao.addRelationToResource(group2, re2);
+		dbInstance.commitAndCloseSession();
+		
+		//participant leave
+		LeavingStatusList status = new LeavingStatusList();
+		repositoryManager.leave(participant, re1, status, null);
+		businessGroupService.leave(participant, re1, status, null);
+		dbInstance.commit();
+		
+		//participant is removed from entry 1, group 1 but not group 2 because this group is linked to entry 2 too
+		Assert.assertTrue(repositoryService.isMember(participant, re1));
+		//but removed from re
+		boolean re1Role = repositoryEntryRelationDao.hasRole(participant, re1, GroupRoles.participant.name());
+		Assert.assertFalse(re1Role);
+		boolean group1Role = businessGroupRelationDao.hasRole(participant, group1, GroupRoles.participant.name());
+		Assert.assertFalse(group1Role);
+		boolean group2Role = businessGroupRelationDao.hasRole(participant, group2, GroupRoles.participant.name());
+		Assert.assertTrue(group2Role);
+		
+		//owner are never remove (double check)
+		Assert.assertTrue(repositoryService.isMember(owner, re1));
+		//but removed from re
+		boolean re1OwnerRole = repositoryEntryRelationDao.hasRole(owner, re1, GroupRoles.owner.name());
+		Assert.assertTrue(re1OwnerRole);
+		boolean group1CoachRole = businessGroupRelationDao.hasRole(owner, group1, GroupRoles.coach.name());
+		Assert.assertTrue(group1CoachRole);
+		boolean group2CoachRole = businessGroupRelationDao.hasRole(owner, group2, GroupRoles.coach.name());
+		Assert.assertTrue(group2CoachRole);
+	}
 
 	private RepositoryEntry createRepositoryEntry(final String type, Identity owner, long i) {
 		OLATResourceable resourceable = OresHelper.createOLATResourceableInstance(type, new Long(i));

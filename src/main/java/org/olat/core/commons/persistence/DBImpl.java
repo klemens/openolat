@@ -41,8 +41,8 @@ import javax.persistence.RollbackException;
 import org.hibernate.HibernateException;
 import org.hibernate.Query;
 import org.hibernate.Session;
-import org.hibernate.ejb.HibernateEntityManager;
-import org.hibernate.ejb.HibernateEntityManagerFactory;
+import org.hibernate.jpa.HibernateEntityManager;
+import org.hibernate.jpa.HibernateEntityManagerFactory;
 import org.hibernate.stat.Statistics;
 import org.hibernate.type.Type;
 import org.olat.core.configuration.Destroyable;
@@ -87,7 +87,22 @@ public class DBImpl extends LogDelegator implements DB, Destroyable {
 	protected static DBImpl getInstance() {
 		return INSTANCE;
 	}
-	
+
+	@Override
+	public boolean isMySQL() {
+		return "mysql".equals(dbVendor);
+	}
+
+	@Override
+	public boolean isPostgreSQL() {
+		return "postgresql".equals(dbVendor);
+	}
+
+	@Override
+	public boolean isOracle() {
+		return "oracle".equals(dbVendor);
+	}
+
 	@Override
 	public String getDbVendor() {
 		return dbVendor;
@@ -660,11 +675,11 @@ public class DBImpl extends LogDelegator implements DB, Destroyable {
 		}
 	}
 	
-	private void evict(EntityManager em, Object object, ThreadLocalData data) {
+	private void evict(EntityManager em, Object object, ThreadLocalData localData) {
 		try {
 			getSession(em).evict(object);			
 		} catch (Exception e) {
-			data.setError(e);
+			localData.setError(e);
 			throw new DBRuntimeException("Error in evict() Object from Database. ", e);
 		}
 	}
@@ -693,12 +708,6 @@ public class DBImpl extends LogDelegator implements DB, Destroyable {
 		} finally {
 			closeSession();
 		}
-	}
-
-	@Override
-	public void begin() {
-		//this will begin a new transaction
-		getCurrentEntityManager();
 	}
 
 	/**
@@ -812,6 +821,13 @@ public class DBImpl extends LogDelegator implements DB, Destroyable {
 		}
  		return null;
    }
+	
+	public Object getCache() {
+		/*if(emf instanceof HibernateEntityManagerFactory) {
+			return ((HibernateEntityManagerFactory)emf).getSessionFactory().getCache().();
+		}*/
+		return null;
+	}
 
 	/**
 	 * @see org.olat.core.commons.persistence.DB#intermediateCommit()

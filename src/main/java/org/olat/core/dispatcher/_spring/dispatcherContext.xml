@@ -14,6 +14,9 @@
 				<entry key="/dmz/">
 					<ref bean="dmzbean" />
 				</entry>
+				<entry key="/maintenance/">
+					<ref bean="maintenancebean" />
+				</entry>
 				<entry key="/url/">
 					<!-- if you change /url make sure you also modify olatcore/src/main/java/org/olat/core/gui/components/form/flexible/impl/elements/richText/_static/js/BTinyHelper.js accordingly -->
 					<ref bean="restdispatcher" />
@@ -52,6 +55,12 @@
 				<entry key="/blog/">
 					<ref bean="blogMediaBean" />
 				</entry>
+				<entry key="/certificate/">
+					<ref bean="certificateBean" />
+				</entry>
+				<entry key="/oauthcallback">
+					<ref bean="oauthcallback" />
+				</entry>
 			</map>
 		</property>
 	</bean>
@@ -59,7 +68,7 @@
 	
 	<bean id="restdispatcher" class="org.olat.dispatcher.RESTDispatcher" />
 	
-	
+	<bean id="oauthcallback" class="org.olat.login.oauth.OAuthDispatcher" />
 	
 	<!-- send bug report dispatcher -->
 	<bean id="errorMailBean" class="org.olat.core.dispatcher.ErrorFeedbackMailer" />
@@ -68,6 +77,7 @@
 	<bean id="dmzbean" class="org.olat.dispatcher.DMZDispatcher">
 		<!-- defines the first page if /dmz/ only is dispatched 
 		DEFAULT -->
+		<constructor-arg index="0" value="false" />
 		<property name="chiefControllerCreator">
 			<bean
 				class="org.olat.core.gui.control.ChiefControllerCreator">
@@ -114,6 +124,15 @@
 						</property>
 					</bean>
 				</entry>
+				<!-- triggers oauth registration workflow -->
+				<entry key="/oauthregister/">
+					<bean class="org.olat.core.gui.control.ChiefControllerCreator">
+						<property name="contentControllerCreator">
+							<bean class="org.olat.login.oauth.ui.OAuthRegistrationCreator" />
+						</property>
+					</bean>
+				</entry>
+				
 				<!-- triggers email change workflow -->
 				<entry key="/emchange/">
 					<bean
@@ -128,6 +147,16 @@
 			</map>
 		</property>
 	</bean>
+	<bean id="maintenancebean" class="org.olat.dispatcher.DMZDispatcher">
+		<constructor-arg index="0" value="true" />
+		<property name="chiefControllerCreator">
+			<bean class="org.olat.core.gui.control.ChiefControllerCreator">
+				<property name="contentControllerCreator">
+					<bean class="org.olat.login.DMZContentControllerCreator" />
+				</property>
+			</bean>
+		</property>
+	</bean>
 	<bean id="authbean"
 		class="org.olat.dispatcher.AuthenticatedDispatcher">
 		<!-- set arg to true if you want to force only access to olat 
@@ -135,7 +164,11 @@
 		<constructor-arg index="0">
 			<value>false</value>
 		</constructor-arg>
-	</bean>	
+	</bean>
+	
+	<bean id="certificateBean" class="org.olat.course.certificate.CertificateDispatcher">
+		<property name="certificatesManager" ref="certificatesManager" />
+	</bean>
 	
 	<!--  provides the possibility to log in using a remote loginform, e.g. from a portal.
 		The follwing requirements are given:
@@ -170,10 +203,7 @@
 	</bean>
 	
 	<bean id="secstaticlegacybean"
-		class="org.olat.commons.servlets.StaticsLegacyDispatcher">
-		<property name="inputBufferSize" value="32768" />
-		<property name="outputBufferSize" value="32768" />
-	</bean>
+		class="org.olat.commons.servlets.StaticsLegacyDispatcher" />
 
 	<bean id="adminbean"
 		class="org.olat.admin.AdminModuleDispatcher" />
