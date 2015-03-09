@@ -21,5 +21,10 @@
       <tns:version>0.2.0</tns:version>
       <tns:url>http://autolat.imn.htwk-leipzig.de/cgi-bin/autotool-0.2.0.cgi</tns:url>
     </tns:server>
+    <tns:server>
+      <tns:name>Autotool Server HTWK Leipzig - Nightly (Nur zum Testen!)</tns:name>
+      <tns:version>0.0.0</tns:version>
+      <tns:url>http://kernkraft.imn.htwk-leipzig.de/cgi-bin/autotool-latest.cgi</tns:url>
+    </tns:server>
   </tns:autotoolservers>
 </tns:autolat>
