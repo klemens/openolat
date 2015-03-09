@@ -19,12 +19,13 @@
  */
 package org.olat.core.commons.contextHelp;
 
+import java.util.Collection;
 import java.util.Locale;
-import java.util.Set;
 
 import org.olat.core.CoreSpringFactory;
 import org.olat.core.commons.chiefcontrollers.LanguageChangedEvent;
 import org.olat.core.commons.fullWebApp.DefaultMinimalTopNavController;
+import org.olat.core.commons.fullWebApp.LockableController;
 import org.olat.core.dispatcher.impl.StaticMediaDispatcher;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.Windows;
@@ -64,7 +65,7 @@ import org.olat.search.ui.SearchInputController;
  * 
  * @author Florian Gnaegi, frentix GmbH, http://www.frentix.com
   */
-public class ContextHelpTopNavController extends FormBasicController {
+public class ContextHelpTopNavController extends FormBasicController implements LockableController {
 	static final OLATResourceable CHANGE_LANG_RESOURCE = OresHelper.createOLATResourceableType("ContextHelp:ChangeLanguageChannel");
 
 	private SingleSelection langSelection;
@@ -92,6 +93,16 @@ public class ContextHelpTopNavController extends FormBasicController {
 	}
 
 	@Override
+	public void lockResource(OLATResourceable resource) {
+		//
+	}
+	
+	@Override
+	public void unlockResource() {
+		//
+	}
+
+	@Override
 	protected void initForm(FormItemContainer formLayout, Controller listener, UserRequest ureq) {
 		SearchServiceUIFactory searchUIFactory = (SearchServiceUIFactory)CoreSpringFactory.getBean(SearchServiceUIFactory.class);
 		searchController = searchUIFactory.createInputController(ureq, getWindowControl(), DisplayOption.STANDARD, mainForm);
@@ -101,7 +112,7 @@ public class ContextHelpTopNavController extends FormBasicController {
 		
 		// Add target languages without overlays
 		I18nManager i18nMgr = I18nManager.getInstance();
-		Set<String> availableLangKeys = I18nModule.getEnabledLanguageKeys();
+		Collection<String> availableLangKeys = I18nModule.getEnabledLanguageKeys();
 		String[] targetlangKeys = ArrayHelper.toArray(availableLangKeys);
 		String[] targetLangValues = new String[targetlangKeys.length];
 		for (int i = 0; i < targetlangKeys.length; i++) {

@@ -128,7 +128,7 @@ public class CPDisplayController extends BasicController implements Activateable
 		//TODO:gs:a
 		//may add an additional config for disabling, enabling IFrame style or not in CP mode
 		//but always disable IFrame display when in screenreader mode (no matter whether style gets ugly)
-		cpContentCtr = new IFrameDisplayController(ureq, getWindowControl(),rootContainer, null, ores, deliveryOptions);
+		cpContentCtr = new IFrameDisplayController(ureq, getWindowControl(),rootContainer, null, ores, deliveryOptions, true);
 		cpContentCtr.setAllowDownload(true);
 		listenTo(cpContentCtr);
 		myContent.put("cpContent", cpContentCtr.getInitialComponent());
@@ -339,7 +339,7 @@ public class CPDisplayController extends BasicController implements Activateable
 			//fxdiff VCRP-14: print cp
 			} else if (source == printController) {
 				if(Event.DONE_EVENT == event) {
-					List<String> nodeToPrint = printController.getSelectedNodeIdents();
+					List<String> nodeToPrint = printController.getSelectedNodeIdentifiers();
 					printPages(nodeToPrint);
 				}
 				
@@ -352,7 +352,6 @@ public class CPDisplayController extends BasicController implements Activateable
 	}
 	
 	@Override
-	//fxdiff BAKS-7 Resume function
 	public void activate(UserRequest ureq, List<ContextEntry> entries, StateEntry state) {
 		if(entries == null || entries.isEmpty()) return;
 		
@@ -371,7 +370,6 @@ public class CPDisplayController extends BasicController implements Activateable
 		}
 	}
 
-	//fxdiff VCRP-14: print cp
 	private void printPages(final List<String> selectedNodeIds) {
 		StringBuilder sb = new StringBuilder();
 		sb.append("window.open('" + mapperBaseURL + "/print.html', '_print','height=800,left=100,top=100,width=800,toolbar=no,titlebar=0,status=0,menubar=yes,location= no,scrollbars=1');");

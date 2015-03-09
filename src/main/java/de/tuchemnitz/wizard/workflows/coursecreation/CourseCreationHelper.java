@@ -37,8 +37,6 @@ import java.util.List;
 import java.util.Locale;
 
 import org.olat.basesecurity.BaseSecurityManager;
-import org.olat.catalog.CatalogEntry;
-import org.olat.catalog.CatalogManager;
 import org.olat.collaboration.CollaborationTools;
 import org.olat.collaboration.CollaborationToolsFactory;
 import org.olat.core.CoreSpringFactory;
@@ -48,13 +46,13 @@ import org.olat.core.id.UserConstants;
 import org.olat.core.logging.OLog;
 import org.olat.core.logging.Tracing;
 import org.olat.core.util.Util;
-import org.olat.core.util.vfs.VFSLeaf;
 import org.olat.course.CourseFactory;
 import org.olat.course.ICourse;
 import org.olat.course.condition.Condition;
+import org.olat.course.editor.CourseEditorHelper;
 import org.olat.course.editor.PublishProcess;
-import org.olat.course.editor.StatusDescription;
 import org.olat.course.editor.PublishSetInformations;
+import org.olat.course.editor.StatusDescription;
 import org.olat.course.nodes.AbstractAccessableCourseNode;
 import org.olat.course.nodes.BCCourseNode;
 import org.olat.course.nodes.COCourseNode;
@@ -67,8 +65,10 @@ import org.olat.course.nodes.sp.SPEditController;
 import org.olat.course.tree.CourseEditorTreeModel;
 import org.olat.group.BusinessGroup;
 import org.olat.group.BusinessGroupService;
+import org.olat.repository.CatalogEntry;
 import org.olat.repository.RepositoryEntry;
 import org.olat.repository.RepositoryManager;
+import org.olat.repository.manager.CatalogManager;
 
 import de.tuchemnitz.wizard.helper.course.CourseExtensionHelper;
 import de.tuchemnitz.wizard.helper.course.HTMLDocumentHelper;
@@ -142,8 +142,9 @@ public class CourseCreationHelper {
 			singlePageNode = CourseExtensionHelper.createSinglePageNode(course, translator.translate("cce.informationpage"), translator
 					.translate("cce.informationpage.descr"));
 			if (singlePageNode instanceof SPCourseNode) {
-				final VFSLeaf htmlLeaf = HTMLDocumentHelper.createHtmlDocument(course, "start.html", courseConfig.getSinglePageText(translator));
-				((SPCourseNode) singlePageNode).getModuleConfiguration().set(SPEditController.CONFIG_KEY_FILE, "/" + htmlLeaf.getName());
+				final String relPath = CourseEditorHelper.createUniqueRelFilePathFromShortTitle(singlePageNode, course.getCourseFolderContainer());
+				HTMLDocumentHelper.createHtmlDocument(course, relPath, courseConfig.getSinglePageText(translator));
+				((SPCourseNode) singlePageNode).getModuleConfiguration().set(SPEditController.CONFIG_KEY_FILE, relPath);
 			}
 		}
 		// enrollment node
@@ -339,7 +340,7 @@ public class CourseCreationHelper {
 
 		// save catalog entry
 		if (getConfiguration().getSelectedCatalogEntry() != null) {
-			CatalogManager cm = CatalogManager.getInstance();
+			CatalogManager cm = CoreSpringFactory.getImpl(CatalogManager.class);
 			CatalogEntry newEntry = cm.createCatalogEntry();
 			newEntry.setRepositoryEntry(addedEntry);
 			newEntry.setName(addedEntry.getDisplayname());

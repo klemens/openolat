@@ -313,6 +313,46 @@
 				}	
 			}
 		}
+	}
+	
+	.o_sublevels_list {
+		.o_sublevel {
+			position: relative;
+			border: 1px solid $o-coursesite-rowelem-border;
+			margin-bottom: floor($line-height-computed / 2);
+			
+			.o_visual {
+				height: $o-coursesite-rowelem-width-xs;
+				width: $o-coursesite-rowelem-width-xs;
+			}
+			
+			.o_title {
+				margin: 0;
+			}
+			
+			.o_meta {
+				border-left: 1px solid $o-coursesite-rowelem-border;
+				min-height: $o-coursesite-rowelem-width-xs;	
+				height: $o-coursesite-rowelem-width-xs;	
+				margin: 0 0 0 $o-coursesite-rowelem-width-xs;
+				padding: 0 0 0 1em;
+				.o_title {
+					line-height: $o-coursesite-rowelem-width-xs;
+				}
+				.o_desc {
+					display: none;
+				}
+				
+				h4.o_title>a {
+					//override o_icon styles, hide the icon
+					font-family: inherit;
+					font-weight: inherit;
+					>i {
+						display:none;
+					}
+				}	
+			}	
+		}
 	}	
 	
 	.o_sublevels {
@@ -333,7 +373,7 @@
 			.o_visual {
 				border: 1px solid $o-coursesite-catalog-border;
 				position: relative;
-				height: $o-coursesite-rowelem-width-md;					
+				height: $o-coursesite-rowelem-width-md;
 			}	
 			.o_meta {
 				position: absolute;
@@ -360,9 +400,16 @@
 						color: $o-coursesite-meta-title-color;
 						&:hover {
 						    color: darken($o-coursesite-meta-title-color, 10%);
-						}				
+						}
+						
+						//override o_icon styles, hide the icon
+						font-family: inherit;
+						font-weight: inherit;
+						>i {
+							display:none;
+						}
 					}
-				}				
+				}
 			}
 
 			@media (min-width: $screen-sm-min) and (max-width: $screen-sm-max) { 
@@ -388,6 +435,18 @@
 					font-size: 90%;
 				}
 			}	
+		}
+	}
+	
+	/* multi-column layout for list and compact styles */
+	@media (min-width: $screen-sm-min) {
+		.o_sublevels_list, .o_sublevels_compact {
+			-webkit-column-count:2;
+			-moz-column-count:2;
+			-ms-column-count:2;
+			-o-column-count:2;
+			column-count:2;
+			columns:2;
 		}
 	}
 }

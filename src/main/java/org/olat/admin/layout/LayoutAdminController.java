@@ -169,6 +169,7 @@ public class LayoutAdminController extends FormBasicController {
 		FormLayoutContainer footerCont = FormLayoutContainer.createDefaultFormLayout("customizing", getTranslator());
 		formLayout.add(footerCont);
 		footerCont.setFormTitle(translate("customizing.settings"));
+		footerCont.setFormDescription(translate("customizing.settings.desc"));
 
 		String oldFooterUrl = layoutModule.getFooterLinkUri();
 		footerUrl = uifactory.addTextElement("footerUrl", "footerUrl.description", 256, oldFooterUrl, footerCont);
@@ -222,7 +223,7 @@ public class LayoutAdminController extends FormBasicController {
 				layoutModule.setLogoFilename(newLogo.getName());
 				logoUpload.setInitialFile(newLogo);
 				deleteLogo.setVisible(true);
-				Windows.getWindows(ureq).getChiefController().wishReload(true);
+				Windows.getWindows(ureq).getChiefController().wishReload(ureq, true);
 				
 			}
 		} else if(logoLinkTypeEl == source) {
@@ -233,7 +234,7 @@ public class LayoutAdminController extends FormBasicController {
 			logoUpload.reset();
 			deleteLogo.setVisible(false);
 			logoUpload.setInitialFile(null);
-			Windows.getWindows(ureq).getChiefController().wishReload(true);
+			Windows.getWindows(ureq).getChiefController().wishReload(ureq, true);
 			
 		} else if(themeSelection == source) {
 			// set new theme in Settings

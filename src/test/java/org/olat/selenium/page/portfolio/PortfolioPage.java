@@ -188,6 +188,33 @@ public class PortfolioPage {
 		return this;
 	}
 	
+	/**
+	 * Open the editor of a template
+	 * @return
+	 */
+	public PortfolioPage openResourceEditor() {
+		By toolsMenu = By.cssSelector("ul.o_sel_repository_tools");
+		if(!browser.findElement(toolsMenu).isDisplayed()) {
+			openToolsMenu();
+		}
+		By editTemplateBy = By.className("o_sel_ep_edit_map");
+		browser.findElement(editTemplateBy).click();
+		OOGraphene.waitBusy();
+		return this;
+	}
+	
+	/**
+	 * Open the tools drop-down
+	 * @return
+	 */
+	public PortfolioPage openToolsMenu() {
+		By toolsMenuCaretBy = By.cssSelector("a.o_sel_repository_tools");
+		browser.findElement(toolsMenuCaretBy).click();
+		By toolsMenuBy = By.cssSelector("ul.o_sel_repository_tools");
+		OOGraphene.waitElement(toolsMenuBy);
+		return this;
+	}
+	
 	public PortfolioPage openMap(String mapTitle) {
 		By mapBy = By.cssSelector("div.o_eportfolio_maps div.o_map-default");
 		By headingBy = By.cssSelector("div.panel-heading h4");
@@ -216,7 +243,7 @@ public class PortfolioPage {
 	 * @return
 	 */
 	public PortfolioPage selectMapInEditor(String mapTitle) {
-		By mapNodeBy = By.cssSelector("div.o_ep_toc_editor a.o_tree_level_label_open.o_tree_l1");
+		By mapNodeBy = By.cssSelector("div.o_ep_toc_editor span.o_tree_level_label_open.o_tree_l1>a");
 		WebElement selectedNode = null;
 		List<WebElement> level1Nodes = browser.findElements(mapNodeBy);
 		for(WebElement level1Node:level1Nodes) {
@@ -252,7 +279,7 @@ public class PortfolioPage {
 	 * @return
 	 */
 	public PortfolioPage selectFirstPageInEditor() {
-		By pageNodeBy = By.cssSelector("div.o_ep_toc_editor a.o_tree_level_label_leaf.o_tree_l2");
+		By pageNodeBy = By.cssSelector("div.o_ep_toc_editor span.o_tree_level_label_leaf.o_tree_l2>a");
 		List<WebElement> level2Nodes = browser.findElements(pageNodeBy);
 		Assert.assertFalse(level2Nodes.isEmpty());
 		level2Nodes.get(0).click();

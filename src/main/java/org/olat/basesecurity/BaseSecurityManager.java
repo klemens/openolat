@@ -58,7 +58,8 @@ import org.olat.core.id.Roles;
 import org.olat.core.id.User;
 import org.olat.core.id.UserConstants;
 import org.olat.core.logging.AssertException;
-import org.olat.core.manager.BasicManager;
+import org.olat.core.logging.OLog;
+import org.olat.core.logging.Tracing;
 import org.olat.core.util.Encoder;
 import org.olat.core.util.Encoder.Algorithm;
 import org.olat.core.util.Util;
@@ -82,8 +83,12 @@ import org.olat.user.UserManager;
  * 
  * @author Felix Jost, Florian Gnaegi
  */
-public class BaseSecurityManager extends BasicManager implements BaseSecurity {
+public class BaseSecurityManager implements BaseSecurity {
+	
+	private static final OLog log = Tracing.createLoggerFor(BaseSecurityManager.class);
+	
 	private DB dbInstance;
+	private LoginModule loginModule;
 	private OLATResourceManager orm;
 	private InvitationDAO invitationDao;
 	private String dbVendor = "";
@@ -104,6 +109,10 @@ public class BaseSecurityManager extends BasicManager implements BaseSecurity {
 	 */
 	public static BaseSecurity getInstance() {
 		return INSTANCE;
+	}
+	
+	public void setLoginModule(LoginModule loginModule) {
+		this.loginModule = loginModule;
 	}
 	
 	/**
@@ -136,21 +145,21 @@ public class BaseSecurityManager extends BasicManager implements BaseSecurity {
 	public void init() { // called only once at startup and only from one thread
 		// init the system level groups and its policies
 		initSysGroupAdmin();
-		DBFactory.getInstance(false).intermediateCommit();
+		dbInstance.commit();
 		initSysGroupAuthors();
-		DBFactory.getInstance(false).intermediateCommit();
+		dbInstance.commit();
 		initSysGroupGroupmanagers();
-		DBFactory.getInstance(false).intermediateCommit();
+		dbInstance.commit();
 		initSysGroupPoolsmanagers();
-		DBFactory.getInstance(false).intermediateCommit();
+		dbInstance.commit();
 		initSysGroupUsermanagers();
-		DBFactory.getInstance(false).intermediateCommit();
+		dbInstance.commit();
 		initSysGroupUsers();
-		DBFactory.getInstance(false).intermediateCommit();
+		dbInstance.commit();
 		initSysGroupAnonymous();
-		DBFactory.getInstance(false).intermediateCommit();
+		dbInstance.commit();
 		initSysGroupInstitutionalResourceManager();
-		DBFactory.getInstance(false).intermediateCommit();
+		dbInstance.commitAndCloseSession();
 	}
 
 	/**
@@ -358,7 +367,6 @@ public class BaseSecurityManager extends BasicManager implements BaseSecurity {
 	 */
 	@Override
 	public Roles getRoles(Identity identity) {
-		
 		boolean isGuestOnly = false;
 		boolean isInvitee = false;
 
@@ -382,9 +390,9 @@ public class BaseSecurityManager extends BasicManager implements BaseSecurity {
 	public List<String> getRolesAsString(Identity identity) {
 		StringBuilder sb = new StringBuilder();
 		sb.append("select ngroup.groupName from ").append(NamedGroupImpl.class.getName()).append(" as ngroup ")
-		  .append(" inner join ngroup.securityGroup sgi ")
 		  .append(" where exists (")
-		  .append("   select sgmsi from ").append(SecurityGroupMembershipImpl.class.getName()).append(" as sgmsi where sgmsi.identity.key=:identityKey and sgmsi.securityGroup=sgi")
+		  .append("   select sgmsi from ").append(SecurityGroupMembershipImpl.class.getName())
+		  .append("      as sgmsi where sgmsi.identity.key=:identityKey and sgmsi.securityGroup=ngroup.securityGroup")
 		  .append(" )");
 		
 		return dbInstance.getCurrentEntityManager()
@@ -448,11 +456,11 @@ public class BaseSecurityManager extends BasicManager implements BaseSecurity {
 		if (!hasBeenInGroup && isNowInGroup) {
 			// user not yet in security group, add him
 			addIdentityToSecurityGroup(updatedIdentity, securityGroup);
-			logAudit("User::" + actingIdentity.getName() + " added system role::" + groupName + " to user::" + updatedIdentity.getName(), null);
+			log.audit("User::" + (actingIdentity == null ? "unkown" : actingIdentity.getName()) + " added system role::" + groupName + " to user::" + updatedIdentity.getName(), null);
 		} else if (hasBeenInGroup && !isNowInGroup) {
 			// user not anymore in security group, remove him
 			removeIdentityFromSecurityGroup(updatedIdentity, securityGroup);
-			logAudit("User::" + actingIdentity.getName() + " removed system role::" + groupName + " from user::" + updatedIdentity.getName(), null);
+			log.audit("User::" + (actingIdentity == null ? "unkown" : actingIdentity.getName()) + " removed system role::" + groupName + " from user::" + updatedIdentity.getName(), null);
 		}
 	}
 
@@ -479,7 +487,7 @@ public class BaseSecurityManager extends BasicManager implements BaseSecurity {
 	 * @see org.olat.basesecurity.Manager#isIdentityInSecurityGroup(org.olat.core.id.Identity, org.olat.basesecurity.SecurityGroup)
 	 */
 	public boolean isIdentityInSecurityGroup(Identity identity, SecurityGroup secGroup) {
-		if (secGroup == null) return false;
+		if (secGroup == null || identity == null) return false;
 		String queryString = "select count(sgmsi) from  org.olat.basesecurity.SecurityGroupMembershipImpl as sgmsi where sgmsi.identity = :identitykey and sgmsi.securityGroup = :securityGroup";
 		DBQuery query = DBFactory.getInstance().createQuery(queryString);
 		query.setLong("identitykey", identity.getKey());
@@ -667,8 +675,8 @@ public class BaseSecurityManager extends BasicManager implements BaseSecurity {
 				.createQuery(sb.toString())
 				.setParameter("resourceKey", resource.getKey())
 				.executeUpdate();
-		if(isLogDebugEnabled()) {
-			logDebug(rowDeleted + " policies deleted");
+		if(log.isDebug()) {
+			log.debug(rowDeleted + " policies deleted");
 		}
 	}
 
@@ -687,7 +695,7 @@ public class BaseSecurityManager extends BasicManager implements BaseSecurity {
 		IdentityImpl iimpl = new IdentityImpl(username, user);
 		dbInstance.getCurrentEntityManager().persist(iimpl);
 		if (provider != null) { 
-			createAndPersistAuthentication(iimpl, provider, authusername, credential, LoginModule.getDefaultHashAlgorithm());
+			createAndPersistAuthentication(iimpl, provider, authusername, credential, loginModule.getDefaultHashAlgorithm());
 		}
 		notifyNewIdentityCreated(iimpl);
 		return iimpl;
@@ -701,9 +709,10 @@ public class BaseSecurityManager extends BasicManager implements BaseSecurity {
 	 * @return Identity
 	 */
 	@Override
-	public Identity createAndPersistIdentityAndUser(String username, User user, String provider, String authusername) {
+	public Identity createAndPersistIdentityAndUser(String username, String externalId, User user, String provider, String authusername) {
 		dbInstance.getCurrentEntityManager().persist(user);
 		IdentityImpl iimpl = new IdentityImpl(username, user);
+		iimpl.setExternalId(externalId);
 		dbInstance.getCurrentEntityManager().persist(iimpl);
 		if (provider != null) { 
 			createAndPersistAuthentication(iimpl, provider, authusername, null, null);
@@ -723,17 +732,68 @@ public class BaseSecurityManager extends BasicManager implements BaseSecurity {
 	 * @return Identity
 	 */
 	@Override
-	public Identity createAndPersistIdentityAndUser(String username, User user, String provider, String authusername, String credential) {
+	public Identity createAndPersistIdentityAndUser(String username, String externalId, User user, String provider, String authusername, String credential) {
 		dbInstance.getCurrentEntityManager().persist(user);
 		IdentityImpl iimpl = new IdentityImpl(username, user);
+		iimpl.setExternalId(externalId);
 		dbInstance.getCurrentEntityManager().persist(iimpl);
 		if (provider != null) { 
-			createAndPersistAuthentication(iimpl, provider, authusername, credential, LoginModule.getDefaultHashAlgorithm());
+			createAndPersistAuthentication(iimpl, provider, authusername, credential, loginModule.getDefaultHashAlgorithm());
 		}
 		notifyNewIdentityCreated(iimpl);
 		return iimpl;
 	}
 	
+	/**
+	 * Persists the given user, creates an identity for it and adds the user to
+	 * the users system group
+	 * 
+	 * @param loginName
+	 * @param externalId
+	 * @param pwd null: no OLAT authentication is generated. If not null, the password will be 
+	 * encrypted and and an OLAT authentication is generated.
+	 * @param newUser unpersisted users
+	 * @return Identity
+	 */
+	@Override
+	public Identity createAndPersistIdentityAndUserWithDefaultProviderAndUserGroup(String loginName, String externalId, String pwd,  User newUser) {
+		Identity ident = null;
+		if (pwd == null) {
+			// when no password is used the provider must be set to null to not generate
+			// an OLAT authentication token. See method doku.
+			ident = createAndPersistIdentityAndUser(loginName, externalId, newUser, null, null);
+			log.audit("Create an identity without authentication (login=" + loginName + ")");
+ 		} else {
+			ident = createAndPersistIdentityAndUser(loginName, externalId, newUser, BaseSecurityModule.getDefaultAuthProviderIdentifier(), loginName, pwd);
+			log.audit("Create an identity with " + BaseSecurityModule.getDefaultAuthProviderIdentifier() + " authentication (login=" + loginName + ")");
+		}
+
+		// Add user to system users group
+		SecurityGroup olatuserGroup = findSecurityGroupByName(Constants.GROUP_OLATUSERS);
+		addIdentityToSecurityGroup(ident, olatuserGroup);
+		return ident;
+	}
+	
+	/**
+	 * Persists the given user, creates an identity for it and adds the user to
+	 * the users system group, create an authentication for an external provider
+	 * 
+	 * @param loginName
+	 * @param externalId
+	 * @param provider
+	 * @param authusername
+	 * @param newUser
+	 * @return
+	 */
+	@Override
+	public Identity createAndPersistIdentityAndUserWithUserGroup(String loginName, String externalId, String provider, String authusername, User newUser) {
+		Identity ident = createAndPersistIdentityAndUser(loginName, externalId, newUser, provider, authusername, null);
+		log.audit("Create an identity with " + provider + " authentication (login=" + loginName + ",authusername=" + authusername + ")");
+		// Add user to system users group
+		SecurityGroup olatuserGroup = findSecurityGroupByName(Constants.GROUP_OLATUSERS);
+		addIdentityToSecurityGroup(ident, olatuserGroup);
+		return ident;
+	}
 	
 	private void notifyNewIdentityCreated(Identity newIdentity) {
 		//Save the identity on the DB. So can the listeners of the event retrieve it
@@ -852,11 +912,11 @@ public class BaseSecurityManager extends BasicManager implements BaseSecurity {
 	@Override
 	public SecurityGroup findSecurityGroupByName(String securityGroupName) {
 		StringBuilder sb = new StringBuilder();
-		sb.append("select sgi from ").append(NamedGroupImpl.class.getName()).append(" as ngroup, ")
-		  .append(SecurityGroupImpl.class.getName()).append("  as sgi ")
-		  .append(" where ngroup.groupName=:groupName and ngroup.securityGroup=sgi");
+		sb.append("select sgi from ").append(NamedGroupImpl.class.getName()).append(" as ngroup ")
+		  .append(" inner join ngroup.securityGroup sgi")
+		  .append(" where ngroup.groupName=:groupName");
 
-		List<SecurityGroup> group = this.dbInstance.getCurrentEntityManager()
+		List<SecurityGroup> group = dbInstance.getCurrentEntityManager()
 				.createQuery(sb.toString(), SecurityGroup.class)
 				.setParameter("groupName", securityGroupName)
 				.setHint("org.hibernate.cacheable", Boolean.TRUE)
@@ -1152,7 +1212,8 @@ public class BaseSecurityManager extends BasicManager implements BaseSecurity {
 	public Authentication createAndPersistAuthentication(final Identity ident, final String provider, final String authUserName,
 			final String credentials, final Encoder.Algorithm algorithm) {
 		OLATResourceable resourceable = OresHelper.createOLATResourceableInstanceWithoutCheck(provider, ident.getKey());
-		return CoordinatorManager.getInstance().getCoordinator().getSyncer().doInSync(resourceable, new SyncerCallback<Authentication>(){
+		return CoordinatorManager.getInstance().getCoordinator().getSyncer().doInSync(resourceable, new SyncerCallback<Authentication>() {
+			@Override
 			public Authentication execute() {
 				Authentication auth = findAuthentication(ident, provider);
 				if(auth == null) {
@@ -1164,6 +1225,7 @@ public class BaseSecurityManager extends BasicManager implements BaseSecurity {
 						auth = new AuthenticationImpl(ident, provider, authUserName, credentials);
 					}
 					dbInstance.getCurrentEntityManager().persist(auth);
+					log.audit("Create " + provider + " authentication (login=" + ident.getName() + ",authusername=" + authUserName + ")");
 				}
 				return auth;
 			}
@@ -1280,7 +1342,7 @@ public class BaseSecurityManager extends BasicManager implements BaseSecurity {
 				dbInstance.getCurrentEntityManager().remove(authRef);
 			}
 		} catch (EntityNotFoundException e) {
-			logError("", e);
+			log.error("", e);
 		}
 	}
 
@@ -1341,6 +1403,13 @@ public class BaseSecurityManager extends BasicManager implements BaseSecurity {
 		DBQuery dbq = createIdentitiesByPowerQuery(new SearchIdentityParams(login, userproperties, userPropertiesAsIntersectionSearch, groups, permissionOnResources, authProviders, createdAfter, createdBefore, userLoginAfter, userLoginBefore, status), false);
 		return dbq.list();
 	}
+  
+	@Override
+	public int countIdentitiesByPowerSearch(SearchIdentityParams params) {
+		DBQuery dbq = createIdentitiesByPowerQuery(params, true);
+		Number count = (Number)dbq.uniqueResult();
+		return count.intValue();
+	}
 	
 	@Override
 	public List<Identity> getIdentitiesByPowerSearch(SearchIdentityParams params, int firstResult, int maxResults) {
@@ -1362,7 +1431,7 @@ public class BaseSecurityManager extends BasicManager implements BaseSecurity {
 		boolean hasAuthProviders = (params.getAuthProviders() != null && params.getAuthProviders().length > 0);
 
 		// select identity and inner join with user to optimize query
-		StringBuilder sb = new StringBuilder();
+		StringBuilder sb = new StringBuilder(5000);
 		if (hasAuthProviders) {
 			// I know, it looks wrong but I need to do the join reversed since it is not possible to 
 			// do this query with a left join that starts with the identity using hibernate HQL. A left
@@ -1370,26 +1439,30 @@ public class BaseSecurityManager extends BasicManager implements BaseSecurity {
 			// providers (e.g. when searching for users that do not have any authentication providers at all!).
 			// It took my quite a while to make this work, so think twice before you change anything here!
 			if(count) {
-				sb = new StringBuilder("select count(distinct ident.key) from org.olat.basesecurity.AuthenticationImpl as auth right join auth.identity as ident ");			
+				sb.append("select count(distinct ident.key) from org.olat.basesecurity.AuthenticationImpl as auth  ")
+				  .append(" right join auth.identity as ident")
+				  .append(" inner join ident.user as user ");
 			} else {
-				sb = new StringBuilder("select distinct ident from org.olat.basesecurity.AuthenticationImpl as auth right join auth.identity as ident ");			
+				sb.append("select distinct ident from org.olat.basesecurity.AuthenticationImpl as auth ")
+				  .append(" right join auth.identity as ident")
+				  .append(" inner join fetch ident.user as user ");
 			}
 		} else {
 			if(count) {
-				sb = new StringBuilder("select count(distinct ident.key) from org.olat.core.id.Identity as ident ");
+				sb.append("select count(distinct ident.key) from org.olat.core.id.Identity as ident ")
+				  .append(" inner join ident.user as user ");
 			} else {
-				sb = new StringBuilder("select distinct ident from org.olat.core.id.Identity as ident ");
+				sb.append("select distinct ident from org.olat.core.id.Identity as ident ")
+				  .append(" inner join fetch ident.user as user ");
 			}
 		}
 		// In any case join with the user. Don't join-fetch user, this breaks the query
 		// because of the user fields (don't know exactly why this behaves like
 		// this)
-		sb.append(" join ident.user as user ");
-		
+
 		if (hasGroups) {
 			// join over security group memberships
-	    sb.append(" ,org.olat.basesecurity.SecurityGroupMembershipImpl as sgmsi ");
-
+			sb.append(" ,org.olat.basesecurity.SecurityGroupMembershipImpl as sgmsi ");
 		}
 		if (hasPermissionOnResources) {
 			// join over policies
@@ -1404,11 +1477,14 @@ public class BaseSecurityManager extends BasicManager implements BaseSecurity {
 		Date createdBefore = params.getCreatedBefore();
 		Integer status = params.getStatus();
 		Collection<Long> identityKeys = params.getIdentityKeys();
+		Boolean managed = params.getManaged();
 		
 		// complex where clause only when values are available
 		if (login != null || (userproperties != null && !userproperties.isEmpty())
 				|| (identityKeys != null && !identityKeys.isEmpty()) || createdAfter != null	|| createdBefore != null
-				|| hasAuthProviders || hasGroups || hasPermissionOnResources || status != null) {
+				|| hasAuthProviders || hasGroups || hasPermissionOnResources || status != null
+				|| managed != null) {
+			
 			sb.append(" where ");		
 			boolean needsAnd = false;
 			boolean needsUserPropertiesJoin = false;
@@ -1450,23 +1526,27 @@ public class BaseSecurityManager extends BasicManager implements BaseSecurity {
 	
 				// handle email fields special: search in all email fields
 				if (!emailProperties.isEmpty()) {
-					needsUserPropertiesJoin = checkIntersectionInUserProperties(sb,needsUserPropertiesJoin, params.isUserPropertiesAsIntersectionSearch());
+					needsUserPropertiesJoin = checkIntersectionInUserProperties(sb, needsUserPropertiesJoin, params.isUserPropertiesAsIntersectionSearch());
 					boolean moreThanOne = emailProperties.size() > 1;
 					if (moreThanOne) sb.append("(");
 					boolean needsOr = false;
 					for (String key : emailProperties.keySet()) {
 						if (needsOr) sb.append(" or ");
-						//fxdiff
+						
+						sb.append(" exists (select prop").append(key).append(".value from userproperty prop").append(key).append(" where ")
+						  .append(" prop").append(key).append(".propertyId.userId=user.key and prop").append(key).append(".propertyId.name ='").append(key).append("'")
+						  .append(" and ");
 						if(dbVendor.equals("mysql")) {
-							sb.append(" user.userProperties['").append(key).append("'] like :").append(key).append("_value ");
+							sb.append(" prop").append(key).append(".value like :").append(key).append("_value ");
 						} else {
-							sb.append(" lower(user.userProperties['").append(key).append("']) like :").append(key).append("_value ");
+							sb.append(" lower(prop").append(key).append(".value) like :").append(key).append("_value ");
 						}
 						if(dbVendor.equals("oracle")) {
 							sb.append(" escape '\\'");
 						}
+						sb.append(")");
 						needsOr = true;
-				}
+					}
 					if (moreThanOne) sb.append(")");
 					// cleanup
 					emailProperties.clear();
@@ -1474,15 +1554,19 @@ public class BaseSecurityManager extends BasicManager implements BaseSecurity {
 	
 				// add other fields
 				for (String key : otherProperties.keySet()) {
-					needsUserPropertiesJoin = checkIntersectionInUserProperties(sb,needsUserPropertiesJoin, params.isUserPropertiesAsIntersectionSearch());
+					needsUserPropertiesJoin = checkIntersectionInUserProperties(sb, needsUserPropertiesJoin, params.isUserPropertiesAsIntersectionSearch());
+					sb.append(" exists (select prop").append(key).append(".value from userproperty prop").append(key).append(" where ")
+					  .append(" prop").append(key).append(".propertyId.userId=user.key and prop").append(key).append(".propertyId.name ='").append(key).append("'")
+					  .append(" and ");
 					if(dbVendor.equals("mysql")) {
-						sb.append(" user.userProperties['").append(key).append("'] like :").append(key).append("_value ");
+						sb.append(" prop").append(key).append(".value like :").append(key).append("_value ");
 					} else {
-						sb.append(" lower(user.userProperties['").append(key).append("']) like :").append(key).append("_value ");
+						sb.append(" lower(prop").append(key).append(".value) like :").append(key).append("_value ");
 					}
 					if(dbVendor.equals("oracle")) {
 						sb.append(" escape '\\'");
 					}
+					sb.append(")");
 					needsAnd = true;
 				}
 				// cleanup
@@ -1500,6 +1584,15 @@ public class BaseSecurityManager extends BasicManager implements BaseSecurity {
 			if(identityKeys != null && !identityKeys.isEmpty()) {
 				needsAnd = checkAnd(sb, needsAnd);
 				sb.append("ident.key in (:identityKeys)");
+			}
+			
+			if(managed != null) {
+				needsAnd = checkAnd(sb, needsAnd);
+				if(managed.booleanValue()) {
+					sb.append("ident.externalId is not null");
+				} else {
+					sb.append("ident.externalId is null");
+				}	
 			}
 			
 			// append query for named security groups
@@ -1759,6 +1852,15 @@ public class BaseSecurityManager extends BasicManager implements BaseSecurity {
 		return reloadedIdentity;
 	}
 	
+	@Override
+	public Identity setExternalId(Identity identity, String externalId) {
+		IdentityImpl reloadedIdentity = loadForUpdate(identity); 
+		reloadedIdentity.setExternalId(externalId);
+		reloadedIdentity = dbInstance.getCurrentEntityManager().merge(reloadedIdentity);
+		dbInstance.commit();
+		return reloadedIdentity;
+	}
+	
 	
 	/**
 	 * Don't forget to commit/roolback the transaction as soon as possible
@@ -1810,7 +1912,7 @@ public class BaseSecurityManager extends BasicManager implements BaseSecurity {
 			// Create it lazy on demand
 			User guestUser = UserManager.getInstance().createUser(trans.translate("user.guest"), null, null);
 			guestUser.getPreferences().setLanguage(locale.toString());
-			guestIdentity = createAndPersistIdentityAndUser(guestUsername, guestUser, null, null, null);
+			guestIdentity = createAndPersistIdentityAndUser(guestUsername, null, guestUser, null, null, null);
 			SecurityGroup anonymousGroup = findSecurityGroupByName(Constants.GROUP_ANONYMOUS);
 			addIdentityToSecurityGroup(guestIdentity, anonymousGroup);
 		} else if (!guestIdentity.getUser().getProperty(UserConstants.FIRSTNAME, locale).equals(trans.translate("user.guest"))) {

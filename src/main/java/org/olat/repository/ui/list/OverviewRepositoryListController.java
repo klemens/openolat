@@ -21,8 +21,6 @@ package org.olat.repository.ui.list;
 
 import java.util.List;
 
-import org.olat.catalog.CatalogEntry;
-import org.olat.catalog.CatalogManager;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.Component;
 import org.olat.core.gui.components.link.Link;
@@ -33,6 +31,7 @@ import org.olat.core.gui.components.segmentedview.SegmentViewEvent;
 import org.olat.core.gui.components.segmentedview.SegmentViewFactory;
 import org.olat.core.gui.components.stack.BreadcrumbedStackedPanel;
 import org.olat.core.gui.components.velocity.VelocityContainer;
+import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.Event;
 import org.olat.core.gui.control.WindowControl;
 import org.olat.core.gui.control.controller.BasicController;
@@ -44,9 +43,12 @@ import org.olat.core.id.context.StateEntry;
 import org.olat.core.logging.activity.ThreadLocalUserActivityLogger;
 import org.olat.core.util.Util;
 import org.olat.core.util.resource.OresHelper;
+import org.olat.repository.CatalogEntry;
 import org.olat.repository.RepositoryManager;
 import org.olat.repository.RepositoryModule;
+import org.olat.repository.manager.CatalogManager;
 import org.olat.repository.model.SearchMyRepositoryEntryViewParams;
+import org.olat.repository.ui.catalog.CatalogNodeController;
 import org.olat.util.logging.activity.LoggingResourceable;
 import org.springframework.beans.factory.annotation.Autowired;
 
@@ -63,6 +65,7 @@ public class OverviewRepositoryListController extends BasicController implements
 	private final Link myCourseLink;
 	private Link favoriteLink, catalogLink, searchCourseLink;
 	
+	private Controller currentCtrl;
 	private RepositoryEntryListController markedCtrl;
 	private BreadcrumbedStackedPanel markedStackPanel;
 	private RepositoryEntryListController myCoursesCtrl;
@@ -118,18 +121,21 @@ public class OverviewRepositoryListController extends BasicController implements
 	@Override
 	public void activate(UserRequest ureq, List<ContextEntry> entries, StateEntry state) {
 		if(entries == null || entries.isEmpty()) {
-			if(isGuestOnly) {
-				doOpenMyCourses(ureq);
-				segmentView.select(myCourseLink);
-			} else {
-				boolean markEmpty = doOpenMark(ureq).isEmpty();
-				if(markEmpty) {
-					doOpenMyCourses(ureq);
+			if(currentCtrl == null) {
+				if(isGuestOnly) {
+					 doOpenMyCourses(ureq);
 					segmentView.select(myCourseLink);
 				} else {
-					segmentView.select(favoriteLink);
+					boolean markEmpty = doOpenMark(ureq).isEmpty();
+					if(markEmpty) {
+						doOpenMyCourses(ureq);
+						segmentView.select(myCourseLink);
+					} else {
+						segmentView.select(favoriteLink);
+					}
 				}
 			}
+			addToHistory(ureq, this);
 		} else {
 			ContextEntry entry = entries.get(0);
 			String segment = entry.getOLATResourceable().getResourceableTypeName();
@@ -214,6 +220,7 @@ public class OverviewRepositoryListController extends BasicController implements
 		markedCtrl = new RepositoryEntryListController(ureq, bwControl, searchParams, true, false, "marked", markedStackPanel);
 		markedStackPanel.pushController(translate("search.mark"), markedCtrl);
 		listenTo(markedCtrl);
+		currentCtrl = markedCtrl;
 
 		addToHistory(ureq, markedCtrl);
 		mainVC.put("segmentCmp", markedStackPanel);
@@ -234,6 +241,7 @@ public class OverviewRepositoryListController extends BasicController implements
 		myCoursesCtrl = new RepositoryEntryListController(ureq, bwControl, searchParams, true, false, "my", myCoursesStackPanel);
 		myCoursesStackPanel.pushController(translate("search.mycourses.student"), myCoursesCtrl);
 		listenTo(myCoursesCtrl);
+		currentCtrl = myCoursesCtrl;
 
 		addToHistory(ureq, myCoursesCtrl);
 		mainVC.put("segmentCmp", myCoursesStackPanel);
@@ -259,6 +267,7 @@ public class OverviewRepositoryListController extends BasicController implements
 		catalogCtrl = new CatalogNodeController(ureq, bwControl, getWindowControl(), rootEntry, catalogStackPanel, false);
 		catalogStackPanel.pushController(translate("search.catalog"), catalogCtrl);
 		listenTo(catalogCtrl);
+		currentCtrl = catalogCtrl;
 
 		addToHistory(ureq, catalogCtrl);
 		mainVC.put("segmentCmp", catalogStackPanel);
@@ -279,6 +288,7 @@ public class OverviewRepositoryListController extends BasicController implements
 		searchCoursesCtrl = new RepositoryEntryListController(ureq, bwControl, searchParams, false, true, "my-search", searchCoursesStackPanel);
 		searchCoursesStackPanel.pushController(translate("search.mycourses.student"), searchCoursesCtrl);
 		listenTo(searchCoursesCtrl);
+		currentCtrl = searchCoursesCtrl;
 		
 		addToHistory(ureq, searchCoursesCtrl);
 		mainVC.put("segmentCmp", searchCoursesStackPanel);

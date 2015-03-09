@@ -45,6 +45,7 @@ import javax.persistence.TypedQuery;
 import org.hibernate.FlushMode;
 import org.olat.NewControllerFactory;
 import org.olat.basesecurity.BaseSecurity;
+import org.olat.basesecurity.IdentityRef;
 import org.olat.core.CoreSpringFactory;
 import org.olat.core.commons.persistence.DB;
 import org.olat.core.commons.persistence.DBQuery;
@@ -65,6 +66,7 @@ import org.olat.core.commons.services.notifications.ui.NotificationSubscriptionC
 import org.olat.core.gui.translator.Translator;
 import org.olat.core.id.Identity;
 import org.olat.core.id.OLATResourceable;
+import org.olat.core.id.Roles;
 import org.olat.core.id.context.BusinessControlFactory;
 import org.olat.core.logging.AssertException;
 import org.olat.core.logging.OLog;
@@ -193,6 +195,7 @@ public class NotificationsManagerImpl extends NotificationsManager implements Us
 	 * @param identity
 	 * @return List of Subscriber Objects which belong to the identity
 	 */
+	@Override
 	public List<Subscriber> getSubscribers(Identity identity) {
 		return getSubscribers(identity, Collections.<String>emptyList());
 	}
@@ -205,20 +208,43 @@ public class NotificationsManagerImpl extends NotificationsManager implements Us
 	 * @return List of Subscriber Objects which belong to the identity
 	 */
 	@Override
-	public List<Subscriber> getSubscribers(Identity identity, List<String> types) {
+	public List<Subscriber> getSubscribers(IdentityRef identity, List<String> types) {
 		StringBuilder sb = new StringBuilder();
 		sb.append("select sub from notisub as sub ")
 		  .append("inner join fetch sub.publisher as publisher ")
-		  .append("where sub.identity = :anIdentity");
+		  .append("where sub.identity.key = :identityKey");
 		if(types != null && !types.isEmpty()) {
 			sb.append(" and publisher.type in (:types)");
 		}
-		TypedQuery<Subscriber> query = dbInstance.getCurrentEntityManager().createQuery(sb.toString(), Subscriber.class);
-		query.setParameter("anIdentity", identity);
+		TypedQuery<Subscriber> query = dbInstance.getCurrentEntityManager()
+				.createQuery(sb.toString(), Subscriber.class)
+				.setParameter("identityKey", identity.getKey());
 		if(types != null && !types.isEmpty()) {
 			query.setParameter("types", types);
 		}
 		return query.getResultList();
+	}
+
+	/**
+	 * subscribers for ONE person (e.g. subscribed to 5 forums -> 5 subscribers
+	 * belonging to this person) restricted to the specified Olat resourceable id
+	 * 
+	 * @param identity
+	 * @param resId
+	 * @return List of Subscriber Objects which belong to the identity
+	 */
+	@Override
+	public List<Subscriber> getSubscribers(IdentityRef identity, long resId) {
+		StringBuilder sb = new StringBuilder();
+		sb.append("select sub from notisub as sub ")
+		  .append("inner join fetch sub.publisher as publisher ")
+		  .append("where sub.identity.key = :identityKey")
+		  .append(" and publisher.resId = :resId)");
+		return dbInstance.getCurrentEntityManager()
+			.createQuery(sb.toString(), Subscriber.class)
+			.setParameter("identityKey", identity.getKey())
+			.setParameter("resId", resId)
+			.getResultList();
 	}
 
 	/**
@@ -298,6 +324,13 @@ public class NotificationsManagerImpl extends NotificationsManager implements Us
 		do {
 			identities = securityManager.loadIdentities(counter, BATCH_SIZE);
 			for(Identity identity:identities) {
+				if(identity.getName().startsWith("guest_")) {
+					Roles roles = securityManager.getRoles(identity);
+					if(roles.isGuestOnly()) {
+						continue;
+					}
+				}
+				
 				processSubscribersByEmail(identity);
 			}
 			counter += identities.size();
@@ -885,6 +918,14 @@ public class NotificationsManagerImpl extends NotificationsManager implements Us
 		}
 	}
 
+	@Override
+	public void unsubscribeAllForIdentityAndResId(IdentityRef identity, Long resId) {
+		List<Subscriber> subscribers = getSubscribers(identity, resId.longValue());
+		for (Subscriber sub:subscribers) {
+			unsubscribe (sub);
+		}
+	}
+
 	/**
 	 * @param identity
 	 * @param subscriptionContext
@@ -989,6 +1030,7 @@ public class NotificationsManagerImpl extends NotificationsManager implements Us
 	 * @param latestEmailed needs to be given! SubscriptionInfo is collected from then until latestNews of publisher
 	 * @return null if the publisher is not valid anymore (deleted), or if there are no news
 	 */
+	@Override
 	public SubscriptionItem createSubscriptionItem(Subscriber subscriber, Locale locale, String mimeTypeTitle, String mimeTypeContent, Date latestEmailed) {
 		if (latestEmailed == null) throw new AssertException("compareDate may not be null, use a date from history");
 		
@@ -1000,7 +1042,7 @@ public class NotificationsManagerImpl extends NotificationsManager implements Us
 			NotificationsHandler notifHandler = getNotificationsHandler(pub);
 			if(debug) logDebug("create subscription with handler: " + notifHandler.getClass().getName());
 			// do not create subscription item when deleted
-			if (isPublisherValid(pub)) {
+			if (isPublisherValid(pub) && notifHandler != null) {
 				if(debug) logDebug("NotifHandler: " + notifHandler.getClass().getName() + " compareDate: " + latestEmailed.toString() + " now: " + new Date().toString(), null);
 				SubscriptionInfo subsInfo = notifHandler.createSubscriptionInfo(subscriber, locale, latestEmailed);
 				if (subsInfo.hasNews()) {

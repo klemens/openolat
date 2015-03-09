@@ -139,6 +139,7 @@ public class RichTextConfiguration implements Disposable {
 	private VFSContainer linkBrowserBaseContainer;
 	private String linkBrowserUploadRelPath;
 	private String linkBrowserRelativeFilePath;
+	private String linkBrowserAbsolutFilePath;
 	private CustomLinkTreeModel linkBrowserCustomTreeModel;	
 	// DOM ID of the flexi form element
 	private String domID;
@@ -469,7 +470,7 @@ public class RichTextConfiguration implements Disposable {
 	public void setContentCSSFromTheme(Theme theme) {
 		// Always use default content css, then add the one from the theme
 		if (theme.getIdentifyer().equals(Theme.DEFAULTTHEME)) {
-			setContentCSS(theme.getBaseURI() + "content.css");			
+			setContentCSS(theme.getBaseURI() + "content.css");
 		} else {
 			StringOutput cssFiles = new StringOutput();
 			StaticMediaDispatcher.renderStaticURI(cssFiles, "themes/" + Theme.DEFAULTTHEME + "/content.css");
@@ -698,6 +699,14 @@ public class RichTextConfiguration implements Disposable {
 		return linkBrowserRelativeFilePath;
 	}
 	
+	public String getLinkBrowserAbsolutFilePath() {
+		return linkBrowserAbsolutFilePath;
+	}
+
+	public void setLinkBrowserAbsolutFilePath(String linkBrowserAbsolutFilePath) {
+		this.linkBrowserAbsolutFilePath = linkBrowserAbsolutFilePath;
+	}
+
 	/**
 	 * Get the optional custom link browser tree model
 	 * @return the model or NULL if not defined
@@ -721,7 +730,7 @@ public class RichTextConfiguration implements Disposable {
 		if(contentCss != null) {
 			// add styles from content css and add them to format menu
 			copyNonValues.put(IMPORTCSS_APPEND, "true");
-			copyValues.put("content_css", Settings.createServerURI() + contentCss);
+			copyValues.put("content_css", contentCss);
 			// filter emoticons classes from content css
 			copyNonValues.put(IMPORT_SELECTOR_CONVERTER, IMPORT_SELECTOR_CONVERTER_VALUE_REMOVE_EMOTICONS);
 			// group imported css classes to paragraph, div, table and style menu

@@ -138,6 +138,17 @@ public interface FlexiTableElement extends FormItem {
 	 * @param enable
 	 */
 	public void setNumOfRowsEnabled(boolean enable);
+	
+	/**
+	 * @return True if the choice in page size "All" is allowed.
+	 */
+	public boolean isShowAllRowsEnabled();
+	
+	/**
+	 * Enable/disable the "All" choice for the page sizes.
+	 * @param showAllRowsEnabled
+	 */
+	public void setShowAllRowsEnabled(boolean showAllRowsEnabled);
 
 	/**
 	 * Setting a value enable the drag and drop on this table. Drag and drop
@@ -159,10 +170,16 @@ public interface FlexiTableElement extends FormItem {
 	public void setSelectAllEnable(boolean enable);
 	
 	/**
-	 * Set all selecteds rows
+	 * Return all selected rows
 	 * @return
 	 */
 	public Set<Integer> getMultiSelectedIndex();
+	
+	/**
+	 * Set a list of selected index (don't sort after this point)
+	 * @param set
+	 */
+	public void setMultiSelectedIndex(Set<Integer> set);
 	
 	/**
 	 * 
@@ -277,6 +294,13 @@ public interface FlexiTableElement extends FormItem {
 	public int getPageSize();
 	
 	public void setPageSize(int pageSize);
+	/**
+	 * Return the default page size which cannot be changed
+	 * by users.
+	 * 
+	 * @return
+	 */
+	public int getDefaultPageSize();
 	
 	public int getPage();
 	

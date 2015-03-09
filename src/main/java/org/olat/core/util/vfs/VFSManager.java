@@ -32,6 +32,7 @@ import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.util.ArrayList;
 import java.util.List;
 
 import org.olat.core.commons.modules.bc.FolderConfig;
@@ -41,6 +42,7 @@ import org.olat.core.logging.OLog;
 import org.olat.core.logging.Tracing;
 import org.olat.core.manager.BasicManager;
 import org.olat.core.util.FileUtils;
+import org.olat.core.util.StringHelper;
 import org.olat.core.util.vfs.callbacks.VFSSecurityCallback;
 import org.olat.core.util.vfs.util.ContainerAndFile;
 
@@ -183,6 +185,123 @@ public class VFSManager extends BasicManager {
 	}
 
 	/**
+	 * Resolves a directory path in the base container or creates this
+	 * directory. The method creates any missing directories.
+	 * 
+	 * @param baseContainer
+	 *            The base directory. User must have write permissions on this
+	 *            container
+	 * @param relContainerPath
+	 *            The path relative to the base container. Must start with a
+	 *            '/'. To separate sub directories use '/'
+	 * @return The resolved or created container or NULL if a problem happened
+	 */
+	public static VFSContainer resolveOrCreateContainerFromPath(VFSContainer baseContainer, String relContainerPath) {		
+		VFSContainer resultContainer = baseContainer;
+		if (!VFSConstants.YES.equals(baseContainer.canWrite())) {
+			log.error("Could not create relPath::" + relContainerPath + ", base container::" + getRealPath(baseContainer) + " not writable", null);
+			resultContainer = null;
+		} else if (StringHelper.containsNonWhitespace(relContainerPath)){
+			// Try to resolve given rel path from current container
+			VFSItem resolvedPath = baseContainer.resolve(relContainerPath.trim());
+			if (resolvedPath == null) {
+				// Does not yet exist - create subdir
+				String[] pathSegments = relContainerPath.split("/");
+				for (int i = 0; i < pathSegments.length; i++) {
+					String segment = pathSegments[i].trim();
+					if (StringHelper.containsNonWhitespace(segment)) {
+						resolvedPath = resultContainer.resolve(segment);
+						if (resolvedPath == null) {
+							resultContainer = resultContainer.createChildContainer(segment);
+							if (resultContainer == null) {
+								log.error("Could not create container with name::" + segment + " in relPath::" + relContainerPath + " in base container::" + getRealPath(baseContainer), null);
+								break;
+							}						
+						} else {
+							if (resolvedPath instanceof VFSContainer) {
+								resultContainer = (VFSContainer) resolvedPath;							
+							} else {
+								resultContainer = null;
+								log.error("Could not create container with name::" + segment + " in relPath::" + relContainerPath + ", a file with this name exists (but not a directory) in base container::" + getRealPath(baseContainer), null);
+								break;
+							}
+						}
+					}
+				} 
+			} else {
+				// Parent dir already exists,  make sure this is really a container and not a file!
+				if (resolvedPath instanceof VFSContainer) {
+					resultContainer = (VFSContainer) resolvedPath;
+				} else {
+					resultContainer = null;
+					log.error("Could not create relPath::" + relContainerPath + ", a file with this name exists (but not a directory) in base container::" + getRealPath(baseContainer), null);
+				}
+				
+			}
+		}
+		return resultContainer;
+	}
+	
+	/**
+	 * Resolves a file path in the base container or creates this file under the
+	 * given path. The method creates any missing directories.
+	 * 
+	 * @param baseContainer
+	 *            The base directory. User must have write permissions on this
+	 *            container
+	 * @param relFilePath
+	 *            The path relative to the base container. Must start with a
+	 *            '/'. To separate sub directories use '/'
+	 * @return The resolved or created leaf or NULL if a problem happened
+	 */
+	public static VFSLeaf resolveOrCreateLeafFromPath(VFSContainer baseContainer, String relFilePath) {
+		if (StringHelper.containsNonWhitespace(relFilePath)) {
+			int lastSlash = relFilePath.lastIndexOf("/");
+			String relDirPath = relFilePath;
+			String fileName = null;
+			if (lastSlash == -1) {
+				// relFilePath is the file name - no directories involved
+				relDirPath = null;
+				fileName = relFilePath;				
+			} if (lastSlash == 0) {
+				// Remove start slash from file name
+				relDirPath = null;
+				fileName = relFilePath.substring(1, relFilePath.length());				
+			} else {
+				relDirPath = relFilePath.substring(0, lastSlash);
+				fileName = relFilePath.substring(lastSlash);
+			}
+			
+			// Create missing directories and set parent dir for later file creation
+			VFSContainer parent = baseContainer;
+			if (StringHelper.containsNonWhitespace(relDirPath)) {
+				parent = resolveOrCreateContainerFromPath(baseContainer, relDirPath);				
+			}
+			// Now create file in that dir
+			if (StringHelper.containsNonWhitespace(fileName)) {			
+				VFSLeaf leaf = null;
+				VFSItem resolvedFile = parent.resolve(fileName);
+				if (resolvedFile == null) {
+					leaf = parent.createChildLeaf(fileName);
+					if (leaf == null) {
+						log.error("Could not create leaf with relPath::" + relFilePath + " in base container::" + getRealPath(baseContainer), null);
+					}
+				} else {
+					if (resolvedFile instanceof VFSLeaf) {
+						leaf = (VFSLeaf) resolvedFile;
+					} else {
+						leaf = null;
+						log.error("Could not create relPath::" + relFilePath + ", a directory with this name exists (but not a file) in base container::" + getRealPath(baseContainer), null);
+					}
+				}
+				return leaf;			
+			}
+		}
+		return null;
+	}
+	
+	
+	/**
 	 * Get the security callback which affects this item. This searches up the path
 	 * of parents to see wether it can find any callback. If no callback
 	 * can be found, null is returned.
@@ -318,6 +437,116 @@ public class VFSManager extends BasicManager {
 		}		
 		return realPath;
 	}
+	
+	/**
+	 * Get the path as string of the given item relative to the root
+	 * container and the relative base path
+	 * 
+	 * @param item the item for which the relative path should be returned
+	 * @param rootContainer
+	 *            The root container for which the relative path should be
+	 *            calculated
+	 * @param relativeBasePath
+	 *            when NULL, the path will be calculated relative to the
+	 *            rootContainer; when NOT NULL, the relativeBasePath must
+	 *            represent a relative path within the root container that
+	 *            serves as the base. In this case, the calculated relative item
+	 *            path will start from this relativeBasePath
+	 * @return 
+	 */
+	public static String getRelativeItemPath(VFSItem item, VFSContainer rootContainer, String relativeBasePath) {
+		// 1) Create path absolute to the root container
+		if (item == null) return null;
+		String absPath = "";
+		VFSItem tmpItem = item;		
+		// Check for merged containers to fix problems with named containers, see OLAT-3848
+		List<NamedContainerImpl> namedRootChilds = new ArrayList<NamedContainerImpl>();
+		for (VFSItem rootItem : rootContainer.getItems()) {
+			if (rootItem instanceof NamedContainerImpl) {
+				namedRootChilds.add((NamedContainerImpl) rootItem);
+			}
+		}
+		// Check if root container is the same as the item and vice versa. It is
+		// necessary to perform the check on both containers to catch all potential
+		// cases with MergedSource and NamedContainer where the check in one
+		// direction is not necessarily the same as the opposite check
+		while ( tmpItem != null && !rootContainer.isSame(tmpItem) && !tmpItem.isSame(rootContainer)) {
+			String itemFileName = tmpItem.getName();
+			//fxdiff FXOLAT-125: virtual file system for CP
+			if(tmpItem instanceof NamedLeaf) {
+				itemFileName = ((NamedLeaf)tmpItem).getDelegate().getName();
+			}
+
+			// Special case: check if this is a named container, see OLAT-3848
+			for (NamedContainerImpl namedRootChild : namedRootChilds) {
+				if (namedRootChild.isSame(tmpItem)) {
+					itemFileName = namedRootChild.getName();
+				}
+			}
+			absPath = "/" + itemFileName + absPath;
+			tmpItem = tmpItem.getParentContainer();
+			if (tmpItem != null) {
+				// test if this this is a merge source child container, see OLAT-5726
+				VFSContainer grandParent = tmpItem.getParentContainer();
+				if (grandParent instanceof MergeSource) {
+					MergeSource mergeGrandParent = (MergeSource) grandParent;
+					if (mergeGrandParent.isContainersChild((VFSContainer) tmpItem)) {
+						// skip this parent container and use the merge grand-parent
+						// instead, otherwise path contains the container twice
+						tmpItem = mergeGrandParent;						
+					}
+				}
+			}
+		}
+		
+		if (relativeBasePath == null) {
+			return absPath;
+		}
+		// 2) Compute rel path to base dir of the current file
+		
+		// selpath = /a/irwas/subsub/nochsub/note.html 5
+		// filenam = /a/irwas/index.html 3
+		// --> subsub/nochsub/note.gif
+
+		// or /a/irwas/bla/index.html
+		// to /a/other/b/gugus.gif
+		// --> ../../ other/b/gugus.gif
+
+		// or /a/other/b/main.html
+		// to /a/irwas/bla/goto.html
+		// --> ../../ other/b/gugus.gif
+
+		String base = relativeBasePath; // assume "/" is here
+		if (!(base.indexOf("/") == 0)) {
+			base = "/" + base;
+		}
+
+		String[] baseA = base.split("/");
+		String[] targetA = absPath.split("/");
+		int sp = 1;
+		for (; sp < Math.min(baseA.length, targetA.length); sp++) {
+			if (!baseA[sp].equals(targetA[sp])) {
+				break;
+			}
+		}
+		// special case: self-reference
+		if (absPath.equals(base)) {
+			sp = 1;
+		}
+		StringBuilder buffer = new StringBuilder();
+		for (int i = sp; i < baseA.length - 1; i++) {
+			buffer.append("../");
+		}
+		for (int i = sp; i < targetA.length; i++) {
+			buffer.append(targetA[i] + "/");
+		}
+		buffer.deleteCharAt(buffer.length() - 1);
+		String path = buffer.toString();
+
+		String trimmed = path; // selectedPath.substring(1);
+		return trimmed;
+	}
+
 
 	/**
 	 * This method takes a VFSContainer and a relative path to a file that exists

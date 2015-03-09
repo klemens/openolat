@@ -51,6 +51,7 @@ public class RepositoryEntryRow implements RepositoryEntryRef {
 	private String authors;
 	private String thumbnailRelPath;
 	private String shortenedDescription;
+	private int access;
 	
 	private String score;
 	private Boolean passed;
@@ -64,8 +65,8 @@ public class RepositoryEntryRow implements RepositoryEntryRef {
 	private Double averageRating;
 	private long numOfRatings;
 	private long numOfComments;
-	
-	private String lifecycle;
+
+	private String lifecycleLabel;
 	private String lifecycleSoftKey;
 	private Date lifecycleStart;
 	private Date lifecycleEnd;
@@ -94,6 +95,7 @@ public class RepositoryEntryRow implements RepositoryEntryRef {
 		setOLATResourceable(OresHelper.clone(entry.getOlatResource()));
 		setAuthors(entry.getAuthors());
 		setIsMembersOnly(entry.isMembersOnly());
+		setAccess(entry.getAccess());
 		
 		//bookmark
 		setMarked(entry.isMarked());
@@ -121,7 +123,7 @@ public class RepositoryEntryRow implements RepositoryEntryRef {
 			setLifecycleStart(reLifecycle.getValidFrom());
 			setLifecycleEnd(reLifecycle.getValidTo());
 			if(!reLifecycle.isPrivateCycle()) {
-				setLifecycle(reLifecycle.getLabel());
+				setLifecycleLabel(reLifecycle.getLabel());
 				setLifecycleSoftKey(reLifecycle.getSoftKey());
 			}
 		}
@@ -141,6 +143,14 @@ public class RepositoryEntryRow implements RepositoryEntryRef {
 	
 	public void setKey(Long key) {
 		this.key = key;
+	}
+
+	public int getAccess() {
+		return access;
+	}
+
+	public void setAccess(int access) {
+		this.access = access;
 	}
 
 	public String getExternalId() {
@@ -236,20 +246,20 @@ public class RepositoryEntryRow implements RepositoryEntryRef {
 		this.numOfComments = numOfComments;
 	}
 
-	public String getLifecycle() {
-		return lifecycle;
-	}
-
-	public void setLifecycle(String lifecycle) {
-		this.lifecycle = lifecycle;
-	}
-
 	public String getLifecycleSoftKey() {
 		return lifecycleSoftKey;
 	}
 
 	public void setLifecycleSoftKey(String lifecycleSoftKey) {
 		this.lifecycleSoftKey = lifecycleSoftKey;
+	}
+
+	public String getLifecycleLabel() {
+		return lifecycleLabel;
+	}
+
+	public void setLifecycleLabel(String lifecycleLabel) {
+		this.lifecycleLabel = lifecycleLabel;
 	}
 
 	public Date getLifecycleStart() {

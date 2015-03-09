@@ -65,6 +65,7 @@ import org.olat.core.gui.control.generic.closablewrapper.CloseableCalloutWindowC
 import org.olat.core.gui.media.MediaResource;
 import org.olat.core.gui.translator.Translator;
 import org.olat.core.util.StringHelper;
+import org.olat.core.util.Util;
 import org.olat.core.util.ValidationStatus;
 import org.olat.core.util.prefs.Preferences;
 
@@ -91,11 +92,13 @@ public class FlexiTableElementImpl extends FormItemImpl implements FlexiTableEle
 	
 	private int currentPage;
 	private int pageSize;
+	private final int defaultPageSize;
 	private boolean editMode;
 	private boolean exportEnabled;
 	private boolean searchEnabled;
 	private boolean selectAllEnabled;
 	private boolean numOfRowsEnabled = true;
+	private boolean showAllRowsEnabled = false;
 	private boolean extendedSearchExpanded = false;
 	private int columnLabelForDragAndDrop;
 	private String emptyTableMessageKey = null;
@@ -130,10 +133,6 @@ public class FlexiTableElementImpl extends FormItemImpl implements FlexiTableEle
 	
 	private Map<String,FormItem> components = new HashMap<String,FormItem>();
 	
-	public FlexiTableElementImpl(WindowControl wControl, String name, FlexiTableDataModel<?> tableModel) {
-		this(wControl, name, null, tableModel, -1, true);
-	}
-	
 	public FlexiTableElementImpl(WindowControl wControl, String name, Translator translator, FlexiTableDataModel<?> tableModel) {
 		this(wControl, name, translator, tableModel, -1, true);
 	}
@@ -144,6 +143,7 @@ public class FlexiTableElementImpl extends FormItemImpl implements FlexiTableEle
 		this.wControl = wControl;
 		this.dataModel = tableModel;
 		this.dataSource = (tableModel instanceof FlexiTableDataSource) ? (FlexiTableDataSource<?>)dataModel : null;
+		translator = Util.createPackageTranslator(FlexiTableElementImpl.class, translator.getLocale(), translator);
 		component = new FlexiTableComponent(this, translator);
 		
 		for(int i=dataModel.getTableColumnModel().getColumnCount(); i-->0; ) {
@@ -158,8 +158,9 @@ public class FlexiTableElementImpl extends FormItemImpl implements FlexiTableEle
 		customButton.setTranslator(translator);
 		customButton.setIconLeftCSS("o_icon o_icon_customize");
 		components.put("rCustomize", customButton);
-
+		
 		this.pageSize = pageSize;
+		this.defaultPageSize = pageSize;
 		if(pageSize > 0) {
 			setPage(0);
 		}
@@ -265,6 +266,16 @@ public class FlexiTableElementImpl extends FormItemImpl implements FlexiTableEle
 	@Override
 	public void setNumOfRowsEnabled(boolean enable) {
 		numOfRowsEnabled = enable;
+	}
+
+	@Override
+	public boolean isShowAllRowsEnabled() {
+		return showAllRowsEnabled;
+	}
+
+	@Override
+	public void setShowAllRowsEnabled(boolean showAllRowsEnabled) {
+		this.showAllRowsEnabled = showAllRowsEnabled;
 	}
 
 	@Override
@@ -595,6 +606,11 @@ public class FlexiTableElementImpl extends FormItemImpl implements FlexiTableEle
 	}
 
 	@Override
+	public int getDefaultPageSize() {
+		return defaultPageSize;
+	}
+
+	@Override
 	public int getPageSize() {
 		return pageSize;
 	}
@@ -669,11 +685,20 @@ public class FlexiTableElementImpl extends FormItemImpl implements FlexiTableEle
 		String page = form.getRequestParameter("page");
 		String sort = form.getRequestParameter("sort");
 		String filter = form.getRequestParameter("filter");
+		String pagesize = form.getRequestParameter("pagesize");
 		if("undefined".equals(dispatchuri)) {
 			evalSearchRequest(ureq);
 		} else if(StringHelper.containsNonWhitespace(page)) {
 			int p = Integer.parseInt(page);
 			setPage(p);
+		 } else if(StringHelper.containsNonWhitespace(pagesize)) {
+			int p;
+			if("all".equals(pagesize)) {
+				p = -1;
+			} else {
+				p = Integer.parseInt(pagesize);
+			}
+			selectPageSize(ureq, p);
 		} else if(StringHelper.containsNonWhitespace(sort)) {
 			String asc = form.getRequestParameter("asc");
 			sort(sort, "asc".equals(asc));
@@ -737,7 +762,10 @@ public class FlexiTableElementImpl extends FormItemImpl implements FlexiTableEle
 	@Override
 	public void dispatchEvent(UserRequest ureq, Controller source, Event event) {
 		if(source == callout) {
-			//System.out.println("dispatchEvent (Controller): " + source);
+			if(CloseableCalloutWindowController.CLOSE_WINDOW_EVENT == event) {
+				//already deactivated
+				callout = null;
+			}
 		} else if(source == extendedSearchCtrl) {
 			if(event == Event.CANCELLED_EVENT) {
 				collapseExtendedSearch();
@@ -756,8 +784,26 @@ public class FlexiTableElementImpl extends FormItemImpl implements FlexiTableEle
 			} else if(Choice.EVNT_FORM_RESETED.equals(event)) {
 				resetCustomizedColumns(ureq);
 			}
-			callout.deactivate();
+			if(callout != null) {
+				callout.deactivate();
+				callout = null;
+			}
 		}
+	}
+	
+	private void selectPageSize(UserRequest ureq, int size) {
+		if(callout != null) {
+			callout.deactivate();
+			callout = null;
+		}
+		
+		setPageSize(size);
+		//reset
+		rowCount = -1;
+		currentPage = 0;
+		component.setDirty(true);
+		reloadData();
+		saveCustomSettings(ureq);
 	}
 	
 	@Override
@@ -907,6 +953,10 @@ public class FlexiTableElementImpl extends FormItemImpl implements FlexiTableEle
 				enabledColumnIndex.add(new Integer(col.getColumnIndex()));
 			}
 		}
+		
+		if(pageSize > 0) {
+			selectPageSize(ureq, defaultPageSize);
+		}
 		saveCustomSettings(ureq);
 		component.setDirty(true);
 	} 
@@ -938,7 +988,7 @@ public class FlexiTableElementImpl extends FormItemImpl implements FlexiTableEle
 			}
 
 			FlexiTablePreferences tablePrefs =
-					new FlexiTablePreferences(sortedColKey, sortDirection,
+					new FlexiTablePreferences(getPageSize(), sortedColKey, sortDirection,
 							convertColumnIndexToKeys(enabledColumnIndex), rendererType);
 			prefs.put(FlexiTableElement.class, persistentId, tablePrefs);
 			prefs.save();
@@ -950,6 +1000,10 @@ public class FlexiTableElementImpl extends FormItemImpl implements FlexiTableEle
 			Preferences prefs = ureq.getUserSession().getGuiPreferences();
 			FlexiTablePreferences tablePrefs = (FlexiTablePreferences)prefs.get(FlexiTableElement.class, persistentId);
 			if(tablePrefs != null) {
+				if(tablePrefs.getPageSize() != getDefaultPageSize() && tablePrefs.getPageSize() != 0) {
+					setPageSize(tablePrefs.getPageSize());
+				}
+				
 				if(tablePrefs.getEnabledColumnKeys() != null) {
 					enabledColumnIndex.clear();
 					enabledColumnIndex.addAll(convertColumnKeysToIndex(tablePrefs.getEnabledColumnKeys()));
@@ -1153,6 +1207,14 @@ public class FlexiTableElementImpl extends FormItemImpl implements FlexiTableEle
 			return allIndex;
 		}
 		return multiSelectedIndex == null ? Collections.<Integer>emptySet() : multiSelectedIndex;
+	}
+
+	@Override
+	public void setMultiSelectedIndex(Set<Integer> set) {
+		if(multiSelectedIndex == null) {
+			multiSelectedIndex = new HashSet<Integer>();
+		}
+		multiSelectedIndex.addAll(set);
 	}
 
 	@Override

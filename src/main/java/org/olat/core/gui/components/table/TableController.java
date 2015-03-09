@@ -44,6 +44,7 @@ import org.olat.core.gui.control.Event;
 import org.olat.core.gui.control.WindowControl;
 import org.olat.core.gui.control.controller.BasicController;
 import org.olat.core.gui.control.generic.ajax.autocompletion.AutoCompleterController;
+import org.olat.core.gui.control.generic.ajax.autocompletion.EmptyChosenEvent;
 import org.olat.core.gui.control.generic.ajax.autocompletion.EntriesChosenEvent;
 import org.olat.core.gui.control.generic.ajax.autocompletion.ListProvider;
 import org.olat.core.gui.control.generic.closablewrapper.CloseableCalloutWindowController;
@@ -141,7 +142,7 @@ public class TableController extends BasicController {
 
 	private boolean tablePrefsInitialized = false;
 	private CloseableCalloutWindowController cmc;
-	private Controller tableSearchController;
+	private AutoCompleterController tableSearchController;
 	private TableSort tableSort;
 
 	private Link resetLink;
@@ -296,11 +297,12 @@ public class TableController extends BasicController {
 		}
 	}
 
-	private Controller createTableSearchController(final UserRequest ureq, final WindowControl wControl) {
+	private AutoCompleterController createTableSearchController(final UserRequest ureq, final WindowControl wControl) {
 		ListProvider genericProvider = new TableListProvider(table);
 		removeAsListenerAndDispose(tableSearchController);
 		tableSearchController = new AutoCompleterController(ureq, wControl, genericProvider, null, false, 60, 3, translate("table.filter.label"));
-		listenTo(tableSearchController); // TODO:CG 02.09.2010 Test Tablesearch Performance, remove
+		tableSearchController.setEmptyAsReset(true);
+		listenTo(tableSearchController);
 		return tableSearchController;
 	}
 
@@ -336,7 +338,8 @@ public class TableController extends BasicController {
 				applyAndcheckChangedColumnsChoice(ureq, colsChoice.getSelectedRows());
 			} else if (event == Choice.EVNT_FORM_RESETED) {
 				//sideeffect on table and prefs
-				applyAndcheckChangedColumnsChoice(ureq, colsChoice.getAllRows());
+				List<Integer> visibleCols = table.getDefaultVisibleColumns();
+				applyAndcheckChangedColumnsChoice(ureq, visibleCols);
 			} else { // cancelled
 				cmc.deactivate();
 			}
@@ -414,7 +417,9 @@ public class TableController extends BasicController {
 			  // reset filter search filter in modelChanged
 				modelChanged();
 			}
-		} 
+		}  else if(event instanceof EmptyChosenEvent) {
+			modelChanged(true);
+		}
 	}
 	
 	public int getRowCount() {
@@ -511,6 +516,7 @@ public class TableController extends BasicController {
 		if (tableModel != null) {
 			contentVc.contextPut("tableEmpty", tableModel.getRowCount() == 0 ? Boolean.TRUE : Boolean.FALSE);
 			contentVc.contextPut("numberOfElements", String.valueOf(table.getUnfilteredRowCount()));
+			contentVc.contextPut("rowCounts", String.valueOf(table.getRowCount()));
 			if (table.isTableFiltered()) {
 				contentVc.contextPut("numberFilteredElements", String.valueOf(table.getRowCount()));
 				contentVc.contextPut(VC_VAR_IS_FILTERED, Boolean.TRUE); 

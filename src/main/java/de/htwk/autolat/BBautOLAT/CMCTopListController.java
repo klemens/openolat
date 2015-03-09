@@ -3,8 +3,11 @@ package de.htwk.autolat.BBautOLAT;
 import java.util.Date;
 import java.util.List;
 
+import javax.swing.table.DefaultTableModel;
+
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.Component;
+import org.olat.core.gui.components.EscapeMode;
 import org.olat.core.gui.components.panel.Panel;
 import org.olat.core.gui.components.table.DefaultColumnDescriptor;
 import org.olat.core.gui.components.table.TableController;
@@ -48,10 +51,17 @@ public class CMCTopListController extends BasicController
     tgc.setPreferencesOffered(true, "TopListTable");
         
     topListTable = new TableController(tgc, ureq, getWindowControl(), getTranslator());    
-    // topListTable.addColumnDescriptor(new DefaultColumnDescriptor("label.table.toplist.name", 0, null, ureq.getLocale()));
-    topListTable.addColumnDescriptor(new DefaultColumnDescriptor("label.table.toplist.score", 0, null, ureq.getLocale()));
-    topListTable.addColumnDescriptor(new DefaultColumnDescriptor("label.table.toplist.size", 1, null, ureq.getLocale()));
-    topListTable.addColumnDescriptor(new DefaultColumnDescriptor("label.table.toplist.date", 2, null, ureq.getLocale()));
+
+    DefaultColumnDescriptor column;
+    column = new DefaultColumnDescriptor("label.table.toplist.score", 0, null, ureq.getLocale());
+    column.setEscapeHtml(EscapeMode.none);
+    topListTable.addColumnDescriptor(column);
+    column = new DefaultColumnDescriptor("label.table.toplist.size", 1, null, ureq.getLocale());
+    column.setEscapeHtml(EscapeMode.none);
+    topListTable.addColumnDescriptor(column);
+    column = new DefaultColumnDescriptor("label.table.toplist.date", 2, null, ureq.getLocale());
+    column.setEscapeHtml(EscapeMode.none);
+    topListTable.addColumnDescriptor(column);
         
     topListTable.setSortColumn(0, false);
     

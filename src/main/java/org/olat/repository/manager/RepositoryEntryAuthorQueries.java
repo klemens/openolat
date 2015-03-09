@@ -201,21 +201,47 @@ public class RepositoryEntryAuthorQueries {
 		
 		Long id = null;
 		String refs = null;
+		String fuzzyRefs = null;
 		if(StringHelper.containsNonWhitespace(params.getIdAndRefs())) {
 			refs = params.getIdAndRefs();
+			fuzzyRefs = PersistenceHelper.makeFuzzyQueryString(refs);
+			sb.append(" and (v.externalId=:ref or ");
+			PersistenceHelper.appendFuzzyLike(sb, "v.externalRef", "fuzzyRefs", dbInstance.getDbVendor());
+			sb.append(" or v.softkey=:ref");
+
 			if(StringHelper.isLong(refs)) {
 				try {
 					id = Long.parseLong(refs);
+					sb.append(" or v.key=:vKey or res.resId=:vKey");
 				} catch (NumberFormatException e) {
 					//
 				}
 			}
-			sb.append(" and (v.externalId=:ref or v.externalRef=:ref or v.softkey=:ref");
-			if(id != null) {
-				sb.append(" or v.key=:vKey or res.resId=:vKey)");
+			sb.append(")");	
+		}
+		
+		//quick search
+		Long quickId = null;
+		String quickRefs = null;
+		String quickText = null;
+		if(StringHelper.containsNonWhitespace(params.getIdRefsAndTitle())) {
+			quickRefs = params.getIdRefsAndTitle();
+			sb.append(" and (v.externalId=:quickRef or ");
+			PersistenceHelper.appendFuzzyLike(sb, "v.externalRef", "quickText", dbInstance.getDbVendor());
+			sb.append(" or v.softkey=:quickRef or ");
+			quickText = PersistenceHelper.makeFuzzyQueryString(quickRefs);
+			PersistenceHelper.appendFuzzyLike(sb, "v.displayname", "quickText", dbInstance.getDbVendor());
+			if(StringHelper.isLong(quickRefs)) {
+				try {
+					quickId = Long.parseLong(quickRefs);
+					sb.append(" or v.key=:quickVKey or res.resId=:quickVKey)");
+				} catch (NumberFormatException e) {
+					//
+				}
 			}
 			sb.append(")");	
 		}
+
 		if(!count) {
 			appendAuthorViewOrderBy(params.getOrderBy(), params.isOrderByAsc(), sb);
 		}
@@ -233,6 +259,19 @@ public class RepositoryEntryAuthorQueries {
 		}
 		if(refs != null) {
 			dbQuery.setParameter("ref", refs);
+		}
+		if(fuzzyRefs != null) {
+			dbQuery.setParameter("fuzzyRefs", fuzzyRefs);
+		}
+		
+		if(quickId != null) {
+			dbQuery.setParameter("quickVKey", quickId);
+		}
+		if(quickRefs != null) {
+			dbQuery.setParameter("quickRef", quickRefs);
+		}
+		if(quickText != null) {
+			dbQuery.setParameter("quickText", quickText);
 		}
 		if (StringHelper.containsNonWhitespace(author)) { // fuzzy author search
 			dbQuery.setParameter("author", author);

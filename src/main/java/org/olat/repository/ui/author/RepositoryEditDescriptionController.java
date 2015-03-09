@@ -53,6 +53,7 @@ import org.olat.core.gui.control.WindowControl;
 import org.olat.core.util.FileUtils;
 import org.olat.core.util.StringHelper;
 import org.olat.core.util.WebappHelper;
+import org.olat.core.util.i18n.I18nManager;
 import org.olat.core.util.vfs.LocalFileImpl;
 import org.olat.core.util.vfs.LocalFolderImpl;
 import org.olat.core.util.vfs.VFSContainer;
@@ -88,7 +89,6 @@ public class RepositoryEditDescriptionController extends FormBasicController {
 		imageMimeTypes.add("image/png");
 	}
 
-	private final boolean isSubWorkflow;
 	private VFSContainer mediaContainer;
 	private RepositoryEntry repositoryEntry;
 	private final String repoEntryType;
@@ -97,8 +97,7 @@ public class RepositoryEditDescriptionController extends FormBasicController {
 	private static final int movieUploadlimitKB = 102400;
 
 	private FileElement fileUpload, movieUpload;
-	private SingleSelection language;
-	private TextElement externalRef, displayName, authors, expenditureOfWork;
+	private TextElement externalRef, displayName, authors, expenditureOfWork, language;
 	private RichTextElement description, objectives, requirements, credits;
 	private SingleSelection dateTypesEl, publicDatesEl;
 	private DateChooser startDateEl, endDateEl;
@@ -108,6 +107,8 @@ public class RepositoryEditDescriptionController extends FormBasicController {
 	
 	private static final String[] dateKeys = new String[]{ "none", "private", "public"};
 
+	@Autowired
+	private I18nManager i18nmanager;
 	@Autowired
 	private UserManager userManager;
 	@Autowired
@@ -124,10 +125,9 @@ public class RepositoryEditDescriptionController extends FormBasicController {
 	 * @param wControl
 	 * @param sourceEntry
 	 */
-	public RepositoryEditDescriptionController(UserRequest ureq, WindowControl wControl, RepositoryEntry entry, boolean isSubWorkflow) {
+	public RepositoryEditDescriptionController(UserRequest ureq, WindowControl wControl, RepositoryEntry entry) {
 		super(ureq, wControl, "bgrep");
 		setBasePackage(RepositoryService.class);
-		this.isSubWorkflow = isSubWorkflow;
 		this.repositoryEntry = entry;
 		repoEntryType = repositoryEntry.getOlatResource().getResourceableTypeName();
 		initForm(ureq);
@@ -139,10 +139,6 @@ public class RepositoryEditDescriptionController extends FormBasicController {
 
 	@Override
 	protected void initForm(FormItemContainer formLayout, Controller listener, UserRequest ureq) {
-		if(formLayout instanceof FormLayoutContainer && isSubWorkflow) {
-			FormLayoutContainer layoutCont = (FormLayoutContainer)formLayout;
-			layoutCont.contextPut("title", repositoryEntry.getDisplayname());
-		}
 		
 		descCont = FormLayoutContainer.createDefaultFormLayout("desc", getTranslator());
 		descCont.setFormContextHelp("org.olat.repository","rep-meta-desc.html","help.hover.lifecycle");
@@ -198,16 +194,7 @@ public class RepositoryEditDescriptionController extends FormBasicController {
 		authors = uifactory.addTextElement("cif.authors", "cif.authors", 255, repositoryEntry.getAuthors(), descCont);
 		authors.setDisplaySize(60);
 		
-		String[] languageKeys = new String[] { "de", "en"};
-		String[] languageValues = new String[] { "de", "en"};
-		language = uifactory.addDropdownSingleselect("cif.mainLanguage", "cif.mainLanguage", formLayout, languageKeys, languageValues, null);
-		String selected = languageKeys[0];
-		for(String languageKey:languageKeys) {
-			if(languageKey.equals(repositoryEntry.getMainLanguage())) {
-				selected = languageKey;
-			}
-		}
-		language.select(selected, true);
+		language = uifactory.addTextElement("cif.mainLanguage", "cif.mainLanguage", 16, repositoryEntry.getMainLanguage(), descCont);
 		
 		RepositoryHandler handler = RepositoryHandlerFactory.getInstance().getRepositoryHandler(repositoryEntry);
 		mediaContainer = handler.getMediaContainer(repositoryEntry);
@@ -246,7 +233,17 @@ public class RepositoryEditDescriptionController extends FormBasicController {
 			int count = 0;	
 			for(RepositoryEntryLifecycle cycle:cycles) {
 				publicKeys[count] = cycle.getKey().toString();
-				publicValues[count++] = cycle.getLabel();
+				
+				StringBuilder sb = new StringBuilder(32);
+				boolean labelAvailable = StringHelper.containsNonWhitespace(cycle.getLabel());
+				if(labelAvailable) {
+					sb.append(cycle.getLabel());
+				}
+				if(StringHelper.containsNonWhitespace(cycle.getSoftKey())) {
+					if(labelAvailable) sb.append(" - ");
+					sb.append(cycle.getSoftKey());
+				}
+				publicValues[count++] = sb.toString();
 			}
 			publicDatesEl = uifactory.addDropdownSingleselect("cif.public.dates", descCont, publicKeys, publicValues, null);
 	
@@ -277,7 +274,7 @@ public class RepositoryEditDescriptionController extends FormBasicController {
 	
 			updateDatesVisibility();
 			uifactory.addSpacerElement("spacer3", descCont, false);
-
+			
 			expenditureOfWork = uifactory.addTextElement("cif.expenditureOfWork", "cif.expenditureOfWork", 100, repositoryEntry.getExpenditureOfWork(), descCont);
 			expenditureOfWork.setExampleKey("details.expenditureOfWork.example", null);
 
@@ -344,9 +341,7 @@ public class RepositoryEditDescriptionController extends FormBasicController {
 		buttonContainer.setElementCssClass("o_sel_repo_save_details");
 		submit = uifactory.addFormSubmitButton("submit", buttonContainer);
 		submit.setVisible(!managed);
-		if (!isSubWorkflow) {
-			uifactory.addFormCancelButton("cancel", buttonContainer, ureq, getWindowControl());
-		}
+		uifactory.addFormCancelButton("cancel", buttonContainer, ureq, getWindowControl());
 	}
 	
 	private void updateDatesVisibility() {
@@ -492,7 +487,7 @@ public class RepositoryEditDescriptionController extends FormBasicController {
 		String displayname = displayName.getValue().trim();
 		repositoryEntry.setDisplayname(displayname);
 		
-		String mainLanguage = language.getSelectedKey();
+		String mainLanguage = language.getValue();
 		if(StringHelper.containsNonWhitespace(mainLanguage)) {
 			repositoryEntry.setMainLanguage(mainLanguage);
 		} else {

@@ -19,9 +19,10 @@
  */
 package org.olat.admin.user.tools;
 
-import java.util.Locale;
-
-import org.olat.core.extensions.action.GenericActionExtension;
+import org.olat.core.gui.UserRequest;
+import org.olat.core.gui.components.Component;
+import org.olat.core.gui.components.velocity.VelocityContainer;
+import org.olat.core.gui.control.Disposable;
 
 /**
  * 
@@ -29,20 +30,8 @@ import org.olat.core.extensions.action.GenericActionExtension;
  * @author srosse, stephane.rosse@frentix.com, http://www.frentix.com
  *
  */
-public class UserTool {
-	private final String key;
-	private final String label;
+public interface UserTool extends Disposable {
 	
-	public UserTool(GenericActionExtension gAe, Locale locale) {
-		key = UserToolsModule.stripToolKey(gAe.getUniqueExtensionID());
-		label = gAe.getActionText(locale);
-	}
-
-	public String getKey() {
-		return key;
-	}
-
-	public String getLabel() {
-		return label;
-	}
+	public Component getMenuComponent(UserRequest ureq, VelocityContainer container);
+	
 }

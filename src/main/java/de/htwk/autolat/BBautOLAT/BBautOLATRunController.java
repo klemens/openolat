@@ -202,7 +202,7 @@ public class BBautOLATRunController extends BasicController{
 			{					
 				// cast necessary?
 				TaskTestEvent tte = (TaskTestEvent) event;
-				taskInstanceTestController.setLivingTaskInstance(tte.getTaskInstance().getLivingTaskInstance());				
+				taskInstanceTestController.setLivingTaskInstance(tte.getTaskInstance().getLivingTaskInstance(), ureq);				
 				tabPane.setSelectedPane(1);
 			}			
 		}

@@ -1,0 +1,211 @@
+/**
+ * <a href="http://www.openolat.org">
+ * OpenOLAT - Online Learning and Training</a><br>
+ * <p>
+ * Licensed under the Apache License, Version 2.0 (the "License"); <br>
+ * you may not use this file except in compliance with the License.<br>
+ * You may obtain a copy of the License at the
+ * <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache homepage</a>
+ * <p>
+ * Unless required by applicable law or agreed to in writing,<br>
+ * software distributed under the License is distributed on an "AS IS" BASIS, <br>
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. <br>
+ * See the License for the specific language governing permissions and <br>
+ * limitations under the License.
+ * <p>
+ * Initial code contributed and copyrighted by<br>
+ * frentix GmbH, http://www.frentix.com
+ * <p>
+ */
+package org.olat.course.certificate.manager;
+
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.util.Date;
+import java.util.List;
+import java.util.Locale;
+
+import org.apache.commons.io.IOUtils;
+import org.apache.pdfbox.pdmodel.PDDocument;
+import org.apache.pdfbox.pdmodel.PDDocumentCatalog;
+import org.apache.pdfbox.pdmodel.interactive.form.PDAcroForm;
+import org.apache.pdfbox.pdmodel.interactive.form.PDField;
+import org.olat.core.id.Identity;
+import org.olat.core.id.User;
+import org.olat.core.logging.OLog;
+import org.olat.core.logging.Tracing;
+import org.olat.core.util.Formatter;
+import org.olat.course.assessment.AssessmentHelper;
+import org.olat.course.certificate.CertificateTemplate;
+import org.olat.course.certificate.CertificatesManager;
+import org.olat.repository.RepositoryEntry;
+import org.olat.user.UserManager;
+import org.olat.user.propertyhandlers.UserPropertyHandler;
+
+/**
+ * Do the hard work of filling the certificate
+ * 
+ * Initial date: 23.10.2014<br>
+ * 
+ * @author srosse, stephane.rosse@frentix.com, http://www.frentix.com
+ *
+ */
+public class CertificatePDFFormWorker {
+
+	private static final OLog log = Tracing
+			.createLoggerFor(CertificatePDFFormWorker.class);
+	
+	private final Float score;
+	private final Boolean passed;
+	private final Identity identity;
+	private final RepositoryEntry entry;
+
+	private Date dateCertification;
+	private Date dateFirstCertification;
+
+	private final Locale locale;
+	private final UserManager userManager;
+	private final CertificatesManagerImpl certificatesManager;
+
+	public CertificatePDFFormWorker(Identity identity, RepositoryEntry entry,
+			Float score, Boolean passed, Date dateCertification,
+			Date dateFirstCertification, Locale locale,
+			UserManager userManager, CertificatesManagerImpl certificatesManager) {
+		this.entry = entry;
+		this.score = score;
+		this.locale = locale;
+		this.passed = passed;
+		this.identity = identity;
+		this.dateCertification = dateCertification;
+		this.dateFirstCertification = dateFirstCertification;
+		this.userManager = userManager;
+		this.certificatesManager = certificatesManager;
+	}
+
+	public File fill(CertificateTemplate template, File destinationDir, String certificateFilename) {
+		PDDocument document = null;
+		InputStream templateStream = null;
+		try {
+			File templateFile = null;
+			if(template != null) {
+				templateFile = certificatesManager.getTemplateFile(template);
+			}
+			
+			if(templateFile != null && templateFile.exists()) {
+				templateStream = new FileInputStream(templateFile);
+			} else {
+				templateStream = CertificatesManager.class.getResourceAsStream("template.pdf");
+			}
+			
+			document = PDDocument.load(templateStream);
+
+			PDDocumentCatalog docCatalog = document.getDocumentCatalog();
+			PDAcroForm acroForm = docCatalog.getAcroForm();
+			if (acroForm != null) {
+				fillUserProperties(acroForm);
+				fillRepositoryEntry(acroForm);
+				fillCertificationInfos(acroForm);
+				fillAssessmentInfos(acroForm);
+			}
+			if(!destinationDir.exists()) {
+				destinationDir.mkdirs();
+			}
+			
+			File certificateFile = new File(destinationDir, certificateFilename);
+			OutputStream out = new FileOutputStream(certificateFile);
+			document.save(out);
+			out.flush();
+			out.close();
+			return certificateFile;
+		} catch (Exception e) {
+			log.error("", e);
+			return null;
+		} finally {
+			IOUtils.closeQuietly(document);
+			IOUtils.closeQuietly(templateStream);
+		}
+	}
+
+	private void fillUserProperties(PDAcroForm acroForm) throws IOException {
+		User user = identity.getUser();
+		List<UserPropertyHandler> userPropertyHandlers = userManager.getAllUserPropertyHandlers();
+		for (UserPropertyHandler handler : userPropertyHandlers) {
+			String propertyName = handler.getName();
+			String value = handler.getUserProperty(user, null);
+			fillField(propertyName, value, acroForm);
+		}
+		
+		String fullName = userManager.getUserDisplayName(identity);
+		fillField("fullName", fullName, acroForm);
+	}
+
+	private void fillRepositoryEntry(PDAcroForm acroForm) throws IOException {
+		String title = entry.getDisplayname();
+		fillField("title", title, acroForm);
+		String externalRef = entry.getExternalRef();
+		fillField("externalReference", externalRef, acroForm);
+		String authors = entry.getAuthors();
+		fillField("authors", authors, acroForm);
+		String expenditureOfWorks = entry.getExpenditureOfWork();
+		fillField("expenditureOfWorks", expenditureOfWorks, acroForm);
+		String mainLanguage = entry.getMainLanguage();
+		fillField("mainLanguage", mainLanguage, acroForm);
+		
+		if (entry.getLifecycle() != null) {
+			Formatter format = Formatter.getInstance(locale);
+
+			Date from = entry.getLifecycle().getValidFrom();
+			String formattedFrom = format.formatDate(from);
+			fillField("from", formattedFrom, acroForm);
+
+			Date to = entry.getLifecycle().getValidTo();
+			String formattedTo = format.formatDate(to);
+			fillField("to", formattedTo, acroForm);
+		}
+	}
+	
+	private void fillCertificationInfos(PDAcroForm acroForm) throws IOException {
+		Formatter format = Formatter.getInstance(locale);
+
+		if(dateCertification == null) {
+			fillField("dateCertification", "", acroForm);
+		} else {
+			String formattedDateCertification= format.formatDate(dateCertification);
+			fillField("dateCertification", formattedDateCertification, acroForm);
+		}
+		
+		if(dateFirstCertification == null) {
+			fillField("dateFirstCertification", "", acroForm);
+		} else {
+			String formattedDateFirstCertification = format.formatDate(dateFirstCertification);
+			fillField("dateFirstCertification", formattedDateFirstCertification, acroForm);
+		}
+	}
+	
+	private void fillAssessmentInfos(PDAcroForm acroForm) throws IOException {
+		String roundedScore = AssessmentHelper.getRoundedScore(score);
+		fillField("score", roundedScore, acroForm);
+
+		String status = (passed != null && passed.booleanValue()) ? "Passed" : "Failed";
+		fillField("status", status, acroForm);
+	}
+
+	private void fillField(String fieldName, String value, PDAcroForm acroForm)
+			throws IOException {
+		PDField field = acroForm.getField(fieldName);
+		if (field != null) {
+			if (value == null) {
+				field.setValue("");
+			} else {
+				field.setValue(value);
+			}
+
+			field.setReadonly(true);
+			field.setNoExport(true);
+		}
+	}
+}

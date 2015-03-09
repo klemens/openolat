@@ -37,12 +37,11 @@ import org.olat.commons.calendar.model.KalendarEventLink;
 import org.olat.commons.calendar.ui.LinkProvider;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.form.flexible.FormItemContainer;
-import org.olat.core.gui.components.form.flexible.elements.MultipleSelectionElement;
 import org.olat.core.gui.components.form.flexible.impl.FormBasicController;
-import org.olat.core.gui.components.form.flexible.impl.FormLayoutContainer;
 import org.olat.core.gui.components.form.flexible.impl.elements.FormSubmit;
 import org.olat.core.gui.components.tree.GenericTreeModel;
 import org.olat.core.gui.components.tree.GenericTreeNode;
+import org.olat.core.gui.components.tree.MenuTreeItem;
 import org.olat.core.gui.components.tree.TreeNode;
 import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.Event;
@@ -53,7 +52,6 @@ import org.olat.core.id.context.ContextEntry;
 import org.olat.core.util.Util;
 import org.olat.core.util.nodes.INode;
 import org.olat.core.util.resource.OresHelper;
-import org.olat.core.util.tree.INodeFilter;
 import org.olat.course.ICourse;
 import org.olat.course.nodes.CourseNode;
 import org.olat.repository.RepositoryEntry;
@@ -67,11 +65,11 @@ public class CourseLinkProviderController extends FormBasicController implements
 	private FormSubmit saveButton;
 	private final OLATResourceable ores;
 	private final List<ICourse> availableCourses;
-	private MultipleSelectionElement multiSelectTree;
+	private MenuTreeItem multiSelectTree;
 	private final CourseNodeSelectionTreeModel courseNodeTreeModel;
 
 	public CourseLinkProviderController(ICourse course, List<ICourse> courses, UserRequest ureq, WindowControl wControl) {
-		super(ureq, wControl, LAYOUT_BAREBONE);
+		super(ureq, wControl, "course_elements");
 		setTranslator(Util.createPackageTranslator(CalendarManager.class, ureq.getLocale(), getTranslator()));
 
 		this.ores = course;
@@ -83,12 +81,11 @@ public class CourseLinkProviderController extends FormBasicController implements
 
 	@Override
 	protected void initForm(FormItemContainer formLayout, Controller listener, UserRequest ureq) {
-		multiSelectTree = uifactory.addTreeMultiselect("seltree", null, formLayout, courseNodeTreeModel, courseNodeTreeModel);
+		multiSelectTree = uifactory.addTreeMultiselect("seltree", null, formLayout, courseNodeTreeModel, this);
+		multiSelectTree.setRootVisible(availableCourses.size() == 1);
+		multiSelectTree.setMultiSelect(true);
 
-		FormLayoutContainer buttonsContainer = FormLayoutContainer.createButtonLayout("buttons", getTranslator());
-		buttonsContainer.setRootForm(mainForm);
-		formLayout.add(buttonsContainer);
-		saveButton = uifactory.addFormSubmitButton("ok", "cal.links.submit", buttonsContainer);
+		saveButton = uifactory.addFormSubmitButton("ok", "cal.links.submit", formLayout);
 	}
 
 	@Override
@@ -162,12 +159,22 @@ public class CourseLinkProviderController extends FormBasicController implements
 				String nodeId = link.getId();
 				TreeNode node = courseNodeTreeModel.getNodeById(nodeId);
 				if(node == null) {
-					nodeId = availableCourses.get(0).getResourceableId() + "_" + nodeId;
-					node = courseNodeTreeModel.getNodeById(nodeId);
+					String fallBackNodeId = availableCourses.get(0).getResourceableId() + "_" + nodeId;
+					node = courseNodeTreeModel.getNodeById(fallBackNodeId);
+				}
+				if(node == null && nodeId.indexOf("_") < 0) {
+					//course selected -> map to root node
+					for(ICourse course: availableCourses) {
+						if(nodeId.equals(course.getResourceableId().toString())) {
+							String fallBackNodeId = course.getResourceableId() + "_" + course.getRunStructure().getRootNode().getIdent();
+							node = courseNodeTreeModel.getNodeById(fallBackNodeId);
+						}
+					}
 				}
 				if (node != null) {
 					node.setSelected(true);
 					multiSelectTree.select(node.getIdent(), true);
+					multiSelectTree.open(node);
 				}
 			}
 		}
@@ -175,7 +182,7 @@ public class CourseLinkProviderController extends FormBasicController implements
 	
 	@Override
 	public void setDisplayOnly(boolean displayOnly) {
-		courseNodeTreeModel.setReadOnly(displayOnly);
+		multiSelectTree.setEnabled(!displayOnly);
 		multiSelectTree.reset();
 		saveButton.setVisible(!displayOnly);
 	}
@@ -188,11 +195,8 @@ public class CourseLinkProviderController extends FormBasicController implements
 		}
 	}
 	
-	private static class CourseNodeSelectionTreeModel extends GenericTreeModel implements INodeFilter {
+	private static class CourseNodeSelectionTreeModel extends GenericTreeModel {
 		private static final long serialVersionUID = -7863033366847344767L;
-		
-		private boolean readOnly;
-		
 
 
 		public CourseNodeSelectionTreeModel(List<ICourse> courses) {
@@ -209,41 +213,24 @@ public class CourseLinkProviderController extends FormBasicController implements
 		}
 		
 		private LinkTreeNode buildCourseTree(ICourse course) {
-			LinkTreeNode node = new LinkTreeNode(course.getCourseTitle(), course, null);
-			node.setAltText(course.getCourseTitle());
-			node.setIdent(course.getResourceableId().toString());
-			node.setIconCssClass("o_CourseModule_icon");
-
-			LinkTreeNode childNode = buildTree(course, course.getRunStructure().getRootNode());
-			node.addChild(childNode);
-			return node;
+			return buildTree(course, course.getRunStructure().getRootNode());
 		}
 
 		private LinkTreeNode buildTree(ICourse course, CourseNode courseNode) {
 			LinkTreeNode node = new LinkTreeNode(courseNode.getShortTitle(), course, courseNode);
 			node.setAltText(courseNode.getLongTitle());
 			node.setIdent(course.getResourceableId() + "_" + courseNode.getIdent());
-			node.setIconCssClass(("o_icon o_" + courseNode.getType() + "_icon").intern());
+			if(courseNode == course.getRunStructure().getRootNode()) {
+				node.setIconCssClass("o_CourseModule_icon");
+			} else {
+				node.setIconCssClass(("o_icon o_" + courseNode.getType() + "_icon").intern());
+			}
 			node.setUserObject(course);
 			for (int i = 0; i < courseNode.getChildCount(); i++) {
 				CourseNode childNode = (CourseNode)courseNode.getChildAt(i);
 				node.addChild(buildTree(course, childNode));
 			}
 			return node;
-		}
-		
-		public void setReadOnly(boolean readOnly) {
-			this.readOnly = readOnly;
-		}
-
-		@Override
-		public boolean isSelectable(INode node) {
-			return !readOnly;
-		}
-
-		@Override
-		public boolean isVisible(INode node) {
-			return true;
 		}
 	}
 	

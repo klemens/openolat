@@ -52,6 +52,7 @@ import org.olat.course.nodes.CourseNode;
 import org.olat.course.run.environment.CourseEnvironment;
 import org.olat.course.run.navigation.NavigationHandler;
 import org.olat.course.run.navigation.NodeClickedRef;
+import org.olat.course.run.userview.VisibleTreeFilter;
 import org.olat.course.run.userview.UserCourseEnvironment;
 import org.olat.course.run.userview.UserCourseEnvironmentImpl;
 import org.olat.group.BusinessGroup;
@@ -89,13 +90,13 @@ public class PreviewRunController extends MainLayoutBasicController {
 
 		// build up the running structure for this user;
 		uce = new UserCourseEnvironmentImpl(identEnv, cenv);
-		navHandler = new NavigationHandler(uce, true);
+		navHandler = new NavigationHandler(uce, new VisibleTreeFilter(), true);
 		
 		// evaluate scoring
 		uce.getScoreAccounting().evaluateAll();
 		
 		// build menu (treemodel)
-		NodeClickedRef nclr = navHandler.evaluateJumpToCourseNode(ureq, getWindowControl(), null, null, null);
+		NodeClickedRef nclr = navHandler.evaluateJumpToCourseNode(ureq, getWindowControl(), null, this, null);
 		if (!nclr.isVisible()) {
 			getWindowControl().setWarning(translate("rootnode.invisible"));
 			VelocityContainer noaccess = createVelocityContainer("noaccess");		
@@ -230,7 +231,7 @@ public class PreviewRunController extends MainLayoutBasicController {
 		if (!nclr.isVisible()) {
 			// if not root -> fallback to root. e.g. when a direct node jump fails
 			if (calledCourseNode != null) {
-				nclr = navHandler.evaluateJumpToCourseNode(ureq, getWindowControl(), null, null, null);
+				nclr = navHandler.evaluateJumpToCourseNode(ureq, getWindowControl(), null, this, null);
 			}
 			if (!nclr.isVisible()) {
 				getWindowControl().setWarning(translate("msg.nodenotavailableanymore"));

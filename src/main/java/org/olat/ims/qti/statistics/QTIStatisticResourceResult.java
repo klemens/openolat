@@ -141,12 +141,19 @@ public class QTIStatisticResourceResult implements StatisticResourceResult {
 
 	@Override
 	public TreeModel getSubTreeModel() {
-		if(qtiDocument == null) return null;
-		
-		GenericTreeModel subTreeModel = new GenericTreeModel();
-		StatisticResourceNode rootTreeNode = new StatisticResourceNode(courseNode, this);
-		subTreeModel.setRootNode(rootTreeNode);
-		buildQTICourseNodeSubTree(qtiDocument, rootTreeNode);
+		GenericTreeModel subTreeModel;
+		if(type == QTIType.onyx) {
+			subTreeModel = new GenericTreeModel();
+			StatisticResourceNode rootTreeNode = new StatisticResourceNode(courseNode, this);
+			subTreeModel.setRootNode(rootTreeNode);
+		} else if(qtiDocument == null) {
+			subTreeModel = null;
+		} else {
+			subTreeModel = new GenericTreeModel();
+			StatisticResourceNode rootTreeNode = new StatisticResourceNode(courseNode, this);
+			subTreeModel.setRootNode(rootTreeNode);
+			buildQTICourseNodeSubTree(qtiDocument, rootTreeNode);	
+		}
 		return subTreeModel;
 	}
 
@@ -191,8 +198,8 @@ public class QTIStatisticResourceResult implements StatisticResourceResult {
 		return new QTI12ItemStatisticsController(ureq, wControl, section, item, this, printMode);
 	}
 	
-	private void buildQTICourseNodeSubTree(QTIDocument qtiDocument, GenericTreeNode rootNode) {	
-		for(Section section:qtiDocument.getAssessment().getSections()) {
+	private void buildQTICourseNodeSubTree(QTIDocument qtiDoc, GenericTreeNode rootNode) {	
+		for(Section section:qtiDoc.getAssessment().getSections()) {
 			GenericTreeNode sectionNode = new SectionNode(section, null);
 			sectionNode.setUserObject(section);
 			rootNode.addChild(sectionNode);
