@@ -69,7 +69,6 @@ public class TaskInstanceTestController extends BasicController
 	private TaskSeedForm taskSeedForm;
 	private String seed;
 	private UserCourseEnvironment userCourseEnv;
-	private UserRequest ureq;
 	
 	// Flags
 	private boolean showSeedInputField = true;
@@ -174,12 +173,11 @@ public class TaskInstanceTestController extends BasicController
 	public TaskInstanceTestController(Builder builder)
 	{
 		super(builder.ureq, builder.wControl);
-		this.ureq = builder.ureq;
 		this.courseID = builder.courseID;
 		this.courseNodeID = builder.courseNodeID;
 		PackageTranslator translator = new PackageTranslator(PACKAGE, this.getLocale());
 		setTranslator(translator);
-		userID = ureq.getIdentity();
+		userID = builder.ureq.getIdentity();
 		configuration = ConfigurationManagerImpl.getInstance().getConfigurationByCourseID(courseID, courseNodeID);		
 		taskConfiguration = configuration.getTaskConfiguration();
 		try {
@@ -204,13 +202,13 @@ public class TaskInstanceTestController extends BasicController
 		this.showSolutionText = builder.showSolutionText;
 		this.taskSolution = builder.taskSolution;
 
-		initForms(ureq);
+		initForms(builder.ureq);
 		
 		testPanel = new Panel("testPanel");
 		if(builder.livingTaskInstance == null)
-			setTaskSeed(builder.seed);
+			setTaskSeed(builder.seed, builder.ureq);
 		else
-			setLivingTaskInstance(builder.livingTaskInstance);
+			setLivingTaskInstance(builder.livingTaskInstance, builder.ureq);
 		
 		putInitialPanel(testPanel);		
 	}
@@ -229,7 +227,6 @@ public class TaskInstanceTestController extends BasicController
 	public TaskInstanceTestController(UserRequest ureq, WindowControl wControl, long courseID, long courseNodeID)
 	{
 		super(ureq, wControl);
-		this.ureq = ureq;
 		this.courseID = courseID;
 		this.courseNodeID = courseNodeID;		
 		PackageTranslator translator = new PackageTranslator(PACKAGE, this.getLocale());
@@ -255,7 +252,7 @@ public class TaskInstanceTestController extends BasicController
 		
 		testPanel = new Panel("testPanel");
 		// null -> random seed
-		setTaskSeed(null);		
+		setTaskSeed(null, ureq);		
 		
 		putInitialPanel(testPanel);		
 	}	
@@ -283,7 +280,7 @@ public class TaskInstanceTestController extends BasicController
 	{
 		if(comp == randomSeed)
 		{
-			setTaskSeed(null);
+			setTaskSeed(null, ureq);
 			taskSolution = null;
 		}
 				
@@ -336,7 +333,7 @@ public class TaskInstanceTestController extends BasicController
 			if(event.equals(Form.EVNT_VALIDATION_OK))
 			{				
 				String newSeed = taskSeedForm.seed.getValue();				
-				setTaskSeed(newSeed.equals("") ? null : newSeed);
+				setTaskSeed(newSeed.equals("") ? null : newSeed, ureq);
 				taskSolution = null;
 				createOutput(ureq);
 			}
@@ -478,7 +475,7 @@ public class TaskInstanceTestController extends BasicController
 	 *
 	 * @param taskInstance the new living task instance
 	 */
-	public void setLivingTaskInstance(LivingTaskInstance livingTaskInstance)
+	public void setLivingTaskInstance(LivingTaskInstance livingTaskInstance, UserRequest ureq)
 	{
 		if(livingTaskInstance != null)
 		{
@@ -490,7 +487,7 @@ public class TaskInstanceTestController extends BasicController
 			solutionPreset = livingTaskInstance.getSampleSolution();
 		}
 		else
-			setTaskSeed(seed);			
+			setTaskSeed(seed, ureq);			
 
 		createOutput(ureq);
 	}
@@ -505,7 +502,7 @@ public class TaskInstanceTestController extends BasicController
 	 * 
 	 * @param seed the new task seed
 	 */
-	public void setTaskSeed(String seed)
+	public void setTaskSeed(String seed, UserRequest ureq)
 	{		
 		if(connector == null) {
 			showInfo("error.form.editconnection.Servererror");
