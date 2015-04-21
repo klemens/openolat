@@ -690,6 +690,7 @@ public class TaskInstanceRunController extends BasicController
 		//taskForm = new TaskRunForm(TaskRunForm.NAME, ureq, wControl, courseID, taskInstance, true);
 		//taskForm.addControllerListener(this);
 		taskForm.solution.setValue(solutionPreset);
+		taskForm.setDocumentation(livingTaskInstance.getSampleDocumentation());
 		
 		//taskForm = new TaskRunForm(TaskRunForm.NAME, getTranslator(), courseID, taskInstance, true);
 		//taskForm.addListener(this);		

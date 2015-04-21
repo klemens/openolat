@@ -1,8 +1,12 @@
 package de.htwk.autolat.LivingTaskInstance;
 
 import java.util.Date;
+
 import org.olat.core.commons.persistence.DBFactory;
+
 import de.htwk.autolat.TaskInstance.TaskInstance;
+import de.htwk.autolat.tools.XMLParser.OutputObject;
+import de.htwk.autolat.tools.XMLParser.XMLParser;
 
 /**
  * The Class LivingTaskInstanceManagerImpl implements the manager functions for a living task instance.
@@ -93,4 +97,13 @@ public class LivingTaskInstanceManagerImpl extends LivingTaskInstanceManager {
 		return INSTANCE;
 	}
 
+	public String parseDocumentation(String xmlDocumentation) {
+		try {
+			XMLParser parser = new XMLParser();
+			OutputObject parseResult = parser.parseString(xmlDocumentation);
+			return parseResult.toString();
+		} catch (Exception e) {
+			return "invalid xml";
+		}
+	}
 }

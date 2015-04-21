@@ -17,12 +17,12 @@ import org.olat.core.gui.components.form.flexible.impl.FormBasicController;
 import org.olat.core.gui.components.form.flexible.impl.elements.FormSubmit;
 import org.olat.core.gui.components.form.flexible.elements.StaticTextElement;
 import org.olat.core.gui.components.form.flexible.elements.TextElement;
-
 import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.WindowControl;
 
 import de.htwk.autolat.Configuration.Configuration;
 import de.htwk.autolat.Configuration.ConfigurationManagerImpl;
+import de.htwk.autolat.LivingTaskInstance.LivingTaskInstanceManagerImpl;
 import de.htwk.autolat.TaskInstance.TaskInstance;
 import de.htwk.autolat.TaskModule.TaskModuleManagerImpl;
 
@@ -46,6 +46,7 @@ public class TaskRunForm extends FormBasicController
 	private TaskInstance taskInstance;
 	
 	protected TextElement solution;
+	private StaticTextElement doc;
 	protected TextElement remark;
 	protected TextElement counter;
 	protected TextElement timerestriction;
@@ -173,6 +174,7 @@ public class TaskRunForm extends FormBasicController
 		//		"solution", "label.form.task.entersolution", 1024, "", formLayout);
 		
 		solution = uifactory.addTextAreaElement("solution", "label.form.task.entersolution", 10000, 8, 4, false, "", formLayout);
+		doc = uifactory.addStaticTextElement("documentation", "label.form.task.documentation", "", formLayout);
 		submit = uifactory.addFormSubmitButton("submit", "label.form.task.submit", formLayout);
 		
 		if(showEvaluationPeriod)
@@ -200,9 +202,6 @@ public class TaskRunForm extends FormBasicController
 				}
 			}
 		}
-		
-		// TODO Auto-generated method stub
-		
 	}
 
 	@Override
@@ -223,4 +222,13 @@ public class TaskRunForm extends FormBasicController
 		
 	}
 
+	/**
+	 * Set the documentation that is displayed below the solution entry box.
+	 * @param xmlDocumentation XML-Representation of the documentation, eg:
+	 *     "<?xml version='1.0' ?> <Beside ><Text >[</Text ><Link href="*link*" >Statement</Link ><Text >]</Text></Beside>"
+	 */
+	public void setDocumentation(String xmlDocumentation) {
+		String documentation = LivingTaskInstanceManagerImpl.getInstance().parseDocumentation(xmlDocumentation);
+		doc.setValue(documentation);
+	}
 }
