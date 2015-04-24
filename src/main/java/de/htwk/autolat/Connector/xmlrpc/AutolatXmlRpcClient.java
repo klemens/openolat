@@ -47,6 +47,11 @@ public class AutolatXmlRpcClient
 		Thread worker = new Thread() {
 			public void run() {
 				XmlRpcClient client = new XmlRpcClient(url, stream);
+
+				// TODO: This is just a workaround to make the signature check working
+				// it would be better to calculate the signature ignoring whitespace at the beginning
+				client.setTrimCharData(false);
+
 				try {
 					result.result = client.invoke(function, args);
 					result.hasResult = true;
