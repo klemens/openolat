@@ -292,8 +292,7 @@ public class BBautOLATCourseNode extends AbstractAccessableCourseNode implements
 	}
 
 	public boolean hasAttemptsConfigured() {
-		// TODO Auto-generated method stub
-		return false;
+		return true;
 	}
 
 	public boolean hasCommentConfigured() {
