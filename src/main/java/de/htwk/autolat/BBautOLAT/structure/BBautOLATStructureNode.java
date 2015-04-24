@@ -296,21 +296,21 @@ public class BBautOLATStructureNode extends AbstractAccessableCourseNode impleme
 	 * @see org.olat.course.nodes.AssessableCourseNode#getCutValueConfiguration()
 	 */
 	public Float getCutValueConfiguration() {
-		throw new OLATRuntimeException(BBautOLATStructureNode.class, "Cut value never defined for ST nodes", null);
+		return null;
 	}
 
 	/**
 	 * @see org.olat.course.nodes.AssessableCourseNode#getMaxScoreConfiguration()
 	 */
 	public Float getMaxScoreConfiguration() {
-		throw new OLATRuntimeException(BBautOLATStructureNode.class, "Max score never defined for ST nodes", null);
+		return null;
 	}
 
 	/**
 	 * @see org.olat.course.nodes.AssessableCourseNode#getMinScoreConfiguration()
 	 */
 	public Float getMinScoreConfiguration() {
-		throw new OLATRuntimeException(BBautOLATStructureNode.class, "Min score never defined for ST nodes", null);
+		return null;
 	}
 
 	/**
