@@ -8,6 +8,7 @@
 		<property name="mapping">
 			<props>
 				<prop key="uid">username</prop>
+				<prop key="affiliation">affiliation</prop>
 				<!--
 				<prop key="Shib_firstname">firstname</prop>
 				<prop key="Shib_lastname">lastname</prop>
