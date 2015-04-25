@@ -108,8 +108,10 @@
 						<property name="userViewReadOnlyProperties">
 							<set>
 								<ref bean="userPropertyUserName" />
+							<!--
 								<ref bean="userPropertyFirstName" />
 								<ref bean="userPropertyLastName" />
+							-->
 								<ref bean="userPropertyInstitutionalName" />
 								<ref bean="userPropertyInstitutionalUserIdentifier" />
 								<ref bean="userPropertyInstitutionalEmail" />
