@@ -90,8 +90,8 @@
 								<ref bean="userPropertyInstitutionalName" />
 							-->
 								<ref bean="userPropertyInstitutionalUserIdentifier" />
-								<ref bean="userPropertyInstitutionalEmail" />
 							<!--
+								<ref bean="userPropertyInstitutionalEmail" />
 								<ref bean="userPropertyOrgUnit" />
 							-->
 								<ref bean="userPropertyStudySubject" />
