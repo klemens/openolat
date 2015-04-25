@@ -100,6 +100,7 @@ public class SimpleShibbolethDispatcher implements Dispatcher {
 			return;
 		}
 		String username = userAttributes.getProperty("username");
+		String affiliation = userAttributes.getProperty("affiliation", "unknown affiliation");
 		
 		// find shibboleth authentication
 		Authentication auth = BaseSecurityManager.getInstance().findAuthenticationByAuthusername(username, PROVIDER_SSHIB);
@@ -109,7 +110,7 @@ public class SimpleShibbolethDispatcher implements Dispatcher {
 			
 			if(identity == null) {
 				// register user
-				log.info("first login of user '" + username + "' using shibboleth");
+				log.info("first login of user '" + username + "' (" + affiliation + ") using shibboleth");
 				Identity newUser = registerUser(username, userAttributes);
 				if(!loginUser(newUser, ureq)) {
 					showError(ureq, "Login failed", null);
@@ -118,21 +119,21 @@ public class SimpleShibbolethDispatcher implements Dispatcher {
 			} else {
 				// migrate user to shibboleth authentication
 				if(migrate) {
-					log.info("migrating user '" +  username + "' to shibboleth auth and logging in");
+					log.info("migrating user '" +  username + "' (" + affiliation + ") to shibboleth auth and logging in");
 					migrateUser(identity, username);
 					if(!loginUser(identity, ureq)) {
 						showError(ureq, "Login failed", null);
 						return;
 					}
 				} else {
-					log.error("existing username '" + username + "' but migration to shibboleth not enabled");
+					log.error("existing username '" + username + "' (" + affiliation + ") but migration to shibboleth not enabled");
 					showError(ureq, "Your username already exists, but migration to shibboleth is disabled.", null);
 					return;
 				}
 			}
 		} else {
 			// login the user the normal way
-			log.info("user '" + username + "' logged in via shibboleth");
+			log.info("user '" + username + "' (" + affiliation + ") logged in via shibboleth");
 			if(!loginUser(auth.getIdentity(), ureq)) {
 				showError(ureq, "Login failed", null);
 				return;
