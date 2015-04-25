@@ -1,7 +1,7 @@
 # UserInfoInterceptor for OpenOLAT #
 
-Allows asking users for their names during their first login. This can be
-useful when the names are not provided by the authenticator. (eg. shibboleth)
+Allows asking users for their names ane emails during their first login. This
+can be useful when these are not provided by the authenticator. (eg. shibboleth)
 
 Additionally, students can be asked or required to enter their student number.
 You can also provide a regex to validate the entered student number.
