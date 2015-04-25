@@ -51,12 +51,13 @@ import org.olat.core.util.vfs.LocalFolderImpl;
 import org.olat.core.util.vfs.VFSContainer;
 import org.olat.core.util.vfs.VFSItem;
 import org.olat.core.util.vfs.VFSLeaf;
+import org.olat.course.assessment.manager.AssessmentModeDAO;
 import org.olat.course.assessment.manager.UserCourseInformationsManager;
 import org.olat.course.certificate.CertificatesManager;
 import org.olat.repository.ErrorList;
 import org.olat.repository.RepositoryEntry;
-import org.olat.repository.RepositoryEntryAuthorView;
 import org.olat.repository.RepositoryEntryAllowToLeaveOptions;
+import org.olat.repository.RepositoryEntryAuthorView;
 import org.olat.repository.RepositoryEntryMyView;
 import org.olat.repository.RepositoryEntryRef;
 import org.olat.repository.RepositoryEntryRelationType;
@@ -114,6 +115,8 @@ public class RepositoryServiceImpl implements RepositoryService {
 	private CertificatesManager certificatesManager;
 	@Autowired
 	private UserCourseInformationsManager userCourseInformationsManager;
+	@Autowired
+	private AssessmentModeDAO assessmentModeDao;
 
 	@Autowired
 	private LifeFullIndexer lifeIndexer;
@@ -299,6 +302,8 @@ public class RepositoryServiceImpl implements RepositoryService {
 		CoreSpringFactory.getImpl(MarkManager.class).deleteMarks(entry);
 		// delete all catalog entries referencing deleted entry
 		catalogManager.resourceableDeleted(entry);
+		// delete assessment modes
+		assessmentModeDao.delete(entry);
 		
 		//delete all policies
 		securityManager.deletePolicies(resource);
