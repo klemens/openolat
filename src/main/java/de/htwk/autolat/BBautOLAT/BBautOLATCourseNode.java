@@ -221,8 +221,7 @@ public class BBautOLATCourseNode extends AbstractAccessableCourseNode implements
 	//the following methods belong to the assessable course node
 
 	public Float getCutValueConfiguration() {
-		
-		return 1f;		
+		return null;
 	}
 
 	public String getDetailsListView(UserCourseEnvironment userCourseEnvironment) {
@@ -236,13 +235,11 @@ public class BBautOLATCourseNode extends AbstractAccessableCourseNode implements
 	}
 
 	public Float getMaxScoreConfiguration() {
-		// TODO Auto-generated method stub
 		return null;
 	}
 
 	public Float getMinScoreConfiguration() {
-		
-		return 0f;
+		return null;
 	}
 
 	public Integer getUserAttempts(UserCourseEnvironment userCourseEnvironment) {
@@ -295,8 +292,7 @@ public class BBautOLATCourseNode extends AbstractAccessableCourseNode implements
 	}
 
 	public boolean hasAttemptsConfigured() {
-		// TODO Auto-generated method stub
-		return false;
+		return true;
 	}
 
 	public boolean hasCommentConfigured() {

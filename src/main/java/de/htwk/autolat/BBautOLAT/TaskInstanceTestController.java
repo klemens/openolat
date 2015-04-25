@@ -394,6 +394,7 @@ public class TaskInstanceTestController extends BasicController
 		//taskForm = new TaskRunForm(TaskRunForm.NAME, ureq, wControl, courseNodeID, null, false);
 		//taskForm.addControllerListener(this);
 		taskForm.solution.setValue(solutionPreset);
+		taskForm.setDocumentation(livingTaskInstance.getSampleDocumentation());
 				
 		randomSeed = LinkFactory.createButton("label.controller.task.random.button", testVC, this);
 		
