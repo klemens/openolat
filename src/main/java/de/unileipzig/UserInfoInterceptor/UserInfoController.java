@@ -32,6 +32,7 @@ public class UserInfoController extends FormBasicController implements SupportsA
 
 	private TextElement firstNameField;
 	private TextElement lastNameField;
+	private TextElement emailField;
 	private TextElement studentNumberField;
 
 	public UserInfoController(UserRequest ureq, WindowControl wControl) {
@@ -45,9 +46,11 @@ public class UserInfoController extends FormBasicController implements SupportsA
 		
 		String firstName = user.getProperty(UserConstants.FIRSTNAME, null);
 		String lastName = user.getProperty(UserConstants.LASTNAME, null);
+		String email = user.getProperty(UserConstants.EMAIL, null);
 		String studentNumber = user.getProperty(UserConstants.INSTITUTIONALUSERIDENTIFIER, null);
 		if(firstName == null) firstName = "";
 		if(lastName == null) lastName = "";
+		if(email == null) email = "";
 		if(studentNumber == null) studentNumber = "";
 
 		firstNameField = uifactory.addTextElement("firstname", "UserInfoController.firstName", 40, firstName, formLayout);
@@ -57,6 +60,10 @@ public class UserInfoController extends FormBasicController implements SupportsA
 		lastNameField = uifactory.addTextElement("lastname", "UserInfoController.lastName", 40, lastName, formLayout);
 		lastNameField.setNotEmptyCheck("UserInfoController.emptyLastName");
 		lastNameField.setMandatory(true);
+
+		emailField = uifactory.addTextElement("email", "UserInfoController.email", 100, email, formLayout);
+		emailField.setRegexMatchCheck(".+@.+", "UserInfoController.emailWrong");
+		emailField.setMandatory(true);
 
 		// show student number input only for students
 		if(isStudent(ureq) && !"ignore".equals(studentNumberStatus)) {
@@ -100,6 +107,7 @@ public class UserInfoController extends FormBasicController implements SupportsA
 		
 		user.setProperty(UserConstants.FIRSTNAME, firstNameField.getValue().trim());
 		user.setProperty(UserConstants.LASTNAME, lastNameField.getValue().trim());
+		user.setProperty(UserConstants.EMAIL, emailField.getValue().trim());
 		if(isStudent(ureq) && !"ignore".equals(studentNumberStatus)) {
 			user.setProperty(UserConstants.INSTITUTIONALUSERIDENTIFIER, studentNumberField.getValue().trim());
 		}
@@ -147,7 +155,13 @@ public class UserInfoController extends FormBasicController implements SupportsA
 		if(firstName == null || firstName.isEmpty() || lastName == null || lastName.isEmpty()) {
 			return true;
 		}
-		
+
+		// email missing
+		String email = user.getProperty(UserConstants.EMAIL, null);
+		if(email == null || email.isEmpty()) {
+			return true;
+		}
+
 		// student number missing (only for students)
 		String identifier = user.getProperty(UserConstants.INSTITUTIONALUSERIDENTIFIER, null);
 		if(isStudent(ureq) && "require".equals(studentNumberStatus) && (identifier == null || identifier.isEmpty())) {
