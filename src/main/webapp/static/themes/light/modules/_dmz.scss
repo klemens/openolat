@@ -7,6 +7,10 @@ body.o_dmz {
 		width: 100%;
 		height: 100%;
 	
+		/* reduce box size for background image to not include header and footer */
+		border-top: $o-navbar-dmz-height solid transparent;
+		border-bottom: $o-footer-dmz-height solid transparent;
+		
 		/* background gradient depending on login box positioning */
 		$o-login-bg-gradient-to : right;	
 		@if $o-login-form-align == left {
@@ -16,12 +20,13 @@ body.o_dmz {
 			$o-login-bg-gradient-to : top;
 		}
 		
-		//bg without gradient, as fallback for ie < 10
-		background: url('#{$o-login-form-bg-img}') 0px $o-navbar-dmz-height / cover;
+		/* bg without gradient, as fallback for ie < 10 */
+		background: url('#{$o-login-form-bg-img}');
 
 		background: linear-gradient(to $o-login-bg-gradient-to, $o-login-form-bg-gradient-steps...), url('#{$o-login-form-bg-img}');
 		background-size: cover, cover;
-		background-position: 0px $o-navbar-dmz-height, 0px $o-navbar-dmz-height;
+		background-position: $o-login-form-bg-position-left $o-login-form-bg-position-top, $o-login-form-bg-position-left $o-login-form-bg-position-top;
+		background-repeat: no-repeat;
 	}
 
 	#o_main_wrapper, #o_main_wrapper #o_main_container {
@@ -104,7 +109,10 @@ body.o_dmz {
 				padding-top: $padding-base-vertical;
 				@include text-overflow();
 			}
-		}	
+		}
+		.o_icon_provider_olat {
+			font-size: 1em;
+		}
 	} 
 	.o_login_provider {
 		background-color: $well-bg;
@@ -141,7 +149,45 @@ body.o_dmz {
 		small {
 			font-size: $font-size-base;
 		}
-	}	
+	}
+	
+	.o_login_social {
+		position: relative;
+		padding: $padding-large-vertical $padding-base-horizontal;
+	
+		li {
+			padding: $padding-large-vertical $padding-base-horizontal;
+		}
+		
+		li>a {
+			display: block;
+			line-height: 2em;
+			text-align: center;
+			font-size: floor($font-size-base * 1.3);
+			border-radius: $border-radius-base;
+			padding: $padding-large-vertical $padding-base-horizontal;
+		}
+		
+		.btn-default.o_sel_auth_facebook {
+			@include button-variant(#fff, #4568b2, darken(#4568b2, 5%));
+		}
+		
+		.btn-default.o_sel_auth_twitter {
+			@include button-variant(#fff, #2cc5ff, darken(#2cc5ff, 5%));
+		}
+		
+		.btn-default.o_sel_auth_google {
+			@include button-variant(#fff, #e15f4f, darken(#e15f4f, 5%));
+		}
+		
+		.btn-default.o_sel_auth_linkedin {
+			@include button-variant(#fff, #0181bd, darken(#0181bd, 5%));
+		}
+		
+		.btn-default.o_sel_auth_adfs {
+			@include button-variant(#fff, #1a1a1a, darken(#1a1a1a, 5%));
+		}
+	}
 }
 
 @media (max-width: $screen-xs-max) { 

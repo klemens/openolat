@@ -144,7 +144,7 @@ public class GroupSearchController extends StepFormBasicController {
 		tableColumnModel.addFlexiColumnModel(new DefaultFlexiColumnModel(Cols.participant.i18n(), Cols.participant.ordinal()));
 		
 		tableDataModel = new GroupTableDataModel(Collections.<GroupWrapper>emptyList(), tableColumnModel);
-		table = uifactory.addTableElement(getWindowControl(), "groupList", tableDataModel, tableCont);
+		table = uifactory.addTableElement(getWindowControl(), "groupList", tableDataModel, getTranslator(), tableCont);
 		table.setCustomizeColumns(false);
 		tableCont.add("groupList", table);
 		
@@ -256,7 +256,7 @@ public class GroupSearchController extends StepFormBasicController {
 	}
 	
 	private MultipleSelectionElement createSelection(String name) {
-		MultipleSelectionElement selection = new MultipleSelectionElementImpl(name, Layout.vertical);
+		MultipleSelectionElement selection = new MultipleSelectionElementImpl(name, Layout.horizontal);
 		selection.setKeysAndValues(new String[]{"on"}, new String[]{""});
 		tableCont.add(name, selection);
 		return selection;

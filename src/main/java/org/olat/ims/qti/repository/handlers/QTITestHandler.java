@@ -36,9 +36,12 @@ import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.WindowControl;
 import org.olat.core.gui.control.generic.layout.MainLayoutController;
 import org.olat.core.gui.control.generic.wizard.StepsMainRunController;
+import org.olat.core.gui.media.MediaResource;
 import org.olat.core.id.Identity;
 import org.olat.core.id.OLATResourceable;
 import org.olat.core.logging.AssertException;
+import org.olat.course.assessment.AssessmentMode;
+import org.olat.fileresource.FileResourceManager;
 import org.olat.fileresource.types.ResourceEvaluation;
 import org.olat.ims.qti.QTIRuntimeController;
 import org.olat.ims.qti.editor.QTIEditorMainController;
@@ -103,13 +106,13 @@ public class QTITestHandler extends QTIHandler {
 	}
 
 	@Override
-	public String getSupportedType() {
-		return TestFileResource.TYPE_NAME;
+	public MediaResource getAsMediaResource(OLATResourceable res, boolean backwardsCompatible) {
+		return FileResourceManager.getInstance().getAsDownloadeableMediaResource(res);
 	}
 
 	@Override
-	public boolean supportsLaunch() {
-		return true;
+	public String getSupportedType() {
+		return TestFileResource.TYPE_NAME;
 	}
 
 	@Override
@@ -141,7 +144,8 @@ public class QTITestHandler extends QTIHandler {
 		return new QTIRuntimeController(ureq, wControl, re, reSecurity,
 			new RuntimeControllerCreator() {
 				@Override
-				public Controller create(UserRequest uureq, WindowControl wwControl, TooledStackedPanel toolbarPanel, RepositoryEntry entry, RepositoryEntrySecurity security) {
+				public Controller create(UserRequest uureq, WindowControl wwControl, TooledStackedPanel toolbarPanel,
+						RepositoryEntry entry, RepositoryEntrySecurity security, AssessmentMode assessmentMode) {
 					Controller runController;
 					OLATResource res = entry.getOlatResource();
 					if (OnyxModule.isOnyxTest(res)) {
@@ -169,11 +173,8 @@ public class QTITestHandler extends QTIHandler {
 		fr.overrideResourceableId(res.getResourceableId());
 		
 		//check if we can edit in restricted mode -> only typos 
-		ReferenceManager refM = ReferenceManager.getInstance();
-		List<ReferenceImpl> referencees = refM.getReferencesTo(res);
-		//String referencesSummary = refM.getReferencesToSummary(res, ureq.getLocale());
-		//boolean restrictedEdit = referencesSummary != null;
-		QTIEditorMainController editor =  new QTIEditorMainController(referencees,ureq, wControl, fr);
+		List<ReferenceImpl> referencees = ReferenceManager.getInstance().getReferencesTo(res);
+		QTIEditorMainController editor =  new QTIEditorMainController(ureq, wControl, re, referencees, fr);
 		if (editor.isLockedSuccessfully()) {
 			return editor;
 		} else {

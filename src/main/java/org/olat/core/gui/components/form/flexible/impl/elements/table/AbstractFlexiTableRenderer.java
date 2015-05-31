@@ -218,9 +218,9 @@ public abstract class AbstractFlexiTableRenderer extends DefaultComponentRendere
 		String selected = null;
 		
 		sb.append("<div class='btn-group'>")
-		  .append("<button type='button' class='btn btn-default dropdown-toggle' data-toggle='dropdown'>")
+		  .append("<button id='table-button-filters-").append(dispatchId).append("' type='button' class='btn btn-default dropdown-toggle' data-toggle='dropdown'>")
 		  .append("<i class='o_icon o_icon_filter o_icon-lg'> </i> <b class='caret'></b></button>")
-		  .append("<ul class='dropdown-menu dropdown-menu-right' role='menu'>");
+		  .append("<div id='table-filters-").append(dispatchId).append("' class='hide'><ul class='o_dropdown list-unstyled' role='menu'>");
 		
 		for(FlexiTableFilter filter:filters) {
 			if(FlexiTableFilter.SPACER.equals(filter)) {
@@ -238,7 +238,12 @@ public abstract class AbstractFlexiTableRenderer extends DefaultComponentRendere
 				}
 			}
 		}
-		sb.append("</ul></div> ");
+		sb.append("</ul></div></div> ")
+		  .append("<script type='text/javascript'>\n")
+		  .append("/* <![CDATA[ */\n")
+		  .append("jQuery(function() { o_popover('table-button-filters-").append(dispatchId).append("','table-filters-").append(dispatchId).append("'); });\n")
+		  .append("/* ]]> */\n")
+		  .append("</script>");
 		return selected;
 	}
 	
@@ -247,9 +252,9 @@ public abstract class AbstractFlexiTableRenderer extends DefaultComponentRendere
 		String dispatchId = ftE.getFormDispatchId();
 		
 		sb.append("<div class='btn-group'>")
-		  .append("<button type='button' class='btn btn-default dropdown-toggle' data-toggle='dropdown'>")
+		  .append("<button id='table-button-sorters-").append(dispatchId).append("' type='button' class='btn btn-default dropdown-toggle' data-toggle='dropdown'>")
 		  .append("<i class='o_icon o_icon_sort_menu o_icon-lg'> </i> <b class='caret'></b></button>")
-		  .append("<ul class='dropdown-menu dropdown-menu-right' role='menu'>");
+		  .append("<div id='table-sorters-").append(dispatchId).append("' class='hide'><ul class='o_dropdown list-unstyled' role='menu'>");
 		
 		for(FlexiTableSort sort:sorts) {
 			if(FlexiTableSort.SPACER.equals(sort)) {
@@ -270,7 +275,12 @@ public abstract class AbstractFlexiTableRenderer extends DefaultComponentRendere
 				sb.append(sort.getLabel()).append("</a></li>");
 			}
 		}
-		sb.append("</ul></div> ");
+		sb.append("</ul></div></div> ")
+		  .append("<script type='text/javascript'>\n")
+		  .append("/* <![CDATA[ */\n")
+		  .append("jQuery(function() { o_popover('table-button-sorters-").append(dispatchId).append("','table-sorters-").append(dispatchId).append("'); });\n")
+		  .append("/* ]]> */\n")
+		  .append("</script>");
 	}
 	
 	protected void renderHeaderSwitchType(FlexiTableRendererType type, Renderer renderer, StringOutput sb, FlexiTableElementImpl ftE, URLBuilder ubu, Translator translator,
@@ -320,8 +330,8 @@ public abstract class AbstractFlexiTableRenderer extends DefaultComponentRendere
 			sb.append("</div></div>");
 		}
 		
-		if(ftE.getPageSize() > 0) {
-			renderPagesLinks(sb, ftC);
+		if(ftE.getDefaultPageSize() > 0) {
+			renderPagesLinks(sb, ftC, translator);
 		}
 	}
 	
@@ -353,24 +363,77 @@ public abstract class AbstractFlexiTableRenderer extends DefaultComponentRendere
 			int row, URLBuilder ubu, Translator translator, RenderResult renderResult);
 
 
-	private void renderPagesLinks(StringOutput sb, FlexiTableComponent ftC) {
+	private void renderPagesLinks(StringOutput sb, FlexiTableComponent ftC, Translator translator) {
 		FlexiTableElementImpl ftE = ftC.getFlexiTableElement();
 		int pageSize = ftE.getPageSize();
 		FlexiTableDataModel<?> dataModel = ftE.getTableDataModel();
 		int rows = dataModel.getRowCount();
-		
-		if(pageSize > 0 && rows > pageSize) {
-			sb.append("<ul class='pagination'>");
 
+		if (rows > 20) {
+			renderPageSize(sb, ftC, translator);
+		}
+
+		sb.append("<ul class='pagination'>");
+		if(pageSize > 0 && rows > pageSize) {
 			int page = ftE.getPage();
 			int maxPage = (int)Math.ceil(((double) rows / (double) pageSize));
-	
 			renderPageBackLink(sb, ftC, page);
 			renderPageNumberLinks(sb, ftC, page, maxPage);
 			renderPageNextLink(sb, ftC, page, maxPage);
-
-			sb.append("</ul>");
 		}
+		sb.append("</ul>");
+	}
+	
+	private void renderPageSize(StringOutput sb, FlexiTableComponent ftC, Translator translator) {
+		FlexiTableElementImpl ftE = ftC.getFlexiTableElement();
+		FlexiTableDataModel<?> dataModel = ftE.getTableDataModel();
+		
+		Form theForm = ftE.getRootForm();
+		String dispatchId = ftE.getFormDispatchId();
+		
+		int pageSize = ftE.getPageSize();
+		int firstRow = ftE.getFirstRow();
+		int maxRows = ftE.getMaxRows();
+		int rows = dataModel.getRowCount();
+		int lastRow = Math.min(rows, firstRow + maxRows);
+		
+		sb.append("<div class='o_table_rows_infos'>");
+		sb.append(translator.translate("page.size.a", new String[] {
+				Integer.toString(firstRow + 1),//for humans
+				Integer.toString(lastRow),
+				Integer.toString(rows)
+		  }))
+		  .append(" ");
+		
+		sb.append("<div class='btn-group dropup'><button type='button' class='btn btn-default dropdown-toggle' data-toggle='dropdown' aria-expanded='false'>")
+	      .append(" <span>");
+		if(pageSize < 0) {
+			sb.append(translator.translate("show.all"));
+		} else {
+			sb.append(Integer.toString(pageSize));
+		}
+		
+		sb.append("</span> <span class='caret'></span></button>")
+	      .append("<ul class='dropdown-menu' role='menu'>");
+		
+		int[] sizes = new int[]{ 20, 50, 100, 250 };
+		for(int size:sizes) {
+			sb.append("<li><a href=\"javascript:")
+			  .append(FormJSHelper.getXHRFnCallFor(theForm, dispatchId, 1,
+					  new NameValuePair("pagesize", Integer.toString(size))))
+			  .append("\"  onclick=\"return o2cl();\">").append(Integer.toString(size)).append("</a></li>");
+		}
+		
+		if(ftE.isShowAllRowsEnabled()) {
+			sb.append("<li><a href=\"javascript:")
+			  .append(FormJSHelper.getXHRFnCallFor(theForm, dispatchId, 1,
+					  new NameValuePair("pagesize", "all")))
+			  .append("\" onclick=\"return o2cl();\">").append(translator.translate("show.all")).append("</a></li>");
+		}
+		  
+		sb.append("</ul></div>")
+		  .append(" ").append(translator.translate("page.size.b"))
+		  .append("</div> ");
 	}
 	
 	private void renderPageBackLink(StringOutput sb, FlexiTableComponent ftC, int page) {

@@ -25,11 +25,15 @@
 
 package org.olat.gui.control;
 
+import org.olat.admin.user.tools.UserTool;
 import org.olat.basesecurity.AuthHelper;
+import org.olat.core.CoreSpringFactory;
 import org.olat.core.commons.controllers.impressum.ImpressumInformations;
 import org.olat.core.commons.controllers.impressum.ImpressumMainController;
 import org.olat.core.commons.controllers.impressum.ImpressumModule;
-import org.olat.core.commons.fullWebApp.popup.BaseFullWebappPopupLayoutFactory;
+import org.olat.core.commons.fullWebApp.LockableController;
+import org.olat.core.commons.services.help.HelpLinkSPI;
+import org.olat.core.commons.services.help.HelpModule;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.Windows;
 import org.olat.core.gui.components.Component;
@@ -42,8 +46,7 @@ import org.olat.core.gui.control.WindowControl;
 import org.olat.core.gui.control.controller.BasicController;
 import org.olat.core.gui.control.creator.ControllerCreator;
 import org.olat.core.gui.control.generic.popup.PopupBrowserWindow;
-import org.olat.course.CourseFactory;
-import org.olat.course.CourseModule;
+import org.olat.core.id.OLATResourceable;
 import org.springframework.beans.factory.annotation.Autowired;
 
 /**
@@ -52,9 +55,9 @@ import org.springframework.beans.factory.annotation.Autowired;
  * 
  * @author patrickb
  */
-public class OlatGuestTopNavController extends BasicController {
+public class OlatGuestTopNavController extends BasicController implements LockableController {
 
-	private Link helpLink, loginLink, impressumLink;
+	private Link loginLink, impressumLink;
 
 	@Autowired
 	private ImpressumModule impressumModule;
@@ -73,11 +76,11 @@ public class OlatGuestTopNavController extends BasicController {
 		impressumLink.setTarget("_blank");
 		
 		// the help link
-		if (CourseModule.isHelpCourseEnabled()) {
-			helpLink = LinkFactory.createLink("topnav.help", vc, this);
-			helpLink.setIconLeftCSS("o_icon o_icon_help o_icon-lg");
-			helpLink.setTooltip("topnav.help.alt");
-			helpLink.setTarget("_help");
+		HelpModule helpModule = CoreSpringFactory.getImpl(HelpModule.class);
+		if (helpModule.isHelpEnabled()) {
+			HelpLinkSPI provider = helpModule.getHelpProvider();
+			UserTool tool = provider.getHelpUserTool(getWindowControl());
+			tool.getMenuComponent(ureq, vc);
 		}
 		
 		loginLink = LinkFactory.createLink("topnav.login", vc, this);
@@ -86,24 +89,21 @@ public class OlatGuestTopNavController extends BasicController {
 
 		putInitialPanel(vc);
 	}
+	
+	@Override
+	public void lockResource(OLATResourceable resource) {
+		//
+	}
+
+	@Override
+	public void unlockResource() {
+		//
+	}
 
 	@Override
 	public void event(UserRequest ureq, Component source, Event event) {
 		if (source == loginLink) {
 			AuthHelper.doLogout(ureq);
-		} else if (source == helpLink) {
-			ControllerCreator ctrlCreator = new ControllerCreator() {
-				@Override
-				public Controller createController(UserRequest lureq, WindowControl lwControl) {
-					return CourseFactory.createHelpCourseLaunchController(lureq, lwControl);
-				}					
-			};
-			//wrap the content controller into a full header layout
-			ControllerCreator layoutCtrlr = BaseFullWebappPopupLayoutFactory.createAuthMinimalPopupLayout(ureq, ctrlCreator);
-			//open in new browser window
-			PopupBrowserWindow pbw = getWindowControl().getWindowBackOffice().getWindowManager().createNewPopupBrowserWindowFor(ureq, layoutCtrlr);
-			pbw.open(ureq);
-			//
 		} else if (source == impressumLink) {
 			ControllerCreator impressumControllerCreator = new ControllerCreator() {
 				@Override

@@ -293,6 +293,16 @@ function o2cl() {
 		return doreq;
 	}
 }
+//for flexi tree
+function o2cl_noDirtyCheck() {
+	if (o_info.linkbusy) {
+		return false;
+	} else {
+		var doreq = (o2c==0);
+		if (doreq) o_beforeserver();
+		return doreq;
+	}
+}
 //for tree and Firefox
 function o2cl_secure() {
 	try {
@@ -684,10 +694,15 @@ function showAjaxBusy() {
 		if (o_info.linkbusy) {
 			// try/catch because can fail in full page refresh situation when called before DOM is ready
 			try {
-				jQuery('#o_body').addClass('o_ajax_busy');
-				jQuery('#o_ajax_busy').modal({show: true, backdrop: 'static', keyboard: 'false'});
-				// fix modal conflic with modal dialogs, make ajax busy appear always above modal dialogs
-				jQuery('body > .modal-backdrop').css({'z-index' : 1200});
+				//don't set 2 layers
+				if(jQuery('#o_ajax_busy_backdrop').length == 0) {
+					jQuery('#o_body').addClass('o_ajax_busy');
+					jQuery('#o_ajax_busy').modal({show: true, backdrop: 'static', keyboard: 'false'});
+					// fix modal conflic with modal dialogs, make ajax busy appear always above modal dialogs
+					jQuery('#o_ajax_busy').after('<div id="o_ajax_busy_backdrop" class="modal-backdrop in"></div>');
+					jQuery('#o_ajax_busy>.modal-backdrop').remove();
+					jQuery('#o_ajax_busy_backdrop').css({'z-index' : 1200});
+				}
 			} catch (e) {
 				if(window.console) console.log(e);
 			}
@@ -699,6 +714,7 @@ function removeAjaxBusy() {
 	// try/catch because can fail in full page refresh situation when called before page DOM is ready
 	try {
 		jQuery('#o_body').removeClass('o_ajax_busy');
+		jQuery('#o_ajax_busy_backdrop').remove();
 		jQuery('#o_ajax_busy').modal('hide');
 	} catch (e) {
 		if(window.console) console.log(e);
@@ -920,7 +936,7 @@ function o_scrollToElement(elem) {
 
 function o_popover(id, contentId, loc) {
 	if(typeof(loc)==='undefined') loc = 'bottom';
-
+	
 	jQuery('#' + id).popover({
     	placement : loc,
     	html: true,
@@ -930,6 +946,27 @@ function o_popover(id, contentId, loc) {
 	}).on('shown.bs.popover', function () {
 		var clickListener = function (e) {
 			jQuery('#' + id).popover('hide');
+			jQuery('body').unbind('click', clickListener);
+		};
+		setTimeout(function() {
+			jQuery('body').on('click', clickListener);
+		},5);
+	});
+}
+
+function o_popoverWithTitle(id, contentId, title, loc) {
+	if(typeof(loc)==='undefined') loc = 'bottom';
+
+	return jQuery('#' + id).popover({
+    	placement : loc,
+    	html: true,
+    	title: title,
+    	trigger: 'click',
+    	container: 'body',
+    	content: function() { return jQuery('#' + contentId).clone().html(); }
+	}).on('shown.bs.popover', function () {
+		var clickListener = function (e) {
+			jQuery('#' + id).popover('destroy');
 			jQuery('body').unbind('click', clickListener);
 		};
 		setTimeout(function() {

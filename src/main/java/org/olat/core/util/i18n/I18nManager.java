@@ -1216,8 +1216,11 @@ public class I18nManager extends BasicManager {
 	 */
 	public String getLanguageTranslated(String languageKey, boolean overlayEnabled) {
 		// Load it from package without fallback
-		String translated = getLocalizedString(I18nModule.getCoreFallbackBundle(), "this.language.translated", null, I18nModule
-				.getAllLocales().get(languageKey), overlayEnabled, false, false, false, 0);
+		String translated = null;
+		Locale locale = I18nModule.getAllLocales().get(languageKey);
+		if(locale != null) {
+			translated = getLocalizedString(I18nModule.getCoreFallbackBundle(), "this.language.translated", null, locale, overlayEnabled, false, false, false, 0);
+		}
 		if (translated == null) {
 			// Use the english version as callback
 			translated = getLanguageInEnglish(languageKey, overlayEnabled);
@@ -1233,7 +1236,7 @@ public class I18nManager extends BasicManager {
 	 * @return
 	 */
 	public Map<String, String> getEnabledLanguagesTranslated() {
-		Set<String> enabledLangs = I18nModule.getEnabledLanguageKeys();
+		Collection<String> enabledLangs = I18nModule.getEnabledLanguageKeys();
 		Map<String, String> translatedLangs = new HashMap<String, String>(11);
 		for (String langKey : enabledLangs) {
 			String translated = cachedLangTranslated.get(langKey);
@@ -1965,7 +1968,7 @@ public class I18nManager extends BasicManager {
 			newProperties.store(fileStream, null);
 			fileStream.flush();
 			// Now set new language as enabled to allow user to translate the language. 
-			Set<String> enabledLangKeys = I18nModule.getEnabledLanguageKeys();
+			Collection<String> enabledLangKeys = I18nModule.getEnabledLanguageKeys();
 			enabledLangKeys.add(localeKey);
 			// Reinitialize languages with new language
 			I18nModule.reInitializeAndFlushCache();

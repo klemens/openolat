@@ -628,7 +628,7 @@ public class BGAreaManagerTest extends OlatTestCase {
 	@Test
 	public void testSynchronisationCreateBGArea() {
 
-		final int maxLoop = 400; // => 400 x 100ms => 40sec => finished in 50sec
+		final int maxLoop = 75; // => 400 x 100ms => 40sec => finished in 50sec
 		final String areaName = "BGArea_1";
 
 		final List<Exception> exceptionHolder = Collections.synchronizedList(new ArrayList<Exception>(1));
@@ -645,13 +645,12 @@ public class BGAreaManagerTest extends OlatTestCase {
 		try {
 			finfishCount.await(120, TimeUnit.SECONDS);
 		} catch (InterruptedException e) {
-			e.printStackTrace();
+			log.error("", e);
 		}
 
 		// if not -> they are in deadlock and the db did not detect it
 		for (Exception exception : exceptionHolder) {
-			System.err.println("exception: "+exception.getMessage());
-			exception.printStackTrace();
+			log.error("exception: ", exception);
 		}
 		assertTrue("Exceptions #" + exceptionHolder.size(), exceptionHolder.size() == 0);				
 		assertEquals("Not all threads has finished", 0, finfishCount.getCount());
@@ -710,7 +709,7 @@ public class BGAreaManagerTest extends OlatTestCase {
 	@Test
 	public void testSynchronisationUpdateBGArea() {
 
-		final int maxLoop = 400; // => 400 x 100ms => 40sec => finished in 50sec
+		final int maxLoop = 75; // => 400 x 100ms => 40sec => finished in 50sec
 		final String areaName = "BGArea_2";
 
 		final List<Exception> exceptionHolder = Collections.synchronizedList(new ArrayList<Exception>(1));
@@ -735,8 +734,7 @@ public class BGAreaManagerTest extends OlatTestCase {
 
 		// if not -> they are in deadlock and the db did not detect it
 		for (Exception exception : exceptionHolder) {
-			System.err.println("exception: "+exception.getMessage());
-			exception.printStackTrace();
+			log.error("exception: ", exception);
 		}
 		assertTrue("Exceptions #" + exceptionHolder.size(), exceptionHolder.size() == 0);				
 		assertEquals("Not all threads has finished", 0, finfishCount.getCount());

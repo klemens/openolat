@@ -22,13 +22,16 @@ package org.olat.resource.accesscontrol.provider.free.ui;
 
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.form.flexible.FormItemContainer;
+import org.olat.core.gui.components.form.flexible.elements.DateChooser;
 import org.olat.core.gui.components.form.flexible.elements.TextElement;
-import org.olat.core.gui.components.form.flexible.impl.Form;
 import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.WindowControl;
+import org.olat.core.util.Util;
 import org.olat.resource.accesscontrol.model.AccessMethod;
+import org.olat.resource.accesscontrol.model.Offer;
 import org.olat.resource.accesscontrol.model.OfferAccess;
 import org.olat.resource.accesscontrol.ui.AbstractConfigurationMethodController;
+import org.olat.resource.accesscontrol.ui.AccessConfigurationController;
 
 /**
  * 
@@ -42,25 +45,27 @@ import org.olat.resource.accesscontrol.ui.AbstractConfigurationMethodController;
 public class FreeAccessConfigurationController extends AbstractConfigurationMethodController {
 
 	private TextElement descEl;
+	private DateChooser dateFrom, dateTo;
 	private final OfferAccess link;
 	
-	public FreeAccessConfigurationController(UserRequest ureq, WindowControl wControl, OfferAccess link) {
-		super(ureq, wControl);
+	public FreeAccessConfigurationController(UserRequest ureq, WindowControl wControl, OfferAccess link, boolean edit) {
+		super(ureq, wControl, edit);
 		this.link = link;
-		initForm(ureq);
-	}
-
-	public FreeAccessConfigurationController(UserRequest ureq, WindowControl wControl, OfferAccess link, Form form) {
-		super(ureq, wControl, LAYOUT_DEFAULT, null, form);
-		this.link = link;
+		setTranslator(Util.createPackageTranslator(AccessConfigurationController.class, getLocale(), getTranslator()));
 		initForm(ureq);
 	}
 
 	@Override
 	protected void initForm(FormItemContainer formLayout, Controller listener, UserRequest ureq) {
-		
-		descEl = uifactory.addTextAreaElement("offer-desc", "offer.description", 2000, 6, 80, false, null, formLayout);
+		String desc = null;
+		if(link.getOffer() != null) {
+			desc = link.getOffer().getDescription();
+		}
+		descEl = uifactory.addTextAreaElement("offer-desc", "offer.description", 2000, 6, 80, false, desc, formLayout);
 
+		dateFrom = uifactory.addDateChooser("from_" + link.getKey(), "from", link.getValidFrom(), formLayout);
+		dateTo = uifactory.addDateChooser("to_" + link.getKey(), "to", link.getValidTo(), formLayout);
+		
 		super.initForm(formLayout, listener, ureq);
 	}
 	
@@ -71,7 +76,12 @@ public class FreeAccessConfigurationController extends AbstractConfigurationMeth
 
 	@Override
 	public OfferAccess commitChanges() {
-		link.getOffer().setDescription(descEl.getValue());
+		Offer offer = link.getOffer();
+		offer.setDescription(descEl.getValue());
+		offer.setValidFrom(dateFrom.getDate());
+		offer.setValidTo(dateTo.getDate());
+		link.setValidFrom(dateFrom.getDate());
+		link.setValidTo(dateTo.getDate());
 		return link;
 	}
 }

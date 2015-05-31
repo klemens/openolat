@@ -145,12 +145,15 @@ public class FeedViewHelper {
 	/**
 	 * @return The iTunes subscription url
 	 */
-	public String getITunesUrl() {
+	public String getITunesUrl(String protocol) {
 		String iTunesfeed = null;
 		if (StringHelper.containsNonWhitespace(feedUrl)) {
 			try {
 				URL url = new URL(feedUrl);
-				iTunesfeed = "itpc://" + url.getHost() + url.getPath();
+				if (!StringHelper.containsNonWhitespace(protocol)) {
+					protocol = "itpc";
+				}
+				iTunesfeed = protocol + "://" + url.getHost() + url.getPath();
 			} catch (MalformedURLException e) {
 				log.warn("Malformed podcast URL: " + feedUrl, e);
 			}
@@ -390,9 +393,10 @@ public class FeedViewHelper {
 	}
 
 	/**
+	 * @param item the target item for the jumpInLink null if not want to refer to a specific post
 	 * @return The jump in link
 	 */
-	public String getJumpInLink() {
+	public String getJumpInLink(Item item) {
 		String jumpInLink = null;
 		RepositoryManager resMgr = RepositoryManager.getInstance();
 		if (courseId != null && nodeId != null) {
@@ -415,6 +419,9 @@ public class FeedViewHelper {
 				final List<ContextEntry> ceList = bCF.createCEListFromString(feedBP);
 				jumpInLink = bCF.getAsURIString(ceList, true);
 			}
+		}
+		if(item != null && jumpInLink != null){
+			jumpInLink += "/item=" + item.getGuid() +"/0";
 		}
 		return jumpInLink;
 	}

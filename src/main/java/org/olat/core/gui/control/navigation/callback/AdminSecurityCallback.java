@@ -22,6 +22,7 @@ package org.olat.core.gui.control.navigation.callback;
 
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.control.navigation.SiteSecurityCallback;
+import org.olat.core.util.UserSession;
 
 /**
  * <h3>Description:</h3>
@@ -38,10 +39,10 @@ public class AdminSecurityCallback implements SiteSecurityCallback {
 	 */
 	@Override
 	public boolean isAllowedToLaunchSite(UserRequest ureq) {
-		if (ureq.getUserSession().getRoles().isOLATAdmin()) {
-			return true;
-		} else {
-			return false; 
-		}
+		if(ureq == null) return false;
+		UserSession usess = ureq.getUserSession();
+		return usess != null
+				&& usess.getRoles() != null
+				&& usess.getRoles().isOLATAdmin();
 	}
 }

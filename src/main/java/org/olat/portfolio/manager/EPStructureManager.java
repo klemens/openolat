@@ -41,7 +41,6 @@ import org.olat.basesecurity.SecurityGroupMembershipImpl;
 import org.olat.basesecurity.manager.GroupDAO;
 import org.olat.core.CoreSpringFactory;
 import org.olat.core.commons.persistence.DB;
-import org.olat.core.commons.persistence.DBFactory;
 import org.olat.core.commons.persistence.DBQuery;
 import org.olat.core.commons.persistence.PersistentObject;
 import org.olat.core.commons.services.commentAndRating.CommentAndRatingService;
@@ -961,19 +960,11 @@ public class EPStructureManager extends BasicManager {
 		if(map == null) {
 			return;//nothing to delete
 		}
-
-		if(map instanceof EPAbstractMap) {
-			//owner group has its constraints shared beetwen the repository entry and the template
-			((EPAbstractMap)map).getGroups().clear();
-			map = DBFactory.getInstance().getCurrentEntityManager().merge(map);
-		}
-		
 		removeStructureRecursively(map);
-		
 		dbInstance.commit();
 	}
 	
-	public void removeStructureRecursively(PortfolioStructure struct){
+	public void removeStructureRecursively(PortfolioStructure struct) {
 		List<PortfolioStructure> children = loadStructureChildren(struct); 
 		for (PortfolioStructure childstruct : children) {
 			removeStructureRecursively(childstruct);
@@ -993,9 +984,8 @@ public class EPStructureManager extends BasicManager {
 		struct.getCollectRestrictions().clear();
 		
 		// remove sharings
-		if (struct instanceof EPAbstractMap){
-			List<EPMapPolicy> noMorePol = new ArrayList<EPMapPolicy>();
-			policyManager.updateMapPolicies((PortfolioStructureMap) struct, noMorePol);
+		if (struct instanceof EPAbstractMap) {
+			((EPAbstractMap)struct).getGroups().clear();
 		}
 		
 		// remove comments and ratings
@@ -1015,7 +1005,11 @@ public class EPStructureManager extends BasicManager {
 			removeBaseGroup((EPAbstractMap)struct);
 		}
 		
-		resourceManager.deleteOLATResourceable(struct);
+		//EPStructuredMapTemplates are linked to a repository entry
+		//which need the resource
+		if(!(struct instanceof EPStructuredMapTemplate)) {
+			resourceManager.deleteOLATResourceable(struct);
+		}
 	}
 	
 	private void removeBaseGroup(EPAbstractMap map) {
@@ -1659,7 +1653,7 @@ public class EPStructureManager extends BasicManager {
 		el.setDescription(description);
 		OLATResource resource = resourceManager.createOLATResourceInstance(el.getClass());
 		el.setOlatResource(resource);
-		dbInstance.saveObject(resource);
+		dbInstance.getCurrentEntityManager().persist(resource);
 		return el;
 	}
 	
@@ -1667,7 +1661,9 @@ public class EPStructureManager extends BasicManager {
 		el.setTitle(title);
 		el.setDescription(description);
 		el.setOlatResource(resource);
-		dbInstance.saveObject(resource);
+		if(resource.getKey() == null) {
+			dbInstance.getCurrentEntityManager().persist(resource);
+		}
 		return el;
 	}
 	
@@ -1866,8 +1862,10 @@ public class EPStructureManager extends BasicManager {
 		if(portfolioStructure instanceof PersistentObject) {
 			PersistentObject persistentStructure = (PersistentObject)portfolioStructure;
 			if(persistentStructure.getKey() == null) {
-				dbInstance.saveObject(portfolioStructure.getOlatResource());
-				dbInstance.saveObject(portfolioStructure);
+				if(portfolioStructure.getOlatResource().getKey() == null) {
+					dbInstance.getCurrentEntityManager().persist(portfolioStructure.getOlatResource());
+				}
+				dbInstance.getCurrentEntityManager().persist(portfolioStructure);
 			} else {
 				dbInstance.updateObject(portfolioStructure);
 			}

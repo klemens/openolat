@@ -13,6 +13,7 @@
 ## hide toolbar on ios with minimal-ui
 <meta name="viewport" content="minimal-ui, width=device-width, initial-scale=1">
 <meta http-equiv="Content-type" content="text/html; charset=utf-8" />
+<meta http-equiv="X-UA-Compatible" content="IE=edge" />
 ## <!-- IE cache -->
 <script type="text/javascript">
 /* <![CDATA[ */ 
@@ -31,6 +32,7 @@ o_info.drop = true;
 o_info.o_baseURI = "$r.staticLink("")";
 o_info.i18n_noresponse_title = "$r.escapeDoubleQuotes($r.translate("server.no.response.title"))";
 o_info.i18n_noresponse = "$r.escapeDoubleQuotes($r.translate("server.no.response"))";
+o_info.i18n_topnav_more = "$r.escapeDoubleQuotes($r.translate("header.topnav.more"))";
 ## Initialize zindex manager
 o_info.zseed = 0;
 #if($enforceTopFrame)
@@ -135,9 +137,22 @@ $r.render("jsCssRawHtmlHeader", "pre-theme")
 	jQuery(document).ready(function() { jQuery('body').addClass('o_browser_ie9'); });
 </script>
 <![endif]-->
-## 4) Dynamic overriding of CSS rules
+## 4) IE 8 fix for icon fonts (see: http://stackoverflow.com/questions/9809351/ie8-css-font-face-fonts-only-working-for-before-content-on-over-and-sometimes/10557782#10557782)
+<!--[if IE 8]>
+<script type="text/javascript">
+jQuery(document).ready(function() {
+  var style;
+  style = jQuery('<style type="text/css">:before,:after{content:none !important}</style>');
+  jQuery('head').append(style);
+  return setTimeout((function() {
+    return style.remove();
+  }), 0);
+});
+</script>
+<![endif]-->
+## 5) Dynamic overriding of CSS rules
 $r.render("jsCssRawHtmlHeader", "post-theme")
-## 5) Add user font size (id o_fontSize_css used to place on demand css)
+## 6) Add user font size (id o_fontSize_css used to place on demand css)
 #if (${globalSettings.getFontSize()} != "100")
 <style id="o_fontSize_css" type="text/css">#o_body{zoom:${globalSettings.getFontSize()}%; -moz-transform: scale(${globalSettings.getFontSize()}%)}</style>
 #else
@@ -212,17 +227,15 @@ $r.renderForce("development")
 <div id="o_offcanvas_right" class="o_navbar o_navbar-offcanvas " role="navigation">
 	<a href="#" class="o_offcanvas_close" title="$r.translate("close")"><i class='o_icon o_icon_close o_icon-lg'></i></a>
 	<div id="o_offcanvas_right_container" class="o_navbar-collapse">
+		#if($r.available("menuComponent"))
+			$r.render("menuComponent")
+		#end
 	</div>
 </div>
 <a id='o_top'></a>
 <div id="o_navbar_wrapper" class="o_navbar" role="navigation">
 	<div id="o_navbar_container" class="o_container_offcanvas container-fluid">
-		<button id="o_navbar_right-toggle" type="button" class="o_navbar-toggle" style="display: none;">
-		  <span class="sr-only">Toggle main navigation</span>
-		  <span class="icon-bar"></span>
-		  <span class="icon-bar"></span>
-		  <span class="icon-bar"></span>
-		</button>#set($logoLinkUri = $logoInfos.logoLinkUri)
+		#set($logoLinkUri = $logoInfos.logoLinkUri)
 		<a class="o_navbar-brand #if($logoInfos.logo) o_custom_navbar-brand #end" href="$logoLinkUri.uri" title="$logoInfos.logoAlt" #if($logoLinkUri.target) target="$logoLinkUri.target" #end></a>
 		
 		<div class="o_collapse o_navbar-collapse">

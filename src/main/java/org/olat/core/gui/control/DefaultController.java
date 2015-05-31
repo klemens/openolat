@@ -166,6 +166,10 @@ public abstract class DefaultController implements Controller, ControllerEventLi
 			listeners.add(el);
 		}
 	}
+	
+	public boolean isControllerListeningTo(ControllerEventListener el) {
+		return listeners != null && listeners.contains(el);
+	}
 
 	// brasato:: prio c : clean up classes using this - does not make sense really
 	protected List<ControllerEventListener> getListeners() {
@@ -179,11 +183,12 @@ public abstract class DefaultController implements Controller, ControllerEventLi
 	 * @param ores
 	 */
 	protected void fireEvent(UserRequest ureq, Event event) {
-		if (listeners == null) return;
-		for (Iterator<ControllerEventListener> iter = listeners.iterator(); iter.hasNext();) {
-			ControllerEventListener listener = iter.next();
-			if (log.isDebug()) log.debug("Controller event: "+this.getClass().getName()+": fires event to: "+listener.getClass().getName());
-			listener.dispatchEvent(ureq, this, event);
+		if (listeners != null && listeners.size() > 0) {
+			ControllerEventListener[] listenerArr = listeners.toArray(new ControllerEventListener[listeners.size()]);
+			for (ControllerEventListener listener:listenerArr) {
+				if (log.isDebug()) log.debug("Controller event: "+this.getClass().getName()+": fires event to: "+listener.getClass().getName());
+				listener.dispatchEvent(ureq, this, event);
+			}
 		}
 	}
 

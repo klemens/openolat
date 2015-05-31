@@ -31,6 +31,7 @@ import java.lang.management.ManagementFactory;
 import java.lang.management.MemoryMXBean;
 import java.util.Calendar;
 import java.util.Date;
+import java.util.TimeZone;
 
 import org.olat.admin.sysinfo.manager.SessionStatsManager;
 import org.olat.admin.sysinfo.model.SessionsStats;
@@ -82,27 +83,12 @@ public class SysinfoController extends FormBasicController {
 		FormLayoutContainer runtimeCont = FormLayoutContainer.createDefaultFormLayout("runtime", getTranslator());
 		formLayout.add(runtimeCont);
 		formLayout.add("runtime", runtimeCont);
-		
+
 		String startup = format.formatDateAndTime(new Date(WebappHelper.getTimeOfServerStartup()));
 		uifactory.addStaticTextElement("runtime.startup", "runtime.startup", startup, runtimeCont);
-		
-		Calendar lastLoginMonthlyLimit = Calendar.getInstance();
-		//users monthly
-		lastLoginMonthlyLimit.add(Calendar.MONTH, -1);
-		Long userLastMonth = securityManager.countUniqueUserLoginsSince(lastLoginMonthlyLimit.getTime());
-		lastLoginMonthlyLimit.add(Calendar.MONTH, -5); // -1 -5 = -6 for half a year
-		Long userLastSixMonths = securityManager.countUniqueUserLoginsSince(lastLoginMonthlyLimit.getTime());
-		uifactory.addStaticTextElement("users1month", "runtime.users.lastmonth", userLastMonth.toString(), runtimeCont);
-		uifactory.addStaticTextElement("users6month", "runtime.users.last6months", userLastSixMonths.toString(), runtimeCont);
-		
-		//users daily
-		Calendar lastLoginDailyLimit = Calendar.getInstance();
-		lastLoginDailyLimit.add(Calendar.DAY_OF_YEAR, -1);
-		Long userLastDay = securityManager.countUniqueUserLoginsSince(lastLoginDailyLimit.getTime());
-		lastLoginDailyLimit.add(Calendar.DAY_OF_YEAR, -6); // -1 - 6 = -7 for last week
-		Long userLast6Days = securityManager.countUniqueUserLoginsSince(lastLoginDailyLimit.getTime());
-		uifactory.addStaticTextElement("userslastday", "runtime.users.lastday", userLastDay.toString(), runtimeCont);
-		uifactory.addStaticTextElement("userslastweek", "runtime.users.lastweek", userLast6Days.toString(), runtimeCont);
+
+		String time = format.formatDateAndTime(new Date()) + " (" + Calendar.getInstance().getTimeZone().getDisplayName(false, TimeZone.SHORT, ureq.getLocale()) + ")";
+		uifactory.addStaticTextElement("runtime.time", "runtime.time", time, runtimeCont);
 
 		//memory
 		String memoryPage = velocity_root + "/memory.html";
@@ -129,6 +115,27 @@ public class SysinfoController extends FormBasicController {
 		FormLayoutContainer sessionAndClicksCont = FormLayoutContainer.createCustomFormLayout("session_clicks", getTranslator(), sessionAndClicksPage);
 		runtimeCont.add(sessionAndClicksCont);
 		sessionAndClicksCont.setLabel("sess.and.clicks", null);
+		
+		Calendar lastLoginMonthlyLimit = Calendar.getInstance();
+		//users monthly
+		lastLoginMonthlyLimit.add(Calendar.MONTH, -1);
+		Long userLastMonth = securityManager.countUniqueUserLoginsSince(lastLoginMonthlyLimit.getTime());
+		lastLoginMonthlyLimit.add(Calendar.MONTH, -5); // -1 -5 = -6 for half a year
+		Long userLastSixMonths = securityManager.countUniqueUserLoginsSince(lastLoginMonthlyLimit.getTime());
+		lastLoginMonthlyLimit.add(Calendar.MONTH, -11); // -1 -11 = -12 for one year
+		Long userLastYear = securityManager.countUniqueUserLoginsSince(lastLoginMonthlyLimit.getTime());
+		sessionAndClicksCont.contextPut("users1month", userLastMonth.toString());
+		sessionAndClicksCont.contextPut("users6month", userLastSixMonths.toString());
+		sessionAndClicksCont.contextPut("usersyear", userLastYear.toString());
+		
+		//users daily
+		Calendar lastLoginDailyLimit = Calendar.getInstance();
+		lastLoginDailyLimit.add(Calendar.DAY_OF_YEAR, -1);
+		Long userLastDay = securityManager.countUniqueUserLoginsSince(lastLoginDailyLimit.getTime());
+		lastLoginDailyLimit.add(Calendar.DAY_OF_YEAR, -6); // -1 - 6 = -7 for last week
+		Long userLast6Days = securityManager.countUniqueUserLoginsSince(lastLoginDailyLimit.getTime());
+		sessionAndClicksCont.contextPut("userslastday", userLastDay.toString());
+		sessionAndClicksCont.contextPut("userslastweek", userLast6Days.toString());
 		
 		//last 5 minutes
 		long activeSessions = sessionStatsManager.getActiveSessions(300);
@@ -182,36 +189,43 @@ public class SysinfoController extends FormBasicController {
 	
 	private String getHeapValue() {
 		MemoryMXBean memoryBean = ManagementFactory.getMemoryMXBean();
-    long used = memoryBean.getHeapMemoryUsage().getUsed();
-    long max = memoryBean.getHeapMemoryUsage().getMax();
+		long used = memoryBean.getHeapMemoryUsage().getUsed();
+		long max = memoryBean.getHeapMemoryUsage().getMax();
 		return toPercent(used, max);
 	}
 	
 	private String getHeapTooltip() {
 		MemoryMXBean memoryBean = ManagementFactory.getMemoryMXBean();
-    long used = toMB(memoryBean.getHeapMemoryUsage().getUsed());
-    long max = toMB(memoryBean.getHeapMemoryUsage().getMax());
+		long used = toMB(memoryBean.getHeapMemoryUsage().getUsed());
+		long max = toMB(memoryBean.getHeapMemoryUsage().getMax());
 		return translate("runtime.memory.tooltip", new String[]{ Long.toString(used), Long.toString(max)});
 	}
 	
 	private String getNonHeapValue() {
 		MemoryMXBean memoryBean = ManagementFactory.getMemoryMXBean();
 		long used = memoryBean.getNonHeapMemoryUsage().getUsed();
-    long max = memoryBean.getNonHeapMemoryUsage().getMax();
+		long max = memoryBean.getNonHeapMemoryUsage().getMax();
+		if(max == -1) {
+			max = used;
+		}
 		return toPercent(used, max);
 	}
 	
 	private String getNonHeapTooltip() {
 		MemoryMXBean memoryBean = ManagementFactory.getMemoryMXBean();
-    long used = toMB(memoryBean.getNonHeapMemoryUsage().getUsed());
-    long max = toMB(memoryBean.getNonHeapMemoryUsage().getMax());
+		long used = toMB(memoryBean.getNonHeapMemoryUsage().getUsed());
+		long maxBytes = memoryBean.getNonHeapMemoryUsage().getMax();
+		long max = toMB(maxBytes);
+		if(maxBytes == -1) {
+			max = used;
+		}
 		return translate("runtime.memory.tooltip", new String[]{ Long.toString(used), Long.toString(max)});
 	}
 	
 	private final String toPercent(long used, long max) {
 		double ratio = (double)used / (double)max;
-    double percent = ratio * 100.0d;
-    return Math.round(percent) + "%";
+		double percent = ratio * 100.0d;
+		return Math.round(percent) + "%";
 	}
 	
 	private final long toMB(long val) {

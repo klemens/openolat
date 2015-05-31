@@ -32,7 +32,7 @@
 		</div><div class="btn-group">
 			<a href="#" title="$r.translateInAttribute("button.image")" class="btn btn-default o_wikimod_btn_image" onclick="insertTags('[[Image:',']]','$r.translate("enter.image")')"><i class="o_icon o_filetype_jpg"> </i></a>
 			<a href="#" title="$r.translateInAttribute("button.media")" class="btn btn-default o_wikimod_btn_media" onclick="insertTags('[[Media:',']]','$r.translate("enter.media")')"><i class="o_icon o_icon_audio"> </i></a>
-			<a href="#" title="$r.translateInAttribute("button.math")" class="btn btn-default o_wikimod_btn_math" onclick="insertTags('<math>','<'\/math>','$r.translate("enter.math")')"><i class="o_icon o_icon_math"> </i></a>
+			<a href="#" title="$r.translateInAttribute("button.math")" class="btn btn-default o_wikimod_btn_math" onclick="insertTags('<math>','<\/math>','$r.translate("enter.math")')"><i class="o_icon o_icon_math"> </i></a>
 			<a href="#" title="$r.translateInAttribute("button.link")" class="btn btn-default o_wikimod_btn_link" onclick="insertTags('[[',']]','$r.translate("enter.link")')"><i class="o_icon o_icon_link"> </i></a>
 			<a href="#" title="$r.translateInAttribute("button.extlink")" class="btn btn-default o_wikimod_btn_extlink" onclick="insertTags('[',']','$r.translate("enter.extlink")')"><i class="o_icon o_icon_external_link"> </i></a>
 			<a href="#" title="$r.translateInAttribute("button.nowiki")" class="btn btn-default o_wikimod_btn_nowiki" onclick="insertTags('<nowiki>','<\/nowiki>','$r.translate("enter.nowiki")')"><i class="o_icon o_icon_code"> </i></a>
@@ -40,22 +40,32 @@
 		</div>
 		#if($linkList.size() > 0)	
 		<div class="btn-group">
-  			<button type="button" class="btn btn-default dropdown-toggle" data-toggle="dropdown">$r.translateInAttribute("link.insert") <span class="caret"></span></button>
-  			<ul class="dropdown-menu" role="menu">
+  			<button id="wiki-button-link-insert" type="button" class="btn btn-default dropdown-toggle">$r.translateInAttribute("link.insert") <span class="caret"></span></button>
+  			<div id="wiki-list-link-insert" class="hide"><ul class="o_dropdown list-unstyled">
   				#foreach($link in $linkList)
   					<li><a href="#" onclick="javascript:insertTags('[[',']]','$link')">$link</a></li>
 				#end
-  			</ul>
+  			</ul></div>
+  			<script type='text/javascript'>
+			/* <![CDATA[ */
+			jQuery(function() { o_popover('wiki-button-link-insert','wiki-list-link-insert'); });
+			/* ]]> */
+			</script>
 		</div>
 		#end
 		#if($fileList.size() > 0)
 		<div class="btn-group">
-			<button type="button" class="btn btn-default dropdown-toggle" data-toggle="dropdown">$r.translateInAttribute("media.insert") <span class="caret"></span></button>
-  			<ul class="dropdown-menu" role="menu">
+			<button id="wiki-button-media-insert" type="button" class="btn btn-default dropdown-toggle">$r.translateInAttribute("media.insert") <span class="caret"></span></button>
+  			<div id="wiki-list-media-insert" class="hide"><ul class="o_dropdown list-unstyled" role="menu">
   				#foreach($file in $fileList)
   					<li><a href="#" onclick="javascript:insertMediaTag('$r.escapeHtml($file.getName())')">$r.escapeHtml($file.getName())</a></li>
 				#end
-  			</ul>
+  			</ul></div>
+  			<script type='text/javascript'>
+			/* <![CDATA[ */
+			jQuery(function() { o_popover('wiki-button-media-insert','wiki-list-media-insert'); });
+			/* ]]> */
+			</script>
 		</div>
 		#end
 	</div>

@@ -35,7 +35,7 @@ public class ArquillianDeployments {
 	public static final String WEBINF    = "src/main/webapp/WEB-INF";
 	public static final String WEBINF_TOMCAT = "src/main/webapp-tomcat/WEB-INF";
 	public static final String TEST_RSRC = "src/test/resources";
-	public static final String LIB_DIR   = "target/openolat-lms-10.0-SNAPSHOT/WEB-INF/lib";
+	public static final String LIB_DIR   = "target/openolat-lms-10.2-SNAPSHOT/WEB-INF/lib";
 
 	
 	public static WebArchive createDeployment() {
@@ -53,7 +53,7 @@ public class ArquillianDeployments {
 		addResourceRecursive(new File(MAIN_RSRC), null, new AllFileFilter(), archive);
 		addWebResourceRecursive(new File(WEBAPP), "static", new StaticFileFilter(), archive);
 		
-		archive.addAsResource(new File("src/test/profile/mysql", "olat.arquillian.properties"), "olat.local.properties");
+		archive.addAsResource(new File("src/test/profile/mysql", "olat.local.properties"), "olat.local.properties");
 		archive.setWebXML(new File(WEBINF_TOMCAT, "web.xml"));
 		return archive;
 	}

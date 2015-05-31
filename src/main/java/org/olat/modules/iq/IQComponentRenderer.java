@@ -41,6 +41,7 @@ import org.olat.core.gui.render.StringOutput;
 import org.olat.core.gui.render.URLBuilder;
 import org.olat.core.gui.translator.Translator;
 import org.olat.core.util.Formatter;
+import org.olat.core.util.StringHelper;
 import org.olat.ims.qti.QTIConstants;
 import org.olat.ims.qti.container.AssessmentContext;
 import org.olat.ims.qti.container.ItemContext;
@@ -309,8 +310,8 @@ public class IQComponentRenderer implements ComponentRenderer {
 		StringOutput sb = new StringOutput();
 
 		sb.append("<td>");
-		String title = itc.getEl_item().attributeValue("title", "no title");
-		String titleShort = Formatter.truncate(title, 27);
+		String titleNotEscaped = itc.getEl_item().attributeValue("title", "no title");
+		String titleShort = StringHelper.escapeHtml(Formatter.truncate(titleNotEscaped, 27));
 		long maxdur = itc.getDurationLimit();
 		long start = itc.getTimeOfStart();
 		long due = start + maxdur;
@@ -331,7 +332,7 @@ public class IQComponentRenderer implements ComponentRenderer {
 			sb.append("<a onclick=\"return o2cl();\" href=\"");
 			ubu.buildURI(sb, new String[] { VelocityContainer.COMMAND_ID }, new String[] { "git" });
 			sb.append("?itid="	+ itemPos	+ "&seid=" + sectionPos);
-			sb.append("\" title=\"" + StringEscapeUtils.escapeHtml(title) + "\">");
+			sb.append("\" class=\"o_sel_qti_menu_item\" title=\"" + StringEscapeUtils.escapeHtml(titleNotEscaped) + "\">");
 		}
 		
 		sb.append("<b>" + (sectionPos + 1) + "." + (itemPos + 1) + ".</b>&nbsp;");	
@@ -404,7 +405,7 @@ public class IQComponentRenderer implements ComponentRenderer {
 
 		// section link
 		sb.append("<td>");
-		String title = Formatter.truncate(sc.getTitle(), 30);
+		String title = StringHelper.escapeHtml(Formatter.truncate(sc.getTitle(), 30));
 		long maxdur = sc.getDurationLimit();
 		long start = sc.getTimeOfStart();
 		long due = start + maxdur;
@@ -479,7 +480,7 @@ public class IQComponentRenderer implements ComponentRenderer {
 
 		sb.append("<div id=\"o_qti_menu\">");
 		sb.append("<h4>");
-		sb.append(ac.getTitle());
+		sb.append(StringHelper.escapeHtml(ac.getTitle()));
 		sb.append("</h4>");
 
 		sb.append("<table border=0 width=\"100%\">");

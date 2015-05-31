@@ -58,8 +58,10 @@ public class MessageWindowController extends DefaultChiefController {
 	private static final OLog log = Tracing.createLoggerFor(MessageWindowController.class);
 	private static final String VELOCITY_ROOT = Util.getPackageVelocityRoot(MessageWindowController.class);
 
-	private VelocityContainer msg;
-
+	public MessageWindowController(UserRequest ureq, String message, String supportEmail) {
+		this(ureq, null, message, supportEmail);
+	}
+	
 	/**
 	 * 
 	 * @param ureq
@@ -69,13 +71,14 @@ public class MessageWindowController extends DefaultChiefController {
 	 */
 	public MessageWindowController(UserRequest ureq, Throwable th, String detailedmessage, String supportEmail) {
 		Translator trans = Util.createPackageTranslator(MessageWindowController.class, ureq.getLocale());
-		//Formatter formatter = Formatter.getInstance(ureq.getLocale());
-		msg = new VelocityContainer("olatmain", VELOCITY_ROOT + "/message.html", trans, this);
+		VelocityContainer msg = new VelocityContainer("olatmain", VELOCITY_ROOT + "/message.html", trans, this);
 		
 		BaseSecurityModule securityModule = CoreSpringFactory.getImpl(BaseSecurityModule.class);
 		msg.contextPut("enforceTopFrame", new Boolean(securityModule.isForceTopFrame()));
-						
-		log.warn(th.getMessage() + " *** User info: " + detailedmessage);
+		
+		if(th != null) {
+			log.warn(th.getMessage() + " *** User info: " + detailedmessage);
+		}
 		
 		msg.contextPut("buildversion", Settings.getVersion());
 		msg.contextPut("detailedmessage", detailedmessage);					
@@ -83,8 +86,6 @@ public class MessageWindowController extends DefaultChiefController {
 		  msg.contextPut("supportEmail",supportEmail);
 		}
 
-		//Window w = new Window("messagewindow", this, jsadder);
-		
 		Windows ws = Windows.getWindows(ureq);
 		WindowBackOffice wbo = ws.getWindowManager().createWindowBackOffice("messagewindow", this, new WindowSettings());
 		Window w = wbo.getWindow();

@@ -50,7 +50,11 @@ public interface RepositoryService {
 	public RepositoryEntry create(String initialAuthor, String resourceName,
 			String displayname, String description, OLATResource resource);
 	
+	public RepositoryEntry copy(RepositoryEntry sourceEntry, Identity author, String displayname);
+	
 	public RepositoryEntry loadByKey(Long key);
+	
+	public RepositoryEntry loadByResourceKey(Long key);
 	
 	public VFSLeaf getIntroductionImage(RepositoryEntry re);
 
@@ -97,6 +101,19 @@ public interface RepositoryService {
 	public int countMembers(RepositoryEntryRef re, String... roles);
 	
 	/**
+	 * Count all members (following up to business groups wainting list)
+	 * @param res
+	 * @return
+	 */
+	public int countMembers(List<? extends RepositoryEntryRef> res);
+	
+	/**
+	 * @param re The repository entry
+	 * @return True if the configuration allowed user to leave the entry right now
+	 */
+	public boolean isParticipantAllowedToLeave(RepositoryEntry re);
+	
+	/**
 	 * Return the primary keys of the authors
 	 */
 	public List<Long> getAuthors(RepositoryEntryRef re);
@@ -119,7 +136,7 @@ public interface RepositoryService {
 	
 	public void removeRole(Identity identity, RepositoryEntry re, String role);
 	
-	public void removeMembers(RepositoryEntry re);
+	public void removeMembers(RepositoryEntry re, String... roles);
 	
 	public List<RepositoryEntry> searchByIdAndRefs(String id);
 	
@@ -137,5 +154,4 @@ public interface RepositoryService {
 	public int countAuthorView(SearchAuthorRepositoryEntryViewParams params);
 	
 	public List<RepositoryEntryAuthorView> searchAuthorView(SearchAuthorRepositoryEntryViewParams params, int firstResult, int maxResults);
-
 }

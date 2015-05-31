@@ -70,11 +70,12 @@ public class MetaInfoFormController extends FormBasicController {
 	//private MetaInfo meta;
 	private FormLink moreMetaDataLink;
 	private String initialFilename;
-	private TextElement filename, title, publisher, creator, source, city, pages, language, url, comment, publicationMonth, publicationYear;
+	private TextElement filename, title, publisher, creator, sourceEl, city, pages, language, url, comment, publicationMonth, publicationYear;
 	private SingleSelection locked;
 	// Fields needed for upload dialog
 	private boolean isSubform;
 	private Set<FormItem> metaFields;
+	private String resourceUrl;
 	
 	private final Roles roles;
 	private final UserManager userManager;
@@ -87,10 +88,11 @@ public class MetaInfoFormController extends FormBasicController {
 	 * @param ureq
 	 * @param control
 	 */
-	public MetaInfoFormController(UserRequest ureq, WindowControl control, VFSItem item) {
+	public MetaInfoFormController(UserRequest ureq, WindowControl control, VFSItem item, String resourceUrl) {
 		super(ureq, control);
 		isSubform = false;
 		this.item = item;
+		this.resourceUrl = resourceUrl;
 		// load the metainfo
 		roles = ureq.getUserSession().getRoles();
 		userManager = CoreSpringFactory.getImpl(UserManager.class);
@@ -197,7 +199,7 @@ public class MetaInfoFormController extends FormBasicController {
 			filename.setMandatory(true);
 		}
 		
-		MetaInfo meta = item == null ? null : metaInfoFactory.createMetaInfoFor((OlatRelPathImpl)item);
+		MetaInfo meta = item instanceof OlatRelPathImpl ? metaInfoFactory.createMetaInfoFor((OlatRelPathImpl)item) : null;
 
 		// title
 		String titleVal = (meta != null ? meta.getTitle() : null);
@@ -217,7 +219,7 @@ public class MetaInfoFormController extends FormBasicController {
 
 		// source/origin
 		String sourceVal = (meta != null ? meta.getSource() : null);
-		source = uifactory.addTextElement("source", "mf.source", -1, sourceVal, formLayout);
+		sourceEl = uifactory.addTextElement("source", "mf.source", -1, sourceVal, formLayout);
 
 		// city
 		String cityVal = (meta != null ? meta.getCity() : null);
@@ -263,7 +265,7 @@ public class MetaInfoFormController extends FormBasicController {
 		metaFields = new HashSet<FormItem>();
 		metaFields.add(creator);
 		metaFields.add(publisher);
-		metaFields.add(source);
+		metaFields.add(sourceEl);
 		metaFields.add(city);
 		metaFields.add(publicationDate);
 		metaFields.add(pages);
@@ -323,6 +325,20 @@ public class MetaInfoFormController extends FormBasicController {
 
 			String downloads = meta == null ? "" : String.valueOf(meta.getDownloadCount());
 			uifactory.addStaticTextElement("mf.downloads", downloads, formLayout);
+		}
+		
+		boolean xssErrors = false;
+		if(item != null) {
+			xssErrors = StringHelper.xssScanForErrors(item.getName());
+		}
+		
+		if(StringHelper.containsNonWhitespace(resourceUrl) && !xssErrors) {
+			String externalUrlPage = velocity_root + "/external_url.html";
+			FormLayoutContainer extUrlCont = FormLayoutContainer.createCustomFormLayout("external.url", getTranslator(), externalUrlPage);
+			extUrlCont.setLabel("external.url", null);
+			extUrlCont.contextPut("resourceUrl", resourceUrl);
+			extUrlCont.setRootForm(mainForm);
+			formLayout.add(extUrlCont);
 		}
 
 		if (!isSubform && meta != null && meta.isDirectory()) {
@@ -393,7 +409,7 @@ public class MetaInfoFormController extends FormBasicController {
 		meta.setPublicationDate(publicationMonth.getValue(), publicationYear.getValue());
 		meta.setCity(city.getValue());
 		meta.setLanguage(language.getValue());
-		meta.setSource(source.getValue());
+		meta.setSource(sourceEl.getValue());
 		meta.setUrl(url.getValue());
 		meta.setPages(pages.getValue());
 		return meta;

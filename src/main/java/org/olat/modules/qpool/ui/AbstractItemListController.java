@@ -198,6 +198,10 @@ public abstract class AbstractItemListController extends FormBasicController
 		itemsTable.reset();
 	}
 	
+	public void reloadData() {
+		itemsTable.reloadData();
+	}
+	
 	public QuestionItemsSource getSource() {
 		return itemsSource;
 	}
@@ -240,12 +244,13 @@ public abstract class AbstractItemListController extends FormBasicController
 							itemsTable.collapseDetails(rowIndex);
 						} else {
 							itemsTable.collapseAllDetails();
-							itemsTable.expandDetails(rowIndex);
-
 							ItemRow row = getModel().getObject(rowIndex);
-					    	QuestionItem item = qpoolService.loadItemById(row.getKey());
-							summaryCtrl.updateItem(item, false);
-					    	previewCtrl.updateItem(ureq, item);
+							if(row != null) {
+								itemsTable.expandDetails(rowIndex);
+					    		QuestionItem item = qpoolService.loadItemById(row.getKey());
+								summaryCtrl.updateItem(item, false);
+					    		previewCtrl.updateItem(ureq, item);
+							}
 						}
 					}
 				}

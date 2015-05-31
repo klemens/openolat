@@ -83,6 +83,7 @@ CREATE TABLE o_gp_business (
   participantspublic number default 0 not null,
   waitingpublic number default 0 not null,
   downloadmembers number default 0 not null,
+  allowtoleave number default 1 not null,
   fk_resource number(20),
   fk_group_id number(20),
   CONSTRAINT u_o_gp_business03 UNIQUE (fk_resource),
@@ -160,6 +161,7 @@ CREATE TABLE o_bs_identity (
   creationdate date,
   lastlogin date,
   name varchar2(128 char) NOT NULL,
+  external_id varchar2(64 char),
   status number(11),
   fk_user_id number(20),
   CONSTRAINT u_o_bs_identity UNIQUE (name),
@@ -196,6 +198,7 @@ CREATE TABLE o_catentry (
   creationdate date,
   name varchar2(110 char) NOT NULL,
   description varchar2(4000),
+  style varchar2(16 char),
   externalurl varchar2(255 char),
   fk_repoentry number(20),
   fk_ownergroup number(20),
@@ -368,6 +371,7 @@ CREATE TABLE o_repositoryentry (
   accesscode number(11) NOT NULL,
   membersonly number default 0,
   statuscode number(11),
+  allowtoleave varchar2(16 char),
   canlaunch number NOT NULL,
   candownload number NOT NULL,
   cancopy number NOT NULL,
@@ -1093,6 +1097,76 @@ create table o_as_user_course_infos (
    primary key (id)
 );
 
+create table o_as_mode_course (
+   id number(20) not null,
+   creationdate date not null,
+   lastmodified date not null,
+   a_name varchar2(255 char),
+   a_description clob,
+   a_status varchar2(16 char),
+   a_manual_beginend number default 0 not null,
+   a_begin date not null,
+   a_leadtime number(20) default 0 not null,
+   a_begin_with_leadtime date not null,
+   a_end date not null,
+   a_followuptime number(20) default 0 not null,
+   a_end_with_followuptime date not null,
+   a_targetaudience varchar2(16 char),
+   a_restrictaccesselements number default 0 not null,
+   a_elements varchar2(2048 char),
+   a_start_element varchar2(64 char),
+   a_restrictaccessips number default 0 not null,
+   a_ips varchar2(2048 char),
+   a_safeexambrowser number default 0 not null,
+   a_safeexambrowserkey varchar2(2048 char),
+   a_safeexambrowserhint clob,
+   a_applysettingscoach number default 0 not null,
+   fk_entry number(20) not null,
+   primary key (id)
+);
+
+create table o_as_mode_course_to_group (
+   id number(20) not null,
+   fk_assessment_mode_id number(20) not null,
+   fk_group_id number(20) not null,
+   primary key (id)
+);
+
+create table o_as_mode_course_to_area (
+   id number(20) not null,
+   fk_assessment_mode_id number(20) not null,
+   fk_area_id number(20) not null,
+   primary key (id)
+);
+
+create table o_cer_template (
+   id number(20) not null,
+   creationdate date not null,
+   lastmodified date not null,
+   c_name varchar2(256 char) not null,
+   c_path varchar2(1024 char) not null,
+   c_public number default 0 not null,
+   c_format varchar2(16 char),
+   c_orientation varchar2(16 char),
+   primary key (id)
+);
+
+create table o_cer_certificate (
+   id number(20) not null,
+   creationdate date not null,
+   lastmodified date not null,
+   c_status varchar2(16 char) default 'pending' not null,
+   c_email_status varchar2(16 char),
+   c_uuid varchar2(36 char) not null,
+   c_path varchar2(1024 char),
+   c_last number default 1 not null,
+   c_course_title varchar2(255 char),
+   c_archived_resource_id number(20) not null,
+   fk_olatresource number(20),
+   fk_identity number(20) not null,
+   primary key (id)
+);
+
 create table o_im_message (
    id number(20) not null,
    creationdate date,
@@ -1451,18 +1525,6 @@ create view o_bs_gp_membership_v as (
    inner join o_gp_business gp on (gp.fk_group_id=membership.fk_group_id)
 );
 
-create view o_gp_member_v as (
-   select
-      gp.group_id as bg_id,
-      gp.groupname as bg_name,
-      gp.creationdate as bg_creationdate,
-      gp.managed_flags as bg_managed_flags,
-      gp.descr as bg_desc,
-      membership.fk_identity_id as member_id
-   from o_gp_business gp
-   inner join o_bs_group_member membership on (membership.fk_group_id = gp.fk_group_id and membership.g_role in ('coach','participant'))
-);
-
 create or replace view o_gp_business_v  as (
    select
       gp.group_id as group_id,
@@ -1559,75 +1621,6 @@ create view o_gp_contactext_v as (
 );
 
 
-create view o_as_eff_statement_students_v as (
-   select
-      sg_re.repositoryentry_id as re_id,
-      sg_coach.fk_identity_id as tutor_id,
-      sg_participant.fk_identity_id as student_id,
-      sg_statement.id as st_id,
-      (case when sg_statement.passed > 0 then 1 else 0 end) as st_passed,
-      (case when sg_statement.passed = 0 then 1 else 0 end) as st_failed,
-      (case when sg_statement.passed is null then 1 else 0 end) as st_not_attempted,
-      sg_statement.score as st_score,
-      pg_initial_launch.id as pg_id
-   from o_repositoryentry sg_re
-   inner join o_re_to_group togroup on (togroup.fk_entry_id = sg_re.repositoryentry_id)
-   inner join o_bs_group_member sg_coach on (sg_coach.fk_group_id=togroup.fk_group_id and sg_coach.g_role='coach')
-   inner join o_bs_group_member sg_participant on (sg_participant.fk_group_id=sg_coach.fk_group_id and sg_participant.g_role='participant')
-   left join o_as_eff_statement sg_statement on (sg_statement.fk_identity = sg_participant.fk_identity_id and sg_statement.fk_resource_id = sg_re.fk_olatresource)
-   left join o_as_user_course_infos pg_initial_launch on (pg_initial_launch.fk_resource_id = sg_re.fk_olatresource and pg_initial_launch.fk_identity = sg_participant.fk_identity_id)
-   group by sg_re.repositoryentry_id, sg_coach.fk_identity_id, sg_participant.fk_identity_id,
-      sg_statement.passed, sg_statement.id, sg_statement.score, pg_initial_launch.id
-);
-
-create view o_as_eff_statement_courses_v as (
-   select
-      sg_re.repositoryentry_id as re_id,
-      sg_re.displayname as re_name,
-      sg_coach.fk_identity_id as tutor_id,
-      sg_participant.fk_identity_id as student_id,
-      sg_statement.id as st_id,
-      (case when sg_statement.passed > 0 then 1 else 0 end) as st_passed,
-      (case when sg_statement.passed = 0 then 1 else 0 end) as st_failed,
-      (case when sg_statement.passed is null then 1 else 0 end) as st_not_attempted,
-      sg_statement.score as st_score,
-      pg_initial_launch.id as pg_id
-   from o_repositoryentry sg_re
-   inner join o_re_to_group togroup on (togroup.fk_entry_id = sg_re.repositoryentry_id)
-   inner join o_bs_group_member sg_coach on (sg_coach.fk_group_id=togroup.fk_group_id and sg_coach.g_role='coach')
-   inner join o_bs_group_member sg_participant on (sg_participant.fk_group_id=sg_coach.fk_group_id and sg_participant.g_role='participant')
-   left join o_as_eff_statement sg_statement on (sg_statement.fk_identity = sg_participant.fk_identity_id and sg_statement.fk_resource_id = sg_re.fk_olatresource)
-   left join o_as_user_course_infos pg_initial_launch on (pg_initial_launch.fk_resource_id = sg_re.fk_olatresource and pg_initial_launch.fk_identity = sg_participant.fk_identity_id)
-   group by sg_re.repositoryentry_id, sg_re.displayname, sg_coach.fk_identity_id, sg_participant.fk_identity_id,
-      sg_statement.passed, sg_statement.id, sg_statement.score, pg_initial_launch.id
-);
-
-create view o_as_eff_statement_groups_v as (
-   select
-      sg_re.repositoryentry_id as re_id,
-      sg_re.displayname as re_name,
-      sg_bg.group_id as bg_id,
-      sg_bg.groupname as bg_name,
-      sg_coach.fk_identity_id as tutor_id,
-      sg_participant.fk_identity_id as student_id,
-      sg_statement.id as st_id,
-      (case when sg_statement.passed > 0 then 1 else 0 end) as st_passed,
-      (case when sg_statement.passed = 0 then 1 else 0 end) as st_failed,
-      (case when sg_statement.passed is null then 1 else 0 end) as st_not_attempted,
-      sg_statement.score as st_score,
-      pg_initial_launch.id as pg_id
-   from o_repositoryentry sg_re
-   inner join o_re_to_group togroup on (togroup.fk_entry_id = sg_re.repositoryentry_id)
-   inner join o_gp_business sg_bg on (sg_bg.fk_group_id=togroup.fk_group_id)
-   inner join o_bs_group_member sg_coach on (sg_coach.fk_group_id=togroup.fk_group_id and sg_coach.g_role='coach')
-   inner join o_bs_group_member sg_participant on (sg_participant.fk_group_id=sg_coach.fk_group_id and sg_participant.g_role='participant')
-   left join o_as_eff_statement sg_statement on (sg_statement.fk_identity = sg_participant.fk_identity_id and sg_statement.fk_resource_id = sg_re.fk_olatresource)
-   left join o_as_user_course_infos pg_initial_launch on (pg_initial_launch.fk_resource_id = sg_re.fk_olatresource and pg_initial_launch.fk_identity = sg_participant.fk_identity_id)
-   group by sg_re.repositoryentry_id, sg_re.displayname, sg_bg.group_id, sg_bg.groupname,
-      sg_coach.fk_identity_id, sg_participant.fk_identity_id,
-      sg_statement.passed, sg_statement.id, sg_statement.score, pg_initial_launch.id
-);
-
 create or replace view o_im_roster_entry_v as (
    select
       entry.id as re_id,
@@ -1645,123 +1638,6 @@ create or replace view o_im_roster_entry_v as (
 );
 
 
-create or replace view o_qp_item_v as (
-   select
-      item.id as item_id,
-      item.q_identifier as item_identifier,
-      item.q_master_identifier as item_master_identifier,
-      item.q_title as item_title,
-      item.q_language as item_language,
-      item.q_keywords as item_keywords,
-      item.q_coverage as item_coverage,
-      item.q_additional_informations as item_additional_informations,
-      taxlevel.q_field as item_taxonomy_level,
-      educontext.q_level as item_edu_context,
-      item.q_educational_learningtime as item_educational_learningtime,
-      itemtype.q_type as item_type,
-      item.q_difficulty as item_difficulty,
-      item.q_stdev_difficulty as item_stdev_difficulty,
-      item.q_differentiation as item_differentiation,
-      item.q_num_of_answers_alt as item_num_of_answers_alt,
-      item.q_usage as item_usage,
-      item.q_version as item_version,
-      item.q_status as item_status,
-      item.q_format as item_format,
-      item.creationdate as item_creationdate,
-      item.lastmodified as item_lastmodified,
-      ownership.identity_id as owner_id,
-      mark.creator_id as mark_creator,
-      (case when mark.creator_id is null then 0 else 1 end) as marked,
-      (select avg(rating.rating) from o_userrating rating
-         where rating.resid=item.id and rating.resname='QuestionItem' and rating.ressubpath is null
-      ) as item_rating
-   from o_qp_item item
-   inner join o_bs_secgroup ownergroup on (ownergroup.id = item.fk_ownergroup)
-   left join o_bs_membership ownership on (ownergroup.id = ownership.secgroup_id) 
-   left join o_qp_taxonomy_level taxlevel on (item.fk_taxonomy_level = taxlevel.id)
-   left join o_qp_item_type itemtype on (item.fk_type = itemtype.id)
-   left join o_qp_edu_context educontext on (item.fk_edu_context = educontext.id)
-   left join o_mark mark on (mark.resid = item.id and mark.resname = 'QuestionItem')
-);
-
-create or replace view o_qp_item_author_v as (
-   select
-      item.id as item_id,
-      ownership.identity_id as item_author,
-      item.q_identifier as item_identifier,
-      item.q_master_identifier as item_master_identifier,
-      item.q_title as item_title,
-      item.q_language as item_language,
-      item.q_keywords as item_keywords,
-      item.q_coverage as item_coverage,
-      item.q_additional_informations as item_additional_informations,
-      taxlevel.q_field as item_taxonomy_level,
-      educontext.q_level as item_edu_context,
-      item.q_educational_learningtime as item_educational_learningtime,
-      itemtype.q_type as item_type,
-      item.q_difficulty as item_difficulty,
-      item.q_stdev_difficulty as item_stdev_difficulty,
-      item.q_differentiation as item_differentiation,
-      item.q_num_of_answers_alt as item_num_of_answers_alt,
-      item.q_usage as item_usage,
-      item.q_version as item_version,
-      item.q_status as item_status,
-      item.q_format as item_format,
-      item.creationdate as item_creationdate,
-      item.lastmodified as item_lastmodified,
-      mark.creator_id as mark_creator,
-      (case when mark.creator_id is null then 0 else 1 end) as marked,
-      (select avg(rating.rating) from o_userrating rating
-         where rating.resid=item.id and rating.resname='QuestionItem' and rating.ressubpath is null
-      ) as item_rating
-   from o_qp_item item
-   inner join o_bs_secgroup ownergroup on (ownergroup.id = item.fk_ownergroup)
-   inner join o_bs_membership ownership on (ownergroup.id = ownership.secgroup_id) 
-   left join o_mark mark on (mark.resid = item.id and mark.resname = 'QuestionItem')
-   left join o_qp_taxonomy_level taxlevel on (item.fk_taxonomy_level = taxlevel.id)
-   left join o_qp_item_type itemtype on (item.fk_type = itemtype.id)
-   left join o_qp_edu_context educontext on (item.fk_edu_context = educontext.id)
-);
-
-create or replace view o_qp_item_pool_v as (
-   select
-      item.id as item_id,
-      pool2item.q_editable as item_editable,
-      pool2item.fk_pool_id as item_pool,
-      item.q_identifier as item_identifier,
-      item.q_master_identifier as item_master_identifier,
-      item.q_title as item_title,
-      item.q_language as item_language,
-      item.q_keywords as item_keywords,
-      item.q_coverage as item_coverage,
-      item.q_additional_informations as item_additional_informations,
-      taxlevel.q_field as item_taxonomy_level,
-      educontext.q_level as item_edu_context,
-      item.q_educational_learningtime as item_educational_learningtime,
-      itemtype.q_type as item_type,
-      item.q_difficulty as item_difficulty,
-      item.q_stdev_difficulty as item_stdev_difficulty,
-      item.q_differentiation as item_differentiation,
-      item.q_num_of_answers_alt as item_num_of_answers_alt,
-      item.q_usage as item_usage,
-      item.q_version as item_version,
-      item.q_status as item_status,
-      item.q_format as item_format,
-      item.creationdate as item_creationdate,
-      item.lastmodified as item_lastmodified,
-      mark.creator_id as mark_creator,
-      (case when mark.creator_id is null then 0 else 1 end) as marked,
-      (select avg(rating.rating) from o_userrating rating
-         where rating.resid=item.id and rating.resname='QuestionItem' and rating.ressubpath is null
-      ) as item_rating
-   from o_qp_item item
-   inner join o_qp_pool_2_item pool2item on (pool2item.fk_item_id = item.id)
-   left join o_mark mark on (mark.resid = item.id and mark.resname = 'QuestionItem')
-   left join o_qp_taxonomy_level taxlevel on (item.fk_taxonomy_level = taxlevel.id)
-   left join o_qp_item_type itemtype on (item.fk_type = itemtype.id)
-   left join o_qp_edu_context educontext on (item.fk_edu_context = educontext.id)
-);
-
 create or replace view o_qp_pool_2_item_short_v as (
    select
       pool2item.id as item_to_pool_id,
@@ -1773,45 +1649,6 @@ create or replace view o_qp_pool_2_item_short_v as (
    from o_qp_item item
    inner join o_qp_pool_2_item pool2item on (pool2item.fk_item_id = item.id)
    inner join o_qp_pool pool on (pool2item.fk_pool_id = pool.id)
-);
-
-create or replace view o_qp_item_shared_v as (
-   select
-      item.id as item_id,
-      shareditem.q_editable as item_editable,
-      shareditem.fk_resource_id as item_resource_id,
-      item.q_identifier as item_identifier,
-      item.q_master_identifier as item_master_identifier,
-      item.q_title as item_title,
-      item.q_language as item_language,
-      item.q_keywords as item_keywords,
-      item.q_coverage as item_coverage,
-      item.q_additional_informations as item_additional_informations,
-      taxlevel.q_field as item_taxonomy_level,
-      educontext.q_level as item_edu_context,
-      item.q_educational_learningtime as item_educational_learningtime,
-      itemtype.q_type as item_type,
-      item.q_difficulty as item_difficulty,
-      item.q_stdev_difficulty as item_stdev_difficulty,
-      item.q_differentiation as item_differentiation,
-      item.q_num_of_answers_alt as item_num_of_answers_alt,
-      item.q_usage as item_usage,
-      item.q_version as item_version,
-      item.q_status as item_status,
-      item.q_format as item_format,
-      item.creationdate as item_creationdate,
-      item.lastmodified as item_lastmodified,
-      mark.creator_id as mark_creator,
-      (case when mark.creator_id is null then 0 else 1 end) as marked,
-      (select avg(rating.rating) from o_userrating rating
-         where rating.resid=item.id and rating.resname='QuestionItem' and rating.ressubpath is null
-      ) as item_rating
-   from o_qp_item item
-   inner join o_qp_share_item shareditem on (shareditem.fk_item_id = item.id)
-   left join o_mark mark on (mark.resid = item.id and mark.resname = 'QuestionItem')
-   left join o_qp_taxonomy_level taxlevel on (item.fk_taxonomy_level = taxlevel.id)
-   left join o_qp_item_type itemtype on (item.fk_type = itemtype.id)
-   left join o_qp_edu_context educontext on (item.fk_edu_context = educontext.id)
 );
 
 create or replace view o_qp_share_2_item_short_v as (
@@ -2352,6 +2189,28 @@ alter table o_lti_outcome add constraint idx_lti_outcome_ident_id foreign key (f
 create index idx_lti_outcome_ident_id_idx on o_lti_outcome (fk_identity_id);
 alter table o_lti_outcome add constraint idx_lti_outcome_rsrc_id foreign key (fk_resource_id) references o_olatresource(resource_id);
 create index idx_lti_outcome_rsrc_id_idx on o_lti_outcome (fk_resource_id);
+
+-- assessment mode
+alter table o_as_mode_course add constraint as_mode_to_repo_entry_idx foreign key (fk_entry) references o_repositoryentry (repositoryentry_id);
+create index idx_as_mode_to_repo_entry_idx on o_as_mode_course (fk_entry);
+
+alter table o_as_mode_course_to_group add constraint as_modetogroup_group_idx foreign key (fk_group_id) references o_gp_business (group_id);
+alter table o_as_mode_course_to_group add constraint as_modetogroup_mode_idx foreign key (fk_assessment_mode_id) references o_as_mode_course (id);
+create index idx_as_modetogroup_group_idx on o_as_mode_course_to_group (fk_group_id);
+create index idx_as_modetogroup_mode_idx on o_as_mode_course_to_group (fk_assessment_mode_id);
+
+alter table o_as_mode_course_to_area add constraint as_modetoarea_area_idx foreign key (fk_area_id) references o_gp_bgarea (area_id);
+alter table o_as_mode_course_to_area add constraint as_modetoarea_mode_idx foreign key (fk_assessment_mode_id) references o_as_mode_course (id);
+create index idx_as_modetoarea_area_idx on o_as_mode_course_to_area (fk_area_id);
+create index idx_as_modetoarea_mode_idx on o_as_mode_course_to_area (fk_assessment_mode_id);
+
+-- certificates
+alter table o_cer_certificate add constraint cer_to_identity_idx foreign key (fk_identity) references o_bs_identity (id);
+create index cer_identity_idx on o_cer_certificate (fk_identity);
+alter table o_cer_certificate add constraint cer_to_resource_idx foreign key (fk_olatresource) references o_olatresource (resource_id);
+create index cer_resource_idx on o_cer_certificate (fk_olatresource);
+create index cer_archived_resource_idx on o_cer_certificate (c_archived_resource_id);
+create index cer_uuid_idx on o_cer_certificate (c_uuid);
 
 
 insert into o_stat_lastupdated (until_datetime, lastupdated) values (to_date('1999-01-01', 'YYYY-mm-dd'), to_date('1999-01-01', 'YYYY-mm-dd'));

@@ -5,8 +5,6 @@
 
 <hibernate-mapping default-lazy="false">
 	<class name="org.olat.upgrade.model.BusinessGroupUpgrade" table="o_gp_business">
-	
-		<cache usage="transactional" />
 		<!--
 		key (see Interface org.olat.core.commons.persistence.Persistable),
 		lastModified (see Interface org.olat.core.commons.persistence.Auditable)
@@ -39,6 +37,7 @@
 		<property name="waitingListVisibleIntern" column="waitingintern" unique="false" not-null="true" type="boolean"/>
 		<property name="waitingListVisiblePublic" column="waitingpublic" unique="false" not-null="true" type="boolean"/>
 		<property name="downloadMembersLists" column="downloadmembers" unique="false" not-null="true" type="boolean"/>
+		<property name="allowToLeave" column="allowtoleave" unique="false" not-null="true" type="boolean"/>
 			 		
 		<property name="name" type="string" column="groupname" unique="false" length="255" index="gp_name_idx"/>	
 		<property name="description" type="string" column="descr" length="16777210" not-null="false"/>

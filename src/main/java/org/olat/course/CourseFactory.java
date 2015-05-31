@@ -429,7 +429,7 @@ public class CourseFactory extends BasicManager {
 			targetCourse.saveEditorTreeModel();
 
 			// copy course folder
-			File fSourceCourseFolder = sourceCourse.getIsolatedCourseFolder().getBasefile();
+			File fSourceCourseFolder = sourceCourse.getIsolatedCourseBaseFolder();
 			if (fSourceCourseFolder.exists()) FileUtils.copyDirToDir(fSourceCourseFolder, fTargetCourseBasePath, false, "copy course folder");
 			
 			// copy folder nodes directories
@@ -556,11 +556,10 @@ public class CourseFactory extends BasicManager {
 				true, Locale.ENGLISH, exportedCourseZIPFile, exportedCourseZIPFile.getName());
 		
 		re.setSoftkey(softKey);
-		re.setAccess(access);
 		repositoryService.update(re);
 		
 		ICourse course = CourseFactory.loadCourse(re.getOlatResource());
-		CourseFactory.publishCourse(course, RepositoryEntry.ACC_USERS, false,  null, Locale.ENGLISH);
+		CourseFactory.publishCourse(course, access, false,  null, Locale.ENGLISH);
 		return re;
 	}
 
@@ -643,7 +642,7 @@ public class CourseFactory extends BasicManager {
 			ContextEntry ce = BusinessControlFactory.getInstance().createContextEntry(entry);
 			WindowControl bwControl = BusinessControlFactory.getInstance().createBusinessWindowControl(ce, wControl);	
 			RepositoryEntrySecurity reSecurity = new RepositoryEntrySecurity(false, false, false, false, false, false, false, true);
-			RunMainController launchC = new RunMainController(ureq, bwControl, null, course, entry, reSecurity);
+			RunMainController launchC = new RunMainController(ureq, bwControl, null, course, entry, reSecurity, null);
 			return launchC;			
 		}		
 	}

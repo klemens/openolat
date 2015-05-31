@@ -37,6 +37,7 @@ import org.olat.basesecurity.GroupRoles;
 import org.olat.basesecurity.ui.GroupController;
 import org.olat.collaboration.CollaborationTools;
 import org.olat.collaboration.CollaborationToolsFactory;
+import org.olat.commons.calendar.CalendarModule;
 import org.olat.core.CoreSpringFactory;
 import org.olat.core.commons.fullWebApp.LayoutMain3ColsController;
 import org.olat.core.commons.services.notifications.SubscriptionContext;
@@ -69,6 +70,7 @@ import org.olat.core.logging.AssertException;
 import org.olat.core.logging.activity.OlatResourceableType;
 import org.olat.core.logging.activity.ThreadLocalUserActivityLogger;
 import org.olat.core.util.StringHelper;
+import org.olat.core.util.UserSession;
 import org.olat.core.util.Util;
 import org.olat.core.util.coordinate.CoordinatorManager;
 import org.olat.core.util.event.EventBus;
@@ -97,10 +99,11 @@ import org.olat.repository.RepositoryService;
 import org.olat.repository.ui.RepositoryTableModel;
 import org.olat.resource.OLATResource;
 import org.olat.resource.accesscontrol.ACService;
-import org.olat.resource.accesscontrol.ACUIFactory;
 import org.olat.resource.accesscontrol.AccessControlModule;
 import org.olat.resource.accesscontrol.AccessResult;
 import org.olat.resource.accesscontrol.ui.AccessEvent;
+import org.olat.resource.accesscontrol.ui.AccessListController;
+import org.olat.resource.accesscontrol.ui.OrdersAdminController;
 import org.olat.util.logging.activity.LoggingResourceable;
 import org.springframework.beans.factory.annotation.Autowired;
 
@@ -194,12 +197,21 @@ public class BusinessGroupMainRunController extends MainLayoutBasicController im
 	private GroupController gparticipantsC;
 	private GroupController waitingListController;
 
+	/**
+	 * Business group administrator
+	 */
 	private boolean isAdmin;
+	/**
+	 * Group manager of OLAT administrator.
+	 */
+	private boolean isGroupsAdmin;
 
 	@Autowired
 	private ACService acService;
 	@Autowired
 	private BaseSecurity securityManager;
+	@Autowired
+	private CalendarModule calendarModule;
 	@Autowired
 	private BusinessGroupService businessGroupService;
 	private EventBus singleUserEventBus;
@@ -214,6 +226,7 @@ public class BusinessGroupMainRunController extends MainLayoutBasicController im
 	
 	private boolean needActivation;
 	private boolean chatAvailable;
+	private boolean wildcard;
 
 	/**
 	 * Do not use this constructor! Use the BGControllerFactory instead!
@@ -250,15 +263,28 @@ public class BusinessGroupMainRunController extends MainLayoutBasicController im
 			putInitialPanel(getOnWaitingListMessage(ureq, bGroup));
 			chatAvailable = false;
 			return;
+		} else if(ureq.getUserSession().getRoles().isGuestOnly()) {
+			//not a member
+			putInitialPanel(getNoAccessMessage(ureq, bGroup));
+			chatAvailable = false;
+			return;
 		}
 
 		addLoggingResourceable(LoggingResourceable.wrap(businessGroup));
 		ThreadLocalUserActivityLogger.log(GroupLoggingAction.GROUP_OPEN, getClass());
+
+		UserSession usess = ureq.getUserSession();
+		Object wcard = usess.removeEntry("wild_card_" + businessGroup.getKey());
+		
+		isGroupsAdmin = usess.getRoles().isOLATAdmin()
+				|| usess.getRoles().isGroupManager();
 		
 		chatAvailable = isChatAvailable();
-		isAdmin = ureq.getUserSession().getRoles().isOLATAdmin()
-				|| ureq.getUserSession().getRoles().isGroupManager()
+		isAdmin = (wcard != null && Boolean.TRUE.equals(wcard))
+				|| isGroupsAdmin
 				|| businessGroupService.isIdentityInBusinessGroup(getIdentity(), businessGroup.getKey(), true, false, null);
+		
+		
 
 		// Initialize translator:
 		// package translator with default group fallback translators and type
@@ -304,16 +330,13 @@ public class BusinessGroupMainRunController extends MainLayoutBasicController im
 			showError("grouprun.disabled");				
 		}
 		
-		Object wildcard = ureq.getUserSession().getEntry("wild_card_" + businessGroup.getKey());
-		if(wildcard == null) {
+		if(wcard == null) {
 			//check managed
-			//fxdiff VCRP-1,2: access control of resources
-			ACService acService = CoreSpringFactory.getImpl(ACService.class);
 			AccessResult acResult = acService.isAccessible(businessGroup, getIdentity(), false);
 			if(acResult.isAccessible()) {
 				needActivation = false;
 			}  else if (businessGroup != null && acResult.getAvailableMethods().size() > 0) {
-				accessController = ACUIFactory.createAccessController(ureq, getWindowControl(), acResult.getAvailableMethods());
+				accessController = new AccessListController(ureq, getWindowControl(), acResult.getAvailableMethods());
 				listenTo(accessController);
 				mainPanel.setContent(accessController.getInitialComponent());
 				bgTree.setTreeModel(new GenericTreeModel());
@@ -323,9 +346,10 @@ public class BusinessGroupMainRunController extends MainLayoutBasicController im
 				bgTree.setTreeModel(new GenericTreeModel());
 				needActivation = true;
 			}
+			wildcard = false;
 		} else {
-			ureq.getUserSession().removeEntryFromNonClearedStore("wild_card_" + businessGroup.getKey());
 			needActivation = false;
+			wildcard = true;
 		}
 	}
 	
@@ -338,6 +362,14 @@ public class BusinessGroupMainRunController extends MainLayoutBasicController im
 	
 	private Component getOnWaitingListMessage(UserRequest ureq, BusinessGroup group) {
 		VelocityContainer vc = createVelocityContainer("waiting");
+		vc.contextPut("name", group.getName());
+		columnLayoutCtr = new LayoutMain3ColsController(ureq, getWindowControl(), null, vc, "grouprun");
+		listenTo(columnLayoutCtr); // cleanup on dispose
+		return columnLayoutCtr.getInitialComponent();
+	}
+	
+	private Component getNoAccessMessage(UserRequest ureq, BusinessGroup group) {
+		VelocityContainer vc = createVelocityContainer("access_denied");
 		vc.contextPut("name", group.getName());
 		columnLayoutCtr = new LayoutMain3ColsController(ureq, getWindowControl(), null, vc, "grouprun");
 		listenTo(columnLayoutCtr); // cleanup on dispose
@@ -709,7 +741,7 @@ public class BusinessGroupMainRunController extends MainLayoutBasicController im
 	private void doAccessControlHistory(UserRequest ureq) {
 		removeAsListenerAndDispose(bgACHistoryCtrl);
 		OLATResource resource = businessGroup.getResource();
-		bgACHistoryCtrl = ACUIFactory.createOrdersAdminController(ureq, getWindowControl(), resource);
+		bgACHistoryCtrl = new OrdersAdminController(ureq, getWindowControl(), resource);
 		listenTo(bgACHistoryCtrl);
 		mainPanel.setContent(bgACHistoryCtrl.getInitialComponent());
 	}
@@ -742,7 +774,7 @@ public class BusinessGroupMainRunController extends MainLayoutBasicController im
 		// 2. show participants if configured with Participants
 		if (businessGroup.isParticipantsVisibleIntern()) {
 			removeAsListenerAndDispose(gparticipantsC);
-			gparticipantsC = new GroupController(ureq, getWindowControl(), false, true, false, false, downloadAllowed, false, group, GroupRoles.participant.name());
+			gparticipantsC = new GroupController(ureq, getWindowControl(), false, true, true, false, downloadAllowed, false, group, GroupRoles.participant.name());
 			listenTo(gparticipantsC);
 			
 			membersVc.put("participants", gparticipantsC.getInitialComponent());
@@ -754,7 +786,7 @@ public class BusinessGroupMainRunController extends MainLayoutBasicController im
 		membersVc.contextPut("hasWaitingList", new Boolean(businessGroup.getWaitingListEnabled()) );
 		if (businessGroup.isWaitingListVisibleIntern()) {
 			removeAsListenerAndDispose(waitingListController);
-			waitingListController = new GroupController(ureq, getWindowControl(), false, true, false, false, downloadAllowed, false, group, GroupRoles.waiting.name());
+			waitingListController = new GroupController(ureq, getWindowControl(), false, true, true, false, downloadAllowed, false, group, GroupRoles.waiting.name());
 			listenTo(waitingListController);
 			membersVc.put("waitingList", waitingListController.getInitialComponent());
 			membersVc.contextPut("showWaitingList", Boolean.TRUE);
@@ -894,13 +926,14 @@ public class BusinessGroupMainRunController extends MainLayoutBasicController im
 	/**
 	 * @see org.olat.core.util.event.GenericEventListener#event(org.olat.core.gui.control.Event)
 	 */
+	@Override
 	public void event(Event event) {
 		if (event instanceof OLATResourceableJustBeforeDeletedEvent) {
 			OLATResourceableJustBeforeDeletedEvent delEvent = (OLATResourceableJustBeforeDeletedEvent) event;
-			if (!delEvent.targetEquals(businessGroup)) throw new AssertException(
-					"receiving a delete event for a olatres we never registered for!!!:" + delEvent.getDerivedOres());
+			if (!delEvent.targetEquals(businessGroup)) {
+				throw new AssertException("receiving a delete event for a olatres we never registered for!!!:" + delEvent.getDerivedOres());
+			}	
 			dispose();
-
 		} else if (event instanceof BusinessGroupModifiedEvent) {
 			BusinessGroupModifiedEvent bgmfe = (BusinessGroupModifiedEvent) event;
 			if (event.getCommand().equals(BusinessGroupModifiedEvent.CONFIGURATION_MODIFIED_EVENT)) {
@@ -921,7 +954,7 @@ public class BusinessGroupMainRunController extends MainLayoutBasicController im
 					// Activate edit menu item
 					bgTree.setSelectedNodeId(ACTIVITY_MENUSELECT_ADMINISTRATION);
 				}
-			} else if (bgmfe.wasMyselfRemoved(getIdentity())) {
+			} else if (bgmfe.wasMyselfRemoved(getIdentity()) && !wildcard && !isGroupsAdmin) {
 				//nothing more here!! The message will be created and displayed upon disposing
 				dispose();//disposed message controller will be set
 			}
@@ -992,11 +1025,10 @@ public class BusinessGroupMainRunController extends MainLayoutBasicController im
 			gtnChild.setAltText(translate("menutree.news.alt"));
 			gtnChild.setIconCssClass("o_icon_news");
 			root.addChild(gtnChild);
-			//fxdiff BAKS-7 Resume function
 			nodeInformation = gtnChild;
 		}
 
-		if (collabTools.isToolEnabled(CollaborationTools.TOOL_CALENDAR)) {
+		if (calendarModule.isEnabled() && calendarModule.isEnableGroupCalendar() && collabTools.isToolEnabled(CollaborationTools.TOOL_CALENDAR)) {
 			gtnChild = new GenericTreeNode();
 			gtnChild.setTitle(translate("menutree.calendar"));
 			gtnChild.setUserObject(ACTIVITY_MENUSELECT_CALENDAR);

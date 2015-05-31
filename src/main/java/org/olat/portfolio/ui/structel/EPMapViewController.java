@@ -81,7 +81,6 @@ public class EPMapViewController extends BasicController implements Activateable
 	private EPStructureTreeAndDetailsEditController editCtrl;
 	private DialogBoxController confirmationSubmissionCtr;
 	private final boolean back;
-	private boolean editInToolbar = false;
 	
 	private EditMode editMode = EditMode.view;
 	private PortfolioStructureMap map;
@@ -108,7 +107,16 @@ public class EPMapViewController extends BasicController implements Activateable
 		if (map instanceof EPStructuredMap && (map.getStatus() == null || !map.getStatus().equals(StructureStatusEnum.CLOSED) )){
 			map = (PortfolioStructureMap) ePFMgr.loadPortfolioStructureByKey(map.getKey());
 			boolean syncOk = ePFMgr.synchronizeStructuredMapToUserCopy(map);
-			if (syncOk) showInfo("synced.map.success");
+			if (syncOk) {
+				showInfo("synced.map.success");
+			} else if(map == null) {
+				showWarning("synced.map.deleted");
+				putInitialPanel(createVelocityContainer("map_deleted"));
+				return;
+			} else {
+				showError("synced.map.error");
+				
+			}
 		}
 		
 		if(EPSecurityCallbackFactory.isLockNeeded(secCallback)) {
@@ -135,12 +143,6 @@ public class EPMapViewController extends BasicController implements Activateable
 		return secCallback.canEditStructure();
 	}
 	
-	public void delegateEditButton() {
-		if(editButton != null) {
-			editButton.setVisible(false);
-		}
-	}
-
 	protected void initForm(UserRequest ureq) {
 		Identity ownerIdentity = ePFMgr.getFirstOwnerIdentity(map);
 		if(ownerIdentity != null) {
@@ -160,9 +162,6 @@ public class EPMapViewController extends BasicController implements Activateable
 				editButton.setCustomDisplayText(translate("map.editButton.on"));
 			} else {
 				editButton.setCustomDisplayText(translate("map.editButton.off"));
-			}
-			if(editInToolbar) {
-				mainVc.remove(mainVc.getComponent("map.editButton"));
 			}
 		} 
 		if(back) {
@@ -244,7 +243,9 @@ public class EPMapViewController extends BasicController implements Activateable
 		}
 		initForm(ureq);
 		editMode = EditMode.view;
-		editButton.setCustomDisplayText(translate("map.editButton.on"));
+		if(editButton != null) {
+			editButton.setCustomDisplayText(translate("map.editButton.on"));
+		}
 		if(currentEditedStructure != null && pageCtrl != null) {
 			EPPage page = getSelectedPage(currentEditedStructure);
 			if(page != null) {
@@ -262,6 +263,7 @@ public class EPMapViewController extends BasicController implements Activateable
 				selectedPage = pageCtrl.getSelectedPage();
 			}
 			initOrUpdateEditMode(ureq, selectedPage);
+			editMode = EditMode.editor;
 		}
 	}
 	
