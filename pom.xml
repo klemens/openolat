@@ -58,8 +58,8 @@
 			<archive>https://groups.google.com/forum/#!forum/openolat</archive>
 		</mailingList>
 	</mailingLists>
-	<!-- Unless otherwise explicitly stated the character encoding for all resources
-		(e.g., source, test etc.) will be UTF-8. This can be overriden at the plugin
+	<!-- Unless otherwise explicitly stated the character encoding for all resources 
+		(e.g., source, test etc.) will be UTF-8. This can be overriden at the plugin 
 		level if necessary. -->
 	<properties>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
@@ -322,7 +322,7 @@
 					<artifactId>jersey-servlet</artifactId>
 					<version>${com.sun.jersey.version}</version>
 				</dependency>
-
+				
 				<dependency>
 					<groupId>dom4j</groupId>
 					<artifactId>dom4j</artifactId>
@@ -354,7 +354,7 @@
 					<artifactId>hibernate-c3p0</artifactId>
 					<version>${org.hibernate.version}</version>
 				</dependency>
-
+				
 				<dependency>
 					<groupId>org.infinispan</groupId>
 					<artifactId>infinispan-core</artifactId>
@@ -382,7 +382,7 @@
 						</exclusion>
 					</exclusions>
 				</dependency>
-
+		
 				<dependency>
 					<groupId>mysql</groupId>
 					<artifactId>mysql-connector-java</artifactId>
@@ -393,7 +393,7 @@
 					<artifactId>postgresql</artifactId>
 					<version>${org.postgresql.version}</version>
 				</dependency>
-
+		
 				<dependency>
 					<groupId>org.apache.geronimo.specs</groupId>
 					<artifactId>geronimo-jms_1.1_spec</artifactId>
@@ -457,7 +457,7 @@
 	    			<version>1.2.8</version>
 	    		</dependency>
 			</dependencies>
-
+			
 			<build>
 				<plugins>
 					<plugin>
@@ -504,7 +504,7 @@
 					<version>1.1.1</version>
 					<scope>provided</scope>
 				</dependency>
-
+				
 				<dependency>
 					<groupId>dom4j</groupId>
 					<artifactId>dom4j</artifactId>
@@ -541,7 +541,7 @@
 					<version>${org.hibernate.version}</version>
 					<scope>provided</scope>
 				</dependency>
-
+				
 				<dependency>
 					<groupId>org.infinispan</groupId>
 					<artifactId>infinispan-core</artifactId>
@@ -570,7 +570,7 @@
 						</exclusion>
 					</exclusions>
 				</dependency>
-
+		
 				<dependency>
 					<groupId>mysql</groupId>
 					<artifactId>mysql-connector-java</artifactId>
@@ -715,7 +715,7 @@
             <dependencies>
               <dependency>
                 <!-- DO NOT UPDATE! -->
-                <!-- Due to our special setup where we use the jdbc driver to convert
+                <!-- Due to our special setup where we use the jdbc driver to convert 
 				          from utf-8 to iso we cannot update this lib at the moment. -->
                 <groupId>mysql</groupId>
                 <artifactId>mysql-connector-java</artifactId>
@@ -731,7 +731,7 @@
               <password>${test.env.db.pass}</password>
               <!-- You can comment out username/password configurations and
                    have maven to look them up in your settings.xml using ${settingsKey}
-
+              
               <settingsKey>sensibleKey</settingsKey>-->
               <!--all executions are ignored if -Dmaven.test.skip=true-->
               <skip>${maven.test.skip}</skip>
@@ -801,7 +801,7 @@
         </plugins>
       </build>
     </profile>
-
+    
     <profile>
       <id>postgresqlunittests</id>
       <activation>
@@ -928,7 +928,7 @@
               <password>${test.env.db.postgresql.pass}</password>
               <!-- You can comment out username/password configurations and
                    have maven to look them up in your settings.xml using ${settingsKey}
-
+              
               <settingsKey>sensibleKey</settingsKey>-->
               <!--all executions are ignored if -Dmaven.test.skip=true-->
               <skip>${maven.test.skip}</skip>
@@ -1001,7 +1001,7 @@
         </plugins>
       </build>
     </profile>
-
+    
 	<profile>
 		<id>oracleunittests</id>
 		<activation>
@@ -1039,7 +1039,7 @@
 					<executions>
 						<execution>
 							<id>copy-resources-4-postgresqlunittests</id>
-							<!-- hook in to copy maven.build.properties to allow test and integration-test
+							<!-- hook in to copy maven.build.properties to allow test and integration-test 
 								phase run properly -->
 							<phase>generate-test-resources</phase>
 							<goals>
@@ -1159,7 +1159,7 @@
 				<enabled>true</enabled>
 				<updatePolicy>daily</updatePolicy>
 			</snapshots>
-		</repository>
+		</repository>	
 		<repository>
 			<id>openolat-repo</id>
 			<name>OpenOLAT Public Maven Repository Group</name>
@@ -1200,20 +1200,20 @@
 		</pluginRepository>
 	</pluginRepositories>
 	<build>
-		<!-- Useful maven commands: o mvn dependency:tree - check to see what other
-			dependencies get downloaded by an artifact o Maven lifecycle: Each phase
-			of the lifecycle can also be called independent - e.g. mvn process-resources
-			- http://maven.apache.org/guides/introduction/introduction-to-the-lifecycle.html#Lifecycle_Reference
-			o mvn versions:display-plugin-updates (find updates to maven plugins) o mvn
-			versions:use-latest-versions (automatically update dependencies. WARNING!!!)
-			o mvn versions:display-dependency-updates (shows updates for dependencies)
-			o mvn help:effective-pom - displays the computed pom, where you will see
+		<!-- Useful maven commands: o mvn dependency:tree - check to see what other 
+			dependencies get downloaded by an artifact o Maven lifecycle: Each phase 
+			of the lifecycle can also be called independent - e.g. mvn process-resources 
+			- http://maven.apache.org/guides/introduction/introduction-to-the-lifecycle.html#Lifecycle_Reference 
+			o mvn versions:display-plugin-updates (find updates to maven plugins) o mvn 
+			versions:use-latest-versions (automatically update dependencies. WARNING!!!) 
+			o mvn versions:display-dependency-updates (shows updates for dependencies) 
+			o mvn help:effective-pom - displays the computed pom, where you will see 
 			what is getting executed after expanding vars and plugin settings -->
 
 		<resources>
-			<!-- as long as we have resources like html, css, js in the src/main/java
-				tree we need these two entries. the first tells maven to treat the java folder
-				as the resource folder but not to copy the java files. The later tell maven
+			<!-- as long as we have resources like html, css, js in the src/main/java 
+				tree we need these two entries. the first tells maven to treat the java folder 
+				as the resource folder but not to copy the java files. The later tell maven 
 				that we have an other resource folder which is normally the default -->
 			<resource>
 				<directory>src/main/java</directory>
@@ -1228,7 +1228,7 @@
 			</resource>
 			<resource>
 				<directory>src/main/resources</directory>
-				<!-- when enabled resources will be searched and variables replaces with
+				<!-- when enabled resources will be searched and variables replaces with 
 					values -->
 				<filtering>false</filtering>
 				<excludes>
@@ -1339,7 +1339,7 @@
 					</configuration>
 				</plugin>
 
-				<!-- The Eclipse plugin is only of interest to developers and requires
+				<!-- The Eclipse plugin is only of interest to developers and requires 
 					that WTP be installed. -->
 				<plugin>
 					<groupId>org.apache.maven.plugins</groupId>
@@ -1357,9 +1357,9 @@
 		                        <type>1</type>
 		                        <location>${basedir}/src/test/profile/mysql/olat.eclipse.properties</location>
                 			</linkedResource>
-				        </linkedResources>
-
-
+				        </linkedResources>				        
+				        
+                        
 						<wtpversion>2.0</wtpversion>
 						<!-- context name for servlet container e.g. localhost:8080/olat -->
 						<wtpContextName>olat</wtpContextName>
@@ -1484,7 +1484,7 @@
 								<artifactId>wadl-resourcedoc-doclet</artifactId>
 								<version>${com.sun.jersey.version}</version>
 							</docletArtifact>
-							<!-- Also specify jersey and xerces as doclet artifacts as the ResourceDoclet
+							<!-- Also specify jersey and xerces as doclet artifacts as the ResourceDoclet 
 								uses classes provided by them to generate the resourcedoc. -->
 							<docletArtifact>
 								<groupId>com.sun.jersey</groupId>
@@ -1829,7 +1829,7 @@
 			<groupId>ch.ethz</groupId>
 			<artifactId>pfplms-scorm</artifactId>
 			<version>unknown</version>
-			<classifier>patched</classifier><!-- patched version of scorm adapter:
+			<classifier>patched</classifier><!-- patched version of scorm adapter: 
 				contact: matthai.kurian@gmail.com -->
 		</dependency>
 		<dependency><!-- used by SCORM -->
@@ -1837,7 +1837,7 @@
 			<artifactId>gnu-regexp</artifactId>
 			<version>1.1.4</version>
 		</dependency>
-		<!-- logging stuff -->
+		<!-- logging stuff -->	
 		<dependency>
 			<groupId>org.slf4j</groupId>
 			<artifactId>slf4j-api</artifactId>
@@ -2069,13 +2069,13 @@
 					<groupId>javax.activation</groupId>
 					<artifactId>activation</artifactId>
 				</exclusion>
-			</exclusions>
+			</exclusions>			
 		</dependency>
 		<dependency>
 			<groupId>com.neemsoft</groupId>
 			<artifactId>jmep</artifactId>
 			<version>unknown</version>
-			<classifier>patched</classifier> <!-- unknown patched version of jmep (java mathematical expression parser)[http://jmep.tigris.org/],
+			<classifier>patched</classifier> <!-- unknown patched version of jmep (java mathematical expression parser)[http://jmep.tigris.org/], 
 				do not replace unless you know what you do! -->
 		</dependency>
 		<!-- Lucene dependencies -->
@@ -2104,7 +2104,7 @@
 			<artifactId>lucene-suggest</artifactId>
 			<version>${lucene.version}</version>
 		</dependency>
-
+		
 		<!-- End lucene dependencies -->
 		<!-- Spring dependencies -->
 		<dependency>
@@ -2201,7 +2201,7 @@
 			<version>${jackson.version}</version>
 		</dependency>
 		<!-- end jersey -->
-
+		
 		<!-- paypal -->
 		<dependency>
 			<groupId>com.paypal</groupId>
@@ -2234,7 +2234,7 @@
 		    <version>1.0.9.Final</version>
 			<scope>test</scope>
 		</dependency>
-
+    
 		<!-- Start test dependencies for Arquillian and Selenium -->
     	<dependency>
 			<groupId>org.jboss.arquillian.junit</groupId>
@@ -2300,7 +2300,7 @@
 		</dependency>
 		<!-- End test dependencies -->
 	</dependencies>
-
+	
 	<dependencyManagement>
 		<dependencies>
 			<dependency>
@@ -2319,7 +2319,7 @@
 			</dependency>
 		</dependencies>
 	</dependencyManagement>
-
+	
 	<reporting>
 		<plugins>
 			<plugin>
@@ -2339,7 +2339,7 @@
 			</plugin>
 			<!-- Javadoc -->
 			<!-- <reportSets> <reportSet> <reports> <report>javadoc</report> -->
-			<!-- Note: leave this line commented out if unit tests are not to be documented
+			<!-- Note: leave this line commented out if unit tests are not to be documented 
 				<report>test-javadoc</report>report> -->
 			<!-- </reports> </reportSet> </reportSets> </plugin> -->
 			<plugin>
@@ -2389,7 +2389,7 @@
 			</plugin>
 		</plugins>
 	</reporting>
-
+	
 	<ciManagement>
 		<system>Hudson</system>
 		<url>http://jenkins.frentix.com</url>
