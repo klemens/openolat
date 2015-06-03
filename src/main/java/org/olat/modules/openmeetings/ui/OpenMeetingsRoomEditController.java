@@ -26,7 +26,6 @@ import java.util.List;
 import org.olat.core.CoreSpringFactory;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.form.flexible.FormItemContainer;
-import org.olat.core.gui.components.form.flexible.elements.MultipleSelectionElement;
 import org.olat.core.gui.components.form.flexible.elements.SingleSelection;
 import org.olat.core.gui.components.form.flexible.elements.TextElement;
 import org.olat.core.gui.components.form.flexible.impl.FormBasicController;
@@ -53,14 +52,14 @@ public class OpenMeetingsRoomEditController extends FormBasicController {
 	private TextElement roomNameEl;
 	private SingleSelection roomTypeEl;
 	private SingleSelection roomSizeEl;
+	private SingleSelection avModeEl;
 	private SingleSelection moderationModeEl;
-	private MultipleSelectionElement recordingEl;
 	private TextElement commentEl;
 	
 	private final String[] roomTypeKeys;
 	private final String[] roomSizes;
 	private final String[] moderationModeKeys;
-	private final String[] recordingKeys = {"xx"};
+	private final String[] avModeKeys;
 
 	private final BusinessGroup group;
 	private final OLATResourceable ores;
@@ -85,6 +84,7 @@ public class OpenMeetingsRoomEditController extends FormBasicController {
 				RoomType.conference.typeStr(), RoomType.restricted.typeStr(), RoomType.interview.typeStr()
 		};
 		moderationModeKeys = new String[]{"yes", "no"};
+		avModeKeys = new String[]{"audio", "video"};
 		
 		openMeetingsManager = CoreSpringFactory.getImpl(OpenMeetingsManager.class);
 		try {
@@ -171,12 +171,14 @@ public class OpenMeetingsRoomEditController extends FormBasicController {
 			moderationModeEl.select(key, true);
 		}
 
-		String[] recordingValues = new String[]{ translate("room.recording.enabled") };
-		recordingEl = uifactory.addCheckboxesHorizontal("recording", "room.recording", formLayout, recordingKeys, recordingValues);
+		String[] avModeValues = new String[]{ translate("room.av.audio"), translate("room.av.video") };
+		avModeEl = uifactory.addDropdownSingleselect("avmode", "room.av.mode", formLayout, avModeKeys, avModeValues, null);
 		if(room != null) {
-			recordingEl.select(recordingKeys[0], room.isRecordingAllowed());
+			String key = room.isAudioOnly() ? avModeKeys[0] : avModeKeys[1];
+			avModeEl.select(key, true);
 		} else if(defaultSettings != null) {
-			recordingEl.select(recordingKeys[0], defaultSettings.isRecordingAllowed());
+			String key = defaultSettings.isAudioOnly() ? avModeKeys[0] : avModeKeys[1];
+			avModeEl.select(key, true);
 		}
 
 		String comment = room == null ? (defaultSettings == null ? null : defaultSettings.getComment()) : room.getComment();
@@ -202,7 +204,6 @@ public class OpenMeetingsRoomEditController extends FormBasicController {
 		room.setComment(commentEl.getValue());
 		room.setModerated(moderationModeEl.isOneSelected() && moderationModeEl.isSelected(0));
 		room.setName(roomNameEl.getValue());
-		room.setRecordingAllowed(recordingEl.isAtLeastSelected(1));
 		if(roomSizeEl.isOneSelected()) {
 			String key = roomSizeEl.getSelectedKey();
 			if(StringHelper.isLong(key)) {
@@ -211,6 +212,7 @@ public class OpenMeetingsRoomEditController extends FormBasicController {
 				room.setSize(16l);
 			}
 		}
+		room.setAudioOnly(avModeEl.isOneSelected() && avModeEl.isSelected(0));
 		if(roomTypeEl.isOneSelected()) {
 			String type = roomTypeEl.getSelectedKey();
 			long roomType = Long.parseLong(type);

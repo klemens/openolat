@@ -109,6 +109,7 @@ public class MailModule extends AbstractOLATModule {
 	 * @param internSystem
 	 */
 	public void setInterSystem(boolean internSystem) {
+		this.internSystem = internSystem;
 		String internSystemStr = internSystem ? "true" : "false";
 		setStringProperty(INTERN_MAIL_SYSTEM, internSystemStr, true);
 	}

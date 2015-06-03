@@ -19,7 +19,7 @@
  */
 package org.olat.core.util.mail;
 
-import org.olat.core.extensions.action.GenericActionExtension;
+import org.olat.admin.user.tools.UserToolExtension;
 
 /**
  * 
@@ -27,7 +27,7 @@ import org.olat.core.extensions.action.GenericActionExtension;
  * @author srosse, stephane.rosse@frentix.com, http://www.frentix.com
  *
  */
-public class MailToolExtension extends GenericActionExtension {
+public class MailToolExtension extends UserToolExtension {
 	
 	private MailModule module;
 	

@@ -3,6 +3,14 @@
 	
 	.o_lead {
 		@extend .jumbotron;
+		margin-bottom: 10px;
+		.o_author{
+			margin-top: 0.5em;
+			margin-bottom: 1em;
+			font-size: 120%;
+			@include text-overflow();
+			color: $o-coursesite-meta-author-color;
+		}
 		.o_media {
 			float: right;
 			margin-left: 2em;
@@ -21,6 +29,12 @@
 			margin-bottom: 0.25em;
 		}
 	}
+	
+	.o_infopanel, o_usagepanel, o_managedpanel {
+		.panel-title {
+			cursor: pointer;
+		}
+	}
 		
 	.o_start, .o_book {
 		margin: 2em 0;
@@ -37,14 +51,15 @@
 		}
 	}	
 	
-	
 	@media (max-width: $screen-xs-max) { 
 		.o_lead {
 			p {
 				font-size: floor($jumbotron-font-size * 0.8);
 			}		
 			.o_media {
-				margin-top: 0;
+				margin-left: 0;
+				float: none;
+				text-align: center;				
 			}
 		}
     }	
@@ -56,6 +71,8 @@
 			width: 100%;
 		}
 	}
+}
 
-    
+.o_ac_configuration {
+	span.o_ac_infos { font-weight:normal; color: grey; }
 }

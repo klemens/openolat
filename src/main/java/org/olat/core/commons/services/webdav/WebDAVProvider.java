@@ -26,10 +26,12 @@
 
 package org.olat.core.commons.services.webdav;
 
-import org.olat.core.id.Identity;
+import org.olat.core.id.IdentityEnvironment;
 import org.olat.core.util.vfs.VFSContainer;
 
 public interface WebDAVProvider {
+	
+	public boolean hasAccess(IdentityEnvironment identityEnv);
 
 	/**
 	 * Get a name under which this provider would like to list its container as at the root level of the WebDAV mount point
@@ -41,6 +43,6 @@ public interface WebDAVProvider {
 	 * @param identity
 	 * @return
 	 */
-	public VFSContainer getContainer(Identity identity);
+	public VFSContainer getContainer(IdentityEnvironment identityEnv);
 	
 }

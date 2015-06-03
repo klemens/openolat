@@ -32,7 +32,9 @@ import java.util.Map;
 import org.olat.core.commons.controllers.linkchooser.CustomLinkTreeModel;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.Component;
+import org.olat.core.gui.components.ComponentEventListener;
 import org.olat.core.gui.components.form.flexible.elements.DateChooser;
+import org.olat.core.gui.components.form.flexible.elements.DownloadLink;
 import org.olat.core.gui.components.form.flexible.elements.FileElement;
 import org.olat.core.gui.components.form.flexible.elements.FlexiTableElement;
 import org.olat.core.gui.components.form.flexible.elements.FormLink;
@@ -51,6 +53,7 @@ import org.olat.core.gui.components.form.flexible.impl.FormEvent;
 import org.olat.core.gui.components.form.flexible.impl.FormItemImpl;
 import org.olat.core.gui.components.form.flexible.impl.components.SimpleExampleText;
 import org.olat.core.gui.components.form.flexible.impl.components.SimpleFormErrorText;
+import org.olat.core.gui.components.form.flexible.impl.elements.DownloadLinkImpl;
 import org.olat.core.gui.components.form.flexible.impl.elements.FileElementImpl;
 import org.olat.core.gui.components.form.flexible.impl.elements.FormCancel;
 import org.olat.core.gui.components.form.flexible.impl.elements.FormLinkImpl;
@@ -72,16 +75,19 @@ import org.olat.core.gui.components.form.flexible.impl.elements.richText.RichTex
 import org.olat.core.gui.components.form.flexible.impl.elements.table.FlexiTableDataModel;
 import org.olat.core.gui.components.form.flexible.impl.elements.table.FlexiTableElementImpl;
 import org.olat.core.gui.components.link.Link;
+import org.olat.core.gui.components.tree.MenuTreeItem;
 import org.olat.core.gui.components.tree.TreeModel;
 import org.olat.core.gui.control.WindowBackOffice;
 import org.olat.core.gui.control.WindowControl;
 import org.olat.core.gui.themes.Theme;
 import org.olat.core.gui.translator.Translator;
+import org.olat.core.gui.util.CSSHelper;
 import org.olat.core.util.StringHelper;
 import org.olat.core.util.UserSession;
 import org.olat.core.util.ValidationStatus;
 import org.olat.core.util.tree.INodeFilter;
 import org.olat.core.util.vfs.VFSContainer;
+import org.olat.core.util.vfs.VFSLeaf;
 
 /**
  * Factory class to create the flexible form elements.
@@ -286,6 +292,14 @@ public class FormUIFactory {
 	 */
 	public MultipleSelectionElement addTreeMultiselect(String name, String i18nLabel, FormItemContainer formLayout, TreeModel treemodel, INodeFilter selectableFilter){
 		MultipleSelectionElement mse = new MultiSelectionTreeImpl(name, treemodel, selectableFilter);
+		setLabelIfNotNull(i18nLabel, mse);
+		formLayout.add(mse);
+		return mse;
+	}
+	
+	public MenuTreeItem addTreeMultiselect(String name, String i18nLabel, FormItemContainer formLayout, TreeModel treemodel, ComponentEventListener listener){
+		MenuTreeItem mse = new MenuTreeItem(name, listener);
+		mse.setTreeModel(treemodel);
 		setLabelIfNotNull(i18nLabel, mse);
 		formLayout.add(mse);
 		return mse;
@@ -825,19 +839,13 @@ public class FormUIFactory {
 
 	/**
 	 * 
-	 * @see FlexiTableDataModel and its implementations
+	 * @param wControl
 	 * @param name
 	 * @param tableModel
+	 * @param translator
 	 * @param formLayout
 	 * @return
 	 */
-	public FlexiTableElement addTableElement(WindowControl wControl, String name, FlexiTableDataModel<?> tableModel,
-			FormItemContainer formLayout) {
-		FlexiTableElementImpl fte = new FlexiTableElementImpl(wControl, name,tableModel);
-		formLayout.add(fte);
-		return fte;
-	}
-	
 	public FlexiTableElement addTableElement(WindowControl wControl, String name, FlexiTableDataModel<?> tableModel,
 			Translator translator, FormItemContainer formLayout) {
 		FlexiTableElementImpl fte = new FlexiTableElementImpl(wControl, name, translator, tableModel);
@@ -937,6 +945,50 @@ public class FormUIFactory {
 		fte.setCustomEnabledLinkCSS(customEnabledLinkCSS);
 		if(formLayout != null) {
 			formLayout.add(fte);
+		}
+		return fte;
+	}
+	
+	/**
+	 * Add a download link
+	 * @param name
+	 * @param linkTitle
+	 * @param i18nLabel
+	 * @param file
+	 * @param formLayout
+	 * @return
+	 */
+	public DownloadLink addDownloadLink(String name,  String linkTitle, String i18nLabel, VFSLeaf file, FormItemContainer formLayout) {
+		DownloadLinkImpl fte = new DownloadLinkImpl(name);
+		fte.setLinkText(linkTitle);
+		fte.setDownloadItem(file);
+		String css = CSSHelper.createFiletypeIconCssClassFor(file.getName());
+		fte.setIconLeftCSS("o_icon o_icon-fw " + css);
+		setLabelIfNotNull(i18nLabel, fte);
+		if(formLayout != null) {
+			formLayout.add(fte);
+		}
+		return fte;
+	}
+	
+	/**
+	 * Add a download link
+	 * @param name
+	 * @param linkTitle
+	 * @param i18nLabel
+	 * @param file
+	 * @param formLayout
+	 * @return
+	 */
+	public DownloadLink addDownloadLink(String name,  String linkTitle, String i18nLabel, VFSLeaf file, FlexiTableElement formLayout) {
+		DownloadLinkImpl fte = new DownloadLinkImpl(name);
+		fte.setLinkText(linkTitle);
+		fte.setDownloadItem(file);
+		String css = CSSHelper.createFiletypeIconCssClassFor(file.getName());
+		fte.setIconLeftCSS("o_icon o_icon-fw " + css);
+		setLabelIfNotNull(i18nLabel, fte);
+		if(formLayout != null) {
+			((FlexiTableElementImpl)formLayout).addFormItem(fte);
 		}
 		return fte;
 	}

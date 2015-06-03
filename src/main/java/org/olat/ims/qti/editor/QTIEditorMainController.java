@@ -51,8 +51,6 @@ import org.olat.core.gui.components.panel.Panel;
 import org.olat.core.gui.components.stack.TooledStackedPanel;
 import org.olat.core.gui.components.stack.TooledStackedPanel.Align;
 import org.olat.core.gui.components.tree.MenuTree;
-import org.olat.core.gui.components.tree.SelectionTree;
-import org.olat.core.gui.components.tree.TreeEvent;
 import org.olat.core.gui.components.tree.TreeNode;
 import org.olat.core.gui.components.velocity.VelocityContainer;
 import org.olat.core.gui.control.Controller;
@@ -93,6 +91,7 @@ import org.olat.core.util.vfs.VFSContainer;
 import org.olat.core.util.vfs.callbacks.FullAccessWithQuotaCallback;
 import org.olat.core.util.vfs.callbacks.VFSSecurityCallback;
 import org.olat.core.util.xml.XStreamHelper;
+import org.olat.course.CorruptedCourseException;
 import org.olat.course.CourseFactory;
 import org.olat.course.ICourse;
 import org.olat.course.nodes.CourseNode;
@@ -135,6 +134,7 @@ import org.olat.repository.RepositoryManager;
 import org.olat.repository.RepositoryService;
 import org.olat.resource.references.ReferenceImpl;
 import org.olat.user.UserManager;
+import org.springframework.beans.factory.annotation.Autowired;
 
 /**
  * Description: <br>
@@ -236,8 +236,6 @@ public class QTIEditorMainController extends MainLayoutBasicController implement
 	private DialogBoxController deleteDialog;
 	private DialogBoxController deleteMediaDialog;
 	private IQDisplayController previewController;
-	private SelectionTree moveTree, copyTree, insertTree;
-	private InsertItemTreeModel insertTreeModel;
 	private LockResult lockEntry;
 	private boolean restrictedEdit;
 	private Map<String, Memento> history = null;
@@ -256,25 +254,39 @@ public class QTIEditorMainController extends MainLayoutBasicController implement
 	private Link notEditableButton; 
 	private Set<String> deletableMediaFiles;
 	private StepsMainRunController importTableWizard;
+	private InsertNodeController moveCtrl, copyCtrl, insertCtrl;
 
-	private final UserManager userManager;
-	private final QTIQPoolServiceProvider qtiQpoolServiceProvider;
+	@Autowired
+	private UserManager userManager;
+	@Autowired
+	private QTIResultManager qtiResultManager;
+	@Autowired
+	private RepositoryManager repositoryManager;
+	@Autowired
+	private QTIQPoolServiceProvider qtiQpoolServiceProvider;
 	
-	public QTIEditorMainController(List<ReferenceImpl> referencees, UserRequest ureq, WindowControl wControl, FileResource fileResource) {
+	public QTIEditorMainController(UserRequest ureq, WindowControl wControl, RepositoryEntry qtiEntry, List<ReferenceImpl> referencees, FileResource fileResource) {
 		super(ureq, wControl);
-		
-		qtiQpoolServiceProvider = (QTIQPoolServiceProvider)CoreSpringFactory.getBean("qtiPoolServiceProvider");
-		userManager = CoreSpringFactory.getImpl(UserManager.class);
 
 		for(Iterator<ReferenceImpl> iter = referencees.iterator(); iter.hasNext(); ) {
 			ReferenceImpl ref = iter.next();
 			if ("CourseModule".equals(ref.getSource().getResourceableTypeName())) {
-				ICourse course = CourseFactory.loadCourse(ref.getSource().getResourceableId());
-				CourseNode courseNode = course.getEditorTreeModel().getCourseNode(ref.getUserdata());
-				String repositorySoftKey = (String) courseNode.getModuleConfiguration().get(IQEditController.CONFIG_KEY_REPOSITORY_SOFTKEY);
-				Long repKey = RepositoryManager.getInstance().lookupRepositoryEntryBySoftkey(repositorySoftKey, true).getKey();
-				restrictedEdit = ((CoordinatorManager.getInstance().getCoordinator().getLocker().isLocked(course, null))
-						|| QTIResultManager.getInstance().countResults(course.getResourceableId(), courseNode.getIdent(), repKey) > 0) ? true : false;
+				try {
+					ICourse course = CourseFactory.loadCourse(ref.getSource().getResourceableId());
+					CourseNode courseNode = course.getEditorTreeModel().getCourseNode(ref.getUserdata());
+					String repositorySoftKey = (String) courseNode.getModuleConfiguration().get(IQEditController.CONFIG_KEY_REPOSITORY_SOFTKEY);
+					//check softly that the setting if ok
+					if(qtiEntry.getSoftkey().equals(repositorySoftKey)) {
+						restrictedEdit = ((CoordinatorManager.getInstance().getCoordinator().getLocker().isLocked(course, null))
+							|| qtiResultManager.countResults(course.getResourceableId(), courseNode.getIdent(), qtiEntry.getKey()) > 0) ? true : false;
+					} else {
+						logError("The course node soft key doesn't match the test/survey sotf key. Course resourceable id: "
+					      + course.getResourceableId() + " (" + course.getCourseTitle() + ") course node: " + courseNode.getIdent() + " (" + courseNode.getShortTitle() + " )"
+					      + " soft key of test/survey in course: " + repositorySoftKey + "  test/survey soft key: " + qtiEntry.getSoftkey(), null);
+					}
+				} catch(CorruptedCourseException e) {
+					logError("", e);
+				}
 			}
 			if(restrictedEdit) {
 				break;
@@ -466,38 +478,6 @@ public class QTIEditorMainController extends MainLayoutBasicController implement
 					stackedPanel.setDirty(true);
 				}
 			}
-		} else if (source == moveTree) { // catch move operations
-			cmc.deactivate();
-			removeAsListenerAndDispose(cmc);
-			cmc = null;
-			
-			TreeEvent te = (TreeEvent) event;
-			if (te.getCommand().equals(TreeEvent.COMMAND_TREENODE_CLICKED)) {
-				doMove(te);
-				menuTree.setDirty(true); //force rerendering for ajax mode
-				updateWarning();
-			}
-		} else if (source == copyTree) { // catch copy operations
-			cmc.deactivate();
-			removeAsListenerAndDispose(cmc);
-			cmc = null;
-			
-			TreeEvent te = (TreeEvent) event;
-			if (te.getCommand().equals(TreeEvent.COMMAND_TREENODE_CLICKED)) {
-				doCopy(ureq, te);
-				updateWarning();
-			}
-		} else if (source == insertTree) { // catch insert operations
-			cmc.deactivate();
-			removeAsListenerAndDispose(cmc);
-			cmc = null;
-			
-			TreeEvent te = (TreeEvent) event;
-			if (te.getCommand().equals(TreeEvent.COMMAND_TREENODE_CLICKED)) { // insert
-				doInsert(ureq, te.getNodeId(), insertTree.getUserObject());
-				updateWarning();
-				fireEvent(ureq, event);
-			}
 		} else if (source == exitVC) {
 			if (event.getCommand().equals(CMD_EXIT_SAVE)) {
 				if (isRestrictedEdit() && history.size() > 0) {
@@ -615,29 +595,23 @@ public class QTIEditorMainController extends MainLayoutBasicController implement
 			GenericQtiNode clickedNode = menuTreeModel.getQtiNode(menuTree.getSelectedNodeId());
 			if (clickedNode instanceof ItemNode && ((SectionNode) clickedNode.getParent()).getChildCount() == 1) {				
 				getWindowControl().setError(translate("error.move.atleastoneitem"));
-				return;
+			} else {
+				TreeNode selectedNode = menuTree.getSelectedNode();
+				int type = (selectedNode instanceof SectionNode) ? InsertItemTreeModel.INSTANCE_ASSESSMENT : InsertItemTreeModel.INSTANCE_SECTION;
+				InsertItemTreeModel treeModel = new InsertItemTreeModel(menuTreeModel, selectedNode, type);
+				moveCtrl = new InsertNodeController(ureq, getWindowControl(), treeModel);
+				listenTo(moveCtrl);
+				cmc = new CloseableModalController(getWindowControl(), "close", moveCtrl.getInitialComponent(), true, translate("title.move"));
+				cmc.activate();
+				listenTo(cmc);
 			}
-			TreeNode selectedNode = menuTree.getSelectedNode();
-			moveTree = new SelectionTree("moveTree", getTranslator());
-			moveTree.setFormButtonKey("submit");
-			insertTreeModel = new InsertItemTreeModel(menuTreeModel,
-					(selectedNode instanceof SectionNode) ? InsertItemTreeModel.INSTANCE_ASSESSMENT : InsertItemTreeModel.INSTANCE_SECTION);
-			moveTree.setTreeModel(insertTreeModel);
-			moveTree.addListener(this);
-			cmc = new CloseableModalController(getWindowControl(),translate("close"), moveTree, true, translate("title.move"));
-			cmc.activate();
-			listenTo(cmc);
-			
 		} else if (copyLink == source) {
-			copyTree = new SelectionTree("copyTree", getTranslator());
-			copyTree.setFormButtonKey("submit");
-			insertTreeModel = new InsertItemTreeModel(menuTreeModel, InsertItemTreeModel.INSTANCE_SECTION);
-			copyTree.setTreeModel(insertTreeModel);
-			copyTree.addListener(this);
-			cmc = new CloseableModalController(getWindowControl(), translate("close"), copyTree, true, translate("title.copy"));
+			InsertItemTreeModel treeModel = new InsertItemTreeModel(menuTreeModel, menuTree.getSelectedNode(), InsertItemTreeModel.INSTANCE_SECTION);
+			copyCtrl = new InsertNodeController(ureq, getWindowControl(), treeModel);
+			listenTo(copyCtrl);
+			cmc = new CloseableModalController(getWindowControl(), "close", copyCtrl.getInitialComponent(), true, translate("title.copy"));
 			cmc.activate();
 			listenTo(cmc);
-			
 		} else if (addPoolLink == source) {
 			doSelectQItem(ureq);
 		} else if (exportPoolLink == source) {
@@ -653,22 +627,22 @@ public class QTIEditorMainController extends MainLayoutBasicController implement
 			SectionNode scNode = new SectionNode(newSection, qtiPackage);
 			ItemNode itemNode = new ItemNode(newItem, qtiPackage);
 			scNode.addChild(itemNode);
-			doSelectInsertionPoint(CMD_TOOLS_ADD_SECTION, scNode);
+			doSelectInsertionPoint(ureq, CMD_TOOLS_ADD_SECTION, scNode);
 		} else if (addSCLink == source) {
 			ItemNode insertObject = new ItemNode(QTIEditHelper.createSCItem(getTranslator()), qtiPackage);
-			doSelectInsertionPoint(CMD_TOOLS_ADD_SINGLECHOICE, insertObject);
+			doSelectInsertionPoint(ureq, CMD_TOOLS_ADD_SINGLECHOICE, insertObject);
 		} else if (addMCLink == source) {
 			ItemNode insertObject = new ItemNode(QTIEditHelper.createMCItem(getTranslator()), qtiPackage);
-			doSelectInsertionPoint(CMD_TOOLS_ADD_MULTIPLECHOICE, insertObject);
+			doSelectInsertionPoint(ureq, CMD_TOOLS_ADD_MULTIPLECHOICE, insertObject);
 		} else if (addKPrimLink == source) {
 			ItemNode insertObject = new ItemNode(QTIEditHelper.createKPRIMItem(getTranslator()), qtiPackage);
-			doSelectInsertionPoint(CMD_TOOLS_ADD_KPRIM, insertObject);
+			doSelectInsertionPoint(ureq, CMD_TOOLS_ADD_KPRIM, insertObject);
 		} else if (addFIBLink == source) {
 			ItemNode insertObject = new ItemNode(QTIEditHelper.createFIBItem(getTranslator()), qtiPackage);
-			doSelectInsertionPoint(CMD_TOOLS_ADD_FIB, insertObject);
+			doSelectInsertionPoint(ureq, CMD_TOOLS_ADD_FIB, insertObject);
 		} else if (addEssayLink == source) {
 			ItemNode insertObject = new ItemNode(QTIEditHelper.createEssayItem(getTranslator()), qtiPackage);
-			doSelectInsertionPoint(CMD_TOOLS_ADD_FREETEXT, insertObject);
+			doSelectInsertionPoint(ureq, CMD_TOOLS_ADD_FREETEXT, insertObject);
 		}
 	}
 
@@ -706,6 +680,7 @@ public class QTIEditorMainController extends MainLayoutBasicController implement
 	 * @see org.olat.core.gui.control.DefaultController#event(org.olat.core.gui.UserRequest,
 	 *      org.olat.core.gui.control.Controller, org.olat.core.gui.control.Event)
 	 */
+	@Override
 	protected void event(UserRequest ureq, Controller source, Event event) {
 		if (source == deleteDialog) { // event from delete dialog
 			if (DialogBoxUIFactory.isYesEvent(event)) { // yes, delete
@@ -820,49 +795,80 @@ public class QTIEditorMainController extends MainLayoutBasicController implement
 			if(event instanceof QItemViewEvent) {
 				QItemViewEvent e = (QItemViewEvent)event;
 				List<QuestionItemView> items = e.getItemList();
-				doSelectInsertionPoint(CMD_TOOLS_ADD_QPOOL, items);
+				doSelectInsertionPoint(ureq, CMD_TOOLS_ADD_QPOOL, items);
 			}
 		} else if(source == importTableWizard) {
 			ItemsPackage importPackage = (ItemsPackage)importTableWizard.getRunContext().get("importPackage");
 			getWindowControl().pop();
 			cleanUp();
 			if(event == Event.DONE_EVENT || event == Event.CHANGED_EVENT) {
-				doSelectInsertionPoint(CMD_TOOLS_ADD_QPOOL, importPackage);
+				doSelectInsertionPoint(ureq, CMD_TOOLS_ADD_QPOOL, importPackage);
 			}
-		}
+		} else if (source == insertCtrl) { // catch insert operations
+			cmc.deactivate();
+			if(event == Event.DONE_EVENT) {
+				TreePosition tp = insertCtrl.getInsertPosition();
+				if(tp != null) {
+					doInsert(ureq, tp, insertCtrl.getUserObject());
+					updateWarning();
+				}
+			}
+			cleanUp();
+		} else if (source == moveCtrl) { 
+			cmc.deactivate();
+			if (Event.DONE_EVENT == event) {
+				TreePosition tp = moveCtrl.getInsertPosition();
+				if(tp != null) {
+					doMove(tp);
+					menuTree.setDirty(true); //force rerendering for ajax mode
+					updateWarning();
+				}
+			}
+			cleanUp();
+		} else if (source == copyCtrl) {
+			cmc.deactivate();
+			if (Event.DONE_EVENT == event) {
+				TreePosition tp = copyCtrl.getInsertPosition();
+				if(tp != null) {
+					doCopy(ureq, tp);
+					updateWarning();
+				}
+			}
+			cleanUp();
+		} 
 	}
 	
 	private void cleanUp() {
 		removeAsListenerAndDispose(cmc);
+		removeAsListenerAndDispose(insertCtrl);
 		removeAsListenerAndDispose(selectQItemCtrl);
 		removeAsListenerAndDispose(importTableWizard);
 		cmc = null;
+		insertCtrl = null;
 		selectQItemCtrl = null;
 		importTableWizard = null;
 	}
 	
-	private void doSelectInsertionPoint(String cmd, Object userObj) {
-	// prepare insert tree
-		insertTree = new SelectionTree("insertTree", getTranslator());
-		insertTree.setUserObject(userObj);
-		insertTree.setFormButtonKey("submit");
+	private void doSelectInsertionPoint(UserRequest ureq, String cmd, Object userObj) {
+		InsertItemTreeModel insertTreeModel;
 		if (cmd.equals(CMD_TOOLS_ADD_SECTION)) {
-			insertTreeModel = new InsertItemTreeModel(menuTreeModel, InsertItemTreeModel.INSTANCE_ASSESSMENT);
+			insertTreeModel = new InsertItemTreeModel(menuTreeModel, userObj, InsertItemTreeModel.INSTANCE_ASSESSMENT);
 		} else {
-			insertTreeModel = new InsertItemTreeModel(menuTreeModel, InsertItemTreeModel.INSTANCE_SECTION);
+			insertTreeModel = new InsertItemTreeModel(menuTreeModel, userObj, InsertItemTreeModel.INSTANCE_SECTION);
 		}
-		insertTree.setTreeModel(insertTreeModel);
-		insertTree.addListener(this);
-		cmc = new CloseableModalController(getWindowControl(), translate("close"), insertTree, true, translate("title.add") );
+		
+		insertCtrl = new InsertNodeController(ureq, getWindowControl(), insertTreeModel);
+		insertCtrl.setUserObject(userObj);
+		listenTo(insertCtrl);
+		cmc = new CloseableModalController(getWindowControl(), "close", insertCtrl.getInitialComponent(),
+				true, translate("title.add") );
 		cmc.activate();
 		listenTo(cmc);
 	}
 	
-	private void doInsert(UserRequest ureq, String nodeId, Object toInsert) {
+	private void doInsert(UserRequest ureq, TreePosition tp, Object toInsert) {
 		// new node
-		TreePosition tp = insertTreeModel.getTreePosition(nodeId);
 		GenericQtiNode parentTargetNode = (GenericQtiNode) tp.getParentTreeNode();
-		
 		if(toInsert instanceof GenericQtiNode) {
 			doInsert(parentTargetNode, (GenericQtiNode)toInsert, tp.getChildpos());
 		} else if(toInsert instanceof QuestionItemView) {
@@ -922,10 +928,8 @@ public class QTIEditorMainController extends MainLayoutBasicController implement
 		parentNode.childNodeChanges();
 	}
 	
-	private void doMove(TreeEvent te) {
+	private void doMove(TreePosition tp) {
 		// user chose a position to insert a new node
-		String nodeId = te.getNodeId();
-		TreePosition tp = insertTreeModel.getTreePosition(nodeId);
 		GenericQtiNode parentTargetNode = (GenericQtiNode) tp.getParentTreeNode();
 		int targetPos = tp.getChildpos();
 		GenericQtiNode selectedNode = (GenericQtiNode) menuTree.getSelectedNode();
@@ -951,10 +955,8 @@ public class QTIEditorMainController extends MainLayoutBasicController implement
 		parentTargetNode.childNodeChanges();
 	}
 	
-	private void doCopy(UserRequest ureq, TreeEvent te) {
+	private void doCopy(UserRequest ureq, TreePosition tp) {
 		// user chose a position to insert the node to be copied
-		String nodeId = te.getNodeId();
-		TreePosition tp = insertTreeModel.getTreePosition(nodeId);
 		int targetPos = tp.getChildpos();
 		ItemNode selectedNode = (ItemNode) menuTree.getSelectedNode();
 		// only items are moveable
@@ -1169,10 +1171,8 @@ public class QTIEditorMainController extends MainLayoutBasicController implement
 		stackedPanel.addTool(closeLink, Align.right);
 	}
 
-	/**
-	 * @see org.olat.core.gui.control.VetoableCloseController#requestForClose()
-	 */
-	public boolean requestForClose() {		
+	@Override
+	public boolean requestForClose(UserRequest ureq) {		
 		// enter save/discard dialog if not already in it
 		if (cmcExit == null) {
 			exitVC = createVelocityContainer("exitDialog");
@@ -1213,10 +1213,17 @@ public class QTIEditorMainController extends MainLayoutBasicController implement
 		for (Iterator<ReferenceImpl> iter = referencees.iterator(); iter.hasNext();) {
 			ReferenceImpl element = iter.next();
 			if ("CourseModule".equals(element.getSource().getResourceableTypeName())) {
-				ICourse course = CourseFactory.loadCourse(element.getSource().getResourceableId());
-				if(course == null) {
+				ICourse course = null;
+				try {
+					course = CourseFactory.loadCourse(element.getSource().getResourceableId());
+					if(course == null) {
+						continue;
+					}
+				} catch(CorruptedCourseException ex) {
+					logError("", ex);
 					continue;
 				}
+				
 				String courseTitle = course.getCourseTitle();
 				StringBuilder stakeHolders = new StringBuilder();
 				

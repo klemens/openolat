@@ -5,7 +5,7 @@
         http://java.sun.com/xml/ns/persistence
         http://java.sun.com/xml/ns/persistence/persistence_2_0.xsd">
 	<persistence-unit name="default">
-		<provider>org.hibernate.ejb.HibernatePersistence</provider>
+		<provider>org.hibernate.jpa.HibernatePersistenceProvider</provider>
 
 		<mapping-file>de/unileipzig/xman/appointment/AppointmentImpl.hbm.xml</mapping-file>
 		<mapping-file>de/unileipzig/xman/comment/CommentEntry.hbm.xml</mapping-file>
@@ -45,6 +45,7 @@
 		<mapping-file>org/olat/basesecurity/SecurityGroupImpl.hbm.xml</mapping-file>
 		<mapping-file>org/olat/basesecurity/SecurityGroupMembershipImpl.hbm.xml</mapping-file>
 		<mapping-file>org/olat/repository/RepositoryEntry.hbm.xml</mapping-file>
+		<mapping-file>org/olat/repository/model/CatalogEntryImpl.hbm.xml</mapping-file>
 		<mapping-file>org/olat/course/nodes/projectbroker/datamodel/Project.hbm.xml</mapping-file>
 		<mapping-file>org/olat/course/nodes/projectbroker/datamodel/ProjectBroker.hbm.xml</mapping-file>
 		<mapping-file>org/olat/course/assessment/model/UserEfficiencyStatementImpl.hbm.xml</mapping-file>
@@ -53,7 +54,6 @@
 		<mapping-file>org/olat/modules/fo/ReadMessage.hbm.xml</mapping-file>
 		<mapping-file>org/olat/modules/openmeetings/model/OpenMeetingsReference.hbm.xml</mapping-file>
 		<mapping-file>org/olat/properties/Property.hbm.xml</mapping-file>
-		<mapping-file>org/olat/catalog/CatalogEntryImpl.hbm.xml</mapping-file>
 		<mapping-file>org/olat/registration/TemporaryKeyImpl.hbm.xml</mapping-file>
 		<mapping-file>org/olat/course/statistic/daily/DailyStat.hbm.xml</mapping-file>
 		<mapping-file>org/olat/course/statistic/dayofweek/DayOfWeekStat.hbm.xml</mapping-file>
@@ -99,6 +99,7 @@
 		<class>org.olat.basesecurity.model.GroupImpl</class>
 		<class>org.olat.basesecurity.model.GrantImpl</class>
 		<class>org.olat.basesecurity.model.GroupMembershipImpl</class>
+		<class>org.olat.basesecurity.model.UserProperty</class>
 		<class>org.olat.core.dispatcher.mapper.model.PersistedMapper</class>
 		<class>org.olat.core.commons.services.notifications.model.SubscriberImpl</class>
 		<class>org.olat.core.commons.services.notifications.model.PublisherImpl</class>
@@ -106,12 +107,18 @@
 		<class>org.olat.core.commons.services.taskexecutor.model.PersistentTaskModifier</class>
 		<class>org.olat.core.commons.services.commentAndRating.model.UserRatingImpl</class>
 		<class>org.olat.core.commons.services.commentAndRating.model.UserCommentImpl</class>
+		<class>org.olat.course.assessment.model.AssessmentModeImpl</class>
+		<class>org.olat.course.assessment.model.AssessmentModeToAreaImpl</class>
+		<class>org.olat.course.assessment.model.AssessmentModeToGroupImpl</class>
 		<class>org.olat.course.assessment.model.UserCourseInfosImpl</class>
 		<class>org.olat.course.nodes.cl.model.DBCheckbox</class>
 		<class>org.olat.course.nodes.cl.model.DBCheck</class>
+		<class>org.olat.course.certificate.model.CertificateImpl</class>
+		<class>org.olat.course.certificate.model.CertificateStandalone</class>
+		<class>org.olat.course.certificate.model.CertificateLightImpl</class>
+		<class>org.olat.course.certificate.model.CertificateTemplateImpl</class>
 		<class>org.olat.group.model.ContactView</class>
 		<class>org.olat.group.model.ContactViewExtended</class>
-		<class>org.olat.group.model.BusinessGroupLazyImpl</class>
 		<class>org.olat.group.model.BusinessGroupMembershipViewImpl</class>
 		<class>org.olat.group.model.BGRepositoryEntryRelation</class>
 		<class>org.olat.repository.RepositoryEntry</class>
@@ -127,9 +134,6 @@
 		<class>org.olat.instantMessaging.model.InstantMessageNotificationImpl</class>
 		<class>org.olat.ims.qti.statistics.model.QTIStatisticResult</class>
 		<class>org.olat.ims.qti.statistics.model.QTIStatisticResultSet</class>
-		<class>org.olat.modules.coach.model.EfficiencyStatementGroupStatEntry</class>
-		<class>org.olat.modules.coach.model.EfficiencyStatementCourseStatEntry</class>
-		<class>org.olat.modules.coach.model.EfficiencyStatementStudentStatEntry</class>
 		<class>org.olat.modules.qpool.model.PoolImpl</class>
 		<class>org.olat.modules.qpool.model.PoolToItem</class>
 		<class>org.olat.modules.qpool.model.PoolItemShortView</class>

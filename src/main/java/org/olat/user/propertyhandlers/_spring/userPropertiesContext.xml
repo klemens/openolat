@@ -367,6 +367,26 @@
 					</bean>
 				</entry>
 				
+				<!--  OAuthRegistrationController is used in the OAuth registration process -->
+				<entry key="org.olat.login.oauth.ui.OAuthRegistrationController">
+					<bean class="org.olat.user.propertyhandlers.UserPropertyUsageContext">
+						<property name="description" value="Registration form for OAuth users (LinkedIn...)" />
+						<property name="propertyHandlers">
+							<list>
+								<ref bean="userPropertyFirstName" />
+								<ref bean="userPropertyLastName" />
+								<ref bean="userPropertyEmail" />
+							</list>
+						</property>
+						<property name="mandatoryProperties">
+							<set>
+								<ref bean="userPropertyFirstName" />
+								<ref bean="userPropertyLastName" />
+								<ref bean="userPropertyEmail" />
+							</set>
+						</property>
+					</bean>
+				</entry>
 				
 				
 				<!-- 
@@ -554,6 +574,7 @@
 				-->
 				<entry key="org.olat.user.HomePageConfig">
 					<bean class="org.olat.user.propertyhandlers.UserPropertyUsageContext">
+						<property name="description" value="Visiting card" />
 						<property name="propertyHandlers">
 							<list>
 								<ref bean="userPropertyFirstName" />
@@ -962,6 +983,28 @@
 								<ref bean="userPropertyStreet" />
 								<ref bean="userPropertyExtendedAddress" />
 								<ref bean="userPropertyPoBox" />
+								<ref bean="userPropertyZipCode" />
+								<ref bean="userPropertyRegion" />
+								<ref bean="userPropertyCity" />
+								<ref bean="userPropertyCountry" />
+								<ref bean="userPropertyInstitutionalName" />
+								<ref bean="userPropertyInstitutionalUserIdentifier" />
+								<ref bean="userPropertyInstitutionalEmail" />
+								<ref bean="userPropertyOrgUnit" />
+								<ref bean="userPropertyStudySubject" />
+							</list>
+						</property>						
+					</bean>
+				</entry>
+				
+				<entry key="org.olat.modules.coach.ui.UserSearchForm">
+					<bean class="org.olat.user.propertyhandlers.UserPropertyUsageContext">
+						<property name="description" value="Properties used in the user search of the coaching tool." />
+						<property name="propertyHandlers">
+							<list>
+								<ref bean="userPropertyFirstName" />
+								<ref bean="userPropertyLastName" />	
+								<ref bean="userPropertyEmail" />
 								<ref bean="userPropertyZipCode" />
 								<ref bean="userPropertyRegion" />
 								<ref bean="userPropertyCity" />

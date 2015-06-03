@@ -22,7 +22,6 @@ package org.olat.core.commons.services.video;
 import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.FileInputStream;
-import java.io.IOException;
 import java.io.InputStream;
 import java.io.RandomAccessFile;
 import java.nio.channels.FileChannel;
@@ -30,7 +29,6 @@ import java.util.ArrayList;
 import java.util.List;
 
 import org.jcodec.api.FrameGrab;
-import org.jcodec.api.JCodecException;
 import org.jcodec.common.FileChannelWrapper;
 import org.jcodec.containers.mp4.demuxer.MP4Demuxer;
 import org.olat.core.commons.services.image.Size;
@@ -91,7 +89,7 @@ public class MovieServiceImpl implements MovieService, ThumbnailSPI {
 				int w = size.getWidth();
 				int h = size.getHeight();
 				return new Size(w, h, false);
-			} catch (IOException e) {
+			} catch (Exception | AssertionError e) {
 				log.error("Cannot extract size of: " + media, e);
 			}
 		} else if(suffix.equals("flv")) {
@@ -125,8 +123,8 @@ public class MovieServiceImpl implements MovieService, ThumbnailSPI {
 					size = new FinalSize(scaledSize.getWidth(), scaledSize.getHeight());
 				}
 			//NullPointerException can be thrown if the jcodec cannot handle the codec of the movie
-			//ArrayIndexOutOfBoundsException 
-			} catch (Exception e) {
+			//ArrayIndexOutOfBoundsException
+			} catch (Exception | AssertionError e) {
 				log.error("", e);
 			}
 		}

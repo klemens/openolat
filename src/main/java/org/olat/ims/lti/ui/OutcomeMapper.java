@@ -84,12 +84,13 @@ public class OutcomeMapper implements Mapper, Serializable {
 
 		String contentType = request.getContentType();
 		log.audit("LTI outcome for: " + identityKey);
-		if (contentType != null && contentType.startsWith("application/xml") ) {
+		// test on equals of content type, done the same way later on in IMSPOXRequest code 
+		if (contentType != null && contentType.equals("application/xml") ) {
 			String xmlResponse = doPostXml(request);
 			return createMediaResource(xmlResponse, "application/xml");
 		}
 
-		return createMediaResource("Hello", "text/plain");
+		return createMediaResource("Outcome service error: wrong content type. Must match 'application/xml' but was '" + (contentType == null ? "NULL" : contentType) + "'", "text/plain");
 	}
 	
 	public Identity getIdentity() {
@@ -144,8 +145,14 @@ public class OutcomeMapper implements Mapper, Serializable {
 				Map<String,Object> theMap = new TreeMap<String,Object>();
 				theMap.put("/replaceResultRequest", "");
 				String theXml = XMLMap.getXMLFragment(theMap, true);
+				if (log.isDebug()) {
+					log.debug("replace-result message successfull with score::" + scoreString);
+				}
 				return pox.getResponseSuccess("Update result",theXml);
 			} else {
+				if (log.isDebug()) {
+					log.debug("replace-result message failed with score::" + scoreString);
+				}
 				return pox.getResponseFailure("Update result failed", null);
 			}
 		} else if(DELETE_RESULT_REQUEST.equals(lti_message_type)) {
@@ -153,8 +160,14 @@ public class OutcomeMapper implements Mapper, Serializable {
 				Map<String,Object> theMap = new TreeMap<String,Object>();
 				theMap.put("/deleteResultRequest", "");
 				String theXml = XMLMap.getXMLFragment(theMap, true);
+				if (log.isDebug()) {
+					log.debug("delete-result message successfull");
+				}
 				return pox.getResponseSuccess("Result deleted",theXml);
 			} else {
+				if (log.isDebug()) {
+					log.debug("delete-result message failed");
+				}
 				return pox.getResponseFailure("Delete result failed", null);
 			}
 		} else if (READ_RESULT_REQUEST.equals(lti_message_type)) {

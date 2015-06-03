@@ -34,13 +34,19 @@ import java.util.HashSet;
 import java.util.Set;
 
 import org.olat.core.gui.UserRequest;
+import org.olat.core.gui.Windows;
 import org.olat.core.gui.components.AbstractComponent;
+import org.olat.core.gui.components.ComponentEventListener;
 import org.olat.core.gui.components.ComponentRenderer;
-import org.olat.core.gui.control.Controller;
+import org.olat.core.gui.components.Window;
+import org.olat.core.gui.components.tree.InsertionPoint.Position;
 import org.olat.core.gui.control.JSAndCSSAdder;
+import org.olat.core.gui.control.winmgr.JSCommand;
 import org.olat.core.gui.render.ValidationResult;
 import org.olat.core.util.StringHelper;
 import org.olat.core.util.nodes.INode;
+import org.olat.core.util.tree.INodeFilter;
+import org.olat.course.tree.TreePosition;
 
 /**
  * Description: <br>
@@ -58,14 +64,12 @@ public class MenuTree extends AbstractComponent {
 	/**
 	 * Comment for <code>NODE_IDENT</code>
 	 */
-	//fxdiff VCRP-9: drag and drop in menu tree
 	public static final String TARGET_NODE_IDENT = "tnidle";
 	
 	
 	/**
 	 * Comment for <code>NODE_IDENT</code>
 	 */
-	//fxdiff VCRP-9: drag and drop in menu tree
 	public static final String SIBLING_NODE = "sne";
 	
 	/**
@@ -89,6 +93,14 @@ public class MenuTree extends AbstractComponent {
 	public static final String COMMAND_TREENODE_CLICKED = "ctncl";
 	
 	/**
+	 * Command to insert new in the tree
+	 */
+	public static final String COMMAND_TREENODE_INSERT_UP = "iup";
+	public static final String COMMAND_TREENODE_INSERT_DOWN = "idown";
+	public static final String COMMAND_TREENODE_INSERT_UNDER = "iunder";
+	public static final String COMMAND_TREENODE_INSERT_REMOVE = "irm";
+	
+	/**
 	 * event fired when a treenode was expanded (all nodes except leafs)
 	 */
 	public static final String COMMAND_TREENODE_EXPANDED = "ctnex";
@@ -97,10 +109,14 @@ public class MenuTree extends AbstractComponent {
 	 * event fired when a treenode is dropper
 	 */
 	public static final String COMMAND_TREENODE_DROP = "ctdrop";
+	
+	protected static final DefaultFilter DEF_FILTER = new DefaultFilter();
 
 	private TreeModel treeModel;
+	private InsertionPoint insertionPoint;
 	private String selectedNodeId = null;
-	private Set<String> openNodeIds = new HashSet<String>();
+	private final Set<String> selectedNodeIds = new HashSet<>();
+	private final Set<String> openNodeIds = new HashSet<>();
 	private boolean expandServerOnly = true; // default is serverside menu
 	private boolean dragEnabled = false;
 	private boolean dropEnabled = false;
@@ -108,23 +124,21 @@ public class MenuTree extends AbstractComponent {
 	private boolean expandSelectedNode = true;
 	private boolean rootVisible = true;
 	private boolean unselectNodes;
+	private boolean showInsertTool;
+	private boolean multiSelect;
+	private boolean scrollTopOnClick;
 	private String dndAcceptJSMethod = "treeAcceptDrop_notWithChildren";
 
 	private boolean dirtyForUser = false;
+	
+	private INodeFilter filter = DEF_FILTER;
+	private MenuTreeItem menuTreeItem;
 	
 	/**
 	 * @param name
 	 */
 	public MenuTree(String name) {
-		this(null, name);
-	}
-	
-	/**
-	 * @param id Fix unique identifier for state-less behavior
-	 * @param name
-	 */
-	public MenuTree(String id, String name) {
-		super(id, name);
+		super(null, name);
 	}
 	
 	/**
@@ -132,19 +146,34 @@ public class MenuTree extends AbstractComponent {
 	 * @param name
 	 * @param eventListener
 	 */
-	public MenuTree(String id, String name, Controller eventListener) {
-		this(id, name);
+	public MenuTree(String id, String name, ComponentEventListener eventListener) {
+		super(id, name);
 		addListener(eventListener);
 	}
 	
+	MenuTree(String id, String name, ComponentEventListener eventListener, MenuTreeItem menuTreeItem) {
+		this(id, name, eventListener);
+		this.menuTreeItem = menuTreeItem;
+	}
 	
-
 	@Override
 	public void validate(UserRequest ureq, ValidationResult vr) {
 		super.validate(ureq, vr);
 		
-		JSAndCSSAdder jsa = vr.getJsAndCSSAdder();
-		jsa.addRequiredStaticJsFile("js/jquery/ui/jquery-ui-1.10.4.custom.dnd.min.js");
+		if(isDragEnabled() || isDropEnabled() || isDropSiblingEnabled()) {
+			JSAndCSSAdder jsa = vr.getJsAndCSSAdder();
+			jsa.addRequiredStaticJsFile("js/jquery/ui/jquery-ui-1.10.4.custom.dnd.min.js");
+		}
+	}
+	
+	private void scrollTop(UserRequest ureq) {
+		Window window = Windows.getWindows(ureq).getWindow(ureq);
+		if(window != null) {
+			StringBuilder sb = new StringBuilder();
+			sb.append("try{ o_scrollToElement('#o_top'); }catch(e){}");
+			JSCommand jsCommand = new JSCommand(sb.toString());
+			window.getWindowBackOffice().sendCommandTo(jsCommand);
+		}
 	}
 
 	/**
@@ -171,6 +200,22 @@ public class MenuTree extends AbstractComponent {
 			boolean sibling = StringHelper.containsNonWhitespace(sneValue);
 			boolean atTheEnd = "end".equals(sneValue);
 			handleDropped(ureq, targetNodeId, nodeId, sibling, atTheEnd);
+		} else if(COMMAND_TREENODE_INSERT_UP.equals(cmd)) {
+			insertionPoint = new InsertionPoint(nodeId, InsertionPoint.Position.up);
+			setDirty(true);
+			fireEvent(ureq, new InsertEvent(COMMAND_TREENODE_INSERT_UP));
+		} else if(COMMAND_TREENODE_INSERT_DOWN.equals(cmd)) {
+			insertionPoint = new InsertionPoint(nodeId, InsertionPoint.Position.down);
+			setDirty(true);
+			fireEvent(ureq, new InsertEvent(COMMAND_TREENODE_INSERT_DOWN));
+		} else if(COMMAND_TREENODE_INSERT_UNDER.equals(cmd)) {
+			insertionPoint = new InsertionPoint(nodeId, InsertionPoint.Position.under);
+			setDirty(true);
+			fireEvent(ureq, new InsertEvent(COMMAND_TREENODE_INSERT_UNDER));
+		} else if(COMMAND_TREENODE_INSERT_REMOVE.equals(cmd)) {
+			insertionPoint = null;
+			setDirty(true);
+			fireEvent(ureq, new InsertEvent(COMMAND_TREENODE_INSERT_REMOVE));
 		}
 	}
 	
@@ -239,6 +284,8 @@ public class MenuTree extends AbstractComponent {
 			subCmd = TreeEvent.COMMAND_TREENODE_CLOSE;
 		} else if (TREENODE_OPEN.equals(cmd)) {
 			subCmd = TreeEvent.COMMAND_TREENODE_OPEN;
+		} else {
+			scrollTop(ureq);
 		}
 		updateOpenedNode(selTreeNode, selNodeId, cmd);
 
@@ -331,24 +378,82 @@ public class MenuTree extends AbstractComponent {
 		setDirty(true);
 	}
 
+	public Set<String> getSelectedNodeIds() {
+		return selectedNodeIds;
+	}
+
+	public void setSelectedNodeIds(Collection<String> newSelectedNodeIds) {
+		selectedNodeIds.clear();
+		selectedNodeIds.addAll(newSelectedNodeIds);
+	}
+	
+	public boolean isSelected(TreeNode node) {
+		return node != null && selectedNodeIds.contains(node.getIdent());
+	}
+	
+	public void select(String id, boolean select) {
+		if(select) {
+			selectedNodeIds.add(id);
+		} else {
+			selectedNodeIds.remove(id);
+		}
+	}
+	
+	public boolean isOpen(TreeNode node) {
+		return openNodeIds.contains(node.getIdent());
+	}
+	
+	public void open(TreeNode node) {
+		for(INode iteratorNode=node;
+				node.getParent() != null && iteratorNode != null && !openNodeIds.contains(iteratorNode.getIdent());
+				iteratorNode=iteratorNode.getParent()) {
+			openNodeIds.add(iteratorNode.getIdent());
+		}
+	}
+
 	public Collection<String> getOpenNodeIds() {
 		return openNodeIds;
 	}
 
 	public void setOpenNodeIds(Collection<String> nodeIds) {
-		if(nodeIds == null) {
-			openNodeIds.clear();
-		} else {
-			openNodeIds = new HashSet<String>(nodeIds);
+		openNodeIds.clear();
+		if(nodeIds != null) {
+			openNodeIds.addAll(nodeIds);
 		}
 		setDirty(true);
 	}
 
-	/**
-	 * 
-	 */
 	public void clearSelection() {
 		selectedNodeId = null;
+	}
+
+	public MenuTreeItem getMenuTreeItem() {
+		return menuTreeItem;
+	}
+
+	public InsertionPoint getInsertionPoint() {
+		return insertionPoint;
+	}
+	
+	public TreePosition getInsertionPosition() {
+		if(insertionPoint == null) return null;
+
+		int position;
+		TreeNode parent;
+		TreeNode node = treeModel.getNodeById(insertionPoint.getNodeId());
+		if(insertionPoint.getPosition() == Position.under) {
+			parent = node;
+			position = 0;
+		} else if(insertionPoint.getPosition() == Position.up) {
+			parent = (TreeNode)node.getParent();
+			position = node.getPosition();
+		} else if(insertionPoint.getPosition() == Position.down) {
+			parent = (TreeNode)node.getParent();
+			position = node.getPosition() + 1;
+		} else {
+			return null;
+		}
+		return new TreePosition(parent, position);
 	}
 
 	/**
@@ -384,6 +489,46 @@ public class MenuTree extends AbstractComponent {
 		this.expandServerOnly = expandServerOnly;
 	}
 	
+	public boolean isInsertToolEnabled() {
+		return showInsertTool;
+	}
+
+	/**
+	 * Use the insert tool
+	 * @param showInsertTool
+	 */
+	public void enableInsertTool(boolean showInsertTool) {
+		this.showInsertTool = showInsertTool;
+	}
+
+	protected boolean isMultiSelect() {
+		return multiSelect;
+	}
+
+	protected void setMultiSelect(boolean multiSelect) {
+		this.multiSelect = multiSelect;
+	}
+
+	public INodeFilter getFilter() {
+		return filter;
+	}
+
+	public void setFilter(INodeFilter filter) {
+		if(filter == null) {
+			this.filter = DEF_FILTER;
+		} else {
+			this.filter = filter;
+		}
+	}
+
+	public boolean isScrollTopOnClick() {
+		return scrollTopOnClick;
+	}
+
+	public void setScrollTopOnClick(boolean scrollTopOnClick) {
+		this.scrollTopOnClick = scrollTopOnClick;
+	}
+
 	public boolean isDragEnabled() {
 		return dragEnabled;
 	}
@@ -468,5 +613,13 @@ public class MenuTree extends AbstractComponent {
 
 	public ComponentRenderer getHTMLRendererSingleton() {
 		return RENDERER;
+	}
+	
+	private static class DefaultFilter implements INodeFilter {
+
+		@Override
+		public boolean isVisible(INode node) {
+			return true;
+		}
 	}
 }

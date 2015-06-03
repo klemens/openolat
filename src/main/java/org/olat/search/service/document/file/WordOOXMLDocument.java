@@ -29,9 +29,10 @@ import org.olat.core.gui.util.CSSHelper;
 import org.olat.core.logging.OLog;
 import org.olat.core.logging.Tracing;
 import org.olat.core.util.FileUtils;
+import org.olat.core.util.StringHelper;
+import org.olat.core.util.io.ShieldInputStream;
 import org.olat.core.util.vfs.VFSLeaf;
 import org.olat.search.service.SearchResourceContext;
-import org.olat.search.service.document.file.utils.ShieldInputStream;
 import org.olat.search.service.document.file.utils.SlicedDocument;
 import org.xml.sax.InputSource;
 import org.xml.sax.XMLReader;
@@ -87,16 +88,28 @@ public class WordOOXMLDocument extends FileDocument {
 					doc.setContent(0, dh.getContent());
 				} else if(name.startsWith(HEADER) && name.endsWith(".xml")) {
 					String position = name.substring(HEADER.length(), name.indexOf(".xml"));
-					
-					OfficeDocumentHandler dh = new OfficeDocumentHandler();
-					parse(new ShieldInputStream(zip), dh);
-					doc.setHeader(Integer.parseInt(position), dh.getContent());
+					if(StringHelper.isLong(position)) {
+						try {
+							OfficeDocumentHandler dh = new OfficeDocumentHandler();
+							parse(new ShieldInputStream(zip), dh);
+							doc.setHeader(Integer.parseInt(position), dh.getContent());
+						} catch (NumberFormatException e) {
+							log.warn("", e);
+							//if position not a position, go head
+						}
+					}
 				} else if(name.startsWith(FOOTER) && name.endsWith(".xml")) {
 					String position = name.substring(FOOTER.length(), name.indexOf(".xml"));
-					
-					OfficeDocumentHandler dh = new OfficeDocumentHandler();
-					parse(new ShieldInputStream(zip), dh);
-					doc.setFooter(Integer.parseInt(position), dh.getContent());
+					if(StringHelper.isLong(position)) {
+						try {
+							OfficeDocumentHandler dh = new OfficeDocumentHandler();
+							parse(new ShieldInputStream(zip), dh);
+							doc.setFooter(Integer.parseInt(position), dh.getContent());
+						} catch (NumberFormatException e) {
+							log.warn("", e);
+							//if position not a position, go head
+						}
+					}
 				}
 				entry = zip.getNextEntry();
 			}
