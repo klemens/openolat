@@ -256,7 +256,7 @@ public class ExamLecturerOralController extends BasicController implements ExamC
 					}
 					
 					removeAsListenerAndDispose(editMailForm);
-					editMailForm = new MailForm(ureq, getWindowControl(), "editMailForm", getTranslator(), recipients.toArray(new String[0]));
+					editMailForm = new MailForm(ureq, getWindowControl(), "editMailForm", recipients.toArray(new String[0]));
 					listenTo(editMailForm);
 					
 					cmc = new CloseableModalController(this.getWindowControl(), translate("close"), editMailForm.getInitialComponent());
@@ -549,7 +549,7 @@ public class ExamLecturerOralController extends BasicController implements ExamC
 					if(appointmentTableModel.existsProtocol(app)) {
 						Protocol proto = appointmentTableModel.getProtocol(app);
 						
-						MailManager.getInstance().sendEmail(subject, body, proto.getIdentity());
+						MailManager.getInstance().sendEmail(subject, body, ureq.getIdentity(), proto.getIdentity());
 						
 						// load esf
 						ElectronicStudentFile esf = ElectronicStudentFileManager.getInstance().retrieveESFByIdentity(proto.getIdentity());
@@ -560,6 +560,10 @@ public class ExamLecturerOralController extends BasicController implements ExamC
 						// TODO: see first occurrence
 						DBFactory.getInstance().intermediateCommit();
 					}
+				}
+
+				if(editMailForm.getCopyToSender()) {
+					MailManager.getInstance().sendEmail(subject, body, null, null, ureq.getIdentity());
 				}
 				
 				editMailFormAppointmentHolder = null;

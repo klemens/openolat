@@ -239,7 +239,7 @@ public class ExamLecturerWrittenController extends BasicController implements Ex
 					}
 					
 					removeAsListenerAndDispose(editMailForm);
-					editMailForm = new MailForm(ureq, getWindowControl(), "editMailForm", getTranslator(), recipients.toArray(new String[0]));
+					editMailForm = new MailForm(ureq, getWindowControl(), "editMailForm", recipients.toArray(new String[0]));
 					listenTo(editMailForm);
 					
 					cmc = new CloseableModalController(this.getWindowControl(), translate("close"), editMailForm.getInitialComponent());
@@ -516,7 +516,7 @@ public class ExamLecturerWrittenController extends BasicController implements Ex
 				String body = editMailForm.getBody();
 			
 				for (Protocol proto : editMailFormProtocolHolder) {
-					MailManager.getInstance().sendEmail(subject, body, proto.getIdentity());
+					MailManager.getInstance().sendEmail(subject, body, ureq.getIdentity(), proto.getIdentity());
 					
 					// load esf
 					ElectronicStudentFile esf = ElectronicStudentFileManager.getInstance().retrieveESFByIdentity(proto.getIdentity());
@@ -527,7 +527,11 @@ public class ExamLecturerWrittenController extends BasicController implements Ex
 					// save changed esf
 					ElectronicStudentFileManager.getInstance().updateElectronicStundentFile(esf);
 				}
-				
+
+				if(editMailForm.getCopyToSender()) {
+					MailManager.getInstance().sendEmail(subject, body, null, null, ureq.getIdentity());
+				}
+
 				editMailFormProtocolHolder = null;
 			}
 		}
