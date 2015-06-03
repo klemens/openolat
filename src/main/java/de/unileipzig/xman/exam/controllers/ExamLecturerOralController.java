@@ -557,7 +557,7 @@ public class ExamLecturerOralController extends BasicController implements ExamC
 						ElectronicStudentFile esf = ElectronicStudentFileManager.getInstance().retrieveESFByIdentity(proto.getIdentity());
 						
 						// create comment in esf
-						CommentManager.getInstance().createCommentInEsf(esf, "E-Mail: " + subject + "\n" + body, ureq.getIdentity());
+						CommentManager.getInstance().createCommentInEsf(esf, "E-Mail: " + subject + "\n\n" + body, ureq.getIdentity());
 						
 						// TODO: see first occurrence
 						DBFactory.getInstance().intermediateCommit();
