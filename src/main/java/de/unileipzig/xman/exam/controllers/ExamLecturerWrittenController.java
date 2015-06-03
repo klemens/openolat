@@ -170,7 +170,7 @@ public class ExamLecturerWrittenController extends BasicController implements Ex
 					DTab dt = dts.getDTab(ores);
 					if (dt == null) {
 						// does not yet exist
-						dt = dts.createDTab(ores, p.getIdentity().getName());
+						dt = dts.createDTab(ores, null, p.getIdentity().getName());
 						if (dt == null) return;
 						UserInfoMainController uimc = new UserInfoMainController(ureq, dt.getWindowControl(), p.getIdentity());
 						dt.setController(uimc);
