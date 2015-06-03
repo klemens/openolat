@@ -256,7 +256,9 @@ public class ExamLecturerOralController extends BasicController implements ExamC
 					}
 					
 					removeAsListenerAndDispose(editMailForm);
-					editMailForm = new MailForm(ureq, getWindowControl(), "editMailForm", recipients.toArray(new String[0]));
+					String from = ureq.getIdentity().getUser().getProperty(UserConstants.EMAIL, null);
+					String to = String.join(", ", recipients);
+					editMailForm = new MailForm(ureq, getWindowControl(), from, to, "[" + exam.getName() + "] ");
 					listenTo(editMailForm);
 					
 					cmc = new CloseableModalController(this.getWindowControl(), translate("close"), editMailForm.getInitialComponent());

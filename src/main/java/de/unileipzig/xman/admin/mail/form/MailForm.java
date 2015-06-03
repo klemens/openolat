@@ -17,15 +17,19 @@ import de.unileipzig.xman.exam.Exam;
  * allow access to the subject or body the user entered.
  */
 public class MailForm extends FormBasicController {
-	private String[] recipientsList;
+	private String recipient;
 	private TextElement subjectElem;
 	private TextElement bodyElem;
 	private MultipleSelectionElement copyToSender;
+	private String initialSubject;
+	private String sender;
 
-	public MailForm(UserRequest ureq, WindowControl wControl, String name, String[] recipients) {
+	public MailForm(UserRequest ureq, WindowControl wControl, String sender, String recipient, String initialSubject) {
 		super(ureq, wControl);
 		
-		this.recipientsList = recipients;
+		this.recipient = recipient;
+		this.initialSubject = initialSubject;
+		this.sender = sender;
 		setTranslator(Util.createPackageTranslator(Exam.class, getLocale()));
 
 		initForm(ureq);
@@ -33,10 +37,12 @@ public class MailForm extends FormBasicController {
 
 	@Override
 	protected void initForm(FormItemContainer formLayout, Controller listener, UserRequest ureq) {
-		String recipients = String.join(", ", recipientsList);
-				
-		uifactory.addStaticTextElement("recipientsElem", "MailForm.recipient", recipients, formLayout);
+		uifactory.addStaticTextElement("recipientsElem", "MailForm.recipient", recipient, formLayout);
+		uifactory.addStaticTextElement("senderElem", "MailForm.sender", sender, formLayout);
+
 		subjectElem = uifactory.addTextElement("subjectElem", "MailForm.subject", -1, "", formLayout);
+		subjectElem.preventValueTrim(true);
+		subjectElem.setValue(initialSubject);
 		subjectElem.setDisplaySize(60);
 		subjectElem.setMandatory(true);
 
