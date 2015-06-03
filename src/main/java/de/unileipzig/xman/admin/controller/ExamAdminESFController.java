@@ -29,8 +29,6 @@ import org.olat.core.gui.control.generic.dtabs.DTab;
 import org.olat.core.gui.control.generic.dtabs.DTabs;
 import org.olat.core.gui.control.generic.modal.DialogBoxController;
 import org.olat.core.gui.control.generic.modal.DialogBoxUIFactory;
-import org.olat.core.gui.control.generic.tool.ToolController;
-import org.olat.core.gui.control.generic.tool.ToolFactory;
 import org.olat.core.gui.render.StringOutput;
 import org.olat.core.gui.translator.PackageTranslator;
 import org.olat.core.gui.translator.Translator;
@@ -85,13 +83,9 @@ public class ExamAdminESFController extends BasicController {
 
 	private Translator translator;
 	private VelocityContainer mainVC;
-	private ToolController toolCtr;
 
 	private TableController esfTableCtr;
 	private ESFTableModel esfTableMdl;
-
-	private UserSearchController userSearchESFCtr;
-	private CloseableModalController searchESFModalCtr;
 
 	private ContactFormController contactFormController;
 
@@ -112,11 +106,6 @@ public class ExamAdminESFController extends BasicController {
 
 		this.translator = Util.createPackageTranslator(ExamAdminSite.class, ureq.getLocale());
 		this.mainVC = new VelocityContainer("examCategories", VELOCITY_ROOT + "/esf.html", translator, this);
-
-		toolCtr = ToolFactory.createToolController(wControl);
-		toolCtr.addControllerListener(this);
-		toolCtr.addHeader(translator.translate("ExamAdminESFController.tool.header"));
-		toolCtr.addLink("action.search", translator.translate("ExamAdminESFController.tool.search"));
 
 		init(ureq, wControl);
 		
@@ -145,7 +134,7 @@ public class ExamAdminESFController extends BasicController {
 		esfTableConfig.setTableEmptyMessage(translator.translate("ExamAdminESFController.emptyTableMessage"));
 		esfTableConfig.setShowAllLinkEnabled(true);
 		esfTableConfig.setPreferencesOffered(true, "pref");
-		esfTableCtr = new TableController(esfTableConfig, ureq, wControl, translator);
+		esfTableCtr = new TableController(esfTableConfig, ureq, wControl, translator, true /*enableTableSearch*/);
 		esfTableCtr.setMultiSelect(true);
 		esfTableCtr.addMultiSelectAction("ExamAdminESFController.delete", ESFTableModel.COMMAND_DELETE);
 		esfTableCtr.addMultiSelectAction("ExamAdminESFController.sendMail", ESFTableModel.COMMAND_SENDMAIL);
@@ -167,7 +156,6 @@ public class ExamAdminESFController extends BasicController {
 		this.esfTableCtr = null;
 		this.esfTableMdl = null;
 		this.mainVC = null;
-		this.toolCtr = null;
 		this.translator = null;
 	}
 
@@ -186,91 +174,6 @@ public class ExamAdminESFController extends BasicController {
 	 *      org.olat.core.gui.control.Event)
 	 */
 	public void event(UserRequest ureq, Controller ctr, Event event) {
-
-		// the toolController
-		if (ctr == toolCtr) {
-
-			// search for esf of a student
-			if (event.getCommand().equals("action.search")) {
-
-				// create new user search dialog
-				this.userSearchESFCtr = new UserSearchController(ureq, this
-						.getWindowControl(), true);
-				this.userSearchESFCtr.addControllerListener(this);
-
-				// make it a modal dialog
-				searchESFModalCtr = new CloseableModalController(
-						getWindowControl(), translator.translate("close"),
-						userSearchESFCtr.getInitialComponent());
-				this.listenTo(searchESFModalCtr);
-				searchESFModalCtr.activate();
-			}
-		}
-
-		/******************************* xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx ***************************************/
-
-		if (ctr == searchESFModalCtr) {
-
-			if (event == Event.DONE_EVENT) {
-
-				this.getWindowControl().pop();
-			}
-		}
-
-		/******************************* the user search controller for searching esf ***************************************/
-
-		// the exam office has choosen one somebody to search
-		if (ctr == userSearchESFCtr) {
-
-			// one identity was choosen
-			if (event instanceof SingleIdentityChosenEvent) {
-
-				// find the choosen identity
-				SingleIdentityChosenEvent uce = (SingleIdentityChosenEvent) event;
-				Identity identity = uce.getChosenIdentity();
-
-				// load the esf for the identity
-				ElectronicStudentFile esf = ElectronicStudentFileManager
-						.getInstance().retrieveESFByIdentity(identity);
-				if (esf != null) {
-
-					OLATResourceable ores = OLATResourceManager.getInstance()
-							.findResourceable(esf.getResourceableId(),
-									esf.getResourceableTypeName());
-
-					this.getWindowControl().pop();
-
-					// add the esf in a dtab
-					DTabs dts = Windows.getWindows(ureq).getWindow(ureq).getDTabs();
-					DTab dt = dts.getDTab(ores);
-					if (dt == null) {
-						// does not yet exist -> create and add
-						dt = dts.createDTab(ores, esf.getIdentity().getName());
-						if (dt == null)
-							return;
-						ESFEditController esfEditCtr = new ESFEditController(
-								ureq, dt.getWindowControl(), esf);
-						dt.setController(esfEditCtr);
-						dts.addDTab(ureq, dt);
-					}
-					dts.activate(ureq, dt, null);
-				} else
-					getWindowControl().setInfo(translator.translate("ExamAdminESFController.noESFFoundForIdentity"));
-			}
-
-			if (event == Event.CANCELLED_EVENT) {
-
-				this.getWindowControl().pop();
-			}
-
-			if (event == Event.DONE_EVENT) {
-
-				this.getWindowControl().pop();
-			}
-		}
-
-		/************************* the table controller ***************************************/
-
 		// the table Controller
 		if (ctr == esfTableCtr) {
 
@@ -282,8 +185,7 @@ public class ExamAdminESFController extends BasicController {
 				// somebody wants to open an esf
 				if (actionID.equals(ESFTableModel.COMMAND_OPEN)) {
 
-					ElectronicStudentFile esf = esfTableMdl.getEntryAt(te
-							.getRowId());
+					ElectronicStudentFile esf = esfTableMdl.getObject(te.getRowId());
 					OLATResourceable ores = OLATResourceManager.getInstance()
 							.findResourceable(esf.getResourceableId(),
 									ElectronicStudentFile.ORES_TYPE_NAME);
@@ -293,7 +195,7 @@ public class ExamAdminESFController extends BasicController {
 					DTab dt = dts.getDTab(ores);
 					if (dt == null) {
 						// does not yet exist -> create and add
-						dt = dts.createDTab(ores, esf.getIdentity().getName());
+						dt = dts.createDTab(ores, null, esf.getIdentity().getName());
 						if (dt == null)
 							return;
 						ESFEditController esfLaunchCtr = new ESFEditController(
@@ -359,14 +261,6 @@ public class ExamAdminESFController extends BasicController {
 				this.getWindowControl().pop();
 			}
 		}
-	}
-
-	/**
-	 * @return the toolController of this Controller
-	 */
-	public ToolController getToolController() {
-
-		return this.toolCtr;
 	}
 
 	/**

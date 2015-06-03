@@ -64,11 +64,6 @@ public class ExamHandler implements RepositoryHandler {
 	}
 
 	@Override
-	public boolean supportsLaunch() {
-		return true;
-	}
-
-	@Override
 	public EditionSupport supportsEdit(OLATResourceable resource) {
 		return EditionSupport.yes;
 	}

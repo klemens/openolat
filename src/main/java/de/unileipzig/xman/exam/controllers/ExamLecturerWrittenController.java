@@ -170,7 +170,7 @@ public class ExamLecturerWrittenController extends BasicController implements Ex
 					DTab dt = dts.getDTab(ores);
 					if (dt == null) {
 						// does not yet exist
-						dt = dts.createDTab(ores, p.getIdentity().getName());
+						dt = dts.createDTab(ores, null, p.getIdentity().getName());
 						if (dt == null) return;
 						UserInfoMainController uimc = new UserInfoMainController(ureq, dt.getWindowControl(), p.getIdentity());
 						dt.setController(uimc);
@@ -239,7 +239,9 @@ public class ExamLecturerWrittenController extends BasicController implements Ex
 					}
 					
 					removeAsListenerAndDispose(editMailForm);
-					editMailForm = new MailForm(ureq, getWindowControl(), "editMailForm", getTranslator(), recipients.toArray(new String[0]));
+					String from = ureq.getIdentity().getUser().getProperty(UserConstants.EMAIL, null);
+					String to = String.join(", ", recipients);
+					editMailForm = new MailForm(ureq, getWindowControl(), from, to, "[" + exam.getName() + "] ");
 					listenTo(editMailForm);
 					
 					cmc = new CloseableModalController(this.getWindowControl(), translate("close"), editMailForm.getInitialComponent());
@@ -516,18 +518,22 @@ public class ExamLecturerWrittenController extends BasicController implements Ex
 				String body = editMailForm.getBody();
 			
 				for (Protocol proto : editMailFormProtocolHolder) {
-					MailManager.getInstance().sendEmail(subject, body, proto.getIdentity());
+					MailManager.getInstance().sendEmail(subject, body, ureq.getIdentity(), proto.getIdentity());
 					
 					// load esf
 					ElectronicStudentFile esf = ElectronicStudentFileManager.getInstance().retrieveESFByIdentity(proto.getIdentity());
 					
 					// create comment in esf
-					CommentManager.getInstance().createCommentInEsf(esf, "E-Mail: " + subject + "\n" + body, ureq.getIdentity());
+					CommentManager.getInstance().createCommentInEsf(esf, "E-Mail: " + subject + "\n\n" + body, ureq.getIdentity());
 					
 					// save changed esf
 					ElectronicStudentFileManager.getInstance().updateElectronicStundentFile(esf);
 				}
-				
+
+				if(editMailForm.getCopyToSender()) {
+					MailManager.getInstance().sendEmail(subject, body, null, null, ureq.getIdentity());
+				}
+
 				editMailFormProtocolHolder = null;
 			}
 		}

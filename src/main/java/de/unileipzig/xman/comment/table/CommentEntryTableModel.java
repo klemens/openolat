@@ -4,6 +4,7 @@ import java.text.DateFormat;
 import java.util.List;
 import java.util.Locale;
 
+import org.olat.core.gui.components.EscapeMode;
 import org.olat.core.gui.components.table.DefaultColumnDescriptor;
 import org.olat.core.gui.components.table.DefaultTableDataModel;
 import org.olat.core.gui.components.table.TableController;
@@ -68,15 +69,7 @@ public class CommentEntryTableModel extends DefaultTableDataModel<CommentEntry> 
 				User user = entry.getAuthor().getUser();
 				return user.getProperty(UserConstants.FIRSTNAME, null) + " " + user.getProperty(UserConstants.LASTNAME, null);
 
-			/**
-			 * Old code: Formatter.formatWikiMarkup(entry.getComment());
-			 * 
-			 * Decription of formatWikiMarkup:
-			 * renders wiki markup like _italic_ to XHTML see also www.radeox.org
-			 * @Deprecated The wiki markup area is no longer supported. In the legacy form infrastructure it's still there, but it won't be available in the new flexi forms. In
-			 *             flexi forms use the RichTextElement instead. tested during migration and expanded to prevent radeox failures
-			 */
-			case 2: return  entry.getComment();
+			case 2: return  entry.getComment().trim().replaceAll("(\r\n|\n)", "<br />");
 			
 			default: return "";
 		}
@@ -100,6 +93,8 @@ public class CommentEntryTableModel extends DefaultTableDataModel<CommentEntry> 
 		
 		tableCtr.addColumnDescriptor(new DefaultColumnDescriptor("CommentEntryTableModel.header.creationDate", 0, null, locale));
 		tableCtr.addColumnDescriptor(new DefaultColumnDescriptor("CommentEntryTableModel.header.author", 1, null, locale));
-		tableCtr.addColumnDescriptor(new DefaultColumnDescriptor("CommentEntryTableModel.header.comment", 2, null, locale));
+		DefaultColumnDescriptor commentColumn = new DefaultColumnDescriptor("CommentEntryTableModel.header.comment", 2, null, locale);
+		commentColumn.setEscapeHtml(EscapeMode.none);
+		tableCtr.addColumnDescriptor(commentColumn);
 	}
 }

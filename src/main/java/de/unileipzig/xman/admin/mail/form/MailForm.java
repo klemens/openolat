@@ -6,63 +6,62 @@ import org.olat.core.gui.components.form.flexible.FormItemContainer;
 import org.olat.core.gui.components.form.flexible.impl.FormBasicController;
 import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.WindowControl;
-import org.olat.core.gui.components.form.flexible.elements.Cancel;
-import org.olat.core.gui.components.form.flexible.elements.Submit;
+import org.olat.core.gui.components.form.flexible.elements.MultipleSelectionElement;
 import org.olat.core.gui.components.form.flexible.elements.TextElement;
-import org.olat.core.gui.translator.Translator;
 import org.olat.core.util.Util;
 
 import de.unileipzig.xman.exam.Exam;
 
+/**
+ * Needed because the internal ContactFormController does not
+ * allow access to the subject or body the user entered.
+ */
 public class MailForm extends FormBasicController {
-
-	private String[] recipientsList;
+	private String recipient;
 	private TextElement subjectElem;
 	private TextElement bodyElem;
+	private MultipleSelectionElement copyToSender;
+	private String initialSubject;
+	private String sender;
 
-	public MailForm(UserRequest ureq, WindowControl wControl, String name,
-			Translator translator, String[] recipients) {
+	public MailForm(UserRequest ureq, WindowControl wControl, String sender, String recipient, String initialSubject) {
 		super(ureq, wControl);
 		
-		this.recipientsList = recipients;
-		setTranslator(Util.createPackageTranslator(Exam.class, ureq.getLocale()));
+		this.recipient = recipient;
+		this.initialSubject = initialSubject;
+		this.sender = sender;
+		setTranslator(Util.createPackageTranslator(Exam.class, getLocale()));
 
 		initForm(ureq);
-
 	}
 
 	@Override
-	protected void initForm(FormItemContainer formLayout, Controller listener,
-			UserRequest ureq) {
-		String recipients = recipientsList[0];
-		
-		for(int i = 1; i < recipientsList.length; i++) recipients = recipients + ", " + recipientsList[i];
-				
-		uifactory.addStaticTextElement("recipientsElem", "MailForm.recipient", recipients, formLayout);
-		subjectElem = uifactory.addTextElement("subjectElem",
-				"MailForm.subject", 128, "", formLayout);
+	protected void initForm(FormItemContainer formLayout, Controller listener, UserRequest ureq) {
+		uifactory.addStaticTextElement("recipientsElem", "MailForm.recipient", recipient, formLayout);
+		uifactory.addStaticTextElement("senderElem", "MailForm.sender", sender, formLayout);
+
+		subjectElem = uifactory.addTextElement("subjectElem", "MailForm.subject", -1, "", formLayout);
+		subjectElem.preventValueTrim(true);
+		subjectElem.setValue(initialSubject);
 		subjectElem.setDisplaySize(60);
 		subjectElem.setMandatory(true);
-		
-		bodyElem = uifactory.addTextAreaElement("bodyelem", "MailForm.body",
-				1024, 15, 60, true, "", formLayout);
+
+		bodyElem = uifactory.addTextAreaElement("bodyelem", "MailForm.body", -1, 15, 60, true, "", formLayout);
 		bodyElem.setMandatory(true);
 
-		// submit / cancel keys
-		uifactory.addFormSubmitButton("save", "MailForm.send", formLayout);
+		copyToSender = uifactory.addCheckboxesHorizontal("copyToSender", null, formLayout, new String[] {"copyToSender"}, new String[] {translate("MailForm.copyToSender")});
+
+		uifactory.addFormSubmitButton("send", "MailForm.send", formLayout);
 	}
 
 	@Override
 	public boolean validateFormLogic(UserRequest ureq) {
-
-		return !this.subjectElem.isEmpty("MailForm.noSubject")
-				&& !this.bodyElem.isEmpty("MailForm.noBody");
+		return !subjectElem.isEmpty("MailForm.noSubject") && !bodyElem.isEmpty("MailForm.noBody");
 	}
 
 	@Override
 	protected void formOK(UserRequest ureq) {
 		fireEvent(ureq, Form.EVNT_VALIDATION_OK);
-
 	}
 
 	@Override
@@ -71,18 +70,19 @@ public class MailForm extends FormBasicController {
 	}
 
 	public String getSubject() {
-
-		return this.subjectElem.getValue();
+		return subjectElem.getValue();
 	}
 
 	public String getBody() {
+		return bodyElem.getValue();
+	}
 
-		return this.bodyElem.getValue();
+	public boolean getCopyToSender() {
+		return copyToSender.isSelected(0);
 	}
 
 	@Override
 	protected void doDispose() {
-		// TODO Auto-generated method stub
-
+		// nothing to dispose
 	}
 }

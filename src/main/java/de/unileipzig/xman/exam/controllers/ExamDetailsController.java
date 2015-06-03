@@ -3,7 +3,7 @@ package de.unileipzig.xman.exam.controllers;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 
-import org.olat.catalog.CatalogManager;
+import org.olat.core.CoreSpringFactory;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.Component;
 import org.olat.core.gui.components.form.Form;
@@ -17,6 +17,7 @@ import org.olat.core.gui.control.WindowControl;
 import org.olat.core.gui.control.controller.BasicController;
 import org.olat.core.gui.translator.Translator;
 import org.olat.repository.RepositoryEntry;
+import org.olat.repository.manager.CatalogManager;
 
 import de.unileipzig.xman.exam.Exam;
 import de.unileipzig.xman.exam.ExamDBManager;
@@ -79,7 +80,8 @@ public class ExamDetailsController extends BasicController implements ExamContro
 			baseVC.contextPut("showPrivateWarning", re.getAccess() < RepositoryEntry.ACC_USERS);
 
 			// catalog warning
-			baseVC.contextPut("showCatalogWarning", CatalogManager.getInstance().getCatalogEntriesReferencing(re).size() == 0);
+			CatalogManager cm = CoreSpringFactory.getImpl(CatalogManager.class);
+			baseVC.contextPut("showCatalogWarning", cm.getCatalogEntriesReferencing(re).size() == 0);
 		} else {
 			baseVC.contextPut("showPrivateWarning", false);
 			baseVC.contextPut("showCatalogWarning", false);

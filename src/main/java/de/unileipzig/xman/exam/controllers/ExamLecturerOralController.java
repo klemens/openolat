@@ -162,7 +162,7 @@ public class ExamLecturerOralController extends BasicController implements ExamC
 					DTab dt = dts.getDTab(ores);
 					if (dt == null) {
 						// does not yet exist
-						dt = dts.createDTab(ores, p.getIdentity().getName());
+						dt = dts.createDTab(ores, null, p.getIdentity().getName());
 						if (dt == null) return;
 						UserInfoMainController uimc = new UserInfoMainController(ureq, dt.getWindowControl(), p.getIdentity());
 						dt.setController(uimc);
@@ -256,7 +256,9 @@ public class ExamLecturerOralController extends BasicController implements ExamC
 					}
 					
 					removeAsListenerAndDispose(editMailForm);
-					editMailForm = new MailForm(ureq, getWindowControl(), "editMailForm", getTranslator(), recipients.toArray(new String[0]));
+					String from = ureq.getIdentity().getUser().getProperty(UserConstants.EMAIL, null);
+					String to = String.join(", ", recipients);
+					editMailForm = new MailForm(ureq, getWindowControl(), from, to, "[" + exam.getName() + "] ");
 					listenTo(editMailForm);
 					
 					cmc = new CloseableModalController(this.getWindowControl(), translate("close"), editMailForm.getInitialComponent());
@@ -549,17 +551,21 @@ public class ExamLecturerOralController extends BasicController implements ExamC
 					if(appointmentTableModel.existsProtocol(app)) {
 						Protocol proto = appointmentTableModel.getProtocol(app);
 						
-						MailManager.getInstance().sendEmail(subject, body, proto.getIdentity());
+						MailManager.getInstance().sendEmail(subject, body, ureq.getIdentity(), proto.getIdentity());
 						
 						// load esf
 						ElectronicStudentFile esf = ElectronicStudentFileManager.getInstance().retrieveESFByIdentity(proto.getIdentity());
 						
 						// create comment in esf
-						CommentManager.getInstance().createCommentInEsf(esf, "E-Mail: " + subject + "\n" + body, ureq.getIdentity());
+						CommentManager.getInstance().createCommentInEsf(esf, "E-Mail: " + subject + "\n\n" + body, ureq.getIdentity());
 						
 						// TODO: see first occurrence
 						DBFactory.getInstance().intermediateCommit();
 					}
+				}
+
+				if(editMailForm.getCopyToSender()) {
+					MailManager.getInstance().sendEmail(subject, body, null, null, ureq.getIdentity());
 				}
 				
 				editMailFormAppointmentHolder = null;

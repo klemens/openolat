@@ -30,8 +30,6 @@ import org.olat.core.gui.control.generic.dtabs.DTabs;
 import org.olat.core.gui.control.generic.layout.MainLayoutController;
 import org.olat.core.gui.control.generic.modal.DialogBoxController;
 import org.olat.core.gui.control.generic.modal.DialogBoxUIFactory;
-import org.olat.core.gui.control.generic.tool.ToolController;
-import org.olat.core.gui.control.generic.tool.ToolFactory;
 import org.olat.core.gui.render.StringOutput;
 import org.olat.core.gui.translator.PackageTranslator;
 import org.olat.core.gui.translator.Translator;
@@ -89,7 +87,6 @@ public class ESFLaunchController extends BasicController {
 	private ElectronicStudentFile esf;
 
 	private VelocityContainer mainVC;
-	private ToolController toolCtr;
 
 	// TabelModel and TableController
 	private TableController protoTableCtr;
@@ -353,7 +350,7 @@ public class ESFLaunchController extends BasicController {
 					DTab dt = dts.getDTab(ores);
 					if (dt == null) {
 						// does not yet exist -> create and add
-						dt = dts.createDTab(ores, exam.getName());
+						dt = dts.createDTab(ores, null, exam.getName());
 						if(dt == null) return;
 						
 						ExamMainController examMain = new ExamMainController(ureq, getWindowControl(), exam, ExamMainController.View.STUDENT);
@@ -371,10 +368,4 @@ public class ESFLaunchController extends BasicController {
 		// TODO Auto-generated method stub
 
 	}
-
-	public ToolController getToolController() {
-
-		return this.toolCtr;
-	}
-
 }

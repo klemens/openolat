@@ -62,7 +62,6 @@ public class ExamAdminMainController extends MainLayoutBasicController {
 	private void activateSite(String cmd, UserRequest ureq) {
 		if(cmd.equals("esf")) {
 			ExamAdminESFController esfCtr = new ExamAdminESFController(ureq, getWindowControl());
-			mainLayout.setCol2(esfCtr.getToolController().getInitialComponent());
 			mainLayout.setCol3(esfCtr.getInitialComponent());
 
 			removeAsListenerAndDispose(currentSite);
@@ -70,7 +69,6 @@ public class ExamAdminMainController extends MainLayoutBasicController {
 			listenTo(currentSite);
 		} else if(cmd.equals("studyPath")) {
 			ExamAdminStudyPathController studyPathCtr = new ExamAdminStudyPathController(ureq, getWindowControl());
-			mainLayout.setCol2(studyPathCtr.getToolController().getInitialComponent());
 			mainLayout.setCol3(studyPathCtr.getInitialComponent());
 
 			removeAsListenerAndDispose(currentSite);

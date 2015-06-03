@@ -21,8 +21,6 @@ import org.olat.core.gui.control.controller.MainLayoutBasicController; //#### Ä
 import org.olat.core.gui.control.generic.closablewrapper.CloseableModalController;
 import org.olat.core.gui.control.generic.dtabs.DTab;
 import org.olat.core.gui.control.generic.dtabs.DTabs;
-import org.olat.core.gui.control.generic.tool.ToolController;
-import org.olat.core.gui.control.generic.tool.ToolFactory;
 import org.olat.core.id.OLATResourceable;
 import org.olat.core.id.User;
 import org.olat.core.id.UserConstants;
@@ -47,14 +45,12 @@ public class ESFEditController extends MainLayoutBasicController {
 	private static final String VELOCITY_ROOT = Util.getPackageVelocityRoot(ElectronicStudentFile.class);
 
 	public static final String ADD_COMMENT = "add.comment";
-
 	public static final String REMOVE_COMMENT = "remove.comment";
 	public static final String EDIT_COMMENT = "edit.comment";
 
 	private ElectronicStudentFile esf;
 
 	private VelocityContainer mainVC;
-	private ToolController toolCtr;
 
 	private LayoutMain3ColsController columnLayoutCtr;
 
@@ -87,10 +83,7 @@ public class ESFEditController extends MainLayoutBasicController {
 		setTranslator(Util.createPackageTranslator(ElectronicStudentFile.class, ureq.getLocale()));
 		mainVC = new VelocityContainer("esfView", VELOCITY_ROOT + "/esf-edit.html", getTranslator(), this);
 		
-		toolCtr = ToolFactory.createToolController(wControl);
-		toolCtr.addControllerListener(this);
-
-		columnLayoutCtr = new LayoutMain3ColsController(ureq, getWindowControl(), null, toolCtr.getInitialComponent(), mainVC, "editESF");
+		columnLayoutCtr = new LayoutMain3ColsController(ureq, getWindowControl(), null, null, mainVC, "editESF");
 		listenTo(columnLayoutCtr);// cleanup on dispose
 
 		init(ureq, wControl);
@@ -98,9 +91,6 @@ public class ESFEditController extends MainLayoutBasicController {
 	}
 
 	private void init(UserRequest ureq, WindowControl wControl) {
-		toolCtr.addHeader(translate("ESFEditController.toolheader"));
-		toolCtr.addLink(ADD_COMMENT, translate("ESFEditController.addComment"));
-	
 		buildView(ureq, wControl);
 	}
 
@@ -138,10 +128,9 @@ public class ESFEditController extends MainLayoutBasicController {
 		commentTableConfig.setShowAllLinkEnabled(true);
 		commentTableCtr = new TableController(commentTableConfig, ureq, wControl, getTranslator());
 		commentTableCtr.setMultiSelect(true);
-		commentTableCtr.addMultiSelectAction("ESFEditController.remove",
-				REMOVE_COMMENT);
-		commentTableCtr.addMultiSelectAction("ESFEditController.edit",
-				EDIT_COMMENT);
+		commentTableCtr.addMultiSelectAction("ESFEditController.add", ADD_COMMENT);
+		commentTableCtr.addMultiSelectAction("ESFEditController.remove", REMOVE_COMMENT);
+		commentTableCtr.addMultiSelectAction("ESFEditController.edit", EDIT_COMMENT);
 		// if esf is null, give an empty list to the model
 		commentTableMdl = new CommentEntryTableModel(getLocale(), new ArrayList<CommentEntry>(esf.getComments()));
 		commentTableMdl.setTable(commentTableCtr);
@@ -274,27 +263,6 @@ public class ESFEditController extends MainLayoutBasicController {
 			}
 		}
 
-
-
-		// toolController was pressed
-		if (source == toolCtr) {
-
-			// somebody wants to add a comment
-			if (event.getCommand().equals(ADD_COMMENT)) {
-				
-				addCommentForm = new ESFCommentCreateAndEditForm(ureq,
-						getWindowControl(), "ESFCommentCreateForm",
-						getTranslator(), "");
-				addCommentForm.addControllerListener(this);
-
-				addCommentCtr = new CloseableModalController(
-						getWindowControl(), translate("close"), addCommentForm
-								.getInitialComponent());
-				listenTo(addCommentCtr);
-				addCommentCtr.activate();
-			}
-		}
-
 		// the table Controller
 		if (source == protocolTableCtr) {
 
@@ -313,7 +281,7 @@ public class ESFEditController extends MainLayoutBasicController {
 					DTab dt = dts.getDTab(ores);
 					if (dt == null) {
 						// does not yet exist -> create and add
-						dt = dts.createDTab(ores, exam.getName());
+						dt = dts.createDTab(ores, null, exam.getName());
 						if(dt == null) return;
 						
 						ExamMainController examMain = new ExamMainController(ureq, getWindowControl(), exam, ExamMainController.View.LECTURER);
@@ -381,6 +349,15 @@ public class ESFEditController extends MainLayoutBasicController {
 					} else {
 						showWarning("ESFEditController.pleaseChoseOnlyOneComment");
 					}
+				}
+
+				if(tmse.getAction().equals(ADD_COMMENT)) {
+					addCommentForm = new ESFCommentCreateAndEditForm(ureq, getWindowControl(), "ESFCommentCreateForm", getTranslator(), "");
+					addCommentForm.addControllerListener(this);
+
+					addCommentCtr = new CloseableModalController(getWindowControl(), translate("close"), addCommentForm.getInitialComponent());
+					listenTo(addCommentCtr);
+					addCommentCtr.activate();
 				}
 			}
 		}
