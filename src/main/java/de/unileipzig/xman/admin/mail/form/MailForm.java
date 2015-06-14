@@ -7,6 +7,7 @@ import org.olat.core.gui.components.form.flexible.impl.FormBasicController;
 import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.WindowControl;
 import org.olat.core.gui.components.form.flexible.elements.MultipleSelectionElement;
+import org.olat.core.gui.components.form.flexible.elements.RichTextElement;
 import org.olat.core.gui.components.form.flexible.elements.TextElement;
 import org.olat.core.util.Util;
 
@@ -19,7 +20,7 @@ import de.unileipzig.xman.exam.Exam;
 public class MailForm extends FormBasicController {
 	private String recipient;
 	private TextElement subjectElem;
-	private TextElement bodyElem;
+	private RichTextElement bodyElem;
 	private MultipleSelectionElement copyToSender;
 	private String initialSubject;
 	private String sender;
@@ -46,7 +47,7 @@ public class MailForm extends FormBasicController {
 		subjectElem.setDisplaySize(60);
 		subjectElem.setMandatory(true);
 
-		bodyElem = uifactory.addTextAreaElement("bodyelem", "MailForm.body", -1, 15, 60, true, "", formLayout);
+		bodyElem = uifactory.addRichTextElementForStringDataMinimalistic("bodyelem", "MailForm.body", "", 15, 60, formLayout, getWindowControl());
 		bodyElem.setMandatory(true);
 
 		copyToSender = uifactory.addCheckboxesHorizontal("copyToSender", null, formLayout, new String[] {"copyToSender"}, new String[] {translate("MailForm.copyToSender")});

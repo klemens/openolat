@@ -69,7 +69,13 @@ public class CommentEntryTableModel extends DefaultTableDataModel<CommentEntry> 
 				User user = entry.getAuthor().getUser();
 				return user.getProperty(UserConstants.FIRSTNAME, null) + " " + user.getProperty(UserConstants.LASTNAME, null);
 
-			case 2: return  entry.getComment().trim().replaceAll("(\r\n|\n)", "<br />");
+			case 2:
+				// Texts produced with the minimal RichTextElement (should) always contain a <p>
+				if(entry.getComment().contains("<p>")) {
+					return entry.getComment();
+				} else {
+					return entry.getComment().trim().replaceAll("(\r\n|\n)", "<br />");
+				}
 			
 			default: return "";
 		}
