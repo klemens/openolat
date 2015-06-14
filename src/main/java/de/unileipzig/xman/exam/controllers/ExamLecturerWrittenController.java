@@ -524,7 +524,7 @@ public class ExamLecturerWrittenController extends BasicController implements Ex
 					ElectronicStudentFile esf = ElectronicStudentFileManager.getInstance().retrieveESFByIdentity(proto.getIdentity());
 					
 					// create comment in esf
-					CommentManager.getInstance().createCommentInEsf(esf, "E-Mail: " + subject + "\n\n" + body, ureq.getIdentity());
+					CommentManager.getInstance().createCommentInEsf(esf, "<p><em>E-Mail</em>: " + subject + "</p>\n" + body, ureq.getIdentity());
 					
 					// save changed esf
 					ElectronicStudentFileManager.getInstance().updateElectronicStundentFile(esf);

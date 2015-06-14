@@ -10,10 +10,7 @@ import org.olat.core.gui.translator.PackageTranslator;
 import org.olat.core.gui.translator.Translator;
 import org.olat.core.gui.components.form.flexible.elements.Cancel;
 import org.olat.core.gui.components.form.flexible.elements.Submit;
-import org.olat.core.gui.components.form.flexible.elements.TextElement;
 import org.olat.core.gui.components.form.flexible.elements.RichTextElement;
-
-import de.unileipzig.xman.comment.CommentEntry;
 
 /**
  * 
@@ -28,9 +25,7 @@ import de.unileipzig.xman.comment.CommentEntry;
 public class ESFCommentCreateAndEditForm extends FormBasicController {
 
 	// the input box for the comment
-	private TextElement comment;
-	private Submit submit;
-	private Cancel cancel;
+	private RichTextElement comment;
 	private String defaultText;
 
 	/**
@@ -50,14 +45,13 @@ public class ESFCommentCreateAndEditForm extends FormBasicController {
 	@Override
 	protected void initForm(FormItemContainer formLayout, Controller listener,
 			UserRequest ureq) {
-		comment = uifactory.addTextAreaElement("comment",
-				"ESFCommentCreateForm.comment", 1024, 6, 4, true, "", formLayout);
+		comment = uifactory.addRichTextElementForStringDataMinimalistic("comment", "ESFCommentCreateForm.comment", "", -1, -1, formLayout, getWindowControl());
 		comment.setMandatory(true);
 		if (!defaultText.isEmpty())
 			comment.setValue(defaultText);
 
 		// submit / cancel keys
-		submit = uifactory.addFormSubmitButton("save", "save", formLayout);
+		uifactory.addFormSubmitButton("save", "save", formLayout);
 	}
 
 	/**
