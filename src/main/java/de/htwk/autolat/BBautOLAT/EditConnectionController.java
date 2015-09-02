@@ -87,7 +87,6 @@ public class EditConnectionController extends BasicController {
 		
 		if(ctr == editConnectionForm) {
 			if(evnt.equals(FormEvent.DONE_EVENT)) {
-				showInfo("info.form.editconnection.configurationsaved");
 				fireEvent(ureq, Event.DONE_EVENT);
 			}			
 		}
