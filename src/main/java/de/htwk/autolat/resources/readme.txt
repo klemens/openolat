@@ -1,14 +1,21 @@
-To run autOlat, you have to add the modifications given in
-updateautOLAT-8.sql to your database:
+This directory contains the database schemas needed for autolat and
+the configuration for the autotool servers.
 
-mysql yourdb -uyouruser -pyourpasswd <updateautOLAT-8.sql
+# Database
 
-Use deleteautOLAT.sql in the same way to remove the additional tables. Note
-that this destroys all information about Autolat, and any course that contains
-Autolat nodes will no more work properly. So it is probably not a good idea to
-really do that on a productive system. 
+MySQL: autolat-mysql.sql
+PostgreSQL: autolat-postgresql.sql
 
-For Upgrades: We have not yet tested that. Note that the Hibernate mappings are
-now locally to Autolat and need not to be added to
-/org/olat/core/commons/persistence/_spring/databaseCorecontext.xml
-Please remove all legacy stuff from that location if any.
+Use autolat-delete.sql to remove autolat. Note however that courses with
+autolat nodes will no longer work and throw exception. So you first have to
+delete these courses or at least remove the autolat nodes.
+
+# Autotool
+
+autolatProperties.xml contains all servers that will be selectable via the
+task configuration. Note that this file can ba changes on the fly in production
+without reloading openolat.
+You should avoid removing servers from this list, as tasks do not save the url
+of the selected server, but the name and version, and so will no longer work
+if thier server is removed (this can be easily fixed however by selecting another
+server).
