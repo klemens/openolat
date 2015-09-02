@@ -38,6 +38,9 @@
 			<div class="#if($hasMetaData) col-xs-6 col-sm-12 #else col-sm-6 #end o_subcolumn">
 				<div class="o_overview">
 					<h3>$r.translate("details.overview")</h3>
+					#if($closed)
+						<div class="o_warning o_closed"><i class="o_icon o_icon-lg o_CourseModule_icon_closed"> </i> $r.translate("close.ressource.warning")</div>
+					#end
 					#if($v.lifecycle || $v.lifecycle.softKey || $v.lifecycle.label || $row.lifecycle.start || $row.lifecycle.end)
 					<div title="$r.translateInAttribute("cif.dates")">
 						<i class="o_icon o_icon_lifecycle"></i> 
@@ -265,7 +268,7 @@
 				/* ]]> */
 			</script>
 
-			#if ($referenceDetails)
+			#if ($referenceLinks && $referenceLinks.size() > 0)
 			<div class="panel panel-default o_usagepanel">
 				<div class="panel-heading" data-toggle="collapse" data-target="#collapseUsage">
 			    	<h3 class="panel-title">
@@ -278,7 +281,11 @@
 					<table class="table table-condensed table-striped"><tbody>
 						<tr>
 							<th>$r.translate("details.referenceinfo")</th>
-							<td>$referenceDetails</td>
+							<td>$r.translate("details.referenceinfo.txt")
+								#foreach($referenceLink in $referenceLinks)
+									#if($velocityCount != 1), #end$r.render($referenceLink)
+								#end
+							</td>
 						</tr>
 						<tr><th>$r.translate("cif.lastusage")</th><td>$r.formatDateAndTime($v.getStatistics().getLastUsage())</td></tr>
 						<tr><th>$r.translate("cif.usedbycnt")</th><td>$numUsers</td></tr>
@@ -299,7 +306,7 @@
 			</script>			
 			#end
 
-			#if ($v.getManagedFlags().size() > 0)
+			#if ($v && $v.getManagedFlags().size() > 0)
 			<div class="panel panel-default o_managedpanel">
 				<div class="panel-heading" data-toggle="collapse" data-target="#collapseManaged">
 			    	<h3 class="panel-title">

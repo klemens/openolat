@@ -33,6 +33,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.SimpleFileVisitor;
 import java.nio.file.attribute.BasicFileAttributes;
+import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
 
@@ -94,6 +95,12 @@ import org.olat.fileresource.types.GlossaryResource;
 import org.olat.fileresource.types.ResourceEvaluation;
 import org.olat.fileresource.types.SharedFolderFileResource;
 import org.olat.modules.glossary.GlossaryManager;
+import org.olat.modules.reminder.Reminder;
+import org.olat.modules.reminder.ReminderModule;
+import org.olat.modules.reminder.ReminderRule;
+import org.olat.modules.reminder.ReminderService;
+import org.olat.modules.reminder.RuleSPI;
+import org.olat.modules.reminder.model.ReminderRules;
 import org.olat.modules.sharedfolder.SharedFolderManager;
 import org.olat.repository.ErrorList;
 import org.olat.repository.RepositoryEntry;
@@ -251,15 +258,13 @@ public class CourseHandler implements RepositoryHandler {
 		CourseFactory.saveCourse(course.getResourceableId());
 		
 		//import references
-		if(withReferences) {
-			CourseEditorTreeNode rootNode = (CourseEditorTreeNode)course.getEditorTreeModel().getRootNode();
-			importReferences(rootNode, course, initialAuthor, locale);
-			if(course.getCourseConfig().hasCustomSharedFolder()) {
-				importSharedFolder(course, initialAuthor);
-			}
-			if(course.getCourseConfig().hasGlossary()) {
-				importGlossary(course, initialAuthor);
-			}
+		CourseEditorTreeNode rootNode = (CourseEditorTreeNode)course.getEditorTreeModel().getRootNode();
+		importReferences(rootNode, course, initialAuthor, locale, withReferences);
+		if(withReferences && course.getCourseConfig().hasCustomSharedFolder()) {
+			importSharedFolder(course, initialAuthor);
+		}
+		if(withReferences && course.getCourseConfig().hasGlossary()) {
+			importGlossary(course, initialAuthor);
 		}
 
 		// create group management / import groups
@@ -291,7 +296,23 @@ public class CourseHandler implements RepositoryHandler {
 		if(imp.anyExportedPropertiesAvailable()) {
 			re = imp.importContent(re, getMediaContainer(re));
 		}
+		
+		//import reminders
+		importReminders(re, fImportBaseDirectory, envMapper, initialAuthor);
+		
+		//clean up export folder
+		cleanExportAfterImport(fImportBaseDirectory);
+		
 		return re;
+	}
+	
+	private void cleanExportAfterImport(File fImportBaseDirectory) {
+		try {
+			Path exportDir = fImportBaseDirectory.toPath();
+			FileUtils.deleteDirsAndFiles(exportDir);
+		} catch (Exception e) {
+			log.error("", e);
+		}
 	}
 	
 	private void importSharedFolder(ICourse course, Identity owner) {
@@ -354,17 +375,40 @@ public class CourseHandler implements RepositoryHandler {
 			// set the new glossary reference
 		CourseConfig courseConfig = course.getCourseEnvironment().getCourseConfig();
 		courseConfig.setGlossarySoftKey(importedRepositoryEntry.getSoftkey());
-		ReferenceManager.getInstance().addReference(course, importedRepositoryEntry.getOlatResource(), GlossaryManager.GLOSSARY_REPO_REF_IDENTIFYER);			
+		CoreSpringFactory.getImpl(ReferenceManager.class).addReference(course, importedRepositoryEntry.getOlatResource(), GlossaryManager.GLOSSARY_REPO_REF_IDENTIFYER);			
 		CourseFactory.setCourseConfig(course.getResourceableId(), courseConfig);
 	}
 	
-	private void importReferences(CourseEditorTreeNode node, ICourse course, Identity owner, Locale locale) {
-		node.getCourseNode().importNode(course.getCourseExportDataDir().getBasefile(), course, owner, locale);
+	private void importReferences(CourseEditorTreeNode node, ICourse course, Identity owner, Locale locale, boolean withReferences) {
+		node.getCourseNode().importNode(course.getCourseExportDataDir().getBasefile(), course, owner, locale, withReferences);
 
 		for (int i = 0; i<node.getChildCount(); i++) {
 			INode child = node.getChildAt(i);
 			if(child instanceof CourseEditorTreeNode) {
-				importReferences((CourseEditorTreeNode)child, course, owner, locale);
+				importReferences((CourseEditorTreeNode)child, course, owner, locale, withReferences);
+			}
+		}
+	}
+	
+	private void importReminders(RepositoryEntry re, File fImportBaseDirectory, CourseEnvironmentMapper envMapper, Identity initialAuthor) {
+		ReminderModule reminderModule = CoreSpringFactory.getImpl(ReminderModule.class);
+		ReminderService reminderService = CoreSpringFactory.getImpl(ReminderService.class);
+		List<Reminder> reminders = reminderService.importRawReminders(initialAuthor, re, fImportBaseDirectory);
+		if(reminders.size() > 0) {
+			for(Reminder reminder:reminders) {
+				ReminderRules clonedRules = new ReminderRules();
+				String configuration = reminder.getConfiguration();
+				ReminderRules rules = reminderService.toRules(configuration);
+				for(ReminderRule rule:rules.getRules()) {
+					RuleSPI ruleSpi = reminderModule.getRuleSPIByType(rule.getType());
+					if(ruleSpi != null) {
+						ReminderRule clonedRule = ruleSpi.clone(rule, envMapper);
+						clonedRules.getRules().add(clonedRule);
+					}
+				}
+				String convertedConfiguration = reminderService.toXML(clonedRules);
+				reminder.setConfiguration(convertedConfiguration);
+				reminderService.save(reminder);
 			}
 		}
 	}
@@ -380,7 +424,7 @@ public class CourseHandler implements RepositoryHandler {
 	}
 	
 	@Override
-	public RepositoryEntry copy(RepositoryEntry source, RepositoryEntry target) {
+	public RepositoryEntry copy(Identity author, RepositoryEntry source, RepositoryEntry target) {
 		final OLATResource sourceResource = source.getOlatResource();
 		final OLATResource targetResource = target.getOlatResource();
 		
@@ -401,9 +445,36 @@ public class CourseHandler implements RepositoryHandler {
 		CourseEnvironmentMapper envMapper = cgm.importCourseBusinessGroups(fExportDir);
 		//upgrade to the current version of the course
 		course = CourseFactory.loadCourse(cgm.getCourseResource());
-		course.postImport(envMapper);
+		course.postCopy(envMapper, sourceCourse);
+		
+		cloneReminders(author, envMapper, source, target);
 		
 		return target;
+	}
+	
+	private void cloneReminders(Identity author, CourseEnvironmentMapper envMapper, RepositoryEntry source, RepositoryEntry target) {
+		ReminderModule reminderModule = CoreSpringFactory.getImpl(ReminderModule.class);
+		ReminderService reminderService = CoreSpringFactory.getImpl(ReminderService.class);
+		List<Reminder> reminders = reminderService.getReminders(source);
+		
+		for(Reminder reminder:reminders) {
+			String configuration = reminder.getConfiguration();
+			ReminderRules rules = reminderService.toRules(configuration);
+			ReminderRules clonedRules = new ReminderRules();
+			for(ReminderRule rule:rules.getRules()) {
+				RuleSPI ruleSpi = reminderModule.getRuleSPIByType(rule.getType());
+				if(ruleSpi != null) {
+					ReminderRule clonedRule = ruleSpi.clone(rule, envMapper);
+					clonedRules.getRules().add(clonedRule);
+				}
+			}
+
+			Reminder clonedReminder = reminderService.createReminder(target, author);
+			clonedReminder.setDescription(reminder.getDescription());
+			clonedReminder.setEmailBody(reminder.getEmailBody());
+			clonedReminder.setConfiguration(reminderService.toXML(clonedRules));
+			reminderService.save(clonedReminder);
+		}
 	}
 
 	@Override
@@ -503,13 +574,13 @@ public class CourseHandler implements RepositoryHandler {
 	}
 
 	@Override
-	public boolean readyToDelete(OLATResourceable res, Identity identity, Roles roles, Locale locale, ErrorList errors) {
-		ReferenceManager refM = ReferenceManager.getInstance();
-		String referencesSummary = refM.getReferencesToSummary(res, locale);
+	public boolean readyToDelete(RepositoryEntry entry, Identity identity, Roles roles, Locale locale, ErrorList errors) {
+		ReferenceManager refM = CoreSpringFactory.getImpl(ReferenceManager.class);
+		String referencesSummary = refM.getReferencesToSummary(entry.getOlatResource(), locale);
 		if (referencesSummary != null) {
 			Translator translator = Util.createPackageTranslator(RepositoryManager.class, locale);
 			errors.setError(translator.translate("details.delete.error.references",
-					new String[] { referencesSummary }));
+					new String[] { referencesSummary, entry.getDisplayname() }));
 			return false;
 		}
 		/*
@@ -518,9 +589,9 @@ public class CourseHandler implements RepositoryHandler {
 		UserManager um = UserManager.getInstance();
 		String charset = um.getUserCharset(identity);
 		try {
-			CourseFactory.archiveCourse(res,charset, locale, identity, roles);
+			CourseFactory.archiveCourse(entry.getOlatResource(),charset, locale, identity, roles);
 		} catch (CorruptedCourseException e) {
-			log.error("The course is corrupted, cannot archive it: " + res, e);
+			log.error("The course is corrupted, cannot archive it: " + entry, e);
 		}
 		return true;
 	}

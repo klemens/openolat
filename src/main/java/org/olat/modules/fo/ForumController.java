@@ -220,7 +220,8 @@ public class ForumController extends BasicController implements GenericEventList
 	 * @param ureq
 	 * @param wControl
 	 */
-	ForumController(Forum forum, ForumCallback focallback, UserRequest ureq, WindowControl wControl) {
+	public ForumController(UserRequest ureq, WindowControl wControl,
+			Forum forum, ForumCallback focallback, boolean showSubscriptionButton) {
 		super(ureq, wControl);
 		this.forum = forum;
 		this.focallback = focallback;
@@ -267,8 +268,7 @@ public class ForumController extends BasicController implements GenericEventList
 		// --- subscription ---
 		subsContext = focallback.getSubscriptionContext();
 		// if sc is null, then no subscription is desired
-		if (subsContext != null) {
-			// FIXME fj: implement subscription callback for group forums
+		if (subsContext != null && showSubscriptionButton) {
 			String businessPath = wControl.getBusinessControl().getAsString();
 			String data = String.valueOf(forum.getKey());
 			PublisherData pdata = new PublisherData(OresHelper.calculateTypeName(Forum.class), data, businessPath);
@@ -1240,7 +1240,7 @@ public class ForumController extends BasicController implements GenericEventList
 		numOfChildren = countNumOfChildren(m, threadMsgs);
 		Integer nOfCh = new Integer(numOfChildren);
 		map.put("nOfCh", nOfCh);
-		boolean userIsMsgCreator = ureq.getIdentity().getKey().equals(creator.getKey());
+		boolean userIsMsgCreator = getIdentity().getKey().equals(creator.getKey());
 		Boolean uIsMsgC = new Boolean(userIsMsgCreator);
 		map.put("uIsMsgC", uIsMsgC);
 		boolean isThreadtop = m.getThreadtop()==null;

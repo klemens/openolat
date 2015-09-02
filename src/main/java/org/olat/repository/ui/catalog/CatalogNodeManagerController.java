@@ -31,6 +31,7 @@ import org.olat.admin.securitygroup.gui.IdentitiesRemoveEvent;
 import org.olat.basesecurity.BaseSecurity;
 import org.olat.basesecurity.SecurityGroup;
 import org.olat.core.dispatcher.mapper.MapperService;
+import org.olat.core.dispatcher.mapper.manager.MapperKey;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.Component;
 import org.olat.core.gui.components.form.flexible.FormItem;
@@ -136,7 +137,7 @@ public class CatalogNodeManagerController extends FormBasicController implements
 	private Link addCategoryLink, addResourceLink;
 
 	private LockResult catModificationLock;
-	private final String mapperThumbnailUrl;
+	private final MapperKey mapperThumbnailKey;
 
 	private final boolean isGuest;
 	private final boolean isAuthor;
@@ -171,7 +172,7 @@ public class CatalogNodeManagerController extends FormBasicController implements
 		
 		this.toolbarPanel = stackPanel;
 		this.catalogEntry = catalogEntry;
-		mapperThumbnailUrl = mapperService.register(null, "catalogentryImage", new CatalogEntryImageMapper());
+		mapperThumbnailKey = mapperService.register(null, "catalogentryImage", new CatalogEntryImageMapper());
 		
 		isAuthor = ureq.getUserSession().getRoles().isAuthor();
 		isGuest = ureq.getUserSession().getRoles().isGuestOnly();
@@ -196,7 +197,7 @@ public class CatalogNodeManagerController extends FormBasicController implements
 	@Override
 	protected void initForm(FormItemContainer formLayout, Controller listener, UserRequest ureq) {
 		//one mapper for all users
-		flc.contextPut("mapperThumbnailUrl", mapperThumbnailUrl);
+		flc.contextPut("mapperThumbnailUrl", mapperThumbnailKey.getUrl());
 		
 		int level  = 0;
 		CatalogEntry parent = catalogEntry.getParent();
@@ -247,7 +248,7 @@ public class CatalogNodeManagerController extends FormBasicController implements
 		columnsModel.addFlexiColumnModel(new StaticFlexiColumnModel(Cols.delete.i18nKey(), translate(Cols.delete.i18nKey()), "delete"));
 		columnsModel.addFlexiColumnModel(new StaticFlexiColumnModel(Cols.move.i18nKey(), translate(Cols.move.i18nKey()), "move"));
 		columnsModel.addFlexiColumnModel(new StaticFlexiColumnModel(Cols.detailsSupported.i18nKey(), Cols.detailsSupported.ordinal(), "details",
-				new StaticFlexiCellRenderer("", "details", "o_icon-lg o_icon_details", translate("details"))));
+				new StaticFlexiCellRenderer("", "details", "o_icon o_icon-lg o_icon_details", translate("details"))));
 		
 		entriesModel = new CatalogEntryRowModel(columnsModel);
 		entriesEl = uifactory.addTableElement(getWindowControl(), "entries", entriesModel, getTranslator(), formLayout);
@@ -552,8 +553,6 @@ public class CatalogNodeManagerController extends FormBasicController implements
 			if(event instanceof IdentitiesAddEvent || event instanceof IdentitiesRemoveEvent) {
 				doAddRemoveOwners(event);
 			}
-			cmc.deactivate();
-			cleanUp();
 		} else if(contactCtrl == source) {
 			cmc.deactivate();
 			cleanUp();
@@ -620,7 +619,7 @@ public class CatalogNodeManagerController extends FormBasicController implements
 		removeAsListenerAndDispose(entrySearchCtrl);
 		removeAsListenerAndDispose(cmc);
 		
-		entrySearchCtrl = new RepositorySearchController(translate("choose"), ureq, getWindowControl(), true, false, false, new String[0], null);
+		entrySearchCtrl = new RepositorySearchController(translate("choose"), ureq, getWindowControl(), true, false, new String[0], null);
 		listenTo(entrySearchCtrl);
 		// OLAT-Admin has search form
 		if (ureq.getUserSession().getRoles().isOLATAdmin()) {

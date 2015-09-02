@@ -295,7 +295,7 @@ public class ChecklistCourseNode extends AbstractAccessableCourseNode {
 	}
 	
 	@Override
-	public void importNode(File importDirectory, ICourse course, Identity owner, Locale locale) {
+	public void importNode(File importDirectory, ICourse course, Identity owner, Locale locale, boolean withReferences) {
 		CoursePropertyManager cpm = course.getCourseEnvironment().getCoursePropertyManager();
 		if(getChecklistKey(cpm) != null) deleteChecklistKeyConf(cpm);
 		
@@ -336,8 +336,8 @@ public class ChecklistCourseNode extends AbstractAccessableCourseNode {
 	}
 	
 	@Override
-	public CourseNode createInstanceForCopy(boolean isNewTitle) {
-		CourseNode copyInstance = super.createInstanceForCopy(isNewTitle);
+	public CourseNode createInstanceForCopy(boolean isNewTitle, ICourse course) {
+		CourseNode copyInstance = super.createInstanceForCopy(isNewTitle, course);
 		ChecklistManager cm = ChecklistManager.getInstance();
 		// load checklist
 		Checklist checklist = cm.loadChecklist((Checklist) getModuleConfiguration().get(ChecklistCourseNode.CONF_CHECKLIST));

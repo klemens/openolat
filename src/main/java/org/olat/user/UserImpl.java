@@ -33,6 +33,8 @@ import org.olat.core.commons.persistence.PersistentObject;
 import org.olat.core.id.Preferences;
 import org.olat.core.id.User;
 import org.olat.core.id.UserConstants;
+import org.olat.core.logging.OLog;
+import org.olat.core.logging.Tracing;
 import org.olat.user.propertyhandlers.UserPropertyHandler;
 
 /**
@@ -55,6 +57,7 @@ import org.olat.user.propertyhandlers.UserPropertyHandler;
 public class UserImpl extends PersistentObject implements User {
 
 	private static final long serialVersionUID = -2872102058369727753L;
+	private static final OLog log = Tracing.createLoggerFor(UserImpl.class);
 
 	private Preferences preferences;
 	
@@ -73,16 +76,19 @@ public class UserImpl extends PersistentObject implements User {
 	 * still null.
 	 */
 	protected UserImpl() {
-		super();
-		this.preferences = new PreferencesImpl();
+		//
 	}
 
 	UserImpl(String firstName, String lastName, String eMail) {
-		super();
-		if (firstName != null) getUserProperties().put(UserConstants.FIRSTNAME, firstName);
-		if (lastName != null) getUserProperties().put(UserConstants.LASTNAME, lastName);
-		if (eMail != null) getUserProperties().put(UserConstants.EMAIL, eMail);
-		this.preferences = new PreferencesImpl();
+		if (firstName != null) {
+			getUserProperties().put(UserConstants.FIRSTNAME, firstName);
+		}
+		if (lastName != null) {
+			getUserProperties().put(UserConstants.LASTNAME, lastName);
+		}
+		if (eMail != null) {
+			getUserProperties().put(UserConstants.EMAIL, eMail);
+		}
 	}
 
 	/**
@@ -111,7 +117,10 @@ public class UserImpl extends PersistentObject implements User {
 	 * @see User#getPreferences()
 	 */
 	public Preferences getPreferences(){
-		return this.preferences;	
+		if(preferences == null) {
+			preferences = new PreferencesImpl();
+		}
+		return preferences;	
 	}
 	
 	/**
@@ -158,6 +167,7 @@ public class UserImpl extends PersistentObject implements User {
 	/**
 	 * @see org.olat.core.id.User#getProperty(java.lang.String, java.util.Locale)
 	 */
+	@Override
 	public String getProperty(String propertyName, Locale locale) {
 		UserManager um = UserManager.getInstance();
 		UserPropertyHandler propertyHandler = um.getUserPropertiesConfig().getPropertyHandler(propertyName);
@@ -169,10 +179,15 @@ public class UserImpl extends PersistentObject implements User {
 	/**
 	 * @see org.olat.core.id.User#setProperty(java.lang.String, java.lang.String)
 	 */
+	@Override
 	public void setProperty(String propertyName, String propertyValue) {
 		UserManager um = UserManager.getInstance();
 		UserPropertyHandler propertyHandler = um.getUserPropertiesConfig().getPropertyHandler(propertyName);
-		propertyHandler.setUserProperty(this, propertyValue);
+		if(propertyHandler == null) {
+			log.error("Try to set unkown property: " + propertyName + " for user: " + getKey());
+		} else {
+			propertyHandler.setUserProperty(this, propertyValue);
+		}
 	}
 	
 	/**

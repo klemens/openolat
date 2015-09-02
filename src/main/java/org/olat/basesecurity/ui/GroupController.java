@@ -286,6 +286,7 @@ public class GroupController extends BasicController {
 	 * @see org.olat.core.gui.control.DefaultController#event(org.olat.core.gui.UserRequest,
 	 *      org.olat.core.gui.control.Controller, org.olat.core.gui.control.Event)
 	 */
+	@Override
 	public void event(UserRequest ureq, Controller sourceController, Event event) {
 		if (sourceController == tableCtr) {
 			if (event.getCommand().equals(Table.COMMANDLINK_ROWACTION_CLICKED)) {
@@ -296,8 +297,9 @@ public class GroupController extends BasicController {
 				if (actionid.equals(COMMAND_VCARD)) {
 					//get identity and open new visiting card controller in new window
 					ControllerCreator userInfoMainControllerCreator = new ControllerCreator() {
+						@Override
 						public Controller createController(UserRequest lureq, WindowControl lwControl) {
-							return new UserInfoMainController(lureq, lwControl, identity);
+							return new UserInfoMainController(lureq, lwControl, identity, true, false);
 						}					
 					};
 					//wrap the content controller into a full header layout
@@ -646,7 +648,9 @@ public class GroupController extends BasicController {
 		
 		// in the end
 		if (enableTablePreferences) {
-			tableCtr.addColumnDescriptor(true, new DefaultColumnDescriptor("table.subject.addeddate", 2, COMMAND_VCARD, ureq.getLocale()));
+			DefaultColumnDescriptor cd = new DefaultColumnDescriptor("table.subject.addeddate", 2, COMMAND_VCARD, ureq.getLocale());
+			cd.setIsPopUpWindowAction(true, "height=700, width=900, location=no, menubar=no, resizable=yes, status=no, scrollbars=yes, toolbar=no");
+			tableCtr.addColumnDescriptor(true, cd);
 			tableCtr.setSortColumn(++visibleColId,true);	
 		}
 		if (enableUserSelection) {

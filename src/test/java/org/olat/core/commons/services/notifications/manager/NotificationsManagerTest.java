@@ -39,8 +39,7 @@ import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
-import junit.framework.Assert;
-
+import org.junit.Assert;
 import org.junit.Test;
 import org.olat.core.commons.persistence.DB;
 import org.olat.core.commons.services.notifications.NotificationsManager;
@@ -74,6 +73,20 @@ public class NotificationsManagerTest extends OlatTestCase {
 	@Autowired
 	private DB dbInstance;
 
+	@Test
+	public void getUserIntervalOrDefault() {
+		String defInterval = notificationManager.getDefaultNotificationInterval();
+		Assert.assertNotNull(defInterval);
+
+		Identity id = JunitTestHelper.createAndPersistIdentityAsRndUser("subs-1");
+		dbInstance.commitAndCloseSession();
+		String checkId = notificationManager.getUserIntervalOrDefault(id);
+		Assert.assertNotNull(checkId);
+
+		String nullInterval = notificationManager.getUserIntervalOrDefault(null);
+		Assert.assertNotNull(nullInterval);
+		Assert.assertEquals(defInterval, nullInterval);
+	}
 	
 	@Test
 	public void testCreatePublisher() {

@@ -68,6 +68,7 @@ import org.olat.core.util.mail.MailTemplate;
 import org.olat.core.util.mail.MailerResult;
 import org.olat.core.util.resource.OLATResourceableJustBeforeDeletedEvent;
 import org.olat.core.util.resource.OresHelper;
+import org.olat.course.assessment.manager.AssessmentModeDAO;
 import org.olat.group.BusinessGroup;
 import org.olat.group.BusinessGroupAddResponse;
 import org.olat.group.BusinessGroupManagedFlag;
@@ -146,6 +147,8 @@ public class BusinessGroupServiceImpl implements BusinessGroupService, UserDataD
 	private BaseSecurity securityManager;
 	@Autowired
 	private ContactDAO contactDao;
+	@Autowired
+	private AssessmentModeDAO assessmentModeDao;
 	@Autowired
 	private BusinessGroupRelationDAO businessGroupRelationDAO;
 	@Autowired
@@ -747,6 +750,7 @@ public class BusinessGroupServiceImpl implements BusinessGroupService, UserDataD
 			areaManager.deleteBGtoAreaRelations(group);
 			// 3) Delete the relations
 			businessGroupRelationDAO.deleteRelationsToRepositoryEntry(group);
+			assessmentModeDao.deleteAssessmentModesToGroup(group);
 			// 4) delete properties
 			propertyManager.deleteProperties(null, group, null, null, null);
 			propertyManager.deleteProperties(null, null, group, null, null);
@@ -1303,12 +1307,12 @@ public class BusinessGroupServiceImpl implements BusinessGroupService, UserDataD
 	}
 	
 	@Override
-	public int getPositionInWaitingListFor(Identity identity, BusinessGroup businessGroup) {
+	public int getPositionInWaitingListFor(IdentityRef identity, BusinessGroupRef businessGroup) {
 		// get position in waiting-list
-		List<Identity> identities = businessGroupRelationDAO.getMembersOrderByDate(businessGroup, GroupRoles.waiting.name());
+		List<Long> identities = businessGroupRelationDAO.getMemberKeysOrderByDate(businessGroup, GroupRoles.waiting.name());
 		for (int i = 0; i<identities.size(); i++) {
-			Identity waitingListIdentity = identities.get(i);
-			if (waitingListIdentity.equals(identity) ) {
+			Long waitingListIdentity = identities.get(i);
+			if (waitingListIdentity.equals(identity.getKey()) ) {
 				return i+1;// '+1' because list begins with 0 
 			}
 		}
@@ -1521,7 +1525,7 @@ public class BusinessGroupServiceImpl implements BusinessGroupService, UserDataD
 			for(RepositoryEntry re:resources) {
 				boolean found = false;
 				for(RepositoryEntryToGroupRelation relation:relations) {
-					if(relation.getGroup().equals(group) && relation.getEntry().equals(re)) {
+					if(relation.getGroup().equals(baseGroup) && relation.getEntry().equals(re)) {
 						found = true;
 					}
 				}
@@ -1694,13 +1698,18 @@ public class BusinessGroupServiceImpl implements BusinessGroupService, UserDataD
 	}
 
 	@Override
-	public boolean isIdentityInBusinessGroup(Identity identity, BusinessGroup businessGroup) {
+	public boolean isIdentityInBusinessGroup(IdentityRef identity, BusinessGroupRef businessGroup) {
 		if(businessGroup == null || identity == null) return false;
 		List<String> roles = businessGroupRelationDAO.getRoles(identity, businessGroup);
 		if(roles == null || roles.isEmpty() || (roles.size() == 1 &&  GroupRoles.waiting.name().equals(roles.get(0)))) {
 			return false;
 		}
 		return roles.size() > 0;
+	}
+
+	@Override
+	public List<String> getIdentityRolesInBusinessGroup(IdentityRef identity, BusinessGroupRef businessGroup) {
+		return businessGroupRelationDAO.getRoles(identity, businessGroup);
 	}
 
 	@Override

@@ -37,6 +37,7 @@ import javax.servlet.http.HttpServletRequest;
 import org.olat.basesecurity.Authentication;
 import org.olat.basesecurity.BaseSecurity;
 import org.olat.basesecurity.BaseSecurityManager;
+import org.olat.core.CoreSpringFactory;
 import org.olat.core.commons.persistence.DBFactory;
 import org.olat.core.dispatcher.mapper.Mapper;
 import org.olat.core.gui.UserRequest;
@@ -123,6 +124,8 @@ class ImportStep00 extends BasicStep {
 		private UserManager um;
 		@Autowired
 		private BaseSecurity securityManager;
+		@Autowired
+		private ShibbolethModule shibbolethModule;
 
 		public ImportStepForm00(UserRequest ureq, WindowControl control, Form rootForm, StepsRunContext runContext) {
 			super(ureq, control, rootForm, runContext, LAYOUT_VERTICAL, null);
@@ -219,7 +222,7 @@ class ImportStep00 extends BasicStep {
 					if (parts.length > columnId) {
 						pwd = parts[columnId].trim();
 						if (StringHelper.containsNonWhitespace(pwd)) {
-							if(pwd.startsWith(UserImportController.SHIBBOLETH_MARKER) && ShibbolethModule.isEnableShibbolethLogins()) {
+							if(pwd.startsWith(UserImportController.SHIBBOLETH_MARKER) && shibbolethModule.isEnableShibbolethLogins()) {
 								String authusername = pwd.substring(UserImportController.SHIBBOLETH_MARKER.length());
 								Authentication auth = securityManager.findAuthenticationByAuthusername(authusername, ShibbolethDispatcher.PROVIDER_SHIB);
 								if(auth != null) {
@@ -306,7 +309,7 @@ class ImportStep00 extends BasicStep {
 		
 		private Set<String> getTemporaryEmailInUse() {
 			Set<String> tempEmailsInUse = new HashSet<String>();
-			RegistrationManager rm = RegistrationManager.getInstance();
+			RegistrationManager rm = CoreSpringFactory.getImpl(RegistrationManager.class);
 			List<TemporaryKey> tk = rm.loadTemporaryKeyByAction(RegistrationManager.EMAIL_CHANGE);
 			if (tk != null) {
 				for (TemporaryKey temporaryKey : tk) {
@@ -348,7 +351,9 @@ class ImportStep00 extends BasicStep {
 				}
 				// used for call-back value depending on PropertyHandler
 				ValidationError validationError = new ValidationError();
-				if (!userPropertyHandler.isValidValue(null, thisValue, validationError, getLocale())) {
+				// Only validate value when not empty. In case of mandatory fields the previous check makes sure the
+				// user has a non-empty value. 
+				if (StringHelper.containsNonWhitespace(thisValue) && !userPropertyHandler.isValidValue(null, thisValue, validationError, getLocale())) {
 					String error = "unkown";
 					String label = "";
 					if(userPropertyHandler.i18nFormElementLabelKey() != null) {

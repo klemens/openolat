@@ -24,9 +24,11 @@ import java.util.Collections;
 import org.olat.core.CoreSpringFactory;
 import org.olat.core.dispatcher.mapper.Mapper;
 import org.olat.core.dispatcher.mapper.MapperService;
+import org.olat.core.dispatcher.mapper.manager.MapperKey;
 import org.olat.core.gui.control.Disposable;
 import org.olat.core.gui.control.JSAndCSSAdder;
 import org.olat.core.logging.LogDelegator;
+import org.olat.core.util.CodeHelper;
 import org.olat.core.util.UserSession;
 import org.olat.core.util.vfs.VFSContainer;
 import org.olat.core.util.vfs.VFSContainerMapper;
@@ -45,11 +47,12 @@ import org.olat.core.util.vfs.VFSManager;
  * @author gnaegi
  */
 public class CustomCSS extends LogDelegator implements Disposable {
-	private String mapperBaseURI;
-	private String relCssFilename;
-	private String relCssFileIframe;
-	private Mapper cssUriMapper;
-	private JSAndCSSComponent jsAndCssComp;
+
+	private final String relCssFilename;
+	private final String relCssFileIframe;
+	private final Mapper cssUriMapper;
+	private final MapperKey cssUriMapperKey;
+	private final JSAndCSSComponent jsAndCssComp;
 	private Object DISPOSE_LOCK = new Object();
 
 	/**
@@ -65,26 +68,27 @@ public class CustomCSS extends LogDelegator implements Disposable {
 	 */
 	public CustomCSS(final VFSContainer cssBaseContainer,
 			final String relCssFilename, UserSession uSess) {
-		createCSSUriMapper(cssBaseContainer);
+		cssUriMapper = createCSSUriMapper(cssBaseContainer);
 		this.relCssFilename = relCssFilename;
-		registerMapper(cssBaseContainer, uSess);
+		this.relCssFileIframe = null;
+		cssUriMapperKey = registerMapper(cssBaseContainer, uSess);
 		// initialize js and css component
 		jsAndCssComp = new JSAndCSSComponent("jsAndCssComp", this.getClass(), false);
-		String fulluri = mapperBaseURI + relCssFilename;
+		String fulluri = cssUriMapperKey.getUrl() + relCssFilename;
 		// load CSS after the theme
 		jsAndCssComp.addAutoRemovedCssPathName(fulluri, JSAndCSSAdder.CSS_INDEX_AFTER_THEME);
 	}
 	
 	public CustomCSS(final VFSContainer cssBaseContainer,
 			final String relCssFileMain, final String relCssFileIFrame, UserSession uSess ) {
-		createCSSUriMapper(cssBaseContainer);
+		cssUriMapper = createCSSUriMapper(cssBaseContainer);
 		this.relCssFilename = relCssFileMain;
 		this.relCssFileIframe = relCssFileIFrame;
-		registerMapper(cssBaseContainer, uSess);
+		cssUriMapperKey = registerMapper(cssBaseContainer, uSess);
 		
 		// initialize js and css component
 		jsAndCssComp = new JSAndCSSComponent("jsAndCssComp", this.getClass(), false);
-		String fulluri = mapperBaseURI + relCssFilename;
+		String fulluri = cssUriMapperKey.getUrl() + relCssFilename;
 		// load CSS after the theme
 		jsAndCssComp.addAutoRemovedCssPathName(fulluri, JSAndCSSAdder.CSS_INDEX_AFTER_THEME);
 		
@@ -94,25 +98,27 @@ public class CustomCSS extends LogDelegator implements Disposable {
 	 * @param cssBaseContainer
 	 * @param uSess
 	 */
-	private void registerMapper(final VFSContainer cssBaseContainer, UserSession uSess) {
+	private MapperKey registerMapper(final VFSContainer cssBaseContainer, UserSession uSess) {
 		// Register mapper as cacheable
 		String mapperID = VFSManager.getRealPath(cssBaseContainer);
+		MapperKey mapperKey;
 		if (mapperID == null) {
 			// Can't cache mapper, no cacheable context available
-			mapperBaseURI  = CoreSpringFactory.getImpl(MapperService.class).register(uSess, cssUriMapper);
+			mapperKey = CoreSpringFactory.getImpl(MapperService.class).register(uSess, cssUriMapper);
 		} else {
 			// Add classname to the file path to remove conflicts with other
 			// usages of the same file path
-			mapperID = this.getClass().getSimpleName() + ":" + mapperID + System.currentTimeMillis();
-			mapperBaseURI  = CoreSpringFactory.getImpl(MapperService.class).register(uSess, mapperID, cssUriMapper);
+			mapperID = this.getClass().getSimpleName() + ":" + mapperID + CodeHelper.getRAMUniqueID();
+			mapperKey = CoreSpringFactory.getImpl(MapperService.class).register(uSess, mapperID, cssUriMapper);
 		}
+		return mapperKey;
 	}
 
 	/**
 	 * @param cssBaseContainer
 	 */
-	private void createCSSUriMapper(final VFSContainer cssBaseContainer) {
-		cssUriMapper = new VFSContainerMapper(cssBaseContainer);
+	private Mapper createCSSUriMapper(final VFSContainer cssBaseContainer) {
+		return new VFSContainerMapper(cssBaseContainer);
 	}
 
 	/**
@@ -130,7 +136,7 @@ public class CustomCSS extends LogDelegator implements Disposable {
 	 * @return
 	 */
 	public String getCSSURL() {
-		return mapperBaseURI + relCssFilename;
+		return cssUriMapperKey.getUrl() + relCssFilename;
 	}
 
 	/**
@@ -138,21 +144,25 @@ public class CustomCSS extends LogDelegator implements Disposable {
 	 */
 	public String getCSSURLIFrame() {
 		if (relCssFileIframe != null) {
-			return mapperBaseURI + relCssFileIframe;
+			return cssUriMapperKey.getUrl() + relCssFileIframe;
 		} else {
 			return getCSSURL();
 		}
 	}
 
+	@Override
+	public String toString() {
+		return "customCss[url=" + cssUriMapperKey.getUrl() + "]" + super.toString();
+	}
+
 	/**
 	 * @see org.olat.core.gui.control.Disposable#dispose()
 	 */
+	@Override
 	public void dispose() {
 		synchronized (DISPOSE_LOCK) {
-			if (cssUriMapper != null) {
-				CoreSpringFactory.getImpl(MapperService.class).cleanUp(Collections.singletonList(cssUriMapper));
-				cssUriMapper = null;			
-				jsAndCssComp = null;				
+			if (cssUriMapperKey != null) {
+				CoreSpringFactory.getImpl(MapperService.class).cleanUp(Collections.singletonList(cssUriMapperKey));				
 			}
 		}
 	}

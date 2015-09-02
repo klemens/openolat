@@ -128,6 +128,7 @@ public class Table extends AbstractComponent {
 	private boolean selectedRowUnselectable = false;
 	private boolean sortingEnabled = true;
 	private boolean displayTableHeader = true;
+	private boolean displayTableGrid = false; // default
 	private boolean pageingEnabled = true;
 	private Integer currentPageId;
 	private int resultsPerPage;
@@ -637,6 +638,20 @@ public class Table extends AbstractComponent {
 	}
 
 	/**
+	 * Option to display a table grid
+	 * @param enabled true: show the table grid; false: don't show table grid (default)
+	 */
+	protected void setDisplayTableGrid(boolean enabled) {
+		this.displayTableGrid = enabled;		
+	}
+	/**
+	 * @return true: show the table grid; false: don't show table grid (default)
+	 */
+	protected boolean isDisplayTableGrid() {
+		return this.displayTableGrid;
+	}
+
+	/**
 	 * @param cd
 	 * @return true if the columndescriptor is visible
 	 */
@@ -651,11 +666,23 @@ public class Table extends AbstractComponent {
 		return new ChoiceTableDataModel(isMultiSelect(), allCDs, columnOrder, getTranslator());
 	}
 	
-	protected List<Integer> getDefaultVisibleColumns() {
+	/**
+	 * Only use this for reset as it reorder the columns, remove the multi-select column
+	 * and so on...
+	 * 
+	 * @return The list of index (without multi select) and reorder to begin with 0
+	 */
+	protected List<Integer> getDefaultVisibleColumnsToResetColumnsChoice() {
 		List<Integer> indexList = new ArrayList<>();
 		for(ColumnDescriptor defaultVisibleCD:defaultVisibleCDs) {
+			if(defaultVisibleCD instanceof MultiSelectColumnDescriptor) continue;
+			
 			int index = allCDs.indexOf(defaultVisibleCD);
-			if(index >= 0) {
+			if(isMultiSelect()) {
+				if(index > 0) {
+					indexList.add(index - 1);
+				}
+			} else {
 				indexList.add(index);
 			}
 		}
