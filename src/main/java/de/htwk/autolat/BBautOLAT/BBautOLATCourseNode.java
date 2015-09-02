@@ -386,7 +386,7 @@ public class BBautOLATCourseNode extends AbstractAccessableCourseNode implements
 	}
 	
 	@Override
-	public void importNode(File importDirectory, ICourse course, Identity identity, Locale locale)
+	public void importNode(File importDirectory, ICourse course, Identity identity, Locale locale, boolean withReferences)
 	{		
 		ModuleConfiguration config = getModuleConfiguration();
 		File importFile = new File(importDirectory, getExportFilename());
