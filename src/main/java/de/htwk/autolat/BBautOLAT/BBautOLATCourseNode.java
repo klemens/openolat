@@ -407,9 +407,8 @@ public class BBautOLATCourseNode extends AbstractAccessableCourseNode implements
 
 	@Override
 	public void cleanupOnDelete(ICourse course) {
-		Configuration config = ConfigurationManagerImpl.getInstance().getConfigurationByCourseID(course.getResourceableId(), Long.valueOf(getIdent()));
-		ConfigurationManagerImpl.getInstance().deleteConfiguration(config);
-		// Do not delete the TaskConfiguration at it may be shared by multiple Configurations
+		// Do not delete the Configuration as there may be a TaskInstance referring to it
+		// Do not delete the TaskConfiguration as it may be shared by multiple Configurations
 	}
 
 	@Override
