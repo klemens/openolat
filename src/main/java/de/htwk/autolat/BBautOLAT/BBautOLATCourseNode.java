@@ -394,6 +394,10 @@ public class BBautOLATCourseNode extends AbstractAccessableCourseNode implements
 				ByteArrayInputStream istream = new ByteArrayInputStream(ostream.toByteArray());
 				importer.importFromStream(istream);
 
+				// grading time is not a part of the export/import
+				newConfig.setBeginDate(oldConfig.getBeginDate());
+				newConfig.setEndDate(oldConfig.getEndDate());
+
 				TaskTypeManagerImpl.getInstance().saveOrUpdateTaskType(newConfig.getTaskConfiguration().getTaskType());
 				TaskConfigurationManagerImpl.getInstance().saveOrUpdateTaskConfiguration(newConfig.getTaskConfiguration());
 				cm.updateConfiguration(newConfig);
