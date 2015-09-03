@@ -2,6 +2,7 @@ package de.htwk.autolat.tools.ImportExport;
 
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStream;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.ArrayList;
@@ -54,6 +55,15 @@ public class AutOlatNodeImporter {
 	 */
 	public Configuration importFromFile(File file) throws JDOMException, IOException, AutOlatExporterException, AutolatConnectorException {
 		Document doc = new SAXBuilder().build(file);
+		return importConfig(doc);
+	}
+
+	public Configuration importFromStream(InputStream stream) throws JDOMException, IOException, AutOlatExporterException, AutolatConnectorException {
+		Document doc = new SAXBuilder().build(stream);
+		return importConfig(doc);
+	}
+
+	public Configuration importConfig(Document doc) throws JDOMException, IOException, AutOlatExporterException, AutolatConnectorException {
 		Element root = doc.getRootElement();
 		
 		@SuppressWarnings("rawtypes")

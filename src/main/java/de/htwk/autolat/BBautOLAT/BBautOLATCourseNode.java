@@ -5,6 +5,7 @@ import java.io.File;
 import java.util.List;
 import java.util.Locale;
 
+import org.fusesource.hawtbuf.ByteArrayInputStream;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.stack.BreadcrumbPanel;
 import org.olat.core.gui.control.Controller;
@@ -19,10 +20,12 @@ import org.olat.course.ICourse;
 import org.olat.course.editor.CourseEditorEnv;
 import org.olat.course.editor.NodeEditController;
 import org.olat.course.editor.StatusDescription;
+import org.olat.course.export.CourseEnvironmentMapper;
 import org.olat.course.nodes.AbstractAccessableCourseNode;
 import org.olat.course.nodes.AssessableCourseNode;
 import org.olat.course.nodes.CourseNode;
 import org.olat.course.nodes.StatusDescriptionHelper;
+import org.olat.course.nodes.CourseNode.Processing;
 import org.olat.course.run.navigation.NodeRunConstructionResult;
 import org.olat.course.run.scoring.ScoreEvaluation;
 import org.olat.course.run.userview.NodeEvaluation;
@@ -369,6 +372,38 @@ public class BBautOLATCourseNode extends AbstractAccessableCourseNode implements
 		}
 	}
 
+
+	@Override
+	public void postCopy(CourseEnvironmentMapper envMapper, Processing processType, ICourse course, ICourse sourceCrourse) {
+		super.postCopy(envMapper, processType, course, sourceCrourse);
+
+		// TODO: currently only published tasks are copied
+		if(processType == Processing.runstructure) {
+			Configuration oldConfig = ConfigurationManagerImpl.getInstance().getConfigurationByCourseID(sourceCrourse.getResourceableId(), Long.valueOf(getIdent()));
+			Configuration newConfig = ConfigurationManagerImpl.getInstance().getConfigurationByCourseID(course.getResourceableId(), Long.valueOf(getIdent()));
+
+			try {
+				// Copy old config to new one by using the exporter/importer
+				AutOlatNodeExporter exporter = new AutOlatNodeExporter(oldConfig);
+				AutOlatNodeImporter importer = new AutOlatNodeImporter(newConfig);
+
+				ByteArrayOutputStream ostream = new ByteArrayOutputStream();
+				exporter.exportNode(ostream);
+				ByteArrayInputStream istream = new ByteArrayInputStream(ostream.toByteArray());
+				importer.importFromStream(istream);
+
+				TaskTypeManagerImpl.getInstance().saveOrUpdateTaskType(newConfig.getTaskConfiguration().getTaskType());
+				TaskConfigurationManagerImpl.getInstance().saveOrUpdateTaskConfiguration(newConfig.getTaskConfiguration());
+				ConfigurationManagerImpl.getInstance().updateConfiguration(newConfig);
+			} catch(Exception e) {
+				// reset to defaults
+				updateModuleConfigDefaults(true);
+				// delete config (will be recreated at first get)
+				TaskConfigurationManagerImpl.getInstance().deleteTaskConfiguration(newConfig.getTaskConfiguration());
+				ConfigurationManagerImpl.getInstance().deleteConfiguration(newConfig);
+			}
+		}
+	}
 
 	@Override
 	public void cleanupOnDelete(ICourse course) {
