@@ -379,10 +379,15 @@ public class BBautOLATCourseNode extends AbstractAccessableCourseNode implements
 
 		ConfigurationManager cm = ConfigurationManagerImpl.getInstance();
 
-		// TODO: currently only published tasks are copied
-		if(processType == Processing.runstructure) {
-			Configuration oldConfig = ConfigurationManagerImpl.getInstance().getConfigurationByCourseID(sourceCrourse.getResourceableId(), Long.valueOf(getIdent()));
-			Configuration newConfig = ConfigurationManagerImpl.getInstance().getConfigurationByCourseID(course.getResourceableId(), Long.valueOf(getIdent()));
+		// Only import the configuration once:
+		//  * course copy / published task: called twice (first Processing.runstructure, then Processing.editor)
+		//  * course copy / unpublished task: called once (Processing.editor)
+		//  * node copy: not called at all (BUG?)
+		Configuration newConfig = cm.findConfigurationByCourseID(course.getResourceableId(), Long.valueOf(getIdent()));
+		if(newConfig == null) {
+			newConfig = cm.createAndPersistConfiguration(course.getResourceableId(), Long.valueOf(getIdent()));
+
+			Configuration oldConfig = cm.getConfigurationByCourseID(sourceCrourse.getResourceableId(), Long.valueOf(getIdent()));
 
 			try {
 				// Copy old config to new one by using the exporter/importer

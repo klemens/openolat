@@ -16,8 +16,18 @@ public interface ConfigurationManager {
 	public Configuration createAndPersistConfiguration (TaskConfiguration taskConfiguration, List<TaskModule> taskPlan,
 			List<TaskInstance> taskInstanceList, Date beginDate, long courseID, long courseNodeID, Date endDate, List<Integer> scorePoints,
 			ServerConnection serverConnection, String autolatServer);
-	
-	public Configuration getConfigurationByCourseID(long courseID, long courseNodeID); 
+
+	public Configuration createAndPersistConfiguration(long courseID, long courseNodeID);
+
+	/**
+	 * @return the Configuration or null if it does not exist
+	 */
+	public Configuration findConfigurationByCourseID(long courseID, long courseNodeID);
+
+	/**
+	 * @return the Configuration or a new one if it does not exist (persisted)
+	 */
+	public Configuration getConfigurationByCourseID(long courseID, long courseNodeID);
 	
 	public Configuration loadConfigurationByID(long ID);
 		

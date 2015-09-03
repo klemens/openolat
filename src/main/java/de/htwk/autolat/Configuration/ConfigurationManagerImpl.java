@@ -49,6 +49,11 @@ public class ConfigurationManagerImpl implements ConfigurationManager {
 	}
 
 	@Override
+	public Configuration createAndPersistConfiguration(long courseID, long courseNodeID) {
+		return createAndPersistConfiguration(null, null, null, null, courseID, courseNodeID, null, null, null, null);
+	}
+
+	@Override
 	public boolean deleteConfiguration(Configuration conf) {
 		try {
 			DBFactory.getInstance().deleteObject(conf);
@@ -57,26 +62,32 @@ public class ConfigurationManagerImpl implements ConfigurationManager {
 			return false;
 		}
 	}
-	
+
 	@Override
-	public Configuration getConfigurationByCourseID(long courseID, long courseNodeID) {
-		
+	public Configuration findConfigurationByCourseID(long courseID, long courseNodeID) {
 		String query = "SELECT conf FROM ConfigurationImpl AS conf WHERE conf.courseNodeID = :cnid AND conf.courseID = :cid";
 		DBQuery dbq = DBFactory.getInstance().createQuery(query);
 		dbq.setLong("cid", courseID);
 		dbq.setLong("cnid", courseNodeID);
-		//dbq.setLong("cid", courseID); 
+
+		@SuppressWarnings("rawtypes")
 		List result = dbq.list();
-		
-		Configuration conf;
-		if (result.size() == 0) {
-			conf = createAndPersistConfiguration(null, null, null, null, courseID, courseNodeID, null, null, null, null);
+		if(result.size() == 0) {
+			return null;
+		} else {
+			return (Configuration) result.get(0);
 		}
-		else {
-			conf = (Configuration) result.get(0);
+	}
+
+	@Override
+	public Configuration getConfigurationByCourseID(long courseID, long courseNodeID) {
+		Configuration conf = findConfigurationByCourseID(courseID, courseNodeID);
+
+		if(conf == null) {
+			conf = createAndPersistConfiguration(courseID, courseNodeID);
 		}
+
 		return conf;
-		//return (Configuration) result.get(0); 
 	}
 	
 	@Override
