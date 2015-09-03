@@ -58,6 +58,7 @@ public class BBautOLATCourseNode extends AbstractAccessableCourseNode implements
 		updateModuleConfigDefaults(true);		
 	}
 
+	@Override
 	public void updateModuleConfigDefaults(boolean isNewNode) {
 		ModuleConfiguration config = getModuleConfiguration();
 		if (isNewNode) {
@@ -65,49 +66,11 @@ public class BBautOLATCourseNode extends AbstractAccessableCourseNode implements
 			config.setBooleanEntry(NodeEditController.CONFIG_STARTPAGE, false);
 			config.setConfigurationVersion(1);
 			// create the needed values in the config for controlling the edit process
-			// config.setBooleanEntry("ConfigurationCreated", false);
 			config.setBooleanEntry("ServerConnectionSet", false);
 			config.setBooleanEntry("TaskTypeValid", false);
 			config.setBooleanEntry("GradingTimeSet", false); 
-			// set a server connection at the creation time
-			// FIXME : statt "42" müsste da die courseID stehen... aber woher nehmen?	
-			//Configuration conf = ConfigurationManagerImpl.getInstance().createAndPersistConfiguration(null, null, null, null, 42, Long.valueOf(getIdent()), null, null, null, null);
-			// the flag here is actually superfluous (but is nevertheless still used) 
-			config.setBooleanEntry("ConfigurationCreated", true);
-			// the next block is obsolete
-			/*
-			ServerConnection connection = ServerConnectionManagerImpl.getInstance().getRandomServerConnection();
-			if(connection != null) {
-				conf.setServerConnection(connection);
-				ConfigurationManagerImpl.getInstance().updateConfiguration(conf);
-				config.setBooleanEntry("ServerConnectionSet", true);
-			}
-			*/
 		}
 	}
-	/*
-		moduleConfiguration = getModuleConfiguration();
-		if (isNewNode) {
-			// use defaults for new course building blocks
-			moduleConfiguration.setBooleanEntry(NodeEditController.CONFIG_STARTPAGE, false);
-			moduleConfiguration.setConfigurationVersion(1);
-			// create the needed values in the config for controlling the edit process
-			moduleConfiguration.setBooleanEntry("ConfigurationCreated", false);
-			moduleConfiguration.setBooleanEntry("ServerConnectionSet", false);
-			moduleConfiguration.setBooleanEntry("TaskTypeValid", false);
-			moduleConfiguration.setBooleanEntry("GradingTimeSet", false);
-			// set a server connection at the creation time
-			Configuration conf = ConfigurationManagerImpl.getInstance().createAndPersistConfiguration(null, null, null, null, Long.valueOf(getIdent()), null, null, null);
-			moduleConfiguration.setBooleanEntry("ConfigurationCreated", true);
-			ServerConnection connection = ServerConnectionManagerImpl.getInstance().getRandomServerConnection();
-			if(connection != null) {
-				conf.setServerConnection(connection);
-				ConfigurationManagerImpl.getInstance().updateConfiguration(conf);
-				moduleConfiguration.setBooleanEntry("ServerConnectionSet", true);
-			}
-		}
-	}
-	*/
 	
 	@Override
 	public TabbableController createEditController(UserRequest ureq,
@@ -354,22 +317,7 @@ public class BBautOLATCourseNode extends AbstractAccessableCourseNode implements
 	private String getExportFilename() {
 		return "autolatExport_"+this.getIdent()+".xml";
 	}
-	
-	/*@Override
-	public void cleanupOnDelete(ICourse course) {
-		try {
-			long courseNodeID = Long.valueOf(getIdent());
-			Configuration conf = ConfigurationManagerImpl.getInstance().getConfigurationByCourseID(course.getResourceableId(), courseNodeID);
-			TaskConfiguration taskConf = conf.getTaskConfiguration();
-		
-			ConfigurationManagerImpl.getInstance().deleteConfiguration(conf);
-			TaskConfigurationManagerImpl.getInstance().deleteTaskConfiguration(taskConf);		
-		} catch (Exception e) {
-			e.printStackTrace();
-		}
-	} 
-	*/
-	
+
 	@Override
 	public void exportNode(File exportDirectory, ICourse course) {		
 		try {
@@ -405,8 +353,6 @@ public class BBautOLATCourseNode extends AbstractAccessableCourseNode implements
 							
 				config.setBooleanEntry(NodeEditController.CONFIG_STARTPAGE, false);
 				config.setConfigurationVersion(1);
-				// the flag here is actually superfluous (but is nevertheless still used) 			
-				config.setBooleanEntry("ConfigurationCreated", true);
 				config.setBooleanEntry("ServerConnectionSet", true);
 				config.setBooleanEntry("TaskTypeValid", true);
 				config.setBooleanEntry("GradingTimeSet", false);
@@ -421,6 +367,14 @@ public class BBautOLATCourseNode extends AbstractAccessableCourseNode implements
 		} else {
 			// nothing there to import, leave the node as it is
 		}
+	}
+
+
+	@Override
+	public void cleanupOnDelete(ICourse course) {
+		Configuration config = ConfigurationManagerImpl.getInstance().getConfigurationByCourseID(course.getResourceableId(), Long.valueOf(getIdent()));
+		ConfigurationManagerImpl.getInstance().deleteConfiguration(config);
+		// Do not delete the TaskConfiguration at it may be shared by multiple Configurations
 	}
 
 	@Override
