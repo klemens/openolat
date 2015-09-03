@@ -34,6 +34,7 @@ import org.olat.modules.ModuleConfiguration;
 import org.olat.repository.RepositoryEntry;
 
 import de.htwk.autolat.Configuration.Configuration;
+import de.htwk.autolat.Configuration.ConfigurationManager;
 import de.htwk.autolat.Configuration.ConfigurationManagerImpl;
 import de.htwk.autolat.Student.Student;
 import de.htwk.autolat.Student.StudentManagerImpl;
@@ -372,10 +373,11 @@ public class BBautOLATCourseNode extends AbstractAccessableCourseNode implements
 		}
 	}
 
-
 	@Override
 	public void postCopy(CourseEnvironmentMapper envMapper, Processing processType, ICourse course, ICourse sourceCrourse) {
 		super.postCopy(envMapper, processType, course, sourceCrourse);
+
+		ConfigurationManager cm = ConfigurationManagerImpl.getInstance();
 
 		// TODO: currently only published tasks are copied
 		if(processType == Processing.runstructure) {
@@ -394,13 +396,13 @@ public class BBautOLATCourseNode extends AbstractAccessableCourseNode implements
 
 				TaskTypeManagerImpl.getInstance().saveOrUpdateTaskType(newConfig.getTaskConfiguration().getTaskType());
 				TaskConfigurationManagerImpl.getInstance().saveOrUpdateTaskConfiguration(newConfig.getTaskConfiguration());
-				ConfigurationManagerImpl.getInstance().updateConfiguration(newConfig);
+				cm.updateConfiguration(newConfig);
 			} catch(Exception e) {
 				// reset to defaults
 				updateModuleConfigDefaults(true);
 				// delete config (will be recreated at first get)
 				TaskConfigurationManagerImpl.getInstance().deleteTaskConfiguration(newConfig.getTaskConfiguration());
-				ConfigurationManagerImpl.getInstance().deleteConfiguration(newConfig);
+				cm.deleteConfiguration(newConfig);
 			}
 		}
 	}

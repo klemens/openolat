@@ -11,7 +11,7 @@ import de.htwk.autolat.TaskConfiguration.TaskConfiguration;
 import de.htwk.autolat.TaskInstance.TaskInstance;
 import de.htwk.autolat.TaskModule.TaskModule;
 
-public class ConfigurationManagerImpl extends ConfigurationManager {
+public class ConfigurationManagerImpl implements ConfigurationManager {
 	
 	public static final ConfigurationManagerImpl INSTANCE = new ConfigurationManagerImpl();
 	
