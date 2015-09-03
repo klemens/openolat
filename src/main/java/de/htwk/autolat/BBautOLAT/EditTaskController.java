@@ -252,6 +252,8 @@ public class EditTaskController extends BasicController {
 						if(temp.getName().endsWith(".xml")) {
 							LocalFileImpl importFile = (LocalFileImpl) temp;
 							try {
+								// reload configuration
+								conf = ConfigurationManagerImpl.getInstance().getConfigurationByCourseID(course.getResourceableId(), courseNodeID);
 								AutOlatNodeImporter importer = new AutOlatNodeImporter(conf);
 								importer.importFromFile(importFile.getBasefile());
 								//ServerConnectionManagerImpl.getInstance().saveOrUpdateServerConnection(conf.getServerConnection());
