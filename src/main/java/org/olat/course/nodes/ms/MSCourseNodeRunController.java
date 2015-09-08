@@ -53,7 +53,9 @@ public class MSCourseNodeRunController extends DefaultController {
 
 	private static final String VELOCITY_ROOT = Util.getPackageVelocityRoot(MSCourseNodeRunController.class);
 
-	private VelocityContainer myContent;
+	private final VelocityContainer myContent;
+	private final boolean showLog;
+	private boolean hasScore, hasPassed, hasComment;
 
 	/**
 	 * Constructor for a manual scoring course run controller
@@ -62,8 +64,12 @@ public class MSCourseNodeRunController extends DefaultController {
 	 * @param msCourseNode The manual scoring course node
 	 * @param displayNodeInfo True: the node title and learning objectives will be displayed
 	 */
-	public MSCourseNodeRunController(UserRequest ureq, WindowControl wControl, UserCourseEnvironment userCourseEnv, AssessableCourseNode msCourseNode, boolean displayNodeInfo) {
+	public MSCourseNodeRunController(UserRequest ureq, WindowControl wControl, UserCourseEnvironment userCourseEnv, AssessableCourseNode msCourseNode,
+			boolean displayNodeInfo, boolean showLog) {
 		super(wControl);
+		
+		this.showLog = showLog;
+		
 		Translator fallbackTrans = Util.createPackageTranslator(CourseNode.class, ureq.getLocale());
 		Translator trans = Util.createPackageTranslator(MSCourseNodeRunController.class, ureq.getLocale(), fallbackTrans);
 		
@@ -91,6 +97,27 @@ public class MSCourseNodeRunController extends DefaultController {
 		
 		setInitialComponent(myContent);
 	}
+	
+	/**
+	 * @return true if the assessed user has a score
+	 */
+	public boolean hasScore() {
+		return hasScore;
+	}
+	
+	/**
+	 * @return true if the assessed user has passed or failed.
+	 */
+	public boolean hasPassed() {
+		return hasPassed;
+	}
+	
+	/**
+	 * @return true if the assessed user has a comment
+	 */
+	public boolean hasComment() {
+		return hasComment;
+	}
 
 	/**
 	 * @see org.olat.core.gui.control.DefaultController#event(org.olat.core.gui.UserRequest, org.olat.core.gui.components.Component, org.olat.core.gui.control.Event)
@@ -117,10 +144,19 @@ public class MSCourseNodeRunController extends DefaultController {
 		myContent.contextPut("score", AssessmentHelper.getRoundedScore(scoreEval.getScore()));
 		myContent.contextPut("hasPassedValue", (scoreEval.getPassed() == null ? Boolean.FALSE : Boolean.TRUE));
 		myContent.contextPut("passed", scoreEval.getPassed());
-		StringBuilder comment = Formatter.stripTabsAndReturns(courseNode.getUserUserComment(userCourseEnv));
+		
+		String rawComment = courseNode.getUserUserComment(userCourseEnv);
+		StringBuilder comment = Formatter.stripTabsAndReturns(rawComment);
 		myContent.contextPut("comment", StringHelper.xssScan(comment));
-		UserNodeAuditManager am = userCourseEnv.getCourseEnvironment().getAuditManager();
-		myContent.contextPut("log", am.getUserNodeLog(courseNode, userCourseEnv.getIdentityEnvironment().getIdentity()));
+		
+		if(showLog) {
+			UserNodeAuditManager am = userCourseEnv.getCourseEnvironment().getAuditManager();
+			myContent.contextPut("log", am.getUserNodeLog(courseNode, userCourseEnv.getIdentityEnvironment().getIdentity()));
+		}
+		
+		hasPassed = scoreEval.getPassed() != null;
+		hasScore = scoreEval.getScore() != null;
+		hasComment = StringHelper.containsNonWhitespace(rawComment);
 	}
 	
 	/**

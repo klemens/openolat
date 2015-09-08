@@ -142,7 +142,6 @@ public class EditTaskController extends BasicController {
 	protected void event(UserRequest ureq, Controller ctr, Event evnt) {
 		if(ctr == CMCTaskTypeSelectInlay) {
 			CMCTaskTypeSelectCtr.deactivate();
-			showInfo("info.form.edittype.typechosen");
 			conf = ConfigurationManagerImpl.getInstance().getConfigurationByCourseID(course.getResourceableId(), courseNodeID);
 			status = true;
 			createOutput(ureq);
@@ -158,8 +157,6 @@ public class EditTaskController extends BasicController {
 					//persist the changed task configuration
 					editTaskForm.persistCurrentTaskConfiguration();
 					createOutput(ureq);
-					//giving the user some feedback
-					showInfo("info.form.edittask.taskconfigurationsaved");
 					fireEvent(ureq, new Event("EDITTASK_OK"));
 				}
 			}
@@ -255,6 +252,8 @@ public class EditTaskController extends BasicController {
 						if(temp.getName().endsWith(".xml")) {
 							LocalFileImpl importFile = (LocalFileImpl) temp;
 							try {
+								// reload configuration
+								conf = ConfigurationManagerImpl.getInstance().getConfigurationByCourseID(course.getResourceableId(), courseNodeID);
 								AutOlatNodeImporter importer = new AutOlatNodeImporter(conf);
 								importer.importFromFile(importFile.getBasefile());
 								//ServerConnectionManagerImpl.getInstance().saveOrUpdateServerConnection(conf.getServerConnection());

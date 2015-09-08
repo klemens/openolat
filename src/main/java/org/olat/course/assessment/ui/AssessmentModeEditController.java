@@ -138,6 +138,9 @@ public class AssessmentModeEditController extends FormBasicController {
 
 	@Override
 	protected void initForm(FormItemContainer formLayout, Controller listener, UserRequest ureq) {
+		formLayout.setElementCssClass("o_sel_assessment_mode_edit_form");
+		setFormContextHelp("Assessment mode");
+
 		if(StringHelper.containsNonWhitespace(assessmentMode.getName())) {
 			setFormTitle("form.mode.title", new String[]{ assessmentMode.getName() });
 		} else {
@@ -145,9 +148,28 @@ public class AssessmentModeEditController extends FormBasicController {
 		}
 		setFormDescription("form.mode.description");
 		
+		ICourse course = CourseFactory.loadCourse(courseOres);
+		if(StringHelper.containsNonWhitespace(assessmentMode.getStartElement())) {
+			CourseNode startElement = course.getRunStructure().getNode(assessmentMode.getStartElement());
+			if(startElement == null) {
+				setFormWarning("warning.missing.start.element");
+			}
+		}
+		
+		if(StringHelper.containsNonWhitespace(assessmentMode.getElementList())) {
+			String elements = assessmentMode.getElementList();
+			for(String element:elements.split(",")) {
+				CourseNode node = course.getRunStructure().getNode(element);
+				if(node == null) {
+					setFormWarning("warning.missing.element");
+				}
+			}
+		}
+		
 		Status status = assessmentMode.getStatus();
 		String name = assessmentMode.getName();
 		nameEl = uifactory.addTextElement("mode.name", "mode.name", 255, name, formLayout);
+		nameEl.setElementCssClass("o_sel_assessment_mode_name");
 		nameEl.setMandatory(true);
 		nameEl.setEnabled(status != Status.followup && status != Status.end);
 		
@@ -157,6 +179,7 @@ public class AssessmentModeEditController extends FormBasicController {
 		descriptionEl.setEnabled(status != Status.followup && status != Status.end);
 		
 		beginEl = uifactory.addDateChooser("mode.begin", assessmentMode.getBegin(), formLayout);
+		beginEl.setElementCssClass("o_sel_assessment_mode_begin");
 		beginEl.setDateChooserTimeEnabled(true);
 		beginEl.setMandatory(true);
 		beginEl.setEnabled(status == Status.none || status == Status.leadtime);
@@ -166,10 +189,12 @@ public class AssessmentModeEditController extends FormBasicController {
 			leadTime = 0;
 		}
 		leadTimeEl = uifactory.addIntegerElement("mode.leadTime", leadTime, formLayout);
+		leadTimeEl.setElementCssClass("o_sel_assessment_mode_leadtime");
 		leadTimeEl.setDisplaySize(3);
 		leadTimeEl.setEnabled(status == Status.none || status == Status.leadtime);
 		
 		endEl = uifactory.addDateChooser("mode.end", assessmentMode.getEnd(), formLayout);
+		endEl.setElementCssClass("o_sel_assessment_mode_end");
 		endEl.setDateChooserTimeEnabled(true);
 		endEl.setMandatory(true);
 		endEl.setEnabled(status != Status.end);
@@ -179,6 +204,7 @@ public class AssessmentModeEditController extends FormBasicController {
 			followupTime = 0;
 		}
 		followupTimeEl = uifactory.addIntegerElement("mode.followupTime", followupTime, formLayout);
+		followupTimeEl.setElementCssClass("o_sel_assessment_mode_followuptime");
 		followupTimeEl.setDisplaySize(3);
 		followupTimeEl.setEnabled(status != Status.end);
 		
@@ -186,6 +212,7 @@ public class AssessmentModeEditController extends FormBasicController {
 				translate("mode.beginend.automatic"), translate("mode.beginend.manual")
 		};
 		startModeEl = uifactory.addDropdownSingleselect("mode.beginend", formLayout, startModeKeys, startModeValues, null);
+		startModeEl.setElementCssClass("o_sel_assessment_mode_start_mode");
 		if(assessmentMode.isManualBeginEnd()) {
 			startModeEl.select(startModeKeys[1], true);
 		} else {
@@ -204,6 +231,7 @@ public class AssessmentModeEditController extends FormBasicController {
 			translate("target.groups")
 		};
 		targetEl = uifactory.addRadiosVertical("audience", "mode.target", formLayout, audienceKeys, audienceValues);
+		targetEl.setElementCssClass("o_sel_assessment_mode_audience");
 		targetEl.setEnabled(status != Status.end);
 		Target target = assessmentMode.getTargetAudience();
 		if(target != null) {
@@ -257,7 +285,6 @@ public class AssessmentModeEditController extends FormBasicController {
 		formLayout.add(chooseElementsCont);
 		chooseElementsCont.setVisible(assessmentMode.isRestrictAccessElements());
 		
-		ICourse course = CourseFactory.loadCourse(courseOres);
 		CourseEditorTreeModel treeModel = course.getEditorTreeModel();
 		
 		elementKeys = new ArrayList<>();

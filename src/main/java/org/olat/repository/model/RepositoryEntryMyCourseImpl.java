@@ -23,7 +23,6 @@ import java.util.Date;
 
 import org.olat.core.id.CreateInfo;
 import org.olat.core.id.ModifiedInfo;
-import org.olat.course.assessment.UserCourseInformations;
 import org.olat.course.assessment.model.UserEfficiencyStatementLight;
 import org.olat.repository.RepositoryEntry;
 import org.olat.repository.RepositoryEntryMyView;
@@ -40,33 +39,33 @@ import org.olat.resource.OLATResource;
  */
 public class RepositoryEntryMyCourseImpl implements RepositoryEntryMyView, CreateInfo, ModifiedInfo {
 
-	private Long key;
-	private Date creationDate;
+	private final Long key;
+	private final Date creationDate;
 	private Date lastModified;
-	private String externalId;
-	private String externalRef;
-	private String displayname;
-	private String description;
-	private String authors;
-	private boolean membersOnly;
-	private int access;
+	private final String externalId;
+	private final String externalRef;
+	private final String displayname;
+	private final String description;
+	private final String authors;
+	private final boolean membersOnly;
+	private final int access;
+	private final int statusCode;
 	
-	private OLATResource olatResource;
-	private RepositoryEntryLifecycle lifecycle;
+	private final OLATResource olatResource;
+	private final RepositoryEntryLifecycle lifecycle;
 	
 	private Float score;
 	private Boolean passed;
 
-	private boolean marked;
+	private final boolean marked;
 	
-	private Integer myRating;
+	private final Integer myRating;
 	
-	private Double averageRating;
-	private long numOfRatings;
-	private long numOfComments;
-	private Integer visit;
+	private final Double averageRating;
+	private final long numOfRatings;
+	private final long numOfComments;
 
-	private long offersAvailable;
+	private final long offersAvailable;
 	
 	public RepositoryEntryMyCourseImpl(RepositoryEntry re, RepositoryEntryStatistics stats,
 			boolean marked, long offersAvailable, Integer myRating) {
@@ -80,6 +79,7 @@ public class RepositoryEntryMyCourseImpl implements RepositoryEntryMyView, Creat
 		authors = re.getAuthors();
 		membersOnly = re.isMembersOnly();
 		access = re.getAccess();
+		statusCode = re.getStatusCode();
 		
 		olatResource = re.getOlatResource();
 		lifecycle = re.getLifecycle();
@@ -92,6 +92,10 @@ public class RepositoryEntryMyCourseImpl implements RepositoryEntryMyView, Creat
 			averageRating = stats.getRating();
 			numOfRatings = stats.getNumOfRatings();
 			numOfComments = stats.getNumOfComments();
+		} else {
+			averageRating = null;
+			numOfRatings = 0;
+			numOfComments = 0;
 		}
 		
 		this.offersAvailable = offersAvailable;
@@ -103,20 +107,10 @@ public class RepositoryEntryMyCourseImpl implements RepositoryEntryMyView, Creat
 			passed = efficiencyStatment.getPassed();
 		}
 	}
-	
-	public void setCourseInfos(UserCourseInformations courseInfos) {
-		if(courseInfos != null) {
-			visit = courseInfos.getVisit();
-		}
-	}
 
 	@Override
 	public Long getKey() {
 		return key;
-	}
-	
-	public void setKey(Long key) {
-		this.key = key;
 	}
 
 	@Override
@@ -124,26 +118,14 @@ public class RepositoryEntryMyCourseImpl implements RepositoryEntryMyView, Creat
 		return externalId;
 	}
 
-	public void setExternalId(String externalId) {
-		this.externalId = externalId;
-	}
-
 	@Override
 	public String getExternalRef() {
 		return externalRef;
 	}
 	
-	public void setExternalRef(String externalRef) {
-		this.externalRef = externalRef;
-	}
-	
 	@Override
 	public Date getCreationDate() {
 		return creationDate;
-	}
-
-	public void setCreationDate(Date creationDate) {
-		this.creationDate = creationDate;
 	}
 
 	@Override
@@ -161,17 +143,14 @@ public class RepositoryEntryMyCourseImpl implements RepositoryEntryMyView, Creat
 		return membersOnly;
 	}
 
-	public void setMembersOnly(boolean membersOnly) {
-		this.membersOnly = membersOnly;
-	}
-
 	@Override
 	public int getAccess() {
 		return access;
 	}
 
-	public void setAccess(int access) {
-		this.access = access;
+	@Override
+	public int getStatusCode() {
+		return statusCode;
 	}
 
 	@Override
@@ -189,17 +168,9 @@ public class RepositoryEntryMyCourseImpl implements RepositoryEntryMyView, Creat
 		return displayname;
 	}
 
-	public void setDisplayname(String displayname) {
-		this.displayname = displayname;
-	}
-
 	@Override
 	public String getDescription() {
 		return description;
-	}
-
-	public void setDescription(String description) {
-		this.description = description;
 	}
 
 	@Override
@@ -207,17 +178,9 @@ public class RepositoryEntryMyCourseImpl implements RepositoryEntryMyView, Creat
 		return authors;
 	}
 
-	public void setAuthors(String authors) {
-		this.authors = authors;
-	}
-
 	@Override
 	public OLATResource getOlatResource() {
 		return olatResource;
-	}
-
-	public void setOlatResource(OLATResource olatResource) {
-		this.olatResource = olatResource;
 	}
 
 	@Override
@@ -225,26 +188,14 @@ public class RepositoryEntryMyCourseImpl implements RepositoryEntryMyView, Creat
 		return lifecycle;
 	}
 
-	public void setLifecycle(RepositoryEntryLifecycle lifecycle) {
-		this.lifecycle = lifecycle;
-	}
-
 	@Override
 	public Float getScore() {
 		return score;
 	}
 
-	public void setScore(Float score) {
-		this.score = score;
-	}
-
 	@Override
 	public Boolean getPassed() {
 		return passed;
-	}
-
-	public void setPassed(Boolean passed) {
-		this.passed = passed;
 	}
 
 	@Override
@@ -253,51 +204,29 @@ public class RepositoryEntryMyCourseImpl implements RepositoryEntryMyView, Creat
 	}
 
 	@Override
-	public Integer getVisit() {
-		return visit;
-	}
-
-	public void setVisit(Integer visit) {
-		this.visit = visit;
-	}
-
 	public Integer getMyRating() {
 		return myRating;
 	}
 
-	public void setMyRating(Integer myRating) {
-		this.myRating = myRating;
-	}
-
+	@Override
 	public Double getAverageRating() {
 		return averageRating;
 	}
 
-	public void setAverageRating(Double averageRating) {
-		this.averageRating = averageRating;
-	}
-
+	@Override
 	public long getNumOfRatings() {
 		return numOfRatings;
 	}
 
-	public void setNumOfRatings(long numOfRatings) {
-		this.numOfRatings = numOfRatings;
-	}
-
+	@Override
 	public long getNumOfComments() {
 		return numOfComments;
-	}
-
-	public void setNumOfComments(long numOfComments) {
-		this.numOfComments = numOfComments;
 	}
 
 	@Override
 	public boolean isValidOfferAvailable() {
 		return offersAvailable > 0;
 	}
-	
 
 	@Override
 	public boolean equals(Object obj) {

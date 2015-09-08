@@ -22,10 +22,10 @@ package org.olat.modules.qpool.ui;
 import java.io.File;
 import java.util.List;
 
-import org.olat.core.CoreSpringFactory;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.form.flexible.FormItemContainer;
 import org.olat.core.gui.components.form.flexible.elements.FileElement;
+import org.olat.core.gui.components.form.flexible.elements.SingleSelection;
 import org.olat.core.gui.components.form.flexible.impl.FormBasicController;
 import org.olat.core.gui.components.form.flexible.impl.FormLayoutContainer;
 import org.olat.core.gui.control.Controller;
@@ -33,6 +33,7 @@ import org.olat.core.gui.control.Event;
 import org.olat.core.gui.control.WindowControl;
 import org.olat.modules.qpool.QPoolService;
 import org.olat.modules.qpool.QuestionItem;
+import org.springframework.beans.factory.annotation.Autowired;
 
 /**
  * 
@@ -41,23 +42,34 @@ import org.olat.modules.qpool.QuestionItem;
  *
  */
 public class ImportController extends FormBasicController {
+
+	private static final String[] keys = {"yes","no"};
 	
 	private FileElement fileEl;
-	private final QPoolService qpoolservice;
+	private SingleSelection editableEl;
+	
 	private final QuestionItemsSource source;
+	@Autowired
+	private QPoolService qpoolservice;
 	
 	public ImportController(UserRequest ureq, WindowControl wControl, QuestionItemsSource source) {
 		super(ureq, wControl);
 		this.source = source;
-		qpoolservice = CoreSpringFactory.getImpl(QPoolService.class);
 		initForm(ureq);
 	}
 
 	@Override
 	protected void initForm(FormItemContainer formLayout, Controller listener, UserRequest ureq) {
 		setFormContextHelp("org.olat.modules.qpool.ui", "import-file.html", "help.hover.importfile");
-		
-		uifactory.addSpacerElement("context", formLayout, true);
+
+		if(source.askEditable()) {
+			String[] values = new String[]{
+					translate("yes"),
+					translate("no")
+			};
+			editableEl = uifactory.addRadiosVertical("share.editable", "share.editable", formLayout, keys, values);
+			editableEl.select("no", true);
+		}
 		fileEl = uifactory.addFileElement("item", "import.item", formLayout);
 		
 		FormLayoutContainer buttonsCont = FormLayoutContainer.createButtonLayout("buttons", getTranslator());
@@ -96,7 +108,8 @@ public class ImportController extends FormBasicController {
 		if(importItems == null || importItems.isEmpty()) {
 			showWarning("import.failed");
 		} else {
-			source.postImport(importItems);
+			boolean editable = editableEl == null ? true : editableEl.isSelected(0);
+			source.postImport(importItems, editable);
 			fireEvent(ureq, Event.DONE_EVENT);
 			showInfo("import.success", Integer.toString(importItems.size()));
 		}

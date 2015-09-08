@@ -199,21 +199,17 @@ public class DENManager {
 		//cancel enroll in calendar entry
 		if(event.getParticipants() != null) {
 			int currLength = event.getParticipants().length;
-			if (currLength > 1) {
+			if (currLength > 0) {
 				//more than one are enrolled
-				String[] partsNew = new String[currLength - 1]; //one to delete
+				List<String> partsNew = new ArrayList<>(currLength); //one to delete
 				String[] partsOld = event.getParticipants();
 				String identityName = identity.getName();
-				for (int i = 0, j = 0; i < partsOld.length; i++) {
-					if ( !(partsOld[i].equals(identityName)) ) {
-						partsNew[j] = partsOld[i];
-						j++; //only increment if new entry was made
+				for (String  partOld:partsOld) {
+					if (!partOld.equals(identityName)) {
+						partsNew.add(partOld);
 					}
 				}
-				event.setParticipants(partsNew);
-			} else if (currLength == 1) {
-				//only one is enrolled, only simple reset needed
-				event.setParticipants(new String[0]);
+				event.setParticipants(partsNew.toArray(new String[partsNew.size()]));
 			}
 			//save calendar event
 			boolean successfullyDone = calManager.updateEventFrom(cal, event);
@@ -493,17 +489,19 @@ public class DENManager {
 		BaseSecurity manager = BaseSecurityManager.getInstance();
 		for( String participant : participants ) {
 			Identity identity = manager.findIdentityByName(participant);
-			Kalendar userCal = calManager.getPersonalCalendar(identity).getKalendar();
-			Collection<KalendarEvent> userEvents = new ArrayList<KalendarEvent>();
-			userEvents.addAll(userCal.getEvents());
-			KalendarEvent userNewEvent = new KalendarEvent(CodeHelper.getGlobalForeverUniqueID(), newEvent.getSubject(), newEvent.getBegin(), newEvent.getEnd());
-			userNewEvent.setLocation(newEvent.getLocation());
-			userNewEvent.setSourceNodeId(newEvent.getSourceNodeId());
-			userNewEvent.setClassification(KalendarEvent.CLASS_PRIVATE);
-			List<KalendarEventLink> kalendarEventLinks = userNewEvent.getKalendarEventLinks();
-			kalendarEventLinks.clear();
-			kalendarEventLinks.addAll(newEvent.getKalendarEventLinks());
-			calManager.addEventTo(userCal, userNewEvent);
+			if(identity != null) {
+				Kalendar userCal = calManager.getPersonalCalendar(identity).getKalendar();
+				Collection<KalendarEvent> userEvents = new ArrayList<KalendarEvent>();
+				userEvents.addAll(userCal.getEvents());
+				KalendarEvent userNewEvent = new KalendarEvent(CodeHelper.getGlobalForeverUniqueID(), newEvent.getSubject(), newEvent.getBegin(), newEvent.getEnd());
+				userNewEvent.setLocation(newEvent.getLocation());
+				userNewEvent.setSourceNodeId(newEvent.getSourceNodeId());
+				userNewEvent.setClassification(KalendarEvent.CLASS_PRIVATE);
+				List<KalendarEventLink> kalendarEventLinks = userNewEvent.getKalendarEventLinks();
+				kalendarEventLinks.clear();
+				kalendarEventLinks.addAll(newEvent.getKalendarEventLinks());
+				calManager.addEventTo(userCal, userNewEvent);
+			}
 		}
 	}
 
@@ -517,13 +515,15 @@ public class DENManager {
 		BaseSecurity manager = BaseSecurityManager.getInstance();
 		for( String participant : participants ) {
 			Identity identity = manager.findIdentityByName(participant);
-			Kalendar userCal = calManager.getPersonalCalendar(identity).getKalendar();
-			Collection<KalendarEvent> userEvents = new ArrayList<KalendarEvent>();
-			userEvents.addAll(userCal.getEvents());
-			for( KalendarEvent userEvent : userEvents ) {
-				String sourceNodeId = userEvent.getSourceNodeId();
-				if(sourceNodeId != null && sourceNodeId.equals(oldEvent.getSourceNodeId())) {
-					calManager.removeEventFrom(userCal, userEvent);
+			if(identity != null) {
+				Kalendar userCal = calManager.getPersonalCalendar(identity).getKalendar();
+				Collection<KalendarEvent> userEvents = new ArrayList<KalendarEvent>();
+				userEvents.addAll(userCal.getEvents());
+				for( KalendarEvent userEvent : userEvents ) {
+					String sourceNodeId = userEvent.getSourceNodeId();
+					if(sourceNodeId != null && sourceNodeId.equals(oldEvent.getSourceNodeId())) {
+						calManager.removeEventFrom(userCal, userEvent);
+					}
 				}
 			}
 		}
@@ -704,8 +704,9 @@ public class DENManager {
 				if(parts != null) {
 					for(String participant : parts) {
 						Identity identity = manager.findIdentityByName(participant);
-						if(identity != null)
+						if(identity != null) {
 							identities.add(identity);
+						}
 					}
 				}
 			}

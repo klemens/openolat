@@ -321,7 +321,6 @@ public class TaskInstanceTestController extends BasicController
 					return;
 				}
 
-				showInfo("info.form.taskform.solutionsubmitted");
 				solutionPreset = taskSolution.getSolutionText();				
 				// displaySolution = true;
 				createOutput(ureq);

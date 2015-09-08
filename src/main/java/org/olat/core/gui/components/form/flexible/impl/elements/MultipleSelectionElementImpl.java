@@ -78,7 +78,10 @@ public class MultipleSelectionElementImpl extends FormItemImpl implements Multip
 		this.columns = columns;
 	}
 	
-	
+	@Override
+	public String getForId() {
+		return null;
+	}
 	
 	@Override
 	public void setDomReplacementWrapperRequired(boolean required) {
@@ -362,7 +365,7 @@ public class MultipleSelectionElementImpl extends FormItemImpl implements Multip
 	 */
 	@Override
 	public String getFormDispatchId() {
-		return DISPPREFIX + getComponent().getDispatchID();
+		return DISPPREFIX.concat(getComponent().getDispatchID());
 	}
 
 	@Override

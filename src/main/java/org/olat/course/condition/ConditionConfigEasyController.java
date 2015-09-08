@@ -33,7 +33,6 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
 
-import org.olat.core.CoreSpringFactory;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.form.flexible.DependencyRuleApplayable;
 import org.olat.core.gui.components.form.flexible.FormItem;
@@ -76,6 +75,7 @@ import org.olat.repository.RepositoryEntryManagedFlag;
 import org.olat.repository.RepositoryManager;
 import org.olat.resource.OLATResource;
 import org.olat.shibboleth.ShibbolethModule;
+import org.springframework.beans.factory.annotation.Autowired;
 /**
  * Description:<br>
  * The ConditionConfigEasyController implements the easy condition editing
@@ -92,7 +92,7 @@ public class ConditionConfigEasyController extends FormBasicController implement
 	private CourseEditorEnv courseEditorEnv;
 	private List<CourseNode> nodeIdentList;
 	//private FormReset reset;
-	private MultipleSelectionElement coachExclusive;
+	private MultipleSelectionElement coachExclusive, assessmentMode;
 	private JSDateChooser fromDate;
 	private JSDateChooser toDate;
 	private FormItemContainer dateSubContainer, groupSubContainer, assessSubContainer;
@@ -136,8 +136,12 @@ public class ConditionConfigEasyController extends FormBasicController implement
 	private EventBus singleUserEventCenter;
 	private OLATResourceable groupConfigChangeEventOres;
 	
-	private final BGAreaManager areaManager;
-	private final BusinessGroupService businessGroupService;
+	@Autowired
+	private BGAreaManager areaManager;
+	@Autowired
+	private ShibbolethModule shibbolethModule;
+	@Autowired
+	private BusinessGroupService businessGroupService;
 	
 	private boolean managedGroup;
 	
@@ -157,9 +161,6 @@ public class ConditionConfigEasyController extends FormBasicController implement
 	public ConditionConfigEasyController(UserRequest ureq, WindowControl wControl, Condition cond,
 			List<CourseNode> nodeIdentList, CourseEditorEnv env) {
 		super(ureq, wControl, "easycondedit");
-		
-		areaManager = CoreSpringFactory.getImpl(BGAreaManager.class);
-		businessGroupService = CoreSpringFactory.getImpl(BusinessGroupService.class);
 
 		singleUserEventCenter = ureq.getUserSession().getSingleUserEventCenter();
 		groupConfigChangeEventOres = OresHelper.createOLATResourceableType(MultiUserEvent.class);
@@ -216,6 +217,7 @@ public class ConditionConfigEasyController extends FormBasicController implement
 			validatedCondition.setEasyModeNodePassedId(null);
 			validatedCondition.setAttributeConditions(null);
 			validatedCondition.setAttributeConditionsConnectorIsAND(null);
+			validatedCondition.setAssessmentMode(false);
 		} else {
 			validatedCondition.setEasyModeCoachesAndAdmins(false);
 			// 3) date switch
@@ -281,7 +283,7 @@ public class ConditionConfigEasyController extends FormBasicController implement
 			}
 
 			// 6) attribute switch
-			if (ShibbolethModule.isEnableShibbolethLogins()) {
+			if (shibbolethModule.isEnableShibbolethLogins()) {
 				if (attributeSwitch.getSelectedKeys().size() == 1) {
 					List<ExtendedCondition> le = attribteRowAdderSubform.getAttributeConditions();
 		
@@ -299,6 +301,9 @@ public class ConditionConfigEasyController extends FormBasicController implement
 					validatedCondition.setAttributeConditionsConnectorIsAND(null);
 				}
 			}
+			
+			// assessment mode
+			validatedCondition.setAssessmentMode(assessmentMode.isAtLeastSelected(1));
 		}
 
 		// calculate expression from easy mode form
@@ -550,7 +555,7 @@ public class ConditionConfigEasyController extends FormBasicController implement
 			}
 		}
 		
-		if (ShibbolethModule.isEnableShibbolethLogins()) {
+		if (shibbolethModule.isEnableShibbolethLogins()) {
 			retVal=validateAttibuteFields()&&retVal;	
 		}
 		//
@@ -717,12 +722,13 @@ public class ConditionConfigEasyController extends FormBasicController implement
 		addEasyGroupAreaChoosers(formLayout);
 		addAssessmentSwitch(formLayout);
 		//
-		if(ShibbolethModule.isEnableShibbolethLogins()){
+		if(shibbolethModule.isEnableShibbolethLogins()){
 			addAttributeSwitch(formLayout, ureq);
 		}
-		flc.contextPut("shibbolethEnabled", new Boolean(ShibbolethModule.isEnableShibbolethLogins()));
-		
+		flc.contextPut("shibbolethEnabled", new Boolean(shibbolethModule.isEnableShibbolethLogins()));
+		addAssessmentMode(formLayout);
 		addApplyRulesForTutorsToo(formLayout);
+		
 		
 		// add rules
 		addRules(formLayout);
@@ -767,18 +773,19 @@ public class ConditionConfigEasyController extends FormBasicController implement
 	 * Check if any of the date/group/assessment/attributes switch is ON.
 	 * @return
 	 */
-	private boolean isDateGroupAssessmentOAttributeSwitchOn() {
+	private boolean isDateGroupAssessmentOrAttributeSwitchOnOrAssessmentModeOn() {
 		return dateSwitch.getSelectedKeys().size() == 1 
 				|| groupSwitch.getSelectedKeys().size() == 1 
 				|| assessmentSwitch.getSelectedKeys().size() == 1
-				||(attributeSwitch!=null && attributeSwitch.getSelectedKeys().size()==1);
+				|| (attributeSwitch!=null && attributeSwitch.getSelectedKeys().size()==1)
+				|| (assessmentMode.isEnabled() && assessmentMode.isAtLeastSelected(1));
 	}
 	
 	/**
 	 * Show applyRulesForCoach depending on isDateGroupAssessmentOAttributeSwitchOn state.
 	 */
 	private void showOrHideApplyRulesForCoach() {
-		if(isDateGroupAssessmentOAttributeSwitchOn()) {
+		if(isDateGroupAssessmentOrAttributeSwitchOnOrAssessmentModeOn()) {
 			applyRulesForCoach.setVisible(true);
 		} else {
 			applyRulesForCoach.setVisible(false);
@@ -827,7 +834,7 @@ public class ConditionConfigEasyController extends FormBasicController implement
 		
 		final Set<FormItem> dependenciesAttributeSwitch = new HashSet<FormItem>();
 		// only add when initialized. is null when shibboleth module is not enabled
-		if (ShibbolethModule.isEnableShibbolethLogins()) {
+		if (shibbolethModule.isEnableShibbolethLogins()) {
 			dependenciesAttributeSwitch.add(attributeBconnector);
 		}
 		
@@ -869,7 +876,7 @@ public class ConditionConfigEasyController extends FormBasicController implement
 			}
 		});
 		
-		if (ShibbolethModule.isEnableShibbolethLogins()) {
+		if (shibbolethModule.isEnableShibbolethLogins()) {
 			FormItemDependencyRule hideClearAttibuteSwitchDeps = RulesFactory.createCustomRule(attributeSwitch, null, dependenciesAttributeSwitch, formLayout);
 			
 			hideClearAttibuteSwitchDeps.setDependencyRuleApplayable(new DependencyRuleApplayable() {
@@ -912,7 +919,7 @@ public class ConditionConfigEasyController extends FormBasicController implement
 				groupSwitch.clearError();
 				groupSubContainer.setVisible(false);			
 				
-				if (ShibbolethModule.isEnableShibbolethLogins()) {
+				if (shibbolethModule.isEnableShibbolethLogins()) {
 					attributeSwitch.clearError();
 				}
 				easyGroupList.setFocus(false);
@@ -1013,6 +1020,9 @@ public class ConditionConfigEasyController extends FormBasicController implement
 				easyGroupList.setValue("");
 				easyGroupList.setUserObject(new ArrayList<Long>());
 				assessmentSwitch.setEnabled(false);
+				assessmentMode.select("ison", false);
+				assessmentMode.setEnabled(false);
+				
 				// disable the shibboleth attributes switch and reset the row subform
 				if (attributeSwitch != null) {
 					attributeSwitch.select("ison", false);
@@ -1043,7 +1053,7 @@ public class ConditionConfigEasyController extends FormBasicController implement
 		switchesOnly.add(groupSwitch);
 		switchesOnly.add(assessmentSwitch);
 		switchesOnly.add(applyRulesForCoach);
-		if (ShibbolethModule.isEnableShibbolethLogins()) {
+		if (shibbolethModule.isEnableShibbolethLogins()) {
 			switchesOnly.add(attributeSwitch);
 		}
 
@@ -1055,15 +1065,36 @@ public class ConditionConfigEasyController extends FormBasicController implement
 				groupSwitch.setEnabled(true);
 				//assessment switch only enabled if nodes to be selected
 				assessmentSwitch.setEnabled((nodeIdentList.size() > 0  || isSelectedNodeDeleted()));
+				assessmentMode.setEnabled(true);
 								
 				//default is a checked disabled apply rules for coach
-				if (ShibbolethModule.isEnableShibbolethLogins()) {
+				if (shibbolethModule.isEnableShibbolethLogins()) {
 					attributeSwitch.setEnabled(true);
 				}
 				if(!firedDuringInit){
 					showOrHideApplyRulesForCoach();					
 				}
 				firedDuringInit = false;
+			}
+		});
+		
+		//
+		// dependencies of assessment mode
+		final Set<FormItem> assessModeDeps = new HashSet<FormItem>();
+
+		// show elements dependent on other values set.
+		FormItemDependencyRule showAssessmentModeDeps = RulesFactory.createCustomRule(assessmentMode, "ison", assessModeDeps, formLayout);
+		showAssessmentModeDeps.setDependencyRuleApplayable(new DependencyRuleApplayable() {
+			public void apply(FormItem triggerElement, Object triggerVal, Set<FormItem> targets) {
+				showOrHideApplyRulesForCoach();				
+			}
+		});
+
+		// hide elements and reset values.
+		FormItemDependencyRule hideResetAssessmentModeDeps = RulesFactory.createCustomRule(assessmentMode, null, assessModeDeps, formLayout);
+		hideResetAssessmentModeDeps.setDependencyRuleApplayable(new DependencyRuleApplayable() {
+			public void apply(FormItem triggerElement, Object triggerVal, Set<FormItem> targets) {
+				showOrHideApplyRulesForCoach();				
 			}
 		});
 	}
@@ -1086,6 +1117,12 @@ public class ConditionConfigEasyController extends FormBasicController implement
 		// rules are later added
 	}
 
+	private void addAssessmentMode(FormItemContainer formLayout) {
+		assessmentMode = uifactory.addCheckboxesHorizontal("assessmentMode", null, formLayout, new String[] { "ison" }, new String[] { translate("form.easy.assessmentMode") });
+		assessmentMode.select("ison", validatedCondition.isAssessmentMode());
+		assessmentMode.addActionListener(FormEvent.ONCLICK);
+	}
+
 	/**
 	 * @param formLayout
 	 * @param listener
@@ -1096,7 +1133,7 @@ public class ConditionConfigEasyController extends FormBasicController implement
 		 * yes / no chooser defines if learner do not see the building block at all
 		 */
 		applyRulesForCoach = uifactory.addCheckboxesHorizontal("applyRulesForCoach", null, formLayout, new String[] { "ison" }, new String[] { translate("form.easy.applyRulesForCoach") });
-		if(isDateGroupAssessmentOAttributeSwitchOn()) {
+		if(isDateGroupAssessmentOrAttributeSwitchOnOrAssessmentModeOn()) {
 			applyRulesForCoach.setVisible(true);
 		} else {
 			applyRulesForCoach.setVisible(false);

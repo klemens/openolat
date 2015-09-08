@@ -75,7 +75,7 @@ public class EditPropertiesForm extends FormBasicController {
 		beginDate.setMandatory(true);
 		beginDate.setNotEmptyCheck("error.form.editproperties.setdate");
 		
-		endDate = uifactory.addDateChooser("endDate", "label.form.editproperties.begindate", null, formLayout);
+		endDate = uifactory.addDateChooser("endDate", "label.form.editproperties.enddate", null, formLayout);
 		endDate.setDateChooserTimeEnabled(true);
 		endDate.setMandatory(true);
 		endDate.setNotEmptyCheck("error.form.editproperties.setdate");

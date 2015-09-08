@@ -31,6 +31,7 @@ import org.olat.core.util.resource.OresHelper;
 import org.olat.course.assessment.AssessmentHelper;
 import org.olat.repository.RepositoryEntryMyView;
 import org.olat.repository.RepositoryEntryRef;
+import org.olat.repository.RepositoryEntryStatus;
 import org.olat.repository.model.RepositoryEntryLifecycle;
 import org.olat.repository.ui.PriceMethod;
 
@@ -52,14 +53,13 @@ public class RepositoryEntryRow implements RepositoryEntryRef {
 	private String thumbnailRelPath;
 	private String shortenedDescription;
 	private int access;
+	private int statusCode;
 	
 	private String score;
 	private Boolean passed;
 	private boolean isMembersOnly = false;
 	
 	private boolean member;
-	
-	public int visit;
 	
 	private Integer myRating;
 	private Double averageRating;
@@ -96,6 +96,7 @@ public class RepositoryEntryRow implements RepositoryEntryRef {
 		setAuthors(entry.getAuthors());
 		setIsMembersOnly(entry.isMembersOnly());
 		setAccess(entry.getAccess());
+		setStatusCode(entry.getStatusCode());
 		
 		//bookmark
 		setMarked(entry.isMarked());
@@ -103,13 +104,6 @@ public class RepositoryEntryRow implements RepositoryEntryRef {
 		//efficiency statement
 		setPassed(entry.getPassed());
 		setScore(AssessmentHelper.getRoundedScore(entry.getScore()));
-		
-		//user course infos
-		if(entry.getVisit() != null) {
-			setVisit(entry.getVisit().intValue());
-		} else {
-			setVisit(0);
-		}
 		
 		//rating
 		setMyRating(entry.getMyRating());
@@ -144,6 +138,10 @@ public class RepositoryEntryRow implements RepositoryEntryRef {
 	public void setKey(Long key) {
 		this.key = key;
 	}
+	
+	public boolean isClosed() {
+		return new RepositoryEntryStatus(statusCode).isClosed();
+	}
 
 	public int getAccess() {
 		return access;
@@ -151,6 +149,14 @@ public class RepositoryEntryRow implements RepositoryEntryRef {
 
 	public void setAccess(int access) {
 		this.access = access;
+	}
+
+	public int getStatusCode() {
+		return statusCode;
+	}
+
+	public void setStatusCode(int statusCode) {
+		this.statusCode = statusCode;
 	}
 
 	public String getExternalId() {
@@ -444,13 +450,5 @@ public class RepositoryEntryRow implements RepositoryEntryRef {
 	
 	public boolean isFailed() {
 		return passed != null && !passed.booleanValue();
-	}
-	
-	public int getVisit() {
-		return visit;
-	}
-	
-	public void setVisit(int visit) {
-		this.visit = visit;
 	}
 }

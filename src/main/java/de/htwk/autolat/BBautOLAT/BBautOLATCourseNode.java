@@ -5,6 +5,7 @@ import java.io.File;
 import java.util.List;
 import java.util.Locale;
 
+import org.fusesource.hawtbuf.ByteArrayInputStream;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.stack.BreadcrumbPanel;
 import org.olat.core.gui.control.Controller;
@@ -19,10 +20,12 @@ import org.olat.course.ICourse;
 import org.olat.course.editor.CourseEditorEnv;
 import org.olat.course.editor.NodeEditController;
 import org.olat.course.editor.StatusDescription;
+import org.olat.course.export.CourseEnvironmentMapper;
 import org.olat.course.nodes.AbstractAccessableCourseNode;
 import org.olat.course.nodes.AssessableCourseNode;
 import org.olat.course.nodes.CourseNode;
 import org.olat.course.nodes.StatusDescriptionHelper;
+import org.olat.course.nodes.CourseNode.Processing;
 import org.olat.course.run.navigation.NodeRunConstructionResult;
 import org.olat.course.run.scoring.ScoreEvaluation;
 import org.olat.course.run.userview.NodeEvaluation;
@@ -31,6 +34,7 @@ import org.olat.modules.ModuleConfiguration;
 import org.olat.repository.RepositoryEntry;
 
 import de.htwk.autolat.Configuration.Configuration;
+import de.htwk.autolat.Configuration.ConfigurationManager;
 import de.htwk.autolat.Configuration.ConfigurationManagerImpl;
 import de.htwk.autolat.Student.Student;
 import de.htwk.autolat.Student.StudentManagerImpl;
@@ -58,6 +62,7 @@ public class BBautOLATCourseNode extends AbstractAccessableCourseNode implements
 		updateModuleConfigDefaults(true);		
 	}
 
+	@Override
 	public void updateModuleConfigDefaults(boolean isNewNode) {
 		ModuleConfiguration config = getModuleConfiguration();
 		if (isNewNode) {
@@ -65,49 +70,11 @@ public class BBautOLATCourseNode extends AbstractAccessableCourseNode implements
 			config.setBooleanEntry(NodeEditController.CONFIG_STARTPAGE, false);
 			config.setConfigurationVersion(1);
 			// create the needed values in the config for controlling the edit process
-			// config.setBooleanEntry("ConfigurationCreated", false);
 			config.setBooleanEntry("ServerConnectionSet", false);
 			config.setBooleanEntry("TaskTypeValid", false);
 			config.setBooleanEntry("GradingTimeSet", false); 
-			// set a server connection at the creation time
-			// FIXME : statt "42" müsste da die courseID stehen... aber woher nehmen?	
-			//Configuration conf = ConfigurationManagerImpl.getInstance().createAndPersistConfiguration(null, null, null, null, 42, Long.valueOf(getIdent()), null, null, null, null);
-			// the flag here is actually superfluous (but is nevertheless still used) 
-			config.setBooleanEntry("ConfigurationCreated", true);
-			// the next block is obsolete
-			/*
-			ServerConnection connection = ServerConnectionManagerImpl.getInstance().getRandomServerConnection();
-			if(connection != null) {
-				conf.setServerConnection(connection);
-				ConfigurationManagerImpl.getInstance().updateConfiguration(conf);
-				config.setBooleanEntry("ServerConnectionSet", true);
-			}
-			*/
 		}
 	}
-	/*
-		moduleConfiguration = getModuleConfiguration();
-		if (isNewNode) {
-			// use defaults for new course building blocks
-			moduleConfiguration.setBooleanEntry(NodeEditController.CONFIG_STARTPAGE, false);
-			moduleConfiguration.setConfigurationVersion(1);
-			// create the needed values in the config for controlling the edit process
-			moduleConfiguration.setBooleanEntry("ConfigurationCreated", false);
-			moduleConfiguration.setBooleanEntry("ServerConnectionSet", false);
-			moduleConfiguration.setBooleanEntry("TaskTypeValid", false);
-			moduleConfiguration.setBooleanEntry("GradingTimeSet", false);
-			// set a server connection at the creation time
-			Configuration conf = ConfigurationManagerImpl.getInstance().createAndPersistConfiguration(null, null, null, null, Long.valueOf(getIdent()), null, null, null);
-			moduleConfiguration.setBooleanEntry("ConfigurationCreated", true);
-			ServerConnection connection = ServerConnectionManagerImpl.getInstance().getRandomServerConnection();
-			if(connection != null) {
-				conf.setServerConnection(connection);
-				ConfigurationManagerImpl.getInstance().updateConfiguration(conf);
-				moduleConfiguration.setBooleanEntry("ServerConnectionSet", true);
-			}
-		}
-	}
-	*/
 	
 	@Override
 	public TabbableController createEditController(UserRequest ureq,
@@ -354,22 +321,7 @@ public class BBautOLATCourseNode extends AbstractAccessableCourseNode implements
 	private String getExportFilename() {
 		return "autolatExport_"+this.getIdent()+".xml";
 	}
-	
-	/*@Override
-	public void cleanupOnDelete(ICourse course) {
-		try {
-			long courseNodeID = Long.valueOf(getIdent());
-			Configuration conf = ConfigurationManagerImpl.getInstance().getConfigurationByCourseID(course.getResourceableId(), courseNodeID);
-			TaskConfiguration taskConf = conf.getTaskConfiguration();
-		
-			ConfigurationManagerImpl.getInstance().deleteConfiguration(conf);
-			TaskConfigurationManagerImpl.getInstance().deleteTaskConfiguration(taskConf);		
-		} catch (Exception e) {
-			e.printStackTrace();
-		}
-	} 
-	*/
-	
+
 	@Override
 	public void exportNode(File exportDirectory, ICourse course) {		
 		try {
@@ -386,7 +338,7 @@ public class BBautOLATCourseNode extends AbstractAccessableCourseNode implements
 	}
 	
 	@Override
-	public void importNode(File importDirectory, ICourse course, Identity identity, Locale locale)
+	public void importNode(File importDirectory, ICourse course, Identity identity, Locale locale, boolean withReferences)
 	{		
 		ModuleConfiguration config = getModuleConfiguration();
 		File importFile = new File(importDirectory, getExportFilename());
@@ -405,8 +357,6 @@ public class BBautOLATCourseNode extends AbstractAccessableCourseNode implements
 							
 				config.setBooleanEntry(NodeEditController.CONFIG_STARTPAGE, false);
 				config.setConfigurationVersion(1);
-				// the flag here is actually superfluous (but is nevertheless still used) 			
-				config.setBooleanEntry("ConfigurationCreated", true);
 				config.setBooleanEntry("ServerConnectionSet", true);
 				config.setBooleanEntry("TaskTypeValid", true);
 				config.setBooleanEntry("GradingTimeSet", false);
@@ -421,6 +371,55 @@ public class BBautOLATCourseNode extends AbstractAccessableCourseNode implements
 		} else {
 			// nothing there to import, leave the node as it is
 		}
+	}
+
+	@Override
+	public void postCopy(CourseEnvironmentMapper envMapper, Processing processType, ICourse course, ICourse sourceCrourse) {
+		super.postCopy(envMapper, processType, course, sourceCrourse);
+
+		ConfigurationManager cm = ConfigurationManagerImpl.getInstance();
+
+		// Only import the configuration once:
+		//  * course copy / published task: called twice (first Processing.runstructure, then Processing.editor)
+		//  * course copy / unpublished task: called once (Processing.editor)
+		//  * node copy: not called at all (BUG?)
+		Configuration newConfig = cm.findConfigurationByCourseID(course.getResourceableId(), Long.valueOf(getIdent()));
+		if(newConfig == null) {
+			newConfig = cm.createAndPersistConfiguration(course.getResourceableId(), Long.valueOf(getIdent()));
+
+			Configuration oldConfig = cm.getConfigurationByCourseID(sourceCrourse.getResourceableId(), Long.valueOf(getIdent()));
+
+			try {
+				// Copy old config to new one by using the exporter/importer
+				AutOlatNodeExporter exporter = new AutOlatNodeExporter(oldConfig);
+				AutOlatNodeImporter importer = new AutOlatNodeImporter(newConfig);
+
+				ByteArrayOutputStream ostream = new ByteArrayOutputStream();
+				exporter.exportNode(ostream);
+				ByteArrayInputStream istream = new ByteArrayInputStream(ostream.toByteArray());
+				importer.importFromStream(istream);
+
+				// grading time is not a part of the export/import
+				newConfig.setBeginDate(oldConfig.getBeginDate());
+				newConfig.setEndDate(oldConfig.getEndDate());
+
+				TaskTypeManagerImpl.getInstance().saveOrUpdateTaskType(newConfig.getTaskConfiguration().getTaskType());
+				TaskConfigurationManagerImpl.getInstance().saveOrUpdateTaskConfiguration(newConfig.getTaskConfiguration());
+				cm.updateConfiguration(newConfig);
+			} catch(Exception e) {
+				// reset to defaults
+				updateModuleConfigDefaults(true);
+				// delete config (will be recreated at first get)
+				TaskConfigurationManagerImpl.getInstance().deleteTaskConfiguration(newConfig.getTaskConfiguration());
+				cm.deleteConfiguration(newConfig);
+			}
+		}
+	}
+
+	@Override
+	public void cleanupOnDelete(ICourse course) {
+		// Do not delete the Configuration as there may be a TaskInstance referring to it
+		// Do not delete the TaskConfiguration as it may be shared by multiple Configurations
 	}
 
 	@Override

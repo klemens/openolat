@@ -25,6 +25,8 @@
 */
 package org.olat.core.gui.components.form.flexible;
 
+import java.io.File;
+import java.lang.management.MemoryType;
 import java.util.Date;
 import java.util.List;
 import java.util.Map;
@@ -40,6 +42,7 @@ import org.olat.core.gui.components.form.flexible.elements.FlexiTableElement;
 import org.olat.core.gui.components.form.flexible.elements.FormLink;
 import org.olat.core.gui.components.form.flexible.elements.FormToggle;
 import org.olat.core.gui.components.form.flexible.elements.IntegerElement;
+import org.olat.core.gui.components.form.flexible.elements.MemoryElement;
 import org.olat.core.gui.components.form.flexible.elements.MultipleSelectionElement;
 import org.olat.core.gui.components.form.flexible.elements.MultipleSelectionElement.Layout;
 import org.olat.core.gui.components.form.flexible.elements.RichTextElement;
@@ -62,6 +65,7 @@ import org.olat.core.gui.components.form.flexible.impl.elements.FormSubmit;
 import org.olat.core.gui.components.form.flexible.impl.elements.FormToggleImpl;
 import org.olat.core.gui.components.form.flexible.impl.elements.IntegerElementImpl;
 import org.olat.core.gui.components.form.flexible.impl.elements.JSDateChooser;
+import org.olat.core.gui.components.form.flexible.impl.elements.MemoryElementImpl;
 import org.olat.core.gui.components.form.flexible.impl.elements.MultiSelectionTreeImpl;
 import org.olat.core.gui.components.form.flexible.impl.elements.MultipleSelectionElementImpl;
 import org.olat.core.gui.components.form.flexible.impl.elements.SelectboxSelectionImpl;
@@ -679,7 +683,7 @@ public class FormUIFactory {
 	public RichTextElement addRichTextElementForStringDataMinimalistic(String name, final String i18nLabel, String initialHTMLValue, final int rows,
 			final int cols, FormItemContainer formLayout, WindowControl wControl) {
 		// Create richt text element with bare bone configuration
-		RichTextElement rte = new RichTextElementImpl(name, initialHTMLValue, rows, cols, formLayout.getRootForm(), wControl.getWindowBackOffice());
+		RichTextElement rte = new RichTextElementImpl(name, initialHTMLValue, rows, cols, formLayout.getRootForm());
 		setLabelIfNotNull(i18nLabel, rte);
 		// Now configure editor
 		rte.getEditorConfiguration().setConfigProfileFormEditorMinimalistic(wControl.getWindowBackOffice().getWindow().getGuiTheme());			
@@ -732,7 +736,7 @@ public class FormUIFactory {
 			FormItemContainer formLayout, UserSession usess, WindowControl wControl) {
 		// Create richt text element with bare bone configuration
 		WindowBackOffice backoffice = wControl.getWindowBackOffice();
-		RichTextElement rte = new RichTextElementImpl(name, initialHTMLValue, rows, cols, formLayout.getRootForm(), backoffice);
+		RichTextElement rte = new RichTextElementImpl(name, initialHTMLValue, rows, cols, formLayout.getRootForm());
 		setLabelIfNotNull(i18nLabel, rte);
 		// Now configure editor
 		Theme theme = backoffice.getWindow().getGuiTheme();
@@ -785,8 +789,7 @@ public class FormUIFactory {
 			FormItemContainer formLayout, UserSession usess,
 			WindowControl wControl) {
 		// Create richt text element with bare bone configuration
-		RichTextElement rte = new RichTextElementImpl(name, initialValue, rows,
-				cols, formLayout.getRootForm(), wControl.getWindowBackOffice());
+		RichTextElement rte = new RichTextElementImpl(name, initialValue, rows, cols, formLayout.getRootForm());
 		setLabelIfNotNull(i18nLabel, rte);
 		// Now configure editor
 		rte.getEditorConfiguration().setConfigProfileFileEditor(usess,
@@ -992,6 +995,19 @@ public class FormUIFactory {
 		}
 		return fte;
 	}
+	
+	public DownloadLink addDownloadLink(String name,  String linkTitle, String i18nLabel, File file, FlexiTableElement formLayout) {
+		DownloadLinkImpl fte = new DownloadLinkImpl(name);
+		fte.setLinkText(linkTitle);
+		fte.setDownloadItem(file);
+		String css = CSSHelper.createFiletypeIconCssClassFor(file.getName());
+		fte.setIconLeftCSS("o_icon o_icon-fw " + css);
+		setLabelIfNotNull(i18nLabel, fte);
+		if(formLayout != null) {
+			((FlexiTableElementImpl)formLayout).addFormItem(fte);
+		}
+		return fte;
+	}
 
 	/**
 	 * add a toggle which handles on/off state itself and can be asked for status
@@ -1105,12 +1121,10 @@ public class FormUIFactory {
 		return cancel;
 	}
 
-
-
-
-	
-	
-	
-	
-	
+	public MemoryElement addMemoryView(String name, String i18nLabel, MemoryType type, FormItemContainer formLayout) {
+		MemoryElementImpl fte = new MemoryElementImpl(name, type);
+		setLabelIfNotNull(i18nLabel, fte);
+		formLayout.add(fte);
+		return fte;
+	}
 }

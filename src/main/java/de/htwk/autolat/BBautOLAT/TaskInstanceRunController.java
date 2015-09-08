@@ -493,8 +493,6 @@ public class TaskInstanceRunController extends BasicController
 
 				if(beginDate.before(new Date()) && endDate.after(new Date()))
 				{
-					showInfo("info.form.taskform.solutionsubmitted");
-					
 					/*
 					 * The following function call ensures, that the current task type has been classified
 					 * towards the scoring order.
@@ -529,12 +527,12 @@ public class TaskInstanceRunController extends BasicController
 					if(endDate.before(new Date()))
 					{
 						//taskForm.getTextAreaElement("solution").setErrorKey("info.form.taskform.solutiontoolate");
-						showInfo("info.form.taskform.solutiontoolate");
+						showWarning("info.form.taskform.solutiontoolate");
 					}
 					else
 					{
 						// taskForm.getTextAreaElement("solution").setErrorKey("info.form.taskform.solutiontoosoon");
-						showInfo("info.form.taskform.solutiontoosoon");						
+						showWarning("info.form.taskform.solutiontoosoon");
 					}
 				}
 				

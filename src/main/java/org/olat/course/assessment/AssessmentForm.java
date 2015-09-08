@@ -251,6 +251,7 @@ public class AssessmentForm extends FormBasicController {
 	@Override
 	protected void initForm(FormItemContainer formLayout, Controller listener, UserRequest ureq) {
 		setFormTitle("form.title", null);
+		formLayout.setElementCssClass("o_sel_assessment_form");
 		
 		UserCourseEnvironment userCourseEnv = assessedIdentityWrapper.getUserCourseEnvironment();
 		ScoreEvaluation scoreEval = userCourseEnv.getScoreAccounting().evalCourseNode(assessableCourseNode);
@@ -279,6 +280,7 @@ public class AssessmentForm extends FormBasicController {
 			scoreValue = scoreEval.getScore();
 			score = uifactory.addTextElement("score","form.score" , 10, "", formLayout);
 			score.setDisplaySize(4);
+			score.setElementCssClass("o_sel_assessment_form_score");
 			score.setExampleKey("form.score.rounded", null);
 			if (scoreValue != null) {
 				score.setValue(AssessmentHelper.getRoundedScore(scoreValue));
@@ -306,6 +308,7 @@ public class AssessmentForm extends FormBasicController {
 
 			//passed = new StaticSingleSelectionElement("form.passed", trueFalseKeys, passedNotPassedValues);
 			passed = uifactory.addRadiosVertical("passed", "form.passed", formLayout, trueFalseKeys, passedNotPassedValues);	
+			passed.setElementCssClass("o_sel_assessment_form_passed");
 			
 			Boolean passedValue = scoreEval.getPassed();
 			passed.select(passedValue == null ? "undefined" :passedValue.toString(), true);
@@ -343,6 +346,7 @@ public class AssessmentForm extends FormBasicController {
 		uifactory.addFormSubmitButton("save", buttonGroupLayout);
 		if(saveAndClose) {
 			saveAndCloseLink = uifactory.addFormLink("save.close", buttonGroupLayout, Link.BUTTON);
+			saveAndCloseLink.setElementCssClass("o_sel_assessment_form_save_and_close");
 		}
 		uifactory.addFormCancelButton("cancel", buttonGroupLayout, ureq, getWindowControl());
 	}

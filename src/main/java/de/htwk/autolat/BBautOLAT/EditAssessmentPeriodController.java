@@ -65,8 +65,6 @@ public class EditAssessmentPeriodController extends BasicController {
 		if(ctr == editPropertiesForm) {
 			if(evnt.equals(FormEvent.DONE_EVENT)) {
 				//createOutput(ureq);
-				//giving the user some feedback
-				showInfo("info.form.editproperties.propertiessaved");
 				fireEvent(ureq, new Event("EDITPROPERTIES_OK"));
 			}
 		}

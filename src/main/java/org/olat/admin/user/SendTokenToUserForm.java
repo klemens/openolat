@@ -25,7 +25,6 @@ import java.util.Locale;
 import org.olat.basesecurity.Authentication;
 import org.olat.basesecurity.BaseSecurityManager;
 import org.olat.basesecurity.BaseSecurityModule;
-import org.olat.core.CoreSpringFactory;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.form.flexible.FormItem;
 import org.olat.core.gui.components.form.flexible.FormItemContainer;
@@ -47,6 +46,7 @@ import org.olat.core.util.mail.MailManager;
 import org.olat.core.util.mail.MailerResult;
 import org.olat.registration.RegistrationManager;
 import org.olat.registration.TemporaryKey;
+import org.springframework.beans.factory.annotation.Autowired;
 
 /**
  * 
@@ -63,12 +63,14 @@ public class SendTokenToUserForm extends FormBasicController {
 	private TextElement mailText;
 	
 	private String dummyKey;
+	@Autowired
 	private MailManager mailManager;
+	@Autowired
+	private RegistrationManager registrationManager;
 
 	public SendTokenToUserForm(UserRequest ureq, WindowControl wControl, Identity treatedIdentity) {
 		super(ureq, wControl);
 		user = treatedIdentity;
-		mailManager = CoreSpringFactory.getImpl(MailManager.class);
 		initForm(ureq);
 	}
 	
@@ -100,20 +102,12 @@ public class SendTokenToUserForm extends FormBasicController {
 	protected void formOK(UserRequest ureq) {
 		String text = mailText.getValue();
 		sendToken(ureq, text);
-		mailText.setValue(escapeLanguage(text));
+		mailText.setValue(text);
 		fireEvent(ureq, Event.DONE_EVENT);
 	}
 	
 	public FormItem getInitialFormItem() {
 		return flc;
-	}
-	
-	/**
-	 * Workaround for display where the &lang is considered as an html entity
-	 * @param text
-	 */
-	private String escapeLanguage(String text) {
-		return text.replace("&lang=", "&amp;lang=");
 	}
 	
 	private String generateMailText() {
@@ -129,7 +123,7 @@ public class SendTokenToUserForm extends FormBasicController {
 					+ userTrans.translate("pwchange.body", new String[] {
 							serverpath, dummyKey, I18nManager.getInstance().getLocaleKey(locale)
 					});
-			return escapeLanguage(body);
+			return body;
 		}
 		else return "This function is not available for users without an email-adress!";
 	}
@@ -147,11 +141,10 @@ public class SendTokenToUserForm extends FormBasicController {
 		Locale locale = I18nManager.getInstance().getLocaleOrDefault(prefs.getLanguage());
 		String emailAdress = user.getUser().getProperty(UserConstants.EMAIL, locale);
 
-		RegistrationManager rm = RegistrationManager.getInstance();
-		TemporaryKey tk = rm.loadTemporaryKeyByEmail(emailAdress);
+		TemporaryKey tk = registrationManager.loadTemporaryKeyByEmail(emailAdress);
 		if (tk == null) {
 			String ip = ureq.getHttpReq().getRemoteAddr();
-			tk = rm.createTemporaryKeyByEmail(emailAdress, ip, RegistrationManager.PW_CHANGE);
+			tk = registrationManager.createTemporaryKeyByEmail(emailAdress, ip, RegistrationManager.PW_CHANGE);
 		}
 		if(text.indexOf(dummyKey) < 0) {
 			showWarning("changeuserpwd.failed");

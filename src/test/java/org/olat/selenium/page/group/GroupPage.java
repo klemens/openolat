@@ -22,8 +22,16 @@ package org.olat.selenium.page.group;
 import java.util.List;
 
 import org.junit.Assert;
+import org.olat.selenium.page.core.BookingPage;
+import org.olat.selenium.page.core.CalendarPage;
+import org.olat.selenium.page.core.ContactPage;
+import org.olat.selenium.page.core.FolderPage;
 import org.olat.selenium.page.core.IMPage;
+import org.olat.selenium.page.forum.ForumPage;
 import org.olat.selenium.page.graphene.OOGraphene;
+import org.olat.selenium.page.portfolio.PortfolioPage;
+import org.olat.selenium.page.wiki.WikiPage;
+import org.olat.user.restapi.UserVO;
 import org.openqa.selenium.By;
 import org.openqa.selenium.WebDriver;
 import org.openqa.selenium.WebElement;
@@ -37,9 +45,10 @@ import org.openqa.selenium.WebElement;
  */
 public class GroupPage {
 	
-
 	private static final By showOwners = By.className("o_sel_group_show_owners");
 	private static final By toolsBy = By.className("o_sel_collab_tools");
+	private static final By editDetails = By.className("o_sel_group_edit_title");
+	private static final By bookingConfigBy = By.className("o_sel_accesscontrol_create");
 	
 	private WebDriver browser;
 	
@@ -59,7 +68,12 @@ public class GroupPage {
 		By adminBy = By.xpath("//div[contains(@class,'o_tree')]//a[contains(@href,'MENU_ADMINISTRATION')]");
 		WebElement adminLink = browser.findElement(adminBy);
 		adminLink.click();
-		OOGraphene.waitBusy();
+		OOGraphene.waitBusy(browser);
+		return this;
+	}
+	
+	public GroupPage openEditDetails() {
+		openAdminTab(editDetails);
 		return this;
 	}
 	
@@ -73,29 +87,116 @@ public class GroupPage {
 		return this;
 	}
 	
+	public BookingPage openBookingConfig() {
+		openAdminTab(bookingConfigBy);
+		return new BookingPage(browser);
+	}
+	
 	public IMPage openChat() {
-		By chatBy = By.cssSelector("li.o_sel_group_chat a");
-		WebElement chatNode = browser.findElement(chatBy);
-		chatNode.click();
-		OOGraphene.waitBusy();
+		openMenuItem("o_sel_group_chat");
 		return new IMPage(browser);
 	}
 	
-	public GroupPage setVisibility(boolean owners, boolean participants) {
-		By showOwnersBy = By.cssSelector(".o_sel_group_show_owners input[type='checkbox']");
-		WebElement showOwnersEl = browser.findElement(showOwnersBy);
+	public CalendarPage openCalendar() {
+		openMenuItem("o_sel_group_calendar");
+		return new CalendarPage(browser);
+	}
+	
+	public ContactPage openContact() {
+		openMenuItem("o_sel_group_contact");
+		return new ContactPage(browser);
+	}
+	
+	public GroupPage openMembers() {
+		return openMenuItem("o_sel_group_members");
+	}
+	
+	public GroupPage openNews() {
+		return openMenuItem("o_sel_group_news");
+	}
+	
+	public FolderPage openFolder() {
+		openMenuItem("o_sel_group_folder");
+		return new FolderPage(browser);
+	}
+	
+	public ForumPage openForum() {
+		openMenuItem("o_sel_group_forum");
+		return ForumPage.getGroupForumPage(browser);
+	}
+	
+	public WikiPage openWiki() {
+		openMenuItem("o_sel_group_wiki");
+		return WikiPage.getGroupWiki(browser);
+	}
+	
+	public PortfolioPage openPortfolio() {
+		openMenuItem("o_sel_group_portfolio");
+		return new PortfolioPage(browser);
+	}
+	
+	private GroupPage openMenuItem(String cssClass) {
+		By newsBy = By.cssSelector("li." + cssClass + " a");
+		browser.findElement(newsBy).click();
+		OOGraphene.waitBusy(browser);
+		return this;
+	}
+	
+	public void close() {
+		By closeBy = By.cssSelector("a i.o_icon_close_tool");
+		browser.findElement(closeBy).click();
+		OOGraphene.waitBusy(browser);
+	}
+	
+	public GroupPage setVisibility(boolean owners, boolean participants, boolean waitingList) {	
 		if(owners) {
-			showOwnersEl.click();
+			By showOwnersBy = By.cssSelector(".o_sel_group_show_owners input[type='checkbox']");
+			browser.findElement(showOwnersBy).click();
+			OOGraphene.waitBusy(browser);
+			OOGraphene.closeBlueMessageWindow(browser);
 		}
-		OOGraphene.waitBusy();
 		
-		By showParticipants = By.cssSelector(".o_sel_group_show_participants input[type='checkbox']");
-		WebElement showParticipantsEl = browser.findElement(showParticipants);
 		if(participants) {
-			showParticipantsEl.click();
+			By showParticipants = By.cssSelector(".o_sel_group_show_participants input[type='checkbox']");
+			browser.findElement(showParticipants).click();
+			OOGraphene.waitBusy(browser);
+			OOGraphene.closeBlueMessageWindow(browser);
 		}
 		
-		OOGraphene.waitBusy();
+		if(waitingList) {
+			By showWaitingListBy = By.cssSelector(".o_sel_group_show_waiting_list input[type='checkbox']");
+			browser.findElement(showWaitingListBy).click();
+			OOGraphene.waitBusy(browser);
+			OOGraphene.closeBlueMessageWindow(browser);
+		}
+		
+		OOGraphene.waitBusy(browser);
+		OOGraphene.closeBlueMessageWindow(browser);
+		return this;
+	}
+	
+	public GroupPage setWaitingList() {
+		By waitingListBy = By.cssSelector(".o_sel_group_edit_waiting_list input[type='checkbox']");
+		browser.findElement(waitingListBy).click();
+		OOGraphene.waitBusy(browser);
+		return this;
+	}
+	
+	public GroupPage setMaxNumberOfParticipants(int max) {
+		By maxBy = By.cssSelector(".o_sel_group_edit_max_members input[type='text']");
+		browser.findElement(maxBy).sendKeys(Integer.toString(max));
+		return this;
+	}
+	
+	/**
+	 * Save the details form.
+	 * @return The group page
+	 */
+	public GroupPage saveDetails() {
+		By submitBy = By.cssSelector(".o_sel_group_edit_group_form button.btn-primary");
+		WebElement submitButton = browser.findElement(submitBy);
+		submitButton.click();
+		OOGraphene.waitBusy(browser);
 		return this;
 	}
 	
@@ -105,8 +206,17 @@ public class GroupPage {
 		Assert.assertFalse(checkTools.isEmpty());
 		for(WebElement checkTool:checkTools) {
 			checkTool.click();
-			OOGraphene.waitBusy();
+			OOGraphene.waitBusy(browser);
 		}
+		return this;
+	}
+	
+	public GroupPage setMembersInfos(String text) {		
+		OOGraphene.tinymce(text, browser);
+		
+		By submitBy = By.cssSelector(".o_sel_collaboration_news_save button.btn-primary");
+		browser.findElement(submitBy).click();
+		OOGraphene.waitBusy(browser);
 		return this;
 	}
 	
@@ -114,20 +224,20 @@ public class GroupPage {
 		By addMemberBy = By.className("o_sel_group_add_member");
 		WebElement addMemberButton = browser.findElement(addMemberBy);
 		addMemberButton.click();
-		OOGraphene.waitBusy();
+		OOGraphene.waitBusy(browser);
 		return new MembersWizardPage(browser);
 	}
 	
 	private void openAdminTab(By marker) {
 		By navBarAdmin = By.cssSelector("div.o_tabbed_pane ul>li>a");
-		OOGraphene.waitElement(navBarAdmin);
+		OOGraphene.waitElement(navBarAdmin, browser);
 		List<WebElement> tabLinks = browser.findElements(navBarAdmin);
 		Assert.assertFalse(tabLinks.isEmpty());
 
 		boolean found = false;
 		for(WebElement tabLink:tabLinks) {
 			tabLink.click();
-			OOGraphene.waitBusy();
+			OOGraphene.waitBusy(browser);
 			List<WebElement> markerEls = browser.findElements(marker);
 			if(markerEls.size() > 0) {
 				found = true;
@@ -135,5 +245,77 @@ public class GroupPage {
 			}
 		}
 		Assert.assertTrue(found);
+	}
+	
+	public GroupPage assertOnInfosPage(String name) {
+		By groupNameBy = By.xpath("//div[@id='o_main_center_content_inner']//p[contains(text(),'" + name+ "')]");
+		List<WebElement> groupNameEls = browser.findElements(groupNameBy);
+		Assert.assertFalse(groupNameEls.isEmpty());
+		return this;
+	}
+	
+	public GroupPage assertNews(String name) {
+		By groupNameBy = By.xpath("//div[@id='o_main_center_content_inner']//div[@id='o_msg_info']//p[contains(text(),'" + name+ "')]");
+		List<WebElement> groupNameEls = browser.findElements(groupNameBy);
+		Assert.assertFalse(groupNameEls.isEmpty());
+		return this;
+	}
+	
+	public GroupPage assertOnWaitingList(String name) {
+		//check group name
+		By groupNameBy = By.cssSelector("#o_main_center_content_inner h4");
+		WebElement groupNameEl = browser.findElement(groupNameBy);
+		Assert.assertTrue(groupNameEl.getText().contains(name));
+		//check the warning
+		By warningBy = By.xpath("//div[@id='o_main_center_content_inner']//p[contains(@class,'o_warning')]");
+		List<WebElement> warningEls = browser.findElements(warningBy);
+		Assert.assertFalse(warningEls.isEmpty());
+		return this;
+	}
+	
+	public GroupPage assertParticipantList() {
+		By participantListBy = By.id("o_sel_group_participants");
+		List<WebElement> participantListEl = browser.findElements(participantListBy);
+		if(participantListEl.size() == 0) {
+			System.out.println();
+		}
+		return this;
+	}
+	
+	public GroupPage assertMembersInOwnerList(UserVO owner) {
+		return assertMembers(owner, "o_sel_group_coaches");
+	}
+	
+	public GroupPage assertMembersInParticipantList(UserVO owner) {
+		return assertMembers(owner, "o_sel_group_participants");
+	}
+	
+	public GroupPage assertMembersInWaitingList(UserVO owner) {
+		return assertMembers(owner, "o_sel_group_waiting_list");
+	}
+	
+	private GroupPage assertMembers(UserVO member, String cssClass) {
+		boolean isMember = isMembers( member, cssClass);
+		Assert.assertTrue(isMember);
+		return this;
+	}
+	
+	public boolean isInMembersOwnerList(UserVO owner) {
+		return isMembers(owner, "o_sel_group_coaches");
+	}
+	
+	public boolean isInMembersParticipantList(UserVO owner) {
+		return isMembers(owner, "o_sel_group_participants");
+	}
+	
+	public boolean isInMembersInWaitingList(UserVO owner) {
+		return isMembers(owner, "o_sel_group_waiting_list");
+	}
+	
+	private boolean isMembers(UserVO member, String cssClass) {
+		String firstName = member.getFirstName();
+		By longBy = By.xpath("//div[@id='" + cssClass + "']//table//tr//td//a[contains(text(),'" + firstName + "')]");
+		List<WebElement> elements = browser.findElements(longBy);
+		return elements.size() > 0;
 	}
 }

@@ -48,7 +48,24 @@ public interface UserCourseInformationsManager {
 	
 	public Date getRecentLaunchDate(Long courseResourceId, IdentityRef identity);
 	
+
+	public Map<Long,Date> getRecentLaunchDates(Long courseResourceId, List<Identity> identities);
+	
+	/**
+	 * Return the initial launch dates of a list of users.
+	 * @param courseResourceId
+	 * @param identities
+	 * @return
+	 */
 	public Map<Long,Date> getInitialLaunchDates(Long courseResourceId, List<Identity> identities);
+	
+	/**
+	 * Return all initial launch dates of a course.
+	 * 
+	 * @param courseResourceId
+	 * @return
+	 */
+	public Map<Long,Date> getInitialLaunchDates(Long courseResourceId);
 	
 	public int deleteUserCourseInformations(RepositoryEntry entry);
 

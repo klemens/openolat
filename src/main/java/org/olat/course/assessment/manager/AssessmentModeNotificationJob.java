@@ -34,7 +34,7 @@ import org.quartz.JobExecutionException;
  */
 public class AssessmentModeNotificationJob extends JobWithDB {
 	
-	private static final OLog log = Tracing.createLoggerFor(AssessmentModeNotificationJob.class);
+	private static final OLog logger = Tracing.createLoggerFor(AssessmentModeNotificationJob.class);
 
 	@Override
 	public void executeWithDB(JobExecutionContext context)
@@ -42,7 +42,7 @@ public class AssessmentModeNotificationJob extends JobWithDB {
 		try {
 			CoreSpringFactory.getImpl(AssessmentModeCoordinationServiceImpl.class).beat();
 		} catch (Exception e) {
-			log.error("", e);
+			logger.error("", e);
 		}
 	}
 }

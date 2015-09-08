@@ -41,8 +41,6 @@ import org.olat.core.gui.control.WindowControl;
 import org.olat.core.gui.control.controller.MainLayoutBasicController;
 import org.olat.core.gui.control.generic.closablewrapper.CloseableModalController;
 import org.olat.core.gui.control.generic.dtabs.Activateable2;
-import org.olat.core.gui.control.generic.dtabs.DTab;
-import org.olat.core.gui.control.generic.dtabs.DTabs;
 import org.olat.core.gui.control.generic.layout.MainLayoutController;
 import org.olat.core.gui.control.generic.wizard.Step;
 import org.olat.core.gui.control.generic.wizard.StepRunnerCallback;
@@ -50,8 +48,6 @@ import org.olat.core.gui.control.generic.wizard.StepsMainRunController;
 import org.olat.core.gui.media.MediaResource;
 import org.olat.core.id.OLATResourceable;
 import org.olat.core.id.Roles;
-import org.olat.core.id.context.BusinessControl;
-import org.olat.core.id.context.BusinessControlFactory;
 import org.olat.core.id.context.ContextEntry;
 import org.olat.core.id.context.HistoryPoint;
 import org.olat.core.id.context.StateEntry;
@@ -65,7 +61,6 @@ import org.olat.core.util.resource.OresHelper;
 import org.olat.course.CourseModule;
 import org.olat.course.assessment.AssessmentMode;
 import org.olat.course.assessment.AssessmentModeManager;
-import org.olat.course.assessment.AssessmentModule;
 import org.olat.course.assessment.model.TransientAssessmentMode;
 import org.olat.repository.RepositoryEntry;
 import org.olat.repository.RepositoryEntryManagedFlag;
@@ -90,6 +85,7 @@ import org.olat.repository.ui.list.RepositoryEntryDetailsController;
 import org.olat.resource.OLATResource;
 import org.olat.resource.accesscontrol.ACService;
 import org.olat.resource.accesscontrol.AccessResult;
+import org.olat.resource.accesscontrol.model.OfferAccess;
 import org.olat.resource.accesscontrol.ui.AccessEvent;
 import org.olat.resource.accesscontrol.ui.AccessListController;
 import org.olat.resource.accesscontrol.ui.AccessRefusedController;
@@ -156,8 +152,6 @@ public class RepositoryEntryRuntimeController extends MainLayoutBasicController 
 	protected UserManager userManager;
 	@Autowired
 	protected MarkManager markManager;
-	@Autowired
-	private AssessmentModule assessmentModule;
 	@Autowired
 	protected RepositoryModule repositoryModule;
 	@Autowired
@@ -635,25 +629,8 @@ public class RepositoryEntryRuntimeController extends MainLayoutBasicController 
 	
 	protected final void doClose(UserRequest ureq) {
 		// Now try to go back to place that is attacked to (optional) root back business path
-		if (launchedFromPoint != null && StringHelper.containsNonWhitespace(launchedFromPoint.getBusinessPath())) {
-			BusinessControl bc = BusinessControlFactory.getInstance().createFromPoint(launchedFromPoint);
-			WindowControl bwControl = BusinessControlFactory.getInstance().createBusinessWindowControl(bc, getWindowControl());
-			try {
-				//make the resume secure. If something fail, don't generate a red screen
-				NewControllerFactory.getInstance().launch(ureq, bwControl);
-			} catch (Exception e) {
-				logError("Error while resuming with root leve back business path::" + launchedFromPoint.getBusinessPath(), e);
-			}
-		}
-		
-		// Navigate beyond the stack, our own layout has been popped - close this tab
-		DTabs tabs = getWindowControl().getWindowBackOffice().getWindow().getDTabs();
-		if (tabs != null) {
-			DTab tab = tabs.getDTab(re.getOlatResource());
-			if (tab != null) {
-				tabs.removeDTab(ureq, tab);						
-			}
-		}
+		getWindowControl().getWindowBackOffice().getWindow().getDTabs()
+			.closeDTab(ureq, re.getOlatResource(), launchedFromPoint);
 	}
 	
 	protected void doEdit(UserRequest ureq) {
@@ -707,7 +684,7 @@ public class RepositoryEntryRuntimeController extends MainLayoutBasicController 
 	protected Activateable2 doMembers(UserRequest ureq) {
 		if(!reSecurity.isEntryAdmin()) return null;
 
-		RepositoryMembersController ctrl = new RepositoryMembersController(ureq, getWindowControl(), re);
+		RepositoryMembersController ctrl = new RepositoryMembersController(ureq, getWindowControl(), toolbarPanel ,re);
 		listenTo(ctrl);
 		membersEditController = pushController(ureq, translate("details.members"), ctrl);
 		currentToolCtr = membersEditController;
@@ -737,9 +714,17 @@ public class RepositoryEntryRuntimeController extends MainLayoutBasicController 
 				if(acResult.isAccessible()) {
 					launchContent(ureq, security);
 				} else if (re != null && acResult.getAvailableMethods().size() > 0) {
-					accessController = new AccessListController(ureq, getWindowControl(), acResult.getAvailableMethods());
-					listenTo(accessController);
-					toolbarPanel.rootController(re.getDisplayname(), accessController);
+					//try auto booking
+					ACResultAndSecurity autoResult = tryAutoBooking(ureq, acResult, security);
+					acResult = autoResult.getAcResult();
+					security = autoResult.getSecurity();
+					if(acResult.isAccessible()) {
+						launchContent(ureq, security);
+					} else {
+						accessController = new AccessListController(ureq, getWindowControl(), acResult.getAvailableMethods());
+						listenTo(accessController);
+						toolbarPanel.rootController(re.getDisplayname(), accessController);
+					}
 				} else {
 					Controller ctrl = new AccessRefusedController(ureq, getWindowControl());
 					listenTo(ctrl);
@@ -747,6 +732,19 @@ public class RepositoryEntryRuntimeController extends MainLayoutBasicController 
 				}
 			}
 		}
+	}
+	
+	private ACResultAndSecurity tryAutoBooking(UserRequest ureq, AccessResult acResult, RepositoryEntrySecurity security) {
+		if(acResult.getAvailableMethods().size() == 1) {
+			OfferAccess offerAccess = acResult.getAvailableMethods().get(0);
+			if(offerAccess.getOffer().isAutoBooking() && !offerAccess.getMethod().isNeedUserInteraction()) {
+				acResult = acService.accessResource(getIdentity(), offerAccess, null);
+				 if(acResult.isAccessible()) {
+					 security = repositoryManager.isAllowed(ureq, re);
+				 }
+			}
+		}
+		return new ACResultAndSecurity(acResult, security);
 	}
 	
 	protected boolean doMark() {
@@ -890,5 +888,24 @@ public class RepositoryEntryRuntimeController extends MainLayoutBasicController 
 		
 		public void initToolbar();
 		
+	}
+	
+	private static class ACResultAndSecurity {
+		
+		private final AccessResult acResult;
+		private final RepositoryEntrySecurity security;
+		
+		public ACResultAndSecurity(AccessResult acResult, RepositoryEntrySecurity security) {
+			this.acResult = acResult;
+			this.security = security;
+		}
+
+		public AccessResult getAcResult() {
+			return acResult;
+		}
+
+		public RepositoryEntrySecurity getSecurity() {
+			return security;
+		}
 	}
 }

@@ -30,8 +30,6 @@ import java.util.UUID;
 
 import javax.ws.rs.core.UriBuilder;
 
-import junit.framework.Assert;
-
 import org.apache.http.Header;
 import org.apache.http.HttpResponse;
 import org.apache.http.client.methods.HttpDelete;
@@ -43,6 +41,7 @@ import org.apache.http.entity.StringEntity;
 import org.apache.http.util.EntityUtils;
 import org.apache.poi.util.IOUtils;
 import org.junit.After;
+import org.junit.Assert;
 import org.junit.Test;
 import org.olat.basesecurity.BaseSecurity;
 import org.olat.basesecurity.GroupRoles;
@@ -561,6 +560,52 @@ public class WebDAVCommandsTest extends WebDAVTestCase {
 		Assert.assertEquals(1, lock.getTokensSize());
 		
 		IOUtils.closeQuietly(conn);
+	}
+	
+	@Test
+	public void testLock_public_samePathLock()
+	throws IOException, URISyntaxException {
+		//create a user
+		Identity user1 = JunitTestHelper.createAndPersistIdentityAsRndUser("webdav-2d");
+		Identity user2 = JunitTestHelper.createAndPersistIdentityAsRndUser("webdav-2e");
+
+		//create a file
+		String publicPath1 = FolderConfig.getUserHomes() + "/" + user1.getName() + "/public";
+		VFSContainer vfsPublic1 = new OlatRootFolderImpl(publicPath1, null);
+		VFSItem item1 = createFile(vfsPublic1, "test.txt");
+		Assert.assertNotNull(item1);
+		
+		String publicPath2 = FolderConfig.getUserHomes() + "/" + user2.getName() + "/public";
+		VFSContainer vfsPublic2 = new OlatRootFolderImpl(publicPath2, null);
+		VFSItem item2 = createFile(vfsPublic2, "test.txt");
+		Assert.assertNotNull(item2);
+		
+		//lock the item with WebDAV
+		WebDAVConnection conn1 = new WebDAVConnection();
+		conn1.setCredentials(user1.getName(), "A6B7C8");
+
+		//user 1 lock the file
+		URI textUri = conn1.getBaseURI().path("webdav").path("home").path("public").path("test.txt").build();
+		String textPropfind1 = conn1.propfind(textUri, 0);
+		Assert.assertNotNull(textPropfind1);
+		
+		// lock the path /webdav/home/public/test.txt
+		String lockToken1 = conn1.lock(textUri, UUID.randomUUID().toString());
+		Assert.assertNotNull(lockToken1);
+
+		//user 2 lock its own file
+		WebDAVConnection conn2 = new WebDAVConnection();
+		conn2.setCredentials(user2.getName(), "A6B7C8");
+		String textPropfind2 = conn2.propfind(textUri, 0);
+		Assert.assertNotNull(textPropfind2);
+		
+		// lock the path /webdav/home/public/test.txt
+		String lockToken2 = conn2.lock(textUri, UUID.randomUUID().toString());
+		Assert.assertNotNull(lockToken2);
+		
+		//closes
+		conn1.close();
+		conn2.close();
 	}
 	
 	@Test

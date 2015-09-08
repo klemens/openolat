@@ -77,6 +77,10 @@ public class SingleSelectionImpl extends FormItemImpl implements SingleSelection
 	public void setDomReplacementWrapperRequired(boolean required) {
 		component.setDomReplacementWrapperRequired(required);
 	}
+	
+	public String getForId() {
+		return null;//every radio box has its own label
+	}
 
 	/**
 	 * @see org.olat.core.gui.components.form.flexible.elements.SingleSelectionContainer#getSelected()
@@ -221,7 +225,7 @@ public class SingleSelectionImpl extends FormItemImpl implements SingleSelection
 	
 	@Override
 	public void validate(List<ValidationStatus> validationResults) {
-		if ( ! isOneSelected()) {
+		if (isVisible() && !isOneSelected()) {
 			validationResults.add(new ValidationStatusImpl(ValidationStatus.ERROR));
 			return;
 		}
