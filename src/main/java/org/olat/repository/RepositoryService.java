@@ -19,8 +19,11 @@
  */
 package org.olat.repository;
 
+import java.util.Collection;
+import java.util.Date;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 
 import org.olat.basesecurity.Group;
 import org.olat.basesecurity.IdentityRef;
@@ -55,6 +58,8 @@ public interface RepositoryService {
 	public RepositoryEntry loadByKey(Long key);
 	
 	public RepositoryEntry loadByResourceKey(Long key);
+	
+	public List<RepositoryEntry> loadByResourceKeys(Collection<Long> keys);
 	
 	public VFSLeaf getIntroductionImage(RepositoryEntry re);
 
@@ -108,6 +113,24 @@ public interface RepositoryService {
 	public int countMembers(List<? extends RepositoryEntryRef> res);
 	
 	/**
+	 * Return the smallest enrollment date.
+	 * 
+	 * @param re
+	 * @param identity
+	 * @return
+	 */
+	public Date getEnrollmentDate(RepositoryEntryRef re, IdentityRef identity, String... roles);
+	
+	/**
+	 * Return the smallest enrollment date.
+	 * 
+	 * @param re
+	 * @param identity
+	 * @return
+	 */
+	public Map<Long,Date> getEnrollmentDates(RepositoryEntryRef re, String... roles);
+	
+	/**
 	 * @param re The repository entry
 	 * @return True if the configuration allowed user to leave the entry right now
 	 */
@@ -128,8 +151,19 @@ public interface RepositoryService {
 	 */
 	public List<Identity> getMembers(RepositoryEntryRef re, String... roles);
 	
+	/**
+	 * Get the role in the specified resource, business group are included in
+	 * the query.
+	 * 
+	 * @return The list of roles
+	 */
 	public List<String> getRoles(Identity identity, RepositoryEntryRef re);
 	
+	/**
+	 * Has specific role in the specified resource (doesn't follow the business groups).
+	 * 
+	 * @return True if the specified role(s) was found.
+	 */
 	public boolean hasRole(Identity identity, RepositoryEntryRef re, String... roles);
 	
 	public void addRole(Identity identity, RepositoryEntry re, String role);

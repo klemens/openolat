@@ -67,7 +67,14 @@ public class WysiwygFactory {
 			UserRequest ureq, WindowControl wControl, VFSContainer rootDir,
 			String filePath, boolean editorCheckEnabled, boolean versions) {
 		return new HTMLEditorController(ureq, wControl, rootDir, filePath,
-				null, editorCheckEnabled, versions);
+				null, null, editorCheckEnabled, versions);
+	}
+	
+	public static HTMLEditorController createWysiwygController(
+			UserRequest ureq, WindowControl wControl, VFSContainer rootDir,
+			String filePath, String mediaPath, boolean editorCheckEnabled, boolean versions) {
+		return new HTMLEditorController(ureq, wControl, rootDir, filePath,
+				null, mediaPath, editorCheckEnabled, versions);
 	}
 
 	/**
@@ -99,7 +106,7 @@ public class WysiwygFactory {
 			String relFilePath, boolean editorCheckEnabled,
 			CustomLinkTreeModel customLinkTreeModel) {
 		return new HTMLEditorController(ureq, wControl, baseContainer, relFilePath,
-				customLinkTreeModel, editorCheckEnabled, true);
+				customLinkTreeModel, null, editorCheckEnabled, true);
 	}
 
 	/**
@@ -141,7 +148,7 @@ public class WysiwygFactory {
 	 * @return XHTML page
 	 */
 	public static String createXHtmlFileContent(String bodyMarkup, String title) {
-		StringBuffer fileContent = new StringBuffer();
+		StringBuilder fileContent = new StringBuilder();
 		fileContent.append(HTMLEditorController.DOCTYPE).append(HTMLEditorController.OPEN_HTML).append(HTMLEditorController.OPEN_HEAD);
 		fileContent.append(HTMLEditorController.GENERATOR_META).append(HTMLEditorController.UTF8CHARSET);
 		fileContent.append(HTMLEditorController.OPEN_TITLE).append(title).append(HTMLEditorController.CLOSE_TITLE);

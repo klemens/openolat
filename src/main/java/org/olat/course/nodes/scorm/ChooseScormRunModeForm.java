@@ -29,6 +29,7 @@ import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.form.flexible.FormItemContainer;
 import org.olat.core.gui.components.form.flexible.elements.SingleSelection;
 import org.olat.core.gui.components.form.flexible.impl.FormBasicController;
+import org.olat.core.gui.components.form.flexible.impl.elements.FormSubmit;
 import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.Event;
 import org.olat.core.gui.control.WindowControl;
@@ -51,19 +52,17 @@ public class ChooseScormRunModeForm extends FormBasicController {
 	 * @param name
 	 */
 	public ChooseScormRunModeForm(UserRequest ureq, WindowControl wControl, boolean showOptions) {
-		super(ureq, wControl);
+		super(ureq, wControl, FormBasicController.LAYOUT_VERTICAL);
 		this.showOptions = showOptions;
 		
 		modeKeys = new String[] {
 				ScormConstants.SCORM_MODE_NORMAL,
-				ScormConstants.SCORM_MODE_BROWSE,
-				ScormConstants.SCORM_MODE_NOCREDIT
+				ScormConstants.SCORM_MODE_BROWSE
 		};
 		
 		modeValues = new String[] {
 				translate("form.scormmode.normal"),
-				translate("form.scormmode.browse"),
-				translate("form.scormmode.nocredit")
+				translate("form.scormmode.browse")
 		};
 		
 		initForm (ureq);
@@ -85,11 +84,12 @@ public class ChooseScormRunModeForm extends FormBasicController {
 
 	@Override
 	protected void initForm(FormItemContainer formLayout, Controller listener, UserRequest ureq) {
-		mode = uifactory.addRadiosVertical("mode", "form.scormmode", formLayout, modeKeys, modeValues);
+		mode = uifactory.addRadiosVertical("mode", null, formLayout, modeKeys, modeValues);
 		mode.select(ScormConstants.SCORM_MODE_NORMAL, true);
 		mode.setVisible(showOptions);
 		mode.setElementCssClass("o_scorm_mode");
-		uifactory.addFormSubmitButton("command.showscorm", formLayout);
+		FormSubmit showButton = uifactory.addFormSubmitButton("command.showscorm", formLayout);
+		showButton.setElementCssClass("o_sel_start_scorm");
 	}
 
 	@Override

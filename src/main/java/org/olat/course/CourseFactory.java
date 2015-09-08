@@ -32,7 +32,6 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Date;
 import java.util.HashSet;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -132,7 +131,7 @@ import org.olat.repository.handlers.RepositoryHandler;
 import org.olat.repository.handlers.RepositoryHandlerFactory;
 import org.olat.repository.model.RepositoryEntrySecurity;
 import org.olat.resource.OLATResource;
-import org.olat.resource.references.ReferenceImpl;
+import org.olat.resource.references.Reference;
 import org.olat.resource.references.ReferenceManager;
 import org.olat.user.UserManager;
 import org.olat.util.logging.activity.LoggingResourceable;
@@ -304,9 +303,8 @@ public class CourseFactory extends BasicManager {
 		log.info("deleteCourse: starting to delete course. res="+res);
 
 		// find all references to course
-		List<ReferenceImpl> refs = referenceManager.getReferences(res);
-		for (Iterator<ReferenceImpl> iter = refs.iterator(); iter.hasNext();) {
-			ReferenceImpl ref = iter.next();
+		List<Reference> refs = referenceManager.getReferences(res);
+		for (Reference ref:refs) {
 			referenceManager.delete(ref);
 		}
 		
@@ -361,7 +359,7 @@ public class CourseFactory extends BasicManager {
 
 		// delete course directory
 		VFSContainer fCourseBasePath = getCourseBaseContainer(res.getResourceableId());
-		VFSStatus status = fCourseBasePath.delete();
+		VFSStatus status = fCourseBasePath.deleteSilently();
 		boolean deletionSuccessful = (status == VFSConstants.YES || status == VFSConstants.SUCCESS);
 		log.info("deleteCourse: finished deletion. res="+res+", deletion successful: "+deletionSuccessful+", duration: "+(System.currentTimeMillis()-start)+" ms.");
 	}
@@ -418,6 +416,9 @@ public class CourseFactory extends BasicManager {
 		PersistingCourseImpl targetCourse = new PersistingCourseImpl(targetRes.getResourceableId());
 		File fTargetCourseBasePath = targetCourse.getCourseBaseContainer().getBasefile();
 		
+		//close connection before file copy
+		DBFactory.getInstance(false).commitAndCloseSession();
+		
 		synchronized (sourceCourse) { // o_clusterNOK - cannot be solved with doInSync since could take too long (leads to error: "Lock wait timeout exceeded")
 			// copy configuration
 			CourseConfig courseConf = CourseConfigManagerImpl.getInstance().copyConfigOf(sourceCourse);
@@ -441,14 +442,11 @@ public class CourseFactory extends BasicManager {
 			File fSourceTaskfoldernodesFolder = new File(FolderConfig.getCanonicalRoot()
 					+ TACourseNode.getTaskFoldersPathRelToFolderRoot(sourceCourse.getCourseEnvironment()));
 			if (fSourceTaskfoldernodesFolder.exists()) FileUtils.copyDirToDir(fSourceTaskfoldernodesFolder, fTargetCourseBasePath, false, "copy task folder directories");
-
-			//make sure the DB connection is available after this point
-			DBFactory.getInstance(false).commitAndCloseSession();
 			
 			// update references
-			List<ReferenceImpl> refs = referenceManager.getReferences(sourceCourse);
+			List<Reference> refs = referenceManager.getReferences(sourceCourse);
 			int count = 0;
-			for (ReferenceImpl ref: refs) {
+			for (Reference ref: refs) {
 				referenceManager.addReference(targetCourse, ref.getTarget(), ref.getUserdata());
 				if(count % 20 == 0) {
 					DBFactory.getInstance(false).intermediateCommit();

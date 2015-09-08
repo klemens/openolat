@@ -51,7 +51,7 @@ public class MembersWizardPage {
 		Assert.assertTrue(next.isDisplayed());
 		Assert.assertTrue(next.isEnabled());
 		next.click();
-		OOGraphene.waitBusy();
+		OOGraphene.waitBusy(browser);
 		OOGraphene.closeBlueMessageWindow(browser);
 		return this;
 	}
@@ -61,7 +61,7 @@ public class MembersWizardPage {
 		Assert.assertTrue(finish.isDisplayed());
 		Assert.assertTrue(finish.isEnabled());
 		finish.click();
-		OOGraphene.waitBusy();
+		OOGraphene.waitBusy(browser);
 		OOGraphene.closeBlueMessageWindow(browser);
 		return this;
 	}
@@ -71,19 +71,20 @@ public class MembersWizardPage {
 	 * @param user
 	 * @return
 	 */
-	public MembersWizardPage searchMember(UserVO user) {
+	public MembersWizardPage searchMember(UserVO user, boolean admin) {
 		//Search by username
 		By usernameBy = By.cssSelector(".o_sel_usersearch_searchform input[type='text']");
-		OOGraphene.waitElement(usernameBy);
+		OOGraphene.waitElement(usernameBy, browser);
 		
 		List<WebElement> searchFields = browser.findElements(usernameBy);
 		Assert.assertFalse(searchFields.isEmpty());
-		searchFields.get(0).sendKeys(user.getLogin());
+		String search = admin ? user.getLogin() : user.getFirstName();
+		searchFields.get(0).sendKeys(search);
 
 		By searchBy = By.cssSelector(".o_sel_usersearch_searchform a.btn-default");
 		WebElement searchButton = browser.findElement(searchBy);
 		searchButton.click();
-		OOGraphene.waitBusy();
+		OOGraphene.waitBusy(browser);
 		
 		//check
 		By checkAllBy = By.cssSelector("div.modal div.o_table_wrapper input[type='checkbox']");
@@ -92,6 +93,18 @@ public class MembersWizardPage {
 		for(WebElement check:checkAll) {
 			check.click();
 		}
+		return this;
+	}
+	
+	public MembersWizardPage setMembers(UserVO... users) {
+		StringBuilder sb = new StringBuilder();
+		for(UserVO user:users) {
+			if(sb.length() > 0) sb.append("\\n");
+			sb.append(user.getLogin());
+		}
+		By importAreaBy = By.cssSelector(".modal-content textarea");
+		WebElement importAreaEl = browser.findElement(importAreaBy);
+		OOGraphene.textarea(importAreaEl, sb.toString(), browser);
 		return this;
 	}
 }

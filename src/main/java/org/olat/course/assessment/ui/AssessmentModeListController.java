@@ -107,7 +107,9 @@ public class AssessmentModeListController extends FormBasicController implements
 	@Override
 	protected void initForm(FormItemContainer formLayout, Controller listener, UserRequest ureq) {
 		addLink = uifactory.addFormLink("add", "add", "add.mode", null, formLayout, Link.BUTTON);
+		addLink.setElementCssClass("o_sel_assessment_mode_add");
 		addLink.setIconLeftCSS("o_icon o_icon_add");
+		
 		
 		deleteLink = uifactory.addFormLink("delete", "delete", "delete.mode", null, formLayout, Link.BUTTON);
 		deleteLink.setIconLeftCSS("o_icon o_icon_delete");
@@ -131,7 +133,7 @@ public class AssessmentModeListController extends FormBasicController implements
 				new BooleanCellRenderer(new StaticFlexiCellRenderer(translate("stop"), "stop"), null)));
 		columnsModel.addFlexiColumnModel(new StaticFlexiColumnModel("edit", translate("edit"), "edit"));
 		
-		model = new AssessmentModeListModel(columnsModel, assessmentModeCoordinationService);
+		model = new AssessmentModeListModel(columnsModel, getTranslator(), assessmentModeCoordinationService);
 		tableEl = uifactory.addTableElement(getWindowControl(), "table", model, 20, false, getTranslator(), formLayout);
 		tableEl.setMultiSelect(true);
 		tableEl.setSelectAllEnable(true);
@@ -141,6 +143,10 @@ public class AssessmentModeListController extends FormBasicController implements
 		List<AssessmentMode> modes = assessmentModeMgr.getAssessmentModeFor(entry);
 		model.setObjects(modes);
 		tableEl.reloadData();
+		// don't show table and button if there is nothing
+		tableEl.setVisible(modes.size() > 0);
+		deleteLink.setVisible(modes.size() > 0);
+
 	}
 
 	@Override

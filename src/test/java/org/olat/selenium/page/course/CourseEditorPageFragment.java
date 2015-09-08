@@ -55,6 +55,7 @@ public class CourseEditorPageFragment {
 	public static final By chooseWikiButton = By.className("o_sel_wiki_choose_repofile");
 	public static final By chooseTestButton = By.className("o_sel_test_choose_repofile");
 	public static final By chooseFeedButton = By.className("o_sel_feed_choose_repofile");
+	public static final By chooseScormButton = By.className("o_sel_scorm_choose_repofile");
 	public static final By choosePortfolioButton = By.className("o_sel_map_choose_repofile");
 	
 	
@@ -64,26 +65,100 @@ public class CourseEditorPageFragment {
 		chooseRepoEntriesButtonList.add(chooseWikiButton);
 		chooseRepoEntriesButtonList.add(chooseTestButton);
 		chooseRepoEntriesButtonList.add(chooseFeedButton);
+		chooseRepoEntriesButtonList.add(chooseScormButton);
 		chooseRepoEntriesButtonList.add(choosePortfolioButton);
 	}
 	
 	@Drone
 	private WebDriver browser;
 	
-	@FindBy(id="o_main_left_content")
-	private WebElement treeContainer;
-	
 	@FindBy(className="o_course_editor")
 	private WebElement editor;
 	
 	public static CourseEditorPageFragment getEditor(WebDriver browser) {
-		OOGraphene.waitElement(editorBy);
+		OOGraphene.waitElement(editorBy, browser);
 		WebElement main = browser.findElement(By.id("o_main"));
 		return Graphene.createPageFragment(CourseEditorPageFragment.class, main);
 	}
 	
 	public CourseEditorPageFragment assertOnEditor() {
 		Assert.assertTrue(editor.isDisplayed());
+		return this;
+	}
+	
+	/**
+	 * Select the root course element.
+	 */
+	public CourseEditorPageFragment selectRoot() {
+		By rootNodeBy = By.cssSelector("span.o_tree_link.o_tree_l0>a");
+		browser.findElement(rootNodeBy).click();
+		OOGraphene.waitBusy(browser);
+		return this;
+	}
+	
+	/**
+	 * Select the tab score in a structure node.
+	 * 
+	 */
+	public CourseEditorPageFragment selectTabScore() {
+		By scoreTabBy = By.cssSelector("fieldset.o_sel_structure_score");
+		return selectTab(scoreTabBy);
+	}
+	
+	private CourseEditorPageFragment selectTab(By tabBy) {
+		List<WebElement> tabLinks = browser.findElements(navBarNodeConfiguration);
+
+		boolean found = false;
+		a_a:
+		for(WebElement tabLink:tabLinks) {
+			tabLink.click();
+			OOGraphene.waitBusy(browser);
+			List<WebElement> chooseRepoEntry = browser.findElements(tabBy);
+			if(chooseRepoEntry.size() > 0) {
+				found = true;
+				break a_a;
+			}
+		}
+
+		Assert.assertTrue("Found the tab", found);
+		return this;
+	}
+	
+	/**
+	 * Enable passed and points by nodes
+	 * @return
+	 */
+	public CourseEditorPageFragment enableRootScoreByNodes() {
+		By enablePointBy = By.cssSelector("fieldset.o_sel_structure_score .o_sel_has_score input[type='checkbox']");
+		browser.findElement(enablePointBy).click();
+		OOGraphene.waitBusy(browser); //scform.scoreNodeIndents
+		
+		By enablePointNodesBy = By.cssSelector("fieldset.o_sel_structure_score input[type='checkbox'][name='scform.scoreNodeIndents']");
+		List<WebElement> pointNodeEls = browser.findElements(enablePointNodesBy);
+		for(WebElement pointNodeEl:pointNodeEls) {
+			pointNodeEl.click();
+			OOGraphene.waitBusy(browser);
+		}
+		
+		By enablePassedBy = By.cssSelector("fieldset.o_sel_structure_score .o_sel_has_passed input[type='checkbox']");
+		browser.findElement(enablePassedBy).click();
+		OOGraphene.waitBusy(browser);
+		
+		By passedInheritBy = By.cssSelector("fieldset.o_sel_structure_score input[type='radio'][name='passedType'][value='inherit']");
+		browser.findElement(passedInheritBy).click();
+		OOGraphene.waitBusy(browser);
+		
+		By enablePassedNodesBy = By.cssSelector("fieldset.o_sel_structure_score input[type='checkbox'][name='scform.passedNodeIndents']");
+		List<WebElement> enablePassedNodeEls = browser.findElements(enablePassedNodesBy);
+		for(WebElement enablePassedNodeEl:enablePassedNodeEls) {
+			enablePassedNodeEl.click();
+			OOGraphene.waitBusy(browser);
+		}
+		
+		//save
+		By submitBy = By.cssSelector("fieldset.o_sel_structure_score button.btn.btn-primary");
+		browser.findElement(submitBy).click();
+		OOGraphene.waitBusy(browser);
 		return this;
 	}
 	
@@ -96,7 +171,7 @@ public class CourseEditorPageFragment {
 		WebElement createButton = browser.findElement(createNodeButton);
 		Assert.assertTrue(createButton.isDisplayed());
 		createButton.click();
-		OOGraphene.waitElement(createNodeModalBy);
+		OOGraphene.waitElement(createNodeModalBy, browser);
 		
 		//modal
 		WebElement createNodeModal = browser.findElement(createNodeModalBy);
@@ -106,7 +181,7 @@ public class CourseEditorPageFragment {
 		WebElement createNodeLink = createNodeModal.findElement(node);
 		Assert.assertTrue(createNodeLink.isDisplayed());
 		createNodeLink.click();
-		OOGraphene.waitBusy();
+		OOGraphene.waitBusy(browser);
 		return this;
 	}
 	
@@ -129,7 +204,7 @@ public class CourseEditorPageFragment {
 		
 		By saveButton = By.cssSelector("button.o_sel_node_editor_submit");
 		browser.findElement(saveButton).click();
-		OOGraphene.waitBusy();
+		OOGraphene.waitBusy(browser);
 		
 		return this;
 	}
@@ -147,7 +222,7 @@ public class CourseEditorPageFragment {
 		a_a:
 		for(WebElement tabLink:tabLinks) {
 			tabLink.click();
-			OOGraphene.waitBusy();
+			OOGraphene.waitBusy(browser);
 			for(By chooseRepoEntriesButton: chooseRepoEntriesButtonList) {
 				List<WebElement> chooseRepoEntry = browser.findElements(chooseRepoEntriesButton);
 				if(chooseRepoEntry.size() > 0) {
@@ -189,6 +264,15 @@ public class CourseEditorPageFragment {
 	}
 	
 	/**
+	 * @see chooseResource
+	 * @param resourceTitle
+	 * @return
+	 */
+	public CourseEditorPageFragment chooseScorm(String resourceTitle) {
+		return chooseResource(chooseScormButton, resourceTitle);
+	}
+	
+	/**
 	 * Click the choose button, which open the resource chooser. Select
 	 * the "My entries" segment, search the rows for the resource title,
 	 * and select it.
@@ -200,11 +284,11 @@ public class CourseEditorPageFragment {
 	 */
 	public CourseEditorPageFragment chooseResource(By chooseButton, String resourceTitle) {
 		browser.findElement(chooseButton).click();
-		OOGraphene.waitBusy();
+		OOGraphene.waitBusy(browser);
 		//popup
 		WebElement popup = browser.findElement(By.className("o_sel_search_referenceable_entries"));
 		popup.findElement(By.cssSelector("a.o_sel_repo_popup_my_resources")).click();
-		OOGraphene.waitBusy();
+		OOGraphene.waitBusy(browser);
 		
 		//find the row
 		WebElement selectRow = null;
@@ -221,7 +305,7 @@ public class CourseEditorPageFragment {
 		//find the select in the row
 		WebElement selectLink = selectRow.findElement(By.xpath("//a[contains(@href,'rtbSelectLink')]"));
 		selectLink.click();
-		OOGraphene.waitBusy();
+		OOGraphene.waitBusy(browser);
 		
 		//double check that the resource is selected (search the preview link)
 		By previewLink = By.xpath("//a/span[text()[contains(.,'" + resourceTitle + "')]]");
@@ -274,7 +358,7 @@ public class CourseEditorPageFragment {
 		By editBy = By.className("o_sel_edit_map");
 		WebElement editLink = browser.findElement(editBy);
 		editLink.click();
-		OOGraphene.waitBusy();
+		OOGraphene.waitBusy(browser);
 		
 		WebElement main = browser.findElement(By.id("o_main_wrapper"));
 		return Graphene.createPageFragment(PortfolioPage.class, main);
@@ -284,15 +368,15 @@ public class CourseEditorPageFragment {
 		OOGraphene.closeBlueMessageWindow(browser);
 		
 		browser.findElement(chooseButton).click();
-		OOGraphene.waitBusy();
+		OOGraphene.waitBusy(browser);
 		//popup
 		WebElement popup = browser.findElement(By.className("o_sel_search_referenceable_entries"));
 		popup.findElement(By.cssSelector("a.o_sel_repo_popup_my_resources")).click();
-		OOGraphene.waitBusy();
+		OOGraphene.waitBusy(browser);
 		
 		//click create
 		popup.findElement(By.className("o_sel_repo_popup_create_resource")).click();
-		OOGraphene.waitBusy();
+		OOGraphene.waitBusy(browser);
 
 		//fill the create form
 		return fillCreateForm(resourceTitle);
@@ -302,10 +386,28 @@ public class CourseEditorPageFragment {
 		WebElement modal = browser.findElement(By.cssSelector("div.modal.o_sel_author_create_popup"));
 		modal.findElement(AuthoringEnvPage.displayNameInput).sendKeys(displayName);
 		modal.findElement(AuthoringEnvPage.createSubmit).click();
-		OOGraphene.waitBusy();
+		OOGraphene.waitBusy(browser);
 		return this;
 	}
 	
+	/**
+	 * Don't forget to set access
+	 * 
+	 * @return
+	 */
+	public CoursePageFragment autoPublish() {
+		//back
+		By breadcrumpBackBy = By.cssSelector("#o_main_toolbar li.o_breadcrumb_back a");
+		browser.findElement(breadcrumpBackBy).click();
+		OOGraphene.waitBusy(browser);
+		
+		//auto publish
+		By autoPublishBy = By.cssSelector("div.modal  a.o_sel_course_quickpublish_auto");
+		browser.findElement(autoPublishBy).click();
+		OOGraphene.waitBusy(browser);
+		
+		return new CoursePageFragment(browser);
+	}
 
 	/**
 	 * Open the publish process
@@ -317,7 +419,7 @@ public class CourseEditorPageFragment {
 		publishButton.click();
 		
 		By modalBy = By.className("modal");
-		OOGraphene.waitElement(modalBy);
+		OOGraphene.waitElement(modalBy, browser);
 		WebElement modal = browser.findElement(By.className("modal"));
 		return Graphene.createPageFragment(PublisherPageFragment.class, modal);
 	}
@@ -329,7 +431,7 @@ public class CourseEditorPageFragment {
 	 */
 	public CoursePageFragment clickToolbarBack() {
 		browser.findElement(toolbarBackBy).click();
-		OOGraphene.waitBusy();
+		OOGraphene.waitBusy(browser);
 		OOGraphene.closeBlueMessageWindow(browser);
 		
 		WebElement main = browser.findElement(By.id("o_main"));

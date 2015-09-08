@@ -89,6 +89,7 @@ public class CourseBusinessGroupListController extends AbstractBusinessGroupList
 		initButtons(formLayout, ureq, true, false, false);
 		
 		tableEl.setMultiSelect(true);
+		tableEl.setSelectAllEnable(true);
 		
 		boolean managed = RepositoryEntryManagedFlag.isManaged(re, RepositoryEntryManagedFlag.groups);
 		if(!managed) {
@@ -104,9 +105,11 @@ public class CourseBusinessGroupListController extends AbstractBusinessGroupList
 		}
 
 		createGroup = uifactory.addFormLink("group.create", formLayout, Link.BUTTON);
+		createGroup.setElementCssClass("o_sel_course_new_group");
 		createGroup.setVisible(!managed);
 		createGroup.setIconLeftCSS("o_icon o_icon-fw o_icon_add");
 		addGroup = uifactory.addFormLink("group.add", formLayout, Link.BUTTON);
+		addGroup.setElementCssClass("o_sel_course_select_group");
 		addGroup.setVisible(!managed);
 		addGroup.setIconLeftCSS("o_icon o_icon-fw o_icon_add_search");
 	}

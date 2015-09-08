@@ -345,10 +345,17 @@ public class FormLayoutContainer extends FormItemImpl implements FormItemContain
 		return merged;
 	}
 
+	@Override
 	public Map<String, FormItem> getFormComponents() {
 		Map<String,FormItem> merged = new HashMap<String, FormItem>(formComponents);
 		merged.putAll(listeningOnlyFormComponents);
 		return Collections.unmodifiableMap(merged);
+	}
+
+	@Override
+	public boolean hasFormComponent(FormItem item) {
+		return formComponents.containsValue(item)
+				||  listeningOnlyFormComponents.containsValue(item);
 	}
 
 	public FormItem getFormComponent(String name){
@@ -390,6 +397,12 @@ public class FormLayoutContainer extends FormItemImpl implements FormItemContain
 		return VelocityRenderDecorator.getId(prefix, formLayoutContainer);
 	}
 	
+	@Override
+	public void setElementCssClass(String elementCssClass) {
+		formLayoutContainer.setElementCssClass(elementCssClass);
+		super.setElementCssClass(elementCssClass);
+	}
+
 	/**
 	 * Set the translated title
 	 * @param title
@@ -434,6 +447,20 @@ public class FormLayoutContainer extends FormItemImpl implements FormItemContain
 			formLayoutContainer.contextPut("off_chelp_package", packageName);
 			formLayoutContainer.contextPut("off_chelp_page", pageName);
 			formLayoutContainer.contextPut("off_chelp_hover", hoverTextKey);
+		}
+	}
+	
+	/**
+	 * Set an optional context help link for this form. If you use a custom
+	 * template this will have no effect
+	 * 
+	 * @param url The page in confluence 
+	 */
+	public void setFormContextHelp(String url) {
+		if (url == null) {
+			formLayoutContainer.contextRemove("off_chelp_url");
+		} else {
+			formLayoutContainer.contextPut("off_chelp_url", url);
 		}
 	}
 	
@@ -490,9 +517,7 @@ public class FormLayoutContainer extends FormItemImpl implements FormItemContain
 		//enable / disable this
 		super.setEnabled(isEnabled);
 		//iterate over all components and disable / enable them
-		Collection<FormItem> formItems = getFormComponents().values();
-		for (Iterator<FormItem> iter = formItems.iterator(); iter.hasNext();) {
-			FormItem element = iter.next();
+		for (FormItem element : getFormItems()) {
 			element.setEnabled(isEnabled);
 		}
 	}
@@ -651,16 +676,15 @@ public class FormLayoutContainer extends FormItemImpl implements FormItemContain
 	 * 
 	 * @see org.olat.core.gui.control.Disposable#dispose()
 	 */
+	@Override
 	public void dispose() {
 		// Dispose also disposable form items (such as file uploads that needs to
 		// cleanup temporary files)
-		Map<String, FormItem> formItems = this.getFormComponents();
-		for (FormItem formItem : formItems.values()) {
+		for (FormItem formItem : getFormItems()) {
 			if (formItem instanceof Disposable) {
 				Disposable disposableFormItem = (Disposable) formItem;
 				disposableFormItem.dispose();
 			}
 		}
 	}
-	
 }

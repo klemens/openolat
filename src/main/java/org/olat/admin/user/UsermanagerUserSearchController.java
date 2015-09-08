@@ -79,7 +79,6 @@ import org.olat.core.gui.control.generic.wizard.Step;
 import org.olat.core.gui.control.generic.wizard.StepRunnerCallback;
 import org.olat.core.gui.control.generic.wizard.StepsMainRunController;
 import org.olat.core.gui.control.generic.wizard.StepsRunContext;
-import org.olat.core.gui.translator.Translator;
 import org.olat.core.id.Identity;
 import org.olat.core.id.OLATResourceable;
 import org.olat.core.id.context.ContextEntry;
@@ -88,7 +87,6 @@ import org.olat.core.id.context.StateMapped;
 import org.olat.core.logging.AssertException;
 import org.olat.core.logging.activity.ThreadLocalUserActivityLogger;
 import org.olat.core.util.StringHelper;
-import org.olat.core.util.Util;
 import org.olat.core.util.mail.ContactList;
 import org.olat.core.util.mail.ContactMessage;
 import org.olat.core.util.resource.OresHelper;
@@ -139,6 +137,8 @@ public class UsermanagerUserSearchController extends BasicController implements 
 	private final boolean isAdministrativeUser;
 	
 	@Autowired
+	private UserManager userManager;
+	@Autowired
 	private BaseSecurityModule securityModule;
 
 	/**
@@ -149,6 +149,7 @@ public class UsermanagerUserSearchController extends BasicController implements 
 	 */
 	public UsermanagerUserSearchController(UserRequest ureq, WindowControl wControl) {
 		super(ureq, wControl);
+		setTranslator(userManager.getPropertyHandlerTranslator(getTranslator()));
 		
 		isAdministrativeUser = securityModule.isUserAllowedAdminProps(ureq.getUserSession().getRoles());
 		
@@ -190,7 +191,8 @@ public class UsermanagerUserSearchController extends BasicController implements 
 			PermissionOnResourceable[] searchPermissionOnResources, String[] searchAuthProviders, Date searchCreatedAfter,
 			Date searchCreatedBefore, Integer status, boolean showEmailButton) {
 		super(ureq, wControl);
-		
+		setTranslator(userManager.getPropertyHandlerTranslator(getTranslator()));
+
 		securityModule = CoreSpringFactory.getImpl(BaseSecurityModule.class);
 		isAdministrativeUser = securityModule.isUserAllowedAdminProps(ureq.getUserSession().getRoles());
 
@@ -227,6 +229,7 @@ public class UsermanagerUserSearchController extends BasicController implements 
 	public UsermanagerUserSearchController(UserRequest ureq, WindowControl wControl, List<Identity> identitiesList,
 			Integer status, boolean showEmailButton, boolean showTitle) {
 		super(ureq, wControl);
+		setTranslator(userManager.getPropertyHandlerTranslator(getTranslator()));
 		
 		securityModule = CoreSpringFactory.getImpl(BaseSecurityModule.class);
 		isAdministrativeUser = securityModule.isUserAllowedAdminProps(ureq.getUserSession().getRoles());
@@ -318,20 +321,27 @@ public class UsermanagerUserSearchController extends BasicController implements 
 	 * @param identitiesList
 	 */
 	private void initUserListCtr(UserRequest ureq, List<Identity> myIdentities, Integer searchStatusField) {
+		removeAsListenerAndDispose(tableCtr);
+		
 		boolean actionEnabled = true;
 		TableGuiConfiguration tableConfig = new TableGuiConfiguration();
 		tableConfig.setTableEmptyMessage(translate("error.no.user.found"));
 		if ((searchStatusField != null) && (searchStatusField.equals(Identity.STATUS_DELETED))) {
 			actionEnabled = false;
 		}
-		tdm = ExtendedIdentitiesTableControllerFactory.createTableDataModel(ureq, myIdentities, actionEnabled);
+		tableConfig.setDownloadOffered(true);
+		tableConfig.setPreferencesOffered(true, "ExtendedIdentitiesTable");		
+		tableConfig.setTableEmptyMessage(translate("error.no.user.found"));
 		
-		removeAsListenerAndDispose(tableCtr);
-		//fxdiff BAKS-7 Resume function
+		tdm = new ExtendedIdentitiesTableDataModel(ureq, myIdentities, actionEnabled);
+		
 		OLATResourceable ores = OresHelper.createOLATResourceableInstance("table", 0l);
 		ThreadLocalUserActivityLogger.addLoggingResourceInfo(LoggingResourceable.wrapBusinessPath(ores));
 		WindowControl bwControl = addToHistory(ureq, ores, null);
-		tableCtr = ExtendedIdentitiesTableControllerFactory.createController(tdm, ureq, bwControl);
+		tableCtr = new TableController(tableConfig, ureq, bwControl, getTranslator());
+		tdm.addColumnDescriptors(tableCtr, getTranslator());
+		tableCtr.setTableDataModel(tdm);
+
 		listenTo(tableCtr);
 		
 		if (showEmailButton) {
@@ -453,27 +463,27 @@ public class UsermanagerUserSearchController extends BasicController implements 
 			if (event.getCommand().equals(Table.COMMANDLINK_ROWACTION_CLICKED)) {
 				TableEvent te = (TableEvent) event;
 				String actionid = te.getActionId();
-				if (actionid.equals(ExtendedIdentitiesTableControllerFactory.COMMAND_SELECTUSER)) {
+				if (actionid.equals(ExtendedIdentitiesTableDataModel.COMMAND_SELECTUSER)) {
 					int rowid = te.getRowId();
 					foundIdentity = tdm.getObject(rowid);
 					// Tell parentController that a subject has been found
 					fireEvent(ureq, new SingleIdentityChosenEvent(foundIdentity));
-				} else if (actionid.equals(ExtendedIdentitiesTableControllerFactory.COMMAND_VCARD)) {
+				} else if (actionid.equals(ExtendedIdentitiesTableDataModel.COMMAND_VCARD)) {
 					// get identity and open new visiting card controller in new window
 					int rowid = te.getRowId();
 					final Identity identity = tdm.getObject(rowid);
 					ControllerCreator userInfoMainControllerCreator = new ControllerCreator() {
+						@Override
 						public Controller createController(UserRequest lureq, WindowControl lwControl) {
-							return new UserInfoMainController(lureq, lwControl, identity);
+							return new UserInfoMainController(lureq, lwControl, identity, true, false);
 						}
 					};
 					// wrap the content controller into a full header layout
 					ControllerCreator layoutCtrlr = BaseFullWebappPopupLayoutFactory.createAuthMinimalPopupLayout(ureq, userInfoMainControllerCreator);
 					// open in new browser window
-					PopupBrowserWindow pbw = getWindowControl().getWindowBackOffice().getWindowManager().createNewPopupBrowserWindowFor(ureq,
-							layoutCtrlr);
+					PopupBrowserWindow pbw = getWindowControl().getWindowBackOffice().getWindowManager()
+							.createNewPopupBrowserWindowFor(ureq, layoutCtrlr);
 					pbw.open(ureq);
-					//
 				}
 			}
 			if (event instanceof TableMultiSelectEvent) {
@@ -661,8 +671,7 @@ class UsermanagerUserSearchForm extends FormBasicController {
 		this.isAdministrativeUser = isAdministrativeUser;
 
 		UserManager um = UserManager.getInstance();
-		Translator decoratedTranslator = um.getPropertyHandlerTranslator(this.getTranslator());
-		setTranslator(decoratedTranslator);
+		setTranslator(um.getPropertyHandlerTranslator(getTranslator()));
 		
 		userPropertyHandlers = um.getUserPropertyHandlersFor(formIdentifyer, true);
 		
@@ -836,16 +845,13 @@ class UsermanagerUserSearchForm extends FormBasicController {
 	
 	@Override
 	protected void initForm(FormItemContainer formLayout, Controller listener, UserRequest ureq) {
+		formLayout.setElementCssClass("o_sel_user_search_form");
 	
 		login = uifactory.addTextElement("login", "search.form.login", 128, "", formLayout);
 		login.setVisible(isAdministrativeUser);
+		login.setElementCssClass("o_sel_user_search_username");
 		items.put("login", login);
 
-		Translator tr = Util.createPackageTranslator(
-				UserPropertyHandler.class,
-				getLocale(), getTranslator()
-		);
-		
 		String currentGroup = null;
 		// Add all available user fields to this form
 		for (UserPropertyHandler userPropertyHandler : userPropertyHandlers) {
@@ -867,8 +873,9 @@ class UsermanagerUserSearchForm extends FormBasicController {
 				TextElement textElement = (TextElement) fi;
 				textElement.setItemValidatorProvider(null);
 			}
-			
-			fi.setTranslator(tr);
+
+			fi.setElementCssClass("o_sel_user_search_".concat(userPropertyHandler.getName().toLowerCase()));
+			fi.setTranslator(getTranslator());
 			items.put(fi.getName(), fi);
 		}
 

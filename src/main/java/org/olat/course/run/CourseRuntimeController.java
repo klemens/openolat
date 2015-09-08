@@ -89,7 +89,6 @@ import org.olat.course.assessment.AssessmentChangedEvent;
 import org.olat.course.assessment.AssessmentMainController;
 import org.olat.course.assessment.AssessmentModule;
 import org.olat.course.assessment.CoachingGroupAccessAssessmentCallback;
-import org.olat.course.assessment.EfficiencyStatementManager;
 import org.olat.course.assessment.FullAccessAssessmentCallback;
 import org.olat.course.assessment.ui.AssessmentModeListController;
 import org.olat.course.certificate.ui.CertificateAndEfficiencyStatementController;
@@ -105,6 +104,7 @@ import org.olat.course.groupsandrights.CourseGroupManager;
 import org.olat.course.groupsandrights.CourseRights;
 import org.olat.course.member.MembersManagementMainController;
 import org.olat.course.nodes.CourseNode;
+import org.olat.course.reminder.ui.CourseRemindersController;
 import org.olat.course.run.calendar.CourseCalendarController;
 import org.olat.course.run.glossary.CourseGlossaryFactory;
 import org.olat.course.run.glossary.CourseGlossaryToolLinkController;
@@ -120,6 +120,7 @@ import org.olat.ims.qti.statistics.QTIType;
 import org.olat.instantMessaging.InstantMessagingModule;
 import org.olat.instantMessaging.InstantMessagingService;
 import org.olat.instantMessaging.OpenInstantMessageEvent;
+import org.olat.modules.reminder.ReminderModule;
 import org.olat.note.NoteController;
 import org.olat.repository.LeavingStatusList;
 import org.olat.repository.RepositoryEntry;
@@ -151,13 +152,11 @@ public class CourseRuntimeController extends RepositoryEntryRuntimeController im
 		courseStatisticLink, surveyStatisticLink, testStatisticLink,
 		areaLink, dbLink,
 		//settings
-		layoutLink, optionsLink, certificatesOptionsLink,
+		layoutLink, optionsLink, certificatesOptionsLink, reminderLink, assessmentModeLink,
 		//my course
 		efficiencyStatementsLink, calendarLink, noteLink, chatLink, leaveLink,
 		//glossary
-		openGlossaryLink, enableGlossaryLink,
-		//assessment
-		assessmentModeLink;
+		openGlossaryLink, enableGlossaryLink;
 	private Link currentUserCountLink;
 	private Dropdown myCourse, glossary;
 	
@@ -168,6 +167,7 @@ public class CourseRuntimeController extends RepositoryEntryRuntimeController im
 	private FolderRunController courseFolderCtrl;
 	private StatisticMainController statisticsCtrl;
 	private CourseOptionsController optionsToolCtr;
+	private CourseRemindersController remindersCtrl;
 	private AssessmentMainController assessmentToolCtr;
 	private MembersManagementMainController membersCtrl;
 	private StatisticCourseNodesController statsToolCtr;
@@ -179,6 +179,8 @@ public class CourseRuntimeController extends RepositoryEntryRuntimeController im
 	private Map<String, Boolean> courseRightsCache;
 
 	@Autowired
+	private ReminderModule reminderModule;
+	@Autowired
 	private CalendarModule calendarModule;
 	@Autowired
 	private RepositoryService repositoryService;
@@ -188,8 +190,6 @@ public class CourseRuntimeController extends RepositoryEntryRuntimeController im
 	private BusinessGroupService businessGroupService;
 	@Autowired
 	private AssessmentModule assessmentModule;
-	@Autowired
-	private EfficiencyStatementManager efficiencyStatementManager;
 	
 	public CourseRuntimeController(UserRequest ureq, WindowControl wControl,
 			RepositoryEntry re, RepositoryEntrySecurity reSecurity, RuntimeControllerCreator runtimeControllerCreator,
@@ -246,6 +246,7 @@ public class CourseRuntimeController extends RepositoryEntryRuntimeController im
 		if(!security.isEntryAdmin() && !isGuestOnly) {
 			List<String> rights = cgm.getRights(getIdentity());
 			courseRightsCache.put(CourseRights.RIGHT_GROUPMANAGEMENT, new Boolean(rights.contains(CourseRights.RIGHT_GROUPMANAGEMENT)));
+			courseRightsCache.put(CourseRights.RIGHT_MEMBERMANAGEMENT, new Boolean(rights.contains(CourseRights.RIGHT_MEMBERMANAGEMENT)));
 			courseRightsCache.put(CourseRights.RIGHT_COURSEEDITOR, new Boolean(rights.contains(CourseRights.RIGHT_COURSEEDITOR)));
 			courseRightsCache.put(CourseRights.RIGHT_ARCHIVING, new Boolean(rights.contains(CourseRights.RIGHT_ARCHIVING)));
 			courseRightsCache.put(CourseRights.RIGHT_ASSESSMENT, new Boolean(rights.contains(CourseRights.RIGHT_ASSESSMENT)));
@@ -358,7 +359,7 @@ public class CourseRuntimeController extends RepositoryEntryRuntimeController im
 	private void initTools(Dropdown tools, ICourse course, final UserCourseEnvironmentImpl uce) {
 		// 1) administrative tools
 		if (reSecurity.isEntryAdmin() || reSecurity.isCourseCoach() || reSecurity.isGroupCoach()
-				|| hasCourseRight(CourseRights.RIGHT_COURSEEDITOR)
+				|| hasCourseRight(CourseRights.RIGHT_COURSEEDITOR) || hasCourseRight(CourseRights.RIGHT_MEMBERMANAGEMENT)
 				|| hasCourseRight(CourseRights.RIGHT_GROUPMANAGEMENT) || hasCourseRight(CourseRights.RIGHT_ARCHIVING)
 				|| hasCourseRight(CourseRights.RIGHT_STATISTICS) || hasCourseRight(CourseRights.RIGHT_DB)
 				|| hasCourseRight(CourseRights.RIGHT_ASSESSMENT)) {
@@ -381,18 +382,21 @@ public class CourseRuntimeController extends RepositoryEntryRuntimeController im
 				tools.addComponent(new Spacer(""));
 			}
 			
-			if (reSecurity.isEntryAdmin() || hasCourseRight(CourseRights.RIGHT_GROUPMANAGEMENT)) {
+			if (reSecurity.isEntryAdmin() || hasCourseRight(CourseRights.RIGHT_GROUPMANAGEMENT) || hasCourseRight(CourseRights.RIGHT_MEMBERMANAGEMENT)) {
 				membersLink = LinkFactory.createToolLink("unifiedusermngt", translate("command.opensimplegroupmngt"), this, "o_icon_membersmanagement");
+				membersLink.setElementCssClass("o_sel_course_members");
 				tools.addComponent(membersLink);
 			}
 			if (reSecurity.isEntryAdmin() || reSecurity.isCourseCoach() || reSecurity.isGroupCoach() || hasCourseRight(CourseRights.RIGHT_ASSESSMENT)) {
 				assessmentLink = LinkFactory.createToolLink("assessment",translate("command.openassessment"), this, "o_icon_assessment_tool");
+				assessmentLink.setElementCssClass("o_sel_course_assessment_tool");
 				tools.addComponent(assessmentLink);
 			}
 			if (reSecurity.isEntryAdmin() || hasCourseRight(CourseRights.RIGHT_ARCHIVING)) {
 				archiverLink = LinkFactory.createToolLink("archiver", translate("command.openarchiver"), this, "o_icon_archive_tool");
 				tools.addComponent(archiverLink);
 			}
+			
 			tools.addComponent(new Spacer(""));
 			
 			if (reSecurity.isEntryAdmin() || hasCourseRight(CourseRights.RIGHT_STATISTICS)) {
@@ -485,6 +489,12 @@ public class CourseRuntimeController extends RepositoryEntryRuntimeController im
 			certificatesOptionsLink = LinkFactory.createToolLink("certificates.cmd", translate("command.options.certificates"), this, "o_icon_certificate");
 			certificatesOptionsLink.setElementCssClass("o_sel_course_options_certificates");
 			settings.addComponent(certificatesOptionsLink);
+			
+			if(reminderModule.isEnabled()) {
+				reminderLink = LinkFactory.createToolLink("reminders.cmd", translate("command.options.reminders"), this, "o_icon_reminder");
+				reminderLink.setElementCssClass("o_sel_course_options_certificates");
+				settings.addComponent(reminderLink);
+			}
 		}
 	}
 	
@@ -689,6 +699,8 @@ public class CourseRuntimeController extends RepositoryEntryRuntimeController im
 			doAssessmentMode(ureq);
 		} else if(certificatesOptionsLink == source) {
 			doCertificatesOptions(ureq);
+		} else if(reminderLink == source) {
+			doReminders(ureq);
 		} else if(archiverLink == source) {
 			doArchive(ureq);
 		} else if(folderLink == source) {
@@ -773,6 +785,7 @@ public class CourseRuntimeController extends RepositoryEntryRuntimeController im
 						case assessmentTestStatistics: doAssessmentTestStatistics(ureq); break;
 						case assessmentTool: doAssessmentTool(ureq);
 						case certificates: doCertificatesOptions(ureq); break;
+						case reminders: doReminders(ureq); break;
 						case courseAreas: doCourseAreas(ureq); break;
 						case courseFolder: doCourseFolder(ureq); break;
 						case courseStatistics: doCourseStatistics(ureq); break;
@@ -844,8 +857,10 @@ public class CourseRuntimeController extends RepositoryEntryRuntimeController im
 				doOptions(ureq);
 			} else if("CertificationSettings".equalsIgnoreCase(type)) {
 				doCertificatesOptions(ureq);
-			}  else if("Certification".equalsIgnoreCase(type)) {
+			} else if("Certification".equalsIgnoreCase(type)) {
 				doEfficiencyStatements(ureq);
+			} else if("Reminders".equalsIgnoreCase(type) || "RemindersLogs".equalsIgnoreCase(type)) {
+				doReminders(ureq);
 			} else if("MembersMgmt".equalsIgnoreCase(type)) {
 				Activateable2 members = doMembers(ureq);
 				if(members != null) {
@@ -960,12 +975,14 @@ public class CourseRuntimeController extends RepositoryEntryRuntimeController im
 	@Override
 	protected Activateable2 doMembers(UserRequest ureq) {
 		if(delayedClose == Delayed.members || requestForClose(ureq)) {
-			if (reSecurity.isEntryAdmin() || hasCourseRight(CourseRights.RIGHT_GROUPMANAGEMENT)) {
+			if (reSecurity.isEntryAdmin() || hasCourseRight(CourseRights.RIGHT_GROUPMANAGEMENT) || hasCourseRight(CourseRights.RIGHT_MEMBERMANAGEMENT)) {
 				removeCustomCSS(ureq);
 				OLATResourceable ores = OresHelper.createOLATResourceableInstance("MembersMgmt", 0l);
 				ThreadLocalUserActivityLogger.addLoggingResourceInfo(LoggingResourceable.wrapBusinessPath(ores));
 				WindowControl bwControl = BusinessControlFactory.getInstance().createBusinessWindowControl(ores, null, getWindowControl());
-				MembersManagementMainController ctrl = new MembersManagementMainController(ureq, addToHistory(ureq, bwControl), getRepositoryEntry());
+				MembersManagementMainController ctrl = new MembersManagementMainController(ureq, addToHistory(ureq, bwControl), toolbarPanel,
+						getRepositoryEntry(), reSecurity.isEntryAdmin(), hasCourseRight(CourseRights.RIGHT_GROUPMANAGEMENT),
+						hasCourseRight(CourseRights.RIGHT_MEMBERMANAGEMENT));
 				listenTo(ctrl);
 				membersCtrl = pushController(ureq, translate("command.opensimplegroupmngt"), ctrl);
 				setActiveTool(membersLink);
@@ -1078,6 +1095,21 @@ public class CourseRuntimeController extends RepositoryEntryRuntimeController im
 			}
 		} else {
 			delayedClose = Delayed.certificates;
+		}
+	}
+	
+	private void doReminders(UserRequest ureq) {
+		if(delayedClose == Delayed.reminders || requestForClose(ureq)) {
+			if (reSecurity.isEntryAdmin() || hasCourseRight(CourseRights.RIGHT_COURSEEDITOR)) {
+				removeCustomCSS(ureq);
+
+				CourseRemindersController ctrl = new CourseRemindersController(ureq, getWindowControl(), getRepositoryEntry(), toolbarPanel);
+				remindersCtrl = pushController(ureq, translate("command.reminders"), ctrl);
+				setActiveTool(reminderLink);
+				currentToolCtr = remindersCtrl;
+			}
+		} else {
+			delayedClose = Delayed.reminders;
 		}
 	}
 	
@@ -1536,6 +1568,7 @@ public class CourseRuntimeController extends RepositoryEntryRuntimeController im
 		assessmentTestStatistics,
 		assessmentTool,
 		certificates,
+		reminders,
 		courseAreas,
 		courseFolder,
 		courseStatistics,

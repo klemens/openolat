@@ -43,6 +43,8 @@ public interface RepositoryEntryMyView extends OLATResourceable {
 	
 	public int getAccess();
 	
+	public int getStatusCode();
+	
 	public String getAuthors();
 	
 	public boolean isMembersOnly();
@@ -65,8 +67,6 @@ public interface RepositoryEntryMyView extends OLATResourceable {
 	 * @return True if the user as bookmarked this entry
 	 */
 	public boolean isMarked();
-	
-	public Integer getVisit();
 	
 	/**
 	 * @return The rating made by the user or null if the user has never rated the entry

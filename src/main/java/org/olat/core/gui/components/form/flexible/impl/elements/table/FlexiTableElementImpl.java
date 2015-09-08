@@ -686,8 +686,11 @@ public class FlexiTableElementImpl extends FormItemImpl implements FlexiTableEle
 		String sort = form.getRequestParameter("sort");
 		String filter = form.getRequestParameter("filter");
 		String pagesize = form.getRequestParameter("pagesize");
+		String checkbox = form.getRequestParameter("chkbox");
 		if("undefined".equals(dispatchuri)) {
 			evalSearchRequest(ureq);
+		} else if(StringHelper.containsNonWhitespace(checkbox)) {
+			toogleSelectIndex(checkbox);
 		} else if(StringHelper.containsNonWhitespace(page)) {
 			int p = Integer.parseInt(page);
 			setPage(p);
@@ -753,6 +756,7 @@ public class FlexiTableElementImpl extends FormItemImpl implements FlexiTableEle
 				if(StringHelper.containsNonWhitespace(selectedRowIndex)) {
 					doSelect(ureq, col.getAction(), Integer.parseInt(selectedRowIndex));
 					select = true;
+					break;
 				}
 			}
 		}
@@ -1103,7 +1107,7 @@ public class FlexiTableElementImpl extends FormItemImpl implements FlexiTableEle
 			doSearch(ureq, search, null);
 			getRootForm().fireFormEvent(ureq, new FlexiTableEvent(this, search));
 		} else {
-			doResetSearch();
+			doResetSearch(ureq);
 		}
 	}
 	
@@ -1184,13 +1188,15 @@ public class FlexiTableElementImpl extends FormItemImpl implements FlexiTableEle
 		return Arrays.equals(orderBy , sortKeys);
 	}
 	
-	protected void doResetSearch() {
+	protected void doResetSearch(UserRequest ureq) {
 		conditionalQueries = null;
 		currentPage = 0;
 		if(dataSource != null) {
 			resetInternComponents();
 			dataSource.clear();
 			dataSource.load(null, null, 0, getPageSize());
+		} else {
+			getRootForm().fireFormEvent(ureq, new FlexiTableSearchEvent(this, FormEvent.ONCLICK));
 		}
 	}
 
@@ -1220,6 +1226,31 @@ public class FlexiTableElementImpl extends FormItemImpl implements FlexiTableEle
 	@Override
 	public boolean isMultiSelectedIndex(int index) {
 		return multiSelectedIndex != null && multiSelectedIndex.contains(new Integer(index));
+	}
+	
+	protected void toogleSelectIndex(String selection) {
+		if(multiSelectedIndex == null) {
+			multiSelectedIndex = new HashSet<Integer>();
+		}
+
+		String rowStr;
+		int index = selection.lastIndexOf('-');
+		if(index > 0 && index+1 < selection.length()) {
+			rowStr = selection.substring(index+1);
+		} else {
+			rowStr = selection;
+		}
+		
+		try {
+			Integer row = new Integer(rowStr);
+			if(multiSelectedIndex.contains(row)) {
+				multiSelectedIndex.remove(row);
+			} else {
+				multiSelectedIndex.add(row);
+			}	
+		} catch (NumberFormatException e) {
+			//can happen
+		}
 	}
 	
 	protected void setMultiSelectIndex(String[] selections) {

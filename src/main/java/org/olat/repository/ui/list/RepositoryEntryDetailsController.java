@@ -211,6 +211,8 @@ public class RepositoryEntryDetailsController extends FormBasicController {
 			layoutCont.contextPut("guestOnly", new Boolean(guestOnly));
 			String cssClass = RepositoyUIFactory.getIconCssClass(entry);
 			layoutCont.contextPut("cssClass", cssClass);
+			layoutCont.contextPut("closed",
+					new Boolean(repositoryManager.createRepositoryEntryStatus(entry.getStatusCode()).isClosed()));
 			
 			RepositoryHandler handler = RepositoryHandlerFactory.getInstance().getRepositoryHandler(entry);
 			VFSContainer mediaContainer = handler.getMediaContainer(entry);
@@ -413,7 +415,7 @@ public class RepositoryEntryDetailsController extends FormBasicController {
 				failed = row.isFailed();
 				score = row.getScore();
 			} else {
-				UserEfficiencyStatement statement = effManager.getUserEfficiencyStatementLight(entry.getKey(), getIdentity());
+				UserEfficiencyStatement statement = effManager.getUserEfficiencyStatementLightByRepositoryEntry(entry, getIdentity());
 				if(statement != null) {
 					Boolean p = statement.getPassed();
 					if(p != null) {
@@ -446,10 +448,20 @@ public class RepositoryEntryDetailsController extends FormBasicController {
             
             // Where is it in use
             if(isAuthor || roles.isOLATAdmin() || roles.isInstitutionalResourceManager()) {
-	            String referenceDetails = referenceManager.getReferencesToSummary(entry.getOlatResource(), getLocale());
-	            if (referenceDetails != null) {
-	            	layoutCont.contextPut("referenceDetails", referenceDetails);
-	            }
+				List<RepositoryEntry> refs = referenceManager.getRepositoryReferencesTo(entry.getOlatResource());
+				if(refs.size() > 0) {
+					List<String> refLinks = new ArrayList<>(refs.size());
+					int count = 0;
+					for(RepositoryEntry ref:refs) {
+						String name = "ref-" + count++;
+						FormLink refLink = uifactory
+								.addFormLink(name, "ref", ref.getDisplayname(), null, formLayout, Link.NONTRANSLATED);
+						refLink.setUserObject(ref.getKey());
+						refLink.setIconLeftCSS("o_icon o_icon-fw " + RepositoyUIFactory.getIconCssClass(ref));
+						refLinks.add(name);
+					}
+	            	layoutCont.contextPut("referenceLinks", refLinks);
+				}
             }
             
             // Link to bookmark entry
@@ -546,6 +558,8 @@ public class RepositoryEntryDetailsController extends FormBasicController {
 				doOpenVisitCard(ureq, ownerKey);
 			} else if("leave".equals(cmd)) {
 				doConfirmLeave(ureq);
+			} else if("ref".equals(cmd)) {
+				doOpenReference(ureq, (Long)link.getUserObject());
 			}
 		} else if(ratingEl == source && event instanceof RatingFormEvent) {
 			RatingFormEvent ratingEvent = (RatingFormEvent)event;
@@ -588,6 +602,11 @@ public class RepositoryEntryDetailsController extends FormBasicController {
 			logError("Course corrupted: " + entry.getKey() + " (" + entry.getOlatResource().getResourceableId() + ")", e);
 			showError("cif.error.corrupted");
 		}
+	}
+	
+	protected void doOpenReference(UserRequest ureq, Long entryKey) {
+		String businessPath = "[RepositoryEntry:" + entryKey + "]";
+		NewControllerFactory.getInstance().launch(businessPath, ureq, getWindowControl());
 	}
 	
 	protected void doOpenCategory(UserRequest ureq, Long categoryKey) {

@@ -868,22 +868,23 @@ create table o_mail_attachment (
 
 -- access control
 create table  if not exists o_ac_offer (
-	offer_id bigint NOT NULL,
+  offer_id bigint NOT NULL,
   creationdate datetime,
-	lastmodified datetime,
-	is_valid bit default 1,
-	validfrom datetime,
-	validto datetime,
+  lastmodified datetime,
+  is_valid bit default 1,
+  validfrom datetime,
+  validto datetime,
   version mediumint unsigned not null,
   resourceid bigint,
   resourcetypename varchar(255),
   resourcedisplayname varchar(255),
+  autobooking boolean default 0,
   token varchar(255),
   price_amount DECIMAL(12,4),
-	price_currency_code VARCHAR(3),
-	offer_desc VARCHAR(2000),
+  price_currency_code VARCHAR(3),
+  offer_desc VARCHAR(2000),
   fk_resource_id bigint,
-	primary key (offer_id)
+  primary key (offer_id)
 );
 
 create table if not exists o_ac_method (
@@ -1341,6 +1342,52 @@ create table o_cl_check (
    primary key (id)
 );
 
+create table o_gta_task_list (
+   id bigint not null,
+   creationdate datetime not null,
+   lastmodified datetime not null,
+   g_course_node_ident varchar(36),
+   fk_entry bigint not null,
+   primary key (id)
+);
+
+create table o_gta_task (
+   id bigint not null,
+   creationdate datetime not null,
+   lastmodified datetime not null,
+   g_status varchar(36),
+   g_rev_loop mediumint not null default 0,
+   g_assignment_date datetime,
+   g_taskname varchar(36),
+   fk_tasklist bigint not null,
+   fk_identity bigint,
+   fk_businessgroup bigint,
+   primary key (id)
+);
+
+create table o_rem_reminder (
+   id bigint not null,
+   creationdate datetime not null,
+   lastmodified datetime not null,
+   r_description varchar(255),
+   r_start datetime,
+   r_sendtime varchar(16),
+   r_configuration mediumtext,
+   r_email_body mediumtext,
+   fk_creator bigint not null,
+   fk_entry bigint not null,
+   primary key (id)
+);
+
+create table o_rem_sent_reminder (
+   id bigint not null,
+   creationdate datetime not null,
+   r_status varchar(16),
+   fk_identity bigint not null,
+   fk_reminder bigint not null,
+   primary key (id)
+);
+
 create table o_ex_task (
    id bigint not null,
    creationdate datetime not null,
@@ -1710,8 +1757,12 @@ alter table o_ex_task_modifier ENGINE = InnoDB;
 alter table o_checklist ENGINE = InnoDB;
 alter table o_cl_checkbox ENGINE = InnoDB;
 alter table o_cl_check ENGINE = InnoDB;
+alter table o_gta_task_list ENGINE = InnoDB;
+alter table o_gta_task ENGINE = InnoDB;
 alter table o_cer_template ENGINE = InnoDB;
 alter table o_cer_certificate ENGINE = InnoDB;
+alter table o_rem_reminder ENGINE = InnoDB;
+alter table o_rem_sent_reminder ENGINE = InnoDB;
 
 -- rating
 alter table o_userrating add constraint FKF26C8375236F20X foreign key (creator_id) references o_bs_identity (id);
@@ -1886,6 +1937,21 @@ alter table o_cl_check add constraint check_box_ctx foreign key (fk_checkbox_id)
 alter table o_cl_check add unique check_identity_unique_ctx (fk_identity_id, fk_checkbox_id);
 create index idx_checkbox_uuid_idx on o_cl_checkbox (c_checkboxid);
 
+-- group tasks
+alter table o_gta_task add constraint gtask_to_tasklist_idx foreign key (fk_tasklist) references o_gta_task_list (id);
+alter table o_gta_task add constraint gtask_to_identity_idx foreign key (fk_identity) references o_bs_identity (id);
+alter table o_gta_task add constraint gtask_to_bgroup_idx foreign key (fk_businessgroup) references o_gp_business (group_id);
+
+alter table o_gta_task_list add constraint gta_list_to_repo_entry_idx foreign key (fk_entry) references o_repositoryentry (repositoryentry_id);
+
+-- reminders
+alter table o_rem_reminder add constraint rem_reminder_to_repo_entry_idx foreign key (fk_entry) references o_repositoryentry (repositoryentry_id);
+alter table o_rem_reminder add constraint rem_reminder_to_creator_idx foreign key (fk_creator) references o_bs_identity (id);
+
+alter table o_rem_sent_reminder add constraint rem_sent_rem_to_ident_idx foreign key (fk_identity) references o_bs_identity (id);
+alter table o_rem_sent_reminder add constraint rem_sent_rem_to_reminder_idx foreign key (fk_reminder) references o_rem_reminder (id);
+
+
 -- lifecycle
 create index lc_pref_idx on o_lifecycle (persistentref);
 create index lc_type_idx on o_lifecycle (persistenttypename);
@@ -1957,6 +2023,7 @@ alter table o_tag add constraint FK6491FCA5A4FA5DC foreign key (fk_author_id) re
 
 -- mail
 alter table o_mail add constraint FKF86663165A4FA5DC foreign key (fk_from_id) references o_mail_recipient (recipient_id);
+create index idx_mail_meta_id_idx on o_mail (meta_mail_id);
 
 alter table o_mail_recipient add constraint FKF86663165A4FA5DG foreign key (fk_recipient_id) references o_bs_identity (id);
 
@@ -2040,6 +2107,13 @@ alter table o_cer_certificate add constraint cer_to_resource_idx foreign key (fk
 
 create index cer_archived_resource_idx on o_cer_certificate (c_archived_resource_id);
 create index cer_uuid_idx on o_cer_certificate (c_uuid);
+
+-- o_logging_table
+create index log_target_resid_idx on o_loggingtable(targetresid);
+create index log_ptarget_resid_idx on o_loggingtable(parentresid);
+create index log_gptarget_resid_idx on o_loggingtable(grandparentresid);
+create index log_ggptarget_resid_idx on o_loggingtable(greatgrandparentresid);
+create index log_creationdate_idx on o_loggingtable(creationdate);
 
 
 insert into hibernate_unique_key values ( 0 );

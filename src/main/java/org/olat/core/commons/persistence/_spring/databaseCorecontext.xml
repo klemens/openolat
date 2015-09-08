@@ -163,6 +163,7 @@
 				<prop key="hibernate.cache.use_second_level_cache">true</prop>
 				<prop key="hibernate.cache.region.factory_class">org.olat.core.commons.persistence.JpaInfinispanRegionFactory</prop>
 				<prop key="hibernate.cache.infinispan.cfg">infinispan-config.xml</prop>
+				<prop key="hibernate.cache.infinispan.statistics">true</prop>
 				<prop key="hibernate.cache.region.jbc2.query.localonly">true</prop>
 				<prop key="hibernate.cache.region_prefix">openolat</prop>
 			</props>
@@ -175,6 +176,7 @@
 				<prop key="hibernate.cache.use_query_cache">true</prop>
 				<prop key="hibernate.cache.use_second_level_cache">true</prop>
 				<prop key="hibernate.cache.region.factory_class">org.jboss.as.jpa.hibernate4.infinispan.InfinispanRegionFactory</prop>
+				<prop key="hibernate.cache.infinispan.statistics">true</prop>
 				<prop key="hibernate.cache.infinispan.cachemanager">java:jboss/infinispan/container/hibernate</prop>
 				<prop key="hibernate.transaction.manager_lookup_class">org.hibernate.transaction.JBossTransactionManagerLookup</prop>
 			</props>
@@ -195,8 +197,6 @@
 		<constructor-arg>
 			<props>
 	            <prop key="hibernate.connection.provider_class">com.zaxxer.hikari.hibernate.HikariConnectionProvider</prop>
-	            <!-- Min pool size -->
-	            <prop key="hibernate.hikari.minimumPoolSize">${db.hibernate.hikari.minsize}</prop>
 	            <!-- Max pool size , mysql-default value is 100, If you need to support more connections, you should set a larger value for this variable in mysql config -->
 	            <prop key="hibernate.hikari.maximumPoolSize">${db.hibernate.hikari.maxsize}</prop>
 	            <prop key="hibernate.hikari.minimumIdle">4</prop>
