@@ -77,6 +77,11 @@ public class Formatter {
 		mediumTimeFormat.setLenient(false);
 		shortDateTimeFormat = DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT, locale);
 		shortDateTimeFormat.setLenient(false);
+		if (shortDateTimeFormat instanceof SimpleDateFormat) {
+			SimpleDateFormat sdf = (SimpleDateFormat) shortDateTimeFormat;
+			String pattern = sdf.toPattern().replaceAll("y+","yyyy");
+			sdf.applyPattern(pattern); 
+		}
 		shortTimeFormat = DateFormat.getTimeInstance(DateFormat.SHORT, locale);
 		shortTimeFormat.setLenient(false);
 	}
@@ -204,6 +209,19 @@ public class Formatter {
 	}
 	
 	/**
+	 * Parse the given date with the ISO 8601 standard also known as 'datetime'
+	 * See http://www.w3.org/TR/NOTE-datetime.html for more info.
+	 * 
+	 * @param d the date as string to be parsed
+	 * @return The date
+	 */
+	public static Date parseDatetime(String d) throws ParseException {
+		synchronized (formatDateTime) {
+			return formatDateTime.parse(d);
+		}
+	}
+	
+	/**
 	 * Use this for naming files or directories with a timestamp. 
 	 * As windows does not like ":" in filenames formatDateAndTime(d) does not work
 	 * 
@@ -213,6 +231,12 @@ public class Formatter {
 	public static String formatDatetimeFilesystemSave(Date d) {
 		synchronized (formatterDatetimeFilesystem) {
 			return formatterDatetimeFilesystem.format(d);
+		}
+	}
+	
+	public static Date parseDatetimeFilesystemSave(String d) throws ParseException {
+		synchronized (formatterDatetimeFilesystem) {
+			return formatterDatetimeFilesystem.parse(d);
 		}
 	}
 	

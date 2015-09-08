@@ -41,6 +41,7 @@ import org.olat.core.CoreSpringFactory;
 import org.olat.core.commons.persistence.DBFactory;
 import org.olat.core.dispatcher.DispatcherModule;
 import org.olat.core.dispatcher.mapper.MapperService;
+import org.olat.core.dispatcher.mapper.manager.MapperKey;
 import org.olat.core.gui.GlobalSettings;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.Windows;
@@ -52,6 +53,7 @@ import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.Event;
 import org.olat.core.gui.control.JSAndCSSAdder;
 import org.olat.core.gui.control.JSAndCSSAdderImpl;
+import org.olat.core.gui.control.WindowBackOffice;
 import org.olat.core.gui.control.WindowControl;
 import org.olat.core.gui.control.generic.dtabs.DTabs;
 import org.olat.core.gui.control.info.WindowControlInfo;
@@ -195,7 +197,11 @@ public class Window extends AbstractComponent {
 	 * @return the current GUI theme
 	 */
 	public Theme getGuiTheme() {
-		return this.guiTheme;
+		return guiTheme;
+	}
+	
+	public WindowBackOffice getWindowBackOffice() {
+		return wbackofficeImpl;
 	}
 	
 	/**
@@ -444,8 +450,14 @@ public class Window extends AbstractComponent {
 											long durationBeforeHandleDirties = System.currentTimeMillis() - debug_start;
 											log.debug("Perf-Test: Window durationBeforeHandleDirties=" + durationBeforeHandleDirties);
 										}
-										Command co = handleDirties();
-										//fxdiff FXOLAT-119: update business path
+										Command co;
+										try {
+											co = handleDirties();
+										} catch (CannotReplaceDOMFragmentException e) {
+											String reRenderUri = buildURIFor(this, timestampID, null);
+											co = CommandFactory.createParentRedirectTo(reRenderUri);
+										}
+										//update the business path
 										Command co2 = handleBusinessPath(ureq);
 										if (isDebugLog) {
 											long durationAfterHandleDirties = System.currentTimeMillis() - debug_start;
@@ -478,9 +490,10 @@ public class Window extends AbstractComponent {
 								// create a mapper which maps this mediaresource, and serves it once only
 								MediaResourceMapper extMRM = new MediaResourceMapper();
 								extMRM.setMediaResource(mmr);
-								String res = CoreSpringFactory.getImpl(MapperService.class).register(ureq.getUserSession(), extMRM) + "/";
+								MapperKey mapperKey = CoreSpringFactory.getImpl(MapperService.class).register(ureq.getUserSession(), extMRM);
+								String resUrl = mapperKey.getUrl() + "/";
 								// e.g. res = /olat/m/10001/
-								Command rmrcom = CommandFactory.createParentRedirectForExternalResource(res);
+								Command rmrcom = CommandFactory.createParentRedirectForExternalResource(resUrl);
 								wbackofficeImpl.sendCommandTo(rmrcom);
 								if (isDebugLog) {
 									long durationAfterCreateMediaResourceMapper = System.currentTimeMillis() - debug_start;
@@ -856,7 +869,7 @@ public class Window extends AbstractComponent {
 	 * @return a updateUI-Command or null if there are no dirty components (normally not the case for sync (user-click) request, but often the case 
 	 * for pull request, since nothing has changed yet on the screen.
 	 */
-	public Command handleDirties() {
+	public Command handleDirties() throws CannotReplaceDOMFragmentException {
 		// need to sync to window, since the dispatching must be finished so that the render tree is stable before we collect the dirties.
 		// more accurately, the synchronized is needed when other classes than window call this method.
 		synchronized(this) {
@@ -928,7 +941,7 @@ public class Window extends AbstractComponent {
 							}
 							boolean wasDomR = toRender.isDomReplaceable();
 							if (!wasDomR) {
-								throw new AssertException("cannot replace as dom fragment:"+toRender.getComponentName()+" ("+toRender.getClass().getName()+"),"+toRender.getExtendedDebugInfo());
+								throw new CannotReplaceDOMFragmentException("cannot replace as dom fragment:"+toRender.getComponentName()+" ("+toRender.getClass().getName()+"),"+toRender.getExtendedDebugInfo());
 							}
 							
 							Panel wrapper = new Panel("renderpanel");

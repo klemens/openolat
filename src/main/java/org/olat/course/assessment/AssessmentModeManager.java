@@ -27,6 +27,7 @@ import javax.servlet.http.HttpServletRequest;
 
 import org.olat.basesecurity.IdentityRef;
 import org.olat.course.assessment.model.SearchAssessmentModeParams;
+import org.olat.course.nodes.CourseNode;
 import org.olat.group.BusinessGroup;
 import org.olat.group.area.BGArea;
 import org.olat.repository.RepositoryEntry;
@@ -47,7 +48,10 @@ public interface AssessmentModeManager {
 	 */
 	public AssessmentMode createAssessmentMode(RepositoryEntry entry);
 	
+
+	
 	public AssessmentModeToGroup createAssessmentModeToGroup(AssessmentMode mode, BusinessGroup group);
+	
 	
 	public AssessmentModeToArea createAssessmentModeToArea(AssessmentMode mode, BGArea area);
 	
@@ -62,8 +66,12 @@ public interface AssessmentModeManager {
 	 */
 	public AssessmentMode merge(AssessmentMode assessmentMode, boolean forceStatus);
 	
+	/**
+	 * Delete a specific assessment mode.
+	 * 
+	 * @param assessmentMode
+	 */
 	public void delete(AssessmentMode assessmentMode);
-
 	
 	public AssessmentMode getAssessmentModeById(Long key);
 	
@@ -97,7 +105,23 @@ public interface AssessmentModeManager {
 	 */
 	public List<AssessmentMode> getAssessmentModes(Date now);
 	
+	/**
+	 * Return true if the course is in assessment mode at the specified time.
+	 * @param entry
+	 * @param now
+	 * @return
+	 */
+	public boolean isInAssessmentMode(RepositoryEntryRef entry, Date date);
+	
+	/**
+	 * Return the list of assessed users specified in the configuration.
+	 * @param assessmentMode
+	 * @return
+	 */
 	public Set<Long> getAssessedIdentityKeys(AssessmentMode assessmentMode);
+	
+	public boolean isNodeInUse(RepositoryEntryRef entry, CourseNode node);
+	
 	
 	/**
 	 * 

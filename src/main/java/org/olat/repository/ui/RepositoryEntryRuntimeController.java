@@ -41,19 +41,13 @@ import org.olat.core.gui.control.WindowControl;
 import org.olat.core.gui.control.controller.MainLayoutBasicController;
 import org.olat.core.gui.control.generic.closablewrapper.CloseableModalController;
 import org.olat.core.gui.control.generic.dtabs.Activateable2;
-import org.olat.core.gui.control.generic.dtabs.DTab;
-import org.olat.core.gui.control.generic.dtabs.DTabs;
 import org.olat.core.gui.control.generic.layout.MainLayoutController;
-import org.olat.core.gui.control.generic.modal.DialogBoxController;
-import org.olat.core.gui.control.generic.modal.DialogBoxUIFactory;
 import org.olat.core.gui.control.generic.wizard.Step;
 import org.olat.core.gui.control.generic.wizard.StepRunnerCallback;
 import org.olat.core.gui.control.generic.wizard.StepsMainRunController;
 import org.olat.core.gui.media.MediaResource;
 import org.olat.core.id.OLATResourceable;
 import org.olat.core.id.Roles;
-import org.olat.core.id.context.BusinessControl;
-import org.olat.core.id.context.BusinessControlFactory;
 import org.olat.core.id.context.ContextEntry;
 import org.olat.core.id.context.HistoryPoint;
 import org.olat.core.id.context.StateEntry;
@@ -62,30 +56,25 @@ import org.olat.core.logging.activity.ThreadLocalUserActivityLogger;
 import org.olat.core.util.StringHelper;
 import org.olat.core.util.UserSession;
 import org.olat.core.util.Util;
-import org.olat.core.util.coordinate.CoordinatorManager;
 import org.olat.core.util.coordinate.LockResult;
 import org.olat.core.util.resource.OresHelper;
 import org.olat.course.CourseModule;
 import org.olat.course.assessment.AssessmentMode;
 import org.olat.course.assessment.AssessmentModeManager;
-import org.olat.course.assessment.AssessmentModule;
 import org.olat.course.assessment.model.TransientAssessmentMode;
-import org.olat.course.run.RunMainController;
-import org.olat.repository.ErrorList;
 import org.olat.repository.RepositoryEntry;
 import org.olat.repository.RepositoryEntryManagedFlag;
 import org.olat.repository.RepositoryEntryRef;
 import org.olat.repository.RepositoryManager;
 import org.olat.repository.RepositoryModule;
 import org.olat.repository.RepositoryService;
-import org.olat.repository.controllers.EntryChangedEvent;
-import org.olat.repository.controllers.EntryChangedEvent.Change;
 import org.olat.repository.handlers.EditionSupport;
 import org.olat.repository.handlers.RepositoryHandler;
 import org.olat.repository.handlers.RepositoryHandlerFactory;
 import org.olat.repository.model.RepositoryEntrySecurity;
 import org.olat.repository.ui.author.AuthoringEditAccessController;
 import org.olat.repository.ui.author.CatalogSettingsController;
+import org.olat.repository.ui.author.ConfirmDeleteController;
 import org.olat.repository.ui.author.CopyRepositoryEntryController;
 import org.olat.repository.ui.author.RepositoryEditDescriptionController;
 import org.olat.repository.ui.author.RepositoryMembersController;
@@ -96,6 +85,7 @@ import org.olat.repository.ui.list.RepositoryEntryDetailsController;
 import org.olat.resource.OLATResource;
 import org.olat.resource.accesscontrol.ACService;
 import org.olat.resource.accesscontrol.AccessResult;
+import org.olat.resource.accesscontrol.model.OfferAccess;
 import org.olat.resource.accesscontrol.ui.AccessEvent;
 import org.olat.resource.accesscontrol.ui.AccessListController;
 import org.olat.resource.accesscontrol.ui.AccessRefusedController;
@@ -122,9 +112,9 @@ public class RepositoryEntryRuntimeController extends MainLayoutBasicController 
 	protected Controller accessController;
 	private OrdersAdminController ordersCtlr;
 	private StepsMainRunController closeCtrl;
-	private DialogBoxController deleteDialogCtrl;
 	private CatalogSettingsController catalogCtlr;
 	private CopyRepositoryEntryController copyCtrl;
+	private ConfirmDeleteController confirmDeleteCtrl;
 	protected AuthoringEditAccessController accessCtrl;
 	private RepositoryEntryDetailsController detailsCtrl;
 	private RepositoryMembersController membersEditController;
@@ -162,8 +152,6 @@ public class RepositoryEntryRuntimeController extends MainLayoutBasicController 
 	protected UserManager userManager;
 	@Autowired
 	protected MarkManager markManager;
-	@Autowired
-	private AssessmentModule assessmentModule;
 	@Autowired
 	protected RepositoryModule repositoryModule;
 	@Autowired
@@ -341,7 +329,7 @@ public class RepositoryEntryRuntimeController extends MainLayoutBasicController 
 	protected void initSettingsTools(Dropdown settingsDropdown) {
 		if (reSecurity.isEntryAdmin()) {
 			//settings
-			editDescriptionLink = LinkFactory.createToolLink("settings.cmd", translate("details.chprop"), this, "o_icon_details");
+			editDescriptionLink = LinkFactory.createToolLink("settings.cmd", translate("details.chdesc"), this, "o_icon_details");
 			editDescriptionLink.setElementCssClass("o_sel_course_settings");
 			editDescriptionLink.setEnabled(!corrupted);
 			settingsDropdown.addComponent(editDescriptionLink);
@@ -403,7 +391,9 @@ public class RepositoryEntryRuntimeController extends MainLayoutBasicController 
 				settingsDropdown.addComponent(closeLink);
 			}
 			if(!deleteManaged) {
-				deleteLink = LinkFactory.createToolLink("delete", translate("details.delete"), this, "o_icon o_icon-fw o_icon_delete_item");
+				String type = translate(handler.getSupportedType());
+				String deleteTitle = translate("details.delete.alt", new String[]{ type });
+				deleteLink = LinkFactory.createToolLink("delete", deleteTitle, this, "o_icon o_icon-fw o_icon_delete_item");
 				deleteLink.setElementCssClass("o_sel_repo_close");
 				settingsDropdown.addComponent(deleteLink);
 			}
@@ -556,9 +546,17 @@ public class RepositoryEntryRuntimeController extends MainLayoutBasicController 
 					doCloseResource(ureq);
 				}
 			}
-		} else if(deleteDialogCtrl == source) {
-			if (DialogBoxUIFactory.isYesEvent(event)) {
-				doCompleteDelete(ureq);
+		} else if(confirmDeleteCtrl == source) {
+			if(event == Event.CANCELLED_EVENT) {
+				cmc.deactivate();
+				removeAsListenerAndDispose(confirmDeleteCtrl);
+				removeAsListenerAndDispose(cmc);
+				confirmDeleteCtrl = null;
+				cmc = null;
+			} else if (event == Event.DONE_EVENT || event == Event.CHANGED_EVENT) {
+				cmc.deactivate();
+				doClose(ureq);
+				cleanUp();
 			}
 		} else if(copyCtrl == source) {
 			cmc.deactivate();
@@ -578,6 +576,7 @@ public class RepositoryEntryRuntimeController extends MainLayoutBasicController 
 	
 	protected void cleanUp() {
 		removeAsListenerAndDispose(membersEditController);
+		removeAsListenerAndDispose(confirmDeleteCtrl);
 		removeAsListenerAndDispose(accessController);
 		removeAsListenerAndDispose(descriptionCtrl);
 		removeAsListenerAndDispose(catalogCtlr);
@@ -589,6 +588,7 @@ public class RepositoryEntryRuntimeController extends MainLayoutBasicController 
 		removeAsListenerAndDispose(cmc);
 		
 		membersEditController = null;
+		confirmDeleteCtrl = null;
 		accessController = null;
 		descriptionCtrl = null;
 		catalogCtlr = null;
@@ -629,25 +629,8 @@ public class RepositoryEntryRuntimeController extends MainLayoutBasicController 
 	
 	protected final void doClose(UserRequest ureq) {
 		// Now try to go back to place that is attacked to (optional) root back business path
-		if (launchedFromPoint != null && StringHelper.containsNonWhitespace(launchedFromPoint.getBusinessPath())) {
-			BusinessControl bc = BusinessControlFactory.getInstance().createFromPoint(launchedFromPoint);
-			WindowControl bwControl = BusinessControlFactory.getInstance().createBusinessWindowControl(bc, getWindowControl());
-			try {
-				//make the resume secure. If something fail, don't generate a red screen
-				NewControllerFactory.getInstance().launch(ureq, bwControl);
-			} catch (Exception e) {
-				logError("Error while resuming with root leve back business path::" + launchedFromPoint.getBusinessPath(), e);
-			}
-		}
-		
-		// Navigate beyond the stack, our own layout has been popped - close this tab
-		DTabs tabs = getWindowControl().getWindowBackOffice().getWindow().getDTabs();
-		if (tabs != null) {
-			DTab tab = tabs.getDTab(re.getOlatResource());
-			if (tab != null) {
-				tabs.removeDTab(ureq, tab);						
-			}
-		}
+		getWindowControl().getWindowBackOffice().getWindow().getDTabs()
+			.closeDTab(ureq, re.getOlatResource(), launchedFromPoint);
 	}
 	
 	protected void doEdit(UserRequest ureq) {
@@ -701,7 +684,7 @@ public class RepositoryEntryRuntimeController extends MainLayoutBasicController 
 	protected Activateable2 doMembers(UserRequest ureq) {
 		if(!reSecurity.isEntryAdmin()) return null;
 
-		RepositoryMembersController ctrl = new RepositoryMembersController(ureq, getWindowControl(), re);
+		RepositoryMembersController ctrl = new RepositoryMembersController(ureq, getWindowControl(), toolbarPanel ,re);
 		listenTo(ctrl);
 		membersEditController = pushController(ureq, translate("details.members"), ctrl);
 		currentToolCtr = membersEditController;
@@ -731,9 +714,17 @@ public class RepositoryEntryRuntimeController extends MainLayoutBasicController 
 				if(acResult.isAccessible()) {
 					launchContent(ureq, security);
 				} else if (re != null && acResult.getAvailableMethods().size() > 0) {
-					accessController = new AccessListController(ureq, getWindowControl(), acResult.getAvailableMethods());
-					listenTo(accessController);
-					toolbarPanel.rootController(re.getDisplayname(), accessController);
+					//try auto booking
+					ACResultAndSecurity autoResult = tryAutoBooking(ureq, acResult, security);
+					acResult = autoResult.getAcResult();
+					security = autoResult.getSecurity();
+					if(acResult.isAccessible()) {
+						launchContent(ureq, security);
+					} else {
+						accessController = new AccessListController(ureq, getWindowControl(), acResult.getAvailableMethods());
+						listenTo(accessController);
+						toolbarPanel.rootController(re.getDisplayname(), accessController);
+					}
 				} else {
 					Controller ctrl = new AccessRefusedController(ureq, getWindowControl());
 					listenTo(ctrl);
@@ -741,6 +732,19 @@ public class RepositoryEntryRuntimeController extends MainLayoutBasicController 
 				}
 			}
 		}
+	}
+	
+	private ACResultAndSecurity tryAutoBooking(UserRequest ureq, AccessResult acResult, RepositoryEntrySecurity security) {
+		if(acResult.getAvailableMethods().size() == 1) {
+			OfferAccess offerAccess = acResult.getAvailableMethods().get(0);
+			if(offerAccess.getOffer().isAutoBooking() && !offerAccess.getMethod().isNeedUserInteraction()) {
+				acResult = acService.accessResource(getIdentity(), offerAccess, null);
+				 if(acResult.isAccessible()) {
+					 security = repositoryManager.isAllowed(ureq, re);
+				 }
+			}
+		}
+		return new ACResultAndSecurity(acResult, security);
 	}
 	
 	protected boolean doMark() {
@@ -843,33 +847,26 @@ public class RepositoryEntryRuntimeController extends MainLayoutBasicController 
 	}
 	
 	private void doDelete(UserRequest ureq) {
-		boolean isOwner = true;
-		if (!isOwner) throw new OLATSecurityException("Trying to delete, but not allowed: user = " + ureq.getIdentity());
-
-		//show how many users are currently using this resource
-		String dialogTitle = translate("del.header", re.getDisplayname());
-		Long resId = re.getResourceableId();
-		OLATResourceable courseRunOres = OresHelper.createOLATResourceableInstance(RunMainController.ORES_TYPE_COURSE_RUN, resId);
-		int cnt = CoordinatorManager.getInstance().getCoordinator().getEventBus().getListeningIdentityCntFor(courseRunOres);
-
-		String dialogText = translate(corrupted ? "del.confirm.corrupted" : "del.confirm", String.valueOf(cnt));
-		deleteDialogCtrl = activateYesNoDialog(ureq, dialogTitle, dialogText, deleteDialogCtrl);
-		deleteDialogCtrl.setUserObject(re);
-	}
-	
-	private void doCompleteDelete(UserRequest ureq) {
-		ErrorList errors = repositoryService.delete(re, getIdentity(), roles, getLocale());
-		if (errors.hasErrors()) {
-			showInfo("info.could.not.delete.entry");
-		} else {
-			fireEvent(ureq, new EntryChangedEvent(re, getIdentity(), Change.deleted));
-			showInfo("info.entry.deleted");
+		if (!reSecurity.isEntryAdmin()) {
+			throw new OLATSecurityException("Trying to delete, but not allowed: user = " + ureq.getIdentity());
 		}
-		doClose(ureq);
+
+		List<RepositoryEntry> entryToDelete = Collections.singletonList(getRepositoryEntry());
+		confirmDeleteCtrl = new ConfirmDeleteController(ureq, getWindowControl(), entryToDelete, false);
+		listenTo(confirmDeleteCtrl);
+		
+		String title = translate("del.header", re.getDisplayname());
+		cmc = new CloseableModalController(getWindowControl(), "close", confirmDeleteCtrl.getInitialComponent(), true, title);
+		listenTo(cmc);
+		cmc.activate();
 	}
 	
 	protected void launchContent(UserRequest ureq, RepositoryEntrySecurity security) {
-		if(security.canLaunch()) {
+		if(corrupted) {
+			runtimeController = new CorruptedCourseController(ureq, this.getWindowControl());
+			listenTo(runtimeController);
+			toolbarPanel.rootController(re.getDisplayname(), runtimeController);
+		} else if(security.canLaunch()) {
 			runtimeController = runtimeControllerCreator.create(ureq, getWindowControl(), toolbarPanel, re, reSecurity, assessmentMode);
 			listenTo(runtimeController);
 			toolbarPanel.rootController(re.getDisplayname(), runtimeController);
@@ -891,5 +888,24 @@ public class RepositoryEntryRuntimeController extends MainLayoutBasicController 
 		
 		public void initToolbar();
 		
+	}
+	
+	private static class ACResultAndSecurity {
+		
+		private final AccessResult acResult;
+		private final RepositoryEntrySecurity security;
+		
+		public ACResultAndSecurity(AccessResult acResult, RepositoryEntrySecurity security) {
+			this.acResult = acResult;
+			this.security = security;
+		}
+
+		public AccessResult getAcResult() {
+			return acResult;
+		}
+
+		public RepositoryEntrySecurity getSecurity() {
+			return security;
+		}
 	}
 }

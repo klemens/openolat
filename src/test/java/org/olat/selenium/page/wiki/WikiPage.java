@@ -19,6 +19,8 @@
  */
 package org.olat.selenium.page.wiki;
 
+import java.util.List;
+
 import org.jboss.arquillian.drone.api.annotation.Drone;
 import org.jboss.arquillian.graphene.Graphene;
 import org.junit.Assert;
@@ -41,9 +43,23 @@ public class WikiPage {
 	@Drone
 	private WebDriver browser;
 	
+	public WikiPage() {
+		//
+	}
+	
+	public WikiPage(WebDriver browser) {
+		this.browser = browser;
+	}
+	
 	public static WikiPage getWiki(WebDriver browser) {
 		WebElement main = browser.findElement(By.id("o_main_wrapper"));
 		return Graphene.createPageFragment(WikiPage.class, main);
+	}
+	
+	public static WikiPage getGroupWiki(WebDriver browser) {
+		WebElement main = browser.findElement(By.id("o_main_wrapper"));
+		Assert.assertTrue(main.isDisplayed());
+		return new WikiPage(browser);
 	}
 	
 	public WikiPage createPage(String name, String content) {
@@ -54,14 +70,14 @@ public class WikiPage {
 		
 		//fill the name of the new page
 		By pageNameBy = By.cssSelector("div.o_callout_content form input[type='text']");
-		OOGraphene.waitElement(pageNameBy);
+		OOGraphene.waitElement(pageNameBy, browser);
 		WebElement pageNameEl = browser.findElement(pageNameBy);
 		pageNameEl.sendKeys(name);
 		//search for it
 		By searchBy = By.cssSelector("div.popover-content form .o_sel_wiki_search button");
 		WebElement searchButton = browser.findElement(searchBy);
 		searchButton.click();
-		OOGraphene.waitBusy();
+		OOGraphene.waitBusy(browser);
 		
 		//not exist -> click the link to create the page
 		By notExistingBy = By.xpath("//div[contains(@class,'o_wikimod-article-box')]//a[@title='" + name + "']");
@@ -70,14 +86,14 @@ public class WikiPage {
 		
 		//fill the form
 		By textBy = By.cssSelector("div.o_wikimod_editform_wrapper form textarea");
-		OOGraphene.waitElement(textBy);
+		OOGraphene.waitElement(textBy, browser);
 		WebElement textEl = browser.findElement(textBy);
 		textEl.sendKeys(content);
 		//save the page
 		By saveAndCloseBy = By.className("o_sel_wiki_save_and_close");
 		WebElement saveAndCloseButton = browser.findElement(saveAndCloseBy);
 		saveAndCloseButton.click();
-		OOGraphene.waitBusy();
+		OOGraphene.waitBusy(browser);
 		
 		//assert
 		By pageTitleBy = By.className("o_wikimod_heading");
@@ -90,6 +106,18 @@ public class WikiPage {
 		return this;
 	}
 	
+	public WikiPage assertOnContent(String text) {
+		By messageBodyBy = By.className("o_wikimod-article-box");
+		List<WebElement> messages = browser.findElements(messageBodyBy);
+		boolean found = false;
+		for(WebElement message:messages) {
+			if(message.getText().contains(text)) {
+				found = true;
+			}
+		}
+		Assert.assertTrue(found);
+		return this;
+	}
 	
 	/**
 	 * Add the current page to my artefacts
@@ -99,7 +127,7 @@ public class WikiPage {
 		By addAsArtefactBy = By.className("o_eportfolio_add");
 		WebElement addAsArtefactButton = browser.findElement(addAsArtefactBy);
 		addAsArtefactButton.click();
-		OOGraphene.waitBusy();
+		OOGraphene.waitBusy(browser);
 		return ArtefactWizardPage.getWizard(browser);
 	}
 

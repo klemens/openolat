@@ -60,6 +60,7 @@ public class FileMediaResource implements MediaResource {
 	//TODO:fj:a clean up on all filemediaresources subclasses
 	protected File file;
 	private FilesInfoMBean filesInfoMBean;
+	private boolean unknownMimeType = false;
 	private boolean deliverAsAttachment = false;
 
 	/**
@@ -89,19 +90,35 @@ public class FileMediaResource implements MediaResource {
 		this.filesInfoMBean = (FilesInfoMBean) CoreSpringFactory.getBean(FilesInfoMBean.class.getCanonicalName());
 	}
 	
+	@Override
+	public boolean acceptRanges() {
+		return true;
+	}
+	
 	/**
 	 * @see org.olat.core.gui.media.MediaResource#getContentType()
 	 */
+	@Override
 	public String getContentType() {
 		String fileName = file.getName();
 		String mimeType = WebappHelper.getMimeType(fileName);
-		if (mimeType == null) mimeType = "application/octet-stream";
+		
+		mimeType = WebappHelper.getMimeType(fileName);
+		//html, xhtml and javascript are set to force download
+		if (mimeType == null || "text/html".equals(mimeType)
+				|| "application/xhtml+xml".equals(mimeType)
+				|| "application/javascript".equals(mimeType)
+				|| "image/svg+xml".equals(mimeType)) {
+			mimeType = "application/force-download";
+			unknownMimeType = true;
+		}
 		return mimeType;
 	}
 
 	/**
 	 * @return @see org.olat.core.gui.media.MediaRequest#getSize()
 	 */
+	@Override
 	public Long getSize() {
 		return new Long(file.length());
 	}
@@ -109,6 +126,7 @@ public class FileMediaResource implements MediaResource {
 	/**
 	 * @see org.olat.core.gui.media.MediaResource#getInputStream()
 	 */
+	@Override
 	public InputStream getInputStream() {
 		BufferedInputStream bis = null;
 		try {
@@ -123,6 +141,7 @@ public class FileMediaResource implements MediaResource {
 	/**
 	 * @see org.olat.core.gui.media.MediaResource#getLastModified()
 	 */
+	@Override
 	public Long getLastModified() {
 		return new Long(file.lastModified());
 	}
@@ -130,6 +149,7 @@ public class FileMediaResource implements MediaResource {
 	/**
 	 * @see org.olat.core.gui.media.MediaResource#release()
 	 */
+	@Override
 	public void release() {
 	// void
 	}
@@ -137,19 +157,25 @@ public class FileMediaResource implements MediaResource {
 	/**
 	 * @see org.olat.core.gui.media.MediaResource#prepare(javax.servlet.http.HttpServletResponse)
 	 */
+	@Override
 	public void prepare(HttpServletResponse hres) {
 		if (deliverAsAttachment) {
 			// encode filename in ISO8859-1; does not really help but prevents from filename not being displayed at all
 			// if it contains non-US-ASCII characters which are not allowed in header fields.
-			hres.setHeader("Content-Disposition","attachment; filename*=UTF-8''" + StringHelper.urlEncodeUTF8(file.getName()));			
-			hres.setHeader("Content-Description",StringHelper.urlEncodeUTF8(file.getName()));
+			String name = StringHelper.urlEncodeUTF8(file.getName());
+			if (unknownMimeType) {
+				hres.setHeader("Content-Disposition", "attachment; filename*=UTF-8''" + name);
+				hres.setHeader("Content-Description", name);
+			} else {
+				hres.setHeader("Content-Disposition", "filename*=UTF-8''" + name);
+			}
 		} else {
 			hres.setHeader("Content-Disposition", "inline");
 		}
 	}
-	
+
+	@Override
 	public String toString() {
 		return "FileMediaResource:"+file.getAbsolutePath();
 	}
-
 }

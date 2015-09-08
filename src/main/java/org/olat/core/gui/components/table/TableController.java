@@ -244,6 +244,7 @@ public class TableController extends BasicController {
 		table.setResultsPerPage(tableConfig.getResultsPerPage());
 		table.setMultiSelect(tableConfig.isMultiSelect());
 		table.enableShowAllLink(tableConfig.isShowAllLinkEnabled());
+		table.setDisplayTableGrid(tableConfig.isDisplayTableGrid());
 
 
 		// table is embedded in a velocity page that renders the surrounding layout
@@ -338,7 +339,7 @@ public class TableController extends BasicController {
 				applyAndcheckChangedColumnsChoice(ureq, colsChoice.getSelectedRows());
 			} else if (event == Choice.EVNT_FORM_RESETED) {
 				//sideeffect on table and prefs
-				List<Integer> visibleCols = table.getDefaultVisibleColumns();
+				List<Integer> visibleCols = table.getDefaultVisibleColumnsToResetColumnsChoice();
 				applyAndcheckChangedColumnsChoice(ureq, visibleCols);
 			} else { // cancelled
 				cmc.deactivate();

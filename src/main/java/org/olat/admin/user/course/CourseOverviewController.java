@@ -184,9 +184,15 @@ public class CourseOverviewController extends BasicController  {
 
 		//relation to course
 		List<BGRepositoryEntryRelation> relations = businessGroupService.findRelationToRepositoryEntries(groupKeys, 0, -1);
-		Map<Long,Long> groupKeyToRepoKeyMap = new HashMap<Long,Long>();
+		Map<Long,List<Long>> groupKeyToRepoKeyMap = new HashMap<>();
 		for(BGRepositoryEntryRelation relation:relations) {
-			groupKeyToRepoKeyMap.put(relation.getGroupKey(), relation.getRepositoryEntryKey());
+			if(groupKeyToRepoKeyMap.containsKey(relation.getGroupKey())) {
+				groupKeyToRepoKeyMap.get(relation.getGroupKey()).add(relation.getRepositoryEntryKey());
+			} else {
+				List<Long> repoEntryKeys = new ArrayList<>(2);
+				repoEntryKeys.add(relation.getRepositoryEntryKey());
+				groupKeyToRepoKeyMap.put(relation.getGroupKey(), repoEntryKeys);
+			}	
 		}
 
 		Map<Long,CourseMemberView> repoKeyToViewMap = new HashMap<Long,CourseMemberView>();
@@ -202,10 +208,22 @@ public class CourseOverviewController extends BasicController  {
 			}
 			
 			memberView.setFirstTime(membership.getCreationDate());
-			memberView.setLastTime(membership.getLastModified());
-			memberView.getMembership().setRepoOwner(membership.isOwner());
-			memberView.getMembership().setRepoTutor(membership.isCoach());
-			memberView.getMembership().setRepoParticipant(membership.isParticipant());
+			if(memberView.getLastTime() == null ||
+					(memberView.getLastTime() != null && membership.getLastModified() != null
+					&& membership.getLastModified().after(memberView.getLastTime()))) {
+				memberView.setLastTime(membership.getLastModified());
+			}
+			
+			//add the roles
+			if(!memberView.getMembership().isRepoOwner()) {
+				memberView.getMembership().setRepoOwner(membership.isOwner());
+			}
+			if(!memberView.getMembership().isRepoTutor()) {
+				memberView.getMembership().setRepoTutor(membership.isCoach());
+			}
+			if(!memberView.getMembership().isRepoParticipant()) {
+				memberView.getMembership().setRepoParticipant(membership.isParticipant());
+			}
 		}
 
 		List<BusinessGroupShort> groups = businessGroupService.loadShortBusinessGroups(groupKeys);
@@ -215,9 +233,9 @@ public class CourseOverviewController extends BasicController  {
 		}
 		
 		for(BusinessGroupMembership membership: groupMemberships) {
-			Long repoKey;
+			List<Long> repoKeys;
 			if(groupKeyToRepoKeyMap.containsKey(membership.getGroupKey())) {
-				repoKey = groupKeyToRepoKeyMap.get(membership.getGroupKey());
+				repoKeys = groupKeyToRepoKeyMap.get(membership.getGroupKey());
 			} else {
 				continue;
 			}
@@ -227,20 +245,26 @@ public class CourseOverviewController extends BasicController  {
 				continue;
 			}
 
-			CourseMemberView memberView;
-			if(repoKeyToViewMap.containsKey(repoKey)) {
-				memberView = repoKeyToViewMap.get(repoKey);
-			} else {
-				memberView = new CourseMemberView(repoKey);
-				repoKeyToViewMap.put(repoKey, memberView);
-			}
-			memberView.addGroup(group);
-			memberView.setFirstTime(membership.getCreationDate());
-			memberView.setLastTime(membership.getLastModified());
-			switch(membership.getMembership()) {
-				case owner: memberView.getMembership().setGroupTutor(true); break;
-				case participant: memberView.getMembership().setGroupParticipant(true); break;
-				case waiting: memberView.getMembership().setGroupWaiting(true); break;
+			for(Long repoKey:repoKeys) {
+				CourseMemberView memberView;
+				if(repoKeyToViewMap.containsKey(repoKey)) {
+					memberView = repoKeyToViewMap.get(repoKey);
+				} else {
+					memberView = new CourseMemberView(repoKey);
+					repoKeyToViewMap.put(repoKey, memberView);
+				}
+				memberView.addGroup(group);
+				memberView.setFirstTime(membership.getCreationDate());
+				if(memberView.getLastTime() == null || (
+						memberView.getLastTime() != null && membership.getLastModified() != null
+						&& membership.getLastModified().after(memberView.getLastTime()))) {
+					memberView.setLastTime(membership.getLastModified());
+				}
+				switch(membership.getMembership()) {
+					case owner: memberView.getMembership().setGroupTutor(true); break;
+					case participant: memberView.getMembership().setGroupParticipant(true); break;
+					case waiting: memberView.getMembership().setGroupWaiting(true); break;
+				}
 			}
 		}
 		
@@ -370,7 +394,7 @@ public class CourseOverviewController extends BasicController  {
 	
 	private void doOpenEdit(UserRequest ureq, CourseMemberView member) {
 		RepositoryEntry repoEntry = repositoryManager.lookupRepositoryEntry(member.getRepoKey());
-		editSingleMemberCtrl = new EditSingleMembershipController(ureq, getWindowControl(), editedIdentity, repoEntry, null);
+		editSingleMemberCtrl = new EditSingleMembershipController(ureq, getWindowControl(), editedIdentity, repoEntry, null, true);
 		listenTo(editSingleMemberCtrl);
 		cmc = new CloseableModalController(getWindowControl(), translate("close"), editSingleMemberCtrl.getInitialComponent(),
 				true, translate("edit.member"));
@@ -415,7 +439,7 @@ public class CourseOverviewController extends BasicController  {
 		RepositoryEntryFilter filter = new ManagedEntryfilter();
 		repoSearchCtr = new ReferencableEntriesSearchController(getWindowControl(), ureq,
 				new String[]{ CourseModule.getCourseTypeName() }, filter,
-				translate("choose"), false, false, true, true, true, Can.all);
+				translate("choose"), false, false, true, true, Can.all);
 		repoSearchCtr.setUserObject(type);
 		listenTo(repoSearchCtr);
 		cmc = new CloseableModalController(getWindowControl(), translate("close"), repoSearchCtr.getInitialComponent(),

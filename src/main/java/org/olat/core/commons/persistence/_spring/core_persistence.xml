@@ -22,14 +22,12 @@
 		<mapping-file>org/olat/group/BusinessGroupImpl.hbm.xml</mapping-file>
 		<mapping-file>org/olat/group/model/BusinessGroupViewImpl.hbm.xml</mapping-file>
 		<mapping-file>org/olat/resource/lock/pessimistic/PLockImpl.hbm.xml</mapping-file>
-		<mapping-file>org/olat/resource/references/ReferenceImpl.hbm.xml</mapping-file>
 		<mapping-file>org/olat/resource/OLATResourceImpl.hbm.xml</mapping-file>
 		<mapping-file>org/olat/resource/accesscontrol/model/Offer.hbm.xml</mapping-file>
 		<mapping-file>org/olat/resource/accesscontrol/model/AccessMethod.hbm.xml</mapping-file>
 		<mapping-file>org/olat/resource/accesscontrol/model/AccessTransaction.hbm.xml</mapping-file>
 		<mapping-file>org/olat/resource/accesscontrol/model/OfferAccess.hbm.xml</mapping-file>
 		<mapping-file>org/olat/resource/accesscontrol/model/Order.hbm.xml</mapping-file>
-		<mapping-file>org/olat/resource/accesscontrol/model/Reservation.hbm.xml</mapping-file>
 		<mapping-file>org/olat/resource/accesscontrol/provider/paypal/model/PaypalAccessMethod.hbm.xml</mapping-file>
 		<mapping-file>org/olat/resource/accesscontrol/provider/paypal/model/PaypalTransaction.hbm.xml</mapping-file>
 		<mapping-file>org/olat/basesecurity/AuthenticationImpl.hbm.xml</mapping-file>
@@ -106,6 +104,9 @@
 		<class>org.olat.course.assessment.model.UserCourseInfosImpl</class>
 		<class>org.olat.course.nodes.cl.model.DBCheckbox</class>
 		<class>org.olat.course.nodes.cl.model.DBCheck</class>
+		<class>org.olat.course.nodes.gta.model.TaskImpl</class>
+		<class>org.olat.course.nodes.gta.model.TaskLightImpl</class>
+		<class>org.olat.course.nodes.gta.model.TaskListImpl</class>
 		<class>org.olat.course.certificate.model.CertificateImpl</class>
 		<class>org.olat.course.certificate.model.CertificateStandalone</class>
 		<class>org.olat.course.certificate.model.CertificateLightImpl</class>
@@ -120,6 +121,8 @@
 		<class>org.olat.repository.model.RepositoryEntryStatistics</class>
 		<class>org.olat.repository.model.RepositoryEntryLightImpl</class>
 		<class>org.olat.repository.model.RepositoryEntryMembership</class>
+		<class>org.olat.resource.references.ReferenceImpl</class>
+		<class>org.olat.resource.accesscontrol.model.ResourceReservationImpl</class>
 		<class>org.olat.instantMessaging.model.InstantMessageImpl</class>
 		<class>org.olat.instantMessaging.model.ImPreferencesImpl</class>
 		<class>org.olat.instantMessaging.model.RosterEntryImpl</class>
@@ -140,6 +143,8 @@
 		<class>org.olat.modules.qpool.model.QEducationalContext</class>
 		<class>org.olat.modules.qpool.model.QItemType</class>
 		<class>org.olat.modules.qpool.model.QLicense</class>
+		<class>org.olat.modules.reminder.model.ReminderImpl</class>
+		<class>org.olat.modules.reminder.model.SentReminderImpl</class>
 		<class>org.olat.ims.lti.model.LTIOutcomeImpl</class>
 		<class>org.olat.portfolio.model.InvitationImpl</class>
 		<class>org.olat.portfolio.model.structel.EPStructureElementToGroupRelation</class>

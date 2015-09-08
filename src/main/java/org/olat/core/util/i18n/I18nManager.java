@@ -139,6 +139,7 @@ public class I18nManager extends BasicManager {
 	private ConcurrentMap<String, Properties> cachedBundles = new ConcurrentHashMap<String, Properties>();
 	private ConcurrentMap<String, String> cachedJSTranslatorData = new ConcurrentHashMap<String, String>();
 	private ConcurrentMap<String, Deque<String>> referencingBundlesIndex = new ConcurrentHashMap<String, Deque<String>>();
+	private static final ConcurrentMap<Locale,String> localeToLocaleKey = new ConcurrentHashMap<>();
 	private boolean cachingEnabled = true;
 
 	private static FilenameFilter i18nFileFilter = new FilenameFilter() {
@@ -200,11 +201,16 @@ public class I18nManager extends BasicManager {
 	 *         possible and not found
 	 */
 	public String getLocalizedString(String bundleName, String key, Object[] args, Locale locale, boolean overlayEnabled, boolean fallBackToDefaultLocale) {
-		return getLocalizedString(bundleName, key, args, locale, overlayEnabled, fallBackToDefaultLocale, true, true, 0);
+		return getLocalizedString(bundleName, key, args, locale, overlayEnabled, fallBackToDefaultLocale, true, true, true, 0);
 	}
 
 	public String getLocalizedString(String bundleName, String key, Object[] args, Locale locale, boolean overlayEnabled, boolean fallBackToDefaultLocale,
 			boolean fallBackToFallbackLocale, boolean resolveRecursively, int recursionLevel) {
+		return getLocalizedString(bundleName, key, args, locale, overlayEnabled, fallBackToDefaultLocale, fallBackToFallbackLocale, resolveRecursively, true, recursionLevel);
+	}
+	
+	private final String getLocalizedString(String bundleName, String key, Object[] args, Locale locale, boolean overlayEnabled, boolean fallBackToDefaultLocale,
+			boolean fallBackToFallbackLocale, boolean resolveRecursively, boolean allowDecoration, int recursionLevel) {
 		String msg = null;
 		Properties properties = null;
 		// a) If the overlay is enabled, lookup first in the overlay property
@@ -304,7 +310,7 @@ public class I18nManager extends BasicManager {
 		}
 
 		// Add markup code to identify translated strings
-		if (isCurrentThreadMarkLocalizedStringsEnabled() 
+		if (allowDecoration && isCurrentThreadMarkLocalizedStringsEnabled() 
 				&& !bundleName.startsWith(BUNDLE_INLINE_TRANSLATION_INTERCEPTOR)
 				&& !bundleName.startsWith(BUNDLE_EXCEPTION)
 				&& isInlineTranslationEnabledForKey(bundleName, key)) {
@@ -928,7 +934,7 @@ public class I18nManager extends BasicManager {
 				}
 			} else {
 				// Resolve using other bundle
-				String resolvedKey = getLocalizedString(toResolvedBundle, toResolvedKey, null, locale, overlayEnabled, true, true, true, recursionLevel);
+				String resolvedKey = getLocalizedString(toResolvedBundle, toResolvedKey, null, locale, overlayEnabled, true, true, true, false, recursionLevel);
 				if (StringHelper.containsNonWhitespace(resolvedKey)) {
 					resolvedValue.append(resolvedKey);
 					lastPos = matcher.end();
@@ -1216,8 +1222,11 @@ public class I18nManager extends BasicManager {
 	 */
 	public String getLanguageTranslated(String languageKey, boolean overlayEnabled) {
 		// Load it from package without fallback
-		String translated = getLocalizedString(I18nModule.getCoreFallbackBundle(), "this.language.translated", null, I18nModule
-				.getAllLocales().get(languageKey), overlayEnabled, false, false, false, 0);
+		String translated = null;
+		Locale locale = I18nModule.getAllLocales().get(languageKey);
+		if(locale != null) {
+			translated = getLocalizedString(I18nModule.getCoreFallbackBundle(), "this.language.translated", null, locale, overlayEnabled, false, false, false, 0);
+		}
 		if (translated == null) {
 			// Use the english version as callback
 			translated = getLanguageInEnglish(languageKey, overlayEnabled);
@@ -1689,26 +1698,35 @@ public class I18nManager extends BasicManager {
 	 * @return
 	 */
 	public String getLocaleKey(Locale locale) {
-		String langKey = locale.getLanguage();
-		String country = locale.getCountry();
-		// Only add country when available - in case of an overlay country is
-		// set to
-		// an empty value
-		if (StringHelper.containsNonWhitespace(country)) {
-			langKey = langKey + "_" + country;
-		}
-		String variant = locale.getVariant();
-		// Only add the _ separator if the variant contains something in
-		// addition to
-		// the overlay, otherways use the __ only
-		if (StringHelper.containsNonWhitespace(variant)) {
-			if (variant.startsWith("__" + I18nModule.getOverlayName())) {
-				langKey += variant;
-			} else {
-				langKey = langKey + "_" + variant;
+		String key = localeToLocaleKey.get(locale);
+		if(key == null) {
+			String langKey = locale.getLanguage();
+			String country = locale.getCountry();
+			// Only add country when available - in case of an overlay country is
+			// set to
+			// an empty value
+			if (StringHelper.containsNonWhitespace(country)) {
+				langKey = langKey + "_" + country;
 			}
+			String variant = locale.getVariant();
+			// Only add the _ separator if the variant contains something in
+			// addition to
+			// the overlay, otherways use the __ only
+			if (StringHelper.containsNonWhitespace(variant)) {
+				if (variant.startsWith("__" + I18nModule.getOverlayName())) {
+					langKey += variant;
+				} else {
+					langKey = langKey + "_" + variant;
+				}
+			}
+			
+			key = localeToLocaleKey.putIfAbsent(locale, langKey);
+			if(key == null) {
+				key = langKey;
+			}
+			
 		}
-		return langKey;
+		return key;
 	}
 
 	/**

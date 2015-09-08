@@ -81,25 +81,19 @@ import org.olat.core.id.OLATResourceable;
 import org.olat.core.id.Roles;
 import org.olat.core.id.context.ContextEntry;
 import org.olat.core.id.context.StateEntry;
-import org.olat.core.logging.OLATSecurityException;
 import org.olat.core.logging.activity.ThreadLocalUserActivityLogger;
 import org.olat.core.util.StringHelper;
 import org.olat.core.util.Util;
-import org.olat.core.util.coordinate.CoordinatorManager;
 import org.olat.core.util.coordinate.LockResult;
 import org.olat.core.util.resource.OresHelper;
 import org.olat.course.CorruptedCourseException;
 import org.olat.course.CourseModule;
-import org.olat.course.run.RunMainController;
-import org.olat.repository.ErrorList;
 import org.olat.repository.RepositoryEntry;
 import org.olat.repository.RepositoryEntryManagedFlag;
 import org.olat.repository.RepositoryEntryRef;
 import org.olat.repository.RepositoryManager;
 import org.olat.repository.RepositoryModule;
 import org.olat.repository.RepositoryService;
-import org.olat.repository.controllers.EntryChangedEvent;
-import org.olat.repository.controllers.EntryChangedEvent.Change;
 import org.olat.repository.handlers.RepositoryHandler;
 import org.olat.repository.handlers.RepositoryHandlerFactory;
 import org.olat.repository.handlers.RepositoryHandlerFactory.OrderedRepositoryHandler;
@@ -137,7 +131,6 @@ public class AuthorListController extends FormBasicController implements Activat
 	private AuthorSearchController searchCtrl;
 	private UserSearchController userSearchCtr;
 	private DialogBoxController copyDialogCtrl;
-	private DialogBoxController deleteDialogCtrl;
 	private CopyRepositoryEntryController copyCtrl;
 	private StepsMainRunController closeCtrl;
 	private ConfirmDeleteController confirmDeleteCtrl;
@@ -282,10 +275,10 @@ public class AuthorListController extends FormBasicController implements Activat
 		columnsModel.addFlexiColumnModel(new DefaultFlexiColumnModel(false, Cols.lastUsage.i18nKey(), Cols.lastUsage.ordinal(),
 				true, OrderBy.lastUsage.name()));
 		columnsModel.addFlexiColumnModel(new StaticFlexiColumnModel(Cols.detailsSupported.i18nKey(), Cols.detailsSupported.ordinal(), "details",
-				new StaticFlexiCellRenderer("", "details", "o_icon-lg o_icon_details", translate("details"))));
+				new StaticFlexiCellRenderer("", "details", "o_icon o_icon-lg o_icon_details", translate("details"))));
 		if(hasAuthorRight) {
 			columnsModel.addFlexiColumnModel(new StaticFlexiColumnModel(Cols.editionSupported.i18nKey(), Cols.editionSupported.ordinal(), "edit",
-				new BooleanCellRenderer(new StaticFlexiCellRenderer("", "edit", "o_icon-lg o_icon_edit", translate("edit")), null)));
+				new BooleanCellRenderer(new StaticFlexiCellRenderer("", "edit", "o_icon o_icon-lg o_icon_edit", translate("edit")), null)));
 			columnsModel.addFlexiColumnModel(new DefaultFlexiColumnModel(Cols.tools.i18nKey(), Cols.tools.ordinal()));
 		}
 		
@@ -430,12 +423,6 @@ public class AuthorListController extends FormBasicController implements Activat
 				toolsCalloutCtrl.deactivate();
 				cleanUp();
 			}
-		} else if(deleteDialogCtrl == source) {
-			if (DialogBoxUIFactory.isYesEvent(event)) {
-				AuthoringEntryRow row = (AuthoringEntryRow)deleteDialogCtrl.getUserObject();
-				doCompleteDelete(ureq, row);
-				reloadRows();
-			}
 		} else if(closeCtrl == source) {
 			if(event == Event.CANCELLED_EVENT || event == Event.DONE_EVENT || event == Event.CHANGED_EVENT) {
 				getWindowControl().pop();
@@ -446,13 +433,14 @@ public class AuthorListController extends FormBasicController implements Activat
 				}
 			}
 		} else if(confirmDeleteCtrl == source) {
-			cmc.deactivate();
-			if(event == Event.DONE_EVENT) {
-				List<AuthoringEntryRow> rows = confirmDeleteCtrl.getRows();
-				doCompleteDelete(ureq, rows);
+			if(event == Event.CANCELLED_EVENT) {
+				cmc.deactivate();
+				cleanUp();
+			} else if(event == Event.DONE_EVENT || event == Event.CHANGED_EVENT) {
+				cmc.deactivate();
 				reloadRows();
+				cleanUp();
 			}
-			cleanUp();
 		} else if(copyDialogCtrl == source) {
 			if (DialogBoxUIFactory.isYesEvent(event)) {
 				@SuppressWarnings("unchecked")
@@ -503,7 +491,7 @@ public class AuthorListController extends FormBasicController implements Activat
 		} else if(deleteButton == source) {
 			List<AuthoringEntryRow> rows = getMultiSelectedRows();
 			if(!rows.isEmpty()) {
-				doConfirmDelete(ureq, rows);
+				doDelete(ureq, rows);
 			}
 		} else if(source instanceof FormLink) {
 			FormLink link = (FormLink)source;
@@ -661,16 +649,31 @@ public class AuthorListController extends FormBasicController implements Activat
 	private void doAddOwners(UserRequest ureq, List<AuthoringEntryRow> rows) {
 		if(userSearchCtr != null) return;
 		
-		removeAsListenerAndDispose(userSearchCtr);
-		userSearchCtr = new UserSearchController(ureq, getWindowControl(), false, true, UserSearchController.ACTION_KEY_CHOOSE_FINISH);
-		userSearchCtr.setUserObject(rows);
-		listenTo(userSearchCtr);
+		Roles roles = ureq.getUserSession().getRoles();
+		List<AuthoringEntryRow> manageableRows = new ArrayList<>(rows.size());
+		for(AuthoringEntryRow row:rows) {
+			boolean managed = RepositoryEntryManagedFlag.isManaged(row.getManagedFlags(), RepositoryEntryManagedFlag.membersmanagement);
+			boolean canAddOwner = roles.isOLATAdmin() || repositoryService.hasRole(ureq.getIdentity(), row, GroupRoles.owner.name())
+					|| repositoryManager.isInstitutionalRessourceManagerFor(getIdentity(), roles, row);
+			if(canAddOwner && !managed) {
+				manageableRows.add(row);
+			}
+		}
 		
-		String title = translate("tools.add.owners");
-		cmc = new CloseableModalController(getWindowControl(), translate("close"), userSearchCtr.getInitialComponent(),
-				true, title);
-		listenTo(cmc);
-		cmc.activate();
+		if(manageableRows.isEmpty()) {
+			showWarning("bulk.update.nothing.selected");
+		} else {
+			removeAsListenerAndDispose(userSearchCtr);
+			userSearchCtr = new UserSearchController(ureq, getWindowControl(), false, true, UserSearchController.ACTION_KEY_CHOOSE_FINISH);
+			userSearchCtr.setUserObject(manageableRows);
+			listenTo(userSearchCtr);
+			
+			String title = translate("tools.add.owners");
+			cmc = new CloseableModalController(getWindowControl(), translate("close"), userSearchCtr.getInitialComponent(),
+					true, title);
+			listenTo(cmc);
+			cmc.activate();
+		}
 	}
 	
 	private void doAddOwners(List<Identity> futureOwners, List<AuthoringEntryRow> rows) {
@@ -683,7 +686,6 @@ public class AuthorListController extends FormBasicController implements Activat
 	}
 	
 	private void doConfirmCopy(UserRequest ureq, List<AuthoringEntryRow> rows) {
-		
 		Roles roles = ureq.getUserSession().getRoles();
 		List<AuthoringEntryRow> copyableRows = new ArrayList<>(rows.size());
 		for(AuthoringEntryRow row:rows) {
@@ -728,33 +730,6 @@ public class AuthorListController extends FormBasicController implements Activat
 		showInfo("details.copy.success", new String[]{ Integer.toString(rows.size()) });
 	}
 	
-	private void doConfirmDelete(UserRequest ureq, List<AuthoringEntryRow> rows) {
-		Roles roles = ureq.getUserSession().getRoles();
-		List<AuthoringEntryRow> deleteableRows = new ArrayList<>(rows.size());
-		for(AuthoringEntryRow row:rows) {
-			boolean managed = RepositoryEntryManagedFlag.isManaged(row.getManagedFlags(), RepositoryEntryManagedFlag.copy);
-			boolean canDelete = roles.isOLATAdmin() || repositoryService.hasRole(ureq.getIdentity(), row, GroupRoles.owner.name())
-					|| repositoryManager.isInstitutionalRessourceManagerFor(getIdentity(), roles, row);
-			if(canDelete && !managed) {
-				deleteableRows.add(row);
-			}
-		}
-		if(deleteableRows.isEmpty()) {
-			showWarning("bulk.update.nothing.selected");
-		} else {
-			removeAsListenerAndDispose(confirmDeleteCtrl);
-			removeAsListenerAndDispose(cmc);
-			
-			confirmDeleteCtrl = new ConfirmDeleteController(ureq, getWindowControl(), deleteableRows, rows.size() != deleteableRows.size());
-			listenTo(confirmDeleteCtrl);
-			
-			String title = translate("details.delete");
-			cmc = new CloseableModalController(getWindowControl(), translate("close"), confirmDeleteCtrl.getInitialComponent(), true, title);
-			listenTo(cmc);
-			cmc.activate();
-		}
-	}
-	
 	private void doCloseResource(UserRequest ureq, AuthoringEntryRow row) {
 		removeAsListenerAndDispose(closeCtrl);
 		
@@ -782,59 +757,34 @@ public class AuthorListController extends FormBasicController implements Activat
 		cmc.activate();
 	}
 	
-	private void doDelete(UserRequest ureq, AuthoringEntryRow row) {
-		boolean isOwner = true;
-		if (!isOwner) throw new OLATSecurityException("Trying to delete, but not allowed: user = " + ureq.getIdentity());
-
-		//show how many users are currently using this resource
-		String dialogTitle = translate("del.header", row.getDisplayname());
-		Long resId = row.getRepositoryEntryResourceable().getResourceableId();
-		OLATResourceable courseRunOres = OresHelper.createOLATResourceableInstance(RunMainController.ORES_TYPE_COURSE_RUN, resId);
-		int cnt = CoordinatorManager.getInstance().getCoordinator().getEventBus().getListeningIdentityCntFor(courseRunOres);
-		
-		boolean corrupted = false;
-		
-		String dialogText = translate(corrupted ? "del.confirm.corrupted" : "del.confirm", String.valueOf(cnt));
-		deleteDialogCtrl = activateYesNoDialog(ureq, dialogTitle, dialogText, deleteDialogCtrl);
-		deleteDialogCtrl.setUserObject(row);
-	}
-	
-	private void doCompleteDelete(UserRequest ureq, AuthoringEntryRow row) {
+	private void doDelete(UserRequest ureq, List<AuthoringEntryRow> rows) {
 		Roles roles = ureq.getUserSession().getRoles();
-		RepositoryEntry entry = repositoryService.loadByKey(row.getKey());
-		if(entry != null) {
-			ErrorList errors = repositoryService.delete(entry, getIdentity(), roles, getLocale());
-			if (errors.hasErrors()) {
-				showInfo("info.could.not.delete.entry");
-			} else {
-				fireEvent(ureq, new EntryChangedEvent(entry, getIdentity(), Change.deleted));
-				showInfo("info.entry.deleted");
-			}
-		}
-	}
-	private void doCompleteDelete(UserRequest ureq, List<AuthoringEntryRow> rows) {
-		boolean allOk = true;
-		Roles roles = ureq.getUserSession().getRoles();
+		List<Long> deleteableRowKeys = new ArrayList<>(rows.size());
 		for(AuthoringEntryRow row:rows) {
-			RepositoryEntry entry = repositoryService.loadByKey(row.getKey());
-			if(entry != null) {
-				ErrorList errors = repositoryService.delete(entry, getIdentity(), roles, getLocale());
-				if (errors.hasErrors()) {
-					showInfo("info.could.not.delete.entry");
-					allOk = false;
-					break;
-				} else {
-					fireEvent(ureq, new EntryChangedEvent(entry, getIdentity(), Change.deleted));
-				}
+			boolean managed = RepositoryEntryManagedFlag.isManaged(row.getManagedFlags(), RepositoryEntryManagedFlag.copy);
+			boolean canDelete = roles.isOLATAdmin() || repositoryService.hasRole(ureq.getIdentity(), row, GroupRoles.owner.name())
+					|| repositoryManager.isInstitutionalRessourceManagerFor(getIdentity(), roles, row);
+			if(canDelete && !managed) {
+				deleteableRowKeys.add(row.getKey());
 			}
-			
 		}
 		
-		if(allOk) {
-			showInfo("info.entry.deleted");
+		List<RepositoryEntry> entriesToDelete = repositoryManager.lookupRepositoryEntries(deleteableRowKeys);
+		if(entriesToDelete.isEmpty()) {
+			showWarning("bulk.update.nothing.selected");
+		} else {
+			removeAsListenerAndDispose(confirmDeleteCtrl);
+			removeAsListenerAndDispose(cmc);
+			
+			confirmDeleteCtrl = new ConfirmDeleteController(ureq, getWindowControl(), entriesToDelete, rows.size() != entriesToDelete.size());
+			listenTo(confirmDeleteCtrl);
+			
+			String title = translate("details.delete");
+			cmc = new CloseableModalController(getWindowControl(), translate("close"), confirmDeleteCtrl.getInitialComponent(), true, title);
+			listenTo(cmc);
+			cmc.activate();
 		}
 	}
-	
 	
 	private void doDownload(UserRequest ureq, AuthoringEntryRow row) {
 		RepositoryHandler typeToDownload = repositoryHandlerFactory.getRepositoryHandler(row.getResourceType());
@@ -905,10 +855,12 @@ public class AuthorListController extends FormBasicController implements Activat
 	}
 	
 	private void launchEditDescription(UserRequest ureq, RepositoryEntry re) {
-		RepositoryHandler handler = repositoryHandlerFactory.getRepositoryHandler(re);
-		if(handler != null) {
-			String businessPath = "[RepositoryEntry:" + re.getKey() + "][EditDescription:0]";
-			NewControllerFactory.getInstance().launch(businessPath, ureq, getWindowControl());
+		if(re != null) {
+			RepositoryHandler handler = repositoryHandlerFactory.getRepositoryHandler(re);
+			if(handler != null) {
+				String businessPath = "[RepositoryEntry:" + re.getKey() + "][EditDescription:0]";
+				NewControllerFactory.getInstance().launch(businessPath, ureq, getWindowControl());
+			}
 		}
 	}
 	
@@ -973,7 +925,7 @@ public class AuthorListController extends FormBasicController implements Activat
 			Roles roles = ureq.getUserSession().getRoles();
 			isOlatAdmin = roles.isOLATAdmin();
 			boolean isInstitutionalResourceManager = !roles.isGuestOnly()
-						&& RepositoryManager.getInstance().isInstitutionalRessourceManagerFor(identity, roles, entry);
+						&& repositoryManager.isInstitutionalRessourceManagerFor(identity, roles, entry);
 			isOwner = isOlatAdmin || repositoryService.hasRole(ureq.getIdentity(), entry, GroupRoles.owner.name())
 						|| isInstitutionalResourceManager;
 			isAuthor = isOlatAdmin || roles.isAuthor() | isInstitutionalResourceManager;
@@ -1064,7 +1016,7 @@ public class AuthorListController extends FormBasicController implements Activat
 				} else if("close".equals(cmd)) {
 					doCloseResource(ureq, row);
 				} else if("delete".equals(cmd)) {
-					doDelete(ureq, row);
+					doDelete(ureq, Collections.singletonList(row));
 				}
 			}
 		}

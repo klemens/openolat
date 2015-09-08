@@ -72,6 +72,7 @@ import org.olat.dispatcher.LocaleNegotiator;
 import org.olat.user.UserManager;
 import org.olat.user.UserPropertiesConfig;
 import org.olat.user.propertyhandlers.UserPropertyHandler;
+import org.springframework.beans.factory.annotation.Autowired;
 
 /**
  * Description:<br>
@@ -89,12 +90,14 @@ public class RegistrationController extends BasicController implements Activatea
 	private Link loginButton;
 	private WizardInfoController wizInfoController;
 	private DisclaimerController disclaimerController;
-	private RegistrationManager registrationManager = RegistrationManager.getInstance();
 	private EmailSendingForm emailSendForm;
 	private RegistrationForm2 registrationForm;
 	private LanguageChooserController langChooserController;
 	private String uniqueRegistrationKey;
 	private TemporaryKeyImpl tempKey;
+	
+	@Autowired
+	private RegistrationManager registrationManager;
 
 	/**
 	 * Controller implementing registration work flow.
@@ -109,7 +112,11 @@ public class RegistrationController extends BasicController implements Activatea
 		}
 		// override language when not the same as in ureq and add fallback to
 		// property handler translator for user properties
-		String lang = ureq.getParameter("lang");
+		String lang = ureq.getParameter("language");
+		if (lang == null) {
+			// support for legacy lang parameter
+			lang = ureq.getParameter("lang");
+		}
 		if (lang != null && ! lang.equals(I18nManager.getInstance().getLocaleKey(getLocale()))) {
 			Locale loc = I18nManager.getInstance().getLocaleOrDefault(lang);
 			ureq.getUserSession().setLocale(loc);
@@ -464,7 +471,7 @@ public class RegistrationController extends BasicController implements Activatea
 			}
 
 			// tell system that this user did accept the disclaimer
-			RegistrationManager.getInstance().setHasConfirmedDislaimer(persistedIdentity);
+			registrationManager.setHasConfirmedDislaimer(persistedIdentity);
 			return persistedIdentity;
 		}
 	}
