@@ -1,7 +1,9 @@
 package de.htwk.autolat.BBautOLAT.structure;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import org.olat.core.gui.components.table.DefaultTableDataModel;
 import org.olat.core.gui.components.table.TableDataModel;
@@ -43,6 +45,12 @@ public class HighScoreTableModel extends DefaultTableDataModel implements TableD
 	 * List of configurations 
 	 */
 	private List<Configuration> configs;
+
+	/**
+	 * Used to prevent identity lookups on every getValueAt call
+	 */
+	private Map<Identity, Student> userCache;
+
 	/**
 	 * Constructor
 	 * @param objects
@@ -55,6 +63,7 @@ public class HighScoreTableModel extends DefaultTableDataModel implements TableD
 		this.configs = new ArrayList<Configuration>();
 		this.tasks = tasks;
 		
+		this.userCache = new HashMap<Identity, Student>();
 		
 		//create toplists
 		topLists = new ArrayList<List<ScoreObject>>();
@@ -139,7 +148,7 @@ public class HighScoreTableModel extends DefaultTableDataModel implements TableD
 		
 		
 		List<ScoreObject> topList = topLists.get(taskIndex);
-		Student stud = StudentManagerImpl.getInstance().getStudentByIdentity(user);
+		Student stud = getStudent(user);
 		
 		if(stud == null) {
 			return 0;
@@ -156,7 +165,7 @@ public class HighScoreTableModel extends DefaultTableDataModel implements TableD
 	
 	private boolean getPassed(Identity user, BBautOLATCourseNode bautOLATCourseNode, int taskIndex) {
 		
-		Student stud = StudentManagerImpl.getInstance().getStudentByIdentity(user);
+		Student stud = getStudent(user);
 		Configuration conf = configs.get(taskIndex);
 		if(stud == null) {
 			return false;
@@ -177,6 +186,15 @@ public class HighScoreTableModel extends DefaultTableDataModel implements TableD
 		return result.getHasPassed();
 		
 	}
-	
-	
+
+	private Student getStudent(Identity identity) {
+		Student student = userCache.get(identity);
+
+		if(student == null) {
+			student = StudentManagerImpl.getInstance().getStudentByIdentity(identity);
+			userCache.put(identity, student); // ok even if student == null
+		}
+
+		return student;
+	}
 }
