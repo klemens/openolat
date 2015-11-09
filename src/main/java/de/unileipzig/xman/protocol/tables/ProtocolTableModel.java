@@ -78,7 +78,9 @@ public class ProtocolTableModel extends DefaultTableDataModel<Protocol> {
 		tableCtr.addColumnDescriptor(new DefaultColumnDescriptor("ProtocolTableModel.header.examName", columnCount++, EXAM_LAUNCH, locale));
 		tableCtr.addColumnDescriptor(new DefaultColumnDescriptor("ProtocolTableModel.header.date", columnCount++, null, locale));
 		tableCtr.addColumnDescriptor(new DefaultColumnDescriptor("ProtocolTableModel.header.loc", columnCount++, null, locale));
-		tableCtr.addColumnDescriptor(new DefaultColumnDescriptor("ProtocolTableModel.header.comment", columnCount++, null, locale));
+		DefaultColumnDescriptor comments = new DefaultColumnDescriptor("ProtocolTableModel.header.comment", columnCount++, null, locale);
+		comments.setEscapeHtml(EscapeMode.none);
+		tableCtr.addColumnDescriptor(comments);
 		tableCtr.addColumnDescriptor(new DefaultColumnDescriptor("ProtocolTableModel.header.mark", columnCount++, null, locale));
 		
 		DefaultColumnDescriptor status = new DefaultColumnDescriptor("ProtocolTableModel.header.status", columnCount++, null, locale);

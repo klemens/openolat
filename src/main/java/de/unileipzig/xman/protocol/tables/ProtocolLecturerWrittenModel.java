@@ -76,7 +76,9 @@ public class ProtocolLecturerWrittenModel extends DefaultTableDataModel<Protocol
 		tableController.addColumnDescriptor(new DefaultColumnDescriptor("ProtocolLecturerWrittenModel.header.matrikel", 1, null, getLocale()));
 		tableController.addColumnDescriptor(new DefaultColumnDescriptor("ProtocolLecturerWrittenModel.header.studypath", 2, null, getLocale()));
 		tableController.addColumnDescriptor(new DefaultColumnDescriptor("ProtocolLecturerWrittenModel.header.result", 3, null, getLocale()));
-		tableController.addColumnDescriptor(new DefaultColumnDescriptor("ProtocolLecturerWrittenModel.header.comment", 4, null, getLocale()));
+		DefaultColumnDescriptor comment = new DefaultColumnDescriptor("ProtocolLecturerWrittenModel.header.comment", 4, null, getLocale());
+		comment.setEscapeHtml(EscapeMode.none);
+		tableController.addColumnDescriptor(comment);
 				
 		DefaultColumnDescriptor status = new DefaultColumnDescriptor("ProtocolLecturerWrittenModel.header.status", 5, null, getLocale()) {
 			/**
