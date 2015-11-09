@@ -165,6 +165,7 @@ public class MailManagerImpl extends BasicManager implements MailManager {
 			velocityEngine = new VelocityEngine();
 			p = new Properties();
 			p.setProperty(RuntimeConstants.RUNTIME_LOG_LOGSYSTEM_CLASS, "org.apache.velocity.runtime.log.SimpleLog4JLogSystem");
+			p.setProperty(RuntimeConstants.RESOURCE_MANAGER_CACHE_CLASS, "org.olat.core.gui.render.velocity.InfinispanResourceCache");
 			p.setProperty("runtime.log.logsystem.log4j.category", "syslog");
 			velocityEngine.init(p);
 		} catch (Exception e) {
@@ -1444,9 +1445,11 @@ public class MailManagerImpl extends BasicManager implements MailManager {
 	 */
 	private MimeMessage createMessage(Address bounceAdress) {
 		String mailhost = WebappHelper.getMailConfig("mailhost");
+		String mailport = WebappHelper.getMailConfig("mailport");
 		String mailhostTimeout = WebappHelper.getMailConfig("mailTimeout");
 		boolean sslEnabled = Boolean.parseBoolean(WebappHelper.getMailConfig("sslEnabled"));
 		boolean sslCheckCertificate = Boolean.parseBoolean(WebappHelper.getMailConfig("sslCheckCertificate"));
+		boolean startTls = Boolean.parseBoolean(WebappHelper.getMailConfig("smtpStarttls"));
 		
 		Authenticator smtpAuth;
 		if (WebappHelper.isMailHostAuthenticationEnabled()) {
@@ -1460,10 +1463,18 @@ public class MailManagerImpl extends BasicManager implements MailManager {
 		Properties p = new Properties();
 		p.put("mail.smtp.from", bounceAdress.toString());
 		p.put("mail.smtp.host", mailhost);
+		if(StringHelper.containsNonWhitespace(mailport)) {
+			p.put("mail.smtp.port", mailport);
+		}
 		p.put("mail.smtp.timeout", mailhostTimeout);
 		p.put("mail.smtp.connectiontimeout", mailhostTimeout);
 		p.put("mail.smtp.ssl.enable", sslEnabled);
 		p.put("mail.smtp.ssl.checkserveridentity", sslCheckCertificate);
+		if(startTls) {
+			p.put("mail.smtp.starttls.enable", "true");
+			p.put("mail.smtp.ssl.trust", mailhost);
+		}
+		
 		Session mailSession;
 		if (smtpAuth == null) {
 			mailSession = javax.mail.Session.getInstance(p);

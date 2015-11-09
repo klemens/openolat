@@ -15,7 +15,14 @@
 			float: right;
 			margin-left: 2em;
 			margin-bottom: 2em;			
-		}
+			/* reset when no description is there to render left aligned */
+			&.o_desc_empty {
+				float: none;
+				margin-left: 0;
+				margin-bottom: 0;						
+			}
+		}		
+		
 		h1 i {
 			display: none;
 		}
@@ -27,12 +34,6 @@
 		}
 		div {
 			margin-bottom: 0.25em;
-		}
-	}
-	
-	.o_infopanel, o_usagepanel, o_managedpanel {
-		.panel-title {
-			cursor: pointer;
 		}
 	}
 		
@@ -71,6 +72,16 @@
 			width: 100%;
 		}
 	}
+}
+
+.o_meta .o_closed {
+	padding: 2px 5px;
+	margin: 5px 0;
+}
+
+.o_overview .o_closed {
+	padding: 12px 15px;
+	margin: 15px 0;
 }
 
 .o_ac_configuration {

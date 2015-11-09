@@ -24,6 +24,7 @@ import org.olat.core.gui.components.form.flexible.impl.Form;
 import org.olat.core.gui.control.WindowControl;
 import org.olat.core.gui.control.generic.wizard.BasicStep;
 import org.olat.core.gui.control.generic.wizard.PrevNextFinishConfig;
+import org.olat.core.gui.control.generic.wizard.Step;
 import org.olat.core.gui.control.generic.wizard.StepFormController;
 import org.olat.core.gui.control.generic.wizard.StepsRunContext;
 
@@ -35,12 +36,14 @@ import org.olat.core.gui.control.generic.wizard.StepsRunContext;
  */
 public class QImport_1_InputStep extends BasicStep {
 	
+	private final ImportOptions options;
 	private final ItemsPackage importedItems;
 	
-	public QImport_1_InputStep(UserRequest ureq, ItemsPackage importedItems) {
+	public QImport_1_InputStep(UserRequest ureq, ItemsPackage importedItems, ImportOptions options, Step additionalStep) {
 		super(ureq);
+		this.options = options;
 		this.importedItems = importedItems;
-		setNextStep(new QImport_2_OverviewStep(ureq, importedItems));
+		setNextStep(new QImport_2_OverviewStep(ureq, importedItems, additionalStep));
 		setI18nTitleAndDescr("wizard.import.input.title", "wizard.import.input.title");
 	}
 
@@ -51,6 +54,6 @@ public class QImport_1_InputStep extends BasicStep {
 
 	@Override
 	public StepFormController getStepController(UserRequest ureq, WindowControl wControl, StepsRunContext runContext, Form form) {
-		return new TextInputController(ureq, wControl, runContext, form, importedItems);
+		return new TextInputController(ureq, wControl, runContext, form, importedItems, options);
 	}
 }

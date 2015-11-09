@@ -88,6 +88,7 @@ public class AssessedIdentityCertificatesController extends BasicController impl
 
 		if(courseConfig.isManualCertificationEnabled()) {
 			generateLink = LinkFactory.createLink("generate.certificate", "generate", getTranslator(), mainVC, this, Link.BUTTON);
+			generateLink.setElementCssClass("o_sel_certificate_generate");
 		}
 		loadList();
 		putInitialPanel(mainVC);
@@ -184,7 +185,7 @@ public class AssessedIdentityCertificatesController extends BasicController impl
 		ICourse course = CourseFactory.loadCourse(resource);
 		Identity assessedIdentity = assessedUserCourseEnv.getIdentityEnvironment().getIdentity();
 		RepositoryEntry courseEntry = course.getCourseEnvironment().getCourseGroupManager().getCourseEntry();
-		if(certificatesManager.isRecertificationAllowed(assessedIdentity, courseEntry)) {
+		if(certificatesManager.isCertificationAllowed(assessedIdentity, courseEntry)) {
 			//don't need to confirm
 			doGenerateCertificate(ureq);
 		} else {

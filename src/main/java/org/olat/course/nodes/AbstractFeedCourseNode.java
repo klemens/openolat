@@ -67,6 +67,7 @@ public abstract class AbstractFeedCourseNode extends GenericCourseNode {
 	/**
 	 * @see org.olat.course.nodes.GenericCourseNode#updateModuleConfigDefaults(boolean)
 	 */
+	@Override
 	public void updateModuleConfigDefaults(boolean isNewNode) {
 		this.config = getModuleConfiguration();
 		if (isNewNode) {
@@ -87,8 +88,8 @@ public abstract class AbstractFeedCourseNode extends GenericCourseNode {
 	}
 	
 	@Override
-	public void postImport(CourseEnvironmentMapper envMapper) {
-		super.postImport(envMapper);
+	protected void postImportCopyConditions(CourseEnvironmentMapper envMapper) {
+		super.postImportCopyConditions(envMapper);
 		postImportCondition(preConditionReader, envMapper);
 		postImportCondition(preConditionPoster, envMapper);
 		postImportCondition(preConditionModerator, envMapper);
@@ -121,6 +122,7 @@ public abstract class AbstractFeedCourseNode extends GenericCourseNode {
 	/**
 	 * @see org.olat.course.nodes.CourseNode#getReferencedRepositoryEntry()
 	 */
+	@Override
 	public RepositoryEntry getReferencedRepositoryEntry() {
 		this.config = getModuleConfiguration();
 		String repoSoftkey = (String) config.get(CONFIG_KEY_REPOSITORY_SOFTKEY);
@@ -132,11 +134,13 @@ public abstract class AbstractFeedCourseNode extends GenericCourseNode {
 	/**
 	 * @see org.olat.course.nodes.CourseNode#isConfigValid()
 	 */
+	@Override
 	public abstract StatusDescription isConfigValid();
 
 	/**
 	 * @see org.olat.course.nodes.CourseNode#needsReferenceToARepositoryEntry()
 	 */
+	@Override
 	public boolean needsReferenceToARepositoryEntry() {
 		return true;
 	}
@@ -236,12 +240,14 @@ public abstract class AbstractFeedCourseNode extends GenericCourseNode {
 		reie.exportDoExport();
 	}
 
-	public void importNode(RepositoryHandler handler, File importDirectory, Identity owner, Locale locale) {
+	public void importFeed(RepositoryHandler handler, File importDirectory, Identity owner, Locale locale) {
 		RepositoryEntryImportExport rie = new RepositoryEntryImportExport(importDirectory, getIdent());
 		if (rie.anyExportedPropertiesAvailable()) {
 			RepositoryEntry re = handler.importResource(owner, rie.getInitialAuthor(), rie.getDisplayName(),
 				rie.getDescription(), false, locale, rie.importGetExportedFile(), null);
 			FeedNodeEditController.setReference(re, getModuleConfiguration());
+		} else {
+			FeedNodeEditController.removeReference(getModuleConfiguration());
 		}
 	}
 }

@@ -32,7 +32,7 @@ a.o_chelp {
 	position: relative;
 	float: right;
 	display: inline-block;
-	line-height: 1em;
+	line-height: normal;
 }
 
 /* iframe display controller - used to deliver all course contents */
@@ -226,6 +226,11 @@ ul.o_dropdown {
 .o_portrait_name { 
 	margin-top: $padding-base-vertical;
 }
+.o_block_inline, .o_block_inline_right, .o_block_inline_left, .o_block_inline_both {
+	.o_portait, .o_portrait_name, .o_portrait_image {
+		display: inline-block;
+	}
+}
 
 /* Dummy user portrait (avatar) display - portrait sizes must match with DisplayPortraitManager.WIDTH_PORTRAIT_SMALL  DisplayPortraitManager.WIDTH_PORTRAIT_BIG */
 .o_portrait_avatar,
@@ -407,7 +412,26 @@ ul.o_certificates li {
 .o_tm_red { background-color: #FF3333; }
 .o_tm_green { background-color: #99FF00; }
 
+/* vitero */
+/* onyx   */
+.vitero_iframe {
+	width: 100%;
+	height: 100%;
+	border: none;
+	min-height: 60em;
+}
+
+/* Reminders rules */
+.o_reminder_rule {
+	padding: 5px 0;
+}
+
 /* Segmented view wrapper */
+.o_segments.btn-group a span {
+	overflow: hidden;
+    display: block;
+    text-overflow: ellipsis;
+}
 .o_segments_content {
 	margin-top: $line-height-computed;
 }

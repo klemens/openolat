@@ -106,7 +106,7 @@ public interface RepositoryHandler {
 	 * @param target
 	 * @return
 	 */
-	public RepositoryEntry copy(RepositoryEntry source, RepositoryEntry target);
+	public RepositoryEntry copy(Identity author, RepositoryEntry source, RepositoryEntry target);
 	
 	
 	
@@ -176,7 +176,7 @@ public interface RepositoryHandler {
 	 * @param wControl
 	 * @return true if delete successfull, false if not.
 	 */
-	public boolean cleanupOnDelete(OLATResourceable res);
+	public boolean cleanupOnDelete(RepositoryEntry entry, OLATResourceable res);
 
 	/**
 	 * Called if the repository entry referencing the given Resourceable will be deleted
@@ -189,7 +189,7 @@ public interface RepositoryHandler {
 	 * @param errors
 	 * @return true if ressource is ready to delete, false if not.
 	 */
-	public boolean readyToDelete(OLATResourceable res, Identity identity, Roles roles, Locale locale, ErrorList errors);
+	public boolean readyToDelete(RepositoryEntry entry, Identity identity, Roles roles, Locale locale, ErrorList errors);
 	
 
 	public String archive(Identity archiveOnBehalfOf, String archivFilePath, RepositoryEntry repoEntry);

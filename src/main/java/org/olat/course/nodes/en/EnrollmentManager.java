@@ -31,11 +31,16 @@ import java.util.List;
 
 import org.olat.basesecurity.BaseSecurity;
 import org.olat.basesecurity.GroupRoles;
+import org.olat.basesecurity.IdentityRef;
+import org.olat.core.commons.persistence.DB;
 import org.olat.core.gui.control.WindowControl;
 import org.olat.core.gui.translator.Translator;
 import org.olat.core.id.Identity;
 import org.olat.core.id.Roles;
 import org.olat.core.manager.BasicManager;
+import org.olat.core.util.Formatter;
+import org.olat.core.util.StringHelper;
+import org.olat.core.util.filter.FilterFactory;
 import org.olat.core.util.mail.MailBundle;
 import org.olat.core.util.mail.MailContext;
 import org.olat.core.util.mail.MailContextImpl;
@@ -48,9 +53,11 @@ import org.olat.course.groupsandrights.CourseGroupManager;
 import org.olat.course.nodes.ENCourseNode;
 import org.olat.course.properties.CoursePropertyManager;
 import org.olat.group.BusinessGroup;
+import org.olat.group.BusinessGroupImpl;
 import org.olat.group.BusinessGroupService;
 import org.olat.group.area.BGAreaManager;
 import org.olat.group.model.BGMembership;
+import org.olat.group.model.BusinessGroupRefImpl;
 import org.olat.group.model.EnrollState;
 import org.olat.group.model.SearchBusinessGroupParams;
 import org.olat.group.ui.BGMailHelper;
@@ -73,6 +80,8 @@ import org.springframework.stereotype.Service;
 public class EnrollmentManager extends BasicManager {
 
 	@Autowired
+	private DB dbInstance;
+	@Autowired
 	private MailManager mailManager;
 	@Autowired
 	private BGAreaManager areaManager;
@@ -87,9 +96,11 @@ public class EnrollmentManager extends BasicManager {
 		
 		final EnrollStatus enrollStatus = new EnrollStatus();
 		if (isLogDebugEnabled()) logDebug("doEnroll");
-		// check if the user is already enrolled (user can be enrooled only in one group)
-		if ( ( getBusinessGroupWhereEnrolled( identity, groupKeys, areaKeys, cgm.getCourseEntry()) == null)
-			  && ( getBusinessGroupWhereInWaitingList(identity, groupKeys, areaKeys) == null) ) {
+		// check if the user is able to be enrolled
+		int groupsEnrolledCount = getBusinessGroupsWhereEnrolled(identity, groupKeys, areaKeys, cgm.getCourseEntry()).size();
+		int waitingListCount = getBusinessGroupsWhereInWaitingList(identity, groupKeys, areaKeys).size();
+		int enrollCountConfig = enNode.getModuleConfiguration().getIntegerSafe(ENCourseNode.CONFIG_ALLOW_MULTIPLE_ENROLL_COUNT, 1);
+		if ( (groupsEnrolledCount + waitingListCount) < enrollCountConfig ) {
 			if (isLogDebugEnabled()) logDebug("Identity is not enrolled identity=" + identity.getName() + "  group=" + group.getName());
 			// 1. Check if group has max size defined. If so check if group is full
 			// o_clusterREVIEW cg please review it - also where does the group.getMaxParticipants().equals("") come from??
@@ -106,6 +117,7 @@ public class EnrollmentManager extends BasicManager {
 					enrollStatus.setIsEnrolled(true);
 				} else if(state.getEnrolled() == BGMembership.waiting) {
 					addUserToWaitingList(identity, group, enNode, coursePropertyManager, wControl, trans);
+					enrollStatus.setIsInWaitingList(true);
 				}
 			}
 		} else {
@@ -123,9 +135,9 @@ public class EnrollmentManager extends BasicManager {
 		// and move the users accordingly
 		MailPackage doNotSendmailPackage = new MailPackage(false);
 		businessGroupService.removeParticipants(identity, Collections.singletonList(identity), enrolledGroup, doNotSendmailPackage);
-		logInfo("doCancelEnrollment in group " + enrolledGroup, identity.getName());
+		logInfo(" doCancelEnrollment in group " + enrolledGroup, identity.getName());
 
-		logInfo("doCancelEnrollment in group " + enrolledGroup, identity.getName());
+		logInfo(" doCancelEnrollment in group " + enrolledGroup, identity.getName());
 		// 2. Remove enrollmentdate property
 		// only remove last time date, not firsttime
 		Property lastTime = coursePropertyManager.findCourseNodeProperty(enNode, identity, null, ENCourseNode.PROPERTY_RECENT_ENROLLMENT_DATE);
@@ -173,42 +185,25 @@ public class EnrollmentManager extends BasicManager {
 	// ////////////////
 	/**
 	 * @param identity
-	 * @param groupNames
-	 * @return BusinessGroup in which the identity is enrolled, null if identity
-	 *         is nowhere enrolled.
+	 * @param List<Long> groupKeys which are in the list
+	 * @param List<Long> areaKeys which are in the list
+	 * @return List<BusinessGroup> in which the identity is enrolled
 	 */
-	protected BusinessGroup getBusinessGroupWhereEnrolled(Identity identity, List<Long> groupKeys, List<Long> areaKeys, RepositoryEntry courseResource) {
-		// 1. check in groups
+	protected List<BusinessGroup> getBusinessGroupsWhereEnrolled(Identity identity, List<Long> groupKeys, List<Long> areaKeys, RepositoryEntry courseResource) {
+		List<BusinessGroup> groups = new ArrayList<BusinessGroup>();
+		//search in the enrollable bg keys for the groups where identity is attendee
 		if(groupKeys != null && !groupKeys.isEmpty()) {
 			SearchBusinessGroupParams params = new SearchBusinessGroupParams();
 			params.setAttendee(true);
 			params.setIdentity(identity);
 			params.setGroupKeys(groupKeys);
-			List<BusinessGroup> groups = businessGroupService.findBusinessGroups(params, courseResource, 0, 1);
-			if (groups.size() > 0) {
-					// Usually it is only possible to be in one group. However,
-					// theoretically the
-					// admin can put the user in a second enrollment group or the user could
-					// theoretically be in a second group context. For now, we only look for
-					// the first
-					// group. All groups found after the first one are discarded.
-				return groups.get(0);
-			}
+			groups.addAll(businessGroupService.findBusinessGroups(params, courseResource, 0, 0));
 		}
-		// 2. check in areas
+		//search in the enrollable area keys for the groups where identity is attendee
 		if(areaKeys != null && !areaKeys.isEmpty()) {
-			List<BusinessGroup> groups = areaManager.findBusinessGroupsOfAreaAttendedBy(identity, areaKeys, courseResource.getOlatResource());
-			if (groups.size() > 0) {
-				// Usually it is only possible to be in one group. However,
-				// theoretically the
-				// admin can put the user in a second enrollment group or the user could
-				// theoretically be in a second group context. For now, we only look for
-				// the first
-				// group. All groups found after the first one are discarded.
-				return groups.get(0);
-			}
+			groups.addAll(areaManager.findBusinessGroupsOfAreaAttendedBy(identity, areaKeys, courseResource.getOlatResource()));
 		}
-		return null; 
+		return groups; 
 	}
 
 	/**
@@ -217,15 +212,16 @@ public class EnrollmentManager extends BasicManager {
 	 * @return true if this identity is any waiting-list group in this course that
 	 *         has a name that is in the group names list
 	 */
-	protected BusinessGroup getBusinessGroupWhereInWaitingList(Identity identity, List<Long> groupKeys, List<Long> areaKeys) {
+	protected List<BusinessGroup> getBusinessGroupsWhereInWaitingList(Identity identity, List<Long> groupKeys, List<Long> areaKeys) {
 		List<BusinessGroup> groups = loadGroupsFromNames(groupKeys, areaKeys);
+		List<BusinessGroup> waitingInTheseGroups = new ArrayList<BusinessGroup> ();
 		// loop over all business-groups
 		for (BusinessGroup businessGroup:groups) {
 			if (businessGroupService.hasRoles(identity, businessGroup, GroupRoles.waiting.name())) { 
-				return businessGroup;
+				waitingInTheseGroups.add(businessGroup);
 			}
 		}
-		return null;
+		return waitingInTheseGroups;
 	}
 
 	/**
@@ -245,6 +241,112 @@ public class EnrollmentManager extends BasicManager {
 			}
 		}
 		return groups;
+	}
+	protected List<Long> getBusinessGroupKeys(List<Long> groupKeys, List<Long> areaKeys) {
+		List<Long> allKeys = new ArrayList<>();
+		if(groupKeys != null && !groupKeys.isEmpty()) {
+			allKeys.addAll(groupKeys);
+		}
+		if(areaKeys != null && !areaKeys.isEmpty()) {
+			List<Long> areaGroupKeys = areaManager.findBusinessGroupKeysOfAreaKeys(areaKeys);
+			allKeys.addAll(areaGroupKeys);
+		}
+		return allKeys;
+	}
+	
+	protected List<EnrollmentRow> getEnrollments(IdentityRef identity, List<Long> groupKeys, List<Long> areaKeys,
+			int descriptionMaxSize) {
+		List<Long> allGroupKeys = getBusinessGroupKeys(groupKeys, areaKeys);
+		if(allGroupKeys.isEmpty()) return Collections.emptyList();
+		
+		// groupKey, name, description, maxParticipants, waitingListEnabled;
+		// numInWaitingList, numOfParticipants, participant, waiting;
+
+		StringBuilder sb = new StringBuilder();
+		sb.append("select grp.key, grp.name, grp.description, grp.maxParticipants, grp.waitingListEnabled, ")
+		  //num of participant
+		  .append(" (select count(participants.key) from bgroupmember participants ")
+		  .append("  where participants.group=baseGroup and participants.role='").append(GroupRoles.participant.name()).append("'")
+		  .append(" ) as numOfParticipants,")
+		  //num of pending
+		  .append(" (select count(reservations.key) from resourcereservation reservations ")
+		  .append("  where reservations.resource.key=grp.resource.key")
+		  .append(" ) as numOfReservationss,")
+		  //length of the waiting list
+		  .append(" (select count(waiters.key) from bgroupmember waiters ")
+		  .append("  where grp.waitingListEnabled=true and waiters.group=baseGroup and waiters.role='").append(GroupRoles.waiting.name()).append("'")
+		  .append(" ) as numOfWaiters,")
+		  //participant?
+		  .append(" (select count(meParticipant.key) from bgroupmember meParticipant ")
+		  .append("  where meParticipant.group=baseGroup and meParticipant.role='").append(GroupRoles.participant.name()).append("'")
+		  .append("  and meParticipant.identity.key=:identityKey")
+		  .append(" ) as numOfMeParticipant,")
+		  //waiting?
+		  .append(" (select count(meWaiting.key) from bgroupmember meWaiting ")
+		  .append("  where grp.waitingListEnabled=true and meWaiting.group=baseGroup and meWaiting.role='").append(GroupRoles.waiting.name()).append("'")
+		  .append("  and meWaiting.identity.key=:identityKey")
+		  .append(" ) as numOfMeWaiting")
+		  
+		  .append(" from ").append(BusinessGroupImpl.class.getName()).append(" grp ")
+		  .append(" inner join grp.baseGroup as baseGroup ")
+		  .append(" where grp.key in (:groupKeys)");
+		
+		List<Object[]> rows = dbInstance.getCurrentEntityManager()
+			.createQuery(sb.toString(), Object[].class)
+			.setParameter("groupKeys", allGroupKeys)
+			.setParameter("identityKey", identity.getKey())
+			.getResultList();
+		
+		List<EnrollmentRow> enrollments = new ArrayList<>(rows.size());
+		for(Object[] row:rows) {
+			Long key = ((Number)row[0]).longValue();
+			String name = (String)row[1];
+			String desc = (String)row[2];
+			if(StringHelper.containsNonWhitespace(desc) && descriptionMaxSize > 0) {
+				desc = FilterFactory.getHtmlTagsFilter().filter(desc);
+				desc = Formatter.truncate(desc, 256);
+			}
+
+			int maxParticipants = row[3] == null ? -1 : ((Number)row[3]).intValue();
+			
+			Object enabled = row[4];
+			boolean waitingListEnabled;
+			if(enabled == null) {
+				waitingListEnabled = false;
+			} else if(enabled instanceof Boolean) {
+				waitingListEnabled = ((Boolean)enabled).booleanValue();
+			} else if(enabled instanceof Number) {
+				int val = ((Number)enabled).intValue();
+				waitingListEnabled = val == 1;
+			} else {
+				waitingListEnabled = false;
+			}
+			
+			int numOfParticipants = row[5] == null ? 0 : ((Number)row[5]).intValue();
+			int numOfReservations = row[6] == null ? 0 : ((Number)row[6]).intValue();
+			int numOfWaiters = row[7] == null ? 0 : ((Number)row[7]).intValue();
+			boolean participant = row[8] == null ? false : ((Number)row[8]).intValue() > 0;
+			boolean waiting = row[9] == null ? false : ((Number)row[9]).intValue() > 0;
+			
+			EnrollmentRow enrollment = new EnrollmentRow(key, name, desc,
+					maxParticipants, waitingListEnabled);
+			enrollment.setNumOfParticipants(numOfParticipants);
+			enrollment.setNumOfReservations(numOfReservations);
+			enrollment.setNumInWaitingList(numOfWaiters);
+			enrollment.setParticipant(participant);
+			enrollment.setWaiting(waiting);
+			
+			if(waitingListEnabled && waiting) {
+				int pos = businessGroupService.getPositionInWaitingListFor(identity, new BusinessGroupRefImpl(key));
+				enrollment.setPositionInWaitingList(pos);
+			} else {
+				enrollment.setPositionInWaitingList(-1);
+			}
+			
+			enrollments.add(enrollment);
+		}
+		
+		return enrollments;
 	}
 
 	/**

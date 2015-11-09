@@ -248,11 +248,13 @@ public abstract class AbstractBusinessGroupListController extends FormBasicContr
 		
 		if(select) {
 			tableEl.setMultiSelect(true);
+			tableEl.setSelectAllEnable(true);
 			selectButton = uifactory.addFormLink("select", TABLE_ACTION_SELECT, "select", null, formLayout, Link.BUTTON);
 		}
 
 		if(adminTools) {
 			tableEl.setMultiSelect(true);
+			tableEl.setSelectAllEnable(true);
 			
 			boolean canCreateGroup = canCreateBusinessGroup(ureq);
 			if(canCreateGroup) {
@@ -366,27 +368,29 @@ public abstract class AbstractBusinessGroupListController extends FormBasicContr
 			String cmd = event.getCommand();
 			if(event instanceof SelectionEvent) {
 				SelectionEvent se = (SelectionEvent)event;
-				BGTableItem item = groupTableModel.getObject(se.getIndex());
-				Long businessGroupKey = item.getBusinessGroupKey();
-				BusinessGroup businessGroup = businessGroupService.loadBusinessGroup(businessGroupKey);
-				//prevent rs after a group is deleted by someone else
-				if(businessGroup == null) {
-					groupTableModel.removeBusinessGroup(businessGroupKey);
-					tableEl.reset();
-				} else if(TABLE_ACTION_LAUNCH.equals(cmd)) {
-					doLaunch(ureq, businessGroup);
-				} else if(TABLE_ACTION_DELETE.equals(cmd)) {
-					confirmDelete(ureq, Collections.singletonList(item));
-				} else if(TABLE_ACTION_LAUNCH.equals(cmd)) {
-					doLaunch(ureq, businessGroup);
-				} else if(TABLE_ACTION_EDIT.equals(cmd)) {
-					doEdit(ureq, businessGroup);
-				} else if(TABLE_ACTION_LEAVE.equals(cmd)) {
-					doConfirmLeaving(ureq, businessGroup);
-				} else if (TABLE_ACTION_ACCESS.equals(cmd)) {
-					doAccess(ureq, businessGroup);
-				} else if (TABLE_ACTION_SELECT.equals(cmd)) {
-					doSelect(ureq, businessGroup);
+				if(se.getIndex() >= 0 && se.getIndex() < groupTableModel.getRowCount()) {
+					BGTableItem item = groupTableModel.getObject(se.getIndex());
+					Long businessGroupKey = item.getBusinessGroupKey();
+					BusinessGroup businessGroup = businessGroupService.loadBusinessGroup(businessGroupKey);
+					//prevent rs after a group is deleted by someone else
+					if(businessGroup == null) {
+						groupTableModel.removeBusinessGroup(businessGroupKey);
+						tableEl.reset();
+					} else if(TABLE_ACTION_LAUNCH.equals(cmd)) {
+						doLaunch(ureq, businessGroup);
+					} else if(TABLE_ACTION_DELETE.equals(cmd)) {
+						confirmDelete(ureq, Collections.singletonList(item));
+					} else if(TABLE_ACTION_LAUNCH.equals(cmd)) {
+						doLaunch(ureq, businessGroup);
+					} else if(TABLE_ACTION_EDIT.equals(cmd)) {
+						doEdit(ureq, businessGroup);
+					} else if(TABLE_ACTION_LEAVE.equals(cmd)) {
+						doConfirmLeaving(ureq, businessGroup);
+					} else if (TABLE_ACTION_ACCESS.equals(cmd)) {
+						doAccess(ureq, businessGroup);
+					} else if (TABLE_ACTION_SELECT.equals(cmd)) {
+						doSelect(ureq, businessGroup);
+					}
 				}
 			} else if(event instanceof FlexiTableSearchEvent) {
 				doSearch((FlexiTableSearchEvent)event);
@@ -1104,6 +1108,7 @@ public abstract class AbstractBusinessGroupListController extends FormBasicContr
 			}
 		}
 		List<BGRepositoryEntryRelation> resources = businessGroupService.findRelationToRepositoryEntries(groupKeysWithRelations, 0, -1);
+
 		//find offers
 		List<Long> groupWithOfferKeys = new ArrayList<Long>(groups.size());
 		for(BusinessGroupView view:groups) {
@@ -1127,6 +1132,7 @@ public abstract class AbstractBusinessGroupListController extends FormBasicContr
 		}
 		
 		List<BGTableItem> items = new ArrayList<BGTableItem>();
+		Map<Long, BGTableItem> groupKeyToItems = new HashMap<>();
 		for(BusinessGroupView group:groups) {
 			Long oresKey = group.getResource().getKey();
 			List<PriceMethodBundle> accessMethods = null;
@@ -1146,12 +1152,20 @@ public abstract class AbstractBusinessGroupListController extends FormBasicContr
 			markLink.setIconLeftCSS(marked ? Mark.MARK_CSS_LARGE : Mark.MARK_ADD_CSS_LARGE);
 
 			BGTableItem tableItem = new BGTableItem(group, markLink, marked, membership, allowLeave, allowDelete, accessMethods);
-			tableItem.setUnfilteredRelations(resources);
+			//tableItem.setUnfilteredRelations(resources);
 			items.add(tableItem);
 			markLink.setUserObject(tableItem);
 			
 			if(group.getNumOfValidOffers() > 0l) {
 				addAccessLink(tableItem);
+			}
+			groupKeyToItems.put(group.getKey(), tableItem);
+		}
+		
+		for(BGRepositoryEntryRelation relation:resources) {
+			BGTableItem tableItem = groupKeyToItems.get(relation.getGroupKey());
+			if(tableItem != null) {
+				tableItem.addRelation(relation);
 			}
 		}
 

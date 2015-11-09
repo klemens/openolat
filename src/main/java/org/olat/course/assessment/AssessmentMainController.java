@@ -368,7 +368,8 @@ public class AssessmentMainController extends MainLayoutBasicController implemen
 			// select user
 			assessedIdentityWrapper = AssessmentHelper.wrapIdentity(focusOnIdentity, localUserCourseEnvironmentCache, initialLaunchDates, course, null);
 			
-			identityAssessmentController = new IdentityAssessmentEditController(getWindowControl(), ureq, stackPanel, assessedIdentityWrapper.getIdentity(), course, true);
+			identityAssessmentController = new IdentityAssessmentEditController(getWindowControl(), ureq, stackPanel,
+					assessedIdentityWrapper.getIdentity(), course, true, true, false);
 			listenTo(identityAssessmentController);
 			setContent(identityAssessmentController.getInitialComponent());
 		}
@@ -624,6 +625,12 @@ public class AssessmentMainController extends MainLayoutBasicController implemen
 					userListCtr.modelChanged();
 				}
 			}
+		} else if(userChoose != null && userChoose.contains(source.getInitialComponent())) {
+			if(userListCtr != null) {
+				if(event == Event.CHANGED_EVENT) {
+					userListCtr.modelChanged();
+				}
+			}
 		}
 	}
 
@@ -783,7 +790,7 @@ public class AssessmentMainController extends MainLayoutBasicController implemen
 		if (callback.mayAssessAllUsers() || callback.mayViewAllUsersAssessments()) {
 			return gm.getAllBusinessGroups();
 		} else if (callback.mayAssessCoachedUsers()) {
-			return  gm.getOwnedBusinessGroups(identity);
+			return gm.getOwnedBusinessGroups(identity);
 		} else {
 			throw new OLATSecurityException("No rights to assess or even view any groups");
 		}
@@ -799,12 +806,14 @@ public class AssessmentMainController extends MainLayoutBasicController implemen
 	private void initIdentityEditController(UserRequest ureq, ICourse course) {
 		if (currentCourseNode == null) {
 			removeAsListenerAndDispose(identityAssessmentController);
-			identityAssessmentController = new IdentityAssessmentEditController(getWindowControl(),ureq, stackPanel, assessedIdentityWrapper.getIdentity(), course, true);
+			identityAssessmentController = new IdentityAssessmentEditController(getWindowControl(),ureq, stackPanel,
+					assessedIdentityWrapper.getIdentity(), course, true, true, false);
 			listenTo(identityAssessmentController);
 			setContent(identityAssessmentController.getInitialComponent());
 		} else {
 			removeAsListenerAndDispose(assessmentEditController);
-			assessmentEditController = new AssessmentEditController(ureq, getWindowControl(), stackPanel, course, currentCourseNode, assessedIdentityWrapper, true, false);
+			assessmentEditController = new AssessmentEditController(ureq, getWindowControl(), stackPanel, course, currentCourseNode,
+					assessedIdentityWrapper, true, false, true);
 			listenTo(assessmentEditController);
 			main.setContent(assessmentEditController.getInitialComponent());
 		}
@@ -822,14 +831,21 @@ public class AssessmentMainController extends MainLayoutBasicController implemen
 		groupListCtr = new TableController(tableConfig, ureq, getWindowControl(), getTranslator());
 		listenTo(groupListCtr);
 		groupListCtr.addColumnDescriptor(new DefaultColumnDescriptor("table.group.name", 0, CMD_CHOOSE_GROUP, ureq.getLocale()));
+		
+		
 		DefaultColumnDescriptor desc = new DefaultColumnDescriptor("table.group.desc", 1, null, ureq.getLocale());
 		desc.setEscapeHtml(EscapeMode.antisamy);
+		
+		
+		
+		
+		
 		groupListCtr.addColumnDescriptor(desc);
 
 		// loop over all groups to filter depending on condition
 		List<BusinessGroup> currentGroups = new ArrayList<BusinessGroup>();
 		for (BusinessGroup group:coachedGroups) {
-			if ( !isFiltering || isVisibleAndAccessable(this.currentCourseNode, group) ) {
+			if ( !isFiltering || isVisibleAndAccessable(currentCourseNode, group) ) {
 				currentGroups.add(group);
 			}
 		}
@@ -838,8 +854,11 @@ public class AssessmentMainController extends MainLayoutBasicController implemen
 		groupChoose.put("grouplisttable", groupListCtr.getInitialComponent());
 		
 		// render all-groups button only if goups are available
-		if (this.coachedGroups.size() > 0) groupChoose.contextPut("hasGroups", Boolean.TRUE);
-		else groupChoose.contextPut("hasGroups", Boolean.FALSE);
+		if (coachedGroups.size() > 0) {
+			groupChoose.contextPut("hasGroups", Boolean.TRUE);
+		} else {
+			groupChoose.contextPut("hasGroups", Boolean.FALSE);
+		}
 
 		if (mode == MODE_NODEFOCUS) {
 			groupChoose.contextPut("showBack", Boolean.TRUE);
@@ -1265,12 +1284,14 @@ public class AssessmentMainController extends MainLayoutBasicController implemen
 			gtn.setTitle(translate("menu.groupfocus"));
 			gtn.setUserObject(CMD_GROUPFOCUS);
 			gtn.setAltText(translate("menu.groupfocus.alt"));
+			gtn.setCssClass("o_sel_assessment_tool_groups");
 			root.addChild(gtn);
 	
 			gtn = new GenericTreeNode();
 			gtn.setTitle(translate("menu.nodefocus"));
 			gtn.setUserObject(CMD_NODEFOCUS);
 			gtn.setAltText(translate("menu.nodefocus.alt"));
+			gtn.setCssClass("o_sel_assessment_tool_nodes");
 			root.addChild(gtn);
 		}
 		
@@ -1279,6 +1300,7 @@ public class AssessmentMainController extends MainLayoutBasicController implemen
 			gtn.setTitle(translate("menu.userfocus"));
 			gtn.setUserObject(CMD_USERFOCUS);
 			gtn.setAltText(translate("menu.userfocus.alt"));
+			gtn.setCssClass("o_sel_assessment_tool_users");
 			root.addChild(gtn);
 		}
 

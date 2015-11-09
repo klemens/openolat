@@ -171,10 +171,12 @@ public class CertificateAndEfficiencyStatementController extends BasicController
 		if(efficiencyStatement != null && certificate != null) {
 			segmentView = SegmentViewFactory.createSegmentView("segments", mainVC, this);
 			certificateLink = LinkFactory.createLink("details.certificate", mainVC, this);
+			certificateLink.setElementCssClass("o_select_certificate_segement");
 			segmentView.addSegment(certificateLink, true);
 			selectCertificate(ureq);
 			
 			courseDetailsLink = LinkFactory.createLink("details.course.infos", mainVC, this);
+			courseDetailsLink.setElementCssClass("o_select_statement_segment");
 			segmentView.addSegment(courseDetailsLink, false);
 		} else if(efficiencyStatement != null) {
 			selectCourseInfos(ureq);
@@ -213,7 +215,7 @@ public class CertificateAndEfficiencyStatementController extends BasicController
 		}
 		
 		if(courseRepoEntry != null && links) {
-			courseLink = LinkFactory.createButton("course.link", mainVC, this);
+			courseLink = LinkFactory.createButtonXSmall("course.link", mainVC, this);
 			courseLink.setIconLeftCSS("o_icon o_CourseModule_icon");
 			mainVC.put("course.link", courseLink);
 		}
@@ -239,7 +241,7 @@ public class CertificateAndEfficiencyStatementController extends BasicController
 		if(group != null) {
 			mainVC.contextPut("groupName", StringHelper.escapeHtml(group.getName()));
 			if(links) {
-				groupLink = LinkFactory.createButton("group.link", mainVC, this);
+				groupLink = LinkFactory.createButtonXSmall("group.link", mainVC, this);
 				groupLink.setIconLeftCSS("o_icon o_icon_group");
 				mainVC.put("group.link", groupLink);
 			}

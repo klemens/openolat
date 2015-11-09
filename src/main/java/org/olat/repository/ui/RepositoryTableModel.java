@@ -43,6 +43,8 @@ import org.olat.core.gui.components.table.DefaultColumnDescriptor;
 import org.olat.core.gui.components.table.DefaultTableDataModel;
 import org.olat.core.gui.components.table.StaticColumnDescriptor;
 import org.olat.core.gui.components.table.TableController;
+import org.olat.core.gui.render.Renderer;
+import org.olat.core.gui.render.StringOutput;
 import org.olat.core.gui.translator.Translator;
 import org.olat.core.util.StringHelper;
 import org.olat.core.util.Util;
@@ -51,6 +53,7 @@ import org.olat.repository.RepositoryEntry;
 import org.olat.repository.RepositoryEntryStatus;
 import org.olat.repository.RepositoryManager;
 import org.olat.repository.RepositoryModule;
+import org.olat.repository.RepositoryService;
 import org.olat.repository.manager.RepositoryEntryLifecycleDAO;
 import org.olat.repository.model.RepositoryEntryLifecycle;
 import org.olat.resource.accesscontrol.ACService;
@@ -72,18 +75,22 @@ public class RepositoryTableModel extends DefaultTableDataModel<RepositoryEntry>
 	 * Identifies a table selection event (outer-left column)
 	 */
 	public static final String TABLE_ACTION_SELECT_LINK = "rtbSelectLink";
+	/**
+	 * Identifies a table selection event (outer-left column)
+	 */
+	public static final String TABLE_ACTION_REMOVE_LINK = "rtbRemoveLink";
 	
 	/**
 	 * Identifies a table launch event (if clicked on an item in the name column).
 	 */
-	public static final String TABLE_ACTION_SELECT_ENTRY = "rtbSelectEntry";
+	public static final String TABLE_ACTION_INFOS = "rtbInfos";
 	/**
 	 * Identifies a multi selection
 	 */
 	public static final String TABLE_ACTION_SELECT_ENTRIES = "rtbSelectEntrIES";
-	//fxdiff VCRP-1,2: access control of resources
+
 	private static final int COLUMN_COUNT = 7;
-	private final Translator translator; // package-local to avoid synthetic accessor method.
+	private final Translator translator;
 	private final ACService acService;
 	private final LoginModule loginModule;
 	private final AccessControlModule acModule;
@@ -98,10 +105,9 @@ public class RepositoryTableModel extends DefaultTableDataModel<RepositoryEntry>
 	 * Default constructor.
 	 * @param translator
 	 */
-	public RepositoryTableModel(Translator translator) {
+	public RepositoryTableModel(Locale locale) {
 		super(new ArrayList<RepositoryEntry>());
-		this.translator = translator;
-
+		translator = Util.createPackageTranslator(RepositoryService.class, locale);
 		acService = CoreSpringFactory.getImpl(ACService.class);
 		loginModule = CoreSpringFactory.getImpl(LoginModule.class);
 		userManager = CoreSpringFactory.getImpl(UserManager.class);
@@ -116,10 +122,9 @@ public class RepositoryTableModel extends DefaultTableDataModel<RepositoryEntry>
 	 * @param enableDirectLaunch
 	 * @return the position of the display name column
 	 */
-	public ColumnDescriptor addColumnDescriptors(TableController tableCtr, String selectButtonLabel, boolean enableDirectLaunch) {
+	public ColumnDescriptor addColumnDescriptors(TableController tableCtr, boolean selectTitle, boolean selectIcon, boolean remove, boolean infos) {
 		Locale loc = translator.getLocale();
-		
-		//fxdiff VCRP-1,2: access control of resources
+
 		CustomCellRenderer acRenderer = new RepositoryEntryACColumnDescriptor();
 		tableCtr.addColumnDescriptor(new CustomRenderColumnDescriptor("table.header.ac", RepoCols.ac.ordinal(), null, 
 				loc, ColumnDescriptor.ALIGNMENT_LEFT, acRenderer) {
@@ -167,16 +172,15 @@ public class RepositoryTableModel extends DefaultTableDataModel<RepositoryEntry>
 		tableCtr.addColumnDescriptor(new RepositoryEntryTypeColumnDescriptor("table.header.typeimg", RepoCols.repoEntry.ordinal(), null, 
 				loc, ColumnDescriptor.ALIGNMENT_LEFT));
 		
+		String selectAction = selectTitle ? TABLE_ACTION_SELECT_LINK : null;
 		if(repositoryModule.isManagedRepositoryEntries()) {
-			tableCtr.addColumnDescriptor(false, new DefaultColumnDescriptor("table.header.externalid", RepoCols.externalId.ordinal(), null, loc));
-			tableCtr.addColumnDescriptor(new DefaultColumnDescriptor("table.header.externalref", RepoCols.externalRef.ordinal(), null, loc));
-
+			tableCtr.addColumnDescriptor(false, new DefaultColumnDescriptor("table.header.externalid", RepoCols.externalId.ordinal(), selectAction, loc));
+			tableCtr.addColumnDescriptor(new DefaultColumnDescriptor("table.header.externalref", RepoCols.externalRef.ordinal(), selectAction, loc));
 		}
 		boolean lfVisible = lifecycleDao.countPublicLifecycle() > 0;
 		tableCtr.addColumnDescriptor(lfVisible, new DefaultColumnDescriptor("table.header.lifecycle.label", RepoCols.lifecycleLabel.ordinal(), null, loc));
 		tableCtr.addColumnDescriptor(false, new DefaultColumnDescriptor("table.header.lifecycle.softkey", RepoCols.lifecycleSoftKey.ordinal(), null, loc));
-
-		ColumnDescriptor nameColDesc = new DefaultColumnDescriptor("table.header.displayname", RepoCols.displayname.ordinal(), enableDirectLaunch ? TABLE_ACTION_SELECT_ENTRY : null, loc) {
+		ColumnDescriptor nameColDesc = new DefaultColumnDescriptor("table.header.displayname", RepoCols.displayname.ordinal(), selectAction, loc) {
 			@Override
 			public int compareTo(int rowa, int rowb) {
 				Object o1 = table.getTableDataModel().getValueAt(rowa, 1);
@@ -239,19 +243,28 @@ public class RepositoryTableModel extends DefaultTableDataModel<RepositoryEntry>
 
 		tableCtr.addColumnDescriptor(false, new DefaultColumnDescriptor("table.header.date", RepoCols.creationDate.ordinal(), null, loc));
 		tableCtr.addColumnDescriptor(false, new DefaultColumnDescriptor("table.header.lastusage", RepoCols.lastUsage.ordinal(), null, loc));
-		if (selectButtonLabel != null) {
-			StaticColumnDescriptor desc = new StaticColumnDescriptor(TABLE_ACTION_SELECT_LINK, selectButtonLabel, selectButtonLabel);
-			desc.setTranslateHeaderKey(false);			
-			tableCtr.addColumnDescriptor(desc);
-		}
 		
+		if(infos) {
+			tableCtr.addColumnDescriptor(new StaticColumnDescriptor(TABLE_ACTION_INFOS, "info.header", translator.translate("info.header")){
+				@Override
+				public void renderValue(StringOutput so, int row, Renderer renderer) {
+					so.append("<i id='o_core").append(row).append("ref' class='o_icon o_icon-lg o_icon_info_resource'> </i>");
+				}
+			});
+		}
+		if(selectIcon) {		
+			tableCtr.addColumnDescriptor(new StaticColumnDescriptor(TABLE_ACTION_SELECT_LINK, "select", translator.translate("table.select")));
+		}
+		if(remove) {	
+			tableCtr.addColumnDescriptor(new StaticColumnDescriptor(TABLE_ACTION_REMOVE_LINK, "remove", translator.translate("remove")));
+		}
 		return nameColDesc;
 	}
-	
 	
 	/**
 	 * @see org.olat.core.gui.components.table.TableDataModel#getColumnCount()
 	 */
+	@Override
 	public int getColumnCount() {
 		return COLUMN_COUNT;
 	}
@@ -259,10 +272,10 @@ public class RepositoryTableModel extends DefaultTableDataModel<RepositoryEntry>
 	/**
 	 * @see org.olat.core.gui.components.table.TableDataModel#getValueAt(int, int)
 	 */
+	@Override
 	public Object getValueAt(int row, int col) {
 		RepositoryEntry re = getObject(row);
 		switch (RepoCols.values()[col]) {
-			//fxdiff VCRP-1,2: access control of resources
 			case ac: {
 				if (re.isMembersOnly()) {
 					// members only always show lock icon
@@ -280,7 +293,6 @@ public class RepositoryTableModel extends DefaultTableDataModel<RepositoryEntry>
 			case displayname: return getDisplayName(re, translator.getLocale());
 			case author: return getFullname(re.getInitialAuthor());
 			case access: {
-				//fxdiff VCRP-1,2: access control of resources
 				if(re.isMembersOnly()) {
 					return translator.translate("table.header.access.membersonly"); 
 				}
@@ -342,7 +354,6 @@ public class RepositoryTableModel extends DefaultTableDataModel<RepositoryEntry>
 	
 	
 	@Override
-	//fxdiff VCRP-1,2: access control of resources
 	public void setObjects(List<RepositoryEntry> objects) {
 		super.setObjects(objects);
 		repoEntriesWithOffer.clear();
@@ -418,9 +429,9 @@ public class RepositoryTableModel extends DefaultTableDataModel<RepositoryEntry>
 		return displayName;
 	}
 
+	@Override
 	public Object createCopyWithEmptyList() {
-		RepositoryTableModel copy = new RepositoryTableModel(translator);
+		RepositoryTableModel copy = new RepositoryTableModel(translator.getLocale());
 		return copy;
 	}
-
 }

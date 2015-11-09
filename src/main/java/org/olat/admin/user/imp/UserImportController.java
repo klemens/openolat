@@ -93,6 +93,8 @@ public class UserImportController extends BasicController {
 	@Autowired
 	private OLATAuthManager olatAuthManager;
 	@Autowired
+	private ShibbolethModule shibbolethModule;
+	@Autowired
 	private BusinessGroupService businessGroupService;
 
 	/**
@@ -106,6 +108,7 @@ public class UserImportController extends BasicController {
 		this.canCreateOLATPassword = canCreateOLATPassword;
 		mainVC = createVelocityContainer("importindex");
 		startLink = LinkFactory.createButton("import.start", mainVC, this);
+		startLink.setElementCssClass("o_sel_id_start_import_user_button");
 		startLink.setPrimary(true);
 		putInitialPanel(mainVC);
 	}
@@ -170,7 +173,7 @@ public class UserImportController extends BasicController {
 		newUser.getPreferences().setInformSessionTimeout(true);
 		// Save everything in database
 		Identity ident;
-		if(pwd != null && pwd.startsWith(SHIBBOLETH_MARKER) && ShibbolethModule.isEnableShibbolethLogins()) {
+		if(pwd != null && pwd.startsWith(SHIBBOLETH_MARKER) && shibbolethModule.isEnableShibbolethLogins()) {
 			String uniqueID = pwd.substring(SHIBBOLETH_MARKER.length());
 			ident = securityManager.createAndPersistIdentityAndUserWithUserGroup(login, null, ShibbolethDispatcher.PROVIDER_SHIB, uniqueID, newUser);
 			report.incrementCreatedUser();
@@ -195,7 +198,7 @@ public class UserImportController extends BasicController {
 		
 		String password = userToUpdate.getPassword();
 		if(StringHelper.containsNonWhitespace(password)) {
-			if(password.startsWith(SHIBBOLETH_MARKER) && ShibbolethModule.isEnableShibbolethLogins()) {
+			if(password.startsWith(SHIBBOLETH_MARKER) && shibbolethModule.isEnableShibbolethLogins()) {
 				String uniqueID = password.substring(SHIBBOLETH_MARKER.length());
 				Authentication auth = securityManager.findAuthentication(identity, ShibbolethDispatcher.PROVIDER_SHIB);
 				if(auth == null) {

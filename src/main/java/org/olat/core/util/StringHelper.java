@@ -52,7 +52,7 @@ import org.olat.core.id.UserConstants;
 import org.olat.core.logging.AssertException;
 import org.olat.core.logging.OLog;
 import org.olat.core.logging.Tracing;
-import org.olat.core.util.filter.impl.NekoHTMLFilter;
+import org.olat.core.util.filter.impl.NekoHTMLScanner;
 import org.olat.core.util.filter.impl.OWASPAntiSamyXSSFilter;
 
 import com.thoughtworks.xstream.core.util.Base64Encoder;
@@ -276,10 +276,14 @@ public class StringHelper {
 	 *         otherwhise
 	 */
 	public static boolean containsNonWhitespace(String s) {
-		if (s == null) return false;
+		if (s == null || s.length() == 0) return false;
+		
+		char firstChar = s.charAt(0);
+		if(firstChar > 32 && firstChar < 127) {
+			return true;
+		}
 
 		Matcher matcher = WHITESPACE_PATTERN.matcher(s);
-
 		// if string matches whitespace pattern then string does not
 		// contain non-whitespace
 		return !matcher.find();
@@ -293,8 +297,8 @@ public class StringHelper {
 	public static boolean isHtml(String s) {
 		if (s == null) return false;
 		
-		String filtered = new NekoHTMLFilter().filter(s, false);
-		return !filtered.equals(s);
+		boolean containsHtml = new NekoHTMLScanner().scan(s);
+		return containsHtml;
 	}
 
 	/**
