@@ -28,6 +28,7 @@ package org.olat.repository.handlers;
 import java.io.File;
 import java.util.Locale;
 
+import org.olat.core.CoreSpringFactory;
 import org.olat.core.gui.translator.Translator;
 import org.olat.core.id.Identity;
 import org.olat.core.id.OLATResourceable;
@@ -61,7 +62,7 @@ public abstract class FileHandler implements RepositoryHandler {
 	}
 
 	@Override
-	public boolean cleanupOnDelete(OLATResourceable res) {
+	public boolean cleanupOnDelete(RepositoryEntry entry,  OLATResourceable res) {
 		// notify all current users of this resource (content packaging file resource) that it will be deleted now.
 		CoordinatorManager.getInstance().getCoordinator().getEventBus().fireEventToListenersOf(new OLATResourceableJustBeforeDeletedEvent(res), res);
 		FileResourceManager.getInstance().deleteFileResource(res);
@@ -69,12 +70,13 @@ public abstract class FileHandler implements RepositoryHandler {
 	}
 
 	@Override
-	public boolean readyToDelete(OLATResourceable res, Identity identity, Roles roles, Locale locale, ErrorList errors) {
-		String referencesSummary = ReferenceManager.getInstance().getReferencesToSummary(res, locale);
+	public boolean readyToDelete(RepositoryEntry entry, Identity identity, Roles roles, Locale locale, ErrorList errors) {
+		String referencesSummary = CoreSpringFactory.getImpl(ReferenceManager.class)
+				.getReferencesToSummary(entry.getOlatResource(), locale);
 		if (referencesSummary != null) {
 			Translator translator = Util.createPackageTranslator(RepositoryManager.class, locale);
 			errors.setError(translator.translate("details.delete.error.references",
-					new String[] { referencesSummary }));
+					new String[] { referencesSummary, entry.getDisplayname() }));
 			return false;
 		}
 		return true;

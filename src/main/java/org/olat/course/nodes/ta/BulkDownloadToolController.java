@@ -28,8 +28,8 @@ import org.olat.core.gui.control.WindowControl;
 import org.olat.core.gui.control.controller.BasicController;
 import org.olat.course.archiver.ArchiveResource;
 import org.olat.course.nodes.ArchiveOptions;
-import org.olat.course.nodes.AssessableCourseNode;
 import org.olat.course.nodes.AssessmentToolOptions;
+import org.olat.course.nodes.TACourseNode;
 import org.olat.course.run.environment.CourseEnvironment;
 import org.olat.resource.OLATResource;
 
@@ -44,10 +44,10 @@ public class BulkDownloadToolController extends BasicController {
 
 	private final ArchiveOptions options;
 	private final OLATResource courseOres;
-	private final AssessableCourseNode courseNode;
+	private final TACourseNode courseNode;
 	
 	public BulkDownloadToolController(UserRequest ureq, WindowControl wControl, CourseEnvironment courseEnv,
-			AssessmentToolOptions asOptions, AssessableCourseNode courseNode) {
+			AssessmentToolOptions asOptions, TACourseNode courseNode) {
 		super(ureq, wControl);
 		this.options = new ArchiveOptions();
 		this.options.setGroup(asOptions.getGroup());

@@ -19,6 +19,7 @@
  */
 package org.olat.user.propertyhandlers;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -28,6 +29,7 @@ import org.apache.velocity.context.Context;
 import org.olat.admin.user.bulkChange.UserBulkChangeManager;
 import org.olat.admin.user.bulkChange.UserBulkChangeStep00;
 import org.olat.basesecurity.BaseSecurityManager;
+import org.olat.core.CoreSpringFactory;
 import org.olat.core.gui.components.form.ValidationError;
 import org.olat.core.gui.components.form.flexible.FormItem;
 import org.olat.core.gui.components.form.flexible.FormItemContainer;
@@ -108,7 +110,7 @@ public class EmailProperty extends Generic127CharTextPropertyHandler {
 					else {
 						Long userKey = user.getKey();
 						Identity identity = BaseSecurityManager.getInstance().loadIdentityByKey(userKey);
-						ubcMan.setUserContext(identity, vcContext, isAdministrativeUser);
+						ubcMan.setUserContext(identity, vcContext);
 					}
 					value = value.replace("$", "$!");
 					String evaluatedValue = ubcMan.evaluateValueWithUserContext(value, vcContext);
@@ -175,28 +177,30 @@ public class EmailProperty extends Generic127CharTextPropertyHandler {
 	
 	
 	private boolean isAddressAvailable(String emailAddress, String currentUsername) {
-		
 		// Check if mail address already used
 		// within the system by a user other than ourselves
-		
-		Identity identityOfEmail = UserManager.getInstance().findIdentityByEmail(emailAddress);
+		List<Identity> identityOfEmails = UserManager.getInstance().findIdentitiesByEmail(Collections.singletonList(emailAddress));
 		if (currentUsername != null) {
-			if ((identityOfEmail != null) && (!identityOfEmail.getName().equals(currentUsername))) {
+			if(identityOfEmails.size() == 0) {
+				//ok -> checkForScheduledAdressChange
+			} else if(identityOfEmails.size() == 1) {
+				Identity identityOfEmail = identityOfEmails.get(0);
+				if (identityOfEmail != null && !identityOfEmail.getName().equals(currentUsername)) {
+					return false;
+				}
+			} else {
 				return false;
 			}
-		} else {
-			if (identityOfEmail != null) {
-				return false;
-			}
+		} else if (identityOfEmails.size() > 0) {
+			return false;
 		}
-		
 		return checkForScheduledAdressChange(emailAddress);
 	}
 	
 	
 	private boolean checkForScheduledAdressChange(String emailAddress) {
 		// check if mail address scheduled to change
-		RegistrationManager rm = RegistrationManager.getInstance();
+		RegistrationManager rm = CoreSpringFactory.getImpl(RegistrationManager.class);
 		List<TemporaryKey> tk = rm.loadTemporaryKeyByAction(RegistrationManager.EMAIL_CHANGE);
 		if (tk != null) {
 			for (TemporaryKey temporaryKey : tk) {

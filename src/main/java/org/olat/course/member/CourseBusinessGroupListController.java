@@ -89,6 +89,7 @@ public class CourseBusinessGroupListController extends AbstractBusinessGroupList
 		initButtons(formLayout, ureq, true, false, false);
 		
 		tableEl.setMultiSelect(true);
+		tableEl.setSelectAllEnable(true);
 		
 		boolean managed = RepositoryEntryManagedFlag.isManaged(re, RepositoryEntryManagedFlag.groups);
 		if(!managed) {
@@ -104,9 +105,11 @@ public class CourseBusinessGroupListController extends AbstractBusinessGroupList
 		}
 
 		createGroup = uifactory.addFormLink("group.create", formLayout, Link.BUTTON);
+		createGroup.setElementCssClass("o_sel_course_new_group");
 		createGroup.setVisible(!managed);
 		createGroup.setIconLeftCSS("o_icon o_icon-fw o_icon_add");
 		addGroup = uifactory.addFormLink("group.add", formLayout, Link.BUTTON);
+		addGroup.setElementCssClass("o_sel_course_select_group");
 		addGroup.setVisible(!managed);
 		addGroup.setIconLeftCSS("o_icon o_icon-fw o_icon_add_search");
 	}
@@ -171,14 +174,12 @@ public class CourseBusinessGroupListController extends AbstractBusinessGroupList
 				SelectionEvent te = (SelectionEvent) event;
 				String cmd = te.getCommand();
 				if(TABLE_ACTION_UNLINK.equals(cmd)) {
-					Long businessGroupKey = groupTableModel.getObject(te.getIndex()).getBusinessGroupKey();
-					BusinessGroup group = businessGroupService.loadBusinessGroup(businessGroupKey);
-					String text = getTranslator().translate("group.remove", new String[] {
-							StringHelper.escapeHtml(group.getName()),
-							StringHelper.escapeHtml(re.getDisplayname())
-					});
-					confirmRemoveResource = activateYesNoDialog(ureq, null, text, confirmRemoveResource);
-					confirmRemoveResource.setUserObject(group);
+					if(te.getIndex() >= 0 && te.getIndex() < groupTableModel.getRowCount()) {
+						BGTableItem tableItem = groupTableModel.getObject(te.getIndex());
+						if(tableItem != null && tableItem.getBusinessGroupKey() != null) {
+							doConfirmUnlink(ureq, tableItem.getBusinessGroupKey());
+						}
+					}
 				}
 			}
 		} 
@@ -235,6 +236,21 @@ public class CourseBusinessGroupListController extends AbstractBusinessGroupList
 	protected void doEdit(UserRequest ureq, BusinessGroup group) {
 		ureq.getUserSession().putEntry("wild_card_" + group.getKey(), Boolean.TRUE);
 		super.doEdit(ureq, group);
+	}
+	
+	private void doConfirmUnlink(UserRequest ureq, Long businessGroupKey) {
+		BusinessGroup group = businessGroupService.loadBusinessGroup(businessGroupKey);
+		if(group == null) {
+			groupTableModel.removeBusinessGroup(businessGroupKey);
+			tableEl.reset();
+		} else {
+			String text = getTranslator().translate("group.remove", new String[] {
+					StringHelper.escapeHtml(group.getName()),
+					StringHelper.escapeHtml(re.getDisplayname())
+			});
+			confirmRemoveResource = activateYesNoDialog(ureq, null, text, confirmRemoveResource);
+			confirmRemoveResource.setUserObject(group);
+		}
 	}
 
 	private void doConfirmRemove(UserRequest ureq, List<BGTableItem> selectedItems) {

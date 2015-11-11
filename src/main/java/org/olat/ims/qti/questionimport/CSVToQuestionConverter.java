@@ -32,8 +32,10 @@ import org.olat.core.util.filter.FilterFactory;
 import org.olat.ims.qti.editor.QTIEditHelper;
 import org.olat.ims.qti.editor.beecom.objects.ChoiceQuestion;
 import org.olat.ims.qti.editor.beecom.objects.ChoiceResponse;
+import org.olat.ims.qti.editor.beecom.objects.Control;
 import org.olat.ims.qti.editor.beecom.objects.FIBQuestion;
 import org.olat.ims.qti.editor.beecom.objects.FIBResponse;
+import org.olat.ims.qti.editor.beecom.objects.Item;
 import org.olat.ims.qti.editor.beecom.objects.Material;
 import org.olat.ims.qti.editor.beecom.objects.Mattext;
 import org.olat.ims.qti.editor.beecom.objects.QTIObject;
@@ -53,9 +55,11 @@ public class CSVToQuestionConverter {
 	private ItemAndMetadata currentItem;
 	private final List<ItemAndMetadata> items = new ArrayList<>();
 	private Translator translator;
+	private ImportOptions options;
 	
-	public CSVToQuestionConverter(Translator translator) {
+	public CSVToQuestionConverter(Translator translator, ImportOptions options) {
 		this.translator = translator;
+		this.options = options;
 	}
 	
 	public List<ItemAndMetadata> getItems() {
@@ -103,6 +107,8 @@ public class CSVToQuestionConverter {
 			case "points": processPoints(parts); break;
 			case "fachbereich":
 			case "subject": processTaxonomyPath(parts); break;
+			case "feedback correct answer": processFeedbackCorrectAnswer(parts); break;
+			case "feedback wrong answer": processFeedbackWrongAnswer(parts); break;
 			case "schlagworte":
 			case "keywords": processKeywords(parts); break;
 			case "abdeckung":
@@ -170,6 +176,34 @@ public class CSVToQuestionConverter {
 		String editorVersion = parts[1];
 		if(StringHelper.containsNonWhitespace(editorVersion)) {
 			currentItem.setEditorVersion(editorVersion.trim());
+		}
+	}
+	
+	private void processFeedbackCorrectAnswer(String[] parts) {
+		if(currentItem == null || parts.length < 2) return;
+		
+		String feedback = parts[1];
+		if(StringHelper.containsNonWhitespace(feedback)) {
+			Item item = currentItem.getItem();
+			Control control = QTIEditHelper.getControl(item);
+			if(control.getFeedback() != 1) {
+				control.setFeedback(1);
+			}
+			QTIEditHelper.setFeedbackMastery(item, feedback);
+		}
+	}
+	
+	private void processFeedbackWrongAnswer(String[] parts) {
+		if(currentItem == null || parts.length < 2) return;
+		
+		String feedback = parts[1];
+		if(StringHelper.containsNonWhitespace(feedback)) {
+			Item item = currentItem.getItem();
+			Control control = QTIEditHelper.getControl(item);
+			if(control.getFeedback() != 1) {
+				control.setFeedback(1);
+			}
+			QTIEditHelper.setFeedbackFail(item, feedback);
 		}
 	}
 	
@@ -251,13 +285,13 @@ public class CSVToQuestionConverter {
 				case "mc": {
 					currentItem = new ItemAndMetadata(QTIEditHelper.createMCItem(translator));
 					((ChoiceQuestion)currentItem.getItem().getQuestion()).getResponses().clear();
-					((ChoiceQuestion)currentItem.getItem().getQuestion()).setShuffle(true);
+					((ChoiceQuestion)currentItem.getItem().getQuestion()).setShuffle(options.isShuffle());
 					break;
 				}
 				case "sc": {
 					currentItem = new ItemAndMetadata(QTIEditHelper.createSCItem(translator));
 					((ChoiceQuestion)currentItem.getItem().getQuestion()).getResponses().clear();
-					((ChoiceQuestion)currentItem.getItem().getQuestion()).setShuffle(true);
+					((ChoiceQuestion)currentItem.getItem().getQuestion()).setShuffle(options.isShuffle());
 					break;
 				}
 				default: {

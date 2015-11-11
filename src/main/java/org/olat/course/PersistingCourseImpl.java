@@ -29,6 +29,7 @@ import java.io.File;
 import java.io.Serializable;
 
 import org.olat.admin.quota.QuotaConstants;
+import org.olat.core.CoreSpringFactory;
 import org.olat.core.commons.modules.bc.vfs.OlatRootFolderImpl;
 import org.olat.core.commons.persistence.DBFactory;
 import org.olat.core.id.IdentityEnvironment;
@@ -57,11 +58,13 @@ import org.olat.course.config.CourseConfigManagerImpl;
 import org.olat.course.export.CourseEnvironmentMapper;
 import org.olat.course.groupsandrights.PersistingCourseGroupManager;
 import org.olat.course.nodes.CourseNode;
+import org.olat.course.nodes.CourseNode.Processing;
 import org.olat.course.run.environment.CourseEnvironment;
 import org.olat.course.run.environment.CourseEnvironmentImpl;
 import org.olat.course.tree.CourseEditorTreeModel;
 import org.olat.course.tree.CourseEditorTreeNode;
 import org.olat.modules.glossary.GlossaryManager;
+import org.olat.modules.reminder.ReminderService;
 import org.olat.modules.sharedfolder.SharedFolderManager;
 import org.olat.repository.RepositoryEntry;
 import org.olat.repository.RepositoryEntryImportExport;
@@ -374,19 +377,34 @@ public class PersistingCourseImpl implements ICourse, OLATResourceable, Serializ
 		//  pro increased transaction timeout: would fix OLAT-5368 but only move the problem
 		//@TODO OLAT-2597: real solution is a long-running background-task concept...
 		DBFactory.getInstance().intermediateCommit();
+		
+		//export reminders
+		CoreSpringFactory.getImpl(ReminderService.class)
+			.exportReminders(myRE, fExportedDataDir);
 
 		log.info("exportToFilesystem: exporting course "+this+" to "+exportDirectory+" done.");
 		log.info("finished export course '"+getCourseTitle()+"' in t="+Long.toString(System.currentTimeMillis()-s));
 	}
 	
 	@Override
-	public void postImport(CourseEnvironmentMapper envMapper) {
+	public void postCopy(CourseEnvironmentMapper envMapper, ICourse sourceCourse) {
 		Structure importedStructure = getRunStructure();
-		visit(new NodePostImportVisitor(envMapper), importedStructure.getRootNode());
+		visit(new NodePostCopyVisitor(envMapper, Processing.runstructure, this, sourceCourse), importedStructure.getRootNode());
 		saveRunStructure();
 		
 		CourseEditorTreeModel importedEditorModel = getEditorTreeModel();
-		visit(new NodePostImportVisitor(envMapper), importedEditorModel.getRootNode());
+		visit(new NodePostCopyVisitor(envMapper, Processing.editor, this, sourceCourse), importedEditorModel.getRootNode());
+		saveEditorTreeModel();
+	}
+	
+	@Override
+	public void postImport(CourseEnvironmentMapper envMapper) {
+		Structure importedStructure = getRunStructure();
+		visit(new NodePostImportVisitor(envMapper, Processing.runstructure), importedStructure.getRootNode());
+		saveRunStructure();
+		
+		CourseEditorTreeModel importedEditorModel = getEditorTreeModel();
+		visit(new NodePostImportVisitor(envMapper, Processing.editor), importedEditorModel.getRootNode());
 		saveEditorTreeModel();
 	}
 	
@@ -454,7 +472,7 @@ public class PersistingCourseImpl implements ICourse, OLATResourceable, Serializ
 			XStream xstream = CourseXStreamAliases.getReadCourseXStream();
 			return XStreamHelper.readObject(xstream, ((VFSLeaf)vfsItem).getInputStream());
 		} catch (Exception e) {
-			log.error("Cannot read course tree file: " + fileName);
+			log.error("Cannot read course tree file: " + fileName, e);
 			throw new CorruptedCourseException("Cannot resolve file: " + fileName + " course=" + toString(), e);
 		}
 	}
@@ -556,10 +574,13 @@ class NodePostExportVisitor implements Visitor {
 }
 
 class NodePostImportVisitor implements Visitor {
+	
+	private final Processing processType;
 	private final CourseEnvironmentMapper envMapper;
 	
-	public NodePostImportVisitor(CourseEnvironmentMapper envMapper) {
+	public NodePostImportVisitor(CourseEnvironmentMapper envMapper, Processing processType) {
 		this.envMapper = envMapper;
+		this.processType = processType;
 	}
 	
 	@Override
@@ -568,7 +589,32 @@ class NodePostImportVisitor implements Visitor {
 			node = ((CourseEditorTreeNode)node).getCourseNode();
 		}
 		if(node instanceof CourseNode) {
-			((CourseNode)node).postImport(envMapper);
+			((CourseNode)node).postImport(envMapper, processType);
+		}
+	}
+}
+
+class NodePostCopyVisitor implements Visitor {
+	
+	private final Processing processType;
+	private final CourseEnvironmentMapper envMapper;
+	private final ICourse course;
+	private final ICourse sourceCourse;
+	
+	public NodePostCopyVisitor(CourseEnvironmentMapper envMapper, Processing processType, ICourse course, ICourse sourceCourse) {
+		this.envMapper = envMapper;
+		this.processType = processType;
+		this.course = course;
+		this.sourceCourse = sourceCourse;
+	}
+	
+	@Override
+	public void visit(INode node) {
+		if(node instanceof CourseEditorTreeNode) {
+			node = ((CourseEditorTreeNode)node).getCourseNode();
+		}
+		if(node instanceof CourseNode) {
+			((CourseNode)node).postCopy(envMapper, processType, course, sourceCourse);
 		}
 	}
 }

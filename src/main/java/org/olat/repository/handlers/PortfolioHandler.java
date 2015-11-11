@@ -139,7 +139,7 @@ public class PortfolioHandler implements RepositoryHandler {
 	}
 	
 	@Override
-	public RepositoryEntry copy(RepositoryEntry source, RepositoryEntry target) {
+	public RepositoryEntry copy(Identity author, RepositoryEntry source, RepositoryEntry target) {
 		OLATResource sourceResource = source.getOlatResource();
 		OLATResource targetResource = target.getOlatResource();
 		
@@ -174,9 +174,9 @@ public class PortfolioHandler implements RepositoryHandler {
 	}
 
 	@Override
-	public boolean readyToDelete(OLATResourceable res, Identity identity, Roles roles, Locale locale, ErrorList errors) {
+	public boolean readyToDelete(RepositoryEntry entry, Identity identity, Roles roles, Locale locale, ErrorList errors) {
 		EPFrontendManager ePFMgr = CoreSpringFactory.getImpl(EPFrontendManager.class);
-		PortfolioStructure map = ePFMgr.loadPortfolioStructure(res);
+		PortfolioStructure map = ePFMgr.loadPortfolioStructure(entry.getOlatResource());
 		if(map instanceof EPStructuredMapTemplate) {
 			EPStructuredMapTemplate exercise = (EPStructuredMapTemplate)map;
 			if (ePFMgr.isTemplateInUse(exercise, null, null, null)) {
@@ -184,18 +184,19 @@ public class PortfolioHandler implements RepositoryHandler {
 			}
 		}
 
-		ReferenceManager refM = ReferenceManager.getInstance();
-		String referencesSummary = refM.getReferencesToSummary(res, locale);
+		ReferenceManager refM = CoreSpringFactory.getImpl(ReferenceManager.class);
+		String referencesSummary = refM.getReferencesToSummary(entry.getOlatResource(), locale);
 		if (referencesSummary != null) {
 			Translator translator = Util.createPackageTranslator(RepositoryManager.class, locale);
-			errors.setError(translator.translate("details.delete.error.references", new String[] { referencesSummary }));
+			errors.setError(translator.translate("details.delete.error.references",
+					new String[] { referencesSummary, entry.getDisplayname() }));
 			return false;
 		}
 		return true;
 	}
 
 	@Override
-	public boolean cleanupOnDelete(OLATResourceable res) {
+	public boolean cleanupOnDelete(RepositoryEntry entry, OLATResourceable res) {
 		CoreSpringFactory.getImpl(EPFrontendManager.class).deletePortfolioMapTemplate(res);
 		return true;
 	}

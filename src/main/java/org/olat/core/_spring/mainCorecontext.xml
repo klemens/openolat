@@ -8,7 +8,7 @@
   http://www.springframework.org/schema/context 
   http://www.springframework.org/schema/context/spring-context.xsd">
   
-	<context:component-scan base-package="org.olat.core.dispatcher.mapper,org.olat.core.commons.controllers.impressum" />
+	<context:component-scan base-package="org.olat.core.dispatcher.mapper,org.olat.core.commons.controllers.impressum,org.olat.core.gui.render.velocity" />
 
 	<bean id="coreSpringFactory" class="org.olat.core.CoreSpringFactory" />
 	
@@ -43,7 +43,7 @@
 	<import resource="classpath:/org/olat/core/commons/services/thumbnail/_spring/thumbnailserviceContext.xml"/>
 	<import resource="classpath:/org/olat/core/commons/services/webdav/_spring/webdavContext.xml"/>
 
-	<bean class="org.olat.core.gui.render.velocity.VelocityModule" depends-on="org.olat.core.helpers.Settings" init-method="init">
+	<bean class="org.olat.core.gui.render.velocity.VelocityModule" depends-on="org.olat.core.helpers.Settings,coordinatorManager" init-method="init">
 	    <property name="parserPoolSize" value="${velocity.parser.pool.size}" />	
 	</bean>
 

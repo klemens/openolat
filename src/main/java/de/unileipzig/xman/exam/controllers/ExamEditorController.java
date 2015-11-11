@@ -37,6 +37,7 @@ import org.olat.core.gui.control.generic.modal.DialogBoxController;
 import org.olat.core.gui.control.generic.modal.DialogBoxUIFactory;
 import org.olat.core.gui.translator.PackageTranslator;
 import org.olat.core.gui.translator.Translator;
+import org.olat.core.id.Identity;
 import org.olat.core.id.OLATResourceable;
 import org.olat.core.id.User;
 import org.olat.core.id.UserConstants;
@@ -56,6 +57,9 @@ import de.unileipzig.xman.appointment.Appointment;
 import de.unileipzig.xman.appointment.AppointmentManager;
 import de.unileipzig.xman.appointment.tables.AppointmentTableModel;
 import de.unileipzig.xman.calendar.CalendarManager;
+import de.unileipzig.xman.comment.CommentManager;
+import de.unileipzig.xman.esf.ElectronicStudentFile;
+import de.unileipzig.xman.esf.ElectronicStudentFileManager;
 import de.unileipzig.xman.exam.Exam;
 import de.unileipzig.xman.exam.ExamDBManager;
 import de.unileipzig.xman.exam.ExamHandler;
@@ -184,7 +188,7 @@ public class ExamEditorController extends BasicController {
 		if (exam.getIsOral())
 			appTableCtr.addMultiSelectAction("ExamEditorController.appointmentTable.del", "appTable.del");
 		List<Appointment> appList = AppointmentManager.getInstance().findAllAppointmentsByExamId(exam.getKey());
-		appTableMdl = new AppointmentTableModel(ureq.getLocale(), appList, AppointmentTableModel.NO_SELECTION);
+		appTableMdl = new AppointmentTableModel(getTranslator(), appList, exam.getIsOral());
 		appTableMdl.setTable(appTableCtr);
 		appTableCtr.setTableDataModel(appTableMdl);
 		appTableCtr.setSortColumn(0, true);
@@ -277,7 +281,7 @@ public class ExamEditorController extends BasicController {
 								tmpTranslator.translate("ExamEditorController.DeleteAppointment.Body",
 									new String[] {
 										ExamDBManager.getInstance().getExamName(exam),
-										p.getIdentity().getUser().getProperty(UserConstants.LASTNAME, ureq.getLocale()) + ", " + p.getIdentity().getUser().getProperty(UserConstants.FIRSTNAME, ureq.getLocale()),
+										getName(p.getIdentity()),
 										DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT, tmpTranslator.getLocale()).format(tempApp.getDate()),
 										tempApp.getPlace(),
 										new Integer(tempApp.getDuration()).toString(),
@@ -287,13 +291,19 @@ public class ExamEditorController extends BasicController {
 								p.getIdentity()
 							);
 							
+							ElectronicStudentFile esf = ElectronicStudentFileManager.getInstance().retrieveESFByIdentity(p.getIdentity());
+
+							// add a comment to the esf
+							String commentText = translate("ExamEditorController.appointmentRemoved", new String[] { exam.getName(), getName(ureq.getIdentity()) });
+							CommentManager.getInstance().createCommentInEsf(esf, commentText, ureq.getIdentity());
+
 							ProtocolManager.getInstance().deleteProtocol(p);
 						}
 						tempApp = AppointmentManager.getInstance().findAppointmentByID(tempApp.getKey());
 						AppointmentManager.getInstance().deleteAppointment(tempApp);
 					}
 
-					appTableMdl.setEntries(AppointmentManager.getInstance()
+					appTableMdl.setObjects(AppointmentManager.getInstance()
 							.findAllAppointmentsByExamId(exam.getKey()));
 					appTableCtr.modelChanged();
 				}
@@ -353,7 +363,7 @@ public class ExamEditorController extends BasicController {
 							createAppForm.getDuration(),
 							createAppForm.getPause());
 				}
-				appTableMdl.setEntries(AppointmentManager.getInstance()
+				appTableMdl.setObjects(AppointmentManager.getInstance()
 						.findAllAppointmentsByExamId(exam.getKey()));
 				appTableCtr.modelChanged();
 			}
@@ -367,7 +377,7 @@ public class ExamEditorController extends BasicController {
 				app.setPlace(editAppForm.getPlace());
 				app.setDuration(editAppForm.getDuration());
 				AppointmentManager.getInstance().updateAppointment(app);
-				appTableMdl.setEntries(AppointmentManager.getInstance()
+				appTableMdl.setObjects(AppointmentManager.getInstance()
 						.findAllAppointmentsByExamId(exam.getKey()));
 				appTableCtr.modelChanged();
 				List<Protocol> protoList = ProtocolManager.getInstance()
@@ -383,7 +393,7 @@ public class ExamEditorController extends BasicController {
 						tmpTranslator.translate("ExamEditorController.UpdateAppointment.Body",
 							new String[] {
 								ExamDBManager.getInstance().getExamName(exam),
-								p.getIdentity().getUser().getProperty(UserConstants.LASTNAME, ureq.getLocale()) + ", " + p.getIdentity().getUser().getProperty(UserConstants.FIRSTNAME, ureq.getLocale()),
+								getName(p.getIdentity()),
 								DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT, tmpTranslator.getLocale()).format(p.getAppointment().getDate()),
 								p.getAppointment().getPlace(),
 								new Integer(p.getAppointment().getDuration()).toString(),
@@ -392,8 +402,17 @@ public class ExamEditorController extends BasicController {
 							}),
 						p.getIdentity()
 					);
+
+					ElectronicStudentFile esf = ElectronicStudentFileManager.getInstance().retrieveESFByIdentity(p.getIdentity());
+					// add a comment to the esf
+					String commentText = translate("ExamEditorController.appointmentChanged", new String[] { exam.getName(), getName(ureq.getIdentity()) });
+					CommentManager.getInstance().createCommentInEsf(esf, commentText, ureq.getIdentity());
 				}
 			}
 		}
+	}
+
+	protected String getName(Identity id) {
+		return id.getUser().getProperty(UserConstants.FIRSTNAME, null) + " " + id.getUser().getProperty(UserConstants.LASTNAME, null);
 	}
 }

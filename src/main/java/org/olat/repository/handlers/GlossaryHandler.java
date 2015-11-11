@@ -130,7 +130,7 @@ public class GlossaryHandler implements RepositoryHandler {
 	}
 	
 	@Override
-	public RepositoryEntry copy(RepositoryEntry source, RepositoryEntry target) {
+	public RepositoryEntry copy(Identity author, RepositoryEntry source, RepositoryEntry target) {
 		OLATResource sourceResource = source.getOlatResource();
 		OLATResource targetResource = target.getOlatResource();
 		File sourceFileroot = FileResourceManager.getInstance().getFileResourceRootImpl(sourceResource).getBasefile();
@@ -221,7 +221,7 @@ public class GlossaryHandler implements RepositoryHandler {
 	}
 
 	@Override
-	public boolean cleanupOnDelete(OLATResourceable res) {
+	public boolean cleanupOnDelete(RepositoryEntry entry, OLATResourceable res) {
 		// FIXME fg
 		// do not need to notify all current users of this resource, since the only
 		// way to access this resource
@@ -233,12 +233,13 @@ public class GlossaryHandler implements RepositoryHandler {
 	}
 
 	@Override
-	public boolean readyToDelete(OLATResourceable res, Identity identity, Roles roles, Locale locale, ErrorList errors) {
-		ReferenceManager refM = ReferenceManager.getInstance();
-		String referencesSummary = refM.getReferencesToSummary(res, locale);
+	public boolean readyToDelete(RepositoryEntry entry, Identity identity, Roles roles, Locale locale, ErrorList errors) {
+		ReferenceManager refM = CoreSpringFactory.getImpl(ReferenceManager.class);
+		String referencesSummary = refM.getReferencesToSummary(entry.getOlatResource(), locale);
 		if (referencesSummary != null) {
 			Translator translator = Util.createPackageTranslator(RepositoryManager.class, locale);
-			errors.setError(translator.translate("details.delete.error.references", new String[] { referencesSummary }));
+			errors.setError(translator.translate("details.delete.error.references",
+					new String[] { referencesSummary, entry.getDisplayname() }));
 			return false;
 		}
 		return true;

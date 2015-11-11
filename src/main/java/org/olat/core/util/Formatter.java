@@ -62,7 +62,9 @@ public class Formatter {
 	
 	private final Locale locale;
 	private final DateFormat shortDateFormat;
+	private final DateFormat longDateFormat;
 	private final DateFormat shortDateTimeFormat;
+	private final DateFormat longDateTimeFormat;
 	private final DateFormat shortTimeFormat;
 	private final DateFormat mediumTimeFormat;
 
@@ -71,14 +73,33 @@ public class Formatter {
 	 */
 	private Formatter(Locale locale) {
 		this.locale = locale;
+		// Date only formats
 		shortDateFormat = DateFormat.getDateInstance(DateFormat.SHORT, locale);
 		shortDateFormat.setLenient(false);
-		mediumTimeFormat = DateFormat.getTimeInstance(DateFormat.MEDIUM, locale);
-		mediumTimeFormat.setLenient(false);
-		shortDateTimeFormat = DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT, locale);
-		shortDateTimeFormat.setLenient(false);
+		if (shortDateFormat instanceof SimpleDateFormat) {
+			// by default year has only two digits, however most people prefer a four digits year, even in short format
+			SimpleDateFormat sdf = (SimpleDateFormat) shortDateFormat;
+			String pattern = sdf.toPattern().replaceAll("y+","yyyy");
+			sdf.applyPattern(pattern); 
+		}
+		longDateFormat = DateFormat.getDateInstance(DateFormat.LONG, locale);
+		longDateFormat.setLenient(false);
+		// Time only formats
 		shortTimeFormat = DateFormat.getTimeInstance(DateFormat.SHORT, locale);
 		shortTimeFormat.setLenient(false);
+		mediumTimeFormat = DateFormat.getTimeInstance(DateFormat.MEDIUM, locale);
+		mediumTimeFormat.setLenient(false);
+		// Date and time formats
+		shortDateTimeFormat = DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT, locale);
+		shortDateTimeFormat.setLenient(false);
+		if (shortDateTimeFormat instanceof SimpleDateFormat) {
+			// by default year has only two digits, however most people prefer a four digits year, even in short format
+			SimpleDateFormat sdf = (SimpleDateFormat) shortDateTimeFormat;
+			String pattern = sdf.toPattern().replaceAll("y+","yyyy");
+			sdf.applyPattern(pattern); 
+		}
+		longDateTimeFormat = DateFormat.getDateTimeInstance(DateFormat.LONG, DateFormat.LONG, locale);
+		longDateTimeFormat.setLenient(false);
 	}
 
 	/**
@@ -99,17 +120,31 @@ public class Formatter {
 	}
 
 	/**
-	 * formats the given date so it is friendly to read
+	 * Formats the given date in a short format, e.g. 05.12.2015 or 12/05/2015
 	 * 
-	 * @param d the date
+	 * @param date the date
 	 * @return a String with the formatted date
 	 */
-	public String formatDate(Date d) {
+	public String formatDate(Date date) {
+		if (date == null) return null;
 		synchronized (shortDateFormat) {
-			return shortDateFormat.format(d);
+			return shortDateFormat.format(date);
 		}
 	}
-	
+
+	/**
+	 * Formats the given date in a medium sized format, e.g. 12. Dezember 2015 or December 12, 2015
+	 * 
+	 * @param date the date
+	 * @return a String with the formatted date
+	 */
+	public String formatDateLong(Date date) {
+		if (date == null) return null;
+		synchronized (longDateFormat) {
+			return longDateFormat.format(date);
+		}
+	}
+
 	public Date parseDate(String val) throws ParseException {
 		synchronized (shortDateFormat) {
 			return shortDateFormat.parse(val);
@@ -119,28 +154,47 @@ public class Formatter {
 	/**
 	 * formats the given time period so it is friendly to read
 	 * 
-	 * @param d the date
+	 * @param date the date
 	 * @return a String with the formatted time
 	 */
-	public String formatTime(Date d) {
+	public String formatTime(Date date) {
+		if (date == null) return null;
 		synchronized (mediumTimeFormat) {
-			return mediumTimeFormat.format(d);
+			return mediumTimeFormat.format(date);
 		}
 	}
 
 	/**
-	 * formats the given date so it is friendly to read
+	 * Formats the given date in a short size with date and time, e.g.
+	 * 05.12.2015 14:35
 	 * 
-	 * @param d the date
+	 * @param date
+	 *            the date
 	 * @return a String with the formatted date and time
 	 */
-	public String formatDateAndTime(Date d) {
-		if (d == null) return null;
+	public String formatDateAndTime(Date date) {
+		if (date == null) return null;
 		synchronized (shortDateTimeFormat) {
-			return shortDateTimeFormat.format(d);
+			return shortDateTimeFormat.format(date);
 		}
 	}
 
+	/**
+	 * Formats the given date in a long size with date and time, e.g. Tuesday,
+	 * 10. September 2015, 3:48 PM
+	 * 
+	 * @param date
+	 *            the date
+	 * @return a String with the formatted date and time
+	 */
+	public String formatDateAndTimeLong(Date date) {
+		if (date == null) return null;
+		synchronized (longDateTimeFormat) {
+			return longDateTimeFormat.format(date);
+		}
+	}
+	
+	
 	/**
 	 * Generate a simple date pattern that formats a date using the locale of the
 	 * formatter
@@ -204,6 +258,19 @@ public class Formatter {
 	}
 	
 	/**
+	 * Parse the given date with the ISO 8601 standard also known as 'datetime'
+	 * See http://www.w3.org/TR/NOTE-datetime.html for more info.
+	 * 
+	 * @param d the date as string to be parsed
+	 * @return The date
+	 */
+	public static Date parseDatetime(String d) throws ParseException {
+		synchronized (formatDateTime) {
+			return formatDateTime.parse(d);
+		}
+	}
+	
+	/**
 	 * Use this for naming files or directories with a timestamp. 
 	 * As windows does not like ":" in filenames formatDateAndTime(d) does not work
 	 * 
@@ -213,6 +280,12 @@ public class Formatter {
 	public static String formatDatetimeFilesystemSave(Date d) {
 		synchronized (formatterDatetimeFilesystem) {
 			return formatterDatetimeFilesystem.format(d);
+		}
+	}
+	
+	public static Date parseDatetimeFilesystemSave(String d) throws ParseException {
+		synchronized (formatterDatetimeFilesystem) {
+			return formatterDatetimeFilesystem.parse(d);
 		}
 	}
 	

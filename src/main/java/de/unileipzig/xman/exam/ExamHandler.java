@@ -125,7 +125,7 @@ public class ExamHandler implements RepositoryHandler {
 	}
 
 	@Override
-	public RepositoryEntry copy(RepositoryEntry source, RepositoryEntry target) {
+	public RepositoryEntry copy(Identity author, RepositoryEntry source, RepositoryEntry target) {
 		// TODO: currently not implemented
 		throw new UnsupportedOperationException("Copying exams is not supported currently");
 	}
@@ -157,13 +157,13 @@ public class ExamHandler implements RepositoryHandler {
 	}
 
 	@Override
-	public boolean readyToDelete(OLATResourceable res, Identity identity, Roles roles, Locale locale, ErrorList errors) {
+	public boolean readyToDelete(RepositoryEntry entry, Identity identity, Roles roles, Locale locale, ErrorList errors) {
 		// TODO delete not supported currently
 		return false;
 	}
 
 	@Override
-	public boolean cleanupOnDelete(OLATResourceable res) {
+	public boolean cleanupOnDelete(RepositoryEntry entry, OLATResourceable res) {
 		// TODO currently not needed as deletion is disabled
 		CoordinatorManager.getInstance().getCoordinator().getEventBus().fireEventToListenersOf(new OLATResourceableJustBeforeDeletedEvent(res), res);
 

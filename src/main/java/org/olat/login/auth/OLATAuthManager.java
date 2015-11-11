@@ -69,10 +69,6 @@ import org.springframework.stereotype.Service;
 import com.thoughtworks.xstream.XStream;
 
 /**
- * Description:<br>
- * TODO:
- * 
- * <P>
  * Initial Date:  26.09.2007 <br>
  * @author Felix Jost, http://www.goodsolutions.ch
  */
@@ -93,6 +89,8 @@ public class OLATAuthManager extends BasicManager implements AuthenticationSPI {
 	private LoginModule loginModule;
 	@Autowired
 	private LDAPLoginModule ldapLoginModule;
+	@Autowired
+	private RegistrationManager registrationManager;
 	
 	/**
 	 * 
@@ -108,8 +106,14 @@ public class OLATAuthManager extends BasicManager implements AuthenticationSPI {
 			// check for email instead of username if ident is null
 			if(loginModule.isAllowLoginUsingEmail()) {
 				if (MailHelper.isValidEmailAddress(login)){
-					ident = userManager.findIdentityByEmail(login);
+					List<Identity> identities = userManager.findIdentitiesByEmail(Collections.singletonList(login));
 					// check for email changed with verification workflow
+					if(identities.size() == 1) {
+						ident = identities.get(0);
+					} else if(identities.size() > 1) {
+						logError("more than one identity found with email::" + login, null);
+					}
+					
 					if (ident == null) {
 						ident = findIdentInChangingEmailWorkflow(login);
 					}
@@ -155,8 +159,7 @@ public class OLATAuthManager extends BasicManager implements AuthenticationSPI {
 	private Identity findIdentInChangingEmailWorkflow(String login){
 		XStream xml = XStreamHelper.createXStreamInstance();
 		
-		RegistrationManager rm = RegistrationManager.getInstance();
-		List<TemporaryKey> tk = rm.loadTemporaryKeyByAction(RegistrationManager.EMAIL_CHANGE);
+		List<TemporaryKey> tk = registrationManager.loadTemporaryKeyByAction(RegistrationManager.EMAIL_CHANGE);
 		if (tk != null) {
 			for (TemporaryKey temporaryKey : tk) {
 				@SuppressWarnings("unchecked")

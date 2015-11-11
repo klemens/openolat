@@ -103,7 +103,9 @@ public class TableRenderer extends DefaultComponentRenderer {
 		// Render table wrapper and table
 		String formName = renderMultiselectForm(target, source, ubu, iframePostEnabled);
 		target.append("<div class=\"o_table_wrapper\" id=\"o_table_wrapper_").append(table.hashCode()).append("\">")
-		      .append("<table id=\"o_table").append(table.hashCode()).append("\" class=\"o_table table table-striped table-condensed table-hover").append(CLOSE_HTML_BRACE);		
+		      .append("<table id=\"o_table").append(table.hashCode()).append("\" class=\"o_table table table-striped table-condensed table-hover")
+		      .append(" table-bordered", table.isDisplayTableGrid())
+		      .append(CLOSE_HTML_BRACE);		
 		appendHeaderLinks(target, translator, table, formName, cols);
 		appendDataRows(renderer, target, ubu, table, iframePostEnabled, cols, selRowUnSelectable, selRowId, startRowId, endRowId);
 		target.append("</table><div class='o_table_footer'>");
@@ -220,17 +222,17 @@ public class TableRenderer extends DefaultComponentRenderer {
 
 	private void appendSelectDeselectAllButtons(final StringOutput target, final Translator translator, Table table, String formName, int rows, int resultsPerPage) {
 		if (table.isMultiSelect()) {
-			target.append("<div class='o_table_checkall input-sm'>");
-			target.append("<label class='checkbox-inline'>");
-			target.append("<a href='#' onclick=\"javascript:o_table_toggleCheck('").append(formName).append("', true)\">");
-			target.append("<input type='checkbox' checked='checked' disabled='disabled' />");
-			target.append(translator.translate("checkall"));
-			target.append("</a></label>");
-			target.append("<label class='checkbox-inline'><a href=\"#\" onclick=\"javascript:o_table_toggleCheck('").append(formName).append("', false)\">");
-			target.append("<input type='checkbox' disabled='disabled' />");
-			target.append(translator.translate("uncheckall"));
-			target.append("</a></label>");
-			target.append("</div>");
+			target.append("<div class='o_table_checkall input-sm'>")
+			  .append("<label class='checkbox-inline'>")
+			  .append("<a href='#' onclick=\"javascript:o_table_toggleCheck('").append(formName).append("', true)\">")
+			  .append("<i class='o_icon o_icon-lg o_icon_check_on'> </i> ")
+			  .append(translator.translate("checkall"))
+			  .append("</a></label>");
+			target.append("<label class='checkbox-inline'><a href=\"#\" onclick=\"javascript:o_table_toggleCheck('").append(formName).append("', false)\">")
+			  .append("<i class='o_icon o_icon-lg o_icon_check_off'> </i> ")
+			  .append(translator.translate("uncheckall"))
+			  .append("</a></label>")
+			  .append("</div>");
 		}
 
 		if (table.isShowAllSelected() && (rows > resultsPerPage)) {

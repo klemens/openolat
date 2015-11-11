@@ -248,7 +248,7 @@ public class CatalogNodeManagerController extends FormBasicController implements
 		columnsModel.addFlexiColumnModel(new StaticFlexiColumnModel(Cols.delete.i18nKey(), translate(Cols.delete.i18nKey()), "delete"));
 		columnsModel.addFlexiColumnModel(new StaticFlexiColumnModel(Cols.move.i18nKey(), translate(Cols.move.i18nKey()), "move"));
 		columnsModel.addFlexiColumnModel(new StaticFlexiColumnModel(Cols.detailsSupported.i18nKey(), Cols.detailsSupported.ordinal(), "details",
-				new StaticFlexiCellRenderer("", "details", "o_icon-lg o_icon_details", translate("details"))));
+				new StaticFlexiCellRenderer("", "details", "o_icon o_icon-lg o_icon_details", translate("details"))));
 		
 		entriesModel = new CatalogEntryRowModel(columnsModel);
 		entriesEl = uifactory.addTableElement(getWindowControl(), "entries", entriesModel, getTranslator(), formLayout);
@@ -553,8 +553,6 @@ public class CatalogNodeManagerController extends FormBasicController implements
 			if(event instanceof IdentitiesAddEvent || event instanceof IdentitiesRemoveEvent) {
 				doAddRemoveOwners(event);
 			}
-			cmc.deactivate();
-			cleanUp();
 		} else if(contactCtrl == source) {
 			cmc.deactivate();
 			cleanUp();
@@ -621,7 +619,7 @@ public class CatalogNodeManagerController extends FormBasicController implements
 		removeAsListenerAndDispose(entrySearchCtrl);
 		removeAsListenerAndDispose(cmc);
 		
-		entrySearchCtrl = new RepositorySearchController(translate("choose"), ureq, getWindowControl(), true, false, false, new String[0], null);
+		entrySearchCtrl = new RepositorySearchController(translate("choose"), ureq, getWindowControl(), true, false, new String[0], null);
 		listenTo(entrySearchCtrl);
 		// OLAT-Admin has search form
 		if (ureq.getUserSession().getRoles().isOLATAdmin()) {

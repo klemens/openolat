@@ -79,7 +79,7 @@ public class ElectronicStudentFileManager implements UserDataDeletable {
 		
 		String query = "from de.unileipzig.xman.esf.ElectronicStudentFileImpl as esf where esf.identity = :identity";
 		DBQuery dbquery = DBFactory.getInstance().createQuery(query);
-		dbquery.setString("identity", identity.getKey().toString());
+		dbquery.setLong("identity", identity.getKey());
 		List<Object> esfList = dbquery.list();
 		if ( esfList.size() > 0 ) {
 			

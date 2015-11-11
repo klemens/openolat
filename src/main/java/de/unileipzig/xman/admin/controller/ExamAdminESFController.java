@@ -1,13 +1,7 @@
 package de.unileipzig.xman.admin.controller;
 
-import java.text.DateFormat;
 import java.util.ArrayList;
-import java.util.BitSet;
-import java.util.Date;
 import java.util.List;
-
-import org.olat.admin.user.UserSearchController;
-import org.olat.basesecurity.events.SingleIdentityChosenEvent;
 
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.Windows;
@@ -17,10 +11,8 @@ import org.olat.core.gui.components.table.TableController;
 import org.olat.core.gui.components.table.TableEvent;
 import org.olat.core.gui.components.table.TableGuiConfiguration;
 import org.olat.core.gui.components.table.TableMultiSelectEvent;
-import org.olat.core.gui.components.util.ComponentUtil;
 import org.olat.core.gui.components.velocity.VelocityContainer;
 import org.olat.core.gui.control.Controller;
-import org.olat.core.gui.control.DefaultController;
 import org.olat.core.gui.control.Event;
 import org.olat.core.gui.control.WindowControl;
 import org.olat.core.gui.control.controller.BasicController;
@@ -29,42 +21,19 @@ import org.olat.core.gui.control.generic.dtabs.DTab;
 import org.olat.core.gui.control.generic.dtabs.DTabs;
 import org.olat.core.gui.control.generic.modal.DialogBoxController;
 import org.olat.core.gui.control.generic.modal.DialogBoxUIFactory;
-import org.olat.core.gui.render.StringOutput;
-import org.olat.core.gui.translator.PackageTranslator;
 import org.olat.core.gui.translator.Translator;
+import org.olat.core.id.OLATResourceable;
 import org.olat.core.util.Util;
 import org.olat.core.util.mail.ContactList;
 import org.olat.core.util.mail.ContactMessage;
-import org.olat.core.util.resource.OresHelper;
-
-import org.olat.core.id.Identity;
-import org.olat.core.id.OLATResourceable;
-import org.olat.core.id.UserConstants;
-import org.olat.core.logging.OLog;
-import org.olat.core.logging.Tracing;
 import org.olat.modules.co.ContactFormController;
-import org.olat.modules.wiki.WikiManager;
-import org.olat.modules.wiki.WikiPage;
-import org.olat.repository.RepositoryManager;
 import org.olat.resource.OLATResourceManager;
-import org.olat.user.HomePageConfigManager;
-import org.olat.user.HomePageConfigManagerImpl;
-import org.olat.user.UserInfoMainController;
 
 import de.unileipzig.xman.admin.ExamAdminSite;
-import de.unileipzig.xman.admin.mail.MailManager;
-import de.unileipzig.xman.comment.CommentEntry;
-import de.unileipzig.xman.comment.CommentManager;
 import de.unileipzig.xman.esf.ElectronicStudentFile;
 import de.unileipzig.xman.esf.ElectronicStudentFileManager;
-import de.unileipzig.xman.esf.controller.ESFCreateController;
 import de.unileipzig.xman.esf.controller.ESFEditController;
-import de.unileipzig.xman.esf.controller.ESFLaunchController;
 import de.unileipzig.xman.esf.table.ESFTableModel;
-import de.unileipzig.xman.exam.Exam;
-import de.unileipzig.xman.exam.ExamDBManager;
-import de.unileipzig.xman.protocol.Protocol;
-import de.unileipzig.xman.protocol.tables.ProtocolTableModel;
 
 /**
  * 
@@ -185,7 +154,7 @@ public class ExamAdminESFController extends BasicController {
 				// somebody wants to open an esf
 				if (actionID.equals(ESFTableModel.COMMAND_OPEN)) {
 
-					ElectronicStudentFile esf = esfTableMdl.getObject(te.getRowId());
+					ElectronicStudentFile esf = (ElectronicStudentFile) esfTableCtr.getTableDataModel().getObject(te.getRowId());
 					OLATResourceable ores = OLATResourceManager.getInstance()
 							.findResourceable(esf.getResourceableId(),
 									ElectronicStudentFile.ORES_TYPE_NAME);
@@ -211,11 +180,13 @@ public class ExamAdminESFController extends BasicController {
 			if (event.getCommand().equals(Table.COMMAND_MULTISELECT)) {
 				TableMultiSelectEvent tmse = (TableMultiSelectEvent) event;
 
-				if (tmse.getAction().equals(ESFTableModel.COMMAND_DELETE)) {
-					// get all selected esf's and save them in a field cause we
-					// need later (deleteDialog)
-					esfList = esfTableMdl.getObjects(tmse.getSelection());
+				// get all selected esf's and save them in a field cause we need later (deleteDialog)
+				esfList = new ArrayList<ElectronicStudentFile>();
+				for (int i = tmse.getSelection().nextSetBit(0); i >= 0; i = tmse.getSelection().nextSetBit(i+1)) {
+					esfList.add((ElectronicStudentFile) esfTableCtr.getTableDataModel().getObject(i));
+				}
 
+				if (tmse.getAction().equals(ESFTableModel.COMMAND_DELETE)) {
 					if (esfList.size() == 0) {
 						getWindowControl().setWarning(translator.translate("ExamAdminESFController.nobodySelected"));
 					} else {
@@ -230,7 +201,7 @@ public class ExamAdminESFController extends BasicController {
 
 				// someone wants to send students an email
 				if (tmse.getAction().equals(ESFTableModel.COMMAND_SENDMAIL)) {
-					this.sendMailsToSelectedStudents(esfTableMdl.getObjects(tmse.getSelection()), ureq);
+					this.sendMailsToSelectedStudents(esfList, ureq);
 				}
 			}
 		}

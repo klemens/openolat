@@ -27,6 +27,7 @@ package org.olat.repository.controllers;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.BitSet;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
@@ -50,6 +51,7 @@ import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.Event;
 import org.olat.core.gui.control.WindowControl;
 import org.olat.core.gui.control.controller.BasicController;
+import org.olat.core.gui.control.generic.closablewrapper.CloseableCalloutWindowController;
 import org.olat.core.gui.control.generic.dtabs.Activateable2;
 import org.olat.core.id.Identity;
 import org.olat.core.id.Roles;
@@ -63,6 +65,7 @@ import org.olat.repository.RepositoryService;
 import org.olat.repository.controllers.EntryChangedEvent.Change;
 import org.olat.repository.model.SearchRepositoryEntryParameters;
 import org.olat.repository.ui.RepositoryTableModel;
+import org.olat.repository.ui.author.RepositoryEntrySmallDetailsController;
 import org.springframework.beans.factory.annotation.Autowired;
 
 /**
@@ -88,6 +91,8 @@ public class RepositorySearchController extends BasicController implements Activ
 	private RepositoryTableModel repoTableModel;
 	private SearchForm searchForm;
 	private TableController tableCtr;
+	private CloseableCalloutWindowController calloutCtrl;
+	private RepositoryEntrySmallDetailsController infosCtrl;
 	
 	private Link backLink, cancelButton;
 	private RepositoryEntry selectedEntry;
@@ -100,7 +105,7 @@ public class RepositorySearchController extends BasicController implements Activ
 	private RepositoryService repositoryService;
 
 	public RepositorySearchController(String selectButtonLabel, UserRequest ureq, WindowControl myWControl,
-			boolean withCancel, boolean enableDirectLaunch, boolean multiSelect, String[] limitTypes, RepositoryEntryFilter filter) {
+			boolean withCancel, boolean multiSelect, String[] limitTypes, RepositoryEntryFilter filter) {
 		super(ureq, myWControl, Util.createPackageTranslator(RepositoryService.class, ureq.getLocale()));
 		
 		this.filter = filter;
@@ -129,8 +134,8 @@ public class RepositorySearchController extends BasicController implements Activ
 		}
 		listenTo(tableCtr);
 		
-		repoTableModel = new RepositoryTableModel(getTranslator());
-		ColumnDescriptor sortCol = repoTableModel.addColumnDescriptors(tableCtr, selectButtonLabel, enableDirectLaunch);
+		repoTableModel = new RepositoryTableModel(getLocale());
+		ColumnDescriptor sortCol = repoTableModel.addColumnDescriptors(tableCtr, selectButtonLabel != null, selectButtonLabel != null, false, true);
 		tableCtr.setTableDataModel(repoTableModel);
 		tableCtr.setSortColumn(sortCol, true);
 		vc.put("repotable", tableCtr.getInitialComponent());
@@ -150,7 +155,6 @@ public class RepositorySearchController extends BasicController implements Activ
 	}
 	
 	@Override
-	//fxdiff BAKS-7 Resume function
 	public void activate(UserRequest ureq, List<ContextEntry> entries, StateEntry state) {
 		if(entries == null || entries.isEmpty()) return;
 		
@@ -446,7 +450,6 @@ public class RepositorySearchController extends BasicController implements Activ
 		RepositoryManager rm = RepositoryManager.getInstance();
 		List<RepositoryEntry> entries = rm.getLearningResourcesAsTeacher(ureq.getIdentity(), 0, -1);
 		filterRepositoryEntries(entries);
-		//fxdiff VCRP-10: repository search with type filter
 		doSearchMyRepositoryEntries(ureq, entries, limitType, updateFilters);
 	}
 
@@ -536,25 +539,32 @@ public class RepositorySearchController extends BasicController implements Activ
 	/**
 	 * @see org.olat.core.gui.control.DefaultController#event(org.olat.core.gui.UserRequest, org.olat.core.gui.control.Controller, org.olat.core.gui.control.Event)
 	 */
+	@Override
 	public void event(UserRequest urequest, Controller source, Event event) {
 		if (source == tableCtr) { // process table actions
-			//fxdiff VCRP-10: repository search with type filter
 			if(event instanceof TableEvent) {
 				TableEvent te = (TableEvent)event;
-				selectedEntry =  (RepositoryEntry)tableCtr.getTableDataModel().getObject(te.getRowId());
-				selectedEntries = null;
-				if (te.getActionId().equals(RepositoryTableModel.TABLE_ACTION_SELECT_ENTRY)) {
-					fireEvent(urequest, new Event(RepositoryTableModel.TABLE_ACTION_SELECT_ENTRY));
-					return;
+				int rowId = te.getRowId();
+				if (te.getActionId().equals(RepositoryTableModel.TABLE_ACTION_INFOS)) {
+					RepositoryEntry entry =  (RepositoryEntry)tableCtr.getTableDataModel().getObject(rowId);
+					int row = tableCtr.getIndexOfSortedObject(entry);
+					doOpenInfos(urequest, entry, row);
 				} else if (te.getActionId().equals(RepositoryTableModel.TABLE_ACTION_SELECT_LINK)) {
+					selectedEntry =  (RepositoryEntry)tableCtr.getTableDataModel().getObject(rowId);
 					fireEvent(urequest, new Event(RepositoryTableModel.TABLE_ACTION_SELECT_LINK));
-					return;
+					selectedEntries = null;
 				}
 			} else if (event instanceof TableMultiSelectEvent) {
 				TableMultiSelectEvent mse = (TableMultiSelectEvent)event;	
 				if(!mse.getSelection().isEmpty()) {
 					selectedEntry = null;
-					selectedEntries = repoTableModel.getObjects(mse.getSelection());
+					
+					BitSet objectMarkers = mse.getSelection();
+					selectedEntries = new ArrayList<>(objectMarkers.size());
+					for(int i=objectMarkers.nextSetBit(0); i >= 0; i=objectMarkers.nextSetBit(i+1)) {
+						RepositoryEntry entry =  (RepositoryEntry)tableCtr.getTableDataModel().getObject(i);
+						selectedEntries.add(entry);
+					}
 					fireEvent(urequest, new Event(RepositoryTableModel.TABLE_ACTION_SELECT_ENTRIES));
 				}
 			} else if (TableController.EVENT_FILTER_SELECTED.equals(event)) {
@@ -614,7 +624,25 @@ public class RepositorySearchController extends BasicController implements Activ
 			} else if (event == Event.CANCELLED_EVENT) {
 				fireEvent(urequest, Event.CANCELLED_EVENT);
 			}
+		} else if(calloutCtrl == source) {
+			removeAsListenerAndDispose(calloutCtrl);
+			removeAsListenerAndDispose(infosCtrl);
+			calloutCtrl = null;
+			infosCtrl = null;
 		}
+	}
+	
+	private void doOpenInfos(UserRequest ureq, RepositoryEntry repositoryEntry, int rowId) {
+		removeAsListenerAndDispose(calloutCtrl);
+		removeAsListenerAndDispose(infosCtrl);
+		
+		infosCtrl = new RepositoryEntrySmallDetailsController(ureq, getWindowControl(), repositoryEntry);
+		listenTo(infosCtrl);
+		
+		calloutCtrl = new CloseableCalloutWindowController(ureq, getWindowControl(), infosCtrl.getInitialComponent(),
+				"ore" + rowId + "ref", null, true, null);
+		listenTo(calloutCtrl);
+		calloutCtrl.activate();
 	}
 	
 	/**

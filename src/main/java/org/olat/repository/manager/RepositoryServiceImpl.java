@@ -21,10 +21,12 @@ package org.olat.repository.manager;
 
 import java.io.File;
 import java.util.Calendar;
+import java.util.Collection;
 import java.util.Date;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Set;
 
 import org.olat.basesecurity.BaseSecurity;
@@ -54,6 +56,7 @@ import org.olat.core.util.vfs.VFSLeaf;
 import org.olat.course.assessment.manager.AssessmentModeDAO;
 import org.olat.course.assessment.manager.UserCourseInformationsManager;
 import org.olat.course.certificate.CertificatesManager;
+import org.olat.modules.reminder.manager.ReminderDAO;
 import org.olat.repository.ErrorList;
 import org.olat.repository.RepositoryEntry;
 import org.olat.repository.RepositoryEntryAllowToLeaveOptions;
@@ -72,6 +75,8 @@ import org.olat.repository.model.SearchAuthorRepositoryEntryViewParams;
 import org.olat.repository.model.SearchMyRepositoryEntryViewParams;
 import org.olat.resource.OLATResource;
 import org.olat.resource.OLATResourceManager;
+import org.olat.resource.accesscontrol.manager.ACReservationDAO;
+import org.olat.resource.references.ReferenceManager;
 import org.olat.search.service.document.RepositoryEntryDocument;
 import org.olat.search.service.indexer.LifeFullIndexer;
 import org.olat.util.logging.activity.LoggingResourceable;
@@ -98,6 +103,10 @@ public class RepositoryServiceImpl implements RepositoryService {
 	@Autowired
 	private BaseSecurity securityManager;
 	@Autowired
+	private ACReservationDAO reservationDao;
+	@Autowired
+	private ReferenceManager referenceManager;
+	@Autowired
 	private RepositoryEntryDAO repositoryEntryDAO;
 	@Autowired
 	private RepositoryEntryRelationDAO reToGroupDao;
@@ -117,6 +126,8 @@ public class RepositoryServiceImpl implements RepositoryService {
 	private UserCourseInformationsManager userCourseInformationsManager;
 	@Autowired
 	private AssessmentModeDAO assessmentModeDao;
+	@Autowired
+	private ReminderDAO reminderDao;
 
 	@Autowired
 	private LifeFullIndexer lifeIndexer;
@@ -212,7 +223,7 @@ public class RepositoryServiceImpl implements RepositoryService {
 		copyEntry = dbInstance.getCurrentEntityManager().merge(copyEntry);
 	
 		RepositoryHandler handler = RepositoryHandlerFactory.getInstance().getRepositoryHandler(sourceEntry);
-		copyEntry = handler.copy(sourceEntry, copyEntry);
+		copyEntry = handler.copy(author, sourceEntry, copyEntry);
 		
 		
 		//copy the image
@@ -243,6 +254,11 @@ public class RepositoryServiceImpl implements RepositoryService {
 	@Override
 	public RepositoryEntry loadByResourceKey(Long resourceKey) {
 		return repositoryEntryDAO.loadByResourceKey(resourceKey);
+	}
+	
+	@Override
+	public List<RepositoryEntry> loadByResourceKeys(Collection<Long> resourceKeys) {
+		return repositoryEntryDAO.loadByResourceKeys(resourceKeys);
 	}
 
 	@Override
@@ -291,7 +307,7 @@ public class RepositoryServiceImpl implements RepositoryService {
 		RepositoryHandler handler = repositoryHandlerFactory.getRepositoryHandler(entry);
 		OLATResource resource = entry.getOlatResource();
 		//delete old context
-		if (!handler.readyToDelete(resource, identity, roles, locale, errors)) {
+		if (!handler.readyToDelete(entry, identity, roles, locale, errors)) {
 			return errors;
 		}
 
@@ -304,14 +320,19 @@ public class RepositoryServiceImpl implements RepositoryService {
 		catalogManager.resourceableDeleted(entry);
 		// delete assessment modes
 		assessmentModeDao.delete(entry);
-		
+		// delete reminders
+		reminderDao.delete(entry);
 		//delete all policies
 		securityManager.deletePolicies(resource);
+		//delete reservations
+		reservationDao.deleteReservations(resource);
+		//delete references
+		referenceManager.deleteAllReferencesOf(resource);
 		dbInstance.commit();
 		
 		// inform handler to do any cleanup work... handler must delete the
 		// referenced resourceable a swell.
-		handler.cleanupOnDelete(resource);
+		handler.cleanupOnDelete(entry, resource);
 		
 		dbInstance.commit();
 
@@ -433,6 +454,16 @@ public class RepositoryServiceImpl implements RepositoryService {
 	@Override
 	public int countMembers(List<? extends RepositoryEntryRef> res) {
 		return reToGroupDao.countMembers(res);
+	}
+	
+	@Override
+	public Date getEnrollmentDate(RepositoryEntryRef re, IdentityRef identity, String... roles) {
+		return reToGroupDao.getEnrollmentDate(re, identity, roles);
+	}
+
+	@Override
+	public Map<Long, Date> getEnrollmentDates(RepositoryEntryRef re, String... roles) {
+		return reToGroupDao.getEnrollmentDates(re, roles);
 	}
 
 	@Override

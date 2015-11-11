@@ -164,7 +164,7 @@
 				}
 				.o_author{
 					margin-top: 0.5em;
-					line-height: 1em;
+					line-height: normal;
 					font-size: 90%;
 					@include text-overflow();
 					color: $o-coursesite-meta-author-color;
@@ -173,7 +173,7 @@
 					position: absolute; 
 					top: 5px; right: 40px;
 					font-size: 90%;
-					line-height: 1em;
+					line-height: normal;
 					@include text-overflow();
 					color: $text-muted;
 					&.o_active {
@@ -336,6 +336,9 @@
 				height: $o-coursesite-rowelem-width-xs;	
 				margin: 0 0 0 $o-coursesite-rowelem-width-xs;
 				padding: 0 0 0 1em;
+				
+				overflow: hidden;
+				
 				.o_title {
 					line-height: $o-coursesite-rowelem-width-xs;
 				}

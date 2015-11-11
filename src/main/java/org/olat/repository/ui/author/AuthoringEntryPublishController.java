@@ -185,6 +185,7 @@ public class AuthoringEntryPublishController extends FormBasicController {
 	protected void initForm(FormItemContainer formLayout, Controller listener, UserRequest ureq) {
 		setFormTitle("rentry.publish");
 		setFormContextHelp("org.olat.repository", "rep-meta-olatauthorEd.html", "help.hover.rep.detail");
+		formLayout.setElementCssClass("o_sel_repositoryentry_access");
 
 		String resourceType = entry.getOlatResource().getResourceableTypeName();
 		if (TestFileResource.TYPE_NAME.equals(resourceType)
@@ -263,11 +264,7 @@ public class AuthoringEntryPublishController extends FormBasicController {
 			publishedForUsers.select(MEMBERSONLY_KEY, true);
 			usersSwitch.select(YES_KEY, true);
 		} else {
-			if (loginModule.isGuestLoginLinksEnabled()) {
-				publishedForUsers.select(OAUG_KEY, false);
-			} else {
-				publishedForUsers.select(OAU_KEY, true);
-			}
+			publishedForUsers.select(OAU_KEY, true);
 			usersSwitch.select(NO_KEY, true);
 			userConfigLayout.setVisible(false);
 		}		
@@ -287,11 +284,11 @@ public class AuthoringEntryPublishController extends FormBasicController {
 			userConfigLayout.setVisible(true);
 		} else {
 			// reset to default
-			publishedForUsers.select(OAU_KEY, true);
+			publishedForUsers.select(OAU_KEY, false);
 			if (loginModule.isGuestLoginLinksEnabled()) {
 				publishedForUsers.select(OAUG_KEY, false);
 			}
-			publishedForUsers.select(MEMBERSONLY_KEY, false);
+			publishedForUsers.select(OAU_KEY, true);
 			userConfigLayout.setVisible(false);
 		}
 	}

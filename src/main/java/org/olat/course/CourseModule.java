@@ -67,7 +67,7 @@ public class CourseModule extends AbstractOLATModule {
 	private static boolean displayParticipantsCount;
 	// Repository types
 	public static String ORES_TYPE_COURSE = OresHelper.calculateTypeName(CourseModule.class);
-	private static OLATResourceable ORESOURCEABLE_TYPE_COURSE = OresHelper.lookupType(CourseModule.class);
+	public static OLATResourceable ORESOURCEABLE_TYPE_COURSE = OresHelper.lookupType(CourseModule.class);
 	public static final String ORES_COURSE_ASSESSMENT = OresHelper.calculateTypeName(AssessmentManager.class);
 	private static String helpCourseSoftkey;
 	private static CoordinatorManager coordinatorManager;
@@ -277,7 +277,7 @@ public class CourseModule extends AbstractOLATModule {
 		try {
 			propertyManager.deleteProperty(prop);
 			repositoryService.deleteRepositoryEntryAndBaseGroups(re);
-			CourseFactory.deleteCourse(re.getOlatResource());
+			CourseFactory.deleteCourse(re, re.getOlatResource());
 			OLATResource ores = olatResourceManager.findResourceable(re.getOlatResource());
 			olatResourceManager.deleteOLATResource(ores);
 		} catch (Exception e) {

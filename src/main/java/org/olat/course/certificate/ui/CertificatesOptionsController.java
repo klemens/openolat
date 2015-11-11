@@ -145,6 +145,7 @@ public class CertificatesOptionsController extends FormBasicController {
 		setFormTitle("options.certificates.title");
 		setFormTitleIconCss("o_icon o_icon_certificate");
 		setFormContextHelp("org.olat.course.config.ui","course-efficiency.html","help.hover.course-eff");
+		formLayout.setElementCssClass("o_sel_course_certificates");
 		
 		boolean effEnabled = courseConfig.isEfficencyStatementEnabled();
 		boolean managedEff = RepositoryEntryManagedFlag.isManaged(entry, RepositoryEntryManagedFlag.efficencystatement);
@@ -186,7 +187,6 @@ public class CertificatesOptionsController extends FormBasicController {
 		}
 
 		previewTemplateLink = LinkFactory.createButton("preview", templateCont.getFormItemComponent(), this);
-		previewTemplateLink.setEnabled(hasTemplate);
 		previewTemplateLink.setTarget("preview");
 		
 		boolean reCertificationEnabled = courseConfig.isRecertificationEnabled();
@@ -202,7 +202,7 @@ public class CertificatesOptionsController extends FormBasicController {
 		formLayout.add(recertificationCont);
 		
 		int timelapse = courseConfig.getRecertificationTimelapse();
-		reCertificationTimelapseEl = uifactory.addIntegerElement("timelapse", timelapse, recertificationCont);
+		reCertificationTimelapseEl = uifactory.addIntegerElement("timelapse", null, timelapse, recertificationCont);
 		reCertificationTimelapseEl.setDomReplacementWrapperRequired(false);
 		reCertificationTimelapseEl.setDisplaySize(4);
 		
@@ -211,7 +211,7 @@ public class CertificatesOptionsController extends FormBasicController {
 			translate("recertification.month"), translate("recertification.year")
 		};
 		RecertificationTimeUnit timelapseUnit = courseConfig.getRecertificationTimelapseUnit();
-		reCertificationTimelapseUnitEl = uifactory.addDropdownSingleselect("timelapse.unit", recertificationCont, timelapseUnitKeys, timelapseUnitValues, null);
+		reCertificationTimelapseUnitEl = uifactory.addDropdownSingleselect("timelapse.unit", null, recertificationCont, timelapseUnitKeys, timelapseUnitValues, null);
 		reCertificationTimelapseUnitEl.setDomReplacementWrapperRequired(false);
 		if(timelapseUnit != null) {
 			reCertificationTimelapseUnitEl.select(timelapseUnit.name(), true);
@@ -436,6 +436,11 @@ public class CertificatesOptionsController extends FormBasicController {
 		
 		public PreviewMediaResource(File preview) {
 			this.preview = preview;
+		}
+		
+		@Override
+		public boolean acceptRanges() {
+			return true;
 		}
 		
 		@Override

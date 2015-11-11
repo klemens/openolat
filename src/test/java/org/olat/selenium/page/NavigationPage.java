@@ -31,6 +31,7 @@ import org.olat.selenium.page.group.GroupsPage;
 import org.olat.selenium.page.repository.AuthoringEnvPage;
 import org.olat.selenium.page.repository.CatalogAdminPage;
 import org.olat.selenium.page.user.PortalPage;
+import org.olat.selenium.page.user.UserAdminPage;
 import org.openqa.selenium.By;
 import org.openqa.selenium.WebDriver;
 import org.openqa.selenium.WebElement;
@@ -93,12 +94,13 @@ public class NavigationPage {
 	
 	public MyCoursesPage openMyCourses() {
 		navigate(myCoursesBy);
-		OOGraphene.waitElement(myCoursesAssertBy);
+		OOGraphene.waitElement(myCoursesAssertBy, browser);
 		return new MyCoursesPage(browser);
 	}
 	
-	public void openUserManagement() {
+	public UserAdminPage openUserManagement() {
 		navigate(userManagementBy);
+		return UserAdminPage.getUserAdminPage(browser);
 	}
 	
 	public AdministrationPage openAdministration() {
@@ -128,10 +130,10 @@ public class NavigationPage {
 
 		links = browser.findElements(linkBy);
 		Assert.assertFalse(links.isEmpty());
-		OOGraphene.waitElement(links.get(0));
+		OOGraphene.waitElement(links.get(0), browser);
 		links.get(0).click();
-		OOGraphene.waitBusy();
-		OOGraphene.waitingTransition();
+		OOGraphene.waitBusy(browser);
+		OOGraphene.waitingTransition(browser);
 	}
 	
 	public void openCourse(String title) {
@@ -144,7 +146,7 @@ public class NavigationPage {
 		Assert.assertFalse(courseLinks.isEmpty());
 		
 		courseLinks.get(0).click();
-		OOGraphene.waitBusy();
+		OOGraphene.waitBusy(browser);
 		OOGraphene.closeBlueMessageWindow(browser);
 	}
 	
@@ -161,7 +163,7 @@ public class NavigationPage {
 		int count = 0;
 		while(backList.size() > 0) {
 			backList.get(count).click();
-			OOGraphene.waitBusy();
+			OOGraphene.waitBusy(browser);
 			backList = browser.findElements(toolbarBackBy);
 			
 			Assert.assertTrue(count++ < 3);

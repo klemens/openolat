@@ -118,7 +118,7 @@ public class BlogHandler implements RepositoryHandler {
 	}
 
 	@Override
-	public RepositoryEntry copy(RepositoryEntry source, RepositoryEntry target) {
+	public RepositoryEntry copy(Identity author, RepositoryEntry source, RepositoryEntry target) {
 		OLATResource sourceResource = source.getOlatResource();
 		OLATResource targetResource = target.getOlatResource();
 		FeedManager.getInstance().copy(sourceResource, targetResource);
@@ -138,7 +138,7 @@ public class BlogHandler implements RepositoryHandler {
 	}
 
 	@Override
-	public boolean cleanupOnDelete(OLATResourceable res) {
+	public boolean cleanupOnDelete(RepositoryEntry entry, OLATResourceable res) {
 		CoordinatorManager.getInstance().getCoordinator().getEventBus().fireEventToListenersOf(new OLATResourceableJustBeforeDeletedEvent(res), res);
 		// For now, notifications are not implemented since a blog feed is meant
 		// to be subscriped to anyway.
@@ -192,12 +192,13 @@ public class BlogHandler implements RepositoryHandler {
 	}
 
 	@Override
-	public boolean readyToDelete(OLATResourceable res, Identity identity, Roles roles, Locale locale, ErrorList errors) {
-		ReferenceManager refM = ReferenceManager.getInstance();
-		String referencesSummary = refM.getReferencesToSummary(res, locale);
+	public boolean readyToDelete(RepositoryEntry entry, Identity identity, Roles roles, Locale locale, ErrorList errors) {
+		ReferenceManager refM = CoreSpringFactory.getImpl(ReferenceManager.class);
+		String referencesSummary = refM.getReferencesToSummary(entry.getOlatResource(), locale);
 		if (referencesSummary != null) {
 			Translator translator = Util.createPackageTranslator(RepositoryManager.class, locale);
-			errors.setError(translator.translate("details.delete.error.references", new String[] { referencesSummary }));
+			errors.setError(translator.translate("details.delete.error.references",
+					new String[] { referencesSummary, entry.getDisplayname() }));
 			return false;
 		}
 		return true;

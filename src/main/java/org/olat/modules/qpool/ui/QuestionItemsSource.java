@@ -47,7 +47,9 @@ public interface QuestionItemsSource {
 	
 	public boolean isDeleteEnabled();
 	
-	public int postImport(List<QuestionItem> items);
+	public boolean askEditable();
+	
+	public int postImport(List<QuestionItem> items, boolean editable);
 	
 	public void removeFromSource(List<QuestionItemShort> items);
 	

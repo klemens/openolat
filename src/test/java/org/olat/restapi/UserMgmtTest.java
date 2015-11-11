@@ -47,8 +47,6 @@ import javax.imageio.ImageIO;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.UriBuilder;
 
-import junit.framework.Assert;
-
 import org.apache.commons.codec.binary.Base64;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.IOUtils;
@@ -60,6 +58,7 @@ import org.apache.http.client.methods.HttpPut;
 import org.apache.http.util.EntityUtils;
 import org.codehaus.jackson.map.ObjectMapper;
 import org.codehaus.jackson.type.TypeReference;
+import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 import org.olat.basesecurity.BaseSecurity;
@@ -563,7 +562,7 @@ public class UserMgmtTest extends OlatJerseyTestCase {
 		assertEquals(savedVo.getLogin(), savedIdent.getName());
 		assertEquals("Female", savedIdent.getUser().getProperty("gender", Locale.ENGLISH));
 		assertEquals("39847592", savedIdent.getUser().getProperty("telPrivate", Locale.ENGLISH));
-		assertEquals("12/12/09", savedIdent.getUser().getProperty("birthDay", Locale.ENGLISH));
+		assertEquals("12/12/2009", savedIdent.getUser().getProperty("birthDay", Locale.ENGLISH));
 		conn.shutdown();
 	}
 	
@@ -603,7 +602,7 @@ public class UserMgmtTest extends OlatJerseyTestCase {
 		assertEquals(savedVo.getLogin(), savedIdent.getName());
 		assertEquals("Female", savedIdent.getUser().getProperty("gender", Locale.ENGLISH));
 		assertEquals("39847592", savedIdent.getUser().getProperty("telPrivate", Locale.ENGLISH));
-		assertEquals("12/12/09", savedIdent.getUser().getProperty("birthDay", Locale.ENGLISH));
+		assertEquals("12/12/2009", savedIdent.getUser().getProperty("birthDay", Locale.ENGLISH));
 		conn.shutdown();
 	}
 	
