@@ -11,6 +11,7 @@ import org.olat.basesecurity.Authentication;
 import org.olat.basesecurity.BaseSecurity;
 import org.olat.basesecurity.BaseSecurityManager;
 import org.olat.basesecurity.Constants;
+import org.olat.core.CoreSpringFactory;
 import org.olat.core.dispatcher.Dispatcher;
 import org.olat.core.dispatcher.DispatcherModule;
 import org.olat.core.gui.UserRequest;
@@ -196,7 +197,7 @@ public class SimpleShibbolethDispatcher implements Dispatcher {
 		secMgr.addIdentityToSecurityGroup(identity, secMgr.findSecurityGroupByName(Constants.GROUP_OLATUSERS));
 		
 		// emulate disclaimer confirmation
-		RegistrationManager.getInstance().setHasConfirmedDislaimer(identity);
+		CoreSpringFactory.getImpl(RegistrationManager.class).setHasConfirmedDislaimer(identity);
 
 		return identity;
 	}
