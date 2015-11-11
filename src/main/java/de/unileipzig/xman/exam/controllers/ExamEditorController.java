@@ -188,7 +188,7 @@ public class ExamEditorController extends BasicController {
 		if (exam.getIsOral())
 			appTableCtr.addMultiSelectAction("ExamEditorController.appointmentTable.del", "appTable.del");
 		List<Appointment> appList = AppointmentManager.getInstance().findAllAppointmentsByExamId(exam.getKey());
-		appTableMdl = new AppointmentTableModel(ureq.getLocale(), appList, AppointmentTableModel.NO_SELECTION);
+		appTableMdl = new AppointmentTableModel(getTranslator(), appList, exam.getIsOral());
 		appTableMdl.setTable(appTableCtr);
 		appTableCtr.setTableDataModel(appTableMdl);
 		appTableCtr.setSortColumn(0, true);
@@ -303,7 +303,7 @@ public class ExamEditorController extends BasicController {
 						AppointmentManager.getInstance().deleteAppointment(tempApp);
 					}
 
-					appTableMdl.setEntries(AppointmentManager.getInstance()
+					appTableMdl.setObjects(AppointmentManager.getInstance()
 							.findAllAppointmentsByExamId(exam.getKey()));
 					appTableCtr.modelChanged();
 				}
@@ -363,7 +363,7 @@ public class ExamEditorController extends BasicController {
 							createAppForm.getDuration(),
 							createAppForm.getPause());
 				}
-				appTableMdl.setEntries(AppointmentManager.getInstance()
+				appTableMdl.setObjects(AppointmentManager.getInstance()
 						.findAllAppointmentsByExamId(exam.getKey()));
 				appTableCtr.modelChanged();
 			}
@@ -377,7 +377,7 @@ public class ExamEditorController extends BasicController {
 				app.setPlace(editAppForm.getPlace());
 				app.setDuration(editAppForm.getDuration());
 				AppointmentManager.getInstance().updateAppointment(app);
-				appTableMdl.setEntries(AppointmentManager.getInstance()
+				appTableMdl.setObjects(AppointmentManager.getInstance()
 						.findAllAppointmentsByExamId(exam.getKey()));
 				appTableCtr.modelChanged();
 				List<Protocol> protoList = ProtocolManager.getInstance()
