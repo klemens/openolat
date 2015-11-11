@@ -402,6 +402,11 @@ public class ExamEditorController extends BasicController {
 							}),
 						p.getIdentity()
 					);
+
+					ElectronicStudentFile esf = ElectronicStudentFileManager.getInstance().retrieveESFByIdentity(p.getIdentity());
+					// add a comment to the esf
+					String commentText = translate("ExamEditorController.appointmentChanged", new String[] { exam.getName(), getName(ureq.getIdentity()) });
+					CommentManager.getInstance().createCommentInEsf(esf, commentText, ureq.getIdentity());
 				}
 			}
 		}
