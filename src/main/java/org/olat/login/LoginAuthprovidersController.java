@@ -51,14 +51,16 @@ import org.olat.core.gui.control.controller.MainLayoutBasicController;
 import org.olat.core.gui.control.generic.dtabs.Activateable2;
 import org.olat.core.helpers.Settings;
 import org.olat.core.id.Identity;
+import org.olat.core.id.OLATResourceable;
+import org.olat.core.id.context.BusinessControlFactory;
 import org.olat.core.id.context.ContextEntry;
 import org.olat.core.id.context.StateEntry;
-import org.olat.core.logging.AssertException;
 import org.olat.core.util.ArrayHelper;
 import org.olat.core.util.Util;
 import org.olat.core.util.WebappHelper;
 import org.olat.core.util.i18n.I18nManager;
 import org.olat.core.util.i18n.I18nModule;
+import org.olat.core.util.resource.OresHelper;
 import org.olat.login.auth.AuthenticationEvent;
 import org.olat.login.auth.AuthenticationProvider;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -146,7 +148,7 @@ public class LoginAuthprovidersController extends MainLayoutBasicController impl
 		}
 		AuthenticationProvider authProvider = loginModule.getAuthenticationProvider(provider);
 		if (authProvider == null) {
-			throw new AssertException("Invalid authentication provider: " + provider);
+			authProvider = loginModule.getAuthenticationProviderHeuristic(provider);
 		}
 		
 		//clean-up controllers
@@ -250,9 +252,17 @@ public class LoginAuthprovidersController extends MainLayoutBasicController impl
 			}
 		} else if (event.getCommand().equals(ACTION_LOGIN)) { 
 			// show traditional login page
-			dmzPanel.popContent();
-			content = initLoginContent(ureq, ureq.getParameter(ATTR_LOGIN_PROVIDER));
-			dmzPanel.pushContent(content);
+			String loginProvider = ureq.getParameter(ATTR_LOGIN_PROVIDER);
+			AuthenticationProvider authProvider = loginModule.getAuthenticationProvider(loginProvider);
+			if (authProvider != null) {
+				dmzPanel.popContent();
+				content = initLoginContent(ureq, loginProvider);
+				dmzPanel.pushContent(content);
+				
+				OLATResourceable ores = OresHelper.createOLATResourceableInstance(loginProvider, 0l);
+				WindowControl bwControl = BusinessControlFactory.getInstance().createBusinessWindowControl(ores, null, getWindowControl());
+				addToHistory(ureq, bwControl);
+			}
 		}
 	}
 

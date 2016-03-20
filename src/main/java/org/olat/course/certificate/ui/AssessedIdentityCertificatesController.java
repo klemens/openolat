@@ -37,7 +37,6 @@ import org.olat.core.id.Identity;
 import org.olat.core.util.Formatter;
 import org.olat.core.util.coordinate.CoordinatorManager;
 import org.olat.core.util.event.GenericEventListener;
-import org.olat.core.util.mail.MailerResult;
 import org.olat.course.CourseFactory;
 import org.olat.course.ICourse;
 import org.olat.course.certificate.Certificate;
@@ -185,7 +184,7 @@ public class AssessedIdentityCertificatesController extends BasicController impl
 		ICourse course = CourseFactory.loadCourse(resource);
 		Identity assessedIdentity = assessedUserCourseEnv.getIdentityEnvironment().getIdentity();
 		RepositoryEntry courseEntry = course.getCourseEnvironment().getCourseGroupManager().getCourseEntry();
-		if(certificatesManager.isRecertificationAllowed(assessedIdentity, courseEntry)) {
+		if(certificatesManager.isCertificationAllowed(assessedIdentity, courseEntry)) {
 			//don't need to confirm
 			doGenerateCertificate(ureq);
 		} else {
@@ -211,8 +210,7 @@ public class AssessedIdentityCertificatesController extends BasicController impl
 		Float score = scoreEval == null ? null : scoreEval.getScore();
 		Boolean passed = scoreEval == null ? null : scoreEval.getPassed();
 		CertificateInfos certificateInfos = new CertificateInfos(assessedIdentity, score, passed);
-		MailerResult result = new MailerResult();
-		certificatesManager.generateCertificate(certificateInfos, courseEntry, template, result);
+		certificatesManager.generateCertificate(certificateInfos, courseEntry, template, true);
 		loadList();
 		showInfo("msg.certificate.pending");
 		fireEvent(ureq, Event.CHANGED_EVENT);

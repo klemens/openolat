@@ -39,7 +39,6 @@ import org.olat.basesecurity.BaseSecurityManager;
 import org.olat.basesecurity.Constants;
 import org.olat.basesecurity.GroupRoles;
 import org.olat.commons.calendar.CalendarManager;
-import org.olat.commons.calendar.CalendarManagerFactory;
 import org.olat.commons.calendar.ui.CalendarController;
 import org.olat.commons.calendar.ui.WeeklyCalendarController;
 import org.olat.commons.calendar.ui.components.KalendarRenderWrapper;
@@ -66,6 +65,7 @@ import org.olat.core.util.ZipUtil;
 import org.olat.core.util.coordinate.CoordinatorManager;
 import org.olat.core.util.coordinate.SyncerCallback;
 import org.olat.core.util.coordinate.SyncerExecutor;
+import org.olat.core.util.i18n.I18nModule;
 import org.olat.core.util.mail.ContactMessage;
 import org.olat.core.util.vfs.LocalFolderImpl;
 import org.olat.core.util.vfs.Quota;
@@ -84,11 +84,11 @@ import org.olat.instantMessaging.ui.ChatToolController;
 import org.olat.modules.co.ContactFormController;
 import org.olat.modules.fo.Forum;
 import org.olat.modules.fo.ForumCallback;
-import org.olat.modules.fo.ForumManager;
 import org.olat.modules.fo.ForumUIFactory;
 import org.olat.modules.fo.archiver.ForumArchiveManager;
 import org.olat.modules.fo.archiver.formatters.ForumFormatter;
 import org.olat.modules.fo.archiver.formatters.ForumRTFFormatter;
+import org.olat.modules.fo.manager.ForumManager;
 import org.olat.modules.openmeetings.OpenMeetingsModule;
 import org.olat.modules.openmeetings.manager.OpenMeetingsException;
 import org.olat.modules.openmeetings.manager.OpenMeetingsManager;
@@ -105,6 +105,7 @@ import org.olat.portfolio.EPUIFactory;
 import org.olat.portfolio.manager.EPFrontendManager;
 import org.olat.portfolio.model.structel.PortfolioStructureMap;
 import org.olat.portfolio.ui.structel.EPCreateMapController;
+import org.olat.portfolio.ui.structel.EPMapViewController;
 import org.olat.properties.NarrowedPropertyManager;
 import org.olat.properties.Property;
 import org.olat.properties.PropertyManager;
@@ -197,7 +198,6 @@ public class CollaborationTools implements Serializable {
 	/**
 	 * Only owners have write access to the folder.
 	 */
-	//fxdiff VCRP-8: collaboration tools folder access control
 	public static final int FOLDER_ACCESS_OWNERS = 0;
 	/**
 	 * Owners and members have write access to the folder.
@@ -210,7 +210,6 @@ public class CollaborationTools implements Serializable {
 	 */
 	private final static String KEY_NEWS = "news";
 	public final static String KEY_CALENDAR_ACCESS = "cal";
-	//fxdiff VCRP-8: collaboration tools folder access control
 	public final static String KEY_FOLDER_ACCESS = "folder";
 
 	//o_clusterOK by guido
@@ -261,6 +260,11 @@ public class CollaborationTools implements Serializable {
 		TitleInfo titleInfo = new TitleInfo(null, trans.translate("collabtools.named.hasForum"));
 		titleInfo.setSeparatorEnabled(true);
 		Controller forumController = ForumUIFactory.getTitledForumController(ureq, wControl, forum, new ForumCallback() {
+
+			@Override
+			public boolean mayUsePseudonym() {
+				return false;
+			}
 
 			public boolean mayOpenNewThread() {
 				return true;
@@ -368,7 +372,6 @@ public class CollaborationTools implements Serializable {
 			return null;
 		}
 
-		//fxdiff VCRP-8: collaboration tools folder access control
 		boolean writeAccess;
 		boolean isOwner = CoreSpringFactory.getImpl(BusinessGroupService.class).hasRoles(identity, businessGroup, GroupRoles.coach.name());
 		if (!(isAdmin || isOwner)) {
@@ -397,9 +400,12 @@ public class CollaborationTools implements Serializable {
 	 * @param resourceableId
 	 * @return Configured WeeklyCalendarController
 	 */
-	public CalendarController createCalendarController(UserRequest ureq, WindowControl wControl, BusinessGroup businessGroup, boolean isAdmin) {
+	public CalendarController createCalendarController(UserRequest ureq, WindowControl wControl, BusinessGroup businessGroup,
+			boolean isAdmin, boolean isMember) {
+		
 		CollaborationManager collaborationManager = CoreSpringFactory.getImpl(CollaborationManager.class);
 		KalendarRenderWrapper calRenderWrapper = collaborationManager.getCalendar(businessGroup, ureq, isAdmin);
+		calRenderWrapper.setPrivateEventsVisible(isAdmin || isMember);
 	
 		// add linking
 		List<RepositoryEntry> repoEntries = CoreSpringFactory.getImpl(BusinessGroupService.class).findRepositoryEntries(Collections.singleton(businessGroup), 0, -1);
@@ -407,7 +413,7 @@ public class CollaborationTools implements Serializable {
 		List<ICourse> courses = new ArrayList<ICourse>(repoEntries.size());
 		for (RepositoryEntry repoEntry:repoEntries) {
 			if (repoEntry.getOlatResource().getResourceableTypeName().equals(CourseModule.getCourseTypeName())) {
-				ICourse course = CourseFactory.loadCourse(repoEntry.getOlatResource());
+				ICourse course = CourseFactory.loadCourse(repoEntry);
 				courses.add(course);
 			}
 		}
@@ -419,10 +425,8 @@ public class CollaborationTools implements Serializable {
 		List<KalendarRenderWrapper> calendars = new ArrayList<KalendarRenderWrapper>();
 		calendars.add(calRenderWrapper);
 		
-		WeeklyCalendarController calendarController = new WeeklyCalendarController(
-				ureq, wControl, calendars, WeeklyCalendarController.CALLER_COLLAB, true);
-
-		return calendarController;
+		return new WeeklyCalendarController(ureq, wControl, calendars,
+				WeeklyCalendarController.CALLER_COLLAB, false);
 	}
 
 	/**
@@ -485,7 +489,7 @@ public class CollaborationTools implements Serializable {
 	 * @param wControl
 	 * @return
 	 */
-	public Controller createPortfolioController(final UserRequest ureq, WindowControl wControl, final BusinessGroup group) {
+	public EPMapViewController createPortfolioController(final UserRequest ureq, WindowControl wControl, final BusinessGroup group) {
 		final EPFrontendManager ePFMgr = (EPFrontendManager)CoreSpringFactory.getBean("epFrontendManager");
 		final NarrowedPropertyManager npm = NarrowedPropertyManager.getInstance(ores);
 	//TODO gsync
@@ -594,7 +598,7 @@ public class CollaborationTools implements Serializable {
 		 * Delete calendar if exists
 		 */
 		if (businessGroupTodelete != null) {
-			CalendarManager calManager = CalendarManagerFactory.getInstance().getCalendarManager();
+			CalendarManager calManager =  CoreSpringFactory.getImpl(CalendarManager.class);
 			calManager.deleteGroupCalendar(businessGroupTodelete);
 		}
 		
@@ -768,7 +772,6 @@ public class CollaborationTools implements Serializable {
 		}
 	}
 	
-	//fxdiff VCRP-8: collaboration tools folder access control
 	public Long lookupFolderAccess() {
 		NarrowedPropertyManager npm = NarrowedPropertyManager.getInstance(ores);
 		Property property = npm.findProperty(null, null, PROP_CAT_BG_COLLABTOOLS, KEY_FOLDER_ACCESS);
@@ -779,7 +782,6 @@ public class CollaborationTools implements Serializable {
 		return property.getLongValue();
 	}
 	
-	//fxdiff VCRP-8: collaboration tools folder access control
 	public void saveFolderAccess(Long folderrAccess) {
 		NarrowedPropertyManager npm = NarrowedPropertyManager.getInstance(ores);
 		Property property = npm.findProperty(null, null, PROP_CAT_BG_COLLABTOOLS, KEY_FOLDER_ACCESS);
@@ -794,7 +796,6 @@ public class CollaborationTools implements Serializable {
 	
 	public class CollabSecCallback implements VFSSecurityCallback {
 		
-		//fxdiff VCRP-8: collaboration tools folder access control
 		private final boolean write;
 		private Quota folderQuota = null;
 		private SubscriptionContext subsContext;
@@ -873,21 +874,21 @@ public class CollaborationTools implements Serializable {
 		}
 	}
 
-	private void archiveForum(OLATResourceable ores, String archivFilePath) {
-		Property forumKeyProperty = NarrowedPropertyManager.getInstance(ores).findProperty(null, null, PROP_CAT_BG_COLLABTOOLS, KEY_FORUM);
+	private void archiveForum(OLATResourceable formRes, String archivFilePath) {
+		Property forumKeyProperty = NarrowedPropertyManager.getInstance(formRes).findProperty(null, null, PROP_CAT_BG_COLLABTOOLS, KEY_FORUM);
 		if (forumKeyProperty != null) {
 			VFSContainer archiveContainer = new LocalFolderImpl(new File(archivFilePath));
 			String archiveForumName = "del_forum_" + forumKeyProperty.getLongValue();
 			VFSContainer archiveForumContainer = archiveContainer.createChildContainer(archiveForumName);
-			ForumFormatter ff = new ForumRTFFormatter(archiveForumContainer, false);
+			ForumFormatter ff = new ForumRTFFormatter(archiveForumContainer, false, I18nModule.getDefaultLocale());
 			ForumArchiveManager.getInstance().applyFormatter(ff, forumKeyProperty.getLongValue(), null);
 		}
 	}
 
-	private void archiveWiki(OLATResourceable ores, String archivFilePath) { 
-		VFSContainer wikiContainer = WikiManager.getInstance().getWikiRootContainer(ores);
+	private void archiveWiki(OLATResourceable wikiRes, String archivFilePath) { 
+		VFSContainer wikiContainer = WikiManager.getInstance().getWikiRootContainer(wikiRes);
 		VFSLeaf wikiZip = WikiToZipUtils.getWikiAsZip(wikiContainer);
-		String exportFileName = "del_wiki_" + ores.getResourceableId() + ".zip";
+		String exportFileName = "del_wiki_" + wikiRes.getResourceableId() + ".zip";
 		File archiveDir = new File(archivFilePath);
 		if (!archiveDir.exists()) {
 			archiveDir.mkdir();
@@ -897,17 +898,17 @@ public class CollaborationTools implements Serializable {
 		try {
 			FileUtils.bcopy(wikiZip.getInputStream(), new File(fullFilePath), "archive wiki");
 		} catch (FileNotFoundException e) {
-			log.warn("Can not archive wiki repoEntry=" + ores.getResourceableId());
+			log.warn("Can not archive wiki repoEntry=" + wikiRes.getResourceableId());
 		} catch (IOException ioe) {
-			log.warn("Can not archive wiki repoEntry=" + ores.getResourceableId());
+			log.warn("Can not archive wiki repoEntry=" + wikiRes.getResourceableId());
 		}		
 	}
 
-	private void archiveFolder(OLATResourceable ores, String archiveFilePath) {
+	private void archiveFolder(OLATResourceable folderRes, String archiveFilePath) {
 		OlatRootFolderImpl folderContainer = new OlatRootFolderImpl(getFolderRelPath(), null);
 		File fFolderRoot = folderContainer.getBasefile();
 		if (fFolderRoot.exists()) {
-			String zipFileName = "del_folder_" + ores.getResourceableId() + ".zip";
+			String zipFileName = "del_folder_" + folderRes.getResourceableId() + ".zip";
 			String fullZipFilePath = archiveFilePath + File.separator + zipFileName;
 			ZipUtil.zipAll(fFolderRoot, new File(fullZipFilePath), true);
 		}

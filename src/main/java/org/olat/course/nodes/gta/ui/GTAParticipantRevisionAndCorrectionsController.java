@@ -49,7 +49,6 @@ import org.olat.course.run.environment.CourseEnvironment;
 import org.olat.course.run.userview.UserCourseEnvironment;
 import org.olat.group.BusinessGroup;
 import org.olat.group.BusinessGroupService;
-import org.olat.modules.ModuleConfiguration;
 import org.springframework.beans.factory.annotation.Autowired;
 
 /**
@@ -144,7 +143,6 @@ public class GTAParticipantRevisionAndCorrectionsController extends BasicControl
 		File documentsDir;
 		VFSContainer documentsContainer;
 		int iteration = assignedTask.getRevisionLoop();
-		ModuleConfiguration config = gtaNode.getModuleConfiguration();
 		if(businessGroupTask) {
 			documentsDir = gtaManager.getRevisedDocumentsDirectory(courseEnv, gtaNode, iteration, assessedGroup);
 			documentsContainer = gtaManager.getRevisedDocumentsContainer(courseEnv, gtaNode, iteration, assessedGroup);
@@ -152,7 +150,8 @@ public class GTAParticipantRevisionAndCorrectionsController extends BasicControl
 			documentsDir = gtaManager.getRevisedDocumentsDirectory(courseEnv, gtaNode, iteration, getIdentity());
 			documentsContainer = gtaManager.getRevisedDocumentsContainer(courseEnv, gtaNode, iteration, getIdentity());
 		}
-		uploadRevisionsCtrl = new SubmitDocumentsController(ureq, getWindowControl(), task, documentsDir, documentsContainer, -1, config, "document");
+		uploadRevisionsCtrl = new SubmitDocumentsController(ureq, getWindowControl(), task, documentsDir, documentsContainer, -1,
+				gtaNode, courseEnv, "document");
 		listenTo(uploadRevisionsCtrl);
 		mainVC.put("uploadRevisions", uploadRevisionsCtrl.getInitialComponent());
 		
@@ -170,12 +169,13 @@ public class GTAParticipantRevisionAndCorrectionsController extends BasicControl
 			documentsContainer = gtaManager.getRevisedDocumentsContainer(courseEnv, gtaNode, iteration, assessedGroup);
 		} else {
 			documentsDir = gtaManager.getRevisedDocumentsDirectory(courseEnv, gtaNode, iteration, getIdentity());
+			documentsContainer = gtaManager.getRevisedDocumentsContainer(courseEnv, gtaNode, iteration, getIdentity());
 		}
 
 		boolean hasDocument = TaskHelper.hasDocuments(documentsDir);
 		if(hasDocument) {
 			revisionsCtrl = new DirectoryController(ureq, getWindowControl(), documentsDir, documentsContainer,
-					"run.revised.description");
+					"run.revised.description", "bulk.submitted.revisions", "revisions.zip");
 			listenTo(revisionsCtrl);
 			mainVC.put(cmpName, revisionsCtrl.getInitialComponent());
 		}
@@ -190,6 +190,7 @@ public class GTAParticipantRevisionAndCorrectionsController extends BasicControl
 			documentsContainer = gtaManager.getRevisedDocumentsCorrectionsContainer(courseEnv, gtaNode, iteration, assessedGroup);
 		} else {
 			documentsDir = gtaManager.getRevisedDocumentsCorrectionsDirectory(courseEnv, gtaNode, iteration, getIdentity());
+			documentsContainer = gtaManager.getRevisedDocumentsCorrectionsContainer(courseEnv, gtaNode, iteration, getIdentity());
 		}
 		
 		boolean hasDocument = TaskHelper.hasDocuments(documentsDir);

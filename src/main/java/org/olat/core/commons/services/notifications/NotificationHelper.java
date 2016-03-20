@@ -33,6 +33,7 @@ import org.olat.core.id.Identity;
 import org.olat.core.id.User;
 import org.olat.core.logging.OLog;
 import org.olat.core.logging.Tracing;
+import org.olat.core.util.StringHelper;
 import org.olat.core.util.Util;
 import org.olat.core.util.cache.CacheWrapper;
 import org.olat.core.util.coordinate.CoordinatorManager;
@@ -106,12 +107,9 @@ public class NotificationHelper {
 	 * @return
 	 */
 	public static String getFormatedName(Identity ident) {
-		Translator trans;
-		User user = null;
-		String formattedName = null;
-		
+		String formattedName;
 		if (ident == null) {
-			trans = Util.createPackageTranslator(NotificationNewsController.class, I18nManager.getInstance().getLocaleOrDefault(null));
+			Translator trans = Util.createPackageTranslator(NotificationNewsController.class, I18nManager.getInstance().getLocaleOrDefault(null));
 			return trans.translate("user.unknown");
 		} else {
 			// Optimize: use from cache to not re-calculate user properties over and over again
@@ -120,10 +118,10 @@ public class NotificationHelper {
 				return formattedName;
 			}
 		}
-		trans = Util.createPackageTranslator(NotificationNewsController.class, I18nManager.getInstance().getLocaleOrDefault(
-				ident.getUser().getPreferences().getLanguage()));
-		user = ident.getUser();
 		
+		Translator trans = Util.createPackageTranslator(NotificationNewsController.class, I18nManager.getInstance().getLocaleOrDefault(
+				ident.getUser().getPreferences().getLanguage()));
+		User user = ident.getUser();
 		if (user == null) {
 			formattedName =  trans.translate("user.unknown");
 		} else {
@@ -132,13 +130,17 @@ public class NotificationHelper {
 			String[] properties = new String[propertyHandlers.size()];
 			for (int i = 0; i < propertyHandlers.size(); i++) {
 				UserPropertyHandler propHandler = propertyHandlers.get(i);
-				properties[i] = propHandler.getUserProperty(user, trans.getLocale());
+				String prop = propHandler.getUserProperty(user, trans.getLocale());
+				if(StringHelper.containsNonWhitespace(prop)) {
+					properties[i] = prop;
+				} else {
+					properties[i] = "-";
+				}
 			}
 			formattedName = trans.translate("user.formatted", properties);
 		}
 		// put formatted name in cache, times out after 5 mins
 		userPropertiesCache.put(ident.getKey(), formattedName);
-		
 		return formattedName;
 	}
 

@@ -41,14 +41,18 @@ public class RepositoryEntryVO {
 	private String softkey;
 	private String resourcename;
 	private String displayname;
+	private String description;
 	@XmlAttribute(name="authors",required=false)
 	private String authors;
+	@XmlAttribute(name="location",required=false)
+	private String location;
 	private String externalId;
 	private String externalRef;
 	private String managedFlags;
 	private Long resourceableId;
 	private String resourceableTypeName;
 
+	private Long olatResourceKey;
 	private Long olatResourceId;
 	private String olatResourceTypeName;
 	
@@ -90,6 +94,14 @@ public class RepositoryEntryVO {
 		this.displayname = displayname;
 	}
 	
+	public String getDescription() {
+		return description;
+	}
+
+	public void setDescription(String description) {
+		this.description = description;
+	}
+
 	public String getAuthors() {
 		return authors;
 	}
@@ -98,6 +110,14 @@ public class RepositoryEntryVO {
 		this.authors = authors;
 	}
 	
+	public String getLocation() {
+		return location;
+	}
+
+	public void setLocation(String location) {
+		this.location = location;
+	}
+
 	public String getExternalId() {
 		return externalId;
 	}
@@ -136,6 +156,14 @@ public class RepositoryEntryVO {
 
 	public void setResourceableTypeName(String resourceableTypeName) {
 		this.resourceableTypeName = resourceableTypeName;
+	}
+
+	public Long getOlatResourceKey() {
+		return olatResourceKey;
+	}
+
+	public void setOlatResourceKey(Long olatResourceKey) {
+		this.olatResourceKey = olatResourceKey;
 	}
 
 	public Long getOlatResourceId() {

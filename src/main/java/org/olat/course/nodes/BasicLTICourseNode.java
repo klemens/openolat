@@ -27,14 +27,19 @@ package org.olat.course.nodes;
 
 import java.util.List;
 
+import org.olat.core.CoreSpringFactory;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.stack.BreadcrumbPanel;
 import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.WindowControl;
 import org.olat.core.gui.control.generic.iframe.DeliveryOptions;
+import org.olat.core.gui.control.generic.messages.MessageUIFactory;
 import org.olat.core.gui.control.generic.tabbable.TabbableController;
+import org.olat.core.gui.translator.Translator;
 import org.olat.core.id.Identity;
+import org.olat.core.id.Roles;
 import org.olat.core.logging.OLATRuntimeException;
+import org.olat.core.util.StringHelper;
 import org.olat.core.util.Util;
 import org.olat.course.ICourse;
 import org.olat.course.assessment.AssessmentManager;
@@ -49,6 +54,7 @@ import org.olat.course.run.navigation.NodeRunConstructionResult;
 import org.olat.course.run.scoring.ScoreEvaluation;
 import org.olat.course.run.userview.NodeEvaluation;
 import org.olat.course.run.userview.UserCourseEnvironment;
+import org.olat.ims.lti.LTIManager;
 import org.olat.ims.lti.ui.LTIResultDetailsController;
 import org.olat.modules.ModuleConfiguration;
 import org.olat.repository.RepositoryEntry;
@@ -61,6 +67,7 @@ import org.olat.resource.OLATResource;
 public class BasicLTICourseNode extends AbstractAccessableCourseNode implements AssessableCourseNode {
 
 	private static final long serialVersionUID = 2210572148308757127L;
+	private static final String translatorPackage = Util.getPackageName(LTIEditController.class);
 	private static final String TYPE = "lti";
 
 	public static final String CONFIG_KEY_AUTHORROLE = "authorRole";
@@ -111,7 +118,26 @@ public class BasicLTICourseNode extends AbstractAccessableCourseNode implements 
 	public NodeRunConstructionResult createNodeRunConstructionResult(UserRequest ureq, WindowControl wControl,
 			UserCourseEnvironment userCourseEnv, NodeEvaluation ne, String nodecmd) {
 		updateModuleConfigDefaults(false);
-		LTIRunController runCtrl = new LTIRunController(wControl, getModuleConfiguration(), ureq, this, userCourseEnv);
+		
+		Controller runCtrl;
+		Roles roles = ureq.getUserSession().getRoles();
+		if (roles.isGuestOnly()) {
+			ModuleConfiguration config = getModuleConfiguration();
+			boolean assessable = config.getBooleanSafe(BasicLTICourseNode.CONFIG_KEY_HAS_SCORE_FIELD, false);
+			boolean sendName = config.getBooleanSafe(LTIConfigForm.CONFIG_KEY_SENDNAME, false);
+			boolean sendEmail = config.getBooleanSafe(LTIConfigForm.CONFIG_KEY_SENDEMAIL, false);
+			boolean customValues = StringHelper.containsNonWhitespace(config.getStringValue(LTIConfigForm.CONFIG_KEY_CUSTOM));
+			if(assessable || sendName || sendEmail || customValues) {
+				Translator trans = Util.createPackageTranslator(BasicLTICourseNode.class, ureq.getLocale());
+				String title = trans.translate("guestnoaccess.title");
+				String message = trans.translate("guestnoaccess.message");
+				runCtrl = MessageUIFactory.createInfoMessage(ureq, wControl, title, message);
+			} else {
+				runCtrl = new LTIRunController(wControl, getModuleConfiguration(), ureq, this, userCourseEnv);
+			}
+		} else {
+			runCtrl = new LTIRunController(wControl, getModuleConfiguration(), ureq, this, userCourseEnv);
+		}
 		Controller ctrl = TitledWrapperHelper.getWrapper(ureq, wControl, runCtrl, this, "o_lti_icon");
 		return new NodeRunConstructionResult(ctrl);
 	}
@@ -144,8 +170,7 @@ public class BasicLTICourseNode extends AbstractAccessableCourseNode implements 
 		if (!isValid) {
 			// FIXME: refine statusdescriptions
 			String[] params = new String[] { this.getShortTitle() };
-			String translPackage = Util.getPackageName(LTIConfigForm.class);
-			sd = new StatusDescription(StatusDescription.ERROR, NLS_ERROR_HOSTMISSING_SHORT, NLS_ERROR_HOSTMISSING_LONG, params, translPackage);
+			sd = new StatusDescription(StatusDescription.ERROR, NLS_ERROR_HOSTMISSING_SHORT, NLS_ERROR_HOSTMISSING_LONG, params, translatorPackage);
 			sd.setDescriptionForUnit(getIdent());
 			// set which pane is affected by error
 			sd.setActivateableViewIdentifier(LTIEditController.PANE_TAB_LTCONFIG);
@@ -161,8 +186,8 @@ public class BasicLTICourseNode extends AbstractAccessableCourseNode implements 
 		oneClickStatusCache = null;
 		// only here we know which translator to take for translating condition
 		// error messages
-		String translatorStr = Util.getPackageName(LTIEditController.class);
-		List<StatusDescription> sds =  isConfigValidWithTranslator(cev, translatorStr, getConditionExpressions());
+		
+		List<StatusDescription> sds =  isConfigValidWithTranslator(cev, translatorPackage, getConditionExpressions());
 		oneClickStatusCache = StatusDescriptionHelper.sort(sds);
 		return oneClickStatusCache;
 	}
@@ -181,6 +206,15 @@ public class BasicLTICourseNode extends AbstractAccessableCourseNode implements 
 	@Override
 	public boolean needsReferenceToARepositoryEntry() {
 		return false;
+	}
+	
+	/**
+	 * @see org.olat.course.nodes.CourseNode#cleanupOnDelete(org.olat.course.ICourse)
+	 */
+	@Override
+	public void cleanupOnDelete(ICourse course) {
+		OLATResource resource = course.getCourseEnvironment().getCourseGroupManager().getCourseResource();
+		CoreSpringFactory.getImpl(LTIManager.class).deleteOutcomes(resource);
 	}
 
 	/**

@@ -33,68 +33,67 @@ import java.util.List;
 import org.olat.collaboration.CollaborationTools;
 import org.olat.collaboration.CollaborationToolsFactory;
 import org.olat.commons.calendar.CalendarManager;
-import org.olat.commons.calendar.CalendarManagerFactory;
-import org.olat.commons.calendar.model.KalendarConfig;
+import org.olat.commons.calendar.model.CalendarUserConfiguration;
 import org.olat.commons.calendar.ui.CalendarController;
 import org.olat.commons.calendar.ui.LinkProvider;
 import org.olat.commons.calendar.ui.WeeklyCalendarController;
 import org.olat.commons.calendar.ui.components.KalendarRenderWrapper;
-import org.olat.commons.calendar.ui.events.KalendarModifiedEvent;
+import org.olat.commons.calendar.ui.events.CalendarGUIModifiedEvent;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.Component;
 import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.Event;
 import org.olat.core.gui.control.WindowControl;
 import org.olat.core.gui.control.controller.BasicController;
-import org.olat.core.id.Identity;
-import org.olat.core.id.OLATResourceable;
 import org.olat.core.id.Roles;
 import org.olat.course.CourseFactory;
 import org.olat.course.ICourse;
 import org.olat.course.groupsandrights.CourseGroupManager;
-import org.olat.course.groupsandrights.CourseRights;
+import org.olat.course.run.userview.UserCourseEnvironment;
 import org.olat.group.BusinessGroup;
 import org.olat.repository.RepositoryManager;
+import org.springframework.beans.factory.annotation.Autowired;
 
 public class CourseCalendarController extends BasicController {
 
 	private CalendarController calendarController;
-	private KalendarRenderWrapper courseKalendarWrapper;
-	private OLATResourceable ores;
 	
-	public CourseCalendarController(UserRequest ureq, WindowControl wControl, OLATResourceable course) {
+	private final UserCourseEnvironment courseEnv;
+	private KalendarRenderWrapper courseKalendarWrapper;
+
+	@Autowired
+	private CalendarManager calendarManager;
+	
+	public CourseCalendarController(UserRequest ureq, WindowControl wControl, UserCourseEnvironment courseEnv) {
 		super(ureq, wControl);
-		this.ores = course;
+		this.courseEnv = courseEnv;
 		List<KalendarRenderWrapper> calendars = getListOfCalendarWrappers(ureq);
-		CourseCalendarSubscription calendarSubscription = new CourseCalendarSubscription(
-				courseKalendarWrapper.getKalendar(), ureq.getUserSession().getGuiPreferences());
-		calendarController = new WeeklyCalendarController(
-				ureq, wControl, calendars, WeeklyCalendarController.CALLER_COURSE, calendarSubscription, true);
+		calendarController = new WeeklyCalendarController(ureq, wControl, calendars,
+				WeeklyCalendarController.CALLER_COURSE, false);
 		listenTo(calendarController);
 		putInitialPanel(calendarController.getInitialComponent());
 	}
 
 	private List<KalendarRenderWrapper> getListOfCalendarWrappers(UserRequest ureq) {
 		List<KalendarRenderWrapper> calendars = new ArrayList<KalendarRenderWrapper>();
-		CalendarManager calendarManager = CalendarManagerFactory.getInstance().getCalendarManager();
 		// add course calendar
-		ICourse course = CourseFactory.loadCourse(ores);
+		ICourse course = CourseFactory.loadCourse(courseEnv.getCourseEnvironment().getCourseGroupManager().getCourseEntry());
 		courseKalendarWrapper = calendarManager.getCourseCalendar(course);
 		CourseGroupManager cgm = course.getCourseEnvironment().getCourseGroupManager();
-		Identity identity = ureq.getIdentity();
+		
 		Roles roles = ureq.getUserSession().getRoles();
-		boolean isPrivileged = cgm.isIdentityCourseAdministrator(identity)
-				|| cgm.hasRight(identity, CourseRights.RIGHT_COURSEEDITOR)
-				|| RepositoryManager.getInstance().isInstitutionalRessourceManagerFor(identity, roles, course.getCourseEnvironment().getCourseGroupManager().getCourseEntry());
+		boolean isPrivileged = roles.isOLATAdmin() || courseEnv.isAdmin()
+				|| RepositoryManager.getInstance().isInstitutionalRessourceManagerFor(getIdentity(), roles, cgm.getCourseEntry());
 		if (isPrivileged) {
 			courseKalendarWrapper.setAccess(KalendarRenderWrapper.ACCESS_READ_WRITE);
+			courseKalendarWrapper.setPrivateEventsVisible(true);
 		} else {
 			courseKalendarWrapper.setAccess(KalendarRenderWrapper.ACCESS_READ_ONLY);
+			courseKalendarWrapper.setPrivateEventsVisible(courseEnv.isAdmin() || courseEnv.isCoach() || courseEnv.isParticipant());
 		}
-		KalendarConfig config = calendarManager.findKalendarConfigForIdentity(courseKalendarWrapper.getKalendar(), ureq);
+		CalendarUserConfiguration config = calendarManager.findCalendarConfigForIdentity(courseKalendarWrapper.getKalendar(), getIdentity());
 		if (config != null) {
-			courseKalendarWrapper.getKalendarConfig().setCss(config.getCss());
-			courseKalendarWrapper.getKalendarConfig().setVis(config.isVis());
+			courseKalendarWrapper.setConfiguration(config);
 		}
 		// add link provider
 		CourseLinkProviderController clpc = new CourseLinkProviderController(course, Collections.<ICourse>singletonList(course), ureq, getWindowControl());
@@ -104,27 +103,27 @@ public class CourseCalendarController extends BasicController {
 		// add course group calendars
 		
 		// learning groups
-		List<BusinessGroup> ownerGroups = cgm.getOwnedBusinessGroups(identity);
-		addCalendars(ureq, ownerGroups, true, clpc, calendars);
-		List<BusinessGroup> attendedGroups = cgm.getParticipatingBusinessGroups(identity);
+		List<BusinessGroup> ownerGroups = cgm.getOwnedBusinessGroups(getIdentity());
+		addCalendars(ownerGroups, true, clpc, calendars);
+		List<BusinessGroup> attendedGroups = cgm.getParticipatingBusinessGroups(getIdentity());
 		for (Iterator<BusinessGroup> ownerGroupsIterator = ownerGroups.iterator(); ownerGroupsIterator.hasNext();) {
 			BusinessGroup ownerGroup = ownerGroupsIterator.next();
 			if (attendedGroups.contains(ownerGroup))
 				attendedGroups.remove(ownerGroup);
 		}
-		addCalendars(ureq, attendedGroups, false, clpc, calendars);
+		addCalendars(attendedGroups, false, clpc, calendars);
 
 		return calendars;
 	}
 	
-	private void addCalendars(UserRequest ureq, List<BusinessGroup> groups, boolean isOwner, LinkProvider linkProvider,
+	private void addCalendars(List<BusinessGroup> groups, boolean isOwner, LinkProvider linkProvider,
 			List<KalendarRenderWrapper> calendars) {
 		CollaborationToolsFactory collabFactory = CollaborationToolsFactory.getInstance();
-		CalendarManager calendarManager = CalendarManagerFactory.getInstance().getCalendarManager();
 		for (BusinessGroup bGroup:groups) {
 			CollaborationTools collabTools = collabFactory.getOrCreateCollaborationTools(bGroup);
 			if (!collabTools.isToolEnabled(CollaborationTools.TOOL_CALENDAR)) continue;
 			KalendarRenderWrapper groupCalendarWrapper = calendarManager.getGroupCalendar(bGroup);
+			groupCalendarWrapper.setPrivateEventsVisible(true);
 			// set calendar access
 			int iCalAccess = CollaborationTools.CALENDAR_ACCESS_OWNERS;
 			Long lCalAccess = collabTools.lookupCalendarAccess();
@@ -134,10 +133,9 @@ public class CourseCalendarController extends BasicController {
 			} else {
 				groupCalendarWrapper.setAccess(KalendarRenderWrapper.ACCESS_READ_WRITE);
 			}
-			KalendarConfig config = calendarManager.findKalendarConfigForIdentity(groupCalendarWrapper.getKalendar(), ureq);
+			CalendarUserConfiguration config = calendarManager.findCalendarConfigForIdentity(groupCalendarWrapper.getKalendar(), getIdentity());
 			if (config != null) {
-				groupCalendarWrapper.getKalendarConfig().setCss(config.getCss());
-				groupCalendarWrapper.getKalendarConfig().setVis(config.isVis());
+				groupCalendarWrapper.setConfiguration(config);
 			}
 			groupCalendarWrapper.setLinkProvider(linkProvider);
 			calendars.add(groupCalendarWrapper);
@@ -150,7 +148,7 @@ public class CourseCalendarController extends BasicController {
 	}
 
 	public void event(UserRequest ureq, Controller source, Event event) {
-		if (event instanceof KalendarModifiedEvent) {
+		if (event instanceof CalendarGUIModifiedEvent) {
 			List<KalendarRenderWrapper> calendars = getListOfCalendarWrappers(ureq);
 			calendarController.setCalendars(calendars);
 		}

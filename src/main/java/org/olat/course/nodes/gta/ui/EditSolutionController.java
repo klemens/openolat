@@ -39,6 +39,7 @@ import org.olat.core.gui.control.WindowControl;
 import org.olat.core.util.StringHelper;
 import org.olat.core.util.vfs.VFSContainer;
 import org.olat.core.util.vfs.VFSItem;
+import org.olat.core.util.vfs.VFSManager;
 import org.olat.course.nodes.gta.model.Solution;
 
 
@@ -60,12 +61,12 @@ public class EditSolutionController extends FormBasicController {
 	
 	public EditSolutionController(UserRequest ureq, WindowControl wControl,
 			File solutionDir, VFSContainer solutionContainer) {
-		this(ureq, wControl, new Solution(), solutionDir, solutionContainer, true);
+		this(ureq, wControl, new Solution(), solutionDir, solutionContainer, false);
 	}
 	
 	public EditSolutionController(UserRequest ureq, WindowControl wControl, Solution solution,
 			File solutionDir, VFSContainer solutionContainer) {
-		this(ureq, wControl, solution, solutionDir, solutionContainer, false);
+		this(ureq, wControl, solution, solutionDir, solutionContainer, true);
 	}
 	
 	private EditSolutionController(UserRequest ureq, WindowControl wControl,
@@ -91,7 +92,7 @@ public class EditSolutionController extends FormBasicController {
 		titleEl.setElementCssClass("o_sel_course_gta_upload_solution_title");
 		titleEl.setMandatory(true);
 
-		fileEl = uifactory.addFileElement("file", "solution.file", formLayout);
+		fileEl = uifactory.addFileElement(getWindowControl(), "file", "solution.file", formLayout);
 		fileEl.setMandatory(true);
 		fileEl.addActionListener(FormEvent.ONCHANGE);
 		if(StringHelper.containsNonWhitespace(solution.getFilename())) {
@@ -145,6 +146,13 @@ public class EditSolutionController extends FormBasicController {
 			}
 			
 			String filename = fileEl.getUploadFileName();
+			if(!replaceFile) {
+				File currentFile = new File(solutionDir, filename);
+				if(currentFile.exists()) {
+					filename = VFSManager.rename(solutionContainer, filename);
+				}
+			}
+			
 			solution.setFilename(filename);
 			
 			try {

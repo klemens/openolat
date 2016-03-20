@@ -97,17 +97,17 @@ public class CertificateChooserController extends UploadCertificateController {
 		
 		uifactory.addSpacerElement("spaceman", formLayout, false);
 		
-		fileEl = uifactory.addFileElement("template.file", formLayout);
+		fileEl = uifactory.addFileElement(getWindowControl(), "template.file", formLayout);
 		fileEl.addActionListener(FormEvent.ONCHANGE);
 		
 		String[] orientationValues = new String[]{
-			translate("portrait"), translate("orientation")
+			translate("portrait"), translate("landscape")
 		};
 		orientationEl = uifactory.addRadiosVertical("orientation", formLayout, orientationKeys, orientationValues);
 		orientationEl.select(orientationKeys[0], true);
 		orientationEl.setVisible(false);
 		
-		formatEl = uifactory.addRadiosVertical("orientation", formLayout, formatKeys, formatKeys);
+		formatEl = uifactory.addRadiosVertical("format", formLayout, formatKeys, formatKeys);
 		formatEl.select(formatKeys[0], true);
 		formatEl.setVisible(false);
 		
@@ -154,6 +154,8 @@ public class CertificateChooserController extends UploadCertificateController {
 			if(validateTemplate()) {
 				doUpload(ureq);
 			}
+		} else if(fileEl == source) {
+			validateTemplate();
 		}
 		super.formInnerEvent(ureq, source, event);
 	}
@@ -163,6 +165,9 @@ public class CertificateChooserController extends UploadCertificateController {
 		if(template != null) {
 			String name = fileEl.getUploadFileName();
 			selectedTemplate = certificatesManager.addTemplate(name, template, getFormat(), getOrientation(), false);
+			if(selectedTemplate == null) {
+				showError("upload.wrong.mimetype");
+			}
 			fireEvent(ureq, Event.DONE_EVENT);
 		}
 	}

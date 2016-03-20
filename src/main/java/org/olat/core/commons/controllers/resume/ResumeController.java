@@ -23,8 +23,7 @@ package org.olat.core.commons.controllers.resume;
 import java.util.List;
 
 import org.olat.NewControllerFactory;
-import org.olat.admin.landingpages.LandingPagesModule;
-import org.olat.admin.landingpages.model.Rules;
+import org.olat.core.commons.controllers.resume.ResumeSessionController.Redirect;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.WindowManager;
 import org.olat.core.gui.components.form.flexible.FormItem;
@@ -43,12 +42,9 @@ import org.olat.core.id.context.BusinessControl;
 import org.olat.core.id.context.BusinessControlFactory;
 import org.olat.core.id.context.ContextEntry;
 import org.olat.core.id.context.HistoryManager;
-import org.olat.core.id.context.HistoryModule;
 import org.olat.core.id.context.HistoryPoint;
 import org.olat.core.util.StringHelper;
-import org.olat.core.util.UserSession;
 import org.olat.core.util.prefs.Preferences;
-import org.olat.login.SupportsAfterLoginInterceptor;
 import org.springframework.beans.factory.annotation.Autowired;
 
 /**
@@ -62,7 +58,7 @@ import org.springframework.beans.factory.annotation.Autowired;
  * Initial Date:  12 jan. 2011 <br>
  * @author srosse, stephane.rosse@frentix.com, www.frentix.com
  */
-public class ResumeController extends FormBasicController implements SupportsAfterLoginInterceptor {
+public class ResumeController extends FormBasicController {
 
 	private FormSubmit okButton;
 	private FormLink noButton, landingButton;
@@ -70,15 +66,14 @@ public class ResumeController extends FormBasicController implements SupportsAft
 	private String[] askagain_keys = new String[]{"askagain_k"};
 	private MultipleSelectionElement askagainCheckbox;
 	
-	@Autowired
-	private LandingPagesModule lpModule;
-	@Autowired
-	private HistoryModule historyModule;
+	private final Redirect redirect;
+	
 	@Autowired
 	private HistoryManager historyManager;
 	
-	public ResumeController(UserRequest ureq, WindowControl wControl) {
+	public ResumeController(UserRequest ureq, WindowControl wControl, Redirect redirect) {
 		super(ureq, wControl);
+		this.redirect = redirect;
 		initForm(ureq);
 	}
 
@@ -93,84 +88,22 @@ public class ResumeController extends FormBasicController implements SupportsAft
 		okButton.setElementCssClass("o_sel_resume_yes");
 		landingButton = uifactory.addFormLink("landing", "resume.button.landing", null, buttonLayout, Link.BUTTON);
 		landingButton.setElementCssClass("o_sel_resume_landing");
+		landingButton.setVisible(StringHelper.containsNonWhitespace(redirect.getLandingPage()));
 		noButton = uifactory.addFormLink("cancel", "resume.button.cancel", null, buttonLayout, Link.BUTTON);
 		noButton.setElementCssClass("o_sel_resume_cancel");
+		noButton.setVisible(!StringHelper.containsNonWhitespace(redirect.getLandingPage()));
 	}
-	
-	@Override
-	public boolean isInterceptionRequired(UserRequest ureq) {
-		UserSession usess = ureq.getUserSession();
 
-		boolean interception = false;
-		if(isREST(ureq)) {
-			//do nothing
-		} else if(!historyModule.isResumeEnabled()) {
-			String bc = getLandingBC(ureq);
-			launch(ureq, bc);
-		} else if(usess.getRoles().isGuestOnly()) {
-			String bc = getLandingBC(ureq);
-			launch(ureq, bc);
-		} else {
-			Preferences prefs =  usess.getGuiPreferences();
-			String resumePrefs = (String)prefs.get(WindowManager.class, "resume-prefs");
-			if(!StringHelper.containsNonWhitespace(resumePrefs)) {
-				resumePrefs = historyModule.getResumeDefaultSetting();
-			}
-
-			if("none".equals(resumePrefs)) {
-				String bc = getLandingBC(ureq);
-				launch(ureq, bc);
-			} else if ("auto".equals(resumePrefs)) {
-				HistoryPoint historyEntry = HistoryManager.getInstance().readHistoryPoint(ureq.getIdentity());
-				if(historyEntry != null && StringHelper.containsNonWhitespace(historyEntry.getBusinessPath())) {
-					List<ContextEntry> cloneCes = BusinessControlFactory.getInstance().cloneContextEntries(historyEntry.getEntries());
-					BusinessControl bc = BusinessControlFactory.getInstance().createFromContextEntries(cloneCes);
-					launch(ureq, bc);
-				} else {
-					String bc = getLandingBC(ureq);
-					launch(ureq, bc);
-				}
-			} else if ("ondemand".equals(resumePrefs)) {
-				HistoryPoint historyEntry = historyManager.readHistoryPoint(ureq.getIdentity());
-				if(historyEntry != null && StringHelper.containsNonWhitespace(historyEntry.getBusinessPath())) {
-					interception = true;
-					
-					String bc = getLandingBC(ureq);
-					if(StringHelper.containsNonWhitespace(bc)) {
-						noButton.setVisible(false);
-					} else {
-						landingButton.setVisible(false);
-					}
-				} else {
-					String bc = getLandingBC(ureq);
-					launch(ureq, bc);
-				}
-			}
-		}
-		return interception;
-	}
-	
 	@Override
 	protected void formInnerEvent(UserRequest ureq, FormItem source, FormEvent event) {
 		if(source.equals(noButton)){
-			flc.setDirty(true);
-			formResetted(ureq);
-			formCancelled(ureq);
-		} else if(source.equals(landingButton)){
-			savePreferences(ureq, "none");		
-			fireEvent (ureq, Event.DONE_EVENT);
-			String bc = getLandingBC(ureq);
-			launch(ureq, bc);
+			savePreferences(ureq, "none");			
+			fireEvent (ureq, new Event("no"));
+		} else if(source.equals(landingButton)){		
+			fireEvent (ureq, new Event("landing"));
 		}
 	}
 	
-	private boolean isREST(UserRequest ureq) {
-		UserSession usess = ureq.getUserSession();
-		if(usess.getEntry("AuthDispatcher:businessPath") != null) return true;
-		if(usess.getEntry("AuthDispatcher:entryUrl") != null) return true;
-		return false;
-	}
-
 	@Override
 	protected void doDispose() {
 		//
@@ -199,45 +132,6 @@ public class ResumeController extends FormBasicController implements SupportsAft
 	protected void formCancelled(UserRequest ureq) {
 		savePreferences(ureq, "none");
 		fireEvent (ureq, Event.CANCELLED_EVENT);
-	}
-	
-	/**
-	 * Search first in the user preferences, after in rules
-	 * @param ureq
-	 * @return
-	 */
-	private String getLandingBC(UserRequest ureq) {
-		Preferences prefs =  ureq.getUserSession().getGuiPreferences();
-		String landingPage = (String)prefs.get(WindowManager.class, "landing-page");
-		if(StringHelper.containsNonWhitespace(landingPage)) {
-			String path = Rules.cleanUpLandingPath(landingPage);
-			if(StringHelper.containsNonWhitespace(path)) {
-				return BusinessControlFactory.getInstance().formatFromURI(path);
-			}
-		}
-		return lpModule.getRules().match(ureq.getUserSession());
-	}
-	
-	private void launch(UserRequest ureq, BusinessControl bc) {
-		if(bc == null) return;
-		WindowControl bwControl = BusinessControlFactory.getInstance().createBusinessWindowControl(bc, getWindowControl());
-		try {
-			//make the resume secure. If something fail, don't generate a red screen
-			NewControllerFactory.getInstance().launch(ureq, bwControl);
-		} catch (Exception e) {
-			logError("Error while resuming", e);
-		}
-	}
-	
-	private void launch(UserRequest ureq, String businessPath) {
-		if(StringHelper.containsNonWhitespace(businessPath)) {
-			try {
-				//make the resume secure. If something fail, don't generate a red screen
-				NewControllerFactory.getInstance().launch(businessPath, ureq, getWindowControl());
-			} catch (Exception e) {
-				logError("Error while resuming", e);
-			}
-		}
 	}
 	
 	private void savePreferences(UserRequest ureq, String val) {

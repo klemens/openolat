@@ -34,6 +34,8 @@ import java.util.zip.ZipOutputStream;
 import org.apache.commons.io.IOUtils;
 import org.olat.basesecurity.IdentityRef;
 import org.olat.core.CoreSpringFactory;
+import org.olat.core.commons.services.notifications.NotificationsManager;
+import org.olat.core.commons.services.notifications.SubscriptionContext;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.stack.BreadcrumbPanel;
 import org.olat.core.gui.components.stack.TooledStackedPanel;
@@ -87,7 +89,6 @@ import org.olat.course.run.userview.UserCourseEnvironment;
 import org.olat.group.BusinessGroup;
 import org.olat.modules.ModuleConfiguration;
 import org.olat.repository.RepositoryEntry;
-import org.olat.resource.OLATResource;
 import org.olat.user.UserManager;
 
 /**
@@ -269,8 +270,8 @@ public class GTACourseNode extends AbstractAccessableCourseNode implements Asses
 		if(cev != null) {
 			//check assignment
 			GTAManager gtaManager = CoreSpringFactory.getImpl(GTAManager.class);
-			OLATResource courseOres = cev.getCourseGroupManager().getCourseResource();
-			ICourse course = CourseFactory.loadCourse(courseOres);
+			RepositoryEntry courseRe = cev.getCourseGroupManager().getCourseEntry();
+			ICourse course = CourseFactory.loadCourse(courseRe);
 			if(config.getBooleanSafe(GTACourseNode.GTASK_ASSIGNMENT)) {
 				File taskDirectory = gtaManager.getTasksDirectory(course.getCourseEnvironment(), this);
 				if(!TaskHelper.hasDocuments(taskDirectory)) {
@@ -405,8 +406,8 @@ public class GTACourseNode extends AbstractAccessableCourseNode implements Asses
 	}
 
 	@Override
-	public CourseNode createInstanceForCopy(boolean isNewTitle, ICourse course) {
-		GTACourseNode cNode = (GTACourseNode)super.createInstanceForCopy(isNewTitle, course);
+	public CourseNode createInstanceForCopy(boolean isNewTitle, ICourse course, Identity author) {
+		GTACourseNode cNode = (GTACourseNode)super.createInstanceForCopy(isNewTitle, course, author);
 		GTAManager gtaManager = CoreSpringFactory.getImpl(GTAManager.class);
 		
 		//copy tasks
@@ -424,9 +425,17 @@ public class GTACourseNode extends AbstractAccessableCourseNode implements Asses
 
 	@Override
 	public boolean archiveNodeData(Locale locale, ICourse course, ArchiveOptions options, ZipOutputStream exportStream, String charset) {
-		GTAManager gtaManager = CoreSpringFactory.getImpl(GTAManager.class);
+		final GTAManager gtaManager = CoreSpringFactory.getImpl(GTAManager.class);
+		final ModuleConfiguration config =  getModuleConfiguration();
+
+		String prefix;
+		if(GTAType.group.name().equals(config.getStringValue(GTACourseNode.GTASK_TYPE))) {
+			prefix = "grouptask_";
+		} else {
+			prefix = "ita_";
+		}
 	
-		String dirName = "grouptask_"
+		String dirName = prefix
 				+ StringHelper.transformDisplayNameToFileSystemName(getShortName())
 				+ "_" + Formatter.formatDatetimeFilesystemSave(new Date(System.currentTimeMillis()));
 		
@@ -434,7 +443,6 @@ public class GTACourseNode extends AbstractAccessableCourseNode implements Asses
 
 		//save assessment datas
 		List<Identity> users = null;
-		ModuleConfiguration config = getModuleConfiguration();
 		if(config.getBooleanSafe(GTASK_GRADING)) {
 			users = ScoreAccountingHelper.loadUsers(course.getCourseEnvironment(), options);
 			
@@ -595,6 +603,10 @@ public class GTACourseNode extends AbstractAccessableCourseNode implements Asses
 		//clean up database
 		RepositoryEntry entry = course.getCourseEnvironment().getCourseGroupManager().getCourseEntry();
 		gtaManager.deleteTaskList(entry, this);
+		
+		//clean subscription
+		SubscriptionContext subscriptionContext = gtaManager.getSubscriptionContext(course.getCourseEnvironment(), this);
+		NotificationsManager.getInstance().delete(subscriptionContext);
 	}
 	
 	@Override
@@ -777,11 +789,17 @@ public class GTACourseNode extends AbstractAccessableCourseNode implements Asses
 				tools.add(new GTAGroupAssessmentToolController(ureq, wControl, courseEnv, options.getGroup(), this));
 			}
 			tools.add(new BulkDownloadToolController(ureq, wControl, courseEnv, options, this));
-		} else if(GTAType.individual.name().equals(config.getStringValue(GTACourseNode.GTASK_TYPE))
-				&& (config.getBooleanSafe(GTASK_REVIEW_AND_CORRECTION)
-						|| config.getBooleanSafe(GTASK_GRADING))) {
-			tools.add(new BulkAssessmentToolController(ureq, wControl, courseEnv, this));
-			tools.add(new BulkDownloadToolController(ureq, wControl, courseEnv, options, this));
+		} else if(GTAType.individual.name().equals(config.getStringValue(GTACourseNode.GTASK_TYPE))) {
+			if(config.getBooleanSafe(GTASK_REVIEW_AND_CORRECTION) || config.getBooleanSafe(GTASK_GRADING)){
+				tools.add(new BulkAssessmentToolController(ureq, wControl, courseEnv, this));
+			}
+			
+			if(config.getBooleanSafe(GTASK_ASSIGNMENT)
+					|| config.getBooleanSafe(GTASK_SUBMIT)
+					|| config.getBooleanSafe(GTASK_REVIEW_AND_CORRECTION)
+					|| config.getBooleanSafe(GTASK_REVISION_PERIOD)) {
+				tools.add(new BulkDownloadToolController(ureq, wControl, courseEnv, options, this));
+			}
 		}
 		return tools;
 	}

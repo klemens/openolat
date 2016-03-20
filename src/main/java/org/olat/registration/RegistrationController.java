@@ -51,6 +51,8 @@ import org.olat.core.gui.control.Event;
 import org.olat.core.gui.control.WindowControl;
 import org.olat.core.gui.control.controller.BasicController;
 import org.olat.core.gui.control.generic.dtabs.Activateable2;
+import org.olat.core.gui.control.generic.messages.MessageController;
+import org.olat.core.gui.control.generic.messages.MessageUIFactory;
 import org.olat.core.gui.control.generic.wizard.WizardInfoController;
 import org.olat.core.gui.media.RedirectMediaResource;
 import org.olat.core.helpers.Settings;
@@ -59,7 +61,6 @@ import org.olat.core.id.Preferences;
 import org.olat.core.id.User;
 import org.olat.core.id.context.ContextEntry;
 import org.olat.core.id.context.StateEntry;
-import org.olat.core.logging.OLATRuntimeException;
 import org.olat.core.util.StringHelper;
 import org.olat.core.util.Util;
 import org.olat.core.util.WebappHelper;
@@ -97,6 +98,14 @@ public class RegistrationController extends BasicController implements Activatea
 	private TemporaryKeyImpl tempKey;
 	
 	@Autowired
+	private I18nManager i18nManager;
+	@Autowired
+	private UserManager userManager;
+	@Autowired
+	private MailManager mailManager;
+	@Autowired
+	private RegistrationModule registrationModule;
+	@Autowired
 	private RegistrationManager registrationManager;
 
 	/**
@@ -106,9 +115,14 @@ public class RegistrationController extends BasicController implements Activatea
 	 */
 	public RegistrationController(UserRequest ureq, WindowControl wControl) {
 		super(ureq, wControl);		
-		if (!CoreSpringFactory.getImpl(RegistrationModule.class).isSelfRegistrationEnabled()) { 
-			throw new OLATRuntimeException(RegistrationController.class,
-				"Registration controller launched but self registration is turned off in the config file", null);
+		if (!registrationModule.isSelfRegistrationEnabled()) {
+			String contact = WebappHelper.getMailConfig("mailSupport");
+			String text = translate("reg.error.disabled.body", new String[]{ contact });
+			MessageController msg = MessageUIFactory.createWarnMessage(ureq, getWindowControl(), null, text);
+			LayoutMain3ColsController layoutCtr = new LayoutMain3ColsController(ureq, getWindowControl(), null, msg.getInitialComponent(), null);
+			listenTo(layoutCtr);
+			putInitialPanel(layoutCtr.getInitialComponent());
+			return;
 		}
 		// override language when not the same as in ureq and add fallback to
 		// property handler translator for user properties
@@ -117,14 +131,14 @@ public class RegistrationController extends BasicController implements Activatea
 			// support for legacy lang parameter
 			lang = ureq.getParameter("lang");
 		}
-		if (lang != null && ! lang.equals(I18nManager.getInstance().getLocaleKey(getLocale()))) {
-			Locale loc = I18nManager.getInstance().getLocaleOrDefault(lang);
+		if (lang != null && ! lang.equals(i18nManager.getLocaleKey(getLocale()))) {
+			Locale loc = i18nManager.getLocaleOrDefault(lang);
 			ureq.getUserSession().setLocale(loc);
 			setLocale(loc, true);
-			setTranslator(UserManager.getInstance().getPropertyHandlerTranslator(Util.createPackageTranslator(this.getClass(), loc)));			
+			setTranslator(userManager.getPropertyHandlerTranslator(Util.createPackageTranslator(this.getClass(), loc)));			
 		}	else {
 			// set fallback only
-			setTranslator(UserManager.getInstance().getPropertyHandlerTranslator(getTranslator()));			
+			setTranslator(userManager.getPropertyHandlerTranslator(getTranslator()));			
 		}
 		
 		//construct content
@@ -277,26 +291,37 @@ public class RegistrationController extends BasicController implements Activatea
 				boolean foundUser = UserManager.getInstance().userExist(email);
 				// get remote address
 				String ip = ureq.getHttpReq().getRemoteAddr();
-				String body = null;
-				String today = DateFormat.getDateInstance(DateFormat.LONG, ureq.getLocale()).format(new Date());
-				MailManager mailM = CoreSpringFactory.getImpl(MailManager.class);
-
 				String serverpath = Settings.getServerContextPathURI();
+				String today = DateFormat.getDateInstance(DateFormat.LONG, ureq.getLocale()).format(new Date());
+				String[] whereFromAttrs = new String[]{
+					serverpath, today, ip
+				};
+
 				boolean isMailSent = false;
 				if (!foundUser) {
 					TemporaryKey tk = registrationManager.loadTemporaryKeyByEmail(email);
 					if (tk == null) tk = registrationManager.createTemporaryKeyByEmail(email, ip, RegistrationManager.REGISTRATION);
 					myContent.contextPut("regKey", tk.getRegistrationKey());
-					body = getTranslator().translate("reg.body",
-							new String[] { serverpath, tk.getRegistrationKey(), I18nManager.getInstance().getLocaleKey(ureq.getLocale()) })
-							+ SEPARATOR
-							+ getTranslator().translate("reg.wherefrom", new String [] { serverpath, today, ip });
+					
+					String link = serverpath + "/dmz/registration/index.html?key=" + tk.getRegistrationKey() + "&language=" + i18nManager.getLocaleKey(ureq.getLocale());
+					String[] bodyAttrs = new String[]{
+						serverpath,										//0
+						tk.getRegistrationKey(),						//1
+						i18nManager.getLocaleKey(ureq.getLocale()),		//2
+						"<a href=\"" + link + "\">" + link + "</a>"		//3
+					};
+					
+					String body = translate("reg.body", bodyAttrs);
+					boolean htmlBody = StringHelper.isHtml(body);
+					if(!htmlBody) {
+						body += SEPARATOR + translate("reg.wherefrom", whereFromAttrs);
+					}
 					
 					try {
 						MailBundle bundle = new MailBundle();
 						bundle.setTo(email);
 						bundle.setContent(translate("reg.subject"), body);
-						MailerResult result = mailM.sendExternMessage(bundle, null);
+						MailerResult result = mailManager.sendExternMessage(bundle, null, htmlBody);
 						if (result.isSuccessful()) {
 							isMailSent = true;
 						}
@@ -307,14 +332,12 @@ public class RegistrationController extends BasicController implements Activatea
 					// a user exists, this is an error in the registration page
 					// send email
 					Identity identity = UserManager.getInstance().findIdentityByEmail(email);
-					body = translate("login.body", identity.getName()) + SEPARATOR
-							+ getTranslator().translate("reg.wherefrom", new String[] { serverpath, today, ip });
+					String body = translate("login.body", identity.getName()) + SEPARATOR + translate("reg.wherefrom", whereFromAttrs);
 					try {
 						MailBundle bundle = new MailBundle();
 						bundle.setTo(email);
 						bundle.setContent(translate("login.subject"), body);
-						
-						MailerResult result = mailM.sendExternMessage(bundle, null);
+						MailerResult result = mailManager.sendExternMessage(bundle, null, true);
 						if (result.isSuccessful()) {
 							isMailSent = true;
 						}
@@ -324,7 +347,9 @@ public class RegistrationController extends BasicController implements Activatea
 				}
 				if (isMailSent) {
 					showInfo("email.sent");
-				} else showError("email.notsent");
+				} else {
+					showError("email.notsent");
+				}
 			} else if (event == Event.CANCELLED_EVENT) {
 				fireEvent(ureq, Event.CANCELLED_EVENT);
 			}

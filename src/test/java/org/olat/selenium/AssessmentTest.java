@@ -47,6 +47,7 @@ import org.olat.selenium.page.User;
 import org.olat.selenium.page.course.AssessmentCEConfigurationPage;
 import org.olat.selenium.page.course.AssessmentModePage;
 import org.olat.selenium.page.course.AssessmentToolPage;
+import org.olat.selenium.page.course.BulkAssessmentPage.BulkAssessmentData;
 import org.olat.selenium.page.course.CourseEditorPageFragment;
 import org.olat.selenium.page.course.CoursePageFragment;
 import org.olat.selenium.page.course.GroupTaskConfigurationPage;
@@ -57,8 +58,8 @@ import org.olat.selenium.page.course.PublisherPageFragment.Access;
 import org.olat.selenium.page.graphene.OOGraphene;
 import org.olat.selenium.page.group.GroupPage;
 import org.olat.selenium.page.qti.QTI12Page;
-import org.olat.selenium.page.repository.ScormPage;
 import org.olat.selenium.page.repository.RepositoryAccessPage.UserAccess;
+import org.olat.selenium.page.repository.ScormPage;
 import org.olat.selenium.page.user.UserToolsPage;
 import org.olat.test.ArquillianDeployments;
 import org.olat.test.JunitTestHelper;
@@ -88,7 +89,6 @@ public class AssessmentTest {
 	private WebDriver browser;
 	@ArquillianResource
 	private URL deploymentUrl;
-	
 	@Page
 	private NavigationPage navBar;
 	
@@ -104,6 +104,7 @@ public class AssessmentTest {
 	@RunAsClient
 	public void qti12Test(@InitialPage LoginPage authorLoginPage)
 	throws IOException, URISyntaxException {
+		
 		//File upload only work with Firefox
 		Assume.assumeTrue(browser instanceof FirefoxDriver);
 				
@@ -680,6 +681,7 @@ public class AssessmentTest {
 	public void certificatesGeneratedByTest(@InitialPage LoginPage authorLoginPage,
 			@Drone @User WebDriver reiBrowser)
 	throws IOException, URISyntaxException {
+		
 		//create an author and a participant
 		UserVO author = new UserRestClient(deploymentUrl).createAuthor();
 		UserVO rei = new UserRestClient(deploymentUrl).createRandomUser("Rei");
@@ -778,7 +780,7 @@ public class AssessmentTest {
 	public void assessmentCourseElement(@InitialPage LoginPage authorLoginPage,
 			@Drone @User WebDriver ryomouBrowser)
 	throws IOException, URISyntaxException {
-
+		
 		UserVO author = new UserRestClient(deploymentUrl).createAuthor();
 		UserVO ryomou = new UserRestClient(deploymentUrl).createRandomUser("Ryomou");
 		
@@ -1208,5 +1210,123 @@ public class AssessmentTest {
 			.selectWithTitle(gtaNodeTitle);
 		ryomouTask
 			.assertPassed();
+	}
+	
+	/**
+	 * Create an assessment course element, add two users to the course
+	 * and assesses them with the bulk assessment tool. The 2 users
+	 * log in and check their results.
+	 * 
+	 * @param loginPage
+	 * @param kanuBrowser
+	 * @param reiBrowser
+	 * @throws IOException
+	 * @throws URISyntaxException
+	 */
+	@Test
+	@RunAsClient
+	public void bulkAssessment(@InitialPage LoginPage loginPage,
+			@Drone @User WebDriver ryomouBrowser,
+			@Drone @Participant WebDriver kanuBrowser)
+	throws IOException, URISyntaxException {
+		
+		UserVO author = new UserRestClient(deploymentUrl).createAuthor();
+		UserVO ryomou = new UserRestClient(deploymentUrl).createRandomUser("Ryomou");
+		UserVO kanu = new UserRestClient(deploymentUrl).createRandomUser("Kanu");
+		
+		loginPage.loginAs(author.getLogin(), author.getPassword());
+		
+		//create a course
+		String courseTitle = "Course-Assessment-" + UUID.randomUUID();
+		navBar
+			.openAuthoringEnvironment()
+			.createCourse(courseTitle)
+			.clickToolbarBack();
+
+		//create a course element of type Test with the test that we create above
+		String assessmentNodeTitle = "Assessment CE";
+		CourseEditorPageFragment courseEditor = CoursePageFragment.getCourse(browser)
+			.edit()
+			.createNode("ms")
+			.nodeTitle(assessmentNodeTitle);
+		
+		//configure assessment
+		AssessmentCEConfigurationPage assessmentConfig = new AssessmentCEConfigurationPage(browser);
+		assessmentConfig
+			.selectConfiguration()
+			.setScoreAuto(0.1f, 10.0f, 5.0f);
+		//set the score / passed calculation in root node and publish
+		courseEditor
+			.selectRoot()
+			.selectTabScore()
+			.enableRootScoreByNodes()
+			.autoPublish()
+			.accessConfiguration()
+			.setUserAccess(UserAccess.registred);
+		
+		//go to members management
+		CoursePageFragment courseRuntime = courseEditor.clickToolbarBack();
+		MembersPage members = courseRuntime
+			.members();
+		members
+			.importMembers()
+			.setMembers(ryomou, kanu)
+			.next().next().next().finish();
+		
+		BulkAssessmentData[] data = new BulkAssessmentData[] {
+			new BulkAssessmentData(ryomou, 8.0f, null, "Well done"),
+			new BulkAssessmentData(kanu, 4.0f, null, "Need more work")
+		};
+		
+		members
+			.clickToolbarBack()
+			.assessmentTool()
+			.bulk()
+			.data(data)
+			.next()
+			.next()
+			.next()
+			.finish();
+		
+		//Ryomou login
+		LoginPage ryomouLoginPage = LoginPage.getLoginPage(ryomouBrowser, deploymentUrl);
+		ryomouLoginPage
+			.loginAs(ryomou)
+			.resume();
+		
+		NavigationPage ryomouNavBar = new NavigationPage(ryomouBrowser);
+		ryomouNavBar
+			.openMyCourses()
+			.select(courseTitle);
+		
+		//go to the group task
+		CoursePageFragment ryomouCourse = new CoursePageFragment(ryomouBrowser);
+		ryomouCourse
+			.clickTree()
+			.selectWithTitle(assessmentNodeTitle);
+		
+		//Second login
+		LoginPage kanuLoginPage = LoginPage.getLoginPage(kanuBrowser, deploymentUrl);
+		kanuLoginPage
+			.loginAs(kanu)
+			.resume();
+		
+		NavigationPage kanuNavBar = new NavigationPage(kanuBrowser);
+		kanuNavBar
+			.openMyCourses()
+			.select(courseTitle);
+		
+		//go to the group task
+		CoursePageFragment kanuCourse = new CoursePageFragment(kanuBrowser);
+		kanuCourse
+			.clickTree()
+			.selectWithTitle(assessmentNodeTitle);
+		
+		//Ryomou -> passed
+		WebElement passedEl = ryomouBrowser.findElement(By.cssSelector("tr.o_state.o_passed"));
+		Assert.assertTrue(passedEl.isDisplayed());
+		//Kanu -> failed
+		WebElement failedEl = kanuBrowser.findElement(By.cssSelector("tr.o_state.o_failed"));
+		Assert.assertTrue(failedEl.isDisplayed());
 	}
 }

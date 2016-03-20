@@ -1,33 +1,30 @@
+<div class="pull-right">
+#if($r.available("email"))
+	$r.render("email")
+#end
+</div>
+
 <div class="o_cmembers">
-	#if($hasOwners)
-		<div class="clearfix">
-			<h4>$r.translate("members.owners")</h4>
-			#if($r.available("owners-email")) 
-				$r.render("owners-email") 
-			#end
-			$r.render("owners")
-		</div>
-	#end
-	#if($hasCoaches)
-		<div class="clearfix o_block">
-			<h4>$r.translate("members.coaches")</h4>
-			#if($r.available("coaches-email")) 
-				$r.render("coaches-email") 
-			#end
-			$r.render("coaches")
-		</div>
-	#end
-	<div class="clearfix o_block">
-		<h4>$r.translate("members.participants")</h4>
-		#if($r.available("participants-email")) 
-			$r.render("participants-email") 
-		#end
-		#if($hasParticipants)
-			$r.render("participants")
-		#else
-			<div class="o_important">
-				$r.translate("members.noParticipants.message")
-			</div>
-		#end
+	#if($showOwners && $hasOwners)
+	<div class="clearfix">
+		<h4>$r.translate("members.owners")</h4>
+		$r.render("owners")
 	</div>
+	#end
+	#if($showCoaches && $hasCoaches)
+	<div class="clearfix o_block">
+		<h4>$r.translate("members.coaches")</h4>
+		$r.render("coaches")
+	</div>
+	#end
+	#if($showParticipants)
+		<div class="clearfix o_block">
+			<h4>$r.translate("members.participants")</h4>
+			#if($hasParticipants)
+				$r.render("participants")
+			#else
+				<div class="o_important">$r.translate("members.noParticipants.message")</div>
+			#end
+		</div>
+	#end
 </div>

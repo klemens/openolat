@@ -11,7 +11,8 @@
     <container qualifier="tomcat-7-managed" default="true">
         <configuration>
             <property name="workDir">target/arquillianDeployments</property>
-			<property name="catalinaHome">target/arq-apache-tomcat-7.0.27</property>
+			<property name="catalinaHome">target/arq-apache-tomcat-8.0.24</property>
+			<property name="catalinaBase">target/arq-apache-tomcat-8.0.24</property>
 			<property name="javaVmArguments">-XX:MaxPermSize=128m -Xmx512m -Xms256m -Djava.awt.headless=true</property>
 			<!-- debugging arguments for javaVm: -Xrunjdwp:transport=dt_socket,address=8787,server=y,suspend=y -->
         </configuration>
@@ -20,6 +21,7 @@
 	<extension qualifier="webdriver">
 		<property name="browser">firefox</property>
 		<property name="dimensions">1024x800</property>
+		<property name="firefoxUserPreferences">src/test/profile/firefox/prefs.js</property>
 	</extension>
 
 </arquillian>

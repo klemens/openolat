@@ -150,13 +150,13 @@ public class CertificatesManagerImpl implements CertificatesManager, MessageList
 	@Autowired
 	private RepositoryManager repositoryManager;
 	@Autowired
-	private NotificationsManager notificationsManager;
-	@Autowired
 	private BusinessGroupService businessGroupService;
 	@Autowired
 	private BusinessGroupRelationDAO businessGroupRelationDao;
 	@Autowired
 	private CoordinatorManager coordinatorManager;
+	@Autowired
+	private NotificationsManager notificationsManager;
 
 	@Resource(name="certificateQueue")
 	private Queue jmsQueue;
@@ -270,7 +270,7 @@ public class CertificatesManagerImpl implements CertificatesManager, MessageList
 	public void markPublisherNews(Identity ident, ICourse course) {
 		SubscriptionContext subsContext = getSubscriptionContext(course);
 		if (subsContext != null) {
-			NotificationsManager.getInstance().markPublisherNews(subsContext, ident, true);
+			notificationsManager.markPublisherNews(subsContext, ident, true);
 		}
 	}
 	
@@ -278,7 +278,7 @@ public class CertificatesManagerImpl implements CertificatesManager, MessageList
 		ICourse course = CourseFactory.loadCourse(courseResource);
 		SubscriptionContext subsContext = getSubscriptionContext(course);
 		if (subsContext != null) {
-			NotificationsManager.getInstance().markPublisherNews(subsContext, ident, true);
+			notificationsManager.markPublisherNews(subsContext, ident, true);
 		}
 	}
 	
@@ -512,10 +512,10 @@ public class CertificatesManagerImpl implements CertificatesManager, MessageList
 	}
 
 	@Override
-	public boolean isRecertificationAllowed(Identity identity, RepositoryEntry entry) {
+	public boolean isCertificationAllowed(Identity identity, RepositoryEntry entry) {
 		boolean allowed = false;
 		try {
-			ICourse course = CourseFactory.loadCourse(entry.getOlatResource());
+			ICourse course = CourseFactory.loadCourse(entry);
 			CourseConfig config = course.getCourseEnvironment().getCourseConfig();
 			if(config.isRecertificationEnabled()) {
 				int time = config.getRecertificationTimelapse();
@@ -538,7 +538,7 @@ public class CertificatesManagerImpl implements CertificatesManager, MessageList
 					allowed = nextCertification.before(now);
 				}
 			} else {
-				allowed = true;
+				allowed = !hasCertificate(identity, entry.getOlatResource().getKey());
 			}
 		} catch (CorruptedCourseException e) {
 			log.error("", e);
@@ -659,10 +659,10 @@ public class CertificatesManagerImpl implements CertificatesManager, MessageList
 
 	@Override
 	public void generateCertificates(List<CertificateInfos> certificateInfos, RepositoryEntry entry,
-			CertificateTemplate template, MailerResult result) {
+			CertificateTemplate template, boolean sendMail) {
 		int count = 0;
 		for(CertificateInfos certificateInfo:certificateInfos) {
-			generateCertificate(certificateInfo, entry, template, result);
+			generateCertificate(certificateInfo, entry, template, sendMail);
 			if(++count % 10 == 0) {
 				dbInstance.commitAndCloseSession();
 			}
@@ -708,14 +708,14 @@ public class CertificatesManagerImpl implements CertificatesManager, MessageList
 
 	@Override
 	public Certificate generateCertificate(CertificateInfos certificateInfos, RepositoryEntry entry,
-			CertificateTemplate template, MailerResult result) {
-		Certificate certificate = persistCertificate(certificateInfos, entry, template);
+			CertificateTemplate template, boolean sendMail) {
+		Certificate certificate = persistCertificate(certificateInfos, entry, template, sendMail);
 		markPublisherNews(null, entry.getOlatResource());
 		return certificate;
 	}
 
 	private Certificate persistCertificate(CertificateInfos certificateInfos, RepositoryEntry entry,
-			CertificateTemplate template) {
+			CertificateTemplate template, boolean sendMail) {
 		OLATResource resource = entry.getOlatResource();
 		Identity identity = certificateInfos.getAssessedIdentity();
 		
@@ -738,7 +738,7 @@ public class CertificatesManagerImpl implements CertificatesManager, MessageList
 		dbInstance.commit();
 		
 		//send message
-		sendJmsCertificateFile(certificate, template, certificateInfos.getScore(), certificateInfos.getPassed());
+		sendJmsCertificateFile(certificate, template, certificateInfos.getScore(), certificateInfos.getPassed(), sendMail);
 
 		return certificate;
 	}
@@ -747,7 +747,7 @@ public class CertificatesManagerImpl implements CertificatesManager, MessageList
 		return velocityEngine;
 	}
 	
-	private void sendJmsCertificateFile(Certificate certificate, CertificateTemplate template, Float score, Boolean passed) {
+	private void sendJmsCertificateFile(Certificate certificate, CertificateTemplate template, Float score, Boolean passed, boolean sendMail) {
 		QueueSender sender;
 		QueueSession session = null;
 		try  {
@@ -758,6 +758,7 @@ public class CertificatesManagerImpl implements CertificatesManager, MessageList
 			}
 			workUnit.setPassed(passed);
 			workUnit.setScore(score);
+			workUnit.setSendMail(sendMail);
 			
 			session = connection.createQueueSession(false, QueueSession.AUTO_ACKNOWLEDGE );
 			ObjectMessage message = session.createObjectMessage();
@@ -961,6 +962,8 @@ public class CertificatesManagerImpl implements CertificatesManager, MessageList
 			} else {
 				template = null;
 			}
+		} else {
+			template = null;
 		}
 		return template;
 	}

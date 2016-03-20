@@ -42,6 +42,7 @@ class TableSortRenderer extends DefaultComponentRenderer {
 		TableSort sorter = (TableSort)source;
 		Table table = sorter.getTable();
 		String id = sorter.getDispatchID();
+		String formName = "tb_ms_" + table.hashCode();
 		
 		sb.append("<div id='o_c").append(id).append("' class='btn-group'>")
 		  .append("<button id='table-button-sorters-").append(id).append("' type='button' class='btn btn-default dropdown-toggle' data-toggle='dropdown'>")
@@ -52,16 +53,16 @@ class TableSortRenderer extends DefaultComponentRenderer {
 
 		int cols = table.getColumnCount();
 		boolean asc = table.isSortAscending();
-		String formName = "tb_ms_" + table.hashCode();
 		ColumnDescriptor sortedCD = table.getCurrentlySortedColumnDescriptor();
 		
 		for (int i = 0; i < cols; i++) {
 			ColumnDescriptor cd = table.getColumnDescriptor(i);
 			// header either a link or not
 			if (cd.isSortingAllowed()) {
-				sb.append("<li>")
-				  .append("<a class=\"").append("\" href=\"JavaScript:tableFormInjectCommandAndSubmit('")
-				  .append(formName).append("','").append(Table.COMMAND_SORTBYCOLUMN).append("','").append(i).append("');\" title=\"")
+				sb.append("<li><a  href=\"javascript:;\" onclick=\"o_XHRSubmit('")
+	              .append(formName).append("','").append(Table.FORM_CMD).append("','").append(Table.COMMAND_SORTBYCOLUMN)
+	              .append("','").append(Table.FORM_PARAM).append("','").append(i).append("'); return false;\"")
+				  .append(" title=\"")
 				  .append(StringEscapeUtils.escapeHtml(translator.translate("row.sort"))).append("\">");
 				
 				if(sortedCD == cd) {

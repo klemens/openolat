@@ -50,6 +50,7 @@ public class RepositoryEntryRow implements RepositoryEntryRef {
 	private String externalRef;
 	private String name;
 	private String authors;
+	private String location;
 	private String thumbnailRelPath;
 	private String shortenedDescription;
 	private int access;
@@ -94,6 +95,7 @@ public class RepositoryEntryRow implements RepositoryEntryRef {
 		setShortenedDescription(entry.getDescription());
 		setOLATResourceable(OresHelper.clone(entry.getOlatResource()));
 		setAuthors(entry.getAuthors());
+		setLocation(entry.getLocation());
 		setIsMembersOnly(entry.isMembersOnly());
 		setAccess(entry.getAccess());
 		setStatusCode(entry.getStatusCode());
@@ -182,7 +184,6 @@ public class RepositoryEntryRow implements RepositoryEntryRef {
 	public void setDisplayName(String name) {
 		this.name = name;
 	}
-	
 
 	public String getShortenedDescription() {
 		if(shortenedDescription != null) {
@@ -404,6 +405,14 @@ public class RepositoryEntryRow implements RepositoryEntryRef {
 		this.authors = authors;
 	}
 	
+	public String getLocation() {
+		return location;
+	}
+
+	public void setLocation(String location) {
+		this.location = location;
+	}
+
 	public String getThumbnailRelPath() {
 		return thumbnailRelPath;
 	}

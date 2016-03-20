@@ -17,7 +17,6 @@
 	<import resource="classpath:/org/olat/course/nodes/_spring/buildingblockContext.xml"/>
 	<import resource="classpath:/org/olat/course/nodes/basiclti/_spring/basicLtiContext.xml"/>
 	<import resource="classpath:/org/olat/course/nodes/info/_spring/infoMessageContext.xml"/>
-	<import resource="classpath:/org/olat/course/nodes/members/_spring/membersCourseContext.xml"/>
 	<import resource="classpath:/org/olat/course/nodes/openmeetings/_spring/buildingblockContext.xml"/>
 	<import resource="classpath:/org/olat/course/nodes/portfolio/_spring/portfolioBBContext.xml"/>
 	<import resource="classpath:/org/olat/course/nodes/vitero/_spring/buildingblockContext.xml"/>
@@ -130,10 +129,9 @@
 		<property name="version" value="8.1" />
 		<property name="redeploy" value="true" />
 		<!-- 
-			Url to the course which should be used as help course. The specified course will be used 
-			in all languages.
-			To disable the help course feature, leave the helpCourseFile configuration empty.
-			Have also a look at the ContextHelpModule configuration.
+			Url to the course which should be used as help course when help.plugin is set to 'courseHelp'. 
+			The is the legacy help system, it is not recommended to use this anymore. Context help will not
+			be available in this configuration, this is now in the confluence manual.
 		--> 
 	</bean>
 	

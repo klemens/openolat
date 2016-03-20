@@ -28,7 +28,6 @@ package org.olat.core.gui.render.velocity;
 
 import java.io.Closeable;
 import java.io.IOException;
-import java.io.InputStream;
 import java.util.Collection;
 import java.util.Date;
 import java.util.HashMap;
@@ -37,12 +36,11 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
 
-import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang.StringEscapeUtils;
 import org.olat.core.CoreSpringFactory;
-import org.olat.core.commons.contextHelp.ContextHelpModule;
 import org.olat.core.commons.services.help.HelpModule;
 import org.olat.core.gui.components.Component;
+import org.olat.core.gui.components.form.flexible.impl.NameValuePair;
 import org.olat.core.gui.components.velocity.VelocityContainer;
 import org.olat.core.gui.control.winmgr.AJAXFlags;
 import org.olat.core.gui.render.Renderer;
@@ -52,8 +50,6 @@ import org.olat.core.gui.translator.PackageTranslator;
 import org.olat.core.gui.translator.Translator;
 import org.olat.core.gui.util.CSSHelper;
 import org.olat.core.helpers.Settings;
-import org.olat.core.logging.OLog;
-import org.olat.core.logging.Tracing;
 import org.olat.core.util.ArrayHelper;
 import org.olat.core.util.CodeHelper;
 import org.olat.core.util.Formatter;
@@ -63,19 +59,17 @@ import org.olat.core.util.filter.FilterFactory;
 import org.olat.core.util.filter.impl.OWASPAntiSamyXSSFilter;
 import org.olat.core.util.i18n.I18nManager;
 import org.olat.core.util.i18n.I18nModule;
-import org.olat.login.LoginAuthprovidersController;
 
 /**
  * @author Felix Jost
  */
 public class VelocityRenderDecorator implements Closeable {
-	private static final OLog log = Tracing.createLoggerFor(VelocityRenderDecorator.class);
 	
-	public static final String PARAM_CHELP_BUNDLE = "chelpbundle";
 	private VelocityContainer vc;
 	private Renderer renderer;
 	private final boolean isIframePostEnabled;
 	private StringOutput target;
+	private HelpModule helpModule;
 
 	/**
 	 * @param renderer
@@ -86,6 +80,7 @@ public class VelocityRenderDecorator implements Closeable {
 		this.vc = vc;
 		this.target = target;
 		this.isIframePostEnabled = renderer.getGlobalSettings().getAjaxFlags().isIframePostEnabled();
+		this.helpModule = CoreSpringFactory.getImpl(HelpModule.class);
 	}
 
 	@Override
@@ -141,21 +136,8 @@ public class VelocityRenderDecorator implements Closeable {
 		renderer.getUrlBuilder().buildURI(sb, new String[] { VelocityContainer.COMMAND_ID }, new String[] { command }, isIframePostEnabled? AJAXFlags.MODE_TOBGIFRAME : AJAXFlags.MODE_NORMAL);
 		return sb;
 	}
-
-	/**
-	 * renderer a target="oaa" if ajax-mode is on, otherwise returns an empty string
-	 * @return
-	 */
-	public StringOutput bgTarget() {
-		StringOutput sb = new StringOutput(16);
-		if (isIframePostEnabled) {
-			renderer.getUrlBuilder().appendTarget(sb);
-		}
-		return sb;
-	}
 	
 	/**
-	 * FIXME:fj:b search occurences for $r.commandURI and try to replace them with $r.link(...) or such
 	 * @param command
 	 * @return
 	 */
@@ -164,36 +146,76 @@ public class VelocityRenderDecorator implements Closeable {
 		renderer.getUrlBuilder().buildURI(sb, new String[] { VelocityContainer.COMMAND_ID }, new String[] { command });
 		return sb;
 	}
-
-	/**
-	 * Creates a java script fragment to execute a background request. In ajax
-	 * mode the request uses the ajax asynchronous methods, in legacy mode it
-	 * uses a standard document.location.request
-	 * 
-	 * @param command
-	 * @param paramKey
-	 * @param paramValue
-	 * @return
-	 */
-	public StringOutput javaScriptBgCommand(String command, String paramKey, String paramValue) {
-		StringOutput sb = new StringOutput(100);
-		renderer.getUrlBuilder().buildJavaScriptBgCommand(sb, new String[] { VelocityContainer.COMMAND_ID, paramKey }, new String[] { command, paramValue }, isIframePostEnabled? AJAXFlags.MODE_TOBGIFRAME : AJAXFlags.MODE_NORMAL);
-		return sb;
+	
+	public String hrefAndOnclick(String command, boolean dirtyCheck, boolean pushState) {
+		renderer.getUrlBuilder().buildHrefAndOnclick(target, null, isIframePostEnabled, dirtyCheck, pushState,
+				new NameValuePair(VelocityContainer.COMMAND_ID, command));
+		return "";
+	}
+	
+	public String hrefAndOnclick(String command, boolean dirtyCheck, boolean pushState, String key, String value) {
+		renderer.getUrlBuilder().buildHrefAndOnclick(target, null, isIframePostEnabled, dirtyCheck, pushState,
+				new NameValuePair(VelocityContainer.COMMAND_ID, command),
+				new NameValuePair(key, value));
+		return "";
+	}
+	
+	public String hrefAndOnclick(String command, boolean dirtyCheck, boolean pushState, String key1, String value1, String key2, String value2) {
+		renderer.getUrlBuilder().buildHrefAndOnclick(target, null, isIframePostEnabled, dirtyCheck, pushState,
+				new NameValuePair(VelocityContainer.COMMAND_ID, command),
+				new NameValuePair(key1, value1),
+				new NameValuePair(key2, value2));
+		return "";
 	}
 
 	/**
-	 * Creates a java script fragment to execute a background request. In ajax
-	 * mode the request uses the ajax asynchronous methods, in legacy mode it
-	 * uses a standard document.location.request
+	 * Creates a java script fragment to execute a ajax background request.
 	 * 
 	 * @param command
 	 * @return
 	 */
-	public StringOutput javaScriptBgCommand(String command) {
-		StringOutput sb = new StringOutput(100);
-		renderer.getUrlBuilder().buildJavaScriptBgCommand(sb, new String[] { VelocityContainer.COMMAND_ID }, new String[] { command}, isIframePostEnabled? AJAXFlags.MODE_TOBGIFRAME : AJAXFlags.MODE_NORMAL);
-		return sb;
-	}	
+	public String javaScriptCommand(String command) {
+		renderer.getUrlBuilder().buildXHREvent(target, null, false, false,
+				new NameValuePair(VelocityContainer.COMMAND_ID, command));
+		return "";
+	}
+	
+	/**
+	 * Creates the start of a java script fragment to execute a background request. It's
+	 * up to you to close the javascript call.
+	 * 
+	 * @param command
+	 * @return
+	 */
+	public String openJavaScriptCommand(String command) {
+		renderer.getUrlBuilder().openXHREvent(target, null, false, false,
+				new NameValuePair(VelocityContainer.COMMAND_ID, command));
+		return "";
+	}
+	
+	/**
+	 * 
+	 * @param command
+	 * @return
+	 */
+	public String backgroundCommand(String command) {
+		renderer.getUrlBuilder().getXHRNoResponseEvent(target, null,
+				new NameValuePair(VelocityContainer.COMMAND_ID, command));
+		return "";
+	}
+	
+	public String backgroundCommand(String command, String key, String value) {
+		renderer.getUrlBuilder().getXHRNoResponseEvent(target, null,
+				new NameValuePair(VelocityContainer.COMMAND_ID, command),
+				new NameValuePair(key, value));
+		return "";
+	}
+	
+	public String openBackgroundCommand(String command) {
+		renderer.getUrlBuilder().openXHRNoResponseEvent(target, null,
+				new NameValuePair(VelocityContainer.COMMAND_ID, command));
+		return "";
+	}
 	
 	/**
 	 * Use it to create the action for a handmade form in a velocity template,
@@ -310,55 +332,24 @@ public class VelocityRenderDecorator implements Closeable {
 		return doRender(componentName, null);
 	}
 
-	/**
-	 * used to position help icon inside div-class o_chelp_wrapper
-	 * @param packageName
-	 * @param pageName
-	 * @param hoverTextKey
-	 * @return
-	 */
-	public StringOutput contextHelpWithWrapper(String packageName, String pageName, String hoverTextKey) {
-		StringOutput sb = new StringOutput(100);
-		if (ContextHelpModule.isContextHelpEnabled()) {
-			sb.append("<span class=\"o_chelp_wrapper\">");
-			sb.append(contextHelp(packageName, pageName, hoverTextKey));
-			sb.append("</span>");
-		}
-		return sb;
-	}
 
 	/**
-	 * @param packageName
-	 * @param pageName
-	 * @param hoverTextKey
+	 * Create a link wrapped with some markup to render a nice help button. The
+	 * link points to the corresponding page in the manual.
+	 * 
+	 * @param page Help page name
 	 * @return
 	 */
-	public StringOutput contextHelp(String packageName, String pageName, String hoverTextKey) {
-		StringOutput sb = new StringOutput(100);
-		if (ContextHelpModule.isContextHelpEnabled()) {
-			String hooverText = renderer.getTranslator().translate(hoverTextKey);
-			if (hooverText != null) {
-				hooverText = StringEscapeUtils.escapeHtml(hooverText);
-			}
-			sb.append("<a href=\"javascript:");
-			sb.append(contextHelpJSCommand(packageName, pageName));
-			sb.append("\" title=\"").append(hooverText).append("\" class=\"o_chelp\"><i class='o_icon o_icon_help'></i> ");
-			sb.append(renderer.getTranslator().translate("help"));
-			sb.append("</a>");
-		}
-		return sb;
-	}
-	
 	public StringOutput contextHelpWithWrapper(String page) {
 		StringOutput sb = new StringOutput(192);
-		if (ContextHelpModule.isContextHelpEnabled()) {
-			HelpModule helpModule = CoreSpringFactory.getImpl(HelpModule.class);
+		if (helpModule.isHelpEnabled()) {
 			Locale locale = renderer.getTranslator().getLocale();
 			String url = helpModule.getHelpProvider().getURL(locale, page);
 			if(url != null) {
+				String title = StringEscapeUtils.escapeHtml(renderer.getTranslator().translate("help.button"));
 				sb.append("<span class=\"o_chelp_wrapper\">")
 				  .append("<a href=\"").append(url)
-				  .append("\" class=\"o_chelp\" target=\"_blank\"><i class='o_icon o_icon_help'></i> ")
+				  .append("\" class=\"o_chelp\" target=\"_blank\" title=\"").append(title).append("\"><i class='o_icon o_icon_help'></i> ")
 				  .append(renderer.getTranslator().translate("help"))
 				  .append("</a></span>");
 			}
@@ -367,91 +358,38 @@ public class VelocityRenderDecorator implements Closeable {
 	}
 
 	/**
-	 * Create a js command to open a specific context help page
-	 * @param packageName
-	 * @param pageName
+	 * Create a js command to open a specific page in the manual.
+	 * 
+	 * @param page Help page name
 	 * @return
 	 */
-	public StringOutput contextHelpJSCommand(String packageName, String pageName) {
+	public StringOutput contextHelpJSCommand(String page) {
 		StringOutput sb = new StringOutput(100);
-		if (ContextHelpModule.isContextHelpEnabled()) {
-			String langCode = renderer.getTranslator().getLocale().toString();
-			sb.append("contextHelpWindow('");
-			Renderer.renderNormalURI(sb, "help/");
-			sb.append(langCode).append("/").append(packageName).append("/").append(pageName);
-			sb.append("')");
+		if (helpModule.isHelpEnabled()) {
+			Locale locale = renderer.getTranslator().getLocale();
+			String url = helpModule.getHelpProvider().getURL(locale, page);
+			sb.append("contextHelpWindow('").append(url).append("')");
 		}
 		return sb;
 	}
-	
-	
-	
-	/**
-	 * Create a link that can be used within a context help page to link to
-	 * another context help page from the same package.
-	 * 
-	 * @param pageName e.g. "my-page.html"
-	 * @return
-	 */
-	public StringOutput contextHelpRelativeLink(String pageName) {
-		return contextHelpRelativeLink(null, pageName);
-	}
 
 	/**
-	 * Create a link that can be used within a context help page to link to
-	 * another context help page from another package. As link text the page title
-	 * is used.
+	 * Create a link to a specific page in the manual. The link points to the
+	 * corresponding page in the manual.
 	 * 
-	 * @param bundleName e.g. "org.olat.core"
-	 * @param pageName e.g. "my-page.html"
-	 * @return
+	 * @param page
+	 *            Help page name
 	 */
-	public StringOutput contextHelpRelativeLink(String bundleName, String pageName) {
-		String linkText;
-		int lastDotPos = pageName.lastIndexOf(".");
-		if (lastDotPos != -1) {
-			Translator pageTrans = renderer.getTranslator();
-			if (bundleName != null) {
-				Locale locale = pageTrans.getLocale();
-				pageTrans = new PackageTranslator(bundleName, locale);
-			}
-			linkText = pageTrans.translate("chelp." + pageName.subSequence(0, lastDotPos) + ".title");					
-		} else {
-			linkText = pageName; // fallback
-		}
-		return contextHelpRelativeLink(bundleName, pageName, linkText);
-	}
-
-	/**
-	 * Create a link that can be used within a context help page to link to
-	 * another context help page from another package. The link text can be
-	 * specified as a thirt attribute.
-	 * 
-	 * @param bundleName e.g. "org.olat.core"
-	 * @param pageName e.g. "my-page.html"
-	 * @return
-	 */
-	public StringOutput contextHelpRelativeLink(String bundleName, String pageName, String linkText) {
+	
+	public StringOutput contextHelpLink(String page) {
 		StringOutput sb = new StringOutput(100);
-		if (ContextHelpModule.isContextHelpEnabled()) {
-			sb.append("<a href=\"");
-			if (bundleName == null) {
-				renderer.getUrlBuilder().buildURI(sb, new String[] { VelocityContainer.COMMAND_ID }, new String[] { pageName }, isIframePostEnabled? AJAXFlags.MODE_TOBGIFRAME : AJAXFlags.MODE_NORMAL);				
-			} else {
-				renderer.getUrlBuilder().buildURI(sb, new String[] { VelocityContainer.COMMAND_ID, PARAM_CHELP_BUNDLE }, new String[] { pageName, bundleName }, isIframePostEnabled? AJAXFlags.MODE_TOBGIFRAME : AJAXFlags.MODE_NORMAL);				
-			}
-			sb.append("\" ");
-			if(isIframePostEnabled) {
-				renderer.getUrlBuilder().appendTarget(sb);
-			}
-			sb.append(">");
-			sb.append(linkText);
-			sb.append("</a>");
+		if (helpModule.isHelpEnabled()) {
+			String url = helpModule.getHelpProvider().getURL(renderer.getTranslator().getLocale(), page);
+			sb.append(url);
 		}
 		return sb;
-	}	
+	}
 
-	
 	/**
 	 * @param componentName
 	 * @param arg1
@@ -704,16 +642,62 @@ public class VelocityRenderDecorator implements Closeable {
 		return !vc.getContext().containsKey(key);
 	}
 	
+	/**
+	 * Formats the given date in a short format, e.g. 05.12.2015 or 12/05/2015
+	 * 
+	 * @param date the date
+	 * @return a String with the formatted date
+	 */
 	public String formatDate(Date date){
 		Formatter f = Formatter.getInstance(renderer.getTranslator().getLocale());
 		return f.formatDate(date);
 	}
 	
+	/**
+	 * Formats the given date in a medium sized format, e.g. 12. Dezember 2015 or December 12, 2015
+	 * 
+	 * @param date the date
+	 * @return a String with the formatted date
+	 */
+	public String formatDateLong(Date date){
+		Formatter f = Formatter.getInstance(renderer.getTranslator().getLocale());
+		return f.formatDateLong(date);
+	}
+	
+	/**
+	 * Formats the given date in a medium size with date and time, e.g. 05.12.2015 14:35
+	 * 
+	 * @param date the date
+	 * @return a String with the formatted date and time
+	 */
 	public String formatDateAndTime(Date date){
 		Formatter f = Formatter.getInstance(renderer.getTranslator().getLocale());
 		return f.formatDateAndTime(date);
 	}
 
+	/**
+	 * Formats the given date in a long size with date and time, e.g. Tuesday,
+	 * 10. September 2015, 3:48 PM
+	 * 
+	 * @param date
+	 *            the date
+	 * @return a String with the formatted date and time
+	 */
+	public String formatDateAndTimeLong(Date date) {
+		Formatter f = Formatter.getInstance(renderer.getTranslator().getLocale());
+		return f.formatDateAndTimeLong(date);	}
+
+	/**
+	 * formats the given time period so it is friendly to read
+	 * 
+	 * @param d the date
+	 * @return a String with the formatted time
+	 */
+	public String formatTime(Date date) {
+		Formatter f = Formatter.getInstance(renderer.getTranslator().getLocale());
+		return f.formatTime(date);
+	}
+	
 	public String formatBytes(long bytes) {
 		return Formatter.formatBytes(bytes);
 	}
@@ -772,24 +756,6 @@ public class VelocityRenderDecorator implements Closeable {
 		return Settings.isDebuging();
 	}
 	
-	/**
-	 * To inject licenses (the NOTICE.TXT) in the help
-	 * @return
-	 */
-	public String getLicences() {
-		String licenses = "Not found";
-		InputStream licensesStream = LoginAuthprovidersController.class.getResourceAsStream("../../../NOTICE.TXT");
-		if(licensesStream != null) {
-			try {
-				licenses = IOUtils.toString(licensesStream);
-			} catch (IOException e) {
-				log.error("", e);
-			} finally {
-				IOUtils.closeQuietly(licensesStream);
-			}
-		}
-		return licenses;
-	}
 	
 	public String getVersion() {
 		return Settings.getVersion();

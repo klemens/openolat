@@ -85,8 +85,8 @@ import org.olat.course.properties.CoursePropertyManager;
 import org.olat.course.run.userview.NodeEvaluation;
 import org.olat.course.run.userview.UserCourseEnvironment;
 import org.olat.modules.fo.Forum;
-import org.olat.modules.fo.ForumManager;
 import org.olat.modules.fo.ForumUIFactory;
+import org.olat.modules.fo.manager.ForumManager;
 import org.olat.repository.RepositoryEntry;
 import org.olat.repository.RepositoryManager;
 import org.olat.util.logging.activity.LoggingResourceable;
@@ -222,7 +222,7 @@ public class DialogElementsController extends BasicController {
 			TableEvent te = (TableEvent) event;
 			String command = te.getActionId();
 			int row = te.getRowId();
-			entry = tableModel.getEntryAt(row);
+			entry = tableModel.getEntryAt(tableCtr.getSortedRow(row));
 			if (command.equals(ACTION_START_FORUM)) {
 				selectedElement = dialogElmsMgr.findDialogElement(coursePropMgr, courseNode, entry.getForumKey());
 				if(selectedElement == null){
@@ -365,7 +365,7 @@ public class DialogElementsController extends BasicController {
 			if (DialogBoxUIFactory.isYesEvent(event)) {
 				DialogCourseNode node = (DialogCourseNode) courseNode;
 				// archive data to personal folder
-				node.doArchiveElement(selectedElement, CourseFactory.getOrCreateDataExportDirectory(ureq.getIdentity(), node.getShortTitle()));
+				node.doArchiveElement(selectedElement, CourseFactory.getOrCreateDataExportDirectory(getIdentity(), node.getShortTitle()), getLocale());
 				// delete element
 				dialogElmsMgr.deleteDialogElement(coursePropMgr, courseNode, selectedElement.getForumKey());
 				forumMgr.deleteForum(selectedElement.getForumKey());
@@ -466,7 +466,7 @@ public class DialogElementsController extends BasicController {
 	
 	private class MyLinkChooserController extends LinkChooserController {
 		public MyLinkChooserController(UserRequest ureq, WindowControl wControl, VFSContainer rootDir, String uploadRelPath) {
-			super(ureq, wControl, rootDir, uploadRelPath, null, null, "", null);
+			super(ureq, wControl, rootDir, uploadRelPath, null, null, "", null, true);
 		}
 		
 		@Override

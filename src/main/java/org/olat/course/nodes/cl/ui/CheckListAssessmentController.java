@@ -189,7 +189,7 @@ public class CheckListAssessmentController extends FormBasicController implement
 	@Override
 	protected void initForm(FormItemContainer formLayout, Controller listener, UserRequest ureq) {
 		setFormDescription("coach.desc");
-		setFormContextHelp("org.olat.course.nodes.cl.ui", "cl-coach-assessment.html", "help.hover.coach.assessment");
+		setFormContextHelp("Assessment#_checklist_manage");
 
 		if(formLayout instanceof FormLayoutContainer) {
 			FormLayoutContainer layoutCont = (FormLayoutContainer)formLayout;
@@ -517,8 +517,8 @@ public class CheckListAssessmentController extends FormBasicController implement
 	
 	private void doSave() {
 		int numOfCheckbox = checkboxList.getNumOfCheckbox();
-		List<CheckListAssessmentRow> rows = model.getBackedUpRows();
-		List<AssessmentBatch> batchElements = new ArrayList<>();
+		List<CheckListAssessmentRow> rows = model.getObjects();
+		List<AssessmentBatch> batchElements = new ArrayList<>(rows.size());
 		Set<Long> assessedIdentityToUpdate = new HashSet<>();
 		for(CheckListAssessmentRow row:rows) {
 			Boolean[] checked = row.getChecked();

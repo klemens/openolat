@@ -46,8 +46,8 @@ import org.olat.selenium.page.graphene.OOGraphene;
 import org.olat.selenium.page.portfolio.ArtefactWizardPage;
 import org.olat.selenium.page.portfolio.PortfolioPage;
 import org.olat.selenium.page.repository.AuthoringEnvPage;
-import org.olat.selenium.page.repository.FeedPage;
 import org.olat.selenium.page.repository.AuthoringEnvPage.ResourceType;
+import org.olat.selenium.page.repository.FeedPage;
 import org.olat.selenium.page.user.UserToolsPage;
 import org.olat.selenium.page.wiki.WikiPage;
 import org.olat.test.ArquillianDeployments;
@@ -72,11 +72,10 @@ public class PortfolioTest {
 	private WebDriver browser;
 	@ArquillianResource
 	private URL deploymentUrl;
-
-	@Page
-	private UserToolsPage userTools;
 	@Page
 	private NavigationPage navBar;
+	@Page
+	private UserToolsPage userTools;
 
 	/**
 	 * Create a course with a forum, publish it.
@@ -92,6 +91,7 @@ public class PortfolioTest {
 	@RunAsClient
 	public void collectForumArtefactInCourse(@InitialPage LoginPage loginPage)
 	throws IOException, URISyntaxException {
+		
 		UserVO author = new UserRestClient(deploymentUrl).createAuthor();
 		loginPage
 			.loginAs(author.getLogin(), author.getPassword())
@@ -144,7 +144,7 @@ public class PortfolioTest {
 		String threadTitle = "Very interessant thread";
 		ForumPage forum = ForumPage.getCourseForumPage(browser);
 		ArtefactWizardPage artefactWizard = forum
-			.createThread(threadTitle, "With a lot of content")
+			.createThread(threadTitle, "With a lot of content", null)
 			.addAsArtfeact();
 		
 		artefactWizard
@@ -153,8 +153,6 @@ public class PortfolioTest {
 			.next()
 			.selectMap(mapTitle, pageTitle, structureElementTitle)
 			.finish();
-
-		OOGraphene.closeBlueMessageWindow(browser);
 		
 		//open the portfolio
 		portfolio = userTools
@@ -181,6 +179,7 @@ public class PortfolioTest {
 	@RunAsClient
 	public void collectWikiArtefactInWikiResource(@InitialPage LoginPage loginPage)
 	throws IOException, URISyntaxException {
+		
 		UserVO author = new UserRestClient(deploymentUrl).createAuthor();
 		loginPage
 			.loginAs(author.getLogin(), author.getPassword())
@@ -234,8 +233,6 @@ public class PortfolioTest {
 			.next()
 			.selectMap(mapTitle, pageTitle, structureElementTitle)
 			.finish();
-
-		OOGraphene.waitAndCloseBlueMessageWindow(browser);
 		
 		//open the portfolio
 		portfolio = userTools
@@ -263,6 +260,7 @@ public class PortfolioTest {
 	@RunAsClient
 	public void collectBlogPostInCourse(@InitialPage LoginPage loginPage)
 	throws IOException, URISyntaxException {
+		
 		UserVO author = new UserRestClient(deploymentUrl).createAuthor();
 		loginPage
 			.loginAs(author.getLogin(), author.getPassword())
@@ -333,8 +331,6 @@ public class PortfolioTest {
 			.next()
 			.selectMap(mapTitle, pageTitle, structureElementTitle)
 			.finish();
-
-		OOGraphene.closeBlueMessageWindow(browser);	
 		
 		//open the portfolio
 		portfolio = userTools
@@ -361,6 +357,7 @@ public class PortfolioTest {
 	@RunAsClient
 	public void addTextArtefact(@InitialPage LoginPage loginPage)
 	throws IOException, URISyntaxException {
+		
 		UserVO author = new UserRestClient(deploymentUrl).createAuthor();
 		loginPage
 			.loginAs(author.getLogin(), author.getPassword())
@@ -403,8 +400,6 @@ public class PortfolioTest {
 			.next()
 			.selectMap(mapTitle, pageTitle, structureElementTitle)
 			.finish();
-
-		OOGraphene.waitAndCloseBlueMessageWindow(browser);
 		
 		//open the portfolio
 		portfolio = userTools
@@ -428,6 +423,7 @@ public class PortfolioTest {
 	@RunAsClient
 	public void addTextArtefact_withinMap(@InitialPage LoginPage loginPage)
 	throws IOException, URISyntaxException {
+		
 		UserVO author = new UserRestClient(deploymentUrl).createAuthor();
 		loginPage
 			.loginAs(author.getLogin(), author.getPassword())
@@ -468,8 +464,6 @@ public class PortfolioTest {
 			.next()
 			.selectMap(mapTitle, pageTitle, structureElementTitle)
 			.finish();
-
-		OOGraphene.waitAndCloseBlueMessageWindow(browser);
 		
 		//reopen the portfolio
 		portfolio = userTools
@@ -494,6 +488,7 @@ public class PortfolioTest {
 	@RunAsClient
 	public void addLearningJournal(@InitialPage LoginPage loginPage)
 	throws IOException, URISyntaxException {
+		
 		UserVO author = new UserRestClient(deploymentUrl).createAuthor();
 		loginPage
 			.loginAs(author.getLogin(), author.getPassword())
@@ -534,8 +529,6 @@ public class PortfolioTest {
 			.next()
 			.selectMap(mapTitle, pageTitle, structureElementTitle)
 			.finish();
-
-		OOGraphene.waitAndCloseBlueMessageWindow(browser);
 		
 		//open the portfolio
 		portfolio = userTools
@@ -574,6 +567,7 @@ public class PortfolioTest {
 	@RunAsClient
 	public void addLearningJournal_withinMap(@InitialPage LoginPage loginPage)
 	throws IOException, URISyntaxException {
+		
 		UserVO author = new UserRestClient(deploymentUrl).createAuthor();
 		loginPage
 			.loginAs(author.getLogin(), author.getPassword())
@@ -612,8 +606,6 @@ public class PortfolioTest {
 			.next()
 			.selectMap(mapTitle, pageTitle, structureElementTitle)
 			.finish();
-
-		OOGraphene.waitAndCloseBlueMessageWindow(browser);
 		
 		//open the portfolio
 		portfolio = userTools
@@ -652,6 +644,7 @@ public class PortfolioTest {
 	@RunAsClient
 	public void addFileArtefact(@InitialPage LoginPage loginPage)
 	throws IOException, URISyntaxException {
+		
 		//File upload only work with Firefox
 		Assume.assumeTrue(browser instanceof FirefoxDriver);
 		
@@ -699,8 +692,6 @@ public class PortfolioTest {
 			.next()
 			.selectMap(mapTitle, pageTitle, structureElementTitle)
 			.finish();
-
-		OOGraphene.waitAndCloseBlueMessageWindow(browser);
 		
 		//open the portfolio
 		portfolio = userTools
@@ -773,8 +764,6 @@ public class PortfolioTest {
 			.next()
 			.selectMap(mapTitle, pageTitle, structureElementTitle)
 			.finish();
-
-		OOGraphene.closeBlueMessageWindow(browser);
 		
 		//open the portfolio
 		portfolio = userTools
@@ -805,6 +794,7 @@ public class PortfolioTest {
 	@RunAsClient
 	public void createPortfolioTemplate_inCourse(@InitialPage LoginPage loginPage)
 	throws IOException, URISyntaxException {
+		
 		UserVO author = new UserRestClient(deploymentUrl).createAuthor();
 		loginPage
 			.loginAs(author.getLogin(), author.getPassword())

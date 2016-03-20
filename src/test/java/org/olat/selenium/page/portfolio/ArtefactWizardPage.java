@@ -67,7 +67,7 @@ public class ArtefactWizardPage {
 	}
 	
 	/**
-	 * Finish the wizard
+	 * Finish the wizard, wait and close the blue info box.
 	 * @return this
 	 */
 	public ArtefactWizardPage finish() {
@@ -76,7 +76,7 @@ public class ArtefactWizardPage {
 		Assert.assertTrue(finish.isEnabled());
 		finish.click();
 		OOGraphene.waitBusy(browser);
-		OOGraphene.closeBlueMessageWindow(browser);
+		OOGraphene.waitAndCloseBlueMessageWindow(browser);
 		return this;
 	}
 	
@@ -93,8 +93,8 @@ public class ArtefactWizardPage {
 	
 	public ArtefactWizardPage fillArtefactMetadatas(String title, String description) {
 		By titleBy = By.cssSelector(".o_sel_ep_artefact_metadata_title input");
-		WebElement titleEl = browser.findElement(titleBy);
-		titleEl.sendKeys(title);
+		OOGraphene.waitElement(titleBy, 10, browser);
+		browser.findElement(titleBy).sendKeys(title);
 		
 		OOGraphene.tinymce(description, browser);		
 		return this;

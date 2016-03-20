@@ -25,12 +25,16 @@
 
 package org.olat.commons.calendar.ui.components;
 
-import org.olat.commons.calendar.CalendarManagerFactory;
-import org.olat.commons.calendar.ICalTokenGenerator;
+import org.olat.commons.calendar.CalendarManager;
+import org.olat.commons.calendar.manager.ICalFileCalendarManager;
+import org.olat.commons.calendar.model.CalendarKey;
+import org.olat.commons.calendar.model.CalendarUserConfiguration;
 import org.olat.commons.calendar.model.Kalendar;
-import org.olat.commons.calendar.model.KalendarConfig;
 import org.olat.commons.calendar.ui.LinkProvider;
+import org.olat.core.CoreSpringFactory;
+import org.olat.core.helpers.Settings;
 import org.olat.core.id.Identity;
+import org.olat.core.util.StringHelper;
 
 
 public class KalendarRenderWrapper {
@@ -50,14 +54,20 @@ public class KalendarRenderWrapper {
 	public static final int ACCESS_READ_WRITE = 0;
 	public static final int ACCESS_READ_ONLY = 1;
 	
+	private String displayName;
 	
 	private Kalendar kalendar;
-	private int access;
-	private boolean imported = false;
-	private boolean subscribed = false;
-	private KalendarConfig kalendarConfig;
 	private LinkProvider linkProvider;
 	
+	private int access = ACCESS_READ_ONLY;
+	private boolean imported = false;
+	private boolean subscribed = false;
+	private boolean visible;
+	private boolean inAggregatedFeed;
+	private boolean privateEventsVisible;
+	private String cssClass;
+	private String token;
+
 	/**
 	 * Configure a calendar for rendering. Set default values
 	 * for calendar color (BLUE) and access (READ_ONLY).
@@ -66,39 +76,69 @@ public class KalendarRenderWrapper {
 	 * @param calendarColor
 	 * @param access
 	 */
-	public KalendarRenderWrapper(Kalendar kalendar) {
-		this(kalendar, new KalendarConfig(), ACCESS_READ_ONLY);
-	}
-
-	/**
-	 * Configure a calendar for rendering.
-	 * 
-	 * @param kalendar
-	 * @param calendarColor
-	 * @param access
-	 */
-	public KalendarRenderWrapper(Kalendar kalendar, KalendarConfig config, int access) {
+	public KalendarRenderWrapper(Kalendar kalendar, String displayName) {
 		this.kalendar = kalendar;
-		this.kalendarConfig = config;
-		this.access = access;
+		this.displayName = displayName;
+		setConfiguration(null);
+	}
+	
+	public KalendarRenderWrapper(Kalendar kalendar, CalendarUserConfiguration config, String displayName) {
+		this.kalendar = kalendar;
+		this.displayName = displayName;
+		setConfiguration(config);
+	}
+	
+	public void setConfiguration(CalendarUserConfiguration config) {
+		if(config == null) {
+			visible = true;
+			inAggregatedFeed = true;
+			cssClass = CALENDAR_COLOR_BLUE;
+		} else {
+			visible = config.isVisible();
+			inAggregatedFeed = config.isInAggregatedFeed();
+			token = config.getToken();
+			if(StringHelper.containsNonWhitespace(config.getCssClass())) {
+				cssClass = config.getCssClass();
+			}
+		}
+	}
+	
+	public CalendarKey getCalendarKey() {
+		return new CalendarKey(kalendar.getCalendarID(), kalendar.getType());
+	}
+	
+	public String getDisplayName() {
+		return displayName;
 	}
 
-	public void setAccess(int access) {
-		this.access = access;
+	public void setDisplayName(String displayName) {
+		this.displayName = displayName;
 	}
 
 	public int getAccess() {
 		return access;
 	}
-
-	public void setImported(boolean imported) {
-		this.imported = imported;
+	
+	public void setAccess(int access) {
+		this.access = access;
 	}
 	
 	public boolean isImported() {
 		return imported;
 	}
-	
+
+	public void setImported(boolean imported) {
+		this.imported = imported;
+	}
+
+	public boolean isPrivateEventsVisible() {
+		return privateEventsVisible;
+	}
+
+	public void setPrivateEventsVisible(boolean privateEventsVisible) {
+		this.privateEventsVisible = privateEventsVisible;
+	}
+
 	public boolean isSubscribed() {
 		return subscribed;
 	}
@@ -112,16 +152,40 @@ public class KalendarRenderWrapper {
 	}
 	
 	public Kalendar reloadKalendar() {
-		kalendar = CalendarManagerFactory.getInstance().getCalendarManager().getCalendar(this.getKalendar().getType(), this.getKalendar().getCalendarID());
+		kalendar = CoreSpringFactory.getImpl(CalendarManager.class).getCalendar(this.getKalendar().getType(), this.getKalendar().getCalendarID());
 		return kalendar;
 	}
 
-	public KalendarConfig getKalendarConfig() {
-		return kalendarConfig;
+	public boolean isVisible() {
+		return visible;
 	}
 
-	public void setKalendarConfig(KalendarConfig calendarConfig) {
-		this.kalendarConfig = calendarConfig;
+	public void setVisible(boolean visible) {
+		this.visible = visible;
+	}
+
+	public boolean isInAggregatedFeed() {
+		return inAggregatedFeed;
+	}
+
+	public void setInAggregatedFeed(boolean inAggregatedFeed) {
+		this.inAggregatedFeed = inAggregatedFeed;
+	}
+
+	public String getToken() {
+		return token;
+	}
+
+	public void setToken(String token) {
+		this.token = token;
+	}
+
+	public String getCssClass() {
+		return cssClass;
+	}
+
+	public void setCssClass(String cssClass) {
+		this.cssClass = cssClass;
 	}
 
 	/**
@@ -138,7 +202,40 @@ public class KalendarRenderWrapper {
 		this.linkProvider = linkProvider;
 	}
 	
-	public boolean hasIcalFeed(Identity identity) {
-		return ICalTokenGenerator.existIcalFeedLink(this.getKalendar().getType(), this.getKalendar().getCalendarID(), identity);
+	public String getFeedUrl(Identity identity) {
+		if(token == null) {
+			return null;
+		}
+		
+		String calendarType = kalendar.getType();
+		String calendarId = kalendar.getCalendarID();
+		if (calendarType.equals(ICalFileCalendarManager.TYPE_USER)) {
+			if(isImported()) {
+				return Settings.getServerContextPathURI() + "/ical" + "/" + calendarType + "/" + identity.getName() + "/" + token + "/" + calendarId + ".ics";
+			} else {
+				return Settings.getServerContextPathURI() + "/ical" + "/" + calendarType + "/" + identity.getName() + "/" + token + ".ics";
+			}
+		} else {
+			return Settings.getServerContextPathURI() + "/ical" + "/" + calendarType + "/" + identity.getName() + "/" + token + "/" + calendarId + ".ics";
+		}
+	}
+
+	@Override
+	public int hashCode() {
+		return kalendar.getCalendarID().hashCode();
+	}
+
+	@Override
+	public boolean equals(Object obj) {
+		if(this == obj) {
+			return true;
+		}
+		
+		if(obj instanceof KalendarRenderWrapper) {
+			KalendarRenderWrapper wrapper = (KalendarRenderWrapper)obj;
+			return wrapper.getCalendarKey().equals(getCalendarKey());
+			
+		}
+		return false;
 	}
 }
