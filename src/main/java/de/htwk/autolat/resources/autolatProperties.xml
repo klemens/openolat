@@ -3,6 +3,11 @@
   <tns:autotoolservers>
     <tns:server>
       <tns:name>Autotool Server HTWK Leipzig</tns:name>
+      <tns:version>0.9.8</tns:version>
+      <tns:url>http://kernkraft.imn.htwk-leipzig.de/cgi-bin/autotool-0.9.8.cgi</tns:url>
+    </tns:server>
+    <tns:server>
+      <tns:name>Autotool Server HTWK Leipzig</tns:name>
       <tns:version>0.9.6</tns:version>
       <tns:url>http://kernkraft.imn.htwk-leipzig.de/cgi-bin/autotool-0.9.6.cgi</tns:url>
     </tns:server>
