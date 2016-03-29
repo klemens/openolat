@@ -479,7 +479,7 @@ public class IQTESTCourseNode extends AbstractAccessableCourseNode implements As
 			} else {
 				String shortTitle = getShortTitle();
 				QTIExportManager qem = QTIExportManager.getInstance();
-				QTIExportFormatter qef = new QTIExportFormatterCSVType1(locale, "\t", "\"", "\\", "\r\n", false);
+				QTIExportFormatter qef = new QTIExportFormatterCSVType1(locale, "\t", "\"", "\r\n", false);
 				return qem.selectAndExportResults(qef, courseResourceableId, shortTitle, getIdent(), re, exportStream, ".xls");
 			}
 		} catch (IOException e) {
@@ -606,16 +606,6 @@ public class IQTESTCourseNode extends AbstractAccessableCourseNode implements As
 	@Override
 	public boolean hasDetails() {
 		return true;
-	}
-
-	/**
-	 * @see org.olat.course.nodes.CourseNode#createInstanceForCopy()
-	 */
-	@Override
-	public CourseNode createInstanceForCopy(boolean isNewTitle, ICourse course) {
-		CourseNode copyInstance = super.createInstanceForCopy(isNewTitle, course);
-		IQEditController.removeIQReference(copyInstance.getModuleConfiguration());
-		return copyInstance;
 	}
 
 	/**

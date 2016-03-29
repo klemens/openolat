@@ -68,8 +68,16 @@ public class SortableFlexiTableModelDelegate<T> {
 		return columnIndex;
 	}
 	
+	public boolean isAsc() {
+		return asc;
+	}
+	
 	public Collator getCollator() {
 		return collator;
+	}
+	
+	public SortableFlexiTableDataModel<T> getTableModel() {
+		return tableModel;
 	}
 	
 	public List<T> sort() {
@@ -108,14 +116,18 @@ public class SortableFlexiTableModelDelegate<T> {
 		return collator == null ? a.compareTo(b) : collator.compare(a, b);
 	}
 
-	protected int compareBooleans(final Boolean a, final Boolean b) {
+	protected final int compareBooleans(final Boolean a, final Boolean b) {
 		if (a == null || b == null) {
 			return compareNullObjects(a, b);
 		}
 		
 		boolean ba = a.booleanValue();
 		boolean bb = b.booleanValue();
-		return ba? (bb? 0: -1):(bb? 1: 0);
+		return compareBooleans(ba, bb);
+	}
+	
+	protected final int compareBooleans(final boolean a, final boolean b) {
+		return a? (b? 0: -1):(b? 1: 0);
 	}
 	
 	protected int compareDateAndTimestamps(Date a, Date b) {
@@ -143,6 +155,20 @@ public class SortableFlexiTableModelDelegate<T> {
 		boolean ba = (a == null);
 		boolean bb = (b == null);
 		return ba? (bb? 0: -1):(bb? 1: 0);
+	}
+	
+	public class ReverseComparator implements Comparator<T> {
+		
+		private final Comparator<T> delegate;
+		
+		public ReverseComparator(Comparator<T> delegate) {
+			this.delegate = delegate;
+		}
+
+		@Override
+		public int compare(T o1, T o2) {
+			return -1 * delegate.compare(o1, o2);
+		}
 	}
 	
 	public class DefaultComparator implements Comparator<T> {

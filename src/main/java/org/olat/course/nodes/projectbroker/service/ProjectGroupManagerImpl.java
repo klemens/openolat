@@ -41,6 +41,7 @@ import org.olat.core.util.coordinate.SyncerCallback;
 import org.olat.core.util.event.MultiUserEvent;
 import org.olat.course.CourseFactory;
 import org.olat.course.ICourse;
+import org.olat.course.groupsandrights.CourseGroupManager;
 import org.olat.course.nodes.CourseNode;
 import org.olat.course.nodes.ProjectBrokerCourseNode;
 import org.olat.course.nodes.projectbroker.datamodel.Project;
@@ -52,7 +53,6 @@ import org.olat.group.BusinessGroupService;
 import org.olat.group.ui.edit.BusinessGroupModifiedEvent;
 import org.olat.properties.Property;
 import org.olat.repository.RepositoryEntry;
-import org.olat.repository.RepositoryManager;
 import org.olat.resource.OLATResource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -68,29 +68,38 @@ public class ProjectGroupManagerImpl extends BasicManager implements ProjectGrou
 	@Autowired
 	private DB dbInstance;
 	@Autowired
-	private BaseSecurity securityManager;
+	private ProjectDAO projectDao;
 	@Autowired
-	private RepositoryManager repositoryManager;
+	private BaseSecurity securityManager;
 	@Autowired
 	private ProjectBrokerManager projectBrokerManager;
 	@Autowired
 	private BusinessGroupService businessGroupService;
-	
-	
+
 	//////////////////////
 	// ACCOUNT MANAGEMENT
 	//////////////////////
+	@Override
+	public Long getAccountManagerGroupKey(CoursePropertyManager cpm, CourseNode courseNode) {
+		Property accountManagerGroupProperty = cpm.findCourseNodeProperty(courseNode, null, null, ProjectBrokerCourseNode.CONF_ACCOUNTMANAGER_GROUP_KEY);
+		if (accountManagerGroupProperty != null) {
+			return accountManagerGroupProperty.getLongValue();
+		}
+		return null;
+	}
+	
+	@Override
 	public BusinessGroup getAccountManagerGroupFor(CoursePropertyManager cpm, CourseNode courseNode, ICourse course, String groupName, String groupDescription, Identity identity) {
 		Long groupKey = null;
 		BusinessGroup accountManagerGroup = null;
-  	Property accountManagerGroupProperty = cpm.findCourseNodeProperty(courseNode, null, null, ProjectBrokerCourseNode.CONF_ACCOUNTMANAGER_GROUP_KEY);
+		Property accountManagerGroupProperty = cpm.findCourseNodeProperty(courseNode, null, null, ProjectBrokerCourseNode.CONF_ACCOUNTMANAGER_GROUP_KEY);
 		// Check if account-manager-group-key-property already exist
 		if (accountManagerGroupProperty != null) {
-		  groupKey = accountManagerGroupProperty.getLongValue();
-		  logDebug("accountManagerGroupProperty=" + accountManagerGroupProperty + "  groupKey=" + groupKey);
+			groupKey = accountManagerGroupProperty.getLongValue();
+			logDebug("accountManagerGroupProperty=" + accountManagerGroupProperty + "  groupKey=" + groupKey);
 		} 
-    logDebug("groupKey=" + groupKey);
-    if (groupKey != null) {
+		logDebug("groupKey=" + groupKey);
+		if (groupKey != null) {
 			accountManagerGroup = businessGroupService.loadBusinessGroup(groupKey);
 			logDebug("load businessgroup=" + accountManagerGroup);
 			if (accountManagerGroup != null) {
@@ -102,9 +111,9 @@ public class ProjectGroupManagerImpl extends BasicManager implements ProjectGrou
 				groupKey = null;
 				logWarn("ProjectBroker: Account-manager does no longer exist, create a new one", null);
 			}
-    } else {
+		} else {
 			logDebug("No group for project-broker exist => create a new one");
-			RepositoryEntry re = repositoryManager.lookupRepositoryEntry(cpm.getCourseResource(), false);
+			RepositoryEntry re = course.getCourseEnvironment().getCourseGroupManager().getCourseEntry();
 			accountManagerGroup = businessGroupService.createBusinessGroup(identity, groupName, groupDescription, -1, -1, false, false, re);
 			int i = 2;
 			while (accountManagerGroup == null) {
@@ -119,6 +128,7 @@ public class ProjectGroupManagerImpl extends BasicManager implements ProjectGrou
 		} 
 		return accountManagerGroup;
 	}
+	
 
 	public void saveAccountManagerGroupKey(Long accountManagerGroupKey, CoursePropertyManager cpm, CourseNode courseNode) {
 		Property accountManagerGroupKeyProperty = cpm.createCourseNodePropertyInstance(courseNode, null, null, ProjectBrokerCourseNode.CONF_ACCOUNTMANAGER_GROUP_KEY, null, accountManagerGroupKey, null, null);
@@ -177,9 +187,10 @@ public class ProjectGroupManagerImpl extends BasicManager implements ProjectGrou
 	////////////////////////////
 	// PROJECT GROUP MANAGEMENT
 	////////////////////////////
+	@Override
 	public BusinessGroup createProjectGroupFor(Long projectBrokerId, Identity identity, String groupName, String groupDescription, Long courseId) {
-		OLATResource resource = CourseFactory.loadCourse(courseId).getCourseEnvironment().getCourseGroupManager().getCourseResource();
-		RepositoryEntry re = repositoryManager.lookupRepositoryEntry(resource, false);
+		CourseGroupManager cgm = CourseFactory.loadCourse(courseId).getCourseEnvironment().getCourseGroupManager();
+		RepositoryEntry re = cgm.getCourseEntry();
 
 		logDebug("createProjectGroupFor groupName=" + groupName);
 		BusinessGroup projectGroup = businessGroupService.createBusinessGroup(identity, groupName, groupDescription, -1, -1, false, false, re);
@@ -194,7 +205,8 @@ public class ProjectGroupManagerImpl extends BasicManager implements ProjectGrou
 		logDebug("Created a new projectGroup=" + projectGroup);
 		return projectGroup;
 	}
-	
+
+	@Override
 	public void deleteProjectGroupFor(Project project) {
 		BusinessGroupService bgs = businessGroupService;
 		bgs.deleteBusinessGroup(project.getProjectGroup());
@@ -250,7 +262,7 @@ public class ProjectGroupManagerImpl extends BasicManager implements ProjectGrou
 
 	@Override
 	public BusinessGroupAddResponse acceptCandidates(final List<Identity> identities, final Project project, final Identity actionIdentity, final boolean autoSignOut, final boolean isAcceptSelectionManually) {
-		final Project reloadedProject = (Project) dbInstance.loadObject(project, true);
+		final Project reloadedProject = projectDao.loadProject(project.getKey());
 		final BusinessGroupAddResponse response = new BusinessGroupAddResponse();
 		BusinessGroupAddResponse state = businessGroupService.addParticipants(actionIdentity, null, identities, reloadedProject.getProjectGroup(), null);
 		response.getAddedIdentities().addAll(state.getAddedIdentities());
@@ -283,7 +295,7 @@ public class ProjectGroupManagerImpl extends BasicManager implements ProjectGrou
 	@Override
 	public void sendGroupChangeEvent(Project project, Long courseResourceableId, Identity identity) {
 		ICourse course = CourseFactory.loadCourse(courseResourceableId);
-		RepositoryEntry ores = repositoryManager.lookupRepositoryEntry(course, true);
+		RepositoryEntry ores = course.getCourseEnvironment().getCourseGroupManager().getCourseEntry();
 		MultiUserEvent modifiedEvent = new BusinessGroupModifiedEvent(BusinessGroupModifiedEvent.IDENTITY_ADDED_EVENT, project.getProjectGroup(), identity);
 		CoordinatorManager.getInstance().getCoordinator().getEventBus().fireEventToListenersOf(modifiedEvent, ores);
 	}

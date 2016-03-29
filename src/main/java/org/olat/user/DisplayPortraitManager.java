@@ -56,6 +56,8 @@ public class DisplayPortraitManager extends BasicManager implements UserDataDele
 	// The following class names refer to CSS class names in olat.css 
 	public static final String AVATAR_BIG_CSS_CLASS = "o_portrait_avatar";
 	public static final String AVATAR_SMALL_CSS_CLASS = "o_portrait_avatar_small";
+	public static final String ANONYMOUS_BIG_CSS_CLASS = "o_portrait_anonymous";
+	public static final String ANONYMOUS_SMALL_CSS_CLASS = "o_portrait_anonymous_small";
 	public static final String DUMMY_BIG_CSS_CLASS = "o_portrait_dummy";
 	public static final String DUMMY_SMALL_CSS_CLASS = "o_portrait_dummy_small";
 	public static final String DUMMY_FEMALE_BIG_CSS_CLASS = "o_portrait_dummy_female_big";
@@ -211,8 +213,13 @@ public class DisplayPortraitManager extends BasicManager implements UserDataDele
 	 * Delete home-page config-file of a certain user.
 	 * @see org.olat.user.UserDataDeletable#deleteUserData(org.olat.core.id.Identity)
 	 */
+	@Override
 	public void deleteUserData(Identity identity, String newDeletedUserName) {
-		deletePortrait(identity);
+		String userHomePage = FolderConfig.getCanonicalRoot() + FolderConfig.getUserHomePage(identity.getName()); 
+		File portraitDir = new File(userHomePage, "portrait");
+		if(portraitDir.exists()) {
+			FileUtils.deleteDirsAndFiles(portraitDir, true, true);
+		}
 		logDebug("Homepage-config file deleted for identity=" + identity);
 	}
 }

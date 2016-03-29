@@ -53,6 +53,7 @@ import org.apache.commons.io.IOUtils;
 import org.apache.http.HttpResponse;
 import org.apache.http.client.methods.HttpDelete;
 import org.apache.http.client.methods.HttpGet;
+import org.apache.http.client.methods.HttpHead;
 import org.apache.http.client.methods.HttpPost;
 import org.apache.http.client.methods.HttpPut;
 import org.apache.http.util.EntityUtils;
@@ -90,8 +91,8 @@ import org.olat.group.BusinessGroup;
 import org.olat.group.BusinessGroupService;
 import org.olat.group.manager.BusinessGroupRelationDAO;
 import org.olat.modules.fo.Forum;
-import org.olat.modules.fo.ForumManager;
 import org.olat.modules.fo.Message;
+import org.olat.modules.fo.manager.ForumManager;
 import org.olat.modules.fo.restapi.ForumVO;
 import org.olat.modules.fo.restapi.ForumVOes;
 import org.olat.modules.fo.restapi.MessageVOes;
@@ -219,10 +220,10 @@ public class UserMgmtTest extends OlatJerseyTestCase {
 		CollaborationTools g1CTSMngr = CollaborationToolsFactory.getInstance().getOrCreateCollaborationTools(g1);
 		g1CTSMngr.setToolEnabled(CollaborationTools.TOOL_FORUM, true);
 		Forum g1Forum = g1CTSMngr.getForum();//create the forum
-		Message m1 = ForumManager.getInstance().createMessage();
+		Message m1 = ForumManager.getInstance().createMessage(g1Forum, id1, false);
 		m1.setTitle("Thread-1");
 		m1.setBody("Body of Thread-1");
-		ForumManager.getInstance().addTopMessage(id1, g1Forum, m1);
+		ForumManager.getInstance().addTopMessage(m1);
 		
 		dbInstance.commitAndCloseSession();
 		
@@ -247,7 +248,7 @@ public class UserMgmtTest extends OlatJerseyTestCase {
 			repositoryService.addRole(id1, entry, GroupRoles.participant.name());
 		}
 		
-		demoCourse = CourseFactory.loadCourse(entry.getOlatResource());
+		demoCourse = CourseFactory.loadCourse(entry);
 		TreeVisitor visitor = new TreeVisitor(new Visitor() {
 			@Override
 			public void visit(INode node) {
@@ -255,10 +256,10 @@ public class UserMgmtTest extends OlatJerseyTestCase {
 					if(demoForumNode == null) {
 						demoForumNode = (FOCourseNode)node;
 						Forum courseForum = demoForumNode.loadOrCreateForum(demoCourse.getCourseEnvironment());
-						Message message1 = ForumManager.getInstance().createMessage();
+						Message message1 = ForumManager.getInstance().createMessage(courseForum, id1, false);
 						message1.setTitle("Thread-1");
 						message1.setBody("Body of Thread-1");
-						ForumManager.getInstance().addTopMessage(id1, courseForum, message1);
+						ForumManager.getInstance().addTopMessage(message1);
 					}	
 				} else if (node instanceof BCCourseNode) {
 					if(demoBCCourseNode == null) {
@@ -562,7 +563,7 @@ public class UserMgmtTest extends OlatJerseyTestCase {
 		assertEquals(savedVo.getLogin(), savedIdent.getName());
 		assertEquals("Female", savedIdent.getUser().getProperty("gender", Locale.ENGLISH));
 		assertEquals("39847592", savedIdent.getUser().getProperty("telPrivate", Locale.ENGLISH));
-		assertEquals("12/12/09", savedIdent.getUser().getProperty("birthDay", Locale.ENGLISH));
+		assertEquals("12/12/2009", savedIdent.getUser().getProperty("birthDay", Locale.ENGLISH));
 		conn.shutdown();
 	}
 	
@@ -602,7 +603,7 @@ public class UserMgmtTest extends OlatJerseyTestCase {
 		assertEquals(savedVo.getLogin(), savedIdent.getName());
 		assertEquals("Female", savedIdent.getUser().getProperty("gender", Locale.ENGLISH));
 		assertEquals("39847592", savedIdent.getUser().getProperty("telPrivate", Locale.ENGLISH));
-		assertEquals("12/12/09", savedIdent.getUser().getProperty("birthDay", Locale.ENGLISH));
+		assertEquals("12/12/2009", savedIdent.getUser().getProperty("birthDay", Locale.ENGLISH));
 		conn.shutdown();
 	}
 	
@@ -1363,6 +1364,43 @@ public class UserMgmtTest extends OlatJerseyTestCase {
 		}
 		
 		conn.shutdown();
+	}
+	
+	@Test
+	public void testPortrait_HEAD() throws IOException, URISyntaxException {
+		Identity id = JunitTestHelper.createAndPersistIdentityAsRndUser("portrait-1");
+		Identity idWithoutPortrait = JunitTestHelper.createAndPersistIdentityAsRndUser("portrait-2");
+		
+		URL portraitUrl = UserMgmtTest.class.getResource("portrait.jpg");
+		Assert.assertNotNull(portraitUrl);
+		File portrait = new File(portraitUrl.toURI());
+		RestConnection conn = new RestConnection();
+		Assert.assertTrue(conn.login(id.getName(), "A6B7C8"));
+		
+		//upload portrait
+		URI request = UriBuilder.fromUri(getContextURI())
+				.path("users").path(id.getKey().toString()).path("portrait").build();
+		HttpPost method = conn.createPost(request, MediaType.APPLICATION_JSON);
+		conn.addMultipart(method, "portrait.jpg", portrait);
+		HttpResponse response = conn.execute(method);
+		assertEquals(200, response.getStatusLine().getStatusCode());
+		EntityUtils.consume(response.getEntity());
+		
+		//check 200
+		URI headRequest = UriBuilder.fromUri(getContextURI())
+				.path("users").path(id.getKey().toString()).path("portrait").build();
+		HttpHead headMethod = conn.createHead(headRequest, MediaType.APPLICATION_OCTET_STREAM, true);
+		HttpResponse headResponse = conn.execute(headMethod);
+		assertEquals(200, headResponse.getStatusLine().getStatusCode());
+		EntityUtils.consume(headResponse.getEntity());
+		
+		//check 404
+		URI headNoRequest = UriBuilder.fromUri(getContextURI())
+				.path("users").path(idWithoutPortrait.getKey().toString()).path("portrait").build();
+		HttpHead headNoMethod = conn.createHead(headNoRequest, MediaType.APPLICATION_OCTET_STREAM, true);
+		HttpResponse headNoResponse = conn.execute(headNoMethod);
+		assertEquals(404, headNoResponse.getStatusLine().getStatusCode());
+		EntityUtils.consume(headNoResponse.getEntity());
 	}
 	
 	protected List<UserVO> parseUserArray(InputStream body) {

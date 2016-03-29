@@ -168,6 +168,22 @@
 			}
 		}
 	}
+	
+	.o_cmember a.o_mail {
+		display: none;
+	}
+		
+	.o_cmember:hover a.o_mail {
+		display: inline;
+	}
+}
+
+.tag.label.label-info {
+	margin-right: 3px;
+}
+
+.input-group.o_tag_inputgroup .form-control {
+	height:auto;
 }
 
 

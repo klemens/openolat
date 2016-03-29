@@ -100,7 +100,7 @@ public class NotificationsManagerImpl extends NotificationsManager implements Us
 
 	private static final int PUB_STATE_OK = 0;
 	private static final int PUB_STATE_NOT_OK = 1;
-	private static final int BATCH_SIZE = 100;
+	private static final int BATCH_SIZE = 500;
 	private static final String LATEST_EMAIL_USER_PROP = "noti_latest_email";
 	private final SubscriptionInfo NOSUBSINFO = new NoSubscriptionInfo();
 
@@ -209,6 +209,8 @@ public class NotificationsManagerImpl extends NotificationsManager implements Us
 	 */
 	@Override
 	public List<Subscriber> getSubscribers(IdentityRef identity, List<String> types) {
+		if(identity == null) return Collections.emptyList();
+		
 		StringBuilder sb = new StringBuilder();
 		sb.append("select sub from notisub as sub ")
 		  .append("inner join fetch sub.publisher as publisher ")
@@ -235,6 +237,8 @@ public class NotificationsManagerImpl extends NotificationsManager implements Us
 	 */
 	@Override
 	public List<Subscriber> getSubscribers(IdentityRef identity, long resId) {
+		if(identity == null) return Collections.emptyList();
+		
 		StringBuilder sb = new StringBuilder();
 		sb.append("select sub from notisub as sub ")
 		  .append("inner join fetch sub.publisher as publisher ")
@@ -254,6 +258,8 @@ public class NotificationsManagerImpl extends NotificationsManager implements Us
 	 */
 	@Override
 	public List<Subscriber> getValidSubscribers(Identity identity) {
+		if(identity == null) return Collections.emptyList();
+		
 		StringBuilder q = new StringBuilder();
 		q.append("select sub from notisub sub ")
 		 .append(" inner join fetch sub.publisher as pub ")
@@ -315,14 +321,16 @@ public class NotificationsManagerImpl extends NotificationsManager implements Us
 		return sis;
 	}
 	
+	@Override
 	public void notifyAllSubscribersByEmail() {
 		logAudit("starting notification cronjob to send email", null);
 		WorkThreadInformations.setLongRunningTask("sendNotifications");
 		
 		int counter = 0;
+		int closeConnection = 0;
 		List<Identity> identities;
 		do {
-			identities = securityManager.loadIdentities(counter, BATCH_SIZE);
+			identities = securityManager.loadVisibleIdentities(counter, BATCH_SIZE);
 			for(Identity identity:identities) {
 				if(identity.getName().startsWith("guest_")) {
 					Roles roles = securityManager.getRoles(identity);
@@ -330,8 +338,11 @@ public class NotificationsManagerImpl extends NotificationsManager implements Us
 						continue;
 					}
 				}
-				
+				closeConnection++;
 				processSubscribersByEmail(identity);
+				if(closeConnection % 20 == 0) {
+					dbInstance.commitAndCloseSession();
+				}
 			}
 			counter += identities.size();
 			dbInstance.commitAndCloseSession();
@@ -343,7 +354,6 @@ public class NotificationsManagerImpl extends NotificationsManager implements Us
 	}
 	
 	private void processSubscribersByEmail(Identity ident) {
-		long start = System.currentTimeMillis();
 		if(ident.getStatus().compareTo(Identity.STATUS_VISIBLE_LIMIT) >= 0) {
 			return;//send only to active user
 		}
@@ -353,6 +363,7 @@ public class NotificationsManagerImpl extends NotificationsManager implements Us
 			return;
 		}
 
+		long start = System.currentTimeMillis();
 		Date compareDate = getCompareDateFromInterval(userInterval);
 		Property p = propertyManager.findProperty(ident, null, null, null, LATEST_EMAIL_USER_PROP);
 		if(p != null) {
@@ -393,7 +404,7 @@ public class NotificationsManagerImpl extends NotificationsManager implements Us
 				subsitem = createSubscriptionItem(sub, locale, SubscriptionInfo.MIME_PLAIN, SubscriptionInfo.MIME_PLAIN, latestEmail);
 			}	else if(latestEmail != null && latestEmail.after(compareDate)) {
 				//already send an email within the user's settings interval
-				veto = true;
+				//veto = true;
 			}
 			if (subsitem != null) {
 				items.add(subsitem);
@@ -539,7 +550,7 @@ public class NotificationsManagerImpl extends NotificationsManager implements Us
 			MailBundle bundle = new MailBundle();
 			bundle.setToId(to);
 			bundle.setContent(title, plaintext.toString());
-			result = CoreSpringFactory.getImpl(MailManager.class).sendExternMessage(bundle, null);
+			result = CoreSpringFactory.getImpl(MailManager.class).sendExternMessage(bundle, null, false);
 		} catch (Exception e) {
 			// FXOLAT-294 :: sending the mail will throw nullpointer exception if To-Identity has no
 			// valid email-address!, catch it...
@@ -639,7 +650,17 @@ public class NotificationsManagerImpl extends NotificationsManager implements Us
 		if (res.size() != 1) throw new AssertException("only one subscriber per person and publisher!!");
 		return res.get(0);
 	}
-	
+
+	@Override
+	public void updatePublisherData(SubscriptionContext subsContext, PublisherData data){
+		Publisher publisher= getPublisherForUpdate(subsContext);
+		if(publisher != null){
+			publisher.setData(data.getData());
+			dbInstance.getCurrentEntityManager().merge(publisher);
+			dbInstance.commit();
+		}
+	}
+
 	private Publisher getPublisherForUpdate(SubscriptionContext subsContext) {
 		Publisher pub = getPublisher(subsContext);
 		if(pub != null && pub.getKey() != null) {
@@ -679,6 +700,7 @@ public class NotificationsManagerImpl extends NotificationsManager implements Us
 	 * 
 	 * @param ores
 	 */
+	@Override
 	public void deletePublishersOf(OLATResourceable ores) {
 		String type = ores.getResourceableTypeName();
 		Long id = ores.getResourceableId();
@@ -705,12 +727,8 @@ public class NotificationsManagerImpl extends NotificationsManager implements Us
 	 */
 	@Override
 	public Subscriber getSubscriber(Identity identity, Publisher publisher) {
-		StringBuilder q = new StringBuilder();
-		q.append("select sub from notisub as sub ")
-		 .append(" where sub.publisher.key=:publisherKey and sub.identity.key=:identityKey");
-		
 		List<Subscriber> res = dbInstance.getCurrentEntityManager()
-				.createQuery(q.toString(), Subscriber.class)
+				.createNamedQuery("subscribersByPublisherAndIdentity", Subscriber.class)
 				.setParameter("publisherKey", publisher.getKey())
 				.setParameter("identityKey", identity.getKey())
 				.getResultList();
@@ -726,9 +744,8 @@ public class NotificationsManagerImpl extends NotificationsManager implements Us
 	 */
 	@Override
 	public List<Subscriber> getSubscribers(Publisher publisher) {
-		String q = "select sub notisub sub where sub.publisher = :publisher";
 		return dbInstance.getCurrentEntityManager()
-				.createQuery(q, Subscriber.class)
+				.createNamedQuery("subscribersByPublisher", Subscriber.class)
 				.setParameter("publisher", publisher)
 				.getResultList();
 	}
@@ -739,9 +756,8 @@ public class NotificationsManagerImpl extends NotificationsManager implements Us
 	 */
 	@Override
 	public List<Identity> getSubscriberIdentities(Publisher publisher) {
-		String q = "select sub.identity from notisub sub where sub.publisher = :publisher";
 		return dbInstance.getCurrentEntityManager()
-				.createQuery(q, Identity.class)
+				.createNamedQuery("identitySubscribersByPublisher", Identity.class)
 				.setParameter("publisher", publisher)
 				.getResultList();
 	}
@@ -772,6 +788,15 @@ public class NotificationsManagerImpl extends NotificationsManager implements Us
 	 */
 	private void deleteSubscriber(Subscriber subscriber) {
 		dbInstance.deleteObject(subscriber);
+	}
+	
+	public boolean deleteSubscriber(Long subscriberKey) {
+		String sb = "delete from notisub sub where sub.key=:subscriberKey";
+		int rows = dbInstance.getCurrentEntityManager()
+				.createQuery(sb)
+				.setParameter("subscriberKey", subscriberKey)
+				.executeUpdate();
+		return rows > 0;
 	}
 
 	/**
@@ -824,6 +849,31 @@ public class NotificationsManagerImpl extends NotificationsManager implements Us
 		}
 		dbInstance.commit();
 	}
+	
+	@Override
+	public void subscribe(List<Identity> identities, SubscriptionContext subscriptionContext,
+			PublisherData publisherData) {
+		if(identities == null || identities.isEmpty()) return;
+		
+		Publisher toUpdate = getPublisherForUpdate(subscriptionContext);
+		if(toUpdate == null) {
+			//create the publisher
+			findOrCreatePublisher(subscriptionContext, publisherData);
+			//lock the publisher
+			toUpdate = getPublisherForUpdate(subscriptionContext);
+		}
+
+		for(Identity identity:identities) {
+			Subscriber s = getSubscriber(identity, toUpdate);
+			if (s == null) {
+				// no subscriber -> create.
+				// s.latestReadDate >= p.latestNewsDate == no news for subscriber when no
+				// news after subscription time
+				doCreateAndPersistSubscriber(toUpdate, identity);
+			}
+		}
+		dbInstance.commit();	
+	}
 
 	/**
 	 * call this method to indicate that there is news for the given
@@ -874,6 +924,7 @@ public class NotificationsManagerImpl extends NotificationsManager implements Us
 	/**
 	 * @see org.olat.core.commons.services.notifications.NotificationsManager#registerAsListener(org.olat.core.util.event.GenericEventListener, org.olat.core.id.Identity)
 	 */
+	@Override
 	public void registerAsListener(GenericEventListener gel, Identity ident) {
 		CoordinatorManager.getInstance().getCoordinator().getEventBus().registerFor(gel, ident, oresMyself);
 	}
@@ -881,6 +932,7 @@ public class NotificationsManagerImpl extends NotificationsManager implements Us
 	/**
 	 * @see org.olat.core.commons.services.notifications.NotificationsManager#deregisterAsListener(org.olat.core.util.event.GenericEventListener)
 	 */
+	@Override
 	public void deregisterAsListener(GenericEventListener gel) {
 		CoordinatorManager.getInstance().getCoordinator().getEventBus().deregisterFor(gel, oresMyself);
 	}
@@ -889,17 +941,33 @@ public class NotificationsManagerImpl extends NotificationsManager implements Us
 	 * @param identity
 	 * @param subscriptionContext
 	 */
+	@Override
 	public void unsubscribe(Identity identity, SubscriptionContext subscriptionContext) {
-		// no need to sync, since an identity only has one gui thread / one mouse
 		Publisher p = getPublisherForUpdate(subscriptionContext);
-		// if no publisher yet.
-		//TODO: check race condition: can p be null at all?
 		if (p != null) {
 			Subscriber s = getSubscriber(identity, p);
 			if (s != null) {
 				deleteSubscriber(s);
 			} else {
 				logWarn("could not unsubscribe " + identity.getName() + " from publisher:" + p.getResName() + ","	+ p.getResId() + "," + p.getSubidentifier(), null);
+			}
+		}
+		dbInstance.commit();
+	}
+	
+	@Override
+	public void unsubscribe(List<Identity> identities, SubscriptionContext subscriptionContext) {
+		if(identities == null || identities.isEmpty()) return;
+
+		Publisher p = getPublisherForUpdate(subscriptionContext);
+		if (p != null) {
+			for(Identity identity:identities) {
+				Subscriber s = getSubscriber(identity, p);
+				if (s != null) {
+					deleteSubscriber(s);
+				} else {
+					logWarn("could not unsubscribe " + identity.getName() + " from publisher:" + p.getResName() + ","	+ p.getResId() + "," + p.getSubidentifier(), null);
+				}
 			}
 		}
 		dbInstance.commit();
@@ -958,6 +1026,7 @@ public class NotificationsManagerImpl extends NotificationsManager implements Us
 	 * 
 	 * @param scontext the subscriptioncontext
 	 */
+	@Override
 	public void delete(SubscriptionContext scontext) {
 		Publisher p = getPublisher(scontext);
 		// if none found, no one has subscribed yet and therefore no publisher has
@@ -1146,6 +1215,9 @@ public class NotificationsManagerImpl extends NotificationsManager implements Us
 	 * @param defaultNotificationInterval
 	 */
 	public void setDefaultNotificationInterval(String defaultNotificationInterval) {
+		if (defaultNotificationInterval != null) {
+			defaultNotificationInterval = defaultNotificationInterval.trim();
+		}
 		this.defaultNotificationInterval = defaultNotificationInterval;
 	}
 

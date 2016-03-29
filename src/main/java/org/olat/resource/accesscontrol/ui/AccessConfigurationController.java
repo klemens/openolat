@@ -36,6 +36,7 @@ import org.olat.core.gui.components.form.flexible.impl.Form;
 import org.olat.core.gui.components.form.flexible.impl.FormBasicController;
 import org.olat.core.gui.components.form.flexible.impl.FormEvent;
 import org.olat.core.gui.components.form.flexible.impl.FormLayoutContainer;
+import org.olat.core.gui.components.helpTooltip.HelpTooltip;
 import org.olat.core.gui.components.link.Link;
 import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.Event;
@@ -122,6 +123,10 @@ public class AccessConfigurationController extends FormBasicController {
 
 	@Override
 	protected void initForm(FormItemContainer formLayout, Controller listener, UserRequest ureq) {
+		//contextHelptexts for Label
+		HelpTooltip acMethodsLabelHelp = new HelpTooltip("acMethodsLabelHelp", "Legen Sie fest unter welchen Bedingungen Benutzer diese Ressource buchen können.", "Course Settings#_buchungsmethode", getLocale());
+		((FormLayoutContainer)formLayout).put("acMethodsLabelHelp", acMethodsLabelHelp);
+
 		if(editable) {
 			List<AccessMethod> methods = acService.getAvailableMethods(getIdentity(), ureq.getUserSession().getRoles());
 			for(AccessMethod method:methods) {
@@ -151,8 +156,7 @@ public class AccessConfigurationController extends FormBasicController {
 		
 		if(!embbed) {
 			setFormTitle("accesscontrol.title");
-			setFormContextHelp(AccessConfigurationController.class.getPackage().getName(), "accesscontrol.html", "chelp.accesscontrol.hover");
-			
+
 			if(editable) {
 				final FormLayoutContainer buttonGroupLayout = FormLayoutContainer.createButtonLayout("buttonLayout", getTranslator());
 				buttonGroupLayout.setRootForm(mainForm);
@@ -241,6 +245,7 @@ public class AccessConfigurationController extends FormBasicController {
 				AccessInfo infos = (AccessInfo)source.getUserObject();
 				acService.deleteOffer(infos.getLink().getOffer());
 				confControllers.remove(infos);
+				fireEvent(ureq, Event.CHANGED_EVENT);
 			} else if("edit".equals(cmd)) {
 				AccessInfo infos = (AccessInfo)source.getUserObject();
 				editMethod(ureq, infos);

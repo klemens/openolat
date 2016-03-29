@@ -98,7 +98,7 @@ public class RichTextConfiguration implements Disposable {
 	private static final String TABFOCUS_SETTINGS_PREV_NEXT = ":prev,:next";
 	// Valid elements
 	private static final String EXTENDED_VALID_ELEMENTS = "extended_valid_elements";
-	private static final String EXTENDED_VALID_ELEMENTS_VALUE_FULL = "script[src,type,defer],form[*],input[*],a[*],p[*],#comment[*],img[*],iframe[*],map[*],area[*]";
+	private static final String EXTENDED_VALID_ELEMENTS_VALUE_FULL = "script[src|type|defer],form[*],input[*],a[*],p[*],#comment[*],img[*],iframe[*],map[*],area[*]";
 	private static final String INVALID_ELEMENTS = "invalid_elements";
 	private static final String INVALID_ELEMENTS_FORM_MINIMALISTIC_VALUE_UNSAVE = "iframe,script,@[on*],object,embed";
 	private static final String INVALID_ELEMENTS_FORM_SIMPLE_VALUE_UNSAVE = "iframe,script,@[on*],object,embed";
@@ -141,13 +141,20 @@ public class RichTextConfiguration implements Disposable {
 	private String linkBrowserUploadRelPath;
 	private String linkBrowserRelativeFilePath;
 	private String linkBrowserAbsolutFilePath;
+	private boolean allowCustomMediaFactory = true;
 	private CustomLinkTreeModel linkBrowserCustomTreeModel;	
 	// DOM ID of the flexi form element
 	private String domID;
 	
 	private MapperKey contentMapperKey;
 	
+	private final Locale locale;
 	private TinyConfig tinyConfig;
+	
+	public RichTextConfiguration(Locale locale) {
+		this.locale = locale;
+		tinyConfig = TinyConfig.minimalisticConfig; 
+	}
 
 	/**
 	 * Constructor, only used by RichText element itself. Use
@@ -156,8 +163,9 @@ public class RichTextConfiguration implements Disposable {
 	 * @param domID The ID of the flexi element in the browser DOM
 	 * @param rootFormDispatchId The dispatch ID of the root form that deals with the submit button
 	 */
-	RichTextConfiguration(String domID, String rootFormDispatchId) {
+	public RichTextConfiguration(String domID, String rootFormDispatchId, Locale locale) {
 		this.domID = domID;
+		this.locale = locale;
 		// use exact mode that only applies to this DOM element
 		setQuotedConfigValue(MODE, MODE_VALUE_EXACT);
 		setQuotedConfigValue(ELEMENTS, domID);
@@ -294,6 +302,14 @@ public class RichTextConfiguration implements Disposable {
 		setTabFocusEnabled(true);
 	}
 
+	public boolean isAllowCustomMediaFactory() {
+		return allowCustomMediaFactory;
+	}
+
+	public void setAllowCustomMediaFactory(boolean allowCustomMediaFactory) {
+		this.allowCustomMediaFactory = allowCustomMediaFactory;
+	}
+
 	/**
 	 * Add a function name that has to be executed after initialization. <br>
 	 * E.g: myFunctionName, (alert('loading successfull')) <br>
@@ -386,6 +402,10 @@ public class RichTextConfiguration implements Disposable {
 	public void disableMathEditor() {
 		tinyConfig = tinyConfig.disableMathEditor();
 	}
+	
+	public void disableImageAnMovie() {
+		tinyConfig = tinyConfig.disableImageAndMedia();
+	}
 
 	/**
 	 * Enable / disable the full-screen plugin
@@ -435,7 +455,7 @@ public class RichTextConfiguration implements Disposable {
 	 */
 	private void setCustomPluginEnabled(TinyMCECustomPlugin customPlugin) {
 		// Add plugin specific parameters
-		Map<String,String> params = customPlugin.getPluginParameters();
+		Map<String,String> params = customPlugin.getPluginParameters(locale);
 		if (params != null) {
 			for (Entry<String, String> param : params.entrySet()) {
 				// don't use pluginName var, don't add the '-' char for params
@@ -522,6 +542,15 @@ public class RichTextConfiguration implements Disposable {
 		linkBrowserBaseContainer = vfsContainer;
 		linkBrowserCustomTreeModel = customLinkTreeModel;
 	}
+	
+	public void disableFileBrowserCallback() {
+		linkBrowserImageSuffixes = null;
+		linkBrowserMediaSuffixes = null;
+		linkBrowserFlashPlayerSuffixes = null;
+		linkBrowserBaseContainer = null;
+		linkBrowserCustomTreeModel = null;
+		nonQuotedConfigValues.remove(FILE_BROWSER_CALLBACK);
+	}
 
 	/**
 	 * Set an optional path relative to the vfs container of the file browser
@@ -603,7 +632,9 @@ public class RichTextConfiguration implements Disposable {
 	 */
 	private void setQuotedConfigValue(String key, String value) {
 		// remove non-quoted config values with same key
-		if (nonQuotedConfigValues.containsKey(key)) nonQuotedConfigValues.remove(key);
+		if (nonQuotedConfigValues.containsKey(key)) {
+			nonQuotedConfigValues.remove(key);
+		}
 		// add or overwrite new value
 		quotedConfigValues.put(key, value);
 	}
@@ -618,10 +649,6 @@ public class RichTextConfiguration implements Disposable {
 	
 	public void enableCode() {
 		tinyConfig = tinyConfig.enableCode();
-	}
-	
-	public void enableStyleSelection() {
-		//setQuotedConfigValue(RichTextConfiguration.THEME_ADVANCED_BUTTONS1_ADD, RichTextConfiguration.SEPARATOR_BUTTON + "," + RichTextConfiguration.STYLESELECT_BUTTON);
 	}
 
 	/**

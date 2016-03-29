@@ -23,16 +23,18 @@ o_info.o_winid = '$o_winid';
 o_info.uriprefix="$r.relWinLink()";
 o_info.bc="$o_bc";
 o_info.businessPath="";
+o_info.serverUri="$o_serverUri"
 o_info.dirty_form = "$r.escapeDoubleQuotes($r.translate("form.dirty"))";
 o_info.locale = "$r.getLanguageCode()";
 o_info.lastClickTime = new Date().getTime();
-##fxdiff
 o_info.drop = true;
 ## olat layout specific
 o_info.o_baseURI = "$r.staticLink("")";
 o_info.i18n_noresponse_title = "$r.escapeDoubleQuotes($r.translate("server.no.response.title"))";
 o_info.i18n_noresponse = "$r.escapeDoubleQuotes($r.translate("server.no.response"))";
 o_info.i18n_topnav_more = "$r.escapeDoubleQuotes($r.translate("header.topnav.more"))";
+o_info.oo_noresponse_title = "$r.escapeJavaScript($r.translateWithPackage("org.olat.login","timeout.title"))";
+o_info.oo_noresponse = "$r.escapeJavaScript($r.translateWithPackage("org.olat.login","timeout.message"))";
 ## Initialize zindex manager
 o_info.zseed = 0;
 #if($enforceTopFrame)
@@ -84,12 +86,12 @@ function o_start(){
 	<script type="text/javascript" src='$r.staticLink("bootstrap/javascripts/bootstrap/modal.js")'></script>
 	<script type="text/javascript" src='$r.staticLink("bootstrap/javascripts/bootstrap/tooltip.js")'></script>
 	<script type="text/javascript" src='$r.staticLink("bootstrap/javascripts/bootstrap/popover.js")'></script>
+	## The OpenOLAT video player. In separate file as it is also used in content iframes
+	<script type="text/javascript" src='$r.staticLink("movie/player.js")'></script>	
 #else
 	<script type="text/javascript" src='$r.staticLink("js/js.plugins.min.js")'></script>
+	<script type="text/javascript" src='$r.staticLink("movie/player.min.js")'></script>
 #end
-
-## The OpenOLAT video player. In separate file as it is also used in content iframes
-<script type="text/javascript" src='$r.staticLink("movie/player.js")'></script>
 
 #if($r.available("guidebug"))
 	<link type="text/css" href='$r.staticLink("js/jquery/tagsinput/bootstrap-tagsinput.css")' rel="stylesheet" />
@@ -102,12 +104,16 @@ function o_start(){
 
 <script type="text/javascript">
 /* <![CDATA[ */ 
-  jQuery.noConflict();
-	## references to objects for later access or cleanup
-	o_info.objectMap = new Hashtable();
+	jQuery.noConflict();
 	## Initialize js translator factory with the js translator mapper path
 	jQuery(document).ooTranslator().initialize("$jsTranslationMapperPath");
 	o_info.oo_translator = jQuery(document).ooTranslator();
+	## History and back button support
+	jQuery(window).on("popstate", function(e) {
+		if(e.originalEvent.state && e.originalEvent.state.businessPath) {
+			window.location.href = e.originalEvent.state.businessPath;
+		}
+	});
 /* ]]> */
 </script>
 

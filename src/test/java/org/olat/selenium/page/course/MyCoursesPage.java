@@ -99,18 +99,34 @@ public class MyCoursesPage {
 		return this;
 	}
 	
-	public MyCoursesPage selectCatalogEntry(String title) {
-		By titleBy = By.cssSelector(".o_sublevel .o_meta h4.o_title a");
-		List<WebElement> titleLinks = browser.findElements(titleBy);
-		Assert.assertFalse(titleLinks.isEmpty());
-		WebElement selectCategory = null;
-		for(WebElement titleLink:titleLinks) {
+	/**
+	 * Click on the book button of the course specified
+	 * by the title in the course list.
+	 * 
+	 * @param title
+	 */
+	public void book(String title) {
+		By bookingBy = By.cssSelector("a.o_book");
+		By rowBy = By.cssSelector("div.o_table_row");
+		By titleLinkBy = By.cssSelector("h4.o_title a");
+		WebElement linkToBook = null;
+		List<WebElement> rows = browser.findElements(rowBy);
+		for(WebElement row:rows) {
+			WebElement titleLink = row.findElement(titleLinkBy);
 			if(titleLink.getText().contains(title)) {
-				selectCategory = titleLink;
+				linkToBook = row.findElement(bookingBy);
 			}
 		}
-		Assert.assertNotNull(selectCategory);
-		selectCategory.click();
+		Assert.assertNotNull(linkToBook);
+		linkToBook.click();
+		OOGraphene.waitBusy(browser);
+	}
+	
+	public MyCoursesPage selectCatalogEntry(String title) {
+		By titleBy = By.xpath("//div[contains(@class,'o_sublevel')]//div[contains(@class,'o_meta')]//h4[contains(@class,'o_title')]//a[span[text()[contains(.,'" + title + "')]]]");
+		List<WebElement> titleLinks = browser.findElements(titleBy);
+		Assert.assertFalse(titleLinks.isEmpty());
+		titleLinks.get(0).click();
 		OOGraphene.waitBusy(browser);
 		return this;
 	}

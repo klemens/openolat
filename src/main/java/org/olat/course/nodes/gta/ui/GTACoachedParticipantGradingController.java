@@ -123,10 +123,12 @@ public class GTACoachedParticipantGradingController extends BasicController {
 	}
 	
 	private void doGraded() {
-		//assignedTask = gtaManager.updateTask(assignedTask, TaskProcess.graded);
+		//assignedTask = gtaManager.updateTask(assignedTask, TaskProcess.grading);
 	}
 
 	private void doOpenAssessmentForm(UserRequest ureq) {
+		if(assessmentForm != null) return;//already open
+		
 		ICourse course = CourseFactory.loadCourse(courseOres);
 		UserCourseEnvironment uce = AssessmentHelper.createAndInitUserCourseEnvironment(assessedIdentity, course);
 		AssessedIdentityWrapper assessedIdentityWrapper = AssessmentHelper.wrapIdentity(uce, null, gtaNode);

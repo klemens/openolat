@@ -232,12 +232,12 @@ public class ScormAPIandDisplayController extends MainLayoutBasicController impl
 			if (previewMode) {
 				LayoutMain3ColsPreviewController ctr = new LayoutMain3ColsPreviewController(ureq, getWindowControl(), (showMenu ? menuTree : null), myContent, "scorm" + scormResourceId);
 				if(fullWindow)
-					ctr.setAsFullscreen(ureq);
+					ctr.setAsFullscreen();
 				columnLayoutCtr = ctr;
 			} else {
 				LayoutMain3ColsBackController ctr = new LayoutMain3ColsBackController(ureq, getWindowControl(), (showMenu ? menuTree : null), myContent, "scorm" + scormResourceId);
 				if(fullWindow)
-					ctr.setAsFullscreen(ureq);
+					ctr.setAsFullscreen();
 				columnLayoutCtr = ctr;
 			}
 		} else {
@@ -415,14 +415,6 @@ public class ScormAPIandDisplayController extends MainLayoutBasicController impl
 	 */
 	public ScormCPManifestTreeModel getTreeModel() {
 		return treeModel;
-	}
-
-	/**
-	 * @param te
-	 * @deprecated @TODO To be deleted - does logging and would have to go via an event() method
-	 */
-	public void externalNodeClicked(TreeEvent te) {
-		switchToPage(te);
 	}
 	
 	private void updateNextPreviousButtons(String nextScoId) {

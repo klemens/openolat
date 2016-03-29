@@ -26,7 +26,7 @@
 			</div>
 		</div>
 	
-		<div class="o_content">
+		<div class="o_content o_user_content_block">
 			$!helper.getItemDescriptionForBrowser($item)
 			#if ($item.getContent() && $item.getContent() != "")
 				<div class="o_block_large_top">
@@ -35,18 +35,16 @@
 			#end
 		</div>
 	
-		#if (( $callback.mayEditItems() || ($callback.mayCreateItems() && $item.isDraft())) && $feed.isInternal())
-		#if ($r.available("editButton"))
+		#if(($r.available("editButton") && $r.visible("editButton")) || ($r.available("deleteButton") && $r.visible("deleteButton")))
 		<div class="o_button_group">
-			## special case: this item has been added by another user and thus we 
-			## don't yet have links for this item. But we can still display the content
-			$r.render("editButton")
-			#if ($callback.mayDeleteItems() || ($callback.mayCreateItems() && $item.isDraft()))
+			#if ($r.available("editButton") && $r.visible("editButton"))
+				$r.render("editButton")
+			#end
+			#if ($r.available("deleteButton") && $r.visible("deleteButton"))
 				$r.render("deleteButton")
 			#end
 		</div>
-		#end
-		#end			
+		#end		
 	</div>
 	
 	<div class="o_block_footer">

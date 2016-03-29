@@ -57,7 +57,8 @@ import org.springframework.test.context.junit4.AbstractJUnit4SpringContextTests;
  * This class is common parent to all JUnit Use Case tests in OLAT framework integration tests. 
  */
 @ContextConfiguration(loader = MockServletContextWebContextLoader.class, locations = {
-	"classpath:/org/olat/_spring/mainContext.xml"
+	"classpath:/org/olat/_spring/mainContext.xml",
+	"classpath:org/olat/course/_spring/textContextDeployableRepoExport.xml"
 })
 public abstract class OlatTestCase extends AbstractJUnit4SpringContextTests {
 	private static final OLog log = Tracing.createLoggerFor(OlatTestCase.class);
@@ -145,10 +146,9 @@ public abstract class OlatTestCase extends AbstractJUnit4SpringContextTests {
 		final CountDownLatch countDown = new CountDownLatch(1);
 		final AtomicBoolean result = new AtomicBoolean(false);
 		
-		new Thread(){
+		new Thread() {
 			@Override
 			public void run() {
-				
 				try {
 					int numOfTry = (timeoutInMilliseconds / 100) + 2;
 					for(int i=0; i<numOfTry; i++) {
@@ -159,10 +159,14 @@ public abstract class OlatTestCase extends AbstractJUnit4SpringContextTests {
 						} else {
 							result.set(false);
 						}
+						DBFactory.getInstance().commitAndCloseSession();
+						Thread.sleep(100);
 					}
 				} catch (Exception e) {
 					log.error("", e);
 					result.set(false);
+				} finally {
+					DBFactory.getInstance().closeSession();
 				}
 				countDown.countDown();
 			}

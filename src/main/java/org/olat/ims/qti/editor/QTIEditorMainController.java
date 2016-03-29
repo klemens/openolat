@@ -119,6 +119,7 @@ import org.olat.ims.qti.export.QTIWordExport;
 import org.olat.ims.qti.process.AssessmentInstance;
 import org.olat.ims.qti.process.QTIEditorResolver;
 import org.olat.ims.qti.qpool.QTIQPoolServiceProvider;
+import org.olat.ims.qti.questionimport.ImportOptions;
 import org.olat.ims.qti.questionimport.ItemAndMetadata;
 import org.olat.ims.qti.questionimport.ItemsPackage;
 import org.olat.ims.qti.questionimport.QImport_1_InputStep;
@@ -262,6 +263,8 @@ public class QTIEditorMainController extends MainLayoutBasicController implement
 	private QTIResultManager qtiResultManager;
 	@Autowired
 	private RepositoryManager repositoryManager;
+	@Autowired
+	private RepositoryService repositoryService;
 	@Autowired
 	private QTIQPoolServiceProvider qtiQpoolServiceProvider;
 	
@@ -775,7 +778,7 @@ public class QTIEditorMainController extends MainLayoutBasicController implement
 				String userMsg = chngMsgFrom.getUserMsg();
 				changeLog = changeEmail.getBodyText();
 				if (StringHelper.containsNonWhitespace(userMsg)) {
-					changeEmail.setBodyText(userMsg + "\n" + changeLog);
+					changeEmail.setBodyText("<p>" + userMsg + "</p>\n<pre>" + changeLog + "</pre>");
 				}// else nothing was added!
 				changeEmail.setSubject("Change log for " + startedWithTitle);
 				cfc = new ContactFormController(ureq, getWindowControl(), true, false, false, changeEmail);
@@ -1080,7 +1083,9 @@ public class QTIEditorMainController extends MainLayoutBasicController implement
 		removeAsListenerAndDispose(importTableWizard);
 
 		final ItemsPackage importPackage = new ItemsPackage();
-		Step start = new QImport_1_InputStep(ureq, importPackage, null);
+		final ImportOptions options = new ImportOptions();
+		options.setShuffle(!qtiPackage.getQTIDocument().isSurvey());
+		Step start = new QImport_1_InputStep(ureq, importPackage, options, null);
 		StepRunnerCallback finish = new StepRunnerCallback() {
 			@Override
 			public Step execute(UserRequest uureq, WindowControl wControl, StepsRunContext runContext) {
@@ -1198,10 +1203,8 @@ public class QTIEditorMainController extends MainLayoutBasicController implement
 		 */
 		changeEmail = new ContactMessage(ureq.getIdentity());
 
-		RepositoryManager rm = RepositoryManager.getInstance();
-		RepositoryService repositoryService = CoreSpringFactory.getImpl(RepositoryService.class);
 		// the owners of this qtiPkg
-		RepositoryEntry myEntry = rm.lookupRepositoryEntry(qtiPackage.getRepresentingResourceable(), false);
+		RepositoryEntry myEntry = repositoryManager.lookupRepositoryEntry(qtiPackage.getRepresentingResourceable(), false);
 		
 		// add qti resource owners as group
 		ContactList cl = new ContactList("qtiPkgOwners");
@@ -1228,7 +1231,7 @@ public class QTIEditorMainController extends MainLayoutBasicController implement
 				StringBuilder stakeHolders = new StringBuilder();
 				
 				// the course owners
-				RepositoryEntry entry = rm.lookupRepositoryEntry(course, false);
+				RepositoryEntry entry = repositoryManager.lookupRepositoryEntry(course, false);
 				if(entry != null) {//OO-1300
 					List<Identity> stakeHoldersIds = repositoryService.getMembers(entry, GroupRoles.owner.name());
 	

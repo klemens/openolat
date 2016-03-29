@@ -61,6 +61,18 @@ public interface RepositoryService {
 	
 	public List<RepositoryEntry> loadByResourceKeys(Collection<Long> keys);
 	
+	/**
+	 * @param repositoryEntryKey The key of the repository entry
+	 * @return The olat resource of the repository entry
+	 */
+	public OLATResource loadRepositoryEntryResource(Long repositoryEntryKey);
+	
+	/**
+	 * @param softkey The soft key of the repository entry
+	 * @return The olat resource of the repository entry
+	 */
+	public OLATResource loadRepositoryEntryResourceBySoftKey(String softkey);
+	
 	public VFSLeaf getIntroductionImage(RepositoryEntry re);
 
 	public VFSLeaf getIntroductionMovie(RepositoryEntry re);
@@ -84,11 +96,26 @@ public interface RepositoryService {
 	 */
 	public void deleteRepositoryEntryAndBaseGroups(RepositoryEntry entry);
 	
-
+	/**
+	 * Increment the launch counter and the last usage date.
+	 * 
+	 * @param re The repository entry
+	 */
 	public void incrementLaunchCounter(RepositoryEntry re);
 	
+	/**
+	 * Increment the download counter and the last usage date.
+	 * 
+	 * @param re The repository entry
+	 */
 	public void incrementDownloadCounter(RepositoryEntry re);
 	
+	/**
+	 * Update the last usage of the specified repository entry
+	 * with a granularity of 1 minute.
+	 * 
+	 * @param re The repository entry
+	 */
 	public void setLastUsageNowFor(RepositoryEntry re);
 
 	public Group getDefaultGroup(RepositoryEntryRef ref);
@@ -108,9 +135,10 @@ public interface RepositoryService {
 	/**
 	 * Count all members (following up to business groups wainting list)
 	 * @param res
+	 * @param excludeMe Exclude to user which call the method (optional)
 	 * @return
 	 */
-	public int countMembers(List<? extends RepositoryEntryRef> res);
+	public int countMembers(List<? extends RepositoryEntryRef> res, Identity excludeMe);
 	
 	/**
 	 * Return the smallest enrollment date.
@@ -150,6 +178,16 @@ public interface RepositoryService {
 	 * @return
 	 */
 	public List<Identity> getMembers(RepositoryEntryRef re, String... roles);
+	
+	/**
+	 * Return all the identities the specified role linked to a repository
+	 * entry.
+	 * 
+	 * 
+	 * @param rolle
+	 * @return
+	 */
+	public List<Identity> getIdentitiesWithRole(String role);
 	
 	/**
 	 * Get the role in the specified resource, business group are included in

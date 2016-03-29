@@ -47,10 +47,8 @@ import org.codehaus.jackson.type.TypeReference;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
-import org.olat.basesecurity.BaseSecurity;
 import org.olat.basesecurity.GroupRoles;
 import org.olat.commons.calendar.CalendarManager;
-import org.olat.commons.calendar.CalendarManagerFactory;
 import org.olat.commons.calendar.model.KalendarEvent;
 import org.olat.commons.calendar.restapi.CalendarVO;
 import org.olat.commons.calendar.restapi.EventVO;
@@ -80,13 +78,13 @@ public class CalendarTest extends OlatJerseyTestCase {
 	private static Identity id1, id2;
 	
 	@Autowired
+	private DB dbInstance;
+	@Autowired
+	private CalendarManager calendarManager;
+	@Autowired
 	private RepositoryManager repositoryManager;
 	@Autowired
 	private RepositoryService repositoryService;
-	@Autowired
-	private BaseSecurity securityManager;
-	@Autowired
-	private DB dbInstance;
 	
 	@Before
 	public void startup() {
@@ -107,8 +105,6 @@ public class CalendarTest extends OlatJerseyTestCase {
 			ICourse course = CourseFactory.loadCourse(course1.getResourceableId());
 			CourseConfig courseConfig = course.getCourseEnvironment().getCourseConfig();
 			Assert.assertTrue(courseConfig.isCalendarEnabled());
-
-			CalendarManager calendarManager = CalendarManagerFactory.getInstance().getCalendarManager();
 			KalendarRenderWrapper calendarWrapper = calendarManager.getCourseCalendar(course);
 			
 			Calendar cal = Calendar.getInstance();
@@ -143,7 +139,6 @@ public class CalendarTest extends OlatJerseyTestCase {
 			course2 = CoursesWebService.createEmptyCourse(id2, "Cal course - 2", "Cal course - 2", config);
 			dbInstance.commit();
 
-			CalendarManager calendarManager = CalendarManagerFactory.getInstance().getCalendarManager();
 			KalendarRenderWrapper calendarWrapper = calendarManager.getCourseCalendar(course2);
 			Assert.assertNotNull(calendarWrapper);
 
@@ -378,7 +373,7 @@ public class CalendarTest extends OlatJerseyTestCase {
 	}
 	
 	@Test
-	public void testPutCalendarEvents() throws IOException, URISyntaxException {
+	public void putCalendarEvent() throws IOException, URISyntaxException {
 		RestConnection conn = new RestConnection();
 		assertTrue(conn.login(id2.getName(), "A6B7C8"));
 		
@@ -402,7 +397,7 @@ public class CalendarTest extends OlatJerseyTestCase {
 		event.setSubject(subject);
 
 		URI eventUri = UriBuilder.fromUri(getContextURI()).path("users").path(id2.getKey().toString())
-				.path("calendars").path(calendar.getId()).path("events").build();
+				.path("calendars").path(calendar.getId()).path("event").build();
 		HttpPut putEventMethod = conn.createPut(eventUri, MediaType.APPLICATION_JSON, true);
 		conn.addJsonEntity(putEventMethod, event);
 		HttpResponse putEventResponse = conn.execute(putEventMethod);
@@ -410,7 +405,6 @@ public class CalendarTest extends OlatJerseyTestCase {
 		EntityUtils.consume(putEventResponse.getEntity());
 		
 		//check if the event is saved
-		CalendarManager calendarManager = CalendarManagerFactory.getInstance().getCalendarManager();
 		KalendarRenderWrapper calendarWrapper = calendarManager.getCourseCalendar(course2);
 		Collection<KalendarEvent> savedEvents = calendarWrapper.getKalendar().getEvents();
 		
@@ -426,7 +420,7 @@ public class CalendarTest extends OlatJerseyTestCase {
 	}
 	
 	@Test
-	public void testPutCalendarEvents_notAuthorized() throws IOException, URISyntaxException {
+	public void putCalendarEvents_notAuthorized() throws IOException, URISyntaxException {
 		RestConnection conn = new RestConnection();
 		assertTrue(conn.login(id2.getName(), "A6B7C8"));
 		
@@ -449,7 +443,7 @@ public class CalendarTest extends OlatJerseyTestCase {
 		event.setSubject(subject);
 
 		URI eventUri = UriBuilder.fromUri(getContextURI()).path("users").path(id2.getKey().toString())
-				.path("calendars").path(calendarCourse_1.getId()).path("events").build();
+				.path("calendars").path(calendarCourse_1.getId()).path("event").build();
 		HttpPut putEventMethod = conn.createPut(eventUri, MediaType.APPLICATION_JSON, true);
 		conn.addJsonEntity(putEventMethod, event);
 		HttpResponse putEventResponse = conn.execute(putEventMethod);
@@ -483,17 +477,13 @@ public class CalendarTest extends OlatJerseyTestCase {
 		event.setSubject(subject);
 
 		URI eventUri = UriBuilder.fromUri(getContextURI()).path("users").path(id2.getKey().toString())
-				.path("calendars").path(calendar.getId()).path("events").build();
+				.path("calendars").path(calendar.getId()).path("event").build();
 		HttpPost postEventMethod = conn.createPost(eventUri, MediaType.APPLICATION_JSON);
 		conn.addJsonEntity(postEventMethod, event);
 		HttpResponse postEventResponse = conn.execute(postEventMethod);
 		assertEquals(200, postEventResponse.getStatusLine().getStatusCode());
-		
-		EventVO newEvent = conn.parse(postEventResponse, EventVO.class);
-		Assert.assertNotNull(newEvent);
-		
+
 		//check if the event is saved
-		CalendarManager calendarManager = CalendarManagerFactory.getInstance().getCalendarManager();
 		KalendarRenderWrapper calendarWrapper = calendarManager.getCourseCalendar(course2);
 		Collection<KalendarEvent> savedEvents = calendarWrapper.getKalendar().getEvents();
 		
@@ -532,7 +522,7 @@ public class CalendarTest extends OlatJerseyTestCase {
 		event.setSubject(subject);
 
 		URI eventUri = UriBuilder.fromUri(getContextURI()).path("users").path(id2.getKey().toString())
-				.path("calendars").path(calendar.getId()).path("events").build();
+				.path("calendars").path(calendar.getId()).path("event").build();
 		HttpPut putEventMethod = conn.createPut(eventUri, MediaType.APPLICATION_JSON, true);
 		conn.addJsonEntity(putEventMethod, event);
 		HttpResponse putEventResponse = conn.execute(putEventMethod);
@@ -541,7 +531,6 @@ public class CalendarTest extends OlatJerseyTestCase {
 		
 		
 		//check if the event is saved
-		CalendarManager calendarManager = CalendarManagerFactory.getInstance().getCalendarManager();
 		KalendarRenderWrapper calendarWrapper = calendarManager.getPersonalCalendar(id2);
 		Collection<KalendarEvent> savedEvents = calendarWrapper.getKalendar().getEvents();
 		
@@ -562,7 +551,6 @@ public class CalendarTest extends OlatJerseyTestCase {
 		assertTrue(conn.login(id2.getName(), "A6B7C8"));
 		
 		//check if the event is saved
-		CalendarManager calendarManager = CalendarManagerFactory.getInstance().getCalendarManager();
 		KalendarRenderWrapper calendarWrapper = calendarManager.getPersonalCalendar(id2);
 		KalendarEvent kalEvent = new KalendarEvent(UUID.randomUUID().toString(), "Rendez-vous", new Date(), new Date());
 		calendarManager.addEventTo(calendarWrapper.getKalendar(), kalEvent);

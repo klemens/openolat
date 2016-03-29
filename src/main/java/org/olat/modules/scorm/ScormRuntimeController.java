@@ -19,6 +19,8 @@
  */
 package org.olat.modules.scorm;
 
+import java.util.List;
+
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.Component;
 import org.olat.core.gui.components.dropdown.Dropdown;
@@ -31,12 +33,12 @@ import org.olat.core.gui.control.Event;
 import org.olat.core.gui.control.WindowControl;
 import org.olat.core.gui.control.generic.iframe.DeliveryOptions;
 import org.olat.core.gui.control.generic.iframe.DeliveryOptionsConfigurationController;
-import org.olat.ims.cp.CPManager;
+import org.olat.core.id.context.ContextEntry;
+import org.olat.core.id.context.StateEntry;
 import org.olat.repository.RepositoryEntry;
 import org.olat.repository.model.RepositoryEntrySecurity;
 import org.olat.repository.ui.RepositoryEntryRuntimeController;
 import org.olat.resource.OLATResource;
-import org.springframework.beans.factory.annotation.Autowired;
 
 /**
  * 
@@ -49,9 +51,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 public class ScormRuntimeController extends RepositoryEntryRuntimeController {
 	
 	private Link deliveryOptionsLink;
-	
-	@Autowired
-	private CPManager cpManager;
 	
 	public ScormRuntimeController(UserRequest ureq, WindowControl wControl,
 			RepositoryEntry re, RepositoryEntrySecurity reSecurity, RuntimeControllerCreator runtimeControllerCreator) {
@@ -71,6 +70,20 @@ public class ScormRuntimeController extends RepositoryEntryRuntimeController {
 	}
 	
 	@Override
+	public void activate(UserRequest ureq, List<ContextEntry> entries, StateEntry state) {
+		entries = removeRepositoryEntry(entries);
+		if(entries != null && entries.size() > 0) {
+			String type = entries.get(0).getOLATResourceable().getResourceableTypeName();
+			if("Layout".equalsIgnoreCase(type)) {
+				if (reSecurity.isEntryAdmin()) {
+					doLayout(ureq);
+				}
+			}
+		}
+		super.activate(ureq, entries, state);
+	}
+	
+	@Override
 	protected void event(UserRequest ureq, Component source, Event event) {
 		if(deliveryOptionsLink == source) {
 			doLayout(ureq);
@@ -84,8 +97,10 @@ public class ScormRuntimeController extends RepositoryEntryRuntimeController {
 		ScormPackageConfig scormConfig = ScormMainManager.getInstance().getScormPackageConfig(entry.getOlatResource());
 		DeliveryOptions config = scormConfig == null ? null : scormConfig.getDeliveryOptions();
 		final OLATResource resource = entry.getOlatResource();
-		final DeliveryOptionsConfigurationController deliveryOptionsCtrl = new DeliveryOptionsConfigurationController(ureq, getWindowControl(), config);
-	
+		WindowControl bwControl = getSubWindowControl("Layout");
+		final DeliveryOptionsConfigurationController deliveryOptionsCtrl
+			= new DeliveryOptionsConfigurationController(ureq, addToHistory(ureq, bwControl), config, "Knowledge Transfer#_scorm_layout");
+
 		deliveryOptionsCtrl.addControllerListener(new ControllerEventListener() {
 			@Override
 			public void dispatchEvent(UserRequest uureq, Controller source, Event event) {

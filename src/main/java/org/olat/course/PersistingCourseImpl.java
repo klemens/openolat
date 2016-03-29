@@ -56,7 +56,6 @@ import org.olat.course.config.CourseConfig;
 import org.olat.course.config.CourseConfigManager;
 import org.olat.course.config.CourseConfigManagerImpl;
 import org.olat.course.export.CourseEnvironmentMapper;
-import org.olat.course.groupsandrights.PersistingCourseGroupManager;
 import org.olat.course.nodes.CourseNode;
 import org.olat.course.nodes.CourseNode.Processing;
 import org.olat.course.run.environment.CourseEnvironment;
@@ -100,7 +99,7 @@ public class PersistingCourseImpl implements ICourse, OLATResourceable, Serializ
 	private boolean hasAssessableNodes = false;
 	private CourseEditorTreeModel editorTreeModel;
 	private CourseConfig courseConfig;
-	private CourseEnvironment courseEnvironment;
+	private final CourseEnvironmentImpl courseEnvironment;
 	private OlatRootFolderImpl courseRootContainer;
 	private String courseTitle = null;
 	/** courseTitleSyncObj is a final Object only used for synchronizing the courseTitle getter - see OLAT-5654 */
@@ -123,14 +122,23 @@ public class PersistingCourseImpl implements ICourse, OLATResourceable, Serializ
 	 * not already exist. Editor and run structures are not yet set. Use load() to
 	 * initialize the editor and run structure from persisted XML structure.
 	 * 
-	 * @param resourceableId
+	 * @param resource The OLAT resource
 	 */
-	PersistingCourseImpl(Long resourceableId) {
-		this.resourceableId = resourceableId;
+	PersistingCourseImpl(OLATResource resource) {
+		this.resourceableId = resource.getResourceableId();
 		// prepare filesystem and set course base path and course folder paths
 		prepareFilesystem();
 		courseConfig = CourseConfigManagerImpl.getInstance().loadConfigFor(this); // load or init defaults
-		courseEnvironment = new CourseEnvironmentImpl(this);
+		courseEnvironment = new CourseEnvironmentImpl(this, resource);
+	}
+	
+	PersistingCourseImpl(RepositoryEntry courseEntry) {
+		courseTitle = courseEntry.getDisplayname();
+		resourceableId = courseEntry.getOlatResource().getResourceableId();
+		// prepare filesystem and set course base path and course folder paths
+		prepareFilesystem();
+		courseConfig = CourseConfigManagerImpl.getInstance().loadConfigFor(this); // load or init defaults
+		courseEnvironment = new CourseEnvironmentImpl(this, courseEntry);
 	}
 	
 
@@ -151,6 +159,7 @@ public class PersistingCourseImpl implements ICourse, OLATResourceable, Serializ
 	/**
 	 * @see org.olat.course.ICourse#getCourseBasePath()
 	 */
+	@Override
 	public OlatRootFolderImpl getCourseBaseContainer() {
 		return courseRootContainer;
 	}
@@ -171,7 +180,7 @@ public class PersistingCourseImpl implements ICourse, OLATResourceable, Serializ
 	public VFSContainer getCourseFolderContainer() {
 		// add local course folder's children as read/write source and any sharedfolder as subfolder
 		MergedCourseContainer courseFolderContainer = new MergedCourseContainer(resourceableId, getCourseTitle());
-		courseFolderContainer.init();
+		courseFolderContainer.init(this);
 		return courseFolderContainer;
 	}
 
@@ -179,7 +188,7 @@ public class PersistingCourseImpl implements ICourse, OLATResourceable, Serializ
 	public VFSContainer getCourseFolderContainer(IdentityEnvironment identityEnv) {
 		// add local course folder's children as read/write source and any sharedfolder as subfolder
 		MergedCourseContainer courseFolderContainer = new MergedCourseContainer(resourceableId, getCourseTitle(), identityEnv);
-		courseFolderContainer.init();
+		courseFolderContainer.init(this);
 		return courseFolderContainer;
 	}
 	
@@ -194,6 +203,7 @@ public class PersistingCourseImpl implements ICourse, OLATResourceable, Serializ
 	/**
 	 * @see org.olat.course.ICourse#getCourseTitle()
 	 */
+	@Override
 	public String getCourseTitle() {	
 		if (courseTitle == null) {
 			synchronized (courseTitleSyncObj) { //o_clusterOK by:ld/se
@@ -202,6 +212,11 @@ public class PersistingCourseImpl implements ICourse, OLATResourceable, Serializ
 			}
 		}
 		return courseTitle;
+	}
+	
+	public void updateCourseEntry(RepositoryEntry courseEntry) {
+		courseTitle = courseEntry.getDisplayname();
+		courseEnvironment.updateCourseEntry(courseEntry);
 	}
 
 	/**
@@ -279,12 +294,13 @@ public class PersistingCourseImpl implements ICourse, OLATResourceable, Serializ
 		FileUtils.copyFileToDir(new File(fCourseBase, CourseConfigManager.COURSECONFIG_XML), exportDirectory, "course export courseconfig");
 		
 		//export business groups
-		CourseEnvironmentMapper envMapper = PersistingCourseGroupManager.getInstance(this).getBusinessGroupEnvironment();
+		CourseEnvironmentMapper envMapper = getCourseEnvironment().getCourseGroupManager().getBusinessGroupEnvironment();
 		if(backwardsCompatible) {
 			//prevents duplicate names
 			envMapper.avoidDuplicateNames();
 		}
-		PersistingCourseGroupManager.getInstance(this).exportCourseBusinessGroups(fExportedDataDir, envMapper, runtimeDatas, backwardsCompatible);
+	
+		getCourseEnvironment().getCourseGroupManager().exportCourseBusinessGroups(fExportedDataDir, envMapper, runtimeDatas, backwardsCompatible);
 		if(backwardsCompatible) {
 			XStream xstream = CourseXStreamAliases.getReadCourseXStream();
 
@@ -398,13 +414,13 @@ public class PersistingCourseImpl implements ICourse, OLATResourceable, Serializ
 	}
 	
 	@Override
-	public void postImport(CourseEnvironmentMapper envMapper) {
+	public void postImport(File importDirectory, CourseEnvironmentMapper envMapper) {
 		Structure importedStructure = getRunStructure();
-		visit(new NodePostImportVisitor(envMapper, Processing.runstructure), importedStructure.getRootNode());
+		visit(new NodePostImportVisitor(importDirectory, this, envMapper, Processing.runstructure), importedStructure.getRootNode());
 		saveRunStructure();
 		
 		CourseEditorTreeModel importedEditorModel = getEditorTreeModel();
-		visit(new NodePostImportVisitor(envMapper, Processing.editor), importedEditorModel.getRootNode());
+		visit(new NodePostImportVisitor(importDirectory, this, envMapper, Processing.editor), importedEditorModel.getRootNode());
 		saveEditorTreeModel();
 	}
 	
@@ -574,13 +590,16 @@ class NodePostExportVisitor implements Visitor {
 }
 
 class NodePostImportVisitor implements Visitor {
-	
+	private final ICourse course;
+	private final File importDirectory;
 	private final Processing processType;
 	private final CourseEnvironmentMapper envMapper;
 	
-	public NodePostImportVisitor(CourseEnvironmentMapper envMapper, Processing processType) {
+	public NodePostImportVisitor(File importDirectory, ICourse course, CourseEnvironmentMapper envMapper, Processing processType) {
+		this.course = course;
 		this.envMapper = envMapper;
 		this.processType = processType;
+		this.importDirectory = importDirectory;
 	}
 	
 	@Override
@@ -589,7 +608,7 @@ class NodePostImportVisitor implements Visitor {
 			node = ((CourseEditorTreeNode)node).getCourseNode();
 		}
 		if(node instanceof CourseNode) {
-			((CourseNode)node).postImport(envMapper, processType);
+			((CourseNode)node).postImport(importDirectory, course, envMapper, processType);
 		}
 	}
 }

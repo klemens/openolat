@@ -1,10 +1,6 @@
 <fieldset>
 	<legend>$r.translate("fieldset.legend.question")
-	#if ($isSurveyMode == "true")
-		$r.contextHelpWithWrapper("org.olat.ims.qti.editor","qed-quest-surv-mcsc.html","help.hover.qti-quest-5")
-	#else	
-		$r.contextHelpWithWrapper("org.olat.ims.qti.editor","qed-quest-test-5.html","help.hover.qti-quest-5")
-	#end
+	$r.contextHelpWithWrapper("Test and Questionnaire Editor in Detail#details_testeditor_fragetypen_kprim")
 	</legend>
 	
 	<table class="table">
@@ -16,7 +12,7 @@
 			<tr>
 				<td>$r.formatLatexFormulas($question.getQuestion().renderAsHtml($mediaBaseURL))</td>
 				<td align="center">
-					<a title="$r.translateInAttribute("mat.edit.question")" href="$r.commandURIbg('editq')" $r.bgTarget() onclick="return o2cl()"><img alt="$r.translateInAttribute("mat.edit.question")" src="$r.staticLink("images/qti/page_edit.png")"></a>
+					<a $r.hrefAndOnclick("editq",true,true) title="$r.translateInAttribute("mat.edit.question")"><i class="o_icon o_icon-lg o_icon_edit"> </i></a>
 				</td>
 			</tr>
 		</tbody>
@@ -24,14 +20,9 @@
 </fieldset>
 <fieldset class="o_form form-horizontal" role="form">
 	<legend>$r.translate("fieldset.legend.answers")
-	#if ($isSurveyMode == "true")
-		$r.contextHelpWithWrapper("org.olat.ims.qti.editor","qed-answer-surv-2.html","help.hover.qti-quest-5")
-	#else	
-		$r.contextHelpWithWrapper("org.olat.ims.qti.editor","qed-answer-test-5.html","help.hover.qti-answer-5")
-	#end
 	</legend>
 	
-	<form action="$r.formURIbg("skprim")" id="ofo_tab_kprimitem" $r.bgTarget() method="post">
+	<form action="$r.formURIbg("skprim")" id="ofo_tab_kprimitem" name="ofo_tab_kprimitem" method="post" onsubmit="o_XHRSubmit('ofo_tab_kprimitem');">
 #if ($question && $question.getResponses().size() > 0)
 		<table class="table table-bordered" style="position:relative">
 		<thead>
@@ -53,9 +44,9 @@
 			<tr>			
 				<td>
 				#if(!$isRestrictedEdit)
-					<a href="$r.commandURI("up", "posid", "$count")" onclick="return o2cl()"  onkeypress="return o2cl()" title="$r.translateInAttribute("mat.move_up")"><img src="$r.staticLink("images/qti/move_up.png")" alt="$r.translateInAttribute("mat.move_up")" border="0"></a>
+					<a $r.hrefAndOnclick("up",true,true,"posid","$count") title="$r.translateInAttribute("mat.move_up")"><i class="o_icon o_icon-lg o_icon_move_up"> </i></a>
 					<br />
-					<a href="$r.commandURI("down", "posid", "$count")" onclick="return o2cl()"  onkeypress="return o2cl()" title="$r.translateInAttribute("mat.move_down")"><img src="$r.staticLink("images/qti/move_down.png")" alt="$r.translateInAttribute("mat.move_down")" border="0"></a>
+					<a $r.hrefAndOnclick("down",true,true,"posid","$count")" title="$r.translateInAttribute("mat.move_down")"><i class="o_icon o_icon-lg o_icon_move_down"> </i></a>
 				#end
 				</td>
 				<td>$r.formatLatexFormulas($content.getContent().renderAsHtml($mediaBaseURL))</td>
@@ -88,8 +79,7 @@
 				<td >&nbsp;</td>
 #end
 				<td valign="middle" align="center">
-					<a href="$r.commandURI("editr", "posid", "$count")" onclick="return o2cl()"  onkeypress="return o2cl()" title="$r.translateInAttribute("mat.edit.response")">
-						<img src="$r.staticLink("images/qti/page_edit.png")" alt="$r.translateInAttribute("mat.edit.response")" border="0"></a>
+					<a $r.hrefAndOnclick("editr",true,true,"posid","$count") title="$r.translateInAttribute("mat.edit.response")"><i class="o_icon o_icon-lg o_icon_edit"> </i></a>
 				</td>
 			</tr>
 #end
@@ -113,7 +103,7 @@
 		</div>
 	#if(!$isRestrictedEdit)
 		<div class="col-sm-offset-3 col-sm-9 "><div class="btn-group">
-			<input type="submit" value="$r.translateInAttribute("submit")" class="btn btn-primary" name="olat_fosm" />
+			<button type="button" class="btn btn-primary" name="olat_fosm" onclick="o_IQEvent('ofo_tab_kprimitem')"><span>$r.translateInAttribute("submit")</span></button>
 		</div></div>
 	#end
 #end

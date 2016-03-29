@@ -27,6 +27,7 @@ import org.olat.core.commons.services.notifications.PublisherData;
 import org.olat.core.commons.services.notifications.SubscriptionContext;
 import org.olat.core.id.Identity;
 import org.olat.core.util.vfs.VFSContainer;
+import org.olat.course.editor.CourseEditorEnv;
 import org.olat.course.nodes.GTACourseNode;
 import org.olat.course.nodes.gta.model.Membership;
 import org.olat.course.nodes.gta.ui.SubmitEvent;
@@ -87,8 +88,21 @@ public interface GTAManager {
 
 	public VFSContainer getSolutionsContainer(CourseEnvironment courseEnv, GTACourseNode cNode);
 	
-	
+	/**
+	 * Create a subscription context.
+	 * @param courseEnv The course environment
+	 * @param cNode The course element
+	 * @return The subscription context for this course and course element.
+	 */
 	public SubscriptionContext getSubscriptionContext(CourseEnvironment courseEnv, GTACourseNode cNode);
+	
+	/**
+	 * Create a subscription context.
+	 * @param courseEnv The course environment
+	 * @param cNode The course element
+	 * @return The subscription context for this course and course element.
+	 */
+	public SubscriptionContext getSubscriptionContext(CourseEditorEnv courseEnv, GTACourseNode cNode);
 	
 	public PublisherData getPublisherData(CourseEnvironment courseEnv, GTACourseNode cNode);
 	
@@ -164,7 +178,20 @@ public interface GTAManager {
 	
 	public int updateTaskName(TaskList taskList, String currentTaskName, String newTaskName);
 	
+	/**
+	 * Delete the task list and the tasks of the specified course element of the course.
+	 * @param entry The repository entry of the course
+	 * @param cNode The course element
+	 * @return
+	 */
 	public int deleteTaskList(RepositoryEntryRef entry, GTACourseNode cNode);
+	
+	/**
+	 * Delete all the task list and tasks of a course specified by its repository entry.
+	 * @param entry
+	 * @return
+	 */
+	public int deleteAllTaskLists(RepositoryEntryRef entry);
 	
 	
 	public Membership getMembership(IdentityRef identity, RepositoryEntryRef entry, GTACourseNode cNode);
