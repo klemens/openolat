@@ -27,9 +27,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import org.olat.basesecurity.BaseSecurity;
 import org.olat.basesecurity.IdentityRef;
-import org.olat.basesecurity.manager.GroupDAO;
 import org.olat.collaboration.CollaborationTools;
 import org.olat.core.commons.persistence.DB;
 import org.olat.core.commons.services.tagging.manager.TaggingManager;
@@ -66,6 +64,7 @@ import org.olat.portfolio.model.structel.EPTargetResource;
 import org.olat.portfolio.model.structel.ElementType;
 import org.olat.portfolio.model.structel.PortfolioStructure;
 import org.olat.portfolio.model.structel.PortfolioStructureMap;
+import org.olat.portfolio.model.structel.PortfolioStructureRef;
 import org.olat.properties.NarrowedPropertyManager;
 import org.olat.properties.Property;
 import org.olat.resource.OLATResource;
@@ -98,10 +97,6 @@ public class EPFrontendManager implements UserDataDeletable, DeletableGroupData 
 
 	@Autowired
 	private Coordinator coordinator;
-	@Autowired
-	private GroupDAO groupDao;
-	@Autowired
-	private BaseSecurity securityManager;
 	@Autowired
 	private EPArtefactManager artefactManager;
 	@Autowired
@@ -310,6 +305,10 @@ public class EPFrontendManager implements UserDataDeletable, DeletableGroupData 
 	 */
 	public List<AbstractArtefact> loadArtefactsByBusinessPath(String businessPath, Identity author){
 		return artefactManager.loadArtefactsByBusinessPath(businessPath, author);		
+	}
+	
+	public Map<String,Long> getNumOfArtefactsByStartingBusinessPath(String businessPath, IdentityRef author){
+		return artefactManager.loadNumOfArtefactsByStartingBusinessPath(businessPath, author);		
 	}
 	
 	/**
@@ -950,6 +949,10 @@ public class EPFrontendManager implements UserDataDeletable, DeletableGroupData 
 		return structureManager.loadPortfolioStructureByKey(key);
 	}
 	
+	public PortfolioStructure loadPortfolioStructureByKey(PortfolioStructureRef ref){
+		return structureManager.loadPortfolioStructureByKey(ref.getKey());
+	}
+	
 	/**
 	 * Reload a portfolio structure
 	 * @param structure cannot be null
@@ -973,9 +976,10 @@ public class EPFrontendManager implements UserDataDeletable, DeletableGroupData 
 	 * @param structure
 	 * @return
 	 */
-	public PortfolioStructure loadStructureParent(PortfolioStructure structure) {
+	public PortfolioStructure loadStructureParent(PortfolioStructureRef structure) {
 		return structureManager.loadStructureParent(structure);
 	}
+	
 	
 	/**
 	 * Retrieve the children structures
@@ -1074,6 +1078,10 @@ public class EPFrontendManager implements UserDataDeletable, DeletableGroupData 
 	 */
 	public boolean isMapOwner(Identity identity, OLATResourceable ores) {
 		return structureManager.isMapOwner(identity, ores);
+	}
+	
+	public boolean isMapOwner(Identity identity, Long mapKey) {
+		return structureManager.isMapOwner(identity, mapKey);
 	}
 	
 	/**

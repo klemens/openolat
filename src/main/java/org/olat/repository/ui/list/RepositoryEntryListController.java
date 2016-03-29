@@ -76,6 +76,7 @@ import org.olat.course.CorruptedCourseException;
 import org.olat.repository.RepositoryEntry;
 import org.olat.repository.RepositoryManager;
 import org.olat.repository.RepositoryModule;
+import org.olat.repository.RepositoryService;
 import org.olat.repository.model.SearchMyRepositoryEntryViewParams;
 import org.olat.repository.model.SearchMyRepositoryEntryViewParams.Filter;
 import org.olat.repository.model.SearchMyRepositoryEntryViewParams.OrderBy;
@@ -118,6 +119,8 @@ public class RepositoryEntryListController extends FormBasicController
 	private MapperService mapperService;
 	@Autowired
 	private RepositoryModule repositoryModule;
+	@Autowired
+	private RepositoryService repositoryService;
 	
 	private final boolean guestOnly;
 	
@@ -179,7 +182,9 @@ public class RepositoryEntryListController extends FormBasicController
 				true, OrderBy.lifecycleStart.name(), FlexiColumnModel.ALIGNMENT_LEFT, new DateFlexiCellRenderer(getLocale())));
 		columnsModel.addFlexiColumnModel(new DefaultFlexiColumnModel(true, Cols.lifecycleEnd.i18nKey(), Cols.lifecycleEnd.ordinal(),
 				true, OrderBy.lifecycleEnd.name(), FlexiColumnModel.ALIGNMENT_LEFT, new DateFlexiCellRenderer(getLocale())));
-		columnsModel.addFlexiColumnModel(new DefaultFlexiColumnModel(false,Cols.details.i18nKey(), Cols.details.ordinal(), false, null));
+		columnsModel.addFlexiColumnModel(new DefaultFlexiColumnModel(false, Cols.location.i18nKey(), Cols.location.ordinal(),
+				true, OrderBy.location.name()));
+		columnsModel.addFlexiColumnModel(new DefaultFlexiColumnModel(false, Cols.details.i18nKey(), Cols.details.ordinal(), false, null));
 		columnsModel.addFlexiColumnModel(new DefaultFlexiColumnModel(Cols.start.i18nKey(), Cols.start.ordinal()));
 		if(repositoryModule.isRatingEnabled()) {
 			columnsModel.addFlexiColumnModel(new DefaultFlexiColumnModel(Cols.ratings.i18nKey(), Cols.ratings.ordinal(),
@@ -502,12 +507,18 @@ public class RepositoryEntryListController extends FormBasicController
 			
 			OLATResourceable ores = OresHelper.createOLATResourceableInstance("Infos", 0l);
 			WindowControl bwControl = BusinessControlFactory.getInstance().createBusinessWindowControl(ores, null, getWindowControl());
-			detailsCtrl = new RepositoryEntryDetailsController(ureq, bwControl, row);
-			listenTo(detailsCtrl);
-			addToHistory(ureq, detailsCtrl);
-			
-			String displayName = row.getDisplayName();
-			stackPanel.pushController(displayName, detailsCtrl);			
+
+			RepositoryEntry entry = repositoryService.loadByKey(row.getKey());
+			if(entry == null) {
+				showWarning("repositoryentry.not.existing");
+			} else {
+				detailsCtrl = new RepositoryEntryDetailsController(ureq, bwControl, entry, row, false);
+				listenTo(detailsCtrl);
+				addToHistory(ureq, detailsCtrl);
+				
+				String displayName = row.getDisplayName();
+				stackPanel.pushController(displayName, detailsCtrl);	
+			}
 		}
 	}
 	

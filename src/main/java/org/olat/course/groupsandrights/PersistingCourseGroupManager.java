@@ -89,6 +89,19 @@ public class PersistingCourseGroupManager extends BasicManager implements Course
 		repositoryService = CoreSpringFactory.getImpl(RepositoryService.class);
 		businessGroupService = CoreSpringFactory.getImpl(BusinessGroupService.class);
 	}
+	
+	private PersistingCourseGroupManager(RepositoryEntry courseRepoEntry) {
+		this.courseRepoEntry = courseRepoEntry;
+		this.courseResource = courseRepoEntry.getOlatResource();
+		areaManager = CoreSpringFactory.getImpl(BGAreaManager.class);
+		rightManager = CoreSpringFactory.getImpl(BGRightManager.class);
+		repositoryService = CoreSpringFactory.getImpl(RepositoryService.class);
+		businessGroupService = CoreSpringFactory.getImpl(BusinessGroupService.class);
+	}
+	
+	public void updateCourseEntry(RepositoryEntry courseEntry) {
+		this.courseRepoEntry = courseEntry;
+	}
 
 	@Override
 	public OLATResource getCourseResource() {
@@ -102,12 +115,17 @@ public class PersistingCourseGroupManager extends BasicManager implements Course
 		}
 		return courseRepoEntry;
 	}
+	
+	@Override
+	public void refreshRepositoryEntry(RepositoryEntry entry) {
+		courseRepoEntry = entry;
+	}
 
 	/**
 	 * @param course The current course
 	 * @return A course group manager that uses persisted data
 	 */
-	public static PersistingCourseGroupManager getInstance(OLATResourceable course) {
+	public static PersistingCourseGroupManager getInstance2(OLATResourceable course) {
 		return new PersistingCourseGroupManager(course);
 	}
 
@@ -117,6 +135,10 @@ public class PersistingCourseGroupManager extends BasicManager implements Course
 	 */
 	public static PersistingCourseGroupManager getInstance(OLATResource courseResource) {
 		return new PersistingCourseGroupManager(courseResource);
+	}
+	
+	public static PersistingCourseGroupManager getInstance(RepositoryEntry courseRepoEntry) {
+		return new PersistingCourseGroupManager(courseRepoEntry);
 	}
 
 	/**
@@ -365,7 +387,8 @@ public class PersistingCourseGroupManager extends BasicManager implements Course
 	@Override
 	public CourseEnvironmentMapper importCourseBusinessGroups(File fImportDirectory) {
 		CourseEnvironmentMapper envMapper = new CourseEnvironmentMapper();
-		RepositoryEntry courseRe = RepositoryManager.getInstance().lookupRepositoryEntry(getCourseResource(), true);
+		OLATResource resource = getCourseResource();
+		RepositoryEntry courseRe = RepositoryManager.getInstance().lookupRepositoryEntry(resource, true);
 		File fGroupXML1 = new File(fImportDirectory, LEARNINGGROUPEXPORT_XML);
 		if(fGroupXML1.exists()) {
 			BusinessGroupEnvironment env = businessGroupService.importGroups(courseRe, fGroupXML1);

@@ -285,12 +285,17 @@ function o_afterserver() {
 }
 
 function o2cl() {
-	if (o_info.linkbusy) {
+	try {
+		if (o_info.linkbusy) {
+			return false;
+		} else {
+			var doreq = (o2c==0 || confirm(o_info.dirty_form));
+			if (doreq) o_beforeserver();
+			return doreq;
+		}
+	} catch(e) {
+		if(window.console) console.log(e);
 		return false;
-	} else {
-		var doreq = (o2c==0 || confirm(o_info.dirty_form));
-		if (doreq) o_beforeserver();
-		return doreq;
 	}
 }
 //for flexi tree
@@ -300,18 +305,6 @@ function o2cl_noDirtyCheck() {
 	} else {
 		o_beforeserver();
 		return true;
-	}
-}
-//for tree and Firefox
-function o2cl_secure() {
-	try {
-		if(o2cl()) {
-			return true;
-		} else {
-			return false;
-		}
-	} catch(e){
-		return false
 	}
 }
 
@@ -680,7 +673,6 @@ function o_ainvoke(r) {
 	BDebugger.logDOMCount();
 	BDebugger.logGlobalObjCount();
 	BDebugger.logGlobalOLATObjects();
-	BDebugger.logManagedOLATObjects();
 */
 }
 /**
@@ -694,7 +686,6 @@ function clearAfterAjaxIframeCall() {
 		// the ajax channel, e.g. error message from apache or no response from server
 		// Call afterserver to remove busy icon clear the linkbusy flag
 		o_afterserver();
-		showMessageBox('info', o_info.i18n_noresponse_title, o_info.i18n_noresponse, undefined);
 	}
 }
 
@@ -823,18 +814,6 @@ function gotonode(nodeid) {
 	} catch (e) {
 		alert('Goto node error:' + e);
 		if(jQuery(document).ooLog().isDebugEnabled()) jQuery(document).ooLog('debug',"Error in gotonode()::" + e.message, "functions.js");
-	}
-}
-
-
-function o_openUriInMainWindow(uri) {
-	// get the "olatmain" window
-	try {
-		var w = o_getMainWin();
-		w.focus();
-		w.location.replace(uri);		
-	} catch (e) {
-		showMessageBox("error", "Error", "Can not find main OpenOLAT window to open URL.");		
 	}
 }
 
@@ -1146,7 +1125,7 @@ function showerror(e) {
 // parameter submitted is the action value triggering the submit.
 // A 'submit' is not the same as 'submit and validate'. if the form should validate
 // is defined by the triggered component.
-function o_ffEvent (formNam, dispIdField, dispId, eventIdField, eventInt){
+function o_ffEvent(formNam, dispIdField, dispId, eventIdField, eventInt){
 	//set hidden fields and submit form
 	var dispIdEl, defDispId,eventIdEl,defEventId;
 	
@@ -1157,20 +1136,123 @@ function o_ffEvent (formNam, dispIdField, dispId, eventIdField, eventInt){
 	defEventId = eventIdEl.value;
 	eventIdEl.value=eventInt;
 	// manually execute onsubmit method - calling submit itself does not trigger onsubmit event!
-	if (document.forms[formNam].onsubmit()) {
+	var form = jQuery('#' + formNam);
+	var enctype = form.attr('enctype');
+	if(enctype && enctype.indexOf("multipart") == 0) {
+		o_XHRSubmitMultipart(formNam);
+	} else if (document.forms[formNam].onsubmit()) {
 		document.forms[formNam].submit();
 	}
+	
 	dispIdEl.value = defDispId;
 	eventIdEl.value = defEventId;
 }
 
-function o_ffXHREvent(formNam, dispIdField, dispId, eventIdField, eventInt) {
+function o_IQEvent(formNam){
+	if (document.forms[formNam].onsubmit()) {
+		document.forms[formNam].submit();
+	}
+}
+
+function o_TableMultiActionEvent(formNam, action){
+	var mActionIdEl = jQuery('#o_mai_' + formNam);
+	mActionIdEl.val(action);
+	if (document.forms[formNam].onsubmit()) {
+		document.forms[formNam].submit();
+	}
+	mActionIdEl.val('');
+}
+
+function o_XHRSubmit(formNam) {
+	if(o_info.linkbusy) {
+		return false;
+	}
+
+	o_beforeserver();
+	var push = true;
+	var form = jQuery('#' + formNam);
+	var enctype = form.attr('enctype');
+	if(enctype && enctype.indexOf("multipart") == 0) {
+		var iframeName = "openolat-submit-" + ("" + Math.random()).substr(2);
+		var iframe = o_createIFrame(iframeName);
+		document.body.appendChild(iframe);
+		form.attr('target', iframe.name);
+		return true;
+	} else {
+		var data = form.serializeArray();
+		if(arguments.length > 1) {
+			var argLength = arguments.length;
+			for(var i=1; i<argLength; i=i+2) {
+				if(argLength > i+1) {
+					var argData = new Object();
+					argData["name"] = arguments[i];
+					argData["value"] = arguments[i+1];
+					data[data.length] = argData;
+				}
+			}
+		}
+
+		var targetUrl = form.attr("action");
+		jQuery.ajax(targetUrl,{
+			type:'POST',
+			data: data,
+			cache: false,
+			dataType: 'json',
+			success: function(data, textStatus, jqXHR) {
+				try {
+					o_ainvoke(data);
+					if(push) {
+						var businessPath = data['businessPath'];
+						var documentTitle = data['documentTitle'];
+						var historyPointId = data['historyPointId'];
+						if(businessPath) {
+							o_pushState(historyPointId, documentTitle, businessPath);
+						}
+					}
+				} catch(e) {
+					if(window.console) console.log(e);
+				} finally {
+					o_afterserver();
+				}
+			},
+			error: o_onXHRError
+		});
+		return false;
+	}
+}
+
+function o_XHRSubmitMultipart(formNam) {
+	var form = jQuery('#' + formNam);
+	var iframeName = "openolat-submit-" + ("" + Math.random()).substr(2);
+	var iframe = o_createIFrame(iframeName);
+	document.body.appendChild(iframe);
+	form.attr('target', iframe.name);
+	form.submit();
+	form.attr('target','');
+}
+
+function o_createIFrame(iframeName) {
+	var $iframe = jQuery('<iframe name="'+iframeName+'" id="'+iframeName+'" src="about:blank" style="position: absolute; top: -9999px; left: -9999px;"></iframe>');
+	return $iframe[0];
+}
+
+function o_removeIframe(id) {
+	jQuery('#' + id).remove();
+}
+
+function o_ffXHREvent(formNam, dispIdField, dispId, eventIdField, eventInt, dirtyCheck, push) {
+	if(dirtyCheck) {
+		if(!o2cl()) return false;
+	} else {
+		if(!o2cl_noDirtyCheck()) return false;
+	}
+	
 	var data = new Object();
 	data['dispatchuri'] = dispId;
 	data['dispatchevent'] = eventInt;
-	if(arguments.length > 5) {
+	if(arguments.length > 7) {
 		var argLength = arguments.length;
-		for(var i=5; i<argLength; i=i+2) {
+		for(var i=7; i<argLength; i=i+2) {
 			if(argLength > i+1) {
 				data[arguments[i]] = arguments[i+1];
 			}
@@ -1179,12 +1261,96 @@ function o_ffXHREvent(formNam, dispIdField, dispId, eventIdField, eventInt) {
 	
 	var targetUrl = jQuery('#' + formNam).attr("action");
 	jQuery.ajax(targetUrl,{
-		type:'GET',
+		type:'POST',
 		data: data,
 		cache: false,
 		dataType: 'json',
 		success: function(data, textStatus, jqXHR) {
-			o_ainvoke(data);
+			try {
+				o_ainvoke(data);
+				if(push) {
+					var businessPath = data['businessPath'];
+					var documentTitle = data['documentTitle'];
+					var historyPointId = data['historyPointId'];
+					if(businessPath) {
+						o_pushState(historyPointId, documentTitle, businessPath);
+					}
+				}
+			} catch(e) {
+				if(window.console) console.log(e);
+			} finally {
+				o_afterserver();
+			}
+		},
+		error: o_onXHRError
+	})
+}
+
+function o_XHREvent(targetUrl, dirtyCheck, push) {
+	if(dirtyCheck) {
+		if(!o2cl()) return false;
+	} else {
+		if(!o2cl_noDirtyCheck()) return false;
+	}
+	
+	var data = new Object();
+	if(arguments.length > 3) {
+		var argLength = arguments.length;
+		for(var i=3; i<argLength; i=i+2) {
+			if(argLength > i+1) {
+				data[arguments[i]] = arguments[i+1];
+			}
+		}
+	}
+	
+	jQuery.ajax(targetUrl,{
+		type:'POST',
+		data: data,
+		cache: false,
+		dataType: 'json',
+		success: function(data, textStatus, jqXHR) {
+			try {
+				o_ainvoke(data);
+				if(push) {
+					var businessPath = data['businessPath'];
+					var documentTitle = data['documentTitle'];
+					var historyPointId = data['historyPointId'];
+					if(businessPath) {
+						o_pushState(historyPointId, documentTitle, businessPath);
+					}
+				}
+			} catch(e) {
+				if(window.console) console.log(e);
+			} finally {
+				o_afterserver();
+			}
+		},
+		error: o_onXHRError
+	})
+	
+	return false;
+}
+
+//by pass every check and don't wait a response from the response
+//typically used to send GUI settings back to the server
+function o_XHRNFEvent(targetUrl) {
+	var data = new Object();
+	if(arguments.length > 1) {
+		var argLength = arguments.length;
+		for(var i=1; i<argLength; i=i+2) {
+			if(argLength > i+1) {
+				data[arguments[i]] = arguments[i+1];
+			}
+		}
+	}
+	
+	jQuery.ajax(targetUrl,{
+		type:'POST',
+		data: data,
+		cache: false,
+		dataType: 'json',
+		success: function(data, textStatus, jqXHR) {
+			//ok
 		},
 		error: function(jqXHR, textStatus, errorThrown) {
 			if(window.console) console.log('Error status', textStatus);
@@ -1192,20 +1358,37 @@ function o_ffXHREvent(formNam, dispIdField, dispId, eventIdField, eventInt) {
 	})
 }
 
-function o_ffXHRNFEvent(targetUrl) {
-	var data = new Object();
-	jQuery.ajax(targetUrl,{
-		type:'GET',
-		data: data,
-		cache: false,
-		dataType: 'json',
-		success: function(data, textStatus, jqXHR) {
-			if(window.console) console.log('Hourra');
-		},
-		error: function(jqXHR, textStatus, errorThrown) {
-			if(window.console) console.log('Error status', textStatus);
+function o_onXHRError(jqXHR, textStatus, errorThrown) {
+	o_afterserver();
+	if(401 == jqXHR.status) {
+		var msg = o_info.oo_noresponse.replace("reload.html", window.document.location.href);
+		showMessageBox('error', o_info.oo_noresponse_title, msg, undefined);
+	} else if(window.console) {
+		console.log('Error status', textStatus, errorThrown, jqXHR.responseText);
+	}
+}
+
+function o_pushState(historyPointId, title, url) {
+	try {
+		var data = new Object();
+		data['businessPath'] = url;
+		data['historyPointId'] = historyPointId;
+		
+		if(url != null && !(url.lastIndexOf("http", 0) === 0) && !(url.lastIndexOf("https", 0) === 0)) {
+			url = o_info.serverUri + url;
 		}
-	})
+		o_info.businessPath = url;
+		if(!(typeof o_shareActiveSocialUrl === "undefined")) {
+			o_shareActiveSocialUrl();	
+		}
+		if(window.history && !(typeof window.history === "undefined") && window.history.pushState) {
+			window.history.pushState(data, title, url);
+		} else {
+			window.location.hash = historyPointId;
+		}
+	} catch(e) {
+		if(window.console) console.log(e, url);
+	}
 }
 
 //
@@ -1312,15 +1495,6 @@ function showMessageBox(type, title, message, buttonCallback) {
 /*
  * For standard tables
  */
-function tableFormInjectCommandAndSubmit(formName, cmd, param) {
-	document.forms[formName].elements["cmd"].value = cmd;
-	document.forms[formName].elements["param"].value = param;
-	document.forms[formName].submit();
-}
-
-/*
- * For standard tables
- */
 function o_table_toggleCheck(ref, checked) {
 	var tb_checkboxes = document.forms[ref].elements["tb_ms"];
 	len = tb_checkboxes.length;
@@ -1364,8 +1538,10 @@ function onTreeDrop(event, ui) {
 	} else if(droppableId.indexOf('dt') == 0) {
 		url += '%3Asne%3Aend';
 	}
-	jQuery('.ui-droppable').each(function(index, el) { jQuery(el).droppable( "disable" ); });
-	frames['oaa0'].location.href = url + '/';
+	jQuery('.ui-droppable').each(function(index, el) {
+		jQuery(el).droppable( "disable" );
+	});
+	o_XHREvent(url + '/', false, false);
 }
 
 function treeAcceptDrop(el) {
@@ -1601,7 +1777,7 @@ function b_hideExtMessageBox() {
 var BDebugger = {
 	_lastDOMCount : 0,
 	_lastObjCount : 0,
-	_knownGlobalOLATObjects : ["o_afterserver","o_onc","o_getMainWin","o_ainvoke","o_info","o_beforeserver","o_ffEvent","o_openPopUp","o_debu_show","o_logwarn","o_dbg_unmark","o_ffRegisterSubmit","o_clearConsole","o_init","o_log","o_allowNextClick","o_dbg_mark","o_debu_hide","o_logerr","o_debu_oldcn","o_debu_oldtt","o_openUriInMainWindow","o_debug_trid","o_log_all"],
+	_knownGlobalOLATObjects : ["o_afterserver","o_onc","o_getMainWin","o_ainvoke","o_info","o_beforeserver","o_ffEvent","o_openPopUp","o_debu_show","o_logwarn","o_dbg_unmark","o_ffRegisterSubmit","o_clearConsole","o_init","o_log","o_allowNextClick","o_dbg_mark","o_debu_hide","o_logerr","o_debu_oldcn","o_debu_oldtt","o_debug_trid","o_log_all"],
 		
 	_countDOMElements : function() {
 		return document.getElementsByTagName('*').length;
@@ -1646,19 +1822,6 @@ var BDebugger = {
 				console.log("\t" + typeof window[o] + " \t" + o);
 			});
 		}
-	},
-	
-	logManagedOLATObjects : function() {
-		var self = BDebugger;
-		if (o_info.objectMap.length > 0) {
-			console.log(o_info.objectMap.length + " managed OLAT objects found:");
-			o_info.objectMap.eachKey(function(key){
-				var item=o_info.objectMap.get(key); 
-				console.log("\t" + typeof item + " \t" + key); 
-				return true;
-			});
-		}
 	}
 }
-
  

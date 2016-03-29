@@ -88,7 +88,7 @@ public class LLEditForm extends FormBasicController {
 		super(ureq, wControl, "editForm");
 		this.moduleConfig = moduleConfig;
 		// read existing links from config
-		linkList = new ArrayList<LLModel>((List<LLModel>) moduleConfig.get(LLCourseNode.CONF_LINKLIST));
+		linkList = new ArrayList<LLModel>(moduleConfig.getList(LLCourseNode.CONF_LINKLIST, LLModel.class));
 		// list of all link target text fields
 		lTargetInputList = new ArrayList<TextElement>(linkList.size());
 		// list of all link html target text fields
@@ -195,7 +195,7 @@ public class LLEditForm extends FormBasicController {
 				removeAsListenerAndDispose(mediaChooserController);
 				
 				VFSContainer courseContainer = courseEnv.getCourseFolderContainer();
-				mediaChooserController = new MediaChooserController(ureq, getWindowControl(), courseContainer, null, null, "", null);
+				mediaChooserController = new MediaChooserController(ureq, getWindowControl(), courseContainer, null, null, "", null, true);
 				listenTo(mediaChooserController);
 				
 				mediaDialogBox = new CloseableModalController(getWindowControl(), translate("choose"), mediaChooserController.getInitialComponent());
@@ -298,11 +298,11 @@ public class LLEditForm extends FormBasicController {
 	private void addNewFormLink(int index, final LLModel link) {
 		// add link target
 		TextElement lTarget = uifactory.addTextElement("target" + counter, null, -1, link.getTarget(), flc);
+		lTarget.setPlaceholderKey("target.example", null);
 		lTarget.clearError();
 		lTarget.setEnabled(!link.isIntern());
 		lTarget.setDisplaySize(40);
 		lTarget.setMandatory(true);
-		lTarget.setExampleKey("target.example", null);
 		lTarget.setNotEmptyCheck("ll.table.target.error");
 		lTarget.setItemValidatorProvider(new ItemValidatorProvider() {
 			public boolean isValidValue(String value, ValidationError validationError, Locale locale) {
@@ -333,32 +333,35 @@ public class LLEditForm extends FormBasicController {
 		lDescription.setDisplaySize(20);
 		lDescription.setNotEmptyCheck("ll.table.description.error");
 		lDescription.setMandatory(true);
-		lDescription.setExampleKey("ll.table.description", null);
+		lDescription.setPlaceholderKey("ll.table.description", null);
 		lDescription.setUserObject(link);
 		lDescriptionInputList.add(index, lDescription);
 		
 		// add link comment
 		TextElement lComment =uifactory.addTextAreaElement("comment" + counter, null, -1, 2, 50, true, link.getComment(), flc);
+		lComment.setPlaceholderKey("ll.table.comment", null);
 		lComment.setDisplaySize(20);
-		lComment.setExampleKey("ll.table.comment", null);
 		lComment.setUserObject(link);
 		lCommentInputList.add(index, lComment);
 		
 		// add link add action button
 		FormLink addButton = new FormLinkImpl("add" + counter, "add" + counter, "", Link.BUTTON_SMALL + Link.NONTRANSLATED);
 		addButton.setUserObject(link);
+		addButton.setDomReplacementWrapperRequired(false);
 		addButton.setIconLeftCSS("o_icon o_icon-lg o_icon-fw o_icon_add");
 		flc.add(addButton);
 		lAddButtonList.add(index, addButton);
 		// add link deletion action button
 		FormLink delButton = new FormLinkImpl("delete" + counter, "delete" + counter, "", Link.BUTTON_SMALL + Link.NONTRANSLATED);
 		delButton.setUserObject(link);
+		delButton.setDomReplacementWrapperRequired(false);
 		delButton.setIconLeftCSS("o_icon o_icon-lg o_icon-fw o_icon_delete_item");
 		flc.add(delButton);
 		lDelButtonList.add(index, delButton);
 		// custom media action button
 		FormLink mediaButton = new FormLinkImpl("media" + counter, "media" + counter, "  ", Link.NONTRANSLATED);
 		mediaButton.setIconLeftCSS("o_icon o_icon_browse o_icon-lg");
+		mediaButton.setDomReplacementWrapperRequired(false);
 		mediaButton.setUserObject(link);
 		flc.add(mediaButton);
 		lCustomMediaButtonList.add(index, mediaButton);

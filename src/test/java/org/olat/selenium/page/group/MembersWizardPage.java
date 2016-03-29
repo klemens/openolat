@@ -107,4 +107,35 @@ public class MembersWizardPage {
 		OOGraphene.textarea(importAreaEl, sb.toString(), browser);
 		return this;
 	}
+	
+	public MembersWizardPage selectRepositoryEntryRole(boolean owner, boolean coach, boolean participant) {
+		if(owner) {
+			By ownerBy = By.cssSelector("label input[name='repoRights'][type='checkbox'][value='owner']");
+			WebElement ownerEl = browser.findElement(ownerBy);
+			OOGraphene.check(ownerEl, new Boolean(owner));
+			OOGraphene.waitBusy(browser);
+		}
+		
+		if(coach) {
+			By coachBy = By.cssSelector("label input[name='repoRights'][type='checkbox'][value='tutor']");
+			WebElement coachEl = browser.findElement(coachBy);
+			OOGraphene.check(coachEl, new Boolean(coach));
+			OOGraphene.waitBusy(browser);
+		}
+		
+		if(participant) {
+			By participantBy = By.cssSelector("label input[name='repoRights'][type='checkbox'][value='participant']");
+			WebElement participantEl = browser.findElement(participantBy);
+			OOGraphene.check(participantEl, new Boolean(participant));
+			OOGraphene.waitBusy(browser);
+		}
+		return this;
+	}
+	
+	public MembersWizardPage selectGroupAsParticipant(String groupName) {
+		By rolesBy = By.xpath("//div[contains(@class,'o_table_wrapper')]//table//tr[td[text()='" + groupName + "']]//label[contains(@class,'o_sel_role_participant')]/input");
+		List<WebElement> roleEls = browser.findElements(rolesBy);
+		roleEls.get(0).click();
+		return this;
+	}
 }

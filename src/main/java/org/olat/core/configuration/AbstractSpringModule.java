@@ -19,6 +19,11 @@
  */
 package org.olat.core.configuration;
 
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Properties;
+import java.util.concurrent.atomic.AtomicInteger;
+
 import org.olat.core.gui.control.Event;
 import org.olat.core.logging.OLog;
 import org.olat.core.logging.Tracing;
@@ -48,22 +53,48 @@ public abstract class AbstractSpringModule implements GenericEventListener, Init
 	
 	private static final OLog log = Tracing.createLoggerFor(AbstractSpringModule.class);
 	
+	@Value("${userdata.dir}")
+	private String userDataDirectory;
+	
 	private final PersistedProperties moduleConfigProperties;
 	
+	public static final Map<Class<?>,AtomicInteger> starts = new HashMap<Class<?>,AtomicInteger>();
+
 	public AbstractSpringModule(CoordinatorManager coordinatorManager) {
 		moduleConfigProperties = new PersistedProperties(coordinatorManager, this);
+		if(!starts.containsKey(this.getClass())) {
+			starts.put(this.getClass(), new AtomicInteger(1));
+		} else {
+			starts.get(this.getClass()).incrementAndGet();
+		}
 	}
 	
 	public AbstractSpringModule(CoordinatorManager coordinatorManager, boolean secured) {
 		moduleConfigProperties = new PersistedProperties(coordinatorManager, this, secured);
+		if(!starts.containsKey(this.getClass())) {
+			starts.put(this.getClass(), new AtomicInteger(1));
+		} else {
+			starts.get(this.getClass()).incrementAndGet();
+		}
 	}
 	
 	public AbstractSpringModule(CoordinatorManager coordinatorManager, String path, boolean secured) {
 		moduleConfigProperties = new PersistedProperties(coordinatorManager, this, path, secured);
+		if(!starts.containsKey(this.getClass())) {
+			starts.put(this.getClass(), new AtomicInteger(1));
+		} else {
+			starts.get(this.getClass()).incrementAndGet();
+		}
 	}
 	
-	@Value("${userdata.dir}")
-	private String userDataDirectory;
+	public static void printStats() {
+		OLog logger = Tracing.createLoggerFor(AbstractSpringModule.class);
+		for(Map.Entry<Class<?>, AtomicInteger> entry:starts.entrySet()) {
+			if(entry.getValue().get() > 1) {
+				logger.info(entry.getValue().get() + " :: " + entry.getKey());
+			}
+		}
+	}
 
 	@Override
 	public void afterPropertiesSet()  {
@@ -93,6 +124,10 @@ public abstract class AbstractSpringModule implements GenericEventListener, Init
 	 * cluster node). The properties have been reloaded prior to when this method is executed.
 	 */
 	protected abstract void initFromChangedProperties();
+	
+	protected Properties createPropertiesFromPersistedProperties() {
+		return moduleConfigProperties.createPropertiesFromPersistedProperties();
+	}
 
 	/**
 	 * Return a string value for certain propertyName-parameter.

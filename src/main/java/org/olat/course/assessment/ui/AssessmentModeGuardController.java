@@ -33,7 +33,9 @@ import org.olat.core.gui.components.link.Link;
 import org.olat.core.gui.components.link.LinkFactory;
 import org.olat.core.gui.components.panel.Panel;
 import org.olat.core.gui.components.velocity.VelocityContainer;
+import org.olat.core.gui.control.ChiefController;
 import org.olat.core.gui.control.Event;
+import org.olat.core.gui.control.ScreenMode.Mode;
 import org.olat.core.gui.control.WindowControl;
 import org.olat.core.gui.control.controller.BasicController;
 import org.olat.core.gui.control.generic.closablewrapper.CloseableModalController;
@@ -361,6 +363,10 @@ public class AssessmentModeGuardController extends BasicController implements Ge
 		if(canContinue) {
 			cmc.deactivate();
 			
+			//make sure to see the navigation bar
+			ChiefController cc = Windows.getWindows(ureq).getChiefController();
+			cc.getScreenMode().setMode(Mode.standard);
+			
 			fireEvent(ureq, new Event("continue"));
 			String businessPath = "[MyCoursesSite:0]";
 			NewControllerFactory.getInstance().launch(businessPath, ureq, getWindowControl());
@@ -382,7 +388,7 @@ public class AssessmentModeGuardController extends BasicController implements Ge
 		ureq.getUserSession().setAssessmentModes(null);
 		OLATResourceable resource = mode.getResource();
 		ureq.getUserSession().setLockResource(resource, mode);
-		Windows.getWindows(ureq).getChiefController().lockResource(resource);
+		getWindowControl().getWindowBackOffice().getChiefController().lockResource(resource);
 		fireEvent(ureq, new ChooseAssessmentModeEvent(mode));
 		
 		String businessPath = "[RepositoryEntry:" + mode.getRepositoryEntryKey() + "]";

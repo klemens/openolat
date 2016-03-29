@@ -45,9 +45,10 @@ $fa-css-prefix: "o_icon" !default;
 .o_icon_browsercheck:before { content: $fa-var-thumbs-up; }
 .o_icon_busy:before { content: $fa-var-spinner; }
 .o_icon_calendar:before { content: $fa-var-calendar;}
-.o_icon_calendar_enabled:before { content: $fa-var-check-circle-o;}
-.o_icon_calendar_disabled:before { content: $fa-var-circle-o;}
+.o_icon_calendar_enabled:before { content: $fa-var-check-square-o;}
+.o_icon_calendar_disabled:before { content: $fa-var-square-o;}
 .o_icon_calendar:before { content: $fa-var-calendar;}
+.o_icon_calendar_sync:before { content: $fa-var-refresh; }
 .o_icon_caret:before { content: $fa-var-caret-down;}
 .o_icon_caret_right:before { content: $fa-var-caret-right;}
 .o_icon_catalog:before { content: $fa-var-sitemap;}
@@ -215,6 +216,8 @@ $fa-css-prefix: "o_icon" !default;
 .o_icon_sort:before { content: $fa-var-sort;}
 .o_icon_sort_asc:before { content: $fa-var-sort-asc;}
 .o_icon_sort_desc:before { content: $fa-var-sort-desc;}
+.o_icon_sort_amount_asc:before { content: $fa-var-sort-amount-asc;}
+.o_icon_sort_amount_desc:before { content: $fa-var-sort-amount-desc;}
 .o_icon_sort_menu:before { content: $fa-var-sort-amount-asc;}
 .o_icon_start:before { content: $fa-var-chevron-right; }
 .o_icon_status_available:before { content: $fa-var-circle; color: $o-im-status-available-color; }
@@ -344,6 +347,12 @@ $fa-css-prefix: "o_icon" !default;
 .o_forum_status_opened_icon:before { content: $fa-var-ban; color: $state-success-text}
 .o_forum_status_hidden_icon:before { content: $fa-var-eye-slash; color: $state-danger-text}
 .o_forum_status_visible_icon:before { content: $fa-var-eye; color: $state-success-text}
+
+.o_forum_all_icon:before { content: $fa-var-align-right; }
+.o_forum_all_flat_icon:before { content: $fa-var-align-justify; }
+.o_forum_one_icon:before { content: $fa-var-eye; }
+.o_forum_marked_icon:before { content: $fa-var-bookmark; }
+.o_forum_new_icon:before { content: $fa-var-asterisk; }
 
 /* tests icons */
 .o_mi_qpool_import:before { content: $fa-var-database; }

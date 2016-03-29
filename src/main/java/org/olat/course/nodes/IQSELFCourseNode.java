@@ -231,7 +231,7 @@ public class IQSELFCourseNode extends AbstractAccessableCourseNode implements Se
 		RepositoryEntry re = RepositoryManager.getInstance().lookupRepositoryEntryBySoftkey(repositorySoftKey, true);
 		
 		try {
-			QTIExportFormatter qef = new QTIExportFormatterCSVType2(locale, null, "\t", "\"", "\\", "\r\n", false);
+			QTIExportFormatter qef = new QTIExportFormatterCSVType2(locale, null, "\t", "\"", "\r\n", false);
 			return qem.selectAndExportResults(qef, course.getResourceableId(), getShortTitle(), getIdent(), re, exportStream, ".xls");
 		} catch (IOException e) {
 			log.error("", e);
@@ -268,13 +268,6 @@ public class IQSELFCourseNode extends AbstractAccessableCourseNode implements Se
 		} else {
 			IQEditController.removeIQReference(getModuleConfiguration());
 		}
-	}
-
-	@Override
-	public CourseNode createInstanceForCopy(boolean isNewTitle, ICourse course) {
-		CourseNode copyInstance = super.createInstanceForCopy(isNewTitle, course);
-		IQEditController.removeIQReference(copyInstance.getModuleConfiguration());
-		return copyInstance;
 	}
 
 	/**

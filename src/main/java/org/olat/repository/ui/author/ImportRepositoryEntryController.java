@@ -100,7 +100,7 @@ public class ImportRepositoryEntryController extends FormBasicController {
 	protected void initForm(FormItemContainer formLayout, Controller listener, UserRequest ureq) {
 		setFormDescription("cmd.import.ressource.desc");
 		
-		uploadFileEl = uifactory.addFileElement("upload", "import.file", formLayout);
+		uploadFileEl = uifactory.addFileElement(getWindowControl(), "upload", "import.file", formLayout);
 		uploadFileEl.addActionListener(FormEvent.ONCHANGE);
 		
 		spacerEl = uifactory.addSpacerElement("spacer1", formLayout, false);
@@ -189,10 +189,8 @@ public class ImportRepositoryEntryController extends FormBasicController {
 		}
 		
 		allOk &= validLimitationOnType(handlerForUploadedResources);
-
-		return allOk & handlerForUploadedResources != null
-				& handlerForUploadedResources.size() > 0
-				& super.validateFormLogic(ureq);
+		allOk &= handlerForUploadedResources != null && handlerForUploadedResources.size() > 0;
+		return allOk & super.validateFormLogic(ureq);
 	}
 	
 	private boolean validLimitationOnType(List<ResourceHandler> handlers) {

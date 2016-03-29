@@ -19,7 +19,10 @@
  */
 package org.olat.selenium.page.course;
 
+import java.util.List;
+
 import org.jboss.arquillian.drone.api.annotation.Drone;
+import org.jcodec.common.Assert;
 import org.olat.selenium.page.graphene.OOGraphene;
 import org.olat.selenium.page.group.GroupPage;
 import org.olat.selenium.page.group.GroupsPage;
@@ -81,6 +84,8 @@ public class MembersPage {
 		By createBy = By.className("o_sel_course_new_group");
 		browser.findElement(createBy).click();
 		OOGraphene.waitBusy(browser);
+		By popupBy = By.cssSelector("div.modal-content fieldset.o_sel_group_edit_group_form");
+		OOGraphene.waitElement(popupBy, 5, browser);
 		
 		//fill the form
 		By nameBy = By.cssSelector(".o_sel_group_edit_title input[type='text']");
@@ -108,8 +113,6 @@ public class MembersPage {
 		WebElement submitButton = browser.findElement(submitBy);
 		submitButton.click();
 		OOGraphene.waitBusy(browser);
-		
-		
 		return this;
 	}
 	
@@ -125,11 +128,33 @@ public class MembersPage {
 	}
 	
 	/**
+	 * Check if the user with the specified first name is in the member list.
+	 * @param user
+	 * @return
+	 */
+	public MembersPage assertFirstNameInList(UserVO user) {
+		By firstNameBy = By.xpath("//td//a[contains(text(),'" + user.getFirstName() + "')]");
+		By rowBy = By.cssSelector(".o_sel_member_list table.table tr");
+		List<WebElement> rows = browser.findElements(rowBy);
+		boolean found = false;
+		for(WebElement row:rows) {
+			List<WebElement> firstNameEl = row.findElements(firstNameBy);
+			if(firstNameEl.size() > 0) {
+				found = true;
+				break;
+			}
+		}
+		Assert.assertTrue(found);
+		return this;
+	}
+	
+	/**
 	 * Click back to the course
 	 * 
 	 * @return
 	 */
 	public CoursePageFragment clickToolbarBack() {
+		OOGraphene.closeBlueMessageWindow(browser);
 		By toolbarBackBy = By.cssSelector("li.o_breadcrumb_back>a");
 		browser.findElement(toolbarBackBy).click();
 		OOGraphene.waitBusy(browser);

@@ -33,6 +33,8 @@ import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.Event;
 import org.olat.core.gui.control.WindowControl;
 import org.olat.core.gui.control.controller.BasicController;
+import org.olat.core.gui.control.generic.modal.DialogBoxController;
+import org.olat.core.gui.control.generic.modal.DialogBoxUIFactory;
 import org.olat.core.id.Identity;
 import org.olat.core.util.vfs.VFSContainer;
 import org.olat.course.nodes.GTACourseNode;
@@ -43,7 +45,6 @@ import org.olat.course.nodes.gta.TaskHelper;
 import org.olat.course.nodes.gta.TaskProcess;
 import org.olat.course.run.environment.CourseEnvironment;
 import org.olat.group.BusinessGroup;
-import org.olat.modules.ModuleConfiguration;
 import org.springframework.beans.factory.annotation.Autowired;
 
 /**
@@ -58,6 +59,7 @@ public class GTACoachRevisionAndCorrectionsController extends BasicController {
 	private Link returnToRevisionsButton, closeRevisionsButton;
 	private DirectoryController revisionsCtrl, correctionsCtrl;
 	private SubmitDocumentsController uploadCorrectionsCtrl;
+	private DialogBoxController confirmCloseRevisionProcessCtrl, confirmReturnToRevisionsCtrl;
 	
 	private Task assignedTask;
 	private final int currentIteration;
@@ -140,12 +142,13 @@ public class GTACoachRevisionAndCorrectionsController extends BasicController {
 			documentsContainer = gtaManager.getRevisedDocumentsContainer(courseEnv, gtaNode, iteration, assessedGroup);
 		} else {
 			documentsDir = gtaManager.getRevisedDocumentsDirectory(courseEnv, gtaNode, iteration, assessedIdentity);
+			documentsContainer = gtaManager.getRevisedDocumentsContainer(courseEnv, gtaNode, iteration, assessedIdentity);
 		}
 
 		boolean hasDocuments = TaskHelper.hasDocuments(documentsDir);
 		if(hasDocuments) {
 			revisionsCtrl = new DirectoryController(ureq, getWindowControl(), documentsDir, documentsContainer,
-					"coach.revisions.description");
+					"coach.revisions.description", "bulk.revisions", "revisions.zip");
 			listenTo(revisionsCtrl);
 			mainVC.put(cmpName, revisionsCtrl.getInitialComponent());
 		} else if (assignedTask.getTaskStatus() == TaskProcess.revision) {
@@ -165,6 +168,7 @@ public class GTACoachRevisionAndCorrectionsController extends BasicController {
 			documentsContainer = gtaManager.getRevisedDocumentsCorrectionsContainer(courseEnv, gtaNode, iteration, assessedGroup);
 		} else {
 			documentsDir = gtaManager.getRevisedDocumentsCorrectionsDirectory(courseEnv, gtaNode, iteration, assessedIdentity);
+			documentsContainer = gtaManager.getRevisedDocumentsCorrectionsContainer(courseEnv, gtaNode, iteration, assessedIdentity);
 		}
 		
 		boolean hasDocuments = TaskHelper.hasDocuments(documentsDir);
@@ -192,7 +196,6 @@ public class GTACoachRevisionAndCorrectionsController extends BasicController {
 	private void setUploadCorrections(UserRequest ureq, Task task, int iteration) {
 		File documentsDir;
 		VFSContainer documentsContainer;
-		ModuleConfiguration config = gtaNode.getModuleConfiguration();
 		if(businessGroupTask) {
 			documentsDir = gtaManager.getRevisedDocumentsCorrectionsDirectory(courseEnv, gtaNode, iteration, assessedGroup);
 			documentsContainer = gtaManager.getRevisedDocumentsCorrectionsContainer(courseEnv, gtaNode, iteration, assessedGroup);
@@ -201,7 +204,8 @@ public class GTACoachRevisionAndCorrectionsController extends BasicController {
 			documentsContainer = gtaManager.getRevisedDocumentsCorrectionsContainer(courseEnv, gtaNode, iteration, assessedIdentity);
 		}
 		
-		uploadCorrectionsCtrl = new SubmitDocumentsController(ureq, getWindowControl(), task, documentsDir, documentsContainer, -1, config, "coach.document");
+		uploadCorrectionsCtrl = new SubmitDocumentsController(ureq, getWindowControl(), task, documentsDir, documentsContainer, -1,
+				gtaNode, courseEnv, "coach.document");
 		listenTo(uploadCorrectionsCtrl);
 		mainVC.put("uploadCorrections", uploadCorrectionsCtrl.getInitialComponent());
 
@@ -223,7 +227,16 @@ public class GTACoachRevisionAndCorrectionsController extends BasicController {
 				Task aTask = uploadCorrectionsCtrl.getAssignedTask();
 				gtaManager.log("Corrections", (SubmitEvent)event, aTask, getIdentity(), assessedIdentity, assessedGroup, courseEnv, gtaNode);
 			}
-
+		} else if(confirmReturnToRevisionsCtrl == source) {
+			if(DialogBoxUIFactory.isOkEvent(event) || DialogBoxUIFactory.isYesEvent(event)) {
+				doReturnToRevisions();
+				fireEvent(ureq, Event.DONE_EVENT);
+			}
+		} else if(confirmCloseRevisionProcessCtrl == source) {
+			if(DialogBoxUIFactory.isOkEvent(event) || DialogBoxUIFactory.isYesEvent(event)) {
+				doCloseRevisionProcess();
+				fireEvent(ureq, Event.DONE_EVENT);
+			}
 		}
 		super.event(ureq, source, event);
 	}
@@ -231,17 +244,44 @@ public class GTACoachRevisionAndCorrectionsController extends BasicController {
 	@Override
 	protected void event(UserRequest ureq, Component source, Event event) {
 		if(returnToRevisionsButton == source) {
-			doReturnToRevisions();
-			fireEvent(ureq, Event.DONE_EVENT);
+			doConfirmReturnToRevisions(ureq);
 		} else if(closeRevisionsButton == source) {
-			doCloseRevisionProcess();
-			fireEvent(ureq, Event.DONE_EVENT);
+			doConfirmCloseRevisionProcess(ureq);
 		}
+	}
+	
+	private void doConfirmReturnToRevisions(UserRequest ureq) {
+		String title = translate("coach.revisions.confirm.title");
+		String text = translate("coach.revisions.confirm.text");
+		
+		File documentsDir;
+		int iteration = assignedTask.getRevisionLoop();
+		if(businessGroupTask) {
+			documentsDir = gtaManager.getRevisedDocumentsCorrectionsDirectory(courseEnv, gtaNode, iteration, assessedGroup);
+		} else {
+			documentsDir = gtaManager.getRevisedDocumentsCorrectionsDirectory(courseEnv, gtaNode, iteration, assessedIdentity);
+		}
+		
+		boolean hasDocument = TaskHelper.hasDocuments(documentsDir);
+		if(!hasDocument) {
+			String warning = translate("coach.revisions.confirm.text.warn");
+			text = "<div class='o_warning'>" + warning + "</div>" + text;
+		}
+
+		confirmReturnToRevisionsCtrl = activateOkCancelDialog(ureq, title, text, confirmReturnToRevisionsCtrl);	
+		listenTo(confirmReturnToRevisionsCtrl);
 	}
 	
 	private void doReturnToRevisions() {
 		assignedTask = gtaManager.updateTask(assignedTask, TaskProcess.revision, currentIteration + 1);
 		gtaManager.log("Revision", "need another revision", assignedTask, getIdentity(), assessedIdentity, assessedGroup, courseEnv, gtaNode);
+	}
+	
+	private void doConfirmCloseRevisionProcess(UserRequest ureq) {
+		String title = translate("coach.reviewed.confirm.title");
+		String text = translate("coach.reviewed.confirm.text");
+		confirmCloseRevisionProcessCtrl = activateOkCancelDialog(ureq, title, text, confirmCloseRevisionProcessCtrl);	
+		listenTo(confirmCloseRevisionProcessCtrl);
 	}
 	
 	private void doCloseRevisionProcess() {

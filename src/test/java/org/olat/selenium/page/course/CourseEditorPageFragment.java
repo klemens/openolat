@@ -22,7 +22,6 @@ package org.olat.selenium.page.course;
 import java.util.ArrayList;
 import java.util.List;
 
-import org.jboss.arquillian.drone.api.annotation.Drone;
 import org.jboss.arquillian.graphene.Graphene;
 import org.junit.Assert;
 import org.olat.selenium.page.graphene.OOGraphene;
@@ -31,7 +30,6 @@ import org.olat.selenium.page.repository.AuthoringEnvPage;
 import org.openqa.selenium.By;
 import org.openqa.selenium.WebDriver;
 import org.openqa.selenium.WebElement;
-import org.openqa.selenium.support.FindBy;
 
 /**
  * 
@@ -58,6 +56,10 @@ public class CourseEditorPageFragment {
 	public static final By chooseScormButton = By.className("o_sel_scorm_choose_repofile");
 	public static final By choosePortfolioButton = By.className("o_sel_map_choose_repofile");
 	
+	public static final By changeNodeToolsMenu = By.cssSelector("ul.o_sel_course_editor_change_node");
+	public static final By changeNodeToolsMenuCaret = By.cssSelector("a.o_sel_course_editor_change_node");
+	
+	public static final By tabNavTabsBy = By.cssSelector("ul.nav.nav-tabs");
 	
 	public static final List<By> chooseRepoEntriesButtonList = new ArrayList<>();
 	static {
@@ -69,20 +71,32 @@ public class CourseEditorPageFragment {
 		chooseRepoEntriesButtonList.add(choosePortfolioButton);
 	}
 	
-	@Drone
 	private WebDriver browser;
 	
-	@FindBy(className="o_course_editor")
-	private WebElement editor;
+	public CourseEditorPageFragment(WebDriver browser) {
+		this.browser = browser;
+	}
 	
 	public static CourseEditorPageFragment getEditor(WebDriver browser) {
-		OOGraphene.waitElement(editorBy, browser);
-		WebElement main = browser.findElement(By.id("o_main"));
-		return Graphene.createPageFragment(CourseEditorPageFragment.class, main);
+		OOGraphene.waitElement(editorBy, 5, browser);
+		OOGraphene.closeBlueMessageWindow(browser);
+		return new CourseEditorPageFragment(browser);
 	}
 	
 	public CourseEditorPageFragment assertOnEditor() {
-		Assert.assertTrue(editor.isDisplayed());
+		OOGraphene.waitElement(editorBy, 5, browser);
+		List<WebElement> editorEls = browser.findElements(editorBy);
+		Assert.assertFalse(editorEls.isEmpty());
+		Assert.assertTrue(editorEls.get(0).isDisplayed());
+		return this;
+	}
+	
+	public CourseEditorPageFragment assertOnWarning() {
+		By warningBy = By.cssSelector("div.modal-dialog div.alert.alert-warning");
+		OOGraphene.waitElement(warningBy, 2, browser);
+		List<WebElement> warningEls = browser.findElements(warningBy);
+		Assert.assertFalse(warningEls.isEmpty());
+		OOGraphene.closeModalDialogWindow(browser);
 		return this;
 	}
 	
@@ -92,6 +106,37 @@ public class CourseEditorPageFragment {
 	public CourseEditorPageFragment selectRoot() {
 		By rootNodeBy = By.cssSelector("span.o_tree_link.o_tree_l0>a");
 		browser.findElement(rootNodeBy).click();
+		OOGraphene.waitBusy(browser);
+		By rootNodeActiveBy = By.cssSelector("span.o_tree_link.o_tree_l0.active");
+		OOGraphene.waitElement(rootNodeActiveBy, 5, browser);
+		return this;
+	}
+	
+	public EasyConditionConfigPage selectTabVisibility() {
+		By passwordTabBy = By.cssSelector("fieldset.o_sel_course_visibility_condition_form");
+		selectTab(passwordTabBy);
+		return new EasyConditionConfigPage(browser);
+	}
+	
+	/**
+	 * Select the tab where the password setting are
+	 * @return
+	 */
+	public CourseEditorPageFragment selectTabPassword() {
+		By passwordTabBy = By.cssSelector("fieldset.o_sel_course_node_password_config");
+		return selectTab(passwordTabBy);
+	}
+	
+	public CourseEditorPageFragment setPassword(String password) {
+		By switchBy = By.cssSelector(".o_sel_course_password_condition_switch input[type='checkbox']");
+		browser.findElement(switchBy).click();
+		OOGraphene.waitBusy(browser);
+		
+		By passwordBy = By.cssSelector(".o_sel_course_password_condition_value input[type='text']");
+		browser.findElement(passwordBy).sendKeys(password);
+		
+		By saveBy = By.cssSelector("fieldset.o_sel_course_node_password_config button.btn-primary");
+		browser.findElement(saveBy).click();
 		OOGraphene.waitBusy(browser);
 		return this;
 	}
@@ -106,6 +151,10 @@ public class CourseEditorPageFragment {
 	}
 	
 	private CourseEditorPageFragment selectTab(By tabBy) {
+		//make sure the tab bar is loaded
+		By navBarBy = By.cssSelector("ul.o_node_config");
+		OOGraphene.waitElement(navBarBy, 5, browser);
+		
 		List<WebElement> tabLinks = browser.findElements(navBarNodeConfiguration);
 
 		boolean found = false;
@@ -113,6 +162,7 @@ public class CourseEditorPageFragment {
 		for(WebElement tabLink:tabLinks) {
 			tabLink.click();
 			OOGraphene.waitBusy(browser);
+			OOGraphene.waitElement(tabNavTabsBy, 5, browser);
 			List<WebElement> chooseRepoEntry = browser.findElements(tabBy);
 			if(chooseRepoEntry.size() > 0) {
 				found = true;
@@ -209,6 +259,66 @@ public class CourseEditorPageFragment {
 		return this;
 	}
 	
+	public String getRestUrl() {
+		By openerBy = By.cssSelector("a.o_opener");
+		browser.findElement(openerBy).click();
+
+		By urlBy = By.cssSelector("div.o_copy_code");
+		OOGraphene.waitElement(urlBy, browser);
+		
+		String url = null;
+		List<WebElement> urlEls = browser.findElements(urlBy);
+		for(WebElement urlEl:urlEls) {
+			String text = urlEl.getText();
+			if(text.contains("http")) {
+				url = text.trim();
+				break;
+			}
+		}
+		Assert.assertNotNull(url);
+		return url;
+	}
+	
+	public CourseEditorPageFragment moveUnder(String targetNodeTitle) {
+		if(!browser.findElement(changeNodeToolsMenu).isDisplayed()) {
+			openChangeNodeToolsMenu();
+		}
+		By changeNodeLinkBy = By.cssSelector("a.o_sel_course_editor_move_node");
+		browser.findElement(changeNodeLinkBy).click();
+		OOGraphene.waitBusy(browser);
+		
+		By targetNodeBy = By.xpath("//div[contains(@class,'o_tree_insert_tool')]//a[contains(@title,'" + targetNodeTitle + "')]");
+		browser.findElement(targetNodeBy).click();
+		OOGraphene.waitBusy(browser);
+		
+		By underBy = By.xpath("//div[contains(@class,'o_tree_insert_tool')]//a[i[contains(@class,'o_icon_node_under')]]");
+		browser.findElement(underBy).click();
+		OOGraphene.waitBusy(browser);
+		
+		By saveBy = By.cssSelector("div.modal-content div.o_button_group a.btn-primary");
+		browser.findElement(saveBy).click();
+		OOGraphene.waitBusy(browser);
+		OOGraphene.waitAndCloseBlueMessageWindow(browser);
+		return this;
+	}
+	
+	public CourseEditorPageFragment selectNode(String nodeTitle) {
+		By targetNodeBy = By.xpath("//div[contains(@class,'o_editor_menu')]//a[contains(@title,'" + nodeTitle + "')]");
+		browser.findElement(targetNodeBy).click();
+		OOGraphene.waitBusy(browser);
+		return this;
+	}
+	
+	/**
+	 * Open the tools drop-down
+	 * @return
+	 */
+	public CourseEditorPageFragment openChangeNodeToolsMenu() {
+		browser.findElement(changeNodeToolsMenuCaret).click();
+		OOGraphene.waitElement(changeNodeToolsMenu, browser);
+		return this;
+	}
+	
 	/**
 	 * Loop the tabs of the course element configuration to find
 	 * the one with a button to select a repository entry.
@@ -286,7 +396,9 @@ public class CourseEditorPageFragment {
 		browser.findElement(chooseButton).click();
 		OOGraphene.waitBusy(browser);
 		//popup
-		WebElement popup = browser.findElement(By.className("o_sel_search_referenceable_entries"));
+		By referenceableEntriesBy = By.className("o_sel_search_referenceable_entries");
+		OOGraphene.waitElement(referenceableEntriesBy, 1, browser);
+		WebElement popup = browser.findElement(referenceableEntriesBy);
 		popup.findElement(By.cssSelector("a.o_sel_repo_popup_my_resources")).click();
 		OOGraphene.waitBusy(browser);
 		
@@ -405,7 +517,7 @@ public class CourseEditorPageFragment {
 		By autoPublishBy = By.cssSelector("div.modal  a.o_sel_course_quickpublish_auto");
 		browser.findElement(autoPublishBy).click();
 		OOGraphene.waitBusy(browser);
-		
+		OOGraphene.waitAndCloseBlueMessageWindow(browser);
 		return new CoursePageFragment(browser);
 	}
 

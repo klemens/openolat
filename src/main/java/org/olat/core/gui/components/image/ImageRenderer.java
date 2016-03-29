@@ -92,7 +92,7 @@ public class ImageRenderer extends DefaultComponentRenderer {
 		sb.append("<div id='").append(compId).append("' class='o_video'>"); // START component
 		// The inner component 
 		String imgId = "mov_" + ic.getDispatchID();
-		sb.append("<div id='").append(imgId).append("' name='").append(imgId).append("'></div>")
+		sb.append("<div id='").append(imgId).append("' name='").append(imgId).append("' style='width:").append(width).append("px; height:").append(height).append("px;' class='o_video_wrapper'></div>")
 		  .append("<script type='text/javascript'>")
 		  .append("/* <![CDATA[ */")
 		  .append("BPlayer.insertPlayer('").append(Settings.createServerURI()).append(mapperUrl);
@@ -155,7 +155,6 @@ public class ImageRenderer extends DefaultComponentRenderer {
 			  .append("  jQuery('#").append(imgId).append("').cropper({\n")
 			  .append("    aspectRatio:1,\n")
 			  .append("    done: function(crop) {\n")
-			  .append("      console.log(crop);\n")
 			  .append("      jQuery('input#").append(imgId).append("_x').val(crop.x1);\n")
 			  .append("    	 jQuery('input#").append(imgId).append("_y').val(crop.y1);\n")
 			  .append("    	 jQuery('input#").append(imgId).append("_w').val(crop.width);\n")

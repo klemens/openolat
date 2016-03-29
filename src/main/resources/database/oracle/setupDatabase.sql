@@ -264,9 +264,11 @@ CREATE TABLE o_message (
   creationdate date,
   title varchar2(100 char),
   body CLOB,
+  pseudonym varchar2(255 char),
+  guest number default 0 not null,
   parent_id number(20),
   topthread_id number(20),
-  creator_id number(20) NOT NULL,
+  creator_id number(20),
   modifier_id number(20),
   forum_fk number(20),
   statuscode number(11),
@@ -359,6 +361,7 @@ CREATE TABLE o_repositoryentry (
   resourcename varchar2(100 char) NOT NULL,
   authors varchar2(2048 char),
   mainlanguage varchar2(255 char),
+  location varchar2(255 char),
   objectives varchar2(2048 char),
   requirements varchar2(2048 char),
   credits varchar2(2048 char),
@@ -1168,6 +1171,47 @@ create table o_cer_certificate (
    primary key (id)
 );
 
+-- calendar
+create table o_cal_use_config (
+   id number(20) not null,
+   creationdate date not null,
+   lastmodified date not null,
+   c_calendar_id varchar2(128 char) not null,
+   c_calendar_type varchar2(16 char) not null,
+   c_token varchar2(36 char),
+   c_cssclass varchar2(36 char),
+   c_visible number default 1 not null,
+   c_aggregated_feed number default 1 not null,
+   fk_identity number(20) not null,
+   primary key (id),
+   unique (c_calendar_id, c_calendar_type, fk_identity)
+);
+
+create table o_cal_import (
+   id number(20) not null,
+   creationdate date not null,
+   lastmodified date not null,
+   c_calendar_id varchar2(128 char) not null,
+   c_calendar_type varchar2(16 char) not null,
+   c_displayname varchar2(256 char),
+   c_lastupdate date not null,
+   c_url varchar2(1024 char),
+   fk_identity number(20),
+   primary key (id)
+);
+
+create table o_cal_import_to (
+   id number(20) not null,
+   creationdate date not null,
+   lastmodified date not null,
+   c_to_calendar_id varchar2(128 char) not null,
+   c_to_calendar_type varchar2(16 char) not null,
+   c_lastupdate date not null,
+   c_url varchar2(1024 char),
+   primary key (id)
+);
+
+-- instant messaging
 create table o_im_message (
    id number(20) not null,
    creationdate date,
@@ -1571,47 +1615,6 @@ create view o_bs_gp_membership_v as (
       membership.g_role as g_role
    from o_bs_group_member membership
    inner join o_gp_business gp on (gp.fk_group_id=membership.fk_group_id)
-);
-
-create or replace view o_gp_business_v  as (
-   select
-      gp.group_id as group_id,
-      gp.groupname as groupname,
-      gp.lastmodified as lastmodified,
-      gp.creationdate as creationdate,
-      gp.lastusage as lastusage,
-      gp.descr as descr,
-      gp.minparticipants as minparticipants,
-      gp.maxparticipants as maxparticipants,
-      gp.waitinglist_enabled as waitinglist_enabled,
-      gp.autocloseranks_enabled as autocloseranks_enabled,
-      gp.external_id as external_id,
-      gp.managed_flags as managed_flags,
-      (select count(part.id) from o_bs_group_member part where part.fk_group_id = gp.fk_group_id and part.g_role='participant') as num_of_participants,
-      (select count(pending.reservation_id) from o_ac_reservation pending where pending.fk_resource = gp.fk_resource) as num_of_pendings,
-      (select count(own.id) from o_bs_group_member own where own.fk_group_id = gp.fk_group_id and own.g_role='coach') as num_of_owners,
-      (case when gp.waitinglist_enabled > 0
-         then 
-           (select count(waiting.id) from o_bs_group_member waiting where waiting.fk_group_id = gp.fk_group_id and waiting.g_role='waiting')
-         else
-           0
-      end) as num_waiting,
-      (select count(offer.offer_id) from o_ac_offer offer 
-         where offer.fk_resource_id = gp.fk_resource
-         and offer.is_valid > 0
-         and (offer.validfrom is null or offer.validfrom <= current_date)
-         and (offer.validto is null or offer.validto >= current_date)
-      ) as num_of_valid_offers,
-      (select count(offer.offer_id) from o_ac_offer offer 
-         where offer.fk_resource_id = gp.fk_resource
-         and offer.is_valid > 0
-      ) as num_of_offers,
-      (select count(relation.fk_entry_id) from o_re_to_group relation 
-         where relation.fk_group_id = gp.fk_group_id
-      ) as num_of_relations,
-      gp.fk_resource as fk_resource,
-      gp.fk_group_id as fk_group_id
-   from o_gp_business gp
 );
 
 create or replace view o_re_membership_v as (
@@ -2203,6 +2206,20 @@ create index idx_im_prefs_ident_idx on o_im_preferences (fk_from_identity_id);
 alter table o_as_eff_statement add constraint eff_statement_id_cstr foreign key (fk_identity) references o_bs_identity (id);
 create index idx_eff_statement_ident_idx on o_as_eff_statement (fk_identity);
 create index eff_statement_repo_key_idx on o_as_eff_statement (course_repo_key);
+
+-- calendar
+alter table o_cal_use_config add constraint cal_u_conf_to_ident_idx foreign key (fk_identity) references o_bs_identity (id);
+create index idx_cal_u_conf_to_ident_idx on o_cal_use_config (fk_identity);
+create index idx_cal_u_conf_cal_id_idx on o_cal_use_config (c_calendar_id);
+create index idx_cal_u_conf_cal_type_idx on o_cal_use_config (c_calendar_type);
+
+alter table o_cal_import add constraint cal_imp_to_ident_idx foreign key (fk_identity) references o_bs_identity (id);
+create index idx_cal_imp_to_ident_idx on o_cal_import (fk_identity);
+create index idx_cal_imp_cal_id_idx on o_cal_import (c_calendar_id);
+create index idx_cal_imp_cal_type_idx on o_cal_import (c_calendar_type);
+
+create index idx_cal_imp_to_cal_id_idx on o_cal_import_to (c_to_calendar_id);
+create index idx_cal_imp_to_cal_type_idx on o_cal_import_to (c_to_calendar_type);
 
 -- course infos
 alter table o_as_user_course_infos add constraint user_course_infos_id_cstr foreign key (fk_identity) references o_bs_identity (id);

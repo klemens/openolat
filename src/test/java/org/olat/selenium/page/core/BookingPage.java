@@ -23,6 +23,7 @@ import java.util.List;
 
 import org.junit.Assert;
 import org.olat.selenium.page.graphene.OOGraphene;
+import org.olat.user.restapi.UserVO;
 import org.openqa.selenium.By;
 import org.openqa.selenium.WebDriver;
 import org.openqa.selenium.WebElement;
@@ -37,8 +38,6 @@ import org.openqa.selenium.WebElement;
  */
 public class BookingPage {
 	
-	private static final By tokenIconBy = By.className("o_ac_token_icon");
-	private static final By addMethodLinksBy = By.cssSelector("fieldset.o_ac_configuration ul.dropdown-menu a");
 	
 	private WebDriver browser;
 	
@@ -63,20 +62,19 @@ public class BookingPage {
 	 * @return This page
 	 */
 	public BookingPage addTokenMethod() {
-		return addMethod(tokenIconBy);
+		addMethod("o_ac_token_icon");
+		By popupBy = By.cssSelector("div.modal-dialog");
+		OOGraphene.waitElement(popupBy, 5, browser);
+		return this;
 	}
 	
-	private BookingPage addMethod(By iconBy) {
-		List<WebElement> links = browser.findElements(addMethodLinksBy);
-		WebElement tokenLink = null;
-		for(WebElement link:links) {
-			List<WebElement> icons = link.findElements(iconBy);
-			if(icons.size() > 0) {
-				tokenLink = link;
-			}
-		}
-		Assert.assertNotNull(tokenLink);
-		tokenLink.click();
+	private BookingPage addMethod(String iconClassname) {
+		//wait menu
+		By addMenuBy = By.cssSelector("fieldset.o_ac_configuration ul.dropdown-menu");
+		OOGraphene.waitElement(addMenuBy, 5, browser);
+		By addMethodBy = By.xpath("//fieldset[contains(@class,'o_ac_configuration')]//ul[contains(@class,'dropdown-menu')]//a[//i[contains(@class,'" + iconClassname + "')]]");
+		WebElement methodLink = browser.findElement(addMethodBy);
+		methodLink.click();
 		OOGraphene.waitBusy(browser);
 		return this;
 	}
@@ -119,5 +117,31 @@ public class BookingPage {
 		By saveButtonBy = By.cssSelector("form button.btn-primary");
 		browser.findElement(saveButtonBy).click();
 		OOGraphene.waitBusy(browser);
+	}
+	
+	/**
+	 * Check if a the booking of a user is in the list
+	 * of orders. The assert check by first name and
+	 * if the order is ok.
+	 * 
+	 * @param user
+	 * @return
+	 */
+	public BookingPage assertFirstNameInListIsOk(UserVO user) {
+		By firstNameBy = By.xpath("//td[contains(text(),'" + user.getFirstName() + "')]");
+		By okBy = By.className("o_ac_order_status_payed_icon");
+		By rowBy = By.cssSelector(".o_sel_order_list table.o_table.table tr");
+		boolean found = false;
+		List<WebElement> rows = browser.findElements(rowBy);
+		for(WebElement row:rows) {
+			List<WebElement> firstNameEl = row.findElements(firstNameBy);
+			List<WebElement> okEl = row.findElements(okBy);
+			if(firstNameEl.size() == 1 && okEl.size() == 1) {
+				found = true;
+				break;
+			}
+		}
+		Assert.assertTrue(found);
+		return this;
 	}
 }

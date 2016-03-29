@@ -25,7 +25,6 @@
 
 package org.olat.repository.handlers;
 
-import java.io.File;
 import java.util.Locale;
 
 import org.olat.core.CoreSpringFactory;
@@ -34,7 +33,6 @@ import org.olat.core.id.Identity;
 import org.olat.core.id.OLATResourceable;
 import org.olat.core.id.Roles;
 import org.olat.core.util.Util;
-import org.olat.core.util.ZipUtil;
 import org.olat.core.util.coordinate.CoordinatorManager;
 import org.olat.core.util.resource.OLATResourceableJustBeforeDeletedEvent;
 import org.olat.core.util.vfs.VFSContainer;
@@ -62,7 +60,7 @@ public abstract class FileHandler implements RepositoryHandler {
 	}
 
 	@Override
-	public boolean cleanupOnDelete(OLATResourceable res) {
+	public boolean cleanupOnDelete(RepositoryEntry entry,  OLATResourceable res) {
 		// notify all current users of this resource (content packaging file resource) that it will be deleted now.
 		CoordinatorManager.getInstance().getCoordinator().getEventBus().fireEventToListenersOf(new OLATResourceableJustBeforeDeletedEvent(res), res);
 		FileResourceManager.getInstance().deleteFileResource(res);
@@ -80,15 +78,6 @@ public abstract class FileHandler implements RepositoryHandler {
 			return false;
 		}
 		return true;
-	}
-
-	@Override
-	public String archive(Identity archiveOnBehalfOf, String archivFilePath, RepositoryEntry repoEntry) {
-		String exportFileName = getDeletedFilePrefix() + repoEntry.getOlatResource().getResourceableId() + ".zip";
-		String fullFilePath = archivFilePath + File.separator + exportFileName;
-		File rootFile = FileResourceManager.getInstance().getFileResourceRoot(repoEntry.getOlatResource());
-		ZipUtil.zipAll(rootFile, new File(fullFilePath), false);
-		return exportFileName;
 	}
 	
 	protected abstract String getDeletedFilePrefix();

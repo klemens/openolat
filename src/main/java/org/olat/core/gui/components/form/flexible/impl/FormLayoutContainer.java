@@ -167,6 +167,7 @@ public class FormLayoutContainer extends FormItemImpl implements FormItemContain
 		add(formComp.getName(), formComp);
 	}
 
+	@Override
 	public void add(String name, FormItem formComp) {
 		if(!hasRootForm){
 			throw new AssertionError("first ensure that the layout container knows about its rootform!!");
@@ -198,11 +199,11 @@ public class FormLayoutContainer extends FormItemImpl implements FormItemContain
 
 		// Check for multipart data, add upload limit to form
 		if (formComp instanceof FormMultipartItem) {
-			FormMultipartItem mpItem = (FormMultipartItem) formComp;
-			getRootForm().setMultipartEnabled(true, mpItem.getMaxUploadSizeKB());
+			getRootForm().setMultipartEnabled(true);
 		}
-		
 	}
+	
+	@Override
 	public void add(String name, Collection<FormItem> foItems){
 		
 		//remove if already in
@@ -297,8 +298,7 @@ public class FormLayoutContainer extends FormItemImpl implements FormItemContain
 
 		// Check for multipart data, add upload limit to form
 		if (with instanceof FormMultipartItem) {
-			FormMultipartItem mpItem = (FormMultipartItem) with;
-			getRootForm().setMultipartEnabled(true, mpItem.getMaxUploadSizeKB());
+			getRootForm().setMultipartEnabled(true);
 		}
 	}
 	
@@ -429,25 +429,6 @@ public class FormLayoutContainer extends FormItemImpl implements FormItemContain
 	 */
 	public void setFormDescription(String description) {
 		formLayoutContainer.contextPut("off_desc", description);
-	}
-	
-	/**
-	 * Set an optional context help link for this form. If you use a custom
-	 * template this will have no effect
-	 * 
-	 * @param packageName The bundle name, e.g. org.olat.core
-	 * @param pageName The page name, e.g. my-helppage.html
-	 * @param hoverTextKey The hover text to indicate what this help is about
-	 *          (i18nkey)
-	 */
-	public void setFormContextHelp(String packageName, String pageName, String hoverTextKey) {
-		if (packageName == null) {
-			formLayoutContainer.contextRemove("off_chelp_package");
-		} else {
-			formLayoutContainer.contextPut("off_chelp_package", packageName);
-			formLayoutContainer.contextPut("off_chelp_page", pageName);
-			formLayoutContainer.contextPut("off_chelp_hover", hoverTextKey);
-		}
 	}
 	
 	/**

@@ -25,8 +25,10 @@
 
 package org.olat.course.assessment;
 
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Date;
+import java.util.Deque;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
@@ -184,8 +186,9 @@ public class AssessmentMainController extends MainLayoutBasicController implemen
 	
 	// Hash map to keep references to already created user course environments
 	// Serves as a local cache to reduce database access - not shared by multiple threads
-	final Map<Long, UserCourseEnvironment> localUserCourseEnvironmentCache; // package visibility for avoiding synthetic accessor method
-	final Map<Long, Date> initialLaunchDates;
+	private final Map<Long, UserCourseEnvironment> localUserCourseEnvironmentCache; // package visibility for avoiding synthetic accessor method
+	private final Map<Long, Date> initialLaunchDates;
+	private final Deque<AssessedIdentityWrapper> wrappersToUpdate = new ArrayDeque<>();
 	// List of groups to which the user has access rights in this course
 	private List<BusinessGroup> coachedGroups;
 	//Is tutor from the security group of repository entry
@@ -254,7 +257,7 @@ public class AssessmentMainController extends MainLayoutBasicController implemen
 		initialLaunchDates = new ConcurrentHashMap<Long,Date>();
 		
 		//use the PropertyHandlerTranslator	as tableCtr translator
-		propertyHandlerTranslator = UserManager.getInstance().getPropertyHandlerTranslator(getTranslator());
+		propertyHandlerTranslator = userManager.getPropertyHandlerTranslator(getTranslator());
 		
 		Roles roles = ureq.getUserSession().getRoles();
 		BaseSecurityModule securityModule = CoreSpringFactory.getImpl(BaseSecurityModule.class);
@@ -384,7 +387,9 @@ public class AssessmentMainController extends MainLayoutBasicController implemen
 	 * @see org.olat.core.gui.control.DefaultController#event(org.olat.core.gui.UserRequest,
 	 *      org.olat.core.gui.components.Component, org.olat.core.gui.control.Event)
 	 */
+	@Override
 	public void event(UserRequest ureq, Component source, Event event) {
+		updatesTableModel();
 		if (source == menuTree) {
 			disposeChildControllerAndReleaseLocks(); // first cleanup old locks
 			if (event.getCommand().equals(MenuTree.COMMAND_TREENODE_CLICKED)) {
@@ -399,7 +404,6 @@ public class AssessmentMainController extends MainLayoutBasicController implemen
 				} else if (cmd.equals(CMD_USERFOCUS)) {
 					mode = MODE_USERFOCUS;
 					identitiesList = getAllAssessableIdentities();
-					//fxdiff FXOLAT-108: improve results table of tests
 					doUserChooseWithData(ureq, identitiesList, null, null);
 				} else if (cmd.equals(CMD_GROUPFOCUS)) {
 					mode = MODE_GROUPFOCUS;
@@ -446,6 +450,7 @@ public class AssessmentMainController extends MainLayoutBasicController implemen
 				setContent(nodeListCtr.getInitialComponent());
 			}
 		}
+		updatesTableModel();
 	}
 
 	/**
@@ -508,9 +513,27 @@ public class AssessmentMainController extends MainLayoutBasicController implemen
 		nodeFilters = getNodeFilters(course.getRunStructure().getRootNode(), currentGroup);
 		userListCtr.setFilters(nodeFilters, null);
 	}
+	
+	private void updatesTableModel() {
+		boolean changed = false;
+		try {
+			if (userListCtr != null && userListCtr.getTableDataModel() instanceof AssessedIdentitiesTableDataModel) {
+				AssessedIdentitiesTableDataModel aitd = (AssessedIdentitiesTableDataModel)userListCtr.getTableDataModel();
+				for(AssessedIdentityWrapper idWrapper = wrappersToUpdate.pollLast(); idWrapper != null; idWrapper=wrappersToUpdate.pollLast()) {
+					changed |= aitd.replaceWrapper(idWrapper);
+				}
+			}
+		} catch (Exception e) {
+			log.error("", e);
+		}
+		if(changed) {
+			userListCtr.modelChanged(false);
+		}
+	}
 
 	@Override
 	public void event(UserRequest ureq, Controller source, Event event) {
+		updatesTableModel();
 		if (source == groupListCtr) {
 			if (event.getCommand().equals(Table.COMMANDLINK_ROWACTION_CLICKED)) {
 				TableEvent te = (TableEvent) event;
@@ -541,7 +564,7 @@ public class AssessmentMainController extends MainLayoutBasicController implemen
 					} else {
 						// all other cases where user can be choosen the assessed identity wrapper is used
 						AssessedIdentitiesTableDataModel userListModel = (AssessedIdentitiesTableDataModel) userListCtr.getTableDataModel();
-						this.assessedIdentityWrapper = userListModel.getObject(rowid);
+						assessedIdentityWrapper = userListModel.getObject(rowid);
 					}
 					// init edit controller for this identity and this course node 
 					// or use identity assessment overview if no course node is defined
@@ -601,13 +624,10 @@ public class AssessmentMainController extends MainLayoutBasicController implemen
 				if (userListCtr != null 
 						&& userListCtr.getTableDataModel() instanceof AssessedIdentitiesTableDataModel) {
 					AssessedIdentitiesTableDataModel atdm = (AssessedIdentitiesTableDataModel) userListCtr.getTableDataModel();
-					List<AssessedIdentityWrapper> aiwList = atdm.getObjects();
-					if (aiwList.contains(this.assessedIdentityWrapper)) {
-						ICourse course = CourseFactory.loadCourse(ores);
-						aiwList.remove(this.assessedIdentityWrapper);
-						assessedIdentityWrapper = AssessmentHelper.wrapIdentity(assessedIdentityWrapper.getIdentity(),
-						localUserCourseEnvironmentCache, initialLaunchDates, course, currentCourseNode);
-						aiwList.add(this.assessedIdentityWrapper);
+					ICourse course = CourseFactory.loadCourse(ores);
+					assessedIdentityWrapper = AssessmentHelper.wrapIdentity(assessedIdentityWrapper.getIdentity(),
+								localUserCourseEnvironmentCache, initialLaunchDates, course, currentCourseNode);
+					if(atdm.replaceWrapper(assessedIdentityWrapper)) {
 						userListCtr.modelChanged();
 					}
 				}
@@ -632,6 +652,7 @@ public class AssessmentMainController extends MainLayoutBasicController implemen
 				}
 			}
 		}
+		updatesTableModel();
 	}
 
 	@Override
@@ -683,32 +704,16 @@ public class AssessmentMainController extends MainLayoutBasicController implemen
 				// 2) update user table model
 				if (userListCtr != null 
 						&& userListCtr.getTableDataModel() instanceof AssessedIdentitiesTableDataModel) {
-					// 2.1) search wrapper object in model
-					AssessedIdentitiesTableDataModel aitd = (AssessedIdentitiesTableDataModel) userListCtr.getTableDataModel();
-					List<AssessedIdentityWrapper> wrappers = aitd.getObjects();
-					Iterator<AssessedIdentityWrapper> iter = wrappers.iterator();
-					AssessedIdentityWrapper wrappedIdFromModel = null;
-					while (iter.hasNext()) {
-						AssessedIdentityWrapper wrappedId =  iter.next();
-						if (wrappedId.getIdentity().getKey().equals(identityKeyFromEvent)) {
-							wrappedIdFromModel = wrappedId;
-						}
+					// 2.1) queue wrapper object in model
+					Date initialLaunchDate;
+					if(initialLaunchDates.containsKey(identityKeyFromEvent)) {
+						initialLaunchDate = initialLaunchDates.get(identityKeyFromEvent);
+					} else {
+						UserCourseInformationsManager userCourseInformationsManager = CoreSpringFactory.getImpl(UserCourseInformationsManager.class);
+						initialLaunchDate = userCourseInformationsManager.getInitialLaunchDate(ores.getResourceableId(),  uce.getIdentityEnvironment().getIdentity());
 					}
-					// 2.2) update wrapper object
-					if (wrappedIdFromModel != null) {
-						wrappers.remove(wrappedIdFromModel);
-						
-						Date initialLaunchDate;
-						if(initialLaunchDates.containsKey(identityKeyFromEvent)) {
-							initialLaunchDate = initialLaunchDates.get(identityKeyFromEvent);
-						} else {
-							UserCourseInformationsManager userCourseInformationsManager = CoreSpringFactory.getImpl(UserCourseInformationsManager.class);
-							initialLaunchDate = userCourseInformationsManager.getInitialLaunchDate(ores.getResourceableId(),  wrappedIdFromModel.getIdentity());
-						}
-						wrappedIdFromModel = AssessmentHelper.wrapIdentity(wrappedIdFromModel.getUserCourseEnvironment(), initialLaunchDate, currentCourseNode);
-						wrappers.add(wrappedIdFromModel);
-						userListCtr.modelChanged();								
-					}
+					AssessedIdentityWrapper wrappedIdFromModel = AssessmentHelper.wrapIdentity(uce, initialLaunchDate, currentCourseNode);
+					wrappersToUpdate.add(wrappedIdFromModel);
 				}
 			}
 			// else user not in our local cache -> nothing to do
@@ -1100,8 +1105,7 @@ public class AssessmentMainController extends MainLayoutBasicController implemen
 		}
 		
 		boolean hasDisplayableValuesConfigured = false;
-		if ( (childrenData.size() > 0 || courseNode instanceof AssessableCourseNode) && !(courseNode instanceof ProjectBrokerCourseNode) ) {
-			// TODO:cg 04.11.2010 ProjectBroker : no assessment-tool in V1.0 , remove projectbroker completely form assessment-tool gui			// Store node data in hash map. This hash map serves as data model for 
+		if (childrenData.size() > 0 || courseNode instanceof AssessableCourseNode) {
 			// the user assessment overview table. Leave user data empty since not used in
 			// this table. (use only node data)
 			NodeTableRow nodeData = new NodeTableRow(recursionLevel, courseNode);
@@ -1115,9 +1119,11 @@ public class AssessmentMainController extends MainLayoutBasicController implemen
 					nodeData.setOnyx(false);
 				}
 			}
-
 			
-			if (courseNode instanceof AssessableCourseNode) {
+			if(courseNode instanceof ProjectBrokerCourseNode) {
+				//ProjectBroker : no assessment-tool in V1.0 , remove project broker completely form assessment-tool gui
+				nodeData.setSelectable(false);
+			} else if (courseNode instanceof AssessableCourseNode) {
 				AssessableCourseNode assessableCourseNode = (AssessableCourseNode) courseNode;
 				if ( assessableCourseNode.hasDetails()
 					|| assessableCourseNode.hasAttemptsConfigured()
@@ -1309,6 +1315,7 @@ public class AssessmentMainController extends MainLayoutBasicController implemen
 			gtn.setTitle(translate("menu.bulkfocus"));
 			gtn.setUserObject(CMD_BULKFOCUS);
 			gtn.setAltText(translate("menu.bulkfocus.alt"));
+			gtn.setCssClass("o_sel_assessment_tool_bulk");
 			root.addChild(gtn);
 			
 			if(callback.mayRecalculateEfficiencyStatements()) {
@@ -1383,6 +1390,7 @@ public class AssessmentMainController extends MainLayoutBasicController implemen
 		/**
 		 * @see java.lang.Runnable#run()
 		 */
+		@Override
 		public void run() {
 			boolean success = false;
 			try{
@@ -1407,11 +1415,11 @@ public class AssessmentMainController extends MainLayoutBasicController implemen
 							+ "ms");
 				}
 				// finished in this thread, close database session of this thread!
-				DBFactory.getInstance(false).commitAndCloseSession();
+				DBFactory.getInstance().commitAndCloseSession();
 				success = true;
 			} finally {
 				if (!success) {
-					DBFactory.getInstance(false).rollbackAndCloseSession();
+					DBFactory.getInstance().rollbackAndCloseSession();
 				}
 			}
 		}
@@ -1449,7 +1457,7 @@ public class AssessmentMainController extends MainLayoutBasicController implemen
 				menuTree.setSelectedNode(userNode);
 
 				assessedIdentityWrapper = null;	
-				TableDataModel userListModel = userListCtr.getTableDataModel();
+				TableDataModel<?> userListModel = userListCtr.getTableDataModel();
 				for(int i=userListModel.getRowCount(); i-->0; ) {
 					Object id = userListModel.getObject(i);
 					if(id instanceof AssessedIdentityWrapper && ((AssessedIdentityWrapper)id).getIdentity().getKey().equals(resId)) {

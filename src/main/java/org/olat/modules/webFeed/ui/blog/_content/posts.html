@@ -14,7 +14,7 @@
 			$r.translate("blog.has.no.episodes")
 		</p>
 		#if ( $callback.mayEditMetadata() && $feed.isUndefined() && $r.available("feed.make.internal"))
-			$r.contextHelpWithWrapper("org.olat.modules.webFeed.ui.blog","internal-external.html","chelp.hover")
+			$r.contextHelpWithWrapper("Knowledge Transfer#_blog_createentry")
 			<p>$r.translate("blog.internal.or.external")</p>
 			<div class="o_button_group">
 				$r.render("feed.make.internal")
@@ -55,7 +55,7 @@
 				</div>
 			</div>
 			
-			<div class="o_content">
+			<div class="o_content o_user_content_block">
 				 $!helper.getItemDescriptionForBrowser($post) 
 			</div>
 			
@@ -79,15 +79,13 @@
 				</div>
 			</div>
 				
-			#if (( $callback.mayEditItems() || ($callback.mayCreateItems() && $post.isDraft())) && $feed.isInternal())
+			#if($feed.isInternal())
 			<div class="o_button_group">
-				#if ($r.available("feed.edit.item.$post.getGuid()"))
-					## special case: this item has been added by another user and thus we 
-					## don't yet have links for this item. But we can still display the content
+				#if ($r.available("feed.edit.item.$post.getGuid()") && $r.visible("feed.edit.item.$post.getGuid()"))
 					$r.render("feed.edit.item.$post.getGuid()")
-					#if ($callback.mayDeleteItems() || ($callback.mayCreateItems() && $post.isDraft()))
-						$r.render("delete.$post.getGuid()")
-					#end
+				#end
+				#if ($r.available("delete.$post.getGuid()") && $r.visible("delete.$post.getGuid()"))
+					$r.render("delete.$post.getGuid()")
 				#end
 			</div>
 			#end

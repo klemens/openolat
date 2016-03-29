@@ -159,7 +159,7 @@ public class PoolDAO {
 		Number countShared = null;
 		if(countPool == null || countPool.intValue() <= 0) {
 			StringBuilder sc = new StringBuilder();
-			sc.append("select count(bgi.key) from ").append(org.olat.group.BusinessGroupImpl.class.getName()).append(" as bgi ")
+			sc.append("select count(bgi.key) from businessgroup as bgi ")
 			  .append(" inner join bgi.baseGroup as baseGroup")
 			  .append(" inner join baseGroup.members as membership")
 			  .append(" where membership.identity.key=:identityKey")
@@ -207,7 +207,7 @@ public class PoolDAO {
 	}
 	
 	public void addItemToPool(QuestionItemShort item, List<Pool> pools, boolean editable) {
-		QuestionItem lockedItem = questionItemDao.loadForUpdate(item.getKey());
+		QuestionItem lockedItem = questionItemDao.loadForUpdate(item);
 		for(Pool pool:pools) {
 			if(!isInPool(lockedItem, pool)) {
 				PoolToItem p2i = new PoolToItem();

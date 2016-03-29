@@ -23,6 +23,8 @@ import java.io.File;
 
 import org.olat.core.commons.editor.htmleditor.HTMLEditorController;
 import org.olat.core.commons.editor.htmleditor.WysiwygFactory;
+import org.olat.core.commons.services.notifications.NotificationsManager;
+import org.olat.core.commons.services.notifications.SubscriptionContext;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.form.flexible.FormItem;
 import org.olat.core.gui.components.form.flexible.FormItemContainer;
@@ -56,6 +58,7 @@ import org.olat.core.gui.translator.Translator;
 import org.olat.core.util.StringHelper;
 import org.olat.core.util.vfs.VFSContainer;
 import org.olat.core.util.vfs.VFSItem;
+import org.olat.core.util.vfs.VFSLeaf;
 import org.olat.core.util.vfs.VFSManager;
 import org.olat.course.editor.CourseEditorEnv;
 import org.olat.course.nodes.GTACourseNode;
@@ -90,8 +93,9 @@ public class GTAAssignmentEditController extends FormBasicController {
 	private CloseableModalController cmc;
 	private NewTaskController newTaskCtrl;
 	private DialogBoxController confirmDeleteCtrl;
+	private HTMLEditorController newTaskEditorCtrl;
+	private EditHTMLTaskController editTaskEditorCtrl;
 	private EditTaskController addTaskCtrl, editTaskCtrl;
-	private HTMLEditorController newTaskEditorCtrl, editTaskEditorCtrl;
 	
 	private final TaskDefinitionList taskList;
 	private final File tasksFolder;
@@ -99,9 +103,12 @@ public class GTAAssignmentEditController extends FormBasicController {
 	private final GTACourseNode gtaNode;
 	private final ModuleConfiguration config;
 	private final CourseEditorEnv courseEditorEnv;
+	private final SubscriptionContext subscriptionContext;
 	
 	@Autowired
 	private GTAManager gtaManager;
+	@Autowired
+	private NotificationsManager notificationsManager;
 	
 	public GTAAssignmentEditController(UserRequest ureq, WindowControl wControl,
 			GTACourseNode gtaNode, ModuleConfiguration config, CourseEditorEnv courseEditorEnv,
@@ -113,6 +120,7 @@ public class GTAAssignmentEditController extends FormBasicController {
 		
 		this.tasksFolder = tasksFolder;
 		this.tasksContainer = tasksContainer;
+		subscriptionContext = gtaManager.getSubscriptionContext(courseEditorEnv, gtaNode);
 		
 		if(config.get(GTACourseNode.GTASK_TASKS) == null) {
 			taskList = new TaskDefinitionList();
@@ -183,6 +191,7 @@ public class GTAAssignmentEditController extends FormBasicController {
 		} else {
 			previewEl.select(previewKeys[1], true);
 		}
+		previewEl.setVisible(typeEl.isSelected(0));
 		
 		String[] samplingValues = new String[]{ translate("sampling.unique"), translate("sampling.reuse") };
 		samplingEl = uifactory.addRadiosVertical("sampling", configCont, samplingKeys, samplingValues);
@@ -229,6 +238,7 @@ public class GTAAssignmentEditController extends FormBasicController {
 				taskList.getTasks().add(newTask);
 				fireEvent(ureq, Event.DONE_EVENT);
 				updateModel();
+				notificationsManager.markPublisherNews(subscriptionContext, null, false);
 			}
 			cmc.deactivate();
 			cleanUp();
@@ -238,6 +248,7 @@ public class GTAAssignmentEditController extends FormBasicController {
 				fireEvent(ureq, Event.DONE_EVENT);
 				taskDefTableEl.reloadData();
 				doFinishReplacementOfTask(editTaskCtrl.getFilenameToReplace(), editTaskCtrl.getTask());
+				notificationsManager.markPublisherNews(subscriptionContext, null, false);
 			}
 			cmc.deactivate();
 			cleanUp();
@@ -255,10 +266,16 @@ public class GTAAssignmentEditController extends FormBasicController {
 			if(event == Event.DONE_EVENT) {
 				updateModel();
 				fireEvent(ureq, Event.DONE_EVENT);
+				notificationsManager.markPublisherNews(subscriptionContext, null, false);
 			}
 			cmc.deactivate();
 			cleanUp();
 		} else if(editTaskEditorCtrl == source) {
+			if(event == Event.DONE_EVENT) {
+				updateModel();
+				fireEvent(ureq, Event.DONE_EVENT);
+				notificationsManager.markPublisherNews(subscriptionContext, null, false);
+			}
 			cmc.deactivate();
 			cleanUp();
 		} else if(confirmDeleteCtrl == source) {
@@ -385,9 +402,9 @@ public class GTAAssignmentEditController extends FormBasicController {
 	
 	private void doFinishReplacementOfTask(String replacedFilename, TaskDefinition taskDef) {
 		RepositoryEntry re = courseEditorEnv.getCourseGroupManager().getCourseEntry();
-		TaskList taskList = gtaManager.getTaskList(re, gtaNode);
-		if(taskList != null) {
-			gtaManager.updateTaskName(taskList, replacedFilename, taskDef.getFilename());
+		TaskList list = gtaManager.getTaskList(re, gtaNode);
+		if(list != null) {
+			gtaManager.updateTaskName(list, replacedFilename, taskDef.getFilename());
 		}
 	}
 	
@@ -412,6 +429,8 @@ public class GTAAssignmentEditController extends FormBasicController {
 
 		newTaskEditorCtrl = WysiwygFactory.createWysiwygController(ureq, getWindowControl(),
 				tasksContainer, documentName, "media", true, true);
+		newTaskEditorCtrl.getRichTextConfiguration().disableMedia();
+		newTaskEditorCtrl.getRichTextConfiguration().setAllowCustomMediaFactory(false);
 		newTaskEditorCtrl.setNewFile(true);
 		newTaskEditorCtrl.setUserObject(taskDef);
 		listenTo(newTaskEditorCtrl);
@@ -422,15 +441,17 @@ public class GTAAssignmentEditController extends FormBasicController {
 	}
 	
 	private void doEditTaskEditor(UserRequest ureq, TaskDefinition taskDef) {
-		String documentName = taskDef.getFilename();
-
-		editTaskEditorCtrl = WysiwygFactory.createWysiwygController(ureq, getWindowControl(),
-				tasksContainer, documentName, "media", true, true);
-		listenTo(editTaskEditorCtrl);
-		
-		cmc = new CloseableModalController(getWindowControl(), "close", editTaskEditorCtrl.getInitialComponent());
-		listenTo(cmc);
-		cmc.activate();
+		VFSItem htmlDocument = tasksContainer.resolve(taskDef.getFilename());
+		if(htmlDocument == null || !(htmlDocument instanceof VFSLeaf)) {
+			showError("error.missing.file");
+		} else {
+			editTaskEditorCtrl = new EditHTMLTaskController(ureq, getWindowControl(), taskDef, tasksContainer);
+			listenTo(editTaskEditorCtrl);
+			
+			cmc = new CloseableModalController(getWindowControl(), "close", editTaskEditorCtrl.getInitialComponent());
+			listenTo(cmc);
+			cmc.activate();
+		}
 	}
 	
 	private void doConfirmDelete(UserRequest ureq, TaskDefinition row) {

@@ -1,11 +1,11 @@
 <fieldset>
-	<legend>$r.contextHelpWithWrapper("org.olat.course.editor","ced-acc.html","help.hover.acc")
+	<legend>$r.contextHelpWithWrapper("General Configuration of Course Elements#_zugang")
 	$title</legend>
 	$r.render("defaultAccessConditionView")
 </fieldset>
 #if($renderPW)
-	<fieldset>
-		<legend>$r.contextHelpWithWrapper("org.olat.course.condition.additionalconditions","ced-password.html","help.hover.password")
+	<fieldset class="o_sel_course_node_password_config">
+		<legend>
 		$r.translate("password.field")</legend>
 		$r.render("pwcond")
 	</fieldset>

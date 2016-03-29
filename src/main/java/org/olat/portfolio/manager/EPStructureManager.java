@@ -49,7 +49,8 @@ import org.olat.core.commons.services.notifications.SubscriptionContext;
 import org.olat.core.id.Identity;
 import org.olat.core.id.OLATResourceable;
 import org.olat.core.logging.AssertException;
-import org.olat.core.manager.BasicManager;
+import org.olat.core.logging.OLog;
+import org.olat.core.logging.Tracing;
 import org.olat.core.util.StringHelper;
 import org.olat.core.util.resource.OresHelper;
 import org.olat.portfolio.model.artefacts.AbstractArtefact;
@@ -69,6 +70,7 @@ import org.olat.portfolio.model.structel.EPTargetResource;
 import org.olat.portfolio.model.structel.ElementType;
 import org.olat.portfolio.model.structel.PortfolioStructure;
 import org.olat.portfolio.model.structel.PortfolioStructureMap;
+import org.olat.portfolio.model.structel.PortfolioStructureRef;
 import org.olat.portfolio.model.structel.StructureStatusEnum;
 import org.olat.repository.RepositoryEntry;
 import org.olat.repository.RepositoryManager;
@@ -89,11 +91,12 @@ import org.springframework.stereotype.Service;
  * @author Roman Haag, roman.haag@frentix.com, http://www.frentix.com
  */
 @Service("epStructureManager")
-public class EPStructureManager extends BasicManager {
+public class EPStructureManager {
 	
 	public static final String STRUCTURE_ELEMENT_TYPE_NAME = "EPStructureElement";
 	
 	public static final OLATResourceable ORES_MAPOWNER = OresHelper.lookupType(EPStructureManager.class, "EPOwner");
+	public static final OLog log = Tracing.createLoggerFor(EPStructureManager.class);
 
 	@Autowired
 	private DB dbInstance;
@@ -101,8 +104,6 @@ public class EPStructureManager extends BasicManager {
 	private RepositoryManager repositoryManager;
 	@Autowired
 	private OLATResourceManager resourceManager;
-	@Autowired
-	private EPPolicyManager policyManager;
 	@Autowired
 	private GroupDAO groupDao;
 	@Autowired
@@ -206,7 +207,7 @@ public class EPStructureManager extends BasicManager {
 	}
 	
 	/**
-	 * Check if the identity is owner of the map
+	 * Check if the identity is owner of the map identified by the specified resource
 	 * @param identity
 	 * @param ores
 	 * @return
@@ -226,6 +227,29 @@ public class EPStructureManager extends BasicManager {
 				.setParameter("identityKey", identity.getKey())
 				.setParameter("resourceableId", ores.getResourceableId())
 				.setParameter("resourceableTypeName", ores.getResourceableTypeName())
+				.getSingleResult();
+		return count == null ? false : count.intValue() > 0;
+	}
+	
+	/**
+	 * Check if the identity is owner of the map identified by the specified key
+	 * @param identity
+	 * @param mapKey The structure primary key
+	 * @return
+	 */
+	protected boolean isMapOwner(IdentityRef identity, Long mapKey) {
+		StringBuilder sb = new StringBuilder();
+		sb.append("select count(stEl) from ").append(EPStructureElement.class.getName()).append(" stEl ")
+		  .append(" inner join stEl.groups as relGroup on relGroup.defaultGroup=true")
+		  .append(" inner join relGroup.group as baseGroup")
+		  .append(" where stEl.key=:key")
+		  .append(" and exists (select membership from bgroupmember as membership " )
+		  .append("   where baseGroup=membership.group and membership.identity.key=:identityKey and membership.role='").append(GroupRoles.owner.name()).append("'")
+		  .append(" )");
+		
+		Number count =	dbInstance.getCurrentEntityManager().createQuery(sb.toString(), Number.class)
+				.setParameter("identityKey", identity.getKey())
+				.setParameter("key", mapKey)
 				.getSingleResult();
 		return count == null ? false : count.intValue() > 0;
 	}
@@ -558,21 +582,21 @@ public class EPStructureManager extends BasicManager {
 	 * @param structure
 	 * @return
 	 */
-	protected PortfolioStructure loadStructureParent(PortfolioStructure structure) {
+	protected PortfolioStructure loadStructureParent(PortfolioStructureRef structure) {
 		if (structure == null) throw new NullPointerException();
 
 		StringBuilder sb = new StringBuilder();
 		sb.append("select link.parent from ").append(EPStructureToStructureLink.class.getName()).append(" link")
-			.append(" where link.child=:structureEl");
+		  .append(" where link.child.key=:structureElKey");
 		
-		DBQuery query = dbInstance.createQuery(sb.toString());
-		query.setEntity("structureEl", structure);
-		
-		@SuppressWarnings("unchecked")
-		List<PortfolioStructure> resources = query.list();
+		List<PortfolioStructure> resources = dbInstance.getCurrentEntityManager()
+				.createQuery(sb.toString(), PortfolioStructure.class)
+				.setParameter("structureElKey", structure.getKey())
+				.getResultList();
+
 		if(resources.isEmpty()) return null;
 		if(resources.size() == 1) return resources.get(0);
-		getLogger().error("A structure child has more than one parent");
+		log.error("A structure child has more than one parent");
 		return null;
 	}
 	
@@ -865,8 +889,8 @@ public class EPStructureManager extends BasicManager {
 		if(childStructure instanceof EPStructureElement) {
 			//save eventual changes
 			dbInstance.updateObject(parentStructure);
-			//reconnect to the session
-			parentStructure = (EPStructureElement)dbInstance.loadObject((EPStructureElement)parentStructure);
+			//reconnect to the session (why reconnect? you update it already)
+			//parentStructure = (EPStructureElement)dbInstance.loadObject((EPStructureElement)parentStructure);
 			EPStructureToStructureLink link = new EPStructureToStructureLink();
 			link.setParent(parentStructure);
 			link.setChild(childStructure);
@@ -874,10 +898,13 @@ public class EPStructureManager extends BasicManager {
 			//refresh internal link to its root element
 			((EPStructureElement)childStructure).setRoot((EPStructureElement) parentStructure);
 			
+			List<EPStructureToStructureLink> internalChildren = ((EPStructureElement)parentStructure).getInternalChildren();
 			if (destinationPos == -1) {
-				((EPStructureElement)parentStructure).getInternalChildren().add(link);
+				internalChildren.add(link);
+			} else if(destinationPos <= internalChildren.size()) {
+				internalChildren.add(destinationPos, link);
 			} else {
-				((EPStructureElement)parentStructure).getInternalChildren().add(destinationPos, link);
+				internalChildren.add(link);
 			}
 		}
 	}
@@ -888,7 +915,7 @@ public class EPStructureManager extends BasicManager {
 			removeStructure(oldParStruct, structToBeMvd);
 			addStructureToStructure(newParStruct, structToBeMvd, destinationPos);
 		} catch (Exception e) {
-			logError("could not move structure " + structToBeMvd.getKey() + " from " + oldParStruct.getKey() + " to " + newParStruct.getKey(), e);
+			log.error("could not move structure " + structToBeMvd.getKey() + " from " + oldParStruct.getKey() + " to " + newParStruct.getKey(), e);
 			return false;
 		}
 		return true;
@@ -1071,11 +1098,16 @@ public class EPStructureManager extends BasicManager {
 		int oldPos = indexOf(structureLinks, orderSubject);		
 		if (oldPos != orderDest && oldPos != -1) {
 			EPStructureToStructureLink link = structureLinks.remove(oldPos);
-			if(orderDest > structureLinks.size()) {
-				orderDest = structureLinks.size() -1; // place at end
-			} else if(oldPos < orderDest) {
+			 if(oldPos < orderDest) {
 				orderDest--;
 			}
+			 
+			 if(orderDest < 0) {
+				orderDest = 0;
+			} else if(orderDest > structureLinks.size()) {
+				orderDest = structureLinks.size() -1; // place at end
+			}
+			
 			structureLinks.add(orderDest, link);			
 			dbInstance.updateObject(structureEl);
 			return true;
@@ -1235,7 +1267,7 @@ public class EPStructureManager extends BasicManager {
 		EPStructureElement childSourceEl = (EPStructureElement)refLink.getChild();
 		EPStructureElement clonedChildEl = instantiateClone(refLink.getChild());
 		if(clonedChildEl == null) {
-			logWarn("Attempt to clone an unsupported structure type: " + refLink.getChild(), null);
+			log.warn("Attempt to clone an unsupported structure type: " + refLink.getChild(), null);
 		} else {
 			OLATResource resource = resourceManager.createOLATResourceInstance(clonedChildEl.getClass());
 			clonedChildEl.setOlatResource(resource);

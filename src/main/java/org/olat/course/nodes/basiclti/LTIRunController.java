@@ -34,7 +34,6 @@ import org.imsglobal.basiclti.BasicLTIUtil;
 import org.olat.core.CoreSpringFactory;
 import org.olat.core.dispatcher.mapper.Mapper;
 import org.olat.core.gui.UserRequest;
-import org.olat.core.gui.Windows;
 import org.olat.core.gui.components.Component;
 import org.olat.core.gui.components.link.Link;
 import org.olat.core.gui.components.link.LinkFactory;
@@ -207,11 +206,20 @@ public class LTIRunController extends BasicController {
 		final User user = getIdentity().getUser();
 		//user data
 		if (config.getBooleanSafe(LTIConfigForm.CONFIG_KEY_SENDNAME, false)) {
-			userData.put("lastName", user.getProperty(UserConstants.LASTNAME, getLocale()));
-			userData.put("firstName", user.getProperty(UserConstants.FIRSTNAME, getLocale()));
+			String lastName = user.getProperty(UserConstants.LASTNAME, getLocale());
+			if(StringHelper.containsNonWhitespace(lastName)) {
+				userData.put("lastName", lastName);
+			}
+			String firstName = user.getProperty(UserConstants.FIRSTNAME, getLocale());
+			if(StringHelper.containsNonWhitespace(firstName)) {
+				userData.put("firstName", firstName);
+			}
 		}
 		if (config.getBooleanSafe(LTIConfigForm.CONFIG_KEY_SENDEMAIL, false)) {
-			userData.put("email", user.getProperty(UserConstants.EMAIL, getLocale()));
+			String email = user.getProperty(UserConstants.EMAIL, getLocale());
+			if(StringHelper.containsNonWhitespace(email)) {
+				userData.put("email", email);
+			}
 		}
 		// customUserData
 		String custom = (String)config.get(LTIConfigForm.CONFIG_KEY_CUSTOM);
@@ -323,9 +331,6 @@ public class LTIRunController extends BasicController {
 			mainPanel.setContent(startPage);
 		} else if(display == LTIDisplayOptions.window) {
 			mainPanel.setContent(startPage);
-		} else if(display == LTIDisplayOptions.fullscreen && Windows.getWindows(ureq).getChiefController() == null) {
-			// directly opening the LTI after resume is not supported
-			mainPanel.setContent(startPage);
 		} else {
 			openBasicLTIContent(ureq);
 		}
@@ -335,7 +340,7 @@ public class LTIRunController extends BasicController {
 		// container is "run", "runFullscreen" or "runPopup" depending in configuration
 		doBasicLTI(ureq, run);
 		if (display == LTIDisplayOptions.fullscreen) {
-			ChiefController cc = Windows.getWindows(ureq).getChiefController();
+			ChiefController cc = getWindowControl().getWindowBackOffice().getChiefController();
 			if (cc != null) {
 				thebaseChief = cc;
 				thebaseChief.getScreenMode().setMode(Mode.full);
@@ -403,7 +408,7 @@ public class LTIRunController extends BasicController {
 		container.contextPut("sourcedId", sourcedId);
 		OLATResource courseResource = courseEnv.getCourseGroupManager().getCourseResource();
 		
-		Mapper talkbackMapper = new TalkBackMapper();
+		Mapper talkbackMapper = new TalkBackMapper(getLocale(), getWindowControl().getWindowBackOffice().getWindow().getGuiTheme().getBaseURI());
 		String backMapperUrl = registerCacheableMapper(ureq, sourcedId + "_talkback", talkbackMapper);
 		String backMapperUri = serverUri + backMapperUrl + "/";
 

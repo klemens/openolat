@@ -46,8 +46,21 @@ public class OOGraphene {
 
 	private static final long poolingDuration = 25;
 	
+	private static final By closeBlueBoxButtonBy = By.cssSelector("div.o_alert_info div.o_sel_info_message i.o_icon.o_icon_close");
+	private static final By closeModalDialogButtonBy = By.cssSelector("div.modal-dialog div.modal-header button.close");
+	
+	public static void waitModalDialog(WebDriver browser) {
+		By modalBy = By.cssSelector("div.modal-dialog div.modal-body");
+		waitElement(modalBy, 5, browser);
+	}
+	
 	public static void waitBusy(WebDriver browser) {
 		Graphene.waitModel(browser).pollingEvery(poolingDuration, TimeUnit.MILLISECONDS).until(new BusyPredicate());
+	}
+	
+	public static void waitBusy(WebDriver browser, int timeoutInSeconds) {
+		Graphene.waitModel(browser).withTimeout(timeoutInSeconds, TimeUnit.SECONDS)
+		.pollingEvery(poolingDuration, TimeUnit.MILLISECONDS).until(new BusyPredicate());
 	}
 	
 	public static void waitElement(By element, WebDriver browser) {
@@ -59,10 +72,17 @@ public class OOGraphene {
 			.pollingEvery(poolingDuration, TimeUnit.MILLISECONDS).until().element(element).is().visible();
 	}
 	
+	public static void waitElementDisappears(By element, int timeoutInSeconds, WebDriver browser) {
+		Graphene.waitModel(browser).withTimeout(timeoutInSeconds, TimeUnit.SECONDS)
+			.pollingEvery(poolingDuration, TimeUnit.MILLISECONDS).until().element(element).is().not().present();
+	}
+	
 	public static void waitElement(WebElement element, WebDriver browser) {
 		Graphene.waitModel(browser).pollingEvery(poolingDuration, TimeUnit.MILLISECONDS).until().element(element).is().visible();
 	}
 	
+	// top.tinymce.get('o_fi1000000416').setContent('<p>Hacked</p>');
+	// <div id="o_fi1000000416_diw" class="o_richtext_mce"> <iframe id="o_fi1000000416_ifr">
 	public static final void tinymce(String content, WebDriver browser) {
 		Graphene.waitModel(browser).withTimeout(5, TimeUnit.SECONDS)
 			.pollingEvery(poolingDuration, TimeUnit.MILLISECONDS).until(new TinyMCELoadedPredicate());
@@ -131,6 +151,10 @@ public class OOGraphene {
 		return Locale.ENGLISH;
 	}
 	
+	/**
+	 * Wait the end of the transition of the user's tools bar.
+	 * @param browser
+	 */
 	public static final void waitingTransition(WebDriver browser) {
 		Graphene.waitModel(browser).pollingEvery(poolingDuration, TimeUnit.MILLISECONDS).until(new TransitionPredicate());
 		waitingALittleBit();
@@ -165,23 +189,22 @@ public class OOGraphene {
 	
 	public static final void waitAndCloseBlueMessageWindow(WebDriver browser) {
 		try {
-			Thread.sleep(350);
-		} catch (InterruptedException e) {
+			waitElement(closeBlueBoxButtonBy, 1, browser);
+		} catch (Exception e) {
 			e.printStackTrace();
 		}
 		closeBlueMessageWindow(browser);
 	}
 	
 	public static final void closeBlueMessageWindow(WebDriver browser) {
-		By closeButtonBy = By.cssSelector("div.o_alert_info div.o_sel_info_message i.o_icon.o_icon_close");
-		List<WebElement> closeButtons = browser.findElements(closeButtonBy);
+		List<WebElement> closeButtons = browser.findElements(closeBlueBoxButtonBy);
 		for(WebElement closeButton:closeButtons) {
 			if(closeButton.isDisplayed()) {
 				try {
-					clickCloseButton(closeButton);
+					clickCloseButton(browser, closeButton);
 				} catch (TimeoutException e) {
 					try {
-						clickCloseButton(closeButton);
+						clickCloseButton(browser, closeButton);
 					} catch(Exception e2) {
 						//
 					}
@@ -190,10 +213,10 @@ public class OOGraphene {
 		}
 	}
 	
-	private static final void clickCloseButton(WebElement closeButton) {
+	private static final void clickCloseButton(WebDriver browser, WebElement closeButton) {
 		try {
 			closeButton.click();
-			Graphene.waitModel()
+			Graphene.waitModel(browser)
 				.withTimeout(1000, TimeUnit.MILLISECONDS)
 				.pollingEvery(poolingDuration, TimeUnit.MILLISECONDS)
 				.until(new CloseAlertInfoPredicate());
@@ -201,4 +224,41 @@ public class OOGraphene {
 			//e.printStackTrace();
 		}
 	}
+	
+	public static final void closeModalDialogWindow(WebDriver browser) {
+		List<WebElement> closeButtons = browser.findElements(closeModalDialogButtonBy);
+		for(WebElement closeButton:closeButtons) {
+			if(closeButton.isDisplayed()) {
+				try {
+					clickModalDialogCloseButton(browser, closeButton);
+				} catch (TimeoutException e) {
+					try {
+						clickModalDialogCloseButton(browser, closeButton);
+					} catch(Exception e2) {
+						//
+					}
+				}
+			}
+		}
+	}
+	
+	private static final void clickModalDialogCloseButton(WebDriver browser, WebElement closeButton) {
+		try {
+			closeButton.click();
+			By dialogBy = By.cssSelector("div.modal-dialog");
+			OOGraphene.waitElementDisappears(dialogBy, 2, browser);
+		} catch (ElementNotVisibleException e) {
+			//e.printStackTrace();
+		}
+	}
+	
+	/*public static void closeOffCanvas(WebDriver browser) {
+		By closeBy = By.cssSelector("a.o_offcanvas_close");
+		List<WebElement> closeButtons = browser.findElements(closeBy);
+		if(closeButtons.size() == 1 && closeButtons.get(0).isDisplayed()) {
+			closeButtons.get(0).click();
+			By bodyBy = By.xpath("//body[contains(@class,'o_offcanvas_right_visible')]");
+			OOGraphene.waitElementDisappears(bodyBy, 2, browser);
+		}	
+	}*/
 }

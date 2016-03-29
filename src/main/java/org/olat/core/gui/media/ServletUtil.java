@@ -79,6 +79,17 @@ public class ServletUtil {
 		}
 	}
 	
+	public static boolean acceptJson(HttpServletRequest request) {
+		boolean acceptJson = false;
+		for(Enumeration<String> headers=request.getHeaders("Accept"); headers.hasMoreElements(); ) {
+			String accept = headers.nextElement();
+			if(accept.contains("application/json")) {
+				acceptJson = true;
+			}
+		}
+		return acceptJson;
+	}
+	
 	/**
 	 * @param httpReq
 	 * @param httpResp
@@ -185,7 +196,7 @@ public class ServletUtil {
 					httpResp.addHeader("Content-Range", "bytes " + range.start + "-" + range.end + "/" + range.length);
 					long length = range.end - range.start + 1;
 					if (length < Integer.MAX_VALUE) {
-						httpResp.setContentLength((int) length);
+						httpResp.setContentLengthLong(length);
 					} else {
 						// Set the content-length as String to be able to use a long
 						httpResp.setHeader("content-length", "" + length);
@@ -199,11 +210,12 @@ public class ServletUtil {
 					copy(out, in, range);
 				} else {
 					if (size != null) {
-						httpResp.setContentLength(size.intValue());
+						httpResp.setContentLengthLong(size.longValue());
 					}
+					int bufferSize = httpResp.getBufferSize();
 					// buffer input stream
-					bis = new BufferedInputStream(in);
-					IOUtils.copy(bis, out);
+					bis = new BufferedInputStream(in, bufferSize);
+					IOUtils.copyLarge(bis, out, new byte[bufferSize]);
 				}
 				
 				if (debug) {

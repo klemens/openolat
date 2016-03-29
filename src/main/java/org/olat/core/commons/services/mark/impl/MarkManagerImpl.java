@@ -58,20 +58,18 @@ public class MarkManagerImpl implements MarkManager {
 		StringBuilder sb = new StringBuilder();
 		sb.append("select mark from ").append(MarkImpl.class.getName()).append(" mark where ")
 			.append("mark.resId=:resId and mark.resName=:resName and mark.creator=:creator");
-		if(!subPath.isEmpty()) {
+		if(subPath != null && !subPath.isEmpty()) {
 			sb.append(" and mark.resSubPath in (:resSubPaths)");
 		}
 		
-		TypedQuery<Mark> query = dbInstance.getCurrentEntityManager().createQuery(sb.toString(), Mark.class);
-		query.setParameter("resName", ores.getResourceableTypeName());
-		query.setParameter("resId", ores.getResourceableId());
-		query.setParameter("creator", identity);
-		if(!subPath.isEmpty()) {
+		TypedQuery<Mark> query = dbInstance.getCurrentEntityManager().createQuery(sb.toString(), Mark.class)
+				.setParameter("resName", ores.getResourceableTypeName())
+				.setParameter("resId", ores.getResourceableId())
+				.setParameter("creator", identity);
+		if(subPath != null && !subPath.isEmpty()) {
 			query.setParameter("resSubPaths", subPath);
 		}
-		
-		List<Mark> results = query.getResultList();
-		return results;
+		return query.getResultList();
 	}
 	
 	@Override
@@ -147,8 +145,25 @@ public class MarkManagerImpl implements MarkManager {
 	}
 
 	@Override
-	public boolean isMarked(OLATResourceable ores, Identity identity, String subPath) {
-		return loadMark(ores, identity, subPath) != null;
+	public boolean isMarked(OLATResourceable ores, Identity identity, String resSubPath) {
+		StringBuilder sb = new StringBuilder();
+		sb.append("select mark.key from ").append(MarkImpl.class.getName()).append(" mark where ")
+			.append("mark.resId=:resId and mark.resName=:resName and mark.creator=:creator");
+		if(resSubPath != null) {
+			sb.append(" and mark.resSubPath=:resSubPath");
+		}
+		
+		TypedQuery<Long> query = dbInstance.getCurrentEntityManager()
+				.createQuery(sb.toString(), Long.class)
+				.setParameter("resName", ores.getResourceableTypeName())
+				.setParameter("resId", ores.getResourceableId())
+				.setParameter("creator", identity);
+		if(resSubPath != null) {
+			query.setParameter("resSubPath", resSubPath);
+		}
+
+		List<Long> results = query.getResultList();
+		return results != null && results.size() > 0 && results.get(0) != null && results.get(0).longValue() > 0;
 	}
 	
 	@Override

@@ -44,6 +44,9 @@ import org.olat.course.ICourse;
 import org.olat.course.tree.CourseEditorTreeModel;
 import org.olat.course.tree.PublishTreeModel;
 import org.olat.repository.RepositoryEntry;
+import org.olat.repository.RepositoryManager;
+import org.olat.resource.OLATResource;
+import org.springframework.beans.factory.annotation.Autowired;
 
 /**
  * 
@@ -56,6 +59,9 @@ public class QuickPublishController extends BasicController {
 	private final Link noLink, manualLink, autoLink;
 	private final OLATResourceable courseOres;
 	
+	@Autowired
+	private RepositoryManager repositoryManager;
+	
 	public QuickPublishController(UserRequest ureq, WindowControl wControl, ICourse course) {
 		super(ureq, wControl);
 		this.courseOres = OresHelper.clone(course);
@@ -64,7 +70,8 @@ public class QuickPublishController extends BasicController {
 		
 		String accessI18n = "";
 		String accessI18CssClass = "o_success";
-		RepositoryEntry entry = course.getCourseEnvironment().getCourseGroupManager().getCourseEntry();
+		OLATResource courseResource = course.getCourseEnvironment().getCourseGroupManager().getCourseResource();
+		RepositoryEntry entry = repositoryManager.lookupRepositoryEntry(courseResource, false);
 		if(entry.isMembersOnly()) {
 			accessI18n = translate("cif.access.membersonly");
 		} else {
@@ -109,12 +116,15 @@ public class QuickPublishController extends BasicController {
 		} else if(manualLink == source) {
 			fireEvent(ureq, EditorMainController.MANUAL_PUBLISH);
 		} else if(autoLink == source) {
-			doAutoPublish();
-			fireEvent(ureq, Event.CHANGED_EVENT);
+			if(doAutoPublish()) {
+				fireEvent(ureq, Event.CHANGED_EVENT);
+			} else {
+				fireEvent(ureq, Event.CANCELLED_EVENT);
+			}
 		}
 	}
 	
-	private void doAutoPublish() {
+	private boolean doAutoPublish() {
 		ICourse course = CourseFactory.loadCourse(courseOres);
 		CourseEditorTreeModel cetm = course.getEditorTreeModel();
 		PublishProcess publishProcess = PublishProcess.getInstance(course, cetm, getLocale());
@@ -138,11 +148,17 @@ public class QuickPublishController extends BasicController {
 			PublishSetInformations set = publishProcess.testPublishSet(getLocale());
 			StatusDescription[] status = set.getWarnings();
 			//publish not possible when there are errors
+			StringBuilder errMsg = new StringBuilder();
 			for(int i = 0; i < status.length; i++) {
 				if(status[i].isError()) {
+					errMsg.append(status[i].getLongDescription(getLocale()));
 					logError("Status error by publish: " + status[i].getLongDescription(getLocale()), null);
-					return;
 				}
+			}
+			
+			if(errMsg.length() > 0) {
+				getWindowControl().setWarning(errMsg.toString());
+				return false;
 			}
 			
 			PublishEvents publishEvents = publishProcess.getPublishEvents();
@@ -159,6 +175,8 @@ public class QuickPublishController extends BasicController {
 				}
 			}
 		}
+		
+		return true;
 	}
 	
 	private static void visitPublishModel(TreeNode node, INodeFilter filter, Collection<String> nodeToPublish) {

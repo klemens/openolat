@@ -322,9 +322,9 @@ public class ReminderRuleEngineTest extends OlatTestCase {
 		
 		//create user course infos
 		Long courseResId = course.getCourseEnvironment().getCourseResourceableId();
-		userCourseInformationsManager.updateUserCourseInformations(courseResId, id1, true);
-		userCourseInformationsManager.updateUserCourseInformations(courseResId, id2, true);
-		userCourseInformationsManager.updateUserCourseInformations(courseResId, id3, true);
+		userCourseInformationsManager.updateUserCourseInformations(re.getOlatResource(), id1);
+		userCourseInformationsManager.updateUserCourseInformations(re.getOlatResource(), id2);
+		userCourseInformationsManager.updateUserCourseInformations(re.getOlatResource(), id3);
 		dbInstance.commit();
 		
 		//fake the date
@@ -443,9 +443,9 @@ public class ReminderRuleEngineTest extends OlatTestCase {
 		
 		//create user course infos
 		Long courseResId = course.getCourseEnvironment().getCourseResourceableId();
-		userCourseInformationsManager.updateUserCourseInformations(courseResId, id1, true);
-		userCourseInformationsManager.updateUserCourseInformations(courseResId, id2, true);
-		userCourseInformationsManager.updateUserCourseInformations(courseResId, id3, true);
+		userCourseInformationsManager.updateUserCourseInformations(re.getOlatResource(), id1);
+		userCourseInformationsManager.updateUserCourseInformations(re.getOlatResource(), id2);
+		userCourseInformationsManager.updateUserCourseInformations(re.getOlatResource(), id3);
 		dbInstance.commit();
 		
 		//fake the date
@@ -679,7 +679,7 @@ public class ReminderRuleEngineTest extends OlatTestCase {
 		Date validTo = cal.getTime();
 		
 		RepositoryEntryLifecycle cycle = lifecycleDao.create("Cycle 1", "Cycle soft 1", false, validFrom, validTo);
-		re = repositoryManager.setDescriptionAndName(re, null, null, null, null, null, null, cycle);
+		re = repositoryManager.setDescriptionAndName(re, null, null, null, null, null, null, null, cycle);
 		repositoryEntryRelationDao.addRole(id1, re, GroupRoles.owner.name());
 		repositoryEntryRelationDao.addRole(id2, re, GroupRoles.coach.name());
 		repositoryEntryRelationDao.addRole(id3, re, GroupRoles.participant.name());
@@ -764,7 +764,7 @@ public class ReminderRuleEngineTest extends OlatTestCase {
 		Date validTo = cal.getTime();
 		
 		RepositoryEntryLifecycle cycle = lifecycleDao.create("Cycle 2", "Cycle soft 2", false, validFrom, validTo);
-		re = repositoryManager.setDescriptionAndName(re, null, null, null, null, null, null, cycle);
+		re = repositoryManager.setDescriptionAndName(re, null, null, null, null, null, null, null, cycle);
 		repositoryEntryRelationDao.addRole(id1, re, GroupRoles.owner.name());
 		repositoryEntryRelationDao.addRole(id2, re, GroupRoles.coach.name());
 		repositoryEntryRelationDao.addRole(id3, re, GroupRoles.participant.name());
@@ -1042,7 +1042,7 @@ public class ReminderRuleEngineTest extends OlatTestCase {
 	
 	private String assessmentData(Identity tutor, Identity student, ScoreEvaluation scoreEval, RepositoryEntry re) {
 		//create user course infos
-		ICourse course = CourseFactory.loadCourse(re.getOlatResource());
+		ICourse course = CourseFactory.loadCourse(re);
 		List<CourseNode> assessableNodeList = AssessmentHelper.getAssessableNodes(course.getEditorTreeModel(), null);
 		AssessableCourseNode testNode = null; 
 		for(CourseNode currentNode: assessableNodeList) {	

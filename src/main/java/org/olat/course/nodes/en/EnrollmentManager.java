@@ -29,7 +29,6 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
-import org.olat.basesecurity.BaseSecurity;
 import org.olat.basesecurity.GroupRoles;
 import org.olat.basesecurity.IdentityRef;
 import org.olat.core.commons.persistence.DB;
@@ -53,7 +52,6 @@ import org.olat.course.groupsandrights.CourseGroupManager;
 import org.olat.course.nodes.ENCourseNode;
 import org.olat.course.properties.CoursePropertyManager;
 import org.olat.group.BusinessGroup;
-import org.olat.group.BusinessGroupImpl;
 import org.olat.group.BusinessGroupService;
 import org.olat.group.area.BGAreaManager;
 import org.olat.group.model.BGMembership;
@@ -85,8 +83,6 @@ public class EnrollmentManager extends BasicManager {
 	private MailManager mailManager;
 	@Autowired
 	private BGAreaManager areaManager;
-	@Autowired
-	private BaseSecurity securityManager;
 	@Autowired
 	private BusinessGroupService businessGroupService;
 
@@ -287,7 +283,7 @@ public class EnrollmentManager extends BasicManager {
 		  .append("  and meWaiting.identity.key=:identityKey")
 		  .append(" ) as numOfMeWaiting")
 		  
-		  .append(" from ").append(BusinessGroupImpl.class.getName()).append(" grp ")
+		  .append(" from businessgroup grp ")
 		  .append(" inner join grp.baseGroup as baseGroup ")
 		  .append(" where grp.key in (:groupKeys)");
 		

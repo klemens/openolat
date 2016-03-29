@@ -120,6 +120,7 @@ public class FlexiTableElementImpl extends FormItemImpl implements FlexiTableEle
 	private final WindowControl wControl;
 	
 	private String wrapperSelector;
+	private FlexiTableRowCssDelegate rowCssDelegate;
 
 	private SortKey[] orderBy;
 	private FlexiTableSortOptions sortOptions;
@@ -292,6 +293,14 @@ public class FlexiTableElementImpl extends FormItemImpl implements FlexiTableEle
 	@Override
 	public void setWrapperSelector(String wrapperSelector) {
 		this.wrapperSelector = wrapperSelector;
+	}
+
+	public FlexiTableRowCssDelegate getRowCssDelegate() {
+		return rowCssDelegate;
+	}
+
+	public void setRowCssDelegate(FlexiTableRowCssDelegate rowCssDelegate) {
+		this.rowCssDelegate = rowCssDelegate;
 	}
 
 	@Override
@@ -878,6 +887,11 @@ public class FlexiTableElementImpl extends FormItemImpl implements FlexiTableEle
 	}
 	
 	private void doExport(UserRequest ureq) {
+		// ensure the all rows are loaded to export
+		if(dataSource != null) {
+			dataSource.load(getSearchText(), getConditionalQueries(), 0, -1, orderBy);
+		}
+		
 		MediaResource resource;
 		if(dataModel instanceof ExportableFlexiTableDataModel) {
 			resource = ((ExportableFlexiTableDataModel)dataModel).export(component);
@@ -1244,7 +1258,9 @@ public class FlexiTableElementImpl extends FormItemImpl implements FlexiTableEle
 		try {
 			Integer row = new Integer(rowStr);
 			if(multiSelectedIndex.contains(row)) {
-				multiSelectedIndex.remove(row);
+				if(multiSelectedIndex.remove(row) & allSelectedNeedLoadOfWholeModel) {
+					allSelectedNeedLoadOfWholeModel = false;
+				}
 			} else {
 				multiSelectedIndex.add(row);
 			}	
@@ -1298,6 +1314,7 @@ public class FlexiTableElementImpl extends FormItemImpl implements FlexiTableEle
 	
 	@Override
 	public void deselectAll() {
+		component.setDirty(true);
 		multiSelectedIndex = null;
 	}
 

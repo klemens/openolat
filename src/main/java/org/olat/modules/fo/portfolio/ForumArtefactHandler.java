@@ -21,14 +21,14 @@ package org.olat.modules.fo.portfolio;
 
 import java.util.List;
 
-import org.olat.core.commons.modules.bc.vfs.OlatRootFolderImpl;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.WindowControl;
 import org.olat.core.id.OLATResourceable;
+import org.olat.core.util.vfs.VFSContainer;
 import org.olat.core.util.vfs.VFSItem;
-import org.olat.modules.fo.ForumManager;
 import org.olat.modules.fo.Message;
+import org.olat.modules.fo.manager.ForumManager;
 import org.olat.portfolio.EPAbstractHandler;
 import org.olat.portfolio.model.artefacts.AbstractArtefact;
 
@@ -56,7 +56,7 @@ public class ForumArtefactHandler extends EPAbstractHandler<ForumArtefact> {
 			String thread = fm.getThreadtop() != null ? fm.getThreadtop().getTitle() + " - " : "";
 			artefact.setTitle(thread + fm.getTitle());
 			
-			OlatRootFolderImpl msgContainer = fMgr.getMessageContainer(fm.getForum().getKey(), fm.getKey());
+			VFSContainer msgContainer = fMgr.getMessageContainer(fm.getForum().getKey(), fm.getKey());
 			if (msgContainer != null) {
 				List<VFSItem> foAttach = msgContainer.getItems();
 				if (foAttach.size()!=0){

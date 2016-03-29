@@ -33,6 +33,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 
+import org.olat.NewControllerFactory;
 import org.olat.admin.landingpages.LandingPagesModule;
 import org.olat.admin.layout.LayoutModule;
 import org.olat.admin.layout.LogoInformations;
@@ -41,8 +42,8 @@ import org.olat.core.CoreSpringFactory;
 import org.olat.core.commons.chiefcontrollers.BaseChiefController;
 import org.olat.core.commons.chiefcontrollers.ChiefControllerMessageEvent;
 import org.olat.core.commons.chiefcontrollers.LanguageChangedEvent;
+import org.olat.core.commons.controllers.resume.ResumeSessionController;
 import org.olat.core.commons.fullWebApp.util.GlobalStickyMessage;
-import org.olat.core.configuration.PersistedProperties;
 import org.olat.core.dispatcher.Dispatcher;
 import org.olat.core.gui.GUIMessage;
 import org.olat.core.gui.UserRequest;
@@ -86,9 +87,9 @@ import org.olat.core.gui.translator.Translator;
 import org.olat.core.helpers.Settings;
 import org.olat.core.id.IdentityEnvironment;
 import org.olat.core.id.OLATResourceable;
+import org.olat.core.id.context.BusinessControl;
 import org.olat.core.id.context.BusinessControlFactory;
 import org.olat.core.id.context.ContextEntry;
-import org.olat.core.id.context.HistoryModule;
 import org.olat.core.id.context.HistoryPoint;
 import org.olat.core.id.context.HistoryPointImpl;
 import org.olat.core.id.context.StateEntry;
@@ -98,6 +99,7 @@ import org.olat.core.logging.JavaScriptTracingController;
 import org.olat.core.util.CodeHelper;
 import org.olat.core.util.Formatter;
 import org.olat.core.util.StringHelper;
+import org.olat.core.util.UserSession;
 import org.olat.core.util.Util;
 import org.olat.core.util.coordinate.CoordinatorManager;
 import org.olat.core.util.event.GenericEventListener;
@@ -112,7 +114,6 @@ import org.olat.course.assessment.ui.AssessmentModeGuardController;
 import org.olat.course.assessment.ui.ChooseAssessmentModeEvent;
 import org.olat.gui.control.UserToolsMenuController;
 import org.olat.home.HomeSite;
-import org.olat.login.AfterLoginInterceptionController;
 
 /**
  * Description:<br>
@@ -122,7 +123,7 @@ import org.olat.login.AfterLoginInterceptionController;
  * 
  * @author patrickb, Felix Jost, Florian Gnägi
  */
-public class BaseFullWebappController extends BasicController implements ChiefController, GenericEventListener {
+public class BaseFullWebappController extends BasicController implements DTabs, ChiefController, GenericEventListener {
 	private static final String PRESENTED_AFTER_LOGIN_WORKFLOW = "presentedAfterLoginWorkflow";
 	
 	//Base chief
@@ -175,15 +176,14 @@ public class BaseFullWebappController extends BasicController implements ChiefCo
 
 	private BaseFullWebappControllerParts baseFullWebappControllerParts;
 	protected Controller contentCtrl;
-	private AfterLoginInterceptionController aftLHookCtr;
+	private ResumeSessionController resumeSessionCtrl;
 	private AssessmentModeGuardController assessmentGuardCtrl;
 	
 	private StackedPanel initialPanel;
-	private DTabs myDTabsImpl;
-	private static Integer MAX_TAB;
 	private WindowSettings wSettings;
 	
 	private final boolean isAdmin;
+	private final int maxTabs = 20;
 	
 	public BaseFullWebappController(UserRequest ureq, BaseFullWebappControllerParts baseFullWebappControllerParts) {
 		// only-use-in-super-call, since we define our own
@@ -195,12 +195,13 @@ public class BaseFullWebappController extends BasicController implements ChiefCo
 		guiMessage = new GUIMessage();
 		guimsgPanel = new OncePanel("guimsgPanel");
 		
+		UserSession usess = ureq.getUserSession();
 		WindowManager winman = Windows.getWindows(ureq).getWindowManager();
-		String windowSettings = (String)ureq.getUserSession().removeEntryFromNonClearedStore(Dispatcher.WINDOW_SETTINGS);
+		String windowSettings = (String)usess.removeEntryFromNonClearedStore(Dispatcher.WINDOW_SETTINGS);
 		WindowSettings settings = WindowSettings.parse(windowSettings);
 		wbo = winman.createWindowBackOffice("basechiefwindow", this, settings);
 		
-		IdentityEnvironment identityEnv = ureq.getUserSession().getIdentityEnvironment();
+		IdentityEnvironment identityEnv = usess.getIdentityEnvironment();
 		if(identityEnv != null && identityEnv.getRoles() != null) {	
 			isAdmin = identityEnv.getRoles().isOLATAdmin();
 		} else {
@@ -210,13 +211,9 @@ public class BaseFullWebappController extends BasicController implements ChiefCo
 		// define the new windowcontrol
 		WindowControl myWControl = new BaseFullWebappWindowControl(this, wbo);
 		overrideWindowControl(myWControl);
-		
-		// detach DTabs implementation from the controller - DTabs may be fetched from the window and locked on (synchronized access).
-		// if this is controller the controller is locked instead of only the DTabs part.
-		myDTabsImpl = new BaseFullWebappDTabs(this);
-		
+
 		Window myWindow = myWControl.getWindowBackOffice().getWindow();
-		myWindow.setDTabs(myDTabsImpl);
+		myWindow.setDTabs(this);
 		//REVIEW:PB remove if back support is desired
 		myWindow.addListener(this);//to be able to report BACK / FORWARD / RELOAD
 		
@@ -234,26 +231,36 @@ public class BaseFullWebappController extends BasicController implements ChiefCo
 		// ------ all the frame preparation is finished ----
 		initializeBase(ureq, winman, initialPanel);
 		
-		if(ureq.getUserSession().isAuthenticated() && !isAdmin && ureq.getUserSession().getAssessmentModes() != null && ureq.getUserSession().getAssessmentModes().size() > 0) {
+		if(usess.isAuthenticated() && !isAdmin && usess.getAssessmentModes() != null && usess.getAssessmentModes().size() > 0) {
     		assessmentGuardCtrl = new AssessmentModeGuardController(ureq, getWindowControl(),
-    				ureq.getUserSession().getAssessmentModes(), false);
+    				usess.getAssessmentModes(), false);
     		listenTo(assessmentGuardCtrl);
     		assessmentGuardCtrl.getInitialComponent();
     		lockStatus = LockStatus.popup;
+    		//as security remove all 
+    		removeRedirects(usess);
+    		//lock the gui
+    		lockGUI();
     	} else {
     		// present an overlay with configured afterlogin-controllers or nothing if none configured.
     		// presented only once per session.
-    		Boolean alreadySeen = ((Boolean)ureq.getUserSession().getEntry(PRESENTED_AFTER_LOGIN_WORKFLOW));
-    		if (ureq.getUserSession().isAuthenticated() && alreadySeen == null) {
-    			aftLHookCtr = new AfterLoginInterceptionController(ureq, getWindowControl());
-    			listenTo(aftLHookCtr);
-    			aftLHookCtr.getInitialComponent();
+    		Boolean alreadySeen = ((Boolean)usess.getEntry(PRESENTED_AFTER_LOGIN_WORKFLOW));
+    		if (usess.isAuthenticated() && alreadySeen == null) {
+    			resumeSessionCtrl = new ResumeSessionController(ureq, getWindowControl());
+    			listenTo(resumeSessionCtrl);
+    			resumeSessionCtrl.getInitialComponent();
     			ureq.getUserSession().putEntry(PRESENTED_AFTER_LOGIN_WORKFLOW, Boolean.TRUE);
 	    	}
     	}
 		
-    	if(assessmentGuardCtrl == null && (aftLHookCtr == null || aftLHookCtr.isDisposed())) {
-    		initializeDefaultSite(ureq);
+    	if(assessmentGuardCtrl == null
+    			&& (resumeSessionCtrl == null || (!resumeSessionCtrl.redirect() && !resumeSessionCtrl.userInteractionNeeded()))
+    			&& usess.getEntry("AuthDispatcher:entryUrl") == null
+    			&& usess.getEntry("AuthDispatcher:businessPath") == null) {
+    		String bc = initializeDefaultSite(ureq);
+    		if(StringHelper.containsNonWhitespace(bc) && usess.getEntry("redirect-bc") == null) {
+    			usess.putEntry("redirect-bc", bc);
+    		}
     	}
 		
 		Object fullScreen = Windows.getWindows(ureq).getFullScreen();
@@ -267,12 +274,26 @@ public class BaseFullWebappController extends BasicController implements ChiefCo
 		// register for locale change events -> 
 		//move to a i18nModule? languageManger? languageChooserController?
 		OLATResourceable wrappedLocale = OresHelper.createOLATResourceableType(Locale.class);
-		ureq.getUserSession().getSingleUserEventCenter().registerFor(this, getIdentity(), wrappedLocale);
+		usess.getSingleUserEventCenter().registerFor(this, getIdentity(), wrappedLocale);
 		//register for assessment mode
 		CoordinatorManager.getInstance().getCoordinator().getEventBus()
 			.registerFor(this, getIdentity(), AssessmentModeNotificationEvent.ASSESSMENT_MODE_NOTIFICATION);
 		// register for global sticky message changed events
-		GlobalStickyMessage.registerForGlobalStickyMessage(this, ureq.getIdentity());	
+		GlobalStickyMessage.registerForGlobalStickyMessage(this, getIdentity());	
+	}
+	
+	/**
+	 * Remove all possible redirect commands in session.
+	 * 
+	 * @param usess
+	 */
+	private void removeRedirects(UserSession usess) {
+   		usess.removeEntry("AuthDispatcher:entryUrl");
+    	usess.removeEntry("AuthDispatcher:businessPath");
+    	usess.removeEntry("redirect-bc");
+    	usess.removeEntryFromNonClearedStore("AuthDispatcher:entryUrl");
+    	usess.removeEntryFromNonClearedStore("AuthDispatcher:businessPath");
+    	usess.removeEntryFromNonClearedStore("redirect-bc");
 	}
 	
 	private void initializeBase(UserRequest ureq, WindowManager winman, ComponentCollection mainPanel) {
@@ -297,6 +318,8 @@ public class BaseFullWebappController extends BasicController implements ChiefCo
 
 		// init with no bookmark (=empty bc)
 		mainVc.contextPut("o_bc", "");
+		mainVc.contextPut("o_serverUri", Settings.createServerURI());
+		
 		
 		// the current language; used e.g. by screenreaders
 		mainVc.contextPut("lang", ureq.getLocale().toString());
@@ -497,15 +520,21 @@ public class BaseFullWebappController extends BasicController implements ChiefCo
 		stickyMessageCmp.setText(GlobalStickyMessage.getGlobalStickyMessage());
 	}
 
-	private void initializeDefaultSite(UserRequest ureq) {
+	/**
+	 * @param ureq
+	 * @return The current business path if a site is initialized or null
+	 */
+	private String initializeDefaultSite(UserRequest ureq) {
+		String businessPath = null;
 		if (sites != null && sites.size() > 0
 				&& curSite == null && curDTab == null
 				&& contentCtrl == null && lockResource == null) {
 			SiteInstance s = sites.get(0);
 			//activate site only if no content was set -> allow content before activation of default site.
 			activateSite(s, ureq, null, false);
-			updateBusinessPath(ureq, s);
+			businessPath = updateBusinessPath(ureq, s);
 		}
+		return businessPath;
 	}
 	
 	protected GUIMessage getGUIMessage() {
@@ -587,6 +616,9 @@ public class BaseFullWebappController extends BasicController implements ChiefCo
 				}
 
 				doActivateDTab(dt);
+				if(dt.getController() instanceof Activateable2) {
+					((Activateable2)dt.getController()).activate(ureq, null, new ReloadEvent());
+				}
 				if(point != null) {
 					BusinessControlFactory.getInstance().addToHistory(ureq, point);
 				}
@@ -598,29 +630,12 @@ public class BaseFullWebappController extends BasicController implements ChiefCo
 			if (event == Window.OLDTIMESTAMPCALL) {
 				getLogger().info("RELOAD");
 				
-				if(isBackEnabled(ureq)) {
-					HistoryPoint point = ureq.getUserSession().popLastHistoryEntry();
-					if(point != null) {
-						back(ureq, point);
-					}
+				HistoryPoint point = ureq.getUserSession().popLastHistoryEntry();
+				if(point != null) {
+					back(ureq, point);
 				}
 			}
 		}
-	}
-	
-	private boolean isBackEnabled(UserRequest ureq) {
-		HistoryModule historyModule = (HistoryModule)CoreSpringFactory.getBean("historyModule");
-		if(historyModule.isBackEnabled()) {
-			Preferences prefs =  ureq.getUserSession().getGuiPreferences();
-			Boolean be = (Boolean)prefs.get(WindowManager.class, "back-enabled");
-			if (be != null) {
-				return be.booleanValue();
-			}
-			else {
-				return historyModule.isBackDefaultSetting();
-			}
-		}
-		return false;
 	}
 	
 	protected void back(UserRequest ureq, HistoryPoint cstate) {
@@ -659,7 +674,8 @@ public class BaseFullWebappController extends BasicController implements ChiefCo
 
 	@Override
 	protected void event(UserRequest ureq, Controller source, Event event) {
-		if(aftLHookCtr == source) {
+		if(resumeSessionCtrl == source) {
+			resumeSessionCtrl.redirect();
 			initializeDefaultSite(ureq);
 		} else if(assessmentGuardCtrl == source) {
 			if(event instanceof ChooseAssessmentModeEvent) {
@@ -671,6 +687,8 @@ public class BaseFullWebappController extends BasicController implements ChiefCo
 			} else if("continue".equals(event.getCommand())) {
 				//unlock session
 				ureq.getUserSession().unlockResource();
+				unlockResource();
+				
 				initializeDefaultSite(ureq);
 				removeAsListenerAndDispose(assessmentGuardCtrl);
 				assessmentGuardCtrl = null;
@@ -712,11 +730,9 @@ public class BaseFullWebappController extends BasicController implements ChiefCo
 			dtabToBusinessPath = null;	
 		}
 		//clear the DTabs Service
-		Window myWindow = getWindowControl().getWindowBackOffice().getWindow();
-		myDTabsImpl = null;
-		myWindow.setDTabs(null);
-
-		getWindowControl().getWindowBackOffice().removeCycleListener(this);
+		WindowBackOffice wbackOffice = getWindowControl().getWindowBackOffice();
+		wbackOffice.getWindow().setDTabs(null);
+		wbackOffice.removeCycleListener(this);
 		
 		if (jsServerC != null) {
 			jsServerC.dispose();
@@ -916,7 +932,7 @@ public class BaseFullWebappController extends BasicController implements ChiefCo
 		bodyCssClasses.add(cssClass);
 
 		// only relevant in AJAX mode
-		JSCommand jsc = new JSCommand("try { jQuery('#o_body').addClass('" + cssClass + "'); } catch(e){if(o_info.debug) console.log(e) }");
+		JSCommand jsc = new JSCommand("try { jQuery('#o_body').addClass('" + cssClass + "'); } catch(e){if(window.console) console.log(e) }");
 		getWindowControl().getWindowBackOffice().sendCommandTo(jsc);
 	}
 
@@ -932,7 +948,7 @@ public class BaseFullWebappController extends BasicController implements ChiefCo
 		bodyCssClasses.remove(cssClass);
 		
 		//only relevant in AJAX mode
-		JSCommand jsc = new JSCommand("try { jQuery('#o_body').removeClass('" + cssClass + "'); } catch(e){if(o_info.debug) console.log(e) }");
+		JSCommand jsc = new JSCommand("try { jQuery('#o_body').removeClass('" + cssClass + "'); } catch(e){if(window.console) console.log(e) }");
 		getWindowControl().getWindowBackOffice().sendCommandTo(jsc);
 	}
 	
@@ -964,7 +980,7 @@ public class BaseFullWebappController extends BasicController implements ChiefCo
 			// Remove tab itself
 			dtabs.remove(delt);
 			dtabToBusinessPath.remove(delt);
-			dtabsLinkNames.remove(dtabIndex);
+			Integer tabId = dtabsLinkNames.remove(dtabIndex);
 			Controller tabCtr = dtabsControllers.get(dtabIndex);
 			dtabsControllers.remove(tabCtr);
 
@@ -976,9 +992,10 @@ public class BaseFullWebappController extends BasicController implements ChiefCo
 
 			navTabsVc.setDirty(true);
 			// remove created links for dtab out of container
-			navTabsVc.remove(navTabsVc.getComponent("a" + delt.hashCode()));
-			navTabsVc.remove(navTabsVc.getComponent("ca" + delt.hashCode()));
-			navTabsVc.remove(navTabsVc.getComponent("cp" + delt.hashCode()));
+			navTabsVc.remove(navTabsVc.getComponent("a" + tabId));
+			navTabsVc.remove(navTabsVc.getComponent("c" + tabId));
+			navTabsVc.remove(navTabsVc.getComponent("ca" + tabId));
+			navTabsVc.remove(navTabsVc.getComponent("cp" + tabId));
 			if (delt == curDTab && ureq != null) { // if we close the current tab -> return to the previous
 				popTheTabState(ureq);
 			} // else just remove the dtabs
@@ -1048,6 +1065,7 @@ public class BaseFullWebappController extends BasicController implements ChiefCo
 	/**
 	 * @see org.olat.core.gui.control.generic.dtabs.DTabs#getDTab(org.olat.core.id.OLATResourceable
 	 */
+	@Override
 	public DTab getDTab(OLATResourceable ores) {
 		synchronized (dtabs) {
 			for (Iterator<DTab> it_dts = dtabs.iterator(); it_dts.hasNext();) {
@@ -1063,13 +1081,10 @@ public class BaseFullWebappController extends BasicController implements ChiefCo
 		}
 	}
 
-	/**
-	 * @see org.olat.core.gui.control.generic.dtabs.DTabs#createDTab(org.olat.core.id.OLATResourceable
-	 *      java.lang.String)
-	 */
-	public DTab createDTab(OLATResourceable ores, OLATResourceable repoOres, String title) {
+	@Override
+	public DTab createDTab(OLATResourceable ores, OLATResourceable repoOres, Controller rootController, String title) {
 		final DTabImpl dt;
-		if (dtabs.size() >= getMaxTabs()) {
+		if (dtabs.size() >= maxTabs) {
 			getWindowControl().setError(translate("warn.tabsfull"));
 			dt = null;
 		} else if(lockResource != null && (
@@ -1077,28 +1092,12 @@ public class BaseFullWebappController extends BasicController implements ChiefCo
 				|| !lockResource.getResourceableTypeName().equals(ores.getResourceableTypeName()))) {
 			dt = null;
 		} else {
-			dt = new DTabImpl(ores, repoOres, title, getWindowControl());
+			dt = new DTabImpl(ores, repoOres, title, rootController, getWindowControl());
 		}
 		return dt;
 	}
 
-	/**
-	 * fxdiff: load max dTab-Amount from Properties, set default to 5
-	 * @return
-	 */
-	private int getMaxTabs() {
-		if (MAX_TAB == null) {
-			PersistedProperties prop = new PersistedProperties(this);
-			prop.init();
-			prop.setIntPropertyDefault("max.dtabs", 5);
-			MAX_TAB = prop.getIntPropertyValue("max.dtabs");
-		}
-		return MAX_TAB;
-	}
-
-	/**
-	 * @see org.olat.core.gui.control.generic.dtabs.DTabs#addDTab(org.olat.core.gui.control.generic.dtabs.DTab)
-	 */
+	@Override
 	public boolean addDTab(UserRequest ureq, DTab dt) {
 		if(isDisposed()) {
 			return false;
@@ -1138,46 +1137,50 @@ public class BaseFullWebappController extends BasicController implements ChiefCo
 		}
 		return true;
 	}
-
+	
 	/**
-	 * @see org.olat.core.gui.control.generic.dtabs.DTabs#activate(org.olat.core.gui.UserRequest,
-	 *      org.olat.core.gui.control.generic.dtabs.DTab, java.lang.String)
+	 * Activating a tab is like focusing a new window - we need to adjust the
+	 * guipath since e.g. the button triggering the activation is not
+	 * part of the guipath, but rather the new tab in its initial state.
+	 * in all other cases the "focus of interest" (where the calculation of the
+	 * guipath is started) matches the controller which listens to the
+	 * event caused by a user interaction.
+	 * this is the starting point.
 	 */
-	public void activate(final UserRequest ureq, DTab dTab, final String viewIdentifier, final List<ContextEntry> entries) {
+	@Override
+	public void activate(UserRequest ureq, DTab dTab, List<ContextEntry> entries) {
+		UserSession usess = ureq.getUserSession();
+		if((lockStatus != null || usess.isInAssessmentModeProcess())
+				&& !usess.matchLockResource(dTab.getOLATResourceable())) {
+			return;
+		}
+		
 		//update window settings if needed
 		setWindowSettings(getWindowControl().getWindowBackOffice().getWindowSettings());
 
 		// init view (e.g. kurs in run mode, repo-detail-edit...)
 		// jump here via external link or just open a new tab from e.g. repository
-		//fxdiff FXOLAT-113: business path in DMZ
 		if(dTab == null && contentCtrl instanceof Activateable2) {
 			((Activateable2)contentCtrl).activate(ureq, entries, null);
-			return;
+		} else {
+			DTabImpl dtabi = (DTabImpl) dTab;
+			Controller c = dtabi.getController();
+			if (c == null) {
+				throw new AssertException("no controller set yet! " + dTab);
+			}
+			doActivateDTab(dtabi);
+	
+			if(entries != null && !entries.isEmpty() && c instanceof Activateable2) {
+				final Activateable2 activateable = ((Activateable2) c);
+				activateable.activate(ureq, entries, null);
+			}
+			updateBusinessPath(ureq, dtabi);
+			//update the panels after activation
+			setGuiStack(dtabi.getGuiStackHandle());
 		}
-
-		DTabImpl dtabi = (DTabImpl) dTab;
-		Controller c = dtabi.getController();
-		if (c == null) throw new AssertException("no controller set yet! " + dTab + ", view: " + viewIdentifier);
-		doActivateDTab(dtabi);
-		//fxdiff BAKS-7 Resume function
-		if(entries != null && !entries.isEmpty() && c instanceof Activateable2) {
-			final Activateable2 activateable = ((Activateable2) c);
-			activateable.activate(ureq, entries, null);
-		}
-		updateBusinessPath(ureq, dtabi);
-		
-		//update the panels after activation
-		setGuiStack(dtabi.getGuiStackHandle());
-
-		// activating a tab is like focusing a new window - we need to adjust the
-		// guipath since e.g. the button triggering the activation is not
-		// part of the guipath, but rather the new tab in its initial state.
-		// in all other cases the "focus of interest" (where the calculation of the
-		// guipath is started) matches the controller which listens to the
-		// event caused by a user interaction.
-		// this is the starting point.
 	}
 
+	@Override
 	public void activateStatic(UserRequest ureq, String className, List<ContextEntry> entries) {
 		if(className != null && className.endsWith("HomeSite")) {
 			activateSite(userTools, ureq, entries, false);
@@ -1189,6 +1192,35 @@ public class BaseFullWebappController extends BasicController implements ChiefCo
 					activateSite(site, ureq, entries, false);
 					return;
 				}
+			}
+		}
+	}
+	
+	@Override
+	public void closeDTab(UserRequest ureq, OLATResourceable ores, HistoryPoint launchedFromPoint) {
+
+		// Now try to go back to place that is attached to (optional) root back business path
+		if (launchedFromPoint != null && StringHelper.containsNonWhitespace(launchedFromPoint.getBusinessPath())
+				&& launchedFromPoint.getEntries() != null && launchedFromPoint.getEntries().size() > 0) {
+			BusinessControl bc = BusinessControlFactory.getInstance().createFromPoint(launchedFromPoint);
+			if(bc.hasContextEntry()) {
+				WindowControl bwControl = BusinessControlFactory.getInstance().createBusinessWindowControl(bc, getWindowControl());
+				try {
+					//make the resume secure. If something fail, don't generate a red screen
+					NewControllerFactory.getInstance().launch(ureq, bwControl);
+				} catch (Exception e) {
+					logError("Error while resuming with root level back business path::" + launchedFromPoint.getBusinessPath(), e);
+				}
+			}
+		}
+		
+		// Navigate beyond the stack, our own layout has been popped - close this tab
+		DTabs tabs = getWindowControl().getWindowBackOffice().getWindow().getDTabs();
+		if (tabs != null) {
+			
+			DTab tab = tabs.getDTab(ores);
+			if (tab != null) {
+				tabs.removeDTab(ureq, tab);						
 			}
 		}
 	}
@@ -1302,38 +1334,48 @@ public class BaseFullWebappController extends BasicController implements ChiefCo
 	@Override
 	public void lockResource(OLATResourceable resource) {
 		this.lockResource = resource;
+		lockGUI();
+	}
+	
+	private void lockGUI() {
 		if(topnavCtr != null) {
-			topnavCtr.lockResource(resource);
+			topnavCtr.lock();
 		}
 		if(footerCtr != null) {
-			footerCtr.lockResource(resource);
+			footerCtr.lock();
 		}
 		
 		if(userToolsMenuCtrl != null) {
-			userToolsMenuCtrl.lockResource(resource);
+			userToolsMenuCtrl.lock();
 		}
 		
 		for(int i=dtabsControllers.size(); i-->0; ) {
 			DTab tab = dtabs.get(i);
-			if(!lockResource.getResourceableId().equals(tab.getOLATResourceable().getResourceableId())) {
+			if(lockResource == null
+					|| !lockResource.getResourceableId().equals(tab.getOLATResourceable().getResourceableId())) {
+				removeDTab(null, tab);
+			} else if (lockResource != null
+					&& lockResource.getResourceableId().equals(tab.getOLATResourceable().getResourceableId())
+					&& lockStatus != LockStatus.locked) {
 				removeDTab(null, tab);
 			}
 		}
 		navSitesVc.contextPut("visible", Boolean.FALSE);
 		navSitesVc.setDirty(true);
 		navTabsVc.setDirty(true);
+		main.setContent(new Panel("empty-mode"));
 	}
 
 	private void unlockResource() {
 		this.lockResource = null;
 		if(topnavCtr != null) {
-			topnavCtr.unlockResource();
+			topnavCtr.unlock();
 		}
 		if(footerCtr != null) {
-			footerCtr.unlockResource();
+			footerCtr.unlock();
 		}
 		if(userToolsMenuCtrl != null) {
-			userToolsMenuCtrl.unlockResource();
+			userToolsMenuCtrl.unlock();
 		}
 		navSitesVc.contextPut("visible", Boolean.TRUE);
 		navSitesVc.setDirty(true);
@@ -1408,6 +1450,7 @@ public class BaseFullWebappController extends BasicController implements ChiefCo
 				listenTo(assessmentGuardCtrl);
 				assessmentGuardCtrl.getInitialComponent();
 				lockStatus = LockStatus.popup;
+				lockGUI();
 				needUpdate = true;
 			} else {
 				needUpdate = false;
@@ -1461,6 +1504,21 @@ public class BaseFullWebappController extends BasicController implements ChiefCo
 		return canClose;
 	}
 	
+	@Override
+	public String getWindowTitle() {
+		String title = translate("page.appname");
+		if(siteAndTabs.size() > 0) {
+			TabState state = siteAndTabs.get(siteAndTabs.size() - 1);
+			if(state != null) {
+				String tabTitle = state.getTitle();
+				if(StringHelper.containsNonWhitespace(tabTitle)) {
+				title += " - " + tabTitle;
+				}
+			}
+		}
+		return title;
+	}
+	
 	private void setCurrent(SiteInstance site, DTab tab) {
 		curSite = site;
 		curDTab = tab;
@@ -1485,8 +1543,8 @@ public class BaseFullWebappController extends BasicController implements ChiefCo
 		}
 	}
 	
-	private void updateBusinessPath(UserRequest ureq, SiteInstance site) {
-		if(site == null) return;
+	private String updateBusinessPath(UserRequest ureq, SiteInstance site) {
+		if(site == null) return null;
 
 		try {
 			String businessPath = siteToBornSite.get(site).getController().getWindowControlForDebug().getBusinessControl().getAsString();
@@ -1498,13 +1556,17 @@ public class BaseFullWebappController extends BasicController implements ChiefCo
 					//if a controller has not set its business path, don't pollute the mapping
 					List<ContextEntry> entries = siteToBornSite.get(site).getController().getWindowControlForDebug().getBusinessControl().getEntries();
 					siteToBusinessPath.put(site, new HistoryPointImpl(ureq.getUuid(), businessPath, entries));
-					return;
+					return BusinessControlFactory.getInstance().getAsRestPart(entries, true);
 				}
+				List<ContextEntry> entries = siteToBornSite.get(site).getController().getWindowControlForDebug().getBusinessControl().getEntries();
+				businessPath = BusinessControlFactory.getInstance().getAsRestPart(entries, true);
 			}
 			
 			siteToBusinessPath.put(site, point);
+			return businessPath;
 		} catch (Exception e) {
 			logError("", e);
+			return null;
 		}
 	}
 	
@@ -1546,6 +1608,15 @@ public class BaseFullWebappController extends BasicController implements ChiefCo
 
 		public SiteInstance getSite() {
 			return site;
+		}
+		
+		public String getTitle() {
+			if(site != null && site.getNavElement() != null) {
+				return site.getNavElement().getTitle();
+			} else if(dtab != null) {
+				return dtab.getTitle();
+			}
+			return null;
 		}
 	}
 	
