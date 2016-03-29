@@ -37,8 +37,10 @@ $descriptionText
 #end
 
 <fieldset class="b_clearfix">
-<legend>$r.translate("label.controller.task.options")</legend>
-$r.contextHelpWithWrapper("de.htwk.autolat.BBautOLAT","taskoptions-help.html","help.taskoptions")
+<legend>
+$r.translate("label.controller.task.options")
+$r.contextHelpWithWrapper("autolat:taskoptions")
+</legend>
 #if($isPreview)
 	$r.translate("label.controller.task.nobuttons")
 #end

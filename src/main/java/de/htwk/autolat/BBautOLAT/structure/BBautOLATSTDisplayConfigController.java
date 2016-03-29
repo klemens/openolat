@@ -108,7 +108,7 @@ public class BBautOLATSTDisplayConfigController extends FormBasicController {
 	protected void initForm(FormItemContainer formLayout, Controller listener,
 			UserRequest ureq) {
 		setFormTitle("config.fieldset.view");
-		setFormContextHelp("org.olat.course.nodes.st", "ced-st-overview.html", "help.st.design");
+		setFormContextHelp("Knowledge Transfer#_struktur");
 		// 
 		FormUIFactory formFact = FormUIFactory.getInstance();
 		// Display type
