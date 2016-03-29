@@ -137,7 +137,8 @@ public class UserInfoController extends FormBasicController implements SupportsA
 	 * userInfoInterceptor.studentNumber - if the student number is missing
 	 * and the user in not admin or author
 	 */
-	public boolean isInterceptionRequired(UserRequest ureq) {
+	@Override
+	public boolean isUserInteractionRequired(UserRequest ureq) {
 		if(!enabled) {
 			return false;
 		}
