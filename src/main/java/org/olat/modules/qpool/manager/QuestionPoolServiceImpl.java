@@ -149,7 +149,7 @@ public class QuestionPoolServiceImpl implements QPoolService {
 		}
 		
 		for(QuestionItemShort item:items) {
-			questionItemDao.addAuthors(authors, item.getKey());
+			questionItemDao.addAuthors(authors, item);
 		}
 	}
 	
@@ -160,7 +160,7 @@ public class QuestionPoolServiceImpl implements QPoolService {
 		}
 		
 		for(QuestionItemShort item:items) {
-			questionItemDao.removeAuthors(authors, item.getKey());
+			questionItemDao.removeAuthors(authors, item);
 		}
 	}
 
@@ -187,7 +187,18 @@ public class QuestionPoolServiceImpl implements QPoolService {
 		lifeIndexer.indexDocument(QItemDocument.TYPE, mergedItem.getKey());
 		return mergedItem;
 	}
-	
+
+	@Override
+	public void index(List<? extends QuestionItemShort> items) {
+		if(items == null || items.isEmpty()) return;
+		
+		List<Long> keys = new ArrayList<>();
+		for(QuestionItemShort item:items) {
+			keys.add(item.getKey());
+		}
+		lifeIndexer.indexDocument(QItemDocument.TYPE, keys);
+	}
+
 	@Override
 	public List<QuestionItem> copyItems(Identity owner, List<QuestionItemShort> itemsToCopy) {
 		List<QuestionItem> copies = new ArrayList<QuestionItem>();
@@ -537,8 +548,9 @@ public class QuestionPoolServiceImpl implements QPoolService {
 		}
 		
 		for(QuestionItemShort item:items) {
-			questionItemDao.share(item.getKey(), resources, editable);
+			questionItemDao.share(item, resources, editable);
 		}
+		index(items);
 	}
 
 	@Override
@@ -595,7 +607,7 @@ public class QuestionPoolServiceImpl implements QPoolService {
 		QuestionItemCollection coll = collectionDao.createCollection(collectionName, owner);
 		List<Long> keys = new ArrayList<>(initialItems.size());
 		for(QuestionItemShort item:initialItems) {
-			collectionDao.addItemToCollection(item.getKey(), Collections.singletonList(coll));
+			collectionDao.addItemToCollection(item, Collections.singletonList(coll));
 			keys.add(item.getKey());
 		}
 		lifeIndexer.indexDocument(QItemDocument.TYPE, keys);
@@ -616,7 +628,7 @@ public class QuestionPoolServiceImpl implements QPoolService {
 	public void addItemToCollection(List<? extends QuestionItemShort> items, List<QuestionItemCollection> collections) {
 		List<Long> keys = new ArrayList<>(items.size());
 		for(QuestionItemShort item:items) {
-			collectionDao.addItemToCollection(item.getKey(), collections);
+			collectionDao.addItemToCollection(item, collections);
 			keys.add(item.getKey());
 		}
 		lifeIndexer.indexDocument(QItemDocument.TYPE, keys);
@@ -758,6 +770,11 @@ public class QuestionPoolServiceImpl implements QPoolService {
 	@Override
 	public QLicense updateLicense(QLicense license) {
 		return qpoolLicenseDao.update(license);
+	}
+
+	@Override
+	public boolean deleteLicense(QLicense license) {
+		return qpoolLicenseDao.delete(license);
 	}
 
 	@Override

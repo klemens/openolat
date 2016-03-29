@@ -217,6 +217,12 @@ public interface BaseSecurity {
 	 */
 	public Identity loadIdentityByKey(Long identityKey);
 	
+	/**
+	 * 
+	 * @param search
+	 * @return
+	 */
+	public List<IdentityShort> searchIdentityShort(String search, int maxResults);
 
 	public IdentityShort loadIdentityShortByKey(Long identityKey);
 	
@@ -244,12 +250,12 @@ public interface BaseSecurity {
 	public Identity loadIdentityByKey(Long identityKey, boolean strict);
 	
 	/**
-	 * Method to load all the identities. Paging is mandatory!
+	 * Method to load all the visible identities. Paging is mandatory!
 	 * @param firstResult
 	 * @param maxResults
 	 * @return
 	 */
-	public List<Identity> loadIdentities(int firstResult, int maxResults);
+	public List<Identity> loadVisibleIdentities(int firstResult, int maxResults);
 	
 	/**
 	 * 
@@ -623,7 +629,7 @@ public interface BaseSecurity {
 	 * @param newName The new identity name
 	 * @return The reloaded and renamed identity
 	 */
-	public Identity saveIdentityName(Identity identity, String newName);
+	public Identity saveIdentityName(Identity identity, String newName, String newExertnalId);
 	
 	/**
 	 * Set an external id if the identity is managed by an external system.

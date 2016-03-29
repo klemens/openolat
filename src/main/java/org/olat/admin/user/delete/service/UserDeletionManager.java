@@ -41,7 +41,6 @@ import org.olat.basesecurity.BaseSecurityManager;
 import org.olat.basesecurity.IdentityImpl;
 import org.olat.basesecurity.SecurityGroup;
 import org.olat.basesecurity.manager.GroupDAO;
-import org.olat.commons.calendar.CalendarManagerFactory;
 import org.olat.commons.lifecycle.LifeCycleManager;
 import org.olat.core.CoreSpringFactory;
 import org.olat.core.commons.persistence.DBFactory;
@@ -94,7 +93,6 @@ public class UserDeletionManager extends BasicManager {
 	
 
 	// Flag used in user-delete to indicate that all deletable managers are initialized
-	private boolean managersInitialized = false;
 	private RepositoryDeletionModule deletionModule;
 	private RegistrationManager registrationManager;
 	private BaseSecurity securityManager;
@@ -290,12 +288,6 @@ public class UserDeletionManager extends BasicManager {
 		// Each manager register themself as deletable 
 		// Should be better with new config concept
 		
-		// FIXME: it would be better to call the mangers over a common interface which would not need to have references to all mangers here
-		if (!managersInitialized) {
-			CalendarManagerFactory.getInstance(); //the only one that left for refactoring
-			managersInitialized = true;
-		}
-		
 		logInfo("Start EfficiencyStatementManager.archiveUserData for identity=" + identity);
 		EfficiencyStatementManager.getInstance().archiveUserData(identity, getArchivFilePath(identity) );
 
@@ -354,7 +346,7 @@ public class UserDeletionManager extends BasicManager {
 		
 		//keep email only -> change login-name
 		if (!keepUserLoginAfterDeletion){
-			identity = securityManager.saveIdentityName(identity, newName);
+			identity = securityManager.saveIdentityName(identity, newName, null);
 		}
 		
 		//keep everything, change identity.status to deleted

@@ -75,6 +75,7 @@ import org.olat.course.DisposedCourseRestartController;
 import org.olat.course.ICourse;
 import org.olat.course.assessment.AssessmentChangedEvent;
 import org.olat.course.assessment.AssessmentMode;
+import org.olat.course.assessment.AssessmentMode.Status;
 import org.olat.course.assessment.manager.UserCourseInformationsManager;
 import org.olat.course.config.CourseConfig;
 import org.olat.course.editor.PublishEvent;
@@ -85,6 +86,7 @@ import org.olat.course.run.glossary.CourseGlossaryToolLinkController;
 import org.olat.course.run.navigation.NavigationHandler;
 import org.olat.course.run.navigation.NodeClickedRef;
 import org.olat.course.run.userview.AssessmentModeTreeFilter;
+import org.olat.course.run.userview.InvisibleTreeFilter;
 import org.olat.course.run.userview.TreeFilter;
 import org.olat.course.run.userview.UserCourseEnvironmentImpl;
 import org.olat.course.run.userview.VisibleTreeFilter;
@@ -93,8 +95,10 @@ import org.olat.group.ui.edit.BusinessGroupModifiedEvent;
 import org.olat.modules.cp.TreeNodeEvent;
 import org.olat.repository.RepositoryEntry;
 import org.olat.repository.RepositoryManager;
+import org.olat.repository.RepositoryService;
 import org.olat.repository.model.RepositoryEntrySecurity;
 import org.olat.util.logging.activity.LoggingResourceable;
+import org.springframework.beans.factory.annotation.Autowired;
 
 /**
  * Description: <br>
@@ -133,6 +137,11 @@ public class RunMainController extends MainLayoutBasicController implements Gene
 	private String courseTitle;
 	private Link nextLink, previousLink;
 	private GlossaryMarkupItemController glossaryMarkerCtr;
+	
+	@Autowired
+	private RepositoryManager repositoryManager;
+	@Autowired
+	private RepositoryService repositoryService;
 	
 	/**
 	 * Constructor for the run main controller
@@ -186,7 +195,14 @@ public class RunMainController extends MainLayoutBasicController implements Gene
 		uce.getScoreAccounting().evaluateAll();
 		
 		if(assessmentMode != null && assessmentMode.isRestrictAccessElements()) {
-			treeFilter = new AssessmentModeTreeFilter(assessmentMode, uce.getCourseEnvironment().getRunStructure());
+			Status assessmentStatus = assessmentMode.getStatus();
+			if(assessmentStatus == Status.assessment) {
+				treeFilter = new AssessmentModeTreeFilter(assessmentMode, uce.getCourseEnvironment().getRunStructure());
+			} else if(assessmentStatus == Status.leadtime || assessmentStatus == Status.followup) {
+				treeFilter = new InvisibleTreeFilter();
+			} else {
+				treeFilter = new VisibleTreeFilter();
+			}
 		} else {
 			treeFilter = new VisibleTreeFilter();
 		}
@@ -197,7 +213,7 @@ public class RunMainController extends MainLayoutBasicController implements Gene
 		//set the launch date after the evaluation
 		setLaunchDates();
 
-		if (courseRepositoryEntry != null && RepositoryManager.getInstance().createRepositoryEntryStatus(courseRepositoryEntry.getStatusCode()).isClosed()) {
+		if (courseRepositoryEntry != null && repositoryManager.createRepositoryEntryStatus(courseRepositoryEntry.getStatusCode()).isClosed()) {
 			wControl.setWarning(translate("course.closed"));
 		}
 
@@ -291,7 +307,8 @@ public class RunMainController extends MainLayoutBasicController implements Gene
 		} else {
 			waitingLists = Collections.emptyList();
 		}
-		return new UserCourseEnvironmentImpl(ureq.getUserSession().getIdentityEnvironment(), course.getCourseEnvironment(),
+
+		return new UserCourseEnvironmentImpl(ureq.getUserSession().getIdentityEnvironment(), course.getCourseEnvironment(), getWindowControl(),
 				coachedGroups, participatedGroups, waitingLists,
 				reSecurity.isCourseCoach() || reSecurity.isGroupCoach(),
 				reSecurity.isEntryAdmin(),
@@ -330,7 +347,7 @@ public class RunMainController extends MainLayoutBasicController implements Gene
 	
 	private void setLaunchDates() {
 		UserCourseInformationsManager userCourseInfoMgr = CoreSpringFactory.getImpl(UserCourseInformationsManager.class);
-		userCourseInfoMgr.updateUserCourseInformations(uce.getCourseEnvironment().getCourseResourceableId(), getIdentity(), false);
+		userCourseInfoMgr.updateUserCourseInformations(uce.getCourseEnvironment().getCourseGroupManager().getCourseResource(), getIdentity());
 	}
 	
 	private CourseNode updateAfterChanges(CourseNode courseNode) {
@@ -427,10 +444,27 @@ public class RunMainController extends MainLayoutBasicController implements Gene
 		} else if(currentNodeController instanceof Activateable2) {
 			((Activateable2)currentNodeController).activate(ureq, entries, state);
 		}
-		contentP.setContent(currentNodeController.getInitialComponent());
+		if(currentNodeController != null) {
+			contentP.setContent(currentNodeController.getInitialComponent());
+		} else {
+			MessageController msgCtrl = MessageUIFactory
+					.createWarnMessage(ureq, getWindowControl(), null, translate("msg.nodenotavailableanymore"));
+			listenTo(msgCtrl);
+			contentP.setContent(msgCtrl.getInitialComponent());
+		}
 		
 		updateNextPrevious();
+		updateLastUsage(nclr.getCalledCourseNode());
 		return true;
+	}
+	
+	private void updateLastUsage(CourseNode calledCourseNode) {
+		if(calledCourseNode != null && calledCourseNode.needsReferenceToARepositoryEntry()) {
+			RepositoryEntry referencedRe = calledCourseNode.getReferencedRepositoryEntry();
+			if(referencedRe != null) {
+				repositoryService.setLastUsageNowFor(referencedRe);
+			}
+		}
 	}
 
 	/**
@@ -456,9 +490,9 @@ public class RunMainController extends MainLayoutBasicController implements Gene
 				doNodeClick(ureq, tev);
 			}
 		} else if (source == coursemain) {
-			if (event.getCommand().equals("activateCourseNode")) {
+			if ("activateCourseNode".equals(event.getCommand())) {
 				// Events from the JS function o_activateCourseNode() - activate the given node id
-				String nodeid = ureq.getModuleURI();
+				String nodeid = ureq.getParameter("nodeid");
 				if (nodeid != null) {
 					CourseNode identNode = course.getRunStructure().getNode(nodeid);
 					boolean success = updateTreeAndContent(ureq, identNode, null);
@@ -480,7 +514,7 @@ public class RunMainController extends MainLayoutBasicController implements Gene
 				
 			  // rebuild up the running structure for this user, after publish;
 				course = CourseFactory.loadCourse(course.getResourceableId());
-				uce = new UserCourseEnvironmentImpl(ureq.getUserSession().getIdentityEnvironment(), course.getCourseEnvironment(),
+				uce = new UserCourseEnvironmentImpl(ureq.getUserSession().getIdentityEnvironment(), course.getCourseEnvironment(), getWindowControl(),
 						uce.getCoachedGroups(), uce.getParticipatingGroups(), uce.getWaitingLists(),
 						null, null, null);
 				// build score now
@@ -610,6 +644,7 @@ public class RunMainController extends MainLayoutBasicController implements Gene
 				currentNodeController = nclr.getRunController();
 				Component nodeComp = currentNodeController.getInitialComponent();
 				contentP.setContent(nodeComp);
+				updateLastUsage(nclr.getCalledCourseNode());
 			}
 			
 			if(nclr.getSelectedNodeId() != null && nclr.getOpenNodeIds() != null) {
@@ -635,6 +670,7 @@ public class RunMainController extends MainLayoutBasicController implements Gene
 			currentNodeController.dispose();
 		}
 		currentNodeController = nclr.getRunController();
+		updateLastUsage(nclr.getCalledCourseNode());
 		Component nodeComp = currentNodeController.getInitialComponent();
 		contentP.setContent(nodeComp);
 		addToHistory(ureq, currentNodeController);
@@ -775,25 +811,28 @@ public class RunMainController extends MainLayoutBasicController implements Gene
 
 	@Override
 	public void activate(UserRequest ureq, List<ContextEntry> entries, StateEntry state) {
-		if(entries == null || entries.isEmpty()) return;
+		if(entries == null || entries.isEmpty()) {
+			return;
+		}
 		
 		ContextEntry firstEntry = entries.get(0);
 		String type = firstEntry.getOLATResourceable().getResourceableTypeName();
-		if("CourseNode".equalsIgnoreCase(type)) {
+		if("CourseNode".equalsIgnoreCase(type) || "Part".equalsIgnoreCase(type)) {
 			CourseNode cn = course.getRunStructure().getNode(firstEntry.getOLATResourceable().getResourceableId().toString());
-
-			getWindowControl().makeFlat();
-			// add logging information for case course gets started via jump-in
-			// link/search
-			addLoggingResourceable(LoggingResourceable.wrap(course));
-			if (cn != null) {
-				addLoggingResourceable(LoggingResourceable.wrap(cn));
+			if(currentCourseNode == null || !currentCourseNode.equals(cn)) {
+				getWindowControl().makeFlat();
+				// add logging information for case course gets started via jump-in
+				// link/search
+				addLoggingResourceable(LoggingResourceable.wrap(course));
+				if (cn != null) {
+					addLoggingResourceable(LoggingResourceable.wrap(cn));
+				}
+				
+				if(entries.size() > 1) {
+					entries = entries.subList(1, entries.size());
+				}
+				updateTreeAndContent(ureq, cn, null, entries, firstEntry.getTransientState());
 			}
-			
-			if(entries.size() > 1) {
-				entries = entries.subList(1, entries.size());
-			}
-			updateTreeAndContent(ureq, cn, null, entries, firstEntry.getTransientState());
 		}
 	}
 

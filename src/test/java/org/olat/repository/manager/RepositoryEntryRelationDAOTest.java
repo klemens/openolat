@@ -179,8 +179,12 @@ public class RepositoryEntryRelationDAOTest extends OlatTestCase {
 	    dbInstance.commitAndCloseSession();
 	    
 		//get the number of members
-	    int numOfMembers = repositoryService.countMembers(Collections.singletonList(re));
+	    int numOfMembers = repositoryService.countMembers(Collections.singletonList(re), null);
 		Assert.assertEquals(4, numOfMembers);
+		
+		//get the number of members without id1
+	    int numOfMembersWithExclude = repositoryService.countMembers(Collections.singletonList(re), id1);
+		Assert.assertEquals(3, numOfMembersWithExclude);
 	}
 	
 	@Test
@@ -387,6 +391,31 @@ public class RepositoryEntryRelationDAOTest extends OlatTestCase {
 	    Assert.assertEquals(2, relations.size());
 		Assert.assertTrue(relations.get(0).getEntry().equals(re1) || relations.get(0).getEntry().equals(re2));
 		Assert.assertTrue(relations.get(1).getEntry().equals(re1) || relations.get(1).getEntry().equals(re2));
+	}
+	
+	@Test
+	public void getIdentitiesWithRole() {
+		Identity id1 = JunitTestHelper.createAndPersistIdentityAsRndUser("id-role-1-");
+		Identity id2 = JunitTestHelper.createAndPersistIdentityAsRndUser("id-role-2-");
+		Identity id3 = JunitTestHelper.createAndPersistIdentityAsRndUser("id-role-3-");
+		Identity id4 = JunitTestHelper.createAndPersistIdentityAsRndUser("id-role-4-");
+		
+		RepositoryEntry re = JunitTestHelper.createAndPersistRepositoryEntry();
+		repositoryEntryRelationDao.addRole(id1, re, GroupRoles.coach.name());
+		repositoryEntryRelationDao.addRole(id2, re, GroupRoles.participant.name());
+
+		BusinessGroup group = businessGroupService.createBusinessGroup(null, "get relations", "tg", null, null, false, false, re);
+	    businessGroupRelationDao.addRole(id3, group, GroupRoles.coach.name());
+	    businessGroupRelationDao.addRole(id4, group, GroupRoles.participant.name());
+	    businessGroupService.addResourceTo(group, re);
+	    dbInstance.commitAndCloseSession();
+
+	    List<Identity> relations = repositoryEntryRelationDao.getIdentitiesWithRole(GroupRoles.coach.name());
+	    Assert.assertNotNull(relations);
+	    Assert.assertTrue(relations.contains(id1));
+	    Assert.assertFalse(relations.contains(id2));
+	    Assert.assertTrue(relations.contains(id3));
+	    Assert.assertFalse(relations.contains(id4));
 	}
 	
 	@Test

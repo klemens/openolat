@@ -50,6 +50,7 @@ import org.olat.basesecurity.events.NewIdentityCreatedEvent;
 import org.olat.core.commons.persistence.DB;
 import org.olat.core.commons.persistence.DBFactory;
 import org.olat.core.commons.persistence.DBQuery;
+import org.olat.core.commons.persistence.PersistenceHelper;
 import org.olat.core.gui.translator.Translator;
 import org.olat.core.id.Identity;
 import org.olat.core.id.ModifiedInfo;
@@ -66,7 +67,6 @@ import org.olat.core.util.Util;
 import org.olat.core.util.coordinate.CoordinatorManager;
 import org.olat.core.util.coordinate.SyncerCallback;
 import org.olat.core.util.resource.OresHelper;
-import org.olat.group.BusinessGroupImpl;
 import org.olat.login.LoginModule;
 import org.olat.portfolio.manager.InvitationDAO;
 import org.olat.resource.OLATResource;
@@ -695,7 +695,7 @@ public class BaseSecurityManager implements BaseSecurity {
 		IdentityImpl iimpl = new IdentityImpl(username, user);
 		dbInstance.getCurrentEntityManager().persist(iimpl);
 		if (provider != null) { 
-			createAndPersistAuthentication(iimpl, provider, authusername, credential, loginModule.getDefaultHashAlgorithm());
+			createAndPersistAuthenticationIntern(iimpl, provider, authusername, credential, loginModule.getDefaultHashAlgorithm());
 		}
 		notifyNewIdentityCreated(iimpl);
 		return iimpl;
@@ -715,7 +715,7 @@ public class BaseSecurityManager implements BaseSecurity {
 		iimpl.setExternalId(externalId);
 		dbInstance.getCurrentEntityManager().persist(iimpl);
 		if (provider != null) { 
-			createAndPersistAuthentication(iimpl, provider, authusername, null, null);
+			createAndPersistAuthenticationIntern(iimpl, provider, authusername, null, null);
 		}
 		notifyNewIdentityCreated(iimpl);
 		return iimpl;
@@ -738,7 +738,7 @@ public class BaseSecurityManager implements BaseSecurity {
 		iimpl.setExternalId(externalId);
 		dbInstance.getCurrentEntityManager().persist(iimpl);
 		if (provider != null) { 
-			createAndPersistAuthentication(iimpl, provider, authusername, credential, loginModule.getDefaultHashAlgorithm());
+			createAndPersistAuthenticationIntern(iimpl, provider, authusername, credential, loginModule.getDefaultHashAlgorithm());
 		}
 		notifyNewIdentityCreated(iimpl);
 		return iimpl;
@@ -1073,7 +1073,7 @@ public class BaseSecurityManager implements BaseSecurity {
 		StringBuilder sb = new StringBuilder();
 		sb.append("select ident from ").append(IdentityImpl.class.getName()).append(" as ident ")
 		  .append(" where not exists (")
-		  .append("   select bgroup from ").append(BusinessGroupImpl.class.getName()).append(" bgroup, bgroupmember as me")
+		  .append("   select bgroup from businessgroup bgroup, bgroupmember as me")
 		  .append("   where  me.group=bgroup.baseGroup and me.identity=ident")
 		  .append(" )");
 		if (status != null) {
@@ -1114,7 +1114,7 @@ public class BaseSecurityManager implements BaseSecurity {
 		StringBuilder sb = new StringBuilder();
 		sb.append("select ident from ").append(Identity.class.getName()).append(" as ident where ident.key in (:keys)");
 		
-		return DBFactory.getInstance().getCurrentEntityManager()
+		return dbInstance.getCurrentEntityManager()
 				.createQuery(sb.toString(), Identity.class)
 				.setParameter("keys", identityKeys)
 				.getResultList();
@@ -1123,15 +1123,60 @@ public class BaseSecurityManager implements BaseSecurity {
 	/**
 	 * @see org.olat.basesecurity.Manager#loadIdentityByKey(java.lang.Long,boolean)
 	 */
+	@Override
 	public Identity loadIdentityByKey(Long identityKey, boolean strict) {
 		if(strict) return loadIdentityByKey(identityKey);
+
+		StringBuilder sb = new StringBuilder();
+		sb.append("select ident from ").append(Identity.class.getName()).append(" as ident where ident.key=:identityKey");
 		
-		String queryStr = "select ident from org.olat.basesecurity.IdentityImpl as ident where ident.key=:identityKey";
-		DBQuery dbq = DBFactory.getInstance().createQuery(queryStr);
-		dbq.setLong("identityKey", identityKey);
-		List<Identity> identities = dbq.list();
-		if (identities.size() == 1) return identities.get(0);
-		return null;
+		List<Identity> identities = dbInstance.getCurrentEntityManager()
+				.createQuery(sb.toString(), Identity.class)
+				.setParameter("identityKey", identityKey)
+				.getResultList();
+		return identities.size() == 1 ? identities.get(0) : null;
+	}
+
+	@Override
+	public List<IdentityShort> searchIdentityShort(String search, int maxResults) {
+		String[] searchArr = search.split(" ");
+		String[] attributes = new String[]{ "name", "firstName", "lastName", "email" };
+		
+		StringBuilder sb = new StringBuilder();
+		sb.append("select ident from ").append(IdentityShort.class.getName()).append(" as ident ")
+		  .append(" where ident.status<").append(Identity.STATUS_VISIBLE_LIMIT).append(" and (");
+		
+		boolean start = true;
+		for(int i=0; i<searchArr.length; i++) {
+			for(String attribute:attributes) {
+				if(start) {
+					start = false;
+				} else {
+					sb.append(" or ");
+				}
+				
+				if (searchArr[i].contains("_") && dbVendor.equals("oracle")) {
+					//oracle needs special ESCAPE sequence to search for escaped strings
+					sb.append(" lower(ident.").append(attribute).append(") like :search").append(i).append(" ESCAPE '\\'");
+				} else if (dbVendor.equals("mysql")) {
+					sb.append(" ident.").append(attribute).append(" like :search").append(i);
+				} else {
+					sb.append(" lower(ident.").append(attribute).append(") like :search").append(i);
+				}
+			}
+		}
+		sb.append(")");
+		
+		TypedQuery<IdentityShort> searchQuery = dbInstance.getCurrentEntityManager()
+				.createQuery(sb.toString(), IdentityShort.class);
+		for(int i=searchArr.length; i-->0; ) {
+			searchQuery.setParameter("search" + i, PersistenceHelper.makeFuzzyQueryString(searchArr[i]));
+		}
+
+		return searchQuery
+				.setFirstResult(0)
+				.setMaxResults(maxResults)
+				.getResultList();
 	}
 
 	@Override
@@ -1140,7 +1185,7 @@ public class BaseSecurityManager implements BaseSecurity {
 		sb.append("select identity from ").append(IdentityShort.class.getName()).append(" as identity ")
 			.append(" where identity.key=:identityKey");
 		
-		List<IdentityShort> idents = DBFactory.getInstance().getCurrentEntityManager()
+		List<IdentityShort> idents = dbInstance.getCurrentEntityManager()
 				.createQuery(sb.toString(), IdentityShort.class)
 				.setParameter("identityKey", identityKey)
 				.getResultList();
@@ -1158,17 +1203,19 @@ public class BaseSecurityManager implements BaseSecurity {
 		StringBuilder sb = new StringBuilder();
 		sb.append("select ident from ").append(IdentityShort.class.getName()).append(" as ident where ident.key in (:keys)");
 		
-		return DBFactory.getInstance().getCurrentEntityManager()
+		return dbInstance.getCurrentEntityManager()
 				.createQuery(sb.toString(), IdentityShort.class)
 				.setParameter("keys", identityKeys)
 				.getResultList();
 	}
 	
 	@Override
-	public List<Identity> loadIdentities(int firstResult, int maxResults) {
+	public List<Identity> loadVisibleIdentities(int firstResult, int maxResults) {
 		StringBuilder sb = new StringBuilder();
-		sb.append("select ident from ").append(IdentityImpl.class.getName()).append(" as ident order by ident.key");
-		return DBFactory.getInstance().getCurrentEntityManager()
+		sb.append("select ident from ").append(IdentityImpl.class.getName()).append(" as ident ")
+		  .append(" inner join fetch ident.user as user")
+		  .append(" where ident.status<").append(Identity.STATUS_VISIBLE_LIMIT).append(" order by ident.key");
+		return dbInstance.getCurrentEntityManager()
 				.createQuery(sb.toString(), Identity.class)
 				.setFirstResult(firstResult)
 				.setMaxResults(maxResults)
@@ -1180,7 +1227,7 @@ public class BaseSecurityManager implements BaseSecurity {
 		StringBuilder sb = new StringBuilder();
 		sb.append("select ident.key from ").append(IdentityImpl.class.getName()).append(" as ident")
 		  .append(" where ident.status<").append(Identity.STATUS_VISIBLE_LIMIT).append(" order by ident.key");
-		return DBFactory.getInstance().getCurrentEntityManager()
+		return dbInstance.getCurrentEntityManager()
 				.createQuery(sb.toString(), Long.class)
 				.getResultList();
 	}
@@ -1227,19 +1274,35 @@ public class BaseSecurityManager implements BaseSecurity {
 			public Authentication execute() {
 				Authentication auth = findAuthentication(ident, provider);
 				if(auth == null) {
-					if(algorithm != null && credentials != null) {
-						String salt = algorithm.isSalted() ? Encoder.getSalt() : null;
-						String hash = Encoder.encrypt(credentials, salt, algorithm);
-						auth = new AuthenticationImpl(ident, provider, authUserName, hash, salt, algorithm.name());
-					} else {
-						auth = new AuthenticationImpl(ident, provider, authUserName, credentials);
-					}
-					dbInstance.getCurrentEntityManager().persist(auth);
-					log.audit("Create " + provider + " authentication (login=" + ident.getName() + ",authusername=" + authUserName + ")");
+					auth = createAndPersistAuthenticationIntern(ident, provider,  authUserName, credentials, algorithm);
 				}
 				return auth;
 			}
 		});
+	}
+	
+	/**
+	 * This method is not protected by a doInSync and will not check if the authentication already exists.
+	 * @param ident
+	 * @param provider
+	 * @param authUserName
+	 * @param credentials
+	 * @param algorithm
+	 * @return
+	 */
+	private Authentication createAndPersistAuthenticationIntern(final Identity ident, final String provider, final String authUserName,
+			final String credentials, final Encoder.Algorithm algorithm) {
+		Authentication auth;
+		if(algorithm != null && credentials != null) {
+			String salt = algorithm.isSalted() ? Encoder.getSalt() : null;
+			String hash = Encoder.encrypt(credentials, salt, algorithm);
+			auth = new AuthenticationImpl(ident, provider, authUserName, hash, salt, algorithm.name());
+		} else {
+			auth = new AuthenticationImpl(ident, provider, authUserName, credentials);
+		}
+		dbInstance.getCurrentEntityManager().persist(auth);
+		log.audit("Create " + provider + " authentication (login=" + ident.getName() + ",authusername=" + authUserName + ")");
+		return auth;
 	}
 
 	/**
@@ -1854,9 +1917,10 @@ public class BaseSecurityManager implements BaseSecurity {
 	}
 	
 	@Override
-	public Identity saveIdentityName(Identity identity, String newName) {
-		Identity reloadedIdentity = loadForUpdate(identity); 
+	public Identity saveIdentityName(Identity identity, String newName, String newExternalId) {
+		IdentityImpl reloadedIdentity = loadForUpdate(identity); 
 		reloadedIdentity.setName(newName);
+		reloadedIdentity.setExternalId(newExternalId);
 		reloadedIdentity = dbInstance.getCurrentEntityManager().merge(reloadedIdentity);
 		dbInstance.commit();
 		return reloadedIdentity;

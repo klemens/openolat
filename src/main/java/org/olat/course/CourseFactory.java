@@ -43,8 +43,7 @@ import java.util.zip.ZipOutputStream;
 import org.apache.poi.util.IOUtils;
 import org.olat.admin.quota.QuotaConstants;
 import org.olat.commons.calendar.CalendarManager;
-import org.olat.commons.calendar.CalendarManagerFactory;
-import org.olat.commons.calendar.notification.CalendarNotificationManager;
+import org.olat.commons.calendar.CalendarNotificationManager;
 import org.olat.commons.calendar.ui.components.KalendarRenderWrapper;
 import org.olat.core.CoreSpringFactory;
 import org.olat.core.commons.fullWebApp.LayoutMain3ColsController;
@@ -112,6 +111,7 @@ import org.olat.course.nodes.BCCourseNode;
 import org.olat.course.nodes.CourseNode;
 import org.olat.course.nodes.STCourseNode;
 import org.olat.course.nodes.TACourseNode;
+import org.olat.course.nodes.gta.GTAManager;
 import org.olat.course.properties.CoursePropertyManager;
 import org.olat.course.properties.PersistingCoursePropertyManager;
 import org.olat.course.run.RunMainController;
@@ -131,6 +131,7 @@ import org.olat.repository.handlers.RepositoryHandler;
 import org.olat.repository.handlers.RepositoryHandlerFactory;
 import org.olat.repository.model.RepositoryEntrySecurity;
 import org.olat.resource.OLATResource;
+import org.olat.resource.OLATResourceManager;
 import org.olat.resource.references.Reference;
 import org.olat.resource.references.ReferenceManager;
 import org.olat.user.UserManager;
@@ -176,13 +177,13 @@ public class CourseFactory extends BasicManager {
 	 * 
 	 * @param ureq
 	 * @param wControl
-	 * @param olatResource
+	 * @param courseEntry
 	 * @return editor controller for the given course resourceable; if the editor
 	 *         is already locked, it returns a controller with a lock message
 	 */
 	public static EditorMainController createEditorController(UserRequest ureq, WindowControl wControl,
-			TooledStackedPanel toolbar, OLATResourceable olatResource, CourseNode selectedNode) {
-		ICourse course = loadCourse(olatResource);
+			TooledStackedPanel toolbar, RepositoryEntry courseEntry, CourseNode selectedNode) {
+		ICourse course = loadCourse(courseEntry);
 		EditorMainController emc = new EditorMainController(ureq, wControl, toolbar, course, selectedNode);
 		if (emc.getLockEntry() == null) {
 			Translator translator = Util.createPackageTranslator(RunMainController.class, ureq.getLocale());
@@ -205,18 +206,20 @@ public class CourseFactory extends BasicManager {
 
 	/**
 	 * Creates an empty course with a single root node. The course is linked to
-	 * the resourceable ores.
+	 * the resourceable ores. The efficiency statment are enabled per default!
 	 * 
 	 * @param ores
 	 * @param shortTitle Short title of root node
 	 * @param longTitle Long title of root node
 	 * @param learningObjectives Learning objectives of root node
-	 * @return an empty course with a single root node.
+	 * @return An empty course with a single root node.
 	 */
-	public static ICourse createEmptyCourse(OLATResourceable ores, String shortTitle, String longTitle, String learningObjectives) {
-		PersistingCourseImpl newCourse = new PersistingCourseImpl(ores.getResourceableId());
+	public static ICourse createCourse(RepositoryEntry courseEntry,
+			String shortTitle, String longTitle, String learningObjectives) {
+		OLATResource courseResource = courseEntry.getOlatResource();
+		PersistingCourseImpl newCourse = new PersistingCourseImpl(courseResource);
 		// Put new course in course cache    
-		loadedCourses.put(newCourse.getResourceableId() ,newCourse);
+		loadedCourses.put(newCourse.getResourceableId(), newCourse);
 		
 		Structure initialStructure = new Structure();
 		CourseNode runRootNode = new STCourseNode();
@@ -232,9 +235,16 @@ public class CourseFactory extends BasicManager {
 		editorTreeModel.setRootNode(editorRootNode);
 		newCourse.setEditorTreeModel(editorTreeModel);
 		newCourse.saveEditorTreeModel();
+		
+		//enable efficiency statement per default
+		CourseConfig courseConfig = newCourse.getCourseConfig();
+		courseConfig.setEfficencyStatementIsEnabled(true);
+		newCourse.setCourseConfig(courseConfig);
 
 		return newCourse;
 	}
+	
+	
 
 	/**
 	 * Gets the course from cache if already there, or loads the course and puts it into cache.
@@ -243,13 +253,40 @@ public class CourseFactory extends BasicManager {
 	 * @return the course with the given id (the type is always
 	 *         CourseModule.class.toString())
 	 */
+	public static ICourse loadCourse(RepositoryEntry courseEntry) {
+		if (courseEntry == null) {
+			throw new AssertException("No resourceable ID found.");
+		}
+		Long resourceableId = courseEntry.getOlatResource().getResourceableId();
+		PersistingCourseImpl course = loadedCourses.get(resourceableId);
+		if (course == null) {
+			// o_clusterOK by:ld - load and put in cache in doInSync block to ensure
+			// that no invalidate cache event was missed
+			PersistingCourseImpl theCourse = new PersistingCourseImpl(courseEntry);
+			theCourse.load();
+			
+			PersistingCourseImpl cachedCourse = loadedCourses.putIfAbsent(resourceableId, theCourse);
+			if(cachedCourse != null) {
+				course = cachedCourse;
+				course.updateCourseEntry(courseEntry);
+			} else {
+				course = theCourse;
+			}
+		} else {
+			course.updateCourseEntry(courseEntry);
+		}
+		
+		return course;
+	}
+	
 	public static ICourse loadCourse(final Long resourceableId) {
 		if (resourceableId == null) throw new AssertException("No resourceable ID found.");
 		PersistingCourseImpl course = loadedCourses.get(resourceableId);
 		if (course == null) {
 			// o_clusterOK by:ld - load and put in cache in doInSync block to ensure
 			// that no invalidate cache event was missed
-			PersistingCourseImpl theCourse = new PersistingCourseImpl(resourceableId);
+			OLATResource resource = OLATResourceManager.getInstance().findResourceable(resourceableId, "CourseModule");
+			PersistingCourseImpl theCourse = new PersistingCourseImpl(resource);
 			theCourse.load();
 			
 			PersistingCourseImpl cachedCourse = loadedCourses.putIfAbsent(resourceableId, theCourse);
@@ -298,16 +335,10 @@ public class CourseFactory extends BasicManager {
 	 * 
 	 * @param res
 	 */
-	public static void deleteCourse(OLATResource res) {
+	public static void deleteCourse(RepositoryEntry entry, OLATResource res) {
 		final long start = System.currentTimeMillis();
 		log.info("deleteCourse: starting to delete course. res="+res);
 
-		// find all references to course
-		List<Reference> refs = referenceManager.getReferences(res);
-		for (Reference ref:refs) {
-			referenceManager.delete(ref);
-		}
-		
 		PersistingCourseImpl course = null;
 		try {
 			course = (PersistingCourseImpl)loadCourse(res);
@@ -328,7 +359,7 @@ public class CourseFactory extends BasicManager {
 		// delete all course notifications
 		NotificationsManager.getInstance().deletePublishersOf(res);
 		//delete calendar subscription
-		clearCalenderSubscriptions(res);
+		clearCalenderSubscriptions(res, course);
 		// delete course configuration (not really usefull, the config is in
 		// the course folder which is deleted right after)
 		if(course != null) {
@@ -344,10 +375,12 @@ public class CourseFactory extends BasicManager {
 		CoursePropertyManager propertyManager = PersistingCoursePropertyManager.getInstance(res);
 		propertyManager.deleteAllCourseProperties();
 		// delete course calendar
-		CalendarManager calManager = CalendarManagerFactory.getInstance().getCalendarManager();
+		CalendarManager calManager = CoreSpringFactory.getImpl(CalendarManager.class);
 		calManager.deleteCourseCalendar(res);
 		// delete IM messages
 		CoreSpringFactory.getImpl(InstantMessagingService.class).deleteMessages(res);
+		//delete tasks
+		CoreSpringFactory.getImpl(GTAManager.class).deleteAllTaskLists(entry);
 
 		// cleanup cache
 		removeFromCache(res.getResourceableId());
@@ -368,20 +401,23 @@ public class CourseFactory extends BasicManager {
 	 * Checks all learning group calendars and the course calendar for publishers (of subscriptions)
 	 * and sets their state to "1" which indicates that the ressource is deleted.
 	 */
-	private static void clearCalenderSubscriptions(OLATResourceable res) {
+	private static void clearCalenderSubscriptions(OLATResourceable res, ICourse course) {
 		//set Publisher state to 1 (= ressource is deleted) for all calendars of the course
-		CalendarManager calMan = CalendarManagerFactory.getInstance().getCalendarManager();
+		CalendarManager calMan = CoreSpringFactory.getImpl(CalendarManager.class);
 		CalendarNotificationManager notificationManager = CoreSpringFactory.getImpl(CalendarNotificationManager.class);
 		NotificationsManager nfm = NotificationsManager.getInstance();
-		CourseGroupManager courseGroupManager = PersistingCourseGroupManager.getInstance(res);
-		List<BusinessGroup> learningGroups = courseGroupManager.getAllBusinessGroups();
-		//all learning and right group calendars
-		for (BusinessGroup bg : learningGroups) {
-			KalendarRenderWrapper calRenderWrapper = calMan.getGroupCalendar(bg);
-			SubscriptionContext subsContext = notificationManager.getSubscriptionContext(calRenderWrapper);
-			Publisher pub = nfm.getPublisher(subsContext);
-			if (pub != null) {
-				pub.setState(1); //int 0 is OK -> all other is not OK
+		
+		if(course != null) {
+			CourseGroupManager courseGroupManager = course.getCourseEnvironment().getCourseGroupManager();
+			List<BusinessGroup> learningGroups = courseGroupManager.getAllBusinessGroups();
+			//all learning and right group calendars
+			for (BusinessGroup bg : learningGroups) {
+				KalendarRenderWrapper calRenderWrapper = calMan.getGroupCalendar(bg);
+				SubscriptionContext subsContext = notificationManager.getSubscriptionContext(calRenderWrapper);
+				Publisher pub = nfm.getPublisher(subsContext);
+				if (pub != null) {
+					pub.setState(1); //int 0 is OK -> all other is not OK
+				}
 			}
 		}
 		//the course calendar
@@ -413,11 +449,11 @@ public class CourseFactory extends BasicManager {
 	 */
 	public static OLATResourceable copyCourse(OLATResourceable sourceRes, OLATResource targetRes) {
 		PersistingCourseImpl sourceCourse = (PersistingCourseImpl)loadCourse(sourceRes);
-		PersistingCourseImpl targetCourse = new PersistingCourseImpl(targetRes.getResourceableId());
+		PersistingCourseImpl targetCourse = new PersistingCourseImpl(targetRes);
 		File fTargetCourseBasePath = targetCourse.getCourseBaseContainer().getBasefile();
 		
 		//close connection before file copy
-		DBFactory.getInstance(false).commitAndCloseSession();
+		DBFactory.getInstance().commitAndCloseSession();
 		
 		synchronized (sourceCourse) { // o_clusterNOK - cannot be solved with doInSync since could take too long (leads to error: "Lock wait timeout exceeded")
 			// copy configuration
@@ -449,7 +485,7 @@ public class CourseFactory extends BasicManager {
 			for (Reference ref: refs) {
 				referenceManager.addReference(targetCourse, ref.getTarget(), ref.getUserdata());
 				if(count % 20 == 0) {
-					DBFactory.getInstance(false).intermediateCommit();
+					DBFactory.getInstance().intermediateCommit();
 				}
 			}
 			
@@ -502,9 +538,9 @@ public class CourseFactory extends BasicManager {
 	 * @param zipFile
 	 * @return New Course.
 	 */
-	public static ICourse importCourseFromZip(OLATResourceable ores, File zipFile) {
+	public static ICourse importCourseFromZip(OLATResource ores, File zipFile) {
 		// Generate course with filesystem
-		PersistingCourseImpl newCourse = new PersistingCourseImpl(ores.getResourceableId());
+		PersistingCourseImpl newCourse = new PersistingCourseImpl(ores);
 		CourseConfigManagerImpl.getInstance().deleteConfigOf(newCourse);
 		
 		// Unzip course strucure in new course
@@ -556,8 +592,8 @@ public class CourseFactory extends BasicManager {
 		re.setSoftkey(softKey);
 		repositoryService.update(re);
 		
-		ICourse course = CourseFactory.loadCourse(re.getOlatResource());
-		CourseFactory.publishCourse(course, access, false,  null, Locale.ENGLISH);
+		ICourse course = loadCourse(re);
+		publishCourse(course, access, false,  null, Locale.ENGLISH);
 		return re;
 	}
 
@@ -634,8 +670,7 @@ public class CourseFactory extends BasicManager {
 		} else {
 			// Increment launch counter
 			rs.incrementLaunchCounter(entry);
-			OLATResource ores = entry.getOlatResource();
-			ICourse course = loadCourse(ores);
+			ICourse course = loadCourse(entry);
 			
 			ContextEntry ce = BusinessControlFactory.getInstance().createContextEntry(entry);
 			WindowControl bwControl = BusinessControlFactory.getInstance().createBusinessWindowControl(ce, wControl);	
@@ -699,14 +734,14 @@ public class CourseFactory extends BasicManager {
 		// cause db connection timeout to be triggered
 		//@TODO transactions/backgroundjob:
 		// rework when backgroundjob infrastructure exists
-		DBFactory.getInstance(false).intermediateCommit();
+		DBFactory.getInstance().intermediateCommit();
 		AsyncExportManager.getInstance().asyncArchiveCourseLogFiles(archiveOnBehalfOf, new Runnable() {
 			public void run() {
 				// that's fine, I dont need to do anything here
 			};
 		}, course.getResourceableId(), exportDirectory.getPath(), null, null, aLogV, uLogV, sLogV, charset, null, null);
 
-		PersistingCourseGroupManager.getInstance(course).archiveCourseGroups(exportDirectory);
+		course.getCourseEnvironment().getCourseGroupManager().archiveCourseGroups(exportDirectory);
 		
 		CoreSpringFactory.getImpl(ChatLogHelper.class).archive(course, exportDirectory);
 		

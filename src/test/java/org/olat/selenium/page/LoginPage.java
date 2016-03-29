@@ -56,6 +56,8 @@ public class LoginPage {
 	public static final By resumeButton = By.className("o_sel_resume_yes");	
 	public static final By usernameFooterBy = By.id("o_username");
 	
+	public static final By maintenanceMessageBy = By.cssSelector("#o_msg_sticky p");
+	
 	@Drone
 	private WebDriver browser;
 	
@@ -87,6 +89,33 @@ public class LoginPage {
 		Assert.assertTrue(name.contains(lastName));
 	}
 	
+	public LoginPage assertOnMaintenanceMessage(String text) {
+		WebElement messageEl = browser.findElement(maintenanceMessageBy);
+		String message = messageEl.getText();
+		Assert.assertTrue(message.contains(text));
+		return this;
+	}
+	
+	public LoginPage waitOnMaintenanceMessage(String text) {
+		OOGraphene.waitElement(maintenanceMessageBy, 10, browser);
+		return assertOnMaintenanceMessage(text);
+	}
+	
+	public LoginPage waitOnMaintenanceMessageCleared() {
+		OOGraphene.waitElementDisappears(maintenanceMessageBy, 10, browser);
+		return this;
+	}
+	
+	/**
+	 * Enter OpenOLAT as guest
+	 */
+	public void asGuest() {
+		By guestLinkBy = By.xpath("//a[contains(@href,'menu.guest')]");
+		WebElement guestLink = browser.findElement(guestLinkBy);
+		Graphene.guardHttp(guestLink).click();
+		OOGraphene.waitElement(authXPath, browser);
+	}
+	
 	/**
 	 * Login and accept the disclaimer if there is one.
 	 * 
@@ -106,6 +135,7 @@ public class LoginPage {
 	public LoginPage loginAs(String username, String password) {
 		//fill login form
 		By usernameId = By.id("o_fiooolat_login_name");
+		OOGraphene.waitElement(usernameId, 5, browser);//wait the login page
 		WebElement usernameInput = browser.findElement(usernameId);
 		usernameInput.sendKeys(username);
 		By passwordId = By.id("o_fiooolat_login_pass");
@@ -127,6 +157,32 @@ public class LoginPage {
 			Graphene.guardHttp(acknowledgeButton).click();
 			OOGraphene.waitElement(authXPath, browser);
 		}
+		return this;
+	}
+	
+	/**
+	 * The login will not be successful. The method assert
+	 * on the error message.
+	 * 
+	 * @param username
+	 * @param password
+	 * @return
+	 */
+	public LoginPage loginDenied(String username, String password) {
+		//fill login form
+		By usernameId = By.id("o_fiooolat_login_name");
+		WebElement usernameInput = browser.findElement(usernameId);
+		usernameInput.sendKeys(username);
+		By passwordId = By.id("o_fiooolat_login_pass");
+		WebElement passwordInput = browser.findElement(passwordId);
+		passwordInput.sendKeys(password);
+		
+		By loginBy = By.id("o_fiooolat_login_button");
+		browser.findElement(loginBy).click();
+		OOGraphene.waitBusy(browser);
+		
+		By errorMessageby = By.cssSelector("div.modal-body.alert.alert-danger");
+		OOGraphene.waitElement(errorMessageby, 2, browser);
 		return this;
 	}
 	

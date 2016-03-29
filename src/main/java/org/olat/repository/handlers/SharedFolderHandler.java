@@ -209,7 +209,7 @@ public class SharedFolderHandler implements RepositoryHandler {
 	}
 
 	@Override
-	public boolean cleanupOnDelete(OLATResourceable res) {
+	public boolean cleanupOnDelete(RepositoryEntry entry, OLATResourceable res) {
 		// do not need to notify all current users of this resource, since the only
 		// way to access this resource
 		CoordinatorManager.getInstance().getCoordinator().getEventBus().fireEventToListenersOf(new OLATResourceableJustBeforeDeletedEvent(res), res);
@@ -229,11 +229,6 @@ public class SharedFolderHandler implements RepositoryHandler {
 			return false;
 		}
 		return true;
-	}
-
-	@Override
-	public String archive(Identity archiveOnBehalfOf, String archivFilePath, RepositoryEntry repoEntry) {
-		return SharedFolderManager.getInstance().archive(archivFilePath, repoEntry);
 	}
 
 	@Override

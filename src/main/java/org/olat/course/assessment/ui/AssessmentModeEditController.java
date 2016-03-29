@@ -458,7 +458,7 @@ public class AssessmentModeEditController extends FormBasicController {
 		courseElementsRestrictionEl.clearError();
 		if(courseElementsRestrictionEl.isAtLeastSelected(1)) {
 			if(elementKeys.isEmpty()) {
-				endEl.setErrorKey("form.legende.mandatory", null);
+				courseElementsRestrictionEl.setErrorKey("error.course.element.mandatory", null);
 				allOk &= false;
 			}
 		}

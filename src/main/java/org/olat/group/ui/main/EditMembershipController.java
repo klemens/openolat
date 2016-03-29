@@ -26,7 +26,7 @@ import java.util.Date;
 import java.util.List;
 import java.util.UUID;
 
-import org.olat.core.commons.persistence.PersistenceHelper;
+import org.olat.basesecurity.GroupRoles;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.EscapeMode;
 import org.olat.core.gui.components.form.flexible.FormItem;
@@ -57,12 +57,12 @@ import org.olat.group.BusinessGroup;
 import org.olat.group.BusinessGroupManagedFlag;
 import org.olat.group.BusinessGroupMembership;
 import org.olat.group.BusinessGroupService;
-import org.olat.group.BusinessGroupView;
 import org.olat.group.model.BusinessGroupMembershipChange;
-import org.olat.group.model.SearchBusinessGroupParams;
+import org.olat.group.model.BusinessGroupQueryParams;
+import org.olat.group.model.BusinessGroupRow;
+import org.olat.group.model.StatisticsBusinessGroupRow;
 import org.olat.repository.RepositoryEntry;
 import org.olat.repository.RepositoryEntryManagedFlag;
-import org.olat.repository.RepositoryEntryRef;
 import org.olat.repository.RepositoryManager;
 import org.olat.repository.model.RepositoryEntryMembership;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -160,15 +160,15 @@ public class EditMembershipController extends FormBasicController {
 	}
 	
 	private void loadModel(Identity memberToLoad) {
-		RepositoryEntryRef resource = null;
-		SearchBusinessGroupParams params = new SearchBusinessGroupParams();
+		BusinessGroupQueryParams params = new BusinessGroupQueryParams();
 		if(repoEntry == null) {
-			params.setGroupKeys(Collections.singletonList(businessGroup.getKey()));
+			params.setBusinessGroupKey(businessGroup.getKey());
 		} else {
-			resource = repoEntry;
+			params.setRepositoryEntry(repoEntry);
 		}
-		List<BusinessGroupView> groups = businessGroupService.findBusinessGroupViews(params, resource, 0, -1);
-	
+
+		List<StatisticsBusinessGroupRow> groups = businessGroupService.findBusinessGroupsStatistics(params);
+
 		boolean defaultMembership = false;
 		if(memberToLoad == null) {
 			if(repoEntry != null && groups.isEmpty()) {
@@ -184,29 +184,33 @@ public class EditMembershipController extends FormBasicController {
 			}
 		}
 
-		List<Long> businessGroupKeys = PersistenceHelper.toKeys(groups);
+		List<Long> businessGroupKeys = new ArrayList<>(groups.size());
+		groups.forEach(group -> businessGroupKeys.add(group.getKey()));
+		
 		groupMemberships = memberToLoad == null ?
 				Collections.<BusinessGroupMembership>emptyList() : businessGroupService.getBusinessGroupMembership(businessGroupKeys, memberToLoad);
+		
 		List<MemberOption> options = new ArrayList<MemberOption>();
-		for(BusinessGroupView group:groups) {
+		for(StatisticsBusinessGroupRow group:groups) {
 			boolean managed = BusinessGroupManagedFlag.isManaged(group.getManagedFlags(), BusinessGroupManagedFlag.membersmanagement);
 			MemberOption option = new MemberOption(group);
 			BGPermission bgPermission = PermissionHelper.getPermission(group.getKey(), memberToLoad, groupMemberships);
-			option.setTutor(createSelection(bgPermission.isTutor(), !managed));
-			option.setParticipant(createSelection(bgPermission.isParticipant() || defaultMembership, !managed));
-			boolean waitingListEnable = !managed && group.getWaitingListEnabled() != null && group.getWaitingListEnabled().booleanValue();
-			option.setWaiting(createSelection(bgPermission.isWaitingList(), waitingListEnable));
+			option.setTutor(createSelection(bgPermission.isTutor(), !managed, GroupRoles.coach.name()));
+			option.setParticipant(createSelection(bgPermission.isParticipant() || defaultMembership, !managed, GroupRoles.participant.name()));
+			boolean waitingListEnable = !managed && group.isWaitingListEnabled();
+			option.setWaiting(createSelection(bgPermission.isWaitingList(), waitingListEnable, GroupRoles.waiting.name()));
 			options.add(option);
 		}
 		
 		tableDataModel.setObjects(options);
 	}
 	
-	private MultipleSelectionElement createSelection(boolean selected, boolean enabled) {
+	private MultipleSelectionElement createSelection(boolean selected, boolean enabled, String role) {
 		String name = "cb" + UUID.randomUUID().toString().replace("-", "");
 		MultipleSelectionElement selection = new MultipleSelectionElementImpl(name, Layout.horizontal);
+		selection.setElementCssClass("o_sel_role");
 		selection.addActionListener(FormEvent.ONCHANGE);
-		selection.setKeysAndValues(keys, values);
+		selection.setKeysAndValues(keys, values, new String[]{ "o_sel_role_".concat(role) }, null);
 		flc.add(name, selection);
 		selection.select(keys[0], selected);
 		selection.setEnabled(enabled);
@@ -348,16 +352,16 @@ public class EditMembershipController extends FormBasicController {
 	}
 
 	private static class MemberOption {
-		private final BusinessGroupView group;
+		private final StatisticsBusinessGroupRow group;
 		private MultipleSelectionElement tutor;
 		private MultipleSelectionElement participant;
 		private MultipleSelectionElement waiting;
 		
-		public MemberOption(BusinessGroupView group) {
+		public MemberOption(StatisticsBusinessGroupRow group) {
 			this.group = group;
 		}
 		
-		public BusinessGroupView getGroup() {
+		public BusinessGroupRow getGroup() {
 			return group;
 		}
 		
@@ -370,7 +374,7 @@ public class EditMembershipController extends FormBasicController {
 		}
 
 		public long getTutorCount() {
-			return group.getNumOfOwners();
+			return group.getNumOfCoaches();
 		}
 		
 		public long getParticipantCount() {
@@ -378,7 +382,7 @@ public class EditMembershipController extends FormBasicController {
 		}
 		
 		public long getNumOfPendings() {
-			return group.getNumOfPendings();
+			return group.getNumPending();
 		}
 		
 		public Integer getMaxParticipants() {

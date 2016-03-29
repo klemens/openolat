@@ -349,7 +349,7 @@ public class BBautOLATStructureNodeEditController extends ActivateableTabbableDe
 	}
 
 	private void addStartEditorToView(UserRequest ureq) {
-		this.fccecontr = new LinkChooseCreateEditController(ureq, getWindowControl(), chosenFile, allowRelativeLinks, courseFolderContainer, new CourseInternalLinkTreeModel(editorModel) );		
+		this.fccecontr = new LinkChooseCreateEditController(ureq, getWindowControl(), chosenFile, allowRelativeLinks, courseFolderContainer, "default", "HTML-Seite auswählen, editieren oder erstellen", new CourseInternalLinkTreeModel(editorModel) );
 		this.listenTo(fccecontr);
 
 		fccePanel = new Panel("filechoosecreateedit");

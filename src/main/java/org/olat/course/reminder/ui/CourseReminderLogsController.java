@@ -142,10 +142,11 @@ public class CourseReminderLogsController extends FormBasicController {
 		
 		tableModel = new CourseSendReminderTableModel(columnsModel);
 		tableEl = uifactory.addTableElement(getWindowControl(), "table", tableModel, 20, false, getTranslator(), formLayout);
+		tableEl.setElementCssClass("o_sel_course_sent_reminder_log_list");
 		updateModel();
 	}
 	
-	private void updateModel() {
+	protected void updateModel() {
 		List<SentReminder> sentReminders = reminderService.getSentReminders(repositoryEntry);
 		List<SentReminderRow> rows = new ArrayList<>(sentReminders.size());
 		

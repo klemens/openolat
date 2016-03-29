@@ -151,6 +151,7 @@ public class AssessmentToolPage {
 		By userLinksBy = By.className("o_sel_certificate_generate");
 		browser.findElement(userLinksBy).click();
 		OOGraphene.waitBusy(browser);
+		OOGraphene.waitAndCloseBlueMessageWindow(browser);
 		
 		boolean newCertificate = false;
 		for(int i=0; i<50; i++) {
@@ -165,4 +166,16 @@ public class AssessmentToolPage {
 		Assert.assertTrue(newCertificate);
 		return this;
 	}
+	
+	public BulkAssessmentPage bulk() {
+		By bulkBy = By.cssSelector("li.o_sel_assessment_tool_bulk a");
+		browser.findElement(bulkBy).click();
+		OOGraphene.waitBusy(browser);
+		
+		By newBy = By.cssSelector("a.o_sel_assessment_tool_new_bulk_assessment");
+		browser.findElement(newBy).click();
+		OOGraphene.waitBusy(browser);
+		return new BulkAssessmentPage(browser);
+	}
+	
 }

@@ -65,6 +65,7 @@ import org.olat.repository.RepositoryEntryMyView;
 import org.olat.repository.RepositoryEntryRef;
 import org.olat.repository.RepositoryEntryRelationType;
 import org.olat.repository.RepositoryManager;
+import org.olat.repository.RepositoryModule;
 import org.olat.repository.RepositoryService;
 import org.olat.repository.handlers.RepositoryHandler;
 import org.olat.repository.handlers.RepositoryHandlerFactory;
@@ -75,6 +76,8 @@ import org.olat.repository.model.SearchAuthorRepositoryEntryViewParams;
 import org.olat.repository.model.SearchMyRepositoryEntryViewParams;
 import org.olat.resource.OLATResource;
 import org.olat.resource.OLATResourceManager;
+import org.olat.resource.accesscontrol.manager.ACReservationDAO;
+import org.olat.resource.references.ReferenceManager;
 import org.olat.search.service.document.RepositoryEntryDocument;
 import org.olat.search.service.indexer.LifeFullIndexer;
 import org.olat.util.logging.activity.LoggingResourceable;
@@ -101,6 +104,10 @@ public class RepositoryServiceImpl implements RepositoryService {
 	@Autowired
 	private BaseSecurity securityManager;
 	@Autowired
+	private ACReservationDAO reservationDao;
+	@Autowired
+	private ReferenceManager referenceManager;
+	@Autowired
 	private RepositoryEntryDAO repositoryEntryDAO;
 	@Autowired
 	private RepositoryEntryRelationDAO reToGroupDao;
@@ -112,6 +119,8 @@ public class RepositoryServiceImpl implements RepositoryService {
 	private RepositoryEntryAuthorQueries authorViewQueries;
 	@Autowired
 	private RepositoryHandlerFactory repositoryHandlerFactory;
+	@Autowired
+	private RepositoryModule repositoryModule;
 	@Autowired
 	private OLATResourceManager resourceManager;
 	@Autowired
@@ -160,7 +169,7 @@ public class RepositoryServiceImpl implements RepositoryService {
 		re.setDisplayname(displayname);
 		re.setResourcename(StringHelper.containsNonWhitespace(resourceName) ? resourceName : "-");
 		re.setDescription(description == null ? "" : description);
-		re.setAllowToLeaveOption(RepositoryEntryAllowToLeaveOptions.atAnyTime);
+		re.setAllowToLeaveOption(repositoryModule.getAllowToLeaveDefaultOption());
 		if(resource == null) {
 			OLATResourceable ores = OresHelper.createOLATResourceableInstance("RepositoryEntry", CodeHelper.getForeverUniqueID());
 			resource = resourceManager.createAndPersistOLATResourceInstance(ores);
@@ -256,6 +265,16 @@ public class RepositoryServiceImpl implements RepositoryService {
 	}
 
 	@Override
+	public OLATResource loadRepositoryEntryResource(Long repositoryEntryKey) {
+		return repositoryEntryDAO.loadRepositoryEntryResource(repositoryEntryKey);
+	}
+
+	@Override
+	public OLATResource loadRepositoryEntryResourceBySoftKey(String softkey) {
+		return repositoryEntryDAO.loadRepositoryEntryResourceBySoftKey(softkey);
+	}
+
+	@Override
 	public VFSLeaf getIntroductionImage(RepositoryEntry re) {
 		VFSContainer repositoryHome = new LocalFolderImpl(new File(FolderConfig.getCanonicalRepositoryHome()));
 		String imageName = re.getResourceableId() + ".jpg";
@@ -318,11 +337,15 @@ public class RepositoryServiceImpl implements RepositoryService {
 		reminderDao.delete(entry);
 		//delete all policies
 		securityManager.deletePolicies(resource);
+		//delete reservations
+		reservationDao.deleteReservations(resource);
+		//delete references
+		referenceManager.deleteAllReferencesOf(resource);
 		dbInstance.commit();
 		
 		// inform handler to do any cleanup work... handler must delete the
 		// referenced resourceable a swell.
-		handler.cleanupOnDelete(resource);
+		handler.cleanupOnDelete(entry, resource);
 		
 		dbInstance.commit();
 
@@ -441,9 +464,10 @@ public class RepositoryServiceImpl implements RepositoryService {
 		return reToGroupDao.countMembers(re, roles);
 	}
 
+	
 	@Override
-	public int countMembers(List<? extends RepositoryEntryRef> res) {
-		return reToGroupDao.countMembers(res);
+	public int countMembers(List<? extends RepositoryEntryRef> res, Identity excludeMe) {
+		return reToGroupDao.countMembers(res, excludeMe);
 	}
 	
 	@Override
@@ -464,6 +488,11 @@ public class RepositoryServiceImpl implements RepositoryService {
 	@Override
 	public List<Identity> getMembers(RepositoryEntryRef re, String... roles) {
 		return reToGroupDao.getMembers(re, RepositoryEntryRelationType.defaultGroup, roles);
+	}
+
+	@Override
+	public List<Identity> getIdentitiesWithRole(String role) {
+		return reToGroupDao.getIdentitiesWithRole(role);
 	}
 
 	@Override

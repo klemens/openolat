@@ -40,6 +40,7 @@
 			margin-bottom: floor($line-height-computed / 2);
 			
 			.o_visual {
+				box-sizing: content-box;
 				border-right: 1px solid $o-coursesite-rowelem-border;		
 			}
 			
@@ -164,7 +165,7 @@
 				}
 				.o_author{
 					margin-top: 0.5em;
-					line-height: 1em;
+					line-height: normal;
 					font-size: 90%;
 					@include text-overflow();
 					color: $o-coursesite-meta-author-color;
@@ -173,7 +174,7 @@
 					position: absolute; 
 					top: 5px; right: 40px;
 					font-size: 90%;
-					line-height: 1em;
+					line-height: normal;
 					@include text-overflow();
 					color: $text-muted;
 					&.o_active {
@@ -355,6 +356,14 @@
 					}
 				}	
 			}	
+		}
+		
+		.o_sublevel.o_fill_sublevels {
+			border: 1px solid transparent;
+			
+			.o_meta {
+				border-left: 1px solid transparent;
+			}
 		}
 	}	
 	

@@ -34,6 +34,8 @@ import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.Event;
 import org.olat.core.gui.control.WindowControl;
 import org.olat.core.gui.control.generic.closablewrapper.CloseableModalController;
+import org.olat.core.gui.control.generic.modal.DialogBoxController;
+import org.olat.core.gui.control.generic.modal.DialogBoxUIFactory;
 import org.olat.core.id.Identity;
 import org.olat.core.util.mail.ContactList;
 import org.olat.core.util.mail.ContactMessage;
@@ -47,7 +49,6 @@ import org.olat.course.nodes.gta.model.TaskDefinition;
 import org.olat.course.nodes.gta.model.TaskDefinitionList;
 import org.olat.course.run.environment.CourseEnvironment;
 import org.olat.group.BusinessGroup;
-import org.olat.group.BusinessGroupService;
 import org.olat.modules.co.ContactFormController;
 import org.olat.resource.OLATResource;
 import org.olat.user.DisplayPortraitController;
@@ -72,6 +73,7 @@ public class GTACoachController extends GTAAbstractController {
 	private GTACoachedGroupGradingController groupGradingCtrl;
 	private GTACoachedParticipantGradingController participantGradingCtrl;
 	private GTACoachRevisionAndCorrectionsController revisionDocumentsCtrl;
+	private DialogBoxController confirmRevisionsCtrl, confirmReviewDocumentCtrl;
 	private ContactFormController emailController;
 	private CloseableModalController cmc;
 	private Link emailLink;
@@ -79,17 +81,15 @@ public class GTACoachController extends GTAAbstractController {
 	
 	@Autowired
 	private UserManager userManager;
-	@Autowired
-	private BusinessGroupService groupService;
 	
 	public GTACoachController(UserRequest ureq, WindowControl wControl, CourseEnvironment courseEnv, GTACourseNode gtaNode,
-			BusinessGroup assessedGroup, boolean withTitle, boolean withGrading) {
-		this(ureq, wControl, courseEnv, gtaNode, assessedGroup, null, withTitle, withGrading);
+			BusinessGroup assessedGroup, boolean withTitle, boolean withGrading, boolean withSubscription) {
+		this(ureq, wControl, courseEnv, gtaNode, assessedGroup, null, withTitle, withGrading, withSubscription);
 	}
 	
 	public GTACoachController(UserRequest ureq, WindowControl wControl, CourseEnvironment courseEnv, GTACourseNode gtaNode,
-			Identity assessedIdentity, boolean withTitle, boolean withGrading) {
-		this(ureq, wControl, courseEnv, gtaNode, null, assessedIdentity, withTitle, withGrading);
+			Identity assessedIdentity, boolean withTitle, boolean withGrading, boolean withSubscription) {
+		this(ureq, wControl, courseEnv, gtaNode, null, assessedIdentity, withTitle, withGrading, withSubscription);
 	}
 
 	/**
@@ -104,8 +104,8 @@ public class GTACoachController extends GTAAbstractController {
 	 * @param withGrading Allow to remove the grading panel in assessment tool
 	 */
 	private GTACoachController(UserRequest ureq, WindowControl wControl, CourseEnvironment courseEnv, GTACourseNode gtaNode,
-			BusinessGroup assessedGroup, Identity assessedIdentity, boolean withTitle, boolean withGrading) {
-		super(ureq, wControl, gtaNode, courseEnv, null, assessedGroup, assessedIdentity, withTitle, withGrading);
+			BusinessGroup assessedGroup, Identity assessedIdentity, boolean withTitle, boolean withGrading, boolean withSubscription) {
+		super(ureq, wControl, gtaNode, courseEnv, null, assessedGroup, assessedIdentity, withTitle, withGrading, withSubscription);
 	}
 
 	@Override
@@ -191,6 +191,7 @@ public class GTACoachController extends GTAAbstractController {
 				documentsContainer = gtaManager.getSubmitContainer(courseEnv, gtaNode, assessedGroup);
 			} else {
 				documentsDir = gtaManager.getSubmitDirectory(courseEnv, gtaNode, assessedIdentity);
+				documentsContainer = gtaManager.getSubmitContainer(courseEnv, gtaNode, assessedIdentity);
 			}
 			boolean hasDocuments = TaskHelper.hasDocuments(documentsDir);
 			if(hasDocuments) {
@@ -249,7 +250,8 @@ public class GTACoachController extends GTAAbstractController {
 			documentsContainer = gtaManager.getCorrectionContainer(courseEnv, gtaNode, assessedIdentity);
 		}
 		
-		submitCorrectionsCtrl = new SubmitDocumentsController(ureq, getWindowControl(), task, documentsDir, documentsContainer, -1, config, "coach.document");
+		submitCorrectionsCtrl = new SubmitDocumentsController(ureq, getWindowControl(), task, documentsDir, documentsContainer, -1,
+				gtaNode, courseEnv, "coach.document");
 		listenTo(submitCorrectionsCtrl);
 		mainVC.put("corrections", submitCorrectionsCtrl.getInitialComponent());
 		
@@ -390,12 +392,12 @@ public class GTACoachController extends GTAAbstractController {
 		if(reviewedButton == source) {
 			if(submitCorrectionsCtrl != null) {
 				Task assignedTask = submitCorrectionsCtrl.getAssignedTask();
-				doReviewedDocument(ureq, assignedTask);
+				doConfirmReviewDocument(ureq, assignedTask);
 			}
 		} else if(needRevisionsButton == source) {
 			if(submitCorrectionsCtrl != null) {
 				Task assignedTask = submitCorrectionsCtrl.getAssignedTask();
-				doRevisions(ureq, assignedTask);
+				doConfirmRevisions(ureq, assignedTask);
 			}
 		} else if (emailLink == source) {
 			doOpenMailForm(ureq);
@@ -419,12 +421,21 @@ public class GTACoachController extends GTAAbstractController {
 				Task assignedTask = submitCorrectionsCtrl.getAssignedTask();
 				gtaManager.log("Corrections", (SubmitEvent)event, assignedTask, getIdentity(), assessedIdentity, assessedGroup, courseEnv, gtaNode);
 			}
+		} else if(confirmReviewDocumentCtrl == source) {
+			if(DialogBoxUIFactory.isOkEvent(event) || DialogBoxUIFactory.isYesEvent(event)) {
+				Task assignedTask = (Task)confirmReviewDocumentCtrl.getUserObject();
+				doReviewedDocument(ureq, assignedTask);
+			}
+		} else if(confirmRevisionsCtrl == source) {
+			if(DialogBoxUIFactory.isOkEvent(event) || DialogBoxUIFactory.isYesEvent(event)) {
+				Task assignedTask = (Task)confirmRevisionsCtrl.getUserObject();
+				doRevisions(ureq, assignedTask);
+			}
 		} else if(source == cmc) {
 			doCloseMailForm(false);
 		} else if (source == emailController) {
 			doCloseMailForm(true);
 		}
-
 		super.event(ureq, source, event);
 	}
 
@@ -466,6 +477,14 @@ public class GTACoachController extends GTAAbstractController {
 		revisionDocumentsCtrl = null;
 	}
 	
+	private void doConfirmReviewDocument(UserRequest ureq, Task task) {
+		String title = translate("coach.reviewed.confirm.title");
+		String text = translate("coach.reviewed.confirm.text");
+		confirmReviewDocumentCtrl = activateOkCancelDialog(ureq, title, text, confirmReviewDocumentCtrl);	
+		listenTo(confirmReviewDocumentCtrl);
+		confirmReviewDocumentCtrl.setUserObject(task);
+	}
+	
 	private void doReviewedDocument(UserRequest ureq, Task task) {
 		//go to solution, grading or graded
 		TaskProcess nextStep = gtaManager.nextStep(TaskProcess.correction, gtaNode);
@@ -475,6 +494,28 @@ public class GTACoachController extends GTAAbstractController {
 		
 		cleanUpProcess();
 		process(ureq);
+	}
+	
+	private void doConfirmRevisions(UserRequest ureq, Task task) {
+		String title = translate("coach.revisions.confirm.title");
+		String text = translate("coach.revisions.confirm.text");
+
+		File documentsDir;
+		if(GTAType.group.name().equals(config.getStringValue(GTACourseNode.GTASK_TYPE))) {
+			documentsDir = gtaManager.getCorrectionDirectory(courseEnv, gtaNode, assessedGroup);
+		} else {
+			documentsDir = gtaManager.getCorrectionDirectory(courseEnv, gtaNode, assessedIdentity);
+		}
+
+		boolean hasDocument = TaskHelper.hasDocuments(documentsDir);
+		if(!hasDocument) {
+			String warning = translate("coach.revisions.confirm.text.warn");
+			text = "<div class='o_warning'>" + warning + "</div>" + text;
+		}
+
+		confirmRevisionsCtrl = activateOkCancelDialog(ureq, title, text, confirmRevisionsCtrl);	
+		listenTo(confirmRevisionsCtrl);
+		confirmRevisionsCtrl.setUserObject(task);
 	}
 	
 	private void doRevisions(UserRequest ureq, Task task) {
@@ -491,7 +532,7 @@ public class GTACoachController extends GTAAbstractController {
 		if (assessedGroup != null) {
 			String toName = assessedGroup.getName();
 			contactList = new ContactList(toName);
-			List<Identity> memberList = groupService.getMembers(assessedGroup, GroupRoles.participant.name());
+			List<Identity> memberList = businessGroupService.getMembers(assessedGroup, GroupRoles.participant.name());
 			contactList.addAllIdentites(memberList);
 			
 		} else if (assessedIdentity != null) {
@@ -513,8 +554,7 @@ public class GTACoachController extends GTAAbstractController {
 			String title = translate(emailLink.getI18n()); // same title as link button
 			cmc = new CloseableModalController(getWindowControl(), translate("close"), emailController.getInitialComponent(), true, title);
 			listenTo(cmc);
-			
-			cmc.activate();			
+			cmc.activate();
 		}
 	}
 	

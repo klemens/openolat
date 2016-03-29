@@ -20,7 +20,6 @@
 package org.olat.core.commons.fullWebApp;
 
 import org.olat.core.gui.control.Controller;
-import org.olat.core.id.OLATResourceable;
 
 /**
  * 
@@ -30,8 +29,8 @@ import org.olat.core.id.OLATResourceable;
  */
 public interface LockableController extends Controller {
 	
-	public void lockResource(OLATResourceable resource);
+	public void lock();
 	
-	public void unlockResource();
+	public void unlock();
 
 }

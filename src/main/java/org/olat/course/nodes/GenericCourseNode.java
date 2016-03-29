@@ -440,7 +440,7 @@ public abstract class GenericCourseNode extends GenericNode implements CourseNod
 	}
 
 	@Override
-	public void postImport(CourseEnvironmentMapper envMapper, Processing processType) {
+	public void postImport(File importDirectory, ICourse course, CourseEnvironmentMapper envMapper, Processing processType) {
 		postImportCopyConditions(envMapper);
 	}
 	
@@ -584,7 +584,7 @@ public abstract class GenericCourseNode extends GenericNode implements CourseNod
 	}
 	
 	@Override
-	public CourseNode createInstanceForCopy(boolean isNewTitle, ICourse course) {
+	public CourseNode createInstanceForCopy(boolean isNewTitle, ICourse course, Identity author) {
 		CourseNode copyInstance = (CourseNode) XStreamHelper.xstreamClone(this);
 		copyInstance.setIdent(String.valueOf(CodeHelper.getForeverUniqueID()));
 		copyInstance.setPreConditionVisibility(null);

@@ -52,7 +52,6 @@ import org.olat.selenium.page.course.PublisherPageFragment.Access;
 import org.olat.selenium.page.graphene.OOGraphene;
 import org.olat.selenium.page.group.GroupPage;
 import org.olat.selenium.page.group.MembersWizardPage;
-import org.olat.selenium.page.user.UserToolsPage;
 import org.olat.test.ArquillianDeployments;
 import org.olat.test.rest.UserRestClient;
 import org.olat.user.restapi.UserVO;
@@ -77,12 +76,39 @@ public class BusinessGroupTest {
 	@Drone
 	private WebDriver browser;
 	@ArquillianResource
-	private URL deploymentUrl;	
-
-	@Page
-	private UserToolsPage userTools;
+	private URL deploymentUrl;
 	@Page
 	private NavigationPage navBar;
+
+	/**
+	 * Create a group, search it and delete it.
+	 * 
+	 * @param loginPage
+	 * @throws IOException
+	 * @throws URISyntaxException
+	 */
+	@Test
+	@RunAsClient
+	public void createDeleteBusinessGroup(@InitialPage LoginPage loginPage)
+	throws IOException, URISyntaxException {
+		
+		UserVO author = new UserRestClient(deploymentUrl).createAuthor();
+		loginPage
+			.loginAs(author.getLogin(), author.getPassword())
+			.resume();
+		
+		//go to groups
+		String groupName = "Delete-1-" + UUID.randomUUID();
+		navBar
+			.openGroups(browser)
+			.createGroup(groupName, "A very little group to delete");
+		
+		//return to group list and delete it
+		navBar
+			.openGroups(browser)
+			.deleteGroup(groupName)
+			.assertDeleted(groupName);
+	}
 
 	/**
 	 * An author create a group, set the visibility to
@@ -158,7 +184,6 @@ public class BusinessGroupTest {
 	@RunAsClient
 	public void collaborativeTools(@InitialPage LoginPage loginPage)
 	throws IOException, URISyntaxException {
-		
 		UserVO author = new UserRestClient(deploymentUrl).createRandomUser("Selena");
 		
 		loginPage
@@ -209,7 +234,7 @@ public class BusinessGroupTest {
 		String threadBodyMarker = UUID.randomUUID().toString();
 		group
 			.openForum()
-			.createThread("New thread in a group", "Very interessant discussion in a group" + threadBodyMarker)
+			.createThread("New thread in a group", "Very interessant discussion in a group" + threadBodyMarker, null)
 			.assertMessageBody(threadBodyMarker);
 		
 		//check chat @see other selenium test dedicated to this one
@@ -259,7 +284,6 @@ public class BusinessGroupTest {
 			@Drone @Participant WebDriver participantBrowser,
 			@Drone @Student WebDriver studentBrowser)
 	throws IOException, URISyntaxException {
-		
 		UserVO author = new UserRestClient(deploymentUrl).createRandomUser("Selena");
 		UserVO participant = new UserRestClient(deploymentUrl).createRandomUser("Ryomou");
 		UserVO student = new UserRestClient(deploymentUrl).createRandomUser("Asuka");
@@ -356,7 +380,6 @@ public class BusinessGroupTest {
 			@Drone @Participant WebDriver kanuBrowser,
 			@Drone @User WebDriver ryomouBrowser)
 	throws IOException, URISyntaxException {
-
 		UserVO author = new UserRestClient(deploymentUrl).createAuthor();
 		UserVO kanu = new UserRestClient(deploymentUrl).createRandomUser("Kanu");
 		UserVO ryomou = new UserRestClient(deploymentUrl).createRandomUser("Ryomou");
@@ -465,7 +488,6 @@ public class BusinessGroupTest {
 			@Drone @Participant WebDriver reiBrowser,
 			@Drone @Student WebDriver kanuBrowser)
 	throws IOException, URISyntaxException {
-		
 		UserVO author = new UserRestClient(deploymentUrl).createAuthor();
 		authorLoginPage.loginAs(author.getLogin(), author.getPassword());
 		UserVO rei = new UserRestClient(deploymentUrl).createRandomUser("Rei");

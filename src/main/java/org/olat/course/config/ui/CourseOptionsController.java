@@ -23,7 +23,7 @@ import java.util.List;
 
 import org.olat.commons.calendar.CalendarManager;
 import org.olat.commons.calendar.CalendarModule;
-import org.olat.commons.calendar.ui.events.KalendarModifiedEvent;
+import org.olat.commons.calendar.ui.events.CalendarGUIModifiedEvent;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.form.flexible.FormItem;
 import org.olat.core.gui.components.form.flexible.FormItemContainer;
@@ -38,6 +38,8 @@ import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.Event;
 import org.olat.core.gui.control.WindowControl;
 import org.olat.core.gui.control.generic.closablewrapper.CloseableModalController;
+import org.olat.core.gui.control.generic.modal.DialogBoxController;
+import org.olat.core.gui.control.generic.modal.DialogBoxUIFactory;
 import org.olat.core.id.OLATResourceable;
 import org.olat.core.logging.OLog;
 import org.olat.core.logging.Tracing;
@@ -47,12 +49,18 @@ import org.olat.core.logging.activity.StringResourceableType;
 import org.olat.core.logging.activity.ThreadLocalUserActivityLogger;
 import org.olat.core.util.StringHelper;
 import org.olat.core.util.coordinate.CoordinatorManager;
+import org.olat.core.util.nodes.INode;
 import org.olat.core.util.resource.OresHelper;
+import org.olat.core.util.tree.TreeVisitor;
+import org.olat.core.util.tree.Visitor;
 import org.olat.course.CourseFactory;
 import org.olat.course.ICourse;
 import org.olat.course.config.CourseConfig;
 import org.olat.course.config.CourseConfigEvent;
 import org.olat.course.config.CourseConfigEvent.CourseConfigType;
+import org.olat.course.nodes.BCCourseNode;
+import org.olat.course.nodes.CourseNode;
+import org.olat.course.tree.CourseEditorTreeNode;
 import org.olat.fileresource.types.GlossaryResource;
 import org.olat.fileresource.types.SharedFolderFileResource;
 import org.olat.modules.glossary.GlossaryManager;
@@ -89,7 +97,8 @@ public class CourseOptionsController extends FormBasicController {
 	private final boolean editable;
 	private CourseConfig courseConfig;
 	private final RepositoryEntry entry;
-	
+	private boolean hasFolderNode = false;
+
 
 	private CloseableModalController cmc;
 	private ReferencableEntriesSearchController glossarySearchCtr, folderSearchCtr;
@@ -100,7 +109,8 @@ public class CourseOptionsController extends FormBasicController {
 	private ReferenceManager referenceManager;
 	@Autowired
 	private RepositoryManager repositoryService;
-	
+	private DialogBoxController folderRefRemoveWarnBox, folderRefAddWarnBox;
+
 	/**
 	 * @param name
 	 * @param chatEnabled
@@ -161,8 +171,8 @@ public class CourseOptionsController extends FormBasicController {
 			FormLayoutContainer calCont = FormLayoutContainer.createDefaultFormLayout("cal", getTranslator());
 			calCont.setRootForm(mainForm);
 			formLayout.add(calCont);
-			calCont.setFormContextHelp("org.olat.course.config.ui","course-calendar.html","help.hover.coursecal");
-			
+			calCont.setFormContextHelp("Course Settings#_optionen");
+
 			boolean calendarEnabled = courseConfig.isCalendarEnabled();
 			boolean managedCal = RepositoryEntryManagedFlag.isManaged(entry, RepositoryEntryManagedFlag.calendar);
 			calendarEl = uifactory.addCheckboxesHorizontal("calIsOn", "chkbx.calendar.onoff", calCont, new String[] {"xx"}, new String[] {""});
@@ -175,7 +185,6 @@ public class CourseOptionsController extends FormBasicController {
 		FormLayoutContainer chatCont = FormLayoutContainer.createDefaultFormLayout("chat", getTranslator());
 		chatCont.setRootForm(mainForm);
 		formLayout.add(chatCont);
-		chatCont.setFormContextHelp("org.olat.course.config.ui","course-chat.html","help.hover.course-chat");
 
 		boolean chatEnabled = courseConfig.isChatEnabled();
 		boolean managedChat = RepositoryEntryManagedFlag.isManaged(entry, RepositoryEntryManagedFlag.chat);
@@ -188,7 +197,6 @@ public class CourseOptionsController extends FormBasicController {
 		FormLayoutContainer glossaryCont = FormLayoutContainer.createDefaultFormLayout("glossary", getTranslator());
 		glossaryCont.setRootForm(mainForm);
 		formLayout.add(glossaryCont);
-		glossaryCont.setFormContextHelp("org.olat.course.config.ui","course-glossary.html","help.hover.course-gloss");
 
 		glossaryNameEl = uifactory.addStaticTextElement("glossaryName", "glossary.isconfigured",
 				translate("glossary.no.glossary"), glossaryCont);
@@ -206,11 +214,12 @@ public class CourseOptionsController extends FormBasicController {
 		FormLayoutContainer sharedFolderCont = FormLayoutContainer.createDefaultFormLayout("sharedfolder", getTranslator());
 		sharedFolderCont.setRootForm(mainForm);
 		formLayout.add(sharedFolderCont);
-		sharedFolderCont.setFormContextHelp("org.olat.course.config.ui","course-resfolder.html","help.hover.course-res");
 
 		folderNameEl = uifactory.addStaticTextElement("folderName", "sf.resourcetitle",
 				translate("sf.notconfigured"), sharedFolderCont);
-		
+		folderNameEl.setHelpText(translate("sf.resourcetitle.helptext"));
+		folderNameEl.setHelpUrlForManualPage("Course Settings#_detail_ressourcen");
+
 		FormLayoutContainer buttons2Cont = FormLayoutContainer.createButtonLayout("buttons", getTranslator());
 		sharedFolderCont.add(buttons2Cont);
 		removeFolderCommand = uifactory.addFormLink("sf.unselectsfresource", buttons2Cont, Link.BUTTON);
@@ -252,6 +261,19 @@ public class CourseOptionsController extends FormBasicController {
 			cleanUp();
 		} else if(cmc == source) {
 			cleanUp();
+		} else if(source == folderRefRemoveWarnBox) {
+			if (DialogBoxUIFactory.isYesEvent(event)) {
+				doRemoveSharedFolder();
+				setSaveButtonDirty();
+			}
+		} else if(source == folderRefAddWarnBox) {
+			if (DialogBoxUIFactory.isYesEvent(event)) {
+				folderSearchCtr = new ReferencableEntriesSearchController(getWindowControl(), ureq, SharedFolderFileResource.TYPE_NAME, translate("select"));
+				listenTo(folderSearchCtr);
+				cmc = new CloseableModalController(getWindowControl(), translate("close"), folderSearchCtr.getInitialComponent());
+				listenTo(cmc);
+				cmc.activate();
+			}
 		}
 	}
 	
@@ -276,14 +298,18 @@ public class CourseOptionsController extends FormBasicController {
 			doRemoveGlossary();
 			setSaveButtonDirty();
 		} else if (source == addFolderCommand) {
-			folderSearchCtr = new ReferencableEntriesSearchController(getWindowControl(), ureq, SharedFolderFileResource.TYPE_NAME, translate("select"));			
-			listenTo(folderSearchCtr);
-			cmc = new CloseableModalController(getWindowControl(), translate("close"), folderSearchCtr.getInitialComponent());
-			listenTo(cmc);
-			cmc.activate();
+			if(checkForFolderNodesAdd(ureq)  ){
+				folderSearchCtr = new ReferencableEntriesSearchController(getWindowControl(), ureq, SharedFolderFileResource.TYPE_NAME, translate("select"));
+				listenTo(folderSearchCtr);
+				cmc = new CloseableModalController(getWindowControl(), translate("close"), folderSearchCtr.getInitialComponent());
+				listenTo(cmc);
+				cmc.activate();
+			}
 		} else if (source == removeFolderCommand) {
-			doRemoveSharedFolder();
-			setSaveButtonDirty();
+			if(checkForFolderNodesRemove(ureq)){
+				doRemoveSharedFolder();
+				setSaveButtonDirty();
+			}
 		} else if (source instanceof SelectionElement) {
 			setSaveButtonDirty();
 		} else if(saveButton == source) {
@@ -296,7 +322,51 @@ public class CourseOptionsController extends FormBasicController {
 	protected void formOK(UserRequest ureq) {
 		doSave(ureq);
 	}
-	
+
+	private boolean checkForFolderNodesAdd(UserRequest ureq) {
+		OLATResourceable courseOres = entry.getOlatResource();
+		ICourse course = CourseFactory.loadCourse(courseOres.getResourceableId());
+		CourseNode rootNode = course.getCourseEnvironment().getRunStructure().getRootNode();
+		if(checkFolderNodes(rootNode, course)&& folderNameEl.getUserObject() != null){
+			folderRefAddWarnBox = activateYesNoDialog(ureq, translate("warning.folderRef.title"),	"<div class=\"o_error\">"+translate("warning.folderRefAdd")+"</div>", folderRefAddWarnBox);
+			folderRefAddWarnBox.setCssClass("o_icon_warn");
+			return false;
+		}
+		return true;
+	}
+
+	private boolean checkForFolderNodesRemove(UserRequest ureq) {
+		OLATResourceable courseOres = entry.getOlatResource();
+		ICourse course = CourseFactory.loadCourse(courseOres.getResourceableId());
+		CourseNode rootNode = course.getCourseEnvironment().getRunStructure().getRootNode();
+
+		if(checkFolderNodes(rootNode, course)){
+			folderRefRemoveWarnBox = activateYesNoDialog(ureq, translate("warning.folderRef.title"),	"<div class=\"o_error\">"+translate("warning.folderRef")+"</div>", folderRefRemoveWarnBox);
+			return false;
+		}else{
+			return true;
+		}
+	}
+
+	private boolean checkFolderNodes(INode rootNode, ICourse course){
+		hasFolderNode = false;
+		Visitor visitor = new Visitor() {
+			public void visit(INode node) {
+				CourseEditorTreeNode courseNode = (CourseEditorTreeNode) course.getEditorTreeModel().getNodeById(node.getIdent());
+				if(!courseNode.isDeleted() && courseNode.getCourseNode() instanceof BCCourseNode){
+					BCCourseNode bcNode = (BCCourseNode) courseNode.getCourseNode();
+					if (bcNode.isSharedFolder()) {
+						hasFolderNode = true;
+					}
+				}
+			}
+		};
+
+		TreeVisitor v = new TreeVisitor(visitor, rootNode, false);
+		v.visitAll();
+		return hasFolderNode;
+	}
+
 	private void setSaveButtonDirty() {
 		if(saveButton != null) {
 			saveButton.setCustomEnabledLinkCSS("btn btn-primary o_button_dirty");
@@ -362,7 +432,7 @@ public class CourseOptionsController extends FormBasicController {
 
 			ThreadLocalUserActivityLogger.log(loggingAction, getClass());
 	        CoordinatorManager.getInstance().getCoordinator().getEventBus()
-	        	.fireEventToListenersOf(new KalendarModifiedEvent(), OresHelper.lookupType(CalendarManager.class));
+	        	.fireEventToListenersOf(new CalendarGUIModifiedEvent(), OresHelper.lookupType(CalendarManager.class));
 	        CoordinatorManager.getInstance().getCoordinator().getEventBus()
 	        	.fireEventToListenersOf(new CourseConfigEvent(CourseConfigType.calendar, course.getResourceableId()), course);
 		}

@@ -94,8 +94,8 @@ import org.olat.core.util.vfs.VFSLeaf;
 import org.olat.core.util.vfs.VFSMediaResource;
 import org.olat.modules.fo.Forum;
 import org.olat.modules.fo.ForumCallback;
-import org.olat.modules.fo.ForumController;
-import org.olat.modules.fo.ForumManager;
+import org.olat.modules.fo.manager.ForumManager;
+import org.olat.modules.fo.ui.ForumController;
 import org.olat.modules.wiki.gui.components.wikiToHtml.ErrorEvent;
 import org.olat.modules.wiki.gui.components.wikiToHtml.FilterUtil;
 import org.olat.modules.wiki.gui.components.wikiToHtml.RequestImageEvent;
@@ -1172,7 +1172,7 @@ public class WikiMainController extends BasicController implements CloneableCont
 	}
 	
 	private void clearPortfolioLink(){
-		content.put("portfolio-link", new Panel("empty"));
+		navigationContent.put("portfolio-link", new Panel("empty"));
 	}
 	
 	private Wiki getWiki(){

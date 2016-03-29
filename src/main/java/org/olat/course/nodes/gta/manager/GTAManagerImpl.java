@@ -31,6 +31,7 @@ import java.util.List;
 import java.util.Set;
 
 import javax.persistence.LockModeType;
+import javax.persistence.Query;
 
 import org.olat.basesecurity.GroupRoles;
 import org.olat.basesecurity.IdentityRef;
@@ -45,6 +46,7 @@ import org.olat.core.logging.Tracing;
 import org.olat.core.util.io.SystemFilenameFilter;
 import org.olat.core.util.vfs.VFSContainer;
 import org.olat.core.util.vfs.VFSManager;
+import org.olat.course.editor.CourseEditorEnv;
 import org.olat.course.nodes.GTACourseNode;
 import org.olat.course.nodes.gta.AssignmentResponse;
 import org.olat.course.nodes.gta.AssignmentResponse.Status;
@@ -60,9 +62,9 @@ import org.olat.course.nodes.gta.model.TaskListImpl;
 import org.olat.course.nodes.gta.ui.SubmitEvent;
 import org.olat.course.run.environment.CourseEnvironment;
 import org.olat.group.BusinessGroup;
-import org.olat.group.BusinessGroupImpl;
 import org.olat.group.BusinessGroupRef;
 import org.olat.group.BusinessGroupService;
+import org.olat.group.DeletableGroupData;
 import org.olat.group.area.BGAreaManager;
 import org.olat.group.manager.BusinessGroupRelationDAO;
 import org.olat.group.model.BusinessGroupRefImpl;
@@ -80,7 +82,7 @@ import org.springframework.stereotype.Service;
  *
  */
 @Service
-public class GTAManagerImpl implements GTAManager {
+public class GTAManagerImpl implements GTAManager, DeletableGroupData {
 	
 	private static final OLog log = Tracing.createLoggerFor(GTAManagerImpl.class);
 	
@@ -285,17 +287,19 @@ public class GTAManagerImpl implements GTAManager {
 	public PublisherData getPublisherData(CourseEnvironment courseEnv, GTACourseNode cNode) {
 		RepositoryEntry re = courseEnv.getCourseGroupManager().getCourseEntry();
 		String businessPath = "[RepositoryEntry:" + re.getKey() + "][CourseNode:" + cNode.getIdent() + "]";
-		PublisherData publisherData = new PublisherData("GroupTask", "", businessPath);
-		return publisherData;
+		return new PublisherData("GroupTask", "", businessPath);
 	}
 
 	@Override
 	public SubscriptionContext getSubscriptionContext(CourseEnvironment courseEnv, GTACourseNode cNode) {
-		SubscriptionContext sc = new SubscriptionContext("CourseModule", courseEnv.getCourseResourceableId(), cNode.getIdent());
-		return sc;
+		return new SubscriptionContext("CourseModule", courseEnv.getCourseResourceableId(), cNode.getIdent());
 	}
-	
-	
+
+	@Override
+	public SubscriptionContext getSubscriptionContext(CourseEditorEnv courseEnv, GTACourseNode cNode) {
+		Long courseResourceableId = courseEnv.getCourseGroupManager().getCourseResource().getResourceableId();
+		return new SubscriptionContext("CourseModule", courseResourceableId, cNode.getIdent());
+	}
 
 	@Override
 	public List<BusinessGroup> filterBusinessGroups(List<BusinessGroup> groups, GTACourseNode cNode) {
@@ -466,6 +470,18 @@ public class GTAManagerImpl implements GTAManager {
 	}
 	
 	@Override
+	public boolean deleteGroupDataFor(BusinessGroup group) {
+		log.audit("Delete tasks of business group: " + group.getKey());
+		String deleteTasks = "delete from gtatask as task where task.businessGroup.key=:groupKey";
+		dbInstance.getCurrentEntityManager()
+				.createQuery(deleteTasks)
+				.setParameter("groupKey", group.getKey())
+				.executeUpdate();
+		return true;	
+
+	}
+
+	@Override
 	public int deleteTaskList(RepositoryEntryRef entry, GTACourseNode cNode) {
 		TaskList taskList = getTaskList(entry, cNode);
 		
@@ -481,6 +497,30 @@ public class GTAManagerImpl implements GTAManager {
 			numOfDeletedObjects = 0;
 		}
 		return numOfDeletedObjects;
+	}
+
+	@Override
+	public int deleteAllTaskLists(RepositoryEntryRef entry) {
+		String q = "select tasks from gtatasklist tasks where tasks.entry.key=:entryKey";
+		List<TaskList> taskLists = dbInstance.getCurrentEntityManager().createQuery(q, TaskList.class)
+			.setParameter("entryKey", entry.getKey())
+			.getResultList();
+		
+		String deleteTasks = "delete from gtatask as task where task.taskList.key=:taskListKey";
+		Query deleteTaskQuery = dbInstance.getCurrentEntityManager().createQuery(deleteTasks);
+		
+		int numOfDeletedObjects = 0;
+		for(TaskList taskList:taskLists) {
+			int numOfTasks = deleteTaskQuery.setParameter("taskListKey", taskList.getKey()).executeUpdate();
+			numOfDeletedObjects += numOfTasks;
+		}
+		
+		String deleteTaskLists = "delete from gtatasklist as tasks where tasks.entry.key=:entryKey";
+		numOfDeletedObjects +=  dbInstance.getCurrentEntityManager()
+				.createQuery(deleteTaskLists)
+				.setParameter("entryKey", entry.getKey())
+				.executeUpdate();
+		return numOfDeletedObjects;	
 	}
 
 	@Override
@@ -520,7 +560,7 @@ public class GTAManagerImpl implements GTAManager {
 		  .append(" inner join tasklist.entry rentry ")
 		  .append(" where tasklist.entry.key=:entryKey and tasklist.courseNodeIdent=:courseNodeIdent and (task.identity.key=:identityKey ")
 		  .append(" or task.businessGroup.key in (")
-		  .append("   select bgroup.key from ").append(BusinessGroupImpl.class.getName()).append(" as bgroup ")
+		  .append("   select bgroup.key from businessgroup as bgroup ")
 		  .append("     inner join bgroup.baseGroup as baseGroup")
 		  .append("     inner join baseGroup.members as membership")
 		  .append("     where membership.identity.key=:identityKey and membership.role='").append(GroupRoles.participant.name()).append("'")

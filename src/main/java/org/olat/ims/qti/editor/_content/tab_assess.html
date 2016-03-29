@@ -13,15 +13,9 @@
 </script>
 <fieldset class="o_form form-horizontal" role="form">
 	<legend>$r.translate("fieldset.legend.assessmentglobalsettings")
-	#if ($isRestrictedEdit)
-		$r.contextHelpWithWrapper("org.olat.ims.qti.editor","qed-meta-surv.html","help.hover.survey")
-	#elseif($isSurveyMode.equals("false"))
-		$r.contextHelpWithWrapper("org.olat.ims.qti.editor","qed-meta-test.html","help.hover.assess")
-	#else
-		$r.contextHelpWithWrapper("org.olat.ims.qti.editor","qed-meta-surv.html","help.hover.survey")
-	#end
+		$r.contextHelpWithWrapper("Test and Questionnaire Editor in Detail#details_testeditor_test_konf")
 	</legend>
-	<form class="clearfix" action="$r.formURIbg('sao')" id="ofo_assessform" name="assessform" $r.bgTarget() method="post">
+	<form id="ofo_assessform" action="$r.formURIbg("sao")" method="post" onsubmit="o_XHRSubmit('ofo_assessform');">
 	<div class="form-group">
 		<label class="control-label col-sm-3">$r.translate("form.metadata.title")</label>
 		<div class="col-sm-9">
@@ -38,7 +32,7 @@
 	
 #if($isRestrictedEdit)
 	<div class="form-group">
-		<label class="control-label col-sm-3">$r.translate("form.assessment.selection_pre")</label>
+		<label class="control-label col-sm-3">$r.translate("form.assessment.selection_pre")$r.render("selectionPreHelpText")</label>
 		<div class="col-sm-9">
 			#if ($selection_number == "0") 
 				<p class="form-control-static">$r.translate("form.section.selection_all")</p>
@@ -51,7 +45,7 @@
 	</div>
 	
 	<div class="form-group">
-		<label class="control-label col-sm-3">$r.translate("form.assessment.order_type")</label>
+		<label class="control-label col-sm-3">$r.translate("form.assessment.order_type")$r.render("orderTypeHelpText")</label>
 		<div class="col-sm-9">
 			#if ($order_type == "Random")
 				<p class="form-control-static">$r.translate("form.section.order_type.random")</p>
@@ -62,7 +56,7 @@
 	</div>
 #else
 	<div class="form-group">
-		<label class="control-label col-sm-3">$r.translate("form.assessment.selection_pre")</label>
+		<label class="control-label col-sm-3">$r.translate("form.assessment.selection_pre")$r.render("selectionPreHelpText")</label>
 		<div class="col-sm-9">
 			<select id="selection_number" name="selection_number" class="form-control" onchange="if(this.form.selection_number.options.selectedIndex==0){unShadeFormElement('order_type');}else{shadeFormElement('order_type');this.form.order_type.options.selectedIndex=0}return setFormDirty('ofo_assessform')" onclick="return setFormDirty('ofo_assessform')">
 				<option value="0"
@@ -87,7 +81,7 @@
 	</div>
 
 	<div class="form-group">
-		<label class="control-label col-sm-3">$r.translate("form.assessment.order_type")</label>
+		<label class="control-label col-sm-3">$r.translate("form.assessment.order_type")$r.render("orderTypeHelpText")</label>
 		<div class="col-sm-9">
 			<select id="order_type" name="order_type" class="form-control $css" onchange="return setFormDirty('ofo_assessform')" onclick="return setFormDirty('ofo_assessform')" $readonly>
 			<option value="Random" #if ($order_type == "Random") selected="selected" #end
@@ -136,8 +130,8 @@
 				&nbsp;
 				<input type="radio" name="duration" value="No" $nochecked onclick="shadeFormElement('sec');shadeFormElement('min');return setFormDirty('ofo_assessform')" onkeypress="shadeFormElement('sec');shadeFormElement('min');return setFormDirty('ofo_assessform')" onchange="return setFormDirty('ofo_assessform')" />$r.translate("no")
 				&nbsp;
-				<input id="min" type="text" name="duration_min" value="$minval"  size="3" onchange="return setFormDirty('ofo_assessform')"  onclick="return setFormDirty('ofo_assessform')" $!readonly class="$css"/>:
-				<input id="sec" type="text" name="duration_sec" value="$secval"  size="3" maxlength="2" onchange="return setFormDirty('ofo_assessform')"  onclick="return setFormDirty('ofo_assessform')" $!readonly class="$css"/>			
+				<input id="min" type="text" name="duration_min" value="$minval"  size="3" onchange="return setFormDirty('ofo_assessform')"  onclick="return setFormDirty('ofo_assessform')" $!readonly class="$css" />:
+				<input id="sec" type="text" name="duration_sec" value="$secval"  size="3" maxlength="2" onchange="return setFormDirty('ofo_assessform')"  onclick="return setFormDirty('ofo_assessform')" $!readonly class="$css" />			
 				&nbsp;<i>($r.translate("form.metadata.minutes"):$r.translate("form.metadata.seconds"))</i>
 			</div>	
 		</div>
@@ -145,7 +139,7 @@
 		
 	#if($isRestrictedEdit)
 		<div class="form-group">
-			<label class="control-label col-sm-3">$r.translate("form.metadata.globalfeedbackNsolution")</label>
+			<label class="control-label col-sm-3">$r.translate("form.metadata.globalfeedbackNsolution")$r.render("globalfeedbackNsolutionHelpText")</label>
 			<div class="col-sm-9">
 				#if ($assessment.isInheritControls())
 					<p class="form-control-static">$r.translate("yes")</p>
@@ -163,7 +157,7 @@
 			#else
 				#set ($nochecked = 'checked="checked"')
 			#end
-			<label class="control-label col-sm-3">$r.translate("form.metadata.globalfeedbackNsolution")</label>
+			<label class="control-label col-sm-3">$r.translate("form.metadata.globalfeedbackNsolution")$r.render("globalfeedbackNsolutionHelpText")</label>
 			<div class="col-sm-9">
 				<input type="radio" name="inheritswitch" value="Yes" $!yeschecked onclick="return setFormDirty('ofo_assessform');showSwitches();" onkeypress="return setFormDirty('ofo_assessform');showSwitches();" onchange="return setFormDirty('ofo_assessform')" /> $r.translate("yes")
 				&nbsp;
@@ -302,12 +296,12 @@
 		<div class="form-group">
 			<label class="control-label col-sm-3">$r.translate("form.metadata.cutvalue")</label>
 			<div class="col-sm-9">
-				<input type="text" class="form-control" name="cutvalue" value="$!cutvalue" size="4" onchange="return setFormDirty('ofo_assessform')" onclick="return setFormDirty('ofo_assessform')"/>
+				<input type="text" class="form-control" name="cutvalue" value="$!cutvalue" size="4" onchange="return setFormDirty('ofo_assessform')" onclick="return setFormDirty('ofo_assessform')" />
 			</div>
 		</div>
 	#end
 #end
 	<div class="col-sm-offset-3 col-sm-9 "><div class="btn-group">
-		<input type="submit" value="$r.translateInAttribute("submit")" class="btn btn-primary" name="olat_fosm" />
+		<button type="button" class="btn btn-primary" name="olat_fosm" onclick="o_IQEvent('ofo_assessform')"><span>$r.translateInAttribute("submit")</span></button>
 	</div></div>
 </form></fieldset>

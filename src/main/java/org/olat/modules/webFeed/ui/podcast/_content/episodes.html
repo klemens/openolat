@@ -14,7 +14,7 @@
 			$r.translate("podcast.has.no.episodes")
 		</p>
 		#if ( $callback.mayEditMetadata() && $feed.isUndefined() && $r.available("feed.make.internal") )
-			$r.contextHelpWithWrapper("org.olat.modules.webFeed.ui.podcast","internal-external.html","help.hover.internal-external")
+			$r.contextHelpWithWrapper("Knowledge Transfer#_podcast_createentry")
 			<p>$r.translate("podcast.internal.or.external")</p>
 			<div class="o_button_group">
 				$r.render("feed.make.internal")
@@ -57,7 +57,7 @@
 				</div>
 			</div>
 			
-			<div class="o_content">
+			<div class="o_content o_user_content_block">
 				$!helper.getItemDescriptionForBrowser($episode)
 				 
 				#set($podId = $r.getUniqueId())
@@ -77,7 +77,7 @@
 					#if ($!helper.getMediaType($episode.getEnclosure()) == "video")
 						BPlayer.insertPlayer("$!helper.getMediaUrl($episode)","o_podcast_${podId}_episode",$!helper.getWidth($episode),$!helper.getHeight($episode),false,null,"video");
 					#else
-						BPlayer.insertPlayer("$!helper.getMediaUrl($episode)","o_podcast_${podId}_episode",400,24,false,null,"sound");
+						BPlayer.insertPlayer("$!helper.getMediaUrl($episode)","o_podcast_${podId}_episode",400,30,false,null,"sound");
 					#end
 					/* ]]> */
 					</script>

@@ -75,7 +75,7 @@ public interface ICourse extends OLATResourceable {
 	
 	public void postCopy(CourseEnvironmentMapper envMapper, ICourse sourceCourse);
 	
-	public void postImport(CourseEnvironmentMapper envMapper);
+	public void postImport(File importDirectory, CourseEnvironmentMapper envMapper);
 	
 	/**
 	 * Return the container to files for this course.
@@ -86,11 +86,20 @@ public interface ICourse extends OLATResourceable {
 	
 	/**
 	 * Return the container to the coursefolder of this course.
-	 * (E.g. "COURSEBASEPATH/coursefolder/")
+	 * (E.g. "COURSEBASEPATH/coursefolder/"). This is for administration
+	 * use. There is no permission check.
+	 * 
 	 * @return the container to the coursefolder of this course
 	 */
 	public VFSContainer getCourseFolderContainer();
 	
+	/**
+	 * The course folder that the user specified by its identity environment
+	 * can see and use.
+	 * 
+	 * @param identityEnv
+	 * @return The aggreagted course folder
+	 */
 	public VFSContainer getCourseFolderContainer(IdentityEnvironment identityEnv);
 	
 	public OlatRootFolderImpl getCourseExportDataDir();

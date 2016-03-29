@@ -86,7 +86,7 @@ class TextAreaElementRenderer extends DefaultComponentRenderer {
 			  .append(FormJSHelper.getRawJSFor(te.getRootForm(), id, te.getAction()))
 			  .append(" ><textarea id=\"")
 			  .append(id)
-			  .append("_disabled\" readonly='readonly' class='form-control o_form_element_disabled'");
+			  .append("_disabled\" readonly='readonly' class='form-control o_form_element_disabled' style=''");
 			if (teC.getCols() != -1) {
 				sb.append(" cols='").append(teC.getCols()).append("'");
 			}
@@ -99,36 +99,45 @@ class TextAreaElementRenderer extends DefaultComponentRenderer {
 	
 		} else {
 			//read write view
-			sb.append("<textarea id=\"");
-			sb.append(id);
-			sb.append("\" name=\"");
-			sb.append(id);
-			sb.append("\" class='form-control'");
+			sb.append("<textarea id=\"")
+			  .append(id)
+			  .append("\" name=\"")
+			  .append(id)
+			  .append("\" class='form-control'");
 			if (teC.getCols() != -1) {
 				sb.append(" cols=\"").append(teC.getCols()).append("\"");
-			} 
-			if (teC.isAutoHeightEnabled()){
-				sb.append(" onkeyup='try{var iter=0; while ( this.scrollHeight>this.offsetHeight && iter < 99){ iter++; this.rows = this.rows + 1}} catch(e){}'");				
 			}
 			if (rows != -1) {
 				sb.append(" rows=\"").append(rows).append("\"");
 			}
-			sb.append(FormJSHelper.getRawJSFor(te.getRootForm(), id, te.getAction()));
-			sb.append(" >");
-			sb.append(value);
-			sb.append("</textarea>");
-			sb.append(FormJSHelper.getJSStartWithVarDeclaration(id));
+			if (te.hasPlaceholder()) {
+				sb.append(" placeholder=\"").append(te.getPlaceholder()).append("\"");
+			}
+			sb.append(FormJSHelper.getRawJSFor(te.getRootForm(), id, te.getAction()))
+			  .append(" >")
+			  .append(value)
+			  .append("</textarea>")
+			  .append(FormJSHelper.getJSStartWithVarDeclaration(id))
 			//plain textAreas should not propagate the keypress "enter" (keynum = 13) as this would submit the form
-			sb.append(id+".on('keypress', function(event, target){if (13 == event.keyCode) {event.stopPropagation()} })");
-			sb.append(FormJSHelper.getJSEnd());
+			  .append(id+".on('keypress', function(event, target){if (13 == event.keyCode) {event.stopPropagation()} })")
+			  .append(FormJSHelper.getJSEnd());
 		}
 
 		// resize element to fit content
 		if (teC.isAutoHeightEnabled()) {
-			sb.append("<script type='text/javascript'>jQuery(function(){try{var iter=0; var obj=$('");
-			sb.append(id);
-			if (!source.isEnabled()) sb.append("_disabled");			
-			sb.append("');while (obj.scrollHeight>obj.offsetHeight && iter < 99){ iter++; obj.rows = obj.rows + 1}} catch(e){}});</script>");
+			int minSize = Math.max(90, (Math.abs(rows) * 20));
+			sb.append("<script type='text/javascript'>\n")
+			  .append("/* <![CDATA[ */\n")
+			  .append("jQuery(function(){\n")
+			  .append(" jQuery('#").append(id).append("').each(function () {\n")
+			  .append("  this.setAttribute('style', 'height:' + (jQuery(this).outerHeight() > this.scrollHeight ? jQuery(this).outerHeight() : this.scrollHeight) + 'px;overflow-y:hidden;');\n")
+			  .append(" }).on('input', function () {\n")
+			  .append("  this.style.height = 'auto';\n")
+			  .append("  this.style.height = (this.scrollHeight < ").append(minSize).append(" ? ").append(minSize).append(" : this.scrollHeight) + 'px';\n")
+			  .append(" });\n")
+			  .append("});\n")
+			  .append("/* ]]> */\n")
+			  .append("</script>\n");
 		}
 		
 		if(source.isEnabled()){

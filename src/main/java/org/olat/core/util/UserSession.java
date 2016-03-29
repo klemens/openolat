@@ -112,6 +112,7 @@ public class UserSession implements HttpSessionBindingListener, GenericEventList
 		nonClearedStore = new HashMap<String,Object>();
 		singleUserSystemBus = CoordinatorManager.getInstance().getCoordinator().createSingleUserInstance();
 		savedSession = true;
+		authenticated = false;//reset authentication
 		return this;
 	}
 
@@ -291,6 +292,11 @@ public class UserSession implements HttpSessionBindingListener, GenericEventList
 	public IdentityEnvironment getIdentityEnvironment() {
 		return identityEnvironment;
 	}
+	
+	public boolean isInAssessmentModeProcess() {
+		return lockResource != null || lockMode != null
+				|| (assessmentModes != null && assessmentModes.size() > 0);
+	}
 
 	public OLATResourceable getLockResource() {
 		return lockResource;
@@ -308,6 +314,14 @@ public class UserSession implements HttpSessionBindingListener, GenericEventList
 	public void unlockResource() {
 		lockMode = null;
 		lockResource = null;
+	}
+	
+	public boolean matchLockResource(OLATResourceable ores) {
+		return lockResource != null
+				&& lockResource.getResourceableId() != null
+				&& lockResource.getResourceableId().equals(ores.getResourceableId())
+				&& lockResource.getResourceableTypeName() != null
+				&& lockResource.getResourceableTypeName().equals(ores.getResourceableTypeName());
 	}
 
 	public List<TransientAssessmentMode> getAssessmentModes() {
@@ -365,6 +379,18 @@ public class UserSession implements HttpSessionBindingListener, GenericEventList
 			return null;
 		}
 		return history.lastElement();
+	}
+	
+	public HistoryPoint getHistoryPoint(String id) {
+		if(history.isEmpty()) {
+			return null;
+		}
+		for(HistoryPoint point:history) {
+			if(id.equals(point.getUuid())) {
+				return point;
+			}
+		}
+		return null;
 	}
 	
 	public HistoryPoint popLastHistoryEntry() {

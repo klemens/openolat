@@ -82,7 +82,7 @@ public class ModulesForm extends FormBasicController {
 		    scoring.isSelected(0) ||
 		    solution.isSelected(0)) return true;
 		
-		setFormInfo("chelp.sel2");
+		setFormInfo("atleastone");
 		cb.select("xx", true);
 		return false;
 	}
@@ -90,8 +90,7 @@ public class ModulesForm extends FormBasicController {
 	@Override
 	protected void initForm(FormItemContainer formLayout, Controller listener, UserRequest ureq) {
 		setFormTitle("form.modules.title");
-		setFormContextHelp("org.olat.course.nodes.ta","ced-ta-select.html","help.hover.ta-module");
-		
+
 		task = uifactory.addCheckboxesHorizontal("task", "form.modules.task", formLayout, new String[]{"xx"}, new String[]{""});
 		dropbox = uifactory.addCheckboxesHorizontal("dropbox", "form.modules.dropbox", formLayout, new String[]{"xx"}, new String[]{""});
 		returnbox = uifactory.addCheckboxesHorizontal("returnbox", "form.modules.returnbox", formLayout, new String[]{"xx"}, new String[]{""});

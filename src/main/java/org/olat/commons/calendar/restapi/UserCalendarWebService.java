@@ -23,10 +23,10 @@ import static org.olat.commons.calendar.restapi.CalendarWSHelper.hasReadAccess;
 import static org.olat.commons.calendar.restapi.CalendarWSHelper.hasWriteAccess;
 import static org.olat.commons.calendar.restapi.CalendarWSHelper.processEvents;
 import static org.olat.restapi.security.RestSecurityHelper.getUserRequest;
+import static org.olat.restapi.security.RestSecurityHelper.isAdmin;
 
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.List;
 
 import javax.servlet.http.HttpServletRequest;
@@ -44,13 +44,11 @@ import javax.ws.rs.core.Response;
 import javax.ws.rs.core.Response.Status;
 
 import org.olat.basesecurity.BaseSecurityManager;
-import org.olat.basesecurity.IdentityShort;
 import org.olat.collaboration.CollaborationManager;
 import org.olat.collaboration.CollaborationTools;
 import org.olat.commons.calendar.CalendarManager;
-import org.olat.commons.calendar.CalendarManagerFactory;
 import org.olat.commons.calendar.CalendarModule;
-import org.olat.commons.calendar.model.KalendarConfig;
+import org.olat.commons.calendar.model.CalendarUserConfiguration;
 import org.olat.commons.calendar.model.KalendarEvent;
 import org.olat.commons.calendar.ui.components.KalendarRenderWrapper;
 import org.olat.core.CoreSpringFactory;
@@ -68,6 +66,8 @@ import org.olat.course.config.CourseConfig;
 import org.olat.course.nodes.CalCourseNode;
 import org.olat.course.nodes.cal.CourseCalendars;
 import org.olat.course.run.userview.CourseTreeVisitor;
+import org.olat.course.run.userview.UserCourseEnvironment;
+import org.olat.course.run.userview.UserCourseEnvironmentImpl;
 import org.olat.course.run.userview.VisibleTreeFilter;
 import org.olat.group.BusinessGroup;
 import org.olat.group.BusinessGroupService;
@@ -92,9 +92,9 @@ public class UserCalendarWebService {
 	@Produces({MediaType.APPLICATION_XML, MediaType.APPLICATION_JSON})
 	public Response getCalendars(@PathParam("identityKey") Long identityKey, @Context HttpServletRequest httpRequest) {
 		UserRequest ureq = getUserRequest(httpRequest);
-		if(!ureq.getUserSession().isAuthenticated()) {
+		if(ureq.getIdentity() == null || !ureq.getUserSession().isAuthenticated()) {
 			return Response.serverError().status(Status.UNAUTHORIZED).build();
-		} else if (ureq.getIdentity() == null || !ureq.getIdentity().getKey().equals(identityKey)) {
+		} else if (!ureq.getIdentity().getKey().equals(identityKey)  && !isAdmin(httpRequest)) {
 			return Response.serverError().status(Status.UNAUTHORIZED).build();
 		}
 		
@@ -115,9 +115,9 @@ public class UserCalendarWebService {
 			@PathParam("identityKey") Long identityKey, @Context HttpServletRequest httpRequest) {
 		
 		UserRequest ureq = getUserRequest(httpRequest);
-		if(!ureq.getUserSession().isAuthenticated()) {
+		if(ureq.getIdentity() == null || !ureq.getUserSession().isAuthenticated()) {
 			throw new WebApplicationException(Response.serverError().status(Status.UNAUTHORIZED).build());
-		} else if (ureq.getIdentity() == null || !ureq.getIdentity().getKey().equals(identityKey)) {
+		} else if (!ureq.getIdentity().getKey().equals(identityKey) && !isAdmin(httpRequest)) {
 			throw new WebApplicationException(Response.serverError().status(Status.UNAUTHORIZED).build());
 		}
 		
@@ -141,9 +141,9 @@ public class UserCalendarWebService {
 			@Context HttpServletRequest httpRequest, @Context Request request) {
 		
 		UserRequest ureq = getUserRequest(httpRequest);
-		if(!ureq.getUserSession().isAuthenticated()) {
+		if(ureq.getIdentity() == null || !ureq.getUserSession().isAuthenticated()) {
 			return Response.serverError().status(Status.UNAUTHORIZED).build();
-		} else if (ureq.getIdentity() == null || !ureq.getIdentity().getKey().equals(identityKey)) {
+		} else if (!ureq.getIdentity().getKey().equals(identityKey) && !isAdmin(httpRequest)) {
 			return Response.serverError().status(Status.UNAUTHORIZED).build();
 		}
 		
@@ -187,30 +187,34 @@ public class UserCalendarWebService {
 			}
 		} else if("course".equals(type) && (calendarModule.isEnableCourseElementCalendar() || calendarModule.isEnableCourseToolCalendar())) {
 			Long courseId = Long.parseLong(id);
+			IdentityEnvironment ienv = new IdentityEnvironment();
+			ienv.setIdentity(ureq.getIdentity());
+			ienv.setRoles(ureq.getUserSession().getRoles());
 			ICourse course = CourseFactory.loadCourse(courseId);
-			wrapper = CourseCalendars.getCourseCalendarWrapper(ureq, course, null);
+			UserCourseEnvironment userCourseEnv = new UserCourseEnvironmentImpl(ienv, course.getCourseEnvironment());
+			wrapper = CourseCalendars.getCourseCalendarWrapper(ureq, userCourseEnv, null);
 		} else if("user".equals(type) && calendarModule.isEnablePersonalCalendar()) {
-			List<String> identityName = Collections.singletonList(id);
-			List<IdentityShort> shorts = BaseSecurityManager.getInstance().findShortIdentitiesByName(identityName);
-			if(shorts.size() == 1 && shorts.get(0).getKey().equals(ureq.getIdentity().getKey())) {
-				wrapper = getPersonalCalendar(ureq);
+			if(id.equals(ureq.getIdentity().getName())) {
+				wrapper = getPersonalCalendar(ureq.getIdentity());
+			} else if(isAdmin(ureq.getHttpReq())) {
+				Identity identity = BaseSecurityManager.getInstance().findIdentityByName(id);
+				wrapper = getPersonalCalendar(identity);
 			}
 		}
 		return wrapper;
 	}
 	
-	private KalendarRenderWrapper getPersonalCalendar(UserRequest ureq) {
-	// get the personal calendar
-			CalendarManager calendarManager = CalendarManagerFactory.getInstance().getCalendarManager();
-			KalendarRenderWrapper calendarWrapper = calendarManager.getPersonalCalendar(ureq.getIdentity());
-			calendarWrapper.setAccess(KalendarRenderWrapper.ACCESS_READ_WRITE);
-			KalendarConfig personalKalendarConfig = calendarManager.findKalendarConfigForIdentity(
-					calendarWrapper.getKalendar(), ureq);
-			if (personalKalendarConfig != null) {
-				calendarWrapper.getKalendarConfig().setCss(personalKalendarConfig.getCss());
-				calendarWrapper.getKalendarConfig().setVis(personalKalendarConfig.isVis());
-			}
-			return calendarWrapper;
+	private KalendarRenderWrapper getPersonalCalendar(Identity identity) {
+		// get the personal calendar
+		CalendarManager calendarManager = CoreSpringFactory.getImpl(CalendarManager.class);
+		KalendarRenderWrapper calendarWrapper = calendarManager.getPersonalCalendar(identity);
+		calendarWrapper.setAccess(KalendarRenderWrapper.ACCESS_READ_WRITE);
+		calendarWrapper.setPrivateEventsVisible(true);
+		CalendarUserConfiguration config = calendarManager.findCalendarConfigForIdentity(calendarWrapper.getKalendar(), identity);
+		if (config != null) {
+			calendarWrapper.setConfiguration(config);
+		}
+		return calendarWrapper;
 	}
 	
 	private void getCalendars(CalendarVisitor calVisitor, UserRequest ureq) {	
@@ -221,7 +225,7 @@ public class UserCalendarWebService {
 		if(calendarModule.isEnabled()) {
 			
 			if(calendarModule.isEnablePersonalCalendar()) {
-				KalendarRenderWrapper personalWrapper = getPersonalCalendar(ureq);
+				KalendarRenderWrapper personalWrapper = getPersonalCalendar(ureq.getIdentity());
 				calVisitor.visit(personalWrapper);
 			}
 			
@@ -231,22 +235,28 @@ public class UserCalendarWebService {
 				SearchRepositoryEntryParameters repoParams = new SearchRepositoryEntryParameters(retrievedUser, roles, "CourseModule");
 				repoParams.setOnlyExplicitMember(true);
 				repoParams.setIdentity(retrievedUser);
+				
+				IdentityEnvironment ienv = new IdentityEnvironment();
+				ienv.setIdentity(retrievedUser);
+				ienv.setRoles(roles);
+				
 				List<RepositoryEntry> entries = rm.genericANDQueryWithRolesRestriction(repoParams, 0, -1, true);
 				for(RepositoryEntry entry:entries) {
 					AccessResult result = acManager.isAccessible(entry, retrievedUser, false);
 					if(result.isAccessible()) {
 						try {
-							final ICourse course = CourseFactory.loadCourse(entry.getOlatResource());
+							final ICourse course = CourseFactory.loadCourse(entry);
 							CourseConfig config = course.getCourseEnvironment().getCourseConfig();
+							UserCourseEnvironment userCourseEnv = new UserCourseEnvironmentImpl(ienv, course.getCourseEnvironment());
+							
 							if(config.isCalendarEnabled()) {
-								KalendarRenderWrapper wrapper = CourseCalendars.getCourseCalendarWrapper(ureq, entry.getOlatResource(), null);
+								KalendarRenderWrapper wrapper = CourseCalendars.getCourseCalendarWrapper(ureq, userCourseEnv, null);
 								calVisitor.visit(wrapper);
 							} else {
-								IdentityEnvironment ienv = new IdentityEnvironment(retrievedUser, roles);
 								CalCourseNodeVisitor visitor = new CalCourseNodeVisitor();
 								new CourseTreeVisitor(course, ienv).visit(visitor, new VisibleTreeFilter());
 								if(visitor.isFound()) {
-									KalendarRenderWrapper wrapper = CourseCalendars.getCourseCalendarWrapper(ureq, entry.getOlatResource(), null);
+									KalendarRenderWrapper wrapper = CourseCalendars.getCourseCalendarWrapper(ureq, userCourseEnv, null);
 									calVisitor.visit(wrapper);
 								}
 							}

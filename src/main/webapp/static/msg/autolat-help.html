@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width" />
+    <style>
+        main {
+            max-width: 50rem;
+            margin: auto;
+            font-family: sans-serif;
+            position: relative;
+        }
+
+        h4 {
+            font-size: 1rem;
+            margin-bottom: .5rem;
+        }
+        h4 + p {
+            margin-top: .5rem;
+        }
+
+        h2 > a,
+        h3 > a {
+            position: absolute;
+            left: -2rem;
+            text-decoration: none;
+            color: #e0e0e0;
+        }
+        h2 > a:before,
+        h3 > a:before {
+            content: '#';
+        }
+    </style>
+    <title>autolat-Hilfe</title>
+</head>
+<body>
+    <main>
+        <h1>autolat-Hilfe</h1>
+
+        <h2 id="taskoptions"><a href="#taskoptions"></a>
+            Lösen einer Aufgabe
+        </h2>
+        <h4>Beispieleingabe</h4>
+        <p>
+            Die Beispieleingabe gibt Ihnen eine syntaktisch korrekte Eingabe
+            vor, die jedoch im allgemeinen keine korrekte Lösung Ihrer gegebenen
+            Aufgabeninstanz ist.
+        </p>
+        <h4>Letzte Eingabe</h4>
+        <p>
+            Dieser Knopf lädt grundsätzlich die Eingabe, die Sie zuletzt
+            abgeschickt haben, unabhängig davon, ob diese Eingabe syntaktisch
+            oder inhaltlich korrekt war.
+        </p>
+        <h4>Letzte korrekte Lösung</h4>
+        <p>
+            Mit dieser Schaltfläche laden Sie die letzte Eingabe, die korrekt
+            war, d.h. einen Punktestand verschieden von Null erzielte.
+        </p>
+        <h4>Beste Lösung</h4>
+        <p>
+            Ob sich die beste Lösung durch einen besonders niedrigen positiven
+            oder einen möglichst hohen Punktwert auszeichnet, hängt vom
+            speziellen Aufgabentyp ab. Welche Variante für einen speziellen
+            Aufgabentyp gilt, ergibt sich meist direkt aus der Aufgabenstellung.
+        </p>
+        <h4>Topliste anzeigen</h4>
+        <p>
+            Die Topliste zeigt Ihnen in einem anonymisierten Überblick, welche
+            Punkte Ihre Kommilitonen erzielt haben. Dabei werden nur solche
+            Studenten erfasst, die bereits mindestens eine korrekte Lösung
+            eingesandt haben. Ihre eigene Position in der Topliste ist farbig
+            gekennzeichnet, so dass Sie einschätzen können, wo Sie im Vergleich
+            liegen.
+        </p>
+
+        <h2 id="toplist"><a href="#toplist"></a>
+            Topliste
+        </h2>
+        <h4>Aus Sicht der Betreuer</h4>
+        <p>
+            Es wird eine Tabelle mit allen Studenten angezeigt. In dieser
+            Tabelle sind pro Aufgabe die erreichten Punkte und die Punkte -
+            berechnet nach den Scorepoints - zu sehen. Außerdem wird angezeigt
+            ob der Student bestanden hat. Am Ende werden diese Informationen
+            zusammengerechnet.
+        </p>
+        <h4>Aus Sicht der Studenten</h4>
+        <p>
+            Hier wird eine Tabelle mit den erreichten Punkten angezeigt, die
+            bereits mit den Scorepoints verrechnet wurden. Namen oder
+            Matrikelnummern sind nicht zu sehen. Die Punkte des Studenten sind
+            hervorgehoben und zeigen im Falle, dass die Aufgabe bestanden ist,
+            ein grünes Häkchen, sonst einen rot durchgestrichenen Kreis.
+        </p>
+
+        <h2 id="config-section"><a href="#config-section"></a>
+            Konfiguration des Aufgabenknotens
+        </h2>
+
+        <h3 id="conn"><a href="#conn"></a>
+            Verbindungskonfiguration
+        </h3>
+        <p>
+            Hier können Sie für diesen autotool-Baustein die zu nutzende
+            Server-Verbindung wählen. Wählen Sie dazu eine bestehende
+            Verbindung aus der ausklappbaren Auswahlliste aus. Ihre Änderungen
+            werden mit einem Klick auf "Speichern" übernommen.
+        </p><p>
+            Grundsätzlich sollte immer die neueste Version des autotool-Servers
+            verwendet werden. Die als Nightly markierte Version dient nur zum
+            Testen und sollte nicht im Produktiveinsatz verwendet werden.
+        </p>
+
+        <h3 id="type"><a href="#type"></a>
+            Wahl des Aufgabentyps
+        </h3>
+        <p>
+            Sie können über einen Klick auf "Typ wählen" den Aufgabentyp der
+            autotool-Aufgabe bestimmen. Wählen Sie dazu einen Typeintrag im
+            sich öffnenden Übersichtsbaum aller Aufgabentypen. Wenn sich nach
+            dem Klick das Fenster mit Übersichtsbaum schließt, wurde der Typ
+            erfolgreich gewählt und wird anschließend im Kasten "Aufgabentyp"
+            angezeigt.
+        </p><p>
+            Der gerade beschriebene Schritt ist der erste bei der Konfiguration
+            einer neuen Aufgabe. Wenn der "Typ wählen"-Button grau hinterlegt
+            und gesperrt ist, kann es dafür zwei Gründe geben: Zum Einen ist
+            für diesen Aufgabenbaustein noch keine Serververbindung hinterlegt.
+            Dann wählen Sie zunächst unter "Verbindung" einen autotool-Server,
+            bevor Sie den Aufgabentyp bestimmen können. Zum Anderen ist es
+            möglich, dass die aktuelle Aufgabe bereits von Studenten bearbeitet
+            wurde. Eine Änderung des Aufgabentyps ist dann nicht mehr möglich.
+        </p>
+
+        <h3 id="task"><a href="#task"></a>
+            Konfiguration der Aufgabe
+        </h3>
+        <p>
+            Sie können eine im System vorhandene Aufgabenkonfiguration für den
+            gewählten Aufgabentyp laden. Klicken Sie dazu auf "Auswahl öffnen".
+            Alternativ können Sie die aktuelle Aufgabenkonfiguration bearbeiten.
+            Wenn Sie Änderungen vornehmen - dies betrifft sowohl die
+            Aufgabenkonfiguration als auch den Kommentar für Autoren und die
+            Studentenbeschreibung der Aufgabe -, dann werden diese nach einem
+            Klick auf "Übernehmen" gespeichert.
+        </p><p>
+            Der Dokumentationslink beschreibt den Haskell-Typ, den die
+            Konfiguration der Aufgabe besitzen muss.
+        </p><!--<p>
+            Falls Studenten bereits Lösungen zur vorher bestehenden Aufgabe
+            eingereicht haben, werden Sie gefragt, wie mit den Ergebnissen zu
+            verfahren ist. Sie können entweder alle bisher erreichten
+            HighScore-Punkte verwerfen oder sie trotz geänderter
+            Aufgabenkonfiguration als "Bestandsschutz" erhalten.
+        </p>-->
+
+        <h3 id="test"><a href="#test"></a>
+            Testen der Aufgabe
+        </h3>
+        <p>
+            An dieser Stelle lässt sich die Aufgabenkonfiguration aus der Sicht
+            eines Studenten für eine zufällig generierte Aufgabeninstanz testen.
+            Genau diese Ansicht haben die Studierenden später zur Lösung der
+            Aufgabe. Wenn Sie eine Lösung eintragen und absenden, erhalten Sie
+            ein entsprechendes Feedback vom autotool-Server. Auf diese Weise
+            können Sie Fehler oder Unwegbarkeiten in der Aufgabenkonfiguration
+            durch das Testen von Lösungen finden.
+        </p><p>
+            Da Sie die Konfiguration der Aufgabe später - nachdem mindestens ein
+            Student die Aufgabe bereits betrachtet hat - nicht mehr verändern
+            können, sollten Sie die Aufgabe vor der Veröffentlichung gründlich
+            testen.
+        </p>
+
+        <h3 id="taskmodule"><a href="#taskmodule"></a>
+            Gliederungsabschnitte
+        </h3>
+        <p>
+            Hier können Sie die Bearbeitung der Aufgabe durch die Studenten in
+            Abschnitte gliedern, welche jeweils markieren, wie lange eine
+            einzelne konkrete Aufgabe für einen Studierenden gültig ist. Nach
+            Ablauf der im Gliederungsabschnitt definierten Bedingungen wird für
+            den Studierenden eine neue Aufgabe ausgewürfelt.
+        </p><p>
+            In einem Gliederungsabschnitt lassen sich nach einem Klick auf
+            "Abschnitt erstellen" drei Dinge beschränken: das Enddatum des
+            Abschnitts, die Zeitdauer relativ zur Erzeugung der Aufgabe dieses
+            Abschnitts sowie die Versuchsanzahl für eine Aufgabe in diesem
+            Abschnitt. Darüber hinaus können Sie festlegen, wo Sie den neuen
+            Abschnitt einfügen wollen - am Anfang der Liste oder nach einem
+            bereits bestehenden Abschnitt. Wenn Sie den Abschnitt mit einem
+            Klick auf "Speichern" übernehmen, wird geprüft, ob sich der
+            Abschnitt mit anderen überschneidet oder gegebenenfalls die
+            Gesamtbearbeitungszeit der Aufgabe überschritten wird. In diesem
+            Fall erhalten Sie einen Hinweis und können Ihre Eingaben
+            korrigieren.
+        </p><p>
+            Eine Übersichtstabelle über alle vorhandenen Abschnitte wird
+            angezeigt, sobald Abschnitte zu dieser Aufgabe vorhanden sind. Diese
+            können editiert oder gelöscht werden, solange noch kein Student mit
+            der Bearbeitung der Aufgabe begonnen hat. Erreicht ein Student das
+            Ende des letzten Abschnitts, so wird dieser nachfolgend bis zum
+            Bearbeitungsende wiederholt, es sei denn, ein Enddatum wurde
+            angegeben.
+        </p>
+
+        <h3 id="config"><a href="#config"></a>
+            Bewertungszeitraum und Topliste
+        </h3>
+        <h4>Beginn und Ende des Bewertungszeitraumes</h4>
+        <p>
+            Hier können Sie den Zeitraum festlegen, in welchem Lösungen der
+            Studenten für diese Aufgabe in die Bewertung einfließen sollen. Der
+            Bewertungszeitraum ist für die Studenten bindend, d.h. jede Lösung
+            vor Beginn oder nach Ende des Zeitraums geht <i>nicht</i> in die
+            Bewertung ein.
+        </p><p>
+            Den Startzeitpunkt können Sie beliebig wählen, solange er vor dem
+            Ende des Bewertungszeitraumes liegt. Der Endzeitpunkt der Aufgabe
+            darf nicht in der Vergangenheit liegen und muss zeitlich hinter
+            dem Beginn der Bewertung gewählt werden.
+        </p>
+        <h4>Scorepoints</h4>
+        <p>
+            An dieser Stelle werden die Scorepoints eingetragen. Bei der
+            Berechnung der Top-Liste für diese Aufgabe werden die erreichten
+            Punkte der besten Studenten durch diese Punkte ersetzt. Sie bekommen
+            gegenüber den übrigen Studenten für bessere Leistungen einen Bonus.
+        </p>
+
+        <h3 id="importexport"><a href="#importexport"></a>
+            Im- und Export von Aufgaben
+        </h3>
+        <p>
+            Mit einem Klick auf "Aufgabe importieren" können Sie eine
+            Aufgabenkonfiguration, welche Sie lokal auf Ihrem Rechner
+            gespeichert haben, in den Aufgabenknoten importieren. Wählen Sie
+            dazu im sich öffnenden Dialog über "Datei wählen" die .zip-Datei auf
+            Ihrem Rechner aus, welche die Aufgabe enthält. Anschließend wird
+            durch den "Hochladen"-Button der Import-Vorgang ausgelöst. Falls ein
+            Fehler auftritt, kann es hilfreich sein, die zu importierende
+            Aufgabe neu zu exportieren, um Fehler in der gespeicherten Datei
+            auszuschließen. Der "Aufgabe importieren"-Button ist gesperrt, falls
+            Studenten die gegenwärtige Aufgabe bereits bearbeiten.
+        </p><p>
+            Über den Button "Aufgabe exportieren" lässt sich die vorliegende
+            Konfiguration dieses Aufgabenknotens exportieren. Dazu muss bereits
+            eine Aufgabe konfiguriert sein. Nach dem Klick öffnet sich der
+            Download-Dialog Ihres Browsers mit einer .zip-Datei, die die
+            Aufgabenkonfiguration des aktuellen Knotens enthält. Bitte beachten
+            Sie: Nehmen Sie keine manuellen Änderungen an dieser Datei oder
+            ihrem Inhalt vor, um den Import-Vorgang nicht zu gefährden!
+        </p>
+
+        <h3 id="connedit"><a href="#connedit"></a>
+            Verwaltung der Serververbindungen
+        </h3>
+        <p><i>Nicht vollständig implementiert!</i></p>
+        <p>
+            In diesem Bereich können Sie die bestehenden Verbindungen zu
+            autotool-Servern verwalten. Klicken Sie dazu auf "Bearbeiten". Es
+            öffnet sich eine Übersichtstabelle aller Verbindungen, die im System
+            registriert sind. Inaktive Verbindungen können Sie mit einem Klick
+            auf "Aktivieren" aktiv schalten. Für nicht verwendete Verbindungen
+            besteht eine Lösch-Option. Alle Verbindungen können durch einen
+            Klick auf "Bearbeiten" editiert werden. Im sich öffnenden Dialog
+            lässt sich dann sowohl der Name als auch die konkrete Server-Adresse
+            editieren.
+        </p>
+    </main>
+</body>
+</html>

@@ -20,6 +20,7 @@
 package org.olat.group.ui.main;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -35,11 +36,14 @@ import org.olat.basesecurity.BaseSecurityModule;
 import org.olat.basesecurity.GroupRoles;
 import org.olat.basesecurity.SearchIdentityParams;
 import org.olat.core.commons.persistence.DBFactory;
+import org.olat.core.commons.persistence.PersistenceHelper;
+import org.olat.core.commons.persistence.SortKey;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.Component;
 import org.olat.core.gui.components.form.flexible.FormItem;
 import org.olat.core.gui.components.form.flexible.FormItemContainer;
 import org.olat.core.gui.components.form.flexible.elements.FlexiTableElement;
+import org.olat.core.gui.components.form.flexible.elements.FlexiTableSortOptions;
 import org.olat.core.gui.components.form.flexible.elements.FormLink;
 import org.olat.core.gui.components.form.flexible.impl.FormBasicController;
 import org.olat.core.gui.components.form.flexible.impl.FormEvent;
@@ -204,11 +208,10 @@ public abstract class AbstractMemberListController extends FormBasicController i
 		initForm(ureq);
 	}
 	
-	
 	@Override
 	protected void initForm(FormItemContainer formLayout, Controller listener, UserRequest ureq) {
 		FlexiTableColumnModel columnsModel = FlexiTableDataModelFactory.createFlexiTableColumnModel();
-		initColumns(columnsModel);
+		SortKey defaultSortKey = initColumns(columnsModel);
 		
 		memberListModel = new MemberListTableModel(columnsModel, imModule.isOnlineStatusEnabled());
 		membersTable = uifactory.addTableElement(getWindowControl(), "memberList", memberListModel, 20, false, getTranslator(), formLayout);
@@ -218,6 +221,13 @@ public abstract class AbstractMemberListController extends FormBasicController i
 		membersTable.setSearchEnabled(true);
 		membersTable.setExportEnabled(true);
 		membersTable.setSelectAllEnable(true);
+		membersTable.setElementCssClass("o_sel_member_list");
+		
+		if(defaultSortKey != null) {
+			FlexiTableSortOptions options = new FlexiTableSortOptions();
+			options.setDefaultOrderBy(defaultSortKey);
+			membersTable.setSortSettings(options);
+		}
 
 		if(!globallyManaged) {
 			editButton = uifactory.addFormLink("edit.members", formLayout, Link.BUTTON);
@@ -250,7 +260,9 @@ public abstract class AbstractMemberListController extends FormBasicController i
 		//
 	}
 	
-	protected void initColumns(FlexiTableColumnModel columnsModel) {
+	private SortKey initColumns(FlexiTableColumnModel columnsModel) {
+		SortKey defaultSortKey = null;
+		
 		if(chatEnabled) {
 			DefaultFlexiColumnModel chatCol = new DefaultFlexiColumnModel(Cols.online.i18n(), Cols.online.ordinal());
 			chatCol.setExportable(false);
@@ -260,6 +272,7 @@ public abstract class AbstractMemberListController extends FormBasicController i
 			FlexiCellRenderer renderer = new StaticFlexiCellRenderer(TABLE_ACTION_EDIT, new TextFlexiCellRenderer());
 			columnsModel.addFlexiColumnModel(new StaticFlexiColumnModel(Cols.username.i18n(), Cols.username.ordinal(), TABLE_ACTION_EDIT,
 					true, Cols.username.name(), renderer));
+			defaultSortKey = new SortKey(Cols.username.name(), true);
 		}
 		
 		int colPos = USER_PROPS_OFFSET;
@@ -267,18 +280,20 @@ public abstract class AbstractMemberListController extends FormBasicController i
 			if (userPropertyHandler == null) continue;
 
 			String propName = userPropertyHandler.getName();
-			boolean visible = UserManager.getInstance().isMandatoryUserProperty(USER_PROPS_ID , userPropertyHandler);
-			if(visible) {
-				FlexiColumnModel col;
-				if(UserConstants.FIRSTNAME.equals(propName)
-						|| UserConstants.LASTNAME.equals(propName)) {
-					col = new StaticFlexiColumnModel(userPropertyHandler.i18nColumnDescriptorLabelKey(),
-							colPos++, TABLE_ACTION_EDIT, true, propName,
-							new StaticFlexiCellRenderer(TABLE_ACTION_EDIT, new TextFlexiCellRenderer()));
-				} else {
-					col = new DefaultFlexiColumnModel(true, userPropertyHandler.i18nColumnDescriptorLabelKey(), colPos++, true, propName);
-				}
-				columnsModel.addFlexiColumnModel(col);
+			boolean visible = userManager.isMandatoryUserProperty(USER_PROPS_ID , userPropertyHandler);
+
+			FlexiColumnModel col;
+			if(UserConstants.FIRSTNAME.equals(propName) || UserConstants.LASTNAME.equals(propName)) {
+				col = new StaticFlexiColumnModel(userPropertyHandler.i18nColumnDescriptorLabelKey(), colPos, TABLE_ACTION_EDIT, true, propName,
+						new StaticFlexiCellRenderer(TABLE_ACTION_EDIT, new TextFlexiCellRenderer()));
+			} else {
+				col = new DefaultFlexiColumnModel(visible, userPropertyHandler.i18nColumnDescriptorLabelKey(), colPos, true, propName);
+			}
+			columnsModel.addFlexiColumnModel(col);
+			colPos++;
+			
+			if(defaultSortKey == null) {
+				defaultSortKey = new SortKey(propName, true);
 			}
 		}
 
@@ -297,6 +312,7 @@ public abstract class AbstractMemberListController extends FormBasicController i
 		DefaultFlexiColumnModel toolsCol = new DefaultFlexiColumnModel(Cols.tools.i18n(), Cols.tools.ordinal());
 		toolsCol.setExportable(false);
 		columnsModel.addFlexiColumnModel(toolsCol);
+		return defaultSortKey;
 	}
 
 	@Override
@@ -433,29 +449,33 @@ public abstract class AbstractMemberListController extends FormBasicController i
 	}
 	
 	protected void confirmDelete(UserRequest ureq, List<MemberView> members) {
-		int numOfOwners =
-				repoEntry == null ? businessGroupService.countMembers(businessGroup, GroupRoles.coach.name())
-				: repositoryService.countMembers(repoEntry, GroupRoles.owner.name());
-		
-		int numOfRemovedOwner = 0;
-		List<Long> identityKeys = new ArrayList<Long>();
-		for(MemberView member:members) {
-			identityKeys.add(member.getIdentityKey());
-			if(member.getMembership().isOwner()) {
-				numOfRemovedOwner++;
-			}
-		}
-		if(numOfRemovedOwner == 0 || numOfOwners - numOfRemovedOwner > 0) {
-			List<Identity> ids = securityManager.loadIdentityByKeys(identityKeys);
-			leaveDialogBox = new MemberLeaveConfirmationController(ureq, getWindowControl(), ids);
-			listenTo(leaveDialogBox);
-			
-			cmc = new CloseableModalController(getWindowControl(), translate("close"), leaveDialogBox.getInitialComponent(),
-					true, translate("edit.member"));
-			cmc.activate();
-			listenTo(cmc);
+		if(members.isEmpty()) {
+			showWarning("error.select.one.user");
 		} else {
-			showWarning("error.atleastone");
+			int numOfOwners =
+					repoEntry == null ? businessGroupService.countMembers(businessGroup, GroupRoles.coach.name())
+					: repositoryService.countMembers(repoEntry, GroupRoles.owner.name());
+			
+			int numOfRemovedOwner = 0;
+			List<Long> identityKeys = new ArrayList<Long>();
+			for(MemberView member:members) {
+				identityKeys.add(member.getIdentityKey());
+				if(member.getMembership().isOwner()) {
+					numOfRemovedOwner++;
+				}
+			}
+			if(numOfRemovedOwner == 0 || numOfOwners - numOfRemovedOwner > 0) {
+				List<Identity> ids = securityManager.loadIdentityByKeys(identityKeys);
+				leaveDialogBox = new MemberLeaveConfirmationController(ureq, getWindowControl(), ids);
+				listenTo(leaveDialogBox);
+				
+				cmc = new CloseableModalController(getWindowControl(), translate("close"), leaveDialogBox.getInitialComponent(),
+						true, translate("edit.member"));
+				cmc.activate();
+				listenTo(cmc);
+			} else {
+				showWarning("error.atleastone");
+			}
 		}
 	}
 	
@@ -472,14 +492,25 @@ public abstract class AbstractMemberListController extends FormBasicController i
 	}
 	
 	protected void openEdit(UserRequest ureq, List<MemberView> members) {
-		List<Long> identityKeys = getMemberKeys(members);
-		List<Identity> identities = securityManager.loadIdentityByKeys(identityKeys);
-		editMembersCtrl = new EditMembershipController(ureq, getWindowControl(), identities, repoEntry, businessGroup);
-		listenTo(editMembersCtrl);
-		cmc = new CloseableModalController(getWindowControl(), translate("close"), editMembersCtrl.getInitialComponent(),
-				true, translate("edit.member"));
-		cmc.activate();
-		listenTo(cmc);
+		if(members.isEmpty()) {
+			showWarning("error.select.one.user");
+		} else {
+			List<Long> identityKeys = getMemberKeys(members);
+			List<Identity> identities = securityManager.loadIdentityByKeys(identityKeys);
+			if(identities.size() == 1) {
+				editSingleMemberCtrl = new EditSingleMembershipController(ureq, getWindowControl(), identities.get(0), repoEntry, businessGroup, false);
+				listenTo(editSingleMemberCtrl);
+				cmc = new CloseableModalController(getWindowControl(), translate("close"), editSingleMemberCtrl.getInitialComponent(),
+						true, translate("edit.member"));
+			} else {
+				editMembersCtrl = new EditMembershipController(ureq, getWindowControl(), identities, repoEntry, businessGroup);
+				listenTo(editMembersCtrl);
+				cmc = new CloseableModalController(getWindowControl(), translate("close"), editMembersCtrl.getInitialComponent(),
+						true, translate("edit.member"));
+			}
+			cmc.activate();
+			listenTo(cmc);
+		}
 	}
 	
 	protected void doSearch(String search) {
@@ -724,39 +755,7 @@ public abstract class AbstractMemberListController extends FormBasicController i
 		if(identityKeys.isEmpty()) {
 			identities = new ArrayList<Identity>(0);
 		} else  {
-			SearchIdentityParams idParams = new SearchIdentityParams();
-			if(StringHelper.containsNonWhitespace(params.getSearchString())) {
-				String searchString = params.getSearchString();
-				
-				Map<String,String> propertiesSearch = new HashMap<>();
-				for(UserPropertyHandler handler:userPropertyHandlers) {
-					propertiesSearch.put(handler.getName(), searchString);
-				}
-				idParams.setLogin(searchString);
-				idParams.setUserProperties(propertiesSearch);
-			} else {
-				if(params.getUserPropertiesSearch() != null && !params.getUserPropertiesSearch().isEmpty()) {
-					idParams.setUserProperties(params.getUserPropertiesSearch());
-				}
-				if(StringHelper.containsNonWhitespace(params.getLogin())) {
-					idParams.setLogin(params.getLogin());
-				}
-			}
-			
-			List<Long> identityKeyList = new ArrayList<>(identityKeys);
-			identities = new ArrayList<>(identityKeyList.size());
-
-			int count = 0;
-			int batch = 500;
-			do {
-				int toIndex = Math.min(count + batch, identityKeyList.size());
-				List<Long> toLoad = identityKeyList.subList(count, toIndex);
-				idParams.setIdentityKeys(toLoad);
-
-				List<Identity> batchOfIdentities = securityManager.getIdentitiesByPowerSearch(idParams, 0, -1);
-				identities.addAll(batchOfIdentities);
-				count += batch;
-			} while(count < identityKeyList.size());
+			identities = filterIdentities(params, identityKeys);
 		}
 
 		Map<Long,MemberView> keyToMemberMap = new HashMap<Long,MemberView>();
@@ -773,13 +772,28 @@ public abstract class AbstractMemberListController extends FormBasicController i
 				resourcesForReservations.add(group.getResource());
 			}
 			List<ResourceReservation> reservations = acService.getReservations(resourcesForReservations);
+			List<Long> pendingIdentityKeys = new ArrayList<>(reservations.size());
+			for(ResourceReservation reservation:reservations) {
+				pendingIdentityKeys.add(reservation.getIdentity().getKey());
+			}
+			
+			if(StringHelper.containsNonWhitespace(params.getSearchString())
+					|| StringHelper.containsNonWhitespace(params.getLogin())
+					|| (params.getUserPropertiesSearch() != null && !params.getUserPropertiesSearch().isEmpty())) {
+				
+				List<Identity> pendingIdentities = filterIdentities(params, pendingIdentityKeys);
+				pendingIdentityKeys.retainAll(PersistenceHelper.toKeys(pendingIdentities));
+			}
+			
 			for(ResourceReservation reservation:reservations) {
 				Identity identity = reservation.getIdentity();
-				MemberView member = new MemberView(identity, userPropertyHandlers, locale);
-				member.getMembership().setPending(true);
-				memberList.add(member);
-				forgeLinks(member);
-				keyToMemberMap.put(identity.getKey(), member);
+				if(pendingIdentityKeys.contains(identity.getKey())) {
+					MemberView member = new MemberView(identity, userPropertyHandlers, locale);
+					member.getMembership().setPending(true);
+					memberList.add(member);
+					forgeLinks(member);
+					keyToMemberMap.put(identity.getKey(), member);
+				}
 			}
 		}
 		
@@ -863,6 +877,44 @@ public abstract class AbstractMemberListController extends FormBasicController i
 		memberListModel.setObjects(memberList);
 		membersTable.reset();
 		return memberList;
+	}
+	
+	private List<Identity> filterIdentities(SearchMembersParams params, Collection<Long> identityKeys) {
+		SearchIdentityParams idParams = new SearchIdentityParams();
+		if(StringHelper.containsNonWhitespace(params.getSearchString())) {
+			String searchString = params.getSearchString();
+			
+			Map<String,String> propertiesSearch = new HashMap<>();
+			for(UserPropertyHandler handler:userPropertyHandlers) {
+				propertiesSearch.put(handler.getName(), searchString);
+			}
+			idParams.setLogin(searchString);
+			idParams.setUserProperties(propertiesSearch);
+		} else {
+			if(params.getUserPropertiesSearch() != null && !params.getUserPropertiesSearch().isEmpty()) {
+				idParams.setUserProperties(params.getUserPropertiesSearch());
+			}
+			if(StringHelper.containsNonWhitespace(params.getLogin())) {
+				idParams.setLogin(params.getLogin());
+			}
+		}
+		
+		List<Long> identityKeyList = new ArrayList<>(identityKeys);
+		List<Identity> identities = new ArrayList<>(identityKeyList.size());
+
+		int count = 0;
+		int batch = 500;
+		do {
+			int toIndex = Math.min(count + batch, identityKeyList.size());
+			List<Long> toLoad = identityKeyList.subList(count, toIndex);
+			idParams.setIdentityKeys(toLoad);
+
+			List<Identity> batchOfIdentities = securityManager.getIdentitiesByPowerSearch(idParams, 0, -1);
+			identities.addAll(batchOfIdentities);
+			count += batch;
+		} while(count < identityKeyList.size());
+		
+		return identities;
 	}
 	
 	protected void forgeLinks(MemberView row) {

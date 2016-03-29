@@ -55,7 +55,6 @@ import org.olat.group.BusinessGroupShort;
 import org.olat.group.area.BGArea;
 import org.olat.group.area.BGAreaManager;
 import org.olat.modules.ModuleConfiguration;
-import org.olat.repository.RepositoryManager;
 import org.springframework.beans.factory.annotation.Autowired;
 
 /**
@@ -112,10 +111,6 @@ public class COConfigForm extends FormBasicController {
 	private BGAreaManager areaManager;
 	@Autowired
 	private BusinessGroupService businessGroupService;
-	@Autowired	
-	private RepositoryManager repositoryManager;
-	
-
 
 
 	/**
@@ -347,8 +342,8 @@ public class COConfigForm extends FormBasicController {
 
 		
 		setFormTitle("header", null);
-		setFormContextHelp("org.olat.course.nodes.co","ced-co.html","help.hover.co");
-		
+		setFormContextHelp("Administration and Organisation#_mail");
+
 		//for displaying error message in case neither group stuff nor email is selected
 				recipentsContainer = FormLayoutContainer.createHorizontalFormLayout(
 						"recipents", getTranslator()

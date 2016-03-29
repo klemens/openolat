@@ -38,15 +38,14 @@ import org.olat.core.gui.components.form.flexible.FormItem;
 import org.olat.core.gui.components.form.flexible.FormItemContainer;
 import org.olat.core.gui.components.form.flexible.elements.DateChooser;
 import org.olat.core.gui.components.form.flexible.elements.FileElement;
-import org.olat.core.gui.components.form.flexible.elements.FormLink;
 import org.olat.core.gui.components.form.flexible.elements.RichTextElement;
 import org.olat.core.gui.components.form.flexible.elements.SingleSelection;
 import org.olat.core.gui.components.form.flexible.elements.TextElement;
 import org.olat.core.gui.components.form.flexible.impl.FormBasicController;
 import org.olat.core.gui.components.form.flexible.impl.FormEvent;
 import org.olat.core.gui.components.form.flexible.impl.FormLayoutContainer;
+import org.olat.core.gui.components.form.flexible.impl.elements.FileElementEvent;
 import org.olat.core.gui.components.form.flexible.impl.elements.FormSubmit;
-import org.olat.core.gui.components.link.Link;
 import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.Event;
 import org.olat.core.gui.control.WindowControl;
@@ -95,11 +94,10 @@ public class RepositoryEditDescriptionController extends FormBasicController {
 	private static final int movieUploadlimitKB = 102400;
 
 	private FileElement fileUpload, movieUpload;
-	private TextElement externalRef, displayName, authors, expenditureOfWork, language;
+	private TextElement externalRef, displayName, authors, expenditureOfWork, language, location;
 	private RichTextElement description, objectives, requirements, credits;
 	private SingleSelection dateTypesEl, publicDatesEl;
 	private DateChooser startDateEl, endDateEl;
-	private FormLink deleteImage, deleteMovie;
 	private FormSubmit submit;
 	private FormLayoutContainer descCont, privateDatesCont;
 	
@@ -137,7 +135,7 @@ public class RepositoryEditDescriptionController extends FormBasicController {
 	protected void initForm(FormItemContainer formLayout, Controller listener, UserRequest ureq) {
 		
 		descCont = FormLayoutContainer.createDefaultFormLayout("desc", getTranslator());
-		descCont.setFormContextHelp("org.olat.repository","rep-meta-desc.html","help.hover.lifecycle");
+		descCont.setFormContextHelp("Info Page: Add Meta Data");
 		descCont.setRootForm(mainForm);
 		formLayout.add("desc", descCont);
 
@@ -156,6 +154,8 @@ public class RepositoryEditDescriptionController extends FormBasicController {
 			}
 		} else {
 			externalRef = uifactory.addTextElement("cif.externalref", "cif.externalref", 100, extRef, descCont);
+			externalRef.setHelpText(translate("cif.externalref.hover"));
+			externalRef.setHelpUrlForManualPage("Info Page#_identification");
 			externalRef.setDisplaySize(30);
 		}
 
@@ -192,6 +192,9 @@ public class RepositoryEditDescriptionController extends FormBasicController {
 		
 		language = uifactory.addTextElement("cif.mainLanguage", "cif.mainLanguage", 16, repositoryEntry.getMainLanguage(), descCont);
 		
+		location = uifactory.addTextElement("cif.location", "cif.location", 16, repositoryEntry.getLocation(), descCont);
+		location.setEnabled(!RepositoryEntryManagedFlag.isManaged(repositoryEntry, RepositoryEntryManagedFlag.location));
+		
 		RepositoryHandler handler = RepositoryHandlerFactory.getInstance().getRepositoryHandler(repositoryEntry);
 		mediaContainer = handler.getMediaContainer(repositoryEntry);
 		if(mediaContainer != null && mediaContainer.getName().equals("media")) {
@@ -214,6 +217,7 @@ public class RepositoryEditDescriptionController extends FormBasicController {
 					translate("cif.dates.public")	
 			};
 			dateTypesEl = uifactory.addRadiosVertical("cif.dates", descCont, dateKeys, dateValues);
+			dateTypesEl.setElementCssClass("o_sel_repo_lifecycle_type");
 			if(repositoryEntry.getLifecycle() == null) {
 				dateTypesEl.select("none", true);
 			} else if(repositoryEntry.getLifecycle().isPrivateCycle()) {
@@ -250,7 +254,9 @@ public class RepositoryEditDescriptionController extends FormBasicController {
 			descCont.add("private.date", privateDatesCont);
 			
 			startDateEl = uifactory.addDateChooser("date.start", "cif.date.start", null, privateDatesCont);
+			startDateEl.setElementCssClass("o_sel_repo_lifecycle_validfrom");
 			endDateEl = uifactory.addDateChooser("date.end", "cif.date.end", null, privateDatesCont);
+			endDateEl.setElementCssClass("o_sel_repo_lifecycle_validto");
 			
 			if(repositoryEntry.getLifecycle() != null) {
 				RepositoryEntryLifecycle lifecycle = repositoryEntry.getLifecycle();
@@ -301,31 +307,26 @@ public class RepositoryEditDescriptionController extends FormBasicController {
 		boolean managed = RepositoryEntryManagedFlag.isManaged(repositoryEntry, RepositoryEntryManagedFlag.details);
 		
 		VFSLeaf img = repositoryManager.getImage(repositoryEntry);
-		deleteImage = uifactory.addFormLink("deleteimg", "cmd.delete", null, descCont, Link.BUTTON);
-		deleteImage.setVisible(img != null && !managed);
-
-		fileUpload = uifactory.addFileElement("rentry.pic", "rentry.pic", descCont);
+		fileUpload = uifactory.addFileElement(getWindowControl(), "rentry.pic", "rentry.pic", descCont);
 		fileUpload.setExampleKey("rentry.pic.example", new String[] {RepositoryManager.PICTUREWIDTH + "x" + (RepositoryManager.PICTUREWIDTH / 3 * 2)});
 		fileUpload.setMaxUploadSizeKB(picUploadlimitKB, null, null);
 		fileUpload.setPreview(ureq.getUserSession(), true);
 		fileUpload.addActionListener(FormEvent.ONCHANGE);
+		fileUpload.setDeleteEnabled(!managed);
 		if(img instanceof LocalFileImpl) {
 			fileUpload.setPreview(ureq.getUserSession(), true);
 			fileUpload.setInitialFile(((LocalFileImpl)img).getBasefile());
 		}
 		fileUpload.setVisible(!managed);
 		fileUpload.limitToMimeType(imageMimeTypes, null, null);
-		
 
 		VFSLeaf movie = repositoryService.getIntroductionMovie(repositoryEntry);
-		deleteMovie = uifactory.addFormLink("deletemovie", "cmd.delete", null, descCont, Link.BUTTON);
-		deleteMovie.setVisible(movie != null && !managed);
-		
-		movieUpload = uifactory.addFileElement("rentry.movie", "rentry.movie", descCont);
+		movieUpload = uifactory.addFileElement(getWindowControl(), "rentry.movie", "rentry.movie", descCont);
 		movieUpload.setExampleKey("rentry.movie.example", new String[] {"3:2"});
 		movieUpload.setMaxUploadSizeKB(movieUploadlimitKB, null, null);
 		movieUpload.setPreview(ureq.getUserSession(), true);
 		movieUpload.addActionListener(FormEvent.ONCHANGE);
+		movieUpload.setDeleteEnabled(movie != null && !managed);
 		if(movie instanceof LocalFileImpl) {
 			movieUpload.setPreview(ureq.getUserSession(), true);
 			movieUpload.setInitialFile(((LocalFileImpl)movie).getBasefile());
@@ -375,12 +376,24 @@ public class RepositoryEditDescriptionController extends FormBasicController {
 			displayName.clearError();
 		}
 
+		allOk &= validateTextElement(language, 255);
+		allOk &= validateTextElement(location, 255);
 		allOk &= validateTextElement(objectives, 2000);
 		allOk &= validateTextElement(requirements, 2000);
 		allOk &= validateTextElement(credits, 2000);
 		allOk &= validateTextElement(externalRef, 58);
 		allOk &= validateTextElement(expenditureOfWork, 225);
 		allOk &= validateTextElement(authors, 2000);
+		
+		if (publicDatesEl != null) {
+			publicDatesEl.clearError();
+			if(publicDatesEl.isEnabled() && publicDatesEl.isVisible()) {
+				if(!publicDatesEl.isOneSelected()) {
+					publicDatesEl.setErrorKey("form.legende.mandatory", null);
+					allOk &= false;
+				}	
+			}
+		}
 
 		// Ok, passed all checks
 		return allOk & super.validateFormLogic(ureq);
@@ -408,42 +421,33 @@ public class RepositoryEditDescriptionController extends FormBasicController {
 		if (source == dateTypesEl) {
 			updateDatesVisibility();
 		} else if (source == fileUpload) {
-			if (fileUpload.isUploadSuccess()) {
-				deleteImage.setVisible(true);
+			if(FileElementEvent.DELETE.equals(event.getCommand())) {
+				VFSLeaf img = repositoryManager.getImage(repositoryEntry);
+				if(fileUpload.getUploadFile() != null && fileUpload.getUploadFile() != fileUpload.getInitialFile()) {
+					fileUpload.reset();
+					if(img != null) {
+						fileUpload.setInitialFile(((LocalFileImpl)img).getBasefile());
+					}
+				} else if(img != null) {
+					repositoryManager.deleteImage(repositoryEntry);
+					fileUpload.setInitialFile(null);
+				}
+				flc.setDirty(true);	
+			}
+		} else if (source == movieUpload) {
+			if(FileElementEvent.DELETE.equals(event.getCommand())) {
+				VFSLeaf movie = repositoryService.getIntroductionMovie(repositoryEntry);
+				if(movieUpload.getUploadFile() != null && movieUpload.getUploadFile() != movieUpload.getInitialFile()) {
+					movieUpload.reset();
+					if(movie != null) {
+						movieUpload.setInitialFile(((LocalFileImpl)movie).getBasefile());
+					}
+				} else if(movie != null) {
+					movie.delete();
+					movieUpload.setInitialFile(null);
+				}
 				flc.setDirty(true);
 			}
-		} else if (source == deleteImage) {
-			VFSLeaf img = repositoryManager.getImage(repositoryEntry);
-			if(fileUpload.getUploadFile() != null && fileUpload.getUploadFile() != fileUpload.getInitialFile()) {
-				fileUpload.reset();
-				if(img == null) {
-					deleteImage.setVisible(false);
-				} else {
-					deleteImage.setVisible(true);
-				}
-			} else if(img != null) {
-				repositoryManager.deleteImage(repositoryEntry);
-				deleteImage.setVisible(false);
-				fileUpload.setInitialFile(null);
-			}
-
-			flc.setDirty(true);
-		} else if (source == deleteMovie) {
-			VFSLeaf movie = repositoryService.getIntroductionMovie(repositoryEntry);
-			if(movieUpload.getUploadFile() != null && movieUpload.getUploadFile() != movieUpload.getInitialFile()) {
-				movieUpload.reset();
-				if(movie == null) {
-					deleteMovie.setVisible(false);
-				} else {
-					deleteMovie.setVisible(true);
-				}
-			} else if(movie != null) {
-				movie.delete();
-				deleteMovie.setVisible(false);
-				movieUpload.setInitialFile(null);
-			}
-
-			flc.setDirty(true);
 		}
 		super.formInnerEvent(ureq, source, event);
 	}
@@ -548,15 +552,22 @@ public class RepositoryEditDescriptionController extends FormBasicController {
 			String exp = expenditureOfWork.getValue().trim();
 			repositoryEntry.setExpenditureOfWork(exp);
 		}
+		if(location != null) {
+			String loc = location.getValue().trim();
+			repositoryEntry.setLocation(loc);
+		}
 		
 		repositoryEntry = repositoryManager.setDescriptionAndName(repositoryEntry,
 				repositoryEntry.getDisplayname(), repositoryEntry.getExternalRef(), repositoryEntry.getAuthors(),
 				repositoryEntry.getDescription(), repositoryEntry.getObjectives(), repositoryEntry.getRequirements(),
-				repositoryEntry.getCredits(), repositoryEntry.getMainLanguage(), repositoryEntry.getExpenditureOfWork(),
-				repositoryEntry.getLifecycle());
-		
-		
-		fireEvent(ureq, Event.CHANGED_EVENT);
+				repositoryEntry.getCredits(), repositoryEntry.getMainLanguage(), repositoryEntry.getLocation(),
+				repositoryEntry.getExpenditureOfWork(), repositoryEntry.getLifecycle());
+		if(repositoryEntry == null) {
+			showWarning("repositoryentry.not.existing");
+			fireEvent(ureq, Event.CLOSE_EVENT);
+		} else {
+			fireEvent(ureq, Event.CHANGED_EVENT);
+		}
 	}
 
 	@Override

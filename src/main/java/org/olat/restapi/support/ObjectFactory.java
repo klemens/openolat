@@ -158,11 +158,14 @@ public class ObjectFactory {
 		vo.setSoftkey(entry.getSoftkey());
 		vo.setResourcename(entry.getResourcename());
 		vo.setDisplayname(entry.getDisplayname());
+		vo.setDescription(entry.getDescription());
 		vo.setAuthors(entry.getAuthors());
+		vo.setLocation(entry.getLocation());
 		vo.setResourceableId(entry.getResourceableId());
 		vo.setResourceableTypeName(entry.getResourceableTypeName());
 		OLATResource resource = entry.getOlatResource();
 		if(resource != null) {
+			vo.setOlatResourceKey(resource.getKey());
 			vo.setOlatResourceId(resource.getResourceableId());
 			vo.setOlatResourceTypeName(resource.getResourceableTypeName());
 		}
@@ -185,10 +188,19 @@ public class ObjectFactory {
 		CourseVO vo = new CourseVO();
 		vo.setKey(course.getResourceableId());
 		vo.setDisplayName(re.getDisplayname());
+		vo.setDescription(re.getDescription());
 		vo.setTitle(course.getCourseTitle());
 		vo.setEditorRootNodeId(course.getEditorTreeModel().getRootNode().getIdent());
 		vo.setSoftKey(re.getSoftkey());
 		vo.setRepoEntryKey(re.getKey());
+		OLATResource resource = re.getOlatResource();
+		if(resource != null) {
+			vo.setOlatResourceKey(resource.getKey());
+			vo.setOlatResourceId(resource.getResourceableId());
+			vo.setOlatResourceTypeName(resource.getResourceableTypeName());
+		}
+		vo.setAuthors(re.getAuthors());
+		vo.setLocation(re.getLocation());
 		vo.setExternalId(re.getExternalId());
 		vo.setExternalRef(re.getExternalRef());
 		vo.setManagedFlags(re.getManagedFlagsString());

@@ -32,10 +32,12 @@ import org.olat.core.commons.editor.htmleditor.HTMLEditorController;
 import org.olat.core.commons.editor.htmleditor.WysiwygFactory;
 import org.olat.core.commons.modules.bc.meta.MetaInfo;
 import org.olat.core.commons.modules.bc.meta.tagged.MetaTagged;
+import org.olat.core.commons.modules.singlepage.SinglePageController;
+import org.olat.core.commons.services.notifications.NotificationsManager;
+import org.olat.core.commons.services.notifications.SubscriptionContext;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.form.flexible.FormItem;
 import org.olat.core.gui.components.form.flexible.FormItemContainer;
-import org.olat.core.gui.components.form.flexible.elements.DownloadLink;
 import org.olat.core.gui.components.form.flexible.elements.FlexiTableElement;
 import org.olat.core.gui.components.form.flexible.elements.FormLink;
 import org.olat.core.gui.components.form.flexible.impl.FormBasicController;
@@ -61,7 +63,9 @@ import org.olat.core.util.vfs.VFSContainer;
 import org.olat.core.util.vfs.VFSItem;
 import org.olat.core.util.vfs.VFSManager;
 import org.olat.course.nodes.GTACourseNode;
+import org.olat.course.nodes.gta.GTAManager;
 import org.olat.course.nodes.gta.Task;
+import org.olat.course.run.environment.CourseEnvironment;
 import org.olat.modules.ModuleConfiguration;
 import org.olat.user.UserManager;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -82,6 +86,7 @@ class SubmitDocumentsController extends FormBasicController {
 	private NewDocumentController newDocCtrl;
 	private DocumentUploadController uploadCtrl, replaceCtrl;
 	private DialogBoxController confirmDeleteCtrl;
+	private SinglePageController viewDocCtrl;
 	private HTMLEditorController newDocumentEditorCtrl, editDocumentEditorCtrl;
 	
 	private final int maxDocs;
@@ -90,20 +95,26 @@ class SubmitDocumentsController extends FormBasicController {
 	private final File documentsDir;
 	private final VFSContainer documentsContainer;
 	private final ModuleConfiguration config;
+	private final SubscriptionContext subscriptionContext;
 	
 	@Autowired
 	private UserManager userManager;
+	@Autowired
+	private GTAManager gtaManager;
+	@Autowired
+	private NotificationsManager notificationsManager;
 	
 	public SubmitDocumentsController(UserRequest ureq, WindowControl wControl, Task assignedTask,
-			File documentsDir, VFSContainer documentsContainer, int maxDocs, ModuleConfiguration config,
-			String docI18nKey) {
+			File documentsDir, VFSContainer documentsContainer, int maxDocs, GTACourseNode cNode,
+			CourseEnvironment courseEnv, String docI18nKey) {
 		super(ureq, wControl, "documents");
 		this.assignedTask = assignedTask;
 		this.documentsDir = documentsDir;
 		this.documentsContainer = documentsContainer;
 		this.maxDocs = maxDocs;
 		this.docI18nKey = docI18nKey;
-		this.config = config;
+		this.config = cNode.getModuleConfiguration();
+		subscriptionContext = gtaManager.getSubscriptionContext(courseEnv, cNode);
 		initForm(ureq);
 		updateModel();
 	}
@@ -161,8 +172,13 @@ class SubmitDocumentsController extends FormBasicController {
 				}
 			}
 			
-			
-			DownloadLink download = uifactory.addDownloadLink("view-" + CodeHelper.getRAMUniqueID(), filename, null, document, tableEl);
+			FormItem download;
+			if(filename.endsWith(".html")) {
+				download = uifactory.addFormLink("view-" + CodeHelper.getRAMUniqueID(), "view", filename, null, flc, Link.LINK | Link.NONTRANSLATED);
+				download.setUserObject(filename);
+			} else {
+				download = uifactory.addDownloadLink("view-" + CodeHelper.getRAMUniqueID(), filename, null, document, tableEl);
+			}
 			docList.add(new SubmittedSolution(document, uploadedBy, download));
 		}
 		model.setObjects(docList);
@@ -203,6 +219,7 @@ class SubmitDocumentsController extends FormBasicController {
 				String filename = document.getFile().getName();
 				doDelete(document);
 				fireEvent(ureq, new SubmitEvent(SubmitEvent.DELETE, filename));
+				notificationsManager.markPublisherNews(subscriptionContext, null, false);
 			}
 			cleanUp();
 		} else if(uploadCtrl == source) {
@@ -210,6 +227,7 @@ class SubmitDocumentsController extends FormBasicController {
 				String filename = uploadCtrl.getUploadedFilename();
 				doUpload(ureq, uploadCtrl.getUploadedFile(), filename);
 				fireEvent(ureq, new SubmitEvent(SubmitEvent.UPLOAD, filename));
+				notificationsManager.markPublisherNews(subscriptionContext, null, false);
 			}
 			cmc.deactivate();
 			cleanUp();
@@ -218,6 +236,7 @@ class SubmitDocumentsController extends FormBasicController {
 				String filename = replaceCtrl.getUploadedFilename();
 				doReplace(ureq, replaceCtrl.getSolution(), replaceCtrl.getUploadedFile(), filename);
 				fireEvent(ureq, new SubmitEvent(SubmitEvent.UPDATE, filename));
+				notificationsManager.markPublisherNews(subscriptionContext, null, false);
 			}
 			cmc.deactivate();
 			cleanUp();
@@ -233,14 +252,16 @@ class SubmitDocumentsController extends FormBasicController {
 		} else if(newDocumentEditorCtrl == source) {
 			if(event == Event.DONE_EVENT) {
 				updateModel();
-				fireEvent(ureq, new SubmitEvent(SubmitEvent.CREATE, newDocumentEditorCtrl.getFilename()));	
+				fireEvent(ureq, new SubmitEvent(SubmitEvent.CREATE, newDocumentEditorCtrl.getFilename()));
+				notificationsManager.markPublisherNews(subscriptionContext, null, false);
 			}
 			cmc.deactivate();
 			cleanUp();
 		} else if(editDocumentEditorCtrl == source) {
 			if(event == Event.DONE_EVENT) {
 				updateModel();
-				fireEvent(ureq, new SubmitEvent(SubmitEvent.UPDATE, editDocumentEditorCtrl.getFilename()));	
+				fireEvent(ureq, new SubmitEvent(SubmitEvent.UPDATE, editDocumentEditorCtrl.getFilename()));
+				notificationsManager.markPublisherNews(subscriptionContext, null, false);
 			}
 			cmc.deactivate();
 			cleanUp();
@@ -253,11 +274,13 @@ class SubmitDocumentsController extends FormBasicController {
 	private void cleanUp() {
 		removeAsListenerAndDispose(newDocumentEditorCtrl);
 		removeAsListenerAndDispose(confirmDeleteCtrl);
+		removeAsListenerAndDispose(viewDocCtrl);
 		removeAsListenerAndDispose(uploadCtrl);
 		removeAsListenerAndDispose(newDocCtrl);
 		removeAsListenerAndDispose(cmc);
 		newDocumentEditorCtrl = null;
 		confirmDeleteCtrl = null;
+		viewDocCtrl = null;
 		uploadCtrl = null;
 		newDocCtrl = null;
 		cmc = null;
@@ -284,8 +307,24 @@ class SubmitDocumentsController extends FormBasicController {
 					doEdit(ureq, row);
 				}
 			}
+		} else if(source instanceof FormLink) {
+			FormLink link = (FormLink)source;
+			if("view".equals(link.getCmd())) {
+				doView(ureq, (String)link.getUserObject());
+			}
 		}
 		super.formInnerEvent(ureq, source, event);
+	}
+	
+	private void doView(UserRequest ureq, String filename) {
+		if(viewDocCtrl != null) return;
+		
+		viewDocCtrl = new SinglePageController(ureq, getWindowControl(), documentsContainer, filename, false);
+		listenTo(viewDocCtrl);
+
+		cmc = new CloseableModalController(getWindowControl(), translate("close"), viewDocCtrl.getInitialComponent(), true, filename);
+		listenTo(cmc);
+		cmc.activate();
 	}
 	
 	private void doConfirmDelete(UserRequest ureq, SubmittedSolution solution) {
@@ -401,6 +440,8 @@ class SubmitDocumentsController extends FormBasicController {
 	
 			newDocumentEditorCtrl = WysiwygFactory.createWysiwygController(ureq, getWindowControl(),
 					documentsContainer, documentName, "media", true, true);
+			newDocumentEditorCtrl.getRichTextConfiguration().disableMedia();
+			newDocumentEditorCtrl.getRichTextConfiguration().setAllowCustomMediaFactory(false);
 			newDocumentEditorCtrl.setNewFile(true);
 			listenTo(newDocumentEditorCtrl);
 			
@@ -415,6 +456,8 @@ class SubmitDocumentsController extends FormBasicController {
 
 		editDocumentEditorCtrl = WysiwygFactory.createWysiwygController(ureq, getWindowControl(),
 				documentsContainer, documentName, "media", true, true);
+		editDocumentEditorCtrl.getRichTextConfiguration().disableMedia();
+		editDocumentEditorCtrl.getRichTextConfiguration().setAllowCustomMediaFactory(false);
 		listenTo(editDocumentEditorCtrl);
 		
 		cmc = new CloseableModalController(getWindowControl(), "close", editDocumentEditorCtrl.getInitialComponent());
@@ -443,9 +486,9 @@ class SubmitDocumentsController extends FormBasicController {
 		
 		private final File file;
 		private final String uploadedBy;
-		private final DownloadLink downloadLink;
+		private final FormItem downloadLink;
 		
-		public SubmittedSolution(File file, String uploadedBy, DownloadLink downloadLink) {
+		public SubmittedSolution(File file, String uploadedBy, FormItem downloadLink) {
 			this.file = file;
 			this.uploadedBy = uploadedBy;
 			this.downloadLink = downloadLink;
@@ -459,7 +502,7 @@ class SubmitDocumentsController extends FormBasicController {
 			return uploadedBy;
 		}
 
-		public DownloadLink getDownloadLink() {
+		public FormItem getDownloadLink() {
 			return downloadLink;
 		}
 	}

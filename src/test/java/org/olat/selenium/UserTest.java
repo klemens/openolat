@@ -194,6 +194,7 @@ public class UserTest {
 	@RunAsClient
 	public void resumeDisabled(@InitialPage LoginPage loginPage)
 	throws IOException, URISyntaxException {
+		
 		UserVO user = new UserRestClient(deploymentUrl).createRandomUser();
 		loginPage
 			.loginAs(user.getLogin(), user.getPassword())
@@ -234,6 +235,7 @@ public class UserTest {
 	@RunAsClient
 	public void userSwitchLanguageSwitchToEnglish(@InitialPage LoginPage loginPage)
 	throws IOException, URISyntaxException {
+		
 		UserVO user = new UserRestClient(deploymentUrl).createRandomUser();
 		loginPage
 			.loginAs(user.getLogin(), user.getPassword())
@@ -292,6 +294,7 @@ public class UserTest {
 	@RunAsClient
 	public void userChangeItsPassword(@InitialPage LoginPage loginPage)
 	throws IOException, URISyntaxException {
+		
 		UserVO user = new UserRestClient(deploymentUrl).createRandomUser();
 		loginPage
 			.loginAs(user.getLogin(), user.getPassword())
@@ -324,6 +327,7 @@ public class UserTest {
 	@RunAsClient
 	public void userResetItsPreferences(@InitialPage LoginPage loginPage)
 	throws IOException, URISyntaxException {
+		
 		UserVO user = new UserRestClient(deploymentUrl).createRandomUser();
 		loginPage
 			.loginAs(user.getLogin(), user.getPassword())
@@ -352,6 +356,7 @@ public class UserTest {
 	@RunAsClient
 	public void portletDeactivateActivate(@InitialPage LoginPage loginPage)
 	throws IOException, URISyntaxException {
+		
 		UserVO user = new UserRestClient(deploymentUrl).createRandomUser();
 		loginPage
 			.loginAs(user.getLogin(), user.getPassword());
@@ -386,6 +391,7 @@ public class UserTest {
 	@RunAsClient
 	public void movePortletToTheTop(@InitialPage LoginPage loginPage)
 	throws IOException, URISyntaxException {
+		
 		UserVO user = new UserRestClient(deploymentUrl).createRandomUser();
 		loginPage
 			.loginAs(user.getLogin(), user.getPassword());
@@ -426,9 +432,12 @@ public class UserTest {
 	@RunAsClient
 	public void browserBack(@InitialPage LoginPage loginPage)
 	throws IOException, URISyntaxException {
+		
 		Assume.assumeTrue(browser instanceof FirefoxDriver);
 		
-		loginPage.loginAs("administrator", "openolat");
+		loginPage
+			.loginAs("administrator", "openolat")
+			.resume();
 		
 		navBar
 			.openPortal()
@@ -459,6 +468,7 @@ public class UserTest {
 	public void createUser(@InitialPage LoginPage loginPage,
 			@Drone @User WebDriver userBrowser)
 	throws IOException, URISyntaxException {
+		
 		//login
 		loginPage
 			.assertOnLoginPage()
@@ -488,6 +498,68 @@ public class UserTest {
 			.loginAs(username, "miku01")
 			.resume()
 			.assertLoggedIn(userVo);
+	}
+	
+	/**
+	 * Test if deleted user cannot login anymore. An administrator
+	 * create a user. This user log in and log out. The administrator
+	 * use the direct delete workflow in user management to delete
+	 * it.<br>
+	 * The user try to log in again, unsuccessfully. The
+	 * administrator doesn't find it anymore in the user
+	 * search of the user management tab.
+	 * 
+	 */
+	@Test
+	@RunAsClient
+	public void deleteUser(@InitialPage LoginPage loginPage,
+			@Drone @User WebDriver userBrowser) {
+		
+		//login
+		loginPage
+			.assertOnLoginPage()
+			.loginAs("administrator", "openolat")
+			.resume();
+		
+		String uuid = UUID.randomUUID().toString();
+		String username = "miku-" + uuid;
+		String lastName = "Hatsune" + uuid;
+		UserVO userVo = UserAdminPage.createUserVO(username, "Miku", lastName, "miku-" + uuid + "@openolat.com", "miku01");
+		UserAdminPage userAdminPage = navBar
+			.openUserManagement()
+			.openCreateUser()
+			.fillUserForm(userVo)
+			.assertOnUserEditView(username);
+		
+		//user log in
+		LoginPage userLoginPage = LoginPage.getLoginPage(userBrowser, deploymentUrl);
+		//tools
+		userLoginPage
+			.loginAs(username, "miku01")
+			.resume()
+			.assertLoggedIn(userVo);
+		//log out
+		new UserToolsPage(userBrowser).logout();
+		
+		//admin delete
+		userAdminPage
+			.openDirectDeleteUser()
+			.searchUserToDelete(username)
+			.selectAndDeleteUser(lastName);
+		
+		//user try the login
+		userLoginPage = LoginPage.getLoginPage(userBrowser, deploymentUrl);
+		userLoginPage
+			.loginDenied(username, "miku01");
+		//assert on error message
+		By errorMessageby = By.cssSelector("div.modal-body.alert.alert-danger");
+		OOGraphene.waitElement(errorMessageby, 2, userBrowser);
+
+		// administrator search the deleted user
+		userAdminPage
+			.openSearchUser()
+			.searchByUsername(username)
+			.assertNotInUserList(username);
 	}
 	
 	/**
@@ -583,7 +655,8 @@ public class UserTest {
 			.next() // -> preview
 			.assertGreen(1)
 			.assertWarn(1)
-			.changePassword()
+			.updatePasswords()
+			.updateUsers()
 			.next() // -> groups
 			.next() // -> emails
 			.finish();

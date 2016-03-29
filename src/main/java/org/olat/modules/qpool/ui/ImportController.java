@@ -60,7 +60,7 @@ public class ImportController extends FormBasicController {
 
 	@Override
 	protected void initForm(FormItemContainer formLayout, Controller listener, UserRequest ureq) {
-		setFormContextHelp("org.olat.modules.qpool.ui", "import-file.html", "help.hover.importfile");
+		setFormContextHelp("Data Management#qb_import");
 
 		if(source.askEditable()) {
 			String[] values = new String[]{
@@ -70,7 +70,7 @@ public class ImportController extends FormBasicController {
 			editableEl = uifactory.addRadiosVertical("share.editable", "share.editable", formLayout, keys, values);
 			editableEl.select("no", true);
 		}
-		fileEl = uifactory.addFileElement("item", "import.item", formLayout);
+		fileEl = uifactory.addFileElement(getWindowControl(), "item", "import.item", formLayout);
 		
 		FormLayoutContainer buttonsCont = FormLayoutContainer.createButtonLayout("buttons", getTranslator());
 		buttonsCont.setRootForm(mainForm);
