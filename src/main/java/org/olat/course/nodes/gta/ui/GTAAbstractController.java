@@ -34,8 +34,12 @@ import org.olat.core.gui.control.Event;
 import org.olat.core.gui.control.WindowControl;
 import org.olat.core.gui.control.controller.BasicController;
 import org.olat.core.id.Identity;
+import org.olat.core.id.OLATResourceable;
 import org.olat.core.util.Formatter;
 import org.olat.core.util.StringHelper;
+import org.olat.core.util.coordinate.CoordinatorManager;
+import org.olat.core.util.event.GenericEventListener;
+import org.olat.core.util.resource.OresHelper;
 import org.olat.course.CourseFactory;
 import org.olat.course.ICourse;
 import org.olat.course.assessment.AssessmentHelper;
@@ -48,6 +52,7 @@ import org.olat.course.nodes.gta.GTAType;
 import org.olat.course.nodes.gta.Task;
 import org.olat.course.nodes.gta.TaskList;
 import org.olat.course.nodes.gta.TaskProcess;
+import org.olat.course.nodes.gta.ui.events.TaskMultiUserEvent;
 import org.olat.course.run.environment.CourseEnvironment;
 import org.olat.course.run.userview.UserCourseEnvironment;
 import org.olat.group.BusinessGroup;
@@ -64,7 +69,7 @@ import org.springframework.beans.factory.annotation.Autowired;
  * @author srosse, stephane.rosse@frentix.com, http://www.frentix.com
  *
  */
-public abstract class GTAAbstractController extends BasicController {
+public abstract class GTAAbstractController extends BasicController implements GenericEventListener {
 	
 	protected VelocityContainer mainVC;
 
@@ -86,6 +91,8 @@ public abstract class GTAAbstractController extends BasicController {
 	protected final boolean withGrading;
 	
 	protected final boolean businessGroupTask;
+	
+	protected final OLATResourceable taskListEventResource;
 	
 	protected GTAStepPreferences stepPreferences;
 	
@@ -146,15 +153,34 @@ public abstract class GTAAbstractController extends BasicController {
 			stepPreferences = new GTAStepPreferences();
 		}
 		
+		taskListEventResource = OresHelper.createOLATResourceableInstance("GTaskList", taskList.getKey());
+		CoordinatorManager.getInstance().getCoordinator()
+			.getEventBus().registerFor(this, getIdentity(), taskListEventResource);
+		
 		initContainer(ureq);
 		process(ureq);
 	}
 
 	@Override
 	protected void doDispose() {
-		//
+		CoordinatorManager.getInstance().getCoordinator()
+			.getEventBus().deregisterFor(this, taskListEventResource);
+	}
+
+	@Override
+	public void event(Event event) {
+		if(event instanceof TaskMultiUserEvent) {
+			TaskMultiUserEvent ste = (TaskMultiUserEvent)event;
+			if(!getIdentity().getKey().equals(ste.getEmitterKey())
+					&& ((assessedGroup != null && assessedGroup.getKey().equals(ste.getForGroupKey()))
+							|| (assessedIdentity != null && assessedIdentity.getKey().equals(ste.getForIdentityKey())))) {
+				processEvent(ste);
+			}
+		}
 	}
 	
+	protected abstract void processEvent(TaskMultiUserEvent event);
+
 	protected abstract void initContainer(UserRequest ureq);
 	
 	protected final void process(UserRequest ureq) {
@@ -344,7 +370,7 @@ public abstract class GTAAbstractController extends BasicController {
 				}
 				case courseLaunch: {
 					referenceDate = userCourseInformationsManager
-							.getInitialLaunchDate(courseEnv.getCourseResourceableId(), assessedIdentity);
+							.getInitialLaunchDate(courseEnv.getCourseGroupManager().getCourseResource(), assessedIdentity);
 					break;
 				}
 				case enrollment: {
@@ -489,12 +515,17 @@ public abstract class GTAAbstractController extends BasicController {
 				gtaNode.incrementUserAttempts(uce);
 			}
 		} else {
-			if(userCourseEnv == null) {
-				ICourse course = CourseFactory.loadCourse(courseEnv.getCourseResourceableId());
-				userCourseEnv = AssessmentHelper.createAndInitUserCourseEnvironment(assessedIdentity, course);
-			}
-			gtaNode.incrementUserAttempts(userCourseEnv);
+			UserCourseEnvironment assessedUserCourseEnv = getAssessedUserCourseEnvironment();
+			gtaNode.incrementUserAttempts(assessedUserCourseEnv);
 		}
+	}
+	
+	protected UserCourseEnvironment getAssessedUserCourseEnvironment() {
+		if(userCourseEnv == null) {
+			ICourse course = CourseFactory.loadCourse(courseEnv.getCourseResourceableId());
+			userCourseEnv = AssessmentHelper.createAndInitUserCourseEnvironment(assessedIdentity, course);
+		}
+		return userCourseEnv;
 	}
 	
 	@Override

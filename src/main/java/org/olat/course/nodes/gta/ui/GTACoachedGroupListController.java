@@ -40,6 +40,7 @@ import org.olat.course.nodes.GTACourseNode;
 import org.olat.course.nodes.gta.GTAManager;
 import org.olat.course.nodes.gta.TaskLight;
 import org.olat.course.nodes.gta.ui.CoachGroupsTableModel.CGCols;
+import org.olat.course.nodes.gta.ui.events.SelectBusinessGroupEvent;
 import org.olat.course.run.environment.CourseEnvironment;
 import org.olat.group.BusinessGroup;
 import org.olat.repository.RepositoryEntry;
@@ -87,7 +88,9 @@ public class GTACoachedGroupListController extends GTACoachedListController {
 		columnsModel.addFlexiColumnModel(new StaticFlexiColumnModel("select", translate("select"), "select"));
 		tableModel = new CoachGroupsTableModel(columnsModel);
 
-		tableEl = uifactory.addTableElement(getWindowControl(), "entries", tableModel, getTranslator(), formLayout);
+		tableEl = uifactory.addTableElement(getWindowControl(), "entries", tableModel, 10, false, getTranslator(), formLayout);
+		tableEl.setShowAllRowsEnabled(true);
+		tableEl.setAndLoadPersistedPreferences(ureq, "gta-coached-groups");
 	}
 	
 	protected void updateModel() {

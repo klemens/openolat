@@ -58,15 +58,14 @@ public class CatalogAdminPage {
 	public CatalogAdminPage addCatalogNode(String title, String description) {
 		//click in toolbox
 		By addNodeBy = By.className("o_sel_catalog_add_category");
-		WebElement addNodeLink = browser.findElement(addNodeBy);
-		addNodeLink.click();
-		OOGraphene.waitingALittleBit();
+		browser.findElement(addNodeBy).click();
+		OOGraphene.waitBusy(browser);
+		OOGraphene.waitModalDialog(browser);
 		
 		//fill the form
 		By titleBy = By.cssSelector(".o_sel_catalog_add_category_popup input[type='text']");
 		OOGraphene.waitElement(titleBy, browser);
-		WebElement titleEl = browser.findElement(titleBy);
-		titleEl.sendKeys(title);
+		browser.findElement(titleBy).sendKeys(title);
 		
 		OOGraphene.tinymce(description, browser);
 		
@@ -86,16 +85,10 @@ public class CatalogAdminPage {
 	 * @return
 	 */
 	public CatalogAdminPage selectNode(String title) {
-		By nodeBy = By.cssSelector("div.o_meta > h4.o_title > a");
-		List<WebElement> nodes = browser.findElements(nodeBy);
-		WebElement selectedNode = null;
-		for(WebElement node:nodes) {
-			if(node.getText().contains(title)) {
-				selectedNode = node;
-			}
-		}
-		Assert.assertNotNull(selectedNode);
-		selectedNode.click();
+		By titleBy = By.xpath("//div[contains(@class,'o_meta')]//h4[contains(@class,'o_title')]/a/span[text()[contains(.,'" + title + "')]]");
+		List<WebElement> nodeLinks = browser.findElements(titleBy);
+		Assert.assertEquals(1, nodeLinks.size());
+		nodeLinks.get(0).click();
 		OOGraphene.waitBusy(browser);
 		return this;
 	}

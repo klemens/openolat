@@ -22,6 +22,7 @@ package org.olat.core.commons.services.help.spi;
 import java.util.Locale;
 
 import org.junit.Assert;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.olat.core.helpers.SettingsTest;
 import org.olat.core.logging.OLog;
@@ -36,28 +37,6 @@ import org.olat.core.logging.Tracing;
 public class ConfluenceLinkSPITest {
 	
 	private static final OLog log = Tracing.createLoggerFor(ConfluenceLinkSPITest.class);
-	
-	/*
-	@Test
-	public void getURL_confluence() {
-		ConfluenceLinkSPI linkSPI = new ConfluenceLinkSPI();
-
-		String url1 = ConfluenceHelper.generateSpace("10.1.1", Locale.GERMAN);
-		Assert.assertNotNull(url1);
-		Assert.assertTrue(url1.startsWith("/OO101DE/"));
-		
-		String url2 = ConfluenceHelper.generateSpace("10.1", Locale.ENGLISH);
-		Assert.assertNotNull(url2);
-		Assert.assertTrue(url2.startsWith("/OO101EN/"));
-		
-		String url3 = ConfluenceHelper.generateSpace("10.1a", Locale.ENGLISH);
-		Assert.assertNotNull(url3);
-		Assert.assertTrue(url3.startsWith("/OO101EN/"));
-		
-		String url4 = ConfluenceHelper.generateSpace("11a", Locale.ENGLISH);
-		Assert.assertNotNull(url4);
-		Assert.assertTrue(url4.startsWith("/OO110EN/"));
-	}*/
 	
 	@Test
 	public void getUrl() {
@@ -77,7 +56,7 @@ public class ConfluenceLinkSPITest {
 		Assert.assertTrue(url2.endsWith("Data%20Management#DataManagement-qb_import"));
 	}
 	
-	@Test
+	@Test @Ignore
 	public void getTranslatedUrl() {
 		// init settings to set version, required by ConfluenceLinkSPI
 		SettingsTest.createHttpDefaultPortSettings();

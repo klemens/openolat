@@ -52,6 +52,7 @@ import org.olat.course.nodes.GTACourseNode;
 import org.olat.course.nodes.gta.GTAManager;
 import org.olat.course.nodes.gta.TaskLight;
 import org.olat.course.nodes.gta.ui.CoachParticipantsTableModel.CGCols;
+import org.olat.course.nodes.gta.ui.events.SelectIdentityEvent;
 import org.olat.course.run.userview.UserCourseEnvironment;
 import org.olat.course.run.userview.UserCourseEnvironmentImpl;
 import org.olat.group.BusinessGroup;
@@ -172,7 +173,9 @@ public class GTACoachedParticipantListController extends GTACoachedListControlle
 		columnsModel.addFlexiColumnModel(new StaticFlexiColumnModel("select", translate("select"), "select"));
 		tableModel = new CoachParticipantsTableModel(userPropertyHandlers, getLocale(), columnsModel);
 
-		tableEl = uifactory.addTableElement(getWindowControl(), "entries", tableModel, getTranslator(), formLayout);
+		tableEl = uifactory.addTableElement(getWindowControl(), "entries", tableModel, 10, false, getTranslator(), formLayout);
+		tableEl.setShowAllRowsEnabled(true);
+		tableEl.setAndLoadPersistedPreferences(ureq, "gta-coached-participants");
 	}
 	
 	protected void updateModel() {

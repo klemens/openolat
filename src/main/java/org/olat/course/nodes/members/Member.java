@@ -19,7 +19,14 @@
  */
 package org.olat.course.nodes.members;
 
+import java.util.List;
+import java.util.Locale;
+
 import org.olat.core.gui.components.form.flexible.elements.FormLink;
+import org.olat.core.id.Identity;
+import org.olat.core.id.UserConstants;
+import org.olat.user.UserPropertiesRow;
+import org.olat.user.propertyhandlers.UserPropertyHandler;
 
 /**
  * 
@@ -27,11 +34,12 @@ import org.olat.core.gui.components.form.flexible.elements.FormLink;
  * @author srosse, stephane.rosse@frentix.com, http://www.frentix.com
  *
  */
-public class Member {
+public class Member extends UserPropertiesRow {
 	
 	private final String firstName;
 	private final String lastName;
 	private final String fullName;
+	private final String gender;
 	private final Long key;
 	private boolean portrait;
 	private String portraitCssClass;
@@ -41,11 +49,18 @@ public class Member {
 	private FormLink idLink;
 	private FormLink removeLink;
 	
-	public Member(Long key, String firstName, String lastName, String fullName, boolean portrait, String portraitCssClass) {
-		this.firstName = firstName;
-		this.lastName = lastName;
+	public Member(Identity identity, String fullName,  List<UserPropertyHandler> userPropertyHandlers, Locale locale, boolean portrait, String portraitCssClass) {
+		super(identity, userPropertyHandlers, locale);
+		this.firstName = identity.getUser().getProperty(UserConstants.FIRSTNAME, locale);
+		this.lastName = identity.getUser().getProperty(UserConstants.LASTNAME, locale);
+		String genderEn = identity.getUser().getProperty(UserConstants.GENDER, Locale.ENGLISH);
+		if(genderEn != null) {
+			gender = genderEn.toLowerCase();
+		} else {
+			gender = "-";
+		}
 		this.fullName = fullName;
-		this.key = key;
+		this.key = identity.getKey();
 		this.portrait = portrait;
 		this.portraitCssClass = portraitCssClass;
 	}
@@ -56,6 +71,10 @@ public class Member {
 
 	public String getLastName() {
 		return lastName;
+	}
+	
+	public String getGender() {
+		return gender;
 	}
 	
 	public String getPortraitCssClass() {

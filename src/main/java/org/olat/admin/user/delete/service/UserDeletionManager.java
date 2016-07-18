@@ -297,8 +297,6 @@ public class UserDeletionManager extends BasicManager {
 			logInfo("UserDataDeletable-Loop element=" + element);
 			element.deleteUserData(identity, newName);
 		}
-		logInfo("deleteUserProperties user=" + identity.getUser());
-		UserManager.getInstance().deleteUserProperties(identity.getUser());
 		// Delete all authentications for certain identity
 		List<Authentication> authentications = securityManager.getAuthentications(identity);
 		for (Iterator<Authentication> iter = authentications.iterator(); iter.hasNext();) {
@@ -344,8 +342,12 @@ public class UserDeletionManager extends BasicManager {
 			}
 		}
 		
+		logInfo("deleteUserProperties user=" + identity.getUser());
+		UserManager.getInstance().deleteUserProperties(identity.getUser(), keepUserEmailAfterDeletion);
+		DBFactory.getInstance().commit();
+		identity = securityManager.loadIdentityByKey(identity.getKey());
 		//keep email only -> change login-name
-		if (!keepUserLoginAfterDeletion){
+		if (!keepUserEmailAfterDeletion) {
 			identity = securityManager.saveIdentityName(identity, newName, null);
 		}
 		
@@ -381,15 +383,14 @@ public class UserDeletionManager extends BasicManager {
 	 * Re-activate an identity, lastLogin = now, reset deleteemaildate = null.
 	 * @param identity
 	 */
-	public Identity setIdentityAsActiv(final Identity anIdentity) {
-		final Identity reloadedIdentity = securityManager.setIdentityLastLogin(anIdentity);
-
-		LifeCycleManager lifeCycleManagerForIdenitiy = LifeCycleManager.createInstanceFor(reloadedIdentity);
+	public Identity setIdentityAsActiv(final Identity identity) {
+		securityManager.setIdentityLastLogin(identity);
+		LifeCycleManager lifeCycleManagerForIdenitiy = LifeCycleManager.createInstanceFor(identity);
 		if (lifeCycleManagerForIdenitiy.hasLifeCycleEntry(SEND_DELETE_EMAIL_ACTION)) {
-			logAudit("User-Deletion: Remove from delete-list identity=" + reloadedIdentity);
+			logAudit("User-Deletion: Remove from delete-list identity=" + identity);
 			lifeCycleManagerForIdenitiy.deleteTimestampFor(SEND_DELETE_EMAIL_ACTION);
 		}
-		return reloadedIdentity;
+		return identity;
 	}
 
 	/**

@@ -382,6 +382,8 @@ $o-search-details-color			: $text-muted !default;
 $o-search-details-font-size		: $font-size-small !default;
 $o-search-details-bg			: #fff !default;
 $o-search-excerpt-color			: $gray !default;
+$o-search-highlight-color		: $state-warning-bg !default;
+$o-search-highlight-font-weight	: bold !default;
 
 /* Message boxes */
 $o-box-margin					: 20px !default;
@@ -430,6 +432,14 @@ $o-step-done-color			: lighten($brand-primary,10%) !default;
 $o-step-done-marker-color	: $brand-success !default;
 $o-step-meta-color			: $text-muted !default;
 $o-step-meta-size			: $font-size-small !default;
+
+/* Placeholder panels */
+$o-panel-placeholder-border-width	: 2px !default;
+$o-panel-placeholder-border-radius	: 10px !default;
+$o-panel-placeholder-color			: $brand-primary !default;
+$o-panel-placeholder-font-weight	: bold !default;
+$o-panel-placeholder-border-color	: lighten($o-panel-placeholder-color, 20%) !default;
+$o-panel-placeholder-padding		: 10px !default;
 
 /* other configurations */
 $o-portrait-radius				: 50% !default;

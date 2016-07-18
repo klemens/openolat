@@ -31,9 +31,10 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 
 import org.olat.admin.quota.QuotaConstants;
 import org.olat.admin.quota.QuotaImpl;
@@ -256,6 +257,7 @@ public class QTIEditorMainController extends MainLayoutBasicController implement
 	private Set<String> deletableMediaFiles;
 	private StepsMainRunController importTableWizard;
 	private InsertNodeController moveCtrl, copyCtrl, insertCtrl;
+	private CountDownLatch exportLatch;
 
 	@Autowired
 	private UserManager userManager;
@@ -1024,7 +1026,8 @@ public class QTIEditorMainController extends MainLayoutBasicController implement
 	private void doExportDocx(UserRequest ureq) {
 		AssessmentNode rootNode = (AssessmentNode)menuTreeModel.getRootNode();
 		VFSContainer editorContainer = qtiPackage.getBaseDir();
-		MediaResource mr = new QTIWordExport(rootNode, editorContainer, getLocale(), "UTF-8");
+		exportLatch = new CountDownLatch(1);
+		MediaResource mr = new QTIWordExport(rootNode, editorContainer, getLocale(), "UTF-8", exportLatch);
 		ureq.getDispatchResult().setResultingMediaResource(mr);
 	}
 	
@@ -1179,6 +1182,13 @@ public class QTIEditorMainController extends MainLayoutBasicController implement
 	@Override
 	public boolean requestForClose(UserRequest ureq) {		
 		// enter save/discard dialog if not already in it
+		if(exportLatch != null) {
+			try {
+				exportLatch.await(30, TimeUnit.SECONDS);
+			} catch (InterruptedException e) {
+				logError("", e);
+			}
+		}
 		if (cmcExit == null) {
 			exitVC = createVelocityContainer("exitDialog");
 			exitPanel = new Panel("exitPanel");
@@ -1227,6 +1237,12 @@ public class QTIEditorMainController extends MainLayoutBasicController implement
 					continue;
 				}
 				
+				CourseNode cn = course.getEditorTreeModel().getCourseNode(element.getUserdata());
+				if(cn == null) {
+					logError("Cannot find course element " + element.getUserdata() + " in course " + course, null);
+					continue;
+				}
+
 				String courseTitle = course.getCourseTitle();
 				StringBuilder stakeHolders = new StringBuilder();
 				
@@ -1234,22 +1250,20 @@ public class QTIEditorMainController extends MainLayoutBasicController implement
 				RepositoryEntry entry = repositoryManager.lookupRepositoryEntry(course, false);
 				if(entry != null) {//OO-1300
 					List<Identity> stakeHoldersIds = repositoryService.getMembers(entry, GroupRoles.owner.name());
-	
-					// add stakeholders as group
-					cl = new ContactList(courseTitle);
-					cl.addAllIdentites(stakeHoldersIds);
-					changeEmail.addEmailTo(cl);
-	
-					User user = stakeHoldersIds.get(0).getUser();
-					Locale loc = ureq.getLocale();
-					stakeHolders.append(user.getProperty(UserConstants.FIRSTNAME, loc)).append(" ").append(user.getProperty(UserConstants.LASTNAME, loc));
-					for (int i = 1; i < stakeHoldersIds.size(); i++) {
-						user = stakeHoldersIds.get(i).getUser();
-						stakeHolders.append(", ").append(user.getProperty(UserConstants.FIRSTNAME, loc)).append(" ").append(user.getProperty(UserConstants.LASTNAME, loc));
+					if(stakeHoldersIds != null && stakeHoldersIds.size() > 0) {
+						// add stakeholders as group
+						cl = new ContactList(courseTitle);
+						cl.addAllIdentites(stakeHoldersIds);
+						changeEmail.addEmailTo(cl);
+		
+						for (Identity stakeHoldersId:stakeHoldersIds) {
+							if(stakeHolders.length() > 0) stakeHolders.append(", ");
+							User user = stakeHoldersId.getUser();
+							stakeHolders.append(user.getProperty(UserConstants.FIRSTNAME, getLocale())).append(" ").append(user.getProperty(UserConstants.LASTNAME, getLocale()));
+						}
 					}
 				}
 
-				CourseNode cn = course.getEditorTreeModel().getCourseNode(element.getUserdata());
 				String courseNodeTitle = cn.getShortTitle();
 				result.append(translate("qti.restricted.course", StringHelper.escapeHtml(courseTitle)));
 				result.append(translate("qti.restricted.node", StringHelper.escapeHtml(courseNodeTitle)));

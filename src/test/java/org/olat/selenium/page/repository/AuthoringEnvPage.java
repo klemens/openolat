@@ -21,7 +21,6 @@ package org.olat.selenium.page.repository;
 
 import java.io.File;
 
-import org.jboss.arquillian.graphene.Graphene;
 import org.junit.Assert;
 import org.olat.selenium.page.course.CourseWizardPage;
 import org.olat.selenium.page.graphene.OOGraphene;
@@ -50,6 +49,19 @@ public class AuthoringEnvPage {
 	
 	public AuthoringEnvPage(WebDriver browser) {
 		this.browser = browser;
+	}
+	
+	/**
+	 * Check that the segment for the "Search" in author environment is selected.
+	 * 
+	 * @return
+	 */
+	public AuthoringEnvPage assertOnGenericSearch() {
+		By genericSearchBy = By.xpath("//div[contains(@class,'o_segments')]//a[contains(@class,'btn-primary')][contains(@onclick,'search.generic')]");
+		OOGraphene.waitElement(genericSearchBy, 5, browser);
+		WebElement genericSearchSegment = browser.findElement(genericSearchBy);
+		Assert.assertTrue(genericSearchSegment.isDisplayed());
+		return this;
 	}
 	
 	public RepositoryEditDescriptionPage createCP(String title) {
@@ -114,9 +126,8 @@ public class AuthoringEnvPage {
 		submit.click();
 		OOGraphene.waitBusy(browser);
 		OOGraphene.waitElement(RepositoryEditDescriptionPage.generaltabBy, browser);
-		
-		WebElement main = browser.findElement(By.id("o_main_wrapper"));
-		return Graphene.createPageFragment(RepositoryEditDescriptionPage.class, main);
+		return new RepositoryEditDescriptionPage(browser)
+				.assertOnGeneralTab();
 	}
 	
 	/**

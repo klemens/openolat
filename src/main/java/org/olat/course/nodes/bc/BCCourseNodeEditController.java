@@ -50,6 +50,7 @@ import org.olat.course.ICourse;
 import org.olat.course.assessment.AssessmentHelper;
 import org.olat.course.condition.Condition;
 import org.olat.course.condition.ConditionEditController;
+import org.olat.course.config.CourseConfig;
 import org.olat.course.editor.NodeEditController;
 import org.olat.course.nodes.BCCourseNode;
 import org.olat.course.run.userview.UserCourseEnvironment;
@@ -101,12 +102,14 @@ public class BCCourseNodeEditController extends ActivateableTabbableDefaultContr
 
 		// Uploader precondition
 		Condition uploadCondition = bcNode.getPreConditionUploaders();
-		uploaderCondContr = new ConditionEditController(ureq, getWindowControl(),
+		uploaderCondContr = new ConditionEditController(ureq, getWindowControl(), euce,
 				uploadCondition, AssessmentHelper
-						.getAssessableNodes(course.getEditorTreeModel(), bcNode), euce);		
+						.getAssessableNodes(course.getEditorTreeModel(), bcNode));		
 		listenTo(uploaderCondContr);
 
-		if(bcNode.getModuleConfiguration().getStringValue(CONFIG_SUBPATH, "").startsWith("/_sharedfolder")){
+		CourseConfig courseConfig = course.getCourseConfig();
+		if(bcNode.getModuleConfiguration().getStringValue(CONFIG_SUBPATH, "").startsWith("/_sharedfolder")
+				&& courseConfig.isSharedFolderReadOnlyMount()) {
 			accessabiliryContent.contextPut("uploadable", false);
 		} else {
 			accessabiliryContent.contextPut("uploadable", true);
@@ -115,9 +118,9 @@ public class BCCourseNodeEditController extends ActivateableTabbableDefaultContr
 
 		// Uploader precondition
 		Condition downloadCondition = bcNode.getPreConditionDownloaders();
-		downloaderCondContr = new ConditionEditController(ureq, getWindowControl(),
+		downloaderCondContr = new ConditionEditController(ureq, getWindowControl(), euce,
 				downloadCondition, AssessmentHelper
-						.getAssessableNodes(course.getEditorTreeModel(), bcNode), euce);
+						.getAssessableNodes(course.getEditorTreeModel(), bcNode));
 		listenTo(downloaderCondContr);
 		accessabiliryContent.put("downloadCondition", downloaderCondContr.getInitialComponent());
 

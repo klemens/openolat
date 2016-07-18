@@ -255,7 +255,6 @@ public class BusinessControlFactory {
 		return bc.getAsString();
 	}
 	
-	
 	public BusinessControl createFromString(String businessControlString) {
 		final List<ContextEntry> ces = createCEListFromString(businessControlString);
 		if (ces.isEmpty() || ces.get(0) ==null) {
@@ -368,10 +367,8 @@ public class BusinessControlFactory {
 		Matcher m = PAT_CE.matcher(businessControlString);
 		while (m.find()) {
 			String ces = m.group(1);
-			int pos = ces.indexOf(':');
+			int pos = ces.lastIndexOf(':');
 			OLATResourceable ores;
-			// FIXME:chg: 'path=' define only once, same path in SearchResourceContext
-			
 			if(pos == -1) {
 				if(ces.startsWith("path=")) {
 					ces = ces.replace("|", "/");
@@ -388,7 +385,7 @@ public class BusinessControlFactory {
 					ores = OresHelper.createOLATResourceableInstanceWithoutCheck(type, key);
 				} catch (NumberFormatException e) {
 					log.warn("Cannot parse business path:" + businessControlString, e);
-					return Collections.emptyList();
+					return entries;//return what we decoded
 				}
 			}
 			ContextEntry ce = createContextEntry(ores);
@@ -568,24 +565,27 @@ public class BusinessControlFactory {
 		try {
 			restPart = URLDecoder.decode(restPart, "UTF8");
 		} catch (UnsupportedEncodingException e) {
-			e.printStackTrace();
-			//log.error("Unsupported encoding", e);
+			log.error("Unsupported encoding", e);
 		}
 		
 		String[] split = restPart.split("/");
 		if (split.length % 2 != 0) {
 			return null;
 		}
-		String businessPath = "";
+		return formatFromSplittedURI(split);
+	}
+	
+	public String formatFromSplittedURI(String[] split) {
+		StringBuilder businessPath = new StringBuilder(64);
 		for (int i = 0; i < split.length; i=i+2) {
 			String key = split[i];
 			if(key != null && key.startsWith("path=")) {
 				key = key.replace("~~", "/");
 			}
 			String value = split[i+1];
-			businessPath += "[" + key + ":" + value +"]";
+			businessPath.append("[").append(key).append(":").append(value).append("]");
 		}
-		return businessPath;
+		return businessPath.toString();
 	}
 }	
 

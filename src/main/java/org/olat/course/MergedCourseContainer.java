@@ -92,22 +92,8 @@ public class MergedCourseContainer extends MergeSource {
 				addContainersChildren(persistingCourse.getIsolatedCourseFolder(), true);
 			}
 		}
-			
-		// grab any shared folder that is configured
-		OlatRootFolderImpl sharedFolder = null;
-		String sfSoftkey = persistingCourse.getCourseConfig().getSharedFolderSoftkey();
-		if (StringHelper.containsNonWhitespace(sfSoftkey) && !CourseConfig.VALUE_EMPTY_SHAREDFOLDER_SOFTKEY.equals(sfSoftkey)) {
-			OLATResource sharedResource = CoreSpringFactory.getImpl(RepositoryService.class)
-					.loadRepositoryEntryResourceBySoftKey(sfSoftkey);
-			if (sharedResource != null) {
-				sharedFolder = SharedFolderManager.getInstance().getSharedFolder(sharedResource);
-				if (sharedFolder != null) {
-					sharedFolder.setLocalSecurityCallback(new ReadOnlyCallback());
-					//add local course folder's children as read/write source and any sharedfolder as subfolder
-					addContainer(new NamedContainerImpl("_sharedfolder", sharedFolder));
-				}
-			}
-		}
+		
+		initSharedFolder(persistingCourse);
 			
 		// add all course building blocks of type BC to a virtual folder
 		MergeSource nodesContainer = new MergeSource(null, "_courseelementdata");
@@ -127,6 +113,34 @@ public class MergedCourseContainer extends MergeSource {
 		
 		if (nodesContainer.getItems().size() > 0) {
 			addContainer(nodesContainer);
+		}
+	}
+	
+	/**
+	 * Grab any shared folder that is configured, but only when in unchecked
+	 * security mode (no identity environment) or when the user has course
+	 * admin rights
+	 * 
+	 * @param persistingCourse
+	 */
+	private void initSharedFolder(PersistingCourseImpl persistingCourse) {
+		CourseConfig courseConfig = persistingCourse.getCourseConfig();
+		String sfSoftkey = courseConfig.getSharedFolderSoftkey();
+		if (StringHelper.containsNonWhitespace(sfSoftkey) && !CourseConfig.VALUE_EMPTY_SHAREDFOLDER_SOFTKEY.equals(sfSoftkey)) {
+			RepositoryEntry re = persistingCourse.getCourseEnvironment().getCourseGroupManager().getCourseEntry();
+			if(identityEnv == null || identityEnv.getRoles().isOLATAdmin() || RepositoryManager.getInstance().isOwnerOfRepositoryEntry(identityEnv.getIdentity(), re)) {
+				OLATResource sharedResource = CoreSpringFactory.getImpl(RepositoryService.class).loadRepositoryEntryResourceBySoftKey(sfSoftkey);
+				if (sharedResource != null) {
+					OlatRootFolderImpl sharedFolder = SharedFolderManager.getInstance().getSharedFolder(sharedResource);
+					if (sharedFolder != null) {
+						if(courseConfig.isSharedFolderReadOnlyMount()) {
+							sharedFolder.setLocalSecurityCallback(new ReadOnlyCallback());
+						}
+						//add local course folder's children as read/write source and any sharedfolder as subfolder
+						addContainer(new NamedContainerImpl("_sharedfolder", sharedFolder));
+					}
+				}
+			}
 		}
 	}
 	
@@ -153,25 +167,26 @@ public class MergedCourseContainer extends MergeSource {
 					// add folder not to merge source. Use name and node id to have unique name
 					VFSContainer rootFolder = null;
 					String subpath = bcNode.getModuleConfiguration().getStringValue(BCCourseNodeEditController.CONFIG_SUBPATH);
-					if(StringHelper.containsNonWhitespace(subpath)){
-						if(bcNode.isSharedFolder()){
+					if(StringHelper.containsNonWhitespace(subpath)) {
+						if(bcNode.isSharedFolder()) {
 							// grab any shared folder that is configured
-							OlatRootFolderImpl sharedFolder = null;
-							String sfSoftkey = course.getCourseConfig().getSharedFolderSoftkey();
+							CourseConfig courseConfig = course.getCourseConfig();
+							String sfSoftkey = courseConfig.getSharedFolderSoftkey();
 							if (StringHelper.containsNonWhitespace(sfSoftkey) && !CourseConfig.VALUE_EMPTY_SHAREDFOLDER_SOFTKEY.equals(sfSoftkey)) {
 								OLATResource sharedResource = CoreSpringFactory.getImpl(RepositoryService.class)
 										.loadRepositoryEntryResourceBySoftKey(sfSoftkey);
 								if (sharedResource != null) {
-									sharedFolder = SharedFolderManager.getInstance().getSharedFolder(sharedResource);
-									VFSContainer courseBase = sharedFolder;
-									sharedFolder.setLocalSecurityCallback(new ReadOnlyCallback());
+									OlatRootFolderImpl sharedFolder = SharedFolderManager.getInstance().getSharedFolder(sharedResource);
+									if(sharedFolder != null && courseConfig.isSharedFolderReadOnlyMount()) {
+										sharedFolder.setLocalSecurityCallback(new ReadOnlyCallback());
+									}
 									subpath = subpath.replaceFirst("/_sharedfolder", "");
-									rootFolder = (VFSContainer) courseBase.resolve(subpath);
+									rootFolder = (VFSContainer) sharedFolder.resolve(subpath);
 								}
 							}
 						} else {
 							VFSContainer courseBase = course.getCourseBaseContainer();
-							rootFolder = (VFSContainer) courseBase.resolve("/coursefolder"+subpath);
+							rootFolder = (VFSContainer)courseBase.resolve("/coursefolder" + subpath);
 						}
 					}
 					if(bcNode.getModuleConfiguration().getBooleanSafe(BCCourseNodeEditController.CONFIG_AUTO_FOLDER)){
@@ -243,7 +258,7 @@ public class MergedCourseContainer extends MergeSource {
 		for (int i = 0; i < courseNode.getChildCount(); i++) {
 			CourseNode child = (CourseNode) courseNode.getChildAt(i);
 			String folderName = RequestUtil.normalizeFilename(child.getShortTitle());
-			MergeSource courseNodeContainer;
+			
 			if (child instanceof BCCourseNode) {
 				final BCCourseNode bcNode = (BCCourseNode) child;
 				bcNode.updateModuleConfigDefaults(false);
@@ -265,21 +280,20 @@ public class MergedCourseContainer extends MergeSource {
 								VFSContainer courseBase = sharedFolder;
 								subpath = subpath.replaceFirst("/_sharedfolder", "");
 								rootFolder = (VFSContainer) courseBase.resolve(subpath);
-								if(rootFolder != null){
+								if(rootFolder != null && course.getCourseConfig().isSharedFolderReadOnlyMount()) {
 									rootFolder.setLocalSecurityCallback(new ReadOnlyCallback());
 								}
 							}
 						}
 					}else{
 						VFSContainer courseBase = course.getCourseBaseContainer();
-						rootFolder = (VFSContainer) courseBase.resolve("/coursefolder"+subpath);
+						rootFolder = (VFSContainer) courseBase.resolve("/coursefolder" + subpath);
 					}
 				}
 				if(bcNode.getModuleConfiguration().getBooleanSafe(BCCourseNodeEditController.CONFIG_AUTO_FOLDER)){
 					path = BCCourseNode.getFoldernodePathRelToFolderBase(course.getCourseEnvironment(), bcNode);
 					rootFolder = new OlatRootFolderImpl(path, null);
 				}
-
 
 				// add node ident if multiple files have same name
 				if (nodesContainer.getItems(new VFSItemFilter() {
@@ -294,7 +308,7 @@ public class MergedCourseContainer extends MergeSource {
  				if(rootFolder != null){
  					// Create a container for this node content and wrap it with a merge source which is attached to tree
  					VFSContainer nodeContentContainer = new NamedContainerImpl(folderName, rootFolder);
- 					courseNodeContainer = new MergeSource(nodesContainer, folderName);
+ 					MergeSource courseNodeContainer = new MergeSource(nodesContainer, folderName);
  					courseNodeContainer.addContainersChildren(nodeContentContainer, true);
  					nodesContainer.addContainer(courseNodeContainer);	
  					// Do recursion for all children
@@ -302,7 +316,7 @@ public class MergedCourseContainer extends MergeSource {
  				}
 			} else {
 				// For non-folder course nodes, add merge source (no files to show) ...
-				courseNodeContainer = new MergeSource(null, folderName);
+				MergeSource courseNodeContainer = new MergeSource(null, folderName);
 				// , then do recursion for all children ...
 				addFolderBuildingBlocks(course, courseNodeContainer, child);
 				// ... but only add this container if it contains any children with at least one BC course node

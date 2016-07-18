@@ -128,16 +128,25 @@ public class GroupTaskPage {
 		OOGraphene.waitBusy(browser);
 		
 		//confirm
-		By confirmButtonBy = By.cssSelector("div.modal-dialog div.modal-footer a");
-		List<WebElement> buttonsEl = browser.findElements(confirmButtonBy);
-		buttonsEl.get(0).click();
-		OOGraphene.waitBusy(browser);
+		confirmDialog();
+		OOGraphene.waitAndCloseBlueMessageWindow(browser);
 		return this;
 	}
 	
 	public GroupTaskPage submitRevision() {
 		By submitBy = By.cssSelector("#o_step_revision_content .o_sel_course_gta_submit_revisions");
 		browser.findElement(submitBy).click();
+		OOGraphene.waitBusy(browser);
+		return confirmDialog();
+	}
+	
+	/**
+	 * Confirm a yes / no dialog box
+	 */
+	private GroupTaskPage confirmDialog() {
+		By confirmButtonBy = By.cssSelector("div.modal-dialog div.modal-footer a");
+		OOGraphene.waitElement(confirmButtonBy, 5, browser);
+		browser.findElement(confirmButtonBy).click();
 		OOGraphene.waitBusy(browser);
 		return this;
 	}
