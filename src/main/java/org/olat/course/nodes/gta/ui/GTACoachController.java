@@ -20,7 +20,7 @@
 package org.olat.course.nodes.gta.ui;
 
 import java.io.File;
-import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
 
 import org.olat.basesecurity.GroupRoles;
@@ -37,6 +37,8 @@ import org.olat.core.gui.control.generic.closablewrapper.CloseableModalControlle
 import org.olat.core.gui.control.generic.modal.DialogBoxController;
 import org.olat.core.gui.control.generic.modal.DialogBoxUIFactory;
 import org.olat.core.id.Identity;
+import org.olat.core.util.coordinate.CoordinatorManager;
+import org.olat.core.util.io.SystemFilenameFilter;
 import org.olat.core.util.mail.ContactList;
 import org.olat.core.util.mail.ContactMessage;
 import org.olat.core.util.vfs.VFSContainer;
@@ -44,10 +46,13 @@ import org.olat.course.nodes.GTACourseNode;
 import org.olat.course.nodes.gta.GTAType;
 import org.olat.course.nodes.gta.Task;
 import org.olat.course.nodes.gta.TaskHelper;
+import org.olat.course.nodes.gta.TaskHelper.FilesLocked;
 import org.olat.course.nodes.gta.TaskProcess;
 import org.olat.course.nodes.gta.model.TaskDefinition;
-import org.olat.course.nodes.gta.model.TaskDefinitionList;
+import org.olat.course.nodes.gta.ui.events.SubmitEvent;
+import org.olat.course.nodes.gta.ui.events.TaskMultiUserEvent;
 import org.olat.course.run.environment.CourseEnvironment;
+import org.olat.course.run.userview.UserCourseEnvironment;
 import org.olat.group.BusinessGroup;
 import org.olat.modules.co.ContactFormController;
 import org.olat.resource.OLATResource;
@@ -73,10 +78,10 @@ public class GTACoachController extends GTAAbstractController {
 	private GTACoachedGroupGradingController groupGradingCtrl;
 	private GTACoachedParticipantGradingController participantGradingCtrl;
 	private GTACoachRevisionAndCorrectionsController revisionDocumentsCtrl;
-	private DialogBoxController confirmRevisionsCtrl, confirmReviewDocumentCtrl;
+	private DialogBoxController confirmRevisionsCtrl, confirmReviewDocumentCtrl, confirmCollectCtrl, confirmBackToSubmissionCtrl;
 	private ContactFormController emailController;
 	private CloseableModalController cmc;
-	private Link emailLink;
+	private Link emailLink, collectSubmissionsLink, backToSubmissionLink;
 	
 	
 	@Autowired
@@ -122,7 +127,7 @@ public class GTACoachController extends GTAAbstractController {
 			needRevisionsButton.setPrimary(true);
 			needRevisionsButton.setIconLeftCSS("o_icon o_icon_rejected");
 		}
-		
+	
 		if(withTitle) {
 			if(assessedGroup != null) {
 				mainVC.contextPut("groupName", assessedGroup.getName());
@@ -164,6 +169,12 @@ public class GTACoachController extends GTAAbstractController {
 	@Override
 	protected Task stepSubmit(UserRequest ureq, Task assignedTask) {
 		assignedTask = super.stepSubmit(ureq, assignedTask);
+		if(collectSubmissionsLink != null) {
+			mainVC.remove(collectSubmissionsLink);//clean up
+		}
+		if(backToSubmissionLink != null) {
+			mainVC.remove(backToSubmissionLink);
+		}
 		
 		//calculate state
 		boolean viewSubmittedDocument = false;
@@ -172,13 +183,21 @@ public class GTACoachController extends GTAAbstractController {
 				mainVC.contextPut("submitCssClass", "");
 			} else if (assignedTask == null || assignedTask.getTaskStatus() == TaskProcess.submit) {
 				mainVC.contextPut("submitCssClass", "o_active");
+				collect(assignedTask);
 			} else {
+				if (assignedTask == null || assignedTask.getTaskStatus() == TaskProcess.review) {
+					backToSubmission(assignedTask);
+				}
 				mainVC.contextPut("submitCssClass", "o_done");
 				viewSubmittedDocument = true;
-			}
+			}	
 		} else if(assignedTask == null || assignedTask.getTaskStatus() == TaskProcess.submit) {
 			mainVC.contextPut("submitCssClass", "o_active");
+			collect(assignedTask);
 		} else {
+			if (assignedTask == null || assignedTask.getTaskStatus() == TaskProcess.review) {
+				backToSubmission(assignedTask);
+			}
 			mainVC.contextPut("submitCssClass", "o_done");
 			viewSubmittedDocument = true;
 		}
@@ -203,8 +222,27 @@ public class GTACoachController extends GTAAbstractController {
 				TextFactory.createTextComponentFromI18nKey("submittedDocs", "coach.submitted.nofiles", getTranslator(), null, true, mainVC);			
 			}
 		}
-		
 		return assignedTask;
+	}
+	
+	private void backToSubmission(Task assignedTask) {
+		if(config.getBooleanSafe(GTACourseNode.GTASK_SUBMIT)) {
+		
+			Date now = new Date();
+			DueDate dueDate = getSubmissionDueDate(assignedTask);
+			if(dueDate == null || dueDate.getDueDate() == null || now.before(dueDate.getDueDate())) {
+				backToSubmissionLink = LinkFactory.createButton("coach.back.to.submission", mainVC, this);
+				backToSubmissionLink.setUserObject(assignedTask);
+			}
+		}
+	}
+	
+	private void collect(Task assignedTask) {
+		DueDate dueDate = getSubmissionDueDate(assignedTask);
+		if(dueDate == null || dueDate.getDueDate() == null) {
+			collectSubmissionsLink = LinkFactory.createButton("coach.collect.task", mainVC, this);
+			collectSubmissionsLink.setUserObject(assignedTask);
+		}
 	}
 	
 	@Override
@@ -318,8 +356,14 @@ public class GTACoachController extends GTAAbstractController {
 		}
 		
 		if(revisions) {
-			revisionDocumentsCtrl = new GTACoachRevisionAndCorrectionsController(ureq, getWindowControl(),
-					courseEnv, assignedTask, gtaNode, assessedGroup, assessedIdentity);
+			if(GTAType.individual.name().equals(config.getStringValue(GTACourseNode.GTASK_TYPE))) {
+				UserCourseEnvironment assessedUserCourseEnv = getAssessedUserCourseEnvironment();
+				revisionDocumentsCtrl = new GTACoachRevisionAndCorrectionsController(ureq, getWindowControl(),
+					courseEnv, assignedTask, gtaNode, assessedGroup, assessedIdentity, assessedUserCourseEnv, taskListEventResource);
+			} else {
+				revisionDocumentsCtrl = new GTACoachRevisionAndCorrectionsController(ureq, getWindowControl(),
+					courseEnv, assignedTask, gtaNode, assessedGroup, null, null, taskListEventResource);
+			}
 			listenTo(revisionDocumentsCtrl);
 			mainVC.put("revisionDocs", revisionDocumentsCtrl.getInitialComponent());
 		}
@@ -388,6 +432,11 @@ public class GTACoachController extends GTAAbstractController {
 	}
 
 	@Override
+	protected void processEvent(TaskMultiUserEvent event) {
+		//
+	}
+
+	@Override
 	protected void event(UserRequest ureq, Component source, Event event) {
 		if(reviewedButton == source) {
 			if(submitCorrectionsCtrl != null) {
@@ -401,6 +450,10 @@ public class GTACoachController extends GTAAbstractController {
 			}
 		} else if (emailLink == source) {
 			doOpenMailForm(ureq);
+		} else if(collectSubmissionsLink == source) {
+			doConfirmCollectTask(ureq, (Task)collectSubmissionsLink.getUserObject());
+		} else if(backToSubmissionLink == source) {
+			doConfirmBackToSubmission(ureq, (Task)backToSubmissionLink.getUserObject());
 		}
 		super.event(ureq, source, event);
 	}
@@ -430,6 +483,16 @@ public class GTACoachController extends GTAAbstractController {
 			if(DialogBoxUIFactory.isOkEvent(event) || DialogBoxUIFactory.isYesEvent(event)) {
 				Task assignedTask = (Task)confirmRevisionsCtrl.getUserObject();
 				doRevisions(ureq, assignedTask);
+			}
+		} else if(confirmCollectCtrl == source) {
+			if(DialogBoxUIFactory.isOkEvent(event) || DialogBoxUIFactory.isYesEvent(event)) {
+				Task assignedTask = (Task)confirmCollectCtrl.getUserObject();
+				doCollectTask(ureq, assignedTask);
+			}
+		}  else if(confirmBackToSubmissionCtrl == source) {
+			if(DialogBoxUIFactory.isOkEvent(event) || DialogBoxUIFactory.isYesEvent(event)) {
+				Task assignedTask = (Task)confirmBackToSubmissionCtrl.getUserObject();
+				doBackToSubmission(ureq, assignedTask);
 			}
 		} else if(source == cmc) {
 			doCloseMailForm(false);
@@ -526,6 +589,84 @@ public class GTACoachController extends GTAAbstractController {
 		process(ureq);
 	}
 	
+	private void doConfirmCollectTask(UserRequest ureq, Task assignedTask) {
+		String toName = null;
+		if (assessedGroup != null) {
+			toName = assessedGroup.getName();
+		} else if (assessedIdentity != null) {
+			toName = userManager.getUserDisplayName(assessedIdentity);			
+		}
+
+		File[] submittedDocuments;
+		VFSContainer documentsContainer;
+		if(GTAType.group.name().equals(config.getStringValue(GTACourseNode.GTASK_TYPE))) {
+			documentsContainer = gtaManager.getSubmitContainer(courseEnv, gtaNode, assessedGroup);
+			File documentsDir = gtaManager.getSubmitDirectory(courseEnv, gtaNode, assessedGroup);
+			submittedDocuments = documentsDir.listFiles(new SystemFilenameFilter(true, false));
+		} else {
+			documentsContainer = gtaManager.getSubmitContainer(courseEnv, gtaNode, getIdentity());
+			File documentsDir = gtaManager.getSubmitDirectory(courseEnv, gtaNode, getIdentity());
+			submittedDocuments = documentsDir.listFiles(new SystemFilenameFilter(true, false));
+		}
+
+		FilesLocked lockedBy = TaskHelper.getDocumentsLocked(documentsContainer, submittedDocuments);
+		if(lockedBy != null) {
+			showWarning("warning.submit.documents.edited", new String[]{ lockedBy.getLockedBy(), lockedBy.getLockedFiles() });
+		} else {
+			String title = translate("coach.collect.confirm.title");
+			String text = translate("coach.collect.confirm.text", new String[]{ toName });
+			text = "<div class='o_warning'>" + text + "</div>";
+			confirmCollectCtrl = activateOkCancelDialog(ureq, title, text, confirmCollectCtrl);
+			confirmCollectCtrl.setUserObject(assignedTask);
+			listenTo(confirmCollectCtrl);
+		}
+	}
+	
+	private void doCollectTask(UserRequest ureq, Task task) {
+		TaskProcess review = gtaManager.nextStep(TaskProcess.submit, gtaNode);
+		task = gtaManager.updateTask(task, review);
+		showInfo("run.documents.successfully.submitted");
+		
+		TaskMultiUserEvent event = new TaskMultiUserEvent(TaskMultiUserEvent.SUMBIT_TASK,
+				assessedIdentity, assessedGroup, getIdentity());
+		CoordinatorManager.getInstance().getCoordinator().getEventBus()
+			.fireEventToListenersOf(event, taskListEventResource);
+		
+		gtaManager.log("Collect", "collect documents", task, getIdentity(), assessedIdentity, assessedGroup, courseEnv, gtaNode);
+		
+		cleanUpProcess();
+		process(ureq);
+		doUpdateAttempts();
+	}
+	
+	private void doConfirmBackToSubmission(UserRequest ureq, Task assignedTask) {
+		String toName = null;
+		if (assessedGroup != null) {
+			toName = assessedGroup.getName();
+		} else if (assessedIdentity != null) {
+			toName = userManager.getUserDisplayName(assessedIdentity);			
+		}
+		
+		String title = translate("coach.back.to.submission.confirm.title");
+		String text = translate("coach.back.to.submission.confirm.text", new String[]{ toName });
+		text = "<div class='o_warning'>" + text + "</div>";
+		confirmBackToSubmissionCtrl = activateOkCancelDialog(ureq, title, text, confirmBackToSubmissionCtrl);
+		confirmBackToSubmissionCtrl.setUserObject(assignedTask);
+		listenTo(confirmBackToSubmissionCtrl);
+	}
+	
+	private void doBackToSubmission(UserRequest ureq, Task task) {
+		TaskProcess submit = gtaManager.previousStep(TaskProcess.review, gtaNode);//only submit allowed
+		if(submit == TaskProcess.submit) {
+			task = gtaManager.updateTask(task, submit);
+			
+			gtaManager.log("Back to submission", "revert status of task back to submission", task, getIdentity(), assessedIdentity, assessedGroup, courseEnv, gtaNode);
+			
+			cleanUpProcess();
+			process(ureq);
+		}
+	}
+	
 	private void doOpenMailForm(UserRequest ureq) {
 		// build recipient list
 		ContactList contactList = null;
@@ -572,8 +713,7 @@ public class GTACoachController extends GTAAbstractController {
 		if(task == null) return null;
 		
 		TaskDefinition taskDef = null;
-		TaskDefinitionList tasks = (TaskDefinitionList)config.get(GTACourseNode.GTASK_TASKS);
-		List<TaskDefinition> availableTasks = new ArrayList<>(tasks.getTasks());
+		List<TaskDefinition> availableTasks = gtaManager.getTaskDefinitions(courseEnv, gtaNode);
 		for(TaskDefinition availableTask:availableTasks) {
 			if(availableTask.getFilename() != null && availableTask.getFilename().equals(task.getTaskName())) {
 				taskDef = availableTask;

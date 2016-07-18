@@ -29,6 +29,8 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 
+import javax.persistence.NoResultException;
+
 import org.olat.basesecurity.BaseSecurity;
 import org.olat.basesecurity.Group;
 import org.olat.basesecurity.GroupRoles;
@@ -38,6 +40,7 @@ import org.olat.core.CoreSpringFactory;
 import org.olat.core.commons.modules.bc.FolderConfig;
 import org.olat.core.commons.persistence.DB;
 import org.olat.core.commons.services.mark.MarkManager;
+import org.olat.core.commons.services.taskexecutor.manager.PersistentTaskDAO;
 import org.olat.core.id.Identity;
 import org.olat.core.id.OLATResourceable;
 import org.olat.core.id.Roles;
@@ -130,6 +133,8 @@ public class RepositoryServiceImpl implements RepositoryService {
 	private UserCourseInformationsManager userCourseInformationsManager;
 	@Autowired
 	private AssessmentModeDAO assessmentModeDao;
+	@Autowired
+	private PersistentTaskDAO persistentTaskDao;
 	@Autowired
 	private ReminderDAO reminderDao;
 
@@ -348,6 +353,8 @@ public class RepositoryServiceImpl implements RepositoryService {
 		reservationDao.deleteReservations(resource);
 		//delete references
 		referenceManager.deleteAllReferencesOf(resource);
+		//delete all pending tasks
+		persistentTaskDao.delete(resource);
 		dbInstance.commit();
 		
 		// inform handler to do any cleanup work... handler must delete the
@@ -373,18 +380,26 @@ public class RepositoryServiceImpl implements RepositoryService {
 				.getReference(RepositoryEntry.class, entry.getKey());
 		Long resourceKey = reloadedEntry.getOlatResource().getKey();
 
-		Group defaultGroup = reToGroupDao.getDefaultGroup(reloadedEntry);
-		groupDao.removeMemberships(defaultGroup);
+		Group defaultGroup = null;
+		try {
+			defaultGroup = reToGroupDao.getDefaultGroup(reloadedEntry);
+			groupDao.removeMemberships(defaultGroup);
+		} catch (NoResultException e) {
+			log.error("", e);
+		}
 		reToGroupDao.removeRelations(reloadedEntry);
 		dbInstance.commit();
 		dbInstance.getCurrentEntityManager().remove(reloadedEntry);
-		groupDao.removeGroup(defaultGroup);
+		if(defaultGroup != null) {
+			groupDao.removeGroup(defaultGroup);
+		}
 		dbInstance.commit();
 		
 		OLATResource reloadedResource = resourceManager.findResourceById(resourceKey);
 		if(reloadedResource != null) {
 			dbInstance.getCurrentEntityManager().remove(reloadedResource);
 		}
+		
 		dbInstance.commit();
 	}
 

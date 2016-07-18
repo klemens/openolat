@@ -154,6 +154,7 @@ public class PortfolioPage {
 		WebElement createMapLink = browser.findElement(createMapBy);
 		Assert.assertTrue(createMapLink.isDisplayed());
 		createMapLink.click();
+		OOGraphene.waitBusy(browser);
 		
 		//create default map
 		By createDefaultMapBy = By.className("o_sel_create_default_map");
@@ -177,8 +178,8 @@ public class PortfolioPage {
 		WebElement saveButton = browser.findElement(saveBy);
 		Assert.assertTrue(saveButton.isDisplayed());
 		saveButton.click();
-		By mapBy = By.className("o_eportfolio_map");
-		OOGraphene.waitElement(mapBy, 5, browser);
+		By portfolioMapBy = By.className("o_eportfolio_map");
+		OOGraphene.waitElement(portfolioMapBy, 5, browser);
 		return this;
 	}
 	

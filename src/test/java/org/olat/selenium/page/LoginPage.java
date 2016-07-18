@@ -47,7 +47,6 @@ public class LoginPage {
 	private static final String footerUserDivXPath = "//div[@id='o_footer_user']";
 	private static final String acknowledgeCheckboxXPath = "//input[@name='acknowledge_checkbox']";
 	
-	private static final By authXPath = By.xpath(footerUserDivXPath);
 	public static final By loginFormBy = By.cssSelector("div.o_login_form");
 	private static final By authOrDisclaimerXPath = By.xpath(footerUserDivXPath + "|" + acknowledgeCheckboxXPath);
 	private static final By disclaimerXPath = By.xpath(acknowledgeCheckboxXPath);
@@ -89,6 +88,7 @@ public class LoginPage {
 	}
 	
 	public void assertLoggedInByLastName(String lastName) {
+		OOGraphene.waitElement(usernameFooterBy, 5, browser);
 		WebElement username = browser.findElement(usernameFooterBy);
 		Assert.assertNotNull(username);
 		Assert.assertTrue(username.isDisplayed());
@@ -128,7 +128,9 @@ public class LoginPage {
 		By guestLinkBy = By.xpath("//a[contains(@href,'menu.guest')]");
 		WebElement guestLink = browser.findElement(guestLinkBy);
 		Graphene.guardHttp(guestLink).click();
-		OOGraphene.waitElement(authXPath, browser);
+
+		By footerUserDivBy = By.id("o_footer_user");
+		OOGraphene.waitElement(footerUserDivBy, browser);
 	}
 	
 	/**
@@ -158,8 +160,7 @@ public class LoginPage {
 		passwordInput.sendKeys(password);
 		
 		By loginBy = By.id("o_fiooolat_login_button");
-		WebElement loginButton = browser.findElement(loginBy);
-		Graphene.guardHttp(loginButton).click();
+		browser.findElement(loginBy).click();
 		OOGraphene.waitElement(authOrDisclaimerXPath, browser);
 		
 		//wipe out disclaimer
@@ -167,11 +168,12 @@ public class LoginPage {
 		if(disclaimer.size() > 0) {
 			//click the disclaimer
 			disclaimer.get(0).click();
-			
-			WebElement acknowledgeButton = browser.findElement(disclaimerButtonXPath);
-			Graphene.guardHttp(acknowledgeButton).click();
-			OOGraphene.waitElement(authXPath, browser);
+			browser.findElement(disclaimerButtonXPath).click();
 		}
+		
+		//wait until the content appears
+		By footerUserBy = By.cssSelector("#o_footer_user #o_username"); 
+		OOGraphene.waitElement(footerUserBy, 30, browser);
 		return this;
 	}
 	

@@ -19,13 +19,6 @@
  */
 package org.olat.course.nodes.members;
 
-import static org.olat.course.nodes.members.MembersCourseNodeEditController.CONFIG_KEY_EMAIL_FUNCTION;
-import static org.olat.course.nodes.members.MembersCourseNodeEditController.CONFIG_KEY_SHOWCOACHES;
-import static org.olat.course.nodes.members.MembersCourseNodeEditController.CONFIG_KEY_SHOWOWNER;
-import static org.olat.course.nodes.members.MembersCourseNodeEditController.CONFIG_KEY_SHOWPARTICIPANTS;
-import static org.olat.course.nodes.members.MembersCourseNodeEditController.EMAIL_FUNCTION_ALL;
-import static org.olat.course.nodes.members.MembersCourseNodeEditController.EMAIL_FUNCTION_COACH_ADMIN;
-
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
@@ -38,8 +31,9 @@ import java.util.Set;
 
 import org.olat.NewControllerFactory;
 import org.olat.basesecurity.BaseSecurity;
-import org.olat.basesecurity.GroupRoles;
+import org.olat.core.commons.fullWebApp.popup.BaseFullWebappPopupLayoutFactory;
 import org.olat.core.gui.UserRequest;
+import org.olat.core.gui.components.Component;
 import org.olat.core.gui.components.form.flexible.FormItem;
 import org.olat.core.gui.components.form.flexible.FormItemContainer;
 import org.olat.core.gui.components.form.flexible.elements.FormLink;
@@ -47,14 +41,16 @@ import org.olat.core.gui.components.form.flexible.impl.FormBasicController;
 import org.olat.core.gui.components.form.flexible.impl.FormEvent;
 import org.olat.core.gui.components.form.flexible.impl.FormLayoutContainer;
 import org.olat.core.gui.components.link.Link;
+import org.olat.core.gui.components.link.LinkFactory;
+import org.olat.core.gui.components.link.LinkPopupSettings;
 import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.Event;
 import org.olat.core.gui.control.WindowControl;
+import org.olat.core.gui.control.creator.ControllerCreator;
 import org.olat.core.gui.control.generic.closablewrapper.CloseableModalController;
 import org.olat.core.gui.media.MediaResource;
 import org.olat.core.helpers.Settings;
 import org.olat.core.id.Identity;
-import org.olat.core.id.User;
 import org.olat.core.id.UserConstants;
 import org.olat.core.id.context.BusinessControl;
 import org.olat.core.id.context.BusinessControlFactory;
@@ -64,13 +60,16 @@ import org.olat.core.util.mail.ContactMessage;
 import org.olat.core.util.session.UserSessionManager;
 import org.olat.course.groupsandrights.CourseGroupManager;
 import org.olat.course.nodes.CourseNodeFactory;
+import org.olat.course.nodes.MembersCourseNode;
 import org.olat.course.run.environment.CourseEnvironment;
 import org.olat.course.run.userview.UserCourseEnvironment;
+import org.olat.group.BusinessGroupService;
 import org.olat.instantMessaging.InstantMessagingModule;
 import org.olat.instantMessaging.InstantMessagingService;
 import org.olat.instantMessaging.OpenInstantMessageEvent;
 import org.olat.instantMessaging.model.Buddy;
 import org.olat.instantMessaging.model.Presence;
+import org.olat.modules.IModuleConfiguration;
 import org.olat.modules.ModuleConfiguration;
 import org.olat.modules.co.ContactFormController;
 import org.olat.repository.RepositoryEntry;
@@ -78,6 +77,7 @@ import org.olat.repository.RepositoryService;
 import org.olat.user.DisplayPortraitManager;
 import org.olat.user.UserAvatarMapper;
 import org.olat.user.UserManager;
+import org.olat.user.propertyhandlers.UserPropertyHandler;
 import org.springframework.beans.factory.annotation.Autowired;
 
 /**
@@ -90,11 +90,15 @@ import org.springframework.beans.factory.annotation.Autowired;
  * @author srosse, stephane.rosse@frentix.com, http://www.frentix.com
  */
 public class MembersCourseNodeRunController extends FormBasicController {
+	
+	private final List<UserPropertyHandler> userPropertyHandlers;
+	public static final String USER_PROPS_ID = MembersCourseNodeRunController.class.getName();
 
 	private final CourseEnvironment courseEnv;
 	private final DisplayPortraitManager portraitManager;
 	private final String avatarBaseURL;
 	
+	private Link printLink;
 	private FormLink allEmailLink;
 	
 	private List<Member> ownerList;
@@ -103,8 +107,6 @@ public class MembersCourseNodeRunController extends FormBasicController {
 
 	private final boolean canEmail;
 	private final boolean showOwners;
-	private final boolean showCoaches;
-	private final boolean showParticipants;
 	private final boolean chatEnabled;
 
 	private MembersMailController mailCtrl;
@@ -126,49 +128,73 @@ public class MembersCourseNodeRunController extends FormBasicController {
 	private InstantMessagingService imService;
 	@Autowired
 	private UserSessionManager sessionManager;
+	@Autowired
+	private BusinessGroupService businessGroupService;	
 
+	private final ModuleConfiguration config;
+	
 	public MembersCourseNodeRunController(UserRequest ureq, WindowControl wControl, UserCourseEnvironment userCourseEnv, ModuleConfiguration config) {
 		super(ureq, wControl, "members");
+
+		this.config = config;
+		userPropertyHandlers = userManager.getUserPropertyHandlersFor(USER_PROPS_ID, false);
 
 		courseEnv = userCourseEnv.getCourseEnvironment();
 		avatarBaseURL = registerCacheableMapper(ureq, "avatars-members", new UserAvatarMapper(true));
 		portraitManager = DisplayPortraitManager.getInstance();
 
-		showOwners = config.getBooleanSafe(CONFIG_KEY_SHOWOWNER);
-		showCoaches = config.getBooleanSafe(CONFIG_KEY_SHOWCOACHES);
-		showParticipants = config.getBooleanSafe(CONFIG_KEY_SHOWPARTICIPANTS);
+		showOwners = config.getBooleanSafe(MembersCourseNode.CONFIG_KEY_SHOWOWNER);
 		chatEnabled = imModule.isEnabled() && imModule.isPrivateEnabled();
 		
 		MembersCourseNodeConfiguration nodeConfig = (MembersCourseNodeConfiguration)CourseNodeFactory.getInstance().getCourseNodeConfiguration("cmembers");
 		deduplicateList = nodeConfig.isDeduplicateList();
 		
-		String emailFct = config.getStringValue(CONFIG_KEY_EMAIL_FUNCTION, EMAIL_FUNCTION_COACH_ADMIN);
-		canEmail = EMAIL_FUNCTION_ALL.equals(emailFct) || userCourseEnv.isAdmin() || userCourseEnv.isCoach();
-
+		String emailFct = config.getStringValue(MembersCourseNode.CONFIG_KEY_EMAIL_FUNCTION, MembersCourseNode.EMAIL_FUNCTION_COACH_ADMIN);
+		canEmail = MembersCourseNode.EMAIL_FUNCTION_ALL.equals(emailFct) || userCourseEnv.isAdmin() || userCourseEnv.isCoach();
+		
 		initForm(ureq);
 	}
 
 	@Override
 	protected void initForm(FormItemContainer formLayout, Controller listener, UserRequest ureq) {
+		if(formLayout instanceof FormLayoutContainer) {
+			printLink = LinkFactory.createButton("print", ((FormLayoutContainer)formLayout).getFormItemComponent(), this);
+			printLink.setIconLeftCSS("o_icon o_icon_print o_icon-lg");
+			printLink.setPopup(new LinkPopupSettings(700, 500, "print-members"));
+			((FormLayoutContainer)formLayout).getFormItemComponent().put("print", printLink);
+		}
+
+		IModuleConfiguration membersFrag = IModuleConfiguration.fragment("members", config);
+		
 		List<Identity> owners;
 		if(showOwners) {
-			owners = getOwners();
+			RepositoryEntry courseRepositoryEntry = courseEnv.getCourseGroupManager().getCourseEntry();
+			owners = MembersHelpers.getOwners(repositoryService, courseRepositoryEntry);
 		} else {
 			owners = Collections.emptyList();
 		}
+
+		boolean showCoaches = false;
+		boolean showParticipants = false;
 		
 		List<Identity> coaches = new ArrayList<>();
-		if(showCoaches) {
+		if(membersFrag.anyTrue(MembersCourseNode.CONFIG_KEY_COACHES_ALL, MembersCourseNode.CONFIG_KEY_COACHES_COURSE)		
+				|| membersFrag.hasAnyOf(MembersCourseNode.CONFIG_KEY_COACHES_GROUP, MembersCourseNode.CONFIG_KEY_COACHES_AREA)) {
+			
 			CourseGroupManager cgm = courseEnv.getCourseGroupManager();
-			coaches.addAll(cgm.getCoachesFromBusinessGroups());
-			coaches.addAll(cgm.getCoaches());
+			MembersHelpers.addCoaches(membersFrag, cgm, businessGroupService, coaches);
+			
+			showCoaches = true;
 		}
 		
 		List<Identity> participants = new ArrayList<>();
-		if(showParticipants) {
+		if(membersFrag.anyTrue(MembersCourseNode.CONFIG_KEY_PARTICIPANTS_ALL, MembersCourseNode.CONFIG_KEY_PARTICIPANTS_COURSE)
+				|| membersFrag.hasAnyOf(MembersCourseNode.CONFIG_KEY_PARTICIPANTS_GROUP, MembersCourseNode.CONFIG_KEY_PARTICIPANTS_AREA)) {
+			
 			CourseGroupManager cgm = courseEnv.getCourseGroupManager();
-			participants.addAll(cgm.getParticipantsFromBusinessGroups());
-			participants.addAll(cgm.getParticipants());
+			MembersHelpers.addParticipants(membersFrag, cgm, businessGroupService, participants);
+			
+			showParticipants = true;
 		}
 
 		Comparator<Identity> idComparator = new IdentityComparator();
@@ -195,11 +221,6 @@ public class MembersCourseNodeRunController extends FormBasicController {
 			layoutCont.contextPut("showParticipants", showParticipants);
 			layoutCont.contextPut("hasParticipants", new Boolean(!participantList.isEmpty()));
 		}
-	}
-	
-	private List<Identity> getOwners() {
-		RepositoryEntry courseRepositoryEntry = courseEnv.getCourseGroupManager().getCourseEntry();
-		return repositoryService.getMembers(courseRepositoryEntry, GroupRoles.owner.name());
 	}
 	
 	private List<Member> initFormMemberList(String name, List<Identity> ids, Set<Long> duplicateCatcher, FormItemContainer formLayout, boolean withEmail) {
@@ -298,9 +319,6 @@ public class MembersCourseNodeRunController extends FormBasicController {
 	}
 	
 	private Member createMember(Identity identity) {
-		User user = identity.getUser();
-		String firstname = user.getProperty(UserConstants.FIRSTNAME, null);
-		String lastname = user.getProperty(UserConstants.LASTNAME, null);
 		MediaResource rsrc = portraitManager.getSmallPortraitResource(identity.getName());
 		
 		String portraitCssClass = null;
@@ -313,7 +331,7 @@ public class MembersCourseNodeRunController extends FormBasicController {
 			portraitCssClass = DisplayPortraitManager.DUMMY_BIG_CSS_CLASS;
 		}
 		String fullname = userManager.getUserDisplayName(identity);
-		return new Member(identity.getKey(), firstname, lastname, fullname, rsrc != null, portraitCssClass);
+		return new Member(identity, fullname, userPropertyHandlers, getLocale(), rsrc != null, portraitCssClass);
 	}
 	
 	@Override
@@ -324,6 +342,16 @@ public class MembersCourseNodeRunController extends FormBasicController {
 	@Override
 	protected void formOK(UserRequest ureq) {
 		//
+	}
+	
+	
+
+	@Override
+	public void event(UserRequest ureq, Component source, Event event) {
+		if(source == printLink) {
+			doPrint(ureq);
+		}
+		super.event(ureq, source, event);
 	}
 
 	@Override
@@ -371,7 +399,7 @@ public class MembersCourseNodeRunController extends FormBasicController {
 		cmc = null;
 	}
 	
-	protected void doEmail(UserRequest ureq) {
+	private void doEmail(UserRequest ureq) {
 		if(mailCtrl != null || cmc != null) return;
 		removeAsListenerAndDispose(cmc);
 		removeAsListenerAndDispose(mailCtrl);
@@ -386,20 +414,20 @@ public class MembersCourseNodeRunController extends FormBasicController {
 		cmc.activate();	
 	}
 	
-	protected void doOpenChat(Member member, UserRequest ureq) {
+	private void doOpenChat(Member member, UserRequest ureq) {
 		Buddy buddy = imService.getBuddyById(member.getKey());
 		OpenInstantMessageEvent e = new OpenInstantMessageEvent(ureq, buddy);
 		ureq.getUserSession().getSingleUserEventCenter().fireEventToListenersOf(e, InstantMessagingService.TOWER_EVENT_ORES);
 	}
-
-	protected void doSendEmailToMember(Member member, UserRequest ureq) {
+	
+	private void doSendEmailToMember(Member member, UserRequest ureq) {
 		ContactList memberList = new ContactList(translate("members.to", new String[]{ member.getFullName(), courseEnv.getCourseTitle() }));
 		Identity identity = securityManager.loadIdentityByKey(member.getKey());
 		memberList.add(identity);
 		doSendEmailToMember(memberList, ureq);
 	}
 
-	protected void doSendEmailToMember(ContactList contactList, UserRequest ureq) {
+	private void doSendEmailToMember(ContactList contactList, UserRequest ureq) {
 		if (contactList.getEmailsAsStrings().size() > 0) {
 			removeAsListenerAndDispose(cmc);
 			removeAsListenerAndDispose(emailController);
@@ -428,11 +456,24 @@ public class MembersCourseNodeRunController extends FormBasicController {
 		return translate("email.body.template", new String[]{courseName, courseLink.toString()});		
 	}
 	
-	protected void doOpenHomePage(Member member, UserRequest ureq) {
+	private void doOpenHomePage(Member member, UserRequest ureq) {
 		String url = "[HomePage:" + member.getKey() + "]";
 		BusinessControl bc = BusinessControlFactory.getInstance().createFromString(url);
 		WindowControl bwControl = BusinessControlFactory.getInstance().createBusinessWindowControl(bc, getWindowControl());
 		NewControllerFactory.getInstance().launch(ureq, bwControl);
+	}
+	
+	private void doPrint(UserRequest ureq) {
+		ControllerCreator printControllerCreator = new ControllerCreator() {
+			@Override
+			public Controller createController(UserRequest lureq, WindowControl lwControl) {
+				lwControl.getWindowBackOffice().getChiefController().addBodyCssClass("o_cmembers_print");
+				return new MembersPrintController(lureq, lwControl, courseEnv, avatarBaseURL, userPropertyHandlers,
+						ownerList, coachList, participantList);
+			}					
+		};
+		ControllerCreator layoutCtrlr = BaseFullWebappPopupLayoutFactory.createPrintPopupLayout(printControllerCreator);
+		openInNewBrowserWindow(ureq, layoutCtrlr);
 	}
 	
 	public static class IdentityComparator implements Comparator<Identity> {

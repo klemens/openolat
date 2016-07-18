@@ -542,18 +542,18 @@ create table if not exists o_userrating (
 );
 
 create table o_co_db_entry (
-   id int8 not null,
-   version int8 not null,
-   lastmodified timestamp,
-   creationdate timestamp,
-   courseid int8,
-   identity int8,
+   id bigint not null,
+   version bigint not null,
+   lastmodified datetime,
+   creationdate datetime,
+   courseid bigint,
+   identity bigint,
    category varchar(32),
    name varchar(255) not null,
    floatvalue decimal(65,30),
-   longvalue int8,
+   longvalue bigint,
    stringvalue varchar(255),
-   textvalue TEXT,
+   textvalue mediumtext,
    primary key (id)
 );
 
@@ -989,33 +989,33 @@ create table  if not exists o_ac_reservation (
 );
 
 create table if not exists o_ac_paypal_transaction (
-   transaction_id int8 not null,
-   version int8 not null,
-   creationdate timestamp,
+   transaction_id bigint not null,
+   version bigint not null,
+   creationdate datetime,
    ref_no varchar(255),
-   order_id int8 not null,
-   order_part_id int8 not null,
-   method_id int8 not null,
+   order_id bigint not null,
+   order_part_id bigint not null,
+   method_id bigint not null,
    success_uuid varchar(32) not null,
-	 cancel_uuid varchar(32) not null,
-	 amount_amount DECIMAL(12,4),
-	 amount_currency_code VARCHAR(3),
-   pay_response_date timestamp,
+   cancel_uuid varchar(32) not null,
+   amount_amount DECIMAL(12,4),
+   amount_currency_code VARCHAR(3),
+   pay_response_date datetime,
    pay_key varchar(255),
-	 ack varchar(255),
-	 build varchar(255),
-	 coorelation_id varchar(255),
-	 payment_exec_status varchar(255),
-	 ipn_transaction_id varchar(255),
-	 ipn_transaction_status varchar(255),
-	 ipn_sender_transaction_id varchar(255),
-	 ipn_sender_transaction_status varchar(255),
-	 ipn_sender_email varchar(255),
-	 ipn_verify_sign varchar(255),
-	 ipn_pending_reason varchar(255),
-	 trx_status VARCHAR(32) not null default 'NEW',
-	 trx_amount DECIMAL(12,4),
-	 trx_currency_code VARCHAR(3),
+   ack varchar(255),
+   build varchar(255),
+   coorelation_id varchar(255),
+   payment_exec_status varchar(255),
+   ipn_transaction_id varchar(255),
+   ipn_transaction_status varchar(255),
+   ipn_sender_transaction_id varchar(255),
+   ipn_sender_transaction_status varchar(255),
+   ipn_sender_email varchar(255),
+   ipn_verify_sign varchar(255),
+   ipn_pending_reason varchar(255),
+   trx_status VARCHAR(32) not null default 'NEW',
+   trx_amount DECIMAL(12,4),
+   trx_currency_code VARCHAR(3),
    primary key (transaction_id)
 );
 
@@ -1041,7 +1041,7 @@ create table if not exists o_as_eff_statement (
    version mediumint unsigned not null,
    lastmodified datetime,
    creationdate datetime,
-   passed bit(0),
+   passed bit default null,
    score float(65,30),
    total_nodes mediumint,
    attempted_nodes mediumint,
@@ -1140,6 +1140,69 @@ create table o_cer_certificate (
    primary key (id)
 );
 
+create table o_goto_organizer (
+   id bigint not null,
+   creationdate datetime not null,
+   lastmodified datetime not null,
+   g_name varchar(128) default null,
+   g_account_key varchar(128) default null,
+   g_access_token varchar(128) not null,
+   g_renew_date datetime not null,
+   g_organizer_key varchar(128) not null,
+   g_username varchar(128) not null,
+   g_firstname varchar(128) default null,
+   g_lastname varchar(128) default null,
+   g_email varchar(128) default null,
+   fk_identity bigint default null,
+   primary key (id)
+);
+
+create table o_goto_meeting (
+   id bigint not null,
+   creationdate datetime not null,
+   lastmodified datetime not null,
+   g_external_id varchar(128) default null,
+   g_type varchar(16) not null,
+   g_meeting_key varchar(128) not null,
+   g_name varchar(255) default null,
+   g_description varchar(2000) default null,
+   g_start_date datetime default null,
+   g_end_date datetime default null,
+   fk_organizer_id bigint not null,
+   fk_entry_id bigint default null,
+   g_sub_ident varchar(64) default null,
+   fk_group_id bigint default null,
+   primary key (id)
+);
+
+create table o_goto_registrant (
+   id bigint not null,
+   creationdate datetime not null,
+   lastmodified datetime not null,
+   g_status varchar(16) default null,
+   g_join_url varchar(1024) default null,
+   g_confirm_url varchar(1024) default null,
+   g_registrant_key varchar(64) default null,
+   fk_meeting_id bigint not null,
+   fk_identity_id bigint not null,
+   primary key (id)
+);
+
+create table o_vid_transcoding (
+   id bigint not null,
+   creationdate datetime not null,
+   lastmodified datetime not null,
+   vid_resolution bigint default null,
+   vid_width bigint default null,
+   vid_height bigint default null,
+   vid_size bigint default null,
+   vid_format varchar(128) default null,
+   vid_status bigint default null,
+   vid_transcoder varchar(128) default null,
+   fk_resource_id bigint not null,
+   primary key (id)
+);
+
 -- calendar
 create table o_cal_use_config (
    id bigint not null,
@@ -1227,9 +1290,9 @@ create table if not exists o_im_preferences (
 
 -- add mapper table
 create table o_mapper (
-   id int8 not null,
-   lastmodified timestamp,
-   creationdate timestamp,
+   id bigint not null,
+   lastmodified datetime,
+   creationdate datetime,
    expirationdate datetime,
    mapper_uuid varchar(64),
    orig_session_id varchar(64),
@@ -1382,7 +1445,7 @@ create table o_cl_check (
    creationdate datetime not null,
    lastmodified datetime not null,
    c_score float(65,30),
-   c_checked bit(0),
+   c_checked bit default null,
    fk_identity_id bigint not null,
    fk_checkbox_id bigint not null,
    primary key (id)
@@ -1771,6 +1834,10 @@ alter table o_cer_template ENGINE = InnoDB;
 alter table o_cer_certificate ENGINE = InnoDB;
 alter table o_rem_reminder ENGINE = InnoDB;
 alter table o_rem_sent_reminder ENGINE = InnoDB;
+alter table o_goto_organizer ENGINE = InnoDB;
+alter table o_goto_meeting ENGINE = InnoDB;
+alter table o_goto_registrant ENGINE = InnoDB;
+alter table o_vid_transcoding ENGINE = InnoDB;
 
 -- rating
 alter table o_userrating add constraint FKF26C8375236F20X foreign key (creator_id) references o_bs_identity (id);
@@ -2064,6 +2131,23 @@ create index eff_statement_repo_key_idx on o_as_eff_statement (course_repo_key);
 alter table o_as_user_course_infos add index user_course_infos_id_cstr (fk_identity), add constraint user_course_infos_id_cstr foreign key (fk_identity) references o_bs_identity (id);
 alter table o_as_user_course_infos add index user_course_infos_res_cstr (fk_resource_id), add constraint user_course_infos_res_cstr foreign key (fk_resource_id) references o_olatresource (resource_id);
 alter table o_as_user_course_infos add unique (fk_identity, fk_resource_id);
+
+-- gotomeeting
+alter table o_goto_organizer add constraint goto_organ_owner_idx foreign key (fk_identity) references o_bs_identity (id);
+create index idx_goto_organ_okey_idx on o_goto_organizer(g_organizer_key);
+create index idx_goto_organ_uname_idx on o_goto_organizer(g_username);
+
+alter table o_goto_meeting add constraint goto_meet_repoentry_idx foreign key (fk_entry_id) references o_repositoryentry (repositoryentry_id);
+alter table o_goto_meeting add constraint goto_meet_busgrp_idx foreign key (fk_group_id) references o_gp_business (group_id);
+alter table o_goto_meeting add constraint goto_meet_organizer_idx foreign key (fk_organizer_id) references o_goto_organizer (id);
+
+alter table o_goto_registrant add constraint goto_regis_meeting_idx foreign key (fk_meeting_id) references o_goto_meeting (id);
+alter table o_goto_registrant add constraint goto_regis_ident_idx foreign key (fk_identity_id) references o_bs_identity (id);
+
+-- video
+alter table o_vid_transcoding add constraint fk_resource_id_idx foreign key (fk_resource_id) references o_olatresource (resource_id);
+create index vid_status_trans_idx on o_vid_transcoding(vid_status);
+create index vid_transcoder_trans_idx on o_vid_transcoding(vid_transcoder);
 
 -- calendar
 alter table o_cal_use_config add constraint cal_u_conf_to_ident_idx foreign key (fk_identity) references o_bs_identity (id);

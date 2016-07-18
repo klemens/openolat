@@ -19,6 +19,7 @@
  */
 package org.olat.course.nodes.gta.ui;
 
+import org.olat.core.gui.components.form.flexible.elements.DownloadLink;
 import org.olat.course.nodes.gta.model.Solution;
 
 /**
@@ -31,10 +32,12 @@ public class SolutionRow {
 	
 	private final Solution solution;
 	private final String author;
+	private final DownloadLink downloadLink;
 	
-	public SolutionRow(Solution solution, String author) {
+	public SolutionRow(Solution solution, String author, DownloadLink downloadLink) {
 		this.solution = solution;
 		this.author = author;
+		this.downloadLink = downloadLink;
 	}
 
 	public Solution getSolution() {
@@ -43,5 +46,9 @@ public class SolutionRow {
 
 	public String getAuthor() {
 		return author;
+	}
+	
+	public DownloadLink getDownloadLink() {
+		return downloadLink;
 	}
 }
