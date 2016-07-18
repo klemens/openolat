@@ -18,6 +18,7 @@
 	<import resource="classpath:/org/olat/modules/webFeed/_spring/webFeedContext.xml"/>
 	<import resource="classpath:/org/olat/modules/wiki/_spring/wikiContext.xml"/>
 	<import resource="classpath:/org/olat/modules/reminder/_spring/reminderContext.xml"/>
+	<import resource="classpath:/org/olat/modules/video/_spring/videoContext.xml"/>
 	
 	
 	
@@ -34,6 +35,26 @@
 		<property name="i18nDescriptionKey" value="admin.menu.title.alt"/>
 		<property name="translationPackage" value="org.olat.modules.fo"/>
 		<property name="parentTreeNodeIdentifier" value="modulesParent" /> 
+		<property name="extensionPoints">
+			<list>	
+				<value>org.olat.admin.SystemAdminMainController</value>		
+			</list>
+		</property>
+	</bean>
+	
+	<!-- Goto admin. panel -->
+	<bean class="org.olat.core.extensions.action.GenericActionExtension" init-method="initExtensionPoints">
+		<property name="order" value="8218" />
+		<property name="actionController">	
+			<bean class="org.olat.core.gui.control.creator.AutoCreator" scope="prototype">
+				<property name="className" value="org.olat.modules.gotomeeting.ui.GoToAdminController"/>
+			</bean>
+		</property>
+		<property name="navigationKey" value="gotomeeting" />
+		<property name="i18nActionKey" value="admin.menu.title"/>
+		<property name="i18nDescriptionKey" value="admin.menu.title.alt"/>
+		<property name="translationPackage" value="org.olat.modules.gotomeeting.ui"/>
+		<property name="parentTreeNodeIdentifier" value="externalToolsParent" /> 
 		<property name="extensionPoints">
 			<list>	
 				<value>org.olat.admin.SystemAdminMainController</value>		

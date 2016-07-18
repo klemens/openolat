@@ -58,10 +58,11 @@ import org.olat.core.id.OLATResourceable;
 import org.olat.core.id.Roles;
 import org.olat.core.id.UserConstants;
 import org.olat.core.logging.AssertException;
+import org.olat.core.logging.OLog;
+import org.olat.core.logging.Tracing;
 import org.olat.core.logging.activity.ActionType;
 import org.olat.core.logging.activity.OlatResourceableType;
 import org.olat.core.logging.activity.ThreadLocalUserActivityLogger;
-import org.olat.core.manager.BasicManager;
 import org.olat.core.util.FileUtils;
 import org.olat.core.util.StringHelper;
 import org.olat.core.util.coordinate.CoordinatorManager;
@@ -85,8 +86,8 @@ import org.olat.repository.model.RepositoryEntryShortImpl;
 import org.olat.repository.model.SearchRepositoryEntryParameters;
 import org.olat.resource.OLATResource;
 import org.olat.resource.OLATResourceManager;
+import org.olat.resource.accesscontrol.ResourceReservation;
 import org.olat.resource.accesscontrol.manager.ACReservationDAO;
-import org.olat.resource.accesscontrol.model.ResourceReservation;
 import org.olat.search.service.document.RepositoryEntryDocument;
 import org.olat.search.service.indexer.LifeFullIndexer;
 import org.olat.user.UserImpl;
@@ -103,9 +104,12 @@ import org.springframework.stereotype.Service;
  * 
  */
 @Service("repositoryManager")
-public class RepositoryManager extends BasicManager {
+public class RepositoryManager {
 	
-	public static final int PICTUREWIDTH = 570;
+	private static final OLog log = Tracing.createLoggerFor(RepositoryManager.class);
+	
+	public static final int PICTURE_WIDTH = 570;
+	public static final int PICTURE_HEIGHT = (PICTURE_WIDTH / 3) * 2;
 
 	@Autowired
 	private ImageService imageHelper;
@@ -201,11 +205,29 @@ public class RepositoryManager extends BasicManager {
 			}
 			currentImage.delete();
 		}
-
-		VFSContainer repositoryHome = new LocalFolderImpl(new File(FolderConfig.getCanonicalRepositoryHome()));
-		VFSLeaf repoImage = repositoryHome.createChildLeaf(re.getResourceableId() + ".png");
 		
-		Size size = imageHelper.scaleImage(newImageFile, repoImage, PICTUREWIDTH, PICTUREWIDTH, false);
+		if(newImageFile == null || !newImageFile.exists() || newImageFile.getSize() <= 0) {
+			return false;
+		}
+		
+		String targetExtension = ".png";
+		String extension = FileUtils.getFileSuffix(newImageFile.getName());
+		if("jpg".equalsIgnoreCase(extension) || "jpeg".equalsIgnoreCase(extension)) {
+			targetExtension = ".jpg";
+		}
+		
+		VFSContainer repositoryHome = new LocalFolderImpl(new File(FolderConfig.getCanonicalRepositoryHome()));
+		VFSLeaf repoImage = repositoryHome.createChildLeaf(re.getResourceableId() + targetExtension);
+		
+		if(targetExtension.equals(".png") || targetExtension.equals(".jpg")) {
+			Size newImageSize = imageHelper.getSize(newImageFile, extension);
+			if(newImageSize != null && newImageSize.getWidth() <= PICTURE_WIDTH && newImageSize.getHeight() <= PICTURE_HEIGHT) {
+				boolean success = VFSManager.copyContent(newImageFile, repoImage);
+				return success;
+			}
+		}
+
+		Size size = imageHelper.scaleImage(newImageFile, repoImage, PICTURE_WIDTH, PICTURE_WIDTH, false);
 		return size != null;
 	}
 
@@ -394,14 +416,10 @@ public class RepositoryManager extends BasicManager {
 	 * @return the repositoryentry displayname or null if not found
 	 */
 	public String lookupDisplayNameByOLATResourceableId(Long resId) {
-		StringBuilder sb = new StringBuilder();
-		sb.append("select v.displayname from ").append(RepositoryEntry.class.getName()).append(" v ")
-		  .append(" inner join v.olatResource as ores")
-		  .append(" where ores.resId=:resid");
-		
 		List<String> displaynames = dbInstance.getCurrentEntityManager()
-				.createQuery(sb.toString(), String.class)
+				.createNamedQuery("getDisplayNameByOlatResourceRedId", String.class)
 				.setParameter("resid", resId)
+				.setHint("org.hibernate.cacheable", Boolean.TRUE)
 				.getResultList();
 
 		if (displaynames.size() > 1) throw new AssertException("Repository lookup returned zero or more than one result: " + displaynames.size());
@@ -416,12 +434,8 @@ public class RepositoryManager extends BasicManager {
 	 * @return the repositoryentry displayname or null if not found
 	 */
 	public String lookupDisplayName(Long reId) {
-		StringBuilder sb = new StringBuilder();
-		sb.append("select v.displayname from ").append(RepositoryEntry.class.getName()).append(" v ")
-		  .append(" where v.key=:reKey");
-		
 		List<String> displaynames = dbInstance.getCurrentEntityManager()
-				.createQuery(sb.toString(), String.class)
+				.createNamedQuery("getDisplayNameByRepositoryEntryKey", String.class)
 				.setParameter("reKey", reId)
 				.setHint("org.hibernate.cacheable", Boolean.TRUE)
 				.getResultList();
@@ -431,6 +445,28 @@ public class RepositoryManager extends BasicManager {
 		return displaynames.get(0);
 	}
 	
+    /**
+     * Check if (and which) external IDs already exist.
+     * @param a collection of external IDs to check if already existing
+     * @return a list of already existing external IDs (or an emtpy list).
+     */
+    public List<String> lookupExistingExternalIds(Collection<String> externalIds) {
+            if (externalIds == null || externalIds.isEmpty()) {
+                    return Collections.emptyList();
+            }
+
+            StringBuilder query = new StringBuilder();
+            query.append("select v.externalId from ").append(RepositoryEntry.class.getName()).append(" as v ")
+                    .append("where v.externalId in (:externalIds)");
+
+            List<String> existingExternalIds =
+                    dbInstance.getCurrentEntityManager().createQuery(query.toString(), String.class)
+                    .setParameter("externalIds", externalIds)
+                    .getResultList();
+
+            return existingExternalIds;
+    }
+
 	/**
 	 * Load a list of repository entry without all the security groups ...
 	 * @param resources
@@ -903,7 +939,7 @@ public class RepositoryManager extends BasicManager {
 		long start = System.currentTimeMillis();
 		List<RepositoryEntry> genericResults = queryByTypeLimitAccess(identity, restrictedType, roles);
 		long timeQuery3 = System.currentTimeMillis() - start;
-		logInfo("Repo-Perf: queryByTypeLimitAccess#3 takes " + timeQuery3);
+		log.info("Repo-Perf: queryByTypeLimitAccess#3 takes " + timeQuery3);
 		
 		if(results.isEmpty()) {
 			results.addAll(genericResults);
@@ -1489,7 +1525,7 @@ public class RepositoryManager extends BasicManager {
 				} finally {
 					ThreadLocalUserActivityLogger.setStickyActionType(actionType);
 				}
-				logAudit("Identity(.key):" + ureqIdentity.getKey() + " added identity '" + identity.getName()
+				log.audit("Identity(.key):" + ureqIdentity.getKey() + " added identity '" + identity.getName()
 						+ "' to repoentry with key " + re.getKey());
 			}//else silently ignore already owner identities
 		}
@@ -1535,7 +1571,7 @@ public class RepositoryManager extends BasicManager {
 		} finally {
 			ThreadLocalUserActivityLogger.setStickyActionType(actionType);
 		}
-		logAudit("Identity(.key):" + ureqIdentity.getKey() + " removed identity '" + identity.getName()
+		log.audit("Identity(.key):" + ureqIdentity.getKey() + " removed identity '" + identity.getName()
 				+ "' from repositoryentry with key " + re.getKey());
 	}
 	
@@ -1618,7 +1654,7 @@ public class RepositoryManager extends BasicManager {
 		} finally {
 			ThreadLocalUserActivityLogger.setStickyActionType(actionType);
 		}
-		logAudit("Identity(.key):" + ureqIdentity.getKey() + " added identity '" + identity.getName()
+		log.audit("Identity(.key):" + ureqIdentity.getKey() + " added identity '" + identity.getName()
 				+ "' to repositoryentry with key " + re.getKey());
 	}
 	
@@ -1650,7 +1686,7 @@ public class RepositoryManager extends BasicManager {
 		} finally {
 			ThreadLocalUserActivityLogger.setStickyActionType(actionType);
 		}
-		logAudit("Identity(.key):" + ureqIdentity.getKey() + " removed identity '" + identity.getName()
+		log.audit("Identity(.key):" + ureqIdentity.getKey() + " removed identity '" + identity.getName()
 				+ "' from repositoryentry with key " + re.getKey());
 	}
 	
@@ -1716,7 +1752,7 @@ public class RepositoryManager extends BasicManager {
 		} finally {
 			ThreadLocalUserActivityLogger.setStickyActionType(actionType);
 		}
-		logAudit("Identity(.key):" + ureqIdentity.getKey() + " added identity '" + identity.getName()
+		log.audit("Identity(.key):" + ureqIdentity.getKey() + " added identity '" + identity.getName()
 				+ "' to repositoryentry with key " + re.getKey());
 	}
 	
@@ -1752,7 +1788,7 @@ public class RepositoryManager extends BasicManager {
 		} finally {
 			ThreadLocalUserActivityLogger.setStickyActionType(actionType);
 		}
-		logAudit("Identity(.key):" + ureqIdentity.getKey() + " removed identity '" + identity.getName()
+		log.audit("Identity(.key):" + ureqIdentity.getKey() + " removed identity '" + identity.getName()
 				+ "' from repositoryentry with key " + re.getKey());
 	}
 	
@@ -1799,7 +1835,7 @@ public class RepositoryManager extends BasicManager {
 			for (Identity member : members) {
 				sb.append(member.getName()).append(", ");
 			}
-			logAudit(sb.toString());					
+			log.audit(sb.toString());					
 		}
 		
 		for(Identity identity:members) {

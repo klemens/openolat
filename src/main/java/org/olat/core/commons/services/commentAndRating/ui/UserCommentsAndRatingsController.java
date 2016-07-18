@@ -212,7 +212,11 @@ public class UserCommentsAndRatingsController extends BasicController implements
 	 * @return
 	 */
 	long getCommentsCount() {
-		return commentsCount.longValue();
+		if (commentsCount != null) {			
+			return commentsCount.longValue();
+		} else {
+			return 0l;
+		}
 	}
 
 	/**
@@ -275,6 +279,8 @@ public class UserCommentsAndRatingsController extends BasicController implements
 				// notify other user who also have this component
 				UserCommentsCountChangedEvent changedEvent = new UserCommentsCountChangedEvent(this, oresSubPath);
 				CoordinatorManager.getInstance().getCoordinator().getEventBus().fireEventToListenersOf(changedEvent, USER_COMMENTS_AND_RATING_CHANNEL);
+			} else if (event == Event.CANCELLED_EVENT) {
+				fireEvent(ureq, event);
 			}
 		}
 	}

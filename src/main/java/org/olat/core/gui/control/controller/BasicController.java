@@ -187,6 +187,7 @@ public abstract class BasicController extends DefaultController {
 	 * convenience method: registers a mapper which will be automatically
 	 * deregistered upon dispose of the controller
 	 * 
+	 * @param ureq The user request object
 	 * @param m
 	 *            the mapper that delivers the resources
 	 * @return The mapper base URL
@@ -199,6 +200,8 @@ public abstract class BasicController extends DefaultController {
 	/**
 	 * convenience method: registers a cacheable mapper which will be
 	 * automatically deregistered upon dispose of the controller
+	 * 
+	 * @param ureq The user request object
 	 * 
 	 * @param cacheableMapperID
 	 *            the mapper ID that is used in the url to identify this mapper.
@@ -498,6 +501,11 @@ public abstract class BasicController extends DefaultController {
 	protected void showWarning(String key, String arg) {
 		getWindowControl().setWarning(
 				getTranslator().translate(key, new String[] { arg }));
+	}
+	
+	protected void showWarning(String key, String[] args) {
+		getWindowControl().setWarning(
+				getTranslator().translate(key, args));
 	}
 
 	/**

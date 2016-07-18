@@ -157,6 +157,8 @@ public interface BaseSecurity {
 	 */
 	public Identity findIdentityByName(String identityName);
 	
+	public Identity findIdentityByNameCaseInsensitive(String identityName);
+	
 	public List<Identity> findIdentitiesByName(Collection<String> identityName);
 
 	/**
@@ -613,7 +615,7 @@ public interface BaseSecurity {
 	 * @param identity
 	 * @return
 	 */
-	public Identity setIdentityLastLogin(Identity identity);
+	public void setIdentityLastLogin(IdentityRef identity);
 	
 	/**
 	 * Set the identity name. 

@@ -29,6 +29,7 @@ package org.olat.core.util.vfs;
 import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -40,15 +41,13 @@ import org.olat.core.commons.modules.bc.vfs.OlatRootFileImpl;
 import org.olat.core.commons.modules.bc.vfs.OlatRootFolderImpl;
 import org.olat.core.logging.OLog;
 import org.olat.core.logging.Tracing;
-import org.olat.core.manager.BasicManager;
 import org.olat.core.util.FileUtils;
 import org.olat.core.util.StringHelper;
 import org.olat.core.util.vfs.callbacks.VFSSecurityCallback;
 import org.olat.core.util.vfs.util.ContainerAndFile;
 
-public class VFSManager extends BasicManager {
+public class VFSManager {
 	private static final OLog log = Tracing.createLoggerFor(VFSManager.class);
-	private static final int BUFFER_SIZE = 2048;
 	
 	/**
 	 * Make sure we always have a path that starts with a "/".
@@ -263,7 +262,7 @@ public class VFSManager extends BasicManager {
 				// relFilePath is the file name - no directories involved
 				relDirPath = null;
 				fileName = relFilePath;				
-			} if (lastSlash == 0) {
+			} else if (lastSlash == 0) {
 				// Remove start slash from file name
 				relDirPath = null;
 				fileName = relFilePath.substring(1, relFilePath.length());				
@@ -697,7 +696,7 @@ public class VFSManager extends BasicManager {
 			OutputStream out = new BufferedOutputStream(target.getOutputStream(false));
 			// write the input to the output
 			try {
-				byte[] buf = new byte[BUFFER_SIZE];
+				byte[] buf = new byte[FileUtils.BSIZE];
 				int i = 0;
         while ((i = in.read(buf)) != -1) {
             out.write(buf, 0, i);
@@ -761,6 +760,21 @@ public class VFSManager extends BasicManager {
 	}
 	
 	/**
+	 * Copy the content of the file in the target leaf.
+	 * @param source A file
+	 * @param target The target leaf
+	 * @return
+	 */
+	public static boolean copyContent(File source, VFSLeaf target) {
+		try(InputStream inStream = new FileInputStream(source)) {
+			return copyContent(inStream, target, true);
+		} catch(IOException ex) {
+			log.error("", ex);
+			return false;
+		}
+	}
+	
+	/**
 	 * Copies the stream to the target leaf.
 	 * 
 	 * @param source
@@ -786,7 +800,7 @@ public class VFSManager extends BasicManager {
 			OutputStream out = new BufferedOutputStream(target.getOutputStream(false));
 			// write the input to the output
 			try {
-				byte[] buf = new byte[BUFFER_SIZE];
+				byte[] buf = new byte[FileUtils.BSIZE];
 				int i = 0;
         while ((i = in.read(buf)) != -1) {
             out.write(buf, 0, i);

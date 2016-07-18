@@ -204,7 +204,7 @@ public class CheckListRunController extends FormBasicController implements Contr
 
 		DownloadLink downloadLink = null;
 		if(StringHelper.containsNonWhitespace(checkbox.getFilename())) {
-			VFSContainer container = checkboxManager.getFileContainer(userCourseEnv.getCourseEnvironment(), courseNode, checkbox);
+			VFSContainer container = checkboxManager.getFileContainer(userCourseEnv.getCourseEnvironment(), courseNode);
 			VFSItem item = container.resolve(checkbox.getFilename());
 			if(item instanceof VFSLeaf) {
 				String name = "file_" + checkbox.getCheckboxId();
@@ -346,6 +346,10 @@ public class CheckListRunController extends FormBasicController implements Contr
 		
 		public String getCheckboxElName() {
 			return checkboxEl.getName();
+		}
+		
+		public boolean hasDownload() {
+			return StringHelper.containsNonWhitespace(checkbox.getFilename()) && downloadLink != null;
 		}
 		
 		public String getDownloadName() {
