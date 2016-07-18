@@ -159,7 +159,8 @@ public class STCourseNode extends AbstractAccessableCourseNode implements Assess
 			DeliveryOptions deliveryOptions = (DeliveryOptions)getModuleConfiguration().get(SPEditController.CONFIG_KEY_DELIVERYOPTIONS);
 			OLATResourceable ores = OresHelper.createOLATResourceableInstance(CourseModule.class, userCourseEnv.getCourseEnvironment().getCourseResourceableId());
 			SinglePageController spCtr = new SinglePageController(ureq, wControl, userCourseEnv.getCourseEnvironment().getCourseFolderContainer(),
-					relPath, allowRelativeLinks.booleanValue(), ores, deliveryOptions);
+					relPath, allowRelativeLinks.booleanValue(), null, ores, deliveryOptions,
+					userCourseEnv.getCourseEnvironment().isPreview());
 			// check if user is allowed to edit the page in the run view
 			CourseGroupManager cgm = userCourseEnv.getCourseEnvironment().getCourseGroupManager();
 			boolean hasEditRights = (cgm.isIdentityCourseAdministrator(ureq.getIdentity()) 

@@ -88,13 +88,14 @@ import org.olat.repository.manager.CatalogManager;
 import org.olat.repository.model.RepositoryEntryStatistics;
 import org.olat.repository.ui.PriceMethod;
 import org.olat.repository.ui.RepositoyUIFactory;
+import org.olat.resource.OLATResource;
 import org.olat.resource.accesscontrol.ACService;
 import org.olat.resource.accesscontrol.AccessControlModule;
 import org.olat.resource.accesscontrol.AccessResult;
+import org.olat.resource.accesscontrol.OfferAccess;
+import org.olat.resource.accesscontrol.Price;
 import org.olat.resource.accesscontrol.method.AccessMethodHandler;
 import org.olat.resource.accesscontrol.model.AccessMethod;
-import org.olat.resource.accesscontrol.model.OfferAccess;
-import org.olat.resource.accesscontrol.model.Price;
 import org.olat.resource.accesscontrol.ui.PriceFormat;
 import org.olat.resource.references.ReferenceManager;
 import org.olat.user.UserManager;
@@ -227,14 +228,14 @@ public class RepositoryEntryDetailsController extends FormBasicController {
 				ImageComponent ic = new ImageComponent(ureq.getUserSession(), "thumbnail");
 				if(movie != null) {
 					ic.setMedia(movie);
-					ic.setMaxWithAndHeightToFitWithin(500, 300);
+					ic.setMaxWithAndHeightToFitWithin(RepositoryManager.PICTURE_WIDTH, RepositoryManager.PICTURE_HEIGHT);
 					// add poster image
 					if (image != null) {
 						ic.setPoster(image);
 					}
 				} else {
 					ic.setMedia(image);
-					ic.setMaxWithAndHeightToFitWithin(500, 300);
+					ic.setMaxWithAndHeightToFitWithin(RepositoryManager.PICTURE_WIDTH, RepositoryManager.PICTURE_HEIGHT);
 				}
 				layoutCont.put("thumbnail", ic);
 			}
@@ -310,7 +311,8 @@ public class RepositoryEntryDetailsController extends FormBasicController {
 
 			if(!guestOnly && memberRoles.contains(GroupRoles.participant.name())
 					&& repositoryService.isParticipantAllowedToLeave(entry)) {
-				leaveLink = uifactory.addFormLink("sign.out", "leave", "sign.out", null, formLayout, Link.LINK);
+				leaveLink = uifactory.addFormLink("sign.out", "leave", translate("sign.out"), null, formLayout, Link.BUTTON_SMALL + Link.NONTRANSLATED);
+				leaveLink.setElementCssClass("o_sign_out btn-danger");
 				leaveLink.setIconLeftCSS("o_icon o_icon_sign_out");
 			}
 
@@ -321,7 +323,7 @@ public class RepositoryEntryDetailsController extends FormBasicController {
 				// members only
 				if(isMember) {
 					String linkText = translate("start.with.type", translate(entry.getOlatResource().getResourceableTypeName()));
-					startLink = uifactory.addFormLink("start", "start", linkText, null, layoutCont, Link.BUTTON + Link.NONTRANSLATED);
+					startLink = uifactory.addFormLink("start", "start", linkText, null, layoutCont, Link.BUTTON_LARGE + Link.NONTRANSLATED);
 					startLink.setElementCssClass("o_start btn-block");
 					startLink.setIconRightCSS("o_icon o_icon_start o_icon-lg");
 					startLink.setPrimary(true);
@@ -332,7 +334,7 @@ public class RepositoryEntryDetailsController extends FormBasicController {
 				AccessResult acResult = acService.isAccessible(entry, getIdentity(), isMember, false);
 				if(acResult.isAccessible()) {
 					String linkText = translate("start.with.type", translate(entry.getOlatResource().getResourceableTypeName()));
-					startLink = uifactory.addFormLink("start", "start", linkText, null, layoutCont, Link.BUTTON + Link.NONTRANSLATED);
+					startLink = uifactory.addFormLink("start", "start", linkText, null, layoutCont, Link.BUTTON_LARGE + Link.NONTRANSLATED);
 					startLink.setElementCssClass("o_start btn-block");
 				} else if (acResult.getAvailableMethods().size() > 0) {
 					for(OfferAccess access:acResult.getAvailableMethods()) {
@@ -346,7 +348,7 @@ public class RepositoryEntryDetailsController extends FormBasicController {
 					}
 					String linkText = guestOnly ? translate("start.with.type", translate(entry.getOlatResource().getResourceableTypeName())) 
 							: translate("book.with.type", translate(entry.getOlatResource().getResourceableTypeName()));
-					startLink = uifactory.addFormLink("start", "start", linkText, null, layoutCont, Link.BUTTON + Link.NONTRANSLATED);
+					startLink = uifactory.addFormLink("start", "start", linkText, null, layoutCont, Link.BUTTON_LARGE + Link.NONTRANSLATED);
 					startLink.setCustomEnabledLinkCSS("btn btn-success"); // custom style
 					startLink.setElementCssClass("o_book btn-block");
 					if(guestOnly) {
@@ -360,7 +362,7 @@ public class RepositoryEntryDetailsController extends FormBasicController {
 					}
 				} else {
 					String linkText = translate("start.with.type", translate(entry.getOlatResource().getResourceableTypeName()));
-					startLink = uifactory.addFormLink("start", "start", linkText, null, layoutCont, Link.BUTTON + Link.NONTRANSLATED);
+					startLink = uifactory.addFormLink("start", "start", linkText, null, layoutCont, Link.BUTTON_LARGE + Link.NONTRANSLATED);
 					//startLink.setEnabled(false);
 					startLink.setElementCssClass("o_start btn-block");
 					startLink.setVisible(!guestOnly);
@@ -429,14 +431,14 @@ public class RepositoryEntryDetailsController extends FormBasicController {
 			layoutCont.contextPut("failed", failed);
 			layoutCont.contextPut("score", score);
 			
-			Long courseResId = entry.getOlatResource().getResourceableId();
-			Date recentLaunch = userCourseInfosManager.getRecentLaunchDate(courseResId, getIdentity());
+            OLATResource ores = entry.getOlatResource();
+			Date recentLaunch = userCourseInfosManager.getRecentLaunchDate(ores, getIdentity());
 			layoutCont.contextPut("recentLaunch", recentLaunch);
 			
 			// show how many users are currently using this resource
             String numUsers;
-            OLATResourceable ores = entry.getOlatResource();
             int cnt = 0;
+			Long courseResId = entry.getOlatResource().getResourceableId();
             OLATResourceable courseRunOres = OresHelper.createOLATResourceableInstance(RunMainController.ORES_TYPE_COURSE_RUN, courseResId);
             if (ores != null) cnt = coordinatorManager.getCoordinator().getEventBus().getListeningIdentityCntFor(courseRunOres);
             numUsers = String.valueOf(cnt);
@@ -567,7 +569,7 @@ public class RepositoryEntryDetailsController extends FormBasicController {
 	protected void doConfirmLeave(UserRequest ureq) {
 		String reName = StringHelper.escapeHtml(entry.getDisplayname());
 		String title = translate("sign.out");
-		String text = translate("sign.out.dialog.text", reName);
+		String text = "<div class='o_warning'>" + translate("sign.out.dialog.text", reName) + "</div>";
 		leaveDialogBox = activateYesNoDialog(ureq, title, text, leaveDialogBox);
 	}
 	

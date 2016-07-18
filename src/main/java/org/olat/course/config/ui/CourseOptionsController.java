@@ -28,6 +28,7 @@ import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.form.flexible.FormItem;
 import org.olat.core.gui.components.form.flexible.FormItemContainer;
 import org.olat.core.gui.components.form.flexible.elements.FormLink;
+import org.olat.core.gui.components.form.flexible.elements.MultipleSelectionElement;
 import org.olat.core.gui.components.form.flexible.elements.SelectionElement;
 import org.olat.core.gui.components.form.flexible.elements.StaticTextElement;
 import org.olat.core.gui.components.form.flexible.impl.FormBasicController;
@@ -69,6 +70,7 @@ import org.olat.repository.RepositoryEntry;
 import org.olat.repository.RepositoryEntryManagedFlag;
 import org.olat.repository.RepositoryManager;
 import org.olat.repository.controllers.ReferencableEntriesSearchController;
+import org.olat.repository.model.RepositoryEntrySecurity;
 import org.olat.resource.references.Reference;
 import org.olat.resource.references.ReferenceManager;
 import org.olat.util.logging.activity.LoggingResourceable;
@@ -84,15 +86,19 @@ public class CourseOptionsController extends FormBasicController {
 	private static final OLog log = Tracing.createLoggerFor(CourseOptionsController.class);
 	private static final String COMMAND_REMOVE = "command.glossary.remove";
 	private static final String COMMAND_ADD = "command.glossary.add";
+	
+	private static final String[] onKeys = new String[] {"xx"};
+	private static final String[] onValues = new String[] {""};
 
-	private SelectionElement calendarEl, chatEl;
+	private SelectionElement menuEl, toolbarEl, calendarEl, chatEl;
 	private FormLink addGlossaryCommand, removeGlossaryCommand;
 	private StaticTextElement glossaryNameEl;
 	private FormLink saveButton;
-	private FormLayoutContainer saveCont;
+	private FormLayoutContainer saveCont, calendarCont, chatCont, glossaryCont, sharedFolderCont;
 	
 	private FormLink addFolderCommand, removeFolderCommand;
 	private StaticTextElement folderNameEl;
+	private MultipleSelectionElement folderReadOnlyEl;
 	
 	private final boolean editable;
 	private CourseConfig courseConfig;
@@ -122,7 +128,8 @@ public class CourseOptionsController extends FormBasicController {
 		this.entry = entry;
 		
 		this.editable = editable;
-		initForm (ureq);
+		initForm(ureq);
+		updateToolbar();
 
 		//glossary setup
 		boolean managedGlossary = RepositoryEntryManagedFlag.isManaged(entry, RepositoryEntryManagedFlag.glossary);
@@ -156,45 +163,70 @@ public class CourseOptionsController extends FormBasicController {
 				folderNameEl.setValue(StringHelper.escapeHtml(repoEntry.getDisplayname()));
 				folderNameEl.setUserObject(repoEntry);
 				removeFolderCommand.setVisible(editable && !managedFolder);
+				
+				RepositoryEntrySecurity reSecurity = repositoryService.isAllowed(ureq, repoEntry);
+				folderReadOnlyEl.setVisible(true);
+				folderReadOnlyEl.setEnabled(reSecurity.isEntryAdmin());
 			}
 		} else if(editable && !managedFolder) {
 			removeFolderCommand.setVisible(false);
 			addFolderCommand.setVisible(true);
+			folderReadOnlyEl.setVisible(false);
 		}
 	}
 	
 	@Override
 	protected void initForm(FormItemContainer formLayout, Controller listener, UserRequest ureq) {
 		
+		FormLayoutContainer menuCont = FormLayoutContainer.createDefaultFormLayout("menutool", getTranslator());
+		menuCont.setRootForm(mainForm);
+		formLayout.add(menuCont);
+
+		menuEl = uifactory.addCheckboxesHorizontal("menuIsOn", "chkbx.menu.onoff", menuCont, onKeys, onValues);
+		menuEl.select(onKeys[0], courseConfig.isMenuEnabled());
+		
+		toolbarEl = uifactory.addCheckboxesHorizontal("toolbarIsOn", "chkbx.toolbar.onoff", menuCont, onKeys, onValues);
+		toolbarEl.select(onKeys[0], courseConfig.isToolbarEnabled());
+		toolbarEl.addActionListener(FormEvent.ONCHANGE);
+
+		boolean canHideToolbar = true;
 		if(calendarModule.isEnabled() && calendarModule.isEnableCourseToolCalendar()) {
 			//calendar
-			FormLayoutContainer calCont = FormLayoutContainer.createDefaultFormLayout("cal", getTranslator());
-			calCont.setRootForm(mainForm);
-			formLayout.add(calCont);
-			calCont.setFormContextHelp("Course Settings#_optionen");
+			calendarCont = FormLayoutContainer.createDefaultFormLayout("cal", getTranslator());
+			calendarCont.setRootForm(mainForm);
+			formLayout.add(calendarCont);
+			calendarCont.setFormContextHelp("Course Settings#_optionen");
 
 			boolean calendarEnabled = courseConfig.isCalendarEnabled();
 			boolean managedCal = RepositoryEntryManagedFlag.isManaged(entry, RepositoryEntryManagedFlag.calendar);
-			calendarEl = uifactory.addCheckboxesHorizontal("calIsOn", "chkbx.calendar.onoff", calCont, new String[] {"xx"}, new String[] {""});
+			calendarEl = uifactory.addCheckboxesHorizontal("calIsOn", "chkbx.calendar.onoff", calendarCont, onKeys, onValues);
 			calendarEl.addActionListener(FormEvent.ONCHANGE);
 			calendarEl.select("xx", calendarEnabled);
 			calendarEl.setEnabled(editable && !managedCal);
+			
+			if(managedCal && calendarEnabled) {
+				canHideToolbar &= false;
+			}
 		}
 		
 		//chat
-		FormLayoutContainer chatCont = FormLayoutContainer.createDefaultFormLayout("chat", getTranslator());
+		chatCont = FormLayoutContainer.createDefaultFormLayout("chat", getTranslator());
 		chatCont.setRootForm(mainForm);
 		formLayout.add(chatCont);
 
 		boolean chatEnabled = courseConfig.isChatEnabled();
 		boolean managedChat = RepositoryEntryManagedFlag.isManaged(entry, RepositoryEntryManagedFlag.chat);
-		chatEl = uifactory.addCheckboxesHorizontal("chatIsOn", "chkbx.chat.onoff", chatCont, new String[] {"xx"}, new String[] {""});
+		chatEl = uifactory.addCheckboxesHorizontal("chatIsOn", "chkbx.chat.onoff", chatCont, onKeys, onValues);
 		chatEl.addActionListener(FormEvent.ONCHANGE);
 		chatEl.select("xx", chatEnabled);
 		chatEl.setEnabled(editable && !managedChat);
 		
+		if(managedChat && chatEnabled) {
+			canHideToolbar &= false;
+		}
+		
 		//glossary
-		FormLayoutContainer glossaryCont = FormLayoutContainer.createDefaultFormLayout("glossary", getTranslator());
+		glossaryCont = FormLayoutContainer.createDefaultFormLayout("glossary", getTranslator());
 		glossaryCont.setRootForm(mainForm);
 		formLayout.add(glossaryCont);
 
@@ -209,9 +241,14 @@ public class CourseOptionsController extends FormBasicController {
 		addGlossaryCommand = uifactory.addFormLink(COMMAND_ADD, buttonsCont, Link.BUTTON);
 		addGlossaryCommand.setVisible(editable && !managedGlossary);
 		
+		if(managedGlossary && StringHelper.containsNonWhitespace(courseConfig.getGlossarySoftKey())) {
+			canHideToolbar &= false;
+		}
+		toolbarEl.setEnabled(canHideToolbar);
+		
 		//shared folder
 		boolean managedFolder = RepositoryEntryManagedFlag.isManaged(entry, RepositoryEntryManagedFlag.resourcefolder);
-		FormLayoutContainer sharedFolderCont = FormLayoutContainer.createDefaultFormLayout("sharedfolder", getTranslator());
+		sharedFolderCont = FormLayoutContainer.createDefaultFormLayout("sharedfolder", getTranslator());
 		sharedFolderCont.setRootForm(mainForm);
 		formLayout.add(sharedFolderCont);
 
@@ -219,9 +256,19 @@ public class CourseOptionsController extends FormBasicController {
 				translate("sf.notconfigured"), sharedFolderCont);
 		folderNameEl.setHelpText(translate("sf.resourcetitle.helptext"));
 		folderNameEl.setHelpUrlForManualPage("Course Settings#_detail_ressourcen");
-
+		
+		String[] readOnlyValues = new String[]{ translate("sf.resource.readonly") };
+		folderReadOnlyEl = uifactory.addCheckboxesHorizontal("sf.resource.readonly", sharedFolderCont, onKeys, readOnlyValues);
+		folderReadOnlyEl.addActionListener(FormEvent.ONCHANGE);
+		folderReadOnlyEl.setLabel(null, null);
+		folderReadOnlyEl.setEnabled(false);
+		if(courseConfig.isSharedFolderReadOnlyMount()) {
+			folderReadOnlyEl.select(onKeys[0], true);
+		}
+		
 		FormLayoutContainer buttons2Cont = FormLayoutContainer.createButtonLayout("buttons", getTranslator());
 		sharedFolderCont.add(buttons2Cont);
+		
 		removeFolderCommand = uifactory.addFormLink("sf.unselectsfresource", buttons2Cont, Link.BUTTON);
 		removeFolderCommand.setVisible(editable && !managedFolder);
 		addFolderCommand = uifactory.addFormLink("sf.changesfresource", buttons2Cont, Link.BUTTON);
@@ -255,7 +302,7 @@ public class CourseOptionsController extends FormBasicController {
 			cmc.deactivate();
 			if (event == ReferencableEntriesSearchController.EVENT_REPOSITORY_ENTRY_SELECTED) {
 				RepositoryEntry repoEntry = folderSearchCtr.getSelectedEntry();
-				doSelectSharedFolder(repoEntry);
+				doSelectSharedFolder(ureq, repoEntry);
 				setSaveButtonDirty();
 			}
 			cleanUp();
@@ -310,11 +357,24 @@ public class CourseOptionsController extends FormBasicController {
 				doRemoveSharedFolder();
 				setSaveButtonDirty();
 			}
-		} else if (source instanceof SelectionElement) {
+		} else if(toolbarEl == source) {
+			if(!toolbarEl.isSelected(0)) {
+				showWarning("chkbx.toolbar.off.warning");
+			}
+			updateToolbar();
 			setSaveButtonDirty();
-		} else if(saveButton == source) {
+		} else if (source instanceof SelectionElement || source == folderReadOnlyEl) {
+			setSaveButtonDirty();
+		}  else if(saveButton == source) {
 			doSave(ureq);
 		}
+	}
+	
+	private void updateToolbar() {
+		boolean enabled = toolbarEl.isSelected(0);
+		calendarCont.setVisible(enabled);
+		chatCont.setVisible(enabled);
+		glossaryCont.setVisible(enabled);
 	}
 
 
@@ -383,19 +443,22 @@ public class CourseOptionsController extends FormBasicController {
 		ICourse course = CourseFactory.openCourseEditSession(courseOres.getResourceableId());
 		courseConfig = course.getCourseEnvironment().getCourseConfig();
 		
-
+		boolean menuEnabled = menuEl.isSelected(0);
+		courseConfig.setMenuEnabled(menuEnabled);
+		boolean toolbarEnabled = toolbarEl.isSelected(0);
+		courseConfig.setToolbarEnabled(toolbarEnabled);
 		
 		boolean enableChat = chatEl.isSelected(0);
 		boolean updateChat = courseConfig.isChatEnabled() != enableChat;
-		courseConfig.setChatIsEnabled(enableChat);
+		courseConfig.setChatIsEnabled(enableChat && toolbarEnabled);
 		
 		boolean enableCalendar = calendarEl == null ? false : calendarEl.isSelected(0);
 		boolean updateCalendar = courseConfig.isCalendarEnabled() != enableCalendar && calendarModule.isEnableCourseToolCalendar();
-		courseConfig.setCalendarEnabled(enableCalendar);
+		courseConfig.setCalendarEnabled(enableCalendar && toolbarEnabled);
 		
 		String currentGlossarySoftKey = courseConfig.getGlossarySoftKey();
 		RepositoryEntry glossary = (RepositoryEntry)glossaryNameEl.getUserObject();
-		String newGlossarySoftKey = glossary == null ? null : glossary.getSoftkey();
+		String newGlossarySoftKey = (glossary == null || !toolbarEnabled) ? null : glossary.getSoftkey();
 		boolean updateGlossary = (currentGlossarySoftKey == null && newGlossarySoftKey != null)
 			|| (currentGlossarySoftKey != null && newGlossarySoftKey == null)
 			|| (newGlossarySoftKey != null && !newGlossarySoftKey.equals(currentGlossarySoftKey));
@@ -411,6 +474,11 @@ public class CourseOptionsController extends FormBasicController {
 				|| (currentFolderSoftKey != null && !currentFolderSoftKey.equals(newFolderSoftKey));
 
 		courseConfig.setSharedFolderSoftkey(newFolderSoftKey);
+		if(folderReadOnlyEl.isEnabled()) {
+			courseConfig.setSharedFolderReadOnlyMount(folderReadOnlyEl.isAtLeastSelected(1));
+		} else {
+			courseConfig.setSharedFolderReadOnlyMount(true);
+		}
 
 		CourseFactory.setCourseConfig(course.getResourceableId(), courseConfig);
 		CourseFactory.closeCourseEditSession(course.getResourceableId(), true);
@@ -512,16 +580,23 @@ public class CourseOptionsController extends FormBasicController {
 		removeGlossaryCommand.setVisible(false);
 	}
 	
-	private void doSelectSharedFolder(RepositoryEntry repoEntry) {
+	private void doSelectSharedFolder(UserRequest ureq, RepositoryEntry repoEntry) {
 		folderNameEl.setValue(StringHelper.escapeHtml(repoEntry.getDisplayname()));
 		folderNameEl.setUserObject(repoEntry);
 		removeFolderCommand.setVisible(true);
+		
+		RepositoryEntrySecurity reSecurity = repositoryService.isAllowed(ureq, repoEntry);
+		folderReadOnlyEl.setVisible(true);
+		folderReadOnlyEl.setEnabled(reSecurity.isEntryAdmin());
+		folderReadOnlyEl.select(onKeys[0], true);
+		sharedFolderCont.setDirty(true);
 	}
 	
 	private void doRemoveSharedFolder() {			
 		folderNameEl.setValue(translate("sf.notconfigured"));
 		folderNameEl.setUserObject(null);
 		removeFolderCommand.setVisible(false);
+		folderReadOnlyEl.setVisible(false);
 	}
 
 }

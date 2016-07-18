@@ -30,6 +30,31 @@ import org.olat.core.util.vfs.VFSLeaf;
  */
 public interface MovieService {
 	
+	/**
+	 * Calculate the dimensions of the given movie in terms of width and height
+	 * 
+	 * @param image
+	 * @param suffix
+	 * @return
+	 */
 	public Size getSize(VFSLeaf image, String suffix);
 
+	
+	/**
+	 * Calculate the duration of the given movie
+	 * 
+	 * @param media
+	 * @param suffix
+	 * @return long duration in milliseconds
+	 */
+	public long getDuration(VFSLeaf media, String suffix);
+
+	/**
+	 * Checks if a file is really an mp4 file we can handle
+	 * @param media
+	 * @param fileName
+	 * @return 
+	 */
+	public boolean isMP4(VFSLeaf media, String fileName);
+	
 }
