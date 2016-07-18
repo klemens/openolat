@@ -165,7 +165,7 @@ public class BBautOLATStructureNodeEditController extends ActivateableTabbableDe
 
 		// Accessibility precondition
 		Condition accessCondition = bBautOLATStructureNode.getPreConditionAccess();
-		accessibilityCondContr = new ConditionEditController(ureq, getWindowControl(), accessCondition, assessableChildren, euce);
+		accessibilityCondContr = new ConditionEditController(ureq, getWindowControl(), euce, accessCondition, assessableChildren);
 		this.listenTo(accessibilityCondContr);
 
 		ScoreCalculator scoreCalc = bBautOLATStructureNode.getScoreCalculator();
