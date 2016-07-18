@@ -81,4 +81,9 @@ public class SimpleShibbolethErrorController extends DefaultChiefController {
 	public boolean hasStaticSite(Class<? extends SiteInstance> type) {
 		return false;
 	}
+
+	@Override
+	public boolean isLoginInterceptionInProgress() {
+		return false;
+	}
 }
