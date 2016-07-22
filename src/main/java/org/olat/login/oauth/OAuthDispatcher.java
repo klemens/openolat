@@ -51,6 +51,8 @@ import org.olat.core.util.Util;
 import org.olat.core.util.WebappHelper;
 import org.olat.login.oauth.model.OAuthRegistration;
 import org.olat.login.oauth.model.OAuthUser;
+import org.olat.login.oauth.spi.OpenIDVerifier;
+import org.olat.login.oauth.ui.JSRedirectWindowController;
 import org.olat.login.oauth.ui.OAuthAuthenticationController;
 import org.olat.user.UserManager;
 import org.scribe.model.Token;
@@ -118,12 +120,25 @@ public class OAuthDispatcher implements Dispatcher {
 			Token requestToken = (Token)sess.getAttribute(OAuthConstants.REQUEST_TOKEN);
 			OAuthService service = (OAuthService)sess.getAttribute(OAuthConstants.OAUTH_SERVICE);
 			OAuthSPI provider = (OAuthSPI)sess.getAttribute(OAuthConstants.OAUTH_SPI);
-			String verifier = request.getParameter("oauth_verifier"); 
-			if(verifier == null) {//OAuth 2.0 as a code
-				verifier = request.getParameter("code"); 
+
+			Token accessToken;
+			if(provider.isImplicitWorkflow()) {
+				String idToken = ureq.getParameter("id_token");
+				if(idToken == null) {
+					redirectImplicitWorkflow(ureq);
+					return;
+				} else {
+					Verifier verifier = OpenIDVerifier.create(ureq, sess);
+					accessToken = service.getAccessToken(requestToken, verifier);
+				}
+			} else {
+				String requestVerifier = request.getParameter("oauth_verifier"); 
+				if(requestVerifier == null) {//OAuth 2.0 as a code
+					requestVerifier = request.getParameter("code");
+				}
+				accessToken = service.getAccessToken(requestToken, new Verifier(requestVerifier));
 			}
 
-			Token accessToken = service.getAccessToken(requestToken, new Verifier(verifier));
 			OAuthUser infos = provider.getUser(service, accessToken);
 			if(infos == null || !StringHelper.containsNonWhitespace(infos.getId())) {
 				error(ureq, translate(ureq, "error.no.id"));
@@ -170,6 +185,11 @@ public class OAuthDispatcher implements Dispatcher {
 		}
 	}
 	
+	private void redirectImplicitWorkflow(UserRequest ureq) {
+		ChiefController msgcc = new JSRedirectWindowController(ureq);
+		msgcc.getWindow().dispatchRequest(ureq, true);
+	}
+	
 	private void login(OAuthUser infos, OAuthRegistration registration) {
 		String id = infos.getId();
 		//has an identifier
@@ -180,6 +200,9 @@ public class OAuthDispatcher implements Dispatcher {
 				String email = infos.getEmail();
 				if(StringHelper.containsNonWhitespace(email)) {
 					Identity identity = userManager.findIdentityByEmail(email);
+					if(identity == null) {
+						identity = securityManager.findIdentityByName(id);
+					}
 					if(identity != null) {
 						auth = securityManager.createAndPersistAuthentication(identity, registration.getAuthProvider(), id, null, null);
 						registration.setIdentity(identity);
@@ -213,7 +236,13 @@ public class OAuthDispatcher implements Dispatcher {
 	}
 	
 	private void error(UserRequest ureq, String message) {
-		ChiefController msgcc = new MessageWindowController(ureq, message);
+		StringBuilder sb = new StringBuilder();
+		sb.append("<h4><i class='o_icon o_icon-fw o_icon_error'> </i>");
+		sb.append(translate(ureq, "error.title"));
+		sb.append("</h4><p>");
+		sb.append(message);
+		sb.append("</p>");
+		ChiefController msgcc = new MessageWindowController(ureq, sb.toString());
 		msgcc.getWindow().dispatchRequest(ureq, true);
 	}
 	
