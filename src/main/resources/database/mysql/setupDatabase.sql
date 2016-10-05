@@ -1467,7 +1467,7 @@ create table o_gta_task (
    g_status varchar(36),
    g_rev_loop mediumint not null default 0,
    g_assignment_date datetime,
-   g_taskname varchar(36),
+   g_taskname varchar(1024),
    fk_tasklist bigint not null,
    fk_identity bigint,
    fk_businessgroup bigint,
@@ -1654,9 +1654,9 @@ create view o_gp_contactkey_v as (
    inner join o_bs_group_member as bg_member on (bg_member.fk_group_id = bgroup.fk_group_id)
    inner join o_bs_group_member as bg_me on (bg_me.fk_group_id = bgroup.fk_group_id)
    where
-      (bgroup.ownersintern=true and bg_member.g_role='coach')
+      (bgroup.ownersintern=1 and bg_member.g_role='coach')
       or
-      (bgroup.participantsintern=true and bg_member.g_role='participant')
+      (bgroup.participantsintern=1 and bg_member.g_role='participant')
 );
 
 create view o_gp_contactext_v as (
@@ -1678,9 +1678,9 @@ create view o_gp_contactext_v as (
    inner join o_userproperty as last_member on (last_member.fk_user_id = us_member.user_id and last_member.propname='lastName')
    inner join o_bs_group_member as bg_me on (bg_me.fk_group_id = bgroup.fk_group_id)
    where
-      (bgroup.ownersintern=true and bg_member.g_role='coach')
+      (bgroup.ownersintern=1 and bg_member.g_role='coach')
       or
-      (bgroup.participantsintern=true and bg_member.g_role='participant')
+      (bgroup.participantsintern=1 and bg_member.g_role='participant')
 );
 
 

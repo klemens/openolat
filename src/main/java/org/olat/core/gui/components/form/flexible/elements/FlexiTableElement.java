@@ -91,7 +91,10 @@ public interface FlexiTableElement extends FormItem {
 	public boolean isMultiSelect();
 	
 	/**
-	 * Enable multi-selection
+	 * Enable multi-selection. In the case of multi, the rows
+	 * of the data model needs to implements and hashCode / equals
+	 * method.
+	 * 
 	 */
 	public void setMultiSelect(boolean enable);
 	
@@ -321,6 +324,18 @@ public interface FlexiTableElement extends FormItem {
 	public void quickSearch(UserRequest ureq, String search);
 	
 	public void sort(String sortKey, boolean asc);
+	
+	@Override
+	public void reset();
+	
+	/**
+	 * Fine grained reset method for the flexi table.
+	 * 
+	 * @param page Set the current page of pageing to the firs
+	 * @param internal Set the row count and other internal variable to 0
+	 * @param reloadData Reload the data
+	 */
+	public void reset(boolean page, boolean internal, boolean reloadData);
 	
 	public void reloadData();
 	

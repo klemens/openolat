@@ -96,6 +96,18 @@
 					<constructor-arg index="0" value="OLAT_10.5.0" />
 					<property name="alterDbStatements" value="alter_10_4_0_to_10_5_0.sql" />
 				</bean>
+				<bean id="database_upgrade_10_5_5" class="org.olat.upgrade.DatabaseUpgrade">
+					<constructor-arg index="0" value="OLAT_10.5.5" />
+					<property name="alterDbStatements" value="alter_10_5_4_to_10_5_5.sql" />
+				</bean>
+				<bean id="database_upgrade_10_5_7" class="org.olat.upgrade.DatabaseUpgrade">
+					<constructor-arg index="0" value="OLAT_10.5.7" />
+					<property name="alterDbStatements" value="alter_10_5_6_to_10_5_7.sql" />
+				</bean>
+				<bean id="database_upgrade_10_5_8" class="org.olat.upgrade.DatabaseUpgrade">
+					<constructor-arg index="0" value="OLAT_10.5.8" />
+					<property name="alterDbStatements" value="alter_10_5_7_to_10_5_8.sql" />
+				</bean>
 			</list>
 		</property>
 	</bean>
