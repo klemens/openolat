@@ -32,16 +32,38 @@ public class FlexiTableFilter {
 	private final String label;
 	private final String filter;
 	private final String iconLeftCSS;
+	private final FlexiTableFilterIconRenderer renderer;
+	
 	private boolean selected;
+	private boolean showAll = false;
 	
 	public FlexiTableFilter(String label, String filter) {
-		this(label, filter, null);
-	}
-	
-	public FlexiTableFilter(String label, String filter,String iconLeftCSS) {
 		this.label = label;
 		this.filter = filter;
+		this.renderer = null;
+		this.iconLeftCSS = null;
+	}
+	
+	public FlexiTableFilter(String label, String filter, boolean showAll) {
+		this.label = label;
+		this.filter = filter;
+		this.showAll = showAll;
+		this.renderer = null;
+		this.iconLeftCSS = null;
+	}
+	
+	public FlexiTableFilter(String label, String filter, String iconLeftCSS) {
+		this.label = label;
+		this.filter = filter;
+		this.renderer = null;
 		this.iconLeftCSS = iconLeftCSS;
+	}
+	
+	public FlexiTableFilter(String label, String filter, FlexiTableFilterIconRenderer renderer) {
+		this.label = label;
+		this.filter = filter;
+		this.renderer = renderer;
+		this.iconLeftCSS = null;
 	}
 	
 	public String getLabel() {
@@ -50,6 +72,14 @@ public class FlexiTableFilter {
 	
 	public String getFilter() {
 		return filter;
+	}
+
+	public boolean isShowAll() {
+		return showAll;
+	}
+
+	public void setShowAll(boolean showAll) {
+		this.showAll = showAll;
 	}
 
 	public String getIconLeftCSS() {
@@ -62,6 +92,10 @@ public class FlexiTableFilter {
 
 	public void setSelected(boolean selected) {
 		this.selected = selected;
+	}
+
+	public FlexiTableFilterIconRenderer getIconRenderer() {
+		return renderer;
 	}
 
 	@Override

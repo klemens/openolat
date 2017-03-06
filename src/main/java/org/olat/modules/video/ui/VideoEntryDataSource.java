@@ -27,6 +27,7 @@ import org.olat.core.CoreSpringFactory;
 import org.olat.core.commons.persistence.DefaultResultInfos;
 import org.olat.core.commons.persistence.ResultInfos;
 import org.olat.core.commons.persistence.SortKey;
+import org.olat.core.gui.components.form.flexible.elements.FlexiTableFilter;
 import org.olat.core.gui.components.form.flexible.impl.elements.table.FlexiTableDataSourceDelegate;
 import org.olat.core.util.StringHelper;
 import org.olat.repository.RepositoryEntryMyView;
@@ -82,8 +83,8 @@ public class VideoEntryDataSource implements FlexiTableDataSourceDelegate<Reposi
 	}
 
 	@Override
-	public final ResultInfos<RepositoryEntryRow> getRows(String query, List<String> condQueries,
-			int firstResult, int maxResults, SortKey... orderBy) {
+	public ResultInfos<RepositoryEntryRow> getRows(String query, List<FlexiTableFilter> filters,
+			List<String> condQueries, int firstResult, int maxResults, SortKey... orderBy) {
 		
 		if(condQueries != null && condQueries.size() > 0) {
 			String filter = condQueries.get(0);

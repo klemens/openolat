@@ -4,6 +4,15 @@ create table o_forum (
    creationdate timestamp,
    primary key (forum_id)
 );
+create table o_forum_pseudonym (
+   id bigserial,
+   creationdate timestamp not null,
+   p_pseudonym varchar(255) not null,
+   p_credential varchar(255) not null,
+   p_salt varchar(255) not null,
+   p_hashalgorithm varchar(16) not null,
+   primary key (id)
+);
 create table o_property (
    id int8 not null,
    version int4 not null,
@@ -144,7 +153,6 @@ create table o_bs_identity (
    name varchar(128) not null unique,
    external_id varchar(64),
    status integer,
-   fk_user_id int8 unique,
    primary key (id)
 );
 create table o_olatresource (
@@ -211,6 +219,81 @@ create table o_user (
    presencemessagespublic bool,
    informsessiontimeout bool not null,
    receiverealmail varchar(16),
+   u_firstname varchar(255),
+   u_lastname varchar(255),
+   u_email varchar(255),
+   u_birthday varchar(255),
+   u_graduation varchar(255),
+   u_gender varchar(255),
+   u_telprivate varchar(255),
+   u_telmobile varchar(255),
+   u_teloffice varchar(255),
+   u_skype varchar(255),
+   u_msn varchar(255),
+   u_xing varchar(255),
+   u_icq varchar(255),
+   u_homepage varchar(255),
+   u_street varchar(255),
+   u_extendedaddress varchar(255),
+   u_pobox varchar(255),
+   u_zipcode varchar(255),
+   u_region varchar(255),
+   u_city varchar(255),
+   u_country varchar(255),
+   u_countrycode varchar(255),
+   u_institutionalname varchar(255),
+   u_institutionaluseridentifier varchar(255),
+   u_institutionalemail varchar(255),
+   u_orgunit varchar(255),
+   u_studysubject varchar(255),
+   u_emchangekey varchar(255),
+   u_emaildisabled varchar(255),
+   u_typeofuser varchar(255),
+   u_socialsecuritynumber varchar(255),
+
+   u_rank varchar(255),
+   u_degree varchar(255),
+   u_position varchar(255),
+   u_userinterests varchar(255),
+   u_usersearchedinterests varchar(255),
+   u_officestreet varchar(255),
+   u_extendedofficeaddress varchar(255),
+   u_officepobox varchar(255),
+   u_officezipcode varchar(255),
+   u_officecity varchar(255),
+   u_officecountry varchar(255),
+   u_officemobilephone varchar(255),
+   u_department varchar(255),
+   u_privateemail varchar(255),
+   u_employeenumber varchar(255),
+   u_organizationalunit varchar(255),
+
+   u_edupersonaffiliation varchar(255),
+   u_swissedupersonstaffcategory varchar(255),
+   u_swissedupersonhomeorg varchar(255),
+   u_swissedupersonstudylevel varchar(255),
+   u_swissedupersonhomeorgtype varchar(255),
+   u_swissedupersonstudybranch1 varchar(255),
+   u_swissedupersonstudybranch2 varchar(255),
+   u_swissedupersonstudybranch3 varchar(255),
+
+   u_genericselectionproperty varchar(255),
+   u_genericselectionproperty2 varchar(255),
+   u_genericselectionproperty3 varchar(255),
+   u_generictextproperty varchar(255),
+   u_generictextproperty2 varchar(255),
+   u_generictextproperty3 varchar(255),
+   u_generictextproperty4 varchar(255),
+   u_generictextproperty5 varchar(255),
+   u_genericuniquetextproperty varchar(255),
+   u_genericuniquetextproperty2 varchar(255),
+   u_genericuniquetextproperty3 varchar(255),
+   u_genericemailproperty1 varchar(255),
+   u_genericcheckboxproperty varchar(255),
+   u_genericcheckboxproperty2 varchar(255),
+   u_genericcheckboxproperty3 varchar(255),
+
+   fk_identity int8,
    primary key (user_id)
 );
 create table o_userproperty (
@@ -324,6 +407,8 @@ create table o_repositoryentry (
    candownload bool not null,
    cancopy bool not null,
    canreference bool not null,
+   deletiondate timestamp default null,
+   fk_deleted_by int8 default null,
    primary key (repositoryentry_id)
 );
 create table o_re_to_group (
@@ -1068,6 +1153,29 @@ create table o_as_user_course_infos (
    primary key (id)
 );
 
+create table o_as_entry (
+   id bigserial,
+   creationdate timestamp not null,
+   lastmodified timestamp not null,
+   a_attemtps int8 default null,
+   a_score decimal default null,
+   a_passed bool default null,
+   a_status varchar(16) default null,
+   a_details varchar(1024) default null,
+   a_fully_assessed bool default null,
+   a_assessment_id int8 default null,
+   a_completion float(24),
+   a_comment text,
+   a_coach_comment text,
+   fk_entry int8 not null,
+   a_subident varchar(64),
+   fk_reference_entry int8,
+   fk_identity int8 default null,
+   a_anon_identifier varchar(128) default null,
+   primary key (id),
+   unique(fk_identity, fk_entry, a_subident)
+);
+
 create table o_as_mode_course (
    id int8 not null,
    creationdate timestamp not null,
@@ -1129,6 +1237,7 @@ create table o_cer_certificate (
    c_status varchar(16) not null default 'pending',
    c_email_status varchar(16),
    c_uuid varchar(36) not null,
+   c_next_recertification timestamp,
    c_path varchar(1024),
    c_last bool not null default true,
    c_course_title varchar(255),
@@ -1296,6 +1405,265 @@ create table o_mapper (
    mapper_uuid varchar(64),
    orig_session_id varchar(64),
    xml_config TEXT,
+   primary key (id)
+);
+
+-- qti 2.1
+create table o_qti_assessmenttest_session (
+   id bigserial,
+   creationdate timestamp not null,
+   lastmodified timestamp not null,
+   q_exploded bool default false,
+   q_author_mode bool default false,
+   q_finish_time timestamp,
+   q_termination_time timestamp,
+   q_duration int8,
+   q_score decimal default null,
+   q_manual_score decimal default null,
+   q_passed bool default null,
+   q_storage varchar(1024),
+   fk_reference_entry int8 not null,
+   fk_entry int8,
+   q_subident varchar(64),
+   fk_identity int8 default null,
+   q_anon_identifier varchar(128) default null,
+   fk_assessment_entry int8 not null,
+   primary key (id)
+);
+
+create table o_qti_assessmentitem_session (
+   id bigserial,
+   creationdate timestamp not null,
+   lastmodified timestamp not null,
+   q_itemidentifier varchar(64) not null,
+   q_sectionidentifier varchar(64) default null,
+   q_testpartidentifier varchar(64) default null,
+   q_duration int8,
+   q_score decimal default null,
+   q_manual_score decimal default null,
+   q_passed bool default null,
+   q_storage varchar(1024),
+   fk_assessmenttest_session int8 not null,
+   primary key (id)
+);
+
+create table o_qti_assessment_response (
+   id bigserial,
+   creationdate timestamp not null,
+   lastmodified timestamp not null,
+   q_responseidentifier varchar(64) not null,
+   q_responsedatatype varchar(16) not null,
+   q_responselegality varchar(16) not null,
+   q_stringuifiedresponse text,
+   fk_assessmentitem_session int8 not null,
+   fk_assessmenttest_session int8 not null,
+   primary key (id)
+);
+
+create table o_qti_assessment_marks (
+   id bigserial,
+   creationdate timestamp not null,
+   lastmodified timestamp not null,
+   q_marks text default null,
+   fk_reference_entry int8 not null,
+   fk_entry int8,
+   q_subident varchar(64),
+   fk_identity int8 not null,
+   primary key (id)
+);
+
+-- portfolio
+create table o_pf_binder (
+   id bigserial,
+   creationdate timestamp not null,
+   lastmodified timestamp not null,
+   p_title varchar(255),
+   p_status varchar(32),
+   p_copy_date timestamp,
+   p_return_date timestamp,
+   p_deadline timestamp,
+   p_summary text,
+   p_image_path varchar(255),
+   fk_olatresource_id int8,
+   fk_group_id int8 not null,
+   fk_entry_id int8,
+   p_subident varchar(128),
+   fk_template_id int8,
+   primary key (id)
+);
+
+create table o_pf_section (
+   id bigserial,
+   creationdate timestamp not null,
+   lastmodified timestamp not null,
+   pos int8 default null,
+   p_title varchar(255),
+   p_description text,
+   p_status varchar(32) not null default 'notStarted',
+   p_begin timestamp,
+   p_end timestamp,
+   p_override_begin_end bool default false,
+   fk_group_id int8 not null,
+   fk_binder_id int8 not null,
+   fk_template_reference_id int8,
+   primary key (id)
+);
+
+create table o_pf_page (
+   id bigserial,
+   creationdate timestamp not null,
+   lastmodified timestamp not null,
+   pos int8 default null,
+   p_editable bool default true,
+   p_title varchar(255),
+   p_summary text,
+   p_status varchar(32),
+   p_image_path varchar(255),
+   p_image_align varchar(32),
+   p_version int8 default 0,
+   p_initial_publish_date timestamp,
+   p_last_publish_date timestamp,
+   fk_body_id int8 not null,
+   fk_group_id int8 not null,
+   fk_section_id int8,
+   primary key (id)
+);
+
+create table o_pf_page_body (
+   id bigserial,
+   creationdate timestamp not null,
+   lastmodified timestamp not null,
+   primary key (id)
+);
+
+create table o_pf_page_part (
+   id bigserial,
+   creationdate timestamp not null,
+   lastmodified timestamp not null,
+   pos int8 default null,
+   dtype varchar(32),
+   p_content text,
+   p_flow varchar(32),
+   p_layout_options varchar(2000),
+   fk_media_id int8,
+   fk_page_body_id int8,
+   fk_form_entry_id int8 default null,
+   primary key (id)
+);
+
+create table o_pf_media (
+   id bigserial,
+   creationdate timestamp not null,
+   p_collection_date timestamp not null,
+   p_type varchar(64) not null,
+   p_storage_path varchar(255),
+   p_root_filename varchar(255),
+   p_title varchar(255) not null,
+   p_description text,
+   p_content text,
+   p_signature int8 not null default 0,
+   p_reference_id varchar(255) default null,
+   p_business_path varchar(255) not null,
+   p_creators varchar(1024) default null,
+   p_place varchar(255) default null,
+   p_publisher varchar(255) default null,
+   p_publication_date timestamp default null,
+   p_date varchar(32) default null,
+   p_url varchar(1024) default null,
+   p_source varchar(1024) default null,
+   p_language varchar(32) default null,
+   p_metadata_xml text,
+   fk_author_id int8 not null,
+   primary key (id)
+);
+
+create table o_pf_category (
+   id bigserial,
+   creationdate timestamp not null,
+   p_name varchar(32),
+   primary key (id)
+);
+
+create table o_pf_category_relation (
+   id bigserial,
+   creationdate timestamp not null,
+   p_resname varchar(64) not null,
+   p_resid int8 not null,
+   fk_category_id int8 not null,
+   primary key (id)
+);
+
+create table o_pf_assessment_section (
+   id bigserial,
+   creationdate timestamp not null,
+   lastmodified timestamp not null,
+   p_score decimal default null,
+   p_passed bool default null,
+   p_comment text,
+   fk_section_id int8 not null,
+   fk_identity_id int8 not null,
+   primary key (id)
+);
+
+create table o_pf_assignment (
+   id bigserial,
+   creationdate timestamp not null,
+   lastmodified timestamp not null,
+   pos int8 default null,
+   p_status varchar(32) default null,
+   p_type varchar(32) not null,
+   p_version int8 not null default 0,
+   p_title varchar(255) default null,
+   p_summary text,
+   p_content text,
+   p_storage varchar(255) default null,
+   fk_section_id int8 not null,
+   fk_template_reference_id int8,
+   fk_page_id int8,
+   fk_assignee_id int8,
+   p_only_auto_eva bool default true,
+   p_reviewer_see_auto_eva bool default false,
+   p_anon_extern_eva bool default true,
+   fk_form_entry_id int8 default null,
+   primary key (id)
+);
+
+create table o_pf_binder_user_infos (
+   id bigserial,
+   creationdate timestamp not null,
+   lastmodified timestamp not null,
+   p_initiallaunchdate timestamp,
+   p_recentlaunchdate timestamp,
+   p_visit int4,
+   fk_identity int8,
+   fk_binder int8,
+   unique(fk_identity, fk_binder),
+   primary key (id)
+);
+
+-- evaluation form
+create table o_eva_form_session (
+   id bigserial,
+   creationdate timestamp not null,
+   lastmodified timestamp not null,
+   e_status varchar(16),
+   e_submission_date timestamp,
+   e_first_submission_date timestamp,
+   fk_identity int8 not null,
+   fk_page_body int8,
+   fk_form_entry int8 not null,
+   primary key (id)
+);
+
+create table o_eva_form_response (
+   id bigserial,
+   creationdate timestamp not null,
+   lastmodified timestamp not null,
+   e_responseidentifier varchar(64) not null,
+   e_responsedatatype varchar(16) not null,
+   e_numericalresponse decimal default null,
+   e_stringuifiedresponse text,
+   fk_session int8 not null,
    primary key (id)
 );
 
@@ -1530,14 +1898,11 @@ create view o_bs_identity_short_v as (
       ident.lastlogin as id_lastlogin,
       ident.status as id_status,
       us.user_id as us_id,
-      p_firstname.propvalue as first_name,
-      p_lastname.propvalue as last_name,
-      p_email.propvalue as email
+      us.u_firstname as first_name,
+      us.u_lastname as last_name,
+      us.u_email as email
    from o_bs_identity as ident
-   inner join o_user as us on (ident.fk_user_id = us.user_id)
-   left join o_userproperty as p_firstname on (us.user_id = p_firstname.fk_user_id and p_firstname.propName = 'firstName')
-   left join o_userproperty as p_lastname on (us.user_id = p_lastname.fk_user_id and p_lastname.propName = 'lastName')
-   left join o_userproperty as p_email on (us.user_id = p_email.fk_user_id and p_email.propName = 'email')
+   inner join o_user as us on (ident.id = us.fk_identity)
 );
 
 -- eportfolio views
@@ -1665,17 +2030,15 @@ create view o_gp_contactext_v as (
       bg_member.fk_identity_id as member_id,
       bg_member.g_role as membership_role,
       id_member.name as member_name,
-      first_member.propvalue as member_firstname,
-      last_member.propvalue as member_lastname,
+      us_member.u_firstname as member_firstname,
+      us_member.u_lastname as member_lastname,
       bg_me.fk_identity_id as me_id,
       bgroup.group_id as bg_id,
       bgroup.groupname as bg_name
    from o_gp_business as bgroup
    inner join o_bs_group_member as bg_member on (bg_member.fk_group_id = bgroup.fk_group_id)
    inner join o_bs_identity as id_member on (bg_member.fk_identity_id = id_member.id)
-   inner join o_user as us_member on (id_member.fk_user_id = us_member.user_id)
-   inner join o_userproperty as first_member on (first_member.fk_user_id = us_member.user_id and first_member.propname='firstName')
-   inner join o_userproperty as last_member on (last_member.fk_user_id = us_member.user_id and last_member.propname='lastName')
+   inner join o_user as us_member on (id_member.id = us_member.fk_identity)
    inner join o_bs_group_member as bg_me on (bg_me.fk_group_id = bgroup.fk_group_id)
    where
       (bgroup.ownersintern=true and bg_member.g_role='coach')
@@ -1810,8 +2173,6 @@ create index provider_idx on o_bs_authentication (provider);
 create index credential_idx on o_bs_authentication (credential);
 create index authusername_idx on o_bs_authentication (authusername);
 
-alter table o_bs_identity add constraint FKFF94111CD1A80C95 foreign key (fk_user_id) references o_user;
--- index created idx_ident_to_user_idx on unique constraint
 create index identstatus_idx on o_bs_identity (status);
 create index idx_ident_creationdate_idx on o_bs_identity (creationdate);
 create index idx_id_lastlogin_idx on o_bs_identity (lastlogin);
@@ -1833,11 +2194,19 @@ create index idx_secgroup_creationdate_idx on o_bs_secgroup (creationdate);
 
 -- user
 create index usr_notification_interval_idx on o_user (notification_interval);
+create index idx_user_firstname_idx on o_user (u_firstname);
+create index idx_user_lastname_idx on o_user (u_lastname);
+create index idx_user_email_idx on o_user (u_email);
+create index idx_user_instname_idx on o_user (u_institutionalname);
+create index idx_user_instid_idx on o_user (u_institutionaluseridentifier);
+create index idx_user_instemail_idx on o_user (u_institutionalemail);
 create index idx_user_creationdate_idx on o_user (creationdate);
 
-alter table o_userproperty add constraint FK4B04D83FD1A80C95 foreign key (fk_user_id) references o_user;
-create index FK4B04D83FD1A80C95 on o_userproperty (fk_user_id);
 create index propvalue_idx on o_userproperty (propvalue);
+
+alter table o_user add constraint user_to_ident_idx foreign key (fk_identity) references o_bs_identity(id);
+create index idx_user_to_ident_idx on o_user (fk_identity);
+alter table o_user add constraint idx_un_user_to_ident_idx UNIQUE (fk_identity);
 
 -- pub sub
 create index name_idx2 on o_noti_pub (resname, resid, subident);
@@ -1899,6 +2268,9 @@ create index idx_re_lifecycle_idx on o_repositoryentry (fk_lifecycle);
 
 alter table o_repositoryentry add constraint repoentry_stats_ctx foreign key (fk_stats) references o_repositoryentry_stats (id);
 create index repoentry_stats_idx on o_repositoryentry (fk_stats);
+
+alter table o_repositoryentry add constraint re_deleted_to_identity_idx foreign key (fk_deleted_by) references o_bs_identity (id);
+create index idx_re_deleted_to_identity_idx on o_repositoryentry (fk_deleted_by);
 
 -- access control
 create index ac_offer_to_resource_idx on o_ac_offer (fk_resource_id);
@@ -2007,9 +2379,12 @@ alter table o_message add constraint FKF26C8378EAC1DBB foreign key (topthread_id
 create index idx_message_top_idx on o_message (topthread_id);
 alter table o_message add constraint FKF26C8371CB7C4A3 foreign key (forum_fk) references o_forum;
 create index idx_message_forum_idx on o_message (forum_fk);
+create index forum_msg_pseudonym_idx on o_message (pseudonym);
 
 create index readmessage_forum_idx on o_readmessage (forum_id);
 create index readmessage_identity_idx on o_readmessage (identity_id);
+
+create index forum_pseudonym_idx on o_forum_pseudonym (p_pseudonym);
 
 -- project broker
 create index projectbroker_project_broker_idx on o_projectbroker_project (projectbroker_fk);
@@ -2125,6 +2500,15 @@ create index idx_ucourseinfos_ident_idx on o_as_user_course_infos (fk_identity);
 alter table o_as_user_course_infos add constraint user_course_infos_res_cstr foreign key (fk_resource_id) references o_olatresource (resource_id);
 create index idx_ucourseinfos_rsrc_idx on o_as_user_course_infos (fk_resource_id);
 
+alter table o_as_entry add constraint as_entry_to_identity_idx foreign key (fk_identity) references o_bs_identity (id);
+create index idx_as_entry_to_ident_idx on o_as_entry (fk_identity);
+alter table o_as_entry add constraint as_entry_to_entry_idx foreign key (fk_entry) references o_repositoryentry (repositoryentry_id);
+create index idx_as_entry_to_entry_idx on o_as_entry (fk_entry);
+alter table o_as_entry add constraint as_entry_to_refentry_idx foreign key (fk_reference_entry) references o_repositoryentry (repositoryentry_id);
+create index idx_as_entry_to_refentry_idx on o_as_entry (fk_reference_entry);
+
+create index idx_as_entry_to_id_idx on o_as_entry (a_assessment_id);
+
 -- calendar
 alter table o_cal_use_config add constraint cal_u_conf_to_ident_idx foreign key (fk_identity) references o_bs_identity (id);
 create index idx_cal_u_conf_to_ident_idx on o_cal_use_config (fk_identity);
@@ -2165,6 +2549,107 @@ create index vid_transcoder_trans_idx on o_vid_transcoding(vid_transcoder);
 
 -- mapper
 create index o_mapper_uuid_idx on o_mapper (mapper_uuid);
+
+-- qti 2.1
+alter table o_qti_assessmenttest_session add constraint qti_sess_to_repo_entry_idx foreign key (fk_entry) references o_repositoryentry (repositoryentry_id);
+create index idx_testess_to_repo_entry_idx on o_qti_assessmenttest_session (fk_entry);
+alter table o_qti_assessmenttest_session add constraint qti_sess_to_course_entry_idx foreign key (fk_reference_entry) references o_repositoryentry (repositoryentry_id);
+create index idx_qti_sess_to_centry_idx on o_qti_assessmenttest_session (fk_reference_entry);
+alter table o_qti_assessmenttest_session add constraint qti_sess_to_identity_idx foreign key (fk_identity) references o_bs_identity (id);
+create index idx_qti_sess_to_identity_idx on o_qti_assessmenttest_session (fk_identity);
+alter table o_qti_assessmenttest_session add constraint qti_sess_to_as_entry_idx foreign key (fk_assessment_entry) references o_as_entry (id);
+create index idx_qti_sess_to_as_entry_idx on o_qti_assessmenttest_session (fk_assessment_entry);
+
+alter table o_qti_assessmentitem_session add constraint qti_itemsess_to_testsess_idx foreign key (fk_assessmenttest_session) references o_qti_assessmenttest_session (id);
+create index idx_itemsess_to_testsess_idx on o_qti_assessmentitem_session (fk_assessmenttest_session);
+create index idx_item_identifier_idx on o_qti_assessmentitem_session (q_itemidentifier);
+
+alter table o_qti_assessment_response add constraint qti_resp_to_testsession_idx foreign key (fk_assessmenttest_session) references o_qti_assessmenttest_session (id);
+create index idx_resp_to_testsession_idx on o_qti_assessment_response (fk_assessmenttest_session);
+alter table o_qti_assessment_response add constraint qti_resp_to_itemsession_idx foreign key (fk_assessmentitem_session) references o_qti_assessmentitem_session (id);
+create index idx_resp_to_itemsession_idx on o_qti_assessment_response (fk_assessmentitem_session);
+create index idx_response_identifier_idx on o_qti_assessment_response (q_responseidentifier);
+
+alter table o_qti_assessment_marks add constraint qti_marks_to_repo_entry_idx foreign key (fk_entry) references o_repositoryentry (repositoryentry_id);
+create index idx_marks_to_repo_entry_idx on o_qti_assessment_marks (fk_entry);
+alter table o_qti_assessment_marks add constraint qti_marks_to_course_entry_idx foreign key (fk_reference_entry) references o_repositoryentry (repositoryentry_id);
+create index idx_qti_marks_to_centry_idx on o_qti_assessment_marks (fk_reference_entry);
+alter table o_qti_assessment_marks add constraint qti_marks_to_identity_idx foreign key (fk_identity) references o_bs_identity (id);
+create index idx_qti_marks_to_identity_idx on o_qti_assessment_marks (fk_identity);
+
+-- portfolio
+alter table o_pf_binder add constraint pf_binder_resource_idx foreign key (fk_olatresource_id) references o_olatresource (resource_id);
+create index idx_pf_binder_resource_idx on o_pf_binder (fk_olatresource_id);
+alter table o_pf_binder add constraint pf_binder_group_idx foreign key (fk_group_id) references o_bs_group (id);
+create index idx_pf_binder_group_idx on o_pf_binder (fk_group_id);
+alter table o_pf_binder add constraint pf_binder_course_idx foreign key (fk_entry_id) references o_repositoryentry (repositoryentry_id);
+create index idx_pf_binder_course_idx on o_pf_binder (fk_entry_id);
+alter table o_pf_binder add constraint pf_binder_template_idx foreign key (fk_template_id) references o_pf_binder (id);
+create index idx_pf_binder_template_idx on o_pf_binder (fk_template_id);
+
+alter table o_pf_section add constraint pf_section_group_idx foreign key (fk_group_id) references o_bs_group (id);
+create index idx_pf_section_group_idx on o_pf_section (fk_group_id);
+alter table o_pf_section add constraint pf_section_binder_idx foreign key (fk_binder_id) references o_pf_binder (id);
+create index idx_pf_section_binder_idx on o_pf_section (fk_binder_id);
+alter table o_pf_section add constraint pf_section_template_idx foreign key (fk_template_reference_id) references o_pf_section (id);
+create index idx_pf_section_template_idx on o_pf_section (fk_template_reference_id);
+
+alter table o_pf_page add constraint pf_page_group_idx foreign key (fk_group_id) references o_bs_group (id);
+create index idx_pf_page_group_idx on o_pf_page (fk_group_id);
+alter table o_pf_page add constraint pf_page_section_idx foreign key (fk_section_id) references o_pf_section (id);
+create index idx_pf_page_section_idx on o_pf_page (fk_section_id);
+
+alter table o_pf_page add constraint pf_page_body_idx foreign key (fk_body_id) references o_pf_page_body (id);
+create index idx_pf_page_body_idx on o_pf_page (fk_body_id);
+
+alter table o_pf_page_part add constraint pf_page_page_body_idx foreign key (fk_page_body_id) references o_pf_page_body (id);
+create index idx_pf_page_page_body_idx on o_pf_page_part (fk_page_body_id);
+alter table o_pf_page_part add constraint pf_page_media_idx foreign key (fk_media_id) references o_pf_media (id);
+create index idx_pf_page_media_idx on o_pf_page_part (fk_media_id);
+alter table o_pf_page_part add constraint pf_part_form_idx foreign key (fk_form_entry_id) references o_repositoryentry (repositoryentry_id);
+create index idx_pf_part_form_idx on o_pf_page_part (fk_form_entry_id);
+
+alter table o_pf_media add constraint pf_media_author_idx foreign key (fk_author_id) references o_bs_identity (id);
+create index idx_pf_media_author_idx on o_pf_media (fk_author_id);
+create index idx_media_storage_path_idx on o_pf_media (p_business_path);
+
+create index idx_category_name_idx on o_pf_category (p_name);
+
+alter table o_pf_category_relation add constraint pf_category_rel_cat_idx foreign key (fk_category_id) references o_pf_category (id);
+create index idx_pf_category_rel_cat_idx on o_pf_category_relation (fk_category_id);
+create index idx_category_rel_resid_idx on o_pf_category_relation (p_resid);
+
+alter table o_pf_assessment_section add constraint pf_asection_section_idx foreign key (fk_section_id) references o_pf_section (id);
+create index idx_pf_asection_section_idx on o_pf_assessment_section (fk_section_id);
+alter table o_pf_assessment_section add constraint pf_asection_ident_idx foreign key (fk_identity_id) references o_bs_identity (id);
+create index idx_pf_asection_ident_idx on o_pf_assessment_section (fk_identity_id);
+
+alter table o_pf_assignment add constraint pf_assign_section_idx foreign key (fk_section_id) references o_pf_section (id);
+create index idx_pf_assign_section_idx on o_pf_assignment (fk_section_id);
+alter table o_pf_assignment add constraint pf_assign_ref_assign_idx foreign key (fk_template_reference_id) references o_pf_assignment (id);
+create index idx_pf_assign_ref_assign_idx on o_pf_assignment (fk_template_reference_id);
+alter table o_pf_assignment add constraint pf_assign_page_idx foreign key (fk_page_id) references o_pf_page (id);
+create index idx_pf_assign_page_idx on o_pf_assignment (fk_page_id);
+alter table o_pf_assignment add constraint pf_assign_assignee_idx foreign key (fk_assignee_id) references o_bs_identity (id);
+create index idx_pf_assign_assignee_idx on o_pf_assignment (fk_assignee_id);
+alter table o_pf_assignment add constraint pf_assign_form_idx foreign key (fk_form_entry_id) references o_repositoryentry (repositoryentry_id);
+create index idx_pf_assign_form_idx on o_pf_assignment (fk_form_entry_id);
+
+alter table o_pf_binder_user_infos add constraint binder_user_to_identity_idx foreign key (fk_identity) references o_bs_identity (id);
+create index idx_binder_user_to_ident_idx on o_pf_binder_user_infos (fk_identity);
+alter table o_pf_binder_user_infos add constraint binder_user_binder_idx foreign key (fk_binder) references o_pf_binder (id);
+create index idx_binder_user_binder_idx on o_pf_binder_user_infos (fk_binder);
+
+-- evaluation form
+alter table o_eva_form_session add constraint eva_session_to_ident_idx foreign key (fk_identity) references o_bs_identity (id);
+create index idx_eva_session_to_ident_idx on o_eva_form_session (fk_identity);
+alter table o_eva_form_session add constraint eva_session_to_body_idx foreign key (fk_page_body) references o_pf_page_body (id);
+create index idx_eva_session_to_body_idx on o_eva_form_session (fk_page_body);
+alter table o_eva_form_session add constraint eva_session_to_form_idx foreign key (fk_form_entry) references o_repositoryentry (repositoryentry_id);
+create index idx_eva_session_to_form_idx on o_eva_form_session (fk_form_entry);
+
+alter table o_eva_form_response add constraint eva_resp_to_sess_idx foreign key (fk_session) references o_eva_form_session (id);
+create index idx_eva_resp_to_sess_idx on o_eva_form_response (fk_session);
 
 -- question pool
 alter table o_qp_pool add constraint idx_qp_pool_owner_grp_id foreign key (fk_ownergroup) references o_bs_secgroup(id);

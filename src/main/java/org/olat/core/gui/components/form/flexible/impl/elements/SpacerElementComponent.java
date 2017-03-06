@@ -21,9 +21,7 @@
 package org.olat.core.gui.components.form.flexible.impl.elements;
 
 import org.olat.core.gui.components.ComponentRenderer;
-import org.olat.core.gui.components.form.flexible.elements.SpacerElement;
 import org.olat.core.gui.components.form.flexible.impl.FormBaseComponentImpl;
-
 
 /**
  * Implements the component for an HTML horizontal bar (&lt;HR&gt;) element.
@@ -34,25 +32,22 @@ public class SpacerElementComponent extends FormBaseComponentImpl {
 	
 	private static final ComponentRenderer RENDERER = new SpacerElementRenderer();
 	
-	private SpacerElement spacerElement;
+	private String spacerCssClass;
 	
-	public SpacerElementComponent(SpacerElement element) {
-		super(element.getName());
-		this.spacerElement = element;
+	public SpacerElementComponent(String name) {
+		super(name);
+	}
+
+	public String getSpacerCssClass() {
+		return spacerCssClass;
+	}
+
+	public void setSpacerCssClass(String spacerCssClass) {
+		this.spacerCssClass = spacerCssClass;
 	}
 
 	@Override
 	public ComponentRenderer getHTMLRendererSingleton() {
 		return RENDERER;
 	}
-
-	/**
-	 * Get the spacer element for this component
-	 * @return
-	 */
-	public SpacerElement getSpacerElement() {
-		return this.spacerElement;
-	}
-
-
 }

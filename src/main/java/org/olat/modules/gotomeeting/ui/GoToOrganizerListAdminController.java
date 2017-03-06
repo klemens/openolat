@@ -36,7 +36,6 @@ import org.olat.core.gui.components.form.flexible.impl.elements.table.FlexiTable
 import org.olat.core.gui.components.form.flexible.impl.elements.table.FlexiTableDataModelFactory;
 import org.olat.core.gui.components.form.flexible.impl.elements.table.SelectionEvent;
 import org.olat.core.gui.components.form.flexible.impl.elements.table.StaticFlexiCellRenderer;
-import org.olat.core.gui.components.form.flexible.impl.elements.table.StaticFlexiColumnModel;
 import org.olat.core.gui.components.form.flexible.impl.elements.table.TextFlexiCellRenderer;
 import org.olat.core.gui.components.link.Link;
 import org.olat.core.gui.control.Controller;
@@ -92,11 +91,11 @@ public class GoToOrganizerListAdminController extends FormBasicController {
 		columnsModel.addFlexiColumnModel(new DefaultFlexiColumnModel(OrganizerCols.lastName.i18nHeaderKey(), OrganizerCols.lastName.ordinal(), true, OrganizerCols.lastName.name()));
 		columnsModel.addFlexiColumnModel(new DefaultFlexiColumnModel(OrganizerCols.email.i18nHeaderKey(), OrganizerCols.email.ordinal(), true, OrganizerCols.email.name()));
 		FlexiCellRenderer renderer = new StaticFlexiCellRenderer("owner", new TextFlexiCellRenderer());
-		columnsModel.addFlexiColumnModel(new StaticFlexiColumnModel(OrganizerCols.owner.i18nHeaderKey(), OrganizerCols.owner.ordinal(), "owner",
+		columnsModel.addFlexiColumnModel(new DefaultFlexiColumnModel(OrganizerCols.owner.i18nHeaderKey(), OrganizerCols.owner.ordinal(), "owner",
 				true, OrganizerCols.owner.name(), renderer));
 		columnsModel.addFlexiColumnModel(new DefaultFlexiColumnModel(OrganizerCols.renewDate.i18nHeaderKey(), OrganizerCols.renewDate.ordinal(), true, OrganizerCols.renewDate.name()));
-		columnsModel.addFlexiColumnModel(new StaticFlexiColumnModel("renew.organizer", translate("renew.organizer"), "renew"));
-		columnsModel.addFlexiColumnModel(new StaticFlexiColumnModel(OrganizerCols.remove.i18nHeaderKey(), OrganizerCols.remove.ordinal(), "remove",
+		columnsModel.addFlexiColumnModel(new DefaultFlexiColumnModel("renew.organizer", translate("renew.organizer"), "renew"));
+		columnsModel.addFlexiColumnModel(new DefaultFlexiColumnModel(OrganizerCols.remove.i18nHeaderKey(), OrganizerCols.remove.ordinal(), "remove",
 				new BooleanCellRenderer(new StaticFlexiCellRenderer(translate("remove"), "remove"), null)));
 		
 		tableModel = new GoToOrganizerTableModel(columnsModel, userManager);

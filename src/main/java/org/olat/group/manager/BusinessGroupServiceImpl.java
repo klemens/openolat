@@ -36,7 +36,6 @@ import java.util.UUID;
 
 import org.hibernate.ObjectNotFoundException;
 import org.hibernate.StaleObjectStateException;
-import org.olat.admin.user.delete.service.UserDeletionManager;
 import org.olat.basesecurity.BaseSecurity;
 import org.olat.basesecurity.Constants;
 import org.olat.basesecurity.Group;
@@ -106,6 +105,7 @@ import org.olat.group.ui.BGMailHelper;
 import org.olat.group.ui.edit.BusinessGroupModifiedEvent;
 import org.olat.properties.PropertyManager;
 import org.olat.repository.LeavingStatusList;
+import org.olat.repository.RepositoryDeletionModule;
 import org.olat.repository.RepositoryEntry;
 import org.olat.repository.RepositoryEntryRef;
 import org.olat.repository.RepositoryEntryRelationType;
@@ -157,7 +157,7 @@ public class BusinessGroupServiceImpl implements BusinessGroupService, UserDataD
 	@Autowired
 	private RepositoryEntryRelationDAO repositoryEntryRelationDao;
 	@Autowired
-	private UserDeletionManager userDeletionManager;
+	private RepositoryDeletionModule deletionManager;
 	@Autowired
 	private NotificationsManager notificationsManager;
 	@Autowired
@@ -168,7 +168,7 @@ public class BusinessGroupServiceImpl implements BusinessGroupService, UserDataD
 	private DB dbInstance;
 	
 	@Override
-	public void deleteUserData(Identity identity, String newDeletedUserName) {
+	public void deleteUserData(Identity identity, String newDeletedUserName, File archivePath) {
 		// remove as Participant 
 		List<BusinessGroup> attendedGroups = findBusinessGroupsAttendedBy(identity);
 		for (Iterator<BusinessGroup> iter = attendedGroups.iterator(); iter.hasNext();) {
@@ -188,7 +188,8 @@ public class BusinessGroupServiceImpl implements BusinessGroupService, UserDataD
 			BusinessGroup businessGroup = iter.next();
 			businessGroupRelationDAO.removeRole(identity, businessGroup, GroupRoles.coach.name());
 			if (businessGroupRelationDAO.countRoles(businessGroup, GroupRoles.coach.name()) == 0) {
-				businessGroupRelationDAO.addRole(userDeletionManager.getAdminIdentity(), businessGroup, GroupRoles.coach.name());
+				Identity admin = deletionManager.getAdminUserIdentity();
+				businessGroupRelationDAO.addRole(admin, businessGroup, GroupRoles.coach.name());
 				log.info("Delete user-data, add Administrator-identity as owner of businessGroup=" + businessGroup.getName());
 			}
 		}
@@ -1384,11 +1385,11 @@ public class BusinessGroupServiceImpl implements BusinessGroupService, UserDataD
 				reservationDao.deleteReservation(reservation);
 			}
 		} else if (reloadedGroup.getMaxParticipants() != null) {
-			int participantsCounter = businessGroupRelationDAO.countRoles(reloadedGroup, GroupRoles.participant.name());
+			int participantsCounter = businessGroupRelationDAO.countEnrollment(reloadedGroup);
 			int reservations = reservationDao.countReservations(reloadedGroup.getResource());
 			
 			log.info("doEnroll - participantsCounter: " + participantsCounter + ", reservations: " + reservations + " maxParticipants: " + reloadedGroup.getMaxParticipants().intValue(), identity.getName());
-			if (reservation == null && (participantsCounter + reservations) >= reloadedGroup.getMaxParticipants().intValue()) {
+			if ((participantsCounter + reservations) >= reloadedGroup.getMaxParticipants().intValue()) {
 				// already full, show error and updated choose page again
 				if (reloadedGroup.getWaitingListEnabled().booleanValue()) {
 					addToWaitingList(ureqIdentity, identity, reloadedGroup, mailing, events);

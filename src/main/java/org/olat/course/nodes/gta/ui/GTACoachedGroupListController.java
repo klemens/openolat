@@ -33,7 +33,7 @@ import org.olat.core.gui.components.form.flexible.impl.elements.table.DefaultFle
 import org.olat.core.gui.components.form.flexible.impl.elements.table.FlexiTableColumnModel;
 import org.olat.core.gui.components.form.flexible.impl.elements.table.FlexiTableDataModelFactory;
 import org.olat.core.gui.components.form.flexible.impl.elements.table.SelectionEvent;
-import org.olat.core.gui.components.form.flexible.impl.elements.table.StaticFlexiColumnModel;
+import org.olat.core.gui.components.stack.BreadcrumbPanel;
 import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.WindowControl;
 import org.olat.course.nodes.GTACourseNode;
@@ -41,7 +41,7 @@ import org.olat.course.nodes.gta.GTAManager;
 import org.olat.course.nodes.gta.TaskLight;
 import org.olat.course.nodes.gta.ui.CoachGroupsTableModel.CGCols;
 import org.olat.course.nodes.gta.ui.events.SelectBusinessGroupEvent;
-import org.olat.course.run.environment.CourseEnvironment;
+import org.olat.course.run.userview.UserCourseEnvironment;
 import org.olat.group.BusinessGroup;
 import org.olat.repository.RepositoryEntry;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -56,16 +56,22 @@ public class GTACoachedGroupListController extends GTACoachedListController {
 	
 	private FlexiTableElement tableEl;
 	private CoachGroupsTableModel tableModel;
+	private final BreadcrumbPanel stackPanel;
+	
+	private GTACoachController coachingCtrl;
 	
 	private final List<BusinessGroup> coachedGroups;
+	private final UserCourseEnvironment coachCourseEnv;
 	
 	@Autowired
 	private GTAManager gtaManager;
 	
-	public GTACoachedGroupListController(UserRequest ureq, WindowControl wControl,
-			CourseEnvironment courseEnv, GTACourseNode gtaNode, List<BusinessGroup> coachedGroups) {
-		super(ureq, wControl, courseEnv, gtaNode);
+	public GTACoachedGroupListController(UserRequest ureq, WindowControl wControl, BreadcrumbPanel stackPanel,
+			UserCourseEnvironment coachCourseEnv, GTACourseNode gtaNode, List<BusinessGroup> coachedGroups) {
+		super(ureq, wControl, coachCourseEnv.getCourseEnvironment(), gtaNode);
 		this.coachedGroups = coachedGroups;
+		this.coachCourseEnv = coachCourseEnv;
+		this.stackPanel = stackPanel;
 		initForm(ureq);
 		updateModel();
 	}
@@ -85,7 +91,7 @@ public class GTACoachedGroupListController extends GTACoachedListController {
 		
 		columnsModel.addFlexiColumnModel(new DefaultFlexiColumnModel(CGCols.taskStatus.i18nKey(), CGCols.taskStatus.ordinal(),
 				true, CGCols.taskStatus.name(), new TaskStatusCellRenderer(getTranslator())));
-		columnsModel.addFlexiColumnModel(new StaticFlexiColumnModel("select", translate("select"), "select"));
+		columnsModel.addFlexiColumnModel(new DefaultFlexiColumnModel("select", translate("select"), "select"));
 		tableModel = new CoachGroupsTableModel(columnsModel);
 
 		tableEl = uifactory.addTableElement(getWindowControl(), "entries", tableModel, 10, false, getTranslator(), formLayout);
@@ -126,11 +132,23 @@ public class GTACoachedGroupListController extends GTACoachedListController {
 				String cmd = se.getCommand();
 				CoachedGroupRow row = tableModel.getObject(se.getIndex());
 				if("details".equals(cmd) || "select".equals(cmd)) {
-					fireEvent(ureq, new SelectBusinessGroupEvent(row.getBusinessGroup()));	
+					doSelect(ureq, row.getBusinessGroup());
 				}
 			}
 		}
 		super.formInnerEvent(ureq, source, event);
+	}
+	
+	private void doSelect(UserRequest ureq, BusinessGroup businessGroup) {
+		if(stackPanel == null) {
+			fireEvent(ureq, new SelectBusinessGroupEvent(businessGroup));	
+		} else {
+			removeAsListenerAndDispose(coachingCtrl);
+			
+			coachingCtrl = new GTACoachController(ureq, getWindowControl(), courseEnv, gtaNode, coachCourseEnv, businessGroup, true, true, true);
+			listenTo(coachingCtrl);
+			stackPanel.pushController(businessGroup.getName(), coachingCtrl);
+		}
 	}
 
 	@Override

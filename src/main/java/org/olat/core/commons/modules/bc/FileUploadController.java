@@ -57,6 +57,7 @@ import org.olat.core.gui.components.form.flexible.impl.Form;
 import org.olat.core.gui.components.form.flexible.impl.FormBasicController;
 import org.olat.core.gui.components.form.flexible.impl.FormEvent;
 import org.olat.core.gui.components.form.flexible.impl.FormLayoutContainer;
+import org.olat.core.gui.components.form.flexible.impl.elements.FileElementEvent;
 import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.Event;
 import org.olat.core.gui.control.WindowControl;
@@ -303,9 +304,15 @@ public class FileUploadController extends FormBasicController {
 	@Override
 	protected void formInnerEvent(UserRequest ureq, FormItem source, FormEvent event) {
 		if(fileEl == source) {
-			if(metaDataCtr != null) {
+			if(FileElementEvent.DELETE.equals(event.getCommand())) {
+				fileEl.reset();
+				fileEl.setDeleteEnabled(false);
+				fileEl.clearError();
+			} else if(metaDataCtr != null) {
 				String filename = fileEl.getUploadFileName();
-				if(!FileUtils.validateFilename(filename)) {
+				if(filename == null) {
+					metaDataCtr.getFilenameEl().setExampleKey("mf.filename.warning", null);
+				} else if(!FileUtils.validateFilename(filename)) {
 					String suffix = FileUtils.getFileSuffix(filename);
 					if(suffix != null && suffix.length() > 0) {
 						filename = filename.substring(0, filename.length() - suffix.length() - 1);
@@ -879,9 +886,10 @@ public class FileUploadController extends FormBasicController {
 		String filename = fileEl.getUploadFileName();
 		
 		boolean allOk = validateFilename(filename, fileEl);
-		List<ValidationStatus> status = new ArrayList<>();
-		fileEl.validate(status);//revalidate because we clear the errors
-		return allOk && status.isEmpty();
+		List<ValidationStatus> fileStatus = new ArrayList<>();
+		fileEl.validate(fileStatus);//revalidate because we clear the error
+		fileEl.setDeleteEnabled(fileStatus.size() > 0);
+		return allOk && fileStatus.isEmpty();
 	}
 	
 	private boolean validateFilename(String filename, FormItem itemEl) {

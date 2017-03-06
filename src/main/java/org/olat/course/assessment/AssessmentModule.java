@@ -42,6 +42,7 @@ import org.olat.course.CourseFactory;
 import org.olat.course.CourseModule;
 import org.olat.course.ICourse;
 import org.olat.course.Structure;
+import org.olat.course.assessment.manager.UpdateEfficiencyStatementsWorker;
 import org.olat.course.editor.PublishEvent;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -153,7 +154,9 @@ public class AssessmentModule extends AbstractSpringModule implements GenericEve
 		synchronized (upcomingWork) { //o_clusterOK by:ld synchronized OK - only one cluster node must update the EfficiencyStatements (the course is locked for editing) (same as e.g. file indexer)
 			recalc = upcomingWork.contains(resId);
 			if (recalc) {
-				upcomingWork.remove(resId);
+				for(; upcomingWork.remove(resId); ) {
+					//remove all with the same res id
+				}
 			}
 		}
 		if (recalc) {

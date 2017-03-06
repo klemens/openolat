@@ -25,6 +25,7 @@ import java.util.List;
 
 import org.olat.core.commons.services.commentAndRating.CommentAndRatingDefaultSecurityCallback;
 import org.olat.core.commons.services.commentAndRating.CommentAndRatingSecurityCallback;
+import org.olat.core.commons.services.commentAndRating.ReadOnlyCommentsSecurityCallback;
 import org.olat.core.commons.services.commentAndRating.ui.UserCommentsAndRatingsController;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.Component;
@@ -35,9 +36,13 @@ import org.olat.core.gui.control.WindowControl;
 import org.olat.core.gui.control.controller.BasicController;
 import org.olat.core.gui.render.Renderer;
 import org.olat.core.gui.render.StringOutput;
+import org.olat.core.util.CodeHelper;
+import org.olat.core.util.Formatter;
 import org.olat.core.util.StringHelper;
+import org.olat.core.util.filter.FilterFactory;
 import org.olat.core.util.prefs.Preferences;
 import org.olat.core.util.vfs.VFSContainer;
+import org.olat.core.util.vfs.VFSContainerMapper;
 import org.olat.core.util.vfs.VFSLeaf;
 import org.olat.modules.video.VideoManager;
 import org.olat.modules.video.VideoMetadata;
@@ -45,6 +50,8 @@ import org.olat.modules.video.VideoModule;
 import org.olat.modules.video.VideoTranscoding;
 import org.olat.modules.video.manager.VideoMediaMapper;
 import org.olat.repository.RepositoryEntry;
+import org.olat.repository.handlers.RepositoryHandler;
+import org.olat.repository.handlers.RepositoryHandlerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 
 /**
@@ -67,25 +74,36 @@ public class VideoDisplayController extends BasicController {
 	// User preferred resolution, stored in GUI prefs
 	private Integer userPreferredResolution = null;
 	
+	private final boolean readOnly;
 	private RepositoryEntry entry;
 	private String descriptionText;
+	private String mediaRepoBaseUrl;
 
 
 	public VideoDisplayController(UserRequest ureq, WindowControl wControl, RepositoryEntry entry, boolean autoWidth) {
-		this(ureq, wControl, entry, false, false, false, null, false, autoWidth, null);
+		this(ureq, wControl, entry, false, false, false, true, null, false, autoWidth, null, false);
 	}
 	
 	public VideoDisplayController(UserRequest ureq, WindowControl wControl, RepositoryEntry entry) {
-		this(ureq, wControl, entry, false, false, false, null, false, false, null);
+		this(ureq, wControl, entry, false, false, false, true, null, false, false, null, false);
 	}
 
-	public VideoDisplayController(UserRequest ureq, WindowControl wControl, RepositoryEntry entry, Boolean autoplay, Boolean showComments, Boolean showRating, String OresSubPath, boolean customDescription, boolean autoWidth, String descriptionText) {
+	public VideoDisplayController(UserRequest ureq, WindowControl wControl, RepositoryEntry entry,
+			Boolean autoplay, Boolean showComments, Boolean showRating, Boolean showTitleAndDescription, String OresSubPath,
+			boolean customDescription, boolean autoWidth, String descriptionText, boolean readOnly) {
 		super(ureq, wControl);
 		this.entry = entry;
+		this.readOnly = readOnly;
 		this.descriptionText = (customDescription ? this.descriptionText = descriptionText : null);
 		
 		mainVC = createVelocityContainer("video_run");
 		putInitialPanel(mainVC);
+		
+		RepositoryHandler handler = RepositoryHandlerFactory.getInstance().getRepositoryHandler(entry);
+		VFSContainer mediaContainer = handler.getMediaContainer(entry);
+		if(mediaContainer != null) {
+			mediaRepoBaseUrl = registerMapper(ureq, new VFSContainerMapper(mediaContainer.getParentContainer()));
+		}
 
 		// load mediaelementjs player and sourcechooser plugin
 		StringOutput sb = new StringOutput(50);
@@ -118,6 +136,63 @@ public class VideoDisplayController extends BasicController {
 
 			mainVC.contextPut("autoplay", autoplay);
 	
+			if ((showComments || showRating) && !ureq.getUserSession().getRoles().isGuestOnly()) {
+				CommentAndRatingSecurityCallback ratingSecCallback = readOnly ? new ReadOnlyCommentsSecurityCallback() : new CommentAndRatingDefaultSecurityCallback(getIdentity(), false, false);
+				commentsAndRatingCtr = new UserCommentsAndRatingsController(ureq, getWindowControl(),entry.getOlatResource(), OresSubPath , ratingSecCallback,showComments, showRating, true);
+				if (showComments) {					
+					commentsAndRatingCtr.expandComments(ureq);
+				}
+				listenTo(commentsAndRatingCtr);				
+				mainVC.put("commentsAndRating", commentsAndRatingCtr.getInitialComponent());
+			}
+			mainVC.contextPut("showTitleAndDescription", showTitleAndDescription);
+
+			// Finally load the video, transcoded versions and tracks
+			loadVideo(ureq, video);
+		}
+	}
+
+
+	/**
+	 * Reload the video, e.g. when new captions or transcoded versions are available
+	 * @param ureq
+	 */
+	protected void reloadVideo(UserRequest ureq) {
+		//load video as VFSLeaf
+		VFSLeaf video = videoManager.getMasterVideoFile(entry.getOlatResource());
+		loadVideo(ureq, video);
+		mainVC.contextPut("addForceReload", "?t=" + CodeHelper.getRAMUniqueID());
+	}
+	
+	/**
+	 * Set the text with url rewrite for embedded images, latex...
+	 * @param text
+	 * @param key
+	 */
+	private void setText(String text, String key) {
+		if(StringHelper.containsNonWhitespace(text)) {
+			text = StringHelper.xssScan(text);
+			if(mediaRepoBaseUrl != null) {
+				text = FilterFactory.getBaseURLToMediaRelativeURLFilter(mediaRepoBaseUrl).filter(text);
+			}
+			text = Formatter.formatLatexFormulas(text);
+		}
+		mainVC.contextPut(key, text);
+	}
+
+	/**
+	 * Internal helper to do the actual video loading, checking for transcoded versions and captions
+	 * @param ureq
+	 * @param video
+	 */
+	private void loadVideo(UserRequest ureq, VFSLeaf video) {
+		mainVC.contextPut("title", entry.getDisplayname());
+		String desc = (descriptionText != null ? descriptionText : entry.getDescription());
+		setText(desc, "description");
+		String authors = entry.getAuthors();
+		mainVC.contextPut("authors", (StringHelper.containsNonWhitespace(authors) ? authors : null));
+
+		if(video != null) {
 			// Mapper for Video
 			String masterMapperId = "master-" + entry.getOlatResource().getResourceableId();
 			String masterUrl = registerCacheableMapper(ureq, masterMapperId, new VideoMediaMapper(videoManager.getMasterContainer(entry.getOlatResource())));
@@ -128,45 +203,6 @@ public class VideoDisplayController extends BasicController {
 			String transcodedUrl = registerCacheableMapper(ureq, transcodingMapperId, new VideoMediaMapper(transcodedContainer));
 			mainVC.contextPut("transcodedUrl", transcodedUrl);
 			
-			if ((showComments || showRating) && !ureq.getUserSession().getRoles().isGuestOnly()) {
-				CommentAndRatingSecurityCallback ratingSecCallback = new CommentAndRatingDefaultSecurityCallback(getIdentity(), false, false);
-				commentsAndRatingCtr = new UserCommentsAndRatingsController(ureq, getWindowControl(),entry.getOlatResource(), OresSubPath , ratingSecCallback,showComments, showRating, true);
-				if (showComments) {					
-					commentsAndRatingCtr.expandComments(ureq);
-				}
-				listenTo(commentsAndRatingCtr);				
-				mainVC.put("commentsAndRating", commentsAndRatingCtr.getInitialComponent());
-			}
-
-			// Finally load the video, transcoded versions and tracks
-			loadVideo(video);
-		}
-	}
-
-
-	/**
-	 * Reload the video, e.g. when new captions or transcoded versions are available
-	 * @param ureq
-	 */
-	protected void reloadVideo() {
-		//load video as VFSLeaf
-		VFSLeaf video = videoManager.getMasterVideoFile(entry.getOlatResource());
-		loadVideo(video);
-	}
-
-	/**
-	 * Internal helper to do the actual video loading, checking for transcoded versions and captions
-	 * @param ureq
-	 * @param video
-	 */
-	private void loadVideo(VFSLeaf video) {
-		mainVC.contextPut("title", entry.getDisplayname());
-		String desc = (descriptionText   != null ? descriptionText : entry.getDescription());
-		mainVC.contextPut("description", (StringHelper.containsNonWhitespace(desc) ? desc : null));
-		String authors = entry.getAuthors();
-		mainVC.contextPut("authors", (StringHelper.containsNonWhitespace(authors) ? authors : null));
-
-		if(video != null) {
 			// Add transcoded versions
 			List<VideoTranscoding> videos = videoManager.getVideoTranscodings(entry.getOlatResource());
 			List<VideoTranscoding> readyToPlayVideos = new ArrayList<>();
@@ -200,6 +236,9 @@ public class VideoDisplayController extends BasicController {
 				trackfiles.put(track.getKey(), track.getValue().getName());
 			}
 			mainVC.contextPut("trackfiles",trackfiles);			
+			
+			// Load video chapter if available
+			mainVC.contextPut("hasChapters", videoManager.hasChapters(entry.getOlatResource()));		
 		}
 	}
 
@@ -214,20 +253,21 @@ public class VideoDisplayController extends BasicController {
 			String cmd = event.getCommand();
 			if (StringHelper.containsNonWhitespace(cmd)) {
 				String currentTime = ureq.getHttpReq().getParameter("currentTime");
+				String duration = ureq.getHttpReq().getParameter("duration");
 				String src = ureq.getHttpReq().getParameter("src");
-				logDebug(cmd + " " + currentTime + " " + src, null);				
+				logDebug(cmd + " " + currentTime + " " + duration + " " + src, null);				
 				switch(cmd) {
 					case "play":
-						fireEvent(ureq, new VideoEvent(VideoEvent.PLAY, currentTime));
+						fireEvent(ureq, new VideoEvent(VideoEvent.PLAY, currentTime, duration));
 						break;
 					case "pause":
-						fireEvent(ureq, new VideoEvent(VideoEvent.PAUSE, currentTime));
+						fireEvent(ureq, new VideoEvent(VideoEvent.PAUSE, currentTime, duration));
 						break;
 					case "seeked":
-						fireEvent(ureq, new VideoEvent(VideoEvent.SEEKED, currentTime));					
+						fireEvent(ureq, new VideoEvent(VideoEvent.SEEKED, currentTime, duration));					
 						break;
 					case "ended":
-						fireEvent(ureq, new VideoEvent(VideoEvent.ENDED, currentTime));
+						fireEvent(ureq, new VideoEvent(VideoEvent.ENDED, currentTime, duration));
 						break;
 				}
 				updateGUIPreferences(ureq, src);

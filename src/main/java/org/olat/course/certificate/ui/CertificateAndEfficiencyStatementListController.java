@@ -33,6 +33,7 @@ import org.olat.core.gui.components.form.flexible.elements.FlexiTableElement;
 import org.olat.core.gui.components.form.flexible.elements.FormLink;
 import org.olat.core.gui.components.form.flexible.impl.FormBasicController;
 import org.olat.core.gui.components.form.flexible.impl.FormEvent;
+import org.olat.core.gui.components.form.flexible.impl.elements.table.BooleanCellRenderer;
 import org.olat.core.gui.components.form.flexible.impl.elements.table.DefaultFlexiColumnModel;
 import org.olat.core.gui.components.form.flexible.impl.elements.table.FlexiCellRenderer;
 import org.olat.core.gui.components.form.flexible.impl.elements.table.FlexiTableColumnModel;
@@ -40,13 +41,13 @@ import org.olat.core.gui.components.form.flexible.impl.elements.table.FlexiTable
 import org.olat.core.gui.components.form.flexible.impl.elements.table.FlexiTableDataModelFactory;
 import org.olat.core.gui.components.form.flexible.impl.elements.table.SelectionEvent;
 import org.olat.core.gui.components.form.flexible.impl.elements.table.StaticFlexiCellRenderer;
-import org.olat.core.gui.components.form.flexible.impl.elements.table.StaticFlexiColumnModel;
 import org.olat.core.gui.components.link.Link;
 import org.olat.core.gui.components.stack.BreadcrumbPanel;
 import org.olat.core.gui.components.stack.BreadcrumbPanelAware;
 import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.Event;
 import org.olat.core.gui.control.WindowControl;
+import org.olat.core.gui.control.generic.closablewrapper.CloseableModalController;
 import org.olat.core.gui.control.generic.modal.DialogBoxController;
 import org.olat.core.gui.control.generic.modal.DialogBoxUIFactory;
 import org.olat.core.gui.render.Renderer;
@@ -59,17 +60,20 @@ import org.olat.core.util.coordinate.CoordinatorManager;
 import org.olat.core.util.event.GenericEventListener;
 import org.olat.core.util.vfs.VFSContainer;
 import org.olat.course.CorruptedCourseException;
+import org.olat.course.assessment.AssessmentModule;
 import org.olat.course.assessment.EfficiencyStatement;
-import org.olat.course.assessment.EfficiencyStatementManager;
-import org.olat.course.assessment.IdentityAssessmentEditController;
 import org.olat.course.assessment.bulk.PassedCellRenderer;
+import org.olat.course.assessment.manager.EfficiencyStatementManager;
 import org.olat.course.assessment.model.UserEfficiencyStatementLight;
 import org.olat.course.assessment.portfolio.EfficiencyStatementArtefact;
+import org.olat.course.assessment.portfolio.EfficiencyStatementMediaHandler;
 import org.olat.course.certificate.CertificateEvent;
 import org.olat.course.certificate.CertificateLight;
 import org.olat.course.certificate.CertificatesManager;
 import org.olat.course.certificate.ui.CertificateAndEfficiencyStatementListModel.CertificateAndEfficiencyStatement;
 import org.olat.course.certificate.ui.CertificateAndEfficiencyStatementListModel.Cols;
+import org.olat.modules.portfolio.PortfolioV2Module;
+import org.olat.modules.portfolio.ui.wizard.CollectArtefactController;
 import org.olat.portfolio.EPArtefactHandler;
 import org.olat.portfolio.PortfolioModule;
 import org.olat.portfolio.model.artefacts.AbstractArtefact;
@@ -92,12 +96,15 @@ public class CertificateAndEfficiencyStatementListController extends FormBasicCo
 	private static final String CMD_LAUNCH_COURSE = "cmd.launch.course";
 	private static final String CMD_DELETE = "cmd.delete";
 	private static final String CMD_ARTEFACT = "cmd.artefact";
+	private static final String CMD_MEDIA = "cmd.MEDIA";
 	
 	private FlexiTableElement tableEl;
 	private BreadcrumbPanel stackPanel;
 	private FormLink coachingToolButton;
 	private CertificateAndEfficiencyStatementListModel tableModel;
 
+	private CloseableModalController cmc;
+	private CollectArtefactController collectorCtrl;
 	private DialogBoxController confirmDeleteCtr;
 	private ArtefactWizzardStepsController ePFCollCtrl;
 	
@@ -109,11 +116,15 @@ public class CertificateAndEfficiencyStatementListController extends FormBasicCo
 	@Autowired
 	private PortfolioModule portfolioModule;
 	@Autowired
+	private PortfolioV2Module portfolioV2Module;
+	@Autowired
 	private RepositoryManager repositoryManager;
 	@Autowired
 	private RepositoryService repositoryService;
 	@Autowired
 	private CertificatesManager certificatesManager;
+	@Autowired
+	private EfficiencyStatementMediaHandler mediaHandler;
 	
 	public CertificateAndEfficiencyStatementListController(UserRequest ureq, WindowControl wControl) {
 		this(ureq, wControl, ureq.getUserSession().getIdentity(), false);
@@ -122,7 +133,7 @@ public class CertificateAndEfficiencyStatementListController extends FormBasicCo
 	public CertificateAndEfficiencyStatementListController(UserRequest ureq, WindowControl wControl,
 			Identity assessedIdentity, boolean linkToCoachingTool) {
 		super(ureq, wControl, "cert_statement_list");
-		setTranslator(Util.createPackageTranslator(IdentityAssessmentEditController.class, getLocale(), getTranslator()));
+		setTranslator(Util.createPackageTranslator(AssessmentModule.class, getLocale(), getTranslator()));
 		this.assessedIdentity = assessedIdentity;
 		this.linkToCoachingTool = linkToCoachingTool;
 		
@@ -172,29 +183,32 @@ public class CertificateAndEfficiencyStatementListController extends FormBasicCo
 		}
 		
 		FlexiTableColumnModel tableColumnModel = FlexiTableDataModelFactory.createFlexiTableColumnModel();
-		tableColumnModel.addFlexiColumnModel(new DefaultFlexiColumnModel(Cols.displayName.i18n(), Cols.displayName.ordinal(),
-				true, Cols.displayName.name()));
-		tableColumnModel.addFlexiColumnModel(new DefaultFlexiColumnModel(Cols.score.i18n(), Cols.score.ordinal(),
-				true, Cols.score.name()));
-		tableColumnModel.addFlexiColumnModel(new DefaultFlexiColumnModel(Cols.passed.i18n(), Cols.passed.ordinal(),
-				true, Cols.passed.name(), new PassedCellRenderer()));
-		tableColumnModel.addFlexiColumnModel(new StaticFlexiColumnModel("table.header.show",
+		tableColumnModel.addFlexiColumnModel(new DefaultFlexiColumnModel(Cols.displayName));
+		tableColumnModel.addFlexiColumnModel(new DefaultFlexiColumnModel(Cols.score));
+		tableColumnModel.addFlexiColumnModel(new DefaultFlexiColumnModel(Cols.passed, new PassedCellRenderer()));
+		tableColumnModel.addFlexiColumnModel(new DefaultFlexiColumnModel("table.header.show",
 				translate("table.header.show"), CMD_SHOW));
-		tableColumnModel.addFlexiColumnModel(new DefaultFlexiColumnModel(Cols.lastModified.i18n(), Cols.lastModified.ordinal(),
-				true, Cols.lastModified.name()));
-		tableColumnModel.addFlexiColumnModel(new DefaultFlexiColumnModel(Cols.certificate.i18n(), Cols.certificate.ordinal(),
-				true, Cols.certificate.name(), new DownloadCertificateCellRenderer(assessedIdentity)));
-		tableColumnModel.addFlexiColumnModel(new StaticFlexiColumnModel("table.header.launchcourse",
+		tableColumnModel.addFlexiColumnModel(new DefaultFlexiColumnModel(Cols.lastModified));
+		tableColumnModel.addFlexiColumnModel(new DefaultFlexiColumnModel(Cols.certificate, new DownloadCertificateCellRenderer(assessedIdentity)));
+		tableColumnModel.addFlexiColumnModel(new DefaultFlexiColumnModel("table.header.launchcourse",
 				translate("table.header.launchcourse"), CMD_LAUNCH_COURSE));
-		tableColumnModel.addFlexiColumnModel(new StaticFlexiColumnModel("table.header.delete",
-				translate("table.action.delete"), CMD_DELETE));
 		
-		//delete
-		EPArtefactHandler<?> artHandler = portfolioModule.getArtefactHandler(EfficiencyStatementArtefact.ARTEFACT_TYPE);
-		if(portfolioModule.isEnabled() && artHandler != null && artHandler.isEnabled() && assessedIdentity.equals(getIdentity())) {
-			tableColumnModel.addFlexiColumnModel(new StaticFlexiColumnModel("table.header.artefact",
-					Cols.efficiencyStatement.ordinal(), CMD_ARTEFACT,
-					new StaticFlexiCellRenderer(CMD_ARTEFACT, new AsArtefactCellRenderer())));
+		DefaultFlexiColumnModel deleteColumn = new DefaultFlexiColumnModel(Cols.deleteEfficiencyStatement.i18nHeaderKey(), Cols.deleteEfficiencyStatement.ordinal(), CMD_DELETE,
+				new BooleanCellRenderer(new StaticFlexiCellRenderer(translate("table.action.delete"), CMD_DELETE), null));
+		tableColumnModel.addFlexiColumnModel(deleteColumn);
+		
+		//artefact
+		if(portfolioV2Module.isEnabled()) {
+			tableColumnModel.addFlexiColumnModel(new DefaultFlexiColumnModel("table.header.artefact",
+					Cols.efficiencyStatement.ordinal(), CMD_MEDIA,
+					new StaticFlexiCellRenderer(CMD_MEDIA, new AsArtefactCellRenderer())));
+		} else {
+			EPArtefactHandler<?> artHandler = portfolioModule.getArtefactHandler(EfficiencyStatementArtefact.ARTEFACT_TYPE);
+			if(portfolioModule.isEnabled() && artHandler != null && artHandler.isEnabled() && assessedIdentity.equals(getIdentity())) {
+				tableColumnModel.addFlexiColumnModel(new DefaultFlexiColumnModel("table.header.artefact",
+						Cols.efficiencyStatement.ordinal(), CMD_ARTEFACT,
+						new StaticFlexiCellRenderer(CMD_ARTEFACT, new AsArtefactCellRenderer())));
+			}
 		}
 		
 		tableModel = new CertificateAndEfficiencyStatementListModel(tableColumnModel, getLocale());
@@ -261,6 +275,8 @@ public class CertificateAndEfficiencyStatementListController extends FormBasicCo
 					doShowStatement(ureq, statement);
 				} else if(CMD_ARTEFACT.equals(cmd)) {
 					doCollectArtefact(ureq, statement.getDisplayName(), statement.getEfficiencyStatementKey());
+				} else if(CMD_MEDIA.equals(cmd)) {
+					doCollectMedia(ureq, statement.getDisplayName(), statement.getEfficiencyStatementKey());
 				}
 			}
 		} else if(coachingToolButton == source) {
@@ -276,7 +292,19 @@ public class CertificateAndEfficiencyStatementListController extends FormBasicCo
 				CertificateAndEfficiencyStatement statement = (CertificateAndEfficiencyStatement)confirmDeleteCtr.getUserObject();
 				doDelete(statement.getEfficiencyStatementKey());
 			}
+		} else if(collectorCtrl == source) {
+			cmc.deactivate();
+			cleanUp();
+		} else if(cmc == source) {
+			cleanUp();
 		}
+	}
+	
+	private void cleanUp() {
+		removeAsListenerAndDispose(collectorCtrl);
+		removeAsListenerAndDispose(cmc);
+		collectorCtrl = null;
+		cmc = null;
 	}
 	
 	private void doShowStatement(UserRequest ureq, CertificateAndEfficiencyStatement statement) {
@@ -301,15 +329,17 @@ public class CertificateAndEfficiencyStatementListController extends FormBasicCo
 	
 	private void doDelete(Long efficiencyStatementKey) {
 		UserEfficiencyStatementLight efficiencyStatement = esm.getUserEfficiencyStatementLightByKey(efficiencyStatementKey);
-		esm.deleteEfficiencyStatement(efficiencyStatement);
-
+		if(efficiencyStatement != null) {
+			esm.deleteEfficiencyStatement(efficiencyStatement);
+		}
+		
 		loadModel();
 		tableEl.reset();
 		showInfo("info.efficiencyStatement.deleted");
 	}
 	
 	private void doLaunchCoachingTool(UserRequest ureq) {
-		String businessPath = "[CoachSite:0][search:0][Identity:" + assessedIdentity.getKey() + "]";
+		String businessPath = "[CoachSite:0][Search:0][Identity:" + assessedIdentity.getKey() + "]";
 		NewControllerFactory.getInstance().launch(businessPath, ureq, getWindowControl());
 	}
 
@@ -338,11 +368,23 @@ public class CertificateAndEfficiencyStatementListController extends FormBasicCo
 			//no business path becouse we cannot launch an efficiency statement
 			artefact.setCollectionDate(new Date());
 			artefact.setTitle(translate("artefact.title", new String[]{ title }));
-			EfficiencyStatement fullStatement = EfficiencyStatementManager.getInstance().getUserEfficiencyStatementByKey(efficiencyStatementKey);
+			EfficiencyStatement fullStatement = esm.getUserEfficiencyStatementByKey(efficiencyStatementKey);
 			artHandler.prefillArtefactAccordingToSource(artefact, fullStatement);
 			ePFCollCtrl = new ArtefactWizzardStepsController(ureq, getWindowControl(), artefact, (VFSContainer)null);
 			listenTo(ePFCollCtrl);
 		}
+	}
+
+	private void doCollectMedia(UserRequest ureq, String title, Long efficiencyStatementKey) {
+		if(collectorCtrl != null) return;
+		
+		EfficiencyStatement fullStatement = esm.getUserEfficiencyStatementByKey(efficiencyStatementKey);
+		collectorCtrl = new CollectArtefactController(ureq, getWindowControl(), fullStatement, mediaHandler, "");
+		listenTo(collectorCtrl);
+		
+		cmc = new CloseableModalController(getWindowControl(), null, collectorCtrl.getInitialComponent(), true, title, true);
+		cmc.addControllerListener(this);
+		cmc.activate();
 	}
 
 	public class AsArtefactCellRenderer implements FlexiCellRenderer {

@@ -114,6 +114,8 @@ public class RepositoryEditDescriptionController extends FormBasicController {
 	private RepositoryManager repositoryManager;
 	@Autowired
 	private RepositoryEntryLifecycleDAO lifecycleDao;
+	@Autowired
+	private RepositoryHandlerFactory repositoryHandlerFactory;
 
 	/**
 	 * Create a repository add controller that adds the given resourceable.
@@ -198,7 +200,7 @@ public class RepositoryEditDescriptionController extends FormBasicController {
 		location = uifactory.addTextElement("cif.location", "cif.location", 255, repositoryEntry.getLocation(), descCont);
 		location.setEnabled(!RepositoryEntryManagedFlag.isManaged(repositoryEntry, RepositoryEntryManagedFlag.location));
 		
-		RepositoryHandler handler = RepositoryHandlerFactory.getInstance().getRepositoryHandler(repositoryEntry);
+		RepositoryHandler handler = repositoryHandlerFactory.getRepositoryHandler(repositoryEntry);
 		mediaContainer = handler.getMediaContainer(repositoryEntry);
 		if(mediaContainer != null && mediaContainer.getName().equals("media")) {
 			mediaContainer = mediaContainer.getParentContainer();
@@ -332,7 +334,7 @@ public class RepositoryEditDescriptionController extends FormBasicController {
 			fileUpload.setInitialFile(((LocalFileImpl)img).getBasefile());
 		}
 		fileUpload.setVisible(!managed);
-		fileUpload.limitToMimeType(imageMimeTypes, null, null);
+		fileUpload.limitToMimeType(imageMimeTypes, "cif.error.mimetype", new String[]{ imageMimeTypes.toString()} );
 
 		VFSLeaf movie = repositoryService.getIntroductionMovie(repositoryEntry);
 		movieUpload = uifactory.addFileElement(getWindowControl(), "rentry.movie", "rentry.movie", descCont);
@@ -409,7 +411,6 @@ public class RepositoryEditDescriptionController extends FormBasicController {
 			}
 		}
 
-		// Ok, passed all checks
 		return allOk & super.validateFormLogic(ureq);
 	}
 	
@@ -436,6 +437,7 @@ public class RepositoryEditDescriptionController extends FormBasicController {
 			updateDatesVisibility();
 		} else if (source == fileUpload) {
 			if(FileElementEvent.DELETE.equals(event.getCommand())) {
+				fileUpload.clearError();
 				VFSLeaf img = repositoryManager.getImage(repositoryEntry);
 				if(fileUpload.getUploadFile() != null && fileUpload.getUploadFile() != fileUpload.getInitialFile()) {
 					fileUpload.reset();
@@ -450,6 +452,7 @@ public class RepositoryEditDescriptionController extends FormBasicController {
 			}
 		} else if (source == movieUpload) {
 			if(FileElementEvent.DELETE.equals(event.getCommand())) {
+				movieUpload.clearError();
 				VFSLeaf movie = repositoryService.getIntroductionMovie(repositoryEntry);
 				if(movieUpload.getUploadFile() != null && movieUpload.getUploadFile() != movieUpload.getInitialFile()) {
 					movieUpload.reset();

@@ -86,6 +86,14 @@
 			display: none;
 		}
 	}
+	
+	.o_cal_toptoolbar {
+		margin-right: 26px;
+	}
+	
+	.o_titled_wrapper .o_cal_toptoolbar {
+		margin-right: 0px;
+	}
 }
 
 @if not $o-course-show-icon-menu {
@@ -199,6 +207,8 @@
 			border-radius: 0px;
 			margin: auto;
 			display:block;
+			max-width: 100px;
+			max-height:100px;
 		}
 	}
 	

@@ -44,7 +44,6 @@ import org.olat.core.util.vfs.VFSContainer;
 import org.olat.course.CourseFactory;
 import org.olat.course.ICourse;
 import org.olat.course.assessment.AssessmentHelper;
-import org.olat.course.assessment.AssessmentManager;
 import org.olat.course.nodes.GTACourseNode;
 import org.olat.course.nodes.gta.GTAManager;
 import org.olat.course.nodes.gta.GTAType;
@@ -169,7 +168,7 @@ public class GTAParticipantRevisionAndCorrectionsController extends BasicControl
 			documentsContainer = gtaManager.getRevisedDocumentsContainer(courseEnv, gtaNode, iteration, getIdentity());
 		}
 		uploadRevisionsCtrl = new SubmitDocumentsController(ureq, getWindowControl(), task, documentsDir, documentsContainer, -1,
-				gtaNode, courseEnv, "document");
+				gtaNode, courseEnv, assessedUserCourseEnv.isCourseReadOnly(), null, "document");
 		listenTo(uploadRevisionsCtrl);
 		mainVC.put("uploadRevisions", uploadRevisionsCtrl.getInitialComponent());
 		
@@ -177,6 +176,7 @@ public class GTAParticipantRevisionAndCorrectionsController extends BasicControl
 		submitRevisionButton.setCustomEnabledLinkCSS(uploadRevisionsCtrl.hasUploadDocuments() ? "btn btn-primary" : "btn btn-default");
 		submitRevisionButton.setIconLeftCSS("o_icon o_icon o_icon_submit");
 		submitRevisionButton.setElementCssClass("o_sel_course_gta_submit_revisions");
+		submitRevisionButton.setVisible(!assessedUserCourseEnv.isCourseReadOnly());
 	}
 	
 	private boolean setRevision(UserRequest ureq, String cmpName, int iteration) {
@@ -288,7 +288,7 @@ public class GTAParticipantRevisionAndCorrectionsController extends BasicControl
 	}
 	
 	private void doSubmitRevisions() {
-		assignedTask = gtaManager.updateTask(assignedTask, TaskProcess.correction);
+		assignedTask = gtaManager.updateTask(assignedTask, TaskProcess.correction, gtaNode);
 		gtaManager.log("Revision", "revision submitted", assignedTask, getIdentity(), getIdentity(), assessedGroup, courseEnv, gtaNode);
 		
 		TaskMultiUserEvent event = new TaskMultiUserEvent(TaskMultiUserEvent.SUBMIT_REVISION,
@@ -298,8 +298,6 @@ public class GTAParticipantRevisionAndCorrectionsController extends BasicControl
 	
 		if(businessGroupTask) {
 			List<Identity> identities = businessGroupService.getMembers(assessedGroup, GroupRoles.participant.name());
-			AssessmentManager assessmentManager = courseEnv.getAssessmentManager();
-			assessmentManager.preloadCache(identities);
 			ICourse course = CourseFactory.loadCourse(courseEnv.getCourseResourceableId());
 
 			for(Identity identity:identities) {

@@ -1,0 +1,130 @@
+/**
+ * <a href="http://www.openolat.org">
+ * OpenOLAT - Online Learning and Training</a><br>
+ * <p>
+ * Licensed under the Apache License, Version 2.0 (the "License"); <br>
+ * you may not use this file except in compliance with the License.<br>
+ * You may obtain a copy of the License at the
+ * <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache homepage</a>
+ * <p>
+ * Unless required by applicable law or agreed to in writing,<br>
+ * software distributed under the License is distributed on an "AS IS" BASIS, <br>
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. <br>
+ * See the License for the specific language governing permissions and <br>
+ * limitations under the License.
+ * <p>
+ * Initial code contributed and copyrighted by<br>
+ * frentix GmbH, http://www.frentix.com
+ * <p>
+ */
+package org.olat.course.assessment.model;
+
+import java.util.List;
+
+import org.olat.modules.assessment.model.AssessmentEntryStatus;
+import org.olat.modules.assessment.ui.AssessmentToolSecurityCallback;
+import org.olat.repository.RepositoryEntry;
+
+/**
+ * 
+ * Initial date: 21.07.2015<br>
+ * @author srosse, stephane.rosse@frentix.com, http://www.frentix.com
+ *
+ */
+public class SearchAssessedIdentityParams {
+	
+	private final RepositoryEntry entry;
+	private final RepositoryEntry referenceEntry;
+	private final String subIdent;
+	
+	private final boolean admin;
+	private final boolean nonMembers;
+	private final boolean repositoryEntryCoach;
+	private final boolean businessGroupCoach;
+	
+	private boolean passed;
+	private boolean failed;
+	private List<AssessmentEntryStatus> assessmentStatus;
+	
+	private String searchString;
+	private List<Long> businessGroupKeys;
+	
+	public SearchAssessedIdentityParams(RepositoryEntry entry, String subIdent, RepositoryEntry referenceEntry, 
+			AssessmentToolSecurityCallback secCallback) {
+		this.entry = entry;
+		this.referenceEntry = referenceEntry;
+		this.subIdent = subIdent;
+		this.admin = secCallback.isAdmin();
+		this.nonMembers = secCallback.canAssessNonMembers();
+		this.repositoryEntryCoach = secCallback.canAssessRepositoryEntryMembers();
+		this.businessGroupCoach = secCallback.canAssessBusinessGoupMembers();
+	}
+	
+	public RepositoryEntry getEntry() {
+		return entry;
+	}
+	
+	public RepositoryEntry getReferenceEntry() {
+		return referenceEntry;
+	}
+
+	public String getSubIdent() {
+		return subIdent;
+	}
+
+	public boolean isAdmin() {
+		return admin;
+	}
+
+	public boolean isNonMembers() {
+		return nonMembers;
+	}
+
+	public boolean isRepositoryEntryCoach() {
+		return repositoryEntryCoach;
+	}
+
+	public boolean isBusinessGroupCoach() {
+		return businessGroupCoach;
+	}
+
+	public String getSearchString() {
+		return searchString;
+	}
+
+	public void setSearchString(String searchString) {
+		this.searchString = searchString;
+	}
+
+	public boolean isPassed() {
+		return passed;
+	}
+
+	public void setPassed(boolean passed) {
+		this.passed = passed;
+	}
+
+	public boolean isFailed() {
+		return failed;
+	}
+
+	public void setFailed(boolean failed) {
+		this.failed = failed;
+	}
+
+	public List<AssessmentEntryStatus> getAssessmentStatus() {
+		return assessmentStatus;
+	}
+
+	public void setAssessmentStatus(List<AssessmentEntryStatus> assessmentStatus) {
+		this.assessmentStatus = assessmentStatus;
+	}
+
+	public List<Long> getBusinessGroupKeys() {
+		return businessGroupKeys;
+	}
+
+	public void setBusinessGroupKeys(List<Long> businessGroupKeys) {
+		this.businessGroupKeys = businessGroupKeys;
+	}
+}

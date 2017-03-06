@@ -1,11 +1,17 @@
 <?xml version="1.0"?>
 <!DOCTYPE hibernate-mapping PUBLIC "-//Hibernate/Hibernate Mapping DTD//EN"	"http://www.hibernate.org/dtd/hibernate-mapping-3.0.dtd">
-
 <hibernate-mapping default-lazy="false">
   <class name="org.olat.basesecurity.IdentityImpl" table="o_bs_identity">
   	<!-- the default columns -->
     <id name="key" column="id" type="long" unsaved-value="null">
-      <generator class="hilo"/>
+		<generator class="enhanced-sequence">
+			<param name="sequence_name">hibernate_unique_key</param>
+			<param name="force_table_use">true</param>
+			<param name="optimizer">legacy-hilo</param>
+			<param name="value_column">next_hi</param>
+			<param name="increment_size">32767</param>
+			<param name="initial_value">32767</param>
+		</generator>
     </id>
     
     <version name="version" access="field" column="version" type="int"/>
@@ -20,25 +26,8 @@
     	<column name="status" index="identstatus_idx"/>
     </property>
  
-    <many-to-one name="user" column="fk_user_id" class="org.olat.user.UserImpl" fetch="join" unique="true"  cascade="none"/>
+    <one-to-one name="user" property-ref="identity" class="org.olat.user.UserImpl" cascade="persist"/>
 
   </class>
-  
-  
-  <class name="org.olat.basesecurity.IdentityShort" table="o_bs_identity_short_v" mutable="false">
-  	<!-- the default columns -->
-	<id name="key" column="id_id" type="long" unsaved-value="null">
-      <generator class="hilo"/>
-    </id>
-	 
-	<property name="userKey" column="us_id" type="long" />
- 	<property name="lastLogin" column="id_lastlogin" type="timestamp" />
-    <property name="name" column="id_name" type="string" />
-    <property name="status" column="id_status" type="integer" />
 
-    <property name="firstName" column="first_name" type="string" />
-    <property name="lastName" column="last_name" type="string" />
-    <property name="email" column="email" type="string" />
-
-  </class>
 </hibernate-mapping>

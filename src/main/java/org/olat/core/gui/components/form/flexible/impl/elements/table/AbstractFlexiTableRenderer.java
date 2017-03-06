@@ -76,7 +76,8 @@ public abstract class AbstractFlexiTableRenderer extends DefaultComponentRendere
 			if (wrapperSelector != null) {
 				sb.append(" id='").append(wrapperSelector).append("'");
 			}
-			sb.append("><table id=\"").append(id).append("\" class=\"table table-condensed table-striped table-hover\">");
+			sb.append("><table id=\"").append(id).append("\" class=\"table table-condensed table-striped table-hover")
+			  .append(" table-bordered", ftE.isBordered()).append("\">");
 			
 			//render headers
 			renderHeaders(sb, ftC, translator);
@@ -129,13 +130,13 @@ public abstract class AbstractFlexiTableRenderer extends DefaultComponentRendere
 		}
 		
 		sb.append("<div class='row clearfix o_table_toolbar'>")
-		  .append("<div class='col-sm-6 col-xs-12'>");
+		  .append("<div class='col-sm-6 col-xs-12 o_table_toolbar_left'>");
 		if(searchCmp == null || !ftE.isExtendedSearchExpanded()) {
 			renderHeaderSearch(renderer, sb, ftE, ubu, translator, renderResult, args);
 		}
 		sb.append("</div>");
 
-		sb.append("<div class='col-sm-3 col-xs-4 o_table_row_count'>");
+		sb.append("<div class='col-sm-2 col-xs-4 o_table_row_count'>");
 		if(ftE.isNumOfRowsEnabled()) {
 			int rowCount = ftE.getTableDataModel().getRowCount();
 			if(rowCount == 1) {
@@ -144,7 +145,7 @@ public abstract class AbstractFlexiTableRenderer extends DefaultComponentRendere
 				sb.append(rowCount).append(" ").append(ftE.getTranslator().translate("table.entries"));
 			}
 		}
-		sb.append("</div><div class='col-sm-3 col-xs-8'><div class='pull-right'><div class='o_table_tools'>");
+		sb.append("</div><div class='col-sm-4 col-xs-8'><div class='pull-right'><div class='o_table_tools o_noprint'>");
 		
 		boolean empty = ftE.getTableDataModel().getRowCount() == 0;
 
@@ -171,7 +172,8 @@ public abstract class AbstractFlexiTableRenderer extends DefaultComponentRendere
 			renderFormItem(renderer, sb, ftE.getExportButton(), ubu, translator, renderResult, args);
 			sb.append("</div> ");
 		}
-		if(ftE.getCustomButton() != null && ftE.isCustomizeColumns()) {
+		if(ftE.getCustomButton() != null && ftE.isCustomizeColumns()
+				&& (ftE.getRendererType() == null || ftE.getRendererType() == FlexiTableRendererType.classic)) {
 			sb.append("<div class='btn-group'>");
 			renderFormItem(renderer, sb, ftE.getCustomButton(), ubu, translator, renderResult, args);
 			sb.append("</div> ");
@@ -188,7 +190,16 @@ public abstract class AbstractFlexiTableRenderer extends DefaultComponentRendere
 		}
 		sb.append("</div>");
 		if(StringHelper.containsNonWhitespace(filterIndication)) {
-			sb.append("<div class='o_table_tools_indications'><i class='o_icon o_icon_filter o_icon-lg'> </i> ").append(filterIndication).append("</div>");
+			Form theForm = ftE.getRootForm();
+			String dispatchId = ftE.getFormDispatchId();
+			
+			sb.append("<div class='o_table_tools_indications'>").append(filterIndication)
+				// remove filter
+			  .append(" <a href=\"javascript:")
+			  .append(FormJSHelper.getXHRFnCallFor(theForm, dispatchId, 1, true, true, true,
+					  new NameValuePair("rm-filter", "true")))
+			  .append("\" title=\"").append(translator.translate("remove.filters")).append("\" ")
+			  .append("\">").append("<i class='o_icon o_icon_remove o_icon-fw'> </i> </a></li></div>"); 
 		}
 		sb.append("</div>");
 		
@@ -200,14 +211,42 @@ public abstract class AbstractFlexiTableRenderer extends DefaultComponentRendere
 			RenderResult renderResult, String[] args) {
 
 		if(ftE.isSearchEnabled()) {
-			sb.append("<div class='o_table_search input-group'>");
+			Form theForm = ftE.getRootForm();
+			String dispatchId = ftE.getFormDispatchId();
+			
+			sb.append("<div class='o_table_search input-group o_noprint'>");
 			renderFormItem(renderer, sb, ftE.getSearchElement(), ubu, translator, renderResult, args);
 			sb.append("<div class='input-group-btn'>");
+			// reset quick search
+			sb.append("<a href=\"javascript:")
+			  .append(FormJSHelper.getXHRFnCallFor(theForm, dispatchId, 1, true, true, true,
+					  new NameValuePair("reset-search", "true")))
+			  .append("\" class='btn o_reset_quick_search'><i class='o_icon o_icon_remove_filters'> </i></a>");
+						
 			renderFormItem(renderer, sb, ftE.getSearchButton(), ubu, translator, renderResult, args);
 			if(ftE.getExtendedSearchButton() != null) {
 				renderFormItem(renderer, sb, ftE.getExtendedSearchButton(), ubu, translator, renderResult, args);
 			}
-			sb.append("</div></div>");
+			StringBuilder filterIndication = new StringBuilder();
+			if(ftE.getExtendedFilterButton() != null) {
+				ftE.getSelectedExtendedFilters().forEach(filter -> {
+					if(filterIndication.length() > 0) filterIndication.append(", ");
+					filterIndication.append(filter.getLabel());
+				});
+				
+				renderFormItem(renderer, sb, ftE.getExtendedFilterButton(), ubu, translator, renderResult, args);
+			}
+			sb.append("</div>");
+			sb.append("</div>");
+			if(filterIndication.length() > 0) {
+				sb.append("<div class='o_table_tools_indications'>").append(filterIndication)
+				// remove filter
+				  .append("<a href=\"javascript:")
+				  .append(FormJSHelper.getXHRFnCallFor(theForm, dispatchId, 1, true, true, true,
+						  new NameValuePair("rm-extended-filter", "true")))
+				  .append("\" title=\"").append(translator.translate("remove.filters")).append("\" ")
+				  .append("\">").append("<i class='o_icon o_icon_remove o_icon-fw'> </i> </a></li></div>");
+			}
 		} else if(ftE.getExtendedSearchButton() != null) {
 			renderFormItem(renderer, sb, ftE.getExtendedSearchButton(), ubu, translator, renderResult, args);
 		}
@@ -228,14 +267,17 @@ public abstract class AbstractFlexiTableRenderer extends DefaultComponentRendere
 				sb.append("<li class='divider'></li>");
 			} else {
 				sb.append("<li><a href=\"javascript:")
-				  .append(FormJSHelper.getXHRFnCallFor(theForm, dispatchId, 1, true, true,
+				  .append(FormJSHelper.getXHRFnCallFor(theForm, dispatchId, 1, true, true, true,
 						  new NameValuePair("filter", filter.getFilter())))
 				  .append("\">").append("<i class='o_icon o_icon_check o_icon-fw'> </i> ", filter.isSelected());
 				if(filter.getIconLeftCSS() != null) {
 					sb.append("<i class='o_icon ").append(filter.getIconLeftCSS()).append("'> </i> ");
 				}
+				if(filter.getIconRenderer() != null) {
+					filter.getIconRenderer().render(sb, filter, ftE.getComponent(), ftE.getTranslator());
+				}
 				sb.append(filter.getLabel()).append("</a></li>");
-				if(filter.isSelected()) {
+				if(filter.isSelected() && !filter.isShowAll()) {
 					selected = filter.getLabel();
 				}
 			}
@@ -263,7 +305,7 @@ public abstract class AbstractFlexiTableRenderer extends DefaultComponentRendere
 				sb.append("<li class='divider'></li>");
 			} else {
 				sb.append("<li><a href=\"javascript:")
-				  .append(FormJSHelper.getXHRFnCallFor(theForm, dispatchId, 1, true, true,
+				  .append(FormJSHelper.getXHRFnCallFor(theForm, dispatchId, 1, true, true, true,
 						  new NameValuePair("sort", sort.getSortKey().getKey()),
 						  new NameValuePair("asc",  sort.getSortKey().isAsc() ? "desc" : "asc")))
 				  .append("\">");
@@ -319,13 +361,15 @@ public abstract class AbstractFlexiTableRenderer extends DefaultComponentRendere
 
 			sb.append("<label class='checkbox-inline'><a id='")
 			  .append(dispatchId).append("_sa' href=\"javascript:o_table_toggleCheck('").append(formName).append("', true);")
-			  .append(FormJSHelper.getXHRFnCallFor(ftE.getRootForm(), dispatchId, 1, true, true, new NameValuePair("select", "checkall")))
+			  .append(FormJSHelper.getXHRFnCallFor(ftE.getRootForm(), dispatchId, 1, true, true, true,
+					  new NameValuePair("select", "checkall")))
 			  .append("\"><i class='o_icon o_icon-lg o_icon_check_on'> </i> <span>").append(translator.translate("form.checkall"))
 			  .append("</span></a></label>");
 
 			sb.append("<label class='checkbox-inline'><a id='")
 			  .append(dispatchId).append("_dsa' href=\"javascript:o_table_toggleCheck('").append(formName).append("', false);")
-			  .append(FormJSHelper.getXHRFnCallFor(ftE.getRootForm(), dispatchId, 1, true, true, new NameValuePair("select", "uncheckall")))
+			  .append(FormJSHelper.getXHRFnCallFor(ftE.getRootForm(), dispatchId, 1, true, true, true,
+					  new NameValuePair("select", "uncheckall")))
 			  .append("\"><i class='o_icon o_icon-lg o_icon_check_off'> </i> <span>").append(translator.translate("form.uncheckall"))
 			  .append("</span></a></label>");
 
@@ -399,7 +443,7 @@ public abstract class AbstractFlexiTableRenderer extends DefaultComponentRendere
 		int rows = dataModel.getRowCount();
 		int lastRow = Math.min(rows, firstRow + maxRows);
 		
-		sb.append("<div class='o_table_rows_infos'>");
+		sb.append("<div class='o_table_rows_infos o_noprint'>");
 		sb.append(translator.translate("page.size.a", new String[] {
 				Integer.toString(firstRow + 1),//for humans
 				Integer.toString(lastRow),
@@ -426,14 +470,14 @@ public abstract class AbstractFlexiTableRenderer extends DefaultComponentRendere
 		}
 		for(int size:sizes) {
 			sb.append("<li><a href=\"javascript:")
-			  .append(FormJSHelper.getXHRFnCallFor(theForm, dispatchId, 1, true, true,
+			  .append(FormJSHelper.getXHRFnCallFor(theForm, dispatchId, 1, true, true, true,
 					  new NameValuePair("pagesize", Integer.toString(size))))
 			  .append("\">").append(Integer.toString(size)).append("</a></li>");
 		}
 		
 		if(ftE.isShowAllRowsEnabled()) {
 			sb.append("<li><a href=\"javascript:")
-			  .append(FormJSHelper.getXHRFnCallFor(theForm, dispatchId, 1, true, true,
+			  .append(FormJSHelper.getXHRFnCallFor(theForm, dispatchId, 1, true, true, true,
 					  new NameValuePair("pagesize", "all")))
 			  .append("\">").append(translator.translate("show.all")).append("</a></li>");
 		}
@@ -452,7 +496,7 @@ public abstract class AbstractFlexiTableRenderer extends DefaultComponentRendere
 			sb.append("#");
 		} else {
 			sb.append("javascript:")
-			  .append(FormJSHelper.getXHRFnCallFor(theForm, ftC.getFormDispatchId(), 1, true, true,
+			  .append(FormJSHelper.getXHRFnCallFor(theForm, ftC.getFormDispatchId(), 1, true, true, true,
 					  new NameValuePair("page", Integer.toString(page - 1))));
 		}
 		sb.append("\">").append("&laquo;").append("</a></li>");
@@ -467,7 +511,7 @@ public abstract class AbstractFlexiTableRenderer extends DefaultComponentRendere
 			sb.append("#");
 		} else {
 			sb.append("javascript:")
-			  .append(FormJSHelper.getXHRFnCallFor(theForm, ftC.getFormDispatchId(), 1, true, true,
+			  .append(FormJSHelper.getXHRFnCallFor(theForm, ftC.getFormDispatchId(), 1, true, true, true,
 					  new NameValuePair("page", Integer.toString(page + 1)))); 
 		}
 		sb.append("\">").append("&raquo;").append("</a></li>");
@@ -516,7 +560,7 @@ public abstract class AbstractFlexiTableRenderer extends DefaultComponentRendere
 		FlexiTableElementImpl ftE = ftC.getFlexiTableElement();
 		Form theForm = ftE.getRootForm();
 		sb.append("<li").append(" class='active'", (page == i)).append("><a href=\"javascript:")
-		  .append(FormJSHelper.getXHRFnCallFor(theForm, ftC.getFormDispatchId(), 1, true, true,
+		  .append(FormJSHelper.getXHRFnCallFor(theForm, ftC.getFormDispatchId(), 1, true, true, true,
 				  new NameValuePair("page", Integer.toString(i))))
 		  .append(";\">").append(i+1).append("</a></li>");
 	}

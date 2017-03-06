@@ -38,6 +38,7 @@ import java.util.List;
 import javax.servlet.http.HttpServletRequest;
 import javax.ws.rs.Consumes;
 import javax.ws.rs.DELETE;
+import javax.ws.rs.FormParam;
 import javax.ws.rs.GET;
 import javax.ws.rs.POST;
 import javax.ws.rs.PUT;
@@ -62,6 +63,9 @@ import org.olat.core.gui.media.MediaResource;
 import org.olat.core.id.Identity;
 import org.olat.core.logging.OLog;
 import org.olat.core.logging.Tracing;
+import org.olat.core.logging.activity.LearningResourceLoggingAction;
+import org.olat.core.logging.activity.OlatResourceableType;
+import org.olat.core.logging.activity.ThreadLocalUserActivityLogger;
 import org.olat.core.util.FileUtils;
 import org.olat.core.util.coordinate.LockResult;
 import org.olat.fileresource.FileResourceManager;
@@ -83,6 +87,7 @@ import org.olat.restapi.support.vo.RepositoryEntryLifecycleVO;
 import org.olat.restapi.support.vo.RepositoryEntryVO;
 import org.olat.user.restapi.UserVO;
 import org.olat.user.restapi.UserVOFactory;
+import org.olat.util.logging.activity.LoggingResourceable;
 
 /**
  * Description:<br>
@@ -698,40 +703,41 @@ public class RepositoryEntryResource {
     return Response.serverError().status(Status.INTERNAL_SERVER_ERROR).build();
   }
 
-  private RepositoryEntry replaceFileResource(Identity identity, RepositoryEntry re, File fResource) {
-    if(re == null) throw new NullPointerException("RepositoryEntry cannot be null");
+	private RepositoryEntry replaceFileResource(Identity identity, RepositoryEntry re, File fResource) {
+		if (re == null) throw new NullPointerException("RepositoryEntry cannot be null");
 
-    FileResourceManager frm = FileResourceManager.getInstance();
-    File currentResource = frm.getFileResource(re.getOlatResource());
-    if(currentResource == null || !currentResource.exists()) {
-      log.debug("Current resource file doesn't exist");
-      return null;
-    }
+		FileResourceManager frm = FileResourceManager.getInstance();
+		File currentResource = frm.getFileResource(re.getOlatResource());
+		if (currentResource == null || !currentResource.exists()) {
+			log.debug("Current resource file doesn't exist");
+			return null;
+		}
 
-    String typeName = re.getOlatResource().getResourceableTypeName();
-    if(typeName.equals(ImsCPFileResource.TYPE_NAME)) {
-      if(currentResource.delete()) {
-        FileUtils.copyFileToFile(fResource, currentResource, false);
+		String typeName = re.getOlatResource().getResourceableTypeName();
+		if (typeName.equals(ImsCPFileResource.TYPE_NAME)) {
+			if (currentResource.delete()) {
+				FileUtils.copyFileToFile(fResource, currentResource, false);
 
-        String repositoryHome = FolderConfig.getCanonicalRepositoryHome();
-        String relUnzipDir = frm.getUnzippedDirRel(re.getOlatResource());
-        File unzipDir = new File(repositoryHome, relUnzipDir);
-        if(unzipDir != null && unzipDir.exists()) {
-          FileUtils.deleteDirsAndFiles(unzipDir, true, true);
-        }
-        frm.unzipFileResource(re.getOlatResource());
-      }
-      log.audit("Resource: " + re.getOlatResource() + " replaced by " + identity.getName());
-      return re;
-    }
+				String repositoryHome = FolderConfig.getCanonicalRepositoryHome();
+				String relUnzipDir = frm.getUnzippedDirRel(re.getOlatResource());
+				File unzipDir = new File(repositoryHome, relUnzipDir);
+				if (unzipDir != null && unzipDir.exists()) {
+					FileUtils.deleteDirsAndFiles(unzipDir, true, true);
+				}
+				frm.unzipFileResource(re.getOlatResource());
+			}
+			log.audit("Resource: " + re.getOlatResource() + " replaced by " + identity.getName());
+			return re;
+		}
 
-    log.debug("Cannot replace a resource of the type: " + typeName);
-    return null;
-  }
+		log.debug("Cannot replace a resource of the type: " + typeName);
+		return null;
+	}
   
-  /**
-	 * Delete a course by id
-	 * @response.representation.200.doc The metadatas of the created course
+    /**
+	 * Delete a resource by id
+	 * 
+	 * @response.representation.200.doc The metadatas of the deleted resource
 	 * @response.representation.401.doc The roles of the authenticated user are not sufficient
 	 * @response.representation.404.doc The course not found
 	 * @param courseId The course resourceable's id
@@ -745,7 +751,7 @@ public class RepositoryEntryResource {
 		if(!isAuthor(request)) {
 			return Response.serverError().status(Status.UNAUTHORIZED).build();
 		}
-		
+
 		RepositoryEntry re = lookupRepositoryEntry(repoEntryKey);
 		if(re == null) {
 			return Response.serverError().status(Status.NOT_FOUND).build();
@@ -754,9 +760,76 @@ public class RepositoryEntryResource {
 		}
 		UserRequest ureq = getUserRequest(request);
 		RepositoryService rs = CoreSpringFactory.getImpl(RepositoryService.class);
-		ErrorList errors = rs.delete(re, ureq.getIdentity(), ureq.getUserSession().getRoles(), ureq.getLocale());
+		ErrorList errors = rs.deletePermanently(re, ureq.getIdentity(), ureq.getUserSession().getRoles(), ureq.getLocale());
 		if(errors.hasErrors()) {
 			return Response.serverError().status(500).build();
+		}
+		ThreadLocalUserActivityLogger.log(LearningResourceLoggingAction.LEARNING_RESOURCE_DELETE, getClass(),
+				LoggingResourceable.wrap(re, OlatResourceableType.genRepoEntry));
+		return Response.ok().build();
+	}
+	
+	/**
+	 * Change the status of a course by id. The possible status are:
+	 * <ul>
+	 * 	<li>closed</li>
+	 * 	<li>unclosed</li>
+	 * 	<li>unpublished</li>
+	 * 	<li>deleted</li>
+	 * 	<li>restored</li>
+	 * </ul>
+	 * 
+	 * @response.representation.200.doc The metadatas of the deleted course
+	 * @response.representation.401.doc The roles of the authenticated user are not sufficient
+	 * @response.representation.404.doc The course not found
+	 * @param request The HTTP request
+	 * @return It returns the XML representation of the <code>Structure</code>
+	 *         object representing the course.
+	 */
+	@POST
+	@Produces({MediaType.APPLICATION_XML, MediaType.APPLICATION_JSON})
+	@Path("status")
+	public Response deleteCoursePermanently(@PathParam("repoEntryKey") String repoEntryKey,
+			@FormParam("newStatus") String newStatus, @Context HttpServletRequest request) {
+		
+		if(!isAuthor(request)) {
+			return Response.serverError().status(Status.UNAUTHORIZED).build();
+		}
+		
+		RepositoryEntry re = lookupRepositoryEntry(repoEntryKey);
+		if(re == null) {
+			return Response.serverError().status(Status.NOT_FOUND).build();
+		} else if (!isAuthorEditor(re, request)) {
+			return Response.serverError().status(Status.UNAUTHORIZED).build();
+		}
+		
+		RepositoryService rs = CoreSpringFactory.getImpl(RepositoryService.class);
+		if("closed".equals(newStatus)) {
+			rs.closeRepositoryEntry(re);
+			log.audit("REST closing course: " + re.getDisplayname() + " [" + re.getKey() + "]");
+			ThreadLocalUserActivityLogger.log(LearningResourceLoggingAction.LEARNING_RESOURCE_CLOSE, getClass(),
+					LoggingResourceable.wrap(re, OlatResourceableType.genRepoEntry));
+		} else if("unclosed".equals(newStatus)) {
+			rs.uncloseRepositoryEntry(re);
+			log.audit("REST unclosing course: " + re.getDisplayname() + " [" + re.getKey() + "]");
+			ThreadLocalUserActivityLogger.log(LearningResourceLoggingAction.LEARNING_RESOURCE_UPDATE, getClass(),
+					LoggingResourceable.wrap(re, OlatResourceableType.genRepoEntry));
+		} else if("unpublished".equals(newStatus)) {
+			rs.unpublishRepositoryEntry(re);
+			log.audit("REST unpublishing course: " + re.getDisplayname() + " [" + re.getKey() + "]");
+			ThreadLocalUserActivityLogger.log(LearningResourceLoggingAction.LEARNING_RESOURCE_DEACTIVATE, getClass(),
+					LoggingResourceable.wrap(re, OlatResourceableType.genRepoEntry));
+		} else if("deleted".equals(newStatus)) {
+			Identity identity = getIdentity(request);
+			rs.deleteSoftly(re, identity, true);
+			log.audit("REST deleting (soft) course: " + re.getDisplayname() + " [" + re.getKey() + "]");
+			ThreadLocalUserActivityLogger.log(LearningResourceLoggingAction.LEARNING_RESOURCE_TRASH, getClass(),
+					LoggingResourceable.wrap(re, OlatResourceableType.genRepoEntry));
+		} else if("restored".equals(newStatus)) {
+			rs.restoreRepositoryEntry(re);
+			log.audit("REST restoring course: " + re.getDisplayname() + " [" + re.getKey() + "]");
+			ThreadLocalUserActivityLogger.log(LearningResourceLoggingAction.LEARNING_RESOURCE_RESTORE, getClass(),
+					LoggingResourceable.wrap(re, OlatResourceableType.genRepoEntry));
 		}
 		return Response.ok().build();
 	}

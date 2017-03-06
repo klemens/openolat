@@ -549,13 +549,12 @@ public class UserWebService {
 	 * @response.representation.200.doc The portrait as image
 	 * @response.representation.404.doc The identity or the portrait not found
 	 * @param identityKey The identity key of the user being searched
-	 * @param request The REST request
 	 * @return The image
 	 */
 	@HEAD
 	@Path("{identityKey}/portrait")
 	@Produces({"image/jpeg","image/jpg",MediaType.APPLICATION_OCTET_STREAM})
-	public Response getPortraitHead(@PathParam("identityKey") Long identityKey, @Context Request request) {
+	public Response getPortraitHead(@PathParam("identityKey") Long identityKey) {
 		try {
 			IdentityShort identity = BaseSecurityManager.getInstance().loadIdentityShortByKey(identityKey);
 			if(identity == null) {
@@ -567,6 +566,45 @@ public class UserWebService {
 				return Response.serverError().status(Status.NOT_FOUND).build();
 			}
 
+			Date lastModified = new Date(portrait.lastModified());
+			return Response.ok().lastModified(lastModified).build();
+		} catch (Throwable e) {
+			throw new WebApplicationException(e);
+		}
+	}
+	
+	/**
+	 * Retrieves the portrait of an user
+	 * @response.representation.200.mediaType application/octet-stream
+	 * @response.representation.200.doc The portrait as image
+	 * @response.representation.404.doc The identity or the portrait not found
+	 * @param identityKey The identity key of the user being searched
+	 * @return The image
+	 */
+	@HEAD
+	@Path("{identityKey}/portrait/{size}")
+	@Produces({"image/jpeg","image/jpg",MediaType.APPLICATION_OCTET_STREAM})
+	public Response getOriginalPortraitHead(@PathParam("identityKey") Long identityKey, @PathParam("size") String size) {
+		try {
+			IdentityShort identity = BaseSecurityManager.getInstance().loadIdentityShortByKey(identityKey);
+			if(identity == null) {
+				return Response.serverError().status(Status.NOT_FOUND).build();
+			}
+			
+			DisplayPortraitManager portraitManager = DisplayPortraitManager.getInstance();
+			
+			File portrait = null;
+			if("master".equals(size)) {
+				portrait = portraitManager.getMasterPortrait(identity.getName());
+			} else if("big".equals(size)) {
+				portrait = portraitManager.getBigPortrait(identity.getName());
+			} else if("small".equals(size)) {
+				portrait = portraitManager.getSmallPortrait(identity.getName());
+			}
+
+			if(portrait == null || !portrait.exists()) {
+				return Response.serverError().status(Status.NOT_FOUND).build();
+			}
 			Date lastModified = new Date(portrait.lastModified());
 			return Response.ok().lastModified(lastModified).build();
 		} catch (Throwable e) {
@@ -632,7 +670,7 @@ public class UserWebService {
 			}
 			
 			Identity authIdentity = getUserRequest(request).getIdentity();
-			if(!isUserManager(request) && !identity.equalsByPersistableKey(authIdentity)) {
+			if(!isUserManager(request) && !identity.getKey().equals(authIdentity.getKey())) {
 				return Response.serverError().status(Status.UNAUTHORIZED).build();
 			}
 			partsReader = new MultipartReader(request);
@@ -796,6 +834,18 @@ public class UserWebService {
 			String translation = translator.translate(error.getErrorKey(), error.getArgs());
 			errors.add(new ErrorVO(pack, error.getErrorKey(), translation));
 			return false;
+		} else if((userPropertyHandler.getName().equals(UserConstants.INSTITUTIONALEMAIL) || userPropertyHandler.getName().equals(UserConstants.EMAIL))
+				&& StringHelper.containsNonWhitespace(value)) {
+			
+			List<Identity> identities = UserManager.getInstance().findIdentitiesByEmail(Collections.singletonList(value));
+			if((user == null && identities.size() > 0)
+					||  identities.size() > 1
+					|| (user != null && identities.size() == 1 && !user.equals(identities.get(0).getUser()))) {
+				String pack = userPropertyHandler.getClass().getPackage().getName();
+				Translator translator = new PackageTranslator(pack, locale);
+				String translation = translator.translate("form.name." + userPropertyHandler.getName() + ".error.exists");
+				errors.add(new ErrorVO("org.olat.user.propertyhandlers:new.form.name." + userPropertyHandler.getName() + ".exists", translation));
+			}
 		}
 		
 		return true;

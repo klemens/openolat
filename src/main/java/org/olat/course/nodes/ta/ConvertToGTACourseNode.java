@@ -63,6 +63,7 @@ import org.olat.course.run.environment.CourseEnvironment;
 import org.olat.course.run.scoring.ScoreEvaluation;
 import org.olat.course.run.userview.UserCourseEnvironment;
 import org.olat.modules.ModuleConfiguration;
+import org.olat.modules.assessment.AssessmentEntry;
 import org.olat.properties.Property;
 
 /**
@@ -221,55 +222,24 @@ public class ConvertToGTACourseNode {
 		CourseEnvironment courseEnv = course.getCourseEnvironment();
 		CoursePropertyManager propertyMgr = courseEnv.getCoursePropertyManager();
 		
-		Map<Long,AssessmentDatas> datas = new HashMap<>();
-		List<Property> properties = propertyMgr.listCourseNodeProperties(sourceNode, null, null, null);
-		for(Property property:properties) {
-			String name = property.getName();
-			if(AssessmentManager.SCORE.equals(name) || AssessmentManager.PASSED.equals(name)
-					|| AssessmentManager.ATTEMPTS.equals(name) || AssessmentManager.COMMENT.equals(name)
-					|| AssessmentManager.COACH_COMMENT.equals(name)) {
-				
-				Identity identity = property.getIdentity();
-				AssessmentDatas assessmentDatas;
-				if(datas.containsKey(identity.getKey())) {
-					assessmentDatas = datas.get(identity.getKey());
-				} else {
-					assessmentDatas = new AssessmentDatas(identity);
-					datas.put(identity.getKey(), assessmentDatas);
-				}
-				
-				switch(name) {
-					case AssessmentManager.SCORE:
-						assessmentDatas.setScore(property.getFloatValue());
-						break;
-					case AssessmentManager.PASSED:
-						String pass = property.getStringValue();
-						if(StringHelper.containsNonWhitespace(pass)) {
-							assessmentDatas.setPassed("true".equals(pass));
-						}
-						break;
-					case AssessmentManager.ATTEMPTS:
-						assessmentDatas.setAttempts(property.getLongValue());
-						break;
-					case AssessmentManager.COMMENT:
-						assessmentDatas.setComment(property.getTextValue());
-						break;
-					case AssessmentManager.COACH_COMMENT:
-						assessmentDatas.setCoachComment(property.getTextValue());
-						break;
-				}
-			}
+		Map<Long,AssessmentEntry> datas = new HashMap<>();
+		List<AssessmentEntry> properties = courseEnv.getAssessmentManager().getAssessmentEntries(sourceNode);
+
+		for(AssessmentEntry property:properties) {
+			Identity identity = property.getIdentity();
+			datas.put(identity.getKey(), property);
 		}
 		properties = null;
 		DBFactory.getInstance().getCurrentEntityManager().clear();
 		
 		AssessmentManager assessmentMgr = courseEnv.getAssessmentManager();
-		for(AssessmentDatas assessmentDatas:datas.values()) {
-			Identity assessedIdentity = securityManager.loadIdentityByKey(assessmentDatas.getIdentity().getKey());
+		for(AssessmentEntry assessmentData:datas.values()) {
+			Identity assessedIdentity = securityManager.loadIdentityByKey(assessmentData.getIdentity().getKey());
 			
-			if(assessmentDatas.getPassed() != null || assessmentDatas.getScore() != null) {
+			if(assessmentData.getPassed() != null || assessmentData.getScore() != null) {
 				UserCourseEnvironment userCourseEnv = AssessmentHelper.createAndInitUserCourseEnvironment(assessedIdentity, course);
-				ScoreEvaluation scoreEval = new ScoreEvaluation(assessmentDatas.getScore(), assessmentDatas.getPassed());
+				Float score = assessmentData.getScore() == null ? null : assessmentData.getScore().floatValue();
+				ScoreEvaluation scoreEval = new ScoreEvaluation(score, assessmentData.getPassed());
 				assessmentMgr.saveScoreEvaluation(gtaNode, null, assessedIdentity, scoreEval, userCourseEnv, false);
 				
 				//set graded
@@ -277,20 +247,20 @@ public class ConvertToGTACourseNode {
 				if(task == null) {
 					gtaManager.createTask(null, taskList, TaskProcess.graded, null, assessedIdentity, gtaNode);
 				} else {
-					gtaManager.updateTask(task, TaskProcess.graded);
+					gtaManager.updateTask(task, TaskProcess.graded, gtaNode);
 				}
 			}
 			
-			if(assessmentDatas.getAttempts() != null) {
-				assessmentMgr.saveNodeAttempts(gtaNode, null, assessedIdentity, assessmentDatas.getAttempts().intValue());
+			if(assessmentData.getAttempts() != null) {
+				assessmentMgr.saveNodeAttempts(gtaNode, null, assessedIdentity, assessmentData.getAttempts().intValue());
 			}
 			
-			if(StringHelper.containsNonWhitespace(assessmentDatas.getCoachComment())) {
-				assessmentMgr.saveNodeCoachComment(gtaNode, assessedIdentity, assessmentDatas.getCoachComment());
+			if(StringHelper.containsNonWhitespace(assessmentData.getCoachComment())) {
+				assessmentMgr.saveNodeCoachComment(gtaNode, assessedIdentity, assessmentData.getCoachComment());
 			}
 			
-			if(StringHelper.containsNonWhitespace(assessmentDatas.getComment())) {
-				assessmentMgr.saveNodeComment(gtaNode, null, assessedIdentity, assessmentDatas.getComment());
+			if(StringHelper.containsNonWhitespace(assessmentData.getComment())) {
+				assessmentMgr.saveNodeComment(gtaNode, null, assessedIdentity, assessmentData.getComment());
 			}
 		}
 		
@@ -300,14 +270,14 @@ public class ConvertToGTACourseNode {
 		List<Property> logEntries = propertyMgr
 				.listCourseNodeProperties(sourceNode, null, null, UserNodeAuditManager.LOG_IDENTIFYER);
 		for(Property logEntry:logEntries) {
-			String log = logEntry.getTextValue();
+			String logText = logEntry.getTextValue();
 			Identity identity = securityManager.loadIdentityByKey(logEntry.getIdentity().getKey());
 			Property targetProp = propertyMgr.findCourseNodeProperty(gtaNode, identity, null, UserNodeAuditManager.LOG_IDENTIFYER);
 			if(targetProp == null) {
 				targetProp = propertyMgr
-					.createCourseNodePropertyInstance(gtaNode, identity, null, UserNodeAuditManager.LOG_IDENTIFYER, null, null, null, log);
+					.createCourseNodePropertyInstance(gtaNode, identity, null, UserNodeAuditManager.LOG_IDENTIFYER, null, null, null, logText);
 			} else {
-				targetProp.setTextValue(log);
+				targetProp.setTextValue(logText);
 			}
 			propertyMgr.saveProperty(targetProp);
 		}	
@@ -396,7 +366,7 @@ public class ConvertToGTACourseNode {
 		if(task == null) {
 			gtaManager.createTask(null, taskList, process, null, assessedIdentity, gtaNode);
 		} else {
-			gtaManager.updateTask(task, process);
+			gtaManager.updateTask(task, process, gtaNode);
 		}
 	}
 	
@@ -428,64 +398,6 @@ public class ConvertToGTACourseNode {
 					metaTarget.write();
 				}	
 			}	
-		}
-	}
-
-	private static class AssessmentDatas {
-		
-		private final Identity identity;
-		private Boolean passed;
-		private Float score;
-		private String comment;
-		private String coachComment;
-		private Long attempts;
-		
-		public AssessmentDatas(Identity identity) {
-			this.identity = identity;
-		}
-
-		public Boolean getPassed() {
-			return passed;
-		}
-
-		public void setPassed(Boolean passed) {
-			this.passed = passed;
-		}
-
-		public Float getScore() {
-			return score;
-		}
-
-		public void setScore(Float score) {
-			this.score = score;
-		}
-
-		public String getComment() {
-			return comment;
-		}
-
-		public void setComment(String comment) {
-			this.comment = comment;
-		}
-
-		public String getCoachComment() {
-			return coachComment;
-		}
-
-		public void setCoachComment(String coachComment) {
-			this.coachComment = coachComment;
-		}
-
-		public Long getAttempts() {
-			return attempts;
-		}
-
-		public void setAttempts(Long attempts) {
-			this.attempts = attempts;
-		}
-
-		public Identity getIdentity() {
-			return identity;
 		}
 	}
 }

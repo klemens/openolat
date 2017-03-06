@@ -110,9 +110,9 @@ public class PassedRuleSPI implements FilterRuleSPI {
 					}
 				}
 			} else {
-				passeds = helperDao.getPassed(entry.getOlatResource().getResourceableId(), courseNode, identities);
+				passeds = helperDao.getPassed(entry, courseNode, identities);
 			}
-
+			
 			if("passed".equals(status)) {
 				for(Iterator<Identity> identityIt=identities.iterator(); identityIt.hasNext(); ) {
 					Boolean passed = passeds.get(identityIt.next().getKey());

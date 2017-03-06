@@ -1,0 +1,29 @@
+#set($responseIdentifier = $r.responseUniqueId($interaction))
+#set($containerId = "qtiworks_id_container_" + $responseIdentifier)
+#set($responseValue = $r.getResponseValue($interaction.responseIdentifier))
+
+<input name="qtiworks_presented_${responseIdentifier}" type="hidden" value="1"/>
+<div class="$localName">
+	#if($interaction.getPrompt())
+	<div class="prompt">$r.renderPrompt($interaction.getPrompt())
+	</div>#end
+
+	#if($r.isInvalidResponse($interaction.responseIdentifier))
+	<div class="o_error badResponse">$r.translate("error.as.directed")</div>
+	#end
+	
+	<div id="${containerId}" class="appletContainer" data-openolat="">
+		<canvas id="${containerId}_canvas" width="${interaction.object.width}" height="${interaction.object.height}" style="background-image:url('${r.convertLink($interaction.object.data)}');"></canvas>
+		<script type="text/javascript">
+		jQuery(function() {
+			jQuery('#${containerId}').selectPointInteraction({
+				responseIdentifier: '$responseIdentifier',
+				formDispatchFieldId: '$r.formDispatchFieldId',
+				responseValue: '$r.toString($responseValue,",")',
+				maxChoices: $interaction.maxChoices,
+				opened: $isItemSessionOpen
+			});
+		});
+      </script>
+	</div>
+</div>

@@ -46,7 +46,6 @@ import org.olat.core.gui.components.form.flexible.impl.elements.table.FlexiColum
 import org.olat.core.gui.components.form.flexible.impl.elements.table.FlexiTableColumnModel;
 import org.olat.core.gui.components.form.flexible.impl.elements.table.FlexiTableDataModelFactory;
 import org.olat.core.gui.components.form.flexible.impl.elements.table.StaticFlexiCellRenderer;
-import org.olat.core.gui.components.form.flexible.impl.elements.table.StaticFlexiColumnModel;
 import org.olat.core.gui.components.form.flexible.impl.elements.table.TextFlexiCellRenderer;
 import org.olat.core.gui.components.link.Link;
 import org.olat.core.gui.control.Controller;
@@ -131,10 +130,10 @@ public class CheckboxAssessmentController extends FormBasicController {
 	protected void initForm(FormItemContainer formLayout, Controller listener, UserRequest ureq) {
 		setFormDescription("assessment.checkbox.description");
 
-
 		FlexiTableColumnModel columnsModel = FlexiTableDataModelFactory.createFlexiTableColumnModel();
 		if(isAdministrativeUser) {
-			columnsModel.addFlexiColumnModel(new DefaultFlexiColumnModel(Cols.username.i18nKey(), Cols.username.ordinal()));
+			columnsModel.addFlexiColumnModel(new DefaultFlexiColumnModel(Cols.username.i18nKey(), Cols.username.ordinal(),
+					true, Cols.username.name()));
 		}
 		
 		int i=0;
@@ -148,7 +147,7 @@ public class CheckboxAssessmentController extends FormBasicController {
 				FlexiColumnModel col;
 				if(UserConstants.FIRSTNAME.equals(propName)
 						|| UserConstants.LASTNAME.equals(propName)) {
-					col = new StaticFlexiColumnModel(userPropertyHandler.i18nColumnDescriptorLabelKey(),
+					col = new DefaultFlexiColumnModel(userPropertyHandler.i18nColumnDescriptorLabelKey(),
 							colIndex, userPropertyHandler.getName(), true, propName,
 							new StaticFlexiCellRenderer(userPropertyHandler.getName(), new TextFlexiCellRenderer()));
 				} else {
@@ -158,9 +157,11 @@ public class CheckboxAssessmentController extends FormBasicController {
 			}
 		}
 
-		columnsModel.addFlexiColumnModel(new DefaultFlexiColumnModel(Cols.check.i18nKey(), Cols.check.ordinal()));
+		columnsModel.addFlexiColumnModel(new DefaultFlexiColumnModel(Cols.check.i18nKey(), Cols.check.ordinal(),
+				true, Cols.check.name()));
 		if(withScore) {
-			columnsModel.addFlexiColumnModel(new DefaultFlexiColumnModel(Cols.points.i18nKey(), Cols.points.ordinal()));
+			columnsModel.addFlexiColumnModel(new DefaultFlexiColumnModel(Cols.points.i18nKey(), Cols.points.ordinal(),
+					true, Cols.points.name()));
 		}
 		int numOfCheckbox = checkboxList.getList().size();
 		String[] keys = new String[numOfCheckbox];
@@ -218,7 +219,7 @@ public class CheckboxAssessmentController extends FormBasicController {
 			boxRows.add(row);
 		}
 
-		model = new CheckboxAssessmentDataModel(boxRows, columnsModel);
+		model = new CheckboxAssessmentDataModel(boxRows, columnsModel, getLocale());
 		table = uifactory.addTableElement(getWindowControl(), "checkbox-list", model, getTranslator(), formLayout);
 		table.setCustomizeColumns(true);
 		table.setEditMode(true);
@@ -381,10 +382,10 @@ public class CheckboxAssessmentController extends FormBasicController {
 			DBFactory.getInstance().commit();
 			ICourse course = CourseFactory.loadCourse(courseOres);
 			
-			List<Identity> identities = securityManager.loadIdentityByKeys(assessedIdentityToUpdate);
-			for(Identity identity:identities) {
-				UserCourseEnvironment userCourseEnv = AssessmentHelper.createAndInitUserCourseEnvironment(identity, course);
-				courseNode.updateScoreEvaluation(userCourseEnv, identity);
+			List<Identity> assessedIdentities = securityManager.loadIdentityByKeys(assessedIdentityToUpdate);
+			for(Identity assessedIdentity:assessedIdentities) {
+				UserCourseEnvironment assessedUserCourseEnv = AssessmentHelper.createAndInitUserCourseEnvironment(assessedIdentity, course);
+				courseNode.updateScoreEvaluation(getIdentity(), assessedUserCourseEnv, assessedIdentity);
 			}
 		}
 		

@@ -94,6 +94,8 @@ public class GTAParticipantController extends GTAAbstractController {
 	public GTAParticipantController(UserRequest ureq, WindowControl wControl,
 			GTACourseNode gtaNode, UserCourseEnvironment userCourseEnv) {
 		super(ureq, wControl, gtaNode, userCourseEnv.getCourseEnvironment(), userCourseEnv, true, true, true);
+		initContainer(ureq);
+		process(ureq);
 	}
 	
 	@Override
@@ -147,6 +149,8 @@ public class GTAParticipantController extends GTAAbstractController {
 			if(dueDate != null && dueDate.getDueDate() != null && dueDate.getDueDate().compareTo(new Date()) < 0) {
 				//assignment is closed
 				mainVC.contextPut("assignmentClosed", Boolean.TRUE);
+			} else if(userCourseEnv.isCourseReadOnly()) {
+				showAssignedTask(ureq, assignedTask);
 			} else {
 				List<TaskDefinition> availableTasks = gtaManager.getTaskDefinitions(courseEnv, gtaNode);
 				
@@ -216,14 +220,22 @@ public class GTAParticipantController extends GTAAbstractController {
 				mainVC.contextPut("submitCssClass", "");
 			} else if (assignedTask == null || assignedTask.getTaskStatus() == TaskProcess.submit) {
 				mainVC.contextPut("submitCssClass", "o_active");
-				setSubmitController(ureq, assignedTask);
+				if(userCourseEnv.isCourseReadOnly()) {
+					setSubmittedDocumentsController(ureq);
+				} else {
+					setSubmitController(ureq, assignedTask);
+				}
 			} else {
 				mainVC.contextPut("submitCssClass", "o_done");
 				setSubmittedDocumentsController(ureq);
 			}
 		} else if(assignedTask == null || assignedTask.getTaskStatus() == TaskProcess.submit) {
 			mainVC.contextPut("submitCssClass", "o_active");
-			setSubmitController(ureq, assignedTask);
+			if(userCourseEnv.isCourseReadOnly()) {
+				setSubmittedDocumentsController(ureq);
+			} else {
+				setSubmitController(ureq, assignedTask);
+			}
 		} else {
 			mainVC.contextPut("submitCssClass", "o_done");
 			setSubmittedDocumentsController(ureq);
@@ -243,9 +255,11 @@ public class GTAParticipantController extends GTAAbstractController {
 			documentsContainer = gtaManager.getSubmitContainer(courseEnv, gtaNode, getIdentity());
 		}
 		
+		DueDate dueDate = getSubmissionDueDate(task);
+		Date deadline = dueDate == null ? null : dueDate.getDueDate();
 		int maxDocs = config.getIntegerSafe(GTACourseNode.GTASK_MAX_SUBMITTED_DOCS, -1);
 		submitDocCtrl = new SubmitDocumentsController(ureq, getWindowControl(), task, documentsDir, documentsContainer, maxDocs,
-				gtaNode, courseEnv, "document");
+				gtaNode, courseEnv, userCourseEnv.isCourseReadOnly(), deadline, "document");
 		listenTo(submitDocCtrl);
 		mainVC.put("submitDocs", submitDocCtrl.getInitialComponent());
 		
@@ -253,7 +267,7 @@ public class GTAParticipantController extends GTAAbstractController {
 		submitButton.setElementCssClass("o_sel_course_gta_submit_docs");
 		submitButton.setCustomEnabledLinkCSS(submitDocCtrl.hasUploadDocuments() ? "btn btn-primary" : "btn btn-default");
 		submitButton.setIconLeftCSS("o_icon o_icon_submit");
-
+		submitButton.setVisible(!userCourseEnv.isCourseReadOnly());
 	}
 	
 	private void setSubmittedDocumentsController(UserRequest ureq) {
@@ -313,7 +327,7 @@ public class GTAParticipantController extends GTAAbstractController {
 	
 	private void doSubmitDocuments(UserRequest ureq, Task task) {
 		TaskProcess review = gtaManager.nextStep(TaskProcess.submit, gtaNode);
-		task = gtaManager.updateTask(task, review);
+		task = gtaManager.updateTask(task, review, gtaNode);
 		showInfo("run.documents.successfully.submitted");
 		
 		TaskMultiUserEvent event = new TaskMultiUserEvent(TaskMultiUserEvent.SUMBIT_TASK,
@@ -549,7 +563,12 @@ public class GTAParticipantController extends GTAAbstractController {
 		if(showGrading) {
 			gradingCtrl = msCtrl;
 			listenTo(gradingCtrl);
-			mainVC.contextPut("gradingCssClass", "o_active");
+			if (assignedTask != null && assignedTask.getTaskStatus() == TaskProcess.graded) {
+				mainVC.contextPut("gradingCssClass", "o_done");
+			} else {
+				mainVC.contextPut("gradingCssClass", "o_active");
+			}
+			
 			mainVC.put("grading", gradingCtrl.getInitialComponent());
 			stepPreferences.setGrading(Boolean.TRUE);
 		}
@@ -661,6 +680,7 @@ public class GTAParticipantController extends GTAAbstractController {
 			}
 			cleanUpPopups();
 		} else if(submitDocCtrl == source) {
+			boolean hasUploadDocuments = submitDocCtrl.hasUploadDocuments();
 			if(event instanceof SubmitEvent) {
 				Task assignedTask = submitDocCtrl.getAssignedTask();
 				gtaManager.log("Submit", (SubmitEvent)event, assignedTask, getIdentity(), assessedIdentity, assessedGroup, courseEnv, gtaNode);
@@ -668,8 +688,10 @@ public class GTAParticipantController extends GTAAbstractController {
 				cleanUpProcess();
 				process(ureq);
 			}
-			submitButton.setCustomEnabledLinkCSS(submitDocCtrl.hasUploadDocuments() ? "btn btn-primary" : "btn btn-default");
-
+			
+			if(submitButton != null) {
+				submitButton.setCustomEnabledLinkCSS(hasUploadDocuments ? "btn btn-primary" : "btn btn-default");
+			}
 		}
 		super.event(ureq, source, event);
 	}

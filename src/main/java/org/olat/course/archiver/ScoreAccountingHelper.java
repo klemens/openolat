@@ -25,6 +25,9 @@
 
 package org.olat.course.archiver;
 
+import java.io.OutputStream;
+import java.text.DateFormat;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Date;
@@ -34,6 +37,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 
+import org.apache.commons.io.IOUtils;
 import org.olat.basesecurity.GroupRoles;
 import org.olat.core.CoreSpringFactory;
 import org.olat.core.gui.translator.Translator;
@@ -41,9 +45,11 @@ import org.olat.core.id.Identity;
 import org.olat.core.id.IdentityEnvironment;
 import org.olat.core.id.context.BusinessControlFactory;
 import org.olat.core.id.context.ContextEntry;
-import org.olat.core.util.Formatter;
 import org.olat.core.util.StringHelper;
 import org.olat.core.util.Util;
+import org.olat.core.util.openxml.OpenXMLWorkbook;
+import org.olat.core.util.openxml.OpenXMLWorksheet;
+import org.olat.core.util.openxml.OpenXMLWorksheet.Row;
 import org.olat.course.ICourse;
 import org.olat.course.assessment.AssessmentHelper;
 import org.olat.course.assessment.AssessmentManager;
@@ -54,6 +60,7 @@ import org.olat.course.nodes.AssessableCourseNode;
 import org.olat.course.nodes.CourseNode;
 import org.olat.course.nodes.STCourseNode;
 import org.olat.course.run.environment.CourseEnvironment;
+import org.olat.course.run.scoring.ScoreAccounting;
 import org.olat.course.run.scoring.ScoreEvaluation;
 import org.olat.course.run.userview.UserCourseEnvironment;
 import org.olat.course.run.userview.UserCourseEnvironmentImpl;
@@ -70,24 +77,23 @@ import org.olat.user.propertyhandlers.UserPropertyHandler;
  * Comment: Provides functionality to get a course results overview.
  */
 public class ScoreAccountingHelper {
- 
+	
 	/**
 	 * The results from assessable nodes are written to one row per user into an excel-sheet. An
      * assessable node will only appear if it is producing at least one of the
      * following variables: score, passed, attempts, comments.
-	 * 
-	 * @param identities
-	 * @param myNodes
-	 * @param course
-	 * @param locale
-	 * @return String
+     * 
+	 * @param identities The list of identities which results need to be archived.
+	 * @param myNodes The assessable nodes to archive.
+	 * @param course The course.
+	 * @param locale The locale.
+	 * @param bos The output stream (which will be closed at the end, if you use a zip stream don't forget to shield it).
 	 */
-	public static String createCourseResultsOverviewTable(List<Identity> identities, List<AssessableCourseNode> myNodes, ICourse course, Locale locale) {
-	  Translator t = Util.createPackageTranslator(ScoreAccountingArchiveController.class, locale);
-	  StringBuilder tableHeader1 = new StringBuilder();
-		StringBuilder tableHeader2 = new StringBuilder();
-		StringBuilder tableContent = new StringBuilder();
-		StringBuilder table = new StringBuilder();
+	public static void createCourseResultsOverviewXMLTable(List<Identity> identities, List<AssessableCourseNode> myNodes, ICourse course, Locale locale, OutputStream bos) {
+		OpenXMLWorkbook workbook = new OpenXMLWorkbook(bos, 1);
+		OpenXMLWorksheet sheet = workbook.nextWorksheet();
+		int headerColCnt = 0;
+		Translator t = Util.createPackageTranslator(ScoreAccountingArchiveController.class, locale);
 
 		String sequentialNumber = t.translate("column.header.seqnum");
 		String login = t.translate("column.header.businesspath");
@@ -103,69 +109,111 @@ public class ScoreAccountingHelper {
 		String mi = t.translate("column.field.missing");
 		String yes = t.translate("column.field.yes");
 		String no = t.translate("column.field.no");
+		String submitted = t.translate("column.field.submitted");
+
 
 		
-		tableHeader1.append(sequentialNumber);
-		tableHeader1.append("\t");
-		tableHeader2.append("\t");
-		
-		tableHeader1.append(login);
-		tableHeader1.append("\t");
-		tableHeader2.append("\t");
+		Row headerRow1 = sheet.newRow();
+		headerRow1.addCell(headerColCnt++, sequentialNumber);
+		headerRow1.addCell(headerColCnt++, login);
+		//Initial launch date
+		headerRow1.addCell(headerColCnt++, il);
 		// get user property handlers for this export, translate using the fallback
 		// translator configured in the property handler
-		
-			//Initial launch date
-		tableHeader1.append(il).append("\t");
-		tableHeader2.append("\t");
-		
 		List<UserPropertyHandler> userPropertyHandlers = UserManager.getInstance().getUserPropertyHandlersFor(
 				ScoreAccountingHelper.class.getCanonicalName(), true);
 		t = UserManager.getInstance().getPropertyHandlerTranslator(t);
 		for (UserPropertyHandler propertyHandler : userPropertyHandlers) {
-			tableHeader1.append(t.translate(propertyHandler.i18nColumnDescriptorLabelKey()));
-			tableHeader1.append("\t");			
-			tableHeader2.append("\t");
+			headerRow1.addCell(headerColCnt++, t.translate(propertyHandler.i18nColumnDescriptorLabelKey()));
 		}
+		
+		int header1ColCnt = headerColCnt;
+		for(AssessableCourseNode acNode:myNodes) {
+			headerRow1.addCell(header1ColCnt++, acNode.getShortTitle());
+			header1ColCnt += acNode.getType().equals("ita") ? 1 : 0;
+			
+			boolean scoreOk = acNode.hasScoreConfigured();
+			boolean passedOk = acNode.hasPassedConfigured();
+			boolean attemptsOk = acNode.hasAttemptsConfigured();
+			boolean commentOk = acNode.hasCommentConfigured();
+			if (scoreOk || passedOk || commentOk || attemptsOk) {
+				header1ColCnt += scoreOk ? 1 : 0;
+				header1ColCnt += passedOk ? 1 : 0;
+				header1ColCnt += attemptsOk ? 1 : 0;
+				header1ColCnt++;//last modified
+				header1ColCnt += commentOk ? 1 : 0;
+				header1ColCnt++;//coach comment
+			}
+			header1ColCnt--;//column title
+		}
+
+		int header2ColCnt = headerColCnt;
+		Row headerRow2 = sheet.newRow();
+		for(AssessableCourseNode acNode:myNodes) {
+			if (acNode.getType().equals("ita")) {
+				headerRow2.addCell(header2ColCnt++, submitted);
+			}
+			
+			boolean scoreOk = acNode.hasScoreConfigured();
+			boolean passedOk = acNode.hasPassedConfigured();
+			boolean attemptsOk = acNode.hasAttemptsConfigured();
+			boolean commentOk = acNode.hasCommentConfigured();
+			if (scoreOk || passedOk || commentOk || attemptsOk) {
+				if(scoreOk) {
+					headerRow2.addCell(header2ColCnt++, sc);
+				}
+				if(passedOk) {
+					headerRow2.addCell(header2ColCnt++, pa);
+				}
+				if(attemptsOk) {
+					headerRow2.addCell(header2ColCnt++, at);
+				}
+				headerRow2.addCell(header2ColCnt++, slm);//last modified
+				if (commentOk) {
+					headerRow2.addCell(header2ColCnt++, co);
+				}
+				headerRow2.addCell(header2ColCnt++, cco);//coach comment
+			}
+		}
+		
+		sheet.setHeaderRows(2);
 
 		// preload user properties cache
 		CourseEnvironment courseEnvironment = course.getCourseEnvironment();
-		
-		boolean firstIteration = true;
-		int rowNumber = 1;
 
+		int rowNumber = 0;
+		DateFormat df = new SimpleDateFormat("yyyy-MM-dd hh:mm");
 		UserCourseInformationsManager mgr = CoreSpringFactory.getImpl(UserCourseInformationsManager.class);
 		OLATResource courseResource = courseEnvironment.getCourseGroupManager().getCourseResource();
 		Map<Long,Date> firstTimes = mgr.getInitialLaunchDates(courseResource, identities);
-		Formatter formatter = Formatter.getInstance(locale);
 
 		for (Identity identity:identities) {
+			Row dataRow = sheet.newRow();
+			int dataColCnt = 0;
 			ContextEntry ce = BusinessControlFactory.getInstance().createContextEntry(identity);
 			String uname = BusinessControlFactory.getInstance().getAsURIString(Collections.singletonList(ce), false);
 
-			tableContent.append(rowNumber);
-			tableContent.append("\t");
-			tableContent.append(uname);
-			tableContent.append("\t");
+			dataRow.addCell(dataColCnt++, ++rowNumber, null);
+			dataRow.addCell(dataColCnt++, uname, null);
 
-			String initialLaunchDate = "";
 			if(firstTimes.containsKey(identity.getKey())) {
-				initialLaunchDate = formatter.formatDateAndTime(firstTimes.get(identity.getKey()));
+				dataRow.addCell(dataColCnt++, firstTimes.get(identity.getKey()), workbook.getStyles().getDateStyle());
+			} else {
+				dataRow.addCell(dataColCnt++, mi);
 			}
-			tableContent.append(initialLaunchDate).append("\t");
 
 			// add dynamic user properties
 			for (UserPropertyHandler propertyHandler : userPropertyHandlers) {
 				String value = propertyHandler.getUserProperty(identity.getUser(), t.getLocale());
-				tableContent.append((StringHelper.containsNonWhitespace(value) ? value : na));
-				tableContent.append("\t");			
+				dataRow.addCell(dataColCnt++, (StringHelper.containsNonWhitespace(value) ? value : na));
 			}
 
 			// create a identenv with no roles, no attributes, no locale
 			IdentityEnvironment ienv = new IdentityEnvironment();
 			ienv.setIdentity(identity);
 			UserCourseEnvironment uce = new UserCourseEnvironmentImpl(ienv, course.getCourseEnvironment());
-			uce.getScoreAccounting().evaluateAll();
+			ScoreAccounting scoreAccount = uce.getScoreAccounting();
+			scoreAccount.evaluateAll();
 			AssessmentManager am = course.getCourseEnvironment().getAssessmentManager();
 
 			for (AssessableCourseNode acnode:myNodes) {
@@ -174,40 +222,40 @@ public class ScoreAccountingHelper {
 				boolean attemptsOk = acnode.hasAttemptsConfigured();
 				boolean commentOk = acnode.hasCommentConfigured();
 
+				if (acnode.getType().equals("ita")) {
+					String log = acnode.getUserLog(uce);
+					String date = null;
+					Date lastUploaded = null;
+					try {
+						log = log.toLowerCase();
+						log = log.substring(0, log.lastIndexOf("submit"));
+						log = log.substring(log.lastIndexOf("date:"));
+						date = log.split("\n")[0].substring(6);
+						lastUploaded = df.parse(date);
+					} catch (Exception e) {
+						//
+					}
+					if (lastUploaded != null) {
+						dataRow.addCell(dataColCnt++, lastUploaded, workbook.getStyles().getDateStyle());
+					} else { // date == null
+						dataRow.addCell(dataColCnt++, mi);
+					}
+				}
+
 				if (scoreOk || passedOk || commentOk || attemptsOk) {
-					ScoreEvaluation se = uce.getScoreAccounting().getScoreEvaluation(acnode);
-					boolean nodeColumnOk = false;
-					StringBuilder tabs = new StringBuilder();
+					ScoreEvaluation se = scoreAccount.evalCourseNode(acnode);
 
 					if (scoreOk) {
 						Float score = se.getScore();
-						nodeColumnOk = true;
-						tabs.append("\t"); // tabulators for header1 after node title
-
-						if (firstIteration) {
-							tableHeader2.append(sc);
-							tableHeader2.append("\t");
-						}
-
 						if (score != null) {
-							tableContent.append(AssessmentHelper.getRoundedScore(score));
-							tableContent.append("\t");
+							dataRow.addCell(dataColCnt++, AssessmentHelper.getRoundedScore(score), null);
 						} else { // score == null
-							tableContent.append(mi);
-							tableContent.append("\t");
+							dataRow.addCell(dataColCnt++, mi);
 						}
 					}
 
 					if (passedOk) {
 						Boolean passed = se.getPassed();
-						nodeColumnOk = true;
-						tabs.append("\t"); // tabulators for header1 after node title
-
-						if (firstIteration) {
-							tableHeader2.append(pa);
-							tableHeader2.append("\t");
-						}
-
 						if (passed != null) {
 							String yesno;
 							if (passed.booleanValue()) {
@@ -215,115 +263,62 @@ public class ScoreAccountingHelper {
 							} else {
 								yesno = no;
 							}
-							tableContent.append(yesno);
-							tableContent.append("\t");
+							dataRow.addCell(dataColCnt++, yesno);
 						} else { // passed == null
-							tableContent.append(mi);
-							tableContent.append("\t");
+							dataRow.addCell(dataColCnt++, mi);
 						}
 					}
 
 					if (attemptsOk) {
 						Integer attempts = am.getNodeAttempts(acnode, identity);
-						int a = attempts.intValue();
-						nodeColumnOk = true;
-						tabs.append("\t"); // tabulators for header1 after node title
-
-						if (firstIteration) {
-							tableHeader2.append(at);
-							tableHeader2.append("\t");
-						}
-
-						tableContent.append(a);
-						tableContent.append("\t");
+						int a = attempts == null ? 0 : attempts.intValue();
+						dataRow.addCell(dataColCnt++, a, null);
 					}
 
-					if (firstIteration) {
-						//last Modified
-						tableHeader2.append(slm);
-						tableHeader2.append("\t");
-					}
-
-					String scoreLastModified = "";
 					Date lastModified = am.getScoreLastModifiedDate(acnode, identity);
 					if(lastModified != null) {
-						scoreLastModified = formatter.formatDateAndTime(lastModified);
+						dataRow.addCell(dataColCnt++, lastModified, workbook.getStyles().getDateStyle());
+					} else {
+						dataRow.addCell(dataColCnt++, mi);
 					}
-					tableContent.append(scoreLastModified);
-					tableContent.append("\t");
 
 					if (commentOk) {
-					    // Comments for user
+						// Comments for user
 						String comment = am.getNodeComment(acnode, identity);
-						nodeColumnOk = true;
-						tabs.append("\t"); // tabulators for header1 after node title
-
-						if (firstIteration) {
-							tableHeader2.append(co);
-							tableHeader2.append("\t");
-						}
-
 						if (comment != null) {
-							// put comment between double quote in order to prevent that
-							// '\t','\r' or '\n' destroy the excel table
-							// A (double) quote must be represented by two (double) quotes.
-							tableContent.append("\"");
-							tableContent.append(comment.replace("\"", "\"\""));
-							tableContent.append("\"\t");
+							dataRow.addCell(dataColCnt++, comment);
 						} else {
-							tableContent.append(mi);
-							tableContent.append("\t");
+							dataRow.addCell(dataColCnt++, mi);
 						}
-						
-						// Comments for tutors
-						String coachComment = am.getNodeCoachComment(acnode, identity);
-						tabs.append("\t"); // tabulators for header1 after node title
-
-						if (firstIteration) {
-							tableHeader2.append(cco);
-							tableHeader2.append("\t");
-						}
-
-						if (coachComment != null) {
-							// put coachComment between double quote in order to prevent that
-							// '\t','\r' or '\n' destroy the excel table
-							// A (double) quote must be represented by two (double) quotes.
-							tableContent.append("\"");
-							tableContent.append(coachComment.replace("\"", "\"\""));
-							tableContent.append("\"\t");
-						} else {
-							tableContent.append(mi);
-							tableContent.append("\t");
-						}
-						
-						
 					}
 
-					if (firstIteration && nodeColumnOk) {
-						String shortTitle = acnode.getShortTitle();
-
-						tableHeader1.append(shortTitle);
-						tableHeader1.append(tabs.toString());
+					// Always export comments for tutors
+					String coachComment = am.getNodeCoachComment(acnode, identity);
+					if (coachComment != null) {
+						dataRow.addCell(dataColCnt++, coachComment);
+					} else {
+						dataRow.addCell(dataColCnt++, mi);
 					}
-
 				}
 			}
-			if (firstIteration) {
-				tableHeader1.append("\t\n");
-				tableHeader2.append("\t\n");
-			}
-			tableContent.append("\t\n");
-			firstIteration = false;
-			rowNumber++;
 		}
-		//fxdiff VCRP-4: assessment overview with max score
-		StringBuilder tableFooter = new StringBuilder();
-		tableFooter.append("\t\n").append("\t\n").append(t.translate("legend")).append("\t\n").append("\t\n");
+
+		//min. max. informations
+		boolean first = true;
 		for (AssessableCourseNode acnode:myNodes) {
 			if (!acnode.hasScoreConfigured()) {
 				// only show min/max/cut legend when score configured
 				continue;
 			}
+			
+			if(first) {
+				sheet.newRow().addCell(0, "");
+				sheet.newRow().addCell(0, "");
+				sheet.newRow().addCell(0, t.translate("legend"));
+				sheet.newRow().addCell(0, "");
+				first = false;
+			}
+
 			String minVal;
 			String maxVal;
 			String cutVal;
@@ -339,37 +334,20 @@ public class ScoreAccountingHelper {
 				}
 			}
 			
-			tableFooter.append('"');
-			tableFooter.append(acnode.getShortTitle());
-			tableFooter.append('"');
-			tableFooter.append('\n');
+			sheet.newRow().addCell(0, acnode.getShortTitle());
 
-			tableFooter.append("\t\t");
-			tableFooter.append("minValue");
-			tableFooter.append('\t');
-			tableFooter.append(minVal);
-			tableFooter.append('\n');
-
-			tableFooter.append("\t\t");
-			tableFooter.append("maxValue");
-			tableFooter.append('\t');
-			tableFooter.append(maxVal);
-			tableFooter.append('\n');
-
-			tableFooter.append("\t\t");
-			tableFooter.append("cutValue");
-			tableFooter.append('\t');
-			tableFooter.append(cutVal);
-			tableFooter.append('\n');
+			Row minRow = sheet.newRow();
+			minRow.addCell(2, "minValue");
+			minRow.addCell(3, minVal);
+			Row maxRow = sheet.newRow();
+			maxRow.addCell(2, "maxValue");
+			maxRow.addCell(3, maxVal);
+			Row cutRow = sheet.newRow();
+			cutRow.addCell(2, "cutValue");
+			cutRow.addCell(3, cutVal);
 		}
-
-		table.append(tableHeader1);
-		table.append(tableHeader2);
-		table.append(tableContent);
-		table.append(tableFooter);
-		String tab = table.toString();
-
-		return tab;
+		
+		IOUtils.closeQuietly(workbook);
 	}
     
 	

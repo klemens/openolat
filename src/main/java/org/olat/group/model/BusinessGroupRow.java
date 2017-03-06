@@ -163,7 +163,7 @@ public class BusinessGroupRow implements BusinessGroupRef, BusinessGroupShort {
 	public void setMember(BusinessGroupMembershipImpl member) {
 		this.member = member;
 	}
-
+	
 	@Override
 	public int hashCode() {
 		return key == null ? -54851 : key.hashCode();
@@ -171,9 +171,10 @@ public class BusinessGroupRow implements BusinessGroupRef, BusinessGroupShort {
 
 	@Override
 	public boolean equals(Object obj) {
-		if(this == obj) {
+		if(obj == this) {
 			return true;
 		}
+		
 		if(obj instanceof BusinessGroupRow) {
 			BusinessGroupRow row = (BusinessGroupRow)obj;
 			return key != null && key.equals(row.getKey());

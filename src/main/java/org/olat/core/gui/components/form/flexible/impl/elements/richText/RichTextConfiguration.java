@@ -99,7 +99,8 @@ public class RichTextConfiguration implements Disposable {
 	private static final String TABFOCUS_SETTINGS_PREV_NEXT = ":prev,:next";
 	// Valid elements
 	private static final String EXTENDED_VALID_ELEMENTS = "extended_valid_elements";
-	private static final String EXTENDED_VALID_ELEMENTS_VALUE_FULL = "script[src|type|defer],form[*],input[*],a[*],p[*],#comment[*],img[*],iframe[*],map[*],area[*]";
+	private static final String EXTENDED_VALID_ELEMENTS_VALUE_FULL = "script[src|type|defer],form[*],input[*],a[*],p[*],#comment[*],img[*],iframe[*],map[*],area[*],textentryinteraction[*]";
+	private static final String MATHML_VALID_ELEMENTS = "math[*],mi[*],mn[*],mo[*],mtext[*],mspace[*],ms[*],mrow[*],mfrac[*],msqrt[*],mroot[*],merror[*],mpadded[*],mphantom[*],mfenced[*],mstyle[*],menclose[*],msub[*],msup[*],msubsup[*],munder[*],mover[*],munderover[*],mmultiscripts[*],mtable[*],mtr[*],mtd[*],maction[*]";
 	private static final String INVALID_ELEMENTS = "invalid_elements";
 	private static final String INVALID_ELEMENTS_FORM_MINIMALISTIC_VALUE_UNSAVE = "iframe,script,@[on*],object,embed";
 	private static final String INVALID_ELEMENTS_FORM_SIMPLE_VALUE_UNSAVE = "iframe,script,@[on*],object,embed";
@@ -111,6 +112,11 @@ public class RichTextConfiguration implements Disposable {
 	private static final String FORCED_ROOT_BLOCK_VALUE_NOROOT = "";
 	private static final String DOCUMENT_BASE_URL = "document_base_url";
 	private static final String PASTE_DATA_IMAGES = "paste_data_images";
+	private static final String AUTORESIZE_BOTTOM_MARGIN = "autoresize_bottom_margin";
+	private static final String AUTORESIZE_MAX_HEIGHT = "autoresize_max_height";
+	private static final String AUTORESIZE_MIN_HEIGHT = "autoresize_min_height";
+	private static final String AUTORESIZE_OVERFLOW_PADDING = "autoresize_overflow_padding";
+
 	//
 	// Generic boolean true / false values
 	private static final String VALUE_FALSE = "false";
@@ -144,7 +150,11 @@ public class RichTextConfiguration implements Disposable {
 	private String linkBrowserAbsolutFilePath;
 	private boolean relativeUrls = true;
 	private boolean removeScriptHost = true;
+	private boolean statusBar = true;
+	private boolean pathInStatusBar = true;
 	private boolean allowCustomMediaFactory = true;
+	private boolean inline = false;
+	private boolean sendOnBlur;
 	private CustomLinkTreeModel linkBrowserCustomTreeModel;	
 	// DOM ID of the flexi form element
 	private String domID;
@@ -205,6 +215,59 @@ public class RichTextConfiguration implements Disposable {
 		setQuotedConfigValue(INVALID_ELEMENTS, INVALID_ELEMENTS_FORM_MINIMALISTIC_VALUE_UNSAVE);
 		
 		tinyConfig = TinyConfig.minimalisticConfig;
+	}
+	
+	public void setConfigProfileFormCompactEditor(UserSession usess, Theme guiTheme, VFSContainer baseContainer) {
+		setConfigBasics(guiTheme);
+		// Add additional plugins
+		TinyMCECustomPluginFactory customPluginFactory = CoreSpringFactory.getImpl(TinyMCECustomPluginFactory.class);
+		List<TinyMCECustomPlugin> enabledCustomPlugins = customPluginFactory.getCustomPlugionsForProfile();
+		for (TinyMCECustomPlugin tinyMCECustomPlugin : enabledCustomPlugins) {
+			setCustomPluginEnabled(tinyMCECustomPlugin);
+		}
+		
+		// Don't allow javascript or iframes, if the file browser is there allow also media elements (the full values)
+		setQuotedConfigValue(INVALID_ELEMENTS, (baseContainer == null ? INVALID_ELEMENTS_FORM_SIMPLE_VALUE_UNSAVE : INVALID_ELEMENTS_FORM_FULL_VALUE_UNSAVE));
+		tinyConfig = TinyConfig.editorCompactConfig;
+		setPathInStatusBar(false);
+		
+		// Setup file and link browser
+		if (baseContainer != null) {
+			tinyConfig = tinyConfig.enableImageAndMedia();
+			setFileBrowserCallback(baseContainer, null, IMAGE_SUFFIXES_VALUES, MEDIA_SUFFIXES_VALUES, FLASH_PLAYER_SUFFIXES_VALUES);
+			// since in form editor mode and not in file mode we use null as relFilePath
+			setDocumentMediaBase(baseContainer, null, usess);			
+		}
+	}
+	
+	/**
+	 * Contains only the image upload and the math plugin.
+	 * 
+	 * @param usess
+	 * @param guiTheme
+	 * @param baseContainer
+	 */
+	public void setConfigProfileFormVeryMinimalisticConfigEditor(UserSession usess, Theme guiTheme, VFSContainer baseContainer) {
+		setConfigBasics(guiTheme);
+		// Add additional plugins
+		TinyMCECustomPluginFactory customPluginFactory = CoreSpringFactory.getImpl(TinyMCECustomPluginFactory.class);
+		List<TinyMCECustomPlugin> enabledCustomPlugins = customPluginFactory.getCustomPlugionsForProfile();
+		for (TinyMCECustomPlugin tinyMCECustomPlugin : enabledCustomPlugins) {
+			setCustomPluginEnabled(tinyMCECustomPlugin);
+		}
+		
+		// Don't allow javascript or iframes, if the file browser is there allow also media elements (the full values)
+		setQuotedConfigValue(INVALID_ELEMENTS, (baseContainer == null ? INVALID_ELEMENTS_FORM_SIMPLE_VALUE_UNSAVE : INVALID_ELEMENTS_FORM_FULL_VALUE_UNSAVE));
+		tinyConfig = TinyConfig.veryMinimalisticConfig;
+		setPathInStatusBar(false);
+		
+		// Setup file and link browser
+		if (baseContainer != null) {
+			tinyConfig = tinyConfig.enableImageAndMedia();
+			setFileBrowserCallback(baseContainer, null, IMAGE_SUFFIXES_VALUES, MEDIA_SUFFIXES_VALUES, FLASH_PLAYER_SUFFIXES_VALUES);
+			// since in form editor mode and not in file mode we use null as relFilePath
+			setDocumentMediaBase(baseContainer, null, usess);			
+		}
 	}
 
 
@@ -273,7 +336,7 @@ public class RichTextConfiguration implements Disposable {
 		}
 		
 		// Allow editing of all kind of HTML elements and attributes
-		setQuotedConfigValue(EXTENDED_VALID_ELEMENTS, EXTENDED_VALID_ELEMENTS_VALUE_FULL);
+		setQuotedConfigValue(EXTENDED_VALID_ELEMENTS, EXTENDED_VALID_ELEMENTS_VALUE_FULL + "," + MATHML_VALID_ELEMENTS);
 		setQuotedConfigValue(INVALID_ELEMENTS, INVALID_ELEMENTS_FILE_FULL_VALUE_UNSAVE);
 		
 		setNonQuotedConfigValue(PASTE_DATA_IMAGES, "true");
@@ -345,6 +408,51 @@ public class RichTextConfiguration implements Disposable {
 
 	public void setAllowCustomMediaFactory(boolean allowCustomMediaFactory) {
 		this.allowCustomMediaFactory = allowCustomMediaFactory;
+	}
+
+	public boolean isInline() {
+		return inline;
+	}
+
+	public void setInline(boolean inline) {
+		this.inline = inline;
+	}
+
+	public boolean isSendOnBlur() {
+		return sendOnBlur;
+	}
+
+	/**
+	 * Send the content of the rich text element on blur event.
+	 * @param sendOnBlur
+	 */
+	public void setSendOnBlur(boolean sendOnBlur) {
+		this.sendOnBlur = sendOnBlur;
+	}
+
+	public boolean isStatusBar() {
+		return statusBar;
+	}
+
+	/**
+	 * Allow to remove the status bar
+	 * 
+	 * @see https://www.tinymce.com/docs/configure/editor-appearance/#statusbar
+	 * 
+	 * @param statusBar
+	 */
+	public void setStatusBar2(boolean statusBar) {
+		this.statusBar = statusBar;
+	}
+	
+	
+
+	public boolean isPathInStatusBar() {
+		return pathInStatusBar;
+	}
+
+	public void setPathInStatusBar(boolean pathInStatusBar) {
+		this.pathInStatusBar = pathInStatusBar;
 	}
 
 	/**
@@ -436,12 +544,20 @@ public class RichTextConfiguration implements Disposable {
 		tinyConfig = tinyConfig.disableMedia();
 	}
 	
+	public void disableTinyMedia() {
+		tinyConfig = tinyConfig.disableTinyMedia();
+	}
+	
 	public void disableMathEditor() {
 		tinyConfig = tinyConfig.disableMathEditor();
 	}
 	
-	public void disableImageAnMovie() {
+	public void disableImageAndMovie() {
 		tinyConfig = tinyConfig.disableImageAndMedia();
+	}
+	
+	public void disableMenuAndMenuBar() {
+		tinyConfig = tinyConfig.disableMenuAndMenuBar();
 	}
 
 	/**
@@ -462,6 +578,37 @@ public class RichTextConfiguration implements Disposable {
 		}
 	}
 
+
+	/**
+	 * Enable / disable the auto-resizing of the text input field. When enabled,
+	 * the editor will expand the input filed until the maxHeight is reached (if
+	 * set)
+	 * 
+	 * @param autoResizeEnabled true: enable auto-resize; false: no auto-resize (default)
+	 * @param maxHeight value of max height in pixels or -1 to indicate infinite height
+	 * @param minHeight value of min height in pixels or -1 to indicate no minimum height
+	 * @param bottomMargin value of bottom margin below or -1 to use html editor default
+	 */
+	public void setAutoResizeEnabled(boolean autoResizeEnabled, int maxHeight, int minHeight, int bottomMargin) {
+		if (autoResizeEnabled) {
+			this.tinyConfig = this.tinyConfig.enableAutoResize();
+			if (maxHeight > -1) {
+				setNonQuotedConfigValue(AUTORESIZE_MAX_HEIGHT, Integer.toString(maxHeight));
+			}
+			if (minHeight > -1) {
+				setNonQuotedConfigValue(AUTORESIZE_MIN_HEIGHT, Integer.toString(minHeight));				
+			}
+			if (bottomMargin > -1) {
+				setNonQuotedConfigValue(AUTORESIZE_BOTTOM_MARGIN, Integer.toString(bottomMargin));				
+			}
+		} else {
+			this.tinyConfig = this.tinyConfig.disableAutoResize();
+			
+		}
+	}
+	
+
+	
 	/**
 	 * Enable / disable the date and time insert plugin
 	 * 
@@ -684,8 +831,18 @@ public class RichTextConfiguration implements Disposable {
 		setQuotedConfigValue(RichTextConfiguration.EXTENDED_VALID_ELEMENTS, elements);
 	}
 	
+	public boolean isMathEnabled() {
+		return tinyConfig.isMathEnabled();
+	}
+	
 	public void enableCode() {
 		tinyConfig = tinyConfig.enableCode();
+	}
+	
+	public void enableQTITools(boolean textEntry, boolean numericalInput) {
+		tinyConfig = tinyConfig.enableQTITools(textEntry, numericalInput);
+		setQuotedConfigValue("custom_elements", "~textentryinteraction");
+		setQuotedConfigValue("extended_valid_elements", "textentryinteraction[*]");
 	}
 
 	/**
@@ -817,22 +974,27 @@ public class RichTextConfiguration implements Disposable {
  		StringOutput tinyMenuSb = new StringOutput();
  		tinyMenuSb.append("plugins: '").append(tinyConfig.getPlugins()).append("',\n")
  		  .append("image_advtab:true,\n")
-		  .append("statusbar:true,\n")
 		  .append("relative_urls:").append(isRelativeUrls()).append(",\n")
 		  .append("remove_script_host:").append(isRemoveScriptHost()).append(",\n")
+		  .append("inline:").append(isInline()).append(",\n")
+		  .append("statusbar:").append(true).append(",\n")
+		  .append("resize:").append(true).append(",\n")
 		  .append("menubar:").append(tinyConfig.hasMenu()).append(",\n");
  		
  		String leftAndClear = "Left and clear";
  		String rightAndClear = "Right and clear";
+ 		String leftAndClearNomargin = "Left with caption";
  		if(translator != null) {
  			translator = Util.createPackageTranslator(RichTextConfiguration.class, translator.getLocale(), translator);
  			leftAndClear = translator.translate("left.clear");
  			rightAndClear = translator.translate("right.clear");
+ 			leftAndClearNomargin = translator.translate("left.clear.nomargin");
  		}
  		
  		tinyMenuSb.append("image_class_list: [\n")
  		  .append("  {title: 'Left', value: 'b_float_left'},\n")
  		  .append("  {title: '").append(leftAndClear).append("', value: 'b_float_left_clear'},\n")
+ 		  .append("  {title: '").append(leftAndClearNomargin).append("', value: 'b_float_left_clear_nomargin'},\n")
  		  .append("  {title: 'Center', value: 'b_centered'},\n")
  		  .append("  {title: 'Right', value: 'b_float_right'},\n")
  		  .append("  {title: '").append(rightAndClear).append("', value: 'b_float_right_clear'},\n")
@@ -850,11 +1012,18 @@ public class RichTextConfiguration implements Disposable {
 		  .append("  {title: 'Grid', value: 'b_grid'},\n")
 		  .append("  {title: 'Border', value: 'b_border'},\n")
 		  .append("  {title: 'Full', value: 'b_full'},\n")
-		  .append("  {title: 'Middle', value: 'b_middle'}\n")
+		  .append("  {title: 'Middle', value: 'b_middle'},\n")
+		  .append("  {title: 'Gray', value: 'b_gray'},\n")
+		  .append("  {title: 'Red', value: 'b_red'},\n")
+		  .append("  {title: 'Green', value: 'b_green'},\n")
+		  .append("  {title: 'Blue', value: 'b_blue'},\n")
+		  .append("  {title: 'Yellow', value: 'b_yellow'}\n")
 		  .append("],\n");
  		
 		if (tinyConfig.getTool1() != null) {
 			tinyMenuSb.append("toolbar1: '").append(tinyConfig.getTool1()).append("',\n");
+		} else {
+			tinyMenuSb.append("toolbar:false,\n");
 		}
 		
 		if(tinyConfig.hasMenu()) {
@@ -866,6 +1035,8 @@ public class RichTextConfiguration implements Disposable {
 				tinyMenuSb.append(menuItem);
 			}
 			tinyMenuSb.append("\n},\n");
+		} else {
+			tinyMenuSb.append("menu:{},\n");
 		}
 		
 		for (Map.Entry<String, String> entry : copyValues.entrySet()) {

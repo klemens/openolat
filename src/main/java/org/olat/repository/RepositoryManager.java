@@ -35,7 +35,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import javax.persistence.LockModeType;
 import javax.persistence.TypedQuery;
 
 import org.olat.admin.securitygroup.gui.IdentitiesAddEvent;
@@ -76,6 +75,7 @@ import org.olat.core.util.vfs.VFSItem;
 import org.olat.core.util.vfs.VFSLeaf;
 import org.olat.core.util.vfs.VFSManager;
 import org.olat.group.GroupLoggingAction;
+import org.olat.repository.manager.RepositoryEntryDAO;
 import org.olat.repository.manager.RepositoryEntryRelationDAO;
 import org.olat.repository.model.RepositoryEntryLifecycle;
 import org.olat.repository.model.RepositoryEntryMembership;
@@ -117,6 +117,8 @@ public class RepositoryManager {
 	private DB dbInstance;
 	@Autowired
 	private RepositoryModule repositoryModule;
+	@Autowired
+	private RepositoryEntryDAO repositoryEntryDao;
 	@Autowired
 	private RepositoryEntryRelationDAO repositoryEntryRelationDao;
 	@Autowired
@@ -634,29 +636,16 @@ public class RepositoryManager {
 			}
 		}
 		
+		boolean readOnly = new RepositoryEntryStatus(re.getStatusCode()).isClosed();
+		
 		return new RepositoryEntrySecurity(isEntryAdmin, isOwner,
 				isCourseParticipant, isCourseCoach,
 				isGroupParticipant, isGroupCoach,
-				isGroupWaiting, canLaunch);
-	}
-
-	private RepositoryEntry loadForUpdate(RepositoryEntry re) {
-		//first remove it from caches
-		dbInstance.getCurrentEntityManager().detach(re);
-
-		StringBuilder query = new StringBuilder();
-		query.append("select v from ").append(RepositoryEntry.class.getName()).append(" as v ")
-		     .append(" where v.key=:repoKey");
-
-		List<RepositoryEntry> entries = dbInstance.getCurrentEntityManager().createQuery(query.toString(), RepositoryEntry.class)
-				.setParameter("repoKey", re.getKey())
-				.setLockMode(LockModeType.PESSIMISTIC_WRITE)
-				.getResultList();
-		return entries == null || entries.isEmpty() ? null : entries.get(0);
+				isGroupWaiting, canLaunch, readOnly);
 	}
 
 	public RepositoryEntry setAccess(final RepositoryEntry re, int access, boolean membersOnly) {
-		RepositoryEntry reloadedRe = loadForUpdate(re);
+		RepositoryEntry reloadedRe = repositoryEntryDao.loadForUpdate(re);
 		if(reloadedRe == null) {
 			return null;
 		}
@@ -672,7 +661,7 @@ public class RepositoryManager {
 	public RepositoryEntry setAccessAndProperties(final RepositoryEntry re,
 			int access, boolean membersOnly,
 			boolean canCopy, boolean canReference, boolean canDownload) {
-		RepositoryEntry reloadedRe = loadForUpdate(re);
+		RepositoryEntry reloadedRe = repositoryEntryDao.loadForUpdate(re);
 		if(reloadedRe == null) {
 			return null;
 		}
@@ -698,7 +687,7 @@ public class RepositoryManager {
 	
 	public RepositoryEntry setLeaveSetting(final RepositoryEntry re,
 			RepositoryEntryAllowToLeaveOptions setting) {
-		RepositoryEntry reloadedRe = loadForUpdate(re);
+		RepositoryEntry reloadedRe = repositoryEntryDao.loadForUpdate(re);
 		if(reloadedRe == null) {
 			return null;
 		}
@@ -727,7 +716,7 @@ public class RepositoryManager {
 	public RepositoryEntry setDescriptionAndName(final RepositoryEntry re, String displayName, String description,
 			String location, String authors, String externalId, String externalRef, String managedFlags,
 			RepositoryEntryLifecycle cycle) {
-		RepositoryEntry reloadedRe = loadForUpdate(re);
+		RepositoryEntry reloadedRe = repositoryEntryDao.loadForUpdate(re);
 		if(reloadedRe == null) {
 			return null;
 		}
@@ -799,7 +788,7 @@ public class RepositoryManager {
 			String displayName, String externalRef, String authors, String description,
 			String objectives, String requirements, String credits, String mainLanguage,
 			String location, String expenditureOfWork, RepositoryEntryLifecycle cycle) {
-		RepositoryEntry reloadedRe = loadForUpdate(re);
+		RepositoryEntry reloadedRe = repositoryEntryDao.loadForUpdate(re);
 		if(reloadedRe == null) {
 			return null;
 		}
@@ -836,6 +825,7 @@ public class RepositoryManager {
 		updatedRe.getStatistics().getLaunchCounter();
 		if(updatedRe.getLifecycle() != null) {
 			updatedRe.getLifecycle().getKey();
+			System.out.println(updatedRe.getLifecycle().getValidTo());
 		}
 		
 		dbInstance.commit();
@@ -864,6 +854,20 @@ public class RepositoryManager {
 		dbquery.setInteger("restrictedAccess", restrictedAccess);
 		dbquery.setCacheable(true);
 		return ((Long)dbquery.list().get(0)).intValue();
+	}
+	
+	public long countPublished(String restrictedType) {
+		StringBuilder query = new StringBuilder(400);
+		query.append("select count(*) from org.olat.repository.RepositoryEntry v")
+		     .append(" inner join v.olatResource res")
+		     .append(" where res.resName=:restrictedType ")
+		     .append(" and ((v.access=").append(RepositoryEntry.ACC_OWNERS).append(" and v.membersOnly=true) or v.access>=").append(RepositoryEntry.ACC_USERS).append(")");
+		
+		List<Number> count = dbInstance.getCurrentEntityManager()
+				.createQuery(query.toString(), Number.class)
+				.setParameter("restrictedType", restrictedType)
+				.getResultList();
+		return count == null || count.isEmpty() || count.get(0) == null ? null : count.get(0).longValue();
 	}
 
 	/**
@@ -925,7 +929,7 @@ public class RepositoryManager {
 			  .append(" inner join baseGroup.members as membership")
 			  .append(" inner join membership.identity as identity")
 			  .append(" inner join identity.user as user")
-			  .append(" where user.userProperties['institutionalName']=:institutionCourseManager")
+			  .append(" where user.institutionalName=:institutionCourseManager")
 			  .append(" and res.resName in (:restrictedType) and v.access = 1");
 			
 			List<RepositoryEntry> institutionalResults = dbInstance.getCurrentEntityManager()
@@ -1126,7 +1130,7 @@ public class RepositoryManager {
 		StringBuilder query = new StringBuilder(400);
 		query.append("select distinct v from ").append(RepositoryEntry.class.getName()).append(" v ")
 		     .append(" inner join fetch v.olatResource as res" )
-			  .append(" inner join fetch v.statistics as statistics")
+			 .append(" inner join fetch v.statistics as statistics")
 		     .append(" left join fetch v.lifecycle as lifecycle");
 		// 2) where clause
 		query.append(" where "); 
@@ -1142,10 +1146,10 @@ public class RepositoryManager {
 			if(checkCanCopy) {
 				query.append(" and v.canCopy=true");
 			}
-			query.append("  or exists (select rel from repoentrytogroup as rel, bgroup as baseGroup, bgroupmember as membership  ")
+			query.append("  or (v.access>0 and exists (select rel from repoentrytogroup as rel, bgroup as baseGroup, bgroupmember as membership  ")
 			     .append("    where rel.entry=v and rel.group=baseGroup and membership.group=baseGroup and membership.identity.key=:identityKey ")
 			     .append("      and membership.role in ('").append(GroupRoles.owner.name()).append("','").append(GroupRoles.coach.name()).append("','").append(GroupRoles.participant.name()).append("')")
-			     .append("  )")
+			     .append("  ))")
 			     .append(" )");
 		} else {
 			access = RepositoryEntry.ACC_OWNERS;
@@ -1162,9 +1166,9 @@ public class RepositoryManager {
 			author = '%' + author + '%';
 			query.append(" and exists (select rel from repoentrytogroup as rel, bgroup as baseGroup, bgroupmember as membership, ")
 			     .append(IdentityImpl.class.getName()).append(" as identity, ").append(UserImpl.class.getName()).append(" as user")
-		         .append("    where rel.entry=v and rel.group=baseGroup and membership.group=baseGroup and membership.identity=identity and identity.user=user")
+		         .append("    where rel.entry=v and rel.group=baseGroup and membership.group=baseGroup and membership.identity=identity and user.identity.key=identity.key")
 		         .append("      and membership.role='").append(GroupRoles.owner.name()).append("'")
-		         .append("      and (user.userProperties['firstName'] like :author or user.userProperties['lastName'] like :author or identity.name like :author)")
+		         .append("      and (user.firstName like :author or user.lastName like :author or identity.name like :author)")
 		         .append("  )");
 		}
 		// restrict on resource name
@@ -1237,7 +1241,7 @@ public class RepositoryManager {
 	 * check ownership of identity for a resource
 	 * @return true if the identity is member of the security group of the repository entry
 	 */
-	public boolean isOwnerOfRepositoryEntry(Identity identity, RepositoryEntry entry) {
+	public boolean isOwnerOfRepositoryEntry(IdentityRef identity, RepositoryEntryRef entry) {
 		if(entry == null || identity == null) {
 			return false;
 		}
@@ -1349,8 +1353,8 @@ public class RepositoryManager {
 			query.append(" or (");
 			query.append("v.access=1 and exists (select rel from repoentrytogroup as rel, bgroup as baseGroup, bgroupmember as membership, ")
 			     .append(IdentityImpl.class.getName()).append(" as identity, ").append(UserImpl.class.getName()).append(" as user")
-	             .append("    where rel.entry=v and rel.group=baseGroup and membership.group=baseGroup and membership.identity=identity and identity.user=user")
-	             .append("      and user.userProperties['institutionalName']=:institution and membership.role='").append(GroupRoles.owner.name()).append("'")
+	             .append("    where rel.entry=v and rel.group=baseGroup and membership.group=baseGroup and membership.identity=identity and user.identity.key=identity.key")
+	             .append("      and user.institutionalName=:institution and membership.role='").append(GroupRoles.owner.name()).append("'")
 	             .append(")))");
 			
 		} else if (params.isOnlyOwnedResources()) {
@@ -1384,12 +1388,12 @@ public class RepositoryManager {
 
 			query.append(" and exists (select rel from repoentrytogroup as rel, bgroup as baseGroup, bgroupmember as membership, ")
 			     .append(IdentityImpl.class.getName()).append(" as identity, ").append(UserImpl.class.getName()).append(" as user")
-		         .append("    where rel.entry=v and rel.group=baseGroup and membership.group=baseGroup and membership.identity=identity and identity.user=user")
+		         .append("    where rel.entry=v and rel.group=baseGroup and membership.group=baseGroup and membership.identity.key=identity.key and user.identity.key=identity.key")
 		         .append("      and membership.role='").append(GroupRoles.owner.name()).append("'")
 		         .append("      and (");
-			PersistenceHelper.appendFuzzyLike(query, "user.userProperties['firstName']", "author", dbInstance.getDbVendor());
+			PersistenceHelper.appendFuzzyLike(query, "user.firstName", "author", dbInstance.getDbVendor());
 			query.append(" or ");
-			PersistenceHelper.appendFuzzyLike(query, "user.userProperties['lastName']", "author", dbInstance.getDbVendor());
+			PersistenceHelper.appendFuzzyLike(query, "user.lastName", "author", dbInstance.getDbVendor());
 			query.append(" or ");
 			PersistenceHelper.appendFuzzyLike(query, "identity.name", "author", dbInstance.getDbVendor());
 			query.append(" ))");
@@ -1821,9 +1825,13 @@ public class RepositoryManager {
 
 		boolean allOk = repositoryEntryRelationDao.removeMembers(re, members);
 		if (allOk) {
+			int count = 0;
 			List<RepositoryEntryMembershipModifiedEvent> deferredEvents = new ArrayList<>();
 			for(Identity identity:members) {
 				deferredEvents.add(RepositoryEntryMembershipModifiedEvent.removed(identity, re));
+				if(++count % 100 == 0) {
+					dbInstance.commitAndCloseSession();
+				}
 			}
 			dbInstance.commit();
 			sendDeferredEvents(deferredEvents, re);
@@ -1870,7 +1878,7 @@ public class RepositoryManager {
 		  .append(" inner join baseGroup.members as membership")
 		  .append(" inner join membership.identity as identity")
 		  .append(" inner join identity.user as user")
-		  .append(" where v.key=:repoKey and user.userProperties['institutionalName']=:institutionCourseManager");
+		  .append(" where v.key=:repoKey and user.institutionalName=:institutionCourseManager");
 		
 		Number count = dbInstance.getCurrentEntityManager()
 				.createQuery(sb.toString(), Number.class)
@@ -2278,12 +2286,16 @@ public class RepositoryManager {
 	public void updateRepositoryEntryMemberships(Identity ureqIdentity, Roles ureqRoles, RepositoryEntry re,
 			List<RepositoryEntryPermissionChangeEvent> changes, MailPackage mailing) {
 
+		int count = 0;
 		List<RepositoryEntryMembershipModifiedEvent> deferredEvents = new ArrayList<>();
 		for(RepositoryEntryPermissionChangeEvent e:changes) {
 			updateRepositoryEntryMembership(ureqIdentity, ureqRoles, re, e, mailing, deferredEvents);
+			if(++count % 100 == 0) {
+				dbInstance.commitAndCloseSession();
+			}
 		}
 
-		dbInstance.commit();
+		dbInstance.commitAndCloseSession();
 		sendDeferredEvents(deferredEvents, re);
 	}
 	

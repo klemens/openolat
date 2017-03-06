@@ -214,6 +214,7 @@ public class SearchInputController extends FormBasicController implements Generi
 			searchInput = uifactory.addTextElement("search_input", "search.title", 255, "", searchLayout);
 			searchInput.setLabel(null, null);
 			searchInput.setPlaceholderKey("search", null);
+			searchInput.setFocus(true);
 		}
 		
 		if (displayOption.equals(DisplayOption.STANDARD) || displayOption.equals(DisplayOption.BUTTON)) {
@@ -243,7 +244,7 @@ public class SearchInputController extends FormBasicController implements Generi
 		if(!context.isEmpty()) {
 			String scope = context.getValueAt(context.getSize() - 1);
 			String tooltip = getTranslator().translate("form.search.label.tooltip", new String[]{scope});
-			((Link)searchButton.getComponent()).setTooltip(tooltip);
+			searchButton.getComponent().setTooltip(tooltip);
 		}
 	}
 	

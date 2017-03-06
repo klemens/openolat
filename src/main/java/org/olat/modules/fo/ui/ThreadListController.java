@@ -41,7 +41,6 @@ import org.olat.core.gui.components.form.flexible.impl.elements.table.FlexiTable
 import org.olat.core.gui.components.form.flexible.impl.elements.table.FlexiTableDataModelFactory;
 import org.olat.core.gui.components.form.flexible.impl.elements.table.SelectionEvent;
 import org.olat.core.gui.components.form.flexible.impl.elements.table.StaticFlexiCellRenderer;
-import org.olat.core.gui.components.form.flexible.impl.elements.table.StaticFlexiColumnModel;
 import org.olat.core.gui.components.form.flexible.impl.elements.table.TextFlexiCellRenderer;
 import org.olat.core.gui.components.link.Link;
 import org.olat.core.gui.control.Controller;
@@ -130,22 +129,18 @@ public class ThreadListController extends FormBasicController {
 		}
 
 		FlexiTableColumnModel columnsModel = FlexiTableDataModelFactory.createFlexiTableColumnModel();
-		columnsModel.addFlexiColumnModel(new DefaultFlexiColumnModel(ThreadListCols.type.i18nKey(), ThreadListCols.type.ordinal(),
-				true, ThreadListCols.type.name(), new StatusTypeCellRenderer()));
-		columnsModel.addFlexiColumnModel(new StaticFlexiColumnModel(ThreadListCols.thread.i18nKey(), ThreadListCols.thread.ordinal(), "select",
-				true, ThreadListCols.thread.name(),  new StaticFlexiCellRenderer("select", new StickyCellRenderer())));
-		columnsModel.addFlexiColumnModel(new DefaultFlexiColumnModel(ThreadListCols.creator.i18nKey(), ThreadListCols.creator.ordinal(),
-				true, ThreadListCols.creator.name()));
-		columnsModel.addFlexiColumnModel(new DefaultFlexiColumnModel(ThreadListCols.lastModified.i18nKey(), ThreadListCols.lastModified.ordinal(),
-				true, ThreadListCols.lastModified.name()));
+		columnsModel.addFlexiColumnModel(new DefaultFlexiColumnModel(ThreadListCols.type, new StatusTypeCellRenderer()));
+		columnsModel.addFlexiColumnModel(new DefaultFlexiColumnModel(ThreadListCols.thread, "select",
+				 new StaticFlexiCellRenderer("select", new StickyCellRenderer())));
+		columnsModel.addFlexiColumnModel(new DefaultFlexiColumnModel(ThreadListCols.creator));
+		columnsModel.addFlexiColumnModel(new DefaultFlexiColumnModel(ThreadListCols.lastModified));
 		if(!guestOnly) {
-			columnsModel.addFlexiColumnModel(new StaticFlexiColumnModel(ThreadListCols.markedMessages.i18nKey(), ThreadListCols.markedMessages.ordinal(),
-					"marked", true, ThreadListCols.markedMessages.name(), new StaticFlexiCellRenderer("marked", new TextFlexiCellRenderer())));
-			columnsModel.addFlexiColumnModel(new StaticFlexiColumnModel(ThreadListCols.unreadMessages.i18nKey(), ThreadListCols.unreadMessages.ordinal(),
-					"unread", true, ThreadListCols.unreadMessages.name(), new StaticFlexiCellRenderer("unread", new TextFlexiCellRenderer())));
+			columnsModel.addFlexiColumnModel(new DefaultFlexiColumnModel(ThreadListCols.markedMessages,
+					"marked", new StaticFlexiCellRenderer("marked", new TextFlexiCellRenderer())));
+			columnsModel.addFlexiColumnModel(new DefaultFlexiColumnModel(ThreadListCols.unreadMessages,
+					"unread", new StaticFlexiCellRenderer("unread", new TextFlexiCellRenderer())));
 		}
-		columnsModel.addFlexiColumnModel(new DefaultFlexiColumnModel(ThreadListCols.totalMessages.i18nKey(), ThreadListCols.totalMessages.ordinal(),
-				true, ThreadListCols.totalMessages.name()));
+		columnsModel.addFlexiColumnModel(new DefaultFlexiColumnModel(ThreadListCols.totalMessages));
 		
 		threadTableModel = new ThreadListDataModel(columnsModel, getTranslator());
 		threadTable = uifactory.addTableElement(getWindowControl(), "threads", threadTableModel, getTranslator(), formLayout);
@@ -207,8 +202,6 @@ public class ThreadListController extends FormBasicController {
 			cleanUp();
 		} else if(cmc == source) {
 			cleanUp();
-		} else if(searchController != null) {
-			//searchController.event(ureq, source, event);
 		}
 		super.event(ureq, source, event);
 	}
@@ -241,7 +234,6 @@ public class ThreadListController extends FormBasicController {
 					doSelectNew(ureq, row);
 				}
 			}
-		//propagate to the search controller
 		}
 		super.formInnerEvent(ureq, source, event);
 	}

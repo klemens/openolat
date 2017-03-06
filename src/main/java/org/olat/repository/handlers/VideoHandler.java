@@ -162,6 +162,11 @@ public class VideoHandler extends FileHandler {
 	public EditionSupport supportsEdit(OLATResourceable resource) {
 		return EditionSupport.no;
 	}
+	
+	@Override
+	public boolean supportsAssessmentDetails() {
+		return false;
+	}
 
 	@Override
 	public StepsMainRunController createWizardController(OLATResourceable res, UserRequest ureq, WindowControl wControl) {
@@ -182,6 +187,11 @@ public class VideoHandler extends FileHandler {
 	@Override
 	public Controller createEditorController(RepositoryEntry re, UserRequest ureq, WindowControl wControl, TooledStackedPanel toolbar) {
 		throw new AssertException("a web document is not editable!!! res-id:"+re.getResourceableId());
+	}
+	
+	@Override
+	public Controller createAssessmentDetailsController(RepositoryEntry re, UserRequest ureq, WindowControl wControl, TooledStackedPanel toolbar, Identity assessedIdentity) {
+		return null;
 	}
 
 	protected String getDeletedFilePrefix() {

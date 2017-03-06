@@ -30,6 +30,7 @@ import org.olat.repository.RepositoryEntryAuthorView;
 import org.olat.repository.RepositoryEntryLight;
 import org.olat.repository.RepositoryEntryManagedFlag;
 import org.olat.repository.RepositoryEntryRef;
+import org.olat.repository.RepositoryEntryStatus;
 import org.olat.repository.model.RepositoryEntryLifecycle;
 import org.olat.repository.ui.PriceMethod;
 
@@ -66,6 +67,9 @@ public class AuthoringEntryRow implements RepositoryEntryRef, RepositoryEntryLig
 	private String lifecycleSoftKey;
 	private Date lifecycleStart;
 	private Date lifecycleEnd;
+	
+	private final String deletedByFullName;
+	private final Date deletionDate;
 	
 	private List<PriceMethod> accessTypes;
 
@@ -114,6 +118,9 @@ public class AuthoringEntryRow implements RepositoryEntryRef, RepositoryEntryLig
 				lifecycleSoftKey = lifecycle.getSoftKey();
 			}
 		}
+		
+		deletedByFullName = view.getDeletedByFullName();
+		deletionDate = view.getDeletionDate();
 	}
 	
 	public String getCssClass() {
@@ -132,6 +139,10 @@ public class AuthoringEntryRow implements RepositoryEntryRef, RepositoryEntryLig
 	@Override
 	public int getStatusCode() {
 		return statusCode;
+	}
+	
+	public RepositoryEntryStatus getRepositoryEntryStatus() {
+		return new RepositoryEntryStatus(statusCode);
 	}
 
 	@Override
@@ -193,7 +204,15 @@ public class AuthoringEntryRow implements RepositoryEntryRef, RepositoryEntryLig
 	public Date getLifecycleEnd() {
 		return lifecycleEnd;
 	}
-	
+
+	public String getDeletedByFullName() {
+		return deletedByFullName;
+	}
+
+	public Date getDeletionDate() {
+		return deletionDate;
+	}
+
 	public List<PriceMethod> getAccessTypes() {
 		return accessTypes;
 	}
@@ -262,7 +281,7 @@ public class AuthoringEntryRow implements RepositoryEntryRef, RepositoryEntryLig
 	public void setToolsLink(FormLink toolsLink) {
 		this.toolsLink = toolsLink;
 	}
-
+	
 	@Override
 	public int hashCode() {
 		return key == null ? -79224867 : key.hashCode();
@@ -277,6 +296,6 @@ public class AuthoringEntryRow implements RepositoryEntryRef, RepositoryEntryLig
 			AuthoringEntryRow row = (AuthoringEntryRow)obj;
 			return key != null && key.equals(row.getKey());
 		}
-		return false;
+		return super.equals(obj);
 	}
 }

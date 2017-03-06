@@ -84,11 +84,14 @@ import org.olat.modules.fo.MessageRef;
 import org.olat.modules.fo.Status;
 import org.olat.modules.fo.archiver.formatters.ForumDownloadResource;
 import org.olat.modules.fo.manager.ForumManager;
+import org.olat.modules.fo.portfolio.ForumMediaHandler;
 import org.olat.modules.fo.ui.MessageEditController.EditMode;
 import org.olat.modules.fo.ui.events.DeleteMessageEvent;
 import org.olat.modules.fo.ui.events.DeleteThreadEvent;
 import org.olat.modules.fo.ui.events.ErrorEditMessage;
 import org.olat.modules.fo.ui.events.SelectMessageEvent;
+import org.olat.modules.portfolio.PortfolioV2Module;
+import org.olat.modules.portfolio.ui.component.MediaCollectorComponent;
 import org.olat.portfolio.EPUIFactory;
 import org.olat.portfolio.manager.EPFrontendManager;
 import org.olat.user.DisplayPortraitController;
@@ -153,6 +156,10 @@ public class MessageListController extends BasicController implements GenericEve
 	private BaseSecurityModule securityModule;
 	@Autowired
 	private EPFrontendManager epMgr;
+	@Autowired
+	private PortfolioV2Module portfolioModule;
+	@Autowired
+	private ForumMediaHandler forumMediaHandler;
 	
 	public MessageListController(UserRequest ureq, WindowControl wControl,
 			Forum forum, ForumCallback foCallback) {
@@ -622,13 +629,13 @@ public class MessageListController extends BasicController implements GenericEve
 		}
 
 		if(!isThreadClosed) {
-			if((numOfChildren == 0 && userIsMsgCreator) || foCallback.mayDeleteMessageAsModerator()) {
+			if((numOfChildren == 0 && userIsMsgCreator && foCallback.mayDeleteOwnMessage()) || foCallback.mayDeleteMessageAsModerator()) {
 				Link deleteLink = LinkFactory.createCustomLink("dl_".concat(keyString), "dl", "msg.delete", Link.BUTTON_SMALL, mainVC, this);
 				deleteLink.setIconLeftCSS("o_icon o_icon-fw o_icon_delete_item");
 				deleteLink.setUserObject(messageView);
 			}
 			
-			if((numOfChildren == 0 && userIsMsgCreator) || foCallback.mayEditMessageAsModerator()) {
+			if((numOfChildren == 0 && userIsMsgCreator && foCallback.mayEditOwnMessage()) || foCallback.mayEditMessageAsModerator()) {
 				Link editLink = LinkFactory.createCustomLink("ed_".concat(keyString), "ed", "msg.update", Link.BUTTON_SMALL, mainVC, this);
 				editLink.setIconLeftCSS("o_icon o_icon-fw o_icon_edit");
 				editLink.setUserObject(messageView);
@@ -673,11 +680,17 @@ public class MessageListController extends BasicController implements GenericEve
 					+ "[Message:" + m.getKey() + "]";
 			Long artefact = artefactStats.get(businessPath);
 			int numOfArtefact = artefact == null ? 0 : artefact.intValue();
-			Controller ePFCollCtrl = EPUIFactory
-					.createArtefactCollectWizzardController(ureq, getWindowControl(), numOfArtefact, messageOres, businessPath);
-			if (ePFCollCtrl != null) {
-				messageView.setArtefact(ePFCollCtrl);
-				mainVC.put("eportfolio_" + keyString, ePFCollCtrl.getInitialComponent());
+			if(portfolioModule.isEnabled()) {
+				String collectorId = "eportfolio_" + keyString;
+				Component collectorCmp = new MediaCollectorComponent(collectorId, getWindowControl(), m, forumMediaHandler, businessPath);
+				mainVC.put(collectorId, collectorCmp);
+			} else  {
+				Controller ePFCollCtrl = EPUIFactory
+						.createArtefactCollectWizzardController(ureq, getWindowControl(), numOfArtefact, messageOres, businessPath);
+				if (ePFCollCtrl != null) {
+					messageView.setArtefact(ePFCollCtrl);
+					mainVC.put("eportfolio_" + keyString, ePFCollCtrl.getInitialComponent());
+				}
 			}
 		}
 	}

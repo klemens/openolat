@@ -28,6 +28,7 @@ package org.olat.course.certificate.ui;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
+import java.util.Map;
 
 import org.olat.NewControllerFactory;
 import org.olat.core.CoreSpringFactory;
@@ -56,17 +57,22 @@ import org.olat.core.util.mail.ContactList;
 import org.olat.core.util.mail.ContactMessage;
 import org.olat.core.util.resource.OresHelper;
 import org.olat.core.util.vfs.VFSContainer;
+import org.olat.course.assessment.AssessmentHelper;
+import org.olat.course.assessment.AssessmentModule;
 import org.olat.course.assessment.EfficiencyStatement;
-import org.olat.course.assessment.EfficiencyStatementManager;
-import org.olat.course.assessment.IdentityAssessmentEditController;
-import org.olat.course.assessment.IdentityAssessmentOverviewController;
+import org.olat.course.assessment.manager.EfficiencyStatementManager;
+import org.olat.course.assessment.model.AssessmentNodeData;
 import org.olat.course.assessment.portfolio.EfficiencyStatementArtefact;
+import org.olat.course.assessment.portfolio.EfficiencyStatementMediaHandler;
+import org.olat.course.assessment.ui.tool.IdentityAssessmentOverviewController;
 import org.olat.course.certificate.Certificate;
 import org.olat.course.certificate.CertificatesManager;
 import org.olat.group.BusinessGroup;
 import org.olat.group.BusinessGroupService;
 import org.olat.group.model.SearchBusinessGroupParams;
 import org.olat.modules.co.ContactFormController;
+import org.olat.modules.portfolio.PortfolioV2Module;
+import org.olat.modules.portfolio.ui.component.MediaCollectorComponent;
 import org.olat.portfolio.EPArtefactHandler;
 import org.olat.portfolio.PortfolioModule;
 import org.olat.portfolio.model.artefacts.AbstractArtefact;
@@ -108,6 +114,10 @@ public class CertificateAndEfficiencyStatementController extends BasicController
 	private IdentityAssessmentOverviewController courseDetailsCtrl;
 	
 	@Autowired
+	private EfficiencyStatementMediaHandler mediaHandler;
+	@Autowired
+	private PortfolioV2Module portfolioV2Module;
+	@Autowired
 	private PortfolioModule portfolioModule;
 	@Autowired
 	private CertificatesManager certificatesManager;
@@ -133,21 +143,21 @@ public class CertificateAndEfficiencyStatementController extends BasicController
 	public CertificateAndEfficiencyStatementController(WindowControl wControl, UserRequest ureq, Long resourceKey) {
 		this(wControl, ureq, 
 				ureq.getIdentity(), null, resourceKey, CoreSpringFactory.getImpl(RepositoryService.class).loadByResourceKey(resourceKey),
-				EfficiencyStatementManager.getInstance().getUserEfficiencyStatementByResourceKey(resourceKey, ureq.getIdentity()),
+				CoreSpringFactory.getImpl(EfficiencyStatementManager.class).getUserEfficiencyStatementByResourceKey(resourceKey, ureq.getIdentity()),
 				false);
 	}
 	
 	public CertificateAndEfficiencyStatementController(WindowControl wControl, UserRequest ureq, RepositoryEntry entry) {
 		this(wControl, ureq, 
 				ureq.getIdentity(), null, entry.getOlatResource().getKey(), entry,
-				EfficiencyStatementManager.getInstance().getUserEfficiencyStatementByResourceKey(entry.getOlatResource().getKey(), ureq.getIdentity()),
+				CoreSpringFactory.getImpl(EfficiencyStatementManager.class).getUserEfficiencyStatementByResourceKey(entry.getOlatResource().getKey(), ureq.getIdentity()),
 				false);
 	}
 	
 	public CertificateAndEfficiencyStatementController(WindowControl wControl, UserRequest ureq, Identity statementOwner,
 			BusinessGroup businessGroup, Long resourceKey, RepositoryEntry courseRepo, EfficiencyStatement efficiencyStatement, boolean links) {
 		super(ureq, wControl);
-		setTranslator(Util.createPackageTranslator(IdentityAssessmentEditController.class, getLocale(), getTranslator()));
+		setTranslator(Util.createPackageTranslator(AssessmentModule.class, getLocale(), getTranslator()));
 		setTranslator(UserManager.getInstance().getPropertyHandlerTranslator(getTranslator()));
 		
 		this.courseRepoEntry = courseRepo;
@@ -185,10 +195,17 @@ public class CertificateAndEfficiencyStatementController extends BasicController
 		}
 		
 		if(efficiencyStatement != null && statementOwner.equals(ureq.getIdentity())) {
-			EPArtefactHandler<?> artHandler = portfolioModule.getArtefactHandler(EfficiencyStatementArtefact.ARTEFACT_TYPE);
-			if(portfolioModule.isEnabled() && artHandler != null && artHandler.isEnabled()) {
-				collectArtefactLink = LinkFactory.createCustomLink("collectArtefactLink", "collectartefact", "", Link.NONTRANSLATED, mainVC, this);
-				collectArtefactLink.setIconLeftCSS("o_icon o_icon-lg o_icon_eportfolio_add");
+			if(portfolioV2Module.isEnabled()) {
+				String businessPath = "[RepositoryEntry:" + efficiencyStatement.getCourseRepoEntryKey() + "]";
+				MediaCollectorComponent collectorCmp = new MediaCollectorComponent("collectArtefactLink", getWindowControl(), efficiencyStatement,
+						mediaHandler, businessPath);
+				mainVC.put("collectArtefactLink", collectorCmp);
+			} else {
+				EPArtefactHandler<?> artHandler = portfolioModule.getArtefactHandler(EfficiencyStatementArtefact.ARTEFACT_TYPE);
+				if(portfolioModule.isEnabled() && artHandler != null && artHandler.isEnabled()) {
+					collectArtefactLink = LinkFactory.createCustomLink("collectArtefactLink", "collectartefact", "", Link.NONTRANSLATED, mainVC, this);
+					collectArtefactLink.setIconLeftCSS("o_icon o_icon-lg o_icon_eportfolio_add");
+				}
 			}
 		}
 
@@ -204,6 +221,13 @@ public class CertificateAndEfficiencyStatementController extends BasicController
 	@Override
 	protected void doDispose() {
 		//
+	}
+	
+	public void disableMediaCollector() {
+		Component component = mainVC.getComponent("collectArtefactLink");
+		if(component != null) {
+			mainVC.remove(component);
+		}
 	}
 
 	private void populateAssessedIdentityInfos(UserRequest ureq, RepositoryEntry courseRepo, BusinessGroup group, boolean links) { 
@@ -300,7 +324,9 @@ public class CertificateAndEfficiencyStatementController extends BasicController
 	
 	private void selectCourseInfos(UserRequest ureq) {
 		if(courseDetailsCtrl == null) {
-			courseDetailsCtrl = new IdentityAssessmentOverviewController(ureq, getWindowControl(), efficiencyStatement.getAssessmentNodes());
+			List<Map<String,Object>> assessmentNodes = efficiencyStatement.getAssessmentNodes();
+			List<AssessmentNodeData> assessmentNodeList = AssessmentHelper.assessmentNodeDataMapToList(assessmentNodes);
+			courseDetailsCtrl = new IdentityAssessmentOverviewController(ureq, getWindowControl(), assessmentNodeList);
 			listenTo(courseDetailsCtrl);
 		}
 		mainVC.put("segmentCmp", courseDetailsCtrl.getInitialComponent());

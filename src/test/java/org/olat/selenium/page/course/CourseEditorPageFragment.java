@@ -25,7 +25,6 @@ import java.util.List;
 import org.jboss.arquillian.graphene.Graphene;
 import org.junit.Assert;
 import org.olat.selenium.page.graphene.OOGraphene;
-import org.olat.selenium.page.portfolio.PortfolioPage;
 import org.openqa.selenium.By;
 import org.openqa.selenium.WebDriver;
 import org.openqa.selenium.WebElement;
@@ -382,6 +381,16 @@ public class CourseEditorPageFragment {
 	}
 	
 	/**
+	 * Choose a portfolio, v1.0 or v2.0
+	 * 
+	 * @param resourceTitle The name of the binder / portfolio
+	 * @return
+	 */
+	public CourseEditorPageFragment choosePortfolio(String resourceTitle) {
+		return chooseResource(choosePortfolioButton, resourceTitle);
+	}
+	
+	/**
 	 * Click the choose button, which open the resource chooser. Select
 	 * the "My entries" segment, search the rows for the resource title,
 	 * and select it.
@@ -431,7 +440,7 @@ public class CourseEditorPageFragment {
 	 * @return
 	 */
 	public CourseEditorPageFragment createWiki(String resourceTitle) {
-		return createResource(chooseWikiButton, resourceTitle);
+		return createResource(chooseWikiButton, resourceTitle, null);
 	}
 	
 	/**
@@ -440,7 +449,7 @@ public class CourseEditorPageFragment {
 	 * @return
 	 */
 	public CourseEditorPageFragment createQTI12Test(String  resourceTitle) {
-		return createResource(chooseTestButton, resourceTitle);
+		return createResource(chooseTestButton, resourceTitle, "FileResource.TEST");
 	}
 	
 	/**
@@ -449,7 +458,7 @@ public class CourseEditorPageFragment {
 	 * @return
 	 */
 	public CourseEditorPageFragment createFeed(String resourceTitle) {
-		return createResource(chooseFeedButton, resourceTitle);
+		return createResource(chooseFeedButton, resourceTitle, null);
 	}
 	
 	/**
@@ -458,24 +467,10 @@ public class CourseEditorPageFragment {
 	 * @return
 	 */
 	public CourseEditorPageFragment createPortfolio(String resourceTitle) {
-		return createResource(choosePortfolioButton, resourceTitle);
+		return createResource(choosePortfolioButton, resourceTitle, null);
 	}
 	
-	/**
-	 * Edit the map in the course element learn content tab.
-	 * @return
-	 */
-	public PortfolioPage editPortfolio() {
-		By editBy = By.className("o_sel_edit_map");
-		WebElement editLink = browser.findElement(editBy);
-		editLink.click();
-		OOGraphene.waitBusy(browser);
-		
-		WebElement main = browser.findElement(By.id("o_main_wrapper"));
-		return Graphene.createPageFragment(PortfolioPage.class, main);
-	}
-	
-	private CourseEditorPageFragment createResource(By chooseButton, String resourceTitle) {
+	private CourseEditorPageFragment createResource(By chooseButton, String resourceTitle, String resourceType) {
 		OOGraphene.closeBlueMessageWindow(browser);
 		
 		browser.findElement(chooseButton).click();
@@ -486,8 +481,18 @@ public class CourseEditorPageFragment {
 		OOGraphene.waitBusy(browser);
 		
 		//click create
-		popup.findElement(By.className("o_sel_repo_popup_create_resource")).click();
-		OOGraphene.waitBusy(browser);
+		List<WebElement> createEls = popup.findElements(By.className("o_sel_repo_popup_create_resource"));
+		if(createEls.isEmpty()) {
+			//open drop down
+			popup.findElement(By.className("o_sel_repo_popup_create_resources")).click();
+			//choose the right type
+			By selectType = By.xpath("//ul[contains(@class,'o_sel_repo_popup_create_resources')]//a[contains(@onclick,'" + resourceType + "')]");
+			popup.findElement(selectType).click();
+			OOGraphene.waitBusy(browser);
+		} else {
+			popup.findElement(By.className("o_sel_repo_popup_create_resource")).click();
+			OOGraphene.waitBusy(browser);
+		}
 
 		//fill the create form
 		return fillCreateForm(resourceTitle);

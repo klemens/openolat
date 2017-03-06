@@ -79,7 +79,7 @@ public class InitialAttemptsRuleSPI extends AbstractLaunchDateRuleSPI {
 			ICourse course = CourseFactory.loadCourse(entry);
 			CourseNode courseNode = course.getRunStructure().getNode(nodeIdent);
 
-			return helperDao.getInitialAttemptDates(entry.getOlatResource().getResourceableId(), courseNode, identities);
+			return helperDao.getInitialAttemptDates(entry, courseNode, identities);
 		} else {
 			return null;
 		}

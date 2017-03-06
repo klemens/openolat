@@ -78,11 +78,4 @@ public interface Identity extends CreateInfo, IdentityRef, Persistable {
 	 */
 	public Integer getStatus();
 	
-	/**
-	 * Set new status (aktiv,deleted,permanent) of identity.
-	 * @param newStatus  New status
-	 */
-	public void setStatus(Integer newStatus);
-
-	public void setName(String name);
 }

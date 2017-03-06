@@ -150,6 +150,7 @@ public abstract class AbstractBusinessGroupListController extends FormBasicContr
 	protected CloseableModalController cmc;
 
 	private final boolean admin;
+	protected final boolean readOnly;
 	private final boolean showAdminTools;
 	private final boolean startExtendedSearch;
 	@Autowired
@@ -174,16 +175,17 @@ public abstract class AbstractBusinessGroupListController extends FormBasicContr
 	private final String prefsKey;
 	
 	public AbstractBusinessGroupListController(UserRequest ureq, WindowControl wControl, String page, String prefsKey) {
-		this(ureq, wControl, page, false, false, prefsKey, null);
+		this(ureq, wControl, page, false, false, false, prefsKey, null);
 	}
 	
 	public AbstractBusinessGroupListController(UserRequest ureq, WindowControl wControl, String page,
-			boolean showAdminTools, boolean startExtendedSearch, String prefsKey, Object userObject) {
+			boolean showAdminTools, boolean startExtendedSearch, boolean readOnly, String prefsKey, Object userObject) {
 		super(ureq, wControl, page);
 		setTranslator(Util.createPackageTranslator(AbstractBusinessGroupListController.class, ureq.getLocale(), getTranslator()));
 
 		Roles roles = ureq.getUserSession().getRoles();
 		admin = roles.isOLATAdmin() || roles.isGroupManager();
+		this.readOnly = readOnly;
 		this.showAdminTools = showAdminTools && admin;
 		this.userObject = userObject;
 		this.startExtendedSearch = startExtendedSearch;
@@ -502,7 +504,7 @@ public abstract class AbstractBusinessGroupListController extends FormBasicContr
 	}
 	
 	@Override
-	protected void propagateDirtinessToContainer(FormItem fiSrc) {
+	protected void propagateDirtinessToContainer(FormItem fiSrc, FormEvent event) {
 		//
 	}
 	
@@ -1050,16 +1052,37 @@ public abstract class AbstractBusinessGroupListController extends FormBasicContr
 		}
 	}
 	
-	protected List<BusinessGroup> toBusinessGroups(UserRequest ureq, List<? extends BusinessGroupRef> items, boolean editableOnly) {
+	protected final List<BusinessGroup> toBusinessGroups(UserRequest ureq, List<? extends BusinessGroupRef> items, boolean editableOnly) {
 		List<Long> groupKeys = new ArrayList<Long>();
 		for(BusinessGroupRef item:items) {
 			groupKeys.add(item.getKey());
 		}
 		if(editableOnly) {
-			groupTableModel.filterEditableGroupKeys(ureq, groupKeys);
+			filterEditableGroupKeys(ureq, groupKeys);
 		}
+
 		List<BusinessGroup> groups = businessGroupService.loadBusinessGroups(groupKeys);
 		return groups;
+	}
+	
+	protected boolean filterEditableGroupKeys(UserRequest ureq, List<Long> groupKeys) {
+		if(ureq.getUserSession().getRoles().isOLATAdmin() || ureq.getUserSession().getRoles().isGroupManager()) {
+			return false;
+		}
+		
+		int countBefore = groupKeys.size();
+
+		for(BGTableItem item:groupTableModel.getObjects()) {
+			Long groupKey = item.getBusinessGroupKey();
+			if(groupKeys.contains(groupKey)) {
+				BusinessGroupMembership membership = item.getMembership();
+				if(membership == null || !membership.isOwner()) {
+					groupKeys.remove(groupKey);
+				}
+			}
+		}
+		
+		return groupKeys.size() != countBefore;
 	}
 	
 	/**

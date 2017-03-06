@@ -55,7 +55,6 @@ import org.olat.core.gui.control.Event;
 import org.olat.core.gui.media.ServletUtil;
 import org.olat.core.gui.translator.Translator;
 import org.olat.core.logging.AssertException;
-import org.olat.core.logging.LogDelegator;
 import org.olat.core.logging.OLog;
 import org.olat.core.logging.Tracing;
 import org.olat.core.util.ArrayHelper;
@@ -141,7 +140,7 @@ import org.olat.core.util.component.FormComponentVisitor;
  * 
  * @author patrickb
  */
-public class Form extends LogDelegator {
+public class Form {
 	
 	private static final OLog log = Tracing.createLoggerFor(Form.class);
 	//
@@ -166,6 +165,7 @@ public class Form extends LogDelegator {
 	private List<FormBasicController> formListeners;
 	private boolean isValidAndSubmitted=true;
 	private boolean isDirtyMarking=true;
+	private boolean isHideDirtyMarkingMessage = false;
 	private boolean multipartEnabled = false;
 	// temporary form data, only valid within execution of evalFormRequest()
 	private Map<String,String[]> requestParams = new HashMap<String,String[]>();
@@ -213,7 +213,7 @@ public class Form extends LogDelegator {
 		
 		return form;
 	}
-	
+
 	/**
 	 * @param ureq
 	 */
@@ -291,7 +291,7 @@ public class Form extends LogDelegator {
 					}
 					fbc+=(i.getClass().getName());
 				}
-				logWarn("OLAT-5061: Could not determine request source in FlexiForm >"+formName+"<. Check >"+fbc+"<", null);
+				log.warn("OLAT-5061: Could not determine request source in FlexiForm >"+formName+"<. Check >"+fbc+"<", null);
 				
 				// TODO: what now? 
 				// Assuming the same as "implicitFormSubmit" for now.
@@ -340,7 +340,7 @@ public class Form extends LogDelegator {
 					requestMultipartFileNames.put(name, fileName);
 					requestMultipartFileMimeTypes.put(name, contentType);
 				} else {
-					String value = IOUtils.toString(part.getInputStream());
+					String value = IOUtils.toString(part.getInputStream(), "UTF-8");
 					addRequestParameter(name, value);
 				}
 				part.delete();
@@ -573,6 +573,13 @@ public class Form extends LogDelegator {
 	 */
 	public File getRequestMultipartFile(String key) {
 		return requestMultipartFiles.get(key);
+	}
+	
+	public MultipartFileInfos getRequestMultipartFileInfos(String key) {
+		File file = requestMultipartFiles.get(key);
+		String mimeType = requestMultipartFileMimeTypes.get(key);
+		String filename = requestMultipartFileNames.get(key);
+		return new MultipartFileInfos(file, filename, mimeType);
 	}
 
 	/**
@@ -808,6 +815,9 @@ public class Form extends LogDelegator {
 	public boolean isSubmittedAndValid(){
 		return isValidAndSubmitted;
 	}
+	public void forceSubmittedAndValid() {
+		isValidAndSubmitted = true;
+	}
 
 	/**
 	 * true if the form should not loose unsubmitted changes, if another link
@@ -819,6 +829,23 @@ public class Form extends LogDelegator {
 	}
 	public void setDirtyMarking(boolean isDirtyMarking){
 		this.isDirtyMarking = isDirtyMarking;
+	}
+	
+	/**
+	 * By default a dirty-marking renders the submit button differently as soon
+	 * as the form gets dirty plus it shows a message to the user when he did
+	 * not save the form but tries to navigate to some other places. Without the
+	 * message he would loose data. However, in search forms or the loginform
+	 * this message is not desired. Set this variable to true to prevent the
+	 * message from popping up.
+	 * 
+	 * @return
+	 */
+	public boolean isHideDirtyMarkingMessage() {
+		return isHideDirtyMarkingMessage;
+	}
+	public void setHideDirtyMarkingMessage(boolean isHideDirtyMarkingMessage) {
+		this.isHideDirtyMarkingMessage = isHideDirtyMarkingMessage;
 	}
 
 	public void addSubFormListener(FormBasicController formBasicController) {

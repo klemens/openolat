@@ -35,6 +35,7 @@ import org.openqa.selenium.JavascriptExecutor;
 import org.openqa.selenium.TimeoutException;
 import org.openqa.selenium.WebDriver;
 import org.openqa.selenium.WebElement;
+import org.openqa.selenium.interactions.Actions;
 
 /**
  * 
@@ -53,6 +54,11 @@ public class OOGraphene {
 	public static void waitModalDialog(WebDriver browser) {
 		By modalBy = By.cssSelector("div.modal-dialog div.modal-body");
 		waitElement(modalBy, 5, browser);
+	}
+	
+	public static void waitCallout(WebDriver browser) {
+		By calloutBy = By.cssSelector("div.popover-content div.o_callout_content");
+		waitElement(calloutBy, 5, browser);
 	}
 	
 	public static void waitBusy(WebDriver browser) {
@@ -82,12 +88,34 @@ public class OOGraphene {
 		Graphene.waitModel(browser).pollingEvery(poolingDuration, TimeUnit.MILLISECONDS).until().element(element).is().visible();
 	}
 	
+	public static void waitGui(WebDriver browser) {
+		Graphene.waitGui(browser);
+	}
+	
+	public static WebElement moveTo(WebElement element, WebDriver browser) {
+		Actions actions = new Actions(browser);
+		actions.moveToElement(element);
+		actions.perform();
+		return element;
+	}
+	
 	// top.tinymce.get('o_fi1000000416').setContent('<p>Hacked</p>');
 	// <div id="o_fi1000000416_diw" class="o_richtext_mce"> <iframe id="o_fi1000000416_ifr">
 	public static final void tinymce(String content, WebDriver browser) {
 		Graphene.waitModel(browser).withTimeout(waitTinyDuration, TimeUnit.SECONDS)
 			.pollingEvery(poolingDuration, TimeUnit.MILLISECONDS).until(new TinyMCELoadedPredicate());
 		((JavascriptExecutor)browser).executeScript("top.tinymce.activeEditor.setContent('" + content + "')");
+	}
+	
+	public static final void tinymce(String content, String containerCssSelector, WebDriver browser) {
+		By tinyIdBy = By.cssSelector(containerCssSelector + " div.o_richtext_mce");
+		waitElement(tinyIdBy, 5, browser);
+		WebElement tinyIdEl = browser.findElement(tinyIdBy);
+		String tinyId = tinyIdEl.getAttribute("id").replace("_diw", "");
+
+		Graphene.waitModel(browser).withTimeout(waitTinyDuration, TimeUnit.SECONDS)
+			.pollingEvery(poolingDuration, TimeUnit.MILLISECONDS).until(new TinyMCELoadedByIdPredicate(tinyId));
+		((JavascriptExecutor)browser).executeScript("top.tinymce.editors['" + tinyId + "'].setContent('" + content + "')");
 	}
 	
 	/**

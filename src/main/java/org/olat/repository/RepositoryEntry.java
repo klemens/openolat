@@ -42,11 +42,14 @@ import javax.persistence.OneToMany;
 import javax.persistence.Table;
 import javax.persistence.Temporal;
 import javax.persistence.TemporalType;
+import javax.persistence.Transient;
 import javax.persistence.Version;
 
 import org.hibernate.annotations.GenericGenerator;
+import org.hibernate.annotations.Parameter;
 import org.olat.basesecurity.IdentityImpl;
 import org.olat.core.id.CreateInfo;
+import org.olat.core.id.Identity;
 import org.olat.core.id.ModifiedInfo;
 import org.olat.core.id.OLATResourceable;
 import org.olat.core.id.Persistable;
@@ -79,6 +82,8 @@ public class RepositoryEntry implements CreateInfo, Persistable , RepositoryEntr
 
 	private static final long serialVersionUID = 5319576295875289054L;
 	// IMPORTANT: Keep relation ACC_OWNERS < ACC_OWNERS_AUTHORS < ACC_USERS < ACC_USERS_GUESTS
+	
+	public static final int DELETED = 0;
 	/**
 	 * limit access to owners
 	 */
@@ -100,7 +105,14 @@ public class RepositoryEntry implements CreateInfo, Persistable , RepositoryEntr
 	
 	@Id
 	@GeneratedValue(generator = "system-uuid")
-	@GenericGenerator(name = "system-uuid", strategy = "hilo")
+	@GenericGenerator(name = "system-uuid", strategy = "enhanced-sequence", parameters={
+		@Parameter(name="sequence_name", value="hibernate_unique_key"),
+		@Parameter(name="force_table_use", value="true"),
+		@Parameter(name="optimizer", value="legacy-hilo"),
+		@Parameter(name="value_column", value="next_hi"),
+		@Parameter(name="increment_size", value="32767"),
+		@Parameter(name="initial_value", value="32767")
+	})
 	@Column(name="repositoryentry_id", nullable=false, unique=true, insertable=true, updatable=false)
 	private Long key;
 	@Version
@@ -180,6 +192,13 @@ public class RepositoryEntry implements CreateInfo, Persistable , RepositoryEntr
 	private int statusCode;
 	@Column(name="allowToLeave", nullable=true, insertable=true, updatable=true)
 	private String allowToLeave;
+
+	@Temporal(TemporalType.TIMESTAMP)
+	@Column(name="deletiondate", nullable=true, insertable=true, updatable=true)
+	private Date deletionDate;
+	@ManyToOne(targetEntity=IdentityImpl.class,fetch=FetchType.LAZY, optional=true)
+	@JoinColumn(name="fk_deleted_by", nullable=true, insertable=true, updatable=true)
+	private Identity deletedBy;
 
 	
 	/**
@@ -327,6 +346,12 @@ public class RepositoryEntry implements CreateInfo, Persistable , RepositoryEntr
 	public void setStatusCode(int statusCode) {
 		this.statusCode = statusCode;
 	}
+	
+	@Transient
+	public RepositoryEntryStatus getRepositoryEntryStatus() {
+		return new RepositoryEntryStatus(statusCode);
+	}
+	
 	/**
 	 * @return Returns the name.
 	 */
@@ -564,6 +589,7 @@ public class RepositoryEntry implements CreateInfo, Persistable , RepositoryEntr
 	 * 
 	 * @see org.olat.core.id.ModifiedInfo#getLastModified()
 	 */
+	@Override
 	public Date getLastModified() {
 		return lastModified;
 	}
@@ -572,6 +598,7 @@ public class RepositoryEntry implements CreateInfo, Persistable , RepositoryEntr
 	 * 
 	 * @see org.olat.core.id.ModifiedInfo#setLastModified(java.util.Date)
 	 */
+	@Override
 	public void setLastModified(Date date) {
 		this.lastModified = date;
 	}
@@ -580,7 +607,22 @@ public class RepositoryEntry implements CreateInfo, Persistable , RepositoryEntr
 		this.creationDate = date;
 	}
 	
-	
+	public Date getDeletionDate() {
+		return deletionDate;
+	}
+
+	public void setDeletionDate(Date deletionDate) {
+		this.deletionDate = deletionDate;
+	}
+
+	public Identity getDeletedBy() {
+		return deletedBy;
+	}
+
+	public void setDeletedBy(Identity deletedBy) {
+		this.deletedBy = deletedBy;
+	}
+
 	@Override
 	public int hashCode() {
 		return getKey() == null ? 293485 : getKey().hashCode();

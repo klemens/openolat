@@ -101,8 +101,8 @@ public class MailManagerTest extends OlatTestCase {
 	@Test
 	public void testGetInbox() {
 		//send a mail
-		Identity fromId = JunitTestHelper.createAndPersistIdentityAsUser("mail-3-" + UUID.randomUUID().toString());
-		Identity toId = JunitTestHelper.createAndPersistIdentityAsUser("mail-4-" + UUID.randomUUID().toString());
+		Identity fromId = JunitTestHelper.createAndPersistIdentityAsRndUser("mail-3");
+		Identity toId = JunitTestHelper.createAndPersistIdentityAsRndUser("mail-4");
 		
 		MailBundle bundle = new MailBundle();
 		bundle.setFromId(fromId);
@@ -258,10 +258,10 @@ public class MailManagerTest extends OlatTestCase {
 		dbInstance.commitAndCloseSession();
 
 		//delete the 4 users datas
-		mailBoxExtension.deleteUserData(toId_1, "lalala");
-		mailBoxExtension.deleteUserData(toId_2, "lalala");
-		mailBoxExtension.deleteUserData(toId_3, "lalala");
-		mailBoxExtension.deleteUserData(fromId, "lalala");
+		mailBoxExtension.deleteUserData(toId_1, "lalala", null);
+		mailBoxExtension.deleteUserData(toId_2, "lalala", null);
+		mailBoxExtension.deleteUserData(toId_3, "lalala", null);
+		mailBoxExtension.deleteUserData(fromId, "lalala", null);
 		dbInstance.commitAndCloseSession();
 		
 		//check inbox / outbox
@@ -324,10 +324,10 @@ public class MailManagerTest extends OlatTestCase {
 		dbInstance.commitAndCloseSession();
 
 		//delete the 4 users datas
-		mailBoxExtension.deleteUserData(fromId, "lalala");
-		mailBoxExtension.deleteUserData(toId_1, "lalala");
-		mailBoxExtension.deleteUserData(toId_2, "lalala");
-		mailBoxExtension.deleteUserData(toId_3, "lalala");
+		mailBoxExtension.deleteUserData(fromId, "lalala", null);
+		mailBoxExtension.deleteUserData(toId_1, "lalala", null);
+		mailBoxExtension.deleteUserData(toId_2, "lalala", null);
+		mailBoxExtension.deleteUserData(toId_3, "lalala", null);
 		dbInstance.commitAndCloseSession();
 
 		//check mail by meta id

@@ -173,6 +173,8 @@ $o-footer-margin-top				: $padding-large-vertical !default;
 
 /* Toolbar in course, editor etc */
 $o-toolbar-bg-color				: $navbar-default-bg !default;
+$o-toolbar-edit_bg-color		: #fcfcfc !default;
+$o-toolbar-edit_stripe-color	: #fff0d9 !default; 
 $o-toolbar-border-color			: $navbar-default-border !default;
 $o-toolbar-border-radius		: $navbar-border-radius !default;
 $o-toolbar-link-color			: $navbar-default-link-color !default;
@@ -328,6 +330,34 @@ $o-course-node-error			: $state-danger-text !default;
 $o-course-node-deleted			: $badge-bg !default;
 
 
+/* Portfolio v2 */
+$o-portfolio-assignment-color						: $brand-danger !default;
+$o-portfolio-assignment-background-color			: $state-danger-bg !default;
+$o-portfolio-assignment-font-size					: $font-size-small !default;
+$o-portfolio-editor-border-color					: lighten($brand-primary, 20%) !default;
+$o-portfolio-editor-border-width					: 25px !default;
+$o-portfolio-media-browser-space					: $padding-large-vertical * 2 !default;
+$o-portfolio-media-browser-space-sm					: $padding-large-vertical !default;
+$o-portfolio-media-browser-space-xs					: $padding-xs-vertical !default;
+$o-portfolio-media-browser-rowelem-width-md 		: 180px !default;
+$o-portfolio-media-browser-rowelem-line-height-md 	: 140px !default;
+$o-portfolio-media-browser-rowelem-width-sm 		: 80px !default;
+$o-portfolio-media-browser-rowelem-line-height-sm 	: 55px !default;
+$o-portfolio-media-browser-border 					: $brand-primary !default;
+$o-portfolio-media-browser-meta-title-color			: $brand-primary !default;
+$o-portfolio-entry-draft-color						: $brand-warning !default;
+$o-portfolio-entry-published-color					: $brand-primary !default;
+$o-portfolio-entry-inrevision-color					: $brand-danger !default;
+$o-portfolio-entry-closed-color						: $brand-success !default;
+$o-portfolio-entry-deleted-color					: #000 !default;
+$o-portfolio-media-content-background-color			: #f8f8f8 !default;
+$o-portfolio-media-content-space					: $padding-large-vertical !default;
+$o-portfolio-lead-space-sm							: $padding-large-vertical !default;
+$o-portfolio-lead-background-color					: lighten($gray-base, 95%) !default;
+$o-portfolio-lead-border-color						: darken($o-portfolio-lead-background-color,10%) !default;
+$o-portfolio-lead-border-radius						: $border-radius-small !default;
+$o-portfolio-page-summary-font-size					: $font-size-large !default;
+
 
 
 /* Chat and other floating window */
@@ -368,6 +398,11 @@ $o-forum-quote-padding			: $padding-large-vertical;
 $o-forum-quote-color 			: $gray !default;
 $o-forum-quote-font-size		: $font-size-small !default;
 $o-forum-attachment-font-size	: $font-size-small !default;
+
+/* Evaluation forms */
+$o-evaluation-slider-margin-bottom			: 8px;
+$o-evaluation-step-labels-margin-bottom		: 8px;
+$o-evaluation-slider-hover-background-color	: $table-bg-hover;
 
 /* Portlets site */
 $o-portlet-border				: $panel-default-border !default;
@@ -434,6 +469,10 @@ $o-step-done-marker-color	: $brand-success !default;
 $o-step-meta-color			: $text-muted !default;
 $o-step-meta-size			: $font-size-small !default;
 
+/* Drawing */
+$o-drawing-border-color		: $brand-primary;
+$o-drawing-border-width		: 4px !default;
+
 /* Placeholder panels */
 $o-panel-placeholder-border-width	: 2px !default;
 $o-panel-placeholder-border-radius	: 10px !default;
@@ -442,7 +481,17 @@ $o-panel-placeholder-font-weight	: bold !default;
 $o-panel-placeholder-border-color	: lighten($o-panel-placeholder-color, 20%) !default;
 $o-panel-placeholder-padding		: 10px !default;
 
+/* Citations */
+$o-cit-quote-font-size			: $font-size-large !default;
+$o-cit-quote-color				: $o-forum-quote-color !default;
+
+/* Sliders */
+$o-slider-border					: #999;
+$o-slider-handler-border-color		: $brand-primary !default;
+$o-slider-handler-background-color	: $brand-primary !default;
+
 /* other configurations */
 $o-portrait-radius				: 50% !default;
 $o-portrait-border				: none !default;
 $o-bookmark-color				: #bc2d0c !default;
+$o-imagebg-text-background		: rgba(255, 255, 255, 0.8) !default;

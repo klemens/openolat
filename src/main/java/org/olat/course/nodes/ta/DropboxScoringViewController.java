@@ -33,6 +33,7 @@ import org.olat.core.CoreSpringFactory;
 import org.olat.core.commons.modules.bc.FolderConfig;
 import org.olat.core.commons.modules.bc.FolderEvent;
 import org.olat.core.commons.modules.bc.FolderRunController;
+import org.olat.core.commons.modules.bc.commands.FolderCommand;
 import org.olat.core.commons.modules.bc.vfs.OlatNamedContainerImpl;
 import org.olat.core.commons.modules.bc.vfs.OlatRootFolderImpl;
 import org.olat.core.commons.services.notifications.SubscriptionContext;
@@ -69,14 +70,17 @@ import org.olat.core.util.mail.MailerResult;
 import org.olat.core.util.resource.OresHelper;
 import org.olat.core.util.vfs.Quota;
 import org.olat.core.util.vfs.QuotaManager;
+import org.olat.core.util.vfs.callbacks.ReadOnlyCallback;
 import org.olat.core.util.vfs.callbacks.VFSSecurityCallback;
 import org.olat.course.auditing.UserNodeAuditManager;
 import org.olat.course.nodes.AssessableCourseNode;
 import org.olat.course.nodes.CourseNode;
 import org.olat.course.nodes.TACourseNode;
 import org.olat.course.properties.CoursePropertyManager;
+import org.olat.course.run.scoring.AssessmentEvaluation;
 import org.olat.course.run.userview.UserCourseEnvironment;
 import org.olat.modules.ModuleConfiguration;
+import org.olat.modules.assessment.model.AssessmentEntryStatus;
 import org.olat.properties.Property;
 import org.olat.user.UserManager;
 
@@ -87,7 +91,7 @@ import org.olat.user.UserManager;
 
 public class DropboxScoringViewController extends BasicController {
 
-	private OLog log = Tracing.createLoggerFor(this.getClass());
+	private static final OLog log = Tracing.createLoggerFor(DropboxScoringViewController.class);
 	
 	protected CourseNode node;
 	protected UserCourseEnvironment userCourseEnv;	
@@ -143,6 +147,7 @@ public class DropboxScoringViewController extends BasicController {
 		myContent = createVelocityContainer("dropboxscoring");
 		taskLaunchButton = LinkFactory.createButton("task.launch", myContent, this);
 		cancelTaskButton = LinkFactory.createButton("task.cancel", myContent, this);
+		cancelTaskButton.setVisible(!userCourseEnv.isCourseReadOnly());
 		putInitialPanel(myContent);		
 
 		ModuleConfiguration modConfig = node.getModuleConfiguration();
@@ -163,7 +168,7 @@ public class DropboxScoringViewController extends BasicController {
 
 		// notification
 		if (hasNotification) {
-		subsContext = DropboxFileUploadNotificationHandler.getSubscriptionContext(userCourseEnv.getCourseEnvironment(), node);
+			subsContext = DropboxFileUploadNotificationHandler.getSubscriptionContext(userCourseEnv.getCourseEnvironment(), node);
 			if (subsContext != null) {
 				String path = DropboxController.getDropboxPathRelToFolderRoot(userCourseEnv.getCourseEnvironment(), node);
 				contextualSubscriptionCtr = AbstractTaskNotificationHandler.createContextualSubscriptionController(ureq, this.getWindowControl(), path, subsContext, DropboxController.class);
@@ -203,7 +208,7 @@ public class DropboxScoringViewController extends BasicController {
 		boolean isTutor  = userCourseEnv.getCourseEnvironment().getCourseGroupManager().isIdentityCourseCoach(ureq.getIdentity());
 		if ( ((AssessableCourseNode)node).hasStatusConfigured() && (isAuthor || isTutor)) {
 			myContent.contextPut("hasStatusPullDown", Boolean.TRUE);
-			statusForm = new StatusForm(ureq, getWindowControl());
+			statusForm = new StatusForm(ureq, getWindowControl(), userCourseEnv.isCourseReadOnly());
 			listenTo(statusForm);
 
 			// get identity not from request (this would be an author)
@@ -222,10 +227,14 @@ public class DropboxScoringViewController extends BasicController {
 	}
 	
 	protected VFSSecurityCallback getDropboxVfsSecurityCallback() {
+		if(userCourseEnv.isCourseReadOnly()) return new ReadOnlyCallback();
+		
 		return new ReadOnlyAndDeleteCallback();
 	}
 
 	protected VFSSecurityCallback getReturnboxVfsSecurityCallback(String returnboxRelPath, Identity assessedIdentity) {
+		if(userCourseEnv.isCourseReadOnly()) return new ReadOnlyCallback();
+		
 		SubscriptionContext subscriptionContext = ReturnboxFileUploadNotificationHandler
 				.getSubscriptionContext(userCourseEnv.getCourseEnvironment(), node, assessedIdentity);
 		return new ReturnboxFullAccessCallback(returnboxRelPath, subscriptionContext);
@@ -234,6 +243,7 @@ public class DropboxScoringViewController extends BasicController {
 	/**
 	 * @see org.olat.core.gui.control.DefaultController#event(org.olat.core.gui.UserRequest, org.olat.core.gui.components.Component, org.olat.core.gui.control.Event)
 	 */
+	@Override
 	public void event(UserRequest ureq, Component source, Event event) {
 		if (source == taskLaunchButton) {
 			File fTaskfolder = new File(FolderConfig.getCanonicalRoot()
@@ -262,6 +272,7 @@ public class DropboxScoringViewController extends BasicController {
 	/**
 	 * @see org.olat.core.gui.control.DefaultController#event(org.olat.core.gui.UserRequest, org.olat.core.gui.control.Controller, org.olat.core.gui.control.Event)
 	 */
+	@Override
 	public void event(UserRequest ureq, Controller source, Event event) {
 		if (source == dropboxFolderRunController) {
 			if (event instanceof FolderEvent) {
@@ -283,6 +294,16 @@ public class DropboxScoringViewController extends BasicController {
 					// log entry for this file
 					Identity coach = ureq.getIdentity();
 					Identity student = userCourseEnv.getIdentityEnvironment().getIdentity();
+					
+					if(node instanceof AssessableCourseNode) {
+						AssessableCourseNode acn = (AssessableCourseNode)node;
+						AssessmentEvaluation eval = acn.getUserScoreEvaluation(userCourseEnv);
+						if(eval.getAssessmentStatus() == null || eval.getAssessmentStatus() == AssessmentEntryStatus.notStarted) {
+							eval = new AssessmentEvaluation(eval, AssessmentEntryStatus.inProgress);
+							acn.updateUserScoreEvaluation(eval, userCourseEnv, coach, false);
+						}
+					}
+
 					am.appendToUserNodeLog(node, coach, student, "FILE UPLOADED: " + folderEvent.getFilename());
 					String toMail = student.getUser().getProperty(UserConstants.EMAIL, ureq.getLocale());
 					
@@ -307,6 +328,19 @@ public class DropboxScoringViewController extends BasicController {
 						log.warn("Could not send email 'returnbox notification' to " + student + "with email=" + toMail);
 					} else {
 						log.info("Send email 'returnbox notification' to " + student + "with email=" + toMail);
+					}
+				}
+			} else if(FolderCommand.FOLDERCOMMAND_FINISHED == event) {
+				if(node instanceof AssessableCourseNode) {
+					AssessableCourseNode acn = (AssessableCourseNode)node;
+					AssessmentEvaluation eval = acn.getUserScoreEvaluation(userCourseEnv);
+					if (eval == null) {
+						eval = AssessmentEvaluation.EMPTY_EVAL;
+					}
+					if(eval.getAssessmentStatus() == null || eval.getAssessmentStatus() == AssessmentEntryStatus.notStarted) {
+						eval = new AssessmentEvaluation(eval, AssessmentEntryStatus.inProgress);
+						acn.updateUserScoreEvaluation(eval, userCourseEnv, getIdentity(), false);
+						fireEvent(ureq, Event.CHANGED_EVENT);
 					}
 				}
 			}

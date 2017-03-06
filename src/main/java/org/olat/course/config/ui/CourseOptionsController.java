@@ -184,6 +184,7 @@ public class CourseOptionsController extends FormBasicController {
 
 		menuEl = uifactory.addCheckboxesHorizontal("menuIsOn", "chkbx.menu.onoff", menuCont, onKeys, onValues);
 		menuEl.select(onKeys[0], courseConfig.isMenuEnabled());
+		menuEl.addActionListener(FormEvent.ONCHANGE);
 		
 		toolbarEl = uifactory.addCheckboxesHorizontal("toolbarIsOn", "chkbx.toolbar.onoff", menuCont, onKeys, onValues);
 		toolbarEl.select(onKeys[0], courseConfig.isToolbarEnabled());
@@ -200,6 +201,7 @@ public class CourseOptionsController extends FormBasicController {
 			boolean calendarEnabled = courseConfig.isCalendarEnabled();
 			boolean managedCal = RepositoryEntryManagedFlag.isManaged(entry, RepositoryEntryManagedFlag.calendar);
 			calendarEl = uifactory.addCheckboxesHorizontal("calIsOn", "chkbx.calendar.onoff", calendarCont, onKeys, onValues);
+			calendarEl.setElementCssClass("o_sel_course_options_calendar");
 			calendarEl.addActionListener(FormEvent.ONCHANGE);
 			calendarEl.select("xx", calendarEnabled);
 			calendarEl.setEnabled(editable && !managedCal);
@@ -279,6 +281,7 @@ public class CourseOptionsController extends FormBasicController {
 			saveCont.setRootForm(mainForm);
 			formLayout.add(saveCont);
 			saveButton = uifactory.addFormLink("save", saveCont, Link.BUTTON);
+			saveButton.setElementCssClass("o_sel_course_options_save");
 			saveButton.setPrimary(true);
 		}
 	}
@@ -363,7 +366,7 @@ public class CourseOptionsController extends FormBasicController {
 			}
 			updateToolbar();
 			setSaveButtonDirty();
-		} else if (source instanceof SelectionElement || source == folderReadOnlyEl) {
+		} else if (source instanceof SelectionElement || source == folderReadOnlyEl || source == menuEl) {
 			setSaveButtonDirty();
 		}  else if(saveButton == source) {
 			doSave(ureq);

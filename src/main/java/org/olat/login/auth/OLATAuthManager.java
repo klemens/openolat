@@ -31,7 +31,6 @@ import java.util.Map;
 
 import org.olat.basesecurity.Authentication;
 import org.olat.basesecurity.BaseSecurity;
-import org.olat.basesecurity.BaseSecurityManager;
 import org.olat.core.CoreSpringFactory;
 import org.olat.core.commons.services.webdav.manager.WebDAVAuthManager;
 import org.olat.core.gui.translator.Translator;
@@ -44,6 +43,7 @@ import org.olat.core.logging.OLog;
 import org.olat.core.logging.Tracing;
 import org.olat.core.manager.BasicManager;
 import org.olat.core.util.Encoder.Algorithm;
+import org.olat.core.util.StringHelper;
 import org.olat.core.util.Util;
 import org.olat.core.util.WebappHelper;
 import org.olat.core.util.i18n.I18nManager;
@@ -207,11 +207,11 @@ public class OLATAuthManager extends BasicManager implements AuthenticationSPI {
 				allOk = ldapError.isEmpty();
 
 				if(allOk && ldapLoginModule.isCacheLDAPPwdAsOLATPwdOnLogin()) {
-					allOk &= changeOlatPassword(doer, identity, newPwd);
+					allOk &= changeOlatPassword(doer, identity, identity.getName(), newPwd);
 				}
 			}
 		} else {
-			allOk = changeOlatPassword(doer, identity, newPwd);
+			allOk = changeOlatPassword(doer, identity, identity.getName(), newPwd);
 		}
 		if(allOk) {
 			sendConfirmationEmail(doer, identity);
@@ -244,7 +244,14 @@ public class OLATAuthManager extends BasicManager implements AuthenticationSPI {
 		mailManager.sendMessage(bundle);
 	}
 	
-	public boolean changeOlatPassword(Identity doer, Identity identity, String newPwd) {
+	/**
+	 * This update the OLAT and the HA1 passwords
+	 * @param doer
+	 * @param identity
+	 * @param newPwd
+	 * @return
+	 */
+	public boolean changeOlatPassword(Identity doer, Identity identity, String username, String newPwd) {
 		Authentication auth = securityManager.findAuthentication(identity, "OLAT");
 		if (auth == null) { // create new authentication for provider OLAT
 			auth = securityManager.createAndPersistAuthentication(identity, "OLAT", identity.getName(), newPwd, loginModule.getDefaultHashAlgorithm());
@@ -254,8 +261,33 @@ public class OLATAuthManager extends BasicManager implements AuthenticationSPI {
 			log.audit(doer.getName() + " set new password for identity: " + identity.getName());
 		}
 		
-		if(identity != null && webDAVAuthManager != null) {
-			webDAVAuthManager.changeDigestPassword(doer, identity, newPwd);
+		if(identity != null && StringHelper.containsNonWhitespace(username) && webDAVAuthManager != null) {
+			webDAVAuthManager.changeDigestPassword(doer, identity, username, newPwd);
+		}
+		return true;
+	}
+	
+	public boolean synchronizeOlatPasswordAndUsername(Identity doer, Identity identity, String username, String newPwd) {
+		Authentication auth = securityManager.findAuthentication(identity, "OLAT");
+		if (auth == null) { // create new authentication for provider OLAT
+			auth = securityManager.createAndPersistAuthentication(identity, "OLAT", username, newPwd, loginModule.getDefaultHashAlgorithm());
+			log.audit(doer.getName() + " created new authenticatin for identity: " + identity.getName());
+		} else {
+			//update credentials
+			if(!securityManager.checkCredentials(auth, newPwd)) {
+				auth = securityManager.updateCredentials(auth, newPwd, loginModule.getDefaultHashAlgorithm());
+			}
+			
+			if(!username.equals(auth.getAuthusername())) {
+				auth.setAuthusername(username);
+				auth = securityManager.updateAuthentication(auth);
+			}
+
+			log.audit(doer.getName() + " set new password for identity: " + identity.getName());
+		}
+		
+		if(identity != null && StringHelper.containsNonWhitespace(username) && webDAVAuthManager != null) {
+			webDAVAuthManager.changeDigestPassword(doer, identity, username, newPwd);
 		}
 		return true;
 	}
@@ -267,7 +299,7 @@ public class OLATAuthManager extends BasicManager implements AuthenticationSPI {
 	 * @return
 	 */
 	public boolean changePasswordAsAdmin(Identity identity, String newPwd) {
-		Identity adminUserIdentity = BaseSecurityManager.getInstance().findIdentityByName("administrator");
+		Identity adminUserIdentity = securityManager.findIdentityByName("administrator");
 		return changePassword(adminUserIdentity, identity, newPwd);
 	}
 	

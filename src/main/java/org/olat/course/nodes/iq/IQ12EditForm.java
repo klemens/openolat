@@ -51,7 +51,9 @@ import org.olat.modules.ModuleConfiguration;
  * @author Mike Stock
  */
 public class IQ12EditForm extends FormBasicController {
-
+	
+	private static final String[] correctionModeKeys = new String[] { "auto", "manual" };
+	
 	private SelectionElement enableMenu;
 	private SelectionElement displayMenu;
 	private SelectionElement displayScoreProgress;
@@ -60,6 +62,7 @@ public class IQ12EditForm extends FormBasicController {
 	private SelectionElement autoEnumerateChoices;
 	private SelectionElement provideMemoField;
 	private SingleSelection sequence;
+	private SingleSelection correctionModeEl;
 	private SelectionElement enableCancel;
 	private SelectionElement enableSuspend;
 	private SingleSelection summary;
@@ -79,9 +82,11 @@ public class IQ12EditForm extends FormBasicController {
 	
 	private String[] menuRenderOptKeys, menuRenderOptValues;
 	private String[] sequenceKeys, sequenceValues;
+	private String[] correctionModeValues;
 	private String configKeyType;
 	
 	private boolean isAssessment, isSelfTest, isSurvey;
+	private final boolean hasEssay;
 	
 	/**
 	 * Constructor for the qti configuration form
@@ -89,9 +94,10 @@ public class IQ12EditForm extends FormBasicController {
 	 * @param wControl
 	 * @param modConfig
 	 */
-	IQ12EditForm(UserRequest ureq, WindowControl wControl, ModuleConfiguration modConfig) {
+	IQ12EditForm(UserRequest ureq, WindowControl wControl, ModuleConfiguration modConfig, boolean hasEssay) {
 		super (ureq, wControl);
 		this.modConfig = modConfig;
+		this.hasEssay = hasEssay;
 		
 		configKeyType = (String)modConfig.get(IQEditController.CONFIG_KEY_TYPE);
 		
@@ -115,12 +121,15 @@ public class IQ12EditForm extends FormBasicController {
 				translate("qti.form.sequence.item"),
 				translate("qti.form.sequence.section")
 		};
+		correctionModeValues = new String[]{
+				translate("correction.auto"),
+				translate("correction.manual")
+		};
 		
 		initForm(ureq);
 	}
 	
 	protected boolean validateFormLogic (UserRequest ureq) {
-
 		startDateElement.clearError();
 		endDateElement.clearError();
 		
@@ -153,6 +162,45 @@ public class IQ12EditForm extends FormBasicController {
 	
 	@Override
 	protected void formOK(UserRequest ureq) {
+		modConfig.set(IQEditController.CONFIG_KEY_DISPLAYMENU, new Boolean(isDisplayMenu()));
+		modConfig.set(IQEditController.CONFIG_FULLWINDOW, new Boolean(isFullWindow()));
+		if(correctionModeEl != null &&correctionModeEl.isOneSelected()) {
+			modConfig.setStringValue(IQEditController.CONFIG_CORRECTION_MODE, correctionModeEl.getSelectedKey());
+		}
+		
+		if (isDisplayMenu()) {
+			modConfig.set(IQEditController.CONFIG_KEY_RENDERMENUOPTION, isMenuRenderSectionsOnly());
+			modConfig.set(IQEditController.CONFIG_KEY_ENABLEMENU, new Boolean(isEnableMenu()));
+		} else {
+			// set default values when menu is not displayed
+			modConfig.set(IQEditController.CONFIG_KEY_RENDERMENUOPTION, Boolean.FALSE);
+			modConfig.set(IQEditController.CONFIG_KEY_ENABLEMENU, Boolean.FALSE); 
+		}
+		
+		modConfig.set(IQEditController.CONFIG_KEY_QUESTIONPROGRESS, new Boolean(isDisplayQuestionProgress()));
+		modConfig.set(IQEditController.CONFIG_KEY_SEQUENCE, getSequence());
+		modConfig.set(IQEditController.CONFIG_KEY_ENABLECANCEL, new Boolean(isEnableCancel()));
+		modConfig.set(IQEditController.CONFIG_KEY_ENABLESUSPEND, new Boolean(isEnableSuspend()));
+		modConfig.set(IQEditController.CONFIG_KEY_QUESTIONTITLE, new Boolean(isDisplayQuestionTitle()));
+		modConfig.set(IQEditController.CONFIG_KEY_AUTOENUM_CHOICES, new Boolean(isAutoEnumChoices()));
+		modConfig.set(IQEditController.CONFIG_KEY_MEMO, new Boolean(isProvideMemoField()));
+		// Only tests and selftests have summaries and score progress
+		if (!isSurvey) {
+			modConfig.set(IQEditController.CONFIG_KEY_SUMMARY, getSummary());
+			modConfig.set(IQEditController.CONFIG_KEY_SCOREPROGRESS, new Boolean(isDisplayScoreProgress()));
+			modConfig.set(IQEditController.CONFIG_KEY_ENABLESCOREINFO, new Boolean(isEnableScoreInfo()));
+			modConfig.set(IQEditController.CONFIG_KEY_DATE_DEPENDENT_RESULTS, new Boolean(isShowResultsDateDependent()));
+			modConfig.set(IQEditController.CONFIG_KEY_RESULTS_START_DATE, getShowResultsStartDate());
+			modConfig.set(IQEditController.CONFIG_KEY_RESULTS_END_DATE, getShowResultsEndDate());
+			modConfig.set(IQEditController.CONFIG_KEY_RESULT_ON_FINISH, isShowResultsAfterFinishTest());
+			modConfig.set(IQEditController.CONFIG_KEY_RESULT_ON_HOME_PAGE, isShowResultsOnHomePage());
+		}
+		// Only tests have a limitation on number of attempts
+		if (isAssessment) {
+			modConfig.set(IQEditController.CONFIG_KEY_ATTEMPTS, getAttempts());
+			modConfig.set(IQEditController.CONFIG_KEY_BLOCK_AFTER_SUCCESS, new Boolean(isBlockAfterSuccess()));
+		}
+		
 		fireEvent(ureq, Event.DONE_EVENT);
 	}
 
@@ -170,7 +218,7 @@ public class IQ12EditForm extends FormBasicController {
 		
 		//add it
 		blockAfterSuccess = uifactory.addCheckboxesHorizontal("blockAfterSuccess", "qti.form.block.afterSuccess", formLayout, new String[]{"xx"}, new String[]{null});
-		Boolean block = (Boolean) modConfig.get(IQEditController.CONFIG_KEY_BLOCK_AFTER_SUCCESS);
+		Boolean block = modConfig.getBooleanEntry(IQEditController.CONFIG_KEY_BLOCK_AFTER_SUCCESS);
 		blockAfterSuccess.select("xx", block == null ? false : block.booleanValue() );
 
 		// Only assessments have a limitation on number of attempts
@@ -186,17 +234,35 @@ public class IQ12EditForm extends FormBasicController {
 			blockAfterSuccess.select("xx", false);
 			blockAfterSuccess.setVisible(false);
 		}
+		if (isAssessment) {
+			correctionModeEl = uifactory.addRadiosVertical("correction.mode", "correction.mode", formLayout, correctionModeKeys, correctionModeValues);
+			String mode = modConfig.getStringValue(IQEditController.CONFIG_CORRECTION_MODE);
+			boolean selected = false;
+			for(String correctionModeKey:correctionModeKeys) {
+				if(correctionModeKey.equals(mode)) {
+					correctionModeEl.select(correctionModeKey, true);
+					selected = true;
+				}
+			}
+			if(!selected) {
+				if(hasEssay) {
+					correctionModeEl.select(correctionModeKeys[1], true);
+				} else {
+					correctionModeEl.select(correctionModeKeys[0], true);
+				}
+			}
+		}
 		
-		Boolean fullWindow = (Boolean) modConfig.get(IQEditController.CONFIG_FULLWINDOW);
+		Boolean fullWindow = modConfig.getBooleanEntry(IQEditController.CONFIG_FULLWINDOW);
 		fullWindowEl = uifactory.addCheckboxesHorizontal("fullwindow", "qti.form.fullwindow", formLayout, new String[]{"fullwindow"}, new String[]{null});
 		fullWindowEl.select("fullwindow", fullWindow == null ? true : fullWindow.booleanValue());
 		
-		Boolean CdisplayMenu = (Boolean)modConfig.get(IQEditController.CONFIG_KEY_DISPLAYMENU);
+		Boolean CdisplayMenu = modConfig.getBooleanEntry(IQEditController.CONFIG_KEY_DISPLAYMENU);
 		displayMenu = uifactory.addCheckboxesHorizontal("qti_displayMenu", "qti.form.menudisplay", formLayout, new String[]{"xx"}, new String[]{null});
 		displayMenu.select("xx", CdisplayMenu == null ? true : CdisplayMenu );
 		displayMenu.addActionListener(FormEvent.ONCLICK);
 		
-		Boolean CenableMenu = (Boolean)modConfig.get(IQEditController.CONFIG_KEY_ENABLEMENU);
+		Boolean CenableMenu = modConfig.getBooleanEntry(IQEditController.CONFIG_KEY_ENABLEMENU);
 		enableMenu = uifactory.addCheckboxesHorizontal("qti_enableMenu", "qti.form.menuenable", formLayout, new String[]{"xx"}, new String[]{null});
 		enableMenu.select("xx", CenableMenu == null ? true : CenableMenu);
 		
@@ -208,7 +274,7 @@ public class IQ12EditForm extends FormBasicController {
 			modConfig.set(IQEditController.CONFIG_KEY_RENDERMENUOPTION, Boolean.FALSE);
 			renderSectionsOnly = Boolean.FALSE;
 		} else {
-			renderSectionsOnly = (Boolean)modConfig.get(IQEditController.CONFIG_KEY_RENDERMENUOPTION);
+			renderSectionsOnly = modConfig.getBooleanEntry(IQEditController.CONFIG_KEY_RENDERMENUOPTION);
 		}
 		menuRenderOptions.select(renderSectionsOnly.toString(), true);
 		menuRenderOptions.addActionListener(FormEvent.ONCLICK);
@@ -224,33 +290,33 @@ public class IQ12EditForm extends FormBasicController {
 		sequence.setEnabled(!renderSectionsOnly);
 
 		
-		Boolean bDisplayQuestionTitle = (Boolean)modConfig.get(IQEditController.CONFIG_KEY_QUESTIONTITLE);
+		Boolean bDisplayQuestionTitle = modConfig.getBooleanEntry(IQEditController.CONFIG_KEY_QUESTIONTITLE);
 		boolean confDisplayQuestionTitle = (bDisplayQuestionTitle != null) ? bDisplayQuestionTitle.booleanValue() : true;
 		displayQuestionTitle = uifactory.addCheckboxesHorizontal("qti_displayQuestionTitle", "qti.form.questiontitle", formLayout, new String[]{"xx"}, new String[]{null});
 		displayQuestionTitle.select("xx", confDisplayQuestionTitle);
 
 		//display  automatic enumetation of choice options
-		Boolean bAutoEnum = (Boolean)modConfig.get(IQEditController.CONFIG_KEY_AUTOENUM_CHOICES);
+		Boolean bAutoEnum = modConfig.getBooleanEntry(IQEditController.CONFIG_KEY_AUTOENUM_CHOICES);
 		boolean confAutoEnum = (bAutoEnum != null) ? bAutoEnum.booleanValue() : false;
 		autoEnumerateChoices = uifactory.addCheckboxesHorizontal("qti_AutoEnumChoices", "qti.form.auto.enumerate.choices", formLayout, new String[]{"xx"}, new String[]{null});
 		autoEnumerateChoices.select("xx", confAutoEnum);
 		
 		//provide  memo field
-		Boolean bMemo = (Boolean)modConfig.get(IQEditController.CONFIG_KEY_MEMO);
+		Boolean bMemo = modConfig.getBooleanEntry(IQEditController.CONFIG_KEY_MEMO);
 		boolean confMemo = (bMemo != null) ? bMemo.booleanValue() : false;
 		provideMemoField = uifactory.addCheckboxesHorizontal("qti_provideMemoField", "qti.form.auto.memofield", formLayout, new String[]{"xx"}, new String[]{null});
 		provideMemoField.select("xx", confMemo);
 		
 		
 		// question progress
-		Boolean bEnableQuestionProgress = (Boolean)modConfig.get(IQEditController.CONFIG_KEY_QUESTIONPROGRESS);
+		Boolean bEnableQuestionProgress = modConfig.getBooleanEntry(IQEditController.CONFIG_KEY_QUESTIONPROGRESS);
 		boolean confEnableQuestionProgress = (bEnableQuestionProgress != null) ? bEnableQuestionProgress.booleanValue() : true;
 		displayQuestionProgress	= uifactory.addCheckboxesHorizontal("qti_enableQuestionProgress", "qti.form.questionprogress", formLayout, new String[]{"xx"}, new String[]{null});
 		displayQuestionProgress.select("xx", confEnableQuestionProgress);
 		displayQuestionProgress.setVisible(!isSurvey);
 		
 		// score progress
-		Boolean bEnableScoreProgress = (Boolean)modConfig.get(IQEditController.CONFIG_KEY_SCOREPROGRESS);
+		Boolean bEnableScoreProgress = modConfig.getBooleanEntry(IQEditController.CONFIG_KEY_SCOREPROGRESS);
 		boolean confEnableScoreProgress = (bEnableScoreProgress != null) ? bEnableScoreProgress.booleanValue() : true;
 		displayScoreProgress = uifactory.addCheckboxesHorizontal("resultTitle", "qti.form.scoreprogress", formLayout, new String[]{"xx"}, new String[]{null});
 		
@@ -264,7 +330,7 @@ public class IQ12EditForm extends FormBasicController {
 		
 		
 		// enable cancel
-		Boolean bEnableCancel = (Boolean)modConfig.get(IQEditController.CONFIG_KEY_ENABLECANCEL);
+		Boolean bEnableCancel = modConfig.getBooleanEntry(IQEditController.CONFIG_KEY_ENABLECANCEL);
 		boolean confEnableCancel = true;
 		if (bEnableCancel != null) {
 			// if defined use config value
@@ -284,7 +350,7 @@ public class IQ12EditForm extends FormBasicController {
 		}
 		
 		// enable suspend
-		Boolean bEnableSuspend = (Boolean)modConfig.get(IQEditController.CONFIG_KEY_ENABLESUSPEND);
+		Boolean bEnableSuspend = modConfig.getBooleanEntry(IQEditController.CONFIG_KEY_ENABLESUSPEND);
 		boolean confEnableSuspend = (bEnableSuspend != null) ? bEnableSuspend.booleanValue() : false;
 		enableSuspend = uifactory.addCheckboxesHorizontal("qti_enableSuspend", "qti.form.enablesuspend", formLayout, new String[]{"xx"}, new String[]{null});
 		enableSuspend.select("xx", confEnableSuspend);
@@ -292,7 +358,7 @@ public class IQ12EditForm extends FormBasicController {
 		uifactory.addSpacerElement("s2", formLayout, true);
 
 		//Show score infos on start page
-		Boolean bEnableScoreInfos = (Boolean)modConfig.get(IQEditController.CONFIG_KEY_ENABLESCOREINFO);
+		Boolean bEnableScoreInfos = modConfig.getBooleanEntry(IQEditController.CONFIG_KEY_ENABLESCOREINFO);
 	  boolean enableScoreInfos = (bEnableScoreInfos != null) ? bEnableScoreInfos.booleanValue() : true;
 		scoreInfo = uifactory.addCheckboxesHorizontal("qti_scoreInfo", "qti.form.scoreinfo", formLayout, new String[]{"xx"}, new String[]{null});
 		scoreInfo.select("xx", enableScoreInfos);
@@ -310,7 +376,7 @@ public class IQ12EditForm extends FormBasicController {
 	  boolean noSummary = configuredSummary!=null && configuredSummary.equals(AssessmentInstance.QMD_ENTRY_SUMMARY_NONE) ? true : false;
 		
 		
-		Boolean showResultOnHomePage = (Boolean) modConfig.get(IQEditController.CONFIG_KEY_RESULT_ON_HOME_PAGE);
+		Boolean showResultOnHomePage = modConfig.getBooleanEntry(IQEditController.CONFIG_KEY_RESULT_ON_HOME_PAGE);
 		boolean confEnableShowResultOnHomePage = (showResultOnHomePage != null) ? showResultOnHomePage.booleanValue() : false;
 		confEnableShowResultOnHomePage = !noSummary && confEnableShowResultOnHomePage;
 		showResultsOnHomePage = uifactory.addCheckboxesHorizontal("qti_enableResultsOnHomePage", "qti.form.results.onhomepage", formLayout, new String[]{"xx"}, new String[]{null});
@@ -318,7 +384,7 @@ public class IQ12EditForm extends FormBasicController {
 		showResultsOnHomePage.addActionListener(FormEvent.ONCLICK);
 		showResultsOnHomePage.setVisible(!isSurvey);
 		
-		Boolean showResultsActive = (Boolean) modConfig.get(IQEditController.CONFIG_KEY_DATE_DEPENDENT_RESULTS);
+		Boolean showResultsActive = modConfig.getBooleanEntry(IQEditController.CONFIG_KEY_DATE_DEPENDENT_RESULTS);
 		boolean showResultsDateDependent = false; // default false
 		if (showResultsActive != null) {
 			showResultsDateDependent = showResultsActive.booleanValue();
@@ -343,7 +409,7 @@ public class IQ12EditForm extends FormBasicController {
 		endDateElement.setDateChooserTimeEnabled(true);
 		endDateElement.setDate(endDate);
 
-		Boolean showResultOnFinish = (Boolean) modConfig.get(IQEditController.CONFIG_KEY_RESULT_ON_FINISH);
+		Boolean showResultOnFinish = modConfig.getBooleanEntry(IQEditController.CONFIG_KEY_RESULT_ON_FINISH);
 		boolean confEnableShowResultOnFinish = (showResultOnFinish != null) ? showResultOnFinish.booleanValue() : true;
 		confEnableShowResultOnFinish = !noSummary && confEnableShowResultOnFinish;
 		showResultsAfterFinishTest = uifactory.addCheckboxesHorizontal("qti_enableResultsOnFinish", "qti.form.results.onfinish", formLayout, new String[]{"xx"}, new String[]{null});
@@ -428,65 +494,72 @@ public class IQ12EditForm extends FormBasicController {
 		flc.setDirty(true);
 	}
 	
+	private boolean isDisplayMenu() {
+		return displayMenu.isSelected(0);
+	}
 	
 	/**
 	 * @return true: menu is enabled
 	 */
-	boolean isEnableMenu() { return enableMenu.isSelected(0); }
+	private boolean isEnableMenu() {
+		return enableMenu.isSelected(0);
+	}
+
 	/**
 	 * @return true: menu should be displayed
 	 */
-	boolean isDisplayMenu() { return displayMenu.isSelected(0); }
-	/**
-	 * @return true: menu should be displayed
-	 */
-	boolean isFullWindow() { return fullWindowEl.isSelected(0); }
+	private boolean isFullWindow() {
+		return fullWindowEl.isSelected(0);
+	}
 	
 	/**
 	 * @return true: score progress is enabled
 	 */
-	boolean isDisplayScoreProgress() { return displayScoreProgress.isSelected(0); }
+	private boolean isDisplayScoreProgress() {
+		return displayScoreProgress.isSelected(0);
+	}
+	
 	/**
 	 * @return true: score progress is enabled
 	 */
-	boolean isDisplayQuestionProgress() { return displayQuestionProgress.isSelected(0); }
+	private boolean isDisplayQuestionProgress() { return displayQuestionProgress.isSelected(0); }
 	/**
 	 * @return true: question title is enabled
 	 */
-	boolean isDisplayQuestionTitle() { return displayQuestionTitle.isSelected(0); }
+	private boolean isDisplayQuestionTitle() { return displayQuestionTitle.isSelected(0); }
 	/**
 	 * @return true: automatic enumeration of choice options enabled 
 	 */
-	boolean isAutoEnumChoices() { return autoEnumerateChoices.isSelected(0); }
+	private boolean isAutoEnumChoices() { return autoEnumerateChoices.isSelected(0); }
 	/**
 	 * @return true: provide memo field
 	 */
-	boolean isProvideMemoField() { return provideMemoField.isSelected(0); }
+	private boolean isProvideMemoField() { return provideMemoField.isSelected(0); }
 	/**
 	 * @return sequence configuration: section or item
 	 */
-	String getSequence() { return sequence.getSelectedKey(); }
+	private String getSequence() { return sequence.getSelectedKey(); }
 	/**
 	 * @return true: cancel is enabled
 	 */
-	boolean isEnableCancel() { return enableCancel.isSelected(0); }
+	private boolean isEnableCancel() { return enableCancel.isSelected(0); }
 	/**
 	 * @return true: suspend is enabled
 	 */
-	boolean isEnableSuspend() { return enableSuspend.isSelected(0); }
+	private boolean isEnableSuspend() { return enableSuspend.isSelected(0); }
 	/**
 	 * @return summary type: compact or detailed
 	 */
-	String getSummary() { return summary.getSelectedKey();}
+	private String getSummary() { return summary.getSelectedKey();}
 	/**
 	 * @return number of max attempts
 	 */
-	Integer getAttempts() { 
+	private Integer getAttempts() { 
 		Integer a =  attempts.getIntValue();
 		return a == 0 ? null : attempts.getIntValue();
 	}
 	
-	boolean isBlockAfterSuccess() {
+	private boolean isBlockAfterSuccess() {
 		return blockAfterSuccess.isSelected(0);
 	}
 	
@@ -494,41 +567,41 @@ public class IQ12EditForm extends FormBasicController {
 	 * 
 	 * @return true if only section title should be rendered
 	 */
-	Boolean isMenuRenderSectionsOnly() {	return Boolean.valueOf(menuRenderOptions.getSelectedKey());}
+	private Boolean isMenuRenderSectionsOnly() {	return Boolean.valueOf(menuRenderOptions.getSelectedKey());}
 	/**
 	 * @return true: score-info on start-page is enabled
 	 */
-	boolean isEnableScoreInfo() { return scoreInfo.isSelected(0); }	
+	private boolean isEnableScoreInfo() { return scoreInfo.isSelected(0); }	
 	
 	/**
 	 * 
 	 * @return true is the results are shown date dependent
 	 */
-	boolean isShowResultsDateDependent() { return showResultsDateDependentButton.isSelected(0); }
+	private boolean isShowResultsDateDependent() { return showResultsDateDependentButton.isSelected(0); }
 	
 	/**
 	 * 
 	 * @return Returns the start date for the result visibility.
 	 */
-	Date getShowResultsStartDate() { return startDateElement.getDate(); }
+	private Date getShowResultsStartDate() { return startDateElement.getDate(); }
 	
 	/**
 	 * 
 	 * @return Returns the end date for the result visibility.
 	 */
-	Date getShowResultsEndDate() { return endDateElement.getDate(); }
+	private Date getShowResultsEndDate() { return endDateElement.getDate(); }
 	
 	/**
 	 * 
 	 * @return Returns true if the results are shown after test finished.
 	 */
-	boolean isShowResultsAfterFinishTest() { return showResultsAfterFinishTest.isSelected(0); }
+	private boolean isShowResultsAfterFinishTest() { return showResultsAfterFinishTest.isSelected(0); }
 	
 	/**
 	 * 
 	 * @return Returns true if the results are shown on the test home page.
 	 */
-	boolean isShowResultsOnHomePage() { return showResultsOnHomePage.isSelected(0); }
+	private boolean isShowResultsOnHomePage() { return showResultsOnHomePage.isSelected(0); }
 	
 	
 	@Override

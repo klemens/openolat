@@ -168,7 +168,7 @@ public class RepositoryEntryRelationDAO {
 	
 	public void addRole(Identity identity, RepositoryEntryRef re, String role) {
 		Group group = getDefaultGroup(re);
-		groupDao.addMembership(group, identity, role);
+		groupDao.addMembershipOneWay(group, identity, role);
 	}
 	
 	public int removeRole(IdentityRef identity, RepositoryEntryRef re, String role) {
@@ -181,6 +181,14 @@ public class RepositoryEntryRelationDAO {
 		return groupDao.removeMemberships(group, role);
 	}
 
+	/**
+	 * Retrieve the default group of the repository entry (the one
+	 * marked with the flag defaultGroup=true). The query is cached
+	 * by hibernate 2nd level cache.
+	 * 
+	 * @param re The repository entry
+	 * @return The group
+	 */
 	public Group getDefaultGroup(RepositoryEntryRef re) {
 		StringBuilder sb = new StringBuilder();
 		sb.append("select baseGroup from ").append(RepositoryEntry.class.getName()).append(" as v ")
@@ -190,6 +198,7 @@ public class RepositoryEntryRelationDAO {
 
 		return dbInstance.getCurrentEntityManager().createQuery(sb.toString(), Group.class)
 				.setParameter("repoKey", re.getKey())
+				.setHint("org.hibernate.cacheable", Boolean.TRUE)
 				.getSingleResult();
 	}
 	
@@ -307,11 +316,13 @@ public class RepositoryEntryRelationDAO {
 	
 	public List<Identity> getIdentitiesWithRole(String role) {
 		StringBuilder sb = new StringBuilder();
-		sb.append("select distinct members.identity from ").append(RepositoryEntry.class.getName()).append(" as v")
+		sb.append("select distinct ident from ").append(RepositoryEntry.class.getName()).append(" as v")
 		  .append(" inner join v.groups as relGroup")
 		  .append(" inner join relGroup.group as baseGroup")
-		  .append(" inner join baseGroup.members as members")
-		  .append(" where members.role=:role");
+		  .append(" inner join baseGroup.members as memberships")
+		  .append(" inner join memberships.identity as ident")
+		  .append(" inner join fetch ident.user as identUser")
+		  .append(" where memberships.role=:role");
 
 		return dbInstance.getCurrentEntityManager()
 				.createQuery(sb.toString(), Identity.class)
@@ -420,13 +431,15 @@ public class RepositoryEntryRelationDAO {
 		}
 		
 		StringBuilder sb = new StringBuilder();
-		sb.append("select members.identity from ").append(RepositoryEntry.class.getName()).append(" as v")
+		sb.append("select ident from ").append(RepositoryEntry.class.getName()).append(" as v")
 		  .append(" inner join v.groups as relGroup").append(def)
 		  .append(" inner join relGroup.group as baseGroup")
-		  .append(" inner join baseGroup.members as members")
+		  .append(" inner join baseGroup.members as memberships")
+		  .append(" inner join memberships.identity as ident")
+		  .append(" inner join fetch ident.user as identUser")
 		  .append(" where v.key=:repoKey");
 		if(roleList.size() > 0) {
-				sb.append(" and members.role in (:roles)");
+				sb.append(" and memberships.role in (:roles)");
 		}
 			
 		TypedQuery<Identity> query = dbInstance.getCurrentEntityManager()
@@ -532,6 +545,10 @@ public class RepositoryEntryRelationDAO {
 		return count;
 	}
 	
+	public void removeRelation(RepositoryEntryToGroupRelation rel) {
+		dbInstance.getCurrentEntityManager().remove(rel);
+	}
+	
 	/**
 	 * Count the number of relation from a group to repository entries
 	 * 
@@ -548,6 +565,27 @@ public class RepositoryEntryRelationDAO {
 			.setParameter("groupKey", group.getKey())
 			.getSingleResult();
 		return count == null ? 0 : count.intValue();
+	}
+	
+	/**
+	 * Get all the relations of a repository entries
+	 * 
+	 * @param groups
+	 * @return The list of relations
+	 */
+	public List<RepositoryEntryToGroupRelation> getRelations(RepositoryEntryRef re) {
+		if(re == null) return Collections.emptyList();
+		
+		StringBuilder sb = new StringBuilder();
+		sb.append("select rel from repoentrytogroup as rel")
+		  .append(" inner join fetch rel.entry as entry")
+		  .append(" inner join fetch rel.group as baseGroup")
+		  .append(" where entry.key=:repoKey");
+
+		return dbInstance.getCurrentEntityManager()
+			.createQuery(sb.toString(), RepositoryEntryToGroupRelation.class)
+			.setParameter("repoKey", re.getKey())
+			.getResultList();
 	}
 	
 	/**
@@ -571,5 +609,20 @@ public class RepositoryEntryRelationDAO {
 			.createQuery(sb.toString(), RepositoryEntryToGroupRelation.class)
 			.setParameter("groups", groups)
 			.getResultList();
+	}
+	
+	public List<Long> getBusinessGroupsKeyOwnedAsAuthor(IdentityRef owner) {
+		StringBuilder sb = new StringBuilder();
+		sb.append("select bg.key from repoentrytogroup as rel")
+		  .append(" inner join rel.group as reBaseGroup on (rel.defaultGroup=true)")
+		  .append(" inner join reBaseGroup.members as reMember on (reMember.identity.key=:ownerKey and reMember.role='").append(GroupRoles.owner.name()).append("')")
+		  .append(" inner join rel.entry as v")
+		  .append(" inner join v.groups as relGroup on (relGroup.defaultGroup=false)")
+		  .append(" inner join relGroup.group as bgBaseGroup")
+		  .append(" inner join businessgroup as bg on (bg.baseGroup.key=bgBaseGroup.key)");
+		return dbInstance.getCurrentEntityManager()
+				.createQuery(sb.toString(), Long.class)
+				.setParameter("ownerKey", owner.getKey())
+				.getResultList();
 	}
 }

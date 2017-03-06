@@ -34,7 +34,6 @@ import org.olat.core.gui.components.form.flexible.impl.elements.table.FlexiTable
 import org.olat.core.gui.components.form.flexible.impl.elements.table.FlexiTableDataModelFactory;
 import org.olat.core.gui.components.form.flexible.impl.elements.table.SelectionEvent;
 import org.olat.core.gui.components.form.flexible.impl.elements.table.StaticFlexiCellRenderer;
-import org.olat.core.gui.components.form.flexible.impl.elements.table.StaticFlexiColumnModel;
 import org.olat.core.gui.components.form.flexible.impl.elements.table.TextFlexiCellRenderer;
 import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.Event;
@@ -82,9 +81,9 @@ public class GoToMeetingsAdminController extends FormBasicController {
 		columnsModel.addFlexiColumnModel(new DefaultFlexiColumnModel(MeetingsCols.end.i18nHeaderKey(), MeetingsCols.end.ordinal(), true, MeetingsCols.end.name()));
 		columnsModel.addFlexiColumnModel(new DefaultFlexiColumnModel(MeetingsCols.organizer.i18nHeaderKey(), MeetingsCols.organizer.ordinal(), true, MeetingsCols.organizer.name()));
 		FlexiCellRenderer renderer = new StaticFlexiCellRenderer("resource", new TextFlexiCellRenderer());
-		columnsModel.addFlexiColumnModel(new StaticFlexiColumnModel(MeetingsCols.resource.i18nHeaderKey(), MeetingsCols.resource.ordinal(), "resource",
+		columnsModel.addFlexiColumnModel(new DefaultFlexiColumnModel(MeetingsCols.resource.i18nHeaderKey(), MeetingsCols.resource.ordinal(), "resource",
 				true, MeetingsCols.resource.name(), renderer));
-		columnsModel.addFlexiColumnModel(new StaticFlexiColumnModel("delete", translate("delete"), "delete"));
+		columnsModel.addFlexiColumnModel(new DefaultFlexiColumnModel("delete", translate("delete"), "delete"));
 		
 		tableModel = new GoToMeetingTableModel(columnsModel);
 		tableEl = uifactory.addTableElement(getWindowControl(), "meetings", tableModel, getTranslator(), formLayout);

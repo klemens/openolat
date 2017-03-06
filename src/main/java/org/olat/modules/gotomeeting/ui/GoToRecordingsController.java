@@ -32,7 +32,6 @@ import org.olat.core.gui.components.form.flexible.impl.elements.table.DefaultFle
 import org.olat.core.gui.components.form.flexible.impl.elements.table.FlexiTableColumnModel;
 import org.olat.core.gui.components.form.flexible.impl.elements.table.FlexiTableDataModelFactory;
 import org.olat.core.gui.components.form.flexible.impl.elements.table.SelectionEvent;
-import org.olat.core.gui.components.form.flexible.impl.elements.table.StaticFlexiColumnModel;
 import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.Event;
 import org.olat.core.gui.control.WindowControl;
@@ -77,7 +76,7 @@ public class GoToRecordingsController extends FormBasicController {
 		columnsModel.addFlexiColumnModel(new DefaultFlexiColumnModel(RecordingsCols.name.i18nHeaderKey(), RecordingsCols.name.ordinal(), true, RecordingsCols.name.name()));
 		columnsModel.addFlexiColumnModel(new DefaultFlexiColumnModel(RecordingsCols.start.i18nHeaderKey(), RecordingsCols.start.ordinal(), true, RecordingsCols.start.name()));
 		columnsModel.addFlexiColumnModel(new DefaultFlexiColumnModel(RecordingsCols.end.i18nHeaderKey(), RecordingsCols.end.ordinal(), true, RecordingsCols.end.name()));
-		columnsModel.addFlexiColumnModel(new StaticFlexiColumnModel("select", translate("select"), "select"));
+		columnsModel.addFlexiColumnModel(new DefaultFlexiColumnModel("select", translate("select"), "select"));
 
 		tableModel = new GoToRecordingsTableModel(columnsModel);
 		GoToError error = new GoToError();

@@ -36,8 +36,10 @@ import org.olat.core.gui.components.form.flexible.impl.elements.table.FlexiColum
 import org.olat.core.gui.components.form.flexible.impl.elements.table.FlexiTableComponent;
 import org.olat.core.gui.components.form.flexible.impl.elements.table.FlexiTableComponentDelegate;
 import org.olat.core.gui.components.form.flexible.impl.elements.table.FlexiTableRendererType;
-import org.olat.core.gui.components.form.flexible.impl.elements.table.FlexiTableRowCssDelegate;
+import org.olat.core.gui.components.form.flexible.impl.elements.table.FlexiTableCssDelegate;
 import org.olat.core.gui.components.velocity.VelocityContainer;
+import org.olat.core.gui.control.generic.ajax.autocompletion.ListProvider;
+import org.olat.core.util.UserSession;
 
 /**
  * 
@@ -84,6 +86,18 @@ public interface FlexiTableElement extends FormItem {
 	 * @param componentDelegate
 	 */
 	public void setDetailsRenderer(VelocityContainer rowRenderer, FlexiTableComponentDelegate componentDelegate);
+	
+	/**
+	 * @return Return true if the table has border on every cell.
+	 */
+	public boolean isBordered();
+	
+	/**
+	 * If true, set a border to every cell.
+	 * 
+	 * @param bordered Set or not border to the cells
+	 */
+	public void setBordered(boolean bordered);
 
 	/**
 	 * @return True if muli selection is enabled
@@ -131,9 +145,9 @@ public interface FlexiTableElement extends FormItem {
 	 */
 	public void setWrapperSelector(String wrapperSelector);
 	
-	public FlexiTableRowCssDelegate getRowCssDelegate();
+	public FlexiTableCssDelegate getCssDelegate();
 
-	public void setRowCssDelegate(FlexiTableRowCssDelegate rowCssDelegate);
+	public void setCssDelegate(FlexiTableCssDelegate rowCssDelegate);
 	
 	/**
 	 * 
@@ -198,6 +212,16 @@ public interface FlexiTableElement extends FormItem {
 	public boolean isMultiSelectedIndex(int index);
 	
 	/**
+	 * Select all rows of all pages.
+	 */
+	public void selectAll();
+	
+	/**
+	 * Remove all multi selected index.
+	 */
+	public void deselectAll();
+	
+	/**
 	 * Is a search field enabled
 	 * @return
 	 */
@@ -210,15 +234,30 @@ public interface FlexiTableElement extends FormItem {
 	public void setSearchEnabled(boolean enable);
 	
 	/**
+	 * Enable the search with a suggestions provider.
+	 * 
+	 * @param autoCompleteProvider
+	 */
+	public void setSearchEnabled(ListProvider autoCompleteProvider, UserSession usess);
+	
+	/**
 	 * Is the filer enabled?
 	 * @return
 	 */
 	public boolean isFilterEnabled();
 	
+	public List<FlexiTableFilter> getSelectedFilters();
+	
 	/**
 	 * @return The selected key by the filter, or null if no item is selected
 	 */
 	public String getSelectedFilterKey();
+	
+	/**
+	 * Preset the selected filter, but don't trigger sort/filter operation.
+	 * @param key
+	 */
+	public void setSelectedFilterKey(String key);
 	
 	/**
 	 * @return The selected value by the filter, or null if no item is selected
@@ -229,8 +268,9 @@ public interface FlexiTableElement extends FormItem {
 	 * Set the values for the filter and it will enable it.
 	 * @param keys
 	 * @param values
+	 * @param multiSelection Allow to select more than one filter
 	 */
-	public void setFilters(String label, List<FlexiTableFilter> filters);
+	public void setFilters(String label, List<FlexiTableFilter> filters, boolean multiSelection);
 	
 	/**
 	 * 
@@ -289,6 +329,16 @@ public interface FlexiTableElement extends FormItem {
 	public void collapseExtendedSearch();
 	
 	/**
+	 * Setup a filter button right of the quick search
+	 * @param label
+	 */
+	public void setExtendedFilterButton(String label, List<FlexiTableFilter> extendedFilters);
+	
+	public List<FlexiTableFilter> getSelectedExtendedFilters();
+	
+	public void setSelectedExtendedFilters(List<FlexiTableFilter> filters);
+	
+	/**
 	 * Is the details view visible for this particular row?
 	 */
 	public boolean isDetailsExpended(int row);
@@ -321,6 +371,13 @@ public interface FlexiTableElement extends FormItem {
 	
 	public void setPage(int page);
 	
+	/**
+	 *Return the value of the quick search field if it is
+	 * visible and enabled.
+	 * @return
+	 */
+	public String getQuickSearchString();
+	
 	public void quickSearch(UserRequest ureq, String search);
 	
 	public void sort(String sortKey, boolean asc);
@@ -337,9 +394,15 @@ public interface FlexiTableElement extends FormItem {
 	 */
 	public void reset(boolean page, boolean internal, boolean reloadData);
 	
-	public void reloadData();
+	/**
+	 * It will reload all the data without filter. Use it with cautious as
+	 * at some place, there are minimal restrictions to the search string.
+	 * 
+	 * @param ureq
+	 */
+	public void resetSearch(UserRequest ureq);
 	
-	public void deselectAll();
+	public void reloadData();
 
 	/**
 	 * Set the message displayed when the table is empty and the table header

@@ -67,7 +67,7 @@ import org.olat.course.DisposedCourseRestartController;
 import org.olat.course.ICourse;
 import org.olat.course.assessment.AssessmentHelper;
 import org.olat.course.assessment.AssessmentManager;
-import org.olat.course.assessment.AssessmentNotificationsHandler;
+import org.olat.course.assessment.manager.AssessmentNotificationsHandler;
 import org.olat.course.auditing.UserNodeAuditManager;
 import org.olat.course.nodes.AssessableCourseNode;
 import org.olat.course.nodes.CourseNode;
@@ -75,6 +75,7 @@ import org.olat.course.nodes.IQSELFCourseNode;
 import org.olat.course.nodes.IQSURVCourseNode;
 import org.olat.course.nodes.IQTESTCourseNode;
 import org.olat.course.nodes.ObjectivesHelper;
+import org.olat.course.nodes.PersistentAssessableCourseNode;
 import org.olat.course.nodes.SelfAssessableCourseNode;
 import org.olat.course.run.scoring.ScoreEvaluation;
 import org.olat.course.run.userview.UserCourseEnvironment;
@@ -85,12 +86,15 @@ import org.olat.ims.qti.process.AssessmentInstance;
 import org.olat.ims.qti.process.ImsRepositoryResolver;
 import org.olat.instantMessaging.InstantMessagingService;
 import org.olat.modules.ModuleConfiguration;
+import org.olat.modules.assessment.AssessmentEntry;
+import org.olat.modules.assessment.model.AssessmentEntryStatus;
 import org.olat.modules.iq.IQDisplayController;
 import org.olat.modules.iq.IQManager;
 import org.olat.modules.iq.IQSecurityCallback;
 import org.olat.modules.iq.IQSubmittedEvent;
 import org.olat.repository.RepositoryEntry;
 import org.olat.util.logging.activity.LoggingResourceable;
+import org.springframework.beans.factory.annotation.Autowired;
 
 /**
  * Description:<BR>
@@ -121,13 +125,18 @@ public class IQRunController extends BasicController implements GenericEventList
 	private StackedPanel mainPanel;
 	
 	private boolean assessmentStopped = true; //default: true
-	private EventBus singleUserEventCenter;
-	private OLATResourceable assessmentEventOres;	
+		
 	private UserSession userSession;
+	private final EventBus singleUserEventCenter;
+	private final OLATResourceable assessmentEventOres = OresHelper.createOLATResourceableType(AssessmentEvent.class);
+	private final OLATResourceable assessmentInstanceOres = OresHelper.createOLATResourceableType(AssessmentInstance.class);
 	
-	private OLATResourceable assessmentInstanceOres;
+	private final RepositoryEntry referenceTestEntry; 
 	
-	private final IQManager iqManager;
+	@Autowired
+	private IQManager iqManager;
+	@Autowired
+	private AssessmentNotificationsHandler assessmentNotificationsHandler;
 	
 	/**
 	 * Constructor for a test run controller
@@ -138,7 +147,10 @@ public class IQRunController extends BasicController implements GenericEventList
 	 * @param wControl
 	 * @param testCourseNode
 	 */
-	IQRunController(UserCourseEnvironment userCourseEnv, ModuleConfiguration moduleConfiguration, IQSecurityCallback secCallback, UserRequest ureq, WindowControl wControl, IQTESTCourseNode testCourseNode) {
+	public IQRunController(UserCourseEnvironment userCourseEnv, ModuleConfiguration moduleConfiguration,
+			IQSecurityCallback secCallback, UserRequest ureq, WindowControl wControl,
+			IQTESTCourseNode testCourseNode, RepositoryEntry testEntry) {
+		
 		super(ureq, wControl, Util.createPackageTranslator(CourseNode.class, ureq.getLocale()));
 		
 		this.modConfig = moduleConfiguration;
@@ -147,11 +159,9 @@ public class IQRunController extends BasicController implements GenericEventList
 		this.courseNode = testCourseNode;
 		this.type = AssessmentInstance.QMD_ENTRY_TYPE_ASSESS;
 		this.singleUserEventCenter = ureq.getUserSession().getSingleUserEventCenter();
-		this.assessmentEventOres = OresHelper.createOLATResourceableType(AssessmentEvent.class);
-		this.assessmentInstanceOres = OresHelper.createOLATResourceableType(AssessmentInstance.class);
+		this.referenceTestEntry = testEntry;
 		
 		this.userSession = ureq.getUserSession();
-		iqManager = CoreSpringFactory.getImpl(IQManager.class);
 		
 		addLoggingResourceable(LoggingResourceable.wrap(courseNode));
 		
@@ -173,7 +183,7 @@ public class IQRunController extends BasicController implements GenericEventList
 		}
 		
 	  //if show results on test home page configured - show log
-		Boolean showResultOnHomePage = (Boolean) testCourseNode.getModuleConfiguration().get(IQEditController.CONFIG_KEY_RESULT_ON_HOME_PAGE);		
+		Boolean showResultOnHomePage = testCourseNode.getModuleConfiguration().getBooleanEntry(IQEditController.CONFIG_KEY_RESULT_ON_HOME_PAGE);		
 		myContent.contextPut("showChangelog", showResultOnHomePage);
 	}
 
@@ -185,13 +195,13 @@ public class IQRunController extends BasicController implements GenericEventList
 		/*
 		 * TODO:pb:is ImsRepositoryResolver the right place for getting the change log?
 		 */
-		RepositoryEntry re = courseNode.getReferencedRepositoryEntry();
+
 		//re could be null, but if we are here it should not be null!
 		Roles userRoles = ureq.getUserSession().getRoles();
 		boolean showAll = userRoles.isAuthor() || userRoles.isOLATAdmin();
 		//get changelog
 		Formatter formatter = Formatter.getInstance(ureq.getLocale());
-		ImsRepositoryResolver resolver = new ImsRepositoryResolver(re);
+		ImsRepositoryResolver resolver = new ImsRepositoryResolver(referenceTestEntry);
 		QTIChangeLogMessage[] qtiChangeLog = resolver.getDocumentChangeLog();
 		StringBuilder qtiChangelog = new StringBuilder();
 
@@ -229,7 +239,7 @@ public class IQRunController extends BasicController implements GenericEventList
 	 * @param wControl
 	 * @param selftestCourseNode
 	 */
-	IQRunController(UserCourseEnvironment userCourseEnv, ModuleConfiguration moduleConfiguration, IQSecurityCallback secCallback, UserRequest ureq, WindowControl wControl, IQSELFCourseNode selftestCourseNode) {
+	public IQRunController(UserCourseEnvironment userCourseEnv, ModuleConfiguration moduleConfiguration, IQSecurityCallback secCallback, UserRequest ureq, WindowControl wControl, IQSELFCourseNode selftestCourseNode) {
 		super(ureq, wControl, Util.createPackageTranslator(CourseNode.class, ureq.getLocale()));
 		
 		this.modConfig = moduleConfiguration;
@@ -237,6 +247,8 @@ public class IQRunController extends BasicController implements GenericEventList
 		this.userCourseEnv = userCourseEnv;
 		this.courseNode = selftestCourseNode;
 		this.type = AssessmentInstance.QMD_ENTRY_TYPE_SELF;
+		this.referenceTestEntry = selftestCourseNode.getReferencedRepositoryEntry();
+		this.singleUserEventCenter = ureq.getUserSession().getSingleUserEventCenter();
 		iqManager = CoreSpringFactory.getImpl(IQManager.class);
 
 		addLoggingResourceable(LoggingResourceable.wrap(courseNode));
@@ -270,14 +282,16 @@ public class IQRunController extends BasicController implements GenericEventList
 	 * @param wControl
 	 * @param surveyCourseNode
 	 */
-	IQRunController(UserCourseEnvironment userCourseEnv, ModuleConfiguration moduleConfiguration, IQSecurityCallback secCallback, UserRequest ureq, WindowControl wControl, IQSURVCourseNode surveyCourseNode) {
+	public IQRunController(UserCourseEnvironment userCourseEnv, ModuleConfiguration moduleConfiguration, IQSecurityCallback secCallback, UserRequest ureq, WindowControl wControl, IQSURVCourseNode surveyCourseNode) {
 		super(ureq, wControl, Util.createPackageTranslator(CourseNode.class, ureq.getLocale()));
 		
 		this.modConfig = moduleConfiguration;
 		this.secCallback = secCallback;
 		this.userCourseEnv = userCourseEnv;
 		this.courseNode = surveyCourseNode;
+		this.referenceTestEntry = surveyCourseNode.getReferencedRepositoryEntry();
 		this.type = AssessmentInstance.QMD_ENTRY_TYPE_SURVEY;
+		this.singleUserEventCenter = ureq.getUserSession().getSingleUserEventCenter();
 		iqManager = CoreSpringFactory.getImpl(IQManager.class);
 		
 		addLoggingResourceable(LoggingResourceable.wrap(courseNode));
@@ -309,6 +323,8 @@ public class IQRunController extends BasicController implements GenericEventList
 		startButton = LinkFactory.createButton("start", myContent, this);
 		startButton.setElementCssClass("o_sel_start_qti12_test");
 		startButton.setPrimary(true);
+		startButton.setVisible(!userCourseEnv.isCourseReadOnly());
+	
 		// fetch disclaimer file
 		String sDisclaimer = (String)modConfig.get(IQEditController.CONFIG_KEY_DISCLAIMER);
 		if (sDisclaimer != null) {
@@ -376,7 +392,7 @@ public class IQRunController extends BasicController implements GenericEventList
 	 * @see org.olat.core.gui.control.DefaultController#event(org.olat.core.gui.UserRequest, org.olat.core.gui.components.Component, org.olat.core.gui.control.Event)
 	 */
 	public void event(UserRequest ureq, Component source, Event event) {
-		if (source == startButton && startButton.isEnabled()){
+		if (source == startButton && startButton.isEnabled() && startButton.isVisible()){
 			long courseResId = userCourseEnv.getCourseEnvironment().getCourseResourceableId().longValue();
 			String courseNodeIdent = courseNode.getIdent();
 			removeAsListenerAndDispose(displayController);
@@ -458,22 +474,27 @@ public class IQRunController extends BasicController implements GenericEventList
 		if (type.equals(AssessmentInstance.QMD_ENTRY_TYPE_ASSESS)) {
 			AssessmentContext ac = ai.getAssessmentContext();
 			AssessmentManager am = userCourseEnv.getCourseEnvironment().getAssessmentManager();
-			Float score = new Float(ac.getScore());
-			Boolean passed = new Boolean(ac.isPassed());
-			ScoreEvaluation sceval = new ScoreEvaluation(score, passed, am.getNodeFullyAssessed(courseNode,
-					getIdentity()), new Long(ai.getAssessID()));
-			AssessableCourseNode acn = (AssessableCourseNode)courseNode; // assessment nodes are assesable			
-			boolean incrementUserAttempts = true;
-			acn.updateUserScoreEvaluation(sceval, userCourseEnv, getIdentity(), incrementUserAttempts);
+			Boolean fullyAssed = am.getNodeFullyAssessed(courseNode, getIdentity());
+			
+			String correctionMode = courseNode.getModuleConfiguration().getStringValue(IQEditController.CONFIG_CORRECTION_MODE);
+			AssessmentEntryStatus assessmentStatus;
+			if(IQEditController.CORRECTION_MANUAL.equals(correctionMode)) {
+				assessmentStatus = AssessmentEntryStatus.inReview;
+			} else {
+				assessmentStatus = AssessmentEntryStatus.done;
+			}
+			
+			ScoreEvaluation sceval = new ScoreEvaluation(ac.getScore(), ac.isPassed(), assessmentStatus, fullyAssed, ai.getAssessID());
+			AssessableCourseNode acn = (AssessableCourseNode)courseNode; // assessment nodes are assesable		
+			acn.updateUserScoreEvaluation(sceval, userCourseEnv, getIdentity(), true);
 				
 			// Mark publisher for notifications
-			AssessmentNotificationsHandler anh = AssessmentNotificationsHandler.getInstance();
 			Long courseId = userCourseEnv.getCourseEnvironment().getCourseResourceableId();
-			anh.markPublisherNews(getIdentity(), courseId);
+			assessmentNotificationsHandler.markPublisherNews(getIdentity(), courseId);
 			if(!assessmentStopped) {
-			  assessmentStopped = true;					  
-			  AssessmentEvent assessmentStoppedEvent = new AssessmentEvent(AssessmentEvent.TYPE.STOPPED, userSession);
-			  singleUserEventCenter.deregisterFor(this, assessmentInstanceOres);
+				assessmentStopped = true;					  
+				AssessmentEvent assessmentStoppedEvent = new AssessmentEvent(AssessmentEvent.TYPE.STOPPED, userSession);
+				singleUserEventCenter.deregisterFor(this, assessmentInstanceOres);
 				singleUserEventCenter.fireEventToListenersOf(assessmentStoppedEvent, assessmentEventOres);
 			}
 		} else if (type.equals(AssessmentInstance.QMD_ENTRY_TYPE_SURVEY)) {
@@ -551,42 +572,49 @@ public class IQRunController extends BasicController implements GenericEventList
 	}
 
 	private void exposeUserTestDataToVC(UserRequest ureq) {
-    // config : show score info
+		// config : show score info
 		Object enableScoreInfoObject = modConfig.get(IQEditController.CONFIG_KEY_ENABLESCOREINFO);
 		if (enableScoreInfoObject != null) {
 			myContent.contextPut("enableScoreInfo", enableScoreInfoObject );	
 		} else {
 			myContent.contextPut("enableScoreInfo", Boolean.TRUE );
 		}
-   
-    // configuration data
-    myContent.contextPut("attemptsConfig", modConfig.get(IQEditController.CONFIG_KEY_ATTEMPTS));
-    // user data
-    if ( !(courseNode instanceof AssessableCourseNode))
-    	throw new AssertException("exposeUserTestDataToVC can only be called for test nodes, not for selftest or questionnaire");
-		AssessableCourseNode acn = (AssessableCourseNode)courseNode; // assessment nodes are assesable
-		ScoreEvaluation scoreEval = acn.getUserScoreEvaluation(userCourseEnv);
-		
-		//block if test passed (and config set to check it)
-		Boolean blockAfterSuccess = (Boolean)modConfig.get(IQEditController.CONFIG_KEY_BLOCK_AFTER_SUCCESS);
-    Boolean blocked = Boolean.FALSE;
-    if(blockAfterSuccess != null && blockAfterSuccess.booleanValue()) {
-    	Boolean passed = scoreEval.getPassed();
-    	if(passed != null && passed.booleanValue()) {
-    		blocked = Boolean.TRUE;
-    	}
-    }
-    myContent.contextPut("blockAfterSuccess", blocked );
-		
+		// configuration data
+		myContent.contextPut("attemptsConfig", modConfig.get(IQEditController.CONFIG_KEY_ATTEMPTS));
+
+		// user data
 		Identity identity = userCourseEnv.getIdentityEnvironment().getIdentity();
-		myContent.contextPut("score", AssessmentHelper.getRoundedScore(scoreEval.getScore()));
-		myContent.contextPut("hasPassedValue", (scoreEval.getPassed() == null ? Boolean.FALSE : Boolean.TRUE));
-		myContent.contextPut("passed", scoreEval.getPassed());
-		StringBuilder comment = Formatter.stripTabsAndReturns(acn.getUserUserComment(userCourseEnv));
-		myContent.contextPut("comment", StringHelper.xssScan(comment));
-		myContent.contextPut("attempts", acn.getUserAttempts(userCourseEnv));
-		
-		UserNodeAuditManager am = userCourseEnv.getCourseEnvironment().getAuditManager();
+    	if(courseNode instanceof PersistentAssessableCourseNode) {
+    		PersistentAssessableCourseNode acn = (PersistentAssessableCourseNode)courseNode;
+    		AssessmentEntry assessmentEntry = acn.getUserAssessmentEntry(userCourseEnv);
+    		if(assessmentEntry == null) {
+    			myContent.contextPut("blockAfterSuccess", Boolean.FALSE);
+	    		myContent.contextPut("score", null);
+	    		myContent.contextPut("hasPassedValue", Boolean.FALSE);
+	    		myContent.contextPut("passed", Boolean.FALSE);
+	    		myContent.contextPut("comment", null);
+	    		myContent.contextPut("attempts", 0);
+    		} else {
+	    		//block if test passed (and config set to check it)
+	    		Boolean blockAfterSuccess = modConfig.getBooleanEntry(IQEditController.CONFIG_KEY_BLOCK_AFTER_SUCCESS);
+	    		Boolean blocked = Boolean.FALSE;
+	    		if(blockAfterSuccess != null && blockAfterSuccess.booleanValue()) {
+	        		Boolean passed = assessmentEntry.getPassed();
+	        		if(passed != null && passed.booleanValue()) {
+	        			blocked = Boolean.TRUE;
+	        		}
+	    		}
+	    		myContent.contextPut("blockAfterSuccess", blocked);
+	    		myContent.contextPut("score", AssessmentHelper.getRoundedScore(assessmentEntry.getScore()));
+	    		myContent.contextPut("hasPassedValue", (assessmentEntry.getPassed() == null ? Boolean.FALSE : Boolean.TRUE));
+	    		myContent.contextPut("passed", assessmentEntry.getPassed());
+	    		StringBuilder comment = Formatter.stripTabsAndReturns(assessmentEntry.getComment());
+	    		myContent.contextPut("comment", StringHelper.xssScan(comment));
+	    		myContent.contextPut("attempts", assessmentEntry.getAttempts() == null ? 0 : assessmentEntry.getAttempts());
+    		}
+    	}
+    	
+    	UserNodeAuditManager am = userCourseEnv.getCourseEnvironment().getAuditManager();
 		myContent.contextPut("log", am.getUserNodeLog(courseNode, identity));
 						
 		exposeResults(ureq);
@@ -629,7 +657,7 @@ public class IQRunController extends BasicController implements GenericEventList
 	  String configuredSummary = (String) modConfig.get(IQEditController.CONFIG_KEY_SUMMARY);
 	  boolean noSummary = configuredSummary==null || (configuredSummary!=null && configuredSummary.equals(AssessmentInstance.QMD_ENTRY_SUMMARY_NONE));
 		if(!noSummary) {
-			Boolean showResultsObj = (Boolean)modConfig.get(IQEditController.CONFIG_KEY_RESULT_ON_HOME_PAGE);		
+			Boolean showResultsObj = modConfig.getBooleanEntry(IQEditController.CONFIG_KEY_RESULT_ON_HOME_PAGE);		
 			boolean showResultsOnHomePage = (showResultsObj!=null && showResultsObj.booleanValue());
 			myContent.contextPut("showResultsOnHomePage",new Boolean(showResultsOnHomePage));			
 			boolean dateRelatedVisibility = AssessmentHelper.isResultVisible(modConfig);		

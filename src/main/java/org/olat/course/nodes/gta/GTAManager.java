@@ -35,6 +35,7 @@ import org.olat.course.nodes.gta.ui.events.SubmitEvent;
 import org.olat.course.run.environment.CourseEnvironment;
 import org.olat.group.BusinessGroup;
 import org.olat.group.BusinessGroupRef;
+import org.olat.modules.assessment.model.AssessmentEntryStatus;
 import org.olat.repository.RepositoryEntry;
 import org.olat.repository.RepositoryEntryRef;
 import org.olat.resource.OLATResource;
@@ -199,6 +200,14 @@ public interface GTAManager {
 	public boolean isTasksInProcess(RepositoryEntryRef entry, GTACourseNode gtaNode);
 	
 	/**
+	 * Convert the status of a task to the status used by the assessment tool.
+	 * @param task
+	 * @param cNode
+	 * @return
+	 */
+	public AssessmentEntryStatus convertToAssessmentEntrystatus(Task task, GTACourseNode cNode);
+	
+	/**
 	 * Are users already processing this task?
 	 * 
 	 * @param entry
@@ -207,6 +216,12 @@ public interface GTAManager {
 	 * @return
 	 */
 	public boolean isTaskInProcess(RepositoryEntryRef entry, GTACourseNode gtaNode, String taskName);
+	
+	/**
+	 * Return the details, a string used by the assessment tool
+	 * @return
+	 */
+	public String getDetails(Identity assessedIdentity, RepositoryEntryRef entry, GTACourseNode cNode);
 	
 	public TaskList createIfNotExists(RepositoryEntry entry, GTACourseNode cNode);
 	
@@ -275,9 +290,9 @@ public interface GTAManager {
 	
 	public TaskProcess nextStep(TaskProcess currentStep, GTACourseNode cNode);
 	
-	public Task updateTask(Task task, TaskProcess newStatus);
+	public Task updateTask(Task task, TaskProcess newStatus, GTACourseNode cNode);
 	
-	public Task updateTask(Task task, TaskProcess newStatus, int iteration);
+	public Task updateTask(Task task, TaskProcess newStatus, int iteration, GTACourseNode cNode);
 	
 	public void log(String step, String operation, Task assignedTask, Identity actor, Identity assessedIdentity, BusinessGroup assessedGroup,
 			CourseEnvironment courseEnv, GTACourseNode cNode);

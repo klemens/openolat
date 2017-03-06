@@ -38,7 +38,6 @@ public class OlatMathEditorPlugin extends TinyMCECustomPlugin {
 	/**
 	 * Params handed over to the js code
 	 */
-	private static final String PARAM_JS_MATH_LIB_BASE_PATH = "jsMathLibBasePath";
 	private static final String PARAM_TRANSPARENT_IMAGE = "transparentImage";
 
 	/** The TinyMCE plugin name */
@@ -59,9 +58,6 @@ public class OlatMathEditorPlugin extends TinyMCECustomPlugin {
 		if (!params.containsKey(PARAM_TRANSPARENT_IMAGE)) {
 			// Get static URI for transparent GIF.
 			params.put(PARAM_TRANSPARENT_IMAGE, StaticMediaDispatcher.createStaticURIFor("images/transparent.gif", false));
-			
-			// Get static URI for jsMath library.
-			params.put(PARAM_JS_MATH_LIB_BASE_PATH, StaticMediaDispatcher.createStaticURIFor("js/jsMath/", false));
 		}
 		return params;
 	}

@@ -24,6 +24,7 @@ import java.nio.charset.Charset;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
@@ -36,6 +37,7 @@ import javax.persistence.TypedQuery;
 import org.olat.basesecurity.BaseSecurity;
 import org.olat.basesecurity.IdentityImpl;
 import org.olat.basesecurity.IdentityNames;
+import org.olat.basesecurity.IdentityRef;
 import org.olat.basesecurity.IdentityShort;
 import org.olat.core.commons.persistence.DB;
 import org.olat.core.commons.persistence.DBFactory;
@@ -53,7 +55,6 @@ import org.olat.core.util.i18n.I18nModule;
 import org.olat.core.util.mail.MailHelper;
 import org.olat.properties.Property;
 import org.olat.properties.PropertyManager;
-import org.olat.user.propertyhandlers.UserPropertyHandler;
 import org.springframework.beans.factory.annotation.Autowired;
 
 /**
@@ -101,9 +102,13 @@ public class UserManagerImpl extends UserManager {
 	 * @see org.olat.user.UserManager#createUser(java.lang.String, java.lang.String, java.lang.String)
 	 */
 	public User createUser(String firstName, String lastName, String eMail) {
-		User newUser = new UserImpl(firstName, lastName, eMail);
-		Preferences prefs = newUser.getPreferences();
+		UserImpl newUser = new UserImpl();
+		newUser.setFirstName(firstName);
+		newUser.setLastName(lastName);
+		newUser.setEmail(eMail);
+		newUser.setCreationDate(new Date());
 		
+		Preferences prefs = newUser.getPreferences();
 		Locale loc;
 		// for junit test case: use German Locale
 		if (Settings.isJUnitTest()) { 
@@ -118,34 +123,20 @@ public class UserManagerImpl extends UserManager {
 		prefs.setInformSessionTimeout(false);
 		return newUser;
 	}
-
-	/**
-	 * @see org.olat.user.UserManager#createAndPersistUser(java.lang.String, java.lang.String, java.lang.String)
-	 */
-	@Override
-	public User createAndPersistUser(String firstName, String lastName, String email) {
-		User user = new UserImpl(firstName, lastName, email);
-		user.getPreferences();
-		dbInstance.getCurrentEntityManager().persist(user);
-		return user;
-	}
 	
-	/*
-	 *  check also for emails in change-workflow(non-Javadoc)
-	 * @see org.olat.user.UserManager#isEmailInUse(java.lang.String)
-	 */
 	@Override
 	public boolean isEmailInUse(String email) {
+		DB db = DBFactory.getInstance();
 		String[] emailProperties = {UserConstants.EMAIL, UserConstants.INSTITUTIONALEMAIL};
 		for(String emailProperty:emailProperties) {
 			StringBuilder sb = new StringBuilder();
 			sb.append("select count(user) from org.olat.core.id.User user where ")
-			  .append("user.userProperties['")
+			  .append("user.")
 			  .append(emailProperty)
-			  .append("']=:email_value");
+			  .append("=:email_value");
 			
 			String query = sb.toString();
-			DBQuery dbq = dbInstance.createQuery(query);
+			DBQuery dbq = db.createQuery(query);
 			dbq.setString("email_value", email);
 			Number countEmail = (Number)dbq.uniqueResult();
 			if(countEmail.intValue() > 0) {
@@ -159,7 +150,7 @@ public class UserManagerImpl extends UserManager {
 	public List<Long> findUserKeyWithProperty(String propName, String propValue) {
 		StringBuilder sb = new StringBuilder();
 		sb.append("select user.key from ").append(UserImpl.class.getName()).append(" user ")
-		  .append(" where user.userProperties['").append(propName).append("'] =:propValue");
+		  .append(" where user.").append(propName).append("=:propValue");
 
 		return dbInstance.getCurrentEntityManager()
 				.createQuery(sb.toString(), Long.class)
@@ -170,8 +161,8 @@ public class UserManagerImpl extends UserManager {
 	@Override
 	public Identity findIdentityKeyWithProperty(String propName, String propValue) {
 		StringBuilder sb = new StringBuilder("select identity from ").append(IdentityImpl.class.getName()).append(" identity ")
-			.append(" inner join identity.user user ")
-			.append(" where user.userProperties['").append(propName).append("'] =:propValue");
+			.append(" inner join fetch identity.user user ")
+			.append(" where user.").append(propName).append("=:propValue");
 
 		List<Identity> userKeys = dbInstance.getCurrentEntityManager()
 				.createQuery(sb.toString(), Identity.class)
@@ -191,16 +182,16 @@ public class UserManagerImpl extends UserManager {
 		}
 
 		StringBuilder sb = new StringBuilder("select identity from ").append(IdentityImpl.class.getName()).append(" identity ")
-			.append(" inner join identity.user user ")
+			.append(" inner join fetch identity.user user ")
 			.append(" where ");
 		
 		boolean mysql = "mysql".equals(dbInstance.getDbVendor());
 		//search email
 		StringBuilder emailSb = new StringBuilder(sb);
 		if(mysql) {
-			emailSb.append(" user.userProperties['").append(UserConstants.EMAIL).append("'] =:email");
+			emailSb.append(" user.").append(UserConstants.EMAIL).append("=:email");
 		} else {
-			emailSb.append(" lower(user.userProperties['").append(UserConstants.EMAIL).append("']) = lower(:email)");
+			emailSb.append(" lower(user.").append(UserConstants.EMAIL).append(") = lower(:email)");
 		}
 
 		List<Identity> identities = dbInstance.getCurrentEntityManager()
@@ -213,9 +204,9 @@ public class UserManagerImpl extends UserManager {
 		//search institutional email
 		StringBuilder institutionalSb = new StringBuilder(sb);
 		if(mysql) {
-			institutionalSb.append(" user.userProperties['").append(UserConstants.INSTITUTIONALEMAIL).append("'] =:email");
+			institutionalSb.append(" user.").append(UserConstants.INSTITUTIONALEMAIL).append("=:email");
 		} else {
-			institutionalSb.append(" lower(user.userProperties['").append(UserConstants.INSTITUTIONALEMAIL).append("']) = lower(:email)");
+			institutionalSb.append(" lower(user.").append(UserConstants.INSTITUTIONALEMAIL).append(") = lower(:email)");
 		}
 		List<Identity> instIdentities = dbInstance.getCurrentEntityManager()
 				.createQuery(institutionalSb.toString(), Identity.class)
@@ -255,16 +246,16 @@ public class UserManagerImpl extends UserManager {
 			return Collections.emptyList();
 		}
 		StringBuilder sb = new StringBuilder("select identity from ").append(IdentityImpl.class.getName()).append(" identity ")
-			.append(" inner join identity.user user ")
+			.append(" inner join fetch identity.user user ")
 			.append(" where ");
 		
 		boolean mysql = "mysql".equals(dbInstance.getDbVendor());
 		//search email
 		StringBuilder emailSb = new StringBuilder(sb);
 		if(mysql) {
-			emailSb.append(" user.userProperties['").append(UserConstants.EMAIL).append("']  in (:emails) ");
+			emailSb.append(" user.").append(UserConstants.EMAIL).append(" in (:emails) ");
 		} else {
-			emailSb.append(" lower(user.userProperties['").append(UserConstants.EMAIL).append("']) in (:emails)");
+			emailSb.append(" lower(user.").append(UserConstants.EMAIL).append(") in (:emails)");
 		}
 
 		List<Identity> identities = dbInstance.getCurrentEntityManager()
@@ -274,9 +265,9 @@ public class UserManagerImpl extends UserManager {
 		//search institutional email
 		StringBuilder institutionalSb = new StringBuilder(sb);
 		if(mysql) {
-			institutionalSb.append(" user.userProperties['").append(UserConstants.INSTITUTIONALEMAIL).append("'] in (:emails) ");
+			institutionalSb.append(" user.").append(UserConstants.INSTITUTIONALEMAIL).append(" in (:emails) ");
 		} else {
-			institutionalSb.append(" lower(user.userProperties['").append(UserConstants.INSTITUTIONALEMAIL).append("']) in (:emails)");
+			institutionalSb.append(" lower(user.").append(UserConstants.INSTITUTIONALEMAIL).append(") in (:emails)");
 		}
 		if(!identities.isEmpty()) {
 			institutionalSb.append(" and identity not in (:identities) ");
@@ -317,9 +308,9 @@ public class UserManagerImpl extends UserManager {
 		//search email
 		StringBuilder emailSb = new StringBuilder(sb);
 		if(mysql) {
-			emailSb.append(" user.userProperties['").append(UserConstants.EMAIL).append("'] =:email");
+			emailSb.append(" user.").append(UserConstants.EMAIL).append("=:email");
 		} else {
-			emailSb.append(" lower(user.userProperties['").append(UserConstants.EMAIL).append("']) = lower(:email)");
+			emailSb.append(" lower(user.").append(UserConstants.EMAIL).append(") = lower(:email)");
 		}
 		
 		Number count = dbInstance.getCurrentEntityManager()
@@ -333,9 +324,9 @@ public class UserManagerImpl extends UserManager {
 		//search institutional email
 		StringBuilder institutionalSb = new StringBuilder(sb);
 		if(mysql) {
-			institutionalSb.append(" user.userProperties['").append(UserConstants.INSTITUTIONALEMAIL).append("'] =:email");
+			institutionalSb.append(" user.").append(UserConstants.INSTITUTIONALEMAIL).append(" =:email");
 		} else {
-			institutionalSb.append(" lower(user.userProperties['").append(UserConstants.INSTITUTIONALEMAIL).append("']) = lower(:email)");
+			institutionalSb.append(" lower(user.").append(UserConstants.INSTITUTIONALEMAIL).append(") = lower(:email)");
 		}
 		count = dbInstance.getCurrentEntityManager()
 				.createQuery(institutionalSb.toString(), Number.class)
@@ -373,7 +364,8 @@ public class UserManagerImpl extends UserManager {
 		} catch (Exception e) {
 			logWarn("Error update usernames cache", e);
 		}
-		updateUser(identity.getUser());
+		User user = updateUser(identity.getUser());
+		((IdentityImpl)identity).setUser(user);
 		return true;
 	}
 
@@ -415,42 +407,16 @@ public class UserManagerImpl extends UserManager {
 	   return charset;
 	}
 
-	/**
-	 * Delete all user-properties which are deletable.
-	 * @param user
-	 */
-	@Override
-	public User deleteUserProperties(User user, boolean keepUserEmail) {
-		// prevent stale objects, reload first
-		user = loadUserByKey(user.getKey());
-		// loop over user fields and remove them form the database if they are
-		// deletable
-		List<UserPropertyHandler> propertyHandlers = userPropertiesConfig.getAllUserPropertyHandlers();
-		for (UserPropertyHandler propertyHandler : propertyHandlers) {
-			String fieldName = propertyHandler.getName();
-			if (propertyHandler.isDeletable()
-					&& !(keepUserEmail && UserConstants.EMAIL.equals(propertyHandler.getName()))) {
-				user.setProperty(fieldName, null);
-			}		
-		}
-		// persist changes
-		User updatedUser = updateUser(user);
-		if(isLogDebugEnabled()) logDebug("Delete all user-attributtes for user=" + user);
-		return updatedUser;
-	}
-
 	@Override
 	public int warmUp() {
-		StringBuilder sb = new StringBuilder();
-		sb.append("select ident from ").append(IdentityShort.class.getName()).append(" as ident");
-		
 		EntityManager em = dbInstance.getCurrentEntityManager();
 		
 		int batchSize = 5000;
-		TypedQuery<IdentityShort> query = em.createQuery(sb.toString(), IdentityShort.class)
+		TypedQuery<IdentityShort> query = em
+				.createNamedQuery("selectAllIdentitiesShortUnordered", IdentityShort.class)
 				.setMaxResults(batchSize);
-		int count = 0;
 		
+		int count = 0;
 		List<IdentityShort> identities;
 		do {
 			identities = query.setFirstResult(count).getResultList();
@@ -539,6 +505,14 @@ public class UserManagerImpl extends UserManager {
 	}
 
 	@Override
+	public String getUserDisplayName(IdentityRef identity) {
+		if(identity instanceof Identity) {
+			return getUserDisplayName((Identity)identity);
+		}
+		return getUserDisplayName(identity.getKey());
+	}
+
+	@Override
 	public String getUserDisplayName(Identity identity) {
 		if (userDisplayNameCreator == null || identity == null) return "";
 		String fullName = getUserDisplayName(identity.getUser());
@@ -564,6 +538,11 @@ public class UserManagerImpl extends UserManager {
 		String fullName = userDisplayNameCreator.getUserDisplayName(identity);
 		updateUsernameCache(identity.getKey(), identity.getName(), fullName);
 		return fullName;
+	}
+
+	@Override
+	public String getUserDisplayName(String firstName, String lastName) {
+		return userDisplayNameCreator.getDisplayName(firstName, lastName);
 	}
 
 	@Override
