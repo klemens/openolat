@@ -13,7 +13,6 @@
 		<mapping-file>org/olat/ims/qti/QTIResult.hbm.xml</mapping-file>
 		<mapping-file>org/olat/ims/qti/QTIResultSet.hbm.xml</mapping-file>
 		<mapping-file>org/olat/note/NoteImpl.hbm.xml</mapping-file>
-		<mapping-file>org/olat/user/UserImpl.hbm.xml</mapping-file>
 		<mapping-file>org/olat/commons/lifecycle/LifeCycleEntry.hbm.xml</mapping-file>
 		<mapping-file>org/olat/commons/coordinate/cluster/lock/LockImpl.hbm.xml</mapping-file>
 		<mapping-file>org/olat/commons/info/model/InfoMessageImpl.hbm.xml</mapping-file>
@@ -75,6 +74,8 @@
 		<class>org.olat.upgrade.model.InvitationUpgrade</class>
 		<!-- End upgraders mapping -->
 		
+		
+		<class>org.olat.basesecurity.IdentityShort</class>
 		<class>org.olat.basesecurity.model.GroupImpl</class>
 		<class>org.olat.basesecurity.model.GrantImpl</class>
 		<class>org.olat.basesecurity.model.GroupMembershipImpl</class>
@@ -95,6 +96,7 @@
 		<class>org.olat.course.assessment.model.AssessmentModeToAreaImpl</class>
 		<class>org.olat.course.assessment.model.AssessmentModeToGroupImpl</class>
 		<class>org.olat.course.assessment.model.UserCourseInfosImpl</class>
+		<class>org.olat.course.assessment.model.UserEfficiencyStatementRepoImpl</class>
 		<class>org.olat.course.nodes.cl.model.DBCheckbox</class>
 		<class>org.olat.course.nodes.cl.model.DBCheck</class>
 		<class>org.olat.course.nodes.gta.model.TaskImpl</class>
@@ -137,6 +139,11 @@
 		<class>org.olat.instantMessaging.model.InstantMessageNotificationImpl</class>
 		<class>org.olat.ims.qti.statistics.model.QTIStatisticResult</class>
 		<class>org.olat.ims.qti.statistics.model.QTIStatisticResultSet</class>
+		<class>org.olat.ims.qti21.model.jpa.AssessmentResponseImpl</class>
+		<class>org.olat.ims.qti21.model.jpa.AssessmentItemSessionImpl</class>
+		<class>org.olat.ims.qti21.model.jpa.AssessmentTestSessionImpl</class>
+		<class>org.olat.ims.qti21.model.jpa.AssessmentTestMarksImpl</class>
+		<class>org.olat.modules.assessment.model.AssessmentEntryImpl</class>
 		<class>org.olat.modules.fo.model.ForumImpl</class>
 		<class>org.olat.modules.fo.model.MessageImpl</class>
 		<class>org.olat.modules.fo.model.MessageRefImpl</class>
@@ -144,9 +151,28 @@
 		<class>org.olat.modules.fo.model.MessagePeekviewImpl</class>
 		<class>org.olat.modules.fo.model.ReadMessageImpl</class>
 		<class>org.olat.modules.fo.model.MessageStatistics</class>
+		<class>org.olat.modules.fo.model.PseudonymImpl</class>
+		<class>org.olat.modules.forms.model.jpa.EvaluationFormSessionImpl</class>
+		<class>org.olat.modules.forms.model.jpa.EvaluationFormResponseImpl</class>
 		<class>org.olat.modules.gotomeeting.model.GoToMeetingImpl</class>
 		<class>org.olat.modules.gotomeeting.model.GoToOrganizerImpl</class>
 		<class>org.olat.modules.gotomeeting.model.GoToRegistrantImpl</class>
+		<class>org.olat.modules.portfolio.model.BinderImpl</class>
+		<class>org.olat.modules.portfolio.model.SectionImpl</class>
+		<class>org.olat.modules.portfolio.model.PageImpl</class>
+		<class>org.olat.modules.portfolio.model.PageBodyImpl</class>
+		<class>org.olat.modules.portfolio.model.AbstractPart</class>
+		<class>org.olat.modules.portfolio.model.MediaImpl</class>
+		<class>org.olat.modules.portfolio.model.HTMLPart</class>
+		<class>org.olat.modules.portfolio.model.TitlePart</class>
+		<class>org.olat.modules.portfolio.model.MediaPart</class>
+		<class>org.olat.modules.portfolio.model.SpacerPart</class>
+		<class>org.olat.modules.portfolio.model.EvaluationFormPart</class>
+		<class>org.olat.modules.portfolio.model.CategoryImpl</class>
+		<class>org.olat.modules.portfolio.model.CategoryToElementImpl</class>
+		<class>org.olat.modules.portfolio.model.AssessmentSectionImpl</class>
+		<class>org.olat.modules.portfolio.model.AssignmentImpl</class>
+		<class>org.olat.modules.portfolio.model.BinderUserInfosImpl</class>
 		<class>org.olat.modules.qpool.model.PoolImpl</class>
 		<class>org.olat.modules.qpool.model.PoolToItem</class>
 		<class>org.olat.modules.qpool.model.PoolItemShortView</class>
@@ -165,11 +191,13 @@
 		<class>org.olat.ims.lti.model.LTIOutcomeImpl</class>
 		<class>org.olat.portfolio.model.InvitationImpl</class>
 		<class>org.olat.portfolio.model.structel.EPStructureElementToGroupRelation</class>
+		<class>org.olat.user.UserImpl</class>
 		<properties>
 			<property name="hibernate.generate_statistics" value="true"/>
 			<property name="hibernate.archive.autodetection" value=""/>
 			<property name="hibernate.max_fetch_depth" value="10"/>
-			<property name="hibernate.ejb.interceptor" value="org.olat.core.commons.persistence.AuditInterceptor"/>
+			<property name="hibernate.connection.handling_mode" value="DELAYED_ACQUISITION_AND_RELEASE_AFTER_TRANSACTION"/>
+			<property name="hibernate.session_factory.interceptor" value="org.olat.core.commons.persistence.AuditInterceptor"/>
 		</properties>
 	</persistence-unit>
 </persistence>

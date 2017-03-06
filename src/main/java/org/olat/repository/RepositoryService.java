@@ -28,7 +28,9 @@ import java.util.Map;
 import org.olat.basesecurity.Group;
 import org.olat.basesecurity.IdentityRef;
 import org.olat.core.id.Identity;
+import org.olat.core.id.OLATResourceable;
 import org.olat.core.id.Roles;
+import org.olat.core.util.resource.OresHelper;
 import org.olat.core.util.vfs.VFSLeaf;
 import org.olat.repository.model.SearchAuthorRepositoryEntryViewParams;
 import org.olat.repository.model.SearchMyRepositoryEntryViewParams;
@@ -45,6 +47,8 @@ import org.olat.resource.OLATResource;
  *
  */
 public interface RepositoryService {
+	
+	public static final OLATResourceable REPOSITORY_EVENT_ORES = OresHelper.createOLATResourceableInstance("REPO-CHANGE", 1l);
 	
 	
 	public RepositoryEntry create(Identity initialAuthor, String initialAuthorAlt,
@@ -81,6 +85,24 @@ public interface RepositoryService {
 	public RepositoryEntry update(RepositoryEntry re);
 	
 	/**
+	 * Set the access to 0. The resource is not deleted on the database
+	 * but the resource is removed from the catalog.
+	 * 
+	 * 
+	 * @param entry
+	 * @param owners If the owners need to be removed
+	 */
+	public RepositoryEntry deleteSoftly(RepositoryEntry entry, Identity deletedBy, boolean owners);
+	
+	/**
+	 * The access is set to B.
+	 * @param entry
+	 * @return
+	 */
+	public RepositoryEntry restoreRepositoryEntry(RepositoryEntry entry);
+	
+	
+	/**
 	 * Delete the learning resource with all its attached resources.
 	 * @param entry
 	 * @param identity
@@ -88,13 +110,37 @@ public interface RepositoryService {
 	 * @param locale
 	 * @return
 	 */
-	public ErrorList delete(RepositoryEntry entry, Identity identity, Roles roles, Locale locale);
+	public ErrorList deletePermanently(RepositoryEntry entry, Identity identity, Roles roles, Locale locale);
 	
 	/**
 	 * Delete only the database object
 	 * @param entry
 	 */
 	public void deleteRepositoryEntryAndBaseGroups(RepositoryEntry entry);
+	
+	/**
+	 * This will change the status of the repository entry to "closed" (statusCode=2).
+	 * 
+	 * @param entry
+	 * @param identity
+	 * @param roles
+	 * @param locale
+	 * @return The closed repository entry
+	 */
+	public RepositoryEntry closeRepositoryEntry(RepositoryEntry entry);
+	
+
+	public RepositoryEntry uncloseRepositoryEntry(RepositoryEntry entry);
+	
+	/**
+	 * The unpublish will remove the users (coaches and participants) but will let
+	 * the owners. Catalog entries will be removed and the relations to the business groups
+	 * will be deleted.
+	 * 
+	 * @param entry
+	 * @return
+	 */
+	public RepositoryEntry unpublishRepositoryEntry(RepositoryEntry entry);
 	
 	/**
 	 * Increment the launch counter and the last usage date.
@@ -203,6 +249,14 @@ public interface RepositoryService {
 	 * @return True if the specified role(s) was found.
 	 */
 	public boolean hasRole(Identity identity, RepositoryEntryRef re, String... roles);
+	
+	/**
+	 * Has specific role in any resource (follow or not the business groups).
+	 * 
+	 * @return True if the specified role(s) was found.
+	 */
+	public boolean hasRole(Identity identity, boolean followBusinessGroups, String... roles);
+	
 	
 	public void addRole(Identity identity, RepositoryEntry re, String role);
 	

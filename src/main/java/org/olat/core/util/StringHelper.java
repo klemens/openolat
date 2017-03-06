@@ -289,6 +289,30 @@ public class StringHelper {
 		return !matcher.find();
 	}
 	
+	public static boolean isSame(String s1, String s2) {
+		if(s1 == null && s2 == null) {
+			return true;
+		}
+		if(s1 == null || s2 == null) {
+			return false;
+		}
+		return s1.equals(s2);
+	}
+	
+	public static boolean isSame(Object s1, Object s2) {
+		if(s1 == null && s2 == null) {
+			return true;
+		}
+		if(s1 == null || s2 == null) {
+			return false;
+		}
+		return s1.equals(s2);
+	}
+	
+	public static boolean isSame(boolean s1, boolean s2) {
+		return s1 == s2;
+	}
+	
 	/**
 	 * Check if the string contains some HTML tags
 	 * @param s
@@ -478,7 +502,7 @@ public class StringHelper {
 		String lcName = name.toLowerCase();
 
 		int index = 0;
-		while((index = lcExpresion.indexOf(lcName, index)) > 0) {
+		while((index = lcExpresion.indexOf(lcName, index)) >= 0) {
 			int startIndex = index;
 			int stopIndex = index + lcName.length();
 			

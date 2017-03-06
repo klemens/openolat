@@ -38,13 +38,13 @@ import org.olat.core.gui.components.form.flexible.elements.FlexiTableSortOptions
 import org.olat.core.gui.components.form.flexible.impl.FormBasicController;
 import org.olat.core.gui.components.form.flexible.impl.FormEvent;
 import org.olat.core.gui.components.form.flexible.impl.elements.table.DefaultFlexiColumnModel;
+import org.olat.core.gui.components.form.flexible.impl.elements.table.DefaultFlexiTableCssDelegate;
 import org.olat.core.gui.components.form.flexible.impl.elements.table.FlexiColumnModel;
 import org.olat.core.gui.components.form.flexible.impl.elements.table.FlexiTableColumnModel;
 import org.olat.core.gui.components.form.flexible.impl.elements.table.FlexiTableDataModelFactory;
-import org.olat.core.gui.components.form.flexible.impl.elements.table.FlexiTableRowCssDelegate;
+import org.olat.core.gui.components.form.flexible.impl.elements.table.FlexiTableRendererType;
 import org.olat.core.gui.components.form.flexible.impl.elements.table.SelectionEvent;
 import org.olat.core.gui.components.form.flexible.impl.elements.table.StaticFlexiCellRenderer;
-import org.olat.core.gui.components.form.flexible.impl.elements.table.StaticFlexiColumnModel;
 import org.olat.core.gui.components.form.flexible.impl.elements.table.TextFlexiCellRenderer;
 import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.WindowControl;
@@ -66,7 +66,7 @@ import org.springframework.beans.factory.annotation.Autowired;
  * @author srosse, stephane.rosse@frentix.com, http://www.frentix.com
  *
  */
-public class ForumMessageListController extends FormBasicController implements FlexiTableRowCssDelegate {
+public class ForumMessageListController extends FormBasicController {
 	
 	protected static final String USER_PROPS_ID = ForumUserListController.class.getCanonicalName();
 	
@@ -119,12 +119,6 @@ public class ForumMessageListController extends FormBasicController implements F
 		this.selectView = selectView;
 	}
 
-	@Override
-	public String getRowCssClass(int pos) {
-		MessageLightView row = dataModel.getObject(pos);
-		return row != null && selectView != null && row.getKey().equals(selectView.getKey()) ? "o_row_selected" : null;
-	}
-
 	public void loadAllMessages() {
 		List<MessageLight> allMessages = forumManager.getLightMessagesByForum(forum);
 		List<MessageLightView> views = new ArrayList<>(allMessages.size());
@@ -172,13 +166,12 @@ public class ForumMessageListController extends FormBasicController implements F
 		
 		FlexiTableColumnModel columnsModel = FlexiTableDataModelFactory.createFlexiTableColumnModel();
 		if(withType) {
-			columnsModel.addFlexiColumnModel(new DefaultFlexiColumnModel(ForumMessageCols.type.i18nKey(), ForumMessageCols.type.ordinal(),
-				true, ForumMessageCols.type.name(), new StatusTypeCellRenderer()));
-			sorts.add(new FlexiTableSort(translate(ForumMessageCols.type.i18nKey()), ForumMessageCols.type.name()));
+			columnsModel.addFlexiColumnModel(new DefaultFlexiColumnModel(ForumMessageCols.type, new StatusTypeCellRenderer()));
+			sorts.add(new FlexiTableSort(translate(ForumMessageCols.type.i18nHeaderKey()), ForumMessageCols.type.name()));
 		}
-		columnsModel.addFlexiColumnModel(new StaticFlexiColumnModel(ForumMessageCols.thread.i18nKey(), ForumMessageCols.thread.ordinal(),
-				"select", true, ForumMessageCols.thread.name(), new StaticFlexiCellRenderer("select", new IndentCellRenderer())));
-		sorts.add(new FlexiTableSort(translate(ForumMessageCols.thread.i18nKey()), ForumMessageCols.thread.name()));
+		columnsModel.addFlexiColumnModel(new DefaultFlexiColumnModel(ForumMessageCols.thread,
+				"select", new StaticFlexiCellRenderer("select", new IndentCellRenderer())));
+		sorts.add(new FlexiTableSort(translate(ForumMessageCols.thread.i18nHeaderKey()), ForumMessageCols.thread.name()));
 		
 		int colPos = USER_PROPS_OFFSET;
 		for (UserPropertyHandler userPropertyHandler : userPropertyHandlers) {
@@ -189,7 +182,7 @@ public class ForumMessageListController extends FormBasicController implements F
 
 			FlexiColumnModel col;
 			if(UserConstants.FIRSTNAME.equals(propName) || UserConstants.LASTNAME.equals(propName)) {
-				col = new StaticFlexiColumnModel(userPropertyHandler.i18nColumnDescriptorLabelKey(), colPos, "select", true, propName,
+				col = new DefaultFlexiColumnModel(userPropertyHandler.i18nColumnDescriptorLabelKey(), colPos, "select", true, propName,
 						new StaticFlexiCellRenderer("select", new TextFlexiCellRenderer()));
 			} else {
 				col = new DefaultFlexiColumnModel(visible, userPropertyHandler.i18nColumnDescriptorLabelKey(), colPos, true, propName);
@@ -200,13 +193,12 @@ public class ForumMessageListController extends FormBasicController implements F
 			colPos++;
 		}
 
-		columnsModel.addFlexiColumnModel(new DefaultFlexiColumnModel(ForumMessageCols.lastModified.i18nKey(), ForumMessageCols.lastModified.ordinal(),
-				true, ForumMessageCols.lastModified.name()));
-		sorts.add(new FlexiTableSort(translate(ForumMessageCols.lastModified.i18nKey()), ForumMessageCols.lastModified.name()));
+		columnsModel.addFlexiColumnModel(new DefaultFlexiColumnModel(ForumMessageCols.lastModified));
+		sorts.add(new FlexiTableSort(translate(ForumMessageCols.lastModified.i18nHeaderKey()), ForumMessageCols.lastModified.name()));
 
 		dataModel = new ForumMessageDataModel(columnsModel, getTranslator());
 		tableEl = uifactory.addTableElement(getWindowControl(), "messages", dataModel, getTranslator(), formLayout);
-		tableEl.setRowCssDelegate(this);
+		tableEl.setCssDelegate(new MessageCssDelegate());
 		
 		FlexiTableSortOptions sortOptions = new FlexiTableSortOptions();
 		sortOptions.setFromColumnModel(false);
@@ -271,6 +263,14 @@ public class ForumMessageListController extends FormBasicController implements F
 				mn.addChild(childNode);
 				addChildren(messages, childNode);
 			}
+		}
+	}
+	
+	private class MessageCssDelegate extends DefaultFlexiTableCssDelegate {
+		@Override
+		public String getRowCssClass(FlexiTableRendererType type, int pos) {
+			MessageLightView row = dataModel.getObject(pos);
+			return row != null && selectView != null && row.getKey().equals(selectView.getKey()) ? "o_row_selected" : null;
 		}
 	}
 	

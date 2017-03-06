@@ -51,8 +51,12 @@ public enum ActionVerb {
 	lock,
 	move,
 	open,
+	reopen,
 	perform,
 	remove,
-	view
+	view,
+	deactivate,
+	trash,
+	restore
 
 }

@@ -62,6 +62,7 @@ public class BreadcrumbedStackedPanel extends Panel implements StackedPanel, Bre
 	private String cssClass;
 	private boolean showCloseLink = false;
 	private boolean showCloseLinkForRootCrumb = false;
+	private boolean neverDisposeRootController = false;
 	
 	public BreadcrumbedStackedPanel(String name, Translator translator, ComponentEventListener listener) {
 		this(name, translator, listener, null);
@@ -85,16 +86,52 @@ public class BreadcrumbedStackedPanel extends Panel implements StackedPanel, Bre
 		closeLink.setIconLeftCSS("o_icon o_icon_close_tool");
 		closeLink.setCustomDisplayText(translator.translate("close"));
 		closeLink.setAccessKey("x"); // allow navigation using keyboard
+		
+		this.setDomReplacementWrapperRequired(false);
 	}
-	
+
+	/**
+	 * Get a string with all css classes to be applied to this DOM element
+	 * @return
+	 */
 	public String getCssClass() {
 		return cssClass;
 	}
 
+	/**
+	 * Set and overwrite any existing cssClasses. Use addCssClass to just add a
+	 * class
+	 * 
+	 * @param cssClass
+	 */
 	public void setCssClass(String cssClass) {
 		this.cssClass = cssClass;
 	}
 
+	/**
+	 * Add css class to this DOM element. Does not overwrite other classes
+	 * @param cssClassToAdd
+	 */
+	public void addCssClass(String cssClassToAdd) {
+		if (this.cssClass == null) {
+			setCssClass(cssClassToAdd);							
+		} else if (cssClassToAdd != null && !this.cssClass.contains(cssClassToAdd)) {
+			setCssClass(this.cssClass + " " + cssClassToAdd);
+		}		
+	}
+
+	/**
+	 * Remove the css class from this DOM element, but keep all the other
+	 * classes
+	 * 
+	 * @param cssClassToRemove
+	 */
+	public void removeCssClass(String cssClassToRemove) {	
+		if (this.cssClass != null && cssClassToRemove != null) {
+			setCssClass(this.cssClass.replace(cssClassToRemove, ""));
+		}
+	}
+	
 	public int getInvisibleCrumb() {
 		return invisibleCrumb;
 	}
@@ -122,6 +159,14 @@ public class BreadcrumbedStackedPanel extends Panel implements StackedPanel, Bre
 	public void setShowCloseLink(boolean showCloseLinkForCrumbs, boolean showCloseLinkForRootCrumb) {
 		this.showCloseLink = showCloseLinkForCrumbs;
 		this.showCloseLinkForRootCrumb = showCloseLinkForRootCrumb;
+	}
+	
+	public boolean isNeverDisposeRootController() {
+		return neverDisposeRootController;
+	}
+
+	public void setNeverDisposeRootController(boolean neverDisposeRootController) {
+		this.neverDisposeRootController = neverDisposeRootController;
 	}
 	
 	public List<Link> getBreadCrumbs() {
@@ -162,7 +207,9 @@ public class BreadcrumbedStackedPanel extends Panel implements StackedPanel, Bre
 
 	@Override
 	public void dispatchEvent(UserRequest ureq, Component source, Event event) {
-		if (source.equals(backLink) || source.equals(closeLink)) {
+		boolean closeEvent = source.equals(closeLink);
+		boolean backEvent = source.equals(backLink);
+		if (backEvent || closeEvent) {
 			if (stack.size() > 1) {
 				// back means to one level down, change source to the stack item one below current
 				source = stack.get(stack.size()-2);
@@ -182,16 +229,20 @@ public class BreadcrumbedStackedPanel extends Panel implements StackedPanel, Bre
 				fireEvent(ureq, new VetoPopEvent());
 				return;
 			}
-			Controller popedCtrl = popController(source);
-			if(popedCtrl != null) {
+			BreadCrumb popedCrumb = popController(source);
+			if(popedCrumb != null) {
 				Controller last = getLastController();
 				if(last != null) {
 					addToHistory(ureq, last);
 				}
-				fireEvent(ureq, new PopEvent(popedCtrl));
+				
+				if(popedCrumb.getController() != null) {
+					fireEvent(ureq, new PopEvent(popedCrumb.getController(), popedCrumb.getUserObject(), closeEvent));
+				} else if(popedCrumb.getUserObject() != null) {
+					fireEvent(ureq, new PopEvent(popedCrumb.getUserObject(), closeEvent));
+				}
 			} else if(stack.indexOf(source) == 0) {
 				fireEvent(ureq, new RootEvent());
-				
 			}
 		}
 	}
@@ -201,7 +252,22 @@ public class BreadcrumbedStackedPanel extends Panel implements StackedPanel, Bre
 		BusinessControlFactory.getInstance().addToHistory(ureq, wControl);
 	}
 	
-	private Controller getLastController() {
+	public int size() {
+		return stack == null ? 0 : stack.size();
+	}
+	
+	@Override
+	public Controller getRootController() {
+		Controller controller = null;
+		if(stack.size() > 0) {
+			Link lastPath = stack.get(0);
+			BreadCrumb crumb = (BreadCrumb)lastPath.getUserObject();
+			controller = crumb.getController();
+		}
+		return controller;
+	}
+	
+	public Controller getLastController() {
 		Controller controller = null;
 		if(stack.size() > 0) {
 			Link lastPath = stack.get(stack.size() - 1);
@@ -221,24 +287,22 @@ public class BreadcrumbedStackedPanel extends Panel implements StackedPanel, Bre
 	}
 
 	@Override
-	public void popUpToController(Controller controller) {
+	public boolean popUpToController(Controller controller) {
 		int index = getIndex(controller);
 		if(index > 0 && index < stack.size() - 1) {
 			BreadCrumb popedCrumb = null;
 			for(int i=stack.size(); i-->(index+1); ) {
 				Link link = stack.remove(i);
 				popedCrumb = (BreadCrumb)link.getUserObject();
-				popedCrumb.getController().dispose();
+				popedCrumb.dispose();
 			}
 
-			Link currentLink = stack.get(index);
-			BreadCrumb crumb  = (BreadCrumb)currentLink.getUserObject();
-			setContent(crumb.getController());
+			setContent(index);
 			updateCloseLinkTitle();
+			return true;
 		}
+		return false;
 	}
-	
-	
 
 	@Override
 	public void popController(Controller controller) {
@@ -248,12 +312,10 @@ public class BreadcrumbedStackedPanel extends Panel implements StackedPanel, Bre
 			for(int i=stack.size(); i--> index; ) {
 				Link link = stack.remove(i);
 				popedCrumb = (BreadCrumb)link.getUserObject();
-				popedCrumb.getController().dispose();
+				popedCrumb.dispose();
 			}
-
-			Link currentLink = stack.get(index - 1);
-			BreadCrumb crumb  = (BreadCrumb)currentLink.getUserObject();
-			setContent(crumb.getController());
+			
+			setContent(index - 1);
 			updateCloseLinkTitle();
 		}
 	}
@@ -287,7 +349,7 @@ public class BreadcrumbedStackedPanel extends Panel implements StackedPanel, Bre
 		return null;
 	}
 	
-	private Controller popController(Component source) {
+	private BreadCrumb popController(Component source) {
 		int index = stack.indexOf(source);
 		if(index < (stack.size() - 1)) {
 			
@@ -298,11 +360,9 @@ public class BreadcrumbedStackedPanel extends Panel implements StackedPanel, Bre
 				popedCrumb.dispose();
 			}
 
-			Link currentLink = stack.get(index);
-			BreadCrumb crumb  = (BreadCrumb)currentLink.getUserObject();
-			setContent(crumb.getController());
+			setContent(index);
 			updateCloseLinkTitle();
-			return popedCrumb.getController();
+			return popedCrumb;
 		}
 		return null;
 	}
@@ -313,6 +373,10 @@ public class BreadcrumbedStackedPanel extends Panel implements StackedPanel, Bre
 			for(int i=stack.size(); i-->0; ) {
 				Link link = stack.remove(i);
 				BreadCrumb crumb = (BreadCrumb)link.getUserObject();
+				
+				if(neverDisposeRootController && i == 0) {
+					continue;
+				}
 				crumb.dispose();
 			}
 		}
@@ -334,23 +398,77 @@ public class BreadcrumbedStackedPanel extends Panel implements StackedPanel, Bre
 			BreadCrumb rootCrumb  = (BreadCrumb)rootLink.getUserObject();
 			setContent(rootCrumb.getController()); 
 			updateCloseLinkTitle();
-			fireEvent(ureq, new PopEvent(rootCrumb.getController()));
+			fireEvent(ureq, new PopEvent(rootCrumb.getController(), false));
 		}
 	}
 
 	@Override
 	public void pushController(String displayName, Controller controller) {
-		Link link = LinkFactory.createLink("crumb_" + stack.size(), (Translator)null, this);
-		link.setCustomDisplayText(StringHelper.escapeHtml(displayName));
-		link.setDomReplacementWrapperRequired(false);
-		link.setUserObject(createCrumb(controller));
-		stack.add(link);
-		setContent(controller);
-		updateCloseLinkTitle();
+		pushController(displayName, null, controller, null);
+	}
+
+	@Override
+	public void pushController(String displayName, String iconLeftCss, Controller controller) {
+		pushController(displayName, iconLeftCss, controller, null);
 	}
 	
-	protected BreadCrumb createCrumb(Controller controller) {
-		return new BreadCrumb(controller);
+	@Override
+	public void pushController(String displayName, String iconLeftCss, Object uobject) {
+		pushController(displayName, iconLeftCss, null, uobject);
+	}
+
+	public void pushController(String displayName, String iconLeftCss, Controller controller, Object uobject) {
+		Link link = LinkFactory.createLink("crumb_" + stack.size(), (Translator)null, this);
+		link.setCustomDisplayText(StringHelper.escapeHtml(displayName));
+		if(StringHelper.containsNonWhitespace(iconLeftCss)) {
+			link.setIconLeftCSS(iconLeftCss);
+		}
+		link.setDomReplacementWrapperRequired(false);
+		link.setUserObject(createCrumb(controller, uobject));
+		stack.add(link);
+		if(controller != null) {
+			setContent(controller);
+		}
+		updateCloseLinkTitle();
+	}
+
+	public void changeDisplayname(String diplayName) {
+		stack.get(stack.size() - 1).setCustomDisplayText(diplayName);
+		setDirty(true);
+	}
+
+	@Override
+	public void changeDisplayname(String displayName, String iconLeftCss, Controller ctrl) {
+		for(int i=stack.size(); i-->1; ) {
+			Link link = stack.get(i);
+			BreadCrumb crumb = (BreadCrumb)link.getUserObject();
+			if(crumb.getController() == ctrl) {
+				link.setCustomDisplayText(StringHelper.escapeHtml(displayName));
+				if(StringHelper.containsNonWhitespace(iconLeftCss)) {
+					link.setIconLeftCSS(iconLeftCss);
+				} else {
+					link.setIconLeftCSS(null);
+				}
+			}
+		}
+	}
+	
+	protected BreadCrumb createCrumb(Controller controller, Object uobject) {
+		return new BreadCrumb(controller, uobject);
+	}
+	
+	private void setContent(int crumbIndex) {
+		Link currentLink = stack.get(crumbIndex);
+		BreadCrumb crumb  = (BreadCrumb)currentLink.getUserObject();
+		if(crumb.getController() == null) {
+			if(crumbIndex - 1 >= 0) {
+				Link parentLink = stack.get(crumbIndex - 1);
+				BreadCrumb parentCrumb  = (BreadCrumb)parentLink.getUserObject();
+				setContent(parentCrumb.getController());
+			}
+		} else {
+			setContent(crumb.getController());
+		}
 	}
 	
 	private void setContent(Controller ctrl) {
@@ -359,7 +477,31 @@ public class BreadcrumbedStackedPanel extends Panel implements StackedPanel, Bre
 			log.error("Set itself as content is forbidden");
 			throw new AssertException("Set itself as content is forbidden");
 		}
-		super.setContent(cmp);
+		setContent(cmp);
+	}
+
+	@Override
+	public void setContent(Component newContent) {
+		// 1: remove any stack css from current active stack
+		Component currentComponent = getContent();
+		if (currentComponent != null) {
+			if (currentComponent instanceof StackedPanel) {
+				StackedPanel currentPanel = (StackedPanel) currentComponent;
+				String currentStackCss = currentPanel.getCssClass();
+				removeCssClass(currentStackCss);
+			}
+		}
+		// 2: update stack with new component on standard Panel
+		super.setContent(newContent);
+		// 3: add new stack css  
+		if (newContent != null) {
+			if (newContent instanceof StackedPanel) {
+				StackedPanel newPanel = (StackedPanel) newContent;
+				String newStackCss = newPanel.getCssClass();
+				addCssClass(newStackCss);
+			}
+		}		
+
 	}
 	
 	/**
@@ -386,10 +528,16 @@ public class BreadcrumbedStackedPanel extends Panel implements StackedPanel, Bre
 	}
 	
 	public static class BreadCrumb {
+		private final Object uobject;
 		private final Controller controller;
 		
-		public BreadCrumb(Controller controller) {
+		public BreadCrumb(Controller controller, Object uobject) {
+			this.uobject = uobject;
 			this.controller = controller;
+		}
+		
+		public Object getUserObject() {
+			return uobject;
 		}
 
 		public Controller getController() {
@@ -397,7 +545,9 @@ public class BreadcrumbedStackedPanel extends Panel implements StackedPanel, Bre
 		}
 
 		public void dispose() {
-			controller.dispose();
+			if(controller != null) {
+				controller.dispose();
+			}
 		}
 	}
 }

@@ -113,8 +113,6 @@ public class AuthenticatedDispatcher implements Dispatcher {
 			if(log.isDebug()){
 				log.debug("Bad Request "+request.getPathInfo());
 			}
-			DispatcherModule.sendBadRequest(request.getPathInfo(), response);
-			return;
 		}
 		
 		boolean auth = usess.isAuthenticated();
@@ -193,7 +191,7 @@ public class AuthenticatedDispatcher implements Dispatcher {
 			} else {
 				businessPath = extractBusinessPath(ureq, request, uriPrefix);
 				if(businessPath == null) {
-					log.error("Invalid URI in AuthenticatedDispatcher: " + request.getRequestURI());
+					processBusinessPath("", ureq, usess);
 				} else {
 					processBusinessPath(businessPath, ureq, usess);
 				}
@@ -290,6 +288,17 @@ public class AuthenticatedDispatcher implements Dispatcher {
 	
 	private void processBusinessPath(String businessPath, UserRequest ureq, UserSession usess) {
 		ChiefController chiefController = Windows.getWindows(usess).getChiefController();
+		
+		if(chiefController == null) {
+			if(usess.isAuthenticated()) {
+				AuthHelper.createAuthHome(ureq).getWindow();
+				chiefController = Windows.getWindows(usess).getChiefController();
+			} else {
+				redirectToDefaultDispatcher(ureq.getHttpReq(), ureq.getHttpResp());
+				return;
+			}
+		}
+
 		WindowBackOffice windowBackOffice = chiefController.getWindow().getWindowBackOffice();
 		if(chiefController.isLoginInterceptionInProgress()) {
 			Window w = windowBackOffice.getWindow();
@@ -319,6 +328,13 @@ public class AuthenticatedDispatcher implements Dispatcher {
 				Window w = windowBackOffice.getWindow();
 				w.dispatchRequest(ureq, true); // renderOnly
 			} catch (Exception e) {
+				// try to render something
+				try {
+					Window w = windowBackOffice.getWindow();
+					w.dispatchRequest(ureq, true); // renderOnly
+				} catch (Exception e1) {
+					redirectToDefaultDispatcher(ureq.getHttpReq(), ureq.getHttpResp());
+				}
 				log.error("", e);
 			}
 		}

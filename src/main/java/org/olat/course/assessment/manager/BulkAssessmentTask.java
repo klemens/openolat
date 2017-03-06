@@ -285,6 +285,7 @@ public class BulkAssessmentTask implements LongRunnable, TaskAwareRunnable, Sequ
 		boolean bulkAssessability = false;
 		if (courseNode instanceof MSCourseNode
 				|| courseNode instanceof TACourseNode
+				|| courseNode instanceof GTACourseNode
 				|| courseNode instanceof ProjectBrokerCourseNode) {
 			// now a more fine granular check on bulk features. only show wizard for nodes that have at least one
 			BulkAssessmentSettings settings = new BulkAssessmentSettings((AssessableCourseNode)courseNode);
@@ -387,7 +388,6 @@ public class BulkAssessmentTask implements LongRunnable, TaskAwareRunnable, Sequ
 					
 					// Update score,passed properties in db, and the user's efficiency statement
 					courseNode.updateUserScoreEvaluation(se, uce, coachIdentity, false);
-					uce.getScoreAccounting().scoreInfoChanged(courseNode, se);
 				}
 			}
 			
@@ -399,7 +399,6 @@ public class BulkAssessmentTask implements LongRunnable, TaskAwareRunnable, Sequ
 				// Update score,passed properties in db, and the user's efficiency statement
 				boolean incrementAttempts = false;
 				courseNode.updateUserScoreEvaluation(se, uce, coachIdentity, incrementAttempts);
-				uce.getScoreAccounting().scoreInfoChanged(courseNode, se);
 			}
 			
 			boolean identityHasReturnFile = false;

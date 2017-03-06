@@ -28,7 +28,6 @@ import org.olat.core.gui.components.form.flexible.impl.elements.table.FlexiColum
 import org.olat.core.gui.components.form.flexible.impl.elements.table.FlexiTableColumnModel;
 import org.olat.core.gui.components.form.flexible.impl.elements.table.FlexiTableDataModelFactory;
 import org.olat.core.gui.components.form.flexible.impl.elements.table.StaticFlexiCellRenderer;
-import org.olat.core.gui.components.form.flexible.impl.elements.table.StaticFlexiColumnModel;
 import org.olat.core.gui.components.form.flexible.impl.elements.table.TextFlexiCellRenderer;
 import org.olat.core.gui.control.WindowControl;
 import org.olat.group.ui.main.BusinessGroupListFlexiTableModel.Cols;
@@ -47,7 +46,7 @@ public abstract class AbstractStandardBusinessGroupListController extends Abstra
 	
 	public AbstractStandardBusinessGroupListController(UserRequest ureq, WindowControl wControl, String page,
 			boolean showAdminTools, boolean startExtendedSearch, String prefsKey, Object userObject) {
-		super(ureq, wControl, page, showAdminTools, startExtendedSearch, prefsKey, userObject);
+		super(ureq, wControl, page, showAdminTools, startExtendedSearch, false, prefsKey, userObject);
 	}
 
 	@Override
@@ -57,7 +56,7 @@ public abstract class AbstractStandardBusinessGroupListController extends Abstra
 		columnsModel.addFlexiColumnModel(new DefaultFlexiColumnModel(Cols.mark.i18n(), Cols.mark.ordinal(),
 				true, Cols.mark.name()));
 		//group name
-		columnsModel.addFlexiColumnModel(new StaticFlexiColumnModel(Cols.name.i18n(), Cols.name.ordinal(), TABLE_ACTION_LAUNCH,
+		columnsModel.addFlexiColumnModel(new DefaultFlexiColumnModel(Cols.name.i18n(), Cols.name.ordinal(), TABLE_ACTION_LAUNCH,
 				true, Cols.name.name(), new StaticFlexiCellRenderer(TABLE_ACTION_LAUNCH, new BusinessGroupNameCellRenderer())));
 		//id and reference
 		columnsModel.addFlexiColumnModel(new DefaultFlexiColumnModel(false, Cols.key.i18n(), Cols.key.ordinal(), true, Cols.key.name()));
@@ -86,7 +85,7 @@ public abstract class AbstractStandardBusinessGroupListController extends Abstra
 				true, Cols.role.name(), FlexiColumnModel.ALIGNMENT_LEFT, new BGRoleCellRenderer(getLocale())));
 		
 		//actions
-		columnsModel.addFlexiColumnModel(new StaticFlexiColumnModel(Cols.allowLeave.i18n(), Cols.allowLeave.ordinal(), TABLE_ACTION_LEAVE,
+		columnsModel.addFlexiColumnModel(new DefaultFlexiColumnModel(Cols.allowLeave.i18n(), Cols.allowLeave.ordinal(), TABLE_ACTION_LEAVE,
 				new BooleanCellRenderer(new StaticFlexiCellRenderer(translate("table.header.leave"), TABLE_ACTION_LEAVE), null)));
 		return columnsModel;
 	}

@@ -60,6 +60,8 @@ import org.olat.core.util.vfs.VFSManager;
 import org.olat.course.assessment.manager.AssessmentModeDAO;
 import org.olat.course.assessment.manager.UserCourseInformationsManager;
 import org.olat.course.certificate.CertificatesManager;
+import org.olat.ims.qti21.manager.AssessmentTestSessionDAO;
+import org.olat.modules.assessment.manager.AssessmentEntryDAO;
 import org.olat.modules.reminder.manager.ReminderDAO;
 import org.olat.repository.ErrorList;
 import org.olat.repository.RepositoryEntry;
@@ -68,6 +70,7 @@ import org.olat.repository.RepositoryEntryAuthorView;
 import org.olat.repository.RepositoryEntryMyView;
 import org.olat.repository.RepositoryEntryRef;
 import org.olat.repository.RepositoryEntryRelationType;
+import org.olat.repository.RepositoryEntryStatus;
 import org.olat.repository.RepositoryManager;
 import org.olat.repository.RepositoryModule;
 import org.olat.repository.RepositoryService;
@@ -134,9 +137,13 @@ public class RepositoryServiceImpl implements RepositoryService {
 	@Autowired
 	private AssessmentModeDAO assessmentModeDao;
 	@Autowired
+	private AssessmentTestSessionDAO assessmentTestSessionDao;
+	@Autowired
 	private PersistentTaskDAO persistentTaskDao;
 	@Autowired
 	private ReminderDAO reminderDao;
+	@Autowired
+	private AssessmentEntryDAO assessmentEntryDao;
 
 	@Autowired
 	private LifeFullIndexer lifeIndexer;
@@ -208,7 +215,7 @@ public class RepositoryServiceImpl implements RepositoryService {
 		re.setGroups(rels);
 		
 		if(initialAuthor != null) {
-			groupDao.addMembership(group, initialAuthor, GroupRoles.owner.name());
+			groupDao.addMembershipTwoWay(group, initialAuthor, GroupRoles.owner.name());
 		}
 		
 		dbInstance.getCurrentEntityManager().persist(re);
@@ -320,7 +327,47 @@ public class RepositoryServiceImpl implements RepositoryService {
 	}
 	
 	@Override
-	public ErrorList delete(RepositoryEntry entry, Identity identity, Roles roles, Locale locale) {
+	public RepositoryEntry deleteSoftly(RepositoryEntry re, Identity deletedBy, boolean owners) {
+		RepositoryEntry reloadedRe = repositoryEntryDAO.loadForUpdate(re);
+		reloadedRe.setAccess(RepositoryEntry.DELETED);
+		if(reloadedRe.getDeletionDate() == null) {
+			// don't write the name of an admin which make a restore -> delete operation
+			reloadedRe.setDeletedBy(deletedBy);
+			reloadedRe.setDeletionDate(new Date());
+		}
+		reloadedRe = dbInstance.getCurrentEntityManager().merge(reloadedRe);
+		dbInstance.commit();
+		//remove from catalog
+		catalogManager.resourceableDeleted(reloadedRe);
+		//remove participant and coach
+		if(owners) {
+			removeMembers(reloadedRe, GroupRoles.owner.name(), GroupRoles.coach.name(), GroupRoles.participant.name(), GroupRoles.waiting.name());
+		} else {
+			removeMembers(reloadedRe, GroupRoles.coach.name(), GroupRoles.participant.name(), GroupRoles.waiting.name());
+		}
+		//remove relation to business groups
+		List<RepositoryEntryToGroupRelation> relations = reToGroupDao.getRelations(reloadedRe);
+		for(RepositoryEntryToGroupRelation relation:relations) {
+			if(!relation.isDefaultGroup()) {
+				reToGroupDao.removeRelation(relation);
+			}
+		}
+		dbInstance.commit();
+		return reloadedRe;
+	}
+
+	@Override
+	public RepositoryEntry restoreRepositoryEntry(RepositoryEntry entry) {
+		RepositoryEntry reloadedRe = repositoryEntryDAO.loadForUpdate(entry);
+		reloadedRe.setAccess(RepositoryEntry.ACC_OWNERS);
+		reloadedRe.setStatusCode(RepositoryEntryStatus.REPOSITORY_STATUS_CLOSED);
+		reloadedRe = dbInstance.getCurrentEntityManager().merge(reloadedRe);
+		dbInstance.commit();
+		return reloadedRe;
+	}
+
+	@Override
+	public ErrorList deletePermanently(RepositoryEntry entry, Identity identity, Roles roles, Locale locale) {
 		ErrorList errors = new ErrorList();
 		
 		boolean debug = log.isDebug();
@@ -360,7 +407,13 @@ public class RepositoryServiceImpl implements RepositoryService {
 		// inform handler to do any cleanup work... handler must delete the
 		// referenced resourceable a swell.
 		handler.cleanupOnDelete(entry, resource);
-		
+		dbInstance.commit();
+
+		//delete all test sessions
+		assessmentTestSessionDao.deleteAllUserTestSessionsByCourse(entry);
+		//nullify the reference
+		assessmentEntryDao.removeEntryForReferenceEntry(entry);
+		assessmentEntryDao.deleteEntryForRepositoryEntry(entry);
 		dbInstance.commit();
 
 		if(debug) log.debug("deleteRepositoryEntry after reload entry=" + entry);
@@ -404,6 +457,45 @@ public class RepositoryServiceImpl implements RepositoryService {
 	}
 
 	@Override
+	public RepositoryEntry closeRepositoryEntry(RepositoryEntry entry) {
+		RepositoryEntry reloadedEntry = repositoryEntryDAO.loadForUpdate(entry);
+		reloadedEntry.setStatusCode(RepositoryEntryStatus.REPOSITORY_STATUS_CLOSED);
+		reloadedEntry = dbInstance.getCurrentEntityManager().merge(reloadedEntry);
+		dbInstance.commit();
+		return reloadedEntry;
+	}
+
+	@Override
+	public RepositoryEntry uncloseRepositoryEntry(RepositoryEntry entry) {
+		RepositoryEntry reloadedEntry = repositoryEntryDAO.loadForUpdate(entry);
+		reloadedEntry.setStatusCode(RepositoryEntryStatus.REPOSITORY_STATUS_OPEN);
+		reloadedEntry = dbInstance.getCurrentEntityManager().merge(reloadedEntry);
+		dbInstance.commit();
+		return reloadedEntry;
+	}
+
+	@Override
+	public RepositoryEntry unpublishRepositoryEntry(RepositoryEntry entry) {
+		RepositoryEntry reloadedEntry = repositoryEntryDAO.loadForUpdate(entry);
+		reloadedEntry.setStatusCode(RepositoryEntryStatus.REPOSITORY_STATUS_UNPUBLISHED);
+		reloadedEntry = dbInstance.getCurrentEntityManager().merge(reloadedEntry);
+		dbInstance.commit();
+		// remove catalog entries
+		catalogManager.resourceableDeleted(reloadedEntry);
+		// remove users and participants
+		//remove participant and coach
+		removeMembers(reloadedEntry, GroupRoles.coach.name(), GroupRoles.participant.name(), GroupRoles.waiting.name());
+		//remove relation to business groups
+		List<RepositoryEntryToGroupRelation> relations = reToGroupDao.getRelations(reloadedEntry);
+		for(RepositoryEntryToGroupRelation relation:relations) {
+			if(!relation.isDefaultGroup()) {
+				reToGroupDao.removeRelation(relation);
+			}
+		}
+		return reloadedEntry;
+	}
+
+	@Override
 	public void incrementLaunchCounter(RepositoryEntry re) {
 		repositoryEntryStatisticsDao.incrementLaunchCounter(re);
 	}
@@ -440,6 +532,11 @@ public class RepositoryServiceImpl implements RepositoryService {
 	@Override
 	public boolean hasRole(Identity identity, RepositoryEntryRef re, String... roles) {
 		return reToGroupDao.hasRole(identity, re, roles);
+	}
+
+	@Override
+	public boolean hasRole(Identity identity, boolean followBusinessGroups, String... roles) {
+		return reToGroupDao.hasRole(identity, followBusinessGroups, roles);
 	}
 
 	@Override

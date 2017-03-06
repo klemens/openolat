@@ -28,6 +28,9 @@ import java.util.Collection;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 
+import javax.xml.stream.XMLStreamException;
+import javax.xml.stream.XMLStreamWriter;
+
 import org.apache.commons.io.IOUtils;
 import org.olat.core.logging.OLog;
 import org.olat.core.logging.Tracing;
@@ -64,6 +67,7 @@ public class OpenXMLDocumentWriter {
 	public static final String CT_NUMBERING = "application/vnd.openxmlformats-officedocument.wordprocessingml.numbering+xml";
 	public static final String CT_STYLES = "application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml";
 	public static final String CT_HEADER = "application/vnd.openxmlformats-officedocument.wordprocessingml.header+xml";
+	public static final String CT_THEME = "application/vnd.openxmlformats-officedocument.theme+xml";
 	
 	
 	public void createDocument(ZipOutputStream out, OpenXMLDocument document)
@@ -72,37 +76,41 @@ public class OpenXMLDocumentWriter {
 		document.appendPageSettings();
 		
 		//_rels
-		ZipEntry rels = new ZipEntry("_rels/.rels");
-		out.putNextEntry(rels);
+		out.putNextEntry(new ZipEntry("_rels/.rels"));
 		createShadowDocumentRelationships(out);
 		out.closeEntry();
 		
 		//[Content_Types].xml
-		ZipEntry contentType = new ZipEntry("[Content_Types].xml");
-		out.putNextEntry(contentType);
+		out.putNextEntry(new ZipEntry("[Content_Types].xml"));
 		createContentTypes(document, out);
 		out.closeEntry();
 		
 		//docProps/app.xml
-		ZipEntry app = new ZipEntry("docProps/app.xml");
-		out.putNextEntry(app);
+		out.putNextEntry(new ZipEntry("docProps/app.xml"));
 		createDocPropsApp(out);
 		out.closeEntry();
 		
 		//docProps/core.xml
-		ZipEntry core = new ZipEntry("docProps/core.xml");
-		out.putNextEntry(core);
+		out.putNextEntry(new ZipEntry("docProps/core.xml"));
 		createDocPropsCore(out);
 		out.closeEntry();
 		
 		//word/_rels/document.xml.rels
-		ZipEntry docRels = new ZipEntry("word/_rels/document.xml.rels");
-		out.putNextEntry(docRels);
+		out.putNextEntry(new ZipEntry("word/_rels/document.xml.rels"));
 		createDocumentRelationships(out, document);
 		out.closeEntry();
 		
 		//word/media
 		appendMedias(out, document);
+		
+		// word/theme/theme1.xml
+		out.putNextEntry(new ZipEntry("word/theme/theme1.xml"));
+		try(InputStream in = OpenXMLDocumentWriter.class.getResourceAsStream("_resources/theme1.xml")) {
+			IOUtils.copy(in, out);
+		} catch (IOException e) {
+			log.error("", e);
+		}
+		out.closeEntry();
 		
 		//word/numbering
 		ZipEntry numberingDocument = new ZipEntry("word/numbering.xml");
@@ -199,31 +207,43 @@ public class OpenXMLDocumentWriter {
   <Relationship Id="rId3" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/numbering" Target="numbering.xml" />
 </Relationships>
 	 */
-	protected void createDocumentRelationships(OutputStream out, OpenXMLDocument document) {
+	protected void createDocumentRelationships(ZipOutputStream out, OpenXMLDocument document) {
 		try {
+			XMLStreamWriter writer = OpenXMLUtils.createStreamWriter(out);
+			writer.writeStartDocument("UTF-8", "1.0");
+			writer.writeStartElement("Relationships");
+			writer.writeNamespace("", SCHEMA_RELATIONSHIPS);
+			
 			Document doc = OpenXMLUtils.createDocument();
 			Element relationshipsEl = (Element)doc.appendChild(doc.createElement("Relationships"));
 			relationshipsEl.setAttribute("xmlns", SCHEMA_RELATIONSHIPS);
 
 			addRelationship("rId1", "http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles",
-					"styles.xml", relationshipsEl, doc);
+					"styles.xml", writer);
 			addRelationship("rId2", "http://schemas.openxmlformats.org/officeDocument/2006/relationships/numbering",
-					"numbering.xml", relationshipsEl, doc);
+					"numbering.xml", writer);
 			
 			if(document != null) {
 				for(DocReference docRef:document.getImages()) {
 					addRelationship(docRef.getId(), "http://schemas.openxmlformats.org/officeDocument/2006/relationships/image",
-							"media/" + docRef.getFilename(), relationshipsEl, doc);
+							"media/" + docRef.getFilename(), writer);
 				}
 				
 				for(HeaderReference headerRef:document.getHeaders()) {
 					addRelationship(headerRef.getId(), "http://schemas.openxmlformats.org/officeDocument/2006/relationships/header",
-							headerRef.getFilename(), relationshipsEl, doc);
+							headerRef.getFilename(), writer);
 				}
 			}
+			
+			addRelationship(document.generateId(), "http://schemas.openxmlformats.org/officeDocument/2006/relationships/theme",
+					"theme/theme1.xml", writer);
 
-			OpenXMLUtils.writeTo(doc, out, false);
-		} catch (DOMException e) {
+
+			writer.writeEndElement();// end Relationships
+			writer.writeEndDocument();
+			writer.flush();
+			writer.close();
+		} catch (XMLStreamException e) {
 			log.error("", e);
 		}
 	}
@@ -236,30 +256,36 @@ public class OpenXMLDocumentWriter {
 <Relationship Id="rId3" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/>
 </Relationships>
 	*/
-	protected void createShadowDocumentRelationships(OutputStream out) {
+	protected void createShadowDocumentRelationships(ZipOutputStream zout) {
 		try {
-			Document doc = OpenXMLUtils.createDocument();
-			Element relationshipsEl = (Element)doc.appendChild(doc.createElement("Relationships"));
-			relationshipsEl.setAttribute("xmlns", SCHEMA_RELATIONSHIPS);
+			XMLStreamWriter writer = OpenXMLUtils.createStreamWriter(zout);
+			writer.writeStartDocument("UTF-8", "1.0");
+			writer.writeStartElement("Relationships");
+			writer.writeNamespace("", SCHEMA_RELATIONSHIPS);
 
 			addRelationship("rId1", "http://schemas.openxmlformats.org/package/2006/relationships/metadata/core-properties",
-					"docProps/core.xml", relationshipsEl, doc);
+					"docProps/core.xml", writer);
 			addRelationship("rId2", "http://schemas.openxmlformats.org/officeDocument/2006/relationships/extended-properties",
-					"docProps/app.xml", relationshipsEl, doc);
+					"docProps/app.xml", writer);
 			addRelationship("rId3", "http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument",
-					"word/document.xml", relationshipsEl, doc);
+					"word/document.xml", writer);
 			
-			OpenXMLUtils.writeTo(doc, out, false);
-		} catch (DOMException e) {
+			writer.writeEndElement();// end Relationships
+			writer.writeEndDocument();
+			writer.flush();
+			writer.close();
+		} catch (XMLStreamException e) {
 			log.error("", e);
 		}
 	}
 	
-	private final void addRelationship(String id, String type, String target, Element propertiesEl, Document doc) {
-		Element relEl = (Element)propertiesEl.appendChild(doc.createElement("Relationship"));
-		relEl.setAttribute("Id", id);
-		relEl.setAttribute("Type", type);
-		relEl.setAttribute("Target", target);
+	private final void addRelationship(String id, String type, String target, XMLStreamWriter writer)
+	throws XMLStreamException {
+		writer.writeStartElement("Relationship");
+		writer.writeAttribute("Id", id);
+		writer.writeAttribute("Type", type);
+		writer.writeAttribute("Target", target);
+		writer.writeEndElement();
 	}
 	
 	/*
@@ -309,8 +335,8 @@ public class OpenXMLDocumentWriter {
 			Document doc = OpenXMLUtils.createDocument();
 			Element propertiesEl = (Element)doc.appendChild(doc.createElement("properties:Properties"));
 			propertiesEl.setAttribute("xmlns:properties", SCHEMA_EXT_PROPERTIES);
-			addExtProperty("Application", "OpenOLAT", propertiesEl, doc);
-			addExtProperty("AppVersion", "9.1.0", propertiesEl, doc);
+			addExtProperty("Application", "Microsoft Macintosh Word", propertiesEl, doc);
+			addExtProperty("AppVersion", "14.0000", propertiesEl, doc);
 			OpenXMLUtils.writeTo(doc, out, false);
 		} catch (DOMException e) {
 			log.error("", e);
@@ -333,41 +359,52 @@ public class OpenXMLDocumentWriter {
 	<Override ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml" PartName="/word/styles.xml" />
 </Types>
  */
-	protected void createContentTypes(OpenXMLDocument document, OutputStream out) {
-		Document doc = OpenXMLUtils.createDocument();
-		Element typesEl = (Element)doc.appendChild(doc.createElement("Types"));
-		typesEl.setAttribute("xmlns", SCHEMA_CONTENT_TYPES);
-		//Default
-		createContentTypesDefault("rels", CT_RELATIONSHIP, typesEl, doc);
-		createContentTypesDefault("xml", "application/xml", typesEl, doc);
-		createContentTypesDefault("jpeg", "image/jpeg", typesEl, doc);
-		createContentTypesDefault("jpg", "image/jpeg", typesEl, doc);
-		createContentTypesDefault("png", "image/png", typesEl, doc);
-		createContentTypesDefault("gif", "image/gif", typesEl, doc);
-		//Override
-		createContentTypesOverride("/docProps/app.xml", CT_EXT_PROPERTIES, typesEl, doc);
-		createContentTypesOverride("/docProps/core.xml", CT_CORE_PROPERTIES, typesEl, doc);
-		createContentTypesOverride("/word/document.xml", CT_WORD_DOCUMENT, typesEl, doc);
-		createContentTypesOverride("/word/styles.xml", CT_STYLES, typesEl, doc);
-		createContentTypesOverride("/word/numbering.xml", CT_NUMBERING, typesEl, doc);
-		
-		for(HeaderReference headerRef:document.getHeaders()) {
-			createContentTypesOverride("/word/" + headerRef.getFilename(), CT_HEADER, typesEl, doc);
+	protected void createContentTypes(OpenXMLDocument document, ZipOutputStream out) {
+		try {
+			XMLStreamWriter writer = OpenXMLUtils.createStreamWriter(out);
+			writer.writeStartDocument("UTF-8", "1.0");
+			writer.writeStartElement("Types");
+			writer.writeNamespace("", SCHEMA_CONTENT_TYPES);
+			
+			//Default
+			createContentTypesDefault("rels", CT_RELATIONSHIP, writer);
+			createContentTypesDefault("xml", "application/xml", writer);
+			createContentTypesDefault("jpeg", "image/jpeg", writer);
+			createContentTypesDefault("jpg", "image/jpeg", writer);
+			createContentTypesDefault("png", "image/png", writer);
+			createContentTypesDefault("gif", "image/gif", writer);
+			//Override
+			createContentTypesOverride("/docProps/app.xml", CT_EXT_PROPERTIES, writer);
+			createContentTypesOverride("/docProps/core.xml", CT_CORE_PROPERTIES, writer);
+			createContentTypesOverride("/word/document.xml", CT_WORD_DOCUMENT, writer);
+			createContentTypesOverride("/word/styles.xml", CT_STYLES, writer);
+			createContentTypesOverride("/word/numbering.xml", CT_NUMBERING, writer);
+			createContentTypesOverride("/word/theme/theme1.xml", CT_THEME, writer);
+			
+			for(HeaderReference headerRef:document.getHeaders()) {
+				createContentTypesOverride("/word/" + headerRef.getFilename(), CT_HEADER, writer);
+			}
+
+			writer.writeEndElement();// end Types
+			writer.flush();
+			writer.close();
+		} catch (XMLStreamException e) {
+			log.error("", e);
 		}
-		OpenXMLUtils.writeTo(doc, out, false);
 	}
 	
-	private final void createContentTypesDefault(String extension, String type, Element typesEl, Document doc) {
-		Element defaultEl = (Element)typesEl.appendChild(doc.createElement("Default"));
-		defaultEl.setAttribute("Extension", extension);
-		defaultEl.setAttribute("ContentType", type);
+	private final void createContentTypesDefault(String extension, String type, XMLStreamWriter writer) throws XMLStreamException {
+		writer.writeStartElement("Default");
+		writer.writeAttribute("Extension", extension);
+		writer.writeAttribute("ContentType", type);
+		writer.writeEndElement();
 	}
 	
-	private final void createContentTypesOverride(String partName, String type, Element typesEl, Document doc) {
-		Element overrideEl = (Element)typesEl.appendChild(doc.createElement("Override"));
-		overrideEl.setAttribute("PartName", partName);
-		overrideEl.setAttribute("ContentType", type);
+	private final void createContentTypesOverride(String partName, String type, XMLStreamWriter writer) throws XMLStreamException {
+		writer.writeStartElement("Override");
+		writer.writeAttribute("PartName", partName);
+		writer.writeAttribute("ContentType", type);
+		writer.writeEndElement();
 	}
-	
 
 }

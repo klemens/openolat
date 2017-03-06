@@ -28,6 +28,7 @@ import org.olat.core.id.Identity;
 import org.olat.core.id.Persistable;
 import org.olat.core.id.Preferences;
 import org.olat.core.id.User;
+import org.olat.core.id.UserConstants;
 import org.olat.core.util.StringHelper;
 
 /**
@@ -103,11 +104,6 @@ public class UpdateIdentity implements Identity {
 	}
 
 	@Override
-	public void setName(String name) {
-		//
-	}
-
-	@Override
 	public User getUser() {
 		return userWrapper;
 	}
@@ -121,11 +117,6 @@ public class UpdateIdentity implements Identity {
 	public Integer getStatus() {
 		return identity.getStatus();
 	}
-
-	@Override
-	public void setStatus(Integer newStatus) {
-		//
-	}	
 	
 	@Override
 	public int hashCode() {
@@ -160,6 +151,21 @@ public class UpdateIdentity implements Identity {
 		@Override
 		public Long getKey() {
 			return user.getKey();
+		}
+		
+		@Override
+		public String getFirstName() {
+			return updatedProperties.get(UserConstants.FIRSTNAME);
+		}
+
+		@Override
+		public String getLastName() {
+			return updatedProperties.get(UserConstants.LASTNAME);
+		}
+
+		@Override
+		public String getEmail() {
+			return updatedProperties.get(UserConstants.EMAIL);
 		}
 
 		@Override

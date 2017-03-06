@@ -100,6 +100,9 @@ public class QItemQueriesDAO {
 		if(inKeys != null && inKeys.size() > 0) {
 			sb.append(" and item.key in (:inKeys)");
 		}
+		if(StringHelper.containsNonWhitespace(params.getFormat())) {
+			sb.append(" and item.format=:format");
+		}
 		
 		if(orderBy != null && orderBy.length > 0 && orderBy[0] != null && !OrderBy.marks.name().equals(orderBy[0].getKey())) {
 			appendOrderBy(sb, "item", orderBy);
@@ -110,6 +113,9 @@ public class QItemQueriesDAO {
 				.setParameter("identityKey", params.getIdentity().getKey());
 		if(inKeys != null && inKeys.size() > 0) {
 			query.setParameter("inKeys", inKeys);
+		}
+		if(StringHelper.containsNonWhitespace(params.getFormat())) {
+			query.setParameter("format", params.getFormat());
 		}
 		if(firstResult >= 0) {
 			query.setFirstResult(firstResult);
@@ -131,7 +137,7 @@ public class QItemQueriesDAO {
 	}
 	
 	public List<QuestionItemView> getItemsOfCollection(Identity identity, QuestionItemCollection collection, Collection<Long> inKeys,
-			int firstResult, int maxResults, SortKey... orderBy) {
+			String format, int firstResult, int maxResults, SortKey... orderBy) {
 		StringBuilder sb = new StringBuilder();
 		sb.append("select item, ")
 		  .append(" (select count(sgmi.key) from ").append(SecurityGroupMembershipImpl.class.getName()).append(" as sgmi")
@@ -153,6 +159,9 @@ public class QItemQueriesDAO {
 		if(inKeys != null && inKeys.size() > 0) {
 			sb.append(" and item.key in (:inKeys)");
 		}
+		if(StringHelper.containsNonWhitespace(format)) {
+			sb.append(" and item.format=:format");
+		}
 		appendOrderBy(sb, "item", orderBy);
 		
 		TypedQuery<Object[]> query = dbInstance.getCurrentEntityManager()
@@ -161,6 +170,9 @@ public class QItemQueriesDAO {
 				.setParameter("identityKey", identity.getKey());
 		if(inKeys != null && inKeys.size() > 0) {
 			query.setParameter("inKeys", inKeys);
+		}
+		if(StringHelper.containsNonWhitespace(format)) {
+			query.setParameter("format", format);
 		}
 		if(firstResult >= 0) {
 			query.setFirstResult(firstResult);
@@ -260,7 +272,7 @@ public class QItemQueriesDAO {
 	}
 	
 	public List<QuestionItemView> getSharedItemByResource(Identity identity, OLATResource resource, List<Long> inKeys,
-			int firstResult, int maxResults, SortKey... orderBy) {
+			String format, int firstResult, int maxResults, SortKey... orderBy) {
 		StringBuilder sb = new StringBuilder();
 		sb.append("select item, shareditem.editable, ")
 		  .append(" (select count(mark.key) from ").append(MarkImpl.class.getName()).append(" as mark ")
@@ -279,6 +291,9 @@ public class QItemQueriesDAO {
 		if(inKeys != null && inKeys.size() > 0) {
 			sb.append(" and item.key in (:inKeys)");
 		}
+		if(StringHelper.containsNonWhitespace(format)) {
+			sb.append(" and item.format=:format");
+		}
 		appendOrderBy(sb, "item", orderBy);
 		
 		TypedQuery<Object[]> query = dbInstance.getCurrentEntityManager()
@@ -287,6 +302,9 @@ public class QItemQueriesDAO {
 				.setParameter("identityKey", identity.getKey());
 		if(inKeys != null && inKeys.size() > 0) {
 			query.setParameter("inKeys", inKeys);
+		}
+		if(StringHelper.containsNonWhitespace(format)) {
+			query.setParameter("format", format);
 		}
 		return processQuery(query, firstResult, maxResults);
 	}
@@ -311,6 +329,9 @@ public class QItemQueriesDAO {
 		if(inKeys != null && inKeys.size() > 0) {
 			sb.append(" and item.key in (:inKeys)");
 		}
+		if(StringHelper.containsNonWhitespace(params.getFormat())) {
+			sb.append(" and item.format=:format");
+		}
 		appendOrderBy(sb, "item", orderBy);
 		
 		TypedQuery<Object[]> query = dbInstance.getCurrentEntityManager()
@@ -319,6 +340,9 @@ public class QItemQueriesDAO {
 				.setParameter("identityKey", params.getIdentity().getKey());
 		if(inKeys != null && inKeys.size() > 0) {
 			query.setParameter("inKeys", inKeys);
+		}
+		if(StringHelper.containsNonWhitespace(params.getFormat())) {
+			query.setParameter("format", params.getFormat());
 		}
 		return processQuery(query, firstResult, maxResults);
 	}
@@ -351,18 +375,43 @@ public class QItemQueriesDAO {
 			boolean asc = orderBy[0].isAsc();
 			sb.append(" order by ");
 			switch(sortKey) {
-				case "itemType": sb.append(dbRef).append(".type.type"); break;
-				case "marks": sb.append("marks"); break;
-				case "rating": sb.append("rating"); break;
-				default: sb.append(dbRef).append(".").append(sortKey); break;
-			}
-			if(asc) {
-				sb.append(" asc ");
-			} else {
-				sb.append(" desc ");
+				case "itemType":
+					sb.append(dbRef).append(".type.type ");
+					appendAsc(sb, asc);
+					break;
+				case "marks":
+					sb.append("marks");
+					appendAsc(sb, asc);
+					break;
+				case "rating":
+					sb.append("rating");
+					appendAsc(sb, asc);
+					sb.append(" nulls last");
+					break;
+				case "keywords":
+				case "coverage":
+				case "additionalInformations":
+					sb.append("lower(").append(dbRef).append(".").append(sortKey).append(")");
+					appendAsc(sb, asc);
+					sb.append(" nulls last");
+					break;	
+				default:
+					sb.append(dbRef).append(".").append(sortKey);
+					appendAsc(sb, asc);
+					sb.append(" nulls last");
+					break;
 			}
 		} else {
 			sb.append(" order by item.key asc ");
 		}
+	}
+	
+	private final StringBuilder appendAsc(StringBuilder sb, boolean asc) {
+		if(asc) {
+			sb.append(" asc");
+		} else {
+			sb.append(" desc");
+		}
+		return sb;
 	}
 }

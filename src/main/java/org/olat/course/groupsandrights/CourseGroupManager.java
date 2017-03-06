@@ -57,7 +57,7 @@ public interface CourseGroupManager {
 	
 	public RepositoryEntry getCourseEntry();
 	
-	public void refreshRepositoryEntry(RepositoryEntry entry);
+	//public void refreshRepositoryEntry(RepositoryEntry entry);
 
 	/**
 	 * Checks users course rights in any of the available right group context of
@@ -108,7 +108,7 @@ public interface CourseGroupManager {
 	public boolean isIdentityInLearningArea(Identity identity, Long areaKey);
 
 	/**
-	 * Checks if user is coach in any of the courses learning groups
+	 * Checks if user is coach in the course (of the repository entry or of a business group)
 	 * 
 	 * @param identity
 	 * @return true if user is coach
@@ -130,6 +130,31 @@ public interface CourseGroupManager {
 	 * @return boolean
 	 */
 	public boolean isIdentityCourseParticipant(Identity identity);
+	
+	
+	/**
+	 * Checks if user is coach in any course.
+	 * 
+	 * @param identity
+	 * @return true if user is coach
+	 */
+	public boolean isIdentityAnyCourseCoach(Identity identity);
+
+	/**
+	 * Checks if user is course administrator in any course.
+	 * 
+	 * @param identity
+	 * @return boolean
+	 */
+	public boolean isIdentityAnyCourseAdministrator(Identity identity);
+	
+	/**
+	 * Checks if user is participant in any course.
+	 * 
+	 * @param identity
+	 * @return boolean
+	 */
+	public boolean isIdentityAnyCourseParticipant(Identity identity);
 	
 	/**
 	 * @return True if there are some business groups linked to this resource

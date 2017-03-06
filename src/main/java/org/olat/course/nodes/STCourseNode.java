@@ -56,6 +56,7 @@ import org.olat.course.CourseFactory;
 import org.olat.course.CourseModule;
 import org.olat.course.ICourse;
 import org.olat.course.condition.Condition;
+import org.olat.course.condition.KeyAndNameConverter;
 import org.olat.course.condition.interpreter.ConditionExpression;
 import org.olat.course.condition.interpreter.ConditionInterpreter;
 import org.olat.course.editor.CourseEditorEnv;
@@ -70,12 +71,15 @@ import org.olat.course.nodes.st.STCourseNodeEditController;
 import org.olat.course.nodes.st.STCourseNodeRunController;
 import org.olat.course.nodes.st.STPeekViewController;
 import org.olat.course.run.navigation.NodeRunConstructionResult;
+import org.olat.course.run.scoring.AssessmentEvaluation;
+import org.olat.course.run.scoring.FailedEvaluationType;
 import org.olat.course.run.scoring.ScoreCalculator;
 import org.olat.course.run.scoring.ScoreEvaluation;
 import org.olat.course.run.userview.NodeEvaluation;
 import org.olat.course.run.userview.UserCourseEnvironment;
 import org.olat.course.tree.CourseInternalLinkTreeModel;
 import org.olat.modules.ModuleConfiguration;
+import org.olat.modules.assessment.AssessmentEntry;
 import org.olat.repository.RepositoryEntry;
 import org.olat.util.logging.activity.LoggingResourceable;
 
@@ -94,7 +98,7 @@ import org.olat.util.logging.activity.LoggingResourceable;
  * @author Mike Stock
  * @author BPS (<a href="http://www.bps-system.de/">BPS Bildungsportal Sachsen GmbH</a>)
  */
-public class STCourseNode extends AbstractAccessableCourseNode implements AssessableCourseNode {
+public class STCourseNode extends AbstractAccessableCourseNode implements CalculatedAssessableCourseNode {
 
 	private static final long serialVersionUID = -7460670977531082040L;
 	private static final String TYPE = "st";
@@ -103,8 +107,8 @@ public class STCourseNode extends AbstractAccessableCourseNode implements Assess
 	private ScoreCalculator scoreCalculator;
 
 	transient private Condition scoreExpression;
-
 	transient private Condition passedExpression;
+	transient private Condition failedExpression;
 
 	/**
 	 * Constructor for a course building block of the type structure
@@ -233,6 +237,7 @@ public class STCourseNode extends AbstractAccessableCourseNode implements Assess
 	 *      org.olat.course.run.userview.UserCourseEnvironment,
 	 *      org.olat.course.run.userview.NodeEvaluation)
 	 */
+	@Override
 	public Controller createPreviewController(UserRequest ureq, WindowControl wControl, UserCourseEnvironment userCourseEnv, NodeEvaluation ne) {
 		return createNodeRunConstructionResult(ureq, wControl, userCourseEnv, ne, null).getRunController();
 	}
@@ -244,6 +249,7 @@ public class STCourseNode extends AbstractAccessableCourseNode implements Assess
 	 *      org.olat.course.run.userview.UserCourseEnvironment,
 	 *      org.olat.course.run.userview.NodeEvaluation)
 	 */
+	@Override
 	public Controller createPeekViewRunController(UserRequest ureq, WindowControl wControl, UserCourseEnvironment userCourseEnv,
 			NodeEvaluation ne) {
 		if (ne.isAtLeastOneAccessible()) {
@@ -269,7 +275,8 @@ public class STCourseNode extends AbstractAccessableCourseNode implements Assess
 	 * 
 	 * @see org.olat.course.nodes.AssessableCourseNode#getUserScoreEvaluation(org.olat.course.run.userview.UserCourseEnvironment)
 	 */
-	public ScoreEvaluation getUserScoreEvaluation(UserCourseEnvironment userCourseEnv) {
+	@Override
+	public AssessmentEvaluation getUserScoreEvaluation(UserCourseEnvironment userCourseEnv) {
 		Float score = null;
 		Boolean passed = null;
 
@@ -281,20 +288,24 @@ public class STCourseNode extends AbstractAccessableCourseNode implements Assess
 		String passedExpressionStr = scoreCalculator.getPassedExpression();
 
 		ConditionInterpreter ci = userCourseEnv.getConditionInterpreter();
-		userCourseEnv.getScoreAccounting().setEvaluatingCourseNode(this);
 		if (scoreExpressionStr != null) {
 			score = new Float(ci.evaluateCalculation(scoreExpressionStr));
 		}
 		if (passedExpressionStr != null) {
 			passed = new Boolean(ci.evaluateCondition(passedExpressionStr));
 		}
-		ScoreEvaluation se = new ScoreEvaluation(score, passed);
-		return se;
+		return new AssessmentEvaluation(score, passed);
+	}
+
+	@Override
+	public AssessmentEvaluation getUserScoreEvaluation(AssessmentEntry entry) {
+		return AssessmentEvaluation.toAssessmentEvalutation(entry, this);
 	}
 
 	/**
 	 * @see org.olat.course.nodes.CourseNode#isConfigValid()
 	 */
+	@Override
 	public StatusDescription isConfigValid() {
 		/*
 		 * first check the one click cache
@@ -322,6 +333,7 @@ public class STCourseNode extends AbstractAccessableCourseNode implements Assess
 	/**
 	 * @see org.olat.course.nodes.CourseNode#isConfigValid(org.olat.course.run.userview.UserCourseEnvironment)
 	 */
+	@Override
 	public StatusDescription[] isConfigValid(CourseEditorEnv cev) {
 		oneClickStatusCache = null;
 		// only here we know which translator to take for translating condition
@@ -335,6 +347,7 @@ public class STCourseNode extends AbstractAccessableCourseNode implements Assess
 	/**
 	 * @see org.olat.course.nodes.CourseNode#getReferencedRepositoryEntry()
 	 */
+	@Override
 	public RepositoryEntry getReferencedRepositoryEntry() {
 		return null;
 	}
@@ -342,6 +355,7 @@ public class STCourseNode extends AbstractAccessableCourseNode implements Assess
 	/**
 	 * @see org.olat.course.nodes.CourseNode#needsReferenceToARepositoryEntry()
 	 */
+	@Override
 	public boolean needsReferenceToARepositoryEntry() {
 		return false;
 	}
@@ -349,21 +363,32 @@ public class STCourseNode extends AbstractAccessableCourseNode implements Assess
 	/**
 	 * @return Returns the scoreCalculator.
 	 */
+	@Override
 	public ScoreCalculator getScoreCalculator() {
 		if (scoreCalculator == null) {
-			scoreCalculator = new ScoreCalculator(null, null);
+			scoreCalculator = new ScoreCalculator();
+			scoreCalculator.setFailedType(FailedEvaluationType.failedAsNotPassedAfterEndDate);
 		}
+		
 		passedExpression = new Condition();
 		passedExpression.setConditionId("passed");
 		if (scoreCalculator.getPassedExpression() != null) {
 			passedExpression.setConditionExpression(scoreCalculator.getPassedExpression());
 			passedExpression.setExpertMode(true);
 		}
+		
 		scoreExpression = new Condition();
 		scoreExpression.setConditionId("score");
 		if (scoreCalculator.getScoreExpression() != null) {
 			scoreExpression.setConditionExpression(scoreCalculator.getScoreExpression());
 			scoreExpression.setExpertMode(true);
+		}
+		
+		failedExpression = new Condition();
+		failedExpression.setConditionId("failed");
+		if (scoreCalculator.getFailedExpression() != null) {
+			failedExpression.setConditionExpression(scoreCalculator.getFailedExpression());
+			failedExpression.setExpertMode(true);
 		}
 		return scoreCalculator;
 	}
@@ -376,20 +401,32 @@ public class STCourseNode extends AbstractAccessableCourseNode implements Assess
 		if (scoreCalculatorP == null) {
 			scoreCalculator = getScoreCalculator();
 		}
-		String passed, score;
-		passed = scoreCalculator.getPassedExpression();
-		score = scoreCalculator.getScoreExpression();
+
+		String score = scoreCalculator.getScoreExpression();
 		scoreExpression.setExpertMode(true);
 		scoreExpression.setConditionExpression(score);
 		scoreExpression.setConditionId("score");
+		
+		String passed = scoreCalculator.getPassedExpression();
 		passedExpression.setExpertMode(true);
 		passedExpression.setConditionExpression(passed);
 		passedExpression.setConditionId("passed");
+		
+		String failed = scoreCalculator.getFailedExpression();
+		failedExpression.setExpertMode(true);
+		failedExpression.setConditionExpression(failed);
+		failedExpression.setConditionId("failed");
+	}
+
+	@Override
+	public boolean isAssessedBusinessGroups() {
+		return false;
 	}
 
 	/**
 	 * @see org.olat.course.nodes.AssessableCourseNode#getCutValueConfiguration()
 	 */
+	@Override
 	public Float getCutValueConfiguration() {
 		throw new OLATRuntimeException(STCourseNode.class, "Cut value never defined for ST nodes", null);
 	}
@@ -397,6 +434,7 @@ public class STCourseNode extends AbstractAccessableCourseNode implements Assess
 	/**
 	 * @see org.olat.course.nodes.AssessableCourseNode#getMaxScoreConfiguration()
 	 */
+	@Override
 	public Float getMaxScoreConfiguration() {
 		throw new OLATRuntimeException(STCourseNode.class, "Max score never defined for ST nodes", null);
 	}
@@ -404,6 +442,7 @@ public class STCourseNode extends AbstractAccessableCourseNode implements Assess
 	/**
 	 * @see org.olat.course.nodes.AssessableCourseNode#getMinScoreConfiguration()
 	 */
+	@Override
 	public Float getMinScoreConfiguration() {
 		throw new OLATRuntimeException(STCourseNode.class, "Min score never defined for ST nodes", null);
 	}
@@ -411,6 +450,7 @@ public class STCourseNode extends AbstractAccessableCourseNode implements Assess
 	/**
 	 * @see org.olat.course.nodes.AssessableCourseNode#getUserCoachComment(org.olat.course.run.userview.UserCourseEnvironment)
 	 */
+	@Override
 	public String getUserCoachComment(UserCourseEnvironment userCourseEnvironment) {
 		throw new OLATRuntimeException(STCourseNode.class, "No coach comments available in ST nodes", null);
 	}
@@ -418,6 +458,7 @@ public class STCourseNode extends AbstractAccessableCourseNode implements Assess
 	/**
 	 * @see org.olat.course.nodes.AssessableCourseNode#getUserLog(org.olat.course.run.userview.UserCourseEnvironment)
 	 */
+	@Override
 	public String getUserLog(UserCourseEnvironment userCourseEnvironment) {
 		throw new OLATRuntimeException(STCourseNode.class, "No user logs available in ST nodes", null);
 	}
@@ -425,6 +466,7 @@ public class STCourseNode extends AbstractAccessableCourseNode implements Assess
 	/**
 	 * @see org.olat.course.nodes.AssessableCourseNode#getUserUserComment(org.olat.course.run.userview.UserCourseEnvironment)
 	 */
+	@Override
 	public String getUserUserComment(UserCourseEnvironment userCourseEnvironment) {
 		throw new OLATRuntimeException(STCourseNode.class, "No comments available in ST nodes", null);
 	}
@@ -432,6 +474,7 @@ public class STCourseNode extends AbstractAccessableCourseNode implements Assess
 	/**
 	 * @see org.olat.course.nodes.AssessableCourseNode#hasCommentConfigured()
 	 */
+	@Override
 	public boolean hasCommentConfigured() {
 		// never has comments
 		return false;
@@ -440,22 +483,29 @@ public class STCourseNode extends AbstractAccessableCourseNode implements Assess
 	/**
 	 * @see org.olat.course.nodes.AssessableCourseNode#hasPassedConfigured()
 	 */
+	@Override
 	public boolean hasPassedConfigured() {
-		if (scoreCalculator != null && StringHelper.containsNonWhitespace(scoreCalculator.getPassedExpression())) return true;
+		if (scoreCalculator != null && StringHelper.containsNonWhitespace(scoreCalculator.getPassedExpression())) {
+			return true;
+		}
 		return false;
 	}
 
 	/**
 	 * @see org.olat.course.nodes.AssessableCourseNode#hasScoreConfigured()
 	 */
+	@Override
 	public boolean hasScoreConfigured() {
-		if (scoreCalculator != null && StringHelper.containsNonWhitespace(scoreCalculator.getScoreExpression())) return true;
+		if (scoreCalculator != null && StringHelper.containsNonWhitespace(scoreCalculator.getScoreExpression())) {
+			return true;
+		}
 		return false;
 	}
 
 	/**
 	 * @see org.olat.course.nodes.AssessableCourseNode#hasStatusConfigured()
 	 */
+	@Override
 	public boolean hasStatusConfigured() {
 		return false;
 	}
@@ -463,6 +513,7 @@ public class STCourseNode extends AbstractAccessableCourseNode implements Assess
 	/**
 	 * @see org.olat.course.nodes.AssessableCourseNode#isEditableConfigured()
 	 */
+	@Override
 	public boolean isEditableConfigured() {
 		// ST nodes never editable, data generated on the fly
 		return false;
@@ -472,6 +523,7 @@ public class STCourseNode extends AbstractAccessableCourseNode implements Assess
 	 * @see org.olat.course.nodes.AssessableCourseNode#updateUserCoachComment(java.lang.String,
 	 *      org.olat.course.run.userview.UserCourseEnvironment)
 	 */
+	@Override
 	public void updateUserCoachComment(String coachComment, UserCourseEnvironment userCourseEnvironment) {
 		throw new OLATRuntimeException(STCourseNode.class, "Coach comment variable can't be updated in ST nodes", null);
 	}
@@ -481,6 +533,7 @@ public class STCourseNode extends AbstractAccessableCourseNode implements Assess
 	 *      org.olat.course.run.userview.UserCourseEnvironment,
 	 *      org.olat.core.id.Identity)
 	 */
+	@Override
 	public void updateUserScoreEvaluation(ScoreEvaluation scoreEvaluation, UserCourseEnvironment userCourseEnvironment,
 			Identity coachingIdentity, boolean incrementAttempts) {
 		throw new OLATRuntimeException(STCourseNode.class, "Score variable can't be updated in ST nodes", null);
@@ -491,6 +544,7 @@ public class STCourseNode extends AbstractAccessableCourseNode implements Assess
 	 *      org.olat.course.run.userview.UserCourseEnvironment,
 	 *      org.olat.core.id.Identity)
 	 */
+	@Override
 	public void updateUserUserComment(String userComment, UserCourseEnvironment userCourseEnvironment, Identity coachingIdentity) {
 		throw new OLATRuntimeException(STCourseNode.class, "Comment variable can't be updated in ST nodes", null);
 	}
@@ -498,6 +552,7 @@ public class STCourseNode extends AbstractAccessableCourseNode implements Assess
 	/**
 	 * @see org.olat.course.nodes.AssessableCourseNode#getUserAttempts(org.olat.course.run.userview.UserCourseEnvironment)
 	 */
+	@Override
 	public Integer getUserAttempts(UserCourseEnvironment userCourseEnvironment) {
 		throw new OLATRuntimeException(STCourseNode.class, "No attempts available in ST nodes", null);
 
@@ -506,6 +561,7 @@ public class STCourseNode extends AbstractAccessableCourseNode implements Assess
 	/**
 	 * @see org.olat.course.nodes.AssessableCourseNode#hasAttemptsConfigured()
 	 */
+	@Override
 	public boolean hasAttemptsConfigured() {
 		return false;
 	}
@@ -515,6 +571,7 @@ public class STCourseNode extends AbstractAccessableCourseNode implements Assess
 	 *      org.olat.course.run.userview.UserCourseEnvironment,
 	 *      org.olat.core.id.Identity)
 	 */
+	@Override
 	public void updateUserAttempts(Integer userAttempts, UserCourseEnvironment userCourseEnvironment, Identity coachingIdentity) {
 		throw new OLATRuntimeException(STCourseNode.class, "Attempts variable can't be updated in ST nodes", null);
 	}
@@ -522,6 +579,7 @@ public class STCourseNode extends AbstractAccessableCourseNode implements Assess
 	/**
 	 * @see org.olat.course.nodes.AssessableCourseNode#incrementUserAttempts(org.olat.course.run.userview.UserCourseEnvironment)
 	 */
+	@Override
 	public void incrementUserAttempts(UserCourseEnvironment userCourseEnvironment) {
 		throw new OLATRuntimeException(STCourseNode.class, "Attempts variable can't be updated in ST nodes", null);
 	}
@@ -532,20 +590,20 @@ public class STCourseNode extends AbstractAccessableCourseNode implements Assess
 	 *      org.olat.course.run.userview.UserCourseEnvironment)
 	 */
 	@Override
-	public Controller getDetailsEditController(UserRequest ureq, WindowControl wControl, BreadcrumbPanel stackPanel, UserCourseEnvironment userCourseEnvironment) {
+	public Controller getDetailsEditController(UserRequest ureq, WindowControl wControl, BreadcrumbPanel stackPanel,
+			UserCourseEnvironment coachCourseEnv, UserCourseEnvironment assessedUserCourseEnv) {
 		throw new OLATRuntimeException(STCourseNode.class, "Details controler not available in ST nodes", null);
 	}
 
-	/**
-	 * @see org.olat.course.nodes.AssessableCourseNode#getDetailsListView(org.olat.course.run.userview.UserCourseEnvironment)
-	 */
+	@Override
 	public String getDetailsListView(UserCourseEnvironment userCourseEnvironment) {
-		throw new OLATRuntimeException(STCourseNode.class, "Details not available in ST nodes", null);
+		return null;
 	}
 
 	/**
 	 * @see org.olat.course.nodes.AssessableCourseNode#getDetailsListViewHeaderKey()
 	 */
+	@Override
 	public String getDetailsListViewHeaderKey() {
 		throw new OLATRuntimeException(STCourseNode.class, "Details not available in ST nodes", null);
 	}
@@ -553,6 +611,7 @@ public class STCourseNode extends AbstractAccessableCourseNode implements Assess
 	/**
 	 * @see org.olat.course.nodes.AssessableCourseNode#hasDetails()
 	 */
+	@Override
 	public boolean hasDetails() {
 		return false;
 	}
@@ -565,6 +624,7 @@ public class STCourseNode extends AbstractAccessableCourseNode implements Assess
 	 *          from previous node configuration version, set default to maintain
 	 *          previous behaviour
 	 */
+	@Override
 	public void updateModuleConfigDefaults(boolean isNewNode) {
 		ModuleConfiguration config = getModuleConfiguration();
 		if (isNewNode) {
@@ -578,6 +638,9 @@ public class STCourseNode extends AbstractAccessableCourseNode implements Assess
 			config.set(SPEditController.CONFIG_KEY_DELIVERYOPTIONS, defaultOptions);
 			
 			config.setConfigurationVersion(3);
+			
+			scoreCalculator = new ScoreCalculator();
+			scoreCalculator.setFailedType(FailedEvaluationType.failedAsNotPassedAfterEndDate);
 		} else {
 			// update to version 2
 			if (config.getConfigurationVersion() < 2) {
@@ -631,8 +694,8 @@ public class STCourseNode extends AbstractAccessableCourseNode implements Assess
 		boolean changed = false;
 		if(StringHelper.containsNonWhitespace(calculator.getScoreExpression())) {
 			String score = calculator.getScoreExpression();
-			String processedExpression = convertExpressionNameToKey(score, envMapper);
-			processedExpression = convertExpressionKeyToKey(score, envMapper);
+			String processedExpression = KeyAndNameConverter.convertExpressionNameToKey(score, envMapper);
+			processedExpression = KeyAndNameConverter.convertExpressionKeyToKey(score, envMapper);
 			if(!processedExpression.equals(score)) {
 				calculator.setScoreExpression(processedExpression);
 				changed = true;
@@ -641,8 +704,8 @@ public class STCourseNode extends AbstractAccessableCourseNode implements Assess
 		
 		if(StringHelper.containsNonWhitespace(calculator.getPassedExpression())) {
 			String passed = calculator.getPassedExpression();
-			String processedExpression = convertExpressionNameToKey(passed, envMapper);
-			processedExpression = convertExpressionKeyToKey(passed, envMapper);
+			String processedExpression = KeyAndNameConverter.convertExpressionNameToKey(passed, envMapper);
+			processedExpression = KeyAndNameConverter.convertExpressionKeyToKey(passed, envMapper);
 			if(!processedExpression.equals(passed)) {
 				calculator.setScoreExpression(processedExpression);
 				changed = true;
@@ -664,7 +727,7 @@ public class STCourseNode extends AbstractAccessableCourseNode implements Assess
 			boolean changed = false;
 			if(StringHelper.containsNonWhitespace(calculator.getScoreExpression())) {
 				String score = calculator.getScoreExpression();
-				String processedExpression = convertExpressionKeyToName(score, envMapper);
+				String processedExpression = KeyAndNameConverter.convertExpressionKeyToName(score, envMapper);
 				if(!processedExpression.equals(score)) {
 					calculator.setScoreExpression(processedExpression);
 					changed = true;
@@ -673,7 +736,7 @@ public class STCourseNode extends AbstractAccessableCourseNode implements Assess
 			
 			if(StringHelper.containsNonWhitespace(calculator.getPassedExpression())) {
 				String passed = calculator.getPassedExpression();
-				String processedExpression = convertExpressionKeyToName(passed, envMapper);
+				String processedExpression = KeyAndNameConverter.convertExpressionKeyToName(passed, envMapper);
 				if(!processedExpression.equals(passed)) {
 					calculator.setScoreExpression(processedExpression);
 					changed = true;
@@ -689,6 +752,7 @@ public class STCourseNode extends AbstractAccessableCourseNode implements Assess
 	/**
 	 * @see org.olat.course.nodes.AbstractAccessableCourseNode#getConditionExpressions()
 	 */
+	@Override
 	public List<ConditionExpression> getConditionExpressions() {
 		List<ConditionExpression> retVal;
 		List<ConditionExpression> parentsConditions = super.getConditionExpressions();
@@ -699,24 +763,33 @@ public class STCourseNode extends AbstractAccessableCourseNode implements Assess
 		}
 		// init passedExpression and scoreExpression
 		getScoreCalculator();
-		//
+
 		passedExpression.setExpertMode(true);
 		String coS = passedExpression.getConditionExpression();
-		if (coS != null && !coS.equals("")) {
+		if (StringHelper.containsNonWhitespace(coS)) {
 			// an active condition is defined
 			ConditionExpression ce = new ConditionExpression(passedExpression.getConditionId());
 			ce.setExpressionString(passedExpression.getConditionExpression());
 			retVal.add(ce);
 		}
+		
 		scoreExpression.setExpertMode(true);
 		coS = scoreExpression.getConditionExpression();
-		if (coS != null && !coS.equals("")) {
+		if (StringHelper.containsNonWhitespace(coS)) {
 			// an active condition is defined
 			ConditionExpression ce = new ConditionExpression(scoreExpression.getConditionId());
 			ce.setExpressionString(scoreExpression.getConditionExpression());
 			retVal.add(ce);
 		}
-		//
+		
+		failedExpression.setExpertMode(true);
+		coS = failedExpression.getConditionExpression();
+		if (StringHelper.containsNonWhitespace(coS)) {
+			// an active condition is defined
+			ConditionExpression ce = new ConditionExpression(failedExpression.getConditionId());
+			ce.setExpressionString(failedExpression.getConditionExpression());
+			retVal.add(ce);
+		}
 		return retVal;
 	}
 

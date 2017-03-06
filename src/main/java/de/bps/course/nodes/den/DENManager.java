@@ -264,7 +264,7 @@ public class DENManager {
 
 		for( KalendarEvent newEvent : lstEvents ) {
 			createKalendarEventLinks(course, denNode, newEvent);
-			KalendarEvent oldEvent = cal.getEvent(newEvent.getID());
+			KalendarEvent oldEvent = cal.getEvent(newEvent.getID(), newEvent.getRecurrenceID());
 			//new event?
 			if (oldEvent != null) {
 				//event is already in the calendar so first remove it
@@ -394,10 +394,11 @@ public class DENManager {
 			//pause in milliseconds
 			int pause = 1000*60*60*Integer.parseInt(strTok.nextToken()) + 1000*60*Integer.parseInt(strTok.nextToken());
 			KalendarEvent newEvent;
+			String evnetId = CodeHelper.getGlobalForeverUniqueID();
 			if(nextEvent == null) {
-				newEvent = new KalendarEvent(CodeHelper.getGlobalForeverUniqueID(), subjectStr, begin, duration);
+				newEvent = new KalendarEvent(evnetId, subjectStr, begin, duration);
 			} else {
-				newEvent = new KalendarEvent(CodeHelper.getGlobalForeverUniqueID(), subjectStr, nextEvent, duration);
+				newEvent = new KalendarEvent(evnetId, subjectStr, nextEvent, duration);
 			}
 			newEvent.setNumParticipants(numParticipants);
 			newEvent.setLocation(locationStr);
@@ -458,7 +459,8 @@ public class DENManager {
 					newBegin = new Date(oldEvent.getBegin().getTime() - gap);
 					newEnd = new Date(oldEvent.getEnd().getTime() - gap);
 				}
-				KalendarEvent newEvent = new KalendarEvent(dataList.get(i).getID(), subjectStr.equals(new String()) ? oldEvent.getSubject() : subjectStr, newBegin, newEnd);
+				String eventId = oldEvent.getID();
+				KalendarEvent newEvent = new KalendarEvent(eventId, null, subjectStr.equals(new String()) ? oldEvent.getSubject() : subjectStr, newBegin, newEnd);
 				if(numParticipants != 0)
 					newEvent.setNumParticipants(numParticipants);
 				else
@@ -494,9 +496,11 @@ public class DENManager {
 			Identity identity = manager.findIdentityByName(participant);
 			if(identity != null) {
 				Kalendar userCal = calManager.getPersonalCalendar(identity).getKalendar();
-				Collection<KalendarEvent> userEvents = new ArrayList<KalendarEvent>();
+				List<KalendarEvent> userEvents = new ArrayList<>();
 				userEvents.addAll(userCal.getEvents());
-				KalendarEvent userNewEvent = new KalendarEvent(CodeHelper.getGlobalForeverUniqueID(), newEvent.getSubject(), newEvent.getBegin(), newEvent.getEnd());
+				
+				String eventId = CodeHelper.getGlobalForeverUniqueID();
+				KalendarEvent userNewEvent = new KalendarEvent(eventId, null, newEvent.getSubject(), newEvent.getBegin(), newEvent.getEnd());
 				userNewEvent.setLocation(newEvent.getLocation());
 				userNewEvent.setSourceNodeId(newEvent.getSourceNodeId());
 				userNewEvent.setClassification(KalendarEvent.CLASS_PRIVATE);
@@ -521,7 +525,7 @@ public class DENManager {
 			Identity identity = manager.findIdentityByName(participant);
 			if(identity != null) {
 				Kalendar userCal = calManager.getPersonalCalendar(identity).getKalendar();
-				Collection<KalendarEvent> userEvents = new ArrayList<KalendarEvent>();
+				List<KalendarEvent> userEvents = new ArrayList<>();
 				userEvents.addAll(userCal.getEvents());
 				for( KalendarEvent userEvent : userEvents ) {
 					String sourceNodeId = userEvent.getSourceNodeId();
@@ -582,10 +586,13 @@ public class DENManager {
 		tableCntrl.addColumnDescriptor(new DefaultColumnDescriptor("dates.table.comment", 4, null, ureq.getLocale()));
 		tableCntrl.addColumnDescriptor(new DefaultColumnDescriptor("dates.table.reserved", 5, null, ureq.getLocale()));
 		tableCntrl.addColumnDescriptor(new DefaultColumnDescriptor("dates.table.status", 6, null, ureq.getLocale()));
-		tableCntrl.addColumnDescriptor(new BooleanColumnDescriptor("dates.table.sign.in", 7, DENRunTableDataModel.CMD_ENROLL_IN_DATE,
-				trans.translate("dates.table.sign.in"), trans.translate("dates.table.run.no_action")));
-		tableCntrl.addColumnDescriptor(new BooleanColumnDescriptor("dates.table.sign.out", 8, DENRunTableDataModel.CMD_ENROLLED_CANCEL,
-				trans.translate("dates.table.sign.out"), trans.translate("dates.table.run.no_action")));
+		if(tableData.isEnrollmentEnabled()) {
+			tableCntrl.addColumnDescriptor(new BooleanColumnDescriptor("dates.table.sign.in", 7, DENRunTableDataModel.CMD_ENROLL_IN_DATE,
+					trans.translate("dates.table.sign.in"), trans.translate("dates.table.run.no_action")));
+			tableCntrl.addColumnDescriptor(new BooleanColumnDescriptor("dates.table.sign.out", 8, DENRunTableDataModel.CMD_ENROLLED_CANCEL,
+					trans.translate("dates.table.sign.out"), trans.translate("dates.table.run.no_action")));
+		}
+		
 		tableCntrl.setTableDataModel(tableData);
 		tableCntrl.setSortColumn(1, true);//timeframe
 		
@@ -601,7 +608,7 @@ public class DENManager {
 	 * @param tableData DENListTableDataModel
 	 * @return TableController
 	 */
-	protected TableController createListParticipantsTable(UserRequest ureq, WindowControl wControl, Translator trans,DENListTableDataModel tableData) {
+	protected TableController createListParticipantsTable(UserRequest ureq, WindowControl wControl, Translator trans, DENListTableDataModel tableData) {
 		TableGuiConfiguration tableConfig = new TableGuiConfiguration();
 		tableConfig.setTableEmptyMessage(trans.translate("dates.table.empty"));
 		TableController tableCntrl = new TableController(tableConfig, ureq, wControl, trans);
@@ -621,11 +628,13 @@ public class DENManager {
 			tableCntrl.addColumnDescriptor(ucd);
 		}
 		
-		tableCntrl.addColumnDescriptor(new BooleanColumnDescriptor("participants", 7, DENListTableDataModel.CHANGE_ACTION,
-				trans.translate("dates.table.participant.manage"), ""));
-		tableCntrl.addMultiSelectAction("dates.table.list.email", DENListTableDataModel.MAIL_ACTION);
-		tableCntrl.addMultiSelectAction("dates.table.list.delete", DENListTableDataModel.DELETE_ACTION);
-		tableCntrl.setMultiSelect(true);
+		if(!tableData.isReadOnly()) {
+			tableCntrl.addColumnDescriptor(new BooleanColumnDescriptor("participants", 7, DENListTableDataModel.CHANGE_ACTION,
+					trans.translate("dates.table.participant.manage"), ""));
+			tableCntrl.addMultiSelectAction("dates.table.list.email", DENListTableDataModel.MAIL_ACTION);
+			tableCntrl.addMultiSelectAction("dates.table.list.delete", DENListTableDataModel.DELETE_ACTION);
+			tableCntrl.setMultiSelect(true);
+		}
 		tableCntrl.setTableDataModel(tableData);
 		tableCntrl.setSortColumn(2, true);//timeframe + multi select column
 		

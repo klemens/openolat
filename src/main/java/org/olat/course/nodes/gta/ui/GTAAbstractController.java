@@ -43,7 +43,6 @@ import org.olat.core.util.resource.OresHelper;
 import org.olat.course.CourseFactory;
 import org.olat.course.ICourse;
 import org.olat.course.assessment.AssessmentHelper;
-import org.olat.course.assessment.AssessmentManager;
 import org.olat.course.assessment.manager.UserCourseInformationsManager;
 import org.olat.course.nodes.GTACourseNode;
 import org.olat.course.nodes.gta.GTAManager;
@@ -156,9 +155,6 @@ public abstract class GTAAbstractController extends BasicController implements G
 		taskListEventResource = OresHelper.createOLATResourceableInstance("GTaskList", taskList.getKey());
 		CoordinatorManager.getInstance().getCoordinator()
 			.getEventBus().registerFor(this, getIdentity(), taskListEventResource);
-		
-		initContainer(ureq);
-		process(ureq);
 	}
 
 	@Override
@@ -506,10 +502,7 @@ public abstract class GTAAbstractController extends BasicController implements G
 	protected void doUpdateAttempts() {
 		if(businessGroupTask) {
 			List<Identity> identities = businessGroupService.getMembers(assessedGroup, GroupRoles.participant.name());
-			AssessmentManager assessmentManager = courseEnv.getAssessmentManager();
-			assessmentManager.preloadCache(identities);
-			ICourse course = CourseFactory.loadCourse(courseEnv.getCourseResourceableId());
-
+			ICourse course = CourseFactory.loadCourse(courseEnv.getCourseGroupManager().getCourseEntry());
 			for(Identity identity:identities) {
 				UserCourseEnvironment uce = AssessmentHelper.createAndInitUserCourseEnvironment(identity, course);
 				gtaNode.incrementUserAttempts(uce);

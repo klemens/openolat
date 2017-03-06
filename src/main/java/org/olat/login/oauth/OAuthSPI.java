@@ -33,7 +33,7 @@ import org.scribe.oauth.OAuthService;
  */
 public interface OAuthSPI extends ConfigOnOff {
 	
-	public Class<? extends Api> getScribeProvider();
+	public Api getScribeProvider();
 	
 	public String getName();
 	
@@ -52,6 +52,8 @@ public interface OAuthSPI extends ConfigOnOff {
 	public String getAppSecret();
 	
 	public String[] getScopes();
+	
+	public boolean isImplicitWorkflow();
 	
 	public OAuthUser getUser(OAuthService service, Token accessToken);
 

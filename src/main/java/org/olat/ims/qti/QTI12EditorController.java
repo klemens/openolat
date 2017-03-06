@@ -19,7 +19,6 @@
  */
 package org.olat.ims.qti;
 
-import org.olat.core.CoreSpringFactory;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.Component;
 import org.olat.core.gui.components.tabbedpane.TabbedPane;
@@ -42,6 +41,7 @@ import org.olat.modules.qpool.QPoolItemEditorController;
 import org.olat.modules.qpool.QPoolService;
 import org.olat.modules.qpool.QuestionItem;
 import org.olat.modules.qpool.ui.events.QItemChangeEvent;
+import org.springframework.beans.factory.annotation.Autowired;
 /**
  * 
  * Initial date: 21.02.2013<br>
@@ -54,24 +54,25 @@ public class QTI12EditorController extends BasicController implements QPoolItemE
 	private final VelocityContainer mainVC;
 	private ItemNodeTabbedFormController editorsCtrl;
 	
-	private final QPoolService qpoolService;
 	private final QuestionItem qitem;
+	
+	@Autowired
+	private QPoolService qpoolService;
 
 	public QTI12EditorController(UserRequest ureq, WindowControl wControl, QuestionItem qitem) {
 		super(ureq, wControl);
-		qpoolService = CoreSpringFactory.getImpl(QPoolService.class);
 
 		this.qitem = qitem;
 		mainVC = createVelocityContainer("qti_preview");
 		mainPanel = new TabbedPane("tabbedPane", ureq.getLocale());
 		
-		VFSLeaf leaf = qpoolService.getRootFile(qitem);
+		VFSLeaf leaf = qpoolService.getRootLeaf(qitem);
 		if(leaf == null) {
 			//no data to preview
 		} else {
 			Item item = QTIEditHelper.readItemXml(leaf);
 			if(item != null && !item.isAlient()) {
-				VFSContainer directory = qpoolService.getRootDirectory(qitem);
+				VFSContainer directory = qpoolService.getRootContainer(qitem);
 				String mapperUrl = registerMapper(ureq, new VFSContainerMapper(directory));
 				QTIDocument doc = new QTIDocument();
 				QTIEditorPackage qtiPackage = new QTI12ItemEditorPackage(item, doc, mapperUrl, leaf, directory, this);

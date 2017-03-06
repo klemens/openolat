@@ -88,7 +88,7 @@ public interface QPoolService {
 	public void removeAuthors(List<Identity> authors, List<QuestionItemShort> items);
 	
 	//import / export
-	public MediaResource export(List<QuestionItemShort> items, ExportFormatOptions format);
+	public MediaResource export(List<QuestionItemShort> items, ExportFormatOptions format, Locale locale);
 	
 	/**
 	 * 
@@ -96,13 +96,17 @@ public interface QPoolService {
 	 * @param zout
 	 * @param names Collection of the names used in the ZIP dd
 	 */
-	public void exportItem(QuestionItemShort item, ZipOutputStream zout, Set<String> names);
+	public void exportItem(QuestionItemShort item, ZipOutputStream zout, Locale locale, Set<String> names);
 	
 	public List<QuestionItem> importItems(Identity owner, Locale defaultLocale, String filename, File file);
+
+	public File getRootFile(QuestionItem item);
 	
-	public VFSLeaf getRootFile(QuestionItem item);
+	public File getRootDirectory(QuestionItem item);
 	
-	public VFSContainer getRootDirectory(QuestionItem item);
+	public VFSLeaf getRootLeaf(QuestionItemShort item);
+	
+	public VFSContainer getRootContainer(QuestionItemShort item);
 	
 	public List<QuestionItem> copyItems(Identity cloner, List<QuestionItemShort> itemsToCopy);
 
@@ -130,7 +134,7 @@ public interface QPoolService {
 	
 	public List<BusinessGroup> getResourcesWithSharedItems(Identity identity);
 	
-	public int countSharedItemByResource(OLATResource resource);
+	public int countSharedItemByResource(OLATResource resource, SearchQuestionItemParams params);
 	
 	public ResultInfos<QuestionItemView> getSharedItemByResource(OLATResource resource, SearchQuestionItemParams params, int firstResult, int maxResults, SortKey... orderBy);
 	
@@ -149,7 +153,7 @@ public interface QPoolService {
 	
 	public List<QuestionItemCollection> getCollections(Identity owner);
 	
-	public int countItemsOfCollection(QuestionItemCollection collection);
+	public int countItemsOfCollection(QuestionItemCollection collection, SearchQuestionItemParams params);
 	
 	public ResultInfos<QuestionItemView> getItemsOfCollection(QuestionItemCollection collection, SearchQuestionItemParams params, int firstResult, int maxResults, SortKey... orderBy);
 

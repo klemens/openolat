@@ -1,0 +1,49 @@
+#set($interactions = $positionObjectStage.getPositionObjectInteractions())
+#set($containerId = "qtiworks_id_container_" + $interactions.get(0).getResponseIdentifier())
+#set($responseIdentifier = $r.responseUniqueId($interactions.get(0)))
+
+#foreach($interaction in $interactions)
+	<input name="qtiworks_presented_${responseIdentifier}" type="hidden" value="1"/>
+#end
+<div class="$localName">
+	#foreach($interaction in $interactions)
+		#if($interaction.getPrompt())
+		<div class="prompt">$r.renderPrompt($interaction.getPrompt())</div>
+		#end
+	#end
+	#foreach($interaction in $interactions)
+		#if($r.isInvalidResponse($interaction.responseIdentifier))
+		<div class="o_error badResponse">$r.translate("error.as.directed")</div>
+		#end
+	#end
+
+    <div id="${containerId}" style="width:${positionObjectStage.object.width}px; position:relative; ">
+		<img id="${containerId}_img" width="${positionObjectStage.object.width}" height="${positionObjectStage.object.height}" src="${r.convertLinkFull($positionObjectStage.object.data)}" />
+		<div class="o_items_container_help">
+			<p><i class="o_icon o_icon_help"> </i> $r.translate("graphic.gap.explanation")</p>
+		</div>
+		<div class="items_container clearfix" style="width:${positionObjectStage.object.width}px;">
+		#foreach($interaction in $interactions)
+			#set($maxChoices = $r.maxToList($interaction.maxChoices))
+			#set($responseValue = $r.getResponseValue($interaction.responseIdentifier))
+
+	 		<script type="text/javascript">
+			jQuery(function() {
+				jQuery('#${containerId}').positionObjectStage({
+					responseIdentifier: '$responseIdentifier',
+					formDispatchFieldId: '$r.formDispatchFieldId',
+					responseValue: '$r.toString($responseValue,":")',
+					maxChoices: $maxChoices,
+					opened: $isItemSessionOpen
+				});
+			});
+			</script> 
+			
+			#foreach($maxChoice in $maxChoices)
+            	<div class="o_item o_$responseIdentifier" style="width:${interaction.object.width}px; height:${interaction.object.height}px; background-image:url('${r.convertLink($interaction.object.data)}');"> </div>
+            #end
+		#end
+		</div>
+	</div>
+</div>
+

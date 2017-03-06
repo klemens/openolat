@@ -27,9 +27,9 @@ import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.form.flexible.FormItemContainer;
 import org.olat.core.gui.components.form.flexible.elements.FormLink;
 import org.olat.core.gui.components.form.flexible.impl.elements.table.BooleanCellRenderer;
+import org.olat.core.gui.components.form.flexible.impl.elements.table.DefaultFlexiColumnModel;
 import org.olat.core.gui.components.form.flexible.impl.elements.table.FlexiTableColumnModel;
 import org.olat.core.gui.components.form.flexible.impl.elements.table.StaticFlexiCellRenderer;
-import org.olat.core.gui.components.form.flexible.impl.elements.table.StaticFlexiColumnModel;
 import org.olat.core.gui.components.link.Link;
 import org.olat.core.gui.control.WindowControl;
 import org.olat.group.BusinessGroup;
@@ -61,7 +61,7 @@ public class SearchBusinessGroupListController extends AbstractStandardBusinessG
 	@Override
 	protected FlexiTableColumnModel initColumnModel() {
 		FlexiTableColumnModel columnsModel = super.initColumnModel();
-		columnsModel.addFlexiColumnModel(new StaticFlexiColumnModel(Cols.allowDelete.i18n(), Cols.allowDelete.ordinal(), TABLE_ACTION_DELETE,
+		columnsModel.addFlexiColumnModel(new DefaultFlexiColumnModel(Cols.allowDelete.i18n(), Cols.allowDelete.ordinal(), TABLE_ACTION_DELETE,
 			new BooleanCellRenderer(new StaticFlexiCellRenderer(translate("table.header.delete"), TABLE_ACTION_DELETE), null)));
 		return columnsModel;
 	}

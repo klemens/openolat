@@ -67,7 +67,7 @@ import org.olat.core.util.vfs.VFSLeaf;
 import org.olat.core.util.vfs.VFSMediaResource;
 import org.olat.course.CourseFactory;
 import org.olat.course.ICourse;
-import org.olat.course.assessment.EfficiencyStatementManager;
+import org.olat.course.assessment.manager.EfficiencyStatementManager;
 import org.olat.course.certificate.CertificateTemplate;
 import org.olat.course.certificate.CertificatesManager;
 import org.olat.course.certificate.PDFCertificatesOptions;
@@ -128,6 +128,8 @@ public class CertificatesOptionsController extends FormBasicController {
 	private UserManager userManager;
 	@Autowired
 	private CertificatesManager certificatesManager;
+	@Autowired
+	private EfficiencyStatementManager efficiencyStatementManager;
 	
 	/**
 	 * @param name
@@ -423,12 +425,13 @@ public class CertificatesOptionsController extends FormBasicController {
 		if(updateStatement) {
 			if(enableEfficiencyStatment) {
 	            // first create the efficiencies, send event to agency (all courses add link)
+				RepositoryEntry courseRe = course.getCourseEnvironment().getCourseGroupManager().getCourseEntry();
 				List<Identity> identitiesWithData = course.getCourseEnvironment().getCoursePropertyManager().getAllIdentitiesWithCourseAssessmentData(null);
-				EfficiencyStatementManager.getInstance().updateEfficiencyStatements(course, identitiesWithData);							
+				efficiencyStatementManager.updateEfficiencyStatements(courseRe, identitiesWithData);							
 			} else {
 	            // delete really the efficiencies of the users.
 				RepositoryEntry courseRepoEntry = RepositoryManager.getInstance().lookupRepositoryEntry(course, true);
-				EfficiencyStatementManager.getInstance().deleteEfficiencyStatementsFromCourse(courseRepoEntry.getKey());						
+				efficiencyStatementManager.deleteEfficiencyStatementsFromCourse(courseRepoEntry.getKey());						
 			}
 			
 			//inform everybody else		

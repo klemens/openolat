@@ -110,7 +110,8 @@ public class CPDisplayController extends BasicController implements Activateable
 	 * of the CP elements must be different but predictable
 	 */
 	public CPDisplayController(UserRequest ureq, WindowControl wControl, VFSContainer rootContainer, boolean showMenu, boolean showNavigation,
-			boolean activateFirstPage, boolean showPrint, DeliveryOptions deliveryOptions, String initialUri, OLATResourceable ores, String identPrefix) {
+			boolean activateFirstPage, boolean showPrint, DeliveryOptions deliveryOptions, String initialUri, OLATResourceable ores,
+			String identPrefix, boolean randomizeMapper) {
 		super(ureq, wControl);
 		this.rootContainer = rootContainer;
 
@@ -119,16 +120,13 @@ public class CPDisplayController extends BasicController implements Activateable
 		// the cp component, added to the velocity
 		
 		if(!ureq.getUserSession().getRoles().isGuestOnly()) {
-		  SearchServiceUIFactory searchServiceUIFactory = (SearchServiceUIFactory)CoreSpringFactory.getBean(SearchServiceUIFactory.class);
-		  searchCtrl = searchServiceUIFactory.createInputController(ureq, wControl, DisplayOption.BUTTON, null);
-		  myContent.put("search_input", searchCtrl.getInitialComponent());
-		  listenTo(searchCtrl);
+			SearchServiceUIFactory searchServiceUIFactory = (SearchServiceUIFactory)CoreSpringFactory.getBean(SearchServiceUIFactory.class);
+			searchCtrl = searchServiceUIFactory.createInputController(ureq, wControl, DisplayOption.BUTTON, null);
+			myContent.put("search_input", searchCtrl.getInitialComponent());
+			listenTo(searchCtrl);
 		}
 		
-		//TODO:gs:a
-		//may add an additional config for disabling, enabling IFrame style or not in CP mode
-		//but always disable IFrame display when in screenreader mode (no matter whether style gets ugly)
-		cpContentCtr = new IFrameDisplayController(ureq, getWindowControl(),rootContainer, null, ores, deliveryOptions, true, false);
+		cpContentCtr = new IFrameDisplayController(ureq, getWindowControl(),rootContainer, null, ores, deliveryOptions, false, randomizeMapper);
 		cpContentCtr.setAllowDownload(true);
 		listenTo(cpContentCtr);
 		myContent.put("cpContent", cpContentCtr.getInitialComponent());
@@ -393,6 +391,11 @@ public class CPDisplayController extends BasicController implements Activateable
 	 */
 	public void selectTreeNode(UserRequest ureq, String newUri) {
 		TreeNode newNode = ctm.lookupTreeNodeByHref(newUri);
+		if (newNode == null && newUri.contains("?")) {
+			// remove any url paramters in case it is not an html5 app. E.g. some ELML contents
+			newUri = newUri.substring(0, newUri.indexOf("?"));
+			newNode = ctm.lookupTreeNodeByHref(newUri);
+		}
 		selectTreeNode(ureq, newNode);
 		ThreadLocalUserActivityLogger.log(CourseLoggingAction.CP_GET_FILE, getClass(), LoggingResourceable.wrapCpNode(newUri));
 	}
