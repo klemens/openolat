@@ -21,8 +21,10 @@ package org.olat.core.gui.themes;
 
 import java.io.File;
 
+import org.olat.core.CoreSpringFactory;
 import org.olat.core.dispatcher.impl.StaticMediaDispatcher;
 import org.olat.core.gui.render.StringOutput;
+import org.olat.core.helpers.GUISettings;
 import org.olat.core.helpers.Settings;
 import org.olat.core.util.WebappHelper;
 
@@ -76,10 +78,15 @@ public class Theme {
 	 */
 	private File getCustomJSFile() {
 		String staticThemesPath = WebappHelper.getContextRealPath("/static/themes/");
-		File themeFolder = new File(staticThemesPath, Settings.getGuiThemeIdentifyer());
+		if(staticThemesPath == null) {
+			staticThemesPath = WebappHelper.getContextRoot() + "/static/themes/";
+		}
+		
+		String guiThemIdentifyer = CoreSpringFactory.getImpl(GUISettings.class).getGuiThemeIdentifyer();
+		File themeFolder = new File(staticThemesPath, guiThemIdentifyer);
 		if (!themeFolder.exists() && Settings.getGuiCustomThemePath() != null) {
 			// fallback to custom themes folder
-			themeFolder = new File(Settings.getGuiCustomThemePath(), Settings.getGuiThemeIdentifyer());
+			themeFolder = new File(Settings.getGuiCustomThemePath(), guiThemIdentifyer);
 		}
 		return new File(themeFolder, CUSTOMFILENAME);
 	}

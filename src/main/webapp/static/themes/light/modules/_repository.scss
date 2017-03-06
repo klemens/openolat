@@ -23,8 +23,11 @@
 			}
 		}		
 		
-		h1 i {
-			display: none;
+		h1 {
+			font-size: $o-coursesite-meta-title-font-size;
+			i {
+				display: none;
+			}
 		}
 	}
 	
@@ -38,6 +41,7 @@
 	}
 
 	.o_start_wrapper {
+		clear: both;
 		margin: 2em 0 -10px 0;
 		text-align: right;
 		.o_start_inner {
@@ -104,4 +108,13 @@
 
 .o_ac_configuration {
 	span.o_ac_infos { font-weight:normal; color: grey; }
+}
+
+tr.o_entry_closed, tr.o_entry_closed td, tr.o_entry_closed td span,
+tr.o_entry_unpublished, tr.o_entry_unpublished td, tr.o_entry_unpublished td span {
+	text-decoration: line-through;
+}
+
+tr.o_entry_deleted {
+
 }

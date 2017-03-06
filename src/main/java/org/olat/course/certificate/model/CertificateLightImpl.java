@@ -30,6 +30,7 @@ import javax.persistence.Temporal;
 import javax.persistence.TemporalType;
 
 import org.hibernate.annotations.GenericGenerator;
+import org.hibernate.annotations.Parameter;
 import org.olat.core.id.Persistable;
 import org.olat.course.certificate.CertificateLight;
 import org.olat.course.certificate.CertificateStatus;
@@ -48,7 +49,14 @@ public class CertificateLightImpl implements CertificateLight, Persistable {
 
 	@Id
 	@GeneratedValue(generator = "system-uuid")
-	@GenericGenerator(name = "system-uuid", strategy = "hilo")
+	@GenericGenerator(name = "system-uuid", strategy = "enhanced-sequence", parameters={
+		@Parameter(name="sequence_name", value="hibernate_unique_key"),
+		@Parameter(name="force_table_use", value="true"),
+		@Parameter(name="optimizer", value="legacy-hilo"),
+		@Parameter(name="value_column", value="next_hi"),
+		@Parameter(name="increment_size", value="32767"),
+		@Parameter(name="initial_value", value="32767")
+	})
 	@Column(name="id", nullable=false, unique=true, insertable=true, updatable=false)
 	private Long key;
 	
@@ -61,6 +69,8 @@ public class CertificateLightImpl implements CertificateLight, Persistable {
 	
 	@Column(name="c_uuid", nullable=false, insertable=true, updatable=false)
 	private String uuid;
+	@Column(name="c_next_recertification", nullable=true, insertable=true, updatable=true)
+	private Date nextRecertificationDate;
 	@Column(name="c_last", nullable=false, insertable=true, updatable=true)
 	private boolean last;
 	@Column(name="c_course_title", nullable=true, insertable=true, updatable=false)
@@ -100,6 +110,14 @@ public class CertificateLightImpl implements CertificateLight, Persistable {
 	@Override
 	public CertificateStatus getStatus() {
 		return CertificateStatus.valueOf(statusString);
+	}
+
+	public Date getNextRecertificationDate() {
+		return nextRecertificationDate;
+	}
+
+	public void setNextRecertificationDate(Date nextRecertificationDate) {
+		this.nextRecertificationDate = nextRecertificationDate;
 	}
 
 	@Override

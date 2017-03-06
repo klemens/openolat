@@ -51,12 +51,14 @@ import org.olat.course.nodes.basiclti.LTIConfigForm;
 import org.olat.course.nodes.basiclti.LTIEditController;
 import org.olat.course.nodes.basiclti.LTIRunController;
 import org.olat.course.run.navigation.NodeRunConstructionResult;
+import org.olat.course.run.scoring.AssessmentEvaluation;
 import org.olat.course.run.scoring.ScoreEvaluation;
 import org.olat.course.run.userview.NodeEvaluation;
 import org.olat.course.run.userview.UserCourseEnvironment;
 import org.olat.ims.lti.LTIManager;
 import org.olat.ims.lti.ui.LTIResultDetailsController;
 import org.olat.modules.ModuleConfiguration;
+import org.olat.modules.assessment.AssessmentEntry;
 import org.olat.repository.RepositoryEntry;
 import org.olat.resource.OLATResource;
 
@@ -64,7 +66,7 @@ import org.olat.resource.OLATResource;
  * @author guido
  * @author Charles Severance
  */
-public class BasicLTICourseNode extends AbstractAccessableCourseNode implements AssessableCourseNode {
+public class BasicLTICourseNode extends AbstractAccessableCourseNode implements PersistentAssessableCourseNode {
 
 	private static final long serialVersionUID = 2210572148308757127L;
 	private static final String translatorPackage = Util.getPackageName(LTIEditController.class);
@@ -119,24 +121,31 @@ public class BasicLTICourseNode extends AbstractAccessableCourseNode implements 
 			UserCourseEnvironment userCourseEnv, NodeEvaluation ne, String nodecmd) {
 		updateModuleConfigDefaults(false);
 		
+				ModuleConfiguration config = getModuleConfiguration();
 		Controller runCtrl;
-		Roles roles = ureq.getUserSession().getRoles();
-		if (roles.isGuestOnly()) {
-			ModuleConfiguration config = getModuleConfiguration();
-			boolean assessable = config.getBooleanSafe(BasicLTICourseNode.CONFIG_KEY_HAS_SCORE_FIELD, false);
-			boolean sendName = config.getBooleanSafe(LTIConfigForm.CONFIG_KEY_SENDNAME, false);
-			boolean sendEmail = config.getBooleanSafe(LTIConfigForm.CONFIG_KEY_SENDEMAIL, false);
-			boolean customValues = StringHelper.containsNonWhitespace(config.getStringValue(LTIConfigForm.CONFIG_KEY_CUSTOM));
-			if(assessable || sendName || sendEmail || customValues) {
-				Translator trans = Util.createPackageTranslator(BasicLTICourseNode.class, ureq.getLocale());
-				String title = trans.translate("guestnoaccess.title");
-				String message = trans.translate("guestnoaccess.message");
-				runCtrl = MessageUIFactory.createInfoMessage(ureq, wControl, title, message);
+		if(userCourseEnv.isCourseReadOnly()) {
+			Translator trans = Util.createPackageTranslator(BasicLTICourseNode.class, ureq.getLocale());
+            String title = trans.translate("freezenoaccess.title");
+            String message = trans.translate("freezenoaccess.message");
+            runCtrl = MessageUIFactory.createInfoMessage(ureq, wControl, title, message);
+		} else {
+			Roles roles = ureq.getUserSession().getRoles();
+			if (roles.isGuestOnly()) {
+				boolean assessable = config.getBooleanSafe(BasicLTICourseNode.CONFIG_KEY_HAS_SCORE_FIELD, false);
+				boolean sendName = config.getBooleanSafe(LTIConfigForm.CONFIG_KEY_SENDNAME, false);
+				boolean sendEmail = config.getBooleanSafe(LTIConfigForm.CONFIG_KEY_SENDEMAIL, false);
+				boolean customValues = StringHelper.containsNonWhitespace(config.getStringValue(LTIConfigForm.CONFIG_KEY_CUSTOM));
+				if(assessable || sendName || sendEmail || customValues) {
+					Translator trans = Util.createPackageTranslator(BasicLTICourseNode.class, ureq.getLocale());
+					String title = trans.translate("guestnoaccess.title");
+					String message = trans.translate("guestnoaccess.message");
+					runCtrl = MessageUIFactory.createInfoMessage(ureq, wControl, title, message);
+				} else {
+					runCtrl = new LTIRunController(wControl, getModuleConfiguration(), ureq, this, userCourseEnv);
+				}
 			} else {
 				runCtrl = new LTIRunController(wControl, getModuleConfiguration(), ureq, this, userCourseEnv);
 			}
-		} else {
-			runCtrl = new LTIRunController(wControl, getModuleConfiguration(), ureq, this, userCourseEnv);
 		}
 		Controller ctrl = TitledWrapperHelper.getWrapper(ureq, wControl, runCtrl, this, "o_lti_icon");
 		return new NodeRunConstructionResult(ctrl);
@@ -186,7 +195,6 @@ public class BasicLTICourseNode extends AbstractAccessableCourseNode implements 
 		oneClickStatusCache = null;
 		// only here we know which translator to take for translating condition
 		// error messages
-		
 		List<StatusDescription> sds =  isConfigValidWithTranslator(cev, translatorPackage, getConditionExpressions());
 		oneClickStatusCache = StatusDescriptionHelper.sort(sds);
 		return oneClickStatusCache;
@@ -244,6 +252,11 @@ public class BasicLTICourseNode extends AbstractAccessableCourseNode implements 
 			}
 			// else node is up-to-date - nothing to do
 		}
+	}
+
+	@Override
+	public boolean isAssessedBusinessGroups() {
+		return false;
 	}
 
 	@Override
@@ -323,36 +336,38 @@ public class BasicLTICourseNode extends AbstractAccessableCourseNode implements 
 		Boolean score = config.getBooleanEntry(CONFIG_KEY_HAS_SCORE_FIELD);
 		return (score == null) ? false : score.booleanValue();
 	}
+	
+	@Override
+	public AssessmentEntry getUserAssessmentEntry(UserCourseEnvironment userCourseEnv) {
+		AssessmentManager am = userCourseEnv.getCourseEnvironment().getAssessmentManager();
+		return am.getAssessmentEntry(this, userCourseEnv.getIdentityEnvironment().getIdentity());
+	}
 
 	@Override
-	public ScoreEvaluation getUserScoreEvaluation(UserCourseEnvironment userCourseEnv) {
-		// read score from properties
+	public AssessmentEvaluation getUserScoreEvaluation(UserCourseEnvironment userCourseEnv) {
 		AssessmentManager am = userCourseEnv.getCourseEnvironment().getAssessmentManager();
 		Identity mySelf = userCourseEnv.getIdentityEnvironment().getIdentity();
-		Boolean passed = null;
-		Float score = null;
-		// only db lookup if configured, else return null
-		if (hasPassedConfigured()) passed = am.getNodePassed(this, mySelf);
-		if (hasScoreConfigured()) score = am.getNodeScore(this, mySelf);
+		AssessmentEntry entry = am.getAssessmentEntry(this, mySelf);
+		return getUserScoreEvaluation(entry) ;
+	}
 
-		ScoreEvaluation se = new ScoreEvaluation(score, passed);
-		return se;
+	@Override
+	public AssessmentEvaluation getUserScoreEvaluation(AssessmentEntry entry) {
+		return AssessmentEvaluation.toAssessmentEvalutation(entry, this);
 	}
 
 	@Override
 	public String getUserUserComment(UserCourseEnvironment userCourseEnvironment) {
 		AssessmentManager am = userCourseEnvironment.getCourseEnvironment().getAssessmentManager();
 		Identity mySelf = userCourseEnvironment.getIdentityEnvironment().getIdentity();
-		String userCommentValue = am.getNodeComment(this, mySelf);
-		return userCommentValue;
+		return am.getNodeComment(this, mySelf);
 	}
 
 	@Override
 	public String getUserCoachComment(UserCourseEnvironment userCourseEnvironment) {
 		AssessmentManager am = userCourseEnvironment.getCourseEnvironment().getAssessmentManager();
 		Identity mySelf = userCourseEnvironment.getIdentityEnvironment().getIdentity();
-		String coachCommentValue = am.getNodeCoachComment(this, mySelf);
-		return coachCommentValue;
+		return am.getNodeCoachComment(this, mySelf);
 	}
 
 	@Override
@@ -360,16 +375,14 @@ public class BasicLTICourseNode extends AbstractAccessableCourseNode implements 
 		// having score defined means the node is assessable
  		UserNodeAuditManager am = userCourseEnvironment.getCourseEnvironment().getAuditManager();
 		Identity mySelf = userCourseEnvironment.getIdentityEnvironment().getIdentity();
-		String logValue = am.getUserNodeLog(this, mySelf);
-		return logValue;
+		return am.getUserNodeLog(this, mySelf);
 	}
 
 	@Override
 	public Integer getUserAttempts(UserCourseEnvironment userCourseEnvironment) {
 		AssessmentManager am = userCourseEnvironment.getCourseEnvironment().getAssessmentManager();
 		Identity mySelf = userCourseEnvironment.getIdentityEnvironment().getIdentity();
-		Integer userAttemptsValue = am.getNodeAttempts(this, mySelf);
-		return userAttemptsValue;
+		return am.getNodeAttempts(this, mySelf);
 	}
 
 	@Override
@@ -384,9 +397,9 @@ public class BasicLTICourseNode extends AbstractAccessableCourseNode implements 
 
 	@Override
 	public Controller getDetailsEditController(UserRequest ureq, WindowControl wControl,
-			BreadcrumbPanel stackPanel, UserCourseEnvironment userCourseEnvironment) {
-		Identity assessedIdentity = userCourseEnvironment.getIdentityEnvironment().getIdentity();
-		OLATResource resource = userCourseEnvironment.getCourseEnvironment().getCourseGroupManager().getCourseResource();
+			BreadcrumbPanel stackPanel, UserCourseEnvironment coachCourseEnv, UserCourseEnvironment assessedUserCourseEnv) {
+		Identity assessedIdentity = assessedUserCourseEnv.getIdentityEnvironment().getIdentity();
+		OLATResource resource = assessedUserCourseEnv.getCourseEnvironment().getCourseGroupManager().getCourseResource();
 		return new LTIResultDetailsController(ureq, wControl, assessedIdentity, resource, getIdent());
 	}
 

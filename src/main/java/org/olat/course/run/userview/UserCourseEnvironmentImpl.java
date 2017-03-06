@@ -34,7 +34,7 @@ import org.olat.core.CoreSpringFactory;
 import org.olat.core.commons.persistence.PersistenceHelper;
 import org.olat.core.gui.control.WindowControl;
 import org.olat.core.id.IdentityEnvironment;
-import org.olat.course.assessment.EfficiencyStatementManager;
+import org.olat.course.assessment.manager.EfficiencyStatementManager;
 import org.olat.course.certificate.CertificatesManager;
 import org.olat.course.condition.interpreter.ConditionInterpreter;
 import org.olat.course.editor.CourseEditorEnv;
@@ -63,19 +63,26 @@ public class UserCourseEnvironmentImpl implements UserCourseEnvironment {
 	
 	private final WindowControl windowControl;
 	
-	private Boolean coach;
-	private Boolean admin;
-	private Boolean participant;
+	private Boolean admin, coach, participant;
+	private Boolean adminAnyCourse, coachAnyCourse, participantAnyCourse;
 	
 	private Boolean certification;
+	private Boolean courseReadOnly;
 	
 	public UserCourseEnvironmentImpl(IdentityEnvironment identityEnvironment, CourseEnvironment courseEnvironment) {
-		this(identityEnvironment, courseEnvironment, null, null, null, null, null, null, null);
+		this(identityEnvironment, courseEnvironment, null, null, null, null, null, null, null, null);
+		if(courseEnvironment != null) {
+			courseReadOnly = courseEnvironment.getCourseGroupManager().getCourseEntry().getRepositoryEntryStatus().isClosed();
+		}
+	}
+	
+	public UserCourseEnvironmentImpl(IdentityEnvironment identityEnvironment, CourseEnvironment courseEnvironment, Boolean courseReadOnly) {
+		this(identityEnvironment, courseEnvironment, null, null, null, null, null, null, null, courseReadOnly);
 	}
 	
 	public UserCourseEnvironmentImpl(IdentityEnvironment identityEnvironment, CourseEnvironment courseEnvironment, WindowControl windowControl,
 			List<BusinessGroup> coachedGroups, List<BusinessGroup> participatingGroups, List<BusinessGroup> waitingLists,
-			Boolean coach, Boolean admin, Boolean participant) {
+			Boolean coach, Boolean admin, Boolean participant, Boolean courseReadOnly) {
 		this.courseEnvironment = courseEnvironment;
 		this.identityEnvironment = identityEnvironment;
 		this.scoreAccounting = new ScoreAccounting(this);
@@ -87,6 +94,7 @@ public class UserCourseEnvironmentImpl implements UserCourseEnvironment {
 		this.admin = admin;
 		this.participant = participant;
 		this.windowControl = windowControl;
+		this.courseReadOnly = courseReadOnly;
 	}
 
 	/**
@@ -170,6 +178,44 @@ public class UserCourseEnvironmentImpl implements UserCourseEnvironment {
 	}
 
 	@Override
+	public boolean isAdminOfAnyCourse() {
+		if(adminAnyCourse != null) {
+			return adminAnyCourse.booleanValue();
+		}
+
+		CourseGroupManager cgm = courseEnvironment.getCourseGroupManager();
+		boolean adminLazy = identityEnvironment.getRoles().isOLATAdmin()
+				|| identityEnvironment.getRoles().isInstitutionalResourceManager()
+				|| cgm.isIdentityAnyCourseAdministrator(identityEnvironment.getIdentity());
+		adminAnyCourse = new Boolean(adminLazy);
+		return adminLazy;
+	}
+
+	@Override
+	public boolean isCoachOfAnyCourse() {
+		if(coachAnyCourse != null) {
+			return coachAnyCourse.booleanValue();
+		}
+
+		CourseGroupManager cgm = courseEnvironment.getCourseGroupManager();
+		boolean coachLazy = cgm.isIdentityAnyCourseCoach(identityEnvironment.getIdentity());
+		coachAnyCourse = new Boolean(coachLazy);
+		return coachLazy;
+	}
+
+	@Override
+	public boolean isParticipantOfAnyCourse() {
+		if(participantAnyCourse != null) {
+			return participantAnyCourse.booleanValue();
+		}
+
+		CourseGroupManager cgm = courseEnvironment.getCourseGroupManager();
+		boolean participantLazy = cgm.isIdentityAnyCourseParticipant(identityEnvironment.getIdentity());
+		participantAnyCourse = new Boolean(participantLazy);
+		return participantLazy;
+	}
+
+	@Override
 	public RepositoryEntryLifecycle getLifecycle() {
 		if(lifecycle == null) {
 			RepositoryEntry re = getCourseRepositoryEntry();
@@ -230,6 +276,15 @@ public class UserCourseEnvironmentImpl implements UserCourseEnvironment {
 			return Collections.emptyList();
 		}
 		return waitingLists;
+	}
+	
+	@Override
+	public boolean isCourseReadOnly() {
+		return courseReadOnly == null ? false : courseReadOnly.booleanValue();
+	}
+	
+	public void setCourseReadOnly(Boolean courseReadOnly) {
+		this.courseReadOnly = courseReadOnly;
 	}
 	
 	@Override

@@ -31,6 +31,7 @@ import java.util.logging.Level;
 import java.util.zip.ZipOutputStream;
 
 import org.olat.core.CoreSpringFactory;
+import org.olat.core.commons.persistence.DBFactory;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.stack.BreadcrumbPanel;
 import org.olat.core.gui.control.Controller;
@@ -54,7 +55,6 @@ import org.olat.core.util.vfs.VFSItem;
 import org.olat.core.util.vfs.VFSLeaf;
 import org.olat.course.ICourse;
 import org.olat.course.assessment.AssessmentManager;
-import org.olat.course.assessment.EfficiencyStatementEvent;
 import org.olat.course.auditing.UserNodeAuditManager;
 import org.olat.course.editor.CourseEditorEnv;
 import org.olat.course.editor.NodeEditController;
@@ -70,11 +70,13 @@ import org.olat.course.nodes.cl.ui.CheckListRunController;
 import org.olat.course.nodes.cl.ui.CheckListRunForCoachController;
 import org.olat.course.properties.CoursePropertyManager;
 import org.olat.course.run.navigation.NodeRunConstructionResult;
+import org.olat.course.run.scoring.AssessmentEvaluation;
 import org.olat.course.run.scoring.ScoreEvaluation;
 import org.olat.course.run.userview.NodeEvaluation;
 import org.olat.course.run.userview.UserCourseEnvironment;
 import org.olat.course.run.userview.UserCourseEnvironmentImpl;
 import org.olat.modules.ModuleConfiguration;
+import org.olat.modules.assessment.AssessmentEntry;
 import org.olat.repository.RepositoryEntry;
 
 /**
@@ -83,7 +85,7 @@ import org.olat.repository.RepositoryEntry;
  * @author srosse, stephane.rosse@frentix.com, http://www.frentix.com
  *
  */
-public class CheckListCourseNode extends AbstractAccessableCourseNode implements AssessableCourseNode {
+public class CheckListCourseNode extends AbstractAccessableCourseNode implements PersistentAssessableCourseNode {
 	
 	private static final String translatorStr = Util.getPackageName(CheckListEditController.class);
 	private static final long serialVersionUID = -7460670977531082040L;
@@ -171,18 +173,23 @@ public class CheckListCourseNode extends AbstractAccessableCourseNode implements
 	 * @see org.olat.course.nodes.AssessableCourseNode#getUserScoreEvaluation(org.olat.course.run.userview.UserCourseEnvironment)
 	 */
 	@Override
-	public ScoreEvaluation getUserScoreEvaluation(UserCourseEnvironment userCourseEnvironment) {
-		// read score from properties
-		AssessmentManager am = userCourseEnvironment.getCourseEnvironment().getAssessmentManager();
-		Identity mySelf = userCourseEnvironment.getIdentityEnvironment().getIdentity();
-		Boolean passed = null;
-		Float score = null;
-		// only db lookup if configured, else return null
-		if (hasPassedConfigured()) passed = am.getNodePassed(this, mySelf);
-		if (hasScoreConfigured()) score = am.getNodeScore(this, mySelf);
+	public AssessmentEvaluation getUserScoreEvaluation(UserCourseEnvironment userCourseEnv) {
+		if(hasPassedConfigured() || hasScoreConfigured()) {
+			return getUserScoreEvaluation(getUserAssessmentEntry(userCourseEnv));
+		}
+		return AssessmentEvaluation.EMPTY_EVAL;
+	}
+	
+	@Override
+	public AssessmentEvaluation getUserScoreEvaluation(AssessmentEntry entry) {
+		return AssessmentEvaluation.toAssessmentEvalutation(entry, this);
+	}
 
-		ScoreEvaluation se = new ScoreEvaluation(score, passed);
-		return se;
+	@Override
+	public AssessmentEntry getUserAssessmentEntry(UserCourseEnvironment userCourseEnv) {
+		AssessmentManager am = userCourseEnv.getCourseEnvironment().getAssessmentManager();
+		Identity mySelf = userCourseEnv.getIdentityEnvironment().getIdentity();
+		return am.getAssessmentEntry(this, mySelf);
 	}
 
 	/**
@@ -234,6 +241,11 @@ public class CheckListCourseNode extends AbstractAccessableCourseNode implements
 	 */
 	@Override
 	public boolean needsReferenceToARepositoryEntry() {
+		return false;
+	}
+	
+	@Override
+	public boolean isAssessedBusinessGroups() {
 		return false;
 	}
 
@@ -376,7 +388,7 @@ public class CheckListCourseNode extends AbstractAccessableCourseNode implements
 			Identity coachingIdentity, boolean incrementAttempts) {
 		AssessmentManager am = userCourseEnvironment.getCourseEnvironment().getAssessmentManager();
 		Identity mySelf = userCourseEnvironment.getIdentityEnvironment().getIdentity();
-		am.saveScoreEvaluation(this, coachingIdentity, mySelf, new ScoreEvaluation(scoreEvaluation.getScore(), scoreEvaluation.getPassed()), userCourseEnvironment, incrementAttempts);
+		am.saveScoreEvaluation(this, coachingIdentity, mySelf, new ScoreEvaluation(scoreEvaluation), userCourseEnvironment, incrementAttempts);
 	}
 
 	/**
@@ -434,11 +446,11 @@ public class CheckListCourseNode extends AbstractAccessableCourseNode implements
 	 */
 	@Override
 	public Controller getDetailsEditController(UserRequest ureq, WindowControl wControl,
-			BreadcrumbPanel stackPanel, UserCourseEnvironment userCourseEnv) {
-		Identity assessedIdentity = userCourseEnv.getIdentityEnvironment().getIdentity();
-		Long resId = userCourseEnv.getCourseEnvironment().getCourseResourceableId();
+			BreadcrumbPanel stackPanel, UserCourseEnvironment coachCourseEnv, UserCourseEnvironment assessedUserCourseEnv) {
+		Identity assessedIdentity = assessedUserCourseEnv.getIdentityEnvironment().getIdentity();
+		Long resId = assessedUserCourseEnv.getCourseEnvironment().getCourseResourceableId();
 		OLATResourceable courseOres = OresHelper.createOLATResourceableInstance("CourseModule", resId);
-		return new AssessedIdentityCheckListController(ureq, wControl, assessedIdentity, courseOres, userCourseEnv, this, false);
+		return new AssessedIdentityCheckListController(ureq, wControl, assessedIdentity, courseOres, coachCourseEnv, assessedUserCourseEnv, this, false, false);
 	}
 
 	/**
@@ -547,21 +559,24 @@ public class CheckListCourseNode extends AbstractAccessableCourseNode implements
 	 * @param userCourseEnv
 	 * @param assessedIdentity
 	 */
-	public void updateScoreEvaluation(UserCourseEnvironment userCourseEnv, Identity assessedIdentity) {
+	public void updateScoreEvaluation(Identity identity, UserCourseEnvironment assessedUserCourseEnv, Identity assessedIdentity) {
 		ModuleConfiguration config = getModuleConfiguration();
 		Boolean sum = (Boolean)config.get(CheckListCourseNode.CONFIG_KEY_PASSED_SUM_CHECKBOX);
 		Float cutValue = (Float)config.get(MSCourseNode.CONFIG_KEY_PASSED_CUT_VALUE);
 		Float maxScore = (Float)config.get(MSCourseNode.CONFIG_KEY_SCORE_MAX);
+		Boolean manualCorrection = (Boolean)config.get(CheckListCourseNode.CONFIG_KEY_PASSED_MANUAL_CORRECTION);
 		if(cutValue != null) {
-			doUpdateAssessment(cutValue, maxScore, userCourseEnv, assessedIdentity);
-		} else if(sum != null) {
-			doUpdateAssessmentBySum(userCourseEnv, assessedIdentity);
+			doUpdateAssessment(cutValue, maxScore, identity, assessedUserCourseEnv, assessedIdentity);
+		} else if(sum != null && sum.booleanValue()) {
+			doUpdateAssessmentBySum(identity, assessedUserCourseEnv, assessedIdentity);
+		} else if(manualCorrection != null && manualCorrection.booleanValue()) {
+			doUpdateManualAssessment(maxScore, identity, assessedUserCourseEnv, assessedIdentity);
 		}
 	}
 	
-	private void doUpdateAssessment(Float cutValue, Float maxScore, UserCourseEnvironment userCourseEnv, Identity assessedIdentity) {
+	private void doUpdateAssessment(Float cutValue, Float maxScore, Identity identity, UserCourseEnvironment assessedUserCourseEnv, Identity assessedIdentity) {
 		OLATResourceable courseOres = OresHelper
-				.createOLATResourceableInstance("CourseModule", userCourseEnv.getCourseEnvironment().getCourseResourceableId());
+				.createOLATResourceableInstance("CourseModule", assessedUserCourseEnv.getCourseEnvironment().getCourseResourceableId());
 		
 		CheckboxManager checkboxManager = CoreSpringFactory.getImpl(CheckboxManager.class);
 		float score = checkboxManager.calculateScore(assessedIdentity, courseOres, getIdent());
@@ -576,16 +591,13 @@ public class CheckListCourseNode extends AbstractAccessableCourseNode implements
 		}
 		ScoreEvaluation sceval = new ScoreEvaluation(new Float(score), passed);
 		
-		AssessmentManager am = userCourseEnv.getCourseEnvironment().getAssessmentManager();
-		Identity mySelf = userCourseEnv.getIdentityEnvironment().getIdentity();
-		am.saveScoreEvaluation(this, mySelf, assessedIdentity, sceval, userCourseEnv, false);
-	
-		userCourseEnv.getScoreAccounting().scoreInfoChanged(this, sceval);
+		AssessmentManager am = assessedUserCourseEnv.getCourseEnvironment().getAssessmentManager();
+		am.saveScoreEvaluation(this, identity, assessedIdentity, sceval, assessedUserCourseEnv, false);
 	}
 	
-	private void doUpdateAssessmentBySum(UserCourseEnvironment userCourseEnv, Identity assessedIdentity) {
+	private void doUpdateAssessmentBySum(Identity identity, UserCourseEnvironment assessedUserCourseEnv, Identity assessedIdentity) {
 		OLATResourceable courseOres = OresHelper
-				.createOLATResourceableInstance("CourseModule", userCourseEnv.getCourseEnvironment().getCourseResourceableId());
+				.createOLATResourceableInstance("CourseModule", assessedUserCourseEnv.getCourseEnvironment().getCourseResourceableId());
 		
 		ModuleConfiguration config = getModuleConfiguration();
 		CheckboxManager checkboxManager = CoreSpringFactory.getImpl(CheckboxManager.class);
@@ -609,11 +621,24 @@ public class CheckListCourseNode extends AbstractAccessableCourseNode implements
 
 		ScoreEvaluation sceval = new ScoreEvaluation(score, new Boolean(passed));
 		
-		AssessmentManager am = userCourseEnv.getCourseEnvironment().getAssessmentManager();
-		Identity mySelf = userCourseEnv.getIdentityEnvironment().getIdentity();
-		am.saveScoreEvaluation(this, mySelf, assessedIdentity, sceval, userCourseEnv, false);
+		AssessmentManager am = assessedUserCourseEnv.getCourseEnvironment().getAssessmentManager();
+		am.saveScoreEvaluation(this, identity, assessedIdentity, sceval, assessedUserCourseEnv, false);
+	}
+	
+	private void doUpdateManualAssessment(Float maxScore, Identity identity, UserCourseEnvironment assessedUserCourseEnv, Identity assessedIdentity) {
+		OLATResourceable courseOres = OresHelper
+				.createOLATResourceableInstance("CourseModule", assessedUserCourseEnv.getCourseEnvironment().getCourseResourceableId());
 		
-		userCourseEnv.getScoreAccounting().scoreInfoChanged(this, sceval);
+		CheckboxManager checkboxManager = CoreSpringFactory.getImpl(CheckboxManager.class);
+		float score = checkboxManager.calculateScore(assessedIdentity, courseOres, getIdent());
+		if(maxScore != null && maxScore.floatValue() < score) {
+			score = maxScore.floatValue();
+		}
+
+		AssessmentManager am = assessedUserCourseEnv.getCourseEnvironment().getAssessmentManager();
+		ScoreEvaluation currentEval = getUserScoreEvaluation(am.getAssessmentEntry(this, assessedIdentity));
+		ScoreEvaluation sceval = new ScoreEvaluation(new Float(score), currentEval.getPassed());
+		am.saveScoreEvaluation(this, identity, assessedIdentity, sceval, assessedUserCourseEnv, false);
 	}
 	
 	@Override
@@ -621,8 +646,10 @@ public class CheckListCourseNode extends AbstractAccessableCourseNode implements
 		CheckListCourseNode cNode = (CheckListCourseNode)super.createInstanceForCopy(isNewTitle, course, author);
 		CheckboxManager checkboxManager = CoreSpringFactory.getImpl(CheckboxManager.class);
 		CheckboxList list = (CheckboxList)cNode.getModuleConfiguration().get(CONFIG_KEY_CHECKBOX);
-		for(Checkbox checkbox:list.getList()) {
-			checkbox.setCheckboxId(UUID.randomUUID().toString());
+		if (list!=null) {
+			for(Checkbox checkbox:list.getList()) {
+				checkbox.setCheckboxId(UUID.randomUUID().toString());
+			}
 		}
 		// the ident of the course node is the same
 		File sourceDir = checkboxManager.getFileDirectory(course.getCourseEnvironment(), this);
@@ -642,14 +669,16 @@ public class CheckListCourseNode extends AbstractAccessableCourseNode implements
 		ModuleConfiguration config = getModuleConfiguration();
 		CheckboxManager checkboxManager = CoreSpringFactory.getImpl(CheckboxManager.class);
 		CheckboxList list = (CheckboxList)config.get(CONFIG_KEY_CHECKBOX);
-		for(Checkbox checkbox:list.getList()) {
-			String sourceId = checkbox.getCheckboxId();
-			String targetId = envMapper.getTargetUniqueKey(getIdent(), sourceId);
-			if(targetId == null) {
-				targetId = UUID.randomUUID().toString();
-				envMapper.addUniqueKeyPair(getIdent(), sourceId, targetId);
+		if (list !=null && list.getList().size() > 0) {
+			for(Checkbox checkbox:list.getList()) {
+				String sourceId = checkbox.getCheckboxId();
+				String targetId = envMapper.getTargetUniqueKey(getIdent(), sourceId);
+				if(targetId == null) {
+					targetId = UUID.randomUUID().toString();
+					envMapper.addUniqueKeyPair(getIdent(), sourceId, targetId);
+				}
+				checkbox.setCheckboxId(targetId);
 			}
-			checkbox.setCheckboxId(targetId);
 		}
 		
 		// the ident of the course node is the same
@@ -677,17 +706,17 @@ public class CheckListCourseNode extends AbstractAccessableCourseNode implements
 		CoursePropertyManager pm = course.getCourseEnvironment().getCoursePropertyManager();
 		List<Identity> assessedUsers = pm.getAllIdentitiesWithCourseAssessmentData(null);
 
+		int count = 0;
 		for(Identity assessedIdentity: assessedUsers) {
 			updateScorePassedOnPublish(assessedIdentity, publisher, checkboxManager, course);
+			if(++count % 10 == 0) {
+				DBFactory.getInstance().commitAndCloseSession();
+			}
 		}
 		super.updateOnPublish(locale, course, publisher, publishEvents);
-		
-		EfficiencyStatementEvent recalculateEvent = new EfficiencyStatementEvent(EfficiencyStatementEvent.CMD_RECALCULATE, course.getResourceableId());
-		publishEvents.addPostPublishingEvent(recalculateEvent);
 	}
 	
 	private void updateScorePassedOnPublish(Identity assessedIdentity, Identity coachIdentity, CheckboxManager checkboxManager, ICourse course) {
-		
 		AssessmentManager am = course.getCourseEnvironment().getAssessmentManager();
 		
 		Float currentScore = am.getNodeScore(this, assessedIdentity);

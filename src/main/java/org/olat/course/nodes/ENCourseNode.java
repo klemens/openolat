@@ -41,6 +41,7 @@ import org.olat.core.gui.control.generic.tabbable.TabbableController;
 import org.olat.core.gui.translator.PackageTranslator;
 import org.olat.core.gui.translator.Translator;
 import org.olat.core.id.Roles;
+import org.olat.core.util.StringHelper;
 import org.olat.core.util.Util;
 import org.olat.core.util.filter.FilterFactory;
 import org.olat.course.ICourse;
@@ -56,12 +57,14 @@ import org.olat.course.properties.PersistingCoursePropertyManager;
 import org.olat.course.run.navigation.NodeRunConstructionResult;
 import org.olat.course.run.userview.NodeEvaluation;
 import org.olat.course.run.userview.UserCourseEnvironment;
+import org.olat.group.BusinessGroup;
 import org.olat.group.BusinessGroupService;
 import org.olat.group.BusinessGroupShort;
 import org.olat.group.area.BGArea;
 import org.olat.group.area.BGAreaManager;
 import org.olat.modules.ModuleConfiguration;
 import org.olat.repository.RepositoryEntry;
+import org.olat.resource.OLATResource;
 
 /**
  * Description:<BR>
@@ -160,6 +163,46 @@ public class ENCourseNode extends AbstractAccessableCourseNode {
 		Controller ctrl = TitledWrapperHelper.getWrapper(ureq, wControl, controller, this, "o_en_icon");
 		return new NodeRunConstructionResult(ctrl);
 	}
+	
+	public boolean isUsedForEnrollment(List<BusinessGroup> groups, OLATResource courseResource) {
+		if(groups == null || groups.isEmpty()) return false;
+		
+		ModuleConfiguration mc = getModuleConfiguration();
+		String groupNames = (String) mc.get(CONFIG_GROUPNAME);
+		List<Long> groupKeys = mc.getList(ENCourseNode.CONFIG_GROUP_IDS, Long.class);
+		if(groupKeys != null && groupKeys.size() > 0) {
+			for(BusinessGroup group:groups) {
+				if(groupKeys.contains(group.getKey())) {
+					return true;
+				}
+			}
+		} else if(StringHelper.containsNonWhitespace(groupNames)) {
+			String[] groupNameArr = groupNames.split(",");
+			for(BusinessGroup group:groups) {
+				for(String groupName:groupNameArr) {
+					if(groupName != null && group.getName() != null && groupName.equals(group.getName())) {
+						return true;
+					}
+				}
+			}
+		}
+		
+		List<Long> areaKeys = mc.getList(ENCourseNode.CONFIG_AREA_IDS, Long.class);
+		if(areaKeys == null || areaKeys.isEmpty()) {
+			String areaNames = (String) mc.get(CONFIG_AREANAME);
+			areaKeys = CoreSpringFactory.getImpl(BGAreaManager.class).toAreaKeys(areaNames, courseResource);
+		}
+		if(areaKeys != null && areaKeys.size() > 0) {
+			List<Long> areaGroupKeys = CoreSpringFactory.getImpl(BGAreaManager.class).findBusinessGroupKeysOfAreaKeys(areaKeys);
+			for(BusinessGroup group:groups) {
+				if(areaGroupKeys.contains(group.getKey())) {
+					return true;
+				}
+			}
+		}
+		
+		return false;
+	}
 
 	/**
 	 * @see org.olat.course.nodes.CourseNode#isConfigValid()
@@ -176,7 +219,7 @@ public class ENCourseNode extends AbstractAccessableCourseNode {
 			// FIXME: refine statusdescriptions
 			String shortKey = "error.nogroupdefined.short";
 			String longKey = "error.nogroupdefined.long";
-			String[] params = new String[] { this.getShortTitle() };
+			String[] params = new String[] { getShortTitle() };
 			String translPackage = Util.getPackageName(ENEditController.class);
 			sd = new StatusDescription(StatusDescription.ERROR, shortKey, longKey, params, translPackage);
 			sd.setDescriptionForUnit(getIdent());
@@ -247,7 +290,7 @@ public class ENCourseNode extends AbstractAccessableCourseNode {
 				for (int i = 0; i < areas.length; i++) {
 					String trimmed = areas[i] != null ?
 							FilterFactory.getHtmlTagsFilter().filter(areas[i]).trim() : areas[i];
-					if (!trimmed.equals("") && !cev.existsGroup(trimmed)) {
+					if (!trimmed.equals("") && !cev.existsArea(trimmed)) {
 						missingNames.add(trimmed);
 					}
 				}
@@ -391,9 +434,8 @@ public class ENCourseNode extends AbstractAccessableCourseNode {
 	public void postImportCopy(CourseEnvironmentMapper envMapper) {
 		ModuleConfiguration mc = getModuleConfiguration();
 		String groupNames = (String)mc.get(ENCourseNode.CONFIG_GROUPNAME);
-		@SuppressWarnings("unchecked")
-		List<Long> groupKeys = (List<Long>) mc.get(ENCourseNode.CONFIG_GROUP_IDS);
-		if(groupKeys == null) {
+		List<Long> groupKeys = mc.getList(ENCourseNode.CONFIG_GROUP_IDS, Long.class);
+		if(groupKeys == null || groupKeys.isEmpty()) {
 			groupKeys = envMapper.toGroupKeyFromOriginalNames(groupNames);
 		} else {
 			groupKeys = envMapper.toGroupKeyFromOriginalKeys(groupKeys);
@@ -401,12 +443,11 @@ public class ENCourseNode extends AbstractAccessableCourseNode {
 		mc.set(ENCourseNode.CONFIG_GROUP_IDS, groupKeys);
 	
 		String areaNames = (String)mc.get(ENCourseNode.CONFIG_AREANAME);
-		@SuppressWarnings("unchecked")
-		List<Long> areaKeys = (List<Long>) mc.get(ENCourseNode.CONFIG_AREA_IDS);
-		if(areaKeys == null) {
-			areaKeys = envMapper.toGroupKeyFromOriginalNames(areaNames);
+		List<Long> areaKeys =  mc.getList(ENCourseNode.CONFIG_AREA_IDS, Long.class);
+		if(areaKeys == null || areaKeys.isEmpty()) {
+			areaKeys = envMapper.toAreaKeyFromOriginalNames(areaNames);
 		} else {
-			areaKeys = envMapper.toAreaKeyFromOriginalKeys(groupKeys);
+			areaKeys = envMapper.toAreaKeyFromOriginalKeys(areaKeys);
 		}
 		mc.set(ENCourseNode.CONFIG_AREA_IDS, areaKeys);
 	}
@@ -416,16 +457,14 @@ public class ENCourseNode extends AbstractAccessableCourseNode {
 		super.postExport(envMapper, backwardsCompatible);
 
 		ModuleConfiguration mc = getModuleConfiguration();
-		@SuppressWarnings("unchecked")
-		List<Long> groupKeys = (List<Long>) mc.get(ENCourseNode.CONFIG_GROUP_IDS);
+		List<Long> groupKeys = mc.getList(ENCourseNode.CONFIG_GROUP_IDS, Long.class);
 		if(groupKeys != null) {
 			String groupNames = envMapper.toGroupNames(groupKeys);
 			mc.set(ENCourseNode.CONFIG_GROUPNAME, groupNames);
 		}
 
-		@SuppressWarnings("unchecked")
-		List<Long> areaKeys = (List<Long>) mc.get(ENCourseNode.CONFIG_AREA_IDS);
-		if(areaKeys != null ) {
+		List<Long> areaKeys = mc.getList(ENCourseNode.CONFIG_AREA_IDS, Long.class);
+		if(areaKeys != null) {
 			String areaNames = envMapper.toAreaNames(areaKeys);
 			mc.set(ENCourseNode.CONFIG_AREANAME, areaNames);
 		}

@@ -25,23 +25,28 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
 import org.olat.NewControllerFactory;
+import org.olat.basesecurity.BaseSecurityModule;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.Component;
+import org.olat.core.gui.components.form.flexible.FormItem;
+import org.olat.core.gui.components.form.flexible.FormItemContainer;
+import org.olat.core.gui.components.form.flexible.elements.FlexiTableElement;
+import org.olat.core.gui.components.form.flexible.impl.FormBasicController;
+import org.olat.core.gui.components.form.flexible.impl.FormEvent;
+import org.olat.core.gui.components.form.flexible.impl.FormLayoutContainer;
+import org.olat.core.gui.components.form.flexible.impl.elements.table.DateFlexiCellRenderer;
+import org.olat.core.gui.components.form.flexible.impl.elements.table.DefaultFlexiColumnModel;
+import org.olat.core.gui.components.form.flexible.impl.elements.table.FlexiTableColumnModel;
+import org.olat.core.gui.components.form.flexible.impl.elements.table.FlexiTableDataModelFactory;
+import org.olat.core.gui.components.form.flexible.impl.elements.table.SelectionEvent;
 import org.olat.core.gui.components.link.Link;
 import org.olat.core.gui.components.link.LinkFactory;
-import org.olat.core.gui.components.table.BooleanColumnDescriptor;
-import org.olat.core.gui.components.table.ColumnDescriptor;
-import org.olat.core.gui.components.table.CustomRenderColumnDescriptor;
-import org.olat.core.gui.components.table.DefaultColumnDescriptor;
-import org.olat.core.gui.components.table.TableController;
-import org.olat.core.gui.components.table.TableEvent;
-import org.olat.core.gui.components.table.TableGuiConfiguration;
-import org.olat.core.gui.components.text.TextComponent;
-import org.olat.core.gui.components.velocity.VelocityContainer;
+import org.olat.core.gui.components.stack.PopEvent;
+import org.olat.core.gui.components.stack.TooledController;
+import org.olat.core.gui.components.stack.TooledStackedPanel;
 import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.Event;
 import org.olat.core.gui.control.WindowControl;
-import org.olat.core.gui.control.controller.BasicController;
 import org.olat.core.gui.control.generic.closablewrapper.CloseableModalController;
 import org.olat.core.gui.control.generic.dtabs.Activateable2;
 import org.olat.core.id.Identity;
@@ -56,19 +61,21 @@ import org.olat.core.util.event.GenericEventListener;
 import org.olat.core.util.mail.ContactList;
 import org.olat.core.util.mail.ContactMessage;
 import org.olat.core.util.resource.OresHelper;
+import org.olat.course.assessment.bulk.PassedCellRenderer;
 import org.olat.course.certificate.CertificateEvent;
 import org.olat.course.certificate.CertificateLight;
 import org.olat.course.certificate.CertificatesManager;
 import org.olat.course.certificate.ui.DownloadCertificateCellRenderer;
+import org.olat.modules.assessment.ui.ScoreCellRenderer;
 import org.olat.modules.co.ContactFormController;
 import org.olat.modules.coach.CoachingService;
 import org.olat.modules.coach.model.EfficiencyStatementEntry;
 import org.olat.modules.coach.model.IdentityResourceKey;
 import org.olat.modules.coach.model.StudentStatEntry;
 import org.olat.modules.coach.ui.EfficiencyStatementEntryTableDataModel.Columns;
-import org.olat.modules.coach.ui.ToolbarController.Position;
 import org.olat.repository.RepositoryEntry;
 import org.olat.user.UserManager;
+import org.olat.user.propertyhandlers.UserPropertyHandler;
 import org.springframework.beans.factory.annotation.Autowired;
 
 /**
@@ -81,120 +88,129 @@ import org.springframework.beans.factory.annotation.Autowired;
  *
  * @author srosse, stephane.rosse@frentix.com, http://www.frentix.com
  */
-public class StudentCoursesController extends BasicController implements Activateable2, GenericEventListener {
+public class StudentCoursesController extends FormBasicController implements Activateable2, GenericEventListener, TooledController {
 
-	private final Link backLink, next, previous;
-	private final Link nextStudent, previousStudent;
 	private final Link homeLink, contactLink;
-	private final TextComponent detailsCmp, detailsStudentCmp;
-	private final TableController tableCtr;
-	private final VelocityContainer mainVC;
-	private final VelocityContainer detailsVC;
+	private Link nextStudent, detailsStudentCmp, previousStudent;
+
+	private FlexiTableElement tableEl;
+	private final TooledStackedPanel stackPanel;
 	private EfficiencyStatementEntryTableDataModel model;
 	
 	private CloseableModalController cmc;
 	private ContactFormController contactCtrl;
-	private final ToolbarController toolbar;
 	private EfficiencyStatementDetailsController statementCtrl;
 	
 	private boolean hasChanged = false;
 	
+	private final int index;
+	private final int numOfStudents;
 	private final Identity student;
 	private final boolean fullAccess;
 	private final StudentStatEntry statEntry;
+
+	private final boolean isAdministrativeUser;
+	private final List<UserPropertyHandler> userPropertyHandlers;
+	
 	@Autowired
 	private UserManager userManager;
 	@Autowired
 	private CoachingService coachingService;
 	@Autowired
+	private BaseSecurityModule securityModule;
+	@Autowired
 	private CertificatesManager certificatesManager;
 	
-	public StudentCoursesController(UserRequest ureq, WindowControl wControl, StudentStatEntry statEntry,
-			Identity student, int index, int numOfStudents, boolean fullAccess) {
-		super(ureq, wControl);
-		
+	public StudentCoursesController(UserRequest ureq, WindowControl wControl, TooledStackedPanel stackPanel,
+			StudentStatEntry statEntry, Identity student, int index, int numOfStudents, boolean fullAccess) {
+		super(ureq, wControl, "student_course_list");
+		setTranslator(userManager.getPropertyHandlerTranslator(getTranslator()));
+		isAdministrativeUser = securityModule.isUserAllowedAdminProps(ureq.getUserSession().getRoles());
+		userPropertyHandlers = userManager.getUserPropertyHandlersFor(UserListController.usageIdentifyer, isAdministrativeUser);
+
+		this.index = index;
 		this.student = student;
 		this.statEntry = statEntry;
 		this.fullAccess = fullAccess;
+		this.stackPanel = stackPanel;
+		this.numOfStudents = numOfStudents;
+		
+		initForm(ureq);
+		loadModel();
 
-		TableGuiConfiguration tableConfig = new TableGuiConfiguration();
-		tableConfig.setTableEmptyMessage(translate("error.no.found"));
-		tableConfig.setDownloadOffered(true);
-		tableConfig.setPreferencesOffered(true, "studentCourseListController");
-		
-		tableCtr = new TableController(tableConfig, ureq, getWindowControl(), null, null, null, null, true, getTranslator());
-		tableCtr.addColumnDescriptor(false, new DefaultColumnDescriptor("student.name", Columns.studentName.ordinal(), "select", getLocale()));
-		tableCtr.addColumnDescriptor(new DefaultColumnDescriptor("table.header.course.name", Columns.repoName.ordinal(), "select", getLocale()));
-		tableCtr.addColumnDescriptor(new BooleanColumnDescriptor("table.header.passed", Columns.passed.ordinal(), translate("passed.true"), translate("passed.false")));
-		tableCtr.addColumnDescriptor(new CustomRenderColumnDescriptor("table.header.score", Columns.score.ordinal(), "select", getLocale(),
-				ColumnDescriptor.ALIGNMENT_RIGHT, new ScoreCellRenderer()));
-		tableCtr.addColumnDescriptor(new CustomRenderColumnDescriptor("table.header.certificate", Columns.certificate.ordinal(), null, getLocale(),
-				ColumnDescriptor.ALIGNMENT_LEFT, new DownloadCertificateCellRenderer(student)));
-		tableCtr.addColumnDescriptor(new CustomRenderColumnDescriptor("table.header.progress", Columns.progress.ordinal(), null, getLocale(),
-				ColumnDescriptor.ALIGNMENT_LEFT, new ProgressRenderer(true, getTranslator())));
-		tableCtr.addColumnDescriptor(new DefaultColumnDescriptor("table.header.lastScoreDate", Columns.lastModification.ordinal(), "select", getLocale()));
-
-		listenTo(tableCtr);
-		List<EfficiencyStatementEntry> statements = loadModel();
-
-		mainVC = createVelocityContainer("student_course_list");
-		detailsVC = createVelocityContainer("student_details");
-		
-		String fullName = StringHelper.escapeHtml(userManager.getUserDisplayName(student));
-		
-		detailsVC.contextPut("studentName", fullName);
-		mainVC.put("studentDetails", detailsVC);
-		mainVC.put("studentsTable", tableCtr.getInitialComponent());
-		
-		toolbar = new ToolbarController(ureq, wControl, getTranslator());
-		listenTo(toolbar);
-		
-		mainVC.put("toolbar", toolbar.getInitialComponent());
-		backLink = toolbar.addToolbarLink("back", this, Position.left);
-		backLink.setIconLeftCSS("o_icon o_icon_back");
-		previous = toolbar.addToolbarLink("previous.course", this, Position.center);
-		previous.setIconLeftCSS("o_icon o_icon_move_left");
-		previous.setCustomDisabledLinkCSS("navbar-text");
-		previous.setEnabled(statements.size() > 1);
-		detailsCmp = toolbar.addToolbarText("details", this, Position.center);
-		next = toolbar.addToolbarLink("next.course", this, Position.center);
-		next.setIconRightCSS("o_icon o_icon_move_right");
-		next.setCustomDisabledLinkCSS("navbar-text");
-		next.setEnabled(statements.size() > 1);
-		
-		//students next,previous
-		previousStudent = toolbar.addToolbarLink("previous.student", this, Position.center);
-		previousStudent.setIconLeftCSS("o_icon o_icon_move_left");
-		previousStudent.setCustomDisabledLinkCSS("navbar-text");
-		previousStudent.setEnabled(numOfStudents > 1);
-		
-		detailsStudentCmp = toolbar.addToolbarText("details.student", "", this, Position.center);
-		detailsStudentCmp.setCssClass("navbar-text");
-		detailsStudentCmp.setText(translate("students.details", new String[]{
-				fullName, Integer.toString(index + 1), Integer.toString(numOfStudents)
-		}));
-		nextStudent = toolbar.addToolbarLink("next.student", this, Position.center);
-		nextStudent.setIconRightCSS("o_icon o_icon_move_right");
-		nextStudent.setCustomDisabledLinkCSS("navbar-text");
-		nextStudent.setEnabled(numOfStudents > 1);
-		
-		contactLink = LinkFactory.createButton("contact.link", detailsVC, this);
+		contactLink = LinkFactory.createButton("contact.link", flc.getFormItemComponent(), this);
 		contactLink.setIconLeftCSS("o_icon o_icon_mail");
-		detailsVC.put("contact", contactLink);
+		flc.getFormItemComponent().put("contact", contactLink);
 		
-		homeLink = LinkFactory.createButton("home.link", detailsVC, this);
+		homeLink = LinkFactory.createButton("home.link", flc.getFormItemComponent(), this);
 		homeLink.setIconLeftCSS("o_icon o_icon_home");
-		detailsVC.put("home", homeLink);
-
-		setDetailsToolbarVisible(false);
-		putInitialPanel(mainVC);
+		flc.getFormItemComponent().put("home", homeLink);
 		
 		CoordinatorManager.getInstance().getCoordinator().getEventBus()
 			.registerFor(this, getIdentity(), CertificatesManager.ORES_CERTIFICATE_EVENT);
 	}
-	
+
+	@Override
+	public void initTools() {
+		previousStudent = LinkFactory.createToolLink("previous.student", translate("previous.student"), this);
+		previousStudent.setIconLeftCSS("o_icon o_icon_previous");
+		previousStudent.setEnabled(numOfStudents > 1);
+		stackPanel.addTool(previousStudent);
+		
+		String fullName = StringHelper.escapeHtml(userManager.getUserDisplayName(student));
+		String details = translate("students.details", new String[]{
+				fullName, Integer.toString(index + 1), Integer.toString(numOfStudents)
+		});
+		detailsStudentCmp = LinkFactory.createToolLink("details.student", details, this);
+		detailsStudentCmp.setIconLeftCSS("o_icon o_icon_user");
+		stackPanel.addTool(detailsStudentCmp);
+
+		nextStudent = LinkFactory.createToolLink("next.student", translate("next.student"), this);
+		nextStudent.setIconLeftCSS("o_icon o_icon_next");
+		nextStudent.setEnabled(numOfStudents > 1);
+		stackPanel.addTool(nextStudent);
+		stackPanel.addListener(this);
+	}
+
+	@Override
+	protected void initForm(FormItemContainer formLayout, Controller listener, UserRequest ureq) {
+		if(formLayout instanceof FormLayoutContainer) {
+			FormLayoutContainer layoutCont = (FormLayoutContainer)formLayout;
+			String fullName = userManager.getUserDisplayName(student);
+			layoutCont.contextPut("studentName", StringHelper.escapeHtml(fullName));
+		}
+		
+		//add the table
+		FlexiTableColumnModel columnsModel = FlexiTableDataModelFactory.createFlexiTableColumnModel();
+		if(isAdministrativeUser) {
+			columnsModel.addFlexiColumnModel(new DefaultFlexiColumnModel(false, Columns.name, "select"));
+		}
+		
+		int colIndex = UserListController.USER_PROPS_OFFSET;
+		for (int i = 0; i < userPropertyHandlers.size(); i++) {
+			UserPropertyHandler userPropertyHandler	= userPropertyHandlers.get(i);
+			columnsModel.addFlexiColumnModel(new DefaultFlexiColumnModel(false, userPropertyHandler.i18nColumnDescriptorLabelKey(), colIndex++, "select",
+					true, userPropertyHandler.i18nColumnDescriptorLabelKey()));
+		}
+		
+		columnsModel.addFlexiColumnModel(new DefaultFlexiColumnModel(Columns.repoName, "select"));
+		columnsModel.addFlexiColumnModel(new DefaultFlexiColumnModel(Columns.passed, new PassedCellRenderer()));
+		columnsModel.addFlexiColumnModel(new DefaultFlexiColumnModel(Columns.score, new ScoreCellRenderer()));
+		columnsModel.addFlexiColumnModel(new DefaultFlexiColumnModel(Columns.certificate, new DownloadCertificateCellRenderer()));
+		columnsModel.addFlexiColumnModel(new DefaultFlexiColumnModel(Columns.recertification, new DateFlexiCellRenderer(getLocale())));
+		columnsModel.addFlexiColumnModel(new DefaultFlexiColumnModel(Columns.progress, new ProgressRenderer(true, getTranslator())));
+		columnsModel.addFlexiColumnModel(new DefaultFlexiColumnModel(Columns.lastModification));
+		
+		model = new EfficiencyStatementEntryTableDataModel(columnsModel);
+		tableEl = uifactory.addTableElement(getWindowControl(), "table", model, 20, false, getTranslator(), formLayout);
+		tableEl.setExportEnabled(true);
+		tableEl.setEmtpyTableMessageKey("error.no.found");
+		tableEl.setAndLoadPersistedPreferences(ureq, "fStudentCourseListController");
+	}
+
 	@Override
 	protected void doDispose() {
+		stackPanel.removeListener(this);
 		CoordinatorManager.getInstance().getCoordinator().getEventBus()
 			.deregisterFor(this, CertificatesManager.ORES_CERTIFICATE_EVENT);
 	}
@@ -221,7 +237,7 @@ public class StudentCoursesController extends BasicController implements Activat
 	private List<EfficiencyStatementEntry> loadModel() {
 		List<RepositoryEntry> courses = fullAccess ? coachingService.getUserCourses(student)
 				: coachingService.getStudentsCourses(getIdentity(), student);
-		List<EfficiencyStatementEntry> statements = coachingService.getEfficencyStatements(student, courses);
+		List<EfficiencyStatementEntry> statements = coachingService.getEfficencyStatements(student, courses, userPropertyHandlers, getLocale());
 		
 		List<CertificateLight> certificates = certificatesManager.getLastCertificates(student);
 		ConcurrentMap<IdentityResourceKey, CertificateLight> certificateMap = new ConcurrentHashMap<>();
@@ -230,8 +246,9 @@ public class StudentCoursesController extends BasicController implements Activat
 			certificateMap.put(key, certificate);
 		}
 
-		model = new EfficiencyStatementEntryTableDataModel(statements, certificateMap);
-		tableCtr.setTableDataModel(model);
+		model.setObjects(statements, certificateMap);
+		tableEl.reset();
+		tableEl.reloadData();
 		return statements;
 	}
 	
@@ -244,38 +261,55 @@ public class StudentCoursesController extends BasicController implements Activat
 	}
 
 	@Override
-	protected void event(UserRequest ureq, Component source, Event event) {
-		if (source == next) {
-			nextEntry(ureq);
-		} else if (source == previous) {
-			previousEntry(ureq);
-		} else if(source == backLink) {
-			back(ureq);
+	protected void formOK(UserRequest ureq) {
+		//
+	}
+	
+	@Override
+	protected void formInnerEvent(UserRequest ureq, FormItem source, FormEvent event) {
+		if(tableEl == source) {
+			if(event instanceof SelectionEvent) {
+				SelectionEvent se = (SelectionEvent)event;
+				String cmd = se.getCommand();
+				EfficiencyStatementEntry selectedRow = model.getObject(se.getIndex());
+				if("select".equals(cmd)) {
+					selectDetails(ureq, selectedRow);
+				}
+			}
+		} 
+		super.formInnerEvent(ureq, source, event);
+	}
+
+	@Override
+	public void event(UserRequest ureq, Component source, Event event) {
+		if(previousStudent == source || nextStudent == source) {
+			fireEvent(ureq, event);
 		} else if (source == homeLink) {
 			openHome(ureq);
 		} else if (source == contactLink) {
 			contact(ureq);
+		} else if(stackPanel == source) {
+			if(event instanceof PopEvent) {
+				PopEvent pe = (PopEvent)event;
+				if(pe.getController() == statementCtrl && hasChanged) {
+					reloadModel();
+				}
+			}
 		}
+		super.event(ureq, source, event);
 	}
 
 	@Override
 	protected void event(UserRequest ureq, Controller source, Event event) {
-		if(source == tableCtr) {
-			if(event instanceof TableEvent) {
-				TableEvent e = (TableEvent) event;
-				if("select".equals(e.getActionId())) {
-					EfficiencyStatementEntry entry = (EfficiencyStatementEntry)tableCtr.getTableDataModel().getObject(e.getRowId());
-					selectDetails(ureq, entry);					
-				}
-			}
-		} else if (source == statementCtrl) {
+		if (source == statementCtrl) {
 			if(event == Event.CHANGED_EVENT) {
 				hasChanged = true;
 				fireEvent(ureq, event);
-			} else {
-				reloadModel();
-				removeDetails(ureq);
-			}
+			} else if ("next".equals(event.getCommand())) {
+				nextEntry(ureq);
+			} else if ("previous".equals(event.getCommand())) {
+				previousEntry(ureq);
+			} 
 		} else if (source == cmc) {
 			removeAsListenerAndDispose(cmc);
 			removeAsListenerAndDispose(contactCtrl);
@@ -287,21 +321,6 @@ public class StudentCoursesController extends BasicController implements Activat
 			removeAsListenerAndDispose(contactCtrl);
 			cmc = null;
 			contactCtrl = null;
-		} else if (source == toolbar) {
-			if("back".equals(event.getCommand())) {
-				reloadModel();
-				back(ureq);
-			} else if ("next.course".equals(event.getCommand())) {
-				nextEntry(ureq);
-			} else if ("previous.course".equals(event.getCommand())) {
-				previousEntry(ureq);
-			} else if ("contact.link".equals(event.getCommand())) {
-				contact(ureq);
-			} else if ("next.student".equals(event.getCommand())) {
-				fireEvent(ureq, event);
-			} else if ("previous.student".equals(event.getCommand())) {
-				fireEvent(ureq, event);
-			}
 		}
 		super.event(ureq, source, event);
 	}
@@ -313,26 +332,15 @@ public class StudentCoursesController extends BasicController implements Activat
 		ContextEntry ce = entries.get(0);
 		OLATResourceable ores = ce.getOLATResourceable();
 		if("RepositoryEntry".equals(ores.getResourceableTypeName())) {
-			Long identityKey = ores.getResourceableId();
-			for(int i=tableCtr.getRowCount(); i-->0; ) {
-				EfficiencyStatementEntry entry = (EfficiencyStatementEntry)tableCtr.getTableDataModel().getObject(i);
-				if(identityKey.equals(entry.getCourse().getKey())) {
+			Long entryKey = ores.getResourceableId();
+			for(EfficiencyStatementEntry entry:model.getObjects()) {
+				if(entryKey.equals(entry.getCourse().getKey())) {
 					selectDetails(ureq, entry);
 					statementCtrl.activate(ureq, entries.subList(1, entries.size()), ce.getTransientState());
 					break;
 				}
 			}
 		}
-	}
-	
-	private void setDetailsToolbarVisible(boolean visible) {
-		next.setVisible(visible);
-		previous.setVisible(visible);
-		detailsCmp.setVisible(visible);
-		
-		nextStudent.setVisible(!visible);
-		previousStudent.setVisible(!visible);
-		detailsStudentCmp.setVisible(!visible);
 	}
 	
 	private void contact(UserRequest ureq) {
@@ -349,39 +357,23 @@ public class StudentCoursesController extends BasicController implements Activat
 		listenTo(cmc);
 	}
 	
-	private void removeDetails(UserRequest ureq) {
-		mainVC.remove(statementCtrl.getInitialComponent());
-		removeAsListenerAndDispose(statementCtrl);
-		statementCtrl = null;
-		setDetailsToolbarVisible(false);
-		addToHistory(ureq);
-	}
-	
-	private void back(UserRequest ureq) {
-		if(statementCtrl == null) {
-			fireEvent(ureq, Event.BACK_EVENT);
-		} else {
-			removeDetails(ureq);
-		}
-	}
-	
 	private void nextEntry(UserRequest ureq) {
 		EfficiencyStatementEntry currentEntry = statementCtrl.getEntry();
-		int nextIndex = tableCtr.getIndexOfSortedObject(currentEntry) + 1;
-		if(nextIndex < 0 || nextIndex >= tableCtr.getRowCount()) {
+		int nextIndex = model.getObjects().indexOf(currentEntry) + 1;
+		if(nextIndex < 0 || nextIndex >= model.getRowCount()) {
 			nextIndex = 0;
 		}
-		EfficiencyStatementEntry nextEntry = (EfficiencyStatementEntry)tableCtr.getSortedObjectAt(nextIndex);
+		EfficiencyStatementEntry nextEntry = model.getObject(nextIndex);
 		selectDetails(ureq, nextEntry);
 	}
 	
 	private void previousEntry(UserRequest ureq) {
 		EfficiencyStatementEntry currentEntry = statementCtrl.getEntry();
-		int previousIndex = tableCtr.getIndexOfSortedObject(currentEntry) - 1;
-		if(previousIndex < 0 || previousIndex >= tableCtr.getRowCount()) {
-			previousIndex = tableCtr.getRowCount() - 1;
+		int previousIndex = model.getObjects().indexOf(currentEntry) - 1;
+		if(previousIndex < 0 || previousIndex >= model.getRowCount()) {
+			previousIndex = model.getRowCount() - 1;
 		}
-		EfficiencyStatementEntry previousEntry = (EfficiencyStatementEntry)tableCtr.getSortedObjectAt(previousIndex);
+		EfficiencyStatementEntry previousEntry = model.getObject(previousIndex);
 		selectDetails(ureq, previousEntry);
 	}
 	
@@ -389,17 +381,21 @@ public class StudentCoursesController extends BasicController implements Activat
 		boolean selectAssessmentTool = false;
 		if(statementCtrl != null) {
 			selectAssessmentTool = statementCtrl.isAssessmentToolSelected();
-			removeAsListenerAndDispose(statementCtrl);
 		}
 		
 		OLATResourceable ores = OresHelper.createOLATResourceableInstance(RepositoryEntry.class, entry.getCourse().getKey());
 		WindowControl bwControl = addToHistory(ureq, ores, null);
-		statementCtrl = new EfficiencyStatementDetailsController(ureq, bwControl, entry, selectAssessmentTool);
+		String displayName = entry.getCourseDisplayName();
+		int entryIndex = model.getObjects().indexOf(entry);
+		String details = translate("students.details", new String[] {
+				displayName, String.valueOf(entryIndex), String.valueOf(model.getRowCount())
+		});
+		
+		statementCtrl = new EfficiencyStatementDetailsController(ureq, bwControl, stackPanel,
+				entry, student, details, entryIndex, model.getRowCount(), selectAssessmentTool);
 		listenTo(statementCtrl);
-		detailsCmp.setText(entry.getCourse().getDisplayname());
-
-		mainVC.put("efficiencyDetails", statementCtrl.getInitialComponent());	
-		setDetailsToolbarVisible(true);
+		stackPanel.popUpToController(this);
+		stackPanel.pushController(displayName, statementCtrl);
 	}
 	
 	private void openHome(UserRequest ureq) {
@@ -407,7 +403,7 @@ public class StudentCoursesController extends BasicController implements Activat
 		ces.add(BusinessControlFactory.getInstance().createContextEntry(student));
 
 		BusinessControl bc = BusinessControlFactory.getInstance().createFromContextEntries(ces);
-	  WindowControl bwControl = BusinessControlFactory.getInstance().createBusinessWindowControl(bc, getWindowControl());
+		WindowControl bwControl = BusinessControlFactory.getInstance().createBusinessWindowControl(bc, getWindowControl());
 		NewControllerFactory.getInstance().launch(ureq, bwControl);
 	}
 }

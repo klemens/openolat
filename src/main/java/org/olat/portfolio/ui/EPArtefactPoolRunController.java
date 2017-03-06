@@ -48,6 +48,7 @@ import org.olat.portfolio.model.structel.PortfolioStructure;
 import org.olat.portfolio.ui.artefacts.collect.EPAddArtefactController;
 import org.olat.portfolio.ui.artefacts.view.EPArtefactChoosenEvent;
 import org.olat.portfolio.ui.artefacts.view.EPArtefactDeletedEvent;
+import org.olat.portfolio.ui.artefacts.view.EPArtefactListChoosenEvent;
 import org.olat.portfolio.ui.artefacts.view.EPMultiArtefactsController;
 import org.olat.portfolio.ui.artefacts.view.EPMultipleArtefactPreviewController;
 import org.olat.portfolio.ui.artefacts.view.EPMultipleArtefactsAsTableController;
@@ -71,7 +72,7 @@ public class EPArtefactPoolRunController extends BasicController implements Acti
 	private VelocityContainer vC;
 	private EPFilterSettings filterSettings = new EPFilterSettings();
 	private EPAddArtefactController addArtefactCtrl;
-	private boolean artefactChooseMode;
+	
 	private SegmentViewComponent segmentView;
 	private Link artefactsLink, browseLink, searchLink;
 	private Controller filterSelectCtrl;
@@ -81,6 +82,10 @@ public class EPArtefactPoolRunController extends BasicController implements Acti
 	private String previousViewMode;
 	private List<AbstractArtefact> previousArtefactsList;
 	
+	private final boolean artefactChooseMode;
+	private final boolean canAddArtefacts;
+	private final boolean importV2;
+	
 	@Autowired
 	private EPFrontendManager ePFMgr;
 	@Autowired
@@ -89,11 +94,17 @@ public class EPArtefactPoolRunController extends BasicController implements Acti
 	private PortfolioStructure preSelectedStruct;
 
 	public EPArtefactPoolRunController(UserRequest ureq, WindowControl wControl) {
-		this(ureq, wControl, false);
+		this(ureq, wControl, false, true, false);
 	}
 	
-	public EPArtefactPoolRunController(UserRequest ureq, WindowControl wControl, boolean artefactChooseMode) {
+	public EPArtefactPoolRunController(UserRequest ureq, WindowControl wControl, boolean artefactChooseMode, boolean canAddArtefacts) {
+		this(ureq, wControl, artefactChooseMode, canAddArtefacts, false);
+	}
+	
+	public EPArtefactPoolRunController(UserRequest ureq, WindowControl wControl, boolean artefactChooseMode, boolean canAddArtefacts, boolean importV2) {
 		super(ureq, wControl);
+		this.importV2 = importV2;
+		this.canAddArtefacts = canAddArtefacts;
 		this.artefactChooseMode = artefactChooseMode;
 		Component viewComp = new Panel("empty");
 		Component filterPanel = new Panel("filter");
@@ -112,7 +123,7 @@ public class EPArtefactPoolRunController extends BasicController implements Acti
 
 			putInitialPanel(viewComp);
 		} else {
-			putInitialPanel(new Panel("empty"));
+			putInitialPanel(createVelocityContainer("portfolio_disabled"));
 		}
 	}
 
@@ -125,6 +136,7 @@ public class EPArtefactPoolRunController extends BasicController implements Acti
 	private void init(UserRequest ureq) {
 		vC = createVelocityContainer("artefactsmain");
 		vC.contextPut("artefactChooseMode", artefactChooseMode);
+		vC.contextPut("importV2", importV2);
 		
 		segmentView = SegmentViewFactory.createSegmentView("segments", vC, this);
 		artefactsLink = LinkFactory.createLink("viewTab.all", vC, this);
@@ -136,9 +148,11 @@ public class EPArtefactPoolRunController extends BasicController implements Acti
 		searchLink = LinkFactory.createLink("viewTab.search", vC, this);
 		segmentView.addSegment(searchLink, false);
 		
-		addArtefactCtrl = new EPAddArtefactController(ureq, getWindowControl());
-		listenTo(addArtefactCtrl);
-		vC.put("addArtefactCtrl", addArtefactCtrl.getInitialComponent());
+		if(canAddArtefacts) {
+			addArtefactCtrl = new EPAddArtefactController(ureq, getWindowControl());
+			listenTo(addArtefactCtrl);
+			vC.put("addArtefactCtrl", addArtefactCtrl.getInitialComponent());
+		}
 	}
 	
 	/**
@@ -190,9 +204,9 @@ public class EPArtefactPoolRunController extends BasicController implements Acti
 			removeAsListenerAndDispose(artCtrl);
 		}
 
-		if (userPrefsMode != null && userPrefsMode.equals(EPViewModeController.VIEWMODE_TABLE)){
+		if (importV2  || (userPrefsMode != null && userPrefsMode.equals(EPViewModeController.VIEWMODE_TABLE))){
 			EPSecurityCallback secCallback = new EPSecurityCallbackImpl(true, true);
-			artCtrl = new EPMultipleArtefactsAsTableController(ureq, getWindowControl(), artefacts, null, artefactChooseMode, secCallback);
+			artCtrl = new EPMultipleArtefactsAsTableController(ureq, getWindowControl(), artefacts, null, artefactChooseMode, importV2, secCallback);
 			viewModeCtrl.selectTable();
 		} else {
 			artCtrl = new EPMultipleArtefactPreviewController(ureq, getWindowControl(), artefacts, artefactChooseMode);
@@ -264,16 +278,18 @@ public class EPArtefactPoolRunController extends BasicController implements Acti
 	public void activate(UserRequest ureq, List<ContextEntry> entries, StateEntry state) {
 		if(entries == null || entries.isEmpty()) return;
 		
-		String type = entries.get(0).getOLATResourceable().getResourceableTypeName();
-		if("All".equalsIgnoreCase(type)) {
-			initTPAllView(ureq);
-			segmentView.select(artefactsLink);
-		} else if("Browse".equalsIgnoreCase(type)) {
-			initTPBrowseView(ureq);
-			segmentView.select(browseLink);
-		} else if("Search".equalsIgnoreCase(type)) {
-			initTPFilterView(ureq);
-			segmentView.select(searchLink);
+		if(portfolioModule.isEnabled()) {
+			String type = entries.get(0).getOLATResourceable().getResourceableTypeName();
+			if("All".equalsIgnoreCase(type)) {
+				initTPAllView(ureq);
+				segmentView.select(artefactsLink);
+			} else if("Browse".equalsIgnoreCase(type)) {
+				initTPBrowseView(ureq);
+				segmentView.select(browseLink);
+			} else if("Search".equalsIgnoreCase(type)) {
+				initTPFilterView(ureq);
+				segmentView.select(searchLink);
+			}
 		}
 	}
 
@@ -290,7 +306,7 @@ public class EPArtefactPoolRunController extends BasicController implements Acti
 				initTPAllView(ureq);
 				fireEvent(ureq, event);
 			}
-		} else if (event instanceof EPArtefactChoosenEvent) {
+		} else if (event instanceof EPArtefactChoosenEvent || event instanceof EPArtefactListChoosenEvent) {
 			// an artefact was choosen, pass through the event until top
 			fireEvent(ureq, event);
 		} else if (source == filterSelectCtrl) {

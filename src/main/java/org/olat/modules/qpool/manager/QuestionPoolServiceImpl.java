@@ -39,6 +39,7 @@ import org.olat.core.id.Identity;
 import org.olat.core.id.Roles;
 import org.olat.core.logging.OLog;
 import org.olat.core.logging.Tracing;
+import org.olat.core.util.vfs.LocalImpl;
 import org.olat.core.util.vfs.VFSContainer;
 import org.olat.core.util.vfs.VFSItem;
 import org.olat.core.util.vfs.VFSLeaf;
@@ -204,7 +205,8 @@ public class QuestionPoolServiceImpl implements QPoolService {
 		List<QuestionItem> copies = new ArrayList<QuestionItem>();
 		for(QuestionItemShort itemToCopy:itemsToCopy) {
 			QuestionItemImpl original = questionItemDao.loadById(itemToCopy.getKey());
-			QuestionItemImpl copy = questionItemDao.copy(owner, original);
+			QuestionItemImpl copy = questionItemDao.copy(original);
+			questionItemDao.persist(owner, copy);
 			QPoolSPI provider = qpoolModule.getQuestionPoolProvider(copy.getFormat());
 			if(provider != null) {
 				provider.copyItem(original, copy);
@@ -233,12 +235,12 @@ public class QuestionPoolServiceImpl implements QPoolService {
 	}
 	
 	@Override
-	public MediaResource export(List<QuestionItemShort> items, ExportFormatOptions format) {
+	public MediaResource export(List<QuestionItemShort> items, ExportFormatOptions format, Locale locale) {
 		MediaResource mr = null;
 		if(DefaultExportFormat.ZIP_EXPORT_FORMAT.equals(format)) {
 			List<Long> keys = toKeys(items);
 			List<QuestionItemFull> fullItems = questionItemDao.loadByIds(keys);
-			mr = new ExportQItemsZipResource("UTF-8", fullItems);
+			mr = new ExportQItemsZipResource("UTF-8", locale, fullItems);
 			//make a zip with all items
 		} else {
 			QPoolSPI selectedSp = null;
@@ -251,7 +253,7 @@ public class QuestionPoolServiceImpl implements QPoolService {
 			}
 			
 			if(selectedSp != null) {
-				mr = selectedSp.exportTest(items, format);
+				mr = selectedSp.exportTest(items, format, locale);
 			}
 		}
 		return mr;
@@ -267,7 +269,7 @@ public class QuestionPoolServiceImpl implements QPoolService {
 	}
 
 	@Override
-	public void exportItem(QuestionItemShort item, ZipOutputStream zout, Set<String> names) {
+	public void exportItem(QuestionItemShort item, ZipOutputStream zout, Locale locale, Set<String> names) {
 		QPoolSPI provider = qpoolModule.getQuestionPoolProvider(item.getFormat());
 		if(provider == null) {
 			log.error("Not found provider for this format: " + item.getFormat());
@@ -278,12 +280,24 @@ public class QuestionPoolServiceImpl implements QPoolService {
 			} else {
 				fullItem = questionItemDao.loadById(item.getKey());
 			}
-			provider.exportItem(fullItem, zout, names);
+			provider.exportItem(fullItem, zout, locale, names);
 		}
 	}
 
 	@Override
-	public VFSLeaf getRootFile(QuestionItem item) {
+	public File getRootFile(QuestionItem item) {
+		VFSLeaf leaf = getRootLeaf(item);
+		return leaf == null ? null : ((LocalImpl)leaf).getBasefile();
+	}
+
+	@Override
+	public File getRootDirectory(QuestionItem item) {
+		VFSContainer container = getRootContainer(item);
+		return container == null ? null : ((LocalImpl)container).getBasefile();
+	}
+
+	@Override
+	public VFSLeaf getRootLeaf(QuestionItemShort item) {
 		QuestionItemImpl reloadedItem = questionItemDao.loadById(item.getKey());
 		if(reloadedItem == null) {
 			return null;
@@ -302,7 +316,7 @@ public class QuestionPoolServiceImpl implements QPoolService {
 	}
 
 	@Override
-	public VFSContainer getRootDirectory(QuestionItem item) {
+	public VFSContainer getRootContainer(QuestionItemShort item) {
 		QuestionItemImpl reloadedItem = questionItemDao.loadById(item.getKey());
 		VFSContainer root = qpoolModule.getRootContainer();
 		VFSItem dir = root.resolve(reloadedItem.getDirectory());
@@ -564,8 +578,8 @@ public class QuestionPoolServiceImpl implements QPoolService {
 	}
 
 	@Override
-	public int countSharedItemByResource(OLATResource resource) {
-		return questionItemDao.countSharedItemByResource(resource);
+	public int countSharedItemByResource(OLATResource resource, SearchQuestionItemParams searchParams) {
+		return questionItemDao.countSharedItemByResource(resource, searchParams.getFormat());
 	}
 
 	@Override
@@ -585,14 +599,16 @@ public class QuestionPoolServiceImpl implements QPoolService {
 				if(results.isEmpty()) {
 					return new DefaultResultInfos<QuestionItemView>();
 				}
-				List<QuestionItemView> items = itemQueriesDao.getSharedItemByResource(searchParams.getIdentity(), resource, results, firstResult, maxResults);
+				List<QuestionItemView> items = itemQueriesDao.getSharedItemByResource(searchParams.getIdentity(), resource, results,
+						searchParams.getFormat(), firstResult, maxResults);
 				return new DefaultResultInfos<QuestionItemView>(firstResult + items.size(), results.size(), items);
 			} catch (Exception e) {
 				log.error("", e);
 			}
 			return new DefaultResultInfos<QuestionItemView>();
 		} else {
-			List<QuestionItemView> items = itemQueriesDao.getSharedItemByResource(searchParams.getIdentity(), resource, null, firstResult, maxResults, orderBy);
+			List<QuestionItemView> items = itemQueriesDao.getSharedItemByResource(searchParams.getIdentity(), resource, null,
+					searchParams.getFormat(), firstResult, maxResults, orderBy);
 			return new DefaultResultInfos<QuestionItemView>(firstResult + items.size(), -1, items);
 		}
 	}
@@ -645,8 +661,8 @@ public class QuestionPoolServiceImpl implements QPoolService {
 	}
 
 	@Override
-	public int countItemsOfCollection(QuestionItemCollection collection) {
-		return collectionDao.countItemsOfCollection(collection);
+	public int countItemsOfCollection(QuestionItemCollection collection, SearchQuestionItemParams searchParams) {
+		return collectionDao.countItemsOfCollection(collection, searchParams.getFormat());
 	}
 
 	@Override
@@ -668,14 +684,16 @@ public class QuestionPoolServiceImpl implements QPoolService {
 				if(results.isEmpty()) {
 					return new DefaultResultInfos<QuestionItemView>();
 				}
-				List<QuestionItemView> items = itemQueriesDao.getItemsOfCollection(searchParams.getIdentity(), collection, results, firstResult, maxResults, orderBy);
+				List<QuestionItemView> items = itemQueriesDao.getItemsOfCollection(searchParams.getIdentity(), collection, results, 
+						searchParams.getFormat(), firstResult, maxResults, orderBy);
 				return new DefaultResultInfos<QuestionItemView>(firstResult + items.size(), results.size(), items);
 			} catch (Exception e) {
 				log.error("", e);
 			}
 			return new DefaultResultInfos<QuestionItemView>();
 		} else {
-			List<QuestionItemView> items = itemQueriesDao.getItemsOfCollection(searchParams.getIdentity(), collection, searchParams.getItemKeys(), firstResult, maxResults, orderBy);
+			List<QuestionItemView> items = itemQueriesDao.getItemsOfCollection(searchParams.getIdentity(), collection, searchParams.getItemKeys(),
+					searchParams.getFormat(), firstResult, maxResults, orderBy);
 			return new DefaultResultInfos<QuestionItemView>(firstResult + items.size(), -1, items);
 		}
 	}

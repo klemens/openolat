@@ -59,10 +59,15 @@ public class Google2Provider implements OAuthSPI {
 	public boolean isRootEnabled() {
 		return false;
 	}
+	
+	@Override
+	public boolean isImplicitWorkflow() {
+		return false;
+	}
 
 	@Override
-	public Class<? extends Api> getScribeProvider() {
-		return Google2Api.class;
+	public Api getScribeProvider() {
+		return new Google2Api();
 	}
 
 	@Override

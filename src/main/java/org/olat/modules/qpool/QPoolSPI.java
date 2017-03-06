@@ -51,6 +51,14 @@ public interface QPoolSPI {
 	public boolean isCompatible(String filename, VFSLeaf file);
 	
 	/**
+	 * 
+	 * @param question
+	 * @return A format if 
+	 */
+	public boolean isConversionPossible(QuestionItemShort question);
+
+	
+	/**
 	 * List a item's type this provider can create
 	 * @return
 	 */
@@ -69,7 +77,7 @@ public interface QPoolSPI {
 	 * Export a test
 	 * @param items
 	 */
-	public MediaResource exportTest(List<QuestionItemShort> items, ExportFormatOptions format);
+	public MediaResource exportTest(List<QuestionItemShort> items, ExportFormatOptions format, Locale locale);
 	
 	/**
 	 * Export the item to the Zip
@@ -77,7 +85,7 @@ public interface QPoolSPI {
 	 * @param zout
 	 * @param names Collection of the file names used in the ZIP
 	 */
-	public void exportItem(QuestionItemFull item, ZipOutputStream zout, Set<String> names);
+	public void exportItem(QuestionItemFull item, ZipOutputStream zout, Locale locale, Set<String> names);
 	
 	/**
 	 * Copy the item attachment...
@@ -85,6 +93,14 @@ public interface QPoolSPI {
 	 * @param copy
 	 */
 	public void copyItem(QuestionItemFull original, QuestionItemFull copy);
+	
+	/**
+	 * Convert the question to the format supported by this service provider.
+	 * 
+	 * @param question
+	 * @return The created question after conversion or null if the conversion is not possible.
+	 */
+	public QuestionItem convert(Identity owner, QuestionItemShort question, Locale locale);
 	
 	/**
 	 * Return the preview controller used in the main list panel of

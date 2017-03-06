@@ -29,6 +29,7 @@ package org.olat.core.gui;
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.net.URLDecoder;
+import java.util.Date;
 import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -37,6 +38,7 @@ import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Set;
 import java.util.StringTokenizer;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
@@ -66,8 +68,8 @@ public class UserRequestImpl implements UserRequest {
 	 */
 	public static final String PARAM_DELIM = ":";
 
-	private HttpServletRequest httpReq;
-	private HttpServletResponse httpResp;
+	private final HttpServletRequest httpReq;
+	private final HttpServletResponse httpResp;
 
 	private String uriPrefix;
 	private String moduleURI;
@@ -85,8 +87,9 @@ public class UserRequestImpl implements UserRequest {
 
 	private boolean isValidDispatchURI;
 
-	private String uuid;
-	private static int count = 0;
+	private final String uuid;
+	private final Date requestTimestamp;
+	private static AtomicInteger count = new AtomicInteger(0);
 
 	private final UserSessionManager userSessionMgr;
 
@@ -104,13 +107,19 @@ public class UserRequestImpl implements UserRequest {
 		params = new HashMap<String,String>(4);
 		dispatchResult = new DispatchResult();
 		parseRequest(httpReq);
-
-		uuid = Integer.toString(++count);
+		
+		requestTimestamp = new Date();
+		uuid = Integer.toString(count.incrementAndGet());
 	}
 
 	@Override
 	public String getUuid() {
 		return uuid;
+	}
+
+	@Override
+	public Date getRequestTimestamp() {
+		return requestTimestamp;
 	}
 
 	@Override
@@ -417,10 +426,4 @@ public class UserRequestImpl implements UserRequest {
 	public int getMode() {
 		return mode;
 	}
-
-	/* TODO: offer businesspath via hash part of url
-	 * public String getBusinessControlPath() {
-		return businessControlPath;
-	}*/
-
 }

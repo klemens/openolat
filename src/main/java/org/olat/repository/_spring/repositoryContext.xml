@@ -10,6 +10,16 @@
 
 	<context:component-scan base-package="org.olat.repository" />
 	
+	<bean id="automaticLifecycleTrigger" class="org.springframework.scheduling.quartz.CronTriggerBean">
+	    <property name="jobDetail" ref="automaticLifecycleJob" />
+	    <property name="cronExpression" value="0 45 5 * * ?" />
+	    <property name="startDelay" value="55000" />
+	</bean>
+	
+	<bean id="automaticLifecycleJob" class="org.springframework.scheduling.quartz.JobDetailBean" lazy-init="true">
+		<property name="jobClass" value="org.olat.repository.manager.AutomaticLifecycleJob" />
+	</bean>
+	
 	<!-- life cycle admin. panel -->
 	<bean class="org.olat.core.extensions.action.GenericActionExtension" init-method="initExtensionPoints">
 		<property name="order" value="7216" />

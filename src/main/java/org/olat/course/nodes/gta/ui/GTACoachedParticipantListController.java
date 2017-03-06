@@ -39,7 +39,6 @@ import org.olat.core.gui.components.form.flexible.impl.elements.table.FlexiTable
 import org.olat.core.gui.components.form.flexible.impl.elements.table.FlexiTableDataModelFactory;
 import org.olat.core.gui.components.form.flexible.impl.elements.table.SelectionEvent;
 import org.olat.core.gui.components.form.flexible.impl.elements.table.StaticFlexiCellRenderer;
-import org.olat.core.gui.components.form.flexible.impl.elements.table.StaticFlexiColumnModel;
 import org.olat.core.gui.components.form.flexible.impl.elements.table.TextFlexiCellRenderer;
 import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.WindowControl;
@@ -150,11 +149,11 @@ public class GTACoachedParticipantListController extends GTACoachedListControlle
 			
 			String propName = userPropertyHandler.getName();
 			boolean visible = userManager.isMandatoryUserProperty(GTACoachedGroupGradingController.USER_PROPS_ID , userPropertyHandler);
-			
+
 			FlexiColumnModel col;
 			if(UserConstants.FIRSTNAME.equals(propName)
 					|| UserConstants.LASTNAME.equals(propName)) {
-				col = new StaticFlexiColumnModel(userPropertyHandler.i18nColumnDescriptorLabelKey(),
+				col = new DefaultFlexiColumnModel(userPropertyHandler.i18nColumnDescriptorLabelKey(),
 						colIndex, userPropertyHandler.getName(), true, propName,
 						new StaticFlexiCellRenderer(userPropertyHandler.getName(), new TextFlexiCellRenderer()));
 			} else {
@@ -170,7 +169,7 @@ public class GTACoachedParticipantListController extends GTACoachedListControlle
 		
 		columnsModel.addFlexiColumnModel(new DefaultFlexiColumnModel(CGCols.taskStatus.i18nKey(), CGCols.taskStatus.ordinal(),
 				true, CGCols.taskStatus.name(), new TaskStatusCellRenderer(getTranslator())));
-		columnsModel.addFlexiColumnModel(new StaticFlexiColumnModel("select", translate("select"), "select"));
+		columnsModel.addFlexiColumnModel(new DefaultFlexiColumnModel("select", translate("select"), "select"));
 		tableModel = new CoachParticipantsTableModel(userPropertyHandlers, getLocale(), columnsModel);
 
 		tableEl = uifactory.addTableElement(getWindowControl(), "entries", tableModel, 10, false, getTranslator(), formLayout);

@@ -20,11 +20,9 @@
 
 package org.olat.course.nodes.portfolio;
 
-import java.util.Calendar;
 import java.util.Date;
 
 import org.olat.NewControllerFactory;
-import org.olat.core.CoreSpringFactory;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.form.flexible.FormItem;
 import org.olat.core.gui.components.form.flexible.FormItemContainer;
@@ -35,7 +33,10 @@ import org.olat.core.gui.components.form.flexible.impl.FormEvent;
 import org.olat.core.gui.components.form.flexible.impl.FormLayoutContainer;
 import org.olat.core.gui.components.link.Link;
 import org.olat.core.gui.control.Controller;
+import org.olat.core.gui.control.Event;
 import org.olat.core.gui.control.WindowControl;
+import org.olat.core.gui.control.generic.modal.DialogBoxController;
+import org.olat.core.gui.control.generic.modal.DialogBoxUIFactory;
 import org.olat.core.id.OLATResourceable;
 import org.olat.core.id.context.BusinessControl;
 import org.olat.core.id.context.BusinessControlFactory;
@@ -52,12 +53,18 @@ import org.olat.course.run.scoring.ScoreAccounting;
 import org.olat.course.run.scoring.ScoreEvaluation;
 import org.olat.course.run.userview.UserCourseEnvironment;
 import org.olat.modules.ModuleConfiguration;
+import org.olat.modules.portfolio.Binder;
+import org.olat.modules.portfolio.BinderStatus;
+import org.olat.modules.portfolio.PortfolioLoggingAction;
+import org.olat.modules.portfolio.PortfolioService;
+import org.olat.modules.portfolio.handler.BinderTemplateResource;
 import org.olat.portfolio.EPLoggingAction;
 import org.olat.portfolio.manager.EPFrontendManager;
 import org.olat.portfolio.model.structel.EPStructuredMap;
 import org.olat.portfolio.model.structel.PortfolioStructureMap;
 import org.olat.repository.RepositoryEntry;
 import org.olat.util.logging.activity.LoggingResourceable;
+import org.springframework.beans.factory.annotation.Autowired;
 
 /**
  * 
@@ -71,25 +78,31 @@ import org.olat.util.logging.activity.LoggingResourceable;
  * @author srosse, stephane.rosse@frentix.com, http://www.frentix.com
  */
 public class PortfolioCourseNodeRunController extends FormBasicController {
-	private final EPFrontendManager ePFMgr;
+
+	private PortfolioStructureMap copyMap;
+	private PortfolioStructureMap templateMap;
+	
+	private Binder copyBinder;
+	private Binder templateBinder;
 	
 	private final PortfolioCourseNode courseNode;
 	private final ModuleConfiguration config;
-	private PortfolioStructureMap copy;
-	private PortfolioStructureMap template;
 	private final OLATResourceable courseOres;
 	
 	private FormLink newMapLink;
 	private FormLink selectMapLink;
-	private StaticTextElement newMapMsgEl;
-	private FormLayoutContainer infosContainer;
-	private FormLayoutContainer assessmentInfosContainer;
+	private StaticTextElement newMapMsgEl, deadlineDateText;
+	private FormLayoutContainer infosContainer, assessmentInfosContainer;
 
+	private DialogBoxController restoreBinderCtrl;
+	
 	private Formatter formatter;
-
-	private UserCourseEnvironment userCourseEnv;
-
-	private StaticTextElement deadlineDateText;
+	private final UserCourseEnvironment userCourseEnv;
+	
+	@Autowired
+	private EPFrontendManager ePFMgr;
+	@Autowired
+	private PortfolioService portfolioService;
 	
 	public PortfolioCourseNodeRunController(UserRequest ureq, WindowControl wControl, UserCourseEnvironment userCourseEnv,
 			PortfolioCourseNode courseNode) {
@@ -102,12 +115,15 @@ public class PortfolioCourseNodeRunController extends FormBasicController {
 		Long courseResId = userCourseEnv.getCourseEnvironment().getCourseResourceableId();
 		courseOres = OresHelper.createOLATResourceableInstance(CourseModule.class, courseResId);
 		
-		ePFMgr = (EPFrontendManager) CoreSpringFactory.getBean("epFrontendManager");
 		formatter = Formatter.getInstance(getLocale());
 		
 		RepositoryEntry mapEntry = courseNode.getReferencedRepositoryEntry();
 		if(mapEntry != null) {
-			template = (PortfolioStructureMap) ePFMgr.loadPortfolioStructure(mapEntry.getOlatResource());
+			if(BinderTemplateResource.TYPE_NAME.equals(mapEntry.getOlatResource().getResourceableTypeName())) {
+				templateBinder = portfolioService.getBinderByResource(mapEntry.getOlatResource());
+			} else {
+				templateMap = (PortfolioStructureMap) ePFMgr.loadPortfolioStructure(mapEntry.getOlatResource());
+			}
 		}
 
 		initForm(ureq);
@@ -143,7 +159,7 @@ public class PortfolioCourseNodeRunController extends FormBasicController {
 			deadlineDateText = uifactory.addStaticTextElement("deadline", deadLineLabel, deadLineInfo, infosContainer);			
 		}
 		
-		if(template != null) {
+		if(templateMap != null || templateBinder != null) {
 			updateUI();
 		}
 	}
@@ -164,97 +180,165 @@ public class PortfolioCourseNodeRunController extends FormBasicController {
 	}
 	
 	protected void updateUI() {
-		copy = ePFMgr.loadPortfolioStructureMap(getIdentity(), template, courseOres, courseNode.getIdent(), null);
-		if(copy == null) {
-			String title = StringHelper.escapeHtml(template.getTitle());
-			String msg = translate("map.available", new String[]{ title });
-			if(newMapMsgEl == null) {
-				newMapMsgEl = uifactory.addStaticTextElement("map.available", msg, infosContainer);
-			}
-			newMapMsgEl.setLabel(null, null);
-			
-			FormLayoutContainer buttonGroupLayout = FormLayoutContainer.createButtonLayout("buttons", getTranslator());
-			buttonGroupLayout.setRootForm(mainForm);
-			infosContainer.add(buttonGroupLayout);
-			if(newMapLink == null) {
-				newMapLink = uifactory.addFormLink("map.new", buttonGroupLayout, Link.BUTTON);
-				newMapLink.setElementCssClass("o_sel_ep_new_map_template");
-			}
-		} else {
-			if(selectMapLink == null) {
-				selectMapLink = uifactory.addFormLink("select", "select.mymap", "select.mymap", infosContainer, Link.LINK);
-				selectMapLink.setElementCssClass("o_sel_ep_select_map");
-			} else {
-				selectMapLink.setVisible(true);
-			}
-			String copyTitle = StringHelper.escapeHtml(copy.getTitle());
-			((Link)selectMapLink.getComponent()).setCustomDisplayText(copyTitle);
-			
-			// show results, when already handed in
-			EPStructuredMap structuredMap = (EPStructuredMap)copy;
-			String copyDate = "";
-			if(structuredMap.getCopyDate() != null) {
-				copyDate = formatter.formatDateAndTime(structuredMap.getCopyDate());
-				uifactory.addStaticTextElement("map.copyDate", copyDate, infosContainer);			
-			}
-			String returnDate = "";
-			if(structuredMap.getReturnDate() != null) {
-				returnDate = formatter.formatDateAndTime(structuredMap.getReturnDate());
-				uifactory.addStaticTextElement("map.returnDate", returnDate, infosContainer);
-
-				// Fetch all score and passed and calculate score accounting for the entire course
-				ScoreAccounting scoreAccounting = userCourseEnv.getScoreAccounting();
-				scoreAccounting.evaluateAll();			
-				ScoreEvaluation scoreEval = scoreAccounting.evalCourseNode(courseNode);
-
-				//score
-				assessmentInfosContainer.contextPut("hasScoreField", new Boolean(courseNode.hasScoreConfigured()));
-				if(courseNode.hasScoreConfigured()) {
-					Float score = scoreEval.getScore();
-					Float minScore = courseNode.getMinScoreConfiguration();
-					Float maxScore = courseNode.getMaxScoreConfiguration();
-					assessmentInfosContainer.contextPut("scoreMin", AssessmentHelper.getRoundedScore(minScore));
-					assessmentInfosContainer.contextPut("scoreMax", AssessmentHelper.getRoundedScore(maxScore));
-					assessmentInfosContainer.contextPut("score", AssessmentHelper.getRoundedScore(score));
-				}
-
-				//passed
-				assessmentInfosContainer.contextPut("hasPassedField", new Boolean(courseNode.hasPassedConfigured()));
-				if(courseNode.hasPassedConfigured()) {
-					Boolean passed = scoreEval.getPassed();
-					assessmentInfosContainer.contextPut("passed", passed);
-					assessmentInfosContainer.contextPut("hasPassedValue", new Boolean(passed != null));
-					Float cutValue = courseNode.getCutValueConfiguration();
-					assessmentInfosContainer.contextPut("passedCutValue", AssessmentHelper.getRoundedScore(cutValue));
-				}
-
-				// get comment
-				AssessmentManager am = userCourseEnv.getCourseEnvironment().getAssessmentManager();
-				String comment = am.getNodeComment(courseNode, getIdentity());
-				assessmentInfosContainer.contextPut("hasCommentField", new Boolean(comment != null));
-				if (comment != null) {
-					assessmentInfosContainer.contextPut("comment", comment);
-				}
-				assessmentInfosContainer.setVisible(true);
-			} else {
-				assessmentInfosContainer.setVisible(false);
-			}
-			// show absolute deadline when task is taken. nothing if taken map still has a deadline configured.
-			if (deadlineDateText != null && structuredMap.getDeadLine() != null) {
-				String deadline = formatter.formatDateAndTime(structuredMap.getDeadLine());
-				deadlineDateText.setValue(deadline);
-				deadlineDateText.setLabel("map.deadline.absolut.label", null);
-			}			
+		if(templateMap != null) {
+			copyMap = ePFMgr.loadPortfolioStructureMap(getIdentity(), templateMap, courseOres, courseNode.getIdent(), null);
+		} else if(templateBinder != null) {
+			RepositoryEntry courseEntry = userCourseEnv.getCourseEnvironment().getCourseGroupManager().getCourseEntry();
+			copyBinder = portfolioService.getBinder(getIdentity(), templateBinder, courseEntry, courseNode.getIdent());
 		}
 		
-		if(selectMapLink != null) selectMapLink.setVisible(copy != null);
-		if(newMapLink != null) newMapLink.setVisible(copy == null);
-		if(newMapMsgEl != null) newMapMsgEl.setVisible(copy == null);
+		if(copyMap == null && (copyBinder == null || copyBinder.getBinderStatus() == BinderStatus.deleted)) {
+			updateEmptyUI();
+		} else {
+			updateSelectedUI();
+		}	
+
+		if(selectMapLink != null) {
+			selectMapLink.setVisible(copyMap != null || (copyBinder != null && copyBinder.getBinderStatus() != BinderStatus.deleted));
+		}
+		if(newMapLink != null) {
+			newMapLink.setVisible(copyMap == null && (copyBinder == null || copyBinder.getBinderStatus() == BinderStatus.deleted));
+		}
+		if(newMapMsgEl != null) {
+			newMapMsgEl.setVisible(copyMap == null && (copyBinder == null || copyBinder.getBinderStatus() == BinderStatus.deleted));
+		}
+	}
+	
+	private void updateEmptyUI() {
+		String title = "";
+		if(templateMap != null) {
+			title = StringHelper.escapeHtml(templateMap.getTitle());
+		} else if(templateBinder != null) {
+			title = StringHelper.escapeHtml(templateBinder.getTitle());
+		}
+
+		String msg = translate("map.available", new String[]{ title });
+		if(newMapMsgEl == null) {
+			newMapMsgEl = uifactory.addStaticTextElement("map.available", msg, infosContainer);
+		}
+		newMapMsgEl.setLabel(null, null);
+		
+		FormLayoutContainer buttonGroupLayout = FormLayoutContainer.createButtonLayout("buttons", getTranslator());
+		buttonGroupLayout.setRootForm(mainForm);
+		infosContainer.add(buttonGroupLayout);
+		if(newMapLink == null) {
+			newMapLink = uifactory.addFormLink("map.new", buttonGroupLayout, Link.BUTTON);
+			newMapLink.setElementCssClass("o_sel_ep_new_map_template");
+		}
+	}
+	
+	private void updateSelectedUI() {
+		if(selectMapLink == null) {
+			selectMapLink = uifactory.addFormLink("select", "select.mymap", "select.mymap", infosContainer, Link.LINK);
+			selectMapLink.setElementCssClass("o_sel_ep_select_map");
+		} else {
+			selectMapLink.setVisible(true);
+		}
+		
+		if(copyMap != null) {
+			updateSelectedMapUI();
+		} else if(copyBinder != null) {
+			updateSelectedBinderUI();
+		}
+	}
+
+	private void updateSelectedBinderUI() {
+		String copyTitle = StringHelper.escapeHtml(copyBinder.getTitle());
+		selectMapLink.getComponent().setCustomDisplayText(copyTitle);
+		
+		updateCopyDate(copyBinder.getCopyDate());
+		updateAssessmentInfos(copyBinder.getReturnDate());
+		updateDeadlineText(copyBinder.getDeadLine());
+	}
+
+	private void updateSelectedMapUI() {	
+		String copyTitle = StringHelper.escapeHtml(copyMap.getTitle());
+		selectMapLink.getComponent().setCustomDisplayText(copyTitle);
+		
+		// show results, when already handed in
+		EPStructuredMap structuredMap = (EPStructuredMap)copyMap;
+		updateCopyDate(structuredMap.getCopyDate());
+		updateAssessmentInfos(structuredMap.getReturnDate());
+		updateDeadlineText(structuredMap.getDeadLine());
+	}
+	
+	private void updateCopyDate(Date copyDate) {
+		if(copyDate != null) {
+			String copyDateStr = formatter.formatDateAndTime(copyDate);
+			uifactory.addStaticTextElement("map.copyDate", copyDateStr, infosContainer);			
+		}
+	}
+	
+	/**
+	 * Show absolute deadline when task is taken. nothing if taken map still has a deadline configured.
+	 * @param deadline
+	 */
+	private void updateDeadlineText(Date deadlineDate) {
+		if (deadlineDateText != null && deadlineDate != null) {
+			String deadline = formatter.formatDateAndTime(deadlineDate);
+			deadlineDateText.setValue(deadline);
+			deadlineDateText.setLabel("map.deadline.absolut.label", null);
+		}
+	}
+	
+	private void updateAssessmentInfos(Date returnDate) {
+		if(returnDate != null) {
+			String rDate = formatter.formatDateAndTime(returnDate);
+			uifactory.addStaticTextElement("map.returnDate", rDate, infosContainer);
+
+			// Fetch all score and passed and calculate score accounting for the entire course
+			ScoreAccounting scoreAccounting = userCourseEnv.getScoreAccounting();
+			scoreAccounting.evaluateAll();			
+			ScoreEvaluation scoreEval = scoreAccounting.evalCourseNode(courseNode);
+
+			//score
+			assessmentInfosContainer.contextPut("hasScoreField", new Boolean(courseNode.hasScoreConfigured()));
+			if(courseNode.hasScoreConfigured()) {
+				Float score = scoreEval.getScore();
+				Float minScore = courseNode.getMinScoreConfiguration();
+				Float maxScore = courseNode.getMaxScoreConfiguration();
+				assessmentInfosContainer.contextPut("scoreMin", AssessmentHelper.getRoundedScore(minScore));
+				assessmentInfosContainer.contextPut("scoreMax", AssessmentHelper.getRoundedScore(maxScore));
+				assessmentInfosContainer.contextPut("score", AssessmentHelper.getRoundedScore(score));
+			}
+
+			//passed
+			assessmentInfosContainer.contextPut("hasPassedField", new Boolean(courseNode.hasPassedConfigured()));
+			if(courseNode.hasPassedConfigured()) {
+				Boolean passed = scoreEval.getPassed();
+				assessmentInfosContainer.contextPut("passed", passed);
+				assessmentInfosContainer.contextPut("hasPassedValue", new Boolean(passed != null));
+				Float cutValue = courseNode.getCutValueConfiguration();
+				assessmentInfosContainer.contextPut("passedCutValue", AssessmentHelper.getRoundedScore(cutValue));
+			}
+
+			// get comment
+			AssessmentManager am = userCourseEnv.getCourseEnvironment().getAssessmentManager();
+			String comment = am.getNodeComment(courseNode, getIdentity());
+			assessmentInfosContainer.contextPut("hasCommentField", new Boolean(comment != null));
+			if (comment != null) {
+				assessmentInfosContainer.contextPut("comment", comment);
+			}
+			assessmentInfosContainer.setVisible(true);
+		} else {
+			assessmentInfosContainer.setVisible(false);
+		}
 	}
 	
 	@Override
 	protected void doDispose() {
 		//
+	}
+
+	@Override
+	protected void event(UserRequest ureq, Controller source, Event event) {
+		if(restoreBinderCtrl == source) {
+			if(DialogBoxUIFactory.isYesEvent(event)) {
+				doRestore();
+				updateUI();
+			}
+		}
+		super.event(ureq, source, event);
 	}
 
 	@Override
@@ -265,58 +349,52 @@ public class PortfolioCourseNodeRunController extends FormBasicController {
 	@Override
 	protected void formInnerEvent(UserRequest ureq, FormItem source, FormEvent event) {
 		if(source == newMapLink) {
-			copy = ePFMgr.assignStructuredMapToUser(getIdentity(), template, courseOres, courseNode.getIdent(), null, getDeadline());
-			if(copy != null) {
-				showInfo("map.copied", StringHelper.escapeHtml(template.getTitle()));
-				ThreadLocalUserActivityLogger.addLoggingResourceInfo(LoggingResourceable.wrapPortfolioOres(copy));
-				ThreadLocalUserActivityLogger.log(EPLoggingAction.EPORTFOLIO_TASK_STARTED, getClass());
+			RepositoryEntry courseEntry = userCourseEnv.getCourseEnvironment().getCourseGroupManager().getCourseEntry();
+			Date deadline = courseNode.getDeadline();
+			if(templateMap != null) {
+				copyMap = ePFMgr.assignStructuredMapToUser(getIdentity(), templateMap, courseEntry, courseNode.getIdent(), null, deadline);
+				if(copyMap != null) {
+					showInfo("map.copied", StringHelper.escapeHtml(templateMap.getTitle()));
+					ThreadLocalUserActivityLogger.addLoggingResourceInfo(LoggingResourceable.wrapPortfolioOres(copyMap));
+					ThreadLocalUserActivityLogger.log(EPLoggingAction.EPORTFOLIO_TASK_STARTED, getClass());
+				}
+			} else if(templateBinder != null) {
+				if(copyBinder == null) {
+					copyBinder = portfolioService.assignBinder(getIdentity(), templateBinder, courseEntry, courseNode.getIdent(), deadline);
+					if(copyBinder != null) {
+						showInfo("map.copied", StringHelper.escapeHtml(templateBinder.getTitle()));
+						ThreadLocalUserActivityLogger.addLoggingResourceInfo(LoggingResourceable.wrap(copyBinder));
+						ThreadLocalUserActivityLogger.log(PortfolioLoggingAction.PORTFOLIO_TASK_STARTED, getClass());
+					}
+				} else if(copyBinder != null && copyBinder.getBinderStatus() == BinderStatus.deleted) {
+					String title = translate("trashed.binder.confirm.title");
+					String text = translate("trashed.binder.confirm.descr", new String[]{ StringHelper.escapeHtml(copyBinder.getTitle()) });
+					restoreBinderCtrl = activateYesNoDialog(ureq, title, text, restoreBinderCtrl);
+					restoreBinderCtrl.setUserObject(copyBinder);
+					return;
+				}
 			}
+			
 			updateUI();
 		} else if (source == selectMapLink) {
-			String resourceUrl = "[HomeSite:" + getIdentity().getKey() + "][Portfolio:0][EPStructuredMap:" + copy.getKey() + "]";
+			String resourceUrl;
+			if(copyMap != null) {
+				resourceUrl = "[HomeSite:" + getIdentity().getKey() + "][Portfolio:0][EPStructuredMap:" + copyMap.getKey() + "]";
+			} else if(copyBinder != null) {
+				resourceUrl = "[HomeSite:" + getIdentity().getKey() + "][PortfolioV2:0][MyBinders:0][Binder:" + copyBinder.getKey() + "]";
+			} else {
+				return;
+			}
 			BusinessControl bc = BusinessControlFactory.getInstance().createFromString(resourceUrl);
 			WindowControl bwControl = BusinessControlFactory.getInstance().createBusinessWindowControl(bc, getWindowControl());
 			NewControllerFactory.getInstance().launch(ureq, bwControl);
 		}
 	}
 	
-	private Date getDeadline() {
-		String type = (String)config.get(PortfolioCourseNodeConfiguration.DEADLINE_TYPE);
-		if(StringHelper.containsNonWhitespace(type)) {
-			switch(DeadlineType.valueOf(type)) {
-				case none: return null;
-				case absolut: 
-					Date date = (Date)config.get(PortfolioCourseNodeConfiguration.DEADLINE_DATE);
-					return date;
-				case relative:
-					Calendar cal = Calendar.getInstance();
-					cal.setTime(new Date());
-					boolean applied = applyRelativeToDate(cal, PortfolioCourseNodeConfiguration.DEADLINE_MONTH, Calendar.MONTH, 1);
-					applied |= applyRelativeToDate(cal, PortfolioCourseNodeConfiguration.DEADLINE_WEEK, Calendar.DATE, 7);
-					applied |= applyRelativeToDate(cal, PortfolioCourseNodeConfiguration.DEADLINE_DAY, Calendar.DATE, 1);
-					if(applied) {
-						return cal.getTime();
-					}
-					return null;
-				default: return null;
-			}
-		}
-		return null;
-	}
-	
-	private boolean applyRelativeToDate(Calendar cal, String time, int calTime, int factor) {
-		String t = (String)config.get(time);
-		if(StringHelper.containsNonWhitespace(t)) {
-			int timeToApply;
-			try {
-				timeToApply = Integer.parseInt(t) * factor;
-			} catch (NumberFormatException e) {
-				logWarn("Not a number: " + t, e);
-				return false;
-			}
-			cal.add(calTime, timeToApply);
-			return true;
-		}
-		return false;
+	private void doRestore() {
+		copyBinder = portfolioService.getBinderByKey(copyBinder.getKey());
+		copyBinder.setBinderStatus(BinderStatus.open);
+		copyBinder = portfolioService.updateBinder(copyBinder);
+		showInfo("restore.binder.success");
 	}
 }

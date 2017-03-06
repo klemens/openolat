@@ -39,6 +39,7 @@ import org.olat.basesecurity.manager.GroupDAO;
 import org.olat.core.commons.persistence.DB;
 import org.olat.core.id.Identity;
 import org.olat.core.id.User;
+import org.olat.core.id.UserConstants;
 import org.olat.portfolio.model.InvitationImpl;
 import org.olat.user.UserManager;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -66,6 +67,12 @@ public class InvitationDAO {
 	@Autowired
 	private BaseSecurity securityManager;
 	
+	public Invitation createInvitation() {
+		InvitationImpl invitation = new InvitationImpl();
+		invitation.setToken(UUID.randomUUID().toString());
+		return invitation;
+	}
+	
 	/**
 	 * Create and persist an invitation with its security group and security token.
 	 * @return
@@ -80,16 +87,49 @@ public class InvitationDAO {
 		return invitation;
 	}
 	
-	public Invitation update(Invitation invitation) {
+	public Invitation update(Invitation invitation, String firstName, String lastName, String email) {
+		List<Identity> identities = groupDao.getMembers(invitation.getBaseGroup(), GroupRoles.invitee.name());
+		for(Identity identity:identities) {
+			User user = identity.getUser();
+			if(email.equals(user.getEmail())) {
+				user.setProperty(UserConstants.FIRSTNAME, firstName);
+				user.setProperty(UserConstants.LASTNAME, lastName);
+				user.setProperty(UserConstants.EMAIL, email);
+				userManager.updateUserFromIdentity(identity);
+			}
+		}
+		
+		invitation.setFirstName(firstName);
+		invitation.setLastName(lastName);
+		invitation.setMail(email);
 		return dbInstance.getCurrentEntityManager().merge(invitation);
 	}
 	
 	public Identity createIdentityFrom(Invitation invitation, Locale locale) {
 		String tempUsername = UUID.randomUUID().toString();
-		User user = userManager.createAndPersistUser(invitation.getFirstName(), invitation.getLastName(), invitation.getMail());
+		User user = userManager.createUser(invitation.getFirstName(), invitation.getLastName(), invitation.getMail());
 		user.getPreferences().setLanguage(locale.toString());
-		Identity invitee = securityManager.createAndPersistIdentity(tempUsername, user, null, null, null);
-		groupDao.addMembership(invitation.getBaseGroup(), invitee, GroupRoles.invitee.name());
+		Identity invitee = securityManager.createAndPersistIdentityAndUser(tempUsername, null, user, null, null);
+		groupDao.addMembershipTwoWay(invitation.getBaseGroup(), invitee, GroupRoles.invitee.name());
+		return invitee;
+	}
+	
+	public Identity loadOrCreateIdentityAndPersistInvitation(Invitation invitation, Group group, Locale locale) {
+		group = groupDao.loadGroup(group.getKey());
+		((InvitationImpl)invitation).setCreationDate(new Date());
+		((InvitationImpl)invitation).setBaseGroup(group);
+		dbInstance.getCurrentEntityManager().persist(invitation);
+
+		// create identity only if such a user does not already exist
+		Identity invitee = userManager.findIdentityByEmail(invitation.getMail());
+		if (invitee == null) {
+			String tempUsername = UUID.randomUUID().toString();
+			User user = userManager.createUser(invitation.getFirstName(), invitation.getLastName(), invitation.getMail());
+			user.getPreferences().setLanguage(locale.toString());
+			invitee = securityManager.createAndPersistIdentityAndUser(tempUsername, null, user, null, null, null);
+		}
+		// add invitee to the security group of that portfolio element
+		groupDao.addMembershipTwoWay(group, invitee, GroupRoles.invitee.name());			
 		return invitee;
 	}
 	
@@ -101,6 +141,21 @@ public class InvitationDAO {
 	 */
 	public boolean hasInvitations(String token, Date atDate) {
 		StringBuilder sb = new StringBuilder();
+		sb.append("select invitation.key from binvitation as invitation")
+		  .append(" inner join invitation.baseGroup as baseGroup")
+	      .append(" where invitation.token=:token and ")
+	      .append(" (exists (select relation.key from structuretogroup as relation ")
+	      .append("  where relation.group.key=baseGroup.key");
+		if(atDate != null) {
+			sb.append(" and (relation.validFrom is null or relation.validFrom<=:date)")
+			  .append(" and (relation.validTo is null or relation.validTo>=:date)");
+		}
+	    sb.append(" ) or exists(select binder from pfbinder as binder")
+	      .append("   where binder.baseGroup.key=baseGroup.key")
+	      .append("))");
+
+		/*
+		StringBuilder sb = new StringBuilder();
 		sb.append("select count(relation) from structuretogroup as relation ")
 		  .append(" inner join relation.group as baseGroup")
 	      .append(" where exists (select invitation.key from binvitation as invitation where ")
@@ -111,16 +166,20 @@ public class InvitationDAO {
 			sb.append(" and (relation.validFrom is null or relation.validFrom<=:date)")
 			  .append(" and (relation.validTo is null or relation.validTo>=:date)");
 		}
+		*/
 
-		TypedQuery<Number> query = dbInstance.getCurrentEntityManager()
-				.createQuery(sb.toString(), Number.class)
+		TypedQuery<Long> query = dbInstance.getCurrentEntityManager()
+				.createQuery(sb.toString(), Long.class)
 				.setParameter("token", token);
 		if(atDate != null) {
 		  	query.setParameter("date", atDate);
 		}
 		  
-		Number counter = query.getSingleResult();
-	    return counter == null ? false : counter.intValue() > 0;
+		List<Long> keys = query
+				.setFirstResult(0)
+				.setMaxResults(1)
+				.getResultList();
+	    return keys == null || keys.isEmpty() || keys.get(0) == null ? false : keys.get(0).intValue() > 0;
 	}
 	
 	/**
@@ -137,6 +196,35 @@ public class InvitationDAO {
 		List<Invitation> invitations = dbInstance.getCurrentEntityManager()
 				  .createQuery(sb.toString(), Invitation.class)
 				  .setParameter("group", group)
+				  .getResultList();
+		if(invitations.isEmpty()) return null;
+		return invitations.get(0);
+	}
+	
+	/**
+	 * 
+	 * Warning! The E-mail is used in this case as a foreign key to match
+	 * the identity and the invitation on a base group which ca have several
+	 * identities.
+	 * 
+	 * @param group
+	 * @param identity
+	 * @return
+	 */
+	public Invitation findInvitation(Group group, IdentityRef identity) {
+		StringBuilder sb = new StringBuilder();
+		sb.append("select invitation from binvitation as invitation ")
+		  .append(" inner join fetch invitation.baseGroup bGroup")
+		  .append(" inner join bGroup.members as members")
+		  .append(" inner join members.identity as identity")
+		  .append(" inner join identity.user as user")
+		  .append(" where bGroup.key=:groupKey and identity.key=:inviteeKey and members.role=:role and invitation.mail=user.email");
+
+		List<Invitation> invitations = dbInstance.getCurrentEntityManager()
+				  .createQuery(sb.toString(), Invitation.class)
+				  .setParameter("groupKey", group.getKey())
+				  .setParameter("inviteeKey", identity.getKey())
+				  .setParameter("role", GroupRoles.invitee.name())
 				  .getResultList();
 		if(invitations.isEmpty()) return null;
 		return invitations.get(0);
@@ -198,9 +286,11 @@ public class InvitationDAO {
 	 * @param invitation
 	 */
 	public void deleteInvitation(Invitation invitation) {
-		//fxdiff: FXOLAT-251: nothing persisted, nothing to delete
 		if(invitation == null || invitation.getKey() == null) return;
-		dbInstance.getCurrentEntityManager().remove(invitation);
+		
+		Invitation refInvitation = dbInstance.getCurrentEntityManager()
+			.getReference(InvitationImpl.class, invitation.getKey());
+		dbInstance.getCurrentEntityManager().remove(refInvitation);
 	}
 	
 	/**

@@ -42,10 +42,12 @@ import org.olat.core.gui.control.generic.dtabs.Activateable2;
 import org.olat.core.id.Identity;
 import org.olat.core.id.context.ContextEntry;
 import org.olat.core.id.context.StateEntry;
+import org.olat.core.util.UserSession;
 import org.olat.core.util.vfs.NamedContainerImpl;
 import org.olat.core.util.vfs.VFSContainer;
 import org.olat.core.util.vfs.VFSItem;
 import org.olat.core.util.vfs.VFSManager;
+import org.olat.core.util.vfs.callbacks.ReadOnlyCallback;
 import org.olat.core.util.vfs.callbacks.VFSSecurityCallback;
 import org.olat.course.CourseFactory;
 import org.olat.course.CourseModule;
@@ -54,6 +56,7 @@ import org.olat.course.groupsandrights.CourseRights;
 import org.olat.course.nodes.BCCourseNode;
 import org.olat.course.run.environment.CourseEnvironment;
 import org.olat.course.run.userview.NodeEvaluation;
+import org.olat.course.run.userview.UserCourseEnvironment;
 import org.olat.repository.RepositoryEntry;
 import org.olat.repository.RepositoryManager;
 import org.olat.util.logging.activity.LoggingResourceable;
@@ -78,11 +81,13 @@ public class BCCourseNodeRunController extends DefaultController implements Acti
 	 * @param bcCourseNode
 	 * @param scallback
 	 */
-	public BCCourseNodeRunController(UserRequest ureq, WindowControl wContr, CourseEnvironment courseEnv, BCCourseNode courseNode, NodeEvaluation ne) {
+	public BCCourseNodeRunController(UserRequest ureq, WindowControl wContr, UserCourseEnvironment userCourseEnv, BCCourseNode courseNode, NodeEvaluation ne) {
 		super(wContr);
-
-		boolean isOlatAdmin = ureq.getUserSession().getRoles().isOLATAdmin();
-		boolean isGuestOnly = ureq.getUserSession().getRoles().isGuestOnly();
+		
+		CourseEnvironment courseEnv = userCourseEnv.getCourseEnvironment();
+		UserSession usess = ureq.getUserSession();
+		boolean isOlatAdmin = usess.getRoles().isOLATAdmin();
+		boolean isGuestOnly = usess.getRoles().isGuestOnly();
 		// set logger on this run controller
 		addLoggingResourceable(LoggingResourceable.wrap(courseNode));
 
@@ -91,10 +96,10 @@ public class BCCourseNodeRunController extends DefaultController implements Acti
 		boolean noFolder = false;
 		VFSContainer target = null;
 		VFSSecurityCallback scallback;
-		if(courseNode.getModuleConfiguration().getBooleanSafe(BCCourseNodeEditController.CONFIG_AUTO_FOLDER)){
-			target = BCCourseNode.getNodeFolderContainer(courseNode, courseEnv);
-			scallback = new FolderNodeCallback(BCCourseNode.getNodeFolderContainer(courseNode, courseEnv).getRelPath(), ne, isOlatAdmin, isGuestOnly, nodefolderSubContext);
-
+		if(courseNode.getModuleConfiguration().getBooleanSafe(BCCourseNodeEditController.CONFIG_AUTO_FOLDER)) {
+			OlatNamedContainerImpl directory = BCCourseNode.getNodeFolderContainer(courseNode, courseEnv);
+			scallback = new FolderNodeCallback(directory.getRelPath(), ne, isOlatAdmin, isGuestOnly, nodefolderSubContext);
+			target = directory;
 		} else if(courseNode.isSharedFolder()) {
 			String subpath = courseNode.getModuleConfiguration().getStringValue(BCCourseNodeEditController.CONFIG_SUBPATH, "");
 			VFSItem item = courseEnv.getCourseFolderContainer().resolve(subpath);
@@ -108,22 +113,39 @@ public class BCCourseNodeRunController extends DefaultController implements Acti
 			if(courseEnv.getCourseConfig().isSharedFolderReadOnlyMount()) {
 				scallback = new FolderNodeReadOnlyCallback(nodefolderSubContext);
 			} else {
-				scallback = new FolderNodeCallback(BCCourseNode.getNodeFolderContainer(courseNode, courseEnv).getRelPath(), ne, isOlatAdmin, isGuestOnly, nodefolderSubContext);
+				String relPath = BCCourseNode.getNodeFolderContainer(courseNode, courseEnv).getRelPath();
+				scallback = new FolderNodeCallback(relPath, ne, isOlatAdmin, isGuestOnly, nodefolderSubContext);
 			}
 		} else{
 			//create folder automatically if not found
 			String subPath = courseNode.getModuleConfiguration().getStringValue(BCCourseNodeEditController.CONFIG_SUBPATH);
 			VFSContainer item = VFSManager.resolveOrCreateContainerFromPath(courseEnv.getCourseFolderContainer(), subPath);
-			if(item == null){
+			
+			String relPath;
+			if(item == null) {
 				noFolder = true;
 				BCCourseNodeNoFolderForm noFolderForm = new BCCourseNodeNoFolderForm(ureq, getWindowControl());
 				setInitialComponent(noFolderForm.getInitialComponent());
+				scallback = new ReadOnlyCallback();
 			} else {
 				target = new NamedContainerImpl(courseNode.getShortTitle(), item);
+				
+				VFSContainer inheritingContainer = VFSManager.findInheritingSecurityCallbackContainer(target);
+				if (inheritingContainer != null && inheritingContainer.getLocalSecurityCallback() != null
+						&& inheritingContainer.getLocalSecurityCallback() .getQuota() != null) {
+					relPath = inheritingContainer.getLocalSecurityCallback().getQuota().getPath();
+				} else {
+					relPath = VFSManager.getRelativeItemPath(target, courseEnv.getCourseFolderContainer(), null);
+				}
+				scallback = new FolderNodeCallback(relPath, ne, isOlatAdmin, isGuestOnly, nodefolderSubContext);
 			}
-
-			scallback = new FolderNodeCallback(VFSManager.getRelativeItemPath(target, courseEnv.getCourseFolderContainer(), null), ne, isOlatAdmin, isGuestOnly, nodefolderSubContext);
 		}
+		
+		//course is read only, override the security callback
+		if(userCourseEnv.isCourseReadOnly()) {
+			scallback = new FolderNodeReadOnlyCallback(nodefolderSubContext);
+		}
+		
 		if(!noFolder) {
 			target.setLocalSecurityCallback(scallback);
 
@@ -157,7 +179,8 @@ public class BCCourseNodeRunController extends DefaultController implements Acti
 				olatNamed.setLocalSecurityCallback(scallback);
 			}
 	
-			frc = new FolderRunController(olatNamed, true, true, true, ureq, getWindowControl(), null, null, courseContainer);
+			boolean canMail = !userCourseEnv.isCourseReadOnly();
+			frc = new FolderRunController(olatNamed, true, true, canMail, ureq, getWindowControl(), null, null, courseContainer);
 			setInitialComponent(frc.getInitialComponent());
 		}
 	}

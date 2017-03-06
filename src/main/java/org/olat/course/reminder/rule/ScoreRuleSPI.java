@@ -112,7 +112,7 @@ public class ScoreRuleSPI implements FilterRuleSPI {
 					}
 				}
 			} else {
-				scores = helperDao.getScores(entry.getOlatResource().getResourceableId(), courseNode, identities);
+				scores = helperDao.getScores(entry, courseNode, identities);
 			}
 			
 			for(Iterator<Identity> identityIt=identities.iterator(); identityIt.hasNext(); ) {

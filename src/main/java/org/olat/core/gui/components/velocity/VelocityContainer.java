@@ -33,6 +33,7 @@ import org.olat.core.gui.components.ComponentEventListener;
 import org.olat.core.gui.components.ComponentRenderer;
 import org.olat.core.gui.components.Container;
 import org.olat.core.gui.control.Event;
+import org.olat.core.gui.render.velocity.VelocityComponent;
 import org.olat.core.gui.translator.Translator;
 import org.olat.core.util.Util;
 
@@ -41,8 +42,8 @@ import org.olat.core.util.Util;
  * 
  * @author Felix Jost
  */
-public class VelocityContainer extends Container {
-	private static final ComponentRenderer RENDERER = new VelocityContainerRenderer(null);
+public class VelocityContainer extends Container implements VelocityComponent {
+	private static final ComponentRenderer RENDERER = new VelocityContainerRenderer();
 	
 	/**
 	 * Comment for <code>COMMAND_ID</code>
@@ -116,6 +117,7 @@ public class VelocityContainer extends Container {
 	/**
 	 * @return the Velocity Context
 	 */
+	@Override
 	public Context getContext() {
 		return context;
 	}

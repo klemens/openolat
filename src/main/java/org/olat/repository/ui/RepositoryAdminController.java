@@ -53,6 +53,8 @@ public class RepositoryAdminController extends FormBasicController {
 	private SingleSelection leaveEl;
 	private MultipleSelectionElement myCourseSearchEl, commentEl, ratingEl;
 	
+	private RepositoryLifecycleAdminController lifecycleAdminCtrl;
+	
 	@Autowired
 	private RepositoryModule repositoryModule;
 	
@@ -65,6 +67,7 @@ public class RepositoryAdminController extends FormBasicController {
 	@Override
 	protected void initForm(FormItemContainer formLayout, Controller listener, UserRequest ureq) {
 		FormLayoutContainer searchCont = FormLayoutContainer.createDefaultFormLayout("search", getTranslator());
+		searchCont.setFormContextHelp("Modules: Repository");
 		searchCont.setFormTitle(translate("repository.admin.title"));
 		formLayout.add(searchCont);
 		searchCont.setRootForm(mainForm);
@@ -103,13 +106,26 @@ public class RepositoryAdminController extends FormBasicController {
 		} else {
 			leaveEl.select(RepositoryEntryAllowToLeaveOptions.atAnyTime.name(), true);
 		}
+		
+		lifecycleAdminCtrl = new RepositoryLifecycleAdminController(ureq, getWindowControl(), mainForm);
+		listenTo(lifecycleAdminCtrl);
+		formLayout.add(lifecycleAdminCtrl.getInitialFormItem());
 	}
 	
 	@Override
 	protected void doDispose() {
 		//
 	}
-	
+
+	@Override
+	protected boolean validateFormLogic(UserRequest ureq) {
+		boolean allOk = true;
+		
+		allOk &= lifecycleAdminCtrl.validateFormLogic(ureq);
+		
+		return allOk & super.validateFormLogic(ureq);
+	}
+
 	@Override
 	protected void formInnerEvent(UserRequest ureq, FormItem source, FormEvent event) {
 		if(myCourseSearchEl == source) {
@@ -130,10 +146,11 @@ public class RepositoryAdminController extends FormBasicController {
 			repositoryModule.setAllowToLeaveDefaultOption(option);
 			getWindowControl().setInfo("saved");
 		}
+		lifecycleAdminCtrl.formInnerEvent(ureq, source, event);
 	}
 
 	@Override
 	protected void formOK(UserRequest ureq) {
-		//
+		lifecycleAdminCtrl.formOK(ureq);
 	}
 }

@@ -26,6 +26,7 @@
 package org.olat.core.util.xml;
 
 import java.io.BufferedInputStream;
+import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
@@ -34,6 +35,8 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.io.OutputStreamWriter;
+import java.nio.file.Files;
+import java.nio.file.Path;
 
 import org.olat.core.logging.OLATRuntimeException;
 import org.olat.core.util.FileUtils;
@@ -272,6 +275,23 @@ public class XStreamHelper {
 	}
 	
 	/**
+	 * 
+	 * @param xStream
+	 * @param path
+	 * @return
+	 */
+	public static Object readObject(XStream xStream, Path path) {
+		try (InputStream in = Files.newInputStream(path);
+				InputStream bis = new BufferedInputStream(in)) {
+			return readObject(xStream, bis);
+		} catch (Exception e) {
+			throw new OLATRuntimeException(XStreamHelper.class,
+					"could not read Object from file: "
+							+ path, e);
+		}
+	}
+	
+	/**
 	 * Read an object from the given leaf using the xStream object. It is
 	 * usefull to add field and attribute mappers to the stream.
 	 * 
@@ -325,6 +345,22 @@ public class XStreamHelper {
 		} finally {
 			FileUtils.closeSafely(is);
 		}
+	}
+	
+	/**
+	 * Read an object from the given xml string using the xStream object.
+	 * 
+	 * @param xStream The XStream deserializer
+	 * @param xml XML in form of a string
+	 * @return
+	 */
+	public static Object readObject(XStream xStream, String xml) {
+		try(InputStream is = new ByteArrayInputStream(xml.getBytes(ENCODING))) {
+			return readObject(xStream, is);
+		} catch (Exception e) {
+			throw new OLATRuntimeException(XStreamHelper.class,
+					"could not read Object from string: " + xml, e);
+		} 
 	}
 
 	/**

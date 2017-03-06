@@ -81,13 +81,12 @@ public class CoursePageFragment {
 	}
 	
 	public CoursePageFragment assertOnTitle(String displayName) {
-		List<WebElement> titleList = browser.findElements(By.tagName("h2"));
-		Assert.assertNotNull(titleList);
-		Assert.assertEquals(1, titleList.size());
+		By titleBy = By.xpath("//h2[text()[contains(.,'" + displayName + "')]]");
+		OOGraphene.waitElement(titleBy, 5, browser);
 		
-		WebElement title = titleList.get(0);
-		Assert.assertTrue(title.isDisplayed());
-		Assert.assertTrue(title.getText().contains(displayName));
+		WebElement titleEl = browser.findElement(titleBy);
+		Assert.assertNotNull(titleEl);
+		Assert.assertTrue(titleEl.isDisplayed());
 		return this;
 	}
 	
@@ -148,7 +147,7 @@ public class CoursePageFragment {
 	 */
 	public CoursePageFragment openToolsMenu() {
 		browser.findElement(toolsMenuCaret).click();
-		OOGraphene.waitElement(toolsMenu, browser);
+		OOGraphene.waitElement(toolsMenu, 5, browser);
 		return this;
 	}
 	
@@ -170,6 +169,17 @@ public class CoursePageFragment {
 		browser.findElement(reminderBy).click();
 		OOGraphene.waitBusy(browser);
 		return new RemindersPage(browser);
+	}
+	
+	public CourseOptionsPage options() {
+		if(!browser.findElement(settingsMenu).isDisplayed()) {
+			openSettingsMenu();
+		}
+		
+		By reminderBy = By.cssSelector("a.o_sel_course_options");
+		browser.findElement(reminderBy).click();
+		OOGraphene.waitBusy(browser);
+		return new CourseOptionsPage(browser);
 	}
 	
 	/**
@@ -209,7 +219,7 @@ public class CoursePageFragment {
 		browser.findElement(assessmentToolBy).click();
 		OOGraphene.waitBusy(browser);
 
-		WebElement main = browser.findElement(By.id("o_main"));
+		WebElement main = browser.findElement(By.id("o_assessment_tool_main"));
 		Assert.assertTrue(main.isDisplayed());
 		return new AssessmentToolPage(browser);
 	}

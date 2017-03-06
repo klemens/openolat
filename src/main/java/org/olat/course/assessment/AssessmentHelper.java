@@ -25,16 +25,19 @@
 
 package org.olat.course.assessment;
 
+import java.math.BigDecimal;
 import java.text.DecimalFormat;
 import java.text.DecimalFormatSymbols;
 import java.text.ParseException;
 import java.util.ArrayList;
 import java.util.Date;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 
+import org.olat.core.gui.components.tree.GenericTreeModel;
+import org.olat.core.gui.components.tree.GenericTreeNode;
+import org.olat.core.gui.components.tree.TreeModel;
 import org.olat.core.id.Identity;
 import org.olat.core.id.IdentityEnvironment;
 import org.olat.core.logging.OLog;
@@ -44,13 +47,17 @@ import org.olat.core.util.nodes.INode;
 import org.olat.core.util.tree.TreeVisitor;
 import org.olat.core.util.tree.Visitor;
 import org.olat.course.ICourse;
+import org.olat.course.assessment.model.AssessmentNodeData;
 import org.olat.course.nodes.AssessableCourseNode;
 import org.olat.course.nodes.CourseNode;
+import org.olat.course.nodes.CourseNodeFactory;
 import org.olat.course.nodes.ProjectBrokerCourseNode;
 import org.olat.course.nodes.STCourseNode;
 import org.olat.course.nodes.ScormCourseNode;
 import org.olat.course.nodes.iq.IQEditController;
-import org.olat.course.run.scoring.ScoreEvaluation;
+import org.olat.course.run.environment.CourseEnvironment;
+import org.olat.course.run.scoring.AssessmentEvaluation;
+import org.olat.course.run.scoring.ScoreAccounting;
 import org.olat.course.run.userview.UserCourseEnvironment;
 import org.olat.course.run.userview.UserCourseEnvironmentImpl;
 import org.olat.course.tree.CourseEditorTreeModel;
@@ -67,6 +74,24 @@ import org.olat.modules.ModuleConfiguration;
 public class AssessmentHelper {
 	
 	private static final OLog log = Tracing.createLoggerFor(AssessmentHelper.class);
+	
+	public static final String KEY_TYPE = "type";
+	public static final String KEY_IDENTIFYER = "identifyer";
+	public static final String KEY_INDENT = "indent";
+
+	public static final String KEY_TITLE_SHORT = "short.title";
+	public static final String KEY_TITLE_LONG = "long.title";
+	public static final String KEY_PASSED = "passed";
+	public static final String KEY_SCORE = "score";
+	public static final String KEY_SCORE_F = "fscore";
+	public static final String KEY_ATTEMPTS = "attempts";
+	public static final String KEY_DETAILS = "details";
+	public static final String KEY_SELECTABLE = "selectable";
+	public static final String KEY_MIN = "minScore";
+	public static final String KEY_MAX = "maxScore";
+	public static final String KEY_TOTAL_NODES = "totalNodes";
+	public static final String KEY_ATTEMPTED_NODES = "attemptedNodes";
+	public static final String KEY_PASSED_NODES = "attemptedNodes";
 
 	/**
 	 * String to symbolize 'not available' or 'not assigned' in assessments
@@ -78,7 +103,7 @@ public class AssessmentHelper {
 	public static final float MAX_SCORE_SUPPORTED = 10000f;
 	/** Lowest score value supported by OLAT * */
 	public static final float MIN_SCORE_SUPPORTED = -10000f;
-	//fxdiff VCRP-4: assessment overview with max score
+
 	private final static DecimalFormat scoreFormat = new DecimalFormat("#0.###", new DecimalFormatSymbols(Locale.ENGLISH));
 
 	/**
@@ -141,8 +166,18 @@ public class AssessmentHelper {
 
 		Identity identity = uce.getIdentityEnvironment().getIdentity();
 		Date lastModified = uce.getCourseEnvironment().getAssessmentManager().getScoreLastModifiedDate(courseNode, identity);
-		AssessedIdentityWrapper aiw = new AssessedIdentityWrapper(uce, attempts, details, initialLaunchDate, lastModified);
-		return aiw;
+		return new AssessedIdentityWrapper(uce, attempts, details, initialLaunchDate, lastModified);
+	}
+	
+	public static UserCourseEnvironment createInitAndUpdateUserCourseEnvironment(Identity identity, ICourse course) {
+		// create an identenv with no roles, no attributes, no locale
+		IdentityEnvironment ienv = new IdentityEnvironment(); 
+		ienv.setIdentity(identity);
+		UserCourseEnvironment uce = new UserCourseEnvironmentImpl(ienv, course.getCourseEnvironment());
+		// Fetch all score and passed and calculate score accounting for the entire
+		// course
+		uce.getScoreAccounting().evaluateAll(true);
+		return uce;
 	}
 
 	/**
@@ -158,6 +193,17 @@ public class AssessmentHelper {
 		IdentityEnvironment ienv = new IdentityEnvironment(); 
 		ienv.setIdentity(identity);
 		UserCourseEnvironment uce = new UserCourseEnvironmentImpl(ienv, course.getCourseEnvironment());
+		// Fetch all score and passed and calculate score accounting for the entire
+		// course
+		uce.getScoreAccounting().evaluateAll();
+		return uce;
+	}
+	
+	public static UserCourseEnvironment createAndInitUserCourseEnvironment(Identity identity, CourseEnvironment courseEnv) {
+		// create an identenv with no roles, no attributes, no locale
+		IdentityEnvironment ienv = new IdentityEnvironment(); 
+		ienv.setIdentity(identity);
+		UserCourseEnvironment uce = new UserCourseEnvironmentImpl(ienv, courseEnv);
 		// Fetch all score and passed and calculate score accounting for the entire
 		// course
 		uce.getScoreAccounting().evaluateAll();
@@ -207,9 +253,25 @@ public class AssessmentHelper {
 		int count = node.getChildCount();
 		for (int i = 0; i < count; i++) {
 			CourseNode cn = (CourseNode) node.getChildAt(i);
-			if (checkForAssessableNodes(cn)) return true;
+			if (checkForAssessableNodes(cn)) {
+				return true;
+			}
 		}
 		return false;
+	}
+	
+	public static int countAssessableNodes(CourseNode node) {
+		int count = 0;
+		if(checkIfNodeIsAssessable(node)) {
+			count++;
+		}
+		// check children now
+		int numOfChildren = node.getChildCount();
+		for (int i = 0; i<numOfChildren; i++) {
+			CourseNode cn = (CourseNode) node.getChildAt(i);
+			count += countAssessableNodes(cn);
+		}
+		return count;
 	}
 
 	/**
@@ -227,6 +289,7 @@ public class AssessmentHelper {
 		// puts
 		// them into the nodes list
 		Visitor visitor = new Visitor() {
+			@Override
 			public void visit(INode node) {
 				CourseEditorTreeNode editorNode = (CourseEditorTreeNode) node;
 				CourseNode courseNode = editorModel.getCourseNode(node.getIdent());
@@ -240,15 +303,20 @@ public class AssessmentHelper {
 		// not visit beginning at the root node
 		TreeVisitor tv = new TreeVisitor(visitor, rootNode, false);
 		tv.visitAll();
-
 		return nodes;
+	}
+	
+	public static String getRoundedScore(BigDecimal score) {
+		if (score == null) return null;
+		
+		Double fscore = score.doubleValue();
+		return getRoundedScore(fscore); 
 	}
 
 	/**
 	 * @param score The score to be rounded
 	 * @return The rounded score for GUI presentation
 	 */
-	//fxdiff VCRP-4: assessment overview with max score
 	public static String getRoundedScore(Float score) {
 		if (score == null) return null;
 
@@ -256,7 +324,15 @@ public class AssessmentHelper {
 		synchronized(scoreFormat) {
 			return scoreFormat.format(score);
 		}
-		//return Formatter.roundToString(score.floatValue(), 3);
+	}
+	
+	public static String getRoundedScore(Double score) {
+		if (score == null) return null;
+
+		//cluster_OK the formatter is not multi-thread and costly to create
+		synchronized(scoreFormat) {
+			return scoreFormat.format(score);
+		}
 	}
 	
 	public static Float getRoundedScore(String score) {
@@ -272,27 +348,76 @@ public class AssessmentHelper {
 			}
 		}
 	}
+	
+	/**
+	 * 
+	 * @param course
+	 * @return
+	 */
+	public static TreeModel assessmentTreeModel(ICourse course) {
+		CourseNode rootNode = course.getRunStructure().getRootNode();
+		GenericTreeModel gtm = new GenericTreeModel();
+		GenericTreeNode node = new GenericTreeNode();
+		node.setTitle(rootNode.getShortTitle());
+		node.setUserObject(rootNode);
+		node.setIconCssClass(CourseNodeFactory.getInstance().getCourseNodeConfiguration(rootNode.getType()).getIconCSSClass());
+		gtm.setRootNode(node);
+		
+		List<GenericTreeNode> children = addAssessableNodesToList(rootNode);
+		children.forEach((child) -> node.addChild(child));
+		return gtm;
+	}
+	
+	private static List<GenericTreeNode> addAssessableNodesToList(CourseNode parentCourseNode) {
+		List<GenericTreeNode> result = new ArrayList<>();
+		for(int i=0; i<parentCourseNode.getChildCount(); i++) {
+			CourseNode courseNode = (CourseNode)parentCourseNode.getChildAt(i);
+			List<GenericTreeNode> assessableChildren = addAssessableNodesToList(courseNode);
+			
+			if (assessableChildren.size() > 0 || isAssessable(courseNode)) {
+				GenericTreeNode node = new GenericTreeNode();
+				node.setTitle(courseNode.getShortTitle());
+				node.setUserObject(courseNode);
+				node.setIconCssClass(CourseNodeFactory.getInstance().getCourseNodeConfiguration(courseNode.getType()).getIconCSSClass());
+				result.add(node);
+				assessableChildren.forEach((child) -> node.addChild(child));
+			}
+		}
+		return result;
+	}
+	
+	private static boolean isAssessable(CourseNode courseNode) {
+		boolean assessable = false;
+		if (courseNode instanceof AssessableCourseNode && !(courseNode instanceof ProjectBrokerCourseNode)) {
+			AssessableCourseNode assessableCourseNode = (AssessableCourseNode) courseNode;
+			if (assessableCourseNode.hasDetails()
+				|| assessableCourseNode.hasAttemptsConfigured()
+				|| assessableCourseNode.hasScoreConfigured()
+				|| assessableCourseNode.hasPassedConfigured()
+				|| assessableCourseNode.hasCommentConfigured()) {
 
-	public static final String KEY_TYPE = "type";
-	public static final String KEY_IDENTIFYER = "identifyer";
-	public static final String KEY_INDENT = "indent";
-
-	public static final String KEY_TITLE_SHORT = "short.title";
-	public static final String KEY_TITLE_LONG = "long.title";
-	public static final String KEY_PASSED = "passed";
-	public static final String KEY_SCORE = "score";
-	public static final String KEY_SCORE_F = "fscore";
-	public static final String KEY_ATTEMPTS = "attempts";
-	public static final String KEY_DETAILS = "details";
-	public static final String KEY_SELECTABLE = "selectable";
-	//fxdiff VCRP-4: assessment overview with max score
-	public static final String KEY_MIN = "minScore";
-	public static final String KEY_MAX = "maxScore";
-	public static final String KEY_TOTAL_NODES = "totalNodes";
-	public static final String KEY_ATTEMPTED_NODES = "attemptedNodes";
-	public static final String KEY_PASSED_NODES = "attemptedNodes";
+				assessable = true;
+			}
+		}
+		return assessable;
+	}
 	
 
+	public static List<Map<String,Object>> assessmentNodeDataListToMap(List<AssessmentNodeData> assessmentNodeData) {
+		List<Map<String,Object>> maps = new ArrayList<>(assessmentNodeData.size());
+		for(AssessmentNodeData data:assessmentNodeData) {
+			maps.add(data.toMap());
+		}
+		return maps;
+	}
+	
+	public static  List<AssessmentNodeData> assessmentNodeDataMapToList(List<Map<String,Object>> assessmentNodeData) {
+		List<AssessmentNodeData> list = new ArrayList<>(assessmentNodeData.size());
+		for(Map<String,Object> data:assessmentNodeData) {
+			list.add(new AssessmentNodeData(data));
+		}
+		return list;
+	}
 	
 	/**
 	 * Add all assessable nodes and the scoring data to a list. Each item in the list is an object array
@@ -304,14 +429,44 @@ public class AssessmentHelper {
 	 * @param discardComments
 	 * @return list of object arrays or null if empty
 	 */
-	static List<Map<String,Object>> addAssessableNodeAndDataToList(int recursionLevel, CourseNode courseNode, UserCourseEnvironment userCourseEnv, boolean discardEmptyNodes, boolean discardComments) {
+	public static List<AssessmentNodeData> getAssessmentNodeDataList(UserCourseEnvironment userCourseEnv, boolean discardEmptyNodes, boolean discardComments) {
+		List<AssessmentNodeData> data = new ArrayList<AssessmentNodeData>(50);
+		ScoreAccounting scoreAccounting = userCourseEnv.getScoreAccounting();
+		scoreAccounting.evaluateAll();
+		getAssessmentNodeDataList(0, userCourseEnv.getCourseEnvironment().getRunStructure().getRootNode(),
+				scoreAccounting, userCourseEnv, discardEmptyNodes, discardComments, data);
+		return data;
+	}
+	
+	/**
+	 * Calculated 
+	 * 
+	 * 
+	 * @param evaluatedScoreAccounting
+	 * @param userCourseEnv
+	 * @param discardEmptyNodes
+	 * @param discardComments
+	 * @return
+	 */
+	public static List<AssessmentNodeData> getAssessmentNodeDataList(ScoreAccounting evaluatedScoreAccounting, UserCourseEnvironment userCourseEnv, boolean discardEmptyNodes, boolean discardComments) {
+		List<AssessmentNodeData> data = new ArrayList<AssessmentNodeData>(50);
+		getAssessmentNodeDataList(0, userCourseEnv.getCourseEnvironment().getRunStructure().getRootNode(),
+				evaluatedScoreAccounting, userCourseEnv, discardEmptyNodes, discardComments, data);
+		return data;
+	}
+	
+	
+	public static int getAssessmentNodeDataList(int recursionLevel, CourseNode courseNode, ScoreAccounting scoreAccounting,
+			UserCourseEnvironment userCourseEnv, boolean discardEmptyNodes, boolean discardComments, List<AssessmentNodeData> data) {
 		// 1) Get list of children data using recursion of this method
-		List<Map<String, Object>> childrenData = new ArrayList<Map<String, Object>>(50);
+		AssessmentNodeData assessmentNodeData = new AssessmentNodeData(recursionLevel, courseNode);
+		data.add(assessmentNodeData);
+		
+		int numOfChildren = 0;
 		for (int i = 0; i < courseNode.getChildCount(); i++) {
 			CourseNode child = (CourseNode) courseNode.getChildAt(i);
-			List<Map<String, Object>> childData = addAssessableNodeAndDataToList( (recursionLevel + 1),  child, userCourseEnv, discardEmptyNodes, discardComments);
-			if (childData != null)
-				childrenData.addAll(childData);
+			numOfChildren += getAssessmentNodeDataList(recursionLevel + 1,  child,  scoreAccounting,
+					userCourseEnv, discardEmptyNodes, discardComments, data);
 		}
 		
 		// 2) Get data of this node only if
@@ -319,45 +474,38 @@ public class AssessmentHelper {
 		// - it is of an assessable course node type
 		boolean hasDisplayableValuesConfigured = false;
 		boolean hasDisplayableUserValues = false;
-		if (childrenData.size() > 0 || courseNode instanceof AssessableCourseNode) {
-			// Store node and user data in object array. This object array serves as data model for 
-			// the user assessment overview table
-			Map<String,Object> nodeData = new HashMap<String, Object>();
-			// indent
-			nodeData.put(KEY_INDENT, new Integer(recursionLevel));
-			// course node data
-			nodeData.put(KEY_TYPE, courseNode.getType());
-			nodeData.put(KEY_TITLE_SHORT, courseNode.getShortTitle());
-			nodeData.put(KEY_TITLE_LONG, courseNode.getLongTitle());
-			nodeData.put(KEY_IDENTIFYER, courseNode.getIdent());
-			
+		if (numOfChildren > 0 || courseNode instanceof AssessableCourseNode) {
 			if(courseNode instanceof ProjectBrokerCourseNode) {
 				//ProjectBroker : no assessment-tool in V1.0 , remove project broker completely form assessment-tool gui
-				nodeData.put(KEY_SELECTABLE, Boolean.FALSE);
+				assessmentNodeData.setSelectable(false);
 			} else if (courseNode instanceof AssessableCourseNode) {
 				AssessableCourseNode assessableCourseNode = (AssessableCourseNode) courseNode;
-				ScoreEvaluation scoreEvaluation = userCourseEnv.getScoreAccounting().getScoreEvaluation(courseNode);
+				AssessmentEvaluation scoreEvaluation = scoreAccounting.evalCourseNode(assessableCourseNode);
+				if(scoreEvaluation != null) {
+					assessmentNodeData.setAssessmentStatus(scoreEvaluation.getAssessmentStatus());
+				}
+				
 				// details 
 				if (assessableCourseNode.hasDetails()) {
 					hasDisplayableValuesConfigured = true;
 					String detailValue = assessableCourseNode.getDetailsListView(userCourseEnv);
 					if (detailValue == null) {
 						// ignore unset details in discardEmptyNodes mode
-						nodeData.put(KEY_DETAILS, AssessmentHelper.DETAILS_NA_VALUE);
+						assessmentNodeData.setDetails(AssessmentHelper.DETAILS_NA_VALUE);
 					} else {
-						nodeData.put(KEY_DETAILS, detailValue);
+						assessmentNodeData.setDetails(detailValue);
 						hasDisplayableUserValues = true;
 					}
 				}
 				// attempts
 				if (assessableCourseNode.hasAttemptsConfigured()) {
 					hasDisplayableValuesConfigured = true;
-					Integer attemptsValue = assessableCourseNode.getUserAttempts(userCourseEnv); 
+					Integer attemptsValue = scoreEvaluation.getAttempts(); 
 					if (attemptsValue != null) {
-						nodeData.put(KEY_ATTEMPTS, attemptsValue);
+						assessmentNodeData.setAttempts(attemptsValue);
 						if (attemptsValue.intValue() > 0) {
-								// ignore attempts = 0  in discardEmptyNodes mode
-								hasDisplayableUserValues = true;
+							// ignore attempts = 0  in discardEmptyNodes mode
+							hasDisplayableUserValues = true;
 						}
 					}
 				}
@@ -366,26 +514,21 @@ public class AssessmentHelper {
 					hasDisplayableValuesConfigured = true;
 					Float score = scoreEvaluation.getScore();
 					if (score != null) {
-						//fxdiff VCRP-4: assessment overview with max score
-						nodeData.put(KEY_SCORE, AssessmentHelper.getRoundedScore(score));
-						nodeData.put(KEY_SCORE_F, score);
+						assessmentNodeData.setRoundedScore(AssessmentHelper.getRoundedScore(score));
+						assessmentNodeData.setScore(score);
 						hasDisplayableUserValues = true;
 					}
-					//fxdiff VCRP-4: assessment overview with max score
 					if(!(assessableCourseNode instanceof STCourseNode)) {
-						Float maxScore = assessableCourseNode.getMaxScoreConfiguration();
-						nodeData.put(KEY_MAX, maxScore);
-						Float minScore = assessableCourseNode.getMinScoreConfiguration();
-						nodeData.put(KEY_MIN, minScore);
+						assessmentNodeData.setMaxScore(assessableCourseNode.getMaxScoreConfiguration());
+						assessmentNodeData.setMinScore(assessableCourseNode.getMinScoreConfiguration());
 					}
-					
 				}
 				// passed
 				if (assessableCourseNode.hasPassedConfigured()) {
 					hasDisplayableValuesConfigured = true;
 					Boolean passed = scoreEvaluation.getPassed();
 					if (passed != null) {
-						nodeData.put(KEY_PASSED, passed);
+						assessmentNodeData.setPassed(passed);
 						hasDisplayableUserValues = true;
 					}
 				}
@@ -393,11 +536,11 @@ public class AssessmentHelper {
 				AssessableCourseNode acn = (AssessableCourseNode) courseNode;
 				if (acn.isEditableConfigured()) {
 					// Assessable course nodes are selectable
-					nodeData.put(KEY_SELECTABLE, Boolean.TRUE);
+					assessmentNodeData.setSelectable(true);
 				} else {
 					// assessable nodes that do not have score or passed are not selectable
 					// (e.g. a st node with no defined rule
-					nodeData.put(KEY_SELECTABLE, Boolean.FALSE);
+					assessmentNodeData.setSelectable(false);
 				}
 				if (!hasDisplayableUserValues && assessableCourseNode.hasCommentConfigured() && !discardComments) {
 				  // comments are invisible in the table but if configured the node must be in the list
@@ -410,23 +553,23 @@ public class AssessmentHelper {
 			} else {
 				// Not assessable nodes are not selectable. (e.g. a node that 
 				// has an assessable child node but is itself not assessable)
-				nodeData.put(KEY_SELECTABLE, Boolean.FALSE);
-			}
-			// 3) Add data of this node to mast list if node assessable or children list has any data.
-			// Do only add nodes when they have any assessable element, otherwhise discard (e.g. empty course, 
-			// structure nodes without scoring rules)! When the discardEmptyNodes flag is set then only
-			// add this node when there is user data found for this node.
-			if (childrenData.size() > 0 
-					|| (discardEmptyNodes && hasDisplayableValuesConfigured && hasDisplayableUserValues)
-					|| (!discardEmptyNodes && hasDisplayableValuesConfigured)) {
-				List<Map<String, Object>> nodeAndChildren = new ArrayList<Map<String, Object>>();
-				nodeAndChildren.add(nodeData);
-				// 4) Add children data list to master list
-				nodeAndChildren.addAll(childrenData);
-				return nodeAndChildren;
+				assessmentNodeData.setSelectable(false);
 			}
 		}
-		return null;
+		
+		// 3) Add data of this node to mast list if node assessable or children list has any data.
+		// Do only add nodes when they have any assessable element, otherwhise discard (e.g. empty course, 
+		// structure nodes without scoring rules)! When the discardEmptyNodes flag is set then only
+		// add this node when there is user data found for this node.
+		
+		boolean addNode = (numOfChildren > 0 
+				|| (discardEmptyNodes && hasDisplayableValuesConfigured && hasDisplayableUserValues)
+				|| (!discardEmptyNodes && hasDisplayableValuesConfigured));
+		if(!addNode) {
+			data.remove(assessmentNodeData);
+			return 0;
+		}
+		return numOfChildren + 1;//add itself
 	}
 	
 	/**
@@ -439,7 +582,7 @@ public class AssessmentHelper {
 	 */
 	public static boolean isResultVisible(ModuleConfiguration modConfig) {
 		boolean isVisible = false;
-		Boolean showResultsActive = (Boolean)modConfig.get(IQEditController.CONFIG_KEY_DATE_DEPENDENT_RESULTS);
+		Boolean showResultsActive = modConfig.getBooleanEntry(IQEditController.CONFIG_KEY_DATE_DEPENDENT_RESULTS);
 		if(showResultsActive != null && showResultsActive.booleanValue()) {
 			Date startDate = (Date)modConfig.get(IQEditController.CONFIG_KEY_RESULTS_START_DATE);
 			Date endDate = (Date)modConfig.get(IQEditController.CONFIG_KEY_RESULTS_END_DATE);

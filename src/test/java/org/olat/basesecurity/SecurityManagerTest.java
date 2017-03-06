@@ -45,7 +45,6 @@ import org.olat.test.JunitTestHelper;
 import org.olat.test.OlatTestCase;
 import org.springframework.beans.factory.annotation.Autowired;
 
-
 /**
  * SecurityTestSuite is a container of all Tests in this package.
  * 

@@ -62,6 +62,7 @@ import org.olat.ims.qti.fileresource.TestFileResource;
 import org.olat.ims.qti.qpool.QTI12ItemFactory.Type;
 import org.olat.ims.qti.questionimport.ItemAndMetadata;
 import org.olat.ims.resources.IMSEntityResolver;
+import org.olat.ims.qti21.pool.QTI12And21PoolWordExport;
 import org.olat.modules.qpool.ExportFormatOptions;
 import org.olat.modules.qpool.ExportFormatOptions.Outcome;
 import org.olat.modules.qpool.QItemFactory;
@@ -151,6 +152,11 @@ public class QTIQPoolServiceProvider implements QPoolSPI {
 		return ok;
 	}
 	
+	@Override
+	public boolean isConversionPossible(QuestionItemShort question) {
+		return false;
+	}
+
 	@Override
 	public List<QItemFactory> getItemfactories() {
 		List<QItemFactory> factories = new ArrayList<QItemFactory>();
@@ -313,18 +319,18 @@ public class QTIQPoolServiceProvider implements QPoolSPI {
 	}
 
 	@Override
-	public MediaResource exportTest(List<QuestionItemShort> items, ExportFormatOptions format) {
+	public MediaResource exportTest(List<QuestionItemShort> items, ExportFormatOptions format, Locale locale) {
 		if(QTIConstants.QTI_12_FORMAT.equals(format.getFormat())) {
-			return new QTIExportTestResource("UTF-8", items, this);
-		}else if(DefaultExportFormat.DOCX_EXPORT_FORMAT.getFormat().equals(format.getFormat())) {
-			return new QTIPoolWordExport(items, I18nModule.getDefaultLocale(), "UTF-8", questionItemDao, qpoolFileStorage);
+			return new QTIExportTestResource("UTF-8", locale, items, this);
+		} else if(DefaultExportFormat.DOCX_EXPORT_FORMAT.getFormat().equals(format.getFormat())) {
+			return new QTI12And21PoolWordExport(items, I18nModule.getDefaultLocale(), "UTF-8", questionItemDao, qpoolFileStorage);
 		}
 		
 		return null;
 	}
 
 	@Override
-	public void exportItem(QuestionItemFull item, ZipOutputStream zout, Set<String> names) {
+	public void exportItem(QuestionItemFull item, ZipOutputStream zout, Locale locale, Set<String> names) {
 		QTIExportProcessor processor = new QTIExportProcessor(qpoolFileStorage);
 		processor.process(item, zout, names);
 	}
@@ -361,6 +367,11 @@ public class QTIQPoolServiceProvider implements QPoolSPI {
 		VFSContainer originalDir = qpoolFileStorage.getContainer(original.getDirectory());
 		VFSContainer copyDir = qpoolFileStorage.getContainer(copy.getDirectory());
 		VFSManager.copyContent(originalDir, copyDir);
+	}
+
+	@Override
+	public QuestionItem convert(Identity identity, QuestionItemShort question, Locale locale) {
+		return null;
 	}
 
 	@Override

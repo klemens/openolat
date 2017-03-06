@@ -40,6 +40,7 @@ import org.apache.commons.lang.StringEscapeUtils;
 import org.olat.core.CoreSpringFactory;
 import org.olat.core.commons.services.help.HelpModule;
 import org.olat.core.gui.components.Component;
+import org.olat.core.gui.components.form.flexible.FormItem;
 import org.olat.core.gui.components.form.flexible.impl.NameValuePair;
 import org.olat.core.gui.components.velocity.VelocityContainer;
 import org.olat.core.gui.control.winmgr.AJAXFlags;
@@ -54,6 +55,7 @@ import org.olat.core.util.ArrayHelper;
 import org.olat.core.util.CodeHelper;
 import org.olat.core.util.Formatter;
 import org.olat.core.util.StringHelper;
+import org.olat.core.util.WebappHelper;
 import org.olat.core.util.filter.Filter;
 import org.olat.core.util.filter.FilterFactory;
 import org.olat.core.util.filter.impl.OWASPAntiSamyXSSFilter;
@@ -65,7 +67,7 @@ import org.olat.core.util.i18n.I18nModule;
  */
 public class VelocityRenderDecorator implements Closeable {
 	
-	private VelocityContainer vc;
+	private VelocityComponent vc;
 	private Renderer renderer;
 	private final boolean isIframePostEnabled;
 	private StringOutput target;
@@ -75,7 +77,7 @@ public class VelocityRenderDecorator implements Closeable {
 	 * @param renderer
 	 * @param vc
 	 */
-	public VelocityRenderDecorator(Renderer renderer, VelocityContainer vc, StringOutput target) {
+	public VelocityRenderDecorator(Renderer renderer, VelocityComponent vc, StringOutput target) {
 		this.renderer = renderer;
 		this.vc = vc;
 		this.target = target;
@@ -177,6 +179,21 @@ public class VelocityRenderDecorator implements Closeable {
 	public String javaScriptCommand(String command) {
 		renderer.getUrlBuilder().buildXHREvent(target, null, false, false,
 				new NameValuePair(VelocityContainer.COMMAND_ID, command));
+		return "";
+	}
+	
+	public String javaScriptCommand(String command, String key, String value) {
+		renderer.getUrlBuilder().buildXHREvent(target, null, false, false,
+				new NameValuePair(VelocityContainer.COMMAND_ID, command),
+				new NameValuePair(key, value));
+		return "";
+	}
+	
+	public String javaScriptCommand(String command, String key1, String value1, String key2, String value2) {
+		renderer.getUrlBuilder().buildXHREvent(target, null, false, false,
+				new NameValuePair(VelocityContainer.COMMAND_ID, command),
+				new NameValuePair(key1, value1),
+				new NameValuePair(key2, value2));
 		return "";
 	}
 	
@@ -320,6 +337,18 @@ public class VelocityRenderDecorator implements Closeable {
 		Renderer.renderStaticURI(sb, URI);
 		return sb;
 	}
+	
+	public StringOutput mathJaxCdn() {
+		StringOutput sb = new StringOutput(100);
+		sb.append(WebappHelper.getMathJaxCdn());
+		return sb;
+	}
+	
+	public StringOutput contextPath() {
+		StringOutput sb = new StringOutput(100);
+		sb.append(Settings.getServerContextPath());
+		return sb;
+	}
 
 	
 	/**
@@ -337,8 +366,34 @@ public class VelocityRenderDecorator implements Closeable {
 	public StringOutput render(String componentName) {
 		return doRender(componentName, null);
 	}
+	
+	/**
+	 * Convenience method, render by component name.
+	 * 
+	 * @param component
+	 * @return
+	 */
+	public StringOutput render(Component component) {
+		if(component == null) return new StringOutput(1);
+		return doRender(component.getComponentName(), null);
+	}
 
-
+	/**
+	 * Convenience method, render by component name.
+	 * 
+	 * @param component
+	 * @return
+	 */
+	public StringOutput render(FormItem item) {
+		if(item == null) return new StringOutput(1);
+		return doRender(item.getComponent().getComponentName(), null);
+	}
+	
+	public StringOutput render(FormItem item, String arg1) {
+		if(item == null) return new StringOutput(1);
+		return doRender(item.getComponent().getComponentName(), new String[]{ arg1 });
+	}
+	
 	/**
 	 * Create a link wrapped with some markup to render a nice help button. The
 	 * link points to the corresponding page in the manual.
@@ -452,6 +507,17 @@ public class VelocityRenderDecorator implements Closeable {
 	 */
 	public String translate(String key, String arg1) {
 		return translate(key, new String[] {arg1});
+	}
+	
+	public String translate(String key, Integer arg1) {
+		return translate(key, new String[] { (arg1 == null ? "" : arg1.toString()) });
+	}
+	
+	public String translate(String key, Integer arg1, Integer arg2) {
+		return translate(key, new String[] {
+				(arg1 == null ? "" : arg1.toString()),
+				(arg2 == null ? "" : arg2.toString())
+			});
 	}
 
 	/**
@@ -604,6 +670,57 @@ public class VelocityRenderDecorator implements Closeable {
 		return sb;
 	}
 	
+	public boolean isNull(Object obj) {
+		return obj == null;
+	}
+	
+	public boolean isNotNull(Object obj) {
+		return obj != null;
+	}
+	
+	public boolean isEmpty(Object obj) {
+		boolean empty;
+		if(obj == null) {
+			empty = true;
+		} else if(obj instanceof String) {
+			empty = !StringHelper.containsNonWhitespace((String)obj) || "<p></p>".equals(obj);
+		} else if(obj instanceof Collection) {
+			empty = ((Collection<?>)obj).isEmpty();
+		} else if(obj instanceof Map) {
+			empty = ((Map<?,?>)obj).isEmpty();
+		} else {
+			empty = false;
+		}
+		return empty;
+	}
+	
+	public boolean isNotEmpty(Object obj) {
+		boolean notEmpty;
+		if(obj == null) {
+			notEmpty = false;
+		} else if(obj instanceof String) {
+			notEmpty = StringHelper.containsNonWhitespace((String)obj) && !"<p></p>".equals(obj);
+		} else if(obj instanceof Collection) {
+			notEmpty = !((Collection<?>)obj).isEmpty();
+		} else if(obj instanceof Map) {
+			notEmpty = !((Map<?,?>)obj).isEmpty();
+		} else {
+			notEmpty = true;
+		}
+		return notEmpty;
+	}
+	
+	public int parseInt(String text) {
+		try {
+			if(StringHelper.containsNonWhitespace(text)) {
+				return Integer.parseInt(text);
+			}
+			return -1;
+		} catch (NumberFormatException e) {
+			return -1;
+		}
+	}
+	
 	/**
 	 * @param componentName
 	 * @return true if the component with name componentName is a child of the current container. Used to "if" the render 
@@ -622,6 +739,15 @@ public class VelocityRenderDecorator implements Closeable {
 	public boolean visible(String componentName) {
 		Component source = renderer.findComponent(componentName);
 		return (source != null && source.isVisible());
+	}
+	
+	public boolean visible(Component component) {
+		return (component != null && component.isVisible());
+	}
+	
+	public boolean visible(FormItem item) {
+		if(item == null) return false;
+		return visible(item.getComponent());
 	}
 	
 	/**
@@ -658,13 +784,18 @@ public class VelocityRenderDecorator implements Closeable {
 		return !vc.getContext().containsKey(key);
 	}
 	
+	public boolean notNull(Object obj) {
+		return obj != null;
+	}
+	
 	/**
 	 * Formats the given date in a short format, e.g. 05.12.2015 or 12/05/2015
 	 * 
 	 * @param date the date
 	 * @return a String with the formatted date
 	 */
-	public String formatDate(Date date){
+	public String formatDate(Date date) {
+		if(date == null) return "";
 		Formatter f = Formatter.getInstance(renderer.getTranslator().getLocale());
 		return f.formatDate(date);
 	}
@@ -675,7 +806,8 @@ public class VelocityRenderDecorator implements Closeable {
 	 * @param date the date
 	 * @return a String with the formatted date
 	 */
-	public String formatDateLong(Date date){
+	public String formatDateLong(Date date) {
+		if(date == null) return "";
 		Formatter f = Formatter.getInstance(renderer.getTranslator().getLocale());
 		return f.formatDateLong(date);
 	}
@@ -686,7 +818,8 @@ public class VelocityRenderDecorator implements Closeable {
 	 * @param date the date
 	 * @return a String with the formatted date and time
 	 */
-	public String formatDateAndTime(Date date){
+	public String formatDateAndTime(Date date) {
+		if(date == null) return "";
 		Formatter f = Formatter.getInstance(renderer.getTranslator().getLocale());
 		return f.formatDateAndTime(date);
 	}
@@ -700,6 +833,7 @@ public class VelocityRenderDecorator implements Closeable {
 	 * @return a String with the formatted date and time
 	 */
 	public String formatDateAndTimeLong(Date date) {
+		if(date == null) return "";
 		Formatter f = Formatter.getInstance(renderer.getTranslator().getLocale());
 		return f.formatDateAndTimeLong(date);	}
 
@@ -712,6 +846,15 @@ public class VelocityRenderDecorator implements Closeable {
 	public String formatTime(Date date) {
 		Formatter f = Formatter.getInstance(renderer.getTranslator().getLocale());
 		return f.formatTime(date);
+	}
+	
+	/**
+	 * format a duration (in milliseconds)
+	 * @param durationInMillis
+	 * @return
+	 */
+	public String formatDurationInMillis(long durationInMillis) {
+		return Formatter.formatDuration(durationInMillis);
 	}
 	
 	public String formatBytes(long bytes) {

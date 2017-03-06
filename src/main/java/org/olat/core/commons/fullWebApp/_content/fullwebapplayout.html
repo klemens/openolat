@@ -40,7 +40,7 @@ o_info.zseed = 0;
 #if($enforceTopFrame)
 if (top!=self){top.location=self.location+"?o_winrndo=1";}
 #end
-function o_start(){
+function o_start() {
 	o_init();
 	## js B
 	$r.renderBodyOnLoadJSFunctionCall()
@@ -49,9 +49,30 @@ function o_start(){
 	## Needed to identify if call like Ext.onRead() makes any sense (often not the case in AJAX mode)
 	o_info.initialPageLoadFinished = true;
 }
+function o_mathjax(fct_success) {
+	jQuery.ajax("${r.mathJaxCdn()}2.6-latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML", {
+		cache: true,
+		dataType: "script",
+		success: function() {
+	    	MathJax.Hub.Config({
+				extensions: ["jsMath2jax.js"],
+				messageStyle: 'none',
+				showProcessingMessages: false,
+				jsMath2jax: {
+					preview: "none"
+				},
+				tex2jax: {
+					ignoreClass: "math"
+				}
+			});
+	    	if(!(typeof fct_success === "undefined")) {
+	    		fct_success();
+	    	}
+		}
+	});
+}
 /* ]]> */
 </script>
-<script type="text/javascript" src='$r.staticLink("js/jsMath/easy/load.js")'></script>
 ## jQuery libraries
 <!--[if lt IE 9]>
 	<script type="text/javascript" src='$r.staticLink("js/jquery/jquery-1.9.1.min.js")'></script>
@@ -97,14 +118,15 @@ function o_start(){
 	<link type="text/css" href='$r.staticLink("js/jquery/tagsinput/bootstrap-tagsinput.css")' rel="stylesheet" />
 	<link type="text/css" href='$r.staticLink("js/jquery/fullcalendar/fullcalendar.css")' rel="stylesheet" />
 	<link type="text/css" href='$r.staticLink("js/jquery/cropper/cropper.css")' rel="stylesheet" />
+	<link type="text/css" href='$r.staticLink("js/jquery/sliderpips/jquery-ui-slider-pips.css")' rel="stylesheet" />
 	<link type="text/css" href='$r.staticLink("js/jquery/ui/jquery-ui-1.11.4.custom.min.css")' rel="stylesheet" />
 #else
 	<link type="text/css" href='$r.staticLink("js/js.plugins.min.css")' rel="stylesheet" />
 #end
-
 <script type="text/javascript">
 /* <![CDATA[ */ 
 	jQuery.noConflict();
+	
 	## Initialize js translator factory with the js translator mapper path
 	jQuery(document).ooTranslator().initialize("$jsTranslationMapperPath");
 	o_info.oo_translator = jQuery(document).ooTranslator();
@@ -114,6 +136,15 @@ function o_start(){
 			window.location.href = e.originalEvent.state.businessPath;
 		}
 	});
+## same configuration in 
+jQuery(function() {
+	if ((window.unsafeWindow == null ? window : unsafeWindow).MathJax == null) {
+		var count = jQuery('div.math,span.math,math,div.mathEntryInteraction').length;
+		if (count > 0) {
+		    o_mathjax();
+		}
+	}
+});
 /* ]]> */
 </script>
 

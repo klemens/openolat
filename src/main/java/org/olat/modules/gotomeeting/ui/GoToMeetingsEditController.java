@@ -34,7 +34,6 @@ import org.olat.core.gui.components.form.flexible.impl.elements.table.DefaultFle
 import org.olat.core.gui.components.form.flexible.impl.elements.table.FlexiTableColumnModel;
 import org.olat.core.gui.components.form.flexible.impl.elements.table.FlexiTableDataModelFactory;
 import org.olat.core.gui.components.form.flexible.impl.elements.table.SelectionEvent;
-import org.olat.core.gui.components.form.flexible.impl.elements.table.StaticFlexiColumnModel;
 import org.olat.core.gui.components.link.Link;
 import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.Event;
@@ -68,6 +67,7 @@ public class GoToMeetingsEditController extends FormBasicController {
 	private DialogBoxController confirmDelete;
 	private EditTrainingController editTrainingController;
 	
+	private final boolean readOnly;
 	private final String subIdent;
 	private final RepositoryEntry entry;
 	private final BusinessGroup businessGroup;
@@ -76,19 +76,20 @@ public class GoToMeetingsEditController extends FormBasicController {
 	private GoToMeetingManager meetingMgr;
 	
 	public GoToMeetingsEditController(UserRequest ureq, WindowControl wControl,
-			RepositoryEntry entry, String subIdent, BusinessGroup businessGroup) {
+			RepositoryEntry entry, String subIdent, BusinessGroup businessGroup, boolean readOnly) {
 		super(ureq, wControl, "meetings_admin");
-
 		this.entry = entry;
+		this.readOnly = readOnly;
 		this.subIdent = subIdent;
 		this.businessGroup = businessGroup;
-		
 		initForm(ureq);
 	}
 	
 	@Override
 	protected void initForm(FormItemContainer formLayout, Controller listener, UserRequest ureq) {
-		addTrainingButton = uifactory.addFormLink("add.training", formLayout, Link.BUTTON);
+		if(!readOnly) {
+			addTrainingButton = uifactory.addFormLink("add.training", formLayout, Link.BUTTON);
+		}
 		
 		//add the table
 		FlexiTableColumnModel columnsModel = FlexiTableDataModelFactory.createFlexiTableColumnModel();
@@ -96,8 +97,10 @@ public class GoToMeetingsEditController extends FormBasicController {
 		columnsModel.addFlexiColumnModel(new DefaultFlexiColumnModel(MeetingsCols.start.i18nHeaderKey(), MeetingsCols.start.ordinal(), true, MeetingsCols.start.name()));
 		columnsModel.addFlexiColumnModel(new DefaultFlexiColumnModel(MeetingsCols.end.i18nHeaderKey(), MeetingsCols.end.ordinal(), true, MeetingsCols.end.name()));
 		columnsModel.addFlexiColumnModel(new DefaultFlexiColumnModel(MeetingsCols.organizer.i18nHeaderKey(), MeetingsCols.organizer.ordinal(), true, MeetingsCols.organizer.name()));
-		columnsModel.addFlexiColumnModel(new StaticFlexiColumnModel("edit", translate("edit"), "edit"));
-		columnsModel.addFlexiColumnModel(new StaticFlexiColumnModel("delete", translate("delete"), "delete"));
+		if(!readOnly) {
+			columnsModel.addFlexiColumnModel(new DefaultFlexiColumnModel("edit", translate("edit"), "edit"));
+			columnsModel.addFlexiColumnModel(new DefaultFlexiColumnModel("delete", translate("delete"), "delete"));
+		}
 		
 		tableModel = new GoToMeetingTableModel(columnsModel);
 		tableEl = uifactory.addTableElement(getWindowControl(), "meetings", tableModel, getTranslator(), formLayout);

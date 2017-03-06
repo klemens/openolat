@@ -1,0 +1,594 @@
+ul.sessionControl {
+	list-style: none;
+	margin: 1em;
+	text-align: center;
+  
+	li {
+		display: inline;
+		padding: 0.2em;
+	}
+}
+
+.association {
+	margin: 20px 20px 20px 40px;
+	background: transparent url('#{$o-images-path}association_bg.png') repeat-x center center;
+}
+
+.o_associate_item {
+	padding: 5px;
+}
+
+.association_box {
+	background-color: white;
+}
+
+.prompt {
+	font-weight: bold;
+}
+
+/* Drawing */
+.sketch {
+	position: relative;
+	user-drag: none; 
+	user-select: none;
+	-moz-user-select: none;
+	-webkit-user-drag: none;
+	-webkit-user-select: none;
+	-ms-user-select: none;
+}
+
+#tmp_canvas {
+	position: absolute;
+	left: 0px; right: 0;
+	bottom: 0; top: 0;
+	cursor: crosshair;
+	user-drag: none; 
+	user-select: none;
+	-moz-user-select: none;
+	-webkit-user-drag: none;
+	-webkit-user-select: none;
+	-ms-user-select: none;
+}
+	
+#colors {
+	.black .o_icon:before { color:#000000;  }
+	/* .white .o_icon:before { color:#FFFFFF; } */
+	.blue .o_icon:before { color:#0000FF;  } 
+	.green .o_icon:before { color:#008000;  } 
+	.yellow .o_icon:before { color:#FFFF00;  }
+	.red .o_icon:before { color:#FF0000;  } 
+	.purple .o_icon:before { color:#800080; }
+}
+
+/* Graphic gap match */
+.o_gap_item {
+	padding:5px;
+	margin: 5px;
+	background-repeat:no-repeat;
+	background-position: center center;
+	
+	&.oo-choosed {
+		position: relative;
+    	left: auto;
+    	top: auto;
+    	padding: 3px;
+    	margin: 0;
+	}
+	
+	&.oo-selected {
+		border: 3px solid grey;
+	}
+}
+
+.o_gap_container_help, .o_items_container_help {
+	font-size: 90%;
+	font-style: italic;
+	color: $gray-light;
+	padding: 5px;
+}
+
+/* Position object */
+.items_container {
+	padding: 15px;
+	
+	.o_item {
+		float: left;
+	}
+}
+
+/* Hotspot */
+#o_qti_hotspots_edit {
+	min-height: 100px;
+	min-width: 400px;
+	background-repeat:no-repeat;
+}
+
+/* essay extended text */
+#itemBody .extendedTextInteraction {
+	margin: 15px 0;
+}
+
+#o_qti_run_title, #o_qti_run_infos  {
+	 margin: 0 15px 0.5em 15px;
+}
+
+/* drawing */
+.o_draw_circle.o_qti_hotspot_correct, .o_draw_rectangle.o_qti_hotspot_correct {
+	background-color: rgba(229, 255, 204, 0.6);
+}
+
+.o_qti_hotspot_label {
+	padding-left: 48%;
+}
+
+.o_qti_hotspot_delete {
+	
+}
+
+
+
+.o_info.o_assessmentsection_rubrics {
+	margin:0;
+}
+
+.o_assessmentitem{
+	h1 {
+		margin-bottom: 0;
+	}
+
+	.o_assessmentitem_attempts {
+		float: right;
+		display: block;
+		padding: 0.3em;
+		border-radius: 0.5em;
+		border: 1px #eeeeee solid;
+		color: black;
+		font-size: 0.7em;
+	}
+	
+	.o_assessmentitem_status {
+		float: right;
+		display: block;
+		padding: 0.3em;
+		border-radius: 0.5em;
+		border-width: 1px;
+		color: white;
+		font-size: 0.8em;
+	}
+	
+	.o_assessmentitem_marks {
+		float: right;
+		display: block;
+		padding: 0.3em;
+		font-size: 0.8em;
+	}
+	
+	div.badResponse, span.badResponse {
+		color: red;
+		font-weight: bold;
+	}
+	
+	input.badResponse {
+  		border: 1px solid red;
+	}
+	
+	.infoControl{
+		input {
+			margin-right: 0.5em;
+		}
+
+		.infoControlContent {
+  			display: none;
+		}
+	}
+	
+	.sliderInteraction {
+		margin: 1em;
+		.sliderVertical .sliderValue {
+			margin: 1em 0;
+		}
+		.sliderVertical .sliderWidget {
+			height: 200px;
+		}
+		.sliderHorizontal .sliderValue {
+			text-align: center;
+		}
+	}
+	
+	div.orderInteraction {
+		div.highlight {
+			border: 1px solid red;
+		}
+
+		div.box {
+			background-color: #eeeeee;
+		}
+
+		div.box span.info {
+			margin-left: 1em;
+			color: #666666;
+			font-style: italic;
+			font-size: smaller;
+		}
+
+		div.box.horizontal {
+  			margin: 0.5em 0;
+			width: 100%;
+		}
+
+		ul.horizontal {
+			float: left;
+			margin: 0 1em;
+			padding: 1em 0;
+			width: 100%;
+		}
+
+		div.box.vertical {
+			margin: 1em 0;
+			width: 49%;
+		}
+
+		div.box.vertical.source {
+			float: left;
+		}
+
+		div.box.vertical.target {
+			float: right;
+		}
+
+		ul.vertical {
+			margin: 0 1em;
+			padding: 1em 0;
+			width: auto;
+		}
+
+		ul {
+			list-style-type: none;
+			margin: 0;
+			padding: 0;
+			width: 60%;
+			
+			li {
+				margin: 0 3px 3px 3px;
+				padding: 0.4em;
+				padding-left: 1.5em;
+				font-size: 1em;
+				
+				span.ui-icon {
+					position: absolute;
+					margin-left: -1.3em;
+				}
+			}
+		}
+
+		ul.horizontal li {
+			float: left;
+			width: auto;
+		}
+
+		br {
+			clear: both;
+		}
+	}
+
+	.hottext {
+		font-weight: bold;
+	}
+
+	.gap {
+		font-weight: bold;
+		border: 1px dashed #000;
+	}
+}
+
+.o_assessmentitem_status.ended {
+  background-color: #999999;
+}
+
+.o_assessmentitem_status.invalid {
+  background-color: red;
+}
+
+.o_assessmentitem_status.answered {
+  background-color: blue;
+}
+
+.o_assessmentitem_status.notAnswered {
+  background-color: #ff9900;
+}
+
+.o_assessmentitem_status.notPresented {
+	background-color: green;
+}
+
+.o_assessmentitem_status.review {
+	background-color: #f52887;
+}
+
+.o_assessmentitem_status.reviewNotAllowed, .o_assessmentitem_status.reviewInvalid, .o_assessmentitem_status.reviewNotAnswered, .o_assessmentitem_status.reviewNotSeen {
+	background-color: #f52887;
+	opacity: 0.5;
+}
+
+.itemPrompt {
+	margin: 1.5em 0;
+	font-style: italic;
+	color: #666666;
+}
+
+#itemBody {
+	margin: 1em 0;
+}
+
+/* Choice interaction */
+tr.choiceinteraction {
+	td.control {
+		padding: 0.5em;
+	}
+	
+	td.choiceInteraction {
+		padding: 0.5em;
+	}
+}
+
+.choiceInteraction table {
+
+}
+
+.choiceInteraction div.o_qti_item_choice_option_flow  {
+	display: inline-block;
+	padding: .5em;
+	border: 1px solid transparent;
+	
+	label span {
+		font-weight: normal;
+	
+	}
+	
+	label span>p {
+		display: inline-block;
+	}
+}
+
+.choiceInteraction.choiceright table tr td.choiceInteraction {
+	background-color: #e7e7e7;
+	border-bottom: 3px solid white;
+}
+
+/* Match interaction */
+.matchInteraction.choiceright table tr td.o_qti_item_kprim_text {
+	background-color: #e7e7e7;
+	border-bottom: 3px solid white;
+}
+
+.matchInteraction {
+	input[type='text'] {
+		display:inline;
+		width:auto;
+	}
+	
+	div.bar_green { background-color: $brand-success; }
+	div.bar_red { background-color: $brand-danger; }
+}
+
+/* MathEntryInteraction styling for MathAssess */
+.o_assessmentitem .mathEntryInteraction {
+	border: 1px solid #ddedfc;
+	background-color: #edf1f6;
+	background: linear-gradient(to top, #edf1f6 0%, #f6f9fb 100%);
+	border-radius: 0.4em;
+	padding: 1em;
+	margin: 0.5em 0;
+	
+	.inputPanel {
+		line-height: 1em;
+		text-align: left;
+		
+		input {
+			margin: 0;
+			padding: 0;
+		}
+	}
+	
+	.previewPanel {
+		text-align: center;
+	}
+}
+
+.o_assessmentitem .mathEntryInteraction.horizontal {
+	min-height: 5em;
+	width: 40em;
+	
+	.inputPanel {
+		width: 45%;
+		float: left;
+		margin: 2em 0;
+	}
+	
+	.previewPanel {
+		width: 50%;
+		margin-left: 40%;
+	}
+}
+
+.o_assessmentitem .mathEntryInteraction.vertical {
+	min-height: 6em;
+	.inputPanel {
+		padding: 0 5em;
+	}
+	
+	.inputPanel:before {
+		content: 'Input Maths: ';
+	}
+	
+	.previewPanel {
+		margin-top: 2em;
+		min-height: 4em;
+	}
+}
+
+.o_assessmentitem {
+	div.upConversionAjaxControlMessage {
+		width: auto;
+		text-align: center;
+		display: inline;
+		padding: 0.5em 0 0.5em 20px;
+	}
+
+	div.success {
+		background: green;
+	}
+
+	div.failure {
+		background-color:gold;
+	}
+
+	div.error {
+		background-color:red;
+	}
+
+	div.upConversionAjaxControlError {
+	}
+
+	div.upConversionAjaxControlPreview {
+		margin: 0.5em 0;
+		font-size: 110%;
+	}
+}
+
+/* Help for Math Input */
+
+.o_assessmentitem table.inputHelp {
+	border-collapse: collapse;
+	width: 100%;
+	font-size: 90%;
+	
+	th {
+		border: 1px solid #999999;
+		padding: 0.2em 0.5em;
+			background-color: #cad8e5;
+	}
+
+	td {
+		color: #999999;
+		border: 1px solid #999999;
+		padding: 0.2em 0.5em;
+	}
+
+	kbd {
+		color: black;
+		font-size: 100%;
+		line-height: 100%;
+	}
+
+	.longComma {
+		margin-right: 0.5em;
+	}
+}
+
+/* Candidate comment */
+.o_candidatecomment {
+	padding: 0;
+	margin: 2em 0;
+	border: none;
+	
+	legend {
+	
+	}
+	
+	textarea {
+		display: block;
+	}
+}
+
+ul.o_testpartnavigation {
+	list-style: none;
+	padding: 0;
+	margin: 0;
+	
+	li.o_assessmentsection {
+		border: 1px solid #eeeeee;
+		border-radius: 0.5em;
+		padding: 0 1em 0.5em 1em;
+		margin: 0 0 0.5em 0;
+		
+		header {
+			margin: 0 0 1em 0;
+		}
+		
+		header div.rubric {
+			font-style: italic;
+		}
+		
+		ul.o_testpartnavigation_inner {
+			list-style: none;
+			padding: 0;
+			margin: 0;
+		}
+	}
+	
+	li.o_assessmentitem {
+		padding: 0.1em 0;
+		
+		a {
+			padding: 0;
+			text-decoration: none;
+		}
+		
+		span {
+			vertical-align: middle;
+		}
+		
+		.itemStatus {
+			display: inline;
+			float: none;
+			margin: 0.2em;
+			padding: 0.4em;
+			border-radius: 0.3em;
+			margin-left: 1em;
+		}
+	}
+	
+	.o_assessmentitem .questionTitle {
+		margin-right: 1em;
+	}
+}
+
+
+/* Test Item Presentation */
+ul.testPartDrilldown {
+	list-style: none;
+	padding: 0;
+	margin: 0;
+	
+	li.o_assessmentsection {
+		border: 1px solid #eeeeee;
+		border-radius: 0.5em;
+		padding: 0 1em 0.5em 1em;
+		
+		header {
+			margin: 0 0 1em 0;
+			
+			div.rubric {
+				font-style: italic;
+			}
+		}
+		
+		ul.testPartDrilldownInner {
+			list-style: none;
+			padding: 0;
+			margin: 0;
+		}
+	}
+	
+	li.currentItem {
+		border: 1px solid #eeeeee;
+		border-radius: 0.5em;
+		padding: 0 1em;
+		margin-top: 1em;
+	}
+}
+
+.testItemControl {
+	margin-top: 0.5em;
+}

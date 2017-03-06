@@ -44,7 +44,6 @@ import org.olat.core.util.i18n.I18nModule;
 import org.olat.course.CourseFactory;
 import org.olat.course.ICourse;
 import org.olat.course.assessment.AssessmentHelper;
-import org.olat.course.nodes.AssessmentToolOptions;
 import org.olat.course.nodes.IQTESTCourseNode;
 import org.olat.course.run.environment.CourseEnvironment;
 import org.olat.course.run.scoring.ScoreEvaluation;
@@ -55,6 +54,7 @@ import org.olat.ims.qti.process.AssessmentFactory;
 import org.olat.ims.qti.process.AssessmentInstance;
 import org.olat.ims.qti.process.FilePersister;
 import org.olat.modules.ModuleConfiguration;
+import org.olat.modules.assessment.AssessmentToolOptions;
 import org.olat.modules.iq.IQManager;
 import org.olat.modules.iq.IQRetrievedEvent;
 import org.olat.user.UserManager;
@@ -62,7 +62,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 
 /**
  * 
- * Initial date: 07.07.2015<br>
+ * Initial date: 15.08.2016<br>
  * @author srosse, stephane.rosse@frentix.com, http://www.frentix.com
  *
  */
@@ -127,7 +127,7 @@ public class QTI12PullTestsToolController extends BasicController implements Act
 		int count = 0;
 		StringBuilder fullnames = new StringBuilder(256);
 		for(Identity assessedIdentity:assessedIdentities) {
-			if(courseNode.isTestRunning(assessedIdentity, courseEnv)) {
+			if(courseNode.isQTI12TestRunning(assessedIdentity, courseEnv)) {
 				if(fullnames.length() > 0) fullnames.append(", ");
 				String name = userManager.getUserDisplayName(assessedIdentity);
 				if(StringHelper.containsNonWhitespace(name)) {
@@ -153,7 +153,7 @@ public class QTI12PullTestsToolController extends BasicController implements Act
 	private void doRetrieveTests() {
 		ICourse course = CourseFactory.loadCourse(courseEnv.getCourseResourceableId());
 		for(Identity assessedIdentity:assessedIdentities) {
-			if(courseNode.isTestRunning(assessedIdentity, courseEnv)) {
+			if(courseNode.isQTI12TestRunning(assessedIdentity, courseEnv)) {
 				IQRetrievedEvent retrieveEvent = new IQRetrievedEvent(assessedIdentity, courseEnv.getCourseResourceableId(), courseNode.getIdent());
 				CoordinatorManager.getInstance().getCoordinator().getEventBus().fireEventToListenersOf(retrieveEvent, retrieveEvent);
 				retrieveTest(assessedIdentity, course);

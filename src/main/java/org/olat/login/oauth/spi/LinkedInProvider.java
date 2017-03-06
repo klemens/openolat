@@ -71,6 +71,11 @@ public class LinkedInProvider implements OAuthSPI {
 	public boolean isRootEnabled() {
 		return false;
 	}
+	
+	@Override
+	public boolean isImplicitWorkflow() {
+		return false;
+	}
 
 	@Override
 	public String getName() {
@@ -88,8 +93,8 @@ public class LinkedInProvider implements OAuthSPI {
 	}
 
 	@Override
-	public Class<? extends Api> getScribeProvider() {
-		return LinkedInApi.class;
+	public Api getScribeProvider() {
+		return new LinkedInApi();
 	}
 
 	@Override

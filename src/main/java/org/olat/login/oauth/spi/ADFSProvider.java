@@ -58,8 +58,13 @@ public class ADFSProvider implements OAuthSPI {
 	}
 
 	@Override
-	public Class<? extends Api> getScribeProvider() {
-		return ADFSApi.class;
+	public boolean isImplicitWorkflow() {
+		return false;
+	}
+
+	@Override
+	public Api getScribeProvider() {
+		return new ADFSApi();
 	}
 
 	@Override

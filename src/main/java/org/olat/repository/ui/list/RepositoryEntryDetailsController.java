@@ -68,8 +68,8 @@ import org.olat.core.util.vfs.VFSContainerMapper;
 import org.olat.core.util.vfs.VFSLeaf;
 import org.olat.course.CorruptedCourseException;
 import org.olat.course.assessment.AssessmentHelper;
-import org.olat.course.assessment.EfficiencyStatementManager;
 import org.olat.course.assessment.UserEfficiencyStatement;
+import org.olat.course.assessment.manager.EfficiencyStatementManager;
 import org.olat.course.assessment.manager.UserCourseInformationsManager;
 import org.olat.course.run.RunMainController;
 import org.olat.group.BusinessGroup;
@@ -207,8 +207,8 @@ public class RepositoryEntryDetailsController extends FormBasicController {
 			layoutCont.contextPut("guestOnly", new Boolean(guestOnly));
 			String cssClass = RepositoyUIFactory.getIconCssClass(entry);
 			layoutCont.contextPut("cssClass", cssClass);
-			layoutCont.contextPut("closed",
-					new Boolean(repositoryManager.createRepositoryEntryStatus(entry.getStatusCode()).isClosed()));
+			boolean closed = entry.getRepositoryEntryStatus().isClosed() || entry.getRepositoryEntryStatus().isUnpublished();
+			layoutCont.contextPut("closed", new Boolean(closed));
 			
 			RepositoryHandler handler = RepositoryHandlerFactory.getInstance().getRepositoryHandler(entry);
 			VFSContainer mediaContainer = handler.getMediaContainer(entry);
@@ -369,6 +369,7 @@ public class RepositoryEntryDetailsController extends FormBasicController {
 				}
 				startLink.setIconRightCSS("o_icon o_icon_start o_icon-lg");
 				startLink.setPrimary(true);
+				startLink.setFocus(true);
 				
 				switch (entry.getAccess()) {
 					case 0: accessI18n = "ERROR";

@@ -123,6 +123,8 @@ public class RepositoryEntryDocumentFactory {
 			icon = "o_iqtest_icon";
 		else if (docType.equals("type.repository.entry.FileResource.SURVEY"))
 			icon = "o_iqsurv_icon";
+		else if(docType.equals("type.repository.entry.FileResource.IMSQTI21"))
+			icon = "o_qtiassessment_icon";
 		else if (docType.equals("type.repository.entry.EPStructuredMapTemplate") || docType.equals("type.repository.entry.ep"))
 			icon = "o_ep_icon";
 		else {

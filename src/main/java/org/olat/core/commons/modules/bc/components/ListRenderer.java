@@ -53,6 +53,7 @@ import org.olat.core.util.vfs.VFSContainer;
 import org.olat.core.util.vfs.VFSItem;
 import org.olat.core.util.vfs.VFSLeaf;
 import org.olat.core.util.vfs.VFSLockManager;
+import org.olat.core.util.vfs.VirtualContainer;
 import org.olat.core.util.vfs.lock.LockInfo;
 import org.olat.core.util.vfs.version.Versionable;
 import org.olat.core.util.vfs.version.Versions;
@@ -138,14 +139,17 @@ public class ListRenderer {
 		if(canVersion) {
 			sb.append("</th><th><a class='o_orderby ").append(sortCss,FolderComponent.SORT_REV.equals(sortOrder)).append("' ");		
 			ubu.buildHrefAndOnclick(sb, null, iframePostEnabled, false, false, new NameValuePair(PARAM_SORTID, FolderComponent.SORT_REV))																																					// file size column
-			   .append("><i class=\"o_icon o_icon_version  o_icon-lg\"></i></a>");
+			   .append("><i class=\"o_icon o_icon_version  o_icon-lg\" title=\"")
+			   .append(translator.translate("versions")).append("\"></i></a>");
 		}
 
 		sb.append("</th><th><a class='o_orderby ").append(sortCss,FolderComponent.SORT_LOCK.equals(sortOrder)).append("' ");
 		ubu.buildHrefAndOnclick(sb, null, iframePostEnabled, false, false, new NameValuePair(PARAM_SORTID, FolderComponent.SORT_LOCK))
-		   .append("><i class=\"o_icon o_icon_locked  o_icon-lg\"></i></a>")
+		   .append("><i class=\"o_icon o_icon_locked  o_icon-lg\" title=\"")
+		   .append(translator.translate("lock.title")).append("\"></i></a>")
 		// meta data column
-		  .append("</th><th><i class=\"o_icon o_icon_edit_metadata o_icon-lg\"></i></th></tr></thead>");
+		  .append("</th><th><i class=\"o_icon o_icon_edit_metadata o_icon-lg\" title=\"")
+		  .append(translator.translate("mf.edit")).append("\"></i></th></tr></thead>");
 				
 		// render directory contents
 		String currentContainerPath = fc.getCurrentContainerPath();
@@ -173,6 +177,8 @@ public class ListRenderer {
 	
 		// assume full access unless security callback tells us something different.
 		boolean canWrite = child.getParentContainer().canWrite() == VFSConstants.YES;
+		// special case: virtual folders are always read only. parent of child =! the current container
+		canWrite = canWrite && !(fc.getCurrentContainer() instanceof VirtualContainer);
 		boolean isAbstract = (child instanceof AbstractVirtualContainer);
 
 		Versions versions = null;
@@ -208,9 +214,9 @@ public class ListRenderer {
 		} else {
 			pathAndName = currentContainerPath;
 			if (pathAndName.length() > 0 && !pathAndName.endsWith("/")) {
-				pathAndName = pathAndName + "/";
+				pathAndName += "/";
 			}
-			pathAndName = pathAndName + name;
+			pathAndName += name;
 		}
 				
 		// tr begin
@@ -235,7 +241,10 @@ public class ListRenderer {
 			sb.append("<a id='o_sel_doc_").append(pos).append("'");
 		
 			if (isContainer) { // for directories... normal module URIs
-				ubu.buildHrefAndOnclick(sb, pathAndName, iframePostEnabled, false, true);
+				// needs encoding, not done in buildHrefAndOnclick!
+				//FIXME: SR: refactor encode: move to ubu.buildHrefAndOnclick
+				String pathAndNameEncoded = ubu.encodeUrl(pathAndName);
+				ubu.buildHrefAndOnclick(sb, pathAndNameEncoded, iframePostEnabled, false, true);
 			} else { // for files, add PARAM_SERV command
 				sb.append(" href=\"");
 				ubu.buildURI(sb, new String[] { PARAM_SERV }, new String[] { "x" }, pathAndName, AJAXFlags.MODE_NORMAL);

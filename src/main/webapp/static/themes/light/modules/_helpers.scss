@@ -40,6 +40,28 @@
 	@extend %o_block_inline_right;
 }
 
+/* content block with a full-scale background image (fat media style) */
+.o_block_imagebg {
+	background-repeat:no-repeat;
+	background-position: center;
+	background-size: cover;
+	span {
+		padding: 2px;
+		background-color: $o-imagebg-text-background;
+	}	
+	
+	h1, h2, h3, h4, h5,
+	p {
+		padding: 2px;
+		background-color: $o-imagebg-text-background;
+		display: inline-block;
+		&:after {
+			content: ' ';
+			display: block;
+		}
+	}	
+}
+
 
 /* overflowing content that should have scrollbar when content overflows available space */
 .o_scrollblock, %o_scrollblock {
@@ -86,7 +108,7 @@
 .o_header_with_buttons {
 	@include clearfix();
 	@extend %o_block_bottom;
-	h1, h3, h4 {
+	h1, h2, h3, h4 {
 		display: inline-block;
 	}
 	.o_button_group {
@@ -99,6 +121,21 @@
 
 .panel-heading.o_header_with_buttons {
 	margin-bottom: 0;
+}
+
+.panel-imagebg {
+	background-repeat:no-repeat;
+	background-position: center;
+	background-size: cover;
+
+	&.panel-default>.panel-heading {
+		background-color: $o-imagebg-text-background;
+		border-bottom: transparent;
+	}
+	.panel-body span {
+		padding: 2px;
+		background-color: $o-imagebg-text-background;
+	}	
 }
 
 /* Placeholder panel, used to indicate that there is something to be added */

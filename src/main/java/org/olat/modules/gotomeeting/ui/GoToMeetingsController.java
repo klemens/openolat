@@ -35,7 +35,6 @@ import org.olat.core.gui.components.form.flexible.impl.elements.table.DefaultFle
 import org.olat.core.gui.components.form.flexible.impl.elements.table.FlexiTableColumnModel;
 import org.olat.core.gui.components.form.flexible.impl.elements.table.FlexiTableDataModelFactory;
 import org.olat.core.gui.components.form.flexible.impl.elements.table.SelectionEvent;
-import org.olat.core.gui.components.form.flexible.impl.elements.table.StaticFlexiColumnModel;
 import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.WindowControl;
 import org.olat.group.BusinessGroup;
@@ -82,7 +81,7 @@ public class GoToMeetingsController extends FormBasicController {
 		columnsModel.addFlexiColumnModel(new DefaultFlexiColumnModel(MeetingsCols.name.i18nHeaderKey(), MeetingsCols.name.ordinal(), true, MeetingsCols.name.name()));
 		columnsModel.addFlexiColumnModel(new DefaultFlexiColumnModel(MeetingsCols.start.i18nHeaderKey(), MeetingsCols.start.ordinal(), true, MeetingsCols.start.name()));
 		columnsModel.addFlexiColumnModel(new DefaultFlexiColumnModel(MeetingsCols.end.i18nHeaderKey(), MeetingsCols.end.ordinal(), true, MeetingsCols.end.name()));
-		columnsModel.addFlexiColumnModel(new StaticFlexiColumnModel("select", translate("select"), "select-upcoming"));
+		columnsModel.addFlexiColumnModel(new DefaultFlexiColumnModel("select", translate("select"), "select-upcoming"));
 
 		upcomingTableModel = new GoToMeetingTableModel(columnsModel);
 		upcomingTableEl = uifactory.addTableElement(getWindowControl(), "upcomingmeetings", upcomingTableModel, getTranslator(), formLayout);
@@ -97,7 +96,7 @@ public class GoToMeetingsController extends FormBasicController {
 		pastColumnsModel.addFlexiColumnModel(new DefaultFlexiColumnModel(MeetingsCols.name.i18nHeaderKey(), MeetingsCols.name.ordinal(), true, MeetingsCols.name.name()));
 		pastColumnsModel.addFlexiColumnModel(new DefaultFlexiColumnModel(MeetingsCols.start.i18nHeaderKey(), MeetingsCols.start.ordinal(), true, MeetingsCols.start.name()));
 		pastColumnsModel.addFlexiColumnModel(new DefaultFlexiColumnModel(MeetingsCols.end.i18nHeaderKey(), MeetingsCols.end.ordinal(), true, MeetingsCols.end.name()));
-		pastColumnsModel.addFlexiColumnModel(new StaticFlexiColumnModel("select", translate("select"), "select-past"));
+		pastColumnsModel.addFlexiColumnModel(new DefaultFlexiColumnModel("select", translate("select"), "select-past"));
 
 		pastTableModel = new GoToMeetingTableModel(pastColumnsModel);
 		pastTableEl = uifactory.addTableElement(getWindowControl(), "pastmeetings", pastTableModel, getTranslator(), formLayout);

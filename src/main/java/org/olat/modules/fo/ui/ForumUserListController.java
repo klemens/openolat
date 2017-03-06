@@ -36,7 +36,6 @@ import org.olat.core.gui.components.form.flexible.impl.elements.table.FlexiTable
 import org.olat.core.gui.components.form.flexible.impl.elements.table.FlexiTableDataModelFactory;
 import org.olat.core.gui.components.form.flexible.impl.elements.table.SelectionEvent;
 import org.olat.core.gui.components.form.flexible.impl.elements.table.StaticFlexiCellRenderer;
-import org.olat.core.gui.components.form.flexible.impl.elements.table.StaticFlexiColumnModel;
 import org.olat.core.gui.components.form.flexible.impl.elements.table.TextFlexiCellRenderer;
 import org.olat.core.gui.components.link.Link;
 import org.olat.core.gui.control.Controller;
@@ -109,7 +108,7 @@ public class ForumUserListController extends FormBasicController {
 
 			FlexiColumnModel col;
 			if(UserConstants.FIRSTNAME.equals(propName) || UserConstants.LASTNAME.equals(propName)) {
-				col = new StaticFlexiColumnModel(userPropertyHandler.i18nColumnDescriptorLabelKey(), colPos, "select", true, propName,
+				col = new DefaultFlexiColumnModel(userPropertyHandler.i18nColumnDescriptorLabelKey(), colPos, "select", true, propName,
 						new StaticFlexiCellRenderer("select", new TextFlexiCellRenderer()));
 			} else {
 				col = new DefaultFlexiColumnModel(visible, userPropertyHandler.i18nColumnDescriptorLabelKey(), colPos, true, propName);
@@ -118,17 +117,12 @@ public class ForumUserListController extends FormBasicController {
 			colPos++;
 		}
 		
-		columnsModel.addFlexiColumnModel(new DefaultFlexiColumnModel(UserCols.threads.i18nKey(), UserCols.threads.ordinal(),
-				true, UserCols.threads.name()));
-		columnsModel.addFlexiColumnModel(new DefaultFlexiColumnModel(UserCols.replies.i18nKey(), UserCols.replies.ordinal(),
-				true, UserCols.replies.name()));
-		columnsModel.addFlexiColumnModel(new DefaultFlexiColumnModel(UserCols.lastModified.i18nKey(), UserCols.lastModified.ordinal(),
-				true, UserCols.lastModified.name()));
-		columnsModel.addFlexiColumnModel(new DefaultFlexiColumnModel(UserCols.numOfWords.i18nKey(), UserCols.numOfWords.ordinal(),
-				true, UserCols.numOfWords.name()));
-		columnsModel.addFlexiColumnModel(new DefaultFlexiColumnModel(UserCols.numOfCharacters.i18nKey(), UserCols.numOfCharacters.ordinal(),
-				true, UserCols.numOfCharacters.name()));
-		columnsModel.addFlexiColumnModel(new StaticFlexiColumnModel("viewswitch.title", translate("viewswitch.title"), "select"));
+		columnsModel.addFlexiColumnModel(new DefaultFlexiColumnModel(UserCols.threads));
+		columnsModel.addFlexiColumnModel(new DefaultFlexiColumnModel(UserCols.replies));
+		columnsModel.addFlexiColumnModel(new DefaultFlexiColumnModel(UserCols.lastModified));
+		columnsModel.addFlexiColumnModel(new DefaultFlexiColumnModel(UserCols.numOfWords));
+		columnsModel.addFlexiColumnModel(new DefaultFlexiColumnModel(UserCols.numOfCharacters));
+		columnsModel.addFlexiColumnModel(new DefaultFlexiColumnModel("viewswitch.title", translate("viewswitch.title"), "select"));
 
 		dataModel = new ForumUserDataModel(columnsModel, getTranslator());
 		tableEl = uifactory.addTableElement(getWindowControl(), "users", dataModel, getTranslator(), formLayout);

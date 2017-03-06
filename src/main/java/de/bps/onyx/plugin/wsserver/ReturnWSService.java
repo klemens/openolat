@@ -32,6 +32,7 @@ import javax.jws.WebParam;
 import javax.jws.WebService;
 import javax.jws.soap.SOAPBinding;
 
+import org.olat.core.CoreSpringFactory;
 import org.olat.core.commons.persistence.DBFactory;
 import org.olat.core.id.Identity;
 import org.olat.core.id.IdentityEnvironment;
@@ -41,15 +42,16 @@ import org.olat.core.util.FileUtils;
 import org.olat.core.util.WebappHelper;
 import org.olat.course.CourseFactory;
 import org.olat.course.ICourse;
-import org.olat.course.assessment.AssessmentNotificationsHandler;
-import org.olat.course.assessment.NewCachePersistingAssessmentManager;
+import org.olat.course.assessment.AssessmentManager;
+import org.olat.course.assessment.manager.AssessmentNotificationsHandler;
+import org.olat.course.nodes.AssessableCourseNode;
 import org.olat.course.nodes.CourseNode;
-import org.olat.course.properties.CoursePropertyManager;
 import org.olat.course.run.scoring.ScoreEvaluation;
 import org.olat.course.run.userview.UserCourseEnvironment;
 import org.olat.course.run.userview.UserCourseEnvironmentImpl;
 import org.olat.ims.qti.QTIResultManager;
 import org.olat.ims.qti.QTIResultSet;
+import org.olat.modules.assessment.model.AssessmentEntryStatus;
 
 import de.bps.onyx.plugin.OnyxResultManager;
 
@@ -205,20 +207,23 @@ public class ReturnWSService {
 								ICourse course = CourseFactory.loadCourse(resourceId);
 
 								CourseNode courseNode = course.getRunStructure().getNode(qtiResultSet.getOlatResourceDetail());
-								NewCachePersistingAssessmentManager am = (NewCachePersistingAssessmentManager) NewCachePersistingAssessmentManager.getInstance(course);
+								AssessmentManager am = course.getCourseEnvironment().getAssessmentManager();
 
-								CoursePropertyManager cpm = course.getCourseEnvironment().getCoursePropertyManager();
 								// create an identenv with no roles, no
 								// attributes, no locale
 								IdentityEnvironment ienv = new IdentityEnvironment();
 								ienv.setIdentity(assessedIdentity);
 								UserCourseEnvironment userCourseEnvironment = new UserCourseEnvironmentImpl(ienv, course.getCourseEnvironment());
 
-								ScoreEvaluation scoreEvaluation = new ScoreEvaluation(qtiResultSet.getScore(), qtiResultSet.getIsPassed(), qtiResultSet.getFullyAssessed(),
-										qtiResultSet.getAssessmentID());
-								am.syncAndsaveScoreEvaluation(courseNode, assessedIdentity, assessedIdentity, scoreEvaluation, false, userCourseEnvironment, cpm);
+								AssessmentEntryStatus status = null;
+								if(qtiResultSet.getFullyAssessed() != null && qtiResultSet.getFullyAssessed().booleanValue()) {
+									status = AssessmentEntryStatus.done;
+								}
+								ScoreEvaluation scoreEvaluation = new ScoreEvaluation(qtiResultSet.getScore(), qtiResultSet.getIsPassed(),
+										status, qtiResultSet.getFullyAssessed(), qtiResultSet.getAssessmentID());
+								am.saveScoreEvaluation((AssessableCourseNode)courseNode, null, assessedIdentity, scoreEvaluation, userCourseEnvironment, false);
 
-								AssessmentNotificationsHandler.getInstance().markPublisherNews(assessedIdentity, resourceId);
+								CoreSpringFactory.getImpl(AssessmentNotificationsHandler.class).markPublisherNews(assessedIdentity, resourceId);
 							}
 						} else {
 							if (log.isDebug()) {

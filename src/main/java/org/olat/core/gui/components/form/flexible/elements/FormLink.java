@@ -25,10 +25,13 @@
 package org.olat.core.gui.components.form.flexible.elements;
 
 import org.olat.core.gui.components.form.flexible.FormItem;
+import org.olat.core.gui.components.link.Link;
 
 public interface FormLink extends FormItem {
 	
 	public String getCmd();
+	
+	public Link getComponent();
 
 	/**
 	 * @param customEnabledLinkCSS The customEnabledLinkCSS to set.
@@ -78,7 +81,21 @@ public interface FormLink extends FormItem {
 	 * @param i18nKey
 	 */
 	public void setLinkTitle(String i18nKey);
+	
 	public String getLinkTitleText();
+	
+	/**
+	 * 
+	 * @return The title of the link if disabled.
+	 */
+	public String getTextReasonForDisabling();
+	
+	/**
+	 * Add a title (tooltip) to the link if it's disabled.
+	 *  
+	 * @param textReasonForDisabling
+	 */
+	public void setTextReasonForDisabling(String textReasonForDisabling);
 	
 	/**
 	 * @param true: set link to active state (only render issue); false set to not active (default)

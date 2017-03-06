@@ -1,5 +1,5 @@
 /*
- * Overwrite jquery ui dialog and datepicket
+ * Overwrite jquery ui dialog and datepicker
  */
  
 .ui-widget {
@@ -87,6 +87,24 @@
 }
 
 /*
+ * slider
+ */
+
+.ui-slider.ui-slider-horizontal.ui-widget-content {
+	border-color: $o-slider-border;
+	
+	&.ui-state-disabled {
+		opacity: 0.65;
+	}
+	
+	.ui-slider-handle {
+		border: 1px solid $o-slider-handler-border-color;
+		background-image: none;
+		background-color: $o-slider-handler-background-color;
+	}
+}
+
+/*
  * datepicker
  */
  
@@ -144,6 +162,9 @@
 .ui-datepicker.ui-widget-content {
 	border: 1px solid transparent;
 }
+/*
+ * Some class for the movie plugin for tiny mce
+ */
 
 // override the label in _forms.scss of bootstrap
 label.mce-label {
@@ -153,7 +174,21 @@ label.mce-label {
 	font-weight: normal;
 }
 
-i.mce-ico.mce-i-media, i.mce-ico.mce-i-movie, i.mce-ico.mce-i-help {
+.o_richtext_mce_without_path {
+	.mce-statusbar {
+		border: none;
+	}
+
+	.mce-path {
+    	display: none !important;
+	}
+	
+	.mce-menubtn.mce-fixed-width span {
+		width: auto;
+	}
+}
+
+i.mce-ico.mce-i-media, i.mce-ico.mce-i-movie, i.mce-ico.mce-i-help, i.mce-ico.mce-i-gaptext,i.mce-ico.mce-i-gapnumerical, i.mce-ico.mce-i-edit {
 	display: inline-block;
 	font: normal normal normal #{$fa-font-size-base}/1 FontAwesome; // shortening font declaration
 	font-size: inherit; // can't have font-size inherit on line above, so need to override
@@ -171,6 +206,20 @@ i.mce-ico.mce-i-movie:before {
 	content: $fa-var-file-video-o;
 }
 
+i.mce-ico.mce-i-gaptext:before {
+	content: $fa-var-ellipsis-h;
+}
+i.mce-ico.mce-i-gapnumerical:before {
+	content: $fa-var-calculator;
+}
+i.mce-ico.mce-i-math:before {
+	content: '\03A3';
+}
+
+i.mce-ico.mce-i-edit:before {
+	content: $fa-var-edit;
+}
+
 i.mce-ico.mce-i-help {
 	width: 9px;
 	height: 9px;
@@ -181,7 +230,24 @@ i.mce-ico.mce-i-help:before {
 	color: white;
 }
 
+
+
 .mce-tabs span.o_chelp_wrapper {
 	float:right;
 	margin:5px;
 }
+
+/*
+ * Overwrite some class of typehead needed by the flexi table
+ */
+div.o_table_search span.twitter-typeahead {
+	display: table-cell;
+	padding-top: 3px;
+}
+
+//tags input
+.tag.label.label-info {
+	margin-right: 3px;
+}
+
+

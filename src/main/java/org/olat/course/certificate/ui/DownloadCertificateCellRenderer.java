@@ -19,8 +19,11 @@
  */
 package org.olat.course.certificate.ui;
 
+import java.util.Date;
 import java.util.Locale;
 
+import org.olat.basesecurity.IdentityRef;
+import org.olat.basesecurity.model.IdentityRefImpl;
 import org.olat.core.CoreSpringFactory;
 import org.olat.core.gui.components.form.flexible.impl.elements.table.FlexiCellRenderer;
 import org.olat.core.gui.components.form.flexible.impl.elements.table.FlexiTableComponent;
@@ -60,7 +63,13 @@ public class DownloadCertificateCellRenderer implements CustomCellRenderer, Flex
 	@Override
 	public void render(StringOutput sb, Renderer renderer, Object val, Locale locale, int alignment, String action) {
 		if(val instanceof CertificateLight) {
-			render(sb, (CertificateLight)val, assessedIdentity, locale);
+			CertificateLight certificate = (CertificateLight)val;
+			if(assessedIdentity == null) {
+				IdentityRef idRef = new IdentityRefImpl(certificate.getIdentityKey());
+				render(sb, certificate, idRef, locale);
+			} else {
+				render(sb, certificate, assessedIdentity, locale);
+			}
 		} else if(val instanceof CertificateLightPack) {
 			CertificateLightPack pack = (CertificateLightPack)val;
 			render(sb, pack.getCertificate(), pack.getIdentity(), locale);		
@@ -71,15 +80,20 @@ public class DownloadCertificateCellRenderer implements CustomCellRenderer, Flex
 	public void render(Renderer renderer, StringOutput target, Object cellValue, int row, FlexiTableComponent source,
 			URLBuilder ubu, Translator translator) {
 		if(cellValue instanceof CertificateLight) {
-			render(target, (CertificateLight)cellValue, assessedIdentity, translator.getLocale());
+			CertificateLight certificate = (CertificateLight)cellValue;
+			if(assessedIdentity == null) {
+				IdentityRef idRef = new IdentityRefImpl(certificate.getIdentityKey());
+				render(target, certificate, idRef, translator.getLocale());
+			} else {
+				render(target, certificate, assessedIdentity, translator.getLocale());
+			}
 		} else if(cellValue instanceof CertificateLightPack) {
 			CertificateLightPack pack = (CertificateLightPack)cellValue;
 			render(target, pack.getCertificate(), pack.getIdentity(), translator.getLocale());	
 		}
 	}
 	
-	
-	private void render(StringOutput sb, CertificateLight certificate, Identity identity, Locale locale) {
+	private void render(StringOutput sb, CertificateLight certificate, IdentityRef identity, Locale locale) {
 		String name = Formatter.getInstance(locale).formatDate(certificate.getCreationDate());
 		if(CertificateStatus.pending.equals(certificate.getStatus())) {
 			sb.append("<span><i class='o_icon o_icon_pending o_icon-spin'> </i> ").append(name).append(".pdf").append("</span>");
@@ -87,7 +101,11 @@ public class DownloadCertificateCellRenderer implements CustomCellRenderer, Flex
 			sb.append("<span><i class='o_icon o_icon_error'> </i> ").append(name).append(".pdf").append("</span>");
 		} else {
 			sb.append("<a href='").append(getUrl(certificate, identity))
-			  .append("' target='_blank'><i class='o_icon o_filetype_pdf'> </i> ")
+			  .append("' target='_blank'>");
+			if(certificate.getNextRecertificationDate() != null && new Date().compareTo(certificate.getNextRecertificationDate()) > 0) {
+				sb.append("<i class='o_icon o_icon_warn'> </i> ");
+			}
+			sb.append("<i class='o_icon o_filetype_pdf'> </i> ")
 			  .append(name).append(".pdf").append("</a>");
 		}
 	}
@@ -101,7 +119,7 @@ public class DownloadCertificateCellRenderer implements CustomCellRenderer, Flex
 		return finalName + ".pdf";
 	}
 	
-	public static String getName(CertificateLight certificate, Identity identity) {
+	public static String getName(CertificateLight certificate, IdentityRef identity) {
 		StringBuilder sb = new StringBuilder(100);
 		String fullName = CoreSpringFactory.getImpl(UserManager.class).getUserDisplayName(identity);
 		String date = Formatter.formatShortDateFilesystem(certificate.getCreationDate());
@@ -110,7 +128,7 @@ public class DownloadCertificateCellRenderer implements CustomCellRenderer, Flex
 		return finalName + ".pdf";
 	}
 	
-	public static String getUrl(CertificateLight certificate, Identity identity) {
+	public static String getUrl(CertificateLight certificate, IdentityRef identity) {
 		StringBuilder sb = new StringBuilder(100);
 		sb.append(Settings.getServerContextPath()).append("/certificate/")
 		  .append(certificate.getUuid()).append("/").append(getName(certificate, identity));

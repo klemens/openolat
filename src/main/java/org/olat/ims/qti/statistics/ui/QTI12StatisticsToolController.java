@@ -45,13 +45,14 @@ import org.olat.core.id.context.StateEntry;
 import org.olat.core.util.nodes.INode;
 import org.olat.core.util.resource.OresHelper;
 import org.olat.course.nodes.ArchiveOptions;
-import org.olat.course.nodes.AssessmentToolOptions;
-import org.olat.course.nodes.AssessmentToolOptions.AlternativeToIdentities;
 import org.olat.course.nodes.QTICourseNode;
 import org.olat.course.run.environment.CourseEnvironment;
 import org.olat.course.statistic.StatisticResourceNode;
 import org.olat.ims.qti.statistics.QTIStatisticResourceResult;
 import org.olat.ims.qti.statistics.QTIStatisticSearchParams;
+import org.olat.modules.assessment.AssessmentToolOptions;
+import org.olat.modules.assessment.AssessmentToolOptions.AlternativeToIdentities;
+import org.olat.repository.RepositoryEntry;
 import org.olat.resource.OLATResource;
 
 /**
@@ -153,7 +154,8 @@ public class QTI12StatisticsToolController extends BasicController implements Ac
 
 	private void doLaunchStatistics(UserRequest ureq, WindowControl wControl) {
 		if(result == null) {
-			result = new QTIStatisticResourceResult(courseRes, courseNode, searchParams);
+			RepositoryEntry testEntry = courseNode.getReferencedRepositoryEntry();
+			result = new QTIStatisticResourceResult(courseRes, courseNode, testEntry, searchParams);
 		}
 		
 		GenericTreeModel treeModel = new GenericTreeModel();

@@ -37,6 +37,7 @@ import org.olat.core.logging.Tracing;
 import org.olat.core.util.FileUtils;
 import org.olat.core.util.SimpleHtmlParser;
 import org.olat.core.util.StringHelper;
+import org.olat.core.util.WebappHelper;
 import org.olat.core.util.vfs.VFSItem;
 import org.olat.core.util.vfs.VFSLeaf;
 import org.olat.core.util.vfs.VFSMediaResource;
@@ -387,7 +388,7 @@ public class IFrameDeliveryMapper implements Mapper {
 		// jsMath brute force approach to render latex formulas: add library if
 		// a jsmath class is found in the code and the library is not already in
 		// the header of the page
-		if ((page.indexOf("class=\"math\"") != -1 || page.indexOf("class='math'") != -1) && (origHTMLHead == null || origHTMLHead.indexOf("jsMath/easy/load.js") == -1)) {
+		if ((page.indexOf("<math") > -1 || page.indexOf("class=\"math\"") != -1 || page.indexOf("class='math'") != -1) && (origHTMLHead == null || origHTMLHead.indexOf("jsMath/easy/load.js") == -1)) {
 			sb.appendJsMath();		
 		}
 
@@ -584,9 +585,21 @@ public class IFrameDeliveryMapper implements Mapper {
 		}
 		
 		public void appendJsMath() {
-			appendStaticJs("js/jsMath/easy/load.js");
-			// don't show jsmath info box, already visible in parent window
-			append("<style type='text/css'>#jsMath_button {display:none}</style>");	
+			append("<script type=\"text/javascript\" src=\"");
+			append(WebappHelper.getMathJaxCdn());
+			append("2.6-latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML\"></script>\n");
+			append("<script type=\"text/javascript\">\n");
+			append("MathJax.Hub.Config({\n");	
+			append(" extensions: [\"jsMath2jax.js\"],\n");
+			append(" showProcessingMessages: false,\n");
+			append(" jsMath2jax: {\n");
+			append("   preview: \"none\"\n");
+			append(" },\n");
+			append(" tex2jax: {\n");
+			append("   ignoreClass: \"math\"\n");
+			append(" }\n");
+			append("});");
+			append("</script>");
 		}
 		
 		public void appendGlossary() {

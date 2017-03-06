@@ -34,11 +34,11 @@ import org.olat.core.gui.components.form.flexible.elements.FlexiTableSort;
 import org.olat.core.gui.components.form.flexible.elements.FlexiTableSortOptions;
 import org.olat.core.gui.components.form.flexible.impl.FormBasicController;
 import org.olat.core.gui.components.form.flexible.impl.elements.table.DefaultFlexiColumnModel;
+import org.olat.core.gui.components.form.flexible.impl.elements.table.DefaultFlexiTableCssDelegate;
 import org.olat.core.gui.components.form.flexible.impl.elements.table.FlexiTableColumnModel;
 import org.olat.core.gui.components.form.flexible.impl.elements.table.FlexiTableComponentDelegate;
 import org.olat.core.gui.components.form.flexible.impl.elements.table.FlexiTableDataModelFactory;
 import org.olat.core.gui.components.form.flexible.impl.elements.table.FlexiTableRendererType;
-import org.olat.core.gui.components.form.flexible.impl.elements.table.FlexiTableRowCssDelegate;
 import org.olat.core.gui.components.stack.TooledStackedPanel;
 import org.olat.core.gui.components.velocity.VelocityContainer;
 import org.olat.core.gui.control.Controller;
@@ -76,7 +76,7 @@ import org.springframework.beans.factory.annotation.Autowired;
  * @author gnaegi, gnaegi@frentix.com, http://www.frentix.com
  *
  */
-public class VideoListingController extends FormBasicController implements Activateable2, FlexiTableRowCssDelegate, FlexiTableComponentDelegate {
+public class VideoListingController extends FormBasicController implements Activateable2, FlexiTableComponentDelegate {
 
 	private final TooledStackedPanel toolbarPanel;
 
@@ -125,7 +125,7 @@ public class VideoListingController extends FormBasicController implements Activ
 		row.contextPut("imgUrl", imgUrl);
 		row.setDomReplacementWrapperRequired(false); // sets its own DOM id in velocity container
 		tableEl.setRowRenderer(row, this);
-		tableEl.setRowCssDelegate(this);
+		tableEl.setCssDelegate(new VideoCssDelegate());
 
 		initSorters(tableEl);
 		
@@ -148,11 +148,6 @@ public class VideoListingController extends FormBasicController implements Activ
 	}
 
 	@Override
-	public String getRowCssClass(int pos) {
-		return "o_video_entry";
-	}
-
-	@Override
 	public Iterable<Component> getComponents(int row, Object rowObject) {
 		return null;
 	}
@@ -170,7 +165,9 @@ public class VideoListingController extends FormBasicController implements Activ
 	private void doShowVideo(UserRequest ureq, Long id) {
 		RepositoryEntry videoEntry = repositoryManager.lookupRepositoryEntry(id);
 		if (repositoryManager.isAllowed(ureq, videoEntry).canLaunch()) {
-			VideoDisplayController videoDisplayCtr = new VideoDisplayController(ureq, getWindowControl(), videoEntry, true, true, true, null, false, true, null);
+			
+			boolean readOnly = repositoryManager.createRepositoryEntryStatus(videoEntry.getStatusCode()).isClosed();
+			VideoDisplayController videoDisplayCtr = new VideoDisplayController(ureq, getWindowControl(), videoEntry, true, true, true, true, null, false, true, null, readOnly);
 			listenTo(videoDisplayCtr);
 			toolbarPanel.pushController(videoEntry.getDisplayname(), videoDisplayCtr);
 			// Update launch counter
@@ -232,6 +229,14 @@ public class VideoListingController extends FormBasicController implements Activ
 				}
 			}
 			return new NotFoundMediaResource("Image for resource ID::" + relPath + " not found");
+		}
+	}
+	
+	private static class VideoCssDelegate extends DefaultFlexiTableCssDelegate {
+		@Override
+		public String getRowCssClass(FlexiTableRendererType type, int pos) {
+
+			return "o_video_entry";
 		}
 	}
 }

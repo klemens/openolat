@@ -57,6 +57,10 @@ public class StringOutput extends Writer {
 	public StringOutput() {
 		sb = new StringBuilder();
 	}
+	
+	public char getLastChar() {
+		return sb.length() > 0 ? sb.charAt(sb.length() - 1) : 0;
+	}
 
 	/**
 	 * @param val
@@ -79,6 +83,15 @@ public class StringOutput extends Writer {
 	public StringOutput append(String val, boolean append) {
 		if(append) {
 			sb.append(val);
+		}
+		return this;
+	}
+	
+	public StringOutput append(String valTrue, String valFalse, boolean val) {
+		if(val) {
+			sb.append(valTrue);
+		} else {
+			sb.append(valFalse);
 		}
 		return this;
 	}
@@ -113,6 +126,11 @@ public class StringOutput extends Writer {
 	 */
 	public StringOutput append(int i) {
 		sb.append(i);
+		return this;
+	}
+	
+	public StringOutput append(double d) {
+		sb.append(Double.toString(d));
 		return this;
 	}
 

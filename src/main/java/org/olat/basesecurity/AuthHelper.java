@@ -253,7 +253,7 @@ public class AuthHelper {
 			} else {
 				//fxdiff FXOLAT-151: add eventually the identity to the security group
 				if(!groupDao.hasRole(invitation.getBaseGroup(), identity, GroupRoles.invitee.name())) {
-					groupDao.addMembership(invitation.getBaseGroup(), identity, GroupRoles.invitee.name());
+					groupDao.addMembershipTwoWay(invitation.getBaseGroup(), identity, GroupRoles.invitee.name());
 					DBFactory.getInstance().commit();
 				}
 
@@ -289,7 +289,7 @@ public class AuthHelper {
 		// continue only if user has login permission.
 		if (identity == null) return LOGIN_FAILED;
 		//test if a user may not logon, since he/she is in the PERMISSION_LOGON
-		if (!BaseSecurityManager.getInstance().isIdentityVisible(identity.getName())) {
+		if (!BaseSecurityManager.getInstance().isIdentityVisible(identity)) {
 			log.audit("was denied login");
 			return LOGIN_DENIED;			
 		}
