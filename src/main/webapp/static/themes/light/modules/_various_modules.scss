@@ -43,6 +43,17 @@ a.o_chelp {
 	color: $o-chelp-tooltip-color;
 }
 
+/* drawing */
+.o_draw_circle {
+	border: $o-drawing-border-width solid $o-drawing-border-color;
+	border-radius: 50%;
+	position: absolute !important;
+}
+
+.o_draw_rectangle {
+	border: $o-drawing-border-width solid $o-drawing-border-color;
+	position: absolute !important;
+}
 
 
 /* iframe display controller - used to deliver all course contents */
@@ -433,6 +444,29 @@ ul.o_certificates li {
 .o_tm_red { background-color: #FF3333; }
 .o_tm_green { background-color: #99FF00; }
 
+/* Coaching */
+.o_coaching div#o_main_toolbar.o_toolbar {
+	margin-top: 0px;
+}
+
+.o_eff_statement_details .o_user_infos {
+	margin-top:20px;
+}
+
+/* Assessment */
+div.o_assessment_user_type_filter {
+	display: inline-block;
+	padding: 0.5em;
+	border: 1px solid $gray-lighter;
+	border-radius: $panel-border-radius;
+	
+	div.form-inline {
+		margin-left: 5px;
+		display: inline-block;
+	}
+}
+
+
 /* vitero */
 /* onyx   */
 .vitero_iframe {
@@ -554,5 +588,53 @@ ul.o_certificates li {
 	.jumbotron h1 { 
 		color: $brand-danger;
 	}
-
 }
+
+/* personal mail box tool */
+.o_mail_message {
+	.o_mail_meta {
+		background: #fafafa;
+		border: 1px solid #eee;
+		padding: 5px 10px;
+		h3 {
+			margin-top: 0;
+		}
+	}
+	
+	.o_mail_date,
+	.o_mail_from,
+	.o_mail_recipients {
+		color: $text-muted;
+		font-size: 90%;
+		
+		.o_label {
+			font-weight: bold;
+			margin-right: 1em;
+		}
+		.o_group span {
+			font-weight: bold;
+			&:after {
+				content: ':';
+				margin-right: 0.5em;
+			}
+		}
+		i {
+			margin-left: 1em;
+		}
+
+		ul.list-inline {
+			display: inline;
+			li {
+				padding-right: 0;
+				padding-left: 0;
+			}
+		}	
+	}
+	.o_more {
+		margin-left: 1em;
+	}
+	.o_showAllLink {
+		float: right;
+		font-size: 80%;
+	}
+}	

@@ -35,12 +35,12 @@ import org.olat.core.id.Identity;
 import org.olat.core.id.OLATResourceable;
 import org.olat.course.CourseFactory;
 import org.olat.course.ICourse;
-import org.olat.course.assessment.AssessedIdentityInfosController;
-import org.olat.course.assessment.AssessedIdentityWrapper;
-import org.olat.course.assessment.AssessmentEditController;
 import org.olat.course.assessment.AssessmentHelper;
+import org.olat.course.assessment.ui.tool.AssessedIdentityLargeInfosController;
+import org.olat.course.assessment.ui.tool.AssessmentForm;
 import org.olat.course.nodes.CheckListCourseNode;
 import org.olat.course.run.userview.UserCourseEnvironment;
+import org.olat.modules.assessment.ui.event.AssessmentFormEvent;
 
 /**
  * 
@@ -54,29 +54,33 @@ public class AssessedIdentityOverviewController extends BasicController {
 	private final Link checkListLink, assessmentLink;
 	private final SegmentViewComponent segmentView;
 	
+	private AssessmentForm assessmentForm;
 	private AssessedIdentityCheckListController listCtrl;
-	private AssessmentEditController assessmentCtrl;
 	
 	private final Identity assessedIdentity;
 	private final OLATResourceable courseOres;
 	private final CheckListCourseNode courseNode;
+	private final UserCourseEnvironment coachCourseEnv;
 	private final UserCourseEnvironment assessedUserCourseEnv;
 	
 	private boolean changes = false;
 	
 	public AssessedIdentityOverviewController(UserRequest ureq, WindowControl wControl,
 			Identity assessedIdentity, OLATResourceable courseOres,
-			UserCourseEnvironment assessedUserCourseEnv, CheckListCourseNode courseNode) {
+			UserCourseEnvironment coachCourseEnv, UserCourseEnvironment assessedUserCourseEnv,
+			CheckListCourseNode courseNode) {
 		super(ureq, wControl);
 		
 		this.courseNode = courseNode;
 		this.courseOres = courseOres;
 		this.assessedIdentity = assessedIdentity;
+		this.coachCourseEnv = coachCourseEnv;
 		this.assessedUserCourseEnv = assessedUserCourseEnv;
 		
 		mainVC = createVelocityContainer("user_assessment");
 		
-		AssessedIdentityInfosController identityInfos = new AssessedIdentityInfosController(ureq, wControl, assessedIdentity);
+		AssessedIdentityLargeInfosController identityInfos = new AssessedIdentityLargeInfosController(ureq, wControl, assessedIdentity);
+		listenTo(identityInfos);
 		mainVC.put("identityInfos", identityInfos.getInitialComponent());
 		
 		segmentView = SegmentViewFactory.createSegmentView("segments", mainVC, this);
@@ -108,21 +112,16 @@ public class AssessedIdentityOverviewController extends BasicController {
 				fireEvent(ureq, event);
 			} else if (Event.CHANGED_EVENT == event) {
 				changes = true;
-				if(assessmentCtrl != null) {
-					assessmentCtrl.reloadData(ureq);
-				}
 				fireEvent(ureq, event);
 			} else if(Event.CANCELLED_EVENT == event) {
 				changes = false;
 				fireEvent(ureq, event);
 			}
 
-		} else if(assessmentCtrl == source) {
-			if(Event.DONE_EVENT == event) {
+		} else if(assessmentForm == source) {
+			if(event instanceof AssessmentFormEvent) {
 				changes = true;
 				fireEvent(ureq, event);
-			} else if(Event.CHANGED_EVENT == event) {
-				changes = true;
 			} else if(Event.CANCELLED_EVENT == event) {
 				changes = false;
 				fireEvent(ureq, event);
@@ -150,25 +149,20 @@ public class AssessedIdentityOverviewController extends BasicController {
 	private void doOpenCheckList(UserRequest ureq) {
 		if(listCtrl == null) {
 			listCtrl = new AssessedIdentityCheckListController(ureq, getWindowControl(), assessedIdentity,
-					courseOres, assessedUserCourseEnv, courseNode, true);
+					courseOres, coachCourseEnv, assessedUserCourseEnv, courseNode, true, true);
 			listenTo(listCtrl);
 		}
 		mainVC.put("segmentCmp", listCtrl.getInitialComponent());
 	}
 
 	private void doOpenAssessment(UserRequest ureq) {
-		removeAsListenerAndDispose(assessmentCtrl);
+		removeAsListenerAndDispose(assessmentForm);
 		
 		ICourse course = CourseFactory.loadCourse(courseOres);
 		UserCourseEnvironment uce = AssessmentHelper.createAndInitUserCourseEnvironment(assessedIdentity, course);
-		AssessedIdentityWrapper idWrapper = AssessmentHelper.wrapIdentity(uce, null, courseNode);
-		assessmentCtrl = new AssessmentEditController(ureq, getWindowControl(), null, course, courseNode,
-				idWrapper, false, true, true);
-		assessmentCtrl.setIdentityInfos(false);
-		assessmentCtrl.setCourseNodeInfos(false);
-		assessmentCtrl.setTitleInfos(false);
-		listenTo(assessmentCtrl);
+		assessmentForm = new AssessmentForm(ureq, getWindowControl(), courseNode, coachCourseEnv, uce);
+		listenTo(assessmentForm);
 		
-		mainVC.put("segmentCmp", assessmentCtrl.getInitialComponent());
+		mainVC.put("segmentCmp", assessmentForm.getInitialComponent());
 	}
 }

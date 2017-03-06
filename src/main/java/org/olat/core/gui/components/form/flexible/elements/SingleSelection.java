@@ -49,6 +49,19 @@ public interface SingleSelection extends SelectionElement {
 	 * @return
 	 */
 	public int getSelected();
+	
+	/**
+	 * Set a fix width to the enclosing div/label of the radio elements. Spaced
+	 * had a space after the end div/label.
+	 * 
+	 * @param widthInPercent The width (example: 9)
+	 * @param spaced If true had a trailing space
+	 */
+	public void setWidthInPercent(int width, boolean trailingSpace);
+	
+	public boolean isAllowNoSelection();
+	
+	public void setAllowNoSelection(boolean allowNoSelection);
 
 	
 	/**

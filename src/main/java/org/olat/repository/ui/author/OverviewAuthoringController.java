@@ -39,9 +39,15 @@ import org.olat.core.id.context.BusinessControlFactory;
 import org.olat.core.id.context.ContextEntry;
 import org.olat.core.id.context.StateEntry;
 import org.olat.core.logging.activity.ThreadLocalUserActivityLogger;
+import org.olat.core.util.UserSession;
 import org.olat.core.util.Util;
+import org.olat.core.util.event.EventBus;
+import org.olat.core.util.event.GenericEventListener;
 import org.olat.core.util.resource.OresHelper;
 import org.olat.repository.RepositoryManager;
+import org.olat.repository.RepositoryService;
+import org.olat.repository.controllers.EntryChangedEvent;
+import org.olat.repository.controllers.EntryChangedEvent.Change;
 import org.olat.repository.model.SearchAuthorRepositoryEntryViewParams;
 import org.olat.util.logging.activity.LoggingResourceable;
 
@@ -51,21 +57,28 @@ import org.olat.util.logging.activity.LoggingResourceable;
  * @author srosse, stephane.rosse@frentix.com, http://www.frentix.com
  *
  */
-public class OverviewAuthoringController extends BasicController implements Activateable2 {
+public class OverviewAuthoringController extends BasicController implements Activateable2, GenericEventListener {
 	
 	private MainPanel mainPanel;
 	private final VelocityContainer mainVC;
 	private final SegmentViewComponent segmentView;
 	private Link favoriteLink;
-	private final Link myEntriesLink, searchLink;
+	private final Link myEntriesLink, searchLink, deletedLink;
 	private AuthorListController currentCtrl, markedCtrl, myEntriesCtrl, searchEntriesCtrl;
+	private AuthorDeletedListController deletedEntriesCtrl;
 
-	private boolean isGuestonly;
+	private final boolean isOlatAdmin;
+	private final boolean isGuestOnly;
+	private boolean favoritDirty, myDirty, deletedDirty;
+	private final EventBus eventBus;
 	
 	public OverviewAuthoringController(UserRequest ureq, WindowControl wControl) {
 		super(ureq, wControl);
 		setTranslator(Util.createPackageTranslator(RepositoryManager.class, getLocale(), getTranslator()));
-		isGuestonly = ureq.getUserSession().getRoles().isGuestOnly();
+		
+		UserSession usess = ureq.getUserSession();
+		isGuestOnly = usess.getRoles().isGuestOnly();
+		isOlatAdmin = usess.getRoles().isOLATAdmin();
 		
 		mainPanel = new MainPanel("authoringMainPanel");
 		mainPanel.setDomReplaceable(false);
@@ -75,7 +88,7 @@ public class OverviewAuthoringController extends BasicController implements Acti
 		segmentView = SegmentViewFactory.createSegmentView("segments", mainVC, this);
 		segmentView.setReselect(true);
 		
-		if(!isGuestonly) {
+		if(!isGuestOnly) {
 			favoriteLink = LinkFactory.createLink("search.mark", mainVC, this);
 			segmentView.addSegment(favoriteLink, false);
 		}
@@ -83,20 +96,44 @@ public class OverviewAuthoringController extends BasicController implements Acti
 		segmentView.addSegment(myEntriesLink, false);
 		searchLink = LinkFactory.createLink("search.generic", mainVC, this);
 		segmentView.addSegment(searchLink, false);
+		deletedLink = LinkFactory.createLink("search.deleted", mainVC, this);
+		segmentView.addSegment(deletedLink, false);
+
+		eventBus = ureq.getUserSession().getSingleUserEventCenter();
+		eventBus.registerFor(this, getIdentity(), RepositoryService.REPOSITORY_EVENT_ORES);
 
 		putInitialPanel(mainPanel);
 	}
 	
 	@Override
 	protected void doDispose() {
-		//
+		eventBus.deregisterFor(this, RepositoryService.REPOSITORY_EVENT_ORES);
 	}
 	
+	@Override
+	public void event(Event event) {
+		if(EntryChangedEvent.CHANGE_CMD.equals(event.getCommand()) && event instanceof EntryChangedEvent) {
+			EntryChangedEvent ece = (EntryChangedEvent)event;
+			if(ece.getChange() == Change.addBookmark || ece.getChange() == Change.removeBookmark
+					|| ece.getChange() == Change.added || ece.getChange() == Change.deleted) {
+				if(markedCtrl != null && !markedCtrl.getI18nName().equals(ece.getSource())) {
+					favoritDirty = true;
+				}
+				if(myEntriesCtrl != null && !myEntriesCtrl.getI18nName().equals(ece.getSource())) {
+					myDirty = true;
+				}
+				if(deletedEntriesCtrl != null && !deletedEntriesCtrl.getI18nName().equals(ece.getSource())) {
+					deletedDirty = true;
+				}
+			}
+		}
+	}
+
 	@Override
 	public void activate(UserRequest ureq, List<ContextEntry> entries, StateEntry state) {
 		if(entries == null || entries.isEmpty()) {
 			if(currentCtrl == null) {
-				if(isGuestonly) {
+				if(isGuestOnly) {
 					doOpenMyEntries(ureq);
 					segmentView.select(myEntriesLink);
 				} else {
@@ -109,13 +146,19 @@ public class OverviewAuthoringController extends BasicController implements Acti
 					}
 				}
 			}
+			if(favoritDirty && markedCtrl != null) {
+				markedCtrl.reloadRows();
+			}
+			if(myDirty && myEntriesCtrl != null) {
+				myEntriesCtrl.reloadRows();
+			}
 			addToHistory(ureq, currentCtrl);
 		} else {
 			ContextEntry entry = entries.get(0);
 			String segment = entry.getOLATResourceable().getResourceableTypeName();
 			List<ContextEntry> subEntries = entries.subList(1, entries.size());
 			if("Favorits".equals(segment)) {
-				if(isGuestonly) {
+				if(isGuestOnly) {
 					doOpenMyEntries(ureq).activate(ureq, subEntries, entry.getTransientState());
 					segmentView.select(myEntriesLink);
 				} else {
@@ -128,6 +171,9 @@ public class OverviewAuthoringController extends BasicController implements Acti
 			} else if("Search".equals(segment)) {
 				doSearchEntries(ureq).activate(ureq, subEntries, entry.getTransientState());
 				segmentView.select(searchLink);
+			} else if("Deleted".equals(segment)) {
+				doOpenDeletedEntries(ureq).activate(ureq, subEntries, entry.getTransientState());
+				segmentView.select(deletedLink);
 			} else {
 				doOpenMyEntries(ureq).activate(ureq, subEntries, entry.getTransientState());
 				segmentView.select(myEntriesLink);
@@ -148,6 +194,8 @@ public class OverviewAuthoringController extends BasicController implements Acti
 					doOpenMyEntries(ureq);
 				} else if (clickedLink == searchLink) {
 					doSearchEntries(ureq);
+				} else if(clickedLink == deletedLink) {
+					doOpenDeletedEntries(ureq);
 				}
 			}
 		}
@@ -165,7 +213,10 @@ public class OverviewAuthoringController extends BasicController implements Acti
 			WindowControl bwControl = BusinessControlFactory.getInstance().createBusinessWindowControl(ores, null, getWindowControl());
 			markedCtrl = new AuthorListController(ureq, bwControl, "search.mark", searchParams, false);
 			listenTo(markedCtrl);
+		} else if(favoritDirty) {
+			markedCtrl.reloadRows();
 		}
+		favoritDirty = false;
 		
 		currentCtrl = markedCtrl;
 		addToHistory(ureq, markedCtrl);
@@ -183,8 +234,11 @@ public class OverviewAuthoringController extends BasicController implements Acti
 			ThreadLocalUserActivityLogger.addLoggingResourceInfo(LoggingResourceable.wrapBusinessPath(ores));
 			WindowControl bwControl = BusinessControlFactory.getInstance().createBusinessWindowControl(ores, null, getWindowControl());
 			myEntriesCtrl = new AuthorListController(ureq, bwControl, "search.my", searchParams, false);
-			listenTo(myEntriesCtrl);
+			listenTo(myEntriesCtrl);	
+		} else if(myDirty) {
+			myEntriesCtrl.reloadRows();
 		}
+		myDirty = false;
 		
 		currentCtrl = myEntriesCtrl;
 		addToHistory(ureq, myEntriesCtrl);
@@ -209,5 +263,30 @@ public class OverviewAuthoringController extends BasicController implements Acti
 		addToHistory(ureq, searchEntriesCtrl);
 		mainVC.put("segmentCmp", searchEntriesCtrl.getStackPanel());
 		return searchEntriesCtrl;
+	}
+	
+	private AuthorListController doOpenDeletedEntries(UserRequest ureq) {
+		if(deletedEntriesCtrl == null) {
+			SearchAuthorRepositoryEntryViewParams searchParams
+				= new SearchAuthorRepositoryEntryViewParams(getIdentity(), ureq.getUserSession().getRoles());
+			if(!isOlatAdmin) {
+				searchParams.setOwnedResourcesOnly(true);
+			}
+			searchParams.setDeleted(true);
+	
+			OLATResourceable ores = OresHelper.createOLATResourceableInstance("Deleted", 0l);
+			ThreadLocalUserActivityLogger.addLoggingResourceInfo(LoggingResourceable.wrapBusinessPath(ores));
+			WindowControl bwControl = BusinessControlFactory.getInstance().createBusinessWindowControl(ores, null, getWindowControl());
+			deletedEntriesCtrl = new AuthorDeletedListController(ureq, bwControl, "search.deleted", searchParams, false);
+			listenTo(deletedEntriesCtrl);	
+		} else if(deletedDirty) {
+			deletedEntriesCtrl.reloadRows();
+		}
+		deletedDirty = false;
+		
+		currentCtrl = deletedEntriesCtrl;
+		addToHistory(ureq, deletedEntriesCtrl);
+		mainVC.put("segmentCmp", deletedEntriesCtrl.getStackPanel());
+		return deletedEntriesCtrl;
 	}
 }

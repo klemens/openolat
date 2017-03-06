@@ -24,9 +24,8 @@ import org.olat.core.gui.components.stack.TooledStackedPanel;
 import org.olat.core.gui.control.WindowControl;
 import org.olat.core.id.Identity;
 import org.olat.core.util.StringHelper;
-import org.olat.course.CourseFactory;
-import org.olat.course.ICourse;
-import org.olat.course.assessment.IdentityAssessmentEditController;
+import org.olat.course.assessment.ui.tool.AssessmentIdentityCourseController;
+import org.olat.course.run.userview.UserCourseEnvironment;
 import org.olat.group.ui.main.AbstractMemberListController;
 import org.olat.group.ui.main.MemberView;
 import org.olat.group.ui.main.SearchMembersParams;
@@ -38,14 +37,16 @@ import org.olat.repository.RepositoryEntry;
  */
 public class MemberListController extends AbstractMemberListController {
 
-	private IdentityAssessmentEditController identityAssessmentController;
+	private AssessmentIdentityCourseController identityAssessmentController;
 	
 	private final SearchMembersParams searchParams;
+	private final UserCourseEnvironment coachCourseEnv;
 	
 	public MemberListController(UserRequest ureq, WindowControl wControl, TooledStackedPanel stackPanel,
-			RepositoryEntry repoEntry, SearchMembersParams searchParams, String infos) {
-		super(ureq, wControl, repoEntry, "all_member_list", stackPanel);
+			RepositoryEntry repoEntry, UserCourseEnvironment coachCourseEnv, SearchMembersParams searchParams, String infos) {
+		super(ureq, wControl, repoEntry, "all_member_list", coachCourseEnv.isCourseReadOnly(), stackPanel);
 		this.searchParams = searchParams;
+		this.coachCourseEnv = coachCourseEnv;
 		
 		if(StringHelper.containsNonWhitespace(infos)) {
 			flc.contextPut("infos", infos);
@@ -57,10 +58,8 @@ public class MemberListController extends AbstractMemberListController {
 		removeAsListenerAndDispose(identityAssessmentController);
 		
 		Identity assessedIdentity = securityManager.loadIdentityByKey(member.getIdentityKey());
-		ICourse course = CourseFactory.loadCourse(repoEntry);
-		
-		identityAssessmentController = new IdentityAssessmentEditController(getWindowControl(),ureq, toolbarPanel,
-				assessedIdentity, course, true, false, true);
+		identityAssessmentController = new AssessmentIdentityCourseController(ureq, getWindowControl(), toolbarPanel,
+				repoEntry, coachCourseEnv, assessedIdentity);
 		listenTo(identityAssessmentController);
 		
 		String displayName = userManager.getUserDisplayName(assessedIdentity);

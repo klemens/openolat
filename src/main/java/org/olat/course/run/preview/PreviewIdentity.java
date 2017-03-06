@@ -79,10 +79,20 @@ public final class PreviewIdentity implements Identity, User {
 	public String getName() {
 		return "JaneDoe";
 	}
+	
+	@Override
+	public String getEmail() {
+		return data.get(UserConstants.EMAIL);
+	}
 
 	@Override
-	public void setName(String loginName) {
-		//
+	public String getFirstName() {
+		return data.get(UserConstants.FIRSTNAME);
+	}
+
+	@Override
+	public String getLastName() {
+		return data.get(UserConstants.LASTNAME);
 	}
 
 	/**
@@ -144,11 +154,6 @@ public final class PreviewIdentity implements Identity, User {
 	@Override
 	public Integer getStatus() {
 		return Identity.STATUS_ACTIV;
-	}
-
-	@Override
-	public void setStatus(Integer newStatus) {
-		//
 	}
 	
 	/**

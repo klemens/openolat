@@ -121,6 +121,7 @@ public class RepositorySearchController extends BasicController implements Activ
 		vc.put("searchform",searchForm.getInitialComponent());
 		
 		TableGuiConfiguration tableConfig = new TableGuiConfiguration();
+		tableConfig.setSuppressDirtyFormWarning(true);
 		if (selectButtonLabel != null) {
 			tableConfig.setPreferencesOffered(true, "repositorySearchResult_v2");
 		}
@@ -400,7 +401,7 @@ public class RepositorySearchController extends BasicController implements Activ
 	 * @param restrictedTypes
 	 * @param ureq
 	 */
-	protected void doSearchByTypeLimitAccess(String[] restrictedTypes, UserRequest ureq) {
+	public void doSearchByTypeLimitAccess(String[] restrictedTypes, UserRequest ureq) {
 		searchType = null;
 		RepositoryManager rm = RepositoryManager.getInstance();
 		List<String> types = Arrays.asList(restrictedTypes);
@@ -604,8 +605,9 @@ public class RepositorySearchController extends BasicController implements Activ
 				List<RepositoryEntry> newEntries = new ArrayList<RepositoryEntry>();
 				for (int i = 0; i < repoTableModel.getRowCount(); i++) {
 					RepositoryEntry foo = repoTableModel.getObject(i);
-					if (!foo.getKey().equals(ecv.getChangedEntryKey()))
+					if (!foo.getKey().equals(ecv.getRepositoryEntryKey())) {
 						newEntries.add(foo);
+					}
 				}
 				repoTableModel.setObjects(newEntries);
 				tableCtr.modelChanged();

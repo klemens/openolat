@@ -30,7 +30,6 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 
-import org.olat.core.CoreSpringFactory;
 import org.olat.core.commons.fullWebApp.LayoutMain3ColsController;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.Component;
@@ -56,12 +55,14 @@ import org.olat.core.gui.control.generic.messages.MessageController;
 import org.olat.core.gui.control.generic.messages.MessageUIFactory;
 import org.olat.core.gui.control.generic.textmarker.GlossaryMarkupItemController;
 import org.olat.core.gui.control.generic.title.TitledWrapperController;
+import org.olat.core.gui.control.winmgr.JSCommand;
 import org.olat.core.id.Identity;
 import org.olat.core.id.OLATResourceable;
 import org.olat.core.id.context.ContextEntry;
 import org.olat.core.id.context.StateEntry;
 import org.olat.core.logging.activity.CourseLoggingAction;
 import org.olat.core.logging.activity.ThreadLocalUserActivityLogger;
+import org.olat.core.util.Formatter;
 import org.olat.core.util.Util;
 import org.olat.core.util.coordinate.CoordinatorManager;
 import org.olat.core.util.event.GenericEventListener;
@@ -76,7 +77,6 @@ import org.olat.course.ICourse;
 import org.olat.course.assessment.AssessmentChangedEvent;
 import org.olat.course.assessment.AssessmentMode;
 import org.olat.course.assessment.AssessmentMode.Status;
-import org.olat.course.assessment.manager.UserCourseInformationsManager;
 import org.olat.course.config.CourseConfig;
 import org.olat.course.editor.PublishEvent;
 import org.olat.course.groupsandrights.CourseGroupManager;
@@ -183,10 +183,6 @@ public class RunMainController extends MainLayoutBasicController implements Gene
 		luTree.setElementCssClass("o_course_menu");
 		contentP = new Panel("building_block_content");
 
-		// preload user assessment data in assessment properties cache to speed up
-		// course loading
-		course.getCourseEnvironment().getAssessmentManager().preloadCache(identity);
-
 		// build up the running structure for this user;
 		// get all group memberships for this course
 		uce = loadUserCourseEnvironment(ureq, reSecurity);
@@ -209,9 +205,6 @@ public class RunMainController extends MainLayoutBasicController implements Gene
 		navHandler = new NavigationHandler(uce, treeFilter, false);
 
 		updateTreeAndContent(ureq, currentCourseNode, null);
-		
-		//set the launch date after the evaluation
-		setLaunchDates();
 
 		if (courseRepositoryEntry != null && repositoryManager.createRepositoryEntryStatus(courseRepositoryEntry.getStatusCode()).isClosed()) {
 			wControl.setWarning(translate("course.closed"));
@@ -258,6 +251,16 @@ public class RunMainController extends MainLayoutBasicController implements Gene
 		// it is to correctly apply external links using course-internal links via javascript
 		coursemain.contextPut("courserepokey", courseRepositoryEntry.getKey());
 		coursemain.put("coursemain", columnLayoutCtr.getInitialComponent());
+		// on initial call we have to set the data-nodeid manually. later it
+		// will be updated by updateCourseDataAttributes() automatically, but
+		// only when course visible to users (menu tree not null)
+		if (treeModel != null) {
+			String initNodeId = currentCourseNode != null ? currentCourseNode.getIdent() : null;
+			if (initNodeId == null) {
+				initNodeId = treeModel.getRootNode().getIdent();
+			}
+			coursemain.contextPut("initNodeId", initNodeId);
+		}
 		putInitialPanel(coursemain);
 
 		// disposed message controller must be created beforehand
@@ -318,7 +321,8 @@ public class RunMainController extends MainLayoutBasicController implements Gene
 				coachedGroups, participatedGroups, waitingLists,
 				reSecurity.isCourseCoach() || reSecurity.isGroupCoach(),
 				reSecurity.isEntryAdmin(),
-				reSecurity.isCourseParticipant() || reSecurity.isGroupParticipant());
+				reSecurity.isCourseParticipant() || reSecurity.isGroupParticipant(),
+				reSecurity.isReadOnly());
 	}
 	
 	/**
@@ -347,13 +351,9 @@ public class RunMainController extends MainLayoutBasicController implements Gene
 		} else {
 			waitingLists = Collections.emptyList();
 		}
+		uce.setCourseReadOnly(reSecurity.isReadOnly());
 		uce.setGroupMemberships(coachedGroups, participatedGroups, waitingLists);
 		needsRebuildAfterRunDone = true;
-	}
-	
-	private void setLaunchDates() {
-		UserCourseInformationsManager userCourseInfoMgr = CoreSpringFactory.getImpl(UserCourseInformationsManager.class);
-		userCourseInfoMgr.updateUserCourseInformations(uce.getCourseEnvironment().getCourseGroupManager().getCourseResource(), getIdentity());
 	}
 	
 	private CourseNode updateAfterChanges(CourseNode courseNode) {
@@ -394,6 +394,10 @@ public class RunMainController extends MainLayoutBasicController implements Gene
 		}
 		previousLink.setEnabled(hasPrevious);
 		nextLink.setEnabled(hasNext);
+	}
+	
+	protected boolean updateCurrentCourseNode(UserRequest ureq) {
+		return updateTreeAndContent(ureq, getCurrentCourseNode(), "", null, null);
 	}
 
 	/**
@@ -460,6 +464,7 @@ public class RunMainController extends MainLayoutBasicController implements Gene
 		}
 		
 		updateNextPrevious();
+		updateCourseDataAttributes(nclr.getCalledCourseNode());
 		updateLastUsage(nclr.getCalledCourseNode());
 		return true;
 	}
@@ -470,6 +475,24 @@ public class RunMainController extends MainLayoutBasicController implements Gene
 			if(referencedRe != null) {
 				repositoryService.setLastUsageNowFor(referencedRe);
 			}
+		}
+	}
+	
+	private void updateCourseDataAttributes(CourseNode calledCourseNode) {
+		StringBuilder sb = new StringBuilder();
+		sb.append("try {var oocourse = jQuery('.o_course_run');");
+		if (calledCourseNode == null) {
+			sb.append("oocourse.removeAttr('data-nodeid');");						
+		} else {
+			sb.append("oocourse.attr('data-nodeid','");
+			sb.append(Formatter.escapeDoubleQuotes(calledCourseNode.getIdent()));
+			sb.append("');");			
+		}
+		sb.append("oocourse=null;}catch(e){}");
+		JSCommand jsc = new JSCommand(sb.toString());
+		WindowControl wControl = getWindowControl();
+		if (wControl != null && wControl.getWindowBackOffice() != null) {
+			wControl.getWindowBackOffice().sendCommandTo(jsc);			
 		}
 	}
 
@@ -491,7 +514,7 @@ public class RunMainController extends MainLayoutBasicController implements Gene
 		} else if(previousLink == source) {
 			doPrevious(ureq);
 		} else if (source == luTree) {
-			if (event.getCommand().equals(MenuTree.COMMAND_TREENODE_CLICKED)) {
+			if (event.getCommand().equals(MenuTree.COMMAND_TREENODE_CLICKED) || event.getCommand().equals(MenuTree.COMMAND_TREENODE_EXPANDED)) {
 				TreeEvent tev = (TreeEvent) event;
 				doNodeClick(ureq, tev);
 			}
@@ -512,7 +535,7 @@ public class RunMainController extends MainLayoutBasicController implements Gene
 		}
 	}
 	
-	protected void toolCtrDone(UserRequest ureq) {
+	protected void toolCtrDone(UserRequest ureq, RepositoryEntrySecurity reSecurity) {
 		if (isInEditor) {
 			isInEditor = false; // for clarity
 			if (needsRebuildAfterPublish) {
@@ -520,9 +543,7 @@ public class RunMainController extends MainLayoutBasicController implements Gene
 				
 			  // rebuild up the running structure for this user, after publish;
 				course = CourseFactory.loadCourse(course.getResourceableId());
-				uce = new UserCourseEnvironmentImpl(ureq.getUserSession().getIdentityEnvironment(), course.getCourseEnvironment(), getWindowControl(),
-						uce.getCoachedGroups(), uce.getParticipatingGroups(), uce.getWaitingLists(),
-						null, null, null);
+				uce = loadUserCourseEnvironment(ureq, reSecurity);
 				// build score now
 				uce.getScoreAccounting().evaluateAll();
 				navHandler = new NavigationHandler(uce, treeFilter, false);
@@ -641,7 +662,8 @@ public class RunMainController extends MainLayoutBasicController implements Gene
 			getWindowControl().setWarning(translate("msg.nodenotavailableanymore"));
 			// go to root since the current node is no more visible 
 			updateTreeAndContent(ureq, null, null);
-			updateNextPrevious();					
+			updateNextPrevious();
+			updateCourseDataAttributes(nclr.getCalledCourseNode());
 			return;
 		}
 		// a click to a subtree's node
@@ -662,6 +684,7 @@ public class RunMainController extends MainLayoutBasicController implements Gene
 				luTree.setOpenNodeIds(nclr.getOpenNodeIds());
 			}
 			updateNextPrevious();
+			updateCourseDataAttributes(nclr.getCalledCourseNode());
 			return;
 		}
 
@@ -692,6 +715,7 @@ public class RunMainController extends MainLayoutBasicController implements Gene
 		}
 		
 		updateNextPrevious();
+		updateCourseDataAttributes(nclr.getCalledCourseNode());
 	}
 
 
@@ -822,6 +846,11 @@ public class RunMainController extends MainLayoutBasicController implements Gene
 	@Override
 	public void activate(UserRequest ureq, List<ContextEntry> entries, StateEntry state) {
 		if(entries == null || entries.isEmpty()) {
+			if(currentNodeController != null) {
+				addToHistory(ureq, currentNodeController);
+			} else {
+				addToHistory(ureq, this);
+			}
 			return;
 		}
 		

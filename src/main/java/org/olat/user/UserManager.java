@@ -30,6 +30,7 @@ import java.util.List;
 import java.util.Map;
 
 import org.olat.basesecurity.IdentityNames;
+import org.olat.basesecurity.IdentityRef;
 import org.olat.core.gui.translator.Translator;
 import org.olat.core.id.Identity;
 import org.olat.core.id.User;
@@ -83,14 +84,6 @@ public abstract class UserManager extends BasicManager {
 	 */
 	public abstract User createUser(String firstName, String lastName, String eMail);
 
-	/**
-	 * @param firstName
-	 * @param lastName
-	 * @param email
-	 * @return a persistant User.
-	 */
-	public abstract User createAndPersistUser(String firstName, String lastName, String email);
-	
 	public abstract List<Long> findUserKeyWithProperty(String propName, String propValue);
 	
 	public abstract Identity findIdentityKeyWithProperty(String propName, String propValue);
@@ -194,12 +187,6 @@ public abstract class UserManager extends BasicManager {
 		return userPropertiesConfig;
 	}
 
-	/**
-	 * Delete all user-properties which are deletable.
-	 * @param user
-	 */
-	public abstract User deleteUserProperties(User user, boolean keepUserEmail);
-
 	public List<UserPropertyHandler> getUserPropertyHandlersFor(String usageIdentifyer, boolean isAdministrativeUser) {
 		return userPropertiesConfig.getUserPropertyHandlersFor(usageIdentifyer, isAdministrativeUser);
 	}
@@ -262,6 +249,8 @@ public abstract class UserManager extends BasicManager {
 	 */
 	public abstract String getUserDisplayName(Identity identity);
 	
+	public abstract String getUserDisplayName(IdentityRef identity);
+	
 	/**
 	 * 
 	 * @param identityKeys
@@ -276,6 +265,8 @@ public abstract class UserManager extends BasicManager {
 	 * @return
 	 */
 	public abstract String getUserDisplayName(IdentityNames user);
+	
+	public abstract String getUserDisplayName(String firstName, String lastName);
 	
 	public abstract String getUserDisplayName(String username);
 	

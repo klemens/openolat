@@ -48,7 +48,6 @@ import org.olat.core.gui.control.Event;
 import org.olat.core.gui.control.WindowControl;
 import org.olat.core.gui.control.creator.ControllerCreator;
 import org.olat.core.gui.control.generic.closablewrapper.CloseableModalController;
-import org.olat.core.gui.media.MediaResource;
 import org.olat.core.helpers.Settings;
 import org.olat.core.id.Identity;
 import org.olat.core.id.UserConstants;
@@ -319,19 +318,19 @@ public class MembersCourseNodeRunController extends FormBasicController {
 	}
 	
 	private Member createMember(Identity identity) {
-		MediaResource rsrc = portraitManager.getSmallPortraitResource(identity.getName());
-		
-		String portraitCssClass = null;
+		boolean hasPortrait = portraitManager.hasPortrait(identity.getName());
+
+		String portraitCssClass;
 		String gender = identity.getUser().getProperty(UserConstants.GENDER, Locale.ENGLISH);
-		if (gender.equalsIgnoreCase("male")) {
+		if ("male".equalsIgnoreCase(gender)) {
 			portraitCssClass = DisplayPortraitManager.DUMMY_MALE_BIG_CSS_CLASS;
-		} else if (gender.equalsIgnoreCase("female")) {
+		} else if ("female".equalsIgnoreCase(gender)) {
 			portraitCssClass = DisplayPortraitManager.DUMMY_FEMALE_BIG_CSS_CLASS;
 		} else {
 			portraitCssClass = DisplayPortraitManager.DUMMY_BIG_CSS_CLASS;
 		}
 		String fullname = userManager.getUserDisplayName(identity);
-		return new Member(identity, fullname, userPropertyHandlers, getLocale(), rsrc != null, portraitCssClass);
+		return new Member(identity, fullname, userPropertyHandlers, getLocale(), hasPortrait, portraitCssClass);
 	}
 	
 	@Override
@@ -468,7 +467,7 @@ public class MembersCourseNodeRunController extends FormBasicController {
 			@Override
 			public Controller createController(UserRequest lureq, WindowControl lwControl) {
 				lwControl.getWindowBackOffice().getChiefController().addBodyCssClass("o_cmembers_print");
-				return new MembersPrintController(lureq, lwControl, courseEnv, avatarBaseURL, userPropertyHandlers,
+				return new MembersPrintController(lureq, lwControl, courseEnv, userPropertyHandlers,
 						ownerList, coachList, participantList);
 			}					
 		};

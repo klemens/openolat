@@ -33,7 +33,7 @@ import org.olat.core.commons.services.notifications.Publisher;
 import org.olat.core.id.Identity;
 import org.olat.core.util.xml.XStreamHelper;
 import org.olat.course.assessment.EfficiencyStatement;
-import org.olat.course.assessment.EfficiencyStatementManager;
+import org.olat.course.assessment.manager.EfficiencyStatementManager;
 import org.olat.course.assessment.model.UserCourseInfosImpl;
 import org.olat.course.assessment.model.UserEfficiencyStatementImpl;
 import org.olat.properties.Property;
@@ -159,7 +159,7 @@ public class OLATUpgrade_8_1_0 extends OLATUpgrade {
 		String repoKeyStr = property.getName();
 		Long repoKey = new Long(repoKeyStr);
 		RepositoryEntry re = repositoryManager.lookupRepositoryEntry(repoKey, false);
-		UserEfficiencyStatementImpl impl = efficiencyStatementManager.getUserEfficiencyStatementFull(repoKey, property.getIdentity());
+		UserEfficiencyStatementImpl impl = efficiencyStatementManager.getUserEfficiencyStatementFull(re, property.getIdentity());
 		if(impl != null) {
 			return;
 		}

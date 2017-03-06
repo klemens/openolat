@@ -84,15 +84,6 @@ public class EMailIdentity implements Identity {
 		return null;
 	}
 
-	@Override
-	public void setStatus(Integer newStatus) {/**/
-	}
-
-	@Override
-	public void setName(String name) {/**/
-	}
-	
-
 	private class EMailUser implements User, ModifiedInfo {
 
 		private static final long serialVersionUID = 7260225880639460228L;
@@ -105,14 +96,32 @@ public class EMailIdentity implements Identity {
 			data.put(UserConstants.EMAIL, email);
 		}
 
+		@Override
 		public Long getKey() {
 			return null;
 		}
 
+		@Override
 		public boolean equalsByPersistableKey(Persistable persistable) {
 			return this == persistable;
 		}
 
+		@Override
+		public String getFirstName() {
+			return data.get(UserConstants.FIRSTNAME);
+		}
+
+		@Override
+		public String getLastName() {
+			return data.get(UserConstants.LASTNAME);
+		}
+		
+		@Override
+		public String getEmail() {
+			return data.get(UserConstants.EMAIL);
+		}
+
+		@Override
 		public Date getLastModified() {
 			return null;
 		}
@@ -122,29 +131,36 @@ public class EMailIdentity implements Identity {
 			//
 		}
 
+		@Override
 		public Date getCreationDate() {
 			return null;
 		}
 
+		@Override
 		public void setProperty(String propertyName, String propertyValue) {
 			//
 		}
 
+		@Override
 		public void setPreferences(Preferences prefs) {
 			//
 		}
 
-		public String getProperty(String propertyName, Locale locale) {
+		@Override
+		public String getProperty(String propertyName, Locale propLocale) {
 			return data.get(propertyName);
 		}
 
+		@Override
 		public void setIdentityEnvironmentAttributes(Map<String, String> identEnvAttribs) {/**/
 		}
 
-		public String getPropertyOrIdentityEnvAttribute(String propertyName, Locale locale) {
+		@Override
+		public String getPropertyOrIdentityEnvAttribute(String propertyName, Locale propLocale) {
 			return data.get(propertyName);
 		}
 
+		@Override
 		public Preferences getPreferences() {
 			return prefs;
 		}

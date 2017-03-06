@@ -46,7 +46,6 @@ import org.olat.core.helpers.Settings;
 import org.olat.core.logging.OLog;
 import org.olat.core.logging.StartupException;
 import org.olat.core.logging.Tracing;
-import org.olat.core.util.i18n.I18nModule;
 import org.springframework.beans.factory.BeanInitializationException;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.core.io.Resource;
@@ -76,7 +75,7 @@ public class WebappHelper implements Initializable, Destroyable, ServletContextA
 	private static Map<String, String> mailConfig = new HashMap<String, String>(6);
 	private static long timeOfServerStartup = System.currentTimeMillis();
 	
-	
+	private static String mathJaxCdn;
 	private static String mobileContext;
 	
 	/** need to set this at least once before the actual request, since we cannot extract it from the servletContext, 
@@ -239,12 +238,10 @@ public class WebappHelper implements Initializable, Destroyable, ServletContextA
 		File fil = new File(fullPathToSrc);
 		if(fil.exists()){
 			log.debug("Path to source set to: " + fullPathToSrc);
-		}else{
-			if (Settings.isDebuging() || I18nModule.isTransToolEnabled()) {
-				log.error("Path to source wrong, debugging may not work as expected: " + fullPathToSrc, new Exception("getSourcePath"));
-			} else {
-				log.info("Path to source not valid: " + fullPathToSrc);
-			}
+		} else if (Settings.isDebuging()) {
+			log.error("Path to source wrong, debugging may not work as expected: " + fullPathToSrc, new Exception("getSourcePath"));
+		} else {
+			log.info("Path to source not valid: " + fullPathToSrc);
 		}
 		
 		return fullPathToSrc;
@@ -297,6 +294,14 @@ public class WebappHelper implements Initializable, Destroyable, ServletContextA
 		}
 		
 		WebappHelper.mobileContext = mobileContext;
+	}
+	
+	public static String getMathJaxCdn() {
+		return mathJaxCdn;
+	}
+
+	public void setMathJaxCdn(String mathJaxCdn) {
+		WebappHelper.mathJaxCdn = mathJaxCdn;
 	}
 
 	public void setFullPathToSrc(String fullPathToSrc) {

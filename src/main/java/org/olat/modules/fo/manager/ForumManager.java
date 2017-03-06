@@ -25,6 +25,7 @@
 
 package org.olat.modules.fo.manager;
 
+import java.io.File;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashMap;
@@ -39,8 +40,10 @@ import javax.persistence.TemporalType;
 import javax.persistence.TypedQuery;
 
 import org.olat.basesecurity.IdentityRef;
+import org.olat.core.commons.modules.bc.FolderConfig;
 import org.olat.core.commons.modules.bc.vfs.OlatRootFolderImpl;
 import org.olat.core.commons.persistence.DB;
+import org.olat.core.commons.persistence.PersistenceHelper;
 import org.olat.core.commons.services.mark.MarkingService;
 import org.olat.core.commons.services.mark.impl.MarkImpl;
 import org.olat.core.commons.services.text.TextService;
@@ -49,15 +52,20 @@ import org.olat.core.id.OLATResourceable;
 import org.olat.core.logging.AssertException;
 import org.olat.core.logging.OLog;
 import org.olat.core.logging.Tracing;
+import org.olat.core.util.Encoder;
+import org.olat.core.util.Encoder.Algorithm;
+import org.olat.core.util.StringHelper;
 import org.olat.core.util.coordinate.CoordinatorManager;
 import org.olat.core.util.resource.OresHelper;
 import org.olat.core.util.vfs.VFSContainer;
 import org.olat.core.util.vfs.VFSItem;
+import org.olat.login.LoginModule;
 import org.olat.modules.fo.Forum;
 import org.olat.modules.fo.ForumChangedEvent;
 import org.olat.modules.fo.Message;
 import org.olat.modules.fo.MessageLight;
 import org.olat.modules.fo.MessageRef;
+import org.olat.modules.fo.Pseudonym;
 import org.olat.modules.fo.QuoteAndTagFilter;
 import org.olat.modules.fo.Status;
 import org.olat.modules.fo.model.ForumImpl;
@@ -66,6 +74,8 @@ import org.olat.modules.fo.model.ForumUserStatistics;
 import org.olat.modules.fo.model.MessageImpl;
 import org.olat.modules.fo.model.MessageLightImpl;
 import org.olat.modules.fo.model.MessageStatistics;
+import org.olat.modules.fo.model.PseudonymImpl;
+import org.olat.modules.fo.model.PseudonymStatistics;
 import org.olat.modules.fo.model.ReadMessageImpl;
 import org.olat.modules.fo.ui.MessagePeekview;
 import org.olat.user.UserManager;
@@ -83,6 +93,8 @@ public class ForumManager {
 	private static ForumManager INSTANCE;
 	@Autowired
 	private DB dbInstance;
+	@Autowired
+	private LoginModule loginModule;
 	@Autowired
 	private TextService txtService;
 	@Autowired
@@ -348,6 +360,90 @@ public class ForumManager {
 				.getResultList();
 		return messages == null || messages.isEmpty() ? null : messages.get(0);
 	}
+
+	public boolean isPseudonymProtected(String pseudonym) {
+		StringBuilder query = new StringBuilder();
+		query.append("select pseudonym.key from fopseudonym as pseudo")
+	     .append(" where lower(pseudo.pseudonym)=:pseudonym");
+		
+		List<Long> pseudonyms = dbInstance.getCurrentEntityManager()
+				.createQuery(query.toString(), Long.class)
+				.setParameter("pseudonym", pseudonym.toLowerCase())
+				.setFirstResult(0)
+				.setMaxResults(1)
+				.getResultList();
+		return pseudonyms != null && pseudonyms.size() > 0 && pseudonyms.get(0) != null;
+	}
+	
+	public boolean isPseudonymInUseInForums(String pseudonym) {
+		StringBuilder query = new StringBuilder();
+		query.append("select msg.key from fomessage as msg")
+		     .append(" where lower(msg.pseudonym)=:pseudonym");
+		
+		List<Long> pseudonyms = dbInstance.getCurrentEntityManager()
+				.createQuery(query.toString(), Long.class)
+				.setParameter("pseudonym", pseudonym.toLowerCase())
+				.setFirstResult(0)
+				.setMaxResults(1)
+				.getResultList();
+		return pseudonyms != null && pseudonyms.size() > 0 && pseudonyms.get(0) != null;
+	}
+	
+	public List<Pseudonym> getPseudonyms(String pseudonym) {
+		StringBuilder query = new StringBuilder();
+		query.append("select pseudo from fopseudonym as pseudo")
+		     .append(" where lower(pseudo.pseudonym)=:pseudonym");
+		
+		return dbInstance.getCurrentEntityManager()
+				.createQuery(query.toString(), Pseudonym.class)
+				.setParameter("pseudonym", pseudonym.toLowerCase())
+				.getResultList();
+	}
+	
+	public boolean authenticatePseudonym(Pseudonym pseudonym, String password) {
+		if(pseudonym.getAlgorithm() != null) {
+			//check if update is needed
+			Algorithm algorithm = Algorithm.valueOf(pseudonym.getAlgorithm());
+			String credentials = Encoder.encrypt(password, pseudonym.getSalt(), algorithm);
+			return credentials.equals(pseudonym.getCredential());
+		}
+		return false;
+	}
+	
+	public Pseudonym createProtectedPseudonym(String pseudonym, String password) {
+		PseudonymImpl pseudo = new PseudonymImpl();
+		pseudo.setCreationDate(new Date());
+		pseudo.setPseudonym(pseudonym);
+		
+		Algorithm algorithm = loginModule.getDefaultHashAlgorithm();
+		String salt = algorithm.isSalted() ? Encoder.getSalt() : null;
+		String newCredentials = Encoder.encrypt(password, salt, algorithm);
+		pseudo.setSalt(salt);
+		pseudo.setCredential(newCredentials);
+		pseudo.setAlgorithm(algorithm.name());
+		
+		dbInstance.getCurrentEntityManager().persist(pseudo);
+		return pseudo;
+	}
+	
+
+	public Pseudonym getPseudonymByKey(Long key) {
+		StringBuilder query = new StringBuilder();
+		query.append("select pseudo from fopseudonym as pseudo")
+		     .append(" where pseudo.key=:pseudonymKey");
+		
+		List<Pseudonym> pseudonyms = dbInstance.getCurrentEntityManager()
+				.createQuery(query.toString(), Pseudonym.class)
+				.setParameter("pseudonymKey", key)
+				.getResultList();
+		return pseudonyms.size() > 0 ? pseudonyms.get(0) : null;
+	}
+	
+	public void deletePseudonym(Pseudonym pseudonym) {
+		Pseudonym reloadedPseudonym = dbInstance.getCurrentEntityManager()
+			.getReference(PseudonymImpl.class, pseudonym.getKey());
+		dbInstance.getCurrentEntityManager().remove(reloadedPseudonym);
+	}
 	
 	public String getPseudonym(Forum forum, IdentityRef identity) {
 		StringBuilder query = new StringBuilder();
@@ -360,6 +456,35 @@ public class ForumManager {
 				.setParameter("forumKey", forum.getKey())
 				.getResultList();
 		return pseudonyms == null || pseudonyms.isEmpty() ? null : pseudonyms.get(0);
+	}
+	
+	public List<PseudonymStatistics> getPseudonymStatistics(String searchString) {
+		StringBuilder sb = new StringBuilder();
+		sb.append("select pseudo.key, pseudo.creationDate, pseudo.pseudonym, count(msg.key)")
+		     .append(" from fopseudonym as pseudo")
+		     .append(" left join fomessage as msg on (msg.pseudonym=pseudo.pseudonym)");
+		if(StringHelper.containsNonWhitespace(searchString)) {
+			sb.append(" where ");
+			PersistenceHelper.appendFuzzyLike(sb, "pseudo.pseudonym", "pseudonym", dbInstance.getDbVendor());
+		}
+		sb.append(" group by pseudo.key, pseudo.creationDate, pseudo.pseudonym");
+		
+		TypedQuery<Object[]> query = dbInstance.getCurrentEntityManager()
+				.createQuery(sb.toString(), Object[].class);
+		if(StringHelper.containsNonWhitespace(searchString)) {
+			query.setParameter("pseudonym", PersistenceHelper.makeFuzzyQueryString(searchString));
+		}
+
+		List<Object[]> objects = query.getResultList();
+		List<PseudonymStatistics> stats = new ArrayList<>(objects.size());
+		for(Object[] object:objects) {
+			Long key = (Long)object[0];
+			Date creationDate = (Date)object[1];
+			String pseudonym = (String)object[2];
+			Long numOfMessages = PersistenceHelper.extractLong(object, 3);
+			stats.add(new PseudonymStatistics(key, creationDate, pseudonym, numOfMessages));
+		}
+		return stats;
 	}
 	
 	public List<MessageLight> getLightMessagesByForum(Forum forum) {
@@ -809,6 +934,15 @@ public class ForumManager {
 		return null;
 	}
 	
+	public File getMessageDirectory(Long forumKey, Long messageKey, boolean create) {
+		File forumDir = getForumDirectory(forumKey);
+		File messageDir = new File(forumDir, messageKey.toString());
+		if(create && !messageDir.exists()) {
+			messageDir.mkdirs();
+		}
+		return messageDir;
+	}
+	
 	private void moveMessageContainer(Long fromForumKey, Long fromMessageKey, Long toForumKey, Long toMessageKey) {
 		// copy message container
 		VFSContainer toMessageContainer = getMessageContainer(toForumKey, toMessageKey);
@@ -838,6 +972,15 @@ public class ForumManager {
 		}
 		log.error("The following forum container is not a directory: " + forumContainer);
 		return null;
+	}
+	
+	public File getForumDirectory(Long forumKey) {
+		File forumsDir = new File(FolderConfig.getCanonicalRoot(), "forum");
+		File forumDir = new File(forumsDir,forumKey.toString());
+		if(!forumDir.exists()) {
+			forumDir.mkdirs();
+		}
+		return forumDir;
 	}
 	
 	/**

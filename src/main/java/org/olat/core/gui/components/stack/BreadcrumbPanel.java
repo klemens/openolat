@@ -29,6 +29,8 @@ import org.olat.core.gui.control.Controller;
  */
 public interface BreadcrumbPanel extends StackedPanel {
 	
+	public int size();
+	
 	/**
 	 * Dismiss all controller and replace the root
 	 * @param displayName
@@ -37,14 +39,57 @@ public interface BreadcrumbPanel extends StackedPanel {
 	public void rootController(String displayName, Controller controller);
 	
 	/**
+	 * @return The first controller of the stack.
+	 */
+	public Controller getRootController();
+	
+	/**
 	 * Dissmiss all controllers but the root
 	 */
 	public void popUpToRootController(UserRequest ureq);
 	
+	/**
+	 * Push a controller in the stack with its name.
+	 * 
+	 * @param displayName The name shown as bread crumb.
+	 * @param controller The controller to push
+	 */
 	public void pushController(String displayName, Controller controller);
 	
+	/**
+	 * Push a controller in the stack with name and icon.
+	 * 
+	 * @param displayName The name shown as bread crumb
+	 * @param iconLeftCss The icon shown as decoration of the bread crumb
+	 * @param controller The controller to push
+	 */
+	public void pushController(String displayName, String iconLeftCss, Controller controller);
 	
-	public void popUpToController(Controller controller);
+	/**
+	 * Push a controller in the stack with name and icon.
+	 * 
+	 * @param displayName The name shown as bread crumb
+	 * @param iconLeftCss The icon shown as decoration of the bread crumb
+	 * @param controller The controller to push
+	 * @param dispose If true, automatically dispose the controller, if false, you need to dispose the controller yourself.
+	 */
+	public void pushController(String displayName, String iconLeftCss, Object uobject);
+	
+	/**
+	 * Change the name and the icon of a bread crumb.
+	 * 
+	 * @param displayName The name shown as bread crumb
+	 * @param iconLeftCss The icon shown as decoration of the bread crumb, if null, the icon is removed
+	 * @param ctrl The controller
+	 */
+	public void changeDisplayname(String displayName, String iconLeftCss, Controller ctrl);
+	
+	/**
+	 * 
+	 * @param controller
+	 * @return true if the controller has been found
+	 */
+	public boolean popUpToController(Controller controller);
 	
 	/**
 	 * Remove and dispose the specified controller and all
@@ -53,5 +98,7 @@ public interface BreadcrumbPanel extends StackedPanel {
 	 * @param controller
 	 */
 	public void popController(Controller controller);
+	
+	
 
 }

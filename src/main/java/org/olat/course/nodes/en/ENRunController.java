@@ -103,6 +103,7 @@ public class ENRunController extends BasicController implements GenericEventList
 	@Autowired
 	private BusinessGroupService businessGroupService;
 
+	private final UserCourseEnvironment userCourseEnv;
 	private CourseGroupManager courseGroupManager;
 	private CoursePropertyManager coursePropertyManager;
 
@@ -125,6 +126,7 @@ public class ENRunController extends BasicController implements GenericEventList
 		
 		this.moduleConfig = moduleConfiguration;
 		this.enNode = enNode;
+		this.userCourseEnv = userCourseEnv;
 		addLoggingResourceable(LoggingResourceable.wrap(enNode));
 
 		// init managers
@@ -133,13 +135,13 @@ public class ENRunController extends BasicController implements GenericEventList
 
 		// Get groupnames from configuration
 		enrollableGroupKeys = moduleConfig.getList(ENCourseNode.CONFIG_GROUP_IDS, Long.class);
-		if(enrollableGroupKeys == null) {
+		if(enrollableGroupKeys == null || enrollableGroupKeys.isEmpty()) {
 			String groupNamesConfig = (String)moduleConfig.get(ENCourseNode.CONFIG_GROUPNAME);
 			enrollableGroupKeys = businessGroupService.toGroupKeys(groupNamesConfig, courseGroupManager.getCourseEntry());
 		}
 
 		enrollableAreaKeys = moduleConfig.getList(ENCourseNode.CONFIG_AREA_IDS, Long.class);
-		if(enrollableAreaKeys == null) {
+		if(enrollableAreaKeys == null || enrollableAreaKeys.isEmpty()) {
 			String areaInitVal = (String) moduleConfig.get(ENCourseNode.CONFIG_AREANAME);
 			enrollableAreaKeys = areaManager.toAreaKeys(areaInitVal, courseGroupManager.getCourseResource());
 		}
@@ -177,6 +179,7 @@ public class ENRunController extends BasicController implements GenericEventList
 	/**
 	 * @see org.olat.core.gui.control.DefaultController#event(org.olat.core.gui.UserRequest, org.olat.core.gui.components.Component, org.olat.core.gui.control.Event)
 	 */
+	@Override
 	public void event(UserRequest ureq, Component source, Event event) {
 		//
 	}
@@ -325,11 +328,13 @@ public class ENRunController extends BasicController implements GenericEventList
 		DefaultColumnDescriptor stateColdEsc = new DefaultColumnDescriptor("grouplist.table.state", 4, null, getLocale());
 		stateColdEsc.setEscapeHtml(EscapeMode.none);
 		tableCtr.addColumnDescriptor(stateColdEsc);
-		BooleanColumnDescriptor columnDesc = new BooleanColumnDescriptor("grouplist.table.enroll", 5, CMD_ENROLL_IN_GROUP,
+		String enrollCmd = userCourseEnv.isCourseReadOnly() ? null : CMD_ENROLL_IN_GROUP;
+		BooleanColumnDescriptor columnDesc = new BooleanColumnDescriptor("grouplist.table.enroll", 5, enrollCmd,
 		  	translate(CMD_ENROLL_IN_GROUP), translate("grouplist.table.no_action"));
 		columnDesc.setSortingAllowed(false);
 		tableCtr.addColumnDescriptor(columnDesc);
- 		tableCtr.addColumnDescriptor(new BooleanColumnDescriptor("grouplist.table.cancel_enroll", 6, CMD_ENROLLED_CANCEL,
+		String cancelCmd = userCourseEnv.isCourseReadOnly() ? null : CMD_ENROLLED_CANCEL;
+ 		tableCtr.addColumnDescriptor(new BooleanColumnDescriptor("grouplist.table.cancel_enroll", 6, cancelCmd,
 	  		  	translate(CMD_ENROLLED_CANCEL), translate("grouplist.table.no_action")));
  		return tableCtr;
 	}

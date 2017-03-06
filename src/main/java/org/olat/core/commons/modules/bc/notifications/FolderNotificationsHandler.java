@@ -26,6 +26,7 @@
 
 package org.olat.core.commons.modules.bc.notifications;
 
+import java.util.Arrays;
 import java.util.Date;
 import java.util.Iterator;
 import java.util.List;
@@ -51,8 +52,10 @@ import org.olat.core.id.context.BusinessControlFactory;
 import org.olat.core.logging.OLog;
 import org.olat.core.logging.Tracing;
 import org.olat.core.util.Util;
+import org.olat.core.util.resource.OresHelper;
 import org.olat.group.BusinessGroup;
 import org.olat.group.BusinessGroupService;
+import org.olat.repository.RepositoryEntry;
 import org.olat.repository.RepositoryManager;
 
 /**
@@ -66,6 +69,7 @@ import org.olat.repository.RepositoryManager;
  */
 public class FolderNotificationsHandler implements NotificationsHandler {
 	private static final OLog log = Tracing.createLoggerFor(FolderNotificationsHandler.class);
+	public static final List<String> EXCLUDE_PREFIXES = Arrays.asList(".DS_Store",".CVS",".nfs",".sass-cache",".hg");
 	
 	/**
 	 * 
@@ -78,6 +82,7 @@ public class FolderNotificationsHandler implements NotificationsHandler {
 	 * @see org.olat.core.commons.services.notifications.NotificationsHandler#createSubscriptionInfo(org.olat.core.commons.services.notifications.Subscriber,
 	 *      java.util.Locale, java.util.Date)
 	 */
+	@Override
 	public SubscriptionInfo createSubscriptionInfo(final Subscriber subscriber, Locale locale, Date compareDate) {
 		Publisher p = subscriber.getPublisher();
 		Date latestNews = p.getLatestNewsDate();
@@ -88,6 +93,13 @@ public class FolderNotificationsHandler implements NotificationsHandler {
 		// there could be news for me, investigate deeper
 		try {
 			if (NotificationsManager.getInstance().isPublisherValid(p) && compareDate.before(latestNews)) {
+				if("CourseModule".equals(p.getResName())) {
+					RepositoryEntry re = RepositoryManager.getInstance().lookupRepositoryEntry(OresHelper.createOLATResourceableInstance(p.getResName(), p.getResId()), false);
+					if(re.getRepositoryEntryStatus().isClosed() || re.getRepositoryEntryStatus().isUnpublished()) {
+						return NotificationsManager.getInstance().getNoSubscriptionInfo();
+					}
+				}
+				
 				String folderRoot = p.getData();
 				final List<FileInfo> fInfos = FolderManager.getFileInfos(folderRoot, compareDate);
 				final Translator translator = Util.createPackageTranslator(FolderNotificationsHandler.class, locale);
@@ -97,6 +109,14 @@ public class FolderNotificationsHandler implements NotificationsHandler {
 				for (Iterator<FileInfo> it_infos = fInfos.iterator(); it_infos.hasNext();) {
 					FileInfo fi = it_infos.next();
 					String title = fi.getRelPath();
+					
+					// don't show changes in meta-directories. first quick check
+					// for any dot files and then compare with our black list of
+					// known exclude prefixes
+					if (title != null && title.indexOf("/.") != -1 && EXCLUDE_PREFIXES.parallelStream().anyMatch(title::contains)) {
+						// skip this file, continue with next item in folder
+						continue;
+					}						
 					MetaInfo metaInfo = fi.getMetaInfo();
 					String iconCssClass =  null;
 					if (metaInfo != null) {

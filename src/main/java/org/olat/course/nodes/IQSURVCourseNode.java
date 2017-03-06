@@ -32,27 +32,32 @@ import java.util.List;
 import java.util.Locale;
 import java.util.zip.ZipOutputStream;
 
+import org.olat.core.CoreSpringFactory;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.stack.BreadcrumbPanel;
 import org.olat.core.gui.components.stack.TooledStackedPanel;
 import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.WindowControl;
+import org.olat.core.gui.control.generic.messages.MessageUIFactory;
 import org.olat.core.gui.control.generic.tabbable.TabbableController;
 import org.olat.core.gui.translator.PackageTranslator;
+import org.olat.core.gui.translator.Translator;
 import org.olat.core.id.Identity;
 import org.olat.core.id.OLATResourceable;
+import org.olat.core.id.Roles;
 import org.olat.core.logging.OLog;
 import org.olat.core.logging.Tracing;
 import org.olat.core.util.Util;
+import org.olat.core.util.coordinate.CoordinatorManager;
 import org.olat.core.util.resource.OresHelper;
 import org.olat.course.ICourse;
 import org.olat.course.assessment.AssessmentManager;
 import org.olat.course.editor.CourseEditorEnv;
 import org.olat.course.editor.NodeEditController;
 import org.olat.course.editor.StatusDescription;
+import org.olat.course.nodes.iq.CourseIQSecurityCallback;
 import org.olat.course.nodes.iq.IQEditController;
 import org.olat.course.nodes.iq.IQRunController;
-import org.olat.course.nodes.iq.IQUIFactory;
 import org.olat.course.properties.CoursePropertyManager;
 import org.olat.course.run.environment.CourseEnvironment;
 import org.olat.course.run.navigation.NodeRunConstructionResult;
@@ -60,6 +65,7 @@ import org.olat.course.run.userview.NodeEvaluation;
 import org.olat.course.run.userview.UserCourseEnvironment;
 import org.olat.course.statistic.StatisticResourceOption;
 import org.olat.course.statistic.StatisticResourceResult;
+import org.olat.fileresource.types.ImsQTI21Resource;
 import org.olat.ims.qti.QTIResultManager;
 import org.olat.ims.qti.export.QTIExportFormatter;
 import org.olat.ims.qti.export.QTIExportFormatterCSVType3;
@@ -70,12 +76,21 @@ import org.olat.ims.qti.statistics.QTIStatisticResourceResult;
 import org.olat.ims.qti.statistics.QTIStatisticSearchParams;
 import org.olat.ims.qti.statistics.QTIType;
 import org.olat.ims.qti.statistics.ui.QTI12StatisticsToolController;
+import org.olat.ims.qti21.QTI21DeliveryOptions;
+import org.olat.ims.qti21.QTI21Service;
+import org.olat.ims.qti21.model.QTI21StatisticSearchParams;
+import org.olat.ims.qti21.ui.statistics.QTI21StatisticResourceResult;
+import org.olat.ims.qti21.ui.statistics.QTI21StatisticsSecurityCallback;
 import org.olat.modules.ModuleConfiguration;
+import org.olat.modules.assessment.AssessmentToolOptions;
+import org.olat.modules.iq.IQSecurityCallback;
 import org.olat.repository.RepositoryEntry;
 import org.olat.repository.RepositoryEntryImportExport;
 import org.olat.repository.RepositoryManager;
 import org.olat.repository.handlers.RepositoryHandler;
 import org.olat.repository.handlers.RepositoryHandlerFactory;
+
+import de.bps.onyx.plugin.run.OnyxRunController;
 
 /**
  * Initial Date: Feb 9, 2004
@@ -105,7 +120,7 @@ public class IQSURVCourseNode extends AbstractAccessableCourseNode implements QT
 	 */
 	@Override
 	public TabbableController createEditController(UserRequest ureq, WindowControl wControl, BreadcrumbPanel stackPanel, ICourse course, UserCourseEnvironment euce) {
-		TabbableController childTabCntrllr = IQUIFactory.createIQSurveyEditController(ureq, wControl, stackPanel, course, this, course.getCourseEnvironment().getCourseGroupManager(), euce);
+		TabbableController childTabCntrllr = new IQEditController(ureq, wControl, stackPanel, course, this, euce);
 		CourseNode chosenNode = course.getEditorTreeModel().getCourseNode(euce.getCourseEditorEnv().getCurrentCourseNodeId());
 		return new NodeEditController(ureq, wControl, course.getEditorTreeModel(), course, chosenNode, euce, childTabCntrllr);
 	}
@@ -119,15 +134,48 @@ public class IQSURVCourseNode extends AbstractAccessableCourseNode implements QT
 	@Override
 	public NodeRunConstructionResult createNodeRunConstructionResult(UserRequest ureq, WindowControl wControl,
 			UserCourseEnvironment userCourseEnv, NodeEvaluation ne, String nodecmd) {
-		Controller controller = IQUIFactory.createIQSurveyRunController(ureq, wControl, userCourseEnv, this);
+
+		Controller controller;
+		// Do not allow guests to start questionnaires
+		Roles roles = ureq.getUserSession().getRoles();
+		if (roles.isGuestOnly()) {
+			Translator trans = Util.createPackageTranslator(IQSURVCourseNode.class, ureq.getLocale());
+			String title = trans.translate("guestnoaccess.title");
+			String message = trans.translate("guestnoaccess.message");
+			controller = MessageUIFactory.createInfoMessage(ureq, wControl, title, message);
+		} else {
+			ModuleConfiguration config = getModuleConfiguration();
+			boolean onyx = IQEditController.CONFIG_VALUE_QTI2.equals(config.get(IQEditController.CONFIG_KEY_TYPE_QTI));
+			if (onyx) {
+				controller = new OnyxRunController(userCourseEnv, config, ureq, wControl, this);
+			} else {
+				RepositoryEntry repositoryEntry = getReferencedRepositoryEntry();
+				OLATResourceable ores = repositoryEntry.getOlatResource();
+				Long resId = ores.getResourceableId();
+				SurveyFileResource fr = new SurveyFileResource();
+				fr.overrideResourceableId(resId);
+				if(!CoordinatorManager.getInstance().getCoordinator().getLocker().isLocked(fr, null)) {
+					AssessmentManager am = userCourseEnv.getCourseEnvironment().getAssessmentManager();
+					IQSecurityCallback sec = new CourseIQSecurityCallback(this, am, ureq.getIdentity());
+					controller = new IQRunController(userCourseEnv, getModuleConfiguration(), sec, ureq, wControl, this);
+				} else {
+					Translator trans = Util.createPackageTranslator(IQSURVCourseNode.class, ureq.getLocale());
+					String title = trans.translate("editor.lock.title");
+					String message = trans.translate("editor.lock.message");
+					controller = MessageUIFactory.createInfoMessage(ureq, wControl, title, message);
+				}
+			}
+		}
+		
 		Controller ctrl = TitledWrapperHelper.getWrapper(ureq, wControl, controller, this, "o_iqsurv_icon");
 		return new NodeRunConstructionResult(ctrl);
 	}
 	
 	@Override
 	public List<Controller> createAssessmentTools(UserRequest ureq, WindowControl wControl, TooledStackedPanel stackPanel,
-			CourseEnvironment courseEnv, AssessmentToolOptions options) {
-		List<Controller> tools = new ArrayList<>();
+			UserCourseEnvironment coachCourseEnv, AssessmentToolOptions options) {
+		List<Controller> tools = new ArrayList<>(2);
+		CourseEnvironment courseEnv = coachCourseEnv.getCourseEnvironment();
 		tools.add(new QTI12StatisticsToolController(ureq, wControl, stackPanel, courseEnv, options, this));
 		return tools;
 	}
@@ -139,11 +187,22 @@ public class IQSURVCourseNode extends AbstractAccessableCourseNode implements QT
 		
 		Long courseId = userCourseEnv.getCourseEnvironment().getCourseResourceableId();
 		OLATResourceable courseOres = OresHelper.createOLATResourceableInstance("CourseModule", courseId);
+
+		RepositoryEntry qtiSurveyEntry = getReferencedRepositoryEntry();
+		if(ImsQTI21Resource.TYPE_NAME.equals(qtiSurveyEntry.getOlatResource().getResourceableTypeName())) {
+			RepositoryEntry courseEntry = userCourseEnv.getCourseEnvironment().getCourseGroupManager().getCourseEntry();
+			QTI21StatisticSearchParams searchParams = new QTI21StatisticSearchParams(qtiSurveyEntry, courseEntry, getIdent());
+			searchParams.setLimitToGroups(options.getParticipantsGroups());
+			QTI21DeliveryOptions deliveryOptions = CoreSpringFactory.getImpl(QTI21Service.class)
+					.getDeliveryOptions(qtiSurveyEntry);
+			boolean admin = userCourseEnv.isAdmin();
+			QTI21StatisticsSecurityCallback secCallback = new QTI21StatisticsSecurityCallback(admin, admin && deliveryOptions.isAllowAnonym());
+			return new QTI21StatisticResourceResult(qtiSurveyEntry, courseEntry, this, searchParams, secCallback);
+		}
+		
 		QTIStatisticSearchParams searchParams = new QTIStatisticSearchParams(courseOres.getResourceableId(), getIdent());
 		searchParams.setLimitToGroups(options.getParticipantsGroups());
-
-		QTIStatisticResourceResult result = new QTIStatisticResourceResult(courseOres, this, searchParams);
-		return result;
+		return new QTIStatisticResourceResult(courseOres, this, qtiSurveyEntry, searchParams);
 	}
 	
 	@Override
@@ -190,9 +249,8 @@ public class IQSURVCourseNode extends AbstractAccessableCourseNode implements QT
 		if (!isValid) {
 			String shortKey = "error.surv.undefined.short";
 			String longKey = "error.surv.undefined.long";
-			String[] params = new String[] { this.getShortTitle() };
-			String translPackage = Util.getPackageName(IQEditController.class);
-			sd = new StatusDescription(StatusDescription.ERROR, shortKey, longKey, params, translPackage);
+			String[] params = new String[] { getShortTitle() };
+			sd = new StatusDescription(StatusDescription.ERROR, shortKey, longKey, params, PACKAGE_IQ);
 			sd.setDescriptionForUnit(getIdent());
 			// set which pane is affected by error
 			sd.setActivateableViewIdentifier(IQEditController.PANE_TAB_IQCONFIG_SURV);
@@ -208,8 +266,7 @@ public class IQSURVCourseNode extends AbstractAccessableCourseNode implements QT
 		oneClickStatusCache = null;
 		// only here we know which translator to take for translating condition
 		// error messages
-		String translatorStr = Util.getPackageName(IQEditController.class);
-		List<StatusDescription> sds = isConfigValidWithTranslator(cev, translatorStr, getConditionExpressions());
+		List<StatusDescription> sds = isConfigValidWithTranslator(cev, PACKAGE_IQ, getConditionExpressions());
 		oneClickStatusCache = StatusDescriptionHelper.sort(sds);
 		return oneClickStatusCache;
 	}

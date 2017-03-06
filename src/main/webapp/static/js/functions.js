@@ -207,23 +207,26 @@ var BFormatter = {
 	// process element with given dom id using jsmath
 	formatLatexFormulas : function(domId) {
 		try {
-			if (window.jsMath) { // only when js math available
-				if (jsMath.loaded && jsMath.tex2math && jsMath.tex2math.loaded) {
-					jsMath.Process();
-				} else { // not yet loaded (autoload), load first
-					jsMath.Autoload.LoadJsMath();
-					// retry formatting when ready (recursively until loaded)
-					setTimeout(function() {
-						BFormatter.formatLatexFormulas(domId);
-					}, 100);
-				}
+			if(typeof MathJax === "undefined") {
+				o_mathjax();//will render the whole page
+			} else if (MathJax && MathJax.isReady) {
+				jQuery(function() {
+					MathJax.Hub.Queue(function() {
+						if(jQuery('#' + domId + ' .MathJax').length == 0) {
+							MathJax.Hub.Typeset(domId)
+						}
+					});
+				})
+			} else { // not yet loaded (autoload), load first
+				setTimeout(function() {
+					BFormatter.formatLatexFormulas(domId);
+				}, 100);
 			}
 		} catch(e) {
 			if (window.console) console.log("error in BFormatter.formatLatexFormulas: ", e);
 		}
 	}
 };
-
 
 function o_init() {
 	try {
@@ -771,7 +774,14 @@ function o_openPopUp(url, windowname, width, height, menubar) {
 	} else {
 		attributes += "location=no, menubar=no, status=no, toolbar=no";
 	}
-	var win = window.open(url, windowname, attributes);
+
+	var win;
+	try {
+		win = window.open(url, windowname, attributes);
+	} catch(e) {
+		win = window.open(url, 'OpenOLAT', attributes);
+	}
+	
 	win.focus();
 	if (o_info.linkbusy) {
 		o_afterserver();
@@ -1255,7 +1265,7 @@ function o_removeIframe(id) {
 	jQuery('#' + id).remove();
 }
 
-function o_ffXHREvent(formNam, dispIdField, dispId, eventIdField, eventInt, dirtyCheck, push) {
+function o_ffXHREvent(formNam, dispIdField, dispId, eventIdField, eventInt, dirtyCheck, push, submit) {
 	if(dirtyCheck) {
 		if(!o2cl()) return false;
 	} else {
@@ -1263,11 +1273,23 @@ function o_ffXHREvent(formNam, dispIdField, dispId, eventIdField, eventInt, dirt
 	}
 	
 	var data = new Object();
+	if(submit) {
+		var form = jQuery('#' + formNam);
+		var formData = form.serializeArray();
+		var formLength = formData.length;
+		for(var i=0; i<formLength; i++) {
+			var nameValue = formData[i];//dispatchuri and dispatchevent will be overriden
+			if(nameValue.name != 'dispatchuri' && nameValue.name != 'dispatchevent') {
+				data[nameValue.name] = nameValue.value;
+			}
+		}
+	}
+	
 	data['dispatchuri'] = dispId;
 	data['dispatchevent'] = eventInt;
-	if(arguments.length > 7) {
+	if(arguments.length > 8) {
 		var argLength = arguments.length;
-		for(var i=7; i<argLength; i=i+2) {
+		for(var i=8; i<argLength; i=i+2) {
 			if(argLength > i+1) {
 				data[arguments[i]] = arguments[i+1];
 			}
@@ -1298,6 +1320,31 @@ function o_ffXHREvent(formNam, dispIdField, dispId, eventIdField, eventInt, dirt
 			}
 		},
 		error: o_onXHRError
+	})
+}
+
+function o_ffXHRNFEvent(formNam, dispIdField, dispId, eventIdField, eventInt) {
+	var data = new Object();
+	data['dispatchuri'] = dispId;
+	data['dispatchevent'] = eventInt;
+	if(arguments.length > 7) {
+		var argLength = arguments.length;
+		for(var i=7; i<argLength; i=i+2) {
+			if(argLength > i+1) {
+				data[arguments[i]] = arguments[i+1];
+			}
+		}
+	}
+	
+	var targetUrl = jQuery('#' + formNam).attr("action");
+	jQuery.ajax(targetUrl,{
+		type:'POST',
+		data: data,
+		cache: false,
+		dataType: 'json',
+		success: function(data, textStatus, jqXHR) {
+			//no response
+		}
 	})
 }
 
@@ -1367,9 +1414,7 @@ function o_XHRNFEvent(targetUrl) {
 		success: function(data, textStatus, jqXHR) {
 			//ok
 		},
-		error: function(jqXHR, textStatus, errorThrown) {
-			if(window.console) console.log('Error status', textStatus);
-		}
+		error: o_onXHRError
 	})
 }
 
@@ -1379,7 +1424,8 @@ function o_onXHRError(jqXHR, textStatus, errorThrown) {
 		var msg = o_info.oo_noresponse.replace("reload.html", window.document.location.href);
 		showMessageBox('error', o_info.oo_noresponse_title, msg, undefined);
 	} else if(window.console) {
-		console.log('Error status', textStatus, errorThrown, jqXHR.responseText);
+		console.log('Error status 2', textStatus, errorThrown, jqXHR.responseText);
+		console.log(jqXHR);
 	}
 }
 
@@ -1406,13 +1452,22 @@ function o_pushState(historyPointId, title, url) {
 	}
 }
 
+function o_toggleMark(el) {
+	var current = jQuery('i', el).attr('class');
+	if(current.indexOf('o_icon_bookmark_add') >= 0) {
+		jQuery('i', el).removeClass('o_icon_bookmark_add').addClass('o_icon_bookmark');
+	} else {
+		jQuery('i', el).removeClass('o_icon_bookmark').addClass('o_icon_bookmark_add');
+	}
+}
+
 //
 // param formId a String with flexi form id
 function setFlexiFormDirtyByListener(e){
-	setFlexiFormDirty(e.data.formId);
+	setFlexiFormDirty(e.data.formId, e.data.hideMessage);
 }
 
-function setFlexiFormDirty(formId){
+function setFlexiFormDirty(formId, hideMessage){
 	var isRegistered = o3c.indexOf(formId) > -1;
 	if(!isRegistered){
 		o3c.push(formId);
@@ -1421,7 +1476,7 @@ function setFlexiFormDirty(formId){
 		var submitId = jQuery(this).data('FlexiSubmit');
 		if(submitId != null) {
 			jQuery('#'+submitId).addClass('btn o_button_dirty');
-			o2c=1;
+			o2c = (hideMessage ? 0 : 1);
 		}
 	});
 }

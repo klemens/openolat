@@ -1,0 +1,32 @@
+$r.render("inviteeInfos")
+<div class="o_portfolio_rights">
+	<table class="table">
+		<thead><tr>
+			<th>$r.translate("access.rights.element")</th>
+			<th>$r.translate("access.rights.invitee")</th>
+		</tr></thead>
+		<tbody>
+			<tr class="o_portfolio_binder">
+				<td>$r.escapeHtml(${binderRow.title})</td>
+				<td>$r.render($binderRow.access)</td>
+			</tr>
+			#foreach($sectionRow in $binderRow.sections)
+			<tr class="o_portfolio_section">
+				<td>${foreach.count}. $r.escapeHtml(${sectionRow.title})</td>
+				<td>$r.render(${sectionRow.access})</td>
+			</tr>
+				#foreach($pageRow in $sectionRow.pages)
+				<tr class="o_portfolio_page">
+					<td>$r.escapeHtml(${pageRow.title})</td>
+					<td>$r.render(${pageRow.access})</td>
+				</tr>
+				#end
+			#end
+		</tbody>
+	</table>
+	$r.render("form.checkall") $r.render("form.uncheckall")
+</div>
+
+#if($r.available("buttons"))
+	<div class="o_button_group o_sel_pf_invitation_button_group">$r.render("buttons")</div>
+#end

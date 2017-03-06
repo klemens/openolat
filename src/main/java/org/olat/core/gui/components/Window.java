@@ -76,6 +76,7 @@ import org.olat.core.gui.render.ValidationResult;
 import org.olat.core.gui.render.intercept.InterceptHandler;
 import org.olat.core.gui.render.intercept.InterceptHandlerInstance;
 import org.olat.core.gui.themes.Theme;
+import org.olat.core.helpers.GUISettings;
 import org.olat.core.helpers.Settings;
 import org.olat.core.id.context.BusinessControl;
 import org.olat.core.id.context.BusinessControlFactory;
@@ -183,7 +184,7 @@ public class Window extends AbstractComponent {
 		this.wbackofficeImpl = wbackoffice;
 		jsAndCssAdder = wbackoffice.createJSAndCSSAdder();
 		// set default theme
-		Theme myTheme = new Theme(Settings.getGuiThemeIdentifyer());
+		Theme myTheme = new Theme(CoreSpringFactory.getImpl(GUISettings.class).getGuiThemeIdentifyer());
 		setGuiTheme(myTheme);
 	}
 	
@@ -856,10 +857,7 @@ public class Window extends AbstractComponent {
 			StringBuilder sb = new StringBuilder();
 			List<ContextEntry> ces = p.getEntries();
 			String url = BusinessControlFactory.getInstance().getAsURIString(ces, true);
-			sb.append("try { o_info.businessPath='").append(url).append("';")
-			  .append("if(!(typeof o_shareActiveSocialUrl === \"undefined\")) {")
-			  .append("  o_shareActiveSocialUrl();")
-			  .append("}} catch(e) { }");
+			sb.append("try { o_info.businessPath='").append(url).append("'; } catch(e) { }");
 			return new JSCommand(sb.toString());
 		}
 		return null;

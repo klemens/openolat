@@ -37,9 +37,8 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 import org.apache.commons.io.IOUtils;
-import org.olat.core.configuration.AbstractOLATModule;
+import org.olat.core.configuration.AbstractSpringModule;
 import org.olat.core.configuration.ConfigOnOff;
-import org.olat.core.configuration.PersistedProperties;
 import org.olat.core.id.Identity;
 import org.olat.core.id.OLATResourceable;
 import org.olat.core.logging.OLATRuntimeException;
@@ -47,6 +46,7 @@ import org.olat.core.logging.OLog;
 import org.olat.core.logging.Tracing;
 import org.olat.core.util.PathUtils;
 import org.olat.core.util.ZipUtil;
+import org.olat.core.util.coordinate.CoordinatorManager;
 import org.olat.course.nodes.QTICourseNode;
 import org.olat.course.run.scoring.ScoreEvaluation;
 import org.olat.fileresource.types.ResourceEvaluation;
@@ -56,34 +56,44 @@ import org.olat.ims.qti.fileresource.SurveyFileResource;
 import org.olat.ims.qti.fileresource.TestFileResource;
 import org.olat.ims.qti.process.ImsRepositoryResolver;
 import org.olat.ims.qti.process.Resolver;
+import org.olat.modules.assessment.model.AssessmentEntryStatus;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Service;
 
 /**
  * @author Ingmar Kroll
  */
-public class OnyxModule extends AbstractOLATModule implements ConfigOnOff {
+@Service("onyxModule")
+public class OnyxModule extends AbstractSpringModule implements ConfigOnOff {
 	
 	private static final OLog log = Tracing.createLoggerFor(OnyxModule.class);
 
-	private static String onyxPluginWSLocation;
+	@Value("${onyx.plugin.wslocation}")
+	private String onyxPluginWSLocation;
 	public static ArrayList<PlayerTemplate> PLAYERTEMPLATES;
 	/*
 	 * holds the local config name which is sent to the remote onyxplugin -> onyxplugin must have a config corresponding to this name
 	 */
-	private static String configName;
+	@Value("${onyx.plugin.configname}")
+	private String configName;
 	// <OLATCE-713>
-	private static String onyxUserViewLocation;
-	private static String onyxReporterUserViewLocation;
+	@Value("${onyx.plugin.userviewlocation}")
+	private String onyxUserViewLocation;
+	@Value("${onyx.reporter.userviewlocation}")
+	private String onyxReporterUserViewLocation;
 	// </OLATCE-713>
-	private static String onyxExamModeLocation;
+	@Value("${onyx.plugin.exammodelocation}")
+	private String onyxExamModeLocation;
+	@Value("${assessmentplugin.activate}")
 	private String assessmentPlugin;
 	
 	private static Map<Long,Boolean> onyxMap = new ConcurrentHashMap<Long,Boolean>();
 	
-	/**
-	 * [used by spring]
-	 */
-	private OnyxModule() {
-		//
+
+	@Autowired
+	public OnyxModule(CoordinatorManager coordinatorManager) {
+		super(coordinatorManager);
 	}
 
 	@Override
@@ -94,7 +104,7 @@ public class OnyxModule extends AbstractOLATModule implements ConfigOnOff {
 	/**
 	 * @return Returns the configName.
 	 */
-	public static String getConfigName() {
+	public String getConfigName() {
 		return configName;
 	}
 
@@ -102,14 +112,14 @@ public class OnyxModule extends AbstractOLATModule implements ConfigOnOff {
 	 * @param configName The configName to set.
 	 */
 	public void setConfigName(final String configName) {
-		OnyxModule.configName = configName;
+		this.configName = configName;
 	}
 
 	/**
 	 * @param pluginWSLocation The pluginWSLocation to set.
 	 */
 	public void setOnyxPluginWSLocation(final String onyxPluginWSLocation) {
-		OnyxModule.onyxPluginWSLocation = onyxPluginWSLocation;
+		this.onyxPluginWSLocation = onyxPluginWSLocation;
 	}
 
 	/**
@@ -117,13 +127,13 @@ public class OnyxModule extends AbstractOLATModule implements ConfigOnOff {
 	 *            The location of the onyx exam mode
 	 */
 	public void setOnyxExamModeLocation(String onyxExamModeLocation) {
-		OnyxModule.onyxExamModeLocation = onyxExamModeLocation;
+		this.onyxExamModeLocation = onyxExamModeLocation;
 	}
 
 	/**
 	 * @return Returns the userViewLocation.
 	 */
-	public static String getUserViewLocation() {
+	public String getUserViewLocation() {
 		// <OLATCE-713>
 		return onyxUserViewLocation;
 		// </OLATCE-713>
@@ -132,14 +142,14 @@ public class OnyxModule extends AbstractOLATModule implements ConfigOnOff {
 	/**
 	 * @return Returns the pluginWSLocation.
 	 */
-	public static String getPluginWSLocation() {
+	public String getPluginWSLocation() {
 		return onyxPluginWSLocation + "/services";
 	}
 
 	/**
 	 * @return The location of the Onyx Exam Mode
 	 */
-	public static String getOnyxExamModeLocation() {
+	public String getOnyxExamModeLocation() {
 		return onyxExamModeLocation;
 	}
 	
@@ -161,18 +171,8 @@ public class OnyxModule extends AbstractOLATModule implements ConfigOnOff {
 	}
 
 	@Override
-	protected void initDefaultProperties() {
-		//
-	}
-
-	@Override
 	protected void initFromChangedProperties() {
 		//
-	}
-
-	@Override
-	public void setPersistedProperties(final PersistedProperties persistedProperties) {
-		this.moduleConfigProperties = persistedProperties;
 	}
 
 	public class PlayerTemplate {
@@ -305,20 +305,20 @@ public class OnyxModule extends AbstractOLATModule implements ConfigOnOff {
 	}
 
 	// <OLATCE-713>
-	public static String getOnyxUserViewLocation() {
+	public String getOnyxUserViewLocation() {
 		return onyxUserViewLocation;
 	}
 
 	public void setOnyxUserViewLocation(String onyxUserViewLocation) {
-		OnyxModule.onyxUserViewLocation = onyxUserViewLocation;
+		this.onyxUserViewLocation = onyxUserViewLocation;
 	}
 
-	public static String getOnyxReporterUserViewLocation() {
+	public String getOnyxReporterUserViewLocation() {
 		return onyxReporterUserViewLocation;
 	}
 
 	public void setOnyxReporterUserViewLocation(String onyxReporterUserViewLocation) {
-		OnyxModule.onyxReporterUserViewLocation = onyxReporterUserViewLocation;
+		this.onyxReporterUserViewLocation = onyxReporterUserViewLocation;
 	}
 
 	// </OLATCE-713>
@@ -356,7 +356,12 @@ public class OnyxModule extends AbstractOLATModule implements ConfigOnOff {
 		}
 		if (currentResultSet != null && !currentResultSet.getSuspended()) {
 			// <OLATCE-374>
-			return new ScoreEvaluation(currentResultSet.getScore(), currentResultSet.getIsPassed(), currentResultSet.getFullyAssessed(), currentResultSet.getAssessmentID());
+			AssessmentEntryStatus status = null;
+			if(currentResultSet.getFullyAssessed() != null && currentResultSet.getFullyAssessed().booleanValue()) {
+				status = AssessmentEntryStatus.done;
+			}
+			return new ScoreEvaluation(currentResultSet.getScore(), currentResultSet.getIsPassed(),
+					status, currentResultSet.getFullyAssessed(), currentResultSet.getAssessmentID());
 			// </OLATCE-374>
 		}
 		return null;
@@ -367,7 +372,7 @@ public class OnyxModule extends AbstractOLATModule implements ConfigOnOff {
 		List<QTIResultSet> resultSets = qrm.getResultSets(courseResourceableId, courseNode.getIdent(), courseNode.getReferencedRepositoryEntry().getKey(),
 				identity);
 		for (QTIResultSet resultSet : resultSets) {
-			if(resultSet.getAssessmentID() == assessmentId && !resultSet.getSuspended()) {
+			if(Long.valueOf(resultSet.getAssessmentID()).equals(assessmentId) && !resultSet.getSuspended()) {
 				return true;
 			}
 		}

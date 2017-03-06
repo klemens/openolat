@@ -28,6 +28,8 @@ package org.olat.course;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Date;
@@ -635,7 +637,7 @@ public class CourseFactory {
 
 			 try {
 				 course = CourseFactory.openCourseEditSession(course.getResourceableId());
-				 publishProcess.applyPublishSet(identity, locale);
+				 publishProcess.applyPublishSet(identity, locale, false);
 			 } catch(Exception e) {
 				 log.error("",  e);
 			 } finally {
@@ -653,7 +655,7 @@ public class CourseFactory {
 	 */
 	public static Controller createHelpCourseLaunchController(UserRequest ureq, WindowControl wControl) {
 		// Find repository entry for this course
-		String helpCourseSoftKey = CourseModule.getHelpCourseSoftKey();
+		String helpCourseSoftKey = CoreSpringFactory.getImpl(CourseModule.class).getHelpCourseSoftKey();
 		RepositoryManager rm = RepositoryManager.getInstance();
 		RepositoryService rs = CoreSpringFactory.getImpl(RepositoryService.class);
 		RepositoryEntry entry = null;
@@ -673,7 +675,7 @@ public class CourseFactory {
 
 			ContextEntry ce = BusinessControlFactory.getInstance().createContextEntry(entry);
 			WindowControl bwControl = BusinessControlFactory.getInstance().createBusinessWindowControl(ce, wControl);
-			RepositoryEntrySecurity reSecurity = new RepositoryEntrySecurity(false, false, false, false, false, false, false, true);
+			RepositoryEntrySecurity reSecurity = new RepositoryEntrySecurity(false, false, false, false, false, false, false, true, false);
 			RunMainController launchC = new RunMainController(ureq, bwControl, null, course, entry, reSecurity, null);
 			return launchC;
 		}
@@ -711,10 +713,13 @@ public class CourseFactory {
 		// archive course results overview
 		List<Identity> users = ScoreAccountingHelper.loadUsers(course.getCourseEnvironment());
 		List<AssessableCourseNode> nodes = ScoreAccountingHelper.loadAssessableNodes(course.getCourseEnvironment());
-
-		String result = ScoreAccountingHelper.createCourseResultsOverviewTable(users, nodes, course, locale);
-		String fileName = ExportUtil.createFileNameWithTimeStamp(course.getCourseTitle(), "xls");
-		ExportUtil.writeContentToFile(fileName, result, exportDirectory, charset);
+		
+		String fileName = ExportUtil.createFileNameWithTimeStamp(course.getCourseTitle(), "xlsx");
+		try(OutputStream out = new FileOutputStream(new File(exportDirectory, fileName))) {
+			ScoreAccountingHelper.createCourseResultsOverviewXMLTable(users, nodes, course, locale, out);
+		} catch(IOException e) {
+			log.error("", e);
+		}
 
 		// archive all nodes content
 		Visitor archiveV = new NodeArchiveVisitor(locale, course, exportDirectory, charset);

@@ -28,6 +28,7 @@ import org.olat.core.id.Identity;
 import org.olat.core.id.Persistable;
 import org.olat.core.id.Preferences;
 import org.olat.core.id.User;
+import org.olat.core.id.UserConstants;
 
 /**
  * A transient implementation of Identity
@@ -65,9 +66,23 @@ public class TransientIdentity implements Identity, User {
 		return login;
 	}
 	
-	@Override
 	public void setName(String name) {
 		this.login = name;
+	}
+	
+	@Override
+	public String getFirstName() {
+		return properties.get(UserConstants.FIRSTNAME);
+	}
+
+	@Override
+	public String getLastName() {
+		return properties.get(UserConstants.LASTNAME);
+	}
+
+	@Override
+	public String getEmail() {
+		return properties.get(UserConstants.EMAIL);
 	}
 
 	public String getPassword() {
@@ -100,13 +115,6 @@ public class TransientIdentity implements Identity, User {
 	public Integer getStatus() {
 		return null;
 	}
-
-	@Override
-	public void setStatus(Integer newStatus) {
-		//
-	}
-
-
 
 	@Override
 	public boolean equalsByPersistableKey(Persistable persistable) {

@@ -20,7 +20,9 @@
 package org.olat.course.nodes.gta.ui;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import org.olat.basesecurity.BaseSecurityModule;
 import org.olat.basesecurity.GroupRoles;
@@ -37,7 +39,6 @@ import org.olat.core.gui.components.form.flexible.impl.elements.table.FlexiColum
 import org.olat.core.gui.components.form.flexible.impl.elements.table.FlexiTableColumnModel;
 import org.olat.core.gui.components.form.flexible.impl.elements.table.FlexiTableDataModelFactory;
 import org.olat.core.gui.components.form.flexible.impl.elements.table.StaticFlexiCellRenderer;
-import org.olat.core.gui.components.form.flexible.impl.elements.table.StaticFlexiColumnModel;
 import org.olat.core.gui.components.form.flexible.impl.elements.table.TextFlexiCellRenderer;
 import org.olat.core.gui.components.link.Link;
 import org.olat.core.gui.components.velocity.VelocityContainer;
@@ -52,21 +53,23 @@ import org.olat.core.id.UserConstants;
 import org.olat.core.util.CodeHelper;
 import org.olat.core.util.StringHelper;
 import org.olat.core.util.Util;
-import org.olat.course.CourseFactory;
-import org.olat.course.ICourse;
 import org.olat.course.assessment.AssessmentHelper;
 import org.olat.course.assessment.AssessmentManager;
 import org.olat.course.assessment.bulk.PassedCellRenderer;
 import org.olat.course.nodes.GTACourseNode;
 import org.olat.course.nodes.MSCourseNode;
+import org.olat.course.nodes.gta.GTAManager;
+import org.olat.course.nodes.gta.Task;
+import org.olat.course.nodes.gta.TaskList;
+import org.olat.course.nodes.gta.TaskProcess;
 import org.olat.course.nodes.gta.ui.GroupAssessmentModel.Cols;
 import org.olat.course.nodes.ms.MSCourseNodeRunController;
 import org.olat.course.run.environment.CourseEnvironment;
-import org.olat.course.run.scoring.ScoreEvaluation;
 import org.olat.course.run.userview.UserCourseEnvironment;
 import org.olat.group.BusinessGroup;
 import org.olat.group.BusinessGroupService;
 import org.olat.modules.ModuleConfiguration;
+import org.olat.modules.assessment.AssessmentEntry;
 import org.olat.user.UserManager;
 import org.olat.user.propertyhandlers.UserPropertyHandler;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -86,21 +89,26 @@ public class GTACoachedGroupGradingController extends FormBasicController {
 
 	private FlexiTableElement table;
 	private GroupAssessmentModel model;
-	private FormLink assessmentFormButton;
+	private FormLink assessmentFormButton, reopenButton;
 	
 	private CloseableModalController cmc;
 	private GroupAssessmentController assessmentCtrl;
 	private CloseableCalloutWindowController commentCalloutCtrl;
 
+	private TaskList taskList;
+	private Task assignedTask;
 	private final GTACourseNode gtaNode;
 	private final BusinessGroup assessedGroup;
 	private final CourseEnvironment courseEnv;
 	private final AssessmentManager assessmentManager;
+	private final UserCourseEnvironment coachCourseEnv;
 	private final boolean withScore, withPassed, withComment;
 	
 	private final boolean isAdministrativeUser;
 	private final List<UserPropertyHandler> userPropertyHandlers;
 	
+	@Autowired
+	private GTAManager gtaManager;
 	@Autowired
 	private UserManager userManager;
 	@Autowired
@@ -109,12 +117,16 @@ public class GTACoachedGroupGradingController extends FormBasicController {
 	private BusinessGroupService businessGroupService;
 	
 	public GTACoachedGroupGradingController(UserRequest ureq, WindowControl wControl,
-			CourseEnvironment courseEnv, GTACourseNode gtaNode, BusinessGroup assessedGroup) {
+			UserCourseEnvironment coachCourseEnv, CourseEnvironment courseEnv, GTACourseNode gtaNode,
+			BusinessGroup assessedGroup, TaskList taskList, Task assignedTask) {
 		super(ureq, wControl, "coach_group_grading");
 		setTranslator(Util.createPackageTranslator(MSCourseNodeRunController.class, getLocale(), getTranslator()));
 		this.gtaNode = gtaNode;
+		this.taskList = taskList;
 		this.assessedGroup = assessedGroup;
 		this.courseEnv = courseEnv;
+		this.assignedTask = assignedTask;
+		this.coachCourseEnv = coachCourseEnv;
 		assessmentManager = courseEnv.getAssessmentManager();
 		
 		withScore = gtaNode.hasScoreConfigured();
@@ -137,6 +149,11 @@ public class GTACoachedGroupGradingController extends FormBasicController {
 		assessmentFormButton.setCustomEnabledLinkCSS("btn btn-primary");
 		assessmentFormButton.setIconLeftCSS("o_icon o_icon o_icon_submit");
 		assessmentFormButton.setElementCssClass("o_sel_course_gta_assessment_button");
+		assessmentFormButton.setVisible(!coachCourseEnv.isCourseReadOnly() && (assignedTask == null || assignedTask.getTaskStatus() != TaskProcess.graded));
+
+		reopenButton = uifactory.addFormLink("coach.reopen", "coach.reopen", null, formLayout, Link.BUTTON);
+		reopenButton.setElementCssClass("o_sel_course_gta_reopen_button");
+		reopenButton.setVisible(!coachCourseEnv.isCourseReadOnly() && assignedTask != null && assignedTask.getTaskStatus() == TaskProcess.graded);
 		
 		if(formLayout instanceof FormLayoutContainer) {
 			ModuleConfiguration config = gtaNode.getModuleConfiguration();
@@ -164,7 +181,7 @@ public class GTACoachedGroupGradingController extends FormBasicController {
 				FlexiColumnModel col;
 				if(UserConstants.FIRSTNAME.equals(propName)
 						|| UserConstants.LASTNAME.equals(propName)) {
-					col = new StaticFlexiColumnModel(userPropertyHandler.i18nColumnDescriptorLabelKey(),
+					col = new DefaultFlexiColumnModel(userPropertyHandler.i18nColumnDescriptorLabelKey(),
 							colIndex, userPropertyHandler.getName(), true, propName,
 							new StaticFlexiCellRenderer(userPropertyHandler.getName(), new TextFlexiCellRenderer()));
 				} else {
@@ -193,35 +210,34 @@ public class GTACoachedGroupGradingController extends FormBasicController {
 
 	private void loadMembers() {
 		//load participants, load datas
-		ICourse course = CourseFactory.loadCourse(courseEnv.getCourseResourceableId());
 		List<Identity> identities = businessGroupService.getMembers(assessedGroup, GroupRoles.participant.name());
-		assessmentManager.preloadCache(identities);
+		
+		Map<Identity, AssessmentEntry> identityToEntryMap = new HashMap<>();
+		List<AssessmentEntry> assessmentEntries = assessmentManager.getAssessmentEntries(assessedGroup, gtaNode);
+		for(AssessmentEntry entry : assessmentEntries) {
+			identityToEntryMap.put(entry.getIdentity(), entry);
+		}
 
 		List<AssessmentRow> rows = new ArrayList<>(identities.size());
 		for(Identity identity:identities) {
-			UserCourseEnvironment userCourseEnv = AssessmentHelper.createAndInitUserCourseEnvironment(identity, course);
-			ScoreEvaluation scoreEval = userCourseEnv.getScoreAccounting().evalCourseNode(gtaNode);
-			if (scoreEval == null) {
-				scoreEval = new ScoreEvaluation(null, null);
-			}
-
-			AssessmentRow row = new AssessmentRow(userCourseEnv, false);
+			AssessmentEntry entry = identityToEntryMap.get(identity);
+			AssessmentRow row = new AssessmentRow(identity, false);
 			rows.add(row);
 			
-			if(withScore) {
-				Float score = scoreEval.getScore();
-				String pointVal = AssessmentHelper.getRoundedScore(score);
+			if(withScore && entry != null) {
+				String pointVal = AssessmentHelper.getRoundedScore(entry.getScore());
 				row.setScore(pointVal);
 			}
 			
-			if(withPassed) {
-				row.setPassed(scoreEval.getPassed());
+			if(withPassed && entry != null) {
+				row.setPassed(entry.getPassed());
 			}
 			
 			if(withComment) {
 				FormLink commentLink = null;
-				String comment = gtaNode.getUserUserComment(userCourseEnv);
-				if(StringHelper.containsNonWhitespace(comment)) {
+				String comment = null;
+				if(entry != null && StringHelper.containsNonWhitespace(entry.getComment())) {
+					comment = entry.getComment();
 					commentLink = uifactory.addFormLink("comment-" + CodeHelper.getRAMUniqueID(), "comment", "comment", null, flc, Link.LINK);
 					commentLink.setIconLeftCSS("o_icon o_icon_comments");
 					commentLink.setUserObject(row);
@@ -244,8 +260,11 @@ public class GTACoachedGroupGradingController extends FormBasicController {
 	protected void event(UserRequest ureq, Controller source, Event event) {
 		if(assessmentCtrl == source) {
 			if(event == Event.DONE_EVENT || event == Event.CHANGED_EVENT) {
+				loadMembers();
+			} else if(event == Event.CLOSE_EVENT) {
 				doGrading();
 				loadMembers();
+				fireEvent(ureq, Event.CHANGED_EVENT);
 			}
 			cmc.deactivate();
 			cleanUp();
@@ -267,6 +286,8 @@ public class GTACoachedGroupGradingController extends FormBasicController {
 	protected void formInnerEvent(UserRequest ureq, FormItem source, FormEvent event) {
 		if(assessmentFormButton == source) {
 			doOpenAssessmentForm(ureq);
+		} else if(reopenButton == source) {
+			doReopenAssessment(ureq);
 		} else if(source instanceof FormLink) {
 			FormLink link = (FormLink)source;
 			if("comment".equals(link.getCmd())) {
@@ -283,7 +304,16 @@ public class GTACoachedGroupGradingController extends FormBasicController {
 	}
 	
 	private void doGrading() {
-		//assignedTask = gtaManager.updateTask(assignedTask, TaskProcess.graded);
+		if(assignedTask == null) {
+			assignedTask = gtaManager.createTask(null, taskList, TaskProcess.graded, assessedGroup, null, gtaNode);
+		} else {
+			assignedTask = gtaManager.updateTask(assignedTask, TaskProcess.graded, gtaNode);
+		}
+	}
+	
+	private void doReopenAssessment(UserRequest ureq) {
+		assignedTask = gtaManager.updateTask(assignedTask, TaskProcess.grading, gtaNode);
+		fireEvent(ureq, Event.CHANGED_EVENT);
 	}
 	
 	private void doOpenAssessmentForm(UserRequest ureq) {

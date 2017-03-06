@@ -91,7 +91,7 @@ public class AttemptsRuleSPI implements FilterRuleSPI {
 				return;
 			}
 
-			Map<Long, Integer> attempts = helperDao.getAttempts(entry.getOlatResource().getResourceableId(), courseNode, identities);
+			Map<Long, Integer> attempts = helperDao.getAttempts(entry, courseNode, identities);
 			
 			for(Iterator<Identity> identityIt=identities.iterator(); identityIt.hasNext(); ) {
 				Identity identity = identityIt.next();

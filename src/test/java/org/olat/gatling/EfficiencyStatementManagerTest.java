@@ -31,7 +31,7 @@ import org.olat.core.id.Roles;
 import org.olat.course.CorruptedCourseException;
 import org.olat.course.CourseFactory;
 import org.olat.course.ICourse;
-import org.olat.course.assessment.EfficiencyStatementManager;
+import org.olat.course.assessment.manager.EfficiencyStatementManager;
 import org.olat.course.config.CourseConfig;
 import org.olat.repository.RepositoryEntry;
 import org.olat.repository.RepositoryManager;
@@ -55,6 +55,8 @@ public class EfficiencyStatementManagerTest extends OlatTestCase {
 	private BaseSecurity securityManager;
 	@Autowired
 	private RepositoryManager repositoryManager;
+	@Autowired
+	private EfficiencyStatementManager efficiencyStatementManager;
 	
 	@Test
 	public void testBigDatas() {
@@ -65,7 +67,6 @@ public class EfficiencyStatementManagerTest extends OlatTestCase {
 		
 		List<Identity> loadIdentities = securityManager
 				.getVisibleIdentitiesByPowerSearch(null, null, false, null, null, null, null, null, 0, 10000);
-		EfficiencyStatementManager efficiencyStatementManager = EfficiencyStatementManager.getInstance();
 		
 		int count = 0;
 		for(RepositoryEntry entry:entries) {
@@ -91,7 +92,8 @@ public class EfficiencyStatementManagerTest extends OlatTestCase {
 					}
 					List<Identity> assessedIdentities = loadIdentities.subList(fromIndex - 100, fromIndex);
 					//force the storing of the efficiencyStatement - this is usually done only at Learnresource/modify properties/Efficiency statement (ON)
-					efficiencyStatementManager.updateEfficiencyStatements(course, assessedIdentities);
+					RepositoryEntry courseEntry = course.getCourseEnvironment().getCourseGroupManager().getCourseEntry();
+					efficiencyStatementManager.updateEfficiencyStatements(courseEntry, assessedIdentities);
 					
 				} catch (Exception e) {
 					e.printStackTrace();

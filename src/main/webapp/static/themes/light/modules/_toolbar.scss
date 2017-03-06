@@ -63,6 +63,11 @@
 			min-height: $o-toolbar-height-xs;
 			text-align: left;
 		}
+		
+		span.o_tool_text {
+			color: $o-toolbar-link-color;
+			display: inline-block;
+		}
 
 		a {
 			// Following rules copied from .navbar-link;
@@ -84,6 +89,10 @@
 				background-color: $o-toolbar-link-active-bg;
 			}
 	    }
+	    a.btn-primary {
+	    	color: #fff;
+	    }
+	    
 	    .dropdown-menu {
 			a {
 				// override rule from above
@@ -271,7 +280,18 @@
 		float: right;
 	}
 	.o_tools_center {
-		// default
+		float:both;
+		width: 50%;
+    	margin-left: auto;
+    	margin-right: auto;
+	}
+	
+	.o_tools_segments {
+    	margin: 0 auto -1.1em auto;
+	}
+	
+	.o_tools_segments.o_tools_segments_alone {
+		margin-top: 1.5em;
 	}
 	
 	@media (max-width: $screen-sm-max) { 
@@ -279,9 +299,15 @@
 			margin-top: $o-toolbar-tools-margin-top-sm;
 			margin-bottom: $o-toolbar-tools-margin-bottom-sm;
 		}
+		.o_tools.o_tools_segments {
+    		margin: 0 auto -1.1em auto;
+		}
 		.o_tool span {
 			max-width: 10em;
 			@include text-overflow();	
+		}
+		.o_tools_segments .o_tool span {
+			display: block;
 		}
 		.o_tool, .o_text, .o_tool_dropdown {
 			margin: 0 5px;	
@@ -295,6 +321,9 @@
 				top: 0;
 				vertical-align: top;
 			}
+		}
+		.o_tools.o_tools_segments {
+			margin: 0 auto -1.1em auto;
 		}
 		.o_tools_center {
 			float: left;
@@ -319,4 +348,34 @@
 		
 	}
 	
+}
+
+#o_main_container .o_toolbar_message {
+	display: table;
+	margin: 0 auto $o-toolbar-margin-bottom auto;
+
+	&.o_warning {
+		padding-top:5px;
+		padding-bottom:5px;
+		border: 1px solid $o-box-warning-color;
+		border-radius: $border-radius-small;
+	}
+}
+
+/* render toolbar with zebra effect in edit mode */
+.o_edit_mode {
+	
+	.o_tools_container {
+		background: repeating-linear-gradient(
+	    	300deg,
+		    $o-toolbar-edit_stripe-color,
+		    $o-toolbar-edit_stripe-color 10px,
+		    $o-toolbar-edit-bg-color 10px,
+		    $o-toolbar-edit-bg-color 20px
+		);
+	}
+	/* in QTI 1.2 there is a toolbar below the toolbar - only render the first one in edit mode style */
+	.o_edit_mode .o_tools_container {
+		background: $o-toolbar-bg-color;
+	}
 }

@@ -19,15 +19,24 @@
  */
 package org.olat.core.util.mail.manager;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
+
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 
-import org.junit.Assert;
 import org.junit.After;
+import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 import org.olat.core.commons.persistence.DB;
 import org.olat.core.id.Identity;
+import org.olat.core.logging.OLog;
+import org.olat.core.logging.Tracing;
 import org.olat.core.util.mail.ContactList;
 import org.olat.core.util.mail.MailBoxExtension;
 import org.olat.core.util.mail.MailBundle;
@@ -46,6 +55,7 @@ import org.springframework.beans.factory.annotation.Autowired;
  *
  */
 public class MailManagerTest extends OlatTestCase {
+	private static final OLog log = Tracing.createLoggerFor(MailManagerTest.class);
 
 	@Autowired
 	private MailManager mailManager;
@@ -91,8 +101,8 @@ public class MailManagerTest extends OlatTestCase {
 	@Test
 	public void testGetInbox() {
 		//send a mail
-		Identity fromId = JunitTestHelper.createAndPersistIdentityAsUser("mail-3-" + UUID.randomUUID().toString());
-		Identity toId = JunitTestHelper.createAndPersistIdentityAsUser("mail-4-" + UUID.randomUUID().toString());
+		Identity fromId = JunitTestHelper.createAndPersistIdentityAsRndUser("mail-3");
+		Identity toId = JunitTestHelper.createAndPersistIdentityAsRndUser("mail-4");
 		
 		MailBundle bundle = new MailBundle();
 		bundle.setFromId(fromId);
@@ -248,10 +258,10 @@ public class MailManagerTest extends OlatTestCase {
 		dbInstance.commitAndCloseSession();
 
 		//delete the 4 users datas
-		mailBoxExtension.deleteUserData(toId_1, "lalala");
-		mailBoxExtension.deleteUserData(toId_2, "lalala");
-		mailBoxExtension.deleteUserData(toId_3, "lalala");
-		mailBoxExtension.deleteUserData(fromId, "lalala");
+		mailBoxExtension.deleteUserData(toId_1, "lalala", null);
+		mailBoxExtension.deleteUserData(toId_2, "lalala", null);
+		mailBoxExtension.deleteUserData(toId_3, "lalala", null);
+		mailBoxExtension.deleteUserData(fromId, "lalala", null);
 		dbInstance.commitAndCloseSession();
 		
 		//check inbox / outbox
@@ -314,10 +324,10 @@ public class MailManagerTest extends OlatTestCase {
 		dbInstance.commitAndCloseSession();
 
 		//delete the 4 users datas
-		mailBoxExtension.deleteUserData(fromId, "lalala");
-		mailBoxExtension.deleteUserData(toId_1, "lalala");
-		mailBoxExtension.deleteUserData(toId_2, "lalala");
-		mailBoxExtension.deleteUserData(toId_3, "lalala");
+		mailBoxExtension.deleteUserData(fromId, "lalala", null);
+		mailBoxExtension.deleteUserData(toId_1, "lalala", null);
+		mailBoxExtension.deleteUserData(toId_2, "lalala", null);
+		mailBoxExtension.deleteUserData(toId_3, "lalala", null);
 		dbInstance.commitAndCloseSession();
 
 		//check mail by meta id
@@ -326,5 +336,78 @@ public class MailManagerTest extends OlatTestCase {
 		Assert.assertTrue(deletedMails.isEmpty());
 	}
 	
-	
+	@Test
+	public void testParalellSubscribers() {
+		final int NUM_OF_THREADS = 10;
+		final int NUM_OF_USERS = 10;
+		final int NUM_OF_REDONDANCY = 50;
+
+		List<Identity> identities = new ArrayList<>();
+		for(int i=0; i<NUM_OF_USERS; i++) {
+			Identity id = JunitTestHelper.createAndPersistIdentityAsUser("fci-" + i + "-" + UUID.randomUUID());
+			for(int j=0; j<NUM_OF_REDONDANCY; j++) {
+				identities.add(id);
+			}
+		}
+		
+		final CountDownLatch finishCount = new CountDownLatch(NUM_OF_THREADS);
+		List<Exception> exceptionHolder = Collections.synchronizedList(new ArrayList<Exception>(1));
+		List<Boolean> statusList = Collections.synchronizedList(new ArrayList<Boolean>(1));
+		List<SubscribeThread> threads = new ArrayList<SubscribeThread>();
+		for(int i=0; i<NUM_OF_THREADS; i++) {
+			List<Identity> ids = new ArrayList<>(identities);
+			SubscribeThread thread = new SubscribeThread(ids, exceptionHolder, statusList, finishCount);
+			threads.add(thread);
+		}
+		
+		for(SubscribeThread thread:threads) {
+			thread.start();
+		}
+		
+		// sleep until threads should have terminated/excepted
+		try {
+			finishCount.await(120, TimeUnit.SECONDS);
+		} catch (InterruptedException e) {
+			log.error("", e);
+			Assert.fail();
+		}
+
+		assertTrue("It throws an exception in test", exceptionHolder.isEmpty());	
+		assertEquals("Thread(s) did not finish", NUM_OF_THREADS, statusList.size());
+	}
+
+	private class SubscribeThread extends Thread {
+		
+		private final List<Identity> ids;
+		private final List<Exception> exceptionHolder;
+		private final List<Boolean> statusList;
+		private final CountDownLatch countDown;
+
+		public SubscribeThread(List<Identity> ids, List<Exception> exceptionHolder, List<Boolean> statusList, CountDownLatch countDown) {
+			this.ids = ids;
+			this.exceptionHolder = exceptionHolder;
+			this.statusList = statusList;
+			this.countDown = countDown;
+		}
+		
+		@Override
+		public void run() {
+			try {
+				Thread.sleep(10);
+				for(int i=5; i-->0; ) {
+					for(Identity id:ids) {
+						mailManager.subscribe(id);
+					}
+				}
+				statusList.add(Boolean.TRUE);
+			} catch (Exception ex) {
+				ex.printStackTrace();
+				log.error("", ex);
+				exceptionHolder.add(ex);// no exception should happen
+			} finally {
+				countDown.countDown();
+				dbInstance.closeSession();
+			}
+		}
+	}
 }

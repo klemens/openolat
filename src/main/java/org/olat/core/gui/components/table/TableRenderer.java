@@ -38,7 +38,6 @@ import org.olat.core.gui.render.Renderer;
 import org.olat.core.gui.render.StringOutput;
 import org.olat.core.gui.render.URLBuilder;
 import org.olat.core.gui.translator.Translator;
-import org.olat.core.logging.OLATRuntimeException;
 import org.olat.core.logging.OLog;
 import org.olat.core.logging.Tracing;
 
@@ -133,26 +132,22 @@ public class TableRenderer extends DefaultComponentRenderer {
 	private void appendMultiselectFormActions(StringOutput target, String formName, Translator translator, Table table) {
 		// add multiselect form actions
 		List<TableMultiSelect> multiSelectActions = table.getMultiSelectActions();
-		if (table.isMultiSelect() && multiSelectActions.isEmpty()) {
-			throw new OLATRuntimeException(null, "Action key in multiselect table is undefined. Use addMultiSelectI18nAction(\"i18nkey\", \"action\"); to set an action for this multiselect table.",
-					null);
-		}
-
-		target.append("<div class=\"o_table_buttons\">");
-		for (TableMultiSelect action: multiSelectActions) {
-
-			String multiSelectActionIdentifer = action.getAction();
-			String value;
-			if(action.getI18nKey() != null) {
-				value = StringEscapeUtils.escapeHtml(translator.translate(action.getI18nKey()));
-			} else {
-				value = action.getLabel();
+		if (multiSelectActions.size() > 0) {
+			target.append("<div class=\"o_table_buttons\">");
+			for (TableMultiSelect action: multiSelectActions) {
+				String multiSelectActionIdentifer = action.getAction();
+				String value;
+				if(action.getI18nKey() != null) {
+					value = StringEscapeUtils.escapeHtml(translator.translate(action.getI18nKey()));
+				} else {
+					value = action.getLabel();
+				}
+	
+				target.append("<button type=\"button\" name=\"").append(multiSelectActionIdentifer)
+				      .append("\" class=\"btn btn-default\" onclick=\"o_TableMultiActionEvent('").append(formName).append("','").append(multiSelectActionIdentifer).append("');\"><span>").append(value).append("</span></button> ");
 			}
-
-			target.append("<button type=\"button\" name=\"").append(multiSelectActionIdentifer)
-			      .append("\" class=\"btn btn-default\" onclick=\"o_TableMultiActionEvent('").append(formName).append("','").append(multiSelectActionIdentifer).append("');\"><span>").append(value).append("</span></button> ");
+			target.append("</div>");
 		}
-		target.append("</div>");
 	}
 
 	private void appendTablePageing(StringOutput target, Translator translator, Table table, int rows,
@@ -211,7 +206,7 @@ public class TableRenderer extends DefaultComponentRenderer {
 
 	private void appendSelectDeselectAllButtons(StringOutput target, Translator translator, Table table, String formName, int rows, int resultsPerPage,
 			boolean ajaxEnabled, URLBuilder ubu) {
-		if (table.isMultiSelect()) {
+		if (table.isMultiSelect() && !table.isMultiSelectAsDisabled()) {
 			target.append("<div class='o_table_checkall input-sm'>")
 			  .append("<label class='checkbox-inline'>")
 			  .append("<a href='#' onclick=\"javascript:o_table_toggleCheck('").append(formName).append("', true)\">")
@@ -289,7 +284,7 @@ public class TableRenderer extends DefaultComponentRenderer {
 			if (action != null) {
 				StringOutput so = new StringOutput(100);
 				cd.renderValue(so, i, renderer);
-				appendSingleDataRowActionColumn(target, ubu, iframePostEnabled, i, currentPosInModel, j, cd, action, so.toString());
+				appendSingleDataRowActionColumn(target, ubu, table, iframePostEnabled, i, currentPosInModel, j, cd, action, so.toString());
 			} else {
 				cd.renderValue(target, i, renderer);
 			}
@@ -297,7 +292,7 @@ public class TableRenderer extends DefaultComponentRenderer {
 		}
 	}
 
-	private void appendSingleDataRowActionColumn(StringOutput target, URLBuilder ubu, boolean ajaxEnabled, int i, int currentPosInModel, int j,
+	private void appendSingleDataRowActionColumn(StringOutput target, URLBuilder ubu, Table table, boolean ajaxEnabled, int i, int currentPosInModel, int j,
 			ColumnDescriptor cd, String action, String renderval) {
 		// If we have actions on the table rows, we just submit traditional style (not via form.submit())
 		// Note that changes in the state of multiselects will not be reflected in the model.
@@ -315,7 +310,7 @@ public class TableRenderer extends DefaultComponentRenderer {
 			target.append("');win.focus();}\">");
 		} else {
 			// render in same window
-			ubu.buildHrefAndOnclick(target, ajaxEnabled,
+			ubu.buildHrefAndOnclick(target, null, ajaxEnabled, !table.isSuppressDirtyFormWarning(), true,
 					new NameValuePair(Table.COMMANDLINK_ROWACTION_CLICKED, currentPosInModel),
 					new NameValuePair(Table.COMMANDLINK_ROWACTION_ID, action)).append(">");
 		}

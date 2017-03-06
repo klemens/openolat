@@ -29,7 +29,7 @@ import org.olat.selenium.page.core.FolderPage;
 import org.olat.selenium.page.core.IMPage;
 import org.olat.selenium.page.forum.ForumPage;
 import org.olat.selenium.page.graphene.OOGraphene;
-import org.olat.selenium.page.portfolio.PortfolioPage;
+import org.olat.selenium.page.portfolio.BinderPage;
 import org.olat.selenium.page.wiki.WikiPage;
 import org.olat.user.restapi.UserVO;
 import org.openqa.selenium.By;
@@ -135,7 +135,7 @@ public class GroupPage {
 	
 	public ContactPage openContact() {
 		openMenuItem(contactTool);
-		OOGraphene.waitElement(By.cssSelector("fieldset.o_sel_contact_form"), 2, browser);
+		OOGraphene.waitElement(By.cssSelector("fieldset.o_sel_contact_form"), 5, browser);
 		return new ContactPage(browser);
 	}
 	
@@ -146,32 +146,32 @@ public class GroupPage {
 	
 	public GroupPage openNews() {
 		openMenuItem(newsTool);
-		OOGraphene.waitElement(By.id("o_msg_info"), 2, browser);
+		OOGraphene.waitElement(By.id("o_msg_info"), 5, browser);
 		return this;
 	}
 	
 	public FolderPage openFolder() {
 		openMenuItem(folderTool);
-		OOGraphene.waitElement(FolderPage.folderBy, 2, browser);
+		OOGraphene.waitElement(FolderPage.folderBy, 5, browser);
 		return new FolderPage(browser);
 	}
 	
 	public ForumPage openForum() {
 		openMenuItem(forumTool);
-		OOGraphene.waitElement(ForumPage.threadTableBy, 2, browser);
+		OOGraphene.waitElement(ForumPage.threadTableBy, 5, browser);
 		return ForumPage.getGroupForumPage(browser);
 	}
 	
 	public WikiPage openWiki() {
 		openMenuItem(wikiTool);
-		OOGraphene.waitElement(WikiPage.wikiWrapperBy, 2, browser);
+		OOGraphene.waitElement(WikiPage.wikiWrapperBy, 5, browser);
 		return WikiPage.getGroupWiki(browser);
 	}
 	
-	public PortfolioPage openPortfolio() {
+	public BinderPage openPortfolio() {
 		openMenuItem(portfolioTool);
-		OOGraphene.waitElement(PortfolioPage.mapBy, 2, browser);
-		return new PortfolioPage(browser);
+		OOGraphene.waitElement(BinderPage.portfolioBy, 5, browser);
+		return new BinderPage(browser);
 	}
 	
 	private GroupPage openMenuItem(Tool tool) {
@@ -203,21 +203,21 @@ public class GroupPage {
 			By showOwnersBy = By.cssSelector(".o_sel_group_show_owners input[type='checkbox']");
 			browser.findElement(showOwnersBy).click();
 			OOGraphene.waitBusy(browser);
-			OOGraphene.waitElement(memberMenuItem, 2, browser);
+			OOGraphene.waitElement(memberMenuItem, 5, browser);
 		}
 		
 		if(participants) {
 			By showParticipants = By.cssSelector(".o_sel_group_show_participants input[type='checkbox']");
 			browser.findElement(showParticipants).click();
 			OOGraphene.waitBusy(browser);
-			OOGraphene.waitElement(memberMenuItem, 2, browser);
+			OOGraphene.waitElement(memberMenuItem, 5, browser);
 		}
 		
 		if(waitingList) {
 			By showWaitingListBy = By.cssSelector(".o_sel_group_show_waiting_list input[type='checkbox']");
 			browser.findElement(showWaitingListBy).click();
 			OOGraphene.waitBusy(browser);
-			OOGraphene.waitElement(memberMenuItem, 2, browser);
+			OOGraphene.waitElement(memberMenuItem, 5, browser);
 		}
 		return this;
 	}
@@ -256,6 +256,10 @@ public class GroupPage {
 				.enableTool(forumTool)
 				.enableTool(wikiTool)
 				.enableTool(portfolioTool);
+	}
+	
+	public GroupPage enableCalendarTool() {
+		return enableTool(calendarTool);
 	}
 	
 	private GroupPage enableTool(Tool tool) {

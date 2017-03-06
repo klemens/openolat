@@ -19,6 +19,7 @@
  */
 package org.olat.portfolio.manager;
 
+import java.io.File;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Date;
@@ -46,12 +47,14 @@ import org.olat.core.util.vfs.VFSContainer;
 import org.olat.course.CourseFactory;
 import org.olat.course.ICourse;
 import org.olat.course.assessment.AssessmentManager;
-import org.olat.course.assessment.AssessmentNotificationsHandler;
+import org.olat.course.assessment.manager.AssessmentNotificationsHandler;
 import org.olat.course.nodes.CourseNode;
 import org.olat.course.run.userview.UserCourseEnvironment;
 import org.olat.course.run.userview.UserCourseEnvironmentImpl;
 import org.olat.group.BusinessGroup;
 import org.olat.group.DeletableGroupData;
+import org.olat.modules.assessment.AssessmentService;
+import org.olat.modules.assessment.model.AssessmentEntryStatus;
 import org.olat.modules.webFeed.portfolio.LiveBlogArtefactHandler;
 import org.olat.portfolio.PortfolioModule;
 import org.olat.portfolio.model.EPFilterSettings;
@@ -67,6 +70,8 @@ import org.olat.portfolio.model.structel.PortfolioStructureMap;
 import org.olat.portfolio.model.structel.PortfolioStructureRef;
 import org.olat.properties.NarrowedPropertyManager;
 import org.olat.properties.Property;
+import org.olat.repository.RepositoryEntry;
+import org.olat.repository.manager.RepositoryEntryDAO;
 import org.olat.resource.OLATResource;
 import org.olat.search.SearchResults;
 import org.olat.search.model.AbstractOlatDocument;
@@ -117,6 +122,19 @@ public class EPFrontendManager implements UserDataDeletable, DeletableGroupData 
 	private UserManager userManager;
 	@Autowired
 	private PortfolioModule portfolioModule;
+	@Autowired
+	private RepositoryEntryDAO repositoryEntryDao;
+	@Autowired
+	private AssessmentService assessmentService;
+	
+	/**
+	 * Check if a user has any kind of EP v1 resources: artefacts, a owned map or a shared map
+	 * @param identity
+	 * @return true: yes, has some EP v1 stuff; false: has no EP v1 resources
+	 */
+	public boolean hasMapOrArtefact(Identity identity) {
+		return artefactManager.hasArtefactPool(identity) || structureManager.hasMap(identity) || structureManager.hasStructureElementsFromOthersWithoutPublic(identity);
+	}
 	
 	/**
 	 * Create and persist an artefact of the given type
@@ -154,7 +172,7 @@ public class EPFrontendManager implements UserDataDeletable, DeletableGroupData 
 	}
 	
 	@Override
-	public void deleteUserData(Identity identity, String newDeletedUserName) {
+	public void deleteUserData(Identity identity, String newDeletedUserName, File archivePath) {
 		deleteUsersArtefacts(identity);
 
 		List<PortfolioStructure> userPersonalMaps = getStructureElementsForUser(identity, ElementType.DEFAULT_MAP, ElementType.STRUCTURED_MAP);
@@ -633,27 +651,27 @@ public class EPFrontendManager implements UserDataDeletable, DeletableGroupData 
 	 * @param identity
 	 * @param portfolioStructureStructuredMapTemplate
 	 */
-	//TODO: when implementing transactions, pay attention to this
-	public PortfolioStructureMap assignStructuredMapToUser(Identity identity, PortfolioStructureMap mapTemplate,
-			OLATResourceable targetOres, String targetSubPath, final String targetBusinessPath, final Date deadline) {
+	public PortfolioStructureMap assignStructuredMapToUser(final Identity identity, final PortfolioStructureMap mapTemplate,
+			final RepositoryEntry courseEntry, String targetSubPath, final String targetBusinessPath, final Date deadline) {
 		// doInSync is here to check for nested doInSync exception in first place
-		final Identity author = identity;
-		final long tempKey = mapTemplate.getKey();
-		final OLATResourceable ores = targetOres;
+		final OLATResource ores = courseEntry.getOlatResource();
 		final String subPath = targetSubPath;
 
 		PortfolioStructureMap map = coordinator.getSyncer().doInSync(mapTemplate.getOlatResource(), new SyncerCallback<PortfolioStructureMap>() {
+			@Override
 			public PortfolioStructureMap execute() {
-				// OLAT-6274: reload template in the moment before copying it!
-				PortfolioStructureMap template = (PortfolioStructureMap)structureManager.loadPortfolioStructureByKey(tempKey);
+				PortfolioStructureMap template = (PortfolioStructureMap)structureManager.loadPortfolioStructureByKey(mapTemplate.getKey());
 				String title = template.getTitle();
 				String description = template.getDescription();
-				PortfolioStructureMap copy = structureManager.createPortfolioStructuredMap(template, author, title, description, 
-						ores, subPath, targetBusinessPath);
+				PortfolioStructureMap copy = structureManager
+						.createPortfolioStructuredMap(template, identity, title, description, ores, subPath, targetBusinessPath);
 				if(copy instanceof EPStructuredMap) {
 					((EPStructuredMap)copy).setDeadLine(deadline);
 				}
 				structureManager.copyStructureRecursively(template, copy, true);
+				
+				RepositoryEntry referenceEntry = repositoryEntryDao.loadByResourceKey(template.getOlatResource().getKey());
+				assessmentService.updateAssessmentEntry(identity, courseEntry, targetSubPath, referenceEntry, AssessmentEntryStatus.inProgress);
 				return copy;
 			}
 		});
@@ -1139,7 +1157,7 @@ public class EPFrontendManager implements UserDataDeletable, DeletableGroupData 
 		ICourse course = CourseFactory.loadCourse(courseOres);
 		AssessmentManager am = course.getCourseEnvironment().getAssessmentManager();
 		CourseNode courseNode = course.getRunStructure().getNode(resource.getSubPath());
-		
+
 		List<Identity> owners = policyManager.getOwners(submittedMap);
 		for(Identity owner:owners) {
 			if (courseNode != null) { // courseNode might have been deleted meanwhile
@@ -1151,6 +1169,10 @@ public class EPFrontendManager implements UserDataDeletable, DeletableGroupData 
 				} else {
 					am.incrementNodeAttemptsInBackground(courseNode, owner, uce);
 				}
+				
+				RepositoryEntry referenceEntry = courseNode.getReferencedRepositoryEntry();
+				RepositoryEntry courseEntry = course.getCourseEnvironment().getCourseGroupManager().getCourseEntry();
+				assessmentService.updateAssessmentEntry(owner, courseEntry, courseNode.getIdent(), referenceEntry, AssessmentEntryStatus.inReview);
 			}
 			assessmentNotificationsHandler.markPublisherNews(owner, course.getResourceableId());
 			log.audit("Map " + map + " from " + owner.getName() + " has been submitted.");

@@ -47,13 +47,15 @@ import org.olat.course.assessment.AssessmentManager;
 import org.olat.course.editor.CourseEditorEnv;
 import org.olat.course.editor.NodeEditController;
 import org.olat.course.editor.StatusDescription;
+import org.olat.course.nodes.iq.CourseIQSecurityCallback;
 import org.olat.course.nodes.iq.IQEditController;
 import org.olat.course.nodes.iq.IQRunController;
-import org.olat.course.nodes.iq.IQUIFactory;
+import org.olat.course.nodes.iq.QTI21AssessmentRunController;
 import org.olat.course.run.navigation.NodeRunConstructionResult;
 import org.olat.course.run.scoring.ScoreEvaluation;
 import org.olat.course.run.userview.NodeEvaluation;
 import org.olat.course.run.userview.UserCourseEnvironment;
+import org.olat.fileresource.types.ImsQTI21Resource;
 import org.olat.ims.qti.QTIResultManager;
 import org.olat.ims.qti.QTIResultSet;
 import org.olat.ims.qti.export.QTIExportFormatter;
@@ -61,8 +63,12 @@ import org.olat.ims.qti.export.QTIExportFormatterCSVType2;
 import org.olat.ims.qti.export.QTIExportManager;
 import org.olat.ims.qti.fileresource.TestFileResource;
 import org.olat.ims.qti.process.AssessmentInstance;
+import org.olat.ims.qti21.AssessmentTestSession;
+import org.olat.ims.qti21.QTI21Service;
+import org.olat.ims.qti21.manager.AssessmentTestSessionDAO;
 import org.olat.modules.ModuleConfiguration;
 import org.olat.modules.iq.IQManager;
+import org.olat.modules.iq.IQSecurityCallback;
 import org.olat.repository.RepositoryEntry;
 import org.olat.repository.RepositoryEntryImportExport;
 import org.olat.repository.RepositoryManager;
@@ -70,6 +76,7 @@ import org.olat.repository.handlers.RepositoryHandler;
 import org.olat.repository.handlers.RepositoryHandlerFactory;
 
 import de.bps.onyx.plugin.OnyxModule;
+import de.bps.onyx.plugin.run.OnyxRunController;
 
 /**
  * Initial Date: Feb 9, 2004
@@ -97,10 +104,8 @@ public class IQSELFCourseNode extends AbstractAccessableCourseNode implements Se
 	 */
 	@Override
 	public TabbableController createEditController(UserRequest ureq, WindowControl wControl, BreadcrumbPanel stackPanel, ICourse course, UserCourseEnvironment euce) {
-		
-		TabbableController childTabCntrllr = IQUIFactory.createIQSelftestEditController(ureq, wControl, stackPanel, course, this, course.getCourseEnvironment().getCourseGroupManager(), euce);
+		TabbableController childTabCntrllr = new IQEditController(ureq, wControl, stackPanel, course, this, euce);
 		CourseNode chosenNode = course.getEditorTreeModel().getCourseNode(euce.getCourseEditorEnv().getCurrentCourseNodeId());
-		
 		return new NodeEditController(ureq, wControl, course.getEditorTreeModel(), course, chosenNode, euce, childTabCntrllr);
 	}
 
@@ -114,9 +119,23 @@ public class IQSELFCourseNode extends AbstractAccessableCourseNode implements Se
 	public NodeRunConstructionResult createNodeRunConstructionResult(UserRequest ureq, WindowControl wControl,
 			UserCourseEnvironment userCourseEnv, NodeEvaluation ne, String nodecmd) {
 		
-		Controller runController = IQUIFactory.createIQSelftestRunController(ureq, wControl, userCourseEnv, this);
-		Controller ctrl = TitledWrapperHelper.getWrapper(ureq, wControl, runController, this, "o_iqself_icon");
+		Controller runController;
+		ModuleConfiguration config = getModuleConfiguration();
+		AssessmentManager am = userCourseEnv.getCourseEnvironment().getAssessmentManager();
+		boolean onyx = IQEditController.CONFIG_VALUE_QTI2.equals(config.get(IQEditController.CONFIG_KEY_TYPE_QTI));
+		if (onyx) {
+			runController = new OnyxRunController(userCourseEnv, config, ureq, wControl, this);
+		} else {
+			RepositoryEntry testEntry = getReferencedRepositoryEntry();
+			if(ImsQTI21Resource.TYPE_NAME.equals(testEntry.getOlatResource().getResourceableTypeName())) {
+				runController = new QTI21AssessmentRunController(ureq, wControl, userCourseEnv, this);
+			} else {
+				IQSecurityCallback sec = new CourseIQSecurityCallback(this, am, ureq.getIdentity());
+				runController = new IQRunController(userCourseEnv, getModuleConfiguration(), sec, ureq, wControl, this);
+			}
+		}
 		
+		Controller ctrl = TitledWrapperHelper.getWrapper(ureq, wControl, runController, this, "o_iqself_icon");
 		return new NodeRunConstructionResult(ctrl);
 	}
 
@@ -149,9 +168,8 @@ public class IQSELFCourseNode extends AbstractAccessableCourseNode implements Se
 		if (!isValid) {
 			String shortKey = "error.self.undefined.short";
 			String longKey = "error.self.undefined.long";
-			String[] params = new String[] { this.getShortTitle() };
-			String translPackage = Util.getPackageName(IQEditController.class);
-			sd = new StatusDescription(StatusDescription.ERROR, shortKey, longKey, params, translPackage);
+			String[] params = new String[] { getShortTitle() };
+			sd = new StatusDescription(StatusDescription.ERROR, shortKey, longKey, params, PACKAGE_IQ);
 			sd.setDescriptionForUnit(getIdent());
 			// set which pane is affected by error
 			sd.setActivateableViewIdentifier(IQEditController.PANE_TAB_IQCONFIG_SELF);
@@ -167,8 +185,7 @@ public class IQSELFCourseNode extends AbstractAccessableCourseNode implements Se
 		oneClickStatusCache = null;
 		// only here we know which translator to take for translating condition
 		// error messages
-		String translatorStr = Util.getPackageName(IQEditController.class);
-		List<StatusDescription> sds = isConfigValidWithTranslator(cev, translatorStr, getConditionExpressions());
+		List<StatusDescription> sds = isConfigValidWithTranslator(cev, PACKAGE_IQ, getConditionExpressions());
 		oneClickStatusCache = StatusDescriptionHelper.sort(sds);
 		return oneClickStatusCache;
 	}
@@ -216,12 +233,15 @@ public class IQSELFCourseNode extends AbstractAccessableCourseNode implements Se
 	 */
 	@Override
 	public void cleanupOnDelete(ICourse course) {
-		// Delete all qtiresults for this node. No properties used on this node
+		// 1) Delete all qtiresults for this node. No properties used on this node
 		String repositorySoftKey = (String) getModuleConfiguration().get(IQEditController.CONFIG_KEY_REPOSITORY_SOFTKEY);
 		RepositoryEntry re = RepositoryManager.getInstance().lookupRepositoryEntryBySoftkey(repositorySoftKey, false);
 		if(re != null) {
 			QTIResultManager.getInstance().deleteAllResults(course.getResourceableId(), getIdent(), re.getKey());
 		}
+		// 2) Delete all assessment test sessions (QTI 2.1)
+		RepositoryEntry courseEntry = course.getCourseEnvironment().getCourseGroupManager().getCourseEntry();
+		CoreSpringFactory.getImpl(AssessmentTestSessionDAO.class).deleteAllUserTestSessionsByCourse(courseEntry, getIdent());
 	}
 
 	@Override
@@ -297,6 +317,7 @@ public class IQSELFCourseNode extends AbstractAccessableCourseNode implements Se
 	@Override
 	public ScoreEvaluation getUserScoreEvaluation(final UserCourseEnvironment userCourseEnv) {
 		// read score from properties save score, passed and attempts information
+		ScoreEvaluation scoreEvaluation = null;
 		RepositoryEntry referencedRepositoryEntry = getReferencedRepositoryEntry();
 		if (referencedRepositoryEntry != null && OnyxModule.isOnyxTest(getReferencedRepositoryEntry().getOlatResource())) {
 			AssessmentManager am = userCourseEnv.getCourseEnvironment().getAssessmentManager();
@@ -306,9 +327,18 @@ public class IQSELFCourseNode extends AbstractAccessableCourseNode implements Se
 			Long assessmentID = am.getAssessmentID(this, mySelf);
 			// <OLATCE-374>
 			Boolean fullyAssessed = am.getNodeFullyAssessed(this, mySelf);
-			ScoreEvaluation se = new ScoreEvaluation(score, passed, fullyAssessed, assessmentID);
+			scoreEvaluation = new ScoreEvaluation(score, passed, fullyAssessed, assessmentID);
 			// </OLATCE-374>
-			return se;
+		} else if(referencedRepositoryEntry != null && ImsQTI21Resource.TYPE_NAME.equals(referencedRepositoryEntry.getOlatResource().getResourceableTypeName())) {
+			RepositoryEntry courseEntry = userCourseEnv.getCourseEnvironment().getCourseGroupManager().getCourseEntry();
+			Identity assessedIdentity = userCourseEnv.getIdentityEnvironment().getIdentity();
+			AssessmentTestSession testSession = CoreSpringFactory.getImpl(QTI21Service.class)
+					.getLastAssessmentTestSessions(courseEntry, getIdent(), referencedRepositoryEntry, assessedIdentity);
+			if(testSession != null) {
+				boolean fullyAssessed = (testSession.getFinishTime() != null || testSession.getTerminationTime() != null);
+				Float score = testSession.getScore() == null ? null : testSession.getScore().floatValue();
+				scoreEvaluation = new ScoreEvaluation(score, testSession.getPassed(), fullyAssessed, testSession.getKey());
+			}
 		} else {
 			Identity identity = userCourseEnv.getIdentityEnvironment().getIdentity();
 			long olatResourceId = userCourseEnv.getCourseEnvironment().getCourseResourceableId().longValue();
@@ -316,16 +346,23 @@ public class IQSELFCourseNode extends AbstractAccessableCourseNode implements Se
 			if (qTIResultSet != null) {
 				Boolean passed = qTIResultSet.getIsPassed();
 				Boolean fullyAssessed = qTIResultSet.getFullyAssessed();
-				ScoreEvaluation scoreEvaluation = new ScoreEvaluation(new Float(qTIResultSet.getScore()), passed, fullyAssessed, new Long(qTIResultSet.getAssessmentID()));
-				return scoreEvaluation;
+				scoreEvaluation = new ScoreEvaluation(new Float(qTIResultSet.getScore()), passed, fullyAssessed, new Long(qTIResultSet.getAssessmentID()));
 			}
 		}
-		return null;
+		return scoreEvaluation;
 	}
 	
+	@Override
+	public Integer getUserAttempts(UserCourseEnvironment userCourseEnvironment) {
+		AssessmentManager am = userCourseEnvironment.getCourseEnvironment().getAssessmentManager();
+		Identity mySelf = userCourseEnvironment.getIdentityEnvironment().getIdentity();
+		return am.getNodeAttempts(this, mySelf);
+	}
+
 	/**
 	 * @see org.olat.course.nodes.AssessableCourseNode#incrementUserAttempts(org.olat.course.run.userview.UserCourseEnvironment)
 	 */
+	@Override
 	public void incrementUserAttempts(UserCourseEnvironment userCourseEnvironment) {
 		AssessmentManager am = userCourseEnvironment.getCourseEnvironment().getAssessmentManager();
 		Identity mySelf = userCourseEnvironment.getIdentityEnvironment().getIdentity();

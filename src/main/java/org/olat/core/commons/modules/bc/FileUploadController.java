@@ -33,6 +33,8 @@ import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Set;
 import java.util.regex.Pattern;
 
@@ -55,6 +57,7 @@ import org.olat.core.gui.components.form.flexible.impl.Form;
 import org.olat.core.gui.components.form.flexible.impl.FormBasicController;
 import org.olat.core.gui.components.form.flexible.impl.FormEvent;
 import org.olat.core.gui.components.form.flexible.impl.FormLayoutContainer;
+import org.olat.core.gui.components.form.flexible.impl.elements.FileElementEvent;
 import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.Event;
 import org.olat.core.gui.control.WindowControl;
@@ -69,6 +72,7 @@ import org.olat.core.logging.activity.ThreadLocalUserActivityLogger;
 import org.olat.core.util.FileUtils;
 import org.olat.core.util.Formatter;
 import org.olat.core.util.StringHelper;
+import org.olat.core.util.ValidationStatus;
 import org.olat.core.util.WebappHelper;
 import org.olat.core.util.vfs.LocalImpl;
 import org.olat.core.util.vfs.VFSContainer;
@@ -300,9 +304,15 @@ public class FileUploadController extends FormBasicController {
 	@Override
 	protected void formInnerEvent(UserRequest ureq, FormItem source, FormEvent event) {
 		if(fileEl == source) {
-			if(metaDataCtr != null) {
+			if(FileElementEvent.DELETE.equals(event.getCommand())) {
+				fileEl.reset();
+				fileEl.setDeleteEnabled(false);
+				fileEl.clearError();
+			} else if(metaDataCtr != null) {
 				String filename = fileEl.getUploadFileName();
-				if(!FileUtils.validateFilename(filename)) {
+				if(filename == null) {
+					metaDataCtr.getFilenameEl().setExampleKey("mf.filename.warning", null);
+				} else if(!FileUtils.validateFilename(filename)) {
 					String suffix = FileUtils.getFileSuffix(filename);
 					if(suffix != null && suffix.length() > 0) {
 						filename = filename.substring(0, filename.length() - suffix.length() - 1);
@@ -874,12 +884,16 @@ public class FileUploadController extends FormBasicController {
 			return validateFilename(metaDataCtr.getFilename(), metaDataCtr.getFilenameEl());
 		}
 		String filename = fileEl.getUploadFileName();
-		return validateFilename(filename, fileEl);
+		
+		boolean allOk = validateFilename(filename, fileEl);
+		List<ValidationStatus> fileStatus = new ArrayList<>();
+		fileEl.validate(fileStatus);//revalidate because we clear the error
+		fileEl.setDeleteEnabled(fileStatus.size() > 0);
+		return allOk && fileStatus.isEmpty();
 	}
 	
 	private boolean validateFilename(String filename, FormItem itemEl) {
 		itemEl.clearError();
-		
 		
 		boolean allOk = true;
 		if (!StringHelper.containsNonWhitespace(filename)) {

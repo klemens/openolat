@@ -22,6 +22,7 @@ package org.olat.selenium.page.repository;
 import java.io.File;
 
 import org.junit.Assert;
+import org.olat.selenium.page.course.CoursePageFragment;
 import org.olat.selenium.page.course.CourseWizardPage;
 import org.olat.selenium.page.graphene.OOGraphene;
 import org.openqa.selenium.By;
@@ -38,10 +39,6 @@ import org.openqa.selenium.WebElement;
  */
 public class AuthoringEnvPage {
 	
-	public static final By createModal = By.cssSelector("div.modal.o_sel_author_create_popup");
-	public static final By displayNameInput = By.cssSelector("div.o_sel_author_displayname input");
-	public static final By createSubmit = By.className("o_sel_author_create_submit");
-	public static final By createWizard = By.className("o_sel_author_create_wizard");
 	public static final By createMenuCaretBy = By.cssSelector("a.o_sel_author_create");
 	public static final By createMenuBy = By.cssSelector("ul.o_sel_author_create");
 	
@@ -85,16 +82,29 @@ public class AuthoringEnvPage {
 			.assertOnGeneralTab();
 	}
 	
+	public RepositoryEditDescriptionPage createPortfolioBinder(String title) {
+		return openCreateDropDown()
+			.clickCreate(ResourceType.portfolio)
+			.fillCreateForm(title)
+			.assertOnGeneralTab();
+	}
+	
+	public RepositoryEditDescriptionPage createQTI21Test(String title) {
+		return openCreateDropDown()
+			.clickCreate(ResourceType.qti21Test)
+			.fillCreateForm(title)
+			.assertOnGeneralTab();
+	}
+	
 	/**
 	 * Open the drop-down to create a new resource.
 	 * @return
 	 */
 	public AuthoringEnvPage openCreateDropDown() {
 		WebElement createMenuCaret = browser.findElement(createMenuCaretBy);
-		
 		Assert.assertTrue(createMenuCaret.isDisplayed());
 		createMenuCaret.click();
-		OOGraphene.waitElement(createMenuBy, browser);
+		OOGraphene.waitElement(createMenuBy, 5, browser);
 		return this;
 	}
 
@@ -119,11 +129,11 @@ public class AuthoringEnvPage {
 	 * @return
 	 */
 	public RepositoryEditDescriptionPage fillCreateForm(String displayName) {
-		WebElement modal = browser.findElement(createModal);
-		WebElement input = modal.findElement(displayNameInput);
-		input.sendKeys(displayName);
-		WebElement submit = modal.findElement(createSubmit);
-		submit.click();
+		OOGraphene.waitModalDialog(browser);
+		By inputBy = By.cssSelector("div.modal.o_sel_author_create_popup div.o_sel_author_displayname input");
+		browser.findElement(inputBy).sendKeys(displayName);
+		By submitBy = By.cssSelector("div.modal.o_sel_author_create_popup .o_sel_author_create_submit");
+		browser.findElement(submitBy).click();
 		OOGraphene.waitBusy(browser);
 		OOGraphene.waitElement(RepositoryEditDescriptionPage.generaltabBy, browser);
 		return new RepositoryEditDescriptionPage(browser)
@@ -136,12 +146,12 @@ public class AuthoringEnvPage {
 	 * @return
 	 */
 	public CourseWizardPage fillCreateFormAndStartWizard(String displayName) {
-		WebElement modal = browser.findElement(createModal);
-		WebElement input = modal.findElement(displayNameInput);
-		input.sendKeys(displayName);
-		modal.findElement(createWizard).click();
+		OOGraphene.waitModalDialog(browser);
+		By inputBy = By.cssSelector("div.modal.o_sel_author_create_popup div.o_sel_author_displayname input");
+		browser.findElement(inputBy).sendKeys(displayName);
+		By createBy = By.cssSelector("div.modal.o_sel_author_create_popup .o_sel_author_create_wizard");
+		browser.findElement(createBy).click();
 		OOGraphene.waitBusy(browser);
-		
 		return CourseWizardPage.getWizard(browser);
 	}
 	
@@ -194,10 +204,25 @@ public class AuthoringEnvPage {
 		OOGraphene.waitBusy(browser);
 	}
 	
+	/**
+	 * Click back from the editor
+	 * 
+	 * @return
+	 */
+	public CoursePageFragment clickToolbarRootCrumb() {
+		OOGraphene.closeBlueMessageWindow(browser);
+		By toolbarBackBy = By.xpath("//li[contains(@class,'o_breadcrumb_back')]/following-sibling::li/a");
+		browser.findElement(toolbarBackBy).click();
+		OOGraphene.waitBusy(browser);
+		return new CoursePageFragment(browser);
+	}
+	
 	public enum ResourceType {
 		course("CourseModule"),
 		cp("FileResource.IMSCP"),
-		wiki("FileResource.WIKI");
+		wiki("FileResource.WIKI"),
+		portfolio("BinderTemplate"),
+		qti21Test("FileResource.IMSQTI21");
 		
 		private final String type;
 		

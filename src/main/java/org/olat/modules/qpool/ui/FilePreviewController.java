@@ -45,7 +45,7 @@ public class FilePreviewController extends BasicController {
 		QPoolService qpoolService = CoreSpringFactory.getImpl(QPoolService.class);
 		mainVC = createVelocityContainer("file_preview");
 		
-		VFSLeaf leaf = qpoolService.getRootFile(qitem);
+		VFSLeaf leaf = qpoolService.getRootLeaf(qitem);
 		if(leaf != null) {
 			mainVC.contextPut("filename", leaf.getName());
 		}

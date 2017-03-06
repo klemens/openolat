@@ -183,6 +183,14 @@ public class PersistingCourseImpl implements ICourse, OLATResourceable, Serializ
 		courseFolderContainer.init(this);
 		return courseFolderContainer;
 	}
+	
+	@Override
+	public VFSContainer getCourseFolderContainer(boolean overrideReadOnly) {
+		// add local course folder's children as read/write source and any sharedfolder as subfolder
+		MergedCourseContainer courseFolderContainer = new MergedCourseContainer(resourceableId, getCourseTitle(), null, overrideReadOnly);
+		courseFolderContainer.init(this);
+		return courseFolderContainer;
+	}
 
 	@Override
 	public VFSContainer getCourseFolderContainer(IdentityEnvironment identityEnv) {
@@ -318,8 +326,9 @@ public class PersistingCourseImpl implements ICourse, OLATResourceable, Serializ
 			FileUtils.copyFileToDir(new File(fCourseBase, RUNSTRUCTURE_XML), exportDirectory, "course export runstructure");
 		}
 		
-		// fxdiff: export layout-folder
-		FileUtils.copyDirToDir(new OlatRootFolderImpl(courseRootContainer.getRelPath() + File.separator + "layout", null).getBasefile(), exportDirectory, "course export layout folder");
+		// export layout and media folder
+		FileUtils.copyDirToDir(new File(fCourseBase, "layout"), exportDirectory, "course export layout folder");
+		FileUtils.copyDirToDir(new File(fCourseBase, "media"), exportDirectory, "course export media folder");
 		// export course folder
 		FileUtils.copyDirToDir(getIsolatedCourseBaseFolder(), exportDirectory, "course export folder");
 		// export any node data

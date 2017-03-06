@@ -42,6 +42,13 @@ import java.util.Map;
  * @author Florian Gnägi
  */
 public interface User extends CreateInfo, Persistable {
+	
+	
+	public String getFirstName();
+	
+	public String getLastName();
+	
+	public String getEmail();
 
 	/**
 	 * Get the users prefereces object

@@ -31,9 +31,12 @@ import java.util.List;
 import org.olat.core.id.Identity;
 import org.olat.core.id.OLATResourceable;
 import org.olat.core.util.event.GenericEventListener;
+import org.olat.course.nodes.AssessableCourseNode;
 import org.olat.course.nodes.CourseNode;
 import org.olat.course.run.scoring.ScoreEvaluation;
 import org.olat.course.run.userview.UserCourseEnvironment;
+import org.olat.group.BusinessGroup;
+import org.olat.modules.assessment.AssessmentEntry;
 
 /**
  * Description:<BR>
@@ -51,24 +54,6 @@ import org.olat.course.run.userview.UserCourseEnvironment;
  */
 public interface AssessmentManager {
 
-	// Names used to save user data in the properties table
-	public static final String SCORE = "SCORE";
-	public static final String PASSED = "PASSED";
-	public static final String ATTEMPTS = "ATTEMPTS";
-	public static final String COMMENT = "COMMENT";
-	public static final String COACH_COMMENT = "COACH_COMMENT";
-	public static final String ASSESSMENT_ID = "ASSESSMENT_ID";
-
-	public final static String FULLY_ASSESSED = "FULLY_ASSESSED";
-	
-	/**
-	 * Load all persisted assessment data into a local cache if such a cache is available
-	 * @param identity Restrict preloading to a certain identity or null to preload assessment data from all users
-	 */
-	public void preloadCache(Identity identity);
-	public void preloadCache(List<Identity> identities);
-
-	
 	/**
 	 * Save the users attempts for this node. If there is already an attempts property available, it will be
 	 * overwritten with the new value
@@ -178,17 +163,21 @@ public interface AssessmentManager {
 	 * @return
 	 */
 	public Date getScoreLastModifiedDate(CourseNode courseNode, Identity identity);
-	
+
 	/**
 	 * Save the users achieved ScoreEvaluation for this node. If there is already a score property available, it will be
-	 * overwritten with the new value <p>
-	 *
-	 * @param courseNode
-	 * @param identity
-	 * @param assessedIdentity
-	 * @param scoreEvaluation
+	 * overwritten with the new value.
+	 * 
+	 * @param courseNode The course element
+	 * @param identity The identity who make the changes
+	 * @param assessedIdentity The assessed identity
+	 * @param scoreEvaluation The updated score evaluation
+	 * @param userCourseEnvironment The user course env. of the assessed identity
+	 * @param incrementUserAttempts
 	 */
-	public void saveScoreEvaluation(CourseNode courseNode, Identity identity, Identity assessedIdentity, ScoreEvaluation scoreEvaluation, UserCourseEnvironment userCourseEnvironment, boolean incrementUserAttempts);
+	
+	public void saveScoreEvaluation(AssessableCourseNode courseNode, Identity identity, Identity assessedIdentity,
+			ScoreEvaluation scoreEvaluation, UserCourseEnvironment userCourseEnvironment, boolean incrementUserAttempts);
 	
 	/**
 	 * Provides an OLATResourceable for locking (of score/passed etc.) purposes (if doInSync is called on score/passed data)
@@ -207,5 +196,18 @@ public interface AssessmentManager {
 	 *         set to not fully assessed, null if no info is available
 	 */
 	public Boolean getNodeFullyAssessed(CourseNode courseNode, Identity identity);
+	
 
+	public AssessmentEntry getAssessmentEntry(CourseNode courseNode, Identity assessedIdentity);
+	
+	public AssessmentEntry createAssessmentEntry(CourseNode courseNode, Identity assessedIdentity, ScoreEvaluation scoreEvaluation);
+	
+	public AssessmentEntry updateAssessmentEntry(AssessmentEntry assessmentEntry);
+
+	public List<AssessmentEntry> getAssessmentEntries(CourseNode courseNode);
+	
+	public List<AssessmentEntry> getAssessmentEntries(BusinessGroup group, CourseNode courseNode);
+	
+	public List<AssessmentEntry> getAssessmentEntries(Identity assessedIdentity);
+	
 }

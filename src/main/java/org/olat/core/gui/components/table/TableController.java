@@ -243,8 +243,9 @@ public class TableController extends BasicController {
 		table.setPageingEnabled(tableConfig.isPageingEnabled());
 		table.setResultsPerPage(tableConfig.getResultsPerPage());
 		table.setMultiSelect(tableConfig.isMultiSelect());
-		table.enableShowAllLink(tableConfig.isShowAllLinkEnabled());
+		table.setEnableShowAllLink(tableConfig.isShowAllLinkEnabled());
 		table.setDisplayTableGrid(tableConfig.isDisplayTableGrid());
+		table.setSuppressDirtyFormWarning(tableConfig.isSuppressDirtyFormWarning());
 
 
 		// table is embedded in a velocity page that renders the surrounding layout
@@ -684,6 +685,14 @@ public class TableController extends BasicController {
 	 */
 	public void setMultiSelect(final boolean isMultiSelect) {
 		table.setMultiSelect(isMultiSelect);
+	}
+	
+	/**
+	 * Make the multi select as disabled box and remove the select all / deselect all
+	 * @param disable
+	 */
+	public void setMultiSelectAsDisabled(boolean disabled) {
+		table.setMultiSelectAsDisabled(disabled);
 	}
 	
 	public void setMultiSelectSelectedAt(final int row, final boolean selected) {

@@ -19,7 +19,6 @@
  */
 package org.olat.core.commons.services.commentAndRating.ui;
 
-import org.olat.core.CoreSpringFactory;
 import org.olat.core.commons.services.commentAndRating.CommentAndRatingSecurityCallback;
 import org.olat.core.commons.services.commentAndRating.CommentAndRatingService;
 import org.olat.core.commons.services.commentAndRating.model.UserRating;
@@ -34,10 +33,10 @@ import org.olat.core.gui.control.Event;
 import org.olat.core.gui.control.WindowControl;
 import org.olat.core.gui.control.controller.BasicController;
 import org.olat.core.id.OLATResourceable;
-import org.olat.core.logging.AssertException;
 import org.olat.core.util.CodeHelper;
 import org.olat.core.util.coordinate.CoordinatorManager;
 import org.olat.core.util.event.GenericEventListener;
+import org.springframework.beans.factory.annotation.Autowired;
 
 /**
  * Description:<br>
@@ -80,7 +79,9 @@ public class UserCommentsAndRatingsController extends BasicController implements
 	private final String oresSubPath;
 	private final OLATResourceable ores;
 	private final CommentAndRatingSecurityCallback securityCallback;
-	private final CommentAndRatingService commentAndRatingService;
+	
+	@Autowired
+	private CommentAndRatingService commentAndRatingService;
 
 	/**
 	 * Constructor for a user combined user comments and ratings controller. Use
@@ -101,8 +102,7 @@ public class UserCommentsAndRatingsController extends BasicController implements
 		this.ores = ores;
 		this.oresSubPath = oresSubPath;
 		this.securityCallback = securityCallback;
-		commentAndRatingService = CoreSpringFactory.getImpl(CommentAndRatingService.class);
-		this.userCommentsAndRatingsVC = createVelocityContainer("userCommentsAndRatings");
+		userCommentsAndRatingsVC = createVelocityContainer("userCommentsAndRatings");
 		this.canExpandToFullView = canExpandToFullView;
 		putInitialPanel(userCommentsAndRatingsVC);
 		// Add comments views
@@ -138,8 +138,8 @@ public class UserCommentsAndRatingsController extends BasicController implements
 			}
 			// Init view with values from DB
 			updateRatingView();
-
 		}
+		
 		// Register to event channel for comments count change events
 		USER_COMMENTS_AND_RATING_CHANNEL = ores;
 		CoordinatorManager.getInstance().getCoordinator().getEventBus().registerFor(this, getIdentity(), USER_COMMENTS_AND_RATING_CHANNEL);
@@ -152,15 +152,21 @@ public class UserCommentsAndRatingsController extends BasicController implements
 	 * @param ureq
 	 */
 	public void expandComments(UserRequest ureq) {
-		if (!canExpandToFullView) { throw new AssertException("Can not expand messages when controller initialized as not expandable"); }
-		commentsCtr = new UserCommentsController(ureq, getWindowControl(), ores, oresSubPath, securityCallback);
-		listenTo(commentsCtr);
-		userCommentsAndRatingsVC.put("commentsCtr", commentsCtr.getInitialComponent());
-		isExpanded = true;
-		// Update our counter view in case changed since last loading
-		if (getCommentsCount() != commentsCtr.getCommentsCount()) {
-			updateCommentCountView();			
+		if (canExpandToFullView) { 
+			commentsCtr = new UserCommentsController(ureq, getWindowControl(), ores, oresSubPath, securityCallback);
+			listenTo(commentsCtr);
+			userCommentsAndRatingsVC.put("commentsCtr", commentsCtr.getInitialComponent());
+			isExpanded = true;
+			// Update our counter view in case changed since last loading
+			if (getCommentsCount() != commentsCtr.getCommentsCount()) {
+				updateCommentCountView();			
+			}
 		}
+	}
+	
+	public void expandCommentsAt(UserRequest ureq, Long commentId) {
+		expandComments(ureq);
+		commentsCtr.scrollTo(commentId);
 	}
 
 	/**
@@ -168,12 +174,13 @@ public class UserCommentsAndRatingsController extends BasicController implements
 	 * 
 	 * @param ureq
 	 */
-	void collapseComments() {
-		if (!canExpandToFullView) { throw new AssertException("Can not collapse messages when controller initialized as not expandable"); }
-		userCommentsAndRatingsVC.remove(commentsCtr.getInitialComponent());
-		removeAsListenerAndDispose(commentsCtr);
-		commentsCtr = null;
-		isExpanded = false;
+	public void collapseComments() {
+		if (canExpandToFullView) {
+			userCommentsAndRatingsVC.remove(commentsCtr.getInitialComponent());
+			removeAsListenerAndDispose(commentsCtr);
+			commentsCtr = null;
+			isExpanded = false;
+		}
 	}
 
 	/**
@@ -291,7 +298,7 @@ public class UserCommentsAndRatingsController extends BasicController implements
 	 * 
 	 * @param userObject
 	 */
-	public void addUserObject(Object userObject) {
+	public void setUserObject(Object userObject) {
 		this.userObject = userObject;
 	}
 	
