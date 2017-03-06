@@ -58,6 +58,7 @@ import org.olat.course.nodes.AssessableCourseNode;
 import org.olat.course.nodes.CourseNode;
 import org.olat.course.nodes.StatusDescriptionHelper;
 import org.olat.course.run.navigation.NodeRunConstructionResult;
+import org.olat.course.run.scoring.AssessmentEvaluation;
 import org.olat.course.run.scoring.ScoreCalculator;
 import org.olat.course.run.scoring.ScoreEvaluation;
 import org.olat.course.run.userview.NodeEvaluation;
@@ -189,7 +190,7 @@ public class BBautOLATStructureNode extends AbstractAccessableCourseNode impleme
 	 * 
 	 * @see org.olat.course.nodes.AssessableCourseNode#getUserScoreEvaluation(org.olat.course.run.userview.UserCourseEnvironment)
 	 */
-	public ScoreEvaluation getUserScoreEvaluation(UserCourseEnvironment userCourseEnv) {
+	public AssessmentEvaluation getUserScoreEvaluation(UserCourseEnvironment userCourseEnv) {
 		Float score = null;
 		Boolean passed = null;
 
@@ -201,15 +202,13 @@ public class BBautOLATStructureNode extends AbstractAccessableCourseNode impleme
 		String passedExpressionStr = scoreCalculator.getPassedExpression();
 
 		ConditionInterpreter ci = userCourseEnv.getConditionInterpreter();
-		userCourseEnv.getScoreAccounting().setEvaluatingCourseNode(this);
 		if (scoreExpressionStr != null) {
 			score = new Float(ci.evaluateCalculation(scoreExpressionStr));
 		}
 		if (passedExpressionStr != null) {
 			passed = new Boolean(ci.evaluateCondition(passedExpressionStr));
 		}
-		ScoreEvaluation se = new ScoreEvaluation(score, passed);
-		return se;
+		return new AssessmentEvaluation(score, passed);
 	}
 
 	/**
@@ -256,7 +255,7 @@ public class BBautOLATStructureNode extends AbstractAccessableCourseNode impleme
 	 */
 	public ScoreCalculator getScoreCalculator() {
 		if (scoreCalculator == null) {
-			scoreCalculator = new ScoreCalculator(null, null);
+			scoreCalculator = new ScoreCalculator();
 		}
 		passedExpression = new Condition();
 		passedExpression.setConditionId("passed");
@@ -524,7 +523,7 @@ public class BBautOLATStructureNode extends AbstractAccessableCourseNode impleme
 	@Override
 	public Controller getDetailsEditController(UserRequest ureq,
 			WindowControl wControl, BreadcrumbPanel stackPanel,
-			UserCourseEnvironment userCourseEnvironment) {
+			UserCourseEnvironment coachCourseEnv, UserCourseEnvironment assessedUserCourseEnvironment) {
 		// TODO Auto-generated method stub
 		throw new OLATRuntimeException(BBautOLATStructureNode.class, "Details controler not available in ST nodes", null);
 
@@ -542,6 +541,11 @@ public class BBautOLATStructureNode extends AbstractAccessableCourseNode impleme
 				course.getCourseEnvironment().getCourseGroupManager(), course.getEditorTreeModel(), euce);
 		CourseNode chosenNode = course.getEditorTreeModel().getCourseNode(euce.getCourseEditorEnv().getCurrentCourseNodeId());
 		return new NodeEditController(ureq, wControl, course.getEditorTreeModel(), course, chosenNode, euce, childTabCntrllr);
+	}
+
+	@Override
+	public boolean isAssessedBusinessGroups() {
+		return false;
 	}
 
 }

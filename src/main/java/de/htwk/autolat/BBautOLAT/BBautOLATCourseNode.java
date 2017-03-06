@@ -27,6 +27,7 @@ import org.olat.course.nodes.CourseNode;
 import org.olat.course.nodes.StatusDescriptionHelper;
 import org.olat.course.nodes.CourseNode.Processing;
 import org.olat.course.run.navigation.NodeRunConstructionResult;
+import org.olat.course.run.scoring.AssessmentEvaluation;
 import org.olat.course.run.scoring.ScoreEvaluation;
 import org.olat.course.run.userview.NodeEvaluation;
 import org.olat.course.run.userview.UserCourseEnvironment;
@@ -234,9 +235,8 @@ public class BBautOLATCourseNode extends AbstractAccessableCourseNode implements
 		return null;
 	}
 
-	public ScoreEvaluation getUserScoreEvaluation(UserCourseEnvironment userCourseEnv) {
-		
-		ScoreEvaluation scoreEvaluation = new ScoreEvaluation(0f, false);
+	public AssessmentEvaluation getUserScoreEvaluation(UserCourseEnvironment userCourseEnv) {
+		AssessmentEvaluation scoreEvaluation = new AssessmentEvaluation(0f, false);
 		
 		try {
 			Long courseID = userCourseEnv.getCourseEnvironment().getCourseResourceableId();
@@ -245,7 +245,7 @@ public class BBautOLATCourseNode extends AbstractAccessableCourseNode implements
 			TaskInstance taskInstance = student.getTaskInstanceByConfiguration(ConfigurationManagerImpl.getInstance().getConfigurationByCourseID(courseID, courseNodeID));	
 			TaskResult taskResult = taskInstance.getResult();
 			if(taskResult!=null) {
-				scoreEvaluation = new ScoreEvaluation(Float.valueOf(String.valueOf(taskResult.getMaxScore())), true);
+				scoreEvaluation = new AssessmentEvaluation(Float.valueOf(String.valueOf(taskResult.getMaxScore())), true);
 			}
 		}
 		catch (Exception e) {};
@@ -425,8 +425,13 @@ public class BBautOLATCourseNode extends AbstractAccessableCourseNode implements
 	@Override
 	public Controller getDetailsEditController(UserRequest ureq,
 			WindowControl wControl, BreadcrumbPanel stackPanel,
-			UserCourseEnvironment userCourseEnvironment) {
+			UserCourseEnvironment coachCourseEnv, UserCourseEnvironment assessedUserCourseEnvironment) {
 		// TODO Auto-generated method stub
 		return null;
+	}
+
+	@Override
+	public boolean isAssessedBusinessGroups() {
+		return false;
 	}
 }
