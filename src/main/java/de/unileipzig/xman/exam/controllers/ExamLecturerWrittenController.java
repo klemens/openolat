@@ -556,7 +556,7 @@ public class ExamLecturerWrittenController extends BasicController implements Ex
 			userSearchControllerAppointmentHolder = AppointmentManager.getInstance().findAllAppointmentsByExamId(exam.getKey()).get(0);
 			
 			removeAsListenerAndDispose(userSearchController);
-			userSearchController = new UserSearchController(ureq, getWindowControl(), false, false);
+			userSearchController = new UserSearchController(ureq, getWindowControl(), false, false, false);
 			listenTo(userSearchController);
 			
 			cmc = new CloseableModalController(this.getWindowControl(), translate("close"), userSearchController.getInitialComponent());

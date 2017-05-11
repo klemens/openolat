@@ -190,7 +190,7 @@ public class ExamLecturerOralController extends BasicController implements ExamC
 					}
 					
 					removeAsListenerAndDispose(userSearchController);
-					userSearchController = new UserSearchController(ureq, getWindowControl(), false, false);
+					userSearchController = new UserSearchController(ureq, getWindowControl(), false, false, false);
 					listenTo(userSearchController);
 					
 					cmc = new CloseableModalController(this.getWindowControl(), translate("close"), userSearchController.getInitialComponent());

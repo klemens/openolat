@@ -8,9 +8,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Vector;
 
-import org.olat.commons.calendar.CalendarManagerFactory;
 import org.olat.commons.calendar.model.Kalendar;
 import org.olat.commons.calendar.model.KalendarEvent;
+import org.olat.core.CoreSpringFactory;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.id.Identity;
 import org.olat.core.id.OLATResourceable;
@@ -55,6 +55,7 @@ public class CalendarManager {
 	 * @param res the OLATResourceable
 	 */
 	public void createKalendarEventForExam(Exam exam, Identity identity, OLATResourceable res) {
+		org.olat.commons.calendar.CalendarManager calManager = CoreSpringFactory.getImpl(org.olat.commons.calendar.CalendarManager.class);
 		
 		Protocol proto = ProtocolManager.getInstance().findProtocolByIdentityAndExam(identity, exam);
 		
@@ -66,9 +67,9 @@ public class CalendarManager {
 			kEvent.setLocation(proto.getAppointment().getPlace());
 			kEvent.setEnd(new Date(proto.getAppointment().getDate().getTime() + (proto.getAppointment().getDuration() * 60 * 1000)));
 			
-			Kalendar kal = CalendarManagerFactory.getInstance().getCalendarManager().getPersonalCalendar(identity).getKalendar();
+			Kalendar kal = calManager.getPersonalCalendar(identity).getKalendar();
 			
-			CalendarManagerFactory.getInstance().getCalendarManager().addEventTo(kal, kEvent);
+			calManager.addEventTo(kal, kEvent);
 				
 			// TODO TESTCASE: CalendarManagerFactory.getInstance().getCalendarManager().persistCalendar(kal);
 		}
@@ -80,8 +81,9 @@ public class CalendarManager {
 	 * @param Identity - the identity of the user
 	 */
 	public void deleteKalendarEventForExam(Exam exam, Identity identity){
+		org.olat.commons.calendar.CalendarManager calManager = CoreSpringFactory.getImpl(org.olat.commons.calendar.CalendarManager.class);
 		
-		Kalendar kal = CalendarManagerFactory.getInstance().getCalendarManager().getPersonalCalendar(identity).getKalendar();
+		Kalendar kal = calManager.getPersonalCalendar(identity).getKalendar();
 		if ( kal != null) {
 
 			Object[] tmpArray = kal.getEvents().toArray();
@@ -91,7 +93,7 @@ public class CalendarManager {
 					if ( ((KalendarEvent)tmpArray[i]).getID().equals(exam.getKey().toString()) ) {
 						
 						// TODO Testcase
-						CalendarManagerFactory.getInstance().getCalendarManager().removeEventFrom(kal, (KalendarEvent)tmpArray[i]);
+						calManager.removeEventFrom(kal, (KalendarEvent)tmpArray[i]);
 					}
 				}
 			}

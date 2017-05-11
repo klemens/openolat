@@ -341,7 +341,7 @@ public class AuthorListController extends FormBasicController implements Activat
 	 * Filter by type (xman)
 	 */
 	public void filter(String type) {
-		tableEl.setFilters(type, getFilters());
+		tableEl.setFilters(type, getFilters(), false);
 	}
 	
 	private List<FlexiTableFilter> getFilters() {

@@ -1,5 +1,6 @@
 package de.unileipzig.xman.esf;
 
+import java.io.File;
 import java.util.List;
 
 import org.olat.admin.user.delete.service.UserDeletionManager;
@@ -170,7 +171,7 @@ public class ElectronicStudentFileManager implements UserDataDeletable {
      * This method is called when a user is deleted and then deletes its esf
      */
 	@Override
-	public void deleteUserData(Identity identity, String newDeletedUserName) {
+	public void deleteUserData(Identity identity, String newDeletedUserName, File archivePath) {
 		ElectronicStudentFile esf = retrieveESFByIdentity(identity);
 		if(esf != null) {
 			removeElectronicStudentFile(esf);
