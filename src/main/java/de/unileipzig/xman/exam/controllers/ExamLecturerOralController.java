@@ -162,10 +162,9 @@ public class ExamLecturerOralController extends BasicController implements ExamC
 					DTab dt = dts.getDTab(ores);
 					if (dt == null) {
 						// does not yet exist
-						dt = dts.createDTab(ores, null, p.getIdentity().getName());
+						UserInfoMainController uimc = new UserInfoMainController(ureq, getWindowControl(), p.getIdentity(), false, false);
+						dt = dts.createDTab(ores, null, uimc, p.getIdentity().getName());
 						if (dt == null) return;
-						UserInfoMainController uimc = new UserInfoMainController(ureq, dt.getWindowControl(), p.getIdentity(), false, false);
-						dt.setController(uimc);
 						dts.addDTab(ureq, dt);
 					}
 					dts.activate(ureq, dt, null);

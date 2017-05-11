@@ -281,12 +281,9 @@ public class ESFEditController extends MainLayoutBasicController {
 					DTab dt = dts.getDTab(ores);
 					if (dt == null) {
 						// does not yet exist -> create and add
-						dt = dts.createDTab(ores, null, exam.getName());
-						if(dt == null) return;
-						
 						ExamMainController examMain = new ExamMainController(ureq, getWindowControl(), exam, ExamMainController.View.LECTURER);
-						dt.setController(examMain);
-						
+						dt = dts.createDTab(ores, null, examMain, exam.getName());
+						if(dt == null) return;
 						dts.addDTab(ureq, dt);
 					}
 					dts.activate(ureq, dt, null);

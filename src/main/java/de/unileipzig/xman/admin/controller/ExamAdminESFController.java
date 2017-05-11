@@ -164,12 +164,9 @@ public class ExamAdminESFController extends BasicController {
 					DTab dt = dts.getDTab(ores);
 					if (dt == null) {
 						// does not yet exist -> create and add
-						dt = dts.createDTab(ores, null, esf.getIdentity().getName());
-						if (dt == null)
-							return;
-						ESFEditController esfLaunchCtr = new ESFEditController(
-								ureq, dt.getWindowControl(), esf);
-						dt.setController(esfLaunchCtr);
+						ESFEditController esfLaunchCtr = new ESFEditController(ureq, getWindowControl(), esf);
+						dt = dts.createDTab(ores, null, esfLaunchCtr, esf.getIdentity().getName());
+						if (dt == null) return;
 						dts.addDTab(ureq, dt);
 					}
 					dts.activate(ureq, dt, null);
